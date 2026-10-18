@@ -1,9 +1,10 @@
 <script lang="ts">
 	// Account page → Offline-Inhalte → "App" (agents/research/PWA.md §2a, ACCOUNT-PAGE.md §0): what this browser can do
-	// (lib/install-rules.ts `installWay`), always said – owner 2026-10-17: "no prompt, nothing" on Firefox / Android:
+	// (@scutoons/pwa install-rules.ts `installWay`), always said – owner 2026-10-17: "no prompt, nothing" on Firefox / Android:
 	// - available (Chromium): "Install app" → the browser's dialog (also while the install bar is snoozed);
 	// - ios (iPhone / iPad Safari): Share, then "Add to Home Screen";
 	// - android-firefox: ⋮ menu, then "Add to Home screen" (Firefox sends no install event);
+	// - chromium-menu: Chrome / Brave / Edge without an install event now (installed already, not offered yet): ⋮ → "Install app";
 	// - installed: "You're using the app";
 	// - unsupported: no install here (Chrome on Android, Safari on iPhone; already installed → open it from the home screen).
 	// Nothing only in the creator's Reader frame.
@@ -43,6 +44,8 @@
 				</span>
 				<small>{m['pwa.install_hint']()}</small>
 			</p>
+		{:else if install.way === 'chromium-menu'}
+			<p class="how" data-testid="install-chromium-howto"><span>{m['pwa.chromium_menu']()}</span></p>
 		{:else if install.way === 'installed'}
 			<p class="how" data-testid="install-installed"><span>{m['pwa.installed_now']()}</span></p>
 		{:else}

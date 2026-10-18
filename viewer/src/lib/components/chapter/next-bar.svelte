@@ -98,7 +98,7 @@
 	const shown = $derived(reachedEnd && sceneDone);
 	// a finished chapter (not just a group): the install bar may come on the next page (research/PWA.md "Install prompt")
 	$effect(() => {
-		if (shown && step.kind !== 'group') install.chapterFinished(`${toonId}/${chapter}`);
+		if (shown && step.kind !== 'group') install.milestone(`${toonId}/${chapter}`);
 	});
 
 	// the end of the group in the chapter view (the bar's host sits in it, after the group)

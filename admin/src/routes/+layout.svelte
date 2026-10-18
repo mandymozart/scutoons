@@ -19,6 +19,8 @@
 		type Command,
 		installTooltips,
 	} from '@scutoons/ui';
+	import { InstallBar, UpdateBar, pwaLabels } from '@scutoons/pwa';
+	import { APP_NAME, initPwa, install, pwa } from '$lib/pwa.svelte.ts';
 	import { AuthGate, takeMagicToken } from '@scutoons/auth';
 	import { setAdminSession } from '$lib/session.svelte.ts';
 	import { setToaster } from '$lib/toasts.ts';
@@ -53,6 +55,9 @@
 
 	// every `title` in the tool shows in the one SCUTOONS tooltip (tools.css .sc-tooltip)
 	onMount(() => installTooltips());
+	// installable web app (agents/research/PWA-APPS.md): the service worker + the install moment, checked on every page
+	onMount(initPwa);
+	afterNavigate(({ from }) => from && install.check());
 
 	afterNavigate(() => (menuOpen = false));
 
@@ -188,6 +193,8 @@
 		/>
 	</AuthGate>
 	<ToastStack {toaster} dismissLabel={m['shell.dismiss']()} />
+	<UpdateBar {pwa} app={APP_NAME} labels={pwaLabels(getLocale())} />
+	<InstallBar {install} app={APP_NAME} labels={pwaLabels(getLocale())} hidden={pwa.updateReady} />
 	<DialogHost cancelLabel={m['common.cancel']()} />
 </div>
 

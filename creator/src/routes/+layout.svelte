@@ -2,7 +2,7 @@
 	import '@scutoons/tokens';
 	import type { Snippet } from 'svelte';
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
+	import { afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { MediaQuery } from 'svelte/reactivity';
 	import {
@@ -21,6 +21,8 @@
 		ToastStack
 	} from '@scutoons/ui';
 	import { toaster } from '$lib/toasts.ts';
+	import { InstallBar, UpdateBar, pwaLabels } from '@scutoons/pwa';
+	import { APP_NAME, initPwa, install, pwa } from '$lib/pwa.svelte.ts';
 	import { AuthGate, canUseApp, takeMagicToken } from '@scutoons/auth';
 	import { entities, parseEntityKey, toonLanguages } from '@scutoons/content';
 	import { setCreatorSession } from '$lib/session.svelte.ts';
@@ -56,6 +58,9 @@
 
 	// every `title` in the tool shows in the one SCUTOONS tooltip (tools.css .sc-tooltip)
 	onMount(() => installTooltips());
+	// installable web app (agents/research/PWA-APPS.md): the service worker + the install moment, checked on every page
+	onMount(initPwa);
+	afterNavigate(({ from }) => from && install.check());
 
 	// ── Navigation (agents/DESIGN.md "Creator navigation"): one top bar, sidebar = children of the current level ──
 	const nav = setCreatorNav();
@@ -383,6 +388,8 @@
 	</AuthGate>
 	<!-- transient info + errors (UI-CONCEPTS E.1): bottom-right above the ActionBar, never in the page flow -->
 	<ToastStack {toaster} dismissLabel={m['creator.close']()} />
+	<UpdateBar {pwa} app={APP_NAME} labels={pwaLabels(getLocale())} />
+	<InstallBar {install} app={APP_NAME} labels={pwaLabels(getLocale())} hidden={pwa.updateReady} />
 </div>
 
 <style>

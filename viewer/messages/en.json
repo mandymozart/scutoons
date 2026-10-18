@@ -740,7 +740,8 @@
 		"firefox_add_after": "then “Add to Home screen” (or “Install”).",
 		"installed_now": "You’re using SCUTOONS as an app right now.",
 		"cannot_install": "This browser can’t install SCUTOONS as an app.",
-		"cannot_install_hint": "On Android it works with Chrome or Firefox, on iPhone and iPad with Safari. Installed already? Then open SCUTOONS from your home screen."
+		"cannot_install_hint": "On Android it works with Chrome or Firefox, on iPhone and iPad with Safari. Installed already? Then open SCUTOONS from your home screen.",
+		"chromium_menu": "In the browser menu ⋮ tap “Install app”. Installed already? Then open SCUTOONS from your home screen."
 	},
 	"saved": {
 		"cellular": "You're on mobile data.",

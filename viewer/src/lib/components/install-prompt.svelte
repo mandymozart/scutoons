@@ -1,6 +1,6 @@
 <script lang="ts">
 	// "Install SCUTOONS as an app – Install / Not now" (agents/research/PWA.md "Install prompt") at the moment
-	// lib/install-rules.ts picks. Chromium: "Install" opens the browser's dialog; without an install event (iPhone Safari,
+	// @scutoons/pwa install-rules.ts picks. Chromium: "Install" opens the browser's dialog; without an install event (iPhone Safari,
 	// Firefox on Android – or `?install` anywhere) "How?" leads to the how-to on the account page. The update prompt's look; a waiting update goes first. Its text links to
 	// the account page's group for the details (Offline-Inhalte → App, ACCOUNT-PAGE.md §0.7).
 	import { goto } from '$app/navigation';

@@ -27,7 +27,8 @@ scutoons/                         one git repo, npm workspaces (Node 22), Compos
 │   ├── content/  @scutoons/content   TS types + validation for toon/season/chapter/slice/dialog/audio/VN/items; JSON Schema export
 │   ├── reader/   @scutoons/reader    rendering: Slice, Dialogs (+ text box reveal effects), placed items, group renderers, audio/VN actions
 │   ├── api/      @scutoons/api       typed client: session, device id, access, items, inventory, content, admin
-│   └── auth/     @scutoons/auth      single sign-on: session factory, login form, app gate, signed-in-as (SSO, 2026-10-01)
+│   ├── auth/     @scutoons/auth      single sign-on: session factory, login form, app gate, signed-in-as (SSO, 2026-10-01)
+│   └── pwa/      @scutoons/pwa       installable apps: install rules + state (all apps), the tools' app-shell worker + install / update bars (research/PWA-APPS.md, 2026-10-18)
 ├── media/                        local dev media (gitignored; served by scripts/dev/media-serve.mjs)
 └── agents/                       plans and memory (this folder)
 ```

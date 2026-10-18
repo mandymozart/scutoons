@@ -14,9 +14,10 @@
 	"dependencies": {
 		"@scutoons/api": "*",
 		"@scutoons/auth": "*",
+		"@scutoons/content": "*",
+		"@scutoons/pwa": "*",
 		"@scutoons/tokens": "*",
-		"@scutoons/ui": "*",
-		"@scutoons/content": "*"
+		"@scutoons/ui": "*"
 	},
 	"devDependencies": {
 		"@inlang/paraglide-js": "^2.4.0",

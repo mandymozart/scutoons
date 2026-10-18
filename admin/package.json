@@ -15,9 +15,10 @@
 		"@noble/post-quantum": "^0.5.0",
 		"@scutoons/api": "*",
 		"@scutoons/auth": "*",
-		"@scutoons/content": "*",
 		"@scutoons/catalog": "*",
+		"@scutoons/content": "*",
 		"@scutoons/media": "*",
+		"@scutoons/pwa": "*",
 		"@scutoons/tokens": "*",
 		"@scutoons/ui": "*",
 		"jspdf": "3.0.3"

@@ -740,7 +740,8 @@
 		"firefox_add_after": "dann auf „Zum Startbildschirm hinzufügen“ (oder „Installieren“).",
 		"installed_now": "Du nutzt SCUTOONS gerade als App.",
 		"cannot_install": "Dieser Browser kann SCUTOONS nicht als App installieren.",
-		"cannot_install_hint": "Auf Android geht es mit Chrome oder Firefox, auf iPhone und iPad mit Safari. Schon installiert? Dann öffne SCUTOONS vom Startbildschirm."
+		"cannot_install_hint": "Auf Android geht es mit Chrome oder Firefox, auf iPhone und iPad mit Safari. Schon installiert? Dann öffne SCUTOONS vom Startbildschirm.",
+		"chromium_menu": "Tippe im Browser-Menü ⋮ auf „App installieren“. Schon installiert? Dann öffne SCUTOONS vom Startbildschirm."
 	},
 	"saved": {
 		"cellular": "Du bist im Mobilfunknetz.",

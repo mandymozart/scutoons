@@ -1,14 +1,21 @@
-// "Install SCUTOONS as an app" on Android / Chromium (agents/research/PWA.md "Install prompt", FEATURES 10.74 phase 4):
-// keeps the browser's `beforeinstallprompt` (instead of Chrome's own mini bar) and offers it at a good moment – the
-// rules in lib/install-rules.ts, the bar in components/install-prompt.svelte, "Install app" on the account page.
-// iPhone Safari and Firefox on Android send no such event: there the bar leads to the account page's how-to by hand
-// (`way` 'ios' / 'android-firefox'). `?install` in the URL shows the bar at once (testing on a real phone, PWA.md §6).
-import { browser, dev } from '$app/environment';
-import { EMPTY_MEMORY, canInstall, forcedOffer, installWay, isAndroidFirefox, isIosSafari, manualWay, readMemory, shouldOffer, type InstallFacts, type InstallMemory, type InstallWay } from './install-rules.ts';
+// "Install SCUTOONS as an app" (agents/research/PWA.md "Install prompt", every app: research/PWA-APPS.md): keeps the
+// browser's `beforeinstallprompt` (instead of Chrome's own mini bar) and offers it at a good moment – the rules in
+// ./install-rules.ts; each app makes one `new Install({ key })` and draws its own bar (the reader: install-prompt.svelte
+// + the account page's "App"; the tools: ./install-bar.svelte).
+// iPhone Safari and Firefox on Android send no such event: there the bar shows the how-to by hand (`way` 'ios' /
+// 'android-firefox'). `?install` in the URL shows the bar at once (testing on a real phone, PWA.md §6).
+import { EMPTY_MEMORY, canInstall, forcedOffer, installWay, isAndroidFirefox, isChromium, isIosSafari, manualWay, readMemory, shouldOffer, type InstallFacts, type InstallMemory, type InstallWay } from './install-rules.ts';
 
-const KEY = 'scutoons_install';
-/** set once per browser session: a new session = a new visit */
-const VISIT_KEY = 'scutoons_install_visit';
+const browser = typeof window !== 'undefined';
+
+export interface InstallOptions {
+	/** localStorage key of what this browser remembers (one per app – each app installs on its own) */
+	key: string;
+	/** a page that explains installing itself (the reader's account page): no bar there */
+	quietPath?: RegExp;
+	/** dev builds: `__scFakeInstallPrompt()` in the console */
+	dev?: boolean;
+}
 
 interface BeforeInstallPromptEvent extends Event {
 	prompt(): Promise<void>;
@@ -23,7 +30,7 @@ function runsInstalled(): boolean {
 	return document.referrer.startsWith('android-app://');
 }
 
-class Install {
+export class Install {
 	/** the bar shows */
 	offer = $state(false);
 	/** the browser can install now (the account page's entry) */
@@ -38,20 +45,22 @@ class Install {
 	#memory: InstallMemory = { ...EMPTY_MEMORY };
 	#framed = false;
 	#standalone = false;
-	/** a chapter's end bar is showing: no bar over it – the next page offers it */
-	#atChapterEnd = false;
+	/** a milestone is showing (the reader: a chapter's end bar): no bar over it – the next page offers it */
+	#atMilestone = false;
+	#options: InstallOptions;
 	#counted = new Set<string>();
 	#started = false;
 
-	constructor() {
+	constructor(options: InstallOptions) {
+		this.#options = options;
 		if (!browser) return;
 		// registered when the layout imports this module – the event can come before the app has mounted
 		window.addEventListener('beforeinstallprompt', (event) => {
 			event.preventDefault(); // no Chrome mini bar: we ask at our moment
 			this.#event = event as BeforeInstallPromptEvent;
 			this.#refresh();
-			// late (it often comes a moment after the start): offer now – unless a chapter's end bar is up
-			if (this.#started && !this.#atChapterEnd) this.check();
+			// late (it often comes a moment after the start): offer now – unless a milestone is up
+			if (this.#started && !this.#atMilestone) this.check();
 		});
 		window.addEventListener('appinstalled', () => {
 			this.#remember({ installed: true });
@@ -69,7 +78,12 @@ class Install {
 		this.available = canInstall(this.#facts(), this.#memory);
 		this.installed = this.#standalone;
 		this.way = installWay(
-			{ ...this.#facts(), iosSafari: isIosSafari(navigator.userAgent, navigator.maxTouchPoints), androidFirefox: isAndroidFirefox(navigator.userAgent) },
+			{
+				...this.#facts(),
+				iosSafari: isIosSafari(navigator.userAgent, navigator.maxTouchPoints),
+				androidFirefox: isAndroidFirefox(navigator.userAgent),
+				chromium: isChromium(navigator.userAgent)
+			},
 			this.#memory
 		);
 	}
@@ -87,13 +101,13 @@ class Install {
 	#remember(change: Partial<InstallMemory>) {
 		this.#memory = { ...this.#memory, ...change };
 		try {
-			localStorage.setItem(KEY, JSON.stringify(this.#memory));
+			localStorage.setItem(this.#options.key, JSON.stringify(this.#memory));
 		} catch {
 			/* private window, blocked storage: this visit only */
 		}
 	}
 
-	/** the root layout's onMount: counts the visit, then the first check */
+	/** the app's root layout onMount: counts the visit, then the first check */
 	init() {
 		if (!browser || this.#started) return;
 		this.#started = true;
@@ -107,41 +121,43 @@ class Install {
 		});
 		let raw: string | null = null;
 		try {
-			raw = localStorage.getItem(KEY);
+			raw = localStorage.getItem(this.#options.key);
 		} catch {
 			/* blocked storage */
 		}
 		this.#memory = readMemory(raw);
 		let newVisit = true;
 		try {
-			newVisit = sessionStorage.getItem(VISIT_KEY) === null;
-			sessionStorage.setItem(VISIT_KEY, '1');
+			// set once per browser session: a new session = a new visit
+			const visitKey = `${this.#options.key}_visit`;
+			newVisit = sessionStorage.getItem(visitKey) === null;
+			sessionStorage.setItem(visitKey, '1');
 		} catch {
 			/* blocked storage: every load counts – still never the very first */
 		}
 		if (newVisit && !this.#framed) this.#remember({ visits: this.#memory.visits + 1 });
-		if (dev) (window as unknown as Record<string, unknown>).__scFakeInstallPrompt = fakeInstallPrompt;
+		if (this.#options.dev) (window as unknown as Record<string, unknown>).__scFakeInstallPrompt = fakeInstallPrompt;
 		this.#refresh();
 		this.check();
 	}
 
-	/** on the start and after each navigation: the moment to offer (never live over a chapter's end bar) */
+	/** on the start and after each navigation: the moment to offer (never live over a milestone) */
 	check() {
-		this.#atChapterEnd = false;
-		// the account page's "App" item says it all already
-		if (/\/account\/offline\/?$/.test(location.pathname)) return void (this.offer = false);
+		this.#atMilestone = false;
+		// a page that explains installing itself (the reader's account page "App" item)
+		if (this.#options.quietPath?.test(location.pathname)) return void (this.offer = false);
 		this.offer = this.#forced ? forcedOffer(this.way) : shouldOffer({ ...this.#facts(), manual: this.manual }, this.#memory, Date.now());
 	}
 
-	/** a chapter's end bar showed (components/chapter/next-bar.svelte): counts once per chapter and visit */
-	chapterFinished(key: string) {
-		this.#atChapterEnd = true;
+	/** a milestone showed (the reader: a chapter's end bar, next-bar.svelte): counts once per key and visit */
+	milestone(key: string) {
+		this.#atMilestone = true;
 		if (this.#counted.has(key)) return;
 		this.#counted.add(key);
 		this.#remember({ chapters: this.#memory.chapters + 1 });
 	}
 
-	/** "Install" (bar or account page): Chrome's own install dialog */
+	/** "Install" (the bar, the reader's account page): the browser's own install dialog */
 	async install() {
 		const event = this.#event;
 		this.offer = false;
@@ -159,14 +175,14 @@ class Install {
 		}
 	}
 
-	/** the bar's "How?" (no install event – iPhone Safari, Firefox on Android …): the account page's how-to; seen = snoozed */
+	/** the bar's "How?" / "OK" (no install event – iPhone Safari, Firefox on Android …): the how-to seen = snoozed */
 	howTo() {
 		this.offer = false;
 		if (this.#forced) this.#forced = false;
 		else this.#remember({ snoozedAt: Date.now() });
 	}
 
-	/** "Not now": away for SNOOZE_DAYS (the account page's entry stays) */
+	/** "Not now": away for SNOOZE_DAYS (an app's own install entry stays) */
 	notNow() {
 		this.offer = false;
 		this.#forced = false;
@@ -185,4 +201,3 @@ function fakeInstallPrompt(outcome: 'accepted' | 'dismissed' = 'dismissed') {
 	window.dispatchEvent(event);
 }
 
-export const install = new Install();

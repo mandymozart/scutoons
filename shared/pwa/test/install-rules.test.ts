@@ -1,6 +1,6 @@
 // When the "Install SCUTOONS as an app" bar shows (lib/install-rules.ts, agents/research/PWA.md "Install prompt";
 // owner 2026-10-16: "a prompt to install for Android first"):
-//   npm test -w viewer
+//   npm test -w @scutoons/pwa
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -10,13 +10,14 @@ import {
 	forcedOffer,
 	installWay,
 	isAndroidFirefox,
+	isChromium,
 	isIosSafari,
 	isSafari,
 	manualWay,
 	readMemory,
 	shouldOffer,
 	snoozed
-} from '../src/lib/install-rules.ts';
+} from '../src/install-rules.ts';
 
 const DAY = 24 * 60 * 60 * 1000;
 const now = Date.UTC(2026, 9, 16);
@@ -75,6 +76,14 @@ const MAC_CHROME = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/
 const way = (change = {}, mem = memory()) =>
 	installWay({ available: false, standalone: false, framed: false, iosSafari: false, androidFirefox: false, ...change }, mem);
 
+test('Chromium browsers install from their menu; Chrome on iOS is Safari underneath', () => {
+	assert.equal(isChromium(ANDROID_CHROME), true);
+	assert.equal(isChromium(MAC_CHROME), true);
+	assert.equal(isChromium(IPHONE_CHROME), false);
+	assert.equal(isChromium(ANDROID_FIREFOX), false);
+	assert.equal(isChromium(IPHONE_SAFARI), false);
+});
+
 test('Firefox on Android installs by hand; Safari (also on a Mac) evicts after 7 days', () => {
 	assert.equal(isAndroidFirefox(ANDROID_FIREFOX), true);
 	assert.equal(isAndroidFirefox(DESKTOP_FIREFOX), false);
@@ -92,6 +101,9 @@ test('the account page says what this browser can do', () => {
 	assert.equal(way({ iosSafari: true }), 'ios');
 	assert.equal(way({ androidFirefox: true }), 'android-firefox');
 	assert.equal(way({}), 'unsupported');
+	assert.equal(way({ chromium: true }), 'chromium-menu', 'Chrome / Brave without an event now: its menu');
+	assert.equal(way({ chromium: true, available: true }), 'available');
+	assert.equal(manualWay('chromium-menu'), false, 'no bar by itself – it may be installed already');
 	assert.equal(way({ standalone: true, available: true }), 'installed');
 	assert.equal(way({ framed: true, iosSafari: true }), 'hidden');
 	assert.equal(manualWay('ios') && manualWay('android-firefox'), true);
@@ -109,7 +121,7 @@ test('the bar by hand (no install event): the same moment and snooze as Chrome�
 });
 
 test('?install shows the bar on every browser – not in the app, not in the creator frame', () => {
-	for (const w of ['available', 'ios', 'android-firefox', 'unsupported'] as const) assert.equal(forcedOffer(w), true, w);
+	for (const w of ['available', 'ios', 'android-firefox', 'chromium-menu', 'unsupported'] as const) assert.equal(forcedOffer(w), true, w);
 	assert.equal(forcedOffer('installed'), false);
 	assert.equal(forcedOffer('hidden'), false);
 });

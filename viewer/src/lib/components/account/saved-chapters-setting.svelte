@@ -19,7 +19,7 @@
 	import { seasonSaves } from '$lib/offline/save-season.svelte.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { install } from '$lib/install.svelte.ts';
-	import { isSafari } from '$lib/install-rules.ts';
+	import { isSafari } from '@scutoons/pwa';
 
 	/** Safari outside the home-screen app: its saves go after 7 days without a visit – said honestly */
 	const safariTab = $derived(isSafari(navigator.userAgent, navigator.maxTouchPoints) && !install.installed);

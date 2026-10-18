@@ -206,10 +206,10 @@ Not registered in dev, nor in the creator's Reader frame.
    leaves registered workers behind – a worker only goes away by a newer service-worker.js or the user).
 
 ## 2a. Install prompt (Android / Chromium, built 2026-10-16)
-Owner 2026-10-16: "a prompt to install for Android first". `lib/install.svelte.ts` keeps `beforeinstallprompt`
+Owner 2026-10-16: "a prompt to install for Android first". `lib/install.svelte.ts` (the shared `Install` of `@scutoons/pwa`, since 2026-10-18 – research/PWA-APPS.md §3) keeps `beforeinstallprompt`
 (`preventDefault` – no Chrome mini bar), `components/install-prompt.svelte` is the bar (the update prompt's look; a
 waiting update goes first): "Install SCUTOONS as an app" · Not now · Install → Chrome's own install dialog.
-**When** (pure rules `lib/install-rules.ts`, test/install-rules.test.ts):
+**When** (pure rules `shared/pwa/src/install-rules.ts`, shared/pwa/test/install-rules.test.ts):
 - never on the first visit; from the **2nd visit** (a new browser session – sessionStorage marks one) or after the reader
   **finished a chapter** (the chapter's end bar showed with a next chapter / members / coming soon / season end – not
   a mere next group; next-bar.svelte → `install.chapterFinished`);

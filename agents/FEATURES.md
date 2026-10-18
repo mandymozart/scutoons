@@ -71,6 +71,10 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   whole season, offline progress synced; phase 4: iOS how-to, shortcuts + screenshots, wake lock, badge, Web Push –
   owner steps 10.107). `decide`: the badge proposal (§2b), the refresh rule (≤ 1 MB always, more only as the
   auto-save setting allows). → research/PWA.md, DATA.md §6
+- [ ] 10.108 **The tools as apps + team push** – owner 2026-10-18: "turn the other apps into pwas … push notifications for
+  them". Creator / admin / embassy installable (built: manifest, icons, app-shell worker, install / update bars,
+  `@scutoons/pwa`); signed-in phone layout still to check. Team push (embassy due, admin proposals, creator reviews /
+  drafts) waits for the owner's answers (§6). → research/PWA-APPS.md
 - [ ] 10.107 **[owner] Web Push live** (PWA.md §2b) – 1. in `server/`: `php bin/console push:vapid-keys` (prints both);
   2. GitHub → Settings → Secrets → Actions: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (never change the pair later);
   3. deploy server + viewer + admin (the migration `2026-10-16-push-subscriptions` runs with it); 4. on your phone:

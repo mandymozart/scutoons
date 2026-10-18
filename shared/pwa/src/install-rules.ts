@@ -1,9 +1,10 @@
-// When the "Install SCUTOONS as an app" bar may show (agents/research/PWA.md "Install prompt", FEATURES 10.74 phase 4) –
-// pure logic, tested in test/install-rules.test.ts; the page side is lib/install.svelte.ts.
+// When the "Install SCUTOONS as an app" bar may show (agents/research/PWA.md "Install prompt", FEATURES 10.74 phase 4;
+// every app: research/PWA-APPS.md) – pure logic, tested in test/install-rules.test.ts; the page side is
+// ./install.svelte.ts.
 //
-// Never on the first visit: the bar is offered once the reader has come back (a 2nd visit = a 2nd browser session) or
-// finished a chapter (its end bar showed) – and then only on the next page (a navigation or the next start), never
-// over the chapter's end bar. Not inside an installed app, not in the creator's Reader frame, not after "Not now" for
+// Never on the first visit: the bar is offered once the person has come back (a 2nd visit = a 2nd browser session) or
+// reached a milestone (the reader: a chapter's end bar showed) – and then only on the next page (a navigation or the next
+// start), never over the milestone itself. Not inside an installed app, not in the creator's Reader frame, not after "Not now" for
 // SNOOZE_DAYS, never again after the app was installed.
 
 export const SNOOZE_DAYS = 30;
@@ -13,7 +14,7 @@ const DAY = 24 * 60 * 60 * 1000;
 export interface InstallMemory {
 	/** browser sessions that opened SCUTOONS (the first one = 1) */
 	visits: number;
-	/** chapters whose end the reader reached */
+	/** milestones reached (the reader: chapters whose end showed – the stored name stays `chapters`) */
 	chapters: number;
 	/** "Not now" – the time (ms) */
 	snoozedAt: number | null;
@@ -99,6 +100,15 @@ export function isAndroidFirefox(userAgent: string): boolean {
 }
 
 /**
+ * A Chromium browser that can install from its own menu (Chrome, Edge, Brave, Samsung Internet, Opera – on Android and
+ * desktop; not Chrome on iOS, which is Safari underneath). Without an install event right now (Chrome sends none once
+ * the app is installed, and not on every page) its menu still offers "Install app".
+ */
+export function isChromium(userAgent: string): boolean {
+	return /Chrome\/|Chromium\//.test(userAgent) && !/CriOS|EdgiOS|iPhone|iPad/.test(userAgent);
+}
+
+/**
  * Safari itself, not Chromium / Firefox (on a Mac too): deletes a site's storage – the saved chapters too – after 7 days
  * without a visit, unless SCUTOONS runs from the home screen / Dock (WebKit's tracking prevention).
  */
@@ -110,17 +120,19 @@ export function isSafari(userAgent: string, maxTouchPoints = 0): boolean {
 /**
  * The account page's "App" item – what this browser can do:
  * installed (running as the app) · available (the browser's install dialog) · ios (Share → Add to Home Screen) ·
- * android-firefox (⋮ → Add to Home screen) · unsupported (this browser can't, or Chrome hasn't offered it: already
- * installed, not yet) · hidden (the creator's Reader frame).
+ * android-firefox (⋮ → Add to Home screen) · chromium-menu (a Chromium browser without an install event now – installed
+ * already, or not offered yet: its menu ⋮ → "Install app"; no bar by itself, it may be installed) · unsupported (this
+ * browser can't) · hidden (the creator's Reader frame).
  */
-export type InstallWay = 'installed' | 'available' | 'ios' | 'android-firefox' | 'unsupported' | 'hidden';
+export type InstallWay = 'installed' | 'available' | 'ios' | 'android-firefox' | 'chromium-menu' | 'unsupported' | 'hidden';
 
-export function installWay(facts: InstallFacts & { iosSafari: boolean; androidFirefox: boolean }, memory: InstallMemory): InstallWay {
+export function installWay(facts: InstallFacts & { iosSafari: boolean; androidFirefox: boolean; chromium?: boolean }, memory: InstallMemory): InstallWay {
 	if (facts.framed) return 'hidden';
 	if (facts.standalone) return 'installed';
 	if (canInstall(facts, memory)) return 'available';
 	if (facts.iosSafari) return 'ios';
 	if (facts.androidFirefox) return 'android-firefox';
+	if (facts.chromium) return 'chromium-menu';
 	return 'unsupported';
 }
 
