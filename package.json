@@ -40,6 +40,7 @@
 		"check:creator-dock": "node scripts/dev/creator-dock-check.mjs",
 		"check:creator-flow-dock": "node scripts/dev/creator-flow-dock-check.mjs",
 		"check:creator-reader": "node scripts/dev/creator-reader-check.mjs",
+		"check:creator-collage": "node scripts/dev/creator-collage-check.mjs",
 		"check:endless": "node scripts/dev/endless-check.mjs",
 		"check:endless-engines": "node scripts/dev/endless-engines-check.mjs",
 		"check:tools-dock": "node scripts/dev/tools-dock-check.mjs",
