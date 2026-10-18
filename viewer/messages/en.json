@@ -186,6 +186,7 @@
 		"strip_next": "Next frame",
 		"strip_endless": "Picture band: drag sideways or use the arrow keys",
 		"not_public": "This chapter is not published yet.",
+		"not_public_patience": "Please be patient.",
 		"coming_soon": "Coming soon",
 		"release": "Release: {date}",
 		"season_title": "Season {number}: {title}",

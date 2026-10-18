@@ -186,6 +186,7 @@
 		"strip_next": "Nächstes Bild",
 		"strip_endless": "Bildband: seitwärts ziehen oder die Pfeiltasten nutzen",
 		"not_public": "Dieses Kapitel ist noch nicht veröffentlicht.",
+		"not_public_patience": "Bitte gedulde dich noch ein wenig.",
 		"coming_soon": "Demnächst",
 		"release": "Erscheint am {date}",
 		"season_title": "Staffel {number}: {title}",

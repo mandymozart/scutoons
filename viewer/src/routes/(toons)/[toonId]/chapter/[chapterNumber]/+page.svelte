@@ -334,7 +334,11 @@
 				{@render text()}
 			{/if}
 		{:else}
-			<p>{m['chapter.not_public']()}</p>
+			<!-- not published yet: in the middle of the screen, with a word of patience (owner 2026-10-18) -->
+			<div class="gate-draft" data-testid="chapter-not-public">
+				<p>{m['chapter.not_public']()}</p>
+				<p>{m['chapter.not_public_patience']()}</p>
+			</div>
 		{/if}
 	</div>
 {:else}
@@ -415,6 +419,21 @@
 		> .gate-release {
 			color: #6b6b6b;
 		}
+	}
+	/* vertically centred in the screen (below the fixed header, which floats over the page) */
+	.chapter-gate:has(.gate-draft) {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		box-sizing: border-box;
+		min-height: 100dvh;
+		padding-top: 2rem;
+	}
+	.gate-draft p {
+		margin: 0;
+	}
+	.gate-draft p + p {
+		margin-top: 0.5rem;
 	}
 	.chapter-view {
 		max-width: 500px;
