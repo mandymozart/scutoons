@@ -14,7 +14,7 @@
 	$effect(() => {
 		if (!element) return;
 		if (request && !element.open) {
-			text = '';
+			text = request.input?.value ?? '';
 			picked = new Set(request.checklist ? request.checklist.groups.flatMap((g) => g.items.filter((i) => i.checked !== false).map((i) => i.id)) : []);
 			element.showModal();
 		} else if (!request && element.open) {

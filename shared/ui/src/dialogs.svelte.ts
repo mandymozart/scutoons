@@ -13,7 +13,7 @@ export interface DialogRequest {
 	confirmLabel: string;
 	cancelLabel?: string;
 	/** a text field (askDialog) */
-	input?: { label: string; placeholder?: string; skipLabel?: string };
+	input?: { label: string; placeholder?: string; skipLabel?: string; value?: string };
 	/** a list to tick (checklistDialog): the primary button says `countLabel(n)` and is off at 0 */
 	checklist?: { groups: ChecklistGroup[]; countLabel: (n: number) => string; allLabel: string; noneLabel: string };
 	/** a list to pick ONE line from (choiceDialog): a tap answers */
@@ -88,17 +88,21 @@ export async function choiceDialog(options: { title: string; message?: string; c
 	return typeof value === 'string' ? value : null;
 }
 
-/** the entered text; '' when skipped (submitted empty – the button then says skipLabel); null when cancelled */
+/**
+ * the entered text; '' when skipped (submitted empty – the button then says skipLabel); null when cancelled. `value`
+ * fills the field at the start (a rename: the current name)
+ */
 export async function askDialog(options: {
 	title: string;
 	message?: string;
 	label: string;
 	placeholder?: string;
+	value?: string;
 	confirmLabel: string;
 	skipLabel?: string;
 	cancelLabel?: string;
 }): Promise<string | null> {
-	const { label, placeholder, skipLabel, ...rest } = options;
-	const value = await open({ ...rest, input: { label, placeholder, skipLabel } });
+	const { label, placeholder, value: start, skipLabel, ...rest } = options;
+	const value = await open({ ...rest, input: { label, placeholder, skipLabel, value: start } });
 	return typeof value === 'string' ? value : null;
 }
