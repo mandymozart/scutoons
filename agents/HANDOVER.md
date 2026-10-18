@@ -51,10 +51,16 @@ Decisions: agents/DECISIONS.md.
   lists offer "Collage presets"; the preset grid previews each look on the piece ("in dem Wort auf dem Selector zeigen,
   was das dann wird") + Save as preset … · Update preset · ••• Rename / Delete; the MCP validates and judges presets.
   §12.8's defaults (FEATURES 10.105); changed from the spec: from the 6th custom preset (measured) a "Custom (n)" fold.
-- **Where:** steps 1–4 are on production since your push this evening. Not pushed: the presets' autosave fix, the MCP
-  part (live after the MCP's next restart), the docs – this run's 5 commits; `main` is 1 behind (373afb08): merge first.
-- **Green:** content 319 tests; creator 0 / 0, 95 tests; viewer 0 errors (11 old warnings), 143 tests; per step: PHPUnit
-  of the touched classes (74 tests) + PHPStan, `check:creator-collage` 46/46, `check:creator-chapter -- --pieces`
-  (catpope 4 slice 1; its 2 old misses: anchor top-left, scale handle), `check:mcp` 48/48 – `colorations` cleaned up.
+- **Final review** (2 lenses) → fixed: an unsaved presets copy is offered at load (chapter editor and score stage, next
+  to the page's Recover bar); a score's catalog page lists "Collage presets" in Publish; a name never ends in half an
+  emoji (the server refused the document); Rename selects the old name. The minors left: COLLAGE §12.9 "Open".
+- **Where:** steps 1–4 and the phone item / piece tool fix are on production since your push this evening. Not pushed,
+  rebased on origin/main (2026-10-19): the autosave fix, the MCP part (live after the MCP's next restart), the docs, the
+  final-review fixes – 10 commits.
+- **Green:** content 319 tests; creator 0 / 0, 105 tests; @scutoons/ui 0 / 0; viewer 0 errors (11 old warnings), 143
+  tests; per step: PHPUnit of the touched classes (74 tests) + PHPStan, `check:creator-collage` 51/51,
+  `check:creator-chapter -- --pieces` (catpope 4 slice 1: phone 10/10, recover 5/5; its 2 old misses: anchor top-left,
+  scale handle), `check:mcp` 48/48 – `colorations` cleaned up. By hand on a slice: the grid's previews, Save as preset,
+  Rename, Delete (the tombstone), both Recover bars at load.
 - **Red:** `check:tools-css` 16 old lines (map editor, phone-bar, bar-tabs), none in a touched file; 58 open FEATURES +
   ISSUES (limit 40) – no new item added.
