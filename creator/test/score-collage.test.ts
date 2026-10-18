@@ -3,7 +3,7 @@
 // the list's sides, the stage's problems – and the simulated screens
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { CollagePiece } from '@scutoons/content';
+import type { CollagePiece, CollagePreset } from '@scutoons/content';
 import { placeScorePiece, type PageGeometry } from '@scutoons/reader/score-anchors';
 import {
 	addScorePiece,
@@ -27,7 +27,7 @@ import {
 	stagePart,
 	stageProblems
 } from '../src/lib/editor/score-collage.ts';
-import { SCREENS, readerSizes, screenScale, screenZoom } from '../src/lib/editor/screens.ts';
+import { SCREENS, firstScreen, pickedScreen, readerSizes, screenScale, screenZoom } from '../src/lib/editor/screens.ts';
 
 const FILE = 'scores/cloud9_en/4971f460e393.musicxml';
 const CHOIR = 'scores/cloud9_en/choir.musicxml';
@@ -214,4 +214,46 @@ test('the screens: the device scaled to fit the room both ways, the reader\'s st
 	const desktop = readerSizes(SCREENS.desktop);
 	assert.equal(desktop['--control-height'], 'calc(48px + 2 * var(--border-width-regular))');
 	assert.deepEqual([desktop['--space-05'], desktop['--space-075'], desktop['--space-1'], desktop['--space-3']], ['12px', '18px', '24px', '72px']);
+});
+
+test("the stage's problems with the custom presets: an unknown or deleted one warns, a known one doesn't; no list = none judged", () => {
+	const doc = item();
+	addScorePiece(doc, null, piece('piece-a', { preset: 'night' }));
+	addScorePiece(doc, null, piece('piece-b', { preset: 'nope' }));
+	addScorePiece(doc, null, piece('piece-c', { preset: 'negative' }));
+	addScorePiece(doc, null, piece('piece-d', { preset: 'old' }));
+	const bars = geo.bars.map(({ id, n, nth }) => ({ id, n, nth }));
+	const presets: CollagePreset[] = [
+		{ id: 'night', name: 'Night', fill: '#1a2b6d', blend: 'multiply' },
+		{ id: 'old', name: 'Old', fill: '#808080', removed: true }
+	];
+	const at = (id: string) => `score.collage.pieces.${sheetPieces(doc, null).findIndex((p) => p.id === id)}.preset`;
+	const word = (message: string) => (message.includes('unknown preset "') ? 'unknown' : message.includes('"Old" was deleted') ? 'deleted' : message);
+	const judged = (list?: CollagePreset[]) =>
+		stageProblems(doc, null, bars, 'item:cloud9_en', (bar) => bar, list)
+			.filter((p) => p.path.at(-1) === 'preset')
+			.map((p) => [p.level, p.path.join('.'), word(p.message)]);
+	assert.deepEqual(judged(presets), [
+		['warning', at('piece-b'), 'unknown'],
+		['warning', at('piece-d'), 'deleted']
+	]);
+	assert.deepEqual(judged([]), ['piece-a', 'piece-b', 'piece-d'].map((id) => ['warning', at(id), 'unknown']), 'none stored: every custom id is unknown');
+	assert.deepEqual(judged(undefined), [], 'the presets not loaded: no custom id is judged');
+});
+
+test("the stage's screen: the one picked last, at a reader's start zoom there; a re-pick of the shown one is none", () => {
+	const stored = new Map<string, string>();
+	const before = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+	const storage = { getItem: (k: string) => stored.get(k) ?? null, setItem: (k: string, v: string) => void stored.set(k, v) };
+	Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: storage });
+	try {
+		assert.deepEqual(firstScreen('k'), { screen: 'phone', zoom: 30 }, 'nothing picked yet: a phone');
+		assert.equal(pickedScreen('k', 'phone', 'phone'), null);
+		assert.equal(stored.size, 0, 'nothing stored');
+		assert.deepEqual(pickedScreen('k', 'phone', 'desktop'), { screen: 'desktop', zoom: 40 });
+		assert.deepEqual(firstScreen('k'), { screen: 'desktop', zoom: 40 }, 'remembered');
+	} finally {
+		if (before) Object.defineProperty(globalThis, 'localStorage', before);
+		else delete (globalThis as { localStorage?: unknown }).localStorage;
+	}
 });

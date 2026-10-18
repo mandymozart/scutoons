@@ -1,10 +1,12 @@
 // Edits of a collage piece (agents/research/COLLAGE.md §7) and of a slice's layer list with pieces (§3). Pure
 // functions on the stored piece / slice – the inspector runs them inside one `doc.edit` (one undo step).
 //
-// A piece names a look (`preset`, collage.ts COLLAGE_LOOKS) and may replace single keys of it in `style`: a key replaces
-// the look's whole (a whole shadow), `null` = off, no key = the look's value. So an effect edit is copy-on-write: the
-// first change of a look's shadow copies the look's shadow into `style` and changes that copy; clearing an effect the
-// look has writes `null`, one it lacks just drops the key; an emptied `style` goes.
+// A piece names a look (`preset`: a code look, collage.ts COLLAGE_LOOKS, or a custom preset of `colorations` – §12) and
+// may replace single keys of it in `style`: a key replaces the look's whole (a whole shadow), `null` = off, no key = the
+// look's value. So an effect edit is copy-on-write: the first change of a look's shadow copies the look's shadow into
+// `style` and changes that copy; clearing an effect the look has writes `null`, one it lacks just drops the key; an
+// emptied `style` goes. `presets` = the stored custom presets (presets-doc.ts `ownPresets`; none = code looks only) –
+// $state proxies of another document, so every value taken from them is a JSON copy.
 import {
 	collageLook,
 	getAt,
@@ -19,6 +21,7 @@ import {
 	type PieceShadow,
 	type PieceStyle,
 	type Path,
+	type PresetList,
 	type SliceLayerRef
 } from '@scutoons/content';
 
@@ -74,8 +77,8 @@ export function setPlain<K extends PlainKey>(piece: CollagePiece, key: K, value:
 }
 
 /** an effect as a whole: a value replaces the look's; `undefined` clears it (`null` when the look has it, else no key) */
-export function setEffect<K extends EffectKey>(piece: CollagePiece, key: K, value: Exclude<PieceStyle[K], null> | undefined): void {
-	const look = collageLook(piece.preset);
+export function setEffect<K extends EffectKey>(piece: CollagePiece, key: K, value: Exclude<PieceStyle[K], null> | undefined, presets?: PresetList): void {
+	const look = collageLook(piece.preset, presets);
 	if (value !== undefined) ownStyle(piece)[key] = copy(value) as PieceStyle[K];
 	else if (look?.[key] !== undefined && look[key] !== null) ownStyle(piece)[key] = null as PieceStyle[K];
 	else if (piece.style) delete piece.style[key];
@@ -83,8 +86,8 @@ export function setEffect<K extends EffectKey>(piece: CollagePiece, key: K, valu
 }
 
 /** the look's own value of a style key (none / off = undefined) */
-const lookValue = <K extends EffectKey>(piece: CollagePiece, key: K): Exclude<PieceStyle[K], null> | undefined =>
-	(collageLook(piece.preset)?.[key] ?? undefined) as Exclude<PieceStyle[K], null> | undefined;
+const lookValue = <K extends EffectKey>(piece: CollagePiece, key: K, presets?: PresetList): Exclude<PieceStyle[K], null> | undefined =>
+	(collageLook(piece.preset, presets)?.[key] ?? undefined) as Exclude<PieceStyle[K], null> | undefined;
 
 type EditableEffect = 'outline' | 'shadow' | 'blur';
 
@@ -93,12 +96,18 @@ type EditableEffect = 'outline' | 'shadow' | 'blur';
  * look's (copied) – with the change over it becomes the piece's own. An effect that is off starts from `base` (what a
  * field just cleared), else the look's (switched off over the look), else `EFFECT_DEFAULTS`
  */
-export function editEffect<K extends EditableEffect>(piece: CollagePiece, key: K, change: Partial<(typeof EFFECT_DEFAULTS)[K]>, base?: (typeof EFFECT_DEFAULTS)[K]): void {
-	const drawn = pieceStyle(piece)[key] as (typeof EFFECT_DEFAULTS)[K] | undefined;
-	const start = drawn ?? base ?? (lookValue(piece, key) as (typeof EFFECT_DEFAULTS)[K] | undefined) ?? EFFECT_DEFAULTS[key];
+export function editEffect<K extends EditableEffect>(
+	piece: CollagePiece,
+	key: K,
+	change: Partial<(typeof EFFECT_DEFAULTS)[K]>,
+	base?: (typeof EFFECT_DEFAULTS)[K],
+	presets?: PresetList
+): void {
+	const drawn = pieceStyle(piece, presets)[key] as (typeof EFFECT_DEFAULTS)[K] | undefined;
+	const start = drawn ?? base ?? (lookValue(piece, key, presets) as (typeof EFFECT_DEFAULTS)[K] | undefined) ?? EFFECT_DEFAULTS[key];
 	const next = { ...copy(start), ...change } as Record<string, unknown>;
 	for (const k of Object.keys(next)) if (next[k] === undefined) delete next[k];
-	setEffect(piece, key, next as unknown as Exclude<PieceStyle[K], null>);
+	setEffect(piece, key, next as unknown as Exclude<PieceStyle[K], null>, presets);
 }
 
 /** what an effect's colour field cleared, per piece and key (`setEffectColor`) – with the look it was cleared under */
@@ -110,16 +119,16 @@ export type ClearedEffects = Map<string, { preset?: string; value: unknown }>;
  * effect back with that colour – as it was (its width, offsets, blur), when the look is still the one it was cleared
  * under, else the look's, else the defaults
  */
-export function setEffectColor(piece: CollagePiece, key: 'outline' | 'shadow', color: string | undefined, cleared: ClearedEffects): void {
+export function setEffectColor(piece: CollagePiece, key: 'outline' | 'shadow', color: string | undefined, cleared: ClearedEffects, presets?: PresetList): void {
 	const at = `${piece.id}.${key}`;
 	if (color) {
 		const was = cleared.get(at);
 		const base = was && was.preset === piece.preset ? (copy(was.value) as (typeof EFFECT_DEFAULTS)[typeof key]) : undefined;
-		return editEffect(piece, key, { color }, base);
+		return editEffect(piece, key, { color }, base, presets);
 	}
-	const drawn = pieceStyle(piece)[key];
+	const drawn = pieceStyle(piece, presets)[key];
 	if (drawn) cleared.set(at, { preset: piece.preset, value: copy(drawn) });
-	setEffect(piece, key, undefined);
+	setEffect(piece, key, undefined, presets);
 }
 
 export const fillKind = (fill: PieceStyle['fill']): FillKind => (fill === undefined || fill === null ? 'none' : typeof fill === 'string' ? 'color' : 'gradient');
@@ -145,11 +154,11 @@ function luminance(color: string): number {
  * chosen option again – a re-click must not rebuild a gradient or make the look's fill the piece's own); false =
  * nothing changed
  */
-export function setFillKind(piece: CollagePiece, kind: FillKind): boolean {
-	const fill = pieceStyle(piece).fill;
+export function setFillKind(piece: CollagePiece, kind: FillKind, presets?: PresetList): boolean {
+	const fill = pieceStyle(piece, presets).fill;
 	if (kind === fillKind(fill)) return false;
-	const look = lookValue(piece, 'fill');
-	if (kind === 'none') setEffect(piece, 'fill', undefined);
+	const look = lookValue(piece, 'fill', presets);
+	if (kind === 'none') setEffect(piece, 'fill', undefined, presets);
 	else if (!fill && look && fillKind(look) === kind) {
 		// off over the look (own null): dropping the own key brings the look's fill back
 		delete piece.style?.fill;
@@ -159,7 +168,7 @@ export function setFillKind(piece: CollagePiece, kind: FillKind): boolean {
 		const from = typeof source === 'string' ? source : (source?.stops?.[0]?.color ?? FILL_INK);
 		const to = luminance(from) > 0.5 ? FILL_INK : '#ffffff';
 		const next: string | PieceGradient = kind === 'color' ? from : { stops: [{ at: 0, color: from }, { at: 100, color: to }] };
-		setEffect(piece, 'fill', next);
+		setEffect(piece, 'fill', next, presets);
 	}
 	return true;
 }
@@ -168,11 +177,11 @@ export function setFillKind(piece: CollagePiece, kind: FillKind): boolean {
  * An even blur (no points) or a ramp (sharp at `from`, blurred from `to`) – the amount kept. The kind the blur already
  * has changes nothing (a re-click keeps the ramp's points); false = nothing changed
  */
-export function setBlurRamp(piece: CollagePiece, ramp: boolean): boolean {
-	const blur = pieceStyle(piece).blur;
+export function setBlurRamp(piece: CollagePiece, ramp: boolean, presets?: PresetList): boolean {
+	const blur = pieceStyle(piece, presets).blur;
 	if (blur && blurKind(blur) === (ramp ? 'ramp' : 'even')) return false;
 	const amount = blur?.amount ?? EFFECT_DEFAULTS.blur.amount;
-	setEffect(piece, 'blur', ramp ? { amount, ...copy(RAMP_POINTS) } : { amount });
+	setEffect(piece, 'blur', ramp ? { amount, ...copy(RAMP_POINTS) } : { amount }, presets);
 	return true;
 }
 

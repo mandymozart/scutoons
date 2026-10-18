@@ -1,8 +1,9 @@
-// collage-edit.ts + collage-pick.ts (agents/research/COLLAGE.md §5, §7): copy-on-write effects over a look, the picked
+// collage-edit.ts + collage-pick.ts (agents/research/COLLAGE.md §5, §7, §12.4): copy-on-write effects over a look (a
+// code look or a custom preset), the picked
 // file in the host's path form, the shapes' filters, titles and pages, the layer list with pieces
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { collageLook, pieceStyle, type CollagePiece } from '@scutoons/content';
+import { collageLook, pieceStyle, type CollagePiece, type CollagePreset } from '@scutoons/content';
 import {
 	canMoveLayerRow,
 	editEffect,
@@ -318,4 +319,75 @@ test('the selected piece follows its piece through a Layers reorder and an undo 
 	assert.equal(followPieces({ kind: 'piece', index: 3 }, piecesMoved(added, before)), null, 'undo of an add: the piece is gone, let go');
 	assert.deepEqual(piecesMoved([{ src: 'x' }, piece({ id: 'b' })], [{ src: 'x' }]), [0, -1], 'no id: its index while there is one');
 	assert.deepEqual(piecesMoved(undefined, before), []);
+});
+
+// ── custom presets (`colorations`, research/COLLAGE.md §12.4): copy-on-write starts from the stored preset ──────────
+const NIGHT: CollagePreset = {
+	id: 'night',
+	name: 'Night',
+	fill: '#1a2b6d',
+	blend: 'multiply',
+	outline: { color: '#ffcc00', width: 1.5 },
+	shadow: { color: '#000033', x: 1, y: 3, blur: 5 },
+	blur: { amount: 2 }
+};
+/** the stored list as the document holds it (a fresh copy per test – a test that wrote into it fails the next) */
+const nightList = (): CollagePreset[] => [JSON.parse(JSON.stringify(NIGHT))];
+
+test("editEffect copies a custom preset's shadow before changing x – a copy, the stored preset stays", () => {
+	const list = nightList();
+	const p = piece({ preset: 'night' });
+	editEffect(p, 'shadow', { x: 4 }, undefined, list);
+	assert.deepEqual(p.style?.shadow, { color: '#000033', x: 4, y: 3, blur: 5 });
+	assert.notEqual(p.style?.shadow, list[0].shadow, "the piece's own object, never the preset's");
+	assert.deepEqual(list, [NIGHT], 'the preset is untouched');
+	assert.equal(pieceStyle(p, list).outline?.width, 1.5, "the preset's outline still applies");
+	editEffect(p, 'outline', { width: 3 }, undefined, list);
+	assert.deepEqual(p.style?.outline, { color: '#ffcc00', width: 3 });
+	// a deleted preset still draws – its values are still copied
+	const removed = [{ ...nightList()[0], removed: true }];
+	const q = piece({ preset: 'night' });
+	editEffect(q, 'shadow', { y: 9 }, undefined, removed);
+	assert.deepEqual(q.style?.shadow, { color: '#000033', x: 1, y: 9, blur: 5 });
+	// without the list the id is no look: the defaults
+	const r = piece({ preset: 'night' });
+	editEffect(r, 'shadow', { x: 4 });
+	assert.deepEqual(r.style?.shadow, { color: '#111111', x: 4, y: 2, blur: 4 });
+});
+
+test("clearing an effect a custom preset has writes null; a colour retyped brings the preset's back as it was", () => {
+	const list = nightList();
+	const p = piece({ preset: 'night' });
+	setEffect(p, 'outline', undefined, list);
+	assert.equal(p.style?.outline, null, 'off over the preset');
+	assert.equal(pieceStyle(p, list).outline, undefined);
+	const without = piece({ preset: 'night', style: { outline: { color: '#000000', width: 1 } } });
+	setEffect(without, 'outline', undefined);
+	assert.equal(without.style, undefined, 'without the list the preset has no outline: the key goes');
+	const cleared: ClearedEffects = new Map();
+	const q = piece({ preset: 'night' });
+	setEffectColor(q, 'shadow', undefined, cleared, list);
+	assert.equal(q.style?.shadow, null);
+	setEffectColor(q, 'shadow', '#ff0000', cleared, list);
+	assert.deepEqual(q.style?.shadow, { color: '#ff0000', x: 1, y: 3, blur: 5 }, "the preset's offsets and blur");
+	assert.deepEqual(list, [NIGHT]);
+});
+
+test("setFillKind starts from a custom preset's colour, setBlurRamp keeps its amount", () => {
+	const list = nightList();
+	const p = piece({ preset: 'night' });
+	assert.equal(setFillKind(p, 'color', list), false, "the preset's colour is the kind it has: no own copy");
+	assert.equal('style' in p, false);
+	assert.equal(setFillKind(p, 'gradient', list), true);
+	assert.deepEqual(p.style?.fill, { stops: [{ at: 0, color: '#1a2b6d' }, { at: 100, color: '#ffffff' }] });
+	const off = piece({ preset: 'night' });
+	setFillKind(off, 'none', list);
+	assert.equal(off.style?.fill, null, "none over the preset's fill = off");
+	assert.equal(setFillKind(off, 'color', list), true);
+	assert.equal(off.style, undefined, "switched back on: the preset's fill again");
+	const blur = piece({ preset: 'night' });
+	assert.equal(setBlurRamp(blur, false, list), false, "the preset's even blur: a re-click changes nothing");
+	assert.equal(setBlurRamp(blur, true, list), true);
+	assert.deepEqual(blur.style?.blur, { amount: 2, from: { x: 50, y: 0 }, to: { x: 50, y: 100 } });
+	assert.deepEqual(list, [NIGHT]);
 });

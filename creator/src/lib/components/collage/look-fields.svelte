@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { ColorField, PropRow, PropSelect, ScrubNumber, Segmented } from '@scutoons/ui';
-	import { BLEND_MODES, pieceStyle, round2, type CollagePiece } from '@scutoons/content';
+	import { BLEND_MODES, pieceStyle, round2, type CollagePiece, type PresetList } from '@scutoons/content';
 	import { blurKind, editEffect, fillKind, setBlurRamp, setEffect, setEffectColor, setFillKind, setPlain, RAMP_POINTS, type ClearedEffects, type FillKind } from '$lib/editor/collage-edit.ts';
 	import { blendLabel } from '$lib/editor/collage-words.ts';
 	import GradientField from '$lib/components/collage/gradient-field.svelte';
@@ -9,29 +9,39 @@
 
 	/**
 	 * A piece's colouration fields (research/COLLAGE.md §7): opacity + blend, fill (none / colour / gradient), outline,
-	 * shadow, blur (even or a ramp between two points). The fields show the piece as drawn (`pieceStyle`: its look under
-	 * its own values); a change makes that key the piece's own (collage-edit.ts – copy-on-write), clearing an effect
+	 * shadow, blur (even or a ramp between two points). The fields show the piece as drawn (`pieceStyle`: its look – a code
+	 * look or a custom preset of `presets`, §12 – under its own values); a change makes that key the piece's own
+	 * (collage-edit.ts – copy-on-write), clearing an effect
 	 * turns it off – an outline / shadow colour retyped brings it back as it was (`setEffectColor`); the fill's colour
 	 * field never clears the fill (only the kind None does). Lengths are % of the piece's width (the same look at every
 	 * size).
 	 */
-	let { piece, change }: { piece: CollagePiece; change: (edit: (piece: CollagePiece) => void, key: string) => void } = $props();
+	let {
+		piece,
+		presets,
+		change
+	}: {
+		piece: CollagePiece;
+		/** the stored custom presets (presets-doc.ts `ownPresets`) */
+		presets?: PresetList;
+		change: (edit: (piece: CollagePiece) => void, key: string) => void;
+	} = $props();
 
-	const style = $derived(pieceStyle(piece));
+	const style = $derived(pieceStyle(piece, presets));
 	/** the look's values alone (the plain fields' placeholders) */
-	const look = $derived(pieceStyle({ preset: piece.preset }));
+	const look = $derived(pieceStyle({ preset: piece.preset }, presets));
 	const fill = $derived(style.fill);
 	const fillKindNow = $derived(fillKind(fill));
 	const blurKindNow = $derived(blurKind(style.blur));
 
 	// Segmented sends the chosen option again: the kind it has is no edit (no undo step, the values stay)
 	function setFill(kind: FillKind) {
-		if (kind !== fillKindNow) change((p) => setFillKind(p, kind), 'fill');
+		if (kind !== fillKindNow) change((p) => setFillKind(p, kind, presets), 'fill');
 	}
 
 	/** the outlines / shadows a colour field cleared in this inspector (by piece id) – a retype brings them back */
 	const cleared: ClearedEffects = new Map();
-	const effectColor = (key: 'outline' | 'shadow', color: string | undefined) => change((p) => setEffectColor(p, key, color, cleared), `${key}.color`);
+	const effectColor = (key: 'outline' | 'shadow', color: string | undefined) => change((p) => setEffectColor(p, key, color, cleared, presets), `${key}.color`);
 </script>
 
 <PropRow label={m['creator.piece_blend']()} testid="piece-blend-row">
@@ -77,10 +87,10 @@
 	{#if typeof fill === 'string'}
 		<span data-prop-line>
 			<!-- emptied to retype: the fill stays (the field would vanish with it) – the kind None turns it off -->
-			<ColorField label={m['creator.piece_fill_color']()} value={fill} onchange={(v) => v && change((p) => setEffect(p, 'fill', v), 'fill.color')} testid="piece-fill-value" />
+			<ColorField label={m['creator.piece_fill_color']()} value={fill} onchange={(v) => v && change((p) => setEffect(p, 'fill', v, presets), 'fill.color')} testid="piece-fill-value" />
 		</span>
 	{:else if fill}
-		<GradientField value={fill} onchange={(g) => change((p) => setEffect(p, 'fill', g), 'fill.gradient')} />
+		<GradientField value={fill} onchange={(g) => change((p) => setEffect(p, 'fill', g, presets), 'fill.gradient')} />
 	{/if}
 </PropRow>
 
@@ -93,7 +103,7 @@
 		testid="piece-outline"
 	/>
 	{#if style.outline}
-		<ScrubNumber icon="outline-width" label={m['creator.piece_outline_width']()} unit="%" step={0.1} min={0} value={style.outline.width} required onchange={(v) => change((p) => editEffect(p, 'outline', { width: v ?? 0 }), 'outline.width')} testid="piece-outline-width" />
+		<ScrubNumber icon="outline-width" label={m['creator.piece_outline_width']()} unit="%" step={0.1} min={0} value={style.outline.width} required onchange={(v) => change((p) => editEffect(p, 'outline', { width: v ?? 0 }, undefined, presets), 'outline.width')} testid="piece-outline-width" />
 	{/if}
 </PropRow>
 
@@ -116,13 +126,13 @@
 			max={100}
 			value={shadow.opacity === undefined ? undefined : round2(shadow.opacity * 100)}
 			placeholder="100"
-			onchange={(v) => change((p) => editEffect(p, 'shadow', { opacity: v === undefined ? undefined : Math.round(v * 100) / 10000 }), 'shadow.opacity')}
+			onchange={(v) => change((p) => editEffect(p, 'shadow', { opacity: v === undefined ? undefined : Math.round(v * 100) / 10000 }, undefined, presets), 'shadow.opacity')}
 			testid="piece-shadow-opacity"
 		/>
 		<span class="line" data-prop-line>
-			<ScrubNumber tag="X" label={m['creator.piece_shadow_x']()} unit="%" step={0.1} value={shadow.x} required onchange={(v) => change((p) => editEffect(p, 'shadow', { x: v ?? 0 }), 'shadow.x')} testid="piece-shadow-x" />
-			<ScrubNumber tag="Y" label={m['creator.piece_shadow_y']()} unit="%" step={0.1} value={shadow.y} required onchange={(v) => change((p) => editEffect(p, 'shadow', { y: v ?? 0 }), 'shadow.y')} testid="piece-shadow-y" />
-			<ScrubNumber icon="blur" label={m['creator.piece_shadow_blur']()} unit="%" step={0.1} min={0} value={shadow.blur} required onchange={(v) => change((p) => editEffect(p, 'shadow', { blur: v ?? 0 }), 'shadow.blur')} testid="piece-shadow-blur" />
+			<ScrubNumber tag="X" label={m['creator.piece_shadow_x']()} unit="%" step={0.1} value={shadow.x} required onchange={(v) => change((p) => editEffect(p, 'shadow', { x: v ?? 0 }, undefined, presets), 'shadow.x')} testid="piece-shadow-x" />
+			<ScrubNumber tag="Y" label={m['creator.piece_shadow_y']()} unit="%" step={0.1} value={shadow.y} required onchange={(v) => change((p) => editEffect(p, 'shadow', { y: v ?? 0 }, undefined, presets), 'shadow.y')} testid="piece-shadow-y" />
+			<ScrubNumber icon="blur" label={m['creator.piece_shadow_blur']()} unit="%" step={0.1} min={0} value={shadow.blur} required onchange={(v) => change((p) => editEffect(p, 'shadow', { blur: v ?? 0 }, undefined, presets), 'shadow.blur')} testid="piece-shadow-blur" />
 		</span>
 	{/if}
 </PropRow>
@@ -136,7 +146,7 @@
 		min={0}
 		value={style.blur?.amount}
 		placeholder="0"
-		onchange={(v) => change((p) => (v === undefined ? setEffect(p, 'blur', undefined) : editEffect(p, 'blur', { amount: v })), 'blur.amount')}
+		onchange={(v) => change((p) => (v === undefined ? setEffect(p, 'blur', undefined, presets) : editEffect(p, 'blur', { amount: v }, undefined, presets)), 'blur.amount')}
 		testid="piece-blur"
 	/>
 	{#if style.blur}
@@ -145,7 +155,7 @@
 			label={m['creator.piece_blur_kind']()}
 			square
 			value={blurKindNow}
-			onchange={(k) => k !== blurKindNow && change((p) => setBlurRamp(p, k === 'ramp'), 'blur.kind')}
+			onchange={(k) => k !== blurKindNow && change((p) => setBlurRamp(p, k === 'ramp', presets), 'blur.kind')}
 			options={[
 				{ value: 'even', icon: 'circle', title: m['creator.piece_blur_even'](), testid: 'piece-blur-even' },
 				{ value: 'ramp', icon: 'gradient', title: m['creator.piece_blur_ramp'](), testid: 'piece-blur-ramp' }
@@ -153,7 +163,7 @@
 			testid="piece-blur-kind"
 		/>
 		{#if blur.from && blur.to}
-			<PointsField from={blur.from ?? RAMP_POINTS.from} to={blur.to ?? RAMP_POINTS.to} onchange={(from, to) => change((p) => editEffect(p, 'blur', { from, to }), 'blur.points')} />
+			<PointsField from={blur.from ?? RAMP_POINTS.from} to={blur.to ?? RAMP_POINTS.to} onchange={(from, to) => change((p) => editEffect(p, 'blur', { from, to }, undefined, presets), 'blur.points')} />
 		{/if}
 	{/if}
 </PropRow>

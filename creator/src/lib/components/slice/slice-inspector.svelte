@@ -45,6 +45,7 @@
 		locale,
 		characters,
 		choices,
+		presets,
 		groupLabels,
 		chapterAudio,
 		librarySample,
@@ -70,6 +71,8 @@
 		locale: string;
 		characters: { name: string; label?: string }[];
 		choices: CharacterChoices | undefined;
+		/** the custom collage presets' document (presets-doc.ts) – for the piece inspector */
+		presets?: ContentDoc;
 		groupLabels: string[];
 		chapterAudio: any;
 		/** a picked / uploaded sample file → its id in the chapter's sample library (added when new) */
@@ -160,7 +163,7 @@
 			/>
 		{:else if selection?.kind === 'piece' && pieces[selection.index]}
 			<hr />
-			<PieceInspector {doc} path={[...slicePath, 'pieces', selection.index]} host="slice" registry={choices?.registry} {moods} {onremove} />
+			<PieceInspector {doc} path={[...slicePath, 'pieces', selection.index]} host="slice" registry={choices?.registry} {moods} {presets} {onremove} />
 		{/if}
 	{:else if view.inspectorTab === 'slice'}
 		<SliceMedia {doc} {slicePath} {toon} place="{toon}/s{seasonNumber}/c{chapterNumber}/" />

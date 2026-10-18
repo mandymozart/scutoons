@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { NEUTRAL_LOCALE, type CollagePiece, type Path } from '@scutoons/content';
+	import { NEUTRAL_LOCALE, bakePresets, validateFile, type CollagePiece, type Path } from '@scutoons/content';
 	import { ScoreView } from '@scutoons/reader/score';
 	import { findBar, type BarRef, type PageGeometry } from '@scutoons/reader/score-anchors';
 	import { Divider, Icon, Segmented, liveRegion, panelWidth, region } from '@scutoons/ui';
@@ -18,7 +18,8 @@
 	import { pieceLabel, scoreViewLabels } from '$lib/editor/collage-words.ts';
 	import { focusIn, isField } from '$lib/editor/editor-keys.ts';
 	import { neutralDoc } from '$lib/editor/languages.ts';
-	import { screenZoom, storeScreen, storedScreen, type Screen } from '$lib/editor/screens.ts';
+	import { judgedPresets, ownPresets, presetsDoc } from '$lib/editor/presets-doc.ts';
+	import { firstScreen, pickedScreen, type Screen } from '$lib/editor/screens.ts';
 	import * as sc from '$lib/editor/score-collage.ts';
 	import { contentName } from '$lib/editor/text-language.svelte.ts';
 	import { usePageNav } from '$lib/nav.svelte.ts';
@@ -33,7 +34,8 @@
 	 * the pieces' boxes over it (ScoreOverlay: move = re-anchor to the bar and staff under it, the corner scales). Beside
 	 * it (below on narrower screens) the pieces (CollageList), "Add a piece …" (the slices' picker; it lands in the middle
 	 * of the page shown) and the slices' piece inspector. Edited in the item's document: Save draft, History, Publish –
-	 * MetaPage. The file is the published one (signed like a reader's); the collage remembers it (`file`).
+	 * MetaPage. The file is the published one (signed like a reader's); the collage remembers it (`file`). Custom presets
+	 * (`colorations`, research/COLLAGE.md §12.4): drawn from the newest draft – a companion (saved, checked, published).
 	 */
 	let { id }: { id: string } = $props();
 
@@ -42,9 +44,10 @@
 	const doc = neutralDoc(catalogKey('items', id));
 	const registry = registryDoc();
 	const moods = moodsDoc();
+	const presets = presetsDoc();
 	let toons = $state<ToonInfo[]>([]);
 	onMount(() => {
-		void Promise.all([loadCatalogDoc(doc, 'items', id), registry.load(), moods.load()]);
+		void Promise.all([loadCatalogDoc(doc, 'items', id), registry.load(), moods.load(), presets.load()]);
 		void loadToons(getLocale()).then((list) => (toons = list));
 	});
 
@@ -53,6 +56,8 @@
 	const file = $derived(sc.partFile(item, part));
 	const name = $derived(item ? contentName(item.name, id) || id : id);
 	const pieces = $derived(sc.sheetPieces(item, part));
+	/** as drawn: a custom preset baked into the piece's style (the overlay and the list keep the stored pieces) */
+	const drawn = $derived(bakePresets(pieces, ownPresets(presets)));
 
 	// the published file, signed like a reader's (a draft's new file opens once it is published)
 	let src = $state<string | null>(null);
@@ -68,16 +73,9 @@
 
 	// ── the screen: a phone or a desktop, each starting at the zoom a reader's starts with ──
 	const SCREEN_KEY = 'sc-score-stage-screen';
-	const firstScreen = storedScreen(SCREEN_KEY);
-	let screen = $state<Screen>(firstScreen);
-	let zoom = $state(screenZoom(firstScreen));
+	let shown = $state(firstScreen(SCREEN_KEY));
 	let page = $state(1);
-	function pickScreen(next: Screen) {
-		if (next === screen) return;
-		screen = next;
-		zoom = screenZoom(next);
-		storeScreen(SCREEN_KEY, next);
-	}
+	const pickScreen = (next: Screen) => (shown = pickedScreen(SCREEN_KEY, shown.screen, next) ?? shown);
 
 	// ── the layout: the file's bars, each rendered page's geometry (the overlay reports it) ──
 	let bars = $state.raw<BarRef[] | null>(null);
@@ -160,7 +158,10 @@
 		e.preventDefault();
 	}
 
-	const validate = () => sc.stageProblems(item, part, bars, doc.entity, (bar) => m['creator.collage_missing_bar']({ bar }));
+	const validate = () => [
+		...sc.stageProblems(item, part, bars, doc.entity, (bar) => m['creator.collage_missing_bar']({ bar }), judgedPresets(presets)),
+		...(presets.dirty ? validateFile('colorations', presets.data[N], N, { file: presets.entity }) : [])
+	];
 	const labels = scoreViewLabels();
 
 	let stageEl = $state<HTMLElement>();
@@ -177,7 +178,7 @@
 
 <svelte:window {onkeydown} />
 
-<MetaPage toon="" title={m['creator.collage_stage_title']({ name })} docs={[doc]} {validate} fill help="catalog">
+<MetaPage toon="" title={m['creator.collage_stage_title']({ name })} docs={[doc]} companions={() => [presets]} {validate} fill help="catalog">
 	<div class="stage" bind:this={stageEl} style:--panel-width={sideSize.css} use:region={{ name: 'score-stage', initial: true }} data-testid="score-stage">
 		<section class="main">
 			<div class="bar">
@@ -185,7 +186,7 @@
 					label={m['creator.strip_preview_screen']()}
 					square
 					radio
-					value={screen}
+					value={shown.screen}
 					onchange={pickScreen}
 					options={[
 						{ value: 'phone', icon: 'smartphone', title: m['creator.strip_preview_phone'](), testid: 'stage-phone' },
@@ -200,8 +201,8 @@
 				{:else if unsigned}
 					<p class="sc-empty" data-testid="stage-unsigned">{m['creator.collage_stage_unsigned']()}</p>
 				{:else if src}
-					<ScoreFrame {screen}>
-						<ScoreView {src} title={name} {labels} {pieces} pieceSrc={asset} embedded bind:zoom bind:page {follow} {onlayout}>
+					<ScoreFrame screen={shown.screen}>
+						<ScoreView {src} title={name} {labels} pieces={drawn} pieceSrc={asset} embedded bind:zoom={shown.zoom} bind:page {follow} {onlayout}>
 							{#snippet decor(n, geometry)}
 								{#if geometry}
 									<ScoreOverlay {pieces} {geometry} {selected} onselect={(pieceId) => (selected = pieceId)} onmove={move} onscale={scale} ongeometry={(geo) => geometries.set(n, geo)} label={(p) => pieceLabel(p, registryOf(registry), moodsOf(moods))} scaleLabel={m['creator.collage_scale']()} />
@@ -225,7 +226,7 @@
 				<button type="button" class="secondary" disabled={!src || !bars} onclick={() => (picking = true)} data-testid="stage-add-piece"><Icon name="plus" /> {m['creator.add_slice_piece']()}</button>
 			</div>
 			{#if piece}
-				<PieceInspector {doc} path={piecePath} host="score" registry={registryOf(registry)} moods={moodsOf(moods)} onremove={() => remove(piece.id)} onpage={setPage} />
+				<PieceInspector {doc} path={piecePath} host="score" registry={registryOf(registry)} moods={moodsOf(moods)} {presets} onremove={() => remove(piece.id)} onpage={setPage} />
 			{/if}
 		</aside>
 	</div>

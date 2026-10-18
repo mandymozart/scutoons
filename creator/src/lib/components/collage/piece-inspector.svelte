@@ -24,6 +24,7 @@
 	import { figureImage, figureViews, imageRatio } from '$lib/editor/collage-pick.ts';
 	import { lookLabel, pieceKindLabel, pieceLabel } from '$lib/editor/collage-words.ts';
 	import { isKnownMissing } from '$lib/editor/characters.ts';
+	import { ownPresets } from '$lib/editor/presets-doc.ts';
 	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { toast } from '$lib/toasts.ts';
@@ -46,6 +47,7 @@
 		host,
 		registry = null,
 		moods,
+		presets,
 		onremove,
 		onpage
 	}: {
@@ -55,6 +57,8 @@
 		host: 'slice' | 'score';
 		registry?: CharacterRegistry | null;
 		moods?: MoodVocabulary | null;
+		/** the custom collage presets (`colorations`, presets-doc.ts – research/COLLAGE.md §12): the fields copy-on-write from them */
+		presets?: ContentDoc;
 		onremove?: () => void;
 		/** a score piece's Bar / Page switch, done by the host (place-fields.svelte) */
 		onpage?: (page: boolean) => void;
@@ -187,7 +191,7 @@
 			<summary>{m['creator.advanced']()}</summary>
 			<div class="props">
 				<PlaceFields {doc} {path} {piece} {host} {onpage} />
-				<LookFields {piece} {change} />
+				<LookFields {piece} presets={ownPresets(presets)} {change} />
 			</div>
 		</details>
 	</div>

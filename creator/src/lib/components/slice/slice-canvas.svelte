@@ -31,7 +31,7 @@
 	import CanvasTailHandles from '$lib/components/slice/canvas-tail-handles.svelte';
 	import { pieceItems, pieceTakesPointer } from '$lib/editor/canvas-pieces.ts';
 	import { editEffect } from '$lib/editor/collage-edit.ts';
-	import type { CollagePiece, PiecePoint } from '@scutoons/content';
+	import { bakePresets, type CollagePiece, type PiecePoint, type PresetList } from '@scutoons/content';
 	import { centreSnap, deltas, dialogScale, gridSteps, movedRect, rotationAngle, scaleFactor, scaledRect, transformedDeltas, type Factors, type Handle, type Rect } from '$lib/editor/canvas-geometry.ts';
 
 	let {
@@ -45,6 +45,7 @@
 		live = true,
 		zoom = null,
 		pieceName,
+		presets,
 		onshown,
 		onselect,
 		oncreate
@@ -76,6 +77,11 @@
 		zoom?: number | null;
 		/** a collage piece's name on its box (the editor's `pieceLabel`, as the Layers list; default: its file's) */
 		pieceName?: (piece: CollagePiece) => string;
+		/**
+		 * the custom collage presets (the newest draft of `colorations`, research/COLLAGE.md §12.4): the pieces that name one
+		 * are drawn with it, as readers get them (the server bakes the published ones)
+		 */
+		presets?: PresetList;
 		/** the factor the canvas is shown at (its width / the slice's 1x width), on every size change */
 		onshown?: (factor: number) => void;
 		onselect?: (selection: CanvasSelection | null) => void;
@@ -95,6 +101,8 @@
 	/** the slice's 1x size (standard 390 × 625) – the canvas never shows it larger */
 	const sliceWidth = $derived(slice?.width > 0 ? slice.width : DEFAULT_SLICE.width);
 	const sliceRatio = $derived(slice?.width > 0 && slice?.height > 0 ? slice.height / slice.width : SLICE_RATIO);
+	/** the collage pieces as drawn: a custom preset baked into the piece's style (the same indices – boxes, ramp dots) */
+	const drawn = $derived(bakePresets(slice?.pieces as CollagePiece[] | undefined, presets));
 
 	interface Item {
 		kind: ItemKind;
@@ -159,7 +167,7 @@
 			if (it?.rect) out.push({ kind: 'item', index: i, path, rect: it.rect, label: `◆ ${itemName(def, it.item ?? '?')}`, rotation: num(it.rotation, 0), scale: 1, f: anchorFactors(it.anchor) });
 		});
 		// collage pieces: the height from the file's ratio (canvas-pieces.ts)
-		out.push(...pieceItems(slice?.pieces, slicePath, sliceRatio, pieceName));
+		out.push(...pieceItems(drawn, slicePath, sliceRatio, pieceName));
 		(slice?.audio?.audio?.samples ?? []).forEach((s: any, i: number) => {
 			const path = [...slicePath, 'audio', 'audio', 'samples', i, 'trigger', 'rect'];
 			if (s?.trigger?.rect) out.push({ kind: 'sample', index: i, path, rect: s.trigger.rect, label: `♪ ${s.id} (${s.trigger.type})`, rotation: 0, scale: 1, f: TOP_LEFT });
@@ -297,7 +305,7 @@
 	/** a blur ramp's dot dragged: the piece's own blur gets both points (one undo step per drag – `onbegin`) */
 	function moveRamp(item: Item, from: PiecePoint, to: PiecePoint) {
 		const piece = doc.get(doc.primary, item.path.slice(0, -1));
-		if (piece) editEffect(piece, 'blur', { from, to });
+		if (piece) editEffect(piece, 'blur', { from, to }, undefined, presets);
 	}
 
 	function heightOf(item: Item) {
@@ -627,7 +635,7 @@
 	>
 		{#if image}
 			<!-- the picture + its collage pieces: one blend group, under the lettering (COLLAGE.md §3) -->
-			<SlicePicture always eager pieces={slice?.video ? undefined : slice?.pieces} {pieceSrc}>
+			<SlicePicture always eager pieces={slice?.video ? undefined : drawn} {pieceSrc}>
 				<img
 					src={image}
 					alt=""

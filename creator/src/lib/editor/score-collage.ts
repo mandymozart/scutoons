@@ -2,7 +2,7 @@
 // open (`readerPart`: the choir when there is one, else the full score), bound to that part's file. Pure functions on
 // the stored item – the stage runs each inside one `doc.edit` or one gesture (`gestureEdit`): one undo step; where a
 // piece sits comes from the page geometry of the score view (@scutoons/reader/score-anchors), never from the DOM.
-import { anchorFactors, readerPart, validateContainers, type CollagePiece, type CollageSheet, type Path, type Problem, type ScoreAt } from '@scutoons/content';
+import { anchorFactors, readerPart, validateContainers, type CollagePiece, type CollageSheet, type Path, type PresetList, type Problem, type ScoreAt } from '@scutoons/content';
 import { anchorScorePiece, findBar, placeScorePiece, type BarRef, type PageGeometry, type ScorePlace } from '@scutoons/reader/score-anchors';
 import { pickedToPiece, type PickedPiece } from './collage-pick.ts';
 
@@ -238,9 +238,10 @@ export function fileChanged(item: unknown, part: string | null): boolean {
 
 /**
  * The stage's problems in the item document `entity`: the collage's own (validateContainers on this item – a broken
- * piece, the limits, the file it was placed on) and the pieces whose bar the file lacks (readers skip them)
+ * piece, the limits, the file it was placed on, a custom preset `presets` lacks – none = not judged) and the pieces whose
+ * bar the file lacks (readers skip them)
  */
-export function stageProblems(item: unknown, part: string | null, bars: readonly BarRef[] | null, entity: string, missing: (bar: string) => string): Problem[] {
+export function stageProblems(item: unknown, part: string | null, bars: readonly BarRef[] | null, entity: string, missing: (bar: string) => string, presets?: PresetList): Problem[] {
 	const out: Problem[] = [];
 	if (!isObj(item)) return out;
 	const where = collagePath(part);
@@ -248,7 +249,7 @@ export function stageProblems(item: unknown, part: string | null, bars: readonly
 	validateContainers({ items: [item] }, (level, path, message) => {
 		const local = path.slice(2);
 		if (inside(local)) out.push({ level, file: entity, locale: null, path: local, message });
-	});
+	}, presets);
 	const pieces = sheetPieces(item, part);
 	const gone = missingBars(pieces, bars);
 	pieces.forEach((p, i) => {

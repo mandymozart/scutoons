@@ -75,3 +75,22 @@ export function storeScreen(key: string, screen: Screen): void {
 
 /** the zoom a reader's score view starts with on that screen (narrower than 40rem at the reader's root: the phone zoom) */
 export const screenZoom = (screen: Screen): number => (SCREENS[screen].width / SCREENS[screen].root < 40 ? PHONE_ZOOM : DEFAULT_ZOOM);
+
+/** a stage's screen and its zoom (the score stage: the phone or the desktop, each at the zoom a reader's starts with) */
+export interface StageScreen {
+	screen: Screen;
+	zoom: number;
+}
+
+/** the screen picked last under `key`, at the zoom a reader's starts with there */
+export function firstScreen(key: string): StageScreen {
+	const screen = storedScreen(key);
+	return { screen, zoom: screenZoom(screen) };
+}
+
+/** `next` picked over the screen `shown` (remembered under `key`): it at its start zoom – null when it is the one shown */
+export function pickedScreen(key: string, shown: Screen, next: Screen): StageScreen | null {
+	if (next === shown) return null;
+	storeScreen(key, next);
+	return { screen: next, zoom: screenZoom(next) };
+}

@@ -62,6 +62,7 @@
 	import SliceToolbar from '$lib/components/slice/slice-toolbar.svelte';
 	import SliceInspector from '$lib/components/slice/slice-inspector.svelte';
 	import { mapDoc as worldMapDoc } from '$lib/editor/map.ts';
+	import { judgedPresets, ownPresets, presetsDoc } from '$lib/editor/presets-doc.ts';
 	import MetaPanel from '$lib/components/chapter/meta-panel.svelte';
 	import FeaturingField from '$lib/components/fields/featuring-field.svelte';
 	import RelatedItemsField from '$lib/components/fields/related-items-field.svelte';
@@ -159,6 +160,10 @@
 	const cast = castDoc(toon);
 	const registry = registryDoc();
 	const moods = moodsDoc();
+	// the custom collage presets (research/COLLAGE.md §12.4): the canvas draws, the fields edit, the checks judge the
+	// pieces with its newest draft; saved / published with the chapter while edited here
+	const colorations = presetsDoc();
+	const collagePresets = $derived(ownPresets(colorations));
 	// the world map: read for the expressions' map facts (places are unlocked by unlockLocation events – owner 2026-10-11)
 	const worldMap = worldMapDoc();
 	/** the world map's place ids (unlockLocation events point at them); undefined until it is loaded = no check */
@@ -263,7 +268,8 @@
 		season,
 		...Object.values(refs),
 		...(castTouched || cast.dirty ? [cast] : []),
-		...(worldMap.dirty ? [worldMap] : [])
+		...(worldMap.dirty ? [worldMap] : []),
+		...(colorations.dirty ? [colorations] : [])
 	]);
 	const anyDirty = $derived(allDocs.some((d) => d.dirty));
 	/** the chapter's documents with slices (the chapter + its separate scenes) */
@@ -288,7 +294,7 @@
 	}
 
 	onMount(async () => {
-		await Promise.all([chapter.load(), season.load(), cast.load(), registry.load(), moods.load(), worldMap.load()]);
+		await Promise.all([chapter.load(), season.load(), cast.load(), registry.load(), moods.load(), worldMap.load(), colorations.load()]);
 		loadToons(getLocale()).then((list) => (toonInfos = list));
 		await Promise.all(groups.filter((g) => g?.ref?.src).map((g) => ensureRef(g.ref.src)));
 		refreshImages();
@@ -592,6 +598,7 @@
 		const moodIds = moodsOf(moods).moods.map((x) => x.id);
 		const catalogItems = itemCatalog.catalog ? itemCatalog.catalog.items.map((i) => i.id) : undefined;
 		const itemRespawn = itemCatalog.catalog ? Object.fromEntries(itemCatalog.catalog.items.map((i) => [i.id, i.respawn ?? null])) : undefined;
+		const presets = judgedPresets(colorations);
 		for (const doc of allDocs) {
 			if (doc.loading) continue;
 			const data = doc.data[doc.primary];
@@ -602,6 +609,8 @@
 				cast: hasCast ? castIndex(castOf(cast), SEASON) : undefined,
 				expressions,
 				moods: moodIds,
+				// collage pieces: a custom preset is judged once the presets are loaded
+				presets,
 				// the chapter's visibility: its entry in the season (null = none)
 				seasonStatus: doc === chapter ? seasonStatusOf(season, languages.source, chapterNumber) : undefined,
 				// linked groups: a ref group's `continues` lives in its scene
@@ -1305,6 +1314,7 @@
 							live={liveRegion.is(SLICE_REGION)}
 							zoom={view.zoom}
 							pieceName={(p) => pieceLabel(p, choices?.registry, choices?.moods)}
+							presets={collagePresets}
 							onshown={(f) => (view.shownZoom = f)}
 							onselect={(next) => view.select(next)}
 							oncreate={(t, rect) => CREATE[t](rect)}
@@ -1364,6 +1374,7 @@
 					locale={displayLocale}
 					{characters}
 					{choices}
+					presets={colorations}
 					{groupLabels}
 					chapterAudio={chapterData?.audio}
 					{librarySample}
