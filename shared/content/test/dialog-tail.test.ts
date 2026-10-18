@@ -14,6 +14,8 @@ import {
 	tailBase,
 	tailHalfWidth,
 	tailKindOf,
+	THOUGHT_CHAIN,
+	thoughtLayout,
 	thoughtTail,
 	tipOutside,
 	toLocal,
@@ -92,12 +94,52 @@ test('speech wedge and thought circles', () => {
 	assert.equal(w.stroke, 'M90 80 L60 200 L110 80');
 	assert.equal(w.fill, 'M90 77 L90 80 L60 200 L110 80 L110 77 Z');
 	const c = thoughtTail(base, { x: 100, y: 300 }, 20);
-	assert.equal(c.length, 3);
-	assert.ok(c[0].r > c[1].r && c[1].r > c[2].r);
-	assert.deepEqual([c[2].cx, c[2].cy], [100, 300]);
-	// the largest is off the bubble
+	assert.ok(c.length > 3);
+	for (let i = 1; i < c.length; i++) assert.ok(c[i - 1].r > c[i].r && c[i - 1].cy < c[i].cy);
+	assert.deepEqual([c.at(-1)!.cx, c.at(-1)!.cy], [100, 300]);
+	// the largest is off the bubble, all on the straight line base → tip
 	assert.ok(c[0].cy - c[0].r > 80);
-	assert.ok(c[0].cy < c[1].cy && c[1].cy < c[2].cy);
+	assert.ok(c.every((p) => p.cx === 100));
+	// a slanted tail: the first circle still clears the outline
+	const slant = thoughtTail(base, { x: 400, y: 160 }, 20);
+	assert.ok(slant[0].cy - slant[0].r > 80);
+	assert.deepEqual([slant.at(-1)!.cx, slant.at(-1)!.cy], [400, 160]);
+});
+
+test('the thought chain grows with its length (owner 2026-10-18: more and bigger circles for a longer tail)', () => {
+	const em = 16;
+	const lengths = [3, 5, 8, 12, 16, 20, 24].map((n) => n * em);
+	const chains = lengths.map((l) => thoughtLayout(l, em));
+	const counts = chains.map((c) => c.length);
+	for (let i = 1; i < counts.length; i++) assert.ok(counts[i] >= counts[i - 1], `count ${counts}`);
+	assert.ok(counts[0] >= THOUGHT_CHAIN.count[0] && counts.at(-1)! > counts[0] + 6);
+	for (const [i, c] of chains.entries()) {
+		const L = lengths[i];
+		// first ≈ 0.6 … 0.9em, growing with the length; the smallest 0.2 … 0.25em on the tip
+		assert.ok(c[0].r >= 0.6 * em - 1e-9 && c[0].r <= 0.9 * em + 1e-9, `first ${c[0].r}`);
+		assert.ok(c.at(-1)!.r >= 0.2 * em - 1e-9 && c.at(-1)!.r <= 0.25 * em + 1e-9);
+		if (i > 0) assert.ok(c[0].r >= chains[i - 1][0].r);
+		// shrinking steadily (one ratio), the last centre on the tip, the first just off the outline
+		const q = c[1].r / c[0].r;
+		for (let j = 1; j < c.length; j++) {
+			assert.ok(Math.abs(c[j].r / c[j - 1].r - q) < 1e-9);
+			assert.ok(c[j].d > c[j - 1].d);
+		}
+		assert.equal(c.at(-1)!.d, L);
+		assert.ok(Math.abs(c[0].d - c[0].r * (1 + THOUGHT_CHAIN.lift)) < 1e-9);
+		// even gaps: the centre distance is the same multiple of the neighbours' radii, near the pitch
+		const pitch = (c[1].d - c[0].d) / (c[0].r + c[1].r);
+		for (let j = 2; j < c.length; j++) assert.ok(Math.abs((c[j].d - c[j - 1].d) / (c[j - 1].r + c[j].r) - pitch) < 1e-9);
+		assert.ok(pitch > 1.15 && pitch < 1.7, `pitch ${pitch} at ${L / em}em`);
+	}
+	// at most the cap, however long
+	assert.equal(thoughtLayout(80 * em, em).length, THOUGHT_CHAIN.count[1]);
+	// a tail too short for three full circles: three smaller ones, still ending on the tip
+	const tiny = thoughtLayout(1.5 * em, em);
+	assert.equal(tiny.length, 3);
+	assert.ok(tiny[0].r < 0.6 * em && tiny.at(-1)!.d === 1.5 * em);
+	// lead pushes the first circle further out
+	assert.ok(thoughtLayout(10 * em, em, 1.6)[0].d > thoughtLayout(10 * em, em)[0].d);
 });
 
 test('the base jumps along: the side facing the tip when the stored one can not reach it ("Basis springt mit")', () => {

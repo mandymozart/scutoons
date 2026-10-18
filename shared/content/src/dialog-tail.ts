@@ -28,8 +28,21 @@ export interface FreeTail {
 export const TAIL_CORNER_INSET_REM = 1;
 /** a speech tail's base width, in em of the bubble's font (capped so it fits between the corner insets) */
 export const TAIL_BASE_EM = 1.5;
-/** a thought tail's circles, largest first (radius in em of the font): they get smaller towards the head */
-export const THOUGHT_RADII_EM = [0.5, 0.34, 0.22] as const;
+/**
+ * A thought tail's chain (owner 2026-10-18: "more bubbles must come when it gets longer … the size grows with the
+ * length"), radii in em of the font: the circle at the bubble grows from `first[0]` (a short tail, ≤ `lengthEm[0]`) to
+ * `first[1]` (a long one, ≥ `lengthEm[1]`), the one on the tip from `tip[0]` to `tip[1]`; `count` circles at the least /
+ * most; `pitch` = the centre distance in sums of the two neighbours' radii (1.4 = a gap of 0.4 × the pair: even, never
+ * floating); `lift` = the first circle's gap off the outline, in its radius.
+ */
+export const THOUGHT_CHAIN = {
+	first: [0.6, 0.9],
+	tip: [0.2, 0.25],
+	lengthEm: [4, 24],
+	count: [3, 24],
+	pitch: 1.4,
+	lift: 0.3
+} as const;
 
 export function isFreeTail(tail: unknown): tail is FreeTail {
 	if (!tail || typeof tail !== 'object') return false;
@@ -255,27 +268,81 @@ export function speechTail(base: TailBase, tip: Pt, halfWidth: number, depth: nu
 	return { fill: `M${pt(ai)} L${pt(a)} L${pt(tip)} L${pt(b)} L${pt(bi)} Z`, stroke: `M${pt(a)} L${pt(tip)} L${pt(b)}` };
 }
 
+/** one circle of a thought tail's chain: its radius and its centre's distance from the base along the line (px) */
+export interface ThoughtCircle {
+	r: number;
+	d: number;
+}
+
 /**
- * A thought tail (box frame, px): three circles from the outline to the tip, getting smaller towards it – the largest
- * just off the bubble, the smallest on the tip, the middle one between.
+ * The thought chain's layout for a tail `length` px long (base → tip) at `fontPx` (owner 2026-10-18, DESIGN.md
+ * "Tails"): the count follows the length (`THOUGHT_CHAIN.count`, as near to an even `pitch` as the count allows), the
+ * radii shrink steadily (geometric) from the circle at the bubble to the one on the tip, both growing a little with the
+ * length; neighbours keep a gap in proportion to their sizes; the first circle sits `lift` × its radius off the
+ * outline, the last one's centre on the tip. `lead` ≥ 1 stretches the first circle's distance (a tail leaving its side
+ * at a slant: the circle still clears the outline). A tail too short for three full circles shrinks them all.
  */
-export function thoughtTail(base: TailBase, tip: Pt, fontPx: number, gap = 0.2): { cx: number; cy: number; r: number }[] {
-	const [r1, r2, r3] = THOUGHT_RADII_EM.map((r) => r * fontPx);
+export function thoughtLayout(length: number, fontPx: number, lead = 1): ThoughtCircle[] {
+	const C = THOUGHT_CHAIN;
+	const em = fontPx > 0 ? fontPx : 16;
+	const L = Math.max(0, length);
+	const t = Math.min(1, Math.max(0, (L / em - C.lengthEm[0]) / (C.lengthEm[1] - C.lengthEm[0])));
+	const r0 = (C.first[0] + (C.first[1] - C.first[0]) * t) * em;
+	const rn = (C.tip[0] + (C.tip[1] - C.tip[0]) * t) * em;
+	const k = Math.max(1, lead);
+	const radiiFor = (n: number) => Array.from({ length: n }, (_, i) => r0 * Math.pow(rn / r0, i / (n - 1)));
+	// the pitch a count needs so the chain ends on the tip: (L − first centre) / Σ (neighbour pairs)
+	const pitchFor = (radii: number[]) => {
+		let pairs = 0;
+		for (let i = 1; i < radii.length; i++) pairs += radii[i - 1] + radii[i];
+		return (L - r0 * (1 + C.lift) * k) / pairs;
+	};
+	let best = radiiFor(C.count[0]);
+	let bestPitch = pitchFor(best);
+	for (let n = C.count[0] + 1; n <= C.count[1]; n++) {
+		const radii = radiiFor(n);
+		const p = pitchFor(radii);
+		if (Math.abs(p - C.pitch) < Math.abs(bestPitch - C.pitch)) {
+			best = radii;
+			bestPitch = p;
+		}
+	}
+	let radii = best;
+	let pitch = bestPitch;
+	// too short for three full circles at an even pitch: all shrink until they fit
+	if (pitch < C.pitch && radii.length === C.count[0]) {
+		let pairs = 0;
+		for (let i = 1; i < radii.length; i++) pairs += radii[i - 1] + radii[i];
+		const scale = L / (r0 * (1 + C.lift) * k + C.pitch * pairs);
+		radii = radii.map((r) => r * scale);
+		pitch = C.pitch;
+	}
+	const out: ThoughtCircle[] = [];
+	let d = radii[0] * (1 + C.lift) * k;
+	for (let i = 0; i < radii.length; i++) {
+		if (i > 0) d += pitch * (radii[i - 1] + radii[i]);
+		out.push({ r: radii[i], d });
+	}
+	out[out.length - 1].d = L;
+	return out;
+}
+
+/**
+ * A thought tail (box frame, px): the chain of `thoughtLayout` on the straight line from the base to the tip – the
+ * largest just off the bubble, the smallest on the tip.
+ */
+export function thoughtTail(base: TailBase, tip: Pt, fontPx: number): { cx: number; cy: number; r: number }[] {
 	const dx = tip.x - base.point.x;
 	const dy = tip.y - base.point.y;
 	const len = Math.hypot(dx, dy) || 1;
 	const u = { x: dx / len, y: dy / len };
-	const first = r1 + gap * fontPx;
-	const c1 = add(base.point, u, first);
-	const c3 = tip;
-	// the middle circle a little nearer the bubble than half way (the chain bunches towards the bubble)
-	const mid = first + Math.max(0, len - first) * 0.45;
-	const c2 = add(base.point, u, Math.max(mid, first + r1 + r2 + gap * fontPx * 0.5));
-	return [
-		{ cx: f1(c1.x), cy: f1(c1.y), r: f1(r1) },
-		{ cx: f1(c2.x), cy: f1(c2.y), r: f1(r2) },
-		{ cx: f1(c3.x), cy: f1(c3.y), r: f1(r3) }
-	];
+	// the share of the line that leaves the side (1 = straight out): a slanted tail moves its first circle further along
+	const out = u.x * base.normal.x + u.y * base.normal.y;
+	const lead = 1 / Math.max(0.2, out);
+	return thoughtLayout(len, fontPx, lead).map(({ r, d }) => {
+		const c = add(base.point, u, d);
+		return { cx: f1(c.x), cy: f1(c.y), r: f1(r) };
+	});
 }
 
 /** a rectangle as a path (for clip paths) */

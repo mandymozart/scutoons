@@ -660,10 +660,14 @@ Backwards compatible with the existing chapter-2 entry (`rect {x,y,width}` + `te
   box's laid-out size (`dialog/wobbly.ts`, deterministic per box id: the same bumps on every render); its tail defaults
   to none.
 - **Tails** (owner 2026-10-18, @scutoons/content dialog-tail.ts, reader dialog/tail.ts): `tail: { kind, tip, base }` on a
-  drawn bubble. `kind` = `speech` (a wedge, `TAIL_BASE_EM` 1.5em of the font wide at the base) or `thought` (three
-  circles, 0.5 / 0.34 / 0.22em, the largest just off the bubble, the smallest on the tip). `tip` = % of the slice, any
-  value (past 0 … 100 = an off-panel speaker); `base` = `{ side: top | right | bottom | left, at: 0 … 1 }` along that
-  side, held 1rem (`TAIL_CORNER_INSET_REM`, at render time) from both corners, so the base never crosses a corner.
+  drawn bubble. `kind` = `speech` (a wedge, `TAIL_BASE_EM` 1.5em of the font wide at the base) or `thought` (a chain of
+  paper circles with the bubble's ink outline on the straight line base → tip, `thoughtLayout`, owner 2026-10-18: the
+  count follows the length – 3 … 24, centres 1.4 × the two neighbours' radii apart, so the gaps are even and in
+  proportion; radii shrink geometrically from the one at the bubble, 0.6 → 0.9em as the tail grows from 4 to 24em, to
+  the one on the tip, 0.2 → 0.25em; the first sits 0.3 × its radius off the outline, further along on a slanted tail;
+  a tail too short for three shrinks them; past ~34em – about a slice's height – the gaps widen). `tip` = % of the
+  slice, any value (past 0 … 100 = an off-panel speaker); `base` = `{ side: top | right | bottom | left, at: 0 … 1 }`
+  along that side, held 1rem (`TAIL_CORNER_INSET_REM`, at render time) from both corners, so the base never crosses a corner.
   Reader: one SVG inside the bubble's box (it turns, scales and plays effects with it), measured from the laid-out box
   and slice in px of the box's own frame (no layout shift; physical coordinates, so RTL draws the same); cut by a clip
   path at the slice's box; the wedge's paper reaches into the outline between its two base points (no line across the
