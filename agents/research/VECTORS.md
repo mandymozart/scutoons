@@ -1,4 +1,4 @@
-Status: decided 2026-10-17 (owner's answers in §7) – plan §6, steps 2–5 done locally (the API: §5a), next step 6; nothing on production. Today's state: ASSETS.md "Vector library".
+Status: decided 2026-10-17 (owner's answers in §7) – plan §6, steps 2–5 done (the API: §5a; production imported 2026-10-18), next step 6. Today's state: ASSETS.md "Vector library".
 
 # VECTORS – how the shape library lives next to the toons
 
@@ -170,7 +170,9 @@ small"); a review flag comes back with a review screen.
    viewBox and size kept: 11.6 MB → 6.7 MB, pixel diff of a sample < 0.1 % – anti-aliasing) uploaded all 436 to
    `catpope/vectors/` as the test user and wrote their shape rows; a second run changes nothing. Production (owner 2026-10-18: "import the 436 vectors to production. Add an MCP tool that writes the
    shapes as my account"): the SCUTOONS MCP tool `import_vectors` (tools/mcp/src/vectors.ts) runs the same core
-   (`scripts/vectors-core.mjs`) as the owner – dry run first, never replaces a file; the script stays localhost-only. Was: **Import** to `catpope/vectors/` through the API, shrunk (svgo), shape rows from `vectors.json`, no relink (clean
+   (`scripts/vectors-core.mjs`) as the owner – dry run first, never replaces a file; the script stays localhost-only. **Done 2026-10-18:** 436
+   shapes on production (`catpope/vectors/`, 6.7 MB), 4 calls ~7.5 min, 2 network errors retried; a second run: 436
+   unchanged. Was: **Import** to `catpope/vectors/` through the API, shrunk (svgo), shape rows from `vectors.json`, no relink (clean
    slate); the code set (the illumination's five, the 90s collage's twelve) stays in git with its CDN twins as code
    references. Locally first, production when the owner runs it or asks.
 6. **The lab reads the CDN**: the Collage look (score-riot) takes the shape list from the API and loads files by CDN
