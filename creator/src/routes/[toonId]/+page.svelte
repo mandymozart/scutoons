@@ -490,8 +490,10 @@
 	.languages select {
 		width: auto;
 	}
+	/* the filled chip starts with text, not a button: the same inset on both sides as the other chips' text */
 	.source {
 		gap: var(--space-025);
+		padding-left: var(--space-05);
 		padding-right: var(--space-05);
 	}
 	/* the toon's settings at the end of the crumbs (like the map's toon pill) */
