@@ -273,6 +273,12 @@
 		...(colorations.dirty ? [colorations] : [])
 	]);
 	const anyDirty = $derived(allDocs.some((d) => d.dirty));
+	/**
+	 * the Recover bars' documents: the page's, and the presets while clean – autosaved only while dirty, so a reload or a
+	 * crash leaves a copy that the load offers next to the chapter's, whose pieces may name its ids (research/COLLAGE.md
+	 * §12.4); not in allDocs: a never-stored presets document is not "missing"
+	 */
+	const noticeDocs = $derived(colorations.dirty ? allDocs : [...allDocs, colorations]);
 	/** the chapter's documents with slices (the chapter + its separate scenes) */
 	const sliceDocs = $derived<ContentDoc[]>([chapter, ...Object.values(refs)]);
 	/** texts that still have the old look (a mask over baked text, chapter 1) */
@@ -1195,7 +1201,7 @@
 	{:else if chapter.error}
 		<p class="pad error">{chapter.error}</p>
 	{:else}
-		<DocNotices {session} docs={allDocs} />
+		<DocNotices {session} docs={noticeDocs} />
 
 		<!-- the slice canvas + its inspector = ONE selection region (live on load; the keys act on it) -->
 		<div class="columns" use:region={view.section === 'slice' ? { name: SLICE_REGION, initial: true } : null} class:has-inspector={view.section === 'slice'} class:inspector-max={inspectorMax && view.section === 'slice'} class:sheet-closed={!sheetOpen} class:sheet-sized={sheetOpen && sheetRem !== null} bind:this={columnsEl} style:--inspector-width={inspectorSize.css} style:--sheet-height={sheetRem === null ? null : `${sheetRem}rem`}>

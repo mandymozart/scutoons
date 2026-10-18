@@ -44,7 +44,8 @@
 //            dot, one undo per step, Ctrl+C / Ctrl+V, Layers (pieces under the stack; a reorder, its undo / redo keep the
 //            moved piece selected), Delete; saved with the draft; the preset grid previews every look on the piece's
 //            file, "Save as preset …" keeps its pixels, the toast's Undo leaves no presets document to save (nor its
-//            local autosave)
+//            local autosave); an unsaved preset left by a reload is offered at load ("Collage presets" next to the
+//            chapter), Restore on both brings the piece's preset back (--pieces only)
 //   VN:      a scene with a group script + slice events (catpope's, else the sandbox's): each event type's line opens its form (+ "Only if"); "+ setVariable" adds one, open,
 //            the cursor in it; "+ event" on the chapter's slice adds one line; a slice event has its trigger (never saved)
 // Afterwards every entity the run changed is restored (content as before, published again if it was), also on failure.
@@ -644,6 +645,56 @@ async function pieceCase() {
 	await click(tid('tool-text'));
 }
 
+/**
+ * A preset left unsaved by a reload or a crash (research/COLLAGE.md §12.4; the final review's case): the saved piece `i`
+ * with its own opacity → "Save as preset …" "Crash test"; the editor keeps both local copies (the chapter's and the
+ * presets'); a reload offers both – "Collage presets" next to the chapter, at load; Restore on both: the piece names the
+ * preset again (its tile chosen, drawn with it) and Problems has no "unknown preset". Nothing is saved: the run never
+ * stores `colorations` (its copies live in the throw-away profile).
+ */
+async function presetsRecoverCase(i) {
+	const PIECE = `document.querySelectorAll(${JSON.stringify(PIECES)})[${i}]`;
+	const pressed = () => js(`(() => { const b = document.querySelector('[data-testid="piece-looks"] button[aria-pressed="true"], [data-testid="piece-inspector"] button[data-testid^="piece-look-"][aria-pressed="true"]'); return b ? { id: b.dataset.testid.replace('piece-look-', ''), name: b.querySelector('.name')?.textContent ?? '' } : null; })()`);
+	const open = async () => {
+		await click(tid('tool-piece'));
+		await click(tid(`slice-piece-${i}`));
+		return until(`!!${q('piece-looks')}`, 3000);
+	};
+	if (!check(await open(), 'recover: the saved piece opens in the inspector')) return;
+	await js(`${q('piece-advanced')}.open = true`);
+	await sleep(150);
+	await js(`(() => { const f = document.querySelector('[data-testid="piece-opacity"] input'); f.focus(); const set = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(f), 'value').set; set.call(f, '40'); f.dispatchEvent(new Event('input', { bubbles: true })); f.dispatchEvent(new FocusEvent('blur')); f.blur(); return true; })()`);
+	await until(`getComputedStyle(${PIECE}).opacity === '0.4'`, 3000);
+	await sleep(300);
+	await click(tid('preset-save'));
+	await until(`!!document.querySelector('dialog.sc-dialog[open] input')`, 3000);
+	await js(`(() => { const f = document.querySelector('dialog.sc-dialog[open] input'); const set = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(f), 'value').set; set.call(f, 'Crash test'); f.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`);
+	await answerDialog('button.primary');
+	await sleep(300);
+	const named = await pressed();
+	const copies = [`scutoons_creator:${CHAPTER_KEYS[0]}`, 'scutoons_creator:colorations'];
+	const kept = await until(copies.map((k) => `localStorage.getItem(${JSON.stringify(k)}) !== null`).join(' && '), 4000);
+	check(named?.name === 'Crash test' && kept, `recover: "Save as preset …" "Crash test" – the piece names "${named?.id}"; both local copies kept (the chapter's, the presets')`, JSON.stringify({ named, kept }));
+	// a reload as a crash would leave it (the browser's leave question answered)
+	await js('window.__beforeReload = true');
+	await send('Page.reload');
+	const BARS = `[...document.querySelectorAll('[data-testid="recover"]')]`;
+	await until(`!window.__beforeReload && ${BARS}.length >= 2`, 30000);
+	const bars = await js(`${BARS}.map((b) => b.textContent.trim())`);
+	check(bars?.length === 2 && /^Chapter \d+:/.test(bars[0]) && /^Collage presets:/.test(bars[1]), 'recover: a reload offers both copies at load – "Collage presets" next to the chapter', JSON.stringify(bars));
+	await js(`${BARS}.forEach((b) => b.querySelector('button.secondary')?.click()), true`);
+	await sleep(500);
+	if (!(await open())) return void check(false, 'recover: the piece opens after Restore');
+	const back = { look: await pressed(), opacity: await js(`getComputedStyle(${PIECE}).opacity`), bars: await js(`${BARS}.length`) };
+	await click(tid('problems-toggle'));
+	await until(`!!${q('problems-panel')}`, 5000);
+	back.unknown = await js(`/unknown preset/.test(${q('problems-panel')}?.textContent ?? '')`);
+	await click(tid('problems-toggle'));
+	check(back.look?.id === named?.id && back.look?.name === 'Crash test' && back.opacity === '0.4' && back.bars === 0 && back.unknown === false, 'recover: Restore on both – the piece names "Crash test" again (its tile chosen, drawn with it), no bar left, Problems has no "unknown preset"', JSON.stringify(back));
+	const presetsNow = (await index()).colorations;
+	check((presetsNow?.latest ?? null) === (before.colorations?.latest ?? null), 'recover: nothing stored – the presets document as before', JSON.stringify(presetsNow ?? null));
+}
+
 /** the stored pieces of the slice in the saved draft: the two new ones (the toon's path, a ratio, the look, distinct ids) */
 /** a real finger tap (touch emulation on): touchStart + touchEnd at a viewport point */
 async function tapAt(x, y) {
@@ -755,6 +806,7 @@ try {
 		await js('window.__beforeReload = true');
 		await send('Page.reload');
 		check(await until(`!window.__beforeReload && document.querySelectorAll(${JSON.stringify(PIECES)}).length === ${piecesBefore + 2}`, 30000), 'pieces: after a reload the draft draws them again');
+		await presetsRecoverCase(piecesBefore);
 		throw Object.assign(new Error('done'), { done: true });
 	}
 
