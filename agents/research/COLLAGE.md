@@ -233,3 +233,270 @@ Owner-made presets + "Save as preset" (the `colorations` document); pieces over 
 - **Phone cost** unmeasured; limits are warnings. Outline corners at thick widths; progressive blur is a crossfade (2× cost).
 - **A piece's file must exist where readers look**: the 436 shapes are on production since 2026-10-18 under the same paths; a piece on an image or a character picture made only locally (local media is a dev copy) shows nothing there.
 - **Two editors on one item** (catalog form + stage in two tabs) → the existing save conflict.
+
+## 12. Presets (owner 2026-10-18)
+
+Owner 2026-10-18: “Next: 'Save as preset' – my own colourations as named presets (COLLAGE.md §10 question 1, default: one platform-wide document), applied to any piece.” This answers §10 q1 with its default. Nothing below is built yet; §12.7 gives the order.
+
+### 12.1 The decision
+- **One platform-wide document, `colorations`**, language-neutral, holding `{ presets: CollagePreset[] }`. It is stored, versioned and published like `moods`. A preset is an id, a name and the six style keys. A piece names a preset in `preset` and can fine-tune it in `style`. Once published, a change to a preset restyles every piece that names it, on every toon's slices and every score (§2 “Presets by reference”).
+- **The ten code looks stay in code and cannot be changed** (COLLAGE_LOOKS, collage.ts:154-165, with their translated names, testids and tests). Custom presets share the code looks' id namespace, but a custom id can never be a code look's id or `none`. COLLAGE_LOOKS is final: any new look is a custom preset.
+- **Readers never resolve a custom preset. The server bakes it** into the two answers readers already fetch: the chapter (Library::chapter) and a score's signed URL (ProtectedFiles::score).
+  - A piece that names a custom preset arrives with `style` set to the piece as drawn, and without `preset`.
+  - Baking happens per answer, not at publish. So publishing the presets restyles every published piece without republishing any chapter or item.
+  - There is no new route and no new request, so “one request per chapter” (RULES) still holds.
+  - Nothing changes in the viewer, shared/reader or the offline rules. Old PWA builds and saved chapters need no change either.
+- **The creator draws from documents**, so it bakes the same way, using the newest draft.
+  - The TS function is `bakePresets`; its PHP twin is `CollagePresets::bake`.
+  - One golden fixture keeps the two equal; both test suites read it (precedent: ExprTest.php:13-18).
+- **In the piece inspector**, custom presets follow the ten in the look grid. Under the grid is one line with Save as preset … · Update preset · ••• (Rename … / Delete …). Each control shows only where it applies.
+
+### 12.2 Data
+shared/content/src/collage.ts (exported through index.ts):
+```ts
+/**
+ * a custom preset's id: a slug, stable forever (pieces name it; a rename changes `name` only) – never a code look's id or
+ * 'none' (the “As drawn” option's testid)
+ * @pattern ^(?!(?:ink|red|cyan|negative|burn|acid|sticker|glow|ghost|fade|none)$)[a-z][a-z0-9-]{0,39}$
+ */
+export type PresetId = string;
+export const PRESET_ID = /^(?!(?:ink|red|cyan|negative|burn|acid|sticker|glow|ghost|fade|none)$)[a-z][a-z0-9-]{0,39}$/;
+/** a custom colouration (“Save as preset”) – drawn like a code look */
+export interface CollagePreset extends PieceStyle {
+	id: PresetId;
+	/** its name in the creator – one string, readers never see it */
+	name: string;
+	/** deleted: no longer offered, still drawn by every piece that names it; its id stays taken */
+	removed?: boolean;
+}
+/** entity `colorations` – platform-wide, language-neutral; in the grid's order (newest last) */
+export interface Colorations extends AcceptedWarnings {
+	presets: CollagePreset[];
+}
+export const emptyColorations = (): Colorations => ({ presets: [] });
+```
+- **How a preset id resolves (the same rule in TS and PHP).**
+  - The *index* is the document's entries whose `id` matches PRESET_ID. If an id repeats, the first entry wins. Deleted entries still count.
+  - `collageLook(id, presets?)` returns the code look if there is one, else the index entry. Code looks come first, so data can never redefine a built-in. A code look's id fails PRESET_ID anyway.
+  - `pieceStyle(piece, presets?)` keeps its merge (:175-184).
+  - `STYLE_KEYS` (:172) gets exported as `PIECE_STYLE_KEYS`.
+- **`bakePresets(pieces, presets)`.**
+  - A piece whose `preset` is in the index gets `style` set to a JSON copy of `pieceStyle(piece, presets)`, with nulls dropped and no key at all if nothing is left. The piece loses `preset`.
+  - Every other piece passes through unchanged. If no piece changed, the same array comes back.
+  - Invariant, tested over the fixture: `pieceStyle(baked) ≡ pieceStyle(piece, presets)`.
+  - `preset` is removed so that a code look added later cannot leak into baked art.
+- **The key is `colorations`**, the name COLLAGE.md, VECTORS.md and DECISIONS 2026-10-17 already use. `looks` already means a persona's looks, and `presets` the text presets.
+- **No migration:** `kind` is a VARCHAR and nothing is stored yet.
+- **Registration – these change together:**
+  - entities.ts: EntityKind, SHAPES `[false, false, false, false]`, `entities.colorations`, and the header's platform-wide line (the MCP entity-keys resource prints it).
+  - EntityKey::KINDS (and its comment) and ContentSchemas::BY_KIND `'colorations' => 'colorations'`, both directly after `map` (ContentSchemasTest:46-52 compares the key order).
+  - ContentFiles PLATFORM_KINDS (:35, for `scutoons/_/colorations.json`) and the import help.
+  - schema.js SCHEMAS `colorations: 'Colorations'` (both copies).
+  - With the schema in place, the save guard refuses a bad colour, blend, number or id, a code look's id included, with no PHP logic. Repeated ids are an error in colorationProblems.
+- **Who may change presets:** role creator saves. Platform-wide keys publish without review (Reviews::applies, Reviews.php:68-71). AI tokens save drafts only.
+- **Delete always leaves a tombstone** (`removed: true`; values and id kept), even for a preset that was never published.
+  - Why: a preset is a value inside one document. Removing it would free its id while draft pieces may still name it, and a later preset with the same name would silently take those pieces over.
+  - This departs from DECISIONS 2026-10-12 “deleted when never published”, which was made for kinds stored one document per entry. See owner question 1.
+
+### 12.3 Delivery – baked by the server
+New `server/src/Domain/Content/CollagePresets.php`:
+```php
+final class CollagePresets
+{
+    public const KEY = 'colorations';
+    /** = @scutoons/content PRESET_ID (CollagePresetsTest): the code looks' ids and 'none' never match */
+    public const PRESET_ID = '/^(?!(?:ink|red|cyan|negative|burn|acid|sticker|glow|ghost|fade|none)$)[a-z][a-z0-9-]{0,39}$/';
+    /** = collage.ts PIECE_STYLE_KEYS (parity test) */
+    private const STYLE_KEYS = ['blend', 'opacity', 'fill', 'outline', 'shadow', 'blur'];
+    /** id → entry (PRESET_ID ids, the first of a repeated id, removed ones too) @return array<string, stdClass> */
+    public static function index(mixed $doc): array;
+    /** bakePresets: pieces as stdClass (chapters) or assoc arrays (catalog rows) – new copies, the input untouched */
+    public static function bake(array $pieces, array $index): array;
+    /** a copy of a chapter answer, groups[].slices[].pieces baked – an explicit walk (pickup's `pieces` is a count, content.ts:368) */
+    public static function chapter(stdClass $chapter, array $index): stdClass;
+}
+```
+- **Merging, per key:**
+  - If the piece has its own key, use it. Test with `property_exists` / `array_key_exists`, never with `isset` or truthiness: opacity 0 is a real value, and an own `null` means the effect is off.
+  - Otherwise use the preset's value.
+  - Drop nulls. Copy values with a JSON round trip, in the piece's own form.
+  - Then unset `preset`, and unset `style` if it is empty (an empty assoc `[]` would encode as a list).
+- **Copy, never mutate.** Snapshot::doc caches decoded documents (Snapshot.php:107-116), withScenes clones only the chapter (Library.php:786-808), and NeutralDoc::slice passes `pieces` through by reference (NeutralDoc.php:180-202).
+- **Chapters:**
+  - Library::chapter (:355) returns `CollagePresets::chapter($this->withScenes(…), CollagePresets::index($ctx->snapshot->doc(CollagePresets::KEY)))`.
+  - With an empty index the chapter comes back unchanged. When no document is stored, there is no query.
+  - Readers get the published presets. Draft mode (`?draft=1`, used by the Reader dock) gets the newest draft. The Reader dock already reloads after a platform-wide save (reader-dock.svelte:60-67).
+  - Snapshot::toon reads `toon = ? OR toon IS NULL` (Snapshot.php:32-35), so the fingerprint – cache key and ETag – already changes when the presets are published. The answer is `public, max-age=60` (LibraryController.php:139).
+  - No FORMAT bump: until the first save the bake changes nothing.
+- **Scores:** ProtectedFiles::score (:44) bakes `collagePieces()` (:66) with the published document, only when there are pieces.
+  - It needs a new `EntityStore` dependency (autowired), for `published()` (EntityStore.php:63-66).
+  - The answer is no-store (CatalogController.php:54, :66).
+- **Offline:** a saved chapter is the chapter answer (ChapterFiles.php:54), and its ETag is the saved version (:120-121).
+  - So publishing the presets flags saved chapters, and their documents download again; unchanged media is kept. A characters or map publish does the same today.
+  - Presets carry no media, so ChapterFiles, saved-rules.ts and the service worker stay unchanged.
+- **The answer contract changes:** a piece that names a custom preset reaches readers without `preset`. API.md and DATA.md must say so.
+
+| the piece names | readers | creator |
+|---|---|---|
+| a code look | as today – the renderer resolves the ten | the same |
+| a published custom preset | baked | the newest draft's values |
+| a draft-only preset | as drawn + own values (the Publish lists offer the presets, §12.4) | drawn with it |
+| a deleted preset | baked from the tombstone | drawn; option “Night (deleted)”; a warning |
+| an unknown id | as drawn + own values | a warning once the presets are loaded |
+
+### 12.4 Creator
+- **The document:** `lib/editor/presets-doc.ts` holds `presetsDoc()` = `neutralDoc(entities.colorations)`, `ownPresets(doc)` and `ensurePresets(doc)`, following the moods precedent (characters.ts:49, :59-64).
+  - DocKind gets `'colorations'` plus a kindOfEntity case (doc.svelte.ts:38, :77-115). Without that case the kind falls through to 'group' and runs assignEventIds.
+  - Labels: “Collage presets” / “Collage-Vorlagen” in entity-label.ts (EntityLabels, ENTITY_LABELS, NAMED) and in the creator's and the admin's labels.ts.
+- **Chapter editor:**
+  - It loads the document in onMount's Promise.all (:291).
+  - `allDocs` includes the document while it is dirty (the worldMap precedent, :261-267), so Save, autosave, the leave guard and Problems cover it.
+  - The problems context gets `presets: loading ? undefined : own` (:598-621).
+  - SliceCanvas gets `presets` (the list); SliceInspector passes the document on to PieceInspector.
+- **Score stage:**
+  - It loads the document in onMount (:46-49).
+  - `MetaPage companions={() => [presets]}` saves it when dirty and puts its key into the 'files' Publish scope (doc-session.svelte.ts:123-129).
+  - ScoreView gets `pieces={bakePresets(pieces, own)}` (:204). ScoreOverlay and CollageList keep the stored pieces.
+  - `validate` (:163) passes the presets to stageProblems, and adds validateFile('colorations') while the document is dirty.
+  - score-stage.svelte is at 299 lines, so the screen block (:69-80) moves to lib/editor/screens.ts.
+- **Drawing and fields:**
+  - slice-canvas computes `drawn = $derived(bakePresets(slice?.pieces, presets))` and gives it to SlicePicture (:603) and pieceItems (:158). The indices stay the same, and the ramp dots read the baked blur, so canvas-pieces.ts needs no change.
+  - slice-canvas's moveRamp (:285-288) passes `presets` to editEffect.
+  - In collage-edit, setEffect, lookValue, editEffect, setEffectColor, setFillKind and setBlurRamp (:77-177) take a trailing `presets` parameter, so copy-on-write starts from the custom preset.
+  - look-fields :20 and :22 read `pieceStyle(piece, presets)` and `pieceStyle({ preset }, presets)`.
+  - Copy with JSON only: the documents are $state proxies.
+- **Publish:**
+  - The gap today: the 'chapter' scope admits only chapter and scene keys. pendingFiles reads only `contentIndex(scope.toon)` (publish-tree.ts:38-53, :79-83), which never contains platform rows, because EntityStore::index with a toon is `WHERE toon = ?` (EntityStore.php:341-351).
+  - Fix: a new `PLATFORM_ALONG = ['colorations']`.
+    - inScope admits it for the 'toon', 'season' and 'chapter' scopes, and pendingFiles then also reads `contentIndex('')` for those scopes.
+    - KIND_ORDER (:59) gets it after `character`.
+  - The chapter, season, toon and score Publish lists then show “Collage presets” whenever it has a draft, ticked like every line. No level can ship pieces whose preset is still a draft (owner question 6).
+- **The grid** (piece-inspector.svelte:176-184):
+  - Its label changes from “Look” to “Preset” / “Vorlage”: in DESIGN.md:793, “Look” means a character's look.
+  - Options: As drawn, the ten, then `presetChoices(own, piece.preset)`. These are the live custom presets in stored order, plus the deleted preset this piece names, shown as “Night (deleted)”.
+  - Each custom option's label and `title` are its name; its testid is `piece-look-<id>`.
+  - Picking runs `setPreset` as today; a re-click while the piece has its own values goes back to the preset.
+  - From the 7th live custom preset on (guess – measure at 375 px and at 22rem), all custom presets move out of the grid into one PropSelect row, “Custom” / “Eigene”, under it.
+    - Its “–” option means As drawn.
+    - A select fires nothing when the already-chosen option is picked again, so the re-click rule applies only in the grid.
+- **The preset line** (`collage/preset-line.svelte`; pure logic in `lib/editor/collage-presets.ts`; dialogs and toasts in `lib/editor/preset-actions.ts`):
+  - It sits under the grid, outside Advanced: secondary buttons at `--control-height`, wrapping, sizes in rem only.
+  - Each control is hidden – never disabled – where it does not apply, so most pieces show no line at all. The controls:
+    - **Save as preset …** – when the piece draws differently from what it names, or when it names a deleted preset. `ownDiffers` compares `pieceStyle(piece, P)` with `pieceStyle({ preset }, P)` deeply.
+    - **Update preset** – when the piece names a live custom preset and differs from it.
+    - **•••** – a round `more-horizontal` button whose `title` is the preset's name, shown when the piece names a live custom preset. It opens a `choiceDialog` titled with the name, offering Rename … · Delete ….
+      - choiceDialog is already used for the route start and end. Menu is not used in any app yet.
+- **Save as preset …:**
+  1. `askDialog`: title Save as preset · field Name · placeholder “Preset {n}” · button Save.
+     - The name is trimmed and cut to 40 characters; an empty name takes the placeholder.
+     - A name already shown gets “ 2”, “ 3”.
+  2. `presetIdFor(name, stored)`: slugId, made to start with a letter, cut, then uniqueId over every stored id (deleted ones included) and the reserved ids.
+  3. `ensurePresets`, then `presets.edit(addPreset(f, { id, name, ...presetValues(piece, P) }))`.
+     - `presetValues` = the drawn values, as a JSON copy with nulls dropped, so a shadow that was switched off stays off.
+  4. On the host: `setPreset(t, id)`. The piece now names the preset and loses its own values; its pixels do not change.
+  5. Toast “Saved as preset: Night” with Undo. Undo removes the preset and gives the piece back its `preset` and `style`.
+     - Both are found by id: `piecePath(file, path, id)` is figurePath (collage-edit.ts:254) without its figure test.
+     - This is a forward edit, like the cast toast's Undo (chapter-editor.svelte:182-190).
+- **Update preset:**
+  1. `confirmDialog`: title “Update ‘Night’?”, message “Every piece with this preset – on every toon's slices and every score – changes with it once the presets are published.”, button Update.
+  2. `updatePreset(f, id, presetValues(piece, P))` replaces the six style keys and keeps id, name and removed.
+  3. On the host: `setPreset(t, id)`.
+  4. Toast with Undo, which puts the old values back, by id.
+  - Update is the only way to change a preset's values: pick it, fine-tune in Advanced, then Update.
+  - There is no usage count, because AssetUsages indexes media paths only.
+- **Rename …:** an askDialog filled with the current name.
+  - This needs a small @scutoons/ui change: askDialog gets `value` (dialogs.svelte.ts:92-104), and dialog-host.svelte:17 becomes `text = request.input?.value ?? ''`.
+  - The same name rules as Save apply. It writes `name` only, with no toast.
+- **Delete …:** `confirmRemove` (ask.ts:9), message “‘Night’ leaves the list – pieces that use it keep drawing it.” It writes `removed: true`; toast with Undo.
+- **Each action edits two documents.**
+  - Ctrl+Z reaches only the host: the chapter editor undoes `[activeDoc, chapter]` (chapter-editor.svelte:472-474), MetaPage undoes `docs` (meta-page.svelte:87). Undoing there leaves an unused preset behind.
+  - The toast's Undo takes back both documents.
+- **Phone and desktop:**
+  - The slice inspector is the bottom sheet; the score inspector sits below the stage.
+  - The preset line has at most three controls and 44px targets. Dialogs are in-page and toasts sit above the bar.
+  - Nothing goes on the PhoneBar, and nothing depends on hover or long-press.
+  - Shift+V and paste across toons work unchanged, because preset ids are platform-wide.
+- **Later:** a Universe “Presets” page (order, overview, History). Until then, History and restore of `colorations` go through the MCP (list_versions, restore_version).
+
+### 12.5 Validation
+- **`collageProblems(pieces, host, add, presets?)`** (:248):
+  - A code look id is fine.
+  - With a presets list:
+    - an id in the index is fine;
+    - a deleted one warns “the preset ‘Night’ was deleted – the piece still draws it; pick another”;
+    - any other id warns “unknown preset ‘x’ – the piece is drawn without it”.
+  - **Without a list, an id that is not a code look is not judged.** Today :266 warns on every unknown id, which would flag every custom id in validateCatalog and the admin.
+  - Weight is counted through `pieceStyle(p, presets)` (:279).
+- **Where the list comes from:**
+  - `ValidateContext.presets?: readonly CollagePreset[]`, next to `moods` (validate.ts:112); checkSlice passes it on (:746).
+  - `validateContainers(catalog, add, presets?)` passes it to checkCollage (containers.ts:157-168).
+  - stageProblems gets `presets` (score-collage.ts:243).
+- **New `colorationProblems(doc, add)`**, built on styleProblems (:318, whose comment becomes “a piece's own style or a custom preset”):
+  - Errors:
+    - the document is not `{ presets: [] }`;
+    - an entry is not an object;
+    - an id fails PRESET_ID (“reserved for a built-in look” for the ten and none) or repeats;
+    - `name` is not a non-empty string;
+    - `removed` is not a boolean;
+    - the style errors.
+  - Warnings: two shown presets with the same name; the size warnings.
+  - validateFile `'colorations'` (validate.ts:1381-1400) dispatches it. Its callers: the chapter editor's allDocs loop, the score stage's validate, the MCP.
+- **Server:** the schema guard only. CatalogValidator::collage keeps `preset` unchecked.
+
+### 12.6 MCP
+- These tools work as soon as EntityKey parses the key: read_entity, list_entities (toon “”), search_content, save_draft (drafts only), list_versions, restore_version.
+- creatorHref stays null, as for moods.
+- validateDoc (tools/mcp/src/server.ts:205-251):
+  - `colorations: 'colorations'` goes into the kind map (:225), so it falls through to validateFile with `validated: true`.
+  - The chapter / group branch loads `data<Colorations>('colorations')` next to moods, into `ctx.presets`.
+- The slices rule (resources.ts:248-260) says:
+  - `preset` is one of the ten, or a custom preset of `colorations` (read_entity “colorations”);
+  - a new preset is a save_draft of that document, with an id that matches PRESET_ID and is never a code look's, and with `removed: true` instead of deleting;
+  - readers get custom presets baked into `style`;
+  - the member publishes from a chapter's, score's or toon's Publish list.
+  - It also gets a `CollagePreset` code block.
+
+### 12.7 Build (one agent per step, in order; on `main`, own paths, never pushed)
+1. **Model – @scutoons/content:** the types, PRESET_ID, the resolver, bakePresets, validation, the key, the schema and the golden fixture.
+2. **Server:** the kind, CollagePresets, the chapter and score bakes, and PHPUnit tests on the same fixture.
+3. **Creator, reading:** the document, labels, drawing, fields, validation and the Publish lists. No new controls yet.
+4. **Creator, the controls:** custom presets in the grid, the preset line, askDialog `value`, and the browser checks.
+5. **MCP:** validation and the slices rule.
+6. **Docs:** this section as built; DESIGN, DATA, CATALOG and API; DECISIONS; FEATURES 10.105; HANDOVER.
+
+### 12.8 Owner questions (built with the default)
+1. **Deleting a preset that pieces use.**
+   - *Default:* always a tombstone. It leaves the list, every piece that names it keeps drawing it, and its id never comes back – even if it was never published. This departs from DECISIONS 2026-10-12.
+   - *Alternative:* never-published presets are removed outright, and their id can come back.
+2. **The ten built-in looks.**
+   - *Default:* fixed in code. Save as preset from one of them makes your own copy.
+   - *Alternative:* seed them into the document, so all are editable – but their translated names become plain names.
+3. **Where your presets sit.**
+   - *Default:* in the grid after the ten; from the 7th (guess) in one “Custom” select under it.
+   - *Alternative:* always the select, or always the grid.
+4. **Words.**
+   - *Default:* the grid's label is “Preset / Vorlage” (not “Look”, which is a character's), the select is “Custom / Eigene”, and the Publish line is “Collage presets / Collage-Vorlagen”.
+5. **Who may make and publish presets.**
+   - *Default:* every creator, published without review – platform-wide, like moods and characters.
+   - *Alternative:* the owner and admins only, which needs a new server rule.
+6. **Publish lists.**
+   - *Default:* the chapter, season, toon and score pages list “Collage presets” whenever it has a draft, ticked.
+   - *Alternative:* unticked, or listed only where the page's pieces use a custom preset.
+7. **Names.**
+   - *Default:* one plain name per preset, not one per language – readers never see it.
+
+### 12.9 Risks · not verified
+- **A global restyle is the point.** One Update, once published, changes published art on every toon and score, and every saved chapter refreshes. The Update dialog says so.
+- **No publishing of single presets.** It is one document; DECISIONS 2026-10-12 moved places and characters to one document each for exactly this reason.
+- **The TS / PHP twin.** Two guards keep them equal:
+  - the fixture, with these cases: an own `null` over a preset key; opacity 0; a missing or empty `style`; a style that ends up empty; both piece forms; a code id; an unknown id; a deleted preset; a repeated id;
+  - parity tests of PRESET_ID and STYLE_KEYS (precedent: BLEND_MODES, CatalogTest.php:129-131).
+- **Cache churn.** Every presets publish changes every chapter's fingerprint: the server cache rebuilds and saved chapters refresh. Characters work the same way today.
+- **Conflicts.** Two tabs, or a member's Claude, editing `colorations` get the 409 conflict bar on the whole document; “overwrite” can drop someone else's preset.
+- **Dev DB hygiene.** Checks that save `colorations` must delete their versions by note afterwards, and must refuse to run while it holds someone's draft (precedent: creator-collage-check.mjs:53-76).
+- **Deploy order.** If the creator goes live before the API, saving the new key fails with 400 for a few minutes (deploy.yml uploads one target at a time) (guess).
+- **Not verified:**
+  - whether opis/json-schema accepts the lookahead in `pattern` (guess: PCRE does). Step 2's ContentSchemasTest proves it; if it fails, drop the lookahead and rely on colorationProblems plus the PHP index;
+  - the 7th-preset threshold and the German preset line at 375 px;
+  - choiceDialog over the bottom sheet.
+- **Base.** This stacks on the unpushed collage work (HANDOVER “Last run”, FEATURES 10.105).
