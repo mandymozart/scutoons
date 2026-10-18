@@ -1,7 +1,7 @@
 # FEATURES — open feature requests, changes, owner steps (open items only; done = the item leaves)
 
 Bugs: agents/ISSUES.md (same number line). Template and rules: agents/RULES.md "Docs" – at most 5 lines an item, the
-next free number is **10.109**, a done item leaves in the same commit (`10.N done` in the message). Older notes of an
+next free number is **10.110**, a done item leaves in the same commit (`10.N done` in the message). Older notes of an
 item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do it; `decide` = waits for the owner.
 
 ## Creator, admin

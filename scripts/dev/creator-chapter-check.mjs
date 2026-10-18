@@ -4,13 +4,17 @@
 // signed in as the local test user (agent@scutoons.test, `npm run dev:test-user`) on the running LOCAL dev stack
 // (creator :10000, API :9000). Refuses any API / creator that is not on localhost – never production.
 //
-//   npm run check:creator-chapter      (SCUTOONS_CHAPTER_TOON=sandbox SCUTOONS_CHAPTER=1: another toon / chapter, e.g. while
+//   npm run check:creator-chapter      (SCUTOONS_CHAPTER_TOON / SCUTOONS_CHAPTER: another toon / chapter, e.g. while
 //                                        catpope's chapter 1 has someone's draft; SCUTOONS_CHAPTER_GROUP=2
 //                                        SCUTOONS_CHAPTER_SLICE=2: the group / slice as the URL numbers them)
 //   npm run check:creator-chapter -- --pieces   only the collage pieces part (+ save, reload, restore) – e.g. on
 //                                        SCUTOONS_CHAPTER=3 SCUTOONS_CHAPTER_GROUP=2, a group with inline slices
 //   (another local stack, e.g. a worktree's side ports: SCUTOONS_API=http://localhost:19420/api
 //    SCUTOONS_CREATOR=http://localhost:20420, like dev:test-user's SCUTOONS_API)
+//   The run reads inline slices (a group that is a scene ref – every sandbox chapter's – it can't) and wants a slice with
+//   a text box or item (layers) and a group of ≥ 3 slices (reorder) – catpope 1's first group; catpope 3
+//   (SCUTOONS_CHAPTER=3 SCUTOONS_CHAPTER_GROUP=2 SCUTOONS_CHAPTER_SLICE=1: inline slices, a next slice) has neither, so
+//   those 2 checks fail there and the rest runs
 //
 // Checks (catpope chapter 1, its first group, desktop 1440 × 900):
 //   tree:    Audio / Meta select their section; a click on the group opens it (slice list), a slice opens the slice
@@ -28,11 +32,11 @@
 //   slices:  next / previous slice (bar buttons) move the slice editor and the URL
 //   reorder: the shared Sortable (BACKLOG 10.53) – dragging a slice's grip moves it, one undo brings it back; Alt+ArrowDown
 //            on a grip moves it one down (the focus follows), one undo again; the same for the groups when there are two
-//   E.1:     no unsaved bar / file-status row in the flow; the Save button's dot; the ActionBar's not-live chip opens
-//            the file-status list (Escape closes it); Saved = a toast
+//   E.1:     no unsaved bar / file-status row in the flow; the Save button's dot; no not-live chip – Publish carries
+//            the dot once the draft is saved; Saved = a toast
 //   save:    Save draft (note dialog skipped) stores the chapter's language-neutral draft (chapter:catpope:1) with the
-//            new text; the published version stays; Publish asks first, naming the chapter and its languages (when the
-//            chapter's content has errors, the "Publish anyway?" step comes first: the run prints them and goes on)
+//            new text; the published version stays; Publish asks first – its checklist names the chapter, ticked (when
+//            the chapter's content has errors, the "Publish anyway?" step comes first: the run prints them and goes on)
 //   pieces:  the collage piece tool (research/COLLAGE.md §3): scissors → a click → the picker → a shape on the picture,
 //            the look Negative = the picture's negative there (a pixel), the Fade ramp opaque in its middle, the ramp's
 //            dot, one undo per step, Ctrl+C / Ctrl+V, Layers (pieces under the stack; a reorder, its undo / redo keep the
@@ -58,7 +62,6 @@ const GROUP = Number(process.env.SCUTOONS_CHAPTER_GROUP ?? 1) - 1;
 const SLICE = Number(process.env.SCUTOONS_CHAPTER_SLICE ?? 2) - 1; // the first story slice (1 is the key visual)
 /** only the collage pieces part (it saves, reloads and restores too) */
 const ONLY_PIECES = process.argv.includes('--pieces');
-const LOCALES = ['de', 'en'];
 /** the chapter's one language-neutral document (agents/NEUTRAL.md) */
 const CHAPTER_KEYS = [`chapter:${TOON}:${CHAPTER}`];
 const TEXT = 'Regressionstext';
@@ -297,8 +300,10 @@ const SLICE_W = sliceWidth;
 const near = (a, b, eps = 0.15) => Math.abs(a - b) <= eps;
 const writesSince = (n) => writes.slice(n);
 /** a bar button; the grouped bar (UI-CONCEPTS E.10, every width since 2026-10-12) keeps undo / redo in its History
- * group and the rest in More – the group is opened first (undo / redo keep it open) */
+ * group and the rest in More – the group is opened first (undo / redo keep it open). The main row's own cells (Save,
+ * Publish, Problems, the desktop's slice stepper) are hidden while a group is open: its ‹ goes back first */
 async function barClick(testid) {
+	if (!(await js(`!!${q(testid)}`)) && (await js(`!!${q('phone-bar-back')}`))) await click(tid('phone-bar-back'));
 	if (!(await js(`!!${q(testid)}`))) await click(tid(['undo', 'redo'].includes(testid) ? 'phone-bar-history' : 'phone-bar-more'));
 	await click(tid(testid));
 }
@@ -659,7 +664,8 @@ try {
 		);
 	}
 	await click(tid('tab-background'));
-	check((await js(`${q('tab-background')}.classList.contains('active') && !!${q('slice-map')}`)) === true, 'tabs: the Slice tab shows the slice media + map');
+	// the Slice tab's map section left with the place unlocks (e0bc49e5, 2026-10-11: places unlock by unlockLocation events)
+	check((await js(`${q('tab-background')}.classList.contains('active') && !!${q('slice-media')}`)) === true, 'tabs: the Slice tab shows the slice media');
 	for (const [tab, tool] of [...pairs, ['tab-layers', 'tool-item']].reverse()) {
 		await click(tid(tool));
 		check((await js(`${q(tool)}.getAttribute('aria-pressed') === 'true' && ${q(tab)}.classList.contains('active')`)) === true, `tools: ${tool} opens ${tab}`);
@@ -856,11 +862,11 @@ try {
 	await press('Escape');
 	check(await js(`!!document.querySelector('[data-testid="box-dialog-${added}"].selected')`), 'selection: Esc with the slice list live keeps the canvas selection');
 
-	// ── prev / next slice ───────────────────────────────────────────────────────────────────────────────
-	await click(tid('next-slice'));
-	check(new URLSearchParams(await search()).get('slice') === String(SLICE + 2) && (await js(`document.querySelector('.slice-nav.in-end')?.textContent.includes('${SLICE + 2} /')`)), 'next slice: the slice editor and the URL move on', await search());
+	// ── prev / next slice (the desktop's stepper: a cell of the bar's main row since e3c9c63b, 2026-10-12) ──────────
+	await barClick('next-slice');
+	check(new URLSearchParams(await search()).get('slice') === String(SLICE + 2) && (await js(`document.querySelector('.slice-nav')?.textContent.includes('${SLICE + 2} /')`)), 'next slice: the slice editor and the URL move on', await search());
 	check((await dialogCount()) === (baseline[CHAPTER_KEYS[0]].content.groups[GROUP].slices[SLICE + 1].dialog ?? []).length, 'next slice: the canvas shows that slice');
-	await click(tid('prev-slice'));
+	await barClick('prev-slice');
 	check(new URLSearchParams(await search()).get('slice') === String(SLICE + 1) && (await dialogCount()) === n0, 'previous slice: back, with the new text box', await search());
 
 	// ── reorder: the shared Sortable (BACKLOG 10.53) ────────────────────────────────────────────────────
@@ -889,18 +895,23 @@ try {
 		check(g1[0] === g0[1] && g1[1] === g0[0], 'reorder: Alt+ArrowDown on a group grip moves the group down', JSON.stringify({ g0, g1 }));
 		await barClick('undo');
 		check(JSON.stringify(await groupNames()) === JSON.stringify(g0), 'reorder: one undo brings the groups back');
+		// the open group follows a move (chapter-tree moveGroups) but not its undo: the run's group is opened again, or
+		// the pieces part below lands on another group's slice (ISSUES 10.109)
+		const openGroup = await js(`[...document.querySelectorAll('[data-testid^="group-"][aria-expanded="true"]')].map((e) => e.dataset.testid).join(',')`);
+		if (openGroup !== `group-${GROUP}`) {
+			console.log(`note: after the undo the editor shows ${openGroup || 'no group'}, not group-${GROUP} – opened again`);
+			await click(tid(`group-${GROUP}`));
+			await until(`!!${q(`slice-${SLICE}`)}`, 3000);
+		}
 		await click(tid(`slice-${SLICE}`));
 	}
 
-	// ── E.1 notifications (BACKLOG 10.44): no bars in the flow, the Save dot, the not-live chip + its popover ──
-	const CHIP = `document.querySelector('.sc-action-bar [data-testid="file-status"]')`;
+	// ── E.1 notifications (BACKLOG 10.44): no bars in the flow, the state on Save / Publish (their dots – the not-live
+	// chip left the ActionBar with the grouped bar, e3c9c63b 2026-10-12) ──
+	if (await js(`!!${q('phone-bar-back')}`)) await click(tid('phone-bar-back'));
 	check(await js(`!document.querySelector('.sc-bar.is-dirty') && !document.querySelector('.editor > .files')`), 'E.1: no unsaved bar, no file-status row above the editor');
 	check(await js(`document.querySelector('[data-testid="save-draft"]').textContent.includes('•')`), 'E.1: the Save button carries the dot');
-	check(await js(`!!${CHIP}`), 'E.1: the not-live chip sits in the ActionBar');
-	await click(tid('file-status-toggle'));
-	check(await until(`!${CHIP}.querySelector('[id$="-files"]').hidden && /Chapter|Kapitel/.test(${CHIP}.querySelector('[id$="-files"]').innerText)`, 3000), 'E.1: the chip opens the file-status list (the chapter)');
-	await press('Escape');
-	check(await until(`${CHIP}.querySelector('[id$="-files"]').hidden`, 3000), 'E.1: Escape closes it');
+	check(await js(`!document.querySelector('[data-testid="file-status"]') && !${q('publish')}.textContent.includes('•')`), 'E.1: no not-live chip; Publish without a dot while nothing is saved (no draft)');
 
 	// ── collage pieces (left on the slice for the save below) ──────────────────────────────────────────
 	const piecesBefore = (slice.pieces ?? []).length;
@@ -908,12 +919,13 @@ try {
 
 	// ── save draft ──────────────────────────────────────────────────────────────────────────────────────
 	const n = writes.length;
-	await click(tid('save-draft'));
+	await barClick('save-draft');
 	await answerDialog('button.primary'); // the note dialog: "Save without note" (its one primary button while the field is empty)
 	await until(`!document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•')`);
 	const saved = writesSince(n).map((w) => `${w.method} ${w.url} ${w.status}`);
 	check(saved.includes(`PUT /entities/${CHAPTER_KEYS[0]} 200`) && !saved.some((w) => /publish/.test(w)), 'Save draft: PUT the chapter (one neutral document) 200, nothing published', JSON.stringify(saved));
 	check(await until(`!!document.querySelector('.sc-toast-stack .toast.success')`, 3000), 'E.1: "Saved" is a toast (bottom-right, not a bar in the flow)');
+	check(await until(`${q('publish')}.textContent.includes('•')`, 3000), 'E.1: Publish carries the dot once a draft is not live');
 	const draft = await api('GET', `/entities/${CHAPTER_KEYS[0]}?draft=1&wrap=1`);
 	const savedDialogs = draft.content.groups[GROUP].slices[SLICE].dialog ?? [];
 	check(
@@ -924,9 +936,13 @@ try {
 	const savedNew = savedPieces(draft, piecesBefore);
 	check(savedNew.ok, 'pieces: the draft has the two new pieces (the toon\'s path, the ratio, the look, distinct ids, no height)', savedNew.detail);
 
-	// the publish confirm names what is published and in which language (4.4.3) – cancelled here
-	await click(tid('publish'));
-	const dialogText = async () => ((await until(`!!document.querySelector('dialog.sc-dialog[open]')`, 3000)) ? await js(`document.querySelector('dialog.sc-dialog[open] .message')?.textContent ?? ''`) : '');
+	// Publish asks first with one checklist for every level (c258c037, 2026-10-11: the files with a draft, ticked; the
+	// language-neutral chapter has no languages to name) – cancelled here
+	await barClick('publish');
+	const dialogText = async () =>
+		(await until(`!!document.querySelector('dialog.sc-dialog[open]')`, 3000))
+			? await js(`(() => { const d = document.querySelector('dialog.sc-dialog[open]'); return [d.querySelector('.message')?.textContent ?? '', ...[...d.querySelectorAll('.checklist .line')].map((l) => (l.querySelector('input')?.checked ? '[x] ' : '[ ] ') + (l.querySelector('.text > span')?.textContent ?? ''))].join(' | '); })()`)
+			: '';
 	let confirmText = await dialogText();
 	// errors in the problem list ask once more first (the chapter's content, not this run's): name them, go on to the confirm
 	if (/problem list|Problemliste/i.test(confirmText)) {
@@ -935,25 +951,15 @@ try {
 		await until(`!!${q('problems-panel')}`, 5000);
 		console.log(`note: the chapter has errors – ${(await js(`${q('problems-panel')}?.innerText ?? ''`)).replace(/\s+/g, ' ').slice(0, 400)}`);
 		await barClick('problems-toggle');
-		await click(tid('publish'));
+		await barClick('publish');
 		await dialogText();
 		await answerDialog('button.primary');
 		await sleep(300);
 		confirmText = await dialogText();
 	}
+	const asked = await js(`!!document.querySelector('dialog.sc-dialog[open] .checklist')`);
 	await answerDialog('button.ghost');
-	// a neutral chapter's draft is every language's
-	const drafted = [];
-	const e = await api('GET', `/entities/${CHAPTER_KEYS[0]}?draft=1&wrap=1`);
-	if (e.published?.id !== e.version.id) drafted.push(...LOCALES);
-	// the source language marked with ★ (owner 2026-10-06)
-	const named = confirmText.match(/\(([^)]*)\)/)?.[1].split(/,\s*/).map((l) => l.replace(/\s*★$/, '')) ?? [];
-	check(/\(de ★[,)]/.test(confirmText), 'the source language is marked ★', confirmText);
-	check(
-		/Chapter 1|Kapitel 1/.test(confirmText) && drafted.length > 0 && JSON.stringify([...named].sort()) === JSON.stringify([...drafted].sort()),
-		`Publish asks first, naming the file and exactly the languages with a draft (${drafted.join(', ')})`,
-		confirmText
-	);
+	check(asked && new RegExp(`\\[x\\] (Chapter|Kapitel) ${CHAPTER}(?!\\d)`).test(confirmText), `Publish asks first: its checklist names chapter ${CHAPTER}, ticked`, confirmText);
 	check((await writesSince(n).filter((w) => /publish/.test(w.url)).length) === 0, 'cancelled: nothing published');
 
 	// ── VN events (step 8: one form per type): a scene with a script (findVnScene) – its group script, then a slice's events ──

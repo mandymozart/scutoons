@@ -31,6 +31,9 @@ Template and rules: agents/RULES.md "Docs". Older notes of an item: `grep "10.N"
   until the page is clicked (found 2026-10-07).
 - [ ] 10.82 **Map builder on the phone: the size slider shows no label / value** (the `field` span is missing above it;
   owner 2026-10-11, was in 10.65).
+- [ ] 10.109 **Undoing a group move leaves the chapter editor on another group** – found 2026-10-18 by check:creator-chapter:
+  the open group follows a move (chapter-tree.svelte `moveGroups`) but not its undo – Ctrl+Z puts the order back and the
+  editor shows the group now at the old index (an edit then lands there). → DESIGN.md "Selection"
 
 ## Checks owed or broken
 - [ ] 10.39 **Copy / paste: checks still owed** – `check:tools-dock` and the admin's item-limit fields with the admin
