@@ -351,11 +351,12 @@ final class CollagePresets
 - **Chapter editor:**
   - It loads the document in onMount's Promise.all (:291).
   - `allDocs` includes the document while it is dirty (the worldMap precedent, :261-267), so Save, autosave, the leave guard and Problems cover it.
+  - The Recover bars (`noticeDocs`) list it while clean too: its local copy, kept only while dirty, outlives a leave, a reload or a crash, and the load offers it as “Collage presets: Unsaved local changes …” (Restore · Discard) next to the chapter's bar – the chapter's recovered pieces may name its ids. Not in allDocs then: a never-stored document would read as missing.
   - The problems context gets `presets: judgedPresets(colorations)`.
   - SliceCanvas gets `presets` (the list); SliceInspector passes the document on to PieceInspector.
 - **Score stage:**
   - It loads the document in onMount (:46-49).
-  - `MetaPage companions={() => [presets]}` saves it when dirty and puts its key into the 'files' Publish scope (doc-session.svelte.ts:123-129).
+  - `MetaPage along={() => [presets]}`: a companion edited on the page – saved when dirty, its key in the 'files' Publish scope (doc-session.svelte.ts:123-129), autosaved only while dirty and offered at load as its own Recover bar, as in the chapter editor. Plain `companions` (the season's chapters) get neither.
   - ScoreView gets `pieces={bakePresets(pieces, own)}` (:204). ScoreOverlay and CollageList keep the stored pieces.
   - `validate` (:163) passes the presets to stageProblems, and adds validateFile('colorations') while the document is dirty.
   - The screen block moved to lib/editor/screens.ts (`firstScreen` / `pickedScreen`), so score-stage.svelte stays at 300 lines.
@@ -371,6 +372,7 @@ final class CollagePresets
     - inScope admits it for the 'toon', 'season' and 'chapter' scopes, and pendingFiles then also reads `contentIndex('')` for those scopes.
     - KIND_ORDER (:59) gets it after `character`.
   - The chapter, season, toon and score Publish lists then show “Collage presets” whenever it has a draft, ticked like every line. No level can ship pieces whose preset is still a draft (owner question 6).
+  - A score's catalog page (catalog-editor.svelte `tree`) publishes the 'files' scope of its entry plus `PLATFORM_ALONG`; the stage gets the key through `along`.
 - **The grid** (`collage/look-grid.svelte`, replacing the Segmented):
   - Its label changed from “Look” to “Preset” / “Vorlage”: in DESIGN.md's wording table, “Look” means a character's look.
   - Options: As drawn, the ten, then `presetChoices(own, piece.preset)`. These are the live custom presets in stored order, plus the deleted preset this piece names, shown as “Night (deleted)”, struck through.
@@ -399,7 +401,7 @@ final class CollagePresets
   5. Toast “Saved as preset: Night” with Undo. Undo removes the preset and gives the piece back its `preset` and `style`; the first preset's Undo leaves no document behind (nothing to save or publish).
      - Both are found by id: `piecePath(file, path, id)` (collage-edit.ts; figurePath reuses it).
      - This is a forward edit, like the cast toast's Undo (chapter-editor.svelte:182-190).
-     - Every presets edit that leaves the document as stored (an Undo, a rename back) also drops its local autosave copy (`settle`): the chapter editor autosaves the document only while it is dirty, so the last dirty copy would come back on a later load as “Collage presets: Recover”, dropping what was made since.
+     - Every presets edit that leaves the document as stored (an Undo, a rename back) also drops its local autosave copy (`settle`): the chapter editor and the score stage autosave the document only while it is dirty, so the last dirty copy would come back on the next load as the “Collage presets” Recover bar, and Restore would drop what was made since.
 - **Update preset:**
   1. `confirmDialog`: title “Update ‘Night’?”, message “Every piece with this preset – on every toon's slices and every score – changes with it once the presets are published.”, button Update.
   2. `updatePreset(f, id, presetValues(piece, P))` replaces the six style keys and keeps id, name and removed.

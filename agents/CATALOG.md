@@ -235,8 +235,9 @@ fine" stores `accepted_warnings` in the entry's `data` (a list-wide warning in m
   moves on the page re-anchored to the bar + staff under the pointer (one undo step a drag), a round corner handle
   scales it; the list (over / behind, ⚠ a bar the file lacks) and the piece inspector beside it (below under 1280px).
   The first piece writes `collage = { file, pieces: [] }`, removing the last takes it away; a replaced file shows "made
-  on another file – check the bars" + **Checked**. The stage draws custom presets with their newest draft, saves the
-  presets document with the item and lists "Collage presets" in its Publish list while it has a draft.
+  on another file – check the bars" + **Checked**. The stage draws custom presets with their newest draft and saves the
+  presets document with the item (unsaved: a local copy, offered back at load); its Publish list and the score's catalog
+  page's list "Collage presets" while it has a draft.
   `npm run check:creator-collage` (cloud9_en; its drafts deleted again).
 - An entry only in the table (no document yet: an admin write, a migration – locally the score items) starts its
   creator document from the table's data (`loadCatalogDoc`, `ContentDoc.startFrom`): unchanged until edited, the first
