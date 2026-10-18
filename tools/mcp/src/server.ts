@@ -36,7 +36,9 @@ import {
 	validateLocales,
 	validateNeutral,
 	type CharacterRegistry,
+	type CollagePreset,
 	type CollectionSpec,
+	type Colorations,
 	type MoodVocabulary,
 	type Path,
 	type Problem,
@@ -154,6 +156,19 @@ export function registerContentTools(server: McpServer, config: Config, options:
 		const { docs } = await collection(CHARACTERS_COLLECTION);
 		return docs.settings || docs.parts.character?.length ? composeCharacterRegistry(docs) : null;
 	}
+	/**
+	 * The custom collage presets a chapter / scene check judges `piece.preset` against (research/COLLAGE.md §12.5, the
+	 * creator's judgedPresets): the newest draft's list, none stored = [] (a custom id warns as unknown); a failed load =
+	 * undefined, nothing judged – an API that doesn't know the key yet (400) must not stop a chapter's checks
+	 */
+	async function judgedPresets(): Promise<CollagePreset[] | undefined> {
+		try {
+			const presets = (await data<Colorations>('colorations'))?.presets;
+			return Array.isArray(presets) ? presets : [];
+		} catch {
+			return undefined;
+		}
+	}
 
 	async function toonIndex(toon: string): Promise<{ languages: string[]; sourceLanguage: string; [field: string]: Json }> {
 		const index = await data<Json>(`toon:${toon}`);
@@ -223,7 +238,7 @@ export function registerContentTools(server: McpServer, config: Config, options:
 			const problems = checkCharacterDocs(docs, { languages: ['de', 'en'], moods: moods ?? defaultMoodVocabulary() }).filter((p) => p.key === key);
 			return { problems: problems.map(({ level, docPath, message }) => ({ level, file: key, locale: null, path: docPath, message })), validated: true };
 		}
-		const kind = ({ chapter: 'chapter', scene: 'group', season: 'season', 'toon-settings': 'toon', toon: 'index', script: 'script' } as Record<string, string>)[ref.kind];
+		const kind = ({ chapter: 'chapter', scene: 'group', season: 'season', 'toon-settings': 'toon', toon: 'index', script: 'script', colorations: 'colorations' } as Record<string, string>)[ref.kind];
 		// the toon entry: its language-neutral settings + its texts per language (agents/NEUTRAL.md step 4)
 		if (kind === 'index') {
 			const { source, languages } = toonLanguages(doc as ToonIndex);
@@ -232,16 +247,18 @@ export function registerContentTools(server: McpServer, config: Config, options:
 		if (!kind) return { problems: [], validated: false };
 		const ctx: Parameters<typeof validateFile>[3] = { file };
 		if (kind === 'chapter' || kind === 'group') {
-			const [cast, reg, moods, chapter] = await Promise.all([
+			const [cast, reg, moods, presets, chapter] = await Promise.all([
 				data<ToonCast>(`cast:${ref.toon}`),
 				registry(),
 				data<MoodVocabulary>('moods'),
+				judgedPresets(),
 				kind === 'group' ? data<Json>(entityKeyFor(`chapter:${ref.toon}:${ref.number}`, ref.locale)) : Promise.resolve(doc)
 			]);
-			// like the creator's chapter editor: the cast of season 1, the registry's looks, the mood vocabulary
+			// like the creator's chapter editor: the cast of season 1, the registry's looks, the mood vocabulary, the custom collage presets
 			if (cast) ctx.cast = castIndex(cast, 1);
 			if (reg) ctx.expressions = expressionIndex(reg);
 			ctx.moods = (moods ?? defaultMoodVocabulary()).moods.map((m) => m.id);
+			if (presets) ctx.presets = presets;
 			ctx.audio = chapter?.audio;
 		}
 		if (neutral) {

@@ -11,6 +11,7 @@ import {
 	FRAME_RATIO_MAX,
 	FRAME_RATIO_MIN,
 	IMAGE_QUALITY_DENSITIES,
+	PRESET_ID,
 	VIDEO_QUALITY_LABELS
 } from '@scutoons/content';
 import { TEXT_PRESETS } from '../../../creator/src/lib/editor/text-presets.ts';
@@ -92,7 +93,8 @@ export const RULES: RuleResource[] = [
 				'',
 				'- `list_toons`: every toon, its languages and its SOURCE language (the first, e.g. catpope: de).',
 				'- `list_entities`: every stored document of a toon (or toon "" for the platform-wide ones: characters,',
-				'  moods, the world map, people, roles, events) – the screenplay is `script:<toon>:<locale>`.',
+				'  moods, the world map, people, roles, events, the collage presets `colorations`) – the screenplay is',
+				'  `script:<toon>:<locale>`.',
 				'- The world map is many documents: `map` (its size and layers), one `place:<id>` per place and one',
 				'  `route:<id>` per route (the entry without its id). Change a place by saving its `place:<id>` only;',
 				'  removing one = saving it with `removed: true` (its id stays taken – events reference it). read_map_places',
@@ -233,7 +235,7 @@ export const RULES: RuleResource[] = [
 		name: 'slices',
 		uri: 'scutoons://rules/slices',
 		title: 'Slices, sizes and media variants',
-		description: 'Slice size, frame ratios, image / video quality variants, collage pieces (shared/content/src/content.ts, collage.ts)',
+		description: 'Slice size, frame ratios, image / video quality variants, collage pieces and custom presets (shared/content/src/content.ts, collage.ts)',
 		text: () =>
 			[
 				'# Slices and media',
@@ -255,12 +257,37 @@ export const RULES: RuleResource[] = [
 				'picture, back → front in array order (no `layer`). `src` is a media path like the slice image (a shape: `vectors/<slug>.svg`',
 				'in catpope, `../catpope/vectors/<slug>.svg` in other toons – `search_assets` with folder "catpope/vectors" finds them);',
 				'`ratio` = the file\'s width ÷ height; `rect` = x / y of the `anchor` point and the width, in % of the picture – never a',
-				'height (it follows the ratio: never distorted). The look: `preset` = one of',
-				`${COLLAGE_LOOKS.map((l) => l.id).join(', ')}; own values in \`style\` (a key replaces the look's whole value, null = off),`,
-				`\`style.blend\` one of ${BLEND_MODES.join(', ')}; outline / shadow / blur sizes in % of the piece's width.`,
+				'height (it follows the ratio: never distorted). The look: `preset` = one of the ten built-in looks',
+				`${COLLAGE_LOOKS.map((l) => l.id).join(', ')} or a custom preset's id (below); own values in \`style\` (a key replaces`,
+				`the look's whole value, null = off), \`style.blend\` one of ${BLEND_MODES.join(', ')}; outline / shadow / blur sizes in %`,
+				'of the piece\'s width.',
 				'A score item\'s pieces live in its `score.collage` (each on a bar + staff, `at`), edited in the creator\'s score stage.',
 				'',
-				code('ts', block('shared/content/src/collage.ts', 'export interface CollagePiece'))
+				code('ts', block('shared/content/src/collage.ts', 'export interface CollagePiece')),
+				'',
+				'## Custom presets (the platform-wide document `colorations`)',
+				'',
+				'The creator\'s "Save as preset": ONE language-neutral document for every toon and score, `{ presets: [...] }` in the',
+				'order the creator shows them – `read_entity` "colorations" (404 = none saved yet). A custom preset is drawn like a',
+				'built-in look: a piece names its id in `preset` and may fine-tune it in `style`.',
+				'- A new preset = a `save_draft` of `colorations` with one more entry `{ id, name, …the style keys }`. The id is a slug,',
+				'  never a built-in look\'s id nor `none`, and stable forever (pieces name it: a rename changes `name` only):',
+				`  \`${PRESET_ID.source}\``,
+				'- Never remove an entry: a deleted preset is `removed: true` (no longer offered; pieces that name it keep drawing it;',
+				'  its id stays taken).',
+				'- A change of a preset\'s values restyles every piece that names it – on every toon\'s slices and every score – once',
+				'  the presets are published; the member publishes them from a chapter\'s, season\'s, toon\'s or score\'s Publish list.',
+				'- Readers never resolve a custom preset: the server bakes it into the piece\'s `style` (the piece as drawn, without',
+				'  `preset`) in the chapter and score answers. Stored documents keep `preset` – never bake one into a piece by hand.',
+				'- `validate` on a chapter or scene warns on a piece whose `preset` is neither a built-in look nor a stored custom',
+				'  preset, or names a deleted one; `validate` "colorations" checks the document itself.',
+				'',
+				code(
+					'ts',
+					['export interface PieceStyle', 'export interface CollagePreset', 'export interface Colorations']
+						.map((d) => block('shared/content/src/collage.ts', d))
+						.join('\n')
+				)
 			].join('\n')
 	}
 ];
