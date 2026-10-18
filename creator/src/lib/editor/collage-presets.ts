@@ -81,18 +81,24 @@ export function presetValues(piece: Pick<CollagePiece, 'preset' | 'style'>, pres
 	return JSON.parse(JSON.stringify(pieceStyle(piece, presets), (_key, value) => (value === null ? undefined : value))) as PieceStyle;
 }
 
+/** at most `max` UTF-16 units, never half an emoji – a lone surrogate makes the server refuse the whole presets document */
+const cut = (text: string, max: number) => {
+	const out = text.slice(0, max);
+	return /[\uD800-\uDBFF]$/.test(out) ? out.slice(0, -1) : out;
+};
+
 /**
- * A preset's name: trimmed, at most NAME_MAX characters, `fallback` when empty ("Preset 3"); a name the grid already
+ * A preset's name: trimmed, at most NAME_MAX characters (an emoji is never cut in half), `fallback` when empty ("Preset 3"); a name the grid already
  * shows – a live preset's (but `except`'s, a rename), or one of `also` (the code looks' names) – gets " 2", " 3" …
  * (case-insensitive)
  */
 export function presetName(typed: string, fallback: string, presets: PresetList, options: { except?: string; also?: readonly string[] } = {}): string {
-	const base = (typed.trim() || fallback.trim()).slice(0, NAME_MAX).trim();
+	const base = cut(typed.trim() || fallback.trim(), NAME_MAX).trim();
 	const shown = new Set([...entries(presets).filter((p) => p.removed !== true && p.id !== options.except).map(nameOf), ...(options.also ?? [])].map((n) => n.toLowerCase()));
 	if (!shown.has(base.toLowerCase())) return base;
 	for (let i = 2; ; i++) {
 		const suffix = ` ${i}`;
-		const name = `${base.slice(0, NAME_MAX - suffix.length).trimEnd()}${suffix}`;
+		const name = `${cut(base, NAME_MAX - suffix.length).trimEnd()}${suffix}`;
 		if (!shown.has(name.toLowerCase())) return name;
 	}
 }

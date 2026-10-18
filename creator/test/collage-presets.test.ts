@@ -56,6 +56,12 @@ test('presetName: trimmed, at most 40, empty = the fallback, a shown name gets "
 	assert.equal(presetName('Night', 'Preset 1', [{ ...night, removed: true }]), 'Night', 'a deleted preset is not shown');
 	assert.equal(presetName('Night', 'Night', [night], { except: 'night' }), 'Night', 'a rename keeps its own name');
 	assert.equal(presetName('negative', 'Preset 1', [], { also: ['As drawn', 'Negative'] }), 'negative 2', "a code look's name counts");
+	// an emoji across the cut goes whole – half of it (a lone surrogate) makes the server refuse the presets document
+	const lone = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+	const moon = `${'x'.repeat(37)}🌙`;
+	for (const name of [presetName(`${'x'.repeat(39)}🌙`, 'Preset 1', []), presetName(moon, 'Preset 1', [{ id: 'm', name: moon }])]) assert.ok(name.length <= 40 && !lone.test(name), JSON.stringify(name));
+	assert.equal(presetName(`${'x'.repeat(39)}🌙`, 'Preset 1', []), 'x'.repeat(39));
+	assert.equal(presetName(`${'x'.repeat(38)}🌙`, 'Preset 1', []), `${'x'.repeat(38)}🌙`, 'a whole emoji at the end stays');
 	const cut = presetName('y'.repeat(40), 'Preset 1', [{ id: 'y', name: 'y'.repeat(40) }]);
 	assert.equal(cut.length, 40);
 	assert.ok(cut.endsWith(' 2'));

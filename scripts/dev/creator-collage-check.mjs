@@ -18,7 +18,7 @@
 //     readers' renderer: Negative blends difference, Red fills red, As drawn plain); custom presets: Negative + own
 //     opacity → "Save as preset …" "Night" → the piece names it, no own values, same pixels; the toast's Undo → back,
 //     no preset; saved again, Ctrl+Z → the piece only (the preset stays); the character picture takes it, the shape's
-//     own opacity → "Update preset" → the character restyles; ••• Rename … (the field starts with the name); ••• Delete …
+//     own opacity → "Update preset" → the character restyles; ••• Rename … (the field starts with the name, selected); ••• Delete …
 //     → "(deleted)" on the shape, same pixels, Problems warns, gone from the other piece's grid;
 //   - Save draft (note "collage-check (removed again)"): the item document holds score.collage { file = the score's
 //     MusicXML, both pieces – CDN-root paths, their bars, the preset }, the presets document `colorations` the
@@ -519,9 +519,12 @@ try {
 		`Update preset (asked: "${confirmed?.title}"): the character picture naming it restyles (opacity ${figureBefore} → ${updated.figure}), the shape names it without own values`,
 		JSON.stringify({ fullLine, confirmed, figureBefore, updated })
 	);
-	// ••• Rename …: the field starts with the name; the tile's name changes, the piece still names the same id
+	// ••• Rename …: the field starts with the name, selected (typing replaces it); the tile's name changes, the piece still
+	// names the same id
 	await click(tid('preset-more'));
 	const menu = await choose(/Rename/);
+	const nameSelected = await until(`(() => { const f = document.querySelector('dialog.sc-dialog[open] input'); return !!f?.value && f.selectionStart === 0 && f.selectionEnd === f.value.length; })()`, 3000);
+	check(nameSelected, 'Rename …: the current name is selected – typing replaces it');
 	const renameAsk = await answer('Deep night');
 	const renamed = (await lookTiles()).find((t) => t.id === preset);
 	check(JSON.stringify(menu) === '["Rename …","Delete …"]' && renameAsk?.value === 'Night' && renamed?.name === 'Deep night' && renamed.pressed, `••• ("${renameAsk?.title}"): Rename … starts with "Night" → the tile says "Deep night", the piece still names "${preset}"`, JSON.stringify({ menu, renameAsk, renamed }));

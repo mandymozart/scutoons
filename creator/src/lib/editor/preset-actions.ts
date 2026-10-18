@@ -143,7 +143,7 @@ export async function presetMenu({ presets }: PresetHost, piece: CollagePiece): 
 
 /** a new name (the same rules as Save; empty or unchanged = nothing) – the name only, its id stays, no toast */
 async function rename(presets: ContentDoc, preset: { id: string; name: string }): Promise<void> {
-	const typed = await askDialog({ title: m['creator.preset_rename_title'](), label: m['creator.preset_name'](), value: preset.name, confirmLabel: m['creator.preset_rename_label']() });
+	const typed = await askDialog({ title: m['creator.preset_rename_title'](), label: m['creator.preset_name'](), value: preset.name, select: true, confirmLabel: m['creator.preset_rename_label']() });
 	if (!typed?.trim()) return;
 	const name = presetName(typed, preset.name, ownPresets(presets), { except: preset.id, also: codeNames() });
 	if (name !== preset.name) editPresets(presets, (file) => void renamePreset(file, preset.id, name));
