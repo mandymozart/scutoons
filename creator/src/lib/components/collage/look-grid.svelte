@@ -90,7 +90,9 @@
 		min-width: 0;
 		padding: var(--space-025) 0;
 	}
+	/* over the tile's transparent border too: "gezeichnet" fits four a row with the panel's scroll bar (75.6 of 78px) */
 	.name {
+		margin-inline: calc(-1 * var(--border-width-regular));
 		display: -webkit-box;
 		-webkit-box-orient: vertical;
 		-webkit-line-clamp: 2;
