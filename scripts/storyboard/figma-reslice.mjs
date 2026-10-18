@@ -12,6 +12,7 @@
 // kept (onomatopoeia like ROARRR is part of the art there) → WebP <toon>/<folder>/<name>[.2x|.3x].webp (new paths: the
 // published chapter keeps its images until the owner publishes). --upload then uploads them and saves a draft that
 // only sets each slice's image + imageVariants on the version read.
+// Lettering kept was the 2026-10-10 rule; since 2026-10-18 the pictures carry no text at all – figma-clean-slices.mjs.
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
