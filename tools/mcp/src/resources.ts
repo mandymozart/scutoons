@@ -208,7 +208,7 @@ export const RULES: RuleResource[] = [
 		name: 'text-presets',
 		uri: 'scutoons://rules/text-presets',
 		title: 'Text presets',
-		description: 'The five looks of a text on a slice (creator/src/lib/editor/text-presets.ts)',
+		description: 'The looks of a text on a slice (creator/src/lib/editor/text-presets.ts)',
 		text: () =>
 			[
 				'# Text presets',
@@ -220,6 +220,10 @@ export const RULES: RuleResource[] = [
 				'is a locale map `{ "de": "…", "en": "…" }` (rect and look exist once for every language).',
 				'',
 				code('json', TEXT_PRESETS.map((p) => JSON.stringify(p)).join('\n')),
+				'',
+				'A preset with `tail` (speech, thought) is a drawn bubble: give the text `tail: { kind, tip: { x, y }, base: { side, at } }` –',
+				'`tip` in % of the slice (may lie outside 0 … 100: an off-panel speaker), `base.side` top | right | bottom | left, `base.at`',
+				'0 … 1 along it (shared/content/src/dialog-tail.ts; new texts: base bottom at 0.3, tip a bit below-left).',
 				'',
 				'Dialog type (shared/content/src/content.ts):',
 				code('ts', block('shared/content/src/content.ts', 'export interface Dialog'))

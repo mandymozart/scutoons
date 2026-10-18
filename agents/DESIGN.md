@@ -538,9 +538,10 @@ own native viewBox, ink baked in (not `currentColor`); the menu and the chapter 
 
 ## Part 2 — Text box on slice (chapter 2 onwards)
 
-**Texts and presets (owner 2026-10-03):** the creator says "text", not "text box" – a text's look is one of six presets
+**Texts and presets (owner 2026-10-03):** the creator says "text", not "text box" – a text's look is one of seven presets
 (`creator/src/lib/editor/text-presets.ts`, only existing Dialog fields): **Narration** (box, italic mono, left, middle),
-**Speech** (box, mono, left, middle), **Onomatopoeia** (no box, Bangers 15 %, white fill, 0.1 em ink outline, −7°),
+**Speech** (a drawn bubble – the same paper box – with a speech tail, owner 2026-10-18), **Thought** / "Gedanke" (the
+same bubble with a thought tail), **Onomatopoeia** (no box, Bangers 15 %, white fill, 0.1 em ink outline, −7°),
 **Story** (no box, mono, left, top; 10 % from both sides = x 10 / width 80, height 20 %). **Scene** (box, italic upper-case mono, left, middle: "19 EXT. POOL"), **Lyrics** / "Liedtext" (the Speech box
 with musical notes, variant `lyrics`, owner 2026-10-17). "+ Add text" shows them previewed
 on the current slice; the inspector switches the look (words, position and size stay) and fine-tunes it. The old variant
@@ -649,7 +650,8 @@ Backwards compatible with the existing chapter-2 entry (`rect {x,y,width}` + `te
 - **Drawn bubble (owner 2026-10-03, "bubble is currently caption").** Why it looked like a caption: `bubble` only ever
   drew the words (the shape is in chapter 1/2 art), so on text-free art there was no bubble at all, and the creator's
   new default box is a caption. Now `bubble` + `frame: true` draws a speech bubble: paper ellipse, 2px ink outline, a
-  tail (`tail`: bottom-left (default) · bottom · bottom-right · top-left · top · top-right · none). `frame` stays off by
+  tail (`tail`: a free tail – "Tails" below – or an older fixed one: bottom-left (default) · bottom · bottom-right ·
+  top-left · top · top-right · none, still drawn by CSS). `frame` stays off by
   default for bubbles, so published chapters render exactly as before; the creator sets it when a box becomes a bubble.
   `shape` (round 3, owner: "loud and intense stuff such as screaming and singing"): `box` (default, speech – a paper
   rectangle with an ink outline and a tail; owner 2026-10-10: "alle sprechblasen in rechteckige mit einem pfeil … ich
@@ -657,6 +659,23 @@ Backwards compatible with the existing chapter-2 entry (`rect {x,y,width}` + `te
   ("Schrei / Shout") – a roughly rectangular box whose ink outline trembles on all four sides, drawn as an SVG for the
   box's laid-out size (`dialog/wobbly.ts`, deterministic per box id: the same bumps on every render); its tail defaults
   to none.
+- **Tails** (owner 2026-10-18, @scutoons/content dialog-tail.ts, reader dialog/tail.ts): `tail: { kind, tip, base }` on a
+  drawn bubble. `kind` = `speech` (a wedge, `TAIL_BASE_EM` 1.5em of the font wide at the base) or `thought` (three
+  circles, 0.5 / 0.34 / 0.22em, the largest just off the bubble, the smallest on the tip). `tip` = % of the slice, any
+  value (past 0 … 100 = an off-panel speaker); `base` = `{ side: top | right | bottom | left, at: 0 … 1 }` along that
+  side, held 1rem (`TAIL_CORNER_INSET_REM`, at render time) from both corners, so the base never crosses a corner.
+  Reader: one SVG inside the bubble's box (it turns, scales and plays effects with it), measured from the laid-out box
+  and slice in px of the box's own frame (no layout shift; physical coordinates, so RTL draws the same); cut by a clip
+  path at the slice's box; the wedge's paper reaches into the outline between its two base points (no line across the
+  join), its two lines are clipped to outside the bubble (a wobbly bubble: outside its trembling path). A tip on the
+  bubble's own side of the base draws no tail (move the base). Creator: with a drawn bubble selected, the canvas shows
+  the tip (an ink dot; past the slice it sits on the edge, hollow) and the base (a paper diamond that slides along the
+  outline and jumps sides at the corners) – `canvas-tail-handles.svelte`, one undo step per drag, the arrow keys nudge a
+  focused handle (tip 0.5 % of the slice, Shift × 10; base along its side). Moving the bubble keeps the tip (the
+  speaker stays). Inspector: a "Zeiger / Tail" row right under the presets – none · speech · thought as icon segments
+  and a reset (a new tail of its kind) – `tail-field.svelte`. New speech / thought texts get a default tail (base bottom
+  at 0.3, tip a bit below-left); switching between the two keeps tip and base; an old fixed tail becomes a free one where
+  it was on its first edit (`freeTailFrom`). Old data needs no migration.
 - **Outline** (`stroke` colour, `strokeWidth` em, default 0.14): letters with an outline on any variant – the onomatopoeia
   look (white letters, ink outline) without a variant of its own.
 - **No `sfx` variant** (removed 2026-10-03, never used in content): an onomatopoeia is a bubble without frame,

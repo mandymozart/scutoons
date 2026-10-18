@@ -290,6 +290,14 @@ test('showTextBox event → text box (params.dialog); bubble frame + tail; outli
 		'error groups.0.slices.0.dialog.0.tail',
 		'info groups.0.slices.0.dialog.0.tail'
 	]);
+	// a free tail (owner 2026-10-18): speech / thought, a tip anywhere (off the slice too), a base on a side
+	const drawn = (tail: unknown) => list(chapter({ dialog: [box({ variant: 'bubble', frame: true, tail })] }));
+	assert.deepEqual(drawn({ kind: 'speech', tip: { x: -20, y: 140 }, base: { side: 'bottom', at: 0.3 } }), []);
+	assert.deepEqual(drawn({ kind: 'thought', tip: { x: 50, y: 5 }, base: { side: 'left', at: 1 } }), []);
+	assert.deepEqual(drawn({ kind: 'speech', tip: { x: 1, y: 2 }, base: { side: 'bottom', at: 1.5 } }), ['error groups.0.slices.0.dialog.0.tail.base.at']);
+	assert.deepEqual(drawn({ kind: 'speech', tip: { x: 5000, y: 2 }, base: { side: 'top', at: 0 } }), ['warning groups.0.slices.0.dialog.0.tail.tip']);
+	assert.deepEqual(drawn({ kind: 'shout', tip: { x: 1, y: 2 }, base: { side: 'top', at: 0 } }), ['error groups.0.slices.0.dialog.0.tail']);
+	assert.deepEqual(drawn({ kind: 'speech', tip: { x: 1 }, base: { side: 'middle', at: 0 } }), ['error groups.0.slices.0.dialog.0.tail']);
 	// placed item pickup mode
 	const item = (extra: object) => ({ items: [{ id: 'tuna_can-1', item: 'tuna_can', rect, action: 'pickup', ...extra }] });
 	for (const respawn of ['never', 'visit', { minutes: 30 }, { hours: 6 }, { days: 2 }]) assert.deepEqual(list(chapter(item({ respawn }))), [], JSON.stringify(respawn));

@@ -23,6 +23,7 @@ export * from './layers.ts';
 export * from './anchor.ts';
 export * from './collage.ts';
 export * from './dialog-fit.ts';
+export * from './dialog-tail.ts';
 export * from './wardrobe.ts';
 export * from './substances.ts';
 export * from './validate.ts';

@@ -13,6 +13,7 @@ import type { SensitiveFlag } from './sensitive.ts';
 import type { LocaleText } from './credits.ts';
 import type { Anchor } from './anchor.ts';
 import type { CollagePiece } from './collage.ts';
+import type { FreeTail } from './dialog-tail.ts';
 
 export interface KeyVisual {
 	image: string;
@@ -27,7 +28,7 @@ export const DIALOG_VARIANTS = ['bubble', 'caption', 'narration', 'lyrics'] as c
  */
 export type DialogVariant = (typeof DIALOG_VARIANTS)[number];
 
-/** Where a drawn speech bubble's tail points (`Dialog.tail`). */
+/** The older fixed tails of a drawn speech bubble (`Dialog.tail`), still read; new tails are free (dialog-tail.ts `FreeTail`). */
 export const DIALOG_TAILS = ['bottom-left', 'bottom', 'bottom-right', 'top-left', 'top', 'top-right', 'none'] as const;
 /**
  * A drawn bubble's outline (`Dialog.shape`): `box` = speech (a rectangle with a tail – owner 2026-10-10: "alle sprechblasen
@@ -74,8 +75,12 @@ export interface Dialog {
 	frame?: boolean;
 	/** a drawn bubble's outline (bubble with `frame: true`), default 'box' ('oval' = older data, drawn as a box) */
 	shape?: DialogShape;
-	/** a drawn bubble's tail (bubble with `frame: true`), default 'bottom-left' for a box, 'none' for a wobbly one */
-	tail?: DialogTail;
+	/**
+	 * a drawn bubble's tail (bubble with `frame: true`): a free tail (owner 2026-10-18, dialog-tail.ts – speech wedge or
+	 * thought circles, base on the outline, tip anywhere on or past the slice) or an older fixed one; none = 'bottom-left'
+	 * for a box, 'none' for a wobbly one
+	 */
+	tail?: DialogTail | FreeTail;
 	/** Font size in % of the slice width (rendered as cqw). Default 4. */
 	size?: number;
 	/** Default 'center' for bubble, 'left' for caption/narration. */

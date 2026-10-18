@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Dialogs } from '@scutoons/reader';
-	import type { Dialog } from '@scutoons/content';
+	import { defaultTail, type Dialog } from '@scutoons/content';
 	import { TEXT_PRESETS, type TextPreset, type TextPresetId } from '$lib/editor/text-presets.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
@@ -25,6 +25,7 @@
 	const names: Record<TextPresetId, () => string> = {
 		narration: m['creator.preset_narration'],
 		speech: m['creator.preset_speech'],
+		thought: m['creator.preset_thought'],
 		onomatopoeia: m['creator.preset_onomatopoeia'],
 		story: m['creator.preset_story'],
 		scene: m['creator.preset_scene'],
@@ -33,12 +34,17 @@
 	const samples: Record<TextPresetId, () => string> = {
 		narration: m['creator.preset_narration_sample'],
 		speech: m['creator.preset_speech_sample'],
+		thought: m['creator.preset_thought_sample'],
 		onomatopoeia: m['creator.preset_onomatopoeia_sample'],
 		story: m['creator.preset_story_sample'],
 		scene: m['creator.preset_scene_sample'],
 		lyrics: m['creator.preset_lyrics_sample']
 	};
-	const sample = (p: TextPreset): Dialog[] => [{ ...p.style, rect: p.rect, text: samples[p.id]() }];
+	/** the preview: speech / thought with their default tail */
+	const sample = (p: TextPreset): Dialog[] => {
+		const box = { left: p.rect.x, top: p.rect.y, width: p.rect.width ?? 80, height: p.rect.height ?? 12 };
+		return [{ ...p.style, rect: p.rect, text: samples[p.id](), ...(p.tail ? { tail: defaultTail(p.tail, box, ratio) } : {}) }];
+	};
 </script>
 
 <div class="presets" role="group" aria-label={m['creator.add_text_box']()} data-testid="text-presets">

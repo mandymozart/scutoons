@@ -15,6 +15,11 @@ export const EXTRA_ICONS: Record<string, { contents: string }> = {
 	'fit-width': { contents: '<line x1="2" y1="6" x2="2" y2="18"/><line x1="22" y1="6" x2="22" y2="18"/><line x1="6" y1="12" x2="18" y2="12"/><polyline points="9 9 6 12 9 15"/><polyline points="15 9 18 12 15 15"/>' },
 	'fit-height': { contents: '<line x1="6" y1="2" x2="18" y2="2"/><line x1="6" y1="22" x2="18" y2="22"/><line x1="12" y1="6" x2="12" y2="18"/><polyline points="9 9 12 6 15 9"/><polyline points="9 15 12 18 15 15"/>' },
 	'fit-fixed': { contents: '<rect x="3" y="3" width="18" height="18"/><line x1="7" y1="10" x2="17" y2="10"/><line x1="7" y1="14" x2="14" y2="14"/>' },
+	// a speech bubble's tail (owner 2026-10-18): none = the bare box, speech = the box with a wedge off its bottom, thought
+	// = the box with circles getting smaller
+	'tail-none': { contents: '<rect x="3" y="4" width="18" height="12"/>' },
+	'tail-speech': { contents: '<polyline points="9 16 3 16 3 4 21 4 21 16 13 16"/><polyline points="9 16 6 22 13 16"/>' },
+	'tail-thought': { contents: '<rect x="3" y="4" width="18" height="11"/><circle cx="8" cy="18.5" r="1.8"/><circle cx="4.5" cy="21.6" r="1"/>' },
 	// outline width: a ring around a box
 	'outline-width': { contents: '<rect x="3" y="3" width="18" height="18"/><rect x="8" y="8" width="8" height="8"/>' },
 	// collage pieces (agents/research/COLLAGE.md §7): shapes = a triangle, a square and a circle (the piece tool, a piece –

@@ -17,6 +17,7 @@ import { isWrittenVariable, WRITTEN_VARIABLE } from './variables.ts';
 import { ANCHORS, anchoredRect, isAnchor } from './anchor.ts';
 import { collageProblems } from './collage.ts';
 import { DIALOG_FITS, dialogFit, estimatedWidth, isDialogFit } from './dialog-fit.ts';
+import { isFreeTail, TAIL_KINDS, TAIL_SIDES } from './dialog-tail.ts';
 
 /** a variable's spelling (variables.ts) */
 const VARIABLE_FORM = 'a variable is a name of letters, digits and _ (not starting with a digit) – this toon\'s; global.name for every toon, <toon>.name for another toon\'s (never reader. / inventory. / … – that is what the reader has, not a variable)';
@@ -244,7 +245,7 @@ function checkDialog(c: Collector, d: any, path: Path) {
 	if (d.strokeWidth !== undefined && (!isNum(d.strokeWidth) || d.strokeWidth < 0)) c.error([...path, 'strokeWidth'], 'strokeWidth must be a number ≥ 0 (em)');
 	if (d.letterSpacing !== undefined && (!isNum(d.letterSpacing) || d.letterSpacing < -0.5 || d.letterSpacing > 2)) c.error([...path, 'letterSpacing'], 'letterSpacing must be a number of em between -0.5 and 2');
 	if (d.lineHeight !== undefined && (!isNum(d.lineHeight) || d.lineHeight < 0.5 || d.lineHeight > 3)) c.error([...path, 'lineHeight'], 'lineHeight must be a number between 0.5 and 3 (× the font size)');
-	if (d.tail !== undefined && !(DIALOG_TAILS as readonly string[]).includes(d.tail)) c.error([...path, 'tail'], `tail must be one of ${DIALOG_TAILS.join(', ')}`);
+	if (d.tail !== undefined) checkTail(c, d.tail, [...path, 'tail']);
 	if (d.shape !== undefined && !(DIALOG_SHAPES as readonly string[]).includes(d.shape)) c.error([...path, 'shape'], `shape must be one of ${DIALOG_SHAPES.join(', ')}`);
 	if (d.shape === 'oval') c.info([...path, 'shape'], 'oval is drawn as a box now (speech bubbles are rectangles with a tail) – set box or leave it out');
 	if (d.shape !== undefined && !((d.variant ?? 'bubble') === 'bubble' && d.frame === true)) c.info([...path, 'shape'], 'shape only shows on a drawn bubble (variant bubble, frame true)');
@@ -255,6 +256,20 @@ function checkDialog(c: Collector, d: any, path: Path) {
 	if (d.maskShape !== undefined && !['rect', 'ellipse'].includes(d.maskShape)) c.error([...path, 'maskShape'], 'maskShape must be rect or ellipse');
 	if (d.pad !== undefined && !isNum(d.pad)) c.error([...path, 'pad'], 'pad must be a number');
 	if (d.tail !== undefined && !((d.variant ?? 'bubble') === 'bubble' && d.frame === true)) c.info([...path, 'tail'], 'tail only shows on a drawn bubble (variant bubble, frame true)');
+}
+
+/** a drawn bubble's tail: an older fixed one (a name) or a free one (dialog-tail.ts) */
+function checkTail(c: Collector, tail: any, path: Path) {
+	if (typeof tail === 'string') {
+		if (!(DIALOG_TAILS as readonly string[]).includes(tail)) c.error(path, `tail must be one of ${DIALOG_TAILS.join(', ')} or { kind, tip, base }`);
+		return;
+	}
+	if (!isFreeTail(tail)) {
+		c.error(path, `tail must be { kind: ${TAIL_KINDS.join(' | ')}, tip: { x, y } (% of the slice), base: { side: ${TAIL_SIDES.join(' | ')}, at: 0 … 1 } }`);
+		return;
+	}
+	if (tail.base.at < 0 || tail.base.at > 1) c.error([...path, 'base', 'at'], 'base.at must be between 0 and 1 (along the side)');
+	if (Math.abs(tail.tip.x) > 1000 || Math.abs(tail.tip.y) > 1000) c.warn([...path, 'tip'], 'the tail tip lies very far off the slice (more than 1000 %)');
 }
 
 /** a text box's / placed item's / area's place in the slice's layer stack (layers.ts): a whole number ≥ 0 */

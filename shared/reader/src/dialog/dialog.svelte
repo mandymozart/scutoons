@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { TextBoxEffect, anchorTranslate, dialogFit, evaluateText, type Dialog, type DialogFont, type DialogVariant } from '@scutoons/content';
+	import { TextBoxEffect, anchorTranslate, dialogFit, dialogTail, evaluateText, type Dialog, type DialogFont, type DialogVariant } from '@scutoons/content';
 	import type { DialogPlay, TextExpressions } from '../types.ts';
 	import { wobblyPath } from './wobbly.ts';
+	import { measureTail, type TailDrawing } from './tail.ts';
 	import EffectNone from '../effects/effect-none.svelte';
 	import EffectShiver from '../effects/effect-shiver.svelte';
 	import EffectPulse from '../effects/effect-pulse.svelte';
@@ -52,7 +53,12 @@
 	const bubble = $derived(variant === 'bubble' && dialog.frame === true);
 	/** the drawn bubble's outline: a box with a tail (speech – an older 'oval' is drawn as a box too) or a wobbly edge (shouting, singing) */
 	const shape = $derived(bubble ? (dialog.shape === 'wobbly' ? 'wobbly' : 'box') : null);
-	const tail = $derived(bubble ? (dialog.tail ?? (shape === 'wobbly' ? 'none' : 'bottom-left')) : 'none');
+	/** an older fixed tail (drawn by CSS below) or a free one (owner 2026-10-18: base on the outline, tip anywhere – tail.ts) */
+	const drawnTail = $derived(dialogTail(dialog));
+	const tail = $derived(typeof drawnTail === 'string' ? drawnTail : 'none');
+	const freeTail = $derived(drawnTail && typeof drawnTail === 'object' ? drawnTail : null);
+	/** clip-path ids of the free tail */
+	const uid = $props.id();
 	const stroked = $derived(!!dialog.stroke);
 	const font: DialogFont = $derived(dialog.font ?? (boxed ? 'mono' : 'lettering'));
 	const align = $derived(dialog.align ?? (boxed ? 'left' : 'center'));
@@ -85,6 +91,11 @@
 	/** the box's laid-out size (px): the wobbly outline is drawn for it */
 	let boxSize = $state<{ w: number; h: number } | null>(null);
 	const wobbly = $derived(shape === 'wobbly' && boxSize ? { d: wobblyPath(boxSize.w, boxSize.h, dialog.id ?? lines.join(' ')) } : null);
+	/** the free tail as drawn: measured from the laid-out box and slice (px), null until then – it never moves the layout */
+	let tailDrawing = $state<TailDrawing | null>(null);
+	function drawTail() {
+		tailDrawing = freeTail && root && box ? measureTail(root, box, dialog, freeTail, shape === 'wobbly' ? (wobbly?.d ?? null) : null) : null;
+	}
 
 	function overflows(): boolean {
 		if (!box || !content) return false;
@@ -119,7 +130,14 @@
 		if (shape === 'wobbly' && (boxSize?.w !== box.offsetWidth || boxSize?.h !== box.offsetHeight)) {
 			boxSize = { w: box.offsetWidth, h: box.offsetHeight };
 		}
+		drawTail();
 	}
+
+	// the free tail follows its data and the box's place, turn and size (the creator drags it live)
+	$effect(() => {
+		void [JSON.stringify(freeTail), dialog.rect.x, dialog.rect.y, dialog.anchor, dialog.rotation, dialog.scale, wobbly, box];
+		drawTail();
+	});
 
 	// re-fit whenever the text or geometry changes (e.g. locale switch)
 	$effect(() => {
@@ -224,6 +242,25 @@
 		{#if tail !== 'none'}
 			<svg class="tail tail--{tail}" viewBox="0 0 16 14" preserveAspectRatio="none" aria-hidden="true">
 				<path d={tail.endsWith('left') ? 'M3 0 L0 14 L13 0' : tail.endsWith('right') ? 'M3 0 L16 14 L13 0' : 'M2 0 L8 14 L14 0'} />
+			</svg>
+		{/if}
+		{#if tailDrawing}
+			<!-- a free tail (owner 2026-10-18): the speech wedge or the thought circles, cut at the slice's edge (an off-panel
+			     speaker); px of the box's own frame from its border edge (the svg sits at the padding edge) -->
+			<svg class="free-tail" aria-hidden="true" data-testid="free-tail" data-kind={tailDrawing.kind}>
+				<defs>
+					<clipPath id="{uid}-slice"><path d={tailDrawing.slice} /></clipPath>
+					<clipPath id="{uid}-out"><path d={tailDrawing.outside} clip-rule="evenodd" /></clipPath>
+				</defs>
+				<g transform="translate({-tailDrawing.offset.x} {-tailDrawing.offset.y})" clip-path="url(#{uid}-slice)">
+					{#if tailDrawing.speech}
+						<path class="wedge-fill" d={tailDrawing.speech.fill} />
+						<path class="wedge-line" d={tailDrawing.speech.stroke} clip-path="url(#{uid}-out)" stroke-width={tailDrawing.line} />
+					{/if}
+					{#each tailDrawing.circles as c, i (i)}
+						<circle cx={c.cx} cy={c.cy} r={c.r} stroke-width={tailDrawing.line} />
+					{/each}
+				</g>
 			</svg>
 		{/if}
 		{#if variant === 'lyrics'}
@@ -465,6 +502,33 @@
 		top: auto;
 		bottom: calc(100% - 2px);
 		transform: scaleY(-1);
+	}
+
+	/* a free tail: over the box's paper and outline (its paper covers the outline where it joins) */
+	.free-tail {
+		position: absolute;
+		left: 0;
+		top: 0;
+		width: 100%;
+		height: 100%;
+		overflow: visible;
+		pointer-events: none;
+	}
+
+	.free-tail path,
+	.free-tail circle {
+		fill: var(--paper);
+		stroke: none;
+	}
+
+	.free-tail .wedge-line,
+	.free-tail circle {
+		stroke: var(--ink);
+		stroke-linejoin: round;
+	}
+
+	.free-tail .wedge-line {
+		fill: none;
 	}
 
 	/* an outline around the letters (e.g. an onomatopoeia: white letters, ink outline) */

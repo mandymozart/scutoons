@@ -11,6 +11,8 @@
 	import PropField from '$lib/components/fields/prop-field.svelte';
 	import LocaleText from '$lib/components/fields/locale-text.svelte';
 	import AnchorField from '$lib/components/fields/anchor-field.svelte';
+	import TailField from '$lib/components/text/tail-field.svelte';
+	import { drawnBox } from '$lib/editor/tail-edit.ts';
 
 	let {
 		doc,
@@ -70,11 +72,13 @@
 	/** the preset the look matches (none = changed by hand) */
 	const preset = $derived(matchTextPreset(dialog));
 
-	/** a preset's look, in every locale (words, id, position and size stay; owner 2026-10-03) */
+	/** a preset's look, in every locale (words, id, position and size stay; owner 2026-10-03); speech / thought bring a tail */
 	function setPreset(next: TextPreset) {
+		const slice = doc.get(doc.primary, path.slice(0, -2));
+		const ratio = slice?.width > 0 && slice?.height > 0 ? slice.height / slice.width : undefined;
 		doc.edit((file) => {
 			const d = getAt(file, path);
-			if (d) applyTextPreset(d, next);
+			if (d) applyTextPreset(d, next, d.rect ? drawnBox(path, d) : undefined, ratio);
 		}, `${path.join('.')}.preset`);
 	}
 
@@ -95,6 +99,9 @@
 			onchange={(id) => setPreset(TEXT_PRESETS.find((t) => t.id === id)!)}
 			options={TEXT_PRESETS.map((t) => ({ value: t.id, label: m[`creator.preset_${t.id}`](), testid: `dialog-preset-${t.id}` }))}
 		/>
+
+		<!-- a drawn bubble's tail kind (owner 2026-10-18); its tip and base are dragged on the canvas -->
+		<TailField {doc} {path} />
 
 		<LocaleText {doc} path={p('text')} rows={4} expressions />
 

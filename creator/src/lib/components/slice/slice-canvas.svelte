@@ -13,7 +13,7 @@
 	import { SliceLayers, SlicePicture, type ResolveSliceItem } from '@scutoons/reader';
 	import { itemCatalog, itemName, loadCatalog } from '$lib/editor/catalog.svelte.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { DEFAULT_SLICE, anchorAt, anchorFactors, anchoredRect, dialogFit, estimatedWidth, type DialogFit, getAt, round2, sliceLayers, suggestedAnchor, type Path } from '@scutoons/content';
+	import { DEFAULT_SLICE, anchorAt, anchorFactors, anchoredRect, dialogFit, estimatedWidth, isDrawnBubble, type DialogFit, getAt, round2, sliceLayers, suggestedAnchor, type Path } from '@scutoons/content';
 	import { drawnHeights, drawnKey, drawnWidths } from '$lib/editor/drawn-heights.svelte.ts';
 	import { SLICE_RATIO } from '$lib/editor/defaults.ts';
 	import { asset, toonUrl } from '$lib/utils/cdn.ts';
@@ -25,6 +25,7 @@
 	import type { TextExpressions } from '@scutoons/reader';
 	import CanvasTextEdit from '$lib/components/slice/canvas-text-edit.svelte';
 	import CanvasPointHandles from '$lib/components/slice/canvas-point-handles.svelte';
+	import CanvasTailHandles from '$lib/components/slice/canvas-tail-handles.svelte';
 	import { pieceItems, pieceTakesPointer } from '$lib/editor/canvas-pieces.ts';
 	import { editEffect } from '$lib/editor/collage-edit.ts';
 	import type { CollagePiece, PiecePoint } from '@scutoons/content';
@@ -689,6 +690,13 @@
 					{/if}
 				</div>
 			{/each}
+			<!-- a drawn bubble's tail: its tip and base handles (owner 2026-10-18), over every box -->
+			{#if live && selection?.kind === 'dialog'}
+				{@const sel = items.find((i) => i.kind === 'dialog' && i.index === selection?.index)}
+				{#if sel && active(sel) && isDrawnBubble(slice?.dialog?.[sel.index])}
+					<CanvasTailHandles {doc} path={sel.path.slice(0, -1)} dialog={slice.dialog[sel.index]} box={boxOf(sel)} rotation={sel.rotation} scale={sel.scale} {overlay} />
+				{/if}
+			{/if}
 			{#if drag?.mode === 'draw' && drag.draw && drag.moved}
 				<div
 					class="box ghost kind-{GHOST[tool]}"

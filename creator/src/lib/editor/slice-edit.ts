@@ -39,7 +39,9 @@ export function addDialog(t: SliceTarget, rect?: { x: number; y: number; width: 
 		if (!slice) return;
 		slice.dialog ??= [];
 		const dialog = newDialog(id, { ...(rect ?? preset.rect) });
-		applyTextPreset(dialog as unknown as Record<string, unknown>, preset);
+		// speech / thought: a default tail below the new box (dialog-tail.ts)
+		const ratio = slice.width > 0 && slice.height > 0 ? slice.height / slice.width : undefined;
+		applyTextPreset(dialog as unknown as Record<string, unknown>, preset, undefined, ratio);
 		slice.dialog.push(dialog);
 	});
 	return { kind: 'dialog', index };

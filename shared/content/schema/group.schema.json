@@ -470,8 +470,15 @@
 					"description": "a drawn bubble's outline (bubble with `frame: true`), default 'box' ('oval' = older data, drawn as a box)"
 				},
 				"tail": {
-					"$ref": "#/definitions/DialogTail",
-					"description": "a drawn bubble's tail (bubble with `frame: true`), default 'bottom-left' for a box, 'none' for a wobbly one"
+					"anyOf": [
+						{
+							"$ref": "#/definitions/DialogTail"
+						},
+						{
+							"$ref": "#/definitions/FreeTail"
+						}
+					],
+					"description": "a drawn bubble's tail (bubble with `frame: true`): a free tail (owner 2026-10-18, dialog-tail.ts – speech wedge or thought circles, base on the outline, tip anywhere on or past the slice) or an older fixed one; none = 'bottom-left' for a box, 'none' for a wobbly one"
 				},
 				"size": {
 					"type": "number",
@@ -615,6 +622,68 @@
 				"top",
 				"top-right",
 				"none"
+			]
+		},
+		"FreeTail": {
+			"type": "object",
+			"properties": {
+				"kind": {
+					"$ref": "#/definitions/TailKind"
+				},
+				"tip": {
+					"type": "object",
+					"properties": {
+						"x": {
+							"type": "number"
+						},
+						"y": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"x",
+						"y"
+					],
+					"description": "where the tail points (the speaker's mouth / head), % of the slice; outside 0 … 100 = off the slice"
+				},
+				"base": {
+					"type": "object",
+					"properties": {
+						"side": {
+							"$ref": "#/definitions/TailSide"
+						},
+						"at": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"side",
+						"at"
+					],
+					"description": "where it leaves the bubble: a side and the place along it (0 = its start: left / top, 1 = its end: right / bottom)"
+				}
+			},
+			"required": [
+				"kind",
+				"tip",
+				"base"
+			],
+			"description": "A free tail (`Dialog.tail`): one base on the bubble's outline, one tip on the slice."
+		},
+		"TailKind": {
+			"type": "string",
+			"enum": [
+				"speech",
+				"thought"
+			]
+		},
+		"TailSide": {
+			"type": "string",
+			"enum": [
+				"top",
+				"right",
+				"bottom",
+				"left"
 			]
 		},
 		"DialogFont": {
