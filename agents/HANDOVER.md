@@ -52,9 +52,9 @@ Decisions: agents/DECISIONS.md.
 - **Vector library** (research/VECTORS.md steps 3–5): Scrooge in parts, `asset_shapes` + `GET /api/assets?kind=shape`,
   the local import, the MCP tool `import_vectors` – the 436 shapes are on production since 09:57 (run as the owner).
 - **Green:** `npm run check` of content / reader / ui / api / creator / viewer (the viewer's 11 old warnings), PHPStan,
-  both builds, `check:creator-chapter -- --pieces` 38/38, `check:creator-collage` 34/34. **Red:** `check:tools-css`
-  16 old lines (map editor, phone-bar, bar-tabs); the full `check:creator-chapter` can't run (catpope 1 / 2 hold your
-  drafts of 2026-10-07/08, catpope 3 lacks its fixtures, the sandbox chapters are scene refs it can't read); FEATURES +
-  ISSUES hold 56 open items (limit 40).
-- **Before a push:** `main` is 28 commits ahead of `origin/main` and 13 behind (your daytime pushes: the tools as PWAs,
+  both builds, `check:creator-collage` 34/34, `check:creator-chapter -- --pieces` 38/38, the full run 112/114 on catpope 3
+  (its 2 misses want a slice with a text box, a group of ≥ 3 slices; catpope 1 / 2 hold your drafts). The script was
+  stale since 2026-10-11/12 and stopped at "next slice": its reorder, save, VN parts ran only after the review (found
+  ISSUES 10.109). **Red:** `check:tools-css` 16 old lines (map editor, phone-bar, bar-tabs); 57 open FEATURES + ISSUES.
+- **Before a push:** `main` is 30 commits ahead of `origin/main` and 13 behind (your daytime pushes: the tools as PWAs,
   team push, attributions, phone fixes) – merge `origin/main` first (a trial `git merge-tree`: no conflicts).
