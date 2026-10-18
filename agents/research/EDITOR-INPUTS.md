@@ -38,7 +38,7 @@ and from grouping fields into labelled rows – not from smaller type.
 | `PropSelect` | a select inside the same frame as the number fields, with an icon or tag on the left instead of a caption above; the default option says "(default)". |
 | `ColorField` | a swatch (the native colour picker over it) + the hex text in one frame; empty = the placeholder colour, "none" draws a diagonal line. |
 | `LinkedPair` | two `ScrubNumber`s + a square lock toggle (aria-pressed) between them: locked, a change of one scales the other by the ratio; disabled while one is empty (auto). |
-| `PropRow` | one row of the inspector: a tool label on the left (5rem column) and the controls sharing the rest; in a narrow panel (container query < 18rem) the label goes above. |
+| `PropRow` | one row of the inspector: a tool label on the left (5rem column) and the controls sharing the rest; in a narrow panel (container query < 22rem) the label goes above. |
 
 Icons: Feather where it has one (align-left / center / right, rotate-cw, maximize-2, type, link / link-2); the missing
 ones (vertical align top / middle / bottom, letter spacing, outline width) are drawn in the Feather grid and live in

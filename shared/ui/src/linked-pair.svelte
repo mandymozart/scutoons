@@ -1,4 +1,5 @@
 <script lang="ts" module>
+	import type { Units } from './units.ts';
 	export interface PairField {
 		/** the accessible name and the tooltip */
 		label: string;
@@ -7,6 +8,8 @@
 		placeholder?: string;
 		required?: boolean;
 		disabled?: boolean;
+		/** the field's units (units.ts; W and H can differ – the slice's width / height) */
+		units?: Units;
 		testid?: string;
 	}
 </script>

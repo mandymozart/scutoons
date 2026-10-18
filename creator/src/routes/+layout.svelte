@@ -55,6 +55,7 @@
 	provideUiLabels({
 		get reset() { return m['creator.field_reset'](); },
 		get mixed() { return m['creator.field_mixed'](); },
+		get unit() { return m['creator.field_unit'](); },
 		get pickColour() { return m['creator.colour_pick'](); },
 		get palette() { return m['creator.colour_palette'](); },
 		get recent() { return m['creator.colour_recent'](); },

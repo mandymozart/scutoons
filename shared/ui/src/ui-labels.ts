@@ -8,6 +8,8 @@ export interface UiLabels {
 	reset: string;
 	/** a number field that stands for several different values */
 	mixed: string;
+	/** a number field's unit dropdown */
+	unit: string;
 	/** the colour popover: its button, sections and controls */
 	pickColour: string;
 	palette: string;
@@ -23,6 +25,7 @@ export interface UiLabels {
 const DEFAULTS: UiLabels = {
 	reset: 'Reset',
 	mixed: 'Mixed',
+	unit: 'Unit',
 	pickColour: 'Pick a colour',
 	palette: 'Palette',
 	recent: 'Recent',

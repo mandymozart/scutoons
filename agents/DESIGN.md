@@ -938,7 +938,7 @@ Three kinds, three places; none moves the layout:
 ### Compact inspector (owner 2026-10-17, research/EDITOR-INPUTS.md) – the creator's property panels
 
 - **Rows, not stacked fields**: `PropRow` (@scutoons/ui) = a tool label in a 5rem column + its controls sharing the
-  rest (the label goes above below an 18rem row). The room comes from the label inside the control, never from a
+  rest (the label goes above below a 22rem row – the default 16rem panel – so a number with its unit has room). The room comes from the label inside the control, never from a
   smaller control: every control stays `--control-height`.
 - **Numbers** = `ScrubNumber` (role spinbutton) – the whole field is the gesture (owner 2026-10-18), mouse and touch: a
   tap types (the value selected); press and slide – past a few px, or after a 200 ms hold (the frame turns ink) – scrubs
@@ -964,8 +964,15 @@ Three kinds, three places; none moves the layout:
   part of it), Esc cancels. The pick is written as `#rrggbb` and joins the recent colours.
 - **Text box inspector without a weight** (owner 2026-10-18: "keep it reduced, focus on certain things"): no 400 / 700
   control; a stored `weight` still renders.
-- **Text size**: shown in rem (default), pt or px of the slice at 1x (1rem = 16px, 1pt = 4/3px), the unit a switch
-  beside it, remembered per browser; stored as % of the slice width (`Dialog.size`, the reader scales the slice).
+- **Units per field** (owner 2026-10-18: "%, px, pt and rem with a dropdown on the unit … for ALL fields"): a length
+  field's unit is a dropdown in the field (`ScrubNumber units`, @scutoons/ui units.ts); the stored numbers never change
+  – the unit converts for display, typing (maths in the shown unit), arrows and scrubbing (steps 0.1 %, 1 px, 0.5 pt,
+  0.05 rem). All at the slice's 1x size (1rem = 16px, 1pt = 4/3px; creator length-units.ts): positions and sizes (% of
+  the slice's width / height) → %, px, pt, rem; the text size (% of the width) → the same, rem by default; the text
+  outline and the letter spacing (em of the font size) → em, px, pt, rem – the outline px by default; the line height
+  (× the font size) → ×, px, pt, rem. The choice is remembered per kind in this browser (`position`, `size`,
+  `text-size`, `stroke`, `letter-spacing`, `line-height` – X and Y switch together). Rotation stays °. Text boxes and
+  placed items so far; the collage fields keep their % until they pass `units`.
 - Pilot: the text box inspector. `PropField` stays for page forms.
 - **The piece inspector** (collage, `PieceInspector` – slices and the score stage): the head "Shape / Character / Image
   · name" + Remove; a character's mood + view (avatar / portrait / full) outside the fold – a view without a file of

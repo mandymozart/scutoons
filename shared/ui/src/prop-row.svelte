@@ -4,8 +4,8 @@
 	/**
 	 * One row of a compact inspector (agents/research/EDITOR-INPUTS.md): the tool label (caption, uppercase) in a left
 	 * column, the controls sharing the rest in equal parts (a child with `data-prop-grow="2"` takes two parts; one with
-	 * `data-prop-line` starts its own line under the others, the label stays with the first). Below an
-	 * 18rem wide row the label goes above the controls. The controls are a group named by the label; each control keeps
+	 * `data-prop-line` starts its own line under the others, the label stays with the first). Below a
+	 * 22rem wide row the label goes above the controls. The controls are a group named by the label; each control keeps
 	 * its own accessible name (X, Y …).
 	 */
 	let {
@@ -81,7 +81,9 @@
 	.controls > :global(:is([data-prop-fit], .sc-seg:not(.is-stretch))) {
 		flex: none;
 	}
-	@container (max-width: 18rem) {
+	/* narrower than 22rem (the default 16rem dock panel): the label above, the controls the whole width – a number with
+	   its unit dropdown needs the room (owner 2026-10-18, units per field) */
+	@container (max-width: 22rem) {
 		.inner {
 			grid-template-columns: minmax(0, 1fr);
 		}

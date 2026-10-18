@@ -2,7 +2,9 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { FX_SOUNDS, RECURRENCE_UNITS, isRecurrenceInterval, placementRespawnProblem, repeatAsRespawn, respawnAsRepeat, respawnRange, type Path, type Repeat, type RecurrenceInterval, type RecurrenceUnit, type FxSoundName } from '@scutoons/content';
 	import { playFxSound } from '@scutoons/reader';
-	import { Icon } from '@scutoons/ui';
+	import { Icon, PropRow, ScrubNumber } from '@scutoons/ui';
+	import { DEFAULT_SLICE } from '@scutoons/content';
+	import { sliceLength } from '$lib/editor/length-units.ts';
 	import RepeatsField from '$lib/components/fields/repeats-field.svelte';
 	import ItemPickerSheet from '$lib/components/items/item-picker-sheet.svelte';
 	import { intervalLabel } from '$lib/editor/respawn.ts';
@@ -50,6 +52,11 @@
 	const p = (...keys: (string | number)[]) => [...path, ...keys];
 	let picking = $state(false);
 
+	/** X / Y / W in the unit the member picks in the field (owner 2026-10-18, length-units.ts); stored as % of the slice */
+	const slice = $derived(doc.get(doc.primary, path.slice(0, -2)));
+	const sliceWidth = $derived(slice?.width || DEFAULT_SLICE.width);
+	const sliceHeight = $derived(slice?.width && slice?.height ? (sliceWidth * slice.height) / slice.width : (sliceWidth * DEFAULT_SLICE.height) / DEFAULT_SLICE.width);
+
 	// ── the sound when it lands in the bag (agents/FX.md): this placement's, else the item's (catalog), else pling ──
 	const soundLabel = (s: string) => (s === 'none' ? m['creator.fx_sound_none']() : m[`creator.fx_sound_${s as FxSoundName}`]());
 	const soundOptions = () => [{ value: 'none', label: m['creator.fx_sound_none']() }, ...FX_SOUNDS.map((s) => ({ value: s, label: soundLabel(s) }))];
@@ -95,16 +102,17 @@
 		</div>
 		<ItemPickerSheet bind:open={picking} title={m['creator.slice_item_change']()} onpick={(item) => doc.set(p('item'), item.id)} />
 
-		<!-- X / Y = the anchor point's position (owner 2026-10-17; 'b' keeps an item on its baseline) -->
-		<div class="position">
-			<AnchorField {doc} {path} />
-			<PropField {doc} path={p('rect', 'x')} label="X %" type="number" required />
-			<PropField {doc} path={p('rect', 'y')} label="Y %" type="number" required />
-		</div>
-		<div class="sc-fields" data-cols="2" data-density="panel">
-			<PropField {doc} path={p('rect', 'width')} label={m['creator.field_width']()} type="number" required />
-			<PropField {doc} path={p('rotation')} label={m['creator.field_rotation']()} type="number" step={1} placeholder="0" />
-		</div>
+		<!-- X / Y = the anchor point's position (owner 2026-10-17; 'b' keeps an item on its baseline); compact rows with a
+		     unit per field (owner 2026-10-18) -->
+		<PropRow label={m['creator.prop_position']()} testid="item-position">
+			<AnchorField {doc} {path} bare />
+			<ScrubNumber tag="X" label={m['creator.field_x']()} units={sliceLength('position', sliceWidth)} value={placed.rect?.x} onchange={(v) => doc.set(p('rect', 'x'), v ?? 0)} required testid="item-x" />
+			<ScrubNumber tag="Y" label={m['creator.field_y']()} units={sliceLength('position', sliceHeight)} value={placed.rect?.y} onchange={(v) => doc.set(p('rect', 'y'), v ?? 0)} required testid="item-y" />
+		</PropRow>
+		<PropRow label={m['creator.prop_dimensions']()} testid="item-size">
+			<ScrubNumber tag="W" label={m['creator.field_width']()} units={sliceLength('size', sliceWidth)} min={0.1} value={placed.rect?.width} onchange={(v) => doc.set(p('rect', 'width'), v ?? 1)} required testid="item-width" />
+			<ScrubNumber icon="rotate-cw" label={m['creator.field_rotation']()} unit="°" step={1} value={placed.rotation} placeholder="0" onchange={(v) => doc.set(p('rotation'), v)} testid="item-rotation" />
+		</PropRow>
 
 		<PropField
 			{doc}
@@ -159,14 +167,6 @@
 {/if}
 
 <style>
-	.position {
-		display: flex;
-		align-items: flex-end;
-		gap: var(--space-05);
-	}
-	.position > :global(.field) {
-		flex: 1;
-	}
 	.inspector {
 		display: flex;
 		flex-direction: column;

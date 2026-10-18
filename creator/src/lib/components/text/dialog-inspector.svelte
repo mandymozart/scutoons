@@ -3,8 +3,7 @@
 	import { ColorField, LinkedPair, PropRow, PropSelect, ScrubNumber, Segmented } from '@scutoons/ui';
 	import { DEFAULT_SLICE, dialogFit, getAt, round2, type DialogFit, type Path } from '@scutoons/content';
 	import { drawnHeights, drawnKey, drawnWidths } from '$lib/editor/drawn-heights.svelte.ts';
-	import { TEXT_SIZE_STEP, TEXT_SIZE_UNITS, sizeToUnit, unitToSize } from '$lib/editor/text-size-unit.ts';
-	import { textSizeUnit } from '$lib/editor/text-size-unit.svelte.ts';
+	import { fontLength, fontPx, sliceLength } from '$lib/editor/length-units.ts';
 	import { TEXT_PRESETS, applyTextPreset, matchTextPreset, type TextPreset } from '$lib/editor/text-presets.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { alignLabel } from '$lib/editor/cover-words.ts';
@@ -37,11 +36,25 @@
 	const font = $derived(dialog?.font ?? (boxed ? 'mono' : 'lettering'));
 	let keepRatio = $state(false);
 
-	/** the font size in the chosen unit (owner 2026-10-17: rem by default, pt / px to switch; stored as % of the slice) */
-	const sliceWidth = $derived(doc.get(doc.primary, path.slice(0, -2))?.width || DEFAULT_SLICE.width);
-	const unit = $derived(textSizeUnit.value);
-	const sizeShown = $derived(typeof dialog?.size === 'number' ? sizeToUnit(dialog.size, unit, sliceWidth) : undefined);
-	const writeSize = (v: number | undefined) => doc.set(p('size'), v === undefined ? undefined : unitToSize(v, unit, sliceWidth));
+	/**
+	 * Every length in the unit the member picks in its field (owner 2026-10-17 / -18: %, px, pt, rem – length-units.ts):
+	 * of the slice at 1x; the stored numbers don't change. Positions / sizes / the text size are % of a slice axis, the
+	 * outline and the letter spacing em of the font size, the line height × of it.
+	 */
+	const slice = $derived(doc.get(doc.primary, path.slice(0, -2)));
+	const sliceWidth = $derived(slice?.width || DEFAULT_SLICE.width);
+	const sliceHeight = $derived(slice?.width && slice?.height ? (sliceWidth * slice.height) / slice.width : (sliceWidth * DEFAULT_SLICE.height) / DEFAULT_SLICE.width);
+	const textPx = $derived(fontPx(dialog?.size, sliceWidth));
+	const units = $derived({
+		x: sliceLength('position', sliceWidth),
+		y: sliceLength('position', sliceHeight),
+		w: sliceLength('size', sliceWidth),
+		h: sliceLength('size', sliceHeight),
+		size: sliceLength('text-size', sliceWidth, 'rem'),
+		stroke: fontLength('stroke', textPx, 'px'),
+		spacing: fontLength('letter-spacing', textPx),
+		line: fontLength('line-height', textPx, 'em', '×', 0.05)
+	});
 
 	/**
 	 * Box sizing (owner 2026-10-17, Figma's three modes – dialog-fit.ts, DESIGN.md Part 2 "Box sizing"). The box keeps its
@@ -114,8 +127,8 @@
 			<!-- X / Y = the anchor point's position (owner 2026-10-17, DESIGN.md Part 2 "Anchor"); the 3×3 picker leads the row -->
 			<PropRow label={m['creator.prop_position']()} testid="dialog-position">
 				<AnchorField {doc} {path} bare />
-				<ScrubNumber tag="X" label={m['creator.field_x']()} unit="%" step={0.1} value={dialog.rect?.x} onchange={(v) => doc.set(p('rect', 'x'), v ?? 0)} required testid="dialog-x" />
-				<ScrubNumber tag="Y" label={m['creator.field_y']()} unit="%" step={0.1} value={dialog.rect?.y} onchange={(v) => doc.set(p('rect', 'y'), v ?? 0)} required testid="dialog-y" />
+				<ScrubNumber tag="X" label={m['creator.field_x']()} units={units.x} value={dialog.rect?.x} onchange={(v) => doc.set(p('rect', 'x'), v ?? 0)} required testid="dialog-x" />
+				<ScrubNumber tag="Y" label={m['creator.field_y']()} units={units.y} value={dialog.rect?.y} onchange={(v) => doc.set(p('rect', 'y'), v ?? 0)} required testid="dialog-y" />
 			</PropRow>
 			<!-- the sizing mode (auto width / auto height / fixed, Figma's three), then W ⟷ H on the row's second line -->
 			<PropRow label={m['creator.prop_dimensions']()} testid="dialog-dimensions">
@@ -133,10 +146,8 @@
 					<LinkedPair
 						a={dialog.rect?.width}
 						b={sizing === 'fixed' ? dialog.rect?.height : undefined}
-						first={{ tag: 'W', label: sizing === 'width' ? m['creator.field_max_width']() : m['creator.field_width'](), required: sizing !== 'width', placeholder: sizing === 'width' ? 'auto' : '', testid: 'dialog-width' }}
-						second={{ tag: 'H', label: m['creator.field_height'](), placeholder: 'auto', disabled: sizing === 'width', testid: 'dialog-height' }}
-						unit="%"
-						step={0.1}
+						first={{ tag: 'W', label: sizing === 'width' ? m['creator.field_max_width']() : m['creator.field_width'](), required: sizing !== 'width', placeholder: sizing === 'width' ? 'auto' : '', units: units.w, testid: 'dialog-width' }}
+						second={{ tag: 'H', label: m['creator.field_height'](), placeholder: 'auto', disabled: sizing === 'width', units: units.h, testid: 'dialog-height' }}
 						min={0}
 						lockLabel={m['creator.keep_proportions']()}
 						bind:locked={keepRatio}
@@ -157,9 +168,7 @@
 				<PropSelect label={m['creator.text_font']()} icon="type" value={dialog.font} options={[{ value: 'lettering', label: 'lettering' }, { value: 'mono', label: 'mono' }]} placeholder={boxed ? 'mono' : 'lettering'} onchange={set('font')} testid="dialog-font" />
 			</PropRow>
 			<PropRow label={m['creator.prop_text_size']()} hint={m['creator.text_size_hint']()}>
-				<!-- the unit shows in the switch beside it, not again in the field -->
-				<ScrubNumber icon="type" label="{m['creator.prop_text_size']()} ({unit})" step={TEXT_SIZE_STEP[unit]} min={0} value={sizeShown} placeholder={String(sizeToUnit(4, unit, sliceWidth))} onchange={writeSize} testid="dialog-size" />
-				<Segmented label={m['creator.text_size_unit']()} value={unit} onchange={(u) => textSizeUnit.set(u)} options={TEXT_SIZE_UNITS.map((u) => ({ value: u, label: u }))} testid="dialog-size-unit" />
+				<ScrubNumber icon="type" label={m['creator.prop_text_size']()} units={units.size} min={0} value={dialog.size} placeholder="4" onchange={set('size')} testid="dialog-size" />
 			</PropRow>
 			<PropRow label={m['creator.prop_letters']()}>
 				<Segmented
@@ -175,8 +184,8 @@
 				/>
 			</PropRow>
 			<PropRow label={m['creator.prop_spacing']()}>
-				<ScrubNumber icon="letter-spacing" label={m['creator.text_letter_spacing']()} unit="em" step={0.01} min={-0.5} max={2} value={dialog.letterSpacing} placeholder={font === 'lettering' ? '0.03' : '0'} onchange={set('letterSpacing')} testid="dialog-letter-spacing" />
-				<ScrubNumber icon="line-height" label={m['creator.text_line_height']()} step={0.05} min={0.5} max={3} value={dialog.lineHeight} placeholder={font === 'lettering' ? '1.1' : '1.35'} onchange={set('lineHeight')} testid="dialog-line-height" />
+				<ScrubNumber icon="letter-spacing" label={m['creator.text_letter_spacing']()} units={units.spacing} min={-0.5} max={2} value={dialog.letterSpacing} placeholder={font === 'lettering' ? '0.03' : '0'} onchange={set('letterSpacing')} testid="dialog-letter-spacing" />
+				<ScrubNumber icon="line-height" label={m['creator.text_line_height']()} units={units.line} min={0.5} max={3} value={dialog.lineHeight} placeholder={font === 'lettering' ? '1.1' : '1.35'} onchange={set('lineHeight')} testid="dialog-line-height" />
 			</PropRow>
 			<PropRow label={m['creator.text_align']()}>
 				<Segmented
@@ -215,7 +224,7 @@
 			<PropRow label={m['creator.text_outline']()}>
 				<ColorField label={m['creator.text_outline']()} value={dialog.stroke} placeholder={m['creator.text_outline_none']()} onchange={set('stroke')} testid="dialog-stroke" />
 				{#if dialog.stroke}
-					<ScrubNumber icon="outline-width" label={m['creator.text_outline_width']()} unit="em" step={0.02} min={0} value={dialog.strokeWidth} placeholder="0.14" onchange={set('strokeWidth')} testid="dialog-stroke-width" />
+					<ScrubNumber icon="outline-width" label={m['creator.text_outline_width']()} units={units.stroke} min={0} value={dialog.strokeWidth} placeholder="0.14" onchange={set('strokeWidth')} testid="dialog-stroke-width" />
 				{/if}
 			</PropRow>
 			{#if boxed}
