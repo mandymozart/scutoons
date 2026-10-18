@@ -214,13 +214,20 @@ export function collageLook(id: unknown, presets?: PresetList): CollageLook | un
 /** the keys a style has – nothing else is copied (a stored `__proto__` key would set the result's prototype) */
 export const PIECE_STYLE_KEYS = ['blend', 'opacity', 'fill', 'outline', 'shadow', 'blur'] as const;
 
-/** the piece's style as drawn: `{ ...look, ...piece.style }` – an own key replaces the look's whole, null = off */
+/**
+ * the piece's style as drawn: `{ ...look, ...piece.style }` – an own key replaces the look's whole, null = off. Every key
+ * is read before its own-property test: the creator's documents are $state proxies, which track a read – even of a key
+ * that is missing – but not Object.hasOwn, so a key added later (an opacity on a piece that has own values already, an
+ * Update that gives a preset a new key) redraws its pieces
+ */
 export function pieceStyle(piece: Pick<CollagePiece, 'preset' | 'style'> | null | undefined, presets?: PresetList): ResolvedPieceStyle {
 	const look: PieceStyle = collageLook(piece?.preset, presets) ?? {};
 	const own: unknown = piece?.style;
 	const merged: Record<string, unknown> = {};
 	for (const key of PIECE_STYLE_KEYS) {
-		const value = isObj(own) && Object.hasOwn(own, key) && own[key] !== undefined ? own[key] : Object.hasOwn(look, key) ? look[key] : undefined;
+		const mine = isObj(own) ? own[key] : undefined;
+		const theirs = look[key];
+		const value = mine !== undefined && Object.hasOwn(own as object, key) ? mine : theirs !== undefined && Object.hasOwn(look, key) ? theirs : undefined;
 		if (value !== undefined && value !== null) merged[key] = value;
 	}
 	return merged as ResolvedPieceStyle;

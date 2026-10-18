@@ -66,6 +66,16 @@ test('pieceStyle: only the six style keys, own ones – a stored __proto__ key s
 	assert.deepEqual(pieceStyle(piece({ style: { opacity: 0.5, id: 'x' } as never })), { opacity: 0.5 });
 });
 
+test('pieceStyle reads every style key of the piece and of its preset, missing ones too (a $state proxy then tracks a key added later)', () => {
+	const spy = <T extends object>(object: T, read: Set<PropertyKey>) => new Proxy(object, { get: (target, key, receiver) => (read.add(key), Reflect.get(target, key, receiver)) });
+	const [own, theirs] = [new Set<PropertyKey>(), new Set<PropertyKey>()];
+	const preset = spy({ id: 'night', name: 'Night', fill: '#1a2b6d' }, theirs) as CollagePreset;
+	const style = pieceStyle(piece({ preset: 'night', style: spy({ blur: { amount: 2 } }, own) }), [preset]);
+	assert.deepEqual(style, { fill: '#1a2b6d', blur: { amount: 2 } });
+	for (const key of PIECE_STYLE_KEYS) assert.ok(own.has(key), `the piece's ${key}`);
+	for (const key of PIECE_STYLE_KEYS) assert.ok(theirs.has(key), `the preset's ${key}`);
+});
+
 test('pieceHeight: the width in % of the box, a file of ratio w ÷ h, a box of h ÷ w', () => {
 	assert.equal(pieceHeight(30, 0.5, 1.6), 37.5);
 	// a square file on the 390 × 625 slice
