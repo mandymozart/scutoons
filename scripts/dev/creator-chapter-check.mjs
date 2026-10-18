@@ -5,7 +5,10 @@
 // (creator :10000, API :9000). Refuses any API / creator that is not on localhost – never production.
 //
 //   npm run check:creator-chapter      (SCUTOONS_CHAPTER_TOON=sandbox SCUTOONS_CHAPTER=1: another toon / chapter, e.g. while
-//                                        catpope's chapter 1 has someone's draft)
+//                                        catpope's chapter 1 has someone's draft; SCUTOONS_CHAPTER_GROUP=2
+//                                        SCUTOONS_CHAPTER_SLICE=2: the group / slice as the URL numbers them)
+//   npm run check:creator-chapter -- --pieces   only the collage pieces part (+ save, reload, restore) – e.g. on
+//                                        SCUTOONS_CHAPTER=3 SCUTOONS_CHAPTER_GROUP=2, a group with inline slices
 //   (another local stack, e.g. a worktree's side ports: SCUTOONS_API=http://localhost:19420/api
 //    SCUTOONS_CREATOR=http://localhost:20420, like dev:test-user's SCUTOONS_API)
 //
@@ -30,6 +33,9 @@
 //   save:    Save draft (note dialog skipped) stores the chapter's language-neutral draft (chapter:catpope:1) with the
 //            new text; the published version stays; Publish asks first, naming the chapter and its languages (when the
 //            chapter's content has errors, the "Publish anyway?" step comes first: the run prints them and goes on)
+//   pieces:  the collage piece tool (research/COLLAGE.md §3): scissors → a click → the picker → a shape on the picture,
+//            the look Negative = the picture's negative there (a pixel), the Fade ramp opaque in its middle, the ramp's
+//            dot, one undo per step, Ctrl+C / Ctrl+V, Layers (pieces under the stack), Delete; saved with the draft
 //   VN:      a scene with a group script + slice events (catpope's, else the sandbox's): each event type's line opens its form (+ "Only if"); "+ setVariable" adds one, open,
 //            the cursor in it; "+ event" on the chapter's slice adds one line; a slice event has its trigger (never saved)
 // Afterwards every entity the run changed is restored (content as before, published again if it was), also on failure.
@@ -40,14 +46,17 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { local } from './ports.mjs';
+import { png } from './endless-page.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const API = (process.env.SCUTOONS_API ?? local('api', '/api')).replace(/\/$/, '');
 const CREATOR = (process.env.SCUTOONS_CREATOR ?? local('creator')).replace(/\/$/, '');
 const TOON = process.env.SCUTOONS_CHAPTER_TOON ?? 'catpope';
 const CHAPTER = Number(process.env.SCUTOONS_CHAPTER ?? 1);
-const GROUP = 0;
-const SLICE = 1; // the first story slice (0 is the key visual)
+const GROUP = Number(process.env.SCUTOONS_CHAPTER_GROUP ?? 1) - 1;
+const SLICE = Number(process.env.SCUTOONS_CHAPTER_SLICE ?? 2) - 1; // the first story slice (1 is the key visual)
+/** only the collage pieces part (it saves, reloads and restores too) */
+const ONLY_PIECES = process.argv.includes('--pieces');
 const LOCALES = ['de', 'en'];
 /** the chapter's one language-neutral document (agents/NEUTRAL.md) */
 const CHAPTER_KEYS = [`chapter:${TOON}:${CHAPTER}`];
@@ -248,7 +257,9 @@ const KEYS = {
 	Escape: 27,
 	Delete: 46,
 	z: 90,
-	y: 89
+	y: 89,
+	c: 67,
+	v: 86
 };
 /** a real key press; mods: 'ctrl', 'shift' */
 async function press(key, ...mods) {
@@ -291,6 +302,221 @@ async function barClick(testid) {
 	await click(tid(testid));
 }
 
+// ── collage pieces (research/COLLAGE.md §3, §8 step 4) ─────────────────────────────────────────────────────
+const PIECES = '[data-testid="slice-canvas"] .slice-media .slice-pieces .piece';
+const pieceCount = () => js(`document.querySelectorAll(${JSON.stringify(PIECES)}).length`);
+const pieceIds = () => js(`[...document.querySelectorAll(${JSON.stringify(PIECES)})].map((p) => p.dataset.piece)`);
+/** the file a catpope shape is stored as in this toon (toonAssetRef) */
+const DISC = TOON === 'catpope' ? 'vectors/disc-black.svg' : '../catpope/vectors/disc-black.svg';
+const frames = () => js('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
+/** the colour at a viewport point (CSS px, DPR 1), the canvas overlay and the lettering hidden (and the pieces: `pieces` false) */
+async function pixelAt(x, y, pieces = true) {
+	const hide = `[data-testid="slice-canvas"] .overlay, [data-testid="slice-canvas"] .slice-layers${pieces ? '' : ', [data-testid="slice-canvas"] .slice-pieces'}`;
+	await js(`(() => { const s = document.createElement('style'); s.id = 'probe-hide'; s.textContent = ${JSON.stringify(`${hide} { visibility: hidden !important }`)}; document.head.append(s); })()`);
+	await frames();
+	const [sx, sy] = await js('[scrollX, scrollY]');
+	const shot = await send('Page.captureScreenshot', { format: 'png', clip: { x: Math.round(x + sx) - 1, y: Math.round(y + sy) - 1, width: 3, height: 3, scale: 1 } });
+	await js(`document.getElementById('probe-hide')?.remove()`);
+	return png(Buffer.from(shot.result.data, 'base64')).at(1, 1);
+}
+const off = (a, b) => Math.max(...a.map((v, i) => Math.abs(v - b[i])));
+const negative = (c) => c.map((v) => 255 - v);
+/** polls the pixel until it is within `tol` of `want` (a mask / picture still loading); the last reading */
+async function pixelUntil(x, y, want, tol, ms = 4000) {
+	const end = Date.now() + ms;
+	let c = await pixelAt(x, y);
+	while (off(c, want) > tol && Date.now() < end) {
+		await sleep(200);
+		c = await pixelAt(x, y);
+	}
+	return c;
+}
+/**
+ * a spot of the canvas without a box on it (a click there places, never selects) – the brightest of a few, so the
+ * dark disc stands out against the picture (the ramp check)
+ */
+async function emptySpot() {
+	const spots = await js(`(() => {
+		const o = document.querySelector('[data-testid="slice-canvas"] .overlay');
+		const r = o.getBoundingClientRect();
+		const out = [];
+		for (const fy of [0.5, 0.35, 0.65]) for (const fx of [0.5, 0.35, 0.65]) {
+			const x = r.x + r.width * fx, y = r.y + r.height * fy;
+			if (document.elementFromPoint(x, y) === o) out.push([x, y]);
+		}
+		return out;
+	})()`);
+	let best = null;
+	let light = -1;
+	for (const spot of spots) {
+		const c = await pixelAt(...spot);
+		const l = c[0] + c[1] + c[2];
+		if (l > light) [best, light] = [spot, l];
+	}
+	return best;
+}
+async function mouseAt(x, y) {
+	for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) await send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1 });
+	await sleep(250);
+}
+/** Ctrl+C / Ctrl+V as the browser's copy / paste commands (the clipboard runtime listens to the DOM events) */
+async function clipKey(key) {
+	const base = { key, code: `Key${key.toUpperCase()}`, windowsVirtualKeyCode: KEYS[key], modifiers: 2 };
+	await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', ...base, commands: [key === 'c' ? 'copy' : 'paste'] });
+	await send('Input.dispatchKeyEvent', { type: 'keyUp', ...base });
+	await sleep(400);
+}
+const blendOf = (i) => js(`(() => { const p = document.querySelectorAll(${JSON.stringify(PIECES)})[${i}]; return p ? getComputedStyle(p).mixBlendMode : null; })()`);
+/** the collage picker sheet is open (the Sheet's <dialog> stays in the page) */
+const pickerOpen = `!!document.querySelector('[data-testid="collage-picker-sheet"]')?.closest('dialog')?.open`;
+const layerTestids = () => js(`[...document.querySelectorAll('[data-testid="layers"] > li')].map((li) => li.dataset.testid)`);
+
+/**
+ * The piece tool on the open slice: scissors → a click → the picker → a shape (disc-black) → it lies on the picture,
+ * under the lettering, centred at the click; the look Negative blends it (difference – the picture's negative there);
+ * the look Fade's ramp keeps the disc opaque in its middle; the ramp's dot moves its end; one undo per step back to no
+ * piece (and redo); Ctrl+C / Ctrl+V = a second piece with a new id, an offset; Layers: pieces reorder among themselves,
+ * never above the stack; Delete removes the selected one. Leaves the two new pieces on the slice (unsaved).
+ */
+async function pieceCase() {
+	const n0 = await pieceCount();
+	await click(tid('tool-piece'));
+	check((await js(`${q('tool-piece')}.getAttribute('aria-pressed') === 'true' && ${q('tab-layers')}.classList.contains('active')`)) === true, 'pieces: the scissors tool is picked and opens the Layers tab');
+	const spot = await emptySpot();
+	if (!check(!!spot, 'pieces: the slice has a spot without a box')) return;
+	await mouseAt(...spot);
+	check(await until(`${pickerOpen} && !!${q('collage-shape-search')}`, 5000), 'pieces: a click on the slice opens the collage picker (Shapes)');
+	await until(`!!document.querySelector('[data-testid^="collage-shape-"]')`, 15000);
+	await js(`${q('collage-shape-search')}.focus()`);
+	await send('Input.insertText', { text: 'disc black' });
+	check(await until(`!!${q('collage-shape-disc-black')}`, 5000), 'pieces: the search finds the shape "disc black"');
+	await click(tid('collage-shape-disc-black'));
+	const added = await until(`document.querySelectorAll(${JSON.stringify(PIECES)}).length === ${n0 + 1} && !!${q('piece-inspector')} && !${pickerOpen} && ${q(`box-piece-${n0}`)}?.classList.contains('selected')`, 5000);
+	if (!check(added, 'pieces: a shape pick adds the piece – drawn on the picture, its box selected, the inspector open, the sheet closed', JSON.stringify(await js(`({ pieces: document.querySelectorAll(${JSON.stringify(PIECES)}).length, inspector: !!${q('piece-inspector')}, sheet: ${pickerOpen}, box: ${q(`box-piece-${n0}`)}?.className ?? null, tab: document.querySelector('[data-testid="tab-layers"]')?.className, sel: [...document.querySelectorAll('.box.selected')].map((b) => b.dataset.testid) })`)))) return;
+	const box = await js(`(() => { const p = document.querySelectorAll(${JSON.stringify(PIECES)})[${n0}]; const o = ${q('slice-canvas')}.getBoundingClientRect(); const r = p.getBoundingClientRect(); return { width: p.style.width, translate: p.style.translate, cx: (r.x + r.width / 2 - o.x) / o.width * 100, sx: ${spot[0]}, ox: o.x, ow: o.width, cy: (r.y + r.height / 2 - o.y) / o.height * 100, sy: ${spot[1]}, oy: o.y, oh: o.height, under: (() => { const media = p.closest('.slice-media'); const layers = document.querySelector('[data-testid="slice-canvas"] .slice-layers'); return !!media && (!layers || (getComputedStyle(layers).zIndex === '1' && !!(media.compareDocumentPosition(layers) & Node.DOCUMENT_POSITION_FOLLOWING))); })() }; })()`);
+	// the click snaps to the grid (30 px): within a grid step of the spot
+	const step = (30 / sliceWidth) * 100;
+	check(
+		box.width === '30%' && /-50%/.test(box.translate) && Math.abs(box.cx - ((box.sx - box.ox) / box.ow) * 100) <= step && Math.abs(box.cy - ((box.sy - box.oy) / box.oh) * 100) <= step && box.under,
+		'pieces: centred at the click (anchor c, 30 % wide), in the picture group under the lettering',
+		JSON.stringify(box)
+	);
+	const rows = await layerTestids();
+	const firstPiece = rows.findIndex((r) => r.startsWith('layer-piece-'));
+	check(firstPiece >= 0 && rows[firstPiece] === `layer-piece-${n0}` && rows.slice(firstPiece).every((r) => r.startsWith('layer-piece-')), 'pieces: the Layers list shows it under the stack (the front piece first)', JSON.stringify(rows));
+	// the anchor picker keeps the piece where it is (its drawn height comes from the canvas – the ratio), undo takes it back
+	const rectOf = () => js(`(() => { const r = document.querySelectorAll(${JSON.stringify(PIECES)})[${n0}].getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map((v) => Math.round(v)); })()`);
+	const r0 = await rectOf();
+	await js(`${q('piece-advanced')}.open = true`);
+	await click(tid('anchor-tl'));
+	const r1 = await rectOf();
+	const moved = await js(`document.querySelectorAll(${JSON.stringify(PIECES)})[${n0}].style.translate`);
+	check(r1.every((v, i) => Math.abs(v - r0[i]) <= 1) && !moved, 'pieces: another anchor (top-left) keeps the piece in place', JSON.stringify({ r0, r1, moved }));
+	// the radio holds the focus (Ctrl+Z in a field is the browser's): out of it first
+	await js('document.activeElement?.blur()');
+	await press('z', 'ctrl');
+	check(/-50%/.test(await js(`document.querySelectorAll(${JSON.stringify(PIECES)})[${n0}].style.translate`)), 'pieces: undo puts the anchor back (centre)');
+	await js(`${q('piece-advanced')}.open = false`);
+
+	// pixels at the piece's centre: the picture alone (P), the disc as drawn (A)
+	const [cx, cy] = await js(`(() => { const r = document.querySelectorAll(${JSON.stringify(PIECES)})[${n0}].getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`);
+	await until(`(() => { const img = document.querySelectorAll(${JSON.stringify(PIECES)})[${n0}]?.querySelector('img'); return !!img && img.complete && img.naturalWidth > 0; })()`, 5000);
+	const P = await pixelAt(cx, cy, false);
+	const A = await pixelAt(cx, cy);
+	await sleep(1200); // separate undo steps (the looks share one key)
+	await click(tid('piece-look-negative'));
+	check((await blendOf(n0)) === 'difference', 'pieces: the look Negative blends the piece (computed mix-blend-mode difference)', String(await blendOf(n0)));
+	const N = await pixelUntil(cx, cy, negative(P), 6);
+	check(off(N, negative(P)) <= 6, 'pieces: under the negative disc the picture is its negative', JSON.stringify({ P, N }));
+	await sleep(1200);
+	await click(tid('piece-look-fade'));
+	const F = await pixelUntil(cx, cy, A, 8);
+	if (off(A, P) < 40) console.log(`note: the picture is about as dark as the disc there (${JSON.stringify({ A, P })}) – the ramp check is weak`);
+	check(off(F, A) <= 8, 'pieces: the look Fade keeps the disc opaque in the middle of its ramp (the bands add up to 1)', JSON.stringify({ A, F, P }));
+	// the ramp's dots: the end dot dragged up
+	const dots = await until(`!!${q('piece-blur-dot-from')} && !!${q('piece-blur-dot-to')}`, 3000);
+	check(dots, 'pieces: a ramp shows its two dots on the selected piece');
+	if (dots) {
+		const [dx, dy] = await js(`(() => { const r = ${q('piece-blur-dot-to')}.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`);
+		await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: dx, y: dy, button: 'left', clickCount: 1 });
+		for (let i = 1; i <= 5; i++) await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: dx, y: dy - (30 * i) / 5, button: 'left', buttons: 1 });
+		await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: dx, y: dy - 30, button: 'left', clickCount: 1 });
+		await sleep(250);
+		const top = await js(`parseFloat(${q('piece-blur-dot-to')}.style.top)`);
+		check(top < 95 && top > 40 && (await pieceCount()) === n0 + 1, `pieces: dragging the end dot moves the ramp's end (${top} %), the piece stays`);
+	}
+	// one undo per step: the dot, Fade → Negative, Negative → as drawn, the piece
+	await sleep(300);
+	await press('z', 'ctrl');
+	const back1 = dots ? await js(`parseFloat(${q('piece-blur-dot-to')}?.style.top)`) : 100;
+	await press('z', 'ctrl');
+	const back2 = await blendOf(n0);
+	await press('z', 'ctrl');
+	const back3 = [await blendOf(n0), await pieceCount()];
+	await press('z', 'ctrl');
+	const back4 = await pieceCount();
+	check(back1 === 100 && back2 === 'difference' && back3[0] === 'normal' && back3[1] === n0 + 1 && back4 === n0, 'pieces: Ctrl+Z steps back – the dot, the look, the look, then the piece is gone', JSON.stringify({ back1, back2, back3, back4 }));
+	for (let i = 0; i < 4; i++) await press('z', 'ctrl', 'shift');
+	check((await pieceCount()) === n0 + 1 && (await blendOf(n0)) === 'normal' && (await js(`!!document.querySelectorAll(${JSON.stringify(PIECES)})[${n0}]?.classList.contains('ramp')`)), 'pieces: redo brings the piece back with its ramp');
+
+	// copy / paste: a second piece, a new id, one step off
+	await click(tid(`slice-piece-${n0}`));
+	await clipKey('c');
+	await clipKey('v');
+	const ids = await pieceIds();
+	const pasted = await js(`(() => { const [a, b] = [...document.querySelectorAll(${JSON.stringify(PIECES)})].slice(${n0}); return a && b ? [parseFloat(b.style.left) - parseFloat(a.style.left), parseFloat(b.style.top) - parseFloat(a.style.top)] : null; })()`);
+	check(ids.length === n0 + 2 && new Set(ids).size === ids.length && !!pasted && Math.abs(pasted[0] - 2) < 0.01 && Math.abs(pasted[1] - 2) < 0.01 && (await js(`${q(`box-piece-${n0 + 1}`)}?.classList.contains('selected')`)), 'pieces: Ctrl+C / Ctrl+V adds a second piece – a new id, 2 % right / down, selected', JSON.stringify({ ids, pasted }));
+
+	// Layers: the pieces reorder among themselves, never above the stack
+	const before = await pieceIds();
+	await js(`document.querySelector('[data-testid="layer-piece-${n0 + 1}"] [data-sort-grip]').focus()`);
+	await press('ArrowDown', 'alt');
+	const swapped = await pieceIds();
+	check(JSON.stringify(swapped.slice(n0)) === JSON.stringify([...before.slice(n0)].reverse()), 'pieces: Alt+ArrowDown on the front piece row puts it behind the other piece', JSON.stringify({ before, swapped }));
+	await press('z', 'ctrl');
+	check(JSON.stringify(await pieceIds()) === JSON.stringify(before), 'pieces: one undo brings the order back');
+	if (!(await layerTestids()).some((r) => !r.startsWith('layer-piece-'))) {
+		// a slice without text boxes / items: one text box to be above
+		await click(tid('add-text'));
+		await click(tid('text-preset-speech'));
+		await until(`[...document.querySelectorAll('[data-testid="layers"] > li')].some((li) => li.dataset.testid.startsWith('layer-dialog-'))`, 3000);
+	}
+	{
+		const rows0 = await layerTestids();
+		const top = rows0.find((r) => r.startsWith('layer-piece-'));
+		await js(`document.querySelector('[data-testid="${top}"] [data-sort-grip]').focus()`);
+		await press('ArrowUp', 'alt');
+		check(JSON.stringify(await layerTestids()) === JSON.stringify(rows0) && (await until(`[...document.querySelectorAll('.sc-toast-stack .toast')].some((t) => /Pieces always lie|Elemente liegen immer/.test(t.textContent))`, 2000)), 'pieces: a piece row never moves above the text boxes / items (a hint says so)', JSON.stringify(rows0));
+	}
+
+	// Delete removes the selected piece; undo brings it back
+	await click(tid(`slice-piece-${n0 + 1}`));
+	await press('Delete');
+	const afterDelete = await pieceCount();
+	await press('z', 'ctrl');
+	check(afterDelete === n0 + 1 && (await pieceCount()) === n0 + 2, 'pieces: Delete removes the selected piece, undo brings it back', JSON.stringify({ afterDelete }));
+	// "+ Add a piece": the picker, the piece in the middle of the slice, selected (the slice already has pieces), then removed
+	await click(tid('add-slice-piece'));
+	await until(`${pickerOpen} && !!${q('collage-shape-disc-black')}`, 5000);
+	await click(tid('collage-shape-disc-black'));
+	const third = await until(`document.querySelectorAll(${JSON.stringify(PIECES)}).length === ${n0 + 3} && !!${q(`box-piece-${n0 + 2}`)}?.classList.contains('selected') && !!${q('piece-inspector')}`, 5000);
+	const middle = await js(`(() => { const p = document.querySelectorAll(${JSON.stringify(PIECES)})[${n0 + 2}]; return p ? [p.style.left, p.style.top] : null; })()`);
+	check(third && middle?.[0] === '50%' && middle?.[1] === '50%', 'pieces: "+ Add a piece" places the pick in the middle of the slice, selected', JSON.stringify(middle));
+	await click(tid('piece-remove'));
+	check((await pieceCount()) === n0 + 2, 'pieces: the inspector’s Remove takes it away');
+	await click(tid('tool-text'));
+}
+
+/** the stored pieces of the slice in the saved draft: the two new ones (the toon's path, a ratio, the look, distinct ids) */
+function savedPieces(draft, before) {
+	const pieces = draft.content.groups[GROUP].slices[SLICE].pieces ?? [];
+	const fresh = pieces.slice(before);
+	return {
+		ok: fresh.length === 2 && fresh.every((p) => p.src === DISC && p.ratio > 0 && p.preset === 'fade' && p.anchor === 'c' && p.rect?.width === 30 && p.rect.height === undefined) && new Set(pieces.map((p) => p.id)).size === pieces.length,
+		detail: JSON.stringify(fresh)
+	};
+}
+
 await send('Runtime.enable');
 await send('Network.enable');
 await send('Page.enable');
@@ -302,6 +528,20 @@ try {
 	await js(`localStorage.setItem('scutoons_session', ${JSON.stringify(token)})`);
 	await send('Page.navigate', { url: `${CREATOR}/${TOON}/chapter/${CHAPTER}` });
 	check(await until(`!!${q('chapter-tree')} && !!${q(`group-${GROUP}`)}`, 30000), 'chapter editor loads signed in as the test user (tree with groups)');
+	if (ONLY_PIECES) {
+		const piecesBefore = (slice.pieces ?? []).length;
+		await send('Page.navigate', { url: `${CREATOR}/${TOON}/chapter/${CHAPTER}?group=${encodeURIComponent(baselineGroupKey)}&slice=${SLICE + 1}` });
+		check(await until(`!!${q('slice-canvas')} && !!${q('tool-piece')} && !!document.querySelector('[data-testid="slice-canvas"] img')`, 30000), `the slice editor opens on group ${GROUP + 1}, slice ${SLICE + 1}`);
+		await pieceCase();
+		await click(tid('save-draft'));
+		await answerDialog('button.primary');
+		await until(`!document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•')`);
+		const saved = savedPieces(await api('GET', `/entities/${CHAPTER_KEYS[0]}?draft=1&wrap=1`), piecesBefore);
+		check(saved.ok, 'pieces: Save draft stores both pieces (the toon\'s path, the ratio, the look, distinct ids, no height)', saved.detail);
+		await send('Page.reload');
+		check(await until(`document.querySelectorAll(${JSON.stringify(PIECES)}).length === ${piecesBefore + 2}`, 30000), 'pieces: after a reload the draft draws them again');
+		throw Object.assign(new Error('done'), { done: true });
+	}
 
 	// ── tree ─────────────────────────────────────────────────────────────────────────────────────────────
 	await click(tid('tree-audio'));
@@ -584,6 +824,10 @@ try {
 	await press('Escape');
 	check(await until(`${CHIP}.querySelector('[id$="-files"]').hidden`, 3000), 'E.1: Escape closes it');
 
+	// ── collage pieces (left on the slice for the save below) ──────────────────────────────────────────
+	const piecesBefore = (slice.pieces ?? []).length;
+	await pieceCase();
+
 	// ── save draft ──────────────────────────────────────────────────────────────────────────────────────
 	const n = writes.length;
 	await click(tid('save-draft'));
@@ -599,6 +843,8 @@ try {
 		'the draft has the new text box; the published version stays',
 		JSON.stringify({ n: savedDialogs.length, published: draft.published })
 	);
+	const savedNew = savedPieces(draft, piecesBefore);
+	check(savedNew.ok, 'pieces: the draft has the two new pieces (the toon\'s path, the ratio, the look, distinct ids, no height)', savedNew.detail);
 
 	// the publish confirm names what is published and in which language (4.4.3) – cancelled here
 	await click(tid('publish'));
@@ -687,8 +933,11 @@ try {
 	}
 	check(errors.length === 0, 'no page errors', errors.join(' | '));
 } catch (e) {
-	failed = true;
-	check(false, 'run', e?.stack ?? String(e));
+	if (e?.done) check(errors.length === 0, 'no page errors', errors.join(' | '));
+	else {
+		failed = true;
+		check(false, 'run', e?.stack ?? String(e));
+	}
 } finally {
 	await restore().catch((e) => check(false, 'restore', String(e)));
 }
