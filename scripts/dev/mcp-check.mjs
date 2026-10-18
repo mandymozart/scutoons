@@ -5,11 +5,15 @@
 // again with the admin API) → list_chapters → read_entity (a scene = its one language-neutral document, agents/NEUTRAL.md)
 // → validate (a broken divert is an error) → save_draft (a per-locale scene key is refused; refused with errors; saved
 // with a new script point; 409 on an outdated base) → list_versions →
-// restore_version (the original content is back as a new draft). No publish tool (agents/MCP.md: the member publishes in
+// restore_version (the original content is back as a new draft); the custom collage presets (research/COLLAGE.md §12.6):
+// validate refuses a built-in look's id in `colorations`, a draft with a preset and a deleted one is saved, list_entities
+// with toon "" has it, a chapter's check judges pieces against it – its versions are deleted again by note (SQL, the
+// MariaDB container), and the case leaves an unpublished `colorations` draft alone. No publish tool (agents/MCP.md: the member publishes in
 // the creator); the tools follow the member's roles (the test user: creator + admin → content, Embassy, admin). Never runs against anything but localhost; whatever it
 // changed is restored, also on failure.
 //
 //   npm run check:mcp
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -36,6 +40,18 @@ const SCENE = `scene:${TOON}:2:scene-14`;
 /** the scene's one language-neutral document (agents/NEUTRAL.md) */
 const KEY = SCENE;
 const POINT = 'mcp-check';
+/** the custom collage presets' platform-wide document; this run's versions carry the note (save_draft adds " (agent)") */
+const PRESETS = 'colorations';
+const PRESETS_NOTE = 'mcp-check presets (removed again)';
+const DB = process.env.SCUTOONS_DB_NAME ?? 'scutoons';
+const CONTAINER = process.env.SCUTOONS_DB_CONTAINER ?? 'scutoons-mariadb-1';
+const sql = (query) => execFileSync('docker', ['exec', '-i', CONTAINER, 'sh', '-c', `mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" -N -r ${DB}`], { input: query }).toString().trim();
+/** deletes this run's `colorations` versions – how many */
+function sweepPresets() {
+	const ids = sql(`SELECT id FROM entity_versions WHERE entity_key = '${PRESETS}' AND message IN ('${PRESETS_NOTE}', '${PRESETS_NOTE} (agent)')`).split('\n').filter(Boolean).map(Number);
+	if (ids.length) sql(`DELETE FROM entity_versions WHERE id IN (${ids.join(',')})`);
+	return ids.length;
+}
 
 const results = [];
 const check = (ok, what, detail = '') => (results.push(!!ok), console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}${!ok && detail ? `  — ${detail}` : ''}`));
@@ -71,6 +87,7 @@ async function api(method, path, body) {
 const client = await connect();
 let original = null; // { id, content }
 let restored = false;
+let presetsSaved = false;
 try {
 	const tools = (await client.listTools()).tools.map((t) => t.name);
 	const expected = ['list_toons', 'list_chapters', 'read_entity', 'read_characters', 'read_map_places', 'search_assets', 'upload_asset', 'list_entities', 'search_content', 'submit_for_review', 'list_versions', 'validate', 'save_draft', 'restore_version'];
@@ -83,9 +100,18 @@ try {
 	const vn = textOf({ content: (await client.readResource({ uri: 'scutoons://rules/vn-events' })).contents });
 	check(/divert/.test(vn) && /anyOf/.test(vn) && /interface VNEvent|VNEvent/.test(vn), 'vn-events rules come from the source (divert, anyOf, types)');
 	const flow = textOf({ content: (await client.readResource({ uri: 'scutoons://rules/flow' })).contents });
-	check(/divert/.test(flow) && /joinScene|joined/.test(flow), 'flow rules from validate.ts');
+	check(/divert/.test(flow) && /stageProblems/.test(flow), 'flow rules from validate.ts');
 	const presets = textOf({ content: (await client.readResource({ uri: 'scutoons://rules/text-presets' })).contents });
 	check(/onomatopoeia/.test(presets) && /"variant"/.test(presets), 'text presets');
+	const slices = textOf({ content: (await client.readResource({ uri: 'scutoons://rules/slices' })).contents });
+	check(/interface CollagePreset extends PieceStyle/.test(slices) && /removed\?: boolean/.test(slices) && /save_draft` of `colorations`/.test(slices), 'slices rules: custom presets (colorations, the CollagePreset type)', slices.slice(-600));
+	const keys = textOf({ content: (await client.readResource({ uri: 'scutoons://rules/entity-keys' })).contents });
+	check(/colorations/.test(keys), 'entity-keys rules name colorations');
+	// a type block the source lost (a renamed declaration) would be an empty code block
+	const empty = [];
+	for (const uri of resources)
+		for (const [, , body] of textOf({ content: (await client.readResource({ uri })).contents }).matchAll(/```(\w*)\n([\s\S]*?)\n```/g)) if (!body.trim()) empty.push(uri);
+	check(!empty.length, 'no rule resource has an empty code block', empty.join(', '));
 
 	const toons = await call(client, 'list_toons');
 	check(!toons.error && toons.json?.some((t) => t.id === TOON), 'list_toons has catpope', toons.raw.slice(0, 200));
@@ -116,6 +142,47 @@ try {
 	check(!places.error && Array.isArray(places.json), 'read_map_places', places.raw.slice(0, 200));
 	const found = await call(client, 'search_assets', { q: 'catpope', page_size: 3 });
 	check(!found.error && typeof found.json?.total === 'number', 'search_assets', found.raw.slice(0, 200));
+
+	// custom collage presets (research/COLLAGE.md §12.6): `colorations` is validated; a chapter's check judges a piece's
+	// preset against the newest draft – a stored custom preset or a built-in look is fine, a deleted or unknown one warns
+	const leftovers = sweepPresets();
+	if (leftovers) console.log(`note: an earlier run's ${leftovers} ${PRESETS} version(s) removed`);
+	const reserved = await call(client, 'validate', { key: PRESETS, content: { presets: [{ id: 'negative', name: 'Negative 2', fill: '#123456' }] } });
+	check(reserved.json?.problems?.some((p) => p.level === 'error' && p.path.join('.') === 'presets.0.id'), "validate colorations: a built-in look's id is an error", reserved.raw.slice(0, 300));
+	const presetsBefore = await api('GET', `/entities/${PRESETS}?draft=1&wrap=1`);
+	const base = presetsBefore?.version?.id ?? null;
+	if (base && presetsBefore.published?.id !== base)
+		check(false, `${PRESETS} holds an unpublished draft (version ${base}) – the presets case leaves it alone: publish or restore it first`);
+	else {
+		const stored = Array.isArray(presetsBefore?.content?.presets) ? presetsBefore.content.presets : [];
+		const own = [
+			{ id: 'mcp-check-night', name: 'mcp-check night', fill: '#123456' },
+			{ id: 'mcp-check-gone', name: 'mcp-check gone', fill: '#654321', removed: true }
+		];
+		const savedPresets = await call(client, 'save_draft', { key: PRESETS, base, content: { ...presetsBefore?.content, presets: [...stored, ...own] }, message: PRESETS_NOTE });
+		presetsSaved = !savedPresets.error;
+		check(presetsSaved && savedPresets.json?.saved && savedPresets.json.errors === 0, 'save_draft colorations: a preset and a deleted one, as a draft', savedPresets.raw.slice(0, 300));
+		const platform = await call(client, 'list_entities', { toon: '' });
+		check(platform.json?.some((e) => e.key === PRESETS), 'list_entities with toon "" lists colorations', platform.raw.slice(0, 200));
+		// a picture slice of a chapter with four pieces: the custom preset, the deleted one, an unknown id, a built-in look
+		const chapterKey = `chapter:${TOON}:3`;
+		const chapter = await call(client, 'read_entity', { key: chapterKey });
+		let at = null;
+		(chapter.json?.content?.groups ?? []).some((g, gi) => (g?.slices ?? []).some((s, si) => s?.image && (at = ['groups', gi, 'slices', si, 'pieces'])));
+		const piece = (n, preset) => ({ id: `piece-mcpchk${n}`, src: 'vectors/mcp-check.svg', ratio: 1, rect: { x: 10 * n, y: 10, width: 20 }, preset });
+		const pieces = [piece(1, 'mcp-check-night'), piece(2, 'mcp-check-gone'), piece(3, 'nope'), piece(4, 'ink')];
+		const judged = at ? await call(client, 'validate', { key: chapterKey, ops: [{ op: 'set', path: at, value: pieces }] }) : null;
+		const presetProblems = (judged?.json?.problems ?? []).filter((p) => p.path.at(-1) === 'preset');
+		const of = (i) => presetProblems.filter((p) => p.path.at(-2) === i);
+		const detail = at ? JSON.stringify(presetProblems).slice(0, 400) : `no picture slice in ${chapterKey}`;
+		check(at && !judged.error && !of(0).length && !of(3).length, 'validate chapter: a stored custom preset and a built-in look – no warning', detail);
+		check(of(1).some((p) => p.level === 'warning' && /"mcp-check gone" was deleted/.test(p.message)), 'validate chapter: a deleted preset warns', detail);
+		check(of(2).some((p) => p.level === 'warning' && /unknown preset "nope"/.test(p.message)), 'validate chapter: an unknown preset id warns', detail);
+		const removed = sweepPresets();
+		presetsSaved = false;
+		const presetsAfter = await api('GET', `/entities/${PRESETS}?draft=1&wrap=1`);
+		check((presetsAfter?.version?.id ?? null) === base, `${PRESETS} restored: ${removed} version(s) removed, newest ${presetsAfter?.version?.id ?? 'none'} (was ${base ?? 'none'})`);
+	}
 
 	// upload: a new file, never an overwrite; removed again afterwards (the test user is admin)
 	const dir = mkdtempSync(join(tmpdir(), 'mcp-check-'));
@@ -186,6 +253,7 @@ try {
 	check(false, 'run', error?.stack ?? String(error));
 } finally {
 	await client.close();
+	if (presetsSaved) console.log(`removed ${sweepPresets()} ${PRESETS} version(s) of this run`);
 	// safety net: put the original back when the run stopped between save and restore
 	if (original && !restored) {
 		const now = await api('GET', `/entities/${KEY}?draft=1&wrap=1`);
