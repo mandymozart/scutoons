@@ -5,7 +5,6 @@
 	import {
 		AUTHORED_VIEW,
 		CHARACTER_IMAGE_VARIANTS,
-		COLLAGE_LOOKS,
 		DEFAULT_MOOD,
 		defaultLookId,
 		findLook,
@@ -22,24 +21,27 @@
 	} from '@scutoons/content';
 	import { figurePath, pieceAt, setFigure, setPreset } from '$lib/editor/collage-edit.ts';
 	import { figureImage, figureViews, imageRatio } from '$lib/editor/collage-pick.ts';
-	import { lookLabel, pieceKindLabel, pieceLabel } from '$lib/editor/collage-words.ts';
+	import { pieceKindLabel, pieceLabel } from '$lib/editor/collage-words.ts';
 	import { isKnownMissing } from '$lib/editor/characters.ts';
 	import { ownPresets } from '$lib/editor/presets-doc.ts';
 	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
-	import { asset } from '$lib/utils/cdn.ts';
+	import { asset, toonUrl } from '$lib/utils/cdn.ts';
 	import { toast } from '$lib/toasts.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import PlaceFields from '$lib/components/collage/place-fields.svelte';
 	import LookFields from '$lib/components/collage/look-fields.svelte';
+	import LookGrid from '$lib/components/collage/look-grid.svelte';
+	import PresetLine from '$lib/components/collage/preset-line.svelte';
 
 	/**
 	 * The ONE inspector of a collage piece (research/COLLAGE.md §7), on a slice and on a score: its kind and name, a
-	 * character picture's mood and view, the looks (a pick names the look and drops the piece's own values), and folded
-	 * the fine-tuning – place, size, blend, fill, outline, shadow, blur (open when the piece has its own values). Like the
-	 * text box inspector: compact property rows, drag a field's handle to change it, click to type. A re-click of the
-	 * chosen view (no re-pick still decoding), or of the chosen look while the piece has no values of its own, changes
-	 * nothing (no empty undo step, redo kept); with own values, a re-click of the chosen look takes the piece back to the
-	 * look (drops them).
+	 * character picture's mood and view, the presets – the ten code looks and the custom ones (§12.4), each previewed on
+	 * the piece's own file (LookGrid; a pick names it and drops the piece's own values), the preset line under them (Save
+	 * as preset …, Update preset, •••) – and folded the fine-tuning – place, size, blend, fill, outline, shadow, blur (open
+	 * when the piece has its own values). Like the text box inspector: compact property rows, drag a field's handle to
+	 * change it, click to type. A re-click of the chosen view (no re-pick still decoding), or of the chosen preset while
+	 * the piece has no values of its own, changes nothing (no empty undo step, redo kept); with own values, a re-click of
+	 * the chosen preset takes the piece back to it (drops them).
 	 */
 	let {
 		doc,
@@ -65,6 +67,9 @@
 	} = $props();
 
 	const piece = $derived(doc.get(doc.primary, path) as CollagePiece | undefined);
+	const own = $derived(ownPresets(presets));
+	/** the piece's file (a toon document's path from its folder, a score's from the CDN root – toon '') */
+	const src = $derived(piece ? toonUrl(doc.toon, piece.src) : '');
 	const key = (field: string) => `${path.join('.')}.${field}`;
 	/** one edit of the piece = one undo step (the same key within ~1s merges: one scrub, one step) */
 	function change(edit: (piece: CollagePiece) => void, field: string) {
@@ -177,21 +182,15 @@
 			</PropRow>
 		{/if}
 
-		<!-- the looks (code presets – COLLAGE.md §2): a pick names it and drops the piece's own values; the fold fine-tunes -->
-		<Segmented
-			grid
-			label={m['creator.piece_look']()}
-			value={piece.preset ?? ''}
-			onchange={(look) => ((look || undefined) !== piece.preset || piece.style) && change((target) => setPreset(target, look || undefined), 'preset')}
-			options={[{ value: '', label: m['creator.look_none'](), testid: 'piece-look-none' }, ...COLLAGE_LOOKS.map((l) => ({ value: l.id, label: lookLabel(l.id), testid: `piece-look-${l.id}` }))]}
-			testid="piece-looks"
-		/>
+		<!-- the presets (COLLAGE.md §2, §12.4): a pick names it and drops the piece's own values; the fold fine-tunes -->
+		<LookGrid {piece} {src} presets={own} onpick={(look) => (look !== piece.preset || piece.style) && change((target) => setPreset(target, look), 'preset')} />
+		{#if presets}<PresetLine {doc} {path} {piece} {presets} />{/if}
 
 		<details class="advanced" bind:open={advanced} data-testid="piece-advanced">
 			<summary>{m['creator.advanced']()}</summary>
 			<div class="props">
 				<PlaceFields {doc} {path} {piece} {host} {onpage} />
-				<LookFields {piece} presets={ownPresets(presets)} {change} />
+				<LookFields {piece} presets={own} {change} />
 			</div>
 		</details>
 	</div>

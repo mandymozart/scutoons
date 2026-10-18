@@ -1,5 +1,5 @@
 // The collage inspector's words (agents/research/COLLAGE.md §7): the looks, the 16 blend modes, a piece's kind and name.
-import { moodLabel, pieceKind, pieceName, type CharacterRegistry, type CollagePiece, type MoodVocabulary } from '@scutoons/content';
+import { COLLAGE_LOOKS, customPreset, moodLabel, pieceKind, pieceName, type CharacterRegistry, type CollagePiece, type MoodVocabulary, type PresetList } from '@scutoons/content';
 import type { ScoreLabels } from '@scutoons/reader/score';
 import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
 import { shapeTitle } from '$lib/editor/collage-pick.ts';
@@ -8,8 +8,15 @@ import { m } from '$lib/paraglide/messages.js';
 
 const word = (key: string, fallback: string) => (m as unknown as Record<string, (() => string) | undefined>)[key]?.() ?? fallback;
 
-/** a look's name (`creator.look_<id>`; an id the code doesn't know – a later owner-made look – as it is) */
-export const lookLabel = (id: string) => word(`creator.look_${id}`, id);
+/**
+ * a look's name: a code look's `creator.look_<id>` ('none' = As drawn), a custom preset's own name (`presets`, research/
+ * COLLAGE.md §12), else the id as it is
+ */
+export function lookLabel(id: string, presets?: PresetList): string {
+	if (id === 'none' || COLLAGE_LOOKS.some((look) => look.id === id)) return word(`creator.look_${id}`, id);
+	const name: unknown = customPreset(id, presets)?.name;
+	return (typeof name === 'string' && name.trim()) || id;
+}
 /** a blend mode's name (`creator.blend_<mode>`, the hyphen as `_`: color-dodge → blend_color_dodge) */
 export const blendLabel = (mode: string) => word(`creator.blend_${mode.replace(/-/g, '_')}`, mode);
 /** Shape / Character / Image */

@@ -256,13 +256,19 @@ export function pieceAt(file: unknown, path: (string | number)[]): CollagePiece 
 }
 
 /**
- * Where the character picture `id` is now, for an edit that waited (a decode): the selection may have moved on and a
- * Remove may have renumbered the list, so it is looked up by id in the list `path` pointed into – never the piece that
- * is at `path` now. Undefined when it is gone or no longer a character picture (the edit is dropped)
+ * Where the piece `id` is now, for an edit that waited (a decode, a dialog, a toast's Undo): the selection may have
+ * moved on and a Remove or an undo may have renumbered the list, so it is looked up by id in the list `path` pointed
+ * into – never the piece that is at `path` now. Undefined when it is gone (the edit is dropped)
  */
-export function figurePath(file: unknown, path: Path, id: string): Path | undefined {
+export function piecePath(file: unknown, path: Path, id: string): Path | undefined {
 	const list = getAt(file, path.slice(0, -1));
 	if (!Array.isArray(list)) return undefined;
-	const index = list.findIndex((p) => p && typeof p === 'object' && (p as CollagePiece).id === id && (p as CollagePiece).figure);
+	const index = list.findIndex((p) => p && typeof p === 'object' && (p as CollagePiece).id === id);
 	return index < 0 ? undefined : [...path.slice(0, -1), index];
+}
+
+/** `piecePath` of a character picture: undefined too when it is no longer one (a re-pick's edit is dropped) */
+export function figurePath(file: unknown, path: Path, id: string): Path | undefined {
+	const at = piecePath(file, path, id);
+	return at && pieceAt(file, at)?.figure ? at : undefined;
 }
