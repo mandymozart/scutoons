@@ -88,7 +88,8 @@ export interface BlurBands {
 }
 
 /**
- * A progressive blur (`blur` with from + to): two bands, sharp and blurred, crossfaded by inverse masks. Each band is
+ * A progressive blur (`blur` with from + to): two bands, sharp and blurred, crossfaded by inverse masks (the view adds
+ * the soft band with `plus-lighter` in an isolated piece – drawn over the sharp one, the sum would dip). Each band is
  * padded by the paint's spill (3× the blur, + outline and shadow) so its mask doesn't cut the halo; the line is mapped
  * from the piece box into the padded box. null = no ramp (an even blur or none: one `.fx`).
  */

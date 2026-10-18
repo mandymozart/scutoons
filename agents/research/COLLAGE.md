@@ -158,7 +158,8 @@ Creator `PickerSheet` (Sheet right, widthKey `picker`), Tabs **Shapes · Charact
     PAINT = <img loading=lazy decoding=async draggable=false object-fit:contain>  |  .fill { mask: var(--src) center/contain no-repeat (+ -webkit-mask); background: colour | linear-gradient }
 progressive blur – two bands instead of one .fx, both padded (a mask cuts at its box – also the sharp band's outline / shadow):
   .band (sharp)  inset −P cqw, mask linear-gradient(θ, #000 s%, transparent e%) remapped to the padded box > .fx at inset P cqw (outline, shadow)
-  .band (soft)   the same box, the inverse mask > .fx at inset P cqw (outline, shadow, blur)   P = spill = outline + shadow (max |x|,|y| + 1.5 × blur) + 3 × amount
+  .band (soft)   the same box, the inverse mask, mix-blend-mode: plus-lighter > .fx at inset P cqw (outline, shadow, blur)   P = spill = outline + shadow (max |x|,|y| + 1.5 × blur) + 3 × amount
+  .piece.ramp    isolation: isolate – the bands add (1 − t + t = 1) only with each other; over each other they'd give 1 − t + t² (75 % mid-ramp)
 ```
 | Effect | Technique |
 |---|---|
@@ -168,7 +169,7 @@ progressive blur – two bands instead of one .fx, both padded (a mask cuts at i
 | Outline | 4 chained zero-blur `drop-shadow(±w cqw …)` on `.fx` (dilation; boxy corners on thick outlines) |
 | Shadow | `drop-shadow(x y blur rgb(r g b / a))` after the outline – the outlined shape casts it; turns with the piece |
 | Blur | `blur(a cqw)` last on `.fx` – never on the masked element (filter runs before mask) |
-| Progressive blur | two bands; `blurBands(style, ratio)` maps from / to into the padded box (`gradientLine`): θ = atan2(dx·w, −dy·h), L = abs(w sinθ) + abs(h cosθ), stops = projections. Built 2026-10-18 (step 2), identical in Chromium / Firefox / WebKit (probe); WebKit rounds drop-shadow lengths to whole px |
+| Progressive blur | two bands; `blurBands(style, ratio)` maps from / to into the padded box (`gradientLine`): θ = atan2(dx·w, −dy·h), L = abs(w sinθ) + abs(h cosθ), stops = projections; the soft band added (`plus-lighter`) in the isolated piece. Built 2026-10-18 (step 2), identical in Chromium / Firefox / WebKit (probe: an opaque `fade` disc stays opaque down its middle, a `negative` ramp inverts there); WebKit rounds drop-shadow lengths to whole px |
 | Rotation | `rotate` on `.piece`; shadows rotate with it |
 
 **Limits** (validation warnings, not caps): slice 12 pieces / heavy weight 4; score 60 / 20; outline ≤ 8 %, blur ≤ 20 %, shadow blur ≤ 25 %. Pieces are static, mount near the viewport (slices) or on rendered pages (scores). WebKit software probe: blend 1.6×, drop-shadow + blend ~7×, blur ~5× a plain piece – phones still need an on-device check (owner's Firefox Android + an iPhone).
@@ -198,7 +199,7 @@ Order core → slices → scores: the shared model, renderer, picker and inspect
 1. **Model, layer stack, validation, schemas** (S) – collage.ts, Slice.pieces, ScoreFiles / ScorePart.collage, layers.ts, validate.ts, validateContainers, tests, schemas.
 2. **Renderer + picture group + viewer** (M) – collage-css.ts, collage-piece.svelte, slice-picture.svelte, Slice, viewer slice; three-engine probe.
 3. **Picker + inspector** (L) – CharacterGrid move, CollagePickerSheet, ShapeGrid, PieceInspector + fields, collage-edit.ts, icons, messages.
-4. **Slice editor wiring** (L) – tool, canvas, Layers list move, add / remove / create map, clipboard, phone label, blur dots; check:creator-chapter piece case.
+4. **Slice editor wiring** (L) – tool, canvas, Layers list move, add / remove / create map, clipboard, phone label, blur dots; check:creator-chapter piece case (incl. the ramp's middle: an opaque `fade` piece stays opaque there).
 5. **Score anchoring, ScoreView, server delivery** (M) – score-layout.ts move, score-anchors.ts + fixture, score-pieces.svelte, ScoreView props, ProtectedFiles / CatalogValidator / tests, api type, viewer score-actions.
 6. **Score stage** (L) – route, ScoreStage, ScoreFrame, ScoreOverlay, CollageList, score-collage.ts, screens.ts move, Collage button, check:creator-collage.
 7. **Docs, green, handover** (S) – this doc updated to what was built, DESIGN / DATA / CATALOG / GOTCHAS / FEATURES / MCP format line, HANDOVER "Last run".

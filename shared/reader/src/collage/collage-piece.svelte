@@ -11,7 +11,9 @@
 	 *   .piece  box · translate (anchor) · rotate · mix-blend-mode · opacity · z · container-type (cqw = % of the piece)
 	 *     .fx   filter: outline ×4 → shadow → blur
 	 *       the paint: the file as drawn (<img>), or its alpha as a mask on `.fill` (a colour / gradient)
-	 *   a progressive blur: two padded `.band`s – sharp and blurred – crossfaded by inverse masks
+	 *   a progressive blur: two padded `.band`s – sharp and blurred – crossfaded by inverse masks 1 − t / t; the soft
+	 *   band is added (`plus-lighter`) inside the isolated `.piece.ramp`, so they sum to 1 – drawn over each other they'd
+	 *   give 1 − t + t²: an opaque piece 75 % opaque mid-ramp
 	 *
 	 * The blend sits on `.piece`, an HTML box (blending SVG children differs in Firefox); it blends with what lies behind
 	 * the piece inside its host's isolated group (SlicePicture's `.slice-media`). No inline SVG: nothing to sanitise.
@@ -46,13 +48,13 @@
 	{/if}
 {/snippet}
 
-<div class="piece" style={css.box} data-piece={piece.id}>
+<div class="piece" class:ramp={!!css.bands} style={css.box} data-piece={piece.id}>
 	{#if css.bands}
 		{@const pad = css.bands.pad}
 		<div class="band" style:inset="{-pad}cqw" style:--mask={css.bands.sharp}>
 			<div class="fx" style:inset="{pad}cqw" style:filter={css.filter}>{@render paint()}</div>
 		</div>
-		<div class="band" style:inset="{-pad}cqw" style:--mask={css.bands.soft}>
+		<div class="band soft" style:inset="{-pad}cqw" style:--mask={css.bands.soft}>
 			<div class="fx" style:inset="{pad}cqw" style:filter={css.bands.filter}>{@render paint()}</div>
 		</div>
 	{:else}
@@ -61,11 +63,19 @@
 </div>
 
 <style>
-	/* the piece's own group: its effects composite here, then the whole blends with what lies behind */
+	/* the piece: its effects composite here, then the whole blends with what lies behind (a group of its own through
+	   its blend, its opacity or a ramp's isolation – container-type makes none) */
 	.piece {
 		position: absolute;
 		container-type: inline-size;
 		pointer-events: none;
+	}
+	/* a ramp's bands add up (masks t + 1 − t = 1) only with each other – not with the picture behind the piece */
+	.piece.ramp {
+		isolation: isolate;
+	}
+	.band.soft {
+		mix-blend-mode: plus-lighter;
 	}
 	.band,
 	.fx {
