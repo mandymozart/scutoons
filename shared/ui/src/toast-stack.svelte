@@ -54,6 +54,7 @@
 		border: var(--border-width-regular) solid var(--ink);
 		border-radius: var(--radius-none);
 		pointer-events: auto;
+		max-width: 100%;
 	}
 	.success {
 		border-left: 0.5em solid var(--primary-cyan);
@@ -68,10 +69,18 @@
 		flex: none;
 		align-self: center;
 	}
+	/* a long unbroken word (a JSON path, a pattern in a save error) wraps anywhere – else the toast grew past the screen
+	   and pushed its close cross out of reach (owner 2026-10-18) */
 	p {
+		flex: 1 1 auto;
+		min-width: 0;
 		margin: 0;
 		align-self: center;
 		line-height: var(--type-body-line);
+		overflow-wrap: anywhere;
+	}
+	.toast :global(.sc-close-button) {
+		flex: none;
 	}
 	/* the close cross level with the first line, the control's extra height hangs into the padding */
 	.toast :global(.sc-close-button) {
