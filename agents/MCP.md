@@ -208,6 +208,11 @@ from the computer; no admin UI). Only the files that came with the deploy run, n
 itself runs pending migrations after the API upload (`/api/deploy/migrate`, MIGRATE_KEY). Details:
 server/docs/DATABASE.md "Migrations", docs/API.md "Developer API".
 
+A developer who writes content also gets `import_vectors` (`src/vectors.ts`, owner 2026-10-18: "Add an MCP tool that
+writes the shapes as my account"): the vector library of this checkout into the asset manager as the member – the same
+core as the local `npm run vectors:import` (`scripts/vectors-core.mjs`); dry run by default, `limit` per call, never
+replaces or deletes a file, stops on a path held by a non-shape (research/VECTORS.md §6 step 5).
+
 Open:
 - **Owner:** install the extension once in Claude Desktop (account page → AI connections) – not tried (no Claude Desktop
   in the agent's reach).

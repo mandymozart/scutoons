@@ -12,6 +12,7 @@ import { instructions, registerPrompts } from './prompts.ts';
 import { registerContentTools } from './server.ts';
 import { appLinks, type Member, type Services } from './services.ts';
 import { registerStoryTools } from './story.ts';
+import { registerVectorTools } from './vectors.ts';
 
 export const VERSION = '0.3.0';
 
@@ -60,6 +61,8 @@ export function createMemberServer(config: Config, member: Member, services: Ser
 	if (services.embassy) registerEmbassyTools(server, config, { member, links });
 	if (services.admin) registerAdminTools(server, config, { links });
 	if (services.developer) registerDevTools(server, config);
+	// the vector library into the asset manager (research/VECTORS.md) – developers who also write content
+	if (services.developer && services.content === 'write') registerVectorTools(server, config);
 	registerPrompts(server, services);
 	return server;
 }

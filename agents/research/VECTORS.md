@@ -168,8 +168,9 @@ small"); a review flag comes back with a review screen.
    the list API (an asset with a shape row), the asset sheet shows the fields.
 5. ~~Import~~ – done on the LOCAL dev stack 2026-10-18: `npm run vectors:import` (scripts/vectors-import.mjs, svgo with
    viewBox and size kept: 11.6 MB → 6.7 MB, pixel diff of a sample < 0.1 % – anti-aliasing) uploaded all 436 to
-   `catpope/vectors/` as the test user and wrote their shape rows; a second run changes nothing. Production: the same
-   script once the owner asks (it refuses any API but localhost until then). Was: **Import** to `catpope/vectors/` through the API, shrunk (svgo), shape rows from `vectors.json`, no relink (clean
+   `catpope/vectors/` as the test user and wrote their shape rows; a second run changes nothing. Production (owner 2026-10-18: "import the 436 vectors to production. Add an MCP tool that writes the
+   shapes as my account"): the SCUTOONS MCP tool `import_vectors` (tools/mcp/src/vectors.ts) runs the same core
+   (`scripts/vectors-core.mjs`) as the owner – dry run first, never replaces a file; the script stays localhost-only. Was: **Import** to `catpope/vectors/` through the API, shrunk (svgo), shape rows from `vectors.json`, no relink (clean
    slate); the code set (the illumination's five, the 90s collage's twelve) stays in git with its CDN twins as code
    references. Locally first, production when the owner runs it or asks.
 6. **The lab reads the CDN**: the Collage look (score-riot) takes the shape list from the API and loads files by CDN
