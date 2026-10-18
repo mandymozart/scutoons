@@ -7,7 +7,7 @@
 
 	/**
 	 * Where a piece sits (research/COLLAGE.md §7): on a slice the anchor point (the 3×3 picker) at X / Y in % of the
-	 * picture; on a score a bar (+ staff) of the file – x in % of the bar's width, y in staff spaces below the staff's top
+	 * picture; on a score a bar (+ staff) of the file – x in % of the bar's time, y in staff spaces below the staff's top
 	 * line – or, as a background, % of the page that holds the bar (the piece's centre: no anchor picker). Then the width
 	 * (% / staff spaces – the height follows the file, never distorted), the rotation, and on scores over / behind the
 	 * notes. Plain fields: one undo step per field (doc.set coalesces a scrub).

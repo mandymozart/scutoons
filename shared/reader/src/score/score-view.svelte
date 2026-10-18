@@ -62,7 +62,8 @@
 	import ScoreAge from './score-age.svelte';
 	import ScoreBoil from './score-boil.svelte';
 	import ScorePieces from './score-pieces.svelte';
-	import { barIndex, findBar, pageGeometry, type BarRef, type PageGeometry } from './score-anchors.ts';
+	import { pageGeometry, type PageGeometry } from './score-anchors.ts';
+	import { barIndex, findBar, type BarRef } from './score-bars.ts';
 	import { scoreOptions, stepZoom } from './score-layout.ts';
 	import type { ScoreLook } from './score-looks.ts';
 	import './score-looks.css';
@@ -130,7 +131,7 @@
 		page?: number;
 		/** a bar to keep in view: the layout's anchor instead of the page's first bar, and turned to when it changes */
 		follow?: ScoreAt | null;
-		/** after every layout: the file's bars (score-anchors.ts – the stage lists the pieces whose bar is missing) */
+		/** after every layout: the file's bars (score-bars.ts – the stage lists the pieces whose bar is missing) */
 		onlayout?: (bars: BarRef[]) => void;
 		/** none = no close button and no Escape */
 		onclose?: () => void;

@@ -106,8 +106,9 @@ export interface CollagePiece {
 	figure?: PieceFigure;
 	/**
 	 * x / y = the `anchor` point, the width; the height always follows `ratio` (never stored). Slice: % of the picture.
-	 * Score (music): x = % of the bar's width from its start, y = staff spaces below the staff's top line, width = staff
-	 * spaces. Score (`at.page`): % of the page.
+	 * Score (music): x = % of the bar's time (0 = its first beat, 100 = its end – it follows the notes, so a piece on a
+	 * note stays on it whatever the line breaks), y = staff spaces below the staff's top line, width = staff spaces.
+	 * Score (`at.page`): % of the page.
 	 */
 	rect: {
 		x: number;

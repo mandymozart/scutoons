@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import type { CollagePiece } from '@scutoons/content';
-import { anchorScorePiece, barIndex, findBar, pageFrame, pageGeometry, placeScorePiece, type PageGeometry } from '../src/score/score-anchors.ts';
+import { anchorScorePiece, pageFrame, pageGeometry, placeScorePiece, type PageGeometry } from '../src/score/score-anchors.ts';
+import { barIndex, barTime, barX, findBar, type Beat } from '../src/score/score-bars.ts';
 import { ANCHOR_ATTRIBUTES, margin, scoreOptions, stepZoom, ZOOMS } from '../src/score/score-layout.ts';
 import type { ScoreLook } from '../src/score/score-looks.ts';
 
@@ -58,19 +59,62 @@ test('barIndex: every measure in file order, the n-th bar of a number', () => {
 		<measureSpace xml:id="x"/>
 	</section></score></mdiv></body></music></mei>`;
 	const bars = barIndex(mei);
-	assert.deepEqual(bars, [
-		{ id: 'm1', n: '4', nth: 1 },
-		{ id: 'm2', n: '5', nth: 1 },
-		{ id: 'm3', n: '5', nth: 2 },
-		{ id: 'm4', n: '6a', nth: 1 }
-	]);
+	assert.deepEqual(
+		bars.map(({ id, n, nth }) => ({ id, n, nth })),
+		[
+			{ id: 'm1', n: '4', nth: 1 },
+			{ id: 'm2', n: '5', nth: 1 },
+			{ id: 'm3', n: '5', nth: 2 },
+			{ id: 'm4', n: '6a', nth: 1 }
+		]
+	);
 	assert.equal(findBar(bars, { bar: '5', nth: 2 })?.id, 'm3');
 	assert.equal(findBar(bars, { bar: ' 5 ' })?.id, 'm2', 'nth defaults to 1, the number trimmed');
 	assert.equal(findBar(bars, { bar: '5', nth: 3 }), undefined);
 	assert.equal(findBar(bars, null), undefined);
 });
 
-test('a music piece: % of its bar, staff spaces below the staff top line, width in staff spaces', () => {
+test('barIndex: when each note and rest starts, in parts of the bar (Verovio’s MusicXML import: dur.ppq)', () => {
+	// staff 1 counts 2 pulses a quarter, staff 2 four; a chord's notes start with it, grace notes take no time, a
+	// space counts but is no event, beams / tuplets only group; the bar lasts as long as its longest layer
+	const mei = `<mei><music><body><mdiv><score>
+		<scoreDef><staffGrp><staffDef n="1" ppq="2"/><staffDef n="2" ppq="4"/></staffGrp></scoreDef>
+		<section><measure xml:id="b1" n="1">
+			<staff n="1"><layer n="1">
+				<note xml:id="a" dur.ppq="2" dur="4"/>
+				<beam><note xml:id="b" dur.ppq="1" dur="8"/><note xml:id="c" dur.ppq="1" dur="8"/></beam>
+				<graceGrp><note xml:id="g1" grace="unacc" dur="16"/></graceGrp>
+				<note xml:id="g2" grace="acc" dur="8"/>
+				<chord xml:id="ch" dur.ppq="2" dur="4"><note xml:id="c1"/><note xml:id="c2"/></chord>
+				<space dur.ppq="1" dur="8"/>
+				<rest xml:id="r" dur.ppq="1" dur="8"/>
+			</layer><layer n="2"><note xml:id="v2" dur.ppq="4" dur="2"/></layer></staff>
+			<staff n="2"><layer n="1">
+				<tuplet num="3" numbase="2"><note xml:id="t1" dur.ppq="2" dur="8"/><note xml:id="t2" dur.ppq="2" dur="8"/><note xml:id="t3" dur.ppq="2" dur="8"/></tuplet>
+				<note xml:id="h" dur.ppq="10" dur="2"/>
+			</layer></staff>
+		</measure>
+		<scoreDef><staffGrp><staffDef n="1" ppq="4"/></staffGrp></scoreDef>
+		<measure xml:id="b2" n="2">
+			<staff n="1"><layer n="1"><note xml:id="q1" dur.ppq="4" dur="4"/><note xml:id="lost" dur="4"/><note xml:id="gone" dur.ppq="4" dur="4"/></layer>
+			<layer n="2"><note xml:id="w" dur.ppq="16" dur="1"/></layer></staff>
+			<staff n="2"><layer n="1"><mRest xml:id="mr"/></layer></staff>
+		</measure>
+		<measure xml:id="b3" n="3"><staff n="1"><layer n="1"><note xml:id="z" dur="4"/></layer></staff></measure>
+	</section></score></mdiv></body></music></mei>`;
+	const [one, two, three] = barIndex(mei);
+	// bar 1 lasts four quarters: a quarter is 0.25 of it
+	const q = (quarters: number) => quarters / 4;
+	assert.deepEqual(Object.fromEntries(one.onsets!), { a: 0, b: q(1), c: q(1.5), ch: q(2), c1: q(2), c2: q(2), r: q(3.5), v2: 0, t1: 0, t2: q(0.5), t3: q(1), h: q(1.5) });
+	assert.equal(one.rests!.size, 0);
+	// a staffDef between the bars changes staff 1's pulse; an event without a length stops its layer's count there
+	assert.deepEqual(Object.fromEntries(two.onsets!), { q1: 0, lost: 0.25, w: 0 });
+	assert.deepEqual([...two.rests!], ['mr']);
+	assert.equal(three.onsets!.size, 0, 'a bar of no length has no time');
+});
+
+test('a music piece in a bar without time (no bar index): % of its staff lines, staff spaces below the staff top line, width in staff spaces', () => {
+	assert.deepEqual(geo.bars[1].beats, [{ t: 0, x: geo.bars[1].left }, { t: 1, x: geo.bars[1].right }]);
 	const two = geo.bars[1];
 	const place = placeScorePiece(piece({ bar: '2' }, { x: 50, y: 2, width: 6 }), geo)!;
 	near(place.left, ((two.left + 0.5 * (two.right - two.left)) / 13000) * 100, 1e-9, 'left');
@@ -83,6 +127,58 @@ test('a music piece: % of its bar, staff spaces below the staff top line, width 
 	near(low.top, ((four.staves[2].top - 180) / 23330) * 100, 1e-9, 'one space above staff 3');
 	// a page piece: % of the page that holds the bar
 	assert.deepEqual(placeScorePiece(piece({ bar: '3', page: true }, { x: 10, y: 20, width: 80 }), geo), { left: 10, top: 20, width: 80 });
+});
+
+test('the bar’s time on the page: a beat per moment in the middle of its notehead, the barline at 1 – a line’s clef, key and time left out', () => {
+	// bar 3 starts the second system: its staff lines begin at x 1142, its notes at 2531 / 3567 / 4316 / 5385 (+ the
+	// margin) – a dotted quarter, an eighth, a dotted quarter, an eighth; staff 1 and 2 named, 3 and 4 left out (any staff
+	// gives the moment)
+	const three = geo.bars[2];
+	const onsets = new Map<string, number>([
+		['b1pw4nk8', 0], ['jmw21eo', 0.375], ['qlpjd5i', 0.5], ['y1b05l5o', 0.875],
+		['m1hlh9nc', 0], ['tw6yp5a', 0.375], ['aczanpf', 0.5], ['ha7dwpd', 0.875]
+	]);
+	const timed = pageGeometry(FIXTURE, [{ id: three.id, n: '3', nth: 1, onsets }])!;
+	const bar = timed.bars[2];
+	const mid = 0.6 * 180;
+	assert.deepEqual(bar.beats, [
+		{ t: 0, x: 2531 + mid },
+		{ t: 0.375, x: 3567 + mid },
+		{ t: 0.5, x: 4316 + mid },
+		{ t: 0.875, x: 5385 + mid },
+		{ t: 1, x: three.right }
+	]);
+	assert.equal(three.left, 1142);
+	assert.ok((bar.beats[0].x - bar.left) / 180 > 7, 'the clef, key and time signature lie before the first beat');
+	// x = 0 is the first note, 37.5 the second, halfway in time between two notes = halfway between them
+	const at = (x: number) => (placeScorePiece(piece({ bar: '3' }, { x, y: 0, width: 4 }), timed)!.left / 100) * 13000;
+	near(at(0), 2531 + mid, 1e-6, 'the first note');
+	near(at(37.5), 3567 + mid, 1e-6, 'the second note');
+	near(at(43.75), (3567 + 4316) / 2 + mid, 1e-6, 'between the second and the third');
+	// before the first note (the clef) and after the barline: the bar's mean pace
+	const pace = (three.right - (2531 + mid)) / 1;
+	near(at(-10), 2531 + mid - 0.1 * pace, 1e-6, 'over the clef');
+	// the stage's pointer: anchored by the bar's time, placed back where it was
+	for (const x of [1300, 2700, 4000, 5600, 5900]) {
+		const anchored = anchorScorePiece({ x: (x / 13000) * 100, y: 65 }, timed)!;
+		assert.equal(anchored.at.bar, '3');
+		near(at(anchored.x), x, 13000 * 1e-4, `x ${x}`);
+	}
+	near(anchorScorePiece({ x: ((3567 + mid) / 13000) * 100, y: 65 }, timed)!.x, 37.5, 1e-9, 'on the second note: its moment');
+});
+
+test('barX / barTime: linear between the beats, the mean pace outside them, each the other’s inverse', () => {
+	const beats: Beat[] = [{ t: 0, x: 100 }, { t: 0.5, x: 300 }, { t: 0.75, x: 500 }, { t: 1, x: 600 }];
+	const bar = { beats };
+	assert.equal(barX(bar, 0.25), 200);
+	assert.equal(barX(bar, 0.625), 400);
+	assert.equal(barX(bar, 1), 600);
+	// mean pace: 500 per bar
+	assert.equal(barX(bar, -0.1), 50);
+	assert.equal(barX(bar, 1.2), 700);
+	for (const t of [-0.3, 0, 0.1, 0.5, 0.7, 0.99, 1, 1.4]) near(barTime(bar, barX(bar, t)), t, 1e-12, `t ${t}`);
+	// a single moment and the barline: one pace for all
+	assert.equal(barX({ beats: [{ t: 0.5, x: 1000 }, { t: 1, x: 2000 }] }, 0), 0);
 });
 
 test('a missing staff falls back to the bar’s top staff; a bar not on the page or not in the file → null', () => {

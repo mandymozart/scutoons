@@ -1,27 +1,29 @@
 /**
  * Where a score's collage pieces sit (agents/research/COLLAGE.md §4.2): a piece sticks to a bar of the file – never a
  * page, never a Verovio id – so it survives the page size, the zoom and every new line / page break. Music pieces:
- * x = % of the bar's width from its start (bar widths vary 2–3× between layouts – 80 % of a bar stays 80 %), y = staff
- * spaces below the staff's top line, width = staff spaces (it scales with the music). Page pieces (`at.page`): % of the
- * page that holds the bar (a background).
+ * x = where in the bar's time (% of the bar: 0 = its first beat, 100 = its end), y = staff spaces below the staff's top
+ * line, width = staff spaces (it scales with the music). Page pieces (`at.page`): % of the page that holds the bar (a
+ * background).
  *
- * Pure (node-tested against a real Verovio 6.3.0 page, test/fixtures/score-page.svg): the bars come from the MEI the
- * toolkit holds (`barIndex(tk.getMEI())`: ids → the bar's number and which one of that number), a page's geometry
- * from its SVG string (`pageGeometry`) – no DOM measuring, no px, no rem: the pieces' layer lies exactly on the
- * page's music (`pageFrame`, in the page's leaf), so % of the page is all a piece needs. Verovio's structure
- * (score-layout.ts asks for measure@n + staff@n): `svg.definition-scale viewBox="0 0 W H"` >
- * `g.page-margin transform="translate(mx, my)"` > `g.system` > `g.measure[data-n]` > `g.staff[data-n]`, whose first
- * `<path d="M x1 y L x2 y">` children are its lines (180 units apart at Verovio's default size). A Verovio upgrade
- * re-runs the fixture test.
+ * Why time, not the bar's width: a bar that starts a line holds the clef, key and time signature inside its staff lines
+ * (its first note sits 5–17 staff spaces in on the local files, 0.4–6 mid-line), and Verovio's justification stretches
+ * the space between the notes, not the notes – % of the staff lines put a piece over the clef or on another note after
+ * a new line break (6 sp off between phone and desktop on Cloud 9, 10 on Like a Baby). So x runs through the bar's notes (`beats`,
+ * score-bars.ts): each moment a note or rest starts, in any staff, stands in the middle of its leftmost notehead, the
+ * barline ends the bar; between two of them x is linear, before the first and after the barline it goes on at the bar's
+ * mean pace. A piece on a note stays on that note in every layout (test/score-reflow.test.ts).
+ *
+ * Pure (node-tested against a real Verovio 6.3.0 page, test/fixtures/score-page.svg, and live layouts of one file):
+ * the bars and their time come from the MEI the toolkit holds (score-bars.ts `barIndex`), a page's geometry from its
+ * SVG string (`pageGeometry`) – no DOM measuring, no px, no rem: the pieces' layer lies exactly on the page's music
+ * (`pageFrame`, in the page's leaf), so % of the page is all a piece needs. Verovio's structure (score-layout.ts asks
+ * for measure@n + staff@n): `svg.definition-scale viewBox="0 0 W H"` > `g.page-margin transform="translate(mx, my)"` >
+ * `g.system` > `g.measure[data-n]` > `g.staff[data-n]`, whose first `<path d="M x1 y L x2 y">` children are its lines
+ * (180 units apart at Verovio's default size), then `g.layer` > (`g.beam` …) `g.note` > `g.notehead` > `<use
+ * transform="translate(x, y)">`, `g.rest` > `<use>`. A Verovio upgrade re-runs the tests.
  */
 import type { CollagePiece, ScoreAt } from '@scutoons/content';
-
-/** a bar of the file: its id in the toolkit's MEI / SVG, its number as the file writes it, the n-th bar of that number */
-export interface BarRef {
-	id: string;
-	n: string;
-	nth: number;
-}
+import { attr, barTime, barX, beatsOf, findBar, TAG, type BarRef, type Beat, type Drawn } from './score-bars.ts';
 
 /** a staff of a bar on the page: its number (staff@n, from the top) and its top / bottom line */
 export interface StaffBox {
@@ -31,11 +33,17 @@ export interface StaffBox {
 }
 
 export interface BarBox extends BarRef {
-	/** where the bar's staff lines start / end */
+	/** where the bar's staff lines start / end (a bar that starts a line: before its clef) */
 	left: number;
 	right: number;
 	/** the staves drawn in this bar, top to bottom (a condensed system leaves hidden ones out) */
 	staves: StaffBox[];
+	/**
+	 * the bar's time on the page, left to right, both rising (score-bars.ts `beatsOf`): each moment a drawn note / rest
+	 * starts (the middle of its leftmost notehead), a bar rest's glyph at 0.5 when nothing else is drawn, then the
+	 * barline at 1. A bar the MEI gave no time: its staff lines, 0 → 1.
+	 */
+	beats: Beat[];
 }
 
 /** one rendered page, in its viewBox units (the page margin included) */
@@ -63,45 +71,18 @@ export interface ScorePlace {
 /** Verovio's staff space at its default size (unit 9 → 18 units, ×10 in the viewBox) – when a page draws no staff */
 const DEFAULT_SP = 180;
 
-const ATTRS = new Map<string, RegExp>();
-const attr = (attrs: string, name: string): string | null => {
-	let re = ATTRS.get(name);
-	if (!re) ATTRS.set(name, (re = new RegExp(`(?:^|\\s)${name}="([^"]*)"`)));
-	const m = re.exec(attrs);
-	return m ? m[1] : null;
-};
-
-/** the bars of the file in its order (`tk.getMEI()`): every measure's id, number and which one of that number */
-export function barIndex(mei: string): BarRef[] {
-	const bars: BarRef[] = [];
-	const seen = new Map<string, number>();
-	for (const m of mei.matchAll(/<measure\b([^>]*)>/g)) {
-		const id = attr(m[1], 'xml:id');
-		if (!id) continue;
-		const n = attr(m[1], 'n') ?? '';
-		const nth = (seen.get(n) ?? 0) + 1;
-		seen.set(n, nth);
-		bars.push({ id, n, nth });
-	}
-	return bars;
-}
-
-/** the file's bar a piece names (`at.bar`, the `nth` of that number – default 1); none = the file has no such bar */
-export function findBar<T extends BarRef>(bars: readonly T[], at: Pick<ScoreAt, 'bar' | 'nth'> | null | undefined): T | undefined {
-	if (!at || typeof at.bar !== 'string') return undefined;
-	const n = at.bar.trim();
-	const nth = at.nth ?? 1;
-	return bars.find((bar) => bar.n === n && bar.nth === nth);
-}
-
 const LINE = /^\s*M\s*(-?[\d.]+)[\s,]+(-?[\d.]+)\s*L\s*(-?[\d.]+)[\s,]+(-?[\d.]+)\s*$/;
-const TAG = /<(\/?)([A-Za-z][\w:.-]*)((?:[^>"']|"[^"]*"|'[^']*')*?)(\/?)>/g;
+const TRANSLATE = /translate\(\s*(-?[\d.]+)(?:[\s,]+(-?[\d.]+))?\s*\)/;
 
 interface Open {
 	name: string;
 	/** a measure / a staff being read (their lines, their staves) */
 	bar?: BarBox;
 	staff?: { n: number; lines: number[]; xs: number[]; done: boolean };
+	/** a note / rest of the bar's time: when it starts, a note (its glyph is in its g.notehead), a bar rest, its x once read */
+	event?: { t: number; note: boolean; rest: boolean; x?: number };
+	/** a g.notehead */
+	head?: boolean;
 }
 
 /**
@@ -118,6 +99,16 @@ export function pageGeometry(svg: string, bars: readonly BarRef[]): PageGeometry
 	const out: BarBox[] = [];
 	const spaces: number[] = [];
 	const stack: Open[] = [];
+	/** the open bar's reference (its time) and its drawn events; each bar's events (its beats need the page's sp) */
+	let ref: BarRef | undefined;
+	let drawn: Drawn[] = [];
+	const events: Drawn[][] = [];
+	const finishBar = (bar: BarBox) => {
+		ref = undefined;
+		if (!bar.staves.length) return;
+		out.push(bar);
+		events.push(drawn);
+	};
 	for (const m of svg.matchAll(TAG)) {
 		const [, closing, name, attrs, selfClosing] = m;
 		if (closing) {
@@ -125,12 +116,19 @@ export function pageGeometry(svg: string, bars: readonly BarRef[]): PageGeometry
 			while (stack.length) {
 				const top = stack.pop()!;
 				if (top.staff && top.staff.lines.length) finishStaff(top.staff, stack, spaces);
-				if (top.bar && top.bar.staves.length) out.push(top.bar);
+				if (top.bar) finishBar(top.bar);
 				if (top.name === name) break;
 			}
 			continue;
 		}
 		const parent = stack[stack.length - 1];
+		// an event's glyph: a note's first notehead, a rest's own <use> (accidentals, dots, flags come later or elsewhere)
+		if (name === 'use' && ref) {
+			const host = parent?.head ? stack[stack.length - 2] : parent;
+			const event = host?.event && host.event.note === !!parent?.head ? host.event : undefined;
+			const t = event && event.x === undefined ? TRANSLATE.exec(attr(attrs, 'transform') ?? '') : null;
+			if (event && t) drawn.push({ t: event.t, x: (event.x = Number(t[1]) + shift[0]), rest: event.rest });
+		}
 		// a staff's lines are its first <path> children – anything else ends them (ledger lines sit in a <g>)
 		if (parent?.staff && !parent.staff.done) {
 			const line = name === 'path' ? LINE.exec(attr(attrs, 'd') ?? '') : null;
@@ -148,24 +146,32 @@ export function pageGeometry(svg: string, bars: readonly BarRef[]): PageGeometry
 			const v = (attr(attrs, 'viewBox') ?? '').trim().split(/[\s,]+/).map(Number);
 			if (v.length === 4 && v[2] > 0 && v[3] > 0) box = [v[2], v[3]];
 		} else if (name === 'g' && cls.includes('page-margin')) {
-			const t = /translate\(\s*(-?[\d.]+)(?:[\s,]+(-?[\d.]+))?\s*\)/.exec(attr(attrs, 'transform') ?? '');
+			const t = TRANSLATE.exec(attr(attrs, 'transform') ?? '');
 			if (t) shift = [Number(t[1]), Number(t[2] ?? 0)];
 		} else if (name === 'g' && cls.includes('measure')) {
 			const id = attr(attrs, 'id') ?? '';
-			const ref = known.get(id) ?? { id, n: attr(attrs, 'data-n') ?? '', nth: 1 };
-			open.bar = { id, n: ref.n, nth: ref.nth, left: Infinity, right: -Infinity, staves: [] };
+			ref = known.get(id) ?? { id, n: attr(attrs, 'data-n') ?? '', nth: 1 };
+			drawn = [];
+			open.bar = { id, n: ref.n, nth: ref.nth, left: Infinity, right: -Infinity, staves: [], beats: [] };
 		} else if (name === 'g' && cls.includes('staff') && stack.some((o) => o.bar)) {
 			open.staff = { n: Number(attr(attrs, 'data-n')) || 1, lines: [], xs: [], done: false };
+		} else if (name === 'g' && ref) {
+			const id = attr(attrs, 'id') ?? '';
+			const t = ref.onsets?.get(id);
+			if (t !== undefined) open.event = { t, note: cls.includes('note'), rest: false };
+			else if (ref.rests?.has(id)) open.event = { t: 0.5, note: false, rest: true };
+			open.head = cls.includes('notehead');
 		}
 		if (selfClosing) {
-			if (open.bar?.staves.length) out.push(open.bar);
+			if (open.bar) finishBar(open.bar);
 			continue;
 		}
 		stack.push(open);
 	}
 	if (!box) return null;
 	const sp = median(spaces) ?? DEFAULT_SP;
-	return { width: box[0], height: box[1], sp, bars: out.map((bar) => ({ ...bar, staves: bar.staves.sort((a, b) => a.top - b.top) })), frame: fitted(box, element) };
+	const boxes = out.map((bar, i) => ({ ...bar, staves: bar.staves.sort((a, b) => a.top - b.top), beats: beatsOf(events[i], bar.left, bar.right, sp) }));
+	return { width: box[0], height: box[1], sp, bars: boxes, frame: fitted(box, element) };
 }
 
 /** the viewBox fitted into the element (SVG's default `xMidYMid meet`), in % of the element's width */
@@ -217,7 +223,7 @@ export function placeScorePiece(piece: Pick<CollagePiece, 'rect' | 'at'>, geo: P
 	const { x, y, width } = piece.rect;
 	if (piece.at!.page) return { left: x, top: y, width };
 	const staff = staffOf(bar, piece.at!.staff);
-	const left = bar.left + (x / 100) * (bar.right - bar.left);
+	const left = barX(bar, x / 100);
 	const top = staff.top + y * geo.sp;
 	return { left: (left / geo.width) * 100, top: (top / geo.height) * 100, width: ((width * geo.sp) / geo.width) * 100 };
 }
@@ -248,6 +254,5 @@ export function anchorScorePiece(point: { x: number; y: number }, geo: PageGeome
 	let staff = best.staves[0];
 	for (const s of best.staves) if (outside(py, s.top, s.bottom) < outside(py, staff.top, staff.bottom)) staff = s;
 	if (staff.n !== 1) at.staff = staff.n;
-	const span = best.right - best.left;
-	return { at, x: round(span > 0 ? ((px - best.left) / span) * 100 : 0, 2), y: round((py - staff.top) / geo.sp, 3) };
+	return { at, x: round(barTime(best, px) * 100, 2), y: round((py - staff.top) / geo.sp, 3) };
 }
