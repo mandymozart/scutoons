@@ -67,7 +67,8 @@
 		<p class="actions">
 			<Button onclick={switchAccount} disabled={switching} data-testid="auth-switch-account">{t.switchAccount}</Button>
 			{#if readerHref}
-				<Button variant="secondary" href={readerHref}>{t.openReader}</Button>
+				<!-- the reader is another app: a new window without an opener opens the installed one (research/PWA-APPS.md §3a) -->
+				<Button variant="secondary" href={readerHref} target="_blank" rel="noopener">{t.openReader}</Button>
 			{/if}
 		</p>
 	</section>

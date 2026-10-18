@@ -29,3 +29,8 @@ export const catalogLocale = (): string => need().locale();
 export const catalogLocales = (): readonly string[] => need().locales;
 /** an admin page's URL (`/codes?edition_id=…`) – relative in the admin, absolute elsewhere */
 export const adminHref = (path: string): string => `${(need().adminUrl ?? '').replace(/\/$/, '')}${path}`;
+/**
+ * the link attributes for an admin page: elsewhere (the creator) the admin is another app – a new window without an
+ * opener, so the installed Admin opens if there is one (research/PWA-APPS.md §3a); in the admin itself none
+ */
+export const adminLinkTarget = (): { target?: string; rel?: string } => (need().adminUrl ? { target: '_blank', rel: 'noopener' } : {});

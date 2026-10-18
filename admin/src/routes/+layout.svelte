@@ -95,9 +95,9 @@
 			m['palette.actions']()
 		),
 		// the content lives in the creator (the admin's read-only Content page is gone, owner 2026-10-02)
-		{ id: 'open-creator', label: m['palette.open_creator'](), group: m['palette.actions'](), keywords: 'content chapters toons creator', run: () => void (location.href = CREATOR_URL) },
+		{ id: 'open-creator', label: m['palette.open_creator'](), group: m['palette.actions'](), keywords: 'content chapters toons creator', run: () => void window.open(CREATOR_URL, '_blank', 'noopener') },
 		// the catalog's items, recipes, albums, products, editions (owner 2026-10-12, D6)
-		{ id: 'creator-catalog', label: m['catalog.in_creator_link'](), group: m['palette.actions'](), keywords: 'catalog katalog item items recipe album product edition', run: () => void (location.href = `${CREATOR_URL}/catalog/items`) },
+		{ id: 'creator-catalog', label: m['catalog.in_creator_link'](), group: m['palette.actions'](), keywords: 'catalog katalog item items recipe album product edition', run: () => void window.open(`${CREATOR_URL}/catalog/items`, '_blank', 'noopener') },
 		languageCommand({ locales, current: getLocale(), setLocale, label: (locale) => m['palette.language']({ locale }), group: m['palette.actions']() }),
 		signOutCommand({ label: m['shell.sign_out'](), run: () => session.logout(), group: m['palette.actions']() })
 	]);

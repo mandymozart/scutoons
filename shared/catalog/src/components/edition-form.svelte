@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { listText, parseList, problemFor, text, type CatalogFormProps, type Data } from '../kinds.ts';
 	import { m } from '../messages.ts';
-	import { adminHref } from '../setup.ts';
+	import { adminHref, adminLinkTarget } from '../setup.ts';
 	import CatalogField from './catalog-field.svelte';
 	import CatalogRows from './catalog-rows.svelte';
 
@@ -46,8 +46,8 @@
 
 {#if !creating && id}
 	<p class="links">
-		<a href={adminHref(`/codes?edition_id=${encodeURIComponent(id)}`)}>{m['nav.codes']()}</a>
-		<a href={adminHref(`/batches?edition_id=${encodeURIComponent(id)}`)}>{m['nav.batches']()}</a>
+		<a href={adminHref(`/codes?edition_id=${encodeURIComponent(id)}`)} {...adminLinkTarget()}>{m['nav.codes']()}</a>
+		<a href={adminHref(`/batches?edition_id=${encodeURIComponent(id)}`)} {...adminLinkTarget()}>{m['nav.batches']()}</a>
 	</p>
 {/if}
 

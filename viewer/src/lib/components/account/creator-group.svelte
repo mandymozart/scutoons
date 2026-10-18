@@ -26,7 +26,8 @@
 </script>
 
 <p class="line">
-	<a class="btn btn-secondary" href={CREATOR_URL}>{m['account.creator_link']()}</a>
+	<!-- another app: a new window without an opener – the installed Creator opens if there is one (research/PWA-APPS.md §3a) -->
+	<a class="btn btn-secondary" href={CREATOR_URL} target="_blank" rel="noopener">{m['account.creator_link']()}</a>
 	<small>{m['account.creator_hint']()}</small>
 </p>
 <AccountToggle

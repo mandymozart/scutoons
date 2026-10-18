@@ -54,7 +54,28 @@ key stays `scutoons_install`). The tools draw `InstallBar` (texts de/en in `labe
   the Brave badge (a plain shortcut instead of an install, PWA.md §2a).
 - The tools have no account page yet; the bar is the only entry (open question 6).
 
-## 4. Phone fixes
+## 3a. One app opens another (owner 2026-10-18: "cross-referential app opening within the same phone if installed")
+
+A link from one SCUTOONS app to another (the reader ↔ creator ↔ admin ↔ embassy) should open the OTHER installed app,
+not the page inside the current one.
+- **Every cross-app link is a new top-level window without an opener**: `<a href target="_blank" rel="noopener">` or
+  `window.open(url, '_blank', 'noopener')` from a command – never `location.href = …` (that loads the other app inside
+  this app's window) and never a plain `window.open` (an "auxiliary" window). Fixed 2026-10-18: the reader's account
+  link to the creator, every tool's sign-in "Open reader" (shared/auth), the creator's palette "Reader", the admin's
+  palette "open creator" / "catalog in the creator", the creator's catalog links to Admin codes / batches
+  (`adminLinkTarget()`, @scutoons/catalog). Already right: the chapter preview, credits, catalog, calendar / homepage
+  previews, the embassy's store page. Exception: the chapter editor's "save, then preview" opens after its dialogs with
+  a plain `window.open` (it needs the return value to say when a popup blocker refused it) – a new tab, not captured.
+- **Every manifest: `launch_handler: { client_mode: ["navigate-existing", "auto"] }`** – a captured link reuses the
+  app's open window (and navigates it there) instead of stacking a new window per tap (Chrome parses it, 155).
+- **What the platforms do with it**: desktop Chrome (Windows / Mac / Linux, 139+) captures such a click into the
+  installed app ("navigation capturing"; the person can switch it off in the app's settings). Android: installing an
+  app registers its origin with the system; a link the person taps to another origin gives Chrome the chance to hand it
+  to that app – inside an installed app, Chrome otherwise shows other origins in a Custom Tab (the overlay with a URL
+  bar). Chrome documents no Android rule for app-to-app links: check on the phone (§7). iPhone / iPad: home-screen apps
+  can't open each other – links open in Safari's in-app sheet; nothing to do on our side.
+- Not a cross-app link: the creator's dock Reader is the reader in a frame on purpose (the draft preview beside the
+  editor, DOCKING.md "The Reader panel").
 
 - **Sideways scroll**: `shared/tokens/base.css` clips `overflow-x` on html and body for every app since 2026-10-17
   (a safety net – whatever is wider than the page stays a bug of its own).
@@ -127,5 +148,9 @@ every 5 min), each guarded by a key. Only the reader has a worker that shows not
 - 2026-10-18 (dev API, Chrome 141): all three – controlled on the first visit, no manifest or installability errors,
   `beforeinstallprompt` fired, no console errors; `?install` → the bar (de: "Nicht jetzt · Installieren" with Chrome's
   event, the menu how-to without it, the Share how-to with an iPhone user agent).
+- **App-to-app on a phone**: install the reader and the creator from Chrome (⋮ → App installieren); in the reader
+  Mein Konto → Creator → "Creator öffnen" – the Creator app should open (not a Custom Tab with a URL bar); in the
+  Creator, the palette's "Reader" – the reader app. If Android shows the Custom Tab, Chrome doesn't hand app-to-app
+  links over yet: tell the agents (Chromium issue 40745354 is about links from installed apps).
 - To do: the signed-in pages of all three at 390 px (`scrollWidth` = `clientWidth`, nothing past the edge outside its own
   scroller) – the test user over the dev API; a throw-away origin needs the app's dev origin sent along (CSRF check).
