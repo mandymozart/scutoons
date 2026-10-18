@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { collageLook, pieceStyle, type CollagePiece } from '@scutoons/content';
-import { canMoveLayerRow, editEffect, layerRows, moveLayerRows, setBlurRamp, setEffect, setFigure, setPlain, setPreset } from '../src/lib/editor/collage-edit.ts';
+import { canMoveLayerRow, editEffect, figurePath, layerRows, moveLayerRows, setBlurRamp, setEffect, setFigure, setFillKind, setPlain, setPreset } from '../src/lib/editor/collage-edit.ts';
 import { assetRatio, filterShapes, imagePick, pickedToPiece, shapeTags } from '../src/lib/editor/collage-pick.ts';
 
 const piece = (more: Partial<CollagePiece> = {}): CollagePiece => ({ id: 'piece-a', src: 'vectors/x.svg', ratio: 1, rect: { x: 10, y: 10, width: 30 }, ...more });
@@ -55,6 +55,39 @@ test('setBlurRamp keeps the amount and adds / drops the points', () => {
 	assert.deepEqual(p.style?.blur, { amount: 3, from: { x: 50, y: 0 }, to: { x: 50, y: 100 } });
 	setBlurRamp(p, false);
 	assert.deepEqual(p.style?.blur, { amount: 3 });
+});
+
+test('the kind a fill / blur already has changes nothing – a re-click keeps a gradient, the ramp points and the look', () => {
+	const burn = piece({ preset: 'burn' });
+	assert.equal(setFillKind(burn, 'gradient'), false);
+	assert.equal(burn.style, undefined, "the look's gradient stays the look's");
+	const own = { angle: 45, stops: [{ at: 0, color: '#ff0000' }, { at: 50, color: '#00ff00' }, { at: 100, color: '#0000ff' }] };
+	const p = piece({ style: { fill: JSON.parse(JSON.stringify(own)), blur: { amount: 5, from: { x: 10, y: 20 }, to: { x: 80, y: 90 } } } });
+	assert.equal(setFillKind(p, 'gradient'), false);
+	assert.deepEqual(p.style?.fill, own, 'angle, end colour and the middle stop stay');
+	assert.equal(setBlurRamp(p, true), false);
+	assert.deepEqual(p.style?.blur, { amount: 5, from: { x: 10, y: 20 }, to: { x: 80, y: 90 } }, 'the points stay');
+	const ink = piece({ preset: 'ink' });
+	assert.equal(setFillKind(ink, 'color'), false);
+	const ghost = piece({ preset: 'ghost' });
+	assert.equal(setBlurRamp(ghost, false), false);
+	assert.deepEqual([ink.style, ghost.style], [undefined, undefined], "a re-click of the look's colour / even blur makes no own copy");
+	assert.equal(setFillKind(ink, 'gradient'), true);
+	assert.deepEqual(ink.style?.fill, { stops: [{ at: 0, color: '#111111' }, { at: 100, color: '#ffffff' }] }, 'another kind starts from the colour');
+	assert.equal(setFillKind(ink, 'none'), true);
+	assert.equal(ink.style?.fill, null, "none over the look's fill = off");
+});
+
+test('figurePath finds the waiting re-pick its piece by id – never the piece now at the old path', () => {
+	const slice: any = { pieces: [piece({ id: 'a', figure: { id: 'catpope', view: 'portrait' } }), piece({ id: 'shape' }), piece({ id: 'b', figure: { id: 'catpope', view: 'full' } })] };
+	const file = { slices: [slice] };
+	assert.deepEqual(figurePath(file, ['slices', 0, 'pieces', 2], 'b'), ['slices', 0, 'pieces', 2]);
+	slice.pieces.splice(0, 1);
+	assert.deepEqual(figurePath(file, ['slices', 0, 'pieces', 2], 'b'), ['slices', 0, 'pieces', 1], 'a Remove renumbered the list');
+	assert.equal(figurePath(file, ['slices', 0, 'pieces', 0], 'a'), undefined, 'gone: dropped, the shape now at its index untouched');
+	slice.pieces[1].figure = undefined;
+	assert.equal(figurePath(file, ['slices', 0, 'pieces', 1], 'b'), undefined, 'no longer a character picture');
+	assert.equal(figurePath(file, ['slices', 5, 'pieces', 0], 'b'), undefined);
 });
 
 test('setFigure re-resolves the picture: figure, src and ratio in one change; a ratio it could not read is kept', () => {

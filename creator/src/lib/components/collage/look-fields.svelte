@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { ColorField, PropRow, PropSelect, ScrubNumber, Segmented } from '@scutoons/ui';
-	import { BLEND_MODES, pieceStyle, round2, type CollagePiece, type PieceGradient } from '@scutoons/content';
-	import { editEffect, setBlurRamp, setEffect, setPlain, RAMP_POINTS } from '$lib/editor/collage-edit.ts';
+	import { BLEND_MODES, pieceStyle, round2, type CollagePiece } from '@scutoons/content';
+	import { blurKind, editEffect, fillKind, setBlurRamp, setEffect, setFillKind, setPlain, RAMP_POINTS, type FillKind } from '$lib/editor/collage-edit.ts';
 	import { blendLabel } from '$lib/editor/collage-words.ts';
 	import GradientField from '$lib/components/collage/gradient-field.svelte';
 	import PointsField from '$lib/components/collage/points-field.svelte';
@@ -19,14 +19,12 @@
 	/** the look's values alone (the plain fields' placeholders) */
 	const look = $derived(pieceStyle({ preset: piece.preset }));
 	const fill = $derived(style.fill);
-	const fillKind = $derived(fill === undefined ? 'none' : typeof fill === 'string' ? 'color' : 'gradient');
-	const INK = '#111111';
+	const fillKindNow = $derived(fillKind(fill));
+	const blurKindNow = $derived(blurKind(style.blur));
 
-	function setFill(kind: string) {
-		if (kind === 'none') return change((p) => setEffect(p, 'fill', undefined), 'fill');
-		const from = typeof fill === 'string' ? fill : (fill?.stops?.[0]?.color ?? INK);
-		const next: string | PieceGradient = kind === 'color' ? from : { stops: [{ at: 0, color: from }, { at: 100, color: '#ffffff' }] };
-		change((p) => setEffect(p, 'fill', next), 'fill');
+	// Segmented sends the chosen option again: the kind it has is no edit (no undo step, the values stay)
+	function setFill(kind: FillKind) {
+		if (kind !== fillKindNow) change((p) => setFillKind(p, kind), 'fill');
 	}
 </script>
 
@@ -58,7 +56,7 @@
 	<Segmented
 		label={m['creator.piece_fill']()}
 		square
-		value={fillKind}
+		value={fillKindNow}
 		onchange={setFill}
 		options={[
 			{ value: 'none', icon: 'slash', title: m['creator.piece_fill_none'](), testid: 'piece-fill-none' },
@@ -136,8 +134,8 @@
 		<Segmented
 			label={m['creator.piece_blur_kind']()}
 			square
-			value={blur.from && blur.to ? 'ramp' : 'even'}
-			onchange={(k) => change((p) => setBlurRamp(p, k === 'ramp'), 'blur.kind')}
+			value={blurKindNow}
+			onchange={(k) => k !== blurKindNow && change((p) => setBlurRamp(p, k === 'ramp'), 'blur.kind')}
 			options={[
 				{ value: 'even', icon: 'circle', title: m['creator.piece_blur_even'](), testid: 'piece-blur-even' },
 				{ value: 'ramp', icon: 'gradient', title: m['creator.piece_blur_ramp'](), testid: 'piece-blur-ramp' }

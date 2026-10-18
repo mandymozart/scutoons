@@ -20,7 +20,7 @@
 		type Path,
 		type PieceFigure
 	} from '@scutoons/content';
-	import { pieceAt, setFigure, setPreset } from '$lib/editor/collage-edit.ts';
+	import { figurePath, pieceAt, setFigure, setPreset } from '$lib/editor/collage-edit.ts';
 	import { imageRatio } from '$lib/editor/collage-pick.ts';
 	import { lookLabel, pieceKindLabel } from '$lib/editor/collage-words.ts';
 	import { isKnownMissing } from '$lib/editor/characters.ts';
@@ -87,17 +87,36 @@
 				? pieceName(piece)
 				: ''
 	);
-	let request = 0;
+	/**
+	 * per piece: the newest re-pick still decoding, with every change asked for since the last applied one (`n` is
+	 * unique, so an older decode never passes for a newer re-pick)
+	 */
+	const pending = new Map<string, { n: number; next: Partial<PieceFigure> }>();
+	let asks = 0;
 	async function refigure(next: Partial<PieceFigure>) {
 		if (!piece?.figure) return;
-		const figure: PieceFigure = { ...piece.figure, ...next };
+		// the decode below can outlive the selection (the host reuses this inspector with a new path) and a Remove can
+		// renumber the pieces: the edit goes to this piece by its id in this document, never to whatever `path` is then
+		const { id } = piece;
+		const at = [...path];
+		const target = doc;
+		// a mood and then a view picked while the first still decodes: the newer re-pick carries both
+		const asked = { n: ++asks, next: { ...pending.get(id)?.next, ...next } };
+		const figure: PieceFigure = { ...piece.figure, ...asked.next };
 		const root = characterImage(character, { persona: figure.persona, look: figure.look, mood: figure.mood }, figure.view, { isMissing: isKnownMissing });
 		if (!root) return;
-		const mine = ++request;
+		pending.set(id, asked);
 		const ratio = await imageRatio(asset(root));
-		if (mine !== request) return;
+		if (pending.get(id)?.n !== asked.n) return;
+		pending.delete(id);
+		const now = figurePath(target.get(target.primary, []), at, id);
+		if (!now) return;
 		// the host's path form: a toon document's own (`../characters/…`), a score's (toon '') from the root
-		change((target) => setFigure(target, figure, toonAssetRef(doc.toon, root), ratio), 'figure');
+		const src = toonAssetRef(target.toon, root);
+		target.edit((file) => {
+			const p = pieceAt(file, now);
+			if (p?.id === id) setFigure(p, figure, src, ratio);
+		}, `${now.join('.')}.figure`);
 	}
 </script>
 

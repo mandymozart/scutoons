@@ -14,9 +14,11 @@ import {
 	type CollagePiece,
 	type PieceBlur,
 	type PieceFigure,
+	type PieceGradient,
 	type PieceOutline,
 	type PieceShadow,
 	type PieceStyle,
+	type Path,
 	type SliceLayerRef
 } from '@scutoons/content';
 
@@ -33,6 +35,12 @@ export const EFFECT_DEFAULTS: { outline: PieceOutline; shadow: PieceShadow; blur
 };
 /** a progressive blur's start: sharp at the top, blurred from the bottom */
 export const RAMP_POINTS = { from: { x: 50, y: 0 }, to: { x: 50, y: 100 } };
+/** a fill's kind: none (as drawn), one colour, a gradient */
+export type FillKind = 'none' | 'color' | 'gradient';
+/** a blur's kind: even, or a ramp between two points */
+export type BlurKind = 'even' | 'ramp';
+/** the colour a new fill starts with when there is none to start from */
+const FILL_INK = '#111111';
 
 const copy = <T>(value: T): T => (value === undefined || value === null ? value : JSON.parse(JSON.stringify(value)));
 
@@ -85,10 +93,36 @@ export function editEffect<K extends 'outline' | 'shadow' | 'blur'>(piece: Colla
 	setEffect(piece, key, next as unknown as Exclude<PieceStyle[K], null>);
 }
 
-/** an even blur (no points) or a ramp (sharp at `from`, blurred from `to`) – the amount kept */
-export function setBlurRamp(piece: CollagePiece, ramp: boolean): void {
-	const amount = pieceStyle(piece).blur?.amount ?? EFFECT_DEFAULTS.blur.amount;
+export const fillKind = (fill: PieceStyle['fill']): FillKind => (fill === undefined || fill === null ? 'none' : typeof fill === 'string' ? 'color' : 'gradient');
+export const blurKind = (blur: PieceStyle['blur']): BlurKind => (blur?.from && blur?.to ? 'ramp' : 'even');
+
+/**
+ * The fill switched to another kind: a colour starts from the fill's (first) colour, a gradient runs from it to white,
+ * none clears it. The kind it already has changes nothing (Segmented sends the chosen option again – a re-click must
+ * not rebuild a gradient or make the look's fill the piece's own); false = nothing changed
+ */
+export function setFillKind(piece: CollagePiece, kind: FillKind): boolean {
+	const fill = pieceStyle(piece).fill;
+	if (kind === fillKind(fill)) return false;
+	if (kind === 'none') setEffect(piece, 'fill', undefined);
+	else {
+		const from = typeof fill === 'string' ? fill : (fill?.stops?.[0]?.color ?? FILL_INK);
+		const next: string | PieceGradient = kind === 'color' ? from : { stops: [{ at: 0, color: from }, { at: 100, color: '#ffffff' }] };
+		setEffect(piece, 'fill', next);
+	}
+	return true;
+}
+
+/**
+ * An even blur (no points) or a ramp (sharp at `from`, blurred from `to`) – the amount kept. The kind the blur already
+ * has changes nothing (a re-click keeps the ramp's points); false = nothing changed
+ */
+export function setBlurRamp(piece: CollagePiece, ramp: boolean): boolean {
+	const blur = pieceStyle(piece).blur;
+	if (blur && blurKind(blur) === (ramp ? 'ramp' : 'even')) return false;
+	const amount = blur?.amount ?? EFFECT_DEFAULTS.blur.amount;
 	setEffect(piece, 'blur', ramp ? { amount, ...copy(RAMP_POINTS) } : { amount });
+	return true;
 }
 
 /** a character picture re-picked (mood, view): the figure, the resolved file (in the host's path form) and its ratio */
@@ -131,4 +165,16 @@ export function moveLayerRows(slice: any, from: number, to: number): boolean {
 export function pieceAt(file: unknown, path: (string | number)[]): CollagePiece | undefined {
 	const piece = getAt(file, path);
 	return piece && typeof piece === 'object' ? (piece as CollagePiece) : undefined;
+}
+
+/**
+ * Where the character picture `id` is now, for an edit that waited (a decode): the selection may have moved on and a
+ * Remove may have renumbered the list, so it is looked up by id in the list `path` pointed into – never the piece that
+ * is at `path` now. Undefined when it is gone or no longer a character picture (the edit is dropped)
+ */
+export function figurePath(file: unknown, path: Path, id: string): Path | undefined {
+	const list = getAt(file, path.slice(0, -1));
+	if (!Array.isArray(list)) return undefined;
+	const index = list.findIndex((p) => p && typeof p === 'object' && (p as CollagePiece).id === id && (p as CollagePiece).figure);
+	return index < 0 ? undefined : [...path.slice(0, -1), index];
 }

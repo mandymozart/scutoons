@@ -19,6 +19,8 @@ From the old MEMORY.md (archive/MEMORY.md, 2026-09-28 … 10-04) and later sessi
   ("Failed to fetch dynamically imported module") until `npm run check` regenerated them; no restart needed.
 - A plain `vite build` bakes the production URLs – for local measurements set `VITE_API_URL` / `VITE_CDN_URL`.
 - `vite preview` (sirv) caches the file list at start – restart it after every build; a build while it serves kills it.
+- A throwaway route written again at the path of one deleted earlier can be served as the OLD module by the running
+  creator dev server – edit the new file once (any change) and it serves the new one.
 - Svelte 5 `<select value={x}>` with `{#each}` options can render the last option first → `selected={…}` on the options.
 - A Svelte 5 action's `update` can run before the same flush's text node changes → measure in a microtask.
 - A snippet variable named like a `{#snippet}` breaks svelte-check with odd "Snippet" type errors.
