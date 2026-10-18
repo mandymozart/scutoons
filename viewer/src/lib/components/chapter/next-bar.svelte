@@ -349,16 +349,17 @@
 <div class="next-host" bind:this={host} class:shown={shown && !strip && !goesAtOnce} style:height={shown && !strip && !goesAtOnce ? reserve : null}></div>
 
 <!-- drawn inside the VN message box (vn/message.svelte) – every page has the box (vn-page.svelte) -->
-<!-- a secondary action: icon + text; on a narrow phone only the icon (the label stays as aria-label / title) – the row
-     stays ONE row at every width (owner 2026-10-17: "Passt so … wenn es eine Zeile bleibt") -->
-{#snippet secondary(tag: 'a' | 'button', label: string, icon: string, onclick: (() => void) | null, href: string | null, testid: string, extra = '')}
+<!-- a secondary action. Replay and "Abbrechen" are round icon-only buttons at every width (owner 2026-10-17: "Abbrechen
+     und replay als ein icon nur"; the word as aria-label / title); the others ("Code einlösen", "Wo bekomme ich einen
+     Code?", the music) keep their words -->
+{#snippet secondary(tag: 'a' | 'button', label: string, icon: string | null, onclick: (() => void) | null, href: string | null, testid: string, extra = '')}
 	{#if tag === 'a'}
-		<a class="btn btn-secondary secondary {extra}" href={href} aria-label={label} title={label} data-testid={testid}>
-			<Icon name={icon} size="1rem" /><span class="text">{label}</span>
+		<a class="btn btn-secondary secondary {extra}" class:icon-only={!!icon} href={href} aria-label={label} title={label} data-testid={testid}>
+			{#if icon}<Icon name={icon} size="1rem" />{:else}<span class="text">{label}</span>{/if}
 		</a>
 	{:else}
-		<button type="button" class="btn-secondary secondary {extra}" onclick={() => onclick?.()} aria-label={label} title={label} data-testid={testid}>
-			<Icon name={icon} size="1rem" /><span class="text">{label}</span>
+		<button type="button" class="btn-secondary secondary {extra}" class:icon-only={!!icon} onclick={() => onclick?.()} aria-label={label} title={label} data-testid={testid}>
+			{#if icon}<Icon name={icon} size="1rem" />{:else}<span class="text">{label}</span>{/if}
 		</button>
 	{/if}
 {/snippet}
@@ -366,8 +367,8 @@
 {#snippet endActions()}
 	<!-- one compact row (owner 2026-10-17: the three big boxes took too much room – "ein bisschen logischer bauen"; "Passt
 	     so … wenn es eine Zeile bleibt"): the secondary (replay / redeem / where to get a code / the music) and, while
-	     counting, "Abbrechen" as outlined buttons, the primary last and taking the rest (a long label ends in …); the row
-	     never wraps – below 30rem (phones) the secondaries show only their icons -->
+	     counting, "Abbrechen" as outlined buttons (replay and Abbrechen round, icon only), the primary last and taking the
+	     rest (a long label ends in … only when it doesn't fit); the row never wraps -->
 	<section
 		class="end-actions"
 		bind:this={bar}
@@ -383,11 +384,11 @@
 			{#if automatic && !endsWithPlayer}
 				{@render secondary('button', m['next_bar.replay'](), 'rotate-ccw', replay, null, 'next-bar-replay')}
 			{:else if step.kind === 'members' && !session.isLoggedIn}
-				{@render secondary('button', m['next_bar.redeem'](), 'camera', redeem, null, 'next-bar-secondary')}
+				{@render secondary('button', m['next_bar.redeem'](), null, redeem, null, 'next-bar-secondary')}
 			{:else if step.kind === 'members'}
-				{@render secondary('a', m['next_bar.where_code'](), 'shopping-bag', null, shopUrl(getLocale()), 'next-bar-secondary')}
+				{@render secondary('a', m['next_bar.where_code'](), null, null, shopUrl(getLocale()), 'next-bar-secondary')}
 			{:else if step.kind === 'season-end' && download}
-				{@render secondary('a', m['season.download'](), 'download', null, localizeHref(`/${toonId}/download`), 'next-bar-secondary')}
+				{@render secondary('a', m['season.download'](), null, null, localizeHref(`/${toonId}/download`), 'next-bar-secondary')}
 			{/if}
 			{#if counting}
 				<span class="countdown" data-testid="next-bar-countdown">
@@ -433,35 +434,31 @@
 		gap: 0.5rem;
 	}
 	.secondary {
-		flex: none;
+		flex: 0 1 auto;
+		min-width: 0;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		gap: 0.5rem;
+	}
+	/* a worded secondary gives way before the primary does: it may end in … on a very narrow phone */
+	.secondary .text {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	/* a narrow phone: the secondaries icon-only (square, the control height) – the primary keeps its words */
-	@container (max-width: 30rem) {
-		.row .secondary {
-			width: var(--control-height);
-			padding: 0;
-		}
-		.secondary .text {
-			display: none;
-		}
-	}
-	.row :global(:is(a, button)) {
-		height: var(--control-height);
-		padding: 0 1rem;
-	}
-	/* "Abbrechen" with its screen-reader countdown: one item of the row */
-	.countdown {
-		display: contents;
+	/* replay, Abbrechen: round, icon only, the control height */
+	.row .icon-only {
+		flex: none;
+		width: var(--control-height);
+		padding: 0;
+		border-radius: var(--radius-full);
 	}
 	/* the primary: last, takes what is left of its line; a long chapter name ends in … */
 	.primary {
 		position: relative;
 		flex: 1 1 auto;
+		min-width: 40%;
 		max-width: 100%;
 		min-width: 0;
 		display: inline-flex;
