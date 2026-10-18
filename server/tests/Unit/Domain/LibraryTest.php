@@ -471,6 +471,39 @@ final class LibraryTest extends TestCase
         self::assertSame('scene v2', self::decode($after->body)['groups'][0]['label']);
     }
 
+    /**
+     * Custom collage presets (agents/research/COLLAGE.md §12.3): a piece that names one arrives baked – the drawn style, no
+     * `preset` –, readers with the published `colorations`, draft mode with the newest; code looks and unknown ids as stored
+     */
+    public function testCustomCollagePresetsArriveBakedInTheChapter(): void
+    {
+        $this->seedToon();
+        $piece = fn(string $id, string $preset, array $more = []) => ['id' => $id, 'src' => 'catpope/vectors/wreath.svg', 'ratio' => 1, 'rect' => ['x' => 10, 'y' => 20, 'width' => 30], 'preset' => $preset] + $more;
+        $pieces = [$piece('piece-a', 'night', ['style' => ['opacity' => 0.5, 'shadow' => null]]), $piece('piece-b', 'negative'), $piece('piece-c', 'nope'), $piece('piece-d', 'dawn')];
+        $this->doc('t', '_', 'chapter1/scene-1.json', ['label' => 'scene', 'slices' => [['image' => 'a.webp', 'width' => 390, 'height' => 625, 'pieces' => $pieces]]]);
+        $answered = fn(bool $draft) => self::decode($this->library()->chapter('t', 1, 'de', $draft)->body)['groups'][0]['slices'][0]['pieces'];
+        $before = $this->library()->chapter('t', 1, 'de', false);
+        self::assertSame($pieces, $answered(false), 'no colorations document: as stored');
+
+        $night = ['id' => 'night', 'name' => 'Night', 'fill' => '#1a2b6d', 'blend' => 'multiply', 'shadow' => ['color' => '#000', 'x' => 1, 'y' => 1, 'blur' => 2]];
+        $this->doc(Library::PLATFORM, '_', 'colorations.json', ['presets' => [$night]]);
+        $published = $this->library()->chapter('t', 1, 'de', false);
+        self::assertNotSame($before->etag, $published->etag, 'publishing the presets changes the ETag');
+        $baked = ['id' => 'piece-a', 'src' => 'catpope/vectors/wreath.svg', 'ratio' => 1, 'rect' => ['x' => 10, 'y' => 20, 'width' => 30], 'style' => ['blend' => 'multiply', 'opacity' => 0.5, 'fill' => '#1a2b6d']];
+        self::assertSame([$baked, $pieces[1], $pieces[2], $pieces[3]], $answered(false), "baked: the piece's own over the preset's; a code look, an unknown and a draft-only id as stored");
+
+        // a draft of the presets adds dawn: readers keep the published ones, draft mode (the Reader dock) bakes the newest
+        $this->doc(Library::PLATFORM, '_', 'colorations.json', ['presets' => [$night, ['id' => 'dawn', 'name' => 'Dawn', 'fill' => '#ff1900']]], false);
+        $again = $this->library()->chapter('t', 1, 'de', false);
+        self::assertSame([$published->etag, $published->body], [$again->etag, $again->body], 'a draft changes no reader answer');
+        $dawn = $pieces[3];
+        unset($dawn['preset']);
+        self::assertSame([$baked, $pieces[1], $pieces[2], $dawn + ['style' => ['fill' => '#ff1900']]], $answered(true));
+        self::assertSame($this->library()->chapter('t', 1, 'de', true)->body, $this->library()->chapter('t', 1, 'de', true)->body, 'composed twice: the same body');
+        $stored = json_decode((string) ($this->get(EntityStore::class)->latest('scene:t:1:scene-1')['json'] ?? ''), true);
+        self::assertSame($pieces, $stored['slices'][0]['pieces'] ?? null, 'the stored scene is untouched');
+    }
+
     /** The screenplay (creator material) is never in a library answer and saving it changes no reader cache key */
     public function testScriptsAreNeverInTheLibrary(): void
     {

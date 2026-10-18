@@ -4,6 +4,8 @@ declare(strict_types=1);
 namespace Scutoons\Domain\Catalog;
 
 use Scutoons\Domain\ApiError;
+use Scutoons\Domain\Content\CollagePresets;
+use Scutoons\Domain\Content\EntityStore;
 use Scutoons\Domain\Inventory\InventoryService;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Config\Settings;
@@ -29,6 +31,7 @@ final class ProtectedFiles
         private readonly Clock $clock,
         private readonly Catalog $catalog,
         private readonly InventoryService $inventory,
+        private readonly EntityStore $entities,
     ) {
     }
 
@@ -36,7 +39,8 @@ final class ProtectedFiles
      * GET /api/items/{id}/score/{file}[?part=<name>] → { url, expires } – the full score, or one of its named parts
      * (`score.parts.<name>`: the choir …). The MusicXML's answer also carries the collage pieces placed on that score /
      * part, `collage: { pieces }` (agents/research/COLLAGE.md §4.1) – never its `file` (a vault path); the public catalog
-     * strips the collage (publicItem). 404 unknown_item / no_score / no_part / no_file, 401 (pdf, signed out),
+     * strips the collage (publicItem). Custom collage presets arrive baked with the published `colorations` (§12.3: the
+     * piece's `style`, no `preset`). 404 unknown_item / no_score / no_part / no_file, 401 (pdf, signed out),
      * 403 not_owner (pdf).
      * @param array<string, mixed>|null $user the signed-in account, if any
      * @return array{url: string, expires: int, collage?: array{pieces: list<mixed>}}
@@ -55,6 +59,7 @@ final class ProtectedFiles
             if ($this->inventory->count((string) $user['id'], $itemId) < 1) throw new ApiError(403, 'not_owner', 'Only the owner of this score can download it.');
         }
         $pieces = $file === 'musicxml' ? self::collagePieces($score) : [];
+        if ($pieces !== []) $pieces = array_values(CollagePresets::bake($pieces, $this->presets()));
         return $this->signed($path) + ($pieces !== [] ? ['collage' => ['pieces' => $pieces]] : []);
     }
 
@@ -67,6 +72,16 @@ final class ProtectedFiles
     {
         $pieces = is_array($files['collage'] ?? null) ? ($files['collage']['pieces'] ?? null) : null;
         return is_array($pieces) && array_is_list($pieces) ? $pieces : [];
+    }
+
+    /**
+     * The published custom collage presets (CollagePresets::index; none stored = [])
+     * @return array<string, \stdClass>
+     */
+    private function presets(): array
+    {
+        $json = $this->entities->published(CollagePresets::KEY)['json'] ?? null;
+        return CollagePresets::index(is_string($json) ? json_decode($json) : null);
     }
 
     /** paths in the vault (the protected storage): scores' files, physical releases' audio */

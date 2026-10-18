@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Scutoons\Domain\Library;
 
 use Scutoons\Domain\ApiError;
+use Scutoons\Domain\Content\CollagePresets;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Content\NeutralDoc;
 use Scutoons\Domain\Content\CollectionDocs;
@@ -352,7 +353,9 @@ final class Library
                 $ctx->fallback = $fallback;
                 if ($status !== null) $chapter->status = $status;
             }
-            return [$this->withScenes($ctx, $chapter, $served), $served];
+            // custom collage presets arrive baked: the snapshot's `colorations` – published, the newest in draft mode (agents/research/COLLAGE.md §12.3)
+            $presets = CollagePresets::index($ctx->snapshot->doc(CollagePresets::KEY));
+            return [CollagePresets::chapter($this->withScenes($ctx, $chapter, $served), $presets), $served];
         }, $ctx);
     }
 

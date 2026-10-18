@@ -7,13 +7,16 @@ use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Catalog\Catalog;
 use Scutoons\Domain\Catalog\CatalogAdmin;
 use Scutoons\Domain\Catalog\ProtectedFiles;
+use Scutoons\Domain\Content\CollagePresets;
+use Scutoons\Domain\Content\EntityKey;
+use Scutoons\Domain\Content\EntityStore;
 use Scutoons\Domain\Inventory\InventoryService;
 use Scutoons\Tests\TestCase;
 
 /**
  * Protected score files (agents/research/SCORES.md §5): signed bunny.net URLs, the MusicXML for anyone, the PDF only for
  * a signed-in owner, the public catalog never naming the paths; the collage pieces placed on a file come with its
- * MusicXML (agents/research/COLLAGE.md §4.1).
+ * MusicXML (agents/research/COLLAGE.md §4.1), custom presets baked (§12.3).
  */
 final class ProtectedFilesTest extends TestCase
 {
@@ -166,6 +169,33 @@ final class ProtectedFilesTest extends TestCase
         $this->get(CatalogAdmin::class)->put('items', 'cloud9_en', self::cloud9(['file' => 'scores/cloud 9-en.musicxml', 'pieces' => []]), 'test');
         self::assertArrayNotHasKey('collage', $files->score('cloud9_en', 'musicxml', null));
         self::assertSame([], ProtectedFiles::collagePieces(['collage' => ['pieces' => ['id' => 'not a list']]]));
+    }
+
+    /** custom collage presets arrive baked with the published `colorations` (§12.3): the drawn style, no `preset` */
+    public function testTheMusicXmlsPiecesAreBakedWithThePublishedPresets(): void
+    {
+        $pieces = [['preset' => 'night'] + self::piece('piece-a', '3'), ['preset' => 'dawn'] + self::piece('piece-b', '4'), self::piece('piece-c', '5')];
+        $this->get(CatalogAdmin::class)->put('items', 'cloud9_en', self::cloud9(['file' => 'scores/cloud 9-en.musicxml', 'pieces' => $pieces]), 'test');
+        $files = $this->get(ProtectedFiles::class);
+        $stored = fn() => $files->score('cloud9_en', 'musicxml', null)['collage']['pieces'] ?? null;
+        self::assertSame($pieces, $stored(), 'no colorations document: the pieces as stored');
+
+        $store = $this->get(EntityStore::class);
+        $save = fn(array ...$presets) => $store->insert(EntityKey::parse(CollagePresets::KEY), (string) json_encode(['presets' => $presets]), null, 'draft', null);
+        $night = ['id' => 'night', 'name' => 'Night', 'fill' => '#1a2b6d', 'blend' => 'screen', 'shadow' => ['color' => '#000', 'x' => 1, 'y' => 1, 'blur' => 2]];
+        $store->setPublished(['id' => $save($night), 'entity_key' => CollagePresets::KEY]);
+        $save($night, ['id' => 'dawn', 'name' => 'Dawn', 'fill' => '#ff1900']);
+        $baked = $stored();
+        $piece = self::piece('piece-a', '3');
+        unset($piece['preset']);
+        $piece['style'] = ['blend' => 'multiply', 'fill' => '#1a2b6d'];
+        self::assertSame($piece, $baked[0] ?? null, "the piece's own blend and switched-off shadow over the preset's, no preset");
+        self::assertSame([$pieces[1], $pieces[2]], [$baked[1] ?? null, $baked[2] ?? null], 'a draft-only preset and a code look: as stored');
+        self::assertSame($pieces, ProtectedFiles::collagePieces($this->get(Catalog::class)->item('cloud9_en')['score'] ?? []), 'the catalog row is untouched');
+        // the PDF answer carries no pieces
+        $user = $this->user();
+        $this->get(InventoryService::class)->add((string) $user['id'], 'cloud9_en', null, 1, 'story');
+        self::assertArrayNotHasKey('collage', $files->score('cloud9_en', 'pdf', $user));
     }
 
     /** the catalog guard: the structure readers' drawing relies on (the creator's validateContainers checks the rest) */

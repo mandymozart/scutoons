@@ -26,6 +26,7 @@ Locally `http://localhost:9000/api` (`VITE_API_URL`; the qr app on :9001). Publi
 |---|---|---|---|
 | GET | `/health/` | – | `{ status, db, version, git_sha, built_at }` (`composer.json` version, deploy's `version.json`; locally `git_sha: "dev"`) |
 | GET | `/items/` | – | item catalog `{ version, slots, items, recipes, albums, stats }` (tables `catalog_items` / `_recipes` / `_albums`; `slots` / `stats` from code – see "Catalog"); any origin (`*`), cached 5 min |
+| GET | `/items/<id>/score/<musicxml\|pdf>[?part=<name>]` | – / session | `{ url, expires }` – a short-lived signed URL of a score's file or of one of its parts (`Domain\Catalog\ProtectedFiles`, `no-store`); the PDF only for a signed-in owner (`401`, `403 not_owner`); the MusicXML's answer also carries `collage: { pieces }` placed on that score / part, a piece that names a custom collage preset baked with the published `colorations` (its drawn `style`, no `preset` – agents/research/COLLAGE.md §12.3) · `404 unknown_item\|no_score\|no_part\|no_file` |
 | GET | `/editions/` (`?toon=`), `/toons/` | – | public lists (tables `catalog_editions`, `toons`) |
 | GET | `/products/` | – | shop catalog (`{ version:2, currency, checked_at, source, products:[…] }`, type `ProductCatalog` in `@scutoons/content`; table `catalog_products` + meta `products`, the shape of the old `config/products.json`); any origin (`*`), cached 5 min; other methods 405 |
 | GET | `/products/featured/` | – | the landing page's editions (`[{ product, variant? }]`, table `catalog_featured`, chosen in the admin app: `/admin/featured`); same headers but `max-age=60` |
@@ -538,10 +539,10 @@ Every toon-related document (toon entry and settings, seasons, chapters, VN scen
 moods, wanted images, people, roles, events) as versions in `entity_versions`, keyed by **entity key** (agents/DATA.md §2):
 `toon:<toon>`, `toon-settings:<toon>:<l>`, `season:<toon>:<n>:<l>`, `chapter:<toon>:<n>:<l>`,
 `scene:<toon>:<chapter>:<name>:<l>`, `locations:<toon>:<l>`, `routes:<toon>:<l>`, `cast:<toon>`, `credits:<toon>`,
-`characters`, `moods`, `asset-requests`, `people`, `roles`, `events`. Every save is a new version; per key at most **one**
-version is `published`, the newest is the working copy. Readers use the library (below); everything here needs a
-content editor: role `creator` – or, **for now** (owner 2026-10-01), `admin` (`Roles::CONTENT_EDITORS`, see "Roles");
-otherwise `401` / `403 forbidden { role: "creator" }`.
+`characters`, `moods`, `asset-requests`, `people`, `roles`, `events`, `colorations` (the custom collage presets). Every
+save is a new version; per key at most **one** version is `published`, the newest is the working copy. Readers use the
+library (below); everything here needs a content editor: role `creator` – or, **for now** (owner 2026-10-01), `admin`
+(`Roles::CONTENT_EDITORS`, see "Roles"); otherwise `401` / `403 forbidden { role: "creator" }`.
 
 - **Validation** (minimal, the creator checks the TypeScript types): a valid key (`400 invalid_key`), body JSON object
   or array, `CONTENT_MAX_BYTES` (default 2 MB). JSON is decoded as objects and stored re-encoded (unescaped
@@ -692,7 +693,7 @@ is the format of every answer). Implementation: `Domain\Library\Library` + `Libr
 | `/library/toons` | `ToonIndex[]`: every `toon:<toon>` entry with `status: published` + every unpublished one whose toon settings say `announce: true` (marked `announced: true`; its pages stay 404) (creation order); each with the settings' `tile` when set. Drafts only with `CONTENT_SHOW_DRAFTS` / `?draft=1`; the dev-only sandbox never publicly |
 | `/library/toons/<toon>?locale=` | `{ entry, toon, seasons: SeasonOverview[], locations, routes }` – the toon layout in one request |
 | `/library/toons/<toon>/seasons/<n>?locale=` | `SeasonOverview = { number, season, chapters: ChapterSummary[] }` – listed chapters (readable + coming-soon); a summary is the chapter file without `groups` / `audio` / `status` + the season's `type`, `number`, `status` |
-| `/library/toons/<toon>/chapters/<n>?locale=` | the chapter with every `ref` group replaced by its scene file (a missing scene keeps its `ref` group + `X-Content-Missing`) |
+| `/library/toons/<toon>/chapters/<n>?locale=` | the chapter with every `ref` group replaced by its scene file (a missing scene keeps its `ref` group + `X-Content-Missing`); a slice's collage piece that names a custom preset of `colorations` arrives baked – `style` = its drawn style, no `preset` (the published presets, `?draft=1` the newest; code looks stay for the renderer – agents/research/COLLAGE.md §12.3) |
 | `/library/toons/<toon>/chapters/<n>/files?locale=` | "save to device" (PWA phase 3, `Domain\Library\ChapterFiles`): `{ toon, chapter, locale, version, gated, files: [{ path, size, kind, levels?, group? }] }` – every image / audio / video the chapter needs (the chapter as answered above + the portraits / avatars of the personas its VN puts on stage + the icons of the items it names), paths from the CDN root, `size` from the asset registry (null = unknown); a media with quality variants yields per level the file `pickQualityVariant` plays (`levels`, one `group` per media), no `levels` = every level; `gated` = not a free preview. Same gates as the chapter (403 / 404), never draft |
 | `/library/toons/<toon>/cast[?chapter=<n>]` | `{ registry, cast }`: `characters` reduced to the toon's cast (or the characters the chapter references; legacy ids mapped) + `cast:<toon>`; `null` where missing. Resolve with `resolveCast()` |
 | `/library/toons/<toon>/credits` | `{ credits, people, roles }`: `credits:<toon>`, the referenced people (+ `merged_into` targets), the roles · 404 without credits |

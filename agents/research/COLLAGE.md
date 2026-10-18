@@ -304,10 +304,10 @@ New `server/src/Domain/Content/CollagePresets.php`:
 final class CollagePresets
 {
     public const KEY = 'colorations';
-    /** = @scutoons/content PRESET_ID (CollagePresetsTest): the code looks' ids and 'none' never match */
-    public const PRESET_ID = '/^(?!(?:ink|red|cyan|negative|burn|acid|sticker|glow|ghost|fade|none)$)[a-z][a-z0-9-]{0,39}$/';
+    /** = @scutoons/content PRESET_ID (CollagePresetsTest): the code looks' ids and 'none' never match; `D` = JS's `$` (end only, no trailing newline) */
+    public const PRESET_ID = '/^(?!(?:ink|red|cyan|negative|burn|acid|sticker|glow|ghost|fade|none)$)[a-z][a-z0-9-]{0,39}$/D';
     /** = collage.ts PIECE_STYLE_KEYS (parity test) */
-    private const STYLE_KEYS = ['blend', 'opacity', 'fill', 'outline', 'shadow', 'blur'];
+    public const STYLE_KEYS = ['blend', 'opacity', 'fill', 'outline', 'shadow', 'blur'];
     /** id → entry (PRESET_ID ids, the first of a repeated id, removed ones too) @return array<string, stdClass> */
     public static function index(mixed $doc): array;
     /** bakePresets: pieces as stdClass (chapters) or assoc arrays (catalog rows) – new copies, the input untouched */
@@ -495,8 +495,8 @@ final class CollagePresets
 - **Conflicts.** Two tabs, or a member's Claude, editing `colorations` get the 409 conflict bar on the whole document; “overwrite” can drop someone else's preset.
 - **Dev DB hygiene.** Checks that save `colorations` must delete their versions by note afterwards, and must refuse to run while it holds someone's draft (precedent: creator-collage-check.mjs:53-76).
 - **Deploy order.** If the creator goes live before the API, saving the new key fails with 400 for a few minutes (deploy.yml uploads one target at a time) (guess).
+- **Verified (step 2):** opis/json-schema runs the lookahead in `pattern` – ContentSchemasTest refuses `negative`, `none` and `Night`.
 - **Not verified:**
-  - whether opis/json-schema accepts the lookahead in `pattern` (guess: PCRE does). Step 2's ContentSchemasTest proves it; if it fails, drop the lookahead and rely on colorationProblems plus the PHP index;
   - the 7th-preset threshold and the German preset line at 375 px;
   - choiceDialog over the bottom sheet.
 - **Base.** This stacks on the unpushed collage work (HANDOVER “Last run”, FEATURES 10.105).
