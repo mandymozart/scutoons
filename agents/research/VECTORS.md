@@ -1,4 +1,4 @@
-Status: decided 2026-10-17 (owner's answers in §7) – plan §6, steps 2–6 done (the API: §5a; production imported 2026-10-18; git keeps the code set), next: step 7 (picker), when wanted. Today's state: ASSETS.md "Vector library".
+Status: decided 2026-10-17 (owner's answers in §7) – plan §6, steps 2–6 done (the API: §5a; production imported 2026-10-18; git keeps the code set), step 8 (picker) = the creator's collage picker (research/COLLAGE.md §5); only step 9 (layouts / text boxes) is left for later. Today's state: ASSETS.md "Vector library".
 
 # VECTORS – how the shape library lives next to the toons
 
@@ -181,7 +181,9 @@ small"); a review flag comes back with a review screen.
    URL instead of globbing git; the non-code shapes leave git; ASSETS.md "Vector library" rewritten to how it is.
 7. ~~Pull becomes sync~~ – dropped (owner: no Figma sync). The survey and pull scripts stay as import tools for new
    pages: the survey marks nodes already in the library, the pull uploads through the API instead of writing to git.
-8. **Picker** "Shapes" + role-tag chips; the "To check" view for later surveys.
+8. ~~Picker~~ – done 2026-10-18 by the creator's collage picker (research/COLLAGE.md §5: `collage-picker-sheet.svelte` +
+   `shape-grid.svelte`, list from `kind=shape`, search over title / slug / tags, a tag select by frequency, ink silhouettes
+   for mask shapes). The "To check" view waits until a later survey brings suggestions.
 9. Later: shapes in layouts and on text boxes (placement = shape + where + a colouration preset); the presets as their
    own small named list, designed in a look or the creator, never stored on the shape (§3).
 
