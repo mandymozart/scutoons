@@ -636,6 +636,18 @@
 		"haptics": "Vibration",
 		"haptics_hint": "Ein kurzes Brummen beim Antippen und Aufheben (Handys)."
 	},
+	"attributions_page": {
+		"intro": "Die Open-Source-Software, Schriften, Icons und Modelle, mit denen SCUTOONS gebaut ist, und ihre Lizenzen. Die Credits zu Geschichten, Figuren und Songs stehen auf der Seite des jeweiligen Toons.",
+		"icons": "Icons",
+		"fonts": "Schriften",
+		"music": "Notensatz",
+		"camera": "Kamera",
+		"three_d": "3D",
+		"audio": "Audio",
+		"creator_admin": "Creator & Admin",
+		"creator_admin_note": "Nur im Creator und im Admin.",
+		"other": "Weitere Open-Source-Software"
+	},
 	"contact": {
 		"title": "Kontakt",
 		"intro": "Fragen, ein QR-Code, der nicht geht, etwas zu deinem Konto oder deinen Daten? Schreib uns – wir antworten per E-Mail.",

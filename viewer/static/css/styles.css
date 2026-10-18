@@ -129,6 +129,8 @@ html.on-hero .logo-link img {
 html.on-hero :is(.menu-toggle, .sequence-navigation-toggle, .map-toggle, .inventory-toggle) {
   background: transparent;
   border-color: var(--paper);
+  /* menu and list are Feather icons (currentColor), the others the brand's own images (inverted below) */
+  color: var(--paper);
 }
 html.on-hero :is(.menu-toggle, .sequence-navigation-toggle, .map-toggle, .inventory-toggle):hover {
   background: rgb(255 255 255 / 0.15);

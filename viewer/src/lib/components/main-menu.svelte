@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CloseIcon } from '@scutoons/ui';
+	import { CloseIcon, Icon } from '@scutoons/ui';
 	import { setLocale, localizeHref, locales, getLocale } from '$lib/paraglide/runtime.js';
 	import { onMount, tick } from 'svelte';
 	import { holdChrome } from '$lib/chrome.ts';
@@ -12,7 +12,6 @@
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { onClickOutside } from 'runed';
 	import accountIcon from '$lib/icons/account.svg';
-	import menuIcon from '$lib/icons/menu.svg';
 
 	let { toons }: { toons: ToonIndex[] } = $props();
 
@@ -105,7 +104,7 @@
 	aria-controls="main-menu"
 	data-testid="menu-toggle"
 >
-	<img src={menuIcon} alt="" />
+	<Icon name="menu" size="1rem" />
 </button>
 
 <!-- the logo is the link to the landing page (localized); on the landing page itself it just stays there -->
@@ -234,6 +233,8 @@
 		align-items: center;
 		justify-content: center;
 		background: var(--paper);
+		/* the Feather icon (currentColor) */
+		color: var(--ink);
 		border: var(--border-width-regular) solid var(--ink);
 		border-radius: var(--radius-full);
 		cursor: pointer;
@@ -242,9 +243,6 @@
 	}
 	.menu-toggle:hover {
 		background: var(--primary-cyan);
-	}
-	.menu-toggle img {
-		width: 1rem;
 	}
 
 	.logo-link {

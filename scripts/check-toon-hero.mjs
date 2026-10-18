@@ -120,7 +120,7 @@ const HERO = `(() => {
 		trailer: document.querySelector('[data-testid="hero-trailer"]') ? { text: document.querySelector('[data-testid="hero-trailer"]').textContent.trim(), href: new URL(document.querySelector('[data-testid="hero-trailer"]').href).pathname } : null,
 		sound: (() => { const b = document.querySelector('[data-testid="hero-sound"]'); return b ? { tag: b.tagName, text: b.textContent.trim(), pressed: b.getAttribute('aria-pressed'), icon: b.querySelector('svg')?.dataset.icon, href: b.getAttribute('href') } : null; })(),
 		path: location.pathname,
-		onHero: document.documentElement.classList.contains('on-hero'), logoFilter: img('.logo-link img'), iconFilter: img('.map-toggle img'), menuFilter: img('.menu-toggle img'),
+		onHero: document.documentElement.classList.contains('on-hero'), logoFilter: img('.logo-link img'), iconFilter: img('.map-toggle img'), menuWhite: (() => { const b = document.querySelector('.menu-toggle'); const i = b?.querySelector('svg'); return i ? getComputedStyle(i).color === getComputedStyle(b).borderTopColor && getComputedStyle(i).color !== getComputedStyle(document.body).color : null; })(),
 		mobileHeader: !!document.querySelector('.toon-header') && getComputedStyle(document.querySelector('.toon-header')).display !== 'none',
 		mobileStart: !!document.querySelector('[data-testid="start-button"]'),
 		season: hero?.querySelector('.hero-season')?.textContent.trim(),
@@ -171,12 +171,12 @@ async function desktop(width, height, locale) {
 	}
 	{
 		const p = [];
-		if (!s.onHero || !/invert\(1\)/.test(s.logoFilter ?? '') || !/invert\(1\)/.test(s.iconFilter ?? '') || !/invert\(1\)/.test(s.menuFilter ?? '')) p.push(`on the hero: on-hero ${s.onHero}, logo ${s.logoFilter}, icons ${s.iconFilter}, menu ${s.menuFilter}`);
+		if (!s.onHero || !/invert\(1\)/.test(s.logoFilter ?? '') || !/invert\(1\)/.test(s.iconFilter ?? '') || !s.menuWhite) p.push(`on the hero: on-hero ${s.onHero}, logo ${s.logoFilter}, icons ${s.iconFilter}, menu (Feather, paper) ${s.menuWhite}`);
 		await shot(`hero-${width}-${locale}-1-hero`);
 		await evaluate(`window.scrollTo(0, document.querySelector('[data-testid="hero"]').offsetHeight + 40), true`);
 		const below = await waitFor(`(() => { const s = ${HERO}; return s.video && s.video.paused && !s.onHero && s.colophon ? s : null; })()`, 8000);
 		if (!below || below.error) p.push(`below the hero: ${JSON.stringify(await evaluate(`(() => { const s = ${HERO}; return { paused: s.video?.paused, onHero: s.onHero }; })()`))}`);
-		else if (/invert/.test(below.logoFilter ?? '') || /invert/.test(below.iconFilter ?? '')) p.push(`below the hero the icons stay inverted: ${below.logoFilter} ${below.iconFilter}`);
+		else if (/invert/.test(below.logoFilter ?? '') || /invert/.test(below.iconFilter ?? '') || below.menuWhite) p.push(`below the hero the icons stay inverted: ${below.logoFilter} ${below.iconFilter} menu ${below.menuWhite}`);
 		report('icons white on the hero, ink below; the loop pauses offscreen', p);
 		// the grid below the hero
 		const g = below && !below.error ? below : await evaluate(HERO);

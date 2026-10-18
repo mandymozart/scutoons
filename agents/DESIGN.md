@@ -165,8 +165,8 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
     filling the column: no 36em measure, heading bars, text and the logo box span it; phones keep the measure); cols 7–12 the chapter list under a 2px ink rule: rows with 1px `border-subtle`, thumbnail
     112 × 72 (cover), title 0.75rem (+ the progress rule 5.3333rem / the coming-soon line in caption), "#n" / "Prolog"
     right-aligned, coming soon at 50 %. Published rows show no date.
-- **Top-right icon group (all widths, all pages):** the menu button (round `--control-height` = 52 px at the desktop root, 44 px on touch – "One control height"; 3-line icon
-  `icons/menu.svg`, `aria-label` "Menü" / "Menu") is the right-most icon and the **only** way to open the slide-out; on
+- **Top-right icon group (all widths, all pages):** the menu button (round `--control-height` = 52 px at the desktop root, 44 px on touch – "One control height"; Feather
+  `menu` at 1rem, `aria-label` "Menü" / "Menu") is the right-most icon and the **only** way to open the slide-out; on
   toon pages inventory, **avatar**, map and chapter list follow to its left (each `--control-height` + 0.5rem further
   left; five buttons + the logo fit at 320 px). Avatar has its own button (owner 2026-10-03: "inventory should be
   inventory"; `icons/avatar.svg`, overlay `avatar` in the navigation context) and **its own panel** – avatar and
@@ -528,9 +528,9 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
 
 ### Iconography & logos
 
-12 single-path solid-black SVG icons in `viewer/src/lib/icons/` (account, chapter, headphones, inventory, list, map,
-qr, video, watch, horizontal-swipe-gesture, vertical-scroll-gesture, scroll), each at its own native viewBox, ink baked
-in (not `currentColor`). Logos: `viewer/static/SCUTOONS-logo.svg` (wordmark), `SCUTOONS-logo-animated-square.svg`
+Solid-black SVG icons in `viewer/src/lib/icons/` (account = "Teddy", Noun Project, CC BY 3.0; avatar, chapter, inventory, map), each at its
+own native viewBox, ink baked in (not `currentColor`); the menu and the chapter list are Feather (`menu`, `list`, 1rem,
+`currentColor`). Third-party icons, fonts and libraries are credited on `/attributions` (`(about)/attributions`). Logos: `viewer/static/SCUTOONS-logo.svg` (wordmark), `SCUTOONS-logo-animated-square.svg`
 (square mark). Never recolor, always on `paper`.
 
 ---

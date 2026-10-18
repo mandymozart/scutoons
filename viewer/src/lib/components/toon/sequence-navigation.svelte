@@ -8,7 +8,6 @@
 	import { setContext } from 'svelte';
 	import PullPanel from '$lib/components/panel/pull-panel.svelte';
 	import { getNavigationContext } from '$lib/contexts/navigation.svelte';
-	import listIcon from '$lib/icons/list.svg';
 	import { chapterName, chapterShownNumber } from '$lib/utils/chapter-name.ts';
 	import { isReadable } from '$lib/draft-preview.svelte.ts';
 
@@ -76,7 +75,7 @@
 	aria-expanded={active}
 	aria-controls="chapters-panel"
 >
-	<img src={listIcon} alt="" />
+	<Icon name="list" size="1rem" />
 </button>
 
 <!-- the inventory's panel (owner 2026-10-10): dark, the vector behind its top edge, pulled down to close -->
@@ -159,6 +158,8 @@
 		align-items: center;
 		border: 2px solid black;
 		background: var(--paper);
+		/* the Feather icon (currentColor) */
+		color: var(--ink);
 		border-radius: 50%;
 		justify-content: center;
 		z-index: 1001;
@@ -166,9 +167,6 @@
 		touch-action: manipulation;
 		&:hover {
 			background: var(--primary-color);
-		}
-		img {
-			width: 1rem;
 		}
 	}
 	/* the rows a little apart on the dark panel */

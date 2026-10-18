@@ -636,6 +636,18 @@
 		"haptics": "Vibration",
 		"haptics_hint": "A short buzz with taps and pickups (phones)."
 	},
+	"attributions_page": {
+		"intro": "The open-source software, fonts, icons and models SCUTOONS is built with, and their licences. The credits for the stories, characters and songs are on each toon’s page.",
+		"icons": "Icons",
+		"fonts": "Fonts",
+		"music": "Music engraving",
+		"camera": "Camera",
+		"three_d": "3D",
+		"audio": "Audio",
+		"creator_admin": "Creator & Admin",
+		"creator_admin_note": "Only in the creator and admin apps.",
+		"other": "Other open source"
+	},
 	"contact": {
 		"title": "Contact",
 		"intro": "Questions, a QR code that doesn't work, something about your account or your data? Write to us – we answer by email.",
