@@ -40,7 +40,8 @@
 //   pieces:  the collage piece tool (research/COLLAGE.md §3): the tool → a click → the picker → a shape on the picture,
 //            the look Negative = the picture's negative there (a pixel), the Fade ramp opaque in its middle, the ramp's
 //            dot, one undo per step, Ctrl+C / Ctrl+V, Layers (pieces under the stack; a reorder, its undo / redo keep the
-//            moved piece selected), Delete; saved with the draft
+//            moved piece selected), Delete; saved with the draft; the preset grid previews every look on the piece's
+//            file, "Save as preset …" keeps its pixels, the toast's Undo leaves no presets document to save
 //   VN:      a scene with a group script + slice events (catpope's, else the sandbox's): each event type's line opens its form (+ "Only if"); "+ setVariable" adds one, open,
 //            the cursor in it; "+ event" on the chapter's slice adds one line; a slice event has its trigger (never saved)
 // Afterwards every entity the run changed is restored (content as before, published again if it was), also on failure.
@@ -521,6 +522,51 @@ async function pieceCase() {
 	for (let i = 0; i < 4; i++) await press('z', 'ctrl', 'shift');
 	check((await pieceCount()) === n0 + 1 && (await blendOf(n0)) === 'normal' && (await js(`!!document.querySelectorAll(${JSON.stringify(PIECES)})[${n0}]?.classList.contains('ramp')`)), 'pieces: redo brings the piece back with its ramp');
 
+	// the preset grid (research/COLLAGE.md §12.4): every tile previews this piece's own file in its look; Save as preset …
+	// keeps its pixels (the piece names the new preset, no own values); the toast's Undo takes both back – no presets
+	// document is left to save (this run never stores `colorations`; check:creator-collage saves and removes one)
+	await click(tid(`slice-piece-${n0}`));
+	await until(`!!${q('piece-looks')}`, 3000);
+	const fileOf = (css) => String(css ?? '').replace(/^url\("?|"?\)$/g, '');
+	const fileJs = (el) => `(${el} ? (${el}.querySelector('img')?.getAttribute('src') ?? ${el}.querySelector('.fill')?.style.getPropertyValue('--src') ?? '') : null)`;
+	const file = await js(`(() => { const p = document.querySelectorAll(${JSON.stringify(PIECES)})[${n0}]; return ${fileJs('p')}; })()`);
+	const tiles = await js(`[...document.querySelectorAll('[data-testid="piece-looks"] button')].map((b) => { const p = b.querySelector('.look-preview .piece'); return { id: b.dataset.testid.replace('piece-look-', ''), file: ${fileJs('p')}, blend: p ? getComputedStyle(p).mixBlendMode : null, ramp: !!p?.classList.contains('ramp'), pressed: b.getAttribute('aria-pressed') === 'true' }; })`);
+	const tileOf = (id) => tiles.find((t) => t.id === id);
+	check(
+		tiles.length >= 11 && tiles.every((t) => fileOf(t.file) === fileOf(file)) && tileOf('negative')?.blend === 'difference' && tileOf('fade')?.ramp && tileOf('fade')?.pressed,
+		`presets: the grid previews each of its ${tiles.length} looks on the piece's own file (Negative blends, Fade's ramp), Fade chosen`,
+		JSON.stringify({ file, tiles })
+	);
+	const pressedLook = () => js(`document.querySelector('[data-testid="piece-looks"] button[aria-pressed="true"]')?.dataset.testid.replace('piece-look-', '') ?? null`);
+	const opacity = () => js(`document.querySelector('[data-testid="piece-opacity"] input')?.value ?? null`);
+	const presetLine = () => js(`[...document.querySelectorAll('[data-testid="preset-line"] button')].map((b) => b.dataset.testid)`);
+	// typed like a person: the fold opened first, then the value and its blur (it commits; a page without the window's focus
+	// sends none by itself)
+	await js(`${q('piece-advanced')}.open = true`);
+	await sleep(150);
+	await js(`(() => { const f = document.querySelector('[data-testid="piece-opacity"] input'); f.focus(); const set = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(f), 'value').set; set.call(f, '50'); f.dispatchEvent(new Event('input', { bubbles: true })); f.dispatchEvent(new FocusEvent('blur')); f.blur(); return true; })()`);
+	await until(`getComputedStyle(document.querySelectorAll(${JSON.stringify(PIECES)})[${n0}]).opacity === '0.5'`, 3000);
+	await sleep(300);
+	// the piece's centre now (a click's scrollIntoView may have moved the canvas since cx / cy)
+	const centre = () => js(`(() => { const r = document.querySelectorAll(${JSON.stringify(PIECES)})[${n0}].getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`);
+	const own = await pixelAt(...(await centre()));
+	const ownLine = await presetLine();
+	await click(tid('preset-save'));
+	await until(`!!document.querySelector('dialog.sc-dialog[open] input')`, 3000);
+	await js(`(() => { const f = document.querySelector('dialog.sc-dialog[open] input'); const set = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(f), 'value').set; set.call(f, 'Night'); f.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`);
+	await answerDialog('button.primary');
+	await sleep(300);
+	const named = { look: await pressedLook(), line: await presetLine(), opacity: await opacity(), px: await pixelUntil(...(await centre()), own, 4) };
+	check(
+		JSON.stringify(ownLine) === '["preset-save"]' && !!named.look && !['fade', 'none'].includes(named.look) && JSON.stringify(named.line) === '["preset-more"]' && named.opacity === '' && off(named.px, own) <= 4,
+		`presets: Fade + its own opacity → "Save as preset …" "Night": the piece names "${named.look}" without own values, its pixels unchanged`,
+		JSON.stringify({ ownLine, named, own })
+	);
+	await js(`(() => { const t = [...document.querySelectorAll('.toast')].find((t) => t.textContent.includes('Night')); t?.querySelector('[data-testid="toast-action"]')?.click(); return true; })()`);
+	await sleep(300);
+	const undone = { look: await pressedLook(), opacity: await opacity(), night: await js(`!!${q(`piece-look-${named.look}`)}`) };
+	check(undone.look === 'fade' && undone.opacity === '50' && !undone.night, "presets: the toast's Undo – the piece Fade + its opacity again, the preset gone", JSON.stringify(undone));
+
 	// copy / paste: a second piece, a new id, one step off
 	await click(tid(`slice-piece-${n0}`));
 	await clipKey('c');
@@ -619,6 +665,8 @@ try {
 		await until(`!document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•')`);
 		const saved = savedPieces(await api('GET', `/entities/${CHAPTER_KEYS[0]}?draft=1&wrap=1`), piecesBefore);
 		check(saved.ok, 'pieces: Save draft stores both pieces (the toon\'s path, the ratio, the look, distinct ids, no height)', saved.detail);
+		const presetsNow = (await index()).colorations;
+		check((presetsNow?.latest ?? null) === (before.colorations?.latest ?? null), 'presets: the Save stored no presets document (the Undo left none to save)', JSON.stringify(presetsNow ?? null));
 		// the old page still draws them until the reload lands (Page.reload answers at once): a mark on it tells them apart
 		await js('window.__beforeReload = true');
 		await send('Page.reload');

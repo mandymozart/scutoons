@@ -14,12 +14,20 @@
 //   - Phone → Desktop (1440 × 810) → zoom + twice: the piece stays on bar 10, staff 1 each time (the lines break anew);
 //   - a character picture (Characters tab, a mood portrait) dragged onto bar 12, staff 2: on it at zoom 30 and 35;
 //     Behind = under the notes (z 0, the music z 1); Page keeps it where it is (and back);
+//   - the preset grid (research/COLLAGE.md §12.4): every tile previews the selected piece's own file in its look (the
+//     readers' renderer: Negative blends difference, Red fills red, As drawn plain); custom presets: Negative + own
+//     opacity → "Save as preset …" "Night" → the piece names it, no own values, same pixels; the toast's Undo → back,
+//     no preset; saved again, Ctrl+Z → the piece only (the preset stays); the character picture takes it, the shape's
+//     own opacity → "Update preset" → the character restyles; ••• Rename … (the field starts with the name); ••• Delete …
+//     → "(deleted)" on the shape, same pixels, Problems warns, gone from the other piece's grid;
 //   - Save draft (note "collage-check (removed again)"): the item document holds score.collage { file = the score's
-//     MusicXML, both pieces – CDN-root paths, their bars }; a reload shows them at their bars; the keys on the live
+//     MusicXML, both pieces – CDN-root paths, their bars, the preset }, the presets document `colorations` the
+//     tombstone; Publish lists "Collage presets" (cancelled); a reload shows them at their bars; the keys on the live
 //     region only (the focus on a sidebar link: Backspace / Delete / Esc leave the piece); Delete + Ctrl+Z; Esc;
-//   - 375 × 812: the side region below the stage.
+//   - 375 × 812: the side region below the stage; the preset grid previews every look, five touch-sized tiles a row.
 // Afterwards the saved versions are deleted again (by their note; an interrupted run's are swept first) – the item's
-// document as before. Refuses to run while the item has an unpublished draft (someone's work in progress).
+// and the presets' documents as before. Refuses to run while the item or `colorations` has an unpublished draft
+// (someone's work in progress).
 //   npm run check:creator-collage        (creator :10000, viewer :8000, API :9000, cdn :8001, MariaDB container)
 //   SCUTOONS_COLLAGE_ITEM (default cloud9_en: a published score, full score); COLLAGE_SHOTS=<dir>: collage-*.png
 import { execFileSync, spawn } from 'node:child_process';
@@ -59,20 +67,25 @@ async function api(method, path) {
 	if (!res.ok) throw Object.assign(new Error(`${method} ${path}: ${res.status} ${JSON.stringify(json)?.slice(0, 200)}`), { status: res.status });
 	return json;
 }
-const draftOf = () => api('GET', `/entities/${KEY}?draft=1&wrap=1`).catch((e) => (e.status === 404 ? null : Promise.reject(e)));
+const draftOf = (key = KEY) => api('GET', `/entities/${key}?draft=1&wrap=1`).catch((e) => (e.status === 404 ? null : Promise.reject(e)));
 const sql = (query) => execFileSync('docker', ['exec', '-i', CONTAINER, 'sh', '-c', `mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" -N -r ${DB}`], { input: query }).toString().trim();
 const quote = (s) => `'${String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
-const sweep = () => {
-	const ids = sql(`SELECT id FROM entity_versions WHERE entity_key = ${quote(KEY)} AND message = ${quote(NOTE)}`).split('\n').filter(Boolean).map(Number);
+/** the custom presets' platform-wide document (research/COLLAGE.md §12): the preset case saves it with the item */
+const PRESETS = 'colorations';
+const sweep = (key = KEY) => {
+	const ids = sql(`SELECT id FROM entity_versions WHERE entity_key = ${quote(key)} AND message = ${quote(NOTE)}`).split('\n').filter(Boolean).map(Number);
 	if (ids.length) sql(`DELETE FROM entity_versions WHERE id IN (${ids.join(',')})`);
 	return ids.length;
 };
-const swept = sweep();
+const swept = sweep() + sweep(PRESETS);
 if (swept) console.log(`note: an earlier run's leftovers removed: ${swept} draft version(s)`);
 const before = await draftOf();
-if (before && before.published?.id !== before.version.id) {
-	console.error(`creator-collage-check: ${KEY} has an unpublished draft; not touching it. Publish or restore it first.`);
-	process.exit(2);
+const presetsBefore = await draftOf(PRESETS);
+for (const [key, draft] of [[KEY, before], [PRESETS, presetsBefore]]) {
+	if (draft && draft.published?.id !== draft.version.id) {
+		console.error(`creator-collage-check: ${key} has an unpublished draft; not touching it. Publish or restore it first.`);
+		process.exit(2);
+	}
 }
 const entry = (await api('GET', '/catalog/docs/items')).entries.find((e) => e.id === ITEM);
 const MUSICXML = (before?.content ?? entry?.content)?.score?.musicxml;
@@ -234,6 +247,45 @@ async function pixels(r) {
 		}
 	return { dark: dark / n, bright: bright / n };
 }
+/** the colour [r, g, b] at a viewport point */
+async function colorAt(x, y) {
+	const shotData = await send('Page.captureScreenshot', { format: 'png', clip: { x, y, width: 1, height: 1, scale: 1 } });
+	const img = png(Buffer.from(shotData.result.data, 'base64'));
+	return [img.px[0], img.px[1], img.px[2]];
+}
+
+// ── the preset grid and its line (research/COLLAGE.md §12.4) ──
+const CODE_LOOKS = ['none', 'ink', 'red', 'cyan', 'negative', 'burn', 'acid', 'sticker', 'glow', 'ghost', 'fade'];
+const fileOf = (css) => String(css ?? '').replace(/^url\("?|"?\)$/g, '');
+/** an object as JSON with its keys sorted (a stored preset's key order follows its edits) */
+const sorted = (o) => JSON.stringify(o && Object.fromEntries(Object.entries(o).sort(([a], [b]) => a.localeCompare(b))));
+/** the open inspector's grid: each tile's look, name, chosen state, its preview's file, blend, fill and centre */
+const lookTiles = () =>
+	js(`[...document.querySelectorAll('[data-testid="piece-inspector"] button[data-testid^="piece-look-"]')].map((b) => { const p = b.querySelector('.look-preview .piece'); const fill = p?.querySelector('.fill'); const r = p?.getBoundingClientRect(); return { id: b.dataset.testid.replace('piece-look-', ''), name: b.querySelector('.name')?.textContent ?? '', pressed: b.getAttribute('aria-pressed') === 'true', file: p ? (p.querySelector('img')?.getAttribute('src') ?? fill?.style.getPropertyValue('--src') ?? '') : null, blend: p ? getComputedStyle(p).mixBlendMode : null, fill: fill ? getComputedStyle(fill).backgroundColor : null, at: r ? [r.x + r.width / 2, r.y + r.height / 2] : null, h: b.getBoundingClientRect().height }; })`);
+const pressedLook = async () => (await lookTiles()).find((t) => t.pressed)?.id ?? null;
+const presetLine = () => js(`[...document.querySelectorAll('[data-testid="preset-line"] button')].map((b) => b.dataset.testid)`);
+const opacityField = () => js(`(() => { const f = document.querySelector('[data-testid="piece-opacity"] input'); return f ? { value: f.value, placeholder: f.placeholder } : null; })()`);
+/** the opacity field typed like a person: the fold opened first, the value, its blur (it commits – a page without the window's focus sends none) */
+const setOpacity = (v) => js(`(() => { const d = ${q('piece-advanced')}; if (d && !d.open) d.open = true; return true; })()`).then(() => sleep(150)).then(() => js(`(() => { const f = document.querySelector('[data-testid="piece-opacity"] input'); f.focus(); const set = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(f), 'value').set; set.call(f, ${JSON.stringify(String(v))}); f.dispatchEvent(new Event('input', { bubbles: true })); f.dispatchEvent(new FocusEvent('blur')); f.blur(); return true; })()`)).then(() => sleep(250));
+/** the open in-page dialog: its field's value and its message; `text` typed into the field (undefined: as it is), then its primary button */
+async function answer(text) {
+	const open = await until(`(() => { const d = document.querySelector('dialog.sc-dialog[open]'); return d ? { value: d.querySelector('input')?.value ?? null, placeholder: d.querySelector('input')?.placeholder ?? null, message: d.querySelector('.message')?.textContent ?? '', title: d.querySelector('h2')?.textContent ?? '' } : null; })()`, 5000);
+	if (text !== undefined) await js(`(() => { const f = document.querySelector('dialog.sc-dialog[open] input'); const set = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(f), 'value').set; set.call(f, ${JSON.stringify(text)}); f.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`);
+	await sleep(150);
+	await js(`document.querySelector('dialog.sc-dialog[open] button.primary').click(), true`);
+	await sleep(400);
+	return open;
+}
+/** a choice dialog's line by its words, then its question (Rename … → askDialog, Delete … → the confirmation) */
+const choose = async (words) => {
+	await until(`!!document.querySelector('dialog.sc-dialog[open] .choice')`, 5000);
+	const lines = await js(`[...document.querySelectorAll('dialog.sc-dialog[open] .choice')].map((b) => b.textContent.trim())`);
+	await js(`[...document.querySelectorAll('dialog.sc-dialog[open] .choice')].find((b) => new RegExp(${JSON.stringify(words.source)}).test(b.textContent))?.click(), true`);
+	await sleep(400);
+	return lines;
+};
+/** the Undo of the toast that says `words` */
+const toastUndo = (words) => js(`(() => { const t = [...document.querySelectorAll('.toast')].find((t) => t.textContent.includes(${JSON.stringify(words)})); const b = t?.querySelector('[data-testid="toast-action"]'); b?.click(); return !!b; })()`);
 
 let saved = false;
 try {
@@ -409,6 +461,92 @@ try {
 	await settled(figure, BAR2, 2);
 	check(lost && !(await js(`!!${q(`collage-missing-${figure}`)}`)) && (await onStaff(figure, BAR2, 2)).ok, `bar 999 (not in the file): ⚠ in the list, not drawn; bar ${BAR2} again: back on staff 2`);
 
+	// ── the preset grid previews every look on the selected piece (owner 2026-10-18: "in dem Wort auf dem Selector
+	//    zeigen, was das dann wird") – its own file, in that look, by the readers' renderer ──
+	await click(tid(`collage-select-${shape}`));
+	await settled(shape, BAR, 1);
+	const shapeFile = fileOf((await drawn(shape))?.src);
+	const tiles = await lookTiles();
+	const tile = (id) => tiles.find((t) => t.id === id);
+	const redAt = tile('red')?.at && (await colorAt(...tile('red').at));
+	check(
+		CODE_LOOKS.every((id) => tile(id)) && tiles.every((t) => fileOf(t.file) === shapeFile) && tile('negative').blend === 'difference' && tile('red').fill === 'rgb(255, 25, 0)' && tile('none').fill === null && tile('negative').pressed && redAt?.[0] > 200 && redAt?.[1] < 90,
+		`the preset grid: ${tiles.length} tiles, each previews the selected piece's file in its look (Negative blends difference, Red fills #ff1900 – a red pixel –, As drawn the file plain), the chosen one pressed`,
+		JSON.stringify({ shapeFile, tiles: tiles.map((t) => [t.id, fileOf(t.file) === shapeFile, t.blend, t.fill, t.pressed]), redAt })
+	);
+	await shot('previews');
+
+	// ── custom presets (research/COLLAGE.md §12.4): Save as preset … (toast Undo, Ctrl+Z = the piece only), Update preset
+	//    (another piece restyles), ••• Rename … / Delete … (a tombstone: still drawn, a warning) ──
+	await setOpacity(50);
+	const ownLine = await presetLine();
+	const asNegative = await pixels(await drawn(shape));
+	await click(tid('preset-save'));
+	const asked = await answer('Night');
+	const preset = await pressedLook();
+	const named = { line: await presetLine(), opacity: await opacityField(), px: await pixels(await drawn(shape)), blend: (await drawn(shape))?.blend, tile: (await lookTiles()).find((t) => t.id === preset) };
+	const samePx = (a, b) => !!a && !!b && Math.abs(a.dark - b.dark) < 0.02 && Math.abs(a.bright - b.bright) < 0.02;
+	check(
+		JSON.stringify(ownLine) === '["preset-save"]' && /^Preset \d+$/.test(asked?.placeholder ?? '') && !!preset && !CODE_LOOKS.includes(preset) && named.tile?.name === 'Night' && JSON.stringify(named.line) === '["preset-more"]' && named.opacity?.value === '' && named.opacity?.placeholder === '50' && named.blend === 'difference' && samePx(asNegative, named.px),
+		`Negative + its own opacity 50: the line offers "Save as preset …" only; saved as "Night" (placeholder "${asked?.placeholder}"): the piece names "${preset}" – no own values, the tile chosen, the line ••• only, its pixels unchanged`,
+		JSON.stringify({ ownLine, asked, preset, named, asNegative })
+	);
+	const unsaved = (await toastUndo('Night')) && { look: await pressedLook(), opacity: await opacityField(), night: (await lookTiles()).some((t) => t.id === preset) };
+	check(unsaved && unsaved.look === 'negative' && unsaved.opacity?.value === '50' && !unsaved.night, "the toast's Undo: the preset gone, the piece Negative + 50 again", JSON.stringify(unsaved));
+	await click(tid('preset-save'));
+	await answer('Night');
+	const resaved = await pressedLook();
+	await js(`document.activeElement?.blur(), true`);
+	await press('z', 'ctrl');
+	const hostOnly = { look: await pressedLook(), night: (await lookTiles()).some((t) => t.id === resaved) };
+	check(resaved === preset && hostOnly.look === 'negative' && hostOnly.night, 'saved again; Ctrl+Z takes back the piece only – the preset stays in the grid (the toast\'s Undo takes back both)', JSON.stringify({ resaved, hostOnly }));
+	await click(tid(`piece-look-${preset}`));
+	// the character picture takes it too; the shape's own opacity 100 → Update preset → the character follows
+	await click(tid(`collage-select-${figure}`));
+	await settled(figure, BAR2, 2);
+	await click(tid(`piece-look-${preset}`));
+	const figureBefore = await js(`getComputedStyle(document.querySelector('${FRAME} .score-pieces .piece[data-piece="${figure}"]')).opacity`);
+	await click(tid(`collage-select-${shape}`));
+	await settled(shape, BAR, 1);
+	await setOpacity(100);
+	const fullLine = await presetLine();
+	await click(tid('preset-update'));
+	const confirmed = await answer();
+	const updated = { figure: await js(`getComputedStyle(document.querySelector('${FRAME} .score-pieces .piece[data-piece="${figure}"]')).opacity`), look: await pressedLook(), line: await presetLine(), opacity: await opacityField() };
+	check(
+		JSON.stringify(fullLine) === '["preset-save","preset-update","preset-more"]' && /every score/.test(confirmed?.message ?? '') && figureBefore === '0.5' && updated.figure === '1' && updated.look === preset && JSON.stringify(updated.line) === '["preset-more"]' && updated.opacity?.value === '',
+		`Update preset (asked: "${confirmed?.title}"): the character picture naming it restyles (opacity ${figureBefore} → ${updated.figure}), the shape names it without own values`,
+		JSON.stringify({ fullLine, confirmed, figureBefore, updated })
+	);
+	// ••• Rename …: the field starts with the name; the tile's name changes, the piece still names the same id
+	await click(tid('preset-more'));
+	const menu = await choose(/Rename/);
+	const renameAsk = await answer('Deep night');
+	const renamed = (await lookTiles()).find((t) => t.id === preset);
+	check(JSON.stringify(menu) === '["Rename …","Delete …"]' && renameAsk?.value === 'Night' && renamed?.name === 'Deep night' && renamed.pressed, `••• ("${renameAsk?.title}"): Rename … starts with "Night" → the tile says "Deep night", the piece still names "${preset}"`, JSON.stringify({ menu, renameAsk, renamed }));
+	// ••• Delete …: a tombstone – gone from another piece's grid, "(deleted)" on the piece that names it, still drawn, a warning
+	await click(tid(`collage-select-${figure}`));
+	await settled(figure, BAR2, 2);
+	await click(tid('piece-look-none'));
+	await click(tid(`collage-select-${shape}`));
+	await settled(shape, BAR, 1);
+	const live1 = await pixels(await drawn(shape));
+	await click(tid('preset-more'));
+	await choose(/Delete/);
+	const deleteAsk = await answer();
+	const tomb = { tile: (await lookTiles()).find((t) => t.id === preset), line: await presetLine(), px: await pixels(await drawn(shape)) };
+	await click(tid('problems-toggle'));
+	const warned = await until(`/was deleted/.test(${q('problems-panel')}?.textContent ?? '')`, 5000);
+	await click(tid('problems-toggle'));
+	await click(tid(`collage-select-${figure}`));
+	await settled(figure, BAR2, 2);
+	const elsewhere = (await lookTiles()).some((t) => t.id === preset);
+	check(
+		/keep drawing it/.test(deleteAsk?.message ?? '') && tomb.tile?.name === 'Deep night (deleted)' && tomb.tile.pressed && JSON.stringify(tomb.line) === '["preset-save"]' && samePx(live1, tomb.px) && warned && !elsewhere,
+		'••• Delete …: the shape still draws it ("Deep night (deleted)", pixels unchanged, Save as preset … offered, Problems warns "was deleted"); another piece\'s grid no longer offers it',
+		JSON.stringify({ deleteAsk, tomb, live1, warned, elsewhere })
+	);
+
 	// ── save, reload ──
 	await click(tid('save-draft'));
 	await until(`!!document.querySelector('dialog.sc-dialog[open] input, dialog.sc-dialog[open] textarea')`, 5000);
@@ -421,10 +559,24 @@ try {
 	const sheet = stored?.content?.score?.collage;
 	const byId = (id) => sheet?.pieces?.find((p) => p.id === id);
 	check(
-		sheet?.file === MUSICXML && sheet.pieces?.length === 2 && byId(shape)?.src === 'catpope/vectors/disc-black.svg' && byId(shape)?.at?.bar === String(BAR) && byId(shape)?.preset === 'negative' && /^characters\//.test(byId(figure)?.src ?? '') && !!byId(figure)?.figure && byId(figure)?.at?.bar === String(BAR2) && byId(figure)?.at?.staff === 2 && byId(figure)?.behind === true && !('height' in (byId(shape)?.rect ?? {})),
-		`the item document: score.collage { file: the score's MusicXML, 2 pieces – CDN-root paths, bars ${BAR} / ${BAR2}, the look, the figure, behind }`,
+		sheet?.file === MUSICXML && sheet.pieces?.length === 2 && byId(shape)?.src === 'catpope/vectors/disc-black.svg' && byId(shape)?.at?.bar === String(BAR) && byId(shape)?.preset === preset && !byId(shape)?.style && /^characters\//.test(byId(figure)?.src ?? '') && !!byId(figure)?.figure && byId(figure)?.at?.bar === String(BAR2) && byId(figure)?.at?.staff === 2 && byId(figure)?.behind === true && !('height' in (byId(shape)?.rect ?? {})),
+		`the item document: score.collage { file: the score's MusicXML, 2 pieces – CDN-root paths, bars ${BAR} / ${BAR2}, the preset, the figure, behind }`,
 		JSON.stringify(sheet)?.slice(0, 600)
 	);
+	// the presets document went with it (MetaPage's companion, the same note): the tombstone with the updated values
+	const presetsDoc = await draftOf(PRESETS);
+	const storedPreset = presetsDoc?.content?.presets?.find((p) => p.id === preset);
+	check(
+		presetsDoc?.version?.message === NOTE && sorted(storedPreset) === sorted({ id: preset, name: 'Deep night', removed: true, fill: '#ffffff', blend: 'difference', opacity: 1 }),
+		`Save: the presets document "${PRESETS}" stored with the item (the same note) – { id: "${preset}", name: "Deep night", removed: true, the updated values }`,
+		JSON.stringify(presetsDoc?.content)?.slice(0, 400)
+	);
+	// its Publish list offers "Collage presets" (ticked like every line) – cancelled
+	await click(tid('publish'));
+	const offered = await until(`(() => { const d = document.querySelector('dialog.sc-dialog[open]'); return d?.querySelector('.checklist') ? [...d.querySelectorAll('.line')].map((l) => [l.textContent.trim(), l.querySelector('input').checked]) : null; })()`, 10000);
+	await js(`document.querySelector('dialog.sc-dialog[open] .cancel')?.click(), true`);
+	await sleep(300);
+	check(!!offered?.some(([text, on]) => /^Collage presets/.test(text) && on), 'Publish: the list offers "Collage presets", ticked (cancelled)', JSON.stringify(offered));
 	await go(`/catalog/items/${ITEM}/collage`, `document.querySelectorAll('[data-testid="collage-list"] > li').length === 2 && !!document.querySelector('${FRAME} .leaf svg')`);
 	await click(tid(`collage-select-${shape}`));
 	await settled(shape, BAR, 1);
@@ -459,6 +611,13 @@ try {
 	const narrow = await js(`(() => { const s = ${q('score-stage')}.querySelector('.main').getBoundingClientRect(); const a = ${q('score-stage-side')}.getBoundingClientRect(); const f = document.querySelector('${FRAME}').getBoundingClientRect(); return { mainBottom: Math.round(s.bottom), sideTop: Math.round(a.top), frame: Math.round(f.width), scroll: document.documentElement.scrollWidth }; })()`);
 	check(narrow.sideTop >= narrow.mainBottom - 1 && narrow.frame > 50 && narrow.scroll <= 376, '375 × 812: the score screen on top, the side region below it, no sideways scroll', JSON.stringify(narrow));
 	await shot('narrow');
+	// the preset grid on the phone: every look previewed on the piece, five tiles a row, touch-sized; the line in its row
+	await click(tid(`collage-select-${shape}`));
+	await until(`!!${q('piece-looks')}`, 5000);
+	const phoneTiles = await lookTiles();
+	const phone = await js(`(() => { const g = ${q('piece-looks')}; const i = ${q('piece-inspector')}.getBoundingClientRect(); const l = ${q('preset-line')}?.getBoundingClientRect(); return { cols: getComputedStyle(g).gridTemplateColumns.split(' ').length, inside: g.getBoundingClientRect().right <= i.right + 0.5 && (!l || l.right <= i.right + 0.5), scroll: document.documentElement.scrollWidth }; })()`);
+	check(phoneTiles.length >= 12 && phoneTiles.every((t) => fileOf(t.file) === shapeFile && t.h >= 44) && phone.cols === 5 && phone.inside && phone.scroll <= 376, `375 px: the preset grid previews all ${phoneTiles.length} looks on the piece, ${phone.cols} tiles a row, each ≥ 44 px tall; grid and line inside the inspector`, JSON.stringify({ phone, tiles: phoneTiles.map((t) => [t.id, Math.round(t.h)]) }));
+	await shot('narrow-presets');
 
 	if (errors.length) check(false, `page errors: ${errors.length}`, errors.slice(0, 3).join(' | '));
 } catch (e) {
@@ -470,6 +629,9 @@ try {
 		const removed = sweep();
 		const after = await draftOf();
 		check(removed >= 1 && (after?.version.id ?? null) === (before?.version.id ?? null), `restored ${KEY}: ${removed} draft version(s) removed, newest ${after?.version.id ?? 'none'} (was ${before?.version.id ?? 'none'})`);
+		const presetsRemoved = sweep(PRESETS);
+		const presetsAfter = await draftOf(PRESETS);
+		check((presetsAfter?.version.id ?? null) === (presetsBefore?.version.id ?? null), `restored ${PRESETS}: ${presetsRemoved} draft version(s) removed, newest ${presetsAfter?.version.id ?? 'none'} (was ${presetsBefore?.version.id ?? 'none'})`);
 	}
 }
 const passed = results.filter(Boolean).length;
