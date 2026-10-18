@@ -1,4 +1,4 @@
-Status: built 2026-10-18 (the night's §8 steps 1–7, nothing cut; on `main`, not pushed) – owner questions §10 open, built with their defaults (FEATURES 10.105); deferred §9. Today's state: DESIGN.md Part 2 "Collage pieces", DATA.md §2, CATALOG.md "Score collages"; this doc keeps the design and how it was measured.
+Status: built 2026-10-18 – the collage editor (the night's §8 steps 1–7, nothing cut) and custom presets ("Save as preset", §12 steps 1–6); on production since the owner's push that evening, except the presets' autosave fix and the MCP part (§12.6), on `main`, not pushed – owner questions §10 and §12.8 open, built with their defaults (FEATURES 10.105); deferred §9. Today's state: DESIGN.md Part 2 "Collage pieces", DATA.md §2, CATALOG.md "Score collages"; this doc keeps the design and how it was measured.
 
 # COLLAGE – pieces (vectors, characters, images) on slices and scores
 
@@ -50,7 +50,7 @@ export interface PieceStyle {
 	shadow?: PieceShadow | null;
 	blur?: PieceBlur | null;
 }
-/** a named colouration preset (tonight: COLLAGE_LOOKS in code) */
+/** a named colouration: one of the ten COLLAGE_LOOKS in code, or a custom preset (CollagePreset, §12.2) – one id namespace */
 export interface CollageLook extends PieceStyle { id: string }
 
 /** how a character picture was picked (the editor re-resolves `src`); the renderer draws `src` only.
@@ -76,7 +76,7 @@ export interface CollagePiece {
 	rect: { x: number; y: number; width: number };
 	anchor?: Anchor;   // default 'tl'; score pieces are written 'c'
 	rotation?: number; // degrees around the centre
-	preset?: string;   // a CollageLook id; none = as drawn
+	preset?: string;   // a CollageLook id (a code look's or a custom preset's); none = as drawn – readers get custom presets baked
 	style?: PieceStyle;// own values over the preset
 	at?: ScoreAt;      // scores only (required there)
 	behind?: boolean;  // scores only: under the notes; default over
@@ -90,9 +90,9 @@ export interface CollageSheet {
 ```
 Where: `Slice.pieces?: CollagePiece[]` (content.ts, next to `items`; array order = paint order back → front); `ScoreFiles.collage?` / `ScorePart.collage?: CollageSheet | null` (containers.ts). All new and optional: no stored key exists (prod seed: 0) → **no migration** (precedents `items`, `layer`, `anchor`, `Dialog.fit`). `SliceDoc` inherits through its `Omit`; `resolveSliceWith` / `NeutralDoc::slice` pass pieces through (no text). Not stored: kind (derived: `figure` → Character, `.svg` → Shape, else Image), mask (every effect works from the file's alpha), `layer` (array order).
 
-Pure helpers in collage.ts (tested): `COLLAGE_LOOKS`, `collageLook(id)`, `pieceStyle(piece)` = `{ ...look, ...piece.style }` minus nulls, `pieceHeight(width, ratio, boxRatio)` = `width / (ratio × boxRatio)`, `heavyWeight(style)` (outline 1, shadow 1, blur 1, progressive blur 2), `pieceName(piece)`, `COLLAGE_LIMITS`, `collageProblems(pieces, host: 'slice' | 'score', add)`.
+Pure helpers in collage.ts (tested): `COLLAGE_LOOKS`, `collageLook(id, presets?)` (the code look first, then a custom preset), `pieceStyle(piece, presets?)` = `{ ...look, ...piece.style }` minus nulls, `pieceHeight(width, ratio, boxRatio)` = `width / (ratio × boxRatio)`, `heavyWeight(style)` (outline 1, shadow 1, blur 1, progressive blur 2), `pieceName(piece)`, `COLLAGE_LIMITS`, `collageProblems(pieces, host: 'slice' | 'score', add, presets?)`; for the custom presets `customPreset`, `bakePresets`, `colorationProblems` (§12.2, §12.5).
 
-**Presets by reference.** A piece names a preset (`preset: 'negative'`) and may replace single keys in `style` (a whole shadow, or `null` = off). Renderer and inspector both read `pieceStyle()`, so a preset change reaches every piece that has not replaced that key. Ten code presets from the lab's INKS / GRADIENTS / BLENDS: `ink` fill #111111 · `red` fill #ff1900 · `cyan` fill #00d1ff · `negative` fill #ffffff + difference · `burn` #ff1900→#b300ff + multiply · `acid` #00d1ff→#37ff00 + exclusion · `sticker` outline #ffffff 3 + shadow #111111 2/2/0 @0.8 · `glow` shadow #00d1ff 0/0/6 · `ghost` opacity 0.5 + blur 3 · `fade` blur 6 from 50/0 to 50/100. Owner-made presets later live in one id namespace (no migration).
+**Presets by reference.** A piece names a preset (`preset: 'negative'`) and may replace single keys in `style` (a whole shadow, or `null` = off). Renderer and inspector both read `pieceStyle()`, so a preset change reaches every piece that has not replaced that key. Ten code presets from the lab's INKS / GRADIENTS / BLENDS: `ink` fill #111111 · `red` fill #ff1900 · `cyan` fill #00d1ff · `negative` fill #ffffff + difference · `burn` #ff1900→#b300ff + multiply · `acid` #00d1ff→#37ff00 + exclusion · `sticker` outline #ffffff 3 + shadow #111111 2/2/0 @0.8 · `glow` shadow #00d1ff 0/0/6 · `ghost` opacity 0.5 + blur 3 · `fade` blur 6 from 50/0 to 50/100. Custom presets ("Save as preset", §12) share that id namespace: one platform-wide document `colorations`, drawn the same way in the creator; readers get them baked into the piece's `style` by the server (§12.3), so their renderer only ever resolves the ten.
 
 ### 2.1 Paths and usages
 Toon documents store `toonAssetRef(toon, cdnPath)` (catpope: `vectors/wreath.svg`; others: `../catpope/vectors/wreath.svg`, `../characters/catpope/…webp`). Catalog rows store CDN-root paths (`catpope/vectors/wreath.svg`; a `../` path there is never indexed). `src` is a media-extension string: AssetUsages, the delete check, relink / rename and ChapterFiles pick it up with no server change. `CollageSheet.file` (.musicxml) is not a media path and never leaves the server (§4.1).
@@ -179,8 +179,8 @@ progressive blur – two bands instead of one .fx, both padded (a mask cuts at i
 
 **Limits** (validation warnings, not caps): slice 12 pieces / heavy weight 4; score 60 / 20; outline ≤ 8 %, blur ≤ 20 %, shadow blur ≤ 25 %. Pieces are static, mount near the viewport (slices) or on rendered pages (scores). WebKit software probe: blend 1.6×, drop-shadow + blend ~7×, blur ~5× a plain piece – phones still need an on-device check (owner's Firefox Android + an iPhone).
 
-## 7. The piece inspector – `collage/piece-inspector.svelte` (+ `look-fields.svelte`, `place-fields.svelte`, `gradient-field.svelte`, `points-field.svelte`, each ≤ 300 lines)
-Props `doc, path, host: 'slice' | 'score', registry, moods, onremove`. Like the pilot dialog-inspector: head `h3` "Shape / Character / Image · name" + secondary **Remove**; a `Segmented grid` of looks ("As drawn" + COLLAGE_LOOKS, labels `creator.look_<id>`) – a pick writes `preset` and drops `style` in one `doc.edit`; a re-click on the chosen look takes the piece back to it (its own values go; without any it is no edit); then `<details class="advanced">` (open when the piece has its own `style`). Plain fields `doc.set(path, v)` (undefined = default, coalesced per path: one scrub = one undo step); effect fields through `setEffect()` (collage-edit.ts: copy-on-write from the preset, clearing writes `null` only when the preset has that key). Placeholders show `pieceStyle()`. Every control `--control-height`, ≤ 3 per line.
+## 7. The piece inspector – `collage/piece-inspector.svelte` (+ `look-grid.svelte`, `look-preview.svelte`, `preset-line.svelte`, `look-fields.svelte`, `place-fields.svelte`, `gradient-field.svelte`, `points-field.svelte`, each ≤ 300 lines)
+Props `doc, path, host: 'slice' | 'score', registry, moods, presets?, onremove` (`presets` = the `colorations` document, §12.4). Like the pilot dialog-inspector: head `h3` "Shape / Character / Image · name" + secondary **Remove**; the preset grid (`look-grid.svelte`, label Preset / Vorlage): As drawn, COLLAGE_LOOKS (labels `creator.look_<id>`), then the custom presets – each tile shows the selected piece's own file in that look (§12.4 "The grid") – a pick writes `preset` and drops `style` in one `doc.edit`; a re-click on the chosen look takes the piece back to it (its own values go; without any it is no edit); under it the preset line (Save as preset … · Update preset · •••, each only where it applies – §12.4); then `<details class="advanced">` (open when the piece has its own `style`). Plain fields `doc.set(path, v)` (undefined = default, coalesced per path: one scrub = one undo step); effect fields through `setEffect()` (collage-edit.ts: copy-on-write from the preset, clearing writes `null` only when the preset has that key). Placeholders show `pieceStyle()`. Every control `--control-height`, ≤ 3 per line.
 
 | Row | Controls |
 |---|---|
@@ -200,7 +200,7 @@ New icons in `shared/ui/src/icons-extra.ts` (Feather manner, 24 grid, strokes): 
 As built: the edits in `lib/editor/collage-edit.ts` – `setPreset`, `setPlain` (blend, opacity), `setEffect` (a whole value; clearing = `null` when the look has the key, else no key; an emptied `style` goes), `editEffect` (copy-on-write of the drawn effect; an effect that is off starts from what its field just cleared, else the look's, else `EFFECT_DEFAULTS`), `setEffectColor` (an outline's / shadow's ColorField sends `undefined` on every keystroke of an emptied text: empty = off and the inspector keeps the effect as drawn, per piece and look – a colour retyped brings it back with its width / offsets / blur / opacity; the fill's ColorField ignores an emptied text, only the kind None clears a fill; ColorField shows the kept value again on blur), `setFillKind` / `setBlurRamp` (a fill switched off over the look comes back as the look's when that kind is asked for, else from the look's colour; the kind a fill / blur already has is no edit – Segmented sends the chosen option again, a re-click must not rebuild a gradient, reset the ramp points or copy the look's value), `setFigure` + `figurePath` (a mood / view re-pick waits for the picture's ratio: it lands on its piece by id, never on whatever the inspector's path shows by then; a newer re-pick of the same piece carries the older one's changes), `layerRows` / `canMoveLayerRow` / `moveLayerRows`; words in `collage-words.ts`. The effect fields show the piece **as drawn** (`pieceStyle`) as their value, not as a placeholder – so a look's outline / shadow can be cleared (→ `null`); plain fields keep own value + the look's placeholder. The head's name is `pieceLabel` (a shape's library title, a character's name · mood). Side labels Over / Behind (the long words as tooltips). Slice pieces' AnchorField needs the canvas' drawn height (step 4 `canvas-pieces.ts` writes `drawnHeights`).
 
 ## 8. Build (the night of 2026-10-18) – done
-Built in the planned order core → slices → scores, one step at a time on `main` with its own paths, not pushed; nothing from the cut order was cut (the canvas' blur dots, Shift+V, the **Image …** hand-off, the stage's scale handle are all in). Where it lives:
+Built in the planned order core → slices → scores, one step at a time on `main` with its own paths (pushed by the owner on 2026-10-18); nothing from the cut order was cut (the canvas' blur dots, Shift+V, the **Image …** hand-off, the stage's scale handle are all in). Where it lives:
 - **Model** – `@scutoons/content` collage.ts (types, `COLLAGE_LOOKS`, `pieceStyle`, `collageProblems`), layers.ts (pieces first), validate.ts / containers.ts (slice + score checks), the schemas (both copies).
 - **Readers** – `@scutoons/reader` collage/ (collage-css.ts, `CollagePieceView`, `SlicePicture`), score/ (score-layout.ts, score-bars.ts, score-anchors.ts – also `@scutoons/reader/score-anchors` – score-pieces.svelte, ScoreView's props); viewer toon/slice.svelte, items/score-actions.svelte; server `ProtectedFiles::score` (the pieces with the MusicXML), `CatalogValidator::collage`.
 - **Creator** – components/collage/ (the picker, `ShapeGrid`, `PieceInspector` + its fields, the score stage: score-stage / score-frame / score-overlay / collage-list), characters/character-grid.svelte, slice/layer-list.svelte + canvas-point-handles.svelte; lib/editor collage-edit.ts, collage-pick.ts, collage-words.ts, shapes.svelte.ts, canvas-pieces.ts, score-collage.ts, screens.ts; the route `/catalog/items/[id]/collage`.
@@ -209,10 +209,10 @@ Built in the planned order core → slices → scores, one step at a time on `ma
 The owner opens in the morning: creator → a chapter → a slice → the piece tool; creator → Catalog → Items → Cloud 9 → More → Collage.
 
 ## 9. Deferred
-Owner-made presets + "Save as preset" (the `colorations` document); pieces over the lettering or reaching into the neighbour slice (a front plane after `.slice-layers` with z `var(--plane,1)` – no data change); pieces on video slices; mirroring; round outlines (SVG filter); radial gradients, > 2 stops in the UI, a canvas gradient gizmo; tint / duotone fills; the Images tab inside the sheet; lookahead prefetch of piece files; effect thinning on the `low` media quality; on-device measurements (the owner's Firefox Android + an iPhone); the stage: all pages stacked, rotate handle, copy / paste, nudge, phone bottom sheet, drag across pages, a part switch, signing a draft-only score file; re-resolving figure pieces when the registry changes (`src` is frozen; the Picture row re-resolves); MCP `search_assets` kind `shape` (its folder `catpope/vectors` finds them today); freezing a lab riot page into pieces.
+Pieces over the lettering or reaching into the neighbour slice (a front plane after `.slice-layers` with z `var(--plane,1)` – no data change); pieces on video slices; mirroring; round outlines (SVG filter); radial gradients, > 2 stops in the UI, a canvas gradient gizmo; tint / duotone fills; the Images tab inside the sheet; lookahead prefetch of piece files; effect thinning on the `low` media quality; on-device measurements (the owner's Firefox Android + an iPhone); the stage: all pages stacked, rotate handle, copy / paste, nudge, phone bottom sheet, drag across pages, a part switch, signing a draft-only score file; re-resolving figure pieces when the registry changes (`src` is frozen; the Picture row re-resolves); MCP `search_assets` kind `shape` (its folder `catpope/vectors` finds them today); freezing a lab riot page into pieces.
 
 ## 10. Owner questions (built with the default – FEATURES 10.105)
-1. **Where do your own looks live** once "Save as preset" exists? Ten looks ship in code; a piece names one and fine-tunes it on itself, editing a look restyles every piece that names it. *Default:* one platform-wide document (like moods), edited from the piece inspector, shared by every toon's slices and every score; until then the code looks + per-piece values.
+1. ~~**Where do your own looks live** once "Save as preset" exists?~~ Answered 2026-10-18 with the default ("Next: 'Save as preset' – my own colourations as named presets … applied to any piece"): one platform-wide document `colorations`, edited from the piece inspector, shared by every toon's slices and every score – built, §12 (its own questions: §12.8).
 2. **Slices: always on the picture?** Pieces lie under every text box, item and tap area, clipped to the picture – where every blend reaches the art and looks the same on every screen. Over the lettering, or into the neighbouring slice? *Default:* not now – a layer over the lettering can come later without a data change.
 3. **Scores follow the music?** A piece sticks to a bar + staff, moves with that bar to whatever page and scales with the zoom; "Page" makes it a background on the page that holds the bar. *Default:* music, with the Bar / Page switch in the inspector.
 4. **One collage per file:** the part readers open (the choir part when there is one, else the full score) of that item – so one per language edition? *Default:* yes; a part switch and copying a collage to another edition later.
@@ -236,11 +236,11 @@ Owner-made presets + "Save as preset" (the `colorations` document); pieces over 
 
 ## 12. Presets (owner 2026-10-18)
 
-Owner 2026-10-18: “Next: 'Save as preset' – my own colourations as named presets (COLLAGE.md §10 question 1, default: one platform-wide document), applied to any piece.” This answers §10 q1 with its default. Nothing below is built yet; §12.7 gives the order.
+Owner 2026-10-18: “Next: 'Save as preset' – my own colourations as named presets (COLLAGE.md §10 question 1, default: one platform-wide document), applied to any piece.” This answers §10 q1 with its default. Built 2026-10-18 in §12.7's six steps; below is how it is, the build's changes corrected in place. On the grid's first look the owner asked for previews (2026-10-18): “man könnte in dem Wort auf dem Selector zeigen, was das dann wird, wie das aussieht, dass man eine visuelle Vorstellung davon hat” – every tile shows its look on the piece itself (§12.4 “The grid”).
 
 ### 12.1 The decision
 - **One platform-wide document, `colorations`**, language-neutral, holding `{ presets: CollagePreset[] }`. It is stored, versioned and published like `moods`. A preset is an id, a name and the six style keys. A piece names a preset in `preset` and can fine-tune it in `style`. Once published, a change to a preset restyles every piece that names it, on every toon's slices and every score (§2 “Presets by reference”).
-- **The ten code looks stay in code and cannot be changed** (COLLAGE_LOOKS, collage.ts:154-165, with their translated names, testids and tests). Custom presets share the code looks' id namespace, but a custom id can never be a code look's id or `none`. COLLAGE_LOOKS is final: any new look is a custom preset.
+- **The ten code looks stay in code and cannot be changed** (collage.ts COLLAGE_LOOKS, with their translated names, testids and tests). Custom presets share the code looks' id namespace, but a custom id can never be a code look's id or `none`. COLLAGE_LOOKS is final: any new look is a custom preset.
 - **Readers never resolve a custom preset. The server bakes it** into the two answers readers already fetch: the chapter (Library::chapter) and a score's signed URL (ProtectedFiles::score).
   - A piece that names a custom preset arrives with `style` set to the piece as drawn, and without `preset`.
   - Baking happens per answer, not at publish. So publishing the presets restyles every published piece without republishing any chapter or item.
@@ -249,7 +249,7 @@ Owner 2026-10-18: “Next: 'Save as preset' – my own colourations as named pre
 - **The creator draws from documents**, so it bakes the same way, using the newest draft.
   - The TS function is `bakePresets`; its PHP twin is `CollagePresets::bake`.
   - One golden fixture keeps the two equal; both test suites read it (precedent: ExprTest.php:13-18).
-- **In the piece inspector**, custom presets follow the ten in the look grid. Under the grid is one line with Save as preset … · Update preset · ••• (Rename … / Delete …). Each control shows only where it applies.
+- **In the piece inspector**, the preset grid previews every look on the selected piece; custom presets follow the ten. Under the grid is one line with Save as preset … · Update preset · ••• (Rename … / Delete …). Each control shows only where it applies.
 
 ### 12.2 Data
 shared/content/src/collage.ts (exported through index.ts):
@@ -277,8 +277,8 @@ export const emptyColorations = (): Colorations => ({ presets: [] });
 ```
 - **How a preset id resolves (the same rule in TS and PHP).**
   - The *index* is the document's entries whose `id` matches PRESET_ID. If an id repeats, the first entry wins. Deleted entries still count.
-  - `collageLook(id, presets?)` returns the code look if there is one, else the index entry. Code looks come first, so data can never redefine a built-in. A code look's id fails PRESET_ID anyway.
-  - `pieceStyle(piece, presets?)` keeps its merge (:175-184).
+  - `customPreset(id, presets)` is the index entry; `collageLook(id, presets?)` returns the code look if there is one, else the index entry. Code looks come first, so data can never redefine a built-in. A code look's id fails PRESET_ID anyway.
+  - `pieceStyle(piece, presets?)` keeps its merge. It reads each of the six keys before its own-property test: on a Svelte `$state` proxy `Object.hasOwn` does not track a missing key, so a key added later (an opacity on a piece with a moved blur ramp, a key an Update gives a preset) never redrew the canvas or the stage (found in step 4).
   - `STYLE_KEYS` (:172) gets exported as `PIECE_STYLE_KEYS`.
 - **`bakePresets(pieces, presets)`.**
   - A piece whose `preset` is in the index gets `style` set to a JSON copy of `pieceStyle(piece, presets)`, with nulls dropped and no key at all if nothing is left. The piece loses `preset`.
@@ -345,20 +345,20 @@ final class CollagePresets
 | an unknown id | as drawn + own values | a warning once the presets are loaded |
 
 ### 12.4 Creator
-- **The document:** `lib/editor/presets-doc.ts` holds `presetsDoc()` = `neutralDoc(entities.colorations)`, `ownPresets(doc)` and `ensurePresets(doc)`, following the moods precedent (characters.ts:49, :59-64).
+- **The document:** `lib/editor/presets-doc.ts` holds `presetsDoc()` = `neutralDoc(entities.colorations)`, `ownPresets(doc)`, `judgedPresets(doc)` (undefined while it loads or after a failed load – then no custom id is judged) and `ensurePresets(doc)`, following the moods precedent (characters.ts:49, :59-64).
   - DocKind gets `'colorations'` plus a kindOfEntity case (doc.svelte.ts:38, :77-115). Without that case the kind falls through to 'group' and runs assignEventIds.
   - Labels: “Collage presets” / “Collage-Vorlagen” in entity-label.ts (EntityLabels, ENTITY_LABELS, NAMED) and in the creator's and the admin's labels.ts.
 - **Chapter editor:**
   - It loads the document in onMount's Promise.all (:291).
   - `allDocs` includes the document while it is dirty (the worldMap precedent, :261-267), so Save, autosave, the leave guard and Problems cover it.
-  - The problems context gets `presets: loading ? undefined : own` (:598-621).
+  - The problems context gets `presets: judgedPresets(colorations)`.
   - SliceCanvas gets `presets` (the list); SliceInspector passes the document on to PieceInspector.
 - **Score stage:**
   - It loads the document in onMount (:46-49).
   - `MetaPage companions={() => [presets]}` saves it when dirty and puts its key into the 'files' Publish scope (doc-session.svelte.ts:123-129).
   - ScoreView gets `pieces={bakePresets(pieces, own)}` (:204). ScoreOverlay and CollageList keep the stored pieces.
   - `validate` (:163) passes the presets to stageProblems, and adds validateFile('colorations') while the document is dirty.
-  - score-stage.svelte is at 299 lines, so the screen block (:69-80) moves to lib/editor/screens.ts.
+  - The screen block moved to lib/editor/screens.ts (`firstScreen` / `pickedScreen`), so score-stage.svelte stays at 300 lines.
 - **Drawing and fields:**
   - slice-canvas computes `drawn = $derived(bakePresets(slice?.pieces, presets))` and gives it to SlicePicture (:603) and pieceItems (:158). The indices stay the same, and the ramp dots read the baked blur, so canvas-pieces.ts needs no change.
   - slice-canvas's moveRamp (:285-288) passes `presets` to editEffect.
@@ -371,17 +371,19 @@ final class CollagePresets
     - inScope admits it for the 'toon', 'season' and 'chapter' scopes, and pendingFiles then also reads `contentIndex('')` for those scopes.
     - KIND_ORDER (:59) gets it after `character`.
   - The chapter, season, toon and score Publish lists then show “Collage presets” whenever it has a draft, ticked like every line. No level can ship pieces whose preset is still a draft (owner question 6).
-- **The grid** (piece-inspector.svelte:176-184):
-  - Its label changes from “Look” to “Preset” / “Vorlage”: in DESIGN.md:793, “Look” means a character's look.
-  - Options: As drawn, the ten, then `presetChoices(own, piece.preset)`. These are the live custom presets in stored order, plus the deleted preset this piece names, shown as “Night (deleted)”.
-  - Each custom option's label and `title` are its name; its testid is `piece-look-<id>`.
-  - Picking runs `setPreset` as today; a re-click while the piece has its own values goes back to the preset.
-  - From the 7th live custom preset on (guess – measure at 375 px and at 22rem), all custom presets move out of the grid into one PropSelect row, “Custom” / “Eigene”, under it.
-    - Its “–” option means As drawn.
-    - A select fires nothing when the already-chosen option is picked again, so the re-click rule applies only in the grid.
+- **The grid** (`collage/look-grid.svelte`, replacing the Segmented):
+  - Its label changed from “Look” to “Preset” / “Vorlage”: in DESIGN.md's wording table, “Look” means a character's look.
+  - Options: As drawn, the ten, then `presetChoices(own, piece.preset)`. These are the live custom presets in stored order, plus the deleted preset this piece names, shown as “Night (deleted)”, struck through.
+  - Each custom option's label and `title` are its name; its testid is `piece-look-<id>`; the chosen tile is `aria-pressed`.
+  - Picking runs `setPreset` as before; a re-click while the piece has its own values goes back to the preset.
+  - **Previews** (the owner's request, §12 intro): each tile is `look-preview.svelte` over its name – the selected piece's own file in that look, drawn by the readers' `CollagePieceView` (a custom preset baked with `bakePresets`, as the canvas draws it), centred and fitted into a 3:2 `.sc-checker` tile that is its own blend group, the ratio kept; the effects are % of the piece's width, so the thumbnail reads like the canvas; As drawn = the file plain; the same URL the canvas loaded.
+  - Tiles of at least 4.5rem (`--seg-min`): four a row in the 22rem panel, five on a 375px phone; As drawn + the ten take three rows, as tall as the old two-column text grid; ≥ 44px on touch. The name runs the tile's whole width (its transparent border included), at most 2 lines – “Wie gezeichnet” fits four a row while the panel shows its scroll bar.
+  - From the 6th live custom preset on (`GRID_PRESETS = 5`, measured: As drawn + the ten + 5 = four rows at both widths; this section had guessed the 7th), all custom presets move out of the grid into one fold under it, “Custom (n)” / “Eigene (n)” – a `<details>`, not a PropSelect: a native select can't show the previews.
+    - Its tiles are drawn only while it is open; it opens on a piece that names one of them and when the presets move into it; shut, its summary names the chosen one.
+    - The re-click rule holds there too.
 - **The preset line** (`collage/preset-line.svelte`; pure logic in `lib/editor/collage-presets.ts`; dialogs and toasts in `lib/editor/preset-actions.ts`):
   - It sits under the grid, outside Advanced: secondary buttons at `--control-height`, wrapping, sizes in rem only.
-  - Each control is hidden – never disabled – where it does not apply, so most pieces show no line at all. The controls:
+  - Each control is hidden – never disabled – where it does not apply, so most pieces show no line at all; there is no line while the presets document loads or failed to load. The controls:
     - **Save as preset …** – when the piece draws differently from what it names, or when it names a deleted preset. `ownDiffers` compares `pieceStyle(piece, P)` with `pieceStyle({ preset }, P)` deeply.
     - **Update preset** – when the piece names a live custom preset and differs from it.
     - **•••** – a round `more-horizontal` button whose `title` is the preset's name, shown when the piece names a live custom preset. It opens a `choiceDialog` titled with the name, offering Rename … · Delete ….
@@ -389,14 +391,15 @@ final class CollagePresets
 - **Save as preset …:**
   1. `askDialog`: title Save as preset · field Name · placeholder “Preset {n}” · button Save.
      - The name is trimmed and cut to 40 characters; an empty name takes the placeholder.
-     - A name already shown gets “ 2”, “ 3”.
-  2. `presetIdFor(name, stored)`: slugId, made to start with a letter, cut, then uniqueId over every stored id (deleted ones included) and the reserved ids.
+     - A name already shown – a live preset's, As drawn's or a code look's, case-insensitive – gets “ 2”, “ 3”.
+  2. `presetIdFor(name, stored)`: slugId, made to start with a letter (`p-…`), cut to 40, then `-2`, `-3` past every stored id (deleted ones included) and the reserved ids.
   3. `ensurePresets`, then `presets.edit(addPreset(f, { id, name, ...presetValues(piece, P) }))`.
      - `presetValues` = the drawn values, as a JSON copy with nulls dropped, so a shadow that was switched off stays off.
   4. On the host: `setPreset(t, id)`. The piece now names the preset and loses its own values; its pixels do not change.
-  5. Toast “Saved as preset: Night” with Undo. Undo removes the preset and gives the piece back its `preset` and `style`.
-     - Both are found by id: `piecePath(file, path, id)` is figurePath (collage-edit.ts:254) without its figure test.
+  5. Toast “Saved as preset: Night” with Undo. Undo removes the preset and gives the piece back its `preset` and `style`; the first preset's Undo leaves no document behind (nothing to save or publish).
+     - Both are found by id: `piecePath(file, path, id)` (collage-edit.ts; figurePath reuses it).
      - This is a forward edit, like the cast toast's Undo (chapter-editor.svelte:182-190).
+     - Every presets edit that leaves the document as stored (an Undo, a rename back) also drops its local autosave copy (`settle`): the chapter editor autosaves the document only while it is dirty, so the last dirty copy would come back on a later load as “Collage presets: Recover”, dropping what was made since.
 - **Update preset:**
   1. `confirmDialog`: title “Update ‘Night’?”, message “Every piece with this preset – on every toon's slices and every score – changes with it once the presets are published.”, button Update.
   2. `updatePreset(f, id, presetValues(piece, P))` replaces the six style keys and keeps id, name and removed.
@@ -404,16 +407,15 @@ final class CollagePresets
   4. Toast with Undo, which puts the old values back, by id.
   - Update is the only way to change a preset's values: pick it, fine-tune in Advanced, then Update.
   - There is no usage count, because AssetUsages indexes media paths only.
-- **Rename …:** an askDialog filled with the current name.
-  - This needs a small @scutoons/ui change: askDialog gets `value` (dialogs.svelte.ts:92-104), and dialog-host.svelte:17 becomes `text = request.input?.value ?? ''`.
-  - The same name rules as Save apply. It writes `name` only, with no toast.
-- **Delete …:** `confirmRemove` (ask.ts:9), message “‘Night’ leaves the list – pieces that use it keep drawing it.” It writes `removed: true`; toast with Undo.
+- **Rename …:** an askDialog filled with the current name – @scutoons/ui's askDialog takes `value` (dialogs.svelte.ts; dialog-host.svelte starts the field with it).
+  - The same name rules as Save apply; an empty or unchanged name changes nothing. It writes `name` only (the id stays), with no toast.
+- **Delete …:** `confirmDelete` (ask.ts), message “‘Night’ leaves the list – pieces that use it keep drawing it.” It writes `removed: true`; toast with Undo.
 - **Each action edits two documents.**
   - Ctrl+Z reaches only the host: the chapter editor undoes `[activeDoc, chapter]` (chapter-editor.svelte:472-474), MetaPage undoes `docs` (meta-page.svelte:87). Undoing there leaves an unused preset behind.
   - The toast's Undo takes back both documents.
 - **Phone and desktop:**
   - The slice inspector is the bottom sheet; the score inspector sits below the stage.
-  - The preset line has at most three controls and 44px targets. Dialogs are in-page and toasts sit above the bar.
+  - The preset line has at most three controls and 44px targets. Dialogs are in-page and toasts sit above the bar; the choiceDialog shows over the bottom sheet (step 4's screenshots, en + de, 375 px and the 22rem panel).
   - Nothing goes on the PhoneBar, and nothing depends on hover or long-press.
   - Shift+V and paste across toons work unchanged, because preset ids are platform-wide.
 - **Later:** a Universe “Presets” page (order, overview, History). Until then, History and restore of `colorations` go through the MCP (list_versions, restore_version).
@@ -446,17 +448,19 @@ final class CollagePresets
 ### 12.6 MCP
 - These tools work as soon as EntityKey parses the key: read_entity, list_entities (toon “”), search_content, save_draft (drafts only), list_versions, restore_version.
 - creatorHref stays null, as for moods.
-- validateDoc (tools/mcp/src/server.ts:205-251):
-  - `colorations: 'colorations'` goes into the kind map (:225), so it falls through to validateFile with `validated: true`.
-  - The chapter / group branch loads `data<Colorations>('colorations')` next to moods, into `ctx.presets`.
-- The slices rule (resources.ts:248-260) says:
-  - `preset` is one of the ten, or a custom preset of `colorations` (read_entity “colorations”);
-  - a new preset is a save_draft of that document, with an id that matches PRESET_ID and is never a code look's, and with `removed: true` instead of deleting;
-  - readers get custom presets baked into `style`;
-  - the member publishes from a chapter's, score's or toon's Publish list.
-  - It also gets a `CollagePreset` code block.
+- validateDoc (tools/mcp/src/server.ts):
+  - `colorations: 'colorations'` is in the kind map, so validate and save_draft run colorationProblems with `validated: true` – a code look's id, a repeated id, no name or a bad style is an error, and save_draft refuses it.
+  - The chapter / group branch loads `judgedPresets()` next to moods, into `ctx.presets` – like the creator's: the newest draft's list; nothing stored = [] (every custom id is unknown); a failed load = undefined (nothing judged).
+- The slices rule (resources.ts) says, in its section “Custom presets (the platform-wide document `colorations`)”:
+  - `preset` is one of the ten, or a custom preset of `colorations` (read_entity “colorations”; 404 = none saved yet);
+  - a new preset is a save_draft adding `{ id, name, …style }`, with an id that matches PRESET_ID (printed from `PRESET_ID.source`), never a code look's or `none`, stable forever, and with `removed: true` instead of deleting;
+  - a change restyles every piece on every toon and score once published; readers get custom presets baked into `style`, stored documents keep `preset`;
+  - the member publishes from a chapter's, season's, toon's or score's Publish list; what validate warns about.
+  - It ends with one ts block of PieceStyle, CollagePreset and Colorations. The workflow rule lists `colorations` with the platform-wide documents; agents/MCP.md names no platform-wide kinds, so it is unchanged.
+- `npm run check:mcp` has a presets case (validate refuses `negative`; save_draft of a live and a deleted preset; list_entities toon “” lists colorations; a chapter check over four pieces – a custom preset and `ink` pass, a deleted one and `nope` warn); it deletes its colorations versions by note, also on failure, and refuses to run over someone's unpublished draft.
 
-### 12.7 Build (one agent per step, in order; on `main`, own paths, never pushed)
+### 12.7 Build (one agent per step, in order; on `main`, own paths) – done 2026-10-18
+Steps 1–4 went to production with the owner's push that evening; the autosave fix of step 4 (`settle`), step 5 and these docs are on `main`, not pushed. Green at each step: `npm run check` of the touched workspaces (content 311 tests), PHPUnit CollagePresetsTest|ContentSchemasTest|EntityStoreTest|LibraryTest|ProtectedFilesTest (74 tests) + PHPStan, the creator build, `check:creator-collage` 46/46, `check:creator-chapter -- --pieces` (its preset checks; the slice's two old misses), `check:mcp` 48/48 – every saved `colorations` version deleted again.
 1. **Model – @scutoons/content:** the types, PRESET_ID, the resolver, bakePresets, validation, the key, the schema and the golden fixture.
 2. **Server:** the kind, CollagePresets, the chapter and score bakes, and PHPUnit tests on the same fixture.
 3. **Creator, reading:** the document, labels, drawing, fields, validation and the Publish lists. No new controls yet.
@@ -472,10 +476,10 @@ final class CollagePresets
    - *Default:* fixed in code. Save as preset from one of them makes your own copy.
    - *Alternative:* seed them into the document, so all are editable – but their translated names become plain names.
 3. **Where your presets sit.**
-   - *Default:* in the grid after the ten; from the 7th (guess) in one “Custom” select under it.
-   - *Alternative:* always the select, or always the grid.
+   - *Default:* in the grid after the ten, each tile previewing its look on the piece; from the 6th (measured) all of them in one “Custom” fold under it.
+   - *Alternative:* always the fold, or always the grid.
 4. **Words.**
-   - *Default:* the grid's label is “Preset / Vorlage” (not “Look”, which is a character's), the select is “Custom / Eigene”, and the Publish line is “Collage presets / Collage-Vorlagen”.
+   - *Default:* the grid's label is “Preset / Vorlage” (not “Look”, which is a character's), the fold is “Custom / Eigene”, and the Publish line is “Collage presets / Collage-Vorlagen”.
 5. **Who may make and publish presets.**
    - *Default:* every creator, published without review – platform-wide, like moods and characters.
    - *Alternative:* the owner and admins only, which needs a new server rule.
@@ -494,9 +498,7 @@ final class CollagePresets
 - **Cache churn.** Every presets publish changes every chapter's fingerprint: the server cache rebuilds and saved chapters refresh. Characters work the same way today.
 - **Conflicts.** Two tabs, or a member's Claude, editing `colorations` get the 409 conflict bar on the whole document; “overwrite” can drop someone else's preset.
 - **Dev DB hygiene.** Checks that save `colorations` must delete their versions by note afterwards, and must refuse to run while it holds someone's draft (precedent: creator-collage-check.mjs:53-76).
-- **Deploy order.** If the creator goes live before the API, saving the new key fails with 400 for a few minutes (deploy.yml uploads one target at a time) (guess).
+- **Deploy order.** If the creator goes live before the API, saving the new key fails with 400 for a few minutes (deploy.yml uploads one target at a time) – passed: the API and the creator went live with the same push (2026-10-18).
 - **Verified (step 2):** opis/json-schema runs the lookahead in `pattern` – ContentSchemasTest refuses `negative`, `none` and `Night`.
-- **Not verified:**
-  - the 7th-preset threshold and the German preset line at 375 px;
-  - choiceDialog over the bottom sheet.
-- **Base.** This stacks on the unpushed collage work (HANDOVER “Last run”, FEATURES 10.105).
+- **Verified (step 4):** the grid's threshold (measured: the 6th), the German preset line at 375 px and in the 22rem panel, the choiceDialog over the bottom sheet – screenshots sent to the owner.
+- **Not verified:** the previews' cost on a real phone (As drawn + the ten + up to five custom tiles drawn per inspector; the Custom fold's only while it is open); the MCP's presets case ran against the local API only.

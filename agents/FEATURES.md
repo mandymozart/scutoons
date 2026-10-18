@@ -5,11 +5,11 @@ next free number is **10.110**, a done item leaves in the same commit (`10.N don
 item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do it; `decide` = waits for the owner.
 
 ## Creator, admin
-- [ ] 10.105 **Collage pieces: the owner's look + the open questions** – owner 2026-10-17: "an editor for the scores …
-  I can still add these vector graphics on them and blend them". Built 2026-10-18 on `main`, not pushed: pieces on slices
-  (the piece tool) and on scores (Catalog → Items → a score → More → Collage). [owner] a look on phone + desktop, then the
-  push: merge `origin/main` first (a trial `git merge-tree`: no conflicts), `npm install` (it brings the `shared/pwa` workspace),
-  the checks; `decide` COLLAGE §10 (its defaults built); a score item opens in the stage once published (10.97). Later §9. → research/COLLAGE.md
+- [ ] 10.105 **Collage pieces + custom presets: the owner's look + the open questions** – owner 2026-10-17: "an editor for
+  the scores … I can still add these vector graphics on them and blend them"; 2026-10-18: "Next: 'Save as preset'". Live:
+  pieces on slices (the piece tool) and scores (Catalog → Items → a score → More → Collage); the preset grid previews each
+  look on the piece, + Save as preset … · Update preset · •••. [owner] a look on phone + desktop; `decide` COLLAGE §10 and
+  §12.8 (defaults built); a score item opens in the stage once published (10.97). Later §9. → research/COLLAGE.md
 - [ ] 10.83 **Desktop UI fixes – collecting** (owner 2026-10-11: "i like some fixes. we collect them here") – add each
   fix as its own item here. The desktop creator taking the phone concepts is a DRAFT session for the owner (branch
   `claude/zealous-faraday-e6338b`) – new desktop fixes go there or here, not both.

@@ -728,9 +728,16 @@ slice's picture or on a score: one piece (`CollagePiece`, @scutoons/content coll
   same in every layout. **Scores:** on a bar + staff, over or behind the notes (CATALOG.md "Score collages").
 - **Never distorted:** only the width is stored, the height follows the file's `ratio`; rotation yes, no mirroring.
   Outline, shadow and blur are % of the piece's width – the same look at every size.
-- **Looks:** ten code looks (ink, red, cyan, negative, burn, acid, sticker, glow, ghost, fade); a piece names one
-  (`preset`) and may replace single values (`style`, `null` = off) – a look's change reaches every piece naming it.
-  Blend = the 16 CSS modes.
+- **Presets:** ten code looks (ink, red, cyan, negative, burn, acid, sticker, glow, ghost, fade), fixed, and the custom
+  presets (owner 2026-10-18 "Save as preset": the platform-wide document `colorations`, research/COLLAGE.md §12); a piece
+  names one (`preset`) and may replace single values (`style`, `null` = off) – a preset's change reaches every piece
+  naming it, on every toon and score once published (readers get custom presets baked). Blend = the 16 CSS modes.
+- **The preset grid** (the piece inspector): As drawn, the ten, the custom presets – each tile shows the selected
+  piece's own file in that look ("in dem Wort auf dem Selector zeigen, was das dann wird"); from the 6th custom preset
+  they all sit in a "Custom (n)" fold under it; a deleted one only on the piece naming it ("Night (deleted)"). The line
+  under it, each control only where it applies: **Save as preset …** (the piece draws differently from what it names) ·
+  **Update preset** (confirmed: every piece with it changes) · round **•••** → Rename … / Delete … (a tombstone – pieces
+  keep drawing it); a toast's Undo takes back both documents, Ctrl+Z only the page's.
 - **Slice editor:** the piece tool – a click opens the picker (Shapes · Characters, **Image …**; a character never
   joins the cast) and the piece lands centred there, 30 % wide; a drag sets its corner and width; "+ Add a piece …" in
   Layers puts it in the middle. Canvas: move, rotate, scale evenly (no side handles), a ramp blur's two dots; a piece
@@ -818,7 +825,7 @@ word, never a data path; technical detail at most in the label's `title`). One t
 | Szene | scene | only the screenplay's scene (script, map unlock) |
 | der Slice | slice | |
 | Textbox | text box | the inspector tab says "Textboxen / Text boxes" (owner 2026-10-06; the count a small trailing number) |
-| Vorlage | preset | a text box's preset (Erzählung, Rede …) – never "Look" (that is a character's) |
+| Vorlage | preset | a text box's preset (Erzählung, Rede …) or a collage piece's (Negativ, own ones …) – never "Look" (that is a character's) |
 | Gegenstand | item | catalog items, also "Verwandte Gegenstände" |
 | Event | event | slice and VN events; **VN-Skript / VN script** = a group's events |
 | Drehbuch | script | the screenplay page |
@@ -998,10 +1005,10 @@ Three kinds, three places; none moves the layout:
 - **The piece inspector** (collage, `PieceInspector` – slices and the score stage): the head "Shape / Character / Image
   · name" + Remove; a character's mood + view (avatar / portrait / full) outside the fold – a view without a file of
   its own for that mood is disabled (the fallback rule would draw it as the portrait; a mood without the chosen view's
-  file takes its portrait, `figureViews`); the looks as a `Segmented` grid ("As drawn" + the ten looks – a pick drops
-  the piece's own values); the rest in one fold (open when the piece has its own values): place, size + rotation,
-  Over / Behind (scores), blend + opacity, fill, outline, shadow, blur. The effect fields show the piece as drawn
-  (clearing a look's effect = off); ≤ 3 controls a line.
+  file takes its portrait, `figureViews`); the preset grid with previews + the preset line ("Collage pieces" above – a
+  pick drops the piece's own values); the rest in one fold (open when the piece has its own values): place, size +
+  rotation, Over / Behind (scores), blend + opacity, fill, outline, shadow, blur. The effect fields show the piece as
+  drawn (clearing a look's effect = off); ≤ 3 controls a line.
 
 ### Phones and tablets (owner-approved phone draft 2026-10-07, BACKLOG 10.50, UI-CONCEPTS E.9) – creator, admin, embassy
 

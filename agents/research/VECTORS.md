@@ -89,8 +89,9 @@ in the layout document, not to the shape – one shape is used many ways.
 somewhere as a preset"). Shapes stay neutral: no colour words in the tags; the measured `colors` / `mask` stay as facts
 about the file (can it be tinted as a mask, or must it show as it is). A **colouration preset** – fill colour or
 gradient, outline, blend mode, filter – is designed somewhere (a look like the Collage, later the creator), saved by
-name in its own small list, and applied to any shape; a placement names a shape and a preset. Not built yet; where the
-list lives (a catalog-like table, a toon's document) is decided when the first screen edits it.
+name in its own small list, and applied to any shape; a placement names a shape and a preset. Built 2026-10-18 for
+collage pieces: the list is the platform-wide document `colorations`, made from the piece inspector ("Save as preset",
+research/COLLAGE.md §12).
 
 ## 4. Maintenance
 
@@ -184,8 +185,8 @@ small"); a review flag comes back with a review screen.
 8. ~~Picker~~ – done 2026-10-18 by the creator's collage picker (research/COLLAGE.md §5: `collage-picker-sheet.svelte` +
    `shape-grid.svelte`, list from `kind=shape`, search over title / slug / tags, a tag select by frequency, ink silhouettes
    for mask shapes). The "To check" view waits until a later survey brings suggestions.
-9. Later: shapes in layouts and on text boxes (placement = shape + where + a colouration preset); the presets as their
-   own small named list, designed in a look or the creator, never stored on the shape (§3).
+9. Later: shapes in layouts and on text boxes (placement = shape + where + a colouration preset – the collage's ten code
+   looks or a custom one of `colorations`, research/COLLAGE.md §12), never stored on the shape (§3).
 
 ## 7. The owner's answers (2026-10-17)
 

@@ -21,6 +21,7 @@ UI translations stay in the apps' message files; the catalog (items, editions, p
 | chapter (meta, slices, text boxes, audio, inline groups) | DB `chapter:<toon>:<n>` (language-neutral); legacy `chapter:<toon>:<n>:<l>` | creator |
 | VN scene (a chapter group stored on its own; messages, choices) | DB `scene:<toon>:<chapter>:<name>` (language-neutral); legacy `scene:<toon>:<chapter>:<name>:<l>` | creator |
 | the world map (places, routes, layers; names `{ de, en }`; unlock points) | DB `map` (platform-wide, language-neutral; agents/MAP.md §8) | creator (Universe → Map; a slice's "unlocks place" in the chapter editor) |
+| custom collage presets ("Save as preset": a name + the six style keys) | DB `colorations` (platform-wide, language-neutral; research/COLLAGE.md §12) | creator (the piece inspector, slices and the score stage) |
 | cast per season | DB `cast:<toon>` | creator (cast page) |
 | characters, personas, looks, mood labels, wanted images | DB `characters`, `moods`, `asset-requests` (`{ de, en }` texts; a look may carry an A-pose – the reader's avatar body in that look, no naked body (owner 2026-10-12), ITEMS.md "Reader avatar bodies"; **no male/female** – an optional `testo` level 0–100 per character/persona (more testo → reads more male, less → more female) and `tendencies`, ITEMS.md "Substances"; a 3D `model` (.glb) per persona, a look may have its own, and the body preset `body` two-legs / more-legs / wings for the mannequin fallback – `personaModelSource`, ASSETS.md "3D models") | creator (characters) |
 | reader stats (testo, appetite) and timed effects | tables `member_stats`, `member_effects` (guests: localStorage `scutoons_reader`), via `GET /me/`, `POST /inventory/use/` | reader inventory ("Benutzen") |
@@ -51,7 +52,7 @@ toon:<toon>                              index entry            toon-settings:<t
 season:<toon>:<n>                        chapter:<toon>:<n>      scene:<toon>:<chapter>:<name>   (language-neutral)
 season:<toon>:<n>:<l>                    chapter:<toon>:<n>:<l>  scene:<toon>:<chapter>:<name>:<l>  (legacy per locale)
 cast:<toon>   credits:<toon>   script:<toon>:<l>  (creator only)
-characters   moods   asset-requests   people   roles   events   map    (platform-wide)
+characters   moods   asset-requests   people   roles   events   map   colorations    (platform-wide)
 ```
 Segments are `:`-separated; numbers are digits without leading zeros – seasons from 1, **chapters (and their scenes)
 from 0** (2026-10-01: chapter 0 = a season's prologue, `chapter:catpope:0:<l>`, file `chapter0.json`, `ref.src`
@@ -280,6 +281,13 @@ picked) is not `character` – it never adds the character to the cast or the of
 the catalog (CATALOG.md "Score collages"). Validation: `collageProblems` (checkSlice / validateContainers); the
 regenerated schemas make the server's save guard enforce blend modes, views, required keys and the colour format
 (#rgb / #rrggbb, `PieceColor`). All keys new and optional – no migration.
+`preset` names one of the ten code looks (`COLLAGE_LOOKS`, fixed) or a custom preset of the platform-wide document
+`colorations` = `{ presets: [{ id, name, …the six style keys, removed? }] }` (2026-10-18, research/COLLAGE.md §12): ids
+per `PRESET_ID` (a slug, never a code look's id or `none`, stable forever; the first of a repeated id counts), a deleted
+preset stays as a tombstone (`removed: true` – pieces naming it keep drawing it), checked by `colorationProblems` and the
+schema. Readers never resolve one: the chapter answer and a score's MusicXML answer bake a piece that names a custom
+preset – `style` = the piece as drawn, no `preset` (`CollagePresets`, the published document; the chapter's draft mode
+the newest draft); the creator draws the newest draft the same way (`bakePresets`, one golden fixture for both).
 
 ## 3. API
 

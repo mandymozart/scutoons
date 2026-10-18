@@ -227,14 +227,17 @@ fine" stores `accepted_warnings` in the entry's `data` (a list-wide warning in m
   #rgb / #rrggbb: fill, gradient stops, outline, shadow); the creator's validator checks `collage.file` under `scores/`
   too, so the stage names it before Publish; `publicItem` drops it (`/api/items/` never names a vault path);
   `GET /api/items/<id>/score/musicxml[?part=]` answers `collage: { pieces }` next to the signed URL for the score / part
-  opened (never `file`; the PDF none) and the viewer's score view draws them.
+  opened (never `file`; the PDF none) and the viewer's score view draws them; a piece that names a custom preset arrives
+  baked with the published `colorations` (its drawn `style`, no `preset` – DATA.md §2 "Collage pieces").
 - **Creator:** Catalog → Items → a score → More → **Collage** → `/catalog/items/<id>/collage`, on the part readers open
   (choir, else the full score; the published file, signed like a reader's – a never-published item does not open):
   the readers' phone / desktop screen with their score view (their sizes, so their page breaks; zoom 30 / 40); a piece
   moves on the page re-anchored to the bar + staff under the pointer (one undo step a drag), a round corner handle
   scales it; the list (over / behind, ⚠ a bar the file lacks) and the piece inspector beside it (below under 1280px).
   The first piece writes `collage = { file, pieces: [] }`, removing the last takes it away; a replaced file shows "made
-  on another file – check the bars" + **Checked**. `npm run check:creator-collage` (cloud9_en; its drafts deleted again).
+  on another file – check the bars" + **Checked**. The stage draws custom presets with their newest draft, saves the
+  presets document with the item and lists "Collage presets" in its Publish list while it has a draft.
+  `npm run check:creator-collage` (cloud9_en; its drafts deleted again).
 - An entry only in the table (no document yet: an admin write, a migration – locally the score items) starts its
   creator document from the table's data (`loadCatalogDoc`, `ContentDoc.startFrom`): unchanged until edited, the first
   save is its first version.
