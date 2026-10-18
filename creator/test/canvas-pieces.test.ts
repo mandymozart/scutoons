@@ -16,7 +16,7 @@ test('pieceItems: the height from the file\'s ratio and the slice\'s, never stor
 	// a square file 30 % wide on a 390 × 625 slice: 30 × 390 / 625 = 18.72 % of the slice's height
 	assert.deepEqual(a.rect, { x: 10, y: 20, width: 30, height: 18.72 });
 	assert.deepEqual(a.path, ['groups', 0, 'slices', 1, 'pieces', 0, 'rect']);
-	assert.equal(a.label, '✂ disc');
+	assert.equal(a.label, '▲ disc');
 	assert.equal(a.rotation, 0);
 	assert.deepEqual(a.f, { ax: 0, ay: 0 });
 	assert.equal(a.ramp, undefined);
@@ -24,9 +24,12 @@ test('pieceItems: the height from the file\'s ratio and the slice\'s, never stor
 	assert.equal(b.rect.height, 24.96);
 	assert.equal(b.rotation, 15);
 	assert.deepEqual(b.f, { ax: 0.5, ay: 0.5 });
-	assert.equal(b.label, '✂ catpope · neutral');
+	assert.equal(b.label, '▲ catpope · neutral');
 	assert.equal(b.kind, 'piece');
 	assert.equal(b.index, 1);
+	// the host's name (the editor passes pieceLabel – the library title, the character's name · mood)
+	const named = pieceItems(pieces, ['groups', 0, 'slices', 1], RATIO, (p) => (p.figure ? 'Cat Pope · Neutral' : 'Disc'));
+	assert.deepEqual(named.map((i) => i.label), ['▲ Disc', '▲ Cat Pope · Neutral']);
 });
 
 test('pieceItems: a ramp\'s points (own or the look\'s) for the canvas dots; broken pieces have no box', () => {

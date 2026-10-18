@@ -807,6 +807,15 @@
 	max-height: 100%;
 	object-fit: contain;
 }
+/* transparency as a checker (cut-out art – a shape, a collage piece's file – stays visible, white too): paper with a
+   light grid; --checker-size = one square pair (1rem; a small list thumb sets 0.5rem on its own class). After
+   .sc-card-img: a card's picture on the checker */
+.sc-checker {
+	--checker-size: 1rem;
+	background-color: var(--paper);
+	background-image: conic-gradient(var(--surface-hover) 25%, transparent 0 50%, var(--surface-hover) 0 75%, transparent 0);
+	background-size: var(--checker-size) var(--checker-size);
+}
 
 /* a page's message bars under its file status (COMPONENTS.md step 11; the creator's DocNotices – the chapter editor's
    look, which the meta pages now share): ink on paper with a thick state rule, no tinted fills; .is-dirty unsaved

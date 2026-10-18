@@ -1,5 +1,5 @@
 // The collage picker's logic (agents/research/COLLAGE.md §5): what a pick hands back (`PickedPiece`), the vector
-// library's filters, and the new piece a host makes of a pick. Pure (no Svelte; `imageRatio` alone needs a DOM).
+// library's filters, titles and pages, and the new piece a host makes of a pick. Pure (no Svelte; `imageRatio` alone needs a DOM).
 import {
 	AUTHORED_VIEW,
 	CHARACTER_IMAGE_VARIANTS,
@@ -99,6 +99,28 @@ export function filterShapes<T extends Pick<AssetSummary, 'title' | 'slug' | 'ta
 		const text = `${shape.title} ${shape.slug} ${(shape.tags ?? []).join(' ')}`.toLowerCase();
 		return words.every((word) => text.includes(word));
 	});
+}
+
+/**
+ * A shape piece's library title, by the file's base name – a slice stores `vectors/x.svg` (catpope) or
+ * `../catpope/vectors/x.svg`, a score `catpope/vectors/x.svg`; the library's names are unique. undefined = not in it
+ * (or the library not loaded yet).
+ */
+export function shapeTitle(src: unknown, shapes: readonly Pick<AssetSummary, 'path' | 'title'>[] | null | undefined): string | undefined {
+	const base = (path: string) => path.split('/').pop() ?? '';
+	const file = typeof src === 'string' ? base(src) : '';
+	if (!file || !shapes) return undefined;
+	return shapes.find((shape) => base(shape.path) === file)?.title || undefined;
+}
+
+/** every row of a paged list: page 1, 2 … until `pagination.total` (an empty page ends it too) – the server clamps page_size to 500 */
+export async function allPages<T>(page: (n: number) => Promise<{ items: T[]; pagination: { total: number } }>): Promise<T[]> {
+	const all: T[] = [];
+	for (let n = 1; ; n++) {
+		const { items, pagination } = await page(n);
+		all.push(...items);
+		if (!items.length || all.length >= pagination.total) return all;
+	}
 }
 
 /**

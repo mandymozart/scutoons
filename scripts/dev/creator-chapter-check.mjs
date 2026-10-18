@@ -37,7 +37,7 @@
 //   save:    Save draft (note dialog skipped) stores the chapter's language-neutral draft (chapter:catpope:1) with the
 //            new text; the published version stays; Publish asks first – its checklist names the chapter, ticked (when
 //            the chapter's content has errors, the "Publish anyway?" step comes first: the run prints them and goes on)
-//   pieces:  the collage piece tool (research/COLLAGE.md §3): scissors → a click → the picker → a shape on the picture,
+//   pieces:  the collage piece tool (research/COLLAGE.md §3): the tool → a click → the picker → a shape on the picture,
 //            the look Negative = the picture's negative there (a pixel), the Fade ramp opaque in its middle, the ramp's
 //            dot, one undo per step, Ctrl+C / Ctrl+V, Layers (pieces under the stack; a reorder, its undo / redo keep the
 //            moved piece selected), Delete; saved with the draft
@@ -388,7 +388,7 @@ const layerTestids = () => js(`[...document.querySelectorAll('[data-testid="laye
 /**
  * Art over the slice (pieces are often large – COLLAGE.md §3; the reviewer's case): the selected piece `i` (the text
  * tool on) scaled past the slice's width by its handle; picking the text tool lets it go, a text-tool drag over it draws
- * a new text box and leaves the piece where it is (undone); the scissors tool still selects it there. Leaves `i` selected.
+ * a new text box and leaves the piece where it is (undone); the piece tool still selects it there. Leaves `i` selected.
  */
 async function artCase(i) {
 	const box = q(`box-piece-${i}`);
@@ -428,11 +428,11 @@ async function artCase(i) {
 	check((await dialogCount()) === n && (await rectOf()) === r0, 'art: undo takes the text box away, the piece as it was', JSON.stringify({ boxes: await dialogCount(), rect: await rectOf() }));
 	await click(tid('tool-piece'));
 	await mouseAt(...spot);
-	check((await until(`${box}?.classList.contains('selected') && !!${q('piece-inspector')}`, 2000)) && !(await js(pickerOpen)) && (await rectOf()) === r0, 'art: the scissors tool still selects the piece there (no picker, nothing moved)', JSON.stringify({ rect: await rectOf(), picker: await js(pickerOpen) }));
+	check((await until(`${box}?.classList.contains('selected') && !!${q('piece-inspector')}`, 2000)) && !(await js(pickerOpen)) && (await rectOf()) === r0, 'art: the piece tool still selects the piece there (no picker, nothing moved)', JSON.stringify({ rect: await rectOf(), picker: await js(pickerOpen) }));
 }
 
 /**
- * The piece tool on the open slice: scissors → a click → the picker → a shape (disc-black) → it lies on the picture,
+ * The piece tool on the open slice: the tool → a click → the picker → a shape (disc-black) → it lies on the picture,
  * under the lettering, centred at the click; the look Negative blends it (difference – the picture's negative there);
  * the look Fade's ramp keeps the disc opaque in its middle; the ramp's dot moves its end; one undo per step back to no
  * piece (and redo); Ctrl+C / Ctrl+V = a second piece with a new id, an offset; Layers: pieces reorder among themselves
@@ -443,7 +443,7 @@ async function artCase(i) {
 async function pieceCase() {
 	const n0 = await pieceCount();
 	await click(tid('tool-piece'));
-	check((await js(`${q('tool-piece')}.getAttribute('aria-pressed') === 'true' && ${q('tab-layers')}.classList.contains('active')`)) === true, 'pieces: the scissors tool is picked and opens the Layers tab');
+	check((await js(`${q('tool-piece')}.getAttribute('aria-pressed') === 'true' && ${q('tab-layers')}.classList.contains('active')`)) === true, 'pieces: the piece tool is picked and opens the Layers tab');
 	const spot = await emptySpot();
 	if (!check(!!spot, 'pieces: the slice has a spot without a box')) return;
 	await mouseAt(...spot);

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { untrack } from 'svelte';
 	import { gridArrows } from '@scutoons/ui';
 	import { filterShapes, shapePick, shapeTags, type PickedPiece } from '$lib/editor/collage-pick.ts';
 	import { shapeLibrary } from '$lib/editor/shapes.svelte.ts';
@@ -8,15 +8,25 @@
 
 	/**
 	 * The collage picker's Shapes tab (research/COLLAGE.md §5, VECTORS §6 step 8): the vector library of the asset manager
-	 * (loaded once per session) as picture cards on a checker – a one-colour shape (`mask`) as an ink silhouette, since
-	 * its colour is the look's, not the file's – with a search (title, file, tags) and a tag select by frequency.
-	 * Keyboard: arrows move in the grid, Enter picks.
+	 * (loaded once per session, when the sheet first opens – `active`; reopened after a failed load, it tries again) as
+	 * picture cards on a checker – a one-colour shape (`mask`) as an ink silhouette, since its colour is the look's, not
+	 * the file's – with a search (title, file, tags) and a tag select by frequency. Keyboard: arrows move in the grid,
+	 * Enter picks.
 	 */
-	let { onpick }: { onpick: (picked: PickedPiece) => void } = $props();
+	let {
+		active = true,
+		onpick
+	}: {
+		/** the sheet around it is open (the Sheet renders its content while closed: no request until then) */
+		active?: boolean;
+		onpick: (picked: PickedPiece) => void;
+	} = $props();
 
 	let query = $state('');
 	let tag = $state('');
-	onMount(() => void shapeLibrary.load());
+	$effect(() => {
+		if (active && !shapeLibrary.items) untrack(() => void shapeLibrary.load());
+	});
 
 	const all = $derived(shapeLibrary.items ?? []);
 	const tags = $derived(shapeTags(all));
@@ -41,7 +51,7 @@
 	<div class="sc-cards" style:--cards-min="5.5rem" onkeydown={gridArrows} data-testid="collage-shapes">
 		{#each shown as shape (shape.id)}
 			<button type="button" class="sc-card" data-control-exempt="picture card" data-cell title={shape.title} onclick={() => onpick(shapePick(shape))} data-testid="collage-shape-{fileName(shape.path)}">
-				<span class="sc-card-img checker"><img class:ink={shape.shape?.mask} src={asset(shape.path)} alt="" loading="lazy" decoding="async" /></span>
+				<span class="sc-card-img sc-checker"><img class:ink={shape.shape?.mask} src={asset(shape.path)} alt="" loading="lazy" decoding="async" /></span>
 				<span class="name">{shape.title}</span>
 			</button>
 		{/each}
@@ -51,12 +61,6 @@
 {/if}
 
 <style>
-	/* transparency shows as a checker (the shapes are cut out) */
-	.checker {
-		background-color: var(--paper);
-		background-image: conic-gradient(var(--surface-hover) 25%, transparent 0 50%, var(--surface-hover) 0 75%, transparent 0);
-		background-size: 1rem 1rem;
-	}
 	.sc-card-img img {
 		width: 80%;
 		height: 80%;

@@ -46,6 +46,12 @@
 		open = false;
 	}
 
+	/** the sheet's openings: a decode that outlives its sheet (closed – Esc –, or closed and opened again) picks nothing */
+	let opened = 0;
+	$effect(() => {
+		if (open) opened++;
+	});
+
 	/**
 	 * a mood portrait: its file now (the fallback rule), its ratio by decoding it (a second click meanwhile adds nothing);
 	 * a character without any picture adds nothing – a toast says so (the "?" substitute is no art)
@@ -62,8 +68,11 @@
 		if (!src) return void toast(m['creator.collage_no_picture']({ name: shownCharacterName(character, p.persona) || p.character }), { type: 'warning' });
 		const name = [shownCharacterName(character, p.persona), p.mood && moodLabel(p.mood, textLanguage.names, moods)].filter(Boolean).join(' · ');
 		decoding = true;
+		const opening = opened;
 		try {
-			pick({ src, ratio: (await imageRatio(asset(src))) ?? undefined, figure, name });
+			const ratio = await imageRatio(asset(src));
+			if (!open || opened !== opening) return;
+			pick({ src, ratio: ratio ?? undefined, figure, name });
 		} finally {
 			decoding = false;
 		}
@@ -96,9 +105,9 @@
 		{/snippet}
 	</Tabs>
 	{#if tab === 'shapes'}
-		<ShapeGrid onpick={pick} />
+		<ShapeGrid active={open} onpick={pick} />
 	{:else}
-		<CharacterGrid active={open} {registry} {moods} {toons} {cast} locale={textLanguage.names} onpick={pickCharacter} />
+		<CharacterGrid active={open} filters={false} {registry} {moods} {toons} {cast} locale={textLanguage.names} onpick={pickCharacter} />
 	{/if}
 </PickerSheet>
 

@@ -1,5 +1,5 @@
 // collage-edit.ts + collage-pick.ts (agents/research/COLLAGE.md §5, §7): copy-on-write effects over a look, the picked
-// file in the host's path form, the shapes' filters, the layer list with pieces
+// file in the host's path form, the shapes' filters, titles and pages, the layer list with pieces
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { collageLook, pieceStyle, type CollagePiece } from '@scutoons/content';
@@ -20,7 +20,7 @@ import {
 	setPreset,
 	type ClearedEffects
 } from '../src/lib/editor/collage-edit.ts';
-import { assetRatio, figureImage, figureViews, filterShapes, imagePick, pickedToPiece, shapeTags } from '../src/lib/editor/collage-pick.ts';
+import { allPages, assetRatio, figureImage, figureViews, filterShapes, imagePick, pickedToPiece, shapeTags, shapeTitle } from '../src/lib/editor/collage-pick.ts';
 
 const piece = (more: Partial<CollagePiece> = {}): CollagePiece => ({ id: 'piece-a', src: 'vectors/x.svg', ratio: 1, rect: { x: 10, y: 10, width: 30 }, ...more });
 
@@ -217,6 +217,31 @@ test('the shapes: tags by frequency, search over title / slug / tags, ratio from
 	assert.deepEqual(filterShapes(shapes, '', 'crescent').map((s) => s.title), ['Moon']);
 	assert.equal(assetRatio({ width: 178, height: 458 }), 0.3886);
 	assert.equal(assetRatio({ width: null, height: 10 }), null);
+});
+
+test("a shape piece's library title by its file's base name, in a slice's and a score's path form", () => {
+	const library = [
+		{ path: 'catpope/vectors/disc-red.svg', title: 'Disc red' },
+		{ path: 'catpope/vectors/moon.svg', title: '' }
+	];
+	assert.equal(shapeTitle('vectors/disc-red.svg', library), 'Disc red', 'a catpope slice');
+	assert.equal(shapeTitle('../catpope/vectors/disc-red.svg', library), 'Disc red', "another toon's slice");
+	assert.equal(shapeTitle('catpope/vectors/disc-red.svg', library), 'Disc red', 'a score');
+	assert.equal(shapeTitle('vectors/moon.svg', library), undefined, 'no title: the caller falls back to the file');
+	assert.equal(shapeTitle('vectors/gone.svg', library), undefined);
+	assert.equal(shapeTitle('vectors/disc-red.svg', null), undefined, 'the library not loaded yet');
+	assert.equal(shapeTitle(undefined, library), undefined);
+});
+
+test('allPages fetches the next pages until the total – a 501st shape stays in the picker', async () => {
+	const rows = Array.from({ length: 1201 }, (_, i) => i);
+	const asked: number[] = [];
+	const page = async (n: number) => (asked.push(n), { items: rows.slice((n - 1) * 500, n * 500), pagination: { total: rows.length } });
+	assert.deepEqual(await allPages(page), rows);
+	assert.deepEqual(asked, [1, 2, 3]);
+	asked.length = 0;
+	assert.deepEqual(await allPages(async (n) => (asked.push(n), { items: n === 1 ? [1, 2] : [], pagination: { total: 5 } })), [1, 2], 'an empty page ends it (a total that shrank)');
+	assert.deepEqual(asked, [1, 2]);
 });
 
 test('an image pick prefers the WebP twin of a PNG', () => {

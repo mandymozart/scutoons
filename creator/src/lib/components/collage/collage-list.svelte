@@ -1,8 +1,10 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { Icon, SortGrip, sortable } from '@scutoons/ui';
 	import type { CharacterRegistry, CollagePiece, MoodVocabulary } from '@scutoons/content';
 	import { collageRows, type CollageRow } from '$lib/editor/score-collage.ts';
-	import { pieceLabel } from '$lib/editor/collage-words.ts';
+	import { hasShapePiece, pieceLabel } from '$lib/editor/collage-words.ts';
+	import { shapeLibrary } from '$lib/editor/shapes.svelte.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
@@ -32,6 +34,11 @@
 	} = $props();
 
 	const rows = $derived(collageRows(pieces));
+	/** a shape's name is its library title (`pieceLabel` only reads it): the list loads the library once it holds a shape */
+	const listsShape = $derived(hasShapePiece(pieces));
+	$effect(() => {
+		if (listsShape) untrack(() => void shapeLibrary.load());
+	});
 	/** the first row behind the notes: the rule above it */
 	const firstBehind = $derived(rows.findIndex((r) => r.behind));
 	const pieceOf = (row: CollageRow) => pieces[row.index];
@@ -46,13 +53,14 @@
 
 {#if rows.length}
 	<ul class="pieces" use:sortable={{ onmove }} data-testid="collage-list">
-		{#each rows as row, i (pieceOf(row)?.id ?? `#${row.index}`)}
+		<!-- keyed by the row's place, not the piece's id: two pieces of one id (or '') still list – to select and remove -->
+		{#each rows as row, i (row.index)}
 			{@const piece = pieceOf(row)}
 			{@const name = pieceLabel(piece, registry, moods)}
 			<li data-sort-row class:sc-selected={piece?.id === selected} class:boundary={i === firstBehind && i > 0} data-testid="collage-row-{piece?.id}">
 				<SortGrip label={m['creator.sort_move']({ name })} title={m['creator.sort_hint']()} />
 				<button type="button" class="ghost row" title={row.behind ? m['creator.piece_behind_hint']() : m['creator.piece_over_hint']()} onclick={() => piece && onselect(piece.id)} data-testid="collage-select-{piece?.id}">
-					<span class="thumb">{#if piece?.src}<img src={asset(piece.src)} alt="" draggable="false" />{:else}<Icon name="scissors" size="1rem" />{/if}</span>
+					<span class="thumb sc-checker">{#if piece?.src}<img src={asset(piece.src)} alt="" draggable="false" />{:else}<Icon name="shapes" size="1rem" />{/if}</span>
 					<span class="name">{name}</span>
 					<span class="where">{piece ? placeOf(piece) : ''}</span>
 				</button>
@@ -99,7 +107,7 @@
 		color: inherit;
 		text-align: left;
 	}
-	/* the file on a checker (white shapes stay visible) */
+	/* the file on the checker (tools.css .sc-checker – white shapes stay visible), small for the small box */
 	.thumb {
 		flex: none;
 		display: inline-flex;
@@ -109,8 +117,7 @@
 		height: 1.75rem;
 		box-sizing: border-box;
 		border: var(--border-width-hairline) solid var(--ink);
-		background: var(--paper) conic-gradient(var(--surface-hover) 25%, transparent 0 50%, var(--surface-hover) 0 75%, transparent 0);
-		background-size: 0.5rem 0.5rem;
+		--checker-size: 0.5rem;
 		color: var(--ink);
 	}
 	.thumb img {

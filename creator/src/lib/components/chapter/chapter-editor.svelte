@@ -43,6 +43,7 @@
 	import { piecePlace } from '$lib/editor/canvas-pieces.ts';
 	import type { PickedPiece } from '$lib/editor/collage-pick.ts';
 	import { followPieces, piecesMoved } from '$lib/editor/collage-edit.ts';
+	import { pieceLabel } from '$lib/editor/collage-words.ts';
 	import { legacyTextCount, legacyPlan, applyLegacyPlan, type TextPreset } from '$lib/editor/text-presets.ts';
 	import { itemCatalog } from '$lib/editor/catalog.svelte.ts';
 	import { ChapterView, clampZoom, type InspectorTab, type Section } from '$lib/editor/chapter-state.svelte.ts';
@@ -1303,6 +1304,7 @@
 							selection={view.selection}
 							live={liveRegion.is(SLICE_REGION)}
 							zoom={view.zoom}
+							pieceName={(p) => pieceLabel(p, choices?.registry, choices?.moods)}
 							onshown={(f) => (view.shownZoom = f)}
 							onselect={(next) => view.select(next)}
 							oncreate={(t, rect) => CREATE[t](rect)}

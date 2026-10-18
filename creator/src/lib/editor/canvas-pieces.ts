@@ -42,7 +42,7 @@ export function pieceItems(pieces: unknown, slicePath: Path, sliceRatio: number,
 			index,
 			path: [...slicePath, 'pieces', index, 'rect'],
 			rect: { x: rect.x, y: rect.y, width: rect.width, height: r2(pieceHeight(rect.width, p.ratio, sliceRatio > 0 ? sliceRatio : 1)) },
-			label: `✂ ${name(p)}`,
+			label: `▲ ${name(p)}`,
 			rotation: num(p.rotation) ? p.rotation : 0,
 			scale: 1,
 			f: anchorFactors(p.anchor),
@@ -55,7 +55,7 @@ export function pieceItems(pieces: unknown, slicePath: Path, sliceRatio: number,
 /**
  * Whether a piece's canvas box takes the pointer. Pieces are art under the stack, often as large as the slice: under
  * another tool their boxes would swallow every drag meant to draw (the areas' rule – owner 2026-10-03: "full-slice
- * events covered everything"). So only the scissors tool or the piece's own selection grabs it; else the tool draws.
+ * events covered everything"). So only the piece tool or the piece's own selection grabs it; else the tool draws.
  */
 export const pieceTakesPointer = (tool: string, selected: boolean) => tool === 'piece' || selected;
 

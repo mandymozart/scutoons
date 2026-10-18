@@ -41,10 +41,13 @@
 	 * §5): step 1 a searchable grid of ALL registry characters (the season's cast first), step 2 the chosen character's
 	 * personas → looks → a grid of portrait moods; clicking a cell picks character + persona + look + mood at once
 	 * (`expression` mode) – or a persona card (`persona` mode, casts). `active` = the sheet around it is open: each time
-	 * it turns on, the grid starts at the current value. Keyboard: arrows move in the grids, Enter picks.
+	 * it turns on, the grid starts at the current value. `filters` = the cast management's toggles ("has missing states",
+	 * every mood of the vocabulary); the collage picker has none – they lead only to moods without a picture. Keyboard:
+	 * arrows move in the grids, Enter picks.
 	 */
 	let {
 		active = true,
+		filters = true,
 		registry,
 		moods,
 		toons = [],
@@ -56,6 +59,8 @@
 		onpick
 	}: {
 		active?: boolean;
+		/** the toggles for missing states and every mood (off and hidden when false) */
+		filters?: boolean;
 		registry: CharacterRegistry | null;
 		moods: MoodVocabulary;
 		toons?: ToonInfo[];
@@ -143,7 +148,7 @@
 				<option value="">{m['creator.characters_all_toons']()}</option>
 				{#each toons as t (t.id)}<option value={t.id}>{t.name}</option>{/each}
 			</select>
-			<label class="check"><input type="checkbox" bind:checked={missingOnly} /> {m['creator.characters_has_missing']()}</label>
+			{#if filters}<label class="check"><input type="checkbox" bind:checked={missingOnly} /> {m['creator.characters_has_missing']()}</label>{/if}
 		</div>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div onkeydown={gridArrows} bind:this={grid}>
@@ -201,7 +206,7 @@
 					tabs={currentPersona.looks.map((l) => ({ id: l.id, label: lookLabel(currentPersona, l.id, locale), testid: `picker-look-${l.id}` }))}
 				/>
 			{/if}
-			<label class="check"><input type="checkbox" bind:checked={allMoods} /> {m['creator.characters_picker_all_moods']()}</label>
+			{#if filters}<label class="check"><input type="checkbox" bind:checked={allMoods} /> {m['creator.characters_picker_all_moods']()}</label>{/if}
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div class="sc-cards" style:--cards-min="6.5rem" onkeydown={gridArrows} bind:this={grid}>
 				{#each rowMoods as mood (mood)}

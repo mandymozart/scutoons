@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { Icon, SortGrip, sortable } from '@scutoons/ui';
 	import { getAt, previewText, type CharacterRegistry, type CollagePiece, type MoodVocabulary, type Path, type SliceLayerKind } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
@@ -8,7 +9,8 @@
 	import { triggerWord } from '$lib/editor/vn-forms.ts';
 	import { itemCatalog, itemName } from '$lib/editor/catalog.svelte.ts';
 	import { canMoveLayerRow, followPieces, layerRows, moveLayerRows } from '$lib/editor/collage-edit.ts';
-	import { pieceLabel } from '$lib/editor/collage-words.ts';
+	import { hasShapePiece, pieceLabel } from '$lib/editor/collage-words.ts';
+	import { shapeLibrary } from '$lib/editor/shapes.svelte.ts';
 	import { toast } from '$lib/toasts.ts';
 
 	/**
@@ -48,7 +50,7 @@
 		title?: string;
 		/** the item's icon / the piece's file */
 		icon?: string;
-		/** the Feather glyph without an icon: a text box `type`, an event area `zap`, a sample area `music` (as their tabs), a piece `scissors` */
+		/** the glyph without an icon (Feather / icons-extra): a text box `type`, an event area `zap`, a sample area `music` (as their tabs), a piece `shapes` (the piece tool's) */
 		glyph: string;
 		pickup: boolean;
 		/** an event area: all of its events (they move together) */
@@ -77,13 +79,18 @@
 			if (kind === 'piece') {
 				const piece = slice.pieces?.[index] as CollagePiece | undefined;
 				const src = typeof piece?.src === 'string' && piece.src ? toonUrl(toon, piece.src) : '';
-				return { kind, index, name: pieceLabel(piece, registry, moods), icon: src || undefined, glyph: 'scissors', pickup: false };
+				return { kind, index, name: pieceLabel(piece, registry, moods), icon: src || undefined, glyph: 'shapes', pickup: false };
 			}
 			const it = slice?.items?.[index];
 			const def = itemCatalog.catalog?.items.find((x) => x.id === it?.item);
 			return { kind, index, name: itemName(def, it?.item ?? '?'), icon: def?.icon ? asset(def.icon) : undefined, glyph: 'box', pickup: it?.action === 'pickup' };
 		})
 	);
+	/** a shape's name is its library title (`pieceLabel` only reads it): the list loads the library once it holds a shape */
+	const listsShape = $derived(hasShapePiece(slice?.pieces));
+	$effect(() => {
+		if (listsShape) untrack(() => void shapeLibrary.load());
+	});
 	/** the first piece row: the rule above it marks where the art starts */
 	const firstPiece = $derived(rows.findIndex((r) => r.kind === 'piece'));
 	/** the row of the canvas selection (an event area: any of its events) */
@@ -114,7 +121,7 @@
 			<li data-sort-row class:sc-selected={isSelected(row)} class:boundary={i === firstPiece && i > 0} data-testid="layer-{row.kind}-{row.index}">
 				<SortGrip label={m['creator.sort_move']({ name: row.name })} title={m['creator.sort_hint']()} />
 				<button type="button" class="ghost row" title={row.title} onclick={() => view.select({ kind: row.kind, index: row.index })} data-testid={rowTestid(row)}>
-					<span class="thumb" class:checker={row.kind === 'piece'}>
+					<span class="thumb" class:sc-checker={row.kind === 'piece'}>
 						{#if row.icon}<img src={row.icon} alt="" draggable="false" />{:else}<Icon name={row.glyph} size="1rem" />{/if}
 					</span>
 					<span class="name">{row.name}</span>
@@ -171,13 +178,10 @@
 		height: 1.75rem;
 		box-sizing: border-box;
 		border: var(--border-width-hairline) solid var(--ink);
-		background: var(--paper);
+		background-color: var(--paper);
 		color: var(--ink);
-	}
-	/* a piece's file on a checker (white shapes stay visible) */
-	.thumb.checker {
-		background-image: conic-gradient(var(--surface-hover) 25%, transparent 0 50%, var(--surface-hover) 0 75%, transparent 0);
-		background-size: 0.5rem 0.5rem;
+		/* a piece's file on the checker (tools.css .sc-checker – white shapes stay visible), small for the small box */
+		--checker-size: 0.5rem;
 	}
 	.thumb img {
 		width: 100%;

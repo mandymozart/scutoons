@@ -17,8 +17,10 @@ export const EXTRA_ICONS: Record<string, { contents: string }> = {
 	'fit-fixed': { contents: '<rect x="3" y="3" width="18" height="18"/><line x1="7" y1="10" x2="17" y2="10"/><line x1="7" y1="14" x2="14" y2="14"/>' },
 	// outline width: a ring around a box
 	'outline-width': { contents: '<rect x="3" y="3" width="18" height="18"/><rect x="8" y="8" width="8" height="8"/>' },
-	// collage pieces (agents/research/COLLAGE.md §7): blend = two overlapping circles, gradient = a box with lines growing
+	// collage pieces (agents/research/COLLAGE.md §7): shapes = a triangle, a square and a circle (the piece tool, a piece –
+	// the vector library; scissors stays Cut), blend = two overlapping circles, gradient = a box with lines growing
 	// denser, shadow = a box with its offset shadow edge, blur = a disc in a dotted halo
+	shapes: { contents: '<polygon points="12 3 17 11 7 11"/><rect x="3" y="14" width="7" height="7"/><circle cx="17.5" cy="17.5" r="3.5"/>' },
 	blend: { contents: '<circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/>' },
 	gradient: { contents: '<rect x="3" y="3" width="18" height="18"/><line x1="10" y1="3" x2="10" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="18.5" y1="3" x2="18.5" y2="21"/>' },
 	shadow: { contents: '<rect x="3" y="3" width="14" height="14"/><polyline points="21 7 21 21 7 21"/>' },

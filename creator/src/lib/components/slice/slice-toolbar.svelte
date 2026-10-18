@@ -150,7 +150,7 @@
 		options={[
 			{ value: 'text', icon: 'type', title: m['creator.tool_text'](), testid: 'tool-text' },
 			{ value: 'item', icon: 'box', title: m['creator.tool_item'](), testid: 'tool-item' },
-			{ value: 'piece', icon: 'scissors', title: m['creator.tool_piece'](), testid: 'tool-piece' },
+			{ value: 'piece', icon: 'shapes', title: m['creator.tool_piece'](), testid: 'tool-piece' },
 			{ value: 'sample', icon: 'music', title: m['creator.tool_sample'](), testid: 'tool-sample' },
 			{ value: 'event', icon: 'zap', title: m['creator.tool_event'](), testid: 'tool-event' }
 		]}

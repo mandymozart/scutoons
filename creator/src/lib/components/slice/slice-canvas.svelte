@@ -27,7 +27,7 @@
 	import CanvasPointHandles from '$lib/components/slice/canvas-point-handles.svelte';
 	import { pieceItems, pieceTakesPointer } from '$lib/editor/canvas-pieces.ts';
 	import { editEffect } from '$lib/editor/collage-edit.ts';
-	import type { PiecePoint } from '@scutoons/content';
+	import type { CollagePiece, PiecePoint } from '@scutoons/content';
 	import { centreSnap, deltas, dialogScale, gridSteps, movedRect, rotationAngle, scaleFactor, scaledRect, transformedDeltas, type Factors, type Handle, type Rect } from '$lib/editor/canvas-geometry.ts';
 
 	let {
@@ -40,6 +40,7 @@
 		selection = null,
 		live = true,
 		zoom = null,
+		pieceName,
 		onshown,
 		onselect,
 		oncreate
@@ -69,6 +70,8 @@
 		 * pointer stay in slice coordinates (%)
 		 */
 		zoom?: number | null;
+		/** a collage piece's name on its box (the editor's `pieceLabel`, as the Layers list; default: its file's) */
+		pieceName?: (piece: CollagePiece) => string;
 		/** the factor the canvas is shown at (its width / the slice's 1x width), on every size change */
 		onshown?: (factor: number) => void;
 		onselect?: (selection: CanvasSelection | null) => void;
@@ -152,7 +155,7 @@
 			if (it?.rect) out.push({ kind: 'item', index: i, path, rect: it.rect, label: `◆ ${itemName(def, it.item ?? '?')}`, rotation: num(it.rotation, 0), scale: 1, f: anchorFactors(it.anchor) });
 		});
 		// collage pieces: the height from the file's ratio (canvas-pieces.ts)
-		out.push(...pieceItems(slice?.pieces, slicePath, sliceRatio));
+		out.push(...pieceItems(slice?.pieces, slicePath, sliceRatio, pieceName));
 		(slice?.audio?.audio?.samples ?? []).forEach((s: any, i: number) => {
 			const path = [...slicePath, 'audio', 'audio', 'samples', i, 'trigger', 'rect'];
 			if (s?.trigger?.rect) out.push({ kind: 'sample', index: i, path, rect: s.trigger.rect, label: `♪ ${s.id} (${s.trigger.type})`, rotation: 0, scale: 1, f: TOP_LEFT });
@@ -183,7 +186,7 @@
 	);
 	/**
 	 * a box takes the pointer on its tab; on the Layers tab (the one with the text boxes) only the areas of the stack, not
-	 * a whole-slice / in-view event's; a collage piece only under the scissors tool or selected (canvas-pieces.ts)
+	 * a whole-slice / in-view event's; a collage piece only under the piece tool or selected (canvas-pieces.ts)
 	 */
 	const active = (i: Item) =>
 		(layers === null || (layers.includes(i.kind) && (!layers.includes('dialog') || inStack(i)))) &&
