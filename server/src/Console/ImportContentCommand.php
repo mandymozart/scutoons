@@ -49,7 +49,7 @@ final class ImportContentCommand extends Command
             ->setHelp(<<<'HELP'
                 Reads the interchange layout (agents/DATA.md §4, Console\ContentFiles: toons.json, events.json,
                 <toon>/<locale>/{toon,season<N>,chapter<N>,locations,routes,script}.json, <toon>/<locale>/chapter<N>/<scene>.json,
-                <toon>/_/{cast,credits}.json, scutoons/_/{characters,moods,asset-requests,people,roles}.json) and stores every
+                <toon>/_/{cast,credits}.json, scutoons/_/{characters,moods,asset-requests,people,roles,map,colorations}.json) and stores every
                 entity as a published version (author NULL, message "import"), keyed by its entity key.
                 Idempotent: entities already in the store are skipped (the store is the source of truth once seeded);
                 --update adds a new published version where the file differs.

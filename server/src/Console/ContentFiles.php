@@ -13,7 +13,7 @@ use Scutoons\Domain\Content\EntityKey;
  *
  *   toons.json                         one entry per toon            → toon:<toon>
  *   events.json                                                      → events
- *   scutoons/_/<name>.json             moods, asset-requests, people, roles → <name>
+ *   scutoons/_/<name>.json             moods, asset-requests, people, roles, colorations → <name>
  *   scutoons/_/map.json                the whole world map in one file → map (its settings) + place:<id> + route:<id>
  *   scutoons/_/characters.json         the whole registry in one file → characters (its own fields) + character:<id>
  *                                      (one document each, in the file's order – agents/MAP-DOCUMENTS.md, CollectionDocs;
@@ -32,7 +32,7 @@ final class ContentFiles
 {
     public const PLATFORM_DIR = 'scutoons';
     public const NEUTRAL_DIR = '_';
-    private const PLATFORM_KINDS = ['characters', 'moods', 'asset-requests', 'people', 'roles', 'map'];
+    private const PLATFORM_KINDS = ['characters', 'moods', 'asset-requests', 'people', 'roles', 'map', 'colorations'];
 
     /** The entity key of a file `<dir>/<locale dir>/<relative>` of the layout, null when it is no entity */
     public static function keyOf(string $dir, string $localeDir, string $relative): ?string

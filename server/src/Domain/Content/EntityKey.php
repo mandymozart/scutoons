@@ -18,7 +18,9 @@ use Scutoons\Domain\ApiError;
  *   locations:<toon>:<l>  routes:<toon>:<l>                            the map
  *   cast:<toon>  credits:<toon>                                        language-neutral, per toon
  *   script:<toon>:<l>                    the toon's screenplay per locale (creator material, CREATOR_ONLY_KINDS)
- *   characters  moods  asset-requests  people  roles  events  map      platform-wide, language-neutral
+ *   characters  moods  asset-requests  people  roles  events  map  colorations
+ *                                        platform-wide, language-neutral (`colorations` = the custom collage presets –
+ *                                        CollagePresets, agents/research/COLLAGE.md §12)
  *   place:<id>  route:<id>                                         one document per place / route of the world map (ID_KINDS)
  *   character:<id>                                                 one document per character of the registry (`characters` = its own fields)
  *   (`map` = the SCUTOONS world map's own settings – size, layers –, its places and routes are documents of their own:
@@ -53,6 +55,7 @@ final class EntityKey
         'roles' => [false, false, false, false],
         'events' => [false, false, false, false],
         'map' => [false, false, false, false],
+        'colorations' => [false, false, false, false],
         // one segment: the id (ID_KINDS)
         'place' => [false, false, false, false],
         'route' => [false, false, false, false],

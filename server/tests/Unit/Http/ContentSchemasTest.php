@@ -110,6 +110,37 @@ final class ContentSchemasTest extends TestCase
         self::assertSame([], $check(['fill' => ['stops' => [['at' => 0, 'color' => '#fff'], ['at' => 100, 'color' => '#00d1ff']]]]));
     }
 
+    /**
+     * the custom collage presets (`colorations`, agents/research/COLLAGE.md §12.2): the schema alone refuses a bad colour,
+     * blend or id – a code look's id and 'none' included (PresetId's lookahead, run by opis)
+     */
+    public function testColorationsAreGuardedByTheSchema(): void
+    {
+        $night = ['id' => 'night', 'name' => 'Night', 'fill' => '#1a2b6d', 'blend' => 'multiply', 'opacity' => 0, 'shadow' => null,
+            'outline' => ['color' => '#fff', 'width' => 2], 'blur' => ['amount' => 4, 'from' => ['x' => 50, 'y' => 0], 'to' => ['x' => 50, 'y' => 100]]];
+        $doc = fn(array ...$presets) => ['presets' => $presets];
+        self::assertSame([], $this->problems('colorations', $doc($night, ['id' => 'old-2', 'name' => 'Old', 'removed' => true, 'fill' => ['angle' => 90, 'stops' => [['at' => 0, 'color' => '#ff1900'], ['at' => 100, 'color' => '#1a2b6d', 'opacity' => 0.5]]]])));
+        self::assertSame([], $this->problems('colorations', $doc()));
+        $refused = [
+            'a colour that is no hex' => $doc(['fill' => '#zzz'] + $night),
+            'a blend mode readers lack' => $doc(['blend' => 'plus-lighter'] + $night),
+            "a code look's id" => $doc(['id' => 'negative'] + $night),
+            "the 'As drawn' option's id" => $doc(['id' => 'none'] + $night),
+            'an id with capitals' => $doc(['id' => 'Night'] + $night),
+            'an id from a digit' => $doc(['id' => '2night'] + $night),
+            'an id over 40' => $doc(['id' => str_repeat('a', 41)] + $night),
+            'an id with a trailing newline' => $doc(['id' => "night\n"] + $night),
+            'a number as a string' => $doc(['opacity' => '0.5'] + $night),
+            'no name' => $doc(['id' => 'nameless']),
+            'removed is a boolean' => $doc(['removed' => 1] + $night),
+            'no presets list' => ['night' => $night],
+        ];
+        foreach ($refused as $what => $content) self::assertNotSame([], $this->problems('colorations', $content), $what);
+        // the save guard by the key: platform-wide, no toon
+        $schemas = $this->get(ContentSchemas::class);
+        self::assertSame([], $schemas->problemsOf(EntityKey::parse('colorations'), json_decode((string) json_encode($doc($night)))));
+    }
+
     /** expressions in texts (agents/EXPRESSIONS.md §4): syntax errors and the old `{x:clock}` block, doubts don't */
     public function testExpressionsInNeutralTexts(): void
     {

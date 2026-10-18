@@ -37,6 +37,7 @@ final class ContentSchemas
         'roles' => 'roles',
         'events' => 'events',
         'map' => 'map',
+        'colorations' => 'colorations',
         'place' => 'map-place',
         'route' => 'map-route',
         'region' => 'map-region',
