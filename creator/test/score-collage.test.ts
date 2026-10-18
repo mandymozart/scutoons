@@ -25,7 +25,7 @@ import {
 	stagePart,
 	stageProblems
 } from '../src/lib/editor/score-collage.ts';
-import { SCREENS, screenScale, screenZoom } from '../src/lib/editor/screens.ts';
+import { SCREENS, readerSizes, screenScale, screenZoom } from '../src/lib/editor/screens.ts';
 
 const FILE = 'scores/cloud9_en/4971f460e393.musicxml';
 const CHOIR = 'scores/cloud9_en/choir.musicxml';
@@ -168,10 +168,17 @@ test('the stage\'s problems: a bar the file lacks, a replaced file, a broken pie
 	assert.ok(problems.every((p) => p.file === 'item:cloud9_en'));
 });
 
-test('the screens: the device scaled to fit the room both ways, the reader\'s start zoom', () => {
-	assert.deepEqual(SCREENS.phone, { width: 390, height: 844 });
+test('the screens: the device scaled to fit the room both ways, the reader\'s start zoom and sizes there', () => {
+	assert.deepEqual(SCREENS.phone, { width: 390, height: 844, root: 14, touch: true });
 	assert.equal(screenScale(SCREENS.phone, { width: 780, height: 844 }), 1);
 	assert.equal(screenScale(SCREENS.desktop, { width: 720, height: 810 }), 0.5);
 	assert.equal(screenScale(SCREENS.phone, { width: 0, height: 500 }), 0, 'the room unknown yet');
 	assert.deepEqual([screenZoom('phone'), screenZoom('desktop')], [30, 40]);
+	// the reader's root there, not the creator's: a phone 14px with the 44px touch floor, a desktop 24px
+	const phone = readerSizes(SCREENS.phone);
+	assert.equal(phone['--control-height'], 'max(44px, calc(28px + 2 * var(--border-width-regular)))');
+	assert.deepEqual([phone['--space-075'], phone['--space-1'], phone['--type-body-size'], phone['--type-caption-size']], ['10.5px', '14px', '14px', '10.5px']);
+	const desktop = readerSizes(SCREENS.desktop);
+	assert.equal(desktop['--control-height'], 'calc(48px + 2 * var(--border-width-regular))');
+	assert.deepEqual([desktop['--space-05'], desktop['--space-075'], desktop['--space-1'], desktop['--space-3']], ['12px', '18px', '24px', '72px']);
 });

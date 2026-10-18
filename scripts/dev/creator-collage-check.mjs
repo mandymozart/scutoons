@@ -2,7 +2,9 @@
 // The score collage stage (agents/research/COLLAGE.md §4.4, §8 step 6) in headless Chrome (own profile, removed on
 // exit) as the local test user (agent@scutoons.test, `npm run dev:test-user`) on the running LOCAL dev stack:
 //   - the catalog editor: a score item has "Collage" under More → /catalog/items/<id>/collage;
-//   - the stage: the readers' score in a phone screen (390 × 844, scaled to the room), the score view live inside;
+//   - the stage: the readers' score in a phone screen (390 × 844, scaled to the room), the score view live inside; its
+//     header, sheet (= Verovio's page) and footer as high as the reader's own score view on that screen (the viewer's
+//     lab, plain look: a 390 × 844 touch phone, a 1440 × 810 desktop), its Play label shown / hidden as there;
 //   - a shape (disc black) via "Add a piece …" lands in the middle of the page shown; a drag re-anchors it onto bar 10,
 //     staff 1 (its box says data-bar 10, the drawn piece sits on the staff lines), one undo step; the look Negative
 //     (difference) reads as the paper's negative (pixels: dark where the paper is, bright where the ink is);
@@ -14,7 +16,7 @@
 //   - 375 × 812: the side region below the stage.
 // Afterwards the saved versions are deleted again (by their note; an interrupted run's are swept first) – the item's
 // document as before. Refuses to run while the item has an unpublished draft (someone's work in progress).
-//   npm run check:creator-collage        (creator :10000, API :9000, cdn :8001, MariaDB container)
+//   npm run check:creator-collage        (creator :10000, viewer :8000, API :9000, cdn :8001, MariaDB container)
 //   SCUTOONS_COLLAGE_ITEM (default cloud9_en: a published score, full score); COLLAGE_SHOTS=<dir>: collage-*.png
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -27,7 +29,8 @@ import { local } from './ports.mjs';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const CREATOR = (process.env.SCUTOONS_CREATOR ?? local('creator')).replace(/\/$/, '');
 const API = (process.env.SCUTOONS_API ?? local('api', '/api')).replace(/\/$/, '');
-for (const url of [CREATOR, API]) {
+const VIEWER = (process.env.SCUTOONS_VIEWER ?? local('viewer')).replace(/\/$/, '');
+for (const url of [CREATOR, API, VIEWER]) {
 	if (!['localhost', '127.0.0.1'].includes(new URL(url).hostname)) {
 		console.error(`creator-collage-check: refusing ${url} – local dev stack only`);
 		process.exit(2);
@@ -193,6 +196,20 @@ async function turnTo(n) {
 	}
 	return false;
 }
+/** a score view's chrome under `root`: its size, its header, sheet (= Verovio's page) and footer heights in its own CSS
+ *  px, whether the Play label shows and whether the shown page fits its sheet (no scrolling) – null until a page is drawn */
+const chromeOf = (root) =>
+	`(() => { const v = document.querySelector('${root} [data-testid="score-view"]'); const [h, s, f, w] = ['header', '.sheet', 'footer', '.play .wide'].map((c) => v?.querySelector(c)); const leaf = v?.querySelector('.leaf:has(svg)'); if (!h || !s || !f || !w || !leaf) return null; return { width: v.offsetWidth, height: v.offsetHeight, header: h.offsetHeight, sheet: s.offsetHeight, footer: f.offsetHeight, label: getComputedStyle(w).display !== 'none', fits: leaf.scrollHeight <= leaf.clientHeight && leaf.clientWidth === leaf.offsetWidth }; })()`;
+/** the reader's own score view (the viewer's lab, plain look, the full score) on a screen of that size; a touch screen
+ *  = a coarse pointer (not `mobile`: that would widen the layout viewport to the lab page's own content) */
+async function readerChrome(width, height, touch) {
+	await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
+	await send('Emulation.setTouchEmulationEnabled', { enabled: touch, maxTouchPoints: touch ? 5 : 1 });
+	await send('Page.navigate', { url: `${VIEWER}/account/lab/score?score=cloud9-en&part=full&look=plain` });
+	await until('document.readyState === "complete"');
+	return until(chromeOf('body'), 40000);
+}
+const sameChrome = (a, b) => !!a && !!b && ['width', 'height', 'header', 'sheet', 'footer'].every((k) => Math.abs(a[k] - b[k]) <= 1) && a.label === b.label && a.fits && b.fits;
 /** a share of bright / dark pixels inside the middle of a box (a screenshot of it, device px = CSS px) */
 async function pixels(r) {
 	const inset = 0.25;
@@ -215,6 +232,9 @@ let saved = false;
 try {
 	await send('Runtime.enable');
 	await send('Page.enable');
+	// the reader's own score view first: what the stage's screens must equal
+	const reader = { phone: await readerChrome(390, 844, true), desktop: await readerChrome(1440, 810, false) };
+	await send('Emulation.setTouchEmulationEnabled', { enabled: false, maxTouchPoints: 1 });
 	await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
 	await go('/', 'true');
 	await js(`localStorage.clear(); localStorage.setItem('scutoons_session', ${JSON.stringify(token)}), true`);
@@ -232,6 +252,8 @@ try {
 	const ready = await until(`!!document.querySelector('${FRAME} .leaf svg') && !${q('stage-add-piece')}.disabled`, 40000);
 	const frame = await js(`(() => { const f = document.querySelector('${FRAME}'); const r = f.getBoundingClientRect(); return { w: f.offsetWidth, h: f.offsetHeight, shown: Math.round(r.width), screen: f.dataset.screen, crumbs: document.querySelector('nav[aria-label] ol, .crumbs')?.textContent ?? '' }; })()`);
 	check(ready && frame.screen === 'phone' && frame.w === 390 && frame.h === 844 && frame.shown > 100, `the stage: the score live in a phone screen (390 × 844, shown ${frame.shown} px wide)`, JSON.stringify(frame));
+	const phoneChrome = await until(chromeOf(FRAME), 10000);
+	check(sameChrome(phoneChrome, reader.phone), `the phone screen's score view = the reader's on a phone (header / sheet / footer ${phoneChrome?.header} / ${phoneChrome?.sheet} / ${phoneChrome?.footer} px, Play label ${phoneChrome?.label ? 'shown' : 'hidden'}, the page fits its sheet)`, JSON.stringify({ stage: phoneChrome, reader: reader.phone }));
 	await shot('phone');
 
 	// ── a shape: added in the middle of the page shown, dragged onto bar 10, staff 1 ──
@@ -280,6 +302,8 @@ try {
 	const desk = await js(`(() => { const f = document.querySelector('${FRAME}'); return [f.offsetWidth, f.offsetHeight]; })()`);
 	at = await onStaff(shape, BAR, 1);
 	check(at.ok && desk[0] === 1440 && desk[1] === 810, `Desktop (1440 × 810): still on bar ${BAR}, staff 1`, at.detail);
+	const deskChrome = await until(chromeOf(FRAME), 10000);
+	check(sameChrome(deskChrome, reader.desktop), `the desktop screen's score view = the reader's on a desktop (header / sheet / footer ${deskChrome?.header} / ${deskChrome?.sheet} / ${deskChrome?.footer} px, Play label ${deskChrome?.label ? 'shown' : 'hidden'}, the page fits its sheet)`, JSON.stringify({ stage: deskChrome, reader: reader.desktop }));
 	await shot('desktop');
 	for (const zoom of [45, 50]) {
 		await click(`${FRAME} [data-testid="score-zoom-in"]`);

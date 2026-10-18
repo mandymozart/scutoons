@@ -231,6 +231,7 @@ test('scoreOptions: a page of the sheet’s size, a look’s attributes kept and
 	const plain = scoreOptions(390, 700, 30, null, 16);
 	assert.equal(plain.pageWidth, 1300);
 	assert.equal(plain.pageHeight, 2333);
+	assert.equal(scoreOptions(390, 710, 30, null, 14).pageHeight, 2366, 'never over the sheet: 2367 units would draw 711px');
 	assert.equal(plain.scale, 30);
 	assert.equal(plain.adjustPageHeight, false);
 	assert.equal(plain.pageMarginTop, 40);

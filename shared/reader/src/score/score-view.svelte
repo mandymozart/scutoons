@@ -463,11 +463,13 @@
 		color: var(--ink);
 	}
 
-	/* the creator's score stage: inside its box, the blend group of its own */
+	/* the creator's score stage: inside its box, the blend group of its own; its labels go by its own width (the box is a
+	   simulated screen – the window's width is the creator's) */
 	.score-view.embedded {
 		position: absolute;
 		z-index: auto;
 		isolation: isolate;
+		container: score-view / inline-size;
 	}
 
 	header,
@@ -632,6 +634,12 @@
 	}
 
 	@media (max-width: 40rem) {
+		.score-view:not(.embedded) .wide {
+			display: none;
+		}
+	}
+
+	@container score-view (max-width: 40rem) {
 		.wide {
 			display: none;
 		}

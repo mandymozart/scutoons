@@ -28,7 +28,9 @@ export function stepZoom(zoom: number, by: number): number {
 
 /**
  * Verovio's options for a `w` × `h` (CSS px) page at `zoom` %: its page units at that scale are the sheet's pixels (its
- * tutorial's way to fit a page to a box). `remPx` = the root font size (a look's margins are in rem). A look's own
+ * tutorial's way to fit a page to a box) – rounded down: Verovio draws the page's SVG rounded up to whole pixels, so a
+ * page a fraction larger than the sheet stood 1px over it (a 710px phone sheet at 30 %: 2367 units = 711px) and the page
+ * scrolled by that pixel. `remPx` = the root font size (a look's margins are in rem). A look's own
  * `svgAdditionalAttribute` (note@pname …) is kept; the anchors' measure@n / staff@n are added.
  */
 export function scoreOptions(w: number, h: number, zoom: number, look: ScoreLook | null | undefined, remPx: number): Record<string, unknown> {
@@ -36,8 +38,8 @@ export function scoreOptions(w: number, h: number, zoom: number, look: ScoreLook
 	const attributes = [...new Set([...(Array.isArray(own) ? (own as string[]) : []), ...ANCHOR_ATTRIBUTES])];
 	return {
 		...look?.options,
-		pageWidth: Math.round((w * 100) / zoom),
-		pageHeight: Math.round((h * 100) / zoom),
+		pageWidth: Math.floor((w * 100) / zoom),
+		pageHeight: Math.floor((h * 100) / zoom),
 		scale: zoom,
 		adjustPageHeight: false,
 		breaks: 'auto',
