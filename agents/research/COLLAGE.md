@@ -1,4 +1,4 @@
-Status: decided design 2026-10-18 (judged "simplest that works" + grafts) – build plan §8 for the night of 2026-10-18; owner questions §10 open, the build uses their defaults; §8 steps 1–2 built (model, renderer + viewer), 3–7 open.
+Status: decided design 2026-10-18 (judged "simplest that works" + grafts) – build plan §8 for the night of 2026-10-18; owner questions §10 open, the build uses their defaults; §8 steps 1–3 built (model, renderer + viewer, picker + inspector – not wired into a host yet), 4–7 open.
 
 # COLLAGE – pieces (vectors, characters, images) on slices and scores
 
@@ -150,6 +150,7 @@ Creator `PickerSheet` (Sheet right, widthKey `picker`), Tabs **Shapes · Charact
 - Shapes (`shape-grid.svelte`, list cached in `lib/editor/shapes.svelte.ts`): `assetsApi.list({ kind: 'shape', folder: 'catpope', page_size: 500 })` once per session; `.sc-picker-filters` = search (title, slug, tags) + a tag select by frequency (tags, not classes); `.sc-cards` with `gridArrows`, checker background, mask shapes as an ink silhouette; a whole-tab empty library = one `.sc-empty` line. This is VECTORS §6 step 8's Shapes picker.
 - Characters: `character-picker-sheet.svelte`'s body **moved** into `characters/character-grid.svelte` (the sheet = PickerSheet + CharacterGrid, same API for cast-editor and character-ref-field). A mood cell resolves `characterImage(char, { persona, look, mood }, 'portrait')`; the view is the inspector's Picture row.
 - Returns `PickedPiece { src /* CDN root */; ratio?; figure?; name }` – ratio from AssetSummary width / height, else `imageRatio(url)` (decode). The host converts the path (slices `toonAssetRef`, scores as is).
+- Built 2026-10-18 (step 3): `lib/editor/collage-pick.ts` holds `PickedPiece`, `shapePick` / `imagePick` (the WebP rendition of a PNG / JPEG), `shapeTags` / `filterShapes`, `imageRatio` and `pickedToPiece(picked, toon, place)` (toon '' = a score's root path); a one-colour shape shows as `filter: brightness(0)` on its lazy `<img>` (masks don't load lazily); **Image …** sits behind the tabs (Tabs `after`), so both tabs reach it; a character pick never adds to the cast.
 
 ## 6. Rendering – `shared/reader/src/collage/collage-piece.svelte` (`CollagePieceView`, props `piece, src, left, top, width, z?`), builders in `collage-css.ts` (tested). No inline SVG: no `{@html}`, no id collisions, nothing to sanitise.
 ```
@@ -191,6 +192,8 @@ Props `doc, path, host: 'slice' | 'score', registry, moods, onremove`. Like the 
 | Blur | ScrubNumber icon `blur` % · Segmented square even `circle` / ramp `gradient` · ramp: PointsField = lines [X1 · Y1] [X2 · Y2] (+ the canvas dots on slices) |
 
 New icons in `shared/ui/src/icons-extra.ts` (Feather manner, 24 grid, strokes): `blend`, `gradient`, `shadow`, `blur`. GradientField / PointsField live in the creator (one user); they move to @scutoons/ui when a second inspector needs them.
+
+Built 2026-10-18 (step 3): the edits in `lib/editor/collage-edit.ts` – `setPreset`, `setPlain` (blend, opacity), `setEffect` (a whole value; clearing = `null` when the look has the key, else no key; an emptied `style` goes), `editEffect` (copy-on-write of the drawn effect, else `EFFECT_DEFAULTS`), `setBlurRamp`, `setFigure`, `layerRows` / `canMoveLayerRow` / `moveLayerRows`; words in `collage-words.ts`. The effect fields show the piece **as drawn** (`pieceStyle`) as their value, not as a placeholder – so a look's outline / shadow can be cleared (→ `null`); plain fields keep own value + the look's placeholder. The head names a character by name · mood. Side labels Over / Behind (the long words as tooltips). Slice pieces' AnchorField needs the canvas' drawn height (step 4 `canvas-pieces.ts` writes `drawnHeights`).
 
 ## 8. Build plan for tonight
 Order core → slices → scores: the shared model, renderer, picker and inspector are ~60 % of the work and the slice editor (selection, handles, undo, Layers, phone sheet, Reader dock) proves them fastest; the stage is built on finished parts. **Timebox:** step 5 starts by ~55 % of the night whatever state step 4 is in. **Cut order:** blur dots on the canvas → Shift+V → Image … hand-off → the stage's scale handle. Commit each step on main with its own paths only, no Claude attribution line (workspace CLAUDE.md), never push; leave other sessions' files alone (logs/, tools/sketch3d/, storyboards/…, anything the vector session touches: score-riot, the lab page, VECTORS.md, ASSETS.md, vectors scripts).

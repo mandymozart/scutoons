@@ -16,5 +16,11 @@ export const EXTRA_ICONS: Record<string, { contents: string }> = {
 	'fit-height': { contents: '<line x1="6" y1="2" x2="18" y2="2"/><line x1="6" y1="22" x2="18" y2="22"/><line x1="12" y1="6" x2="12" y2="18"/><polyline points="9 9 12 6 15 9"/><polyline points="9 15 12 18 15 15"/>' },
 	'fit-fixed': { contents: '<rect x="3" y="3" width="18" height="18"/><line x1="7" y1="10" x2="17" y2="10"/><line x1="7" y1="14" x2="14" y2="14"/>' },
 	// outline width: a ring around a box
-	'outline-width': { contents: '<rect x="3" y="3" width="18" height="18"/><rect x="8" y="8" width="8" height="8"/>' }
+	'outline-width': { contents: '<rect x="3" y="3" width="18" height="18"/><rect x="8" y="8" width="8" height="8"/>' },
+	// collage pieces (agents/research/COLLAGE.md §7): blend = two overlapping circles, gradient = a box with lines growing
+	// denser, shadow = a box with its offset shadow edge, blur = a disc in a dotted halo
+	blend: { contents: '<circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/>' },
+	gradient: { contents: '<rect x="3" y="3" width="18" height="18"/><line x1="10" y1="3" x2="10" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="18.5" y1="3" x2="18.5" y2="21"/>' },
+	shadow: { contents: '<rect x="3" y="3" width="14" height="14"/><polyline points="21 7 21 21 7 21"/>' },
+	blur: { contents: '<circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="9" stroke-dasharray="0.1 5.555"/>' }
 };

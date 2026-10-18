@@ -1,0 +1,163 @@
+<script lang="ts">
+	import { ColorField, PropRow, PropSelect, ScrubNumber, Segmented } from '@scutoons/ui';
+	import { BLEND_MODES, pieceStyle, round2, type CollagePiece, type PieceGradient } from '@scutoons/content';
+	import { editEffect, setBlurRamp, setEffect, setPlain, RAMP_POINTS } from '$lib/editor/collage-edit.ts';
+	import { blendLabel } from '$lib/editor/collage-words.ts';
+	import GradientField from '$lib/components/collage/gradient-field.svelte';
+	import PointsField from '$lib/components/collage/points-field.svelte';
+	import { m } from '$lib/paraglide/messages.js';
+
+	/**
+	 * A piece's colouration fields (research/COLLAGE.md §7): blend + opacity, fill (none / colour / gradient), outline,
+	 * shadow, blur (even or a ramp between two points). The fields show the piece as drawn (`pieceStyle`: its look under
+	 * its own values); a change makes that key the piece's own (collage-edit.ts – copy-on-write), clearing an effect
+	 * turns it off. Lengths are % of the piece's width (the same look at every size).
+	 */
+	let { piece, change }: { piece: CollagePiece; change: (edit: (piece: CollagePiece) => void, key: string) => void } = $props();
+
+	const style = $derived(pieceStyle(piece));
+	/** the look's values alone (the plain fields' placeholders) */
+	const look = $derived(pieceStyle({ preset: piece.preset }));
+	const fill = $derived(style.fill);
+	const fillKind = $derived(fill === undefined ? 'none' : typeof fill === 'string' ? 'color' : 'gradient');
+	const INK = '#111111';
+
+	function setFill(kind: string) {
+		if (kind === 'none') return change((p) => setEffect(p, 'fill', undefined), 'fill');
+		const from = typeof fill === 'string' ? fill : (fill?.stops?.[0]?.color ?? INK);
+		const next: string | PieceGradient = kind === 'color' ? from : { stops: [{ at: 0, color: from }, { at: 100, color: '#ffffff' }] };
+		change((p) => setEffect(p, 'fill', next), 'fill');
+	}
+</script>
+
+<PropRow label={m['creator.piece_blend']()} testid="piece-blend-row">
+	<PropSelect
+		icon="blend"
+		label={m['creator.piece_blend']()}
+		value={piece.style?.blend}
+		options={BLEND_MODES.map((b) => ({ value: b, label: blendLabel(b) }))}
+		placeholder={blendLabel(look.blend ?? 'normal')}
+		onchange={(v) => change((p) => setPlain(p, 'blend', v), 'blend')}
+		testid="piece-blend"
+	/>
+	<ScrubNumber
+		icon="eye"
+		label={m['creator.piece_opacity']()}
+		unit="%"
+		step={1}
+		min={0}
+		max={100}
+		value={piece.style?.opacity === undefined ? undefined : round2(piece.style.opacity * 100)}
+		placeholder={String(round2((look.opacity ?? 1) * 100))}
+		onchange={(v) => change((p) => setPlain(p, 'opacity', v === undefined ? undefined : Math.round(v * 100) / 10000), 'opacity')}
+		testid="piece-opacity"
+	/>
+</PropRow>
+
+<PropRow label={m['creator.piece_fill']()} testid="piece-fill-row">
+	<Segmented
+		label={m['creator.piece_fill']()}
+		square
+		value={fillKind}
+		onchange={setFill}
+		options={[
+			{ value: 'none', icon: 'slash', title: m['creator.piece_fill_none'](), testid: 'piece-fill-none' },
+			{ value: 'color', icon: 'droplet', title: m['creator.piece_fill_color'](), testid: 'piece-fill-color' },
+			{ value: 'gradient', icon: 'gradient', title: m['creator.piece_fill_gradient'](), testid: 'piece-fill-gradient' }
+		]}
+		testid="piece-fill"
+	/>
+	{#if typeof fill === 'string'}
+		<span data-prop-line>
+			<ColorField label={m['creator.piece_fill_color']()} value={fill} onchange={(v) => change((p) => setEffect(p, 'fill', v), 'fill.color')} testid="piece-fill-value" />
+		</span>
+	{:else if fill}
+		<GradientField value={fill} onchange={(g) => change((p) => setEffect(p, 'fill', g), 'fill.gradient')} />
+	{/if}
+</PropRow>
+
+<PropRow label={m['creator.text_outline']()} testid="piece-outline-row">
+	<ColorField
+		label={m['creator.text_outline']()}
+		value={style.outline?.color}
+		placeholder={m['creator.text_outline_none']()}
+		onchange={(v) => change((p) => (v ? editEffect(p, 'outline', { color: v }) : setEffect(p, 'outline', undefined)), 'outline.color')}
+		testid="piece-outline"
+	/>
+	{#if style.outline}
+		<ScrubNumber icon="outline-width" label={m['creator.piece_outline_width']()} unit="%" step={0.1} min={0} value={style.outline.width} required onchange={(v) => change((p) => editEffect(p, 'outline', { width: v ?? 0 }), 'outline.width')} testid="piece-outline-width" />
+	{/if}
+</PropRow>
+
+<PropRow label={m['creator.piece_shadow']()} testid="piece-shadow-row">
+	<ColorField
+		label={m['creator.piece_shadow']()}
+		value={style.shadow?.color}
+		placeholder={m['creator.text_outline_none']()}
+		onchange={(v) => change((p) => (v ? editEffect(p, 'shadow', { color: v }) : setEffect(p, 'shadow', undefined)), 'shadow.color')}
+		testid="piece-shadow"
+	/>
+	{#if style.shadow}
+		{@const shadow = style.shadow}
+		<ScrubNumber
+			icon="eye"
+			label={m['creator.piece_shadow_opacity']()}
+			unit="%"
+			step={1}
+			min={0}
+			max={100}
+			value={shadow.opacity === undefined ? undefined : round2(shadow.opacity * 100)}
+			placeholder="100"
+			onchange={(v) => change((p) => editEffect(p, 'shadow', { opacity: v === undefined ? undefined : Math.round(v * 100) / 10000 }), 'shadow.opacity')}
+			testid="piece-shadow-opacity"
+		/>
+		<span class="line" data-prop-line>
+			<ScrubNumber tag="X" label={m['creator.piece_shadow_x']()} unit="%" step={0.1} value={shadow.x} required onchange={(v) => change((p) => editEffect(p, 'shadow', { x: v ?? 0 }), 'shadow.x')} testid="piece-shadow-x" />
+			<ScrubNumber tag="Y" label={m['creator.piece_shadow_y']()} unit="%" step={0.1} value={shadow.y} required onchange={(v) => change((p) => editEffect(p, 'shadow', { y: v ?? 0 }), 'shadow.y')} testid="piece-shadow-y" />
+			<ScrubNumber icon="blur" label={m['creator.piece_shadow_blur']()} unit="%" step={0.1} min={0} value={shadow.blur} required onchange={(v) => change((p) => editEffect(p, 'shadow', { blur: v ?? 0 }), 'shadow.blur')} testid="piece-shadow-blur" />
+		</span>
+	{/if}
+</PropRow>
+
+<PropRow label={m['creator.piece_blur']()} testid="piece-blur-row">
+	<ScrubNumber
+		icon="blur"
+		label={m['creator.piece_blur']()}
+		unit="%"
+		step={0.1}
+		min={0}
+		value={style.blur?.amount}
+		placeholder="0"
+		onchange={(v) => change((p) => (v === undefined ? setEffect(p, 'blur', undefined) : editEffect(p, 'blur', { amount: v })), 'blur.amount')}
+		testid="piece-blur"
+	/>
+	{#if style.blur}
+		{@const blur = style.blur}
+		<Segmented
+			label={m['creator.piece_blur_kind']()}
+			square
+			value={blur.from && blur.to ? 'ramp' : 'even'}
+			onchange={(k) => change((p) => setBlurRamp(p, k === 'ramp'), 'blur.kind')}
+			options={[
+				{ value: 'even', icon: 'circle', title: m['creator.piece_blur_even'](), testid: 'piece-blur-even' },
+				{ value: 'ramp', icon: 'gradient', title: m['creator.piece_blur_ramp'](), testid: 'piece-blur-ramp' }
+			]}
+			testid="piece-blur-kind"
+		/>
+		{#if blur.from && blur.to}
+			<PointsField from={blur.from ?? RAMP_POINTS.from} to={blur.to ?? RAMP_POINTS.to} onchange={(from, to) => change((p) => editEffect(p, 'blur', { from, to }), 'blur.points')} />
+		{/if}
+	{/if}
+</PropRow>
+
+<style>
+	.line {
+		display: flex;
+		gap: var(--space-025);
+		min-width: 0;
+	}
+	.line > :global(*) {
+		flex: 1 1 0;
+		min-width: 0;
+	}
+</style>
