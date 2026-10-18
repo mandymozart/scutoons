@@ -183,18 +183,46 @@ export function canMoveLayerRow(rows: readonly SliceLayerRef[], from: number, to
 
 /**
  * Moves a row of the layer list (`layerRows` order): piece ↔ piece reorders `pieces[]` (back → front), stack ↔ stack
- * renumbers the stack (`setSliceLayers`); a move across is refused (false, nothing changed)
+ * renumbers the stack (`setSliceLayers`). Answers where each piece went – `moved[old] = new`, the same index when the
+ * stack moved – so the selected piece stays selected (`followPieces`); null = a move across, refused, nothing changed
  */
-export function moveLayerRows(slice: any, from: number, to: number): boolean {
+export function moveLayerRows(slice: any, from: number, to: number): number[] | null {
 	const rows = layerRows(slice);
-	if (!slice || !canMoveLayerRow(rows, from, to)) return false;
+	if (!slice || !canMoveLayerRow(rows, from, to)) return null;
 	const [row] = rows.splice(from, 1);
 	rows.splice(to, 0, row);
-	if (row.kind === 'piece') {
-		const pieces = [...(slice.pieces ?? [])];
-		slice.pieces = rows.filter((r) => r.kind === 'piece').reverse().map((r) => pieces[r.index]);
-	} else setSliceLayers(slice, rows.filter((r) => r.kind !== 'piece').reverse());
-	return true;
+	const pieces: unknown[] = [...(slice.pieces ?? [])];
+	if (row.kind !== 'piece') {
+		setSliceLayers(slice, rows.filter((r) => r.kind !== 'piece').reverse());
+		return pieces.map((_, i) => i);
+	}
+	// back → front: the piece that is now at `next` was at `old`
+	const order = rows.filter((r) => r.kind === 'piece').reverse().map((r) => r.index);
+	slice.pieces = order.map((old) => pieces[old]);
+	const moved: number[] = [];
+	order.forEach((old, next) => (moved[old] = next));
+	return moved;
+}
+
+/**
+ * Where each piece of `before` is in `after` by its id (-1 = gone; a piece without an id keeps its index while there is
+ * one) – an undo / redo may put the pieces back in another order (a reorder) or take one away (an add)
+ */
+export function piecesMoved(before: unknown, after: unknown): number[] {
+	const ids = (list: unknown) => (Array.isArray(list) ? list.map((p) => (p && typeof p === 'object' ? (p as CollagePiece).id : undefined)) : []);
+	const next = ids(after);
+	return ids(before).map((id, i) => (typeof id === 'string' && id ? next.indexOf(id) : i < next.length ? i : -1));
+}
+
+/**
+ * The canvas selection after the pieces moved (`moveLayerRows`, `piecesMoved`): a selected piece goes where its piece
+ * went, a gone one is let go (null); another kind – or a piece that stayed – is the same selection
+ */
+export function followPieces<S extends { kind: string; index: number }>(selection: S | null, moved: readonly number[]): S | null {
+	if (selection?.kind !== 'piece') return selection;
+	const next = moved[selection.index];
+	if (next === undefined || next === selection.index) return selection;
+	return next < 0 ? null : { ...selection, index: next };
 }
 
 /** the piece at `path` of a document (`[...slicePath, 'pieces', i]`) – for edits in `doc.edit` */

@@ -7,7 +7,7 @@
 	import type { ChapterView } from '$lib/editor/chapter-state.svelte.ts';
 	import { triggerWord } from '$lib/editor/vn-forms.ts';
 	import { itemCatalog, itemName } from '$lib/editor/catalog.svelte.ts';
-	import { canMoveLayerRow, layerRows, moveLayerRows } from '$lib/editor/collage-edit.ts';
+	import { canMoveLayerRow, followPieces, layerRows, moveLayerRows } from '$lib/editor/collage-edit.ts';
 	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { toast } from '$lib/toasts.ts';
 
@@ -97,13 +97,19 @@
 	const firstPiece = $derived(rows.findIndex((r) => r.kind === 'piece'));
 	/** the row of the canvas selection (an event area: any of its events) */
 	const isSelected = (row: LayerRow) => view.selection?.kind === row.kind && (row.events ?? [row.index]).includes(view.selection.index);
-	/** a drag in the list (front first) within its side – one edit, one undo step; across = a hint, nothing changes */
+	/**
+	 * a drag in the list (front first) within its side – one edit, one undo step; across = a hint, nothing changes. The
+	 * pieces' reorder renumbers `pieces[]`: the selected piece goes with its piece (the stack keeps its indices)
+	 */
 	function moveLayer(from: number, to: number) {
 		if (!canMoveLayerRow(layerRows(slice), from, to)) {
 			if (from !== to) toast(m['creator.layers_pieces_under'](), { type: 'info' });
 			return;
 		}
-		doc.edit((file) => void moveLayerRows(getAt(file, slicePath), from, to));
+		doc.edit((file) => {
+			const moved = moveLayerRows(getAt(file, slicePath), from, to);
+			if (moved) view.selection = followPieces(view.selection, moved);
+		});
 	}
 	/** the row's button testid (the text box / item ones as before) */
 	const rowTestid = (row: LayerRow) =>

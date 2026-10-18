@@ -35,7 +35,8 @@
 //            chapter's content has errors, the "Publish anyway?" step comes first: the run prints them and goes on)
 //   pieces:  the collage piece tool (research/COLLAGE.md §3): scissors → a click → the picker → a shape on the picture,
 //            the look Negative = the picture's negative there (a pixel), the Fade ramp opaque in its middle, the ramp's
-//            dot, one undo per step, Ctrl+C / Ctrl+V, Layers (pieces under the stack), Delete; saved with the draft
+//            dot, one undo per step, Ctrl+C / Ctrl+V, Layers (pieces under the stack; a reorder, its undo / redo keep the
+//            moved piece selected), Delete; saved with the draft
 //   VN:      a scene with a group script + slice events (catpope's, else the sandbox's): each event type's line opens its form (+ "Only if"); "+ setVariable" adds one, open,
 //            the cursor in it; "+ event" on the chapter's slice adds one line; a slice event has its trigger (never saved)
 // Afterwards every entity the run changed is restored (content as before, published again if it was), also on failure.
@@ -375,8 +376,9 @@ const layerTestids = () => js(`[...document.querySelectorAll('[data-testid="laye
  * The piece tool on the open slice: scissors → a click → the picker → a shape (disc-black) → it lies on the picture,
  * under the lettering, centred at the click; the look Negative blends it (difference – the picture's negative there);
  * the look Fade's ramp keeps the disc opaque in its middle; the ramp's dot moves its end; one undo per step back to no
- * piece (and redo); Ctrl+C / Ctrl+V = a second piece with a new id, an offset; Layers: pieces reorder among themselves,
- * never above the stack; Delete removes the selected one. Leaves the two new pieces on the slice (unsaved).
+ * piece (and redo); Ctrl+C / Ctrl+V = a second piece with a new id, an offset; Layers: pieces reorder among themselves
+ * (the selected piece stays selected – through undo / redo too), never above the stack; Delete removes the selected one.
+ * Leaves the two new pieces on the slice (unsaved).
  */
 async function pieceCase() {
 	const n0 = await pieceCount();
@@ -469,12 +471,28 @@ async function pieceCase() {
 
 	// Layers: the pieces reorder among themselves, never above the stack
 	const before = await pieceIds();
+	// the selected (pasted, front) piece is the one that moves: its box, its row and the inspector go with it
+	const movedId = before[n0 + 1];
+	const selectedPiece = () =>
+		js(`({ ids: [...document.querySelectorAll(${JSON.stringify(PIECES)})].map((p) => p.dataset.piece), boxes: [...document.querySelectorAll('[data-testid="slice-canvas"] .box.selected')].map((b) => b.dataset.testid), rows: [...document.querySelectorAll('[data-testid="layers"] > li.sc-selected')].map((li) => li.dataset.testid), inspector: ${q('piece-inspector')}?.dataset.piece ?? null })`);
+	/** the piece `id` is the selected one: the one selected box and row at its index, the inspector on it */
+	const follows = (s, id) => {
+		const at = s.ids.indexOf(id);
+		return at >= 0 && JSON.stringify(s.boxes) === JSON.stringify([`box-piece-${at}`]) && JSON.stringify(s.rows) === JSON.stringify([`layer-piece-${at}`]) && s.inspector === id;
+	};
 	await js(`document.querySelector('[data-testid="layer-piece-${n0 + 1}"] [data-sort-grip]').focus()`);
 	await press('ArrowDown', 'alt');
 	const swapped = await pieceIds();
 	check(JSON.stringify(swapped.slice(n0)) === JSON.stringify([...before.slice(n0)].reverse()), 'pieces: Alt+ArrowDown on the front piece row puts it behind the other piece', JSON.stringify({ before, swapped }));
+	const s1 = await selectedPiece();
+	check(s1.ids[n0] === movedId && follows(s1, movedId), 'pieces: the moved piece stays selected after the reorder – its box, its row, the inspector', JSON.stringify({ movedId, ...s1 }));
 	await press('z', 'ctrl');
-	check(JSON.stringify(await pieceIds()) === JSON.stringify(before), 'pieces: one undo brings the order back');
+	const s2 = await selectedPiece();
+	check(JSON.stringify(s2.ids) === JSON.stringify(before) && follows(s2, movedId), 'pieces: one undo brings the order back – the piece stays selected', JSON.stringify({ movedId, ...s2 }));
+	await press('z', 'ctrl', 'shift');
+	const s3 = await selectedPiece();
+	check(JSON.stringify(s3.ids) === JSON.stringify(swapped) && follows(s3, movedId), 'pieces: redo moves it behind again – still selected', JSON.stringify({ movedId, ...s3 }));
+	await press('z', 'ctrl');
 	if (!(await layerTestids()).some((r) => !r.startsWith('layer-piece-'))) {
 		// a slice without text boxes / items: one text box to be above
 		await click(tid('add-text'));

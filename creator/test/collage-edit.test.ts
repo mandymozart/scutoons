@@ -7,8 +7,10 @@ import {
 	canMoveLayerRow,
 	editEffect,
 	figurePath,
+	followPieces,
 	layerRows,
 	moveLayerRows,
+	piecesMoved,
 	setBlurRamp,
 	setEffect,
 	setEffectColor,
@@ -227,12 +229,40 @@ test('moveLayerRows refuses piece ↔ stack and reorders within the pieces and w
 	const rows = layerRows(slice);
 	assert.deepEqual(rows.map((r) => `${r.kind}:${r.index}`), ['dialog:1', 'dialog:0', 'piece:1', 'piece:0'], 'front first, the pieces at the bottom');
 	assert.equal(canMoveLayerRow(rows, 1, 2), false);
-	assert.equal(moveLayerRows(slice, 2, 1), false, 'a piece never goes over a text box');
-	assert.equal(moveLayerRows(slice, 0, 3), false, 'a text box never goes under a piece');
+	assert.equal(moveLayerRows(slice, 2, 1), null, 'a piece never goes over a text box');
+	assert.equal(moveLayerRows(slice, 0, 3), null, 'a text box never goes under a piece');
 	assert.equal(slice.dialog[0].layer, undefined, 'a refused move changes nothing');
-	assert.equal(moveLayerRows(slice, 2, 3), true);
+	assert.deepEqual(moveLayerRows(slice, 2, 3), [1, 0], 'where each piece went (old → new)');
 	assert.deepEqual(slice.pieces.map((p: CollagePiece) => p.id), ['front', 'back'], 'the front piece goes to the back');
 	assert.equal(slice.pieces[0].layer, undefined, 'pieces carry no layer');
-	assert.equal(moveLayerRows(slice, 1, 0), true);
+	assert.deepEqual(moveLayerRows(slice, 1, 0), [0, 1], 'a stack move leaves the pieces where they are');
 	assert.deepEqual([slice.dialog[0].layer, slice.dialog[1].layer], [1, 0], 'the stack is renumbered');
+});
+
+test('the selected piece follows its piece through a Layers reorder and an undo / redo', () => {
+	const ids = (s: any) => s.pieces.map((p: CollagePiece) => p.id);
+	const slice: any = { dialog: [{ id: 'd0' }], pieces: ['a', 'b', 'c'].map((id) => piece({ id })) };
+	// rows front first: dialog:0, piece:2 (c), piece:1 (b), piece:0 (a) – the back piece a one row up (in front of b)
+	const before = [...slice.pieces];
+	const moved = moveLayerRows(slice, 3, 2)!;
+	assert.deepEqual(ids(slice), ['b', 'a', 'c']);
+	assert.deepEqual(moved, [1, 0, 2]);
+	assert.deepEqual(followPieces({ kind: 'piece', index: 0 }, moved), { kind: 'piece', index: 1 }, 'the moved (selected) piece stays selected');
+	assert.deepEqual(followPieces({ kind: 'piece', index: 1 }, moved), { kind: 'piece', index: 0 }, 'a selected piece the move pushed aside too');
+	const still = { kind: 'piece', index: 2 };
+	assert.equal(followPieces(still, moved), still, 'a piece that stayed: the same selection');
+	const text = { kind: 'dialog', index: 0 };
+	assert.equal(followPieces(text, moved), text, 'a text box: as it is');
+	assert.equal(followPieces(null, moved), null);
+	// a front piece moved to the back over two rows: c is now first
+	const far = moveLayerRows(slice, 1, 3)!;
+	assert.deepEqual(ids(slice), ['c', 'b', 'a']);
+	assert.deepEqual(followPieces({ kind: 'piece', index: 2 }, far), { kind: 'piece', index: 0 });
+	// an undo puts the list back (another array, by id); an undo of an add takes the selected piece away
+	assert.deepEqual(piecesMoved(slice.pieces, before), [2, 1, 0]);
+	assert.deepEqual(followPieces({ kind: 'piece', index: 0 }, piecesMoved(slice.pieces, before)), { kind: 'piece', index: 2 }, 'undo: c stays selected');
+	const added = [...before, piece({ id: 'd' })];
+	assert.equal(followPieces({ kind: 'piece', index: 3 }, piecesMoved(added, before)), null, 'undo of an add: the piece is gone, let go');
+	assert.deepEqual(piecesMoved([{ src: 'x' }, piece({ id: 'b' })], [{ src: 'x' }]), [0, -1], 'no id: its index while there is one');
+	assert.deepEqual(piecesMoved(undefined, before), []);
 });

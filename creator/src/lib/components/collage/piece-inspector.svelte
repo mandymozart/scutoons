@@ -122,7 +122,7 @@
 </script>
 
 {#if piece}
-	<div class="inspector" data-testid="piece-inspector">
+	<div class="inspector" data-testid="piece-inspector" data-piece={piece.id}>
 		<div class="row head">
 			<h3>{pieceKindLabel(piece)} · {name}</h3>
 			{#if onremove}<button class="secondary" onclick={onremove} data-testid="piece-remove">{m['creator.remove']()}</button>{/if}

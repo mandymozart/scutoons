@@ -42,6 +42,7 @@
 	import SliceCanvas, { type Tool } from '$lib/components/slice/slice-canvas.svelte';
 	import { piecePlace } from '$lib/editor/canvas-pieces.ts';
 	import type { PickedPiece } from '$lib/editor/collage-pick.ts';
+	import { followPieces, piecesMoved } from '$lib/editor/collage-edit.ts';
 	import { legacyTextCount, legacyPlan, applyLegacyPlan, type TextPreset } from '$lib/editor/text-presets.ts';
 	import { itemCatalog } from '$lib/editor/catalog.svelte.ts';
 	import { ChapterView, clampZoom, type InspectorTab, type Section } from '$lib/editor/chapter-state.svelte.ts';
@@ -472,13 +473,23 @@
 	);
 	let undoneDoc = $state<ContentDoc | null>(null);
 	const redoDoc = $derived<ContentDoc | null>(undoneDoc?.canRedo ? undoneDoc : activeDoc?.canRedo ? activeDoc : chapter.canRedo ? chapter : null);
+	/**
+	 * undo / redo may put the pieces back in another order (a Layers reorder) or take one away: the selected piece follows
+	 * its id (gone: let go) – the text boxes / items keep their indices (their order is `layer`)
+	 */
+	function keepPiece(step: () => void) {
+		// the list as it was: undo / redo replace the document, they never change it in place
+		const before = view.selection?.kind === 'piece' ? activeSlice?.pieces : undefined;
+		step();
+		if (before) view.selection = followPieces(view.selection, piecesMoved(before, activeSlice?.pieces));
+	}
 	function undoLast() {
 		const d = undoDoc;
 		if (!d) return;
-		d.undo();
+		keepPiece(() => d.undo());
 		undoneDoc = d;
 	}
-	const redoLast = () => redoDoc?.redo();
+	const redoLast = () => keepPiece(() => redoDoc?.redo());
 	const groupPath = $derived<Path>(refSrc ? [] : ['groups', view.groupIndex]);
 	const slicePath = $derived<Path>([...groupPath, 'slices', view.sliceIndex]);
 	const activeGroup = $derived(activeDoc?.get(activeDoc.primary, groupPath));
