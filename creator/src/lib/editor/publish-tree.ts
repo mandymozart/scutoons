@@ -10,7 +10,9 @@
  * (POST /entities/publish): a route and the new place it runs through are never half published.
  *
  * Levels: everything (the platform: every toon + the world – map, characters, settings …) → a toon (all its files) → a
- * season (itself, its chapters and their scene files) → a chapter (itself and its scene files).
+ * season (itself, its chapters and their scene files) → a chapter (itself and its scene files). A toon, a season and a
+ * chapter also list the platform-wide files their pieces draw with (`PLATFORM_ALONG`: the custom collage presets –
+ * research/COLLAGE.md §12.4), so no level ships pieces whose preset is still a draft.
  *
  * Catalog entries (`item:<id>` …, agents/CATALOG-IN-CREATOR.md) are files of the world level (no toon in their key):
  * the server decides who publishes them (their toon is the entry's; a physical change needs the `physical` rule) –
@@ -32,11 +34,18 @@ export type PublishScope =
 	| { kind: 'season'; toon: string; number: number; chapters: number[] }
 	| { kind: 'chapter'; toon: string; number: number };
 
+/** the platform-wide files a toon's, a season's and a chapter's list offer too (their pieces name them) */
+export const PLATFORM_ALONG: readonly string[] = ['colorations'];
+/** the levels that list them */
+const alongWith = (scope: PublishScope): scope is Extract<PublishScope, { kind: 'toon' | 'season' | 'chapter' }> =>
+	scope.kind === 'toon' || scope.kind === 'season' || scope.kind === 'chapter';
+
 /** a stored file with a draft newer than what readers see – a newer version that equals the published one is none (owner D6) */
 const hasDraft = (e: ContentIndexEntity) => (e.published === null || e.latest > e.published) && !e.same_as_published;
 
 /** is a key below the level (or the level's own file)? */
 export function inScope(key: string, scope: PublishScope): boolean {
+	if (alongWith(scope) && PLATFORM_ALONG.includes(key)) return true;
 	const chapter = (t: string, n: number) => key === `chapter:${t}:${n}` || key.startsWith(`scene:${t}:${n}:`);
 	switch (scope.kind) {
 		case 'all':
@@ -56,7 +65,7 @@ export function inScope(key: string, scope: PublishScope): boolean {
  * the order in a list: the level's own files first, then down the tree; the catalog last, in the order its entries
  * refer to each other (an item names its edition / album, a product its item, a recipe its items)
  */
-const KIND_ORDER = ['toon', 'entry', 'season', 'chapter', 'scene', 'script', 'cast', 'credits', 'map', 'place', 'route', 'region', 'characters', 'character', 'edition', 'album', 'item', 'product', 'recipe'];
+const KIND_ORDER = ['toon', 'entry', 'season', 'chapter', 'scene', 'script', 'cast', 'credits', 'map', 'place', 'route', 'region', 'characters', 'character', 'colorations', 'edition', 'album', 'item', 'product', 'recipe'];
 const rank = (key: string) => {
 	const i = KIND_ORDER.indexOf(key.split(':')[0]);
 	return i < 0 ? KIND_ORDER.length : i;
@@ -80,7 +89,10 @@ function detail(e: ContentIndexEntity): string {
 /** the files with a draft at a level */
 export async function pendingFiles(scope: PublishScope): Promise<ContentIndexEntity[]> {
 	const toons = scope.kind === 'all' ? ['', ...scope.toons.map((t) => t.id)] : [scope.toon];
-	const lists = await Promise.all(toons.map((t) => contentIndex(t).then((r) => r.entities)));
+	// a toon's index holds only its own rows: `PLATFORM_ALONG` from the platform's – those keys alone (a platform key like
+	// `character:catpope` would pass a toon's test)
+	const along = alongWith(scope) && scope.toon ? contentIndex('').then((r) => r.entities.filter((e) => PLATFORM_ALONG.includes(e.key))) : [];
+	const lists = await Promise.all([...toons.map((t) => contentIndex(t).then((r) => r.entities)), along]);
 	return lists.flat().filter(hasDraft).filter((e) => inScope(e.key, scope)).sort(byTree);
 }
 
