@@ -38,6 +38,8 @@ export function clipWhat(clip: Pick<Clip, 'kind' | 'entries'>): string {
 			return m['creator.clip_what_dialog']();
 		case 'item':
 			return m['creator.clip_what_item']();
+		case 'piece':
+			return m['creator.clip_what_piece']();
 		case 'sample':
 			return m['creator.clip_what_sample']();
 		case 'event':
@@ -54,7 +56,7 @@ export function clipWhat(clip: Pick<Clip, 'kind' | 'entries'>): string {
 /** "Pasted: text box" (+ " – uses 2 files from catpope" across toons: they are referenced, never copied) */
 export function pastedMessage(clip: Clip, toon: string, settings = false, what = clipWhat(clip)): string {
 	const message = settings ? m['creator.clip_pasted_settings']({ what }) : m['creator.clip_pasted']({ what });
-	const files = foreignFiles(clip.entries, clip.sounds, clip.toon, toon);
+	const files = foreignFiles(clip.entries, clip.sounds, clip.toon, toon, clip.kind);
 	return files ? m['creator.clip_foreign_files']({ message, count: files, toon: clip.toon }) : message;
 }
 

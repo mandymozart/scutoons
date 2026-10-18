@@ -3,9 +3,13 @@
 // the tree, the canvas, the inspector and the keyboard all write it (the ⚠ of 4.3 step 12).
 import type { CanvasSelection, Tool } from '$lib/components/slice/slice-canvas.svelte';
 import { loadCatalog } from '$lib/editor/catalog.svelte.ts';
+import { piecePlace, type PiecePlace } from '$lib/editor/canvas-pieces.ts';
 
 export type Section = 'meta' | 'audio' | 'group' | 'slice';
-/** `layers` = the slice's one layer stack: text boxes + placed items (BACKLOG 10.43) + click / hover areas (10.54) */
+/**
+ * `layers` = the slice's one layer stack: text boxes + placed items (BACKLOG 10.43) + click / hover areas (10.54), and
+ * under them the collage pieces (research/COLLAGE.md §3)
+ */
 export type InspectorTab = 'layers' | 'slice' | 'audio' | 'events';
 
 /** px of the slice's 1x size; 30 = the default (owner 2026-10-03), 15 the slices' base grid (390 = 26 × 15) */
@@ -24,10 +28,13 @@ export const clampZoom = (z: number) => Math.round(Math.min(ZOOM_MAX, Math.max(Z
 // on that tab's kinds (a full-slice event no longer covers the texts). The Layers tab holds text boxes AND placed items
 // (BACKLOG 10.43): both tools open it; it keeps the one of the two that is picked (else text). Its stack also holds the
 // click / hover areas of events and samples (10.54) – edited in their own tabs, but selectable and in pointer order here
-// (the canvas lets only the areas of the stack take the pointer on this tab)
+// (the canvas lets only the areas of the stack take the pointer on this tab). The piece tool (COLLAGE.md §3) opens it too:
+// collage pieces lie under the stack, in the same list
 const TAB_TOOL: Partial<Record<InspectorTab, Tool>> = { layers: 'text', audio: 'sample', events: 'event' };
-const TOOL_TAB: Record<Tool, InspectorTab> = { text: 'layers', item: 'layers', sample: 'audio', event: 'events' };
-const KINDS: Partial<Record<InspectorTab, readonly CanvasSelection['kind'][]>> = { layers: ['dialog', 'item', 'event', 'sample'], audio: ['sample'], events: ['event'] };
+const TOOL_TAB: Record<Tool, InspectorTab> = { text: 'layers', item: 'layers', piece: 'layers', sample: 'audio', event: 'events' };
+const KINDS: Partial<Record<InspectorTab, readonly CanvasSelection['kind'][]>> = { layers: ['dialog', 'item', 'piece', 'event', 'sample'], audio: ['sample'], events: ['event'] };
+/** the tools of the Layers tab (it keeps the one that is picked) */
+const LAYER_TOOLS: readonly Tool[] = ['text', 'item', 'piece'];
 
 function readPref<T>(key: string, fallback: T, ok: (value: unknown) => boolean): T {
 	try {
@@ -62,6 +69,10 @@ export class ChapterView {
 	itemSpot = $state<{ x: number; y: number } | null>(null);
 	/** the item picker sheet is open */
 	pickingItem = $state(false);
+	/** the piece tool's click / drag (or "+ piece"): where the picked piece goes (canvas-pieces.ts) */
+	pieceSpot = $state<PiecePlace | null>(null);
+	/** the collage picker sheet is open (research/COLLAGE.md §5) */
+	pickingPiece = $state(false);
 	/** "+ Add text" shows the presets (owner 2026-10-03) */
 	pickingPreset = $state(false);
 
@@ -124,7 +135,7 @@ export class ChapterView {
 	select(next: CanvasSelection | null) {
 		this.selection = next;
 		if (next && KINDS[this.inspectorTab]?.includes(next.kind)) return;
-		if (next?.kind === 'dialog' || next?.kind === 'item') this.setTab('layers');
+		if (next?.kind === 'dialog' || next?.kind === 'item' || next?.kind === 'piece') this.setTab('layers');
 		else if (next?.kind === 'sample') this.setTab('audio');
 		else if (next?.kind === 'event') this.setTab('events');
 	}
@@ -133,7 +144,7 @@ export class ChapterView {
 		// a selection on another layer is let go (its handles would sit on a layer that no longer takes the pointer)
 		if (this.selection && !KINDS[next]?.includes(this.selection.kind)) this.selection = null;
 		if (next === 'layers') {
-			if (this.tool !== 'text' && this.tool !== 'item') this.tool = 'text';
+			if (!LAYER_TOOLS.includes(this.tool)) this.tool = 'text';
 			loadCatalog();
 		} else if (TAB_TOOL[next]) this.tool = TAB_TOOL[next]!;
 	}
@@ -145,5 +156,10 @@ export class ChapterView {
 	pickItem(spot: { x: number; y: number } | null = null) {
 		this.itemSpot = spot;
 		this.pickingItem = true;
+	}
+	/** the piece tool / "+ piece": the picker, then the piece at the spot (a click: centred; a drag: its rect; null: the middle) */
+	pickPiece(spot: { x: number; y: number; width?: number } | null = null) {
+		this.pieceSpot = piecePlace(spot);
+		this.pickingPiece = true;
 	}
 }

@@ -1,11 +1,13 @@
 // The chapter editor's slice edits (COMPONENTS.md step 12): add a text (with a preset's look), a box for an
-// showTextBox event, a placed item, a ⚡ event, a sample area, remove the selection. Each one is one edit of the
-// language-neutral document (texts start empty or in the source language) and answers what to select next.
+// showTextBox event, a placed item, a collage piece, a ⚡ event, a sample area, remove the selection. Each one is one
+// edit of the language-neutral document (texts start empty or in the source language) and answers what to select next.
 import { deleteAt, getAt, previewText, Trigger, TriggerMode, type Path } from '@scutoons/content';
 import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 import type { CanvasSelection } from '$lib/components/slice/slice-canvas.svelte';
 import { newDialog, nextDialogId } from '$lib/editor/defaults.ts';
-import { newPlacementId } from '$lib/editor/clip.ts';
+import { listAt, newPlacementId } from '$lib/editor/clip.ts';
+import { pickedToPiece, type PickedPiece } from '$lib/editor/collage-pick.ts';
+import type { PiecePlace } from '$lib/editor/canvas-pieces.ts';
 import { TEXT_PRESETS, applyTextPreset, type TextPreset } from '$lib/editor/text-presets.ts';
 import { m } from '$lib/paraglide/messages.js';
 
@@ -86,6 +88,22 @@ export function addSliceItem(t: SliceTarget, itemId: string, spot: { x: number; 
 }
 
 /**
+ * a collage piece from the picker (research/COLLAGE.md §3): its file in the toon's path form (`toonAssetRef`), a fresh
+ * `piece-<7 random>` id, at `place` (canvas-pieces.ts `piecePlace`); it lies on the picture, in front of the earlier pieces
+ */
+export function addPiece(t: SliceTarget, picked: PickedPiece, place: PiecePlace): CanvasSelection {
+	// the slice's own list (the resolved slice passes it through): its length before the push
+	const pieces: any[] = t.slice?.pieces ?? [];
+	const index = pieces.length;
+	const piece = pickedToPiece(picked, t.doc.toon, place, new Set(pieces.map((p) => p?.id)));
+	t.doc.edit((file) => {
+		const slice = getAt(file, t.slicePath);
+		if (slice) listAt(slice, ['pieces']).push(piece);
+	});
+	return { kind: 'piece', index };
+}
+
+/**
  * the ⚡ tool (owner 2026-10-03): a drawn area → a click event there; a plain click (no area) → a whole-slice event
  * that fires when the slice scrolls into view. A message to start with – its type, trigger and area change in Events.
  */
@@ -115,17 +133,19 @@ export function addSampleArea(t: SliceTarget, rect: { x: number; y: number; widt
 	return { kind: 'sample', index: (t.slice?.audio?.audio?.samples?.length ?? 0) };
 }
 
-/** removes the selected text / item / sample area / event (an emptied list goes) */
+/** each canvas kind's list in the slice */
+export const SLICE_LISTS: Record<CanvasSelection['kind'], Path> = {
+	dialog: ['dialog'],
+	item: ['items'],
+	piece: ['pieces'],
+	sample: ['audio', 'audio', 'samples'],
+	event: ['events']
+};
+
+/** removes the selected text / item / piece / sample area / event (an emptied list goes) */
 export function removeSelected(t: SliceTarget, selection: CanvasSelection) {
 	const { kind, index } = selection;
-	const listPath =
-		kind === 'dialog'
-			? [...t.slicePath, 'dialog']
-			: kind === 'item'
-				? [...t.slicePath, 'items']
-				: kind === 'sample'
-					? [...t.slicePath, 'audio', 'audio', 'samples']
-					: [...t.slicePath, 'events'];
+	const listPath = [...t.slicePath, ...SLICE_LISTS[kind]];
 	t.doc.edit((file) => {
 		const list = getAt(file, listPath);
 		if (!Array.isArray(list)) return;

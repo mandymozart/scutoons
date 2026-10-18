@@ -1,15 +1,16 @@
 <script lang="ts" module>
-	export type ItemKind = 'dialog' | 'sample' | 'event' | 'item';
+	/** `piece` = a collage piece (research/COLLAGE.md §3): under the text boxes, moved / turned / scaled, never stretched */
+	export type ItemKind = 'dialog' | 'sample' | 'event' | 'item' | 'piece';
 	export interface CanvasSelection {
 		kind: ItemKind;
 		index: number;
 	}
-	export type Tool = 'text' | 'sample' | 'item' | 'event';
+	export type Tool = 'text' | 'sample' | 'item' | 'piece' | 'event';
 </script>
 
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import { SliceLayers, type ResolveSliceItem } from '@scutoons/reader';
+	import { SliceLayers, SlicePicture, type ResolveSliceItem } from '@scutoons/reader';
 	import { itemCatalog, itemName, loadCatalog } from '$lib/editor/catalog.svelte.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { DEFAULT_SLICE, anchorAt, anchorFactors, anchoredRect, dialogFit, estimatedWidth, type DialogFit, getAt, round2, sliceLayers, suggestedAnchor, type Path } from '@scutoons/content';
@@ -23,6 +24,10 @@
 	import { sampleResolver } from '$lib/editor/sample-readers.ts';
 	import type { TextExpressions } from '@scutoons/reader';
 	import CanvasTextEdit from '$lib/components/slice/canvas-text-edit.svelte';
+	import CanvasPointHandles from '$lib/components/slice/canvas-point-handles.svelte';
+	import { pieceItems } from '$lib/editor/canvas-pieces.ts';
+	import { editEffect } from '$lib/editor/collage-edit.ts';
+	import type { PiecePoint } from '@scutoons/content';
 	import { centreSnap, deltas, dialogScale, gridSteps, movedRect, rotationAngle, scaleFactor, scaledRect, transformedDeltas, type Factors, type Handle, type Rect } from '$lib/editor/canvas-geometry.ts';
 
 	let {
@@ -100,6 +105,8 @@
 		revealedBy?: string;
 		/** a text box's sizing (dialog-fit.ts); in auto width `rect.width` here is the drawn width, not the stored max */
 		fit?: DialogFit;
+		/** a collage piece's blur ramp (its two dots) */
+		ramp?: { from: PiecePoint; to: PiecePoint };
 	}
 
 	/** text box id → the showTextBox event that reveals it (`params.dialog`): the slice's events, its placed items' tap events, the group script */
@@ -117,8 +124,8 @@
 		return out;
 	});
 
-	/** text boxes and placed items can be rotated and scaled on the canvas */
-	const transformable = (item: Item) => item.kind === 'dialog' || item.kind === 'item';
+	/** text boxes, placed items and collage pieces can be rotated and scaled on the canvas */
+	const transformable = (item: Item) => item.kind === 'dialog' || item.kind === 'item' || item.kind === 'piece';
 
 	const TOP_LEFT: Factors = { ax: 0, ay: 0 };
 	const num = (v: unknown, fallback: number) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
@@ -144,6 +151,8 @@
 			const def = itemCatalog.catalog?.items.find((x) => x.id === it?.item);
 			if (it?.rect) out.push({ kind: 'item', index: i, path, rect: it.rect, label: `◆ ${itemName(def, it.item ?? '?')}`, rotation: num(it.rotation, 0), scale: 1, f: anchorFactors(it.anchor) });
 		});
+		// collage pieces: the height from the file's ratio (canvas-pieces.ts)
+		out.push(...pieceItems(slice?.pieces, slicePath, sliceRatio));
 		(slice?.audio?.audio?.samples ?? []).forEach((s: any, i: number) => {
 			const path = [...slicePath, 'audio', 'audio', 'samples', i, 'trigger', 'rect'];
 			if (s?.trigger?.rect) out.push({ kind: 'sample', index: i, path, rect: s.trigger.rect, label: `♪ ${s.id} (${s.trigger.type})`, rotation: 0, scale: 1, f: TOP_LEFT });
@@ -261,6 +270,17 @@
 	$effect(() => {
 		if (slice?.items?.length) loadCatalog();
 	});
+	// a piece's drawn height for the anchor picker (its height is never stored – the file's ratio decides)
+	$effect(() => {
+		for (const it of items) if (it.kind === 'piece' && it.rect.height !== undefined) drawnHeights[drawnKey(it.path.slice(0, -1))] = it.rect.height;
+	});
+	/** the collage pieces' files (the reader's slice draws them the same – SlicePicture) */
+	const pieceSrc = (src: string) => toonUrl(doc.toon, src) || null;
+	/** a blur ramp's dot dragged: the piece's own blur gets both points (one undo step per drag – `onbegin`) */
+	function moveRamp(item: Item, from: PiecePoint, to: PiecePoint) {
+		const piece = doc.get(doc.primary, item.path.slice(0, -1));
+		if (piece) editEffect(piece, 'blur', { from, to });
+	}
 
 	function heightOf(item: Item) {
 		if (item.rect.height !== undefined) return item.rect.height;
@@ -277,8 +297,8 @@
 	// ── Pointer interaction ────────────────────────────────────────────────────────────────────────────
 
 	const HANDLES: Handle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
-	/** handles per kind: placed items keep their icon's ratio (move, rotate, scale), text boxes get all */
-	const handlesOf = (item: Item): Handle[] => (item.kind === 'item' ? [] : HANDLES);
+	/** handles per kind: placed items and collage pieces keep their file's ratio (move, rotate, scale), text boxes get all */
+	const handlesOf = (item: Item): Handle[] => (item.kind === 'item' || item.kind === 'piece' ? [] : HANDLES);
 
 	interface Drag {
 		mode: 'edit' | 'draw';
@@ -304,6 +324,8 @@
 		if (editingText !== null && !(selection?.kind === 'dialog' && selection.index === editingText)) editingText = null;
 	});
 	const BOXED = ['caption', 'narration', 'lyrics'];
+	/** the box a tool draws while dragging */
+	const GHOST: Record<Tool, ItemKind> = { text: 'dialog', item: 'item', piece: 'piece', sample: 'sample', event: 'event' };
 	/** the stage's centre lines a moved box snapped to (owner 2026-10-17); Ctrl / Cmd while dragging = no centre snap */
 	let guides = $state({ x: false, y: false });
 
@@ -516,8 +538,8 @@
 		if (drag.mode === 'draw' && drag.draw && drag.draw.width >= 2 && drag.draw.height >= 1) {
 			const r = drag.draw;
 			oncreate?.(tool, { x: round2(r.x), y: round2(r.y), width: round2(r.width), height: round2(r.height) });
-		} else if (drag.mode === 'draw' && (tool === 'item' || tool === 'event') && !drag.moved) {
-			// a click is enough: the item tool places the item there; the event tool makes a whole-slice event (no area)
+		} else if (drag.mode === 'draw' && (tool === 'item' || tool === 'piece' || tool === 'event') && !drag.moved) {
+			// a click is enough: the item / piece tool places one there; the event tool makes a whole-slice event (no area)
 			oncreate?.(tool, { x: round2(drag.start.x), y: round2(drag.start.y), width: 0, height: 0 });
 		}
 		drag = null;
@@ -572,13 +594,16 @@
 		data-testid="slice-canvas"
 	>
 		{#if image}
-			<img
-				src={image}
-				alt=""
-				draggable="false"
-				onload={() => (imageLoaded = true)}
-				onerror={() => (imageError = true)}
-			/>
+			<!-- the picture + its collage pieces: one blend group, under the lettering (COLLAGE.md §3) -->
+			<SlicePicture always eager pieces={slice?.video ? undefined : slice?.pieces} {pieceSrc}>
+				<img
+					src={image}
+					alt=""
+					draggable="false"
+					onload={() => (imageLoaded = true)}
+					onerror={() => (imageError = true)}
+				/>
+			</SlicePicture>
 		{/if}
 		{#if imageError}
 			<p class="image-error">Image not found: {slice?.image}</p>
@@ -653,12 +678,15 @@
 							<!-- svelte-ignore a11y_no_static_element_interactions -->
 							<span class="handle round h-scale" title={m['creator.canvas_scale']()} data-testid="handle-scale" onpointerdown={(e) => beginEdit(e, item, 'scale')}></span>
 						{/if}
+						{#if item.ramp}
+							<CanvasPointHandles from={item.ramp.from} to={item.ramp.to} {box} rotation={item.rotation} {overlay} onbegin={() => doc.checkpoint()} onmove={(from, to) => moveRamp(item, from, to)} />
+						{/if}
 					{/if}
 				</div>
 			{/each}
 			{#if drag?.mode === 'draw' && drag.draw && drag.moved}
 				<div
-					class="box ghost kind-{tool === 'sample' ? 'sample' : tool === 'item' ? 'item' : tool === 'event' ? 'event' : 'dialog'}"
+					class="box ghost kind-{GHOST[tool]}"
 					style:left="{drag.draw.x}%"
 					style:top="{drag.draw.y}%"
 					style:width="{drag.draw.width}%"

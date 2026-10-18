@@ -12,7 +12,7 @@
 	 * **View** – the grid (pressed = snap on, its size in the corner; hold, right-click, the number or → open the sizes),
 	 * the zoom (opens zoom out · % · zoom in · fit · 1:1 – the Flow's square group), and with texts holding `{…}` the
 	 * sample-reader preview (agents/EXPRESSIONS.md step 4). **Content** – the canvas tools, icon-only (owner 2026-10-03),
-	 * each tied to its inspector tab. One flyout at a time, beside its button; Esc / a click outside closes it.
+	 * each tied to its inspector tab: text · item · piece (collage – research/COLLAGE.md §3) · sound · event. One flyout at a time, beside its button; Esc / a click outside closes it.
 	 */
 	let { view, expressions = false }: { view: ChapterView; expressions?: boolean } = $props();
 
@@ -150,6 +150,7 @@
 		options={[
 			{ value: 'text', icon: 'type', title: m['creator.tool_text'](), testid: 'tool-text' },
 			{ value: 'item', icon: 'box', title: m['creator.tool_item'](), testid: 'tool-item' },
+			{ value: 'piece', icon: 'scissors', title: m['creator.tool_piece'](), testid: 'tool-piece' },
 			{ value: 'sample', icon: 'music', title: m['creator.tool_sample'](), testid: 'tool-sample' },
 			{ value: 'event', icon: 'zap', title: m['creator.tool_event'](), testid: 'tool-event' }
 		]}

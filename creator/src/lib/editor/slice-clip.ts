@@ -1,9 +1,10 @@
 // Copy / paste on the slice canvas + its inspector (ONE region, 'slice' – BACKLOG 10.39 steps 2 + 3): the canvas
-// selection (a text box, a placed item, a sound area, an event area) is what Ctrl+C / X take; Ctrl+V adds the copied
-// entry to the open slice as a new one (fresh id, a step offset when it would sit exactly on another), Shift+V puts
-// the copied entry's settings onto the selection of the same kind (a box's look, a placement's action …, a sound
-// area's sound + trigger, an event area's event). VN events of a group script paste as slice events (when in view).
-import { getAt, Trigger, type Path } from '@scutoons/content';
+// selection (a text box, a placed item, a collage piece, a sound area, an event area) is what Ctrl+C / X take; Ctrl+V
+// adds the copied entry to the open slice as a new one (fresh id, a step offset when it would sit exactly on another;
+// a piece's file referenced across toons), Shift+V puts the copied entry's settings onto the selection of the same kind
+// (a box's look, a placement's action …, a piece's look, a sound area's sound + trigger, an event area's event). VN
+// events of a group script paste as slice events (when in view).
+import { getAt, Trigger } from '@scutoons/content';
 import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 import type { ChapterView } from '$lib/editor/chapter-state.svelte.ts';
 import type { CanvasSelection } from '$lib/components/slice/slice-canvas.svelte';
@@ -12,6 +13,7 @@ import * as edits from '$lib/editor/slice-edit.ts';
 import {
 	applyBoxLook,
 	applyItemSettings,
+	applyPieceLook,
 	applySampleSettings,
 	applySliceEventSettings,
 	dropEventIds,
@@ -19,6 +21,8 @@ import {
 	makeClip,
 	mergeSounds,
 	newPlacementId,
+	offsetRect,
+	preparePiece,
 	soundsOf,
 	type Clip
 } from '$lib/editor/clip.ts';
@@ -37,19 +41,8 @@ export interface SliceClipContext {
 	placementLimit?: (adds: Map<string, number>) => ClipResult | null;
 }
 
-const LISTS: Record<CanvasSelection['kind'], Path> = { dialog: ['dialog'], item: ['items'], sample: ['audio', 'audio', 'samples'], event: ['events'] };
-
-/** a rect sitting exactly on another entry's moves one step right / down (2 % of the slice) */
-function offsetRect(rect: any, others: any[]): any {
-	if (!rect || typeof rect !== 'object') return rect;
-	const next = { ...rect };
-	const same = (r: any) => r && r.x === next.x && r.y === next.y;
-	for (let n = 0; n < 20 && others.some((o) => same(o?.rect ?? o?.trigger?.rect)); n++) {
-		next.x = Math.round(Math.min(95, next.x + 2) * 100) / 100;
-		next.y = Math.round(Math.min(95, next.y + 2) * 100) / 100;
-	}
-	return next;
-}
+/** each canvas kind's list in the slice (slice-edit.ts) */
+const LISTS = edits.SLICE_LISTS;
 
 export function sliceClipHandler(ctx: SliceClipContext): ClipHandler {
 	const { view } = ctx;
@@ -76,7 +69,8 @@ export function sliceClipHandler(ctx: SliceClipContext): ClipHandler {
 			const t = ctx.target();
 			if (!t) return { message: m['creator.clip_no_target'](), error: false };
 			const kind = clip.kind === 'events' ? 'event' : clip.kind;
-			if (kind !== 'dialog' && kind !== 'item' && kind !== 'sample' && kind !== 'event') return null;
+			// a canvas kind only (slices / groups paste elsewhere)
+			if (!Object.hasOwn(LISTS, kind)) return null;
 			if (kind === 'item') {
 				const adds = new Map<string, number>();
 				for (const it of clip.entries) if (typeof it?.item === 'string') adds.set(it.item, (adds.get(it.item) ?? 0) + 1);
@@ -87,15 +81,22 @@ export function sliceClipHandler(ctx: SliceClipContext): ClipHandler {
 			// second undo step in the chapter document)
 			let soundMap = { samples: new Map<string, string>(), tracks: new Map<string, string>() };
 			if (kind === 'sample' && clip.sounds && t.doc !== ctx.chapter) ctx.chapter.edit((file) => (soundMap = mergeSounds(file, clip.sounds, clip.toon, ctx.toon)));
-			const listPath = [...t.slicePath, ...LISTS[kind]];
+			const into = kind as CanvasSelection['kind'];
 			let selected = -1;
 			t.doc.edit((file) => {
 				if (kind === 'sample' && clip.sounds && t.doc === ctx.chapter) soundMap = mergeSounds(file, clip.sounds, clip.toon, ctx.toon);
 				const slice = getAt(file, t.slicePath);
 				if (!slice) return;
-				const list = listAt(slice, LISTS[kind] as string[]);
+				const list = listAt(slice, LISTS[into] as string[]);
 				const placements = new Set<string>((slice.items ?? []).map((i: any) => i?.id));
+				const pieceIds = new Set<string>((slice.pieces ?? []).map((p: any) => p?.id));
 				for (const raw of clip.entries) {
+					if (into === 'piece') {
+						// a fresh id, an offset, its file referenced from this toon (clip.ts preparePiece)
+						const piece = preparePiece(raw, clip.toon, ctx.toon, list, pieceIds);
+						if (piece) list.push(piece);
+						continue;
+					}
 					const entry = JSON.parse(JSON.stringify(raw));
 					delete entry.layer; // lands on top of the layer stack
 					if (kind === 'dialog') {
@@ -119,7 +120,7 @@ export function sliceClipHandler(ctx: SliceClipContext): ClipHandler {
 				}
 				selected = list.length - 1;
 			});
-			if (selected >= 0) view.select({ kind, index: selected });
+			if (selected >= 0) view.select({ kind: into, index: selected });
 			return { message: pastedMessage(clip, ctx.toon) };
 		},
 		pasteSettings(clip) {
@@ -136,6 +137,7 @@ export function sliceClipHandler(ctx: SliceClipContext): ClipHandler {
 				if (!target) return;
 				if (sel.kind === 'dialog') applyBoxLook(target, source);
 				else if (sel.kind === 'item') applyItemSettings(target, source);
+				else if (sel.kind === 'piece') applyPieceLook(target, source);
 				else if (sel.kind === 'sample') {
 					applySampleSettings(target, source);
 					if (soundMap.samples.has(target.id)) target.id = soundMap.samples.get(target.id);

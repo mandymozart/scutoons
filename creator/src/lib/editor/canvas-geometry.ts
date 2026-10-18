@@ -120,6 +120,26 @@ export function rotationAngle(pointer: { x: number; y: number }, shown: Required
 	return ((((deg + 180) % 360) + 360) % 360) - 180;
 }
 
+/**
+ * A pointer (% of the slice) as a point of a turned / scaled box's own frame, in % of the box (0 0 its top-left …
+ * 100 100 its bottom-right, as drawn before the turn) – a collage piece's blur ramp points (research/COLLAGE.md §3) move
+ * and turn with the piece. Clamped to the box, rounded to 2 places.
+ */
+export function pointInBox(pointer: { x: number; y: number }, shown: Required<Rect>, px: Px, rotation = 0, scale = 1): { x: number; y: number } {
+	const W = px.width / 100;
+	const H = px.height / 100;
+	const w = shown.width * W;
+	const h = shown.height * H;
+	const dx = pointer.x * W - (shown.x * W + w / 2);
+	const dy = pointer.y * H - (shown.y * H + h / 2);
+	const a = rotation * RAD;
+	const k = scale || 1;
+	const lx = (Math.cos(a) * dx + Math.sin(a) * dy) / k;
+	const ly = (-Math.sin(a) * dx + Math.cos(a) * dy) / k;
+	const at = (v: number, size: number) => (size > 0 ? Math.round(Math.min(100, Math.max(0, (v / size + 0.5) * 100)) * 100) / 100 : 50);
+	return { x: at(lx, w), y: at(ly, h) };
+}
+
 /** the scale handle: distance centre → pointer against the start (null while the start is (almost) the centre) */
 export function scaleFactor(start: { x: number; y: number }, pointer: { x: number; y: number }, shown: Required<Rect>, px: Px): number | null {
 	const W = px.width / 100;

@@ -3,8 +3,8 @@
 // the DOM copy / cut / paste events, the menu) is clipboard.svelte.ts.
 //
 // The clipboard holds JSON with a marker (`CLIP_MARKER`): the copied entries (deep copies of the stored form – a text
-// box, a placed item, a sample area, a slice event, VN events, slices, groups), the toon they were copied in and the
-// sound library entries they use. One system only: no media travels – a paste into another toon REFERENCES the source
+// box, a placed item, a collage piece, a sample area, a slice event, VN events, slices, groups), the toon they were
+// copied in and the sound library entries they use. One system only: no media travels – a paste into another toon REFERENCES the source
 // toon's files (`../<toon>/…`, @scutoons/content `rebaseToonAsset`). Ids are fresh on paste: events lose theirs (the
 // document's edit assigns new ones, event-ids.ts), text boxes get the target's next ids (a showTextBox event follows its
 // box), placements a random one (`newPlacementId`).
@@ -13,7 +13,7 @@ import { rebaseToonAsset } from '@scutoons/content';
 export const CLIP_MARKER = 'scutoons/creator-clip';
 
 /** what a clip holds: one slice entry (canvas region), VN events, slices or groups */
-export type ClipKind = 'dialog' | 'item' | 'sample' | 'event' | 'events' | 'slices' | 'groups';
+export type ClipKind = 'dialog' | 'item' | 'piece' | 'sample' | 'event' | 'events' | 'slices' | 'groups';
 
 export interface ClipSounds {
 	/** chapter.audio.sampleLibrary entries the entries use (`{ id, path, variants? }`) */
@@ -45,7 +45,7 @@ export function makeClip(kind: ClipKind, toon: string, entries: readonly unknown
 
 export const clipText = (clip: Clip) => JSON.stringify(clip);
 
-const KINDS: readonly ClipKind[] = ['dialog', 'item', 'sample', 'event', 'events', 'slices', 'groups'];
+const KINDS: readonly ClipKind[] = ['dialog', 'item', 'piece', 'sample', 'event', 'events', 'slices', 'groups'];
 
 /** the clip in a clipboard text; null for anything else (plain text, another app's JSON) */
 export function readClip(text: string | null | undefined): Clip | null {
@@ -113,7 +113,10 @@ function freshSlice(slice: Obj, placementIds: Set<string>): void {
 
 // ── media across toons ─────────────────────────────────────────────────────────────────────────────────────────
 
-/** a slice's media paths (image, its levels, the video + its levels / sources) as toon `to` stores them */
+/**
+ * a slice's media paths (image, its levels, the video + its levels / sources, its collage pieces' files) as toon `to`
+ * stores them
+ */
 export function rebaseSliceMedia(slice: Obj, from: string, to: string): void {
 	if (from === to || !isObj(slice)) return;
 	const re = (p: unknown) => (typeof p === 'string' && p ? rebaseToonAsset(p, from, to) : p);
@@ -126,10 +129,14 @@ export function rebaseSliceMedia(slice: Obj, from: string, to: string): void {
 		if (isObj(video.variants)) for (const k of Object.keys(video.variants)) video.variants[k] = re(video.variants[k]);
 		for (const s of list(video.sources)) if (isObj(s) && s.src) s.src = re(s.src);
 	}
+	for (const piece of list(slice.pieces)) if (isObj(piece) && piece.src) piece.src = re(piece.src);
 }
 
-/** how many files of the clip's toon a paste into `to` references (the toast: "uses 4 files from catpope") */
-export function foreignFiles(entries: readonly any[], sounds: ClipSounds | undefined, from: string, to: string): number {
+/**
+ * how many files of the clip's toon a paste into `to` references (the toast: "uses 4 files from catpope"); `kind`
+ * 'piece' = the entries are collage pieces (their `src`)
+ */
+export function foreignFiles(entries: readonly any[], sounds: ClipSounds | undefined, from: string, to: string, kind?: ClipKind): number {
 	if (from === to) return 0;
 	const files = new Set<string>();
 	const add = (p: unknown) => typeof p === 'string' && p && files.add(p);
@@ -141,8 +148,9 @@ export function foreignFiles(entries: readonly any[], sounds: ClipSounds | undef
 			add(s.video.src);
 			Object.values(isObj(s.video.variants) ? s.video.variants : {}).forEach(add);
 		}
+		for (const piece of list(s.pieces)) if (isObj(piece)) add(piece.src);
 	};
-	for (const e of entries) {
+	for (const e of kind === 'piece' ? [{ pieces: entries }] : entries) {
 		if (isObj(e) && Array.isArray(e.slices)) e.slices.forEach(slices);
 		else slices(e);
 	}
@@ -152,6 +160,35 @@ export function foreignFiles(entries: readonly any[], sounds: ClipSounds | undef
 		Object.values(isObj(s.variants) ? s.variants : {}).forEach(add);
 	}
 	return files.size;
+}
+
+// ── slice entries ──────────────────────────────────────────────────────────────────────────────────────────────
+
+/** a pasted entry's rect sitting exactly on another entry's moves one step right / down (2 % of the slice) */
+export function offsetRect(rect: any, others: readonly any[]): any {
+	if (!rect || typeof rect !== 'object') return rect;
+	const next = { ...rect };
+	const same = (r: any) => r && r.x === next.x && r.y === next.y;
+	for (let n = 0; n < 20 && others.some((o) => same(o?.rect ?? o?.trigger?.rect)); n++) {
+		next.x = Math.round(Math.min(95, next.x + 2) * 100) / 100;
+		next.y = Math.round(Math.min(95, next.y + 2) * 100) / 100;
+	}
+	return next;
+}
+
+/**
+ * A copied collage piece made ready for the slice it is pasted into (research/COLLAGE.md §3 "Clipboard"): a fresh
+ * `piece-<7 random>` id (none of `taken`), a step offset when it would sit exactly on one of `others`, its file as toon
+ * `to` references it (`rebaseToonAsset` – never copied). `taken` gets the new id.
+ */
+export function preparePiece(raw: unknown, from: string, to: string, others: readonly any[], taken: Set<string>): Obj | null {
+	if (!isObj(raw)) return null;
+	const piece = copy(raw) as Obj;
+	piece.id = newPlacementId('piece', taken);
+	taken.add(piece.id);
+	piece.rect = offsetRect(piece.rect, others);
+	if (typeof piece.src === 'string' && piece.src) piece.src = rebaseToonAsset(piece.src, from, to);
+	return piece;
 }
 
 // ── sounds ─────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -316,6 +353,14 @@ const BOX_OWN = new Set(['id', 'rect', 'anchor', 'text', 'layer']);
 export function applyBoxLook(target: Obj, source: Obj): void {
 	for (const key of Object.keys(target)) if (!BOX_OWN.has(key)) delete target[key];
 	for (const [key, value] of Object.entries(source)) if (!BOX_OWN.has(key)) target[key] = copy(value);
+}
+
+/** Shift+V on a collage piece: the copied piece's look (`preset` + its own `style`); its file, place, figure and id stay */
+export function applyPieceLook(target: Obj, source: Obj): void {
+	for (const key of ['preset', 'style'] as const) {
+		if (source[key] === undefined) delete target[key];
+		else target[key] = copy(source[key]);
+	}
 }
 
 /** what a placement does (Shift+V on a placed item): action, qty, repeat, respawn, its events */

@@ -39,7 +39,9 @@
 	import { loadIncoming, loadToonDocs } from '$lib/editor/toon-facts.ts';
 	import { JumpPlaces, setJumpPlaces } from '$lib/editor/jump-places.svelte.ts';
 	import type { ReachMark } from '$lib/components/chapter/reach-chip.svelte';
-	import SliceCanvas from '$lib/components/slice/slice-canvas.svelte';
+	import SliceCanvas, { type Tool } from '$lib/components/slice/slice-canvas.svelte';
+	import { piecePlace } from '$lib/editor/canvas-pieces.ts';
+	import type { PickedPiece } from '$lib/editor/collage-pick.ts';
 	import { legacyTextCount, legacyPlan, applyLegacyPlan, type TextPreset } from '$lib/editor/text-presets.ts';
 	import { itemCatalog } from '$lib/editor/catalog.svelte.ts';
 	import { ChapterView, clampZoom, type InspectorTab, type Section } from '$lib/editor/chapter-state.svelte.ts';
@@ -676,6 +678,7 @@
 			const rest = path.slice(2);
 			if (rest[0] === 'dialog' && typeof rest[1] === 'number') view.select({ kind: 'dialog', index: rest[1] });
 			else if (rest[0] === 'items' && typeof rest[1] === 'number') view.select({ kind: 'item', index: rest[1] });
+			else if (rest[0] === 'pieces' && typeof rest[1] === 'number') view.select({ kind: 'piece', index: rest[1] });
 			else if (rest[0] === 'audio') view.inspectorTab = 'audio';
 			else if (rest[0] === 'events') view.inspectorTab = 'events';
 			else view.inspectorTab = 'slice';
@@ -774,6 +777,13 @@
 		if (refused) return void toast(refused.message, { type: 'error', timeout: 0 });
 		view.select(edits.addSliceItem(t, itemId, spot));
 	}
+	/** a picked collage piece at the piece tool's spot (research/COLLAGE.md §3: a click = centred there, a drag = its rect) */
+	function addPiece(picked: PickedPiece) {
+		const place = view.pieceSpot ?? piecePlace(null);
+		view.pieceSpot = null;
+		const t = sliceTarget();
+		if (t) view.select(edits.addPiece(t, picked, place));
+	}
 	function addSliceEvent(rect: { x: number; y: number; width: number; height: number }) {
 		const t = sliceTarget();
 		if (t) view.select(edits.addSliceEvent(t, rect));
@@ -785,6 +795,14 @@
 		if (next) view.select(next);
 		else session.notify('The chapter has no sample library yet (Audio in the tree).');
 	}
+	/** what a tool makes of a click / a drawn rect on the canvas (a click: width 0) */
+	const CREATE: Record<Tool, (rect: { x: number; y: number; width: number; height: number }) => void> = {
+		text: (rect) => addDialog(rect),
+		item: (rect) => view.pickItem({ x: rect.x, y: rect.y }),
+		piece: (rect) => view.pickPiece(rect),
+		sample: (rect) => addSampleArea(rect),
+		event: (rect) => addSliceEvent(rect)
+	};
 	function removeSelected() {
 		const t = sliceTarget();
 		if (!t || !view.selection) return;
@@ -991,7 +1009,7 @@
 		const sel = view.selection;
 		if (!sel || view.section !== 'slice') return null;
 		const tab: InspectorTab = sel.kind === 'event' ? 'events' : sel.kind === 'sample' ? 'audio' : 'layers';
-		const label = { dialog: m['creator.bar_sel_text'](), item: m['creator.bar_sel_item'](), event: m['creator.bar_sel_event'](), sample: m['creator.bar_sel_sample']() }[sel.kind as string] ?? '';
+		const label = { dialog: m['creator.bar_sel_text'](), item: m['creator.bar_sel_item'](), piece: m['creator.bar_sel_piece'](), event: m['creator.bar_sel_event'](), sample: m['creator.bar_sel_sample']() }[sel.kind];
 		return {
 			label,
 			onback: () => (view.selection = null),
@@ -1276,7 +1294,7 @@
 							zoom={view.zoom}
 							onshown={(f) => (view.shownZoom = f)}
 							onselect={(next) => view.select(next)}
-							oncreate={(t, rect) => (t === 'text' ? addDialog(rect) : t === 'item' ? view.pickItem({ x: rect.x, y: rect.y }) : t === 'event' ? addSliceEvent(rect) : addSampleArea(rect))}
+							oncreate={(t, rect) => CREATE[t](rect)}
 						/>
 					</div>
 					</div>
@@ -1339,6 +1357,7 @@
 					{heldMusic}
 					onaddtext={(preset) => addDialog(undefined, preset)}
 					onadditem={addSliceItem}
+					onaddpiece={addPiece}
 					oncreatebox={createBoxForEvent}
 					onremove={removeSelected}
 					eventMark={(i) => markAt('groups', view.groupIndex, 'slices', view.sliceIndex, 'events', i)}

@@ -5,6 +5,7 @@ import {
 	applyBoxLook,
 	applyGroupSettings,
 	applyItemSettings,
+	applyPieceLook,
 	applySampleSettings,
 	applySliceEventSettings,
 	applyVnSettings,
@@ -16,7 +17,9 @@ import {
 	makeClip,
 	mergeSounds,
 	newPlacementId,
+	offsetRect,
 	prepareGroup,
+	preparePiece,
 	prepareSlices,
 	readClip,
 	remapSounds,
@@ -154,4 +157,39 @@ test('listAt: a pasted entry lands in the document even when the slice had no su
 	listAt(slice, ['dialog']).push({ id: 'd2' });
 	assert.deepEqual(slice.dialog.map((d: any) => d.id), ['d1', 'd2']);
 	assert.deepEqual(slice.audio.audio.samples, [{ id: 's1' }]);
+});
+
+test('collage pieces: a paste gets a new id, an offset rect and its file referenced across toons; Shift+V copies the look only', () => {
+	const piece = { id: 'piece-aaaaaaa', src: 'vectors/disc.svg', ratio: 1, rect: { x: 10, y: 20, width: 30 }, anchor: 'c', preset: 'negative', style: { opacity: 0.5 } };
+	const clip = makeClip('piece', 'catpope', [piece]);
+	assert.equal(readClip(clipText(clip))?.kind, 'piece', 'a piece clip reads back');
+	const taken = new Set(['piece-aaaaaaa']);
+	const pasted = preparePiece(clip.entries[0], 'catpope', 'toptoy', [piece], taken)!;
+	assert.match(pasted.id, /^piece-[a-z0-9]{7}$/);
+	assert.notEqual(pasted.id, piece.id);
+	assert.ok(taken.has(pasted.id), 'the new id is taken now');
+	assert.deepEqual(pasted.rect, { x: 12, y: 22, width: 30 }, 'on top of the original: one step right / down');
+	assert.equal(pasted.src, '../catpope/vectors/disc.svg', 'referenced from toptoy, never copied');
+	assert.equal(pasted.preset, 'negative');
+	assert.equal(clip.entries[0].src, 'vectors/disc.svg', 'the clip itself is untouched');
+	// back in catpope: the toon's own path; a character picture stays the root's
+	assert.equal(preparePiece({ ...piece, src: '../catpope/vectors/disc.svg' }, 'toptoy', 'catpope', [], new Set())!.src, 'vectors/disc.svg');
+	assert.equal(preparePiece({ ...piece, src: '../characters/catpope/catpope_portrait-neutral.webp' }, 'catpope', 'toptoy', [], new Set())!.src, '../characters/catpope/catpope_portrait-neutral.webp');
+	assert.deepEqual(offsetRect({ x: 1, y: 1, width: 5 }, []), { x: 1, y: 1, width: 5 });
+	assert.equal(preparePiece('nope', 'catpope', 'toptoy', [], new Set()), null);
+	// the toast counts its file (pieces as entries, and pieces inside slices); a pasted slice's pieces are rebased too
+	assert.equal(foreignFiles(clip.entries, undefined, 'catpope', 'toptoy', 'piece'), 1);
+	assert.equal(foreignFiles([{ image: 'a.webp', pieces: [piece, { ...piece, src: 'vectors/star.svg' }] }], undefined, 'catpope', 'toptoy'), 3);
+	const slices = prepareSlices(makeClip('slices', 'catpope', []), [{ image: 'a.webp', pieces: [piece] }], { toon: 'toptoy', nextBoxId: () => 'x' });
+	assert.equal(slices[0].pieces[0].src, '../catpope/vectors/disc.svg');
+
+	// Shift+V: preset + own style come over; file, place, figure and id stay
+	const target: any = { id: 'piece-b', src: '../characters/catpope/a.webp', ratio: 0.5, rect: { x: 5, y: 5, width: 10 }, rotation: 20, figure: { id: 'catpope', view: 'portrait' }, preset: 'ink' };
+	applyPieceLook(target, piece);
+	assert.deepEqual(target, { id: 'piece-b', src: '../characters/catpope/a.webp', ratio: 0.5, rect: { x: 5, y: 5, width: 10 }, rotation: 20, figure: { id: 'catpope', view: 'portrait' }, preset: 'negative', style: { opacity: 0.5 } });
+	target.style.opacity = 1;
+	assert.equal(piece.style.opacity, 0.5, 'a copy');
+	applyPieceLook(target, { id: 'p', src: 'b.svg', ratio: 1, rect: { x: 0, y: 0, width: 1 } });
+	assert.equal(target.preset, undefined, 'as drawn: no look, no own style');
+	assert.equal(target.style, undefined);
 });

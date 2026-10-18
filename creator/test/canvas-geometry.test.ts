@@ -1,7 +1,7 @@
 // npm run test -w creator (node's own runner, like @scutoons/content)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { centreSnap, deltas, dialogScale, gridSteps, movedRect, rotationAngle, scaleFactor, scaledRect, transformedDeltas } from '../src/lib/editor/canvas-geometry.ts';
+import { centreSnap, deltas, dialogScale, gridSteps, movedRect, pointInBox, rotationAngle, scaleFactor, scaledRect, transformedDeltas } from '../src/lib/editor/canvas-geometry.ts';
 
 const near = (a: number, b: number, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps, `${a} ≉ ${b}`);
 const box = { x: 10, y: 20, width: 40, height: 10 };
@@ -113,4 +113,27 @@ test('centreSnap: the box centre, its start or its end edge onto the stage centr
 	assert.deepEqual(centreSnap(10, 40, 38.8, 1.5), { delta: 40, hit: true });
 	// far away: unchanged, no guide
 	assert.deepEqual(centreSnap(10, 40, 2, 1.5), { delta: 2, hit: false });
+});
+
+test('pointInBox: the pointer in a turned / scaled box’s own frame, % of the box (a blur ramp’s dots)', () => {
+	// upright: the box 10 … 50 % across, 20 … 30 % down; its centre is 50 / 50, its corners 0 / 100
+	assert.deepEqual(pointInBox({ x: 30, y: 25 }, box, px), { x: 50, y: 50 });
+	assert.deepEqual(pointInBox({ x: 10, y: 20 }, box, px), { x: 0, y: 0 });
+	assert.deepEqual(pointInBox({ x: 40, y: 30 }, box, px), { x: 75, y: 100 });
+	// turned 90° (clockwise): the box's top edge now faces right – a point right of the centre is the top middle
+	const sq = { x: 40, y: 40, width: 20, height: 20 };
+	const square = { width: 100, height: 100 };
+	const top = pointInBox({ x: 60, y: 50 }, sq, square, 90);
+	near(top.x, 50);
+	near(top.y, 0);
+	// … and below the centre is the right edge's middle
+	const right = pointInBox({ x: 50, y: 60 }, sq, square, 90);
+	near(right.x, 100);
+	near(right.y, 50);
+	// the same pointer on a box at scale 2: half as far from the centre in the box's own frame
+	const scaled = pointInBox({ x: 55, y: 50 }, sq, square, 0, 2);
+	near(scaled.x, 62.5);
+	near(scaled.y, 50);
+	// outside the box: clamped onto its edge
+	assert.deepEqual(pointInBox({ x: 95, y: 0 }, box, px), { x: 100, y: 0 });
 });
