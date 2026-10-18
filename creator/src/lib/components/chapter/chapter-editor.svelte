@@ -799,7 +799,9 @@
 	let tabDrag: { id: number; y: number; start: number; moved: boolean } | null = null;
 	let swallowTap = false;
 	function tabsDown(event: PointerEvent) {
-		const start = sheetOpen ? (sheetRem ?? sheetLimits().h * 0.45) : 2.75;
+		// open: the sheet's drawn height – it can be taller than its own (it takes the room a short slice leaves)
+		const drawn = document.getElementById(INSPECTOR)?.getBoundingClientRect().height;
+		const start = sheetOpen ? (drawn ? drawn / rootRem() : (sheetRem ?? sheetLimits().h * 0.45)) : 2.75;
 		tabDrag = { id: event.pointerId, y: event.clientY, start, moved: false };
 	}
 	function tabsMove(event: PointerEvent) {
@@ -1525,8 +1527,17 @@
 		display: none;
 	}
 	@media (max-width: 767px) {
+		/* the canvas row is as tall as the slice (at most the rest), the sheet starts right under it and takes the free
+		   space – its own height (dragged or 45 %) is its minimum (owner 2026-10-18: "a straight cut after the line") */
 		.columns.has-inspector {
-			grid-template-rows: minmax(0, 1fr) minmax(0, var(--sheet-height, 45%));
+			grid-template-rows: fit-content(100%) minmax(var(--sheet-height, 45%), 1fr);
+		}
+		.columns .main.fit {
+			padding-bottom: 0;
+		}
+		/* inline-size, not size: the room's height follows the canvas (a phone's fit is the width, no cqh needed) */
+		.columns .main.fit .canvas-scroll {
+			container-type: inline-size;
 		}
 		.sheet-handle {
 			position: sticky;
@@ -1566,9 +1577,9 @@
 		.sheet-handle {
 			display: none;
 		}
-		/* closed (variant C): the tab row only; the canvas gets the rest */
+		/* closed (variant C): the tab row only, right under the canvas; the free space stays below it */
 		.columns.has-inspector.sheet-closed {
-			grid-template-rows: minmax(0, 1fr) auto;
+			grid-template-rows: fit-content(100%) minmax(min-content, 1fr);
 		}
 		.sheet-closed .inspector-region {
 			overflow: hidden;

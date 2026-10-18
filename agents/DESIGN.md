@@ -918,7 +918,8 @@ Three kinds, three places; none moves the layout:
   with ‹ – on phones only.
 - **More on a phone** is a sheet flush on the ActionBar, the page above it dimmed (a tap there closes it; the toasts
   wait under the dim).
-- **The inspector on a phone** is a sheet below the canvas (45 % of the editor) with a grab handle: drag it, tap it
+- **The inspector on a phone** is a sheet right under the canvas (at least 45 % of the editor; it takes the room a short
+  slice leaves – owner 2026-10-18 "a straight cut after the line") with a grab handle: drag it, tap it
   (45 ↔ 80 %), ↑ / ↓ on it. Its tabs are one row: icon + count, the label the accessible name and tooltip.
 - **Touch targets** (coarse pointer): every control ≥ `--control-height` high (44px), frameless icon-only buttons and
   sort grips as wide as high, crumbs and logo links full height, canvas handles 1rem with a 2.75rem target, map
