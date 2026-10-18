@@ -21,6 +21,10 @@
 			"svelte": "./src/score/index.ts",
 			"default": "./src/score/index.ts"
 		},
+		"./score-anchors": {
+			"types": "./src/score/anchors.ts",
+			"default": "./src/score/anchors.ts"
+		},
 		"./score-lab": {
 			"types": "./src/score/lab.ts",
 			"svelte": "./src/score/lab.ts",

@@ -117,10 +117,11 @@
 		}
 		// the world map (agents/MAP.md §4.1): Creator / Karte / <selection – added by the builder>
 		if (route === '/map') out.push({ href: '/map', label: m['creator.map']() });
-		// the catalog (agents/CATALOG-IN-CREATOR.md): Creator / Katalog / <kind>
-		if (route === '/catalog/[kind]') {
+		// the catalog (agents/CATALOG-IN-CREATOR.md): Creator / Katalog / <kind> (a score's collage stage: Items, its entry and
+		// Collage come from the stage – research/COLLAGE.md §4.4)
+		if (route === '/catalog/[kind]' || route === '/catalog/items/[id]/collage') {
 			out.push({ href: '/catalog/items', label: m['creator.catalog']() });
-			const kind = page.params.kind;
+			const kind = page.params.kind ?? 'items';
 			if (isCatalogPageKind(kind)) out.push({ href: `/catalog/${kind}`, label: CATALOG_LABELS[kind]() });
 		}
 		// the SCUTOONS-wide Flow (owner 2026-10-06): Creator / Ablauf
@@ -180,7 +181,7 @@
 	]);
 	const universeCurrent = (tab: string | null) =>
 		tab === 'catalog'
-			? page.route.id === '/catalog/[kind]'
+			? page.route.id?.startsWith('/catalog/')
 				? 'page'
 				: undefined
 			: tab === 'map' || tab === 'flow'

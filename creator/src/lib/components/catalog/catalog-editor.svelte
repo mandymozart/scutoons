@@ -28,7 +28,7 @@
 	import { contentApi, putDraft } from '$lib/api.ts';
 	import { toast } from '$lib/toasts.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { CATALOG_LABELS, CATALOG_PAGE_KINDS, catalogKey, catalogLists, loadCatalogDocs } from '$lib/editor/catalog-docs.ts';
+	import { CATALOG_LABELS, CATALOG_PAGE_KINDS, catalogKey, catalogLists, loadCatalogDoc, loadCatalogDocs } from '$lib/editor/catalog-docs.ts';
 	import { contentName } from '$lib/editor/text-language.svelte.ts';
 	import { loadToons } from '$lib/editor/characters.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
@@ -116,7 +116,7 @@
 		const next = neutralDoc(catalogKey(kind, id));
 		doc = next;
 		const known = (docs[kind] ?? []).some((e) => e.id === id);
-		if (known || page.url.searchParams.get('id') === id) void next.load();
+		if (known || page.url.searchParams.get('id') === id) void loadCatalogDoc(next, kind, id);
 		if (page.url.searchParams.get('id') !== id) void goto(`?id=${encodeURIComponent(id)}`, { replaceState: replace, keepFocus: true, noScroll: true });
 	}
 
@@ -251,6 +251,10 @@
 			<button type="button" class="secondary" disabled={!!importing} onclick={() => importInput?.click()} title={m['creator.catalog_import_hint']()} data-testid="catalog-import">{importing ?? m['creator.catalog_import']()}</button>
 		{/if}
 		{#if data && selected}
+			<!-- a score item: its pieces on the score (research/COLLAGE.md §4.4) -->
+			{#if kind === 'items' && data.category === 'score'}
+				<button type="button" class="secondary" onclick={() => goto(`/catalog/items/${encodeURIComponent(selected!)}/collage`)} title={m['creator.catalog_collage_hint']()} data-testid="catalog-collage">{m['creator.catalog_collage']()}</button>
+			{/if}
 			{#if data.removed}
 				<button type="button" class="secondary" onclick={restoreEntry} data-testid="catalog-restore">{m['creator.catalog_restore']()}</button>
 			{:else}

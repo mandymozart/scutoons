@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Icon, SortGrip, sortable } from '@scutoons/ui';
-	import { getAt, moodLabel, pieceName, previewText, type CharacterRegistry, type CollagePiece, type MoodVocabulary, type Path, type SliceLayerKind } from '@scutoons/content';
+	import { getAt, previewText, type CharacterRegistry, type CollagePiece, type MoodVocabulary, type Path, type SliceLayerKind } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset, toonUrl } from '$lib/utils/cdn.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -8,7 +8,7 @@
 	import { triggerWord } from '$lib/editor/vn-forms.ts';
 	import { itemCatalog, itemName } from '$lib/editor/catalog.svelte.ts';
 	import { canMoveLayerRow, followPieces, layerRows, moveLayerRows } from '$lib/editor/collage-edit.ts';
-	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
+	import { pieceLabel } from '$lib/editor/collage-words.ts';
 	import { toast } from '$lib/toasts.ts';
 
 	/**
@@ -55,15 +55,6 @@
 		events?: number[];
 	}
 
-	/** a piece's name: a character picture by its name · mood, else its file */
-	function pieceRowName(piece: CollagePiece | undefined): string {
-		if (!piece) return '?';
-		const figure = piece.figure;
-		const character = figure ? registry?.characters.find((c) => c.id === figure.id) : undefined;
-		if (!figure || !character) return pieceName(piece);
-		return [shownCharacterName(character, figure.persona), figure.mood && moodLabel(figure.mood, textLanguage.names, moods)].filter(Boolean).join(' · ');
-	}
-
 	/** the rows front first (the top row is drawn on top); the pieces last */
 	const rows = $derived.by<LayerRow[]>(() =>
 		layerRows(slice).map(({ kind, index, events }): LayerRow => {
@@ -86,7 +77,7 @@
 			if (kind === 'piece') {
 				const piece = slice.pieces?.[index] as CollagePiece | undefined;
 				const src = typeof piece?.src === 'string' && piece.src ? toonUrl(toon, piece.src) : '';
-				return { kind, index, name: pieceRowName(piece), icon: src || undefined, glyph: 'scissors', pickup: false };
+				return { kind, index, name: pieceLabel(piece, registry, moods), icon: src || undefined, glyph: 'scissors', pickup: false };
 			}
 			const it = slice?.items?.[index];
 			const def = itemCatalog.catalog?.items.find((x) => x.id === it?.item);

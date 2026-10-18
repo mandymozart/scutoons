@@ -10,9 +10,10 @@
 	 * picture; on a score a bar (+ staff) of the file – x in % of the bar's time, y in staff spaces below the staff's top
 	 * line – or, as a background, % of the page that holds the bar (the piece's centre: no anchor picker). Then the width
 	 * (% / staff spaces – the height follows the file, never distorted), the rotation, and on scores over / behind the
-	 * notes. Plain fields: one undo step per field (doc.set coalesces a scrub).
+	 * notes. Plain fields: one undo step per field (doc.set coalesces a scrub). `onpage`: the host switches Bar / Page
+	 * itself (the score stage keeps the piece where it is – it has the page's geometry); without it only the flag changes.
 	 */
-	let { doc, path, piece, host }: { doc: ContentDoc; path: Path; piece: CollagePiece; host: 'slice' | 'score' } = $props();
+	let { doc, path, piece, host, onpage }: { doc: ContentDoc; path: Path; piece: CollagePiece; host: 'slice' | 'score'; onpage?: (page: boolean) => void } = $props();
 
 	const p = (...keys: (string | number)[]) => [...path, ...keys];
 	const onPage = $derived(host === 'score' && !!piece.at?.page);
@@ -29,7 +30,7 @@
 			square
 			radio
 			value={onPage ? 'page' : 'bar'}
-			onchange={(v) => doc.set(p('at', 'page'), v === 'page' ? true : undefined)}
+			onchange={(v) => (onpage ? onpage(v === 'page') : doc.set(p('at', 'page'), v === 'page' ? true : undefined))}
 			options={[
 				{ value: 'bar', icon: 'music', title: m['creator.piece_at_bar'](), testid: 'piece-at-bar' },
 				{ value: 'page', icon: 'file', title: m['creator.piece_at_page'](), testid: 'piece-at-page' }

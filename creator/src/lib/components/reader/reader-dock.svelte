@@ -8,6 +8,7 @@
 	import { isReaderReady, readerShowMessage, type ReaderShow } from '@scutoons/content';
 	import { VIEWER_URL } from '$lib/config.ts';
 	import { draftSaves } from '$lib/editor/draft-saves.svelte.ts';
+	import { SCREENS, screenScale, storeScreen, storedScreen, type Screen } from '$lib/editor/screens.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
@@ -24,35 +25,18 @@
 
 	const VIEWER_ORIGIN = new URL(VIEWER_URL).origin;
 
-	type Screen = 'phone' | 'desktop';
-	/**
-	 * the emulated screens in CSS px: the frame's viewport must be exactly the device's, whatever the creator's own root
-	 * size (the reader lays out by its px breakpoints) – then scaled to the panel (a device size, not a UI size)
-	 */
-	const SCREENS: Record<Screen, { width: number; height: number }> = { phone: { width: 390, height: 844 }, desktop: { width: 1440, height: 810 } };
 	const SCREEN_KEY = 'sc-reader-screen';
-	const stored = (): Screen => {
-		try {
-			return localStorage.getItem(SCREEN_KEY) === 'desktop' ? 'desktop' : 'phone';
-		} catch {
-			return 'phone';
-		}
-	};
-	let screen = $state<Screen>(stored());
+	let screen = $state<Screen>(storedScreen(SCREEN_KEY));
 	function pick(next: Screen) {
 		screen = next;
-		try {
-			localStorage.setItem(SCREEN_KEY, next);
-		} catch {
-			// storage blocked: the pick lasts for this page view
-		}
+		storeScreen(SCREEN_KEY, next);
 	}
 
 	let frame = $state<HTMLIFrameElement>();
 	let boxWidth = $state(0);
 	let boxHeight = $state(0);
 	const device = $derived(SCREENS[screen]);
-	const scale = $derived(boxWidth && boxHeight ? Math.min(boxWidth / device.width, boxHeight / device.height) : 0);
+	const scale = $derived(screenScale(device, { width: boxWidth, height: boxHeight }));
 
 	/** the frame's address: the chapter in the reader's draft preview (the place itself comes by message) */
 	const address = () => `${VIEWER_URL}/${locale}/${place.toon}/chapter/${place.chapter}?draft=1`;

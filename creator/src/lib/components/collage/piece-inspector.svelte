@@ -42,7 +42,8 @@
 		host,
 		registry = null,
 		moods,
-		onremove
+		onremove,
+		onpage
 	}: {
 		doc: ContentDoc;
 		/** the piece (`[…slice, 'pieces', i]`, `[…, 'collage', 'pieces', i]`) */
@@ -51,6 +52,8 @@
 		registry?: CharacterRegistry | null;
 		moods?: MoodVocabulary | null;
 		onremove?: () => void;
+		/** a score piece's Bar / Page switch, done by the host (place-fields.svelte) */
+		onpage?: (page: boolean) => void;
 	} = $props();
 
 	const piece = $derived(doc.get(doc.primary, path) as CollagePiece | undefined);
@@ -166,7 +169,7 @@
 		<details class="advanced" bind:open={advanced} data-testid="piece-advanced">
 			<summary>{m['creator.advanced']()}</summary>
 			<div class="props">
-				<PlaceFields {doc} {path} {piece} {host} />
+				<PlaceFields {doc} {path} {piece} {host} {onpage} />
 				<LookFields {piece} {change} />
 			</div>
 		</details>
