@@ -35,7 +35,7 @@ import { repairBooleans } from '$lib/editor/repair-booleans.ts';
 import { assignEventIds } from '$lib/editor/event-ids.ts';
 import { draftSaves } from '$lib/editor/draft-saves.svelte.ts';
 
-export type DocKind = 'chapter' | 'group' | 'season' | 'index' | 'credits' | 'people' | 'roles' | 'characters' | 'cast' | 'moods' | 'requests' | 'map' | 'events' | 'script' | 'catalog';
+export type DocKind = 'chapter' | 'group' | 'season' | 'index' | 'credits' | 'people' | 'roles' | 'characters' | 'cast' | 'moods' | 'colorations' | 'requests' | 'map' | 'events' | 'script' | 'catalog';
 export type DocSource = 'store' | 'new' | 'missing';
 
 const HISTORY_LIMIT = 150;
@@ -94,6 +94,9 @@ export function kindOfEntity(entity: string): DocKind {
 			return 'cast';
 		case 'moods':
 			return 'moods';
+		// the custom collage presets (research/COLLAGE.md §12): checked by validateFile('colorations'), never assignEventIds
+		case 'colorations':
+			return 'colorations';
 		case 'asset-requests':
 			return 'requests';
 		case 'map':

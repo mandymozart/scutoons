@@ -26,6 +26,7 @@ export function fileLabel(key: string): string {
 		entry: m['creator.edit_toon'](),
 		characters: m['creator.characters'](),
 		moods: m['creator.characters_moods'](),
+		colorations: m['creator.entity_colorations'](),
 		requests: m['creator.characters_wanted'](),
 		cast: m['creator.cast'](),
 		credits: m['creator.credits'](),

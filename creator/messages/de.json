@@ -737,6 +737,7 @@
 		"entity_chapter": "Kapitel {number}",
 		"entity_scene": "Gruppe {label}",
 		"entity_group": "Kapitel {number} · Gruppe „{label}“",
+		"entity_colorations": "Collage-Vorlagen",
 		"group_continues": "Durchgehend",
 		"group_continues_hint": "Die nächste Gruppe folgt auf derselben Seite, ohne Leiste dazwischen.",
 		"next_label_add": "Label vergeben",

@@ -14,6 +14,8 @@ export interface EntityLabels {
 	entry: string;
 	characters: string;
 	moods: string;
+	/** the custom collage presets (`colorations`, platform-wide – research/COLLAGE.md §12) */
+	colorations: string;
 	requests: string;
 	cast: string;
 	credits: string;
@@ -42,6 +44,7 @@ export const ENTITY_LABELS: EntityLabels = {
 	entry: 'Toon entry',
 	characters: 'Characters',
 	moods: 'Moods',
+	colorations: 'Collage presets',
 	requests: 'Wanted images',
 	cast: 'Cast',
 	credits: 'Credits',
@@ -64,6 +67,7 @@ const NAMED: Record<string, keyof EntityLabels> = {
 	toon: 'entry',
 	characters: 'characters',
 	moods: 'moods',
+	colorations: 'colorations',
 	'asset-requests': 'requests',
 	cast: 'cast',
 	credits: 'credits',

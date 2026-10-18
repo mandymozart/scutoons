@@ -737,6 +737,7 @@
 		"entity_chapter": "Chapter {number}",
 		"entity_scene": "Group {label}",
 		"entity_group": "Chapter {number} · group \"{label}\"",
+		"entity_colorations": "Collage presets",
 		"group_continues": "Continuous",
 		"group_continues_hint": "The next group follows on the same page, no bar in between.",
 		"next_label_add": "Give it a label",
