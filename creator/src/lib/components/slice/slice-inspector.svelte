@@ -12,13 +12,10 @@
 	import type { TextPreset } from '$lib/editor/text-presets.ts';
 	import { SLICE_RATIO } from '$lib/editor/defaults.ts';
 	import { layerRows } from '$lib/editor/collage-edit.ts';
-	import type { PickedPiece } from '$lib/editor/collage-pick.ts';
 	import type { CharacterChoices } from '$lib/components/characters/character-ref-field.svelte';
 	import DialogInspector from '$lib/components/text/dialog-inspector.svelte';
 	import TextPresetPicker from '$lib/components/text/text-preset-picker.svelte';
 	import ItemInspector from '$lib/components/items/item-inspector.svelte';
-	import ItemPickerSheet from '$lib/components/items/item-picker-sheet.svelte';
-	import CollagePickerSheet from '$lib/components/collage/collage-picker-sheet.svelte';
 	import PieceInspector from '$lib/components/collage/piece-inspector.svelte';
 	import LayerList from '$lib/components/slice/layer-list.svelte';
 	import SliceMedia from '$lib/components/slice/slice-media.svelte';
@@ -51,8 +48,6 @@
 		librarySample,
 		heldMusic,
 		onaddtext,
-		onadditem,
-		onaddpiece,
 		oncreatebox,
 		onremove,
 		eventMark,
@@ -80,9 +75,6 @@
 		/** per track: the level it holds from an earlier slice (none = silent) */
 		heldMusic: Record<string, { volume: number; label: string }>;
 		onaddtext: (preset: TextPreset) => void;
-		onadditem: (itemId: string) => void;
-		/** a picked collage piece (it goes to `view.pieceSpot`) */
-		onaddpiece: (picked: PickedPiece) => void;
 		/** "+ New text box": a showTextBox event's box (`eventsPath` relative to the slice) */
 		oncreatebox: (index: number, eventsPath?: Path) => void;
 		onremove: () => void;
@@ -136,8 +128,6 @@
 				onpick={onaddtext}
 			/>
 		{/if}
-		<ItemPickerSheet bind:open={view.pickingItem} title={m['creator.add_slice_item']()} onpick={(item) => onadditem(item.id)} />
-		<CollagePickerSheet bind:open={view.pickingPiece} {toon} registry={choices?.registry ?? null} {moods} cast={choices?.cast} toons={choices?.toons} onpick={onaddpiece} />
 		{#if areaTab}
 			<!-- an area of the stack is edited in its own tab (owner 2026-10-07, BACKLOG 10.54) -->
 			<hr />

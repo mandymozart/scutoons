@@ -7,7 +7,7 @@
 //   npm run check:creator-chapter      (SCUTOONS_CHAPTER_TOON / SCUTOONS_CHAPTER: another toon / chapter, e.g. while
 //                                        catpope's chapter 1 has someone's draft; SCUTOONS_CHAPTER_GROUP=2
 //                                        SCUTOONS_CHAPTER_SLICE=2: the group / slice as the URL numbers them)
-//   npm run check:creator-chapter -- --pieces   only the collage pieces part (+ save, reload, restore) – e.g. on
+//   npm run check:creator-chapter -- --pieces   only the collage pieces part (the phone first; + save, reload, restore) – e.g. on
 //                                        SCUTOONS_CHAPTER=3 SCUTOONS_CHAPTER_GROUP=2, a group with inline slices
 //   (another local stack, e.g. a worktree's side ports: SCUTOONS_API=http://localhost:19420/api
 //    SCUTOONS_CREATOR=http://localhost:20420, like dev:test-user's SCUTOONS_API)
@@ -37,6 +37,8 @@
 //   save:    Save draft (note dialog skipped) stores the chapter's language-neutral draft (chapter:catpope:1) with the
 //            new text; the published version stays; Publish asks first – its checklist names the chapter, ticked (when
 //            the chapter's content has errors, the "Publish anyway?" step comes first: the run prints them and goes on)
+//   phone:   375 × 812 touch, the inspector sheet closed: the item tool and the piece tool – a tap on the slice shows
+//            the picker on screen (not a 0 × 0 modal that freezes the page), a tap on a card places it; both undone
 //   pieces:  the collage piece tool (research/COLLAGE.md §3): the tool → a click → the picker → a shape on the picture,
 //            the look Negative = the picture's negative there (a pixel), the Fade ramp opaque in its middle, the ramp's
 //            dot, one undo per step, Ctrl+C / Ctrl+V, Layers (pieces under the stack; a reorder, its undo / redo keep the
@@ -450,7 +452,7 @@ async function pieceCase() {
 	await mouseAt(...spot);
 	check(await until(`${pickerOpen} && !!${q('collage-shape-search')}`, 5000), 'pieces: a click on the slice opens the collage picker (Shapes)');
 	await until(`!!document.querySelector('[data-testid^="collage-shape-"]')`, 15000);
-	await js(`${q('collage-shape-search')}.focus()`);
+	await js(`${q('collage-shape-search')}.select()`);
 	await send('Input.insertText', { text: 'disc black' });
 	check(await until(`!!${q('collage-shape-disc-black')}`, 5000), 'pieces: the search finds the shape "disc black"');
 	await click(tid('collage-shape-disc-black'));
@@ -635,6 +637,73 @@ async function pieceCase() {
 }
 
 /** the stored pieces of the slice in the saved draft: the two new ones (the toon's path, a ratio, the look, distinct ids) */
+/** a real finger tap (touch emulation on): touchStart + touchEnd at a viewport point */
+async function tapAt(x, y) {
+	await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+	await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+	await sleep(300);
+}
+async function tap(selector) {
+	const [x, y] = await js(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); el.scrollIntoView({ block: 'center' }); const r = el.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`);
+	await tapAt(x, y);
+}
+/** a canvas tool by finger: its click comes a moment after the touch */
+async function tapTool(tool) {
+	await tap(tid(tool));
+	return until(`${q(tool)}.getAttribute('aria-pressed') === 'true'`, 3000);
+}
+/** the phone's inspector sheet closed: its content is display:none */
+const inspectorHidden = `getComputedStyle(document.querySelector('[data-testid="inspector-region"] .inspector') ?? document.body).display === 'none'`;
+/** the picker (its testid) open AND on screen – a modal <dialog> inside a display:none parent opens as an invisible
+ *  0 × 0 modal that makes the page inert: the middle of the dialog has to hit the dialog */
+const pickerShown = (testid) =>
+	`(() => { const d = ${q(testid)}?.closest('dialog'); if (!d?.open) return false; const r = d.getBoundingClientRect(); return r.width > 100 && r.height > 100 && !!document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.closest('dialog'); })()`;
+const openDialogs = () => js(`JSON.stringify([...document.querySelectorAll('dialog[open]')].map((d) => [Math.round(d.getBoundingClientRect().width), Math.round(d.getBoundingClientRect().height)]))`);
+const itemBoxes = `document.querySelectorAll('[data-testid="slice-canvas"] [data-testid^="box-item-"]').length`;
+/**
+ * The phone (375 × 812, touch) with the inspector sheet closed (owner 2026-10-18, the live creator on the phone: the
+ * Pieces tool, then a tap on the slice did nothing and more taps froze it – "It should work exactly like the items"):
+ * the item tool and the piece tool each – a finger tap on the slice shows its picker on screen, a tap on a card places
+ * it on the slice; both undone again (the slice as before), back to the desktop.
+ */
+async function phoneCase() {
+	await send('Emulation.setDeviceMetricsOverride', { width: 375, height: 812, deviceScaleFactor: 1, mobile: true });
+	await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+	try {
+		check(await until(`!!${q('phone-bar-more')} && ${inspectorHidden}`, 5000), 'phone: 375 × 812 – the phone bar, the inspector sheet closed (its content hidden)');
+		const i0 = await js(itemBoxes);
+		const p0 = await pieceCount();
+		check(await tapTool('tool-item'), 'phone: a tap picks the item tool');
+		let spot = await emptySpot();
+		if (!check(!!spot, 'phone: the slice has a spot without a box')) return;
+		await tapAt(...spot);
+		// the tap's own click lands where the picker opens: it must not pick the card under the finger
+		if (check(await until(`${pickerShown('item-picker-sheet')} && ${itemBoxes} === ${i0}`, 5000), 'phone: the item tool + a tap on the slice shows the item picker on screen, nothing placed yet (its own click picks no card)', `${await js(itemBoxes)} item boxes (${i0} before), dialogs ${await openDialogs()}`)) {
+			await until(`!!document.querySelector('[data-testid^="item-card-"]:not([disabled])')`, 15000);
+			await tap('[data-testid^="item-card-"]:not([disabled])');
+			check(await until(`${itemBoxes} === ${i0 + 1} && !${q('item-picker-sheet')}?.closest('dialog')?.open`, 5000), 'phone: a tap on an item card places it on the slice, the picker closes', `${await js(itemBoxes)} item boxes, dialogs ${await openDialogs()}`);
+		} else await press('Escape');
+		check(await tapTool('tool-piece'), 'phone: a tap picks the piece tool');
+		spot = await emptySpot();
+		if (!check(!!spot, 'phone: the slice still has a spot without a box')) return;
+		await tapAt(...spot);
+		if (check(await until(`${pickerShown('collage-picker-sheet')} && document.querySelectorAll(${JSON.stringify(PIECES)}).length === ${p0}`, 5000), 'phone: the piece tool + a tap on the slice shows the collage picker on screen (like the items), nothing placed yet', `${await pieceCount()} pieces (${p0} before), dialogs ${await openDialogs()}`)) {
+			await until(`!!document.querySelector('[data-testid^="collage-shape-"]')`, 15000);
+			// the picker keeps its last search: typed over
+			await js(`${q('collage-shape-search')}.select()`);
+			await send('Input.insertText', { text: 'disc black' });
+			await until(`!!${q('collage-shape-disc-black')}`, 5000);
+			await tap(tid('collage-shape-disc-black'));
+			check(await until(`document.querySelectorAll(${JSON.stringify(PIECES)}).length === ${p0 + 1} && !${pickerOpen}`, 5000), 'phone: a tap on a shape places the piece on the slice, the picker closes', `${await pieceCount()} pieces, dialogs ${await openDialogs()}`);
+		} else await press('Escape');
+		for (let i = 0; i < 2 && ((await js(itemBoxes)) > i0 || (await pieceCount()) > p0); i++) await press('z', 'ctrl');
+		check((await js(itemBoxes)) === i0 && (await pieceCount()) === p0, 'phone: two undos take the item and the piece off again');
+	} finally {
+		await send('Emulation.setTouchEmulationEnabled', { enabled: false });
+		await send('Emulation.clearDeviceMetricsOverride');
+		await until(`!(${inspectorHidden})`, 5000);
+	}
+}
 function savedPieces(draft, before) {
 	const pieces = draft.content.groups[GROUP].slices[SLICE].pieces ?? [];
 	const fresh = pieces.slice(before);
@@ -659,6 +728,7 @@ try {
 		const piecesBefore = (slice.pieces ?? []).length;
 		await send('Page.navigate', { url: `${CREATOR}/${TOON}/chapter/${CHAPTER}?group=${encodeURIComponent(baselineGroupKey)}&slice=${SLICE + 1}` });
 		check(await until(`!!${q('slice-canvas')} && !!${q('tool-piece')} && !!document.querySelector('[data-testid="slice-canvas"] img')`, 30000), `the slice editor opens on group ${GROUP + 1}, slice ${SLICE + 1}`);
+		await phoneCase();
 		await pieceCase();
 		await click(tid('save-draft'));
 		await answerDialog('button.primary');
@@ -963,6 +1033,7 @@ try {
 
 	// ── collage pieces (left on the slice for the save below) ──────────────────────────────────────────
 	const piecesBefore = (slice.pieces ?? []).length;
+	await phoneCase();
 	await pieceCase();
 
 	// ── save draft ──────────────────────────────────────────────────────────────────────────────────────

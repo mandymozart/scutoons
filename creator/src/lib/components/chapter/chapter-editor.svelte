@@ -17,7 +17,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { sceneDoc, toonDoc } from '$lib/editor/languages.ts';
-	import { entities, getAt, deleteAt, sceneNameOfRef, scriptLabels, type Path, type ToonLanguages } from '@scutoons/content';
+	import { defaultMoodVocabulary, entities, getAt, deleteAt, sceneNameOfRef, scriptLabels, type Path, type ToonLanguages } from '@scutoons/content';
 	import { castEntries, castIndex, chapterSceneCharacters, characterIndex, expressionIndex, featuringSuggestions, REGULAR_PERSONA, toonStar, validateCast } from '@scutoons/content';
 	import {
 		addToSeasonCast,
@@ -61,6 +61,8 @@
 	import ChapterTree from '$lib/components/chapter/chapter-tree.svelte';
 	import SliceToolbar from '$lib/components/slice/slice-toolbar.svelte';
 	import SliceInspector from '$lib/components/slice/slice-inspector.svelte';
+	import ItemPickerSheet from '$lib/components/items/item-picker-sheet.svelte';
+	import CollagePickerSheet from '$lib/components/collage/collage-picker-sheet.svelte';
 	import { mapDoc as worldMapDoc } from '$lib/editor/map.ts';
 	import { judgedPresets, ownPresets, presetsDoc } from '$lib/editor/presets-doc.ts';
 	import MetaPanel from '$lib/components/chapter/meta-panel.svelte';
@@ -1380,8 +1382,6 @@
 					{librarySample}
 					{heldMusic}
 					onaddtext={(preset) => addDialog(undefined, preset)}
-					onadditem={addSliceItem}
-					onaddpiece={addPiece}
 					oncreatebox={createBoxForEvent}
 					onremove={removeSelected}
 					eventMark={(i) => markAt('groups', view.groupIndex, 'slices', view.sliceIndex, 'events', i)}
@@ -1393,6 +1393,12 @@
 				</aside>
 			{/if}
 		</div>
+		{#if view.section === 'slice' && activeSlice}
+			<!-- the item and piece pickers live outside the inspector: on a phone its sheet is display:none while closed, and a
+			     modal <dialog> opened in there is an invisible 0×0 modal that makes the page inert (the item / piece tool's tap) -->
+			<ItemPickerSheet bind:open={view.pickingItem} title={m['creator.add_slice_item']()} onpick={(item) => addSliceItem(item.id)} />
+			<CollagePickerSheet bind:open={view.pickingPiece} {toon} registry={choices?.registry ?? null} moods={choices?.moods ?? defaultMoodVocabulary()} cast={choices?.cast} toons={choices?.toons} onpick={addPiece} />
+		{/if}
 	{/if}
 
 </div>

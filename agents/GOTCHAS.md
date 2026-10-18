@@ -37,9 +37,14 @@ From the old MEMORY.md (archive/MEMORY.md, 2026-09-28 … 10-04) and later sessi
   only in older engines – Chrome < 129, Firefox < 131, Safari / every iPhone browser up to iOS 18 (layout containment,
   dropped 2024): code must work both ways – a blend group gets its own `isolation: isolate`, fixed layers live outside
   `.slice` (fx `fxLayer`), a text box past its slice is cut on an old iPhone (research/TEXT-ACROSS-SLICES.md §1).
+- A modal `<dialog>` (`showModal`) inside a `display: none` ancestor opens as an invisible 0 × 0 modal and makes the
+  page inert (the phone's closed inspector sheet hides its content) – pickers live outside panels that can hide.
 
 ## Browser checks
 - The Browser pane's key name `Return` does not fire `Enter` – use `Enter`.
+- The pane's clicks are mouse clicks, also in its mobile preset. A finger's tap ends in a click AFTER pointerup, on what
+  opened there (a picker's card) – `swallowTapClick` (creator lib/editor/tap-click.ts); test touch over CDP
+  (`Emulation.setTouchEmulationEnabled` + `Input.dispatchTouchEvent`, check:creator-chapter's phone case).
 - The pane is shared with the owner and other sessions – work in your own tab, check state before asserting.
 - Another session's dev-server restart re-mounts via HMR and drops unsaved creator edits – check field values before saving.
 - The library answers with `max-age=60`: after a publish the old bundle stays in the browser for a minute.

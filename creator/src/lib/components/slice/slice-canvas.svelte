@@ -30,6 +30,7 @@
 	import CanvasPointHandles from '$lib/components/slice/canvas-point-handles.svelte';
 	import CanvasTailHandles from '$lib/components/slice/canvas-tail-handles.svelte';
 	import { pieceItems, pieceTakesPointer } from '$lib/editor/canvas-pieces.ts';
+	import { swallowTapClick } from '$lib/editor/tap-click.ts';
 	import { editEffect } from '$lib/editor/collage-edit.ts';
 	import { bakePresets, type CollagePiece, type PiecePoint, type PresetList } from '@scutoons/content';
 	import { centreSnap, deltas, dialogScale, gridSteps, movedRect, rotationAngle, scaleFactor, scaledRect, transformedDeltas, type Factors, type Handle, type Rect } from '$lib/editor/canvas-geometry.ts';
@@ -578,7 +579,9 @@
 			const r = drag.draw;
 			oncreate?.(tool, { x: round2(r.x), y: round2(r.y), width: round2(r.width), height: round2(r.height) });
 		} else if (drag.mode === 'draw' && (tool === 'item' || tool === 'piece' || tool === 'event') && !drag.moved) {
-			// a click is enough: the item / piece tool places one there; the event tool makes a whole-slice event (no area)
+			// a click is enough: the item / piece tool places one there; the event tool makes a whole-slice event (no area).
+			// A finger's tap: its click would land on the picker that opens here (swallowTapClick)
+			swallowTapClick(event);
 			oncreate?.(tool, { x: round2(drag.start.x), y: round2(drag.start.y), width: 0, height: 0 });
 		}
 		drag = null;
