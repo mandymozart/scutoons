@@ -920,15 +920,18 @@ Three kinds, three places; none moves the layout:
   (Shift ×10, Alt ×0.1, pointer lock for a mouse, Esc reverts), a click types; ↑ ↓ PageUp / PageDown step, typed
   maths `12+3`, `*2`, `+10`; the unit after the number; the default as placeholder. W / H = `LinkedPair` with a square
   lock. Small enums = icon / word segments (`Segmented stretch | square`; the default while unset = an ink frame, a
-  click on the chosen one unsets it). Choices with longer names = `PropSelect`. Colours = `ColorField` (swatch + hex).
+  click on the chosen one unsets it; an option that can't be chosen now is disabled at half opacity, its tooltip says
+  why). Choices with longer names = `PropSelect`. Colours = `ColorField` (swatch + hex).
 - **Text size**: shown in rem (default), pt or px of the slice at 1x (1rem = 16px, 1pt = 4/3px), the unit a switch
   beside it, remembered per browser; stored as % of the slice width (`Dialog.size`, the reader scales the slice).
 - Pilot: the text box inspector. `PropField` stays for page forms.
 - **The piece inspector** (collage, `PieceInspector` – slices and the score stage): the head "Shape / Character / Image
-  · name" + Remove; a character's mood + view (avatar / portrait / full) outside the fold; the looks as a `Segmented`
-  grid ("As drawn" + the ten looks – a pick drops the piece's own values); the rest in one fold (open when the piece has
-  its own values): place, size + rotation, Over / Behind (scores), blend + opacity, fill, outline, shadow, blur. The
-  effect fields show the piece as drawn (clearing a look's effect = off); ≤ 3 controls a line.
+  · name" + Remove; a character's mood + view (avatar / portrait / full) outside the fold – a view without a file of
+  its own for that mood is disabled (the fallback rule would draw it as the portrait; a mood without the chosen view's
+  file takes its portrait, `figureViews`); the looks as a `Segmented` grid ("As drawn" + the ten looks – a pick drops
+  the piece's own values); the rest in one fold (open when the piece has its own values): place, size + rotation,
+  Over / Behind (scores), blend + opacity, fill, outline, shadow, blur. The effect fields show the piece as drawn
+  (clearing a look's effect = off); ≤ 3 controls a line.
 
 ### Phones and tablets (owner-approved phone draft 2026-10-07, BACKLOG 10.50, UI-CONCEPTS E.9) – creator, admin, embassy
 

@@ -695,6 +695,10 @@
 	color: var(--paper);
 	border-color: var(--ink);
 }
+/* an option that can't be chosen now (its tooltip says why): the buttons' disabled look */
+.sc-seg > button:disabled {
+	opacity: 0.5;
+}
 .sc-seg > select {
 	width: auto;
 }

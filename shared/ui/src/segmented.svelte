@@ -7,6 +7,8 @@
 		icon?: string;
 		/** tooltip; the accessible name of an icon-only option */
 		title?: string;
+		/** not choosable now (its `title` says why) */
+		disabled?: boolean;
 		testid?: string;
 	}
 </script>
@@ -72,6 +74,7 @@
 			aria-pressed={radio ? undefined : o.value === value}
 			title={tip(o)}
 			aria-label={!o.label ? tip(o) : undefined}
+			disabled={o.disabled}
 			onclick={() => (onclear && o.value === value ? onclear() : onchange(o.value))}
 			data-testid={o.testid}
 		>

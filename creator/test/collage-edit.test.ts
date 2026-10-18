@@ -20,7 +20,7 @@ import {
 	setPreset,
 	type ClearedEffects
 } from '../src/lib/editor/collage-edit.ts';
-import { assetRatio, figureImage, filterShapes, imagePick, pickedToPiece, shapeTags } from '../src/lib/editor/collage-pick.ts';
+import { assetRatio, figureImage, figureViews, filterShapes, imagePick, pickedToPiece, shapeTags } from '../src/lib/editor/collage-pick.ts';
 
 const piece = (more: Partial<CollagePiece> = {}): CollagePiece => ({ id: 'piece-a', src: 'vectors/x.svg', ratio: 1, rect: { x: 10, y: 10, width: 30 }, ...more });
 
@@ -114,6 +114,19 @@ test('a character picture never resolves to the missing-image substitute', () =>
 	assert.equal(figureImage(drawn, { mood: 'happy', view: 'full' }), 'characters/x/neutral.webp', 'the fallback rule still applies');
 	assert.equal(figureImage(drawn, { view: 'full' }, (path) => path === 'characters/x/neutral.webp'), '', 'its only file is known to be missing');
 	assert.equal(figureImage(null, { view: 'portrait' }), '');
+});
+
+test('a view counts only with a file of its own – never the portrait the fallback rule draws under its name', () => {
+	const biker = (images: object): any => ({ id: 'x', name: { en: 'X' }, color: '#000', personas: [{ id: 'regular', looks: [{ id: 'default', default: true, images }] }] });
+	const two = biker({ neutral: { portrait: 'x_portrait-neutral.webp', full: 'x_full-neutral.webp' }, happy: { avatar: 'x_avatar-happy.webp', portrait: 'x_portrait-happy.webp' } });
+	assert.deepEqual(figureViews(two, { mood: 'happy' }), ['avatar', 'portrait'], "happy's full would be its portrait");
+	assert.equal(figureImage(two, { mood: 'happy', view: 'full' }), 'x_portrait-happy.webp', 'what the rule draws instead');
+	assert.deepEqual(figureViews(two, {}), ['portrait', 'full'], 'neutral (no mood): no avatar');
+	const fullOnly = biker({ neutral: { portrait: 'x_portrait-neutral.webp' }, sad: { full: 'x_full-sad.webp' } });
+	assert.deepEqual(figureViews(fullOnly, { mood: 'sad' }), ['portrait', 'full'], "a full of its own counts though the portrait is neutral's");
+	assert.deepEqual(figureViews(two, { mood: 'happy' }, (path) => path === 'x_avatar-happy.webp'), ['portrait'], 'a known-missing file is none');
+	assert.deepEqual(figureViews(biker({}), { mood: 'happy' }), [], 'no picture at all');
+	assert.deepEqual(figureViews(null, {}), []);
 });
 
 test('setPreset writes the look and drops the own values in one go; none = as drawn', () => {

@@ -3,6 +3,7 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { PropRow, PropSelect, Segmented } from '@scutoons/ui';
 	import {
+		AUTHORED_VIEW,
 		CHARACTER_IMAGE_VARIANTS,
 		COLLAGE_LOOKS,
 		DEFAULT_MOOD,
@@ -13,6 +14,7 @@
 		moodLabel,
 		pieceName,
 		toonAssetRef,
+		type CharacterImageVariant,
 		type CharacterRegistry,
 		type CollagePiece,
 		type MoodVocabulary,
@@ -20,7 +22,7 @@
 		type PieceFigure
 	} from '@scutoons/content';
 	import { figurePath, pieceAt, setFigure, setPreset } from '$lib/editor/collage-edit.ts';
-	import { figureImage, imageRatio } from '$lib/editor/collage-pick.ts';
+	import { figureImage, figureViews, imageRatio } from '$lib/editor/collage-pick.ts';
 	import { lookLabel, pieceKindLabel } from '$lib/editor/collage-words.ts';
 	import { isKnownMissing } from '$lib/editor/characters.ts';
 	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
@@ -82,6 +84,15 @@
 		const persona = findPersona(character, piece?.figure?.persona);
 		return lookMoods(findLook(persona, piece?.figure?.look ?? defaultLookId(persona)), moods);
 	});
+	/**
+	 * the views with a file of their own for the piece's mood (null while the character isn't known): any other is
+	 * disabled – the fallback rule would draw it as the portrait, a figure readers never see
+	 */
+	const ownViews = $derived(character && piece?.figure ? figureViews(character, piece.figure, isKnownMissing) : null);
+	/** the view as drawn: a stored view without a file of its own shows as the portrait it is */
+	const shownView = $derived(piece?.figure && (!ownViews || ownViews.includes(piece.figure.view)) ? piece.figure.view : AUTHORED_VIEW);
+	const viewMissing = (view: CharacterImageVariant, mood: string = DEFAULT_MOOD) =>
+		m['creator.piece_view_missing']({ view: m[`creator.piece_view_${view}`](), mood: moodLabel(mood, textLanguage.names, moods) });
 	/** the head's name: a character picture by its name and mood, else the file (`pieceName`) */
 	const name = $derived(
 		piece?.figure && character
@@ -106,6 +117,13 @@
 		// a mood and then a view picked while the first still decodes: the newer re-pick carries both
 		const asked = { n: ++asks, next: { ...pending.get(id)?.next, ...next } };
 		const figure: PieceFigure = { ...piece.figure, ...asked.next };
+		// a view needs a file of its own (the row disables the others; a mood still decoding can take one away): a view
+		// asked for without one changes nothing, a mood without the current view's file shows its portrait
+		const own = figureViews(character, figure, isKnownMissing);
+		if (own.length && !own.includes(figure.view)) {
+			if (next.view) return void toast(viewMissing(next.view, figure.mood), { type: 'warning' });
+			figure.view = own.includes(AUTHORED_VIEW) ? AUTHORED_VIEW : own[0];
+		}
 		// no picture at all (or only a known-missing one): the piece keeps its own – the "?" substitute is no art
 		const root = figureImage(character, figure, isKnownMissing);
 		if (!root) return void toast(m['creator.collage_no_picture']({ name: shownCharacterName(character, figure.persona) || figure.id }), { type: 'warning' });
@@ -147,9 +165,12 @@
 						label={m['creator.piece_view']()}
 						stretch
 						radio
-						value={piece.figure.view}
+						value={shownView}
 						onchange={(view) => refigure({ view })}
-						options={CHARACTER_IMAGE_VARIANTS.map((v) => ({ value: v, label: m[`creator.piece_view_${v}`](), testid: `piece-view-${v}` }))}
+						options={CHARACTER_IMAGE_VARIANTS.map((v) => {
+							const disabled = !!ownViews && !ownViews.includes(v);
+							return { value: v, label: m[`creator.piece_view_${v}`](), disabled, title: disabled ? viewMissing(v, piece.figure?.mood) : undefined, testid: `piece-view-${v}` };
+						})}
 						testid="piece-view"
 					/>
 				</span>

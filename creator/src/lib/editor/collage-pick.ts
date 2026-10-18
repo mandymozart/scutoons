@@ -1,6 +1,17 @@
 // The collage picker's logic (agents/research/COLLAGE.md §5): what a pick hands back (`PickedPiece`), the vector
 // library's filters, and the new piece a host makes of a pick. Pure (no Svelte; `imageRatio` alone needs a DOM).
-import { characterImage, isMissingImagePath, toonAssetRef, type Anchor, type CollagePiece, type PieceFigure, type RegistryCharacter } from '@scutoons/content';
+import {
+	AUTHORED_VIEW,
+	CHARACTER_IMAGE_VARIANTS,
+	characterImage,
+	isMissingImagePath,
+	toonAssetRef,
+	type Anchor,
+	type CharacterImageVariant,
+	type CollagePiece,
+	type PieceFigure,
+	type RegistryCharacter
+} from '@scutoons/content';
 import type { AssetRendition, AssetSummary } from '@scutoons/api';
 import { newPlacementId } from './clip.ts';
 
@@ -40,6 +51,21 @@ export function imageRatio(url: string): Promise<number | null> {
 export function figureImage(character: RegistryCharacter | null | undefined, figure: Omit<PieceFigure, 'id'>, isMissing?: (path: string) => boolean): string {
 	const src = characterImage(character, { persona: figure.persona, look: figure.look, mood: figure.mood }, figure.view, { isMissing, substitute: '' });
 	return isMissingImagePath(src) ? '' : src;
+}
+
+/**
+ * The views of a character picture with a file of their own for its persona / look / mood – the inspector's Picture row.
+ * The fallback rule draws an avatar or full view without its own file as the same mood's portrait: such a view would
+ * claim a figure readers never see. A view counts when it resolves (`figureImage`) and – beside the portrait – not to
+ * the file the portrait resolves to.
+ */
+export function figureViews(character: RegistryCharacter | null | undefined, figure: Omit<PieceFigure, 'id' | 'view'>, isMissing?: (path: string) => boolean): CharacterImageVariant[] {
+	const portrait = figureImage(character, { ...figure, view: AUTHORED_VIEW }, isMissing);
+	return CHARACTER_IMAGE_VARIANTS.filter((view) => {
+		if (view === AUTHORED_VIEW) return !!portrait;
+		const src = figureImage(character, { ...figure, view }, isMissing);
+		return !!src && src !== portrait;
+	});
 }
 
 /** a shape of the vector library as a pick */

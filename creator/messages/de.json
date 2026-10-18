@@ -1362,6 +1362,7 @@
 		"piece_view_avatar": "Avatar",
 		"piece_view_portrait": "Porträt",
 		"piece_view_full": "Ganz",
+		"piece_view_missing": "Für {mood} gibt es noch kein Bild „{view}“ – füge eins unter Figuren hinzu.",
 		"piece_look": "Look",
 		"look_none": "Wie gezeichnet",
 		"look_ink": "Tinte",
