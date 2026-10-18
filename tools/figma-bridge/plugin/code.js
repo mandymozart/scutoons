@@ -197,7 +197,10 @@ const commands = {
 				// own positions stay – a child's x / y are relative to the frame), not the whole frame each time
 				for (const n of f.children) {
 					if ((args.hide ?? []).includes(n.name) || n.visible === false) continue;
-					if (n.x >= args.x + args.w || n.x + n.width <= args.x || n.y >= args.y + args.h || n.y + n.height <= args.y) continue;
+					// by the drawn box on the page: a rotated layer reaches far from its x / y (blood vessels turned 146°)
+					const b = n.absoluteBoundingBox, fb = f.absoluteBoundingBox;
+					const nx = b ? b.x - fb.x : n.x, ny = b ? b.y - fb.y : n.y, nw = b ? b.width : n.width, nh = b ? b.height : n.height;
+					if (nx >= args.x + args.w || nx + nw <= args.x || ny >= args.y + args.h || ny + nh <= args.y) continue;
 					if (ids.has(n.id)) continue;
 					const c = n.clone();
 					box.appendChild(c);

@@ -167,7 +167,7 @@ try {
 		const next = items.find((x) => x.i === it.i + 1);
 		if (next) it.boxes = it.boxes.filter((d) => !next.boxes.some((e) => norm(e.text.de) === norm(d.text.de) && Math.abs(e.rect.y + 100 - d.rect.y) < 2 && Math.abs(e.rect.x - d.rect.x) < 2));
 	}
-	// this script's own boxes (a re-run replaces them)
+	// this script's own boxes (made once; a re-run leaves them)
 	const own = (e) => new RegExp(`^${toon}-c${n}-\\d+-l\\d+$`).test(e.id ?? '');
 	const dl = (i) => (group.slices[i]?.dialog ?? []).filter((e) => !own(e));
 	for (const it of items) it.boxes = it.boxes.filter((d) => !dl(it.i).some((e) => said(e, d) || over(e, d)) && ![...dl(it.i - 1), ...dl(it.i + 1)].some((e) => said(e, d)));
@@ -210,7 +210,8 @@ for a in sys.argv[3:]:
 	const ops = items.flatMap((it) => [
 		{ op: 'set', path: ['groups', gi, 'slices', it.i, 'image'], value: `${folder}/${it.name}.webp` },
 		{ op: 'set', path: ['groups', gi, 'slices', it.i, 'imageVariants'], value: { low: `${folder}/${it.name}.webp`, medium: `${folder}/${it.name}.2x.webp`, high: `${folder}/${it.name}.3x.webp` } },
-		...(it.boxes.length ? [{ op: 'set', path: ['groups', gi, 'slices', it.i, 'dialog'], value: [...it.boxes, ...dl(it.i)] }] : (group.slices[it.i].dialog ?? []).some(own) ? [{ op: 'set', path: ['groups', gi, 'slices', it.i, 'dialog'], value: dl(it.i) }] : [])
+		// boxes once: a slice that has this script's boxes keeps them as they are now (the owner may have edited them)
+		...(it.boxes.length && !(group.slices[it.i].dialog ?? []).some(own) ? [{ op: 'set', path: ['groups', gi, 'slices', it.i, 'dialog'], value: [...it.boxes, ...dl(it.i)] }] : [])
 	]);
 	const r = await call('save_draft', { key, base, ops, message: `${groupLabel}: ${items.length} slices re-cut clean from Figma (no text boxes / lettering, 1x/2x/3x, ${folder}); lettering as text boxes` });
 	console.log(`save_draft: ${typeof r.data === 'string' ? r.data.slice(0, 400) : JSON.stringify(r.data).slice(0, 400)}`);
