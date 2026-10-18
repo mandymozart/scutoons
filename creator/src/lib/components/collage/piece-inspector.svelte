@@ -6,6 +6,7 @@
 		AUTHORED_VIEW,
 		CHARACTER_IMAGE_VARIANTS,
 		DEFAULT_MOOD,
+		DEFAULT_SLICE,
 		defaultLookId,
 		findLook,
 		findPersona,
@@ -71,6 +72,17 @@
 	/** the piece's file (a toon document's path from its folder, a score's from the CDN root – toon '') */
 	const src = $derived(piece ? toonUrl(doc.toon, piece.src) : '');
 	const key = (field: string) => `${path.join('.')}.${field}`;
+	/**
+	 * a slice piece's lengths in the member's unit (owner 2026-10-18, length-units.ts): the slice at 1x (X / Y / W are % of
+	 * it) and the piece's width there (outline, shadow, blur are % of it); a score piece keeps % / staff spaces
+	 */
+	const slicePx = $derived.by(() => {
+		if (host !== 'slice') return undefined;
+		const slice = doc.get(doc.primary, path.slice(0, -2));
+		const width = slice?.width || DEFAULT_SLICE.width;
+		return { width, height: slice?.width && slice?.height ? (width * slice.height) / slice.width : (width * DEFAULT_SLICE.height) / DEFAULT_SLICE.width };
+	});
+	const pieceWidthPx = $derived(slicePx && piece?.rect?.width ? (piece.rect.width / 100) * slicePx.width : undefined);
 	/** one edit of the piece = one undo step (the same key within ~1s merges: one scrub, one step) */
 	function change(edit: (piece: CollagePiece) => void, field: string) {
 		doc.edit((file) => {
@@ -189,8 +201,8 @@
 		<details class="advanced" bind:open={advanced} data-testid="piece-advanced">
 			<summary>{m['creator.advanced']()}</summary>
 			<div class="props">
-				<PlaceFields {doc} {path} {piece} {host} {onpage} />
-				<LookFields {piece} presets={own} {change} />
+				<PlaceFields {doc} {path} {piece} {host} {onpage} {slicePx} />
+				<LookFields {piece} presets={own} {change} widthPx={pieceWidthPx} />
 			</div>
 		</details>
 	</div>

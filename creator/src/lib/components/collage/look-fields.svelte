@@ -6,6 +6,7 @@
 	import GradientField from '$lib/components/collage/gradient-field.svelte';
 	import PointsField from '$lib/components/collage/points-field.svelte';
 	import { m } from '$lib/paraglide/messages.js';
+	import { sliceLength } from '$lib/editor/length-units.ts';
 
 	/**
 	 * A piece's colouration fields (research/COLLAGE.md §7): opacity + blend, fill (none / colour / gradient), outline,
@@ -19,13 +20,19 @@
 	let {
 		piece,
 		presets,
-		change
+		change,
+		widthPx
 	}: {
 		piece: CollagePiece;
 		/** the stored custom presets (presets-doc.ts `ownPresets`) */
 		presets?: PresetList;
 		change: (edit: (piece: CollagePiece) => void, key: string) => void;
+		/** the piece's width in px at 1x (a slice piece): its lengths get the unit dropdown – %, px, pt, rem (owner 2026-10-18) */
+		widthPx?: number;
 	} = $props();
+
+	/** outline (kind `stroke`) and shadow / blur (kind `effect`): % of the piece's width, px by default */
+	const units = $derived(widthPx ? { stroke: sliceLength('stroke', widthPx, 'px'), effect: sliceLength('effect', widthPx, 'px') } : null);
 
 	const style = $derived(pieceStyle(piece, presets));
 	/** the look's values alone (the plain fields' placeholders) */
@@ -103,7 +110,7 @@
 		testid="piece-outline"
 	/>
 	{#if style.outline}
-		<ScrubNumber icon="outline-width" label={m['creator.piece_outline_width']()} unit="%" step={0.1} min={0} value={style.outline.width} required onchange={(v) => change((p) => editEffect(p, 'outline', { width: v ?? 0 }, undefined, presets), 'outline.width')} testid="piece-outline-width" />
+		<ScrubNumber icon="outline-width" label={m['creator.piece_outline_width']()} unit="%" units={units?.stroke} step={0.1} min={0} value={style.outline.width} required onchange={(v) => change((p) => editEffect(p, 'outline', { width: v ?? 0 }, undefined, presets), 'outline.width')} testid="piece-outline-width" />
 	{/if}
 </PropRow>
 
@@ -130,9 +137,9 @@
 			testid="piece-shadow-opacity"
 		/>
 		<span class="line" data-prop-line>
-			<ScrubNumber tag="X" label={m['creator.piece_shadow_x']()} unit="%" step={0.1} value={shadow.x} required onchange={(v) => change((p) => editEffect(p, 'shadow', { x: v ?? 0 }, undefined, presets), 'shadow.x')} testid="piece-shadow-x" />
-			<ScrubNumber tag="Y" label={m['creator.piece_shadow_y']()} unit="%" step={0.1} value={shadow.y} required onchange={(v) => change((p) => editEffect(p, 'shadow', { y: v ?? 0 }, undefined, presets), 'shadow.y')} testid="piece-shadow-y" />
-			<ScrubNumber icon="blur" label={m['creator.piece_shadow_blur']()} unit="%" step={0.1} min={0} value={shadow.blur} required onchange={(v) => change((p) => editEffect(p, 'shadow', { blur: v ?? 0 }, undefined, presets), 'shadow.blur')} testid="piece-shadow-blur" />
+			<ScrubNumber tag="X" label={m['creator.piece_shadow_x']()} unit="%" units={units?.effect} step={0.1} value={shadow.x} required onchange={(v) => change((p) => editEffect(p, 'shadow', { x: v ?? 0 }, undefined, presets), 'shadow.x')} testid="piece-shadow-x" />
+			<ScrubNumber tag="Y" label={m['creator.piece_shadow_y']()} unit="%" units={units?.effect} step={0.1} value={shadow.y} required onchange={(v) => change((p) => editEffect(p, 'shadow', { y: v ?? 0 }, undefined, presets), 'shadow.y')} testid="piece-shadow-y" />
+			<ScrubNumber icon="blur" label={m['creator.piece_shadow_blur']()} unit="%" units={units?.effect} step={0.1} min={0} value={shadow.blur} required onchange={(v) => change((p) => editEffect(p, 'shadow', { blur: v ?? 0 }, undefined, presets), 'shadow.blur')} testid="piece-shadow-blur" />
 		</span>
 	{/if}
 </PropRow>
@@ -142,6 +149,7 @@
 		icon="blur"
 		label={m['creator.piece_blur']()}
 		unit="%"
+		units={units?.effect}
 		step={0.1}
 		min={0}
 		value={style.blur?.amount}

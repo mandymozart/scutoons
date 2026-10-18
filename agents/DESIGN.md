@@ -999,8 +999,9 @@ Three kinds, three places; none moves the layout:
   the slice's width / height) → %, px, pt, rem; the text size (% of the width) → the same, rem by default; the text
   outline and the letter spacing (em of the font size) → em, px, pt, rem – the outline px by default; the line height
   (× the font size) → ×, px, pt, rem. The choice is remembered per kind in this browser (`position`, `size`,
-  `text-size`, `stroke`, `letter-spacing`, `line-height` – X and Y switch together). Rotation stays °. Text boxes and
-  placed items so far; the collage fields keep their % until they pass `units`.
+  `text-size`, `stroke`, `letter-spacing`, `line-height` – X and Y switch together). Rotation stays °. Text boxes, placed
+  items and slice collage pieces (X / Y / W of the slice; outline, shadow and blur – kind `effect` – of the piece's
+  width, px by default); a score piece keeps % / staff spaces, opacity stays %.
 - Pilot: the text box inspector. `PropField` stays for page forms.
 - **The piece inspector** (collage, `PieceInspector` – slices and the score stage): the head "Shape / Character / Image
   · name" + Remove; a character's mood + view (avatar / portrait / full) outside the fold – a view without a file of

@@ -4,6 +4,7 @@
 	import type { CollagePiece, Path } from '@scutoons/content';
 	import AnchorField from '$lib/components/fields/anchor-field.svelte';
 	import { m } from '$lib/paraglide/messages.js';
+	import { sliceLength } from '$lib/editor/length-units.ts';
 
 	/**
 	 * Where a piece sits (research/COLLAGE.md §7): on a slice the anchor point (the 3×3 picker) at X / Y in % of the
@@ -14,12 +15,28 @@
 	 * itself (the score stage keeps the piece where it is – it has the page's geometry); without it only the flag changes.
 	 * A re-click of the chosen Bar / Page or Over / Behind changes nothing (no empty undo step, redo kept).
 	 */
-	let { doc, path, piece, host, onpage }: { doc: ContentDoc; path: Path; piece: CollagePiece; host: 'slice' | 'score'; onpage?: (page: boolean) => void } = $props();
+	let {
+		doc,
+		path,
+		piece,
+		host,
+		onpage,
+		slicePx
+	}: {
+		doc: ContentDoc;
+		path: Path;
+		piece: CollagePiece;
+		host: 'slice' | 'score';
+		onpage?: (page: boolean) => void;
+		/** a slice piece: the slice at 1x – X / Y / W get the unit dropdown (%, px, pt, rem; owner 2026-10-18) */
+		slicePx?: { width: number; height: number };
+	} = $props();
 
 	const p = (...keys: (string | number)[]) => [...path, ...keys];
 	const onPage = $derived(host === 'score' && !!piece.at?.page);
 	/** the unit of y and the width: % on a slice and a page, staff spaces on the music */
 	const sp = $derived(host === 'score' && !onPage ? m['creator.piece_unit_sp']() : '%');
+	const units = $derived(slicePx ? { x: sliceLength('position', slicePx.width), y: sliceLength('position', slicePx.height), w: sliceLength('size', slicePx.width) } : null);
 </script>
 
 <PropRow label={m['creator.prop_position']()} testid="piece-position">
@@ -42,13 +59,13 @@
 		<ScrubNumber tag="St" label={m['creator.piece_staff']()} step={1} min={1} value={piece.at?.staff} placeholder="1" onchange={(v) => doc.set(p('at', 'staff'), v === undefined ? undefined : Math.max(1, Math.round(v)))} testid="piece-staff" />
 	{/if}
 	<span class="line" data-prop-line={host === 'score' || undefined}>
-		<ScrubNumber tag="X" label={m['creator.field_x']()} unit="%" step={0.1} value={piece.rect?.x} required onchange={(v) => doc.set(p('rect', 'x'), v ?? 0)} testid="piece-x" />
-		<ScrubNumber tag="Y" label={host === 'score' && !onPage ? m['creator.piece_y_sp']() : m['creator.field_y']()} unit={sp} step={0.1} value={piece.rect?.y} required onchange={(v) => doc.set(p('rect', 'y'), v ?? 0)} testid="piece-y" />
+		<ScrubNumber tag="X" label={m['creator.field_x']()} unit="%" units={units?.x} step={0.1} value={piece.rect?.x} required onchange={(v) => doc.set(p('rect', 'x'), v ?? 0)} testid="piece-x" />
+		<ScrubNumber tag="Y" label={host === 'score' && !onPage ? m['creator.piece_y_sp']() : m['creator.field_y']()} unit={sp} units={units?.y} step={0.1} value={piece.rect?.y} required onchange={(v) => doc.set(p('rect', 'y'), v ?? 0)} testid="piece-y" />
 	</span>
 </PropRow>
 
 <PropRow label={m['creator.prop_dimensions']()} testid="piece-size">
-	<ScrubNumber tag="W" label={host === 'score' && !onPage ? m['creator.piece_width_sp']() : m['creator.field_width']()} unit={sp} step={0.1} min={0.1} value={piece.rect?.width} required onchange={(v) => doc.set(p('rect', 'width'), v ?? 1)} testid="piece-width" />
+	<ScrubNumber tag="W" label={host === 'score' && !onPage ? m['creator.piece_width_sp']() : m['creator.field_width']()} unit={sp} units={units?.w} step={0.1} min={0.1} value={piece.rect?.width} required onchange={(v) => doc.set(p('rect', 'width'), v ?? 1)} testid="piece-width" />
 	<ScrubNumber icon="rotate-cw" label={m['creator.field_rotation']()} unit="°" step={1} value={piece.rotation} placeholder="0" onchange={(v) => doc.set(p('rotation'), v || undefined)} testid="piece-rotation" />
 </PropRow>
 
