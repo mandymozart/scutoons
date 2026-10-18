@@ -5,6 +5,7 @@
 import { CATALOG_DOC_KINDS, type CatalogDoc, type CatalogDocKind, type CatalogEntry } from '@scutoons/api';
 import type { CatalogLists } from '@scutoons/catalog';
 import { contentApi } from '$lib/api.ts';
+import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 import { m } from '$lib/paraglide/messages.js';
 
 export const CATALOG_PAGE_KINDS = Object.keys(CATALOG_DOC_KINDS) as CatalogDocKind[];
@@ -23,6 +24,18 @@ export const isCatalogPageKind = (kind: string | undefined): kind is CatalogDocK
 
 /** an entry's document key: items + camera → `item:camera` */
 export const catalogKey = (kind: CatalogDocKind, id: string) => `${CATALOG_DOC_KINDS[kind]}:${id}`;
+
+/**
+ * Loads an entry's document; an entry readers have that was never saved as a document (only in the catalog table –
+ * versions 0, the list sends the table's data as its content) starts from that data, unchanged until edited
+ */
+export async function loadCatalogDoc(doc: ContentDoc, kind: CatalogDocKind, id: string): Promise<void> {
+	await doc.load();
+	if (doc.error || doc.source[doc.primary] !== 'missing') return;
+	const entry = (await contentApi.catalogDocs(kind).catch(() => null))?.entries.find((e) => e.id === id);
+	// still nothing stored (no save meanwhile) and the table has it
+	if (entry?.live && !entry.versions && entry.content && doc.source[doc.primary] === 'missing') doc.startFrom(() => structuredClone(entry.content));
+}
 
 /** every kind's entries as documents (the newest version of each) */
 export async function loadCatalogDocs(): Promise<Record<CatalogDocKind, CatalogDoc[]>> {

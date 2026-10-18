@@ -297,6 +297,15 @@ export class ContentDoc {
 		this.loading = false;
 	}
 
+	/**
+	 * Starts a document the store has no version of from what readers already have (a catalog entry that is only in
+	 * its table – an admin write or a migration put it there): unchanged until edited, its first save the first version
+	 */
+	startFrom(make: (locale: string) => any) {
+		this.create(make);
+		this.saved = Object.fromEntries(this.locales.map((l) => [l, JSON.stringify(this.data[l])]));
+	}
+
 	protected adopt(
 		data: Record<string, any>,
 		base: Record<string, number | null>,
