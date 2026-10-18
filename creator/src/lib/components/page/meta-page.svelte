@@ -179,7 +179,6 @@
 			items: [
 				...(phoneWidth.current ? [problemsItem] : []),
 				...phoneMore,
-				{ id: 'note', label: m['creator.note_label'](), content: phoneNote },
 				...(actions ? [{ id: 'actions', label: m['creator.page_actions'](), content: actions }] : [])
 			]
 		}
@@ -222,7 +221,6 @@
 </div>
 
 
-{#snippet phoneNote()}<input class="phone-note" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />{/snippet}
 
 <!-- the History panel, shown in the shell's right dock (useDock) – the Flow and Problems are FlowDock / ProblemsDock -->
 {#snippet sidePanel()}
@@ -240,9 +238,6 @@
 	</div>
 {/snippet}
 <style>
-	.phone-note {
-		width: 10rem;
-	}
 	/* the ActionBar space is reserved by the app's AppShell (@scutoons/ui), not here;
 	   --top (the top bar's height) comes from the layout */
 	.status-end {

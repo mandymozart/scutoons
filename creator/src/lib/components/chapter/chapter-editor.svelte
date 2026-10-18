@@ -1,10 +1,9 @@
 <script lang="ts">
 	import type { VariantMedia } from '@scutoons/media';
 	import { leaveGuard } from '$lib/editor/ask.ts';
-	import { VIEWER_URL } from '$lib/config.ts';
 	import { onMount, tick, untrack } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';
-	import { ActionBar, BarTabs, PhoneBar, type PhoneBarItem, confirmDialog, Divider, Icon, MaximizeButton, panelWidth, shellDock, useDock } from '@scutoons/ui';
+	import { ActionBar, BarTabs, PhoneBar, type PhoneBarItem, Divider, Icon, MaximizeButton, panelWidth, shellDock, useDock } from '@scutoons/ui';
 	import { liveRegion, region } from '@scutoons/ui';
 	import { beforeNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
@@ -836,21 +835,35 @@
 	// ── phones (UI-CONCEPTS E.10, owner 2026-10-11, like CapCut) ──────────────────────────────────────────────────
 	/** the inspector sheet, variant C: closed it is its tab row only; a tab opens it there, the open tab closes it */
 	let sheetOpen = $state(false);
-	/** the tab row drags the sheet (owner 2026-10-11): up = taller / open, down = lower, let go low = closed; a drag is no tap */
-	let tabDrag: { id: number; y: number; start: number; moved: boolean } | null = null;
+	/**
+	 * the tab row drags the sheet (owner 2026-10-11): up = taller / open, down = lower, let go low = closed; a drag is no
+	 * tap. The drag starts from the height the sheet is drawn at (open: it may fill the room a short slice leaves; closed:
+	 * the tab row) and then sets exactly the dragged height (`sheet-sized`), so the sheet follows the finger (owner
+	 * 2026-10-18: the sheet "jumps" and "can't be moved"). Move / up are followed on the window: a pointer that leaves the
+	 * row before the drag counts (a fast flick, a mouse) is still the drag; the row captures it once it moves.
+	 */
+	let tabDrag: { id: number; y: number; start: number; moved: boolean; row: HTMLElement } | null = null;
 	let swallowTap = false;
 	function tabsDown(event: PointerEvent) {
-		// open: the sheet's drawn height – it can be taller than its own (it takes the room a short slice leaves)
-		const drawn = document.getElementById(INSPECTOR)?.getBoundingClientRect().height;
-		const start = sheetOpen ? (drawn ? drawn / rootRem() : (sheetRem ?? sheetLimits().h * 0.45)) : 2.75;
-		tabDrag = { id: event.pointerId, y: event.clientY, start, moved: false };
+		if (tabDrag || (event.pointerType === 'mouse' && event.button !== 0)) return;
+		swallowTap = false; // a new press: its tap counts (only the click a drag ends with is swallowed)
+		const row = event.currentTarget as HTMLElement;
+		const drawn = (sheetOpen ? document.getElementById(INSPECTOR) : row)?.getBoundingClientRect().height;
+		tabDrag = { id: event.pointerId, y: event.clientY, start: drawn ? drawn / rootRem() : 2.75, moved: false, row };
+		window.addEventListener('pointermove', tabsMove);
+		window.addEventListener('pointerup', tabsUp);
+		window.addEventListener('pointercancel', tabsUp);
+	}
+	function closeSheet() {
+		sheetOpen = false;
+		sheetRem = null;
 	}
 	function tabsMove(event: PointerEvent) {
 		if (!tabDrag || tabDrag.id !== event.pointerId) return;
 		const dy = event.clientY - tabDrag.y;
 		if (!tabDrag.moved && Math.abs(dy) < 8) return;
 		if (!tabDrag.moved) try {
-			(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+			tabDrag.row.setPointerCapture(event.pointerId);
 		} catch {
 			/* a pointer that is gone */
 		}
@@ -862,17 +875,22 @@
 		if (!tabDrag || tabDrag.id !== event.pointerId) return;
 		const moved = tabDrag.moved;
 		tabDrag = null;
+		window.removeEventListener('pointermove', tabsMove);
+		window.removeEventListener('pointerup', tabsUp);
+		window.removeEventListener('pointercancel', tabsUp);
 		if (!moved) return;
 		swallowTap = true;
-		setTimeout(() => (swallowTap = false), 50);
-		if ((sheetRem ?? 99) < 6) {
-			sheetOpen = false;
-			sheetRem = null;
-		}
+		setTimeout(() => (swallowTap = false), 300);
+		if ((sheetRem ?? 99) < 6) closeSheet();
 	}
+	$effect(() => () => {
+		window.removeEventListener('pointermove', tabsMove);
+		window.removeEventListener('pointerup', tabsUp);
+		window.removeEventListener('pointercancel', tabsUp);
+	});
 	function pickSheetTab(id: InspectorTab) {
 		if (swallowTap) return;
-		if (view.inspectorTab === id && sheetOpen) sheetOpen = false;
+		if (view.inspectorTab === id && sheetOpen) closeSheet();
 		else {
 			view.setTab(id);
 			sheetOpen = true;
@@ -914,15 +932,13 @@
 			badge: errorCount || undefined,
 			items: [
 				...(phoneWidth.current ? [problemsItem] : []),
-				{ id: 'preview', label: m['creator.preview'](), content: phonePreview },
 				{ id: 'paste', icon: 'clipboard', label: m['creator.clip_paste'](), run: () => clip('paste') },
 				...(phoneWidth.current && stepping && activeGroup
 					? [
 							{ id: 'prev-slice', icon: 'chevron-left', label: m['creator.bar_prev_slice'](), disabled: view.sliceIndex <= 0, run: () => view.selectSlice(view.sliceIndex - 1), stay: true },
 							{ id: 'next-slice', icon: 'chevron-right', label: m['creator.bar_next_slice'](), disabled: view.sliceIndex >= activeGroup.slices.length - 1, run: () => view.selectSlice(view.sliceIndex + 1), stay: true }
 						]
-					: []),
-				{ id: 'note', label: m['creator.note_label'](), content: phoneNote }
+					: [])
 			]
 		}
 	]);
@@ -1046,34 +1062,8 @@
 		};
 	});
 
-	const previewLabel = $derived(view.section === 'group' || view.section === 'slice' ? (activeGroup?.label ?? '') : '');
-	/**
-	 * The chapter in the live reader with its draft preview on (`?preview=draft`, viewer lib/draft-preview.svelte.ts):
-	 * the saved drafts, at the open group. The locale prefix picks the text language; the reader has de and en only.
-	 */
-	const readerLocales = $derived(chapter.textLanguages.filter((l) => l === 'de' || l === 'en'));
-	const previewHref = (locale: string) =>
-		`${VIEWER_URL}/${locale}/${toon}/chapter/${chapterNumber}?preview=draft${previewLabel ? `&label=${encodeURIComponent(previewLabel)}` : ''}`;
-	/** unsaved changes would be missing in the reader: save the draft first (with the note dialog), then open it */
-	async function openPreview(event: MouseEvent, locale: string) {
-		if (!anyDirty) return;
-		event.preventDefault();
-		const save = await confirmDialog({
-			title: m['creator.preview_unsaved_title'](),
-			message: m['creator.preview_unsaved_message'](),
-			confirmLabel: m['creator.preview_unsaved_save']()
-		});
-		if (!save) return;
-		await session.saveDraft();
-		if (anyDirty) return;
-		// a popup blocker may refuse the window after the dialogs: then a hint (not 'noopener': that always returns null)
-		const tab = window.open(previewHref(locale), '_blank');
-		if (tab) tab.opener = null;
-		else session.notify(m['creator.preview_saved_open']());
-	}
-
 	// ── Guards, autosave, keyboard ──────────────────────────────────────────────────────────────────────
-	// unsaved changes: leaving asks in-page (preview links open in a new tab); lib/editor/ask.ts
+	// unsaved changes: leaving asks in-page; lib/editor/ask.ts
 	beforeNavigate(leaveGuard(() => anyDirty));
 
 	$effect(() => {
@@ -1208,7 +1198,7 @@
 		<DocNotices {session} docs={allDocs} />
 
 		<!-- the slice canvas + its inspector = ONE selection region (live on load; the keys act on it) -->
-		<div class="columns" use:region={view.section === 'slice' ? { name: SLICE_REGION, initial: true } : null} class:has-inspector={view.section === 'slice'} class:inspector-max={inspectorMax && view.section === 'slice'} class:sheet-closed={!sheetOpen} bind:this={columnsEl} style:--inspector-width={inspectorSize.css} style:--sheet-height={sheetRem === null ? null : `${sheetRem}rem`}>
+		<div class="columns" use:region={view.section === 'slice' ? { name: SLICE_REGION, initial: true } : null} class:has-inspector={view.section === 'slice'} class:inspector-max={inspectorMax && view.section === 'slice'} class:sheet-closed={!sheetOpen} class:sheet-sized={sheetOpen && sheetRem !== null} bind:this={columnsEl} style:--inspector-width={inspectorSize.css} style:--sheet-height={sheetRem === null ? null : `${sheetRem}rem`}>
 			<!-- Main -->
 			<main class="main" class:fit={view.section === 'slice' && !!activeSlice}>
 				{#if view.section === 'meta'}
@@ -1351,7 +1341,7 @@
 				><span></span></div>
 				<!-- phones (E.10, variant C): the sheet's head = its tabs; closed, only this row shows -->
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div class="sheet-tabs" onpointerdown={tabsDown} onpointermove={tabsMove} onpointerup={tabsUp} onpointercancel={() => (tabDrag = null)}>
+				<div class="sheet-tabs" onpointerdown={tabsDown}>
 					<BarTabs
 						label={m['creator.slice_tab']()}
 						value={sheetOpen ? view.inspectorTab : ''}
@@ -1404,9 +1394,6 @@
 </div>
 
 
-{#snippet phonePreview()}
-	<span class="phone-preview"><Icon name="eye" />{#each readerLocales as l}<a href={previewHref(l)} target="_blank" rel="noopener" onclick={(e) => openPreview(e, l)} title={m['creator.preview_in_reader']({ locale: l })} data-testid="preview-{l}">{l}</a>{/each}</span>
-{/snippet}
 {#snippet deskSliceNav()}
 	{#if view.section === 'slice' && activeGroup?.slices?.length}
 		<span class="slice-nav" role="group" aria-label={m['creator.slice_navigation']()}>
@@ -1416,7 +1403,6 @@
 		</span>
 	{/if}
 {/snippet}
-{#snippet phoneNote()}<input class="phone-note" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />{/snippet}
 
 <!-- the History panel, shown in the shell's right dock (useDock) – the Flow and Problems are FlowDock / ProblemsDock -->
 {#snippet sidePanel()}
@@ -1576,10 +1562,14 @@
 		display: none;
 	}
 	@media (max-width: 767px) {
-		/* the canvas row is as tall as the slice (at most the rest), the sheet starts right under it and takes the free
-		   space – its own height (dragged or 45 %) is its minimum (owner 2026-10-18: "a straight cut after the line") */
+		/* open: the canvas row is as tall as the slice (at most the rest), the sheet starts right under it and takes the
+		   free space, at least 45 % (owner 2026-10-18: "a straight cut after the line") */
 		.columns.has-inspector {
-			grid-template-rows: fit-content(100%) minmax(var(--sheet-height, 45%), 1fr);
+			grid-template-rows: fit-content(100%) minmax(45%, 1fr);
+		}
+		/* dragged (and while dragging): exactly the dragged height, so it follows the finger – the canvas area gets the rest */
+		.columns.has-inspector.sheet-sized {
+			grid-template-rows: minmax(0, 1fr) minmax(0, var(--sheet-height));
 		}
 		.columns .main.fit {
 			padding-bottom: 0;
@@ -1626,25 +1616,22 @@
 		.sheet-handle {
 			display: none;
 		}
-		/* closed (variant C): the tab row only, right under the canvas; the free space stays below it */
+		/* closed (variant C): the tab row only, on the bottom bar; the free space goes to the canvas area (owner
+		   2026-10-18: a closed sheet must not look open and empty) */
 		.columns.has-inspector.sheet-closed {
-			grid-template-rows: fit-content(100%) minmax(min-content, 1fr);
+			grid-template-rows: minmax(0, 1fr) auto;
 		}
 		.sheet-closed .inspector-region {
 			overflow: hidden;
+		}
+		/* closed, the tab row sits on the bottom bar: its rule is the bar's */
+		.sheet-closed .sheet-tabs {
+			border-bottom: 0;
 		}
 		/* :global – the inspector is SliceInspector's root, scoped CSS here would miss it (the sheet then grew with it) */
 		.sheet-closed .inspector-region > :global(:not(.sheet-tabs)) {
 			display: none;
 		}
-	}
-	.phone-preview {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-	.phone-note {
-		width: 10rem;
 	}
 	/* the inspector maximized: it covers the columns (beside or below the canvas), the canvas stays laid out, hidden */
 	.columns.inspector-max .main {

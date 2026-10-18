@@ -993,8 +993,9 @@ Three kinds, three places; none moves the layout:
 - **Content first:** the toon page lists its chapters, then its languages (every width); the chapter page on a phone
   leads with its groups (meta) and a group with its slice thumbnails – a tap opens the slice editor.
 - **The slice bar** (chapter editor, < 768): a row above the ActionBar – ‹ Slice n/m ›, undo, redo, ⚠ (the problems'
-  count in its corner, opens Problems); round icon buttons. "More" keeps the rest (copy / paste, preview, History, the
-  note). Toasts sit above it (`--sc-above-action-bar`).
+  count in its corner, opens Problems); round icon buttons. "More" keeps the rest (copy / paste, History). No note
+  field in the bar – Save asks for the versions' note (owner 2026-10-18) – and no reader-preview links (the docked
+  reader is the preview). Toasts sit above it (`--sc-above-action-bar`).
 - **The bottom bar is grouped at every width** (owner 2026-10-11 phones, 2026-10-12 desktop – UI-CONCEPTS E.10):
   Save · History (undo, redo, versions) · Publish · More, icon + word; Save carries a dot while dirty, Publish while
   drafts are not live; on a desktop Problems (and the chapter editor's slice stepper) lead the row. A selection (a text
@@ -1002,9 +1003,12 @@ Three kinds, three places; none moves the layout:
   with ‹ – on phones only.
 - **More on a phone** is a sheet flush on the ActionBar, the page above it dimmed (a tap there closes it; the toasts
   wait under the dim).
-- **The inspector on a phone** is a sheet right under the canvas (at least 45 % of the editor; it takes the room a short
-  slice leaves – owner 2026-10-18 "a straight cut after the line") with a grab handle: drag it, tap it
-  (45 ↔ 80 %), ↑ / ↓ on it. Its tabs are one row: icon + count, the label the accessible name and tooltip.
+- **The inspector on a phone** is a sheet whose head is its tab row (icon + count, the label the accessible name and
+  tooltip). Closed it is only that row, on the bottom bar – the canvas area gets the rest (owner 2026-10-18: never an
+  open-looking empty sheet). A tap on a tab opens it there, on the open tab closes it. Opened by a tap it starts right
+  under the slice and takes the room a short slice leaves, at least 45 % (owner 2026-10-18 "a straight cut after the
+  line"). Dragging the tab row (touch or mouse) sets exactly the dragged height – it follows the finger, the canvas
+  area takes the rest; let go below 6rem = closed (and the next open fills the room again).
 - **Touch targets** (coarse pointer): every control ≥ `--control-height` high (44px), frameless icon-only buttons and
   sort grips as wide as high, crumbs and logo links full height, canvas handles 1rem with a 2.75rem target, map
   markers a 2.75rem target, a Toggle keeps its switch track with a full-height target. Standalone text links are still
@@ -1096,7 +1100,7 @@ askText's placeholder / default stay plain fields (the reader shows them as writ
 - **Language**: the top bar's i18n switch (the only language switch; one script at a time, `?lang=` opens one). A missing translation shows "Start empty" / "Copy the de script" (no "create locale" bars: the page's
   MetaPage has `translationsOptional`). A toon without a script opens with an empty, clean (not dirty) source text.
 - **Title page**: a collapsed block with the 6 meta fields (per language, text).
-- **Bottom bar**: the normal MetaPage ActionBar (Save draft, Publish, History with restore, undo/redo, problems, note).
+- **Bottom bar**: the normal MetaPage ActionBar (Save draft – it asks for the note –, Publish, History with restore, undo/redo, problems).
 - **Outline** (the page's left region, agents/DOCKING.md: its Divider drags it 16rem … half the page, its fold button
   or a drag folds it to a rail "Outline", both remembered; above the text under 900px; own scroll): chapters (uppercase, "KAPITEL 1 · DENIAL"), their scenes (number + heading, one
   line, ellipsis) and songs (italic); a click puts the cursor at the line and scrolls it to the top; the item the cursor
