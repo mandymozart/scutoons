@@ -2,8 +2,10 @@
 	/**
 	 * An inline colour field for property rows (agents/research/EDITOR-INPUTS.md): a swatch (the native colour picker lies
 	 * over it) and the hex text in one framed box. Empty = unset (`undefined`): the swatch shows the placeholder colour,
-	 * or – when the placeholder isn't a colour ("none") – a diagonal line. Typed values are passed on as they are
-	 * (`#fff`, `#00d1ff`), the picker writes `#rrggbb`.
+	 * or – when the placeholder isn't a colour ("none") – a diagonal line. Typed text is passed on only once it is a whole
+	 * hex colour (`#fff`, `#00d1ff`) or empty – never the half-typed `#`, `#1a` … on the way (owner 2026-10-18: a half-typed
+	 * collage outline colour made chapter 2 no longer fit its type); anything else is put back on blur. The picker
+	 * writes `#rrggbb`.
 	 */
 	let {
 		value,
@@ -36,7 +38,8 @@
 
 	function type(raw: string) {
 		const v = raw.trim();
-		onchange(v === '' ? undefined : v);
+		if (v === '') onchange(undefined);
+		else if (HEX.test(v)) onchange(v);
 	}
 	/** typing done (blur, Enter): the text shows the value again – a host may keep its value for an emptied field */
 	function settle(input: HTMLInputElement) {
