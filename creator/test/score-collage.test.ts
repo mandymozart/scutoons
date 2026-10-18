@@ -19,6 +19,7 @@ import {
 	movePiece,
 	newScorePiece,
 	partFile,
+	pieceHandle,
 	removeScorePiece,
 	setPiecePage,
 	sheetPieces,
@@ -99,6 +100,23 @@ test('move = a new bar / staff and offsets (at replaced whole); the corner\'s di
 	assert.equal(cornerWidth(p, centre, corner, geo), 4);
 	assert.equal(cornerWidth({ ...p, at: { bar: '2', page: true } }, centre, corner, geo), 4, 'a page piece: % of the page (40 of 1000)');
 	assert.equal(cornerWidth(p, centre, centre, geo), 0.5, 'never below the smallest width');
+});
+
+test("the scale handle: the box's centre and its own bottom-right corner (anchor, rotation) in % of the page", () => {
+	// 4 % of 1000 = 40 units wide, ratio 2 → 20 high, its anchor at (500, 750)
+	const place = { left: 50, top: 50, width: 4 };
+	const near = (a: { x: number; y: number }, b: { x: number; y: number }) => assert.ok(Math.hypot(a.x - b.x, a.y - b.y) < 1e-9, JSON.stringify({ a, b }));
+	const c = pieceHandle({ ratio: 2, anchor: 'c' }, place, geo);
+	near(c.centre, { x: 50, y: 50 });
+	near(c.corner, { x: 52, y: (760 / 1500) * 100 });
+	const tl = pieceHandle({ ratio: 2, anchor: 'tl' }, place, geo);
+	near(tl.centre, { x: 52, y: (760 / 1500) * 100 });
+	near(tl.corner, { x: 54, y: (770 / 1500) * 100 });
+	// turned 90° clockwise: the corner (20, 10) from the centre goes to (−10, 20)
+	const turned = pieceHandle({ ratio: 2, anchor: 'c', rotation: 90 }, place, geo);
+	near(turned.corner, { x: 49, y: (770 / 1500) * 100 });
+	// the corner is where the corner drag reads the width back: 40 units = 4 sp
+	assert.equal(cornerWidth(piece('piece-a'), turned.centre, turned.corner, geo), 4);
 });
 
 test('removing a piece; the last one takes the collage away', () => {

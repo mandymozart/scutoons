@@ -3,7 +3,7 @@
 	import { NEUTRAL_LOCALE, type CollagePiece, type Path } from '@scutoons/content';
 	import { ScoreView } from '@scutoons/reader/score';
 	import { findBar, type BarRef, type PageGeometry } from '@scutoons/reader/score-anchors';
-	import { Divider, Segmented, panelWidth } from '@scutoons/ui';
+	import { Divider, Segmented, liveRegion, panelWidth, region } from '@scutoons/ui';
 	import MetaPage from '$lib/components/page/meta-page.svelte';
 	import ScoreFrame from '$lib/components/collage/score-frame.svelte';
 	import ScoreOverlay from '$lib/components/collage/score-overlay.svelte';
@@ -16,7 +16,7 @@
 	import { pieceAt } from '$lib/editor/collage-edit.ts';
 	import type { PickedPiece } from '$lib/editor/collage-pick.ts';
 	import { pieceLabel, scoreViewLabels } from '$lib/editor/collage-words.ts';
-	import { isField } from '$lib/editor/editor-keys.ts';
+	import { focusIn, isField } from '$lib/editor/editor-keys.ts';
 	import { neutralDoc } from '$lib/editor/languages.ts';
 	import { screenZoom, storeScreen, storedScreen, type Screen } from '$lib/editor/screens.ts';
 	import * as sc from '$lib/editor/score-collage.ts';
@@ -150,8 +150,10 @@
 		});
 	}
 
+	// Delete / Backspace / Esc act on the live region only (DESIGN.md "Selection"): the stage, the focus on it or nowhere
 	function onkeydown(e: KeyboardEvent) {
 		if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || isField(e.target) || picking) return;
+		if (!liveRegion.is('score-stage') || !focusIn(e.target, stageEl)) return;
 		if ((e.key === 'Delete' || e.key === 'Backspace') && piece) remove(piece.id);
 		else if (e.key === 'Escape' && selected) selected = null;
 		else return;
@@ -176,7 +178,7 @@
 <svelte:window {onkeydown} />
 
 <MetaPage toon="" title={m['creator.collage_stage_title']({ name })} docs={[doc]} {validate} fill help="catalog">
-	<div class="stage" bind:this={stageEl} style:--panel-width={sideSize.css} data-testid="score-stage">
+	<div class="stage" bind:this={stageEl} style:--panel-width={sideSize.css} use:region={{ name: 'score-stage', initial: true }} data-testid="score-stage">
 		<section class="main">
 			<div class="bar">
 				<Segmented

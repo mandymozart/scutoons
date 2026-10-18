@@ -2,8 +2,8 @@
 // open (`readerPart`: the choir when there is one, else the full score), bound to that part's file. Pure functions on
 // the stored item – the stage runs each inside one `doc.edit` (one undo step); where a piece sits comes from the page
 // geometry of the score view (@scutoons/reader/score-anchors), never from the DOM.
-import { readerPart, validateContainers, type CollagePiece, type CollageSheet, type Path, type Problem, type ScoreAt } from '@scutoons/content';
-import { anchorScorePiece, findBar, placeScorePiece, type BarRef, type PageGeometry } from '@scutoons/reader/score-anchors';
+import { anchorFactors, readerPart, validateContainers, type CollagePiece, type CollageSheet, type Path, type Problem, type ScoreAt } from '@scutoons/content';
+import { anchorScorePiece, findBar, placeScorePiece, type BarRef, type PageGeometry, type ScorePlace } from '@scutoons/reader/score-anchors';
 import { pickedToPiece, type PickedPiece } from './collage-pick.ts';
 
 /** a new piece's width in staff spaces (it scales with the music, like the notes) */
@@ -103,6 +103,23 @@ export function cornerWidth(piece: Pick<CollagePiece, 'ratio' | 'at'>, centre: {
 	const ratio = piece.ratio > 0 ? piece.ratio : 1;
 	const width = (2 * Math.hypot(dx, dy)) / Math.sqrt(1 + 1 / (ratio * ratio));
 	return Math.max(MIN_WIDTH, round(piece.at?.page ? (width / geo.width) * 100 : width / geo.sp, 2));
+}
+
+/**
+ * The box's centre and its scale handle's point – the box's own bottom-right corner, turned with it (pieceBox: the anchor
+ * shifts the box, it turns about its centre) – in % of the page, from the place alone (never the DOM).
+ */
+export function pieceHandle(piece: Pick<CollagePiece, 'ratio' | 'anchor' | 'rotation'>, place: ScorePlace, geo: PageGeometry): { centre: { x: number; y: number }; corner: { x: number; y: number } } {
+	const { ax, ay } = anchorFactors(piece.anchor);
+	const w = (place.width / 100) * geo.width;
+	const h = w / (piece.ratio > 0 ? piece.ratio : 1);
+	const cx = (place.left / 100) * geo.width + w * (0.5 - ax);
+	const cy = (place.top / 100) * geo.height + h * (0.5 - ay);
+	const turn = ((piece.rotation ?? 0) * Math.PI) / 180;
+	const x = cx + (w / 2) * Math.cos(turn) - (h / 2) * Math.sin(turn);
+	const y = cy + (w / 2) * Math.sin(turn) + (h / 2) * Math.cos(turn);
+	const pct = (vx: number, vy: number) => ({ x: (vx / geo.width) * 100, y: (vy / geo.height) * 100 });
+	return { centre: pct(cx, cy), corner: pct(x, y) };
 }
 
 /** removes the piece `id`; the last one takes the collage away (no empty `collage` stays). False = not there */

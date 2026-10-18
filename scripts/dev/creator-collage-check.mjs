@@ -7,12 +7,15 @@
 //     lab, plain look: a 390 × 844 touch phone, a 1440 × 810 desktop), its Play label shown / hidden as there;
 //   - a shape (disc black) via "Add a piece …" lands in the middle of the page shown; a drag re-anchors it onto bar 10,
 //     staff 1 (its box says data-bar 10, the drawn piece sits on the staff lines), one undo step; the look Negative
-//     (difference) reads as the paper's negative (pixels: dark where the paper is, bright where the ink is);
+//     (difference) reads as the paper's negative (pixels: dark where the paper is, bright where the ink is); the corner
+//     scales it; dragged over the page's bottom edge, the leaf does not scroll (the layers keep the music's width, the
+//     handle stays on the page), dragged back it is on its note again;
 //   - Phone → Desktop (1440 × 810) → zoom + twice: the piece stays on bar 10, staff 1 each time (the lines break anew);
 //   - a character picture (Characters tab, a mood portrait) dragged onto bar 12, staff 2: on it at zoom 30 and 35;
 //     Behind = under the notes (z 0, the music z 1); Page keeps it where it is (and back);
 //   - Save draft (note "collage-check (removed again)"): the item document holds score.collage { file = the score's
-//     MusicXML, both pieces – CDN-root paths, their bars }; a reload shows them at their bars; Delete + Ctrl+Z; Esc;
+//     MusicXML, both pieces – CDN-root paths, their bars }; a reload shows them at their bars; the keys on the live
+//     region only (the focus on a sidebar link: Backspace / Delete / Esc leave the piece); Delete + Ctrl+Z; Esc;
 //   - 375 × 812: the side region below the stage.
 // Afterwards the saved versions are deleted again (by their note; an interrupted run's are swept first) – the item's
 // document as before. Refuses to run while the item has an unpublished draft (someone's work in progress).
@@ -156,7 +159,7 @@ async function drag([x, y], [tx, ty]) {
 /** types into an input like a person: the value set and an input event */
 const typeInto = (testid, text) =>
 	js(`(() => { const f = ${q(testid)}; f.focus(); const set = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(f), 'value').set; set.call(f, ${JSON.stringify(text)}); f.dispatchEvent(new Event('input', { bubbles: true })); f.blur(); return true; })()`);
-const KEYS = { Escape: 27, Delete: 46, z: 90, y: 89 };
+const KEYS = { Backspace: 8, Escape: 27, Delete: 46, z: 90, y: 89 };
 async function press(key, ...mods) {
 	const modifiers = (mods.includes('ctrl') ? 2 : 0) | (mods.includes('shift') ? 8 : 0);
 	const base = { key: mods.includes('shift') && key.length === 1 ? key.toUpperCase() : key, code: key.length === 1 ? `Key${key.toUpperCase()}` : key, windowsVirtualKeyCode: KEYS[key], modifiers };
@@ -295,6 +298,32 @@ try {
 	const again = await drawn(shape);
 	check(!!big && Math.abs(big.w / small.w - 1.5) < 0.1 && Math.abs(big.w / big.h - small.w / small.h) < 0.02 && Math.abs(again.w - small.w) < 1 && big.bar === String(BAR), `the corner scales it evenly (× ${(big?.w / small?.w).toFixed(2)}), still on bar ${BAR}; Ctrl+Z takes it back`, JSON.stringify({ small, big, again }));
 
+	// ── over the page's bottom edge (review fix 2026-10-18): the overlay clips to the page, so the leaf never scrolls (a
+	//    scroll bar narrowed it, the pieces' frame with it – every piece off its note, unlike readers'); the selected
+	//    piece's handle stays on the page; dragged back, the piece is on its note again ──
+	const home = await drawn(shape);
+	const pageBottom = await js(`document.querySelector('${FRAME} [data-testid="stage-piece-${shape}"]')?.closest('.score-overlay')?.getBoundingClientRect().bottom ?? null`);
+	const grabAt = home && [home.cx, home.cy - home.h / 4];
+	// its centre onto the page's bottom edge: half the piece hangs over it
+	if (home && pageBottom) await drag(grabAt, [home.cx, pageBottom - home.h / 4]);
+	const edge = await js(`(() => { const b = document.querySelector('${FRAME} [data-testid="stage-piece-${shape}"]'); const leaf = b?.closest('.leaf'); if (!leaf) return null; const r = (sel) => leaf.querySelector(sel)?.getBoundingClientRect(); const [l, page, box, h] = [leaf.getBoundingClientRect(), r('.score-overlay'), b.getBoundingClientRect(), document.querySelector('[data-testid="stage-piece-scale"]')?.getBoundingClientRect()]; return { over: box.bottom - page.bottom, pastLeaf: box.bottom - l.bottom, scroll: leaf.scrollHeight - leaf.clientHeight, bar: leaf.offsetWidth - leaf.clientWidth, svg: r(':scope > svg').width, pieces: r('.score-pieces').width, overlay: page.width, handle: !!h && h.left >= page.left - 0.5 && h.right <= page.right + 0.5 && h.top >= page.top - 0.5 && h.bottom <= page.bottom + 0.5 }; })()`);
+	check(edge && edge.over > home.h / 3 && edge.pastLeaf > 1 && edge.scroll <= 0 && edge.bar === 0 && Math.abs(edge.pieces - edge.svg) < 0.5 && Math.abs(edge.overlay - edge.svg) < 0.5 && edge.handle, `a piece ${Math.round(edge?.over ?? 0)} px over the page's bottom edge: the leaf does not scroll (no scroll bar), the pieces' layer and the overlay as wide as the music, the handle on the page`, JSON.stringify(edge));
+	await shot('edge');
+	// the handle held on the page scales from where it is (its offset from the box's corner kept: no jump), one undo step
+	const held = await js(`(() => { const r = ${q('stage-piece-scale')}?.getBoundingClientRect(); return r ? [r.x + r.width / 2, r.y + r.height / 2] : null; })()`);
+	const over = await drawn(shape);
+	if (held && over) await drag(held, [held[0] + over.w / 8, held[1]]);
+	const grown = await drawn(shape);
+	const expect = over ? Math.hypot((over.w * 5) / 8, over.h / 2) / Math.hypot(over.w / 2, over.h / 2) : 0;
+	await press('z', 'ctrl');
+	const ungrown = await drawn(shape);
+	check(!!grown && Math.abs(grown.w / over.w - expect) < 0.03 && Math.abs(ungrown.w - over.w) < 0.5, `the handle held on the page scales from where it is (× ${(grown?.w / over?.w).toFixed(2)}, its corner's × ${expect.toFixed(2)}); Ctrl+Z takes it back`, JSON.stringify({ held, over, grown, ungrown }));
+	if (over && grabAt) await drag([over.cx, over.cy - over.h / 4], grabAt);
+	const back = await drawn(shape);
+	at = await onStaff(shape, BAR, 1);
+	const off = back && home ? Math.hypot(back.cx - home.cx, back.cy - home.cy) : Infinity;
+	check(at.ok && off < 1.5 && Math.abs(back.w - home.w) < 0.5, `dragged back: on bar ${BAR}, staff 1, where it was (${off.toFixed(2)} px off, as wide)`, `${at.detail} ${JSON.stringify({ home, back })}`);
+
 	// ── Phone → Desktop → zoom + twice: still on bar 10, staff 1 ──
 	await click(tid('stage-desktop'));
 	await until(`document.querySelector('${FRAME}')?.dataset.screen === 'desktop'`, 5000);
@@ -394,9 +423,15 @@ try {
 	const back2 = await onStaff(figure, BAR2, 2);
 	check(back1.ok && back2.ok, `a reload: both pieces at their bars (a click in the list turns to the page)`, `${back1.detail} ${back2.detail}`);
 
-	// ── Delete + Ctrl+Z, Esc ──
+	// ── Delete + Ctrl+Z, Esc – on the live region only (review fix 2026-10-18): with the focus outside the stage (a link
+	//    of the creator's sidebar) Backspace / Delete / Esc leave the piece ──
 	await click(tid(`collage-select-${shape}`));
 	await settled(shape, BAR, 1);
+	const live = await js(`${q('score-stage')}.hasAttribute('data-live') && !!${q(`collage-row-${shape}`)}?.matches('[data-live] .sc-selected')`);
+	const outside = await js(`(() => { const a = [...document.querySelectorAll('a[href]')].find((el) => !el.closest('[data-testid="score-stage"]') && el.offsetParent); a?.focus(); return a && document.activeElement === a ? a.textContent.trim() || a.getAttribute('href') : null; })()`);
+	for (const key of ['Backspace', 'Delete', 'Escape']) await press(key);
+	const kept = { rows: await rows(), selected: await selectedId(), path: await js('location.pathname') };
+	check(live && outside && kept.rows.length === 2 && kept.selected === shape && kept.path === `/catalog/items/${ITEM}/collage`, `the stage is the live region (its list row in the live look); the focus on "${outside}" outside it: Backspace / Delete / Esc leave the piece`, JSON.stringify({ live, outside, kept }));
 	await js(`document.activeElement?.blur(), true`);
 	await press('Delete');
 	const afterDelete = await rows();

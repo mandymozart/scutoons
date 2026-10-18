@@ -9,6 +9,15 @@ export function isField(target: EventTarget | null): boolean {
 }
 
 /**
+ * A selection key (Delete, Esc …) is meant for the area `el` when the focus is in it or nowhere (the body): the live
+ * region alone does not say it – focusing an area without a region (the sidebar, a dock) leaves the last one live.
+ */
+export function focusIn(target: EventTarget | null, el: Element | null | undefined): boolean {
+	const node = target as Node | null;
+	return !!node && (node === document.body || node === document.documentElement || !!el?.contains(node));
+}
+
+/**
  * Handles Ctrl/Cmd + S / Z / Shift+Z / Y; returns true when the key was taken (default prevented). Undo / redo leave a
  * field's own keys alone.
  */
