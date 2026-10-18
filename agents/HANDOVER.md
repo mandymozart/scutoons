@@ -44,17 +44,17 @@ Decisions: agents/DECISIONS.md.
   The sketch → 3D experiment is removed; its learnings: research/CHARACTERS3D.md.
 
 ## Last run
-2026-10-18 night → afternoon, unattended on `main`; this run pushed nothing.
-- **Collage pieces** (owner 2026-10-17, research/COLLAGE.md §8 steps 1–7, nothing cut, a review fixed in 5 groups):
-  vectors, character pictures, images on slices (the piece tool; on picture slices, under the lettering) and on scores
-  (Catalog → Items → Cloud 9 → More → Collage: on a bar + staff, sent with the MusicXML). §10's defaults (FEATURES 10.105).
-- **Vector library** (research/VECTORS.md steps 3–5): Scrooge in parts, `asset_shapes` + `GET /api/assets?kind=shape`,
-  the local import, the MCP tool `import_vectors` – the 436 shapes are on production since 09:57 (run as the owner).
-- **Green:** `npm run check` of content / reader / ui / api / creator / viewer (the viewer's 11 old warnings), PHPStan,
-  PHPUnit filtered to the touched classes (tests / assertions, OK): AssetsTest|AssetsApiTest 21 / 322 (vectors),
-  ProtectedFilesTest|CatalogTest 16 / 259 (step 5), CatalogTest|ProtectedFilesTest|ContentSchemasTest 28 / 370 (review
-  group 1), no other PHP changed; both builds, `check:creator-collage` 35/35, `check:creator-chapter -- --pieces` 38/38,
-  the full run 112/114 on catpope 3 (catpope 1 / 2 hold your drafts; the 2 misses want a slice with a text box, a group
-  of ≥ 3 slices). The script had stopped at "next slice" since 2026-10-11/12: its reorder, save, VN parts ran only after
-  the review (found ISSUES 10.109). **Red:** `check:tools-css` 16 old lines (map editor, phone-bar, bar-tabs); 57 open FEATURES + ISSUES.
-- **Before a push:** `main` is 36 commits ahead of `origin/main` and 13 behind (your daytime pushes) – FEATURES 10.105.
+2026-10-18 evening, unattended on `main`: custom collage presets (research/COLLAGE.md §12, steps 1–6, one agent each).
+- **Built** ("Next: 'Save as preset' – my own colourations as named presets … applied to any piece"): the platform-wide
+  document `colorations`; the server bakes custom presets into the chapter and score answers (readers unchanged); the
+  creator draws / edits / checks them on slices and the score stage, and the chapter / season / toon / score Publish
+  lists offer "Collage presets"; the preset grid previews each look on the piece ("in dem Wort auf dem Selector zeigen,
+  was das dann wird") + Save as preset … · Update preset · ••• Rename / Delete; the MCP validates and judges presets.
+  §12.8's defaults (FEATURES 10.105); changed from the spec: from the 6th custom preset (measured) a "Custom (n)" fold.
+- **Where:** steps 1–4 are on production since your push this evening. Not pushed: the presets' autosave fix, the MCP
+  part (live after the MCP's next restart), the docs – this run's 5 commits; `main` is 1 behind (373afb08): merge first.
+- **Green:** content 319 tests; creator 0 / 0, 95 tests; viewer 0 errors (11 old warnings), 143 tests; per step: PHPUnit
+  of the touched classes (74 tests) + PHPStan, `check:creator-collage` 46/46, `check:creator-chapter -- --pieces`
+  (catpope 4 slice 1; its 2 old misses: anchor top-left, scale handle), `check:mcp` 48/48 – `colorations` cleaned up.
+- **Red:** `check:tools-css` 16 old lines (map editor, phone-bar, bar-tabs), none in a touched file; 58 open FEATURES +
+  ISSUES (limit 40) – no new item added.
