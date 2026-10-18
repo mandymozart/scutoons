@@ -24,13 +24,16 @@
 	 * (problems · undo/redo · history · note + Save draft / Publish), autosave + recover, missing-locale bars (only the blocking ones stay in the flow – E.1), the
 	 * leave guard and Ctrl+S / Ctrl+Z (outside a field). `docs` are validated, saved and published; `companions()` are
 	 * files that follow them (the chapter files whose status mirrors the season) – saved when dirty, published with the
-	 * docs. Save / publish / conflict: lib/editor/doc-session.svelte.ts; the bars: DocNotices.
+	 * docs; `along()` are files edited here along with them (a score's custom collage presets) – companions that also keep
+	 * a local copy while dirty and offer it back on the next load. Save / publish / conflict:
+	 * lib/editor/doc-session.svelte.ts; the bars: DocNotices.
 	 */
 	let {
 		toon,
 		title,
 		docs,
 		companions = () => [],
+		along = () => [],
 		beforeSave = () => {},
 		validate,
 		wide = false,
@@ -56,6 +59,8 @@
 		title: string;
 		docs: ContentDoc[];
 		companions?: () => ContentDoc[];
+		/** companions edited here (research/COLLAGE.md §12.4): autosaved only while dirty, offered back at load */
+		along?: () => ContentDoc[];
 		beforeSave?: () => void;
 		/** replaces the per-file validation (e.g. credits, checked against the people + roles files) */
 		validate?: () => Problem[];
@@ -89,7 +94,7 @@
 	let historyPath = $state<string | null>(null);
 	const historyDoc = $derived(docs.find((d) => d.entity === historyPath) ?? main);
 	const loaded = $derived(docs.every((d) => !d.loading));
-	const session = new DocSession({ docs: () => docs, companions: () => companions(), beforeSave: () => beforeSave(), errorCount: () => errorCount, tree: () => tree?.() ?? null });
+	const session = new DocSession({ docs: () => docs, companions: () => [...companions(), ...along()], beforeSave: () => beforeSave(), errorCount: () => errorCount, tree: () => tree?.() ?? null });
 	const anyDirty = $derived(session.anyDirty);
 	const anySaving = $derived(session.anySaving);
 	// Problems the last page docked stay open here (taken over, not remounted – UI-CONCEPTS E.3 b); Problems, History
@@ -188,7 +193,9 @@
 	beforeNavigate(leaveGuard(() => anyDirty));
 
 	$effect(() => {
-		const list = docs;
+		// the docs always (a clean one drops its copy); the files edited along only while dirty – their copy outlives a
+		// clean load until its Recover bar is answered (the chapter editor's rule for the presets)
+		const list = [...docs, ...along().filter((d) => d.dirty)];
 		for (const d of list) void JSON.stringify(d.data);
 		const timer = setTimeout(() => list.forEach((d) => d.autosave()), 1000);
 		return () => clearTimeout(timer);
@@ -212,7 +219,7 @@
 	{:else}
 		<!-- the page's own status line (the script's rules link + cursor); the files' status is the ActionBar's chip (E.1) -->
 		{#if status}<div class="files" data-testid="page-status"><span class="status-end">{@render status()}</span></div>{/if}
-		<DocNotices {session} {docs} />
+		<DocNotices {session} docs={[...docs, ...along()]} />
 		<main class="content">
 			{@render children()}
 		</main>

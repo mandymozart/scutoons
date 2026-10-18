@@ -35,7 +35,7 @@
 	 * it (below on narrower screens) the pieces (CollageList), "Add a piece …" (the slices' picker; it lands in the middle
 	 * of the page shown) and the slices' piece inspector. Edited in the item's document: Save draft, History, Publish –
 	 * MetaPage. The file is the published one (signed like a reader's); the collage remembers it (`file`). Custom presets
-	 * (`colorations`, research/COLLAGE.md §12.4): drawn from the newest draft – a companion (saved, checked, published).
+	 * (`colorations`, research/COLLAGE.md §12.4): drawn from the newest draft, edited along (MetaPage's `along`).
 	 */
 	let { id }: { id: string } = $props();
 
@@ -178,7 +178,7 @@
 
 <svelte:window {onkeydown} />
 
-<MetaPage toon="" title={m['creator.collage_stage_title']({ name })} docs={[doc]} companions={() => [presets]} {validate} fill help="catalog">
+<MetaPage toon="" title={m['creator.collage_stage_title']({ name })} docs={[doc]} along={() => [presets]} {validate} fill help="catalog">
 	<div class="stage" bind:this={stageEl} style:--panel-width={sideSize.css} use:region={{ name: 'score-stage', initial: true }} data-testid="score-stage">
 		<section class="main">
 			<div class="bar">

@@ -22,7 +22,8 @@
 //     → "(deleted)" on the shape, same pixels, Problems warns, gone from the other piece's grid;
 //   - Save draft (note "collage-check (removed again)"): the item document holds score.collage { file = the score's
 //     MusicXML, both pieces – CDN-root paths, their bars, the preset }, the presets document `colorations` the
-//     tombstone; Publish lists "Collage presets" (cancelled); a reload shows them at their bars; the keys on the live
+//     tombstone; Publish lists "Collage presets" (cancelled), the item's catalog page's Publish too; a reload shows them
+//     at their bars; an unsaved preset's local copy is offered at load next to the item's (Discarded); the keys on the live
 //     region only (the focus on a sidebar link: Backspace / Delete / Esc leave the piece); Delete + Ctrl+Z; Esc;
 //   - 375 × 812: the side region below the stage; the preset grid previews every look, five touch-sized tiles a row.
 // Afterwards the saved versions are deleted again (by their note; an interrupted run's are swept first) – the item's
@@ -577,6 +578,16 @@ try {
 	await js(`document.querySelector('dialog.sc-dialog[open] .cancel')?.click(), true`);
 	await sleep(300);
 	check(!!offered?.some(([text, on]) => /^Collage presets/.test(text) && on), 'Publish: the list offers "Collage presets", ticked (cancelled)', JSON.stringify(offered));
+	// the item's catalog page offers them too (no level ships pieces whose preset is still a draft) – cancelled
+	await go(`/catalog/items?id=${ITEM}`, `!!document.querySelector('[data-testid="catalog-detail"] input')`);
+	await click(tid('publish'));
+	const CHECKLIST = `(() => { const d = document.querySelector('dialog.sc-dialog[open]'); return d?.querySelector('.checklist') ? [...d.querySelectorAll('.line')].map((l) => [l.textContent.trim(), l.querySelector('input').checked]) : null; })()`;
+	// the catalog's own errors ask "Publish anyway?" first (that step publishes nothing)
+	if (await until(`!!document.querySelector('dialog.sc-dialog[open]') && !document.querySelector('dialog.sc-dialog[open] .checklist')`, 1500)) await js(`document.querySelector('dialog.sc-dialog[open] button.primary').click(), true`);
+	const itemOffered = await until(CHECKLIST, 10000);
+	await js(`document.querySelector('dialog.sc-dialog[open] .cancel')?.click(), true`);
+	await sleep(300);
+	check(!!itemOffered?.some(([text, on]) => /^Collage presets/.test(text) && on) && itemOffered.length >= 2, 'Publish on the score’s catalog page: the list offers "Collage presets" with the item, ticked (cancelled)', JSON.stringify(itemOffered));
 	await go(`/catalog/items/${ITEM}/collage`, `document.querySelectorAll('[data-testid="collage-list"] > li').length === 2 && !!document.querySelector('${FRAME} .leaf svg')`);
 	await click(tid(`collage-select-${shape}`));
 	await settled(shape, BAR, 1);
@@ -585,6 +596,27 @@ try {
 	await settled(figure, BAR2, 2);
 	const back2 = await onStaff(figure, BAR2, 2);
 	check(back1.ok && back2.ok, `a reload: both pieces at their bars (a click in the list turns to the page)`, `${back1.detail} ${back2.detail}`);
+
+	// ── an unsaved preset and a reload (the final review's case): the stage keeps the presets' local copy while they are
+	//    dirty and offers it at load as its own bar, next to the item's; Discard on both = the draft as stored ──
+	await click(tid(`collage-select-${shape}`));
+	await settled(shape, BAR, 1);
+	await click(tid('preset-save'));
+	await answer('Crash test');
+	const crash = await pressedLook();
+	const COPY = `localStorage.getItem('scutoons_creator:${PRESETS}')`;
+	const keptCopy = await until(`${COPY} !== null`, 4000);
+	check(!!crash && crash !== preset && keptCopy, `"Save as preset …" "Crash test" (the piece names "${crash}"): the stage keeps a local copy of the unsaved presets`, JSON.stringify({ crash, keptCopy }));
+	const BARS = `[...document.querySelectorAll('[data-testid="recover"]')]`;
+	await go(`/catalog/items/${ITEM}/collage`, `${BARS}.length === 2 && !!document.querySelector('${FRAME} .leaf svg')`);
+	const bars = await js(`${BARS}.map((b) => b.textContent.trim())`);
+	check(bars?.length === 2 && /^Collage presets:/.test(bars[1]), 'a reload offers both copies at load – "Collage presets" next to the item', JSON.stringify(bars));
+	await js(`${BARS}.forEach((b) => b.querySelector('button.ghost')?.click()), true`);
+	await sleep(400);
+	await click(tid(`collage-select-${shape}`));
+	await settled(shape, BAR, 1);
+	const discarded = { bars: await js(`${BARS}.length`), copy: await js(COPY), look: await pressedLook(), crash: (await lookTiles()).some((t) => t.id === crash) };
+	check(discarded.bars === 0 && discarded.copy === null && discarded.look === preset && !discarded.crash, 'Discard on both: no bar, no local copy, the shape names the stored (deleted) preset, no "Crash test"', JSON.stringify(discarded));
 
 	// ── Delete + Ctrl+Z, Esc – on the live region only (review fix 2026-10-18): with the focus outside the stage (a link
 	//    of the creator's sidebar) Backspace / Delete / Esc leave the piece ──

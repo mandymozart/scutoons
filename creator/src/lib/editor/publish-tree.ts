@@ -12,7 +12,8 @@
  * Levels: everything (the platform: every toon + the world – map, characters, settings …) → a toon (all its files) → a
  * season (itself, its chapters and their scene files) → a chapter (itself and its scene files). A toon, a season and a
  * chapter also list the platform-wide files their pieces draw with (`PLATFORM_ALONG`: the custom collage presets –
- * research/COLLAGE.md §12.4), so no level ships pieces whose preset is still a draft.
+ * research/COLLAGE.md §12.4), so no level ships pieces whose preset is still a draft; a score's pages (its catalog entry,
+ * its collage stage) name them among their own files.
  *
  * Catalog entries (`item:<id>` …, agents/CATALOG-IN-CREATOR.md) are files of the world level (no toon in their key):
  * the server decides who publishes them (their toon is the entry's; a physical change needs the `physical` rule) –
