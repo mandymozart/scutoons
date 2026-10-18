@@ -25,6 +25,8 @@
 	import { sampleResolver } from '$lib/editor/sample-readers.ts';
 	import type { TextExpressions } from '@scutoons/reader';
 	import CanvasTextEdit from '$lib/components/slice/canvas-text-edit.svelte';
+	import PicturePickLayer from '$lib/components/slice/picture-pick-layer.svelte';
+	import { picturePick } from '$lib/editor/picture-pick.svelte.ts';
 	import CanvasPointHandles from '$lib/components/slice/canvas-point-handles.svelte';
 	import CanvasTailHandles from '$lib/components/slice/canvas-tail-handles.svelte';
 	import { pieceItems, pieceTakesPointer } from '$lib/editor/canvas-pieces.ts';
@@ -257,6 +259,15 @@
 		const icon = (it.variant ? def?.variants?.find((v) => v.id === it.variant)?.icon : null) || def?.icon;
 		return icon ? { src: asset(icon), label: itemName(def, it.item) } : null;
 	};
+
+	// the eyedropper's fallback is offered while a slice canvas is open (picture-pick.svelte.ts)
+	onMount(() => {
+		picturePick.canvases += 1;
+		return () => {
+			picturePick.canvases -= 1;
+			if (!picturePick.canvases) picturePick.finish(null);
+		};
+	});
 
 	onMount(() => {
 		const observer = new ResizeObserver(() => requestAnimationFrame(measure));
@@ -651,6 +662,8 @@
 					{#each gridLines.y as l (l.v)}<line x1="0" y1={l.v} x2="100" y2={l.v} class:major={l.major} />{/each}
 				</svg>
 			{/if}
+			<!-- a colour picked from the slice picture (the eyedropper's fallback, owner 2026-10-18) -->
+			{#if picturePick.active}<PicturePickLayer {image} />{/if}
 			<!-- the stage's centre lines while a moved box sits on them (owner 2026-10-17) -->
 			{#if drag?.moved && (guides.x || guides.y)}
 				<svg class="guides" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" data-testid="centre-guides">

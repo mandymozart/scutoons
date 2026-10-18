@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ColourPopover from './colour-popover.svelte';
 	import FieldReset from './field-reset.svelte';
-	import { uiLabels } from './ui-labels.ts';
+	import { colourSampler, uiLabels } from './ui-labels.ts';
 	import { HEX, longHex, rememberColour } from './colour.ts';
 
 	/**
@@ -42,6 +42,7 @@
 	} = $props();
 
 	const t = uiLabels();
+	const sampler = colourSampler();
 	const uid = $props.id();
 	const popId = `colour-${uid}`;
 	const current = $derived(typeof value === 'string' && value ? value : '');
@@ -76,6 +77,33 @@
 		const left = Math.max(gap, Math.min(r.left, innerWidth - pop.offsetWidth - gap));
 		pop.style.top = `${top / rem}rem`;
 		pop.style.left = `${left / rem}rem`;
+	}
+
+	/**
+	 * The eyedropper (owner 2026-10-18: "pick the colour from the slice and other things on the page"): the browser's
+	 * EyeDropper where it has one (Chromium desktop – any colour on the screen); else the app's picture sampler (the
+	 * creator: a point of the slice picture). The popover steps aside first; Esc cancels either; a pick is written as
+	 * `#rrggbb` and remembered as a recent colour.
+	 */
+	type Dropper = { open: () => Promise<{ sRGBHex: string }> };
+	const native = typeof window !== 'undefined' && 'EyeDropper' in window;
+	const eyedropper = $derived(native ? 'screen' : open && sampler() ? 'picture' : null);
+	async function useEyedropper() {
+		const kind = eyedropper;
+		const fromPicture = sampler();
+		pop?.hidePopover();
+		let hex: string | null = null;
+		try {
+			if (kind === 'screen') hex = (await new (window as unknown as { EyeDropper: new () => Dropper }).EyeDropper().open()).sRGBHex;
+			else if (fromPicture) hex = await fromPicture();
+		} catch {
+			hex = null; // Esc / cancelled
+		}
+		if (hex && HEX.test(hex)) {
+			onchange(longHex(hex));
+			rememberColour(hex);
+		}
+		button?.focus();
 	}
 
 	function ontoggle(e: Event) {
@@ -115,7 +143,16 @@
 	</button>
 	{#if current && !disabled}<FieldReset onreset={() => onchange(undefined)} testid={testid ? `${testid}-reset` : undefined} />{/if}
 	<div bind:this={pop} id={popId} class="popover" popover="auto" role="dialog" tabindex="-1" aria-label={label} {ontoggle} onkeydown={(e) => e.key === 'Escape' && e.stopPropagation()} data-testid={testid ? `${testid}-popover` : undefined}>
-		{#if open}<ColourPopover {value} fallback={HEX.test(placeholder) ? placeholder : null} {palette} onpick={(hex) => onchange(hex)} />{/if}
+		{#if open}
+			<ColourPopover
+				{value}
+				fallback={HEX.test(placeholder) ? placeholder : null}
+				{palette}
+				onpick={(hex) => onchange(hex)}
+				oneyedropper={eyedropper ? useEyedropper : undefined}
+				eyedropperLabel={eyedropper === 'picture' ? t('eyedropperPicture') : t('eyedropper')}
+			/>
+		{/if}
 	</div>
 </span>
 

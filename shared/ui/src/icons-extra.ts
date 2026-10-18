@@ -20,6 +20,8 @@ export const EXTRA_ICONS: Record<string, { contents: string }> = {
 	'tail-none': { contents: '<rect x="3" y="4" width="18" height="12"/>' },
 	'tail-speech': { contents: '<polyline points="9 16 3 16 3 4 21 4 21 16 13 16"/><polyline points="9 16 6 22 13 16"/>' },
 	'tail-thought': { contents: '<rect x="3" y="4" width="18" height="11"/><circle cx="8" cy="18.5" r="1.8"/><circle cx="4.5" cy="21.6" r="1"/>' },
+	// eyedropper (Feather has none): a pipette, the bulb top right, the tip bottom left
+	eyedropper: { contents: '<path d="M3 21l1.5-4.5L13 8l3 3-8.5 8.5z"/><path d="M14 7l3-3a2.1 2.1 0 0 1 3 3l-3 3"/><line x1="12" y1="6" x2="18" y2="12"/>' },
 	// outline width: a ring around a box
 	'outline-width': { contents: '<rect x="3" y="3" width="18" height="18"/><rect x="8" y="8" width="8" height="8"/>' },
 	// collage pieces (agents/research/COLLAGE.md §7): shapes = a triangle, a square and a circle (the piece tool, a piece –

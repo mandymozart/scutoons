@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { HEX, brandPalette, hexToHsv, hsvToHex, longHex, recentColours, type Hsv } from './colour.ts';
 	import { uiLabels } from './ui-labels.ts';
+	import Icon from './icon.svelte';
 	import { untrack } from 'svelte';
 
 	/**
@@ -14,7 +15,9 @@
 		value,
 		fallback,
 		palette = [],
-		onpick
+		onpick,
+		oneyedropper,
+		eyedropperLabel
 	}: {
 		/** the field's colour (a whole hex) or none */
 		value: string | null | undefined;
@@ -23,6 +26,9 @@
 		/** extra swatches first (name + hex), e.g. a toon's palette */
 		palette?: { name: string; hex: string }[];
 		onpick: (hex: string) => void;
+		/** the eyedropper (ColorField: the browser's EyeDropper or the app's picture sampler); none = no button */
+		oneyedropper?: () => void;
+		eyedropperLabel?: string;
 	} = $props();
 
 	const t = uiLabels();
@@ -134,7 +140,14 @@
 		<span class="dot" style:left="{hsv.s * 100}%" style:top="{(1 - hsv.v) * 100}%"></span>
 	</div>
 	<input class="hue" type="range" min="0" max="359" step="1" aria-label={t('hue')} value={Math.round(hsv.h)} oninput={(e) => set({ h: Number(e.currentTarget.value) })} />
-	<input class="hex" type="text" spellcheck="false" autocomplete="off" aria-label={t('hex')} value={current ?? ''} placeholder={fallback ?? ''} oninput={(e) => typeHex(e.currentTarget.value)} />
+	<div class="hex-row">
+		{#if oneyedropper}
+			<button type="button" class="eyedropper" aria-label={eyedropperLabel ?? t('eyedropper')} title={eyedropperLabel ?? t('eyedropper')} onclick={oneyedropper} data-testid="colour-eyedropper">
+				<Icon name="eyedropper" size="1.1em" />
+			</button>
+		{/if}
+		<input class="hex" type="text" spellcheck="false" autocomplete="off" aria-label={t('hex')} value={current ?? ''} placeholder={fallback ?? ''} oninput={(e) => typeHex(e.currentTarget.value)} />
+	</div>
 </div>
 
 <style>
@@ -214,8 +227,32 @@
 		border-radius: 0;
 		background: var(--paper);
 	}
+	.hex-row {
+		display: flex;
+		gap: var(--space-025);
+	}
+	/* the eyedropper: a square beside the hex, grouped (square, DESIGN.md "Round vs square") */
+	.eyedropper {
+		flex: none;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		box-sizing: border-box;
+		width: var(--control-height);
+		margin: 0;
+		padding: 0;
+		border: var(--border-width-regular) solid var(--border-muted);
+		background: var(--paper);
+		color: var(--ink);
+		cursor: pointer;
+	}
+	.eyedropper:hover {
+		border-color: var(--ink);
+	}
 	.hex {
 		box-sizing: border-box;
+		flex: 1;
+		min-width: 0;
 		width: 100%;
 		height: var(--control-height);
 		margin: 0;

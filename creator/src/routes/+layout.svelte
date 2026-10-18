@@ -19,8 +19,10 @@
 		installTooltips,
 		DialogHost,
 		ToastStack,
+		provideColourSampler,
 		provideUiLabels
 	} from '@scutoons/ui';
+	import { picturePick } from '$lib/editor/picture-pick.svelte.ts';
 	import { toaster } from '$lib/toasts.ts';
 	import { InstallBar, UpdateBar, pwaLabels } from '@scutoons/pwa';
 	import { APP_NAME, initPwa, install, pwa } from '$lib/pwa.svelte.ts';
@@ -58,8 +60,12 @@
 		get recent() { return m['creator.colour_recent'](); },
 		get shade() { return m['creator.colour_shade'](); },
 		get hue() { return m['creator.colour_hue'](); },
-		get hex() { return m['creator.colour_hex'](); }
+		get hex() { return m['creator.colour_hex'](); },
+		get eyedropper() { return m['creator.colour_eyedropper'](); },
+		get eyedropperPicture() { return m['creator.colour_eyedropper_slice'](); }
 	});
+	// the eyedropper's fallback (no EyeDropper in the browser): a point of the open slice canvas' picture
+	provideColourSampler(() => (picturePick.canvases > 0 ? () => picturePick.start() : null));
 
 	onMount(() => {
 		// magic link from the login mail: `<creator origin>/?login=<token>`; else the shared session (single sign-on)

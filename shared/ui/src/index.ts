@@ -21,7 +21,7 @@ export { default as LinkedPair, type PairField } from './linked-pair.svelte';
 export { default as PropRow } from './prop-row.svelte';
 export { default as FieldReset } from './field-reset.svelte';
 export { default as ColourPopover } from './colour-popover.svelte';
-export { provideUiLabels, uiLabels, type UiLabels } from './ui-labels.ts';
+export { colourSampler, provideColourSampler, provideUiLabels, uiLabels, type ColourSampler, type UiLabels } from './ui-labels.ts';
 export { clamp, evaluate, roundToStep, stepFor } from './scrub.ts';
 export { sortable, type SortableOptions } from './sortable.ts';
 export { liveRegion, region, type RegionOptions } from './selection.svelte.ts';

@@ -956,7 +956,12 @@ Three kinds, three places; none moves the layout:
   our colour popover (owner 2026-10-18, not the browser's picker): the brand palette read from the tokens (+ a palette
   the app passes), this browser's recent colours (8), a saturation / brightness area (arrows, Shift ×10) with a hue
   slider, the hex; ink frames, rem sizes, in the top layer (no panel clips it); Esc / a click outside closes it, the
-  focus goes back to the swatch. Typed hex goes out only when whole (c747a0b5).
+  focus goes back to the swatch. Typed hex goes out only when whole (c747a0b5). An **eyedropper** beside the hex
+  (owner 2026-10-18: "pick the colour from the slice and other things on the page"): the browser's EyeDropper where
+  it has one (Chromium desktop – any colour on the screen); elsewhere (Firefox, Safari, phones) "from the slice": the
+  open slice canvas becomes a picking surface – the colour under the pointer in a chip, a tap takes the slice
+  picture's own pixel (read with CORS – the CDN sends `Access-Control-Allow-Origin: *`; pieces and text on top are not
+  part of it), Esc cancels. The pick is written as `#rrggbb` and joins the recent colours.
 - **Text box inspector without a weight** (owner 2026-10-18: "keep it reduced, focus on certain things"): no 400 / 700
   control; a stored `weight` still renders.
 - **Text size**: shown in rem (default), pt or px of the slice at 1x (1rem = 16px, 1pt = 4/3px), the unit a switch
