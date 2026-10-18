@@ -100,7 +100,21 @@ async function applyDraft(spec) {
 function describe(node, depth) {
 	const o = { id: node.id, name: node.name, type: node.type };
 	if ('x' in node) Object.assign(o, { x: Math.round(node.x), y: Math.round(node.y), w: Math.round(node.width), h: Math.round(node.height) });
-	if (node.type === 'TEXT') o.text = node.characters;
+	if (node.type === 'TEXT') {
+		o.text = node.characters;
+		// the lettering's look, for text boxes made from it (a mixed value – figma.mixed – is left out)
+		const num = (v) => (typeof v === 'number' ? Math.round(v * 100) / 100 : undefined);
+		const hex = (paints) => {
+			const p = Array.isArray(paints) && [...paints].reverse().find((f) => f.type === 'SOLID' && f.visible !== false); // the top one shows
+			return p ? '#' + [p.color.r, p.color.g, p.color.b].map((c) => Math.round(c * 255).toString(16).padStart(2, '0')).join('') : undefined;
+		};
+		Object.assign(o, { fontSize: num(node.fontSize), font: typeof node.fontName === 'object' ? node.fontName.family : undefined, align: typeof node.textAlignHorizontal === 'string' ? node.textAlignHorizontal : undefined, fill: hex(node.fills), stroke: hex(node.strokes), strokeWeight: num(node.strokeWeight) });
+	}
+	if ((node.type === 'TEXT' || node.type === 'FRAME') && node.absoluteBoundingBox) {
+		const b = node.absoluteBoundingBox; // the rotated box on the page (x / y / w / h above are unrotated, parent-relative)
+		o.abs = { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.width), h: Math.round(b.height) };
+	}
+	if ('rotation' in node && Math.abs(node.rotation) > 0.01) o.rotation = Math.round(node.rotation * 10) / 10;
 	if ('fills' in node && Array.isArray(node.fills)) {
 		const img = node.fills.find((f) => f.type === 'IMAGE');
 		if (img) o.image = img.imageHash;
@@ -155,7 +169,8 @@ const commands = {
 	},
 	/**
 	 * a region of a frame as PNGs at several scales, some of its layers hidden – the production slices (figma-production.mjs):
-	 * { frame, x, y, w, h, hide: ['text', 'guides'], scales: [1, 2, 3] } → [{ scale, base64 }]. Works on a clone inside a
+	 * { frame, x, y, w, h, hide: ['text', 'guides'], hideIds: ['2231:5'], scales: [1, 2, 3] } → [{ scale, base64 }] (hide =
+	 * the frame's direct children by name, hideIds = layers at any depth by id). Works on a clone inside a
 	 * clipping frame far off the canvas, removed afterwards – the draft itself is never touched.
 	 */
 	async region(args) {
@@ -169,6 +184,13 @@ const commands = {
 		box.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
 		page.appendChild(box);
 		box.x = -200000; box.y = -200000;
+		// hideIds: layers hidden at any depth (lettering nested in groups) – the clone keeps the original's child order,
+		// so original and clone are walked side by side
+		const ids = new Set(args.hideIds ?? []);
+		const hideIn = (o, c) => {
+			if (!ids.size || !('children' in o) || !('children' in c)) return;
+			o.children.forEach((k, i) => { const ck = c.children[i]; if (!ck) return; if (ids.has(k.id)) ck.visible = false; else hideIn(k, ck); });
+		};
 		try {
 			if (args.partial && 'children' in f) {
 				// a huge hand-made draft: clone only the frame's direct children that reach into the region (their
@@ -176,9 +198,11 @@ const commands = {
 				for (const n of f.children) {
 					if ((args.hide ?? []).includes(n.name) || n.visible === false) continue;
 					if (n.x >= args.x + args.w || n.x + n.width <= args.x || n.y >= args.y + args.h || n.y + n.height <= args.y) continue;
+					if (ids.has(n.id)) continue;
 					const c = n.clone();
 					box.appendChild(c);
 					c.x = n.x - args.x; c.y = n.y - args.y;
+					hideIn(n, c);
 				}
 				const out = [];
 				for (const s of args.scales ?? [1]) out.push({ scale: s, base64: figma.base64Encode(await box.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: s } })) });
@@ -189,6 +213,7 @@ const commands = {
 			c.x = -args.x; c.y = -args.y;
 			if (args.unclip && 'clipsContent' in c) c.clipsContent = false; // a panorama strip reaches past the frame's width
 			if ('children' in c) for (const l of c.children) if ((args.hide ?? []).includes(l.name)) l.visible = false;
+			hideIn(f, c);
 			const out = [];
 			for (const s of args.scales ?? [1]) out.push({ scale: s, base64: figma.base64Encode(await box.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: s } })) });
 			return out;
