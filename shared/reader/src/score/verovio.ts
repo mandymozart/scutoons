@@ -15,6 +15,8 @@ export interface ScoreToolkit {
 	/** when each note starts / stops (ms) – the player's clock (score/synth.ts) */
 	renderToTimemap(options?: Record<string, unknown>): { tstamp: number; on?: string[]; off?: string[] }[];
 	getMIDIValuesForElement(id: string): { pitch?: number; time?: number; duration?: number };
+	/** the loaded file as MEI – its measures' ids and numbers are the collage pieces' bars (score-anchors.ts barIndex) */
+	getMEI(options?: Record<string, unknown>): string;
 }
 
 let toolkit: Promise<ScoreToolkit> | null = null;
