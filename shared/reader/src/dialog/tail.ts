@@ -6,6 +6,7 @@ import {
 	TAIL_CORNER_INSET_REM,
 	anchorFactors,
 	polygonPath,
+	reachingSide,
 	rectPath,
 	speechTail,
 	tailBase,
@@ -45,7 +46,8 @@ export function tailFrame(root: HTMLElement, dialog: Dialog): TailFrame {
 
 /**
  * The tail for a bubble box (`.box` inside the dialog `root`), or null while it can't be measured (not laid out) or its
- * tip lies on the bubble's side of the base (a tail through the bubble). `wobblyD` = a wobbly bubble's outline path.
+ * tip lies inside the bubble. A tip on the bubble's side of the stored base draws from the side facing it (owner
+ * 2026-10-18, "Basis springt mit"; the stored data isn't rewritten here). `wobblyD` = a wobbly bubble's outline path.
  */
 export function measureTail(root: HTMLElement, box: HTMLElement, dialog: Dialog, tail: FreeTail, wobblyD: string | null): TailDrawing | null {
 	const slice = root.offsetParent as HTMLElement | null;
@@ -75,7 +77,9 @@ export function measureTail(root: HTMLElement, box: HTMLElement, dialog: Dialog,
 	// lies within twice its amplitude of the box's edge
 	const edge = wobblyD ? 2 * wobbleAmplitude(w, h) : border;
 	const inner = (b: TailBase): TailBase => ({ ...b, point: { x: b.point.x - b.normal.x * edge, y: b.point.y - b.normal.y * edge } });
-	const outer = tailBase(tail.base.side, tail.base.at, w, h, inset);
+	const side = reachingSide(tail.base.side, tip, w, h);
+	if (!side) return null;
+	const outer = tailBase(side, tail.base.at, w, h, inset);
 	if (!tipOutside(outer, tip)) return null;
 	const sliceCorners = [local({ x: 0, y: 0 }), local({ x: S.w, y: 0 }), local({ x: S.w, y: S.h }), local({ x: 0, y: S.h })];
 	const slicePath = polygonPath(sliceCorners);

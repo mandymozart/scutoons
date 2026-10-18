@@ -4,6 +4,9 @@ import assert from 'node:assert/strict';
 import {
 	defaultTail,
 	dialogTail,
+	facingSide,
+	followTip,
+	reachingSide,
 	freeTailFrom,
 	isFreeTail,
 	nearestBase,
@@ -95,4 +98,42 @@ test('speech wedge and thought circles', () => {
 	// the largest is off the bubble
 	assert.ok(c[0].cy - c[0].r > 80);
 	assert.ok(c[0].cy < c[1].cy && c[1].cy < c[2].cy);
+});
+
+test('the base jumps along: the side facing the tip when the stored one can not reach it ("Basis springt mit")', () => {
+	// a 200 × 100 box (its own frame, px)
+	assert.equal(facingSide({ x: 100, y: -40 }, 200, 100), 'top');
+	assert.equal(facingSide({ x: 100, y: 160 }, 200, 100), 'bottom');
+	assert.equal(facingSide({ x: -30, y: 50 }, 200, 100), 'left');
+	assert.equal(facingSide({ x: 260, y: 40 }, 200, 100), 'right');
+	// diagonal: the direction from the centre decides (up-right, more up than right / more right than up)
+	assert.equal(facingSide({ x: 230, y: -100 }, 200, 100), 'top');
+	assert.equal(facingSide({ x: 300, y: -20 }, 200, 100), 'right');
+	// a wide box, the tip just above its right end: right matches best but the tip isn't past it – the top reaches
+	assert.equal(facingSide({ x: 190, y: -10 }, 200, 50), 'top');
+	// inside the bubble (or on its outline): none
+	assert.equal(facingSide({ x: 100, y: 50 }, 200, 100), null);
+	assert.equal(facingSide({ x: 200, y: 50 }, 200, 100), null);
+	// the stored side wins while it reaches, even when another faces the tip better
+	assert.equal(reachingSide('bottom', { x: 400, y: 110 }, 200, 100), 'bottom');
+	assert.equal(reachingSide('bottom', { x: 100, y: -40 }, 200, 100), 'top');
+	assert.equal(reachingSide('left', { x: 100, y: 50 }, 200, 100), null);
+});
+
+test('followTip keeps the tail while its side works, else moves the base to the facing side (same at)', () => {
+	const slice = { w: 400, h: 600 };
+	const frame = { left: 100, top: 200, width: 200, height: 100, rotation: 0, scale: 1 };
+	const below = { kind: 'speech', tip: { x: 40, y: 70 }, base: { side: 'bottom', at: 0.3 } } as const;
+	assert.equal(followTip(below, frame, slice), below);
+	// the tip above the bubble (10 % = 60 px; the box starts at 200 px)
+	const above = { ...below, tip: { x: 40, y: 10 } };
+	assert.deepEqual(followTip(above, frame, slice), { ...above, base: { side: 'top', at: 0.3 } });
+	// the tip inside: unchanged (no tail is drawn)
+	const inside = { ...below, tip: { x: 50, y: 40 } };
+	assert.equal(followTip(inside, frame, slice), inside);
+	// a bubble turned 180°: its own bottom faces up on the slice, so a tip above it is past its bottom
+	assert.equal(followTip(above, { ...frame, rotation: 180 }, slice), above);
+	assert.deepEqual(followTip(below, { ...frame, rotation: 180 }, slice).base, { side: 'top', at: 0.3 });
+	// not measured yet: unchanged
+	assert.equal(followTip(above, frame, { w: 0, h: 0 }), above);
 });

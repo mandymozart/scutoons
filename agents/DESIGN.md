@@ -667,12 +667,17 @@ Backwards compatible with the existing chapter-2 entry (`rect {x,y,width}` + `te
   Reader: one SVG inside the bubble's box (it turns, scales and plays effects with it), measured from the laid-out box
   and slice in px of the box's own frame (no layout shift; physical coordinates, so RTL draws the same); cut by a clip
   path at the slice's box; the wedge's paper reaches into the outline between its two base points (no line across the
-  join), its two lines are clipped to outside the bubble (a wobbly bubble: outside its trembling path). A tip on the
-  bubble's own side of the base draws no tail (move the base). Creator: with a drawn bubble selected, the canvas shows
+  join), its two lines are clipped to outside the bubble (a wobbly bubble: outside its trembling path). The base jumps
+  along (owner 2026-10-18, "Basis springt mit"): a tip not past the stored side (e.g. base bottom, tip above) draws from
+  the side facing it – of the sides the tip lies past, the one whose outward direction best matches centre → tip
+  (`facingSide` / `reachingSide`), `at` kept and held off the corners – so there is always a tail; only a tip inside
+  the bubble draws none. Render time never rewrites the data. Creator: with a drawn bubble selected, the canvas shows
   the tip (an ink dot; past the slice it sits on the edge, hollow) and the base (a paper diamond that slides along the
-  outline and jumps sides at the corners) – `canvas-tail-handles.svelte`, one undo step per drag, the arrow keys nudge a
-  focused handle (tip 0.5 % of the slice, Shift × 10; base along its side). Moving the bubble keeps the tip (the
-  speaker stays). Inspector: a "Zeiger / Tail" row right under the presets – none · speech · thought as icon segments
+  outline and jumps sides at the corners; shown where it is drawn) – `canvas-tail-handles.svelte`, one undo step per
+  drag, the arrow keys nudge a focused handle (tip 0.5 % of the slice, Shift × 10; base along its side). Moving the
+  bubble keeps the tip (the speaker stays). A tip drag, a bubble move / resize / turn / scale or a nudge that leaves the
+  stored side unable to reach the tip stores the facing side in the same undo step (`followTip`; creator
+  `followMovedBubble`), so the data matches what is drawn. Inspector: a "Zeiger / Tail" row right under the presets – none · speech · thought as icon segments
   and a reset (a new tail of its kind) – `tail-field.svelte`. New speech / thought texts get a default tail (base bottom
   at 0.3, tip a bit below-left); switching between the two keeps tip and base; an old fixed tail becomes a free one where
   it was on its first edit (`freeTailFrom`). Old data needs no migration.

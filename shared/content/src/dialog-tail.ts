@@ -206,6 +206,43 @@ export function tipOutside(base: TailBase, tip: Pt): boolean {
 	return (tip.x - base.point.x) * base.normal.x + (tip.y - base.point.y) * base.normal.y > 0.5;
 }
 
+/** how far `tip` lies out past `side` of a `width` × `height` box (its own frame, px; ≤ 0 = on the bubble's side) */
+function pastSide(side: TailSide, tip: Pt, width: number, height: number): number {
+	return side === 'top' ? -tip.y : side === 'bottom' ? tip.y - height : side === 'left' ? -tip.x : tip.x - width;
+}
+
+/**
+ * The side facing the tip (owner 2026-10-18, "Basis springt mit"): of the sides the tip lies out past, the one whose
+ * outward direction best matches the direction from the box's centre to the tip; null = the tip is inside the bubble.
+ * `tip` in the box's own frame (px), like `tipOutside`.
+ */
+export function facingSide(tip: Pt, width: number, height: number): TailSide | null {
+	const dx = tip.x - width / 2;
+	const dy = tip.y - height / 2;
+	const len = Math.hypot(dx, dy) || 1;
+	const outward: Record<TailSide, number> = { top: -dy / len, bottom: dy / len, left: -dx / len, right: dx / len };
+	let best: TailSide | null = null;
+	for (const side of TAIL_SIDES) if (pastSide(side, tip, width, height) > 0.5 && (best === null || outward[side] > outward[best])) best = side;
+	return best;
+}
+
+/** the side a tail is drawn from: the stored one while the tip lies out past it, else the side facing the tip (or null) */
+export function reachingSide(side: TailSide, tip: Pt, width: number, height: number): TailSide | null {
+	return pastSide(side, tip, width, height) > 0.5 ? side : facingSide(tip, width, height);
+}
+
+/**
+ * The tail with its base on the side that reaches its tip (the creator stores it after a tip drag or a bubble move, so
+ * the data matches what is drawn): the same object while the stored side works or the tip is inside the bubble, else a
+ * copy with the facing side and the same `at` (`tailBase` keeps it off the corners). `slice` = the slice in px.
+ */
+export function followTip(tail: FreeTail, frame: TailFrame, slice: { w: number; h: number }): FreeTail {
+	if (!slice.w || !slice.h || !frame.width || !frame.height) return tail;
+	const tip = toLocal(frame, { x: (tail.tip.x / 100) * slice.w, y: (tail.tip.y / 100) * slice.h });
+	const side = reachingSide(tail.base.side, tip, frame.width, frame.height);
+	return side === null || side === tail.base.side ? tail : { ...tail, base: { side, at: tail.base.at } };
+}
+
 /**
  * A speech tail (box frame, px): `fill` = the wedge reaching `depth` px into the bubble, so its paper covers the outline
  * between the base's two points (no line across the join); `stroke` = only its two sides, base → tip → base.

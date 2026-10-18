@@ -15,6 +15,7 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { DEFAULT_SLICE, anchorAt, anchorFactors, anchoredRect, dialogFit, estimatedWidth, isDrawnBubble, type DialogFit, getAt, round2, sliceLayers, suggestedAnchor, type Path } from '@scutoons/content';
 	import { drawnHeights, drawnKey, drawnWidths } from '$lib/editor/drawn-heights.svelte.ts';
+	import { followMovedBubble } from '$lib/editor/tail-edit.ts';
 	import { SLICE_RATIO } from '$lib/editor/defaults.ts';
 	import { asset, toonUrl } from '$lib/utils/cdn.ts';
 	import { toonAsset } from '@scutoons/content';
@@ -421,6 +422,16 @@
 	/** the entry a rect belongs to (text box / placed item) in one locale */
 	const entryOf = (l: string, item: Item) => doc.get(l, item.path.slice(0, -1));
 
+	/** a moved / resized / turned / scaled bubble: its tail's base follows the tip ("Basis springt mit", tail-edit.ts) */
+	function followTail(item: Item) {
+		if (item.kind !== 'dialog') return;
+		const now = items.find((i) => i.kind === 'dialog' && i.index === item.index);
+		if (!now) return;
+		const b = boxOf(now);
+		const px = overlaySize();
+		followMovedBubble(entryOf(doc.primary, now), { left: b.x, top: b.y, width: b.width, height: b.height }, now.rotation, now.scale, { w: px.width, h: px.height });
+	}
+
 	/** rotate handle: the angle from the centre to the pointer (0° = straight up); with snap in 15° steps, Shift switches */
 	function rotateTo(event: PointerEvent, d: Drag) {
 		const deg = rotationAngle(toPercent(event), d.shown, d.px, grid > 0 !== event.shiftKey);
@@ -430,6 +441,7 @@
 			if (deg === 0) delete entry.rotation;
 			else entry.rotation = deg;
 		}
+		followTail(d.item!);
 	}
 
 	/**
@@ -457,6 +469,7 @@
 				if (next.height !== undefined) rect.height = next.height;
 			}
 		}
+		followTail(item);
 	}
 
 	let checkpointed = false;
@@ -513,6 +526,7 @@
 			if (next.height !== undefined) rect.height = next.height;
 			if (drag.item!.kind === 'dialog') resized(l, drag.item!, rect, drag.handle === 'move', writeHeight, drag.storedWidths[l]);
 		}
+		followTail(drag.item!);
 	}
 
 	/**
@@ -568,6 +582,7 @@
 			rect.x = round2(dx ? snapX(rect.x + dx) : rect.x);
 			rect.y = round2(dy ? snapY(rect.y + dy) : rect.y);
 		}
+		followTail(item);
 		return true;
 	}
 

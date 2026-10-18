@@ -2,6 +2,7 @@
 	import {
 		TAIL_CORNER_INSET_REM,
 		dialogTail,
+		followTip,
 		freeTailFrom,
 		nearestBase,
 		round2,
@@ -21,7 +22,8 @@
 	 * is selected – the TIP (free: anywhere on the slice and past its edge, an off-panel speaker; shown at the edge while
 	 * it lies outside) and the BASE (slides along the bubble's outline, jumps sides at the corners, kept 1rem from them).
 	 * One undo step per drag; an old fixed tail becomes a free one on its first edit. The arrow keys nudge a focused handle
-	 * (the tip by 0.5 % of the slice, Shift × 10; the base along its side).
+	 * (the tip by 0.5 % of the slice, Shift × 10; the base along its side). A base that can't reach the tip jumps to the
+	 * side facing it ("Basis springt mit") – drawn there and stored there with the edit.
 	 */
 	let {
 		doc,
@@ -73,20 +75,25 @@
 	});
 	const rem = () => parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
 	const inset = () => (TAIL_CORNER_INSET_REM * rem()) / (scale || 1);
+	/** the base as it is drawn: on the side facing the tip when the stored one can't reach it ("Basis springt mit") */
+	const shownBase = $derived(tail ? followTip(tail, frame, size).base : null);
 	/** the base handle on the slice (%) */
 	const basePos = $derived.by(() => {
-		if (!tail || !size.w) return null;
-		const b = tailBase(tail.base.side, tail.base.at, frame.width, frame.height, inset());
+		if (!tail || !shownBase || !size.w) return null;
+		const b = tailBase(shownBase.side, shownBase.at, frame.width, frame.height, inset());
 		const p = toSlice(frame, b.point);
 		return { x: (p.x / size.w) * 100, y: (p.y / size.h) * 100 };
 	});
 	const off = $derived(!!tail && (tail.tip.x < 0 || tail.tip.x > 100 || tail.tip.y < 0 || tail.tip.y > 100));
 	const clamp = (v: number) => Math.min(100, Math.max(0, v));
 
-	/** writes the tail (the drag's undo step was taken at its start) */
+	/**
+	 * writes the tail (the drag's undo step was taken at its start); a base that can't reach the tip is stored on the side
+	 * facing it, in the same step (owner 2026-10-18, "Basis springt mit")
+	 */
 	function write(next: FreeTail) {
 		const entry = doc.get(doc.primary, path);
-		if (entry) entry.tail = next;
+		if (entry) entry.tail = followTip(next, frame, size);
 	}
 
 	let dragging = $state<{ which: 'tip' | 'base'; pointer: number; moved: boolean } | null>(null);
@@ -139,11 +146,12 @@
 			return;
 		}
 		// along the side: right / down = towards its end
-		const horizontal = tail.base.side === 'top' || tail.base.side === 'bottom';
+		const now = shownBase ?? tail.base;
+		const horizontal = now.side === 'top' || now.side === 'bottom';
 		const step = (horizontal ? arrow[0] : arrow[1]) * 0.02 * k;
 		if (!step) return;
-		const b = tailBase(tail.base.side, tail.base.at + step, frame.width, frame.height, inset());
-		write({ ...tail, base: { side: tail.base.side, at: Math.round(b.at * 1000) / 1000 } });
+		const b = tailBase(now.side, now.at + step, frame.width, frame.height, inset());
+		write({ ...tail, base: { side: now.side, at: Math.round(b.at * 1000) / 1000 } });
 	}
 </script>
 
@@ -159,7 +167,7 @@
 		role="button"
 		tabindex="0"
 		data-testid="tail-base"
-		data-side={tail.base.side}
+		data-side={shownBase?.side}
 		onpointerdown={(e) => down(e, 'base')}
 		onpointermove={move}
 		onpointerup={up}

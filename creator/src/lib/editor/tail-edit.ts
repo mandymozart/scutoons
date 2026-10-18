@@ -1,6 +1,7 @@
 // A drawn bubble's tail in the inspector (owner 2026-10-18, DESIGN.md Part 2 "Tails"): its kind (none / speech /
-// thought) and a reset; the canvas handles (canvas-tail-handles.svelte) move its tip and base.
-import { anchoredRect, defaultTail, dialogFit, dialogTail, freeTailFrom, type Dialog, type Path, type TailBox, type TailKind } from '@scutoons/content';
+// thought) and a reset; the canvas handles (canvas-tail-handles.svelte) move its tip and base; a moved bubble's base
+// follows the tip (followMovedBubble).
+import { anchoredRect, defaultTail, dialogFit, dialogTail, followTip, freeTailFrom, isDrawnBubble, isFreeTail, type Dialog, type Path, type TailBox, type TailKind } from '@scutoons/content';
 import { drawnHeights, drawnKey, drawnWidths } from '$lib/editor/drawn-heights.svelte.ts';
 
 /** the box as the canvas drew it (% of the slice): an auto width at its drawn width, an auto height at its drawn height */
@@ -29,4 +30,16 @@ export function resetTail(d: Dialog, box: TailBox, ratio: number) {
 	const now = dialogTail(d);
 	if (!now) return;
 	d.tail = defaultTail(typeof now === 'object' ? now.kind : 'speech', box, ratio);
+}
+
+/**
+ * After the bubble moved, was resized, turned or scaled (the tip stays: the speaker stays): a free tail whose stored base
+ * can't reach the tip any more is stored on the side facing it – in place, in the edit's undo step (owner 2026-10-18,
+ * "Basis springt mit"). `box` = the drawn box in % of the slice, `slice` = the slice in px.
+ */
+export function followMovedBubble(d: any, box: TailBox, rotation: number, scale: number, slice: { w: number; h: number }) {
+	if (!d || !isDrawnBubble(d) || !isFreeTail(d.tail)) return;
+	const frame = { left: (box.left / 100) * slice.w, top: (box.top / 100) * slice.h, width: (box.width / 100) * slice.w, height: (box.height / 100) * slice.h, rotation, scale };
+	const next = followTip(d.tail, frame, slice);
+	if (next !== d.tail) d.tail = next;
 }
