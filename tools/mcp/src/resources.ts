@@ -4,6 +4,8 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
+	BLEND_MODES,
+	COLLAGE_LOOKS,
 	DEFAULT_SLICE,
 	FRAME_PRESETS,
 	FRAME_RATIO_MAX,
@@ -227,7 +229,7 @@ export const RULES: RuleResource[] = [
 		name: 'slices',
 		uri: 'scutoons://rules/slices',
 		title: 'Slices, sizes and media variants',
-		description: 'Slice size, frame ratios, image / video quality variants (shared/content/src/content.ts)',
+		description: 'Slice size, frame ratios, image / video quality variants, collage pieces (shared/content/src/content.ts, collage.ts)',
 		text: () =>
 			[
 				'# Slices and media',
@@ -241,7 +243,20 @@ export const RULES: RuleResource[] = [
 				'- media paths are relative to the toon folder on the CDN and language-independent (no locale in a path);',
 				'  find existing files with `search_assets`.',
 				'',
-				code('ts', block('shared/content/src/content.ts', 'export interface Slice {'))
+				code('ts', block('shared/content/src/content.ts', 'export interface Slice {')),
+				'',
+				'## Collage pieces (`slice.pieces[]`, shared/content/src/collage.ts – agents/research/COLLAGE.md)',
+				'',
+				'Vectors, character pictures and images on a picture slice: under every text box, item and area, clipped to the',
+				'picture, back → front in array order (no `layer`). `src` is a media path like the slice image (a shape: `vectors/<slug>.svg`',
+				'in catpope, `../catpope/vectors/<slug>.svg` in other toons – `search_assets` with folder "catpope/vectors" finds them);',
+				'`ratio` = the file\'s width ÷ height; `rect` = x / y of the `anchor` point and the width, in % of the picture – never a',
+				'height (it follows the ratio: never distorted). The look: `preset` = one of',
+				`${COLLAGE_LOOKS.map((l) => l.id).join(', ')}; own values in \`style\` (a key replaces the look's whole value, null = off),`,
+				`\`style.blend\` one of ${BLEND_MODES.join(', ')}; outline / shadow / blur sizes in % of the piece's width.`,
+				'A score item\'s pieces live in its `score.collage` (each on a bar + staff, `at`), edited in the creator\'s score stage.',
+				'',
+				code('ts', block('shared/content/src/collage.ts', 'export interface CollagePiece'))
 			].join('\n')
 	}
 ];
