@@ -6,10 +6,11 @@
 //     header, sheet (= Verovio's page) and footer as high as the reader's own score view on that screen (the viewer's
 //     lab, plain look: a 390 × 844 touch phone, a 1440 × 810 desktop), its Play label shown / hidden as there;
 //   - a shape (disc black) via "Add a piece …" lands in the middle of the page shown; a drag re-anchors it onto bar 10,
-//     staff 1 (its box says data-bar 10, the drawn piece sits on the staff lines), one undo step; the look Negative
-//     (difference) reads as the paper's negative (pixels: dark where the paper is, bright where the ink is); the corner
-//     scales it; dragged over the page's bottom edge, the leaf does not scroll (the layers keep the music's width, the
-//     handle stays on the page), dragged back it is on its note again;
+//     staff 1 (its box says data-bar 10, the drawn piece sits on the staff lines), one undo step (also when the drag
+//     pauses 1.5 s half-way: one Ctrl+Z goes back to its start); the look Negative (difference) reads as the paper's
+//     negative (pixels: dark where the paper is, bright where the ink is); the corner scales it; dragged over the page's
+//     bottom edge, the leaf does not scroll (the layers keep the music's width, the handle stays on the page), dragged
+//     back it is on its note again;
 //   - Phone → Desktop (1440 × 810) → zoom + twice: the piece stays on bar 10, staff 1 each time (the lines break anew);
 //   - a character picture (Characters tab, a mood portrait) dragged onto bar 12, staff 2: on it at zoom 30 and 35;
 //     Behind = under the notes (z 0, the music z 1); Page keeps it where it is (and back);
@@ -147,11 +148,14 @@ async function click(selector) {
 	await mouse('mouseReleased', ...at);
 	await sleep(250);
 }
-/** a real mouse drag from one viewport point to another, in steps */
-async function drag([x, y], [tx, ty]) {
+/** a real mouse drag from one viewport point to another, in steps; `pause` ms = held still half-way */
+async function drag([x, y], [tx, ty], pause = 0) {
 	await mouse('mouseMoved', x, y);
 	await mouse('mousePressed', x, y, 1);
-	for (let i = 1; i <= 12; i++) await mouse('mouseMoved', x + ((tx - x) * i) / 12, y + ((ty - y) * i) / 12, 1);
+	for (let i = 1; i <= 12; i++) {
+		if (i === 7 && pause) await sleep(pause);
+		await mouse('mouseMoved', x + ((tx - x) * i) / 12, y + ((ty - y) * i) / 12, 1);
+	}
 	await sleep(100);
 	await mouse('mouseReleased', tx, ty);
 	await sleep(400);
@@ -323,6 +327,13 @@ try {
 	at = await onStaff(shape, BAR, 1);
 	const off = back && home ? Math.hypot(back.cx - home.cx, back.cy - home.cy) : Infinity;
 	check(at.ok && off < 1.5 && Math.abs(back.w - home.w) < 0.5, `dragged back: on bar ${BAR}, staff 1, where it was (${off.toFixed(2)} px off, as wide)`, `${at.detail} ${JSON.stringify({ home, back })}`);
+	// a drag held still half-way for 1.5 s (past doc.edit's 1.2 s key window) is still one undo step (review fix 2026-10-18)
+	if (back) await drag([back.cx, back.cy], [back.cx + back.w, back.cy], 1500);
+	const paused = await drawn(shape);
+	await press('z', 'ctrl');
+	const unpaused = await drawn(shape);
+	const left = back && unpaused ? Math.hypot(unpaused.cx - back.cx, unpaused.cy - back.cy) : Infinity;
+	check(!!paused && paused.cx - back.cx > back.w / 2 && left < 1.5, `a drag that pauses 1.5 s is one undo step (one Ctrl+Z: ${left.toFixed(2)} px from its start)`, JSON.stringify({ back, paused, unpaused }));
 
 	// ── Phone → Desktop → zoom + twice: still on bar 10, staff 1 ──
 	await click(tid('stage-desktop'));

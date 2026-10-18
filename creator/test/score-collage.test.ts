@@ -1,6 +1,6 @@
 // score-collage.ts + screens.ts (agents/research/COLLAGE.md §4.4): the score stage's edits on the item document – the
-// part's collage bound to its file, new / moved / scaled / removed pieces, the Bar / Page switch, the list's sides, the
-// stage's problems – and the simulated screens
+// part's collage bound to its file, new / moved / scaled / removed pieces, a drag's one undo step, the Bar / Page switch,
+// the list's sides, the stage's problems – and the simulated screens
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { CollagePiece } from '@scutoons/content';
@@ -14,6 +14,7 @@ import {
 	cornerWidth,
 	ensureSheet,
 	fileChanged,
+	gestureEdit,
 	missingBars,
 	moveCollageRows,
 	movePiece,
@@ -117,6 +118,20 @@ test("the scale handle: the box's centre and its own bottom-right corner (anchor
 	near(turned.corner, { x: 49, y: (770 / 1500) * 100 });
 	// the corner is where the corner drag reads the width back: 40 units = 4 sp
 	assert.equal(cornerWidth(piece('piece-a'), turned.centre, turned.corner, geo), 4);
+});
+
+test('a gesture is one undo step however long it pauses: one checkpoint per gesture number, the edit in place', () => {
+	const doc = { data: { _: item() } as Record<string, any>, primary: '_', checkpoints: 0, checkpoint() { this.checkpoints++; } };
+	const edit = gestureEdit(doc);
+	const width = (w: number) => (file: Record<string, any>) => void (file.width = w);
+	for (const w of [1, 2, 3]) edit(7, width(w));
+	assert.deepEqual([doc.checkpoints, doc.data._.width], [1, 3], 'many moves of one drag: one checkpoint, the last move stays');
+	edit(8, width(4));
+	edit(8, width(5));
+	assert.deepEqual([doc.checkpoints, doc.data._.width], [2, 5], 'the next drag: the next checkpoint');
+	doc.data._ = null;
+	edit(9, width(6));
+	assert.equal(doc.checkpoints, 2, 'no document (still loading): nothing recorded, nothing written');
 });
 
 test('removing a piece; the last one takes the collage away', () => {

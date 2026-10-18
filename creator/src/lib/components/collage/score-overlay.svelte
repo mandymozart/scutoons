@@ -44,13 +44,17 @@
 
 	const frame = $derived(pageFrame(geometry));
 	$effect(() => ongeometry?.(geometry));
-	const placed = $derived(
-		pieces.flatMap((piece) => {
-			if (!drawablePiece(piece)) return [];
+	// one box per id, like ScorePieces: a broken draft (two pieces of one id) still opens the stage meant to fix it
+	const placed = $derived.by(() => {
+		const seen = new Set<string>();
+		return pieces.flatMap((piece) => {
+			if (!drawablePiece(piece) || seen.has(piece.id)) return [];
 			const place = placeScorePiece(piece, geometry);
-			return place ? [{ piece, place, box: pieceBox(piece, place.left, place.top, place.width) }] : [];
-		})
-	);
+			if (!place) return [];
+			seen.add(piece.id);
+			return [{ piece, place, box: pieceBox(piece, place.left, place.top, place.width) }];
+		});
+	});
 
 	const handle = $derived.by(() => {
 		const sel = placed.find((p) => p.piece.id === selected);

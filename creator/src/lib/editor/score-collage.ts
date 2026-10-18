@@ -1,7 +1,7 @@
 // The score stage's edits (agents/research/COLLAGE.md §4.4): a score item's collage – the pieces on the part readers
 // open (`readerPart`: the choir when there is one, else the full score), bound to that part's file. Pure functions on
-// the stored item – the stage runs each inside one `doc.edit` (one undo step); where a piece sits comes from the page
-// geometry of the score view (@scutoons/reader/score-anchors), never from the DOM.
+// the stored item – the stage runs each inside one `doc.edit` or one gesture (`gestureEdit`): one undo step; where a
+// piece sits comes from the page geometry of the score view (@scutoons/reader/score-anchors), never from the DOM.
 import { anchorFactors, readerPart, validateContainers, type CollagePiece, type CollageSheet, type Path, type Problem, type ScoreAt } from '@scutoons/content';
 import { anchorScorePiece, findBar, placeScorePiece, type BarRef, type PageGeometry, type ScorePlace } from '@scutoons/reader/score-anchors';
 import { pickedToPiece, type PickedPiece } from './collage-pick.ts';
@@ -86,6 +86,29 @@ export function addScorePiece(item: unknown, part: string | null, piece: Collage
 
 /** where a new piece lands: the middle of the page the stage shows (the bar nearest to it) */
 export const centrePlace = (geo: PageGeometry): ScorePlaceAt | null => anchorScorePiece({ x: 50, y: 50 }, geo);
+
+/** what a gesture's edits need of the stage's document (ContentDoc) */
+export interface GestureDoc {
+	data: Record<string, any>;
+	readonly primary: string;
+	checkpoint(key?: string): void;
+}
+
+/**
+ * One undo step per gesture, however long it pauses (like slice-canvas's `checkpointed`; doc.edit's key merges only
+ * moves less than 1.2 s apart – COALESCE_MS): the returned edit checkpoints once when the gesture number `n` is new,
+ * then applies `change` to the document in place
+ */
+export function gestureEdit(doc: GestureDoc): (n: number, change: (item: Obj) => void) => void {
+	let last: number | null = null;
+	return (n, change) => {
+		const item = doc.data[doc.primary];
+		if (!isObj(item)) return;
+		if (n !== last) doc.checkpoint();
+		last = n;
+		change(item);
+	};
+}
 
 /** a drag moved the piece: its new bar (+ staff, page flag) and offsets – `at` is replaced whole (anchorScorePiece's) */
 export function movePiece(piece: CollagePiece, place: ScorePlaceAt): void {

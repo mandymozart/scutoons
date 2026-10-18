@@ -3,7 +3,7 @@
 	import { NEUTRAL_LOCALE, type CollagePiece, type Path } from '@scutoons/content';
 	import { ScoreView } from '@scutoons/reader/score';
 	import { findBar, type BarRef, type PageGeometry } from '@scutoons/reader/score-anchors';
-	import { Divider, Segmented, liveRegion, panelWidth, region } from '@scutoons/ui';
+	import { Divider, Icon, Segmented, liveRegion, panelWidth, region } from '@scutoons/ui';
 	import MetaPage from '$lib/components/page/meta-page.svelte';
 	import ScoreFrame from '$lib/components/collage/score-frame.svelte';
 	import ScoreOverlay from '$lib/components/collage/score-overlay.svelte';
@@ -96,12 +96,14 @@
 	const index = $derived(pieces.findIndex((p) => p.id === selected));
 	const piece = $derived(index >= 0 ? pieces[index] : undefined);
 	const piecePath = $derived<Path>([...sc.collagePath(part), 'pieces', index]);
+	/** the list's clicks: a click on the selected piece's row turns back to its page too */
+	let turns = $state(0);
 	/** the selected piece's bar: the view turns to it and keeps it in view across a new layout */
-	const follow = $derived(piece?.at ? { ...piece.at } : null);
+	const follow = $derived.by(() => { void turns; return piece?.at ? { ...piece.at } : null; });
 
-	// ── edits (each one undo step; a drag's moves share their gesture's key) ──
-	const edit = (change: (item: Record<string, any>) => void, key?: string) => doc.edit(change, key);
-	const byId = (file: unknown, pieceId: string) => sc.sheetPieces(file, part).find((p) => p.id === pieceId);
+	// ── edits (each one undo step; a drag – its moves or its scales – checkpoints once: gestureEdit) ──
+	const edit = (change: (item: Record<string, any>) => void) => doc.edit(change);
+	const gesture = sc.gestureEdit(doc);
 	let picking = $state(false);
 	function add(picked: PickedPiece) {
 		const geo = geometries.get(page);
@@ -111,16 +113,14 @@
 		edit((file) => void sc.addScorePiece(file, part, next));
 		selected = next.id;
 	}
-	const move = (pieceId: string, place: sc.ScorePlaceAt, drag: number) =>
-		edit((file) => {
-			const p = byId(file, pieceId);
-			if (p) sc.movePiece(p, place);
-		}, `stage-move-${drag}`);
-	const scale = (pieceId: string, width: number, drag: number) =>
-		edit((file) => {
-			const p = byId(file, pieceId);
-			if (p) p.rect = { ...p.rect, width };
-		}, `stage-scale-${drag}`);
+	/** a drag's edit of the piece `pieceId` (looked up in the document each time: an undo replaces it) */
+	const onPiece = (pieceId: string, drag: number, change: (p: CollagePiece) => void) =>
+		gesture(drag, (file) => {
+			const p = sc.sheetPieces(file, part).find((q) => q.id === pieceId);
+			if (p) change(p);
+		});
+	const move = (pieceId: string, place: sc.ScorePlaceAt, drag: number) => onPiece(pieceId, drag, (p) => sc.movePiece(p, place));
+	const scale = (pieceId: string, width: number, drag: number) => onPiece(pieceId, drag, (p) => void (p.rect = { ...p.rect, width }));
 	function remove(pieceId: string) {
 		edit((file) => void sc.removeScorePiece(file, part, pieceId));
 		if (selected === pieceId) selected = null;
@@ -220,9 +220,9 @@
 					<button type="button" class="secondary" onclick={checked} data-testid="stage-file-checked">{m['creator.collage_checked']()}</button>
 				</p>
 			{/if}
-			<CollageList {pieces} {selected} {missing} registry={registryOf(registry)} moods={moodsOf(moods)} onselect={(pieceId) => (selected = pieceId)} onmove={reorder} />
+			<CollageList {pieces} {selected} {missing} registry={registryOf(registry)} moods={moodsOf(moods)} onselect={(pieceId) => { selected = pieceId; turns++; }} onmove={reorder} />
 			<div class="adds">
-				<button type="button" class="secondary" disabled={!src || !bars} onclick={() => (picking = true)} data-testid="stage-add-piece">{m['creator.add_slice_piece']()}</button>
+				<button type="button" class="secondary" disabled={!src || !bars} onclick={() => (picking = true)} data-testid="stage-add-piece"><Icon name="plus" /> {m['creator.add_slice_piece']()}</button>
 			</div>
 			{#if piece}
 				<PieceInspector {doc} path={piecePath} host="score" registry={registryOf(registry)} moods={moodsOf(moods)} onremove={() => remove(piece.id)} onpage={setPage} />
