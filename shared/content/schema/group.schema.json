@@ -2062,7 +2062,7 @@
 				"fill": {
 					"anyOf": [
 						{
-							"type": "string"
+							"$ref": "#/definitions/PieceColor"
 						},
 						{
 							"$ref": "#/definitions/PieceGradient"
@@ -2127,6 +2127,11 @@
 				"luminosity"
 			]
 		},
+		"PieceColor": {
+			"type": "string",
+			"description": "#rgb | #rrggbb – it reaches readers' CSS as written, so nothing else is a colour (no url(), no `;`)",
+			"pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+		},
 		"PieceGradient": {
 			"type": "object",
 			"properties": {
@@ -2155,8 +2160,7 @@
 					"description": "% along the line, ascending"
 				},
 				"color": {
-					"type": "string",
-					"description": "#rgb | #rrggbb"
+					"$ref": "#/definitions/PieceColor"
 				},
 				"opacity": {
 					"type": "number",
@@ -2172,7 +2176,7 @@
 			"type": "object",
 			"properties": {
 				"color": {
-					"type": "string"
+					"$ref": "#/definitions/PieceColor"
 				},
 				"width": {
 					"type": "number"
@@ -2188,7 +2192,7 @@
 			"type": "object",
 			"properties": {
 				"color": {
-					"type": "string"
+					"$ref": "#/definitions/PieceColor"
 				},
 				"x": {
 					"type": "number"
@@ -2251,7 +2255,7 @@
 			"properties": {
 				"bar": {
 					"type": "string",
-					"description": "the bar number as the file writes it (MusicXML measure@number = MEI"
+					"description": "the bar number as the file writes it (MusicXML measure@number = MEI measure@n): \"12\", \"0\", \"6a\""
 				},
 				"nth": {
 					"type": "number",

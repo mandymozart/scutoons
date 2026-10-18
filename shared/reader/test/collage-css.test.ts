@@ -11,8 +11,10 @@ test('colours: the hex as written when opaque, rgb(r g b / a) under 1', () => {
 	assert.equal(withAlpha('#ff1900', 0.8), 'rgb(255 25 0 / 0.8)');
 	assert.equal(withAlpha('#0af', 0.5), 'rgb(0 170 255 / 0.5)');
 	assert.equal(withAlpha('#111111', 0), 'rgb(17 17 17 / 0)');
-	// not a hex (the validator names it): as written
-	assert.equal(withAlpha('red', 0.5), 'red');
+	// not a hex (the validator names it): no colour – it would reach readers' CSS as written
+	assert.equal(withAlpha('red', 0.5), null);
+	assert.equal(withAlpha('#000) url(https://x/f.svg#f)'), null);
+	assert.equal(withAlpha(undefined), null);
 });
 
 test('fill: a colour, one linear gradient (default 180deg, stop opacity), none = as drawn', () => {
@@ -137,10 +139,38 @@ test('drawable pieces and quoted URLs', () => {
 	assert.ok(!drawablePiece(null));
 	assert.ok(!drawablePiece(piece({ ratio: 0 })));
 	assert.ok(!drawablePiece(piece({ src: '' })));
+	assert.ok(!drawablePiece(piece({ id: '' })), 'an empty id: the hosts’ seen sets would let any number of them through');
 	assert.ok(!drawablePiece({ ...piece(), rect: { x: 1, y: 2 } }));
 	assert.ok(!drawablePiece(piece({ rect: { x: 1, y: 2, width: 0 } })));
 	assert.equal(cssUrl('http://localhost:8001/catpope/vectors/wreath.svg'), 'url("http://localhost:8001/catpope/vectors/wreath.svg")');
 	assert.equal(cssUrl('/@fs/C:/x/a"b.svg'), 'url("/@fs/C:/x/a\\"b.svg")');
+});
+
+// a stored document is untrusted: colours, blends, effects and stops that fail the check are left out, never thrown on
+test('untrusted styles: a url() colour, a bad blend, broken stops and effects draw nothing of theirs', () => {
+	assert.equal(fillCss('url(https://x/p.png)'), null);
+	assert.equal(pieceCss(piece({ style: { fill: 'url(https://x/p.png)' } }), 0, 0, 10).fill, null);
+	const shadow = { color: '#000) url(https://x/f.svg#f)', x: 1, y: 1, blur: 2 };
+	assert.equal(filterCss({ shadow }), null);
+	assert.equal(pieceCss(piece({ style: { shadow } }), 0, 0, 10).filter, null);
+	assert.equal(filterCss({ outline: { color: 'red', width: 2 } }), null);
+	// stops: the ones with a colour are kept, an `at` that isn't a number falls back to 0 / 100
+	assert.doesNotThrow(() => fillCss({ stops: [null, null] } as never));
+	assert.equal(fillCss({ stops: [null, null] } as never), null);
+	assert.equal(fillCss({ stops: [null, { at: 100, color: '#fff' }] } as never), '#fff');
+	assert.equal(fillCss({ angle: 'x', stops: [{ color: '#fff' }, { at: '50', color: '#000' }] } as never), 'linear-gradient(180deg, #fff 0%, #000 100%)');
+	assert.equal(fillCss({ stops: [{ at: 0, color: '#fff' }, { color: '#0af' }, { at: 100, color: 'red' }, { at: 100, color: '#000' }] } as never), 'linear-gradient(180deg, #fff 0%, #0af, #000 100%)');
+	// a blend that isn't one of the 16 never reaches the raw style attribute
+	const blended = pieceCss(piece({ style: { blend: 'multiply; position: fixed' as never } }), 0, 0, 10);
+	assert.doesNotMatch(blended.box, /mix-blend-mode|position/);
+	// effects of the wrong shape: no throw, nothing of theirs (the even blur still draws)
+	const odd = { style: { outline: 'x', shadow: 5, blur: { amount: 3, from: 'a', to: null } } as never };
+	assert.doesNotThrow(() => pieceCss(piece(odd), 0, 0, 10));
+	assert.equal(pieceCss(piece(odd), 0, 0, 10).filter, 'blur(3cqw)');
+	assert.equal(pieceCss(piece(odd), 0, 0, 10).bands, null);
+	assert.equal(blurBands({ blur: { amount: 3, from: { x: 0, y: 'a' }, to: { x: 0, y: 100 } } } as never, 1), null);
+	assert.equal(filterCss({ shadow: { color: '#000', x: 'a', y: null, blur: NaN } } as never), 'drop-shadow(0 0 0 #000)');
+	assert.equal(spill({ shadow: 5, outline: 'x' } as never), 0);
 });
 
 function round(n: number) {

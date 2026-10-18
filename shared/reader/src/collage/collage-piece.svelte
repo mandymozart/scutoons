@@ -16,7 +16,8 @@
 	 *   give 1 − t + t²: an opaque piece 75 % opaque mid-ramp
 	 *
 	 * The blend sits on `.piece`, an HTML box (blending SVG children differs in Firefox); it blends with what lies behind
-	 * the piece inside its host's isolated group (SlicePicture's `.slice-media`). No inline SVG: nothing to sanitise.
+	 * the piece inside its host's isolated group (SlicePicture's `.slice-media`). No inline SVG, and the builders drop any
+	 * colour or blend that fails the check (collage-css.ts) – nothing stored reaches the style attributes unchecked.
 	 */
 	let {
 		piece,

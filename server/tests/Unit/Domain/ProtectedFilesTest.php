@@ -184,6 +184,13 @@ final class ProtectedFilesTest extends TestCase
             [self::cloud9($sheet(['rect' => ['x' => 1, 'y' => '2', 'width' => 3]] + $piece)), 'piece 1: rect must be'],
             [self::cloud9(['file' => 'cloud9.musicxml', 'pieces' => []]), 'score: collage.file must be the scores/ .musicxml path'],
             [self::cloud9(null, ['file' => 'scores/cloud9-choir.musicxml', 'pieces' => ['id' => 'x']]), 'part choir: collage.pieces must be a list'],
+            // the colours reach readers' CSS as written: hex only (collage.ts PieceColor)
+            [self::cloud9($sheet(['style' => ['fill' => 'url(https://x/p.png)']] + $piece)), 'piece 1: a colour is #rgb or #rrggbb'],
+            [self::cloud9($sheet(['style' => ['shadow' => ['color' => '#000) url(https://x/f.svg#f)', 'x' => 0, 'y' => 0, 'blur' => 1]]] + $piece)), 'piece 1: a colour is #rgb or #rrggbb'],
+            [self::cloud9($sheet(['style' => ['outline' => ['color' => "#fff\n", 'width' => 1]]] + $piece)), 'piece 1: a colour is #rgb or #rrggbb'],
+            [self::cloud9($sheet(['style' => ['fill' => ['stops' => [['at' => 0, 'color' => 'red'], ['at' => 100, 'color' => '#fff']]]]] + $piece)), 'piece 1: a colour is #rgb or #rrggbb'],
+            [self::cloud9($sheet(['style' => ['fill' => ['stops' => [null, ['at' => 100, 'color' => '#fff']]]]] + $piece)), 'piece 1: a gradient stop is { at, color, opacity? }'],
+            [self::cloud9($sheet(['style' => ['shadow' => 5]] + $piece)), 'piece 1: shadow must be an object or null'],
         ];
         foreach ($cases as [$data, $expect]) {
             try {
@@ -194,6 +201,10 @@ final class ProtectedFilesTest extends TestCase
                 self::assertStringContainsString($expect, $error->getMessage());
             }
         }
+        // hex colours pass: a fill, a gradient, an outline, a shadow
+        $hex = ['fill' => ['angle' => 90, 'stops' => [['at' => 0, 'color' => '#fff'], ['at' => 100, 'color' => '#00d1ff', 'opacity' => 0.5]]],
+            'outline' => ['color' => '#FFFFFF', 'width' => 2], 'shadow' => ['color' => '#000', 'x' => 1, 'y' => 1, 'blur' => 0]];
+        $admin->put('items', 'cloud9_en', self::cloud9($sheet(['style' => $hex] + $piece, ['id' => 'piece-c', 'style' => ['fill' => '#00d1ff']] + $piece)), 'test');
         // a good one passes: a page piece, an image, no style
         $admin->put('items', 'cloud9_en', self::cloud9($sheet(['id' => 'piece-b', 'src' => 'catpope/images/x.webp', 'ratio' => 0.5, 'rect' => ['x' => 0, 'y' => 0, 'width' => 100], 'at' => ['bar' => '1', 'page' => true]])), 'test');
         $score = $this->get(Catalog::class)->item('cloud9_en')['score'] ?? [];

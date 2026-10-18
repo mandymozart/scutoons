@@ -34,6 +34,17 @@ test('pieceStyle: the look under the own keys, a key replaced whole, null = off'
 	assert.deepEqual(pieceStyle(null), {});
 });
 
+test('pieceStyle: only the six style keys, own ones – a stored __proto__ key sets no prototype', () => {
+	const stored = JSON.parse('{"id":"piece-abcdefg","src":"vectors/wreath.svg","ratio":0.5,"rect":{"x":10,"y":10,"width":30},"style":{"__proto__":{"fill":"url(x)","blend":"plus-lighter"},"id":"x"}}');
+	const style = pieceStyle(stored);
+	assert.deepEqual(style, {});
+	assert.equal(Object.getPrototypeOf(style), Object.prototype);
+	assert.equal((style as Record<string, unknown>).fill, undefined);
+	assert.deepEqual(problems([stored]), []);
+	// unknown keys are dropped, the known ones kept
+	assert.deepEqual(pieceStyle(piece({ style: { opacity: 0.5, id: 'x' } as never })), { opacity: 0.5 });
+});
+
 test('pieceHeight: the width in % of the box, a file of ratio w ÷ h, a box of h ÷ w', () => {
 	assert.equal(pieceHeight(30, 0.5, 1.6), 37.5);
 	// a square file on the 390 × 625 slice
@@ -59,11 +70,13 @@ test('kind and name are derived from the file / the figure', () => {
 	assert.equal(pieceName(piece({ figure: { id: 'catpope', view: 'avatar' } })), 'catpope');
 });
 
-test('problems: a good slice piece has none; nothing / an empty list is fine', () => {
+test('problems: a good slice piece has none; nothing / an empty list is fine, null is an error', () => {
 	assert.deepEqual(problems(undefined), []);
 	assert.deepEqual(problems([]), []);
 	assert.deepEqual(problems([piece({ anchor: 'c', rotation: -12, preset: 'burn', style: { opacity: 0.7, blur: { amount: 4, from: { x: 0, y: 0 }, to: { x: 100, y: 100 } } } })]), []);
 	assert.deepEqual(where({}), ['error ']);
+	// null is no list (the server's schema refuses `pieces: null`)
+	assert.deepEqual(problems(null), ['error : pieces must be a list']);
 	assert.deepEqual(where([3]), ['error 0']);
 });
 

@@ -37,6 +37,8 @@ final class CatalogValidator
         'hard-light', 'soft-light', 'difference', 'exclusion', 'hue', 'saturation', 'color', 'luminosity'];
     /** the files a collage piece can draw (@scutoons/content collage.ts PIECE_FILE) */
     private const PIECE_FILE = '/\.(svg|webp|png|jpe?g|gif|avif)$/i';
+    /** a collage colour, #rgb | #rrggbb – mirrors @scutoons/content collage.ts COLOR (readers' CSS takes it as written; D: `$` = the end, as in JS) */
+    private const HEX = '/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/iD';
     public const MEDIA_ACCESS = ['public', 'members', 'owners'];
     public const GRANT_SOURCES = ['story', 'scan'];
     public const MAX_FEATURED = 12;
@@ -374,7 +376,8 @@ final class CatalogValidator
      * A score's / part's collage, structurally – what readers' drawing relies on (@scutoons/content collage.ts
      * `collageProblems` adds the rest in the creator: looks, effects, limits): `file` = the vault's .musicxml the pieces
      * were placed on, `pieces` = a list with unique ids, a picture file, a ratio, a rect, the bar each sticks to, a
-     * known blend.
+     * known blend, and every colour the renderer writes into readers' CSS a hex one (`HEX`: the fill, each gradient
+     * stop, the outline's and the shadow's – a url() or a `;` never reaches a style attribute).
      * @return list<string>
      */
     private static function collage(string $who, mixed $collage): array
@@ -409,7 +412,38 @@ final class CatalogValidator
             if (!is_string($bar) || trim($bar) === '') $p[] = "$at: at.bar must name the bar it sticks to (\"12\", \"6a\")";
             $style = $piece['style'] ?? null;
             if ($style !== null && !is_array($style)) $p[] = "$at: style must be an object";
-            elseif (is_array($style) && ($style['blend'] ?? null) !== null && !in_array($style['blend'], self::BLEND_MODES, true)) $p[] = "$at: blend must be one of " . implode(', ', self::BLEND_MODES);
+            elseif (is_array($style)) $p = [...$p, ...self::pieceStyle($at, $style)];
+        }
+        return $p;
+    }
+
+    /**
+     * A score piece's own style: the blend and the colours (collage.ts styleProblems words them alike)
+     * @param array<mixed> $style
+     * @return list<string>
+     */
+    private static function pieceStyle(string $at, array $style): array
+    {
+        $p = [];
+        if (($style['blend'] ?? null) !== null && !in_array($style['blend'], self::BLEND_MODES, true)) $p[] = "$at: blend must be one of " . implode(', ', self::BLEND_MODES);
+        $hex = fn(mixed $v): bool => is_string($v) && preg_match(self::HEX, $v) === 1;
+        $object = fn(mixed $v): bool => is_array($v) && ($v === [] || !array_is_list($v));
+        $fill = $style['fill'] ?? null;
+        if (is_string($fill)) {
+            if (!$hex($fill)) $p[] = "$at: a colour is #rgb or #rrggbb";
+        } elseif (is_array($fill)) {
+            $stops = $fill['stops'] ?? null;
+            if (!is_array($stops) || !array_is_list($stops)) $p[] = "$at: a gradient needs its stops (a list)";
+            else foreach ($stops as $stop) {
+                if (!$object($stop)) $p[] = "$at: a gradient stop is { at, color, opacity? }";
+                elseif (!$hex($stop['color'] ?? null)) $p[] = "$at: a colour is #rgb or #rrggbb";
+            }
+        } elseif ($fill !== null) $p[] = "$at: fill must be a colour, a gradient { angle?, stops } or null";
+        foreach (['outline', 'shadow'] as $key) {
+            $effect = $style[$key] ?? null;
+            if ($effect === null) continue;
+            if (!$object($effect)) $p[] = "$at: $key must be an object or null";
+            elseif (!$hex($effect['color'] ?? null)) $p[] = "$at: a colour is #rgb or #rrggbb";
         }
         return $p;
     }

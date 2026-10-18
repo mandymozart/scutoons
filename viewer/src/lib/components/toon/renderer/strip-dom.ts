@@ -60,3 +60,24 @@ export const viewportWidth: Attachment<HTMLElement> = (el) => {
 		el.style.removeProperty('--viewport-width');
 	};
 };
+
+/**
+ * Calls `onNear` once, when the element comes within a screen above or below the viewport. The pinned strip passes it
+ * on as every frame's `preload`: a frame to the right of the pin's `overflow: hidden` is clipped, so its own observers
+ * (SlicePicture's, the lazy image's) never count it as near – its pieces mounted and its images loaded only on screen.
+ */
+export function nearScreen(onNear: () => void): Attachment<HTMLElement> {
+	return (el) => {
+		if (typeof IntersectionObserver === 'undefined') return void onNear();
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (!entries.some((entry) => entry.isIntersecting)) return;
+				observer.disconnect();
+				onNear();
+			},
+			{ rootMargin: '100% 0px' }
+		);
+		observer.observe(el);
+		return () => observer.disconnect();
+	};
+}

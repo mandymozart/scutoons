@@ -3,7 +3,9 @@
 // the piece box (`.piece` is the container): % of the piece's width – the same look at every size and on every host.
 // Order on `.fx`: outline ×4 → shadow → blur (the outlined shape casts the shadow, the blur softens it all); never a
 // filter on the masked `.fill` (a filter runs before the mask – the blur would be cut at the silhouette).
-import { anchorTranslate, pieceStyle, type CollagePiece, type PiecePoint, type ResolvedPieceStyle } from '@scutoons/content';
+// A stored document is not trusted: every builder takes only a checked colour (isPieceColor), a known blend and finite
+// numbers – anything else is left out, never written and never thrown on (no svelte:boundary catches a $derived).
+import { anchorTranslate, BLEND_MODES, isPieceColor, pieceStyle, type CollagePiece, type PiecePoint, type ResolvedPieceStyle } from '@scutoons/content';
 
 const round = (n: number) => {
 	const v = Math.round(n * 1000) / 1000;
@@ -15,34 +17,46 @@ const cqw = (n: number) => (round(n) === 0 ? '0' : `${num(n)}cqw`);
 
 const HEX = /^#(?:([0-9a-f])([0-9a-f])([0-9a-f])|([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2}))$/i;
 
-/** #rgb / #rrggbb at an opacity (0…1, default 1): the colour as written when opaque, else `rgb(r g b / a)` */
-export function withAlpha(color: string, opacity?: number): string {
-	const m = opacity !== undefined && opacity < 1 ? HEX.exec(color) : null;
+const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+const or = (v: unknown, fallback: number) => (finite(v) ? v : fallback);
+
+/** #rgb / #rrggbb at an opacity (0…1, default 1): the colour as written when opaque, else `rgb(r g b / a)`; null = no colour */
+export function withAlpha(color: unknown, opacity?: unknown): string | null {
+	if (!isPieceColor(color)) return null;
+	const m = finite(opacity) && opacity < 1 ? HEX.exec(color) : null;
 	if (!m) return color;
 	const [r, g, b] = m[1] ? [m[1], m[2], m[3]].map((c) => parseInt(c + c, 16)) : [m[4], m[5], m[6]].map((c) => parseInt(c, 16));
-	return `rgb(${r} ${g} ${b} / ${num(Math.max(0, opacity!))})`;
+	return `rgb(${r} ${g} ${b} / ${num(Math.max(0, opacity as number))})`;
 }
 
 /** the `.fill` background: a colour or one linear gradient across the whole silhouette; null = the file as drawn */
 export function fillCss(fill: ResolvedPieceStyle['fill']): string | null {
-	if (typeof fill === 'string') return fill || null;
-	const stops = Array.isArray(fill?.stops) ? fill.stops : [];
+	if (typeof fill === 'string') return isPieceColor(fill) ? fill : null;
+	const raw: unknown[] = isObj(fill) && Array.isArray(fill.stops) ? fill.stops : [];
+	const stops = raw.flatMap((s) => {
+		const color = isObj(s) ? withAlpha(s.color, s.opacity) : null;
+		return color && isObj(s) ? [{ color, at: s.at }] : [];
+	});
 	if (!stops.length) return null;
-	if (stops.length === 1) return withAlpha(stops[0].color, stops[0].opacity);
-	return `linear-gradient(${num(fill!.angle ?? 180)}deg, ${stops.map((s) => `${withAlpha(s.color, s.opacity)} ${num(s.at)}%`).join(', ')})`;
+	if (stops.length === 1) return stops[0].color;
+	// a stop without a finite `at`: 0 % first, 100 % last, between them CSS spaces it
+	const at = (v: unknown, i: number) => (finite(v) ? ` ${num(v)}%` : i === 0 ? ' 0%' : i === stops.length - 1 ? ' 100%' : '');
+	return `linear-gradient(${num(or(fill!.angle, 180))}deg, ${stops.map((s, i) => `${s.color}${at(s.at, i)}`).join(', ')})`;
 }
 
 /** the `.fx` filter: outline (4 zero-blur drop shadows = a dilation) → shadow → blur, in cqw; null = none */
 export function filterCss(style: Pick<ResolvedPieceStyle, 'outline' | 'shadow' | 'blur'>): string | null {
 	const parts: string[] = [];
-	const outline = style.outline;
-	if (outline && outline.width > 0) {
-		const [w, n, c] = [cqw(outline.width), cqw(-outline.width), outline.color];
-		parts.push(`drop-shadow(${w} 0 0 ${c})`, `drop-shadow(${n} 0 0 ${c})`, `drop-shadow(0 ${w} 0 ${c})`, `drop-shadow(0 ${n} 0 ${c})`);
+	const [outline, shadow, blur]: unknown[] = [style.outline, style.shadow, style.blur];
+	const line = isObj(outline) && finite(outline.width) && outline.width > 0 ? withAlpha(outline.color) : null;
+	if (isObj(outline) && line) {
+		const [w, n] = [cqw(outline.width as number), cqw(-(outline.width as number))];
+		parts.push(`drop-shadow(${w} 0 0 ${line})`, `drop-shadow(${n} 0 0 ${line})`, `drop-shadow(0 ${w} 0 ${line})`, `drop-shadow(0 ${n} 0 ${line})`);
 	}
-	const shadow = style.shadow;
-	if (shadow) parts.push(`drop-shadow(${cqw(shadow.x)} ${cqw(shadow.y)} ${cqw(Math.max(0, shadow.blur))} ${withAlpha(shadow.color, shadow.opacity)})`);
-	if (style.blur && style.blur.amount > 0) parts.push(`blur(${cqw(style.blur.amount)})`);
+	const cast = isObj(shadow) ? withAlpha(shadow.color, shadow.opacity) : null;
+	if (isObj(shadow) && cast) parts.push(`drop-shadow(${cqw(or(shadow.x, 0))} ${cqw(or(shadow.y, 0))} ${cqw(Math.max(0, or(shadow.blur, 0)))} ${cast})`);
+	if (isObj(blur) && finite(blur.amount) && blur.amount > 0) parts.push(`blur(${cqw(blur.amount)})`);
 	return parts.length ? parts.join(' ') : null;
 }
 
@@ -67,10 +81,10 @@ export function gradientLine(from: PiecePoint, to: PiecePoint, ratio: number): {
 
 /** how far a piece's paint reaches past its box, in cqw: the outline, the shadow (offset + 1.5× its radius), 3× the blur */
 export function spill(style: Pick<ResolvedPieceStyle, 'outline' | 'shadow' | 'blur'>): number {
-	const outline = style.outline && style.outline.width > 0 ? style.outline.width : 0;
-	const s = style.shadow;
-	const shadow = s ? Math.max(Math.abs(s.x), Math.abs(s.y)) + 1.5 * Math.max(0, s.blur) : 0;
-	const blur = style.blur && style.blur.amount > 0 ? 3 * style.blur.amount : 0;
+	const [o, s, b]: unknown[] = [style.outline, style.shadow, style.blur];
+	const outline = isObj(o) && finite(o.width) && o.width > 0 ? o.width : 0;
+	const shadow = isObj(s) ? Math.max(Math.abs(or(s.x, 0)), Math.abs(or(s.y, 0))) + 1.5 * Math.max(0, or(s.blur, 0)) : 0;
+	const blur = isObj(b) && finite(b.amount) && b.amount > 0 ? 3 * b.amount : 0;
 	return outline + shadow + blur;
 }
 
@@ -95,7 +109,8 @@ export interface BlurBands {
  */
 export function blurBands(style: ResolvedPieceStyle, ratio: number): BlurBands | null {
 	const blur = style.blur;
-	if (!blur || !(blur.amount > 0) || !blur.from || !blur.to) return null;
+	const point = (q: unknown): q is PiecePoint => isObj(q) && finite(q.x) && finite(q.y);
+	if (!isObj(blur) || !finite(blur.amount) || !(blur.amount > 0) || !point(blur.from) || !point(blur.to)) return null;
 	const pad = round(spill(style));
 	const p = pad / 100;
 	const h = 1 / (ratio > 0 ? ratio : 1);
@@ -115,7 +130,7 @@ export function pieceBox(piece: Pick<CollagePiece, 'ratio' | 'anchor' | 'rotatio
 	return box;
 }
 
-/** declarations as a style attribute (null / undefined / '' left out) – none of them may carry a URL */
+/** declarations as a style attribute (null / undefined / '' left out) – values are numbers, enums or checked colours: none can carry a URL */
 export function styleText(css: Record<string, string | null | undefined>): string {
 	return Object.entries(css)
 		.filter(([, value]) => value != null && value !== '')
@@ -128,12 +143,10 @@ export function cssUrl(src: string): string {
 	return `url("${src.replace(/[\n\r\f]/g, '').replace(/["\\]/g, '\\$&')}")`;
 }
 
-const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
-
 /** a piece the renderer can lay out (an id, a file, a ratio, a rect); anything else is skipped, never thrown on */
 export function drawablePiece(piece: unknown): piece is CollagePiece {
 	const p = piece as CollagePiece | null;
-	return !!p && typeof p === 'object' && typeof p.id === 'string' && typeof p.src === 'string' && !!p.src && finite(p.ratio) && p.ratio > 0 &&
+	return !!p && typeof p === 'object' && typeof p.id === 'string' && !!p.id && typeof p.src === 'string' && !!p.src && finite(p.ratio) && p.ratio > 0 &&
 		!!p.rect && finite(p.rect.x) && finite(p.rect.y) && finite(p.rect.width) && p.rect.width > 0;
 }
 
@@ -156,7 +169,8 @@ export function pieceCss(piece: CollagePiece, left: number, top: number, width: 
 	return {
 		box: styleText({
 			...pieceBox(piece, left, top, width),
-			'mix-blend-mode': look.blend && look.blend !== 'normal' ? look.blend : null,
+			// a stored blend reaches the raw style attribute only when it is one of the 16 ('multiply; position: fixed' isn't)
+			'mix-blend-mode': look.blend !== 'normal' && (BLEND_MODES as readonly unknown[]).includes(look.blend) ? look.blend : null,
 			opacity,
 			'z-index': finite(z) ? String(z) : null
 		}),

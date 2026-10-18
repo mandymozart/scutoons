@@ -157,7 +157,8 @@ const whole = (v: unknown, min: number) => typeof v === 'number' && Number.isInt
 function checkCollage(collage: unknown, musicxml: unknown, path: (string | number)[], who: string, add: Add): void {
 	if (collage == null) return;
 	if (!isObj(collage)) return add('error', path, `${who}: collage must be { file, pieces }`);
-	if (typeof collage.file !== 'string' || !/\.(musicxml|xml|mxl)$/i.test(collage.file)) add('error', [...path, 'file'], `${who}: collage.file must be the .musicxml / .mxl path the pieces were placed on`);
+	// as the server's CatalogValidator::collage: a vault path, so the stage names it before Publish's 422
+	if (typeof collage.file !== 'string' || !collage.file.startsWith('scores/') || !/\.(musicxml|xml|mxl)$/i.test(collage.file)) add('error', [...path, 'file'], `${who}: collage.file must be the scores/ .musicxml path the pieces were placed on`);
 	else if (typeof musicxml === 'string' && collage.file !== musicxml) add('warning', [...path, 'file'], `${who}: the collage was made on another file – check the bars`);
 	if (!Array.isArray(collage.pieces)) return add('error', [...path, 'pieces'], `${who}: collage.pieces must be a list`);
 	collageProblems(collage.pieces, 'score', (level, at, message) => add(level, [...path, 'pieces', ...at], `${who}: ${message}`));

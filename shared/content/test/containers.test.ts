@@ -185,8 +185,12 @@ test('score collage: pieces on the score host, a file of its own; another file w
 		'error: s (choir): a score piece needs at { bar } (the bar it sticks to)'
 	]);
 	assert.deepEqual(withCollage({ ...files, collage: { pieces: {} } }), [
-		'error: s: collage.file must be the .musicxml / .mxl path the pieces were placed on',
+		'error: s: collage.file must be the scores/ .musicxml path the pieces were placed on',
 		'error: s: collage.pieces must be a list'
+	]);
+	// a file outside the vault's scores/ – the server's CatalogValidator refuses it too (422 on Publish)
+	assert.deepEqual(withCollage({ ...files, collage: { file: 'other/x.musicxml', pieces: [piece()] } }), [
+		'error: s: collage.file must be the scores/ .musicxml path the pieces were placed on'
 	]);
 	const paths = validateCatalog(catalog([def('s', { category: 'score', score: { ...files, collage: { file: files.musicxml, pieces: [piece({ style: { blend: 'nope' } })] } } as never })])).map((p) => p.path.join('.'));
 	assert.deepEqual(paths, ['items.0.score.collage.pieces.0.style.blend']);

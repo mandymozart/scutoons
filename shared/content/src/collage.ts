@@ -13,6 +13,12 @@ export const BLEND_MODES = ['normal', 'multiply', 'screen', 'overlay', 'darken',
 	'hard-light', 'soft-light', 'difference', 'exclusion', 'hue', 'saturation', 'color', 'luminosity'] as const;
 export type BlendMode = (typeof BLEND_MODES)[number];
 
+/**
+ * #rgb | #rrggbb – it reaches readers' CSS as written, so nothing else is a colour (no url(), no `;`)
+ * @pattern ^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$
+ */
+export type PieceColor = string;
+
 /** % of the piece's own box (0 0 top-left … 100 100 bottom-right): moves, scales, turns with the piece */
 export interface PiecePoint {
 	x: number;
@@ -21,8 +27,7 @@ export interface PiecePoint {
 export interface GradientStop {
 	/** % along the line, ascending */
 	at: number;
-	/** #rgb | #rrggbb */
-	color: string;
+	color: PieceColor;
 	/** 0…1 */
 	opacity?: number;
 }
@@ -35,12 +40,12 @@ export interface PieceGradient {
 }
 /** lengths in % of the piece's width (the same look at every size) */
 export interface PieceOutline {
-	color: string;
+	color: PieceColor;
 	width: number;
 }
 /** offsets and blur in % of the piece's width */
 export interface PieceShadow {
-	color: string;
+	color: PieceColor;
 	x: number;
 	y: number;
 	blur: number;
@@ -60,7 +65,7 @@ export interface PieceStyle {
 	/** 0…1 */
 	opacity?: number;
 	/** the file's silhouette (its alpha) in a colour / gradient; none = as drawn */
-	fill?: string | PieceGradient | null;
+	fill?: PieceColor | PieceGradient | null;
 	outline?: PieceOutline | null;
 	shadow?: PieceShadow | null;
 	blur?: PieceBlur | null;
@@ -85,7 +90,7 @@ export interface PieceFigure {
 
 /** a score piece's place: a bar of the file – never a page, never a Verovio id */
 export interface ScoreAt {
-	/** the bar number as the file writes it (MusicXML measure@number = MEI @n): "12", "0", "6a" */
+	/** the bar number as the file writes it (MusicXML measure@number = MEI measure@n): "12", "0", "6a" */
 	bar: string;
 	/** the n-th bar with that number; default 1 */
 	nth?: number;
@@ -163,12 +168,18 @@ export function collageLook(id: unknown): CollageLook | undefined {
 	return typeof id === 'string' ? COLLAGE_LOOKS.find((look) => look.id === id) : undefined;
 }
 
+/** the keys a style has – nothing else is copied (a stored `__proto__` key would set the result's prototype) */
+const STYLE_KEYS = ['blend', 'opacity', 'fill', 'outline', 'shadow', 'blur'] as const;
+
 /** the piece's style as drawn: `{ ...look, ...piece.style }` – an own key replaces the look's whole, null = off */
 export function pieceStyle(piece: Pick<CollagePiece, 'preset' | 'style'> | null | undefined): ResolvedPieceStyle {
-	const merged: Record<string, unknown> = { ...collageLook(piece?.preset) };
-	delete merged.id;
-	for (const [key, value] of Object.entries(piece?.style ?? {})) if (value !== undefined) merged[key] = value;
-	for (const key of Object.keys(merged)) if (merged[key] === null) delete merged[key];
+	const look: PieceStyle = collageLook(piece?.preset) ?? {};
+	const own: unknown = piece?.style;
+	const merged: Record<string, unknown> = {};
+	for (const key of STYLE_KEYS) {
+		const value = isObj(own) && Object.hasOwn(own, key) && own[key] !== undefined ? own[key] : look[key];
+		if (value !== undefined && value !== null) merged[key] = value;
+	}
 	return merged as ResolvedPieceStyle;
 }
 
@@ -216,6 +227,11 @@ export const COLLAGE_LIMITS = {
 const PIECE_FILE = /\.(svg|webp|png|jpe?g|gif|avif)$/i;
 const COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
 
+/** a colour the renderer may write into CSS: #rgb | #rrggbb (PieceColor; the server's CatalogValidator HEX mirrors it) */
+export function isPieceColor(v: unknown): v is string {
+	return typeof v === 'string' && COLOR.test(v);
+}
+
 type Path = (string | number)[];
 /** `path` is relative to the pieces list (`[]` = the list, `[i, 'rect']` = a piece's rect) */
 export type CollageAdd = (level: 'error' | 'warning', path: Path, message: string) => void;
@@ -230,7 +246,7 @@ const unit = (v: unknown) => isNum(v) && v >= 0 && v <= 1;
  * warnings are what phones may struggle with (COLLAGE_LIMITS) and looks the code doesn't know.
  */
 export function collageProblems(pieces: unknown, host: 'slice' | 'score', add: CollageAdd): void {
-	if (pieces === undefined || pieces === null) return;
+	if (pieces === undefined) return;
 	if (!Array.isArray(pieces)) return add('error', [], 'pieces must be a list');
 	const seen = new Set<string>();
 	let heavy = 0;
@@ -292,7 +308,7 @@ function scoreAt(at: unknown, path: Path, add: CollageAdd) {
 }
 
 const color = (value: unknown, path: Path, add: CollageAdd) => {
-	if (typeof value !== 'string' || !COLOR.test(value)) add('error', path, 'a colour is #rgb or #rrggbb');
+	if (!isPieceColor(value)) add('error', path, 'a colour is #rgb or #rrggbb');
 };
 const point = (value: unknown, path: Path, add: CollageAdd) => {
 	if (!isObj(value) || !isNum(value.x) || !isNum(value.y)) add('error', path, 'a point is { x, y } in % of the piece');

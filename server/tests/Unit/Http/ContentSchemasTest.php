@@ -95,6 +95,21 @@ final class ContentSchemasTest extends TestCase
         }
     }
 
+    /** a slice piece's colours reach readers' CSS as written: the schema's PieceColor takes hex only (collage.ts) */
+    public function testSlicePieceColoursAreHex(): void
+    {
+        $schemas = $this->get(ContentSchemas::class);
+        $chapter = fn(array $style) => ['title' => ['de' => 'Eins'], 'author' => 'M', 'number' => 1, 'release' => ['de' => '2025-10-04'], 'description' => ['de' => ''],
+            'thumbnail' => '', 'groups' => [['slices' => [['image' => 'a.webp', 'width' => 1, 'height' => 1,
+                'pieces' => [['id' => 'piece-a', 'src' => 'catpope/vectors/wreath.svg', 'ratio' => 1, 'rect' => ['x' => 0, 'y' => 0, 'width' => 10], 'style' => $style]]]]]]];
+        $check = fn(array $style) => $schemas->problemsOf(EntityKey::parse('chapter:catpope:1'), json_decode((string) json_encode($chapter($style))));
+        self::assertNotSame([], $check(['fill' => 'url(https://x/p.png)']), 'a url() fill');
+        self::assertNotSame([], $check(['shadow' => ['color' => '#000) url(https://x/f.svg#f)', 'x' => 0, 'y' => 0, 'blur' => 1]]), 'a url() behind a colour');
+        self::assertNotSame([], $check(['fill' => ['stops' => [['at' => 0, 'color' => 'red'], ['at' => 100, 'color' => '#fff']]]]), 'a named colour in a stop');
+        self::assertSame([], $check(['fill' => '#fff', 'outline' => ['color' => '#00d1ff', 'width' => 2], 'shadow' => ['color' => '#00D1FF', 'x' => 0, 'y' => 0, 'blur' => 1]]));
+        self::assertSame([], $check(['fill' => ['stops' => [['at' => 0, 'color' => '#fff'], ['at' => 100, 'color' => '#00d1ff']]]]));
+    }
+
     /** expressions in texts (agents/EXPRESSIONS.md §4): syntax errors and the old `{x:clock}` block, doubts don't */
     public function testExpressionsInNeutralTexts(): void
     {

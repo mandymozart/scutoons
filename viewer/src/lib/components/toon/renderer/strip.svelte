@@ -7,7 +7,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import Slice from '../slice.svelte';
 	import { ratioSum, stripFrames, stripOffset, stripScroll } from './strip-scroll.ts';
-	import { viewportWidth } from './strip-dom.ts';
+	import { nearScreen, viewportWidth } from './strip-dom.ts';
 
 	/**
 	 * A horizontal group (owner 2026-10-06; an `endless` one is strip-endless.svelte): the slices side by side as one
@@ -37,6 +37,8 @@
 	let offset = $state(0);
 	let fullscreen = $state(false);
 	let canFullscreen = $state(false);
+	/** within a screen of the viewport: every frame loads now and mounts its pieces (strip-dom.ts nearScreen) */
+	let near = $state(false);
 
 	const frames = $derived(stripFrames(group.slices ?? [], DEFAULT_SLICE));
 
@@ -179,14 +181,14 @@
 
 <svelte:window onkeydown={onKey} />
 
-<section class="strip" data-group-label={group.label} bind:this={section} style:--ratios={ratios} {@attach viewportWidth}>
+<section class="strip" data-group-label={group.label} bind:this={section} style:--ratios={ratios} {@attach viewportWidth} {@attach nearScreen(() => (near = true))}>
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<!-- data-fx-screen: in full screen a screen shake / punch moves the strip itself (fx/cues.ts onScreen) -->
 	<div class="pin" class:fits={travel === 0} class:fullscreen data-fx-screen={fullscreen || undefined} bind:this={pin} {@attach (el) => on(el, 'wheel', onWheel, { passive: false })}>
 		<div class="track" bind:this={track} style:transform="translate3d({-offset}px, 0, 0)">
 			{#each frames as frame, index}
 				<div class="frame" style:aspect-ratio="{frame.width} / {frame.height}">
-					<Slice slice={frame.slice} sliceIndex={index} pageIndex={sliceOffset + index} allSlices={group.slices ?? []} />
+					<Slice slice={frame.slice} sliceIndex={index} pageIndex={sliceOffset + index} allSlices={group.slices ?? []} preload={near} />
 				</div>
 			{/each}
 		</div>
