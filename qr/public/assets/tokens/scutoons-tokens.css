@@ -276,6 +276,11 @@
  */
 html {
 	font-size: 16px;
+	/* no sideways page scroll, whatever sticks out (owner 2026-10-17: a horizontal scrollbar under the installed app on
+	   Android). `clip` – not `hidden` – on BOTH html and body: html's value goes to the viewport, and body clips without
+	   becoming a scroll container (hidden on body alone relies on it being handed to the viewport, which mobile Chromium
+	   doesn't honour for every overflow). A safety net: whatever is wider than the page is still a bug of its own. */
+	overflow-x: clip;
 	font-family: var(--font-mono);
 	font-weight: 400;
 	font-style: normal;
@@ -288,7 +293,8 @@ body {
 	font-style: normal;
 	max-width: 100%;
 	margin: 0;
-	overflow-x: hidden;
+	overflow-x: hidden; /* browsers without clip (Safari < 16): handed to the viewport as before */
+	overflow-x: clip;
 }
 
 h1,
