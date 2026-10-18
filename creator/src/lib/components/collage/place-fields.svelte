@@ -12,6 +12,7 @@
 	 * (% / staff spaces – the height follows the file, never distorted), the rotation, and on scores over / behind the
 	 * notes. Plain fields: one undo step per field (doc.set coalesces a scrub). `onpage`: the host switches Bar / Page
 	 * itself (the score stage keeps the piece where it is – it has the page's geometry); without it only the flag changes.
+	 * A re-click of the chosen Bar / Page or Over / Behind changes nothing (no empty undo step, redo kept).
 	 */
 	let { doc, path, piece, host, onpage }: { doc: ContentDoc; path: Path; piece: CollagePiece; host: 'slice' | 'score'; onpage?: (page: boolean) => void } = $props();
 
@@ -30,7 +31,7 @@
 			square
 			radio
 			value={onPage ? 'page' : 'bar'}
-			onchange={(v) => (onpage ? onpage(v === 'page') : doc.set(p('at', 'page'), v === 'page' ? true : undefined))}
+			onchange={(v) => (v === 'page') !== onPage && (onpage ? onpage(v === 'page') : doc.set(p('at', 'page'), v === 'page' ? true : undefined))}
 			options={[
 				{ value: 'bar', icon: 'music', title: m['creator.piece_at_bar'](), testid: 'piece-at-bar' },
 				{ value: 'page', icon: 'file', title: m['creator.piece_at_page'](), testid: 'piece-at-page' }
@@ -60,8 +61,8 @@
 			value={piece.behind ? 'behind' : null}
 			fallback="over"
 			fallbackNote={m['creator.field_default_plain']()}
-			onclear={() => doc.set(p('behind'), undefined)}
-			onchange={(v) => doc.set(p('behind'), v === 'behind' ? true : undefined)}
+			onclear={() => piece.behind !== undefined && doc.set(p('behind'), undefined)}
+			onchange={(v) => (v === 'behind') !== !!piece.behind && doc.set(p('behind'), v === 'behind' ? true : undefined)}
 			options={[
 				{ value: 'over', label: m['creator.piece_over'](), title: m['creator.piece_over_hint'](), testid: 'piece-over' },
 				{ value: 'behind', label: m['creator.piece_behind'](), title: m['creator.piece_behind_hint'](), testid: 'piece-behind' }

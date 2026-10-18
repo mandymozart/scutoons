@@ -167,6 +167,21 @@ test('the kind a fill / blur already has changes nothing – a re-click keeps a 
 	assert.equal(ink.style?.fill, null, "none over the look's fill = off");
 });
 
+test('a gradient from a light colour ends at ink, from a dark one at white – Gradient over Negative is never white → white', () => {
+	const negative = piece({ preset: 'negative' });
+	assert.equal(setFillKind(negative, 'gradient'), true);
+	assert.deepEqual(negative.style?.fill, { stops: [{ at: 0, color: '#ffffff' }, { at: 100, color: '#111111' }] });
+	const red = piece({ preset: 'red' });
+	setFillKind(red, 'gradient');
+	assert.deepEqual(red.style?.fill, { stops: [{ at: 0, color: '#ff1900' }, { at: 100, color: '#ffffff' }] });
+	const cyan = piece({ preset: 'cyan' });
+	setFillKind(cyan, 'gradient');
+	assert.deepEqual(cyan.style?.fill, { stops: [{ at: 0, color: '#00d1ff' }, { at: 100, color: '#111111' }] }, 'cyan counts as light');
+	const tint = piece({ style: { fill: '#fde' } });
+	setFillKind(tint, 'gradient');
+	assert.deepEqual(tint.style?.fill, { stops: [{ at: 0, color: '#fde' }, { at: 100, color: '#111111' }] }, 'a light #rgb tint');
+});
+
 test('figurePath finds the waiting re-pick its piece by id – never the piece now at the old path', () => {
 	const slice: any = { pieces: [piece({ id: 'a', figure: { id: 'catpope', view: 'portrait' } }), piece({ id: 'shape' }), piece({ id: 'b', figure: { id: 'catpope', view: 'full' } })] };
 	const file = { slices: [slice] };

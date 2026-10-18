@@ -56,7 +56,8 @@ export function clipWhat(clip: Pick<Clip, 'kind' | 'entries'>): string {
 /** "Pasted: text box" (+ " – uses 2 files from catpope" across toons: they are referenced, never copied) */
 export function pastedMessage(clip: Clip, toon: string, settings = false, what = clipWhat(clip)): string {
 	const message = settings ? m['creator.clip_pasted_settings']({ what }) : m['creator.clip_pasted']({ what });
-	const files = foreignFiles(clip.entries, clip.sounds, clip.toon, toon, clip.kind);
+	// a piece's settings are its look (preset + style – clip.ts applyPieceLook): its file stays the target's own
+	const files = settings && clip.kind === 'piece' ? 0 : foreignFiles(clip.entries, clip.sounds, clip.toon, toon, clip.kind);
 	return files ? m['creator.clip_foreign_files']({ message, count: files, toon: clip.toon }) : message;
 }
 

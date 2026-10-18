@@ -125,11 +125,25 @@ export function setEffectColor(piece: CollagePiece, key: 'outline' | 'shadow', c
 export const fillKind = (fill: PieceStyle['fill']): FillKind => (fill === undefined || fill === null ? 'none' : typeof fill === 'string' ? 'color' : 'gradient');
 export const blurKind = (blur: PieceStyle['blur']): BlurKind => (blur?.from && blur?.to ? 'ramp' : 'even');
 
+/** a #rgb / #rrggbb colour's relative luminance (WCAG: 0 black … 1 white); 0 for anything else */
+function luminance(color: string): number {
+	const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color)?.[1];
+	if (!hex) return 0;
+	const full = hex.length === 3 ? [...hex].map((c) => c + c).join('') : hex;
+	const [r, g, b] = [0, 2, 4].map((i) => {
+		const c = parseInt(full.slice(i, i + 2), 16) / 255;
+		return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+	});
+	return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
 /**
- * The fill switched to another kind: a colour starts from the fill's (first) colour, a gradient runs from it to white,
- * none clears it. A fill switched off over the look comes back as the look's when that is the kind asked for, else
- * starts from the look's colour. The kind it already has changes nothing (Segmented sends the chosen option again – a
- * re-click must not rebuild a gradient or make the look's fill the piece's own); false = nothing changed
+ * The fill switched to another kind: a colour starts from the fill's (first) colour, a gradient runs from it to white –
+ * to ink (FILL_INK) when it starts light (relative luminance > 0.5: white, light tints, cyan), so Negative's white
+ * doesn't run into white –, none clears it. A fill switched off over the look comes back as the look's when that is the
+ * kind asked for, else starts from the look's colour. The kind it already has changes nothing (Segmented sends the
+ * chosen option again – a re-click must not rebuild a gradient or make the look's fill the piece's own); false =
+ * nothing changed
  */
 export function setFillKind(piece: CollagePiece, kind: FillKind): boolean {
 	const fill = pieceStyle(piece).fill;
@@ -143,7 +157,8 @@ export function setFillKind(piece: CollagePiece, kind: FillKind): boolean {
 	} else {
 		const source = fill ?? look;
 		const from = typeof source === 'string' ? source : (source?.stops?.[0]?.color ?? FILL_INK);
-		const next: string | PieceGradient = kind === 'color' ? from : { stops: [{ at: 0, color: from }, { at: 100, color: '#ffffff' }] };
+		const to = luminance(from) > 0.5 ? FILL_INK : '#ffffff';
+		const next: string | PieceGradient = kind === 'color' ? from : { stops: [{ at: 0, color: from }, { at: 100, color: to }] };
 		setEffect(piece, 'fill', next);
 	}
 	return true;

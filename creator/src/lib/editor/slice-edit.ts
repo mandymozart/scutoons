@@ -76,7 +76,9 @@ export function createBoxForEvent(t: SliceTarget, index: number, eventsPath: Pat
  * of the toon shared the pickup memory (`picked:<slice image>#<id>`); existing ids stay.
  */
 export function addSliceItem(t: SliceTarget, itemId: string, spot: { x: number; y: number } | null): CanvasSelection {
+	// the slice's own list (the resolved slice passes it through): its length before the push
 	const items: any[] = t.slice?.items ?? [];
+	const index = items.length;
 	const id = newPlacementId(itemId, new Set(items.map((it) => it?.id)));
 	t.doc.edit((file) => {
 		const slice = getAt(file, t.slicePath);
@@ -84,7 +86,7 @@ export function addSliceItem(t: SliceTarget, itemId: string, spot: { x: number; 
 		slice.items ??= [];
 		slice.items.push({ id, item: itemId, rect: spot ? { x: Math.min(75, Math.max(0, spot.x)), y: Math.min(95, Math.max(0, spot.y)), width: 25 } : { x: 37.5, y: 40, width: 25 } });
 	});
-	return { kind: 'item', index: items.length };
+	return { kind: 'item', index };
 }
 
 /**
@@ -122,6 +124,7 @@ export function addSliceEvent(t: SliceTarget, rect: { x: number; y: number; widt
 /** a click sample on a drawn area (the chapter's first library sample); null without a sample library */
 export function addSampleArea(t: SliceTarget, rect: { x: number; y: number; width: number; height: number }, library: { id: string }[]): CanvasSelection | null {
 	if (!library.length) return null;
+	const index = t.slice?.audio?.audio?.samples?.length ?? 0;
 	t.doc.edit((file) => {
 		const slice = getAt(file, t.slicePath);
 		if (!slice) return;
@@ -130,7 +133,7 @@ export function addSampleArea(t: SliceTarget, rect: { x: number; y: number; widt
 		slice.audio.audio.samples ??= [];
 		slice.audio.audio.samples.push({ id: library[0].id, trigger: { type: Trigger.CLICK, mode: TriggerMode.POLY, rect: { ...rect } }, volume: 0.6 });
 	});
-	return { kind: 'sample', index: (t.slice?.audio?.audio?.samples?.length ?? 0) };
+	return { kind: 'sample', index };
 }
 
 /** each canvas kind's list in the slice */

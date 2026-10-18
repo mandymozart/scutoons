@@ -12,7 +12,6 @@
 		findPersona,
 		lookMoods,
 		moodLabel,
-		pieceName,
 		toonAssetRef,
 		type CharacterImageVariant,
 		type CharacterRegistry,
@@ -23,7 +22,7 @@
 	} from '@scutoons/content';
 	import { figurePath, pieceAt, setFigure, setPreset } from '$lib/editor/collage-edit.ts';
 	import { figureImage, figureViews, imageRatio } from '$lib/editor/collage-pick.ts';
-	import { lookLabel, pieceKindLabel } from '$lib/editor/collage-words.ts';
+	import { lookLabel, pieceKindLabel, pieceLabel } from '$lib/editor/collage-words.ts';
 	import { isKnownMissing } from '$lib/editor/characters.ts';
 	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -36,7 +35,10 @@
 	 * The ONE inspector of a collage piece (research/COLLAGE.md §7), on a slice and on a score: its kind and name, a
 	 * character picture's mood and view, the looks (a pick names the look and drops the piece's own values), and folded
 	 * the fine-tuning – place, size, blend, fill, outline, shadow, blur (open when the piece has its own values). Like the
-	 * text box inspector: compact property rows, drag a field's handle to change it, click to type.
+	 * text box inspector: compact property rows, drag a field's handle to change it, click to type. A re-click of the
+	 * chosen view (no re-pick still decoding), or of the chosen look while the piece has no values of its own, changes
+	 * nothing (no empty undo step, redo kept); with own values, a re-click of the chosen look takes the piece back to the
+	 * look (drops them).
 	 */
 	let {
 		doc,
@@ -93,14 +95,8 @@
 	const shownView = $derived(piece?.figure && (!ownViews || ownViews.includes(piece.figure.view)) ? piece.figure.view : AUTHORED_VIEW);
 	const viewMissing = (view: CharacterImageVariant, mood: string = DEFAULT_MOOD) =>
 		m['creator.piece_view_missing']({ view: m[`creator.piece_view_${view}`](), mood: moodLabel(mood, textLanguage.names, moods) });
-	/** the head's name: a character picture by its name and mood, else the file (`pieceName`) */
-	const name = $derived(
-		piece?.figure && character
-			? [shownCharacterName(character, piece.figure.persona), piece.figure.mood && moodLabel(piece.figure.mood, textLanguage.names, moods)].filter(Boolean).join(' · ')
-			: piece
-				? pieceName(piece)
-				: ''
-	);
+	/** the head's name – the one the lists and the canvas show (collage-words.ts `pieceLabel`) */
+	const name = $derived(pieceLabel(piece, registry, moods));
 	/**
 	 * per piece: the newest re-pick still decoding, with every change asked for since the last applied one (`n` is
 	 * unique, so an older decode never passes for a newer re-pick)
@@ -166,7 +162,7 @@
 						stretch
 						radio
 						value={shownView}
-						onchange={(view) => refigure({ view })}
+						onchange={(view) => (view !== piece.figure?.view || pending.has(piece.id)) && refigure({ view })}
 						options={CHARACTER_IMAGE_VARIANTS.map((v) => {
 							const disabled = !!ownViews && !ownViews.includes(v);
 							return { value: v, label: m[`creator.piece_view_${v}`](), disabled, title: disabled ? viewMissing(v, piece.figure?.mood) : undefined, testid: `piece-view-${v}` };
@@ -182,7 +178,7 @@
 			grid
 			label={m['creator.piece_look']()}
 			value={piece.preset ?? ''}
-			onchange={(look) => change((target) => setPreset(target, look || undefined), 'preset')}
+			onchange={(look) => ((look || undefined) !== piece.preset || piece.style) && change((target) => setPreset(target, look || undefined), 'preset')}
 			options={[{ value: '', label: m['creator.look_none'](), testid: 'piece-look-none' }, ...COLLAGE_LOOKS.map((l) => ({ value: l.id, label: lookLabel(l.id), testid: `piece-look-${l.id}` }))]}
 			testid="piece-looks"
 		/>

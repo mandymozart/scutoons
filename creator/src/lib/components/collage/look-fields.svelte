@@ -8,7 +8,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
-	 * A piece's colouration fields (research/COLLAGE.md §7): blend + opacity, fill (none / colour / gradient), outline,
+	 * A piece's colouration fields (research/COLLAGE.md §7): opacity + blend, fill (none / colour / gradient), outline,
 	 * shadow, blur (even or a ramp between two points). The fields show the piece as drawn (`pieceStyle`: its look under
 	 * its own values); a change makes that key the piece's own (collage-edit.ts – copy-on-write), clearing an effect
 	 * turns it off – an outline / shadow colour retyped brings it back as it was (`setEffectColor`); the fill's colour
@@ -35,15 +35,6 @@
 </script>
 
 <PropRow label={m['creator.piece_blend']()} testid="piece-blend-row">
-	<PropSelect
-		icon="blend"
-		label={m['creator.piece_blend']()}
-		value={piece.style?.blend}
-		options={BLEND_MODES.map((b) => ({ value: b, label: blendLabel(b) }))}
-		placeholder={blendLabel(look.blend ?? 'normal')}
-		onchange={(v) => change((p) => setPlain(p, 'blend', v), 'blend')}
-		testid="piece-blend"
-	/>
 	<ScrubNumber
 		icon="eye"
 		label={m['creator.piece_opacity']()}
@@ -56,6 +47,18 @@
 		onchange={(v) => change((p) => setPlain(p, 'opacity', v === undefined ? undefined : Math.round(v * 100) / 10000), 'opacity')}
 		testid="piece-opacity"
 	/>
+	<!-- its own line: beside the opacity even two parts of the row cut "(Multiply)" / "(Multiplizieren)" (22rem inspector) -->
+	<span data-prop-line>
+		<PropSelect
+			icon="blend"
+			label={m['creator.piece_blend']()}
+			value={piece.style?.blend}
+			options={BLEND_MODES.map((b) => ({ value: b, label: blendLabel(b) }))}
+			placeholder={blendLabel(look.blend ?? 'normal')}
+			onchange={(v) => change((p) => setPlain(p, 'blend', v), 'blend')}
+			testid="piece-blend"
+		/>
+	</span>
 </PropRow>
 
 <PropRow label={m['creator.piece_fill']()} testid="piece-fill-row">

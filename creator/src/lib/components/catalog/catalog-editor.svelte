@@ -42,6 +42,7 @@
 	 * editions), the entries as a list, the open one in its form (@scutoons/catalog, the admin's forms). Every entry is
 	 * its own document (`item:<id>` …): Save stores a draft, History lists its versions, Publish is the one checklist –
 	 * the server writes the catalog then, and decides who may (review rules; physical changes: the `physical` rule).
+	 * Over 400 lines: one page of the list, the open form, the actions and the server's problems share one document session.
 	 */
 	let { kind }: { kind: CatalogDocKind } = $props();
 
