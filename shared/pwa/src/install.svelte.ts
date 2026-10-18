@@ -114,7 +114,8 @@ export class Install {
 		this.#framed = window.top !== window;
 		this.#standalone = runsInstalled();
 		this.#forced = new URLSearchParams(location.search).has('install');
-		window.matchMedia('(display-mode: standalone)').addEventListener('change', () => {
+		// the apps open fullscreen (owner 2026-10-18), iOS as standalone – either mode means installed
+		window.matchMedia('(display-mode: standalone), (display-mode: fullscreen)').addEventListener('change', () => {
 			this.#standalone = runsInstalled();
 			if (this.#standalone) this.offer = false;
 			this.#refresh();

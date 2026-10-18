@@ -23,7 +23,7 @@ iPhone home-screen app has its own – sign in once there).
 
 ## 2. The plain PWA (built 2026-10-18)
 
-- **Manifest** `static/site.webmanifest` per app: `id` / `start_url` / `scope` `/`, `display: standalone`, white
+- **Manifest** `static/site.webmanifest` per app: `id` / `start_url` / `scope` `/`, `display: fullscreen` (owner 2026-10-18 – PWA.md §1), white
   `theme_color` / `background_color` (the boot screen's paper), names "SCUTOONS Creator" / "… Admin" / "… Embassy",
   short names "Creator" / "Admin" / "Embassy". Icons: the reader's cat head with a black round badge carrying the
   app's letter (C / A / E) – `app-icon-192/512` (`any`), `app-icon-maskable-192/512`, `app-icon-apple-180` (generated
@@ -101,20 +101,18 @@ every 5 min), each guarded by a key. Only the reader has a worker that shows not
 - **Opt-in**: each tool gets "Benachrichtigungen" (the device switch + its kinds) – where is question 6.
 - Admin "Push" page: a test send per kind to the admin's own devices; `push_sends` logs every run (kind, recipients).
 
-## 6. Open questions (for the owner)
+## 6. The owner's answers (2026-10-18)
 
-1. "admin if reviews are pending": **the admin proposals** (admin app, every admin) **or the content reviews**
-   (chapter reviews in the creator, the toon's reviewers)? Recommendation: both, each in its own app – proposals in
-   admin, reviews in creator.
-2. Embassy reminders: push **instead of** the daily / Monday mail, or **in addition**? Recommendation: the person picks
-   per channel (mail / push) under the same rhythm; default push on, mail as today.
-3. Creator drafts: who is told about a draft someone else changed – **everyone who ever saved that toon**, the toon's
-   reviewers, or all creators? Recommendation: the people who saved a version of that toon in the last 90 days.
-4. Quiet hours 21:00–08:00 Vienna time for everyone, or per person? Recommendation: fixed for now, per person later.
-5. App icons: the cat head with a C / A / E badge (built) – or something else per app? Recommendation: keep the badge.
-6. Where do the tools' settings live (push switch + kinds, "Install app")? The tools have no account page.
-   Recommendation: one shared "Benachrichtigungen" page per tool behind the signed-in-as menu (one component in
-   `@scutoons/pwa`, the same in all three).
+1. Reviews: **both** – the admin proposals in admin to every admin except the author; the content reviews in the
+   creator to the toon's reviewers.
+2. Embassy: **per channel** – the same rhythm (daily / Mondays / off); the person picks mail and / or push; default push
+   on, mail as today.
+3. Creator drafts: **only the toon's reviewers** (`content_review_rules` reviewer, the toon or `*`), never the person who
+   made the change.
+4. Quiet hours: **none** – sent right away, also at night; the batching and the tag replacement stay.
+5. Icons: the cat head with the C / A / E badge.
+6. Settings: one shared **"Benachrichtigungen" page behind the signed-in-as menu** in all three tools – the push switch,
+   the kinds, "App installieren".
 
 ## 7. Testing
 

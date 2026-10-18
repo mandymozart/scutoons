@@ -5,7 +5,7 @@
 	"description": "Tunes for your screen",
 	"start_url": "/",
 	"scope": "/",
-	"display": "standalone",
+	"display": "fullscreen",
 	"theme_color": "#ffffff",
 	"background_color": "#ffffff",
 	"categories": ["entertainment", "books", "music"],
