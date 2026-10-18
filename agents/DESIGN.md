@@ -429,8 +429,10 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
     (`vn/message.svelte`, every chapter page has it, also without a VN – `vn-page.svelte`) shows them: the text (if any)
     as the box's text, the actions as **one compact row of buttons** (owner 2026-10-17: the three big choice boxes took too
     much room – "logischer bauen"): the secondary ("↺ Nochmal" / "Code einlösen" / …) and, while counting, "Abbrechen"
-    as outlined `.btn-secondary`, the primary last (black, `--control-height`, a long chapter name ends in …); on a narrow
-    phone the row wraps and the primary takes its own line. With only these actions the box drops its 10rem story
+    as outlined `.btn-secondary` with an icon (rotate-ccw, ×, camera, shopping-bag, download), the primary last (black,
+    `--control-height`, takes the rest, a long chapter name ends in …). Always ONE row (owner 2026-10-17: "Passt so … wenn
+    es eine Zeile bleibt"): below a 30rem box (phones) the secondaries are icon-only squares (the label as aria-label /
+    title). With only these actions the box drops its 10rem story
     height (`.actions-only`). Handed over as a snippet (`vn.setEnd`); the box
     reports its height, so the VN characters stand on it as on a message. A spacer (`.next-host`, the box's height +
     2rem) keeps the last slice clear of it (the pinned strip – a horizontal group: none, the box sits over its last screen).

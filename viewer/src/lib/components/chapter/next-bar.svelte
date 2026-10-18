@@ -349,10 +349,25 @@
 <div class="next-host" bind:this={host} class:shown={shown && !strip && !goesAtOnce} style:height={shown && !strip && !goesAtOnce ? reserve : null}></div>
 
 <!-- drawn inside the VN message box (vn/message.svelte) – every page has the box (vn-page.svelte) -->
+<!-- a secondary action: icon + text; on a narrow phone only the icon (the label stays as aria-label / title) – the row
+     stays ONE row at every width (owner 2026-10-17: "Passt so … wenn es eine Zeile bleibt") -->
+{#snippet secondary(tag: 'a' | 'button', label: string, icon: string, onclick: (() => void) | null, href: string | null, testid: string, extra = '')}
+	{#if tag === 'a'}
+		<a class="btn btn-secondary secondary {extra}" href={href} aria-label={label} title={label} data-testid={testid}>
+			<Icon name={icon} size="1rem" /><span class="text">{label}</span>
+		</a>
+	{:else}
+		<button type="button" class="btn-secondary secondary {extra}" onclick={() => onclick?.()} aria-label={label} title={label} data-testid={testid}>
+			<Icon name={icon} size="1rem" /><span class="text">{label}</span>
+		</button>
+	{/if}
+{/snippet}
+
 {#snippet endActions()}
-	<!-- one compact row (owner 2026-10-17: the three big boxes took too much room – "ein bisschen logischer bauen"): the
-	     secondary (replay / redeem / where to get a code / the music) and, while counting, "Abbrechen" as outlined
-	     buttons, the primary last; the row wraps on a narrow phone, the primary keeps the right -->
+	<!-- one compact row (owner 2026-10-17: the three big boxes took too much room – "ein bisschen logischer bauen"; "Passt
+	     so … wenn es eine Zeile bleibt"): the secondary (replay / redeem / where to get a code / the music) and, while
+	     counting, "Abbrechen" as outlined buttons, the primary last and taking the rest (a long label ends in …); the row
+	     never wraps – below 30rem (phones) the secondaries show only their icons -->
 	<section
 		class="end-actions"
 		bind:this={bar}
@@ -366,18 +381,18 @@
 		{/if}
 		<div class="row">
 			{#if automatic && !endsWithPlayer}
-				<button type="button" class="btn-secondary" onclick={replay} data-testid="next-bar-replay">↺ {m['next_bar.replay']()}</button>
+				{@render secondary('button', m['next_bar.replay'](), 'rotate-ccw', replay, null, 'next-bar-replay')}
 			{:else if step.kind === 'members' && !session.isLoggedIn}
-				<button type="button" class="btn-secondary" onclick={redeem} data-testid="next-bar-secondary">{m['next_bar.redeem']()}</button>
+				{@render secondary('button', m['next_bar.redeem'](), 'camera', redeem, null, 'next-bar-secondary')}
 			{:else if step.kind === 'members'}
-				<a class="btn btn-secondary" href={shopUrl(getLocale())} data-testid="next-bar-secondary">{m['next_bar.where_code']()}</a>
+				{@render secondary('a', m['next_bar.where_code'](), 'shopping-bag', null, shopUrl(getLocale()), 'next-bar-secondary')}
 			{:else if step.kind === 'season-end' && download}
-				<a class="btn btn-secondary" href={localizeHref(`/${toonId}/download`)} data-testid="next-bar-secondary">{m['season.download']()}</a>
+				{@render secondary('a', m['season.download'](), 'download', null, localizeHref(`/${toonId}/download`), 'next-bar-secondary')}
 			{/if}
 			{#if counting}
 				<span class="countdown" data-testid="next-bar-countdown">
 					<span class="sr-only" aria-live="off">{m['next_bar.countdown']({ seconds: remaining })}</span>
-					<button type="button" class="btn-secondary cancel" onclick={stop} data-testid="next-bar-cancel">{m['next_bar.cancel']()}</button>
+					{@render secondary('button', m['next_bar.cancel'](), 'x', stop, null, 'next-bar-cancel', 'cancel')}
 				</span>
 			{/if}
 			{#if primaryHref}
@@ -405,6 +420,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
+		container-type: inline-size;
 	}
 	/* the box's text (vn/message.svelte .text) */
 	.message {
@@ -412,10 +428,27 @@
 	}
 	.row {
 		display: flex;
-		flex-wrap: wrap;
 		justify-content: flex-end;
 		align-items: center;
 		gap: 0.5rem;
+	}
+	.secondary {
+		flex: none;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.5rem;
+		white-space: nowrap;
+	}
+	/* a narrow phone: the secondaries icon-only (square, the control height) – the primary keeps its words */
+	@container (max-width: 30rem) {
+		.row .secondary {
+			width: var(--control-height);
+			padding: 0;
+		}
+		.secondary .text {
+			display: none;
+		}
 	}
 	.row :global(:is(a, button)) {
 		height: var(--control-height);

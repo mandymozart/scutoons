@@ -197,11 +197,11 @@ const BAR = `(() => {
 	return { shown: true, path: location.pathname + location.search, kind: bar.dataset.kind, counting: bar.dataset.counting === 'true',
 		message: bar.querySelector('[data-testid="next-bar-message"]')?.textContent.trim() ?? null,
 		primary: primary?.textContent.trim() ?? null, primaryHref: primary?.getAttribute('href') ?? null, primaryTag: primary?.tagName,
-		secondary: secondary?.textContent.trim().replace(/\\s+/g, ' ') ?? null, secondaryHref: secondary?.getAttribute('href') ?? null,
+		secondary: secondary ? (secondary.getAttribute('aria-label') ?? secondary?.textContent.trim().replace(/\\s+/g, ' ')) : null, secondaryHref: secondary?.getAttribute('href') ?? null,
 		countdown: bar.querySelector('[data-testid="next-bar-countdown"]')?.textContent.trim() ?? null,
 		inBox: !!box && box.classList.contains('visible'), rem: parseFloat(getComputedStyle(document.documentElement).fontSize),
 		bottom: box ? Math.round(parseFloat(cs.bottom)) : Math.round(innerHeight - b.bottom), width: Math.round(b.width), vw: document.documentElement.clientWidth, z: Number(cs.zIndex), border: cs.borderTopWidth + ' ' + cs.borderTopStyle,
-		font: cs.fontFamily, radius: getComputedStyle(primary).borderRadius, choiceLook: (() => { const all = [...bar.querySelectorAll('a, button')]; const h = primary.getBoundingClientRect().height; return all.at(-1) === primary && all.every((c) => Math.abs(c.getBoundingClientRect().height - h) < 1); })(),
+		font: cs.fontFamily, radius: getComputedStyle(primary).borderRadius, choiceLook: (() => { const all = [...bar.querySelectorAll('a, button')]; const h = primary.getBoundingClientRect().height; const top = primary.getBoundingClientRect().top; return all.at(-1) === primary && all.every((c) => Math.abs(c.getBoundingClientRect().height - h) < 1 && Math.abs(c.getBoundingClientRect().top - top) < 1); })(),
 		actions: bar.querySelectorAll('a, button:not(.cancel)').length };
 })()`;
 const playToEnd = `(() => { const v = document.querySelector('video[data-player]'); return new Promise((ok, no) => {
@@ -221,7 +221,8 @@ async function reachEnd(ms = 20000) {
 	return evaluate(BAR);
 }
 // the end actions sit in the VN message box (BACKLOG 10.48): the box 1 rem above the bottom, 1 rem in from the sides; one
-// compact row of buttons of one height, the primary last (owner 2026-10-17)
+// row of buttons of one height on one line at every width (secondaries icon-only on phones), the primary last
+// (owner 2026-10-17: "wenn es eine Zeile bleibt")
 function barLook(s, problems) {
 	if (!s.inBox) problems.push('the end actions are not in the shown message box (.vn-message.visible)');
 	if (Math.abs(s.bottom - s.rem) > 1 || Math.abs(s.width - (s.vw - 2 * s.rem)) > 1) problems.push(`box not at the bottom (bottom ${s.bottom}, width ${s.width}/${s.vw})`);
@@ -376,7 +377,7 @@ async function run(width, locale) {
 		else {
 			if (s.kind !== 'chapter' || !s.counting) problems.push(`kind ${s.kind}, counting ${s.counting}`);
 			if (s.primary !== label || s.primaryHref !== `${prefix}/${toon}/chapter/2`) problems.push(`primary "${s.primary}" → ${s.primaryHref}, expected "${label}"`);
-			if (s.secondary !== `↺ ${nb.replay}`) problems.push(`secondary "${s.secondary}"`);
+			if (s.secondary !== nb.replay) problems.push(`secondary "${s.secondary}"`);
 			barLook(s, problems);
 		}
 		report(`chapter 1's end: "${label} →" + "↺ ${nb.replay}" + countdown`, problems, JSON.stringify(s));
@@ -414,7 +415,7 @@ async function run(width, locale) {
 		await waitFor(`document.querySelector('[data-slice-index="0"]') ? true : null`, 20000);
 		s = await reachEnd(60000);
 		const href = `${prefix}/${toon}/chapter/2?label=${ch2Next.next}`;
-		report(`a group's end (chapter 2 ${ch2Next.first} …): "${nb.next} →" + countdown → ?label=${ch2Next.next}`, s?.shown && s.kind === 'group' && s.counting && s.primary === nb.next && s.primaryHref === href && s.secondary === `↺ ${nb.replay}` ? [] : [JSON.stringify(s)]);
+		report(`a group's end (chapter 2 ${ch2Next.first} …): "${nb.next} →" + countdown → ?label=${ch2Next.next}`, s?.shown && s.kind === 'group' && s.counting && s.primary === nb.next && s.primaryHref === href && s.secondary === nb.replay ? [] : [JSON.stringify(s)]);
 		await shot(`next-${name}-7-group`);
 		const nextGroup = await waitFor(`location.search === '?label=${ch2Next.next}' ? true : null`, 12500);
 		report(`…after 10 s the next group (?label=${ch2Next.next})`, nextGroup ? [] : [`at ${await evaluate('location.pathname + location.search')}`]);
