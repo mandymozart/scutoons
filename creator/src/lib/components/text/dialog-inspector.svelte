@@ -152,18 +152,9 @@
 				</span>
 			</PropRow>
 
+			<!-- no weight control (owner 2026-10-18: "keep it reduced, focus on certain things"); a stored weight still renders -->
 			<PropRow label={m['creator.prop_type']()}>
 				<PropSelect label={m['creator.text_font']()} icon="type" value={dialog.font} options={[{ value: 'lettering', label: 'lettering' }, { value: 'mono', label: 'mono' }]} placeholder={boxed ? 'mono' : 'lettering'} onchange={set('font')} testid="dialog-font" />
-				<Segmented
-					label={m['creator.text_weight']()}
-					value={dialog.weight === undefined ? null : String(dialog.weight)}
-					fallback="400"
-					fallbackNote={m['creator.field_default_plain']()}
-					onclear={() => doc.set(p('weight'), undefined)}
-					onchange={(w) => doc.set(p('weight'), Number(w))}
-					options={[{ value: '400', label: '400', title: m['creator.text_weight_regular']() }, { value: '700', label: '700', title: m['creator.text_weight_bold']() }]}
-					testid="dialog-weight"
-				/>
 			</PropRow>
 			<PropRow label={m['creator.prop_text_size']()} hint={m['creator.text_size_hint']()}>
 				<!-- the unit shows in the switch beside it, not again in the field -->
@@ -185,7 +176,7 @@
 			</PropRow>
 			<PropRow label={m['creator.prop_spacing']()}>
 				<ScrubNumber icon="letter-spacing" label={m['creator.text_letter_spacing']()} unit="em" step={0.01} min={-0.5} max={2} value={dialog.letterSpacing} placeholder={font === 'lettering' ? '0.03' : '0'} onchange={set('letterSpacing')} testid="dialog-letter-spacing" />
-				<ScrubNumber icon="line-height" label={m['creator.text_line_height']()} unit="×" step={0.05} min={0.5} max={3} value={dialog.lineHeight} placeholder={font === 'lettering' ? '1.1' : '1.35'} onchange={set('lineHeight')} testid="dialog-line-height" />
+				<ScrubNumber icon="line-height" label={m['creator.text_line_height']()} step={0.05} min={0.5} max={3} value={dialog.lineHeight} placeholder={font === 'lettering' ? '1.1' : '1.35'} onchange={set('lineHeight')} testid="dialog-line-height" />
 			</PropRow>
 			<PropRow label={m['creator.text_align']()}>
 				<Segmented
@@ -215,7 +206,7 @@
 			</PropRow>
 			<PropRow label={m['creator.prop_transform']()}>
 				<ScrubNumber icon="rotate-cw" label={m['creator.field_rotation']()} unit="°" step={1} value={dialog.rotation} placeholder="0" onchange={set('rotation')} testid="dialog-rotation" />
-				<ScrubNumber icon="maximize-2" label={m['creator.field_scale']()} unit="×" step={0.05} min={0.1} max={10} value={dialog.scale} placeholder="1" onchange={set('scale')} testid="dialog-scale" />
+				<ScrubNumber icon="maximize-2" label={m['creator.field_scale']()} step={0.05} min={0.1} max={10} value={dialog.scale} placeholder="1" onchange={set('scale')} testid="dialog-scale" />
 			</PropRow>
 
 			<PropRow label={m['creator.field_color']()}>

@@ -7,12 +7,14 @@
 
 <script lang="ts" generics="T extends string | number | boolean">
 	import Icon from './icon.svelte';
+	import FieldReset from './field-reset.svelte';
 
 	/**
 	 * A compact select for property rows (agents/research/EDITOR-INPUTS.md): the select itself (a secondary-button frame
 	 * with the chevron, DESIGN.md "Controls"), an icon or short tag on its left instead of a caption above it.
 	 * Unless `required`, the first option is the default – "(placeholder)" – and choosing it unsets the value
-	 * (`undefined`). A stored value that isn't an option is kept and shown with "(?)".
+	 * (`undefined`); while a value is set, the reset button (FieldReset) at the right end does the same. A stored value
+	 * that isn't an option is kept and shown with "(?)".
 	 */
 	let {
 		value,
@@ -43,6 +45,7 @@
 	} = $props();
 
 	const shown = $derived(value === undefined || value === null ? '' : String(value));
+	const resettable = $derived(!required && !disabled && shown !== '');
 	const unknown = $derived(shown !== '' && !options.some((o) => String(o.value) === shown));
 
 	function pick(raw: string) {
@@ -52,7 +55,7 @@
 	}
 </script>
 
-<span class="sc-prop-select" class:has-lead={!!(icon || tag)} title={label} data-testid={testid}>
+<span class="sc-prop-select" class:has-lead={!!(icon || tag)} class:has-reset={resettable} title={label} data-testid={testid}>
 	<select {id} aria-label={label} {disabled} onchange={(e) => pick(e.currentTarget.value)}>
 		{#if !required}<option value="" selected={shown === ''}>{placeholder ? `(${placeholder})` : '–'}</option>{/if}
 		{#each options as o (String(o.value))}<option value={String(o.value)} selected={String(o.value) === shown}>{o.label}</option>{/each}
@@ -61,6 +64,7 @@
 	{#if icon || tag}
 		<span class="lead" aria-hidden="true">{#if icon}<Icon name={icon} size="1.1em" />{:else}{tag}{/if}</span>
 	{/if}
+	{#if resettable}<FieldReset onreset={() => onchange(undefined)} testid={testid ? `${testid}-reset` : undefined} />{/if}
 </span>
 
 <style>
@@ -89,6 +93,11 @@
 	}
 	.has-lead select {
 		padding-left: 1.75rem;
+	}
+	/* the reset takes the right end (as in every field); the chevron moves in front of it */
+	.has-reset select {
+		padding-right: calc(var(--space-05) + 1.25em + var(--field-reset-width, 1.5rem));
+		background-position: right calc(var(--field-reset-width, 1.5rem) + var(--space-025)) center;
 	}
 	select:is(:hover, :focus):not(:disabled) {
 		border-color: var(--ink);

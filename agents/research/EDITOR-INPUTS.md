@@ -60,5 +60,9 @@ Added on the owner's word the same day: the text size in rem (default) / pt / px
 height field (`Dialog.lineHeight`), centre snap guides on the slice canvas and editing a text box's words in place
 (DESIGN.md "Slice editor").
 
+Owner feedback 2026-10-18 (built): the whole field scrubs (tap types, press + slide or a hold scrubs, mouse and
+touch), one reset button (FieldReset) in every field instead of the "×" unit that looked like one, our own colour
+popover (colour-popover.svelte), the weight control left out of the text box inspector (DESIGN.md "Compact inspector").
+
 Next (owner to decide the order): the item inspector, the group panel, the cover lettering lines, the map place
 inspector – each a plain swap of `PropField` for the compact controls; `PropField` stays for page forms.

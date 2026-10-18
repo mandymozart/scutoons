@@ -18,7 +18,8 @@
 		type PaletteLink,
 		installTooltips,
 		DialogHost,
-		ToastStack
+		ToastStack,
+		provideUiLabels
 	} from '@scutoons/ui';
 	import { toaster } from '$lib/toasts.ts';
 	import { InstallBar, UpdateBar, pwaLabels } from '@scutoons/pwa';
@@ -48,6 +49,17 @@
 	setupMedia({ assets: assetsApi, cdn: asset, locale: getLocale });
 	// the catalog editors (@scutoons/catalog, agents/CATALOG-IN-CREATOR.md): texts in this app's locale, links to the admin
 	setupCatalog({ locale: getLocale, locales, adminUrl: ADMIN_URL });
+	// the shared fields' words (reset, the colour popover, "Mixed") for every inspector (owner 2026-10-18)
+	provideUiLabels({
+		get reset() { return m['creator.field_reset'](); },
+		get mixed() { return m['creator.field_mixed'](); },
+		get pickColour() { return m['creator.colour_pick'](); },
+		get palette() { return m['creator.colour_palette'](); },
+		get recent() { return m['creator.colour_recent'](); },
+		get shade() { return m['creator.colour_shade'](); },
+		get hue() { return m['creator.colour_hue'](); },
+		get hex() { return m['creator.colour_hex'](); }
+	});
 
 	onMount(() => {
 		// magic link from the login mail: `<creator origin>/?login=<token>`; else the shared session (single sign-on)

@@ -940,12 +940,25 @@ Three kinds, three places; none moves the layout:
 - **Rows, not stacked fields**: `PropRow` (@scutoons/ui) = a tool label in a 5rem column + its controls sharing the
   rest (the label goes above below an 18rem row). The room comes from the label inside the control, never from a
   smaller control: every control stays `--control-height`.
-- **Numbers** = `ScrubNumber` (role spinbutton): a handle (Feather icon, or a tag X / Y / W / H) scrubs left / right
-  (Shift ×10, Alt ×0.1, pointer lock for a mouse, Esc reverts), a click types; ↑ ↓ PageUp / PageDown step, typed
-  maths `12+3`, `*2`, `+10`; the unit after the number; the default as placeholder. W / H = `LinkedPair` with a square
-  lock. Small enums = icon / word segments (`Segmented stretch | square`; the default while unset = an ink frame, a
+- **Numbers** = `ScrubNumber` (role spinbutton) – the whole field is the gesture (owner 2026-10-18), mouse and touch: a
+  tap types (the value selected); press and slide – past a few px, or after a 200 ms hold (the frame turns ink) – scrubs
+  left / right (Shift ×10, Alt ×0.1, pointer lock for a mouse, Esc reverts; a finger moving up / down scrolls the
+  panel); while typing it is a plain input (text selection as usual). ↑ ↓ PageUp / PageDown step, typed maths `12+3`,
+  `*2`, `+10`; an icon / tag at the start, the unit after the number (a unit is never "×" – it read as a reset); the
+  default as placeholder. W / H = `LinkedPair` with a square lock.
+- **Reset** (owner 2026-10-18): one `FieldReset` in every field (number, colour, select): at the field's right end,
+  inside its frame, the full control height, a Feather counter-clockwise arrow (not a cross), "Zurücksetzen" / "Reset"
+  as tooltip and name; only while a value is set; a click sets the default (the placeholder) back – one undo step (an
+  edit of the same field within ~1 s merges with it, like typing). The words of the shared fields come from the app
+  once (`provideUiLabels` in the creator's root layout). Small enums = icon / word segments (`Segmented stretch | square`; the default while unset = an ink frame, a
   click on the chosen one unsets it; an option that can't be chosen now is disabled at half opacity, its tooltip says
-  why). Choices with longer names = `PropSelect`. Colours = `ColorField` (swatch + hex).
+  why). Choices with longer names = `PropSelect`. Colours = `ColorField` (swatch + hex): the swatch opens
+  our colour popover (owner 2026-10-18, not the browser's picker): the brand palette read from the tokens (+ a palette
+  the app passes), this browser's recent colours (8), a saturation / brightness area (arrows, Shift ×10) with a hue
+  slider, the hex; ink frames, rem sizes, in the top layer (no panel clips it); Esc / a click outside closes it, the
+  focus goes back to the swatch. Typed hex goes out only when whole (c747a0b5).
+- **Text box inspector without a weight** (owner 2026-10-18: "keep it reduced, focus on certain things"): no 400 / 700
+  control; a stored `weight` still renders.
 - **Text size**: shown in rem (default), pt or px of the slice at 1x (1rem = 16px, 1pt = 4/3px), the unit a switch
   beside it, remembered per browser; stored as % of the slice width (`Dialog.size`, the reader scales the slice).
 - Pilot: the text box inspector. `PropField` stays for page forms.
