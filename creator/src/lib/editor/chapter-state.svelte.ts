@@ -150,6 +150,8 @@ export class ChapterView {
 	}
 	setTool(next: Tool) {
 		this.tool = next;
+		// another tool draws over the art: a selected piece is let go (its box would keep the pointer – canvas-pieces.ts)
+		if (next !== 'piece' && this.selection?.kind === 'piece') this.selection = null;
 		this.setTab(TOOL_TAB[next]);
 	}
 	/** "+ item" (spot = where on the slice, null = the middle) */

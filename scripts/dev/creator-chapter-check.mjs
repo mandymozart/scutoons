@@ -360,6 +360,14 @@ async function mouseAt(x, y) {
 	for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) await send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1 });
 	await sleep(250);
 }
+/** a real mouse drag from one viewport point to another */
+async function mouseDrag([x, y], [tx, ty], steps = 8) {
+	await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
+	await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', buttons: 1, clickCount: 1 });
+	for (let i = 1; i <= steps; i++) await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x + ((tx - x) * i) / steps, y: y + ((ty - y) * i) / steps, button: 'left', buttons: 1 });
+	await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: tx, y: ty, button: 'left', buttons: 0, clickCount: 1 });
+	await sleep(300);
+}
 /** Ctrl+C / Ctrl+V as the browser's copy / paste commands (the clipboard runtime listens to the DOM events) */
 async function clipKey(key) {
 	const base = { key, code: `Key${key.toUpperCase()}`, windowsVirtualKeyCode: KEYS[key], modifiers: 2 };
@@ -373,11 +381,58 @@ const pickerOpen = `!!document.querySelector('[data-testid="collage-picker-sheet
 const layerTestids = () => js(`[...document.querySelectorAll('[data-testid="layers"] > li')].map((li) => li.dataset.testid)`);
 
 /**
+ * Art over the slice (pieces are often large – COLLAGE.md §3; the reviewer's case): the selected piece `i` (the text
+ * tool on) scaled past the slice's width by its handle; picking the text tool lets it go, a text-tool drag over it draws
+ * a new text box and leaves the piece where it is (undone); the scissors tool still selects it there. Leaves `i` selected.
+ */
+async function artCase(i) {
+	const box = q(`box-piece-${i}`);
+	const rectOf = () => js(`(() => { const s = ${box}?.style; return s ? [s.left, s.top, s.width, s.height].join(' ') : null; })()`);
+	const handle = await js(`(() => { const h = ${box}?.querySelector('[data-testid="handle-scale"]'); if (!h) return null; const r = h.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`);
+	if (!check(!!handle, 'art: the selected piece shows its scale handle (the text tool on)')) return;
+	// out to the slice's visible bottom-right corner
+	const corner = await js(`(() => { const r = ${q('slice-canvas')}.getBoundingClientRect(); return [Math.min(r.right, innerWidth) - 4, Math.min(r.bottom, innerHeight) - 4]; })()`);
+	await mouseDrag(handle, corner);
+	const width = await js(`parseFloat(${box}.style.width)`);
+	if (!check(width > 100, `art: the scale handle makes the piece wider than the slice (${width} %)`)) return;
+	await click(tid('tool-text'));
+	check(await js(`!document.querySelector('[data-testid="slice-canvas"] .box.selected') && !${q('piece-inspector')}`), 'art: picking the text tool lets the piece go');
+	// a spot on the piece with nothing but the canvas under it (other piece boxes don't count), room for the drag after it
+	const spot = await js(`(() => {
+		const o = document.querySelector('[data-testid="slice-canvas"] .overlay');
+		const r = ${box}.getBoundingClientRect();
+		const c = o.getBoundingClientRect();
+		const [x0, y0] = [Math.max(r.left, c.left), Math.max(r.top, c.top)];
+		const [x1, y1] = [Math.min(r.right, c.right, innerWidth) - 70, Math.min(r.bottom, c.bottom, innerHeight) - 50];
+		for (const fy of [0.5, 0.4, 0.6, 0.3, 0.7]) for (const fx of [0.3, 0.5, 0.2, 0.7, 0.4]) {
+			const [x, y] = [x0 + (x1 - x0) * fx, y0 + (y1 - y0) * fy];
+			const below = document.elementsFromPoint(x, y).filter((el) => !el.closest('.box.kind-piece'));
+			if (below[0] === o) return [x, y];
+		}
+		return null;
+	})()`);
+	if (!check(!!spot, 'art: the piece has a spot without a text box / item on it')) return;
+	const n = await dialogCount();
+	const r0 = await rectOf();
+	await mouseDrag(spot, [spot[0] + 60, spot[1] + 40]);
+	const drawn = { boxes: await dialogCount(), rect: await rectOf(), selected: await js(`[...document.querySelectorAll('[data-testid="slice-canvas"] .box.selected')].map((b) => b.dataset.testid)`) };
+	check(drawn.boxes === n + 1 && drawn.rect === r0 && drawn.selected.length === 1 && drawn.selected[0].startsWith('box-dialog-'), 'art: a text-tool drag over the piece draws a new text box – the piece stays where it is', JSON.stringify({ n, r0, ...drawn }));
+	// the new text box's field holds the focus (Ctrl+Z in a field is the browser's): out of it first
+	await js('document.activeElement?.blur()');
+	await press('z', 'ctrl');
+	check((await dialogCount()) === n && (await rectOf()) === r0, 'art: undo takes the text box away, the piece as it was', JSON.stringify({ boxes: await dialogCount(), rect: await rectOf() }));
+	await click(tid('tool-piece'));
+	await mouseAt(...spot);
+	check((await until(`${box}?.classList.contains('selected') && !!${q('piece-inspector')}`, 2000)) && !(await js(pickerOpen)) && (await rectOf()) === r0, 'art: the scissors tool still selects the piece there (no picker, nothing moved)', JSON.stringify({ rect: await rectOf(), picker: await js(pickerOpen) }));
+}
+
+/**
  * The piece tool on the open slice: scissors → a click → the picker → a shape (disc-black) → it lies on the picture,
  * under the lettering, centred at the click; the look Negative blends it (difference – the picture's negative there);
  * the look Fade's ramp keeps the disc opaque in its middle; the ramp's dot moves its end; one undo per step back to no
  * piece (and redo); Ctrl+C / Ctrl+V = a second piece with a new id, an offset; Layers: pieces reorder among themselves
- * (the selected piece stays selected – through undo / redo too), never above the stack; Delete removes the selected one.
+ * (the selected piece stays selected – through undo / redo too), never above the stack; Delete removes the selected one;
+ * a piece scaled over the slice lets the text tool draw over it (artCase).
  * Leaves the two new pieces on the slice (unsaved).
  */
 async function pieceCase() {
@@ -513,13 +568,16 @@ async function pieceCase() {
 	const afterDelete = await pieceCount();
 	await press('z', 'ctrl');
 	check(afterDelete === n0 + 1 && (await pieceCount()) === n0 + 2, 'pieces: Delete removes the selected piece, undo brings it back', JSON.stringify({ afterDelete }));
-	// "+ Add a piece": the picker, the piece in the middle of the slice, selected (the slice already has pieces), then removed
+	// "+ Add a piece" (the text tool on): the picker, the piece in the middle of the slice, selected (the slice already has
+	// pieces), scaled over the slice (artCase), then removed
+	await click(tid('tool-text'));
 	await click(tid('add-slice-piece'));
 	await until(`${pickerOpen} && !!${q('collage-shape-disc-black')}`, 5000);
 	await click(tid('collage-shape-disc-black'));
 	const third = await until(`document.querySelectorAll(${JSON.stringify(PIECES)}).length === ${n0 + 3} && !!${q(`box-piece-${n0 + 2}`)}?.classList.contains('selected') && !!${q('piece-inspector')}`, 5000);
 	const middle = await js(`(() => { const p = document.querySelectorAll(${JSON.stringify(PIECES)})[${n0 + 2}]; return p ? [p.style.left, p.style.top] : null; })()`);
 	check(third && middle?.[0] === '50%' && middle?.[1] === '50%', 'pieces: "+ Add a piece" places the pick in the middle of the slice, selected', JSON.stringify(middle));
+	if (third) await artCase(n0 + 2);
 	await click(tid('piece-remove'));
 	check((await pieceCount()) === n0 + 2, 'pieces: the inspector’s Remove takes it away');
 	await click(tid('tool-text'));
@@ -556,8 +614,10 @@ try {
 		await until(`!document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•')`);
 		const saved = savedPieces(await api('GET', `/entities/${CHAPTER_KEYS[0]}?draft=1&wrap=1`), piecesBefore);
 		check(saved.ok, 'pieces: Save draft stores both pieces (the toon\'s path, the ratio, the look, distinct ids, no height)', saved.detail);
+		// the old page still draws them until the reload lands (Page.reload answers at once): a mark on it tells them apart
+		await js('window.__beforeReload = true');
 		await send('Page.reload');
-		check(await until(`document.querySelectorAll(${JSON.stringify(PIECES)}).length === ${piecesBefore + 2}`, 30000), 'pieces: after a reload the draft draws them again');
+		check(await until(`!window.__beforeReload && document.querySelectorAll(${JSON.stringify(PIECES)}).length === ${piecesBefore + 2}`, 30000), 'pieces: after a reload the draft draws them again');
 		throw Object.assign(new Error('done'), { done: true });
 	}
 

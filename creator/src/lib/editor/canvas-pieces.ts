@@ -52,6 +52,13 @@ export function pieceItems(pieces: unknown, slicePath: Path, sliceRatio: number,
 	return out;
 }
 
+/**
+ * Whether a piece's canvas box takes the pointer. Pieces are art under the stack, often as large as the slice: under
+ * another tool their boxes would swallow every drag meant to draw (the areas' rule – owner 2026-10-03: "full-slice
+ * events covered everything"). So only the scissors tool or the piece's own selection grabs it; else the tool draws.
+ */
+export const pieceTakesPointer = (tool: string, selected: boolean) => tool === 'piece' || selected;
+
 /** where a new piece goes, as `pickedToPiece` takes it */
 export interface PiecePlace {
 	rect: CollagePiece['rect'];

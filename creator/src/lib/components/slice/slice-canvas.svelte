@@ -25,7 +25,7 @@
 	import type { TextExpressions } from '@scutoons/reader';
 	import CanvasTextEdit from '$lib/components/slice/canvas-text-edit.svelte';
 	import CanvasPointHandles from '$lib/components/slice/canvas-point-handles.svelte';
-	import { pieceItems } from '$lib/editor/canvas-pieces.ts';
+	import { pieceItems, pieceTakesPointer } from '$lib/editor/canvas-pieces.ts';
 	import { editEffect } from '$lib/editor/collage-edit.ts';
 	import type { PiecePoint } from '@scutoons/content';
 	import { centreSnap, deltas, dialogScale, gridSteps, movedRect, rotationAngle, scaleFactor, scaledRect, transformedDeltas, type Factors, type Handle, type Rect } from '$lib/editor/canvas-geometry.ts';
@@ -183,9 +183,11 @@
 	);
 	/**
 	 * a box takes the pointer on its tab; on the Layers tab (the one with the text boxes) only the areas of the stack, not
-	 * a whole-slice / in-view event's
+	 * a whole-slice / in-view event's; a collage piece only under the scissors tool or selected (canvas-pieces.ts)
 	 */
-	const active = (i: Item) => layers === null || (layers.includes(i.kind) && (!layers.includes('dialog') || inStack(i)));
+	const active = (i: Item) =>
+		(layers === null || (layers.includes(i.kind) && (!layers.includes('dialog') || inStack(i)))) &&
+		(i.kind !== 'piece' || pieceTakesPointer(tool, selection?.kind === 'piece' && selection.index === i.index));
 	/** a pointer on the canvas takes the keyboard from a field (Delete / Ctrl+X / arrows then act on the selection) */
 	function releaseField() {
 		const el = document.activeElement as HTMLElement | null;

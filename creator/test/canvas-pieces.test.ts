@@ -1,7 +1,7 @@
 // canvas-pieces.ts (research/COLLAGE.md §3): collage pieces as slice canvas boxes, where a new piece goes
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NEW_PIECE_WIDTH, pieceItems, piecePlace } from '../src/lib/editor/canvas-pieces.ts';
+import { NEW_PIECE_WIDTH, pieceItems, piecePlace, pieceTakesPointer } from '../src/lib/editor/canvas-pieces.ts';
 
 const RATIO = 625 / 390;
 
@@ -52,4 +52,11 @@ test('piecePlace: a click centres the piece there, a drag keeps its corner and w
 	assert.deepEqual(piecePlace({ x: 10, y: 15, width: 42.5 }), { rect: { x: 10, y: 15, width: 42.5 } });
 	assert.deepEqual(piecePlace(null), { rect: { x: 50, y: 50, width: NEW_PIECE_WIDTH }, anchor: 'c' });
 	assert.deepEqual(piecePlace({ x: -5, y: 120 }).rect, { x: 0, y: 100, width: NEW_PIECE_WIDTH });
+});
+
+test('pieceTakesPointer: only the scissors tool or the piece\'s own selection grabs it – another tool draws over the art', () => {
+	assert.equal(pieceTakesPointer('piece', false), true);
+	assert.equal(pieceTakesPointer('piece', true), true);
+	assert.equal(pieceTakesPointer('text', true), true);
+	for (const tool of ['text', 'item', 'sample', 'event']) assert.equal(pieceTakesPointer(tool, false), false, tool);
 });
