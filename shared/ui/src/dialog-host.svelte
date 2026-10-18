@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { dialogState } from './dialogs.svelte.ts';
 
 	/** Shows the in-page dialogs of `confirmDialog` / `askDialog` (dialogs.svelte.ts); once in the app's root layout. */
@@ -17,6 +18,8 @@
 			text = request.input?.value ?? '';
 			picked = new Set(request.checklist ? request.checklist.groups.flatMap((g) => g.items.filter((i) => i.checked !== false).map((i) => i.id)) : []);
 			element.showModal();
+			// a suggestion (askDialog `select`): selected once the field shows it – typing replaces it, Enter takes it
+			if (request.input?.select) void tick().then(() => element?.querySelector<HTMLInputElement>('#sc-dialog-input')?.select());
 		} else if (!request && element.open) {
 			element.close();
 		}

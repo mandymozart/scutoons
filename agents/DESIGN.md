@@ -893,6 +893,23 @@ Three kinds, three places; none moves the layout:
   a converted document (`page/doc-notices.svelte`). Contextual hints inside an editor's own area (legacy texts, "label
   the next group") stay where they belong; they are not notifications.
 
+### Version notes (owner 2026-10-18) – the save / publish dialog
+- **Save draft and Publish ask for the versions' note** in one dialog (`DocSession.askNote`, `askDialog`): Save draft
+  always when something is unsaved; Publish only when it saves unsaved changes first – the note, then the publish
+  checklist (publish-tree.ts); nothing unsaved = the checklist only. Cancel stops the save / publish.
+- **The field holds a suggestion, selected**: typing replaces it, Enter takes it, an emptied field saves without a note
+  ("Save without note"). Deterministic, nothing sent anywhere: `creator/src/lib/editor/version-note.ts` diffs each
+  dirty file's stored version against the edited one (`chapterChanges` / `groupChanges` / `metaChanges`), then
+  `summarizeChanges` writes one line in the UI language (`version-note-words.ts`, the `creator.note_*` messages).
+- **The line**: one phrase per kind + action, in this order: text boxes, items, pieces, tails, slices, groups, events,
+  sounds, texts per language, settings (meta pages: entries by their name / id, fields by name). One thing = its name
+  (a box by its first words, an item by the catalog, a piece by its file / character); several = a count. The place:
+  "on slice n" when all of a phrase is on one slice, the group / scene when the page has several groups; a place
+  shared by every phrase once in front ("Slice 12: …"). New / removed slices as ranges ("New slices 40–44"); a change
+  only in a translation = "Texts (en) translated", never an edit of the box. At most 90 characters: whole phrases,
+  then "…". Several files of a meta page: "File: …; File: …". Examples: "Slice 12: Textbox 'Na, servus…' verschoben,
+  Zeiger gesetzt", "3 Textboxen in Szene scene-17-24 geändert", "Item 'Kamera' auf Slice 4 platziert".
+
 ### Copy / paste (owner 2026-10-07, BACKLOG 10.39, UI-CONCEPTS E.7) – the creator's chapter editor
 
 - **One system:** Cmd/Ctrl+C / X / V act on the LIVE region's selection only (the selection model, E.8); Ctrl/Cmd+

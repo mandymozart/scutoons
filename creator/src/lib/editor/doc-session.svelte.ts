@@ -9,6 +9,7 @@ import { m } from '$lib/paraglide/messages.js';
 import { docLabel } from '$lib/labels.ts';
 import { SaveConflict, SaveError, type ContentDoc } from '$lib/editor/doc.svelte.ts';
 import { toast, toaster } from '$lib/toasts.ts';
+import { suggestNote } from '$lib/editor/version-note-words.ts';
 
 export interface DocSessionOptions {
 	/** the page's files (validated, saved, published) */
@@ -91,19 +92,38 @@ export class DocSession {
 			this.notify(m['creator.nothing_to_save']());
 			return;
 		}
-		if (!this.message.trim()) {
-			const note = await askDialog({
-				title: m['creator.note_title'](),
-				message: m['creator.note_message'](),
-				label: m['creator.note_label'](),
-				placeholder: m['creator.note_placeholder'](),
-				confirmLabel: m['creator.note_save'](),
-				skipLabel: m['creator.note_skip']()
-			});
-			if (note === null) return;
-			this.message = note;
-		}
+		if (!(await this.askNote())) return;
 		await this.saveAll();
+	}
+
+	/**
+	 * the versions' note before a save (Save draft, and Publish with unsaved changes – owner 2026-10-18: "Yes, please also
+	 * ask for a note on Publish"): pre-filled with what changed since the stored versions (version-note-words.ts, owner:
+	 * "an automatic suggestion every time that fits what was last done") and selected – typing replaces it, Enter takes
+	 * it, an emptied field saves without a note; false = cancelled
+	 */
+	private async askNote(): Promise<boolean> {
+		if (this.message.trim()) return true;
+		let suggestion = '';
+		try {
+			suggestion = suggestNote([...this.docs, ...this.companions]);
+		} catch (e) {
+			// a suggestion never stands in the way of saving
+			console.warn('version note suggestion failed', e);
+		}
+		const note = await askDialog({
+			title: m['creator.note_title'](),
+			message: m['creator.note_message'](),
+			label: m['creator.note_label'](),
+			placeholder: m['creator.note_placeholder'](),
+			value: suggestion,
+			select: true,
+			confirmLabel: m['creator.note_save'](),
+			skipLabel: m['creator.note_skip']()
+		});
+		if (note === null) return false;
+		this.message = note;
+		return true;
 	}
 
 	/**
@@ -120,7 +140,8 @@ export class DocSession {
 	async publishTree(scope: PublishScope | null, title: string): Promise<void> {
 		this.options.beforeSave?.();
 		if (this.options.errorCount?.() && !(await confirmDialog({ title: m['creator.publish_title'](), message: m['creator.publish_errors']({ count: this.options.errorCount?.() ?? 0 }), confirmLabel: m['creator.publish']() }))) return;
-		if ([...this.docs, ...this.companions].some((d) => d.dirty) && !(await this.saveAll())) return;
+		// unsaved changes are saved first, with their note (one dialog, the same as Save draft's)
+		if ([...this.docs, ...this.companions].some((d) => d.dirty) && (!(await this.askNote()) || !(await this.saveAll()))) return;
 		try {
 			const own = [...this.docs, ...this.companions];
 			const result = await publishTree(scope ?? { kind: 'files', toon: own[0]?.toon ?? '', keys: own.flatMap((d) => d.storedKeys()) }, title);

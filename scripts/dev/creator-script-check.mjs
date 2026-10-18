@@ -173,6 +173,18 @@ const area = q('script-text');
 async function answerDialog(button) {
 	if (await until(`!!document.querySelector('dialog.sc-dialog[open]')`, 3000)) await click(`dialog.sc-dialog[open] ${button}`);
 }
+/**
+ * after Publish: with unsaved changes the note dialog comes first (its field holds the suggested note – saved with it,
+ * owner 2026-10-18), then the checklist; nothing unsaved = the checklist only
+ */
+async function answerPublish() {
+	if (!(await until(`!!document.querySelector('dialog.sc-dialog[open]')`, 3000))) return;
+	if (await js(`!!document.querySelector('dialog.sc-dialog[open] #sc-dialog-input')`)) {
+		await answerDialog('button.primary');
+		await until(`(() => { const d = document.querySelector('dialog.sc-dialog[open]'); return !!d && !d.querySelector('#sc-dialog-input'); })()`);
+	}
+	await answerDialog('button[type="submit"]');
+}
 /** the header's text-language switch (the only language switch) */
 const setLanguage = (l) => js(`(() => { const s = ${q('text-language-select')}; s.value = ${JSON.stringify(l)}; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
 const value = () => js(`${area}?.value ?? null`);
@@ -242,8 +254,8 @@ try {
 	// 4. save draft, publish → the history has both versions
 	let n = writes.length;
 	await click('[data-testid="save-draft"]');
-	// Save draft asks for a note (askDialog): save without one
-	await answerDialog('button.primary'); // one primary button, "Save without note" while empty
+	// Save draft asks for a note (askDialog), a suggestion pre-filled
+	await answerDialog('button.primary'); // saved with the suggested note (version-note.ts)
 	await until(`!document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•') && !${q('save-draft')}.disabled`);
 	const saved = writesSince(n);
 	check(saved.length === 1 && saved[0].method === 'PUT' && saved[0].url === `/entities/${KEYS[0]}` && saved[0].status === 200, 'Save draft: PUT script:catpope:de 200', JSON.stringify(saved));
@@ -251,7 +263,7 @@ try {
 	check(draft.content.text === edited.join('\n') && draft.published.id === baseline[KEYS[0]].id, 'the draft is stored exactly, the original stays published');
 	n = writes.length;
 	await click('[data-testid="publish"]');
-	await answerDialog('button[type="submit"]'); // Publish confirms in-page
+	await answerPublish(); // the note first when unsaved, then Publish confirms in-page
 	await until(`!document.querySelector('[data-testid="file-status"] .sc-chip')`);
 	const published = writesSince(n).map((w) => `${w.method} ${w.url} ${w.status}`);
 	const en = await api('GET', `/entities/${KEYS[1]}?draft=1&wrap=1`);
@@ -272,7 +284,7 @@ try {
 	const restored = await api('GET', `/entities/${KEYS[0]}?draft=1&wrap=1`);
 	check(restored.content.text === source && JSON.stringify(restored.content) === JSON.stringify(baseline[KEYS[0]].content), 'restore: the stored draft is byte-identical to the original');
 	await click('[data-testid="publish"]');
-	await answerDialog('button[type="submit"]'); // Publish confirms in-page
+	await answerPublish(); // the note first when unsaved, then Publish confirms in-page
 	await until(`!document.querySelector('[data-testid="file-status"] .sc-chip') && !document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•')`);
 	const live = await api('GET', `/entities/${KEYS[0]}`);
 	check(live.text === source, 'the original is published again');

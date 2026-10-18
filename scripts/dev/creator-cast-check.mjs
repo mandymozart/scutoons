@@ -185,6 +185,20 @@ async function type(selector, text) {
 async function answerDialog(button) {
 	if (await until(`!!document.querySelector('dialog.sc-dialog[open]')`, 3000)) await click(`dialog.sc-dialog[open] ${button}`);
 }
+/**
+ * after Publish: with unsaved changes the note dialog comes first (its field holds the suggested note – saved with it,
+ * owner 2026-10-18), then the checklist; nothing unsaved = the checklist only. The suggested note (null: not asked).
+ */
+async function answerPublish() {
+	if (!(await until(`!!document.querySelector('dialog.sc-dialog[open]')`, 3000))) return null;
+	const note = await js(`document.querySelector('dialog.sc-dialog[open] #sc-dialog-input')?.value ?? null`);
+	if (note !== null) {
+		await answerDialog('button.primary');
+		await until(`(() => { const d = document.querySelector('dialog.sc-dialog[open]'); return !!d && !d.querySelector('#sc-dialog-input'); })()`);
+	}
+	await answerDialog('button[type="submit"]');
+	return note;
+}
 const state = () =>
 	js(`({
 		dirty: !!document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•'),
@@ -241,7 +255,7 @@ try {
 	check(s.dirty && s.saveDisabled === false, 'a role text marks the page dirty', JSON.stringify(s));
 	n = writes.length;
 	await click('[data-testid="save-draft"]');
-	await answerDialog('button.primary'); // the note dialog: one primary button, "Save without note" while empty
+	await answerDialog('button.primary'); // the note dialog: saved with its suggested note (version-note.ts)
 	await until(`!document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•') && !${q('save-draft')}.disabled`);
 	s = await state();
 	const saved = writesSince(n);
@@ -277,7 +291,9 @@ try {
 	check(s.members.indexOf(newId) === s.members.length - 2, 'dragged up again', JSON.stringify(s.members));
 	n = writes.length;
 	await click('[data-testid="publish"]');
-	await answerDialog('button[type="submit"]'); // Publish confirms in-page
+	// unsaved: the note dialog first (with a suggestion), then the checklist confirms in-page
+	const publishNote = await answerPublish();
+	check(!!publishNote, 'Publish with unsaved changes asks for the note once, a suggestion pre-filled', JSON.stringify(publishNote));
 	await until(`${CHIPS} === '' && !document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•')`);
 	s = await state();
 	const published = writesSince(n).map((w) => `${w.method} ${w.url} ${w.status}`);

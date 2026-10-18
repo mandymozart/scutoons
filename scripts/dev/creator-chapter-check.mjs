@@ -34,7 +34,7 @@
 //            on a grip moves it one down (the focus follows), one undo again; the same for the groups when there are two
 //   E.1:     no unsaved bar / file-status row in the flow; the Save button's dot; no not-live chip – Publish carries
 //            the dot once the draft is saved; Saved = a toast
-//   save:    Save draft (note dialog skipped) stores the chapter's language-neutral draft (chapter:catpope:1) with the
+//   save:    Save draft (the note dialog's suggestion) stores the chapter's language-neutral draft (chapter:catpope:1) with the
 //            new text; the published version stays; Publish asks first – its checklist names the chapter, ticked (when
 //            the chapter's content has errors, the "Publish anyway?" step comes first: the run prints them and goes on)
 //   phone:   375 × 812 touch, the inspector sheet closed: the item tool and the piece tool – a tap on the slice shows
@@ -1045,7 +1045,12 @@ try {
 	// ── save draft ──────────────────────────────────────────────────────────────────────────────────────
 	const n = writes.length;
 	await barClick('save-draft');
-	await answerDialog('button.primary'); // the note dialog: "Save without note" (its one primary button while the field is empty)
+	// the note dialog suggests what changed (version-note.ts, owner 2026-10-18), selected – its primary saves with it
+	const suggested = (await until(`!!document.querySelector('dialog.sc-dialog[open] #sc-dialog-input')`, 3000))
+		? await js(`(() => { const f = document.querySelector('dialog.sc-dialog[open] #sc-dialog-input'); return { value: f.value, selected: f.selectionStart === 0 && f.selectionEnd === f.value.length }; })()`)
+		: null;
+	check(!!suggested?.value && suggested.selected && suggested.value.length <= 90 && /Text ?box/i.test(suggested.value), 'Save draft: the note dialog suggests what changed (the new text box), selected', JSON.stringify(suggested));
+	await answerDialog('button.primary');
 	await until(`!document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•')`);
 	const saved = writesSince(n).map((w) => `${w.method} ${w.url} ${w.status}`);
 	check(saved.includes(`PUT /entities/${CHAPTER_KEYS[0]} 200`) && !saved.some((w) => /publish/.test(w)), 'Save draft: PUT the chapter (one neutral document) 200, nothing published', JSON.stringify(saved));

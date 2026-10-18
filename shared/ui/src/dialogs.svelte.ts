@@ -13,7 +13,7 @@ export interface DialogRequest {
 	confirmLabel: string;
 	cancelLabel?: string;
 	/** a text field (askDialog) */
-	input?: { label: string; placeholder?: string; skipLabel?: string; value?: string };
+	input?: { label: string; placeholder?: string; skipLabel?: string; value?: string; select?: boolean };
 	/** a list to tick (checklistDialog): the primary button says `countLabel(n)` and is off at 0 */
 	checklist?: { groups: ChecklistGroup[]; countLabel: (n: number) => string; allLabel: string; noneLabel: string };
 	/** a list to pick ONE line from (choiceDialog): a tap answers */
@@ -90,7 +90,8 @@ export async function choiceDialog(options: { title: string; message?: string; c
 
 /**
  * the entered text; '' when skipped (submitted empty – the button then says skipLabel); null when cancelled. `value`
- * fills the field at the start (a rename: the current name)
+ * fills the field at the start (a rename: the current name); `select` selects it, so typing replaces it and Enter takes it
+ * (a suggestion – the creator's version note)
  */
 export async function askDialog(options: {
 	title: string;
@@ -98,11 +99,12 @@ export async function askDialog(options: {
 	label: string;
 	placeholder?: string;
 	value?: string;
+	select?: boolean;
 	confirmLabel: string;
 	skipLabel?: string;
 	cancelLabel?: string;
 }): Promise<string | null> {
-	const { label, placeholder, value: start, skipLabel, ...rest } = options;
-	const value = await open({ ...rest, input: { label, placeholder, skipLabel, value: start } });
+	const { label, placeholder, value: start, select, skipLabel, ...rest } = options;
+	const value = await open({ ...rest, input: { label, placeholder, skipLabel, value: start, select } });
 	return typeof value === 'string' ? value : null;
 }

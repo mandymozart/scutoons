@@ -206,6 +206,18 @@ async function answerDialog(button) {
 		await sleep(250);
 	}
 }
+/**
+ * after Publish: with unsaved changes the note dialog comes first (its field holds the suggested note – saved with it,
+ * owner 2026-10-18), then the checklist; nothing unsaved = the checklist only
+ */
+async function answerPublish() {
+	if (!(await until(`!!document.querySelector('dialog.sc-dialog[open]')`, 3000))) return;
+	if (await js(`!!document.querySelector('dialog.sc-dialog[open] #sc-dialog-input')`)) {
+		await answerDialog('button.primary');
+		await until(`(() => { const d = document.querySelector('dialog.sc-dialog[open]'); return !!d && !d.querySelector('#sc-dialog-input'); })()`);
+	}
+	await answerDialog('button[type=submit]');
+}
 const num = (testid) => js(`Number(${q(testid)}?.value)`);
 /** the stage's lettering lines: text, and whether each fits its box */
 const stageLines = (root = q('cover-stage')) =>
@@ -309,7 +321,7 @@ try {
 
 	// 6. Save draft → a valid layout in the store, texts only in the custom line
 	await click('[data-testid="save-draft"]');
-	await answerDialog('button.primary'); // the note dialog: one primary button, "Save without note" while empty
+	await answerDialog('button.primary'); // the note dialog: saved with its suggested note (version-note.ts)
 	await until(`!document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•')`);
 	const stored = await api('GET', `/entities/${KEY}?draft=1&wrap=1`);
 	const layout = stored.content.cover?.lettering?.square;
@@ -324,7 +336,7 @@ try {
 	const viewerUp = (await fetch(VIEWER).catch(() => null))?.ok;
 	if (viewerUp) {
 		await click('[data-testid="publish"]');
-		await answerDialog('button[type=submit]');
+		await answerPublish();
 		await until(`!document.querySelector('[data-testid="file-status"] .sc-chip')`);
 		const live = await api('GET', `/entities/${KEY}`);
 		check(Array.isArray(live.cover?.lettering?.square), 'Publish: the layout is live');
