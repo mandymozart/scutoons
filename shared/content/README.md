@@ -24,7 +24,7 @@ No Svelte, no DOM access, no bundler globals (`import.meta.env`), no app state: 
 | `paths.ts` | `Path`, `getAt()`, `setAt()`, `deleteAt()`, `clone()`, `deepEqual()`, `pathKey()`, `round2()` |
 | `validate.ts` | `validateFile(kind, data, locale, ctx)`, `validateLocales(kind, file, files, primary)`, `forEachSlice()`, `checkEvent()`, `checkGroup()`, `Problem`, `Level`, `ValidateContext`, `textOf()`, `LENGTH_WARNING_RATIO` |
 
-JSON Schemas (generated from the types, draft-07): `@scutoons/content/schema/{chapter,season,toon,toon-index,group,catalog,credits,people,roles,characters,moods,asset-requests,cast}.schema.json`.
+JSON Schemas (generated from the types, draft-07): `@scutoons/content/schema/{chapter,season,toon,toon-index,group,chapter-doc,group-doc,season-doc,catalog,credits,people,roles,characters,registry-character,moods,asset-requests,cast,script,map,map-place,map-route,map-region,colorations,events}.schema.json` (the list: `scripts/schema.js`).
 
 ## Slices (owner 2026-09-30)
 

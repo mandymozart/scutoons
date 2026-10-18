@@ -1,0 +1,251 @@
+{
+	"$id": "https://scutoons.com/schema/colorations.schema.json",
+	"title": "Colorations",
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$ref": "#/definitions/Colorations",
+	"definitions": {
+		"Colorations": {
+			"type": "object",
+			"properties": {
+				"accepted_warnings": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "warnings accepted in the creator: `<place>#<hash>` (acceptedWarningKey)"
+				},
+				"presets": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/CollagePreset"
+					}
+				}
+			},
+			"required": [
+				"presets"
+			],
+			"description": "entity `colorations` – platform-wide, language-neutral; in the grid's order (newest last)"
+		},
+		"CollagePreset": {
+			"type": "object",
+			"properties": {
+				"blend": {
+					"$ref": "#/definitions/BlendMode"
+				},
+				"opacity": {
+					"type": "number",
+					"description": "0…1"
+				},
+				"fill": {
+					"anyOf": [
+						{
+							"$ref": "#/definitions/PieceColor"
+						},
+						{
+							"$ref": "#/definitions/PieceGradient"
+						},
+						{
+							"type": "null"
+						}
+					],
+					"description": "the file's silhouette (its alpha) in a colour / gradient; none = as drawn"
+				},
+				"outline": {
+					"anyOf": [
+						{
+							"$ref": "#/definitions/PieceOutline"
+						},
+						{
+							"type": "null"
+						}
+					]
+				},
+				"shadow": {
+					"anyOf": [
+						{
+							"$ref": "#/definitions/PieceShadow"
+						},
+						{
+							"type": "null"
+						}
+					]
+				},
+				"blur": {
+					"anyOf": [
+						{
+							"$ref": "#/definitions/PieceBlur"
+						},
+						{
+							"type": "null"
+						}
+					]
+				},
+				"id": {
+					"$ref": "#/definitions/PresetId"
+				},
+				"name": {
+					"type": "string",
+					"description": "its name in the creator – one string, readers never see it"
+				},
+				"removed": {
+					"type": "boolean",
+					"description": "deleted: no longer offered, still drawn by every piece that names it; its id stays taken"
+				}
+			},
+			"required": [
+				"id",
+				"name"
+			],
+			"description": "a custom colouration (“Save as preset”) – drawn like a code look"
+		},
+		"BlendMode": {
+			"type": "string",
+			"enum": [
+				"normal",
+				"multiply",
+				"screen",
+				"overlay",
+				"darken",
+				"lighten",
+				"color-dodge",
+				"color-burn",
+				"hard-light",
+				"soft-light",
+				"difference",
+				"exclusion",
+				"hue",
+				"saturation",
+				"color",
+				"luminosity"
+			]
+		},
+		"PieceColor": {
+			"type": "string",
+			"description": "#rgb | #rrggbb – it reaches readers' CSS as written, so nothing else is a colour (no url(), no `;`)",
+			"pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+		},
+		"PieceGradient": {
+			"type": "object",
+			"properties": {
+				"angle": {
+					"type": "number",
+					"description": "CSS degrees, 0 = to the top; default 180"
+				},
+				"stops": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/GradientStop"
+					},
+					"description": "at least 2"
+				}
+			},
+			"required": [
+				"stops"
+			],
+			"description": "one linear gradient across the whole silhouette"
+		},
+		"GradientStop": {
+			"type": "object",
+			"properties": {
+				"at": {
+					"type": "number",
+					"description": "% along the line, ascending"
+				},
+				"color": {
+					"$ref": "#/definitions/PieceColor"
+				},
+				"opacity": {
+					"type": "number",
+					"description": "0…1"
+				}
+			},
+			"required": [
+				"at",
+				"color"
+			]
+		},
+		"PieceOutline": {
+			"type": "object",
+			"properties": {
+				"color": {
+					"$ref": "#/definitions/PieceColor"
+				},
+				"width": {
+					"type": "number"
+				}
+			},
+			"required": [
+				"color",
+				"width"
+			],
+			"description": "lengths in % of the piece's width (the same look at every size)"
+		},
+		"PieceShadow": {
+			"type": "object",
+			"properties": {
+				"color": {
+					"$ref": "#/definitions/PieceColor"
+				},
+				"x": {
+					"type": "number"
+				},
+				"y": {
+					"type": "number"
+				},
+				"blur": {
+					"type": "number"
+				},
+				"opacity": {
+					"type": "number",
+					"description": "0…1, default 1"
+				}
+			},
+			"required": [
+				"color",
+				"x",
+				"y",
+				"blur"
+			],
+			"description": "offsets and blur in % of the piece's width"
+		},
+		"PieceBlur": {
+			"type": "object",
+			"properties": {
+				"amount": {
+					"type": "number"
+				},
+				"from": {
+					"$ref": "#/definitions/PiecePoint"
+				},
+				"to": {
+					"$ref": "#/definitions/PiecePoint"
+				}
+			},
+			"required": [
+				"amount"
+			],
+			"description": "in % of the piece's width; even, or with `from` + `to`: sharp at `from`, `amount` from `to` on (progressive)"
+		},
+		"PiecePoint": {
+			"type": "object",
+			"properties": {
+				"x": {
+					"type": "number"
+				},
+				"y": {
+					"type": "number"
+				}
+			},
+			"required": [
+				"x",
+				"y"
+			],
+			"description": "% of the piece's own box (0 0 top-left … 100 100 bottom-right): moves, scales, turns with the piece"
+		},
+		"PresetId": {
+			"type": "string",
+			"description": "a custom preset's id: a slug, stable forever (pieces name it; a rename changes `name` only) – never a code look's id or 'none' (the “As drawn” option's testid)",
+			"pattern": "^(?!(?:ink|red|cyan|negative|burn|acid|sticker|glow|ghost|fade|none)$)[a-z][a-z0-9-]{0,39}$"
+		}
+	}
+}

@@ -1,7 +1,7 @@
 // Season downloads (season.download, moved from the toon settings 2026-09-30).   npm test -w @scutoons/content
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { dialogFit, estimatedWidth, parseEntityKey, sceneEntityOfRef, stageProblems, validateFile, validateLocales } from '../src/index.ts';
+import { dialogFit, entities, entityKeyFor, estimatedWidth, parseEntityKey, sceneEntityOfRef, stageProblems, validateFile, validateLocales } from '../src/index.ts';
 
 const season = (extra: object) => ({ title: 'S', description: 'D', language: 'de', number: 1, sequence: [], ...extra });
 const problems = (kind: string, data: object) => validateFile(kind, data, 'de', { file: 'x' } as never).map((p) => `${p.level} ${p.path.join('.')}`);
@@ -29,6 +29,15 @@ test('entity keys: chapter 0 (a prologue) is a chapter, season 0 is none', () =>
 		assert.equal(parseEntityKey(key), null, key);
 	}
 	assert.equal(parseEntityKey('season:catpope:1:de')?.number, 1);
+});
+
+test('colorations (research/COLLAGE.md §12): a platform-wide, language-neutral key; validateFile checks the presets', () => {
+	assert.deepEqual(parseEntityKey(entities.colorations), { kind: 'colorations' });
+	assert.equal(entityKeyFor(entities.colorations, 'de'), 'colorations', 'never per locale');
+	for (const key of ['colorations:de', 'colorations:x:y']) assert.equal(parseEntityKey(key), null, key);
+	assert.deepEqual(problems('colorations', { presets: [{ id: 'night', name: 'Night', fill: '#1a2b6d', blend: 'multiply' }] }), []);
+	assert.deepEqual(problems('colorations', { presets: [{ id: 'negative', name: 'N' }, { id: 'night', name: '', fill: '#zzz' }] }), ['error presets.0.id', 'error presets.1.name', 'error presets.1.fill']);
+	assert.deepEqual(problems('colorations', {}), ['error ']);
 });
 
 test('slice video: player is a boolean', () => {
@@ -446,9 +455,12 @@ test('renderer.params: only endless (FEATURES 10.100 §8); off horizontal ignore
 	assert.deepEqual(layout(group({ type: 'horizontal', params: { endless: true } }, [])), [], 'no slices: nothing to measure');
 });
 
-test('slice pieces (research/COLLAGE.md §3): checked on the slice host; limits and unknown looks warn', () => {
+test('slice pieces (research/COLLAGE.md §3, §12.5): checked on the slice host; limits and unknown presets (against ctx.presets) warn', () => {
 	const chapter = (slice: object) => ({ title: 'P', number: 1, groups: [{ slices: [{ image: 'images/p.webp', width: 390, height: 625, ...slice }] }] });
-	const pieceProblems = (slice: object) => problems('chapter', chapter(slice)).filter((p) => p.includes('.pieces'));
+	const pieceProblems = (slice: object, presets?: object[]) =>
+		validateFile('chapter', chapter(slice), 'de', { file: 'x', presets } as never)
+			.map((p) => `${p.level} ${p.path.join('.')}`)
+			.filter((p) => p.includes('.pieces'));
 	const piece = (i: number, extra: object = {}) => ({ id: `piece-${i}`, src: 'vectors/wreath.svg', ratio: 1, rect: { x: 10, y: 10, width: 30 }, ...extra });
 	assert.deepEqual(pieceProblems({ pieces: [piece(0, { preset: 'sticker', style: { blend: 'multiply' } })] }), []);
 	assert.deepEqual(
@@ -469,10 +481,14 @@ test('slice pieces (research/COLLAGE.md §3): checked on the slice host; limits 
 		]
 	);
 	const many = Array.from({ length: 13 }, (_, i) => piece(i));
-	assert.deepEqual(pieceProblems({ pieces: [...many.slice(1), piece(0, { preset: 'mystery' })] }), [
+	assert.deepEqual(pieceProblems({ pieces: [...many.slice(1), piece(0, { preset: 'mystery' })] }, []), [
 		'warning groups.0.slices.0.pieces.12.preset',
 		'warning groups.0.slices.0.pieces'
 	]);
+	// without ctx.presets an id that is not a code look is not judged; with them a custom preset is fine, a deleted one warns
+	assert.deepEqual(pieceProblems({ pieces: [piece(0, { preset: 'mystery' })] }), []);
+	const presets = [{ id: 'night', name: 'Night', fill: '#1a2b6d' }, { id: 'old', name: 'Old', removed: true }];
+	assert.deepEqual(pieceProblems({ pieces: [piece(0, { preset: 'night' }), piece(1, { preset: 'old' }), piece(2, { preset: 'ink' })] }, presets), ['warning groups.0.slices.0.pieces.1.preset']);
 	assert.deepEqual(pieceProblems({ pieces: 'x' }), ['error groups.0.slices.0.pieces']);
 	// picture slices only
 	assert.deepEqual(pieceProblems({ video: { src: 'videos/p.mp4' }, pieces: [piece(0)] }), ['warning groups.0.slices.0.pieces']);

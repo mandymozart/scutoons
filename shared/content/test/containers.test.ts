@@ -1,7 +1,7 @@
 // Containers, scores, ageing, kept recipe inputs and inherited variants (agents/research/SCORES.md).   npm test -w @scutoons/content
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ageLook, breaksAt, canFill, canStack, fitsIn, hardCapacity, moveInCheck, packBlock, readerPart, roomIn, validateCatalog, type ItemDef } from '../src/index.ts';
+import { ageLook, breaksAt, canFill, canStack, fitsIn, hardCapacity, moveInCheck, packBlock, readerPart, roomIn, validateCatalog, validateContainers, type ItemDef } from '../src/index.ts';
 
 const base = { toon: null, name: { en: 'x' }, description: {}, kind: 'virtual', icon: 'x.png', stackable: false, starter: false, grantable: ['story'], slot: null, skills: [], edition_id: null, product: null, variants: null } as const;
 const def = (id: string, extra: Partial<ItemDef>): ItemDef => ({ ...base, id, category: 'collectible', ...extra }) as ItemDef;
@@ -194,4 +194,22 @@ test('score collage: pieces on the score host, a file of its own; another file w
 	]);
 	const paths = validateCatalog(catalog([def('s', { category: 'score', score: { ...files, collage: { file: files.musicxml, pieces: [piece({ style: { blend: 'nope' } })] } } as never })])).map((p) => p.path.join('.'));
 	assert.deepEqual(paths, ['items.0.score.collage.pieces.0.style.blend']);
+});
+
+// research/COLLAGE.md §12.5: custom presets are judged only against a presets list (the creator's score stage has one)
+test('score collage: custom presets – validateContainers with and without presets', () => {
+	const piece = (id: string, preset: string) => ({ id, src: 'catpope/vectors/wreath.svg', ratio: 1, rect: { x: 50, y: -2, width: 12 }, anchor: 'c', at: { bar: '12' }, preset });
+	const score = { language: 'en', musicxml: 'scores/s/full.musicxml', collage: { file: 'scores/s/full.musicxml', pieces: [piece('a', 'night'), piece('b', 'old'), piece('c', 'nope'), piece('d', 'burn')] } };
+	const items = [def('s', { category: 'score', score: score as never })];
+	const run = (presets?: { id: string; name: string; removed?: boolean }[]) => {
+		const out: string[] = [];
+		validateContainers({ items }, (level, path, message) => out.push(`${level} ${path.join('.')}: ${message}`), presets);
+		return out;
+	};
+	assert.deepEqual(run(), [], 'no list: only code looks are judged (the catalog, the admin)');
+	assert.deepEqual(run([{ id: 'night', name: 'Night' }, { id: 'old', name: 'Old', removed: true }]), [
+		'warning items.0.score.collage.pieces.1.preset: s: the preset "Old" was deleted – the piece still draws it; pick another',
+		'warning items.0.score.collage.pieces.2.preset: s: unknown preset "nope" – the piece is drawn without it'
+	]);
+	assert.deepEqual(messages(catalog(items)), [], 'validateCatalog passes no list');
 });

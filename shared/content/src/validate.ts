@@ -15,7 +15,7 @@ import { linksToNext, scriptJumps } from './chains.ts';
 import { askVariable, chapterReach, factKey, factNames, similarVariable, type ToonFacts } from './reach.ts';
 import { isWrittenVariable, WRITTEN_VARIABLE } from './variables.ts';
 import { ANCHORS, anchoredRect, isAnchor } from './anchor.ts';
-import { collageProblems } from './collage.ts';
+import { collageProblems, colorationProblems, type CollagePreset } from './collage.ts';
 import { DIALOG_FITS, dialogFit, estimatedWidth, isDialogFit } from './dialog-fit.ts';
 import { isFreeTail, TAIL_KINDS, TAIL_SIDES } from './dialog-tail.ts';
 
@@ -111,6 +111,8 @@ export interface ValidateContext {
 	expressions?: Record<string, Record<string, { defaultLook: string; looks: Record<string, string[]> }>>;
 	/** the mood vocabulary's ids */
 	moods?: string[];
+	/** the custom collage presets (`colorations`.presets, COLLAGE.md §12): a piece naming none of them nor a code look warns; none = not judged */
+	presets?: readonly CollagePreset[];
 	/**
 	 * chapter files: the status of this chapter in the season of the same locale (the source of its visibility);
 	 * null = the season's sequence doesn't have the chapter; undefined = season not known (no check)
@@ -758,7 +760,7 @@ function checkSlice(c: Collector, s: any, path: Path, ctx: ValidateContext) {
 	}
 	// collage pieces on the picture (collage.ts, research/COLLAGE.md §3)
 	if (s.pieces !== undefined) {
-		collageProblems(s.pieces, 'slice', (level, at, message) => c.add(level, [...path, 'pieces', ...at], message));
+		collageProblems(s.pieces, 'slice', (level, at, message) => c.add(level, [...path, 'pieces', ...at], message), ctx.presets);
 		if (s.video !== undefined && Array.isArray(s.pieces) && s.pieces.length) c.warn([...path, 'pieces'], 'pieces are shown on picture slices only – not on this video');
 	}
 	const audio = s.audio;
@@ -1409,6 +1411,7 @@ export function validateFile(kind: string, data: any, locale: string, ctx: Valid
 	else if (kind === 'index') checkToonIndex(c, data);
 	else if (kind === 'script') checkScript(c, data);
 	else if (kind === 'map') for (const p of checkWorldMap(data)) c.add(p.level, p.path, p.message);
+	else if (kind === 'colorations') colorationProblems(data, (level, path, message) => c.add(level, path, message));
 	// a screenplay is plain text, no media paths
 	if (kind !== 'script') checkMediaLocale(c, data);
 	return c.problems;

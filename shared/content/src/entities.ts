@@ -10,7 +10,8 @@
 //   locations:<toon>:<locale>         routes:<toon>:<locale>             (the map)
 //   cast:<toon>                       credits:<toon>                     (language-neutral, per toon)
 //   script:<toon>:<locale>            the toon's screenplay (creator only: no library endpoint, readers never get it)
-//   characters  moods  asset-requests  people  roles  events  map      (platform-wide, language-neutral)
+//   characters  moods  asset-requests  people  roles  events  map  colorations   (platform-wide, language-neutral;
+//                                     `colorations` = the custom collage presets, research/COLLAGE.md §12)
 //   place:<id>  route:<id>            one document per place / route of the world map (agents/MAP-DOCUMENTS.md):
 //                                     `map` keeps the map's own settings (size, layers); ids are stable forever
 //   character:<id>                    one document per character of the registry (`characters` keeps its own fields)
@@ -41,6 +42,7 @@ export type EntityKind =
 	| 'roles'
 	| 'events'
 	| 'map'
+	| 'colorations'
 	| 'place'
 	| 'region'
 	| 'route'
@@ -76,6 +78,7 @@ const SHAPES: Record<Exclude<EntityKind, CatalogEntityKind>, [boolean, boolean, 
 	roles: [false, false, false, false],
 	events: [false, false, false, false],
 	map: [false, false, false, false],
+	colorations: [false, false, false, false],
 	// one segment: the id (ID_KINDS)
 	place: [false, false, false, false],
 	region: [false, false, false, false],
@@ -127,6 +130,8 @@ export const entities = {
 	events: 'events',
 	/** the SCUTOONS world map's own settings: size, layers (agents/MAP.md, MAP-DOCUMENTS.md) */
 	map: 'map',
+	/** the custom collage presets (research/COLLAGE.md §12): `{ presets: CollagePreset[] }` */
+	colorations: 'colorations',
 	/** one place of the world map */
 	place: (id: string) => `place:${id}`,
 	/** one route of the world map */

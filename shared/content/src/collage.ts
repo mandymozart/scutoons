@@ -2,9 +2,13 @@
 // owner 2026-10-17: "add these vector graphics on them and blend them … our avatars and portraits and full … all of
 // the available blending modes … drop shadow … outlines, color fill gradients … blurring with a start and end point").
 // ONE piece shape for both hosts: a slice's `pieces[]` (content.ts, % of the picture) and a score's `collage`
-// (containers.ts, anchored to a bar + staff). Colour is never stored on a shape: a colouration is a named look
-// (`COLLAGE_LOOKS`) a piece names, plus its own values over it (`style`). Vectors are never distorted: only the width is
-// stored, the height follows the file's `ratio`.
+// (containers.ts, anchored to a bar + staff). Colour is never stored on a shape: a colouration is a named look a piece
+// names – one of the ten in code (`COLLAGE_LOOKS`) or a custom preset of the platform-wide document `colorations`
+// (COLLAGE.md §12) – plus its own values over it (`style`). Readers never resolve a custom preset: the server bakes it
+// into the piece's `style` (`bakePresets`, its PHP twin CollagePresets::bake – the golden fixture
+// test/fixtures/collage-bake.json keeps them equal). Vectors are never distorted: only the width is stored, the height
+// follows the file's `ratio`.
+import type { AcceptedWarnings } from './accepted.ts';
 import { ANCHORS, isAnchor, type Anchor } from './anchor.ts';
 import { CHARACTER_IMAGE_VARIANTS, type CharacterImageVariant } from './characters.ts';
 
@@ -70,10 +74,32 @@ export interface PieceStyle {
 	shadow?: PieceShadow | null;
 	blur?: PieceBlur | null;
 }
-/** a named colouration (tonight the ten COLLAGE_LOOKS in code; owner-made ones later share the id namespace) */
+/** a named colouration: one of the ten COLLAGE_LOOKS in code, or a custom preset (CollagePreset) – one id namespace */
 export interface CollageLook extends PieceStyle {
 	id: string;
 }
+
+/**
+ * a custom preset's id: a slug, stable forever (pieces name it; a rename changes `name` only) – never a code look's id or
+ * 'none' (the “As drawn” option's testid)
+ * @pattern ^(?!(?:ink|red|cyan|negative|burn|acid|sticker|glow|ghost|fade|none)$)[a-z][a-z0-9-]{0,39}$
+ */
+export type PresetId = string;
+/** = PresetId's @pattern (a test compares it with the generated schema; the server's CollagePresets::PRESET_ID too) */
+export const PRESET_ID = /^(?!(?:ink|red|cyan|negative|burn|acid|sticker|glow|ghost|fade|none)$)[a-z][a-z0-9-]{0,39}$/;
+/** a custom colouration (“Save as preset”) – drawn like a code look */
+export interface CollagePreset extends PieceStyle {
+	id: PresetId;
+	/** its name in the creator – one string, readers never see it */
+	name: string;
+	/** deleted: no longer offered, still drawn by every piece that names it; its id stays taken */
+	removed?: boolean;
+}
+/** entity `colorations` – platform-wide, language-neutral; in the grid's order (newest last) */
+export interface Colorations extends AcceptedWarnings {
+	presets: CollagePreset[];
+}
+export const emptyColorations = (): Colorations => ({ presets: [] });
 
 /**
  * How a character picture was picked (the editor re-resolves `src` from it); the renderer draws `src` only. Not
@@ -124,7 +150,7 @@ export interface CollagePiece {
 	anchor?: Anchor;
 	/** degrees around the centre */
 	rotation?: number;
-	/** a CollageLook id; none = as drawn */
+	/** a CollageLook id (a code look's or a custom preset's); none = as drawn – readers get custom presets baked */
 	preset?: string;
 	/** own values over the look */
 	style?: PieceStyle;
@@ -150,7 +176,10 @@ const RED = '#ff1900';
 const CYAN = '#00d1ff';
 const gradient = (from: string, to: string): PieceGradient => ({ stops: [{ at: 0, color: from }, { at: 100, color: to }] });
 
-/** the code looks (from the lab Collage's inks, gradients and blends – COLLAGE.md §2 "Presets by reference") */
+/**
+ * the code looks (from the lab Collage's inks, gradients and blends – COLLAGE.md §2 "Presets by reference"): final – they
+ * keep their ids, translated names, testids and tests; a new look is a custom preset (`colorations`, COLLAGE.md §12)
+ */
 export const COLLAGE_LOOKS: readonly CollageLook[] = [
 	{ id: 'ink', fill: INK },
 	{ id: 'red', fill: RED },
@@ -164,23 +193,58 @@ export const COLLAGE_LOOKS: readonly CollageLook[] = [
 	{ id: 'fade', blur: { amount: 6, from: { x: 50, y: 0 }, to: { x: 50, y: 100 } } }
 ];
 
-export function collageLook(id: unknown): CollageLook | undefined {
-	return typeof id === 'string' ? COLLAGE_LOOKS.find((look) => look.id === id) : undefined;
+/** a stored presets list (`Colorations.presets`) as callers hold it – data: entries may be anything */
+export type PresetList = readonly CollagePreset[] | null | undefined;
+
+/**
+ * The custom preset `id` names: the first entry of `presets` with that id – an id that fails PRESET_ID is never one (a
+ * code look's, 'none', a malformed one), a deleted one still is. = the server's CollagePresets::index.
+ */
+export function customPreset(id: unknown, presets: PresetList): CollagePreset | undefined {
+	if (typeof id !== 'string' || !Array.isArray(presets) || !PRESET_ID.test(id)) return undefined;
+	return presets.find((entry: unknown): entry is CollagePreset => isObj(entry) && entry.id === id);
+}
+
+/** the look `id` names: a code look first (data never redefines a built-in), else a custom preset of `presets` */
+export function collageLook(id: unknown, presets?: PresetList): CollageLook | undefined {
+	if (typeof id !== 'string') return undefined;
+	return COLLAGE_LOOKS.find((look) => look.id === id) ?? customPreset(id, presets);
 }
 
 /** the keys a style has – nothing else is copied (a stored `__proto__` key would set the result's prototype) */
-const STYLE_KEYS = ['blend', 'opacity', 'fill', 'outline', 'shadow', 'blur'] as const;
+export const PIECE_STYLE_KEYS = ['blend', 'opacity', 'fill', 'outline', 'shadow', 'blur'] as const;
 
 /** the piece's style as drawn: `{ ...look, ...piece.style }` – an own key replaces the look's whole, null = off */
-export function pieceStyle(piece: Pick<CollagePiece, 'preset' | 'style'> | null | undefined): ResolvedPieceStyle {
-	const look: PieceStyle = collageLook(piece?.preset) ?? {};
+export function pieceStyle(piece: Pick<CollagePiece, 'preset' | 'style'> | null | undefined, presets?: PresetList): ResolvedPieceStyle {
+	const look: PieceStyle = collageLook(piece?.preset, presets) ?? {};
 	const own: unknown = piece?.style;
 	const merged: Record<string, unknown> = {};
-	for (const key of STYLE_KEYS) {
-		const value = isObj(own) && Object.hasOwn(own, key) && own[key] !== undefined ? own[key] : look[key];
+	for (const key of PIECE_STYLE_KEYS) {
+		const value = isObj(own) && Object.hasOwn(own, key) && own[key] !== undefined ? own[key] : Object.hasOwn(look, key) ? look[key] : undefined;
 		if (value !== undefined && value !== null) merged[key] = value;
 	}
 	return merged as ResolvedPieceStyle;
+}
+
+/**
+ * The pieces as readers get them (COLLAGE.md §12.3; the server's CollagePresets::bake): a piece that names a custom preset
+ * of `presets` gets `style` = a JSON copy of its drawn style (nulls dropped; no key when nothing is left) and loses
+ * `preset` – so a code look added later can't leak into baked art. Every other piece passes through as it is; nothing
+ * changed = the same list back. The input is never touched. pieceStyle(baked) ≡ pieceStyle(piece, presets).
+ */
+export function bakePresets<L extends readonly unknown[] | null | undefined>(pieces: L, presets: PresetList): L {
+	if (!Array.isArray(pieces) || !Array.isArray(presets) || !presets.length) return pieces;
+	let changed = false;
+	const out = pieces.map((piece: unknown) => {
+		if (!isObj(piece) || !customPreset(piece.preset, presets)) return piece;
+		changed = true;
+		const drawn = JSON.parse(JSON.stringify(pieceStyle(piece, presets))) as ResolvedPieceStyle;
+		const { preset: _preset, ...baked } = piece;
+		if (Object.keys(drawn).length) baked.style = drawn;
+		else delete baked.style;
+		return baked;
+	});
+	return (changed ? out : pieces) as L;
 }
 
 /** the drawn height in % of the box: `width` % of it, a file of `ratio` (w ÷ h), a box of `boxRatio` (its h ÷ w) */
@@ -243,9 +307,11 @@ const unit = (v: unknown) => isNum(v) && v >= 0 && v <= 1;
 
 /**
  * The problems of a host's pieces (slices: `checkSlice`; scores: `validateContainers`). Errors break the drawing;
- * warnings are what phones may struggle with (COLLAGE_LIMITS) and looks the code doesn't know.
+ * warnings are what phones may struggle with (COLLAGE_LIMITS) and presets that are gone. A code look's id is always
+ * fine; another id is judged only against a `presets` list (`colorations`): in it = fine, deleted or unknown = a warning;
+ * without a list (the catalog's checks, the admin) it is not judged.
  */
-export function collageProblems(pieces: unknown, host: 'slice' | 'score', add: CollageAdd): void {
+export function collageProblems(pieces: unknown, host: 'slice' | 'score', add: CollageAdd, presets?: PresetList): void {
 	if (pieces === undefined) return;
 	if (!Array.isArray(pieces)) return add('error', [], 'pieces must be a list');
 	const seen = new Set<string>();
@@ -263,7 +329,11 @@ export function collageProblems(pieces: unknown, host: 'slice' | 'score', add: C
 		if (p.figure !== undefined) pieceFigure(p.figure, [i, 'figure'], add);
 		if (p.preset !== undefined) {
 			if (typeof p.preset !== 'string') add('error', [i, 'preset'], 'preset must be a look id');
-			else if (!collageLook(p.preset)) add('warning', [i, 'preset'], `unknown look "${p.preset}" – the piece is drawn without it`);
+			else if (Array.isArray(presets) && !collageLook(p.preset)) {
+				const custom = customPreset(p.preset, presets);
+				if (!custom) add('warning', [i, 'preset'], `unknown preset "${p.preset}" – the piece is drawn without it`);
+				else if (custom.removed === true) add('warning', [i, 'preset'], `the preset "${presetLabel(custom)}" was deleted – the piece still draws it; pick another`);
+			}
 		}
 		if (p.style !== undefined) {
 			if (!isObj(p.style)) add('error', [i, 'style'], 'style must be { blend?, opacity?, fill?, outline?, shadow?, blur? }');
@@ -276,7 +346,7 @@ export function collageProblems(pieces: unknown, host: 'slice' | 'score', add: C
 			scoreAt(p.at, [i, 'at'], add);
 			if (p.behind !== undefined && typeof p.behind !== 'boolean') add('error', [i, 'behind'], 'behind must be true or false');
 		}
-		heavy += heavyWeight(pieceStyle({ preset: p.preset, style: isObj(p.style) ? p.style : undefined }));
+		heavy += heavyWeight(pieceStyle({ preset: p.preset, style: isObj(p.style) ? p.style : undefined }, presets));
 	});
 	const limits = COLLAGE_LIMITS[host];
 	if (pieces.length > limits.pieces) add('warning', [], `${pieces.length} pieces – more than ${limits.pieces} may be slow on phones`);
@@ -314,7 +384,7 @@ const point = (value: unknown, path: Path, add: CollageAdd) => {
 	if (!isObj(value) || !isNum(value.x) || !isNum(value.y)) add('error', path, 'a point is { x, y } in % of the piece');
 };
 
-/** a piece's own style (the code looks are known to be right) */
+/** a piece's own style or a custom preset (the code looks are known to be right) */
 function styleProblems(style: Record<string, any>, path: Path, add: CollageAdd) {
 	if (style.blend !== undefined && !(BLEND_MODES as readonly unknown[]).includes(style.blend)) add('error', [...path, 'blend'], `blend must be one of ${BLEND_MODES.join(', ')}`);
 	if (style.opacity !== undefined && !unit(style.opacity)) add('error', [...path, 'opacity'], 'opacity must be 0…1');
@@ -358,5 +428,38 @@ function gradientProblems(fill: Record<string, any>, path: Path, add: CollageAdd
 		else last = stop.at;
 		color(stop.color, [...at, 'color'], add);
 		if (stop.opacity !== undefined && !unit(stop.opacity)) add('error', [...at, 'opacity'], 'stop.opacity must be 0…1');
+	});
+}
+
+/** a custom preset's name for messages (its id when it has none) */
+const presetLabel = (preset: CollagePreset) => (typeof preset.name === 'string' && preset.name.trim() ? preset.name.trim() : preset.id);
+/** the ids PRESET_ID keeps free for the code looks and 'none' (the “As drawn” option) */
+const reservedId = (id: unknown) => id === 'none' || COLLAGE_LOOKS.some((look) => look.id === id);
+
+/**
+ * The problems of the presets document `colorations` (validateFile 'colorations'; paths from the document). Errors: not
+ * `{ presets: [] }`, an entry that is no object, an id that fails PRESET_ID (a built-in's included) or repeats, no name,
+ * `removed` not a boolean, a bad style value. Warnings: two shown presets with one name, the effect sizes.
+ */
+export function colorationProblems(doc: unknown, add: CollageAdd): void {
+	if (!isObj(doc) || !Array.isArray(doc.presets)) return add('error', [], 'the presets document is { presets: [...] }');
+	const ids = new Set<string>();
+	const shown = new Set<string>();
+	doc.presets.forEach((preset: unknown, i: number) => {
+		const path: Path = ['presets', i];
+		if (!isObj(preset)) return add('error', path, 'a preset must be an object');
+		const id = preset.id;
+		if (reservedId(id)) add('error', [...path, 'id'], `"${id}" is reserved for a built-in look`);
+		else if (typeof id !== 'string' || !PRESET_ID.test(id)) add('error', [...path, 'id'], 'a preset id is a slug: a–z, then up to 39 of a–z, 0–9, -');
+		else if (ids.has(id)) add('error', [...path, 'id'], `preset id "${id}" is used twice`);
+		else ids.add(id);
+		if (typeof preset.name !== 'string' || !preset.name.trim()) add('error', [...path, 'name'], 'a preset needs a name');
+		else if (preset.removed !== true) {
+			const name = preset.name.trim().toLowerCase();
+			if (shown.has(name)) add('warning', [...path, 'name'], `two presets are called "${preset.name.trim()}"`);
+			shown.add(name);
+		}
+		if (preset.removed !== undefined && typeof preset.removed !== 'boolean') add('error', [...path, 'removed'], 'removed must be true or false');
+		styleProblems(preset, path, add);
 	});
 }

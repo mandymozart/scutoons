@@ -14,7 +14,8 @@ const serverCopy = join(root, '../../server/schema/content');
 /** file name → root type. Content files: `<toon>/<locale>/{toon,season1,chapterN,<chapter>/scene-N}.json`;
  *  credits: `<toon>/_/credits.json`, `scutoons/_/people.json`, `scutoons/_/roles.json`;
  *  characters: `scutoons/_/characters.json`, `scutoons/_/moods.json`, `<toon>/_/cast.json`; the screenplay:
- *  `<toon>/<locale>/script.json`; the world map: `scutoons/_/map.json`. */
+ *  `<toon>/<locale>/script.json`; the world map: `scutoons/_/map.json`; the custom collage presets:
+ *  `scutoons/_/colorations.json`. */
 const SCHEMAS = {
 	chapter: 'Chapter',
 	season: 'Season',
@@ -41,6 +42,8 @@ const SCHEMAS = {
 	'map-place': 'PlaceDoc',
 	'map-route': 'RouteDoc',
 	'map-region': 'RegionDoc',
+	// the custom collage presets (research/COLLAGE.md §12): a bad colour, blend, number or id never saves
+	colorations: 'Colorations',
 	events: 'EventList'
 };
 

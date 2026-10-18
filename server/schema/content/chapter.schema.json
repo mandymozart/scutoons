@@ -2232,7 +2232,7 @@
 				},
 				"preset": {
 					"type": "string",
-					"description": "a CollageLook id; none = as drawn"
+					"description": "a CollageLook id (a code look's or a custom preset's); none = as drawn – readers get custom presets baked"
 				},
 				"style": {
 					"$ref": "#/definitions/PieceStyle",

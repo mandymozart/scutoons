@@ -1,0 +1,107 @@
+{
+	"description": "bakePresets (shared/content/src/collage.ts) and its PHP twin CollagePresets::bake (server): the presets list of a `colorations` document, then each case's piece and the piece as readers get it – `baked` is also the exact key order (PHP compares json_encode). research/COLLAGE.md §12.2, §12.3",
+	"presets": [
+		{ "id": "night", "name": "Night", "fill": "#1a2b6d", "blend": "multiply", "shadow": { "color": "#000000", "x": 2, "y": 2, "blur": 4, "opacity": 0.6 } },
+		{ "id": "negative", "name": "Not the built-in", "fill": "#ff0000" },
+		{ "id": "Night!", "name": "Malformed", "fill": "#00ff00" },
+		null,
+		{ "id": "clear", "name": "Clear", "opacity": 0 },
+		{ "id": "dusk", "name": "Dusk", "fill": { "angle": 90, "stops": [{ "at": 0, "color": "#ff1900" }, { "at": 100, "color": "#1a2b6d", "opacity": 0.5 }] }, "blur": { "amount": 4, "from": { "x": 50, "y": 0 }, "to": { "x": 50, "y": 100 } } },
+		{ "id": "lonely-shadow", "name": "Lonely shadow", "shadow": { "color": "#111111", "x": 0, "y": 3, "blur": 2 } },
+		{ "id": "old", "name": "Old", "removed": true, "outline": { "color": "#ffffff", "width": 2 }, "blend": "screen" },
+		{ "id": "night", "name": "Night again", "fill": "#ffffff" },
+		{ "id": "nothing", "name": "Nothing", "fill": null }
+	],
+	"cases": [
+		{
+			"name": "a custom preset, no style: style appended, preset gone",
+			"piece": { "id": "piece-a", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "preset": "night" },
+			"baked": { "id": "piece-a", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "style": { "blend": "multiply", "fill": "#1a2b6d", "shadow": { "color": "#000000", "x": 2, "y": 2, "blur": 4, "opacity": 0.6 } } }
+		},
+		{
+			"name": "an empty style",
+			"piece": { "id": "piece-b", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "preset": "night", "style": {} },
+			"baked": { "id": "piece-b", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "style": { "blend": "multiply", "fill": "#1a2b6d", "shadow": { "color": "#000000", "x": 2, "y": 2, "blur": 4, "opacity": 0.6 } } }
+		},
+		{
+			"name": "own values keep the style's place",
+			"piece": { "id": "piece-c", "style": { "outline": { "color": "#ffffff", "width": 1 } }, "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "preset": "night" },
+			"baked": { "id": "piece-c", "style": { "blend": "multiply", "fill": "#1a2b6d", "outline": { "color": "#ffffff", "width": 1 }, "shadow": { "color": "#000000", "x": 2, "y": 2, "blur": 4, "opacity": 0.6 } }, "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 } }
+		},
+		{
+			"name": "an own null over a preset key: the effect is off",
+			"piece": { "id": "piece-d", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "preset": "night", "style": { "shadow": null } },
+			"baked": { "id": "piece-d", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "style": { "blend": "multiply", "fill": "#1a2b6d" } }
+		},
+		{
+			"name": "an own key replaces the preset's whole",
+			"piece": { "id": "piece-e", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "preset": "night", "style": { "shadow": { "color": "#ff0000", "x": 0, "y": 1, "blur": 0 } } },
+			"baked": { "id": "piece-e", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "style": { "blend": "multiply", "fill": "#1a2b6d", "shadow": { "color": "#ff0000", "x": 0, "y": 1, "blur": 0 } } }
+		},
+		{
+			"name": "opacity 0, own",
+			"piece": { "id": "piece-f", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "preset": "night", "style": { "opacity": 0 } },
+			"baked": { "id": "piece-f", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "style": { "blend": "multiply", "opacity": 0, "fill": "#1a2b6d", "shadow": { "color": "#000000", "x": 2, "y": 2, "blur": 4, "opacity": 0.6 } } }
+		},
+		{
+			"name": "opacity 0 from the preset",
+			"piece": { "id": "piece-g", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "preset": "clear" },
+			"baked": { "id": "piece-g", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "style": { "opacity": 0 } }
+		},
+		{
+			"name": "deep values (a gradient, a ramp) are copied",
+			"piece": { "id": "piece-h", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "rotation": -12, "preset": "dusk" },
+			"baked": { "id": "piece-h", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "rotation": -12, "style": { "fill": { "angle": 90, "stops": [{ "at": 0, "color": "#ff1900" }, { "at": 100, "color": "#1a2b6d", "opacity": 0.5 }] }, "blur": { "amount": 4, "from": { "x": 50, "y": 0 }, "to": { "x": 50, "y": 100 } } } }
+		},
+		{
+			"name": "a style that ends up empty: no style key",
+			"piece": { "id": "piece-i", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "preset": "lonely-shadow", "style": { "shadow": null } },
+			"baked": { "id": "piece-i", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 } }
+		},
+		{
+			"name": "a preset without values (its null dropped): no style key",
+			"piece": { "id": "piece-j", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "preset": "nothing" },
+			"baked": { "id": "piece-j", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 } }
+		},
+		{
+			"name": "only the six style keys are baked",
+			"piece": { "id": "piece-k", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "preset": "night", "style": { "id": "x", "opacity": 0.5, "extra": true } },
+			"baked": { "id": "piece-k", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "style": { "blend": "multiply", "opacity": 0.5, "fill": "#1a2b6d", "shadow": { "color": "#000000", "x": 2, "y": 2, "blur": 4, "opacity": 0.6 } } }
+		},
+		{
+			"name": "a code-look id: unchanged (the stored 'negative' entry never redefines it)",
+			"piece": { "id": "piece-l", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "preset": "negative", "style": { "opacity": 0.5 } },
+			"baked": { "id": "piece-l", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "preset": "negative", "style": { "opacity": 0.5 } }
+		},
+		{
+			"name": "an unknown id: unchanged",
+			"piece": { "id": "piece-m", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "preset": "nope", "style": { "opacity": 0.3 } },
+			"baked": { "id": "piece-m", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "preset": "nope", "style": { "opacity": 0.3 } }
+		},
+		{
+			"name": "a removed preset: baked from the tombstone",
+			"piece": { "id": "piece-n", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "preset": "old" },
+			"baked": { "id": "piece-n", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "style": { "blend": "screen", "outline": { "color": "#ffffff", "width": 2 } } }
+		},
+		{
+			"name": "a repeated id: the first entry wins",
+			"piece": { "id": "piece-o", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "preset": "night", "style": { "blend": "normal" } },
+			"baked": { "id": "piece-o", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "style": { "blend": "normal", "fill": "#1a2b6d", "shadow": { "color": "#000000", "x": 2, "y": 2, "blur": 4, "opacity": 0.6 } } }
+		},
+		{
+			"name": "a malformed stored id ('Night!') is ignored: unchanged",
+			"piece": { "id": "piece-p", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "preset": "Night!" },
+			"baked": { "id": "piece-p", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "preset": "Night!" }
+		},
+		{
+			"name": "no preset: unchanged",
+			"piece": { "id": "piece-q", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "style": { "fill": "#ff0000", "shadow": null } },
+			"baked": { "id": "piece-q", "src": "vectors/wreath.svg", "ratio": 1, "rect": { "x": 10, "y": 20, "width": 30 }, "style": { "fill": "#ff0000", "shadow": null } }
+		},
+		{
+			"name": "a score piece keeps its bar and side",
+			"piece": { "id": "piece-r", "src": "catpope/vectors/wreath.svg", "ratio": 1, "rect": { "x": 50, "y": -2, "width": 12 }, "anchor": "c", "preset": "clear", "at": { "bar": "12", "staff": 2 }, "behind": true },
+			"baked": { "id": "piece-r", "src": "catpope/vectors/wreath.svg", "ratio": 1, "rect": { "x": 50, "y": -2, "width": 12 }, "anchor": "c", "at": { "bar": "12", "staff": 2 }, "behind": true, "style": { "opacity": 0 } }
+		}
+	]
+}

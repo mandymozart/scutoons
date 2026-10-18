@@ -1,7 +1,7 @@
 // Containers, scores and ageing – items that hold items (agents/research/SCORES.md §2, §2a, §2b; FEATURES 10.97)
 import type { Entry, ItemCategory, ItemDef, Recipe } from './items.ts';
 import { MEDIA_FORMATS, type MediaFormat } from './albums.ts';
-import { collageProblems, type CollageSheet } from './collage.ts';
+import { collageProblems, type CollageSheet, type PresetList } from './collage.ts';
 
 /**
  * What a container takes (owner 2026-10-14: "a simple rule we can edit"): an item fits when its category is listed OR
@@ -154,18 +154,21 @@ const isObj = (v: unknown): v is Record<string, any> => typeof v === 'object' &&
 const whole = (v: unknown, min: number) => typeof v === 'number' && Number.isInteger(v) && v >= min;
 
 /** a score's / part's collage (collage.ts): the pieces on the score host, bound to the file they were placed on */
-function checkCollage(collage: unknown, musicxml: unknown, path: (string | number)[], who: string, add: Add): void {
+function checkCollage(collage: unknown, musicxml: unknown, path: (string | number)[], who: string, add: Add, presets: PresetList): void {
 	if (collage == null) return;
 	if (!isObj(collage)) return add('error', path, `${who}: collage must be { file, pieces }`);
 	// as the server's CatalogValidator::collage: a vault path, so the stage names it before Publish's 422
 	if (typeof collage.file !== 'string' || !collage.file.startsWith('scores/') || !/\.(musicxml|xml|mxl)$/i.test(collage.file)) add('error', [...path, 'file'], `${who}: collage.file must be the scores/ .musicxml path the pieces were placed on`);
 	else if (typeof musicxml === 'string' && collage.file !== musicxml) add('warning', [...path, 'file'], `${who}: the collage was made on another file – check the bars`);
 	if (!Array.isArray(collage.pieces)) return add('error', [...path, 'pieces'], `${who}: collage.pieces must be a list`);
-	collageProblems(collage.pieces, 'score', (level, at, message) => add(level, [...path, 'pieces', ...at], `${who}: ${message}`));
+	collageProblems(collage.pieces, 'score', (level, at, message) => add(level, [...path, 'pieces', ...at], `${who}: ${message}`), presets);
 }
 
-/** The container / score / ageing / recipe rules of a catalog (inside `validateCatalog`; the server: CatalogValidator). */
-export function validateContainers(catalog: { items: any[]; recipes?: any[] }, add: Add): void {
+/**
+ * The container / score / ageing / recipe rules of a catalog (inside `validateCatalog`; the server: CatalogValidator).
+ * `presets` (`colorations`.presets): score pieces naming another id than a code look's or one of them warn; none = not judged.
+ */
+export function validateContainers(catalog: { items: any[]; recipes?: any[] }, add: Add, presets?: PresetList): void {
 	const byId = new Map(catalog.items.filter(isObj).map((i) => [i.id, i]));
 	catalog.items.forEach((item: any, i: number) => {
 		if (!isObj(item)) return;
@@ -207,10 +210,10 @@ export function validateContainers(catalog: { items: any[]; recipes?: any[] }, a
 					if (!/^[a-z0-9_]{1,40}$/.test(name)) add('error', [...path, 'score', 'parts', name], `${item.id}: part name "${name}" – lower-case letters, digits, _`);
 					if (!isObj(part) || typeof part.musicxml !== 'string' || !/\.(musicxml|xml|mxl)$/i.test(part.musicxml)) add('error', [...path, 'score', 'parts', name], `${item.id}: part ${name} needs a .musicxml / .mxl path`);
 					else if (part.pdf != null && !(typeof part.pdf === 'string' && /\.pdf$/i.test(part.pdf))) add('error', [...path, 'score', 'parts', name, 'pdf'], `${item.id}: part ${name}: pdf must be a .pdf path`);
-					if (isObj(part)) checkCollage(part.collage, part.musicxml, [...path, 'score', 'parts', name, 'collage'], `${item.id} (${name})`, add);
+					if (isObj(part)) checkCollage(part.collage, part.musicxml, [...path, 'score', 'parts', name, 'collage'], `${item.id} (${name})`, add, presets);
 				}
 			}
-			if (isObj(s)) checkCollage(s.collage, s.musicxml, [...path, 'score', 'collage'], item.id, add);
+			if (isObj(s)) checkCollage(s.collage, s.musicxml, [...path, 'score', 'collage'], item.id, add, presets);
 			if (item.category !== 'score') add('warning', [...path, 'category'], `${item.id}: an item with score files should have the category "score"`);
 		}
 	});
