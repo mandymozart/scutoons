@@ -34,10 +34,12 @@ final class ProtectedFiles
 
     /**
      * GET /api/items/{id}/score/{file}[?part=<name>] → { url, expires } – the full score, or one of its named parts
-     * (`score.parts.<name>`: the choir …). 404 unknown_item / no_score / no_part / no_file, 401 (pdf, signed out),
+     * (`score.parts.<name>`: the choir …). The MusicXML's answer also carries the collage pieces placed on that score /
+     * part, `collage: { pieces }` (agents/research/COLLAGE.md §4.1) – never its `file` (a vault path); the public catalog
+     * strips the collage (publicItem). 404 unknown_item / no_score / no_part / no_file, 401 (pdf, signed out),
      * 403 not_owner (pdf).
      * @param array<string, mixed>|null $user the signed-in account, if any
-     * @return array{url: string, expires: int}
+     * @return array{url: string, expires: int, collage?: array{pieces: list<mixed>}}
      */
     public function score(string $itemId, string $file, ?array $user, ?string $part = null): array
     {
@@ -52,7 +54,19 @@ final class ProtectedFiles
             if ($user === null) throw new ApiError(401, 'unauthorized', 'Sign in to download the PDF.');
             if ($this->inventory->count((string) $user['id'], $itemId) < 1) throw new ApiError(403, 'not_owner', 'Only the owner of this score can download it.');
         }
-        return $this->signed($path);
+        $pieces = $file === 'musicxml' ? self::collagePieces($score) : [];
+        return $this->signed($path) + ($pieces !== [] ? ['collage' => ['pieces' => $pieces]] : []);
+    }
+
+    /**
+     * The collage pieces of a score's files (`score` / `score.parts.<name>`: `collage: { file, pieces }`), none = []
+     * @param array<mixed> $files
+     * @return list<mixed>
+     */
+    public static function collagePieces(array $files): array
+    {
+        $pieces = is_array($files['collage'] ?? null) ? ($files['collage']['pieces'] ?? null) : null;
+        return is_array($pieces) && array_is_list($pieces) ? $pieces : [];
     }
 
     /** paths in the vault (the protected storage): scores' files, physical releases' audio */
@@ -130,7 +144,8 @@ final class ProtectedFiles
     }
 
     /**
-     * The catalog as readers get it: a score names its language, whether it has a PDF and its parts, never its paths
+     * The catalog as readers get it: a score names its language, whether it has a PDF and its parts, never its paths (nor
+     * its collage – it comes with the file's signed URL, `score()`)
      * @param array<string, mixed> $item
      * @return array<string, mixed>
      */

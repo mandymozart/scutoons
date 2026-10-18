@@ -28,10 +28,15 @@ final class CatalogValidator
     public const MEDIA_FORMATS = ['vinyl', 'tape', 'cd'];
     /** furniture.size bounds – % of the room's front width (@scutoons/content homes.ts FURNITURE_SIZE_MIN / _MAX) */
     public const FURNITURE_SIZE = [5, 60];
-    /** the reader's effect sounds (@scutoons/content fx.ts FX_SOUNDS – CatalogTest keeps them equal): an item's pickup sound */
     /** the reader effects an item can start (@scutoons/content substances.ts READER_EFFECTS – CatalogTest keeps them equal) */
     public const READER_EFFECTS = ['psychedelic', 'haze'];
+    /** the reader's effect sounds (@scutoons/content fx.ts FX_SOUNDS – CatalogTest keeps them equal): an item's pickup sound */
     public const FX_SOUNDS = ['pling', 'whoosh', 'thunk', 'tick', 'pop', 'thud', 'soft', 'key', 'zap', 'boom', 'hum'];
+    /** a collage piece's blend (@scutoons/content collage.ts BLEND_MODES – CatalogTest keeps them equal) */
+    public const BLEND_MODES = ['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge', 'color-burn',
+        'hard-light', 'soft-light', 'difference', 'exclusion', 'hue', 'saturation', 'color', 'luminosity'];
+    /** the files a collage piece can draw (@scutoons/content collage.ts PIECE_FILE) */
+    private const PIECE_FILE = '/\.(svg|webp|png|jpe?g|gif|avif)$/i';
     public const MEDIA_ACCESS = ['public', 'members', 'owners'];
     public const GRANT_SOURCES = ['story', 'scan'];
     public const MAX_FEATURED = 12;
@@ -356,6 +361,55 @@ final class CatalogValidator
                     elseif (($part['pdf'] ?? null) !== null && !(is_string($part['pdf']) && preg_match('/\.pdf$/i', $part['pdf']))) $p[] = "$id: part $name: pdf must be a .pdf path";
                 }
             }
+            // the pieces placed on the score / a part (agents/research/COLLAGE.md §4.1)
+            if (is_array($score)) {
+                $p = [...$p, ...self::collage("$id: score", $score['collage'] ?? null)];
+                foreach ((array) ($score['parts'] ?? []) as $name => $part) if (is_array($part)) $p = [...$p, ...self::collage("$id: part $name", $part['collage'] ?? null)];
+            }
+        }
+        return $p;
+    }
+
+    /**
+     * A score's / part's collage, structurally – what readers' drawing relies on (@scutoons/content collage.ts
+     * `collageProblems` adds the rest in the creator: looks, effects, limits): `file` = the vault's .musicxml the pieces
+     * were placed on, `pieces` = a list with unique ids, a picture file, a ratio, a rect, the bar each sticks to, a
+     * known blend.
+     * @return list<string>
+     */
+    private static function collage(string $who, mixed $collage): array
+    {
+        if ($collage === null) return [];
+        if (!is_array($collage) || array_is_list($collage)) return ["$who: collage must be { file, pieces }"];
+        $p = [];
+        $file = $collage['file'] ?? null;
+        if (!is_string($file) || !str_starts_with($file, 'scores/') || !preg_match('/\.(musicxml|xml|mxl)$/i', $file)) $p[] = "$who: collage.file must be the scores/ .musicxml path the pieces were placed on";
+        $pieces = $collage['pieces'] ?? null;
+        if (!is_array($pieces) || !array_is_list($pieces)) return [...$p, "$who: collage.pieces must be a list"];
+        $num = fn(mixed $v): bool => is_int($v) || is_float($v);
+        $ids = [];
+        foreach ($pieces as $i => $piece) {
+            $at = "$who: piece " . ($i + 1);
+            if (!is_array($piece) || array_is_list($piece)) {
+                $p[] = "$at must be an object";
+                continue;
+            }
+            $pid = $piece['id'] ?? null;
+            if (!is_string($pid) || $pid === '') $p[] = "$at has no id";
+            elseif (isset($ids[$pid])) $p[] = "$at: id \"$pid\" is used twice";
+            else $ids[$pid] = true;
+            $src = $piece['src'] ?? null;
+            if (!is_string($src) || !preg_match(self::PIECE_FILE, trim($src))) $p[] = "$at: src must be a picture file (.svg, .webp, .png, .jpg, .gif, .avif)";
+            $ratio = $piece['ratio'] ?? null;
+            if (!$num($ratio) || $ratio <= 0) $p[] = "$at: ratio must be the file's width ÷ height (> 0)";
+            $rect = is_array($piece['rect'] ?? null) ? $piece['rect'] : [];
+            $width = $rect['width'] ?? null;
+            if (!$num($rect['x'] ?? null) || !$num($rect['y'] ?? null) || !$num($width) || $width <= 0) $p[] = "$at: rect must be { x, y, width > 0 } (numbers)";
+            $bar = is_array($piece['at'] ?? null) ? ($piece['at']['bar'] ?? null) : null;
+            if (!is_string($bar) || trim($bar) === '') $p[] = "$at: at.bar must name the bar it sticks to (\"12\", \"6a\")";
+            $style = $piece['style'] ?? null;
+            if ($style !== null && !is_array($style)) $p[] = "$at: style must be an object";
+            elseif (is_array($style) && ($style['blend'] ?? null) !== null && !in_array($style['blend'], self::BLEND_MODES, true)) $p[] = "$at: blend must be one of " . implode(', ', self::BLEND_MODES);
         }
         return $p;
     }

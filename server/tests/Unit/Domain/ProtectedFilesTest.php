@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Scutoons\Tests\Domain;
 
 use Scutoons\Domain\ApiError;
+use Scutoons\Domain\Catalog\Catalog;
 use Scutoons\Domain\Catalog\CatalogAdmin;
 use Scutoons\Domain\Catalog\ProtectedFiles;
 use Scutoons\Domain\Inventory\InventoryService;
@@ -11,7 +12,8 @@ use Scutoons\Tests\TestCase;
 
 /**
  * Protected score files (agents/research/SCORES.md §5): signed bunny.net URLs, the MusicXML for anyone, the PDF only for
- * a signed-in owner, the public catalog never naming the paths.
+ * a signed-in owner, the public catalog never naming the paths; the collage pieces placed on a file come with its
+ * MusicXML (agents/research/COLLAGE.md §4.1).
  */
 final class ProtectedFilesTest extends TestCase
 {
@@ -26,10 +28,32 @@ final class ProtectedFilesTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->get(CatalogAdmin::class)->put('items', 'cloud9_en', ['id' => 'cloud9_en', 'name' => ['en' => 'Cloud 9'], 'kind' => 'virtual', 'category' => 'score',
+        $this->get(CatalogAdmin::class)->put('items', 'cloud9_en', self::cloud9(), 'test');
+    }
+
+    /**
+     * The test score: the full score and its choir part, each with the collage given (none = no key)
+     * @param array<string, mixed>|null $collage
+     * @param array<string, mixed>|null $choirCollage
+     * @return array<string, mixed>
+     */
+    private static function cloud9(?array $collage = null, ?array $choirCollage = null): array
+    {
+        $choir = ['musicxml' => 'scores/cloud9-choir.musicxml', 'pdf' => 'scores/cloud9-choir.pdf'] + ($choirCollage !== null ? ['collage' => $choirCollage] : []);
+        return ['id' => 'cloud9_en', 'name' => ['en' => 'Cloud 9'], 'kind' => 'virtual', 'category' => 'score',
             'icon' => 'score.png', 'stackable' => false, 'starter' => false, 'grantable' => ['story'], 'slot' => null, 'skills' => [],
-            'score' => ['language' => 'en', 'musicxml' => 'scores/cloud 9-en.musicxml', 'pdf' => 'scores/cloud9-en.pdf',
-                'parts' => ['choir' => ['musicxml' => 'scores/cloud9-choir.musicxml', 'pdf' => 'scores/cloud9-choir.pdf']]]], 'test');
+            'score' => ['language' => 'en', 'musicxml' => 'scores/cloud 9-en.musicxml', 'pdf' => 'scores/cloud9-en.pdf', 'parts' => ['choir' => $choir]]
+                + ($collage !== null ? ['collage' => $collage] : [])];
+    }
+
+    /**
+     * A score piece: a wreath at 50 % of a bar, 2 staff spaces above staff 2, 8 spaces wide, behind the notes
+     * @return array<string, mixed>
+     */
+    private static function piece(string $id, string $bar): array
+    {
+        return ['id' => $id, 'src' => 'catpope/vectors/wreath.svg', 'ratio' => 1.25, 'rect' => ['x' => 50, 'y' => -2, 'width' => 8], 'anchor' => 'c',
+            'preset' => 'negative', 'style' => ['blend' => 'multiply', 'shadow' => null], 'at' => ['bar' => $bar, 'staff' => 2], 'behind' => true];
     }
 
     public function testASignedUrlIsBunnysHs256Token(): void
@@ -119,9 +143,66 @@ final class ProtectedFilesTest extends TestCase
         self::assertSame('s.mp3', ProtectedFiles::trackFile(['src' => 's.mp3', 'variants' => ['high' => 'h.mp3']], 'medium'));
     }
 
+    /** the pieces placed on a file come with its signed URL – the full score's, the part's – never the file they name */
+    public function testTheMusicXmlCarriesTheCollagePlacedOnIt(): void
+    {
+        $full = ['file' => 'scores/cloud 9-en.musicxml', 'pieces' => [self::piece('piece-full001', '3')]];
+        $choir = ['file' => 'scores/cloud9-choir.musicxml', 'pieces' => [self::piece('piece-choir01', '12'), self::piece('piece-choir02', '6a')]];
+        $this->get(CatalogAdmin::class)->put('items', 'cloud9_en', self::cloud9($full, $choir), 'test');
+        $files = $this->get(ProtectedFiles::class);
+        $score = $files->score('cloud9_en', 'musicxml', null);
+        self::assertStringStartsWith('https://protected.example.net/scores/cloud%209-en.musicxml?token=HS256-', $score['url']);
+        self::assertSame(['pieces' => [self::piece('piece-full001', '3')]], $score['collage'] ?? null, 'the pieces as stored, without file');
+        $part = $files->score('cloud9_en', 'musicxml', null, 'choir');
+        self::assertSame(['piece-choir01', 'piece-choir02'], array_column($part['collage']['pieces'] ?? [], 'id'), "the part's own pieces");
+        // the PDF carries none; the public catalog strips the collage with the paths
+        $user = $this->user();
+        $this->get(InventoryService::class)->add((string) $user['id'], 'cloud9_en', null, 1, 'story');
+        self::assertArrayNotHasKey('collage', $files->score('cloud9_en', 'pdf', $user));
+        self::assertArrayNotHasKey('collage', $files->score('cloud9_en', 'pdf', $user, 'choir'));
+        $item = $this->get(Catalog::class)->item('cloud9_en') ?? [];
+        self::assertSame(['language' => 'en', 'pdf' => true, 'parts' => ['choir' => ['pdf' => true]]], ProtectedFiles::publicItem($item)['score']);
+        // an emptied collage answers none (the stage takes it away with the last piece – a stray empty one too)
+        $this->get(CatalogAdmin::class)->put('items', 'cloud9_en', self::cloud9(['file' => 'scores/cloud 9-en.musicxml', 'pieces' => []]), 'test');
+        self::assertArrayNotHasKey('collage', $files->score('cloud9_en', 'musicxml', null));
+        self::assertSame([], ProtectedFiles::collagePieces(['collage' => ['pieces' => ['id' => 'not a list']]]));
+    }
+
+    /** the catalog guard: the structure readers' drawing relies on (the creator's validateContainers checks the rest) */
+    public function testABrokenCollageIsRefused(): void
+    {
+        $admin = $this->get(CatalogAdmin::class);
+        $sheet = fn(array ...$pieces) => ['file' => 'scores/cloud 9-en.musicxml', 'pieces' => $pieces];
+        $piece = self::piece('piece-a', '3');
+        $cases = [
+            [self::cloud9($sheet(['style' => ['blend' => 'glow']] + $piece)), 'score: piece 1: blend must be one of normal, multiply'],
+            [self::cloud9($sheet(['at' => ['staff' => 1]] + $piece)), 'piece 1: at.bar must name the bar'],
+            [self::cloud9($sheet(['at' => ['bar' => ' ']] + $piece)), 'piece 1: at.bar must name the bar'],
+            [self::cloud9($sheet($piece, $piece)), 'piece 2: id "piece-a" is used twice'],
+            [self::cloud9($sheet(['src' => 'catpope/vectors/wreath.txt'] + $piece)), 'piece 1: src must be a picture file'],
+            [self::cloud9($sheet(['ratio' => 0] + $piece)), 'piece 1: ratio must be'],
+            [self::cloud9($sheet(['rect' => ['x' => 1, 'y' => '2', 'width' => 3]] + $piece)), 'piece 1: rect must be'],
+            [self::cloud9(['file' => 'cloud9.musicxml', 'pieces' => []]), 'score: collage.file must be the scores/ .musicxml path'],
+            [self::cloud9(null, ['file' => 'scores/cloud9-choir.musicxml', 'pieces' => ['id' => 'x']]), 'part choir: collage.pieces must be a list'],
+        ];
+        foreach ($cases as [$data, $expect]) {
+            try {
+                $admin->put('items', 'cloud9_en', $data, 'test');
+                self::fail("expected $expect");
+            } catch (ApiError $error) {
+                self::assertSame([422, 'invalid_catalog'], [$error->status, $error->errorCode], $expect);
+                self::assertStringContainsString($expect, $error->getMessage());
+            }
+        }
+        // a good one passes: a page piece, an image, no style
+        $admin->put('items', 'cloud9_en', self::cloud9($sheet(['id' => 'piece-b', 'src' => 'catpope/images/x.webp', 'ratio' => 0.5, 'rect' => ['x' => 0, 'y' => 0, 'width' => 100], 'at' => ['bar' => '1', 'page' => true]])), 'test');
+        $score = $this->get(Catalog::class)->item('cloud9_en')['score'] ?? [];
+        self::assertSame(['piece-b'], array_column(ProtectedFiles::collagePieces(is_array($score) ? $score : []), 'id'));
+    }
+
     public function testThePublicCatalogNeverNamesThePaths(): void
     {
-        $item = $this->get(\Scutoons\Domain\Catalog\Catalog::class)->item('cloud9_en') ?? [];
+        $item = $this->get(Catalog::class)->item('cloud9_en') ?? [];
         self::assertSame(['language' => 'en', 'pdf' => true, 'parts' => ['choir' => ['pdf' => true]]], ProtectedFiles::publicItem($item)['score']);
         self::assertSame(['id' => 'x'], ProtectedFiles::publicItem(['id' => 'x']));
     }

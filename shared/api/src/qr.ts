@@ -2,7 +2,7 @@
 // (agents/ITEMS.md → HTTP API contract). `createQrApi(client)` binds them to one configured client.
 import type { ApiClient } from './client.ts';
 import type { CampaignInvite } from './admin.ts';
-import type { Avatar, AvatarBodyRef, Catalog, CodeInfo, Edition, Entry, GrantSource, Me, OwnershipClaim, User, RecurrenceInterval } from '@scutoons/content';
+import type { Avatar, AvatarBodyRef, Catalog, CodeInfo, CollagePiece, Edition, Entry, GrantSource, Me, OwnershipClaim, User, RecurrenceInterval } from '@scutoons/content';
 
 export interface VerifyResult {
 	status: string;
@@ -220,9 +220,12 @@ export function createQrApi(api: ApiClient) {
 				`/albums/${encodeURIComponent(album_id)}/${track_id ? `tracks/${encodeURIComponent(track_id)}${quality ? `?quality=${quality}` : ''}` : 'download'}`
 			),
 
-		/** a score's MusicXML / PDF as a short-lived signed URL (the PDF only for a signed-in owner) */
+		/**
+		 * a score's MusicXML / PDF as a short-lived signed URL (the PDF only for a signed-in owner); the MusicXML's answer
+		 * carries the collage pieces placed on that file / part (research/COLLAGE.md §4.1 – never the vault path)
+		 */
 		scoreFile: (item_id: string, file: 'musicxml' | 'pdf', part?: string | null) =>
-			api.get<{ status: string; url: string; expires: number }>(`/items/${encodeURIComponent(item_id)}/score/${file}${part ? `?part=${encodeURIComponent(part)}` : ''}`),
+			api.get<{ status: string; url: string; expires: number; collage?: { pieces: CollagePiece[] } }>(`/items/${encodeURIComponent(item_id)}/score/${file}${part ? `?part=${encodeURIComponent(part)}` : ''}`),
 
 		/** `respawn` (+ `visit` for every visit): a placed item that reappears – the server checks it and adds the period to the ref */
 		grantItem: (item_id: string, source: GrantSource, ref?: string, respawn?: { respawn: RecurrenceInterval; visit?: string }, variant?: string | null) =>

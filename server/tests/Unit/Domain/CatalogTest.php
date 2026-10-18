@@ -125,6 +125,10 @@ final class CatalogTest extends TestCase
         $fx = (string) file_get_contents(dirname(self::root()) . '/shared/content/src/fx.ts');
         self::assertSame(1, preg_match('/export const FX_SOUNDS = \[(.*?)\] as const;/s', $fx, $m));
         self::assertSame(CatalogValidator::FX_SOUNDS, array_map(fn($s) => trim(trim($s), "'"), array_values(array_filter(explode(',', $m[1] ?? ''), fn($s) => trim($s) !== ''))));
+        // a score collage piece's blend (agents/research/COLLAGE.md §4.1)
+        $collage = (string) file_get_contents(dirname(self::root()) . '/shared/content/src/collage.ts');
+        self::assertSame(1, preg_match('/export const BLEND_MODES = \[(.*?)\] as const;/s', $collage, $m));
+        self::assertSame(CatalogValidator::BLEND_MODES, array_map(fn($s) => trim(trim($s), "'"), array_values(array_filter(explode(',', $m[1] ?? ''), fn($s) => trim($s) !== ''))));
         self::assertArrayNotHasKey('slots', json_decode(self::config('items.json'), true), 'code, not catalog data');
         self::assertArrayNotHasKey('stats', json_decode(self::config('items.json'), true));
     }
