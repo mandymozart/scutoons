@@ -38,10 +38,14 @@
 		const v = raw.trim();
 		onchange(v === '' ? undefined : v);
 	}
+	/** typing done (blur, Enter): the text shows the value again – a host may keep its value for an emptied field */
+	function settle(input: HTMLInputElement) {
+		if (input.value.trim() !== current) input.value = current;
+	}
 </script>
 
 <span class="sc-color-field" class:is-unset={!current} title={label} data-testid={testid}>
-	<input {id} type="text" spellcheck="false" autocomplete="off" aria-label={label} {disabled} value={current} {placeholder} oninput={(e) => type(e.currentTarget.value)} />
+	<input {id} type="text" spellcheck="false" autocomplete="off" aria-label={label} {disabled} value={current} {placeholder} oninput={(e) => type(e.currentTarget.value)} onchange={(e) => settle(e.currentTarget)} />
 	<span class="swatch" class:is-none={!swatch} style:--swatch={swatch ?? 'transparent'}>
 		<input type="color" aria-label={pickerLabel ?? label} {disabled} value={swatch ?? '#000000'} oninput={(e) => onchange(e.currentTarget.value)} />
 	</span>

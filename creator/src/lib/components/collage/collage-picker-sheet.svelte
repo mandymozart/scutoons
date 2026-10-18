@@ -1,14 +1,15 @@
 <script lang="ts">
 	import { Tabs } from '@scutoons/ui';
 	import { AssetPickerSheet, type PickedAsset } from '@scutoons/media';
-	import { AUTHORED_VIEW, characterImage, moodLabel, type CastEntry, type CharacterRegistry, type MoodVocabulary, type PieceFigure } from '@scutoons/content';
+	import { AUTHORED_VIEW, moodLabel, type CastEntry, type CharacterRegistry, type MoodVocabulary, type PieceFigure } from '@scutoons/content';
 	import PickerSheet from '$lib/components/controls/picker-sheet.svelte';
 	import CharacterGrid, { type PickedCharacter } from '$lib/components/characters/character-grid.svelte';
 	import ShapeGrid from '$lib/components/collage/shape-grid.svelte';
-	import { imagePick, imageRatio, type PickedPiece } from '$lib/editor/collage-pick.ts';
+	import { figureImage, imagePick, imageRatio, type PickedPiece } from '$lib/editor/collage-pick.ts';
 	import { isKnownMissing, type ToonInfo } from '$lib/editor/characters.ts';
 	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { asset } from '$lib/utils/cdn.ts';
+	import { toast } from '$lib/toasts.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
@@ -45,16 +46,20 @@
 		open = false;
 	}
 
-	/** a mood portrait: its file now (the fallback rule), its ratio by decoding it (a second click meanwhile adds nothing) */
+	/**
+	 * a mood portrait: its file now (the fallback rule), its ratio by decoding it (a second click meanwhile adds nothing);
+	 * a character without any picture adds nothing – a toast says so (the "?" substitute is no art)
+	 */
 	let decoding = false;
 	async function pickCharacter(p: PickedCharacter) {
 		const character = registry?.characters.find((c) => c.id === p.character);
-		const src = characterImage(character, { persona: p.persona, look: p.look, mood: p.mood }, AUTHORED_VIEW, { isMissing: isKnownMissing });
-		if (!character || !src || decoding) return;
+		if (!character || decoding) return;
 		const figure: PieceFigure = { id: p.character, view: AUTHORED_VIEW };
 		if (p.persona) figure.persona = p.persona;
 		if (p.look) figure.look = p.look;
 		if (p.mood) figure.mood = p.mood;
+		const src = figureImage(character, figure, isKnownMissing);
+		if (!src) return void toast(m['creator.collage_no_picture']({ name: shownCharacterName(character, p.persona) || p.character }), { type: 'warning' });
 		const name = [shownCharacterName(character, p.persona), p.mood && moodLabel(p.mood, textLanguage.names, moods)].filter(Boolean).join(' · ');
 		decoding = true;
 		try {

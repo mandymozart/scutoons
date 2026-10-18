@@ -82,15 +82,44 @@ export function setEffect<K extends EffectKey>(piece: CollagePiece, key: K, valu
 	tidy(piece);
 }
 
+/** the look's own value of a style key (none / off = undefined) */
+const lookValue = <K extends EffectKey>(piece: CollagePiece, key: K): Exclude<PieceStyle[K], null> | undefined =>
+	(collageLook(piece.preset)?.[key] ?? undefined) as Exclude<PieceStyle[K], null> | undefined;
+
+type EditableEffect = 'outline' | 'shadow' | 'blur';
+
 /**
  * Changes some fields of an effect (a shadow's x, an outline's colour): the effect as drawn – the piece's own, else the
- * look's (copied) – else `EFFECT_DEFAULTS`, with the change over it, becomes the piece's own
+ * look's (copied) – with the change over it becomes the piece's own. An effect that is off starts from `base` (what a
+ * field just cleared), else the look's (switched off over the look), else `EFFECT_DEFAULTS`
  */
-export function editEffect<K extends 'outline' | 'shadow' | 'blur'>(piece: CollagePiece, key: K, change: Partial<(typeof EFFECT_DEFAULTS)[K]>): void {
+export function editEffect<K extends EditableEffect>(piece: CollagePiece, key: K, change: Partial<(typeof EFFECT_DEFAULTS)[K]>, base?: (typeof EFFECT_DEFAULTS)[K]): void {
 	const drawn = pieceStyle(piece)[key] as (typeof EFFECT_DEFAULTS)[K] | undefined;
-	const next = { ...copy(drawn ?? EFFECT_DEFAULTS[key]), ...change } as Record<string, unknown>;
+	const start = drawn ?? base ?? (lookValue(piece, key) as (typeof EFFECT_DEFAULTS)[K] | undefined) ?? EFFECT_DEFAULTS[key];
+	const next = { ...copy(start), ...change } as Record<string, unknown>;
 	for (const k of Object.keys(next)) if (next[k] === undefined) delete next[k];
 	setEffect(piece, key, next as unknown as Exclude<PieceStyle[K], null>);
+}
+
+/** what an effect's colour field cleared, per piece and key (`setEffectColor`) – with the look it was cleared under */
+export type ClearedEffects = Map<string, { preset?: string; value: unknown }>;
+
+/**
+ * An outline's / shadow's colour field: empty turns the effect off – ColorField sends that on every keystroke, so a
+ * colour selected and retyped passes through it – and `cleared` keeps the effect as it was drawn; a colour brings the
+ * effect back with that colour – as it was (its width, offsets, blur), when the look is still the one it was cleared
+ * under, else the look's, else the defaults
+ */
+export function setEffectColor(piece: CollagePiece, key: 'outline' | 'shadow', color: string | undefined, cleared: ClearedEffects): void {
+	const at = `${piece.id}.${key}`;
+	if (color) {
+		const was = cleared.get(at);
+		const base = was && was.preset === piece.preset ? (copy(was.value) as (typeof EFFECT_DEFAULTS)[typeof key]) : undefined;
+		return editEffect(piece, key, { color }, base);
+	}
+	const drawn = pieceStyle(piece)[key];
+	if (drawn) cleared.set(at, { preset: piece.preset, value: copy(drawn) });
+	setEffect(piece, key, undefined);
 }
 
 export const fillKind = (fill: PieceStyle['fill']): FillKind => (fill === undefined || fill === null ? 'none' : typeof fill === 'string' ? 'color' : 'gradient');
@@ -98,15 +127,22 @@ export const blurKind = (blur: PieceStyle['blur']): BlurKind => (blur?.from && b
 
 /**
  * The fill switched to another kind: a colour starts from the fill's (first) colour, a gradient runs from it to white,
- * none clears it. The kind it already has changes nothing (Segmented sends the chosen option again – a re-click must
- * not rebuild a gradient or make the look's fill the piece's own); false = nothing changed
+ * none clears it. A fill switched off over the look comes back as the look's when that is the kind asked for, else
+ * starts from the look's colour. The kind it already has changes nothing (Segmented sends the chosen option again – a
+ * re-click must not rebuild a gradient or make the look's fill the piece's own); false = nothing changed
  */
 export function setFillKind(piece: CollagePiece, kind: FillKind): boolean {
 	const fill = pieceStyle(piece).fill;
 	if (kind === fillKind(fill)) return false;
+	const look = lookValue(piece, 'fill');
 	if (kind === 'none') setEffect(piece, 'fill', undefined);
-	else {
-		const from = typeof fill === 'string' ? fill : (fill?.stops?.[0]?.color ?? FILL_INK);
+	else if (!fill && look && fillKind(look) === kind) {
+		// off over the look (own null): dropping the own key brings the look's fill back
+		delete piece.style?.fill;
+		tidy(piece);
+	} else {
+		const source = fill ?? look;
+		const from = typeof source === 'string' ? source : (source?.stops?.[0]?.color ?? FILL_INK);
 		const next: string | PieceGradient = kind === 'color' ? from : { stops: [{ at: 0, color: from }, { at: 100, color: '#ffffff' }] };
 		setEffect(piece, 'fill', next);
 	}

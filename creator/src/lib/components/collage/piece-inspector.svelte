@@ -6,7 +6,6 @@
 		CHARACTER_IMAGE_VARIANTS,
 		COLLAGE_LOOKS,
 		DEFAULT_MOOD,
-		characterImage,
 		defaultLookId,
 		findLook,
 		findPersona,
@@ -21,11 +20,12 @@
 		type PieceFigure
 	} from '@scutoons/content';
 	import { figurePath, pieceAt, setFigure, setPreset } from '$lib/editor/collage-edit.ts';
-	import { imageRatio } from '$lib/editor/collage-pick.ts';
+	import { figureImage, imageRatio } from '$lib/editor/collage-pick.ts';
 	import { lookLabel, pieceKindLabel } from '$lib/editor/collage-words.ts';
 	import { isKnownMissing } from '$lib/editor/characters.ts';
 	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { asset } from '$lib/utils/cdn.ts';
+	import { toast } from '$lib/toasts.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import PlaceFields from '$lib/components/collage/place-fields.svelte';
 	import LookFields from '$lib/components/collage/look-fields.svelte';
@@ -103,8 +103,9 @@
 		// a mood and then a view picked while the first still decodes: the newer re-pick carries both
 		const asked = { n: ++asks, next: { ...pending.get(id)?.next, ...next } };
 		const figure: PieceFigure = { ...piece.figure, ...asked.next };
-		const root = characterImage(character, { persona: figure.persona, look: figure.look, mood: figure.mood }, figure.view, { isMissing: isKnownMissing });
-		if (!root) return;
+		// no picture at all (or only a known-missing one): the piece keeps its own – the "?" substitute is no art
+		const root = figureImage(character, figure, isKnownMissing);
+		if (!root) return void toast(m['creator.collage_no_picture']({ name: shownCharacterName(character, figure.persona) || figure.id }), { type: 'warning' });
 		pending.set(id, asked);
 		const ratio = await imageRatio(asset(root));
 		if (pending.get(id)?.n !== asked.n) return;

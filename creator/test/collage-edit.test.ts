@@ -3,8 +3,22 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { collageLook, pieceStyle, type CollagePiece } from '@scutoons/content';
-import { canMoveLayerRow, editEffect, figurePath, layerRows, moveLayerRows, setBlurRamp, setEffect, setFigure, setFillKind, setPlain, setPreset } from '../src/lib/editor/collage-edit.ts';
-import { assetRatio, filterShapes, imagePick, pickedToPiece, shapeTags } from '../src/lib/editor/collage-pick.ts';
+import {
+	canMoveLayerRow,
+	editEffect,
+	figurePath,
+	layerRows,
+	moveLayerRows,
+	setBlurRamp,
+	setEffect,
+	setEffectColor,
+	setFigure,
+	setFillKind,
+	setPlain,
+	setPreset,
+	type ClearedEffects
+} from '../src/lib/editor/collage-edit.ts';
+import { assetRatio, figureImage, filterShapes, imagePick, pickedToPiece, shapeTags } from '../src/lib/editor/collage-pick.ts';
 
 const piece = (more: Partial<CollagePiece> = {}): CollagePiece => ({ id: 'piece-a', src: 'vectors/x.svg', ratio: 1, rect: { x: 10, y: 10, width: 30 }, ...more });
 
@@ -38,6 +52,66 @@ test('clearing an effect the look has writes null, one it lacks deletes the key;
 	const plain = piece({ style: { blend: 'multiply' } });
 	setPlain(plain, 'blend', undefined);
 	assert.equal(plain.style, undefined);
+});
+
+/** a colour field's keystrokes: select all + delete, then the new colour typed character by character */
+function retype(p: CollagePiece, key: 'outline' | 'shadow', color: string, cleared: ClearedEffects) {
+	setEffectColor(p, key, undefined, cleared);
+	for (let i = 1; i <= color.length; i++) setEffectColor(p, key, color.slice(0, i), cleared);
+}
+
+test("a colour retyped over a look keeps the look's width, offsets, blur and opacity", () => {
+	const p = piece({ preset: 'sticker' });
+	const cleared: ClearedEffects = new Map();
+	retype(p, 'outline', '#000', cleared);
+	retype(p, 'shadow', '#333', cleared);
+	assert.deepEqual(pieceStyle(p).outline, { color: '#000', width: 3 });
+	assert.deepEqual(pieceStyle(p).shadow, { color: '#333', x: 2, y: 2, blur: 0, opacity: 0.8 });
+	const fresh = piece({ preset: 'sticker', style: { outline: null } });
+	editEffect(fresh, 'outline', { width: 5 });
+	assert.deepEqual(fresh.style?.outline, { color: '#ffffff', width: 5 }, "an outline switched off over the look comes back as the look's");
+});
+
+test("a colour retyped over the piece's own effect brings it back as it was; under another look it doesn't", () => {
+	const own = piece({ style: { shadow: { color: '#ff0000', x: 5, y: 1, blur: 7, opacity: 0.3 } } });
+	const cleared: ClearedEffects = new Map();
+	setEffectColor(own, 'shadow', undefined, cleared);
+	assert.equal(own.style, undefined, 'emptied: the shadow is off');
+	retype(own, 'shadow', '#0f0', cleared);
+	assert.deepEqual(pieceStyle(own).shadow, { color: '#0f0', x: 5, y: 1, blur: 7, opacity: 0.3 });
+	const over = piece({ preset: 'sticker', style: { outline: { color: '#ff0000', width: 6 } } });
+	retype(over, 'outline', '#00f', cleared);
+	assert.deepEqual(over.style?.outline, { color: '#00f', width: 6 }, "the own width, not the look's 3");
+	setEffectColor(over, 'outline', undefined, cleared);
+	assert.equal(over.style?.outline, null);
+	setPreset(over, 'glow');
+	setEffectColor(over, 'outline', '#abc', cleared);
+	assert.deepEqual(over.style?.outline, { color: '#abc', width: 2 }, 'a look picked since: the defaults, not the old width');
+});
+
+test("a fill switched off over the look comes back as the look's", () => {
+	const ink = piece({ preset: 'ink' });
+	setFillKind(ink, 'none');
+	assert.equal(ink.style?.fill, null);
+	setFillKind(ink, 'color');
+	assert.equal(ink.style, undefined, "the look's colour again, not an own copy");
+	assert.equal(pieceStyle(ink).fill, collageLook('ink')?.fill);
+	const burn = piece({ preset: 'burn' });
+	setFillKind(burn, 'none');
+	setFillKind(burn, 'color');
+	const burnFill = collageLook('burn')?.fill;
+	assert.equal(burn.style?.fill, typeof burnFill === 'object' && burnFill ? burnFill.stops[0].color : undefined, "another kind starts from the look's colour");
+});
+
+test('a character picture never resolves to the missing-image substitute', () => {
+	const look = (images: object) => ({ id: 'default', default: true, images });
+	const character = (images: object): any => ({ id: 'x', name: { en: 'X' }, color: '#000', personas: [{ id: 'regular', looks: [look(images)] }] });
+	assert.equal(figureImage(character({}), { mood: 'neutral', view: 'portrait' }), '', 'no picture at all');
+	assert.equal(figureImage(character({}), { view: 'full' }), '');
+	const drawn = character({ neutral: { portrait: 'characters/x/neutral.webp' } });
+	assert.equal(figureImage(drawn, { mood: 'happy', view: 'full' }), 'characters/x/neutral.webp', 'the fallback rule still applies');
+	assert.equal(figureImage(drawn, { view: 'full' }, (path) => path === 'characters/x/neutral.webp'), '', 'its only file is known to be missing');
+	assert.equal(figureImage(null, { view: 'portrait' }), '');
 });
 
 test('setPreset writes the look and drops the own values in one go; none = as drawn', () => {

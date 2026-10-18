@@ -1,6 +1,6 @@
 // The collage picker's logic (agents/research/COLLAGE.md §5): what a pick hands back (`PickedPiece`), the vector
 // library's filters, and the new piece a host makes of a pick. Pure (no Svelte; `imageRatio` alone needs a DOM).
-import { toonAssetRef, type Anchor, type CollagePiece, type PieceFigure } from '@scutoons/content';
+import { characterImage, isMissingImagePath, toonAssetRef, type Anchor, type CollagePiece, type PieceFigure, type RegistryCharacter } from '@scutoons/content';
 import type { AssetRendition, AssetSummary } from '@scutoons/api';
 import { newPlacementId } from './clip.ts';
 
@@ -31,6 +31,15 @@ export function imageRatio(url: string): Promise<number | null> {
 		img.onerror = () => done(null);
 		img.src = url;
 	});
+}
+
+/**
+ * A character picture's file (from the CDN root) – the fallback rule (`characterImage`), but '' when no file resolves or
+ * the one it resolves to is known to be missing (`isMissing`): the "?" substitute is a placeholder, never a piece's art
+ */
+export function figureImage(character: RegistryCharacter | null | undefined, figure: Omit<PieceFigure, 'id'>, isMissing?: (path: string) => boolean): string {
+	const src = characterImage(character, { persona: figure.persona, look: figure.look, mood: figure.mood }, figure.view, { isMissing, substitute: '' });
+	return isMissingImagePath(src) ? '' : src;
 }
 
 /** a shape of the vector library as a pick */

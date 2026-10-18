@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { ColorField, PropRow, PropSelect, ScrubNumber, Segmented } from '@scutoons/ui';
 	import { BLEND_MODES, pieceStyle, round2, type CollagePiece } from '@scutoons/content';
-	import { blurKind, editEffect, fillKind, setBlurRamp, setEffect, setFillKind, setPlain, RAMP_POINTS, type FillKind } from '$lib/editor/collage-edit.ts';
+	import { blurKind, editEffect, fillKind, setBlurRamp, setEffect, setEffectColor, setFillKind, setPlain, RAMP_POINTS, type ClearedEffects, type FillKind } from '$lib/editor/collage-edit.ts';
 	import { blendLabel } from '$lib/editor/collage-words.ts';
 	import GradientField from '$lib/components/collage/gradient-field.svelte';
 	import PointsField from '$lib/components/collage/points-field.svelte';
@@ -11,7 +11,9 @@
 	 * A piece's colouration fields (research/COLLAGE.md §7): blend + opacity, fill (none / colour / gradient), outline,
 	 * shadow, blur (even or a ramp between two points). The fields show the piece as drawn (`pieceStyle`: its look under
 	 * its own values); a change makes that key the piece's own (collage-edit.ts – copy-on-write), clearing an effect
-	 * turns it off. Lengths are % of the piece's width (the same look at every size).
+	 * turns it off – an outline / shadow colour retyped brings it back as it was (`setEffectColor`); the fill's colour
+	 * field never clears the fill (only the kind None does). Lengths are % of the piece's width (the same look at every
+	 * size).
 	 */
 	let { piece, change }: { piece: CollagePiece; change: (edit: (piece: CollagePiece) => void, key: string) => void } = $props();
 
@@ -26,6 +28,10 @@
 	function setFill(kind: FillKind) {
 		if (kind !== fillKindNow) change((p) => setFillKind(p, kind), 'fill');
 	}
+
+	/** the outlines / shadows a colour field cleared in this inspector (by piece id) – a retype brings them back */
+	const cleared: ClearedEffects = new Map();
+	const effectColor = (key: 'outline' | 'shadow', color: string | undefined) => change((p) => setEffectColor(p, key, color, cleared), `${key}.color`);
 </script>
 
 <PropRow label={m['creator.piece_blend']()} testid="piece-blend-row">
@@ -67,7 +73,8 @@
 	/>
 	{#if typeof fill === 'string'}
 		<span data-prop-line>
-			<ColorField label={m['creator.piece_fill_color']()} value={fill} onchange={(v) => change((p) => setEffect(p, 'fill', v), 'fill.color')} testid="piece-fill-value" />
+			<!-- emptied to retype: the fill stays (the field would vanish with it) – the kind None turns it off -->
+			<ColorField label={m['creator.piece_fill_color']()} value={fill} onchange={(v) => v && change((p) => setEffect(p, 'fill', v), 'fill.color')} testid="piece-fill-value" />
 		</span>
 	{:else if fill}
 		<GradientField value={fill} onchange={(g) => change((p) => setEffect(p, 'fill', g), 'fill.gradient')} />
@@ -79,7 +86,7 @@
 		label={m['creator.text_outline']()}
 		value={style.outline?.color}
 		placeholder={m['creator.text_outline_none']()}
-		onchange={(v) => change((p) => (v ? editEffect(p, 'outline', { color: v }) : setEffect(p, 'outline', undefined)), 'outline.color')}
+		onchange={(v) => effectColor('outline', v)}
 		testid="piece-outline"
 	/>
 	{#if style.outline}
@@ -92,7 +99,7 @@
 		label={m['creator.piece_shadow']()}
 		value={style.shadow?.color}
 		placeholder={m['creator.text_outline_none']()}
-		onchange={(v) => change((p) => (v ? editEffect(p, 'shadow', { color: v }) : setEffect(p, 'shadow', undefined)), 'shadow.color')}
+		onchange={(v) => effectColor('shadow', v)}
 		testid="piece-shadow"
 	/>
 	{#if style.shadow}

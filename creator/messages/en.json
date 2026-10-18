@@ -1352,6 +1352,7 @@
 		"collage_shapes_search": "Search shapes (name, tag)",
 		"collage_tag": "Tag",
 		"collage_all_tags": "All tags",
+		"collage_no_picture": "No picture of {name} to place yet – add one under Characters.",
 		"piece_shape": "Shape",
 		"piece_character": "Character",
 		"piece_image": "Image",

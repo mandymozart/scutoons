@@ -1352,6 +1352,7 @@
 		"collage_shapes_search": "Formen suchen (Name, Tag)",
 		"collage_tag": "Tag",
 		"collage_all_tags": "Alle Tags",
+		"collage_no_picture": "Von {name} gibt es noch kein Bild zum Platzieren – füge eins unter Figuren hinzu.",
 		"piece_shape": "Form",
 		"piece_character": "Figur",
 		"piece_image": "Bild",
