@@ -1,8 +1,8 @@
-// Web Push in the worker – the payload, the tap's target, the badge (lib/sw/push-rules.ts, agents/research/PWA.md §2b):
+// Web Push in the worker – the payload, the tap's target, the badge (@scutoons/pwa push-rules.ts, agents/research/PWA.md §2b):
 //   npm test -w viewer
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nextBadge, noticeOf, safePath } from '../src/lib/sw/push-rules.ts';
+import { nextBadge, noticeOf, safePath } from '../src/push-rules.ts';
 
 test('the server payload shows as sent', () => {
 	const notice = noticeOf(JSON.stringify({ title: 'Catpope: new chapter', body: 'Eins – read it now', url: '/en/catpope/chapter/1', tag: 'chapter:catpope:1' }));

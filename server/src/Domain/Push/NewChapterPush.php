@@ -36,7 +36,7 @@ final class NewChapterPush
      */
     public function overview(): array
     {
-        $sends = $this->db->all('SELECT id, toon, chapter, test, recipients, delivered, gone, failed, sent_at FROM push_sends ORDER BY id DESC LIMIT 20');
+        $sends = $this->db->all("SELECT id, toon, chapter, test, recipients, delivered, gone, failed, sent_at FROM push_sends WHERE kind = 'new_chapter' ORDER BY id DESC LIMIT 20");
         return [
             'configured' => $this->sender->configured(),
             'subscribers' => $this->subscriptions->counts(),

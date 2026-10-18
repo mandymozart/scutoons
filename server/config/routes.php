@@ -147,6 +147,10 @@ return static function (App $app): void {
     $app->get('/api/push/key', [PushController::class, 'key']);
     $app->post('/api/push/subscribe', [PushController::class, 'subscribe'])->add($pushLimit);
     $app->post('/api/push/unsubscribe', [PushController::class, 'unsubscribe'])->add($pushLimit);
+    // the team's kinds (research/PWA-APPS.md §5): the tools' "Benachrichtigungen" (signed in) and the drafts run (a key)
+    $app->get('/api/push/prefs', [PushController::class, 'prefs']);
+    $app->put('/api/push/prefs', [PushController::class, 'setPref']);
+    $app->map(['GET', 'POST'], '/api/push/cron', [PushController::class, 'cron']);
 
     $app->post('/api/auth/request', [AuthController::class, 'request']);
     $app->post('/api/auth/verify', [AuthController::class, 'verify']);
@@ -328,6 +332,7 @@ return static function (App $app): void {
         // Web Push (agents/research/PWA.md §2b): subscribers + the "new chapter" send – only by an admin's tap
         $admin->get('/push', [AdminPushController::class, 'overview']);
         $admin->post('/push/new-chapter', [AdminPushController::class, 'newChapter']);
+        $admin->post('/push/team-test', [AdminPushController::class, 'teamTest']);
         $admin->get('/settings', [SettingsController::class, 'get']);
         $admin->put('/settings', [SettingsController::class, 'put']);
         // the email module (Domain\Mail): templates + previews, the sent-mail log, the admin notification recipients

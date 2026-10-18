@@ -835,10 +835,22 @@ is out", sent by an admin's tap (admin app → Emails → Push) – never automa
 | Method | Path | |
 |---|---|---|
 | GET | `/push/key` | `{ key }` – the VAPID public key (base64url), null = push is off on this server |
-| POST | `/push/subscribe` | `{ subscription: { endpoint, keys: { p256dh, auth } }, locale: de\|en }` → success; upsert by endpoint, the signed-in account remembered (deleted with it). 400 `invalid_subscription` unless https on a known push service (FCM, Mozilla, Apple, Windows) with valid keys. Per-IP limit 60/h |
+| POST | `/push/subscribe` | `{ subscription: { endpoint, keys: { p256dh, auth } }, locale: de\|en, app?: viewer\|creator\|admin\|embassy }` → success; upsert by endpoint, the signed-in account remembered (deleted with it); `app` (default viewer) = which app's messages it gets – 400 `invalid_app` otherwise. 400 `invalid_subscription` unless https on a known push service (FCM, Mozilla, Apple, Windows) with valid keys. Per-IP limit 60/h |
 | POST | `/push/unsubscribe` | `{ endpoint }` → success (deletes it) |
-| GET | `/admin/push` | `{ configured, subscribers: { total, locales }, sends: [{ id, toon, chapter, test, recipients, delivered, gone, failed, sent_at }] }` (last 20) |
+| GET | `/push/prefs?app=creator\|admin\|embassy` | signed in: `{ key, kinds: [{ kind, on, push }] }` – the team kinds this account may get in that tool (by role) and its switches (no row = on); `push: false` = a mail channel (`embassy.mail`). 401 / 400 `invalid_app` |
+| PUT | `/push/prefs` | signed in: `{ kind, on }` → the same answer for the kind's tool; 400 `invalid_kind` / `invalid_value`, 403 when the kind isn't for this account |
+| GET / POST | `/push/cron?key=<PUSH_CRON_KEY>` | the host's cron (every 5 min): the drafts kind → `{ result: { toons, notified, delivered } }`; key also as the HTTP Basic password; empty key = 404, wrong = 403 |
+| GET | `/admin/push` | `{ configured, subscribers: { total, locales, apps }, sends: [{ id, toon, chapter, test, recipients, delivered, gone, failed, sent_at }] }` (the last 20 "new chapter" sends; `total` / `locales` = the reader's browsers, `apps` = per app) |
 | POST | `/admin/push/new-chapter` | `{ toon, chapter, test?, dry_run? }` → `{ notification: { de, en: { title, body, url, tag } }, recipients, sent_before, configured }` + `delivered, gone, failed` when sent. The chapter must be published (the library's 403 / 404 otherwise); `test` = only the admin's own browsers; logged in `push_sends`; 409 `push_not_configured` without keys. A push service's 404 / 410 deletes the subscription, 5 other refusals in a row too |
+| POST | `/admin/push/team-test` | `{ kind }` → `{ recipients, delivered, gone, failed }` – a sample of a team kind to the admin's own browsers in that kind's tool (no switch, no "told once"); 409 `no_browser` when there are none, 400 `invalid_kind` |
+
+**Team push** (2026-10-18, migration `2026-10-18-team-push`, agents/research/PWA-APPS.md §5 – `Domain\Push\TeamPush`):
+`embassy.due` (the Embassy reminder's push, in the person's rhythm – `EmbassyReminders`; `embassy.mail` its mail
+channel), `admin.proposals` (a new proposal → every other admin, on create), `creator.reviews` (a publishing request →
+the reviewers mailed, on submit), `creator.drafts` (drafts someone else saved, 30 min at rest, no open request → the
+toon's reviewers, from `/push/cron`). Only to the kind's tool's browsers; never to the person who made the change; once
+per thing (`push_notified`); the person's switch per kind (`push_prefs`); no quiet hours; a newer one replaces the older
+on the phone (the tag). Push trouble never breaks the request that triggered it.
 
 ## Assets (the media asset layer, 2026-10-02 – agents/ASSETS.md)
 

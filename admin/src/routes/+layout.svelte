@@ -158,7 +158,9 @@
 						<span class="brand-name">{m['shell.admin']()}</span>
 					</a>
 					<PaletteTrigger label={m['shell.search']()} compact onclick={() => (paletteOpen = true)} />
-					<span class="who">{session.user?.email ?? ''}</span>
+					<!-- the signed-in account → "Benachrichtigungen" (push, the kinds, the app – research/PWA-APPS.md §6) -->
+					<a class="who" href="/notifications" title={pwaLabels(getLocale()).notifications}>{session.user?.email ?? ''}</a>
+					<a class="who-icon sc-round" href="/notifications" aria-label={pwaLabels(getLocale()).notifications} title={pwaLabels(getLocale()).notifications}><Icon name="bell" /></a>
 				</header>
 			{/snippet}
 			{#snippet sidebar()}
@@ -252,9 +254,24 @@
 		font-size: var(--type-caption-size);
 		color: var(--text-muted);
 	}
+	.who {
+		text-decoration: none;
+	}
+	.who:hover {
+		color: var(--ink);
+	}
+	.who-icon {
+		display: none;
+		flex: none;
+	}
 	@media (max-width: 1099px) {
 		.who {
 			display: none;
+		}
+		.who-icon {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
 		}
 	}
 	.burger {

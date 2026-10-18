@@ -1319,6 +1319,12 @@
 		"col_when": "When",
 		"col_chapter": "Chapter",
 		"col_result": "Delivered",
-		"test_mark": "test"
+		"test_mark": "test",
+		"team_title": "Team messages",
+		"team_hint": "They go by themselves (proposals, publishing requests, open drafts, the Embassy reminder) – each person switches them on in their tool under Notifications. Browsers: Creator {creator} · Admin {admin} · Embassy {embassy}. A test goes only to your own browsers in that tool.",
+		"kind_proposals": "New proposal",
+		"kind_reviews": "Publishing request",
+		"kind_drafts": "Open drafts",
+		"kind_embassy": "Reminder"
 	}
 }

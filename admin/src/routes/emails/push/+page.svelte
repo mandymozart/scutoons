@@ -14,6 +14,8 @@
 	 * Push notifications (agents/research/PWA.md §2b): how many browsers opted in, and "a new chapter is out" – the only
 	 * push there is, sent by an admin's tap here, never automatically. A test goes to the admin's own browsers first.
 	 * `?toon=&chapter=` prefills the form (a link from the admin's own AI: it never sends – RULES.md "drafts + a link").
+	 * Team: the tools' own messages go by themselves (research/PWA-APPS.md §5) – here a test of each kind to the admin's own
+	 * browsers in that tool.
 	 */
 	interface Notice {
 		title: string;
@@ -22,7 +24,7 @@
 	}
 	interface Overview {
 		configured: boolean;
-		subscribers: { total: number; locales: Record<string, number> };
+		subscribers: { total: number; locales: Record<string, number>; apps?: Record<string, number> };
 		sends: { id: number; toon: string; chapter: number; test: boolean; recipients: number; delivered: number; gone: number; failed: number; sent_at: string }[];
 	}
 	interface Draft {
@@ -79,6 +81,28 @@
 			.then((r) => toon === body.toon && Number(chapter) === body.chapter && (draft = r))
 			.catch((e) => (error = errorText(e)));
 	});
+
+	/** the team's kinds and the tool each lives in (Domain\Push\TeamPush::KINDS) */
+	const TEAM_KINDS = [
+		{ kind: 'admin.proposals', app: 'Admin', label: () => m['push.kind_proposals']() },
+		{ kind: 'creator.reviews', app: 'Creator', label: () => m['push.kind_reviews']() },
+		{ kind: 'creator.drafts', app: 'Creator', label: () => m['push.kind_drafts']() },
+		{ kind: 'embassy.due', app: 'Embassy', label: () => m['push.kind_embassy']() }
+	];
+
+	async function teamTest(kind: string) {
+		if (busy) return;
+		busy = true;
+		try {
+			const r = await api.post<{ recipients: number; delivered: number; gone: number; failed: number }>('/admin/push/team-test', { kind });
+			toaster.addToast({ message: m['push.sent']({ delivered: r.delivered, recipients: r.recipients, gone: r.gone, failed: r.failed }), type: 'success' });
+			await load();
+		} catch (e) {
+			toaster.addToast({ message: errorText(e), type: 'error' });
+		} finally {
+			busy = false;
+		}
+	}
 
 	async function send(test: boolean) {
 		if (!draft || busy) return;
@@ -144,6 +168,16 @@
 			<Button disabled={busy || !overview.configured || !draft.recipients} onclick={() => send(false)}>{m['push.send']()} · {number(draft.recipients)}</Button>
 		</p>
 	{/if}
+
+	<h2>{m['push.team_title']()}</h2>
+	<p class="muted" data-testid="push-team-subscribers">
+		{m['push.team_hint']({ creator: number(overview.subscribers.apps?.creator ?? 0), admin: number(overview.subscribers.apps?.admin ?? 0), embassy: number(overview.subscribers.apps?.embassy ?? 0) })}
+	</p>
+	<p class="actions" data-testid="push-team-tests">
+		{#each TEAM_KINDS as k (k.kind)}
+			<Button variant="secondary" disabled={busy || !overview.configured} onclick={() => teamTest(k.kind)}>{k.app} · {k.label()}</Button>
+		{/each}
+	</p>
 
 	{#if overview.sends.length}
 		<h2>{m['push.history']()}</h2>

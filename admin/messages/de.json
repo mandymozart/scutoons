@@ -1319,6 +1319,12 @@
 		"col_when": "Wann",
 		"col_chapter": "Kapitel",
 		"col_result": "Zugestellt",
-		"test_mark": "Test"
+		"test_mark": "Test",
+		"team_title": "Team-Nachrichten",
+		"team_hint": "Gehen von selbst (Vorschläge, Freigaben, offene Entwürfe, die Embassy-Erinnerung) – jede Person schaltet sie in ihrem Tool unter Benachrichtigungen ein. Angemeldete Browser: Creator {creator} · Admin {admin} · Embassy {embassy}. Ein Test geht nur an deine eigenen Browser im jeweiligen Tool.",
+		"kind_proposals": "Neuer Vorschlag",
+		"kind_reviews": "Freigabe",
+		"kind_drafts": "Offene Entwürfe",
+		"kind_embassy": "Erinnerung"
 	}
 }

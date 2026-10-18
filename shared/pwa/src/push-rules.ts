@@ -1,5 +1,6 @@
 // Web Push in the worker (agents/research/PWA.md §2b) – pure: what a push message shows, where a tap goes, the badge.
-// Tested in test/push-rules.test.ts; the handlers are lib/sw/push.ts.
+// Every app's worker (the reader, the tools – research/PWA-APPS.md §5). Tested in test/push-rules.test.ts; the handlers
+// are ./push-worker.ts.
 
 /** the badge's state: the tags counted since the app was last opened (the worker adds, lib/app-badge.ts clears) */
 export const BADGE_CACHE = 'scutoons-badge-v1';

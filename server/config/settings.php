@@ -88,6 +88,9 @@ return [
     // in all (below the host's max_execution_time), a new connection every PER_CONNECTION mails. A temporary failure is
     // tried again after RETRY_MINUTES, at most ATTEMPTS times. API_URL = where the unsubscribe links point.
     'NEWSLETTER_CRON_KEY' => '',
+    // Team push (research/PWA-APPS.md §5): the drafts kind runs from the host's cron, GET|POST /api/push/cron?key=… every
+    // 5 minutes (also the HTTP Basic password); empty = the URL answers 404 and no drafts are told about
+    'PUSH_CRON_KEY' => '',
     'NEWSLETTER_PER_HOUR' => '200',
     'NEWSLETTER_BATCH' => '20',
     'NEWSLETTER_DELAY_MS' => '1000',

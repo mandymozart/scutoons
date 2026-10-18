@@ -23,7 +23,7 @@ import { maySaved, networkThenSaved, reloadIndex, savedFirst } from '$lib/sw/sav
 import { isSavedDocRequest } from '$lib/sw/saved-rules.ts';
 import { onSync } from '$lib/sw/progress-sync.ts';
 import { API_URL } from '$lib/config.ts';
-import { registerPush } from '$lib/sw/push.ts';
+import { registerPush } from '@scutoons/pwa/worker';
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
 
@@ -149,8 +149,8 @@ if (__SW_OFF__) {
 		);
 	});
 } else {
-	// Web Push: the "new chapter" notification + the app badge (phase 4, lib/sw/push.ts)
-	registerPush(sw);
+	// Web Push: the "new chapter" notification + the app badge (phase 4, @scutoons/pwa push-worker.ts)
+	registerPush(sw as unknown as Parameters<typeof registerPush>[0], { badge: true });
 	sw.addEventListener('install', (event) => event.waitUntil(install()));
 	sw.addEventListener('activate', (event) => event.waitUntil(activate()));
 

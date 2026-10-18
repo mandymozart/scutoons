@@ -312,7 +312,8 @@ and products** (no new "pitch" record yet). The agent only **drafts**: a person 
   palette entry, and the agent's `search_orgs` `quiet`.
 - **Pace + weekly portion** (owner 2026-10-05: "consumable portions per day or per week … I need to outsource this and
   I want liaisons to stay on their own pace"; migration `2026-10-05-embassy-pace`): every liaison / ambassador sets
-  contacts per week (preset 10; 5/10/15/20 or any 1–100) and a reminder (Mondays – preset, every working day, none) in
+  contacts per week (preset 10; 5/10/15/20 or any 1–100) and a reminder (Mondays – preset, every working day, none; by
+  push and / or mail – the person's switches in the Embassy's "Benachrichtigungen", push on by default, 2026-10-18) in
   an **onboarding** on their first visit, changeable on Today any time. The onboarding also asks their **first name**
   (required; owner 2026-10-07: mails are signed with the writer's first name) – the account's `display_name`
   (`PUT /me/`, the same name readers see); Today asks for it when it is missing and edits it with the pace. The AI reads it

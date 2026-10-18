@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Scutoons\Domain\Admin;
 
 use Scutoons\Domain\ApiError;
+use Scutoons\Domain\Push\TeamPush;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Database\Database;
 use Scutoons\Support\Ids;
@@ -26,7 +27,7 @@ final class Proposals
     private const JSON_FLAGS = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION;
     private const SELECT = 'SELECT p.*, a.email AS author_email, d.email AS decider_email FROM admin_proposals p LEFT JOIN users a ON a.id = p.created_by LEFT JOIN users d ON d.id = p.decided_by';
 
-    public function __construct(private readonly Database $db, private readonly Clock $clock)
+    public function __construct(private readonly Database $db, private readonly Clock $clock, private readonly TeamPush $push)
     {
     }
 
@@ -68,7 +69,14 @@ final class Proposals
             'INSERT INTO admin_proposals (id, title, changes, calendar_base, source, status, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
             [$id, $title, $json, $base, $source, 'open', (string) $user['id'], $this->clock->utc()]
         );
-        return $this->get($id);
+        $proposal = $this->get($id);
+        // every other admin by push in the admin app (research/PWA-APPS.md §5) – never breaks the request
+        try {
+            $this->push->proposalCreated($proposal, $user);
+        } catch (Throwable) {
+            // push trouble (or its tables not migrated yet): the proposal is stored
+        }
+        return $proposal;
     }
 
     /**

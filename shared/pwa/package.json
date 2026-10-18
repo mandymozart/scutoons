@@ -17,8 +17,8 @@
 			"default": "./src/index.ts"
 		},
 		"./worker": {
-			"types": "./src/tool-worker.ts",
-			"default": "./src/tool-worker.ts"
+			"types": "./src/worker.ts",
+			"default": "./src/worker.ts"
 		}
 	},
 	"files": [
@@ -26,7 +26,7 @@
 	],
 	"scripts": {
 		"check": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings && npm run test",
-		"test": "node --experimental-transform-types --no-warnings --test test/install-rules.test.ts"
+		"test": "node --experimental-transform-types --no-warnings --test test/install-rules.test.ts test/push-rules.test.ts"
 	},
 	"dependencies": {
 		"@scutoons/tokens": "*",

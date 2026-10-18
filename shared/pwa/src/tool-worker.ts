@@ -6,9 +6,12 @@
 //   unchanged files are carried over from the previous version's cache
 // - the manifest, the app icons, the favicon: network first, the cache when offline
 // - never: the API, the CDN, other origins, non-GET requests – a tool shows live data or nothing (no content cache)
+// - Web Push: the team's notifications (./push-worker.ts – a tap opens the page in this app)
 // Updates: a new worker waits until the page says SKIP_WAITING (./tool-pwa.svelte.ts, the update bar); the very first
 // install takes the open page at once. Kill switch: `off` (VITE_SW=off) – the worker deletes this app's caches and
 // unregisters itself.
+
+import { registerPush, type PushScope } from './push-worker.ts';
 
 /** the bits of the worker scope this file uses (the app's service-worker.ts passes `self`) */
 export interface WorkerScope {
@@ -46,7 +49,7 @@ export interface ToolWorkerOptions {
 /** the static files a tool's first paint and install need (the rest of static/ stays network only) */
 export const TOOL_STATIC = /^\/(site\.webmanifest|favicon[^/]*|app-icon-[^/]+|SCUTOONS-logo[^/]*\.svg)$/;
 
-export function startToolWorker(sw: WorkerScope, options: ToolWorkerOptions) {
+export function startToolWorker(sw: WorkerScope & PushScope, options: ToolWorkerOptions) {
 	const prefix = `scutoons-${options.app}-`;
 	const cacheName = `${prefix}shell-${options.version}`;
 	const build = new Set(options.build);
@@ -64,6 +67,8 @@ export function startToolWorker(sw: WorkerScope, options: ToolWorkerOptions) {
 		);
 		return;
 	}
+
+	registerPush(sw);
 
 	sw.addEventListener('install', (event) =>
 		event.waitUntil(

@@ -9,6 +9,7 @@ use Scutoons\Domain\Catalog\Toons;
 use Scutoons\Domain\Mail\MailFailed;
 use Scutoons\Domain\Mail\Mailer;
 use Scutoons\Domain\Mail\MailTemplates;
+use Scutoons\Domain\Push\TeamPush;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Config\Settings;
 use Scutoons\Infrastructure\Database\Database;
@@ -59,6 +60,7 @@ final class Reviews
         private readonly Settings $settings,
         private readonly Toons $toons,
         private readonly CatalogDocs $docs,
+        private readonly TeamPush $push,
     ) {
     }
 
@@ -298,6 +300,14 @@ final class Reviews
                 'note' => $note,
                 'url' => $this->creatorUrl(),
             ]);
+        }
+        // the same people by push in the creator app (research/PWA-APPS.md §5) – never breaks the request
+        try {
+            $toons = [];
+            foreach ($mails as $mail) foreach (array_keys($mail['toons']) as $t) $toons[(string) $t] = true;
+            $this->push->reviewRequested(array_map('strval', array_keys($mails)), array_keys($toons), count($reviews), array_map(static fn(array $r) => $r['id'], $reviews), $user);
+        } catch (\Throwable) {
+            // push trouble (or its tables not migrated yet): the mails went out
         }
         $emails = [];
         foreach ($reviewers as $list) foreach ($list as $r) $emails[$r['email']] = true;

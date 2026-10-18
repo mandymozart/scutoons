@@ -1,4 +1,4 @@
-Status: concept 2026-10-18 – §2–§4 built (the tools installable: manifest, icons, app-shell worker, install / update bars, @scutoons/pwa); §5 team push is a plan waiting for the owner's answers (§6). Reader PWA: research/PWA.md.
+Status: built 2026-10-18 – §2–§4 (the tools installable: manifest, icons, app-shell worker, install / update bars, @scutoons/pwa) and §5 team push after the owner's answers (§6); owner step: PUSH_CRON_KEY + its cronjob (FEATURES 10.108). Reader PWA: research/PWA.md.
 
 # PWA-APPS — creator, admin and embassy as installable apps, push for the team
 
@@ -64,7 +64,7 @@ key stays `scutoons_install`). The tools draw `InstallBar` (texts de/en in `labe
   own horizontal scroller (DataTable), never the page. Checked 2026-10-18 at 390 px: nothing wider than the page – but
   only the sign-in screens (the local MariaDB was down); the signed-in pages are still to check (§7).
 
-## 5. Push for the team (plan – not built; waits for §6)
+## 5. Push for the team (built 2026-10-18)
 
 ### 5.1 What exists (server, PWA.md §2b)
 `push_subscriptions` (endpoint, keys, `user_id` nullable, `locale`, failures) – no app / origin and no kind; `push_sends`
@@ -73,33 +73,36 @@ key stays `scutoons_install`). The tools draw `InstallBar` (texts de/en in `labe
 Scheduling: no queue – cron URLs the host calls (KAS cronjobs: `/api/embassy/cron` daily 07:00, `/api/newsletter/cron`
 every 5 min), each guarded by a key. Only the reader has a worker that shows notifications.
 
-### 5.2 Changes
-- `push_subscriptions.app` (`viewer|creator|admin|embassy`, from the request's Origin): a tool's push goes only to that
-  tool's subscriptions – a tap opens the right app; the reader's "new chapter" stays `viewer` only.
-- `push_prefs (user_id, kind, on)` – the person's own opt-in per kind, account-wide (all their devices); a subscription
-  of a signed-in team member is the device part (dogma §0.6: device → the switch, account → the kinds).
-- `push_notified (user_id, kind, ref, sent_at)` – what a person was told about, so nothing repeats (a draft, a review,
-  a proposal once; the embassy portion once per day).
-- The tools' worker gets the push + notificationclick handlers (the reader's `lib/sw/push.ts` moves to `@scutoons/pwa`;
-  only paths on the app's own origin open).
-- One cron URL `/api/push/cron?key=` every 15 min (a KAS cronjob like the newsletter's); each kind decides whether it
-  is due. Sends stay synchronous – a team is tens of devices.
+### 5.2 What changed (migration `2026-10-18-team-push`, `Domain\Push\TeamPush`)
+- `push_subscriptions.app` (`viewer|creator|admin|embassy`, sent by the app with the subscription): a tool's push goes
+  only to that tool's subscriptions – a tap opens the right app; the reader's "new chapter" stays `viewer` only.
+- `push_prefs (user_id, kind, on)` – the person's own switch per kind, account-wide (all their devices; no row = on); a
+  subscription is the device part (dogma §0.6: device → the switch, account → the kinds). `embassy.mail` = the Embassy
+  reminder's mail channel.
+- `push_notified (user_id, kind, ref, sent_at)` – what a person was told about, so nothing repeats (a review request, a
+  proposal, a draft version once; the Embassy reminder once per day).
+- Every worker shares the push handlers (`@scutoons/pwa/worker` `registerPush` – moved from the reader; the reader's
+  app badge stays the reader's); only paths on the app's own origin open.
+- One cron URL `/api/push/cron?key=PUSH_CRON_KEY` every 5 min (a KAS cronjob like the newsletter's) – only the drafts
+  need it; reviews and proposals go at once, the Embassy reminder with its daily cron. Sends stay synchronous.
 
 ### 5.3 The kinds
 
 | Kind | App | Who gets it | What | When |
 |---|---|---|---|---|
 | `embassy.due` | embassy | the lead's `owner_id` (liaison / ambassador / admin), not when `do_not_contact` | "3 contacts are due today" → `/` (the weekly portion) | the person's existing reminder choice (`embassy_pace.reminder` daily / Mondays / off) at their reminder time – a second channel of the same reminder (EmbassyReminders), never in addition to its rhythm |
-| `admin.proposals` | admin | every admin except the proposal's author | "2 proposals wait" → `/proposals` | a digest at most every 4 h while any is open and new since the last one |
-| `creator.reviews` | creator | the reviewers of that toon (`content_review_rules` reviewer, toon or `*`), never the author | "Chapter 2 waits for your review" → the review | on submit (as the mail today), collapsed per review |
-| `creator.drafts` | creator | see question 3 | "Catpope: 2 drafts by Nova since yesterday" → the toon | a daily digest; only drafts whose newest version is someone else's (`entity_versions.author ≠ me`), not `sameAsPublished`, older than 2 h (nobody is mid-edit) |
+| `admin.proposals` | admin | every admin except the proposal's author | "Neuer Vorschlag · <title> – von <name>" → `/proposals/<id>` | at once, on create |
+| `creator.reviews` | creator | the reviewers the request was mailed to (the toon's, the physical rule's), never the author | "Zur Freigabe: <toon> · <name> bittet dich um Freigabe" → the creator | at once, on submit |
+| `creator.drafts` | creator | only the toon's reviewers (`content_review_rules` reviewer, the toon or `*`), never about their own drafts | "<toon>: Entwürfe warten · 2 Entwürfe von Nova …" → the toon | the cron: the newest version is a person's draft, newer than the published one, 30 min at rest, at most 7 days old, no open publishing request |
 
 - **Never to the actor**: every kind filters the person who made the change (author, `created_by`, `decided_by`).
-- **Quiet hours**: nothing between 21:00 and 08:00 (Europe/Vienna); what falls in them goes with the first run after
-  08:00. **Batching**: one notification per kind and person per run; the notification `tag` = the kind, so a newer
-  one replaces the older on the phone.
-- **Opt-in**: each tool gets "Benachrichtigungen" (the device switch + its kinds) – where is question 6.
-- Admin "Push" page: a test send per kind to the admin's own devices; `push_sends` logs every run (kind, recipients).
+- **No quiet hours** (owner): sent right away, also at night. **Batching**: one notification per kind and person per
+  run (the drafts: per toon); the notification `tag` = the kind, so a newer one replaces the older on the phone.
+- **Opt-in**: each tool's "Benachrichtigungen" (`/notifications`, the shared `NotificationsPage`; the top bar's
+  signed-in e-mail links there, on narrow screens a round bell): the switch for this device, the kinds, "App
+  installieren". The Embassy reminder: push and / or mail, the same rhythm.
+- Admin → Emails → Push: "Team-Nachrichten" – the browsers per tool and a test per kind to the admin's own browsers;
+  `push_sends` logs every send (kind, recipients).
 
 ## 6. The owner's answers (2026-10-18)
 

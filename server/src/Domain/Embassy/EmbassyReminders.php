@@ -8,6 +8,7 @@ use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Mail\MailFailed;
 use Scutoons\Domain\Mail\Mailer;
 use Scutoons\Domain\Mail\MailTemplates;
+use Scutoons\Domain\Push\TeamPush;
 use Scutoons\Infrastructure\Config\Settings;
 use Scutoons\Infrastructure\Templates\Templates;
 
@@ -21,6 +22,8 @@ use Scutoons\Infrastructure\Templates\Templates;
  * Embassy role; no mail when the portion has no items and no check-in is due. The mail is the registered template
  * `embassy_portion` (MailTemplates, from MAIL_FROM, in the account's language, a mail_log row like every mail) with a
  * link to the Today page (EMBASSY_URL). Reminders go ONLY to the team member – nothing here ever mails a contact.
+ * Channels (owner 2026-10-18, research/PWA-APPS.md §5): the same rhythm by mail and / or push – the person's switches
+ * `embassy.mail` and `embassy.due` (TeamPush, both on by default; the push only reaches a browser that switched it on).
  */
 final class EmbassyReminders
 {
@@ -34,6 +37,7 @@ final class EmbassyReminders
         private readonly Mailer $mailer,
         private readonly Settings $settings,
         private readonly Templates $templates,
+        private readonly TeamPush $push,
     ) {
     }
 
@@ -79,16 +83,43 @@ final class EmbassyReminders
                 continue;
             }
             $locale = MailTemplates::locale($row['locale']);
+            $daily = $row['reminder'] === 'daily';
+            $mailed = false;
+            $mailFailed = false;
+            if ($this->channel($row['user_id'], 'embassy.mail')) {
+                try {
+                    $this->mailer->send(MailTemplates::EMBASSY_PORTION, $row['email'], $locale, $this->vars($portion, $daily, $checkin, $locale));
+                    $mailed = true;
+                } catch (MailFailed) {
+                    $mailFailed = true;
+                }
+            }
+            // the push says how many are due (today's slice when daily) – a check-in alone is the mail's
+            $count = $daily ? min(count($portion['items']), (int) $portion['today_count']) : count($portion['items']);
+            $pushed = false;
             try {
-                $this->mailer->send(MailTemplates::EMBASSY_PORTION, $row['email'], $locale, $this->vars($portion, $row['reminder'] === 'daily', $checkin, $locale));
-            } catch (MailFailed) {
-                $result['failed']++;
+                $pushed = $this->push->embassyDue($row['user_id'], $count, $daily, $today);
+            } catch (\Throwable) {
+                // push trouble: the mail decides
+            }
+            if (!$mailed && !$pushed) {
+                $result[$mailFailed ? 'failed' : 'skipped']++;
                 continue;
             }
             $this->pace->markReminded($row['user_id']);
             $result['sent']++;
         }
         return $result;
+    }
+
+    /** the person's switch for a channel (on by default; before the push migration: the mail as before) */
+    private function channel(string $userId, string $kind): bool
+    {
+        try {
+            return $this->push->on($userId, $kind);
+        } catch (\Throwable) {
+            return true;
+        }
     }
 
     /**

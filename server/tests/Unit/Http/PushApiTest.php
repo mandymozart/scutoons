@@ -177,7 +177,7 @@ final class PushApiTest extends TestCase
 
         $overview = self::json($this->request('GET', '/api/admin/push', null, $auth));
         self::assertTrue($overview['configured']);
-        self::assertSame(['total' => 3, 'locales' => ['de' => 2, 'en' => 1]], $overview['subscribers']);
+        self::assertSame(['total' => 3, 'locales' => ['de' => 2, 'en' => 1], 'apps' => ['viewer' => 3]], $overview['subscribers']);
         self::assertSame([false, true], array_column($overview['sends'], 'test'));
         self::assertSame(1, self::json($this->request('POST', '/api/admin/push/new-chapter', ['toon' => 't', 'chapter' => 1, 'dry_run' => true], $auth))['sent_before']);
         self::assertNotEmpty($adminId);

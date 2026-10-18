@@ -334,7 +334,9 @@
 						{#if nav.actions}{@render nav.actions()}{/if}
 					{/if}
 					<PaletteTrigger label={m['palette.search']()} compact onclick={() => (paletteOpen = true)} />
-					<span class="who">{session.user?.email ?? ''}</span>
+					<!-- the signed-in account → "Benachrichtigungen" (push, the kinds, the app – research/PWA-APPS.md §6) -->
+					<a class="who" href="/notifications" title={pwaLabels(getLocale()).notifications}>{session.user?.email ?? ''}</a>
+					<a class="who-icon sc-round" href="/notifications" aria-label={pwaLabels(getLocale()).notifications} title={pwaLabels(getLocale()).notifications}><Icon name="bell" /></a>
 				</header>
 				{#if phone.current && nav.crumbs.length > 1}
 					<div class="crumb-row" data-testid="crumb-row">
@@ -475,10 +477,25 @@
 		font-size: var(--type-caption-size);
 		color: var(--muted);
 	}
+	.who {
+		text-decoration: none;
+	}
+	.who:hover {
+		color: var(--ink);
+	}
+	.who-icon {
+		display: none;
+		flex: none;
+	}
 	/* the account only where the full trail still fits beside it (the crumbs come first, E.2) */
 	@media (max-width: 1599px) {
 		.who {
 			display: none;
+		}
+		.who-icon {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
 		}
 	}
 	@media (max-width: 767px) {

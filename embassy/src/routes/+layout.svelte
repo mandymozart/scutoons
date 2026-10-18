@@ -142,6 +142,8 @@
 						{/each}
 					</nav>
 					<PaletteTrigger label={m['palette.search']()} compact onclick={() => (paletteOpen = true)} />
+					<!-- the signed-in account → "Benachrichtigungen" (push, the kinds, the app – research/PWA-APPS.md §6) -->
+					<a class="who-icon sc-round" href="/notifications" aria-label={pwaLabels(getLocale()).notifications} title="{pwaLabels(getLocale()).notifications} · {session.user?.email ?? ''}"><Icon name="bell" /></a>
 				</header>
 			{/snippet}
 			<main>
@@ -169,6 +171,12 @@
 </div>
 
 <style>
+	.who-icon {
+		flex: none;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
 	/* Embassy chrome: DESIGN.md Part 1 like the admin (IBM Plex Mono, ink/paper, square, 2px rules, cyan as fill),
 	   but phone first: the Today list is worked on the go, the navigation sits at the bottom below 768px.
 	   DESIGN.md "Brutalist tools": the reader's fluid root and type styles (tools.css via `sc-tool`), no px font sizes. */
