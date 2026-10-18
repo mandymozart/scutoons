@@ -33,8 +33,10 @@ From the old MEMORY.md (archive/MEMORY.md, 2026-09-28 … 10-04) and later sessi
 ## CSS
 - base.css `h1–h6 { font-weight: 400 }` beats `:where()` rules → tools.css headings use `.sc-tool :where(h…)`.
 - Creator-wide button rules are zero-specificity and `inline-flex`: row buttons need `justify-content`, not `text-align`.
-- `container-type` on `.slice` makes it a stacking context + containing block for `position: fixed`; chapter-1 split
-  text boxes rely on the later slice painting over the earlier one – keep it.
+- `container-type` (on `.slice`, a collage `.piece` …) is a stacking context + containing block for `position: fixed`
+  only in older engines – Chrome < 129, Firefox < 131, Safari / every iPhone browser up to iOS 18 (layout containment,
+  dropped 2024): code must work both ways – a blend group gets its own `isolation: isolate`, fixed layers live outside
+  `.slice` (fx `fxLayer`), a text box past its slice is cut on an old iPhone (research/TEXT-ACROSS-SLICES.md §1).
 
 ## Browser checks
 - The Browser pane's key name `Return` does not fire `Enter` – use `Enter`.

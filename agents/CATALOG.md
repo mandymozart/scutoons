@@ -214,3 +214,25 @@ don't alter data on load); code type save confirmation.
 fine" stores `accepted_warnings` in the entry's `data` (a list-wide warning in meta `items`): the open entry → its form
 (unsaved); another entry → saved at once (history note "warning accepted", undo). Readers never get the field
 (`CatalogStore::reader`); a malformed list is a 422. No migration (the field lives in `data`).
+
+## Score collages (2026-10-18, research/COLLAGE.md §4)
+
+- **Data:** a score item's `score.collage` (the full score) / `score.parts.<name>.collage` = `{ file, pieces }` in the
+  item's data (its `item:<id>` document: drafts, history, Publish like every entry). `file` = the MusicXML it was placed
+  on; `pieces` = `CollagePiece`s (DATA.md §2 "Collage pieces", CDN-root `src`) with `at: { bar, nth?, staff?, page? }` –
+  x in % of the bar's time (a piece on a note stays on it whatever the line breaks), y in staff spaces below the
+  staff's top line, the width in staff spaces; `at.page` = % of the page holding the bar; `behind` = under the notes.
+- **Server:** `CatalogValidator::collage` checks each one at a write (structure, unique ids, media `src`, `at.bar`, the
+  blend in `BLEND_MODES` – CatalogTest keeps the list equal to collage.ts); `publicItem` drops it (`/api/items/` never
+  names a vault path); `GET /api/items/<id>/score/musicxml[?part=]` answers `collage: { pieces }` next to the signed URL
+  for the score / part opened (never `file`; the PDF none) and the viewer's score view draws them.
+- **Creator:** Catalog → Items → a score → More → **Collage** → `/catalog/items/<id>/collage`, on the part readers open
+  (choir, else the full score; the published file, signed like a reader's – a never-published item does not open):
+  the readers' phone / desktop screen with their score view (their sizes, so their page breaks; zoom 30 / 40); a piece
+  moves on the page re-anchored to the bar + staff under the pointer (one undo step a drag), a round corner handle
+  scales it; the list (over / behind, ⚠ a bar the file lacks) and the piece inspector beside it (below under 1280px).
+  The first piece writes `collage = { file, pieces: [] }`, removing the last takes it away; a replaced file shows "made
+  on another file – check the bars" + **Checked**. `npm run check:creator-collage` (cloud9_en; its drafts deleted again).
+- An entry only in the table (no document yet: an admin write, a migration – locally the score items) starts its
+  creator document from the table's data (`loadCatalogDoc`, `ContentDoc.startFrom`): unchanged until edited, the first
+  save is its first version.

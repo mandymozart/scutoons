@@ -112,8 +112,8 @@ Built: the catalog model and the server (2026-10-14); the admin fields and the r
   A used-up container lets its contents fall out. A gifted container moves as itself with its giftable contents
   (answer `contents: { went, stayed }`); the import keeps a guest's `local_id` / `in`.
 - Score files: `GET /api/items/{id}/score/{musicxml|pdf}` → a short-lived bunny.net signed URL (`ProtectedFiles`,
-  PROTECTED_CDN_URL / _KEY); MusicXML for anyone, PDF for a signed-in owner; `/api/items/` shows only
-  `score: { language, pdf: bool }`.
+  PROTECTED_CDN_URL / _KEY); MusicXML for anyone (with the opened score's / part's collage pieces – CATALOG.md "Score
+  collages"), PDF for a signed-in owner; `/api/items/` shows only `score: { language, pdf: bool }`.
 - `holds: { categories?, items?, formats?, max?, overfill?: { days, max, breaks_into } }` makes an item a container: an
   item fits when its category OR its id OR its sound-carrier `format` (vinyl / cd / tape) is listed (`fitsIn`; owner
   2026-10-16: CDs → CD case / CD tower, LPs → DJ trolley / record bag / record shelf, tapes → cassette rack); never a
@@ -122,7 +122,7 @@ Built: the catalog model and the server (2026-10-14); the admin fields and the r
   `not_set_up`; owner 2026-10-16); `max` = capacity (none = no limit); `overfill` = a soft limit up to `overfill.max` that breaks the container into `breaks_into` after `days`
   (`moveInCheck` → ok / overfill / full, `breaksAt`).
 - `ages: { tint_days, spots_days, full_days }` – the look from the entry's creation (`ageLook` → tint, spots 0 … 1).
-- `score: { language, musicxml, pdf? }` on a `category: "score"` item – one language per score.
+- `score: { language, musicxml, pdf?, collage? }` on a `category: "score"` item – one language per score.
 - Recipes: an input with `keep: true` stays (a tool – at least one input is used up); `output.variant_from: <input>`
   gives the output that input's variant.
 

@@ -271,6 +271,16 @@ true, the same in every language (the creator writes it to every locale like the
 locales differ; not a boolean = error). Readers with "Hide sensitive content" on see the slice blurred and muted
 (ITEMS.md "Sensitive slices"). Nothing stored needs a migration.
 
+**Collage pieces (2026-10-18, research/COLLAGE.md):** `Slice.pieces?: CollagePiece[]` (`@scutoons/content`
+collage.ts; back → front, no `layer`) – language-neutral like the slice's media: `{ id, src, ratio, rect: { x, y,
+width }, anchor?, rotation?, preset?, style?, figure? }`, never a height (the file's `ratio` gives it). `src` is a media
+path in the toon's form (`vectors/x.svg` in catpope, `../catpope/vectors/x.svg` elsewhere), so the asset usages, the
+delete check, relink / rename and saving a chapter offline pick it up unchanged; `figure` (how a character picture was
+picked) is not `character` – it never adds the character to the cast or the offline save. Score items carry theirs in
+the catalog (CATALOG.md "Score collages"). Validation: `collageProblems` (checkSlice / validateContainers); the
+regenerated schemas make the server's save guard enforce blend modes, views and required keys. All keys new and
+optional – no migration.
+
 ## 3. API
 
 **Library** (public GETs, readers; `LibraryController`): `/api/library/toons` · `/library/toons/<toon>?locale=`

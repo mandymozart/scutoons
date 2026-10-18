@@ -54,6 +54,7 @@ overrides that break it.
   `radius-full` 50% (circular icon toggles, map markers only).
 - Border width: `hairline` 1px (form fields, badge) · `regular` 2px (structural).
 - **Borders over shadows** — no elevation scale. `filter: drop-shadow` only as a VFX glow on acid colors / inventory frame.
+  A collage piece's shadow / outline / blur (Part 2 "Collage pieces") is art in the content, not UI chrome.
 - **Page sections** (owner 2026-10-14: on long pages "it is hard to differentiate where what ends"): a long page's
   sections are `.sc-section` (tools.css) – a stack; each following section starts after `space-15`, a 2px ink rule and
   `space-15` again. No local section styles. Used by the creator's character, toon, season and cover pages.
@@ -688,6 +689,26 @@ onomatopoeia field (the old one was dropped 2026-10-03).
 - Overflow guard: if translated text exceeds the box, shrink font down to 80% via a `fit` pass
   (ResizeObserver), then allow overflow; the exporter report lists boxes where `en` is > 130% of `de` length.
 
+### Collage pieces (owner 2026-10-17, built 2026-10-18 – research/COLLAGE.md)
+
+Vectors (the shape library, `catpope/vectors/`), character pictures (a mood's avatar / portrait / full) and images on a
+slice's picture or on a score: one piece (`CollagePiece`, @scutoons/content collage.ts), one renderer
+(`CollagePieceView`), one picker, one inspector ("Compact inspector" below), two hosts.
+- **Slices:** on the picture – under every text box, item and area, clipped to it, in array order (`slice.pieces`, back
+  → front, no `layer`); picture slices only (pieces on a video slice warn), hidden while a sensitive slice is blurred.
+  Picture + pieces are one isolated blend group (`SlicePicture`, `.slice-media`): a blend reaches the art alone, the
+  same in every layout. **Scores:** on a bar + staff, over or behind the notes (CATALOG.md "Score collages").
+- **Never distorted:** only the width is stored, the height follows the file's `ratio`; rotation yes, no mirroring.
+  Outline, shadow and blur are % of the piece's width – the same look at every size.
+- **Looks:** ten code looks (ink, red, cyan, negative, burn, acid, sticker, glow, ghost, fade); a piece names one
+  (`preset`) and may replace single values (`style`, `null` = off) – a look's change reaches every piece naming it.
+  Blend = the 16 CSS modes.
+- **Slice editor:** the scissors tool – a click opens the picker (Shapes · Characters, **Image …**; a character never
+  joins the cast) and the piece lands centred there, 30 % wide; a drag sets its corner and width; "+ Add a piece …" in
+  Layers puts it in the middle. Canvas: move, rotate, scale evenly (no side handles), a ramp blur's two dots; a piece
+  takes the pointer only under the scissors or while selected (another tool draws over art). Layers: pieces below the
+  stack after a heavier rule; a drag reorders within a side, never across.
+
 ### Figma → config mapping
 
 | Figma | Config |
@@ -849,10 +870,11 @@ Three kinds, three places; none moves the layout:
 - **One system:** Cmd/Ctrl+C / X / V act on the LIVE region's selection only (the selection model, E.8); Ctrl/Cmd+
   Shift+V pastes the settings only onto the selection. In a text field, or with page text selected, the keys stay the
   browser's. Ctrl+X cuts (copy + remove); Delete / Backspace only remove.
-- **What pastes where:** the slice canvas + inspector (one region): a text box, a placed item, a sound area, an event
-  area – as a new one on the open slice (a step offset when it would sit on another, on top of the layer stack);
-  Shift+V: a box's look / a placement's action, qty, repeat, respawn, events / a sound area's sound + trigger / an event
-  area's event, onto the selected one of the same kind. VN events (a group script): after the last picked one; Shift+V
+- **What pastes where:** the slice canvas + inspector (one region): a text box, a placed item, a collage piece, a sound
+  area, an event area – as a new one on the open slice (a step offset when it would sit on another, on top of the layer
+  stack – a piece on top of the pieces); Shift+V: a box's look / a placement's action, qty, repeat, respawn, events / a
+  piece's look (preset + own values) / a sound area's sound + trigger / an event area's event, onto the selected one of
+  the same kind. VN events (a group script): after the last picked one; Shift+V
   = params + `if` of the copied event of the same type. Slices: after the last picked slice, with boxes, items, events
   and their sounds; Shift+V = audio + events. Groups (the tree): after the last picked / open group (a separate scene
   is pasted as a group of the chapter), labels kept unique; Shift+V = renderer, end, `continues`.
@@ -872,7 +894,8 @@ Three kinds, three places; none moves the layout:
   (`sc-seg is-column`, `Segmented vertical`). **View**: the grid (one button, pressed = snap on, the size in its
   corner; hold, right-click, the corner number or → open the sizes 5 / 10 / 15 / 30 – picking one switches snap on),
   the zoom (a zoom icon), and – when the slice has texts with `{…}` – the sample-reader preview (an eye, pressed when
-  not "as written"). **Content**: text · item · sound · event (each opens its inspector tab).
+  not "as written"). **Content**: text · item · piece (Feather `scissors`, collage pieces) · sound · event (each opens
+  its inspector tab; text, item and piece share Layers, which keeps the one picked).
 - **Flyouts**: one at a time, beside its button, over the canvas; Esc / ← / a click outside closes it, the focus goes
   back to its button. The zoom flyout is the Flow's look – one square group: zoom out · percentage · zoom in · fit ·
   **1:1** (original size).
@@ -901,6 +924,11 @@ Three kinds, three places; none moves the layout:
 - **Text size**: shown in rem (default), pt or px of the slice at 1x (1rem = 16px, 1pt = 4/3px), the unit a switch
   beside it, remembered per browser; stored as % of the slice width (`Dialog.size`, the reader scales the slice).
 - Pilot: the text box inspector. `PropField` stays for page forms.
+- **The piece inspector** (collage, `PieceInspector` – slices and the score stage): the head "Shape / Character / Image
+  · name" + Remove; a character's mood + view (avatar / portrait / full) outside the fold; the looks as a `Segmented`
+  grid ("As drawn" + the ten looks – a pick drops the piece's own values); the rest in one fold (open when the piece has
+  its own values): place, size + rotation, Over / Behind (scores), blend + opacity, fill, outline, shadow, blur. The
+  effect fields show the piece as drawn (clearing a look's effect = off); ≤ 3 controls a line.
 
 ### Phones and tablets (owner-approved phone draft 2026-10-07, BACKLOG 10.50, UI-CONCEPTS E.9) – creator, admin, embassy
 
