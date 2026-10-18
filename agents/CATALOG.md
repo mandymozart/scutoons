@@ -222,10 +222,12 @@ fine" stores `accepted_warnings` in the entry's `data` (a list-wide warning in m
   on; `pieces` = `CollagePiece`s (DATA.md §2 "Collage pieces", CDN-root `src`) with `at: { bar, nth?, staff?, page? }` –
   x in % of the bar's time (a piece on a note stays on it whatever the line breaks), y in staff spaces below the
   staff's top line, the width in staff spaces; `at.page` = % of the page holding the bar; `behind` = under the notes.
-- **Server:** `CatalogValidator::collage` checks each one at a write (structure, unique ids, media `src`, `at.bar`, the
-  blend in `BLEND_MODES` – CatalogTest keeps the list equal to collage.ts); `publicItem` drops it (`/api/items/` never
-  names a vault path); `GET /api/items/<id>/score/musicxml[?part=]` answers `collage: { pieces }` next to the signed URL
-  for the score / part opened (never `file`; the PDF none) and the viewer's score view draws them.
+- **Server:** `CatalogValidator::collage` checks each one at a write (structure, `file` under `scores/`, unique ids,
+  media `src`, `at.bar`, the blend in `BLEND_MODES` – CatalogTest keeps the list equal to collage.ts –, the colours
+  #rgb / #rrggbb: fill, gradient stops, outline, shadow); the creator's validator checks `collage.file` under `scores/`
+  too, so the stage names it before Publish; `publicItem` drops it (`/api/items/` never names a vault path);
+  `GET /api/items/<id>/score/musicxml[?part=]` answers `collage: { pieces }` next to the signed URL for the score / part
+  opened (never `file`; the PDF none) and the viewer's score view draws them.
 - **Creator:** Catalog → Items → a score → More → **Collage** → `/catalog/items/<id>/collage`, on the part readers open
   (choir, else the full score; the published file, signed like a reader's – a never-published item does not open):
   the readers' phone / desktop screen with their score view (their sizes, so their page breaks; zoom 30 / 40); a piece

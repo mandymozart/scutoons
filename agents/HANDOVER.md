@@ -44,17 +44,17 @@ Decisions: agents/DECISIONS.md.
   The sketch → 3D experiment is removed; its learnings: research/CHARACTERS3D.md.
 
 ## Last run
-2026-10-18 night → morning, unattended on `main`; this run pushed nothing.
-- **Collage pieces** (owner 2026-10-17, research/COLLAGE.md §8 steps 1–7, nothing cut): vectors, character pictures and
-  images on slices (a slice → the scissors tool; looks, blend, fill, outline, shadow, blur in the piece inspector;
-  readers see them on picture slices, under the lettering) and on scores (Catalog → Items → Cloud 9 → More → Collage:
-  a piece sticks to a bar + staff; readers get them with the MusicXML). Built with COLLAGE §10's defaults (FEATURES 10.105).
+2026-10-18 night → afternoon, unattended on `main`; this run pushed nothing.
+- **Collage pieces** (owner 2026-10-17, research/COLLAGE.md §8 steps 1–7, nothing cut, a review fixed in 5 groups):
+  vectors, character pictures, images on slices (the piece tool; on picture slices, under the lettering) and on scores
+  (Catalog → Items → Cloud 9 → More → Collage: on a bar + staff, sent with the MusicXML). §10's defaults (FEATURES 10.105).
 - **Vector library** (research/VECTORS.md steps 3–5): Scrooge in parts, `asset_shapes` + `GET /api/assets?kind=shape`,
   the local import, the MCP tool `import_vectors` – the 436 shapes are on production since 09:57 (run as the owner).
 - **Green:** `npm run check` of content / reader / ui / api / creator / viewer (the viewer's 11 old warnings), PHPStan,
-  both builds, `check:creator-collage` 34/34, `check:creator-chapter -- --pieces` 38/38, the full run 112/114 on catpope 3
-  (its 2 misses want a slice with a text box, a group of ≥ 3 slices; catpope 1 / 2 hold your drafts). The script was
-  stale since 2026-10-11/12 and stopped at "next slice": its reorder, save, VN parts ran only after the review (found
-  ISSUES 10.109). **Red:** `check:tools-css` 16 old lines (map editor, phone-bar, bar-tabs); 57 open FEATURES + ISSUES.
-- **Before a push:** `main` is 30 commits ahead of `origin/main` and 13 behind (your daytime pushes: the tools as PWAs,
-  team push, attributions, phone fixes) – merge `origin/main` first (a trial `git merge-tree`: no conflicts).
+  PHPUnit filtered to the touched classes (tests / assertions, OK): AssetsTest|AssetsApiTest 21 / 322 (vectors),
+  ProtectedFilesTest|CatalogTest 16 / 259 (step 5), CatalogTest|ProtectedFilesTest|ContentSchemasTest 28 / 370 (review
+  group 1), no other PHP changed; both builds, `check:creator-collage` 35/35, `check:creator-chapter -- --pieces` 38/38,
+  the full run 112/114 on catpope 3 (catpope 1 / 2 hold your drafts; the 2 misses want a slice with a text box, a group
+  of ≥ 3 slices). The script had stopped at "next slice" since 2026-10-11/12: its reorder, save, VN parts ran only after
+  the review (found ISSUES 10.109). **Red:** `check:tools-css` 16 old lines (map editor, phone-bar, bar-tabs); 57 open FEATURES + ISSUES.
+- **Before a push:** `main` is 36 commits ahead of `origin/main` and 13 behind (your daytime pushes) – FEATURES 10.105.

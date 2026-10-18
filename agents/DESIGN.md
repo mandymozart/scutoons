@@ -703,10 +703,10 @@ slice's picture or on a score: one piece (`CollagePiece`, @scutoons/content coll
 - **Looks:** ten code looks (ink, red, cyan, negative, burn, acid, sticker, glow, ghost, fade); a piece names one
   (`preset`) and may replace single values (`style`, `null` = off) – a look's change reaches every piece naming it.
   Blend = the 16 CSS modes.
-- **Slice editor:** the scissors tool – a click opens the picker (Shapes · Characters, **Image …**; a character never
+- **Slice editor:** the piece tool – a click opens the picker (Shapes · Characters, **Image …**; a character never
   joins the cast) and the piece lands centred there, 30 % wide; a drag sets its corner and width; "+ Add a piece …" in
   Layers puts it in the middle. Canvas: move, rotate, scale evenly (no side handles), a ramp blur's two dots; a piece
-  takes the pointer only under the scissors or while selected (another tool draws over art). Layers: pieces below the
+  takes the pointer only under the piece tool or while selected (another tool draws over art). Layers: pieces below the
   stack after a heavier rule; a drag reorders within a side, never across.
 
 ### Figma → config mapping
@@ -894,8 +894,8 @@ Three kinds, three places; none moves the layout:
   (`sc-seg is-column`, `Segmented vertical`). **View**: the grid (one button, pressed = snap on, the size in its
   corner; hold, right-click, the corner number or → open the sizes 5 / 10 / 15 / 30 – picking one switches snap on),
   the zoom (a zoom icon), and – when the slice has texts with `{…}` – the sample-reader preview (an eye, pressed when
-  not "as written"). **Content**: text · item · piece (Feather `scissors`, collage pieces) · sound · event (each opens
-  its inspector tab; text, item and piece share Layers, which keeps the one picked).
+  not "as written"). **Content**: text · item · piece (`shapes`: a triangle, a square, a circle; scissors stays Cut) ·
+  sound · event (each opens its inspector tab; text, item and piece share Layers, which keeps the one picked).
 - **Flyouts**: one at a time, beside its button, over the canvas; Esc / ← / a click outside closes it, the focus goes
   back to its button. The zoom flyout is the Flow's look – one square group: zoom out · percentage · zoom in · fit ·
   **1:1** (original size).
@@ -1270,7 +1270,7 @@ single-line control exactly `--control-height` ("One control height" below).
 
 **Vocabulary** (`tools.css`): `.sc-label`, `.sc-heading`, `.sc-caption`, `.sc-emphasis`, `.sc-chip` (`is-ink`, `is-live`, `is-off`),
 `.sc-frame`, `.sc-nav-head`, `.sc-nav-item` (`aria-current` / `.is-current` inverted), `.sc-selected` (+ `[data-sc-region][data-live]`, "Selection" above), `.sc-chip-control`, `.sc-control`
-("One control height"). Creator-wide button classes stay
+("One control height"), `.sc-checker` (a transparency checker behind cut-out art, `--checker-size`). Creator-wide button classes stay
 `.secondary`, `.ghost`, `.active` (creator layout).
 
 ## One control height (owner rule, 2026-10-02) – tools AND the viewer

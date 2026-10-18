@@ -243,7 +243,7 @@ export const RULES: RuleResource[] = [
 				'- media paths are relative to the toon folder on the CDN and language-independent (no locale in a path);',
 				'  find existing files with `search_assets`.',
 				'',
-				code('ts', block('shared/content/src/content.ts', 'export interface Slice {')),
+				code('ts', block('shared/content/src/content.ts', 'export interface Slice extends')),
 				'',
 				'## Collage pieces (`slice.pieces[]`, shared/content/src/collage.ts – agents/research/COLLAGE.md)',
 				'',

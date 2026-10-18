@@ -7,9 +7,9 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
 ## Creator, admin
 - [ ] 10.105 **Collage pieces: the owner's look + the open questions** – owner 2026-10-17: "an editor for the scores …
   I can still add these vector graphics on them and blend them". Built 2026-10-18 on `main`, not pushed: pieces on slices
-  (the scissors tool) and on scores (Catalog → Items → a score → More → Collage). [owner] a look on phone + desktop, then
-  the push (HANDOVER "Last run": take `origin/main` in first); `decide` COLLAGE §10 (built with its defaults); production's
-  score items open in the stage once published (10.97). Later: §9. → research/COLLAGE.md
+  (the piece tool) and on scores (Catalog → Items → a score → More → Collage). [owner] a look on phone + desktop, then the
+  push: merge `origin/main` first (a trial `git merge-tree`: no conflicts), `npm install` (it brings the `shared/pwa` workspace),
+  the checks; `decide` COLLAGE §10 (its defaults built); a score item opens in the stage once published (10.97). Later §9. → research/COLLAGE.md
 - [ ] 10.83 **Desktop UI fixes – collecting** (owner 2026-10-11: "i like some fixes. we collect them here") – add each
   fix as its own item here. The desktop creator taking the phone concepts is a DRAFT session for the owner (branch
   `claude/zealous-faraday-e6338b`) – new desktop fixes go there or here, not both.

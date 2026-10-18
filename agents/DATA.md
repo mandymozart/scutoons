@@ -278,8 +278,8 @@ path in the toon's form (`vectors/x.svg` in catpope, `../catpope/vectors/x.svg` 
 delete check, relink / rename and saving a chapter offline pick it up unchanged; `figure` (how a character picture was
 picked) is not `character` – it never adds the character to the cast or the offline save. Score items carry theirs in
 the catalog (CATALOG.md "Score collages"). Validation: `collageProblems` (checkSlice / validateContainers); the
-regenerated schemas make the server's save guard enforce blend modes, views and required keys. All keys new and
-optional – no migration.
+regenerated schemas make the server's save guard enforce blend modes, views, required keys and the colour format
+(#rgb / #rrggbb, `PieceColor`). All keys new and optional – no migration.
 
 ## 3. API
 
