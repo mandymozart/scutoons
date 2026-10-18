@@ -43,7 +43,8 @@
 //            the look Negative = the picture's negative there (a pixel), the Fade ramp opaque in its middle, the ramp's
 //            dot, one undo per step, Ctrl+C / Ctrl+V, Layers (pieces under the stack; a reorder, its undo / redo keep the
 //            moved piece selected), Delete; saved with the draft; the preset grid previews every look on the piece's
-//            file, "Save as preset …" keeps its pixels, the toast's Undo leaves no presets document to save
+//            file, "Save as preset …" keeps its pixels, the toast's Undo leaves no presets document to save (nor its
+//            local autosave)
 //   VN:      a scene with a group script + slice events (catpope's, else the sandbox's): each event type's line opens its form (+ "Only if"); "+ setVariable" adds one, open,
 //            the cursor in it; "+ event" on the chapter's slice adds one line; a slice event has its trigger (never saved)
 // Afterwards every entity the run changed is restored (content as before, published again if it was), also on failure.
@@ -564,10 +565,17 @@ async function pieceCase() {
 		`presets: Fade + its own opacity → "Save as preset …" "Night": the piece names "${named.look}" without own values, its pixels unchanged`,
 		JSON.stringify({ ownLine, named, own })
 	);
+	// the editor autosaves the presets document while it is dirty (1 s on); the Undo takes that local copy away too – a
+	// later load would offer it back as a Recover bar that drops what was made since
+	const COPY = `localStorage.getItem('scutoons_creator:colorations')`;
+	const copied = await until(`${COPY} !== null`, 3000);
 	await js(`(() => { const t = [...document.querySelectorAll('.toast')].find((t) => t.textContent.includes('Night')); t?.querySelector('[data-testid="toast-action"]')?.click(); return true; })()`);
 	await sleep(300);
 	const undone = { look: await pressedLook(), opacity: await opacity(), night: await js(`!!${q(`piece-look-${named.look}`)}`) };
 	check(undone.look === 'fade' && undone.opacity === '50' && !undone.night, "presets: the toast's Undo – the piece Fade + its opacity again, the preset gone", JSON.stringify(undone));
+	await sleep(1300); // past the autosave's second
+	const copy = await js(COPY);
+	check(copied && copy === null, "presets: the toast's Undo leaves no local autosave of the presets document (there while it was dirty)", JSON.stringify({ copied, copy }));
 
 	// copy / paste: a second piece, a new id, one step off
 	await click(tid(`slice-piece-${n0}`));

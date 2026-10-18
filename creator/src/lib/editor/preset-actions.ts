@@ -46,7 +46,18 @@ function editPiece(doc: ContentDoc, path: Path, id: string, change: (piece: Coll
 		if (piece?.id === id) change(piece);
 	});
 }
-const editPresets = (presets: ContentDoc, change: (file: Colorations) => void) => presets.edit((file) => change(file as Colorations));
+/**
+ * the presets document back as stored (an Undo, a rename back): its local autosave goes too – the chapter editor
+ * autosaves it only while it is dirty, so the last dirty copy would stay and come back on a later load as a Recover bar
+ * that drops what was made since. autosave() of a clean document only removes its copy (doc.svelte.ts).
+ */
+function settle(presets: ContentDoc): void {
+	if (!presets.dirty) presets.autosave();
+}
+function editPresets(presets: ContentDoc, change: (file: Colorations) => void): void {
+	presets.edit((file) => change(file as Colorations));
+	settle(presets);
+}
 const undo = (run: () => void) => ({ action: { label: m['creator.undo'](), run } });
 
 /** the custom preset the piece names while it is live (not deleted) – what Update and ••• work on */
@@ -78,8 +89,10 @@ export async function savePreset({ doc, path, presets }: PresetHost, piece: Coll
 	toast(
 		m['creator.preset_saved']({ name }),
 		undo(() => {
-			if (created && !presets.stored.length && ownPresets(presets).length === 1) presets.data[presets.primary] = null;
-			else editPresets(presets, (file) => void dropPreset(file, id));
+			if (created && !presets.stored.length && ownPresets(presets).length === 1) {
+				presets.data[presets.primary] = null;
+				settle(presets);
+			} else editPresets(presets, (file) => void dropPreset(file, id));
 			editPiece(doc, at, pieceId, (p) => setPieceLook(p, was));
 		})
 	);
