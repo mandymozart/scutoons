@@ -1,4 +1,4 @@
-Status: decided 2026-10-17 (owner's answers in §7) – plan §6, steps 2–5 done (the API: §5a; production imported 2026-10-18), next step 6. Today's state: ASSETS.md "Vector library".
+Status: decided 2026-10-17 (owner's answers in §7) – plan §6, steps 2–6 done (the API: §5a; production imported 2026-10-18; git keeps the code set), next: step 7 (picker), when wanted. Today's state: ASSETS.md "Vector library".
 
 # VECTORS – how the shape library lives next to the toons
 
@@ -175,7 +175,9 @@ small"); a review flag comes back with a review screen.
    unchanged. Was: **Import** to `catpope/vectors/` through the API, shrunk (svgo), shape rows from `vectors.json`, no relink (clean
    slate); the code set (the illumination's five, the 90s collage's twelve) stays in git with its CDN twins as code
    references. Locally first, production when the owner runs it or asks.
-6. **The lab reads the CDN**: the Collage look (score-riot) takes the shape list from the API and loads files by CDN
+6. ~~The lab reads the CDN~~ – done 2026-10-18: the creator's collage reads shapes from the API; git keeps only the
+   code set (13 shapes the score lab looks import – score-illumination, score-collage; score-riot finds just these
+   now), the other 423 SVGs left git (816 KB instead of 12 MB; vectors.json = the code set). Was: **The lab reads the CDN**: the Collage look (score-riot) takes the shape list from the API and loads files by CDN
    URL instead of globbing git; the non-code shapes leave git; ASSETS.md "Vector library" rewritten to how it is.
 7. ~~Pull becomes sync~~ – dropped (owner: no Figma sync). The survey and pull scripts stay as import tools for new
    pages: the survey marks nodes already in the library, the pull uploads through the API instead of writing to git.

@@ -1,4 +1,9 @@
-# The vector library
+# The vector library – the code set
+
+**Since 2026-10-18 the library lives in the asset manager:** all 436 shapes as `catpope/vectors/<slug>.svg` on the
+CDN with their shape rows, listed by `GET /api/assets?kind=shape` (agents/research/VECTORS.md §5a) – that is where
+pages and the creator find them. This folder keeps only the **code set**: the 13 shapes app code imports by file
+(`?url` / `?raw` – the score lab looks), each the same slug as its CDN twin. The other entries are in git history.
 
 Shapes from our own artwork (owner 2026-10-17: "der Anfang von einer … Vektoren-Shapes-Datenbank … für solche Arbeiten
 und auch fürs Layouting"), sorted so they can move into the asset database later (agents/ASSETS.md). Not in the catalog

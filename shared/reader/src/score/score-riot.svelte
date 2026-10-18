@@ -1,6 +1,7 @@
 <script lang="ts" module>
 	/**
-	 * The whole vector library (@scutoons/tokens/vectors, 423 shapes) for the collage – every file its own lazy chunk,
+	 * The shapes in git (@scutoons/tokens/vectors – since 2026-10-18 only the code set, 13; the whole library is in the
+	 * asset manager, GET /api/assets?kind=shape, research/VECTORS.md) for this lab look – every file its own lazy chunk,
 	 * loaded only for the shapes a page shows; the list itself (vectors.json) also loads only with this look.
 	 */
 	const RAW = import.meta.glob('../../../tokens/vectors/*.svg', { query: '?raw', import: 'default' }) as Record<string, () => Promise<string>>;

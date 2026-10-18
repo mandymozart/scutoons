@@ -386,7 +386,9 @@ delete), admin Assets (library, detail, delete check, storage + bandwidth), view
 ## Vector library (owner 2026-10-17)
 
 Shapes from our own artwork for ornaments, frames and layout – the start of a vector / shape database ("fürs Layouting
-später"); not in the catalog or the asset manager yet. In git: `shared/tokens/vectors/` – the SVGs, `vectors.json` (one
+später"); not in the catalog. In the asset manager since 2026-10-18: 436 shapes in `catpope/vectors/` (CDN) with their
+shape rows, `GET /api/assets?kind=shape` (research/VECTORS.md §5a). In git only the code set (13 shapes app code
+imports): `shared/tokens/vectors/` – the SVGs, `vectors.json` (one
 entry per shape, shaped like an `assets` row: slug, title, tags, tile, Figma source, size, colours, mask, sha256)
 and `@scutoons/tokens/vectors.css` (`--vector-<slug>`). `npm run vectors:pull` re-exports from Figma over the SCUTOONS
 bridge (tools/figma-bridge) and measures. Tags (the shared words – roles are tags, not classes – and free ones; no colour words), mask: the folder's README. The Cat Pope file's
