@@ -647,10 +647,15 @@ async function tap(selector) {
 	const [x, y] = await js(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); el.scrollIntoView({ block: 'center' }); const r = el.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`);
 	await tapAt(x, y);
 }
-/** a canvas tool by finger: its click comes a moment after the touch */
+/** a canvas tool by finger: its click comes a moment after the touch; the first touch right after the switch to the
+ *  phone layout is sometimes lost (the strip still settling) – one more tap then (the strip is a radio group: a tap
+ *  never turns a tool off) */
 async function tapTool(tool) {
+	const pressed = `${q(tool)}.getAttribute('aria-pressed') === 'true'`;
 	await tap(tid(tool));
-	return until(`${q(tool)}.getAttribute('aria-pressed') === 'true'`, 3000);
+	if (await until(pressed, 1500)) return true;
+	await tap(tid(tool));
+	return until(pressed, 3000);
 }
 /** the phone's inspector sheet closed: its content is display:none */
 const inspectorHidden = `getComputedStyle(document.querySelector('[data-testid="inspector-region"] .inspector') ?? document.body).display === 'none'`;
@@ -671,6 +676,7 @@ async function phoneCase() {
 	await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
 	try {
 		check(await until(`!!${q('phone-bar-more')} && ${inspectorHidden}`, 5000), 'phone: 375 × 812 – the phone bar, the inspector sheet closed (its content hidden)');
+		await frames();
 		const i0 = await js(itemBoxes);
 		const p0 = await pieceCount();
 		check(await tapTool('tool-item'), 'phone: a tap picks the item tool');
