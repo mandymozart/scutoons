@@ -135,8 +135,8 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   (step 2) – [owner] the fares + the airlift (lines or a taxi), D8; the lines drawn in the map builder. research/CAVE.md
 - [ ] 10.79 **Account restart** – concept waits for the owner's answers Q1–Q9 (research/ACCOUNT-RESTART.md); the
   map-only reset is built.
-- [ ] 10.59 **Storyboard: script → shots → Figma → chapter draft** (research/STORYBOARD.md §9; timeline ch3 2026-11-15,
-  ch4 12-15, ch5 2027-01-15). Branch `storyboard` in its own checkout (owner's request). Open: the owner's answers per
+- [ ] 10.59 **Storyboard: script → shots → Figma → chapter draft** (research/STORYBOARD.md §9; ch3 releases 2026-12-15
+  (owner 2026-10-19), ch4 / ch5 to be re-set). Branch `storyboard` in its own checkout (owner's request). Open: the owner's answers per
   scene (STORYBOARD §10), the first Figma bridge run, the remaining generated shots.
 - [ ] 10.95 **Storyboard: render the cast from the characters' 3D models** – owner 2026-10-13: "a 3d model for each
   persona of each character", "the storyboard renderer does a great job". Built: `model` (.glb) per persona / look on the
