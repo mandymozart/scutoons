@@ -745,6 +745,22 @@ gap; the draft frames go onto the chapter page. Open: does `S1C3` hold its selec
   straight in the **creator** from the compiled draft?
 - Which Unreal scenes exist, and can new cameras be rendered on request (who renders)?
 
+### Generators as built (2026-10-19)
+
+Owner 2026-10-19: "Ja, generator pluggable ist smart. Erstmal soweit bauen, dass ich die Runway API anbinden kann."
+The studio sends a shot to a **pluggable generator** (`workflows/storyboard-studio/generators/`, README "Generators"):
+one interface `{ id, label, kinds, paid, models[{ inputs, durations, ratios, price }], status, estimate, run }`, async
+jobs (queued → running → succeeded / failed / cancelled, progress, cancel) held by the studio's dev server, results
+written as the shot's generated variants (`_out/<ch>/generated/` + `generated.jsonl`, the comfy.mjs log + generator,
+model, estimate, cost, task id) – the Approve flow is unchanged. Registered: **comfy-local** (comfy.mjs as it was),
+**runway** (Gen-4 Turbo / Gen-4.5 image to video from the still, Aleph 2 video to video from the handheld render pass;
+5 / 12 / 28 credits per second, 1 credit = 0.01 USD), **comfyui-remote** (the cloud-GPU chain of §3 – a documented stub:
+the same interface, so the RunPod / Comfy Cloud endpoint plugs in without studio changes). Keys only from the
+environment or the repo's gitignored `.env`. Safety for now: the estimate before sending, a confirmation with the cost
+before every paid call, no automatic retry, a spend counter per studio session. Not built: the budget gate with a hard
+cut (phase 3a, §7 "Budget") – it comes before automated / unattended paid jobs; act_two (needs a filmed face
+performance, not a camera move).
+
 ### Phases + effort
 
 | Phase | What | Effort (agent days) | Needs |

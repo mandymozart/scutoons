@@ -31,14 +31,17 @@ npm run dev:studio
   format + camera, light incl. a free direction, figures) + Save + frame / Keep as variant / Revert / Approve / Ask for a
   change / Rule (→ storyboard-taste.md); **Script** – the scene's script lines + notes; **Variants** – the saved frame,
   variants (Load / Take this), generated images dropped in (Approve as chosen → the dataset); **Luma** – the full prompt
-  from the shot as set (scripts/storyboard/luma.js), the render without texts, the references to attach.
+  from the shot as set (scripts/storyboard/luma.js), the render without texts, the references to attach; **Handheld** –
+  below; **Generate** – a generator per shot (below, "Generators").
 - **Top bar**: chapter, summary, Check, All frames, Reference packs, Chapter draft.
 
 ## Files
 
 - the shots: `storyboards/<toon>/<chapter>/scene-*.json` (written as 2-space JSON)
 - variants: `storyboards/<toon>/<chapter>/variants/<shot>.json`, frames under `storyboards/_out/<chapter>/` (`frames/`,
-  `clean/` without texts, `variants/`, `generated/`)
+  `clean/` without texts, `variants/`, `generated/` + `generated.jsonl` – the generators' results and their log)
+- the generators: `generators/` (`jobs.mjs` the interface, `runway.mjs`, `comfy-local.mjs`, `others.mjs`; tests:
+  `npm test -w workflows/storyboard-studio`)
 
 ## Handheld camera (the phone as the shot's camera)
 
@@ -89,6 +92,50 @@ Owner 2026-10-19: film a shot's blocked scene with the phone, trim, render contr
   `openssl req -x509 -newkey rsa:2048 -nodes -days 365 -subj /CN=studio -keyout key.pem -out cert.pem`; the phone
   accepts the warning once).
 - Transport: the studio's own dev-server socket (`handheld-relay.mjs`, Vite's HMR WebSocket) – no extra port.
+
+## Generators
+
+Owner 2026-10-19: "Ja, generator pluggable ist smart. Erstmal soweit bauen, dass ich die Runway API anbinden kann."
+The **Generate** panel sends a shot to a generator; the result lands in Variants → Generated
+(`_out/<chapter>/generated/<shot>--g<n>.png|mp4`, logged in `generated.jsonl` with generator, model, estimate, cost
+and the provider's task id), so "Approve as chosen" works as before. Each generator says what it takes; the inputs are
+pre-filled from the shot (the approved image, else the render without texts; the newest handheld render pass; the
+shot's "Image (EN)" text as the prompt).
+
+| Generator | What | Cost |
+|---|---|---|
+| ComfyUI (this PC) – `comfy-local` | `scripts/storyboard/comfy.mjs` unchanged: Qwen-Image-Edit, the render + character images → a still | free |
+| Runway – `runway` | **Gen-4 Turbo** / **Gen-4.5** image to video (the still + prompt, 2–10 s); **Aleph 2** video to video (the handheld render pass ≤ 30 s, restyled by the prompt; the still as keyframe) | 5 / 12 / 28 credits per second (Aleph at least 56); 1 credit = 0.01 USD |
+| ComfyUI (cloud GPU) – `comfyui-remote` | the same graphs on RunPod / Comfy Cloud – not built yet (`generators/others.mjs`) | – |
+
+Safety: the estimate is shown before sending; every paid call asks once more with the cost; nothing is retried by
+itself (a failed or timed-out create call is reported, not sent again); the panel shows what this studio session has
+spent (it resets when the studio restarts). Cancel stops the job and cancels the task at Runway.
+
+### Runway einrichten (für den Owner)
+
+1. Auf **https://dev.runwayml.com** anmelden (das Entwicklerportal – nicht das normale Runway-Abo, die Credits sind
+   getrennt), ein Projekt anlegen, Credits kaufen (1 Credit = 0,01 USD). Der Start-Tier erlaubt bis 100 USD im Monat
+   und wenige Generierungen gleichzeitig / pro Tag; mehr gibt es automatisch nach den ersten Käufen.
+2. Unter **API Keys** einen Schlüssel erzeugen und kopieren (er wird nur einmal angezeigt).
+3. In die Datei **`.env` im Repo-Ordner** (`C:\Development\scutoons\.env`, sie ist in `.gitignore`, wird nie
+   committet) eine Zeile schreiben: `RUNWAY_API_KEY=key_…`. Ein Neustart des Studios ist nicht nötig.
+4. Im Studio: Shot wählen → **Generate** → Generator „Runway“, Modell wählen, Bild / Video und Prompt prüfen →
+   **Generate** → die Rückfrage zeigt den Preis → bestätigen. Das Video erscheint unter Variants → Generated.
+
+Was ein Shot kostet (Preise laut docs.dev.runwayml.com, Stand 2026-10-19):
+
+| Modell | pro Sekunde | 5-s-Shot | 10-s-Shot |
+|---|---|---|---|
+| Gen-4 Turbo (Bild → Video) | 5 Credits = 0,05 USD | 0,25 USD | 0,50 USD |
+| Gen-4.5 (Bild → Video) | 12 Credits = 0,12 USD | 0,60 USD | 1,20 USD |
+| Aleph 2 (Handheld-Video → Video) | 28 Credits = 0,28 USD (min. 0,56 USD) | 1,40 USD | 2,80 USD |
+
+Ohne Schlüssel zeigt der Generator „not configured“ mit dieser Anleitung in einer Zeile. Der Schlüssel bleibt auf dem
+PC: er geht nie an den Browser und nie in Git.
+
+For development: `STUDIO_FAKE_GENERATOR=1` adds a fake generator (fake credits); `RUNWAY_API_URL` points the adapter at
+the mock (`node workflows/storyboard-studio/generators/test/runway-mock.mjs --port 14091`, key `mock-key`).
 
 ## Not yet
 
