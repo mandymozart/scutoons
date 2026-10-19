@@ -49,19 +49,19 @@ final class ItemLimitsTest extends TestCase
         $this->limit('cucumber', 'placements', 3);
         $this->store('chapter:catpope:1', self::chapter(1, 'cucumber', 1), 'published');
         $this->store('chapter:catpope:1', self::chapter(1, 'cucumber', 0)); // a newer draft removes it: the published one counts
-        $this->store('scene:toptoy:1:boss', ['label' => 'boss', 'slices' => [['image' => 'b.webp', 'items' => [['id' => 'c', 'item' => 'cucumber']]]]]);
+        $this->store('chapter:toptoy:1', ['number' => 1, 'groups' => [['label' => 'boss', 'slices' => [['image' => 'b.webp', 'items' => [['id' => 'c', 'item' => 'cucumber']]]]]]]);
         $this->store('chapter:catpope:1:de', self::chapter(1, 'cucumber', 5)); // a legacy per-locale document doesn't count
         $placements = $this->get(ItemPlacements::class);
         $report = $placements->report('cucumber');
         self::assertSame(['placements' => 3, 'max_world' => null], $report['limits']);
         self::assertSame(2, $report['total']);
-        self::assertSame(['chapter:catpope:1', 'scene:toptoy:1:boss'], array_column($report['placements'], 'key'));
+        self::assertSame(['chapter:catpope:1', 'chapter:toptoy:1'], array_column($report['placements'], 'key'));
 
         $key = EntityKey::parse('chapter:sandbox:2');
         self::assertSame([], $placements->problems($key, json_decode((string) json_encode(self::chapter(2, 'cucumber', 1)))), '2 + 1 = 3: fine');
         $over = $placements->problems($key, json_decode((string) json_encode(self::chapter(2, 'cucumber', 2))));
         self::assertCount(1, $over);
-        self::assertStringStartsWith('cucumber: 4 placements, the catalog allows 3 – also in chapter:catpope:1 (1), scene:toptoy:1:boss (1)', $over[0]);
+        self::assertStringStartsWith('cucumber: 4 placements, the catalog allows 3 – also in chapter:catpope:1 (1), chapter:toptoy:1 (1)', $over[0]);
         // a document already over the limit still saves as long as it doesn't add one
         $this->store('chapter:sandbox:2', self::chapter(2, 'cucumber', 2));
         self::assertSame([], $placements->problems($key, json_decode((string) json_encode(self::chapter(2, 'cucumber', 2)))));

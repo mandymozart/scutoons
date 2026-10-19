@@ -32,7 +32,7 @@ const CREATOR = [
 	"them, save drafts, find and upload media. You have exactly the creator's rights. Work in the creator's language.",
 	'',
 	'Work like this: find the documents first (list_toons, list_chapters, search_content), read the draft (note its',
-	'version id = the base of your save), change only what was asked (a chapter / scene / season / the toon entry is one',
+	'version id = the base of your save), change only what was asked (a chapter / season / the toon entry is one',
 	'language-neutral document: structure once, texts as locale maps), save with save_draft (ops preferred over whole',
 	'documents), fix validation errors before you finish. Everything you save is a new draft version – the creator',
 	'reviews it (the link in the result) and publishes in the creator; you cannot publish. When something is unclear or',

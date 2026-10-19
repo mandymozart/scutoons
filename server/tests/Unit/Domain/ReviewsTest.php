@@ -27,8 +27,8 @@ final class ReviewsTest extends TestCase
         $reviews->setRule((string) $writer['id'], 'catpope', Reviews::NEEDS_REVIEW, true);
         $reviews->guardPublish($writer, EntityKey::parse('chapter:yellowmouse:2:de'), null); // another toon
         $reviews->guardPublish($writer, EntityKey::parse('characters'), null); // platform-wide: never reviewed
-        // the language-neutral chapter / scene / season (agents/NEUTRAL.md) belong to the toon like their per-locale keys
-        foreach (['chapter:catpope:2:de', 'scene:catpope:2:kiosk:de', 'script:catpope:de', 'toon:catpope', 'cast:catpope', 'chapter:catpope:2', 'scene:catpope:2:kiosk', 'season:catpope:1'] as $key) {
+        // the language-neutral chapter / season (agents/NEUTRAL.md) belong to the toon like their per-locale keys
+        foreach (['chapter:catpope:2:de', 'script:catpope:de', 'toon:catpope', 'cast:catpope', 'chapter:catpope:2', 'season:catpope:1'] as $key) {
             $this->assertApiError(403, 'review_required', fn() => $reviews->guardPublish($writer, EntityKey::parse($key), null));
         }
         $this->assertApiError(403, 'review_required', fn() => $reviews->guardPublish($writer, EntityKey::parse('chapter:catpope:2:de'), null, true));
@@ -37,7 +37,7 @@ final class ReviewsTest extends TestCase
         $this->assertApiError(403, 'review_required', fn() => $reviews->guardPublish($writer, EntityKey::parse('chapter:yellowmouse:2:de'), null));
         $this->assertApiError(400, 'invalid_toon', fn() => $reviews->setRule((string) $writer['id'], 'Cat Pope', Reviews::REVIEWER, true));
         $this->assertApiError(400, 'invalid_rule', fn() => $reviews->setRule((string) $writer['id'], 'catpope', 'publisher', true));
-        self::assertSame('chapter 2 (de, en), chapter 3, scene 2/kiosk', Reviews::files(['chapter:catpope:2:de', 'chapter:catpope:2:en', 'chapter:catpope:3', 'scene:catpope:2:kiosk']));
+        self::assertSame('chapter 2 (de, en), chapter 3, season 1', Reviews::files(['chapter:catpope:2:de', 'chapter:catpope:2:en', 'chapter:catpope:3', 'season:catpope:1']));
     }
 
     public function testSubmitPublishReturnAndMails(): void

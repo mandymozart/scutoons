@@ -17,9 +17,9 @@ export function newEventId(): string {
 type Obj = Record<string, any>;
 const isObj = (v: unknown): v is Obj => !!v && typeof v === 'object' && !Array.isArray(v);
 
-/** every event list of a group (inline in a chapter, or a scene document) */
+/** every event list of a group */
 function groupEventLists(group: unknown): Obj[][] {
-	if (!isObj(group) || group.ref) return [];
+	if (!isObj(group)) return [];
 	const lists: unknown[] = [group.events];
 	for (const slice of Array.isArray(group.slices) ? group.slices : []) {
 		if (!isObj(slice)) continue;
@@ -30,7 +30,7 @@ function groupEventLists(group: unknown): Obj[][] {
 }
 
 /**
- * Gives every event of a chapter (`groups`) or scene (one group) document an id – in place; the number of events that
+ * Gives every event of a chapter (`groups`) or of one group an id – in place; the number of events that
  * got one. `taken`: ids used elsewhere (they stay with their owner).
  */
 export function assignEventIds(doc: unknown, kind: 'chapter' | 'group', taken: Iterable<string> = []): number {

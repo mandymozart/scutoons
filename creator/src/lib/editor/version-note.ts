@@ -9,8 +9,8 @@ import { pieceName } from '@scutoons/content';
 
 export type NoteKind = 'textbox' | 'item' | 'piece' | 'tail' | 'slice' | 'group' | 'event' | 'sound' | 'text' | 'settings' | 'entry' | 'created';
 export type NoteAction = 'added' | 'removed' | 'moved' | 'recoloured' | 'set' | 'changed' | 'reordered' | 'translated';
-/** a group as the note names it: a scene by its name, a chapter's group by its label, else its number */
-export type GroupRef = { scene: string } | { label: string } | { number: number };
+/** a group as the note names it: by its label, else its number */
+export type GroupRef = { label: string } | { number: number };
 export interface NotePlace {
 	group?: GroupRef;
 	/** 1-based, within its group (the editor's "Slice n / m") */
@@ -135,7 +135,7 @@ function pairById(a: any[], b: any[], key: (x: any) => string | undefined): [any
 }
 const idOf = (x: any) => (isObj(x) && typeof x.id === 'string' && x.id ? x.id : undefined);
 
-// ── a chapter / a scene ─────────────────────────────────────────────────────────────────────────────────────────
+// ── a chapter ─────────────────────────────────────────────────────────────────────────────────────────
 function shortText(text: unknown, L: NoteLanguages): string | undefined {
 	const value = isObj(text) ? (text[L?.source ?? ''] ?? Object.values(text).find((v) => v)) : text;
 	const first = (Array.isArray(value) ? value.join(' ') : String(value ?? '')).replace(/\s+/g, ' ').trim();
@@ -251,7 +251,7 @@ function fields(a: any, b: any, skip: string[], place: NotePlace | undefined, L:
 }
 const translated = (langs: Set<string>, out: NoteChange[]) => [...langs].forEach((lang) => out.push({ kind: 'text', action: 'translated', lang }));
 
-/** a group's (a scene document's) changes; `ref` names it in the note */
+/** a group's changes; `ref` names it in the note */
 export function groupChanges(before: any, after: any, ref: GroupRef | undefined, ctx: NoteContext, langs = new Set<string>(), top = true): NoteChange[] {
 	const out: NoteChange[] = [];
 	const place = ref ? { group: ref } : undefined;
@@ -262,14 +262,12 @@ export function groupChanges(before: any, after: any, ref: GroupRef | undefined,
 	return out;
 }
 
-/** the group's name for the note: a scene by its file's name, else its label, else its number */
+/** the group's name for the note: its label, else its number */
 export function groupRef(group: any, index: number): GroupRef {
-	const scene = /([^/]+)\.json$/.exec(String(group?.ref?.src ?? ''))?.[1];
-	if (scene) return { scene };
 	return typeof group?.label === 'string' && group.label.trim() ? { label: group.label.trim() } : { number: index + 1 };
 }
 
-/** a chapter's changes (its own groups; a scene's content is its own document – `groupChanges`) */
+/** a chapter's changes (its groups – `groupChanges`) */
 export function chapterChanges(before: any, after: any, ctx: NoteContext): NoteChange[] {
 	if (!before) return [{ kind: 'created', action: 'added' }];
 	const out: NoteChange[] = [];
@@ -277,7 +275,7 @@ export function chapterChanges(before: any, after: any, ctx: NoteContext): NoteC
 	fields(before, after, ['groups'], undefined, ctx.languages, out, langs);
 	const a = list(before.groups);
 	const b = list(after?.groups);
-	const key = (g: any) => (g?.ref?.src ? `ref:${g.ref.src}` : typeof g?.label === 'string' && g.label ? `label:${g.label}` : undefined);
+	const key = (g: any) => (typeof g?.label === 'string' && g.label ? `label:${g.label}` : undefined);
 	const pairs = pairById(a, b, key);
 	for (const [x, y, i, j] of pairs) {
 		if (!x) out.push({ kind: 'group', action: 'added', name: nameOfGroup(groupRef(y, j)) });
@@ -289,7 +287,7 @@ export function chapterChanges(before: any, after: any, ctx: NoteContext): NoteC
 	translated(langs, out);
 	return out;
 }
-const nameOfGroup = (g: GroupRef) => ('scene' in g ? g.scene : 'label' in g ? g.label : undefined);
+const nameOfGroup = (g: GroupRef) => ('label' in g ? g.label : undefined);
 
 // ── a meta page (cast, credits, toon settings, the catalog …) ─────────────────────────────────────────────────────
 const ENTRY_KEYS = ['id', 'character', 'key', 'slug', 'number', 'name'];

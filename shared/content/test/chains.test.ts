@@ -214,14 +214,9 @@ test("validate: continues / end on groups and the chapter's chains", () => {
 		'warning groups.2.label',
 		'warning groups.1.label'
 	]);
-	// ref groups: the scene's continues counts (the creator resolves them)
-	const scenes: Record<string, object> = { 'chapter1/s.json': { label: 's', continues: true, renderer: { type: 'vertical' }, slices: slices(1) } };
-	const resolveGroup = (g: { ref?: { src: string } }) => (g.ref ? scenes[g.ref.src] : g);
-	const withRef = { ...chapter([{}]), groups: [{ label: 'a', renderer: { type: 'vertical' }, slices: slices(1) }, { ref: { src: 'chapter1/s.json' } }] };
-	assert.deepEqual(list(withRef, { resolveGroup }), ['error groups.1.continues']);
 });
 
-test('validate: text box ids unique in the chapter (scenes too); unreachable content warns', () => {
+test('validate: text box ids unique in the chapter; unreachable content warns', () => {
 	const box = (id: string) => ({ id, rect: { x: 0, y: 0, width: 10 }, text: 'x' });
 	const chapter = (groups: object[]) => ({
 		title: 'T',
@@ -240,10 +235,6 @@ test('validate: text box ids unique in the chapter (scenes too); unreachable con
 			.map((p) => `${p.level} ${p.path.join('.')}`);
 	const slice = (dialog: object[] = []) => ({ ...slices(1)[0], dialog });
 	assert.deepEqual(run(chapter([group('a', { slices: [slice([box('d1')])] }), group('b', { slices: [slice([box('d1'), box('d2')])] })])), ['error groups.1.slices.0.dialog.0.id']);
-	// a ref group's scene counts
-	const scenes: Record<string, object> = { 'chapter1/s.json': group('s', { slices: [slice([box('d2')])] }) };
-	const resolveGroup = (g: { ref?: { src: string } }) => (g.ref ? scenes[g.ref.src] : g);
-	assert.deepEqual(run(chapter([group('a', { slices: [slice([box('d2')])] }), { ref: { src: 'chapter1/s.json' } }]), { resolveGroup }), ['error groups.1.slices.0.dialog.0.id']);
 	// unreachable: events after an unconditional jump, the unlabelled group after it
 	const jump = { type: 'jumpTo', params: { target: { type: 'chapter', value: '2' } } };
 	const data = chapter([group('a', { continues: true, slices: [slice()], events: [jump, { type: 'hideMessage' }] }), { renderer: { type: 'vertical' }, slices: [slice()] }]);

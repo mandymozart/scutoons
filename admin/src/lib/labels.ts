@@ -57,7 +57,6 @@ export function fileLabel(key: string): string {
 	return entityLabel(key, {
 		chapter: (number) => m['entity.chapter']({ number }),
 		season: (number) => m['entity.season']({ number }),
-		scene: (label) => m['entity.scene']({ label }),
 		toon: m['entity.toon'](),
 		entry: m['entity.toon_entry'](),
 		characters: m['entity.characters'](),

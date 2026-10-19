@@ -56,7 +56,6 @@
 		if (doc) return `/catalog/${doc.kind}?id=${encodeURIComponent(doc.id)}`;
 		switch (ref?.kind) {
 			case 'chapter':
-			case 'scene':
 				return `/${toon}/chapter/${ref.number}`;
 			case 'season':
 				return `/${toon}/season/${ref.number}`;

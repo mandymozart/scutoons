@@ -32,26 +32,21 @@
 		activeDoc,
 		groupPath,
 		chapterNumber,
-		markAt = () => null,
-		resolveGroup = (g) => g
+		markAt = () => null
 	}: {
 		view: ChapterView;
 		chapter: ContentDoc;
 		groups: any[];
 		groupName: (g: any, i: number) => string;
-		/** the open group's file (the chapter, or its separate scene) */
+		/** the open group's file (the chapter) */
 		activeDoc: ContentDoc | null;
 		groupPath: Path;
 		chapterNumber: number;
 		/** the reachability mark at a chapter path (groups.g, groups.g.slices.s – @scutoons/content reach.ts) */
 		markAt?: (...path: (string | number)[]) => ReachMark;
-		/** a group as stored: a `ref` group's separate scene document (undefined while it loads), else the group itself */
-		resolveGroup?: (g: any) => any;
 	} = $props();
-	/** a group's slice count – a `ref` group's from its scene document (owner 2026-10-06: the count was missing there) */
+	/** a group's slice count */
 	const sliceCount = (g: any) => (g ? String(g.slices?.length ?? 0) : '');
-	/** linked groups (owner 2026-10-06): which groups flow into the next one on the reader's page (scenes resolved) */
-	const resolved = $derived(groups.map((g) => resolveGroup(g)));
 
 	let picked = $state<number[]>([]);
 	let anchor = $state<number | null>(null);
@@ -91,13 +86,12 @@
 	}
 	async function removeGroup(index: number) {
 		const g = groups[index];
-		if (!(await confirmRemove(m['creator.remove_confirm']({ what: `group ${g?.label ?? g?.ref?.src ?? index + 1}` })))) return;
+		if (!(await confirmRemove(m['creator.remove_confirm']({ what: `group ${g?.label ?? index + 1}` })))) return;
 		chapter.edit((file) => file.groups.splice(index, 1));
 		view.groupIndex = Math.max(0, index - 1);
 		view.section = 'meta';
 	}
-	// ── copy / cut / paste (BACKLOG 10.39 step 5): the picked groups (else the open one) – a separate scene is copied as
-	// its content and pasted as a group of the chapter; a paste goes after the last picked / the open group (else at the
+	// ── copy / cut / paste (BACKLOG 10.39 step 5): the picked groups (else the open one); a paste goes after the last picked / the open group (else at the
 	// end), fresh ids, unique labels, media of another toon referenced; Shift+V puts the copied group's renderer, end and
 	// `continues` onto every picked group of the chapter ──
 	useClipHandler(
@@ -105,7 +99,6 @@
 		groupsClipHandler({
 			chapter: () => chapter,
 			groups: () => groups,
-			resolveGroup: (g) => resolveGroup(g),
 			chapterNumber: () => chapterNumber,
 			picked: () => (picked.length ? picked : view.inGroup ? [view.groupIndex] : []),
 			pick: (next) => {
@@ -150,13 +143,13 @@
 					<span class="name">{groupName(g, gi)}</span>
 					<ReachChip mark={markAt('groups', gi)} />
 					<span class="hint">
-						{#if linksToNext(resolved, gi)}
+						{#if linksToNext(groups, gi)}
 							<span class="link" title={m['creator.group_linked']()} data-testid="group-linked-{gi}"><Icon name="link" size="0.875rem" label={m['creator.group_linked']()} /></span>
 						{/if}
-						{sliceCount(resolved[gi])}
+						{sliceCount(g)}
 					</span>
 					<!-- what happens in the group (its slices added up + its own script): items, audio, video, places, events -->
-					<span class="group-marks"><Marks marks={groupMarks(resolved[gi])} testid="group-marks-{gi}" /></span>
+					<span class="group-marks"><Marks marks={groupMarks(g)} testid="group-marks-{gi}" /></span>
 				</button>
 				<span class="tools">
 					<button class="ghost" onclick={() => removeGroup(gi)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>

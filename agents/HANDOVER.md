@@ -11,7 +11,7 @@ Decisions: agents/DECISIONS.md.
   admin., shop., embassy. (all under `/web/`); cdn.scutoons.com → bunny.net. The cutover is finished
   (archive/CUTOVER.md); the old beta phase was dropped, open work is the 10.x line.
 - Content lives in the production DB (`entity_versions`), edited in the creator; language-neutral documents
-  (`chapter:<toon>:<n>`, `scene:…`, `season:…`, `toon:<toon>`, texts as locale maps). The per-language legacy copies and
+  (`chapter:<toon>:<n>` with its groups inline – the `scene:…` documents were inlined 2026-10-19 –, `season:…`, `toon:<toon>`, texts as locale maps). The per-language legacy copies and
   the per-toon map lists were purged 2026-10-11/12 (archived in `entity_versions_legacy`).
 - The catalog (items, recipes, albums, products, editions, featured, code types, toons) lives in the DB since
   2026-10-04, edited in the admin (`/catalog/<kind>`, history + undo; agents/CATALOG.md); tests use

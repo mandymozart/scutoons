@@ -64,46 +64,43 @@ final class EntityStoreTest extends TestCase
 
     public function testKeyScheme(): void
     {
-        foreach (['toon:catpope', 'toon-settings:catpope:de', 'season:catpope:1:en', 'chapter:catpope:12:de', 'chapter:catpope:0:de', 'scene:catpope:2:scene-14:de', 'scene:catpope:0:intro:en',
+        foreach (['toon:catpope', 'toon-settings:catpope:de', 'season:catpope:1:en', 'chapter:catpope:12:de', 'chapter:catpope:0:de',
             'locations:catpope:de', 'routes:catpope:en', 'cast:catpope', 'credits:catpope', 'script:catpope:de', 'script:yellowmouse:en', 'characters', 'moods', 'asset-requests', 'people', 'roles', 'events', 'colorations',
-            'chapter:catpope:1', 'chapter:catpope:0', 'season:catpope:1', 'scene:catpope:2:scene-14'] as $key) {
+            'chapter:catpope:1', 'chapter:catpope:0', 'season:catpope:1'] as $key) {
             self::assertSame($key, (string) EntityKey::parse($key), $key);
         }
         // chapter 0 = a season's prologue; seasons start at 1; no leading zeros
-        foreach (['chapter:catpope:00:de', 'chapter:catpope:01:de', 'chapter:catpope::de', 'season:catpope:0:de', 'chapter:Cat:1:de', 'toon:scutoons', 'characters:x', 'colorations:catpope', 'nope', 'scene:catpope:2', 'season:catpope:1:deu', 'season:catpope', 'toon-settings:catpope', 'locations:catpope', 'chapter:catpope:1:de:x', 'items', '', 'script:catpope', 'script:catpope:1:de', 'script:de'] as $key) {
+        foreach (['chapter:catpope:00:de', 'chapter:catpope:01:de', 'chapter:catpope::de', 'season:catpope:0:de', 'chapter:Cat:1:de', 'toon:scutoons', 'characters:x', 'colorations:catpope', 'nope', 'scene:catpope:2', 'scene:catpope:2:scene-14', 'scene:catpope:2:scene-14:de', 'season:catpope:1:deu', 'season:catpope', 'toon-settings:catpope', 'locations:catpope', 'chapter:catpope:1:de:x', 'items', '', 'script:catpope', 'script:catpope:1:de', 'script:de'] as $key) {
             self::assertFalse(EntityKey::isValid($key), $key);
         }
-        $key = EntityKey::parse('scene:catpope:2:scene-14:de');
-        self::assertSame(['scene', 'catpope', 2, 'scene-14', 'de', 'scene:catpope:2:scene-14', 'scene:catpope:2:scene-14:en'],
-            [$key->kind, $key->toon, $key->number, $key->scene, $key->locale, $key->entity(), (string) $key->withLocale('en')]);
-        self::assertSame('scene:catpope:2:scene-14', EntityKey::sceneOf('catpope', 'chapter2/scene-14.json'));
-        self::assertNull(EntityKey::sceneOf('catpope', '../x.json'));
-        self::assertSame('scene:catpope:0:intro', EntityKey::sceneOf('catpope', 'chapter0/intro.json'));
+        // one document per chapter since 2026-10-19: the scene keys are gone (their versions archived)
+        $key = EntityKey::parse('chapter:catpope:2:de');
+        self::assertSame(['chapter', 'catpope', 2, 'de', 'chapter:catpope:2', 'chapter:catpope:2:en'],
+            [$key->kind, $key->toon, $key->number, $key->locale, $key->entity(), (string) $key->withLocale('en')]);
         self::assertSame(0, EntityKey::parse('chapter:catpope:0:de')->number);
-        // chapters, scenes, seasons: the language-neutral document (no locale, agents/NEUTRAL.md) or the legacy per-locale one
-        $neutral = EntityKey::parse('scene:catpope:2:scene-14');
-        self::assertSame([null, true, true, 'scene:catpope:2:scene-14'], [$neutral->locale, $neutral->isNeutral(), $neutral->isNeutralDoc(), $neutral->entity()]);
+        // chapters, seasons: the language-neutral document (no locale, agents/NEUTRAL.md) or the legacy per-locale one
+        $neutral = EntityKey::parse('chapter:catpope:2');
+        self::assertSame([null, true, true, 'chapter:catpope:2'], [$neutral->locale, $neutral->isNeutral(), $neutral->isNeutralDoc(), $neutral->entity()]);
         self::assertSame([false, false], [$key->isNeutral(), $key->isNeutralDoc()]);
         self::assertSame([true, false], [EntityKey::parse('toon:catpope')->isNeutral(), EntityKey::parse('toon:catpope')->isNeutralDoc()]);
-        self::assertSame('de', EntityKey::parse('scene:catpope:2:de')->scene, 'four parts: a neutral scene (named de)');
     }
 
     public function testInterchangeLayout(): void
     {
         $cases = [
             ['catpope', 'de', 'toon.json', 'toon-settings:catpope:de'], ['catpope', 'en', 'season1.json', 'season:catpope:1:en'],
-            ['catpope', 'de', 'chapter2.json', 'chapter:catpope:2:de'], ['catpope', 'en', 'chapter0.json', 'chapter:catpope:0:en'], ['catpope', 'de', 'chapter2/scene-14.json', 'scene:catpope:2:scene-14:de'],
+            ['catpope', 'de', 'chapter2.json', 'chapter:catpope:2:de'], ['catpope', 'en', 'chapter0.json', 'chapter:catpope:0:en'],
             ['catpope', 'de', 'locations.json', 'locations:catpope:de'], ['catpope', '_', 'cast.json', 'cast:catpope'],
             ['catpope', '_', 'credits.json', 'credits:catpope'], ['scutoons', '_', 'characters.json', 'characters'], ['scutoons', '_', 'people.json', 'people'],
             ['scutoons', '_', 'colorations.json', 'colorations'],
             ['catpope', 'de', 'script.json', 'script:catpope:de'], ['catpope', 'en', 'script.json', 'script:catpope:en'],
-            ['catpope', '_', 'chapter2.json', 'chapter:catpope:2'], ['catpope', '_', 'season1.json', 'season:catpope:1'], ['catpope', '_', 'chapter2/scene-14.json', 'scene:catpope:2:scene-14'],
+            ['catpope', '_', 'chapter2.json', 'chapter:catpope:2'], ['catpope', '_', 'season1.json', 'season:catpope:1'],
         ];
         foreach ($cases as [$dir, $locale, $path, $key]) {
             self::assertSame($key, ContentFiles::keyOf($dir, $locale, $path), "$dir/$locale/$path");
             self::assertSame("$dir/$locale/$path", ContentFiles::pathOf(EntityKey::parse($key)), $key);
         }
-        foreach ([['catpope', '_', 'script.json'], ['scutoons', 'de', 'script.json'], ['catpope', 'de', 'scripts.json'],['catpope', 'de', 'characters.json'],['catpope', 'de', 'credits.json'], ['catpope', 'de', 'collectables.json'], ['catpope', '_', 'index.json'], ['scutoons', 'de', 'toon.json'], ['scutoons', 'de', 'colorations.json'], ['catpope', '_', 'colorations.json'], ['catpope', 'de', 'season0.json'], ['catpope', 'de', 'chapter01.json'], ['catpope', '_', 'season0.json'], ['catpope', '_', 'toon.json'], ['scutoons', '_', 'chapter1.json']] as [$dir, $locale, $path]) {
+        foreach ([['catpope', '_', 'script.json'], ['scutoons', 'de', 'script.json'], ['catpope', 'de', 'scripts.json'],['catpope', 'de', 'characters.json'],['catpope', 'de', 'credits.json'], ['catpope', 'de', 'collectables.json'], ['catpope', '_', 'index.json'], ['scutoons', 'de', 'toon.json'], ['scutoons', 'de', 'colorations.json'], ['catpope', '_', 'colorations.json'], ['catpope', 'de', 'season0.json'], ['catpope', 'de', 'chapter01.json'], ['catpope', '_', 'season0.json'], ['catpope', '_', 'toon.json'], ['scutoons', '_', 'chapter1.json'], ['catpope', '_', 'chapter2/scene-14.json'], ['catpope', 'de', 'chapter2/scene-14.json']] as [$dir, $locale, $path]) {
             self::assertNull(ContentFiles::keyOf($dir, $locale, $path), "$dir/$locale/$path is no entity");
         }
         self::assertSame('toons.json', ContentFiles::pathOf(EntityKey::parse('toon:catpope')));
@@ -401,5 +398,40 @@ final class EntityStoreTest extends TestCase
         self::assertSame([$expected, $expected], array_column($this->db->all("SELECT json FROM entity_versions WHERE entity_key = 'chapter:smoke:1' ORDER BY id"), 'json'));
         foreach ($scenes as $key => [, $after]) self::assertSame($after, $this->db->value('SELECT json FROM entity_versions WHERE entity_key = ?', [$key]), $key);
         self::assertSame(0, $apply(), 'a second run changes nothing');
+    }
+
+    /**
+     * 2026-10-19-inline-scenes (one document per chapter, research/TEXT-ACROSS-SLICES.md §5 step 3): a `ref` group becomes
+     * the scene's group – the current published chapter gets the newest published scene, the newest chapter the newest
+     * scene, an older one the scene as it was then (a published one: the newest published then); a missing scene keeps its
+     * group; the scene versions move to entity_versions_legacy with their asset usage rows; a second run changes 0 rows
+     */
+    public function testTheInlineScenesMigration(): void
+    {
+        $insert = "INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES (?, ?, 'smoke', NULL, ?, NULL, '2026-10-01 00:00:00', ?, NULL)";
+        $chapter = '{"title":{"de":"Zwei"},"groups":[{"label":"own","slices":[]},{"ref":{"src":"chapter2/a.json"}},{"ref":{"src":"chapter2/gone.json"}}]}';
+        $scene = fn(string $label) => '{"label":"' . $label . '","renderer":{"type":"vertical"},"slices":[{"image":"' . $label . '.webp","width":390,"height":625}]}';
+        /** @var array<string, int> $ids */
+        $ids = [];
+        foreach ([['scene', 'a1', 'published'], ['chapter', 'v1', 'draft'], ['scene', 'a2', 'draft'], ['chapter', 'v2', 'published'], ['scene', 'a3', 'published'],
+            ['chapter', 'v4', 'published'], ['scene', 'a4', 'draft'], ['chapter', 'v5', 'draft']] as [$kind, $name, $status]) {
+            $this->db->run($insert, $kind === 'scene' ? ['scene:smoke:2:a', 'scene', $scene($name), $status] : ['chapter:smoke:2', 'chapter', $chapter, $status]);
+            $ids[$name] = (int) $this->db->value('SELECT MAX(id) FROM entity_versions');
+        }
+        $this->db->run($insert, ['chapter:smoke:3', 'chapter', '{"groups":[{"label":"plain","slices":[]}]}', 'published']);
+        $this->db->run("INSERT INTO asset_usages (path, source, ref, field, state, version_id, toon, raw, scanned_at) VALUES ('smoke/a4.webp', 'content', 'scene:smoke:2:a', '/slices/0/image', 'draft', ?, 'smoke', 'a4.webp', '2026-10-01 00:00:00')", [$ids['a4']]);
+
+        $runner = new MigrationRunner($this->db, self::root() . '/migrations');
+        $apply = fn(): int => $runner->applyFile('2026-10-19-inline-scenes.mysql.sql', fn(string $line) => null)['rows'];
+        self::assertSame(4 + 4 + 1 + 4, $apply(), 'four chapter versions, four scene versions copied, one usage row, four scene versions deleted');
+        $groups = fn(string $version) => json_decode((string) $this->db->value('SELECT json FROM entity_versions WHERE id = ?', [$ids[$version]]), true)['groups'];
+        foreach (['v1' => 'a1', 'v2' => 'a1', 'v4' => 'a3', 'v5' => 'a4'] as $version => $label) {
+            self::assertSame([['label' => 'own', 'slices' => []], json_decode($scene($label), true), ['ref' => ['src' => 'chapter2/gone.json']]], $groups($version), "$version gets $label");
+        }
+        self::assertSame('{"groups":[{"label":"plain","slices":[]}]}', $this->db->value("SELECT json FROM entity_versions WHERE entity_key = 'chapter:smoke:3'"), 'no ref: untouched');
+        self::assertSame(0, (int) $this->db->value("SELECT COUNT(*) FROM entity_versions WHERE kind = 'scene'"));
+        self::assertSame([$ids['a1'], $ids['a2'], $ids['a3'], $ids['a4']], array_map('intval', array_column($this->db->all("SELECT id FROM entity_versions_legacy WHERE entity_key = 'scene:smoke:2:a' ORDER BY id"), 'id')), 'kept as history');
+        self::assertSame(0, (int) $this->db->value("SELECT COUNT(*) FROM asset_usages WHERE ref = 'scene:smoke:2:a'"));
+        self::assertSame(0, $apply(), 'a second run changes nothing (the group of the missing scene is matched again and stays as it is)');
     }
 }

@@ -1,4 +1,4 @@
-// One entity of a toon (agents/DATA.md: `chapter:catpope:1`, `scene:catpope:2:scene-14`, `season:catpope:1`,
+// One entity of a toon (agents/DATA.md: `chapter:catpope:1`, `season:catpope:1`,
 // `toon:catpope`, `characters` …), edited in all locales at once. Localized entities are stored per locale
 // (`<entity>:<locale>`); language-neutral ones under the entity itself (locale `_` in the editor).
 //
@@ -321,7 +321,7 @@ export class ContentDoc {
 		this.source = source;
 		// events without their hidden id get one in memory (event-ids.ts); not a change of the author's: the document stays
 		// saved (no autosave, no "unsaved" bar) – the page says so, and the next save stores them (no silent conversion)
-		this.idsAssigned = this.kind === 'chapter' || this.kind === 'group' ? this.locales.reduce((n, l) => n + assignEventIds(this.data[l], this.kind as 'chapter' | 'group'), 0) : 0;
+		this.idsAssigned = this.kind === 'chapter' ? this.locales.reduce((n, l) => n + assignEventIds(this.data[l], 'chapter'), 0) : 0;
 		const saved: Record<string, string> = {};
 		// (through the state: the ids above live in it, not in `data`)
 		for (const l of this.locales) saved[l] = data[l] === null || data[l] === undefined ? '' : JSON.stringify(this.data[l]);
@@ -407,7 +407,7 @@ export class ContentDoc {
 		this.checkpoint(key);
 		change(file);
 		// a new, pasted or imported event gets its hidden id right away (event-ids.ts)
-		if (this.kind === 'chapter' || this.kind === 'group') assignEventIds(file, this.kind);
+		if (this.kind === 'chapter') assignEventIds(file, 'chapter');
 	}
 
 	/** Sets a field of the (neutral) document; `undefined` removes it. */

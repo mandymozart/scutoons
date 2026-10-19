@@ -24,7 +24,6 @@ final class ContentSchemas
         'toon-settings' => 'toon',
         'season' => 'season',
         'chapter' => 'chapter',
-        'scene' => 'group',
         'locations' => null,
         'routes' => null,
         'cast' => 'cast',
@@ -47,7 +46,6 @@ final class ContentSchemas
     /** the language-neutral documents of these kinds (a key without locale, agents/NEUTRAL.md) → schema file */
     public const NEUTRAL_BY_KIND = [
         'chapter' => 'chapter-doc',
-        'scene' => 'group-doc',
         'season' => 'season-doc',
     ];
 
@@ -77,15 +75,15 @@ final class ContentSchemas
     }
 
     /**
-     * Problems of a stored document by its key: a neutral chapter / scene / season against its neutral schema, a
-     * per-locale one (legacy) against the old; a neutral chapter / scene's texts also by their expressions (syntax
+     * Problems of a stored document by its key: a neutral chapter / season against its neutral schema, a per-locale
+     * one (legacy) against the old; a neutral chapter's texts also by their expressions (syntax
      * errors and the old `{x:clock}`, Expr\TextCheck – agents/EXPRESSIONS.md §4)
      * @return list<string>
      */
     public function problemsOf(EntityKey $key, mixed $content, int $limit = 20): array
     {
         $problems = $this->problems($key->kind, $content, $limit, $key->isNeutralDoc());
-        if ($problems || !$key->isNeutralDoc() || !in_array($key->kind, ['chapter', 'scene'], true)) return $problems;
+        if ($problems || !$key->isNeutralDoc() || $key->kind !== 'chapter') return $problems;
         return TextCheck::problems($key->kind, $content, $limit);
     }
 

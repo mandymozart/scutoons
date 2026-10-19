@@ -12,9 +12,10 @@
 //                sandbox's index entry + sandbox/…; the script owns it and rewrites it completely)
 //   --no-import  only write the files. By default the script then imports them into the local content store (published):
 //                php server/bin/console import-content logs/dev/sandbox --toon=sandbox --update
-//                Chapters, scenes and the season are language-neutral documents (`_/chapter<N>.json`, agents/NEUTRAL.md),
-//                the toon settings are the index entry's (texts per language, step 4); per-locale chapters / scenes /
-//                seasons / toon settings of earlier runs are removed from the database first.
+//                Chapters (their groups inline – one document per chapter) and the season are language-neutral documents
+//                (`_/chapter<N>.json`, agents/NEUTRAL.md), the toon settings are the index entry's (texts per language,
+//                step 4); per-locale chapters / seasons / toon settings of earlier runs are removed from the database
+//                first.
 // The sandbox is dev / creator only: production never has it (Library::DEV_ONLY_TOONS).
 // Re-run after adding characters, personas, looks, moods or transitions. See agents/MEMORY.md "Sandbox", agents/DATA.md.
 import { spawnSync } from 'node:child_process';
@@ -239,7 +240,7 @@ export interface SandboxReport {
 	perEncounter: { chapter: number; name: string; groups: string[]; moods: number; fails: number }[];
 }
 export interface SandboxFiles {
-	/** path below the toon folder (`_/chapter1.json`, `_/chapter1/<scene>.json`, `de/toon.json`, `_/cast.json`, …) → JSON */
+	/** path below the toon folder (`_/chapter1.json`, `de/toon.json`, `_/cast.json`, …) → JSON */
 	files: Record<string, unknown>;
 	report: SandboxReport;
 }
@@ -288,6 +289,8 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 
 	const report: SandboxReport = { chapters: 0, groups: 0, encounters: 0, moods: 0, mimics: 0, fails: 0, lookSwitches: 0, transitions: 0, styleFails: 0, cucumbers: [], testos: [], sundayCast: 0, sundayStage: 0, sundayFull: [], sundayTransitions: 0, perEncounter: [] };
 	const files: Record<string, unknown> = {};
+	/** a chapter's groups by label (`<chapter>/<label>`), put inline into its chapter by `chapter()` */
+	const groupsOf = new Map<string, unknown>();
 	/** the season's sequence: every chapter a draft in every language (the status is a locale map) */
 	const sequence: { number: number; status: Record<string, 'draft'> }[] = [];
 	const draftEverywhere = () => Object.fromEntries([...LOCALES, PARTIAL].map((l) => [l, 'draft' as const]));
@@ -548,13 +551,13 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 			const withIds = events.map((e, k) => ({ id: `sb${number}-${label}-s${n}-${k + 1}`, ...e }));
 			slices.push({ image: slicePath(n), width: 390, height: 625, ...(withIds.length ? { events: withIds } : {}) });
 		}
-		// one language-neutral scene (scene:sandbox:<n>:<label>): the texts are locale maps, de + en (ko not translated)
+		// one group of the chapter: the texts are locale maps, de + en (ko not translated)
 		const script = events.map((e, k) => ({ id: `sb${number}-${label}-${k + 1}`, ...e }));
-		files[`_/chapter${number}/${label}.json`] = { label, renderer: { type: 'vertical' }, slices, events: script };
+		groupsOf.set(`${number}/${label}`, { label, renderer: { type: 'vertical' }, slices, events: script });
 		report.groups++;
 	}
 
-	/** the endless band (scene:sandbox:<n>:band): the BAND slices, one box on the first; it runs on into the next group */
+	/** the endless band (group `band`): the BAND slices, one box on the first; it runs on into the next group */
 	function band(number: number, hint: Text) {
 		const slices = Array.from({ length: BAND[1] - BAND[0] + 1 }, (_, k) => ({
 			image: slicePath(BAND[0] + k),
@@ -562,10 +565,10 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 			height: 693,
 			...(k === 0 ? { dialog: [{ id: `sb${number}-band-1`, rect: { x: 6, y: 6, width: 70 }, text: hint }] } : {})
 		}));
-		files[`_/chapter${number}/band.json`] = { label: 'band', renderer: { type: 'horizontal', params: { endless: true } }, continues: true, slices };
+		groupsOf.set(`${number}/band`, { label: 'band', renderer: { type: 'horizontal', params: { endless: true } }, continues: true, slices });
 	}
 
-	/** one language-neutral chapter (chapter:sandbox:<n>): title / description in de, en, ko; no status (the season's) */
+	/** one language-neutral chapter (chapter:sandbox:<n>) with its groups: title / description in de, en, ko; no status (the season's) */
 	function chapter(number: number, title: Text, description: Text, labels: string[], partial: Partial) {
 		files[`_/chapter${number}.json`] = {
 			title: { ...title, [PARTIAL]: partial.title },
@@ -575,7 +578,7 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 			description: { ...description, [PARTIAL]: partial.description },
 			thumbnail: `${CATPOPE}s1/c1/s1c1-thumbnail.jpg`,
 			isPreview: true,
-			groups: labels.map((label) => ({ ref: { src: `chapter${number}/${label}.json` } }))
+			groups: labels.map((label) => groupsOf.get(`${number}/${label}`))
 		};
 		report.chapters++;
 	}
@@ -683,17 +686,17 @@ async function main() {
 		console.log(`next: npm run dev:db -- console ${importArgs.slice(1).join(' ')}`);
 		return;
 	}
-	// the per-locale chapters / scenes / season / toon settings of runs before the language-neutral documents
-	// (agents/NEUTRAL.md phase 2B, step 4): the sandbox is generated, nothing of it is edited by hand per locale – they
-	// go, so no stale per-locale version sits behind the neutral ones (the Convert page, content:neutral-check, the history)
+	// the per-locale chapters / season / toon settings of runs before the language-neutral documents (agents/NEUTRAL.md
+	// phase 2B, step 4): the sandbox is generated, nothing of it is edited by hand per locale – they go, so no stale
+	// per-locale version sits behind the neutral ones (content:neutral-check, the history)
 	const [, dropped] = localSql(
 		[
-			"DELETE FROM asset_usages WHERE source = 'content' AND ref IN (SELECT entity_key FROM entity_versions WHERE toon = :toon AND locale IS NOT NULL AND kind IN ('chapter', 'scene', 'season', 'toon-settings'))",
-			"DELETE FROM entity_versions WHERE toon = :toon AND locale IS NOT NULL AND kind IN ('chapter', 'scene', 'season', 'toon-settings')"
+			"DELETE FROM asset_usages WHERE source = 'content' AND ref IN (SELECT entity_key FROM entity_versions WHERE toon = :toon AND locale IS NOT NULL AND kind IN ('chapter', 'season', 'toon-settings'))",
+			"DELETE FROM entity_versions WHERE toon = :toon AND locale IS NOT NULL AND kind IN ('chapter', 'season', 'toon-settings')"
 		],
 		{ toon: SANDBOX_TOON }
 	);
-	if (dropped) console.log(`removed ${dropped} per-locale chapter / scene / season / toon settings versions of earlier sandbox runs`);
+	if (dropped) console.log(`removed ${dropped} per-locale chapter / season / toon settings versions of earlier sandbox runs`);
 	// into the content store through the import (the interchange format → entity keys), like every other content
 	const result = spawnSync(process.env.PHP_BINARY || 'php', [...phpMysqlArgs(), ...importArgs], { cwd: pathJoin(root, 'server'), env: { ...process.env, ...phpDbEnv() }, encoding: 'utf8' });
 	process.stdout.write((result.stdout || '').split('\n').slice(-3).join('\n') + '\n');

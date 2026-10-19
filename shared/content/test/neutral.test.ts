@@ -42,12 +42,11 @@ test('texts: served locale → source → other languages → any; blank is miss
 	assert.deepEqual(servedLocale('season', { title: { en: 'x' } }, 'de', { source: 'de' }), { locale: 'en', fallback: true });
 });
 
-test('keys: chapter / scene / season are stored neutral or (legacy) per locale', () => {
+test('keys: chapter / season are stored neutral or (legacy) per locale; scenes are gone', () => {
 	assert.equal(isNeutralDocKey('chapter:catpope:2'), true);
-	assert.equal(isNeutralDocKey('scene:catpope:2:scene-14'), true);
 	assert.equal(isNeutralDocKey('season:catpope:1'), true);
 	assert.equal(isNeutralDocKey('chapter:catpope:2:de'), false);
-	assert.equal(isNeutralDocKey('toon:catpope'), false, 'not a chapter / scene / season');
+	assert.equal(isNeutralDocKey('toon:catpope'), false, 'not a chapter / season');
 	assert.equal(isNeutralDocKey('toon-settings:catpope'), false);
 	assert.equal(isNeutralKey('toon:catpope'), true);
 	assert.equal(isNeutralKey('chapter:catpope:2'), true);
@@ -56,5 +55,6 @@ test('keys: chapter / scene / season are stored neutral or (legacy) per locale',
 	// the legacy write path is unchanged: a locale gives the per-locale key, the neutral locale the entity
 	assert.equal(entityKeyFor('chapter:catpope:2', 'de'), 'chapter:catpope:2:de');
 	assert.equal(entityKeyFor('chapter:catpope:2', '_'), 'chapter:catpope:2');
-	assert.deepEqual(parseEntityKey('scene:catpope:2:scene-14'), { kind: 'scene', toon: 'catpope', number: 2, scene: 'scene-14' });
+	// one document per chapter since 2026-10-19: a scene document's key is no key any more
+	assert.equal(parseEntityKey('scene:catpope:2:scene-14'), null);
 });

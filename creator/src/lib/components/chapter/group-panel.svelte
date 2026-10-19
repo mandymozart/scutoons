@@ -9,13 +9,12 @@
 
 	/**
 	 * Group settings: label, layout (the renderer), linked groups (owner 2026-10-06: `continues`, and `end` on a group
-	 * that doesn't continue – @scutoons/content chains.ts). For ref groups the doc is the referenced scene. Compact
+	 * that doesn't continue – @scutoons/content chains.ts). Compact
 	 * (owner 2026-10-06): one tight field grid, explanations as the labels' tooltips.
 	 */
 	let {
 		doc,
 		groupPath,
-		refSrc = null,
 		toon = '',
 		last = false,
 		chapterNumber = 0,
@@ -23,7 +22,6 @@
 	}: {
 		doc: ContentDoc;
 		groupPath: Path;
-		refSrc?: string | null;
 		toon?: string;
 		/** the chapter's last group: nothing to continue into */
 		last?: boolean;

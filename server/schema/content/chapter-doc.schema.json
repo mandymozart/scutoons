@@ -132,9 +132,6 @@
 						"type"
 					]
 				},
-				"ref": {
-					"$ref": "#/definitions/RefLink"
-				},
 				"continues": {
 					"type": "boolean",
 					"description": "Linked groups (owner 2026-10-06): this group flows straight into the next group on the same page, no follow-up bar between. A chain = consecutive groups where every one but the last continues (`chainOf` in chains.ts). Any group may have a VN script or slice events (their scripts run one after another on the page); after a group whose script can jump away, the next group needs a label."
@@ -144,7 +141,7 @@
 					"description": "Where the reader goes when this group – the chain's last – is done, instead of the next group / chapter. Ignored on a group that `continues`."
 				}
 			},
-			"description": "A group: inline in a chapter, or stored on its own as a scene (`scene:<toon>:<chapter>:<name>`)"
+			"description": "A group of a chapter (one document per chapter since 2026-10-19 – the scene documents were inlined)"
 		},
 		"SliceDoc": {
 			"type": "object",
@@ -181,6 +178,10 @@
 				},
 				"height": {
 					"type": "number"
+				},
+				"shot": {
+					"type": "string",
+					"description": "The storyboard shot this slice was cut from (owner 2026-10-19: Scene · Shot · Slice – research/TEXT-ACROSS-SLICES.md §10), e.g. `sb-25-4`; several consecutive slices may share one shot (a tall shot cut into tiles). Written by the storyboard compile; optional – a slice drawn by hand has none. The reader ignores it."
 				},
 				"imageVariants": {
 					"$ref": "#/definitions/QualityVariants",
@@ -3140,28 +3141,6 @@
 			},
 			"description": "A horizontal group's params (closed: the schema refuses any other key). Without `endless` a horizontal group is the pinned strip (owner 2026-10-06): it leaves the reading column, its slices side by side at the screen's full height; scrolling down pins it and moves it sideways (1:1, no snapping), then reading goes on downwards; on a desktop it can go full screen (← →). `groupLayout` / `rendererOf` (flow.ts) name the three layouts.",
 			"additionalProperties": false
-		},
-		"RefLink": {
-			"type": "object",
-			"properties": {
-				"src": {
-					"type": "string"
-				},
-				"id": {
-					"type": "string"
-				},
-				"type": {
-					"type": "string",
-					"enum": [
-						"chapter",
-						"group"
-					]
-				}
-			},
-			"required": [
-				"src"
-			],
-			"description": "A group stored on its own (a scene): `src` = `chapter<N>/<name>.json` (EntityKey::sceneOfRef); id / type are unused leftovers"
 		},
 		"GroupEnd": {
 			"type": "object",

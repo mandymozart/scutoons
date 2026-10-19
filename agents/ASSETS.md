@@ -268,8 +268,8 @@ one draft per document, `--publish`), (4) the viewer code change for the model p
   `images/vectors/{vector-blood,vector-bloog-glot,vector-demon-saw-1,vector-frame-right}.svg`): **delete**.
 - `models/` → `scutoons/models/` together with the one-line viewer change (`MOBILENET_MODEL` in object-detector.ts) in
   the same step as the move.
-- `scene:catpope:2:scene-19` (the stale draft): **leave it** – the owner cleans up when preparing chapter 2's final
-  release on production.
+- `scene:catpope:2:scene-19` (the stale draft): archived to `entity_versions_legacy` with every scene document
+  (2026-10-19-inline-scenes) – no usage row keeps its files any more.
 - Deletions happen **with the move** (local `media/` and bunny), after the owner reviews the final mapping run;
   `assets:layout` lists them (`action: delete`, `summary.delete_list`). A file that is used is never planned for deletion.
 
@@ -429,7 +429,7 @@ Registered as app code in `AssetUsages::CODE_REFERENCES` (+ AssetLayout): never 
 ## Open / next
 
 - Owner: decide the bunny-only files (the old `1x/de` slices are used only by the
-  never-published draft `scene:catpope:2:scene-19`; deleting that draft entity frees them).
+  never-published draft `scene:catpope:2:scene-19`, archived 2026-10-19 – after the Assets rescan they show as unused).
 - Owner decision: trailer from the prologue film (see above).
 - Per-file bandwidth from the Logging API (aggregate the daily logs into a table; per asset in the detail).
 - Image renditions for slices (`IMAGE_QUALITY_DENSITIES` 1x/2x/3x as `{ src, variants }`) once the reader reads them – the

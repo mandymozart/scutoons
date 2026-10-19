@@ -1,7 +1,6 @@
 // Copy / cut / paste of a chapter's groups (BACKLOG 10.39 step 5) as one handler for every place that picks groups: the
 // chapter tree (region 'tree') and the phone's group list (the selection bar, owner 2026-10-12). The picked groups (else
-// the open one) – a separate scene is copied as its content and pasted as a group of the chapter; a paste goes after the
-// last picked / the open group (else at the end), fresh ids, unique labels, media of another toon referenced; Shift+V
+// the open one); a paste goes after the last picked / the open group (else at the end), fresh ids, unique labels, media of another toon referenced; Shift+V
 // puts the copied group's renderer, end and `continues` onto every picked group of the chapter.
 import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 import { applyGroupSettings, clipPlacements, makeClip, mergeSounds, prepareGroup, remapSounds, soundsOf } from '$lib/editor/clip.ts';
@@ -12,8 +11,6 @@ import { m } from '$lib/paraglide/messages.js';
 export interface GroupsClipOptions {
 	chapter: () => ContentDoc;
 	groups: () => any[];
-	/** a group as stored: a `ref` group's separate scene document, else the group itself */
-	resolveGroup: (g: any) => any;
 	chapterNumber: () => number;
 	/** the groups it acts on (the picks, else the open one) */
 	picked: () => number[];
@@ -30,12 +27,9 @@ export function groupsClipHandler(o: GroupsClipOptions): ClipHandler {
 	return {
 	copy() {
 		const clipCtx = getClipContext();
-		const list = pickedNow().map((i) => o.resolveGroup(o.groups()[i])).filter(Boolean);
+		const list = pickedNow().map((i) => o.groups()[i]).filter(Boolean);
 		if (!list.length || !clipCtx) return null;
-		const entries = $state.snapshot(list).map((g: any) => {
-			const { ref: _ref, ...rest } = g;
-			return rest;
-		});
+		const entries = $state.snapshot(list);
 		const slices = entries.flatMap((g: any) => g?.slices ?? []);
 		const clip = makeClip('groups', o.chapter().toon, entries, { sounds: soundsOf(slices, o.chapter().get(o.chapter().primary, ['audio'])), chapter: o.chapterNumber() });
 		return { clip, what: clipWhat(clip) };
@@ -73,8 +67,7 @@ export function groupsClipHandler(o: GroupsClipOptions): ClipHandler {
 		const clipCtx = getClipContext();
 		if (clip.kind !== 'groups') return null;
 		const source = clip.entries[0];
-		// a separate scene keeps its renderer / end / continues in its own document: only the chapter's groups here
-		const targets = pickedNow().filter((i) => !o.groups()[i]?.ref);
+		const targets = pickedNow();
 		if (!targets.length || !source) return { message: m['creator.clip_no_settings']() };
 		o.chapter().edit((file) => {
 			for (const i of targets) if (file.groups?.[i]) applyGroupSettings(file.groups[i], source);

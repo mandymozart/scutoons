@@ -34,7 +34,7 @@ final class SetupCommand extends Command
             ->setHelp(<<<'HELP'
                 The steps, in order – each reports ok / missing / failed:
                   1. schema     the base schema and every dated migration (migrate)
-                  2. content    stored chapters / scenes and the catalog (db:prod-seed locally; production: the export)
+                  2. content    stored chapters and the catalog (db:prod-seed locally; production: the export)
                   3. assets     the asset registry knows the media (assets:scan)
                   4. check      content:check – no stored document is broken or can get a reader stuck
                   5. settings   the settings a running API needs (CDN, mail sender, the log folder)

@@ -7,19 +7,16 @@ import {
 	foldToonName,
 	hasToonTexts,
 	neutralizeChapter,
-	neutralizeGroup,
 	neutralizeSeason,
 	neutralizeToon,
 	planToonConversion,
 	resolveChapter,
-	resolveGroup,
 	resolveSeason,
 	resolveToon,
 	toonLanguages,
 	toonName,
 	visibleDifferences,
 	type Chapter,
-	type Group,
 	type Season,
 	type ToonIndex,
 	type ToonSettings
@@ -119,17 +116,6 @@ test("chapter: blank and missing texts are reported (they show the source's text
 	assert.deepEqual(report[1].values, { en: null });
 	assert.equal(resolveChapter(doc, 'en', L).description, 'Beschreibung');
 	assert.equal(resolveChapter(doc, 'en', L).groups[1].slices![0].dialog![0].text, 'Hallo');
-});
-
-test('scene: a field only another locale has is dropped (source wins) and reported; accepted warnings are kept', () => {
-	const de = { label: 'scene-14', renderer: { type: 'vertical' }, slices: [slice('BUMM')], accepted_warnings: ['a#1'] } as unknown as Group;
-	const en = { ...de, interaction: 'webtoon', slices: [slice('BOOM')], accepted_warnings: ['b#2'] } as unknown as Group;
-	const { doc, report } = neutralizeGroup({ de, en }, 'de');
-	assert.deepEqual(kinds(report), ['differs interaction']);
-	assert.deepEqual(report[0].missing, ['de']);
-	assert.equal('interaction' in doc, false);
-	assert.deepEqual(doc.accepted_warnings, ['a#1', 'b#2']);
-	assert.deepEqual(resolveGroup(doc, 'en', L).slices![0].dialog![0].text, 'BOOM');
 });
 
 test('season: status per locale, neutral cover, per-locale cover difference reported', () => {

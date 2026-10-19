@@ -27,7 +27,6 @@ import {
 	NEUTRAL_DOC_KINDS,
 	parseEntityKey,
 	resolveText,
-	sceneEntityOfRef,
 	scriptLabels,
 	toonLanguages,
 	toonName,
@@ -57,7 +56,7 @@ const text = (value: unknown): Result => ({
 });
 const fail = (message: string): Result => ({ ...text(message), isError: true });
 
-/** chapter / scene / season: ONE language-neutral document per entity, texts as locale maps (agents/NEUTRAL.md) */
+/** chapter / season: ONE language-neutral document per entity, texts as locale maps (agents/NEUTRAL.md) */
 const isNeutralKind = (kind: string | undefined) => !!kind && (NEUTRAL_DOC_KINDS as readonly string[]).includes(kind);
 
 /** An API error as the agent should read it (409 = someone saved a newer version) */
@@ -157,7 +156,7 @@ export function registerContentTools(server: McpServer, config: Config, options:
 		return docs.settings || docs.parts.character?.length ? composeCharacterRegistry(docs) : null;
 	}
 	/**
-	 * The custom collage presets a chapter / scene check judges `piece.preset` against (research/COLLAGE.md §12.5, the
+	 * The custom collage presets a chapter check judges `piece.preset` against (research/COLLAGE.md §12.5, the
 	 * creator's judgedPresets): the newest draft's list, none stored = [] (a custom id warns as unknown); a failed load =
 	 * undefined, nothing judged – an API that doesn't know the key yet (400) must not stop a chapter's checks
 	 */
@@ -178,7 +177,7 @@ export function registerContentTools(server: McpServer, config: Config, options:
 	}
 
 	/**
-	 * The stored keys of an entity or key: one key; a chapter / scene / season entity = its one language-neutral
+	 * The stored keys of an entity or key: one key; a chapter / season entity = its one language-neutral
 	 * document; every locale of another localized entity (the script; the legacy per-language toon settings)
 	 */
 	async function keysOf(keyOrEntity: string, locale?: string): Promise<{ entity: string; keys: string[]; primary: string | null }> {
@@ -193,7 +192,7 @@ export function registerContentTools(server: McpServer, config: Config, options:
 	}
 
 	/**
-	 * A chapter / scene / season's newest document: the language-neutral one, else (an entity not converted yet –
+	 * A chapter / season's newest document: the language-neutral one, else (an entity not converted yet –
 	 * production before the creator's Convert page) the per-locale one in `locale`
 	 */
 	async function neutralOrLegacy(entity: string, locale: string, source: 'draft' | 'published' = 'draft'): Promise<{ key: string; doc: WrappedContent<Json> } | null> {
@@ -215,7 +214,7 @@ export function registerContentTools(server: McpServer, config: Config, options:
 
 	/**
 	 * The creator's checks for one stored document (chapter-editor / meta-page / script-editor); a language-neutral
-	 * chapter / scene / season like the creator: `validateNeutral` (the structure once + every language's texts)
+	 * chapter / season like the creator: `validateNeutral` (the structure once + every language's texts)
 	 */
 	async function validateDoc(key: string, doc: Json): Promise<{ problems: Problem[]; validated: boolean }> {
 		const ref = parseEntityKey(key)!;
@@ -238,7 +237,7 @@ export function registerContentTools(server: McpServer, config: Config, options:
 			const problems = checkCharacterDocs(docs, { languages: ['de', 'en'], moods: moods ?? defaultMoodVocabulary() }).filter((p) => p.key === key);
 			return { problems: problems.map(({ level, docPath, message }) => ({ level, file: key, locale: null, path: docPath, message })), validated: true };
 		}
-		const kind = ({ chapter: 'chapter', scene: 'group', season: 'season', 'toon-settings': 'toon', toon: 'index', script: 'script', colorations: 'colorations' } as Record<string, string>)[ref.kind];
+		const kind = ({ chapter: 'chapter', season: 'season', 'toon-settings': 'toon', toon: 'index', script: 'script', colorations: 'colorations' } as Record<string, string>)[ref.kind];
 		// the toon entry: its language-neutral settings + its texts per language (agents/NEUTRAL.md step 4)
 		if (kind === 'index') {
 			const { source, languages } = toonLanguages(doc as ToonIndex);
@@ -246,14 +245,9 @@ export function registerContentTools(server: McpServer, config: Config, options:
 		}
 		if (!kind) return { problems: [], validated: false };
 		const ctx: Parameters<typeof validateFile>[3] = { file };
-		if (kind === 'chapter' || kind === 'group') {
-			const [cast, reg, moods, presets, chapter] = await Promise.all([
-				data<ToonCast>(`cast:${ref.toon}`),
-				registry(),
-				data<MoodVocabulary>('moods'),
-				judgedPresets(),
-				kind === 'group' ? data<Json>(entityKeyFor(`chapter:${ref.toon}:${ref.number}`, ref.locale)) : Promise.resolve(doc)
-			]);
+		if (kind === 'chapter') {
+			const [cast, reg, moods, presets] = await Promise.all([data<ToonCast>(`cast:${ref.toon}`), registry(), data<MoodVocabulary>('moods'), judgedPresets()]);
+			const chapter = doc;
 			// like the creator's chapter editor: the cast of season 1, the registry's looks, the mood vocabulary, the custom collage presets
 			if (cast) ctx.cast = castIndex(cast, 1);
 			if (reg) ctx.expressions = expressionIndex(reg);
@@ -319,7 +313,7 @@ export function registerContentTools(server: McpServer, config: Config, options:
 		'list_chapters',
 		{
 			description:
-				'The chapters of a toon (seasons, chapter numbers, titles, status from the season in `locale`) with their groups: index, label, the scene entity of a referenced group, slice count and the script points (label names a divert can go to). A jumpTo targets a group by its label. Without `chapter` every chapter is listed. `key` = the document to read / save (language-neutral: `chapter:<toon>:<n>`).',
+				'The chapters of a toon (seasons, chapter numbers, titles, status from the season in `locale`) with their groups: index, label, slice count and the script points (label names a divert can go to). A jumpTo targets a group by its label. Without `chapter` every chapter is listed. `key` = the document to read / save (language-neutral: `chapter:<toon>:<n>`).',
 			inputSchema: z.object({
 				toon: z.string(),
 				chapter: z.number().int().min(0).optional().describe('only this chapter'),
@@ -353,15 +347,12 @@ export function registerContentTools(server: McpServer, config: Config, options:
 				const doc = found.doc;
 				const groups = [];
 				for (const [i, g] of ((doc.content?.groups ?? []) as Json[]).entries()) {
-					const scene = g?.ref?.src ? sceneEntityOfRef(toon, g.ref.src) : null;
-					const body = scene ? (await neutralOrLegacy(scene, lang))?.doc.content : g;
 					groups.push({
 						index: i,
-						label: body?.label ?? g?.label ?? null,
-						...(scene ? { scene } : {}),
-						slices: Array.isArray(body?.slices) ? body.slices.length : 0,
-						events: Array.isArray(body?.events) ? body.events.length : 0,
-						points: scriptLabels(body?.events)
+						label: g?.label ?? null,
+						slices: Array.isArray(g?.slices) ? g.slices.length : 0,
+						events: Array.isArray(g?.events) ? g.events.length : 0,
+						points: scriptLabels(g?.events)
 					});
 				}
 				chapters.push({
@@ -382,9 +373,9 @@ export function registerContentTools(server: McpServer, config: Config, options:
 		'read_entity',
 		{
 			description:
-				'Reads a stored document by entity key (scutoons://rules/entity-keys). A chapter / scene / season (`chapter:catpope:2`) is ONE language-neutral document: structure once, every text a locale map { "de": …, "en": … }; so is the toon entry `toon:catpope` with the toon\'s settings (title / description / release / languageStatus per language). The script without locale returns every language, a full key one. Each result has `version.id` – pass it as `base` to save_draft. `source`: draft = the newest version (draft or published), published = what readers see, or one old version by id. `path` returns only that part of the content; `lines` [from, to] (1-based) only those lines of a text (e.g. the screenplay: path ["text"], line numbers from search_content).',
+				'Reads a stored document by entity key (scutoons://rules/entity-keys). A chapter / season (`chapter:catpope:2`) is ONE language-neutral document: structure once, every text a locale map { "de": …, "en": … }; so is the toon entry `toon:catpope` with the toon\'s settings (title / description / release / languageStatus per language). The script without locale returns every language, a full key one. Each result has `version.id` – pass it as `base` to save_draft. `source`: draft = the newest version (draft or published), published = what readers see, or one old version by id. `path` returns only that part of the content; `lines` [from, to] (1-based) only those lines of a text (e.g. the screenplay: path ["text"], line numbers from search_content).',
 			inputSchema: z.object({
-				key: z.string().describe('entity (`scene:catpope:2:scene-14`, `script:catpope`) or stored key (`script:catpope:de`)'),
+				key: z.string().describe('entity (`chapter:catpope:2`, `script:catpope`) or stored key (`script:catpope:de`)'),
 				source: z.enum(['draft', 'published']).optional().describe('default draft'),
 				version: z.number().int().optional().describe('one stored version by id (overrides source; needs a full key)'),
 				locale: z.string().optional().describe('the script: one language, or "all" (default); not for language-neutral documents'),
@@ -395,7 +386,7 @@ export function registerContentTools(server: McpServer, config: Config, options:
 		},
 		guard(async ({ key, source, version, locale, path, lines }) => {
 			const { keys } = await keysOf(key, locale);
-			// a chapter / scene / season not converted yet (production before the creator's Convert page): its per-locale documents, read only
+			// a chapter / season not converted yet (production before the creator's Convert page): its per-locale documents, read only
 			if (keys.length === 1 && isNeutralDocKey(keys[0]) && version === undefined && !(await load(keys[0], source ?? 'draft'))) {
 				const legacy = (await toonIndex(parseEntityKey(keys[0])!.toon!)).languages.map((l) => entityKeyFor(keys[0], l));
 				if ((await Promise.all(legacy.map((k) => load(k, source ?? 'draft')))).some((w) => w)) keys.splice(0, 1, ...legacy);
@@ -445,7 +436,7 @@ export function registerContentTools(server: McpServer, config: Config, options:
 		'search_content',
 		{
 			description:
-				'Full-text search (case-insensitive) in the newest drafts of a toon\'s documents – the screenplay (script, per line), seasons, chapters, scenes, settings, cast, credits – or of the platform-wide ones (characters, moods, map) with toon "". Returns the document key, where (JSON path, screenplay line) and a snippet; read more with read_entity (path / lines). The source language holds the complete content – translations can be incomplete.',
+				'Full-text search (case-insensitive) in the newest drafts of a toon\'s documents – the screenplay (script, per line), seasons, chapters, settings, cast, credits – or of the platform-wide ones (characters, moods, map) with toon "". Returns the document key, where (JSON path, screenplay line) and a snippet; read more with read_entity (path / lines). The source language holds the complete content – translations can be incomplete.',
 			inputSchema: z.object({
 				query: z.string().min(2),
 				toon: z.string().describe('toon id, "" = platform-wide documents'),
@@ -459,7 +450,7 @@ export function registerContentTools(server: McpServer, config: Config, options:
 			const needle = query.toLowerCase();
 			const max = limit ?? 30;
 			const stored = (await content.contentIndex(toon)).entities;
-			// a per-locale chapter / scene / season behind its language-neutral document is not what anyone reads
+			// a per-locale chapter / season behind its language-neutral document is not what anyone reads
 			const neutral = new Set(stored.filter((e) => isNeutralDocKey(e.key)).map((e) => e.key));
 			const entities = stored.filter(
 				(e) => (!kinds || kinds.includes(e.kind)) && (!locale || e.locale === locale || e.locale === null) && !(e.locale && neutral.has(entityOf(e.key)))
@@ -596,7 +587,7 @@ export function registerContentTools(server: McpServer, config: Config, options:
 		'validate',
 		{
 			description:
-				'Runs the creator\'s checks (shared/content validate.ts: structure, VN events, script points, flow, media) on a document. Without `content` / `ops` the stored draft is checked. A chapter / scene / season / the toon entry (one language-neutral document) is checked once plus the texts of every language (missing or too long translations carry their locale); the script without locale checks every language and compares them.',
+				'Runs the creator\'s checks (shared/content validate.ts: structure, VN events, script points, flow, media) on a document. Without `content` / `ops` the stored draft is checked. A chapter / season / the toon entry (one language-neutral document) is checked once plus the texts of every language (missing or too long translations carry their locale); the script without locale checks every language and compares them.',
 			inputSchema: z.object({
 				key: z.string(),
 				content: z.unknown().optional().describe('check this content instead of the stored draft (one document: a language-neutral entity or a full key)'),
@@ -623,7 +614,7 @@ export function registerContentTools(server: McpServer, config: Config, options:
 				problems.push(...r.problems);
 			}
 			const kind = parseEntityKey(entity)!.kind;
-			if (keys.length > 1 && primary) problems.push(...validateLocales(kind === 'scene' ? 'group' : kind, entity, docs, primary));
+			if (keys.length > 1 && primary) problems.push(...validateLocales(kind, entity, docs, primary));
 			return text(validated ? summary(problems) : { note: `no checks for ${kind} documents (stored as they are)`, ...summary(problems) });
 		})
 	);
@@ -726,9 +717,9 @@ export function registerContentTools(server: McpServer, config: Config, options:
 		'save_draft',
 		{
 			description:
-				'Saves a NEW draft version of one stored key (append-only: nothing is overwritten, every older version stays restorable; readers keep seeing the published version). Give `ops` (changes applied to the version `base`) or the full `content`. `base` = the version id you read (read_entity) – a newer save in between → 409 conflict. A chapter / scene / season is saved as its one language-neutral document (`chapter:catpope:2`; a text is { "de": …, "en": … } – set one language at e.g. ["events", 3, "params", "text", "en"]); the toon settings are the toon entry `toon:catpope` (["title", "en"], ["languageStatus", "en"] …). The creator\'s checks run first: errors refuse the save (unless allow_errors), warnings are returned.',
+				'Saves a NEW draft version of one stored key (append-only: nothing is overwritten, every older version stays restorable; readers keep seeing the published version). Give `ops` (changes applied to the version `base`) or the full `content`. `base` = the version id you read (read_entity) – a newer save in between → 409 conflict. A chapter / season is saved as its one language-neutral document (`chapter:catpope:2`; a text is { "de": …, "en": … } – set one language at e.g. ["events", 3, "params", "text", "en"]); the toon settings are the toon entry `toon:catpope` (["title", "en"], ["languageStatus", "en"] …). The creator\'s checks run first: errors refuse the save (unless allow_errors), warnings are returned.',
 			inputSchema: z.object({
-				key: z.string().describe('stored key: chapter / scene / season / toon entry without locale (`chapter:catpope:2`, `toon:catpope`); the script with it (`script:catpope:de`)'),
+				key: z.string().describe('stored key: chapter / season / toon entry without locale (`chapter:catpope:2`, `toon:catpope`); the script with it (`script:catpope:de`)'),
 				base: z.number().int().nullable().describe('the version id the change starts from (null = nothing stored yet)'),
 				ops: z.array(opSchema).optional(),
 				content: z.unknown().optional().describe('the whole document (instead of ops)'),
@@ -741,7 +732,7 @@ export function registerContentTools(server: McpServer, config: Config, options:
 			const ref = parseEntityKey(key);
 			if (!ref) return fail(`"${key}" is no entity key`);
 			if (isNeutralKind(ref.kind) && ref.locale)
-				return fail(`chapters, scenes and seasons are one language-neutral document – save ${entityOf(key)} (texts are locale maps { "de": …, "en": … }; scutoons://rules/workflow)`);
+				return fail(`chapters and seasons are one language-neutral document – save ${entityOf(key)} (texts are locale maps { "de": …, "en": … }; scutoons://rules/workflow)`);
 			if (ref.kind === 'toon-settings')
 				return fail(`the toon settings live in the toon entry – save toon:${ref.toon} (title / description / release / languageStatus are locale maps { "de": …, "en": … }; scutoons://rules/workflow)`);
 			if (!isNeutralKind(ref.kind) && isLocalizedEntity(key) && !ref.locale) return fail(`${key} is stored per language – save one locale (${key}:<locale>)`);

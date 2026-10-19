@@ -18,7 +18,7 @@
 		cast,
 		registry,
 		star,
-		sceneGroups,
+		groups,
 		addToCast
 	}: {
 		doc: ContentDoc;
@@ -27,8 +27,8 @@
 		registry: CharacterRegistry | null;
 		/** the toon's star (own_toon) */
 		star: string | null;
-		/** the chapter's groups with its scene documents in place of their refs (source language) */
-		sceneGroups: () => unknown[];
+		/** the chapter's groups (source language) */
+		groups: () => unknown[];
 		/** puts a character into the season cast (the editor shows an undo notice) */
 		addToCast: (character: string) => void;
 	} = $props();
@@ -64,7 +64,7 @@
 		if (list) set(list);
 	}
 	function suggest() {
-		const suggested = suggestFeaturing(sceneGroups(), star);
+		const suggested = suggestFeaturing(groups(), star);
 		// adds, never removes: the author's list (and order) stays, the suggested ones that are missing come after it
 		const next = [...featuring, ...suggested.filter((id) => !featuring.includes(id))];
 		for (const id of next) if (!inCast(id)) addToCast(id);

@@ -15,7 +15,7 @@ use Throwable;
  * size from the asset registry and the quality levels that use it, so the viewer shows "about 18 MB" before a byte moves
  * and downloads only its own level.
  *
- * - The chapter as the library answers it (scenes inlined; the same visibility gates: coming soon / not public → 403,
+ * - The chapter as the library answers it (the same visibility gates: coming soon / not public → 403,
  *   never a draft): every media string (slice images, videos, key visual, thumbnail, music, samples …). A media object
  *   with quality variants – `{ src | path, variants }` (videos, audio) or `{ image, imageVariants }` (slices) – yields the
  *   file each level plays (@scutoons/content `pickQualityVariant`: the level's variant, else the nearest lower, else

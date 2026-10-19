@@ -18,7 +18,7 @@ use Scutoons\Http\Middleware\Cors;
  *   GET /api/library/toons[?locale=]                     ToonIndex[] (with a locale: without the toons closed in it)
  *   GET /api/library/toons/{toon}?locale=                { entry, toon, seasons, locations, routes }
  *   GET /api/library/toons/{toon}/seasons/{n}?locale=    SeasonOverview
- *   GET /api/library/toons/{toon}/chapters/{n}?locale=   Chapter with its scenes inlined
+ *   GET /api/library/toons/{toon}/chapters/{n}?locale=   Chapter (one document with its groups)
  *   GET /api/library/toons/{toon}/chapters/{n}/files?locale=  the chapter's media with sizes + levels (ChapterFiles,
  *                                                        "save to device", research/PWA.md phase 3)
  *   GET /api/library/toons/{toon}/cast[?chapter=]        { registry, cast }

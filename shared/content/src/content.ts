@@ -405,6 +405,12 @@ export interface Slice extends SensitiveFlag {
 	width: number;
 	height: number;
 	/**
+	 * The storyboard shot this slice was cut from (owner 2026-10-19: Scene · Shot · Slice – research/TEXT-ACROSS-SLICES.md
+	 * §10), e.g. `sb-25-4`; several consecutive slices may share one shot (a tall shot cut into tiles). Written by the
+	 * storyboard compile; optional – a slice drawn by hand has none. The reader ignores it.
+	 */
+	shot?: string;
+	/**
 	 * The image per quality level (owner 2026-10-03, PLAN.md "Slices"): low = 1x (= `image`), medium = 2x, high = 3x
 	 * (390 / 780 / 1170 px wide WebP, `<name>.2x.webp`). The reader picks by its media quality (`pickQualityVariant`);
 	 * none = just `image`.
@@ -474,7 +480,6 @@ export interface Group extends AcceptedWarnings {
 	};
 	slices?: Slice[];
 	events?: VNEvent[];
-	ref?: RefLink;
 	/**
 	 * Linked groups (owner 2026-10-06): this group flows straight into the next group on the same page, no follow-up bar
 	 * between. A chain = consecutive groups where every one but the last continues (`chainOf` in chains.ts). Any group may
@@ -493,13 +498,6 @@ export interface Group extends AcceptedWarnings {
 export interface GroupEnd {
 	target: JumpToTarget;
 	auto?: boolean;
-}
-
-/** A group stored on its own (a scene): `src` = `chapter<N>/<name>.json` (EntityKey::sceneOfRef); id / type are unused leftovers */
-export interface RefLink {
-	src: string;
-	id?: string;
-	type?: 'chapter' | 'group';
 }
 
 export interface Chapter extends AcceptedWarnings {

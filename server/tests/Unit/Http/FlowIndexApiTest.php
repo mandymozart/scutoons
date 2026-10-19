@@ -62,11 +62,8 @@ final class FlowIndexApiTest extends TestCase
                     ['type' => 'showChoices'],
                 ]],
             ['label' => 'middle', 'slices' => [['image' => 's1/c2/m.webp', 'imageVariants' => ['low' => 's1/c2/m.webp', 'medium' => 's1/c2/m.2x.webp']]]],
-            ['ref' => ['src' => 'chapter2/scene-9.json']],
+            ['label' => 'scene-9', 'slices' => [[]], 'end' => ['target' => $jump('chapter', '3', 'forest'), 'auto' => true]],
         ]]);
-        // a ref group: its scene's end; the newest version counts (a draft)
-        $this->store('scene:catpope:2:scene-9', ['label' => 'scene-9', 'slices' => [[]], 'end' => ['target' => $jump('chapter', '3')]], false);
-        $this->store('scene:catpope:2:scene-9', ['label' => 'scene-9', 'slices' => [[]], 'end' => ['target' => $jump('chapter', '3', 'forest'), 'auto' => true]], false);
         // a legacy per-locale chapter (no neutral document): read too
         $this->store('chapter:toptoy:1:de', ['number' => 1, 'groups' => [['label' => 'city', 'slices' => [[]], 'end' => ['target' => $jump('toon', 'catpope')]]]]);
 

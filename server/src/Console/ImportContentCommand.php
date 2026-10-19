@@ -48,7 +48,7 @@ final class ImportContentCommand extends Command
             ->addOption('only', null, InputOption::VALUE_REQUIRED, 'Only these entity kinds, comma separated (e.g. characters,moods,asset-requests,cast)')
             ->setHelp(<<<'HELP'
                 Reads the interchange layout (agents/DATA.md §4, Console\ContentFiles: toons.json, events.json,
-                <toon>/<locale>/{toon,season<N>,chapter<N>,locations,routes,script}.json, <toon>/<locale>/chapter<N>/<scene>.json,
+                <toon>/<locale>/{toon,season<N>,chapter<N>,locations,routes,script}.json,
                 <toon>/_/{cast,credits}.json, scutoons/_/{characters,moods,asset-requests,people,roles,map,colorations}.json) and stores every
                 entity as a published version (author NULL, message "import"), keyed by its entity key.
                 Idempotent: entities already in the store are skipped (the store is the source of truth once seeded);

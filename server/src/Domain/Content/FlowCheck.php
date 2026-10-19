@@ -15,7 +15,7 @@ use stdClass;
  *   - a divert (event, choice action, slice event) to a point that isn't in the group's script
  *   - a jump (jumpTo, a choice's jump, a group's end) to a chapter / group label / toon that doesn't exist – this
  *     toon's and other toons' (newest versions in the database; the document being saved counts with its new content)
- * Only neutral chapter / scene documents (legacy per-locale ones are not written any more).
+ * Only neutral chapter documents (legacy per-locale ones are not written any more).
  */
 final class FlowCheck
 {
@@ -43,24 +43,19 @@ final class FlowCheck
     /** @return list<string> "<json pointer>: <message>" */
     public function problems(EntityKey $key, mixed $content, int $limit = 20): array
     {
-        if (!$key->isNeutralDoc() || !in_array($key->kind, ['chapter', 'scene'], true) || !$content instanceof stdClass) return [];
+        if (!$key->isNeutralDoc() || $key->kind !== 'chapter' || !$content instanceof stdClass) return [];
         $this->key = $key;
         $this->doc = $content;
         $this->out = [];
         $this->labels = [];
-        if ($key->kind === 'chapter') {
-            foreach (is_array($content->groups ?? null) ? $content->groups : [] as $i => $group) {
-                if ($group instanceof stdClass) $this->group($group, "/groups/$i");
-            }
-        } else {
-            $this->group($content, '');
+        foreach (is_array($content->groups ?? null) ? $content->groups : [] as $i => $group) {
+            if ($group instanceof stdClass) $this->group($group, "/groups/$i");
         }
         return array_slice($this->out, 0, $limit);
     }
 
     private function group(stdClass $group, string $path): void
     {
-        if (isset($group->ref)) return; // a scene: checked when the scene is saved
         $points = [];
         foreach (is_array($group->events ?? null) ? $group->events : [] as $event) {
             if ($event instanceof stdClass && ($event->type ?? null) === 'label' && is_string($event->params->name ?? null) && $event->params->name !== '') {
@@ -163,7 +158,7 @@ final class FlowCheck
     }
 
     /**
-     * a chapter's group labels (its scenes' included): the newest version of each document; the document being saved
+     * a chapter's group labels: the newest version of each document; the document being saved
      * with its new content – null when the chapter doesn't exist
      * @return list<string>|null
      */
@@ -177,12 +172,6 @@ final class FlowCheck
         $labels = [];
         foreach (is_array($chapter->groups ?? null) ? $chapter->groups : [] as $group) {
             if (!$group instanceof stdClass) continue;
-            $src = ($group->ref ?? null) instanceof stdClass && is_string($group->ref->src ?? null) ? $group->ref->src : null;
-            $scene = $src !== null ? EntityKey::sceneOf($toon, $src) : null;
-            if ($scene !== null) {
-                $doc = $self && $this->key->kind === 'scene' && $scene === $this->key->entity() ? $this->doc : $this->newest($scene);
-                $group = $doc instanceof stdClass ? $doc : $group;
-            }
             if (is_string($group->label ?? null) && $group->label !== '') $labels[] = $group->label;
         }
         return $this->labels[$id] = $labels;

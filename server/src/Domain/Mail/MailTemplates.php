@@ -219,7 +219,7 @@ final class MailTemplates
             'audience' => 'creator',
             'description' => 'A creator submitted drafts for review (POST /api/reviews): to every reviewer of the toon (admin → user → review rules)',
             'vars' => ['author' => 'string', 'toon' => 'string', 'files' => 'string', 'note' => '?string', 'url' => 'url'],
-            'sample' => ['author' => 'writer@example.com', 'toon' => 'Cat Pope', 'files' => 'chapter 2 (de, en), scene 2/kiosk (de, en)', 'note' => 'The kiosk scene is new, the rest are typo fixes.', 'url' => 'https://creator.scutoons.com/'],
+            'sample' => ['author' => 'writer@example.com', 'toon' => 'Cat Pope', 'files' => 'chapter 2 (de, en), season 1 (de, en)', 'note' => 'The kiosk scene is new, the rest are typo fixes.', 'url' => 'https://creator.scutoons.com/'],
             'blocks' => [
                 ['p', 'intro'],
                 ['p', 'files'],

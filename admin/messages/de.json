@@ -591,7 +591,6 @@
 	"entity": {
 		"chapter": "Kapitel {number}",
 		"season": "Staffel {number}",
-		"scene": "Szene {label}",
 		"toon": "Toon-Einstellungen",
 		"languages": "Sprachen",
 		"toon_entry": "Toon-Eintrag",

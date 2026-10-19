@@ -1,13 +1,11 @@
 /**
  * The ONE place where a content entity's key (agents/DATA.md: `chapter:catpope:2`, `season:catpope:1:de`,
- * `scene:catpope:2:scene-14`, `toon-settings:catpope`, `characters` …) becomes the name people see (owner 2026-09-30:
+ * `toon-settings:catpope`, `characters` …) becomes the name people see (owner 2026-09-30:
  * no file names in the UI). A locale at the end of a key is ignored. Apps pass their translations; defaults are English.
  */
 export interface EntityLabels {
 	chapter: (number: number) => string;
 	season: (number: number) => string;
-	/** a scene stored on its own (a chapter's referenced group) */
-	scene: (label: string) => string;
 	/** the toon's per-language settings (title, description, covers) */
 	toon: string;
 	/** the toon's index entry (status, names, languages + the language-neutral settings: map, tile …) */
@@ -39,7 +37,6 @@ export interface EntityLabels {
 export const ENTITY_LABELS: EntityLabels = {
 	chapter: (n) => `Chapter ${n}`,
 	season: (n) => `Season ${n}`,
-	scene: (label) => `Scene ${label}`,
 	toon: 'Toon settings',
 	entry: 'Toon entry',
 	characters: 'Characters',
@@ -80,14 +77,13 @@ const NAMED: Record<string, keyof EntityLabels> = {
 	script: 'script'
 };
 
-/** `chapter:catpope:2` → "Chapter 2", `season:catpope:1:de` → "Season 1", `scene:catpope:2:scene-14` → "Scene 14" … */
+/** `chapter:catpope:2` → "Chapter 2", `season:catpope:1:de` → "Season 1" … */
 export function entityLabel(key: string, labels: Partial<EntityLabels> = {}): string {
 	const l = { ...ENTITY_LABELS, ...labels };
-	const [kind, id, number, scene] = key.split(':');
+	const [kind, id, number] = key.split(':');
 	if (CATALOG.includes(kind) && id) return l.catalog(kind, id);
 	if (kind === 'chapter' && number) return l.chapter(Number(number));
 	if (kind === 'season' && number) return l.season(Number(number));
-	if (kind === 'scene' && scene) return l.scene(scene.replace(/^scene-/, ''));
 	if ((kind === 'place' || kind === 'route' || kind === 'region' || kind === 'character') && key.split(':')[1]) return l[kind](key.split(':')[1]);
 	const named = NAMED[kind];
 	if (named) return l[named] as string;

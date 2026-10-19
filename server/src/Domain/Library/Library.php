@@ -15,9 +15,9 @@ use Scutoons\Infrastructure\Database\Database;
 use stdClass;
 
 /**
- * The reader's entity service (agents/DATA.md §3, docs/API.md "Library"): toons, seasons, chapters with their scenes
- * inlined, cast, credits and events, composed from the content store's documents (`entity_versions`, keyed by entity
- * key – the configuration format of @scutoons/content stays the format of every document).
+ * The reader's entity service (agents/DATA.md §3, docs/API.md "Library"): toons, seasons, chapters, cast, credits and
+ * events, composed from the content store's documents (`entity_versions`, keyed by entity key – the configuration
+ * format of @scutoons/content stays the format of every document).
  *
  * - Locale: the asked one, else the toon's source language, else another language of the toon (per document).
  * - Visibility (the viewer's rules, now on the server): toon index entry + toon settings must be public, a chapter's
@@ -55,10 +55,10 @@ final class Library
     private const FORMAT = 7;
     private const CACHE_TTL = 604800;
     private const JSON_FLAGS = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION;
-    /** @scutoons/content LEGACY_CHARACTER_IDS: old character ids in scene refs → the registry character */
+    /** @scutoons/content LEGACY_CHARACTER_IDS: old character ids in VN character refs → the registry character */
     public const LEGACY_CHARACTER_IDS = ['plf' => 'catpope', 'cat' => 'catpope', 'mountain-tiger' => 'catpope'];
 
-    /** answers from the legacy per-locale chapters / scenes / seasons only (Snapshot::withoutNeutralDocs) */
+    /** answers from the legacy per-locale chapters / seasons only (Snapshot::withoutNeutralDocs) */
     private bool $legacyOnly = false;
     /** answers from the legacy per-language toon settings (the toon entry read without its texts, TOON_TEXT_FIELDS) */
     private bool $legacyToonTexts = false;
@@ -71,7 +71,7 @@ final class Library
     }
 
     /**
-     * This library ignoring every language-neutral chapter / scene / season document and the toon entry's texts – the
+     * This library ignoring every language-neutral chapter / season document and the toon entry's texts – the
      * answers as before the conversion (agents/NEUTRAL.md; content:neutral-check compares both). `$docs: false` keeps the
      * neutral documents and ignores only the entry's texts (the toon settings' conversion on its own, step 4).
      */
@@ -338,8 +338,8 @@ final class Library
     }
 
     /**
-     * GET /library/toons/{toon}/chapters/{n}?locale= → Chapter with every `ref` group replaced by its scene; a
-     * language-neutral chapter / scene resolved for the locale (NeutralDoc), else the per-locale documents
+     * GET /library/toons/{toon}/chapters/{n}?locale= → Chapter (one document with its groups since 2026-10-19); a
+     * language-neutral chapter resolved for the locale (NeutralDoc), else the per-locale documents
      */
     public function chapter(string $toon, int $number, ?string $locale, bool $draft): Answer
     {
@@ -358,7 +358,7 @@ final class Library
                     throw new ApiError(403, 'not_public', "Chapter $number is not published.");
                 }
             }
-            $ctx->fallback = false; // the answer's fallback flag = the chapter + its scenes
+            $ctx->fallback = false; // the answer's fallback flag = the chapter's
             $picked = $ctx->pick("chapter:$ctx->toon:$number", $locale)
                 ?? throw new ApiError(404, 'not_found', "Chapter $number of $ctx->toon not found.");
             [$served, $chapter, $neutral] = $picked;
@@ -373,7 +373,7 @@ final class Library
             }
             // custom collage presets arrive baked: the snapshot's `colorations` – published, the newest in draft mode (agents/research/COLLAGE.md §12.3)
             $presets = CollagePresets::index($ctx->snapshot->doc(CollagePresets::KEY));
-            return [CollagePresets::chapter($this->withScenes($ctx, $chapter, $served), $presets), $served];
+            return [CollagePresets::chapter($chapter, $presets), $served];
         }, $ctx);
     }
 
@@ -392,7 +392,7 @@ final class Library
             if ($chapter !== null) {
                 $doc = $ctx->pick("chapter:$ctx->toon:$chapter", $ctx->source);
                 if ($doc === null || !$doc[1] instanceof stdClass) throw new ApiError(404, 'not_found', "Chapter $chapter of $ctx->toon not found.");
-                $ids = self::referencedCharacters($this->withScenes($ctx, $doc[1], $doc[0]));
+                $ids = self::referencedCharacters($doc[1]);
                 // the chapter's `featuring` (reader: avatars at the chapter start)
                 foreach (is_array($doc[1]->featuring ?? null) ? $doc[1]->featuring : [] as $id) {
                     if (is_string($id)) $ids[$id] = true;
@@ -804,31 +804,6 @@ final class Library
             }
         }
         return null;
-    }
-
-    /** A copy of the chapter with every `ref` group replaced by its scene file (served locale first); missing ones stay */
-    private function withScenes(Context $ctx, stdClass $chapter, string $locale): stdClass
-    {
-        $chapter = clone $chapter;
-        $groups = [];
-        foreach (is_array($chapter->groups ?? null) ? $chapter->groups : [] as $group) {
-            $src = is_object($group) && isset($group->ref) && is_object($group->ref) ? ($group->ref->src ?? null) : null;
-            if (!is_string($src)) {
-                $groups[] = $group;
-                continue;
-            }
-            $entity = EntityKey::sceneOf($ctx->toon, $src);
-            $scene = $entity !== null ? $ctx->pick($entity, $locale) : null;
-            if ($scene === null) {
-                $ctx->missing[] = $entity ?? $src;
-                $groups[] = $group;
-                continue;
-            }
-            if ($scene[0] !== $locale) $ctx->fallback = true;
-            $groups[] = $scene[1];
-        }
-        if (isset($chapter->groups)) $chapter->groups = $groups;
-        return $chapter;
     }
 
     /**

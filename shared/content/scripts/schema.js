@@ -11,7 +11,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 /** the API deploys only server/, so it carries its own copy */
 const serverCopy = join(root, '../../server/schema/content');
 
-/** file name → root type. Content files: `<toon>/<locale>/{toon,season1,chapterN,<chapter>/scene-N}.json`;
+/** file name → root type. Content files: `<toon>/<locale>/{toon,season1,chapterN}.json`;
  *  credits: `<toon>/_/credits.json`, `scutoons/_/people.json`, `scutoons/_/roles.json`;
  *  characters: `scutoons/_/characters.json`, `scutoons/_/moods.json`, `<toon>/_/cast.json`; the screenplay:
  *  `<toon>/<locale>/script.json`; the world map: `scutoons/_/map.json`; the custom collage presets:
@@ -21,10 +21,8 @@ const SCHEMAS = {
 	season: 'Season',
 	toon: 'ToonSettings',
 	'toon-index': 'ToonIndex',
-	group: 'Group',
-	// the language-neutral documents chapter:<toon>:<n>, scene:<toon>:<chapter>:<name>, season:<toon>:<n> (neutral.ts)
+	// the language-neutral documents chapter:<toon>:<n>, season:<toon>:<n> (neutral.ts)
 	'chapter-doc': 'ChapterDoc',
-	'group-doc': 'GroupDoc',
 	'season-doc': 'SeasonDoc',
 	catalog: 'Catalog',
 	credits: 'ToonCredits',

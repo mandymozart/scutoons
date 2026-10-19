@@ -80,6 +80,10 @@ const empty: RegistryCharacter = {
 };
 const B = (look: string, view: string, mood: string) => png('catpope-biker', look, view, mood);
 
+/** a group's problems, validated inside a chapter (one document per chapter since 2026-10-19) */
+const groupProblems = (group: object, locale: string, ctx: Parameters<typeof validateFile>[3]) =>
+	validateFile('chapter', { title: 'x', groups: [group] }, locale, ctx).filter((p) => p.path[0] === 'groups');
+
 test('1. persona + look + mood', () => {
 	assert.equal(characterImage(catpope, { persona: 'biker', look: 'helmet', mood: 'dizzy' }, 'portrait'), B('helmet', 'portrait', 'dizzy'));
 });
@@ -167,7 +171,7 @@ test('an old characters.json without personas still resolves (static fallback)',
 	assert.equal(legacyCharacterImage(old, { persona: 'biker', look: 'helmet' }, 'portrait'), 'images/characters/plf/plf_portrait-neutral.png');
 });
 
-test('validation: default looks, neutral anchor, casts, scenes', () => {
+test('validation: default looks, neutral anchor, casts, VN scripts', () => {
 	const broken: RegistryCharacter = {
 		...mouse,
 		id: 'broken',
@@ -205,7 +209,7 @@ test('validation: default looks, neutral anchor, casts, scenes', () => {
 		],
 		slices: []
 	};
-	const scene = validateFile('group', group, 'en', {
+	const scene = groupProblems(group, 'en', {
 		file: 'scene.json',
 		cast: castIndex({ seasons: { '1': [{ character: 'catpope', personas: ['regular', 'biker'] }, { character: 'yellowmouse', personas: ['regular'] }] } }, 1),
 		expressions: expressionIndex(registry),
@@ -338,7 +342,7 @@ test('legacy ids and the new ref form', async () => {
 	assert.deepEqual(normalizeSceneRef({ name: 'cat', position: { variant: 'portrait' }, mood: 'happy' }), { character: 'catpope', persona: 'cat', mood: 'happy', variant: 'portrait' });
 	assert.deepEqual(normalizeSceneRef({ character: 'catpope', persona: 'biker', look: 'helmet', variant: 'avatar' }), { character: 'catpope', persona: 'biker', look: 'helmet', variant: 'avatar' });
 	assert.equal(normalizeSceneRef({}), null);
-	// scene validation accepts both forms; an old id is info only
+	// a group's VN script accepts both forms; an old id is info only
 	const registry: CharacterRegistry = { characters: [catpope] };
 	const group = {
 		label: 's',
@@ -349,7 +353,7 @@ test('legacy ids and the new ref form', async () => {
 			{ id: 'e2', type: 'joinScene', params: { characters: [{ character: 'catpope', persona: 'human', variant: 'portrait' }] } }
 		]
 	};
-	const problems = validateFile('group', group, 'en', { file: 'g.json', cast: { catpope: ['regular', 'human'] }, expressions: expressionIndex(registry), moods: ['neutral'] });
+	const problems = groupProblems(group, 'en', { file: 'g.json', cast: { catpope: ['regular', 'human'] }, expressions: expressionIndex(registry), moods: ['neutral'] });
 	assert.ok(problems.some((p) => p.level === 'info' && p.message.includes('"plf" is an old id')));
 	assert.ok(!problems.some((p) => p.level !== 'info'));
 });

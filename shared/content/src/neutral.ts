@@ -1,5 +1,5 @@
-// Language-neutral documents (agents/NEUTRAL.md, owner 2026-10-06): one stored document per chapter, scene and season
-// (`chapter:<toon>:<n>`, `scene:<toon>:<chapter>:<name>`, `season:<toon>:<n>` – no locale segment). Structure exists
+// Language-neutral documents (agents/NEUTRAL.md, owner 2026-10-06): one stored document per chapter and season
+// (`chapter:<toon>:<n>`, `season:<toon>:<n>` – no locale segment). Structure exists
 // once; every text leaf is a locale map `{ de: …, en: … }`, and so are the per-language non-texts (`release`, season
 // `sequence[].status`). No `language`, no chapter `status` (computed from the season when served).
 //
@@ -7,8 +7,8 @@
 // `Chapter` / `Group` / `Season`. The library (server `Domain\Content\NeutralDoc`) does the same in PHP – both are
 // tested against the golden fixtures in test/fixtures/neutral/ so they produce identical answers.
 //
-//   which locale is served   `servedLocale`: the asked one when the document has it (chapter / season: a `title` in it;
-//                            scene: any text in it; a document without any text has every locale), else the toon's
+//   which locale is served   `servedLocale`: the asked one when the document has it (a `title` in it; a document
+//                            without any title has every locale), else the toon's
 //                            source language, else its other languages, else the document's first locale
 //   a text in that locale    `resolveText`: the served locale → the source → the toon's other languages → the first
 //                            text there is (a text is there when it isn't blank); none → ''
@@ -111,7 +111,7 @@ export type SliceDoc = Omit<Slice, 'dialog' | 'events' | 'items' | 'sensitive'> 
 		items?: SliceItemDoc[];
 	};
 
-/** A group: inline in a chapter, or stored on its own as a scene (`scene:<toon>:<chapter>:<name>`) */
+/** A group of a chapter (one document per chapter since 2026-10-19 – the scene documents were inlined) */
 export type GroupDoc = Omit<Group, 'slices' | 'events' | 'accepted_warnings'> &
 	AcceptedWarnings & {
 		slices?: SliceDoc[];
@@ -143,7 +143,7 @@ export type SeasonDoc = Omit<Season, 'title' | 'description' | 'release' | 'lang
 	};
 
 /** The kinds stored as one language-neutral document (also accepted per locale until production is converted) */
-export type NeutralKind = 'chapter' | 'scene' | 'season';
+export type NeutralKind = 'chapter' | 'season';
 
 /**
  * What resolves for a locale: the neutral kinds + the toon entry `toon:<toon>` (its locale maps → the per-language toon
@@ -191,33 +191,14 @@ function addLocales(value: unknown, out: string[]) {
 	for (const [locale, text] of Object.entries(value)) if (isLocaleValue(text) && !out.includes(locale)) out.push(locale);
 }
 
-function eventLocales(event: unknown, out: string[]) {
-	if (!isObject(event) || !isObject(event.params)) return;
-	for (const field of EVENT_TEXT_FIELDS[String(event.type)] ?? []) addLocales(event.params[field], out);
-}
-
-function groupLocales(group: unknown, out: string[]) {
-	if (!isObject(group)) return;
-	for (const slice of Array.isArray(group.slices) ? group.slices : []) {
-		if (!isObject(slice)) continue;
-		for (const dialog of Array.isArray(slice.dialog) ? slice.dialog : []) if (isObject(dialog)) addLocales(dialog.text, out);
-		for (const event of Array.isArray(slice.events) ? slice.events : []) eventLocales(event, out);
-		for (const item of Array.isArray(slice.items) ? slice.items : []) {
-			if (isObject(item)) for (const event of Array.isArray(item.events) ? item.events : []) eventLocales(event, out);
-		}
-	}
-	for (const event of Array.isArray(group.events) ? group.events : []) eventLocales(event, out);
-}
-
 /**
- * The locales a neutral document has, in its own order: chapter / season = the locales of its `title`; scene = the
- * locales of any of its texts. [] = it has no text at all (then it serves every locale).
+ * The locales a neutral document has, in its own order: the locales of its `title`. [] = it has no title at all (then
+ * it serves every locale).
  */
 export function neutralLocales(kind: ResolvableKind, doc: unknown): string[] {
 	const out: string[] = [];
 	if (!isObject(doc)) return out;
-	if (kind === 'scene') groupLocales(doc, out);
-	else addLocales(doc.title, out);
+	addLocales(doc.title, out);
 	return out;
 }
 
@@ -285,7 +266,7 @@ export function previewText(value: unknown, chain: readonly string[] = []): stri
 	return typeof text === 'string' ? text : '';
 }
 
-/** A neutral group / scene in the served locale (today's `Group`) */
+/** A neutral group in the served locale (today's `Group`) */
 export function resolveGroup(doc: GroupDoc, locale: string, languages: NeutralLanguages): Group {
 	return resolveGroupWith(doc, localeChain(locale, languages)) as Group;
 }
@@ -293,7 +274,7 @@ export function resolveGroup(doc: GroupDoc, locale: string, languages: NeutralLa
 /**
  * A neutral chapter in the served locale (today's `Chapter`): texts and `release` resolved, `language` = the locale,
  * `status` = the season's status of the chapter in that locale when given (the deprecated mirror older viewer builds
- * read). Groups stored as scenes keep their `ref` (the library inlines them).
+ * read).
  */
 export function resolveChapter(doc: ChapterDoc, locale: string, languages: NeutralLanguages, status?: Status | null): Chapter {
 	const chain = localeChain(locale, languages);
@@ -366,15 +347,13 @@ export function resolveNeutral(
 	locale: string,
 	languages: NeutralLanguages,
 	chapterStatus?: Status | null
-): { locale: string; fallback: boolean; doc: Chapter | Group | Season | ToonSettings } {
+): { locale: string; fallback: boolean; doc: Chapter | Season | ToonSettings } {
 	const served = servedLocale(kind, doc, locale, languages);
 	const resolved =
 		kind === 'chapter'
 			? resolveChapter(doc as ChapterDoc, served.locale, languages, chapterStatus)
 			: kind === 'season'
 				? resolveSeason(doc as SeasonDoc, served.locale, languages)
-				: kind === 'toon'
-					? resolveToon(doc as ToonIndex, served.locale, languages)
-					: resolveGroup(doc as GroupDoc, served.locale, languages);
+				: resolveToon(doc as ToonIndex, served.locale, languages);
 	return { ...served, doc: resolved };
 }

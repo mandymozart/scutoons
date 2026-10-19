@@ -61,7 +61,7 @@ for (const { sb } of list) {
 				const n = Math.max(1, Math.round(w / W));
 				for (let k = 0; k < n; k++) {
 					const part = svg.replace(/<svg ([^>]*?)width="\d+" height="\d+" viewBox="[^"]*"/, `<svg $1width="${W}" height="${S}" viewBox="${k * W} 0 ${W} ${S}"`);
-					const slice = { image: asset(part, W, S, `${shot.id}-${k + 1}`, shot.id, [k * W, 0, (k + 1) * W, S]), width: W, height: S };
+					const slice = { image: asset(part, W, S, `${shot.id}-${k + 1}`, shot.id, [k * W, 0, (k + 1) * W, S]), width: W, height: S, shot: shot.id };
 					const inSlide = (pct) => pct * n - k * 100;
 					const dialog = (shot.dialog ?? []).filter((d) => Math.floor(((d.rect?.x ?? 0) / 100) * n) === k)
 						.map((d, j) => {
@@ -74,7 +74,7 @@ for (const { sb } of list) {
 				group.renderer = { type: 'horizontal', params: { endless: true } };
 				continue;
 			}
-			const slice = { image: asset(svg, w, h, shot.id), width: W, height: h };
+			const slice = { image: asset(svg, w, h, shot.id), width: W, height: h, shot: shot.id };
 			const dialog = (shot.dialog ?? []).map((d, j) => dialogOf(d, `${shot.id}-${j + 1}`));
 			if (dialog.length) slice.dialog = dialog;
 			if (shot.items?.length) slice.items = shot.items;

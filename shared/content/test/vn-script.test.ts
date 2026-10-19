@@ -41,7 +41,11 @@ test('actions, points, random jumps, clock, text', () => {
 
 test('validation: points, diverts, conditions, action lists, random targets', () => {
 	const group = (events: object[], slices: object[] = []) => ({ label: 'g', renderer: { type: 'vertical' }, slices, events });
-	const errs = (g: object) => validateFile('group', g, 'de', { file: 'x' } as never).filter((p) => p.level === 'error').map((p) => p.path.join('.'));
+	// a group's errors, checked inside a chapter (one document per chapter since 2026-10-19), paths relative to the group
+	const errs = (g: object) =>
+		validateFile('chapter', { title: 'x', groups: [g] }, 'de', { file: 'x' } as never)
+			.filter((p) => p.level === 'error' && p.path[0] === 'groups' && p.path[1] === 0)
+			.map((p) => p.path.slice(2).join('.'));
 	assert.deepEqual(
 		errs(group([
 			{ type: 'label', params: { name: 'join' } },

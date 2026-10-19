@@ -10,7 +10,7 @@
  * (POST /entities/publish): a route and the new place it runs through are never half published.
  *
  * Levels: everything (the platform: every toon + the world – map, characters, settings …) → a toon (all its files) → a
- * season (itself, its chapters and their scene files) → a chapter (itself and its scene files). A toon, a season and a
+ * season (itself and its chapters) → a chapter (itself). A toon, a season and a
  * chapter also list the platform-wide files their pieces draw with (`PLATFORM_ALONG`: the custom collage presets –
  * research/COLLAGE.md §12.4), so no level ships pieces whose preset is still a draft; a score's pages (its catalog entry,
  * its collage stage) name them among their own files.
@@ -47,7 +47,7 @@ const hasDraft = (e: ContentIndexEntity) => (e.published === null || e.latest > 
 /** is a key below the level (or the level's own file)? */
 export function inScope(key: string, scope: PublishScope): boolean {
 	if (alongWith(scope) && PLATFORM_ALONG.includes(key)) return true;
-	const chapter = (t: string, n: number) => key === `chapter:${t}:${n}` || key.startsWith(`scene:${t}:${n}:`);
+	const chapter = (t: string, n: number) => key === `chapter:${t}:${n}`;
 	switch (scope.kind) {
 		case 'all':
 			return true;
@@ -66,17 +66,16 @@ export function inScope(key: string, scope: PublishScope): boolean {
  * the order in a list: the level's own files first, then down the tree; the catalog last, in the order its entries
  * refer to each other (an item names its edition / album, a product its item, a recipe its items)
  */
-const KIND_ORDER = ['toon', 'entry', 'season', 'chapter', 'scene', 'script', 'cast', 'credits', 'map', 'place', 'route', 'region', 'characters', 'character', 'colorations', 'edition', 'album', 'item', 'product', 'recipe'];
+const KIND_ORDER = ['toon', 'entry', 'season', 'chapter', 'script', 'cast', 'credits', 'map', 'place', 'route', 'region', 'characters', 'character', 'colorations', 'edition', 'album', 'item', 'product', 'recipe'];
 const rank = (key: string) => {
 	const i = KIND_ORDER.indexOf(key.split(':')[0]);
 	return i < 0 ? KIND_ORDER.length : i;
 };
 const byTree = (a: ContentIndexEntity, b: ContentIndexEntity) => rank(a.key) - rank(b.key) || a.key.localeCompare(b.key, undefined, { numeric: true });
 
-/** a line's label: a scene names its chapter, a per-language file its language */
+/** a line's label: a per-language file names its language */
 function label(key: string): string {
 	const parts = key.split(':');
-	if (parts[0] === 'scene' && parts.length >= 4) return m['creator.entity_group']({ number: parts[2], label: parts[3] });
 	const base = fileLabel(key);
 	return parts[0] === 'script' && parts[2] ? `${base} (${parts[2]})` : base;
 }

@@ -591,7 +591,6 @@
 	"entity": {
 		"chapter": "Chapter {number}",
 		"season": "Season {number}",
-		"scene": "Scene {label}",
 		"toon": "Toon settings",
 		"languages": "Languages",
 		"toon_entry": "Toon entry",

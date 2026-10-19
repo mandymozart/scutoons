@@ -10,9 +10,9 @@ use stdClass;
 
 /**
  * Item limits across the whole system (BACKLOG 10.39 step 7, agents/ITEMS.md "Item limits"): a catalog item's
- *   `placements` – how often it may be placed on slices, in every toon together (chapters + scenes, all authors);
+ *   `placements` – how often it may be placed on slices, in every toon together (all chapters, all authors);
  *   `max_world`  – how many accounts may own it at once (1 = it exists only once in the world; InventoryService).
- * A chapter / scene counts with the newer of its newest version and its published one (the most placements of the
+ * A chapter counts with the newer of its newest version and its published one (the most placements of the
  * two: a draft that removes one doesn't free it before it is published). Only language-neutral documents count.
  *   GET /api/catalog/items/<id>/placements → where it is placed (the creator: its Problems error, a paste's refusal)
  *   PUT /api/entities/<key> → 422 item_limit when a save adds placements over the limit (a document already over it
@@ -25,7 +25,7 @@ final class ItemPlacements
     }
 
     /**
-     * Placements per catalog item in a chapter / scene document.
+     * Placements per catalog item in a chapter document.
      * @return array<string, int> item id => count
      */
     public static function count(mixed $content): array
@@ -33,7 +33,7 @@ final class ItemPlacements
         $out = [];
         $doc = $content instanceof stdClass ? $content : (is_array($content) ? json_decode((string) json_encode($content)) : null);
         if (!$doc instanceof stdClass) return $out;
-        $groups = is_array($doc->groups ?? null) ? $doc->groups : [$doc];
+        $groups = is_array($doc->groups ?? null) ? $doc->groups : [];
         foreach ($groups as $group) {
             if (!$group instanceof stdClass || !is_array($group->slices ?? null)) continue;
             foreach ($group->slices as $slice) {
@@ -59,15 +59,15 @@ final class ItemPlacements
     }
 
     /**
-     * Where an item is placed: per chapter / scene (neutral documents) its count.
+     * Where an item is placed: per chapter (neutral documents) its count.
      * @return list<array{key: string, toon: ?string, count: int}>
      */
     public function where(string $itemId): array
     {
         $rows = $this->db->all(
             "SELECT v.entity_key, v.toon, v.json FROM entity_versions v
-             WHERE v.kind IN ('chapter', 'scene') AND v.json LIKE ? ESCAPE '!'
-               AND (v.status = 'published' OR v.id IN (SELECT MAX(n.id) FROM entity_versions n WHERE n.kind IN ('chapter', 'scene') GROUP BY n.entity_key))",
+             WHERE v.kind = 'chapter' AND v.json LIKE ? ESCAPE '!'
+               AND (v.status = 'published' OR v.id IN (SELECT MAX(n.id) FROM entity_versions n WHERE n.kind = 'chapter' GROUP BY n.entity_key))",
             [Database::likeContains('"item":' . json_encode($itemId, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE))]
         );
         $out = [];
@@ -116,7 +116,7 @@ final class ItemPlacements
      */
     public function problems(EntityKey $key, mixed $content): array
     {
-        if (!$key->isNeutralDoc() || !in_array($key->kind, ['chapter', 'scene'], true)) return [];
+        if (!$key->isNeutralDoc() || $key->kind !== 'chapter') return [];
         $out = [];
         foreach (self::count($content) as $itemId => $mine) {
             $limit = $this->limits((string) $itemId)['placements'] ?? null;

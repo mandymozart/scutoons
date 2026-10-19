@@ -928,8 +928,7 @@ Three kinds, three places; none moves the layout:
   piece's look (preset + own values) / a sound area's sound + trigger / an event area's event, onto the selected one of
   the same kind. VN events (a group script): after the last picked one; Shift+V
   = params + `if` of the copied event of the same type. Slices: after the last picked slice, with boxes, items, events
-  and their sounds; Shift+V = audio + events. Groups (the tree): after the last picked / open group (a separate scene
-  is pasted as a group of the chapter), labels kept unique; Shift+V = renderer, end, `continues`.
+  and their sounds; Shift+V = audio + events. Groups (the tree): after the last picked / open group, labels kept unique; Shift+V = renderer, end, `continues`.
 - **Ids are fresh, media are references:** new ids on paste (boxes the chapter's next free ones, a showTextBox follows
   its box; events via assignEventIds; placements `<item>-<7 random>`); a paste into another toon references the source
   toon's files (`../<toon>/…`, ASSETS.md "Paths in content") and adds the sounds it uses to the chapter's library.
@@ -1409,7 +1408,7 @@ single-line control exactly `--control-height` ("One control height" below).
   button) – zero specificity, it only adds the box. `.sc-chip` stays the **status badge** (caption, filled): badges are
   not controls and keep the caption size.
 - Labels that don't fit a narrow column stay on one line with an ellipsis and the full text as the tooltip (the
-  chapter editor's "Add group" / "Add separate scene").
+  chapter editor's "Add group").
 - **Exempt** (not single-line controls): textareas and other multi-line fields, switches (`role="switch"`),
   checkboxes / radios, cards and tiles that are buttons (slice thumbnails, picture cells, inventory items, avatar slots,
   item choices, two-line character rows, the chapter navigation cards with kicker + title + picture, the menu's toon

@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { chapterChanges, groupChanges, metaChanges, numberRange, summarizeChanges, type GroupRef, type NoteContext, type NoteWords } from '../src/lib/editor/version-note.ts';
 
-const groupName = (g: GroupRef) => ('scene' in g ? `Szene ${g.scene}` : 'label' in g ? `Gruppe ${g.label}` : `Gruppe ${g.number}`);
+const groupName = (g: GroupRef) => ('label' in g ? `Gruppe ${g.label}` : `Gruppe ${g.number}`);
 const one: Record<string, string> = { textbox: 'Textbox', item: 'Item', piece: 'Collage-Stück', tail: 'Zeiger', slice: 'Slice', group: 'Gruppe', event: 'Event', sound: 'Sound', entry: 'Eintrag' };
 const many: Record<string, string> = { textbox: 'Textboxen', item: 'Items', piece: 'Collage-Stücke', tail: 'Zeiger', slice: 'Slices', group: 'Gruppen', event: 'Events', sound: 'Sounds', entry: 'Einträge' };
 const verbs: Record<string, string> = { reordered: 'umsortiert', added: 'hinzugefügt', removed: 'entfernt', moved: 'verschoben', recoloured: 'eingefärbt', set: 'gesetzt', changed: 'geändert' };
@@ -39,7 +39,7 @@ test('one text box moved and its tail set on one slice: the slice in front, the 
 	const after = clone(before);
 	(after.slices[11].dialog[0] as any).rect.x = 30;
 	(after.slices[11].dialog[0] as any).tail = { kind: 'speech', tip: { x: 20, y: 90 }, base: { side: 'bottom', at: 0.3 } };
-	const note = summarizeChanges(groupChanges(before, after, { scene: 'scene-17-24' }, ctx), words);
+	const note = summarizeChanges(groupChanges(before, after, { label: 'scene-17-24' }, ctx), words);
 	assert.equal(note, "Slice 12: Textbox 'Na, servus…' verschoben, Zeiger gesetzt");
 });
 
@@ -47,8 +47,8 @@ test('three text boxes changed on different slices of one scene (the page has se
 	const before = scene(6);
 	const after = clone(before);
 	for (const i of [1, 3, 4]) (after.slices[i].dialog[0] as any).text.de = 'Neu';
-	const note = summarizeChanges(groupChanges(before, after, { scene: 'scene-17-24' }, ctx), words, { multipleGroups: true });
-	assert.equal(note, '3 Textboxen in Szene scene-17-24 geändert');
+	const note = summarizeChanges(groupChanges(before, after, { label: 'scene-17-24' }, ctx), words, { multipleGroups: true });
+	assert.equal(note, '3 Textboxen in Gruppe scene-17-24 geändert');
 });
 
 test('an item placed on a slice: named by the catalog, the slice named', () => {
@@ -95,11 +95,11 @@ test('only the English texts changed: "Texte (en) übersetzt", not an edit of th
 	const before = scene(3);
 	const after = clone(before);
 	for (const s of after.slices) (s.dialog[0] as any).text.en = 'Translated';
-	assert.equal(summarizeChanges(groupChanges(before, after, { scene: 'x' }, ctx), words, { multipleGroups: true }), 'Texte (en) übersetzt');
+	assert.equal(summarizeChanges(groupChanges(before, after, { label: 'x' }, ctx), words, { multipleGroups: true }), 'Texte (en) übersetzt');
 });
 
 test('a chapter: its settings by name, a group added, the order of groups, the sound', () => {
-	const before = { title: { de: 'Alt' }, description: { de: 'D' }, groups: [{ label: 'a', slices: [] }, { ref: { src: 'chapter1/scene-2.json' } }], audio: { music: 'a.mp3' } };
+	const before = { title: { de: 'Alt' }, description: { de: 'D' }, groups: [{ label: 'a', slices: [] }, { label: 'b', slices: [] }], audio: { music: 'a.mp3' } };
 	const after = clone(before) as any;
 	after.title.de = 'Neu';
 	after.release = { de: '2026-11-01' };
@@ -131,10 +131,10 @@ test('too long: whole phrases up to 90 characters, then "…"', () => {
 	(after.slices[4] as any).events = [{ id: 'e' }];
 	after.slices.splice(6, 1);
 	(after as any).label = 'neu';
-	const note = summarizeChanges(groupChanges(before, after, { scene: 'scene-17-24' }, ctx), words, { multipleGroups: true });
+	const note = summarizeChanges(groupChanges(before, after, { label: 'scene-17-24' }, ctx), words, { multipleGroups: true });
 	assert.ok(note.length <= 90, note);
 	assert.ok(note.endsWith(', …'), note);
-	assert.ok(note.startsWith("Szene scene-17-24: Textbox 'Ein sehr l…' auf Slice 1 hinzugefügt, "), note);
+	assert.ok(note.startsWith("Gruppe scene-17-24: Textbox 'Ein sehr l…' auf Slice 1 hinzugefügt, "), note);
 	assert.equal(summarizeChanges([], words), '');
 });
 

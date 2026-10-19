@@ -18,8 +18,7 @@ UI translations stay in the apps' message files; the catalog (items, editions, p
 | toon settings per locale (title, description, release, status) | DB `toon-settings:<toon>:<l>` | creator |
 | season (title, plot, sequence + status per locale, `download` = the music album, `supporters`) | DB `season:<toon>:<n>` (language-neutral, texts as locale maps); legacy `season:<toon>:<n>:<l>` | creator (season page) |
 | season positions (BACKLOG 10.41): `/<toon>/season/S/chapter/K` = the K-th `sequence` entry with number ≠ 0 (the prologue 0 not counted; drafts / coming-soon counted) – computed, not stored (`@scutoons/content` seasons.ts); frozen once published (the season validator) | – | – |
-| chapter (meta, slices, text boxes, audio, inline groups) | DB `chapter:<toon>:<n>` (language-neutral); legacy `chapter:<toon>:<n>:<l>` | creator |
-| VN scene (a chapter group stored on its own; messages, choices) | DB `scene:<toon>:<chapter>:<name>` (language-neutral); legacy `scene:<toon>:<chapter>:<name>:<l>` | creator |
+| chapter (meta, audio, its groups = scenes inline: slices, text boxes, VN script) | DB `chapter:<toon>:<n>` (language-neutral; one document per chapter since 2026-10-19 – the scene documents were inlined and archived to `entity_versions_legacy`, migration 2026-10-19-inline-scenes); legacy `chapter:<toon>:<n>:<l>` | creator |
 | the world map (places, routes, layers; names `{ de, en }`; unlock points) | DB `map` (platform-wide, language-neutral; agents/MAP.md §8) | creator (Universe → Map; a slice's "unlocks place" in the chapter editor) |
 | custom collage presets ("Save as preset": a name + the six style keys) | DB `colorations` (platform-wide, language-neutral; research/COLLAGE.md §12) | creator (the piece inspector, slices and the score stage) |
 | cast per season | DB `cast:<toon>` | creator (cast page) |
@@ -49,18 +48,16 @@ every read is "one entity (+ its children) of one toon in one locale"; compositi
 
 ```
 toon:<toon>                              index entry            toon-settings:<toon>:<l>      settings
-season:<toon>:<n>                        chapter:<toon>:<n>      scene:<toon>:<chapter>:<name>   (language-neutral)
-season:<toon>:<n>:<l>                    chapter:<toon>:<n>:<l>  scene:<toon>:<chapter>:<name>:<l>  (legacy per locale)
+season:<toon>:<n>                        chapter:<toon>:<n>      (language-neutral)
+season:<toon>:<n>:<l>                    chapter:<toon>:<n>:<l>  (legacy per locale)
 cast:<toon>   credits:<toon>   script:<toon>:<l>  (creator only)
 characters   moods   asset-requests   people   roles   events   map   colorations    (platform-wide)
 ```
-Segments are `:`-separated; numbers are digits without leading zeros – seasons from 1, **chapters (and their scenes)
-from 0** (2026-10-01: chapter 0 = a season's prologue, `chapter:catpope:0:<l>`, file `chapter0.json`, `ref.src`
-`chapter0/<name>.json`; `EntityKey::CHAPTER_NUMBER_PATTERN`, `parseEntityKey`); the locale is the last segment of localized kinds; an *entity* is a key without its
+Segments are `:`-separated; numbers are digits without leading zeros – seasons from 1, **chapters
+from 0** (2026-10-01: chapter 0 = a season's prologue, `chapter:catpope:0:<l>`, file `chapter0.json`; `EntityKey::CHAPTER_NUMBER_PATTERN`, `parseEntityKey`); the locale is the last segment of localized kinds; an *entity* is a key without its
 locale (`chapter:catpope:2`), which is what the creator edits across languages. `kind`, `toon`, `locale` are stored as
-columns for filtering (NULL = platform-wide / language-neutral). A chapter group's scene reference stays in the content
-format (`ref.src: "chapter2/scene-14.json"`) and resolves to `scene:<toon>:2:scene-14` (`sceneEntityOfRef`,
-`EntityKey::sceneOf`). A chapter carries an optional `featuring` array (owner, built 2026-09-30, ITEMS.md "Cast & featuring") – the chapter
+columns for filtering (NULL = platform-wide / language-neutral). A chapter holds its groups ("scenes") inline – no
+scene documents, no `ref` groups since 2026-10-19 (research/TEXT-ACROSS-SLICES.md §5 step 3). A chapter carries an optional `featuring` array (owner, built 2026-09-30, ITEMS.md "Cast & featuring") – the chapter
 endpoint and the season overview pass it through; the `/cast` answer always has the toon's star in every season.
 
 **Language-neutral chapters, scenes, seasons (2026-10-06, agents/archive/NEUTRAL.md):** one document per entity, stored under
@@ -297,11 +294,11 @@ the newest draft); the creator draws the newest draft the same way (`bakePresets
 (credits, referenced people, roles) · `/library/characters` (whole registry, avatar bodies) · `/library/map?locale=&toon=`
 (the world map, agents/MAP.md) · `/api/events/`.
 - Locale `?locale=`, per-document fallback to the source language (`Content-Language`, `X-Content-Fallback`).
-- Chapters, scenes, seasons (2026-10-06): a language-neutral document wins (`Context::pick` → `NeutralDoc::resolve`, the
+- Chapters, seasons (2026-10-06): a language-neutral document wins (`Context::pick` → `NeutralDoc::resolve`, the
   same rules as `resolveNeutral` in `@scutoons/content`, golden fixtures `shared/content/test/fixtures/neutral/`); the
   answer keeps the per-locale shape (`language` = served locale, a chapter's `status` = its season status in that
-  locale). Served locale: the asked one when the document has it (chapter / season: a `title` in it; scene: any text;
-  no text at all = every locale), else the source, else the toon's other languages; a text missing or blank in it falls
+  locale). Served locale: the asked one when the document has it (a `title` in it;
+  no title at all = every locale), else the source, else the toon's other languages; a text missing or blank in it falls
   back the same way. Without a neutral document the per-locale ones are read as before. Mixed works both ways (neutral
   chapter + per-locale scene and back). `Library::FORMAT` 5. `content:neutral-check` compares every answer with the
   legacy one (`Library::legacyOnly()`).
@@ -322,9 +319,9 @@ empty = platform-wide) · `GET /api/entities/<key>[?draft=1|?version=][&wrap=1]`
   the server's copy server/schema/content/, `npm run check` fails when either is stale) → `422 invalid_content
   { problems: ["/0/city: …"] }`. Extra fields are allowed.
   `php bin/console content:check [--db] [--kind]` checks what is stored (newest + published per key; neutral
-  chapters / scenes / seasons against their neutral schemas). Restore and
+  chapters / seasons against their neutral schemas). Restore and
   the seed import are not guarded. The first run fixed stale types (narration `showMessage` without `character`,
-  `RefLink { src }`, optional audio trigger `rect`/`gate`/`exclusive`, `keyvisual` as a plain path).
+  optional audio trigger `rect`/`gate`/`exclusive`, `keyvisual` as a plain path).
 
 ## 4. Seeds, compare, production cutover
 
@@ -492,10 +489,9 @@ Decisions: a season entry whose chapter is missing is listed with empty fields (
   follow-up bar offers it with the countdown. Only read on a chain's last group.
 - Stored like the group's `renderer` (`type` vertical / horizontal; `params` only `{ endless?: boolean }` – RendererParams
   is closed, the schemas refuse any other key; Swiper's keys left with 2026-10-16-endless-strip, FEATURES 10.100): on the
-  group itself (a `ref` group's in its scene document); the creator writes them to every language. Validation: `continues` on the chapter's last group = error; `end` on a group
+  group itself; the creator writes them to every language. Validation: `continues` on the chapter's last group = error; `end` on a group
   that continues = warning (ignored); a chain that isn't the chapter's start without a label on its first group =
-  warning (unreachable); `end.target` is checked like a jumpTo target. The chapter check reads ref groups' scenes through
-  `ValidateContext.resolveGroup` (the creator passes its loaded scenes).
+  warning (unreachable); `end.target` is checked like a jumpTo target.
 - **Jumps into another toon at a label** (owner 2026-10-06, "at label"): `JumpToTarget = { type, value, toon?, label?,
   anyOf? }` – `type: 'chapter'` + `toon` = a chapter of ANOTHER toon (`value` = its number, `label` / `anyOf` = its
   groups); no `toon` = this toon; `type: 'toon'` stays the toon's page. Only optional field added – no migration (dev DB
@@ -514,8 +510,7 @@ Decisions: a season entry whose chapter is missing is listed with empty fields (
     chapters, a chapter's labels – the creator's `JumpPlaces`, loaded on demand) → warnings for an unknown toon, a
     missing chapter, a missing label, and another toon's labels the creator couldn't load ("can't check …").
   - Creator: the target editor (`event-target.svelte`) – type; for a chapter "In toon" (this toon / the others), the
-    chapter as a select of that toon's chapters, the group (and the random list) from THAT chapter's groups (a ref group's
-    label from its scene) – another chapter's / toon's documents load on demand (`editor/jump-places.svelte.ts`).
+    chapter as a select of that toon's chapters, the group (and the random list) from THAT chapter's groups – another chapter's / toon's documents load on demand (`editor/jump-places.svelte.ts`).
 
 ## Language-independent media (2026-10-01, owner rule – PLAN.md RULES)
 

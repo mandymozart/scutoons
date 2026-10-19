@@ -9,7 +9,7 @@ use Scutoons\Infrastructure\Database\Database;
 
 /**
  * The SCUTOONS-wide flow index (owner 2026-10-06, the creator's universe Flow page, agents/DESIGN.md "Flow panel"): the
- * newest version of every chapter / scene / season / toon document, scanned once for the ways out of a chapter – jumpTo
+ * newest version of every chapter / season / toon document, scanned once for the ways out of a chapter – jumpTo
  * events, choices that jump, a group's authored end (in group scripts, slice triggers, placed items' taps) – plus every
  * toon's seasons and its dead things (the same rules as @scutoons/content `deadThings`: variables set but never read,
  * read but never set (reads: simple tests, `if.expr` conditions and texts' `{…}` through the expression analyser), script points and group labels nothing jumps to –
@@ -25,7 +25,7 @@ final class FlowIndex
 {
     private const CACHE_TTL = 3600;
     private const VERSION = 'v6';
-    private const KINDS = ['chapter', 'scene', 'season', 'toon', 'map', 'place', 'route'];
+    private const KINDS = ['chapter', 'season', 'toon', 'map', 'place', 'route'];
     private const TARGET_TYPES = ['chapter', 'season', 'toon', 'product', 'xr'];
 
     public function __construct(private readonly Database $db, private readonly Cache $cache)
@@ -116,12 +116,7 @@ final class FlowIndex
                 }
                 $toons[$toon]['seasons'][(int) $parts[2]] = $list;
             } elseif ($kind === 'chapter' && isset($parts[2])) {
-                $groups = [];
-                foreach (is_array($doc['groups'] ?? null) ? $doc['groups'] : [] as $group) {
-                    $src = is_array($group) && is_array($group['ref'] ?? null) ? ($group['ref']['src'] ?? null) : null;
-                    $scene = is_string($src) ? EntityKey::sceneOf($toon, $src) : null;
-                    $groups[] = $scene !== null && isset($docs[$scene]) ? $docs[$scene] : $group;
-                }
+                $groups = is_array($doc['groups'] ?? null) ? array_values($doc['groups']) : [];
                 $chapters[$toon][(int) $parts[2]] = $groups;
                 $toons[$toon]['chapters'][(int) $parts[2]] = self::pictures($groups, $doc['thumbnail'] ?? null);
             }

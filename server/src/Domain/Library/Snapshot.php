@@ -89,7 +89,7 @@ final class Snapshot
     }
 
     /**
-     * The same snapshot without the language-neutral chapter / scene / season documents (only their legacy per-locale
+     * The same snapshot without the language-neutral chapter / season documents (only their legacy per-locale
      * ones): the legacy answers, for the conversion's equivalence check (content:neutral-check). Another fingerprint.
      */
     public function withoutNeutralDocs(): self

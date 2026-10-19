@@ -101,12 +101,17 @@ test('validateNeutral: shapes of the locale maps, a source without text, season 
 	assert.deepEqual(lines(validateNeutral('season', season, L, { file: 's' })), ['error en sequence.0.status']);
 });
 
-test('validateNeutral: a scene (group)', () => {
+test('validateNeutral: a group in a chapter – its texts', () => {
+	// one document per chapter (2026-10-19): a group's problems, paths relative to the group
+	const inChapter = (group: GroupDoc) =>
+		lines(validateNeutral('chapter', { title: { de: 'K', en: 'C' }, groups: [group] }, L, { file: 'chapter:x:1' }))
+			.filter((l) => l.split(' ')[2]?.startsWith('groups.0.'))
+			.map((l) => l.replace(' groups.0.', ' '));
 	const scene = { label: 'scene-1', renderer: { type: 'vertical' }, slices: [], events: [{ id: 'e1', type: 'showMessage', params: { text: { de: 'Hi' } } }] } as unknown as GroupDoc;
-	assert.deepEqual(lines(validateNeutral('group', scene, L, { file: 'scene:x:1:scene-1' })), ['warning en events.0.params.text']);
+	assert.deepEqual(inChapter(scene), ['warning en events.0.params.text']);
 	// a message with no text in any language (chapter 2's `text: {}`): an empty box in the reader
 	const empty = { label: 'scene-1', renderer: { type: 'vertical' }, slices: [{ image: 'a.webp', width: 390, height: 625, events: [{ id: 'e2', type: 'showMessage', params: { text: {}, wait: true }, trigger: { type: 'intersect' } }] }] } as unknown as GroupDoc;
-	assert.deepEqual(lines(validateNeutral('group', empty, L, { file: 'scene:x:1:scene-1' })), ['warning - slices.0.events.0.params.text']);
+	assert.deepEqual(inChapter(empty), ['warning - slices.0.events.0.params.text']);
 });
 
 test('validateNeutral: the toon entry (index) – texts, release and status per language; an entry without texts', () => {

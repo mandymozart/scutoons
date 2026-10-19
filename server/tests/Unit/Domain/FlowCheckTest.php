@@ -64,8 +64,7 @@ final class FlowCheckTest extends TestCase
     public function testDivertsAndJumpsIntoNothing(): void
     {
         $this->store('toon:toptoy', ['id' => 'toptoy']);
-        $this->store('chapter:toptoy:1', ['number' => 1, 'groups' => [['label' => 'hyper', 'slices' => [[]]], ['ref' => ['src' => 'chapter1/boss.json']]]]);
-        $this->store('scene:toptoy:1:boss', ['label' => 'boss', 'slices' => [[]]]);
+        $this->store('chapter:toptoy:1', ['number' => 1, 'groups' => [['label' => 'hyper', 'slices' => [[]]], ['label' => 'boss', 'slices' => [[]]]]]);
         $this->store('chapter:catpope:3', ['number' => 3, 'groups' => [['label' => 'forest', 'slices' => [[]]]]]);
         $jump = fn(array $target) => ['type' => 'jumpTo', 'params' => ['target' => $target]];
         $doc = self::chapter([
@@ -94,8 +93,8 @@ final class FlowCheckTest extends TestCase
             '/groups/0/events/10/params/onSelect/1/jumpTo/target/label: chapter 3 has no group labelled "lake" (stuck:missing-label)',
             '/groups/1/end/target/label: chapter 3 has no group labelled "cave" (stuck:missing-label)',
         ], $found);
-        // a scene: its own label counts with its new content
-        self::assertSame([], $this->problems('scene:toptoy:1:boss', ['label' => 'big-boss', 'slices' => [[]], 'events' => [$jump(['type' => 'chapter', 'value' => '1', 'label' => 'big-boss'])]]));
+        // the saved chapter: its own new labels count
+        self::assertSame([], $this->problems('chapter:toptoy:1', ['number' => 1, 'groups' => [['label' => 'big-boss', 'slices' => [[]], 'events' => [$jump(['type' => 'chapter', 'value' => '1', 'label' => 'big-boss'])]]]]));
         self::assertSame([], $this->problems('chapter:catpope:2:de', $doc), 'legacy per-locale documents are not checked');
     }
 

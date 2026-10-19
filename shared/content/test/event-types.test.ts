@@ -10,7 +10,7 @@ const root = new URL('../', import.meta.url);
 const validate = readFileSync(new URL('src/validate.ts', root), 'utf8');
 const known = JSON.parse(validate.match(/const EVENT_TYPES = (\[[^\]]*\])/)![1].replace(/'/g, '"')) as string[];
 
-for (const doc of ['chapter-doc', 'group-doc']) {
+for (const doc of ['chapter-doc']) {
 	test(`${doc}.schema.json has every event type`, () => {
 		const schema = readFileSync(new URL(`schema/${doc}.schema.json`, root), 'utf8');
 		const missing = known.filter((type) => !schema.includes(`"const": "${type}"`));

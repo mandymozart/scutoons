@@ -76,7 +76,7 @@ export class ChapterView {
 	/** "+ Add text" shows the presets (owner 2026-10-03) */
 	pickingPreset = $state(false);
 
-	/** `onopen`: a group opened (its separate scene file is loaded) */
+	/** `onopen`: a group opened */
 	constructor(private readonly onopen: (group: number) => void = () => {}) {}
 
 	/** the canvas snap step in px of the slice (0 = off) */

@@ -23,7 +23,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  * per locale of a toon with per-language toon settings and an entry with texts, once from the entry's texts and once
  * from the toon settings (Library::legacyOnly(false): the neutral chapters / seasons stay, only the toon settings differ).
  */
-#[AsCommand(name: 'content:neutral-check', description: 'READ-ONLY: compares the library answers from the neutral chapters / scenes / seasons with the legacy per-locale answers')]
+#[AsCommand(name: 'content:neutral-check', description: 'READ-ONLY: compares the library answers from the neutral chapters / seasons with the legacy per-locale answers')]
 final class ContentNeutralCheckCommand extends Command
 {
     private const FOREIGN_LOCALE = 'fr';

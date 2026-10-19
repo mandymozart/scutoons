@@ -6,7 +6,7 @@ namespace Scutoons\Domain\Content\Expr;
 use stdClass;
 
 /**
- * Expressions in the texts of a language-neutral chapter / scene document (agents/EXPRESSIONS.md §4, step 2): every text
+ * Expressions in the texts of a language-neutral chapter document (agents/EXPRESSIONS.md §4, step 2): every text
  * box line (`slices[].dialog[].text`), VN message (`showMessage` `params.text`) and choice label (`addChoice`
  * `params.label`), askText question (`params.text`) per language and an event condition's expression (`if.expr`), in the
  * group's script, the slices' events and the placed items' events. Only what
@@ -25,7 +25,7 @@ final class TextCheck
     /**
      * The blocking problems of a neutral document: "<json pointer>: <message> – at <from>–<to> (expr:<code>)".
      *
-     * @param string $kind `chapter` (its `groups`) or `scene` (one group)
+     * @param string $kind `chapter` (its `groups`); other kinds have no texts checked here
      * @return list<string>
      */
     public static function problems(string $kind, mixed $doc, int $limit = 20): array
@@ -34,8 +34,6 @@ final class TextCheck
         if (!$doc instanceof stdClass) return [];
         if ($kind === 'chapter') {
             foreach (is_array($doc->groups ?? null) ? $doc->groups : [] as $i => $group) $check->group($group, "/groups/$i");
-        } elseif ($kind === 'scene') {
-            $check->group($doc, '');
         }
         return array_slice($check->out, 0, $limit);
     }

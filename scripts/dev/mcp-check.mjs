@@ -36,9 +36,10 @@ if (!TOKEN) {
 	process.exit(1);
 }
 const TOON = 'catpope';
-const SCENE = `scene:${TOON}:2:scene-14`;
-/** the scene's one language-neutral document (agents/NEUTRAL.md) */
-const KEY = SCENE;
+/** chapter 2's one language-neutral document (agents/NEUTRAL.md) – its groups (scenes) inline since 2026-10-19 */
+const KEY = `chapter:${TOON}:2`;
+/** the group whose script the run edits: chapter 2's third group (the old scene-14 strip) */
+const GROUP = 2;
 const POINT = 'mcp-check';
 /** the custom collage presets' platform-wide document; this run's versions carry the note (save_draft adds " (agent)") */
 const PRESETS = 'colorations';
@@ -120,8 +121,8 @@ try {
 
 	const chapters = await call(client, 'list_chapters', { toon: TOON, chapter: 2 });
 	const groups = chapters.json?.chapters?.[0]?.groups ?? [];
-	check(groups.some((g) => g.scene === SCENE), 'list_chapters: chapter 2 references scene-14', chapters.raw.slice(0, 300));
-	check(groups.some((g) => !g.scene && typeof g.label === 'string' && g.label), 'list_chapters: inline groups with their labels', JSON.stringify(groups).slice(0, 300));
+	check(groups.length > GROUP && groups.every((g) => !g.scene), 'list_chapters: chapter 2 has its groups inline (no scene references)', chapters.raw.slice(0, 300));
+	check(groups.some((g) => typeof g.label === 'string' && g.label), 'list_chapters: inline groups with their labels', JSON.stringify(groups).slice(0, 300));
 	check(chapters.json?.chapters?.[0]?.key === `chapter:${TOON}:2` && typeof chapters.json?.chapters?.[0]?.title === 'string', 'list_chapters: the language-neutral chapter, its title in the source language', chapters.raw.slice(0, 300));
 
 	// finding things: the document list, a full-text search in the screenplay (source language), a part of a long text
@@ -200,12 +201,14 @@ try {
 	rmSync(dir, { recursive: true, force: true });
 
 	const read = await call(client, 'read_entity', { key: KEY });
-	check(!read.error && !Array.isArray(read.json) && read.json?.key === KEY && read.json?.version?.id > 0, 'read_entity: the scene is one language-neutral document (draft, version id)', read.raw.slice(0, 200));
+	check(!read.error && !Array.isArray(read.json) && read.json?.key === KEY && read.json?.version?.id > 0, 'read_entity: the chapter is one language-neutral document (draft, version id)', read.raw.slice(0, 200));
 	original = { id: read.json.version.id, content: read.json.content };
-	const events = original.content.events ?? [];
+	const events = original.content.groups?.[GROUP]?.events ?? [];
 	check(!events.some((e) => e?.params?.name === POINT), `no "${POINT}" point yet (an earlier run was restored)`);
-	const perLocale = await call(client, 'save_draft', { key: `${SCENE}:de`, base: original.id, ops: [{ op: 'set', path: ['label'], value: 'x' }] });
-	check(perLocale.error && /language-neutral/.test(perLocale.raw), 'save_draft refuses a per-locale scene key (one neutral document)', perLocale.raw.slice(0, 200));
+	const perLocale = await call(client, 'save_draft', { key: `${KEY}:de`, base: original.id, ops: [{ op: 'set', path: ['title'], value: 'x' }] });
+	check(perLocale.error && /language-neutral/.test(perLocale.raw), 'save_draft refuses a per-locale chapter key (one neutral document)', perLocale.raw.slice(0, 200));
+	const sceneKey = await call(client, 'read_entity', { key: `scene:${TOON}:2:scene-14` });
+	check(!!sceneKey.error, 'read_entity: a scene key is no key any more (scenes are groups of their chapter)', sceneKey.raw.slice(0, 200));
 
 	// the toon settings: the toon entry (agents/NEUTRAL.md step 4) – texts per language, the old per-language key refused
 	const toonEntry = await call(client, 'read_entity', { key: `toon:${TOON}` });
@@ -218,21 +221,22 @@ try {
 	const oldName = await call(client, 'validate', { key: `toon:${TOON}`, ops: [{ op: 'set', path: ['i18n'], value: { de: { name: 'Alt' } } }] });
 	check(oldName.json?.problems?.some((p) => p.level === 'warning' && p.path[0] === 'i18n' && /title/.test(p.message)), 'validate: an i18n in the toon entry is a warning (drop it, the name is title)', oldName.raw.slice(0, 300));
 
-	// the scene's group script (the newest version may have none yet)
-	const start = Array.isArray(original.content.events) ? [] : [{ op: 'set', path: ['events'], value: [] }];
+	// the group's script (the newest version may have none yet)
+	const at = ['groups', GROUP, 'events'];
+	const start = Array.isArray(original.content.groups?.[GROUP]?.events) ? [] : [{ op: 'set', path: at, value: [] }];
 	const end = events.length;
-	const broken = [...start, { op: 'insert', path: ['events', end], value: { type: 'divert', params: { to: 'nowhere-mcp' } } }];
+	const broken = [...start, { op: 'insert', path: [...at, end], value: { type: 'divert', params: { to: 'nowhere-mcp' } } }];
 	const v = await call(client, 'validate', { key: KEY, ops: broken });
 	check(v.json?.errors > 0 && v.raw.includes('nowhere-mcp'), 'validate: a divert to a missing point is an error', v.raw.slice(0, 300));
-	const untranslated = await call(client, 'validate', { key: KEY, ops: [...start, { op: 'insert', path: ['events', '-'], value: { type: 'showMessage', params: { text: { de: 'Nur auf Deutsch – mcp-check' } } } }] });
+	const untranslated = await call(client, 'validate', { key: KEY, ops: [...start, { op: 'insert', path: [...at, '-'], value: { type: 'showMessage', params: { text: { de: 'Nur auf Deutsch – mcp-check' } } } }] });
 	check(untranslated.json?.problems?.some((p) => p.level === 'warning' && p.locale === 'en' && p.path.includes('text')), 'validate: a text without its en translation is a warning for en (validateNeutral)', untranslated.raw.slice(0, 300));
 	const refused = await call(client, 'save_draft', { key: KEY, base: original.id, ops: broken });
 	check(refused.error && refused.json?.saved === false, 'save_draft refuses errors', refused.raw.slice(0, 200));
 
 	const ops = [
 		...start,
-		{ op: 'insert', path: ['events', '-'], value: { type: 'divert', params: { to: POINT }, if: { variable: 'mcp-check', op: '==', value: 1 } } },
-		{ op: 'insert', path: ['events', '-'], value: { type: 'label', params: { name: POINT } } }
+		{ op: 'insert', path: [...at, '-'], value: { type: 'divert', params: { to: POINT }, if: { variable: 'mcp-check', op: '==', value: 1 } } },
+		{ op: 'insert', path: [...at, '-'], value: { type: 'label', params: { name: POINT } } }
 	];
 	const saved = await call(client, 'save_draft', { key: KEY, base: original.id, ops, message: 'mcp-check' });
 	check(!saved.error && saved.json?.saved && saved.json.version > original.id, 'save_draft: new draft version', saved.raw.slice(0, 300));
@@ -240,7 +244,7 @@ try {
 	check(stale.error && /409 conflict/.test(stale.raw), 'save_draft on an outdated base: 409 conflict, clearly', stale.raw.slice(0, 200));
 
 	const after = await call(client, 'list_chapters', { toon: TOON, chapter: 2 });
-	check(after.json?.chapters?.[0]?.groups?.find((g) => g.scene === SCENE)?.points?.includes(POINT), 'list_chapters shows the new script point');
+	check(after.json?.chapters?.[0]?.groups?.[GROUP]?.points?.includes(POINT), 'list_chapters shows the new script point');
 	const versions = await call(client, 'list_versions', { key: KEY, limit: 3 });
 	check(versions.json?.[0]?.id === saved.json?.version && /agent/.test(versions.json?.[0]?.message ?? ''), 'list_versions: newest = the agent save', versions.raw.slice(0, 200));
 

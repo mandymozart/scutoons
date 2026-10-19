@@ -25,7 +25,7 @@ const apply = args.includes('--apply');
 const option = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : null);
 const onlyToon = option('--toon');
 const jsonFile = option('--json');
-const KINDS = ['chapter', 'scene', 'season'];
+const KINDS = ['chapter', 'season'];
 
 /** Statements with positional parameters through PHP's PDO, the parameters on stdin (documents exceed the env limit) */
 function write(statements) {
@@ -36,7 +36,7 @@ function write(statements) {
 const rows = localSql([
 	`SELECT v.id, v.entity_key, v.kind, v.toon, v.locale, v.status, v.json FROM entity_versions v
 	 JOIN (SELECT entity_key, MAX(id) AS newest, MAX(CASE WHEN status = 'published' THEN id END) AS published FROM entity_versions
-	       WHERE kind IN ('chapter', 'scene', 'season', 'toon', 'toon-settings') GROUP BY entity_key) g ON v.id = g.newest OR v.id = g.published
+	       WHERE kind IN ('chapter', 'season', 'toon', 'toon-settings') GROUP BY entity_key) g ON v.id = g.newest OR v.id = g.published
 	 ORDER BY v.id`
 ])[0];
 

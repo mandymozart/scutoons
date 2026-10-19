@@ -47,7 +47,7 @@ final class ContentCheckCommand extends Command
             $perKind[$k] ??= ['checked' => 0, 'bad' => 0, 'unchecked' => !(ContentSchemas::BY_KIND[$k] ?? null)];
             $perKind[$k]['checked']++;
             $content = json_decode((string) $row['json'], false);
-            $problems = EntityKey::isValid($row['entity_key']) // neutral chapters / scenes / seasons against their neutral schema
+            $problems = EntityKey::isValid($row['entity_key']) // neutral chapters / seasons against their neutral schema
                 ? $this->schemas->problemsOf(EntityKey::parse($row['entity_key']), $content, $limit)
                 : $this->schemas->problems($k, $content, $limit);
             // a document that fits: where a reader could get stuck (the save guard's rules – 422 on save)

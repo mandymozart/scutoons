@@ -47,7 +47,7 @@ import { repeatOf, repeatProblem } from './recurrence.ts';
 import { ASK_TEXT_LIMIT, ASK_TEXT_MAX_LENGTH, ASK_TEXT_SCOPES, GIVE_ITEM_MAX } from './visual-novel.ts';
 import { COVER_ALIGNS, COVER_COLORS, COVER_FORMATS, COVER_LIMITS, COVER_TEXT_SOURCES, coverLetteringOn } from './cover.ts';
 import { frozenSequenceProblems } from './seasons.ts';
-import { resolveChapter, resolveGroup, resolveSeason, resolveToon, type ChapterDoc, type GroupDoc, type NeutralKind, type NeutralLanguages, type SeasonDoc } from './neutral.ts';
+import { resolveChapter, resolveSeason, resolveToon, type ChapterDoc, type NeutralKind, type NeutralLanguages, type SeasonDoc } from './neutral.ts';
 import { forEachText, type TextLeafKind } from './neutralize.ts';
 import { analyseExpression, analyseText, type AnalyseOptions } from './expr/analyse.ts';
 
@@ -130,11 +130,6 @@ export interface ValidateContext {
 	itemVariants?: Record<string, string[]>;
 	/** the catalog's respawn rules by item id (null = never reappears): placed items' `respawn` is checked against them */
 	itemRespawn?: Record<string, ItemRespawn | null>;
-	/**
-	 * chapter files: a `ref` group → its scene (the creator's loaded scene document), so the chapter's linked groups
-	 * (chains.ts) are checked with the scenes' `continues`; none / null = the ref group as it is
-	 */
-	resolveGroup?: (group: any) => any;
 	/**
 	 * chapter files: what the whole toon says (`toonFacts` over its documents – the creator loads them): which labels
 	 * something jumps to, which variables something sets. None: every labelled group counts as reachable by a jump and no
@@ -679,6 +674,9 @@ function checkScriptPoints(c: Collector, g: any, path: Path) {
 	if (Array.isArray(g.slices)) g.slices.forEach((s: any, si: number) => Array.isArray(s?.events) && scan(s.events, [...path, 'slices', si, 'events']));
 }
 
+/** a storyboard shot id (`sb-25-4`): what `slice.shot` names (research/TEXT-ACROSS-SLICES.md §10) */
+const SHOT_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/;
+
 function checkSlice(c: Collector, s: any, path: Path, ctx: ValidateContext) {
 	if (!isObj(s)) return c.error(path, 'slice must be an object');
 	if (!isStr(s.image) || !s.image) c.error([...path, 'image'], 'slice.image is missing');
@@ -688,6 +686,7 @@ function checkSlice(c: Collector, s: any, path: Path, ctx: ValidateContext) {
 	}
 	if (isNum(s.width) && s.width > 0 && s.width !== DEFAULT_SLICE.width) c.warn([...path, 'width'], `slices are ${DEFAULT_SLICE.width} px wide (this one is ${s.width})`);
 	if (s.sensitive !== undefined && typeof s.sensitive !== 'boolean') c.error([...path, 'sensitive'], 'slice.sensitive must be true or false');
+	if (s.shot !== undefined && !(isStr(s.shot) && SHOT_ID.test(s.shot))) c.error([...path, 'shot'], 'slice.shot must be a storyboard shot id like sb-25-4');
 	if (s.imageVariants !== undefined) {
 		if (!isObj(s.imageVariants)) c.error([...path, 'imageVariants'], 'imageVariants must be { low, medium, high } (1x / 2x / 3x paths)');
 		else for (const [level, file] of Object.entries(s.imageVariants)) {
@@ -890,12 +889,6 @@ function checkVnFlow(c: Collector, g: any, path: Path) {
 
 export function checkGroup(c: Collector, g: any, path: Path, ctx: ValidateContext) {
 	if (!isObj(g)) return c.error(path, 'group must be an object');
-	if (g.ref) {
-		if (!isStr(g.ref.src) || !/^[a-z0-9_-]+(\/[a-z0-9_-]+)?\.json$/.test(g.ref.src)) {
-			c.error([...path, 'ref', 'src'], 'ref.src must be a file like chapter2/scene-14.json');
-		}
-		return;
-	}
 	if (!g.renderer || !values(Renderer).includes(g.renderer.type)) {
 		c.error([...path, 'renderer', 'type'], 'renderer.type must be vertical or horizontal (the reader shows "Renderer is missing")');
 	}
@@ -1030,20 +1023,19 @@ function getIf(groups: any[], path: (string | number)[]): any {
 }
 
 /**
- * Event ids (agents/EXPRESSIONS.md §5): hidden, stable, unique in the chapter and its scenes – the reader's save game
+ * Event ids (agents/EXPRESSIONS.md §5): hidden, stable, unique in the chapter – the reader's save game
  * remembers an event by it (repeat, `resolved(id)` / `count(id)`). The creator assigns them (on load and with every
  * edit: an event without one gets one, the document is then unsaved); a document stored without them (production
- * before the step-3 creator) gets one warning until it is saved in the creator. `own(gi)`: the group is this document's
- * own (a chapter's scenes report their missing ids themselves).
+ * before the step-3 creator) gets one warning until it is saved in the creator.
  */
-function checkEventIds(c: Collector, groups: any[], base: (gi: number) => Path, own: (gi: number) => boolean = () => true) {
+function checkEventIds(c: Collector, groups: any[], base: (gi: number) => Path) {
 	const seen = new Map<string, string>();
 	let missing = 0;
-	const visit = (list: unknown, at: Path, gi: number, where: string) =>
+	const visit = (list: unknown, at: Path, where: string) =>
 		(Array.isArray(list) ? list : []).forEach((e: any, i: number) => {
 			if (!isObj(e)) return;
 			if (!isStr(e.id) || !e.id) {
-				if (own(gi)) missing++;
+				missing++;
 				return;
 			}
 			if (seen.has(e.id)) c.error([...at, i, 'id'], `event id "${e.id}" is used twice in this chapter (also ${seen.get(e.id)})`);
@@ -1052,18 +1044,18 @@ function checkEventIds(c: Collector, groups: any[], base: (gi: number) => Path, 
 	groups.forEach((g, gi) => {
 		if (!isObj(g)) return;
 		const gp = base(gi);
-		visit(g.events, [...gp, 'events'], gi, `group ${gi + 1}`);
+		visit(g.events, [...gp, 'events'], `group ${gi + 1}`);
 		(Array.isArray(g.slices) ? g.slices : []).forEach((s: any, si: number) => {
 			if (!isObj(s)) return;
-			visit(s.events, [...gp, 'slices', si, 'events'], gi, `group ${gi + 1}, slice ${si + 1}`);
-			(Array.isArray(s.items) ? s.items : []).forEach((it: any, ii: number) => isObj(it) && visit(it.events, [...gp, 'slices', si, 'items', ii, 'events'], gi, `group ${gi + 1}, slice ${si + 1}, item ${ii + 1}`));
+			visit(s.events, [...gp, 'slices', si, 'events'], `group ${gi + 1}, slice ${si + 1}`);
+			(Array.isArray(s.items) ? s.items : []).forEach((it: any, ii: number) => isObj(it) && visit(it.events, [...gp, 'slices', si, 'items', ii, 'events'], `group ${gi + 1}, slice ${si + 1}, item ${ii + 1}`));
 		});
 	});
 	if (missing) c.warn([], `${missing} event${missing === 1 ? ' has' : 's have'} no id yet (the reader's save game needs them) – open it in the creator and save: it assigns them`);
 }
 
 /**
- * Text box ids are unique within the chapter, its scenes included (owner 2026-10-06): linked groups share one page, and an
+ * Text box ids are unique within the chapter (owner 2026-10-06): linked groups share one page, and an
  * showTextBox event reveals a box by its id. The creator assigns fresh ids; this is the safety net.
  */
 function checkDialogIds(c: Collector, groups: any[]) {
@@ -1128,12 +1120,11 @@ function checkChapter(c: Collector, ch: any, locale: string, ctx: ValidateContex
 	if (!Array.isArray(ch.groups) || !ch.groups.length) c.error(['groups'], 'chapter needs at least one group');
 	else {
 		ch.groups.forEach((g: any, i: number) => checkGroup(c, g, ['groups', i], { ...ctx, audio: ch.audio }));
-		const resolved = ch.groups.map((g: any) => (isObj(g) && g.ref ? (ctx.resolveGroup?.(g) ?? g) : g));
-		checkChains(c, resolved);
-		checkReach(c, resolved, ctx.facts);
-		if (ctx.facts) checkVariableNames(c, resolved, ctx.facts);
-		checkDialogIds(c, resolved);
-		checkEventIds(c, resolved, (gi) => ['groups', gi], (gi) => !(isObj(ch.groups[gi]) && ch.groups[gi].ref));
+		checkChains(c, ch.groups);
+		checkReach(c, ch.groups, ctx.facts);
+		if (ctx.facts) checkVariableNames(c, ch.groups, ctx.facts);
+		checkDialogIds(c, ch.groups);
+		checkEventIds(c, ch.groups, (gi) => ['groups', gi]);
 	}
 }
 
@@ -1402,10 +1393,6 @@ export function validateFile(kind: string, data: any, locale: string, ctx: Valid
 		return c.problems;
 	}
 	if (kind === 'chapter') checkChapter(c, data, locale, ctx);
-	else if (kind === 'group') {
-		checkGroup(c, data, [], ctx);
-		checkEventIds(c, [data], () => []);
-	}
 	else if (kind === 'season') checkSeason(c, data, locale, ctx);
 	else if (kind === 'toon') checkToon(c, data, locale);
 	else if (kind === 'index') checkToonIndex(c, data);
@@ -1499,16 +1486,14 @@ export function validateNeutral(kind: string, data: any, languages: NeutralLangu
 			? resolveChapter(data as ChapterDoc, source, languages)
 			: kind === 'season'
 				? resolveSeason(data as SeasonDoc, source, languages)
-				: kind === 'index'
-					? null
-					: resolveGroup(data as GroupDoc, source, languages);
+				: null;
 	const problems = kind === 'index' ? toonEntryProblems(data, languages, ctx) : validateFile(kind, resolved, source, ctx).map((p) => ({ ...p, locale: null }));
 	const c = new Collector(file, null);
 	// a season's published positions are frozen (printed /season/S/chapter/K addresses, BACKLOG 10.41)
 	if (kind === 'season' && ctx.publishedSequence)
 		for (const p of frozenSequenceProblems(ctx.publishedSequence as any, data.sequence, data.number ?? '')) c.error(p.path, p.message);
 	const at = (locale: string) => new Collector(file, locale);
-	const neutralKind: NeutralKind | 'toon' = kind === 'group' ? 'scene' : kind === 'index' ? 'toon' : (kind as NeutralKind);
+	const neutralKind: NeutralKind | 'toon' = kind === 'index' ? 'toon' : (kind as NeutralKind);
 	const perLocale: Collector[] = [];
 	// the toon's story variables (what something sets – the creator loads the toon's documents): an unknown one in a text warns
 	// … and the catalog's items (`inventory.<item>`)
@@ -1583,7 +1568,6 @@ export function validateLocales(kind: string, file: string, files: Record<string
 			if (a.length !== b.length) add('error', locale, ['groups'], `${locale} has ${b.length} groups, ${primary} has ${a.length}`);
 			a.forEach((g: any, i: number) => {
 				if (!b[i]) return;
-				if ((g.ref?.src ?? null) !== (b[i].ref?.src ?? null)) add('warning', locale, ['groups', i, 'ref'], `group ${i + 1}: ref differs between ${primary} and ${locale}`);
 				const sa = g.slices ?? [];
 				const sb = b[i].slices ?? [];
 				if (sa.length !== sb.length) add('error', locale, ['groups', i, 'slices'], `group ${i + 1}: ${locale} has ${sb.length} slices, ${primary} has ${sa.length}`);
@@ -1606,11 +1590,6 @@ export function validateLocales(kind: string, file: string, files: Record<string
 			// a translation may be partial (it grows scene by scene); only an empty one is worth a note
 			if (textOf(source.text).trim() && !textOf(data.text).trim()) add('info', locale, ['text'], `the ${locale} script is empty`);
 			continue;
-		} else if (kind === 'group') {
-			const sa = source.slices ?? [];
-			const sb = data.slices ?? [];
-			if (sa.length !== sb.length) add('error', locale, ['slices'], `${locale} has ${sb.length} slices, ${primary} has ${sa.length}`);
-			if ((source.events ?? []).length !== (data.events ?? []).length) add('warning', locale, ['events'], `${locale} has ${(data.events ?? []).length} events, ${primary} has ${(source.events ?? []).length}`);
 		}
 		forEachSlice(kind, source, (slice, path) => {
 			const other = getAt(data, path);

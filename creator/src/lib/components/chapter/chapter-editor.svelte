@@ -8,15 +8,15 @@
 	import { beforeNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { dockWidth, flowWidth, usePageNav } from '$lib/nav.svelte.ts';
-	import { fileLabel, sceneLabel } from '$lib/labels.ts';
+	import { fileLabel } from '$lib/labels.ts';
 	import { DocSession } from '$lib/editor/doc-session.svelte.ts';
 	import { publishLabel } from '$lib/editor/reviews.svelte.ts';
 	import { editorKeys, isField } from '$lib/editor/editor-keys.ts';
 	import DocNotices from '$lib/components/page/doc-notices.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { sceneDoc, toonDoc } from '$lib/editor/languages.ts';
-	import { defaultMoodVocabulary, entities, getAt, deleteAt, sceneNameOfRef, scriptLabels, type Path, type ToonLanguages } from '@scutoons/content';
+	import { toonDoc } from '$lib/editor/languages.ts';
+	import { defaultMoodVocabulary, entities, getAt, deleteAt, scriptLabels, type Path, type ToonLanguages } from '@scutoons/content';
 	import { castEntries, castIndex, chapterSceneCharacters, characterIndex, expressionIndex, featuringSuggestions, REGULAR_PERSONA, toonStar, validateCast } from '@scutoons/content';
 	import {
 		addToSeasonCast,
@@ -152,7 +152,6 @@
 	// the season holds the chapter's status (visibility, per locale): edited in the meta panel, saved with the chapter
 	// svelte-ignore state_referenced_locally
 	const season = toonDoc(entities.season(toon, 1), languages);
-	let refs = $state<Record<string, ContentDoc>>({});
 	// the season's cast + the character registry: the VN character fields pick from every character (the season's cast
 	// first); picking someone who isn't cast adds them to the season's cast (saved / published with the chapter)
 	/** the chapter's season (the editor edits season 1) */
@@ -214,8 +213,6 @@
 	const groups = $derived<any[]>(chapterData?.groups ?? []);
 	/** the toon's star (always in the cast, first in the suggested featuring) */
 	const star = $derived(toonStar(registryOf(registry), toon));
-	/** the chapter's groups with each scene document (source language) in place of its ref – what the VN plays */
-	const sceneGroups = () => groups.map((g) => (g?.ref?.src ? (refs[g.ref.src]?.data?.[refs[g.ref.src].primary] ?? {}) : g));
 	/**
 	 * A slice sample picked as files (asset picker / upload; `src` = the 128k default, `variants` = its levels): its
 	 * sample-library id. An entry with that file gets the levels; a file not in the chapter's library yet is added to it
@@ -252,7 +249,7 @@
 	const heldMusic = $derived.by(() => {
 		const out: Record<string, { volume: number; label: string }> = {};
 		if (view.section !== 'slice' || view.sliceIndex < 0) return out;
-		const all = sceneGroups();
+		const all = groups;
 		for (let gi = 0; gi <= view.groupIndex && gi < all.length; gi++) {
 			const slices: any[] = all[gi]?.slices ?? [];
 			const until = gi === view.groupIndex ? view.sliceIndex : slices.length;
@@ -267,7 +264,6 @@
 	const allDocs = $derived<ContentDoc[]>([
 		chapter,
 		season,
-		...Object.values(refs),
 		...(castTouched || cast.dirty ? [cast] : []),
 		...(worldMap.dirty ? [worldMap] : []),
 		...(colorations.dirty ? [colorations] : [])
@@ -279,8 +275,8 @@
 	 * §12.4); not in allDocs: a never-stored presets document is not "missing"
 	 */
 	const noticeDocs = $derived(colorations.dirty ? allDocs : [...allDocs, colorations]);
-	/** the chapter's documents with slices (the chapter + its separate scenes) */
-	const sliceDocs = $derived<ContentDoc[]>([chapter, ...Object.values(refs)]);
+	/** the chapter's documents with slices (one document per chapter since 2026-10-19) */
+	const sliceDocs = $derived<ContentDoc[]>([chapter]);
 	/** texts that still have the old look (a mask over baked text, chapter 1) */
 	const legacyTexts = $derived(sliceDocs.reduce((n, d) => n + (d.loading ? 0 : legacyTextCount(d.data[d.primary])), 0));
 	/** one step (owner 2026-10-03): every masked text → its preset; save / publish as usual */
@@ -292,18 +288,9 @@
 	}
 	const anySaving = $derived(allDocs.some((d) => d.saving));
 
-	async function ensureRef(src: string) {
-		if (refs[src]) return refs[src];
-		const doc = sceneDoc(toon, src, languages);
-		refs[src] = doc;
-		await doc.load();
-		return doc;
-	}
-
 	onMount(async () => {
 		await Promise.all([chapter.load(), season.load(), cast.load(), registry.load(), moods.load(), worldMap.load(), colorations.load()]);
 		loadToons(getLocale()).then((list) => (toonInfos = list));
-		await Promise.all(groups.filter((g) => g?.ref?.src).map((g) => ensureRef(g.ref.src)));
 		refreshImages();
 		// the rest of the toon (reachability: labels something jumps to, variables something sets) – without it no
 		// condition is judged and every labelled group counts as reachable
@@ -335,7 +322,7 @@
 	/** the groups `reach` was computed from (the Flow panel draws exactly what the chips say) */
 	let reachGroups = $state.raw<any[] | null>(null);
 	$effect(() => {
-		const snapshot = $state.snapshot(sceneGroups());
+		const snapshot = $state.snapshot(groups);
 		const f = facts;
 		const timer = setTimeout(() => {
 			reach = chapterReach(snapshot, f);
@@ -363,11 +350,8 @@
 	}
 
 	// ── Selection / view state: one object (lib/editor/chapter-state.svelte.ts) – the tree, the canvas, the inspector
-	// and the keyboard write it; opening a group loads its separate scene file
-	const view = new ChapterView((index) => {
-		const src = groups[index]?.ref?.src;
-		if (src) ensureRef(src);
-	});
+	// and the keyboard write it
+	const view = new ChapterView();
 	// the canvas and the inspector show the top bar's TEXT language (default the source; owner
 	// 2026-10-06: one language everywhere, the header's switch the only one)
 	const displayLocale = $derived(textLanguage.current(languages.languages, languages.source));
@@ -463,7 +447,7 @@
 	/** save / publish / conflict / the notice (lib/editor/doc-session.svelte.ts – the same as the meta pages') */
 	const session = new DocSession({
 		docs: () => allDocs,
-		// Publish lists the chapter and its scene files with drafts (BACKLOG 10.60)
+		// Publish lists the chapter and its files with drafts (BACKLOG 10.60)
 		tree: () => ({ scope: { kind: 'chapter', toon, number: chapterNumber }, title: m['creator.publish_tree_title']({ name: fileLabel(`chapter:${toon}:${chapterNumber}`) }) }),
 		beforeSave: () => {
 			// the chapter file's (deprecated) status mirrors the season, its old `published` flag goes
@@ -475,18 +459,11 @@
 		errorCount: () => errorCount
 	});
 
-	const currentGroup = $derived(groups[view.groupIndex]);
-	const refSrc = $derived<string | null>(currentGroup?.ref?.src ?? null);
-	const activeDoc = $derived<ContentDoc | null>(refSrc ? (refs[refSrc] ?? null) : chapter);
-	/**
-	 * undo / redo act on the file edited last (owner 2026-10-03: moving groups edits the chapter while a scene file is
-	 * open) – the open group's file or the chapter; redo on the file that was undone last
-	 */
-	const undoDoc = $derived<ContentDoc | null>(
-		[activeDoc, chapter].filter((d): d is ContentDoc => !!d?.canUndo).sort((a, b) => b.lastEditAt - a.lastEditAt)[0] ?? null
-	);
-	let undoneDoc = $state<ContentDoc | null>(null);
-	const redoDoc = $derived<ContentDoc | null>(undoneDoc?.canRedo ? undoneDoc : activeDoc?.canRedo ? activeDoc : chapter.canRedo ? chapter : null);
+	/** the edited document: the chapter (its groups inline – the scene documents went 2026-10-19) */
+	const activeDoc = $derived<ContentDoc | null>(chapter);
+	/** undo / redo act on the chapter */
+	const undoDoc = $derived<ContentDoc | null>(chapter.canUndo ? chapter : null);
+	const redoDoc = $derived<ContentDoc | null>(chapter.canRedo ? chapter : null);
 	/**
 	 * undo / redo may put the pieces back in another order (a Layers reorder) or take one away: the selected piece follows
 	 * its id (gone: let go) – the text boxes / items keep their indices (their order is `layer`)
@@ -501,10 +478,9 @@
 		const d = undoDoc;
 		if (!d) return;
 		keepPiece(() => d.undo());
-		undoneDoc = d;
 	}
 	const redoLast = () => keepPiece(() => redoDoc?.redo());
-	const groupPath = $derived<Path>(refSrc ? [] : ['groups', view.groupIndex]);
+	const groupPath = $derived<Path>(['groups', view.groupIndex]);
 	const slicePath = $derived<Path>([...groupPath, 'slices', view.sliceIndex]);
 	const activeGroup = $derived(activeDoc?.get(activeDoc.primary, groupPath));
 	const activeSlice = $derived(view.sliceIndex >= 0 ? activeDoc?.get(activeDoc.primary, slicePath) : null);
@@ -516,20 +492,11 @@
 	// the page re-creates this component per chapter ({#key})
 	// svelte-ignore state_referenced_locally
 	const chapterHref = `/${toon}/chapter/${chapterNumber}`;
-	const groupKey = (g: any, i: number) => g?.label ?? (g?.ref?.src ? sceneNameOfRef(g.ref.src) : null) ?? String(i + 1);
-	/** a separate scene's own label (stored in the scene; owner 2026-10-03: renamed scene-13 still showed "Scene 14") */
-	const refLabel = (src: string): string | undefined => {
-		const doc = refs[src];
-		const label = doc && !doc.loading ? doc.get(doc.primary, ['label']) : undefined;
-		return typeof label === 'string' && label.trim() ? label : undefined;
-	};
-	const groupName = (g: any, i: number) =>
-		g?.ref?.src ? (refLabel(g.ref.src) ?? sceneLabel(toon, g.ref.src)) : (g?.label ?? `${m['creator.groups']()} ${i + 1}`);
-	/** the ActionBar's not-live chip (E.1): the chapter, the scene while one of its parts is open (owner 2026-10-03:
-	 * "scene-14" next to Meta confused), the season while it has something unpublished */
+	const groupKey = (g: any, i: number) => g?.label ?? String(i + 1);
+	const groupName = (g: any, i: number) => g?.label ?? `${m['creator.groups']()} ${i + 1}`;
+	/** the ActionBar's not-live chip (E.1): the chapter, the season while it has something unpublished */
 	const liveFiles = $derived([
 		{ doc: chapter, label: fileLabel(chapter.entity) },
-		...(refSrc && refs[refSrc] && (view.section === 'group' || view.section === 'slice') ? [{ doc: refs[refSrc], label: refLabel(refSrc) ?? sceneLabel(toon, refSrc) }] : []),
 		...(!season.loading && (season.dirty || season.unpublished.length) ? [{ doc: season, label: fileLabel(season.entity) }] : [])
 	]);
 	function hrefFor(next: { section: Section; group?: number; slice?: number }) {
@@ -620,8 +587,6 @@
 				presets,
 				// the chapter's visibility: its entry in the season (null = none)
 				seasonStatus: doc === chapter ? seasonStatusOf(season, languages.source, chapterNumber) : undefined,
-				// linked groups: a ref group's `continues` lives in its scene
-				resolveGroup: (g: any) => (g?.ref?.src ? refs[g.ref.src]?.data?.[refs[g.ref.src].primary] : g),
 				// reachability: what the rest of the toon jumps to / sets
 				facts,
 				// jump targets: the toon / chapter / label they name exist (as far as loaded)
@@ -638,7 +603,7 @@
 				if (doc.source[doc.primary] === 'missing') out.push({ level: 'error', file: doc.entity, locale: null, path: [], message: m['creator.missing']() });
 				continue;
 			}
-			// chapter, scenes, season: one language-neutral document, checked once + its texts per language
+			// chapter, season: one language-neutral document, checked once + its texts per language
 			out.push(...(doc.texts ? validateNeutral(doc.kind, data, doc.texts, ctx) : validateFile(doc.kind, data, doc.primary, ctx)));
 		}
 		// item limits (BACKLOG 10.39): an item placed more often than the catalog allows, every toon together
@@ -652,7 +617,7 @@
 		}
 		if (castTouched && castOf(cast)) out.push(...validateCast(castOf(cast), { registry: registryOf(registry), languages: languages.languages, file: entities.cast(toon) }));
 		// suggestions from the VN usage (info): who the scenes use but the featuring / the season cast lacks
-		if (!chapter.loading && hasCast) out.push(...featuringSuggestions(chapterData?.featuring, chapterSceneCharacters(sceneGroups()), castIndex(castOf(cast), SEASON), chapter.entity));
+		if (!chapter.loading && hasCast) out.push(...featuringSuggestions(chapterData?.featuring, chapterSceneCharacters(groups), castIndex(castOf(cast), SEASON), chapter.entity));
 		const order = { error: 0, warning: 1, info: 2 };
 		return out.sort((a, b) => order[a.level] - order[b.level]);
 	});
@@ -688,11 +653,8 @@
 			view.section = 'meta';
 			return;
 		}
-		if (p.file !== chapter.entity) {
-			const gi = groups.findIndex((g) => g?.ref?.src === p.file);
-			if (gi < 0) return;
-			view.selectGroup(gi);
-		} else if (path[0] === 'groups' && typeof path[1] === 'number') {
+		if (p.file !== chapter.entity) return;
+		if (path[0] === 'groups' && typeof path[1] === 'number') {
 			view.selectGroup(path[1]);
 			path = path.slice(2);
 		} else {
@@ -751,7 +713,7 @@
 	const groupLabels = $derived(groups.map((g, gi) => groupName(g, gi)).filter(Boolean));
 	// the places jumps lead to (the target editor's toon → chapter → label; validation checks targets against them)
 	// svelte-ignore state_referenced_locally
-	const jumpPlaces = setJumpPlaces(new JumpPlaces(toon, chapterNumber, () => sceneGroups().map((g) => g?.label).filter((l): l is string => typeof l === 'string' && !!l)));
+	const jumpPlaces = setJumpPlaces(new JumpPlaces(toon, chapterNumber, () => groups.map((g) => g?.label).filter((l): l is string => typeof l === 'string' && !!l)));
 	$effect(() => {
 		jumpPlaces.toons = toonInfos.length ? toonInfos.map((t) => ({ id: t.id, name: t.name })) : null;
 	});
@@ -761,24 +723,22 @@
 		const timer = setTimeout(() => jumpPlaces.prefetch(docs), 500);
 		return () => clearTimeout(timer);
 	});
-	/** every text box id of the chapter and its scenes: a new box gets a fresh one (owner 2026-10-06: unique in the chapter) */
+	/** every text box id of the chapter: a new box gets a fresh one (owner 2026-10-06: unique in the chapter) */
 	const chapterDialogIds = () =>
-		new Set<string>(sceneGroups().flatMap((g: any) => (g?.slices ?? []).flatMap((s: any) => (s?.dialog ?? []).map((d: any) => d?.id).filter((id: unknown) => typeof id === 'string'))));
+		new Set<string>(groups.flatMap((g: any) => (g?.slices ?? []).flatMap((s: any) => (s?.dialog ?? []).map((d: any) => d?.id).filter((id: unknown) => typeof id === 'string'))));
 	const sliceTarget = (): edits.SliceTarget | null =>
 		activeDoc && view.sliceIndex >= 0 ? { doc: activeDoc, slicePath, chapterNumber, sliceIndex: view.sliceIndex, slice: activeSlice, taken: chapterDialogIds } : null;
 
 	// linked groups (owner 2026-10-06): a group whose script can jump away and that continues – the next group needs a
 	// label, else nothing leads back to it (a reminder with one click, next to the script)
-	const nextGroup = $derived(sceneGroups()[view.groupIndex + 1]);
+	const nextGroup = $derived(groups[view.groupIndex + 1]);
 	const needsNextLabel = $derived(!!activeGroup?.continues && scriptJumps(activeGroup) && !!nextGroup && !nextGroup.label);
 	function labelNextGroup() {
 		const index = view.groupIndex + 1;
-		const raw = groups[index];
-		const taken = new Set(sceneGroups().map((g: any) => g?.label).filter(Boolean));
-		let label = raw?.ref?.src ? sceneNameOfRef(raw.ref.src) : `scene-${index + 1}`;
-		for (let n = 2; !label || taken.has(label); n++) label = `scene-${index + 1}-${n}`;
-		if (raw?.ref?.src) refs[raw.ref.src]?.edit((file) => void (file.label = label));
-		else chapter.edit((file) => void (file.groups[index].label = label));
+		const taken = new Set(groups.map((g: any) => g?.label).filter(Boolean));
+		let label = `scene-${index + 1}`;
+		for (let n = 2; taken.has(label); n++) label = `scene-${index + 1}-${n}`;
+		chapter.edit((file) => void (file.groups[index].label = label));
 	}
 	/** a new text with a preset's look (default speech; a drawn one keeps the drawn rect); the cursor goes to its text */
 	function addDialog(rect?: { x: number; y: number; width: number; height?: number }, preset?: TextPreset) {
@@ -976,7 +936,6 @@
 	const phoneGroupClip = groupsClipHandler({
 		chapter: () => chapter,
 		groups: () => groups,
-		resolveGroup: (g: any) => (g?.ref?.src ? refs[g.ref.src]?.data?.[refs[g.ref.src].primary] : g),
 		chapterNumber: () => chapterNumber,
 		picked: () => phoneGroupPicks,
 		pick: (next) => (phoneGroupPicks = next),
@@ -1086,7 +1045,7 @@
 	// the canvas region copies its selection and pastes into the open slice
 	$effect(() => clipboardEvents());
 	// ── item limits (BACKLOG 10.39 step 7, ITEMS.md "Item limits"): a catalog item's `placements` count over every toon –
-	// this chapter's documents live, every other chapter / scene from the API (GET /api/catalog/items/<id>/placements,
+	// this chapter's documents live, every other chapter from the API (GET /api/catalog/items/<id>/placements,
 	// loaded once per limited item); over the limit = a Problems error, a paste that would go over it is refused
 	let placedElsewhere = $state<Record<string, { key: string; count: number }[]>>({});
 	$effect(() => {
@@ -1099,7 +1058,7 @@
 				.catch(() => {});
 		}
 	});
-	/** per limited item: its limit, the placements in this chapter's documents and elsewhere (other chapters / scenes) */
+	/** per limited item: its limit, the placements in this chapter's documents and elsewhere (other chapters) */
 	const placementCounts = $derived.by(() => {
 		const out = new Map<string, { limit: number; here: number; others: { key: string; count: number }[] }>();
 		const own = new Set(sliceDocs.map((d) => d.entity));
@@ -1138,7 +1097,7 @@
 			toon,
 			chapterNumber,
 			boxIds: chapterDialogIds,
-			groupLabels: () => sceneGroups().map((g: any) => g?.label).filter((l: unknown): l is string => typeof l === 'string' && !!l),
+			groupLabels: () => groups.map((g: any) => g?.label).filter((l: unknown): l is string => typeof l === 'string' && !!l),
 			placementLimit
 		})
 	);
@@ -1183,7 +1142,7 @@
 {/snippet}
 
 {#snippet tree()}
-	<ChapterTree {view} {chapter} {groups} {groupName} {activeDoc} {groupPath} {chapterNumber} {markAt} resolveGroup={(g) => (g?.ref?.src ? refs[g.ref.src]?.data?.[refs[g.ref.src].primary] : g)} />
+	<ChapterTree {view} {chapter} {groups} {groupName} {activeDoc} {groupPath} {chapterNumber} {markAt} />
 {/snippet}
 
 <div class="editor">
@@ -1211,7 +1170,7 @@
 					<!-- phones (BACKLOG 10.50 h): the chapter leads with its groups – the tree is in the drawer there -->
 					<nav class="phone-only phone-groups" aria-label={m['creator.groups']()} data-testid="phone-groups">
 						<p class="sc-nav-head">{m['creator.groups']()}</p>
-						{#each sceneGroups() as g, gi (gi)}
+						{#each groups as g, gi (gi)}
 							<button
 								type="button"
 								class="sc-nav-item phone-group"
@@ -1244,7 +1203,7 @@
 									cast={seasonCast}
 									registry={registryOf(registry)}
 									{star}
-									{sceneGroups}
+									groups={() => groups}
 									addToCast={(id) => ensureCast(id, REGULAR_PERSONA)}
 								/>
 							{/if}
@@ -1277,7 +1236,7 @@
 								{/each}
 							</nav>
 						{/if}
-						<GroupPanel doc={activeDoc} {groupPath} {refSrc} {toon} {chapterNumber} {groupLabels} last={view.groupIndex === groups.length - 1} />
+						<GroupPanel doc={activeDoc} {groupPath} {toon} {chapterNumber} {groupLabels} last={view.groupIndex === groups.length - 1} />
 						<h3 class="sub">{m['creator.vn']()}</h3>
 						{#if needsNextLabel}
 							<div class="sc-bar is-note" data-testid="next-label-hint">

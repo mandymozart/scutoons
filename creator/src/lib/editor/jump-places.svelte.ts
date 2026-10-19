@@ -4,27 +4,17 @@
 // doesn't load (no access, missing) stays unknown – validation says it can't check another toon's labels then.
 import { getContext, setContext } from 'svelte';
 import { contentIndex, getDraft } from '$lib/api.ts';
-import { sceneEntityOfRef, type JumpTargets } from '@scutoons/content';
+import type { JumpTargets } from '@scutoons/content';
 import { contextKey } from '$lib/utils/shared.ts';
 
 const KEY = contextKey('jump-places');
 
-/** a chapter's groups as the reader sees them: a ref group's label lives in its scene document */
-async function chapterLabels(toon: string, number: number, keys: { chapter: string | null }): Promise<string[]> {
+/** a chapter's group labels (its newest draft) */
+async function chapterLabels(keys: { chapter: string | null }): Promise<string[]> {
 	if (!keys.chapter) return [];
 	const doc: any = (await getDraft(keys.chapter)).content;
 	const groups: any[] = Array.isArray(doc?.groups) ? doc.groups : [];
-	const labels = await Promise.all(
-		groups.map(async (g) => {
-			const scene = typeof g?.ref?.src === 'string' ? sceneEntityOfRef(toon, g.ref.src) : null;
-			if (!scene) return typeof g?.label === 'string' ? g.label : '';
-			const s: any = await getDraft(scene)
-				.then((r) => r.content)
-				.catch(() => null);
-			return typeof s?.label === 'string' ? s.label : typeof g?.label === 'string' ? g.label : '';
-		})
-	);
-	return labels.filter((l) => !!l);
+	return groups.map((g) => (typeof g?.label === 'string' ? g.label : '')).filter((l) => !!l);
 }
 
 export class JumpPlaces {
@@ -125,7 +115,7 @@ export class JumpPlaces {
 			await this.#loadChapters(toon);
 			const known = this.#chapters[toon];
 			if (!known) throw new Error('no access');
-			this.#labels[key] = await chapterLabels(toon, chapter, { chapter: known[chapter] ?? null });
+			this.#labels[key] = await chapterLabels({ chapter: known[chapter] ?? null });
 		} catch {
 			this.#labels[key] = null;
 		}

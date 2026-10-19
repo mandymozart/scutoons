@@ -1,10 +1,18 @@
 // Season downloads (season.download, moved from the toon settings 2026-09-30).   npm test -w @scutoons/content
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { dialogFit, entities, entityKeyFor, estimatedWidth, parseEntityKey, sceneEntityOfRef, stageProblems, validateFile, validateLocales } from '../src/index.ts';
+import { dialogFit, entities, entityKeyFor, estimatedWidth, parseEntityKey, stageProblems, validateFile, validateLocales } from '../src/index.ts';
 
 const season = (extra: object) => ({ title: 'S', description: 'D', language: 'de', number: 1, sequence: [], ...extra });
 const problems = (kind: string, data: object) => validateFile(kind, data, 'de', { file: 'x' } as never).map((p) => `${p.level} ${p.path.join('.')}`);
+/**
+ * A group's problems, checked inside a chapter (one document per chapter since 2026-10-19): its paths relative to the
+ * group, the chapter-wide ones (path []) kept, the chapter's own fields left out
+ */
+const groupFile = (group: object) =>
+	validateFile('chapter', { title: 'x', groups: [group] }, 'de', { file: 'x' } as never)
+		.filter((p) => p.path.length === 0 || (p.path[0] === 'groups' && p.path[1] === 0))
+		.map((p) => ({ ...p, path: p.path.slice(2) }));
 
 test('season.download: optional, music is a path, complete a path or null', () => {
 	assert.deepEqual(problems('season', season({})), []);
@@ -24,7 +32,6 @@ test('season.supporters: ordered { name, logo?, url? }', () => {
 
 test('entity keys: chapter 0 (a prologue) is a chapter, season 0 is none', () => {
 	assert.deepEqual(parseEntityKey('chapter:catpope:0:de'), { kind: 'chapter', toon: 'catpope', number: 0, locale: 'de' });
-	assert.equal(sceneEntityOfRef('catpope', 'chapter0/intro.json'), 'scene:catpope:0:intro');
 	for (const key of ['season:catpope:0:de', 'chapter:catpope::de', 'chapter:catpope:01:de', 'chapter:catpope:-1:de', 'chapter:catpope:1.5:de']) {
 		assert.equal(parseEntityKey(key), null, key);
 	}
@@ -338,7 +345,7 @@ test('showTextBox event → text box (params.dialog); bubble frame + tail; outli
 
 test('VN flow in a group: enter before speaking, choices added then shown (owner 2026-10-03)', () => {
 	const group = (events: object[], slices: object[] = []) => ({ label: 'g', renderer: { type: 'vertical' }, slices, events });
-	const flow = (g: object) => problems('group', g).filter((p) => /^warning (events|slices\.\d+\.events)/.test(p));
+	const flow = (g: object) => groupFile(g).map((p) => `${p.level} ${p.path.join('.')}`).filter((p) => /^warning (events|slices\.\d+\.events)/.test(p));
 	const msg = (character: string) => ({ type: 'showMessage', params: { text: 'Hi', character } });
 	const join = (character: string) => ({ type: 'joinScene', params: { characters: [{ character, persona: 'regular', variant: 'avatar' }] } });
 	const leave = (character: string) => ({ type: 'leaveScene', params: { characters: [{ character }] } });
@@ -378,7 +385,7 @@ test('audio quality levels: variants on music tracks and samples (96k / 128k / 3
 
 test('step 3 (EXPRESSIONS.md §5–6): repeat rules, event ids, askText, conditions as expressions', () => {
 	const at = (data: object) =>
-		validateFile('group', data, 'de', { file: 'x' } as never).map((p) => `${p.level} ${p.path.join('.')}${p.code ? ` ${p.code}` : ''}`);
+		groupFile(data).map((p) => `${p.level} ${p.path.join('.')}${p.code ? ` ${p.code}` : ''}`);
 	const slice = (events: object[], items: object[] = []) => ({ image: 'a.webp', width: 390, height: 625, events, items });
 	const group = (slices: object[], events: object[] = []) => ({ label: 's', renderer: { type: 'vertical' }, slices, events });
 	const msg = (extra: object = {}) => ({ type: 'showMessage', params: { text: 'Hi' }, ...extra });
@@ -425,7 +432,7 @@ test('stageProblems: a speaker (showMessage, askText) must have joined; the slic
 test('renderer.params: only endless (FEATURES 10.100 §8); off horizontal ignored; too narrow to loop on a phone', () => {
 	const slice = (width = 390, height = 844) => ({ image: 'a.webp', width, height });
 	const group = (renderer: object, slices = Array.from({ length: 6 }, () => slice())) => ({ label: 'g', renderer, slices });
-	const layout = (g: object) => validateFile('group', g, 'de', { file: 'x' } as never)
+	const layout = (g: object) => groupFile(g)
 		.filter((p) => p.path.includes('renderer'))
 		.map((p) => `${p.level} ${p.path.join('.')}`);
 	// the pinned strip and the ch3–5 band (6 × 390 × 844: 2.77 − 0.46 = 2.31 screens) are fine
@@ -445,7 +452,7 @@ test('renderer.params: only endless (FEATURES 10.100 §8); off horizontal ignore
 	// endless on a vertical group: ignored (a warning)
 	assert.deepEqual(layout(group({ type: 'vertical', params: { endless: true } })), ['warning renderer.params.endless']);
 	// too narrow to loop on a portrait phone: Σ ratio − the widest < 0.62
-	const narrow = validateFile('group', group({ type: 'horizontal', params: { endless: true } }, [slice(), slice()]), 'de', { file: 'x' } as never)
+	const narrow = groupFile(group({ type: 'horizontal', params: { endless: true } }, [slice(), slice()]))
 		.filter((p) => p.path.includes('renderer'));
 	assert.deepEqual(narrow.map((p) => `${p.level} ${p.path.join('.')}`), ['warning renderer.params.endless']);
 	assert.match(narrow[0].message, /too narrow to loop on a portrait phone.*0\.46 screen heights/);
@@ -492,4 +499,13 @@ test('slice pieces (research/COLLAGE.md §3, §12.5): checked on the slice host;
 	assert.deepEqual(pieceProblems({ pieces: 'x' }), ['error groups.0.slices.0.pieces']);
 	// picture slices only
 	assert.deepEqual(pieceProblems({ video: { src: 'videos/p.mp4' }, pieces: [piece(0)] }), ['warning groups.0.slices.0.pieces']);
+});
+
+test('slice.shot: an optional storyboard shot id (Scene · Shot · Slice, research/TEXT-ACROSS-SLICES.md §10)', () => {
+	const slice = (shot?: unknown) => ({ image: 'a.webp', width: 390, height: 625, ...(shot === undefined ? {} : { shot }) });
+	const shotErrors = (shot?: unknown) => groupFile({ label: 'g', renderer: { type: 'vertical' }, slices: [slice(shot)] }).filter((p) => p.path.at(-1) === 'shot').map((p) => p.level);
+	assert.deepEqual(shotErrors(), []);
+	assert.deepEqual(shotErrors('sb-25-4'), []);
+	assert.deepEqual(shotErrors('Shot 4'), ['error']);
+	assert.deepEqual(shotErrors(4), ['error']);
 });

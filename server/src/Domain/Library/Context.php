@@ -35,7 +35,7 @@ final class Context
     /**
      * A localized entity (`chapter:<toon>:2`) in the asked locale, else the source language, else any other language
      * of the toon. Records a fallback when the served locale differs from the asked one.
-     * Chapters, scenes, seasons: their language-neutral document when there is one (resolved for the locale, NeutralDoc;
+     * Chapters, seasons: their language-neutral document when there is one (resolved for the locale, NeutralDoc;
      * a chapter without its season status – Library::chapter adds it), else the legacy per-locale documents.
      * @return array{0: string, 1: mixed, 2: bool}|null [served locale, document, whether it is a neutral document]
      */

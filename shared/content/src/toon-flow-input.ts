@@ -16,7 +16,7 @@ export function localeText(value: unknown, locale: string): string {
 
 /** the entity keys a toon's flow reads: one document per entity – the language-neutral one, else its first language file */
 export function toonFlowKeys(index: readonly { key: string; kind: string; locale: string | null }[]): Map<string, string> {
-	const kinds = new Set(['chapter', 'scene', 'season', 'toon']);
+	const kinds = new Set(['chapter', 'season', 'toon']);
 	const entries = index.filter((e) => kinds.has(e.kind));
 	const base = (e: { key: string; locale: string | null }) => (e.locale ? e.key.slice(0, -(e.locale.length + 1)) : e.key);
 	const neutral = new Set(entries.filter((e) => !e.locale).map((e) => e.key));
@@ -56,15 +56,11 @@ export function toonFlowInput(sources: ToonFlowSources): { input: ToonFlowInput;
 		seasons.push({ number: Number(number), chapters });
 	}
 	seasons.sort((a, b) => a.number - b.number);
-	const scene = (src: unknown) => {
-		const match = typeof src === 'string' ? /^chapter(\d+)\/([a-z0-9_-]+)\.json$/.exec(src) : null;
-		return match ? byEntity.get(`scene:${toon}:${match[1]}:${match[2]}`) : undefined;
-	};
 	const chapters: FlowChapter[] = [];
 	for (const [entity, doc] of byEntity) {
 		const [kind, , number] = entity.split(':');
 		if (kind !== 'chapter' || number === undefined) continue;
-		const groups = (Array.isArray(doc?.groups) ? doc.groups : []).map((g: any) => (g?.ref?.src ? (scene(g.ref.src) ?? g) : g));
+		const groups = Array.isArray(doc?.groups) ? doc.groups : [];
 		const n = Number(number);
 		chapters.push({
 			number: n,

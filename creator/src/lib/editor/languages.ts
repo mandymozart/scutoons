@@ -1,7 +1,7 @@
 // The toon's languages (source + translations) are set per toon, in its index entry (`ToonIndex.sourceLanguage` /
 // `.languages`), the entity `toon:<toon>` (draft/publish like every other entity). Every editor takes its locales and
 // its source from here.
-import { entities, NEUTRAL_DOC_KINDS, NEUTRAL_LOCALE, parseEntityKey, sceneEntityOfRef, toonLanguages, type ToonIndex, type ToonLanguages } from '@scutoons/content';
+import { entities, NEUTRAL_DOC_KINDS, NEUTRAL_LOCALE, parseEntityKey, toonLanguages, type ToonIndex, type ToonLanguages } from '@scutoons/content';
 import { ApiError, getDraft } from '$lib/api.ts';
 import { ContentDoc } from '$lib/editor/doc.svelte.ts';
 
@@ -30,7 +30,7 @@ export function toonIndexDoc(toon: string, languages?: ToonLanguages): ContentDo
 }
 
 /**
- * A localized entity of the toon in all its languages, the source first: a chapter / scene / season is ONE
+ * A localized entity of the toon in all its languages, the source first: a chapter / season is ONE
  * language-neutral document with its texts per language (agents/NEUTRAL.md); the script is one document per language
  * (a translation by design). The toon settings are the toon entry's (`toonIndexDoc` with the languages).
  */
@@ -38,16 +38,6 @@ export function toonDoc(entity: string, languages: ToonLanguages): ContentDoc {
 	const kind = parseEntityKey(entity)?.kind;
 	if (kind && NEUTRAL_DOC_KINDS.includes(kind)) return new ContentDoc(entity, [NEUTRAL_LOCALE], NEUTRAL_LOCALE, { source: languages.source, languages: languages.languages });
 	return new ContentDoc(entity, languages.languages, languages.source);
-}
-
-/**
- * A chapter's scene (a group stored on its own) by the group's reference `ref.src` (content format `chapter<N>/<name>.json`);
- * an invalid reference throws (the validation reports it).
- */
-export function sceneDoc(toon: string, src: string, languages: ToonLanguages): ContentDoc {
-	const entity = sceneEntityOfRef(toon, src);
-	if (!entity) throw new Error(`Invalid scene reference ${src}`);
-	return toonDoc(entity, languages);
 }
 
 /** A language-neutral entity (cast, credits, characters …) as an editable doc. */

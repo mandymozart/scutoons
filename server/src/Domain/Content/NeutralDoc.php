@@ -6,13 +6,13 @@ namespace Scutoons\Domain\Content;
 use stdClass;
 
 /**
- * Language-neutral chapter / scene / season documents (agents/NEUTRAL.md): one stored document per entity
+ * Language-neutral chapter / season documents (agents/NEUTRAL.md): one stored document per entity
  * (`chapter:<toon>:<n>` …, EntityKey::NEUTRAL_DOC_KINDS) whose texts – and `release`, season `sequence[].status` – are
  * locale maps `{ "de": …, "en": … }`. Resolved here into the reader's per-locale shape, exactly like @scutoons/content
  * `resolveNeutral` (neutral.ts); both are tested against shared/content/test/fixtures/neutral/.
  *
- * - Served locale: the asked one when the document has it (chapter / season: a `title` in it; scene: any text in it; a
- *   document without any text has every locale), else the source language, else the toon's other languages, else the
+ * - Served locale: the asked one when the document has it (a `title` in it; a document without a title has every
+ *   locale), else the source language, else the toon's other languages, else the
  *   document's first locale.
  * - A text: the served locale → the source → the other languages → the first text there is (blank = missing); none → ''.
  * - Chapter: `language` = the served locale, `status` = the season's status of the chapter when given. Season:
@@ -68,15 +68,14 @@ final class NeutralDoc
     }
 
     /**
-     * The locales a document has (chapter / season: its title's; scene: any text's), in its own order; [] = no text at all
+     * The locales a document has (its title's), in its own order; [] = no title at all
      * @return list<string>
      */
     public static function locales(string $kind, mixed $doc): array
     {
         $out = [];
         if (!$doc instanceof stdClass) return $out;
-        if ($kind === 'scene') self::groupLocales($doc, $out);
-        else self::addLocales($doc->title ?? null, $out);
+        self::addLocales($doc->title ?? null, $out);
         return $out;
     }
 
@@ -112,7 +111,7 @@ final class NeutralDoc
             'chapter' => $doc instanceof stdClass ? self::chapter($doc, $served, $chain, $chapterStatus) : $doc,
             'season' => $doc instanceof stdClass ? self::season($doc, $served, $chain) : $doc,
             'toon' => $doc instanceof stdClass ? self::toon($doc, $served, $chain) : $doc,
-            default => self::group($doc, $chain),
+            default => $doc,
         };
         return [$served, $fallback, $resolved];
     }
@@ -229,30 +228,5 @@ final class NeutralDoc
         foreach (get_object_vars($value) as $locale => $text) {
             if (self::isText($text) && !in_array((string) $locale, $out, true)) $out[] = (string) $locale;
         }
-    }
-
-    /** @param list<string> $out */
-    private static function eventLocales(mixed $event, array &$out): void
-    {
-        if (!$event instanceof stdClass || !($event->params ?? null) instanceof stdClass) return;
-        foreach (self::EVENT_TEXT_FIELDS[$event->type ?? ''] ?? [] as $field) self::addLocales($event->params->{$field} ?? null, $out);
-    }
-
-    /** @param list<string> $out */
-    private static function groupLocales(stdClass $group, array &$out): void
-    {
-        foreach (is_array($group->slices ?? null) ? $group->slices : [] as $slice) {
-            if (!$slice instanceof stdClass) continue;
-            foreach (is_array($slice->dialog ?? null) ? $slice->dialog : [] as $dialog) {
-                if ($dialog instanceof stdClass) self::addLocales($dialog->text ?? null, $out);
-            }
-            foreach (is_array($slice->events ?? null) ? $slice->events : [] as $event) self::eventLocales($event, $out);
-            foreach (is_array($slice->items ?? null) ? $slice->items : [] as $item) {
-                if ($item instanceof stdClass) {
-                    foreach (is_array($item->events ?? null) ? $item->events : [] as $event) self::eventLocales($event, $out);
-                }
-            }
-        }
-        foreach (is_array($group->events ?? null) ? $group->events : [] as $event) self::eventLocales($event, $out);
     }
 }

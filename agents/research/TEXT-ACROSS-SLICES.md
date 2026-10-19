@@ -1,4 +1,4 @@
-Status 2026-10-19: concept + plan; §8 steps 1–2 and §9 built and live (the endless band, format + migration, Swiper gone). Owner 2026-10-19: Q1 step 1 ships WITH step 2, Q2 drafts first, Q4 keep "Slices", Q7 canvas bands only in the strip editor, Q3 one document (scenes inlined, §5 step 3). Strip editor drafts (§4.1, agents/research/strip-editor/): D1 = A picked, the phone's round C waiting for the owner's look; then §5 steps 1 + 2 together (step 3 may run before). FEATURES 10.100.
+Status 2026-10-19: concept + plan; §8 steps 1–2 and §9 built and live (the endless band, format + migration, Swiper gone). Owner 2026-10-19: Q1 step 1 ships WITH step 2, Q2 drafts first, Q4 keep "Slices", Q7 canvas bands only in the strip editor, Q3 one document; "Szene" stays the group's name, slices name their storyboard shot (§10). Step 3 built on branch claude/slices-rework-fe9a8d (scenes inlined by the migration 2026-10-19-inline-scenes, `ref` / the `scene` kind out of the code, optional `slice.shot`), not pushed. Strip editor drafts (§4.1): D1 = A picked, the phone's next round waits for the owner's remarks; then §5 steps 1 + 2 together. GitHub #44 (FEATURES 10.100).
 
 # Slices as background: the strip editor
 
@@ -152,9 +152,9 @@ menu with submenus can be reached in the one row by long scrolling") → **phone
 | Step | What | Size | Data |
 |---|---|---|---|
 | 1 Reader paint rule | §7: `container-type` moves from `.slice` to `.slice-layers` (not to the group – that breaks strip fonts); the strip drops the slice's side clip, a Swiper clips at the slice-layers; strip travel from the frames; fx clip only the media; `sliceEdges` validator messages (window cuts + collisions, nothing for an open edge – owner: a tool); canvas bands in the one-slice canvas (Q7); a check script (both directions × vertical / strip / Swiper × Chromium, Firefox, WebKit + an old-iOS pass), then one real iPhone on iOS 17 / 18. DESIGN.md states the paint order | S–M | none |
-| 2 Strip editor | §4; re-anchoring on drop; ids from a chapter counter, not the image number; validator: `showTextBox` targets in the group, not only the own slice; the reader's hidden-box set per group (today per slice, viewer slice.svelte `sliceRefs`) | L | none |
-| 3 Data hygiene | slices get a stable `id` (migration); pickups remembered by slice id (one-time localStorage helper), so images may be renamed; scene `ref` groups inlined into their chapter (migration; 3 in ch2) and `ref` support removed (validator, clipboard, creator, locales, sandbox generator); default group label without "scene" | M | 2 migrations |
-| 4 Tall pictures | upload one tall image (a storyboard shot up to 1:7) → cut into tiles = consecutive slices; "replace range"; the storyboard compile no longer moves cuts off text boxes (research/STORYBOARD.md §2) | S–M | none |
+| 2 Strip editor | §4; the film strip by shots (§10); re-anchoring on drop; ids from a chapter counter, not the image number; validator: `showTextBox` targets in the group, not only the own slice; the reader's hidden-box set per group (today per slice, viewer slice.svelte `sliceRefs`) | L | none |
+| 3 Data hygiene | **built 2026-10-19:** scene `ref` groups inlined into their chapter (migration 2026-10-19-inline-scenes – production: ch2's 3 strips; the scene documents copied to `entity_versions_legacy`), `ref` and the `scene` entity kind removed (content, validator, schemas, server, creator, MCP, sandbox generator, scripts); the optional `slice.shot` (§10) – written by the storyboard compile. The group keeps "scene" in its default label (owner: "Szene" is the group's name). **Instead of slice ids:** pickups keyed by the placement id alone (already unique; a migration of the `picked:` keys in member progress + a one-time localStorage helper) – a small push of its own, after this one | M | 1 migration (+1 for the pickups) |
+| 4 Tall pictures | upload one tall image (a storyboard shot up to 1:7) → cut into tiles = consecutive slices sharing its `shot`; "replace range"; the storyboard compile no longer moves cuts off text boxes (research/STORYBOARD.md §2) | S–M | none |
 
 Later, only if needed: a "picture" made of several tiles as one unit (one sensitive flag, one replace) – the anchor
 model above doesn't change for it.
@@ -163,8 +163,9 @@ model above doesn't change for it.
 - **Q1** answered 2026-10-19: step 1 does not ship alone – together with step 2.
 - **Q2** answered 2026-10-19: drafts first (phone + desktop) – §4.1; **D1, D2** there wait for the owner's pick.
 - **Q3** answered 2026-10-19 ("ja, ein Dokument"): the scene `ref` groups are inlined into their chapters and scene
-  documents / `ref` support go – §5 step 3, with stable slice ids; the data change is a DB migration that runs with the
-  deploy.
+  documents / `ref` support go – §5 step 3 (built); the data change is a DB migration that runs with the deploy. Later
+  the same day: "Szene" stays the name of a group (storyboard and creator), the default label keeps "scene"; he likes
+  the shot referencing – §10.
 - **Q4** answered 2026-10-19: the UI keeps "Slices".
 - **Q5 – Q7**: §7 (Q7 answered 2026-10-19: the canvas bands come only with the strip editor).
 
@@ -418,6 +419,30 @@ Startseiten-Slider auf unser Werkzeug."). ScoreView behind `import('@scutoons/re
   closure, gzip -9): home 247.5 KB gz (was 265.4), toon page 306.3, chapter 341.5 (was 362.4); no eager file mentions
   Swiper; the score view's own lazy part 9.7 KB gz (7.3 JS + 2.4 CSS) beyond the chapter's set. The deltas also hold
   the commits since ed4c780d (nudge, packing).
+
+
+## 10. Scene · Shot · Slice (owner 2026-10-19)
+
+Owner 2026-10-19 (relayed): he likes the shot referencing – "Szene" stays the name of a group in the storyboard and the
+creator; slices name the storyboard shot they came from; both ways visible.
+
+- **Scene** = a chapter group (`label`, by default `scene-<n>`; the storyboard's `INT. … – NACHT` heading has the same
+  number). **Shot** = a storyboard shot (`sb-25-4`: scene 25, shot 4) – one picture of the storyboard, rendered /
+  generated / handheld as takes (research/STORYBOARD.md, HANDHELD-CAMERA.md). **Slice** = a tile of the reader's strip
+  (390 wide; a tall shot is cut into several).
+- **Data (step 3, built):** `slice.shot?: string` (content.ts `Slice`, the schemas, the validator: an id like
+  `sb-25-4`). Consecutive slices may share a shot. Optional – hand-made slices have none; the reader ignores it. Written
+  by the storyboard compile (scripts/storyboard/compile.mjs: every slice of a shot, the panorama's parts too); the
+  Figma paths (figma-reslice / figma-production) will write it once they cut a frame by its shots' rail (they know each
+  shot's y from figma-chapter's rail) – open.
+- **Creator (step 2):** the film strip (§4.1, D1 = A) groups thumbnails by shot: a shot = one tile row with its id
+  (`sb-25-4 · take 2`), its slices under it; hand-made slices stand alone. Replacing a shot (a new take, a generation,
+  a re-slice) replaces its slices as a whole: the new picture is cut again (step 4), the overlays keep their anchors – an
+  overlay on a slice that no longer exists moves to the shot's slice under its centre (rect converted, id kept, §3). The
+  Slice tab names the shot and links to it in the storyboard studio.
+- **Storyboard → chapter:** the studio shows where a shot landed: chapter, group, slice numbers (a lookup over the
+  chapter's slices by `shot`), and a link into the creator at that slice.
+- **Step 4** (tall pictures) cuts by shot: one tall image per shot → its slices, all carrying the shot id.
 
 Sources: WEBTOON Creators Resource Handbook (800 × 1280 per image, auto-slice); Clip Studio "Export Webtoon"; Chrome 129
 container-query change (dev.to/michaelcharles); WebKit commit 284730@main "Drop layout containment from container-type"

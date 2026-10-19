@@ -161,7 +161,7 @@ final class AssetLayout
         $seasonNumbers = [];
         foreach ($uses as $u) {
             $ref = (string) $u['ref'];
-            if (preg_match('/^(chapter|scene):' . preg_quote($toon, '/') . ':(\d+)/', $ref, $m)) $chapters[(int) $m[2]] = true;
+            if (preg_match('/^chapter:' . preg_quote($toon, '/') . ':(\d+)/', $ref, $m)) $chapters[(int) $m[1]] = true;
             elseif (preg_match('/^season:' . preg_quote($toon, '/') . ':(\d+)/', $ref, $m)) $seasonNumbers[(int) $m[1]] = true;
             elseif ($u['source'] === 'catalog') $seasonNumbers[1] ??= true; // albums / products: the toon's first season (owner reviews)
         }

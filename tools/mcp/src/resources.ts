@@ -122,8 +122,8 @@ export const RULES: RuleResource[] = [
 				'',
 				'## Languages',
 				'',
-				'Chapters, scenes and seasons are ONE language-neutral document each (`chapter:catpope:2`,',
-				'`scene:catpope:2:scene-14`, `season:catpope:1` – no locale). Structure, media paths and geometry exist once;',
+				'Chapters and seasons are ONE language-neutral document each (`chapter:catpope:2`, `season:catpope:1` – no',
+				'locale); a chapter holds all its groups (scenes) inline. Structure, media paths and geometry exist once;',
 				'every TEXT is a locale map `{ "de": "…", "en": "…" }`: chapter / season `title`, `description`, `release` (a date',
 				'per language), a text box `text` (string or string[]), showMessage `params.text`, addChoice `params.label`, and',
 				'the season `sequence[].status` (visibility per language). Nothing else has a language.',
@@ -153,8 +153,8 @@ export const RULES: RuleResource[] = [
 				'',
 				headerComment('shared/content/src/entities.ts'),
 				'',
-				'A chapter group either holds its slices inline or references a scene: `{ "ref": { "src": "chapter2/scene-14.json" } }`',
-				'= the entity `scene:<toon>:2:scene-14` (one language-neutral document). Edit the scene entity for such a group.'
+				'A chapter is ONE document with every group (scene) inline – there are no scene documents or `ref` groups any more',
+				'(inlined 2026-10-19).'
 			].join('\n')
 	},
 	{
@@ -218,7 +218,7 @@ export const RULES: RuleResource[] = [
 				docComment('creator/src/lib/editor/text-presets.ts', 'export type TextPresetId'),
 				'',
 				'A text is a `Dialog` in `slice.dialog[]`: `{ id, text, rect: { x, y, width, height? } (% of the slice), …look }`.',
-				'Use exactly one preset\'s look fields (below) for a new text. In a language-neutral chapter / scene the text',
+				'Use exactly one preset\'s look fields (below) for a new text. In a language-neutral chapter the text',
 				'is a locale map `{ "de": "…", "en": "…" }` (rect and look exist once for every language).',
 				'',
 				code('json', TEXT_PRESETS.map((p) => JSON.stringify(p)).join('\n')),

@@ -165,7 +165,7 @@ const groups = [];
 for (let n = Number(opt.from || 1); n <= last; n++) {
 	const ch = await chapterFile(n);
 	for (const g of ch.groups) {
-		const group = g.ref ? await library(`/chapters/${n}`).then((c) => c.groups.find((x) => !x.ref && x.label === g.ref.src.split('/').pop().replace(/\.json$/, '')) ?? g) : g;
+		const group = g;
 		groups.push({ chapter: n, label: group.label, waited: (group.events ?? []).filter((e) => e.type === 'showMessage' && e.params?.wait).length, events: group.events ?? [], expected: expectedScenes(group.events ?? []) });
 	}
 }

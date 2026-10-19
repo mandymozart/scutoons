@@ -1,5 +1,5 @@
 // Per-locale documents → one language-neutral document (agents/NEUTRAL.md "Migration"): the conversion of the stored
-// `chapter:<toon>:<n>:<l>`, `scene:<toon>:<chapter>:<name>:<l>`, `season:<toon>:<n>:<l>` documents into
+// `chapter:<toon>:<n>:<l>`, `season:<toon>:<n>:<l>` documents into
 // `chapter:<toon>:<n>` … (neutral.ts). Pure; used by the creator's Convert page and scripts/dev/neutralize.mjs.
 //
 // - The source locale's document is the structure. Every text leaf (neutral.ts header) becomes a locale map with the
@@ -15,8 +15,8 @@
 // The toon settings (`toon-settings:<toon>:<l>`, agents/NEUTRAL.md step 4) are folded into the toon entry `toon:<toon>`
 // instead (`neutralizeToon`): their title / description / release / status become the entry's locale maps.
 import { deepEqual, type Path } from './paths.ts';
-import { TOON_NEUTRAL_FIELDS, TOON_TEXT_FIELDS, hasToonTexts, type Chapter, type Group, type Season, type ToonIndex, type ToonSettings } from './content.ts';
-import type { ChapterDoc, GroupDoc, NeutralKind, SeasonDoc } from './neutral.ts';
+import { TOON_NEUTRAL_FIELDS, TOON_TEXT_FIELDS, hasToonTexts, type Chapter, type Season, type ToonIndex, type ToonSettings } from './content.ts';
+import type { ChapterDoc, NeutralKind, SeasonDoc } from './neutral.ts';
 import { isLocaleValue } from './neutral.ts';
 
 export type NeutralDifferenceKind = 'differs' | 'structure' | 'text-lost' | 'text-missing' | 'source-missing';
@@ -142,7 +142,7 @@ export function forEachText(kind: NeutralKind | 'toon', doc: unknown, fn: (path:
 			}
 		}
 	};
-	walk(doc, kind === 'scene' ? 'group' : kind === 'toon' ? 'toon-entry' : kind, []);
+	walk(doc, kind === 'toon' ? 'toon-entry' : kind, []);
 }
 
 class Merger {
@@ -241,8 +241,7 @@ function neutralize<T>(kind: NeutralKind, docs: Record<string, unknown>, source:
 	const merger = new Merger(base);
 	if (base !== source) merger.report.push({ kind: 'source-missing', path: '', values: { [source]: null, ...Object.fromEntries(present.map((l) => [l, true])) } });
 	const others = present.filter((l) => l !== base).map((l) => [l, docs[l]] as [string, unknown]);
-	const ctx: Ctx = kind === 'scene' ? 'group' : kind;
-	const doc = merger.value(docs[base], others, '', ctx) as T;
+	const doc = merger.value(docs[base], others, '', kind) as T;
 	return { doc, report: merger.report, locales: [base, ...others.map(([l]) => l)], base };
 }
 
@@ -251,18 +250,13 @@ export function neutralizeChapter(docs: Record<string, Chapter | undefined>, sou
 	return neutralize('chapter', docs, source);
 }
 
-/** Per-locale scene documents (groups stored on their own) → one neutral scene */
-export function neutralizeGroup(docs: Record<string, Group | undefined>, source: string): NeutralizeResult<GroupDoc> {
-	return neutralize('scene', docs, source);
-}
-
 /** Per-locale season documents → one neutral season */
 export function neutralizeSeason(docs: Record<string, Season | undefined>, source: string): NeutralizeResult<SeasonDoc> {
 	return neutralize('season', docs, source);
 }
 
-/** neutralizeChapter / neutralizeGroup / neutralizeSeason by kind */
-export function neutralizeDocs(kind: NeutralKind, docs: Record<string, unknown>, source: string): NeutralizeResult<ChapterDoc | GroupDoc | SeasonDoc> {
+/** neutralizeChapter / neutralizeSeason by kind */
+export function neutralizeDocs(kind: NeutralKind, docs: Record<string, unknown>, source: string): NeutralizeResult<ChapterDoc | SeasonDoc> {
 	return neutralize(kind, docs, source);
 }
 
@@ -292,7 +286,7 @@ export interface ConversionInput {
 /** One neutral version to store: published (from the published per-locale versions) or a draft after it */
 export interface ConversionStep {
 	status: 'published' | 'draft';
-	doc: ChapterDoc | GroupDoc | SeasonDoc;
+	doc: ChapterDoc | SeasonDoc;
 	report: NeutralDifference[];
 	/** the converted versions, e.g. `de#12 en#13` (the version message) */
 	versions: string;
@@ -320,7 +314,7 @@ export function planConversion(input: ConversionInput): ConversionStep[] {
 	let newest = input.neutralNewest === undefined ? undefined : JSON.stringify(input.neutralNewest);
 	const steps: ConversionStep[] = [];
 	for (const [status, versions] of variants) {
-		const result = neutralize<ChapterDoc | GroupDoc | SeasonDoc>(input.kind, Object.fromEntries(versions.map(([l, v]) => [l, v.content])), input.source);
+		const result = neutralize<ChapterDoc | SeasonDoc>(input.kind, Object.fromEntries(versions.map(([l, v]) => [l, v.content])), input.source);
 		const json = JSON.stringify(result.doc);
 		const unchanged = (status === 'published' ? published : newest) === json;
 		steps.push({ status, doc: result.doc, report: result.report, versions: versions.map(([l, v]) => `${l}#${v.id}`).join(' '), unchanged });

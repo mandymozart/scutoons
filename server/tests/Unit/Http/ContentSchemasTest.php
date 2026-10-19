@@ -65,10 +65,10 @@ final class ContentSchemasTest extends TestCase
 
     public function testStoredShapesThatTheReadersAccept(): void
     {
-        // narration (no speaker), a bare scene reference, a key visual as a plain path – as stored for catpope
-        $group = ['events' => [['type' => 'showMessage', 'params' => ['text' => 'Ein sonniger Sonntag.', 'wait' => true]]]];
-        self::assertSame([], $this->problems('scene', $group));
-        self::assertNotSame([], $this->problems('scene', ['events' => [['type' => 'showMessage', 'params' => ['wait' => true]]]]), 'text is required');
+        // narration (no speaker) in a group of a (per-locale) chapter – as stored for catpope
+        $chapter = fn(array $group) => ['title' => 'Eins', 'author' => 'M', 'language' => 'de', 'release' => '2025-10-04', 'description' => '', 'thumbnail' => '', 'number' => 1, 'groups' => [$group]];
+        self::assertSame([], $this->problems('chapter', $chapter(['events' => [['type' => 'showMessage', 'params' => ['text' => 'Ein sonniger Sonntag.', 'wait' => true]]]])));
+        self::assertNotSame([], $this->problems('chapter', $chapter(['events' => [['type' => 'showMessage', 'params' => ['wait' => true]]]])), 'text is required');
         self::assertSame([], $this->problems('locations', ['anything' => 1]), 'the old map is not checked');
     }
 
@@ -85,8 +85,10 @@ final class ContentSchemasTest extends TestCase
         $perLocale = ['language' => 'de', 'title' => 'Eins'] + $neutral;
         self::assertNotSame([], $check('chapter:catpope:1', ['title' => 'Eins'] + $neutral), 'neutral: a title is a locale map');
         self::assertNotSame([], $check('chapter:catpope:1', $perLocale));
-        self::assertSame([], $check('scene:catpope:1:kiosk', ['events' => [['type' => 'showMessage', 'params' => ['text' => ['de' => 'Na?'], 'mood' => 'sad']]]]));
-        self::assertNotSame([], $check('scene:catpope:1:kiosk', ['events' => [['type' => 'showMessage', 'params' => ['text' => 'Na?']]]]));
+        $group = fn(array $events) => ['groups' => [['slices' => [], 'events' => $events]]] + $neutral;
+        self::assertSame([], $check('chapter:catpope:1', $group([['type' => 'showMessage', 'params' => ['text' => ['de' => 'Na?'], 'mood' => 'sad']]])));
+        self::assertNotSame([], $check('chapter:catpope:1', $group([['type' => 'showMessage', 'params' => ['text' => 'Na?']]])), 'neutral: a text is a locale map');
+        self::assertFalse(EntityKey::isValid('scene:catpope:1:kiosk'), 'one document per chapter since 2026-10-19: no scene documents');
         self::assertSame([], $check('season:catpope:1', ['title' => ['de' => 'S'], 'sequence' => [['number' => 1, 'status' => ['de' => 'published', 'en' => 'coming-soon']]]]));
         self::assertNotSame([], $check('season:catpope:1', ['title' => ['de' => 'S'], 'sequence' => [['number' => 1, 'status' => 'published']]]));
         foreach (ContentSchemas::NEUTRAL_BY_KIND as $kind => $name) {
@@ -158,24 +160,24 @@ final class ContentSchemasTest extends TestCase
             '/groups/0/slices/0/items/0/events/0/params/text/de: `{time:clock}` is the old clock form – write `{clock(time)}` – at 8–19 (expr:old-clock-syntax)',
             '/groups/0/events/0/params/label/de: missing `}` – at 4–9 (expr:missing-close)',
         ], $check('chapter:catpope:1', $broken));
-        self::assertNotSame([], $check('scene:catpope:1:kiosk', ['events' => [['type' => 'showMessage', 'params' => ['text' => ['de' => '{a +}']]]]]));
-        self::assertSame([], $check('scene:catpope:1:kiosk', ['events' => [['type' => 'showMessage', 'params' => ['text' => ['de' => '{a + 1}']]]]]));
+        self::assertNotSame([], $check('chapter:catpope:1', $chapter(['de' => 'x'], ['de' => '{a +}'], ['de' => 'x'])));
+        self::assertSame([], $check('chapter:catpope:1', $chapter(['de' => 'x'], ['de' => '{a + 1}'], ['de' => 'x'])));
     }
 
     /** step 3: an event's `if` as an expression and an askText question – a syntax error blocks, a doubt doesn't */
     public function testExpressionConditionsAndAskText(): void
     {
         $schemas = $this->get(ContentSchemas::class);
-        $check = fn(mixed $content) => $schemas->problemsOf(EntityKey::parse('scene:catpope:1:kiosk'), json_decode((string) json_encode($content)));
-        $scene = fn(string $condition, string $question) => ['events' => [
+        $check = fn(mixed $content) => $schemas->problemsOf(EntityKey::parse('chapter:catpope:1'), json_decode((string) json_encode($content)));
+        $scene = fn(string $condition, string $question) => ['title' => ['de' => 'Eins'], 'author' => 'M', 'number' => 1, 'release' => ['de' => '2025-10-04'], 'description' => ['de' => ''], 'thumbnail' => '', 'groups' => [['slices' => [], 'events' => [
             ['id' => 'e1', 'type' => 'showMessage', 'if' => ['expr' => $condition], 'params' => ['text' => ['de' => 'Hallo']]],
             ['id' => 'e2', 'type' => 'askText', 'params' => ['text' => ['de' => $question], 'scope' => 'reader']],
-        ]];
+        ]]]];
         self::assertSame([], $check($scene('count("e1") < 3 and not has("cucumber")', 'Wie heißt du, {reader.name}?')));
         self::assertSame([], $check($scene('coinz > 2', 'Name?')), 'an unknown name is a doubt (a warning in the creator)');
         self::assertSame([
-            '/events/0/if/expr: expected a value – at 10 (expr:expected-value)',
-            '/events/1/params/text/de: missing `}` – at 5–11 (expr:missing-close)',
+            '/groups/0/events/0/if/expr: expected a value – at 10 (expr:expected-value)',
+            '/groups/0/events/1/params/text/de: missing `}` – at 5–11 (expr:missing-close)',
         ], $check($scene('coins > (', 'Und {reader')));
     }
 
@@ -184,15 +186,15 @@ final class ContentSchemasTest extends TestCase
         $user = $this->user('creator@example.com');
         $this->get(Roles::class)->grant((string) $user['id'], Roles::CREATOR);
         $auth = ['Authorization' => 'Bearer ' . $this->get(Sessions::class)->create((string) $user['id'])];
-        $scene = fn(string $text) => (string) json_encode(['content' => ['events' => [['type' => 'showMessage', 'params' => ['text' => ['de' => $text]]]]]]);
+        $scene = fn(string $text) => (string) json_encode(['content' => ['title' => ['de' => 'Eins'], 'author' => 'M', 'number' => 1, 'release' => ['de' => '2025-10-04'], 'description' => ['de' => ''], 'thumbnail' => '', 'groups' => [['slices' => [], 'events' => [['type' => 'showMessage', 'params' => ['text' => ['de' => $text]]]]]]]]);
 
-        $bad = $this->request('PUT', '/api/entities/scene:smoke:1:kiosk', $auth, $scene('Hallo {name'));
+        $bad = $this->request('PUT', '/api/entities/chapter:smoke:1', $auth, $scene('Hallo {name'));
         self::assertSame(422, $bad->getStatusCode(), (string) $bad->getBody());
         $body = json_decode((string) $bad->getBody(), true);
-        self::assertStringContainsString("has a text that can't be shown: /events/0/params/text/de: missing `}`", (string) ($body['message'] ?? $body['error'] ?? ''));
-        self::assertSame(['/events/0/params/text/de: missing `}` – at 7–11 (expr:missing-close)'], $body['problems'] ?? null);
+        self::assertStringContainsString("has a text that can't be shown: /groups/0/events/0/params/text/de: missing `}`", (string) ($body['message'] ?? $body['error'] ?? ''));
+        self::assertSame(['/groups/0/events/0/params/text/de: missing `}` – at 7–11 (expr:missing-close)'], $body['problems'] ?? null);
 
-        $good = $this->request('PUT', '/api/entities/scene:smoke:1:kiosk', $auth, $scene('Hallo {coinz}'));
+        $good = $this->request('PUT', '/api/entities/chapter:smoke:1', $auth, $scene('Hallo {coinz}'));
         self::assertSame(200, $good->getStatusCode(), (string) $good->getBody());
     }
 

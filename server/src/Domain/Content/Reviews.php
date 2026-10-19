@@ -24,7 +24,7 @@ use stdClass;
  *                 sends it back (not physical catalog changes)
  *   physical      "Publishes physical items" (below)
  *   needs_review  "Submits for review": may save drafts and submit them, but not publish / unpublish entities of that toon
- * Only toon-level entities are reviewed (every kind with a toon in its key: toon, toon-settings, season, chapter, scene,
+ * Only toon-level entities are reviewed (every kind with a toon in its key: toon, toon-settings, season, chapter,
  * cast, credits, script …); platform-wide ones (characters, map, events …) publish directly for every creator. Without a
  * rule an account publishes directly, as before. The API decides, so the creator app and agents (the MCP server, same
  * token) get the same answer.
@@ -40,7 +40,7 @@ use stdClass;
  *
  * A submit (table content_reviews) is pinned to one version: the reviewer publishes exactly that one, newer drafts stay
  * drafts. A newer submit for the same key annuls the open one. Submits, publishes and returns take several files at once
- * (a chapter = every language + its scenes) and send one mail per person: review_requested (reviewers),
+ * (a chapter = every language) and send one mail per person: review_requested (reviewers),
  * review_published / review_returned (the author).
  */
 final class Reviews
@@ -434,7 +434,7 @@ final class Reviews
     }
 
     /**
-     * Readable file list for the mails: one entry per entity with its languages – "chapter 2 (de, en), scene 2/kiosk (de)"
+     * Readable file list for the mails: one entry per entity with its languages – "chapter 2 (de, en), season 1"
      * @param list<string> $keys
      */
     public static function files(array $keys): string
@@ -446,7 +446,7 @@ final class Reviews
                 $entities["$key->kind $key->id"] ??= [];
                 continue;
             }
-            $label = str_replace('-', ' ', $key->kind) . ($key->number !== null ? ' ' . $key->number : '') . ($key->scene !== null ? '/' . $key->scene : '');
+            $label = str_replace('-', ' ', $key->kind) . ($key->number !== null ? ' ' . $key->number : '');
             $entities[$label] ??= [];
             if ($key->locale !== null) $entities[$label][] = $key->locale;
         }
