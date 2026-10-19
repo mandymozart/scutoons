@@ -1,4 +1,5 @@
 import { isItemListed, isItemPublic, Status } from '@scutoons/content';
+import { linkedPreview } from '$lib/draft-preview-link.ts';
 
 /**
  * Draft preview (owner 2026-10-03: "a flag for authorized creators to view chapters that are also in draft or coming
@@ -7,8 +8,9 @@ import { isItemListed, isItemPublic, Status } from '@scutoons/content';
  * gates let draft and coming-soon chapters (and draft toons) through. A small eye mark (top right, root layout) says so
  * on every page – the switch itself is only on the account page.
  * In a dev build drafts are readable anyway (as before); coming-soon chapters still need the preview.
- * The creator's chapter editor links here with `?preview=draft` (owner 2026-10-04: no own preview in the creator): the
- * flag switches the preview on before the first load; the root layout takes it out of the address.
+ * The creator's docked reader opens `?draft=1` (older links: `?preview=draft`, owner 2026-10-04: no own preview in the
+ * creator): read here, when the module loads, so the preview is on before the first load function asks the library
+ * (draft-preview-link.ts); the root layout takes `preview` out of the address.
  */
 const KEY = 'scutoons.draft-preview';
 
@@ -20,12 +22,12 @@ function stored(): boolean {
 	}
 }
 
-/** `?preview=draft` in the address the app was opened with (the creator's "Preview" links) */
-function linked(): boolean {
+/** what the address the app was opened with says (`?draft=1` / `?draft=0` / `?preview=draft`), null = nothing */
+function linked(): boolean | null {
 	try {
-		return typeof location !== 'undefined' && new URLSearchParams(location.search).get('preview') === 'draft';
+		return typeof location !== 'undefined' ? linkedPreview(location.search) : null;
 	} catch {
-		return false;
+		return null;
 	}
 }
 
@@ -46,7 +48,8 @@ export const draftPreview = {
 	}
 };
 
-if (linked()) draftPreview.set(true);
+const link = linked();
+if (link !== null) draftPreview.set(link);
 
 /** drafts are readable: a dev build or a creator's draft preview */
 export const showDrafts = (): boolean => import.meta.env.DEV || on;

@@ -3,10 +3,11 @@ import type { PageLoad } from './$types.ts';
 import { getLocale } from '$lib/paraglide/runtime.js';
 import type { Chapter } from '@scutoons/content';
 
-import { chapterPlace, sequenceStatus, Status } from '@scutoons/content';
+import { chapterPlace, sequenceStatus } from '@scutoons/content';
 import { m } from '$lib/paraglide/messages.js';
 import { ApiError, fetchChapter } from '$lib/api.ts';
-import { draftPreview, isReadable, showDrafts } from '$lib/draft-preview.svelte.ts';
+import { draftPreview, showDrafts } from '$lib/draft-preview.svelte.ts';
+import { chapterGate } from '$lib/chapter-gate.ts';
 
 /** Why a chapter's content is not shown: `draft` (not public), `coming-soon` (listed, not released yet). */
 export type ChapterGate = {
@@ -38,8 +39,10 @@ export const load: PageLoad = async ({ params, parent }) => {
 	const season = own?.season ?? layout.season;
 	const sequence = own?.chapters ?? layout.sequence;
 	const status = sequenceStatus(season, number);
-	// a creator's draft preview reads coming-soon and draft chapters (the API checks the role)
-	if (status === Status.COMING_SOON && !draftPreview.on) {
+	// a creator's draft preview reads coming-soon and draft chapters and the ones no season lists (the API checks the
+	// role); drafts (and chapters the season doesn't list) are readable in dev too, like the chapter overview
+	const reason = chapterGate(status, draftPreview.on, showDrafts());
+	if (reason === 'coming-soon') {
 		// title / release from the chapter overview (the layout loaded coming-soon items for the list)
 		const item = sequence.find((i) => i.number === number);
 		// older chapters store the key visual as a plain image path
@@ -49,8 +52,7 @@ export const load: PageLoad = async ({ params, parent }) => {
 		const gate: ChapterGate = { reason: 'coming-soon', number, title: item?.title || undefined, release: item?.release || undefined, keyvisual };
 		return { chapter: null, gate, season, sequence };
 	}
-	// drafts (and chapters the season doesn't list) are readable in dev only, like the chapter overview
-	if (status === null ? !showDrafts() : !isReadable({ status })) {
+	if (reason === 'draft') {
 		const gate: ChapterGate = { reason: 'draft', number };
 		return { chapter: null, gate, season, sequence };
 	}

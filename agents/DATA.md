@@ -306,7 +306,9 @@ the newest draft); the creator draws the newest draft the same way (`bakePresets
   chapter + per-locale scene and back). `Library::FORMAT` 5. `content:neutral-check` compares every answer with the
   legacy one (`Library::legacyOnly()`).
 - Visibility on the server (the viewer's rules): `403 coming_soon { chapter }`, `403 not_public`, draft toon `404`;
-  `CONTENT_SHOW_DRAFTS=1` locally. `?draft=1` (role creator) = newest versions, no gates, `private, no-store`.
+  `CONTENT_SHOW_DRAFTS=1` locally. `?draft=1` (role creator) = newest versions, no gates, `private, no-store`;
+  a toon entry with neither texts nor `toon-settings` (an unconverted draft toon, Top Toy) is previewed from the entry
+  (name, status) – readers keep the 404. The viewer reads `?draft=1` when lib/draft-preview loads, before any load.
 - `Cache-Control: public, max-age=60` + `ETag`/304; server cache (APCu, else `storage/cache/library/`) keyed by the
   version ids involved → a publish is a new key, nothing is ever invalidated; drafts are never cached.
 

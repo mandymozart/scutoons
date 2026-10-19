@@ -242,6 +242,24 @@ final class Library
     }
 
     /**
+     * Draft mode only: the toon's settings from an index entry without texts and without `toon-settings` – id, the name
+     * (`i18n.<l>.name`, names()) as the title, its status; the served locale = the asked one when it has a name, else the
+     * source, else any
+     * @return array{0: string, 1: stdClass, 2: bool}
+     */
+    private static function entrySettings(stdClass $entry, string $toon, string $locale, string $source): array
+    {
+        $names = self::names($entry);
+        $served = isset($names[$locale]) ? $locale : (isset($names[$source]) ? $source : (array_key_first($names) ?? $locale));
+        $settings = new stdClass();
+        $settings->id = $toon;
+        $settings->title = $names[$served] ?? $toon;
+        $settings->language = $served;
+        $settings->status = is_string($entry->status ?? null) ? $entry->status : self::DRAFT;
+        return [$served, $settings, $served !== $locale];
+    }
+
+    /**
      * The index entry without the toon settings it stores (neutral + per-language: the shape of `ToonIndex` in the
      * answers) – plus the toon's name: `title` = the name in each of the toon's languages (resolved, `names()`; the lists /
      * menu read it) and, for older viewer builds, the legacy `i18n.<l>.name` computed from it (an entry without texts
@@ -705,6 +723,9 @@ final class Library
             if ($ctx->entry === null ? !$ctx->includeDrafts : !$ctx->isPublic($ctx->entry->status ?? null)) throw $notFound;
         }
         $picked = self::toonSettings($ctx->snapshot, $ctx->toon, $ctx->entry, $locale, $ctx->source, $ctx->languages);
+        // draft mode: a toon entry that has neither its texts nor the legacy settings (an unconverted draft toon whose
+        // `toon-settings` were purged 2026-10-11, like Top Toy) is previewed from the entry itself; readers keep the 404
+        if ($picked === null && $ctx->draft && $ctx->entry !== null) $picked = self::entrySettings($ctx->entry, $ctx->toon, $locale, $ctx->source);
         if ($picked === null) throw $notFound;
         if (!$ctx->draft && !$ctx->isPublic($picked[1]->status ?? null)) throw $notFound;
         if ($picked[2]) $ctx->fallback = true;

@@ -325,6 +325,55 @@ final class LibraryTest extends TestCase
     }
 
     /**
+     * A creator's draft preview of a draft toon like Top Toy in production (2026-10-19): the entry without texts and
+     * without `toon-settings` (purged), the published season without the chapter, a newer draft season listing it, the
+     * chapter only as drafts. Draft mode serves the newest season + chapter, the toon from its entry; readers get 404.
+     */
+    public function testDraftPreviewOfAnUnconvertedDraftToon(): void
+    {
+        $this->doc('t', '_', 'index.json', ['status' => 'draft', 'announce' => true, 'i18n' => ['de' => ['name' => 'T de'], 'en' => ['name' => 'T en']]] + self::ENTRY);
+        $this->doc('t', '_', 'season1.json', ['title' => ['de' => 'S'], 'number' => 1, 'sequence' => []]);
+        $this->doc('t', '_', 'season1.json', ['title' => ['de' => 'S'], 'number' => 1, 'sequence' => [['number' => 1, 'status' => ['de' => 'draft', 'en' => 'draft']]]], false);
+        $this->doc('t', '_', 'chapter1.json', ['title' => ['de' => 'Alt'], 'number' => 1, 'groups' => []], false);
+        $this->doc('t', '_', 'chapter1.json', ['title' => ['de' => 'Neu'], 'number' => 1, 'groups' => [['label' => 'g', 'slices' => []]]], false);
+
+        $toon = $this->library()->toon('t', 'en', true);
+        $data = self::decode($toon->body);
+        self::assertSame(['id' => 't', 'title' => 'T en', 'language' => 'en', 'status' => 'draft', 'announce' => true], $data['toon'], 'the toon from its entry');
+        self::assertSame([['number' => 1, 'status' => 'draft']], $data['seasons'][0]['season']['sequence'], 'the newest (draft) season');
+        self::assertSame([1], array_column($data['seasons'][0]['chapters'], 'number'));
+        $chapter = self::decode($this->library()->chapter('t', 1, 'de', true)->body);
+        self::assertSame(['Neu', 'draft'], [$chapter['title'], $chapter['status']], 'the newest chapter draft');
+        self::assertSame('T de', self::decode($this->library()->toon('t', 'fr', true)->body)['toon']['title'], 'an unknown locale → the source');
+
+        foreach ([fn() => $this->library()->toon('t', 'de', false), fn() => $this->library()->chapter('t', 1, 'de', false), fn() => $this->library()->season('t', 1, 'de', false)] as $i => $read) {
+            try {
+                $read();
+                self::fail("read $i: 404 expected for readers");
+            } catch (ApiError $error) {
+                self::assertSame([404, 'not_found'], [$error->status, $error->errorCode], "read $i");
+            }
+        }
+    }
+
+    /** Draft mode reads a chapter only the newest (draft) season lists – the published season doesn't have it; readers: 403 */
+    public function testDraftPreviewOfAChapterOnlyTheDraftSeasonLists(): void
+    {
+        $this->seedToon();
+        $this->seedSeason();
+        $this->doc('t', '_', 'season1.json', ['title' => ['de' => 'S de'], 'number' => 1, 'sequence' => [['number' => 1, 'status' => 'published'], ['number' => 4, 'status' => ['de' => 'draft']]]], false);
+        $this->doc('t', '_', 'chapter4.json', ['title' => ['de' => 'Vier'], 'number' => 4, 'groups' => []], false);
+        self::assertSame('Vier', self::decode($this->library()->chapter('t', 4, 'de', true)->body)['title']);
+        self::assertSame([1, 4], array_column(self::decode($this->library()->toon('t', 'de', true)->body)['seasons'][0]['chapters'], 'number'));
+        try {
+            $this->library()->chapter('t', 4, 'de', false);
+            self::fail('not_public expected for readers');
+        } catch (ApiError $error) {
+            self::assertSame([403, 'not_public'], [$error->status, $error->errorCode]);
+        }
+    }
+
+    /**
      * The toon's one name (owner decision 4, 2026-10-06): the entry's `title`. The answered entries carry it per language
      * (resolved: a language without one has the source's) + the legacy `i18n.<l>.name` computed from it for older viewer
      * builds; an entry without texts (production before its conversion) keeps its stored `i18n`
