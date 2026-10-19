@@ -62,20 +62,25 @@ export type PanelWidth = ReturnType<typeof panelWidth>;
 /**
  * The height of the AppShell's bottom region (`bottom`, agents/DOCKING.md "Bottom region" – the storyboard studio's
  * timeline, owner 2026-10-19): its top edge (a `Divider`, `edge="top"`) drags it taller, from its normal height up to
- * half the window; ↑ / ↓ on the edge, Home / double-click resets; remembered per key. It folds to a rail (`fold`, or
- * dragging it lower than 60 % of the normal height); the fold is the page's to remember (not here). The shell sets
- * `edge` (its bottom).
+ * half the shell's frame (between the top bar and the ActionBar); ↑ / ↓ on the edge, Home / double-click resets;
+ * remembered per key; a remembered height taller than half a smaller frame shrinks to it (`fit`). It folds to a rail
+ * (`fold`, or dragging it lower than 60 % of the normal height); the fold is the page's to remember (not here). The
+ * shell sets `edge` (its frame's bottom) and `room` (the most the frame leaves it: half its height); without a shell
+ * half the window.
  */
 export function panelHeight(storageKey: string, normalRem = 10) {
 	const normal = () => normalRem * (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16);
 	let edge: (() => number) | null = null;
+	/** px the place it is docked in leaves it (the AppShell: half its frame) */
+	let room: (() => number) | null = null;
+	const max = () => room?.() ?? window.innerHeight / 2;
 	const region = dockRegion({
 		key: () => storageKey,
 		foldable: () => true,
 		side: 'bottom',
 		anchor: () => edge?.() ?? window.innerHeight,
 		normal,
-		max: () => window.innerHeight / 2
+		max
 	});
 	region.restore();
 	return {
@@ -89,6 +94,16 @@ export function panelHeight(storageKey: string, normalRem = 10) {
 		},
 		set edge(fn: (() => number) | null) {
 			edge = fn;
+		},
+		set room(fn: (() => number) | null) {
+			room = fn;
+		},
+		/** a height taller than `room` (a smaller window) shrinks to it – at most to the normal height (rem again); the
+		 * remembered value stays */
+		fit() {
+			if (region.width === null) return;
+			const fitted = Math.round(Math.min(region.width, max()));
+			if (fitted < region.width) region.width = fitted > normal() ? fitted : null;
 		},
 		get folded() {
 			return region.folded;

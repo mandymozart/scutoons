@@ -3,8 +3,10 @@
 	import CloseButton from './close-button.svelte';
 
 	/**
-	 * Renders a toaster's toasts, fixed bottom-left (owner 2026-10-07: the left side is used less; bottom-right covered fields) – above the ActionBar when the page has one (never in the page
-	 * flow). Errors are announced assertively. A toast's `action` (e.g. Undo) is a button before the close cross.
+	 * Renders a toaster's toasts, fixed bottom-left (owner 2026-10-07: the left side is used less; bottom-right covered
+	 * fields) – above the ActionBar when the page has one, and above the AppShell's bottom region while it shows
+	 * (`--sc-shell-bottom-lift`, set on the root by the shell; agents/DOCKING.md "Bottom region"); never in the page
+	 * flow. Errors are announced assertively. A toast's `action` (e.g. Undo) is a button before the close cross.
 	 */
 	let { toaster, dismissLabel = 'Dismiss' }: { toaster: Toaster; dismissLabel?: string } = $props();
 </script>
@@ -23,7 +25,8 @@
 	.sc-toast-stack {
 		position: fixed;
 		left: var(--space-1);
-		bottom: var(--space-1);
+		/* above the AppShell's bottom region while it shows (0 without one) */
+		bottom: calc(var(--sc-shell-bottom-lift, 0rem) + var(--space-1));
 		z-index: 1000;
 		display: flex;
 		flex-direction: column;
@@ -35,7 +38,7 @@
 	/* a page with the fixed bottom ActionBar: the stack sits right above it (and above a bar a page puts on it:
 	   `--sc-above-action-bar`, e.g. the creator's slice bar on phones) */
 	:global(body:has(.sc-action-bar)) .sc-toast-stack {
-		bottom: calc(var(--action-bar-height, var(--tool-bar-height)) + var(--sc-above-action-bar, 0rem) + var(--space-1));
+		bottom: calc(var(--action-bar-height, var(--tool-bar-height)) + var(--sc-above-action-bar, 0rem) + var(--sc-shell-bottom-lift, 0rem) + var(--space-1));
 	}
 	/* phones: while the ActionBar's "More" sheet is open the toasts wait under its scrim (they covered its entries) */
 	@media (max-width: 767px) {

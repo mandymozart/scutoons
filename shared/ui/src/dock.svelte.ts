@@ -42,7 +42,8 @@ export interface DockPanel {
 	/** Feather icon name on the rail */
 	icon?: string;
 	/** a kind outside `DOCK_ORDER` (an app's own panels – the storyboard studio's): its fixed place among the other
-	 * unknown kinds, from the main area outwards (still before Info); without one: opening order */
+	 * unknown kinds, from the main area outwards – 0 … 499 (clamped: an app's kinds always sit between the Reader and
+	 * Info); equal places (or none, = 0): opening order */
 	order?: number;
 	/** the page closes it (another panel of its kind replaced it) */
 	close: () => void;
@@ -51,12 +52,18 @@ export interface DockPanel {
 /**
  * The panels' places from the main area outwards (owner 2026-10-07, agents/DOCKING.md "Several panels"): what belongs
  * to the page's document next to it (a list's detail, History, Problems), then the Flow (it drives the main area), the
- * Reader (the result), Info (help) outermost on the right. Unknown kinds before Info; equal places: opening order.
+ * Reader (the result), Info (help) outermost on the right. Unknown kinds between the Reader and Info, by their `order`
+ * (0 … 499); equal places: opening order.
  */
 export const DOCK_ORDER = ['detail', 'history', 'problems', 'flow', 'reader', 'info'];
+/** the highest `order`: 4.5 + 499 / 1000 stays below Info's place (5) */
+const MAX_ORDER = 499;
 const place = (panel: DockPanel) => {
 	const at = panel.kind ? DOCK_ORDER.indexOf(panel.kind) : -1;
-	return at >= 0 ? at : DOCK_ORDER.length - 1.5 + (panel.order ?? 0) / 1000;
+	if (at >= 0) return at;
+	// NaN / none = 0; anything past the range (Infinity too) sits at its end
+	const order = Math.min(Math.max(panel.order || 0, 0), MAX_ORDER);
+	return DOCK_ORDER.length - 1.5 + order / 1000;
 };
 
 /** a docked panel: `id` stays while the panel is taken over by the next page (its place, fold and width go on) */

@@ -4,8 +4,10 @@
 	/**
 	 * A folded region (agents/DOCKING.md): a strip as wide as its round unfold button + 0.5rem either side, with the button (chevrons pointing into the page) at the
 	 * top, then the region's icon and its label written vertically (the sidebar: where the user is; the script outline:
-	 * "Outline"; the right dock: the open panel). A click anywhere on the strip unfolds it; the button is the keyboard's
-	 * way in. Dragging out of the rail (its Divider) opens it too.
+	 * "Outline"; the right dock: the open panel). The AppShell's bottom region (`side="bottom"`): a horizontal strip as
+	 * thick as a rail is wide – the button (chevrons-up) 1rem from the left, then the icon and the label in one row. A
+	 * click anywhere on the strip unfolds it; the button is the keyboard's way in. Dragging out of the rail (its Divider)
+	 * opens it too.
 	 */
 	let {
 		side,

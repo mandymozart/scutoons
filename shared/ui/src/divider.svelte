@@ -2,14 +2,15 @@
 	/**
 	 * The ONE drag edge between two docked regions (agents/DOCKING.md): a `role="separator"` on a region's inner border
 	 * (WAI-ARIA window splitter). Drag = resize, ← / → = 16 px (Shift 64) towards the region's growing side, Home or a
-	 * double-click = the normal width; the size object (`resizable`, `dockRegion`, `panelWidth`) remembers it. 2px ink
-	 * border at rest, a 3px ink line on hover / focus; hidden below 768px (regions become drawers / sheets there).
+	 * double-click = the normal width; the size object (`resizable`, `dockRegion`, `panelWidth`, `panelHeight`)
+	 * remembers it. 2px ink border at rest, a 3px ink line on hover / focus; hidden below 768px (regions become drawers /
+	 * sheets there).
 	 *
 	 * Placed in its region's positioned container: `edge="right"` for a region docked on the left (`at` = the region's
 	 * width from the container's left), `edge="left"` for one on the right (`at` from the container's right), `edge="top"`
-	 * for a region along the bottom (`at` = its height from the container's bottom; `from` = where it starts on the
-	 * left; ↑ / ↓ instead of ← / →). Every
-	 * region is a tile of its container (AppShell, a page's own split) – nothing is fixed to the viewport.
+	 * for a region along the bottom (the AppShell's bottom region: `at` = its height from the container's bottom, `from` =
+	 * where it starts on the left; ↑ / ↓ instead of ← / →, a horizontal separator, the row-resize cursor). Every region is
+	 * a tile of its container (AppShell, a page's own split) – nothing is fixed to the viewport.
 	 */
 	interface Size {
 		readonly width: number | null;
@@ -21,7 +22,7 @@
 		size,
 		edge,
 		at,
-		from = '0px',
+		from = '0rem',
 		label,
 		controls,
 		class: className = ''
