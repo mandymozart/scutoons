@@ -2,7 +2,7 @@
 	/**
 	 * The Timeline (agents/DOCKING.md "Bottom region"; owner 2026-10-19: "the timeline underneath the other windows was
 	 * also good" – one timeline for the storyboard studio now, the creator and the live mode, research/LIVE.md, later):
-	 * lanes of items (timeline-lane.svelte) on ONE linear axis in ms (timeline.ts – a shot as wide as its reading time, no
+	 * lanes of items (timeline-lane.svelte) on ONE linear axis in ms (timeline.ts – a clip as wide as it lasts, no
 	 * per-item minimum that bends the ruler), the ruler with ticks + markers, the playhead, zoom (1 = the span fits).
 	 * No transport: the app owns the clock and plays – no Play button, no Space, never PageUp / PageDown (the score's
 	 * pedal keys, research/SCORES.md §4). It shows and asks (onseek / onselect / ontrim); without them it is read-only.
@@ -12,17 +12,22 @@
 	 * view, e.g. a take to trim precisely) and when the app sets the zoom (its remembered zoom per step – then only panned
 	 * there, the zoom stays); `follow` keeps the playhead in view – a manual scroll pauses it until the playhead is back in
 	 * view or the next playback starts.
+	 * Hover (a mouse / a pen, never a finger): `onhover` gets the time under the pointer on the ruler and the lanes (the
+	 * app's hover line); over an item `preview` shows the app's snippet (the studio: the clip's first frame) in a box in the
+	 * top layer (no region clips it) on the item's top / bottom edge at the pointer – never over the item –, sliding along
+	 * the timeline, inside the window. Both end on leave, a press / drag / trim, a scroll, a zoom, Escape, new lanes.
 	 * One group, not a landmark: the AppShell's bottom region around it is the region.
 	 * Sizes: the strip is --zoom × the view wide (cqi of the scroller), everything on it in % – no px, no root font size.
 	 */
 	import { tick, untrack, type Snippet } from 'svelte';
 	import Lane from './timeline-lane.svelte';
+	import Preview from './timeline-preview.svelte';
 	import { clamp, stepFor } from './scrub.ts';
-	import { followView, formatTime, frac, inView, panView, revealView, tickStep, ticks, timeAt, zoomAround, ZOOM_MAX, ZOOM_MIN } from './timeline.ts';
-	import type { Ms, TimelineItem, TimelineLane, TimelineMarker, View } from './timeline.ts';
+	import { followView, formatTime, frac, inView, panView, previewPlace, revealView, tickStep, ticks, timeAt, zoomAround, ZOOM_MAX, ZOOM_MIN } from './timeline.ts';
+	import type { Ms, TimelineHover, TimelineItem, TimelineLane, TimelineMarker, View } from './timeline.ts';
 	import { uiLabels } from './ui-labels.ts';
 
-	let { lanes, span, markers = [], playhead, selected = [], zoom = $bindable(1), reveal, revealFill = 0, follow = false, label, item, onseek, onselect, ontrim }: {
+	let { lanes, span, markers = [], playhead, selected = [], zoom = $bindable(1), reveal, revealFill = 0, follow = false, label, item, preview, onseek, onselect, ontrim, onhover }: {
 		lanes: TimelineLane[];
 		/** the axis' length – everything on it is a share of it */
 		span: Ms;
@@ -41,9 +46,13 @@
 		label: string;
 		/** an item's inside (the studio: the frame, the review dot, the handheld mark); default: its label */
 		item?: Snippet<[TimelineItem, TimelineLane]>;
+		/** next to the pointer while a mouse / pen hovers an item (the studio: the clip's first frame); the time under it */
+		preview?: Snippet<[TimelineItem, TimelineLane, Ms]>;
 		onseek?: (t: Ms, final: boolean) => void;
 		onselect?: (laneId: string, itemId: string) => void;
 		ontrim?: (laneId: string, itemId: string, trim: { in: Ms; out: Ms }, final: boolean) => void;
+		/** the time under a hovering mouse / pen on the ruler or a lane; null when that ends (the app's hover line) */
+		onhover?: (t: Ms | null) => void;
 	} = $props();
 
 	const t = uiLabels();
@@ -65,11 +74,15 @@
 	const rows = $derived(['var(--control-height)', ...lanes.map((l) => (l.tall ? 'minmax(var(--control-height), 1fr)' : 'var(--control-height)'))].join(' '));
 	const head = $derived(playhead === undefined ? null : frac(playhead, span));
 	const pct = (ms: Ms) => `${frac(ms, span) * 100}%`;
+	/** a hovering mouse / pen on the axis: the time under it and, over an item, that item and where its preview goes */
+	let hover = $state<TimelineHover | null>(null);
+	const hovering = $derived(hover !== null);
 	/** the view now and a pointer's time, read from the DOM (the strip as laid out) */
 	const current = (): View => ({ zoom: z, scrollFrac: (scroller?.scrollLeft ?? 0) / (strip?.getBoundingClientRect().width || 1) });
 	const timeAtX = (clientX: number): Ms => (strip ? timeAt((clientX - strip.getBoundingClientRect().left) / strip.getBoundingClientRect().width, span) : 0);
 	async function apply(v: View) {
 		const n = ++applies;
+		unhover(); // what was under the pointer moves
 		applied = clamp(v.zoom, ZOOM_MIN, ZOOM_MAX);
 		zoom = v.zoom;
 		await tick();
@@ -107,6 +120,20 @@
 		el.addEventListener('pointermove', move, off);
 		el.addEventListener('pointerup', end, off);
 		el.addEventListener('pointercancel', end, off);
+	}
+	/** a mouse / pen on the ruler or a lane – never a finger, never while pressed (a seek, a drag, a trim) */
+	function hovered(e: PointerEvent) {
+		const on = e.target instanceof Element && !e.buttons && e.pointerType !== 'touch' ? e.target : null;
+		const axis = on?.closest<HTMLElement>('[data-axis]');
+		if (!on || !axis || !scroller || !(preview || onhover)) return unhover();
+		const [at, el, win] = [timeAtX(e.clientX), on.closest<HTMLElement>('[data-item]'), document.documentElement];
+		if (at !== hover?.t) onhover?.(at);
+		const place = el && preview ? previewPlace(e.clientX, el.getBoundingClientRect(), scroller.getBoundingClientRect(), { width: win.clientWidth, height: win.clientHeight }) : undefined;
+		hover = { t: at, lane: axis.dataset.lane, item: el?.dataset.item, place };
+	}
+	function unhover() {
+		if (hover) onhover?.(null);
+		hover = null;
 	}
 	function wheel(e: WheelEvent) {
 		if (!(e.ctrlKey || e.metaKey) || !strip) return;
@@ -147,6 +174,17 @@
 		applied = now;
 		untrack(() => outside && reveal && apply(panView(current(), reveal, span)));
 	});
+	// a scroll that moves the timeline (its own or a page's around it) and Escape (WCAG 1.4.13, like the tooltips) end the
+	// hover; so does the timeline going away
+	$effect(() => {
+		if (!hovering) return;
+		const off = new AbortController();
+		addEventListener('scroll', (e) => (e.target as Node).contains?.(scroller ?? null) && unhover(), { capture: true, passive: true, signal: off.signal });
+		addEventListener('keydown', (e) => e.key === 'Escape' && unhover(), { capture: true, signal: off.signal });
+		return () => (off.abort(), untrack(unhover));
+	});
+	// new lanes or another span under a still pointer: the items it showed moved
+	$effect(() => { void [lanes, span]; untrack(unhover); });
 	$effect(() => {
 		// a new playback always starts following (a scroll during the last one paused it)
 		if (!follow) return void (paused = false);
@@ -160,26 +198,27 @@
 	});
 </script>
 
-<!-- the zoom keys belong to the whole timeline, wherever the focus is inside it -->
+<!-- the zoom keys belong to the whole timeline, wherever the focus is inside it; so does the hover -->
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<div class="sc-timeline" role="group" aria-label={label} style:--zoom={z} onkeydown={keys}>
+<div class="sc-timeline" role="group" aria-label={label} style:--zoom={z} onkeydown={keys} onpointermove={hovered} onpointerleave={unhover} onpointerdown={unhover}>
 	<div class="scroller" bind:this={scroller} bind:clientWidth={fit} onscroll={scrolled} onwheel={wheel}>
 		<div class="body" style:grid-template-rows={rows}>
 			<div class="corner" aria-hidden="true" bind:clientWidth={labelW}>{playhead === undefined ? '' : formatTime(playhead, 'clock', 1)}</div>
-			<div class="ruler" role="slider" tabindex="0" aria-label={t('timelinePlayhead')} aria-orientation="horizontal" aria-valuemin={0} aria-valuemax={span}
+			<div class="ruler" data-axis role="slider" tabindex="0" aria-label={t('timelinePlayhead')} aria-orientation="horizontal" aria-valuemin={0} aria-valuemax={span}
 				aria-valuenow={playhead ?? 0} aria-valuetext={formatTime(playhead ?? 0, 'clock', 1)} aria-readonly={!onseek} title={t('timelineHint')}
 				onpointerdown={(e) => e.button === 0 && press(e, e.currentTarget, undefined, true)} onkeydown={rulerKey}>
 				{#each rulerTicks as k (k.at)}<span class="tick" style:left={pct(k.at)}>{k.label}</span>{/each}
 				{#each markers as m}<span class="marker" style:left={pct(m.at)}>{m.label}</span>{/each}
 			</div>
 			{#each lanes as lane (lane.id)}
-				<Lane {lane} {span} {selected} {item} {press} {timeAtX} {onselect} {ontrim} />
+				<Lane {lane} {span} {selected} {item} previewed={!!preview} {press} {timeAtX} {onselect} {ontrim} />
 			{/each}
 			<div class="strip" bind:this={strip} aria-hidden="true">
 				{#if head !== null}<span class="head" style:left="{head * 100}%"></span>{/if}
 			</div>
 		</div>
 	</div>
+	{#if preview && hover?.place}<Preview {lanes} {hover} {preview} />{/if}
 </div>
 
 <style>

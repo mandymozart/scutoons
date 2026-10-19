@@ -137,6 +137,27 @@ export function panView(v: View, range: readonly [Ms, Ms], span: Ms): View {
 	return shows ? v : centred(zoom, a, b);
 }
 
+/** a box in the window's px (getBoundingClientRect, a pointer's clientX) – only ever turned into shares here */
+export interface Rect { left: number; top: number; right: number; bottom: number }
+/** where the hover preview goes, as shares of the window: `x` the pointer; `shift` how much of the box lies left of it
+ *  (0 all right of it … 1 all left – it slides along the area, never out of it); `y` the hovered item's edge it sits on –
+ *  `above` it when there is more room there, else below –; `room` the window's height on that side; `width` the area's */
+export interface PreviewPlace { x: number; y: number; shift: number; above: boolean; room: number; width: number }
+/** a hovering pointer on the Timeline's axis: the time under it; over an item: its lane, its id and where its preview goes */
+export interface TimelineHover { t: Ms; lane?: string; item?: string; place?: PreviewPlace }
+
+/** the hover preview next to pointer `x` over `item`: on the item's top / bottom edge (never over the item), sliding
+ *  along `area` (the timeline's visible part), everything clamped to the window */
+export function previewPlace(x: number, item: Rect, area: Rect, win: { width: number; height: number }): PreviewPlace {
+	const [w, h] = [Math.max(1, win.width), Math.max(1, win.height)];
+	const [l, r] = [clamp(area.left, 0, w), clamp(area.right, 0, w)];
+	const top = clamp(Math.max(item.top, area.top), 0, h);
+	const bottom = clamp(Math.min(item.bottom, area.bottom), top, h);
+	const above = top >= h - bottom;
+	const at = clamp(x, l, r);
+	return { x: at / w, shift: r > l ? (at - l) / (r - l) : 0.5, y: (above ? top : bottom) / h, above, room: (above ? top : h - bottom) / h, width: (r - l) / w };
+}
+
 /** keeps a trim inside 0..length and at least `min` long; the dragged `edge` stops at the other one */
 export function clampTrim(trim: TimelineTrim, length: Ms, edge?: 'in' | 'out'): TimelineTrim {
 	const total = Math.max(0, length);

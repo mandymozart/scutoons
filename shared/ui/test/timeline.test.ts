@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { clampTrim, followView, formatTime, frac, inView, itemAt, msOf, ordered, panView, placeOf, revealView, sequence, tickStep, ticks, timeAt, zoomAround, ZOOM_MAX, ZOOM_MIN, type TimelineItem } from '../src/timeline.ts';
+import { clampTrim, followView, formatTime, frac, inView, itemAt, msOf, ordered, panView, placeOf, previewPlace, revealView, sequence, tickStep, ticks, timeAt, zoomAround, ZOOM_MAX, ZOOM_MIN, type TimelineItem } from '../src/timeline.ts';
 
 const near = (actual: number | null, expected: number, what = '') => assert.ok(actual !== null && Math.abs(actual - expected) < 1e-6, `${what}: ${actual} ≠ ${expected}`);
 
@@ -190,4 +190,32 @@ test('formatTime: clock, seconds and frames at 24, 25 and 30 fps', () => {
 	assert.equal(formatTime(1960, { fps: 25 }), '0:01:24');
 	assert.equal(formatTime(1500, { fps: 30 }), '0:01:15');
 	assert.equal(formatTime(61_000 + (1000 / 30) * 29, { fps: 30 }), '1:01:29');
+});
+
+test('previewPlace: on the edge of the item with more room, sliding along the area, inside the window', () => {
+	const win = { width: 1000, height: 800 };
+	// a timeline along the bottom (the studio): its visible area 100 … 900, an item lane 540 … 620
+	const area = { left: 100, right: 900, top: 500, bottom: 800 };
+	const item = { left: 50, right: 700, top: 540, bottom: 620 };
+	const left = previewPlace(100, item, area, win);
+	assert.deepEqual([left.above, left.shift], [true, 0], 'above the item (more room there); at the left edge of the area all of it right of the pointer');
+	near(left.x, 0.1, 'x');
+	near(left.y, 540 / 800, 'y = the top of the item');
+	near(left.room, 540 / 800, 'room above');
+	near(left.width, 0.8, 'at most the area wide');
+	near(previewPlace(900, item, area, win).shift, 1, 'at the right edge all of it left of the pointer');
+	near(previewPlace(500, item, area, win).shift, 0.5, 'in the middle centred');
+	near(previewPlace(40, item, area, win).x, 0.1, 'a pointer outside the area counts at its edge');
+	// the item scrolled partly under the area's top: the box sits on the visible edge
+	near(previewPlace(500, { ...item, top: 450 }, area, win).y, 500 / 800, 'clipped to the area');
+	// a timeline at the top of the window: below the item
+	const below = previewPlace(500, { left: 0, right: 1000, top: 40, bottom: 120 }, { left: 0, right: 1000, top: 0, bottom: 200 }, win);
+	assert.equal(below.above, false);
+	near(below.y, 120 / 800, 'y = the bottom of the item');
+	near(below.room, 680 / 800, 'room below');
+	// an area wider than the window is cut to it; a zero window gives no NaN
+	const wide = previewPlace(1000, item, { ...area, left: -200, right: 1400 }, win);
+	assert.deepEqual([wide.shift, wide.width], [1, 1]);
+	const none = previewPlace(0, item, area, { width: 0, height: 0 });
+	assert.ok(Object.values(none).every((v) => typeof v === 'boolean' || Number.isFinite(v)), JSON.stringify(none));
 });

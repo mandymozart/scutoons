@@ -4,11 +4,12 @@
 	 * listbox with a roving tabindex: ← → Home End move the selection, Enter selects (never Space – the app's play key);
 	 * selected = inverted (.sc-selected) + an inset ink frame (a picture hides the inversion). A press on an item is a click
 	 * unless it moves (then it seeks); on a lane with `selectable: false` it seeks at once like the background, and the keys
-	 * only move the focus (the studio's take: a click scrubs, like the old TakeTimeline). With the listbox itself focused (a
+	 * only move the focus (e.g. a take to scrub: a click scrubs). With the listbox itself focused (a
 	 * press on its background) the keys start from the lane's current item, not the first one. A `trim` shows the cut parts
 	 * hatched; with `ontrim` its in / out are two sliders – siblings of the listbox, which owns only options – dragged
 	 * (snapped to `lane.step`) or stepped by it (Shift ×10, Alt ×0.1), controlled by the props. Positions are % of the
-	 * span; an instant / sliver keeps 0.25rem.
+	 * span; an instant / sliver keeps 0.25rem. The track is `data-axis` + `data-lane` (the Timeline's hover finds the lane
+	 * there); while the Timeline previews items on hover (`previewed`) they carry no title tooltip – one box at a time.
 	 */
 	import { tick, type Snippet } from 'svelte';
 	import { clamp, stepFor } from './scrub.ts';
@@ -16,11 +17,13 @@
 	import { uiLabels } from './ui-labels.ts';
 
 	type Edge = 'in' | 'out';
-	let { lane, span, selected, item, press, timeAtX, onselect, ontrim }: {
+	let { lane, span, selected, item, previewed = false, press, timeAtX, onselect, ontrim }: {
 		lane: TimelineLane;
 		span: Ms;
 		selected: readonly string[];
 		item?: Snippet<[TimelineItem, TimelineLane]>;
+		/** the Timeline shows a hover preview: no title tooltip on the items */
+		previewed?: boolean;
 		/** the timeline's press on `el`: a seek drag – with `click`, a click unless it moves */
 		press: (e: PointerEvent, el: HTMLElement, click?: () => void) => void;
 		/** a pointer's clientX → ms on the axis */
@@ -99,13 +102,13 @@
 </script>
 
 <div class="label" title={lane.label}><span class="sc-label" id="{uid}-label">{lane.label}</span></div>
-<div class="track">
+<div class="track" data-axis data-lane={lane.id}>
 	<div bind:this={box} class="items" role="listbox" aria-orientation="horizontal" aria-labelledby="{uid}-label" tabindex="-1"
 		onpointerdown={down} onkeydown={keys} onfocusin={(e) => (active = (e.target as HTMLElement).dataset.item ?? active)}>
 		{#each items as it (it.id)}
 			{@const on = selected.includes(it.id)}
 			<div class="item" class:sc-selected={on} role="option" aria-selected={on} aria-label={name(it)} tabindex={it.id === stop ? 0 : -1}
-				title="{name(it)} · {formatTime(size(it), 's', 1)}" data-item={it.id} data-state={it.state}
+				title={previewed ? undefined : `${name(it)} · ${formatTime(size(it), 's', 1)}`} data-item={it.id} data-state={it.state}
 				data-control-exempt="timeline item: a span of time, as wide as it lasts"
 				style:left="min({pct(it.start)}, 100% - 0.25rem)" style:width="{(frac(it.start + size(it), span) - frac(it.start, span)) * 100}%">
 				{#if item}{@render item(it, lane)}{:else}<span class="name">{it.label ?? ''}</span>{/if}
