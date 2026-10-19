@@ -1011,6 +1011,27 @@ Three kinds, three places; none moves the layout:
   rotation, Over / Behind (scores), blend + opacity, fill, outline, shadow, blur. The effect fields show the piece as
   drawn (clearing a look's effect = off); ≤ 3 controls a line.
 
+### Steps and the timeline (owner 2026-10-19, research/STUDIO-LAYOUT.md, research/TIMELINE.md) – the storyboard studio; the creator later
+
+- **Steps** (the studio): a square tab row in the top bar (`.sc-seg`, the current one inverted, its number key before
+  the word – keys 1–6 outside text fields); a step is a remembered SET of what is open over ONE layout ("it makes sense
+  for it to always look the same"): the sidebar, the main view and the dock keep their places, only the open panels,
+  the inspector's tab, the timeline's fold and the widths differ per step. The step's panels: an icon group
+  (`.sc-seg` square, `aria-pressed`) right of the steps; T / N toggle the sidebar / the step's panels (Blender).
+- **Panel head** (every dock panel, the creator's): icon + title (cut with …), `DockFold` (the leftmost: Fold the page),
+  maximize, ✕; an inspector's tab row (`Segmented` stretch) directly under the head.
+- **Buttons outside the creator** (the studio, owner 2026-10-19: "Use the dogma from the creator please"): the creator's
+  button rules (creator +layout "Creator-wide controls") – ink primary, `.secondary`, `.ghost`, disabled 0.5, one control
+  height – also in workflows/storyboard-studio `buttons.css` (on its ink phone page inverted); never a native-looking
+  control: sliders, checkboxes and file inputs become `ScrubNumber`, `Segmented` and a slot with a button.
+- **Timeline** (`@scutoons/ui` Timeline in the AppShell's bottom region, DOCKING "Bottom region"): a linear time axis
+  (ms; the ruler's ticks 1-2-5, markers = scene / bar / row labels with a line), lanes with a 5rem label column; a tall
+  lane carries pictures (the app draws an item's inside); the selected item inverted, the playhead an ink line;
+  click / drag the ruler or a lane's background = the playhead (the app selects on release), ← → / Home / End move the
+  selection in a lane, Ctrl + wheel / + / − zoom, 0 fits; a kept part (trim) has in / out handles (← → by the lane's
+  step, Shift ×10, Alt ×0.1); a lane can be not selectable (a take: a press seeks). No transport in the component – Play, the clock and Space belong to the app (the score's
+  pedal keys stay free).
+
 ### Phones and tablets (owner-approved phone draft 2026-10-07, BACKLOG 10.50, UI-CONCEPTS E.9) – creator, admin, embassy
 
 - **The drawer** (< 768, the sidebar): its fold button closes it (no rail on a phone – a fold remembered on a desktop

@@ -282,6 +282,8 @@ All four (owner 2026-10-07):
 - **Jump + record**: start at any row / cue with a chosen state (variables, inventory – from a save game or by hand);
   record a run (every bus + relay message with times, a JSON file) and replay it into the simulated room.
 - Rehearsal runs the **draft** of the show (and the chapters' drafts if chosen); a show only runs published.
+- 2026-10-19: a replayed run, the rows and the cues on a time axis → the shared Timeline (research/TIMELINE.md §2.4: ms, read-only
+  with `follow`, no transport inside the view).
 
 ## B.9 What happens on a phone (audience, constraints)
 - "Tap to join" is the audio unlock + the Screen Wake Lock request (the screen stays on).

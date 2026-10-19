@@ -53,8 +53,10 @@ and the panels' widths – each step remembers its own (localStorage `storyboard
 - **Timeline** along the bottom, under the 3D view and the panels (owner: "the timeline underneath the other windows
   was also good"): the shots back to back, each as wide as its reading time, scene numbers on the ruler; click / drag
   = the playhead, the shot under it is selected on release (unsaved changes ask first); ← → the previous / next shot;
-  Ctrl + wheel or + / − zoom, 0 fits; selecting a shot brings it into view. In Handheld the active take of the selected
-  shot is a second lane at the shot's start with its in / out handles. Drag its top edge for the height (one height for
+  Ctrl + wheel or + / − zoom, 0 fits (the zoom per chapter and step); selecting a shot brings it into view. In Handheld
+  the active take of the selected shot is a second lane at the shot's start with its in / out handles, zoomed to it; a
+  press on the take shows that moment in the 3D view, Play plays the kept part, "Back to the shot camera" (and leaving
+  the step) gives the view back. Drag its top edge for the height (one height for
   all steps), its fold button folds it to a rail (per step). The shared `@scutoons/ui` Timeline (creator-ready: the
   creator and the live mode will use the same component – research/TIMELINE.md).
 - **Top bar**: the chapter, the steps, the panels, **Chapter ▾** (Check, All frames, Reference packs, Chapter draft,

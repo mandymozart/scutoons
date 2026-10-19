@@ -1,4 +1,4 @@
-Status 2026-10-19: concept – owner to choose (research + static mockups; the studio's code is unchanged).
+Status 2026-10-19: owner chose C in two stages – STAGE 1 BUILT (step tabs on the dock, panel heads, Chapter menu, ActionBar, compact Shot inspector, toasts, the timeline along the bottom – workflows/storyboard-studio README "The layout"); stage 2 (one tabbed inspector with pin, the main's 3D / Frames / Compare) open. Owner answers: §6 below.
 
 # STUDIO-LAYOUT – a clearer storyboard studio (research, 2026-10-19)
 
@@ -156,7 +156,29 @@ freely show" is met by toggles + pin + rails + maximize on the shared model; Ble
 times as much, leaves the layout model the creator settled on (DOCKING "Why") and adds chrome to every area. A's good
 parts – workspaces per task, T / N, editor types, the tab column – are in C.
 
-## 6. Open questions for the owner
+## 6. The owner's answers (2026-10-19) and stage 1 as built
+
+- **C in two stages**; stage 1 = B now. Steps as recommended (six; approving inside Generate; the review dots in every
+  step); keys as recommended (1–6, T, N; Ctrl + Space, Ctrl + \, Ctrl + Shift + \ stay); a step remembers panels,
+  inspector tab, main view, widths, the selected shot shared – and "it makes sense for it to always look the same".
+- **The timeline stays** (owner: "Actually the timeline underneath the other windows was also good – not sure if the
+  concept I chose killed that"): a region along the bottom UNDER the main view AND the panels (the AppShell's bottom
+  region, DOCKING "Bottom region" – this replaces C's "bottom region inside the main only"), in every step (folded in
+  Script / Export by default), its height remembered. Then: "this has to be compatible with creator and anything we plan
+  for live performance", "best place it is part of creator" → the shared, creator-ready Timeline (research/TIMELINE.md):
+  a linear axis with zoom, a shot = its reading time, the take on the chapter's axis.
+- **Built** (stage 1): the six step tabs + the step's panel toggles + the Chapter menu in the top bar (no overflow at
+  1440); the panels with the creator's head in fixed places (Shot · Script · Handheld · Generate · Luma · Variants ·
+  Output); the Shot panel as a compact inspector in four tabs (Shot, Camera, Light, Figures – stage 2's tab column
+  in waiting); the ActionBar (‹ shot ›, measures, keys, notes, Revert, Keep as variant, Review in Generate, Save + frame);
+  the handheld chapter renders + zip in the Export step's Output panel; the toasts.
+- Not built (stage 2): the inspector's tab column with pin, the main's Frames / Compare, Alt + 1…8.
+- Checked: a review in four lenses with adversarial verification (30 findings fixed, each track rechecked), all six steps
+  at 1440 and 1920: ![Layout 1440](studio-layout/stage1-1440-layout.png) ![Handheld 1440](studio-layout/stage1-1440-handheld.png)
+  ![Generate 1440](studio-layout/stage1-1440-generate.png) ![Layout 1920](studio-layout/stage1-1920-layout.png)
+  (the white frames are this checkout's missing renders).
+
+## 7. The questions as asked (kept for the record)
 
 1. **Steps**: Script · Shots · Layout · Handheld · Generate · Export, approving inside Generate? – Recommended: yes, six;
    the shot list's dots show the review status on every step.
