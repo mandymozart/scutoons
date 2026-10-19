@@ -6,7 +6,8 @@
 	"description": "SCUTOONS storyboard studio – a local workflow tool: the layers of a chapter (script → scenes → shots → render → variants), a free 3D camera with the Sin City look live, the shot's fields, variants, reviews, the Luma prompt (agents/STORYBOARD.md, workflows/storyboard-studio/README.md)",
 	"scripts": {
 		"dev": "vite",
-		"check": "svelte-check --workspace src"
+		"check": "svelte-check --workspace src",
+		"test": "node --test \"generators/test/*.test.mjs\""
 	},
 	"dependencies": {
 		"@scutoons/tokens": "*",
