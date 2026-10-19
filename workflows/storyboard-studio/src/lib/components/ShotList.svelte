@@ -25,7 +25,7 @@
 							<img src={`/out/${ch()}/frames/${shot.id}.png?v=${stamp}`} alt="" loading="lazy" />
 							<span class="text">
 								<span class="id"><span class="dot {shot.review?.status ?? ''}" title={shot.review ? `${shot.review.status} ${shot.review.date ?? ''}: ${shot.review.note ?? ''}` : 'no review yet'}></span>{shot.id}</span>
-								<span class="meta">{shot.format} {shot.aspect} · {shot.view ?? '–'}{studio.data.variants[shot.id] ? ` · ${studio.data.variants[shot.id]} var.` : ''}</span>
+								<span class="meta">{shot.format} {shot.aspect} · {shot.view ?? '–'}{studio.data.variants[shot.id] ? ` · ${studio.data.variants[shot.id]} var.` : ''}{studio.data.handheld?.[shot.id] != null ? ` · handheld ${studio.data.handheld[shot.id]}` : ''}</span>
 								<span class="action">{shot.action?.de ?? ''}</span>
 							</span>
 						</button>

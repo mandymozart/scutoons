@@ -11,21 +11,24 @@
 	import ScriptPanel from './lib/components/ScriptPanel.svelte';
 	import VariantsPanel from './lib/components/VariantsPanel.svelte';
 	import PromptPanel from './lib/components/PromptPanel.svelte';
+	import HandheldPanel from './lib/components/HandheldPanel.svelte';
 
 	const width = (kind, rem) => panelWidth(`storyboard-studio:${kind}`, rem, undefined, { foldable: true });
-	const sizes = { shot: width('shot', 24), script: width('script', 20), variants: width('variants', 16), prompt: width('prompt', 26) };
+	const sizes = { shot: width('shot', 24), script: width('script', 20), variants: width('variants', 16), prompt: width('prompt', 26), handheld: width('handheld', 22) };
 	const PANELS = [
 		{ kind: 'shot', title: 'Shot', icon: 'sliders' },
 		{ kind: 'script', title: 'Script', icon: 'file-text' },
 		{ kind: 'variants', title: 'Variants', icon: 'layers' },
-		{ kind: 'prompt', title: 'Luma', icon: 'send' }
+		{ kind: 'prompt', title: 'Luma', icon: 'send' },
+		{ kind: 'handheld', title: 'Handheld', icon: 'smartphone' }
 	];
-	let open = $state({ shot: true, script: true, variants: false, prompt: false });
+	let open = $state({ shot: true, script: true, variants: false, prompt: false, handheld: false });
 	const docked = (kind, panel) => (open[kind] && studio.sel ? { kind: `storyboard-${kind}`, size: sizes[kind], title: PANELS.find((p) => p.kind === kind).title, icon: PANELS.find((p) => p.kind === kind).icon, close: () => (open[kind] = false), panel } : null);
 	useDock(() => docked('shot', shotPanel));
 	useDock(() => docked('script', scriptPanel));
 	useDock(() => docked('variants', variantsPanel));
 	useDock(() => docked('prompt', promptPanel));
+	useDock(() => docked('handheld', handheldPanel));
 
 	onMount(() => {
 		installTooltips();
@@ -48,6 +51,7 @@
 {#snippet scriptPanel()}<ScriptPanel />{/snippet}
 {#snippet variantsPanel()}<VariantsPanel />{/snippet}
 {#snippet promptPanel()}<PromptPanel />{/snippet}
+{#snippet handheldPanel()}<HandheldPanel />{/snippet}
 
 <div class="studio sc-tool">
 	<AppShell mode="fill" resizeKey="storyboard-studio:shots" foldable railLabel="Shots" sidebarLabel="Shots" sidebarTag="aside" dockLabel="Shot panels" pageLabel="3D view">
