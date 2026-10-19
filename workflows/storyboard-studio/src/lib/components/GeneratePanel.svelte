@@ -2,11 +2,14 @@
 	// Generate a shot with a pluggable generator (owner 2026-10-19: "Ja, generator pluggable ist smart. Erstmal soweit
 	// bauen, dass ich die Runway API anbinden kann."): pick the generator + model, its inputs pre-filled from the shot,
 	// the estimate before anything is sent (a paid one asks with the cost), the shot's jobs with progress + cancel; the
-	// results land in Variants → Generated. README "Generators", generators/jobs.mjs.
+	// results land in Variants → Generated. "Build from the shot" fills the prompt with everything set for the shot; Luma –
+	// by hand (transport 'manual') shows it to copy instead of Generate (ManualGenerate – the former Luma panel, owner
+	// 2026-10-19). README "Generators", generators/jobs.mjs.
 	import { untrack } from 'svelte';
 	import { Icon, IconButton, PropRow, PropSelect, ScrubNumber } from '@scutoons/ui';
 	import { fail, studio } from '../studio.svelte.js';
-	import { cancel, costText, current, estimate, gen, loadGenerators, loadInputs, model, setGenerator, setModel, start, wants } from '../generate.svelte.js';
+	import { buildPrompt, cancel, costText, current, estimate, gen, loadGenerators, loadInputs, model, setGenerator, setModel, start, wants } from '../generate.svelte.js';
+	import ManualGenerate from './ManualGenerate.svelte';
 
 	const id = $derived(studio.sel?.id);
 	const v = $derived(studio.version);
@@ -19,6 +22,11 @@
 	const m = $derived(model());
 	const still = $derived(gen.inputs?.stills.find((s) => s.key === gen.form.still));
 	const active = (j) => j.status === 'queued' || j.status === 'running';
+	// by hand (transport 'manual' – generators/jobs.mjs): nothing is sent, the panel shows the prompt to copy
+	const manual = $derived(g?.transport === 'manual');
+	const built = $derived(!!id && gen.built?.shot === id);
+	/** Runway reads the first 1000 characters of a prompt (runway.mjs) – a built prompt is longer: said, not cut */
+	const PROMPT_MAX = 1000;
 	const blocked = $derived(!g?.configured || !m || !!gen.estimate?.error || gen.busy || (wants('still') && m?.mode === 'image_to_video' && !gen.form.still) || (wants('control') && !gen.form.control));
 </script>
 
@@ -57,17 +65,32 @@
 						{#if !gen.inputs?.controls.length}<p class="hint">No render pass yet – Export → Output → "Render all handheld shots".</p>{/if}
 					{/if}
 					{#if wants('prompt')}
-						<PropRow label="Prompt"><textarea aria-label="Prompt" rows="4" maxlength="1000" bind:value={gen.form.prompt}></textarea></PropRow>
+						<!-- by hand the built prompt is only shown to copy (its changes belong in the shot's fields) and kept apart
+						     from the other generators' prompt; until it is built, Build is the panel's one primary (then Copy
+						     prompt – ManualGenerate) -->
+						<PropRow label="Prompt">
+							<button type="button" class:secondary={!manual || built} onclick={() => buildPrompt({ fill: !manual }).catch(fail)} disabled={gen.building} title="Everything set for this shot – also unsaved changes – as one prompt{manual ? '' : ' (replaces the text below)'}">Build from the shot</button>
+							{#if !manual}
+								<textarea data-prop-line aria-label="Prompt" rows="4" bind:value={gen.form.prompt}></textarea>
+							{:else if built}
+								<textarea data-prop-line aria-label="Prompt" readonly rows="16" value={gen.built?.text ?? ''}></textarea>
+							{/if}
+						</PropRow>
+						{#if !manual && gen.form.prompt?.length > PROMPT_MAX}<p class="hint">{gen.form.prompt.length} characters – only the first {PROMPT_MAX} are sent.</p>{/if}
 					{/if}
 					{#if wants('duration')}
 						<PropRow label="Length"><ScrubNumber label="Seconds" icon="clock" unit="s" required min={m.durations?.min ?? 1} max={m.durations?.max ?? 10} step={1} value={gen.form.duration} onchange={(v) => (gen.form.duration = Math.round(v ?? m.durations?.min ?? 1))} /></PropRow>
 					{/if}
 				</div>
 			</fieldset>
-			<p class="cost" role="status" class:sc-error={gen.estimate?.error}>{costText(gen.estimate)}</p>
-			<div class="buttons">
-				<button type="button" onclick={start} disabled={blocked} title={g.paid ? 'Asks with the cost before anything is sent' : ''}>Generate</button>
-			</div>
+			{#if manual}
+				<ManualGenerate {built} />
+			{:else}
+				<p class="cost" role="status" class:sc-error={gen.estimate?.error}>{costText(gen.estimate)}</p>
+				<div class="buttons">
+					<button type="button" onclick={start} disabled={blocked} title={g.paid ? 'Asks with the cost before anything is sent' : ''}>Generate</button>
+				</div>
+			{/if}
 		{/if}
 
 		{#if gen.jobs.length || gen.spend.jobs}
@@ -114,6 +137,11 @@
 		min-width: 0;
 		box-sizing: border-box;
 		resize: vertical;
+	}
+	/* the built prompt to copy: long – caption size */
+	textarea[readonly] {
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 	.thumb {
 		width: 100%;

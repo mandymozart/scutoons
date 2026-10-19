@@ -6,6 +6,9 @@
 //
 // A generator (generators/*.mjs):
 //   { id, label, kinds: ['image' | 'video'], paid: boolean,
+//     transport: 'api' | 'local' | 'manual',         – how a job gets made (research/GENERATORS.md §2): a provider's API,
+//       this PC, or by hand (luma-manual.mjs: never started, never run – the Generate panel shows the prompt to copy
+//       instead of Generate; the result is dropped onto Variants)
 //     models: [{ id, label, kind, mode, inputs: ['still' | 'control' | 'characters' | 'style' | 'prompt' | 'duration'
 //               | 'ratio'], durations?: { min, max } | number[], ratios?: string[], price?: { creditsPerSecond, minCredits } }],
 //     status(): Promise<{ configured, how? }>        – "not configured" + a one-line how-to (never the key itself)
@@ -87,7 +90,7 @@ export function createManager({ generators, out, now = () => new Date() }) {
 
 	return {
 		async list() {
-			return Promise.all(generators.map(async (g) => ({ id: g.id, label: g.label, kinds: g.kinds, paid: !!g.paid, models: g.models, note: g.note ?? '', ...(await g.status().catch((e) => ({ configured: false, how: e.message }))) })));
+			return Promise.all(generators.map(async (g) => ({ id: g.id, label: g.label, transport: g.transport, kinds: g.kinds, paid: !!g.paid, models: g.models, note: g.note ?? '', ...(await g.status().catch((e) => ({ configured: false, how: e.message }))) })));
 		},
 		estimate(job) {
 			const g = gen(job.generator);
@@ -97,6 +100,8 @@ export function createManager({ generators, out, now = () => new Date() }) {
 		/** starts a job; a paid one needs `confirm` (the USD the owner saw) ≥ the estimate */
 		async start(job, { confirm } = {}) {
 			const g = gen(job.generator);
+			// by hand there is nothing to send – refused before a job exists (no failed entry in the shot's jobs)
+			if (g.transport === 'manual') throw new Error(`${g.label} is done by hand – nothing to send`);
 			const st = await g.status();
 			if (!st.configured) throw new Error(`${g.label} is not configured – ${st.how ?? ''}`.trim());
 			const m = modelOf(g, job.model);

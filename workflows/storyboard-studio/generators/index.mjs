@@ -1,6 +1,6 @@
-// The studio's generator routes (api.mjs spreads them in): the registry (comfy-local · runway · comfyui-remote, + fake
-// with STUDIO_FAKE_GENERATOR=1), the inputs a shot offers, the estimate, start / cancel, the jobs and the session's
-// spend. The interface: jobs.mjs. README "Generators".
+// The studio's generator routes (api.mjs spreads them in): the registry (comfy-local · runway · luma-manual ·
+// comfyui-remote, + fake with STUDIO_FAKE_GENERATOR=1), the inputs a shot offers, the estimate, start / cancel, the jobs
+// and the session's spend. The interface: jobs.mjs. README "Generators".
 //
 // Inputs travel as keys, never as paths: "out:<ch>/clean/<shot>.png" (storyboards/_out), "boards:<…>"
 // (storyboards/ – the approved images, the style folder), "media:<…>" (the media root) – resolved and checked here.
@@ -10,13 +10,14 @@ import { relative, resolve, sep } from 'node:path';
 import { createManager } from './jobs.mjs';
 import { createRunway } from './runway.mjs';
 import { createComfyLocal } from './comfy-local.mjs';
+import { createLumaManual } from './luma-manual.mjs';
 import { createComfyRemote, createFake } from './others.mjs';
 
 const PASS_ORDER = ['grey', 'beauty', 'depth', 'normals'];
 
 export function generatorRoutes({ root, out, boards, media, findShot, shotCharacters, styleFiles, env = process.env }) {
 	const roots = { out, boards, media };
-	const generators = [createComfyLocal({ root, env }), createRunway({ root, env }), createComfyRemote()];
+	const generators = [createComfyLocal({ root, env }), createRunway({ root, env }), createLumaManual(), createComfyRemote()];
 	if (env.STUDIO_FAKE_GENERATOR === '1') generators.push(createFake({ read: (f) => readFileSync(f) }));
 	const manager = createManager({ generators, out });
 

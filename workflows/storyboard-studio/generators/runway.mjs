@@ -142,6 +142,7 @@ export function createRunway({ root, env = process.env, pollMs = 5000, fetchImpl
 	return {
 		id: 'runway',
 		label: 'Runway',
+		transport: 'api',
 		kinds: ['video'],
 		paid: true,
 		creditUsd: 0.01,

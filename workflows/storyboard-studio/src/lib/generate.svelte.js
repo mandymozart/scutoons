@@ -1,6 +1,7 @@
 // The Generate panel's state (README "Generators", generators/jobs.mjs): the generators and whether they are
-// configured, the shot's inputs (pre-filled), the estimate shown before anything is sent, the jobs of the shot (polled
-// while one runs) and the session's spend. A paid job is sent only after confirmDialog with the estimate.
+// configured, the shot's inputs (pre-filled), "Build from the shot" (the shot's full prompt + the references to attach),
+// the estimate shown before anything is sent, the jobs of the shot (polled while one runs) and the session's spend. A
+// paid job is sent only after confirmDialog with the estimate.
 import { confirmDialog } from '@scutoons/ui';
 import { api, ch, fail, notify, studio, toon } from './studio.svelte.js';
 
@@ -14,6 +15,10 @@ export const gen = $state({
 	inputs: null,
 	shot: null,
 	form: { generator: '', model: '', still: '', control: '', prompt: '', duration: 5 },
+	/** "Build from the shot": { shot, text, refs } – the shot's full prompt as built + the references to attach (null = not
+	 * built); building = running */
+	built: null,
+	building: false,
 	estimate: null,
 	jobs: [],
 	busy: false
@@ -52,9 +57,28 @@ export async function loadInputs(id) {
 	gen.inputs = r;
 	const has = (list, key) => list.some((x) => x.key === key);
 	if (!same) Object.assign(gen.form, { prompt: r.prompt, duration: r.duration });
+	if (!same) gen.built = null;
 	if (!same || !has(r.stills, gen.form.still)) gen.form.still = r.stills[0]?.key ?? '';
 	if (!same || !has(r.controls, gen.form.control)) gen.form.control = r.controls[0]?.key ?? '';
 	await loadJobs();
+}
+
+/** "Build from the shot" (every generator with a prompt): the shot as edited right now, unsaved changes too, as one
+ * prompt – scripts/storyboard/luma.js via POST /api/prompt – + the references to attach. `fill`: into the generator's
+ * Prompt, replacing it (the button says so); Luma – by hand only shows and copies `gen.built`, so a prompt typed for
+ * another generator stays as it was */
+export async function buildPrompt({ fill = false } = {}) {
+	const id = studio.sel?.id;
+	if (!id) return;
+	gen.building = true;
+	try {
+		const r = await api('POST', '/api/prompt', { toon: toon(), ch: ch(), shot: $state.snapshot(studio.sel.shot) });
+		if (studio.sel?.id !== id) return;
+		gen.built = { shot: id, text: r.text, refs: r.refs };
+		if (fill) gen.form.prompt = r.text;
+	} finally {
+		gen.building = false;
+	}
 }
 
 const job = () => ({ generator: gen.form.generator, model: gen.form.model, toon: toon(), ch: ch(), shot: gen.shot, aspect: gen.inputs?.aspect,

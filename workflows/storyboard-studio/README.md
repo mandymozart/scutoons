@@ -53,8 +53,9 @@ every step.
   view, source, note), Camera (format, aspect, projection, scroll move, size, angle, the hand camera's lens), Light
   (from, height, source, shadow, a free direction in °, softness, accent + rim, note), Figures (cast, persona, pose,
   facing, framing, mood, x / y / h); **Script** – the scene's script lines + notes; **Handheld** – below;
-  **Generate** – a generator per shot (below, "Generators"); **Luma** – the full prompt from the shot as set
-  (scripts/storyboard/luma.js), the render without texts, the references to attach; **Variants** – the saved frame,
+  **Generate** – a generator per shot (below, "Generators"), with **Build from the shot** (the full prompt) and **Luma –
+  by hand** (the prompt to copy, the render without texts, the references to attach – the former Luma panel, owner
+  2026-10-19: "this should be somehow now be covered by the generate right?"); **Variants** – the saved frame,
   variants (Load / Take this), generated images and videos (Approve as chosen → the dataset); **Output** – the
   chapter's handheld videos and downloads (below).
 - **Timeline** along the bottom, under the main view and the panels (owner: "the timeline underneath the other windows
@@ -85,8 +86,8 @@ every step.
 - the shots: `storyboards/<toon>/<chapter>/scene-*.json` (written as 2-space JSON)
 - variants: `storyboards/<toon>/<chapter>/variants/<shot>.json`, frames under `storyboards/_out/<chapter>/` (`frames/`,
   `clean/` without texts, `variants/`, `generated/` + `generated.jsonl` – the generators' results and their log)
-- the generators: `generators/` (`jobs.mjs` the interface, `runway.mjs`, `comfy-local.mjs`, `others.mjs`; tests:
-  `npm test -w workflows/storyboard-studio`)
+- the generators: `generators/` (`jobs.mjs` the interface, `runway.mjs`, `comfy-local.mjs`, `luma-manual.mjs`,
+  `others.mjs`; tests: `npm test -w workflows/storyboard-studio`)
 
 ## Handheld camera (the phone as the shot's camera)
 
@@ -151,13 +152,20 @@ The **Generate** panel sends a shot to a generator; the result lands in Variants
 (`_out/<chapter>/generated/<shot>--g<n>.png|mp4`, logged in `generated.jsonl` with generator, model, estimate, cost
 and the provider's task id), so "Approve as chosen" works as before. Each generator says what it takes; the inputs are
 pre-filled from the shot (the approved image, else the render without texts; the newest handheld render pass; the
-shot's "Image (EN)" text as the prompt).
+shot's "Image (EN)" text as the prompt). **Build from the shot** next to the Prompt replaces it with everything set for
+the shot – also unsaved changes – as one prompt (the story moment, perspective, figures, camera, light, empty zones,
+the look, the script: `scripts/storyboard/luma.js` via `POST /api/prompt`); longer than Runway's 1000 characters, the
+panel says that only the start is sent. Luma – by hand keeps its built prompt apart (read-only), so a prompt typed for
+another generator stays. Every generator says how a job gets made – `transport` in `GET /api/generators`: `api` (a
+provider's API), `local` (this PC) or `manual` (by hand: never started – the panel shows Copy prompt instead of
+Generate; agents/research/GENERATORS.md §2).
 
-| Generator | What | Cost |
-|---|---|---|
-| ComfyUI (this PC) – `comfy-local` | `scripts/storyboard/comfy.mjs` unchanged: Qwen-Image-Edit, the render + character images → a still | free |
-| Runway – `runway` | **Gen-4 Turbo** / **Gen-4.5** image to video (the still + prompt, 2–10 s); **Aleph 2** video to video (the handheld render pass ≤ 30 s, restyled by the prompt; the still as keyframe) | 5 / 12 / 28 credits per second (Aleph at least 56); 1 credit = 0.01 USD |
-| ComfyUI (cloud GPU) – `comfyui-remote` | the same graphs on RunPod / Comfy Cloud – not built yet (`generators/others.mjs`) | – |
+| Generator | Transport | What | Cost |
+|---|---|---|---|
+| ComfyUI (this PC) – `comfy-local` | local | `scripts/storyboard/comfy.mjs` unchanged: Qwen-Image-Edit, the render + character images → a still | free |
+| Runway – `runway` | api | **Gen-4 Turbo** / **Gen-4.5** image to video (the still + prompt, 2–10 s); **Aleph 2** video to video (the handheld render pass ≤ 30 s, restyled by the prompt; the still as keyframe) | 5 / 12 / 28 credits per second (Aleph at least 56); 1 credit = 0.01 USD |
+| Luma – by hand – `luma-manual` | manual | no API: the built prompt (read-only) + **Copy prompt**, **Render (no texts)** (Luma's image reference, a download) and the references to attach (links) – made on lumalabs.ai, the result dropped onto Variants | your Luma subscription |
+| ComfyUI (cloud GPU) – `comfyui-remote` | api | the same graphs on RunPod / Comfy Cloud – not built yet (`generators/others.mjs`) | – |
 
 Safety: the estimate is shown before sending; every paid call asks once more with the cost; nothing is retried by
 itself (a failed or timed-out create call is reported, not sent again); the panel shows what this studio session has

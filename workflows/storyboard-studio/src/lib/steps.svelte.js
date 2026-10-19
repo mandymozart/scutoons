@@ -12,7 +12,6 @@ export const PANELS = [
 	{ kind: 'script', title: 'Script', icon: 'file-text', rem: 20 },
 	{ kind: 'handheld', title: 'Handheld', icon: 'smartphone', rem: 22 },
 	{ kind: 'generate', title: 'Generate', icon: 'zap', rem: 22 },
-	{ kind: 'prompt', title: 'Luma', icon: 'send', rem: 24 },
 	{ kind: 'variants', title: 'Variants', icon: 'grid', rem: 18 },
 	{ kind: 'output', title: 'Output', icon: 'download', rem: 24 }
 ];
@@ -54,12 +53,14 @@ const read = (k) => { try { return JSON.parse(localStorage.getItem(k) ?? 'null')
 const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* not remembered */ } };
 
 /** a step's remembered layout: { panels: kind[], tab, view, timeline } – `view` = the main view: the timeline's view mode
- * (VIEW_MODES) */
+ * (VIEW_MODES); a kind no longer in PANELS is dropped – the Luma panel 'prompt' (gone into Generate 2026-10-19) opens
+ * Generate in its place */
 function load(step) {
 	const saved = read(layoutKey(step.id));
 	const kinds = PANELS.map((p) => p.kind);
+	const panels = Array.isArray(saved?.panels) ? saved.panels.map((k) => (k === 'prompt' ? 'generate' : k)) : null;
 	return {
-		panels: Array.isArray(saved?.panels) ? saved.panels.filter((k) => kinds.includes(k)) : [...step.panels],
+		panels: panels ? [...new Set(panels)].filter((k) => kinds.includes(k)) : [...step.panels],
 		tab: SHOT_TABS.some((t) => t.value === saved?.tab) ? saved.tab : step.tab,
 		view: VIEW_MODES.some((m) => m.value === saved?.view) ? saved.view : step.view,
 		timeline: typeof saved?.timeline === 'boolean' ? saved.timeline : step.timeline

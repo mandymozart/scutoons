@@ -11,6 +11,7 @@ export function createComfyLocal({ root, env = process.env, node = process.execP
 	return {
 		id: 'comfy-local',
 		label: 'ComfyUI (this PC)',
+		transport: 'local',
 		kinds: ['image'],
 		paid: false,
 		note: 'Qwen-Image-Edit on the local ComfyUI (comfy.mjs): the clean render + the character images, photo noir',

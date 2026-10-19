@@ -9,6 +9,7 @@ export function createComfyRemote() {
 	return {
 		id: 'comfyui-remote',
 		label: 'ComfyUI (cloud GPU)',
+		transport: 'api',
 		kinds: ['image', 'video'],
 		paid: true,
 		note: 'RunPod Serverless / Comfy Cloud – not built yet',
@@ -27,6 +28,7 @@ export function createFake({ read = null, stepMs = 300, steps = 5, fail = false 
 	return {
 		id: 'fake',
 		label: 'Fake (test)',
+		transport: 'api',
 		kinds: ['image'],
 		paid: true,
 		creditUsd: 0.01,

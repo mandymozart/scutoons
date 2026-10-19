@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createManager } from '../jobs.mjs';
 import { createFake, createComfyRemote } from '../others.mjs';
+import { generatorRoutes } from '../index.mjs';
 
 const tmp = () => mkdtempSync(join(tmpdir(), 'sb-gen-'));
 const job = (over = {}) => ({ generator: 'fake', model: 'fake-1', toon: 'catpope', ch: 's1c3', shot: 'sb-1-1', prompt: 'a shot', duration: 3, ...over });
@@ -90,4 +91,11 @@ test('bad shot ids are refused (they become file names)', async () => {
 	const m = createManager({ generators: [createFake({ stepMs: 1 })], out: tmp() });
 	await assert.rejects(m.start(job({ shot: '../x' }), { confirm: 1 }), /bad shot/);
 	assert.equal(readdirSync(tmp()).length, 0);
+});
+
+test('every generator in the registry says how a job gets made: GET /api/generators carries its transport', async () => {
+	const dir = tmp();
+	const { routes } = generatorRoutes({ root: dir, out: dir, boards: dir, media: dir, findShot: () => null, shotCharacters: () => [], styleFiles: () => [], env: { STUDIO_FAKE_GENERATOR: '1', COMFY_URL: 'http://127.0.0.1:9' } });
+	const { generators } = await routes['GET /api/generators']();
+	assert.deepEqual(Object.fromEntries(generators.map((g) => [g.id, g.transport])), { 'comfy-local': 'local', runway: 'api', 'luma-manual': 'manual', 'comfyui-remote': 'api', fake: 'api' });
 });
