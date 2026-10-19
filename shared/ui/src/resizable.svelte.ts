@@ -8,14 +8,14 @@
  *   size.restore();   <div role="separator" onpointerdown={size.start} onkeydown={size.key} ondblclick={size.reset}>
  *
  * `edge`: where the handle sits – 'left' for a panel on the right (the width is `anchor − x`), 'right' for one on the
- * left (`x − anchor`). `filter` sees every raw drag width before it is clamped and may skip it or end the drag (the app
+ * left (`x − anchor`), 'top' for a region along the bottom (its HEIGHT is `anchor − y`; ↑ grows it). `filter` sees every raw drag width before it is clamped and may skip it or end the drag (the app
  * shell's fold to a rail); `onstart` / `onend` wrap a drag. While dragging, `html.sc-resizing` is set (the resize
  * cursor everywhere, no text selection). The handle itself: `Divider.svelte` (agents/DOCKING.md).
  */
 export interface ResizableOptions {
 	storageKey: string | (() => string);
-	edge: 'left' | 'right';
-	/** px: the panel's fixed side (its right end for edge 'left', its left start for edge 'right') */
+	edge: 'left' | 'right' | 'top';
+	/** px: the panel's fixed side (its right end for edge 'left', its left start for edge 'right', its bottom for 'top') */
 	anchor: () => number;
 	min: () => number;
 	max: () => number;
@@ -68,17 +68,18 @@ export function resizable(options: ResizableOptions) {
 			handle.setPointerCapture?.(event.pointerId);
 			// every drag: the resize cursor everywhere, no text selection (Divider / AppShell CSS)
 			document.documentElement.classList.add('sc-resizing');
+			if (options.edge === 'top') document.documentElement.classList.add('sc-resizing-rows');
 			options.onstart?.();
 			const end = () => {
 				handle.removeEventListener('pointermove', move);
 				handle.removeEventListener('pointerup', end);
 				handle.removeEventListener('pointercancel', end);
-				document.documentElement.classList.remove('sc-resizing');
+				document.documentElement.classList.remove('sc-resizing', 'sc-resizing-rows');
 				options.onend?.();
 				remember();
 			};
 			const move = (e: PointerEvent) => {
-				const raw = options.edge === 'left' ? options.anchor() - e.clientX : e.clientX - options.anchor();
+				const raw = options.edge === 'left' ? options.anchor() - e.clientX : options.edge === 'top' ? options.anchor() - e.clientY : e.clientX - options.anchor();
 				const verdict = options.filter?.(raw);
 				if (verdict === 'skip') return;
 				if (verdict === 'end') return end();
@@ -91,8 +92,8 @@ export function resizable(options: ResizableOptions) {
 		key(event: KeyboardEvent) {
 			const step = event.shiftKey ? 64 : 16;
 			const current = width ?? (options.normal ?? options.min)();
-			const grow = options.edge === 'left' ? 'ArrowLeft' : 'ArrowRight';
-			const shrink = options.edge === 'left' ? 'ArrowRight' : 'ArrowLeft';
+			const grow = options.edge === 'left' ? 'ArrowLeft' : options.edge === 'top' ? 'ArrowUp' : 'ArrowRight';
+			const shrink = options.edge === 'left' ? 'ArrowRight' : options.edge === 'top' ? 'ArrowDown' : 'ArrowLeft';
 			if (event.key === grow) width = clamp(current + step);
 			else if (event.key === shrink) width = clamp(current - step);
 			else if (event.key === 'Home') width = null;

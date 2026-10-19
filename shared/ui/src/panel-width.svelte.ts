@@ -58,3 +58,49 @@ export function panelWidth(storageKey: string, normalRem = 24, rightEdge: () => 
 	};
 }
 export type PanelWidth = ReturnType<typeof panelWidth>;
+
+/**
+ * The height of the AppShell's bottom region (`bottom`, agents/DOCKING.md "Bottom region" – the storyboard studio's
+ * timeline, owner 2026-10-19): its top edge (a `Divider`, `edge="top"`) drags it taller, from its normal height up to
+ * half the window; ↑ / ↓ on the edge, Home / double-click resets; remembered per key. It folds to a rail (`fold`, or
+ * dragging it lower than 60 % of the normal height); the fold is the page's to remember (not here). The shell sets
+ * `edge` (its bottom).
+ */
+export function panelHeight(storageKey: string, normalRem = 10) {
+	const normal = () => normalRem * (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16);
+	let edge: (() => number) | null = null;
+	const region = dockRegion({
+		key: () => storageKey,
+		foldable: () => true,
+		side: 'bottom',
+		anchor: () => edge?.() ?? window.innerHeight,
+		normal,
+		max: () => window.innerHeight / 2
+	});
+	region.restore();
+	return {
+		/** px set by dragging / keys; null = the normal height */
+		get height() {
+			return region.width;
+		},
+		/** the CSS length of the height */
+		get css() {
+			return region.width !== null ? `${region.width}px` : `${normalRem}rem`;
+		},
+		set edge(fn: (() => number) | null) {
+			edge = fn;
+		},
+		get folded() {
+			return region.folded;
+		},
+		fold: region.fold,
+		/** for the Divider (`width` = the height) */
+		get width() {
+			return region.width;
+		},
+		start: region.start,
+		key: region.key,
+		reset: region.reset
+	};
+}
+export type PanelHeight = ReturnType<typeof panelHeight>;

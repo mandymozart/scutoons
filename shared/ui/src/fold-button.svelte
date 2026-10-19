@@ -15,7 +15,7 @@
 		class: className = '',
 		testid
 	}: {
-		side: 'left' | 'right';
+		side: 'left' | 'right' | 'bottom';
 		label: string;
 		title?: string;
 		controls?: string;
@@ -26,7 +26,7 @@
 </script>
 
 <button type="button" class="sc-fold-button sc-round {className}" {onclick} aria-label={label} {title} aria-expanded="true" aria-controls={controls} data-testid={testid}>
-	<Icon name={side === 'left' ? 'chevrons-left' : 'chevrons-right'} />
+	<Icon name={side === 'left' ? 'chevrons-left' : side === 'bottom' ? 'chevrons-down' : 'chevrons-right'} />
 </button>
 
 <style>

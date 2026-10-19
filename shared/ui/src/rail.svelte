@@ -17,8 +17,8 @@
 		onunfold,
 		testid
 	}: {
-		/** where the region is docked */
-		side: 'left' | 'right';
+		/** where the region is docked (bottom: a horizontal strip – the button, the icon, the label in one row) */
+		side: 'left' | 'right' | 'bottom';
 		label?: string;
 		icon?: string;
 		unfoldLabel: string;
@@ -31,7 +31,7 @@
 
 <!-- the strip is a big click target for the mouse; keyboard and screen readers use its button -->
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="sc-rail" onclick={onunfold} data-testid={testid}>
+<div class="sc-rail" class:bottom={side === 'bottom'} onclick={onunfold} data-testid={testid}>
 	<button
 		type="button"
 		class="sc-round"
@@ -41,7 +41,7 @@
 		aria-expanded="false"
 		aria-controls={controls}
 	>
-		<Icon name={side === 'left' ? 'chevrons-right' : 'chevrons-left'} />
+		<Icon name={side === 'left' ? 'chevrons-right' : side === 'bottom' ? 'chevrons-up' : 'chevrons-left'} />
 	</button>
 	{#if icon}<span class="sc-rail-icon"><Icon name={icon} /></span>{/if}
 	{#if label}<span class="sc-rail-label">{label}</span>{/if}
@@ -74,5 +74,17 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		max-height: calc(100% - 6rem);
+	}
+	/* a bottom region's rail: one row, the button at the left (1rem like a panel's content), the label written across */
+	.sc-rail.bottom {
+		flex-direction: row;
+		height: auto;
+		padding: var(--space-05) var(--space-1);
+	}
+	.bottom .sc-rail-label {
+		writing-mode: horizontal-tb;
+		transform: none;
+		max-height: none;
+		min-width: 0;
 	}
 </style>

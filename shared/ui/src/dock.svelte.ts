@@ -41,6 +41,9 @@ export interface DockPanel {
 	title: string;
 	/** Feather icon name on the rail */
 	icon?: string;
+	/** a kind outside `DOCK_ORDER` (an app's own panels – the storyboard studio's): its fixed place among the other
+	 * unknown kinds, from the main area outwards (still before Info); without one: opening order */
+	order?: number;
 	/** the page closes it (another panel of its kind replaced it) */
 	close: () => void;
 }
@@ -51,9 +54,9 @@ export interface DockPanel {
  * Reader (the result), Info (help) outermost on the right. Unknown kinds before Info; equal places: opening order.
  */
 export const DOCK_ORDER = ['detail', 'history', 'problems', 'flow', 'reader', 'info'];
-const place = (kind: string | undefined) => {
-	const at = kind ? DOCK_ORDER.indexOf(kind) : -1;
-	return at >= 0 ? at : DOCK_ORDER.length - 1.5;
+const place = (panel: DockPanel) => {
+	const at = panel.kind ? DOCK_ORDER.indexOf(panel.kind) : -1;
+	return at >= 0 ? at : DOCK_ORDER.length - 1.5 + (panel.order ?? 0) / 1000;
 };
 
 /** a docked panel: `id` stays while the panel is taken over by the next page (its place, fold and width go on) */
@@ -177,7 +180,7 @@ class ShellDock {
 	}
 
 	#sorted(list: DockEntry[]) {
-		return [...list].sort((a, b) => place(a.panel.kind) - place(b.panel.kind) || a.id - b.id);
+		return [...list].sort((a, b) => place(a.panel) - place(b.panel) || a.id - b.id);
 	}
 
 	#drop(entry: DockEntry) {

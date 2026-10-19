@@ -20,9 +20,10 @@ export interface DockRegionOptions {
 	foldKey?: () => string;
 	/** the region folds without remembering it (default: it folds when it has a `foldKey`) */
 	foldable?: () => boolean;
-	/** where the region is docked: its divider is on the other side (left region → right edge) */
-	side: 'left' | 'right';
-	/** px: the region's fixed side (a left region's left start, a right region's right end) */
+	/** where the region is docked: its divider is on the other side (left region → right edge; a bottom region – its
+	 * HEIGHT is the size – → top edge) */
+	side: 'left' | 'right' | 'bottom';
+	/** px: the region's fixed side (a left region's left start, a right region's right end, a bottom region's bottom) */
 	anchor: () => number;
 	/** px: the normal width (also the minimum) */
 	normal: () => number;
@@ -67,7 +68,7 @@ export function dockRegion(options: DockRegionOptions) {
 	const threshold = () => options.normal() * 0.6;
 	const size = resizable({
 		storageKey: options.key,
-		edge: options.side === 'left' ? 'right' : 'left',
+		edge: options.side === 'left' ? 'right' : options.side === 'bottom' ? 'top' : 'left',
 		anchor: options.anchor,
 		min: options.normal,
 		max: options.max,
