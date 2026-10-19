@@ -7,7 +7,8 @@
 // (storyboards/<toon>/<chapter>/…, workflows/scenes/storyboard-taste.md). Listens on 127.0.0.1 only.
 
 import { execFile } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync, appendFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync, appendFileSync } from 'node:fs';
+import { networkInterfaces } from 'node:os';
 import { dirname, extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mediaRoot, readEntity } from '../../scripts/storyboard/lib.mjs';
@@ -22,7 +23,7 @@ const OUT = resolve(BOARDS, '_out');
 const threeDir = [resolve(ROOT, 'tools/storyboard-render/node_modules/three'), resolve(ROOT, 'node_modules/three')].find((d) => existsSync(resolve(d, 'build/three.module.js')));
 const media = mediaRoot();
 
-const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.glb': 'model/gltf-binary', '.svg': 'image/svg+xml' };
+const TYPES = { '.mp4': 'video/mp4', '.webm': 'video/webm', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.glb': 'model/gltf-binary', '.svg': 'image/svg+xml' };
 const MOUNTS = {
 	'/render/': resolve(ROOT, 'tools/storyboard-render'),
 	'/three/': threeDir,
@@ -92,6 +93,23 @@ function writePng(file, dataUrl) {
 }
 const run = (script, args) => new Promise((ok) => execFile(process.execPath, [resolve(ROOT, script), ...args], { cwd: ROOT, maxBuffer: 32 * 1024 * 1024, timeout: 15 * 60 * 1000 }, (err, stdout, stderr) => ok({ ok: !err, out: `${stdout}${stderr}`.trim() })));
 
+// --- the handheld camera's takes (README "Handheld camera", research/HANDHELD-CAMERA.md) -------------------------------
+// storyboards/<toon>/<chapter>/takes/<shot>.json = { on, active, takes: [{ id, created, smooth, scale, in, out, samples }] }
+// – next to the shot like its variants; one sample per line { t, position, quaternion, fov } (the scene's metres, Y up).
+const takesFile = (toon, ch, id) => { if (!/^[\w-]+$/.test(id)) throw new Error('bad id'); return resolve(chapterDir(toon, ch), 'takes', `${id}.json`); };
+const readTakes = (toon, ch, id) => (existsSync(takesFile(toon, ch, id)) ? JSON.parse(readFileSync(takesFile(toon, ch, id), 'utf8')) : { on: false, active: null, takes: [] });
+function writeTakes(toon, ch, id, doc) {
+	const file = takesFile(toon, ch, id);
+	mkdirSync(dirname(file), { recursive: true });
+	const takes = (doc.takes ?? []).map(({ samples = [], ...t }) => [`    ${JSON.stringify({ ...t, samples: 0 }).slice(0, -2)}[`, samples.map((x) => `      ${JSON.stringify(x)}`).join(',\n'), '    ]}'].join('\n'));
+	const head = `{\n  "on": ${!!doc.on},\n  "active": ${JSON.stringify(doc.active ?? null)},\n  "takes": [`;
+	writeFileSync(file, `${head}${takes.length ? `\n${takes.join(',\n')}\n  ` : ''}]\n}\n`);
+}
+const handheldDir = (ch, id, take) => { if (![id, take].every((x) => /^[\w-]+$/.test(x)) || !/^[a-z0-9-]+$/.test(ch)) throw new Error('bad id'); return resolve(OUT, ch, 'handheld'); };
+const PASSES = ['beauty', 'depth', 'normals', 'grey'];
+const ffmpeg = process.env.FFMPEG || 'ffmpeg';
+const exec = (cmd, args) => new Promise((ok) => execFile(cmd, args, { maxBuffer: 32 * 1024 * 1024, timeout: 30 * 60 * 1000 }, (err, stdout, stderr) => ok({ ok: !err, out: `${err?.code === 'ENOENT' ? `${cmd} not found (FFMPEG=<path>) ` : ''}${stderr}`.trim().split('\n').slice(-3).join('\n') })));
+
 // --- API -----------------------------------------------------------------------------------------------------------
 const api = {
 	'GET /api/chapters': () => chapters(),
@@ -102,8 +120,12 @@ const api = {
 		const variants = {};
 		const vd = resolve(chapterDir(toon, ch), 'variants');
 		if (existsSync(vd)) for (const f of readdirSync(vd)) variants[f.replace(/\.json$/, '')] = JSON.parse(readFileSync(resolve(vd, f), 'utf8')).length;
+		// the shots with the handheld camera on: { id: number of takes }
+		const handheld = {};
+		const hd = resolve(chapterDir(toon, ch), 'takes');
+		if (existsSync(hd)) for (const f of readdirSync(hd).filter((x) => x.endsWith('.json'))) { const d = JSON.parse(readFileSync(resolve(hd, f), 'utf8')); if (d.on) handheld[f.replace(/\.json$/, '')] = d.takes?.length ?? 0; }
 		return {
-			toon, ch, summary: summarize(list), problems, variants, scriptError: script.error ?? null,
+			toon, ch, summary: summarize(list), problems, variants, handheld, scriptError: script.error ?? null,
 			scenes: list.map(({ file, sb }) => ({ file: file.slice(ROOT.length + 1).replaceAll('\\', '/'), sb, script: script[sb.source?.scene] ?? null }))
 		};
 	},
@@ -207,6 +229,49 @@ const api = {
 		writeFileSync(file, text);
 		return { saved: true };
 	},
+	'GET /api/takes': ({ toon, ch, id }) => readTakes(toon, ch, id),
+	'PUT /api/takes': ({ toon, ch, id, doc }) => { writeTakes(toon, ch, id, doc); return { saved: true }; },
+	// every shot of the chapter with the handheld camera on and an active take (the render, the zip)
+	'GET /api/takes/all': ({ toon, ch }) => {
+		const d = resolve(chapterDir(toon, ch), 'takes');
+		const out = {};
+		if (existsSync(d)) for (const f of readdirSync(d).filter((x) => x.endsWith('.json'))) {
+			const doc = JSON.parse(readFileSync(resolve(d, f), 'utf8'));
+			const take = doc.on && doc.takes?.find((t) => t.id === doc.active);
+			if (take) out[f.replace(/\.json$/, '')] = take;
+		}
+		return out;
+	},
+	// the phone's address(es): this PC on the LAN (only reachable with STUDIO_LAN=1)
+	'GET /api/handheld/urls': () => ({
+		lan: process.env.STUDIO_LAN === '1',
+		https: process.env.STUDIO_HTTPS === '1',
+		ips: Object.values(networkInterfaces()).flat().filter((a) => a && a.family === 'IPv4' && !a.internal).map((a) => a.address)
+	}),
+	// one frame of a pass → storyboards/_out/<chapter>/handheld/<shot>--<take>/<pass>/f00001.png
+	'POST /api/handheld/frame': ({ ch, id, take, pass, n, png }) => {
+		if (!PASSES.includes(pass) || !Number.isInteger(n)) throw new Error('bad frame');
+		if (n === 0) rmSync(resolve(handheldDir(ch, id, take), `${id}--${take}`, pass), { recursive: true, force: true });
+		writePng(resolve(handheldDir(ch, id, take), `${id}--${take}`, pass, `f${String(n + 1).padStart(5, '0')}.png`), png);
+		return { ok: true };
+	},
+	// the frames of a pass → <shot>--<take>--<pass>.mp4 / .webm next to them (ffmpeg); the frames are removed when it worked
+	'POST /api/handheld/encode': async ({ ch, id, take, pass, fps = 24, formats = ['mp4'] }) => {
+		if (!PASSES.includes(pass)) throw new Error('bad pass');
+		const base = handheldDir(ch, id, take);
+		const frames = resolve(base, `${id}--${take}`, pass);
+		const files = [];
+		for (const f of formats) {
+			const file = resolve(base, `${id}--${take}--${pass}.${f}`);
+			const codec = f === 'webm' ? ['-c:v', 'libvpx-vp9', '-b:v', '0', '-crf', '32', '-row-mt', '1', '-deadline', 'good', '-cpu-used', '4'] : ['-c:v', 'libx264', '-crf', '18', '-preset', 'medium', '-movflags', '+faststart'];
+			const r = await exec(ffmpeg, ['-y', '-loglevel', 'error', '-framerate', String(Number(fps) || 24), '-i', resolve(frames, 'f%05d.png'), '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p', ...codec, file]);
+			if (!r.ok) return { ok: false, out: r.out, frames: frames.slice(ROOT.length + 1) };
+			files.push(file.slice(ROOT.length + 1).replaceAll('\\', '/'));
+		}
+		rmSync(frames, { recursive: true, force: true });
+		try { if (!readdirSync(dirname(frames)).length) rmSync(dirname(frames), { recursive: true }); } catch {}
+		return { ok: true, files };
+	},
 	'POST /api/run': ({ toon, ch, cmd, only }) => {
 		const dir = `storyboards/${toon}/${ch}`;
 		const scripts = {
@@ -228,6 +293,9 @@ export async function handle(req, res, next) {
 	const url = new URL(req.url, 'http://x');
 	const send = (code, body, type = 'application/json') => { res.writeHead(code, { 'content-type': type, 'cache-control': 'no-store' }); res.end(typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body)); };
 	try {
+		// the studio on the LAN (STUDIO_LAN=1, the phone over Wi-Fi): other machines only read – every write stays on this PC
+		const local = /^(::1|127\.|::ffff:127\.)/.test(req.socket?.remoteAddress ?? '127.');
+		if (!local && req.method !== 'GET') return send(403, { error: 'writes only from this PC' });
 		const route = api[`${req.method} ${url.pathname}`];
 		if (route) {
 			let body = {};
