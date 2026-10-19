@@ -7,7 +7,8 @@
 	// turn), wheel on it = size, Alt + wheel = turn; the gizmo of the picked figure works too. Its place is written back
 	// once per gesture as the storyboard's screen position (x, y, h, turn) – the exact inverse of buildScene's placing,
 	// so a rebuild (any field changed) puts every figure exactly where it was.
-	// The texts (the SCUTOONS presets) on top, switchable.
+	// The texts (the SCUTOONS presets) on top, switchable. The handheld camera drives the same camera (handheldView).
+	// Over 400 lines: the camera, the figure gestures and their write-back share one scene and one camera.
 	import * as THREE from 'three';
 	import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 	import { TransformControls } from 'three/addons/controls/TransformControls.js';
@@ -15,6 +16,7 @@
 	import { Segmented } from '@scutoons/ui';
 	import { buildScene, drawDialog, figureBoxes, loadFonts, seedOf, sinPass } from '../../../../../tools/storyboard-render/core.js';
 	import { specOf, studio, touched } from '../studio.svelte.js';
+	import { handheldView } from '../handheld/view.js';
 
 	const D = Math.PI / 180;
 	const FACE = { front: 0, away: 180, left: -90, right: 90, 'three-quarter-left': -40, 'three-quarter-right': 40 }; // as core.js
@@ -49,8 +51,34 @@
 		const ro = new ResizeObserver(() => { fit(); draw(); });
 		ro.observe(host);
 		loadFonts();
-		return () => ro.disconnect();
+		// the handheld camera (HandheldPanel): the phone's pose / a take moves this camera; release = back where it was
+		handheldView.api = {
+			camera: () => built?.camera ?? null,
+			pose(s) {
+				if (!built || building) return;
+				const cam = built.camera;
+				if (!held) { held = { p: cam.position.clone(), q: cam.quaternion.clone(), fov: cam.fov }; if (controls) controls.enabled = false; }
+				cam.position.fromArray(s.position);
+				cam.quaternion.fromArray(s.quaternion);
+				if (s.fov && cam.isPerspectiveCamera && Math.abs(cam.fov - s.fov) > 1e-3) { cam.fov = s.fov; cam.updateProjectionMatrix(); }
+				cam.updateMatrixWorld();
+				draw();
+			},
+			release() {
+				if (!held || !built) { held = null; return; }
+				const cam = built.camera;
+				cam.position.copy(held.p);
+				cam.quaternion.copy(held.q);
+				if (cam.isPerspectiveCamera) { cam.fov = held.fov; cam.updateProjectionMatrix(); }
+				cam.updateMatrixWorld();
+				held = null;
+				if (controls) controls.enabled = true;
+				draw();
+			}
+		};
+		return () => { ro.disconnect(); handheldView.api = null; };
 	});
+	let held = null; // the camera before the handheld took it over
 	onDestroy(() => { controls?.dispose(); gizmo?.dispose(); built?.dispose(); pass?.dispose(); renderer?.dispose(); });
 
 	// rebuild when the shot changes – except for the changes this view wrote itself (camera, figure places)
@@ -87,6 +115,7 @@
 		try {
 			spec = specOf(1);
 			controls?.dispose(); gizmo?.dispose(); helperScene.clear(); built?.dispose();
+			held = null;
 			// a build never blocks the next change: after 15 s it is given up (the latest state is built next)
 			built = await Promise.race([buildScene(spec, { shadowSize: 2048 }), new Promise((_, no) => setTimeout(() => no(new Error('the scene took longer than 15 s – try again')), 15000))]);
 			look = lookOf();
