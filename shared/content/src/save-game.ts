@@ -38,11 +38,28 @@ export function emptySaveGame(now = new Date().toISOString()): SaveGame {
 
 const isObject = (x: unknown): x is Record<string, unknown> => !!x && typeof x === 'object' && !Array.isArray(x);
 
-/** story variables as stored: strings and finite numbers, anything else dropped */
+/** a placed pickup's memory in its old form, `[<toon>/]picked:<slice image>#<placement id>` (before 2026-10-19) */
+const OLD_PICKED = /^((?:[^/]+\/)?picked:)[^#]+#(.+)$/;
+
+/**
+ * A placed pickup's key with the placement id alone (`[<toon>/]picked:<placement id>`, research/TEXT-ACROSS-SLICES.md
+ * §5 step 3): the one-time helper for the save games in readers' browsers and stale tabs – the stored ones are
+ * rewritten by the migration 2026-10-19-pickup-keys. A key in the new form wins over its old twin.
+ */
+export function pickedKeyOf(key: string): string {
+	const m = OLD_PICKED.exec(key);
+	return m ? `${m[1]}${m[2]}` : key;
+}
+
+/** story variables as stored: strings and finite numbers, anything else dropped; old pickup keys renamed (pickedKeyOf) */
 export function normalizeVariables(raw: unknown): Record<string, SaveGameValue> {
 	const out: Record<string, SaveGameValue> = {};
 	if (!isObject(raw)) return out;
-	for (const [k, v] of Object.entries(raw)) if (typeof v === 'string' || (typeof v === 'number' && Number.isFinite(v))) out[k] = v;
+	for (const [k, v] of Object.entries(raw)) {
+		if (!(typeof v === 'string' || (typeof v === 'number' && Number.isFinite(v)))) continue;
+		const key = pickedKeyOf(k);
+		if (key === k || !(key in raw)) out[key] = v;
+	}
 	return out;
 }
 

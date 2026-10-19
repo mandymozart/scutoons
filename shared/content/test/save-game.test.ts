@@ -71,3 +71,16 @@ test('the old per-toon states: the newest state wins a clash, everything else me
 	assert.equal(again.save.variables['catpope/tips'], 9);
 	assert.deepEqual(again.clashes, ['catpope/tips']);
 });
+
+test('a placed pickup is remembered by its placement id; the old `picked:<slice image>#<id>` keys are renamed', () => {
+	const { variables } = normalizeSaveGame({
+		variables: {
+			'catpope/picked:s1/c1/s1c1-slice-1.webp#cucumber-abc1234': 'm60:497632',
+			'picked:s1/c2/a.webp#record-x': 1,
+			'catpope/picked:s1/c2/b.webp#twin': 'old',
+			'catpope/picked:twin': 'new',
+			'catpope/coins': 3
+		}
+	});
+	assert.deepEqual(variables, { 'catpope/picked:cucumber-abc1234': 'm60:497632', 'picked:record-x': 1, 'catpope/picked:twin': 'new', 'catpope/coins': 3 });
+});

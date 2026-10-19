@@ -75,7 +75,7 @@ export function createBoxForEvent(t: SliceTarget, index: number, eventsPath: Pat
 /**
  * places a catalog item at the spot (else in the middle of the slice; a quarter of its width). Its id is random,
  * `<item>-<7 random>` (BACKLOG 10.39 step 6): `<item>-<n>` was unique per slice only, so the same image on another slice
- * of the toon shared the pickup memory (`picked:<slice image>#<id>`); existing ids stay.
+ * of the toon shared the pickup memory (`picked:<placement id>` since 2026-10-19); existing ids stay.
  */
 export function addSliceItem(t: SliceTarget, itemId: string, spot: { x: number; y: number } | null): CanvasSelection {
 	// the slice's own list (the resolved slice passes it through): its length before the push

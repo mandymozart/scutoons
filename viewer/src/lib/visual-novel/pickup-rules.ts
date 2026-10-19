@@ -5,7 +5,7 @@ import { maxOf, type ItemDef, type RecurrenceInterval } from '@scutoons/content'
  * "Can't take it"; owner 2026-10-16: "I am not supposed to be picking up items that I already have or are limited").
  * Pure – slice-items.ts feeds it the catalog, the inventory and the reader's memory. Test: viewer/test/pickup-rules.test.ts.
  *
- * A placement's memory (`picked:<slice image>#<id>` in the game state; in memory for `visit` respawns):
+ * A placement's memory (`picked:<placement id>` in the game state; in memory for `visit` respawns):
  * - taken – the reader took it (once: `1`; respawning: the period) → it is gone from the slice;
  * - held – the server had granted this ref before (taken on another device, or before the save game was reset) →
  *   it stays on the slice as art: no glow, no nudge, a tap shakes and says so (once: `held`; respawning: `held@<period>`).

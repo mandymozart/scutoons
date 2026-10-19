@@ -65,7 +65,8 @@ const ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
 
 /**
  * A placement id (BACKLOG 10.39 step 6): `<item>-<7 random>` – random like the event ids, so the same slice image
- * reused elsewhere in the toon never shares a pickup memory (`picked:<slice image>#<id>`). Existing ids stay.
+ * reused elsewhere in the toon never shares a pickup memory (`picked:<placement id>`, unique in the chapter – the
+ * validator). Existing ids stay.
  */
 export function newPlacementId(item: string, taken: ReadonlySet<string> = new Set()): string {
 	for (;;) {

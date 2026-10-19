@@ -168,12 +168,12 @@
 	let taken = $state(0);
 	const itemHidden = (item: SliceItem) => {
 		void taken;
-		return item.action === 'pickup' ? isTaken(slice, item, game) : false;
+		return item.action === 'pickup' ? isTaken(item, game) : false;
 	};
 	/** a pickup this reader can't take (any more): it stays as art – no hint, no nudge (slice-items.ts pickupBlockOf) */
 	const itemSpent = (item: SliceItem) => {
 		void taken;
-		return item.action === 'pickup' && !!pickupBlockOf(slice, item, game);
+		return item.action === 'pickup' && !!pickupBlockOf(item, game);
 	};
 	/** how often a placement's tap events run: its `repeat` over the reader's history (visual-novel/repeat.ts) */
 	const tapMemory = new Map<string, RunMemory>();
@@ -181,7 +181,7 @@
 		if (!game) return;
 		if (item.action === 'pickup') {
 			// can't take it (the limit, taken before …): no lift – it shakes and the reader is told why (owner 2026-10-16)
-			const blocked = pickupBlockOf(slice, item, game);
+			const blocked = pickupBlockOf(item, game);
 			if (blocked) {
 				refuseCue(el, item.rotation ?? 0);
 				getCurrentInventory()?.refused(item.item, blocked);
@@ -191,7 +191,7 @@
 			const lift = liftCue(el, item.rotation ?? 0);
 			// the bag must be on screen before the item flies into it (the top row may be hidden – lib/chrome.ts)
 			const rowIn = showChrome();
-			const result = await pickUpSliceItem(slice, item, game);
+			const result = await pickUpSliceItem(item, game);
 			await rowIn;
 			// the sound in the bag: this placement's, else the item's (catalog), else pling; `none` = silent
 			const sound = item.sound ?? getCurrentInventory()?.item(item.item)?.sound;
@@ -214,7 +214,7 @@
 
 	/** "you can tap me" (agents/FX.md): an untouched tappable item wiggles – one per slice and page view */
 	function onItemIdle(item: SliceItem, _index: number, el: HTMLElement, shape: Shape | null) {
-		if (blurred || (item.action === 'pickup' && pickupBlockOf(slice, item, game)) || !markNudged(slice.image)) return;
+		if (blurred || (item.action === 'pickup' && pickupBlockOf(item, game)) || !markNudged(slice.image)) return;
 		nudgeCue(el, item.rotation ?? 0, shape);
 	}
 

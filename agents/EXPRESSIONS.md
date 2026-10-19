@@ -221,7 +221,8 @@ page; not part of the save game). The scope stays meaningful: a variable vs. the
   after the first; `interval` = another bucket than the last run's). "When a condition holds" = every time + `if`.
   respawn.ts keeps only the item rules (catalog range, placement override); `respawnAsRepeat` / `repeatAsRespawn` put a
   pickup into the same words. Items keep the server's once-per-ref grant as the authority and their `picked:` game
-  variables (readers' saved states hold them; a guest's localStorage can't be migrated) – the period logic is shared.
+  variables (`picked:<placement id>` since 2026-10-19: the server's states by a migration, a browser's by
+  save-game.ts `pickedKeyOf` on load) – the period logic is shared.
 - **Stored format** – `VNEventTrigger.repeat` and `SliceItem.repeat` (tap events) replace the boolean `once` (no alias;
   validation calls `once` an error naming the migration). Analysis on the dev DB (= production dump): 221 slice events
   (166 `once:true`, 0 `once:false`, 55 without – which meant true), 4 tap-event items without `once`, no other `"once":`

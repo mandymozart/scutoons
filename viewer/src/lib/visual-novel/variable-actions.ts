@@ -9,7 +9,7 @@ type VariableAction = VNVariableSetter | VNVariableAdder | VNGiveItem | VNJumpTo
 /**
  * The grant's `ref` = the place of the find (page without locale prefix + `?label=`): the server grants a ref once per
  * account, so each find counts once – replaying the same scene grants nothing, another find (another group) does.
- * `place` narrows it to one spot of the page (a placed item on a slice: `<slice image>#<placement id>`).
+ * `place` narrows it to one spot of the page (a placed item on a slice: its placement id).
  */
 function storyRef(item: string, place?: string): string {
 	const at = place ? `#${place}` : '';

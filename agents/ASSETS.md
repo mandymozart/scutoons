@@ -82,7 +82,8 @@ VN character views the reader gets). ONE resolver, `@scutoons/content` **`toonAs
 CDN root (`.` / `..` resolved in code, not by the browser's URL normalisation); the apps' `toonUrl(toon, path)` (viewer
 and creator `utils/cdn.ts`) = `asset(toonAsset(…))` – every former `` `${toon}/${path}` `` join uses it (slices, their
 levels and videos, keyvisuals, thumbnails, covers, hero, credits, download, audio, the media slots, `rootPath`).
-Stored `slice.image` values are never rewritten (they are part of the pickup key `picked:<slice image>#<id>`).
+Stored `slice.image` values may be rewritten since 2026-10-19 – a pickup is remembered by its placement id alone
+(`picked:<placement id>`, research/TEXT-ACROSS-SLICES.md §5 step 3).
 Dev data 2026-10-07 (all versions): 272 out-of-folder values, all `../` (slice images 32 + 162 scene, thumbnails 19 +
 3, season squares 38, toon avatars 3, tile images 18 – e.g. toptoy / yellowmouse / sandbox chapters using catpope's
 slices); 0 with a leading `/`. Writing `../` for pastes keeps ONE form in the data (owner 2026-10-07: keep `../` –

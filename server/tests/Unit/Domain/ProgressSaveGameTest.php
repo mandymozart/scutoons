@@ -217,4 +217,31 @@ final class ProgressSaveGameTest extends TestCase
         $runner->runFile(self::root() . '/migrations/mysql/2026-10-06-global-save-game.mysql.sql');
         self::assertSame(9, $this->stored($a)['variables']['catpope/tips']);
     }
+
+    /**
+     * 2026-10-19-pickup-keys (agents/research/TEXT-ACROSS-SLICES.md §5 step 3): a placed pickup is remembered by its
+     * placement id alone – the save game's `picked:<slice image>#<id>` keys (stored with escaped slashes too) and the
+     * server's grant / take refs lose the slice image; other variables and refs stay; a second run changes 0 rows
+     */
+    public function testThePickupKeysMigration(): void
+    {
+        $a = (string) $this->user()['id'];
+        $b = (string) $this->user('b@example.com')['id'];
+        $this->row($a, 'scutoons', ['variables' => ['catpope/picked:s1/c1/s1c1-slice-1.webp#cucumber-abc1234' => 'm60:497632', 'catpope/tips' => 2]], 1000);
+        $this->db->run("INSERT INTO progress (user_id, toon_id, state, updated_at) VALUES (?, 'scutoons', ?, 1000)",
+            [$b, (string) json_encode(['variables' => ['toptoy/picked:s1/c2/x.jpg#record-x' => 1]])]);
+        $limit = "INSERT INTO rate_limits (id, bucket, ref, created_at) VALUES (UUID(), ?, ?, '2026-10-01 00:00:00')";
+        $this->db->run($limit, ["grantref:$a:cucumber", 'vn:cucumber:/catpope/chapter/1#s1/c1/s1c1-slice-1.webp#cucumber-abc1234@m60:497632']);
+        $this->db->run($limit, ["grantref:$a:cucumber", 'scan:cucumber']);
+        $this->db->run($limit, ["takeref:$a:coin", 'vn:coin:/catpope/chapter/2#take2']);
+
+        $runner = new MigrationRunner($this->db, self::root() . '/migrations');
+        $apply = fn(): int => $runner->applyFile('2026-10-19-pickup-keys.mysql.sql', fn(string $line) => null)['rows'];
+        self::assertSame(2 + 1, $apply(), 'two save games, one grant ref');
+        self::assertSame(['catpope/picked:cucumber-abc1234' => 'm60:497632', 'catpope/tips' => 2], $this->stored($a)['variables']);
+        self::assertSame(['toptoy/picked:record-x' => 1], $this->stored($b)['variables'], 'escaped slashes too');
+        self::assertEqualsCanonicalizing(['vn:cucumber:/catpope/chapter/1#cucumber-abc1234@m60:497632', 'scan:cucumber', 'vn:coin:/catpope/chapter/2#take2'],
+            array_column($this->db->all('SELECT ref FROM rate_limits'), 'ref'));
+        self::assertSame(0, $apply(), 'a second run changes nothing');
+    }
 }

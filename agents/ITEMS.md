@@ -1483,9 +1483,11 @@ no record player pickup, one choice each, validation); api-smoke (27 items; `rec
     the stack's areas take the pointer; the inspector's Layers list shows them as rows (DESIGN.md Part 2).
 - Tap (`viewer/src/lib/visual-novel/slice-items.ts`): `none` = art only (default); `pickup` = a give
   (`giveStoryItem` in variable-actions.ts → `inventory.grant(item, 'story', qty, ref)` with the ref
-  `vn:<item>:<page>#<slice image>#<placement id>`; no story variable since 2026-10-07 – BACKLOG 10.38) – the catalog's rules apply
-  (grantable story, max count, the server's once-per-ref); on success the game state gets `picked:<slice image>#<id>`
-  (synced with a member's progress) and the item is gone from the slice for that reader; on a refusal it stays.
+  `vn:<item>:<page>#<placement id>`; no story variable since 2026-10-07 – BACKLOG 10.38) – the catalog's rules apply
+  (grantable story, max count, the server's once-per-ref); on success the game state gets `picked:<placement id>`
+  (synced with a member's progress) and the item is gone from the slice for that reader; on a refusal it stays. The
+  placement id alone since 2026-10-19 (unique in the chapter – the validator; a slice's picture may be renamed or re-cut;
+  migration 2026-10-19-pickup-keys, save-game.ts `pickedKeyOf` for browsers).
   - **Can't take it (owner 2026-10-16: "I am not supposed to be picking up items that I already have or are
     limited")** – `viewer/src/lib/visual-novel/pickup-rules.ts` (pure, `viewer/test/pickup-rules.test.ts`) +
     `pickupBlockOf` in slice-items.ts. Blocked = not grantable by a story · the collection limit reached (`carried`:
@@ -1536,7 +1538,7 @@ no record player pickup, one choice each, validation); api-smoke (27 items; `rec
     or `@v:<visit id>`. A ref is granted once (`rate_limits` grantref, permanent) → one piece per period; max counts and
     120 grants / hour stay authoritative. A client can't go below the item's minimum; it could choose any interval
     within the range (the server doesn't read the placement), which the range bounds.
-  - The reader remembers the period (`picked:<slice image>#<id>` = the period key for timed intervals, in memory for
+  - The reader remembers the period (`picked:<placement id>` = the period key for timed intervals, in memory for
     visits; 1 = taken for good when it never reappears). A visit = the page view (viewer `visual-novel/page-view.ts`: the
     path + its `?label=`; a reload or coming back starts a new one) – the same page view as the events' "once per page
     view". Pickups stay in these game variables (not in the history's `event:` keys): readers' saved states hold them

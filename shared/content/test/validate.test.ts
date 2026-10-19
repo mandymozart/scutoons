@@ -509,3 +509,11 @@ test('slice.shot: an optional storyboard shot id (Scene · Shot · Slice, resear
 	assert.deepEqual(shotErrors('Shot 4'), ['error']);
 	assert.deepEqual(shotErrors(4), ['error']);
 });
+
+test('placement ids are unique in the chapter (a pickup is remembered by its placement id alone)', () => {
+	const slice = (ids: string[]) => ({ image: 'a.webp', width: 390, height: 625, items: ids.map((id) => ({ id, item: 'cucumber', rect: { x: 1, y: 1, width: 10 } })) });
+	const chapter = (groups: object[]) => ({ title: 'x', author: 'a', description: '', thumbnail: '', groups });
+	const dup = (groups: object[]) => validateFile('chapter', chapter(groups), 'de', { file: 'x' } as never).filter((p) => p.path.at(-1) === 'id' && p.path.includes('items')).map((p) => p.path.join('.'));
+	assert.deepEqual(dup([{ label: 'a', renderer: { type: 'vertical' }, slices: [slice(['c-1']), slice(['c-2'])] }]), []);
+	assert.deepEqual(dup([{ label: 'a', renderer: { type: 'vertical' }, slices: [slice(['c-1'])] }, { label: 'b', renderer: { type: 'vertical' }, slices: [slice(['c-1'])] }]), ['groups.1.slices.0.items.0.id']);
+});

@@ -1,4 +1,4 @@
-import { effectiveRespawn, periodOf, type RecurrenceInterval, type Slice, type SliceItem, type VNEvent } from '@scutoons/content';
+import { effectiveRespawn, periodOf, type RecurrenceInterval, type SliceItem, type VNEvent } from '@scutoons/content';
 import { getCurrentInventory } from '$lib/contexts/inventory.svelte.ts';
 import type { GameContext } from '$lib/contexts/game.svelte';
 import type { VisualNovelContext } from '$lib/contexts/visual-novel.svelte';
@@ -14,7 +14,9 @@ import { heldValue, pickState, pickupAnswer, pickupBlock, takenValue, type PickS
  *   so the catalog's rules apply: grantable, max count, the server's once-per-ref) and the game variable.
  *   Whether it reappears (respawn.ts): the item's rule (catalog `respawn`), the placement may override within its range
  *   or say `never`. Once (no respawn): the ref is the place; a taken item is remembered in the game state
- *   (`picked:<slice image>#<id>` = 1, synced with a member's progress) and is gone for good.
+ *   (`picked:<placement id>` = 1, synced with a member's progress) and is gone for good. The placement id alone (unique:
+ *   `<item>-<7 random>`, fresh on every paste) – so a slice's picture may be renamed or re-cut (2026-10-19, before:
+ *   `picked:<slice image>#<id>`; the migration 2026-10-19-pickup-keys and save-game.ts `pickedKeyOf` renamed them).
  *   Respawning: the grant sends the interval (+ the visit id); the server checks it against the item's range and adds
  *   the period (its time bucket / the visit) to the ref, so it grants once per period. Here the period (the same
  *   bucket from the reader's clock, or the visit) is remembered – in memory for a visit, in the game state otherwise.
@@ -26,8 +28,8 @@ import { heldValue, pickState, pickupAnswer, pickupBlock, takenValue, type PickS
  */
 
 /** the game variable that remembers a taken placement */
-export function pickedKey(slice: Pick<Slice, 'image'>, item: Pick<SliceItem, 'id'>): string {
-	return `picked:${slice.image}#${item.id}`;
+export function pickedKey(item: Pick<SliceItem, 'id'>): string {
+	return `picked:${item.id}`;
 }
 
 /** A visit = the page view (page-view.ts: path + `?label=`; a reload starts a new one) – the same as the events' */
@@ -39,44 +41,44 @@ export function placementRespawn(item: SliceItem): RecurrenceInterval | null {
 	return effectiveRespawn(item.respawn, rule);
 }
 
-/** `visit` respawns: the placement's memory on the current visit (`<period>:<slice image>#<id>` → taken / held) */
+/** `visit` respawns: the placement's memory on the current visit (`<period>:<placement id>` → taken / held) */
 const thisVisit = new Map<string, string | number>();
-/** refusals that last for the page view (the world limit …): `<page view>:<slice image>#<id>` → why */
+/** refusals that last for the page view (the world limit …): `<page view>:<placement id>` → why */
 const refusedThisView = new Map<string, PickupBlock>();
 
 /** the placement's memory: taken (gone), held (the server had granted it before: it stays, untakeable) or nothing */
-function stateOf(slice: Pick<Slice, 'image'>, item: SliceItem, game: GameContext | undefined): PickState {
+function stateOf(item: SliceItem, game: GameContext | undefined): PickState {
 	const interval = placementRespawn(item);
 	const period = interval === null ? '' : periodOf(interval, Date.now(), visitId());
-	const stored = interval === 'visit' ? thisVisit.get(`${period}:${slice.image}#${item.id}`) : game?.getVariable(pickedKey(slice, item));
+	const stored = interval === 'visit' ? thisVisit.get(`${period}:${item.id}`) : game?.getVariable(pickedKey(item));
 	return pickState(stored as string | number | undefined, interval, period);
 }
 
 /** taken by this reader: for good (once) or in the current period – gone from the slice */
-export function isTaken(slice: Pick<Slice, 'image'>, item: SliceItem, game: GameContext | undefined): boolean {
-	return stateOf(slice, item, game) === 'taken';
+export function isTaken(item: SliceItem, game: GameContext | undefined): boolean {
+	return stateOf(item, game) === 'taken';
 }
 
 /**
  * Why this reader can't take a placed pickup now (pickup-rules.ts), null = they can. A blocked one stays on the slice
  * as art: no glow, no nudge; a tap shakes and says why (owner 2026-10-16).
  */
-export function pickupBlockOf(slice: Pick<Slice, 'image'>, item: SliceItem, game: GameContext | undefined): PickupBlock | null {
+export function pickupBlockOf(item: SliceItem, game: GameContext | undefined): PickupBlock | null {
 	const inventory = getCurrentInventory();
 	if (!inventory) return null; // no catalog yet: nothing is drawn anyway
 	return pickupBlock({
 		def: inventory.item(item.item),
 		carried: inventory.carried(item.item),
-		state: stateOf(slice, item, game),
-		refused: refusedThisView.get(`${visitId()}:${slice.image}#${item.id}`)
+		state: stateOf(item, game),
+		refused: refusedThisView.get(`${visitId()}:${item.id}`)
 	});
 }
 
-function remember(slice: Pick<Slice, 'image'>, item: SliceItem, interval: RecurrenceInterval | null, state: 'taken' | 'held', game: GameContext) {
+function remember(item: SliceItem, interval: RecurrenceInterval | null, state: 'taken' | 'held', game: GameContext) {
 	const period = interval === null ? '' : periodOf(interval, Date.now(), visitId());
 	const value = state === 'taken' ? takenValue(interval, period) : heldValue(interval, period);
-	if (interval === 'visit') thisVisit.set(`${period}:${slice.image}#${item.id}`, value);
-	else game.setVariable(pickedKey(slice, item), value);
+	if (interval === 'visit') thisVisit.set(`${period}:${item.id}`, value);
+	else game.setVariable(pickedKey(item), value);
 }
 
 /** slices whose pickup was nudged on this page view (agents/FX.md: once per visit): `<page view>:<slice image>` */
@@ -100,12 +102,12 @@ export interface PickupResult {
 }
 
 /** Takes a placed item. A refusal leaves it on the slice (the caller shakes it and tells the reader why). */
-export async function pickUpSliceItem(slice: Pick<Slice, 'image'>, item: SliceItem, game: GameContext): Promise<PickupResult> {
+export async function pickUpSliceItem(item: SliceItem, game: GameContext): Promise<PickupResult> {
 	const interval = placementRespawn(item);
-	const place = `${slice.image}#${item.id}`;
+	const place = item.id;
 	const key = interval === null ? place : `${place}@${periodOf(interval, Date.now(), visitId())}`;
-	if (isTaken(slice, item, game) || pending.has(key)) return { ok: false };
-	const blocked = pickupBlockOf(slice, item, game);
+	if (isTaken(item, game) || pending.has(key)) return { ok: false };
+	const blocked = pickupBlockOf(item, game);
 	if (blocked) return { ok: false, error: blocked };
 	pending.add(key);
 	try {
@@ -114,7 +116,7 @@ export async function pickUpSliceItem(slice: Pick<Slice, 'image'>, item: SliceIt
 		// guests have no server: their period is the local key (the grant ref isn't checked anywhere)
 		const answer = pickupAnswer(await giveStoryItem(item.item, qty, place, { quietWhenNone: true, respawn, variant: item.variant }));
 		// granted 0 = the server had this ref (taken on another device / before a reset): it stays, as the reader's already
-		if (answer.state) remember(slice, item, interval, answer.state, game);
+		if (answer.state) remember(item, interval, answer.state, game);
 		if (answer.block) refusedThisView.set(`${visitId()}:${place}`, answer.block);
 		return answer.state === 'taken' ? { ok: true } : { ok: false, error: answer.error };
 	} finally {

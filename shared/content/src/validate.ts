@@ -1072,6 +1072,26 @@ function checkDialogIds(c: Collector, groups: any[]) {
 	);
 }
 
+/**
+ * Placement ids are unique within the chapter: a reader remembers a taken pickup by its placement id alone
+ * (`picked:<placement id>`, 2026-10-19 – research/TEXT-ACROSS-SLICES.md §5 step 3), so two placements with one id would
+ * share it. The creator assigns random ids; the same id twice on one slice is the slice check's.
+ */
+function checkPlacementIds(c: Collector, groups: any[]) {
+	const seen = new Map<string, { where: string; slice: string }>();
+	groups.forEach((g, gi) =>
+		(isObj(g) && Array.isArray(g.slices) ? g.slices : []).forEach((s: any, si: number) =>
+			(isObj(s) && Array.isArray(s.items) ? s.items : []).forEach((it: any, ii: number) => {
+				if (!isStr(it?.id) || !it.id) return;
+				const slice = `${gi}/${si}`;
+				const before = seen.get(it.id);
+				if (!before) seen.set(it.id, { where: `group ${gi + 1}, slice ${si + 1}`, slice });
+				else if (before.slice !== slice) c.error(['groups', gi, 'slices', si, 'items', ii, 'id'], `placement id "${it.id}" is used twice in this chapter (also ${before.where}) – a reader would take both at once`);
+			})
+		)
+	);
+}
+
 function checkChapter(c: Collector, ch: any, locale: string, ctx: ValidateContext) {
 	if (!isObj(ch)) return c.error([], 'chapter file must be an object');
 	for (const key of ['title', 'author', 'description', 'thumbnail'] as const) {
@@ -1124,6 +1144,7 @@ function checkChapter(c: Collector, ch: any, locale: string, ctx: ValidateContex
 		checkReach(c, ch.groups, ctx.facts);
 		if (ctx.facts) checkVariableNames(c, ch.groups, ctx.facts);
 		checkDialogIds(c, ch.groups);
+		checkPlacementIds(c, ch.groups);
 		checkEventIds(c, ch.groups, (gi) => ['groups', gi]);
 	}
 }
