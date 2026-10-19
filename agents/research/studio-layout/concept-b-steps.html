@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Studio layout – concept B: step tabs</title>
+<link rel="stylesheet" href="mock.css" />
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+	<symbol id="sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+	<symbol id="file-text" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></symbol>
+	<symbol id="layers" viewBox="0 0 24 24"><path d="M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></symbol>
+	<symbol id="send" viewBox="0 0 24 24"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z"/></symbol>
+	<symbol id="smartphone" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></symbol>
+	<symbol id="video" viewBox="0 0 24 24"><path d="m23 7-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></symbol>
+	<symbol id="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></symbol>
+	<symbol id="users" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+	<symbol id="chevrons-left" viewBox="0 0 24 24"><path d="m11 17-5-5 5-5M18 17l-5-5 5-5"/></symbol>
+	<symbol id="chevrons-right" viewBox="0 0 24 24"><path d="m13 17 5-5-5-5M6 17l5-5-5-5"/></symbol>
+	<symbol id="chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+	<symbol id="chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+	<symbol id="chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+	<symbol id="maximize-2" viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></symbol>
+	<symbol id="image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></symbol>
+	<symbol id="download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+	<symbol id="box" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"/></symbol>
+	<symbol id="grid" viewBox="0 0 24 24"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></symbol>
+	<symbol id="columns" viewBox="0 0 24 24"><path d="M12 3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7m0-18H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7m0-18v18"/></symbol>
+	<symbol id="play" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></symbol>
+	<symbol id="move" viewBox="0 0 24 24"><path d="m5 9-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></symbol>
+	<symbol id="rotate-cw" viewBox="0 0 24 24"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></symbol>
+	<symbol id="rotate-ccw" viewBox="0 0 24 24"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></symbol>
+	<symbol id="bookmark" viewBox="0 0 24 24"><path d="m19 21-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></symbol>
+	<symbol id="zap" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></symbol>
+	<symbol id="check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+	<symbol id="alert" viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01"/></symbol>
+	<symbol id="more" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></symbol>
+	<symbol id="x" viewBox="0 0 10 10"><path d="M0 0l10 10M10 0 0 10" vector-effect="non-scaling-stroke"/></symbol>
+</svg>
+<div class="app">
+	<header class="topbar">
+		<span class="brand">Storyboard Studio</span>
+		<span class="ctl ink">catpope · s1c3 <svg class="i"><use href="#chevron-down"/></svg></span>
+		<span class="steps" role="tablist" aria-label="Steps">
+			<span><b>1</b>Script</span>
+			<span><b>2</b>Shots</span>
+			<span class="on"><b>3</b>Layout</span>
+			<span><b>4</b>Handheld</span>
+			<span><b>5</b>Generate</span>
+			<span><b>6</b>Export</span>
+		</span>
+		<span class="grow"></span>
+		<span class="seg icons" aria-label="Panels of this step">
+			<span class="on" title="Shot (N)"><svg class="i"><use href="#sliders"/></svg></span>
+			<span title="Script"><svg class="i"><use href="#file-text"/></svg></span>
+			<span title="Variants"><svg class="i"><use href="#layers"/></svg></span>
+			<span title="Luma prompt"><svg class="i"><use href="#send"/></svg></span>
+			<span title="Handheld"><svg class="i"><use href="#smartphone"/></svg></span>
+		</span>
+		<span class="ctl">Chapter <svg class="i"><use href="#chevron-down"/></svg></span>
+	</header>
+
+	<div class="body" style="grid-template-columns: 15rem 1fr 25rem">
+		<aside class="region shots">
+			<div class="rhead"><span class="label title">Shots · 62</span><span class="grow"></span><span class="round" title="Fold (T)"><svg class="i"><use href="#chevrons-left"/></svg></span></div>
+			<h3 class="label">25 Ext. Winterliches Bergdorf – Tag</h3>
+				<div class="shot sel"><div class="thumb hatch"></div><div class="t"><span class="id"><i class="st hh" title="handheld"></i>sb-25-1</span><span>vertical 1:3 · real</span><span class="a">Von weißem Himmel und verschneiten Gipfeln hinab</span></div></div>
+				<div class="shot"><div class="thumb hatch b"></div><div class="t"><span class="id"><i class="st ok"></i>sb-25-2</span><span>viewport 9:16</span><span class="a">Kälte-Collage auf weißem Grund</span></div></div>
+				<div class="shot"><div class="thumb hatch c"></div><div class="t"><span class="id"><i class="st change"></i>sb-25-3</span><span>vertical 1:4 · real</span><span class="a">Der Weg: von PLFs Füßen im Schnee</span></div></div>
+				<div class="shot"><div class="thumb hatch"></div><div class="t"><span class="id"><i class="st"></i>sb-25-4</span><span>viewport 9:16</span><span class="a">PLF entschlossen, Kinn hoch</span></div></div>
+				<div class="shot"><div class="thumb hatch b"></div><div class="t"><span class="id"><i class="st"></i>sb-25-5</span><span>viewport 9:16</span><span class="a">Erinnerung, monochrom getönt</span></div></div>
+				<h3 class="label">26 Ext. Hinter der Wegkreuzung – Tag</h3>
+				<div class="shot"><div class="thumb hatch c"></div><div class="t"><span class="id"><i class="st ok"></i>sb-26-1</span><span>viewport 9:16</span><span class="a">Verschneiter Waldweg</span></div></div>
+				<div class="shot"><div class="thumb hatch"></div><div class="t"><span class="id"><i class="st"></i>sb-26-2</span><span>vertical 1:4 · real</span><span class="a">Von PLFs Kopf am unteren Rand</span></div></div>
+		</aside>
+
+		<main class="region view">
+			<div class="tools">
+				<span class="seg"><span class="on"><svg class="i"><use href="#move"/></svg>Move</span><span><svg class="i"><use href="#rotate-cw"/></svg>Turn</span></span>
+				<span class="seg"><span class="on">Solid</span><span>Hatch</span><span>Tone</span></span>
+				<span class="ctl">Texts</span>
+				<span class="ctl">Shot camera</span>
+				<span class="chip">hand camera</span>
+				<span class="grow"></span>
+				<span class="cap muted">drag orbit · right-drag pan · wheel dolly</span>
+			</div>
+			<div class="stage">
+				<div class="frame hatch"></div>
+				<span class="lettering" style="left: 41%; top: 9%">25 EXT. WINTERLICHES BERGDORF – TAG</span>
+				<span class="lettering" style="left: 51%; top: 62%">PLF stieg aus. Es war bitterkalt.</span>
+				<span class="cam">lens 76.4° · 0, 5.40, 24.63</span>
+			</div>
+		</main>
+
+		<section class="region">
+			<div class="rhead">
+				<svg class="i"><use href="#sliders"/></svg><span class="title">&nbsp;Shot · sb-25-1</span><span class="grow"></span>
+				<span class="round" title="Fold to the rail"><svg class="i"><use href="#chevrons-right"/></svg></span>
+				<span class="round" title="Maximize (Ctrl + Space)"><svg class="i"><use href="#maximize-2"/></svg></span>
+				<span class="plain" title="Close"><svg class="x"><use href="#x"/></svg></span>
+			</div>
+			<div class="rbody">
+				<div class="sec">
+					<div class="label"><svg class="i"><use href="#video"/></svg>Camera</div>
+					<div class="row"><span class="label">Format</span><div class="ctrls"><span class="f sel">vertical</span><span class="f sel">1:3</span></div></div>
+					<div class="row"><span class="label">Shot</span><div class="ctrls"><span class="f sel"><span class="tag">SIZE</span>ews</span><span class="f sel"><span class="tag">ANGLE</span>high</span></div></div>
+					<div class="row"><span class="label">Scroll</span><div class="ctrls"><span class="f sel">perspective</span><span class="f sel">tilt-down</span></div></div>
+					<div class="row"><span class="label">Lens</span><div class="ctrls"><span class="f"><span class="tag">FOV</span>76.4<span class="u">°</span></span></div></div>
+				</div>
+				<div class="sec">
+					<div class="label"><svg class="i"><use href="#sun"/></svg>Light <span class="muted">· scene: top-left, low, sun</span></div>
+					<div class="row"><span class="label">From</span><div class="ctrls"><span class="f"><span class="tag">AZ</span>-40<span class="u">°</span></span><span class="f"><span class="tag">EL</span>30<span class="u">°</span></span></div></div>
+					<div class="row"><span class="label">Shadow</span><div class="ctrls"><span class="seg" style="flex:1"><span class="on">hard</span><span>soft</span></span><span class="f"><span class="tag">SOFT</span>0</span></div></div>
+					<div class="row"><span class="label">Accent</span><div class="ctrls"><span class="f sel">none</span><span class="ctl">Rim</span></div></div>
+				</div>
+				<div class="sec">
+					<div class="label"><svg class="i"><use href="#users"/></svg>Figures · 1</div>
+					<div class="row"><span class="label">PLF</span><div class="ctrls"><span class="f sel">stand</span><span class="f sel">front</span><span class="f sel">full</span></div></div>
+					<div class="row"><span class="label">Place</span><div class="ctrls"><span class="f"><span class="tag">X</span>0.50</span><span class="f"><span class="tag">Y</span>0.60</span><span class="f"><span class="tag">H</span>0.30</span></div></div>
+				</div>
+			</div>
+		</section>
+	</div>
+
+	<footer class="actionbar">
+		<span class="seg"><span><svg class="i"><use href="#chevron-left"/></svg></span><span>Shot 1 / 62</span><span><svg class="i"><use href="#chevron-right"/></svg></span></span>
+		<span class="ctl"><svg class="i"><use href="#alert"/></svg>2 notes</span>
+		<span class="keys"><span><kbd>1</kbd>–<kbd>6</kbd> step</span><span><kbd>T</kbd> shots</span><span><kbd>N</kbd> inspector</span><span><kbd>Ctrl</kbd>+<kbd>Space</kbd> maximize</span></span>
+		<span class="grow"></span>
+		<span class="ctl">Revert</span>
+		<span class="ctl">Keep as variant</span>
+		<span class="ctl">Review <svg class="i"><use href="#chevron-down"/></svg></span>
+		<span class="ctl primary">Save + frame</span>
+	</footer>
+</div>
+<p class="note">Concept B – step tabs. Each step is a remembered set of dock panels on today's AppShell; Layout = the shot list, the 3D view and one Shot inspector. Save / review move to the bottom bar.</p>
+</body>
+</html>

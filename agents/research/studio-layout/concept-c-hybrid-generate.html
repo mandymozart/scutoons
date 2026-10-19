@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Studio layout – concept C: hybrid, Generate step</title>
+<link rel="stylesheet" href="mock.css" />
+<style>
+	.tabcol { display: flex; flex-direction: column; border-right: var(--line); flex: none; }
+	.tabcol > span { display: flex; align-items: center; justify-content: center; width: 2.75rem; height: 2.75rem; border-bottom: 1px solid var(--ink); }
+	.tabcol > span.on { background: var(--ink); color: var(--paper); }
+	.compare { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-1); padding: var(--space-1); background: var(--paper); min-height: 0; }
+	.cand { display: flex; flex-direction: column; gap: var(--space-05); min-height: 0; }
+	.cand .pic { flex: 1; border: var(--line); min-height: 0; }
+	.cand.chosen .pic { outline: var(--border-width-focus) solid var(--primary-cyan); outline-offset: 2px; }
+	.cand .meta { display: flex; align-items: center; gap: var(--space-05); font-size: var(--caption); }
+	.slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-05); }
+	.slot { aspect-ratio: 1; border: var(--line); }
+	.slot.empty { border-style: dashed; border-color: var(--text-muted); display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+	<symbol id="sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+	<symbol id="file-text" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></symbol>
+	<symbol id="layers" viewBox="0 0 24 24"><path d="M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></symbol>
+	<symbol id="send" viewBox="0 0 24 24"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z"/></symbol>
+	<symbol id="smartphone" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></symbol>
+	<symbol id="video" viewBox="0 0 24 24"><path d="m23 7-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></symbol>
+	<symbol id="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></symbol>
+	<symbol id="users" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+	<symbol id="chevrons-left" viewBox="0 0 24 24"><path d="m11 17-5-5 5-5M18 17l-5-5 5-5"/></symbol>
+	<symbol id="chevrons-right" viewBox="0 0 24 24"><path d="m13 17 5-5-5-5M6 17l5-5-5-5"/></symbol>
+	<symbol id="chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+	<symbol id="chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+	<symbol id="chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+	<symbol id="maximize-2" viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></symbol>
+	<symbol id="image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></symbol>
+	<symbol id="download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+	<symbol id="box" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"/></symbol>
+	<symbol id="grid" viewBox="0 0 24 24"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></symbol>
+	<symbol id="columns" viewBox="0 0 24 24"><path d="M12 3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7m0-18H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7m0-18v18"/></symbol>
+	<symbol id="play" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></symbol>
+	<symbol id="move" viewBox="0 0 24 24"><path d="m5 9-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></symbol>
+	<symbol id="rotate-cw" viewBox="0 0 24 24"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></symbol>
+	<symbol id="rotate-ccw" viewBox="0 0 24 24"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></symbol>
+	<symbol id="bookmark" viewBox="0 0 24 24"><path d="m19 21-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></symbol>
+	<symbol id="zap" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></symbol>
+	<symbol id="check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+	<symbol id="alert" viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01"/></symbol>
+	<symbol id="more" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></symbol>
+	<symbol id="x" viewBox="0 0 10 10"><path d="M0 0l10 10M10 0 0 10" vector-effect="non-scaling-stroke"/></symbol>
+</svg>
+<div class="app">
+	<header class="topbar">
+		<span class="brand">Storyboard Studio</span>
+		<span class="ctl ink">catpope · s1c3 <svg class="i"><use href="#chevron-down"/></svg></span>
+		<span class="steps" role="tablist" aria-label="Steps">
+			<span><b>1</b>Script</span>
+			<span><b>2</b>Shots</span>
+			<span><b>3</b>Layout</span>
+			<span><b>4</b>Handheld</span>
+			<span class="on"><b>5</b>Generate</span>
+			<span><b>6</b>Export</span>
+		</span>
+		<span class="grow"></span>
+		<span class="cap muted">budget 12.40 € of 50 €</span>
+		<span class="ctl">Chapter <svg class="i"><use href="#chevron-down"/></svg></span>
+	</header>
+
+	<div class="body" style="grid-template-columns: 2.5rem 1fr 26.75rem">
+		<aside class="rail" title="Shots – a click unfolds (T)">
+			<span class="round"><svg class="i"><use href="#chevrons-right"/></svg></span>
+			<span class="v">Shots · sb-25-1</span>
+		</aside>
+
+		<main class="region view" style="background: var(--paper)">
+			<div class="tools">
+				<span class="seg" aria-label="Main view"><span><svg class="i"><use href="#box"/></svg>3D</span><span><svg class="i"><use href="#image"/></svg>Frames</span><span class="on"><svg class="i"><use href="#columns"/></svg>Compare</span></span>
+				<span class="cap muted">the blocked render next to what came back – a click chooses, Space = full size</span>
+			</div>
+			<div class="compare">
+				<div class="cand"><div class="pic hatch"></div><div class="meta"><span class="chip draft">render</span>blocked frame</div></div>
+				<div class="cand chosen"><div class="pic hatch b"></div><div class="meta"><span class="chip ok">chosen</span>Luma · 1</div></div>
+				<div class="cand"><div class="pic hatch c"></div><div class="meta"><span class="chip">new</span>Luma · 2</div></div>
+				<div class="cand"><div class="pic hatch"></div><div class="meta"><span class="chip">new</span>Wan VACE · control video</div></div>
+			</div>
+		</main>
+
+		<section class="region" style="flex-direction: row">
+			<nav class="tabcol" aria-label="Inspector tabs">
+				<span title="Shot"><svg class="i"><use href="#image"/></svg></span>
+				<span title="Camera"><svg class="i"><use href="#video"/></svg></span>
+				<span title="Light"><svg class="i"><use href="#sun"/></svg></span>
+				<span title="Figures"><svg class="i"><use href="#users"/></svg></span>
+				<span title="Script"><svg class="i"><use href="#file-text"/></svg></span>
+				<span title="Handheld"><svg class="i"><use href="#smartphone"/></svg></span>
+				<span class="on" title="Generate"><svg class="i"><use href="#zap"/></svg></span>
+				<span title="Variants"><svg class="i"><use href="#layers"/></svg></span>
+			</nav>
+			<div style="display:flex; flex-direction:column; flex:1; min-width:0">
+				<div class="rhead">
+					<span class="title">Generate · sb-25-1</span><span class="grow"></span>
+					<span class="round" title="Pin as its own panel"><svg class="i"><use href="#bookmark"/></svg></span>
+					<span class="round" title="Fold to the rail"><svg class="i"><use href="#chevrons-right"/></svg></span>
+					<span class="round" title="Maximize (Ctrl + Space)"><svg class="i"><use href="#maximize-2"/></svg></span>
+				</div>
+				<div class="rbody">
+					<div class="row"><span class="label">Model</span><div class="ctrls"><span class="f sel">Luma Photon · image</span></div></div>
+					<div class="row"><span class="label">Control</span><div class="ctrls"><span class="seg" style="flex:1"><span class="on">Frame</span><span>Depth</span><span>Video</span></span></div></div>
+					<div class="sec">
+						<div class="label">Prompt <span class="muted">· from the shot, editable</span></div>
+						<div class="ta cap">Black-and-white film-noir photograph, extreme hard light from the top left. From a white sky and snowy peaks down into a mountain village: a small stop, the bus leaving, PLF small in the white …</div>
+					</div>
+					<div class="sec">
+						<div class="label">References · 2</div>
+						<div class="slots"><div class="slot hatch b"></div><div class="slot hatch"></div><div class="slot empty">+</div></div>
+					</div>
+					<div class="row"><span class="label">Count</span><div class="ctrls"><span class="f" style="flex: 0 0 4.5rem"><span class="tag">N</span>4</span><span class="ctl ink">Generate 4 · ~0.80 €</span></div></div>
+				</div>
+			</div>
+		</section>
+	</div>
+
+	<footer class="actionbar">
+		<span class="seg"><span><svg class="i"><use href="#chevron-left"/></svg></span><span>Shot 1 / 62</span><span><svg class="i"><use href="#chevron-right"/></svg></span></span>
+		<span class="keys"><span><kbd>1</kbd>–<kbd>6</kbd> step</span><span><kbd>T</kbd> shots</span><span><kbd>N</kbd> inspector</span><span><kbd>←</kbd><kbd>→</kbd> candidate</span><span><kbd>Enter</kbd> choose</span></span>
+		<span class="grow"></span>
+		<span class="ctl">Ask for a change</span>
+		<span class="ctl primary">Approve</span>
+	</footer>
+</div>
+<p class="note">Concept C – step 5 Generate. The main switches its editor (3D · Frames · Compare); the shot list is folded to its rail; the inspector shows the Generate tab; Approve is the step's one primary action.</p>
+</body>
+</html>

@@ -1,0 +1,134 @@
+/* Static mockups for agents/research/STUDIO-LAYOUT.md – not app code. The tokens are the real ones (shared/tokens);
+   the classes here only draw the pictures. The studio's root (App.svelte): 90 % of the browser's 16px = 14.4px, so a
+   1440 window is 100rem wide. Everything in rem; px only for the 2px frames (tokens). */
+@import '../../../shared/tokens/tokens.css';
+@import '../../../shared/tokens/fonts.css';
+
+html { font-size: 90%; }
+* { box-sizing: border-box; }
+body {
+	margin: 0;
+	height: 100dvh;
+	overflow: hidden;
+	font-family: 'IBM Plex Mono', monospace;
+	font-size: 1rem;
+	line-height: 1.4;
+	color: var(--ink);
+	background: var(--paper);
+	--caption: 0.8125rem; /* the studio's caption (App.svelte) */
+	--bar: calc(var(--control-height) + var(--space-05));
+	--line: var(--border-width-regular) solid var(--ink);
+}
+svg.i { width: 1.1em; height: 1.1em; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.label { font-size: var(--caption); text-transform: uppercase; letter-spacing: var(--tracking-label); }
+.muted { color: var(--text-muted); }
+.cap { font-size: var(--caption); }
+.grow { flex: 1; }
+
+/* ---------- the app frame ---------- */
+.app { display: grid; grid-template-rows: var(--bar) 1fr auto; height: 100dvh; }
+.topbar { display: flex; align-items: center; gap: var(--space-05); padding: 0 var(--space-1); border-bottom: var(--line); white-space: nowrap; min-width: 0; }
+.brand { text-transform: uppercase; letter-spacing: var(--tracking-label); }
+.ctl { display: inline-flex; align-items: center; gap: var(--space-05); height: var(--control-height); padding: 0 var(--space-075); border: var(--line); border-color: var(--border-muted); background: var(--paper); font: inherit; white-space: nowrap; }
+.ctl.ink { border-color: var(--ink); }
+.ctl.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.ctl.ghost { border-color: transparent; }
+.round { display: inline-flex; align-items: center; justify-content: center; width: var(--control-height); height: var(--control-height); border: var(--line); border-radius: 50%; background: var(--paper); flex: none; }
+.plain { display: inline-flex; align-items: center; justify-content: center; width: var(--control-height); height: var(--control-height); flex: none; }
+.x { width: 0.698rem; height: 0.698rem; stroke: currentColor; stroke-width: 2; }
+
+/* segmented / tab rows: square, one joined frame, the chosen one inverted */
+.seg { display: inline-flex; border: var(--line); height: var(--control-height); }
+.seg > span { display: inline-flex; align-items: center; gap: var(--space-05); padding: 0 var(--space-075); border-left: var(--line); white-space: nowrap; }
+.seg > span:first-child { border-left: 0; }
+.seg > span.on { background: var(--ink); color: var(--paper); }
+.seg.icons > span { padding: 0; width: calc(var(--control-height) - 4px); justify-content: center; }
+
+/* the step tabs (concepts B, C): number + word; the current step inverted */
+.steps { display: inline-flex; border: var(--line); height: var(--control-height); }
+.steps > span { display: inline-flex; align-items: center; gap: var(--space-05); padding: 0 var(--space-1); border-left: var(--line); }
+.steps > span:first-child { border-left: 0; }
+.steps > span b { font-weight: 400; font-size: var(--caption); color: var(--text-muted); }
+.steps > span.on { background: var(--ink); color: var(--paper); }
+.steps > span.on b { color: var(--paper); }
+.steps .dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--badge-warning); }
+
+.chip { display: inline-flex; align-items: center; height: 1.25rem; padding: 0 var(--space-05); font-size: var(--caption); text-transform: uppercase; letter-spacing: var(--tracking-label); background: var(--ink); color: var(--paper); }
+.chip.warn { background: var(--badge-warning); color: var(--ink); }
+.chip.ok { background: var(--badge-published); color: var(--ink); }
+.chip.draft { background: var(--badge-draft); }
+
+/* ---------- regions ---------- */
+.body { display: grid; min-height: 0; overflow: hidden; }
+.region { display: flex; flex-direction: column; min-width: 0; min-height: 0; border-right: var(--line); overflow: hidden; position: relative; }
+.region:last-child { border-right: 0; }
+.rhead { display: flex; align-items: center; gap: var(--space-025); height: calc(var(--control-height) + var(--space-05)); padding: 0 var(--space-05) 0 var(--space-1); border-bottom: var(--line); flex: none; white-space: nowrap; }
+.rhead .title { overflow: hidden; text-overflow: ellipsis; }
+.rbody { flex: 1; min-height: 0; overflow: hidden; padding: var(--space-1); }
+.rail { width: 2.5rem; border-right: var(--line); display: flex; flex-direction: column; align-items: center; gap: var(--space-075); padding-top: var(--space-025); }
+.rail .v { writing-mode: vertical-rl; text-transform: uppercase; letter-spacing: var(--tracking-label); font-size: var(--caption); }
+/* a divider's hover look (3px ink) – drawn on one edge to show where dragging works */
+.drag-hint { position: absolute; top: 0; bottom: 0; right: -2px; width: 3px; background: var(--ink); }
+
+/* ---------- the shot list ---------- */
+.shots { padding: 0; overflow: hidden; }
+.shots h3 { margin: var(--space-1) var(--space-1) var(--space-05); font-weight: 400; }
+.shot { display: grid; grid-template-columns: 3rem 1fr; gap: var(--space-05); padding: var(--space-05) var(--space-1); }
+.shot.sel { background: var(--ink); color: var(--paper); }
+.shot .thumb { width: 3rem; height: 4.5rem; border: var(--line); }
+.shot.sel .thumb { border-color: var(--paper); }
+.shot .t { display: flex; flex-direction: column; min-width: 0; font-size: var(--caption); line-height: 1.3; }
+.shot .t .id { font-size: 1rem; display: flex; align-items: center; gap: var(--space-025); }
+.shot .t .a { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.st { width: 0.6rem; height: 0.6rem; border-radius: 50%; border: var(--line); flex: none; }
+.st.ok { background: var(--badge-published); border-color: var(--badge-published); }
+.st.change { background: var(--badge-warning); border-color: var(--badge-warning); }
+.st.hh { border-radius: 0; background: var(--ink); }
+.shot.sel .st { border-color: var(--paper); }
+
+/* hatch "frames" – the Sin City render stand-in */
+.hatch { background:
+	linear-gradient(transparent 62%, var(--ink) 62% 64%, transparent 64%),
+	repeating-linear-gradient(135deg, var(--ink) 0 2px, var(--paper) 2px 6px); }
+.hatch.b { background:
+	radial-gradient(circle at 30% 35%, var(--paper) 0 18%, transparent 19%),
+	repeating-linear-gradient(45deg, var(--ink) 0 3px, var(--paper) 3px 7px); }
+.hatch.c { background:
+	linear-gradient(var(--ink) 0 30%, transparent 30%),
+	repeating-linear-gradient(90deg, var(--ink) 0 2px, var(--paper) 2px 5px); }
+
+/* ---------- the 3D view ---------- */
+.view { background: var(--ink); display: flex; flex-direction: column; min-height: 0; }
+.view .tools { display: flex; align-items: center; gap: var(--space-05); padding: var(--space-05); background: var(--paper); border-bottom: var(--line); white-space: nowrap; overflow: hidden; }
+.view .stage { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; padding: var(--space-1); position: relative; }
+.view .frame { height: 100%; aspect-ratio: 1 / 2.2; border: var(--line); border-color: var(--paper); }
+.view .frame.wide { height: auto; width: 80%; aspect-ratio: 16 / 9; }
+.view .lettering { position: absolute; background: var(--paper); border: var(--line); padding: var(--space-025) var(--space-05); font-size: var(--caption); }
+.view .cam { position: absolute; right: var(--space-1); bottom: var(--space-1); color: var(--paper); font-size: var(--caption); text-align: right; }
+
+/* ---------- compact inspector rows (DESIGN "Compact inspector") ---------- */
+.sec { margin-bottom: var(--space-1); }
+.sec > .label { display: flex; align-items: center; gap: var(--space-05); margin-bottom: var(--space-05); }
+.row { display: grid; grid-template-columns: 5rem 1fr; align-items: center; gap: var(--space-05); margin-bottom: var(--space-05); }
+.row > .label { color: var(--ink); }
+.ctrls { display: flex; gap: var(--space-05); min-width: 0; }
+.f { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-05); height: var(--control-height); padding: 0 var(--space-05); border: var(--line); white-space: nowrap; overflow: hidden; }
+.f .tag { color: var(--text-muted); font-size: var(--caption); }
+.f .u { margin-left: auto; color: var(--text-muted); font-size: var(--caption); }
+.f.sel::after { content: ''; margin-left: auto; width: 0.45rem; height: 0.45rem; border-right: var(--line); border-bottom: var(--line); transform: rotate(45deg) translateY(-0.15rem); }
+.ta { border: 1px solid var(--border-muted); padding: var(--space-05); min-height: 4.5rem; font-size: 1rem; }
+
+/* ---------- the bottom bar (the creator's ActionBar) ---------- */
+.actionbar { display: flex; align-items: center; gap: var(--space-05); height: var(--bar); padding: 0 var(--space-1); border-top: var(--line); white-space: nowrap; }
+.keys { display: flex; gap: var(--space-1); font-size: var(--caption); color: var(--text-muted); overflow: hidden; }
+kbd { font: inherit; border: 1px solid var(--text-muted); padding: 0 0.25rem; color: var(--ink); }
+
+/* menus (header menus, the editor-type menu) */
+.menu { position: absolute; z-index: 5; background: var(--paper); border: var(--line); min-width: 16rem; padding: var(--space-025) 0; }
+.menu > div { display: flex; align-items: center; gap: var(--space-05); height: var(--control-height); padding: 0 var(--space-075); white-space: nowrap; }
+.menu > div.on { background: var(--ink); color: var(--paper); }
+.menu > div kbd { margin-left: auto; }
+.menu > hr { border: 0; border-top: 1px solid var(--ink); margin: var(--space-025) 0; }
+
+/* the mockup's own caption (not part of the design) */
+.note { position: fixed; right: var(--space-1); bottom: calc(var(--bar) + var(--space-1)); max-width: 26rem; padding: var(--space-05) var(--space-075); background: var(--badge-soon); color: var(--paper); font-size: var(--caption); z-index: 9; }
