@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Strip editor – phone D (# / #pick / #open / #more)</title>
+<link rel="stylesheet" href="strip.css" />
+<style>
+	/* phone D (owner 2026-10-19 on C: "buttons alle als icons ohne borders, unten auch", "Stücke heißen Ornamente",
+	   "das Menü kann komplett einzeilig sein", "unter jedem Icon im Submenü neben dem Öffnen des Inspectors auch … hinzufügen
+	   als auch die Settings – wir werden so kontextueller"): borderless icons everywhere, ONE bottom row of kinds – each icon
+	   opens its submenu (the selection's actions, open the inspector, add one, its settings) –, undo / redo at its right */
+	.papp { display: flex; flex-direction: column; height: 100dvh; }
+	.ib { display: inline-flex; align-items: center; justify-content: center; width: 2.75rem; height: 2.75rem; flex: none; position: relative; color: var(--ink); }
+	.ib svg.i { width: 1.35rem; height: 1.35rem; }
+	.ib.on { background: var(--ink); color: var(--paper); }
+	.ib .badge { position: absolute; right: 0.2rem; top: 0.3rem; font-size: 0.7rem; line-height: 1rem; min-width: 1rem; text-align: center; background: var(--state-warning); color: var(--ink); border-radius: 50%; }
+	.ib .dot { position: absolute; top: 0.45rem; right: 0.45rem; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--badge-published); }
+	.ptop { display: flex; align-items: center; height: var(--bar); padding: 0 var(--space-025); border-bottom: var(--line); flex: none; background: var(--paper); }
+	.ptop .crumbs { flex: 1; min-width: 0; padding-left: var(--space-025); }
+	.open .ptop { display: none; }
+	.canvas { flex: 1; min-height: 0; background: var(--surface-hover); overflow: hidden; position: relative; }
+	.pstrip { position: relative; width: 100vw; margin-top: calc(100vw * var(--at) * -625 / 390); --at: 2.62; }
+	.open .pstrip { --at: 2.78; }
+	.pstrip img.s { display: block; width: 100%; height: auto; }
+	.pstrip .sl { position: relative; }
+	.pstrip .ov { position: absolute; }
+	.pstrip .piece { z-index: 0; } .pstrip .box { z-index: 1; } .pstrip .chip { z-index: 3; }
+	.pseam { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--paper); z-index: 2; }
+	.pseam b { position: absolute; right: 0.25rem; top: 0.25rem; font-weight: 400; font-size: var(--caption); line-height: 1; padding: 0.15rem 0.3rem; background: var(--paper); border: var(--hair); }
+	/* the one bottom row: the kinds (scrolls sideways when there are more), undo / redo fixed at its right */
+	.brow { display: flex; align-items: center; height: var(--bar); border-top: var(--line); flex: none; background: var(--paper); }
+	.brow .kinds { flex: 1; min-width: 0; display: flex; overflow: hidden; padding-left: var(--space-025); }
+	.brow .ur { display: flex; border-left: 1px solid var(--border-muted); padding: 0 var(--space-025); }
+	/* a kind's submenu: above its icon */
+	.sub { display: none; position: absolute; z-index: 6; bottom: calc(var(--bar) + 0.4rem); left: 5.8rem; min-width: 15.5rem; }
+	.menu-open .sub { display: block; }
+	.sub > .head { display: flex; align-items: center; gap: var(--space-05); height: 2.25rem; padding: 0 var(--space-075); font-size: var(--caption); text-transform: uppercase; letter-spacing: var(--tracking-label); color: var(--select-live-text); }
+	.sub > div { height: 2.75rem; }
+	.sub .tip { position: absolute; bottom: -0.55rem; left: 1rem; width: 0.9rem; height: 0.9rem; background: var(--paper); border-right: var(--line); border-bottom: var(--line); transform: rotate(45deg); }
+	.dimmer { display: none; position: absolute; inset: 0; background: rgb(0 0 0 / 0.3); z-index: 5; }
+	.menu-open .dimmer, .more .dimmer { display: block; }
+	.moremenu { display: none; position: absolute; z-index: 6; top: calc(var(--bar) + 0.3rem); right: 0.4rem; min-width: 15rem; }
+	.more .moremenu { display: block; }
+	.moremenu > div { height: 2.75rem; }
+	/* the inspector sheet: over the row, its head = the kind + close (the row is its tab row now) */
+	.sheet { display: none; flex: none; height: 47%; border-top: var(--line); background: var(--paper); flex-direction: column; position: relative; }
+	.open .sheet { display: flex; }
+	.sheet .shead { display: flex; align-items: center; gap: var(--space-05); height: 2.75rem; padding-left: var(--space-1); border-bottom: var(--line); }
+	.sheet .sbody { padding: var(--space-075) var(--space-1); overflow: hidden; }
+	.grabber { position: absolute; left: calc(50% - 1.5rem); top: 0.2rem; width: 3rem; height: 0.25rem; background: var(--border-muted); }
+	.note { left: 0.5rem; right: 0.5rem; bottom: calc(var(--bar) + 0.75rem); max-width: none; }
+	.menu-open .note, .open .note, .more .note { display: none; }
+	.note.n-menu, .note.n-open, .note.n-more { display: none; top: 4rem; bottom: auto; }
+	.menu-open .note.n-menu, .open .note.n-open, .more .note.n-more { display: block; }
+	.open .note.n-open { top: 0.5rem; }
+	.more .note.n-more { top: auto; bottom: calc(var(--bar) + 0.75rem); }
+</style>
+</head>
+<body>
+<div class="papp">
+	<!-- the top bar: borderless icons; hides while scrolling down, back on scrolling up (the reader's header) -->
+	<header class="ptop">
+		<span class="ib"><i data-i="menu"></i></span>
+		<span class="crumbs"><span>Kap. 2</span><span class="sep">›</span><span>kathedrale</span></span>
+		<span class="ib"><i data-i="alert"></i><span class="badge">1</span></span>
+		<span class="ib"><i data-i="save"></i><span class="dot"></span></span>
+		<span class="ib"><i data-i="send"></i></span>
+		<span class="ib"><i data-i="more"></i></span>
+	</header>
+
+	<div class="canvas">
+		<div class="pstrip">
+			<div class="sl"><img class="s" src="img/s1c2-slice-37.webp" alt="" /></div>
+			<div class="sl"><img class="s" src="img/s1c2-slice-38.webp" alt="" /></div>
+			<div class="sl"><img class="s" src="img/s1c2-slice-39.webp" alt="" />
+				<div class="ov box sel" style="left:6%; top:84%; width:72%; height:20%; --fs:0.8rem">Alle warteten auf ihn – nur er nicht.
+					<span class="h tl"></span><span class="h tr"></span><span class="h bl"></span><span class="h br"></span>
+					<span class="anchor-tag chip live"><i data-i="anchor"></i>39</span>
+				</div>
+			</div>
+			<div class="sl"><img class="s" src="img/s1c2-slice-40.webp" alt="" />
+				<div class="ov piece" style="left:58%; top:-9%; width:40%"><img src="img/starburst-red-2.svg" alt="" /></div>
+				<div class="ov box letter bubble collide" style="left:30%; top:2%; width:48%; height:13%; --fs:1.1rem">Wo bist du?!</div>
+				<div class="ov chip warn" style="right:2%; top:17%">⚠ verdeckt 39</div>
+				<div class="pseam" style="top:0"><b>40</b></div>
+			</div>
+			<div class="sl"><img class="s" src="img/s1c2-slice-41.webp" alt="" /><div class="pseam" style="top:0"><b>41</b></div></div>
+			<div class="sl"><img class="s" src="img/s1c2-slice-42.webp" alt="" /></div>
+		</div>
+		<div class="dimmer"></div>
+	</div>
+
+	<!-- the inspector, opened from a kind's submenu ("Inspector öffnen") -->
+	<div class="sheet">
+		<span class="grabber"></span>
+		<div class="shead"><i data-i="type"></i><span class="grow">Text · Slice 39</span><span class="ib"><i data-i="x"></i></span></div>
+		<div class="sbody">
+			<div class="sec" style="margin-bottom: var(--space-05)"><div class="label">Text · DE ☆</div><div class="ta" style="min-height: 2.75rem">Alle warteten auf ihn – nur er nicht.</div></div>
+			<div class="row"><span class="label">Position</span><span class="ctrls"><span class="f"><span class="tag">X</span>6<span class="u">%</span></span><span class="f"><span class="tag">Y</span>84<span class="u">%</span></span></span></div>
+			<div class="row"><span class="label">Größe</span><span class="ctrls"><span class="f"><span class="tag">W</span>72<span class="u">%</span></span><span class="f"><span class="tag">H</span>20<span class="u">%</span></span></span></div>
+			<p class="hint" style="color: var(--ink)"><span style="color: var(--state-warning)">⚠</span> Unten verdeckt von „WO BIST DU?!“ (Slice 40). <u>Nach vorn</u></p>
+		</div>
+	</div>
+
+	<!-- ONE bottom row: Gruppe · Slice · Text · Item · Ornament · Ton · Event (the selected kind inverted) | undo redo -->
+	<nav class="brow">
+		<div class="kinds">
+			<span class="ib" title="Gruppe"><i data-i="rows"></i></span>
+			<span class="ib" title="Slice"><i data-i="image"></i></span>
+			<span class="ib on" title="Text"><i data-i="type"></i></span>
+			<span class="ib" title="Item"><i data-i="package"></i></span>
+			<span class="ib" title="Ornament"><i data-i="shapes"></i></span>
+			<span class="ib" title="Ton"><i data-i="music"></i></span>
+			<span class="ib" title="Event"><i data-i="zap"></i></span>
+		</div>
+		<div class="ur"><span class="ib"><i data-i="undo"></i></span><span class="ib"><i data-i="redo"></i></span></div>
+	</nav>
+</div>
+
+<!-- the Text icon's submenu: the selected text's actions, the inspector, add one, the settings -->
+<div class="menu sub">
+	<div class="head"><i data-i="type"></i>Text · Slice 39</div>
+	<div>Text ändern</div>
+	<div>Nach vorn</div>
+	<div>Kopieren</div>
+	<div>Löschen</div>
+	<hr />
+	<div><i data-i="layers"></i>Inspector öffnen</div>
+	<div><i data-i="plus"></i>Text hinzufügen</div>
+	<div><i data-i="grid"></i>Text-Vorlagen</div>
+	<span class="tip"></span>
+</div>
+<!-- the top bar's ••• -->
+<div class="menu moremenu">
+	<div><i data-i="clock"></i>Verlauf und Versionen</div>
+	<div><i data-i="book"></i>Leser-Vorschau</div>
+	<div><i data-i="seams"></i>Nähte zeigen</div>
+	<hr />
+	<div>Kopieren</div>
+	<div>Einfügen</div>
+</div>
+
+<div class="note"><b>Telefon D.</b> Alle Knöpfe als Icons ohne Rahmen, oben und unten – sie rücken enger zusammen. Unten EINE Zeile:
+	Gruppe · Slice · Text · Item · Ornament · Ton · Event, das Gewählte schwarz; jedes Icon öffnet sein Untermenü. ↶ ↷ rechts.</div>
+<div class="note n-menu"><b>Untermenü von Text:</b> was der gewählte Text kann, darunter Inspector öffnen, Text hinzufügen und die
+	Text-Vorlagen. Bei Ornament: Ornament hinzufügen, Farbvorlagen; bei Slice: Bild ersetzen, Slices einfügen …</div>
+<div class="note n-open"><b>Inspector offen</b> (aus dem Untermenü), runtergescrollt: die obere Leiste ist weg; die untere Zeile bleibt
+	und zeigt, was offen ist.</div>
+<div class="note n-more"><b>Oben unter •••:</b> Verlauf und Versionen, die Leser-Vorschau, Nähte zeigen, Kopieren / Einfügen –
+	was selten gebraucht wird.</div>
+<script src="icons.js"></script>
+<script>
+	const b = document.body.classList;
+	if (b.contains('pick')) b.add('menu-open');
+</script>
+</body>
+</html>

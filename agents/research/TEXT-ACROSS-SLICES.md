@@ -1,4 +1,4 @@
-Status 2026-10-19: concept + plan; §8 steps 1–2 and §9 built and live (the endless band, format + migration, Swiper gone). Owner 2026-10-19: Q1 step 1 ships WITH step 2, Q2 drafts first, Q4 keep "Slices", Q7 canvas bands only in the strip editor, Q3 one document; "Szene" stays the group's name, slices name their storyboard shot (§10). Step 3 built on branch claude/slices-rework-fe9a8d (scenes inlined by the migration 2026-10-19-inline-scenes, `ref` / the `scene` kind out of the code, optional `slice.shot`), not pushed. Strip editor drafts (§4.1): D1 = A picked, the phone's next round waits for the owner's remarks; then §5 steps 1 + 2 together. GitHub #44 (FEATURES 10.100).
+Status 2026-10-19: concept + plan; §8 steps 1–2 and §9 built and live (the endless band, format + migration, Swiper gone). Owner 2026-10-19: Q1 step 1 ships WITH step 2, Q2 drafts first, Q4 keep "Slices", Q7 canvas bands only in the strip editor, Q3 one document; "Szene" stays the group's name, slices name their storyboard shot (§10). Step 3 built on branch claude/slices-rework-fe9a8d (scenes inlined by the migration 2026-10-19-inline-scenes, `ref` / the `scene` kind out of the code, optional `slice.shot`), not pushed. Strip editor drafts (§4.1): D1 = A picked, phone D drawn (§4.1) for the owner's look; then §5 steps 1 + 2 together. GitHub #44 (FEATURES 10.100).
 
 # Slices as background: the strip editor
 
@@ -146,6 +146,18 @@ menu with submenus can be reached in the one row by long scrolling") → **phone
   right end (they don't scroll); **row 2, the sheet's tab row** as today (Group · Layers · Audio · Events · Slice).
   One merged row was weighed: + and the five tabs and undo / redo just fit 390 px, but a selection's actions would
   have no place – two rows it is.
+
+**Phone D** (owner 2026-10-19 on C: "buttons alle als icons ohne borders, unten auch", "Stücke heißen Ornamente",
+"das Menü kann komplett einzeilig sein", "unter jedem Icon im Submenü neben dem Öffnen des Inspectors auch … hinzufügen
+als auch die Settings – wir werden so kontextueller") → `phone-d.html` (`#pick`, `#open`, `#more`):
+- every icon button borderless (top and bottom), so they sit closer and more fit at once; the top bar as in C (☰ ·
+  the path · ⚠ n · Save · Publish · •••; ••• = history and versions, the reader preview, show seams, copy / paste);
+- ONE bottom row of kinds – Group · Slice · Text · Item · Ornament · Sound · Event (scrolls sideways if more come), the
+  selection's kind inverted – undo / redo fixed at its right; no + of its own, no separate tab row;
+- each icon opens its submenu above it: the selected one's actions (Text: edit text, bring to front, copy, delete),
+  then Open inspector, Add a text, and the kind's settings (text presets; Ornament: colour presets; Slice: replace the
+  picture, insert slices …); the inspector sheet opens over the row with the kind as its head;
+- collage pieces are called **Ornamente** in the UI (labels without "…").
 
 ## 5. Migration path (each step ships alone)
 
