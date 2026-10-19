@@ -3,7 +3,7 @@
 	"version": "0.1.0",
 	"private": true,
 	"type": "module",
-	"description": "SCUTOONS Svelte UI kit: Button, IconButton, Field, Panel, Section, Sheet, Tabs, Toggle, Badge, Menu, Toasts, ActionBar, InfoPanel, DataTable, Pager, Sortable (sortable + SortGrip), SplitView, CommandPalette, PaletteTrigger, Skeleton, Chart, ToonAvatar",
+	"description": "SCUTOONS Svelte UI kit: Button, IconButton, Field, Panel, Section, Sheet, Tabs, Toggle, Badge, Menu, Toasts, ActionBar, InfoPanel, DataTable, Pager, Sortable (sortable + SortGrip), SplitView, CommandPalette, PaletteTrigger, Skeleton, Chart, ToonAvatar, Timeline",
 	"sideEffects": [
 		"**/*.css",
 		"**/*.svelte"
@@ -15,13 +15,18 @@
 			"types": "./src/index.ts",
 			"svelte": "./src/index.ts",
 			"default": "./src/index.ts"
+		},
+		"./timeline": {
+			"types": "./src/timeline.ts",
+			"default": "./src/timeline.ts"
 		}
 	},
 	"files": [
 		"src"
 	],
 	"scripts": {
-		"check": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings"
+		"check": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings && npm run test",
+		"test": "node --experimental-transform-types --no-warnings --test test/timeline.test.ts"
 	},
 	"dependencies": {
 		"@scutoons/tokens": "*",
