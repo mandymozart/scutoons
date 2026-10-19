@@ -15,6 +15,7 @@ import { mediaRoot, readEntity } from '../../scripts/storyboard/lib.mjs';
 import { loadStoryboards, summarize, validate } from '../../scripts/storyboard/storyboard.mjs';
 import { lumaPrompt } from '../../scripts/storyboard/luma.js';
 import { shotCharacters, styleFiles } from '../../scripts/storyboard/refs.mjs';
+import { generatorRoutes } from './generators/index.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
@@ -110,8 +111,12 @@ const PASSES = ['beauty', 'depth', 'normals', 'grey'];
 const ffmpeg = process.env.FFMPEG || 'ffmpeg';
 const exec = (cmd, args) => new Promise((ok) => execFile(cmd, args, { maxBuffer: 32 * 1024 * 1024, timeout: 30 * 60 * 1000 }, (err, stdout, stderr) => ok({ ok: !err, out: `${err?.code === 'ENOENT' ? `${cmd} not found (FFMPEG=<path>) ` : ''}${stderr}`.trim().split('\n').slice(-3).join('\n') })));
 
+// --- the generators (README "Generators", generators/jobs.mjs): comfy-local · runway · comfyui-remote --------------------
+const generators = generatorRoutes({ root: ROOT, out: OUT, boards: BOARDS, media, findShot, shotCharacters, styleFiles });
+
 // --- API -----------------------------------------------------------------------------------------------------------
 const api = {
+	...generators.routes,
 	'GET /api/chapters': () => chapters(),
 	'GET /api/chapter': ({ toon, ch }) => {
 		const list = loadStoryboards(chapterDir(toon, ch));
