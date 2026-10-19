@@ -63,7 +63,7 @@
 						<PropRow label="Download" hint="The take's camera for other tools (README: Blender, Unreal)">
 							<button type="button" class="secondary" onclick={() => one('json')} disabled={!!busy} title="The samples (t, position, quaternion, fov)">JSON</button>
 							<button type="button" class="secondary" onclick={() => one('glb')} disabled={!!busy} title="An animated camera for Blender (File → Import → glTF 2.0) / Unreal (glTF importer → Sequencer)">glTF</button>
-							<button type="button" class="secondary" onclick={() => one('glb', true)} disabled={!!busy} title="The animated camera + the blocked set and figures">glTF + scene</button>
+							<button type="button" class="secondary" onclick={() => one('glb', true)} disabled={!!busy} title="glTF: the animated camera + the blocked set and figures">+ scene</button>
 						</PropRow>
 						{#if busy}<p class="hint" role="status">{busy}</p>{/if}
 					{/if}
@@ -113,5 +113,10 @@
 		margin: 0;
 		font-size: var(--type-caption-size);
 		color: var(--text-muted);
+	}
+	/* the download buttons keep their words on one line */
+	.panel :global(.sc-prop-row button) {
+		white-space: nowrap;
+		padding-inline: var(--space-05);
 	}
 </style>

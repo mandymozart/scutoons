@@ -27,14 +27,14 @@ export function takeLane(take, start) {
 	const length = Math.round(last * 1000);
 	return {
 		id: 'take',
-		label: `Take ${take.id}`,
+		label: 'Take',
 		step: 1000 / 24,
 		items: [{ id: take.id, start, length, label: take.id, trim: { in: Math.round(take.in * 1000), out: Math.round(take.out * 1000), min: 100 } }]
 	};
 }
 
-/** the range to show for a selected shot: the shot, and its take where that runs longer (ms) */
+/** the range to show for a selected shot: the shot – or, with a take (Handheld), the take itself, to trim it (ms) */
 export function revealOf(item, take) {
 	if (!item) return null;
-	return [item.start, Math.max(item.start + item.length, take ? take.items[0].start + take.items[0].length : 0)];
+	return take ? [take.items[0].start, take.items[0].start + take.items[0].length] : [item.start, item.start + item.length];
 }

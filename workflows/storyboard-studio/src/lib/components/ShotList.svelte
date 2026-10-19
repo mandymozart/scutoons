@@ -56,11 +56,15 @@
 	.shot {
 		display: grid;
 		grid-template-columns: 3rem minmax(0, 1fr);
+		/* a card, not a button row: the frame as tall as the text (buttons.css centres) */
+		align-items: stretch;
+		justify-content: stretch;
 		gap: var(--space-05);
 		width: 100%;
 		padding: var(--space-025);
 		text-align: left;
 		background: var(--paper);
+		color: var(--ink);
 		border: var(--border-width-regular) solid transparent;
 		cursor: pointer;
 		height: auto;

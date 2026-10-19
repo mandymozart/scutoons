@@ -30,7 +30,8 @@
 	const sizes = Object.fromEntries(STEPS.map((s) => [s.id, Object.fromEntries(PANELS.map((p) => [p.kind, panelWidth(`storyboard-studio:${s.id}:${p.kind}`, p.rem, undefined, { foldable: true })]))]));
 	// read when the dock asks (the snippets are declared below)
 	const body = (kind) => ({ shot: shotBody, script: scriptBody, variants: variantsBody, prompt: promptBody, handheld: handheldBody, generate: generateBody, output: outputBody })[kind];
-	const titleOf = (p) => (p.kind === 'shot' && studio.sel ? `Shot · ${studio.sel.id}${studio.dirty ? ' •' : ''}` : p.kind === 'output' ? 'Output' : studio.sel ? `${p.title} · ${studio.sel.id}` : p.title);
+	// the Shot panel names the shot (• = unsaved); the others are about the same shot – their word is enough
+	const titleOf = (p) => (p.kind === 'shot' && studio.sel ? `Shot · ${studio.sel.id}${studio.dirty ? ' •' : ''}` : p.title);
 	PANELS.forEach((p, order) =>
 		useDock(() => (isOpen(p.kind) && (studio.sel || p.kind === 'output') ? { kind: `storyboard-${p.kind}`, order, size: sizes[steps.current][p.kind], title: titleOf(p), icon: p.icon, close: () => setOpen(p.kind, false), panel: body(p.kind) } : null))
 	);

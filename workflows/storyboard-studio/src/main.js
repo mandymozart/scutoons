@@ -1,4 +1,5 @@
 import '@scutoons/tokens';
+import './lib/buttons.css';
 import { mount } from 'svelte';
 
 // /phone?code=… = the handheld camera's phone page (README "Handheld camera"), everything else the studio

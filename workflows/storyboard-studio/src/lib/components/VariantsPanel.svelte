@@ -8,6 +8,7 @@
 	let variants = $state([]);
 	let generated = $state([]);
 	let over = $state(false);
+	let picker = $state();
 	const id = $derived(studio.sel?.id);
 	const v = $derived(studio.version);
 
@@ -57,7 +58,7 @@
 				<img src={`/out/${ch()}/variants/${id}--${x.id}.png?v=${v}`} alt="" />
 				<div class="row">
 					<button type="button" class="secondary" onclick={() => load(x)}>Load</button>
-					<button type="button" onclick={() => pick(x.id)}>Take this</button>
+					<button type="button" class="secondary" onclick={() => pick(x.id)}>Take this</button>
 				</div>
 				<figcaption>{x.id} · {x.note || 'no note'}</figcaption>
 			</figure>
@@ -65,10 +66,13 @@
 			<p class="hint">None yet – change the shot, then "Keep as variant".</p>
 		{/each}
 		<h3>Generated</h3>
-		<label class="drop" class:over ondragover={(e) => { e.preventDefault(); over = true; }} ondragleave={() => (over = false)} ondrop={(e) => { e.preventDefault(); over = false; add([...e.dataTransfer.files]); }}>
-			Drop an image here (Luma, a photo, a drawing) or pick one
-			<input type="file" accept="image/png,image/jpeg,image/webp" multiple onchange={(e) => add([...e.currentTarget.files])} />
-		</label>
+		<!-- a media slot (RULES "Media fields are slots"): drop images on it, or the button picks them -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div class="drop" class:over ondragover={(e) => { e.preventDefault(); over = true; }} ondragleave={() => (over = false)} ondrop={(e) => { e.preventDefault(); over = false; add([...e.dataTransfer.files]); }}>
+			<span>Drop an image here – Luma, a photo, a drawing</span>
+			<button type="button" class="secondary" onclick={() => picker.click()}>Pick images …</button>
+			<input bind:this={picker} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onchange={(e) => add([...e.currentTarget.files])} />
+		</div>
 		{#each generated as f (f)}
 			<figure>
 				{#if /\.(mp4|webm)$/i.test(f)}
@@ -76,7 +80,7 @@
 				{:else}
 					<img src={`/out/${ch()}/generated/${f}?v=${v}`} alt="" />
 				{/if}
-				<div class="row"><button type="button" onclick={() => approve(f)}>Approve as chosen</button></div>
+				<div class="row"><button type="button" class="secondary" onclick={() => approve(f)}>Approve as chosen</button></div>
 				<figcaption>{f}</figcaption>
 			</figure>
 		{/each}
@@ -125,6 +129,8 @@
 	}
 	.drop {
 		display: grid;
+		justify-items: start;
+		min-width: 0;
 		gap: var(--space-05);
 		padding: var(--space-1);
 		border: var(--border-width-regular) dashed var(--ink);
