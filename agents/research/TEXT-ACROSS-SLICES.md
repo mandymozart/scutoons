@@ -1,4 +1,4 @@
-Status 2026-10-19: concept + plan; §8 steps 1–2 and §9 built and live (the endless band, format + migration, Swiper gone). Owner 2026-10-19: Q1 step 1 ships WITH step 2, Q2 drafts first, Q4 keep "Slices", Q7 canvas bands only in the strip editor, Q3 one document (scenes inlined, §5 step 3). Strip editor drafts made (§4.1, agents/research/strip-editor/) – waiting for the owner's pick D1 / D2, then §5 steps 1 + 2 are built together. FEATURES 10.100.
+Status 2026-10-19: concept + plan; §8 steps 1–2 and §9 built and live (the endless band, format + migration, Swiper gone). Owner 2026-10-19: Q1 step 1 ships WITH step 2, Q2 drafts first, Q4 keep "Slices", Q7 canvas bands only in the strip editor, Q3 one document (scenes inlined, §5 step 3). Strip editor drafts (§4.1, agents/research/strip-editor/): D1 = A picked, the phone's round C waiting for the owner's look; then §5 steps 1 + 2 together (step 3 may run before). FEATURES 10.100.
 
 # Slices as background: the strip editor
 
@@ -131,6 +131,21 @@ slice action where the slice is and needs no sidebar (phones, a folded sidebar).
 **D2 – the phone:** **A** the tool strip at the left (as today), the strip ≈ 3.5rem narrower than read, the slice bar
 ‹ Slice n / m ›; **B** the strip at the phone's full width (= the reader's width), the tools move into the slice bar
 (tools · undo · redo · ⚠), scrolling only by finger, the seam marks say where you are.
+
+**Picked 2026-10-19:** D1 = **A** (the filmstrip; desktop as drafted). D2 leaning to **B**, with changes ("the bottom
+row is already nicer in the current state … only TWO rows", "save and publish could move to the TOP, together with
+problems … a menu like in the reader that goes away when scrolling", "the undo buttons can be bottom right", "every
+menu with submenus can be reached in the one row by long scrolling") → **phone C** (`phone-c.html`, `#open`, `#add`):
+- the strip at full width; zoom = two fingers (pinch around the fingers, two-finger drag pans while zoomed; one finger
+  always scrolls or moves the selected thing); while zoomed a "140 % · tap = width" chip bottom left;
+- a top bar ☰ · the path · ⚠ n · Save (dot while dirty) · Publish · ••• (history, versions, the reader dock), hidden
+  while scrolling down and back on scrolling up (the reader's header);
+- two bottom rows: **row 1, the context row** – a round ink + first (Text · Item · Piece … · Sound · Event · Insert
+  slices … after the slice in view · Paste), then what the selection offers (Edit text, Bring to front, Cut, Copy,
+  Delete …; nothing selected: the slice in view's), scrolling sideways; undo / redo as small round buttons at its
+  right end (they don't scroll); **row 2, the sheet's tab row** as today (Group · Layers · Audio · Events · Slice).
+  One merged row was weighed: + and the five tabs and undo / redo just fit 390 px, but a selection's actions would
+  have no place – two rows it is.
 
 ## 5. Migration path (each step ships alone)
 

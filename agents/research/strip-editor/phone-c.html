@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Strip editor – phone C (# / #open / #add)</title>
+<link rel="stylesheet" href="strip.css" />
+<style>
+	/* phone C (owner 2026-10-19, after A / B): the strip at full reading width; a top bar with problems · save ·
+	   publish that hides on scroll down (the reader's header); at most two bottom rows: the context row (+ first,
+	   then the selection's actions, scrolling sideways; undo / redo round at its right end) and the sheet's tab row */
+	.papp { display: flex; flex-direction: column; height: 100dvh; }
+	.ptop { display: flex; align-items: center; gap: var(--space-025); height: var(--bar); padding: 0 var(--space-05); border-bottom: var(--line); flex: none; background: var(--paper); }
+	.ptop .round, .crow .round { width: 2.75rem; height: 2.75rem; }
+	.ptop .crumbs { flex: 1; min-width: 0; padding-left: var(--space-025); }
+	.ptop .crumbs span:last-child { overflow: hidden; text-overflow: ellipsis; }
+	.ptop .pub { background: var(--ink); color: var(--paper); }
+	.ptop .warn-n { position: relative; }
+	.ptop .warn-n i, .ptop .warn-n em { position: absolute; right: -0.15rem; top: -0.15rem; font-style: normal; font-size: 0.7rem; line-height: 1rem; min-width: 1rem; text-align: center; background: var(--state-warning); color: var(--ink); border-radius: 50%; }
+	.dotted { position: relative; }
+	.dotted::after { content: ''; position: absolute; top: 0.2rem; right: 0.2rem; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--badge-published); border: 1px solid var(--paper); }
+	.open .ptop { display: none; } /* scrolled down: the bar is away, the strip gets its room */
+	.canvas { flex: 1; min-height: 0; background: var(--surface-hover); overflow: hidden; position: relative; }
+	.pstrip { position: relative; width: 100vw; margin-top: calc(100vw * var(--at) * -625 / 390); }
+	.pstrip img.s { display: block; width: 100%; height: auto; }
+	.pstrip .sl { position: relative; }
+	.pstrip .ov { position: absolute; }
+	.pstrip .piece { z-index: 0; } .pstrip .box { z-index: 1; } .pstrip .chip { z-index: 3; }
+	.pseam { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--paper); z-index: 2; }
+	.pseam b { position: absolute; right: 0.25rem; top: 0.25rem; font-weight: 400; font-size: var(--caption); line-height: 1; padding: 0.15rem 0.3rem; background: var(--paper); border: var(--hair); }
+	.zoomchip { display: none; position: absolute; bottom: 0.5rem; left: 0.5rem; z-index: 4; }
+	.open .zoomchip { display: inline-flex; }
+	.pstrip { --at: 2.62; }
+	.open .pstrip { --at: 2.8; width: 140vw; margin-left: -12vw; margin-top: calc(140vw * var(--at) * -625 / 390); }
+	/* row 1: the context row */
+	.crow { display: flex; align-items: center; height: var(--bar); border-top: var(--line); flex: none; background: var(--paper); }
+	.crow .scroll { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-05); padding: 0 var(--space-05); overflow: hidden; white-space: nowrap; }
+	.crow .add { width: 2.75rem; height: 2.75rem; flex: none; display: inline-flex; align-items: center; justify-content: center; background: var(--ink); color: var(--paper); border-radius: 50%; }
+	.crow .ctl { height: 2.75rem; padding: 0 var(--space-05); }
+	.crow .what { display: inline-flex; align-items: center; gap: 0.3rem; color: var(--select-live-text); font-size: var(--caption); text-transform: uppercase; letter-spacing: var(--tracking-label); }
+	.crow .fade { width: 1.5rem; align-self: stretch; margin-left: -1.5rem; background: linear-gradient(90deg, transparent, var(--paper)); flex: none; position: relative; }
+	.crow .ur { display: flex; gap: 0.3rem; padding: 0 var(--space-05) 0 var(--space-025); border-left: 1px solid var(--border-muted); flex: none; }
+	.crow .ur .round { width: 2.5rem; height: 2.5rem; }
+	/* row 2: the sheet's tab row (closed = only this row) */
+	.sheet { flex: none; border-top: var(--line); display: flex; flex-direction: column; background: var(--paper); position: relative; }
+	.sheet .tabs { border-bottom: 0; }
+	.sheet .tabs > span { height: 2.75rem; }
+	.sheet .sbody { display: none; padding: var(--space-075) var(--space-1); overflow: hidden; }
+	.open .sheet { height: 47%; }
+	.open .sheet .tabs { border-bottom: var(--line); }
+	.open .sheet .sbody { display: block; }
+	.grabber { position: absolute; left: calc(50% - 1.5rem); top: 0.2rem; width: 3rem; height: 0.25rem; background: var(--border-muted); }
+	/* the + menu: what can be added, at the strip's centre / the slice in view */
+	.addmenu { display: none; position: absolute; left: 0.5rem; bottom: calc(2 * var(--bar) + 0.5rem); z-index: 6; }
+	.add-open .addmenu { display: block; }
+	.add-open .dimmer { display: block; }
+	.dimmer { display: none; position: absolute; inset: 0; background: rgb(0 0 0 / 0.35); z-index: 5; }
+	.note { left: 0.5rem; right: 0.5rem; bottom: calc(2 * var(--bar) + 0.75rem); max-width: none; }
+	.open .note, .add-open .note { display: none; }
+	.note.n-open { display: none; top: 0.5rem; bottom: auto; }
+	.open .note.n-open { display: block; }
+	.note.n-add { display: none; top: 9rem; bottom: auto; }
+	.add-open .note.n-add { display: block; }
+</style>
+</head>
+<body>
+<div class="papp">
+	<!-- the top bar: hides while scrolling down, comes back on scrolling up (the reader's header) -->
+	<header class="ptop">
+		<span class="round"><i data-i="menu"></i></span>
+		<span class="crumbs"><span>Kap. 2</span><span class="sep">›</span><span>kathedrale</span></span>
+		<span class="round warn-n"><i data-i="alert"></i><em>1</em></span>
+		<span class="round dotted"><i data-i="save"></i></span>
+		<span class="round pub"><i data-i="send"></i></span>
+		<span class="round"><i data-i="more"></i></span>
+	</header>
+
+	<div class="canvas">
+		<div class="pstrip">
+			<div class="sl"><img class="s" src="img/s1c2-slice-37.webp" alt="" /></div>
+			<div class="sl"><img class="s" src="img/s1c2-slice-38.webp" alt="" /></div>
+			<div class="sl"><img class="s" src="img/s1c2-slice-39.webp" alt="" />
+				<div class="ov box sel" style="left:6%; top:84%; width:72%; height:20%; --fs:0.8rem">Alle warteten auf ihn – nur er nicht.
+					<span class="h tl"></span><span class="h tr"></span><span class="h bl"></span><span class="h br"></span>
+					<span class="anchor-tag chip live"><i data-i="anchor"></i>39</span>
+				</div>
+			</div>
+			<div class="sl"><img class="s" src="img/s1c2-slice-40.webp" alt="" />
+				<div class="ov piece" style="left:58%; top:-9%; width:40%"><img src="img/starburst-red-2.svg" alt="" /></div>
+				<div class="ov box letter bubble collide" style="left:30%; top:2%; width:48%; height:13%; --fs:1.1rem">Wo bist du?!</div>
+				<div class="ov chip warn" style="right:2%; top:17%">⚠ verdeckt 39</div>
+				<div class="pseam" style="top:0"><b>40</b></div>
+			</div>
+			<div class="sl"><img class="s" src="img/s1c2-slice-41.webp" alt="" /><div class="pseam" style="top:0"><b>41</b></div></div>
+			<div class="sl"><img class="s" src="img/s1c2-slice-42.webp" alt="" /></div>
+		</div>
+		<span class="zoomchip ctl ink">140 % · Tippen = Breite</span>
+		<div class="dimmer"></div>
+	</div>
+
+	<!-- row 1: + then the context (the selection's actions; nothing selected: the slice in view), scrolling sideways;
+	     undo / redo stay at the right end -->
+	<div class="crow">
+		<div class="scroll">
+			<span class="add"><i data-i="plus"></i></span>
+			<span class="what"><i data-i="type"></i>Text · 39</span>
+			<span class="ctl">Text ändern</span>
+			<span class="ctl">Nach vorn</span>
+			<span class="ctl"><i data-i="scissors"></i></span>
+			<span class="ctl">Kopieren</span>
+			<span class="ctl">Löschen</span>
+		</div>
+		<span class="fade"></span>
+		<div class="ur"><span class="round"><i data-i="undo"></i></span><span class="round"><i data-i="redo"></i></span></div>
+	</div>
+
+	<!-- row 2: the sheet's tab row; a tap opens the sheet on that tab, dragging the row sets its height -->
+	<div class="sheet">
+		<span class="grabber"></span>
+		<div class="tabs">
+			<span><i data-i="rows"></i></span>
+			<span class="on"><i data-i="layers"></i><span class="count">4</span></span>
+			<span><i data-i="music"></i></span>
+			<span><i data-i="zap"></i><span class="count">1</span></span>
+			<span><i data-i="image"></i></span>
+		</div>
+		<div class="sbody">
+			<div class="sec" style="margin-bottom: var(--space-05)"><div class="label">Textbox · Slice 39 · Text · DE ☆</div><div class="ta" style="min-height: 2.75rem">Alle warteten auf ihn – nur er nicht.</div></div>
+			<div class="row"><span class="label">Position</span><span class="ctrls"><span class="f"><span class="tag">X</span>6<span class="u">%</span></span><span class="f"><span class="tag">Y</span>84<span class="u">%</span></span></span></div>
+			<div class="row"><span class="label">Größe</span><span class="ctrls"><span class="f"><span class="tag">W</span>72<span class="u">%</span></span><span class="f"><span class="tag">H</span>20<span class="u">%</span></span></span></div>
+			<p class="hint" style="color: var(--ink)"><span style="color: var(--state-warning)">⚠</span> Unten verdeckt von „WO BIST DU?!“ (Slice 40). <u>Nach vorn</u></p>
+		</div>
+	</div>
+</div>
+
+<div class="menu addmenu">
+	<div><i data-i="type"></i>Text</div>
+	<div><i data-i="package"></i>Item</div>
+	<div><i data-i="shapes"></i>Stück …</div>
+	<div><i data-i="music"></i>Ton</div>
+	<div><i data-i="zap"></i>Event</div>
+	<hr />
+	<div><i data-i="image"></i>Slices einfügen …<span class="k">nach 39</span></div>
+	<div><i data-i="clock"></i>Einfügen (Zwischenablage)</div>
+</div>
+
+<div class="note"><b>Telefon C.</b> Oben: Probleme · Speichern · Veröffentlichen · ••• (Verlauf, Versionen, Leser) – die Leiste
+	verschwindet beim Runterscrollen und kommt beim Hochscrollen zurück, wie im Reader. Unten zwei Zeilen: + und die Aktionen des
+	Gewählten (seitwärts scrollbar), ↶ ↷ rechts; darunter die Tabs des Blatts. Zoom: zwei Finger.</div>
+<div class="note n-open"><b>Blatt offen, runtergescrollt:</b> die obere Leiste ist weg, der Streifen hat den Platz. Mit zwei Fingern gezoomt (140 %): unten links die Stufe, ein Tipp darauf = wieder volle Breite.</div>
+<div class="note n-add"><b>+</b> öffnet, was man hinzufügen kann – an die Slice in der Mitte der Ansicht.</div>
+<script src="icons.js"></script>
+<script>if (document.body.classList.contains('add')) document.body.classList.add('add-open');</script>
+</body>
+</html>

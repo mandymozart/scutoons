@@ -93,8 +93,8 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
 - [ ] 10.100 **Slices as background: endless strip + strip editor** – owner 2026-10-15: "Ditch Swiper. Give our own
   strip an endless drag mode (loop + momentum, no 3D effects)", "having text boxes pass is good as a tool". §8 steps 1–2
   and Swiper's removal live; open: the owner's phone try of the band (real touch), check:resume; the paint rule (§5
-  step 1) + the strip editor (step 2) together, drafts in research/strip-editor/ (§4.1) – `decide` D1 (filmstrip / seam
-  gutter), D2 (phone: tools left / full width); step 3 (scenes inlined – Q3 "ein Dokument" – + slice ids), tall pictures. Own session 2026-10-19.
+  step 1) + the strip editor (step 2) together, drafts in research/strip-editor/ (§4.1) – D1 = filmstrip (picked), `decide`
+  the phone's round C; step 3 (scenes inlined – Q3 "ein Dokument" – + slice ids), tall pictures. Own session 2026-10-19.
   → research/TEXT-ACROSS-SLICES.md §8
 - [ ] 10.106 **Record player: dark bar + a shinier turntable** [owner, later] – owner 2026-10-16: "Later we'll take care of
   the player bar design – it can be inverted and black too", "a shinier look for the turntable / record, maybe a custom
