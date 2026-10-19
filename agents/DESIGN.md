@@ -1029,8 +1029,14 @@ Three kinds, three places; none moves the layout:
   lane carries pictures (the app draws an item's inside); the selected item inverted, the playhead an ink line;
   click / drag the ruler or a lane's background = the playhead (the app selects on release), ← → / Home / End move the
   selection in a lane, Ctrl + wheel / + / − zoom, 0 fits; a kept part (trim) has in / out handles (← → by the lane's
-  step, Shift ×10, Alt ×0.1); a lane can be not selectable (a take: a press seeks). No transport in the component – Play, the clock and Space belong to the app (the score's
-  pedal keys stay free).
+  step, Shift ×10, Alt ×0.1); a lane can be not selectable (a take: a press seeks); a hover shows the app's preview
+  next to the cursor (the studio: the clip's first frame). No transport in the component – Play, the clock and Space
+  belong to the app (the score's pedal keys stay free).
+- **Order is space, time is clips** (owner 2026-10-19: "every scene is first of all spatial in the webtoon … the left side
+  is our timeline vertically, the toon order"): a list in reading order (the studio's shot list, the creator's slices)
+  is the order; a time axis only for what really runs – clips, takes, videos, audio, live. The studio's timeline shows
+  the picked shots' clips; the view mode Shot · Take · Rendered · Generated (a square `Segmented`, like Blender's viewport
+  shading) says which clip and what the main view shows.
 
 ### Phones and tablets (owner-approved phone draft 2026-10-07, BACKLOG 10.50, UI-CONCEPTS E.9) – creator, admin, embassy
 

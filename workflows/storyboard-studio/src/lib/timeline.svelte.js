@@ -1,77 +1,269 @@
-// The studio's side of the shared Timeline (@scutoons/ui – the view has no transport, research/TIMELINE.md): the lanes
-// for the step, the one playhead (ms on the chapter's axis), the zoom per chapter, and what a seek / select / trim does –
-// a seek in the Shots lane picks the shot under the playhead on release (unsaved changes ask once), a seek or trim on the
-// Take lane previews that moment in the 3D view, the take's Play moves the same playhead.
+// The studio's side of the shared Timeline (@scutoons/ui – no transport inside, research/TIMELINE.md §1). Owner
+// 2026-10-19: "time is relative and only will play a role in the live performance mode or if videos get rendered as shot
+// in the webtoon … depending on how long a camera is recorded and or trimmed to, thats the length of that clip for that
+// shot". The clips of the PICKED shots in the step's view mode (timeline-lanes.js; the clips from GET /api/clips), the
+// one playhead (ms), and the transport: Play runs the sequence – a video clip plays its <video> (ClipView; the clock
+// while it plays), a take its camera in the 3D view (preview), a still waits its 5 s; a Take-mode take only its kept
+// part. In Shot / Take mode the clip under the playhead makes its shot the current one (a seek on release, Play when it
+// crosses – unsaved changes ask, a refusal stops Play); in the video modes the current shot stays. Play ends on a seek,
+// a step / chapter / mode / picked-set change, another current shot than Play's, the timeline folding (App). No Space
+// key (the score's pedal keys stay free).
 import { untrack } from 'svelte';
-import { itemAt } from '@scutoons/ui/timeline';
-import { allShots, pickShot, studio } from './studio.svelte.js';
-import { activeTake, hh, pause, play, preview, saveDoc } from './handheld/handheld.svelte.js';
-import { revealOf, shotsLane, takeLane } from './timeline-lanes.js';
+import { api, ch, notify, pickedShots, pickShot, studio, toon } from './studio.svelte.js';
+import { activeTake, endPreview, hh, preview, saveDoc } from './handheld/handheld.svelte.js';
+import { steps } from './steps.svelte.js';
+import { out } from './output.svelte.js';
+import { clipAt, clipsLane, isVideo, kept } from './timeline-lanes.js';
 
-export const tl = $state({ playhead: 0, zoom: 1 });
+export const tl = $state({
+	playhead: 0,
+	zoom: 1,
+	playing: false,
+	/** GET /api/clips of the chapter: { [shot]: { take, rendered, generated } } */
+	clips: {},
+	/** video lengths read from their metadata (url → ms) where the API had none */
+	known: {}
+});
+/** the main view's <video> while a video clip shows (ClipView) – the transport's clock (not state: an element) */
+export const media = { video: null };
 
-/** the zoom per chapter and step (the Shots step's overview, the Handheld step's close-up on the take) */
-const zoomKey = (step) => `storyboard-studio:timeline-zoom:${studio.chapter}:${step}`;
-export function loadZoom(step) {
-	try { tl.zoom = Math.max(1, Number(localStorage.getItem(zoomKey(step))) || 1); } catch { tl.zoom = 1; }
+const followsShot = (mode) => mode === 'shot' || mode === 'take';
+const inside = (it, t) => !!it && t >= it.start && t < it.start + it.length;
+/** where Play / a pick puts the playhead in a clip: its start – a Take-mode take's in */
+const startOf = (it) => it.start + (it.trim?.in ?? 0);
+
+/** the current shot's active take as its takes file has it now (a trim shows while it is dragged), ms as clips.mjs */
+function liveTake() {
+	const take = hh.doc?.on ? activeTake() : null;
+	const last = take?.samples?.at(-1)?.t;
+	const length = Math.round(last * 1000);
+	if (!(length > 0)) return null;
+	// as clips.mjs activeTake: a missing in = 0, a missing out = the take's end
+	const tin = Math.min(length, Math.max(0, Math.round((Number(take.in) || 0) * 1000)));
+	const tout = Math.max(tin, Math.min(length, Math.round((Number.isFinite(Number(take.out ?? NaN)) ? Number(take.out) : last) * 1000)));
+	return { id: take.id, in: tin, out: tout, length, kept: tout - tin };
 }
-/** remembers the zoom (writes no state, so an $effect calling it does not loop) */
-export function keepZoom(z, step) {
-	try { if (z > 1) localStorage.setItem(zoomKey(step), String(+z.toFixed(3))); else localStorage.removeItem(zoomKey(step)); } catch { /* not remembered */ }
+
+/** the timeline in a view mode – call inside a $derived: { mode, lanes, items, span, probe, sel (the current's clip) } */
+export function timelineOf(mode) {
+	const id = studio.sel?.id;
+	const live = id && hh.docShot === id && hh.doc ? { [id]: liveTake() } : {};
+	const { lane, span, probe } = clipsLane(pickedShots(), mode, tl.clips, tl.known, live);
+	return { mode, lanes: [lane], items: lane.items, span, probe, sel: lane.items.find((i) => i.id === id) ?? null };
 }
 
-/** the lanes etc. for a step (`withTake`: the Handheld step) – call inside a $derived */
-export function timelineOf(withTake) {
-	const shots = allShots().map((s) => ({ id: s.id, seconds: s.seconds, scene: s.scene, review: s.shot.review?.status }));
-	const { lane, markers, span } = shotsLane(shots);
-	const sel = lane.items.find((i) => i.id === studio.sel?.id) ?? null;
-	// the take only while the shot's handheld camera is on (as the Handheld panel's takes – the old take bar too)
-	const take = withTake && sel && hh.doc?.on && hh.docShot === sel.id ? takeLane(activeTake(), sel.start) : null;
-	return { lanes: take ? [lane, take] : [lane], markers, span: Math.max(span, take ? take.items[0].start + take.items[0].length : 0), sel, take, reveal: revealOf(sel, take) };
+/** the take moment (ms of the whole take) the 3D view shows for the clip under the playhead – only the current shot's
+ *  active take, its takes file loaded; else null */
+function takeMoment(cur) {
+	const it = cur?.item;
+	if (it?.clip.source !== 'take' || it.id !== studio.sel?.id || hh.docShot !== it.id || !hh.doc) return null;
+	return activeTake()?.id === it.clip.take?.id ? it.clip.from + cur.off : null;
 }
 
-/** the playhead follows the selection – to the shot's start when it is outside the shot (a list / stepper pick; a seek
- * that picked the shot stays where it was released, so ← → on the ruler keep their step) – and the take's preview
- * (Play, a handle) */
-export function followPlayhead(view) {
+// --- the clips data ---------------------------------------------------------------------------------------------------
+let lastError = '';
+let loadedFor = '';
+async function loadClips() {
+	const chapter = studio.chapter;
+	if (!chapter) return;
+	try {
+		const clips = await api('GET', `/api/clips?toon=${toon()}&ch=${ch()}`);
+		if (studio.chapter === chapter) [tl.clips, loadedFor] = [clips ?? {}, chapter];
+		lastError = '';
+	} catch (e) {
+		if (studio.chapter === chapter) tl.clips = {};
+		// one toast per kind of failure, not one per reload
+		if (e?.message !== lastError) notify(`The clips: ${(lastError = e?.message ?? String(e))}`, 'error');
+	}
+}
+const probing = new Set();
+/** a video's length from its metadata, once per url (the API could not read it) */
+function probe(url) {
+	if (probing.has(url)) return;
+	probing.add(url);
+	const v = document.createElement('video');
+	v.preload = 'metadata';
+	v.muted = true;
+	const done = () => { v.onloadedmetadata = v.onerror = null; v.removeAttribute('src'); v.load(); };
+	v.onloadedmetadata = () => { if (Number.isFinite(v.duration) && v.duration > 0) tl.known = { ...tl.known, [url]: Math.round(v.duration * 1000) }; done(); };
+	// a file that can't be read keeps its 5 s (ClipView says it can't be played)
+	v.onerror = done;
+	v.src = url;
+}
+
+/** App: the clips follow the chapter, the version (a generator finished, a save), the renders, the current shot and its
+ *  takes; the playhead follows the current shot; the 3D view shows the take's moment under the playhead */
+export function useTimeline(view, cur) {
+	viewOf = view;
+	let timer;
 	$effect(() => {
-		const id = view().sel?.id;
-		if (id) untrack(() => { const v = view(); if (!inItem(v.sel, tl.playhead) && !inTake(v, tl.playhead)) tl.playhead = v.sel.start; });
+		void [studio.chapter, studio.version, out.results, studio.sel?.id, hh.doc?.takes?.length, hh.doc?.active, hh.doc?.on];
+		// a new chapter at once; else a little later – a trim's save (saveDoc later) is written first
+		clearTimeout(timer);
+		timer = setTimeout(loadClips, loadedFor === studio.chapter ? 500 : 0);
+		return () => clearTimeout(timer);
+	});
+	$effect(() => view().probe.forEach(probe));
+	// Play ends when what it plays changes under it – the step (its timeline may fold), the chapter, the mode, the picked
+	// set – or another shot becomes current than the one Play crossed into (the list, the stepper, a note); before the
+	// playhead's effect below, so that one puts the playhead on the new current shot
+	const played = $derived(`${steps.current}|${studio.chapter}|${view().mode}|${view().items.map((i) => i.id)}`);
+	$effect(() => {
+		void played;
+		untrack(stop);
 	});
 	$effect(() => {
-		const v = view();
-		if (v.take && hh.docShot === v.sel?.id) { const at = v.take.items[0].start + hh.playhead * 1000; untrack(() => (tl.playhead = at)); }
+		const id = studio.sel?.id;
+		untrack(() => id !== asked && stop());
 	});
+	// the current shot, the mode or the picked set changed (a pick in the list, the stepper, a click on a clip): the
+	// playhead to the current's clip – unless it is on it already (a seek that picked it) or Play runs
+	const key = $derived(`${studio.sel?.id}|${view().mode}|${view().items.map((i) => i.id)}|${view().sel?.start}`);
+	$effect(() => {
+		void key;
+		untrack(() => {
+			const s = view().sel;
+			if (s && !tl.playing && !inside(s, tl.playhead)) tl.playhead = startOf(s);
+		});
+	});
+	// a take under the playhead: its camera at that moment (as the old take lane – a press, a trim, Play); anything else
+	// gives the camera back to the shot. The phone's live pose keeps it (stopLive gives it back). Only when the moment or
+	// its take changes – a reload of the clips (a save) never takes the camera back after "Back to the shot camera".
+	const moment = $derived(takeMoment(cur()));
+	const whose = $derived(moment === null ? '' : `${studio.sel?.id}/${hh.doc?.active}`);
+	$effect(() => {
+		const [at] = [moment, whose];
+		untrack(() => {
+			cancelAnimationFrame(retry);
+			if (hh.live) return;
+			if (at !== null) hold(at / 1000);
+			else if (hh.held) endPreview();
+		});
+	});
+	$effect(() => () => { stop(); cancelAnimationFrame(retry); });
 }
-const inTake = (v, t) => !!v.take && t >= v.take.items[0].start && t <= v.take.items[0].start + v.take.items[0].length;
-const inItem = (it, t) => !!it && t >= it.start && t < it.start + it.length; // as itemAt
 
+let retry = 0;
+/** the take's camera at `s` in the 3D view – while the view rebuilds (a new shot) it takes no pose: again on the next
+ *  frames until it holds (at most ≈ 15 s, the view's build limit) */
+function hold(s) {
+	let n = 0;
+	const again = () => {
+		preview(s);
+		if (!hh.held && !hh.live && ++n < 900) retry = requestAnimationFrame(again);
+	};
+	again();
+}
+/** the header's "Back to the shot camera": the shot's own camera until the playhead moves again */
+export function backToShot() {
+	cancelAnimationFrame(retry);
+	endPreview();
+}
+
+// --- what the timeline asks -------------------------------------------------------------------------------------------
 export function seek(v, t, final) {
+	stop();
 	tl.playhead = t;
-	if (inTake(v, t)) {
-		pause();
-		preview((t - v.take.items[0].start) / 1000);
+	if (!final || !followsShot(v.mode)) return;
+	const it = clipAt(v.items, t)?.item;
+	// a cancelled "Discard the changes?" keeps the shot – the playhead goes back to it
+	if (it && it.id !== studio.sel?.id) pickShot(it.id).then((ok) => { if (!ok && v.sel) tl.playhead = startOf(v.sel); });
+}
+
+/** a click on a clip: its shot becomes the current one (in every mode – the panels edit it) */
+export function select(v, laneId, id) {
+	stop();
+	pickShot(id);
+}
+
+let picking = null;
+/** a trim handle (Take mode): the kept part of the current shot's take, the 3D view at the moved point; a take of another
+ *  shot first becomes the current one (its takes file loads – then the handles trim it) */
+export function trim(v, laneId, id, k, final) {
+	stop();
+	const it = v.items.find((i) => i.id === id);
+	if (!it?.trim) return;
+	tl.playhead = it.start + Math.min(k.in !== it.trim.in ? k.in : k.out, it.length - 1);
+	if (id !== studio.sel?.id) {
+		if (picking !== id) pickShot((picking = id)).finally(() => (picking = null));
 		return;
 	}
-	if (!final) return;
-	const hit = itemAt(v.lanes[0].items, t);
-	// a cancelled "Discard the changes?" keeps the shot – the playhead goes back to it (its take's moment, else its start)
-	if (hit && hit.id !== studio.sel?.id) pickShot(hit.id).then((ok) => { if (!ok && v.sel) tl.playhead = v.take ? v.take.items[0].start + hh.playhead * 1000 : v.sel.start; });
-}
-
-export function select(laneId, id) {
-	if (laneId === 'shots') pickShot(id);
-}
-
-export function trim(v, laneId, id, kept, final) {
 	const take = activeTake();
-	if (laneId !== 'take' || !take || take.id !== id) return;
-	const moved = kept.in !== Math.round(take.in * 1000) ? kept.in : kept.out;
-	take.in = +(kept.in / 1000).toFixed(3);
-	take.out = +(kept.out / 1000).toFixed(3);
-	pause();
-	preview(moved / 1000);
+	if (hh.docShot !== id || !take || take.id !== it.clip.take?.id) return;
+	take.in = +(k.in / 1000).toFixed(3);
+	take.out = +(k.out / 1000).toFixed(3);
 	if (final) saveDoc(true);
 }
 
-export const togglePlay = () => (hh.playing ? pause() : play());
+// --- the transport ----------------------------------------------------------------------------------------------------
+let viewOf = () => null;
+let raf = 0;
+let last = 0;
+/** a shot Play crossed into, while "Discard the changes?" asks (the clock waits); `asked` = the current shot Play
+ *  started on / made current (another one ends Play); `runs` counts the playbacks */
+let crossing = null;
+let asked = null;
+let runs = 0;
+
+export const togglePlay = () => (tl.playing ? stop() : start());
+
+function start() {
+	const v = viewOf();
+	if (!v?.items.length) return;
+	tl.playhead = kept(v.items, tl.playhead >= v.span - 1 ? 0 : tl.playhead);
+	tl.playing = true;
+	asked = studio.sel?.id ?? null;
+	runs++;
+	last = performance.now();
+	raf = requestAnimationFrame(tick);
+}
+
+export function stop() {
+	if (!tl.playing) return;
+	tl.playing = false;
+	cancelAnimationFrame(raf);
+	crossing = null;
+	hh.playing = false;
+}
+
+/** the clock: a video clip's own time while it plays (or loads), else the frame time */
+function clockAt(it, t, dt) {
+	const el = media.video;
+	if (!isVideo(it.clip.source) || el?.dataset.url !== it.clip.url || el.error) return t + dt;
+	if (el.ended) return it.start + it.length;
+	if (!el.paused || el.readyState < 2) return it.start + Math.min(el.currentTime * 1000, it.length);
+	return t + dt;
+}
+
+function tick(now) {
+	if (!tl.playing) return;
+	const dt = now - last;
+	last = now;
+	raf = requestAnimationFrame(tick);
+	if (crossing) return;
+	const v = viewOf();
+	const c = v && clipAt(v.items, tl.playhead);
+	if (!c) return stop();
+	const t = kept(v.items, clockAt(c.item, tl.playhead, dt));
+	// the phone's pose rests while Play runs (handheld.svelte.js onPose)
+	hh.playing = true;
+	if (t >= v.span) {
+		tl.playhead = v.span;
+		return stop();
+	}
+	tl.playhead = t;
+	const it = clipAt(v.items, t)?.item;
+	if (!it || !followsShot(v.mode) || it.id === studio.sel?.id) return;
+	const run = runs;
+	crossing = asked = it.id;
+	pickShot(it.id).then((ok) => {
+		if (run !== runs) return; // stopped and started again meanwhile
+		crossing = null;
+		last = performance.now();
+		if (ok) return;
+		// refused: Play ends on the shot that stays – the main view shows it again (as a refused seek)
+		stop();
+		const s = viewOf()?.sel;
+		if (s) tl.playhead = startOf(s);
+	});
+}

@@ -17,22 +17,29 @@ npm run dev:studio
 
 Owner 2026-10-19 (research/STUDIO-LAYOUT.md, concept C stage 1): **steps** over one layout that always looks the same –
 "it makes sense for it to always look the same". The top bar's step tabs (keys **1–6**): **Script · Shots · Layout ·
-Handheld · Generate · Export**. A step only changes which dock panels are open, the Shot panel's tab, the timeline's fold
-and the panels' widths – each step remembers its own (localStorage `storyboard-studio:step:<id>`,
-`storyboard-studio:<step>:<kind>`); the selected shot is shared by every step.
+Handheld · Generate · Export**. A step only changes which dock panels are open, the Shot panel's tab, the timeline's view
+mode (= what the main view shows), its fold and the panels' widths – each step remembers its own (localStorage
+`storyboard-studio:step:v2:<id>`, `storyboard-studio:<step>:<kind>`); the current and the picked shots are shared by
+every step.
 
-| Step | Opens the first time | Timeline |
+| Step | Opens the first time | Timeline (view mode) |
 | --- | --- | --- |
-| Script | Shot (tab Shot) + Script | folded |
-| Shots | Shot (tab Shot) | Shots |
-| Layout | Shot (tab Camera) | Shots |
-| Handheld | Handheld | Shots + the take's trim |
-| Generate | Generate + Variants; the ActionBar's Review (Approve / Ask for a change) | Shots |
-| Export | Output | folded |
+| Script | Shot (tab Shot) + Script | folded (Shot) |
+| Shots | Shot (tab Shot) | folded (Shot) |
+| Layout | Shot (tab Camera) | folded (Shot) |
+| Handheld | Handheld | open (Take – the take's trim) |
+| Generate | Generate + Variants; the ActionBar's Review (Approve / Ask for a change) | open (Generated) |
+| Export | Output | folded (Rendered) |
 
-- **Sidebar – the shots** of the chapter in reading order, by scene: frame, id, format, view, review dot (in every step),
-  variants, handheld. Resizable, folds to a rail (**T** or Ctrl + \).
-- **Page – the 3D view**: the shot's scene with the frames' own renderer (`tools/storyboard-render/core.js`), live.
+- **Sidebar – the shots** in the toon's order, by scene (owner 2026-10-19: "the left side is our timeline vertically, the
+  toon order so to speak"): frame, id, format, view, review dot (in every step), variants, handheld. A click = only that
+  shot; **Ctrl / ⌘ + click** adds it to the picked shots (or takes it off), **Shift + click** picks the range from the
+  last clicked one. The last clicked is the **current** shot (inverted – the one the panels edit; unsaved changes ask
+  first), the others picked show an ink frame with a bar; the timeline shows the picked ones. Resizable, folds to a rail
+  (**T** or Ctrl + \).
+- **Page – the main view** follows the clip under the timeline's playhead: the **3D view** for a still or the current
+  shot's take (its camera at that moment), a **video** (a rendered / generated clip, at the playhead's time) or another
+  shot's frame over it – the 3D view stays mounted underneath. **The 3D view**: the shot's scene with the frames' own renderer (`tools/storyboard-render/core.js`), live.
   Drag = orbit, right-drag = pan, wheel = dolly – the camera is written into the shot as a hand camera
   (`camera: { pos, target, fov }`); "Shot camera" goes back to the camera of size + angle. A figure is handled
   directly: drag it = move on the ground (Turn tool: drag sideways = turn), wheel on it = size, Alt + wheel = turn (about
@@ -50,18 +57,26 @@ and the panels' widths – each step remembers its own (localStorage `storyboard
   (scripts/storyboard/luma.js), the render without texts, the references to attach; **Variants** – the saved frame,
   variants (Load / Take this), generated images and videos (Approve as chosen → the dataset); **Output** – the
   chapter's handheld videos and downloads (below).
-- **Timeline** along the bottom, under the 3D view and the panels (owner: "the timeline underneath the other windows
-  was also good"): the shots back to back, each as wide as its reading time, scene numbers on the ruler; click / drag
-  = the playhead, the shot under it is selected on release (unsaved changes ask first); ← → the previous / next shot;
-  Ctrl + wheel or + / − zoom, 0 fits (the zoom per chapter and step); selecting a shot brings it into view. In Handheld
-  the active take of the selected shot is a second lane at the shot's start with its in / out handles, zoomed to it; a
-  press on the take shows that moment in the 3D view, Play plays the kept part, "Back to the shot camera" (and leaving
-  the step) gives the view back. Drag its top edge for the height (one height for
-  all steps), its fold button folds it to a rail (per step). The shared `@scutoons/ui` Timeline (creator-ready: the
-  creator and the live mode will use the same component – research/TIMELINE.md).
+- **Timeline** along the bottom, under the main view and the panels (owner: "the timeline underneath the other windows
+  was also good"; then "every scene is first of all spatial in the webtoon … depending on how long a camera is recorded
+  and or trimmed to, thats the length of that clip for that shot"): only the **picked** shots, back to back in toon
+  order, each ONE clip as long as that clip. The **view mode** in its head (like Blender's viewport shading – "in our
+  case, it is shot/take/rendered/generated") says which clip: **Generated** = the shot's generated video (the approved
+  one, else the newest), **Rendered** = the newest handheld render of the active take (beauty pass), **Take** = the
+  active take (its kept part; in Take mode the whole take with its in / out handles), **Shot** = a still – each falling
+  back down generated → rendered → take → a still of 5 s; a clip's tag says which it is. The clips come from
+  `GET /api/clips` (clips.mjs). Hover a clip: its first frame next to the pointer. Click a clip = its shot current
+  (← → the previous / next clip); click / drag the ruler = the playhead – in Shot / Take mode the shot under it becomes
+  current on release (unsaved changes ask first), in the video modes the current shot stays. **Play** runs the
+  sequence: a video plays (it is the clock), a take moves the 3D view's camera (its kept part), a still waits 5 s; in
+  Shot / Take mode each shot it reaches becomes current (a refused change stops it); a seek, another step, mode or picked
+  set, another current shot (the list, the stepper) or folding the timeline ends it. No Space key. "Back to the shot
+  camera" gives the 3D view back to the shot until the playhead moves. Ctrl + wheel or + / − zoom, 0 fits. Drag its top edge for the height
+  (one height for all steps), its fold button folds it to a rail (per step). The shared `@scutoons/ui` Timeline
+  (creator-ready: the creator and the live mode will use the same component – research/TIMELINE.md).
 - **Top bar**: the chapter, the steps, the panels, **Chapter ▾** (Check, All frames, Reference packs, Chapter draft,
   Add a taste rule …).
-- **ActionBar**: ‹ the shot › (n / N), the chapter's measures, the keys; the storyboard check's notes (a click picks the
+- **ActionBar**: ‹ the shot › (n / N, through the whole toon), the keys; the storyboard check's notes (a click picks the
   shot a note names); Revert · Keep as variant · Review ▾ (Generate) · **Save + frame** (• = unsaved). Messages are
   toasts (bottom left, above the ActionBar).
 
@@ -89,9 +104,9 @@ Owner 2026-10-19: film a shot's blocked scene with the phone, trim, render contr
 - **Record / Stop** on the PC or the phone → a take: samples `{ t, position, quaternion, fov }` (~60 Hz, the scene's
   metres, Y up, glTF's camera convention) in `storyboards/<toon>/<chapter>/takes/<shot>.json` (`{ on, active, takes }`;
   raw samples + the take's smoothing, in / out). Several takes per shot, one active (the radio); delete = the bin.
-- **Trim**: the timeline's Take lane (the Handheld step) – the take at its shot's start on the chapter's axis: drag the
-  in / out handles (or ← → on them by a frame, Shift ×10, Alt ×0.1), click / drag = the playhead, the 3D view shows the
-  moment; the timeline's Play = the kept part. "Shot camera" gives the view back to the orbit.
+- **Trim**: the timeline in Take mode (the Handheld step's) – the take is its shot's clip, the whole take with its in /
+  out handles: drag them (or ← → on them by a frame, Shift ×10, Alt ×0.1), click / drag = the playhead, the 3D view shows
+  the moment; the timeline's Play = the kept parts. "Back to the shot camera" / "Shot camera" give the view back.
 - **Render all handheld shots** (the Export step's **Output** panel): every shot with the camera on and an active take, along its
   trimmed, smoothed track, rendered in the studio's browser with the frames' renderer, at 24 / 25 / 30 fps, 1× or 2×.
   Passes: **Beauty** (the studio look – lines + hatch, also the lineart), **Depth** (white = near, inverse depth with

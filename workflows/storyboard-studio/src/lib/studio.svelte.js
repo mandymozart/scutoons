@@ -1,6 +1,7 @@
-// The studio's state and its calls to the local API (api.mjs). One chapter, one selected shot (edited as a copy until
-// it is saved, shared by every step), the selected figure in the 3D view; the messages as the shared toasts (DESIGN
-// "Notifications").
+// The studio's state and its calls to the local API (api.mjs). One chapter; the CURRENT shot (`sel` – the one the panels
+// edit, as a copy until it is saved, shared by every step) and the PICKED shots (`picked` – the shot list's multi-select,
+// what the timeline shows; owner 2026-10-19: "the other timeline underneath the clip only shows those shots that are
+// selected"); the selected figure in the 3D view; the messages as the shared toasts (DESIGN "Notifications").
 import { confirmDialog, createToaster } from '@scutoons/ui';
 import { shotSpec } from '../../../../tools/storyboard-render/spec.js';
 
@@ -45,8 +46,10 @@ export const studio = $state({
 	/** "catpope/s1c3" */
 	chapter: '',
 	data: null,
-	/** the selected shot: { id, scene (the scene's storyboard), shot (the edited copy) } */
+	/** the current shot: { id, scene (the scene's storyboard), shot (the edited copy) } – the last one clicked */
 	sel: null,
+	/** the picked shots' ids in toon order – always with the current one (pickedShots) */
+	picked: [],
 	dirty: false,
 	/** the figure picked in the 3D view (index) */
 	figure: null,
@@ -83,29 +86,69 @@ export function find(id) {
 	return null;
 }
 
-/** the chapter's shots in reading order (the timeline, the shot stepper) */
+/** the chapter's shots in toon order (the shot list's order – the shot stepper, the picked set) */
 export function allShots() {
 	const list = [];
-	for (const sc of studio.data?.scenes ?? []) for (const g of sc.sb.groups ?? []) for (const shot of g.shots ?? []) list.push({ id: shot.id, shot, scene: sc.sb.source?.scene ?? '', seconds: studio.data.seconds?.[shot.id] ?? 1 });
+	for (const sc of studio.data?.scenes ?? []) for (const g of sc.sb.groups ?? []) for (const shot of g.shots ?? []) list.push({ id: shot.id, shot });
 	return list;
 }
 
+/** the picked shots' ids in toon order, the current one always among them (the timeline's clips) */
+export function pickedShots() {
+	const set = new Set(studio.picked);
+	if (studio.sel) set.add(studio.sel.id);
+	return allShots().filter((s) => set.has(s.id)).map((s) => s.id);
+}
+
+let anchor = null;
+/** a click in the shot list (owner 2026-10-19: "the other timeline underneath the clip only shows those shots that are
+ * selected"): plain = only that shot; `toggle` (Ctrl / ⌘) = in or out of the picked set; `range` (Shift) = the shots
+ * from the last clicked one – none yet (a ?shot= link, the stepper): the current one – (with `toggle` added to the set).
+ * The clicked shot becomes the current one (unsaved changes ask first – pickShot); one taken out of the set hands the
+ * current to its neighbour in the set; the last one stays. */
+export async function clickShot(id, { toggle = false, range = false } = {}) {
+	const order = allShots().map((s) => s.id);
+	const now = pickedShots();
+	const from = order.includes(anchor) ? anchor : studio.sel?.id;
+	let next;
+	if (range && order.includes(from)) {
+		const [a, b] = [order.indexOf(from), order.indexOf(id)].sort((x, y) => x - y);
+		next = [...(toggle ? now : []), ...order.slice(a, b + 1)];
+	} else if (toggle && now.includes(id)) {
+		if (now.length === 1) return true;
+		const rest = now.filter((x) => x !== id);
+		if (id === studio.sel?.id && !(await pickShot(rest[Math.min(now.indexOf(id), rest.length - 1)]))) return false;
+		studio.picked = rest;
+		anchor = id;
+		return true;
+	} else next = [...(toggle ? now : []), id];
+	if (!(await pickShot(id, order.filter((x) => next.includes(x))))) return false;
+	// a range keeps where it started (the next Shift + click spans from there again)
+	anchor = range && order.includes(from) ? from : id;
+	return true;
+}
+
 /** pick a shot (the list, the timeline, the stepper): unsaved changes → an in-page confirmation first; true when `id`
- * is the selected shot afterwards (false: kept the old one – the timeline puts its playhead back) */
-export async function pickShot(id) {
+ * is the current shot afterwards (false: kept the old one – the timeline puts its playhead back). A shot outside the
+ * picked set becomes the only picked one – or `picked` is the new set (the shot list's multi-select). */
+export async function pickShot(id, picked) {
 	if (!id) return false;
-	if (id === studio.sel?.id) return true;
+	if (id === studio.sel?.id) {
+		if (picked) studio.picked = picked;
+		return true;
+	}
 	if (studio.dirty) {
 		const ok = await confirmDialog({ title: 'Discard the changes?', message: `${studio.sel.id} has unsaved changes.`, confirmLabel: 'Discard' });
 		if (!ok) return false;
 	}
-	return select(id);
+	return select(id, picked);
 }
 
-export function select(id) {
+export function select(id, picked) {
 	const hit = find(id);
 	if (!hit) return false;
 	studio.sel = { id, scene: hit.scene, shot: clone(hit.shot) };
+	studio.picked = picked ?? (studio.picked.includes(id) ? studio.picked : [id]);
 	studio.dirty = false;
 	studio.figure = null;
 	history.replaceState(null, '', `?shot=${id}`);

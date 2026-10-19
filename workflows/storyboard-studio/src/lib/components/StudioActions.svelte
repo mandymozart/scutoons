@@ -1,7 +1,7 @@
 <script>
 	// The studio's ActionBar (DESIGN "The bottom bar is grouped", research/STUDIO-LAYOUT.md concept B): the shot stepper
-	// (‹ Shot n / N ›) and the keys on the left (the chapter's measures are the timeline's head – once, "Less UI is better
-	// UI"); the notes (the storyboard check's problems – a click picks the shot a note names), Revert, Keep as variant, in
+	// (‹ Shot n / N › – through the whole toon; a shot outside the picked set becomes the only picked one) and the keys on
+	// the left; the notes (the storyboard check's problems – a click picks the shot a note names), Revert, Keep as variant, in
 	// the Generate step Review (Approve / Ask for a change – owner 2026-10-19: approving happens inside Generate), and
 	// Save + frame as the one primary, last. It stays while a panel is maximized (DOCKING "Maximize").
 	import { ActionBar, Icon, Menu } from '@scutoons/ui';
@@ -24,9 +24,9 @@
 <ActionBar label="Shot actions">
 	{#snippet start()}
 		<div class="sc-seg" role="group" aria-label="Shot">
-			<button type="button" class="is-square" aria-label="Previous shot" title="Previous shot (←  on the timeline)" disabled={at <= 0} onclick={() => step(-1)}><Icon name="chevron-left" /></button>
+			<button type="button" class="is-square" aria-label="Previous shot" title="Previous shot in the toon" disabled={at <= 0} onclick={() => step(-1)}><Icon name="chevron-left" /></button>
 			<span class="where" aria-live="polite">{at >= 0 ? `${studio.sel.id} · ${at + 1} / ${shots.length}` : `${shots.length} shots`}</span>
-			<button type="button" class="is-square" aria-label="Next shot" title="Next shot (→ on the timeline)" disabled={at >= shots.length - 1} onclick={() => step(1)}><Icon name="chevron-right" /></button>
+			<button type="button" class="is-square" aria-label="Next shot" title="Next shot in the toon" disabled={at >= shots.length - 1} onclick={() => step(1)}><Icon name="chevron-right" /></button>
 		</div>
 		<span class="keys" title={ALL_KEYS}>
 			{#each KEYS as [a, b, word] (word)}<span class="key"><kbd>{a}</kbd>{#if b}{a === 'Ctrl' ? '+' : '–'}<kbd>{b}</kbd>{/if} {word}</span>{/each}

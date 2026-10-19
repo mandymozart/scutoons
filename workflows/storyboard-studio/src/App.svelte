@@ -1,21 +1,27 @@
 <script>
 	// The storyboard studio (owner 2026-10-09: "use our scutoons ui and design dogmas"; 2026-10-19: research/STUDIO-LAYOUT.md
 	// concept C, stage 1 = step tabs on the dock). One AppShell like the tools, the same in every step ("it makes sense for
-	// it to always look the same"): the shots as the sidebar, the 3D view as the page, the step's panels in the right dock
-	// (each with the creator's head, folds to its rail, drags wider), the timeline along the bottom under the view and the
-	// panels (owner: "the timeline underneath the other windows was also good"), the ActionBar. A step only changes which
-	// panels are open, the Shot panel's tab, the timeline's fold and the panels' widths (steps.svelte.js). Keys outside text
+	// it to always look the same"): the shots as the sidebar (the toon's order – a click picks one, Ctrl / Shift + click
+	// more), the main view as the page, the step's panels in the right dock (each with the creator's head, folds to its
+	// rail, drags wider), the timeline along the bottom under the view and the panels (owner: "the timeline underneath the
+	// other windows was also good") – the picked shots' clips in the step's view mode –, the ActionBar. The main view
+	// follows the clip under the playhead: the 3D view (a still, the current shot's take) or ClipView over it (a video, or
+	// another shot's frame) – the 3D view stays mounted underneath (WebGL). A step only changes which panels are open, the
+	// Shot panel's tab, the view mode, the timeline's fold and the panels' widths (steps.svelte.js). Keys outside text
 	// fields: 1–6 the step, T the shot list, N the step's panels; Ctrl + Space, Ctrl + \, Ctrl + Shift + \ as in the creator.
 	// agents/DOCKING.md, DESIGN.md.
 	import { onMount, untrack } from 'svelte';
-	import { AppShell, DialogHost, installTooltips, panelHeight, panelWidth, Segmented, ToastStack, useDock } from '@scutoons/ui';
+	import { AppShell, DialogHost, installTooltips, panelHeight, panelWidth, Segmented, shellDock, ToastStack, useDock } from '@scutoons/ui';
 	import { fail, loadChapters, studio, toaster } from './lib/studio.svelte.js';
+	import { stop, timelineOf, tl, useTimeline } from './lib/timeline.svelte.js';
+	import { clipAt, isVideo } from './lib/timeline-lanes.js';
 	import { here, isOpen, PANELS, setOpen, setStep, setTab, setTimeline, SHOT_TABS, STEPS, steps } from './lib/steps.svelte.js';
 	import { followSelection } from './lib/handheld/handheld.svelte.js';
 	import TopBar from './lib/components/TopBar.svelte';
 	import ShotList from './lib/components/ShotList.svelte';
 	import Viewport from './lib/components/Viewport.svelte';
 	import Timeline from './lib/components/Timeline.svelte';
+	import ClipView from './lib/components/ClipView.svelte';
 	import StudioActions from './lib/components/StudioActions.svelte';
 	import StudioPanel from './lib/components/StudioPanel.svelte';
 	import ShotPanel from './lib/components/ShotPanel.svelte';
@@ -47,10 +53,25 @@
 	});
 	$effect(() => {
 		const open = !timeline.folded;
-		untrack(() => setTimeline(open));
+		// folded, its Pause is out of sight: Play ends
+		untrack(() => {
+			setTimeline(open);
+			if (!open) stop();
+		});
+	});
+	// a maximized region rails the timeline without folding it – its Pause is out of sight too: Play ends
+	$effect(() => {
+		if (shellDock.maximized) untrack(stop);
 	});
 
+	// the timeline: the picked shots' clips in the step's view mode, the clip under the playhead (the main view follows it)
+	const view = $derived(timelineOf(here().view));
+	const cur = $derived(clipAt(view.items, tl.playhead));
+	// ClipView over the 3D view: a video clip – or a still / take of a shot that isn't the current one (its frame)
+	const clip = $derived(cur && (isVideo(cur.item.clip.source) || cur.item.id !== studio.sel?.id) ? cur : null);
+
 	followSelection();
+	useTimeline(() => view, () => cur);
 	onMount(() => {
 		installTooltips();
 		loadChapters().catch(fail);
@@ -86,11 +107,11 @@
 {#snippet handheldBody()}<StudioPanel title={titleOf(PANELS[2])} icon="smartphone" onclose={() => setOpen('handheld', false)}><HandheldPanel /></StudioPanel>{/snippet}
 {#snippet generateBody()}<StudioPanel title={titleOf(PANELS[3])} icon="zap" onclose={() => setOpen('generate', false)}><GeneratePanel /></StudioPanel>{/snippet}
 {#snippet promptBody()}<StudioPanel title={titleOf(PANELS[4])} icon="send" onclose={() => setOpen('prompt', false)}><PromptPanel /></StudioPanel>{/snippet}
-{#snippet variantsBody()}<StudioPanel title={titleOf(PANELS[5])} icon="layers" onclose={() => setOpen('variants', false)}><VariantsPanel /></StudioPanel>{/snippet}
+{#snippet variantsBody()}<StudioPanel title={titleOf(PANELS[5])} icon="grid" onclose={() => setOpen('variants', false)}><VariantsPanel /></StudioPanel>{/snippet}
 {#snippet outputBody()}<StudioPanel title="Output" icon="download" onclose={() => setOpen('output', false)}><OutputPanel /></StudioPanel>{/snippet}
 
 {#snippet bottom()}
-	<Timeline step={steps.current} onfold={() => timeline.fold(true)} />
+	<Timeline {view} onfold={() => timeline.fold(true)} />
 {/snippet}
 
 <div class="studio sc-tool">
@@ -101,7 +122,10 @@
 		{#snippet sidebar()}
 			<ShotList />
 		{/snippet}
-		<Viewport />
+		<div class="main">
+			<div class="three" inert={!!clip}><Viewport /></div>
+			{#if clip}<ClipView {clip} playing={tl.playing} />{/if}
+		</div>
 		<StudioActions />
 	</AppShell>
 	<ToastStack {toaster} />
@@ -119,6 +143,15 @@
 		:global(html:root) {
 			font-size: 90%;
 		}
+	}
+	/* the main view: the 3D view, ClipView over it while a clip shows */
+	.main {
+		position: relative;
+		height: 100%;
+		min-height: 0;
+	}
+	.three {
+		height: 100%;
 	}
 	.studio {
 		height: 100dvh;

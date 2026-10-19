@@ -1,72 +1,84 @@
 <script>
-	// The studio's timeline along the bottom, under the 3D view and the panels (owner 2026-10-19: "Actually the timeline
-	// underneath the other windows was also good"): the shared @scutoons/ui Timeline (creator-ready – research/TIMELINE.md)
-	// with the studio's lanes (timeline.svelte.js): the Shots lane – each shot as wide as its reading time, its frame,
-	// review dot and handheld mark, the scenes on the ruler – and in the Handheld step the selected shot's take at the
-	// shot's start with its trim. The header: the measures, Play for the take (and back to the shot camera while a take's
-	// moment holds the 3D view), the fold. AppShell bottom region (App).
-	import { untrack } from 'svelte';
-	import { FoldButton, Icon, IconButton, Timeline } from '@scutoons/ui';
+	// The studio's timeline along the bottom, under the main view and the panels (owner 2026-10-19: "the timeline
+	// underneath the other windows was also good"; then "the other timeline underneath the clip only shows those shots
+	// that are selected, not all"): the shared @scutoons/ui Timeline (research/TIMELINE.md) with ONE lane – the picked
+	// shots' clips back to back, each as long as its clip in the view mode (timeline.svelte.js, timeline-lanes.js); a clip
+	// shows the shot's frame and a tag with its source (still · take · rendered · generated). The header: the view mode
+	// (a square Segmented, the step's main view – "like in blender … shot/take/rendered/generated"), the clips' count and
+	// length, "Back to the shot camera" while a take's moment holds the 3D view, Play / Pause for the sequence, the fold.
+	// A hover shows the clip's first frame next to the pointer (the Timeline's `preview`). AppShell bottom region (App).
+	import { FoldButton, Icon, IconButton, Segmented, Timeline } from '@scutoons/ui';
 	import { formatTime } from '@scutoons/ui/timeline';
 	import { ch, studio } from '../studio.svelte.js';
-	import { endPreview, hh } from '../handheld/handheld.svelte.js';
-	import { followPlayhead, keepZoom, loadZoom, seek, select, timelineOf, tl, togglePlay, trim } from '../timeline.svelte.js';
+	import { here, setView, VIEW_MODES } from '../steps.svelte.js';
+	import { hh } from '../handheld/handheld.svelte.js';
+	import { backToShot, seek, select, tl, togglePlay, trim } from '../timeline.svelte.js';
+	import { isVideo } from '../timeline-lanes.js';
 
-	/** @type {{ step: string, onfold: () => void }} */
-	let { step, onfold } = $props();
-	const view = $derived(timelineOf(step === 'handheld'));
-	followPlayhead(() => view);
-	// the zoom per chapter and step: read when either changes, kept when it changes; in Handheld the take's reveal sets it
-	// (zoomed to the take to trim it) – reading a remembered zoom there would undo that
-	$effect(() => { void studio.chapter; if (step !== 'handheld') loadZoom(step); });
-	$effect(() => { keepZoom(tl.zoom, step); });
+	/** @type {{ view: { mode: string, lanes: any[], items: any[], span: number, sel: any }, onfold: () => void }} */
+	let { view, onfold } = $props();
+	const SOURCES = {
+		still: { icon: 'image', word: 'still' },
+		take: { icon: 'smartphone', word: 'take' },
+		rendered: { icon: 'film', word: 'rendered' },
+		generated: { icon: 'zap', word: 'generated' }
+	};
 	const selected = $derived(view.sel ? [view.sel.id] : []);
-	// a take's moment holds the 3D view only while its lane shows: leaving the Handheld step or the take going (deleted,
-	// Handheld off, another shot) gives the camera back to the orbit and the figures and stops Play – they are measured
-	// and written through the shot's camera (Viewport). The phone's live pose keeps it (stopLive gives it back).
-	const takeShown = $derived(!!view.take);
-	$effect(() => { if (!takeShown && hh.held && !hh.live) untrack(endPreview); });
+	const reveal = $derived(view.sel ? [view.sel.start, view.sel.start + view.sel.length] : undefined);
+	const frame = (id) => `/out/${ch()}/frames/${id}.png?v=${studio.version}`;
+	const short = (id) => id.replace(/^sb-/, '');
 	// a frame that is still missing stays black (the frames are rendered by "All frames" / Save + frame)
 	const missing = (e) => e.currentTarget.classList.add('missing');
 </script>
 
-{#snippet item(it, lane)}
-	{#if lane.id === 'shots'}
-		<img src={`/out/${ch()}/frames/${it.id}.png?v=${studio.version}`} alt="" loading="lazy" draggable="false" onerror={missing} onload={(e) => e.currentTarget.classList.remove('missing')} />
-		<span class="tag"><span class="dot {it.state}"></span><span class="id">{it.id.replace(/^sb-/, '')}</span>{#if studio.data?.handheld?.[it.id] != null}<Icon name="smartphone" size="0.9em" />{/if}</span>
-	{:else}
-		<span class="tag"><span class="id">{it.label}</span></span>
-	{/if}
+{#snippet item(it)}
+	{@const s = SOURCES[it.state] ?? SOURCES.still}
+	<img src={frame(it.id)} alt="" loading="lazy" draggable="false" onerror={missing} onload={(e) => e.currentTarget.classList.remove('missing')} />
+	<span class="tag" data-source={it.state}><Icon name={s.icon} size="0.9em" /><span class="id">{short(it.id)}</span><span class="word">{s.word}</span></span>
+{/snippet}
+
+<!-- next to the pointer: the clip's first frame (a video's frame 0; a take / a still: the shot's frame), the shot, the time -->
+{#snippet preview(it, lane, t)}
+	<span class="peek">
+		{#if isVideo(it.clip.source)}
+			<video src="{it.clip.url}#t=0.001" preload="metadata" muted playsinline></video>
+		{:else}
+			<img src={frame(it.id)} alt="" onerror={missing} />
+		{/if}
+		<span class="line">{it.id} · {SOURCES[it.state]?.word ?? ''}</span>
+		<span class="line">{formatTime(t - it.start, 's', 1)} of {formatTime(it.length, 's', 1)}</span>
+	</span>
 {/snippet}
 
 <div class="studio-timeline">
 	<header>
 		<h2><Icon name="film" /> Timeline</h2>
-		<span class="cap" title="Reading time: the shots' measured seconds (scripts/storyboard RHYTHM)">{view.lanes[0].items.length} shots · ≈ {formatTime(view.span)} reading{view.sel ? ` · ${view.sel.id} at ${formatTime(tl.playhead)}` : ''}</span>
+		<Segmented label="View mode – which clip and what the main view shows" radio options={VIEW_MODES} value={here().view} onchange={setView} />
+		<span class="cap">{view.items.length} clip{view.items.length === 1 ? '' : 's'} · {formatTime(view.span)}</span>
 		<span class="grow"></span>
-		{#if view.take}
-			<span class="cap">Take {view.take.items[0].id} · kept {formatTime(view.take.items[0].trim.out - view.take.items[0].trim.in, 's')}</span>
-			{#if hh.held && !hh.live}<IconButton label="Back to the shot camera" class="sc-round" onclick={endPreview}><Icon name="video" /></IconButton>{/if}
-			<IconButton label={hh.playing ? 'Pause' : 'Play the kept part'} class="sc-round" onclick={togglePlay}><Icon name={hh.playing ? 'pause' : 'play'} /></IconButton>
-		{/if}
+		{#if hh.held && !hh.live}<IconButton label="Back to the shot camera" class="sc-round" onclick={backToShot}><Icon name="video" /></IconButton>{/if}
+		<IconButton label={tl.playing ? 'Pause' : 'Play the clips'} class="sc-round" disabled={!view.items.length} onclick={togglePlay}><Icon name={tl.playing ? 'pause' : 'play'} /></IconButton>
 		<FoldButton side="bottom" label="Fold the timeline" controls="sc-shell-bottom" onclick={onfold} testid="timeline-fold" />
 	</header>
-	<Timeline
-		label="Timeline"
-		lanes={view.lanes}
-		span={view.span}
-		markers={view.markers}
-		playhead={tl.playhead}
-		{selected}
-		bind:zoom={tl.zoom}
-		reveal={view.reveal}
-		revealFill={view.take ? 0.5 : 0}
-		follow={hh.playing}
-		{item}
-		onseek={(t, final) => seek(view, t, final)}
-		onselect={select}
-		ontrim={(lane, id, kept, final) => trim(view, lane, id, kept, final)}
-	/>
+	{#if view.items.length}
+		<Timeline
+			label="Timeline"
+			lanes={view.lanes}
+			span={view.span}
+			playhead={tl.playhead}
+			{selected}
+			bind:zoom={tl.zoom}
+			{reveal}
+			follow={tl.playing}
+			{item}
+			{preview}
+			onseek={(t, final) => seek(view, t, final)}
+			onselect={(lane, id) => select(view, lane, id)}
+			ontrim={view.mode === 'take' ? (lane, id, kept, final) => trim(view, lane, id, kept, final) : undefined}
+		/>
+	{:else}
+		<p class="sc-empty">Pick a shot on the left – Ctrl + click adds more to the timeline.</p>
+	{/if}
 </div>
 
 <style>
@@ -111,7 +123,11 @@
 	.grow {
 		flex: 1;
 	}
-	/* an item's inside (the shared Timeline positions and frames it) */
+	.sc-empty {
+		margin: 0;
+		padding: var(--space-05) var(--space-1);
+	}
+	/* a clip's inside (the shared Timeline positions and frames it) */
 	img {
 		position: absolute;
 		inset: 0;
@@ -130,9 +146,9 @@
 		top: 0;
 		display: flex;
 		align-items: center;
-		gap: 0.125rem;
+		gap: 0.25rem;
 		max-width: 100%;
-		padding: 0 0.125rem;
+		padding: 0 0.25rem;
 		background: var(--paper);
 		color: var(--ink);
 		font-size: var(--type-caption-size);
@@ -140,24 +156,18 @@
 		white-space: nowrap;
 		overflow: hidden;
 	}
-	.dot {
-		flex: none;
-		width: 0.5rem;
-		height: 0.5rem;
-		box-sizing: border-box;
-		border: var(--border-width-regular) solid currentColor;
-		border-radius: 50%;
+	/* the source as an icon + its word (never a colour) */
+	.word {
+		color: var(--text-muted);
 	}
-	.dot.ok {
-		background: var(--state-success);
+	/* narrow clips: the word goes first, then the id, then the tag – the frame stays */
+	@container (max-width: 8rem) {
+		.word {
+			display: none;
+		}
 	}
-	.dot.change {
-		background: var(--state-warning);
-	}
-	/* narrow shots (the whole chapter fitted): the id goes first, then the tag – the frame and the rhythm stay */
-	@container (max-width: 4rem) {
-		.id,
-		.tag :global(svg) {
+	@container (max-width: 3rem) {
+		.id {
 			display: none;
 		}
 	}
@@ -165,5 +175,24 @@
 		.tag {
 			display: none;
 		}
+	}
+	/* the hover preview's inside (the Timeline's box: paper, an ink frame, in the top layer) */
+	.peek {
+		display: grid;
+		gap: 0.125rem;
+		justify-items: start;
+	}
+	.peek video,
+	.peek img {
+		position: static;
+		display: block;
+		width: auto;
+		height: 10rem;
+		max-width: 16rem;
+		object-fit: contain;
+		background: var(--ink);
+	}
+	.line {
+		white-space: nowrap;
 	}
 </style>

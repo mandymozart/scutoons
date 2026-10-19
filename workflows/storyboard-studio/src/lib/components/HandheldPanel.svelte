@@ -2,12 +2,12 @@
 	// The handheld camera of a shot (owner 2026-10-19: "In the storyboard module I'd enable it per shot … on the PC the
 	// camera of that shot … moves along with the phone and records the camera movement. Afterwards I only need to trim"):
 	// the switch per shot, the phone (PhonePairing), the takes (one active, its smoothing), the take's downloads. The trim
-	// is the timeline's Take lane (Timeline.svelte); rendering all handheld shots + the zip are the Export step's (Output
+	// is the timeline's, in Take mode (Timeline.svelte); rendering all handheld shots + the zip are the Export step's (Output
 	// panel). README "Handheld camera", research/HANDHELD-CAMERA.md. The takes file follows the selection in every step
 	// (handheld.svelte.js followSelection).
 	import { confirmDialog, Icon, IconButton, PropRow, ScrubNumber, Segmented } from '@scutoons/ui';
 	import { fail, find, studio } from '../studio.svelte.js';
-	import { here, setOpen, setStep, setTimeline, steps } from '../steps.svelte.js';
+	import { here, setOpen, setStep, setTimeline, setView, steps } from '../steps.svelte.js';
 	import { activeTake, endPreview, hh, preview, saveDoc, setOn } from '../handheld/handheld.svelte.js';
 	import { downloadTake } from '../handheld/export.js';
 	import PhonePairing from './PhonePairing.svelte';
@@ -16,13 +16,14 @@
 	const doc = $derived(hh.doc && hh.docShot === id ? hh.doc : null);
 	const take = $derived(doc ? activeTake() : null);
 	let busy = $state('');
-	// the Take lane (in / out) is on the timeline only in the Handheld step and only while the timeline is open
-	// (Timeline.svelte timelineOf); anywhere else the Trim row is the way there – with this panel open in that step
-	const trimHere = $derived(steps.current === 'handheld' && here().timeline);
+	// the take's in / out are on the timeline in Take mode (timeline-lanes.js); here: the Handheld step with the timeline
+	// open – anywhere else the Trim row is the way there, with this panel open in that step
+	const trimHere = $derived(steps.current === 'handheld' && here().timeline && here().view === 'take');
 	function toTrim() {
 		setStep('handheld');
 		setOpen('handheld', true);
 		setTimeline(true);
+		setView('take');
 	}
 
 	function pick(tid) {
@@ -67,15 +68,15 @@
 							{/each}
 						</div>
 						{#if take}
-							<PropRow label="Trim" hint="The kept part of the take: its in / out handles on the timeline's Take lane">
+							<PropRow label="Trim" hint="The kept part of the take: its in / out handles on the timeline, in Take mode">
 								{#if trimHere}
-									<p class="hint">Drag {take.id}'s in / out on the timeline below – the 3D view shows that moment.</p>
+									<p class="hint">Drag {take.id}'s in / out on its clip below – the 3D view shows that moment.</p>
 								{:else}
-									<button type="button" class="secondary" onclick={toTrim} title="The Handheld step with the timeline open – the take's lane has its in / out handles">Open the timeline</button>
+									<button type="button" class="secondary" onclick={toTrim} title="The Handheld step with the timeline open in Take mode – the take's clip has its in / out handles">Open the timeline</button>
 								{/if}
 							</PropRow>
 							<PropRow label="Smooth" hint="0 = the raw handheld look … 1 = a slow steadicam">
-								<ScrubNumber label="Smoothing of {take.id}" icon="wind" min={0} max={1} step={0.05} required value={take.smooth ?? 0} onchange={(v) => { take.smooth = v ?? 0; preview(hh.playhead); saveDoc(true); }} />
+								<ScrubNumber label="Smoothing of {take.id}" icon="wind" min={0} max={1} step={0.05} required value={take.smooth ?? 0} onchange={(v) => { take.smooth = v ?? 0; if (hh.held && !hh.live) preview(hh.playhead); saveDoc(true); }} />
 							</PropRow>
 							<PropRow label="Download" hint="The take's camera for other tools (README: Blender, Unreal)">
 								<button type="button" class="secondary" onclick={() => one('json')} disabled={!!busy} title="The samples (t, position, quaternion, fov)">JSON</button>
