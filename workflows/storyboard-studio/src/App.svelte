@@ -1,7 +1,7 @@
 <script>
 	// The storyboard studio (owner 2026-10-09: "use our scutoons ui and design dogmas"): one AppShell like the tools –
 	// the chapter's shots as the sidebar (resizable, folds to a rail), the 3D view as the page, the shot's panels in the
-	// right dock (Shot · Script · Variants · Luma; each folds to its rail, drags wider). agents/DOCKING.md, DESIGN.md.
+	// right dock (Shot · Script · Variants · Luma · Handheld · Generate; each folds to its rail, drags wider). agents/DOCKING.md, DESIGN.md.
 	import { onMount } from 'svelte';
 	import { AppShell, DialogHost, Icon, installTooltips, panelWidth, useDock } from '@scutoons/ui';
 	import { loadChapter, loadChapters, run, studio } from './lib/studio.svelte.js';
@@ -12,23 +12,26 @@
 	import VariantsPanel from './lib/components/VariantsPanel.svelte';
 	import PromptPanel from './lib/components/PromptPanel.svelte';
 	import HandheldPanel from './lib/components/HandheldPanel.svelte';
+	import GeneratePanel from './lib/components/GeneratePanel.svelte';
 
 	const width = (kind, rem) => panelWidth(`storyboard-studio:${kind}`, rem, undefined, { foldable: true });
-	const sizes = { shot: width('shot', 24), script: width('script', 20), variants: width('variants', 16), prompt: width('prompt', 26), handheld: width('handheld', 22) };
+	const sizes = { shot: width('shot', 24), script: width('script', 20), variants: width('variants', 16), prompt: width('prompt', 26), handheld: width('handheld', 22), generate: width('generate', 20) };
 	const PANELS = [
 		{ kind: 'shot', title: 'Shot', icon: 'sliders' },
 		{ kind: 'script', title: 'Script', icon: 'file-text' },
 		{ kind: 'variants', title: 'Variants', icon: 'layers' },
 		{ kind: 'prompt', title: 'Luma', icon: 'send' },
-		{ kind: 'handheld', title: 'Handheld', icon: 'smartphone' }
+		{ kind: 'handheld', title: 'Handheld', icon: 'smartphone' },
+		{ kind: 'generate', title: 'Generate', icon: 'zap' }
 	];
-	let open = $state({ shot: true, script: true, variants: false, prompt: false, handheld: false });
+	let open = $state({ shot: true, script: true, variants: false, prompt: false, handheld: false, generate: false });
 	const docked = (kind, panel) => (open[kind] && studio.sel ? { kind: `storyboard-${kind}`, size: sizes[kind], title: PANELS.find((p) => p.kind === kind).title, icon: PANELS.find((p) => p.kind === kind).icon, close: () => (open[kind] = false), panel } : null);
 	useDock(() => docked('shot', shotPanel));
 	useDock(() => docked('script', scriptPanel));
 	useDock(() => docked('variants', variantsPanel));
 	useDock(() => docked('prompt', promptPanel));
 	useDock(() => docked('handheld', handheldPanel));
+	useDock(() => docked('generate', generatePanel));
 
 	onMount(() => {
 		installTooltips();
@@ -52,6 +55,7 @@
 {#snippet variantsPanel()}<VariantsPanel />{/snippet}
 {#snippet promptPanel()}<PromptPanel />{/snippet}
 {#snippet handheldPanel()}<HandheldPanel />{/snippet}
+{#snippet generatePanel()}<GeneratePanel />{/snippet}
 
 <div class="studio sc-tool">
 	<AppShell mode="fill" resizeKey="storyboard-studio:shots" foldable railLabel="Shots" sidebarLabel="Shots" sidebarTag="aside" dockLabel="Shot panels" pageLabel="3D view">

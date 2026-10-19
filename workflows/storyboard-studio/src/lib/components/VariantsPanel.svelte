@@ -1,6 +1,6 @@
 <script>
 	// The shot's frame, its variants (pick one = it becomes the shot, the old one a variant; load = into the editor) and
-	// the generated images (Luma results, photos, drawings) dropped onto it – one approved = the chosen image (dataset).
+	// the generated images and videos (Luma results, photos, drawings dropped onto it, the Generate panel's results) – one approved = the chosen image (dataset).
 	import { askDialog } from '@scutoons/ui';
 	import { api, ch, loadChapter, studio, toon, touched } from '../studio.svelte.js';
 	import { framePng } from '../frames.js';
@@ -71,7 +71,11 @@
 		</label>
 		{#each generated as f (f)}
 			<figure>
-				<img src={`/out/${ch()}/generated/${f}?v=${v}`} alt="" />
+				{#if /\.(mp4|webm)$/i.test(f)}
+					<video src={`/out/${ch()}/generated/${f}?v=${v}`} controls loop muted playsinline></video>
+				{:else}
+					<img src={`/out/${ch()}/generated/${f}?v=${v}`} alt="" />
+				{/if}
 				<div class="row"><button type="button" onclick={() => approve(f)}>Approve as chosen</button></div>
 				<figcaption>{f}</figcaption>
 			</figure>
@@ -101,7 +105,8 @@
 		display: grid;
 		gap: var(--space-05);
 	}
-	img {
+	img,
+	video {
 		width: 100%;
 		max-height: 40dvh; /* a tall frame never pushes the variants and the drop zone out of view */
 		object-fit: contain;

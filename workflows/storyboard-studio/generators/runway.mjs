@@ -134,7 +134,7 @@ export function createRunway({ root, env = process.env, pollMs = 5000, fetchImpl
 					const ext = EXT[type] ?? (/\.(mp4|webm|mov|png|jpe?g|webp)(\?|$)/i.exec(url)?.[1].toLowerCase().replace('jpeg', 'jpg')) ?? 'mp4';
 					files.push({ bytes: Buffer.from(await r.arrayBuffer()), ext });
 				}
-				return { files, meta: { ratio: est.ratio, seconds: est.seconds } };
+				return { files };
 			}
 		}
 	}
