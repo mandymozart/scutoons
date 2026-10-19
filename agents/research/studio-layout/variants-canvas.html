@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Variants canvas – the Generate step</title>
+<link rel="stylesheet" href="mock.css" />
+<style>
+	/* research/VARIANTS-CANVAS.md – a static picture, not app code. The board's geometry is one set of numbers:
+	   a card = --w × --h (the shot's 9:16 at 90 %), a column every --px, a row every --py; lines are 2px ink. */
+	.body { grid-template-columns: 13.5rem 1fr 22rem; grid-template-rows: 1fr 10rem; }
+	.shots { grid-row: 1 / 3; }
+	.shots h3 { font-size: var(--caption); text-transform: uppercase; letter-spacing: var(--tracking-label); }
+	.shot.picked { border: var(--line); border-left-width: 0.5rem; padding-left: 0.5rem; margin: 0 var(--space-05); }
+	.shot.sel { margin: 0 var(--space-05); padding-left: 1rem; }
+	.shot .t .g { color: var(--text-muted); }
+	.shot.sel .t .g { color: var(--paper); }
+
+	/* the main: its editor switch + the board's tools, then board | compare */
+	.split { flex: 1; display: grid; grid-template-columns: 1fr 28rem; min-height: 0; background: var(--paper); }
+	.ctl.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+	/* ---------- the board ---------- */
+	.board { position: relative; overflow: hidden; border-right: var(--line); color: var(--ink);
+		--pad: 1rem; --w: 4.6rem; --h: 8.2rem; --px: 6rem; --py: 13.2rem; --top: 1rem; --comb: 0.5rem; --meta: 2.4rem; }
+	.card { position: absolute; width: var(--w); left: calc(var(--pad) + var(--c) * var(--px)); top: calc(var(--pad) + var(--r) * var(--py) + var(--top)); }
+	.pic { position: relative; height: var(--h); border: var(--line); overflow: hidden; }
+	.pic .chip { position: absolute; }
+	.pic .len { right: 0; bottom: 0; }
+	.pic .mark { left: 0; top: 0; }
+	/* data in a chip (lengths, times, ids) keeps its case (DESIGN "Badges with data … stay in their case") */
+	.chip.data { text-transform: none; letter-spacing: normal; }
+	.card.chosen .pic { border-left-width: 0.5rem; border-left-color: var(--primary-cyan); }
+	/* the caption: id (+ its Compare letter) and the model – the length is the picture's chip, not repeated */
+	.m { margin-top: 0.25rem; font-size: var(--caption); line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.m > div { padding: 0 0.15rem; overflow: hidden; text-overflow: ellipsis; }
+	.card.picked .m { background: var(--ink); color: var(--paper); }
+	.card.picked .m .muted { color: var(--paper); }
+	.src-label { position: absolute; top: -1.05rem; left: 0; font-size: var(--caption); text-transform: uppercase; letter-spacing: var(--tracking-label); color: var(--text-muted); }
+	/* a video under the pointer: it scrubs with the pointer's x */
+	.scrub-line { position: absolute; top: 0; bottom: 0; left: 45%; width: var(--border-width-regular); background: var(--paper); outline: 1px solid var(--ink); }
+	.scrub-t { left: 0; top: 0; }
+	/* a running job: the house bar and its estimate where the result will land (cancel: the panel's Jobs list) */
+	.run .pic { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-025); }
+	.bar { position: absolute; left: 0.25rem; right: 0.25rem; bottom: 0.25rem; height: 0.75rem; border: var(--line); }
+	.bar > i, .jbar > i { display: block; height: 100%; width: 40%; background: var(--ink); }
+	/* the current card's tools: one square icon group under it, drawn above the row below (a popover) */
+	.cardtools { position: absolute; z-index: 2; left: calc(var(--pad) + var(--c) * var(--px)); top: calc(var(--pad) + var(--r) * var(--py) + var(--top) + var(--h) + var(--meta) + 0.25rem); background: var(--paper); }
+	/* lineage lines: a parent's results hang from one comb above their row */
+	.ln { position: absolute; background: var(--ink); }
+	.comb { height: var(--border-width-regular); top: calc(var(--pad) + var(--r) * var(--py) + var(--comb)); left: calc(var(--pad) + var(--a) * var(--px) + var(--w) / 2); width: calc((var(--b) - var(--a)) * var(--px)); }
+	.comb.src { left: calc(var(--pad) + (var(--px) + var(--w)) / 2); width: calc(var(--b) * var(--px) - var(--px) / 2); }
+	.tk { width: var(--border-width-regular); left: calc(var(--pad) + var(--c) * var(--px) + var(--w) / 2); top: calc(var(--pad) + var(--r) * var(--py) + var(--comb)); height: calc(var(--top) - var(--comb)); }
+	.drop { width: var(--border-width-regular); left: calc(var(--pad) + var(--c) * var(--px) + var(--w) / 2); top: calc(var(--pad) + var(--p) * var(--py) + var(--top) + var(--h) + var(--meta)); height: calc((var(--r) - var(--p)) * var(--py) + var(--comb) - var(--top) - var(--h) - var(--meta)); }
+	.sh { height: var(--border-width-regular); left: calc(var(--pad) + var(--w)); width: calc((var(--px) - var(--w)) / 2); top: calc(var(--pad) + var(--r) * var(--py) + var(--top) + var(--h) / 2); }
+	.sv { width: var(--border-width-regular); left: calc(var(--pad) + (var(--px) + var(--w)) / 2); top: calc(var(--pad) + var(--r) * var(--py) + var(--comb)); height: calc(var(--top) + var(--h) / 2 - var(--comb)); }
+
+	/* ---------- compare ---------- */
+	.cmp { display: flex; flex-direction: column; min-height: 0; }
+	.sides { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-1); padding: var(--space-1); min-height: 0; align-content: start; }
+	.side { margin: 0; display: flex; flex-direction: column; gap: var(--space-025); min-width: 0; }
+	.side .sl { display: flex; align-items: center; gap: var(--space-05); height: 1.5rem; }
+	.side .big { position: relative; aspect-ratio: 9 / 16; border: var(--line); }
+	.side .big .scrub-line { left: 40%; }
+	.side .cap { line-height: 1.3; }
+	.side .pr { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+	.transport { display: flex; align-items: center; gap: var(--space-05); padding: 0 var(--space-1) var(--space-1); }
+	.track { flex: 1; height: 0.75rem; border: var(--line); }
+	.track > i { display: block; height: 100%; width: 40%; background: var(--ink); }
+
+	/* ---------- the Generate panel ---------- */
+	.gp .row { grid-template-columns: 6rem 1fr; }
+	.from { display: grid; grid-template-columns: 1.8rem 1fr auto; gap: var(--space-075); align-items: center; }
+	.from .mini { width: 1.8rem; height: 3.2rem; border: var(--line); }
+	.kf { display: flex; gap: var(--space-05); }
+	.kf .slot { position: relative; width: 2.6rem; aspect-ratio: 9 / 16; border: var(--line); }
+	.kf .slot .chip { position: absolute; left: 0; bottom: 0; white-space: nowrap; }
+	.kf .slot.empty { border-style: dashed; border-color: var(--text-muted); display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
+	/* the session's jobs (exists): progress + cancel – also the other shots' jobs, so cancel lives here, not on the board */
+	.job { display: grid; grid-template-columns: 1fr 4rem auto; align-items: center; gap: var(--space-05); }
+	.jbar { height: 0.75rem; border: var(--line); }
+
+	/* ---------- the timeline (bottom region, under the main and the dock) ---------- */
+	.tline { grid-column: 2 / 4; grid-row: 2; display: flex; flex-direction: column; border-top: var(--line); min-width: 0; min-height: 0; }
+	.thead { display: flex; align-items: center; gap: var(--space-05); height: var(--bar); padding: 0 var(--space-05) 0 var(--space-1); flex: none; white-space: nowrap; }
+	.tlane { flex: 1; display: grid; grid-template-columns: 5rem 1fr; min-height: 0; border-top: 1px solid var(--ink); }
+	.tlane .lbl { display: flex; align-items: flex-end; padding: 0 0 var(--space-1) var(--space-1); border-right: 1px solid var(--ink); }
+	.axis { position: relative; --s: 3.3rem; margin-left: var(--space-05); }
+	.tick { position: absolute; top: 0; height: 1.5rem; left: calc(var(--t) * var(--s)); border-left: 1px solid var(--ink); padding-left: 0.25rem; font-size: var(--caption); line-height: 1.2; }
+	.clip { position: absolute; top: 1.7rem; bottom: var(--space-075); left: calc(var(--t) * var(--s)); width: calc(var(--d) * var(--s)); border: var(--line); display: flex; align-items: flex-end; gap: var(--space-025); padding: var(--space-025); overflow: hidden; white-space: nowrap; }
+	.clip.cur { border-color: var(--ink); outline: var(--border-width-regular) solid var(--ink); outline-offset: -0.35rem; }
+	.playhead { position: absolute; top: 0; bottom: 0; left: calc(9.5 * var(--s)); width: var(--border-width-regular); background: var(--ink); }
+	.note { max-width: 25rem; bottom: calc(var(--bar) + var(--space-025)); line-height: 1.25; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+	<symbol id="sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+	<symbol id="file-text" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></symbol>
+	<symbol id="smartphone" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></symbol>
+	<symbol id="chevrons-left" viewBox="0 0 24 24"><path d="m11 17-5-5 5-5M18 17l-5-5 5-5"/></symbol>
+	<symbol id="chevrons-right" viewBox="0 0 24 24"><path d="m13 17 5-5-5-5M6 17l5-5-5-5"/></symbol>
+	<symbol id="chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+	<symbol id="chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+	<symbol id="chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+	<symbol id="chevron-up" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></symbol>
+	<symbol id="maximize-2" viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></symbol>
+	<symbol id="image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></symbol>
+	<symbol id="download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+	<symbol id="box" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"/></symbol>
+	<symbol id="grid" viewBox="0 0 24 24"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></symbol>
+	<symbol id="columns" viewBox="0 0 24 24"><path d="M12 3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7m0-18H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7m0-18v18"/></symbol>
+	<symbol id="film" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2"/><path d="M7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 17h5M17 7h5"/></symbol>
+	<symbol id="play" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></symbol>
+	<symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+	<symbol id="minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+	<symbol id="rotate-cw" viewBox="0 0 24 24"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></symbol>
+	<symbol id="bookmark" viewBox="0 0 24 24"><path d="m19 21-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></symbol>
+	<symbol id="zap" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></symbol>
+	<symbol id="check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+	<symbol id="alert" viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01"/></symbol>
+	<symbol id="more" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></symbol>
+	<symbol id="x" viewBox="0 0 10 10"><path d="M0 0l10 10M10 0 0 10" vector-effect="non-scaling-stroke"/></symbol>
+</svg>
+<div class="app">
+	<header class="topbar">
+		<span class="brand">Storyboard Studio</span>
+		<span class="ctl ink">catpope · s1c3 <svg class="i"><use href="#chevron-down"/></svg></span>
+		<span class="steps" role="tablist" aria-label="Steps">
+			<span><b>1</b>Script</span>
+			<span><b>2</b>Shots</span>
+			<span><b>3</b>Layout</span>
+			<span><b>4</b>Handheld</span>
+			<span class="on"><b>5</b>Generate</span>
+			<span><b>6</b>Export</span>
+		</span>
+		<span class="grow"></span>
+		<span class="seg icons" aria-label="The step's panels">
+			<span title="Shot"><svg class="i"><use href="#sliders"/></svg></span>
+			<span title="Script"><svg class="i"><use href="#file-text"/></svg></span>
+			<span title="Handheld"><svg class="i"><use href="#smartphone"/></svg></span>
+			<span class="on" title="Generate"><svg class="i"><use href="#zap"/></svg></span>
+			<span title="Output"><svg class="i"><use href="#download"/></svg></span>
+		</span>
+		<span class="ctl">Chapter <svg class="i"><use href="#chevron-down"/></svg></span>
+	</header>
+
+	<div class="body">
+		<!-- the shot list: the toon's order (vertical); three picked, sb-25-2 current -->
+		<aside class="region shots">
+			<div class="rhead"><span class="label title">Shots · 62</span><span class="grow"></span><span class="round" title="Fold (T)"><svg class="i"><use href="#chevrons-left"/></svg></span></div>
+			<h3>25 Ext. Bergdorf – Tag</h3>
+			<div class="shot picked"><div class="thumb hatch"></div><div class="t"><span class="id"><i class="st ok" title="approved"></i>sb-25-1</span><span>vertical 1:3</span><span class="g">4 generated</span></div></div>
+			<div class="shot sel"><div class="thumb hatch b"></div><div class="t"><span class="id"><i class="st change" title="in review"></i>sb-25-2</span><span>viewport 9:16</span><span class="g">8 generated · hh 1</span></div></div>
+			<div class="shot picked"><div class="thumb hatch c"></div><div class="t"><span class="id"><i class="st hh" title="handheld"></i>sb-25-3</span><span>vertical 1:4</span><span class="g">rendered · hh 1</span></div></div>
+			<div class="shot"><div class="thumb hatch"></div><div class="t"><span class="id"><i class="st"></i>sb-25-4</span><span>viewport 9:16</span><span class="g">–</span></div></div>
+			<div class="shot"><div class="thumb hatch b"></div><div class="t"><span class="id"><i class="st"></i>sb-25-5</span><span>viewport 9:16</span><span class="g">2 generated</span></div></div>
+			<div class="shot"><div class="thumb hatch c"></div><div class="t"><span class="id"><i class="st"></i>sb-25-6</span><span>vertical 1:5</span><span class="g">–</span></div></div>
+		</aside>
+
+		<!-- the main view: editor Variants (next to Viewport) – the board of the current shot + Compare beside it -->
+		<main class="region view" style="background: var(--paper)">
+			<div class="tools">
+				<span class="seg" aria-label="Main view" title="The main view's editor (V)"><span><svg class="i"><use href="#box"/></svg>Viewport</span><span class="on"><svg class="i"><use href="#grid"/></svg>Variants</span></span>
+				<span class="cap muted" title="sb-25-2: 7 results, 1 running – 4.93 USD spent on them">7 done · 1 running · 4.93 USD</span>
+				<span class="grow"></span>
+				<span class="ctl on" title="Compare the selected (C)"><svg class="i"><use href="#columns"/></svg>Compare · 2</span>
+				<span class="seg" aria-label="Zoom"><span title="Zoom out (−)"><svg class="i"><use href="#minus"/></svg></span><span title="Fit all (0)">90 %</span><span title="Zoom in (+)"><svg class="i"><use href="#plus"/></svg></span></span>
+				<span class="round" title="Add images – or drop them on the board"><svg class="i"><use href="#plus"/></svg></span>
+			</div>
+			<div class="split">
+				<div class="board" aria-label="Every generation of sb-25-2">
+					<!-- lines: row 0 hangs from the render (source); row 1 = g3's results (one column right of g3); row 2 hangs
+					     from take 3 (a generation with several inputs hangs under its main one: g7 = take 3's video + g3 as keyframe) -->
+					<i class="ln sh" style="--r:0"></i><i class="ln sv" style="--r:0"></i>
+					<i class="ln comb src" style="--r:0; --b:4"></i>
+					<i class="ln tk" style="--r:0; --c:1"></i><i class="ln tk" style="--r:0; --c:2"></i><i class="ln tk" style="--r:0; --c:3"></i><i class="ln tk" style="--r:0; --c:4"></i>
+					<i class="ln drop" style="--p:0; --r:1; --c:3"></i>
+					<i class="ln comb" style="--r:1; --a:3; --b:5"></i>
+					<i class="ln tk" style="--r:1; --c:4"></i><i class="ln tk" style="--r:1; --c:5"></i>
+					<i class="ln sh" style="--r:2"></i><i class="ln sv" style="--r:2"></i>
+					<i class="ln comb src" style="--r:2; --b:2"></i>
+					<i class="ln tk" style="--r:2; --c:1"></i><i class="ln tk" style="--r:2; --c:2"></i>
+
+					<!-- row 0: the render (source) and what came from it -->
+					<div class="card" style="--c:0; --r:0" title="The render without texts – what the generators get (the saved frame has the texts)">
+						<span class="src-label">Source</span>
+						<div class="pic hatch"></div>
+						<div class="m"><div>render</div><div class="muted">no texts</div></div>
+					</div>
+					<div class="card" style="--c:1; --r:0" title="g1 · Gen-4 Turbo · 5 s · seed 5120 · 0.25 USD · 14:02 – from the render (start frame)">
+						<div class="pic hatch c"><i class="scrub-line"></i><span class="chip data scrub-t">2.2 s</span><span class="chip data len">5 s</span></div>
+						<div class="m"><div>g1</div><div class="muted">G4 Turbo</div></div>
+					</div>
+					<div class="card chosen picked" style="--c:2; --r:0" title="g2 · Gen-4.5 · 5 s · seed 18213 · 0.60 USD · 14:10 – the chosen video">
+						<div class="pic hatch b"><span class="chip ok mark" title="chosen"><svg class="i"><use href="#check"/></svg></span><span class="chip data len">5 s</span></div>
+						<div class="m"><div>A · g2</div><div class="muted">Gen-4.5</div></div>
+					</div>
+					<div class="card chosen" style="--c:3; --r:0" title="g3 · ComfyUI (this PC) · image · free · 14:25 – the chosen image">
+						<div class="pic hatch"><span class="chip ok mark" title="chosen"><svg class="i"><use href="#check"/></svg></span></div>
+						<div class="m"><div>g3</div><div class="muted">ComfyUI</div></div>
+					</div>
+					<div class="card" style="--c:4; --r:0" title="g5 · ComfyUI (this PC) · image · free · 14:31 – from the render">
+						<div class="pic hatch c"></div>
+						<div class="m"><div>g5</div><div class="muted">ComfyUI</div></div>
+					</div>
+
+					<!-- row 1: g3's results (one column right of g3) – g6 current + selected, g8 running -->
+					<div class="card picked" style="--c:4; --r:1" title="g6 · Gen-4.5 · 5 s · seed 77410 · 0.60 USD · 15:01 – from g3 (start frame)">
+						<div class="pic hatch c"><span class="chip data len">5 s</span></div>
+						<div class="m"><div>B · g6</div><div class="muted">Gen-4.5</div></div>
+					</div>
+					<span class="seg icons cardtools" style="--c:4; --r:1" aria-label="g6">
+						<span title="Approve – the chosen video (Enter)"><svg class="i"><use href="#check"/></svg></span>
+						<span title="Improve on this – fills Generate (I)"><svg class="i"><use href="#zap"/></svg></span>
+						<span title="Vary – its inputs, prompt and model, a new seed"><svg class="i"><use href="#rotate-cw"/></svg></span>
+						<span title="More: first / last / this frame → still, use as start frame, use as keyframe, show the file, delete …"><svg class="i"><use href="#more"/></svg></span>
+					</span>
+					<div class="card run" style="--c:5; --r:1" title="g8 · Gen-4 Turbo · ≈ 0.25 USD – from g3, running (cancel: Generate's Jobs list)">
+						<div class="pic"><span>40 %</span><span class="cap muted">≈ 0.25</span><span class="bar"><i></i></span></div>
+						<div class="m"><div>g8</div><div class="muted">G4 Turbo</div></div>
+					</div>
+
+					<!-- row 2: the take's render pass (source) and what came from it -->
+					<div class="card" style="--c:0; --r:2" title="Take 3 · the beauty pass · 6.2 s">
+						<span class="src-label">Source</span>
+						<div class="pic hatch b"><span class="chip data len">6.2 s</span></div>
+						<div class="m"><div>take 3</div><div class="muted">beauty</div></div>
+					</div>
+					<div class="card" style="--c:1; --r:2" title="g4 · Aleph 2 · 6.2 s · 1.74 USD · 14:40 – from take 3, keyframe: the render">
+						<div class="pic hatch"><span class="chip data len">6.2 s</span></div>
+						<div class="m"><div>g4</div><div class="muted">Aleph 2</div></div>
+					</div>
+					<div class="card" style="--c:2; --r:2" title="g7 · Aleph 2 · 6.2 s · 1.74 USD · 15:12 – from take 3, keyframe: g3">
+						<div class="pic hatch c"><span class="chip data len">6.2 s</span></div>
+						<div class="m"><div>g7</div><div class="muted">Aleph 2</div></div>
+					</div>
+				</div>
+
+				<!-- Compare: the selected side by side at the same size, one clock for the videos -->
+				<section class="cmp" aria-label="Compare">
+					<div class="rhead"><svg class="i"><use href="#columns"/></svg><span class="title label">&nbsp;Compare · 2</span><span class="grow"></span>
+						<span class="plain" title="Close compare (Esc)"><svg class="x"><use href="#x"/></svg></span></div>
+					<div class="sides">
+						<figure class="side">
+							<div class="sl"><span class="chip">A</span><span>g2</span><span class="chip ok">chosen</span><span class="grow"></span><span title="The reference – stays while you click other cards"><svg class="i"><use href="#bookmark"/></svg></span></div>
+							<div class="big hatch b"><i class="scrub-line"></i></div>
+							<div class="cap">Gen-4.5 · 5 s · seed 18213 · 0.60 USD</div>
+							<div class="cap muted">from the render (start frame)</div>
+							<div class="cap pr">Black-and-white film noir, hard light from the top left. A small stop in the mountain village, the bus leaving, PLF small in the white …</div>
+						</figure>
+						<figure class="side">
+							<div class="sl"><span class="chip">B</span><span>g6</span><span class="grow"></span></div>
+							<div class="big hatch c"><i class="scrub-line"></i></div>
+							<div class="cap">Gen-4.5 · 5 s · seed 77410 · 0.60 USD</div>
+							<div class="cap muted">from g3 (start frame)</div>
+							<div class="cap pr">Black-and-white film noir, hard light from the top left. The bus leaving, PLF small in the white, snow falling harder, low sun …</div>
+						</figure>
+					</div>
+					<div class="transport">
+						<span class="round" title="Play both – one clock"><svg class="i"><use href="#play"/></svg></span>
+						<span class="track" title="Scrub both"><i></i></span>
+						<span class="cap">0:02.0 / 0:05.0</span>
+					</div>
+				</section>
+			</div>
+		</main>
+
+		<!-- the dock: Generate only (Variants left the dock – it is the main's editor now) -->
+		<section class="region gp" style="border-right: 0">
+			<div class="rhead">
+				<svg class="i"><use href="#zap"/></svg><span class="title label">&nbsp;Generate</span><span class="grow"></span>
+				<span class="round" title="Fold the page"><svg class="i"><use href="#chevrons-left"/></svg></span>
+				<span class="round" title="Fold to the rail"><svg class="i"><use href="#chevrons-right"/></svg></span>
+				<span class="round" title="Maximize (Ctrl + Space)"><svg class="i"><use href="#maximize-2"/></svg></span>
+				<span class="plain" title="Close"><svg class="x"><use href="#x"/></svg></span>
+			</div>
+			<div class="rbody">
+				<div class="sec">
+					<div class="label">Improve on g2</div>
+					<div class="from"><div class="mini hatch b"></div><div class="cap"><div>g2 · Gen-4.5 · 5 s video</div><div class="muted">its prompt and inputs below – edit, then send</div></div><span class="plain" title="Back to the shot's own inputs"><svg class="x"><use href="#x"/></svg></span></div>
+				</div>
+				<div class="row"><span class="label">Generator</span><div class="ctrls"><span class="f sel" title="The registry's generators – Luma – by hand is one entry here (GENERATORS, #61)">Runway</span></div></div>
+				<div class="row"><span class="label">Model</span><div class="ctrls"><span class="f sel" title="Aleph 2 – video to video">Aleph 2</span></div></div>
+				<div class="row"><span class="label">Video</span><div class="ctrls"><span class="f sel" title="g2 – a generated video, 5 s">g2 · 5 s</span></div></div>
+				<div class="sec">
+					<div class="label">Keyframes · 1 <span class="muted">· up to 5</span></div>
+					<div class="kf"><div class="slot hatch" title="g3 (the chosen image) at the start"><span class="chip data">0 s</span></div><div class="slot empty" title="Add a keyframe – a card's Use as keyframe">+</div></div>
+				</div>
+				<div class="sec">
+					<div class="label">Prompt <span class="muted">· g2's, edited</span></div>
+					<div class="ta cap" style="min-height: 0">Film noir, light from the top left. The bus leaving, PLF small in the white, snow falling harder …</div>
+				</div>
+				<div class="row"><span class="label">Seed</span><div class="ctrls"><span class="seg" style="flex:1"><span class="on">New</span><span>g2's · 18213</span></span></div></div>
+				<p class="cap" title="Generate asks with the cost before anything is sent">≈ 1.40 USD · 5 s × 28 credits</p>
+				<div class="ctrls" style="align-items: center"><span class="cap muted grow">This session 2.34 USD</span><span class="ctl primary"><svg class="i"><use href="#zap"/></svg>Generate</span></div>
+				<div class="sec" style="margin-top: var(--space-05)">
+					<div class="label">Jobs</div>
+					<div class="job"><span class="cap">g8 · G4 Turbo · 40 %</span><span class="jbar"><i></i></span><span class="plain" title="Cancel g8"><svg class="x"><use href="#x"/></svg></span></div>
+				</div>
+			</div>
+		</section>
+
+		<!-- the timeline (bottom region): the picked shots' clips in view mode Generated; sb-25-2 plays the current card -->
+		<section class="tline" aria-label="Timeline">
+			<div class="thead">
+				<svg class="i"><use href="#film"/></svg><span class="label">Timeline</span>
+				<span class="seg" aria-label="View mode"><span>Shot</span><span>Take</span><span>Rendered</span><span class="on">Generated</span></span>
+				<span class="cap muted">3 clips · 16.2 s · sb-25-2 plays g6 while the board is open</span>
+				<span class="grow"></span>
+				<span class="round" title="Play the clips – the main switches to Viewport (V back to the board)"><svg class="i"><use href="#play"/></svg></span>
+				<span class="round" title="Fold the timeline"><svg class="i"><use href="#chevron-down"/></svg></span>
+			</div>
+			<div class="tlane">
+				<div class="lbl label">Clips</div>
+				<div class="axis">
+					<span class="tick" style="--t:0">0:00</span><span class="tick" style="--t:5">0:05</span><span class="tick" style="--t:10">0:10</span><span class="tick" style="--t:15">0:15</span><span class="tick" style="--t:20">0:20</span>
+					<div class="clip hatch" style="--t:0; --d:5"><span class="chip data">sb-25-1 · g4</span><span class="chip ok">chosen</span></div>
+					<div class="clip cur hatch c" style="--t:5; --d:5" title="The current card plays here while the board is open (Q3)"><span class="chip data">sb-25-2 · g6</span><span class="chip warn">audition</span></div>
+					<div class="clip hatch b" style="--t:10; --d:6.2" title="No generated video yet – falls back to the render"><span class="chip data">sb-25-3 · rendered</span></div>
+					<i class="playhead"></i>
+				</div>
+			</div>
+		</section>
+	</div>
+
+	<footer class="actionbar">
+		<span class="seg"><span><svg class="i"><use href="#chevron-left"/></svg></span><span>sb-25-2 · 2 / 62</span><span><svg class="i"><use href="#chevron-right"/></svg></span></span>
+		<span class="keys"><span><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> card</span><span><kbd>Enter</kbd> approve</span><span><kbd>I</kbd> improve</span><span><kbd>C</kbd> compare</span><span><kbd>0</kbd> fit</span><span><kbd>V</kbd> viewport</span></span>
+		<span class="grow"></span>
+		<span class="ctl"><svg class="i"><use href="#alert"/></svg>2 notes</span>
+		<span class="ctl muted">Revert</span>
+		<span class="ctl">Keep as variant</span>
+		<span class="ctl">Review <svg class="i"><use href="#chevron-up"/></svg></span>
+		<span class="ctl primary">Save + frame</span>
+	</footer>
+</div>
+<p class="note">Variants board (#62): sources left; a parent's results in a row, an improvement one row down, one column right. g2 + g6 in Compare; Generate holds "Improve on g2", not sent.</p>
+</body>
+</html>
