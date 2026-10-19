@@ -282,6 +282,8 @@
 		"source_starter": "Startgegenstand",
 		"combine_hint": "Wähle einen zweiten Gegenstand, um ihn mit {name} zu kombinieren.",
 		"stack_done": "{qty} × {name} liegen jetzt auf einem Feld",
+		"split_done": "{qty} × {name} liegen jetzt auf einem eigenen Feld",
+		"split_done_one": "{name} liegt jetzt auf einem eigenen Feld",
 		"combine_hint_stack": "Wähle einen zweiten Gegenstand, um ihn mit {name} zu kombinieren – oder einen gleichen, um beide auf ein Feld zu legen.",
 		"stack_own_piece": "Ein Stück mit eigener Nummer bleibt für sich.",
 		"combine_choose": "Was soll daraus werden?",

@@ -258,4 +258,23 @@ final class ContainersTest extends TestCase
         $this->containers->move($this->id, ['entry_id' => $score1, 'into' => $book]);
         $this->refused('not_same', fn() => $this->containers->stack($this->id, ['entry_id' => $score2, 'onto' => $score1]));
     }
+
+    public function testSomePiecesComeOffAFieldOntoOneOfTheirOwn(): void
+    {
+        [$a, $b, $c] = $this->add('drill', 3);
+        $this->containers->stack($this->id, ['entry_id' => $a, 'onto' => $c]);
+        $this->containers->stack($this->id, ['entry_id' => $b, 'onto' => $c]);
+        $this->containers->split($this->id, ['entry_id' => $c, 'qty' => 2]);
+        $drills = array_values(array_filter($this->inventory->entries($this->id), fn($e) => $e['item_id'] === 'drill'));
+        self::assertCount(2, $drills);
+        self::assertSame(1, $this->entry($c)['qty']);
+        self::assertSame(3, array_sum(array_column($drills, 'qty')));
+        $this->refused('invalid_qty', fn() => $this->containers->split($this->id, ['entry_id' => $c, 'qty' => 1]));
+        // in a bag: the new field lies in the same bag
+        [$bag] = $this->add('tie_bag');
+        [$ties] = $this->add('zip_tie', 6);
+        $this->containers->move($this->id, ['entry_id' => $ties, 'into' => $bag]);
+        $this->containers->split($this->id, ['entry_id' => $ties, 'qty' => 2]);
+        self::assertSame([4, 2], array_map(fn($e) => $e['qty'], array_values(array_filter($this->inventory->entries($this->id), fn($e) => $e['item_id'] === 'zip_tie' && $e['in'] === $bag))));
+    }
 }

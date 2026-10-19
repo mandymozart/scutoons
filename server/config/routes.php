@@ -183,6 +183,7 @@ return static function (App $app): void {
     // containers (research/SCORES.md): put an entry into a container or take it out
     $app->post('/api/inventory/move', [InventoryController::class, 'move']);
     $app->post('/api/inventory/stack', [InventoryController::class, 'stack']);
+    $app->post('/api/inventory/split', [InventoryController::class, 'split']);
     $app->post('/api/inventory/grant', [InventoryController::class, 'grant']);
     // a story takes an item (VN takeItem, BACKLOG 10.38)
     $app->post('/api/inventory/take', [InventoryController::class, 'take']);

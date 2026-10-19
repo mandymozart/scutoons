@@ -5,6 +5,7 @@ import {
 	craftRecipe,
 	moveEntry,
 	stackEntry,
+	splitEntry,
 	placeFurniture,
 	payRide,
 	fetchCatalog,
@@ -383,6 +384,25 @@ export function createInventoryContext(session: SessionContext) {
 		if (!mine || !target) return { ok: false, error: 'unknown_entry' };
 		target.qty += mine.qty;
 		guest.entries = guest.entries.filter((e) => e !== mine);
+		saveGuest();
+		return { ok: true };
+	}
+
+	/** `qty` pieces off a field onto one of their own at the same place (owner 2026-10-19; a worn piece stays) */
+	async function split(entry: Entry, qty: number): Promise<{ ok: boolean; error?: string }> {
+		if (!Number.isInteger(qty) || qty < 1 || qty >= entry.qty) return { ok: false, error: 'invalid_qty' };
+		if (isAccount) {
+			try {
+				applyInventory((await splitEntry(entry.id, qty)).inventory);
+				return { ok: true };
+			} catch (e) {
+				return { ok: false, error: e instanceof ApiError ? e.code : 'failed' };
+			}
+		}
+		const mine = guest.entries.find((e) => sameId(e.id, entry.id));
+		if (!mine || qty >= mine.qty) return { ok: false, error: 'invalid_qty' };
+		guest.entries.push({ ...mine, id: `local-${guest.seq++}`, qty });
+		mine.qty -= qty;
 		saveGuest();
 		return { ok: true };
 	}
@@ -1207,6 +1227,7 @@ export function createInventoryContext(session: SessionContext) {
 		packable,
 		twinsOf,
 		stack,
+		split,
 		move,
 		place,
 		payFare,

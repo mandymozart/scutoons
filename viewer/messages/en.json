@@ -282,6 +282,8 @@
 		"source_starter": "Starter item",
 		"combine_hint": "Pick a second item to combine with {name}.",
 		"stack_done": "{qty} × {name} now lie on one field",
+		"split_done": "{qty} × {name} now lie on a field of their own",
+		"split_done_one": "{name} now lies on a field of its own",
 		"combine_hint_stack": "Pick a second item to combine with {name} – or one of the same kind to put both onto one field.",
 		"stack_own_piece": "A piece with its own number stays on its own.",
 		"combine_choose": "What should it become?",

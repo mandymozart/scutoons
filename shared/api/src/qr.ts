@@ -197,6 +197,8 @@ export function createQrApi(api: ApiClient) {
 			api.post<InventoryResult>('/inventory/move/', { entry_id, into, ...(overfill ? { overfill } : {}), ...(qty != null ? { qty } : {}) }),
 		/** two of the same kind onto one field (research/PACKING.md §6): 409 not_same / own_piece / worn */
 		stackEntry: (entry_id: string | number, onto: string | number) => api.post<InventoryResult>('/inventory/stack/', { entry_id, onto }),
+		/** `qty` pieces off a field onto one of their own (1 … the field's pieces − 1): 400 invalid_qty */
+		splitEntry: (entry_id: string | number, qty: number) => api.post<InventoryResult>('/inventory/split/', { entry_id, qty }),
 
 		/** the reader's homes (research/CAVE.md): which avatars live where, the WG limit, the mover's price */
 		fetchHomes: () => api.get<HomesResult>('/homes/'),

@@ -159,8 +159,9 @@ Owner: two of the same kind (two cucumber crosses) should go onto one field, lik
 → **by hand**. Kombinieren in the item detail (shown also when a twin exists), then tap a piece of the same kind: with no
 recipe for the pair they go onto one field ("2 × Gurkenkreuz liegen jetzt auf einem Feld"); a drag onto it on desktop
 does the same. The server merges the rows (`POST /api/inventory/stack`); guests on the device. Pieces with their own code
-or edition number, containers, standing furniture and ageing items stay apart. Open: splitting a field again (a hold
-on the field, as in the container view?) – not asked yet.
+or edition number, containers, standing furniture and ageing items stay apart. Splitting (owner 2026-10-19: "do it"):
+press and hold a field of several pieces in the normal grid – the count runs up to one less than it holds, letting go
+puts that many onto a field of their own (`POST /api/inventory/split`); a short tap still opens the detail.
 
 [sdv-controls]: https://wiki.stardewvalley.net/Controls
 [sdv-mobile]: https://wiki.stardewvalley.net/Mobile_Controls

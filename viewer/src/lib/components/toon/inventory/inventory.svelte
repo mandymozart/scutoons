@@ -83,11 +83,20 @@
 	const boxAtHome = $derived(!!openBox && !!inventory.item(openBox.item_id)?.furniture);
 	function tileOf(entry: Entry) {
 		if (pack.packing) return pack.packTile(entry);
-		return boxOpen && openBox ? pack.boxTile(entry, openBox) : null;
+		if (boxOpen && openBox) return pack.boxTile(entry, openBox);
+		// a field with several pieces: holding counts some off onto a field of their own (owner 2026-10-19)
+		if (!combineWith && !openBox && entry.qty > 1) return { look: null, label: inventory.nameOf(entry), holdMax: entry.qty - 1 };
+		return null;
 	}
 	function hold(entry: Entry, qty: number) {
 		if (pack.packing) pack.hold(entry, qty);
 		else if (boxOpen && !boxAtHome) void pack.takeOut(entry, qty);
+		else if (!combineWith && !openBox) void splitOff(entry, qty);
+	}
+	async function splitOff(entry: Entry, qty: number) {
+		const result = await inventory.split(entry, qty);
+		const name = inventory.nameOf(entry);
+		pack.say(!result.ok ? m['items.move_failed']() : qty === 1 ? m['items.split_done_one']({ name }) : m['items.split_done']({ qty, name }));
 	}
 	function startPacking(entry: Entry) {
 		selected = null;

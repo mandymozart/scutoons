@@ -90,6 +90,26 @@ final class Containers
     }
 
     /**
+     * Takes `qty` pieces off a field onto a field of their own at the same place (owner 2026-10-19: the reverse of
+     * `stack` – held and counted in the inventory) – { entry_id, qty }: 1 … the field's pieces − 1; a worn piece stays on
+     * the old field. 400 invalid_qty · 404 unknown_entry.
+     * @param array<string, mixed> $body
+     */
+    public function split(string $userId, array $body): void
+    {
+        $entryId = is_string($body['entry_id'] ?? null) ? $body['entry_id'] : '';
+        $qty = $body['qty'] ?? null;
+        $this->db->transaction(function () use ($userId, $entryId, $qty) {
+            $entry = $this->entry($userId, $entryId);
+            if (!is_int($qty) || $qty < 1 || $qty >= (int) $entry['qty']) throw new ApiError(400, 'invalid_qty', 'qty: 1 up to one less than the field holds.');
+            $now = $this->clock->utc();
+            $this->db->run('INSERT INTO inventory (id, user_id, item_id, variant, qty, source, code, edition_number, container_id, aged_since, acquired_at, updated_at) '
+                . 'SELECT ?, user_id, item_id, variant, ?, source, code, edition_number, container_id, aged_since, acquired_at, ? FROM inventory WHERE id = ?', [Ids::uuid(), $qty, $now, $entry['id']]);
+            $this->db->run('UPDATE inventory SET qty = qty - ?, updated_at = ? WHERE id = ?', [$qty, $now, $entry['id']]);
+        });
+    }
+
+    /**
      * The checks for moving `$n` of an entry into a container; returns how many go in (capped by the room left).
      * @param array<string, mixed> $entry
      */

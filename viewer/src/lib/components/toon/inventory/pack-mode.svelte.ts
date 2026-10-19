@@ -14,7 +14,7 @@ export interface Tile {
 	look: 'source' | 'lit' | 'dim' | null;
 	label: string;
 	reason?: string;
-	/** the most a hold counts to (below 2 = no counting) */
+	/** the most a hold counts to (0 = no counting) */
 	holdMax: number;
 }
 
@@ -57,13 +57,13 @@ export function createPackMode(inventory: Inventory, focusTile: (id: string) => 
 		}
 		const max = inventory.item(entry.item_id)?.holds?.max;
 		const label = max == null ? m['items.pack_target_open']({ name }) : m['items.pack_target']({ name, count: inventory.countIn(entry), max });
-		return { look: 'lit', label, holdMax: Math.min(packing.qty, room(entry)) };
+		return { look: 'lit', label, holdMax: packing.qty > 1 ? Math.min(packing.qty, room(entry)) : 0 };
 	}
 
 	/** a tile in an open container's grid: a tap takes it out (null = the normal tile – furniture is emptied at home) */
 	function boxTile(entry: Entry, box: Entry): Tile | null {
 		if (inventory.item(box.item_id)?.furniture) return null;
-		return { look: null, label: `${inventory.nameOf(entry)} – ${m['items.container_take_out']({ name: inventory.nameOf(box) })}`, holdMax: entry.qty };
+		return { look: null, label: `${inventory.nameOf(entry)} – ${m['items.container_take_out']({ name: inventory.nameOf(box) })}`, holdMax: entry.qty > 1 ? entry.qty : 0 };
 	}
 
 	async function packInto(container: Entry, qty?: number) {

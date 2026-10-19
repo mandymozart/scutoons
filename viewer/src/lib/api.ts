@@ -35,6 +35,7 @@ export const {
 	craftRecipe,
 	moveEntry,
 	stackEntry,
+	splitEntry,
 	fetchHomes,
 	placeFurniture,
 	moveIntoHome,

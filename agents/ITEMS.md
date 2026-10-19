@@ -135,8 +135,10 @@ Built: the catalog model and the server (2026-10-14); the admin fields and the r
 - One field (owner 2026-10-17: two cucumber crosses "auf einem Feld", by hand like Stardew): two entries of the same item
   and variant at the same place go together – Kombinieren, then a piece of the same kind (when no recipe takes the
   pair), or a drag onto it; `POST /api/inventory/stack` { entry_id, onto } (409 not_same / own_piece / worn), `canStack`.
-  Never a container, standing furniture, an ageing item or a piece with its own code / edition number. Splitting a field
-  again: not yet.
+  Never a container, standing furniture, an ageing item or a piece with its own code / edition number. Splitting
+  (owner 2026-10-19): press and hold a field of several pieces in the grid, it counts 1, 2, 3 … up to one less than it
+  holds, letting go puts that many onto a field of their own at the same place (`POST /api/inventory/split`
+  { entry_id, qty }; a worn piece stays on the old field).
 
 ### Homes and furniture (model + server, 2026-10-14 – research/CAVE.md, FEATURES 10.98)
 

@@ -26,6 +26,7 @@ use Scutoons\Http\Middleware\JsonBody;
  *                                (a recipe `at: "workshop"` needs a workbench there – 409 needs_workshop; research/CAVE.md D4)
  *   POST /api/inventory/move/    { entry_id, into: <container entry id> | null, overfill?, qty? } → { status, inventory } (containers, research/SCORES.md)
  *   POST /api/inventory/stack/   { entry_id, onto } → { status, inventory } (two of the same kind onto one field, research/PACKING.md §6)
+ *   POST /api/inventory/split/   { entry_id, qty } → { status, inventory } (some pieces onto a field of their own, §6)
  *   POST /api/inventory/grant/   { item_id, source, ref? } → { status, granted, inventory }
  *   POST /api/inventory/take/    { item_id, qty?, ref? } → { status, taken, reason: null|too_few|already_taken, inventory } (a story takes – BACKLOG 10.38)
  *   POST /api/inventory/import/  { items: [{ item_id, qty, variant?, local_id?, in? }] } → { status, imported, skipped, inventory }
@@ -121,6 +122,14 @@ final class InventoryController
         $body = JsonBody::of($request);
         $user = CurrentSession::of($request)->requireUser();
         $this->containers->stack((string) $user['id'], $body);
+        return Json::response($response, 200, ['status' => 'success', 'inventory' => $this->inventory->entries((string) $user['id'])]);
+    }
+
+    public function split(Request $request, Response $response): Response
+    {
+        $body = JsonBody::of($request);
+        $user = CurrentSession::of($request)->requireUser();
+        $this->containers->split((string) $user['id'], $body);
         return Json::response($response, 200, ['status' => 'success', 'inventory' => $this->inventory->entries((string) $user['id'])]);
     }
 
