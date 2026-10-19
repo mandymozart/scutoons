@@ -16,6 +16,7 @@ import { lumaPrompt } from '../../scripts/storyboard/luma.js';
 import { shotCharacters, styleFiles } from '../../scripts/storyboard/refs.mjs';
 import { generatorRoutes } from './generators/index.mjs';
 import { lanIps, phone } from './phone-https.mjs';
+import { chapterClips, sendFile } from './clips.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
@@ -250,6 +251,8 @@ const api = {
 		}
 		return out;
 	},
+	// each shot's clips – the active take, the handheld renders, the generated files, with their real durations (clips.mjs)
+	'GET /api/clips': ({ toon, ch }) => chapterClips({ boards: BOARDS, toon, ch }),
 	// the phone's address(es): this PC on the LAN over HTTPS (phone-https.mjs), or why not
 	'GET /api/handheld/urls': () => ({ wifi: phone.on, port: phone.port, error: phone.error, ips: lanIps() }),
 	// one frame of a pass → storyboards/_out/<chapter>/handheld/<shot>--<take>/<pass>/f00001.png
@@ -318,7 +321,8 @@ export async function handle(req, res, next) {
 		const file = normalize(join(base, decodeURIComponent(url.pathname.slice(mount.length))));
 		if (!file.startsWith(base)) return send(403, 'no', 'text/plain');
 		if (!existsSync(file) || statSync(file).isDirectory()) return send(404, 'not found', 'text/plain');
-		return send(200, readFileSync(file), TYPES[extname(file)] ?? 'application/octet-stream');
+		// byte ranges: a <video> (ClipView) seeks only in a file it got as 206 (clips.mjs)
+		return sendFile(req, res, file, TYPES[extname(file)] ?? 'application/octet-stream');
 	} catch (e) {
 		return send(500, { error: e.message });
 	}
