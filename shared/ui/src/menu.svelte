@@ -4,12 +4,14 @@
 
 	/**
 	 * Dropdown menu (disclosure pattern): a trigger button and a popup with the app's items (buttons / links).
-	 * Closes on outside click, Escape (focus returns to the trigger) and after an item is chosen.
+	 * Closes on outside click, Escape (focus returns to the trigger) and after an item is chosen. `drop="up"` opens it
+	 * above the trigger (a menu in the bottom ActionBar).
 	 */
 	let {
 		label,
 		trigger,
 		align = 'start',
+		drop = 'down',
 		open = $bindable(false),
 		children
 	}: {
@@ -18,6 +20,7 @@
 		/** custom trigger content (the button stays) */
 		trigger?: Snippet;
 		align?: 'start' | 'end';
+		drop?: 'down' | 'up';
 		open?: boolean;
 		children: Snippet;
 	} = $props();
@@ -51,7 +54,7 @@
 	</button>
 	{#if open}
 		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-		<div class="popup align-{align}" id="{uid}-menu" onclick={onPopupClick}>
+		<div class="popup align-{align}" class:up={drop === 'up'} id="{uid}-menu" onclick={onPopupClick}>
 			{@render children()}
 		</div>
 	{/if}
@@ -94,6 +97,10 @@
 		background: var(--paper);
 		border: var(--border-width-regular) solid var(--ink);
 		border-radius: var(--radius-none);
+	}
+	.popup.up {
+		top: auto;
+		bottom: calc(100% + var(--space-025));
 	}
 	.align-start {
 		left: 0;

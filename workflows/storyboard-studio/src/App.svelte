@@ -1,94 +1,106 @@
 <script>
-	// The storyboard studio (owner 2026-10-09: "use our scutoons ui and design dogmas"): one AppShell like the tools –
-	// the chapter's shots as the sidebar (resizable, folds to a rail), the 3D view as the page, the shot's panels in the
-	// right dock (Shot · Script · Variants · Luma · Handheld · Generate; each folds to its rail, drags wider). agents/DOCKING.md, DESIGN.md.
-	import { onMount } from 'svelte';
-	import { AppShell, DialogHost, Icon, installTooltips, panelWidth, useDock } from '@scutoons/ui';
-	import { loadChapter, loadChapters, run, studio } from './lib/studio.svelte.js';
+	// The storyboard studio (owner 2026-10-09: "use our scutoons ui and design dogmas"; 2026-10-19: research/STUDIO-LAYOUT.md
+	// concept C, stage 1 = step tabs on the dock). One AppShell like the tools, the same in every step ("it makes sense for
+	// it to always look the same"): the shots as the sidebar, the 3D view as the page, the step's panels in the right dock
+	// (each with the creator's head, folds to its rail, drags wider), the timeline along the bottom under the view and the
+	// panels (owner: "the timeline underneath the other windows was also good"), the ActionBar. A step only changes which
+	// panels are open, the Shot panel's tab, the timeline's fold and the panels' widths (steps.svelte.js). Keys outside text
+	// fields: 1–6 the step, T the shot list, N the step's panels; Ctrl + Space, Ctrl + \, Ctrl + Shift + \ as in the creator.
+	// agents/DOCKING.md, DESIGN.md.
+	import { onMount, untrack } from 'svelte';
+	import { AppShell, DialogHost, installTooltips, panelHeight, panelWidth, Segmented, ToastStack, useDock } from '@scutoons/ui';
+	import { fail, loadChapters, studio, toaster } from './lib/studio.svelte.js';
+	import { here, isOpen, PANELS, setOpen, setStep, setTab, setTimeline, SHOT_TABS, STEPS, steps } from './lib/steps.svelte.js';
+	import { followSelection } from './lib/handheld/handheld.svelte.js';
+	import TopBar from './lib/components/TopBar.svelte';
 	import ShotList from './lib/components/ShotList.svelte';
 	import Viewport from './lib/components/Viewport.svelte';
+	import Timeline from './lib/components/Timeline.svelte';
+	import StudioActions from './lib/components/StudioActions.svelte';
+	import StudioPanel from './lib/components/StudioPanel.svelte';
 	import ShotPanel from './lib/components/ShotPanel.svelte';
 	import ScriptPanel from './lib/components/ScriptPanel.svelte';
 	import VariantsPanel from './lib/components/VariantsPanel.svelte';
 	import PromptPanel from './lib/components/PromptPanel.svelte';
 	import HandheldPanel from './lib/components/HandheldPanel.svelte';
 	import GeneratePanel from './lib/components/GeneratePanel.svelte';
+	import OutputPanel from './lib/components/OutputPanel.svelte';
 
-	const width = (kind, rem) => panelWidth(`storyboard-studio:${kind}`, rem, undefined, { foldable: true });
-	const sizes = { shot: width('shot', 24), script: width('script', 20), variants: width('variants', 16), prompt: width('prompt', 26), handheld: width('handheld', 22), generate: width('generate', 20) };
-	const PANELS = [
-		{ kind: 'shot', title: 'Shot', icon: 'sliders' },
-		{ kind: 'script', title: 'Script', icon: 'file-text' },
-		{ kind: 'variants', title: 'Variants', icon: 'layers' },
-		{ kind: 'prompt', title: 'Luma', icon: 'send' },
-		{ kind: 'handheld', title: 'Handheld', icon: 'smartphone' },
-		{ kind: 'generate', title: 'Generate', icon: 'zap' }
-	];
-	let open = $state({ shot: true, script: true, variants: false, prompt: false, handheld: false, generate: false });
-	const docked = (kind, panel) => (open[kind] && studio.sel ? { kind: `storyboard-${kind}`, size: sizes[kind], title: PANELS.find((p) => p.kind === kind).title, icon: PANELS.find((p) => p.kind === kind).icon, close: () => (open[kind] = false), panel } : null);
-	useDock(() => docked('shot', shotPanel));
-	useDock(() => docked('script', scriptPanel));
-	useDock(() => docked('variants', variantsPanel));
-	useDock(() => docked('prompt', promptPanel));
-	useDock(() => docked('handheld', handheldPanel));
-	useDock(() => docked('generate', generatePanel));
+	// every step's own panel widths (remembered per step and kind)
+	const sizes = Object.fromEntries(STEPS.map((s) => [s.id, Object.fromEntries(PANELS.map((p) => [p.kind, panelWidth(`storyboard-studio:${s.id}:${p.kind}`, p.rem, undefined, { foldable: true })]))]));
+	// read when the dock asks (the snippets are declared below)
+	const body = (kind) => ({ shot: shotBody, script: scriptBody, variants: variantsBody, prompt: promptBody, handheld: handheldBody, generate: generateBody, output: outputBody })[kind];
+	const titleOf = (p) => (p.kind === 'shot' && studio.sel ? `Shot · ${studio.sel.id}${studio.dirty ? ' •' : ''}` : p.kind === 'output' ? 'Output' : studio.sel ? `${p.title} · ${studio.sel.id}` : p.title);
+	PANELS.forEach((p, order) =>
+		useDock(() => (isOpen(p.kind) && (studio.sel || p.kind === 'output') ? { kind: `storyboard-${p.kind}`, order, size: sizes[steps.current][p.kind], title: titleOf(p), icon: p.icon, close: () => setOpen(p.kind, false), panel: body(p.kind) } : null))
+	);
 
+	// the timeline: one height for all steps, its fold per step (both ways – the fold button / a drag write the step's)
+	const timeline = panelHeight('storyboard-studio:timeline', 12);
+	$effect(() => {
+		const folded = !here().timeline;
+		untrack(() => timeline.fold(folded));
+	});
+	$effect(() => {
+		const open = !timeline.folded;
+		untrack(() => setTimeline(open));
+	});
+
+	followSelection();
 	onMount(() => {
 		installTooltips();
-		loadChapters().catch((e) => (studio.message = e.message));
+		loadChapters().catch(fail);
 	});
 
-	const summary = $derived.by(() => {
-		const t = studio.data?.summary?.total;
-		return t ? `${t.shots} shots · ${t.screens.toFixed(1)} screens · ${(t.seconds / 60).toFixed(1)} min · ${studio.data.problems.length} notes` : '';
-	});
-	const ACTIONS = [
-		{ cmd: 'validate', label: 'Check', title: 'Run the storyboard check (validate.mjs)' },
-		{ cmd: 'frames', label: 'All frames', title: 'Render every frame of the chapter (~4 min)' },
-		{ cmd: 'refpacks', label: 'Reference packs', title: 'One folder per shot for Luma (render, style, characters, prompt)' },
-		{ cmd: 'compile', label: 'Chapter draft', title: 'The chapter draft for the creator (compile.mjs) – nothing is saved' }
-	];
+	// 1–6, T, N – only outside text fields and dialogs, without modifiers (Blender-like; owner 2026-10-19)
+	const typing = (el) => !!el?.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"])');
+	function keys(e) {
+		if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || e.defaultPrevented || typing(document.activeElement) || document.querySelector('dialog[open]')) return;
+		const n = Number(e.key);
+		if (n >= 1 && n <= STEPS.length) setStep(STEPS[n - 1].id);
+		else if (e.key === 't' || e.key === 'T') window.dispatchEvent(new KeyboardEvent('keydown', { key: '\\', code: 'Backslash', ctrlKey: true }));
+		else if (e.key === 'n' || e.key === 'N') foldPanels();
+		else return;
+		e.preventDefault();
+	}
+	/** N: the step's panels fold to their rails – or come back (none open: the step's own set opens) */
+	function foldPanels() {
+		const open = PANELS.filter((p) => isOpen(p.kind));
+		if (!open.length) return STEPS.find((s) => s.id === steps.current).panels.forEach((k) => setOpen(k, true));
+		const fold = open.some((p) => !sizes[steps.current][p.kind].folded);
+		open.forEach((p) => sizes[steps.current][p.kind].fold(fold));
+	}
 </script>
 
-{#snippet shotPanel()}<ShotPanel />{/snippet}
-{#snippet scriptPanel()}<ScriptPanel />{/snippet}
-{#snippet variantsPanel()}<VariantsPanel />{/snippet}
-{#snippet promptPanel()}<PromptPanel />{/snippet}
-{#snippet handheldPanel()}<HandheldPanel />{/snippet}
-{#snippet generatePanel()}<GeneratePanel />{/snippet}
+<svelte:window onkeydown={keys} />
+
+{#snippet shotTabs()}
+	<Segmented label="Shot panel" stretch radio options={SHOT_TABS} value={here().tab} onchange={setTab} />
+{/snippet}
+{#snippet shotBody()}<StudioPanel title={titleOf(PANELS[0])} icon="sliders" onclose={() => setOpen('shot', false)} tabs={shotTabs} testid="panel-shot"><ShotPanel tab={here().tab} /></StudioPanel>{/snippet}
+{#snippet scriptBody()}<StudioPanel title={titleOf(PANELS[1])} icon="file-text" onclose={() => setOpen('script', false)}><ScriptPanel /></StudioPanel>{/snippet}
+{#snippet handheldBody()}<StudioPanel title={titleOf(PANELS[2])} icon="smartphone" onclose={() => setOpen('handheld', false)}><HandheldPanel /></StudioPanel>{/snippet}
+{#snippet generateBody()}<StudioPanel title={titleOf(PANELS[3])} icon="zap" onclose={() => setOpen('generate', false)}><GeneratePanel /></StudioPanel>{/snippet}
+{#snippet promptBody()}<StudioPanel title={titleOf(PANELS[4])} icon="send" onclose={() => setOpen('prompt', false)}><PromptPanel /></StudioPanel>{/snippet}
+{#snippet variantsBody()}<StudioPanel title={titleOf(PANELS[5])} icon="layers" onclose={() => setOpen('variants', false)}><VariantsPanel /></StudioPanel>{/snippet}
+{#snippet outputBody()}<StudioPanel title="Output" icon="download" onclose={() => setOpen('output', false)}><OutputPanel /></StudioPanel>{/snippet}
+
+{#snippet bottom()}
+	<Timeline step={steps.current} onfold={() => timeline.fold(true)} />
+{/snippet}
 
 <div class="studio sc-tool">
-	<AppShell mode="fill" resizeKey="storyboard-studio:shots" foldable railLabel="Shots" sidebarLabel="Shots" sidebarTag="aside" dockLabel="Shot panels" pageLabel="3D view">
+	<AppShell mode="fill" minContent={24} resizeKey="storyboard-studio:shots" foldable railLabel="Shots" sidebarLabel="Shots" sidebarTag="aside" dockLabel="Shot panels" pageLabel="3D view" {bottom} bottomSize={timeline} bottomLabel="Timeline" bottomIcon="film" bottomResizeLabel="Resize the timeline" bottomUnfoldLabel="Show the timeline">
 		{#snippet topbar()}
-			<header class="topbar">
-				<span class="brand"><img src="/scutoons-logo.svg" alt="" onerror={(e) => e.currentTarget.remove()} />Storyboard Studio</span>
-				<select aria-label="Chapter" bind:value={studio.chapter} onchange={() => loadChapter()}>
-					{#each studio.chapters as c (`${c.toon}/${c.ch}`)}
-						<option value={`${c.toon}/${c.ch}`}>{c.toon} · {c.ch}</option>
-					{/each}
-				</select>
-				<span class="summary">{summary}</span>
-				<span class="grow"></span>
-				<div class="sc-seg" role="group" aria-label="Panels">
-					{#each PANELS as p (p.kind)}
-						<button type="button" class:sc-selected={open[p.kind]} aria-pressed={open[p.kind]} title={`${p.title} panel`} onclick={() => (open[p.kind] = !open[p.kind])}><Icon name={p.icon} /> {p.title}</button>
-					{/each}
-				</div>
-				<div class="sc-seg" role="group" aria-label="Scripts">
-					{#each ACTIONS as a (a.cmd)}
-						<button type="button" title={a.title} onclick={() => run(a.cmd)}>{a.label}</button>
-					{/each}
-				</div>
-			</header>
+			<TopBar />
 		{/snippet}
 		{#snippet sidebar()}
 			<ShotList />
 		{/snippet}
 		<Viewport />
+		<StudioActions />
 	</AppShell>
-	{#if studio.message}
-		<p class="status" role="status">{studio.message}</p>
-	{/if}
+	<ToastStack {toaster} />
 	<DialogHost />
 </div>
 
@@ -109,55 +121,10 @@
 		/* the smaller root: captions and micro labels a step up so they stay readable (≈ 11.7px / 10.8px at 14.4px) */
 		--type-caption-size: 0.8125rem;
 		--type-nav-micro-size: 0.75rem;
-		/* the bar as tall as a control plus a little air (the tools' 48px floor is for the 16px root) */
+		/* the bars as tall as a control plus a little air (the tools' 48px floor is for the 16px root) */
 		--tool-bar-height: calc(var(--control-height) + var(--space-05));
-		/* the shots: wide enough for an id and its format on one line beside the frame (still narrower than before) */
+		--action-bar-height: var(--tool-bar-height);
+		/* the shots: wide enough for an id and its format on one line beside the frame */
 		--tool-sidebar-width: 15rem;
-	}
-	.topbar {
-		display: flex;
-		align-items: center;
-		gap: var(--space-05);
-		height: var(--tool-bar-height);
-		padding: 0 var(--space-1);
-		box-sizing: border-box;
-		background: var(--paper);
-		border-bottom: var(--border-width-regular) solid var(--ink);
-		overflow-x: auto;
-	}
-	.brand {
-		display: flex;
-		align-items: center;
-		gap: var(--space-05);
-		text-transform: uppercase;
-		letter-spacing: var(--tracking-label);
-		white-space: nowrap;
-	}
-	.brand img {
-		height: 1.25rem;
-		width: auto;
-	}
-	.summary {
-		color: var(--ink-muted, var(--ink));
-		font-size: var(--type-caption-size);
-		white-space: nowrap;
-	}
-	.grow {
-		flex: 1;
-	}
-	.sc-seg button {
-		white-space: nowrap;
-	}
-	.status {
-		position: fixed;
-		left: var(--space-1);
-		bottom: var(--space-1);
-		margin: 0;
-		max-width: min(40rem, 90vw);
-		padding: var(--space-05) var(--space-1);
-		background: var(--ink);
-		color: var(--paper);
-		font-size: var(--type-caption-size);
-		z-index: 10;
 	}
 </style>

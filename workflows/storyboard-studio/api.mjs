@@ -12,7 +12,7 @@ import { networkInterfaces } from 'node:os';
 import { dirname, extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mediaRoot, readEntity } from '../../scripts/storyboard/lib.mjs';
-import { loadStoryboards, summarize, validate } from '../../scripts/storyboard/storyboard.mjs';
+import { loadStoryboards, measureShot, summarize, validate } from '../../scripts/storyboard/storyboard.mjs';
 import { lumaPrompt } from '../../scripts/storyboard/luma.js';
 import { shotCharacters, styleFiles } from '../../scripts/storyboard/refs.mjs';
 import { generatorRoutes } from './generators/index.mjs';
@@ -129,8 +129,11 @@ const api = {
 		const handheld = {};
 		const hd = resolve(chapterDir(toon, ch), 'takes');
 		if (existsSync(hd)) for (const f of readdirSync(hd).filter((x) => x.endsWith('.json'))) { const d = JSON.parse(readFileSync(resolve(hd, f), 'utf8')); if (d.on) handheld[f.replace(/\.json$/, '')] = d.takes?.length ?? 0; }
+		// the reading time of each shot (the timeline's widths): { id: seconds }
+		const seconds = {};
+		for (const { sb } of list) for (const g of sb.groups ?? []) for (const shot of g.shots ?? []) seconds[shot.id] = +measureShot(shot).seconds.toFixed(2);
 		return {
-			toon, ch, summary: summarize(list), problems, variants, handheld, scriptError: script.error ?? null,
+			toon, ch, summary: summarize(list), problems, variants, handheld, seconds, scriptError: script.error ?? null,
 			scenes: list.map(({ file, sb }) => ({ file: file.slice(ROOT.length + 1).replaceAll('\\', '/'), sb, script: script[sb.source?.scene] ?? null }))
 		};
 	},

@@ -1,5 +1,7 @@
 // The studio's state and its calls to the local API (api.mjs). One chapter, one selected shot (edited as a copy until
-// it is saved), the selected figure in the 3D view.
+// it is saved, shared by every step), the selected figure in the 3D view; the messages as the shared toasts (DESIGN
+// "Notifications").
+import { confirmDialog, createToaster } from '@scutoons/ui';
 import { shotSpec } from '../../../../tools/storyboard-render/spec.js';
 
 export const VOCAB = {
@@ -29,6 +31,11 @@ export async function api(method, path, body) {
 	if (!r.ok) throw new Error(j.error ?? r.statusText);
 	return j;
 }
+/** the studio's toasts (one ToastStack in App): transient info fades, an error stays until dismissed */
+export const toaster = createToaster();
+export const notify = (message, type = 'info') => message && toaster.addToast({ message, type });
+export const fail = (e) => notify(e?.message ?? String(e), 'error');
+
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const remember = (k, v) => { try { localStorage.setItem(`storyboard-studio:${k}`, v); } catch {} };
 const recall = (k) => { try { return localStorage.getItem(`storyboard-studio:${k}`); } catch { return null; } };
@@ -44,9 +51,7 @@ export const studio = $state({
 	/** the figure picked in the 3D view (index) */
 	figure: null,
 	/** a counter the panels watch to reload (variants, generated) */
-	version: 0,
-	/** the last message (a status line) */
-	message: ''
+	version: 0
 });
 
 export const toon = () => studio.chapter.split('/')[0];
@@ -78,6 +83,23 @@ export function find(id) {
 	return null;
 }
 
+/** the chapter's shots in reading order (the timeline, the shot stepper) */
+export function allShots() {
+	const list = [];
+	for (const sc of studio.data?.scenes ?? []) for (const g of sc.sb.groups ?? []) for (const shot of g.shots ?? []) list.push({ id: shot.id, shot, scene: sc.sb.source?.scene ?? '', seconds: studio.data.seconds?.[shot.id] ?? 1 });
+	return list;
+}
+
+/** pick a shot (the list, the timeline, the stepper): unsaved changes → an in-page confirmation first */
+export async function pickShot(id) {
+	if (!id || id === studio.sel?.id) return;
+	if (studio.dirty) {
+		const ok = await confirmDialog({ title: 'Discard the changes?', message: `${studio.sel.id} has unsaved changes.`, confirmLabel: 'Discard' });
+		if (!ok) return;
+	}
+	select(id);
+}
+
 export function select(id) {
 	const hit = find(id);
 	if (!hit) return;
@@ -101,7 +123,7 @@ export async function save(png) {
 	if (png) await api('POST', '/api/frame', { toon: toon(), ch: ch(), id: shot.id, png });
 	studio.dirty = false;
 	await loadChapter(true);
-	studio.message = r.problems?.length ? `Saved – ${r.problems.length} note(s): ${r.problems[0]}` : 'Saved.';
+	notify(r.problems?.length ? `Saved – ${r.problems.length} note(s): ${r.problems[0]}` : 'Saved.', r.problems?.length ? 'warning' : 'success');
 }
 
 export async function saveVariant(note, png) {
@@ -110,7 +132,7 @@ export async function saveVariant(note, png) {
 	if (png) await api('POST', '/api/frame', { toon: toon(), ch: ch(), id: shot.id, variant: vid, png });
 	studio.dirty = false;
 	await loadChapter(true);
-	studio.message = `Kept as variant ${vid}.`;
+	notify(`Kept as variant ${vid}.`, 'success');
 }
 
 export function revert() {
@@ -120,9 +142,9 @@ export function revert() {
 }
 
 export async function run(cmd, only) {
-	studio.message = `${cmd} …`;
+	notify(`${cmd} …`);
 	const r = await api('POST', '/api/run', { toon: toon(), ch: ch(), cmd, only });
-	studio.message = (r.out || (r.ok ? 'done' : 'failed')).split('\n').filter(Boolean).slice(-1)[0];
+	notify((r.out || (r.ok ? 'done' : 'failed')).split('\n').filter(Boolean).slice(-1)[0], r.ok ? 'success' : 'error');
 	if (cmd === 'frames') await loadChapter(true);
 	return r;
 }

@@ -2,7 +2,7 @@
 	// The shot's frame, its variants (pick one = it becomes the shot, the old one a variant; load = into the editor) and
 	// the generated images and videos (Luma results, photos, drawings dropped onto it, the Generate panel's results) – one approved = the chosen image (dataset).
 	import { askDialog } from '@scutoons/ui';
-	import { api, ch, loadChapter, studio, toon, touched } from '../studio.svelte.js';
+	import { api, ch, loadChapter, notify, studio, toon, touched } from '../studio.svelte.js';
 	import { framePng } from '../frames.js';
 
 	let variants = $state([]);
@@ -23,7 +23,7 @@
 		await loadChapter(true);
 		await api('POST', '/api/frame', { toon: toon(), ch: ch(), id, png: await framePng() });
 		await loadChapter(true);
-		studio.message = `${vid} is the shot now.`;
+		notify(`${vid} is the shot now.`, 'success');
 	}
 	function load(variant) {
 		studio.sel.shot = { ...JSON.parse(JSON.stringify(variant.shot)), id };
@@ -40,7 +40,7 @@
 		const note = await askDialog({ title: 'The chosen image', message: 'Approves the shot with this image (review + dataset).', label: 'Note (optional)', confirmLabel: 'Approve', skipLabel: 'Approve without note' });
 		if (note === null) return;
 		const r = await api('POST', '/api/generated/approve', { toon: toon(), ch: ch(), id, file, note });
-		studio.message = r.out;
+		notify(r.out, 'success');
 		await loadChapter(true);
 	}
 </script>

@@ -5,14 +5,14 @@
 	// results land in Variants → Generated. README "Generators", generators/jobs.mjs.
 	import { untrack } from 'svelte';
 	import { Icon, IconButton } from '@scutoons/ui';
-	import { studio } from '../studio.svelte.js';
+	import { fail, studio } from '../studio.svelte.js';
 	import { cancel, costText, current, estimate, gen, loadGenerators, loadInputs, model, setGenerator, setModel, start, wants } from '../generate.svelte.js';
 
 	const id = $derived(studio.sel?.id);
 	const v = $derived(studio.version);
-	$effect(() => { if (!gen.generators.length) loadGenerators().catch((e) => (studio.message = e.message)); });
+	$effect(() => { if (!gen.generators.length) loadGenerators().catch(fail); });
 	// a new shot pre-fills the form; a reload (a new variant) only refreshes the lists
-	$effect(() => { void v; const shot = id; if (shot) untrack(() => loadInputs(shot).catch((e) => (studio.message = e.message))); });
+	$effect(() => { void v; const shot = id; if (shot) untrack(() => loadInputs(shot).catch(fail)); });
 	// the estimate follows every change of the form
 	$effect(() => { void JSON.stringify(gen.form); void gen.inputs; estimate(); });
 	const g = $derived(current());

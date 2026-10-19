@@ -1,17 +1,10 @@
 <script>
 	// The chapter's shots in reading order, by scene: the frame, the id, view + format, the review (ok / change), the
-	// number of variants. Selected = sc-selected (tools.css). Unsaved changes → an in-page confirmation first.
-	import { confirmDialog } from '@scutoons/ui';
-	import { ch, select, studio } from '../studio.svelte.js';
+	// number of variants – the same in every step. Selected = sc-selected (tools.css). Unsaved changes → an in-page
+	// confirmation first (pickShot).
+	import { ch, pickShot as pick, studio } from '../studio.svelte.js';
 
 	const stamp = $derived(studio.version);
-	async function pick(id) {
-		if (studio.dirty && id !== studio.sel?.id) {
-			const ok = await confirmDialog({ title: 'Discard the changes?', message: `${studio.sel.id} has unsaved changes.`, confirmLabel: 'Discard' });
-			if (!ok) return;
-		}
-		select(id);
-	}
 </script>
 
 <nav class="shots" aria-label="Shots" data-sc-region>

@@ -2,7 +2,7 @@
 	// The prompt for Luma (scripts/storyboard/luma.js) from the shot as it is set right now (also unsaved): the story
 	// moment, perspective, figures, camera, light, empty zones, the look – copy it; attach the clean render (no texts)
 	// and the character / style pictures listed.
-	import { api, ch, studio, toon } from '../studio.svelte.js';
+	import { api, ch, notify, studio, toon } from '../studio.svelte.js';
 	import { framePng } from '../frames.js';
 
 	let text = $state('');
@@ -21,7 +21,7 @@
 	}
 	async function copy() {
 		await navigator.clipboard.writeText(text);
-		studio.message = 'Prompt copied – paste it into Luma.';
+		notify('Prompt copied – paste it into Luma.', 'success');
 	}
 	async function downloadRender() {
 		const a = document.createElement('a');

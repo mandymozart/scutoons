@@ -27,6 +27,7 @@
 	let texts = $state(true);
 	let info = $state('');
 	const how = $derived(`Drag = orbit · right-drag = pan · wheel = dolly · on a figure: drag = ${tool === 'turn' ? 'turn' : 'move'} · wheel = size · Alt + wheel = turn`);
+	const short = $derived(`drag orbit · right-drag pan · wheel dolly · figure: drag ${tool === 'turn' ? 'turn' : 'move'}`);
 	let renderer, pass, built, controls, gizmo, helperScene, spec, look;
 	let pivots = [];
 	const lookOf = () => ({ sky: built?.skyWhite ? 1 : 0, accent: spec?.accent ?? '#c00000', K: 1, seed: seedOf(spec?.id ?? '') });
@@ -401,11 +402,11 @@
 <section class="view" aria-label="3D view">
 	<div class="tools">
 		<Segmented label="Figure tool" options={[{ value: 'move', label: 'Move', icon: 'move' }, { value: 'turn', label: 'Turn', icon: 'rotate-cw' }]} value={tool} onchange={(v) => (tool = v)} />
-		<label class="check"><input type="checkbox" bind:checked={texts} /> Texts</label>
+		<Segmented label="Texts" options={[{ value: 'on', label: 'Texts', icon: 'type', title: 'The texts (SCUTOONS presets) on top' }]} value={texts ? 'on' : null} onchange={() => (texts = true)} onclear={() => (texts = false)} />
 		<button type="button" class="secondary" onclick={resetCamera} title="Back to the camera the shot's size / angle give (removes the hand camera)">Shot camera</button>
 		{#if busy}<span class="state" role="status">rendering …</span>{/if}
 		{#if studio.sel?.shot.camera}<span class="state" title="The shot has its own camera from the 3D view – 'Shot camera' goes back to size + angle">hand camera</span>{/if}
-		<span class="hint" title={how}>{how}</span>
+		<span class="hint" title={how}>{short}</span>
 	</div>
 	<div class="stage" bind:this={host}>
 		{#if !studio.sel}
@@ -433,11 +434,6 @@
 		padding: var(--space-025) var(--space-1);
 		border-bottom: var(--border-width-regular) solid var(--ink);
 		flex-wrap: wrap;
-	}
-	.check {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--space-025);
 	}
 	/* one line: the full text in its tooltip – the view keeps its height */
 	.hint {

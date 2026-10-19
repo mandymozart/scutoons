@@ -2,7 +2,7 @@
 // configured, the shot's inputs (pre-filled), the estimate shown before anything is sent, the jobs of the shot (polled
 // while one runs) and the session's spend. A paid job is sent only after confirmDialog with the estimate.
 import { confirmDialog } from '@scutoons/ui';
-import { api, ch, studio, toon } from './studio.svelte.js';
+import { api, ch, fail, notify, studio, toon } from './studio.svelte.js';
 
 const remember = (k, v) => { try { localStorage.setItem(`storyboard-studio:${k}`, v); } catch {} };
 const recall = (k) => { try { return localStorage.getItem(`storyboard-studio:${k}`); } catch { return null; } };
@@ -77,7 +77,7 @@ export async function start() {
 	const g = current();
 	const e = await api('POST', '/api/generate/estimate', { job: job() });
 	gen.estimate = e;
-	if (e.error) { studio.message = e.error; return; }
+	if (e.error) { notify(e.error, 'error'); return; }
 	if (e.paid) {
 		const ok = await confirmDialog({
 			title: `Send to ${g.label}?`,
@@ -91,7 +91,7 @@ export async function start() {
 		await api('POST', '/api/generate', { job: job(), confirm: e.usd });
 		await loadJobs();
 	} catch (err) {
-		studio.message = err.message;
+		fail(err);
 	} finally {
 		gen.busy = false;
 	}
@@ -110,7 +110,7 @@ export async function loadJobs() {
 	gen.jobs = r.jobs;
 	gen.spend = r.spend;
 	const finished = r.jobs.filter((j) => j.status === 'succeeded' && before.get(j.id) && before.get(j.id) !== 'succeeded');
-	if (finished.length) { studio.version++; studio.message = `Generated: ${finished.flatMap((j) => j.files).join(', ')} – in Variants.`; }
+	if (finished.length) { studio.version++; notify(`Generated: ${finished.flatMap((j) => j.files).join(', ')} – in Variants.`, 'success'); }
 	const active = r.jobs.some((j) => j.status === 'queued' || j.status === 'running');
 	clearTimeout(poll);
 	if (active) poll = setTimeout(() => loadJobs().catch(() => {}), 1500);

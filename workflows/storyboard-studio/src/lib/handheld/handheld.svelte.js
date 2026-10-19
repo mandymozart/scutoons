@@ -1,7 +1,7 @@
 // The handheld camera on the PC (README "Handheld camera", research/HANDHELD-CAMERA.md): the pairing with the phone,
 // the live pose into the 3D view (smoothed), recording takes, the selected shot's takes file (on, active take, trims).
 // The phone does the origin maths and sends the camera pose in the scene's world; the PC smooths, shows and records.
-import { api, ch, specOf, studio, toon } from '../studio.svelte.js';
+import { api, ch, fail, notify, specOf, studio, toon } from '../studio.svelte.js';
 import { connect, newCode } from './link.js';
 import { handheldView } from './view.js';
 import { packSample, sampleAt, smooth, smoother } from './track.js';
@@ -111,14 +111,14 @@ export async function stopRec() {
 	rec = null;
 	hh.recording = false;
 	sendState();
-	if (samples.length < 2) { studio.message = 'Nothing recorded – is the phone connected and tracking?'; return; }
+	if (samples.length < 2) { notify('Nothing recorded – is the phone connected and tracking?', 'warning'); return; }
 	const n = hh.doc.takes.reduce((m, t) => Math.max(m, Number(t.id.slice(1)) || 0), 0) + 1;
 	const take = { id: `t${n}`, created: new Date().toISOString(), smooth: hh.smooth, scale: hh.scale, in: 0, out: samples[samples.length - 1].t, samples };
 	hh.doc.takes.push(take);
 	hh.doc.active = take.id;
 	await saveDoc();
 	mark();
-	studio.message = `Take ${take.id}: ${take.out.toFixed(1)} s, ${samples.length} samples.`;
+	notify(`Take ${take.id}: ${take.out.toFixed(1)} s, ${samples.length} samples.`, 'success');
 }
 
 // --- the selected shot's takes file ---------------------------------------------------------------------------------
@@ -136,7 +136,7 @@ let saveTimer;
 export function saveDoc(later = false) {
 	clearTimeout(saveTimer);
 	const id = hh.docShot, doc = $state.snapshot(hh.doc);
-	const go = () => api('PUT', '/api/takes', { toon: toon(), ch: ch(), id, doc }).catch((e) => (studio.message = e.message));
+	const go = () => api('PUT', '/api/takes', { toon: toon(), ch: ch(), id, doc }).catch(fail);
 	if (later) { saveTimer = setTimeout(go, 400); return Promise.resolve(); }
 	return go();
 }
@@ -195,4 +195,18 @@ export function pause() {
 export function endPreview() {
 	pause();
 	handheldView.api?.release();
+}
+
+/** App, in every step: the selected shot's takes file follows the selection (the timeline's take track, the panel),
+ * and a paired phone shows the edited shot as it is (unsaved edits too) */
+export function followSelection() {
+	$effect(() => {
+		const id = studio.sel?.id;
+		if (id && hh.docShot !== id) { endPreview(); loadDoc(id).then(resume).catch(fail); }
+	});
+	$effect(() => {
+		if (!studio.sel) return;
+		void JSON.stringify($state.snapshot(studio.sel.shot));
+		sendSpec();
+	});
 }
