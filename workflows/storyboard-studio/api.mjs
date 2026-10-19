@@ -8,7 +8,6 @@
 
 import { execFile } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync, appendFileSync } from 'node:fs';
-import { networkInterfaces } from 'node:os';
 import { dirname, extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mediaRoot, readEntity } from '../../scripts/storyboard/lib.mjs';
@@ -16,6 +15,7 @@ import { loadStoryboards, measureShot, summarize, validate } from '../../scripts
 import { lumaPrompt } from '../../scripts/storyboard/luma.js';
 import { shotCharacters, styleFiles } from '../../scripts/storyboard/refs.mjs';
 import { generatorRoutes } from './generators/index.mjs';
+import { lanIps, phone } from './phone-https.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
@@ -250,12 +250,8 @@ const api = {
 		}
 		return out;
 	},
-	// the phone's address(es): this PC on the LAN (only reachable with STUDIO_LAN=1)
-	'GET /api/handheld/urls': () => ({
-		lan: process.env.STUDIO_LAN === '1',
-		https: process.env.STUDIO_HTTPS === '1',
-		ips: Object.values(networkInterfaces()).flat().filter((a) => a && a.family === 'IPv4' && !a.internal).map((a) => a.address)
-	}),
+	// the phone's address(es): this PC on the LAN over HTTPS (phone-https.mjs), or why not
+	'GET /api/handheld/urls': () => ({ wifi: phone.on, port: phone.port, error: phone.error, ips: lanIps() }),
 	// one frame of a pass → storyboards/_out/<chapter>/handheld/<shot>--<take>/<pass>/f00001.png
 	'POST /api/handheld/frame': ({ ch, id, take, pass, n, png }) => {
 		if (!PASSES.includes(pass) || !Number.isInteger(n)) throw new Error('bad frame');
@@ -301,7 +297,8 @@ export async function handle(req, res, next) {
 	const url = new URL(req.url, 'http://x');
 	const send = (code, body, type = 'application/json') => { res.writeHead(code, { 'content-type': type, 'cache-control': 'no-store' }); res.end(typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body)); };
 	try {
-		// the studio on the LAN (STUDIO_LAN=1, the phone over Wi-Fi): other machines only read – every write stays on this PC
+		// other machines only read – every write stays on this PC (the Wi-Fi phone comes through phone-https.mjs, which lets only
+		// GET / HEAD and the socket through: behind it every request looks local)
 		const local = /^(::1|127\.|::ffff:127\.)/.test(req.socket?.remoteAddress ?? '127.');
 		if (!local && req.method !== 'GET') return send(403, { error: 'writes only from this PC' });
 		const route = api[`${req.method} ${url.pathname}`];

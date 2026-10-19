@@ -110,17 +110,22 @@ Owner 2026-10-19: film a shot's blocked scene with the phone, trim, render contr
 
 ### Connecting the phone
 
-- **USB (recommended)**: phone → Developer options → USB debugging on; cable to the PC; in desktop Chrome
+- **Wi-Fi (the default, no cable** – owner 2026-10-19: "i don t want to plug in a cable"): the studio opens a second
+  server on the LAN, **`https://<this PC>:14443`** (the studio's port + 443; `phone-https.mjs`), and the Handheld panel's
+  QR code points there – phone and PC in the same Wi-Fi, scan, done. The phone needs HTTPS for its sensors / WebXR: the
+  studio makes a self-signed certificate for localhost + this PC's LAN addresses with `openssl` (Git for Windows has
+  it; or `OPENSSL=<path>`) into `workflows/storyboard-studio/.cert/` (gitignored) – the phone warns once per
+  certificate: **Advanced → Continue**. A new LAN address (another network) makes a new certificate (the old addresses
+  stay in it). Windows asks once whether Node.js may use the network: allow **Private networks**. The PC itself keeps
+  `http://localhost:14000` (127.0.0.1 only). Other machines get only GET / HEAD and the socket – every write stays on
+  this PC; it reads only while the studio runs. `STUDIO_LAN=0 npm run dev:studio` keeps it off the LAN.
+- **USB** (no Wi-Fi): phone → Developer options → USB debugging on; cable to the PC; in desktop Chrome
   `chrome://inspect/#devices` → **Port forwarding…** → `14000` → `localhost:14000`, tick "Enable port forwarding". The
-  phone opens `http://localhost:14000/phone?code=…` – a secure context (WebXR / sensors need one), no certificate,
-  the studio stays on 127.0.0.1. (`adb reverse tcp:14000 tcp:14000` does the same.)
-- **Wi-Fi**: `STUDIO_LAN=1 npm run dev:studio` listens on the LAN (other machines get only GETs and the socket – every
-  write stays on this PC; only in a trusted network). The phone needs a secure context: either its Chrome flag
-  `chrome://flags/#unsafely-treat-insecure-origin-as-secure` = `http://<pc-ip>:14000`, or HTTPS with
-  `STUDIO_HTTPS=1` and `workflows/storyboard-studio/.cert/key.pem` + `cert.pem` (gitignored; mkcert or
-  `openssl req -x509 -newkey rsa:2048 -nodes -days 365 -subj /CN=studio -keyout key.pem -out cert.pem`; the phone
-  accepts the warning once).
-- Transport: the studio's own dev-server socket (`handheld-relay.mjs`, Vite's HMR WebSocket) – no extra port.
+  phone opens `http://localhost:14000/phone?code=…` (the panel's USB link) – localhost is a secure context, no
+  certificate. (`adb reverse tcp:14000 tcp:14000` does the same.)
+- Transport: the studio's own dev-server socket (`handheld-relay.mjs`, Vite's HMR WebSocket – over Wi-Fi tunnelled
+  through the HTTPS server).
+- Pairing (above): the QR / Wi-Fi link first, the USB link under it.
 
 ## Generators
 

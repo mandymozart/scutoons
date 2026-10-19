@@ -37,9 +37,10 @@ Later the same day: also as downloads (GLB with the animated camera, a JSON of t
 
 | Way | Effort | Note |
 |---|---|---|
-| **USB + Chrome port forwarding** (`chrome://inspect` → Port forwarding 14000 → localhost:14000) | USB debugging on once | The phone opens `http://localhost:14000/phone` – localhost is a secure context, no certificate, the studio stays on 127.0.0.1. **Recommended.** (`adb reverse tcp:14000 tcp:14000` does the same.) |
-| Phone flag `chrome://flags/#unsafely-treat-insecure-origin-as-secure` = `http://<pc-ip>:14000` | 1 min | Wi-Fi, no cable; the studio must listen on the LAN (`STUDIO_LAN=1`). |
-| Self-signed / mkcert certificate (`STUDIO_HTTPS=1`, files in `workflows/storyboard-studio/.cert/`) | 10 min | Wi-Fi; a self-signed one needs "Proceed anyway" once; mkcert's CA on Android is fiddly. |
+| **Self-signed certificate on a LAN port** (built 2026-10-19, owner: "i don t want to plug in a cable") | none – "Continue" once per certificate | **The default.** `https://<pc-ip>:14443` (phone-https.mjs: openssl makes the certificate for localhost + the LAN addresses into `.cert/`; GET / HEAD + the socket proxied to the studio on 127.0.0.1, writes refused); the PC stays on `http://localhost:14000`. |
+| USB + Chrome port forwarding (`chrome://inspect` → Port forwarding 14000 → localhost:14000) | USB debugging on once | No Wi-Fi: the phone opens `http://localhost:14000/phone` – localhost is a secure context, no certificate. (`adb reverse tcp:14000 tcp:14000` does the same.) |
+| Phone flag `chrome://flags/#unsafely-treat-insecure-origin-as-secure` | 1 min | Not taken (a flag per phone; the studio no longer listens on the LAN over http). |
+| mkcert's CA on the phone | 10 min | Not taken (fiddly on Android); the self-signed one needs only "Continue". |
 | The live studio URL | – | Doesn't exist: the studio is a local tool (its API writes the repo's files). |
 
 On the LAN the studio's API could write files and run scripts – so in LAN mode requests from other machines get
@@ -76,7 +77,7 @@ only GETs (the page, the render files) and the WebSocket; every write stays on t
 
 ## 7. Recommendation (built)
 
-**WebXR `immersive-ar` + `dom-overlay` in Chrome on the S22, USB port forwarding to `localhost`, the studio's own
+**WebXR `immersive-ar` + `dom-overlay` in Chrome on the S22, Wi-Fi to the studio's HTTPS LAN port (2026-10-19; USB port forwarding to `localhost` without Wi-Fi), the studio's own
 WebSocket as relay, raw samples + one exponential filter, passes beauty / depth / normals / grey rendered in the
 studio's browser with its own renderer and encoded by ffmpeg.** DeviceOrientation + drag as the fallback (and for
 tests on the desktop). Built: `workflows/storyboard-studio/README.md` "Handheld camera". Not built: FBX (convert the GLB
