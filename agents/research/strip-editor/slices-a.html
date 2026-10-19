@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Strip editor slices – A: filmstrip in the sidebar</title>
+<link rel="stylesheet" href="strip.css" />
+<style>
+	.body { grid-template-columns: 15rem 1fr 22rem; }
+	/* the strip at 19rem (≈ 82 % of the slice's 1x width at 16.8px), scrolled to slices 38–40 */
+	.strip { --w: 19rem; --shift: -78rem; }
+	.sl { position: relative; }
+</style>
+</head>
+<body>
+<div class="app">
+	<header class="top">
+		<span class="logo">SCUTOONS</span>
+		<span class="crumbs"><span>Katzenpapst</span><span class="sep">›</span><span>Kapitel 2</span><span class="sep">›</span><span>kathedrale</span></span>
+		<span class="grow"></span>
+		<span class="ctl ink"><i data-i="globe"></i>DE ☆</span>
+		<span class="round"><i data-i="book"></i></span>
+		<span class="round"><i data-i="bell"></i></span>
+	</header>
+
+	<div class="body">
+		<!-- the sidebar: the chapter tree; the open group's slices as a filmstrip -->
+		<nav class="region side">
+			<div class="fold"><span class="round"><i data-i="unfold"></i></span></div>
+			<div class="node"><span class="tw"></span><i data-i="file"></i>Meta</div>
+			<div class="node"><span class="tw"></span><i data-i="music"></i>Audio</div>
+			<h4 class="label">Gruppen</h4>
+			<div class="node"><span class="tw">▸</span><i data-i="rows"></i>intro<span class="n">12</span></div>
+			<div class="node"><span class="tw">▸</span><i data-i="rows"></i>ankunft<span class="n">8</span></div>
+			<div class="node open"><span class="tw">▾</span><i data-i="rows"></i>kathedrale<span class="n">6</span></div>
+			<div class="film">
+				<span class="t" style="background-image:url(img/s1c2-slice-37.webp)"><b>37</b></span>
+				<span class="t" style="background-image:url(img/s1c2-slice-38.webp); outline: 2px solid var(--ink); outline-offset: 1px"><b>38</b></span>
+				<span class="t" style="background-image:url(img/s1c2-slice-39.webp)"><b>39</b></span>
+				<span class="t anchor" style="background-image:url(img/s1c2-slice-40.webp)"><b>40</b></span>
+				<span class="t" style="background-image:url(img/s1c2-slice-41.webp)"><b>41</b></span>
+				<span class="t ghost" style="background-image:url(img/s1c2-slice-42.webp)"><b>42</b></span>
+				<span class="t lifted" style="background-image:url(img/s1c2-slice-42.webp); left: 5.9rem; top: 2.2rem"><b>42</b></span>
+				<span class="insert-bar" style="left: 5.15rem; top: 0.5rem; height: 6.6rem"></span>
+				<span class="add"><i data-i="plus"></i></span>
+			</div>
+			<div class="node"><span class="tw">▸</span><i data-i="columns"></i>panorama<span class="n">7</span></div>
+			<div class="node"><span class="tw">▸</span><i data-i="rows"></i>flucht<span class="n">10</span></div>
+			<div class="node muted"><span class="tw"></span><i data-i="plus"></i>Gruppe</div>
+		</nav>
+
+		<!-- the editing area: the tool strip, then the group as ONE strip -->
+		<main class="work region">
+			<div class="toolcol">
+				<span class="seg col icons">
+					<span class="grid-n"><i data-i="grid"></i><i>10</i></span>
+					<span><i data-i="zoom"></i></span>
+					<span class="on" title="Nähte zeigen"><i data-i="seams"></i></span>
+				</span>
+				<span class="seg col icons">
+					<span class="on"><i data-i="type"></i></span>
+					<span><i data-i="package"></i></span>
+					<span><i data-i="shapes"></i></span>
+					<span><i data-i="music"></i></span>
+					<span><i data-i="zap"></i></span>
+				</span>
+			</div>
+			<div class="scroller">
+				<div class="strip">
+					<div class="sl"><img class="s" src="img/s1c2-slice-37.webp" alt="" /></div>
+					<div class="sl"><img class="s" src="img/s1c2-slice-38.webp" alt="" />
+						<div class="ov box" style="left:12%; top:88%; width:76%; height:15%">Im Dom war es still. Zu still.</div>
+					</div>
+					<div class="sl"><img class="s" src="img/s1c2-slice-39.webp" alt="" />
+						<div class="ov box" style="left:6%; top:84%; width:72%; height:20%; --fs:0.8rem">Alle warteten auf ihn – nur er nicht.</div>
+					</div>
+					<div class="sl"><img class="s" src="img/s1c2-slice-40.webp" alt="" />
+						<div class="ov piece" style="left:58%; top:-9%; width:40%"><img src="img/starburst-red-2.svg" alt="" /></div>
+						<div class="ov box letter bubble collide" style="left:30%; top:2%; width:48%; height:13%; --fs:1.25rem">Wo bist du?!</div>
+						<div class="ov chip warn" style="right:2%; top:17%">⚠ verdeckt Text von 39</div>
+					</div>
+					<div class="sl"><img class="s" src="img/s1c2-slice-41.webp" alt="" /></div>
+					<div class="drop" style="left:-0.5rem; right:-0.5rem; top:calc(66.67% - 2.2rem); height:4.4rem">3 Bilder hier einfügen<br />nach Slice 40 → 41, 42, 43 · die folgenden rücken nach</div>
+					<div class="sl"><img class="s" src="img/s1c2-slice-42.webp" alt="" /></div>
+					<!-- the seams (toggle "Nähte" pressed): a dashed hairline + the slice's number beside it -->
+					<div class="seam" style="top:16.67%"><b>38</b></div>
+					<div class="seam" style="top:33.33%"><b>39</b></div>
+					<div class="seam hover" style="top:50%"><b>40</b><span class="ins"><i data-i="plus"></i></span></div>
+					<div class="seam" style="top:66.67%"><b>41</b></div>
+				</div>
+			</div>
+		</main>
+
+		<!-- the inspector: Gruppe · Ebenen · Audio · Events · Slice -->
+		<aside class="region">
+			<div class="rhead"><i data-i="image"></i>&nbsp;<span class="title">Slice 40</span><span class="grow"></span><span class="plain"><i data-i="fold"></i></span><span class="plain"><i data-i="max"></i></span><span class="plain"><i data-i="x"></i></span></div>
+			<div class="tabs">
+				<span title="Gruppe"><i data-i="rows"></i></span>
+				<span title="Ebenen"><i data-i="layers"></i><span class="count">4</span></span>
+				<span title="Audio"><i data-i="music"></i></span>
+				<span title="Events"><i data-i="zap"></i><span class="count">1</span></span>
+				<span class="on" title="Slice"><i data-i="image"></i></span>
+			</div>
+			<div class="rbody">
+				<p class="hint">Die Slice in der Mitte der Ansicht – oder die gewählte.</p>
+				<div class="thumbrow"><span class="slot" style="background-image:url(img/s1c2-slice-40.webp)"></span>
+					<div><div>s1c2-slice-40.webp</div><div class="cap muted">390 × 625 · 1x 2x 3x</div><div style="display:flex; gap:var(--space-05); margin-top:var(--space-05)"><span class="ctl">Ersetzen …</span><span class="ctl"><i data-i="scissors"></i></span></div></div></div>
+				<div class="row"><span class="label">Sensibel</span><span class="ctrls"><span class="seg stretch" style="flex:1"><span class="on">nein</span><span>ja</span></span></span></div>
+				<div class="row"><span class="label">Musik</span><span class="ctrls"><span class="f"><i data-i="music"></i>80<span class="u">%</span></span></span></div>
+				<div class="sec"><div class="label">Events der ganzen Slice</div>
+					<div class="layers"><div class="lr"><i data-i="zap"></i><span class="w">sichtbar → Ton „chor-ende“</span></div></div>
+					<span class="ctl"><i data-i="plus"></i>Event</span></div>
+				<div class="sec"><div class="label">Ebenen dieser Slice</div><p class="hint">2 Texte, 1 Stück – sie wandern mit, wenn die Slice verschoben oder ersetzt wird.</p></div>
+			</div>
+		</aside>
+	</div>
+
+	<footer class="actionbar">
+		<span class="ctl"><i data-i="alert"></i>1</span>
+		<span class="grp"><span class="ctl"><i data-i="left"></i></span><span class="ctl">Slice 40 / 6</span><span class="ctl"><i data-i="right"></i></span></span>
+		<span class="grow"></span>
+		<span class="ctl dot"><i data-i="save"></i>Speichern</span>
+		<span class="grp"><span class="ctl"><i data-i="undo"></i></span><span class="ctl"><i data-i="redo"></i></span><span class="ctl"><i data-i="clock"></i>Verlauf</span></span>
+		<span class="ctl primary"><i data-i="send"></i>Veröffentlichen</span>
+		<span class="ctl"><i data-i="more"></i>Mehr</span>
+	</footer>
+</div>
+<div class="note" style="right: 22.6rem; top: 3.6rem; max-width: 12.2rem">
+	<b>A – Slices bearbeiten.</b> Ziehen im Filmstreifen sortiert um (42 wandert zwischen 37 und 38). Rechtsklick
+	auf ein Vorschaubild: das Menü. Dateien auf eine Naht im Streifen oder ins Raster ziehen = einfügen. Der Slice-Tab
+	zeigt die Slice in der Mitte der Ansicht.
+</div>
+<div class="menu" style="position: fixed; left: 5.4rem; top: 29rem">
+				<div class="on"><i data-i="upload"></i>Bild ersetzen …</div>
+				<div><i data-i="plus"></i>Davor einfügen …</div>
+				<div><i data-i="plus"></i>Danach einfügen …</div>
+				<div><i data-i="image"></i>Ab hier ersetzen (Bereich) …</div>
+				<div><i data-i="scissors"></i>Hohes Bild hier schneiden …</div>
+				<hr />
+				<div>Kopieren<span class="k">Strg C</span></div>
+				<div>Einfügen<span class="k">Strg V</span></div>
+				<hr />
+				<div>Slice entfernen …<span class="k">Entf</span></div>
+			</div>
+<script src="icons.js"></script>
+</body>
+</html>

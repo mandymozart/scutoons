@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Strip editor drafts</title>
+<link rel="stylesheet" href="strip.css" />
+<style>
+	body { height: auto; overflow: auto; padding: var(--space-15) var(--space-1) var(--space-3); max-width: 90rem; margin: 0 auto; }
+	h1 { margin: 0 0 var(--space-05); font-size: 1.5rem; }
+	h2 { font-weight: 400; text-transform: uppercase; letter-spacing: var(--tracking-label); font-size: 1rem; margin: 0 0 var(--space-05); }
+	section { border-top: var(--line); padding-top: var(--space-15); margin-top: var(--space-15); }
+	.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(30rem, 100%), 1fr)); gap: var(--space-1); }
+	.phones { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr)); gap: var(--space-1); }
+	figure { margin: 0; }
+	figure img { width: 100%; height: auto; border: var(--line); display: block; }
+	figcaption { font-size: var(--caption); color: var(--text-muted); margin-top: var(--space-025); }
+	figcaption a { color: inherit; }
+	p { max-width: 50rem; }
+</style>
+</head>
+<body>
+<h1>Strip editor – Entwürfe</h1>
+<p class="muted">agents/research/TEXT-ACROSS-SLICES.md §4. Statische Bilder (echte Tokens, echte Slices aus Kapitel 2), keine App.
+Die Gruppe wird als EIN Streifen bearbeitet; Texte und Stücke dürfen über Nähte reichen und bleiben an ihrer Slice verankert.</p>
+
+<section>
+	<h2>Wahl 1 – wo die Slices verwaltet werden</h2>
+	<div class="pair">
+		<figure><img src="desktop-a-1440.png" alt="" /><figcaption>A – Filmstreifen in der Seitenleiste, Nähte per Schalter · <a href="desktop-a.html">HTML</a></figcaption></figure>
+		<figure><img src="desktop-b-1440.png" alt="" /><figcaption>B – Nahtleiste direkt am Streifen · <a href="desktop-b.html">HTML</a></figcaption></figure>
+		<figure><img src="slices-a-1440.png" alt="" /><figcaption>A – umsortieren, Menü, Dateien einfügen, Slice-Tab · <a href="slices-a.html">HTML</a></figcaption></figure>
+		<figure><img src="slices-b-1440.png" alt="" /><figcaption>B – dasselbe an der Leiste · <a href="slices-b.html">HTML</a></figcaption></figure>
+	</div>
+</section>
+
+<section>
+	<h2>Wahl 2 – Telefon</h2>
+	<div class="phones">
+		<figure><img src="phone-a-390.png" alt="" /><figcaption>A – Werkzeuge links, Blatt zu · <a href="phone.html#a">HTML</a></figcaption></figure>
+		<figure><img src="phone-a-open-390.png" alt="" /><figcaption>A – Blatt offen · <a href="phone.html#a-open">HTML</a></figcaption></figure>
+		<figure><img src="phone-b-390.png" alt="" /><figcaption>B – volle Breite, Werkzeuge in der Leiste · <a href="phone.html#b">HTML</a></figcaption></figure>
+		<figure><img src="phone-b-open-390.png" alt="" /><figcaption>B – Blatt offen · <a href="phone.html#b-open">HTML</a></figcaption></figure>
+	</div>
+</section>
+
+<section>
+	<h2>Horizontal / Endlos (für beide Varianten gleich)</h2>
+	<figure><img src="desktop-endless-1440.png" alt="" /><figcaption>Quer gelegt, bildschirmhoch; nach der letzten Slice die ersten blass · <a href="desktop-endless.html">HTML</a></figcaption></figure>
+</section>
+<script src="icons.js"></script>
+</body>
+</html>

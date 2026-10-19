@@ -1,4 +1,4 @@
-Status 2026-10-17: concept + plan, researched (code, real data, three browser engines; horizontal groups §7; Swiper → endless strip §8, owner-decided); §8 steps 1–2 built and live (the endless band, format + migration, applied 2026-10-16; check:endless in Chrome, check:endless-engines in Chromium / Firefox / WebKit), Q8–Q11 decided (DECISIONS 2026-10-16); the Q10 hint nudge built; Swiper elsewhere measured and built (§9, owner's go 2026-10-17: score → scroll-snap + lazy, home slider → our utility, the package removed = §8 step 4) – open: §8 step 3, Q1–Q4, Q7. FEATURES 10.100.
+Status 2026-10-19: concept + plan; §8 steps 1–2 and §9 built and live (the endless band, format + migration, Swiper gone). Owner 2026-10-19: Q1 step 1 ships WITH step 2, Q2 drafts first, Q4 keep "Slices", Q7 canvas bands only in the strip editor; Q3 open. Strip editor drafts made (§4.1, agents/research/strip-editor/) – waiting for the owner's pick D1 / D2, then §5 steps 1 + 2 are built together. FEATURES 10.100.
 
 # Slices as background: the strip editor
 
@@ -97,6 +97,41 @@ areas, sample areas) are anchored to a slice but may reach anywhere, and paint a
   by slide.
 - The Reader dock stays the "how it reads" view; the strip is the editing surface itself, not a second preview.
 
+### 4.1 Drafts (2026-10-19) – agents/research/strip-editor/
+
+Static HTML in the creator's tokens with real ch2 slices (index.html shows all; screenshots at 1440 × 900 and 390 × 844):
+`desktop-a/b` (a vertical group, a box selected across a seam, a collision), `slices-a/b` (reorder, the slice menu,
+files dropped on a seam, the Slice tab), `desktop-endless` (a horizontal / endless group), `phone.html#a|b[-open]`.
+What both variants share:
+- **One strip per group** at a zoom (fit = the area), the slice image numbers at the seams; the ActionBar's
+  ‹ Slice n / m › scrolls the strip (n = the slice in the view's centre); the tool strip stays (text · item · piece ·
+  sound · event).
+- **The inspector:** Group (label, layout "Vertical · Horizontal · Endless", end, continues, the group's script) ·
+  Layers · Audio · Events · Slice. Layers lists the group's stack **under slice headers** – the anchor is visible
+  without a field; a selected overlay shows an anchor chip ("⚓ Slice 39") and the hint "moves with its picture; drag
+  it across a seam = re-anchored, the id stays". The Slice tab = the slice in the view's centre or the one picked:
+  picture slot + Replace … + cut, sensitive, music volume, whole-slice events.
+- **Collisions** (the later slice's box over a crossing one): a dashed `--state-warning` outline + "⚠ covers the text
+  of 39" on the canvas, the ⚠ in Layers, and in the covered box's inspector "Bring to front" (= re-anchor to the later
+  slice).
+- **The slice menu** (right-click / long-press / •••): Replace picture … · Insert before … · Insert after … · Replace
+  from here (range) … · Cut a tall picture here … (step 4) · Copy · Paste · Remove slice …; files dropped on a seam
+  insert there ("3 pictures after slice 40 → 41, 42, 43, the rest move on").
+- **Horizontal / Endless:** the same editor laid sideways, screen high, Shift + wheel / ← →; Endless shows the first
+  slices dimmed after the last – the wrap seam is open like any other; Horizontal (pinned) has its strip end there.
+- **Pieces crossing a seam:** drawn in the drafts. In the reader a piece lives in its slice's blend group
+  (`.slice-media`, isolated, clipped to the picture – DESIGN "Collage pieces"); letting it cross needs the group's
+  pictures + pieces as ONE blend group – checked in step 1's build, else pieces stay clipped (the owner decides then).
+
+**D1 – where slices are managed:** **A** a filmstrip of thumbnails under the open group in the sidebar (click =
+scroll there, drag = reorder, files onto it = insert), seams across the art by a View toggle; **B** a seam gutter
+beside the strip (per slice a block: number, grip, •••; a + on every seam), the tree lists groups only, the seam line
+across the art only under the pointer. A keeps the art untouched and gives an overview of long groups; B keeps every
+slice action where the slice is and needs no sidebar (phones, a folded sidebar).
+**D2 – the phone:** **A** the tool strip at the left (as today), the strip ≈ 3.5rem narrower than read, the slice bar
+‹ Slice n / m ›; **B** the strip at the phone's full width (= the reader's width), the tools move into the slice bar
+(tools · undo · redo · ⚠), scrolling only by finger, the seam marks say where you are.
+
 ## 5. Migration path (each step ships alone)
 
 | Step | What | Size | Data |
@@ -110,11 +145,12 @@ Later, only if needed: a "picture" made of several tiles as one unit (one sensit
 model above doesn't change for it.
 
 ## 6. Open for the owner
-- **Q1** Step 1 now (small; fixes crossing boxes on older iPhones, makes the rule explicit) – or with step 2?
-- **Q2** The strip editor replaces the one-slice canvas (§4) – drafts on the real page (phone + desktop) first?
-- **Q3** Inline the scenes into their chapters and drop scene documents (step 3)?
-- **Q4** In the UI, keep calling them "slices", or "pictures" (Bilder)?
-- **Q5 – Q7**: §7.
+- **Q1** answered 2026-10-19: step 1 does not ship alone – together with step 2.
+- **Q2** answered 2026-10-19: drafts first (phone + desktop) – §4.1; **D1, D2** there wait for the owner's pick.
+- **Q3** Inline the scenes into their chapters and drop scene documents (step 3)? Open – the owner asked what it would
+  bring; nothing of step 3 is built before his answer.
+- **Q4** answered 2026-10-19: the UI keeps "Slices".
+- **Q5 – Q7**: §7 (Q7 answered 2026-10-19: the canvas bands come only with the strip editor).
 
 ## 7. Horizontal groups (strip, swiper) and the previous slice
 
@@ -204,7 +240,7 @@ cube / flip observers, Firefox's cube page width) go with Swiper (§8). Untested
 ignores `overflow: clip`.
 
 - **Q5, Q6** answered 2026-10-15: Swiper goes; every horizontal group is our strip – pinned or endless (§8).
-- **Q7** The canvas bands in today's one-slice canvas with step 1 – or only the strip editor in step 2?
+- **Q7** answered 2026-10-19: no bands in today's one-slice canvas – the seams come with the strip editor (step 2).
 
 ## 8. Endless strip instead of Swiper (owner 2026-10-15)
 

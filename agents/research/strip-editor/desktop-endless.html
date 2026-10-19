@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Strip editor – an endless group</title>
+<link rel="stylesheet" href="strip.css" />
+<style>
+	.body { grid-template-columns: 15rem 1fr 22rem; }
+	/* a horizontal group: the strip laid out sideways, screen high (fit = the area's height), scrolled to its end */
+	.scroller { align-items: center; justify-content: flex-start; padding: 0; }
+	.hstrip { position: relative; display: flex; height: 34rem; margin-left: -24rem; flex: none; }
+	.hstrip .ov { position: absolute; }
+	.hstrip .box { z-index: 1; }
+	.hstrip .chip { z-index: 3; }
+	.hstrip .sl { position: relative; height: 100%; flex: none; }
+	.hstrip .sl img { display: block; height: 100%; width: auto; }
+	.hstrip .sl.wrap img { opacity: 0.45; }
+	.vseam { position: absolute; top: -1.75rem; bottom: -0.75rem; width: 0; border-left: 1px dashed var(--select-live-text); z-index: 2; }
+	.vseam b { position: absolute; top: 0; left: 0.2rem; font-weight: 400; font-size: var(--caption); line-height: 1; padding: 0.15rem 0.25rem; background: var(--paper); border: var(--hair); white-space: nowrap; }
+	.vseam.wrapseam { border-left: var(--line); border-color: var(--ink); }
+	.vseam.wrapseam b { background: var(--ink); color: var(--paper); }
+	.wrapnote { position: absolute; left: 0.75rem; bottom: 0.75rem; z-index: 3; }
+	.hbar { position: absolute; left: 1rem; right: 1rem; bottom: 1rem; height: 0.5rem; border: var(--hair); background: var(--paper); }
+	.hbar span { position: absolute; top: -1px; bottom: -1px; right: 0; width: 38%; background: var(--ink); }
+</style>
+</head>
+<body>
+<div class="app">
+	<header class="top">
+		<span class="logo">SCUTOONS</span>
+		<span class="crumbs"><span>Katzenpapst</span><span class="sep">›</span><span>Kapitel 2</span><span class="sep">›</span><span>panorama</span></span>
+		<span class="grow"></span>
+		<span class="ctl ink"><i data-i="globe"></i>DE ☆</span>
+		<span class="round"><i data-i="book"></i></span>
+		<span class="round"><i data-i="bell"></i></span>
+	</header>
+
+	<div class="body">
+		<nav class="region side">
+			<div class="fold"><span class="round"><i data-i="unfold"></i></span></div>
+			<div class="node"><span class="tw"></span><i data-i="file"></i>Meta</div>
+			<div class="node"><span class="tw"></span><i data-i="music"></i>Audio</div>
+			<h4 class="label">Gruppen</h4>
+			<div class="node"><span class="tw">▸</span><i data-i="rows"></i>intro<span class="n">12</span></div>
+			<div class="node"><span class="tw">▸</span><i data-i="rows"></i>ankunft<span class="n">8</span></div>
+			<div class="node"><span class="tw">▸</span><i data-i="rows"></i>kathedrale<span class="n">6</span></div>
+			<div class="node open"><span class="tw">▾</span><i data-i="repeat"></i>panorama<span class="n">7</span></div>
+			<div class="film h">
+				<span class="t" style="background-image:url(img/s1c2-slice-109.webp)"><b>109</b></span>
+				<span class="t" style="background-image:url(img/s1c2-slice-110.webp)"><b>110</b></span>
+				<span class="t" style="background-image:url(img/s1c2-slice-111.webp)"><b>111</b></span>
+				<span class="t" style="background-image:url(img/s1c2-slice-112.webp)"><b>112</b></span>
+				<span class="t" style="background-image:url(img/s1c2-slice-113.webp); outline: 2px solid var(--ink); outline-offset: 1px"><b>113</b></span>
+				<span class="t anchor" style="background-image:url(img/s1c2-slice-114.webp)"><b>114</b></span>
+				<span class="t" style="background-image:url(img/s1c2-slice-115.webp); outline: 2px solid var(--ink); outline-offset: 1px"><b>115</b></span>
+				<span class="add" style="height:auto"><i data-i="plus"></i></span>
+			</div>
+			<div class="node"><span class="tw">▸</span><i data-i="rows"></i>flucht<span class="n">10</span></div>
+		</nav>
+
+		<main class="work region">
+			<div class="toolcol">
+				<span class="seg col icons">
+					<span class="grid-n"><i data-i="grid"></i><i>10</i></span>
+					<span><i data-i="zoom"></i></span>
+					<span class="on"><i data-i="seams"></i></span>
+				</span>
+				<span class="seg col icons">
+					<span class="on"><i data-i="type"></i></span>
+					<span><i data-i="package"></i></span>
+					<span><i data-i="shapes"></i></span>
+					<span><i data-i="music"></i></span>
+					<span><i data-i="zap"></i></span>
+				</span>
+			</div>
+			<div class="scroller">
+				<div class="hstrip">
+					<div class="sl"><img src="img/s1c2-slice-113.webp" alt="" /></div>
+					<div class="sl"><img src="img/s1c2-slice-114.webp" alt="" />
+						<div class="ov box sel" style="left:52%; top:9%; width:84%; height:13%; --fs:0.8rem">Wien schlief. Nur der Nebel war wach.
+							<span class="h tl"></span><span class="h tr"></span><span class="h bl"></span><span class="h br"></span>
+							<span class="anchor-tag chip live"><i data-i="anchor"></i>Slice 114</span>
+						</div>
+					</div>
+					<div class="sl"><img src="img/s1c2-slice-115.webp" alt="" />
+						<div class="ov box letter" style="left:62%; top:58%; width:70%; height:11%; --fs:1.1rem">Und dann – nichts.</div>
+					</div>
+					<div class="sl wrap"><img src="img/s1c2-slice-109.webp" alt="" /></div>
+					<div class="sl wrap"><img src="img/s1c2-slice-110.webp" alt="" /></div>
+					<div class="vseam" style="left:calc(100% / 5 * 1)"><b>114</b></div>
+					<div class="vseam" style="left:calc(100% / 5 * 2)"><b>115</b></div>
+					<div class="vseam wrapseam" style="left:calc(100% / 5 * 3)"><b>↺ 109 – wieder Anfang</b></div>
+				</div>
+				<div class="hbar"><span></span></div>
+			</div>
+		</main>
+
+		<aside class="region">
+			<div class="rhead"><i data-i="rows"></i>&nbsp;<span class="title">Gruppe · panorama</span><span class="grow"></span><span class="plain"><i data-i="fold"></i></span><span class="plain"><i data-i="max"></i></span><span class="plain"><i data-i="x"></i></span></div>
+			<div class="tabs">
+				<span class="on" title="Gruppe"><i data-i="rows"></i></span>
+				<span title="Ebenen"><i data-i="layers"></i><span class="count">2</span></span>
+				<span title="Audio"><i data-i="music"></i></span>
+				<span title="Events"><i data-i="zap"></i></span>
+				<span title="Slice"><i data-i="image"></i></span>
+			</div>
+			<div class="rbody">
+				<div class="row"><span class="label">Name</span><span class="ctrls"><span class="f">panorama</span></span></div>
+				<div class="row"><span class="label">Layout</span><span class="ctrls"><span class="f sel-f"><i data-i="repeat"></i>Endlos</span></span></div>
+				<p class="hint">Vertikal · Horizontal · Endlos. Endlos: die 7 Slices laufen im Kreis – nach 115 kommt 109, die Naht dazwischen ist offen wie jede andere.</p>
+				<div class="row"><span class="label">Ende</span><span class="ctrls"><span class="f sel-f">weiterlesen</span></span></div>
+				<div class="row"><span class="label">Weiter</span><span class="ctrls"><span class="seg stretch" style="flex:1"><span class="on">nahtlos</span><span>Abstand</span></span></span></div>
+				<div class="sec"><div class="label">Skript der Gruppe</div>
+					<div class="layers"><div class="lr"><i data-i="zap"></i><span class="w">Text zeigen „Und dann – nichts.“ · 115</span></div></div>
+					<span class="ctl"><i data-i="plus"></i>Event</span></div>
+				<p class="hint">Gewählt: der Text auf 114 – Ebenen-Tab. Nichts gewählt: dieser Tab.</p>
+			</div>
+		</aside>
+	</div>
+
+	<footer class="actionbar">
+		<span class="ctl"><i data-i="alert"></i>0</span>
+		<span class="grp"><span class="ctl"><i data-i="left"></i></span><span class="ctl">Slice 114 / 7</span><span class="ctl"><i data-i="right"></i></span></span>
+		<span class="grow"></span>
+		<span class="ctl dot"><i data-i="save"></i>Speichern</span>
+		<span class="grp"><span class="ctl"><i data-i="undo"></i></span><span class="ctl"><i data-i="redo"></i></span><span class="ctl"><i data-i="clock"></i>Verlauf</span></span>
+		<span class="ctl primary"><i data-i="send"></i>Veröffentlichen</span>
+		<span class="ctl"><i data-i="more"></i>Mehr</span>
+	</footer>
+</div>
+<div class="note" style="right: 0.6rem; bottom: 3.6rem; max-width: 20.8rem">
+	<b>Horizontal / Endlos.</b> Derselbe Editor, quer gelegt: bildschirmhoch, Mausrad seitwärts (Shift), ← → über die
+	Nähte. Endlos zeigt nach der letzten Slice die ersten blass – ein Text darf über diese Naht reichen. Horizontal (fest)
+	hätte dort das Ende des Streifens: Schnitt.
+</div>
+<script src="icons.js"></script>
+</body>
+</html>

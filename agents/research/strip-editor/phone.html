@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Strip editor – phone (#a / #b, -open)</title>
+<link rel="stylesheet" href="strip.css" />
+<style>
+	/* the phone: header · the strip · the slice bar · the inspector sheet (closed = its tab row) · the ActionBar */
+	.papp { display: flex; flex-direction: column; height: 100dvh; }
+	.papp > .top { height: var(--bar); flex: none; padding: 0 var(--space-05); }
+	.canvas { flex: 1; min-height: 0; display: flex; background: var(--surface-hover); overflow: hidden; position: relative; }
+	.canvas .toolcol { flex: none; gap: var(--space-05); padding: var(--space-05) 0.3rem; }
+	.canvas .toolcol .seg.col > span { width: 2.75rem; height: 2.75rem; }
+	.pstrip { position: relative; flex: none; width: var(--w); margin-top: calc(var(--w) * var(--at) * -625 / 390); align-self: flex-start; }
+	.pstrip img.s { display: block; width: 100%; height: auto; }
+	.pstrip .sl { position: relative; }
+	.pstrip .ov { position: absolute; }
+	.pstrip .piece { z-index: 0; } .pstrip .box { z-index: 1; } .pstrip .chip { z-index: 3; }
+	.pseam { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--paper); z-index: 2; }
+	.pseam b { position: absolute; right: 0.25rem; top: 0.25rem; font-weight: 400; font-size: var(--caption); line-height: 1; padding: 0.15rem 0.3rem; background: var(--paper); border: var(--hair); }
+	.slicebar { display: flex; align-items: center; gap: var(--space-025); height: var(--bar); padding: 0 var(--space-05); border-top: var(--line); flex: none; }
+	.slicebar .round { width: 2.75rem; height: 2.75rem; }
+	.slicebar .seg.icons > span { width: 2.6rem; height: auto; }
+	.slicebar .seg { height: 2.75rem; }
+	.sheet { flex: none; border-top: var(--line); display: flex; flex-direction: column; background: var(--paper); }
+	.sheet .tabs { border-bottom: 0; }
+	.sheet .tabs > span { height: 2.75rem; }
+	.sheet .sbody { display: none; padding: var(--space-075) var(--space-1); overflow: hidden; }
+	.open .sheet { height: 47%; }
+	.open .sheet .tabs { border-bottom: var(--line); }
+	.open .sheet .sbody { display: block; }
+	.grabber { position: absolute; left: calc(50% - 1.5rem); top: 0.2rem; width: 3rem; height: 0.25rem; background: var(--border-muted); }
+	.actionbar { height: var(--bar); flex: none; padding: 0 var(--space-05); gap: var(--space-025); }
+	.actionbar .ctl { padding: 0 var(--space-05); }
+	/* variant A: the tool strip at the left, the strip the rest; ‹ Slice › in the slice bar */
+	.a .pstrip { --w: calc(100vw - 3.45rem); }
+	/* variant B: the strip at the phone's full width (= the reader's width); the tools in the slice bar */
+	.b .pstrip { --w: 100vw; }
+	.b .canvas .toolcol, .a .only-b, .b .only-a { display: none; }
+	.pstrip { --at: 2.62; }
+	.open .pstrip { --at: 2.78; }
+	.note { left: 0.5rem; right: 0.5rem; bottom: calc(3 * var(--bar) + 1rem); max-width: none; }
+	.open .note { display: none; }
+</style>
+</head>
+<body>
+<div class="papp">
+	<header class="top">
+		<span class="round"><i data-i="menu"></i></span>
+		<span class="crumbs"><span>Kap. 2</span><span class="sep">›</span><span>kathedrale</span></span>
+		<span class="grow"></span>
+		<span class="round"><i data-i="book"></i></span>
+	</header>
+
+	<div class="canvas">
+		<div class="toolcol">
+			<span class="seg col icons"><span><i data-i="zoom"></i></span><span class="on"><i data-i="seams"></i></span></span>
+			<span class="seg col icons">
+				<span class="on"><i data-i="type"></i></span><span><i data-i="package"></i></span><span><i data-i="shapes"></i></span><span><i data-i="music"></i></span><span><i data-i="zap"></i></span>
+			</span>
+		</div>
+		<div class="pstrip">
+			<div class="sl"><img class="s" src="img/s1c2-slice-37.webp" alt="" /></div>
+			<div class="sl"><img class="s" src="img/s1c2-slice-38.webp" alt="" /></div>
+			<div class="sl"><img class="s" src="img/s1c2-slice-39.webp" alt="" />
+				<div class="ov box sel" style="left:6%; top:84%; width:72%; height:20%; --fs:0.8rem">Alle warteten auf ihn – nur er nicht.
+					<span class="h tl"></span><span class="h tr"></span><span class="h bl"></span><span class="h br"></span>
+					<span class="anchor-tag chip live"><i data-i="anchor"></i>39</span>
+				</div>
+			</div>
+			<div class="sl"><img class="s" src="img/s1c2-slice-40.webp" alt="" />
+				<div class="ov piece" style="left:58%; top:-9%; width:40%"><img src="img/starburst-red-2.svg" alt="" /></div>
+				<div class="ov box letter bubble collide" style="left:30%; top:2%; width:48%; height:13%; --fs:1.1rem">Wo bist du?!</div>
+				<div class="ov chip warn" style="right:2%; top:17%">⚠ verdeckt 39</div>
+				<div class="pseam" style="top:0"><b>40</b></div>
+			</div>
+			<div class="sl"><img class="s" src="img/s1c2-slice-41.webp" alt="" /><div class="pseam" style="top:0"><b>41</b></div></div>
+			<div class="sl"><img class="s" src="img/s1c2-slice-42.webp" alt="" /></div>
+		</div>
+	</div>
+
+	<!-- the slice bar: A = ‹ Slice › + undo / redo / ⚠; B = the canvas tools + undo / redo / ⚠ -->
+	<div class="slicebar">
+		<span class="only-a round"><i data-i="left"></i></span>
+		<span class="only-a ctl ghost grow">Slice 39 / 6</span>
+		<span class="only-a round"><i data-i="right"></i></span>
+		<span class="only-b seg icons">
+			<span class="on"><i data-i="type"></i></span><span><i data-i="package"></i></span><span><i data-i="shapes"></i></span><span><i data-i="music"></i></span><span><i data-i="zap"></i></span>
+		</span>
+		<span class="only-b grow"></span>
+		<span class="round"><i data-i="undo"></i></span>
+		<span class="round"><i data-i="redo"></i></span>
+		<span class="round" style="position:relative"><i data-i="alert"></i></span>
+	</div>
+
+	<div class="sheet" style="position: relative">
+		<span class="grabber"></span>
+		<div class="tabs">
+			<span><i data-i="rows"></i></span>
+			<span class="on"><i data-i="layers"></i><span class="count">4</span></span>
+			<span><i data-i="music"></i></span>
+			<span><i data-i="zap"></i><span class="count">1</span></span>
+			<span><i data-i="image"></i></span>
+		</div>
+		<div class="sbody">
+			<div class="sec" style="margin-bottom: var(--space-05)"><div class="label">Textbox · Slice 39 · Text · DE ☆</div><div class="ta" style="min-height: 2.75rem">Alle warteten auf ihn – nur er nicht.</div></div>
+			<div class="row"><span class="label">Position</span><span class="ctrls"><span class="f"><span class="tag">X</span>6<span class="u">%</span></span><span class="f"><span class="tag">Y</span>84<span class="u">%</span></span></span></div>
+			<div class="row"><span class="label">Größe</span><span class="ctrls"><span class="f"><span class="tag">W</span>72<span class="u">%</span></span><span class="f"><span class="tag">H</span>20<span class="u">%</span></span></span></div>
+			<p class="hint" style="color: var(--ink)"><span style="color: var(--state-warning)">⚠</span> Unten verdeckt von „WO BIST DU?!“ (Slice 40). <u>Nach vorn</u></p>
+		</div>
+	</div>
+
+	<footer class="actionbar">
+		<span class="ctl dot"><i data-i="save"></i>Speichern</span>
+		<span class="ctl"><i data-i="clock"></i>Verlauf</span>
+		<span class="ctl primary"><i data-i="send"></i>Veröff.</span>
+		<span class="ctl"><i data-i="more"></i></span>
+	</footer>
+</div>
+<div class="note only-a"><b>Telefon A – Werkzeugleiste links</b> (wie heute): der Streifen etwas schmaler als gelesen; die Leiste
+	über dem Blatt blättert Slice für Slice. Tippen wählt, ein gewählter Text zieht sich; ein ungewählter stiehlt nie das Scrollen.</div>
+<div class="note only-b"><b>Telefon B – Streifen in voller Breite</b> = genau die Lesebreite; die Werkzeuge wandern in die Leiste über
+	dem Blatt, gescrollt wird nur mit dem Finger (die Nahtmarken sagen, wo man ist).</div>
+<script src="icons.js"></script>
+</body>
+</html>
