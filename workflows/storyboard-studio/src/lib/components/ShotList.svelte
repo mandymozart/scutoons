@@ -5,6 +5,8 @@
 	import { ch, pickShot as pick, studio } from '../studio.svelte.js';
 
 	const stamp = $derived(studio.version);
+	/** the card's facts: format + aspect, view, variants, the handheld takes */
+	const facts = (shot) => [`${shot.format} ${shot.aspect}`, shot.view ?? '–', studio.data.variants[shot.id] && `${studio.data.variants[shot.id]} var.`, studio.data.handheld?.[shot.id] != null && `handheld ${studio.data.handheld[shot.id]}`].filter(Boolean);
 </script>
 
 <nav class="shots" aria-label="Shots" data-sc-region>
@@ -18,7 +20,7 @@
 							<img src={`/out/${ch()}/frames/${shot.id}.png?v=${stamp}`} alt="" loading="lazy" />
 							<span class="text">
 								<span class="id"><span class="dot {shot.review?.status ?? ''}" title={shot.review ? `${shot.review.status} ${shot.review.date ?? ''}: ${shot.review.note ?? ''}` : 'no review yet'}></span>{shot.id}</span>
-								<span class="meta">{shot.format} {shot.aspect} · {shot.view ?? '–'}{studio.data.variants[shot.id] ? ` · ${studio.data.variants[shot.id]} var.` : ''}{studio.data.handheld?.[shot.id] != null ? ` · handheld ${studio.data.handheld[shot.id]}` : ''}</span>
+								<span class="meta"><span class="facts">{#each facts(shot) as f, i (i)}<span>{f}</span>{/each}</span></span>
 								<span class="action">{shot.action?.de ?? ''}</span>
 							</span>
 						</button>
@@ -92,12 +94,30 @@
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
 	}
-	/* id and meta on one line each (the full text in the card's tooltip / the panel) */
-	.id,
-	.meta {
+	/* the id on one line (the full text in the panel) */
+	.id {
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+	/* the facts wrap between themselves, never inside one ("vertical 1:3 · r…" at the 15rem list); the "·" before each
+	   hangs left, so the one that starts a line falls outside the clip */
+	.meta {
+		overflow: hidden;
+	}
+	.facts {
+		display: flex;
+		flex-wrap: wrap;
+		margin-left: -1.2em;
+	}
+	.facts > span {
+		white-space: nowrap;
+	}
+	.facts > span::before {
+		content: '·';
+		display: inline-block;
+		width: 1.2em;
+		text-align: center;
 	}
 	.action {
 		display: -webkit-box;

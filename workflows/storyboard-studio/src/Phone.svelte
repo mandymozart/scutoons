@@ -265,14 +265,20 @@
 		padding-bottom: calc(var(--space-1) + env(safe-area-inset-bottom));
 		pointer-events: auto;
 	}
+	/* three to a row on a phone: the compact side padding keeps "Set origin" on one line at 360–390 wide */
 	.bottom button {
 		flex: 1 1 0;
 		max-width: 12rem;
+		padding: 0 var(--space-05);
 	}
 	.rec,
 	.rec-on {
 		background: var(--state-error) !important;
 		color: var(--paper);
+	}
+	/* Stop while recording: red with its own frame (the phone's primary frame is ink – buttons.css) */
+	.rec-on {
+		border-color: var(--state-error);
 	}
 	.status {
 		position: absolute;

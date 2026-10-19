@@ -9,8 +9,10 @@ export type Ms = number;
 export interface TimelineTrim { in: Ms; out: Ms; min: Ms }
 /** no `length` (or 0) = an instant (a cue); `state` = its `data-state` for the app's styling; `seq` = the order at an equal start */
 export interface TimelineItem { id: string; start: Ms; length?: Ms; label?: string; state?: string; seq?: number; trim?: TimelineTrim }
-/** `tall` = a lane with pictures (it takes the room that is left); `step` = its trim keys' step (default: one frame at 24 fps) */
-export interface TimelineLane { id: string; label: string; items: TimelineItem[]; tall?: boolean; step?: Ms }
+/** `tall` = a lane with pictures (it takes the room that is left); `step` = its trim keys' step (default: one frame at 24 fps);
+ *  `selectable: false` = its items are not picked: a press on one seeks like the lane's background (a take to scrub), the
+ *  arrow keys only move the focus */
+export interface TimelineLane { id: string; label: string; items: TimelineItem[]; tall?: boolean; step?: Ms; selectable?: boolean }
 /** a scene, group, row or bar on the ruler */
 export interface TimelineMarker { at: Ms; label: string }
 /** a point as a share of an item (live's `{ row, slice }`, a score's fraction of a bar) */
@@ -111,13 +113,28 @@ export const inView = (v: View, f: number): boolean => f >= v.scrollFrac && f <=
 /** following the playhead: once `f` left the view, it comes back at a third of it */
 export const followView = (v: View, f: number): View => (inView(v, f) ? v : { zoom: v.zoom, scrollFrac: clampScroll(f - 1 / (3 * v.zoom), v.zoom) });
 
-/** show `range`: unchanged when it is in view; else zoomed out until it fits (90 %) – or in until it takes `fill` of the view – and centred */
+/** a range's ends as shares of the span, in order */
+const ends = (range: readonly [Ms, Ms], span: Ms): [number, number] => [frac(Math.min(...range), span), frac(Math.max(...range), span)];
+/** the view at `zoom` with a..b in its middle */
+const centred = (zoom: number, a: number, b: number): View => ({ zoom, scrollFrac: clampScroll((a + b) / 2 - 1 / (2 * zoom), zoom) });
+
+/** show `range`: unchanged when it is in view (also one that nearly fills it) – unless `fill` asks to zoom in until it
+ *  takes that share of the view; else zoomed out until it fits (90 %) and centred */
 export function revealView(v: View, range: readonly [Ms, Ms], span: Ms, fill = 0): View {
-	const [a, b] = [frac(Math.min(...range), span), frac(Math.max(...range), span)];
+	const [a, b] = ends(range, span);
 	const w = b - a;
-	const zoom = clampZoom(w * v.zoom > 0.9 ? 0.9 / w : fill && w > 0 && w * v.zoom < fill ? fill / w : v.zoom);
-	if (zoom === v.zoom && inView(v, a) && inView(v, b)) return v;
-	return { zoom, scrollFrac: clampScroll((a + b) / 2 - 1 / (2 * zoom), zoom) };
+	const small = fill > 0 && w > 0 && w * v.zoom < fill;
+	if (inView(v, a) && inView(v, b) && !small) return v;
+	return centred(clampZoom(w * v.zoom > 0.9 ? 0.9 / w : small ? fill / w : v.zoom), a, b);
+}
+
+/** show `range` at the view's zoom (one the app set – its remembered zoom per step): unchanged while the range is in view
+ *  or covers the whole view; else centred */
+export function panView(v: View, range: readonly [Ms, Ms], span: Ms): View {
+	const [a, b] = ends(range, span);
+	const zoom = clampZoom(v.zoom);
+	const shows = (inView(v, a) && inView(v, b)) || (a <= v.scrollFrac && b >= v.scrollFrac + 1 / zoom);
+	return shows ? v : centred(zoom, a, b);
 }
 
 /** keeps a trim inside 0..length and at least `min` long; the dragged `edge` stops at the other one */

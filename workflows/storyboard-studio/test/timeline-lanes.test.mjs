@@ -1,5 +1,5 @@
 // The studio's timeline lanes (src/lib/timeline-lanes.js): seconds → ms back to back, the 1 s fallback, the scene
-// markers, the take on the chapter axis, the reveal range.
+// markers, the take on the chapter axis (a press on it seeks), the reveal range.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { revealOf, shotsLane, takeLane } from '../src/lib/timeline-lanes.js';
@@ -15,6 +15,7 @@ test('shots lie back to back in ms, a missing reading time counts 1 s', () => {
 	assert.deepEqual(lane.items.map((i) => [i.id, i.start, i.length]), [['sb-25-1', 0, 8250], ['sb-25-2', 8250, 1000], ['sb-26-1', 9250, 4500]]);
 	assert.equal(span, 13750);
 	assert.equal(lane.tall, true);
+	assert.equal(lane.selectable, undefined); // a click on a shot picks it
 	assert.deepEqual(lane.items.map((i) => i.state), ['ok', '', 'change']);
 });
 
@@ -29,11 +30,12 @@ test('no shots: an empty lane, span 0', () => {
 	assert.equal(span, 0);
 });
 
-test('the take sits at its shot\'s start, its kept part as the trim', () => {
+test('the take sits at its shot\'s start, its kept part as the trim, a press on it seeks (not selectable)', () => {
 	const take = { id: 't2', in: 1.2, out: 4.8, samples: [{ t: 0 }, { t: 3 }, { t: 6.01 }] };
 	const lane = takeLane(take, 8250);
 	assert.equal(lane.id, 'take');
 	assert.equal(lane.label, 'Take');
+	assert.equal(lane.selectable, false);
 	assert.deepEqual(lane.items[0], { id: 't2', start: 8250, length: 6010, label: 't2', trim: { in: 1200, out: 4800, min: 100 } });
 	assert.ok(Math.abs(lane.step - 1000 / 24) < 1e-9);
 });

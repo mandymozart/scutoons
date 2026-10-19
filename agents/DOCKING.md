@@ -153,7 +153,8 @@ fold and maximize = "fold everything else": BACKLOG 10.57 (owner 2026-10-07, bel
   2. a panel dragged wider stops where the main would get narrower than `minContent` (creator 24rem, admin / embassy
      20rem) next to the sidebar and the other panels (`panelWidth.room`, set by the shell);
   3. the open panels get narrower together – each by the same share of what it is above its floor – down to 12rem each
-     (or its normal width, if smaller), while the main keeps `minContent`;
+     (or its normal width, if smaller), while the main keeps `minContent`; a kind whose contents collide below that sets
+     its own floor, `DockPanel.min` in rem (the storyboard studio's inspectors) – it folds sooner instead;
   4. even the floors don't fit: the LEAST RECENTLY USED panel folds to its rail (`dock-rail-squeezed`, not remembered),
      then the next – the newest you opened always shows. A click on a squeezed panel's rail makes it the most recently
      used: it comes back and the now least recently used folds instead;
@@ -226,7 +227,7 @@ fold and maximize = "fold everything else": BACKLOG 10.57 (owner 2026-10-07, bel
 | List + detail | `shared/ui/src/split-view.svelte` (admin catalog, codes) → `useDock` (`kind: 'detail'`) | shell dock | 24rem, drags, DockFold + rail, Escape / ✕ close; next to Info; on phones covers the page | `:detail` |
 | Reader | `reader/reader-dock.svelte` (`kind: 'reader'`) | shell dock | 24rem, DockFold + rail; next to the Flow | `:reader` |
 | Main (folded) | AppShell `main-rail` (`shellDock.foldMain`) | shell main | by hand: the leftmost panel's "Fold the page", Ctrl+Shift+\; rail with the page's place | not remembered |
-| Bottom region (timeline) | AppShell `bottom` + `panelHeight` (storyboard studio: `Timeline`, its FoldButton) | shell bottom (fill) | Divider on top, 12rem … ½ the frame; folds (the page's FoldButton, drag < 60 %), a rail while maximized; hidden on phones | `storyboard-studio:timeline`; the fold per step (the studio's) |
+| Bottom region (timeline) | AppShell `bottom` + `panelHeight` (`shell-bottom.svelte`; storyboard studio: `Timeline`, its FoldButton) | shell bottom (fill) | Divider on top, 12rem … ½ the frame; folds (the page's FoldButton, drag < 60 %), a rail while maximized; hidden on phones | `storyboard-studio:timeline`; the fold per step (the studio's) |
 | Right drawers | `shared/ui/src/sheet.svelte` (`side="right"`) | modal | Divider inside the drawer, normal … ½ window | `sc-sheet-width:<kind>` |
 
 Gone with the migration: the creator's `usePageDock` / `nav.dock` (→ `useDock`), AppShell's `dock` / `dockSize` props,

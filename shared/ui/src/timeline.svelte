@@ -7,15 +7,18 @@
 	 * No transport: the app owns the clock and plays – no Play button, no Space, never PageUp / PageDown (the score's
 	 * pedal keys, research/SCORES.md §4). It shows and asks (onseek / onselect / ontrim); without them it is read-only.
 	 * Pointer: press + drag on the ruler or a lane's background seeks (a finger pans a lane, a tap seeks); a click on an
-	 * item selects; Ctrl / ⌘ + wheel zooms around the pointer; + / − / 0 (fit) while the focus is inside. `reveal` brings
-	 * a range into view when it changes (zoomed in to `revealFill` of the view, e.g. a take to trim precisely); `follow`
-	 * keeps the playhead in view – a manual scroll pauses it until the playhead is back in view.
+	 * item selects (a lane with `selectable: false` seeks there too); Ctrl / ⌘ + wheel zooms around the pointer; + / − / 0
+	 * (fit) while the focus is inside. `reveal` brings a range into view when it changes (zoomed in to `revealFill` of the
+	 * view, e.g. a take to trim precisely) and when the app sets the zoom (its remembered zoom per step – then only panned
+	 * there, the zoom stays); `follow` keeps the playhead in view – a manual scroll pauses it until the playhead is back in
+	 * view or the next playback starts.
+	 * One group, not a landmark: the AppShell's bottom region around it is the region.
 	 * Sizes: the strip is --zoom × the view wide (cqi of the scroller), everything on it in % – no px, no root font size.
 	 */
 	import { tick, untrack, type Snippet } from 'svelte';
 	import Lane from './timeline-lane.svelte';
 	import { clamp, stepFor } from './scrub.ts';
-	import { followView, formatTime, frac, inView, revealView, tickStep, ticks, timeAt, zoomAround, ZOOM_MAX, ZOOM_MIN } from './timeline.ts';
+	import { followView, formatTime, frac, inView, panView, revealView, tickStep, ticks, timeAt, zoomAround, ZOOM_MAX, ZOOM_MIN } from './timeline.ts';
 	import type { Ms, TimelineItem, TimelineLane, TimelineMarker, View } from './timeline.ts';
 	import { uiLabels } from './ui-labels.ts';
 
@@ -34,7 +37,7 @@
 		reveal?: readonly [Ms, Ms];
 		revealFill?: number;
 		follow?: boolean;
-		/** the region's accessible name */
+		/** the group's accessible name */
 		label: string;
 		/** an item's inside (the studio: the frame, the review dot, the handheld mark); default: its label */
 		item?: Snippet<[TimelineItem, TimelineLane]>;
@@ -48,8 +51,9 @@
 	let strip = $state<HTMLElement>();
 	/** measured: the scroller's and the label column's widths, the scroll position (px, only ever used as ratios) */
 	let fit = $state(0), labelW = $state(0), scrollPx = $state(0);
-	/** `ours`: the scrollLeft set here last (its scroll events are not the person's); `revealed`: the last reveal's values, '' = none */
-	let [ours, paused, revealed] = [-1, false, ''];
+	/** `ours`: the scrollLeft set here last (its scroll events are not the person's); `revealed`: the last reveal's values, '' = none;
+	 *  `applied`: the zoom set here last (another one came from the app; NaN = none yet); `applies`: the last apply wins */
+	let [ours, paused, revealed, applied, applies] = [-1, false, '', NaN, 0];
 	const z = $derived(clamp(zoom, ZOOM_MIN, ZOOM_MAX));
 	const viewW = $derived(Math.max(1, fit - labelW));
 	/** a tick label needs about 4rem: 0.8 of the measured 5rem label column (never the root font size) */
@@ -65,9 +69,12 @@
 	const current = (): View => ({ zoom: z, scrollFrac: (scroller?.scrollLeft ?? 0) / (strip?.getBoundingClientRect().width || 1) });
 	const timeAtX = (clientX: number): Ms => (strip ? timeAt((clientX - strip.getBoundingClientRect().left) / strip.getBoundingClientRect().width, span) : 0);
 	async function apply(v: View) {
+		const n = ++applies;
+		applied = clamp(v.zoom, ZOOM_MIN, ZOOM_MAX);
 		zoom = v.zoom;
 		await tick();
-		if (!scroller || !strip) return;
+		// two in one turn (a reveal and the app's zoom on mount): only the last scrolls (the first's share is of the old width)
+		if (n !== applies || !scroller || !strip) return;
 		scroller.scrollLeft = v.scrollFrac * strip.getBoundingClientRect().width;
 		ours = scrollPx = scroller.scrollLeft;
 	}
@@ -131,9 +138,20 @@
 		revealed = key;
 		if (r) untrack(() => apply(revealView(current(), r, span, revealFill)));
 	});
+	// the app set the zoom (bind:zoom – the studio's remembered zoom per step): the scroll kept its px from the other zoom
+	// and the range above is unchanged – it comes back into view at that zoom; the first run is the mount
 	$effect(() => {
+		const now = z;
+		if (!strip || now === applied) return;
+		const outside = !Number.isNaN(applied);
+		applied = now;
+		untrack(() => outside && reveal && apply(panView(current(), reveal, span)));
+	});
+	$effect(() => {
+		// a new playback always starts following (a scroll during the last one paused it)
+		if (!follow) return void (paused = false);
 		const f = head;
-		if (!follow || f === null || !strip) return;
+		if (f === null || !strip) return;
 		untrack(() => {
 			const v = current();
 			if (paused) paused = !inView(v, f);
@@ -142,9 +160,9 @@
 	});
 </script>
 
-<!-- the zoom keys belong to the whole region, wherever the focus is inside it -->
+<!-- the zoom keys belong to the whole timeline, wherever the focus is inside it -->
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<section class="sc-timeline" aria-label={label} style:--zoom={z} onkeydown={keys}>
+<div class="sc-timeline" role="group" aria-label={label} style:--zoom={z} onkeydown={keys}>
 	<div class="scroller" bind:this={scroller} bind:clientWidth={fit} onscroll={scrolled} onwheel={wheel}>
 		<div class="body" style:grid-template-rows={rows}>
 			<div class="corner" aria-hidden="true" bind:clientWidth={labelW}>{playhead === undefined ? '' : formatTime(playhead, 'clock', 1)}</div>
@@ -162,7 +180,7 @@
 			</div>
 		</div>
 	</div>
-</section>
+</div>
 
 <style>
 	.sc-timeline {

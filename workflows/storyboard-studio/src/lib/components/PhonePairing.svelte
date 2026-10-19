@@ -1,8 +1,11 @@
 <script>
 	// The phone of the handheld camera (README "Handheld camera"): connect → a code + QR to the phone page, its state
 	// (WebXR 6DoF or rotation only), Set origin (the phone's pose now = the shot camera now), the live smoothing (0 = the raw
-	// handheld look), the scale (phone metres → scene metres) and Record / Stop – the phone has the same buttons.
+	// handheld look), the scale (phone metres → scene metres) and Record / Stop – the phone has the same buttons. Both
+	// numbers are compact-inspector rows (DESIGN "Compact inspector": PropRow + ScrubNumber, never a native range slider –
+	// owner 2026-10-19: "Use the dogma from the creator").
 	import qrcode from 'qrcode-generator';
+	import { PropRow, ScrubNumber } from '@scutoons/ui';
 	import { api } from '../studio.svelte.js';
 	import { hh, pair, setOrigin, setScale, setSmooth, startRec, stopRec, unpair } from '../handheld/handheld.svelte.js';
 
@@ -39,14 +42,13 @@
 	<p class="state" role="status">
 		{#if hh.phone}Phone connected · {mode}{hh.phoneState.tracking === false ? ' · tracking lost' : ''}{hh.phoneState.origin ? ' · origin set' : ''}{:else}Waiting for the phone …{/if}
 	</p>
-	<div class="sc-fields" data-cols="2" data-density="panel">
-		<label class="range">Smoothing <span>{hh.smooth.toFixed(2)}</span>
-			<input type="range" min="0" max="1" step="0.05" value={hh.smooth} oninput={(e) => setSmooth(Number(e.currentTarget.value))} title="0 = the raw handheld look … 1 = a slow steadicam (new takes keep it; it can change later per take)" />
-		</label>
-		<label class="range">Scale <span>{hh.scale.toFixed(2)}×</span>
-			<input type="range" min="0.1" max="5" step="0.05" value={hh.scale} oninput={(e) => setScale(Number(e.currentTarget.value))} title="1 m with the phone = this many metres in the scene" />
-		</label>
-	</div>
+	<PropRow label="Smooth" hint="Live: 0 = the raw handheld look … 1 = a slow steadicam (new takes keep it; it can change later per take)">
+		<ScrubNumber label="Live smoothing" icon="wind" min={0} max={1} step={0.05} required value={hh.smooth} onchange={(v) => setSmooth(v ?? 0)} />
+	</PropRow>
+	<!-- a ratio without a unit: "×" is never a unit (DESIGN – it read as a reset), "m" would read as a length -->
+	<PropRow label="Scale" hint="1 m with the phone = this many metres in the scene">
+		<ScrubNumber label="Scale: scene metres per phone metre" icon="maximize-2" min={0.1} max={5} step={0.05} required value={hh.scale} onchange={(v) => setScale(v ?? 1)} />
+	</PropRow>
 	<div class="buttons">
 		<button type="button" class="secondary" onclick={unpair}>Disconnect</button>
 		<button type="button" class="secondary" onclick={setOrigin} disabled={!hh.phone} title="The phone's pose now = the shot camera's pose now">Set origin</button>
@@ -85,11 +87,6 @@
 	.hint,
 	.state {
 		margin: 0;
-		font-size: var(--type-caption-size);
-	}
-	.range {
-		display: grid;
-		gap: var(--space-025);
 		font-size: var(--type-caption-size);
 	}
 	.buttons {

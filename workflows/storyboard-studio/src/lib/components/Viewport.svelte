@@ -7,7 +7,9 @@
 	// turn), wheel on it = size, Alt + wheel = turn; the gizmo of the picked figure works too. Its place is written back
 	// once per gesture as the storyboard's screen position (x, y, h, turn) – the exact inverse of buildScene's placing,
 	// so a rebuild (any field changed) puts every figure exactly where it was.
-	// The texts (the SCUTOONS presets) on top, switchable. The handheld camera drives the same camera (handheldView).
+	// The texts (the SCUTOONS presets) on top, switchable. The handheld camera drives the same camera (handheldView):
+	// while a pose holds it the orbit, the gizmo and the figure gestures rest – nothing is measured or written through a
+	// take's camera; "Shot camera" gives it back.
 	// Over 400 lines: the camera, the figure gestures and their write-back share one scene and one camera.
 	import * as THREE from 'three';
 	import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -17,6 +19,7 @@
 	import { buildScene, drawDialog, figureBoxes, loadFonts, seedOf, sinPass } from '../../../../../tools/storyboard-render/core.js';
 	import { specOf, studio, touched } from '../studio.svelte.js';
 	import { handheldView } from '../handheld/view.js';
+	import { endPreview, hh } from '../handheld/handheld.svelte.js';
 
 	const D = Math.PI / 180;
 	const FACE = { front: 0, away: 180, left: -90, right: 90, 'three-quarter-left': -40, 'three-quarter-right': 40 }; // as core.js
@@ -58,7 +61,7 @@
 			pose(s) {
 				if (!built || building) return;
 				const cam = built.camera;
-				if (!held) { held = { p: cam.position.clone(), q: cam.quaternion.clone(), fov: cam.fov }; if (controls) controls.enabled = false; }
+				if (!held) { settle(); hold({ p: cam.position.clone(), q: cam.quaternion.clone(), fov: cam.fov }); }
 				cam.position.fromArray(s.position);
 				cam.quaternion.fromArray(s.quaternion);
 				if (s.fov && cam.isPerspectiveCamera && Math.abs(cam.fov - s.fov) > 1e-3) { cam.fov = s.fov; cam.updateProjectionMatrix(); }
@@ -66,20 +69,26 @@
 				draw();
 			},
 			release() {
-				if (!held || !built) { held = null; return; }
+				if (!held || !built) { hold(null); return; }
 				const cam = built.camera;
 				cam.position.copy(held.p);
 				cam.quaternion.copy(held.q);
 				if (cam.isPerspectiveCamera) { cam.fov = held.fov; cam.updateProjectionMatrix(); }
 				cam.updateMatrixWorld();
-				held = null;
-				if (controls) controls.enabled = true;
+				hold(null);
 				draw();
 			}
 		};
-		return () => { ro.disconnect(); handheldView.api = null; };
+		return () => { ro.disconnect(); handheldView.api = null; hold(null); };
 	});
 	let held = null; // the camera before the handheld took it over
+	// held: the orbit and the gizmo rest (the figure gestures check `held` themselves); hh.held follows (view.js onheld)
+	function hold(h) {
+		held = h;
+		if (controls) controls.enabled = !h;
+		if (gizmo) gizmo.enabled = !h;
+		handheldView.onheld?.(!!h);
+	}
 	onDestroy(() => { controls?.dispose(); gizmo?.dispose(); built?.dispose(); pass?.dispose(); renderer?.dispose(); });
 
 	// rebuild when the shot changes – except for the changes this view wrote itself (camera, figure places)
@@ -116,7 +125,7 @@
 		try {
 			spec = specOf(1);
 			controls?.dispose(); gizmo?.dispose(); helperScene.clear(); built?.dispose();
-			held = null;
+			hold(null);
 			// a build never blocks the next change: after 15 s it is given up (the latest state is built next)
 			built = await Promise.race([buildScene(spec, { shadowSize: 2048 }), new Promise((_, no) => setTimeout(() => no(new Error('the scene took longer than 15 s – try again')), 15000))]);
 			look = lookOf();
@@ -167,9 +176,9 @@
 			controls.addEventListener('end', commitCamera);
 			gizmo = new TransformControls(cam, renderer.domElement);
 			gizmo.size = 0.8;
-			gizmo.addEventListener('dragging-changed', (e) => (controls.enabled = !e.value));
+			gizmo.addEventListener('dragging-changed', (e) => (controls.enabled = !e.value && !held));
 			gizmo.addEventListener('objectChange', draw);
-			gizmo.addEventListener('mouseUp', commitFigures);
+			gizmo.addEventListener('mouseUp', () => commitFigures()); // not the listener itself: the event would be its `i` (nothing written)
 			helperScene.add(gizmo.getHelper());
 			gizmo.setMode(tool === 'turn' ? 'rotate' : 'translate');
 			if (studio.figure != null && pivots[studio.figure]) gizmo.attach(pivots[studio.figure]);
@@ -198,6 +207,7 @@
 	// the camera → the shot (a free camera: position, target, lens)
 	let lastCam = '';
 	function commitCamera() {
+		if (held) return; // an orbit a pose cut short: the hand camera is the shot's, never a take's
 		const cam = built.camera;
 		const shot = studio.sel.shot;
 		// a click ends an orbit too – only a camera that really moved is written
@@ -278,7 +288,7 @@
 		});
 	}
 	function commitFigures(i = studio.figure) {
-		if (i == null || !built) return;
+		if (i == null || !built || held) return; // measured through the shot's camera only (screenPlace)
 		writeFigures(i);
 		selfKey = JSON.stringify($state.snapshot(studio.sel.shot));
 		touched();
@@ -315,7 +325,7 @@
 	// drag a figure itself: Move = along its ground under the pointer, Turn = sideways turns it; written once on release
 	let grab = null;
 	function onGrab(e) {
-		if (!built || building || e.button !== 0 || gizmo?.axis) return; // a gizmo handle under the pointer: the gizmo's
+		if (!built || building || held || e.button !== 0 || gizmo?.axis) return; // a gizmo handle under the pointer: the gizmo's
 		const i = figureAt(e);
 		if (i < 0) return;
 		e.stopPropagation();
@@ -353,7 +363,7 @@
 	// wheel on a figure = its size (around its feet), Alt + wheel = turn by 15°; written once the wheel rests
 	let wheelTimer;
 	function onWheel(e) {
-		if (!built || building) return;
+		if (!built || building || held) return;
 		const i = figureAt(e);
 		if (i < 0) return;
 		e.preventDefault();
@@ -369,7 +379,7 @@
 		}
 		draw();
 		clearTimeout(wheelTimer);
-		wheelTimer = setTimeout(() => commitFigures(i), 250);
+		wheelTimer = setTimeout(() => { wheelTimer = 0; commitFigures(i); }, 250);
 	}
 	// a grab hand over a figure
 	let hoverFrame = 0;
@@ -377,8 +387,17 @@
 		if (grab || hoverFrame) return;
 		hoverFrame = requestAnimationFrame(() => {
 			hoverFrame = 0;
-			if (!grab && host) host.style.cursor = !gizmo?.axis && figureAt(e) >= 0 ? 'grab' : '';
+			if (!grab && host) host.style.cursor = !held && !gizmo?.axis && figureAt(e) >= 0 ? 'grab' : '';
 		});
+	}
+
+	// a gesture still open when a pose takes the camera ends first – written through the shot's camera. The gizmo's too:
+	// disabled mid-drag it would miss its pointerup and drag on with the bare pointer once the camera is back
+	function settle() {
+		if (gizmo?.dragging) gizmo.pointerUp(null); // → mouseUp → commitFigures
+		if (grab) onDrop();
+		if (wheelTimer) { clearTimeout(wheelTimer); wheelTimer = 0; commitFigures(); }
+		commitCamera(); // an orbit under way (only a camera that moved is written)
 	}
 
 	// a click on the empty view (no drag, not on the gizmo) drops the picked figure – figures themselves are onGrab's
@@ -393,7 +412,11 @@
 		}, { once: true });
 	}
 
+	// back to the camera the shot's size / angle give: a take's moment holding the view lets go first (Play stops); only a
+	// hand camera is removed – a shot without one stays as it is (not unsaved for nothing)
 	function resetCamera() {
+		endPreview();
+		if (!studio.sel?.shot.camera) return;
 		delete studio.sel.shot.camera;
 		touched();
 	}
@@ -403,10 +426,10 @@
 	<div class="tools">
 		<Segmented label="Figure tool" options={[{ value: 'move', label: 'Move', icon: 'move' }, { value: 'turn', label: 'Turn', icon: 'rotate-cw' }]} value={tool} onchange={(v) => (tool = v)} />
 		<Segmented label="Texts" options={[{ value: 'on', label: 'Texts', icon: 'type', title: 'The texts (SCUTOONS presets) on top' }]} value={texts ? 'on' : null} onchange={() => (texts = true)} onclear={() => (texts = false)} />
-		<button type="button" class="secondary" onclick={resetCamera} title="Back to the camera the shot's size / angle give (removes the hand camera)">Shot camera</button>
+		<button type="button" class="secondary" onclick={resetCamera} disabled={!studio.sel?.shot.camera && !hh.held} title="Back to the camera the shot's size / angle give (removes the hand camera, ends a take's preview)">Shot camera</button>
 		{#if busy}<span class="state" role="status">rendering …</span>{/if}
 		{#if studio.sel?.shot.camera}<span class="state" title="The shot has its own camera from the 3D view – 'Shot camera' goes back to size + angle">hand camera</span>{/if}
-		<span class="hint" title={how}>{short}</span>
+		<span class="hint" title={how}><span>{short}</span></span>
 	</div>
 	<div class="stage" bind:this={host}>
 		{#if !studio.sel}
@@ -435,15 +458,23 @@
 		border-bottom: var(--border-width-regular) solid var(--ink);
 		flex-wrap: wrap;
 	}
-	/* one line: the full text in its tooltip – the view keeps its height */
+	/* one line in the room the tools leave, the full text in its tooltip – the view keeps its height. Where that room is
+	   narrower than the line (≈ 29.7rem at the caption size) it goes as a whole instead of being cut mid-word
+	   (STUDIO-LAYOUT §1 problem 6); the tooltip stays on the empty room. The ellipsis only for a wider font elsewhere. */
 	.hint {
 		flex: 1 1 0;
 		min-width: 0;
+		container-type: inline-size;
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		font-size: var(--type-caption-size);
 		opacity: 0.7;
+	}
+	@container (max-width: 30rem) {
+		.hint > span {
+			display: none;
+		}
 	}
 	.state {
 		font-size: var(--type-caption-size);

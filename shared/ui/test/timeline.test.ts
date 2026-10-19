@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { clampTrim, followView, formatTime, frac, inView, itemAt, msOf, ordered, placeOf, revealView, sequence, tickStep, ticks, timeAt, zoomAround, ZOOM_MAX, ZOOM_MIN, type TimelineItem } from '../src/timeline.ts';
+import { clampTrim, followView, formatTime, frac, inView, itemAt, msOf, ordered, panView, placeOf, revealView, sequence, tickStep, ticks, timeAt, zoomAround, ZOOM_MAX, ZOOM_MIN, type TimelineItem } from '../src/timeline.ts';
 
 const near = (actual: number | null, expected: number, what = '') => assert.ok(actual !== null && Math.abs(actual - expected) < 1e-6, `${what}: ${actual} ≠ ${expected}`);
 
@@ -98,6 +98,27 @@ test('revealView scrolls / zooms a range into view, and leaves a visible one alo
 	const close = revealView({ zoom: 1, scrollFrac: 0 }, [4000, 4100], 8000, 0.5);
 	near(close.zoom * (100 / 8000), 0.5, 'fill: the range takes half the view');
 	assert.ok(inView(close, 4000 / 8000) && inView(close, 4100 / 8000));
+	// a visible range that nearly fills the view (0.26 … 0.495 of a view showing 0.25 … 0.5): no jump, no zoom out
+	const full = { zoom: 4, scrollFrac: 0.25 };
+	for (const fill of [0, 0.5]) assert.equal(revealView(full, [0.26 * 8000, 0.495 * 8000], 8000, fill), full, `fills 94 % of the view, fill ${fill}`);
+	// one that sticks out of the view and is wider than 90 % of it: zoomed out until it fits, centred
+	const out = revealView(full, [0.2 * 8000, 0.45 * 8000], 8000);
+	near(out.zoom, 0.9 / 0.25, 'zoomed out to 90 %');
+	assert.ok(inView(out, 0.2) && inView(out, 0.45));
+});
+
+test('panView keeps the zoom (one the app set): a range in view or covering the view stays, else it is centred', () => {
+	const v = { zoom: 4, scrollFrac: 0 }; // shows 0 … 0.25 of the strip
+	assert.equal(panView(v, [1000, 1500], 8000), v, 'in view: unchanged');
+	assert.equal(panView(v, [0, 4000], 8000), v, 'covers the view: unchanged');
+	const far = panView(v, [6000, 6500], 8000);
+	assert.equal(far.zoom, 4, 'the zoom stays');
+	assert.ok(inView(far, 6000 / 8000) && inView(far, 6500 / 8000));
+	near(far.scrollFrac + 1 / 8, 6250 / 8000, 'centred');
+	const wide = panView(v, [3000, 7000], 8000);
+	assert.equal(wide.zoom, 4, 'wider than the view: the zoom stays');
+	near(wide.scrollFrac + 1 / 8, 5000 / 8000, 'its middle in the middle');
+	assert.equal(panView(v, [7900, 8000], 8000).scrollFrac, 0.75, 'never past the strip');
 });
 
 test('followView: a playhead in view stays put; one that left comes back at a third of the view, inside the strip', () => {

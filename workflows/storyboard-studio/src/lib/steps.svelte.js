@@ -16,12 +16,13 @@ export const PANELS = [
 	{ kind: 'output', title: 'Output', icon: 'download', rem: 24 }
 ];
 
-/** the Shot panel's tabs (stage 2 turns them into the inspector's tab column) */
+/** the Shot panel's tabs (stage 2 turns them into the inspector's tab column) – words only: with icons "Figures" ran
+ * into its frame at the panel's 24rem */
 export const SHOT_TABS = [
-	{ value: 'shot', label: 'Shot', icon: 'image', title: 'What it shows' },
-	{ value: 'camera', label: 'Camera', icon: 'video', title: 'Format + camera' },
-	{ value: 'light', label: 'Light', icon: 'sun', title: 'Light' },
-	{ value: 'figures', label: 'Figures', icon: 'users', title: 'Figures' }
+	{ value: 'shot', label: 'Shot', title: 'What it shows' },
+	{ value: 'camera', label: 'Camera', title: 'Format + camera' },
+	{ value: 'light', label: 'Light', title: 'Light' },
+	{ value: 'figures', label: 'Figures', title: 'Figures' }
 ];
 
 /** the steps and what each opens the first time (each fits 1440: shots + a 24rem main + its panels) */

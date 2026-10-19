@@ -2,7 +2,8 @@
 // shot's width = its reading time", "the take on the chapter's axis"). Pure – no Svelte, no DOM (test/timeline-lanes.test.mjs).
 //   shots: the chapter's shots back to back, each as long as its reading time (api.mjs measureShot – 1 s when unknown),
 //          the scenes as markers;
-//   take:  the Handheld step – the selected shot's active take at the shot's start, its kept part as the trim.
+//   take:  the Handheld step – the selected shot's active take at the shot's start, its kept part as the trim; not
+//          selectable (a press on it seeks at once – the 3D view shows that moment, as the old take bar did).
 
 /** @typedef {{ id: string, seconds?: number, scene?: string|number, review?: string }} ShotIn */
 
@@ -29,6 +30,7 @@ export function takeLane(take, start) {
 		id: 'take',
 		label: 'Take',
 		step: 1000 / 24,
+		selectable: false,
 		items: [{ id: take.id, start, length, label: take.id, trim: { in: Math.round(take.in * 1000), out: Math.round(take.out * 1000), min: 100 } }]
 	};
 }

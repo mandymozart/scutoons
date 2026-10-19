@@ -24,37 +24,45 @@
 
 {#if id}
 	<div class="panel">
-		<fieldset>
-			<legend>Generator</legend>
-			<PropRow label="Generator"><PropSelect label="Generator" required options={gen.generators.map((x) => ({ value: x.id, label: `${x.label}${x.configured ? '' : ' – not configured'}` }))} value={gen.form.generator} onchange={(v) => setGenerator(v)} /></PropRow>
+		<!-- the panel's head names it (Generate) and the rows their own: no legend that only repeats "Generator". The rows
+		     sit in a plain grid, never a grid fieldset – Chromium leaves a container-query row (PropRow) inside one at 0 px
+		     when its options arrive after the mount (review H1: the Generator row was invisible on the first open) -->
+		<div class="rows">
+			{#if gen.generators.length}
+				<PropRow label="Generator"><PropSelect label="Generator" required options={gen.generators.map((x) => ({ value: x.id, label: `${x.label}${x.configured ? '' : ' – not configured'}` }))} value={gen.form.generator} onchange={(v) => setGenerator(v)} /></PropRow>
+			{/if}
 			{#if g?.models.length}
 				<PropRow label="Model"><PropSelect label="Model" required options={g.models.map((x) => ({ value: x.id, label: x.label }))} value={gen.form.model} onchange={(v) => setModel(v)} /></PropRow>
 			{/if}
 			{#if g && !g.configured}<p class="hint">{g.how}</p>{:else if g?.note}<p class="hint muted">{g.note}</p>{/if}
-		</fieldset>
+		</div>
 
 		{#if g?.configured && m}
 			<fieldset>
 				<legend>Inputs</legend>
-				{#if !m.inputs.length}<p class="hint muted">Takes the shot's render and character images itself.</p>{/if}
-				{#if wants('still')}
-					<PropRow label={m.mode === 'video_to_video' ? 'Keyframe' : 'Still'} hint={m.mode === 'video_to_video' ? 'A keyframe at the start (optional)' : 'The first frame'}>
-						<PropSelect label={m.mode === 'video_to_video' ? 'Keyframe at the start (optional)' : 'Still (the first frame)'} required={m.mode !== 'video_to_video'} placeholder="none" options={(gen.inputs?.stills ?? []).map((x) => ({ value: x.key, label: x.label }))} value={gen.form.still || undefined} onchange={(v) => (gen.form.still = v ?? '')} />
-					</PropRow>
-					{#if still?.url}<img class="thumb" src={`${still.url}?v=${v}`} alt="" />{/if}
-				{/if}
-				{#if wants('control')}
-					<PropRow label="Pass" hint="The handheld render pass the video follows">
-						<PropSelect label="Handheld render pass" required options={(gen.inputs?.controls ?? []).map((x) => ({ value: x.key, label: x.label }))} value={gen.form.control || undefined} onchange={(v) => (gen.form.control = v ?? '')} />
-					</PropRow>
-					{#if !gen.inputs?.controls.length}<p class="hint">No render pass yet – Export → Output → "Render all handheld shots".</p>{/if}
-				{/if}
-				{#if wants('prompt')}
-					<PropRow label="Prompt"><textarea aria-label="Prompt" rows="4" maxlength="1000" bind:value={gen.form.prompt}></textarea></PropRow>
-				{/if}
-				{#if wants('duration')}
-					<PropRow label="Length"><ScrubNumber label="Seconds" icon="clock" unit="s" required min={m.durations?.min ?? 1} max={m.durations?.max ?? 10} step={1} value={gen.form.duration} onchange={(v) => (gen.form.duration = Math.round(v ?? m.durations?.min ?? 1))} /></PropRow>
-				{/if}
+				<div class="rows">
+					{#if !m.inputs.length}<p class="hint muted">Takes the shot's render and character images itself.</p>{/if}
+					{#if wants('still')}
+						<!-- a still the model needs keeps an empty "(pick one)" while none is picked (after "(none)" as a keyframe):
+						     without it the select would show its first still as if chosen, and Generate stays off unexplained -->
+						<PropRow label={m.mode === 'video_to_video' ? 'Keyframe' : 'Still'} hint={m.mode === 'video_to_video' ? 'A keyframe at the start (optional)' : 'The first frame'}>
+							<PropSelect label={m.mode === 'video_to_video' ? 'Keyframe at the start (optional)' : 'Still (the first frame)'} required={m.mode !== 'video_to_video' && !!gen.form.still} placeholder={m.mode === 'video_to_video' ? 'none' : 'pick one'} options={(gen.inputs?.stills ?? []).map((x) => ({ value: x.key, label: x.label }))} value={gen.form.still || undefined} onchange={(v) => (gen.form.still = v ?? '')} />
+						</PropRow>
+						{#if still?.url}<img class="thumb" src={`${still.url}?v=${v}`} alt="" />{/if}
+					{/if}
+					{#if wants('control')}
+						<PropRow label="Pass" hint="The handheld render pass the video follows">
+							<PropSelect label="Handheld render pass" required options={(gen.inputs?.controls ?? []).map((x) => ({ value: x.key, label: x.label }))} value={gen.form.control || undefined} onchange={(v) => (gen.form.control = v ?? '')} />
+						</PropRow>
+						{#if !gen.inputs?.controls.length}<p class="hint">No render pass yet – Export → Output → "Render all handheld shots".</p>{/if}
+					{/if}
+					{#if wants('prompt')}
+						<PropRow label="Prompt"><textarea aria-label="Prompt" rows="4" maxlength="1000" bind:value={gen.form.prompt}></textarea></PropRow>
+					{/if}
+					{#if wants('duration')}
+						<PropRow label="Length"><ScrubNumber label="Seconds" icon="clock" unit="s" required min={m.durations?.min ?? 1} max={m.durations?.max ?? 10} step={1} value={gen.form.duration} onchange={(v) => (gen.form.duration = Math.round(v ?? m.durations?.min ?? 1))} /></PropRow>
+					{/if}
+				</div>
 			</fieldset>
 			<p class="cost" role="status" class:sc-error={gen.estimate?.error}>{costText(gen.estimate)}</p>
 			<div class="buttons">
@@ -65,19 +73,21 @@
 		{#if gen.jobs.length || gen.spend.jobs}
 			<fieldset>
 				<legend>Jobs</legend>
-				<ul class="jobs">
-					{#each gen.jobs as j (j.id)}
-						<li>
-							<div class="row">
-								<span>{j.model ?? j.generator} · {j.status}{j.cost ? ` · ${j.cost.usd.toFixed(2)} USD` : j.estimate?.usd ? ` · ≈ ${j.estimate.usd.toFixed(2)} USD` : ''}</span>
-								{#if active(j)}<IconButton label={`Cancel ${j.id}`} class="sc-round" onclick={() => cancel(j.id)}><Icon name="x" /></IconButton>{/if}
-							</div>
-							{#if active(j)}<progress max="1" value={j.progress ?? undefined}></progress>{/if}
-							{#if j.message}<p class="hint" class:sc-error={j.status === 'failed'}>{j.message}</p>{/if}
-						</li>
-					{/each}
-				</ul>
-				<p class="hint muted">This session: {gen.spend.usd.toFixed(2)} USD · {gen.spend.jobs} paid job{gen.spend.jobs === 1 ? '' : 's'}</p>
+				<div class="rows">
+					<ul class="jobs">
+						{#each gen.jobs as j (j.id)}
+							<li>
+								<div class="row">
+									<span>{j.model ?? j.generator} · {j.status}{j.cost ? ` · ${j.cost.usd.toFixed(2)} USD` : j.estimate?.usd ? ` · ≈ ${j.estimate.usd.toFixed(2)} USD` : ''}</span>
+									{#if active(j)}<IconButton label={`Cancel ${j.id}`} class="sc-round" onclick={() => cancel(j.id)}><Icon name="x" /></IconButton>{/if}
+								</div>
+								{#if active(j)}<progress max="1" value={j.progress ?? undefined}></progress>{/if}
+								{#if j.message}<p class="hint" class:sc-error={j.status === 'failed'}>{j.message}</p>{/if}
+							</li>
+						{/each}
+					</ul>
+					<p class="hint muted">This session: {gen.spend.usd.toFixed(2)} USD · {gen.spend.jobs} paid job{gen.spend.jobs === 1 ? '' : 's'}</p>
+				</div>
 			</fieldset>
 		{/if}
 	</div>
@@ -90,20 +100,14 @@
 		padding: var(--space-1);
 		align-content: start;
 	}
+	/* fieldset + legend are tools.css's (no frame, the legend a caption); the panel's gap spaces the groups */
 	fieldset {
-		border: 0;
 		margin: 0;
-		padding: 0;
+	}
+	.rows {
 		display: grid;
 		gap: var(--space-05);
 		min-width: 0;
-	}
-	legend {
-		padding: 0;
-		margin-bottom: var(--space-05);
-		text-transform: uppercase;
-		letter-spacing: var(--tracking-label);
-		font-size: var(--type-caption-size);
 	}
 	textarea {
 		width: 100%;
@@ -132,8 +136,30 @@
 		gap: var(--space-05);
 		font-size: var(--type-caption-size);
 	}
+	/* the house bar (@scutoons/ui BulkProgress: ink on paper in an ink frame), never the browser's rounded blue one –
+	   owner 2026-10-19: "Use the dogma from the creator"; no progress reported yet (queued) = the empty frame */
 	progress {
+		display: block;
+		box-sizing: border-box;
 		width: 100%;
+		height: 1rem;
+		appearance: none;
+		border: var(--border-width-regular) solid var(--ink);
+		border-radius: 0;
+		background: var(--paper);
+		color: var(--ink);
+	}
+	progress::-webkit-progress-bar {
+		background: var(--paper);
+	}
+	progress::-webkit-progress-value {
+		background: var(--ink);
+	}
+	progress::-moz-progress-bar {
+		background: var(--ink);
+	}
+	progress:indeterminate::-moz-progress-bar {
+		background: none;
 	}
 	.buttons {
 		display: flex;

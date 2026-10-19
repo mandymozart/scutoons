@@ -3,9 +3,12 @@
 	 * One lane of the Timeline (timeline.svelte – read its header first): its label (sticky) and its items on the axis – a
 	 * listbox with a roving tabindex: ← → Home End move the selection, Enter selects (never Space – the app's play key);
 	 * selected = inverted (.sc-selected) + an inset ink frame (a picture hides the inversion). A press on an item is a click
-	 * unless it moves (then it seeks). A `trim` shows the cut parts hatched; with `ontrim` its in / out are two sliders –
-	 * siblings of the listbox, which owns only options – dragged (snapped to `lane.step`) or stepped by it (Shift ×10,
-	 * Alt ×0.1), controlled by the props. Positions are % of the span; an instant / sliver keeps 0.25rem.
+	 * unless it moves (then it seeks); on a lane with `selectable: false` it seeks at once like the background, and the keys
+	 * only move the focus (the studio's take: a click scrubs, like the old TakeTimeline). With the listbox itself focused (a
+	 * press on its background) the keys start from the lane's current item, not the first one. A `trim` shows the cut parts
+	 * hatched; with `ontrim` its in / out are two sliders – siblings of the listbox, which owns only options – dragged
+	 * (snapped to `lane.step`) or stepped by it (Shift ×10, Alt ×0.1), controlled by the props. Positions are % of the
+	 * span; an instant / sliver keeps 0.25rem.
 	 */
 	import { tick, type Snippet } from 'svelte';
 	import { clamp, stepFor } from './scrub.ts';
@@ -34,8 +37,9 @@
 	const items = $derived(ordered(lane.items));
 	const trimmed = $derived(items.flatMap((it) => (it.trim ? [{ it, trim: it.trim }] : [])));
 	const step = $derived(lane.step ?? FRAME);
-	/** the lane's one tab stop: its selected item, else the one focused last, else the first */
-	const stop = $derived(items.find((i) => selected.includes(i.id))?.id ?? (items.some((i) => i.id === active) ? active : items[0]?.id));
+	/** the lane's current item: its selected one, else the one focused last; its one tab stop: that, else the first */
+	const current = $derived(items.find((i) => selected.includes(i.id))?.id ?? (items.some((i) => i.id === active) ? active : undefined));
+	const stop = $derived(current ?? items[0]?.id);
 	const pct = (ms: Ms) => `${frac(ms, span) * 100}%`;
 	const size = (it: TimelineItem) => Math.max(0, it.length ?? 0);
 	const name = (it: TimelineItem) => it.label ?? it.id;
@@ -43,19 +47,25 @@
 	const bounds = (it: TimelineItem, trim: TimelineTrim, edge: Edge) => (edge === 'in' ? [0, trim.out - trim.min] : [trim.in + trim.min, size(it)]);
 	const emit = (it: TimelineItem, trim: TimelineTrim, final: boolean) => ontrim?.(lane.id, it.id, { in: trim.in, out: trim.out }, final);
 
+	/** the app picks this lane's items (`selectable: false`: a press on one seeks, the keys only move the focus) */
+	const pick = $derived(lane.selectable === false ? undefined : onselect);
+
 	function down(e: PointerEvent) {
 		const id = (e.target as HTMLElement).closest<HTMLElement>('[data-item]')?.dataset.item;
-		if (e.button === 0 && box) press(e, box, id && onselect ? () => onselect(lane.id, id) : undefined);
+		if (e.button === 0 && box) press(e, box, id && pick ? () => pick(lane.id, id) : undefined);
 	}
 	function keys(e: KeyboardEvent) {
-		const i = items.findIndex((x) => x.id === (e.target as HTMLElement).dataset.item);
+		// the focused option – or, on the listbox itself (a press on the lane's background focuses it), the current item
+		// (none: → / Home pick the first, as before)
+		const at = (e.target as HTMLElement).closest<HTMLElement>('[data-item]')?.dataset.item ?? current;
+		const i = items.findIndex((x) => x.id === at);
 		const to = ({ ArrowLeft: i - 1, ArrowRight: i + 1, Home: 0, End: items.length - 1 } as Record<string, number>)[e.key];
-		if (e.key === 'Enter' && i >= 0) onselect?.(lane.id, items[i].id);
+		if (e.key === 'Enter' && i >= 0) pick?.(lane.id, items[i].id);
 		if (to === undefined || !items.length || e.altKey || e.ctrlKey || e.metaKey) return;
 		e.preventDefault();
 		const next = items[clamp(to, 0, items.length - 1)];
 		active = next.id;
-		onselect?.(lane.id, next.id);
+		pick?.(lane.id, next.id);
 		tick().then(() => ([...(box?.children ?? [])] as HTMLElement[]).find((c) => c.dataset.item === next.id)?.focus());
 	}
 	function trimDown(e: PointerEvent, it: TimelineItem, trim: TimelineTrim, edge: Edge) {

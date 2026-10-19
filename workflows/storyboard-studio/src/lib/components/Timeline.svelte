@@ -3,11 +3,13 @@
 	// underneath the other windows was also good"): the shared @scutoons/ui Timeline (creator-ready – research/TIMELINE.md)
 	// with the studio's lanes (timeline.svelte.js): the Shots lane – each shot as wide as its reading time, its frame,
 	// review dot and handheld mark, the scenes on the ruler – and in the Handheld step the selected shot's take at the
-	// shot's start with its trim. The header: the measures, Play for the take, the fold. AppShell bottom region (App).
+	// shot's start with its trim. The header: the measures, Play for the take (and back to the shot camera while a take's
+	// moment holds the 3D view), the fold. AppShell bottom region (App).
+	import { untrack } from 'svelte';
 	import { FoldButton, Icon, IconButton, Timeline } from '@scutoons/ui';
 	import { formatTime } from '@scutoons/ui/timeline';
 	import { ch, studio } from '../studio.svelte.js';
-	import { hh } from '../handheld/handheld.svelte.js';
+	import { endPreview, hh } from '../handheld/handheld.svelte.js';
 	import { followPlayhead, keepZoom, loadZoom, seek, select, timelineOf, tl, togglePlay, trim } from '../timeline.svelte.js';
 
 	/** @type {{ step: string, onfold: () => void }} */
@@ -19,6 +21,11 @@
 	$effect(() => { void studio.chapter; if (step !== 'handheld') loadZoom(step); });
 	$effect(() => { keepZoom(tl.zoom, step); });
 	const selected = $derived(view.sel ? [view.sel.id] : []);
+	// a take's moment holds the 3D view only while its lane shows: leaving the Handheld step or the take going (deleted,
+	// Handheld off, another shot) gives the camera back to the orbit and the figures and stops Play – they are measured
+	// and written through the shot's camera (Viewport). The phone's live pose keeps it (stopLive gives it back).
+	const takeShown = $derived(!!view.take);
+	$effect(() => { if (!takeShown && hh.held && !hh.live) untrack(endPreview); });
 	// a frame that is still missing stays black (the frames are rendered by "All frames" / Save + frame)
 	const missing = (e) => e.currentTarget.classList.add('missing');
 </script>
@@ -39,6 +46,7 @@
 		<span class="grow"></span>
 		{#if view.take}
 			<span class="cap">Take {view.take.items[0].id} · kept {formatTime(view.take.items[0].trim.out - view.take.items[0].trim.in, 's')}</span>
+			{#if hh.held && !hh.live}<IconButton label="Back to the shot camera" class="sc-round" onclick={endPreview}><Icon name="video" /></IconButton>{/if}
 			<IconButton label={hh.playing ? 'Pause' : 'Play the kept part'} class="sc-round" onclick={togglePlay}><Icon name={hh.playing ? 'pause' : 'play'} /></IconButton>
 		{/if}
 		<FoldButton side="bottom" label="Fold the timeline" controls="sc-shell-bottom" onclick={onfold} testid="timeline-fold" />

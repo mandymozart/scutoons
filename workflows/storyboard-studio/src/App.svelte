@@ -32,8 +32,11 @@
 	const body = (kind) => ({ shot: shotBody, script: scriptBody, variants: variantsBody, prompt: promptBody, handheld: handheldBody, generate: generateBody, output: outputBody })[kind];
 	// the Shot panel names the shot (• = unsaved); the others are about the same shot – their word is enough
 	const titleOf = (p) => (p.kind === 'shot' && studio.sel ? `Shot · ${studio.sel.id}${studio.dirty ? ' •' : ''}` : p.title);
+	// the squeeze's floor (DOCKING "Several panels"): the compact inspector's rows need about 18rem – narrower, the
+	// least-recently-used panel folds to its rail instead of the contents colliding
+	const MIN = 18;
 	PANELS.forEach((p, order) =>
-		useDock(() => (isOpen(p.kind) && (studio.sel || p.kind === 'output') ? { kind: `storyboard-${p.kind}`, order, size: sizes[steps.current][p.kind], title: titleOf(p), icon: p.icon, close: () => setOpen(p.kind, false), panel: body(p.kind) } : null))
+		useDock(() => (isOpen(p.kind) && (studio.sel || p.kind === 'output') ? { kind: `storyboard-${p.kind}`, order, min: MIN, size: sizes[steps.current][p.kind], title: titleOf(p), icon: p.icon, close: () => setOpen(p.kind, false), panel: body(p.kind) } : null))
 	);
 
 	// the timeline: one height for all steps, its fold per step (both ways – the fold button / a drag write the step's)

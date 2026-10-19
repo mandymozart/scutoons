@@ -7,6 +7,7 @@
 	// (handheld.svelte.js followSelection).
 	import { confirmDialog, Icon, IconButton, PropRow, ScrubNumber, Segmented } from '@scutoons/ui';
 	import { fail, find, studio } from '../studio.svelte.js';
+	import { here, setOpen, setStep, setTimeline, steps } from '../steps.svelte.js';
 	import { activeTake, endPreview, hh, preview, saveDoc, setOn } from '../handheld/handheld.svelte.js';
 	import { downloadTake } from '../handheld/export.js';
 	import PhonePairing from './PhonePairing.svelte';
@@ -15,6 +16,14 @@
 	const doc = $derived(hh.doc && hh.docShot === id ? hh.doc : null);
 	const take = $derived(doc ? activeTake() : null);
 	let busy = $state('');
+	// the Take lane (in / out) is on the timeline only in the Handheld step and only while the timeline is open
+	// (Timeline.svelte timelineOf); anywhere else the Trim row is the way there – with this panel open in that step
+	const trimHere = $derived(steps.current === 'handheld' && here().timeline);
+	function toTrim() {
+		setStep('handheld');
+		setOpen('handheld', true);
+		setTimeline(true);
+	}
 
 	function pick(tid) {
 		endPreview();
@@ -40,33 +49,42 @@
 			<Segmented label="Handheld camera for {id}" stretch options={[{ value: 'off', label: 'Off' }, { value: 'on', label: `On for ${id}` }]} value={doc.on ? 'on' : 'off'} onchange={(v) => setOn(v === 'on')} />
 		</PropRow>
 		{#if doc.on}
+			<!-- the rows sit in a plain grid, never a grid fieldset (GeneratePanel: Chromium leaves a PropRow in one at 0 px) -->
 			<fieldset>
 				<legend>Phone</legend>
-				<PhonePairing />
+				<div class="rows"><PhonePairing /></div>
 			</fieldset>
 			{#if doc.takes.length}
 				<fieldset>
 					<legend>Takes</legend>
-					<div class="takes" role="radiogroup" aria-label="The active take">
-						{#each doc.takes as t (t.id)}
-							<div class="take">
-								<button type="button" class="secondary" class:sc-selected={doc.active === t.id} role="radio" aria-checked={doc.active === t.id} onclick={() => pick(t.id)}>{t.id} · {(t.out - t.in).toFixed(1)} s of {t.samples.at(-1)?.t.toFixed(1)} s · {t.created.slice(11, 16)}</button>
-								<IconButton label={`Delete take ${t.id}`} class="sc-round" onclick={() => remove(t)}><Icon name="trash-2" /></IconButton>
-							</div>
-						{/each}
+					<div class="rows">
+						<div class="takes" role="radiogroup" aria-label="The active take">
+							{#each doc.takes as t (t.id)}
+								<div class="take">
+									<button type="button" class="secondary" class:sc-selected={doc.active === t.id} role="radio" aria-checked={doc.active === t.id} onclick={() => pick(t.id)}><span class="cut">{t.id} · {(t.out - t.in).toFixed(1)} s of {t.samples.at(-1)?.t.toFixed(1)} s · {t.created.slice(11, 16)}</span></button>
+									<IconButton label={`Delete take ${t.id}`} class="sc-round" onclick={() => remove(t)}><Icon name="trash-2" /></IconButton>
+								</div>
+							{/each}
+						</div>
+						{#if take}
+							<PropRow label="Trim" hint="The kept part of the take: its in / out handles on the timeline's Take lane">
+								{#if trimHere}
+									<p class="hint">Drag {take.id}'s in / out on the timeline below – the 3D view shows that moment.</p>
+								{:else}
+									<button type="button" class="secondary" onclick={toTrim} title="The Handheld step with the timeline open – the take's lane has its in / out handles">Open the timeline</button>
+								{/if}
+							</PropRow>
+							<PropRow label="Smooth" hint="0 = the raw handheld look … 1 = a slow steadicam">
+								<ScrubNumber label="Smoothing of {take.id}" icon="wind" min={0} max={1} step={0.05} required value={take.smooth ?? 0} onchange={(v) => { take.smooth = v ?? 0; preview(hh.playhead); saveDoc(true); }} />
+							</PropRow>
+							<PropRow label="Download" hint="The take's camera for other tools (README: Blender, Unreal)">
+								<button type="button" class="secondary" onclick={() => one('json')} disabled={!!busy} title="The samples (t, position, quaternion, fov)">JSON</button>
+								<button type="button" class="secondary" onclick={() => one('glb')} disabled={!!busy} title="An animated camera for Blender (File → Import → glTF 2.0) / Unreal (glTF importer → Sequencer)">glTF</button>
+								<button type="button" class="secondary" onclick={() => one('glb', true)} disabled={!!busy} title="glTF: the animated camera + the blocked set and figures">+ scene</button>
+							</PropRow>
+							{#if busy}<p class="hint" role="status">{busy}</p>{/if}
+						{/if}
 					</div>
-					{#if take}
-						<p class="hint">Trim {take.id} on the timeline below – drag its in / out handles; the 3D view shows that moment.</p>
-						<PropRow label="Smooth" hint="0 = the raw handheld look … 1 = a slow steadicam">
-							<ScrubNumber label="Smoothing of {take.id}" icon="wind" min={0} max={1} step={0.05} required value={take.smooth ?? 0} onchange={(v) => { take.smooth = v ?? 0; preview(hh.playhead); saveDoc(true); }} />
-						</PropRow>
-						<PropRow label="Download" hint="The take's camera for other tools (README: Blender, Unreal)">
-							<button type="button" class="secondary" onclick={() => one('json')} disabled={!!busy} title="The samples (t, position, quaternion, fov)">JSON</button>
-							<button type="button" class="secondary" onclick={() => one('glb')} disabled={!!busy} title="An animated camera for Blender (File → Import → glTF 2.0) / Unreal (glTF importer → Sequencer)">glTF</button>
-							<button type="button" class="secondary" onclick={() => one('glb', true)} disabled={!!busy} title="glTF: the animated camera + the blocked set and figures">+ scene</button>
-						</PropRow>
-						{#if busy}<p class="hint" role="status">{busy}</p>{/if}
-					{/if}
 				</fieldset>
 			{/if}
 		{/if}
@@ -80,20 +98,14 @@
 		padding: var(--space-075) var(--space-1) var(--space-15);
 		align-content: start;
 	}
+	/* fieldset + legend are tools.css's (no frame, the legend a caption); the panel's gap spaces the groups */
 	fieldset {
-		border: 0;
 		margin: 0;
-		padding: 0;
+	}
+	.rows {
 		display: grid;
 		gap: var(--space-05);
 		min-width: 0;
-	}
-	legend {
-		padding: 0;
-		margin-bottom: var(--space-05);
-		text-transform: uppercase;
-		letter-spacing: var(--tracking-label);
-		font-size: var(--type-caption-size);
 	}
 	.takes {
 		display: grid;
@@ -106,15 +118,23 @@
 	}
 	.take button[role='radio'] {
 		flex: 1;
+		min-width: 0;
 		justify-content: flex-start;
 		font-size: var(--type-caption-size);
+	}
+	/* a narrow panel cuts the take's line (one control height), its full text stays readable wider */
+	.cut {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 	.hint {
 		margin: 0;
 		font-size: var(--type-caption-size);
 		color: var(--text-muted);
 	}
-	/* the download buttons keep their words on one line */
+	/* the row buttons keep their words on one line */
 	.panel :global(.sc-prop-row button) {
 		white-space: nowrap;
 		padding-inline: var(--space-05);

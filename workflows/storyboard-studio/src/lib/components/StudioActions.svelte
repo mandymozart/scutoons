@@ -1,9 +1,9 @@
 <script>
 	// The studio's ActionBar (DESIGN "The bottom bar is grouped", research/STUDIO-LAYOUT.md concept B): the shot stepper
-	// (‹ Shot n / N ›), the chapter's measures and the keys on the left; the notes (the storyboard check's problems – a
-	// click picks the shot a note names), Revert, Keep as variant, in the Generate step Review (Approve / Ask for a
-	// change – owner 2026-10-19: approving happens inside Generate), and Save + frame as the one primary, last. It stays
-	// while a panel is maximized (DOCKING "Maximize").
+	// (‹ Shot n / N ›) and the keys on the left (the chapter's measures are the timeline's head – once, "Less UI is better
+	// UI"); the notes (the storyboard check's problems – a click picks the shot a note names), Revert, Keep as variant, in
+	// the Generate step Review (Approve / Ask for a change – owner 2026-10-19: approving happens inside Generate), and
+	// Save + frame as the one primary, last. It stays while a panel is maximized (DOCKING "Maximize").
 	import { ActionBar, Icon, Menu } from '@scutoons/ui';
 	import { allShots, pickShot, revert, studio } from '../studio.svelte.js';
 	import { busy, keepVariant, review, saveShot } from '../actions.svelte.js';
@@ -11,10 +11,10 @@
 
 	const shots = $derived(allShots());
 	const at = $derived(shots.findIndex((s) => s.id === studio.sel?.id));
-	const summary = $derived.by(() => {
-		const t = studio.data?.summary?.total;
-		return t ? `${t.shots} shots · ${t.screens.toFixed(1)} screens · ${(t.seconds / 60).toFixed(1)} min` : '';
-	});
+	// the keys outside text fields, most needed first: a hint that doesn't fit the bar goes whole (never cut mid-word);
+	// the full list is the tooltip
+	const KEYS = [['1', '6', 'step'], ['T', null, 'shots'], ['N', null, 'panels'], ['Ctrl', 'Space', 'maximize']];
+	const ALL_KEYS = "Keys outside text fields: 1–6 step · T shot list · N the step's panels · Ctrl + Space maximize · Ctrl + \\ shot list · Ctrl + Shift + \\ fold the 3D view";
 	const problems = $derived(studio.data?.problems ?? []);
 	const errors = $derived(problems.filter((p) => p.level === 'error').length);
 	const step = (d) => pickShot(shots[Math.max(0, Math.min(shots.length - 1, (at < 0 ? 0 : at) + d))]?.id);
@@ -28,8 +28,9 @@
 			<span class="where" aria-live="polite">{at >= 0 ? `${studio.sel.id} · ${at + 1} / ${shots.length}` : `${shots.length} shots`}</span>
 			<button type="button" class="is-square" aria-label="Next shot" title="Next shot (→ on the timeline)" disabled={at >= shots.length - 1} onclick={() => step(1)}><Icon name="chevron-right" /></button>
 		</div>
-		<span class="cap">{summary}</span>
-		<span class="cap keys" title="Keys outside text fields: 1–6 step · T shot list · N the step's panels · Ctrl + Space maximize · Ctrl + \ shot list · Ctrl + Shift + \ fold the 3D view"><kbd>1</kbd>–<kbd>6</kbd> step · <kbd>T</kbd> shots · <kbd>N</kbd> panels · <kbd>Ctrl</kbd>+<kbd>Space</kbd> maximize</span>
+		<span class="keys" title={ALL_KEYS}>
+			{#each KEYS as [a, b, word] (word)}<span class="key"><kbd>{a}</kbd>{#if b}{a === 'Ctrl' ? '+' : '–'}<kbd>{b}</kbd>{/if} {word}</span>{/each}
+		</span>
 	{/snippet}
 	{#snippet secondary()}
 		{#if problems.length}
@@ -48,11 +49,12 @@
 			{#if steps.current === 'generate'}
 				<Menu label="Review" drop="up" align="end">
 					{#snippet trigger()}Review <Icon name="chevron-up" />{/snippet}
-					<button type="button" onclick={() => review('ok')} title="Approve: the review + the dataset (approve.mjs)">Approve the shot …</button>
-					<button type="button" onclick={() => review('change')} title="An open change – shows as a warning until it is done">Ask for a change …</button>
+					<!-- one job at a time (actions.svelte.js): while one runs, a review would ask for its note and then not run -->
+					<button type="button" onclick={() => review('ok')} disabled={!!busy.text} title="Approve: the review + the dataset (approve.mjs)">Approve the shot …</button>
+					<button type="button" onclick={() => review('change')} disabled={!!busy.text} title="An open change – shows as a warning until it is done">Ask for a change …</button>
 				</Menu>
 			{/if}
-			<button type="button" onclick={saveShot} disabled={!!busy.text} data-testid="save">{busy.text || `Save + frame${studio.dirty ? ' •' : ''}`}</button>
+			<button type="button" onclick={saveShot} disabled={!!busy.text} data-testid="save">{busy.on === 'shot' ? busy.text : `Save + frame${studio.dirty ? ' •' : ''}`}</button>
 		{/if}
 	{/snippet}
 </ActionBar>
@@ -65,12 +67,35 @@
 		font-variant-numeric: tabular-nums;
 		white-space: nowrap;
 	}
-	.cap {
+	/* the hints as one line that shortens from the end: each hint is a flex item, one that doesn't fit wraps onto a line
+	   out of sight (the big row gap, cut by the one-line height); the zero-wide ::before keeps even the first from
+	   sitting cut on the visible line */
+	.keys {
+		display: flex;
+		flex-wrap: wrap;
+		align-content: flex-start;
+		row-gap: var(--control-height);
+		min-width: 0;
+		height: 1.5em;
+		overflow: hidden;
 		font-size: var(--type-caption-size);
+		line-height: 1.5;
+		color: var(--text-muted);
+	}
+	.keys::before {
+		content: '';
+	}
+	/* the bar's start takes only the room the end leaves: the shared ActionBar shrinks start and end by their widths, so
+	   below ~1180 the end's buttons (which don't shrink) spilled left over the hints – only this bar, the one with them */
+	:global(.sc-action-bar > .start):has(> .keys) {
+		flex: 1 1 0;
+	}
+	.key {
 		white-space: nowrap;
 	}
-	.keys {
-		color: var(--text-muted);
+	.key + .key::before {
+		content: '·';
+		padding: 0 0.4em;
 	}
 	kbd {
 		font: inherit;

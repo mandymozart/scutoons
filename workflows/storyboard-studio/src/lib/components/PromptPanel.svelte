@@ -1,7 +1,7 @@
 <script>
 	// The prompt for Luma (scripts/storyboard/luma.js) from the shot as it is set right now (also unsaved): the story
 	// moment, perspective, figures, camera, light, empty zones, the look – copy it; attach the clean render (no texts)
-	// and the character / style pictures listed.
+	// and the character / style pictures listed. One primary (RULES): Build until there is a prompt, then Copy.
 	import { api, ch, notify, studio, toon } from '../studio.svelte.js';
 	import { framePng } from '../frames.js';
 
@@ -37,7 +37,7 @@
 		<p class="hint">Everything set for this shot – also unsaved changes – as one prompt.</p>
 		<div class="row">
 			<button type="button" class="secondary" onclick={downloadRender} title="The render as it is now, without texts – Luma's image reference">Render (no texts)</button>
-			<button type="button" onclick={build} disabled={busy}>{text ? 'Rebuild prompt' : 'Build prompt'}</button>
+			<button type="button" class:secondary={!!text} onclick={build} disabled={busy}>{text ? 'Rebuild prompt' : 'Build prompt'}</button>
 		</div>
 		{#if text}
 			<textarea readonly rows="22" value={text}></textarea>
@@ -62,10 +62,15 @@
 		overflow-y: auto;
 		box-sizing: border-box;
 	}
+	/* a button keeps its words on one line (one control height); a row too narrow for both wraps instead */
 	.row {
 		display: flex;
+		flex-wrap: wrap;
 		gap: var(--space-05);
 		justify-content: flex-end;
+	}
+	.row button {
+		white-space: nowrap;
 	}
 	textarea {
 		width: 100%;

@@ -23,8 +23,12 @@ export const hh = $state({
 	docShot: null,
 	/** the trim preview: the playhead (s, of the whole take) */
 	playhead: 0,
-	playing: false
+	playing: false,
+	/** a pose (a take's moment, Play, the phone) holds the 3D view's camera – the orbit and the figures rest until
+	 * endPreview() / stopLive() give it back (the view reports it: view.js onheld) */
+	held: false
 });
+handheldView.onheld = (on) => { hh.held = on; };
 
 let link = null;
 let filter = null;
@@ -192,6 +196,8 @@ export function pause() {
 	hh.playing = false;
 	cancelAnimationFrame(raf);
 }
+/** back to the shot's camera: Play stops, the view's orbit and figures work again (the timeline's "Back to the shot
+ * camera", leaving the Handheld step, the take going, the 3D view's "Shot camera") */
 export function endPreview() {
 	pause();
 	handheldView.api?.release();

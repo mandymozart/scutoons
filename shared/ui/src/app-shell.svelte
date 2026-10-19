@@ -7,6 +7,7 @@
 	import Divider from './divider.svelte';
 	import FoldButton from './fold-button.svelte';
 	import Rail from './rail.svelte';
+	import ShellBottom from './shell-bottom.svelte';
 	import { untrack, type Snippet } from 'svelte';
 
 	/**
@@ -38,10 +39,11 @@
 	 * list's detail), several at once side by side in their fixed places (10.57, agents/DOCKING.md "Several panels") –
 	 * each a column of the frame, so the content makes room; each one's left edge is a `Divider`; dragged wider, a panel
 	 * stops where the content would get narrower than `minContent` (default 20rem) next to the sidebar and the other panels.
-	 * When the room runs out the panels get narrower together (down to 12rem each), then the least recently
-	 * used folds to its rail, then the next; alone, a panel gets narrower than 12rem only while the content keeps half
-	 * its minimum. Each folds to a rail (owner 2026-10-06: the panel's `DockFold` button or dragging it narrow; the rail
-	 * shows the panel's icon and title, a click unfolds it). Below 768px the most recently used covers the page.
+	 * When the room runs out the panels get narrower together (down to their floor: 12rem, a kind's own `min`, or its
+	 * normal width if smaller), then the least recently used folds to its rail, then the next; alone, a panel gets
+	 * narrower than its floor only while the content keeps half its minimum. Each folds to a rail (owner 2026-10-06: the
+	 * panel's `DockFold` button or dragging it narrow; the rail shows the panel's icon and title, a click unfolds it).
+	 * Below 768px the most recently used covers the page.
 	 * Maximize (owner 2026-10-06, `shellDock.maximized`, agents/DOCKING.md "Maximize"): a docked panel (`dock:<id>`) or a
 	 * region of the main area (its id, e.g. the slice inspector – the page hides the rest of its main area) fills
 	 * everything right of the sidebar (folded to its rail). The other regions are only hidden (`visibility`, laid out
@@ -49,12 +51,16 @@
 	 * stays (10.57). The panel's `MaximizeButton`, Ctrl + Space (the focused region's, else the most recently used open
 	 * panel's) and Esc restore. Not on phones.
 	 * The bottom region (`bottom` + `bottomSize`, a `panelHeight`; agents/DOCKING.md "Bottom region", owner 2026-10-19:
-	 * the storyboard studio's timeline "underneath the other windows"): `mode="fill"` only (page mode ignores it), from
-	 * 768px (phones: hidden, still mounted). A row under the content AND the dock (the sidebar keeps its full height; the
-	 * dock's Dividers end on it), its top edge a `Divider` (up to half the frame); it folds to a horizontal `Rail`
-	 * (`bottomLabel`, `bottomIcon`) – by the page's fold button (`bottomSize.fold`) or dragging it low – and is a rail
-	 * while a region is maximized. A rail, it stays mounted (laid out at its height, hidden). Ctrl + Space inside it and
-	 * on its edge is its own (no maximize). While it shows, the toasts sit above it (`--sc-shell-bottom-lift` on the root).
+	 * the storyboard studio's timeline "underneath the other windows"; shell-bottom.svelte): `mode="fill"` only (page mode
+	 * ignores it), from 768px (phones: hidden, still mounted). A row under the content AND the dock (the sidebar keeps its
+	 * full height; the dock's Dividers end on it), its top edge a `Divider` (up to half the frame); it folds to a
+	 * horizontal `Rail` (`bottomLabel`, `bottomIcon`) – by the page's fold button (`bottomSize.fold`) or dragging it low –
+	 * and is a rail while a region is maximized. A rail, it stays mounted (laid out at its height, hidden). Ctrl + Space
+	 * inside it and on its edge is its own (no maximize). While it shows, the toasts sit above it (`--sc-shell-bottom-lift`).
+	 * Why this file is long (RULES "Code": > 400 lines needs a reason): it is the ONE grid of all regions and who gives way
+	 * in it – the sidebar's fold, the dock's room / squeeze / rails, maximize and its keys, the main's fold – which read
+	 * and decide on one shared state; its self-contained parts are split out (dock-slot, dock-content, shell-bottom,
+	 * divider, rail, dockRegion).
 	 */
 	let {
 		topbar,
@@ -304,7 +310,7 @@
 	/** the main area folded to its rail – by the author (`shellDock.foldMain`) or because a panel is maximized */
 	const mainFolded = $derived(shellDock.mainFolded && !phone);
 	const mainRailed = $derived(mainFolded || maximized === 'dock');
-	/** rem: the panels get narrower together down to this (or a panel's normal width, if smaller) */
+	/** rem: the panels get narrower together down to this – or a panel's own `min` – or its normal width, if smaller */
 	const FLOOR = 12;
 	/**
 	 * Who gives way when the room runs out (agents/DOCKING.md "Running out of room"): the content keeps `minContent` (a
@@ -317,7 +323,7 @@
 		const min = mainFolded ? railPx : (minContent ?? 20) * remPx;
 		const avail = frameWidth > 0 ? frameWidth - sidebarPx - min : Infinity;
 		const want = (e: DockEntry) => e.panel.size.width ?? e.panel.size.normalPx;
-		const floor = (e: DockEntry) => Math.min(FLOOR * remPx, e.panel.size.normalPx);
+		const floor = ({ panel }: DockEntry) => Math.min((panel.min !== undefined && panel.min >= 0 ? panel.min : FLOOR) * remPx, panel.size.normalPx);
 		const kept = new Set<number>();
 		let floors = 0;
 		for (const e of panels.filter((p) => !p.panel.size.folded).sort((a, b) => b.used - a.used)) {
@@ -428,36 +434,11 @@
 			.filter(Boolean)
 			.join(' ');
 	});
-	// ---------- the bottom region (the studio's timeline): a row under the content and the dock ----------
+	// ---------- the bottom region (the studio's timeline, shell-bottom.svelte): a row under the content and the dock ----------
 	/** fill mode only (page mode ignores it – its CSS is the fill grid's second row) */
 	const hasBottom = $derived(mode === 'fill' && !!bottom && !!bottomSize);
 	/** a rail: folded by the page / a drag, or a region is maximized (everything else goes to its rail) */
 	const bottomRailed = $derived(hasBottom && (!!bottomSize?.folded || !!maximized));
-	/** a horizontal rail is as thick as a vertical one is wide (= `--sc-shell-rail-width`, for the root's toast lift) */
-	const BOTTOM_RAIL = 'calc(var(--control-height) + 1rem + var(--border-width-regular))';
-	// its drag measures from the frame's bottom and stops at half the frame (between the top bar and the ActionBar); a
-	// remembered height taller than that shrinks with a smaller window
-	$effect(() => {
-		const size = bottomSize;
-		if (!hasBottom || !size) return;
-		size.edge = () => frameEl?.getBoundingClientRect().bottom ?? window.innerHeight;
-		size.room = () => (frameEl?.clientHeight || window.innerHeight) / 2;
-		const fit = () => size.fit();
-		untrack(fit);
-		window.addEventListener('resize', fit);
-		return () => {
-			size.edge = null;
-			size.room = null;
-			window.removeEventListener('resize', fit);
-		};
-	});
-	// the toasts (ToastStack, fixed bottom-left) sit above the region while it shows (they covered the rail's button)
-	$effect(() => {
-		if (!hasBottom || !bottomSize || phone) return;
-		const root = document.documentElement.style;
-		root.setProperty('--sc-shell-bottom-lift', bottomRailed ? BOTTOM_RAIL : bottomSize.css);
-		return () => root.removeProperty('--sc-shell-bottom-lift');
-	});
 	/** phones: the sidebar is a drawer (collapsible), the dock covers the page */
 	const phoneColumns = $derived([sidebar && !collapsible && 'var(--sc-shell-sidebar-width)', 'minmax(0, 1fr)'].filter(Boolean).join(' '));
 </script>
@@ -562,19 +543,8 @@ style:--sc-shell-columns={columns}
 			<Divider size={e.panel.size} edge="left" at="{dividerAt(i)}px" label={dockResizeLabel} controls="sc-shell-dock-{e.id}" class="sc-shell-dock-resize" />
 		{/each}
 		{#if hasBottom && bottom && bottomSize}
-			<section class="sc-shell-bottom" class:railed={bottomRailed} id="sc-shell-bottom" aria-label={bottomLabel} data-testid="shell-bottom">
-				{#if bottomRailed}
-					<Rail side="bottom" label={bottomLabel} icon={bottomIcon} unfoldLabel={bottomUnfoldLabel} controls="sc-shell-bottom" onunfold={() => (maximized ? shellDock.restore() : bottomSize.fold(false))} testid="bottom-rail" />
-				{/if}
-				<!-- it stays mounted while it is a rail: laid out at its height, hidden -->
-				<div class="sc-shell-bottom-panel" class:kept={bottomRailed}>
-					{@render bottom()}
-				</div>
-			</section>
-			<!-- on its rail too: a drag that starts there only opens it (dockRegion); not while a region is maximized -->
-			{#if !maximized}
-				<Divider size={bottomSize} edge="top" at={bottomRailed ? 'var(--sc-shell-rail-width)' : bottomSize.css} from={sidebar ? 'var(--sc-shell-sidebar-width)' : '0rem'} label={bottomResizeLabel} controls="sc-shell-bottom" class="sc-shell-bottom-resize" />
-			{/if}
+			<ShellBottom content={bottom} size={bottomSize} railed={bottomRailed} maximized={!!maximized} {phone} frame={() => frameEl} from={sidebar ? 'var(--sc-shell-sidebar-width)' : '0rem'}
+				label={bottomLabel} icon={bottomIcon} resizeLabel={bottomResizeLabel} unfoldLabel={bottomUnfoldLabel} />
 		{/if}
 	</div>
 </div>
@@ -696,36 +666,6 @@ style:--sc-shell-columns={columns}
 		min-height: 0;
 		overflow: auto;
 	}
-	/* the bottom region (fill only, from 768px – the grid below): a second row under the content and the dock */
-	.sc-shell-bottom {
-		position: relative;
-		display: flex;
-		flex-direction: column;
-		min-width: 0;
-		min-height: 0;
-		overflow: hidden;
-		background: var(--paper);
-		border-top: var(--border-width-regular) solid var(--ink);
-	}
-	.sc-shell-bottom-panel {
-		display: flex;
-		flex-direction: column;
-		flex: 1 1 auto;
-		min-height: 0;
-	}
-	.sc-shell-bottom-panel > :global(*) {
-		flex: 1 1 auto;
-		min-height: 0;
-	}
-	/* its rail holds the content laid out at the region's height (inside its top border), hidden */
-	.sc-shell-bottom-panel.kept {
-		position: absolute;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		height: calc(var(--sc-shell-bottom-size) - var(--border-width-regular));
-		visibility: hidden;
-	}
 	/* a railed panel holds its hidden, laid-out content (absolute) – sticky (page) is positioned already */
 	.fill .sc-shell-dock.railed {
 		position: relative;
@@ -758,8 +698,8 @@ style:--sc-shell-columns={columns}
 		.sc-shell-dock {
 			grid-area: 1 / var(--sc-dock-col);
 		}
-		/* the bottom region: its row is its height, or a rail's width as its rail; the sidebar keeps the full height, the
-		   bottom spans the content and the dock, the dock's edges end on it */
+		/* the bottom region (shell-bottom.svelte, fill only): its row is its height, or a rail's width as its rail; the
+		   sidebar keeps the full height, the bottom spans the content and the dock, the dock's edges end on it */
 		.has-bottom {
 			--sc-shell-bottom-row: var(--sc-shell-bottom-size);
 		}
@@ -771,9 +711,6 @@ style:--sc-shell-columns={columns}
 		}
 		.has-bottom .sc-shell-frame > :global(.sc-shell-sidebar) {
 			grid-row: 1 / span 2;
-		}
-		.sc-shell-bottom {
-			grid-area: 2 / var(--sc-shell-content-col) / 3 / -1;
 		}
 		.has-bottom :global(.sc-shell-dock-resize) {
 			bottom: var(--sc-shell-bottom-row);
@@ -818,10 +755,6 @@ style:--sc-shell-columns={columns}
 			grid-template-columns: var(--sc-shell-columns-phone);
 		}
 		.sc-shell-main-rail {
-			display: none;
-		}
-		/* phones: no bottom region (the fixed dock would cover it; the studio is a desktop tool) – hidden, still mounted */
-		.sc-shell-bottom {
 			display: none;
 		}
 		/* phones: the most recently used panel covers the page (closed by their own buttons); the other panels stay

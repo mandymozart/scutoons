@@ -45,6 +45,10 @@ export interface DockPanel {
 	 * unknown kinds, from the main area outwards – 0 … 499 (clamped: an app's kinds always sit between the Reader and
 	 * Info); equal places (or none, = 0): opening order */
 	order?: number;
+	/** rem: the floor this panel squeezes to when the room runs out before the least recently used folds (default 12rem;
+	 * never above its normal width) – a panel whose contents collide below it (the storyboard studio's inspectors, 18rem)
+	 * folds sooner instead (agents/DOCKING.md "Running out of room") */
+	min?: number;
 	/** the page closes it (another panel of its kind replaced it) */
 	close: () => void;
 }

@@ -122,10 +122,15 @@
 		font-size: var(--type-caption-size);
 		margin: 0;
 	}
+	/* a button keeps its words on one line (one control height); a row too narrow for them wraps instead */
 	.row {
 		display: flex;
+		flex-wrap: wrap;
 		gap: var(--space-05);
 		justify-content: flex-end;
+	}
+	.row button {
+		white-space: nowrap;
 	}
 	.drop {
 		display: grid;

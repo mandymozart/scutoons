@@ -2,10 +2,11 @@
 	// The studio's top bar (research/STUDIO-LAYOUT.md concept B, owner 2026-10-19): the chapter, the six steps as a square
 	// tab row (the current one inverted; keys 1–6), the panels of the step as an icon group (toggling changes this step's
 	// set only), and the Chapter menu with the scripts (Check, All frames, Reference packs, Chapter draft) and the taste
-	// rule – so the bar never overflows at 1440. Save / review live in the ActionBar (StudioActions).
+	// rule – so the bar never overflows at 1440. While one runs, its place says so ("Running All frames …", the menu
+	// can't open – actions.svelte.js runScript); the result is one toast. Save / review live in the ActionBar.
 	import { Icon, Menu } from '@scutoons/ui';
-	import { fail, loadChapter, run, studio } from '../studio.svelte.js';
-	import { addRule } from '../actions.svelte.js';
+	import { fail, loadChapter, studio } from '../studio.svelte.js';
+	import { addRule, busy, runScript } from '../actions.svelte.js';
 	import { isOpen, PANELS, setOpen, setStep, STEPS, steps } from '../steps.svelte.js';
 
 	const SCRIPTS = [
@@ -35,13 +36,17 @@
 			<button type="button" class="is-square" aria-pressed={isOpen(p.kind)} aria-label={p.title} title="{p.title} panel{p.kind === 'shot' ? ' (N folds the step\'s panels)' : ''}" onclick={() => setOpen(p.kind, !isOpen(p.kind))} data-testid="panel-{p.kind}"><Icon name={p.icon} /></button>
 		{/each}
 	</div>
-	<Menu label="Chapter" align="end">
-		{#snippet trigger()}Chapter <Icon name="chevron-down" />{/snippet}
-		{#each SCRIPTS as a (a.cmd)}
-			<button type="button" title={a.title} onclick={() => run(a.cmd).catch(fail)}>{a.label}</button>
-		{/each}
-		<button type="button" title="A rule for storyboard-taste.md – the drafting agents read it" onclick={addRule}>Add a taste rule …</button>
-	</Menu>
+	{#if busy.on === 'chapter'}
+		<span class="running" role="status" title={busy.text} data-testid="chapter-running">{busy.text}</span>
+	{:else}
+		<Menu label="Chapter" align="end">
+			{#snippet trigger()}Chapter <Icon name="chevron-down" />{/snippet}
+			{#each SCRIPTS as a (a.cmd)}
+				<button type="button" title={a.title} disabled={!!busy.text} onclick={() => runScript(a)}>{a.label}</button>
+			{/each}
+			<button type="button" title="A rule for storyboard-taste.md – the drafting agents read it" disabled={!!busy.text} onclick={addRule}>Add a taste rule …</button>
+		</Menu>
+	{/if}
 </header>
 
 <style>
@@ -69,6 +74,23 @@
 	}
 	.grow {
 		flex: 1;
+	}
+	/* a running chapter script in the Chapter menu's place: state, not a control (no frame of its own). The bar has little
+	   room left below 1440 – caption size, up to two lines ("Running Reference packs …" fits the menu's room at 1024);
+	   cut with … (the full text its tooltip) only at 1280–1305, where the brand and the steps' numbers are back */
+	.running {
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
+		overflow: hidden;
+		flex: 0 1 auto;
+		min-width: 0;
+		max-width: 9rem;
+		padding: 0 var(--space-05);
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+		white-space: normal;
+		color: var(--text-muted);
 	}
 	.steps kbd {
 		margin-right: var(--space-05);

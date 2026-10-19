@@ -90,23 +90,26 @@ export function allShots() {
 	return list;
 }
 
-/** pick a shot (the list, the timeline, the stepper): unsaved changes → an in-page confirmation first */
+/** pick a shot (the list, the timeline, the stepper): unsaved changes → an in-page confirmation first; true when `id`
+ * is the selected shot afterwards (false: kept the old one – the timeline puts its playhead back) */
 export async function pickShot(id) {
-	if (!id || id === studio.sel?.id) return;
+	if (!id) return false;
+	if (id === studio.sel?.id) return true;
 	if (studio.dirty) {
 		const ok = await confirmDialog({ title: 'Discard the changes?', message: `${studio.sel.id} has unsaved changes.`, confirmLabel: 'Discard' });
-		if (!ok) return;
+		if (!ok) return false;
 	}
-	select(id);
+	return select(id);
 }
 
 export function select(id) {
 	const hit = find(id);
-	if (!hit) return;
+	if (!hit) return false;
 	studio.sel = { id, scene: hit.scene, shot: clone(hit.shot) };
 	studio.dirty = false;
 	studio.figure = null;
 	history.replaceState(null, '', `?shot=${id}`);
+	return true;
 }
 
 /** the edited shot changed (a field, a drag in the 3D view) */
@@ -140,11 +143,4 @@ export function revert() {
 	studio.sel = { ...studio.sel, shot: clone(hit.shot) };
 	studio.dirty = false;
 }
-
-export async function run(cmd, only) {
-	notify(`${cmd} …`);
-	const r = await api('POST', '/api/run', { toon: toon(), ch: ch(), cmd, only });
-	notify((r.out || (r.ok ? 'done' : 'failed')).split('\n').filter(Boolean).slice(-1)[0], r.ok ? 'success' : 'error');
-	if (cmd === 'frames') await loadChapter(true);
-	return r;
-}
+// the chapter scripts (/api/run): actions.svelte.js runScript – "Running …" where the doing happens, the result one toast

@@ -5,7 +5,9 @@
 	/**
 	 * Dropdown menu (disclosure pattern): a trigger button and a popup with the app's items (buttons / links).
 	 * Closes on outside click, Escape (focus returns to the trigger) and after an item is chosen. `drop="up"` opens it
-	 * above the trigger (a menu in the bottom ActionBar).
+	 * above the trigger (a menu in the bottom ActionBar). The popup is as wide as its widest item (12rem … 40rem – not the
+	 * trigger's width: the studio's notes read one word per line), moved back inside the window when it would stick out;
+	 * its items are left-aligned whatever an app's button rule centres.
 	 */
 	let {
 		label,
@@ -27,6 +29,15 @@
 
 	const uid = $props.id();
 	let button: HTMLButtonElement | null = $state(null);
+	let popup: HTMLElement | null = $state(null);
+	/** rem: how far the open popup moves to stay 0.5rem inside the window (measured once it shows) */
+	let shift = $state(0);
+	$effect(() => {
+		if (!popup) return void (shift = 0);
+		const [r, rem] = [popup.getBoundingClientRect(), parseFloat(getComputedStyle(document.documentElement).fontSize) || 16];
+		const [lo, hi] = [rem / 2, window.innerWidth - rem / 2];
+		shift = (r.left < lo ? lo - r.left : r.right > hi ? Math.max(lo - r.left, hi - r.right) : 0) / rem;
+	});
 
 	function close(event?: Event) {
 		if (!open) return;
@@ -54,7 +65,7 @@
 	</button>
 	{#if open}
 		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-		<div class="popup align-{align}" class:up={drop === 'up'} id="{uid}-menu" onclick={onPopupClick}>
+		<div class="popup align-{align}" class:up={drop === 'up'} id="{uid}-menu" bind:this={popup} style:translate={shift ? `${shift}rem 0` : null} onclick={onPopupClick}>
 			{@render children()}
 		</div>
 	{/if}
@@ -92,7 +103,10 @@
 		z-index: 100;
 		display: flex;
 		flex-direction: column;
+		/* its widest item, not the trigger's width (an absolute box shrinks to its trigger-wide container) */
+		width: max-content;
 		min-width: 12rem;
+		max-width: min(40rem, calc(100vw - 1rem));
 		padding: var(--space-025) 0;
 		background: var(--paper);
 		border: var(--border-width-regular) solid var(--ink);
@@ -111,6 +125,8 @@
 	.popup :global(:is(a, button)) {
 		display: flex;
 		align-items: center;
+		/* left-aligned (an app's button rule may centre – the studio's buttons.css) */
+		justify-content: flex-start;
 		gap: var(--space-05);
 		box-sizing: border-box;
 		width: 100%;
