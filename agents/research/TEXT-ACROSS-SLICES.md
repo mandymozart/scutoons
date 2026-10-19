@@ -1,4 +1,4 @@
-Status 2026-10-19: concept + plan; §8 steps 1–2 and §9 built and live (the endless band, format + migration, Swiper gone). Owner 2026-10-19: Q1 step 1 ships WITH step 2, Q2 drafts first, Q4 keep "Slices", Q7 canvas bands only in the strip editor; Q3 open. Strip editor drafts made (§4.1, agents/research/strip-editor/) – waiting for the owner's pick D1 / D2, then §5 steps 1 + 2 are built together. FEATURES 10.100.
+Status 2026-10-19: concept + plan; §8 steps 1–2 and §9 built and live (the endless band, format + migration, Swiper gone). Owner 2026-10-19: Q1 step 1 ships WITH step 2, Q2 drafts first, Q4 keep "Slices", Q7 canvas bands only in the strip editor, Q3 one document (scenes inlined, §5 step 3). Strip editor drafts made (§4.1, agents/research/strip-editor/) – waiting for the owner's pick D1 / D2, then §5 steps 1 + 2 are built together. FEATURES 10.100.
 
 # Slices as background: the strip editor
 
@@ -147,8 +147,9 @@ model above doesn't change for it.
 ## 6. Open for the owner
 - **Q1** answered 2026-10-19: step 1 does not ship alone – together with step 2.
 - **Q2** answered 2026-10-19: drafts first (phone + desktop) – §4.1; **D1, D2** there wait for the owner's pick.
-- **Q3** Inline the scenes into their chapters and drop scene documents (step 3)? Open – the owner asked what it would
-  bring; nothing of step 3 is built before his answer.
+- **Q3** answered 2026-10-19 ("ja, ein Dokument"): the scene `ref` groups are inlined into their chapters and scene
+  documents / `ref` support go – §5 step 3, with stable slice ids; the data change is a DB migration that runs with the
+  deploy.
 - **Q4** answered 2026-10-19: the UI keeps "Slices".
 - **Q5 – Q7**: §7 (Q7 answered 2026-10-19: the canvas bands come only with the strip editor).
 
