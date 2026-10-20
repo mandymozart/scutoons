@@ -98,6 +98,8 @@ return [
     'NEWSLETTER_PER_CONNECTION' => '50',
     'NEWSLETTER_ATTEMPTS' => '3',
     'NEWSLETTER_RETRY_MINUTES' => '15',
+    // the `{signin}` button's personal login link (Domain\Newsletter\NewsletterSignin, #65): valid this many days, once
+    'NEWSLETTER_SIGNIN_DAYS' => '14',
     'API_URL' => 'https://api.scutoons.com',
 
     // ── Web Push (agents/research/PWA.md §2b; Domain\Push) ─────────────────────────────────────────────────

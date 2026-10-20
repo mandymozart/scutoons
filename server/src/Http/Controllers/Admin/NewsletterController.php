@@ -13,6 +13,7 @@ use Scutoons\Domain\Newsletter\Audiences;
 use Scutoons\Domain\Newsletter\Campaigns;
 use Scutoons\Domain\Newsletter\Contacts;
 use Scutoons\Domain\Newsletter\NewsletterRenderer;
+use Scutoons\Domain\Newsletter\NewsletterSignin;
 use Scutoons\Domain\Newsletter\NewsletterSender;
 use Scutoons\Domain\Newsletter\Suppressions;
 use Scutoons\Domain\Settings\RuntimeSettings;
@@ -54,6 +55,7 @@ final class NewsletterController
         private readonly Audiences $audiences,
         private readonly Suppressions $suppressions,
         private readonly NewsletterRenderer $renderer,
+        private readonly NewsletterSignin $signin,
         private readonly NewsletterSender $sender,
         private readonly Transport $transport,
         private readonly MailLog $log,
@@ -192,7 +194,8 @@ final class NewsletterController
             throw new ApiError(409, 'missing_text', "Subject and text in $locale first.", ['locale' => $locale]);
         }
         $admin = $this->admin($request);
-        $mail = $this->renderer->render($content, $locale, $admin['email'], $admin['name']);
+        // the admin's own `{signin}` button: a staff account's = the account page (NewsletterSignin)
+        $mail = $this->renderer->render($content, $locale, $admin['email'], $admin['name'], fn() => $this->signin->button($admin['email'], $locale));
         try {
             $this->transport->deliverWithHeaders($admin['email'], '[Test] ' . $mail['subject'], $mail['text'], $mail['html'],
                 ['List-Unsubscribe: <' . $mail['unsubscribe'] . '>', 'List-Unsubscribe-Post: List-Unsubscribe=One-Click']);

@@ -34,8 +34,24 @@ every platform mail), Save, Test to me (the saved text to the signed-in admin, s
 exact number of recipients).
 
 The text is plain: a blank line starts a paragraph, single line breaks stay; a paragraph that is only
-`[Button text](https://…)` becomes a button; `{name}` = the recipient's name (empty without one), `{name|there}` = the
-name or "there" – also in the subject. Under the text every mail says why the person gets it and links to unsubscribe.
+`[Button text](https://…)` becomes a button, `![description](path)` a picture (a CDN path or a URL); `{name}` = the
+recipient's name (empty without one), `{name|there}` = the name or "there" – also in the subject. Under the text every
+mail says why the person gets it and links to unsubscribe.
+
+**The sign-in button** (owner 2026-10-20, #65: one click = signed in, the text per recipient): a paragraph that is only
+`{signin}` (the placeholder list inserts it) becomes a personal button (`NewsletterSignin`):
+- an account → "Anmelden" / "Sign in"; a staff account (any role beyond member) → the same text, but a plain link to
+  /account (a forwarded mail must never open an admin's account)
+- no account, a QR code of the old form waits for the address (`legacySignupCode`) → "Account anlegen – dein QR-Code
+  wartet" / "Create your account – your QR code is waiting": signing in creates the account and claims the code (a code
+  with a choice of items opens its claim sheet instead)
+- no account and no such code (e.g. event contacts) → no button, the paragraph is left out
+
+The link `APP_URL[/en]/?signin=<token>` is a login request made when the mail is sent: single use, valid
+`NEWSLETTER_SIGNIN_DAYS` (14), no 6-digit code, not counted for the hourly login limits (`ip_hash` =
+`NewsletterSignin::IP_HASH`). The viewer asks once ("Bei SCUTOONS anmelden?" – mail scanners open links) and signs in;
+used or expired → "Der Link geht nicht mehr" → the sign-in page. Preview: a member's button to /account; Test to me:
+the admin's own (staff → /account).
 
 States: draft (everything changes) → sending (recipients fixed at the start – later contacts are not added) ⇄ paused
 (subject and text can still be fixed; the rest gets the new text) → done. Draft and done can be deleted (mail_log keeps

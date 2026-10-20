@@ -39,6 +39,15 @@
 		"owners_only": "This download is only for owners of the record.",
 		"sign_in": "Please sign in to download the music."
 	},
+	"newsletter_signin": {
+		"title": "Sign in to SCUTOONS?",
+		"message": "With the personal link from our newsletter – on this device. Without an account yet, it is created now.",
+		"confirm": "Sign in",
+		"cancel": "Cancel",
+		"failed_title": "This link no longer works",
+		"failed": "It has expired or was used already. Sign in with your email address – you get a new link.",
+		"to_login": "Sign in"
+	},
 	"account": {
 		"my_account": "Account",
 		"back": "Back",

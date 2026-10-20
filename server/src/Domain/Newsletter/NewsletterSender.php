@@ -44,6 +44,7 @@ final class NewsletterSender
         private readonly RuntimeSettings $runtime,
         private readonly Transport $transport,
         private readonly NewsletterRenderer $renderer,
+        private readonly NewsletterSignin $signin,
         private readonly Suppressions $suppressions,
         private readonly MailLog $log,
     ) {
@@ -115,7 +116,8 @@ final class NewsletterSender
                 try {
                     $mail = $this->renderer->render(
                         ['subject' => (string) $campaign["subject_$locale"], 'body' => (string) $campaign["body_$locale"]],
-                        $locale, $email, $recipient['name'] !== null ? (string) $recipient['name'] : null);
+                        $locale, $email, $recipient['name'] !== null ? (string) $recipient['name'] : null,
+                        fn() => $this->signin->button($email, $locale));
                     $this->transport->deliverWithHeaders($email, $mail['subject'], $mail['text'], $mail['html'], [
                         'List-Unsubscribe: <' . $mail['unsubscribe'] . '>',
                         'List-Unsubscribe-Post: List-Unsubscribe=One-Click',

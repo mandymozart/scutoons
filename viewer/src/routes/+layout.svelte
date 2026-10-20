@@ -35,6 +35,7 @@
 	import { accessUntilOf } from '$lib/sw/saved-rules.ts';
 	import { initAppBadge } from '$lib/app-badge.ts';
 	import { CONTINUE_PARAM, continuePath } from '$lib/continue-reading.ts';
+	import { newsletterSignin } from '$lib/newsletter-signin.ts';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
@@ -97,6 +98,8 @@
 		const addToAccount = /\/account\/?$/.test(page.url.pathname);
 		// magic link from the login mail: `<origin>/?login=<token>[&c=<code>]`
 		const magicToken = params.get('login') || params.get('token') || null;
+		// the personal link of a newsletter's sign-in button: `/?signin=<token>` (asks once – lib/newsletter-signin.ts)
+		const signinToken = params.get('signin');
 		const code = params.get('code') || (magicToken ? params.get('c') : null) || null;
 		// `?code=…&claim=1` = "This is mine? File a claim" from the QR landing page (ITEMS.md "Ownership, claims, gifting")
 		const dispute = params.get('claim') === '1';
@@ -104,7 +107,7 @@
 		const visit = params.get('visit');
 
 		// `?preview=draft` from the creator: already read by lib/draft-preview.svelte.ts
-		if (code || magicToken || visit || params.has('preview')) {
+		if (code || magicToken || signinToken || visit || params.has('preview')) {
 			const url = new URL(window.location.href);
 			url.searchParams.delete('preview');
 			url.searchParams.delete('code');
@@ -115,11 +118,13 @@
 			url.searchParams.delete('inventory');
 			url.searchParams.delete('login');
 			url.searchParams.delete('token');
+			url.searchParams.delete('signin');
 			goto(url.pathname + url.search, { replaceState: true });
 		}
 
 		// magic link from the login mail, else the single sign-on session (any SCUTOONS app) or a stored token
 		await session.init(magicToken);
+		if (signinToken) void newsletterSignin(signinToken, session, (claimCode, auto) => itemsUi.openClaim(claimCode, auto));
 
 		// the installed app's "Continue reading" shortcut (manifest `shortcuts`): the chapter read last, where it stopped
 		if (params.has(CONTINUE_PARAM)) {

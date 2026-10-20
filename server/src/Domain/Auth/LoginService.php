@@ -13,6 +13,7 @@ use Scutoons\Domain\Events\EventLog;
 use Scutoons\Domain\Mail\MailFailed;
 use Scutoons\Domain\Mail\Mailer;
 use Scutoons\Domain\Mail\MailTemplates;
+use Scutoons\Domain\Newsletter\NewsletterSignin;
 use Scutoons\Domain\RequestContext;
 use Scutoons\Domain\Secrets;
 use Scutoons\Infrastructure\Clock\Clock;
@@ -71,7 +72,8 @@ final class LoginService
         // Housekeeping: requests are only needed while they can be confirmed and for the hourly limits
         $this->db->run('DELETE FROM login_requests WHERE created_at < ?', [$this->clock->utc(-86400)]);
         $hourAgo = $this->clock->utc(-3600);
-        if ((int) $this->db->value('SELECT COUNT(*) FROM login_requests WHERE email = ? AND created_at > ?', [$email, $hourAgo]) >= $this->settings->int('LOGIN_MAX_PER_EMAIL_HOUR')
+        // the newsletter's sign-in links (NewsletterSignin) don't count
+        if ((int) $this->db->value('SELECT COUNT(*) FROM login_requests WHERE email = ? AND created_at > ? AND ip_hash <> ?', [$email, $hourAgo, NewsletterSignin::IP_HASH]) >= $this->settings->int('LOGIN_MAX_PER_EMAIL_HOUR')
             || (int) $this->db->value('SELECT COUNT(*) FROM login_requests WHERE ip_hash = ? AND created_at > ?', [$ipHash, $hourAgo]) >= $this->settings->int('LOGIN_MAX_PER_IP_HOUR')) {
             throw new ApiError(429, 'rate_limited', 'Too many emails requested – try again later.');
         }
@@ -172,8 +174,8 @@ final class LoginService
             $email = self::email($body['email'] ?? null);
             $otp = is_string($body['otp'] ?? null) || is_int($body['otp'] ?? null) ? (string) preg_replace('/\D/', '', (string) $body['otp']) : '';
             if ($otp === '') throw new ApiError(400, 'invalid_otp', 'Code missing.');
-            // The newest request of this address is the one whose code was just mailed
-            $request = $this->db->one('SELECT * FROM login_requests WHERE email = ? ORDER BY created_at DESC, id DESC LIMIT 1', [$email]);
+            // The newest request of this address is the one whose code was just mailed (a newsletter's link has no code)
+            $request = $this->db->one('SELECT * FROM login_requests WHERE email = ? AND ip_hash <> ? ORDER BY created_at DESC, id DESC LIMIT 1', [$email, NewsletterSignin::IP_HASH]);
             if (!$request) throw new ApiError(400, 'invalid_otp', 'This code is not valid.');
         }
         if ($request['used_at'] !== null) throw new ApiError(410, 'already_used', 'This link or code was used already.');
@@ -240,6 +242,10 @@ final class LoginService
         } catch (ApiError $error) {
             if ($code !== null && in_array($error->errorCode, ['already_claimed', 'email_required', 'revoked', 'expired'], true)) {
                 $this->events->log('claim_refused', $code);
+            }
+            // a newsletter's sign-up link whose QR code offers a choice: the viewer opens the code's claim sheet
+            if ($code !== null && $error->errorCode === 'choose_item' && $request['ip_hash'] === NewsletterSignin::IP_HASH) {
+                throw new ApiError($error->status, $error->errorCode, $error->getMessage(), $error->extra + ['code' => $code]);
             }
             throw $error;
         }

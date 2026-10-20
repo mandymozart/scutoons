@@ -47,19 +47,28 @@
 		const caret = (before ? before.length + 2 : 0) + line.length;
 		void tick().then(() => bodyArea?.setSelectionRange(caret, caret));
 	}
-	// the placeholders the renderer knows (NewsletterRenderer: {name}, {name|fallback}), picked from a list (owner 2026-10-09)
+	// the placeholders the renderer knows (NewsletterRenderer: {name}, {name|fallback}, the {signin} paragraph – #65),
+	// picked from a list (owner 2026-10-09)
+	const SIGNIN = '{signin}';
 	const variables = $derived([
 		{ value: '{name}', label: m['newsletter.variable_name']() },
-		{ value: locale === 'de' ? '{name|du}' : '{name|there}', label: m['newsletter.variable_name_or']({ word: locale === 'de' ? 'du' : 'there' }) }
+		{ value: locale === 'de' ? '{name|du}' : '{name|there}', label: m['newsletter.variable_name_or']({ word: locale === 'de' ? 'du' : 'there' }) },
+		{ value: SIGNIN, label: m['newsletter.variable_signin']() }
 	]);
-	/** puts a placeholder at the cursor of the body, inside the line */
+	/** puts a placeholder at the cursor of the body, inside the line – the sign-in button as a paragraph of its own */
 	function insertVariable(value: string) {
 		const key = locale === 'de' ? 'body_de' : 'body_en';
 		const text = draft[key];
 		const start = bodyArea?.selectionStart ?? text.length;
 		const end = bodyArea?.selectionEnd ?? start;
-		draft[key] = text.slice(0, start) + value + text.slice(end);
-		const caret = start + value.length;
+		let caret = start + value.length;
+		if (value === SIGNIN) {
+			const before = text.slice(0, start).replace(/\s*$/, '');
+			draft[key] = [before, value, text.slice(end).replace(/^\s*/, '')].filter((part) => part !== '').join('\n\n');
+			caret = (before ? before.length + 2 : 0) + value.length;
+		} else {
+			draft[key] = text.slice(0, start) + value + text.slice(end);
+		}
 		void tick().then(() => {
 			bodyArea?.focus();
 			bodyArea?.setSelectionRange(caret, caret);
@@ -307,14 +316,14 @@
 				<Field label={m['newsletter.subject']()}>
 					{#snippet children({ id: fieldId })}<input id={fieldId} maxlength="200" disabled={!textEditable} bind:value={draft.subject_de} />{/snippet}
 				</Field>
-				<Field label={m['newsletter.body']()} hint={m['newsletter.body_hint']({ example: '{name|du}' })}>
+				<Field label={m['newsletter.body']()} hint={m['newsletter.body_hint']({ example: '{name|du}', signin_line: SIGNIN })}>
 					{#snippet children({ id: fieldId, describedby })}<textarea bind:this={bodyArea} id={fieldId} aria-describedby={describedby} rows="16" disabled={!textEditable} bind:value={draft.body_de}></textarea>{/snippet}
 				</Field>
 			{:else}
 				<Field label={m['newsletter.subject']()}>
 					{#snippet children({ id: fieldId })}<input id={fieldId} maxlength="200" disabled={!textEditable} bind:value={draft.subject_en} />{/snippet}
 				</Field>
-				<Field label={m['newsletter.body']()} hint={m['newsletter.body_hint']({ example: '{name|there}' })}>
+				<Field label={m['newsletter.body']()} hint={m['newsletter.body_hint']({ example: '{name|there}', signin_line: SIGNIN })}>
 					{#snippet children({ id: fieldId, describedby })}<textarea bind:this={bodyArea} id={fieldId} aria-describedby={describedby} rows="16" disabled={!textEditable} bind:value={draft.body_en}></textarea>{/snippet}
 				</Field>
 			{/if}
