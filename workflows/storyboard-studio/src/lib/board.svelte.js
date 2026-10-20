@@ -3,7 +3,7 @@
 // source cards after the render, Q5: A) – again with the chapter, the picked set and studio.version (a save, an
 // approval, a finished job, a drop) –, their running jobs (board-sources.svelte.js), the current card (the last clicked
 // – its actions show under it, its shot is the current shot) and the selection (Ctrl / ⌘ + click, at most 4, the letters
-// A–D – kept for stage 4's Compare). The status (§3.5, one per card): chosen = approve (the existing flow: askDialog +
+// A–D – Compare's sides, compare.svelte.js; while Compare is open a side taken out leaves its place empty – compare.js). The status (§3.5, one per card): chosen = approve (the existing flow: askDialog +
 // POST /api/generated/approve – approve.mjs: the review + the dataset + `from`; one chosen per shot and kind, replaced)
 // · review ↔ none (R) · reject ↔ unreject (X: the card and what hangs under it with ONE `marked` stamp, POST
 // /api/generated/mark; X again brings back what that X marked, each to its mark before). The chosen and the sources
@@ -17,8 +17,8 @@ import { askDialog } from '@scutoons/ui';
 import { api, ch, fail, loadChapter, notify, pickedShots, studio, toon } from './studio.svelte.js';
 import { euro, gen, usdTitle } from './generate.svelte.js';
 import { lookKeys, rejectIds, shortId, statusOf, unrejectIds } from './board-layout.js';
+import { addSide, resolveSides, takeOut } from './compare.js';
 
-export const MAX_SELECTED = 4;
 export const board = $state({
 	/** GET /api/generated's records per picked shot: { [shot]: record[] } */
 	records: {},
@@ -28,7 +28,8 @@ export const board = $state({
 	jobs: {},
 	/** the current card { shot, key } – the last clicked (Board falls back to its shot's chosen / the render) */
 	current: null,
-	/** the selected cards [{ shot, key }] in the order picked – A, B, C, D */
+	/** the selected cards [{ shot, key }] in the order picked – A, B, C, D: Compare's sides (compare.svelte.js); null =
+	 *  an empty side (only while Compare is open – closed, the selection closes up) */
 	selected: [],
 	/** a status change runs (one at a time) */
 	busy: false,
@@ -41,7 +42,9 @@ export const board = $state({
 	/** one zoom for all bands (1 = 100 %) */
 	zoom: 1,
 	/** a video card's moment, clicked while it scrubs (More ▾ "Still: the frame at …"): { key, ms } – null = none */
-	pin: null
+	pin: null,
+	/** Compare is open (§3.4 – the board left, Compare right; C, "Compare · n", ✕ / Esc) – not remembered */
+	compare: false
 });
 
 let asked = 0;
@@ -80,12 +83,15 @@ export function useBoard() {
 			lastError = e?.message ?? '';
 		}));
 	});
-	// a shot taken out of the picked set forgets its fold and its look (picked again: it opens unfolded)
+	// a shot taken out of the picked set forgets its fold, its look and its cards in the selection (= Compare's sides;
+	// picked again: it opens unfolded)
 	$effect(() => {
 		const ids = new Set(pickedShots());
 		untrack(() => {
 			if (Object.keys(board.folded).some((id) => !ids.has(id))) board.folded = Object.fromEntries(Object.keys(board.folded).filter((id) => ids.has(id)).map((id) => [id, true]));
 			if (board.look && !ids.has(board.look.shot)) board.look = null;
+			const gone = board.selected.filter((s) => s && !ids.has(s.shot)).map((s) => s.key);
+			if (gone.length) board.selected = takeOut(board.selected, gone, board.compare);
 		});
 	});
 }
@@ -111,11 +117,23 @@ export function toggleFold(shot) {
 	}, fail);
 }
 
-/** Ctrl / ⌘ + click: in or out of the selection; a fifth replaces the last (D); a rejected card stays out (§3.5) */
+/** whether a selected card is still on the board – Board says (its layouts know the cards); one gone (a layout variant
+ *  taken, a record or a take's render gone) is an empty side, not a letter */
+let alive = () => true;
+export const setAlive = (fn) => void (alive = fn ?? (() => true));
+/** the selection as it stands: its holes and its cards gone as null – Compare open, by place; closed, closed up */
+export const selection = () => {
+	const sides = resolveSides(board.selected, alive);
+	return board.compare ? sides : sides.filter(Boolean);
+};
+
+/** Ctrl / ⌘ + click, More ▾: in or out of the selection – into the first empty side, else the end, a fifth replaces the
+ *  last (D); out, Compare open: its side empties; a rejected card stays out (§3.5) */
 export function toggleSelected(card, node) {
-	const has = board.selected.some((s) => s.key === card.key);
+	const now = selection();
+	const has = now.some((s) => s?.key === card.key);
 	if (!has && statusOf(node?.record) === 'rejected') return notify(`${shortId(card.key)} is rejected – it stays out of Compare (X brings it back).`);
-	board.selected = has ? board.selected.filter((s) => s.key !== card.key) : [...board.selected.slice(0, MAX_SELECTED - 1), card];
+	board.selected = has ? takeOut(now, [card.key], board.compare) : addSide(now, card);
 }
 
 export async function guarded(fn) {
@@ -179,8 +197,8 @@ export function reject(layout, node) {
 		} else {
 			const ids = rejectIds(layout, node.key);
 			await markIds(ids, 'rejected', new Date().toISOString());
-			// rejected cards stay out of Compare (§3.5: "X on side B folds it and empties B")
-			board.selected = board.selected.filter((s) => !ids.includes(s.key));
+			// rejected cards stay out of Compare (§3.5: "X on side B folds it and empties B" – the others keep their letters)
+			if (board.selected.some((s) => s && ids.includes(s.key))) board.selected = takeOut(selection(), ids, board.compare);
 			if (ids.length > 1) notify(`${shortId(r.id)} rejected with ${ids.length - 1} under it – X again brings them back.`);
 		}
 		await loadBoard();
@@ -203,7 +221,7 @@ const when = (d) => (d ? String(d).slice(0, 16).replace('T', ' ') : '');
 const base = (key) => String(key ?? '').replace(/#.*$/, '').split('/').pop();
 const STATUS = { chosen: 'the chosen', review: 'in review', rejected: 'rejected' };
 /** a node key as words: "render:sb-25-2" → "the render", "take:sb-25-2:t3" → "take t3", "sb-25-2--g5" → "g5" */
-const under = (k) => (k.startsWith('render:') ? 'the render' : k.startsWith('take:') ? `take ${k.split(':')[2]}` : k.startsWith('variant:') ? k.split(':')[2] : shortId(k));
+export const under = (k) => (k.startsWith('render:') ? 'the render' : k.startsWith('take:') ? `take ${k.split(':')[2]}` : k.startsWith('variant:') ? k.split(':')[2] : shortId(k));
 
 /** a card's caption: [the id, the muted line]; media = the card's picture ({ pass, ms } for a take) */
 export function captionOf(node, media) {

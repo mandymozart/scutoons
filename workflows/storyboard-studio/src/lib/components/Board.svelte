@@ -11,20 +11,29 @@
 	// strip: a look into it); the board scrolls to the current band when it changes from elsewhere (the list, ‹ ›, the
 	// timeline). Keys on the focused board: ← → in the row, ↑ ↓ the rows – over a band's edge into the next band, its shot
 	// current; strips and folded bands skipped –, Enter chosen, R review / none, X reject / unreject, I improve on this
-	// (fills Generate – improve.svelte.js), + / − zoom, 0 fits the widest band, Esc closes a look, then the selection. Pan / zoom: board-view.svelte.js; the state and the
-	// statuses: board.svelte.js; the layout: board-layout.js.
-	import { onMount, tick, untrack } from 'svelte';
+	// (fills Generate – improve.svelte.js), + / − zoom, 0 fits the widest band; C Compare, Esc closes a look, then
+	// Compare, then the selection (also from the tool row, the Divider). COMPARE (stage 4, §3.4): the selection right of
+	// the bands, a Divider between (compare.svelte.js – the width remembered); open, a click on a card fills its first
+	// empty side, else replaces the last; Space on the board plays / pauses its clock (not a click on the focused card);
+	// opened by its button, the focus goes into it. Pan / zoom: board-view.svelte.js; the state and the statuses:
+	// board.svelte.js; the layout: board-layout.js.
+	import { onDestroy, onMount, tick, untrack } from 'svelte';
+	import { Divider } from '@scutoons/ui';
 	import { fail, notify, find, pickedShots, pickShot, studio } from '../studio.svelte.js';
 	import { tl } from '../timeline.svelte.js';
 	import { gen, loadGenerators } from '../generate.svelte.js';
 	import { bandFacts, bandLayout, neighbour } from '../board-layout.js';
 	import { fitZoom, zoomStep } from '../board-zoom.js';
-	import { board, choose, openLook, reject, review, setCurrent, setStatus, toggleFold, toggleSelected, useBoard } from '../board.svelte.js';
+	import { board, choose, openLook, reject, review, selection, setAlive, setCurrent, setStatus, toggleFold, toggleSelected, useBoard } from '../board.svelte.js';
 	import { carriesFiles, sourceAction, upload, useJobs } from '../board-sources.svelte.js';
 	import { improve } from '../improve.svelte.js';
 	import { panZoom, remPx, view, zoomAt } from '../board-view.svelte.js';
+	import { closeCompare, compareClick, compareSplit, toggleCompare } from '../compare.svelte.js';
+	import { currentCard } from '../audition.js';
+	import { lettersOf } from '../compare.js';
 	import BoardTools from './BoardTools.svelte';
 	import Band from './Band.svelte';
+	import Compare from './Compare.svelte';
 
 	useBoard();
 	useJobs();
@@ -50,21 +59,36 @@
 	$effect(() => {
 		if (!rejected) untrack(() => (board.showRejected = false));
 	});
-	/** the current card: the last clicked in the current shot's band – else that shot's chosen (the video first), its render */
+	/** the current card: the last clicked in the current shot's band – else that shot's chosen (the video first), its
+	 *  render (audition.js currentCard – the timeline's audition takes the same) */
 	const cur = $derived.by(() => {
-		const id = studio.sel?.id;
-		const band = bands.find((b) => b.shot === id);
-		if (!band) return null;
-		const c = board.current;
-		if (c?.shot === id && band.layout.tree.has(c.key)) return c;
-		const all = [...band.layout.tree.values()];
-		const chosen = all.find((n) => n.record?.approved && n.record.kind === 'video') ?? all.find((n) => n.record?.approved);
-		return { shot: id, key: (chosen ?? band.layout.nodes[0]).key };
+		const [id, band] = [studio.sel?.id, bandOf(studio.sel?.id)];
+		return band ? (currentCard({ shot: id, current: board.current, records: band.records, has: (k) => band.layout.tree.has(k) }) ?? { shot: id, key: band.layout.nodes[0].key }) : null;
 	});
-	const letters = $derived(new Map(board.selected.map((s, i) => [s.key, 'ABCD'[i]])));
 	const bandOf = (shot) => bands.find((b) => b.shot === shot);
 	/** the card (the tree's – also one folded into a strip) */
 	const nodeOf = (at) => bandOf(at?.shot)?.layout.tree.get(at.key) ?? null;
+	// the selection as it stands (board.svelte.js selection): a card gone from the board is an empty side, not a letter
+	setAlive((s) => !!nodeOf(s));
+	onDestroy(() => setAlive(null));
+	const sel = $derived(selection());
+	const letters = $derived(lettersOf(sel));
+
+	// --- Compare (§3.4): its width (compare.svelte.js compareSplit – remembered), its sides = the selection (holes: null)
+	let split = $state();
+	const cmp = compareSplit(() => split);
+	const cmpWidth = $derived(cmp.width());
+	const sides = $derived(sel.map((s) => s && { ...s, node: nodeOf(s), takes: bandOf(s.shot)?.takes }));
+	const compare = () => toggleCompare({ shot: studio.sel?.id, records: board.records[studio.sel?.id] ?? [], current: cur, nodeOf });
+	/** Compare's pane (its clock for Space on the board, its focus) */
+	let pane = $state();
+	/** "Compare · n": opened by the button, the focus goes into Compare – Space, Esc and C are its keys there */
+	const button = () => compare() && tick().then(() => pane?.focus());
+	/** Compare closed (✕, Esc, C): the board's keys go on */
+	function closed() {
+		closeCompare();
+		tick().then(() => cardEl(cur)?.focus({ preventScroll: true }));
+	}
 
 	// the euro rate and the models' labels come with the generators' list
 	onMount(() => {
@@ -109,6 +133,8 @@
 		// a strip: a look into it and its branch (§3.5 – "a rejected tree is folded. unfolding makes it always possible to dive in that tree")
 		if (node.kind === 'strip') openLook(shot, bandOf(shot).layout, node.key);
 		else setCurrent({ shot, key: node.key });
+		// Compare open: the card comes in as its last side – A stays the reference
+		if (board.compare && node.kind !== 'strip') compareClick({ shot, key: node.key }, node);
 		const ok = await makeCurrent(shot);
 		// kept the old shot ("Discard the changes?" → no): no look into another shot's band
 		if (node.kind === 'strip' && !ok) board.look = null;
@@ -162,8 +188,8 @@
 	function keys(e) {
 		// More ▾'s OPEN list (a Menu) keeps its own keys – its closed button (the focus after Escape / an item) is the board's
 		if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented || e.target.closest?.('input, textarea, select, [contenteditable], .sc-menu .popup, .sc-menu > [aria-expanded="true"]')) return;
-		// Enter on a button of the actions or a band's fold is that button's; on a strip it opens the look (its click)
-		if (e.key === 'Enter' && e.target.closest?.('button:not(.card)')) return;
+		// Enter / Space on a button of the actions or a band's fold is that button's; Enter on a strip opens the look (its click)
+		if ((e.key === 'Enter' && e.target.closest?.('button:not(.card)')) || (e.key === ' ' && e.target.closest?.('button:not(.card, .strip)'))) return;
 		const node = nodeOf(cur);
 		// a folded band's card: the keys leave it (arrows), nothing else acts on it unseen
 		const hidden = !!bandOf(cur?.shot)?.folded;
@@ -187,29 +213,45 @@
 			zoomKey(-1);
 		} else if (e.key === '0') {
 			fit();
-		} else if (e.key === 'Escape' && board.look) {
-			board.look = null;
-			refocus();
-		} else if (e.key === 'Escape' && board.selected.length) {
-			board.selected = [];
+		} else if (e.key === ' ' && board.compare) {
+			// Compare open: Space plays / pauses its clock – not a click on the focused card (it would replace a side)
+			if (!e.repeat) pane?.space();
 		} else return;
+		e.preventDefault();
+	}
+	/** C and Esc – on the bands, in the tool row, on the Divider (Compare keeps its own): Esc closes a look, then
+	 *  Compare, then the selection */
+	function outer(e) {
+		if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented || e.repeat || e.target.closest?.('.compare, input, textarea, select, [contenteditable], .sc-menu .popup, .sc-menu > [aria-expanded="true"]')) return;
+		if (e.key === 'c' || e.key === 'C') compare();
+		else if (e.key === 'Escape' && board.look) refocus((board.look = null));
+		else if (e.key === 'Escape' && board.compare) closed();
+		else if (e.key === 'Escape' && board.selected.length) board.selected = [];
+		else return;
 		e.preventDefault();
 	}
 </script>
 
-<section class="board" aria-label="Variants">
-	<BoardTools {rejected} onzoom={(z) => zoomAt(scroller, z)} onfiles={(files) => upload(studio.sel?.id, files)} />
-	<!-- files dropped between the bands land nowhere (the browser would open them in place of the studio) -->
-	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-	<div class="scroll" class:panning={view.panning} bind:this={scroller} data-board-scroll role="group" aria-label="Every generation of the picked shots – one band each, in toon order" onkeydown={keys} ondragover={nowhere} ondrop={nowhere} use:panZoom>
-		{#if !studio.sel}
-			<p class="sc-empty">Pick a shot on the left.</p>
-		{:else}
-			<div class="bands">
-				{#each bands as band (band.shot)}
-					<Band {band} current={band.shot === studio.sel?.id} cur={cur?.shot === band.shot ? cur.key : null} {letters} onpick={(node, e) => pick(band.shot, node, e)} onband={() => makeCurrent(band.shot)} onfold={() => toggleFold(band.shot)} onstatus={(node, s) => setStatus(band.layout, node, s)} onaction={(node, a) => sourceAction(band.shot, node, a)} ondrop={(files) => upload(band.shot, files)} />
-				{/each}
-			</div>
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<section class="board" aria-label="Variants" onkeydown={outer}>
+	<BoardTools {rejected} selected={sel.filter(Boolean).length} oncompare={button} onzoom={(z) => zoomAt(scroller, z)} onfiles={(files) => upload(studio.sel?.id, files)} />
+	<div class="split" bind:this={split}>
+		<!-- files dropped between the bands land nowhere (the browser would open them in place of the studio) -->
+		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+		<div class="scroll" class:panning={view.panning} bind:this={scroller} data-board-scroll role="group" aria-label="Every generation of the picked shots – one band each, in toon order" onkeydown={keys} ondragover={nowhere} ondrop={nowhere} use:panZoom>
+			{#if !studio.sel}
+				<p class="sc-empty">Pick a shot on the left.</p>
+			{:else}
+				<div class="bands">
+					{#each bands as band (band.shot)}
+						<Band {band} current={band.shot === studio.sel?.id} cur={cur?.shot === band.shot ? cur.key : null} {letters} onpick={(node, e) => pick(band.shot, node, e)} onband={() => makeCurrent(band.shot)} onfold={() => toggleFold(band.shot)} onstatus={(node, s) => setStatus(band.layout, node, s)} onaction={(node, a) => sourceAction(band.shot, node, a)} ondrop={(files) => upload(band.shot, files)} />
+					{/each}
+				</div>
+			{/if}
+		</div>
+		{#if board.compare}
+			<Divider size={cmp.size} edge="left" at={cmpWidth} label="Resize Compare – the bands get the rest (Home: back to its normal width)" />
+			<Compare bind:this={pane} {sides} width={cmpWidth} onclose={closed} />
 		{/if}
 	</div>
 </section>
@@ -225,8 +267,16 @@
 		min-height: 0;
 		background: var(--paper);
 	}
+	/* the bands | Compare (the Divider's container) */
+	.split {
+		position: relative;
+		flex: 1;
+		display: flex;
+		min-height: 0;
+	}
 	.scroll {
 		flex: 1;
+		min-width: 0;
 		min-height: 0;
 		overflow: auto;
 		scrollbar-width: thin;

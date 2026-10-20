@@ -65,9 +65,12 @@ every step.
   and or trimmed to, thats the length of that clip for that shot"): only the **picked** shots, back to back in toon
   order, each ONE clip as long as that clip. The **view mode** in its head (like Blender's viewport shading – "in our
   case, it is shot/take/rendered/generated") says which clip: **Generated** = the shot's generated video (the approved
-  one, else the newest), **Rendered** = the newest handheld render of the active take (beauty pass), **Take** = the
-  active take (its kept part; in Take mode the whole take with its in / out handles), **Shot** = a still – each falling
-  back down generated → rendered → take → a still of 5 s; a clip's tag says which it is. The clips come from
+  one, else the newest the board doesn't know as rejected; while the Variants board is open, the current shot's: the
+  board's current card – "The audition" below), **Rendered** = the newest handheld render of the active take
+  (beauty pass), **Take** = the active take
+  (its kept part; in Take mode the whole take with its in / out handles), **Shot** = a still – each falling
+  back down generated → rendered → take → a still of 5 s; a clip's tag says which it is (a generated one: its status
+  bullet ✓ / ? / ✕ and its id – g3). The clips come from
   `GET /api/clips` (clips.mjs). A clip shows its **frames one after another** (owner 2026-10-20: "should be not
   cover, but show the frame after frame"): a video as a filmstrip – tiles at its aspect along the clip, each the frame
   at its time, as many as fit (zoom in → more; ffmpeg makes one sprite per clip and zoom step, `GET /api/thumbs`,
@@ -108,13 +111,14 @@ hover; the chip says the time there; without ffmpeg the card's own video seeks).
 on a card = the **current card** (its actions under it: a result's status ✓ ? ✕ and **Improve · Vary · More** – below; a
 layout variant's **Load** – into the Viewport, unsaved – and **Take this** – after an in-page confirm it becomes the
 shot, the shot as saved a variant with its saved frame, the frame and the render without texts are saved again; the
-render and the takes take no status); **Ctrl / ⌘ + click** selects (A–D, for Compare later); the board scrolls to the current
+render and the takes take no status); **Ctrl / ⌘ + click** selects (A–D – Compare's sides, below); the board scrolls to the current
 band when the list, ‹ ›, or the timeline changes it. Keys: ← → in the row, ↑ ↓ the rows (across bands – the shot becomes
 current), **Enter** chosen (= approve: the review + the dataset, one chosen image and one chosen video per shot), **R**
 review / none, **X** reject – with what hangs under it, one stamp; again: back (`POST /api/generated/mark`; the chosen
 and the sources – a dropped file too – can't be rejected, a rejected card can't be chosen or put in review), Esc the
-selection off. **The fold** (2b): a rejected card is a **strip** in its place (the picture's height, 1.5rem wide, drawn
-like the Rail – ✕ and the id upwards, muted); with nothing open under it its branch folds into that strip ("g3 +2"),
+selection off (C and Esc also work from the tool row and the Divider). **The fold** (2b): a rejected card is a
+**strip** in its place (the picture's height, 1.5rem wide, drawn like the Rail – ✕ and the id upwards, muted); with
+nothing open under it its branch folds into that strip ("g3 +2"),
 folded neighbours in a row share one; a row of nothing but strips **lies down** as one line. The strip stays current
 after its X (X again: back); the arrow keys skip strips; a click on a strip (Enter when current) opens a **look** – it
 unfolds with its branch, muted, until the current card leaves it or Esc. **Show rejected · n** (the tool row, hidden at
@@ -154,7 +158,45 @@ where the card was clicked while it scrubbed – a line marks it; a time inside 
 to / Remove from Compare** (the selection); **Show the file** (a new tab). A rejected card is refused (X first). The
 form belongs to one shot of one chapter: another shot or chapter clears it before its inputs load (Generate and the
 manual result slot wait for them; the server refuses a shot that isn't in the chapter and another chapter's inputs).
-Without a render, ComfyUI and Luma by hand pre-fill no still (never an earlier result). Not yet: Compare (stage 4).
+Without a render, ComfyUI and Luma by hand pre-fill no still (never an earlier result).
+
+**Compare** (stage 4, VARIANTS-CANVAS §3.4; `src/lib/compare.js` – node tests –, `compare.svelte.js`,
+`compare-clock.svelte.js`, `Compare.svelte`): **C** or **Compare · n** (the tool row, once a card is selected) splits the
+main – the bands left, Compare right, a Divider between (normally 45 % of the room, at least 27rem; dragged, its width
+is remembered – `storyboard-studio:compare`; Home / a double-click: back); ✕, Esc or C closes it (opened by the button,
+the focus goes into Compare). Its sides are the **selection** (the letters on the cards): A the reference, the first
+selected; fewer than two selected, the current shot's chosen (of the selected card's kind) comes in front as A –
+nothing selected: beside the current card; one side leaves an empty B. Open, a **click on a card fills the first empty
+side, else replaces the last** (A stays); Ctrl + click and More ▾ add / remove as before (at most 4 – a fifth replaces
+D). A side taken out while Compare is open – **X** on it (a rejected card never enters: "X on side B folds it and
+empties B"), Ctrl + click, More ▾, or its card gone from the board (a layout variant taken, a file's record gone) –
+**stays empty**: a dashed slot, the other sides keep their letters (on the board too), the next click fills it; closed,
+the selection closes up. The sides stand at **one height**, each in its shot's aspect, from any band (a side of another
+shot than the current names it – "sb-25-1 · g4", narrow "25-1 · g4", narrower "25-1·g4" without the reference mark), as
+large as the pane allows – nothing scrolls sideways (at 1440 beside Generate they scale down; T / N give the board +
+Compare the window). Over each: the letter, the name, the status bullet (the cards' `StatusBullet` – a named image for
+a screen reader); under each: model · length · seed · cost (each part whole; a narrow side leaves the seed out), what it
+came from (its main input on the board + the other parents, how it went in), the prompt (3 lines); each line's whole
+text in its tooltip. **Videos run on one clock** (Frame.io): one Play (**Space** – while Compare has the focus, and on
+the board's cards while Compare is open), one scrubber (← → 0.1 s, Shift 1 s), the same moment in each – as long as the
+longest; a shorter one holds its last frame; images stand. A webm without a duration (a recorder's file) is seeked to
+its end once so its length is known (until then it plays along); a file that can't be played says so and leaves the
+clock. At most 4 `<video>` elements, only while Compare is open – each lets go of its media (no src + `load()`) when its
+side goes or Compare closes.
+
+**The audition** (stage 4, VARIANTS-CANVAS §3.1 Q3 – owner 2026-10-20: "The current card"; `src/lib/audition.js` – node
+tests –, `audition.svelte.js`): while the board is open, the current shot's **Generated** clip on the timeline is the
+board's **current card** – the one the board marks current: the last clicked (the arrows' too), nothing clicked yet in
+the current shot's band its chosen (the video first, else the image) –, tagged **audition** – a small ink tag beside
+the clip's label. A rejected card, a source (the render, a layout variant, a take, a dropped file), a running job or a
+card whose file is gone: the Generated mode's own clip, no tag (the approved video, else the newest – never one the
+board knows as rejected). An image auditions as a still of 5 s that shows the image (the Viewport shows it too).
+**Play** shows it among the picked shots' clips: Play switches the main to the Viewport and the audition holds while
+that Play runs (V back to the board); Play's end (or a pause), the board closed by hand (V, the switch, a source's Load)
+or another step: the chosen again.
+The timeline's Generated clips carry the **status bullet** (the cards' `StatusBullet`) and the generation's id ("g3")
+in their tag: ✓ the chosen (`GET /api/clips`), ? review, ✕ rejected (the marks the board has loaded). Only the Generated
+view mode; the lane takes the board's marks and the pick as an override per shot (`timeline-lanes.js` `clipsLane`).
 
 ## Files
 

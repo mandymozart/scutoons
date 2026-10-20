@@ -15,16 +15,14 @@
 	// is live and nothing plays; without a sprite (no ffmpeg) the card's own <video> seeks instead. A CLICK while it
 	// scrubs pins that moment (a line stays there – More ▾ "Still: the frame at …", stage 3). Its pictures aren't
 	// draggable: nobody drags cards (§3.2) – a drag on one would pull the browser's ghost image, not pan.
-	import { Icon } from '@scutoons/ui';
 	import { TOP } from '../board-layout.js';
 	import { board, lengthOf } from '../board.svelte.js';
 	import { devicePx, near, posterOf, pxStep, scrubAt, secondsText, spriteOf } from '../posters.js';
+	import StatusBullet from './StatusBullet.svelte';
 
 	/** @type {{ node: any, media: { url: string|null, fallback?: string|null, video: boolean, ms?: number|null, missing?: boolean }, caption: string[], title: string, label: string, status: string|null, letter: string, current: boolean, captions: boolean, onpick: (e: MouseEvent) => void }} */
 	let { node, media, caption, title, label, status, letter, current, captions, onpick } = $props();
 	const px = $derived(pxStep(devicePx(node.h)));
-	const ICONS = { chosen: 'check', review: 'question', rejected: 'x' };
-	const WORDS = { chosen: 'Chosen', review: 'Review – to look at again', rejected: 'Rejected' };
 	/** near the view: the picture loads */
 	let seen = $state(false);
 	/** a video's first frame (a JPEG) – or, without one, the <video> at its first frame */
@@ -60,12 +58,14 @@
 			spriteOf(media.url, px, node.pw / node.h, media.ms).then((s) => (sprite = s));
 		}
 		// no sprite (no ffmpeg): the poster is the <video> itself – it seeks
-		if (!sprite && still && player?.duration > 0) player.currentTime = hover * player.duration;
+		if (!sprite && still && known(player)) player.currentTime = hover * player.duration;
 	}
 	function leave() {
 		hover = null;
-		if (still && player?.duration > 0) player.currentTime = 0.001;
+		if (still && known(player)) player.currentTime = 0.001;
 	}
+	/** a length to seek in – a webm without a duration (a recorder's file) says Infinity: no seeking then */
+	const known = (v) => Number.isFinite(v?.duration) && v.duration > 0;
 
 	$effect(() => {
 		const url = media.url;
@@ -105,7 +105,7 @@
 		{:else if pinned != null}
 			<i class="line" style:left="{pinned * 100}%" aria-hidden="true"></i>
 		{/if}
-		{#if status}<span class="stat {status}" title={WORDS[status]}><Icon name={ICONS[status]} size="0.95rem" /></span>{/if}
+		{#if status}<span class="corner"><StatusBullet {status} /></span>{/if}
 		{#if media.video && media.ms}<span class="sc-chip len" title={scrub ? `The time under the pointer (${lengthOf(media.ms)} long)` : undefined}>{scrub ? secondsText(scrub.ms) : lengthOf(media.ms)}</span>{/if}
 	</span>
 	{#if captions}<span class="m"><span>{letter ? `${letter} · ` : ''}{caption[0]}</span><span class="muted">{caption[1]}</span></span>{/if}
@@ -164,30 +164,12 @@
 		transform: rotate(180deg);
 		white-space: nowrap;
 	}
-	/* the status bullet: filled on the badge tokens, the glyph ink (published 11.56 : 1, warning 7.15 : 1); rejected
-	   recedes – a muted frame, a muted ✕ */
-	.stat {
+	/* the status bullet (StatusBullet) top left on the picture */
+	.corner {
 		position: absolute;
 		left: 0;
 		top: 0;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		box-sizing: border-box;
-		width: 1.25rem;
-		height: 1.25rem;
-		color: var(--ink);
-	}
-	.stat.chosen {
-		background: var(--badge-published);
-	}
-	.stat.review {
-		background: var(--badge-warning);
-	}
-	.stat.rejected {
-		background: var(--paper);
-		border: var(--border-width-regular) solid var(--border-muted);
-		color: var(--text-muted);
+		display: flex;
 	}
 	/* the scrub: the sprite's frame over the poster, as large as the poster shows it (contain – the container's units),
 	   and a paper line with an ink edge at the pointer (the mockup's scrub line) */

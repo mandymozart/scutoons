@@ -30,7 +30,7 @@
 	const as = $derived(m ? useAsOf(m, what) : { ...none, label: 'Use as start frame / keyframe' });
 	const frame = $derived(m ? frameStillOf(m, what) : none);
 	const pin = $derived(board.pin?.key === node.key ? board.pin.ms : null);
-	const picked = $derived(board.selected.some((s) => s.key === node.key));
+	const picked = $derived(board.selected.some((s) => s?.key === node.key));
 	const rejected = $derived(statusOf(node.record) === 'rejected');
 	const url = $derived(node.record?.missing ? null : card?.url ?? null);
 	/** a frame item's tooltip: why not, or what it does */
@@ -64,7 +64,7 @@
 		{:else if card}
 			<button type="button" disabled={!!refused || !as.ok} title={refused || as.why || `${name} as Generate's ${m?.startFrame ? 'start frame' : 'keyframe at 0'} (${what}) – the rest of the form stays; nothing is sent before Generate`} onclick={() => run(useAs(shot, node))} data-testid="more-use">{as.label}</button>
 		{/if}
-		<button type="button" disabled={rejected && !picked} title={rejected && !picked ? `${name} is rejected – it stays out of Compare (X brings it back)` : picked ? 'Out of the selection (Ctrl + click does the same)' : 'Into the selection, A–D (Ctrl + click does the same) – Compare comes in stage 4'} onclick={() => { toggleSelected({ shot, key: node.key }, node); refocus(); }} data-testid="more-compare">{picked ? 'Remove from Compare' : 'Add to Compare'}</button>
+		<button type="button" disabled={rejected && !picked} title={rejected && !picked ? `${name} is rejected – it stays out of Compare (X brings it back)` : picked ? 'Out of the selection (Ctrl + click does the same)' : 'Into the selection – the sides A–D of Compare (Ctrl + click does the same; C opens Compare)'} onclick={() => { toggleSelected({ shot, key: node.key }, node); refocus(); }} data-testid="more-compare">{picked ? 'Remove from Compare' : 'Add to Compare'}</button>
 		<button type="button" disabled={!url} title={url ? `${url.split('?')[0]} in a new tab` : `${name}: its file is gone`} onclick={() => { window.open(url, '_blank', 'noopener'); refocus(); }} data-testid="more-file">Show the file</button>
 	</Menu>
 </span>

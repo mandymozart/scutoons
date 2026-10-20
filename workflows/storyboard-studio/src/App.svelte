@@ -9,7 +9,9 @@
 	// under the playhead – the 3D view (a still, the current shot's take) or ClipView over it (a video, or another shot's
 	// frame); while a take is trimmed the in / out pair (TrimPair) – and the VARIANTS board (Board: every generation of the
 	// picked shots, a band each); the 3D view stays mounted under both (WebGL), hidden under the board. Play needs a
-	// picture: it switches to the Viewport (the board ends Play). A step only changes which panels are open, the Shot
+	// picture: it switches to the Viewport (the board ends Play) – while the board is open, and through that switch, the
+	// current shot's Generated clip is the board's current card (the audition, audition.svelte.js; an image: ClipView
+	// shows it). A step only changes which panels are open, the Shot
 	// panel's tab, the main's editor, the view mode, the timeline's fold and the panels' widths (steps.svelte.js). Keys
 	// outside text fields: 1–6 the step, T the shot list, N the step's panels, V the main's editor, I / O the trim at the
 	// playhead (Take mode); Ctrl + Space, Ctrl + \, Ctrl + Shift + \ as in the creator. agents/DOCKING.md, DESIGN.md.
@@ -21,6 +23,7 @@
 	import { here, isOpen, PANELS, setEditor, setOpen, setStep, setTab, setTimeline, SHOT_TABS, STEPS, steps } from './lib/steps.svelte.js';
 	import { followSelection } from './lib/handheld/handheld.svelte.js';
 	import { gen } from './lib/generate.svelte.js';
+	import { playSwitch, useAudition } from './lib/audition.svelte.js';
 	import TopBar from './lib/components/TopBar.svelte';
 	import ShotList from './lib/components/ShotList.svelte';
 	import Viewport from './lib/components/Viewport.svelte';
@@ -78,14 +81,18 @@
 	// the timeline: the picked shots' clips in the step's view mode, the clip under the playhead (the main view follows it)
 	const view = $derived(timelineOf(here().view));
 	const cur = $derived(clipAt(view.items, tl.playhead));
-	// ClipView over the 3D view: a video clip – or a still / take of a shot that isn't the current one (its frame)
-	const clip = $derived(cur && (isVideo(cur.item.clip.source) || cur.item.id !== studio.sel?.id) ? cur : null);
+	// ClipView over the 3D view: a video clip, an auditioned image (its picture) – or a still / take of a shot that isn't
+	// the current one (its frame)
+	const clip = $derived(cur && (isVideo(cur.item.clip.source) || cur.item.clip.image || cur.item.id !== studio.sel?.id) ? cur : null);
 	// the main's editor: the variants board over the (hidden, still mounted) 3D view
 	const board = $derived(here().editor === 'variants');
-	// Play needs a picture: the main goes to the Viewport (V back to the board) – and the board, opened, ends Play
+	// Play needs a picture: the main goes to the Viewport (V back to the board) – and the board, opened, ends Play. The
+	// audition (the current shot's Generated clip = the board's current card) holds through Play's switch while that
+	// Play runs; Play's end, the board closed by hand or another step: the chosen again (audition.svelte.js)
 	$effect(() => {
-		if (tl.playing) untrack(() => setEditor('viewport'));
+		if (tl.playing) untrack(() => playSwitch(board));
 	});
+	useAudition(() => board, () => tl.playing);
 	$effect(() => {
 		if (board) untrack(() => stop());
 	});

@@ -15,6 +15,7 @@
 	import { bandFacts, nodeOf, statusOf } from '../board-layout.js';
 	import { captionOf, runningOf, stripTitle, titleOf } from '../board.svelte.js';
 	import { carriesFiles } from '../board-sources.svelte.js';
+	import { mediaOf as cardMedia } from '../card-media.js';
 	import { euro, usdTitle } from '../generate.svelte.js';
 	import { near } from '../posters.js';
 	import { ch, studio } from '../studio.svelte.js';
@@ -44,19 +45,8 @@ Drop images or videos onto the band: source cards for ${shot}`);
 	/** near the view (or the current band): the cards are drawn, their pictures load as they come near */
 	let seen = $state(false);
 
-	/** a card's picture: the render (clean → the saved frame), a take's render, the record's file */
-	function mediaOf(node) {
-		const v = studio.version;
-		if (node.source === 'render') return { url: `/out/${ch()}/clean/${shot}.png?v=${v}`, fallback: `/out/${ch()}/frames/${shot}.png?v=${v}`, video: false };
-		// a kept layout: its saved frame (Keep as variant – POST /api/frame with the variant); none = "no picture yet"
-		if (node.source === 'variant') return { url: `/out/${ch()}/variants/${shot}--${node.variant.id}.png?v=${v}`, video: false };
-		if (node.source === 'take') {
-			const t = band.takes.get(node.take);
-			return { url: t?.url ?? null, video: true, ms: t?.ms ?? null, pass: t?.pass };
-		}
-		const r = node.record;
-		return { url: r.url, video: r.kind === 'video', ms: r.ms ?? (r.duration ? r.duration * 1000 : null), missing: r.missing };
-	}
+	/** a card's picture: the render (clean → the saved frame), a layout variant's frame, a take's render, the file */
+	const mediaOf = (node) => cardMedia(node, { ch: ch(), shot, takes: band.takes, v: studio.version });
 	const cardLabel = (node, caption, letter) => [shot, ...caption, statusOf(node.record), letter && `letter ${letter}`].filter(Boolean).join(', ');
 	/** the fold button: folds (the current shot stays) – on a folded band it unfolds and makes the shot current */
 	function fold(e) {
