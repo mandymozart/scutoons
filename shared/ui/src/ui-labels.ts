@@ -20,6 +20,21 @@ export interface UiLabels {
 	/** the eyedropper: any colour on the screen (the browser's EyeDropper) / a point of the app's picture (fallback) */
 	eyedropper: string;
 	eyedropperPicture: string;
+	/** the paint popover (a colour or a gradient – issue #94) */
+	paint: string;
+	paintSolid: string;
+	paintLinear: string;
+	paintRadial: string;
+	gradientStops: string;
+	gradientStop: string;
+	stopPosition: string;
+	removeStop: string;
+	gradientAngle: string;
+	gradientCentreX: string;
+	gradientCentreY: string;
+	gradientRadius: string;
+	paintLinearShort: string;
+	paintRadialShort: string;
 	/** the Timeline: its ruler (the playhead's slider), the ruler's tooltip, a trimmed item's two handles and its slip bar */
 	timelinePlayhead: string;
 	timelineHint: string;
@@ -40,6 +55,20 @@ const DEFAULTS: UiLabels = {
 	hex: 'Hex',
 	eyedropper: 'Pick a colour from the screen',
 	eyedropperPicture: 'Pick a colour from the picture',
+	paint: 'Paint',
+	paintSolid: 'Solid colour',
+	paintLinear: 'Linear gradient',
+	paintRadial: 'Radial gradient',
+	gradientStops: 'Gradient stops – click the bar to add one',
+	gradientStop: 'Stop',
+	stopPosition: 'Stop position',
+	removeStop: 'Remove stop',
+	gradientAngle: 'Angle',
+	gradientCentreX: 'Centre x',
+	gradientCentreY: 'Centre y',
+	gradientRadius: 'Radius',
+	paintLinearShort: 'Linear',
+	paintRadialShort: 'Radial',
 	timelinePlayhead: 'Playhead',
 	timelineHint: 'Drag: move the playhead · Ctrl + wheel, + / −: zoom · 0: fit',
 	timelineTrimIn: 'Trim start',

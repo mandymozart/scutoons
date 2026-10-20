@@ -63,7 +63,21 @@
 		get hue() { return m['creator.colour_hue'](); },
 		get hex() { return m['creator.colour_hex'](); },
 		get eyedropper() { return m['creator.colour_eyedropper'](); },
-		get eyedropperPicture() { return m['creator.colour_eyedropper_slice'](); }
+		get eyedropperPicture() { return m['creator.colour_eyedropper_slice'](); },
+		get paint() { return m['creator.paint'](); },
+		get paintSolid() { return m['creator.paint_solid'](); },
+		get paintLinear() { return m['creator.paint_linear'](); },
+		get paintRadial() { return m['creator.paint_radial'](); },
+		get gradientStops() { return m['creator.paint_gradient_stops'](); },
+		get gradientStop() { return m['creator.paint_gradient_stop'](); },
+		get stopPosition() { return m['creator.paint_stop_position'](); },
+		get removeStop() { return m['creator.paint_remove_stop'](); },
+		get gradientAngle() { return m['creator.paint_gradient_angle'](); },
+		get gradientCentreX() { return m['creator.paint_gradient_centre_x'](); },
+		get gradientCentreY() { return m['creator.paint_gradient_centre_y'](); },
+		get gradientRadius() { return m['creator.paint_gradient_radius'](); },
+		get paintLinearShort() { return m['creator.paint_linear_short'](); },
+		get paintRadialShort() { return m['creator.paint_radial_short'](); }
 	});
 	// the eyedropper's fallback (no EyeDropper in the browser): a point of the open slice canvas' picture
 	provideColourSampler(() => (picturePick.canvases > 0 ? () => picturePick.start() : null));
