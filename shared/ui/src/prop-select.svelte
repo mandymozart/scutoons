@@ -2,6 +2,8 @@
 	export interface PropOption<T = string | number | boolean> {
 		value: T;
 		label: string;
+		/** shown but not pickable (e.g. a generator that isn't set up) */
+		disabled?: boolean;
 	}
 </script>
 
@@ -58,7 +60,7 @@
 <span class="sc-prop-select" class:has-lead={!!(icon || tag)} class:has-reset={resettable} title={label} data-testid={testid}>
 	<select {id} aria-label={label} {disabled} onchange={(e) => pick(e.currentTarget.value)}>
 		{#if !required}<option value="" selected={shown === ''}>{placeholder ? `(${placeholder})` : '–'}</option>{/if}
-		{#each options as o (String(o.value))}<option value={String(o.value)} selected={String(o.value) === shown}>{o.label}</option>{/each}
+		{#each options as o (String(o.value))}<option value={String(o.value)} selected={String(o.value) === shown} disabled={o.disabled}>{o.label}</option>{/each}
 		{#if unknown}<option value={shown} selected>{shown} (?)</option>{/if}
 	</select>
 	{#if icon || tag}

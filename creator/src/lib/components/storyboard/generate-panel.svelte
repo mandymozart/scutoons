@@ -1,19 +1,24 @@
 <script lang="ts">
-	// The Generate panel (#123): the current shot's generations – the approved one first, then the newest – each with
-	// its file (generation-slot), who made it with what, its mark (for review / rejected), Approve and Share (the local
-	// file into the shared work storage, so the others see it – never the readers' CDN). Starting a generation joins this
-	// panel with the server's generators (#121); the variants board is #125.
+	// The Generate panel (#123, #121): on top the form that starts a generation (generate-form – a generator per shot, the
+	// estimate in euro, the confirmation with the cost; Luma – by hand: generate-manual), the shot's running jobs
+	// (generate-jobs), then the shot's generations – the approved one first, then the newest – each with its file
+	// (generation-slot), who made it with what, its mark (for review / rejected), Approve and Share (the local file into
+	// the shared work storage, so the others see it – never the readers' CDN). A finished provider job not in a folder yet:
+	// Save to folder (or a line to choose one). The variants board is #125.
 	import { Icon, Segmented } from '@scutoons/ui';
 	import type { GenerationMark } from '@scutoons/content/storyboard';
 	import { m } from '$lib/paraglide/messages.js';
 	import { toast } from '$lib/toasts.ts';
 	import { approvePatch, placeOf, shotGenerations, type Generation } from '$lib/editor/storyboard-generations.ts';
+	import { isOpen } from '$lib/editor/storyboard-generate.ts';
 	import type { StoryboardPage } from '$lib/editor/storyboard-page.svelte.ts';
 	import GenerationSlot from '$lib/components/storyboard/generation-slot.svelte';
+	import GenerateForm from '$lib/components/storyboard/generate-form.svelte';
+	import GenerateJobs from '$lib/components/storyboard/generate-jobs.svelte';
 
 	let { sb }: { sb: StoryboardPage } = $props();
 
-	const list = $derived(sb.current ? shotGenerations(sb.generations, sb.current) : []);
+	const list = $derived(sb.current ? shotGenerations(sb.generations, sb.current).filter((g) => !isOpen(g)) : []);
 	let busy = $state<number | null>(null);
 	const MARKS: { value: GenerationMark; label: string }[] = $derived([
 		{ value: 'review', label: m['storyboard.mark_review']() },
@@ -39,6 +44,8 @@
 </script>
 
 <div class="panel" data-testid="generate-panel">
+	<GenerateForm {sb} />
+	<GenerateJobs {sb} />
 	{#if sb.generationsError}
 		<p class="sc-error">{m['storyboard.gen_error']({ error: sb.generationsError })}</p>
 	{:else}
@@ -50,6 +57,16 @@
 			<p class="made">{made(g)}{#if placeWord(g)} · {placeWord(g)}{/if}</p>
 			{#if g.status === 'failed'}<p class="sc-error">{m['storyboard.gen_failed']({ error: g.error ?? '' })}</p>{/if}
 			{#if g.note}<p class="note">{g.note}</p>{/if}
+			{#if placeOf(g, sb.localFiles).at === 'result'}
+				{#if sb.workspaceState === 'ready'}
+					<div class="actions">
+						<span class="grow"></span>
+						<button type="button" class="secondary" title={m['storyboard.gen_save_hint']()} disabled={sb.gen.saving === g.id} onclick={() => run(g, async () => void toast(m['storyboard.gen_saved']({ file: (await sb.gen.save(g)).file ?? '' }), { type: 'success' }))} data-testid="save-{g.id}"><Icon name="download" /> {m['storyboard.gen_save']()}</button>
+					</div>
+				{:else}
+					<p class="muted">{m['storyboard.gen_result_pick_folder']()}</p>
+				{/if}
+			{/if}
 			<div class="actions">
 				<Segmented label={m['storyboard.gen_mark']()} options={MARKS} value={g.mark} onchange={(mark) => run(g, () => sb.review(g, { mark }))} onclear={() => run(g, () => sb.review(g, { mark: null }))} />
 				<span class="grow"></span>

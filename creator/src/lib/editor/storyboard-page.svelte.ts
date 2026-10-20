@@ -12,6 +12,8 @@ import { sceneLines } from '$lib/editor/storyboard-script.ts';
 import { browserStorage, loadLayout, loadStep, saveLayout, saveStep, STEPS, togglePanel, type PanelKind, type ShotTab, type StepLayout } from '$lib/editor/storyboard-steps.ts';
 import { browserWorkspace, type WorkspaceState } from '$lib/editor/storyboard-workspace.ts';
 import { listGenerations, shareGeneration, updateGeneration, type Generation, type GenerationPatch } from '$lib/editor/storyboard-generations.ts';
+import { loadMachine, saveMachine } from '$lib/editor/storyboard-generate.ts';
+import { GenerateState } from '$lib/editor/storyboard-generate.svelte.ts';
 
 const storage = browserStorage();
 
@@ -38,6 +40,10 @@ export class StoryboardPage {
 	generations = $state<Generation[]>([]);
 	/** the generations can't be read (the server's table isn't there yet: 503) */
 	generationsError = $state<string | null>(null);
+	/** this browser's label on the records of files saved here (storyboard-generate.ts; the Workspace control edits it) */
+	machine = $state(loadMachine(storage));
+	/** the Generate panel: generators, the form, the estimate, the running jobs (#121) */
+	readonly gen: GenerateState = new GenerateState(this);
 
 	constructor(
 		readonly toon: string,
@@ -181,6 +187,18 @@ export class StoryboardPage {
 	}
 	private replace(item: Generation): void {
 		this.generations = this.generations.map((g) => (g.id === item.id ? item : g));
+	}
+	/** a new or changed generation into the list (a started job, a record, a polled status) */
+	upsert(item: Generation): void {
+		if (this.generations.some((g) => g.id === item.id)) this.replace(item);
+		else this.generations = [...this.generations, item];
+	}
+	setMachine(label: string): void {
+		this.machine = saveMachine(storage, label);
+	}
+	/** the names in the chapter's folder again (after a file was written) */
+	async refreshLocal(): Promise<void> {
+		await this.listLocal();
 	}
 	async review(g: Generation, patch: GenerationPatch): Promise<void> {
 		this.replace(await updateGeneration(api, g.id, patch));

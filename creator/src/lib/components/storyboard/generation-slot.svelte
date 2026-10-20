@@ -1,10 +1,11 @@
 <script lang="ts">
 	// One generation's still or video: from the member's workspace folder when it is there, else from the shared work
-	// storage (through the API – members only), else a frame that says where the file is ("on <machine>").
+	// storage (through the API – members only), else a finished provider job's result (passed through the API while the
+	// provider's link lives, #121), else a frame that says where the file is ("on <machine>").
 	// storyboard-generations.ts placeOf.
 	import { api } from '$lib/api.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import { placeOf, workFile, type Generation } from '$lib/editor/storyboard-generations.ts';
+	import { generationResult, placeOf, workFile, type Generation } from '$lib/editor/storyboard-generations.ts';
 	import type { StoryboardPage } from '$lib/editor/storyboard-page.svelte.ts';
 
 	let { sb, g }: { sb: StoryboardPage; g: Generation } = $props();
@@ -16,7 +17,7 @@
 		const at = place;
 		let url: string | null = null;
 		let gone = false;
-		const load = at.at === 'local' ? sb.readLocal(g.file!) : at.at === 'work' ? workFile(api, at.url) : Promise.resolve(null);
+		const load = at.at === 'local' ? sb.readLocal(g.file!) : at.at === 'work' ? workFile(api, at.url) : at.at === 'result' ? generationResult(api, at.id) : Promise.resolve(null);
 		load
 			.then((blob) => {
 				if (gone || !blob) return;

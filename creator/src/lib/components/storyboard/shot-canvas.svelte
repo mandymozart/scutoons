@@ -1,7 +1,8 @@
 <script lang="ts">
-	// The page's main view: the current shot. For now its schematic (@scutoons/content/storyboard shotSvg – figures,
-	// texts, the scroll move, the air) at the phone canvas's width; the live 3D view replaces this component in #124 (one
-	// boundary: it gets the page state and draws the current shot).
+	// The page's main view: the current shot. The live 3D view (#124, shot-3d-view – three.js, loaded only here, with a
+	// dynamic import: the rest of the creator doesn't grow); its schematic (@scutoons/content/storyboard shotSvg –
+	// figures, texts, the scroll move, the air) while the 3D view loads and where WebGL is missing. One boundary: it gets
+	// the page state and draws the current shot.
 	import { shotSvg } from '@scutoons/content/storyboard';
 	import { m } from '$lib/paraglide/messages.js';
 	import { svgSource } from '$lib/editor/storyboard-shots.ts';
@@ -9,16 +10,41 @@
 
 	let { sb }: { sb: StoryboardPage } = $props();
 
+	/** WebGL here? (a throwaway context, released at once) */
+	function webgl(): boolean {
+		try {
+			const gl = document.createElement('canvas').getContext('webgl2');
+			gl?.getExtension('WEBGL_lose_context')?.loseContext();
+			return !!gl;
+		} catch {
+			return false;
+		}
+	}
+	const view3d = webgl() ? import('$lib/components/storyboard/shot-3d-view.svelte') : Promise.reject(new Error('no WebGL'));
 	const frame = $derived(sb.sel ? shotSvg(sb.sel.shot, sb.sel.scene) : null);
 </script>
 
-<div class="canvas" data-testid="shot-canvas">
-	{#if frame && sb.sel}
-		<img src={svgSource(frame.svg)} alt={m['storyboard.view_label']({ id: sb.sel.id })} style:aspect-ratio="{frame.w} / {frame.h}" />
-	{:else if sb.entries.length}
-		<p class="sc-empty">{m['storyboard.no_shot']()}</p>
+{#snippet schematic(title?: string)}
+	<div class="canvas" data-testid="shot-canvas">
+		{#if frame && sb.sel}
+			<img src={svgSource(frame.svg)} alt={m['storyboard.view_label']({ id: sb.sel.id })} {title} style:aspect-ratio="{frame.w} / {frame.h}" />
+		{:else if sb.entries.length}
+			<p class="sc-empty">{m['storyboard.no_shot']()}</p>
+		{/if}
+	</div>
+{/snippet}
+
+{#await view3d}
+	{@render schematic()}
+{:then { default: Shot3dView }}
+	{#if sb.sel}
+		<Shot3dView {sb} />
+	{:else}
+		{@render schematic()}
 	{/if}
-</div>
+{:catch}
+	{@render schematic(m['storyboard.view3d_no_webgl']())}
+{/await}
 
 <style>
 	.canvas {

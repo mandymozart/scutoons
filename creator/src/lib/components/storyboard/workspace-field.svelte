@@ -1,7 +1,8 @@
 <script lang="ts">
 	// The Workspace control (STUDIO-IN-CREATOR §2.2 place 1): the member's local folder for every attempt – choose it once
 	// (Chrome / Edge: the browser's folder picker), its name shown, change it; after a browser restart one click allows it
-	// again. Elsewhere (Firefox, Safari, phones) one line says it needs Chrome or Edge.
+	// again. Elsewhere (Firefox, Safari, phones) one line says it needs Chrome or Edge. With a folder: this computer's
+	// label (the records of files saved here name it – `machine`, #121; this browser's localStorage, "this browser").
 	import { Icon } from '@scutoons/ui';
 	import { m } from '$lib/paraglide/messages.js';
 	import { toast } from '$lib/toasts.ts';
@@ -34,11 +35,17 @@
 	>
 		<Icon name="folder" /> <span class="name">{ws === 'ready' && name ? name : m['storyboard.workspace_choose']()}</span>
 	</button>
+	{#if ws === 'ready'}
+		<input class="machine" type="text" maxlength="64" aria-label={m['storyboard.machine']()} title={m['storyboard.machine_hint']()} value={sb.machine} onchange={(e) => { sb.setMachine(e.currentTarget.value); e.currentTarget.value = sb.machine; }} data-testid="workspace-machine" />
+	{/if}
 {/if}
 
 <style>
 	button {
 		max-width: 16rem;
+	}
+	.machine {
+		width: 9rem;
 	}
 	.name {
 		min-width: 0;
