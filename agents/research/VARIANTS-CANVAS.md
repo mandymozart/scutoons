@@ -1,4 +1,4 @@
-Status 2026-10-20: concept – Q1–Q4 + Q6 answered (Q4 not as recommended: one band per picked shot now, 3.2), Q5 open (§6: a comparison page); static mockup, nothing built; statuses as icon bullets, set on the selected card (3.3). Issue #62; the generators' side: #61 (research/GENERATORS.md).
+Status 2026-10-20: concept, all owner questions answered (§6; Q4 not as recommended: one band per picked shot now, 3.2) – ready to build, nothing built yet; static mockup; statuses as icon bullets, set on the selected card (3.3). Issue #62; the generators' side: #61 (research/GENERATORS.md).
 
 # VARIANTS-CANVAS – every generation of a shot on one board (concept, 2026-10-19)
 
@@ -58,7 +58,7 @@ What "reference" means for the models built (docs.dev.runwayml.com/api.md, read 
   **Viewport · Variants**. Viewport = stage 2's "3D" (the 3D view, the take's camera or the clip's video, following the
   timeline); Frames joins later. The board takes stage 2's Compare editor's place; Compare becomes a split in it (3.4).
 - **Generate opens Variants** (a step remembers its main view); every other step keeps the Viewport.
-- **The Variants panel leaves the dock** – everything it holds moves onto the board (frame, layout variants (Q5),
+- **The Variants panel leaves the dock** – everything it holds moves onto the board (frame, layout variants (Q5: on the board),
   generated, drops); its grid icon moves from the top bar's panel group to the main's switch; stage 2's tab column has
   no Variants tab. Generate's dock = the Generate panel (22rem): at 1440 the board gets ~64rem.
 - **Order stays space**: the shot list is the toon order; the board shows **every picked shot**, a band each in that
@@ -81,7 +81,7 @@ What "reference" means for the models built (docs.dev.runwayml.com/api.md, read 
 - **In a band**, laid out by the data (Q2, owner 2026-10-20: rows of results, as recommended) – nobody drags or wires
   (FLORA / Krea / Weave node graphs are the anti-pattern for one shot):
   - **Column 0 = the sources**: the render without texts (what the generators get; the saved frame is the same card),
-    one card per take (its beauty pass), the layout variants (Q5), dropped images.
+    one card per take (its beauty pass), the layout variants (Q5: A), dropped images.
   - **A parent's results form one row**, oldest left, newest right – a new run lands at the row's end. A source's
     results sit on its own row; a generation's results open a **new row under it, one column right of it**. So
     alternatives sit side by side (the comparison you make most), improvements walk down and right.
@@ -197,7 +197,7 @@ What "reference" means for the models built (docs.dev.runwayml.com/api.md, read 
    current band + the scroll to it, keys across bands, posters for the bands in view); sources, rows of results + lines
    (a pure layout module with node tests – strips, branch strip, lying row, the bands' stacking), posters + hover scrub,
    pan / zoom / fit, select + keys, the status group + bullets, the fold + Show rejected, running placeholders, drops,
-   layout variants as source cards (Q5's A; B ≈ ¼ day less). Board, band, card, strip, lines ≤ 300 lines each, maths in `lib/`.
+   layout variants as source cards (Q5: A). Board, band, card, strip, lines ≤ 300 lines each, maths in `lib/`.
 3. **Improve on this** (~1.5 days): the pre-fill, Vary, use as start frame / keyframe, generated videos as Aleph's
    video, frame → still, comfy `--from`, the manual result slot.
 4. **Compare** (~1.25–1.75 days): the split, A pinned, one clock, sides from any band; the audition on the timeline (Q3).
@@ -230,7 +230,6 @@ and the switch, Aleph keyframes ≤ 5, gen4_image, the Luma API, the budget.
 3. ~~Audition~~ – **answered** (owner 2026-10-20, as recommended): the shot's Generated clip plays the current card, tagged (3.1).
 4. ~~Several picked shots~~ – **answered** (owner 2026-10-20: "One band per shot NOW" – over the recommendation (the
    current shot first, bands later)): a band per picked shot in toon order (3.2), built in the board's phase (§4).
-5. **Layout variants** ("Keep as variant" – other blockings of the shot): source cards on the board – one place for all
-   a shot tried – or the Shot panel (Layout step)? → Recommended: the board. Owner 2026-10-20: "show me the difference
-   to decide" → the comparison: [variants-canvas-q5.html](studio-layout/variants-canvas-q5.html).
+5. ~~Layout variants~~ – **answered** (owner 2026-10-20, after the comparison
+   [variants-canvas-q5.html](studio-layout/variants-canvas-q5.html)): **A – source cards on the board**, as recommended.
 6. ~~Rejecting a card with results~~ – **answered** (owner 2026-10-20): its tree folds with it, unfolding explores (3.5).
