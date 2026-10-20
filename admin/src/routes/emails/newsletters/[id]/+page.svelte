@@ -2,23 +2,27 @@
 	import { tick } from 'svelte';
 	import EmailsNav from '$lib/components/emails-nav.svelte';
 	import NewsletterGift from '$lib/components/newsletter-gift.svelte';
+	import NewsletterPreview from '$lib/components/newsletter-preview.svelte';
+	import NewsletterRecipients from '$lib/components/newsletter-recipients.svelte';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { ActionBar, Badge, Button, DataTable, Field, Section, Segmented, Skeleton, confirmDialog, type Column } from '@scutoons/ui';
-	import type { Newsletter, NewsletterAudience, NewsletterLocale, NewsletterRecipient, ListResult } from '@scutoons/api';
+	import { ActionBar, Badge, Button, Field, Section, Segmented, Skeleton, confirmDialog } from '@scutoons/ui';
+	import type { Newsletter, NewsletterAudience, NewsletterLocale } from '@scutoons/api';
 	import { admin } from '$lib/api.ts';
-	import { errorText, minute, number } from '$lib/format.ts';
-	import { tableLabels } from '$lib/labels.ts';
+	import { errorText, number } from '$lib/format.ts';
 	import { getToaster } from '$lib/toasts.ts';
 	import { audienceLabel, newsletterError, newsletterStatus, statusTone } from '$lib/newsletter.ts';
+	import { insertButton, insertInline, insertParagraph, type Inserted } from '$lib/newsletter-text.ts';
 	import { AssetPickerSheet, type PickedAsset } from '@scutoons/media';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
-	 * One newsletter (agents/NEWSLETTER.md "Writing a newsletter"): who gets it, subject + text per language with a live
-	 * preview (unsaved text, the frame of every platform mail), test to me, start / pause / resume, the recipients.
-	 * A draft changes freely; a paused one only its subject and text; a sending or finished one not at all.
+	 * One newsletter (agents/NEWSLETTER.md "Writing a newsletter"): one column on the creator's layout model (#98,
+	 * DOCKING.md) – title, who gets it, the gift, then the text (DE | EN, subject, a tool strip for pictures, buttons and
+	 * placeholders); the live preview (unsaved text, the frame of every platform mail) is a dock panel beside it.
+	 * Test to me, start / pause / resume, the recipients. A draft changes freely; a paused one only its subject and text;
+	 * a sending or finished one not at all.
 	 */
 	const toaster = getToaster();
 	const id = $derived(Number(page.params.id));
@@ -31,51 +35,39 @@
 	let busy = $state(false);
 	let draft = $state({ title: '', audiences: [] as string[], subject_de: '', subject_en: '', body_de: '', body_en: '', gift_campaign_id: null as string | null });
 	let previewHtml = $state('');
+	// the preview panel: open from the start on a wide screen (on a phone it would cover the page)
+	let previewOpen = $state(typeof window !== 'undefined' && window.innerWidth >= 768);
 	// pictures (owner 2026-10-09): the asset manager's picker puts `![](path)` as its own paragraph at the cursor
 	let picking = $state(false);
 	let bodyArea = $state<HTMLTextAreaElement | null>(null);
+	// the text of the language shown; the tool strip's inserts (lib/newsletter-text.ts) write it and put the cursor
+	const bodyKey = $derived(locale === 'de' ? 'body_de' : 'body_en');
+	function put(done: Inserted, focus = true) {
+		draft[bodyKey] = done.text;
+		void tick().then(() => {
+			if (focus) bodyArea?.focus();
+			bodyArea?.setSelectionRange(done.start, done.end);
+		});
+	}
+	const cursor = () => bodyArea?.selectionStart ?? draft[bodyKey].length;
 	function insertPicture(picked: PickedAsset) {
-		const key = locale === 'de' ? 'body_de' : 'body_en';
-		const text = draft[key];
-		// the cursor (a textarea keeps it after losing focus), else the end
-		const at = bodyArea?.selectionStart ?? text.length;
-		const before = text.slice(0, at).replace(/\s*$/, '');
-		const after = text.slice(at).replace(/^\s*/, '');
-		const line = `![](${picked.path})`;
-		draft[key] = [before, line, after].filter((part) => part !== '').join('\n\n');
+		put(insertParagraph(draft[bodyKey], cursor(), `![](${picked.path})`), false);
 		// many pictures exist only as WebP: Outlook (desktop) shows none
 		if (/\.webp$/i.test(picked.path)) toaster.addToast({ message: m['newsletter.picture_webp'](), type: 'warning' });
-		const caret = (before ? before.length + 2 : 0) + line.length;
-		void tick().then(() => bodyArea?.setSelectionRange(caret, caret));
 	}
-	// the placeholders the renderer knows (NewsletterRenderer: {name}, {name|fallback}, the {signin} paragraph – #65),
-	// picked from a list (owner 2026-10-09)
-	const SIGNIN = '{signin}';
-	const GIFT = '{gift}';
+	// the placeholders the renderer knows (NewsletterRenderer: {name}, {name|fallback}; the {signin} / {gift} lines –
+	// #65, #66 – are paragraphs of their own), picked from a list (owner 2026-10-09)
+	const LINES = ['{signin}', '{gift}'];
 	const variables = $derived([
 		{ value: '{name}', label: m['newsletter.variable_name']() },
 		{ value: locale === 'de' ? '{name|du}' : '{name|there}', label: m['newsletter.variable_name_or']({ word: locale === 'de' ? 'du' : 'there' }) },
-		{ value: SIGNIN, label: m['newsletter.variable_signin']() },
-		{ value: GIFT, label: m['newsletter.variable_gift']() }
+		{ value: '{signin}', label: m['newsletter.variable_signin']() },
+		{ value: '{gift}', label: m['newsletter.variable_gift']() }
 	]);
-	/** puts a placeholder at the cursor of the body, inside the line – the sign-in button as a paragraph of its own */
 	function insertVariable(value: string) {
-		const key = locale === 'de' ? 'body_de' : 'body_en';
-		const text = draft[key];
-		const start = bodyArea?.selectionStart ?? text.length;
+		const start = cursor();
 		const end = bodyArea?.selectionEnd ?? start;
-		let caret = start + value.length;
-		if (value === SIGNIN || value === GIFT) {
-			const before = text.slice(0, start).replace(/\s*$/, '');
-			draft[key] = [before, value, text.slice(end).replace(/^\s*/, '')].filter((part) => part !== '').join('\n\n');
-			caret = (before ? before.length + 2 : 0) + value.length;
-		} else {
-			draft[key] = text.slice(0, start) + value + text.slice(end);
-		}
-		void tick().then(() => {
-			bodyArea?.focus();
-			bodyArea?.setSelectionRange(caret, caret);
-		});
+		put(LINES.includes(value) ? insertParagraph(draft[bodyKey], start, value, end) : insertInline(draft[bodyKey], start, end, value));
 	}
 	let previewSubject = $state('');
 
@@ -186,7 +178,6 @@
 		try {
 			apply((await admin.newsletterAction(item.id, name)).item);
 			if (name === 'start') toaster.addToast({ message: m['newsletter.started'](), type: 'success' });
-			loadRecipients();
 		} catch (e) {
 			toaster.addToast({ message: newsletterError(e), type: 'error' });
 		} finally {
@@ -204,32 +195,6 @@
 			toaster.addToast({ message: newsletterError(e), type: 'error' });
 		}
 	}
-
-	// the recipients (after the start)
-	let recipientStatus = $state<string>('');
-	let recipients = $state<ListResult<NewsletterRecipient> | null>(null);
-	function loadRecipients() {
-		if (!item || item.status === 'draft') return;
-		admin
-			.newsletterRecipients(item.id, { page_size: 200, sort: 'email', ...(recipientStatus ? { status: recipientStatus } : {}) })
-			.then((r) => (recipients = r))
-			.catch(() => {});
-	}
-	$effect(() => {
-		void recipientStatus;
-		if (item && item.status !== 'draft') loadRecipients();
-	});
-
-	const recipientColumns = $derived<Column[]>([
-		{ id: 'email', label: m['newsletter.col_email']() },
-		{ id: 'status', label: m['newsletter.col_status']() },
-		{ id: 'locale', label: m['newsletter.col_language'](), secondary: true },
-		{ id: 'source', label: m['newsletter.col_source'](), secondary: true },
-		{ id: 'sent_at', label: m['newsletter.col_sent'](), secondary: true },
-		{ id: 'error', label: m['newsletter.col_error']() }
-	]);
-	const recipientLabel = (status: string) =>
-		({ queued: m['newsletter.r_queued'](), sent: m['newsletter.r_sent'](), failed: m['newsletter.r_failed'](), skipped: m['newsletter.r_skipped']() })[status] ?? status;
 
 	const missingFor = (a: NewsletterAudience) =>
 		a.source ? `/emails/contacts?locale=none&source=${encodeURIComponent(a.source)}` : '/emails/contacts?locale=none';
@@ -250,6 +215,9 @@
 
 <ActionBar start={barStart} label={m['shell.page_actions']()} moreLabel={m['shell.more']()}>
 	{#snippet secondary()}
+		{#if item && !previewOpen}
+			<Button size="sm" variant="secondary" onclick={() => (previewOpen = true)}>{m['newsletter.preview']()}</Button>
+		{/if}
 		{#if item && (item.status === 'draft' || item.status === 'done')}
 			<Button size="sm" variant="secondary" onclick={remove}>{m['newsletter.delete']()}</Button>
 		{/if}
@@ -276,6 +244,7 @@
 {#if !item}
 	{#if !error}<Skeleton lines={8} label={m['shell.loading']()} />{/if}
 {:else}
+<div class="editor">
 	{#if item.last_error}<p class="error-box" role="alert">{m['newsletter.last_error']({ error: item.last_error })}</p>{/if}
 	{#if item.status === 'sending'}<p class="muted">{m['newsletter.locked_sending']()}</p>{/if}
 	{#if item.status === 'done'}<p class="muted">{m['newsletter.locked_done']()}</p>{/if}
@@ -314,7 +283,7 @@
 
 	<NewsletterGift newsletterId={item.id} value={draft.gift_campaign_id} audiences={draft.audiences} {editable} onchange={(next) => (draft.gift_campaign_id = next)} />
 
-	<div class="compose">
+	<Section title={m['newsletter.text']()}>
 		<div class="text">
 			<Segmented
 				label={m['newsletter.language']()}
@@ -329,20 +298,15 @@
 				<Field label={m['newsletter.subject']()}>
 					{#snippet children({ id: fieldId })}<input id={fieldId} maxlength="200" disabled={!textEditable} bind:value={draft.subject_de} />{/snippet}
 				</Field>
-				<Field label={m['newsletter.body']()} hint={m['newsletter.body_hint']({ example: '{name|du}', signin_line: SIGNIN })}>
-					{#snippet children({ id: fieldId, describedby })}<textarea bind:this={bodyArea} id={fieldId} aria-describedby={describedby} rows="16" disabled={!textEditable} bind:value={draft.body_de}></textarea>{/snippet}
-				</Field>
 			{:else}
 				<Field label={m['newsletter.subject']()}>
 					{#snippet children({ id: fieldId })}<input id={fieldId} maxlength="200" disabled={!textEditable} bind:value={draft.subject_en} />{/snippet}
 				</Field>
-				<Field label={m['newsletter.body']()} hint={m['newsletter.body_hint']({ example: '{name|there}', signin_line: SIGNIN })}>
-					{#snippet children({ id: fieldId, describedby })}<textarea bind:this={bodyArea} id={fieldId} aria-describedby={describedby} rows="16" disabled={!textEditable} bind:value={draft.body_en}></textarea>{/snippet}
-				</Field>
 			{/if}
 			{#if textEditable}
-				<div class="inserts">
-					<Button variant="secondary" onclick={() => (picking = true)}>{m['newsletter.picture_add']()}</Button>
+				<div class="tools" role="toolbar" aria-label={m['newsletter.tools']()}>
+					<Button size="sm" variant="secondary" onclick={() => (picking = true)}>{m['newsletter.picture_add']()}</Button>
+					<Button size="sm" variant="secondary" onclick={() => put(insertButton(draft[bodyKey], cursor(), m['newsletter.button_text']()))}>{m['newsletter.button_add']()}</Button>
 					<select
 						aria-label={m['newsletter.variable_add']()}
 						value=""
@@ -359,38 +323,22 @@
 					</select>
 				</div>
 			{/if}
+			<Field label={m['newsletter.body']()} hint={m['newsletter.body_hint']({ example: locale === 'de' ? '{name|du}' : '{name|there}' })}>
+				{#snippet children({ id: fieldId, describedby })}
+					{#if locale === 'de'}
+						<textarea bind:this={bodyArea} id={fieldId} aria-describedby={describedby} rows="18" disabled={!textEditable} bind:value={draft.body_de}></textarea>
+					{:else}
+						<textarea bind:this={bodyArea} id={fieldId} aria-describedby={describedby} rows="18" disabled={!textEditable} bind:value={draft.body_en}></textarea>
+					{/if}
+				{/snippet}
+			</Field>
 		</div>
-		<div class="preview">
-			<p><span class="muted">{m['newsletter.preview']()}:</span> {previewSubject}</p>
-			<iframe title={m['newsletter.preview']()} srcdoc={previewHtml} sandbox=""></iframe>
-		</div>
-	</div>
+	</Section>
 
-	{#if item.status !== 'draft'}
-		<Section title={m['newsletter.recipients']()}>
-			<label class="bar-filter">
-				<span>{m['newsletter.col_status']()}</span>
-				<select bind:value={recipientStatus}>
-					<option value="">{m['common.all']()}</option>
-					{#each ['queued', 'sent', 'failed', 'skipped'] as s (s)}
-						<option value={s}>{recipientLabel(s)} ({number(item.progress[s as 'queued'])})</option>
-					{/each}
-				</select>
-			</label>
-			{#if recipients}
-				<DataTable columns={recipientColumns} rows={recipients.items} rowKey={(r) => String(r.id)} labels={tableLabels()}>
-					{#snippet cell(r, column)}
-						{#if column.id === 'email'}{r.email}
-						{:else if column.id === 'status'}<Badge tone={r.status === 'failed' ? 'error' : r.status === 'sent' ? 'neutral' : 'draft'}>{recipientLabel(r.status)}</Badge>
-						{:else if column.id === 'locale'}{r.locale}
-						{:else if column.id === 'source'}{r.source === 'member' ? m['newsletter.source_member']() : m['newsletter.source_contact']()}
-						{:else if column.id === 'sent_at'}{minute(r.sent_at)}
-						{:else if column.id === 'error'}<span class="error-text">{r.error ?? ''}</span>{/if}
-					{/snippet}
-				</DataTable>
-			{/if}
-		</Section>
-	{/if}
+	<NewsletterPreview open={previewOpen} subject={previewSubject} html={previewHtml} onclose={() => (previewOpen = false)} />
+
+	{#if item.status !== 'draft'}<NewsletterRecipients {item} />{/if}
+</div>
 {/if}
 
 <AssetPickerSheet bind:open={picking} kind="image" place="newsletter/" title={m['newsletter.picture_add']()} onpick={insertPicture} />
@@ -415,38 +363,34 @@
 	.total {
 		margin: var(--space-1) 0 0;
 	}
-	.compose {
+	/* one readable column; the preview is a dock panel beside it (#98) */
+	.editor {
 		display: grid;
-		/* side by side when the page is wide enough for both, else the preview under the text */
-		grid-template-columns: repeat(auto-fit, minmax(min(100%, 28rem), 1fr));
+		/* never wider than the main – a long option text must not widen the column */
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-2);
-		margin: var(--space-2) 0;
+		max-width: 40rem;
 	}
 	.text {
 		display: grid;
-		align-content: start;
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-1);
 	}
-	/* "Bild einfügen" and the variable list side by side */
-	.inserts {
+	/* picture, button, placeholders – right above the text they go into */
+	.tools {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--space-1);
+		gap: var(--space-05);
+	}
+	.tools select {
+		flex: 1 1 12rem;
+		min-width: 0;
 	}
 	.text textarea {
 		width: 100%;
+		min-width: 0;
+		box-sizing: border-box;
+		resize: vertical;
 		font-family: var(--font-mono, monospace);
-	}
-	.preview p {
-		margin: 0 0 var(--space-05);
-	}
-	.preview iframe {
-		width: 100%;
-		height: 36rem;
-		border: var(--border-width-regular) solid var(--ink);
-		background: #ffffff;
-	}
-	.error-text {
-		overflow-wrap: anywhere;
 	}
 </style>

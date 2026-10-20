@@ -975,6 +975,13 @@
 		"help": "Die neuesten Einträge der PHP-Fehlerprotokolle – der API und der QR-App –, die neuesten zuerst; die Zeilen danach (ein Stacktrace) unter „Details“. Nur Meldungen: E-Mail-Adressen, Tokens und Passwörter sind verdeckt, der Ordner des Servers ist aus den Pfaden gekürzt. Gelesen werden nur die letzten 512 KB eines Protokolls."
 	},
 	"newsletter": {
+		"preview_desktop": "Desktop",
+		"preview_phone": "Handy",
+		"preview_device": "Bildschirm",
+		"button_text": "Button-Text",
+		"button_add": "Button einfügen",
+		"tools": "Einfügen",
+		"text": "Text",
 		"variable_gift": "Geschenk-Button (der Kampagne unter „Geschenk“)",
 		"gift_email_only": "{count} nur mit E-Mail-Adresse, nichts gekauft – bekommen einen eigenen Promo-Code und damit ein neues Konto",
 		"gift_product_code": "{count} mit QR-Code, ohne Konto – legen mit ihrem Produkt-Code ein Konto an",
@@ -1035,7 +1042,7 @@
 		"variable_name": "der Name (leer, wenn keiner da ist)",
 		"variable_name_or": "der Name, sonst „{word}“",
 		"variable_signin": "Anmelde-Button (persönlich: Mitglieder „Anmelden“, QR-Besitzer „Account anlegen“)",
-		"body_hint": "Eine Leerzeile beginnt einen Absatz. Eine Zeile [Button-Text](https://…) wird ein Button, eine Zeile ![Beschreibung](Bild) ein Bild, eine Zeile {signin_line} der persönliche Anmelde-Button (ein Klick meldet an, 14 Tage gültig; die Vorschau zeigt den eines Mitglieds). {example} = der Name, oder das Wort nach |, wenn keiner da ist.",
+		"body_hint": "Eine Leerzeile beginnt einen Absatz. {example} = der Name, oder das Wort nach |, wenn keiner da ist. Bilder, Buttons und Platzhalter fügen die Knöpfe darüber ein.",
 		"preview": "Vorschau",
 		"save": "Speichern",
 		"saved": "Gespeichert.",
