@@ -104,10 +104,10 @@ export const ASPECTS = [...SLICE_ASPECTS, '9:16', '1:2', '1:3', '1:4', '1:5', '1
 export const FREE_ASPECTS = ASPECTS.filter((a) => !(SLICE_ASPECTS as readonly string[]).includes(a));
 
 /**
- * The Aspect select's options by format (#111, research/SLICE-GRID.md §3.1 – whole slices): a viewport / vertical shot
- * offers only the slice aspects, each with its count ("1:4.8 · 3 slices"); a stored off-grid value stays selected and
- * says so ("9:16 – not whole slices"), so nothing is lost; loop360 / strip keep the free aspects. `words` = the page's
- * language.
+ * The Aspect select's options by format (#111, research/SLICE-GRID.md §3.1 – whole slices): a viewport is one slice
+ * (1:1.6), a vertical shot 2 or more (1:3.2 … 1:8), each with its count ("1:4.8 · 3 slices") – what the validator
+ * accepts; a stored value outside that stays selected and says what it is ("9:16 – not whole slices", or a viewport's
+ * "1:3.2 · 2 slices"), so nothing is lost; loop360 / strip keep the free aspects. `words` = the page's language.
  */
 export function aspectOptions(
 	format: string | undefined,
@@ -115,8 +115,12 @@ export function aspectOptions(
 	words: { slices: (count: number) => string; offGrid: string }
 ): { value: string; label: string }[] {
 	if (format !== 'viewport' && format !== 'vertical') return optionsOf(FREE_ASPECTS, current);
-	const grid = SLICE_ASPECTS.map((value) => ({ value: value as string, label: `${value} · ${words.slices(aspectSlices(value) ?? 0)}` }));
-	return current && !grid.some((o) => o.value === current) ? [...grid, { value: current, label: `${current} – ${words.offGrid}` }] : grid;
+	const grid: readonly string[] = format === 'viewport' ? SLICE_ASPECTS.slice(0, 1) : SLICE_ASPECTS.slice(1);
+	const label = (value: string) => {
+		const k = aspectSlices(value);
+		return k ? `${value} · ${words.slices(k)}` : `${value} – ${words.offGrid}`;
+	};
+	return (current && !grid.includes(current) ? [...grid, current] : grid).map((value) => ({ value, label: label(value) }));
 }
 export const ACCENTS = ['red', 'blue', 'green', 'amber', 'yellow'];
 export const PERSONAS = ['regular', 'human', 'cat', 'mountaintiger', 'biker'];

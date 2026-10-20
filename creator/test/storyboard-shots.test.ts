@@ -110,18 +110,24 @@ test('a scene of the script: its heading to the next marker, without the trailin
 });
 
 test('the Aspect select offers whole slices for viewport / vertical, the free aspects for loop360 / strip', () => {
-	const words = { slices: (n: number) => `${n} slices`, offGrid: 'not whole slices' };
+	const words = { slices: (n: number) => (n === 1 ? '1 slice' : `${n} slices`), offGrid: 'not whole slices' };
+	// a vertical shot: 2 slices or more (SLICE-GRID.md §3.1)
 	assert.deepEqual(aspectOptions('vertical', '1:4.8', words), [
-		{ value: '1:1.6', label: '1:1.6 · 1 slices' },
 		{ value: '1:3.2', label: '1:3.2 · 2 slices' },
 		{ value: '1:4.8', label: '1:4.8 · 3 slices' },
 		{ value: '1:6.4', label: '1:6.4 · 4 slices' },
 		{ value: '1:8', label: '1:8 · 5 slices' }
 	]);
-	// an off-grid value stays selected and says so
-	const off = aspectOptions('viewport', '9:16', words);
-	assert.equal(off.length, 6);
-	assert.deepEqual(off.at(-1), { value: '9:16', label: '9:16 – not whole slices' });
+	// a viewport: one slice
+	assert.deepEqual(aspectOptions('viewport', '1:1.6', words), [{ value: '1:1.6', label: '1:1.6 · 1 slice' }]);
+	// a value outside stays selected and says what it is: off the grid, or whole slices the format doesn't take
+	assert.deepEqual(aspectOptions('viewport', '9:16', words), [
+		{ value: '1:1.6', label: '1:1.6 · 1 slice' },
+		{ value: '9:16', label: '9:16 – not whole slices' }
+	]);
+	assert.deepEqual(aspectOptions('vertical', '1:4', words).at(-1), { value: '1:4', label: '1:4 – not whole slices' });
+	assert.deepEqual(aspectOptions('vertical', '1:1.6', words).at(-1), { value: '1:1.6', label: '1:1.6 · 1 slice' });
+	assert.deepEqual(aspectOptions('viewport', '1:3.2', words).at(-1), { value: '1:3.2', label: '1:3.2 · 2 slices' });
 	// a panorama: the free aspects, no slice aspects
 	const pano = aspectOptions('loop360', '6:1', words).map((o) => o.value);
 	assert.ok(pano.includes('6:1') && pano.includes('9:16'));

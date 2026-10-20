@@ -17,7 +17,7 @@
 	const s = $derived(sb.sel?.shot);
 	const sceneLight = $derived(sb.sel?.scene.light ?? {});
 	const set = (keys: string[], value: unknown) => sb.setShot(keys, value);
-	const aspectWords = { slices: (count: number) => m['storyboard.aspect_slices']({ count }), get offGrid() { return m['storyboard.aspect_off_grid'](); } };
+	const aspectWords = { slices: (count: number) => (count === 1 ? m['storyboard.aspect_slice']() : m['storyboard.aspect_slices']({ count })), get offGrid() { return m['storyboard.aspect_off_grid'](); } };
 	const text = (e: Event) => (e.currentTarget as HTMLInputElement | HTMLTextAreaElement).value;
 </script>
 

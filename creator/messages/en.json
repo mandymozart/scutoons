@@ -1793,6 +1793,7 @@
 		"view_label": "Schematic of {id}",
 		"help": "The chapter’s storyboard: the shots in the toon’s order on the left (click = one shot, Ctrl / Shift + click = several), the current shot in the middle, the step’s panels on the right. The steps (keys 1–6) remember their panels; T folds the shots, N the panels.",
 		"help_workspace": "Generated stills and videos live in your workspace folder (Chrome / Edge). Share uploads a file to the shared work storage on our own servers – for signed-in members only, never the readers’ CDN.",
+		"aspect_slice": "1 slice",
 		"aspect_slices": "{count} slices",
 		"aspect_off_grid": "not whole slices"
 	}

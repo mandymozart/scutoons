@@ -1793,6 +1793,7 @@
 		"view_label": "Schema von {id}",
 		"help": "Das Storyboard des Kapitels: links die Shots in der Reihenfolge des Toons (Klick = ein Shot, Strg / Umschalt + Klick = mehrere), in der Mitte der aktuelle Shot, rechts die Panels des Schritts. Die Schritte (Tasten 1–6) merken sich ihre Panels; T klappt die Shots ein, N die Panels.",
 		"help_workspace": "Generierte Bilder und Videos liegen in deinem Arbeitsordner (Chrome / Edge). „Teilen“ lädt eine Datei in den gemeinsamen Arbeitsspeicher auf unseren eigenen Servern – nur für angemeldete Mitglieder, nie auf das CDN der Leser.",
+		"aspect_slice": "1 Slice",
 		"aspect_slices": "{count} Slices",
 		"aspect_off_grid": "keine ganzen Slices"
 	}
