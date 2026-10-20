@@ -29,9 +29,10 @@
 			<div class="actions">
 				<Segmented
 					label={m['newsletter.preview_device']()}
+					square
 					options={[
-						{ value: 'phone', label: m['newsletter.preview_phone']() },
-						{ value: 'desktop', label: m['newsletter.preview_desktop']() }
+						{ value: 'phone', icon: 'smartphone', title: m['newsletter.preview_phone']() },
+						{ value: 'desktop', icon: 'monitor', title: m['newsletter.preview_desktop']() }
 					]}
 					value={device}
 					onchange={(v) => (device = v)}

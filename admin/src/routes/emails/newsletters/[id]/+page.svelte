@@ -7,7 +7,7 @@
 	import PageHeader from '$lib/components/page-header.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { ActionBar, Badge, Button, Field, Section, Segmented, Skeleton, confirmDialog } from '@scutoons/ui';
+	import { ActionBar, Badge, Button, Field, Icon, Section, Segmented, Skeleton, confirmDialog } from '@scutoons/ui';
 	import type { Newsletter, NewsletterAudience, NewsletterLocale } from '@scutoons/api';
 	import { admin } from '$lib/api.ts';
 	import { errorText, number } from '$lib/format.ts';
@@ -55,14 +55,14 @@
 		// many pictures exist only as WebP: Outlook (desktop) shows none
 		if (/\.webp$/i.test(picked.path)) toaster.addToast({ message: m['newsletter.picture_webp'](), type: 'warning' });
 	}
-	// the placeholders the renderer knows (NewsletterRenderer: {name}, {name|fallback}; the {signin} / {gift} lines –
-	// #65, #66 – are paragraphs of their own), picked from a list (owner 2026-10-09)
+	// the placeholders the renderer knows (NewsletterRenderer: {name|fallback}; the {signin} / {gift} lines – #65, #66 –
+	// are paragraphs of their own) as icon squares of the tool strip (#98, the creator's bars: borderless squares,
+	// the name in the tooltip)
 	const LINES = ['{signin}', '{gift}'];
 	const variables = $derived([
-		{ value: '{name}', label: m['newsletter.variable_name']() },
-		{ value: locale === 'de' ? '{name|du}' : '{name|there}', label: m['newsletter.variable_name_or']({ word: locale === 'de' ? 'du' : 'there' }) },
-		{ value: '{signin}', label: m['newsletter.variable_signin']() },
-		{ value: '{gift}', label: m['newsletter.variable_gift']() }
+		{ value: locale === 'de' ? '{name|du}' : '{name|there}', icon: 'user', label: m['newsletter.variable_name_or']({ word: locale === 'de' ? 'du' : 'there' }) },
+		{ value: '{signin}', icon: 'log-in', label: m['newsletter.variable_signin']() },
+		{ value: '{gift}', icon: 'gift', label: m['newsletter.variable_gift']() }
 	]);
 	function insertVariable(value: string) {
 		const start = cursor();
@@ -304,23 +304,18 @@
 				</Field>
 			{/if}
 			{#if textEditable}
-				<div class="tools" role="toolbar" aria-label={m['newsletter.tools']()}>
-					<Button size="sm" variant="secondary" onclick={() => (picking = true)}>{m['newsletter.picture_add']()}</Button>
-					<Button size="sm" variant="secondary" onclick={() => put(insertButton(draft[bodyKey], cursor(), m['newsletter.button_text']()))}>{m['newsletter.button_add']()}</Button>
-					<select
-						aria-label={m['newsletter.variable_add']()}
-						value=""
-						onchange={(e) => {
-							const value = e.currentTarget.value;
-							e.currentTarget.value = '';
-							if (value) insertVariable(value);
-						}}
+				<div class="sc-seg tools" role="toolbar" aria-label={m['newsletter.tools']()} data-testid="newsletter-tools">
+					<button type="button" class="is-square" title={m['newsletter.picture_add']()} aria-label={m['newsletter.picture_add']()} onclick={() => (picking = true)}><Icon name="image" /></button>
+					<button
+						type="button"
+						class="is-square"
+						title={m['newsletter.button_add']()}
+						aria-label={m['newsletter.button_add']()}
+						onclick={() => put(insertButton(draft[bodyKey], cursor(), m['newsletter.button_text']()))}><Icon name="link" /></button
 					>
-						<option value="" disabled>{m['newsletter.variable_add']()}</option>
-						{#each variables as v (v.value)}
-							<option value={v.value}>{v.value} – {v.label}</option>
-						{/each}
-					</select>
+					{#each variables as v (v.value)}
+						<button type="button" class="is-square" title="{v.value} – {v.label}" aria-label="{v.value} – {v.label}" onclick={() => insertVariable(v.value)}><Icon name={v.icon} /></button>
+					{/each}
 				</div>
 			{/if}
 			<Field label={m['newsletter.body']()} hint={m['newsletter.body_hint']({ example: locale === 'de' ? '{name|du}' : '{name|there}' })}>
@@ -376,15 +371,9 @@
 		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-1);
 	}
-	/* picture, button, placeholders – right above the text they go into */
+	/* picture, button, placeholders – icon squares right above the text they go into */
 	.tools {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--space-05);
-	}
-	.tools select {
-		flex: 1 1 12rem;
-		min-width: 0;
+		justify-self: start;
 	}
 	.text textarea {
 		width: 100%;

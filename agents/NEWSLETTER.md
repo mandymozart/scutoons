@@ -29,11 +29,12 @@ new ones are added. Members are never imported (they are mailed as members); an 
 ## Writing a newsletter
 
 Admin → Emails → Newsletters → New newsletter (a title only the admin sees). Then: who gets it (the audiences with their
-counts; "N without language" links to the contacts to fix), the gift, then the text: DE | EN, the subject, a tool strip
-(Insert picture · Insert button · Insert variable – a picture, a button or the {signin} / {gift} line goes in as a
-paragraph of its own after the cursor's paragraph, `admin/src/lib/newsletter-text.ts`) and the text. One column on the
+counts; "N without language" links to the contacts to fix), the gift, then the text: DE | EN, the subject, a tool strip of
+icon squares (the creator's bars – the name in the tooltip: picture · button · `{name|du}` · `{signin}` · `{gift}`; a
+picture, a button or the {signin} / {gift} line goes in as a paragraph of its own after the cursor's paragraph,
+`admin/src/lib/newsletter-text.ts`) and the text. One column on the
 creator's layout model (#98): the live preview (the frame of every platform mail, the unsaved text) is a dock panel
-beside it – phone (390) or desktop (640) width, fold, maximize, ✕ ("Vorschau" in the bar opens it again; on a phone it
+beside it – phone (390) or desktop (640) width (two icon squares), fold, maximize, ✕ ("Vorschau" in the bar opens it again; on a phone it
 starts closed). Save, Test to me (the saved text to the signed-in admin, subject `[Test] …`), Start (asks with the exact
 number of recipients).
 
