@@ -413,6 +413,7 @@
 		"canvas_zoom_1x": "Originalgröße (1:1)",
 		"canvas_seams": "Nähte über dem Bild",
 		"strip_slice": "Slice {number} im Streifen",
+		"layers_area_stays": "Eine Klick- / Hover-Fläche bleibt auf ihrem Slice – auf dem Canvas oder in ihrem Tab verschieben",
 		"group_tab": "Gruppe",
 		"slice_menu": "Slice {number}: mehr",
 		"slice_replace": "Bild ersetzen …",

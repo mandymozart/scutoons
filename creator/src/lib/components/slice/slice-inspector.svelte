@@ -11,7 +11,9 @@
 	import { boxChoices } from '$lib/editor/slice-edit.ts';
 	import type { TextPreset } from '$lib/editor/text-presets.ts';
 	import { SLICE_RATIO } from '$lib/editor/defaults.ts';
-	import { layerRows } from '$lib/editor/collage-edit.ts';
+	import { groupLayerRows } from '$lib/editor/group-layers.ts';
+	import type { DrawnBox } from '$lib/editor/strip-anchor.ts';
+	import type { CanvasSelection } from '$lib/components/slice/slice-canvas.svelte';
 	import type { CharacterChoices } from '$lib/components/characters/character-ref-field.svelte';
 	import DialogInspector from '$lib/components/text/dialog-inspector.svelte';
 	import TextPresetPicker from '$lib/components/text/text-preset-picker.svelte';
@@ -53,7 +55,10 @@
 		onremove,
 		eventMark,
 		after,
-		groupTab
+		groupTab,
+		groupPath,
+		boxOf,
+		onpick
 	}: {
 		view: ChapterView;
 		doc: ContentDoc;
@@ -86,14 +91,20 @@
 		after?: Snippet;
 		/** the Group tab's content: the group's form and script (the strip editor – TEXT-ACROSS-SLICES.md §4.1) */
 		groupTab?: Snippet;
+		/** the open group (the Layers list is the group's) */
+		groupPath: Path;
+		/** a slice's drawn box on the strip */
+		boxOf: (slice: number) => DrawnBox | null;
+		/** a Layers row of any slice picked: that slice opens, the entry is selected */
+		onpick: (slice: number, selection: CanvasSelection) => void;
 	} = $props();
 
 	const dialogs = $derived<any[]>(slice?.dialog ?? []);
 	const items = $derived<any[]>(slice?.items ?? []);
 	const pieces = $derived<any[]>(slice?.pieces ?? []);
 	const selection = $derived(view.selection);
-	/** the Layers tab's count: the stack and the pieces */
-	const layerCount = $derived(layerRows(slice).length);
+	/** the Layers tab's count: the group's stacks and pieces */
+	const layerCount = $derived(groupLayerRows(group?.slices ?? []).length);
 	/** an area picked in the stack is edited in its own tab (Events / Audio) */
 	const areaTab = $derived(selection?.kind === 'event' ? 'events' : selection?.kind === 'sample' ? 'audio' : null);
 	/** the moods of a character picture (the picker, the piece inspector) */
@@ -121,7 +132,7 @@
 		{@render groupTab()}
 	{:else if view.inspectorTab === 'layers'}
 		<!-- the slice's ONE layer stack (BACKLOG 10.43) + its collage pieces under it (COLLAGE.md §3), the top row in front -->
-		<LayerList {view} {doc} {slice} {slicePath} {toon} {locale} registry={choices?.registry} {moods} />
+		<LayerList {view} {doc} {groupPath} open={view.sliceIndex} {boxOf} {onpick} {toon} {locale} registry={choices?.registry} {moods} />
 		<div class="adds">
 			<button type="button" class="secondary" class:active={view.pickingPreset} aria-expanded={view.pickingPreset} onclick={() => (view.pickingPreset = !view.pickingPreset)} data-testid="add-text"><Icon name="plus" /> {m['creator.add_text_box']()}</button>
 			<button type="button" class="secondary" onclick={() => view.pickItem()} data-testid="add-slice-item"><Icon name="plus" /> {m['creator.add_slice_item']()}</button>

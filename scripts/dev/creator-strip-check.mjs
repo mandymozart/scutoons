@@ -12,6 +12,8 @@
 //     7. a zoom (1:1, fit) moves the scroll but never opens another slice
 //     8. a box dragged over the seam and let go there moves to that slice (id kept, selected); one undo puts it back
 //     9. the film strip in the sidebar (three a row) shows the open slice; the inspector's Group tab holds the group's form
+//    10. Layers = the group's flat list, front first; a row of another slice opens it, its box selected
+//    11. Alt + ↑ on the open slice's front text row (a later slice's row above): re-anchored there, selected; one undo
 //   a horizontal group (default group 2): the slices side by side at the area's height
 //   phone 390 × 844 (touch): the strip at full width, a tap on a box selects it
 //   node scripts/dev/creator-strip-check.mjs [--toon=catpope] [--chapter=2] [--group=6] [--slice=20] [--hgroup=2]
@@ -212,6 +214,39 @@ try {
 		await sleep(300);
 		check("1440: the inspector's Group tab holds the group's form", await page.evaluate(() => !!document.querySelector('[data-testid="inspector-region"] .group-panel')));
 		await page.click('[data-testid="tab-layers"]');
+
+		// 10 – Layers is the group's flat list (owner 2026-10-20): rows of several slices, a later slice's first; a row of
+		// another slice opens it with its entry selected
+		const layers = () =>
+			page.evaluate(() => [...document.querySelectorAll('[data-testid="layers"] > li')].map((li) => ({ slice: Number(li.dataset.slice), id: li.dataset.testid, sel: li.classList.contains('sc-selected') })));
+		const l0 = await layers();
+		const order = l0.map((r) => r.slice).filter((v, i, all) => i === 0 || v !== all[i - 1]);
+		check(`1440: Layers lists the group (${new Set(order).size} slices, front first)`, new Set(order).size > 2 && order.every((v, i) => i === 0 || v < order[i - 1] || l0.some((r) => r.id.includes('piece'))), JSON.stringify(order.slice(0, 12)));
+		const opened = await sliceOf(page);
+		const other = l0.find((r) => r.slice !== opened - 1 && /dialog/.test(r.id));
+		if (other) {
+			await page.click(`[data-testid="${other.id}"] button.row`);
+			await sleep(500);
+			const now = await layers();
+			check(`1440: a Layers row of slice ${other.slice + 1} opens it, its box selected`, (await sliceOf(page)) === other.slice + 1 && now.some((r) => r.sel && r.slice === other.slice) && (await page.evaluate(() => !!document.querySelector('[data-testid="slice-canvas"] .box.selected'))), JSON.stringify({ slice: await sliceOf(page), other }));
+		}
+		// 11 – Alt + ↑ on the open slice's front row: over the next slice's last row = re-anchored there (one undo back)
+		{
+			const at = await sliceOf(page);
+			const rows = await layers();
+			const front = rows.findIndex((r) => r.slice === at - 1 && /^layer-dialog-/.test(r.id));
+			if (front > 0 && rows[front - 1].slice > at - 1 && /dialog|item/.test(rows[front - 1].id)) {
+				const to = rows[front - 1].slice;
+				await page.focus(`[data-testid="${rows[front].id}"] [data-sort-grip]`);
+				await page.keyboard.press('Alt+ArrowUp');
+				await sleep(500);
+				const moved = await layers();
+				check(`1440: Alt + ↑ over slice ${to + 1}'s row re-anchors the text box there, selected`, (await sliceOf(page)) === to + 1 && moved.findIndex((r) => r.sel) === front - 1 && moved[front - 1].slice === to, JSON.stringify({ slice: await sliceOf(page), sel: moved.findIndex((r) => r.sel), front }));
+				await page.keyboard.press('Control+z');
+				await sleep(400);
+				check('1440: one undo puts the Layers order back', JSON.stringify((await layers()).map((r) => `${r.slice}:${r.id.replace(/^layer-(s\d+-)?/, '')}`)) === JSON.stringify(rows.map((r) => `${r.slice}:${r.id.replace(/^layer-(s\d+-)?/, '')}`)));
+			} else check('1440: a front text row with a later slice\'s row above it', false, JSON.stringify(rows.slice(Math.max(0, front - 2), front + 2)));
+		}
 
 		check('1440: no page errors', !errors.length, errors.join(' | ').slice(0, 300));
 		await context.close();

@@ -8,31 +8,44 @@
 	import type { ChapterView } from '$lib/editor/chapter-state.svelte.ts';
 	import { triggerWord } from '$lib/editor/vn-forms.ts';
 	import { itemCatalog, itemName } from '$lib/editor/catalog.svelte.ts';
-	import { canMoveLayerRow, followPieces, layerRows, moveLayerRows } from '$lib/editor/collage-edit.ts';
+	import { followPieces } from '$lib/editor/collage-edit.ts';
+	import { groupLayerRows, moveGroupLayerRow } from '$lib/editor/group-layers.ts';
+	import type { DrawnBox } from '$lib/editor/strip-anchor.ts';
+	import type { CanvasSelection } from '$lib/components/slice/slice-canvas.svelte';
 	import { hasShapePiece, pieceLabel } from '$lib/editor/collage-words.ts';
 	import { shapeLibrary } from '$lib/editor/shapes.svelte.ts';
 	import { toast } from '$lib/toasts.ts';
 
 	/**
-	 * The slice's layer list (BACKLOG 10.43, 10.54; research/COLLAGE.md §3 "Layers list"), front first: the stack – text
-	 * boxes, placed items and the click / hover areas of events and samples (edited in their own tabs) – then, under a
-	 * rule, the collage pieces (the front piece first): art always lies under the stack. A drag reorders within its side
-	 * (`moveLayerRows`: pieces among pieces, the stack among the stack – one edit, one undo step); across is refused.
+	 * The group's ONE layer list (BACKLOG 10.43, 10.54; research/COLLAGE.md §3 "Layers list"; owner 2026-10-20 – flat, no
+	 * slices, research/TEXT-ACROSS-SLICES.md §4.1 E2), front first: the slices' stacks – text boxes, placed items and the
+	 * click / hover areas of events and samples (edited in their own tabs), a later slice's in front of an earlier one's –
+	 * then, under a rule, the collage pieces (art always lies under the stacks). A drag reorders (group-layers.ts – one
+	 * edit, one undo step); a text box or item dropped among another slice's rows is re-anchored there (DECISIONS
+	 * 2026-10-20); pieces and areas stay with their slice, the stack never goes among the pieces. A row of another slice
+	 * opens that slice (`onpick`).
 	 */
 	let {
 		view,
 		doc,
-		slice,
-		slicePath,
+		groupPath,
+		open,
 		toon,
 		locale,
 		registry = null,
-		moods = null
+		moods = null,
+		boxOf,
+		onpick
 	}: {
 		view: ChapterView;
 		doc: ContentDoc;
-		slice: any;
-		slicePath: Path;
+		groupPath: Path;
+		/** the open slice (the selection's) */
+		open: number;
+		/** a slice's drawn box on the strip (re-anchoring keeps the place on screen) */
+		boxOf: (slice: number) => DrawnBox | null;
+		/** a row was picked (its slice opens, the row's entry is selected) */
+		onpick: (slice: number, selection: CanvasSelection) => void;
 		toon: string;
 		/** the language the canvas shows */
 		locale: string;
@@ -42,6 +55,8 @@
 	} = $props();
 
 	interface LayerRow {
+		/** the slice it is anchored on */
+		slice: number;
 		kind: SliceLayerKind;
 		index: number;
 		/** the item's name / the start of the text (else the box's id) / the piece's character or file */
@@ -57,9 +72,13 @@
 		events?: number[];
 	}
 
+	const slices = $derived<any[]>(doc.get(doc.primary, [...groupPath, 'slices']) ?? []);
 	/** the rows front first (the top row is drawn on top); the pieces last */
 	const rows = $derived.by<LayerRow[]>(() =>
-		layerRows(slice).map(({ kind, index, events }): LayerRow => {
+		groupLayerRows(slices).map(({ slice: at, ref: { kind, index, events } }): LayerRow => ({ slice: at, ...rowOf(slices[at], kind, index, events) }))
+	);
+	function rowOf(slice: any, kind: SliceLayerKind, index: number, events?: number[]): Omit<LayerRow, 'slice'> {
+		{
 			if (kind === 'dialog') {
 				const d = slice?.dialog?.[index];
 				const text = previewText(d?.text, [locale, doc.textSource]).trim().slice(0, 40);
@@ -84,43 +103,55 @@
 			const it = slice?.items?.[index];
 			const def = itemCatalog.catalog?.items.find((x) => x.id === it?.item);
 			return { kind, index, name: itemName(def, it?.item ?? '?'), icon: def?.icon ? asset(def.icon) : undefined, glyph: 'box', pickup: it?.action === 'pickup' };
-		})
-	);
+		}
+	}
 	/** a shape's name is its library title (`pieceLabel` only reads it): the list loads the library once it holds a shape */
-	const listsShape = $derived(hasShapePiece(slice?.pieces));
+	const listsShape = $derived(slices.some((s) => hasShapePiece(s?.pieces)));
 	$effect(() => {
 		if (listsShape) untrack(() => void shapeLibrary.load());
 	});
 	/** the first piece row: the rule above it marks where the art starts */
 	const firstPiece = $derived(rows.findIndex((r) => r.kind === 'piece'));
 	/** the row of the canvas selection (an event area: any of its events) */
-	const isSelected = (row: LayerRow) => view.selection?.kind === row.kind && (row.events ?? [row.index]).includes(view.selection.index);
+	const isSelected = (row: LayerRow) => row.slice === open && view.selection?.kind === row.kind && (row.events ?? [row.index]).includes(view.selection.index);
 	/**
-	 * a drag in the list (front first) within its side – one edit, one undo step; across = a hint, nothing changes. The
-	 * pieces' reorder renumbers `pieces[]`: the selected piece goes with its piece (the stack keeps its indices)
+	 * a drag in the list (front first) – one edit, one undo step; refused (pieces / areas across): a hint, nothing changes.
+	 * The moved row stays / becomes the selection where it is now (its slice opens); a pieces' reorder of the open slice
+	 * renumbers `pieces[]`: the selected piece goes with its piece
 	 */
 	function moveLayer(from: number, to: number) {
-		if (!canMoveLayerRow(layerRows(slice), from, to)) {
-			if (from !== to) toast(m['creator.layers_pieces_under'](), { type: 'info' });
+		const row = rows[from];
+		if (!row) return;
+		const wasSelected = isSelected(row);
+		let done = { ok: false, why: 'none' } as ReturnType<typeof moveGroupLayerRow>;
+		const before = groupLayerRows(slices);
+		const target = before[to];
+		// a refused move changes nothing: no edit (no undo step)
+		if (!target || (row.kind === 'piece') !== (target.ref.kind === 'piece') || (row.slice !== target.slice && row.kind !== 'dialog' && row.kind !== 'item')) {
+			if (from !== to) toast(row.kind === 'piece' || target?.ref.kind === 'piece' ? m['creator.layers_pieces_under']() : m['creator.layers_area_stays'](), { type: 'info' });
 			return;
 		}
 		doc.edit((file) => {
-			const moved = moveLayerRows(getAt(file, slicePath), from, to);
-			if (moved) view.selection = followPieces(view.selection, moved);
+			const list = getAt(file, [...groupPath, 'slices']);
+			if (Array.isArray(list)) done = moveGroupLayerRow(list, from, to, boxOf);
 		});
+		if (!done.ok) return;
+		if (done.slice !== open || (wasSelected && done.kind !== 'piece')) onpick(done.slice, { kind: done.kind, index: done.index });
+		else if (done.moved) view.selection = followPieces(view.selection, done.moved);
 	}
-	/** the row's button testid (the text box / item ones as before) */
+	/** the row's testids: the open slice's as before (`dialog-0` …), another slice's with its number (`s3-dialog-0`) */
 	const rowTestid = (row: LayerRow) =>
-		row.kind === 'dialog' ? `dialog-${row.index}` : row.kind === 'item' ? `slice-item-${row.index}` : row.kind === 'piece' ? `slice-piece-${row.index}` : `layer-${row.kind}-row-${row.index}`;
+		(row.slice === open ? '' : `s${row.slice}-`) +
+		(row.kind === 'dialog' ? `dialog-${row.index}` : row.kind === 'item' ? `slice-item-${row.index}` : row.kind === 'piece' ? `slice-piece-${row.index}` : `layer-${row.kind}-row-${row.index}`);
 </script>
 
 {#if rows.length}
 	<ul class="layers" use:sortable={{ onmove: moveLayer }} data-testid="layers">
-		{#each rows as row, i (`${row.kind}:${row.index}`)}
+		{#each rows as row, i (`${row.slice}:${row.kind}:${row.index}`)}
 			<!-- the canvas selection: the canvas + this inspector are ONE region ('slice', the chapter editor) -->
-			<li data-sort-row class:sc-selected={isSelected(row)} class:boundary={i === firstPiece && i > 0} data-testid="layer-{row.kind}-{row.index}">
+			<li data-sort-row class:sc-selected={isSelected(row)} class:boundary={i === firstPiece && i > 0} data-slice={row.slice} data-testid="layer-{row.slice === open ? '' : `s${row.slice}-`}{row.kind}-{row.index}">
 				<SortGrip label={m['creator.sort_move']({ name: row.name })} title={m['creator.sort_hint']()} />
-				<button type="button" class="ghost row" title={row.title} onclick={() => view.select({ kind: row.kind, index: row.index })} data-testid={rowTestid(row)}>
+				<button type="button" class="ghost row" title={row.title} onclick={() => onpick(row.slice, { kind: row.kind, index: row.index })} data-testid={rowTestid(row)}>
 					<span class="thumb" class:sc-checker={row.kind === 'piece'}>
 						{#if row.icon}<img src={row.icon} alt="" draggable="false" />{:else}<Icon name={row.glyph} size="1rem" />{/if}
 					</span>

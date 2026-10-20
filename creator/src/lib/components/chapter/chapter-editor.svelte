@@ -1342,6 +1342,12 @@
 				<SliceInspector
 					{view}
 					groupTab={groupBody}
+					{groupPath}
+					boxOf={(i) => canvas?.drawnBox(i) ?? null}
+					onpick={(i, next) => {
+						view.focusSlice(i);
+						view.select(next);
+					}}
 					doc={activeDoc}
 					slice={activeSlice}
 					{slicePath}

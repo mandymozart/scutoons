@@ -51,7 +51,9 @@ export function moveAcrossSeam(slices: Obj[], list: AnchoredList, from: number, 
 	if (list === 'dialog' && entry.tail && typeof entry.tail === 'object' && entry.tail.tip && isNum(entry.tail.tip.x) && isNum(entry.tail.tip.y)) {
 		entry.tail = { ...entry.tail, tip: convertPoint(entry.tail.tip, fromBox, toBox) };
 	}
-	const target = Array.isArray(slices[to][list]) ? slices[to][list] : (slices[to][list] = []);
+	// read back after creating it: a reactive document (Svelte's state proxy) keeps its own copy of what is assigned
+	if (!Array.isArray(slices[to][list])) slices[to][list] = [];
+	const target = slices[to][list];
 	target.push(entry);
 	return target.length - 1;
 }

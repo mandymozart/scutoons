@@ -206,8 +206,8 @@
 		else window.scrollBy({ left: dx, top: dy, behavior: 'instant' });
 	});
 
-	/** a slice's drawn box (its canvas; unmounted: its place) */
-	function drawnBox(i: number): DrawnBox | null {
+	/** a slice's drawn box (its canvas; unmounted: its place) – the Layers list re-anchors with it too */
+	export function drawnBox(i: number): DrawnBox | null {
 		const slot = slots[i];
 		if (!slot) return null;
 		const r = (slot.querySelector('.creator-canvas') ?? slot).getBoundingClientRect();
