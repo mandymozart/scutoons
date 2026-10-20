@@ -130,8 +130,8 @@ the format rules from creator / viewer source files at start). Fine for the owne
   `GET /api/mcp/download` (the .mjs; `?file=mcpb` the extension; attachment, ETag, 5 minutes) and `GET /api/mcp/version`
   ({ version, git_sha, sha256, sha256_mcpb }); not built → 404 not_built.
 - **Links:** members get the short links `scutoons.com/mcp` and `scutoons.com/mcp.mcpb` (viewer/static/.htaccess →
-  302 to the API) – the account page's "AI connections" uses them; the old `scutoons.com/ai/scutoons-mcp.mjs` /
-  `scutoons.mcpb` redirect (301) so old instructions still work.
+  302 to the API) – the account page's "AI connections" uses them. The old `scutoons.com/ai/…` URLs are gone
+  (owner 2026-10-20).
 - **Updates:** a member's copy (bundle / extension; a checkout never) asks `/api/mcp/version` once on start
   (tools/mcp/src/update.ts, 3 s timeout, silent on errors). Newer = a higher version (tools/mcp/package.json = `VERSION`
   in member.ts – bump both) or the same version with another sha256 (a rebuild). Then whoami gets an `update` field and
