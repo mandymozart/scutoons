@@ -37,7 +37,11 @@ const P = {
 	trash: '<path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
 	copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
 	maximize: '<path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>',
-	filter: '<path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>'
+	filter: '<path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>',
+	// the three views of a mood picture (draft E): head · bust · whole figure
+	vAvatar: '<circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M9 15.5c1.8 1.3 4.2 1.3 6 0"/>',
+	vPortrait: '<circle cx="12" cy="8" r="4.5"/><path d="M3 22c0-5.5 4-8.5 9-8.5s9 3 9 8.5"/>',
+	vFull: '<circle cx="12" cy="3.5" r="2.2"/><path d="M12 7v8M7 10h10M12 15l-3.5 7M12 15l3.5 7"/>'
 };
 const ic = (n) => `<svg class="i" aria-hidden="true"><use href="#${n}"/></svg>`;
 const LOGO = '../../../viewer/static/SCUTOONS-logo-animated.svg';
@@ -250,7 +254,8 @@ function cChar() {
 // view (Avatar · Portrait · Ganz, a segmented switch on the stage) ──
 const view = flags.includes('avatar') ? 'avatar' : flags.includes('portrait') ? 'portrait' : 'full';
 const VIEWS = [['avatar', 'Avatar'], ['portrait', 'Portrait'], ['full', 'Ganz']];
-const viewSeg = () => `<span class="seg">${VIEWS.map(([id, w]) => `<span class="${id === view ? 'on' : ''}">${w}</span>`).join('')}</span>`;
+const VICON = { avatar: 'vAvatar', portrait: 'vPortrait', full: 'vFull' };
+const viewSeg = () => `<span class="group">${VIEWS.map(([id, w]) => sq(VICON[id], { on: id === view, title: w })).join('')}</span>`;
 const lookSel = () => `<span class="sel" title="Look of this persona">${phone ? '' : 'Look: '}päpstlich ${ic('down')}</span>`;
 const where = () => `<span class="axes cap"><b>Regular</b> › <b>päpstlich</b> › <b>neutral</b> · <b>${VIEWS.find((v) => v[0] === view)[1]}</b></span>`;
 function eStage() {
@@ -258,24 +263,32 @@ function eStage() {
 	return `<div class="stage ${view}" style="flex:1"><img class="figure" src="${src}" alt="" /><div class="tl">${where()}</div><div class="tr">${sq('maximize', { title: 'Maximize' })}</div></div>`;
 }
 function eChar() {
+	// side-scrolling rows run edge to edge between the dividers, their padding inside the scroller; a fade at an edge
+	// says "more this way" (none at the start / end)
+	const personas = `<div class="hs fade-r">${personaPick()}</div>`;
 	const controls = `<div class="ctl">${lookSel()}<span class="grow"></span>${viewSeg()}</div>`;
+	const strip = `<div class="hs fade-r strip-row">${stageStrip()}</div>`;
 	if (phone) {
-		const top = `<div style="padding:var(--space-05) var(--space-1);display:flex;flex-direction:column;gap:var(--space-05);border-bottom:var(--hair)">${personaPick()}${controls}</div>`;
-		const strip = `<div style="padding:var(--space-05) var(--space-1);border-top:var(--hair)">${stageStrip()}</div>`;
-		const overlay = sheetOpen ? `<div class="sheet" style="height:62%;bottom:0"><span class="grab"></span><div style="padding:0 var(--space-1) var(--space-1);display:flex;flex-direction:column;gap:var(--space-075);overflow:hidden">${kanon('character')}</div></div>` : '';
+		const top = `<div class="bar-rows">${personas}${controls}</div>`;
+		const overlay = sheetOpen
+			? `<div class="sheet text-sheet" style="height:58%;bottom:0"><div class="sheet-head"><span class="grab"></span><span class="label">${ic('file')} Kanon · Katzenpapst</span><span class="grow"></span>${chips([['no', 'not written']])}<span class="muted cap">de ★</span></div>${kanonText()}</div>`
+			: '';
 		return `<main class="pg" style="grid-area:main;position:relative">${top}${eStage()}${strip}${overlay}</main>`;
 	}
-	const center = `<div style="display:flex;flex-direction:column;min-width:0;min-height:0"><div style="padding:var(--space-075) var(--space-1);display:flex;flex-direction:column;gap:var(--space-05);border-bottom:var(--hair)">${head({ small: true })}${personaPick()}${controls}</div>${eStage()}<div style="padding:var(--space-05) var(--space-1);border-top:var(--hair)">${stageStrip()}</div></div>`;
-	const insp = `<aside class="insp" style="gap:var(--space-075)">${cInspTabs(1)}${kanon('character')}<h2 class="h">This persona's Kanon ${chips([['no', 'not written']])}</h2><h2 class="h">This look's Kanon ${chips([['no', 'not written']])}</h2></aside>`;
+	const center = `<div style="display:flex;flex-direction:column;min-width:0;min-height:0"><div class="pad-x">${head({ small: true })}</div><div class="bar-rows">${personas}${controls}</div>${eStage()}${strip}</div>`;
+	const insp = `<aside class="insp e-insp">${cInspTabs(1)}<div class="sheet-head" style="padding:0"><span class="label">Kanon · Katzenpapst</span><span class="grow"></span>${chips([['no', 'not written']])}<span class="muted cap">de ★</span></div>${kanonText()}<div class="cap muted">Persona: Regular ${chips([['no', 'not written']])} · Look: päpstlich ${chips([['no', 'not written']])}</div></aside>`;
 	return `<main class="pg" style="grid-area:main">${atabs()}<div class="editor" style="grid-template-columns:minmax(0,1fr) 22rem;flex:1;min-height:0">${center}${insp}</div></main>`;
 }
+// the Kanon as ONE text field that fills its panel (owner 2026-10-20: "the text field could cover the entire panel")
+const kanonText = () =>
+	`<div class="ktext"><span class="h2">## Backstory</span>PLF wurde im Vatikan der Katzen geboren und …<br><br><span class="h2">## Who</span>Ruhig, neugierig, spricht in kurzen Sätzen …<br><br><span class="h2">## Look</span>Rosa Nacktkatze, blaue Augen, das weiß-blaue Ornat mit dem Kreuzmuster – nie ohne.<br><br><span class="h2">## Rules</span><span class="muted">what an artist or a generator must never change …</span><span class="caret"></span></div>`;
 
 // ── phone bottom rows ──
 function phoneBottom() {
 	const back = `<span class="sq back">${ic('left')}</span>`;
 	if (screen === 'list') return `<footer class="bottom" style="grid-area:bottom">${act('plus', 'New')}${act('save', 'Save', { dim: true })}${act('cloud', 'Publish', { dot: true })}${act('more', 'More')}</footer>`;
 	// one row of functions with a ‹ back (owner 2026-10-19, #44): the page's kinds as icon squares
-	const kinds = V === 'c' || V === 'e' ? [['user', 'Profile'], ['file', 'Kanon'], ['smile', 'Moods'], ['box', 'Model'], ['inbox', 'Wanted'], ['more', 'More']] : V === 'a' ? [['user', 'Profile'], ['smile', 'Looks & moods'], ['file', 'Kanon'], ['inbox', 'Wanted'], ['zap', 'Prompts'], ['more', 'More']] : sheetOpen ? [['plus', 'New persona'], ['upload', 'Import images …'], ['more', 'More']] : [['upload', 'Import'], ['plus', 'Mood'], ['file', 'Kanon'], ['inbox', 'Wanted'], ['more', 'More']];
+	const kinds = V === 'c' || V === 'e' ? [['user', 'Profile'], ['file', 'Kanon'], ['grid', 'All moods'], ['box', 'Model'], ['inbox', 'Wanted'], ['more', 'More']] : V === 'a' ? [['user', 'Profile'], ['smile', 'Looks & moods'], ['file', 'Kanon'], ['inbox', 'Wanted'], ['zap', 'Prompts'], ['more', 'More']] : sheetOpen ? [['plus', 'New persona'], ['upload', 'Import images …'], ['more', 'More']] : [['upload', 'Import'], ['plus', 'Mood'], ['file', 'Kanon'], ['inbox', 'Wanted'], ['more', 'More']];
 	const on = V === 'c' || V === 'e' ? (sheetOpen ? 1 : -1) : V === 'a' ? (sheetOpen ? 2 : 1) : -1;
 	return `<footer class="bottom sel-bar kinds2" style="grid-area:bottom">${back}${kinds.map(([i, t], k) => sq(i, { title: t, on: k === on })).join('')}</footer>`;
 }

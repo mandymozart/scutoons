@@ -67,6 +67,14 @@ haben personas, looks, moods".
   a look select (most personas have one look), the moods strip under the stage, a segmented switch Avatar · Portrait ·
   Ganz. The stage names what it shows ("Regular › päpstlich › neutral · Ganz"); no "Looks & moods" anywhere.
 - Overview = B's cards; the character = C's stage + inspector (desktop) and C's phone (bottom row, sheets).
+- Round 2 (owner 2026-10-20: "the text field could cover the entire panel" · "anything sliding sideways … that
+  transparent gradient overlay" · "the padding inside the list and the container full between the page dividers" ·
+  "avatar, portrait, ganz, maybe create some symbols … those buttons are huge" · "i hope our stage is finger
+  zoomable"): the Kanon is ONE text field filling its panel (phone: the sheet's head is the drag row – the chapter
+  editor's phone inspector sheet, dragged to any height; desktop: the inspector's Kanon tab); the persona row and the
+  moods strip run edge to edge, their padding inside the scroller, a fade at the edge that has more; the views are
+  three icon squares (face · bust · figure, the word in the tooltip), the bottom row's "All moods" is the grid icon;
+  the stage zooms like the slice canvas (pinch / Ctrl + wheel, double tap = fit).
 - Pictures: `e.html` (`#list`, `#char`, `-avatar` / `-portrait`, phones `-sheet`); `CHARACTER-PAGE-drafts.html` = all
   drafts in one file with the pictures inside (opens in the app's browser pane).
 

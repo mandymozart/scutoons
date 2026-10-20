@@ -146,3 +146,25 @@
 .stage.avatar img.figure { height: auto; width: min(18rem, 70%); }
 .stage.portrait img.figure { height: 88%; align-self: flex-end; }
 .phone .seg span { padding: 0 var(--space-05); }
+
+/* E, round 2 (owner 2026-10-20): rows edge to edge, padding inside the scroller, fades at the edges with more */
+.bar-rows { display: flex; flex-direction: column; gap: var(--space-05); padding: var(--space-05) 0; border-bottom: var(--hair); }
+.bar-rows .ctl { padding: 0 var(--space-1); }
+.pad-x { padding: var(--space-075) var(--space-1) var(--space-025); }
+.hs { overflow: hidden; }
+.hs > .pick, .hs > .filmstrip { padding: 0 var(--space-1); }
+.fade-r { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent); }
+.fade-lr { -webkit-mask-image: linear-gradient(to right, transparent, #000 2.5rem, #000 calc(100% - 2.5rem), transparent); mask-image: linear-gradient(to right, transparent, #000 2.5rem, #000 calc(100% - 2.5rem), transparent); }
+.strip-row { border-top: var(--hair); padding: var(--space-05) 0; }
+
+.group .sq.on { background: var(--ink); color: var(--paper); }
+/* the text sheet: its head is the drag row (the chapter editor's phone inspector sheet), the text fills the rest */
+.text-sheet { gap: 0; }
+.sheet-head { display: flex; align-items: center; gap: var(--space-05); min-height: var(--sq); padding: 0 var(--space-1); border-bottom: var(--hair); position: relative; white-space: nowrap; }
+.sheet-head .grab { position: absolute; left: 50%; top: 0.3rem; margin: 0; transform: translateX(-50%); }
+.sheet-head .label { display: inline-flex; align-items: center; gap: var(--space-05); }
+.ktext { flex: 1; min-height: 0; overflow: hidden; padding: var(--space-075) var(--space-1); font-size: var(--caption); line-height: 1.6; }
+.ktext .h2 { display: block; font-size: 1rem; }
+.ktext .caret { display: inline-block; width: 0.1rem; height: 1em; background: var(--ink); vertical-align: text-bottom; margin-left: 0.1rem; }
+.e-insp { gap: var(--space-05) !important; }
+.e-insp .ktext { border: var(--hair); padding: var(--space-075); }
