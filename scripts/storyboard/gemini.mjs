@@ -2,8 +2,9 @@
 // model … use the references and generate from the draft", "try gemini first"). Per shot it sends what a person
 // attaches in Luma – the render without texts (the layout: composition, camera, poses, the hard light), the style
 // pictures (storyboards/style/), each figure's character image (media dev copy, the shot's mood) – with the shot's
-// prompt (luma.js), and drops the result where the studio's uploads go: _out/<ch>/generated/<id>--g<n>.png – so the
-// Variants panel shows it, "Approve as chosen" takes it, and figma-chapter.mjs places it.
+// prompt (luma.js), and drops the result where the studio's uploads go: _out/<ch>/generated/<id>--g<n>.png (the highest
+// n + 1) with its v2 record in _out/<ch>/generated.jsonl (generated-log.mjs) – so the Variants panel shows it, "Approve
+// as chosen" takes it, and figma-chapter.mjs places it.
 //
 // Costs money per image: it runs only on the shots named (--only) or at most --max (default 3) – never a whole chapter
 // by accident. The key: GEMINI_API_KEY in the repo's .env (git-ignored; https://aistudio.google.com/apikey).
@@ -11,9 +12,10 @@
 //   node scripts/storyboard/gemini.mjs storyboards/catpope/s1c3 --only sb-25-4,sb-28-3 [--model gemini-2.5-flash-image] [--dry]
 //   node scripts/storyboard/gemini.mjs --models     the image models the key can use
 
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { basename, extname, resolve } from 'node:path';
-import { ROOT } from './lib.mjs';
+import { appendLine, keyOf, record, writeNew } from './generated-log.mjs';
+import { ROOT, mediaRoot } from './lib.mjs';
 import { lumaPrompt } from './luma.js';
 import { STYLE_DIR, shotCharacters, styleFiles } from './refs.mjs';
 import { loadStoryboards } from './storyboard.mjs';
@@ -101,10 +103,12 @@ for (const { sb, shot } of todo) {
 		const data = img && (img.inlineData ?? img.inline_data);
 		if (!data) { console.log(`no image (${j.candidates?.[0]?.finishReason ?? j.promptFeedback?.blockReason ?? 'empty answer'})`); continue; }
 		const ext = /jpeg/.test(data.mimeType ?? data.mime_type ?? '') ? 'jpg' : 'png';
-		const n = readdirSync(gen).filter((f) => f.startsWith(`${shot.id}--`)).length + 1;
-		const file = `${shot.id}--g${n}.${ext}`;
-		writeFileSync(resolve(gen, file), Buffer.from(data.data, 'base64'));
-		appendFileSync(resolve(OUT, 'generated.jsonl'), JSON.stringify({ date: new Date().toISOString(), shot: shot.id, file, model, images: images.map((i) => basename(i.file)), prompt: text }) + '\n');
+		const outs = resolve(ROOT, 'storyboards/_out');
+		const { id, file } = writeNew(outs, ch, shot.id, ext, Buffer.from(data.data, 'base64'));
+		// the record: image 1 the layout reference, then the style pictures, then the figures
+		const roots = { out: outs, boards: resolve(ROOT, 'storyboards'), media: mediaRoot() };
+		const inputs = images.map((i, n) => { const key = keyOf(roots, i.file); return { role: n === 0 ? 'reference' : styles.includes(i.file) ? 'style' : 'character', key, ...(key ? {} : { name: basename(i.file) }) }; });
+		appendLine(outs, ch, record({ id, shot: shot.id, file, kind: 'image', generator: 'gemini', model, mode: 'image', status: 'succeeded', inputs, prompt: text, ratio, date: new Date().toISOString() }));
 		console.log(`${file} (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
 	} catch (e) {
 		console.log(`failed: ${e.message}`);

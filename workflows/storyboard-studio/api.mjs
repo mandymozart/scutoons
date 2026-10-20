@@ -17,6 +17,7 @@ import { shotCharacters, styleFiles } from '../../scripts/storyboard/refs.mjs';
 import { generatorRoutes } from './generators/index.mjs';
 import { lanIps, phone } from './phone-https.mjs';
 import { chapterClips, clipThumbs, sendFile } from './clips.mjs';
+import { generatedRoutes } from './generated.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
@@ -114,6 +115,7 @@ const exec = (cmd, args) => new Promise((ok) => execFile(cmd, args, { maxBuffer:
 
 // --- the generators (README "Generators", generators/jobs.mjs): comfy-local · runway · comfyui-remote --------------------
 const generators = generatorRoutes({ root: ROOT, out: OUT, boards: BOARDS, media, findShot, shotCharacters, styleFiles });
+const generated = generatedRoutes({ out: OUT, boards: BOARDS, run });
 
 // --- API -----------------------------------------------------------------------------------------------------------
 const api = {
@@ -158,36 +160,9 @@ const api = {
 		writePng(file, png);
 		return { file: file.slice(ROOT.length + 1) };
 	},
-	// generated images (Luma results, a photo, a drawing) dropped onto a shot: kept next to its frame
-	'GET /api/generated': ({ ch, id }) => {
-		const d = resolve(OUT, ch, 'generated');
-		return existsSync(d) ? readdirSync(d).filter((f) => f.startsWith(`${id}--`)).sort() : [];
-	},
-	// data = a data URL, or url = an image dragged in from a web page (Luma's site): fetched here
-	'POST /api/generated': async ({ ch, id, name, data, url }) => {
-		if (!/^[\w-]+$/.test(id)) throw new Error('bad id');
-		if (!data && url) {
-			if (!/^https?:\/\//.test(url)) throw new Error('not an image link');
-			const r = await fetch(url);
-			const type = (r.headers.get('content-type') ?? '').split(';')[0];
-			if (!r.ok || !/^image\/(png|jpeg|webp)$/.test(type)) throw new Error(`the link gave ${r.ok ? type || 'no image' : r.status} – save the image and drop the file`);
-			data = `data:${type};base64,${Buffer.from(await r.arrayBuffer()).toString('base64')}`;
-			name ??= url.split('/').pop().split('?')[0];
-		}
-		const m = /^data:image\/(png|jpeg|webp);base64,/.exec(data ?? '');
-		if (!m) throw new Error('png / jpeg / webp only');
-		const ext = m[1] === 'jpeg' ? 'jpg' : m[1];
-		const d = resolve(OUT, ch, 'generated');
-		mkdirSync(d, { recursive: true });
-		const n = readdirSync(d).filter((f) => f.startsWith(`${id}--`)).length + 1;
-		const file = `${id}--g${n}.${ext}`;
-		writeFileSync(resolve(d, file), Buffer.from(data.slice(m[0].length), 'base64'));
-		return { file, from: name ?? '' };
-	},
-	'POST /api/generated/approve': ({ toon, ch, id, file, note }) => {
-		if (!/^[\w.-]+$/.test(file)) throw new Error('bad file');
-		return run('scripts/storyboard/approve.mjs', [`storyboards/${toon}/${ch}`, id, '--image', resolve(OUT, ch, 'generated', file), ...(note ? ['--note', note] : [])]);
-	},
+	// the shot's generated files and their records – dropped files (Luma results, a photo, a drawing, a clip), approve,
+	// the marks (generated.mjs: GET / POST /api/generated, /approve, /mark)
+	...generated,
 	// the prompt for Luma for the shot as it is edited right now (scripts/storyboard/luma.js) + the references to attach
 	'POST /api/prompt': ({ toon, ch, shot }) => {
 		const hit = findShot(toon, ch, shot.id);

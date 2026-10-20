@@ -111,11 +111,20 @@ test('through the manager: confirm, cancel deletes the remote task, results land
 	assert.equal(done.status, 'succeeded');
 	assert.deepEqual(done.files, ['sb-1-1--g1.mp4']);
 	const line = JSON.parse(readFileSync(join(out, 's1c3/generated.jsonl'), 'utf8'));
+	assert.equal(line.v, 2);
 	assert.equal(line.generator, 'runway');
 	assert.equal(line.model, 'gen4_turbo');
+	assert.equal(line.mode, 'image_to_video');
+	assert.equal(line.kind, 'video');
 	assert.equal(line.job, done.task);
 	assert.deepEqual(line.cost, { credits: 20, usd: 0.2 });
-	assert.deepEqual(line.images, ['sb-1-1.png']);
+	assert.deepEqual(line.inputs, [{ role: 'still', key: 'out:s1c3/clean/sb-1-1.png' }]);
+	assert.equal(line.ratio, '720:1280');
+	assert.equal(line.duration, 4);
+	// no seed in the job: the manager picked one, sent it to Runway and recorded it
+	const create = mock.requests.filter((q) => q.method === 'POST' && q.path === '/v1/image_to_video').at(-1);
+	assert.ok(Number.isInteger(line.seed));
+	assert.equal(create.body.seed, line.seed);
 	assert.deepEqual(m.spend(), { usd: 0.2, credits: 20, jobs: 1 });
 
 	const slow = await m.start({ ...base, model: 'gen4_turbo', duration: 2, stillFile: still, prompt: 'SLOW' }, { confirm: 0.1 });
@@ -124,4 +133,7 @@ test('through the manager: confirm, cancel deletes the remote task, results land
 	await m.wait(slow.id);
 	assert.equal(m.jobs()[0].status, 'cancelled');
 	assert.equal(mock.tasks.get(m.jobs()[0].task).cancelled, true);
+	// the cancelled job's line: its task, no file, the next id of the shot
+	const last = JSON.parse(readFileSync(join(out, 's1c3/generated.jsonl'), 'utf8').trim().split('\n').at(-1));
+	assert.deepEqual([last.id, last.file, last.status, last.job], ['sb-1-1--g2', null, 'cancelled', m.jobs()[0].task]);
 });

@@ -10,19 +10,24 @@
 // ~10 min a shot): a long-running server (the desktop app) grows to 53 GB, Windows pages, and a step takes 350 s.
 // The per-shot server loop: agents/STORYBOARD.md §9 / BACKLOG (the night run).
 //
-// The result lands where the studio's uploads go: _out/<ch>/generated/<id>--g<n>.png (Variants, Approve as chosen,
-// figma-chapter.mjs), logged in _out/<ch>/generated.jsonl.
+// The result lands where the studio's uploads go: _out/<ch>/generated/<id>--g<n>.png (the highest n + 1 – Variants,
+// Approve as chosen, figma-chapter.mjs), its v2 record in _out/<ch>/generated.jsonl (generated-log.mjs: the inputs as
+// keys with their roles, the seed, the settings). --from <shot>--g<n>.png improves on a result (agents/research/
+// VARIANTS-CANVAS.md §3.6): that generated image is image 1 instead of the render, and the record's parent.
 //
 //   node scripts/storyboard/comfy.mjs storyboards/catpope/s1c3 --only sb-25-4,sb-28-3 [--steps 4] [--seed n] [--mp 1] [--dry]
+//   node scripts/storyboard/comfy.mjs storyboards/catpope/s1c3 --from sb-25-4--g3.png [--seed n]   (a file in
+//        _out/<ch>/generated/, or its path; the shot is the file's)
 //   node scripts/storyboard/comfy.mjs storyboards/catpope/s1c3 --missing --fresh [--until 08:30]   the night run: every
 //        shot without an image yet, each on its own fresh headless ComfyUI (port 8190), no new shot after --until
 //   COMFY_URL=http://127.0.0.1:8188 (default – the ComfyUI app, moved off the viewer's 8000)
 
 import { execFileSync, spawn } from 'node:child_process';
 import { openSync } from 'node:fs';
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
-import { ROOT } from './lib.mjs';
+import { appendLine, keyOf, record, writeNew } from './generated-log.mjs';
+import { ROOT, mediaRoot } from './lib.mjs';
 import { STYLE_DIR, shotCharacters, styleFiles } from './refs.mjs';
 import { loadStoryboards } from './storyboard.mjs';
 
@@ -33,7 +38,8 @@ process.env.LUMA_AGENTS_API_KEY ??= process.env.LUMA_AGENT_API_KEY; // the owner
 const args = process.argv.slice(2);
 const take = (f, d) => { const i = args.indexOf(f); return i >= 0 ? args.splice(i, 2)[1] : d; };
 const flag = (f) => { const i = args.indexOf(f); return i >= 0 ? (args.splice(i, 1), true) : false; };
-const only = take('--only', null)?.split(',');
+let only = take('--only', null)?.split(',');
+const fromArg = take('--from', null);
 const steps = Number(take('--steps', 4));
 // full quality on a big cloud GPU (2026-10-10, Runpod): COMFY_LORA=none --steps 40 --cfg 4 – no Lightning shortcut
 const cfg = Number(take('--cfg', 1));
@@ -68,8 +74,21 @@ const M = {
 const src = args[0];
 if (!src) { console.error('usage: comfy.mjs <storyboard folder> --only <ids> [--steps 4|8] [--seed n] [--mp 1] [--dry]'); process.exit(2); }
 const ch = basename(resolve(src));
-const OUT = resolve(ROOT, 'storyboards/_out', ch);
+const OUTS = resolve(ROOT, 'storyboards/_out');
+const OUT = resolve(OUTS, ch);
 const gen = resolve(OUT, 'generated');
+// the keys the record names its inputs by (generators/index.mjs): out:<ch>/… · media:… · boards:…
+const roots = { out: OUTS, boards: resolve(ROOT, 'storyboards'), media: mediaRoot() };
+// --from: a generated image of this chapter as image 1 – its shot is the only one
+const from = fromArg ? resolve(gen, basename(fromArg)) : null;
+if (from) {
+	const shot = /^([\w-]+?)--g\d+\.(png|jpe?g|webp)$/i.exec(basename(from))?.[1];
+	// a path names this chapter's file, never another chapter's with the same name
+	const elsewhere = /[\\/]/.test(fromArg) &&resolve(fromArg).toLowerCase() !== from.toLowerCase();
+	if (!shot || elsewhere || !existsSync(from)) { console.error(`--from takes a generated image of ${ch}: _out/${ch}/generated/<shot>--g<n>.png`); process.exit(2); }
+	if (only && (only.length !== 1 || only[0] !== shot)) { console.error(`--from ${basename(from)} is shot ${shot} – --only names another`); process.exit(2); }
+	only = [shot];
+}
 
 // PLF in the chapters is the human priest OR the sphynx cat – Cat Pope (the cat-headed pope) only where the story shows
 // him, the mirror at the end of chapter 5 (owner 2026-10-10)
@@ -292,7 +311,7 @@ for (const { sb } of loadStoryboards(src)) for (const g of sb.groups ?? []) for 
 	if (missing && existsSync(gen) && readdirSync(gen).some((f) => f.startsWith(`${shot.id}--`))) continue;
 	if (late()) { if (!stopped) console.log(`${until} – no new shot`); stopped = true; continue; }
 	if (shot.format === 'loop360') { console.log(`${shot.id}: a panorama – not yet`); continue; }
-	const structure = resolve(OUT, 'clean', `${shot.id}.png`);
+	const structure = from ?? resolve(OUT, 'clean', `${shot.id}.png`);
 	if (!existsSync(structure)) { console.log(`${shot.id}: no render yet (render-shots.mjs)`); continue; }
 	const chars = shotCharacters(sb, shot).map((c) => ({ ...c, place: placeOf(shot, c.fig) }));
 	for (const c of chars) c.withImage = !!c.image && !c.place.small && chars.filter((d) => d.withImage).length < 2;
@@ -317,9 +336,17 @@ for (const { sb } of loadStoryboards(src)) for (const g of sb.groups ?? []) for 
 			const r = await fetch(`${COMFY}/view?${new URLSearchParams({ filename: img.filename, subfolder: img.subfolder ?? '', type: img.type ?? 'output' })}`);
 			bytes = Buffer.from(await r.arrayBuffer());
 		}
-		const n = readdirSync(gen).filter((f) => f.startsWith(`${shot.id}--`)).length + 1;
-		const file = `${shot.id}--g${n}.png`;
-		writeFileSync(resolve(gen, file), bytes);
+		const { id, file } = writeNew(OUTS, ch, shot.id, 'png', bytes);
+		// the record, at once (a file never stays without one): image 1 is the picture edited (comfy) or the layout
+		// reference (luma), then the figures, the style
+		const role = (f, i) => (i === 0 ? (engine === 'luma' ? 'reference' : 'still') : styles.includes(f) ? 'style' : 'character');
+		const inputs = files.map((f, i) => { const key = keyOf(roots, f); return { role: role(f, i), key, ...(key ? {} : { name: basename(f) }) }; });
+		appendLine(OUTS, ch, record({
+			id, shot: shot.id, file, kind: 'image', inputs, prompt, status: 'succeeded', date: new Date().toISOString(),
+			...(engine === 'luma'
+				? { generator: 'luma', model: lumaModel, mode: 'image', job: lumaJob.id, ratio: lumaJob.aspect_ratio, params: { style: lumaStyle } }
+				: { generator: 'comfy-local', model: 'qwen-image-edit', mode: 'comfy', seed, params: { unet: M.unet, lora: M.lora, steps, cfg, refMethod, charLora: charLora || undefined, promptStyle, look: lookStyle, host: new URL(COMFY).host } })
+		}));
 		// black and white (the model tints despite the prompt) – unless the shot has its one colour accent
 		const accent = { ...(sb.light ?? {}), ...(shot.light ?? {}) }.accent?.color;
 		if (!accent) execFileSync('python', ['-I', '-c', 'import sys; from PIL import Image; Image.open(sys.argv[1]).convert("L").save(sys.argv[1])', resolve(gen, file)]);
@@ -327,7 +354,6 @@ for (const { sb } of loadStoryboards(src)) for (const g of sb.groups ?? []) for 
 		// weights and a step took 350 s instead of 90 (2026-10-10, 64 GB machine, 18 GB of Qwen offloaded)
 		// only on the local 8 GB card – a cloud GPU keeps the model loaded for the whole session
 		if (engine === 'comfy' && /127\.0\.0\.1|localhost/.test(COMFY)) await fetch(`${COMFY}/free`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ unload_models: true, free_memory: true }) }).catch(() => {});
-		appendFileSync(resolve(OUT, 'generated.jsonl'), JSON.stringify({ date: new Date().toISOString(), shot: shot.id, file, ...(engine === 'luma' ? { engine: 'luma', model: lumaModel, style: lumaStyle, aspect: lumaJob.aspect_ratio, job: lumaJob.id } : { engine: 'comfy', model: M.unet, lora: M.lora, steps, cfg, refMethod, charLora: charLora || undefined, prompt: promptStyle, look: lookStyle, seed, host: new URL(COMFY).host }), images: files.map((f) => basename(f)), prompt }) + '\n');
 		console.log(`${file} (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
 	} catch (e) {
 		console.log(`failed: ${e.message}`);

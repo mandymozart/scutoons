@@ -1,4 +1,4 @@
-Status 2026-10-19: concept – owner to choose (§6 questions; nothing built). Issue #61.
+Status 2026-10-20: concept – owner to choose (§6 questions); §6 step 2 (the record with `kind` + `take`, approvals say `from`) built with VARIANTS-CANVAS phase 1 (#62, on the branch). Issue #61.
 
 # GENERATORS – image vs video generation in the storyboard studio (concept, 2026-10-19)
 

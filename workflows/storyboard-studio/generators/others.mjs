@@ -33,7 +33,7 @@ export function createFake({ read = null, stepMs = 300, steps = 5, fail = false 
 		paid: true,
 		creditUsd: 0.01,
 		note: 'a stand-in for tests – fake credits',
-		models: [{ id: 'fake-1', label: 'Fake – returns the still', kind: 'image', mode: 'fake', inputs: ['still', 'prompt', 'duration'], durations: { min: 1, max: 10 }, price: { creditsPerSecond: 1 } }],
+		models: [{ id: 'fake-1', label: 'Fake – returns the still', kind: 'image', mode: 'fake', inputs: ['still', 'prompt', 'duration'], durations: { min: 1, max: 10 }, price: { creditsPerSecond: 1 }, seed: true }],
 		status: async () => ({ configured: true }),
 		estimate: (job) => { const s = Math.max(1, Math.min(10, Math.round(Number(job.duration) || 5))); return { credits: s, usd: s / 100, seconds: s, note: 'fake credits' }; },
 		async run(job, ctx) {

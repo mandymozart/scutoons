@@ -90,7 +90,8 @@ every step.
 
 - the shots: `storyboards/<toon>/<chapter>/scene-*.json` (written as 2-space JSON)
 - variants: `storyboards/<toon>/<chapter>/variants/<shot>.json`, frames under `storyboards/_out/<chapter>/` (`frames/`,
-  `clean/` without texts, `variants/`, `generated/` + `generated.jsonl` – the generators' results and their log)
+  `clean/` without texts, `variants/`, `generated/` + `generated.jsonl` – the generators' results and their record,
+  "The record" below)
 - the generators: `generators/` (`jobs.mjs` the interface, `runway.mjs`, `comfy-local.mjs`, `luma-manual.mjs`,
   `others.mjs`, `rate.mjs` the euro rate; tests: `npm test -w workflows/storyboard-studio`); the rate's cache
   `.cache/eur-usd.json` (gitignored)
@@ -161,8 +162,8 @@ Owner 2026-10-19: film a shot's blocked scene with the phone, trim, render contr
 
 Owner 2026-10-19: "Ja, generator pluggable ist smart. Erstmal soweit bauen, dass ich die Runway API anbinden kann."
 The **Generate** panel sends a shot to a generator; the result lands in Variants → Generated
-(`_out/<chapter>/generated/<shot>--g<n>.png|mp4`, logged in `generated.jsonl` with generator, model, estimate, cost
-and the provider's task id), so "Approve as chosen" works as before. Each generator says what it takes; the inputs are
+(`_out/<chapter>/generated/<shot>--g<n>.png|mp4`, recorded in `generated.jsonl` – "The record" below), so "Approve as
+chosen" works as before. Each generator says what it takes; the inputs are
 pre-filled from the shot (the approved image, else the render without texts; the newest handheld render pass; the
 shot's "Image (EN)" text as the prompt). **Build from the shot** next to the Prompt replaces it with everything set for
 the shot – also unsaved changes – as one prompt (the story moment, perspective, figures, camera, light, empty zones,
@@ -191,6 +192,25 @@ background (a request never waits for it), cached in `.cache/eur-usd.json` (giti
 rate, else a fixed fallback (ECB 2026-10-19: 1 USD = 0.8909 €), marked as such in the tooltip;
 `STUDIO_EUR_PER_USD=<EUR per USD>` overrides it. Inside, the money stays in USD: the estimate, the jobs, the spend,
 `generated.jsonl` and the confirm check of `POST /api/generate` (`confirm` = the USD behind the euro figure).
+
+### The record (what made each generated file)
+
+`_out/<chapter>/generated.jsonl` – one v2 line per generation, append-only (`scripts/storyboard/generated-log.mjs`, the
+fields there and in agents/research/VARIANTS-CANVAS.md §3.7): id `<shot>--g<n>`, file, kind, take, generator, model,
+mode, the provider's job, status, the inputs as keys with their roles (still · control · keyframe · reference ·
+character · style), the parents (inputs under `generated/`; the approved image counts as the file it was approved
+from), prompt, seed, ratio, duration, estimate, cost, date, the mark. Written by the jobs (a failed or cancelled job
+too – an id, no file), drops (`generator: 'upload'`, png / jpeg / webp / mp4 / webm), comfy.mjs (`--from
+<shot>--g<n>.png`: improve on a result) and gemini.mjs; names are always the highest n + 1 over the files and the log,
+the file created exclusively (never written over). A model that takes a seed (Runway, ComfyUI) gets one picked when none is
+given. The marks: `POST /api/generated/mark { ch, ids, mark: 'review' | 'rejected' | null, marked }` appends one line per
+id, the last wins; approving appends `mark: null`. Chosen is no mark: approve.mjs writes `ch` and
+`files.from: "<shot>--g<n>.<ext>"` into the dataset line – the chosen image and the chosen video (clips.mjs; an approval
+from before 2026-10-20 is found by its copy's bytes). `GET /api/generated?ch=&ids=a,b` answers the picked shots' records
+(generated.mjs); a file without a v2 record comes back as `earlier: true` (nothing guessed). Old lines are converted once,
+by hand – a dry run with a report first:
+
+    node workflows/storyboard-studio/scripts/convert-generated-log.mjs [--ch s1c3] [--write] [--json]
 
 ### Runway einrichten (für den Owner)
 

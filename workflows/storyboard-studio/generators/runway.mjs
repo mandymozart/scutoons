@@ -6,7 +6,9 @@
 //                              the prompt, optionally the still as a keyframe at the start; the output follows the input
 // then GET /v1/tasks/{id} (status PENDING · THROTTLED · RUNNING + progress · SUCCEEDED + output URLs · FAILED ·
 // CANCELLED; not more often than every 5 s), DELETE /v1/tasks/{id} to cancel, the output URLs (they expire in 24–48 h)
-// downloaded at once. 1 credit = 0.01 USD. Inputs as data URIs (≤ 5 MB encoded), bigger files as an ephemeral upload
+// downloaded at once. 1 credit = 0.01 USD. Every model takes a `seed` (0 – 2³² − 1; `seed: true` – the manager picks one
+// when the job has none, so the record knows it: the task never says which one Runway picked by itself).
+// Inputs as data URIs (≤ 5 MB encoded), bigger files as an ephemeral upload
 // (POST /v1/uploads → a form POST → runway://…). act_two (character performance) needs a filmed face performance as
 // the driving video, so it is not offered for camera moves.
 //
@@ -23,9 +25,9 @@ import { EXT, dataUri, dataUriLength, mimeOf, mp4Duration, nearestRatio } from '
 export const VERSION = '2024-11-06';
 const I2V_RATIOS = ['1280:720', '720:1280', '1104:832', '960:960', '832:1104', '1584:672'];
 export const MODELS = [
-	{ id: 'gen4_turbo', label: 'Gen-4 Turbo – image to video', kind: 'video', mode: 'image_to_video', inputs: ['still', 'prompt', 'duration', 'ratio'], durations: { min: 2, max: 10 }, ratios: I2V_RATIOS, price: { creditsPerSecond: 5 } },
-	{ id: 'gen4.5', label: 'Gen-4.5 – image to video', kind: 'video', mode: 'image_to_video', inputs: ['still', 'prompt', 'duration', 'ratio'], durations: { min: 2, max: 10 }, ratios: I2V_RATIOS, price: { creditsPerSecond: 12 }, promptRequired: true },
-	{ id: 'aleph2', label: 'Aleph 2 – video to video (the handheld pass)', kind: 'video', mode: 'video_to_video', inputs: ['control', 'still', 'prompt'], maxInputSeconds: 30, price: { creditsPerSecond: 28, minCredits: 56 } }
+	{ id: 'gen4_turbo', label: 'Gen-4 Turbo – image to video', kind: 'video', mode: 'image_to_video', inputs: ['still', 'prompt', 'duration', 'ratio'], durations: { min: 2, max: 10 }, ratios: I2V_RATIOS, price: { creditsPerSecond: 5 }, seed: true },
+	{ id: 'gen4.5', label: 'Gen-4.5 – image to video', kind: 'video', mode: 'image_to_video', inputs: ['still', 'prompt', 'duration', 'ratio'], durations: { min: 2, max: 10 }, ratios: I2V_RATIOS, price: { creditsPerSecond: 12 }, promptRequired: true, seed: true },
+	{ id: 'aleph2', label: 'Aleph 2 – video to video (the handheld pass)', kind: 'video', mode: 'video_to_video', inputs: ['control', 'still', 'prompt'], maxInputSeconds: 30, price: { creditsPerSecond: 28, minCredits: 56 }, seed: true }
 ];
 const DATA_URI_MAX = 5 * 1024 * 1024;
 const sleep = (ms, signal) => new Promise((ok, no) => {

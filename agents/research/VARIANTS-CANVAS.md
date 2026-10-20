@@ -1,4 +1,4 @@
-Status 2026-10-20: concept, all owner questions answered (§6; Q4 not as recommended: one band per picked shot now, 3.2) – being built in stages (owner 2026-10-20: "bitte gern schon anfangen mit dem Studio"); static mockup; statuses as icon bullets, set on the selected card (3.3). Issue #62; the generators' side: #61 (research/GENERATORS.md).
+Status 2026-10-20: concept, all owner questions answered (§6; Q4 not as recommended: one band per picked shot now, 3.2) – being built in stages (owner 2026-10-20: "bitte gern schon anfangen mit dem Studio"): phase 1 (the record, §3.7 – studio README "The record") built on the branch, the conversion of the owner's logs not run yet; static mockup; statuses as icon bullets, set on the selected card (3.3). Issue #62; the generators' side: #61 (research/GENERATORS.md).
 
 # VARIANTS-CANVAS – every generation of a shot on one board (concept, 2026-10-19)
 
@@ -48,8 +48,8 @@ What "reference" means for the models built (docs.dev.runwayml.com/api.md, read 
 - **Chosen per kind**: approve.mjs copies `chosen<ext>` – a shot has a chosen image AND a chosen video.
 - **Timeline**: the picked shots' clips; the view mode Shot · Take · Rendered · Generated picks ONE clip per shot (Generated
   = the chosen video, else the newest) and what the main view shows; a click or seek on a clip makes its shot current.
-- **Naming bug**: `POST /api/generated` (api.mjs) and comfy.mjs name by count + 1 – once a `g<n>` was deleted they
-  overwrite a file (jobs.mjs `nextName` takes the highest n + 1 – the right way).
+- **Naming bug** (fixed in phase 1): `POST /api/generated`, comfy.mjs and gemini.mjs named by count + 1 – once a `g<n>`
+  was deleted they overwrote a file; all writers now take the highest n + 1 over the files and the log (generated-log.mjs).
 
 ## 3. The concept
 
@@ -168,9 +168,10 @@ What "reference" means for the models built (docs.dev.runwayml.com/api.md, read 
   "style", key: "out:s1c3/generated/…", frame?: "first" | "last" | <ms>, at? }], prompt, seed, ratio, duration,
   estimate, cost, date, mark: "review" | "rejected" | null, marked: "<date-time>" | null }`. `kind` + `take` as
   GENERATORS §3 (take = the control video's or the handheld frame's take, null for a pure image → video). `parents` =
-  every input under `generated/` (a frame counts as its video), the main input first. `mark` (not `status` – the job's);
-  `marked` = one X's stamp on its card + branch, the fold derived (3.5). **Chosen is no mark**: approve.mjs's `from` (the
-  chosen per kind) stays its one truth – status = chosen if `from`, else `mark`, else none; approving appends `mark: null`.
+  every input under `generated/` (a frame counts as its video, the approved copy as its `from`), the main input first.
+  `mark` (not `status` – the job's); `marked` = one X's stamp on its card + branch, the fold derived (3.5). **Chosen is
+  no mark**: approve.mjs's `from` (the chosen per kind) stays its one truth – status = chosen if `from`, else `mark`,
+  else none; approving appends `mark: null`.
 - **Writers**: jobs.mjs keeps full keys + roles (not basenames); the server **picks a seed** (0 … 2³² − 1) when the model
   takes one and none is given; failed / cancelled jobs write their line too (status, cost); `POST /api/generated` writes
   `{ generator: "upload" }` and takes mp4 too; comfy.mjs takes `--from <generated file>` (image 1) and writes `parents`;

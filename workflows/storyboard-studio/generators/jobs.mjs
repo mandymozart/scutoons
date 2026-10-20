@@ -1,8 +1,9 @@
 // The generator jobs (owner 2026-10-19: "Ja, generator pluggable ist smart. Erstmal soweit bauen, dass ich die Runway
 // API anbinden kann."): one registry of generators, the running jobs of this studio session (in memory), the session's
 // spend, and the results written as the shot's generated variants – storyboards/_out/<ch>/generated/<shot>--g<n>.<ext>
-// + a line in _out/<ch>/generated.jsonl, the same place and log as scripts/storyboard/comfy.mjs, so Variants →
-// "Approve as chosen" works unchanged. README "Generators", agents/research/STORYBOARD.md §3 "As built".
+// + a v2 record in _out/<ch>/generated.jsonl (scripts/storyboard/generated-log.mjs – the same log as comfy.mjs: the
+// inputs as keys with their roles, the parents, the take, the seed; a failed or cancelled job writes its line too), so
+// Variants → "Approve as chosen" works unchanged. README "Generators", agents/research/VARIANTS-CANVAS.md §3.7.
 //
 // A generator (generators/*.mjs):
 //   { id, label, kinds: ['image' | 'video'], paid: boolean, creditUsd?: number (what one of its credits costs),
@@ -10,7 +11,8 @@
 //       this PC, or by hand (luma-manual.mjs: never started, never run – the Generate panel shows the prompt to copy
 //       instead of Generate; the result is dropped onto Variants)
 //     models: [{ id, label, kind, mode, inputs: ['still' | 'control' | 'characters' | 'style' | 'prompt' | 'duration'
-//               | 'ratio'], durations?: { min, max } | number[], ratios?: string[], price?: { creditsPerSecond, minCredits } }],
+//               | 'ratio'], durations?: { min, max } | number[], ratios?: string[], price?: { creditsPerSecond, minCredits },
+//               seed?: true (it takes a seed: the manager picks one, 0 … 2³² − 1, when the job has none) }],
 //     status(): Promise<{ configured, how? }>        – "not configured" + a one-line how-to (never the key itself)
 //     estimate(job): { credits, usd, seconds, ratio?, note? }   – before anything is sent
 //     run(job, ctx): Promise<{ files?: [{ bytes, ext }], written?: [file name it wrote itself], meta? }>
@@ -22,13 +24,13 @@
 // Money here is the provider's: credits + USD (the estimate, the cost, the spend, `confirm`, generated.jsonl); the UI
 // shows it in euro at the rate GET /api/generators serves (rate.mjs – owner 2026-10-20: "preise in euro").
 
-import { appendFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
-import { basename, resolve } from 'node:path';
+import { SEED_MAX, appendLine, kindOf, nextName, parentsOf, pickSeed, record, writeNew } from '../../../scripts/storyboard/generated-log.mjs';
 
 const ACTIVE = new Set(['queued', 'running']);
 const cents = (usd) => Math.round(usd * 100) / 100;
 
-export function createManager({ generators, out, now = () => new Date() }) {
+/** parentOf(key) → the id of the generated file an input is a copy of (index.mjs: the approved image), or null */
+export function createManager({ generators, out, now = () => new Date(), parentOf = null }) {
 	const byId = new Map(generators.map((g) => [g.id, g]));
 	const jobs = [];
 	const spend = { usd: 0, credits: 0, jobs: 0 };
@@ -36,32 +38,45 @@ export function createManager({ generators, out, now = () => new Date() }) {
 
 	const gen = (id) => { const g = byId.get(id); if (!g) throw new Error(`no generator ${id}`); return g; };
 	const modelOf = (g, id) => g.models.find((m) => m.id === id) ?? g.models[0] ?? null;
-	const view = (j) => ({ id: j.id, generator: j.generator, model: j.model, shot: j.shot, ch: j.ch, status: j.status, progress: j.progress, message: j.message, task: j.task, estimate: j.estimate, cost: j.cost, files: j.files, created: j.created, ended: j.ended });
+	const view = (j) => ({ id: j.id, generator: j.generator, model: j.model, shot: j.shot, ch: j.ch, status: j.status, progress: j.progress, message: j.message, task: j.task, estimate: j.estimate, cost: j.cost, seed: j.input.seed, files: j.files, created: j.created, ended: j.ended });
 
-	/** the next free <shot>--g<n> (the highest n + 1, so a deleted file never gets overwritten) */
-	function nextName(dir, shot, ext) {
-		const used = existsSync(dir) ? readdirSync(dir).map((f) => new RegExp(`^${shot}--g(\\d+)\\.`).exec(f)?.[1]).filter(Boolean).map(Number) : [];
-		const n = Math.max(0, ...used, existsSync(dir) ? readdirSync(dir).filter((f) => f.startsWith(`${shot}--`)).length : 0) + 1;
-		return `${shot}--g${n}.${ext}`;
-	}
+	/** the record of one result, or of a job that ended without one (generated-log.mjs) */
+	const line = (j, fields) => record({
+		shot: j.shot, generator: j.generator, model: j.model, mode: j.mode, job: j.task, inputs: j.inputs, parents: j.parents, prompt: j.input.prompt ?? '',
+		seed: j.input.seed, ratio: j.estimate?.ratio, duration: j.estimate?.seconds,
+		estimate: j.estimate ? { credits: j.estimate.credits, usd: j.estimate.usd } : null, cost: j.cost, date: now().toISOString(), ...fields
+	});
 
 	function writeResults(j, res) {
-		const dir = resolve(out, j.ch, 'generated');
-		mkdirSync(dir, { recursive: true });
+		// comfy-local: comfy.mjs wrote its file and its record itself
 		const files = [...(res.written ?? [])];
 		for (const f of res.files ?? []) {
-			const name = nextName(dir, j.shot, f.ext);
-			writeFileSync(resolve(dir, name), f.bytes);
-			files.push(name);
-			// the log line of comfy.mjs, plus the generator, the model, the cost and the provider's task id
-			appendFileSync(resolve(out, j.ch, 'generated.jsonl'), JSON.stringify({
-				date: now().toISOString(), shot: j.shot, file: name, engine: j.generator, generator: j.generator, model: j.model,
-				job: j.task ?? undefined, mode: j.mode, duration: j.estimate?.seconds, ratio: j.estimate?.ratio,
-				estimate: j.estimate ? { credits: j.estimate.credits, usd: j.estimate.usd } : undefined,
-				cost: j.cost ?? undefined, ...(res.meta ?? {}), images: j.inputs, prompt: j.input.prompt ?? ''
-			}) + '\n');
+			const { id, file } = writeNew(out, j.ch, j.shot, f.ext, f.bytes);
+			files.push(file);
+			appendLine(out, j.ch, line(j, { id, file, kind: kindOf(file), status: 'succeeded', params: res.meta }));
 		}
+		if (!files.length) appendLine(out, j.ch, line(j, { id: nextName(out, j.ch, j.shot).id, kind: j.kind, status: 'succeeded', error: 'no file came back' }));
 		return files;
+	}
+
+	/** what the job sends, as keys with their roles (VARIANTS-CANVAS §3.7), only what the model takes – the main input
+	 *  first: a video to video's control video (the still is its keyframe at 0), else the still */
+	function inputsOf(m, job) {
+		const takes = (what) => (m?.inputs ?? []).includes(what);
+		const list = [];
+		if (takes('control') && job.control) list.push({ role: 'control', key: String(job.control) });
+		if (takes('still') && job.still) list.push(m.mode === 'video_to_video' ? { role: 'keyframe', key: String(job.still), at: 0 } : { role: 'still', key: String(job.still) });
+		if (takes('characters')) for (const k of job.characters ?? []) list.push({ role: 'character', key: String(k) });
+		if (takes('style')) for (const k of job.style ?? []) list.push({ role: 'style', key: String(k) });
+		return list;
+	}
+	/** the job's seed: the given one (0 … 2³² − 1), else one picked here when the model takes a seed, else null */
+	function seedOf(m, seed) {
+		if (!m?.seed) return null;
+		if (seed == null || seed === '') return pickSeed();
+		const n = Number(seed);
+		if (!Number.isInteger(n) || n < 0 || n > SEED_MAX) throw new Error(`bad seed ${seed} (0 … ${SEED_MAX})`);
+		return n;
 	}
 
 	async function execute(j, g) {
@@ -82,6 +97,8 @@ export function createManager({ generators, out, now = () => new Date() }) {
 		} catch (e) {
 			j.status = j.abort.signal.aborted || e.name === 'AbortError' ? 'cancelled' : 'failed';
 			j.message = j.status === 'cancelled' ? 'Cancelled.' : e.message;
+			// a failed or cancelled job keeps its line too: an id of the shot's (no file), its status, its cost
+			try { appendLine(out, j.ch, line(j, { id: nextName(out, j.ch, j.shot).id, kind: j.kind, status: j.status, error: j.status === 'failed' ? j.message : null })); } catch {}
 		} finally {
 			j.ended = now().toISOString();
 			// the session's spend: the provider's final cost, else the estimate for a success (never less than it cost)
@@ -107,16 +124,17 @@ export function createManager({ generators, out, now = () => new Date() }) {
 			const st = await g.status();
 			if (!st.configured) throw new Error(`${g.label} is not configured – ${st.how ?? ''}`.trim());
 			const m = modelOf(g, job.model);
-			const input = { ...job, model: m?.id };
+			const input = { ...job, model: m?.id, seed: seedOf(m, job.seed) };
 			const est = g.estimate(input);
 			if (g.paid && !(Number(confirm) >= est.usd)) throw new Error(`confirm the cost first (${est.credits} credits)`);
 			if (!/^[\w-]+$/.test(job.shot ?? '') || !/^[a-z0-9-]+$/.test(job.ch ?? '')) throw new Error('bad shot');
 			const j = {
-				id: `j${++seq}`, generator: g.id, model: m?.id ?? null, mode: m?.mode ?? null, shot: job.shot, ch: job.ch, status: 'queued', progress: null,
-				message: '', task: null, estimate: est, cost: null, files: [], created: now().toISOString(), ended: null,
-				input, inputs: [job.still, job.control, ...(job.characters ?? []), ...(job.style ?? [])].filter(Boolean).map((k) => basename(String(k))),
-				abort: new AbortController()
+				id: `j${++seq}`, generator: g.id, model: m?.id ?? null, mode: m?.mode ?? null, kind: m?.kind ?? null, shot: job.shot, ch: job.ch,
+				status: 'queued', progress: null, message: '', task: null, estimate: est, cost: null, files: [], created: now().toISOString(),
+				ended: null, input, inputs: inputsOf(m, job), abort: new AbortController()
 			};
+			// the parents as they are now (an approval during the run doesn't change what this one was made from)
+			j.parents = parentsOf(j.inputs, (key) => { try { return parentOf?.(key) ?? null; } catch { return null; } });
 			jobs.push(j);
 			j.done = execute(j, g);
 			return view(j);

@@ -15,6 +15,8 @@ import { createComfyLocal } from './comfy-local.mjs';
 import { createLumaManual } from './luma-manual.mjs';
 import { createComfyRemote, createFake } from './others.mjs';
 import { createRate } from './rate.mjs';
+import { approvedOf } from '../clips.mjs';
+import { idOf, kindOf } from '../../../scripts/storyboard/generated-log.mjs';
 
 const PASS_ORDER = ['grey', 'beauty', 'depth', 'normals'];
 /** the euro rate's cache – gitignored (workflows/storyboard-studio/.gitignore) */
@@ -24,7 +26,17 @@ export function generatorRoutes({ root, out, boards, media, findShot, shotCharac
 	const roots = { out, boards, media };
 	const generators = [createComfyLocal({ root, env }), createRunway({ root, env }), createLumaManual(), createComfyRemote()];
 	if (env.STUDIO_FAKE_GENERATOR === '1') generators.push(createFake({ read: (f) => readFileSync(f) }));
-	const manager = createManager({ generators, out });
+	// the approved image (or video) as an input is a copy of a generated file: its parent is that file (approve.mjs
+	// `from`, clips.mjs approvedOf) – a clip made from the chosen image hangs under it (VARIANTS-CANVAS §3.7)
+	function parentOf(key) {
+		const m = /^boards:dataset\/files\/([a-z0-9-]+)\/([\w-]+)\/chosen\.\w+$/.exec(key);
+		if (!m) return null;
+		const gd = resolve(boards, '_out', m[1], 'generated');
+		const files = existsSync(gd) ? readdirSync(gd).filter((f) => f.startsWith(`${m[2]}--`)) : [];
+		const hit = [...approvedOf({ boards, ch: m[1], shot: m[2], files })].find((f) => kindOf(f) === kindOf(key));
+		return hit ? idOf(hit) : null;
+	}
+	const manager = createManager({ generators, out, parentOf });
 	// the first fetch starts with the studio (in the background), so the first page load already has today's rate
 	rate.get();
 

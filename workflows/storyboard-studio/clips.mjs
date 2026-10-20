@@ -5,8 +5,8 @@
 //               rendered: [{ file, url, pass, take, ms }],     – _out/<ch>/handheld/<shot>--<take>--<pass>.mp4|webm,
 //                                                                 the newest take first, the beauty pass first
 //               generated: [{ file, url, ms, video, approved }] } } – _out/<ch>/generated/<shot>--g<n>.<ext>, newest
-//                                                                 first; approved = the file approve.mjs copied to the dataset
-//                                                                 (the newest chosen video and the newest chosen image)
+//                                                                 first; approved = the shot's chosen video and chosen image:
+//                                                                 approve.mjs's `from` (an older approval: the dataset copy's bytes)
 // Shots with nothing are left out. ms = the real duration read from the video file (MP4 / MOV: the mvhd box wherever
 // the moov sits, a fragmented file summed; WebM: the Info's Duration), null = unknown – the client then takes the
 // video's metadata; images: ms null, video false. Everything read is cached by mtime + size, so a chapter with many
@@ -226,18 +226,57 @@ function sameBytes(a, b) {
 	} catch { return false; } finally { for (const fd of [fa, fb]) if (fd !== undefined) closeSync(fd); }
 }
 
-/** marks the generated files approve.mjs copied to storyboards/dataset/files/<ch>/<shot>/chosen.<ext> – per kind (a
- *  chosen.png and a chosen.mp4 live side by side: the panel's still and the clip's video are two choices), the newest
- *  copy of each kind, the newest generated file with its bytes */
-function markApproved(boards, ch, shot, items) {
+/** the approvals that name their generated file (approve.mjs `from`, since 2026-10-20 – VARIANTS-CANVAS §3.5) from
+ *  storyboards/dataset/manifest.jsonl: "<ch>/<shot>" → { image?, video? } – per kind the newest approval's `from`
+ *  (null = the chosen was no generated file); a kind without such an approval is missing */
+function chosenFrom(boards) {
+	const file = resolve(boards, 'dataset', 'manifest.jsonl');
+	const st = statOf(file);
+	return st ? cached(`manifest:${file}`, [st], () => {
+		const map = new Map();
+		for (const line of readFileSync(file, 'utf8').split('\n')) {
+			let j;
+			try { j = JSON.parse(line); } catch { continue; }
+			const f = j?.files;
+			if (!j?.ch || !j.shot || !f?.chosen || !('from' in f)) continue;
+			const at = map.get(`${j.ch}/${j.shot}`) ?? {};
+			at[VIDEO.test(f.chosen) ? 'video' : 'image'] = f.from ?? null;
+			map.set(`${j.ch}/${j.shot}`, at);
+		}
+		return map;
+	}) : new Map();
+}
+
+/** the shot's generated files that are its chosen ones – per kind (a chosen.png and a chosen.mp4 live side by side: the
+ *  panel's still and the clip's video are two choices): the newest approval's `from`; an older approval (without one):
+ *  the newest copy of that kind in storyboards/dataset/files/<ch>/<shot>/, matched by its bytes to the newest generated
+ *  file. files = names in _out/<ch>/generated/; a Set of names */
+export function approvedOf({ boards, ch, shot, files }) {
+	const gd = resolve(boards, '_out', ch, 'generated');
+	const items = files.map((name) => ({ name, file: resolve(gd, name), st: statOf(resolve(gd, name)), n: Number(/--g(\d+)\./.exec(name)?.[1] ?? 0) }))
+		.filter((g) => g.st).sort((a, b) => b.n - a.n || b.st.mtimeMs - a.st.mtimeMs || b.name.localeCompare(a.name));
+	const from = chosenFrom(boards).get(`${ch}/${shot}`) ?? {};
 	const dir = resolve(boards, 'dataset', 'files', ch, shot);
 	const copies = list(dir).filter((f) => f.startsWith('chosen.')).map((f) => ({ file: resolve(dir, f), st: statOf(resolve(dir, f)) }))
 		.filter((c) => c.st).sort((a, b) => b.st.mtimeMs - a.st.mtimeMs);
+	const approved = new Set();
 	for (const video of [true, false]) {
+		const kind = video ? 'video' : 'image';
+		if (kind in from) {
+			if (items.some((g) => g.name === from[kind])) approved.add(from[kind]);
+			continue;
+		}
 		const chosen = copies.find((c) => VIDEO.test(c.file) === video);
-		const hit = chosen && items.find((g) => g.entry.video === video && g.st.size === chosen.st.size && cached(`same:${chosen.file}|${g.file}`, [chosen.st, g.st], () => sameBytes(chosen.file, g.file)));
-		if (hit) hit.entry.approved = true;
+		const hit = chosen && items.find((g) => VIDEO.test(g.name) === video && g.st.size === chosen.st.size && cached(`same:${chosen.file}|${g.file}`, [chosen.st, g.st], () => sameBytes(chosen.file, g.file)));
+		if (hit) approved.add(hit.name);
 	}
+	return approved;
+}
+
+/** a video file's duration (ms, cached by mtime + size), null = unknown or not there */
+export function clipMs(file) {
+	const st = statOf(file);
+	return st ? durationOf(file, st) : null;
 }
 
 /** the clips of a chapter's shots (the shape at the top); boards = the storyboards folder, toon / ch as in api.mjs */
@@ -270,7 +309,8 @@ export function chapterClips({ boards, toon, ch }) {
 	}
 	for (const [id, items] of Object.entries(generated)) {
 		items.sort((a, b) => b.n - a.n || b.st.mtimeMs - a.st.mtimeMs || b.entry.file.localeCompare(a.entry.file));
-		markApproved(boards, ch, id, items);
+		const approved = approvedOf({ boards, ch, shot: id, files: items.map((g) => g.entry.file) });
+		for (const g of items) g.entry.approved = approved.has(g.entry.file);
 		at(id).generated = items.map((g) => g.entry);
 	}
 	const fmt = (f) => (f.endsWith('.mp4') ? 0 : 1);
