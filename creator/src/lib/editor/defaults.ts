@@ -115,13 +115,20 @@ export function newDialog(id: string, rect: Dialog['rect'], variant: Dialog['var
 }
 
 /**
- * A free dialog id `s1c2-<slice>-<n>` (slice number is 1-based, like chapter 1); `taken` = the chapter's other ids (ids are
- * unique in the chapter, its scenes too – linked groups share a page; the author never types them)
+ * A free text box id `s1c2-t<n>`: a chapter counter (agents/research/TEXT-ACROSS-SLICES.md §5 step 2 – a box may move to
+ * another slice, so its id no longer names one; older ids `s1c2-<slice>-<n>` stay as they are). `taken` = the chapter's
+ * ids (unique in the chapter – linked groups share a page; the author never types them): the next after the highest
+ * counter there.
  */
-export function nextDialogId(chapter: number, sliceIndex: number, existing: (Dialog | undefined)[], season = 1, taken: Iterable<string> = []) {
-	const prefix = `${chapterSlug(chapter, season)}-${sliceIndex + 1}-`;
-	const used = new Set<string | undefined>([...existing.map((d) => d?.id), ...taken]);
-	let n = existing.length + 1;
+export function nextDialogId(chapter: number, taken: Iterable<string> = [], season = 1) {
+	const prefix = `${chapterSlug(chapter, season)}-t`;
+	const used = new Set<string>(taken);
+	let n = 0;
+	for (const id of used) {
+		const m = id.startsWith(prefix) ? /^\d+$/.exec(id.slice(prefix.length)) : null;
+		if (m) n = Math.max(n, Number(m[0]));
+	}
+	n++;
 	while (used.has(prefix + n)) n++;
 	return prefix + n;
 }

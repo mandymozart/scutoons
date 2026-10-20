@@ -24,10 +24,10 @@ export interface SliceTarget {
 
 export const presetOf = (id: string) => TEXT_PRESETS.find((p) => p.id === id)!;
 
-/** ids follow the image number like chapter 1 (s1c1-<slice>-<n>), else the position in the group */
+/** a chapter counter (s1c2-t<n>, defaults.ts nextDialogId) – none of the chapter's ids, nor the slice's */
 function nextId(t: SliceTarget) {
-	const imageNo = Number(String(t.slice?.image ?? '').match(/(\d+)\.\w+$/)?.[1]);
-	return nextDialogId(t.chapterNumber, (imageNo || t.sliceIndex + 1) - 1, t.slice?.dialog ?? [], 1, t.taken?.());
+	const own = (t.slice?.dialog ?? []).map((d: any) => d?.id).filter((id: unknown): id is string => typeof id === 'string');
+	return nextDialogId(t.chapterNumber, [...(t.taken?.() ?? []), ...own]);
 }
 
 /** a new text with a preset's look (default speech; a drawn one keeps the drawn rect) */

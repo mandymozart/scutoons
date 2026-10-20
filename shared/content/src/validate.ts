@@ -740,7 +740,6 @@ function checkSlice(c: Collector, s: any, path: Path, ctx: ValidateContext) {
 		else {
 			s.items.forEach((it: any, i: number) => {
 				checkSliceItem(c, it, [...path, 'items', i], ctx);
-				if (Array.isArray(it?.events)) checkDialogRefs(c, it.events, [s], [...path, 'items', i, 'events'], 'this slice');
 			});
 			const ids = s.items.map((it: any) => it?.id).filter(isStr);
 			ids.forEach((id: string, i: number) => {
@@ -783,12 +782,15 @@ function checkSlice(c: Collector, s: any, path: Path, ctx: ValidateContext) {
 		if (!Array.isArray(s.events)) c.error([...path, 'events'], 'events must be an array');
 		else {
 			s.events.forEach((e: any, i: number) => checkEvent(c, e, [...path, 'events', i], ctx, true));
-			checkDialogRefs(c, s.events, [s], [...path, 'events'], 'this slice');
 		}
 	}
 }
 
-/** showTextBox events that reveal a text box (`params.dialog`): the box must be there (slice events: on the slice) */
+/**
+ * showTextBox events that reveal a text box (`params.dialog`): the box must be in the group – a slice's event may reveal a
+ * box anchored on another slice of its group (agents/research/TEXT-ACROSS-SLICES.md §5 step 2: a box re-anchored across a
+ * seam keeps its id, the event keeps working)
+ */
 function checkDialogRefs(c: Collector, events: any[], slices: any[], path: Path, where: string) {
 	const ids = new Set(slices.flatMap((s) => (Array.isArray(s?.dialog) ? s.dialog.map((d: any) => d?.id) : [])).filter(isStr));
 	const seen = new Map<string, number>();
@@ -924,6 +926,13 @@ export function checkGroup(c: Collector, g: any, path: Path, ctx: ValidateContex
 		if (!g.slices.length && !g.events) c.warn([...path, 'slices'], 'group has no slices');
 		g.slices.forEach((s: any, i: number) => checkSlice(c, s, [...path, 'slices', i], ctx));
 		checkSliceEdges(c, g, path);
+		// the slices' and their placed items' showTextBox events: the box anywhere in the group
+		g.slices.forEach((s: any, si: number) => {
+			if (!isObj(s)) return;
+			const sp = [...path, 'slices', si];
+			if (Array.isArray(s.events)) checkDialogRefs(c, s.events, g.slices, [...sp, 'events'], "the group's slices");
+			if (Array.isArray(s.items)) s.items.forEach((it: any, i: number) => Array.isArray(it?.events) && checkDialogRefs(c, it.events, g.slices, [...sp, 'items', i, 'events'], "the group's slices"));
+		});
 	}
 	if (g.events !== undefined) {
 		if (!Array.isArray(g.events)) c.error([...path, 'events'], 'events must be an array');

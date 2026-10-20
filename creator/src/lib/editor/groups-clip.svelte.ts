@@ -51,7 +51,7 @@ export function groupsClipHandler(o: GroupsClipOptions): ClipHandler {
 		const now = pickedNow();
 		const at = now.length ? Math.max(...now) + 1 : o.groups().length;
 		const labels = new Set(clipCtx.groupLabels());
-		const nextBoxId = boxIdSource(clipCtx, (_s, i) => i + 1);
+		const nextBoxId = boxIdSource(clipCtx);
 		const prepared = clip.entries.map((g) => prepareGroup(clip, g, { toon: o.chapter().toon, nextBoxId }, labels));
 		o.chapter().edit((file) => {
 			const map = mergeSounds(file, clip.sounds, clip.toon, o.chapter().toon);

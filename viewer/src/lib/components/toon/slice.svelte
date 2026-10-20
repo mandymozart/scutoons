@@ -218,12 +218,15 @@
 		nudgeCue(el, item.rotation ?? 0, shape);
 	}
 
-	// text boxes revealed by showTextBox events (params.dialog): hidden until then, then they play the event's effect
-	// the slice's events and its placed items' tap events
+	// text boxes revealed by showTextBox events (params.dialog): hidden until then, then they play the event's effect.
+	// The events of every slice of the group and their placed items' tap events: a box re-anchored across a seam keeps
+	// its id, the event on the slice it came from still reveals it (agents/research/TEXT-ACROSS-SLICES.md §5 step 2)
 	const sliceRefs = $derived(
 		new Set(
-			[...(slice.events ?? []), ...(slice.items ?? []).flatMap((it) => it.events ?? [])].flatMap((e) =>
-				e.type === 'showTextBox' && typeof e.params?.dialog === 'string' && e.params.dialog ? [e.params.dialog] : []
+			(allSlices.length ? allSlices : [slice]).flatMap((s) =>
+				[...(s.events ?? []), ...(s.items ?? []).flatMap((it) => it.events ?? [])].flatMap((e) =>
+					e.type === 'showTextBox' && typeof e.params?.dialog === 'string' && e.params.dialog ? [e.params.dialog] : []
+				)
 			)
 		)
 	);

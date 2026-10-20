@@ -51,7 +51,7 @@ export function slicesClipHandler(o: SlicesClipOptions): ClipHandler {
 		if (refused) return refused;
 		const at = pickedNow().length ? Math.max(...pickedNow()) + 1 : o.slices().length;
 		const placementIds = new Set<string>(o.slices().flatMap((s) => (s?.items ?? []).map((i: any) => i?.id)));
-		const prepared = prepareSlices(clip, clip.entries, { toon: o.doc().toon, placementIds, nextBoxId: boxIdSource(clipCtx, (_s, i) => at + i + 1) });
+		const prepared = prepareSlices(clip, clip.entries, { toon: o.doc().toon, placementIds, nextBoxId: boxIdSource(clipCtx) });
 		let map = noSounds();
 		// the sounds go into the chapter's library (a separate scene: a second undo step in the chapter document)
 		if (clip.sounds && o.doc() !== clipCtx.chapter) clipCtx.chapter.edit((file) => (map = mergeSounds(file, clip.sounds, clip.toon, o.doc().toon)));

@@ -10,6 +10,7 @@
 //     5. a box pushed over the seam (Shift + ↓): its crossing part lies over the next slice and takes the pointer there
 //     6. the seams toggle: a hairline at every seam, remembered
 //     7. a zoom (1:1, fit) moves the scroll but never opens another slice
+//     8. a box dragged over the seam and let go there moves to that slice (id kept, selected); one undo puts it back
 //   a horizontal group (default group 2): the slices side by side at the area's height
 //   phone 390 × 844 (touch): the strip at full width, a tap on a box selects it
 //   node scripts/dev/creator-strip-check.mjs [--toon=catpope] [--chapter=2] [--group=6] [--slice=20] [--hgroup=2]
@@ -137,6 +138,44 @@ try {
 		const c4 = await centred(page);
 		const top1 = await page.evaluate(() => document.querySelector('[data-testid="canvas-area"]').scrollTop);
 		check(`1440: ‹ opens slice ${at - 1} and the strip scrolls it to the centre`, (await sliceOf(page)) === at - 1 && c4.centre === at - 2 && top1 < top0, JSON.stringify({ at, c4, top0, top1 }));
+
+		// 8 – dragged over the seam and let go there: the box moves to that slice (its id, its place on screen), one undo
+		{
+			const before = await page.evaluate(() => {
+				const open = Number(document.querySelector('.slot.active').dataset.strip);
+				const b = document.querySelector('[data-testid="slice-canvas"] [data-testid^="box-dialog-"]');
+				if (!b) return null;
+				b.scrollIntoView({ block: 'center' });
+				return { open, id: b.querySelector('.tag')?.textContent, testid: b.dataset.testid, count: document.querySelectorAll('[data-testid="slice-canvas"] [data-testid^="box-dialog-"]').length };
+			});
+			if (!before) check('1440: a text box on the open slice to drag', false);
+			else {
+				await sleep(500);
+				const at = await page.evaluate((t) => {
+					const b = document.querySelector(`[data-testid="slice-canvas"] [data-testid="${t}"]`).getBoundingClientRect();
+					const slot = document.querySelector('.slot.active').getBoundingClientRect();
+					return { x: b.x + b.width / 2, y: b.y + Math.min(6, b.height / 2), cy: b.y + b.height / 2, bottom: slot.bottom };
+				}, before.testid);
+				const open0 = await sliceOf(page);
+				const dy = at.bottom - at.cy + 30;
+				await page.mouse.move(at.x, at.y);
+				await page.mouse.down();
+				for (let n = 1; n <= 8; n++) await page.mouse.move(at.x, at.y + (dy * n) / 8);
+				await page.mouse.up();
+				await sleep(500);
+				const after = await page.evaluate(() => {
+					const sel = document.querySelector('[data-testid="slice-canvas"] .box.selected');
+					return { id: sel?.querySelector('.tag')?.textContent, slot: Number(document.querySelector('.slot.active').dataset.strip) };
+				});
+				const left = await page.evaluate((o) => document.querySelectorAll(`[data-strip="${o}"] [data-testid^="strip-box-dialog-"]`).length, before.open);
+				check(`1440: ${before.id} dragged over the seam is re-anchored on slice ${open0 + 1}, selected, its id kept`, (await sliceOf(page)) === open0 + 1 && after.id === before.id && after.slot === before.open + 1 && left === before.count - 1, JSON.stringify({ before, after, left, slice: await sliceOf(page) }));
+				await page.keyboard.press('Control+z');
+				await sleep(400);
+				const back = await page.evaluate((o) => document.querySelectorAll(`[data-strip="${o}"] [data-testid*="box-dialog-"]`).length, before.open);
+				check('1440: one undo puts it back on its slice', back === before.count, String(back));
+				await page.keyboard.press('Escape');
+			}
+		}
 
 		// 7 – a zoom moves the scroll, never the open slice
 		const z0 = await sliceOf(page);

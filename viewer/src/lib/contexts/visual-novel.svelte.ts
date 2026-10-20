@@ -301,7 +301,7 @@ export function createVisualNovelContext() {
 		for (const id of ids) dialogRefs[boxKey(scope, id)] = true;
 	}
 
-	/** a text box waits for its showTextBox event (`sliceRefs` = the refs of its own slice's events; `scope` = its group) */
+	/** a text box waits for its showTextBox event (`sliceRefs` = the refs of its group's slices' events; `scope` = its group) */
 	function dialogHidden(id: string | undefined, sliceRefs?: ReadonlySet<string>, scope = ''): boolean {
 		if (!id || revealedDialogs[boxKey(scope, id)]) return false;
 		return !!dialogRefs[boxKey(scope, id)] || !!sliceRefs?.has(id);

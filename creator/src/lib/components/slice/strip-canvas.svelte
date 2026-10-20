@@ -16,6 +16,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import SliceCanvas, { type CanvasSelection, type ItemKind, type Tool } from './slice-canvas.svelte';
 	import type { Rect } from '$lib/editor/canvas-geometry.ts';
+	import { moveAcrossSeam, sliceAt, type DrawnBox } from '$lib/editor/strip-anchor.ts';
 
 	let {
 		doc,
@@ -205,6 +206,43 @@
 		else window.scrollBy({ left: dx, top: dy, behavior: 'instant' });
 	});
 
+	/** a slice's drawn box (its canvas; unmounted: its place) */
+	function drawnBox(i: number): DrawnBox | null {
+		const slot = slots[i];
+		if (!slot) return null;
+		const r = (slot.querySelector('.creator-canvas') ?? slot).getBoundingClientRect();
+		return { left: r.left, top: r.top, width: r.width, height: r.height };
+	}
+
+	/**
+	 * a box let go with its centre on another slice: it moves there (TEXT-ACROSS-SLICES.md §3 – the id stays, the place on
+	 * screen stays, strip-anchor.ts) and stays selected; the drag's undo step covers it
+	 */
+	function dropped(i: number, item: { kind: 'dialog' | 'item'; index: number }) {
+		const el = slots[i]?.querySelector<HTMLElement>(`[data-testid="box-${item.kind}-${item.index}"]`);
+		if (!el) return;
+		const r = el.getBoundingClientRect();
+		const boxes = slices.map((_, n) => drawnBox(n));
+		const to = sliceAt(boxes, { x: r.left + r.width / 2, y: r.top + r.height / 2 }, axis);
+		const from = boxes[i];
+		const target = boxes[to];
+		if (to < 0 || to === i || !from || !target) return;
+		const list = item.kind === 'dialog' ? 'dialog' : 'items';
+		let index = -1;
+		// every stored locale (a neutral chapter has one; the same list never twice)
+		const done = new Set<unknown>();
+		for (const l of doc.present) {
+			const all = doc.get(l, [...groupPath, 'slices']);
+			if (!Array.isArray(all) || done.has(all)) continue;
+			done.add(all);
+			const moved = moveAcrossSeam(all, list, i, item.index, to, from, target);
+			if (index < 0 && moved >= 0) index = moved;
+		}
+		if (index < 0) return;
+		take(to);
+		onselect?.(to, { kind: item.kind, index });
+	}
+
 	/** a pointer on slice `i`: it becomes the open slice without a scroll */
 	function take(i: number) {
 		reported = i;
@@ -283,6 +321,7 @@
 						take(i);
 						oncreate?.(i, t, rect);
 					}}
+					ondrop={(item) => dropped(i, item)}
 				/>
 			{:else}
 				<div class="placeholder" style:--ratio={ratioOf(i)}></div>

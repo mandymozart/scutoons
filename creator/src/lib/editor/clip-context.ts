@@ -32,14 +32,13 @@ export function setClipContext(ctx: ClipContext): () => void {
 export const getClipContext = (): ClipContext | null => holder.current;
 
 /**
- * A text box id source for one paste: the slice's image number like `nextId` in slice-edit.ts (s1c1-<slice>-<n>), unique
- * in the chapter and among the ids this paste already handed out.
+ * A text box id source for one paste: the chapter counter like `nextId` in slice-edit.ts (s1c2-t<n>), unique in the
+ * chapter and among the ids this paste already handed out.
  */
-export function boxIdSource(ctx: Pick<ClipContext, 'boxIds' | 'chapterNumber'>, sliceNumber: (slice: any, index: number) => number) {
+export function boxIdSource(ctx: Pick<ClipContext, 'boxIds' | 'chapterNumber'>) {
 	const used = new Set(ctx.boxIds());
-	return (slice: any, index: number) => {
-		const imageNo = Number(String(slice?.image ?? '').match(/(\d+)\.\w+$/)?.[1]);
-		const id = nextDialogId(ctx.chapterNumber, (imageNo || sliceNumber(slice, index)) - 1, [], 1, used);
+	return () => {
+		const id = nextDialogId(ctx.chapterNumber, used);
 		used.add(id);
 		return id;
 	};

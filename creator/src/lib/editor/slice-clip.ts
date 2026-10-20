@@ -100,8 +100,8 @@ export function sliceClipHandler(ctx: SliceClipContext): ClipHandler {
 					const entry = JSON.parse(JSON.stringify(raw));
 					delete entry.layer; // lands on top of the layer stack
 					if (kind === 'dialog') {
-						const imageNo = Number(String(slice.image ?? '').match(/(\d+)\.\w+$/)?.[1]);
-						entry.id = nextDialogId(ctx.chapterNumber, (imageNo || t.sliceIndex + 1) - 1, slice.dialog ?? [], 1, t.taken?.());
+						const own = (slice.dialog ?? []).map((d: any) => d?.id).filter((id: unknown): id is string => typeof id === 'string');
+						entry.id = nextDialogId(ctx.chapterNumber, [...(t.taken?.() ?? []), ...own]);
 						entry.rect = offsetRect(entry.rect, list);
 					} else if (kind === 'item') {
 						entry.id = newPlacementId(String(entry.item ?? 'item'), placements);

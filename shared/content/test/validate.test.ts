@@ -279,6 +279,7 @@ test('showTextBox event → text box (params.dialog); bubble frame + tail; outli
 	const rect = { x: 10, y: 10, width: 30 };
 	const box = (extra: object = {}) => ({ id: 'b1', rect, text: 'BAM', ...extra });
 	const ono = (params: object) => ({ type: 'showTextBox', params, trigger: { type: 'intersect' } });
+	const tapEventsOf = (dialog: string) => ({ items: [{ id: 'x-1', item: 'x', rect, action: 'events', events: [{ type: 'showTextBox', params: { dialog } }] }] });
 	const chapter = (slice: object, events?: object[]) => ({
 		title: 'P',
 		number: 2,
@@ -295,6 +296,19 @@ test('showTextBox event → text box (params.dialog); bubble frame + tail; outli
 	]);
 	assert.deepEqual(list(chapter({ dialog: [box()], events: [ono({ dialog: 'nope' })] })), ['warning groups.0.slices.0.events.0.params.dialog']);
 	assert.deepEqual(list(chapter({ dialog: [box()], events: [ono({ dialog: 3 })] })), ['error groups.0.slices.0.events.0.params.dialog']);
+	// a slice's event may reveal a box on another slice of its group (a box re-anchored across a seam keeps its id –
+	// TEXT-ACROSS-SLICES.md §5 step 2); a box in another group is not there
+	const twoSlices = (first: object, second: object, more: object[] = []) => ({
+		title: 'P',
+		number: 2,
+		groups: [{ label: 'g', renderer: { type: 'vertical' }, slices: [{ image: 's1/c2/a.webp', width: 390, height: 625, ...first }, { image: 's1/c2/b.webp', width: 390, height: 625, ...second }] }, ...more]
+	});
+	assert.deepEqual(list(twoSlices({ events: [ono({ dialog: 'b1' })] }, { dialog: [box()] })), []);
+	assert.deepEqual(list(twoSlices({ ...tapEventsOf('b1') }, { dialog: [box()] })), []);
+	assert.deepEqual(
+		problems('chapter', twoSlices({ events: [ono({ dialog: 'b1' })] }, {}, [{ label: 'h', renderer: { type: 'vertical' }, slices: [{ image: 's1/c2/c.webp', width: 390, height: 625, dialog: [box()] }] }])).filter((p) => p.includes('params.dialog')),
+		['warning groups.0.slices.0.events.0.params.dialog']
+	);
 	// a group script may reveal a box on any of the group's slices
 	const groupEvent = { type: 'showTextBox', params: { dialog: 'b1' } };
 	assert.deepEqual(list(chapter({ dialog: [box()] }, [groupEvent])), []);
@@ -332,7 +346,7 @@ test('showTextBox event → text box (params.dialog); bubble frame + tail; outli
 	assert.deepEqual(withRules('visit'), ['error groups.0.slices.0.items.0.respawn'], 'every reload is shorter than 1 h');
 	assert.deepEqual(withRules({ days: 2 }), ['error groups.0.slices.0.items.0.respawn'], 'longer than the item allows');
 	assert.deepEqual(withRules({ hours: 2 }, 'weed'), ['error groups.0.slices.0.items.0.respawn'], 'the item never reappears');
-	// a placed item's tap events may reveal a text box on its slice
+	// a placed item's tap events may reveal a text box in its group
 	const tapEvents = (dialog: string) => ({ items: [{ id: 'x-1', item: 'x', rect, action: 'events', events: [{ type: 'showTextBox', params: { dialog } }] }] });
 	assert.deepEqual(list(chapter({ dialog: [box()], ...tapEvents('b1') })), []);
 	assert.deepEqual(list(chapter({ dialog: [box()], ...tapEvents('b2') })), ['warning groups.0.slices.0.items.0.events.0.params.dialog']);

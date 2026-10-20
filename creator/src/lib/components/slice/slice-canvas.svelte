@@ -51,7 +51,8 @@
 		onselect,
 		oncreate,
 		strip = null,
-		open = true
+		open = true,
+		ondrop
 	}: {
 		doc: ContentDoc;
 		slicePath: Path;
@@ -97,6 +98,8 @@
 		strip?: 'vertical' | 'horizontal' | null;
 		/** the open slice of the strip: it carries the test ids (the others are its neighbours) */
 		open?: boolean;
+		/** a text box / placed item was moved by the pointer and let go (the strip re-anchors it when it left the slice) */
+		ondrop?: (item: { kind: 'dialog' | 'item'; index: number }) => void;
 	} = $props();
 
 	/** the slice as the reader shows it in `locale` (texts resolved – the editing below writes the document itself) */
@@ -134,7 +137,11 @@
 		ramp?: { from: PiecePoint; to: PiecePoint };
 	}
 
-	/** text box id → the showTextBox event that reveals it (`params.dialog`): the slice's events, its placed items' tap events, the group script */
+	/**
+	 * text box id → the showTextBox event that reveals it (`params.dialog`): the slice's events, its placed items' tap
+	 * events, then the other slices' of the group ("slice 3 ⚡ 1" – a box re-anchored across a seam keeps its event,
+	 * TEXT-ACROSS-SLICES.md §5 step 2), the group script
+	 */
 	const revealers = $derived.by(() => {
 		const out = new Map<string, string>();
 		const add = (events: any, label: (i: number) => string) =>
@@ -142,10 +149,18 @@
 				const ref = e?.type === 'showTextBox' ? e?.params?.dialog : undefined;
 				if (typeof ref === 'string' && ref && !out.has(ref)) out.set(ref, label(i));
 			});
+		const own = slicePath[slicePath.length - 1];
+		const groupPath = slicePath.length >= 2 ? slicePath.slice(0, -2) : null;
+		const others: any[] = groupPath ? (doc.get(doc.primary, [...groupPath, 'slices']) ?? []) : [];
 		add(slice?.events, (i) => `⚡ ${i + 1}`);
 		(slice?.items ?? []).forEach((it: any, n: number) => add(it?.events, (i) => `◆ ${n + 1}.${i + 1}`));
-		const group = slicePath.length >= 2 ? doc.get(doc.primary, [...slicePath.slice(0, -2), 'events']) : null;
-		add(group, (i) => `script ${i + 1}`);
+		others.forEach((s: any, si: number) => {
+			if (si === own) return;
+			const at = m['creator.slice_n']({ number: si + 1 });
+			add(s?.events, (i) => `${at} ⚡ ${i + 1}`);
+			(s?.items ?? []).forEach((it: any, n: number) => add(it?.events, (i) => `${at} ◆ ${n + 1}.${i + 1}`));
+		});
+		if (groupPath) add(doc.get(doc.primary, [...groupPath, 'events']), (i) => `script ${i + 1}`);
 		return out;
 	});
 
@@ -596,7 +611,9 @@
 			swallowTapClick(event);
 			oncreate?.(tool, { x: round2(drag.start.x), y: round2(drag.start.y), width: 0, height: 0 });
 		}
+		const dropped = drag.mode === 'edit' && drag.handle === 'move' && drag.moved && (drag.item?.kind === 'dialog' || drag.item?.kind === 'item') ? drag.item : null;
 		drag = null;
+		if (dropped) ondrop?.({ kind: dropped.kind as 'dialog' | 'item', index: dropped.index });
 		guides = { x: false, y: false };
 		checkpointed = false;
 	}
