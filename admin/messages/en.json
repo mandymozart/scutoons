@@ -1042,7 +1042,7 @@
 		"variable_name": "the name (empty when there is none)",
 		"variable_name_or": "the name, else “{word}”",
 		"variable_signin": "Sign-in button (personal: members “Sign in”, QR owners “Create your account”)",
-		"body_hint": "A blank line starts a paragraph. {example} = the name, or the word after | when there is none. The buttons above insert pictures, buttons and placeholders.",
+		"body_hint": "A blank line starts a paragraph. {example} = the name, or the word after | when there is none. The buttons above insert a picture, a button, the name, the sign-in and the gift button (tooltip).",
 		"preview": "Preview",
 		"save": "Save",
 		"saved": "Saved.",
