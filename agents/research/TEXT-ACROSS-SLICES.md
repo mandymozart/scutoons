@@ -1,4 +1,4 @@
-Status 2026-10-19: concept + plan; §8 steps 1–2 and §9 built and live (the endless band, format + migration, Swiper gone). Owner 2026-10-19: Q1 step 1 ships WITH step 2, Q2 drafts first, Q4 keep "Slices", Q7 canvas bands only in the strip editor, Q3 one document; "Szene" stays the group's name, slices name their storyboard shot (§10). Step 3 built on branch claude/slices-rework-fe9a8d (scenes inlined by the migration 2026-10-19-inline-scenes, `ref` / the `scene` kind out of the code, optional `slice.shot`), not pushed. Strip editor drafts (§4.1): D1 = A picked, phone D drawn (§4.1) for the owner's look; then §5 steps 1 + 2 together. GitHub #44 (FEATURES 10.100).
+Status 2026-10-19: concept + plan; §8 steps 1–2 and §9 built and live (the endless band, format + migration, Swiper gone). Owner 2026-10-19: Q1 step 1 ships WITH step 2, Q2 drafts first, Q4 keep "Slices", Q7 canvas bands only in the strip editor, Q3 one document; "Szene" stays the group's name, slices name their storyboard shot (§10). Step 3 built on branch claude/slices-rework-fe9a8d (scenes inlined by the migration 2026-10-19-inline-scenes, `ref` / the `scene` kind out of the code, optional `slice.shot`), not pushed. Strip editor drafts (§4.1): D1 = A picked, phone E drawn (§4.1) for the owner's look; then §5 steps 1 + 2 together. GitHub #44 (FEATURES 10.100).
 
 # Slices as background: the strip editor
 
@@ -158,6 +158,23 @@ als auch die Settings – wir werden so kontextueller") → `phone-d.html` (`#pi
   then Open inspector, Add a text, and the kind's settings (text presets; Ornament: colour presets; Slice: replace the
   picture, insert slices …); the inspector sheet opens over the row with the kind as its head;
 - collage pieces are called **Ornamente** in the UI (labels without "…").
+
+**Phone E** (owner 2026-10-20 on D: "die sollen in die Horizontale … ganz links ein Zurück-Chevron, immer alle Buttons
+gleich groß quadratisch, das Kontextmenü so ist nicht notwendig … klickt man auf den Canvas, wird ein Element der Art
+platziert, klickt man ein bestehendes an, ist man automatisch im Edit, Text-Vorlagen ist als zweites … die Ebenen-Ansicht
+genauso. Kopieren ist mobile langes Drücken … drei Optionen … einmal klicken ist immer bearbeiten") → `phone-e.html`
+(`#kinds`, `#text`, `#presets`, `#long`, `#stack`):
+- the bottom row is either the **kinds** (Group · Slice · Text · Item · Ornament · Sound · Event · Layers) or **one
+  kind's functions**, ‹ first (back to the kinds); every button the same square, borderless; undo / redo at the right;
+  no pop-up submenu;
+- in a kind's row the kind itself is pressed: a tap on free canvas places one there; a tap on an existing one of that
+  kind edits it (a text: the caret in place); the 2nd button = its presets (Text-Vorlagen; Ornament: the colour
+  presets …) as a row above – pick one, tap the canvas; then the inspector;
+- **Layers** the same way: ‹ · Layers (the list sheet, by slice) · bring to front · send back · inspector – "Bring to
+  front" lives here and in the inspector;
+- **long press** on an element: Copy · Cut · Delete, right at it; a single tap is always edit;
+- **desktop stays A**: its tool strip already is the kinds (a pressed tool places on click, a click on an existing one
+  edits, right-click = copy / cut / delete), the inspector stays docked – the same model, no row needed.
 
 ## 5. Migration path (each step ships alone)
 
