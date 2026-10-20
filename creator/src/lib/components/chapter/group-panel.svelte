@@ -93,17 +93,18 @@
 	h3 {
 		margin: 0;
 	}
-	/* a field group without a frame (legend = label), the remove button at its top right */
+	/* a field group without a frame (legend = label), the remove button under its fields at the right (in the flow: the
+	   group's form also sits in the narrow inspector – the slice editor's Group tab) */
 	.end {
-		position: relative;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-05);
 		margin: 0;
 		padding: 0;
 		border: 0;
 		min-width: 0;
 	}
 	.end .remove {
-		position: absolute;
-		top: 0;
-		right: 0;
+		align-self: flex-end;
 	}
 </style>

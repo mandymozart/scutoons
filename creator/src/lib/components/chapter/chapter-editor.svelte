@@ -1132,6 +1132,26 @@
 
 </script>
 
+<!-- the open group: its form (label, layout, end …) and its script – the group section, and the slice editor's Group tab
+     (the strip editor, TEXT-ACROSS-SLICES.md §4.1: the group and its slices on one screen) -->
+{#snippet groupBody()}
+	{#if activeDoc}
+		<GroupPanel doc={activeDoc} {groupPath} {toon} {chapterNumber} {groupLabels} last={view.groupIndex === groups.length - 1} />
+		<h3 class="sub">{m['creator.vn']()}</h3>
+		{#if needsNextLabel}
+			<div class="sc-bar is-note" data-testid="next-label-hint">
+				<span>{m['creator.next_label_hint']()}</span>
+				<button class="secondary" onclick={labelNextGroup} data-testid="next-label-add">{m['creator.next_label_add']()}</button>
+			</div>
+		{/if}
+		{#if activeGroup?.events}
+			<VnEvents doc={activeDoc} eventsPath={[...groupPath, 'events']} {characters} {choices} dialogs={edits.boxChoices(activeGroup?.slices, [displayLocale, languages.source])} {groupLabels} markOf={(i) => markAt('groups', view.groupIndex, 'events', i)} />
+		{:else}
+			<p><button class="secondary" onclick={() => activeDoc?.edit((f) => { const g = getAt(f, groupPath); if (g) g.events = []; })}>+ {m['creator.vn_script_add']()}</button></p>
+		{/if}
+	{/if}
+{/snippet}
+
 <svelte:window onkeydown={onKeydown} />
 <!-- right-click / long-press in a copy region: Copy · Cut · Paste · Paste settings (BACKLOG 10.39 step 8) -->
 <ClipMenu />
@@ -1238,19 +1258,7 @@
 								{/each}
 							</nav>
 						{/if}
-						<GroupPanel doc={activeDoc} {groupPath} {toon} {chapterNumber} {groupLabels} last={view.groupIndex === groups.length - 1} />
-						<h3 class="sub">{m['creator.vn']()}</h3>
-						{#if needsNextLabel}
-							<div class="sc-bar is-note" data-testid="next-label-hint">
-								<span>{m['creator.next_label_hint']()}</span>
-								<button class="secondary" onclick={labelNextGroup} data-testid="next-label-add">{m['creator.next_label_add']()}</button>
-							</div>
-						{/if}
-						{#if activeGroup?.events}
-							<VnEvents doc={activeDoc} eventsPath={[...groupPath, 'events']} {characters} {choices} dialogs={edits.boxChoices(activeGroup?.slices, [displayLocale, languages.source])} {groupLabels} markOf={(i) => markAt('groups', view.groupIndex, 'events', i)} />
-						{:else}
-							<p><button class="secondary" onclick={() => activeDoc?.edit((f) => { const g = getAt(f, groupPath); if (g) g.events = []; })}>+ {m['creator.vn_script_add']()}</button></p>
-						{/if}
+						{@render groupBody()}
 					{:else if activeDoc?.error}
 						<p class="error">{activeDoc.error}</p>
 					{:else}
@@ -1333,6 +1341,7 @@
 				</div>
 				<SliceInspector
 					{view}
+					groupTab={groupBody}
 					doc={activeDoc}
 					slice={activeSlice}
 					{slicePath}

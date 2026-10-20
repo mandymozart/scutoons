@@ -10,7 +10,7 @@ export type Section = 'meta' | 'audio' | 'group' | 'slice';
  * `layers` = the slice's one layer stack: text boxes + placed items (BACKLOG 10.43) + click / hover areas (10.54), and
  * under them the collage pieces (research/COLLAGE.md §3)
  */
-export type InspectorTab = 'layers' | 'slice' | 'audio' | 'events';
+export type InspectorTab = 'group' | 'layers' | 'slice' | 'audio' | 'events';
 
 /** px of the slice's 1x size; 30 = the default (owner 2026-10-03), 15 the slices' base grid (390 = 26 × 15) */
 export const GRID_SIZES = [5, 10, 15, 30];

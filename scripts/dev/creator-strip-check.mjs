@@ -11,6 +11,7 @@
 //     6. the seams toggle: a hairline at every seam, remembered
 //     7. a zoom (1:1, fit) moves the scroll but never opens another slice
 //     8. a box dragged over the seam and let go there moves to that slice (id kept, selected); one undo puts it back
+//     9. the film strip in the sidebar (three a row) shows the open slice; the inspector's Group tab holds the group's form
 //   a horizontal group (default group 2): the slices side by side at the area's height
 //   phone 390 × 844 (touch): the strip at full width, a tap on a box selects it
 //   node scripts/dev/creator-strip-check.mjs [--toon=catpope] [--chapter=2] [--group=6] [--slice=20] [--hgroup=2]
@@ -196,6 +197,21 @@ try {
 		const kept = await page.evaluate(() => localStorage.getItem('scutoons_creator_seams'));
 		check(`1440: the seams toggle draws a hairline at every seam (${on}), remembered`, off === 0 && on === s1.n - 1 && kept === 'true', JSON.stringify({ off, on, kept }));
 		await page.click('[data-testid="seams-toggle"]');
+
+		// 9 – the film strip follows the open slice; the Group tab holds the group's form
+		const film = await page.evaluate(() => {
+			const open = Number(new URLSearchParams(location.search).get('slice')) - 1;
+			const li = document.querySelectorAll('[data-testid="slice-list"] > li')[open];
+			let sc = li?.parentElement;
+			while (sc && sc !== document.body && !/(auto|scroll)/.test(getComputedStyle(sc).overflowY)) sc = sc.parentElement;
+			const r = li?.getBoundingClientRect(), b = sc?.getBoundingClientRect();
+			return { shown: !!li?.classList.contains('shown'), inView: !!r && !!b && r.top >= b.top - 1 && r.bottom <= b.bottom + 1, columns: getComputedStyle(document.querySelector('[data-testid="slice-list"]')).gridTemplateColumns.split(' ').length };
+		});
+		check('1440: the film strip (three a row) shows the open slice', film.shown && film.inView && film.columns === 3, JSON.stringify(film));
+		await page.click('[data-testid="tab-group"]');
+		await sleep(300);
+		check("1440: the inspector's Group tab holds the group's form", await page.evaluate(() => !!document.querySelector('[data-testid="inspector-region"] .group-panel')));
+		await page.click('[data-testid="tab-layers"]');
 
 		check('1440: no page errors', !errors.length, errors.join(' | ').slice(0, 300));
 		await context.close();

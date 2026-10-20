@@ -27,7 +27,8 @@
 	 * boxes and placed items, BACKLOG 10.43, and the click / hover areas of events and samples, 10.54 – edited in their
 	 * own tabs – with the collage pieces under it, research/COLLAGE.md §3: the list front first, drag to reorder; + text
 	 * with presets, + item, + piece; the text / item / piece inspector), audio,
-	 * events – and "Slice" (media + the map places it unlocks). The tab and the selection are the chapter's view state (the canvas and the keyboard write
+	 * events – and "Slice" (media + the map places it unlocks); first the Group tab – the open group's form and script (the
+	 * strip editor shows the whole group). The tab and the selection are the chapter's view state (the canvas and the keyboard write
 	 * them too).
 	 */
 	let {
@@ -51,7 +52,8 @@
 		oncreatebox,
 		onremove,
 		eventMark,
-		after
+		after,
+		groupTab
 	}: {
 		view: ChapterView;
 		doc: ContentDoc;
@@ -82,6 +84,8 @@
 		eventMark?: (index: number) => ReachMark;
 		/** right of the tabs: the region's own buttons (the chapter editor's maximize) */
 		after?: Snippet;
+		/** the Group tab's content: the group's form and script (the strip editor – TEXT-ACROSS-SLICES.md §4.1) */
+		groupTab?: Snippet;
 	} = $props();
 
 	const dialogs = $derived<any[]>(slice?.dialog ?? []);
@@ -105,6 +109,7 @@
 		value={view.inspectorTab}
 		onchange={(id) => view.setTab(id as InspectorTab)}
 		tabs={[
+			...(groupTab ? [{ id: 'group', icon: 'film', label: m['creator.group_tab'](), testid: 'tab-group' }] : []),
 			{ id: 'layers', icon: 'layers', label: m['creator.layers'](), count: layerCount, testid: 'tab-layers' },
 			{ id: 'audio', icon: 'music', label: m['creator.audio'](), testid: 'tab-audio' },
 			{ id: 'events', icon: 'zap', label: m['creator.events'](), count: slice?.events?.length ?? 0, testid: 'tab-events' },
@@ -112,7 +117,9 @@
 		]}
 	/>
 
-	{#if view.inspectorTab === 'layers'}
+	{#if view.inspectorTab === 'group' && groupTab}
+		{@render groupTab()}
+	{:else if view.inspectorTab === 'layers'}
 		<!-- the slice's ONE layer stack (BACKLOG 10.43) + its collage pieces under it (COLLAGE.md §3), the top row in front -->
 		<LayerList {view} {doc} {slice} {slicePath} {toon} {locale} registry={choices?.registry} {moods} />
 		<div class="adds">
