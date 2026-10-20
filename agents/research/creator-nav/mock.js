@@ -161,7 +161,7 @@ const chips = (list) => list.map(([k, w]) => `<span class="chip ${k}">${w}</span
 function dashboard() {
 	const cont = `<section class="sec"><h2>Continue</h2><div class="cont"><img src="${SLICE(39)}" alt="" /><div class="t"><span class="ell">Cat Pope · Chapter 2 · Ärger</span><span class="ell muted cap">scene-17-24 · Slice 20 · you, today 14:20</span><span class="cap">${chips([['soon', 'coming soon'], ['no', 'en missing']])}</span><a class="btn primary">Open</a></div></div></section>`;
 	const live = `<section class="sec"><h2>Not live yet <span class="n">4</span></h2><div class="rows">${[
-		['img/s1c3-thumb.jpg', 'Chapter 3 · Feilchen', 'Cat Pope · de draft · en –', [['draft', 'draft']]],
+		['img/s1c3-thumb.jpg', 'Chapter 3 · Feilchen', 'Cat Pope · release 15 Nov · en –', [['draft', 'draft']]],
 		['img/s1c2-kv.webp', 'Chapter 2 · Ärger', 'Cat Pope · newer changes, 2 days', [['draft', 'draft']]],
 		['img/frog.webp', 'Bill der Frosch', 'Character · 2 moods new', [['draft', 'draft']]],
 		[SLICE(38), 'Kathedrale', 'Map · a new place', [['draft', 'draft']]]
