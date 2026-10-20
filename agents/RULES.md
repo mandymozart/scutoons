@@ -3,6 +3,34 @@
 The owner's standing rules, in one place (owner 2026-10-12, agents/archive/DOCS-REFACTOR.md). Each rule's story and quote:
 agents/DECISIONS.md. A change to how agents work changes this file in the same commit as its DECISIONS line.
 
+## Backlog – GitHub issues (every session, except hotfixes; owner 2026-10-19)
+- **All open work is a GitHub issue** in `mandymozart/scutoons` (private): bugs, features, changes, owner steps, open
+  decisions. Priority = the status on the board **SCUTOONS** (GitHub → Projects). Never a backlog in docs, memory or
+  HANDOVER. ISSUES.md / FEATURES.md are gone; an old number 10.N / M.N: `gh issue list -s all --search '"10.N" in:body'`.
+- **Start:** every session works on an issue. The owner names it (`#N`), or the request becomes one before the first
+  edit – search first (`gh issue list --search …`), else `gh issue create` (form below). Read it with
+  `gh issue view N --comments`, then `npm run backlog -- set N "In progress"`. Unattended runs: `npm run backlog`,
+  the Now column top down.
+- **Scope creep** (CLAUDE.md one level up): anything outside the issue becomes a new issue (no status = the owner's
+  inbox), not part of this session – unless the owner says so.
+- **Commits** name the issue: the message ends with `Refs #N` for a step, `Fixes #N` on the commit that finishes it
+  (GitHub closes it when the owner pushes = when it is live). `#N` never starts a line (git drops it as a comment).
+- **End of a session:** one comment on the issue (`gh issue comment N`): what was built / decided, what is open, which
+  checks are green. An open rest goes into the issue body's **Open:** list and the status back to Now / Next (or what
+  the owner said). The history lives in the issue and in git, never in docs.
+- **Owner decision:** label `decide`, assigned to the owner (agents use the owner's gh login: `--add-assignee @me`),
+  the question with the options and your recommendation in the issue; the answer → a DECISIONS line (+ the topic doc),
+  the label off. **Owner step** (secrets, publishing, art, uploads): label `owner`, assigned too – the owner's
+  "Assigned to me" is their to-do list.
+- **Priorities are the owner's:** a new issue gets no status (inbox); agents set Now / Next / Later / Someday only when
+  the owner says so, and move only their own issue to In progress and back. Closing moves it to Done by itself.
+- **Hotfix** = production is broken and the fix is small: no issue needed, the commit message starts with `hotfix:`;
+  whatever it leaves open becomes an issue.
+- **Issue form:** title = the thing (no number). Labels: one type (`bug` · `feature` · `chore`), one `area:*`, +
+  `owner` / `decide`. Body ≤ ~15 lines: owner YYYY-MM-DD: "quote" · what / why in 1–3 lines · **Open:** ·
+  **Owner step:** · **Decide:** · **Docs:** agents/X.md §y – details go into the topic doc or research/. A milestone
+  only for a dated target (a chapter release, `v1.0.0`); a release plan's work items are issues in its milestone.
+
 ## Git, sessions, checkout
 - **One checkout** `C:\Development\scutoons`, **one branch `main`** (= production), **one dev DB `scutoons`**. No
   `git worktree`, no per-agent DBs, no `isolation: worktree` – only when the owner asks for one by name ("in its own
@@ -13,7 +41,8 @@ agents/DECISIONS.md. A change to how agents work changes this file in the same c
 - **Never push** – a push to `main` deploys. The owner pushes, or asks you to. Never a Claude attribution line.
 - Agents run one after another (or at most two lanes on separate files); only one session runs git operations at a time.
 - Unattended (night / day) runs: commit on `main` in small steps, never push, the dev DB may be changed freely, stop at
-  owner decisions instead of guessing; the result goes into HANDOVER "Last run" (replacing the previous one).
+  owner decisions instead of guessing; the result goes into HANDOVER "Last run" (replacing the previous one) and, per
+  issue, into its comment.
 
 ## Migrations and stored data
 - **The owner never runs migrations by hand** (2026-10-12). A file in `server/migrations/mysql/` runs on production
@@ -86,8 +115,8 @@ agents/DECISIONS.md. A change to how agents work changes this file in the same c
   routing or paraglide in shared; moving code into shared is a move, not a copy (PLATFORM.md "dogmas").
 - One component = one job; ≤ 300 lines (> 400 needs a reason in its header); logic in `lib/editor/*.ts`; no local
   copies of tools.css vocabulary; imports via `$lib/…`; suffixes `-editor -panel -inspector -field -picker -slot -canvas`.
-- Code comments may cite docs and item numbers ("BACKLOG 10.61", "DESIGN.md …"): a doc keeps its name wherever it lives
-  under agents/ (grep `agents/` for the name or the number).
+- Code comments may cite docs, issues and old item numbers ("#44", "BACKLOG 10.61", "DESIGN.md …"): a doc keeps its
+  name wherever it lives under agents/ (grep `agents/` for the name or the number).
 
 ## Docs – keep them tight (owner 2026-10-12: "nicht zu sehr ausrasten lassen")
 | File | Holds | Limit |
@@ -95,17 +124,12 @@ agents/DECISIONS.md. A change to how agents work changes this file in the same c
 | RULES.md | how agents work | 150 lines |
 | HANDOVER.md | the current state + "Last run" (replace, never append; no rules, no todos) | 60 lines |
 | DECISIONS.md | one line per owner decision: date · decision · "quote" · → doc | newest on top |
-| ISSUES.md / FEATURES.md | open bugs / open features, changes, owner steps – nothing done | 40 open items together |
 | GOTCHAS.md | tool traps | 80 lines |
 | topic docs (DESIGN, DOCKING, DATA, ITEMS, MAP, PLATFORM, ASSETS, CATALOG, EXPRESSIONS, MCP, EMBASSY, NEWSLETTER) | only how it IS now | trim when over ~500 lines |
 | research/ | concepts, research, parked plans; line 1 = the status | – |
 | archive/ | frozen history – never edited, never read on start | – |
 
-- **Item template** (ISSUES / FEATURES), at most 5 lines; more detail goes into the topic doc or research/:
-  `- [ ] 10.N **Title** – owner YYYY-MM-DD: "quote". What / why in 1–3 lines. → DOC.md §x` (+ `[owner]` if only the
-  owner can do it). Numbers: the next free 10.N, one line for both files; numbers are never reused.
-- **Done = the item leaves the list** in the same commit; the commit message says `10.N done`. No Done section, no
-  "built" logs in docs – history is git.
+- Open work and its history are GitHub issues ("Backlog" above); no todo lists, Done sections or "built" logs in docs.
 - A decision: one line in DECISIONS (+ RULES if it changes how agents work, + the topic doc's "how it is").
-- Stale text you notice: fix it where it stands in the same commit (or a one-line issue) – never append a correction.
+- Stale text you notice: fix it where it stands in the same commit (or an issue) – never append a correction.
 - No new top-level file in agents/ without the owner; new concepts go to research/.

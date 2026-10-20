@@ -6,6 +6,7 @@ stays and gets "(superseded YYYY-MM-DD → …)" appended. Rules for agents: age
 to mark them superseded.
 
 ## 2026-10
+- 2026-10-19 · process · All open work is GitHub issues (mandymozart/scutoons) with milestones for dated targets and the board "SCUTOONS" for priority (Inbox · Now · Next · Later · Someday · In progress · Done); every session works on an issue, except hotfixes; ISSUES.md / FEATURES.md retired – their 58 items are #3–#60 (old number in the body) · "issue tracking and milestones via github … i want a strategy which will be mandatory for all session of scutoons. except hotfixes." · → RULES.md "Backlog", CLAUDE.md
 - 2026-10-19 · release · Chapter 3 (catpope "Feilchen") releases Tue 2026-12-15 – was 2026-11-15 (2026-10-09); ch4 / ch5 dates to be re-set · "preparation for the release of chapter 3.... 15.12. 2026" · → research/STORYBOARD.md §9
 - 2026-10-19 · creator · Strip editor: the reader's paint rule ships together with the strip editor, not alone; mockups (phone + desktop) before building; the UI keeps the name "Slices"; canvas bands only with the strip editor · (relayed by the chapter 2 session: Q1 "not alone – together with step 2", Q2 "mockups first", Q4 "keep the name Slices") · → research/TEXT-ACROSS-SLICES.md §4, §6, research/strip-editor/
 - 2026-10-19 · inventory · a field of several pieces splits by press and hold in the grid (counts up, letting go puts that many onto a field of their own) – the reverse of putting two onto one field · "do it. can be useful" · → research/PACKING.md §6, ITEMS.md "Containers"

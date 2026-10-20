@@ -1,7 +1,7 @@
 # HANDOVER — the current state (read after RULES.md; limit 60 lines: replace, never append; no rules, no todos)
 
-State 2026-10-12. How agents work: agents/RULES.md. Open work: agents/ISSUES.md (bugs) + agents/FEATURES.md.
-Decisions: agents/DECISIONS.md.
+State 2026-10-12. How agents work: agents/RULES.md. Open work: GitHub issues + the board "SCUTOONS" (RULES
+"Backlog", since 2026-10-19). Decisions: agents/DECISIONS.md.
 
 ## Where things are
 - `main` is the only branch and is production. Pushing `main` runs `.github/workflows/deploy.yml`: it deploys only the
@@ -62,5 +62,5 @@ Decisions: agents/DECISIONS.md.
   `check:creator-chapter -- --pieces` (catpope 4 slice 1: phone 10/10, recover 5/5; its 2 old misses: anchor top-left,
   scale handle), `check:mcp` 48/48 – `colorations` cleaned up. By hand on a slice: the grid's previews, Save as preset,
   Rename, Delete (the tombstone), both Recover bars at load.
-- **Red:** `check:tools-css` 16 old lines (map editor, phone-bar, bar-tabs), none in a touched file; 58 open FEATURES +
-  ISSUES (limit 40) – no new item added.
+- **Red:** `check:tools-css` 16 old lines (map editor, phone-bar, bar-tabs), none in a touched file; no new backlog
+  item added (the 58 open ones are GitHub issues #3–#60 since 2026-10-19).
