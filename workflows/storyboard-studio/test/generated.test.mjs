@@ -28,7 +28,7 @@ const routes = generatedRoutes({
 const get = (q) => routes['GET /api/generated'](q);
 
 test('drops: images and videos, named by the highest n + 1 over the files and the log, each with an upload record', async () => {
-	assert.deepEqual(await routes['POST /api/generated']({ ch: 'c1', id: 's-1', name: 'luma.png', data: dataUrl('image/png', PNG) }), { file: 's-1--g1.png', id: 's-1--g1', from: 'luma.png' });
+	assert.deepEqual(await routes['POST /api/generated']({ ch: 'c1', id: 's-1', name: 'luma.png', data: dataUrl('image/png', PNG) }), { file: 's-1--g1.png', id: 's-1--g1', from: 'luma.png', generator: 'upload' });
 	assert.equal((await routes['POST /api/generated']({ ch: 'c1', id: 's-1', name: 'clip.mp4', data: dataUrl('video/mp4', tinyMp4(5)) })).file, 's-1--g2.mp4');
 	assert.equal((await routes['POST /api/generated']({ ch: 'c1', id: 's-1', name: 'clip.webm', data: dataUrl('video/webm', 'webm') })).file, 's-1--g3.webm');
 	// dragged in from a web page (Luma's site): fetched – a video too
@@ -89,6 +89,8 @@ test('GET ?ch&ids: the picked shots\' records – log order, earlier files, miss
 	]);
 	const g5 = recs[1];
 	assert.deepEqual([g5.parents, g5.seed, g5.prompt, g5.model, g5.url, g5.mark, g5.marked, g5.before, 'v' in g5], [['s-3--g4'], 42, 'better', 'gen4_turbo', '/out/c1/generated/s-3--g5.png', null, null, null, false]);
+	// the card as an input (Improve on, Vary, More – generators/job-fields.mjs): its key (an earlier file and a missing one too)
+	assert.deepEqual([g5.key, recs[2].key, recs[0].key], ['out:c1/generated/s-3--g5.png', 'out:c1/generated/s-3--g1.png', 'out:c1/generated/s-3--g4.png']);
 	// an earlier file says only what the file says – nothing from its old line
 	assert.deepEqual([recs[2].generator, recs[2].prompt, recs[2].kind, recs[2].inputs], [null, null, 'image', []]);
 	assert.equal(recs.find((r) => r.id === 's-1--g2').ms, 5000);

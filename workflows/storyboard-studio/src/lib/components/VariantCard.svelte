@@ -12,11 +12,12 @@
 	// height in steps (posters.js pxStep) – a zoom doesn't fetch a new one for every percent. A VIDEO SCRUBS under the
 	// pointer (§3.3, x = time): its sprite (posters.js spriteOf – asked on the first hover only) shows the frame there, a
 	// line marks the spot, the length chip says the time there; leaving the card = the poster again. Only the hovered card
-	// is live and nothing plays; without a sprite (no ffmpeg) the card's own <video> seeks instead. Its pictures aren't
+	// is live and nothing plays; without a sprite (no ffmpeg) the card's own <video> seeks instead. A CLICK while it
+	// scrubs pins that moment (a line stays there – More ▾ "Still: the frame at …", stage 3). Its pictures aren't
 	// draggable: nobody drags cards (§3.2) – a drag on one would pull the browser's ghost image, not pan.
 	import { Icon } from '@scutoons/ui';
 	import { TOP } from '../board-layout.js';
-	import { lengthOf } from '../board.svelte.js';
+	import { board, lengthOf } from '../board.svelte.js';
 	import { devicePx, near, posterOf, pxStep, scrubAt, secondsText, spriteOf } from '../posters.js';
 
 	/** @type {{ node: any, media: { url: string|null, fallback?: string|null, video: boolean, ms?: number|null, missing?: boolean }, caption: string[], title: string, label: string, status: string|null, letter: string, current: boolean, captions: boolean, onpick: (e: MouseEvent) => void }} */
@@ -42,6 +43,12 @@
 	let player = $state();
 	const live = $derived(media.video && !!media.url && !media.missing);
 	const scrub = $derived(live && hover != null ? scrubAt(hover, sprite?.n ?? 1, media.ms) : null);
+	/** the moment pinned by a click (its share of the length) – while the pointer is elsewhere */
+	const pinned = $derived(live && media.ms > 0 && board.pin?.key === node.key ? Math.min(1, board.pin.ms / media.ms) : null);
+	function pick(e) {
+		if (scrub && media.ms > 0) board.pin = { key: node.key, ms: Math.round(scrub.ms) };
+		onpick(e);
+	}
 
 	/** the pointer over the card: x = time (a mouse or a pen – a touch would scroll) */
 	function move(e) {
@@ -73,7 +80,7 @@
 	});
 </script>
 
-<button type="button" class="card" class:current class:picked={!!letter} class:rejected={status === 'rejected'} class:spill={node.source === 'variant' && !node.kids.length} data-key={node.key} data-control-exempt="a card" tabindex={current ? 0 : -1} role="option" aria-selected={current} aria-label={label} {title} style:left="{node.x}rem" style:top="{node.y + TOP}rem" style:width="{node.w}rem" onclick={onpick} onpointermove={move} onpointerleave={leave} use:near={() => (seen = true)}>
+<button type="button" class="card" class:current class:picked={!!letter} class:rejected={status === 'rejected'} class:spill={node.source === 'variant' && !node.kids.length} data-key={node.key} data-control-exempt="a card" tabindex={current ? 0 : -1} role="option" aria-selected={current} aria-label={label} {title} style:left="{node.x}rem" style:top="{node.y + TOP}rem" style:width="{node.w}rem" onclick={pick} onpointermove={move} onpointerleave={leave} use:near={() => (seen = true)}>
 	<span class="pic" bind:this={pic} style:width="{node.pw}rem" style:height="{node.h}rem">
 		{#if seen}
 			{#if media.missing}
@@ -95,6 +102,8 @@
 			<!-- the frame under the pointer: the sprite's tile, contained as the poster is (the video's own aspect) -->
 			{#if sprite}<span class="frames" aria-hidden="true"><span style:aspect-ratio="{sprite.tw} / {sprite.th}" style:--a={sprite.tw / sprite.th} style:background-image="url('{sprite.url}')" style:background-size="{sprite.n * 100}% 100%" style:background-position-x="{(scrub.tile / (sprite.n - 1)) * 100}%"></span></span>{/if}
 			<i class="line" style:left="{hover * 100}%" aria-hidden="true"></i>
+		{:else if pinned != null}
+			<i class="line" style:left="{pinned * 100}%" aria-hidden="true"></i>
 		{/if}
 		{#if status}<span class="stat {status}" title={WORDS[status]}><Icon name={ICONS[status]} size="0.95rem" /></span>{/if}
 		{#if media.video && media.ms}<span class="sc-chip len" title={scrub ? `The time under the pointer (${lengthOf(media.ms)} long)` : undefined}>{scrub ? secondsText(scrub.ms) : lengthOf(media.ms)}</span>{/if}

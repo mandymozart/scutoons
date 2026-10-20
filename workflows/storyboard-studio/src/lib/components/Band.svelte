@@ -125,7 +125,7 @@ Drop images or videos onto the band: source cards for ${shot}`);
 					{@const text = runningOf(node, shot)}
 					<Running {node} caption={text.caption} cost={text.cost} title={text.title} {captions} />
 				{/each}
-				{#if curNode && curAt}<CardActions node={curNode} at={curAt} meta={layout.card.meta} onstatus={(s) => onstatus(curNode, s)} onaction={(a) => onaction(curNode, a)} />{/if}
+				{#if curNode && curAt}<CardActions {shot} node={curNode} at={curAt} take={curNode.source === 'take' ? band.takes.get(curNode.take) : null} meta={layout.card.meta} onstatus={(s) => onstatus(curNode, s)} onaction={(a) => onaction(curNode, a)} />{/if}
 			{/if}
 		</div>
 	{/if}

@@ -39,7 +39,9 @@ export const board = $state({
 	/** the folded bands { [shot]: true } – a newly picked shot opens unfolded */
 	folded: {},
 	/** one zoom for all bands (1 = 100 %) */
-	zoom: 1
+	zoom: 1,
+	/** a video card's moment, clicked while it scrubs (More ▾ "Still: the frame at …"): { key, ms } – null = none */
+	pin: null
 });
 
 let asked = 0;

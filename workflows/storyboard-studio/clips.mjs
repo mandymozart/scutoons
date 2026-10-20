@@ -404,6 +404,8 @@ async function slot(fn) {
 	try { return await fn(); } finally { const next = waiting.shift(); if (next) next(); else busy--; }
 }
 const ff = (ffmpeg, args) => slot(() => new Promise((ok) => execFile(ffmpeg, args, { timeout: 120000, maxBuffer: 4 << 20, windowsHide: true }, (err, _out, stderr) => ok({ err, out: String(stderr ?? '') }))));
+/** ffmpeg with these args in the same two places → { err, out: its stderr } (generators/frames.mjs – frame → still) */
+export const runFfmpeg = ff;
 const noFfmpeg = (ffmpeg) => new Error(`${ffmpeg} not found (FFMPEG=<path>)`);
 
 /** the video's size and duration as ffmpeg reads them (`ffmpeg -i` prints them and stops) – cached by mtime + size */

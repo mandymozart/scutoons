@@ -15,8 +15,8 @@
 	/** @type {{ rejected: number, onzoom: (zoom: number) => void, onfiles: (files: File[]) => void }} */
 	let { rejected, onzoom, onfiles } = $props();
 	let picker = $state();
-	const HOW = 'Click: the current card (its shot current) · Ctrl + click: select (A–D) · ← → ↑ ↓ move (strips and folded bands skipped) · Enter chosen · R review · X reject – it folds to a strip (again: back) · a click on a strip: a look into it (Esc closes it) · wheel: down through the bands, Shift + wheel: sideways, a drag on the background: pan · Ctrl + wheel / + / −: zoom · 0: fit · Esc: selection off · V: the Viewport';
-	const SHORT = 'click current · Ctrl + click select · arrows · Enter ✓ · R ? · X ✕ · + − 0 zoom';
+	const HOW = 'Click: the current card (its shot current) · Ctrl + click: select (A–D) · ← → ↑ ↓ move (strips and folded bands skipped) · Enter chosen · R review · X reject – it folds to a strip (again: back) · I improve on this – fills Generate (nothing is sent) · a click on a strip: a look into it (Esc closes it) · wheel: down through the bands, Shift + wheel: sideways, a drag on the background: pan · Ctrl + wheel / + / −: zoom · 0: fit · Esc: selection off · V: the Viewport';
+	const SHORT = 'click current · Ctrl + click select · arrows · Enter ✓ · R ? · X ✕ · I ⚡ · + − 0 zoom';
 </script>
 
 <div class="tools">

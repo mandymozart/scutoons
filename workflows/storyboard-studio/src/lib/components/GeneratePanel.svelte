@@ -5,12 +5,18 @@
 	// results land on the variants board (a running one is a placeholder there). "Build from the shot" fills the prompt
 	// with everything set for the shot; Luma – by hand (transport 'manual') shows it to copy instead of Generate
 	// (ManualGenerate – the former Luma panel, owner 2026-10-19). Prices in euro, the provider's credits + USD in their
-	// tooltips (owner 2026-10-20: "preise in euro"). README "Generators", generators/jobs.mjs.
-	import { untrack } from 'svelte';
+	// tooltips (owner 2026-10-20: "preise in euro"). README "Generators", generators/jobs.mjs. A board card's Improve on
+	// this / Vary fills it (VARIANTS-CANVAS §3.6, #62 stage 3): the line on top (ImproveLine), the pickers only with the
+	// models that take the card, the card's prompt – editable, by hand too; nothing is sent before Generate.
+	import { tick, untrack } from 'svelte';
 	import { Icon, IconButton, PropRow, PropSelect, ScrubNumber } from '@scutoons/ui';
 	import { fail, studio } from '../studio.svelte.js';
-	import { buildPrompt, cancel, costText, costTitle, current, estimate, euro, gen, loadGenerators, loadInputs, model, setGenerator, setModel, start, usdTitle, wants } from '../generate.svelte.js';
+	import { at, buildPrompt, controls, current, euro, fitting, frameUrl, gen, loadGenerators, loadInputs, loaded, model, setGenerator, setModel, setStill, stills, usdTitle, wants } from '../generate.svelte.js';
+	import { cancel, costText, costTitle, estimate, start } from '../generate-send.js';
+	import { stillRole } from '../../../generators/job-fields.mjs';
+	import { takesStill } from '../improve.js';
 	import ManualGenerate from './ManualGenerate.svelte';
+	import ImproveLine from './ImproveLine.svelte';
 
 	const id = $derived(studio.sel?.id);
 	const v = $derived(studio.version);
@@ -21,27 +27,51 @@
 	$effect(() => { void JSON.stringify(gen.form); void gen.inputs; estimate(); });
 	const g = $derived(current());
 	const m = $derived(model());
-	const still = $derived(gen.inputs?.stills.find((s) => s.key === gen.form.still));
+	// while a card fills the form: only the generators / models that take it
+	const generators = $derived(gen.generators.filter((x) => !gen.from || fitting(x).length));
+	const models = $derived(fitting(g));
+	// the stills the model takes (ComfyUI: the render or a generated image of the shot) – a frame's picture cut on demand
+	const stillOptions = $derived(stills().filter((s) => takesStill(m, s.key, at()) || s.key === gen.form.still));
+	const still = $derived(stills().find((s) => s.key === gen.form.still));
+	const stillUrl = $derived(still?.url ?? gen.frames[still?.key] ?? null);
+	$effect(() => { const k = still && !still.url ? still.key : null; if (k) untrack(() => frameUrl(k)); });
+	// the selects SHOW the form: PropSelect marks its option with `selected`, which an option once picked by hand ignores
+	// (the browser's "dirtiness") – after a change from code (an Improve's switch, Vary, ✕, More ▾'s still) the select
+	// would still show the hand-picked one (or its first, when that one left the list); set from the form after each update
+	let panel = $state();
+	$effect(() => {
+		const want = [['select[aria-label="Generator"]', gen.form.generator], ['[data-testid="generate-model"] select', gen.form.model], ['[data-testid="generate-still"] select', gen.form.still ?? ''], ['[data-testid="generate-control"] select', gen.form.control ?? '']];
+		void [generators, models, stillOptions, controls()];
+		tick().then(() => { for (const [sel, value] of want) { const s = panel?.querySelector(sel); if (s && s.value !== value && [...s.options].some((o) => o.value === value)) s.value = value; } });
+	});
+	const STILL = { keyframe: ['Keyframe', 'A keyframe at the start (optional)'], reference: ['Reference', 'The picture to attach on lumalabs.ai – Luma\'s image reference (optional)'], edit: ['Image 1', 'The picture edited – the render without texts or a generated image of the shot'], still: ['Still', 'The first frame'] };
+	const role = $derived(m?.source === 'edit' ? 'edit' : stillRole(m));
+	const optional = $derived(role === 'keyframe' || role === 'reference');
 	const active = (j) => j.status === 'queued' || j.status === 'running';
-	// by hand (transport 'manual' – generators/jobs.mjs): nothing is sent, the panel shows the prompt to copy
+	// by hand (transport 'manual' – generators/jobs.mjs): nothing is sent, the panel shows the prompt to copy – the
+	// built one (read-only), or a card's (editable – what its result is recorded with)
 	const manual = $derived(g?.transport === 'manual');
+	const editable = $derived(!manual || !!gen.from);
 	const built = $derived(!!id && gen.built?.shot === id);
 	/** Runway reads the first 1000 characters of a prompt (runway.mjs) – a built prompt is longer: said, not cut */
 	const PROMPT_MAX = 1000;
-	const blocked = $derived(!g?.configured || !m || !!gen.estimate?.error || gen.busy || (wants('still') && m?.mode === 'image_to_video' && !gen.form.still) || (wants('control') && !gen.form.control));
+	// the form holds this shot's inputs (another shot's or chapter's never go out – they are cleared while it loads)
+	const ready = $derived(loaded(id));
+	const blocked = $derived(!ready || !g?.configured || !m || !!gen.estimate?.error || gen.busy || (wants('still') && m?.mode === 'image_to_video' && !gen.form.still) || (wants('control') && !gen.form.control));
 </script>
 
 {#if id}
-	<div class="panel">
+	<div class="panel" bind:this={panel}>
+		{#if gen.from?.applied && gen.from.shot === id}<ImproveLine />{/if}
 		<!-- the panel's head names it (Generate) and the rows their own: no legend that only repeats "Generator". The rows
 		     sit in a plain grid, never a grid fieldset – Chromium leaves a container-query row (PropRow) inside one at 0 px
 		     when its options arrive after the mount (review H1: the Generator row was invisible on the first open) -->
 		<div class="rows">
 			{#if gen.generators.length}
-				<PropRow label="Generator"><PropSelect label="Generator" required options={gen.generators.map((x) => ({ value: x.id, label: `${x.label}${x.configured ? '' : ' – not configured'}` }))} value={gen.form.generator} onchange={(v) => setGenerator(v)} /></PropRow>
+				<PropRow label="Generator"><PropSelect label="Generator" required options={generators.map((x) => ({ value: x.id, label: `${x.label}${x.configured ? '' : ' – not configured'}` }))} value={gen.form.generator} onchange={(v) => setGenerator(v)} /></PropRow>
 			{/if}
-			{#if g?.models.length}
-				<PropRow label="Model"><PropSelect label="Model" required options={g.models.map((x) => ({ value: x.id, label: x.label }))} value={gen.form.model} onchange={(v) => setModel(v)} /></PropRow>
+			{#if models.length}
+				<PropRow label="Model"><PropSelect label="Model" required options={models.map((x) => ({ value: x.id, label: x.label }))} value={gen.form.model} onchange={(v) => setModel(v)} testid="generate-model" /></PropRow>
 			{/if}
 			{#if g && !g.configured}<p class="hint">{g.how}</p>{:else if g?.note}<p class="hint muted">{g.note}{#if g.creditUsd}{' · '}<span title={usdTitle({ credits: 1, usd: g.creditUsd })}>1 credit ≈ {euro(g.creditUsd, true)}</span>{/if}</p>{/if}
 		</div>
@@ -54,25 +84,25 @@
 					{#if wants('still')}
 						<!-- a still the model needs keeps an empty "(pick one)" while none is picked (after "(none)" as a keyframe):
 						     without it the select would show its first still as if chosen, and Generate stays off unexplained -->
-						<PropRow label={m.mode === 'video_to_video' ? 'Keyframe' : 'Still'} hint={m.mode === 'video_to_video' ? 'A keyframe at the start (optional)' : 'The first frame'}>
-							<PropSelect label={m.mode === 'video_to_video' ? 'Keyframe at the start (optional)' : 'Still (the first frame)'} required={m.mode !== 'video_to_video' && !!gen.form.still} placeholder={m.mode === 'video_to_video' ? 'none' : 'pick one'} options={(gen.inputs?.stills ?? []).map((x) => ({ value: x.key, label: x.label }))} value={gen.form.still || undefined} onchange={(v) => (gen.form.still = v ?? '')} />
+						<PropRow label={STILL[role][0]} hint={STILL[role][1]}>
+							<PropSelect label="{STILL[role][0]} – {STILL[role][1]}" required={!optional && !!gen.form.still} placeholder={optional ? 'none' : 'pick one'} options={stillOptions.map((x) => ({ value: x.key, label: x.label }))} value={gen.form.still || undefined} onchange={(v) => setStill(v)} testid="generate-still" />
 						</PropRow>
-						{#if still?.url}<img class="thumb" src={`${still.url}?v=${v}`} alt="" />{/if}
+						{#if stillUrl}<img class="thumb" src={stillUrl.includes('?') ? stillUrl : `${stillUrl}?v=${v}`} alt="" />{/if}
 					{/if}
 					{#if wants('control')}
-						<PropRow label="Pass" hint="The handheld render pass the video follows">
-							<PropSelect label="Handheld render pass" required options={(gen.inputs?.controls ?? []).map((x) => ({ value: x.key, label: x.label }))} value={gen.form.control || undefined} onchange={(v) => (gen.form.control = v ?? '')} />
+						<PropRow label="Video" hint="The video it follows – a handheld render pass or a generated clip">
+							<PropSelect label="Video – a handheld render pass or a generated clip" required options={controls().map((x) => ({ value: x.key, label: x.label }))} value={gen.form.control || undefined} onchange={(v) => (gen.form.control = v ?? '')} testid="generate-control" />
 						</PropRow>
-						{#if !gen.inputs?.controls.length}<p class="hint">No render pass yet – Export → Output → "Render all handheld shots".</p>{/if}
+						{#if !controls().length}<p class="hint">No video yet – Export → Output → "Render all handheld shots", or generate a clip.</p>{/if}
 					{/if}
 					{#if wants('prompt')}
 						<!-- by hand the built prompt is only shown to copy (its changes belong in the shot's fields) and kept apart
 						     from the other generators' prompt; until it is built, Build is the panel's one primary (then Copy
 						     prompt – ManualGenerate) -->
 						<PropRow label="Prompt">
-							<button type="button" class:secondary={!manual || built} onclick={() => buildPrompt({ fill: !manual }).catch(fail)} disabled={gen.building} title="Everything set for this shot – also unsaved changes – as one prompt{manual ? '' : ' (replaces the text below)'}">Build from the shot</button>
-							{#if !manual}
-								<textarea data-prop-line aria-label="Prompt" rows="4" bind:value={gen.form.prompt}></textarea>
+							<button type="button" class:secondary={editable || built} onclick={() => buildPrompt({ fill: editable }).catch(fail)} disabled={gen.building} title="Everything set for this shot – also unsaved changes – as one prompt{editable ? ' (replaces the text below)' : ''}">Build from the shot</button>
+							{#if editable}
+								<textarea data-prop-line aria-label="Prompt" rows="4" bind:value={gen.form.prompt} data-testid="generate-prompt"></textarea>
 							{:else if built}
 								<textarea data-prop-line aria-label="Prompt" readonly rows="16" value={gen.built?.text ?? ''}></textarea>
 							{/if}
@@ -85,7 +115,7 @@
 				</div>
 			</fieldset>
 			{#if manual}
-				<ManualGenerate {built} />
+				<ManualGenerate {built} {ready} />
 			{:else}
 				<p class="cost" role="status" class:sc-error={gen.estimate?.error} title={costTitle(gen.estimate) || undefined}>{costText(gen.estimate)}</p>
 				<div class="buttons">

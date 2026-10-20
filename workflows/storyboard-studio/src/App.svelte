@@ -20,6 +20,7 @@
 	import { clipAt, isVideo } from './lib/timeline-lanes.js';
 	import { here, isOpen, PANELS, setEditor, setOpen, setStep, setTab, setTimeline, SHOT_TABS, STEPS, steps } from './lib/steps.svelte.js';
 	import { followSelection } from './lib/handheld/handheld.svelte.js';
+	import { gen } from './lib/generate.svelte.js';
 	import TopBar from './lib/components/TopBar.svelte';
 	import ShotList from './lib/components/ShotList.svelte';
 	import Viewport from './lib/components/Viewport.svelte';
@@ -48,6 +49,12 @@
 	PANELS.forEach((p, order) =>
 		useDock(() => (isOpen(p.kind) && (studio.sel || p.kind === 'output') ? { kind: `storyboard-${p.kind}`, order, min: MIN, size: sizes[steps.current][p.kind], title: titleOf(p), icon: p.icon, close: () => setOpen(p.kind, false), panel: body(p.kind) } : null))
 	);
+
+	// a card filled the Generate form from the board (Improve on this · Vary · More ▾ – improve.svelte.js): its panel opens
+	// in this step, unfolded – the line "Improve on g2" is where the work goes on
+	$effect(() => {
+		if (gen.reveal) untrack(() => { setOpen('generate', true); sizes[steps.current].generate.fold(false); });
+	});
 
 	// the timeline: one height for all steps, its fold per step (both ways – the fold button / a drag write the step's)
 	const timeline = panelHeight('storyboard-studio:timeline', 12);

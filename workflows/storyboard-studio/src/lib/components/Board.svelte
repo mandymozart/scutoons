@@ -10,17 +10,18 @@
 	// shot current (a card: the current card too; Ctrl / ⌘ + click = in / out of the selection, the current shot stays; a
 	// strip: a look into it); the board scrolls to the current band when it changes from elsewhere (the list, ‹ ›, the
 	// timeline). Keys on the focused board: ← → in the row, ↑ ↓ the rows – over a band's edge into the next band, its shot
-	// current; strips and folded bands skipped –, Enter chosen, R review / none, X reject / unreject, + / − zoom, 0 fits
-	// the widest band, Esc closes a look, then the selection. Pan / zoom: board-view.svelte.js; the state and the
+	// current; strips and folded bands skipped –, Enter chosen, R review / none, X reject / unreject, I improve on this
+	// (fills Generate – improve.svelte.js), + / − zoom, 0 fits the widest band, Esc closes a look, then the selection. Pan / zoom: board-view.svelte.js; the state and the
 	// statuses: board.svelte.js; the layout: board-layout.js.
 	import { onMount, tick, untrack } from 'svelte';
-	import { notify, find, pickedShots, pickShot, studio } from '../studio.svelte.js';
+	import { fail, notify, find, pickedShots, pickShot, studio } from '../studio.svelte.js';
 	import { tl } from '../timeline.svelte.js';
 	import { gen, loadGenerators } from '../generate.svelte.js';
 	import { bandFacts, bandLayout, neighbour } from '../board-layout.js';
 	import { fitZoom, zoomStep } from '../board-zoom.js';
 	import { board, choose, openLook, reject, review, setCurrent, setStatus, toggleFold, toggleSelected, useBoard } from '../board.svelte.js';
 	import { carriesFiles, sourceAction, upload, useJobs } from '../board-sources.svelte.js';
+	import { improve } from '../improve.svelte.js';
 	import { panZoom, remPx, view, zoomAt } from '../board-view.svelte.js';
 	import BoardTools from './BoardTools.svelte';
 	import Band from './Band.svelte';
@@ -159,7 +160,8 @@
 
 	const DIRS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
 	function keys(e) {
-		if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented || e.target.closest?.('input, textarea, select, [contenteditable]')) return;
+		// More ▾'s OPEN list (a Menu) keeps its own keys – its closed button (the focus after Escape / an item) is the board's
+		if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented || e.target.closest?.('input, textarea, select, [contenteditable], .sc-menu .popup, .sc-menu > [aria-expanded="true"]')) return;
 		// Enter on a button of the actions or a band's fold is that button's; on a strip it opens the look (its click)
 		if (e.key === 'Enter' && e.target.closest?.('button:not(.card)')) return;
 		const node = nodeOf(cur);
@@ -168,7 +170,7 @@
 		if (DIRS[e.key]) {
 			const to = cur && neighbour(bands, cur, DIRS[e.key]);
 			if (to) go(to);
-		} else if (e.repeat && /^(Enter|r|R|x|X)$/.test(e.key)) {
+		} else if (e.repeat && /^(Enter|r|R|x|X|i|I)$/.test(e.key)) {
 			// held down: once
 		} else if (e.key === 'Enter') {
 			if (node && !hidden) choose(node);
@@ -176,6 +178,9 @@
 			if (node && !hidden) review(node);
 		} else if (e.key === 'x' || e.key === 'X') {
 			if (node && !hidden) refocus(reject(bandOf(cur.shot).layout, node));
+		} else if (e.key === 'i' || e.key === 'I') {
+			// Improve on this – before App's I (the trim at the playhead): the board has the focus
+			if (node && !hidden) improve(cur.shot, node, node.source === 'take' ? bandOf(cur.shot).takes.get(node.take) : null).catch(fail);
 		} else if (e.key === '+' || e.key === '=') {
 			zoomKey(1);
 		} else if (e.key === '-') {

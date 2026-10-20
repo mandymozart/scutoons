@@ -115,7 +115,8 @@ const exec = (cmd, args) => new Promise((ok) => execFile(cmd, args, { maxBuffer:
 
 // --- the generators (README "Generators", generators/jobs.mjs): comfy-local · runway · comfyui-remote --------------------
 const generators = generatorRoutes({ root: ROOT, out: OUT, boards: BOARDS, media, findShot, shotCharacters, styleFiles });
-const generated = generatedRoutes({ out: OUT, boards: BOARDS, run });
+// the manual result slot records a by-hand generator's candidate (generators.manual – the registry, the inputs' keys)
+const generated = generatedRoutes({ out: OUT, boards: BOARDS, run, manual: generators.manual });
 
 // --- API -----------------------------------------------------------------------------------------------------------
 const api = {

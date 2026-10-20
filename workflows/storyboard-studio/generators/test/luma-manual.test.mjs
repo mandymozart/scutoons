@@ -1,5 +1,6 @@
 // "Luma – by hand" (luma-manual.mjs): transport 'manual', always configured, free, one manual model that takes the
-// prompt; it never runs – a job sent anyway is refused before it exists, writes nothing and spends nothing.
+// still (the picture attached – Luma's image reference) and the prompt; it never runs – a job sent anyway is refused
+// before it exists, writes nothing and spends nothing. Its result slot: test/generated.test.mjs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync } from 'node:fs';
@@ -10,7 +11,7 @@ import { createLumaManual } from '../luma-manual.mjs';
 
 const job = { generator: 'luma-manual', model: 'manual', toon: 'catpope', ch: 's1c3', shot: 'sb-1-1', prompt: 'a shot' };
 
-test('listed as by hand (transport manual), configured and free, with one manual model taking the prompt', async () => {
+test('listed as by hand (transport manual), configured and free, with one manual model taking the still and the prompt', async () => {
 	const m = createManager({ generators: [createLumaManual()], out: mkdtempSync(join(tmpdir(), 'sb-luma-')) });
 	const [g] = await m.list();
 	assert.equal(g.id, 'luma-manual');
@@ -18,8 +19,8 @@ test('listed as by hand (transport manual), configured and free, with one manual
 	assert.equal(g.configured, true);
 	assert.equal(g.paid, false);
 	assert.match(g.note, /lumalabs\.ai/);
-	assert.match(g.note, /drop the result onto the board/);
-	assert.deepEqual(g.models.map(({ id, mode, inputs }) => ({ id, mode, inputs })), [{ id: 'manual', mode: 'manual', inputs: ['prompt'] }]);
+	assert.match(g.note, /result slot/);
+	assert.deepEqual(g.models.map(({ id, mode, inputs }) => ({ id, mode, inputs })), [{ id: 'manual', mode: 'manual', inputs: ['still', 'prompt'] }]);
 });
 
 test('the estimate is free', () => {

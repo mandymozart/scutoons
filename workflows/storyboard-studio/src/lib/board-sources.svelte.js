@@ -21,7 +21,8 @@ import { board, guarded, loadBoard } from './board.svelte.js';
 // --- drops ----------------------------------------------------------------------------------------------------------
 /** what POST /api/generated takes (generated.mjs TYPES) */
 export const DROP_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'video/mp4', 'video/webm'];
-const dataUrl = (file) => new Promise((ok, no) => {
+/** a file as a data URL (POST /api/generated's `data`) – the manual result slot's too (improve.svelte.js) */
+export const dataUrl = (file) => new Promise((ok, no) => {
 	const r = new FileReader();
 	r.onload = () => ok(r.result);
 	r.onerror = () => no(r.error ?? new Error('not readable'));

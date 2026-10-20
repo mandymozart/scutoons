@@ -105,7 +105,7 @@ too). Lines: a comb above each row, a tick into every result, a drop from the pa
 video's length, id + model, the record as its tooltip, the **status** as a bullet – ✓ chosen · ? review · ✕ rejected.
 A video **scrubs under the pointer** (x = time – one sprite of 32 frames from `GET /api/thumbs`, asked on its first
 hover; the chip says the time there; without ffmpeg the card's own video seeks). A click in a band = its shot current;
-on a card = the **current card** (its actions under it: a result's status ✓ ? ✕ and – later – Improve · Vary · More; a
+on a card = the **current card** (its actions under it: a result's status ✓ ? ✕ and **Improve · Vary · More** – below; a
 layout variant's **Load** – into the Viewport, unsaved – and **Take this** – after an in-page confirm it becomes the
 shot, the shot as saved a variant with its saved frame, the frame and the render without texts are saved again; the
 render and the takes take no status); **Ctrl / ⌘ + click** selects (A–D, for Compare later); the board scrolls to the current
@@ -128,7 +128,33 @@ dropped, each is an upload for that band's shot (`POST /api/generated`, a source
 round button picks files for the current shot; what can't be added is a toast. A **running** job of a picked shot (the
 session's jobs, `GET /api/generate/jobs?ch`, polled while one runs) is a placeholder where its result will land – at the
 end of its main input's row: the progress over the house bar and the estimate; its card replaces it, cancel and
-failures stay in Generate's Jobs list. Not yet: Improve / Vary (stage 3), Compare (stage 4).
+failures stay in Generate's Jobs list.
+
+**Improve on this · Vary · More** (stage 3, VARIANTS-CANVAS §3.6; `src/lib/improve.js` – node tests –,
+`improve.svelte.js`): they **fill the Generate panel – nothing is sent**; Generate asks with the cost as always. Each
+makes the card's shot current and opens Generate (unfolded). **Improve on this** (⚡, key **I**): Generate starts with
+the line "Improve on g2" – the card's picture, how it goes in, ✕ = back to the shot's own inputs and the generator
+before –, the card's prompt (editable: the new record keeps the edit) and the **Seed** New | the card's. The card goes
+in where its kind fits, in the form's fields: an image → the still (Gen-4: the first frame; ComfyUI: image 1, an edit
+– `--from`; Luma by hand: the reference), a video → Aleph's video + the chosen image as the keyframe at 0 (a video to
+video model only – a frame of it is More ▾'s), a layout variant → its frame as the still (the shot stays), a take →
+its render as the video, the render → the shot's own inputs. The pickers keep only the models that take the card;
+when the current generator has none, the first configured one that has takes over (one that makes it before Luma by
+hand) – the line says so. A still set afterwards (the Still select, More ▾) stays over the card's through generator
+and model changes, and the line names it ("g3 as the first frame, set here – g1 is not in the form now"). Sent, its
+placeholder lands in the card's child row (the job's main input is the card – `inputs[0]` / `parents`). **Vary** (↻):
+the card's own inputs, prompt, generator, model and length with a new seed – a sibling in its row ("Vary g2"; not for
+a dropped file or a file without a record); the chosen image among its inputs goes in as the file it was when the card
+was made (its parent in the record – a later approval doesn't change what is repeated; gone → left out, said). **More
+▾** (a dropdown from its button – no right-click menu; the focus back on it after an item, so the board's keys go on):
+an image – **Use as start frame / keyframe** (the card becomes the still, the rest of the form stays; only where the
+model takes it – Gen-4's first frame, Aleph's one keyframe at 0 –, else off with why); a video – **Still: the first
+frame | the frame at <time> | the last frame** (the frame becomes the still, cut by ffmpeg – "The record"; the time =
+where the card was clicked while it scrubbed – a line marks it; a time inside the last frame is the last frame); **Add
+to / Remove from Compare** (the selection); **Show the file** (a new tab). A rejected card is refused (X first). The
+form belongs to one shot of one chapter: another shot or chapter clears it before its inputs load (Generate and the
+manual result slot wait for them; the server refuses a shot that isn't in the chapter and another chapter's inputs).
+Without a render, ComfyUI and Luma by hand pre-fill no still (never an earlier result). Not yet: Compare (stage 4).
 
 ## Files
 
@@ -208,20 +234,21 @@ Owner 2026-10-19: "Ja, generator pluggable ist smart. Erstmal soweit bauen, dass
 The **Generate** panel sends a shot to a generator; the result lands on the Variants board
 (`_out/<chapter>/generated/<shot>--g<n>.png|mp4`, recorded in `generated.jsonl` – "The record" below; a placeholder
 while it runs), where ✓ / Enter approves it as the chosen. Each generator says what it takes; the inputs are
-pre-filled from the shot (the approved image, else the render without texts; the newest handheld render pass; the
-shot's "Image (EN)" text as the prompt). **Build from the shot** next to the Prompt replaces it with everything set for
+pre-filled from the shot (the approved image, else the render without texts – ComfyUI's image 1 is the render; the
+newest handheld render pass; the shot's "Image (EN)" text as the prompt) – or from a board card ("Improve on this ·
+Vary · More" above). **Build from the shot** next to the Prompt replaces it with everything set for
 the shot – also unsaved changes – as one prompt (the story moment, perspective, figures, camera, light, empty zones,
 the look, the script: `scripts/storyboard/luma.js` via `POST /api/prompt`); longer than Runway's 1000 characters, the
 panel says that only the start is sent. Luma – by hand keeps its built prompt apart (read-only), so a prompt typed for
-another generator stays. Every generator says how a job gets made – `transport` in `GET /api/generators`: `api` (a
+another generator stays – while a board card fills the form, it shows the card's prompt, editable. Every generator says how a job gets made – `transport` in `GET /api/generators`: `api` (a
 provider's API), `local` (this PC) or `manual` (by hand: never started – the panel shows Copy prompt instead of
 Generate; agents/research/GENERATORS.md §2).
 
 | Generator | Transport | What | Cost |
 |---|---|---|---|
-| ComfyUI (this PC) – `comfy-local` | local | `scripts/storyboard/comfy.mjs` unchanged: Qwen-Image-Edit, the render + character images → a still | free |
+| ComfyUI (this PC) – `comfy-local` | local | `scripts/storyboard/comfy.mjs`: Qwen-Image-Edit, image 1 = the still – the render without texts (its own default) or a generated image of the shot / the chosen (`--from`, an edit) – + character images → a still; its prompt is comfy.mjs's own | free |
 | Runway – `runway` | api | **Gen-4 Turbo** / **Gen-4.5** image to video (the still + prompt, 2–10 s); **Aleph 2** video to video (the handheld render pass ≤ 30 s, restyled by the prompt; the still as keyframe) | 5 / 12 / 28 credits per second (Aleph at least 56); 1 credit = 0.01 USD (≈ 0,0089 €) |
-| Luma – by hand – `luma-manual` | manual | no API: the built prompt (read-only) + **Copy prompt**, **Render (no texts)** (Luma's image reference, a download) and the references to attach (links) – made on lumalabs.ai, the result dropped onto its shot's band on the board | your Luma subscription |
+| Luma – by hand – `luma-manual` | manual | no API: the built prompt (read-only) + **Copy prompt**, **Render (no texts)** (Luma's image reference, a download) and the references to attach (links) – made on lumalabs.ai; the result goes into the panel's **Result** slot (drop or pick: recorded as Luma – by hand's candidate, model `manual`, with the prompt, the Reference and the improved card as its parent – a drop on the board stays a source) | your Luma subscription |
 | ComfyUI (cloud GPU) – `comfyui-remote` | api | the same graphs on RunPod / Comfy Cloud – not built yet (`generators/others.mjs`) | – |
 
 Safety: the estimate is shown before sending; every paid call asks once more with the cost; nothing is retried by
@@ -244,10 +271,18 @@ fields there and in agents/research/VARIANTS-CANVAS.md §3.7): id `<shot>--g<n>`
 mode, the provider's job, status, the inputs as keys with their roles (still · control · keyframe · reference ·
 character · style), the parents (inputs under `generated/`; the approved image counts as the file it was approved
 from), prompt, seed, ratio, duration, estimate, cost, date, the mark. Written by the jobs (a failed or cancelled job
-too – an id, no file), drops (`generator: 'upload'`, png / jpeg / webp / mp4 / webm), comfy.mjs (`--from
-<shot>--g<n>.png`: improve on a result) and gemini.mjs; names are always the highest n + 1 over the files and the log,
-the file created exclusively (never written over). A model that takes a seed (Runway, ComfyUI) gets one picked when none is
-given. The marks: `POST /api/generated/mark { ch, ids, mark: 'review' | 'rejected' | null, marked }` appends one line per
+too – an id, no file), drops (`generator: 'upload'`, png / jpeg / webp / mp4 / webm), the manual result slot
+(`POST /api/generated` with the Generate form's `job` + `parent`: Luma – by hand's candidate, model `manual`, with the
+prompt, the still as `reference` and the Improve-on card first in `parents`), comfy.mjs (`--from <shot>--g<n>.png`:
+improve on a result) and gemini.mjs. A job's inputs are keys (`generators/job-fields.mjs`); a still can be a frame of a
+video, `frame:out:<…video>#first|last|<ms>` – cut once by ffmpeg to `_out/<ch>/generated/frames/` (named by the
+video's mtime + size: again when the video is replaced, also by an older copy; `POST /api/generate/frame` cuts it for a
+thumbnail) and recorded as the video's key + `frame`, the
+video its parent. `GET /api/generate/inputs` offers the shot's generated images as stills, its generated clips as
+Aleph's video and their first / last frames as stills, the layout variants' frames; each record from `GET
+/api/generated` carries its `key` (the card as an input). Names are always the highest n + 1 over the files and the
+log, the file created exclusively (never written over). A model that takes a seed (Runway, ComfyUI) gets one picked
+when none is given. The marks: `POST /api/generated/mark { ch, ids, mark: 'review' | 'rejected' | null, marked }` appends one line per
 id, the last wins; approving appends `mark: null`. Chosen is no mark: approve.mjs writes `ch` and
 `files.from: "<shot>--g<n>.<ext>"` into the dataset line – the chosen image and the chosen video (clips.mjs; an approval
 from before 2026-10-20 is found by its copy's bytes). `GET /api/generated?ch=&ids=a,b` answers the picked shots' records

@@ -8,6 +8,9 @@
 // CANCELLED; not more often than every 5 s), DELETE /v1/tasks/{id} to cancel, the output URLs (they expire in 24–48 h)
 // downloaded at once. 1 credit = 0.01 USD. Every model takes a `seed` (0 – 2³² − 1; `seed: true` – the manager picks one
 // when the job has none, so the record knows it: the task never says which one Runway picked by itself).
+// Caps the studio reads (research/GENERATORS.md §2): startFrame – the still is the first frame (gen4); keyframes
+// { max: 1 } – Aleph's one keyframe at 0 today (the API's ≤ 5 = GENERATORS §6 step 5). Aleph's video: a handheld render
+// pass or a generated clip ("Improve on this", VARIANTS-CANVAS §3.6).
 // Inputs as data URIs (≤ 5 MB encoded), bigger files as an ephemeral upload
 // (POST /v1/uploads → a form POST → runway://…). act_two (character performance) needs a filmed face performance as
 // the driving video, so it is not offered for camera moves.
@@ -25,9 +28,9 @@ import { EXT, dataUri, dataUriLength, mimeOf, mp4Duration, nearestRatio } from '
 export const VERSION = '2024-11-06';
 const I2V_RATIOS = ['1280:720', '720:1280', '1104:832', '960:960', '832:1104', '1584:672'];
 export const MODELS = [
-	{ id: 'gen4_turbo', label: 'Gen-4 Turbo – image to video', kind: 'video', mode: 'image_to_video', inputs: ['still', 'prompt', 'duration', 'ratio'], durations: { min: 2, max: 10 }, ratios: I2V_RATIOS, price: { creditsPerSecond: 5 }, seed: true },
-	{ id: 'gen4.5', label: 'Gen-4.5 – image to video', kind: 'video', mode: 'image_to_video', inputs: ['still', 'prompt', 'duration', 'ratio'], durations: { min: 2, max: 10 }, ratios: I2V_RATIOS, price: { creditsPerSecond: 12 }, promptRequired: true, seed: true },
-	{ id: 'aleph2', label: 'Aleph 2 – video to video (the handheld pass)', kind: 'video', mode: 'video_to_video', inputs: ['control', 'still', 'prompt'], maxInputSeconds: 30, price: { creditsPerSecond: 28, minCredits: 56 }, seed: true }
+	{ id: 'gen4_turbo', label: 'Gen-4 Turbo – image to video', kind: 'video', mode: 'image_to_video', inputs: ['still', 'prompt', 'duration', 'ratio'], durations: { min: 2, max: 10 }, ratios: I2V_RATIOS, price: { creditsPerSecond: 5 }, startFrame: true, seed: true },
+	{ id: 'gen4.5', label: 'Gen-4.5 – image to video', kind: 'video', mode: 'image_to_video', inputs: ['still', 'prompt', 'duration', 'ratio'], durations: { min: 2, max: 10 }, ratios: I2V_RATIOS, price: { creditsPerSecond: 12 }, promptRequired: true, startFrame: true, seed: true },
+	{ id: 'aleph2', label: 'Aleph 2 – video to video (the handheld pass)', kind: 'video', mode: 'video_to_video', inputs: ['control', 'still', 'prompt'], maxInputSeconds: 30, price: { creditsPerSecond: 28, minCredits: 56 }, keyframes: { max: 1 }, seed: true }
 ];
 const DATA_URI_MAX = 5 * 1024 * 1024;
 const sleep = (ms, signal) => new Promise((ok, no) => {
@@ -75,8 +78,9 @@ export function createRunway({ root, env = process.env, pollMs = 5000, fetchImpl
 		const m = modelOf(job.model);
 		let seconds, ratio, note = '';
 		if (m.mode === 'video_to_video') {
+			if (job.controlFile && !/\.(mp4|mov)$/i.test(job.controlFile)) return { credits: 0, usd: 0, seconds: null, error: `Aleph takes an MP4 – ${basename(job.controlFile)} is not one` };
 			seconds = job.controlFile && existsSync(job.controlFile) ? mp4Duration(job.controlFile) : null;
-			if (seconds == null) return { credits: 0, usd: 0, seconds: null, error: 'pick the handheld render pass (an MP4) first' };
+			if (seconds == null) return { credits: 0, usd: 0, seconds: null, error: 'pick the video first – a handheld render pass or a generated clip (an MP4)' };
 			if (seconds > m.maxInputSeconds) return { credits: 0, usd: 0, seconds, error: `the video is ${seconds.toFixed(1)} s – Runway takes at most ${m.maxInputSeconds} s` };
 			note = 'the output follows the input video (length, aspect)';
 		} else {

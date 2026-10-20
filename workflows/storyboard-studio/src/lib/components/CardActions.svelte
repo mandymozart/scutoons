@@ -2,20 +2,25 @@
 	// The current card's actions (agents/research/VARIANTS-CANVAS.md §3.3 – no right-click menu, owner 2026-10-20: "the
 	// right click is when you select … the design was better"): under the card, drawn above the row below – square
 	// groups. A RESULT (and a dropped file): the STATUS ✓ · ? · ✕ (pressed = the card's status; pressed again = none – the
-	// chosen stays, one per kind; Enter / R / X do the same) and Improve on this · Vary · More (stage 3 – disabled
-	// placeholders). The chosen can't be put in review or rejected (approve another first), a rejected card can't be
-	// chosen or put in review (X first – §3.5 "a result wanted back: X on it"), a dropped file (a source) can't be
-	// rejected. Under a STRIP too (the current card folded – its X just folded it): ✕ pressed, X again brings it back.
-	// A SOURCE takes no status (Q5 A, research/studio-layout/variants-canvas-q5.html): a layout variant's group is Load
-	// (into the Viewport) · Take this (it becomes the shot – asks first) · Improve on · More (stage 3); the render's and
-	// a take's are Improve on · More (stage 3). `node` = the current card (the tree's), `at` = the box that shows it (its
-	// card or its strip), `meta` = the caption's height (0 below 60 % zoom).
+	// chosen stays, one per kind; Enter / R / X do the same) and Improve on this · Vary · More ▾ (stage 3,
+	// improve.svelte.js – they fill the Generate panel, nothing is sent: ⚡ / I the card where its kind fits, ↻ its own
+	// inputs with a new seed – a sibling; More ▾ = CardMore). The chosen can't be put in review or rejected (approve
+	// another first), a rejected card can't be chosen, put in review, improved or varied (X first – §3.5 "a result
+	// wanted back: X on it"), a dropped file (a source) can't be rejected. Under a STRIP too (the current card folded –
+	// its X just folded it): ✕ pressed, X again brings it back. A SOURCE takes no status (Q5 A, research/studio-layout/
+	// variants-canvas-q5.html): a layout variant's group is Load (into the Viewport) · Take this (it becomes the shot –
+	// asks first) · Improve on (its frame as the still, the shot stays) · More; the render's and a take's are Improve on
+	// (the shot's own inputs; a take: its render as the video) · More. `node` = the current card (the tree's), `at` = the
+	// box that shows it (its card or its strip), `take` = a take's render, `meta` = the caption's height (0 below 60 %).
 	import { Icon, Segmented } from '@scutoons/ui';
 	import { GAP_Y, TOP, shortId, statusOf } from '../board-layout.js';
 	import { board, sourceName } from '../board.svelte.js';
+	import { improve, refusal, vary } from '../improve.svelte.js';
+	import { fail } from '../studio.svelte.js';
+	import CardMore from './CardMore.svelte';
 
-	/** @type {{ node: any, at: any, meta: number, onstatus: (status: string) => void, onaction: (action: string) => void }} */
-	let { node, at, meta, onstatus, onaction } = $props();
+	/** @type {{ shot: string, node: any, at: any, take: any, meta: number, onstatus: (status: string) => void, onaction: (action: string) => void }} */
+	let { shot, node, at, take, meta, onstatus, onaction } = $props();
 	const r = $derived(node.record);
 	const status = $derived(statusOf(r));
 	const name = $derived(r ? shortId(r.id) : sourceName(node));
@@ -30,15 +35,11 @@
 		{ value: 'rejected', icon: 'x', disabled: status === 'chosen' || !!source, testid: 'status-rejected',
 			title: kept || source || (status === 'rejected' ? `Rejected – pressed again brings back what that X rejected (X)` : 'Rejected – with what hangs under it (not the chosen); X again brings them back (X)') }
 	]);
-	const LATER = { improve: 'Improve on this – stage 3 (not built yet)', vary: 'Vary – its inputs, prompt and model with a new seed – stage 3 (not built yet)', more: 'More – Compare, a frame as the still, show the file, delete – stage 3 (not built yet)' };
-	const later = $derived(
-		[
-			{ value: 'improve', icon: 'zap', title: node.kind === 'source' && !r ? `Improve on – ${name}'s render as Generate's still, the shot stays – stage 3 (not built yet)` : LATER.improve, disabled: true },
-			r && { value: 'vary', icon: 'rotate-cw', title: LATER.vary, disabled: true },
-			{ value: 'more', icon: 'more-horizontal', title: node.source === 'variant' ? 'More – Compare, edit the note, delete – stage 3 (not built yet)' : LATER.more, disabled: true }
-		].filter(Boolean)
-	);
 	const v = $derived(node.source === 'variant' ? node.variant : null);
+	const noImprove = $derived(refusal(node, 'improve'));
+	const noVary = $derived(r ? refusal(node, 'vary') : '');
+	const HOW = { render: 'the shot\'s own inputs', variant: 'its frame as the still – the shot stays as it is', take: 'its render as the video (video to video)' };
+	const improveTitle = $derived(noImprove || `Improve on ${name} – fills Generate: ${HOW[node.source] ?? (r?.kind === 'video' ? 'the video to restyle (+ the chosen image at 0)' : 'the still – the first frame, or the picture ComfyUI edits')}; nothing is sent before Generate (I)`);
 	// under the picture and its caption (a strip has none), a hair below (the gap to the row below holds it – GAP_Y)
 	const top = $derived(at.y + TOP + at.h + (at.kind === 'strip' ? 0 : meta) + Math.min(0.25, GAP_Y / 4));
 </script>
@@ -54,7 +55,14 @@
 	{:else if r}
 		<Segmented label="{name}: status – the pressed one; pressed again: none" square {options} value={status} onchange={onstatus} onclear={() => onstatus(status)} />
 	{/if}
-	<Segmented label="{name}'s actions" square options={later} value={null} onchange={() => {}} />
+	<div class="sc-seg" role="group" aria-label="{name}'s actions">
+		<button type="button" class="is-square" aria-label={improveTitle} title={improveTitle} disabled={!!noImprove} onclick={() => improve(shot, node, take).catch(fail)} data-testid="card-improve"><Icon name="zap" /></button>
+		{#if r}
+			{@const varyTitle = noVary || `Vary ${name} – its own inputs, prompt and model with a new seed: a sibling in its row; fills Generate, nothing is sent before Generate`}
+			<button type="button" class="is-square" aria-label={varyTitle} title={varyTitle} disabled={!!noVary} onclick={() => vary(shot, node).catch(fail)} data-testid="card-vary"><Icon name="rotate-cw" /></button>
+		{/if}
+		<CardMore {shot} {node} {take} {name} />
+	</div>
 </div>
 
 <style>
@@ -63,5 +71,9 @@
 		z-index: 2;
 		display: flex;
 		gap: var(--space-025);
+	}
+	/* More ▾ open: its list over the next band's sticky head too */
+	.actions:has(:global([aria-expanded='true'])) {
+		z-index: 5;
 	}
 </style>

@@ -10,14 +10,18 @@
 //   { id, label, kinds: ['image' | 'video'], paid: boolean, creditUsd?: number (what one of its credits costs),
 //     transport: 'api' | 'local' | 'manual',         – how a job gets made (research/GENERATORS.md §2): a provider's API,
 //       this PC, or by hand (luma-manual.mjs: never started, never run – the Generate panel shows the prompt to copy
-//       instead of Generate; the result is dropped onto the variants board)
+//       instead of Generate; the result comes back through the manual result slot – generated.mjs)
 //     models: [{ id, label, kind, mode, inputs: ['still' | 'control' | 'characters' | 'style' | 'prompt' | 'duration'
 //               | 'ratio'], durations?: { min, max } | number[], ratios?: string[], price?: { creditsPerSecond, minCredits },
-//               seed?: true (it takes a seed: the manager picks one, 0 … 2³² − 1, when the job has none) }],
+//               seed?: true (it takes a seed: the manager picks one, 0 … 2³² − 1, when the job has none),
+//               caps (research/GENERATORS.md §2, what "Improve on this" offers): startFrame?: true (the still is the
+//               first frame), keyframes?: { max } (the still is the keyframe at 0), source?: 'edit' (the still is edited) }],
 //     status(): Promise<{ configured, how? }>        – "not configured" + a one-line how-to (never the key itself)
-//     estimate(job): { credits, usd, seconds, ratio?, note? }   – before anything is sent
+//     estimate(job): { credits, usd, seconds, ratio?, note?, error? }   – before anything is sent; an error (an input it
+//       can't take) refuses the job before it exists
 //     run(job, ctx): Promise<{ files?: [{ bytes, ext }], written?: [file name it wrote itself], meta? }>
-//        job = { model, toon, ch, shot, prompt, duration, aspect, seed, stillFile, controlFile, characterFiles, styleFiles }
+//        job = { model, toon, ch, shot, prompt, duration, aspect, seed, still, control (keys – job-fields.mjs; a still can
+//                be a frame of a video), stillFile, controlFile, characterFiles, styleFiles (the files – a frame cut) }
 //        ctx = { signal (AbortSignal – cancel), progress(p 0…1 | null, message?), remote(taskId, credits?), cost(credits) }
 //   }
 // Safety (owner): a paid job starts only with `confirm` ≥ the server's own estimate (the UI shows it first); a job is
@@ -26,6 +30,8 @@
 // shows it in euro at the rate GET /api/generators serves (rate.mjs – owner 2026-10-20: "preise in euro").
 
 import { SEED_MAX, appendLine, kindOf, nextName, parentsOf, pickSeed, record, writeNew } from '../../../scripts/storyboard/generated-log.mjs';
+// what a job sends, as keys with their roles – only what the model takes, the main input first (a frame as its video)
+import { inputsOf } from './job-fields.mjs';
 
 const ACTIVE = new Set(['queued', 'running']);
 const cents = (usd) => Math.round(usd * 100) / 100;
@@ -60,17 +66,6 @@ export function createManager({ generators, out, now = () => new Date(), parentO
 		return files;
 	}
 
-	/** what the job sends, as keys with their roles (VARIANTS-CANVAS §3.7), only what the model takes – the main input
-	 *  first: a video to video's control video (the still is its keyframe at 0), else the still */
-	function inputsOf(m, job) {
-		const takes = (what) => (m?.inputs ?? []).includes(what);
-		const list = [];
-		if (takes('control') && job.control) list.push({ role: 'control', key: String(job.control) });
-		if (takes('still') && job.still) list.push(m.mode === 'video_to_video' ? { role: 'keyframe', key: String(job.still), at: 0 } : { role: 'still', key: String(job.still) });
-		if (takes('characters')) for (const k of job.characters ?? []) list.push({ role: 'character', key: String(k) });
-		if (takes('style')) for (const k of job.style ?? []) list.push({ role: 'style', key: String(k) });
-		return list;
-	}
 	/** the job's seed: the given one (0 … 2³² − 1), else one picked here when the model takes a seed, else null */
 	function seedOf(m, seed) {
 		if (!m?.seed) return null;
@@ -127,6 +122,8 @@ export function createManager({ generators, out, now = () => new Date(), parentO
 			const m = modelOf(g, job.model);
 			const input = { ...job, model: m?.id, seed: seedOf(m, job.seed) };
 			const est = g.estimate(input);
+			// what the generator can't take (a still comfy-local can't edit, a video Aleph can't read) is refused before a job exists
+			if (est.error) throw new Error(est.error);
 			if (g.paid && !(Number(confirm) >= est.usd)) throw new Error(`confirm the cost first (${est.credits} credits)`);
 			if (!/^[\w-]+$/.test(job.shot ?? '') || !/^[a-z0-9-]+$/.test(job.ch ?? '')) throw new Error('bad shot');
 			const j = {
