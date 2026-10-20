@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Strip editor – phone E2 (#text / #presets / #long / #stack / #rowlong / #drag)</title>
+<link rel="stylesheet" href="strip.css" />
+<style>
+	/* phone E (owner 2026-10-20 on D: "die sollen in die horizontale. Text anklicken lädt unten auf der ganzen linken Seite
+	   die Funktionen des Untermenüs. Ganz links gibt es ein Zurück-Chevron, immer alle Buttons gleich groß quadratisch …
+	   ist man im Untermenü und klickt auf den Canvas, wird ein Element der Art platziert, klickt man ein bestehendes an,
+	   ist man automatisch im Edit, Text-Vorlagen ist als zweites … die Ebenen-Ansicht genauso. Kopieren ist mobile langes
+	   Drücken, dann kommt ein Kontext mit drei Optionen … einmal klicken ist immer bearbeiten."):
+	   the bottom row is either the kinds or ONE kind's functions (‹ first); every button the same square, borderless.
+	   E2 (owner 2026-10-20 on E): the real text presets, no mode label, the layers a flat list without header or slices,
+	   long press = Kopieren · Ausschneiden · Löschen · Bearbeiten, long press on the left handle + drag = the layer level */
+	.papp { display: flex; flex-direction: column; height: 100dvh; }
+	.ib { display: inline-flex; align-items: center; justify-content: center; width: 2.75rem; height: 2.75rem; flex: none; position: relative; color: var(--ink); }
+	.ib svg.i { width: 1.35rem; height: 1.35rem; }
+	.ib.on { background: var(--ink); color: var(--paper); }
+	.ib .badge { position: absolute; right: 0.2rem; top: 0.3rem; font-size: 0.7rem; line-height: 1rem; min-width: 1rem; text-align: center; background: var(--state-warning); color: var(--ink); border-radius: 50%; }
+	.ib .dot { position: absolute; top: 0.45rem; right: 0.45rem; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--badge-published); }
+	.ptop { display: flex; align-items: center; height: var(--bar); padding: 0 var(--space-025); border-bottom: var(--line); flex: none; background: var(--paper); }
+	.ptop .crumbs { flex: 1; min-width: 0; padding-left: var(--space-025); }
+	.stack-st .ptop, .rowlong-st .ptop, .drag-st .ptop { display: none; }
+	.canvas { flex: 1; min-height: 0; background: var(--surface-hover); overflow: hidden; position: relative; }
+	.pstrip { position: relative; width: 100vw; margin-top: calc(100vw * var(--at) * -625 / 390); --at: 2.62; }
+	.stack-st .pstrip, .rowlong-st .pstrip, .drag-st .pstrip { --at: 2.78; }
+	.pstrip img.s { display: block; width: 100%; height: auto; }
+	.pstrip .sl { position: relative; }
+	.pstrip .ov { position: absolute; }
+	.pstrip .piece { z-index: 0; } .pstrip .box { z-index: 1; } .pstrip .chip { z-index: 3; }
+	.pseam { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--paper); z-index: 2; }
+	.pseam b { position: absolute; right: 0.25rem; top: 0.25rem; font-weight: 400; font-size: var(--caption); line-height: 1; padding: 0.15rem 0.3rem; background: var(--paper); border: var(--hair); }
+	/* states: what shows where */
+	.only { display: none !important; }
+	.kinds-st .s-kinds, .text-st .s-text, .presets-st .s-text, .presets-st .s-presets, .long-st .s-text, .long-st .s-long,
+	.stack-st .s-layers, .rowlong-st .s-layers, .drag-st .s-layers, .text-st .s-edit, .long-st .s-sel, .presets-st .s-place { display: flex !important; }
+	.sel-box { outline: none; }
+	.text-st .sel-box, .long-st .sel-box { outline: var(--border-width-regular) solid var(--select-live-border); outline-offset: 2px; }
+	/* the bottom row: the kinds, or one kind's functions with ‹ first; undo / redo at the right */
+	.brow { display: flex; align-items: center; height: var(--bar); border-top: var(--line); flex: none; background: var(--paper); }
+	.brow .left { flex: 1; min-width: 0; display: flex; overflow: hidden; padding-left: var(--space-025); }
+	.brow .left > div { display: flex; }
+	.brow .ur { display: flex; border-left: 1px solid var(--border-muted); padding: 0 var(--space-025); }
+	.brow .sep { width: 1px; align-self: stretch; margin: 0.45rem 0.25rem; background: var(--border-muted); }
+	.brow .kindmark { display: inline-flex; align-items: center; height: 2.75rem; padding: 0 var(--space-05) 0 0; font-size: var(--caption); text-transform: uppercase; letter-spacing: var(--tracking-label); color: var(--text-muted); }
+	/* the presets: a horizontal strip above the row, one picked */
+	.presetbar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; display: flex; gap: var(--space-05); padding: var(--space-05); background: var(--paper); border-top: var(--line); overflow: hidden; }
+	.presetbar .pv { flex: none; width: 7rem; height: 5.6rem; display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 0.2rem; padding: 0.5rem 0.3rem 0.2rem; border: var(--line); border-color: var(--border-muted); background: #5b6b55; }
+	.presetbar .pv.on { border-color: var(--select-live-border); }
+	.presetbar .pv b { font-weight: 400; font-size: 0.7rem; color: var(--paper); }
+	.presetbar .pbox { --fs: 0.68rem; width: 100%; padding: 0.3em 0.4em; line-height: 1.15; }
+	.presetbar .box.story { color: var(--paper); }
+	.ghostplace { position: absolute; z-index: 3; border: var(--border-width-regular) dashed var(--select-live-text); background: rgb(240 252 255 / 0.85); color: var(--select-live-text); display: flex; align-items: center; justify-content: center; font-size: var(--caption); text-align: center; padding: 0.3rem; }
+	.tap { position: absolute; z-index: 4; width: 2.4rem; height: 2.4rem; border-radius: 50%; border: var(--border-width-regular) solid var(--paper); background: rgb(0 209 255 / 0.35); }
+	/* the long-press context: three options, right at the element */
+	.ctx { position: absolute; z-index: 5; display: flex; background: var(--ink); color: var(--paper); }
+	.ctx > span { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.1rem; height: 3.1rem; min-width: 3.4rem; padding: 0 var(--space-05); font-size: 0.68rem; }
+	.ctx > span + span { border-left: 1px solid var(--text-muted); }
+	.ctx .i { width: 1.1rem; height: 1.1rem; }
+	.caret { display: inline-block; width: 2px; height: 1em; background: var(--select-live-text); vertical-align: -0.15em; margin-left: 1px; }
+	/* the layers sheet */
+	.lsheet { flex: none; height: 47%; border-top: var(--line); background: var(--paper); flex-direction: column; position: relative; padding-top: 0.6rem; }
+	.lsheet .grabber { position: absolute; left: calc(50% - 1.5rem); top: 0.2rem; width: 3rem; height: 0.25rem; background: var(--border-muted); }
+	.lsheet .layers { position: relative; }
+	.lsheet .layers .lr .grip { width: 2.75rem; height: 2.75rem; display: inline-flex; align-items: center; justify-content: center; margin-left: calc(-1 * var(--space-1)); }
+	.rowctx { display: none; top: 1.3rem; left: 0.4rem; }
+	.rowlong-st .rowctx { display: flex; }
+	.rowlong-st .r-sel { box-shadow: inset 0 0 0 2px var(--select-live-border), 0 0 0 0 transparent; }
+	.drop-line { display: none; height: 3px; background: var(--select-live-border); margin: 0 var(--space-1); }
+	.drag-st .drop-line { display: block; }
+	.lift { display: none !important; }
+	.drag-st .lift { display: flex !important; position: absolute; left: 0.4rem; right: 0.2rem; top: 8.7rem; z-index: 3; transform: rotate(-1.5deg); background: var(--paper); box-shadow: inset 0 0 0 2px var(--select-live-border); }
+	.drag-st .r-sel { opacity: 0.3; }
+	.lsheet .shead { display: flex; align-items: center; gap: var(--space-05); height: 2.75rem; padding-left: var(--space-1); border-bottom: var(--line); }
+	.lsheet .layers { margin: 0; overflow: hidden; }
+	.lsheet .layers .lr { height: 2.75rem; }
+	.note { display: none; }
+	.text-st .note.n-text, .presets-st .note.n-presets, .long-st .note.n-long, .stack-st .note.n-layers, .rowlong-st .note.n-rowlong, .drag-st .note.n-drag { display: block; }
+	.rowlong-st .note, .drag-st .note { top: 0.5rem; }
+	.lsheet { overflow: hidden; }
+	.presets-st .t-place { background: none; color: var(--ink); }
+	.presets-st .t-presets { background: var(--ink); color: var(--paper); }
+	.note { left: 0.5rem; right: 0.5rem; top: calc(var(--bar) + 0.5rem); max-width: none; }
+	.stack-st .note { top: 0.5rem; }
+	.presets-st .note, .long-st .note { top: auto; bottom: calc(var(--bar) + 7.2rem); }
+	.long-st .note { bottom: calc(var(--bar) + 0.75rem); }
+</style>
+</head>
+<body>
+<div class="papp">
+	<header class="ptop">
+		<span class="ib"><i data-i="menu"></i></span>
+		<span class="crumbs"><span>Kap. 2</span><span class="sep">›</span><span>kathedrale</span></span>
+		<span class="ib"><i data-i="alert"></i><span class="badge">1</span></span>
+		<span class="ib"><i data-i="save"></i><span class="dot"></span></span>
+		<span class="ib"><i data-i="send"></i></span>
+		<span class="ib"><i data-i="more"></i></span>
+	</header>
+
+	<div class="canvas">
+		<div class="pstrip">
+			<div class="sl"><img class="s" src="img/s1c2-slice-37.webp" alt="" /></div>
+			<div class="sl"><img class="s" src="img/s1c2-slice-38.webp" alt="" /></div>
+			<div class="sl"><img class="s" src="img/s1c2-slice-39.webp" alt="" />
+				<div class="ov box sel-box" style="left:6%; top:84%; width:72%; height:20%; --fs:0.8rem">Alle warteten auf ihn – nur er nicht.<span class="only s-edit caret" style="display:none"></span>
+					<span class="only s-sel anchor-tag chip live"><i data-i="anchor"></i>39</span>
+				</div>
+				<!-- presets: the picked preset waits under the finger: a tap places it there -->
+				<div class="only s-place ghostplace" ></div>
+			</div>
+			<div class="sl"><img class="s" src="img/s1c2-slice-40.webp" alt="" />
+				<div class="ov piece" style="left:58%; top:-9%; width:40%"><img src="img/starburst-red-2.svg" alt="" /></div>
+				<div class="ov box speech collide" style="left:30%; top:2%; width:48%; height:11%; --fs:0.8rem">Wo bist du?!</div>
+				<div class="ov chip warn" style="right:2%; top:17%">⚠ verdeckt 39</div>
+				<div class="only s-place ghostplace" style="left:12%; top:27%; width:70%; height:12%">„Erzähler“ – ein Tipp setzt ihn hier</div>
+				<span class="only s-place tap" style="left:44%; top:31%"></span>
+				<div class="pseam" style="top:0"><b>40</b></div>
+			</div>
+			<div class="sl"><img class="s" src="img/s1c2-slice-41.webp" alt="" /><div class="pseam" style="top:0"><b>41</b></div></div>
+			<div class="sl"><img class="s" src="img/s1c2-slice-42.webp" alt="" /></div>
+		</div>
+		<!-- long press on the text: three options, right at it -->
+		<div class="only s-long ctx" style="left: 0.4rem; top: 7.2rem"><span><i data-i="copy"></i>Kopieren</span><span><i data-i="scissors"></i>Ausschneiden</span><span><i data-i="trash"></i>Löschen</span><span><i data-i="type"></i>Bearbeiten</span></div>
+		<!-- Text-Vorlagen: the presets in a row above; pick one, tap the canvas -->
+		<div class="only s-presets presetbar">
+			<span class="pv on"><span class="box narr pbox">Unterdessen …</span><b>Erzählung</b></span>
+			<span class="pv"><span class="box speech pbox">Wo gehst du hin?</span><b>Rede</b></span>
+			<span class="pv"><span class="box thought pbox">Hat sie mich …</span><b>Gedanke</b></span>
+			<span class="pv dark"><span class="box sfx pbox" style="font-size:1.05rem">Bam!</span><b>Lautmalerei</b></span>
+			<span class="pv"><span class="box story pbox">Es war die Nacht …</span><b>Geschichte</b></span>
+			<span class="pv"><span class="box scene pbox">19 Ext. Pool</span><b>Szene</b></span>
+			<span class="pv"><span class="box lyr pbox">Ich will eine Wolke …</span><b>Liedtext</b></span>
+		</div>
+	</div>
+
+	<!-- the layers: the scene's overlays in one flat list, front first (no header, no slices – they are the background);
+	     long press on a row = its context, long press on the handle + drag = the layer level -->
+	<div class="only s-layers lsheet" style="display:none">
+		<span class="grabber"></span>
+		<div class="layers">
+			<div class="lr r-front"><span class="grip"><i data-i="grip"></i></span><i data-i="type"></i><span class="w">WO BIST DU?!</span></div>
+			<div class="lr on r-sel"><span class="grip"><i data-i="grip"></i></span><i data-i="type"></i><span class="w">Alle warteten auf ihn…</span><span class="warn">⚠</span></div>
+			<div class="lr"><span class="grip"><i data-i="grip"></i></span><i data-i="type"></i><span class="w">Im Dom war es still…</span></div>
+			<div class="drop-line"></div>
+			<div class="lr"><span class="grip"><i data-i="grip"></i></span><i data-i="package"></i><span class="w">Gurke</span></div>
+			<div class="lr"><span class="grip"><i data-i="grip"></i></span><i data-i="shapes"></i><span class="w">Ornament · starburst-red-2</span></div>
+			<div class="lr lift"><span class="grip"><i data-i="grip"></i></span><i data-i="type"></i><span class="w">Alle warteten auf ihn…</span><span class="warn">⚠</span></div>
+		</div>
+		<div class="ctx rowctx"><span><i data-i="copy"></i>Kopieren</span><span><i data-i="scissors"></i>Ausschneiden</span><span><i data-i="trash"></i>Löschen</span><span><i data-i="type"></i>Bearbeiten</span></div>
+	</div>
+
+	<nav class="brow">
+		<div class="left">
+			<!-- the kinds -->
+			<div class="only s-kinds">
+				<span class="ib" title="Gruppe"><i data-i="rows"></i></span>
+				<span class="ib" title="Slice"><i data-i="image"></i></span>
+				<span class="ib" title="Text"><i data-i="type"></i></span>
+				<span class="ib" title="Item"><i data-i="package"></i></span>
+				<span class="ib" title="Ornament"><i data-i="shapes"></i></span>
+				<span class="ib" title="Ton"><i data-i="music"></i></span>
+				<span class="ib" title="Event"><i data-i="zap"></i></span>
+				<span class="ib" title="Ebenen"><i data-i="layers"></i></span>
+			</div>
+			<!-- Text: ‹ · the kind (pressed: a tap on the canvas places one) · Vorlagen · Inspector -->
+			<div class="only s-text">
+				<span class="ib" title="Zurück"><i data-i="left"></i></span>
+				<span class="ib on t-place" title="Text setzen"><i data-i="type"></i></span>
+				<span class="ib t-presets" title="Text-Vorlagen"><i data-i="grid"></i></span>
+				<span class="ib" title="Inspector"><i data-i="sliders"></i></span>
+			</div>
+			<!-- Ebenen: ‹ · nach vorn · nach hinten · Inspector -->
+			<div class="only s-layers">
+				<span class="ib" title="Zurück"><i data-i="left"></i></span>
+				<span class="ib on" title="Ebenen"><i data-i="layers"></i></span>
+				<span class="ib" title="Inspector"><i data-i="sliders"></i></span>
+			</div>
+		</div>
+		<div class="ur"><span class="ib"><i data-i="undo"></i></span><span class="ib"><i data-i="redo"></i></span></div>
+	</nav>
+</div>
+
+<div class="note n-text"><b>Text.</b> ‹ zurück zu den Arten · Text (gedrückt: ein Tipp auf freien Canvas setzt einen Text) · Text-Vorlagen ·
+	Inspector – ohne Beschriftung. Ein Tipp auf einen bestehenden Text = bearbeiten (Cursor im Text).</div>
+<div class="note n-presets"><b>Text-Vorlagen</b> – die echten: Erzählung, Rede, Gedanke, Lautmalerei, Geschichte, Szene, Liedtext (+ eigene). Rede und
+	Gedanke sind die eckige Box mit Zeiger, keine Ovale. Wählen, dann tippen.</div>
+<div class="note n-long"><b>Lange drücken</b> auf einen Text: Kopieren · Ausschneiden · Löschen · Bearbeiten.</div>
+<div class="note n-layers"><b>Ebenen:</b> eine flache Liste dieser Szene, vorne zuerst – ohne Kopfzeile, ohne Slices (die sind der Hintergrund).
+	Die Zeile unten: ‹ · Ebenen · Inspector.</div>
+<div class="note n-rowlong"><b>Lange drücken auf eine Zeile:</b> Kopieren · Ausschneiden · Löschen · Bearbeiten.</div>
+<div class="note n-drag"><b>Links am Griff lange drücken und ziehen:</b> die Ebene wandert – die blaue Linie zeigt, wohin („Alle warteten …“
+	nach hinten, unter „Im Dom …“). Nach vorn / Nach hinten brauchen keine eigenen Knöpfe mehr.</div>
+<script src="icons.js"></script>
+<script>
+	const b = document.body.classList;
+	b.add((location.hash.slice(1) || 'text') + '-st');
+</script>
+</body>
+</html>

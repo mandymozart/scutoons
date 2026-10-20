@@ -1,4 +1,4 @@
-Status 2026-10-19: concept + plan; §8 steps 1–2 and §9 built and live (the endless band, format + migration, Swiper gone). Owner 2026-10-19: Q1 step 1 ships WITH step 2, Q2 drafts first, Q4 keep "Slices", Q7 canvas bands only in the strip editor, Q3 one document; "Szene" stays the group's name, slices name their storyboard shot (§10). Step 3 built on branch claude/slices-rework-fe9a8d (scenes inlined by the migration 2026-10-19-inline-scenes, `ref` / the `scene` kind out of the code, optional `slice.shot`), not pushed. Strip editor drafts (§4.1): D1 = A picked, phone E drawn (§4.1) for the owner's look; then §5 steps 1 + 2 together. GitHub #44 (FEATURES 10.100).
+Status 2026-10-19: concept + plan; §8 steps 1–2 and §9 built and live (the endless band, format + migration, Swiper gone). Owner 2026-10-19: Q1 step 1 ships WITH step 2, Q2 drafts first, Q4 keep "Slices", Q7 canvas bands only in the strip editor, Q3 one document; "Szene" stays the group's name, slices name their storyboard shot (§10). Step 3 built on branch claude/slices-rework-fe9a8d (scenes inlined by the migration 2026-10-19-inline-scenes, `ref` / the `scene` kind out of the code, optional `slice.shot`), not pushed. Strip editor drafts (§4.1): D1 = A picked, phone E3 drawn (§4.1) for the owner's look; then §5 steps 1 + 2 together. GitHub #44 (FEATURES 10.100).
 
 # Slices as background: the strip editor
 
@@ -175,6 +175,38 @@ genauso. Kopieren ist mobile langes Drücken … drei Optionen … einmal klicke
 - **long press** on an element: Copy · Cut · Delete, right at it; a single tap is always edit;
 - **desktop stays A**: its tool strip already is the kinds (a pressed tool places on click, a click on an existing one
   edits, right-click = copy / cut / delete), the inspector stays docked – the same model, no row needed.
+
+**Phone E2** (owner 2026-10-20 on E: "the presets for the text are not corresponding with our presets … no round
+bubbles", "in layers we don't need a header … the slices … are in the background", "long press will open up the
+layers context, copy, cut, delete, edit", "long press left side changes layer level as we are used to") →
+`phone-e2.html` (`#text`, `#presets`, `#long`, `#stack`, `#rowlong`, `#drag`):
+- Text-Vorlagen = the creator's presets with their looks: Erzählung, Rede (the square box + its tail), Gedanke (+ the
+  thought circles), Lautmalerei, Geschichte, Szene, Liedtext (+ own presets) – no ovals anywhere;
+- no mode word in the bottom row (the icons say it);
+- Layers: ONE flat list of the scene's overlays, front first – no header, no slice headings; a long press on a row (or on
+  an element in the strip) = Kopieren · Ausschneiden · Löschen · Bearbeiten; a long press on the row's left handle +
+  drag = the layer level; Bring to front / Send back leave the row (the inspector keeps them for keys / screen readers).
+- **E3** (owner 2026-10-20: "bearbeiten pencil icon. the others we don't need the text under them. all equal squares.
+  bigger outline around the button group. between the buttons same as in the footer menu"): the long-press context is
+  four icon-only squares – copy · cut · delete · edit (pencil) – names as tooltip / aria-label, spaced like the bottom
+  row, one frame of two regular border widths (`calc(2 * var(--border-width-regular))`, no px) around the group; the same on the strip and in the layers list (`phone-e3.html`).
+- **Text in place** (owner 2026-10-20: "text in place edit?" – yes): on the phone a tap on a text (or the pencil) edits
+  its words on the canvas – the existing canvas-text-edit (DESIGN "Text in place", today a double click on desktop):
+  the caret in the text, the phone's keyboard up, the bottom row and the sheet step aside, one bar above the keyboard
+  with ✕ (the old words back, = Esc) · the text's kind and language · ✓ done; the box may cross a seam while it is
+  edited (it stays anchored, §3) (`phone-e3.html#edit`). **Desktop stays as it is:** a single click selects (so the
+  box can be dragged at once), a double click or Enter edits in place – a single click that edits would cost the drag.
+- **Languages while editing** (owner 2026-10-20: "we still need the language dependent text, how does this look?"):
+  the language chip in the bar above the keyboard IS the header's text-language switch (RULES: the only one) – the top
+  bar is away while typing, so it sits there meanwhile: globe + code (+ ★ for the source), inverted while a translation
+  is shown, a tap lists the toon's languages: the code, ★ for the source, a red dot for a missing translation – no
+  words (owner: "Quelle / übersetzt muss nicht erscheinen … die Ikonografie ist klar"; the words as tooltip / aria-label);
+  like the header's switch it changes the whole view's text language ("ganze Ansicht"). A translation edits like the
+  inspector's translate mode: the source as one muted line near the box + "Original kopieren"; an empty translation
+  shows the source muted in the box as its placeholder and "KO fehlt" on it (`phone-e3.html#lang`, `#empty`).
+- **Absent, not disabled** (owner 2026-10-20: "if there is nothing to revert or undo we can hide those buttons"): ✕
+  appears only after a change, ↶ ↷ only with something to undo / redo – everywhere, no grey disabled buttons. The
+  button keeps its square (`visibility: hidden`), so nothing in the row moves when it comes or goes.
 
 ## 5. Migration path (each step ships alone)
 

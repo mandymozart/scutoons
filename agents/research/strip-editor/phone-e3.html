@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Strip editor – phone E3 (#text / #presets / #long / #stack / #rowlong / #drag)</title>
+<link rel="stylesheet" href="strip.css" />
+<style>
+	/* phone E (owner 2026-10-20 on D: "die sollen in die horizontale. Text anklicken lädt unten auf der ganzen linken Seite
+	   die Funktionen des Untermenüs. Ganz links gibt es ein Zurück-Chevron, immer alle Buttons gleich groß quadratisch …
+	   ist man im Untermenü und klickt auf den Canvas, wird ein Element der Art platziert, klickt man ein bestehendes an,
+	   ist man automatisch im Edit, Text-Vorlagen ist als zweites … die Ebenen-Ansicht genauso. Kopieren ist mobile langes
+	   Drücken, dann kommt ein Kontext mit drei Optionen … einmal klicken ist immer bearbeiten."):
+	   the bottom row is either the kinds or ONE kind's functions (‹ first); every button the same square, borderless.
+	   E2 (owner 2026-10-20 on E): the real text presets, no mode label, the layers a flat list without header or slices,
+	   long press = Kopieren · Ausschneiden · Löschen · Bearbeiten, long press on the left handle + drag = the layer level */
+	.papp { display: flex; flex-direction: column; height: 100dvh; }
+	.ib { display: inline-flex; align-items: center; justify-content: center; width: 2.75rem; height: 2.75rem; flex: none; position: relative; color: var(--ink); }
+	.ib svg.i { width: 1.35rem; height: 1.35rem; }
+	.ib.on { background: var(--ink); color: var(--paper); }
+	.ib .badge { position: absolute; right: 0.2rem; top: 0.3rem; font-size: 0.7rem; line-height: 1rem; min-width: 1rem; text-align: center; background: var(--state-warning); color: var(--ink); border-radius: 50%; }
+	.ib .dot { position: absolute; top: 0.45rem; right: 0.45rem; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--badge-published); }
+	.ptop { display: flex; align-items: center; height: var(--bar); padding: 0 var(--space-025); border-bottom: var(--line); flex: none; background: var(--paper); }
+	.ptop .crumbs { flex: 1; min-width: 0; padding-left: var(--space-025); }
+	.stack-st .ptop, .rowlong-st .ptop, .drag-st .ptop { display: none; }
+	.canvas { flex: 1; min-height: 0; background: var(--surface-hover); overflow: hidden; position: relative; }
+	.pstrip { position: relative; width: 100vw; margin-top: calc(100vw * var(--at) * -625 / 390); --at: 2.62; }
+	.stack-st .pstrip, .rowlong-st .pstrip, .drag-st .pstrip { --at: 2.78; }
+	.pstrip img.s { display: block; width: 100%; height: auto; }
+	.pstrip .sl { position: relative; }
+	.pstrip .ov { position: absolute; }
+	.pstrip .piece { z-index: 0; } .pstrip .box { z-index: 1; } .pstrip .chip { z-index: 3; }
+	.pseam { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--paper); z-index: 2; }
+	.pseam b { position: absolute; right: 0.25rem; top: 0.25rem; font-weight: 400; font-size: var(--caption); line-height: 1; padding: 0.15rem 0.3rem; background: var(--paper); border: var(--hair); }
+	/* states: what shows where */
+	.only { display: none !important; }
+	.kinds-st .s-kinds, .text-st .s-text, .presets-st .s-text, .presets-st .s-presets, .long-st .s-text, .long-st .s-long,
+	.stack-st .s-layers, .rowlong-st .s-layers, .drag-st .s-layers, .text-st .s-edit, .edit-st .s-edit, .long-st .s-sel, .presets-st .s-place { display: flex !important; }
+	.sel-box { outline: none; }
+	.text-st .sel-box, .long-st .sel-box { outline: var(--border-width-regular) solid var(--select-live-border); outline-offset: 2px; }
+	/* the bottom row: the kinds, or one kind's functions with ‹ first; undo / redo at the right */
+	.brow { display: flex; align-items: center; height: var(--bar); border-top: var(--line); flex: none; background: var(--paper); }
+	.brow .left { flex: 1; min-width: 0; display: flex; overflow: hidden; padding-left: var(--space-025); }
+	.brow .left > div { display: flex; }
+	.brow .ur { display: flex; border-left: 1px solid var(--border-muted); padding: 0 var(--space-025); }
+	.brow .sep { width: 1px; align-self: stretch; margin: 0.45rem 0.25rem; background: var(--border-muted); }
+	.brow .kindmark { display: inline-flex; align-items: center; height: 2.75rem; padding: 0 var(--space-05) 0 0; font-size: var(--caption); text-transform: uppercase; letter-spacing: var(--tracking-label); color: var(--text-muted); }
+	/* the presets: a horizontal strip above the row, one picked */
+	.presetbar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; display: flex; gap: var(--space-05); padding: var(--space-05); background: var(--paper); border-top: var(--line); overflow: hidden; }
+	.presetbar .pv { flex: none; width: 7rem; height: 5.6rem; display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 0.2rem; padding: 0.5rem 0.3rem 0.2rem; border: var(--line); border-color: var(--border-muted); background: #5b6b55; }
+	.presetbar .pv.on { border-color: var(--select-live-border); }
+	.presetbar .pv b { font-weight: 400; font-size: 0.7rem; color: var(--paper); }
+	.presetbar .pbox { --fs: 0.68rem; width: 100%; padding: 0.3em 0.4em; line-height: 1.15; }
+	.presetbar .box.story { color: var(--paper); }
+	.ghostplace { position: absolute; z-index: 3; border: var(--border-width-regular) dashed var(--select-live-text); background: rgb(240 252 255 / 0.85); color: var(--select-live-text); display: flex; align-items: center; justify-content: center; font-size: var(--caption); text-align: center; padding: 0.3rem; }
+	.tap { position: absolute; z-index: 4; width: 2.4rem; height: 2.4rem; border-radius: 50%; border: var(--border-width-regular) solid var(--paper); background: rgb(0 209 255 / 0.35); }
+	/* the long-press context: three options, right at the element */
+	/* E3 (owner 2026-10-20): icon-only equal squares, spaced like the footer row, one thicker frame around the group */
+	.ctx { position: absolute; z-index: 5; display: flex; background: var(--paper); color: var(--ink); border: calc(2 * var(--border-width-regular)) solid var(--ink); }
+	.caret { display: inline-block; width: 2px; height: 1em; background: var(--select-live-text); vertical-align: -0.15em; margin-left: 1px; }
+	/* the layers sheet */
+	.lsheet { flex: none; height: 47%; border-top: var(--line); background: var(--paper); flex-direction: column; position: relative; padding-top: 0.6rem; }
+	.lsheet .grabber { position: absolute; left: calc(50% - 1.5rem); top: 0.2rem; width: 3rem; height: 0.25rem; background: var(--border-muted); }
+	.lsheet .layers { position: relative; }
+	.lsheet .layers .lr .grip { width: 2.75rem; height: 2.75rem; display: inline-flex; align-items: center; justify-content: center; margin-left: calc(-1 * var(--space-1)); }
+	.rowctx { display: none; top: 1.3rem; left: 0.4rem; }
+	.rowlong-st .rowctx { display: flex; }
+	.rowlong-st .r-sel { box-shadow: inset 0 0 0 2px var(--select-live-border), 0 0 0 0 transparent; }
+	.drop-line { display: none; height: 3px; background: var(--select-live-border); margin: 0 var(--space-1); }
+	.drag-st .drop-line { display: block; }
+	.lift { display: none !important; }
+	/* edit in place (#edit): the strip scrolls the text up, the keyboard comes, the row and the sheet step aside; one bar
+	   above the keyboard: ✕ = back to the old words (Esc), ✓ = done */
+	.kbd, .editbar { display: none; }
+	.edit-st .kbd, .edit-st .editbar { display: flex; }
+	.edit-st .ptop, .edit-st .brow { display: none; }
+	.edit-st .pstrip { --at: 2.42; }
+	.edit-st .sel-box { outline: var(--border-width-regular) solid var(--select-live-border); outline-offset: 2px; }
+	.edit-st .caret { display: inline-block !important; }
+	.editbar { flex: none; align-items: center; height: var(--bar); border-top: var(--line); background: var(--paper); padding: 0 var(--space-025); }
+	.editbar .langsw { display: inline-flex; align-items: center; gap: 0.35rem; height: var(--control-height); padding: 0 var(--space-075); border: var(--line); }
+	.editbar .langsw b { font-weight: 400; }
+	.editbar .langsw .src { display: inline-flex; } .editbar .langsw .src svg { width: 0.9em; height: 0.9em; }
+	.c-en, .c-ko { display: none; } .lang-st .c-de, .empty-st .c-de { display: none; } .lang-st .c-en, .empty-st .c-ko { display: inline; }
+	.lang-st .langsw, .empty-st .langsw { background: var(--ink); color: var(--paper); }
+	.lang-st .langsw .src, .empty-st .langsw .src { display: none; }
+	/* nothing changed yet: ✕ is absent but keeps its square (no jump) – the same rule for ↶ ↷ in the bottom row */
+	.edit-st .revert, .empty-st .revert { visibility: hidden; }
+	.lang-st .revert { visibility: visible; }
+	/* translate mode under the box (DESIGN "Creator: content language"): the source as one muted line + Copy original */
+	.orig { display: none; position: absolute; z-index: 3; left: 4%; right: 4%; padding: 0.35rem 0.5rem; background: rgb(255 255 255 / 0.92); font-size: 0.72rem; color: var(--text-muted); line-height: 1.3; }
+	.lang-st .orig, .empty-st .orig { display: block; }
+	.orig u { color: var(--ink); }
+	.ph { display: none; color: var(--text-muted); font-style: italic; }
+	.empty-st .ph { display: inline; }
+	.empty-st .words, .lang-st .words { display: none; }
+	.en { display: none; }
+	.lang-st .en { display: inline; }
+	.miss { display: none; }
+	.empty-st .miss { display: inline-flex; }
+	.langlist { display: none; position: absolute; z-index: 7; left: calc(50% - 6rem); bottom: calc(17.5rem + var(--bar) + 0.3rem); width: 12rem; }
+	.lang-st .langlist { display: block; }
+	.langlist > div { height: 2.75rem; }
+	.langlist > div.on { background: var(--ink); color: var(--paper); }
+	.langlist .k { margin-left: auto; font-size: var(--caption); }
+	.langlist .miss-dot { width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--state-error); }
+	.langlist { width: 8rem; left: calc(50% - 4rem); }
+	.kbd { flex: none; height: 17.5rem; flex-direction: column; gap: 0.45rem; padding: 0.6rem 0.25rem; background: #d1d3d9; }
+	.kbd .r { display: flex; gap: 0.3rem; justify-content: center; }
+	.kbd .k { flex: 0 0 2.25rem; height: 3rem; display: flex; align-items: center; justify-content: center; background: #fff; border-radius: 0.35rem; font-family: system-ui, sans-serif; font-size: 1.15rem; }
+	.kbd .k.w { flex-basis: 3rem; background: #adb1ba; font-size: 0.9rem; }
+	.kbd .k.sp { flex: 1; font-size: 0.9rem; }
+	.drag-st .lift { display: flex !important; position: absolute; left: 0.4rem; right: 0.2rem; top: 8.7rem; z-index: 3; transform: rotate(-1.5deg); background: var(--paper); box-shadow: inset 0 0 0 2px var(--select-live-border); }
+	.drag-st .r-sel { opacity: 0.3; }
+	.lsheet .shead { display: flex; align-items: center; gap: var(--space-05); height: 2.75rem; padding-left: var(--space-1); border-bottom: var(--line); }
+	.lsheet .layers { margin: 0; overflow: hidden; }
+	.lsheet .layers .lr { height: 2.75rem; }
+	.note { display: none; }
+	.text-st .note.n-text, .presets-st .note.n-presets, .long-st .note.n-long, .stack-st .note.n-layers, .rowlong-st .note.n-rowlong, .drag-st .note.n-drag, .edit-st .note.n-edit, .lang-st .note.n-lang, .empty-st .note.n-empty { display: block; }
+	.lang-st .note.n-edit, .empty-st .note.n-edit { display: none !important; }
+	.lang-st .note, .empty-st .note { top: 0.5rem; }
+	.edit-st .note { top: 0.5rem; }
+	.rowlong-st .note, .drag-st .note { top: 0.5rem; }
+	.lsheet { overflow: hidden; }
+	.presets-st .t-place { background: none; color: var(--ink); }
+	.presets-st .t-presets { background: var(--ink); color: var(--paper); }
+	.note { left: 0.5rem; right: 0.5rem; top: calc(var(--bar) + 0.5rem); max-width: none; }
+	.stack-st .note { top: 0.5rem; }
+	.presets-st .note, .long-st .note { top: auto; bottom: calc(var(--bar) + 7.2rem); }
+	.long-st .note { bottom: calc(var(--bar) + 0.75rem); }
+</style>
+</head>
+<body>
+<div class="papp">
+	<header class="ptop">
+		<span class="ib"><i data-i="menu"></i></span>
+		<span class="crumbs"><span>Kap. 2</span><span class="sep">›</span><span>kathedrale</span></span>
+		<span class="ib"><i data-i="alert"></i><span class="badge">1</span></span>
+		<span class="ib"><i data-i="save"></i><span class="dot"></span></span>
+		<span class="ib"><i data-i="send"></i></span>
+		<span class="ib"><i data-i="more"></i></span>
+	</header>
+
+	<div class="canvas">
+		<div class="pstrip">
+			<div class="sl"><img class="s" src="img/s1c2-slice-37.webp" alt="" /></div>
+			<div class="sl"><img class="s" src="img/s1c2-slice-38.webp" alt="" /></div>
+			<div class="sl"><img class="s" src="img/s1c2-slice-39.webp" alt="" />
+				<div class="ov box sel-box" style="left:6%; top:84%; width:72%; height:20%; --fs:0.8rem"><span class="words">Alle warteten auf ihn – nur er nicht.</span><span class="en">Everyone waited for him – except him.</span><span class="ph">Alle warteten auf ihn – nur er nicht.</span><span class="only s-edit caret ecaret" style="display:none"></span><span class="chip warn miss" style="position:absolute; right:-2px; top:calc(-1.25rem - 4px)">KO fehlt</span>
+					<span class="only s-sel anchor-tag chip live"><i data-i="anchor"></i>39</span>
+				</div>
+				<!-- presets: the picked preset waits under the finger: a tap places it there -->
+				<div class="orig" style="top:73%">DE ★: Alle warteten auf ihn – nur er nicht. · <u>Original kopieren</u></div>
+				<div class="only s-place ghostplace" ></div>
+			</div>
+			<div class="sl"><img class="s" src="img/s1c2-slice-40.webp" alt="" />
+				<div class="ov piece" style="left:58%; top:-9%; width:40%"><img src="img/starburst-red-2.svg" alt="" /></div>
+				<div class="ov box speech collide" style="left:30%; top:2%; width:48%; height:11%; --fs:0.8rem">Wo bist du?!</div>
+				<div class="ov chip warn" style="right:2%; top:17%">⚠ verdeckt 39</div>
+				<div class="only s-place ghostplace" style="left:12%; top:27%; width:70%; height:12%">„Erzähler“ – ein Tipp setzt ihn hier</div>
+				<span class="only s-place tap" style="left:44%; top:31%"></span>
+				<div class="pseam" style="top:0"><b>40</b></div>
+			</div>
+			<div class="sl"><img class="s" src="img/s1c2-slice-41.webp" alt="" /><div class="pseam" style="top:0"><b>41</b></div></div>
+			<div class="sl"><img class="s" src="img/s1c2-slice-42.webp" alt="" /></div>
+		</div>
+		<!-- long press on the text: three options, right at it -->
+		<div class="only s-long ctx" style="left: 0.4rem; top: 7.2rem"><span class="ib" title="Kopieren" aria-label="Kopieren"><i data-i="copy"></i></span><span class="ib" title="Ausschneiden" aria-label="Ausschneiden"><i data-i="scissors"></i></span><span class="ib" title="Löschen" aria-label="Löschen"><i data-i="trash"></i></span><span class="ib" title="Bearbeiten" aria-label="Bearbeiten"><i data-i="pencil"></i></span></div>
+		<!-- Text-Vorlagen: the presets in a row above; pick one, tap the canvas -->
+		<div class="only s-presets presetbar">
+			<span class="pv on"><span class="box narr pbox">Unterdessen …</span><b>Erzählung</b></span>
+			<span class="pv"><span class="box speech pbox">Wo gehst du hin?</span><b>Rede</b></span>
+			<span class="pv"><span class="box thought pbox">Hat sie mich …</span><b>Gedanke</b></span>
+			<span class="pv dark"><span class="box sfx pbox" style="font-size:1.05rem">Bam!</span><b>Lautmalerei</b></span>
+			<span class="pv"><span class="box story pbox">Es war die Nacht …</span><b>Geschichte</b></span>
+			<span class="pv"><span class="box scene pbox">19 Ext. Pool</span><b>Szene</b></span>
+			<span class="pv"><span class="box lyr pbox">Ich will eine Wolke …</span><b>Liedtext</b></span>
+		</div>
+	</div>
+
+	<!-- the layers: the scene's overlays in one flat list, front first (no header, no slices – they are the background);
+	     long press on a row = its context, long press on the handle + drag = the layer level -->
+	<div class="only s-layers lsheet" style="display:none">
+		<span class="grabber"></span>
+		<div class="layers">
+			<div class="lr r-front"><span class="grip"><i data-i="grip"></i></span><i data-i="type"></i><span class="w">WO BIST DU?!</span></div>
+			<div class="lr on r-sel"><span class="grip"><i data-i="grip"></i></span><i data-i="type"></i><span class="w">Alle warteten auf ihn…</span><span class="warn">⚠</span></div>
+			<div class="lr"><span class="grip"><i data-i="grip"></i></span><i data-i="type"></i><span class="w">Im Dom war es still…</span></div>
+			<div class="drop-line"></div>
+			<div class="lr"><span class="grip"><i data-i="grip"></i></span><i data-i="package"></i><span class="w">Gurke</span></div>
+			<div class="lr"><span class="grip"><i data-i="grip"></i></span><i data-i="shapes"></i><span class="w">Ornament · starburst-red-2</span></div>
+			<div class="lr lift"><span class="grip"><i data-i="grip"></i></span><i data-i="type"></i><span class="w">Alle warteten auf ihn…</span><span class="warn">⚠</span></div>
+		</div>
+		<div class="ctx rowctx"><span class="ib" title="Kopieren" aria-label="Kopieren"><i data-i="copy"></i></span><span class="ib" title="Ausschneiden" aria-label="Ausschneiden"><i data-i="scissors"></i></span><span class="ib" title="Löschen" aria-label="Löschen"><i data-i="trash"></i></span><span class="ib" title="Bearbeiten" aria-label="Bearbeiten"><i data-i="pencil"></i></span></div>
+	</div>
+
+	<div class="editbar"><span class="ib revert" title="Abbrechen (die alten Worte zurück)"><i data-i="x"></i></span><span class="grow"></span><span class="langsw"><i data-i="globe"></i><b class="c-de">DE</b><b class="c-en">EN</b><b class="c-ko">KO</b><span class="src"><i data-i="star"></i></span></span><span class="grow"></span><span class="ib on" title="Fertig"><i data-i="check"></i></span></div>
+	<div class="kbd">
+		<div class="r"><span class="k">q</span><span class="k">w</span><span class="k">e</span><span class="k">r</span><span class="k">t</span><span class="k">z</span><span class="k">u</span><span class="k">i</span><span class="k">o</span><span class="k">p</span></div>
+		<div class="r"><span class="k">a</span><span class="k">s</span><span class="k">d</span><span class="k">f</span><span class="k">g</span><span class="k">h</span><span class="k">j</span><span class="k">k</span><span class="k">l</span></div>
+		<div class="r"><span class="k w">⇧</span><span class="k">y</span><span class="k">x</span><span class="k">c</span><span class="k">v</span><span class="k">b</span><span class="k">n</span><span class="k">m</span><span class="k w">⌫</span></div>
+		<div class="r"><span class="k w">123</span><span class="k w">🌐</span><span class="k sp">Leerzeichen</span><span class="k w">↵</span></div>
+	</div>
+	<nav class="brow">
+		<div class="left">
+			<!-- the kinds -->
+			<div class="only s-kinds">
+				<span class="ib" title="Gruppe"><i data-i="rows"></i></span>
+				<span class="ib" title="Slice"><i data-i="image"></i></span>
+				<span class="ib" title="Text"><i data-i="type"></i></span>
+				<span class="ib" title="Item"><i data-i="package"></i></span>
+				<span class="ib" title="Ornament"><i data-i="shapes"></i></span>
+				<span class="ib" title="Ton"><i data-i="music"></i></span>
+				<span class="ib" title="Event"><i data-i="zap"></i></span>
+				<span class="ib" title="Ebenen"><i data-i="layers"></i></span>
+			</div>
+			<!-- Text: ‹ · the kind (pressed: a tap on the canvas places one) · Vorlagen · Inspector -->
+			<div class="only s-text">
+				<span class="ib" title="Zurück"><i data-i="left"></i></span>
+				<span class="ib on t-place" title="Text setzen"><i data-i="type"></i></span>
+				<span class="ib t-presets" title="Text-Vorlagen"><i data-i="grid"></i></span>
+				<span class="ib" title="Inspector"><i data-i="sliders"></i></span>
+			</div>
+			<!-- Ebenen: ‹ · nach vorn · nach hinten · Inspector -->
+			<div class="only s-layers">
+				<span class="ib" title="Zurück"><i data-i="left"></i></span>
+				<span class="ib on" title="Ebenen"><i data-i="layers"></i></span>
+				<span class="ib" title="Inspector"><i data-i="sliders"></i></span>
+			</div>
+		</div>
+		<div class="ur"><span class="ib"><i data-i="undo"></i></span><span class="ib"><i data-i="redo"></i></span></div>
+	</nav>
+</div>
+
+<div class="note n-text"><b>Text.</b> ‹ zurück zu den Arten · Text (gedrückt: ein Tipp auf freien Canvas setzt einen Text) · Text-Vorlagen ·
+	Inspector – ohne Beschriftung. Ein Tipp auf einen bestehenden Text = bearbeiten (Cursor im Text).</div>
+<div class="note n-presets"><b>Text-Vorlagen</b> – die echten: Erzählung, Rede, Gedanke, Lautmalerei, Geschichte, Szene, Liedtext (+ eigene). Rede und
+	Gedanke sind die eckige Box mit Zeiger, keine Ovale. Wählen, dann tippen.</div>
+<div class="note n-long"><b>Lange drücken</b> auf einen Text: Kopieren · Ausschneiden · Löschen · Bearbeiten (Stift) – nur Icons, gleich große Quadrate wie unten, ein kräftiger Rahmen um die Gruppe.</div>
+<div class="note n-layers"><b>Ebenen:</b> eine flache Liste dieser Szene, vorne zuerst – ohne Kopfzeile, ohne Slices (die sind der Hintergrund).
+	Die Zeile unten: ‹ · Ebenen · Inspector.</div>
+<div class="note n-rowlong"><b>Lange drücken auf eine Zeile:</b> dieselbe Gruppe – Kopieren · Ausschneiden · Löschen · Bearbeiten.</div>
+<div class="note n-drag"><b>Links am Griff lange drücken und ziehen:</b> die Ebene wandert – die blaue Linie zeigt, wohin („Alle warteten …“
+	nach hinten, unter „Im Dom …“). Nach vorn / Nach hinten brauchen keine eigenen Knöpfe mehr.</div>
+<div class="note n-edit"><b>Text am Ort bearbeiten:</b> ein Tipp auf einen Text (oder der Stift) – der Cursor steht im Text, die
+	Tastatur kommt, Leiste und Blatt treten zur Seite; der Text darf über die Naht reichen. ✕ = die alten Worte zurück, ✓ = fertig.</div>
+<div class="menu langlist"><div title="Quellsprache" aria-label="DE, Quellsprache">DE&nbsp;★</div><div class="on" title="übersetzt" aria-label="EN, übersetzt">EN</div><div title="Übersetzung fehlt" aria-label="KO, Übersetzung fehlt">KO<span class="k miss-dot"></span></div></div>
+<div class="note n-lang"><b>Sprache beim Bearbeiten:</b> der Schalter über der Tastatur IST der Sprach-Schalter des Kopfes (der ist beim
+	Tippen weg) – die Sprachen des Toons, ★ = Quelle, ein roter Punkt = Übersetzung fehlt (Wörter nur als Tooltip); er stellt die ganze Ansicht um. Übersetzung: darunter die Quelle als
+	graue Zeile + „Original kopieren“, wie im Inspector. ✕ erscheint erst nach einer Änderung.</div>
+<div class="note n-empty"><b>Leere Übersetzung (KO):</b> im Kasten die Quelle grau als Platzhalter, „KO fehlt“ am Kasten, darunter die
+	Quelle + „Original kopieren“. Nichts geändert: kein ✕ – sein Platz bleibt frei, nichts springt.</div>
+<script src="icons.js"></script>
+<script>
+	const b = document.body.classList;
+	const st = location.hash.slice(1) || 'text';
+	b.add(st + '-st');
+	if (st === 'lang' || st === 'empty') b.add('edit-st');
+</script>
+</body>
+</html>

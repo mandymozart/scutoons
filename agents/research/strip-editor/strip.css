@@ -191,3 +191,21 @@ kbd { font: inherit; border: 1px solid var(--text-muted); padding: 0 0.25rem; }
 .strip .box { z-index: 1; }
 .strip .seam, .strip .gutter { z-index: 2; }
 .strip .chip { z-index: 3; }
+
+/* the creator's real text presets (creator/src/lib/editor/text-presets.ts, the reader's dialog.svelte): every box is a
+   square paper box with a 2px ink border – speech / thought add a free tail, there are no ovals (owner 2026-10-10) */
+.box.speech, .box.thought { position: relative; text-align: left; justify-content: flex-start; }
+.box.speech::before, .box.speech::after { content: ''; position: absolute; left: 22%; border-style: solid; }
+.box.speech::before { bottom: -2em; border-width: 2em 1.1em 0 0; border-color: var(--ink) transparent transparent transparent; }
+.box.speech::after { bottom: calc(-2em + 4px); left: calc(22% + 2px); border-width: calc(2em - 6px) calc(1.1em - 3px) 0 0; border-color: var(--paper) transparent transparent transparent; }
+.box.thought::before, .box.thought::after { content: ''; position: absolute; background: var(--paper); border: var(--line); border-radius: 50%; }
+.box.thought::before { left: 18%; bottom: -0.75em; width: 0.6em; height: 0.6em; }
+.box.thought::after { left: 12%; bottom: -1.3em; width: 0.38em; height: 0.38em; }
+.box.narr { font-style: italic; text-align: left; justify-content: flex-start; }
+.box.scene { font-style: italic; text-transform: uppercase; text-align: left; justify-content: flex-start; }
+.box.story { background: none; border: 0; text-align: left; justify-content: flex-start; color: var(--ink); }
+.box.lyr { position: relative; text-align: left; justify-content: flex-start; }
+.box.lyr::before { content: '♪'; position: absolute; left: -0.4em; top: -0.95em; font-size: 1.3em; }
+.box.lyr::after { content: '♫'; position: absolute; right: -0.55em; top: -0.7em; font-size: 1.3em; }
+.box.sfx { background: none; border: 0; font-family: var(--font-lettering); text-transform: uppercase; color: var(--paper); transform: rotate(-7deg);
+	text-shadow: -1px -1px 0 var(--ink), 1px -1px 0 var(--ink), -1px 1px 0 var(--ink), 1px 1px 0 var(--ink), 0 2px 0 var(--ink); }
