@@ -1,4 +1,4 @@
-Status 2026-10-20: concept; the owner chose the web creator + three storage places + the local kit for every member (§2.2, §2.4, Q4 / Q5 answered); questions 1–3, 6, 7 open (§5). No app code yet. Issue #118. Once the owner agrees, the stages in §4 become issues.
+Status 2026-10-20: concept agreed – the switch runs now (§4 N1–N10: generators first with Luma images, then the page and the 3D view); question 7 (taste rules) open. Issue #118.
 
 # STUDIO-IN-CREATOR – the storyboard studio as part of the creator (concept, 2026-10-20)
 
@@ -174,8 +174,9 @@ is no ledger and no budget. Prices are shown in euro at the ECB rate, which the 
   a link, the member confirms"). The open creator page notices a newer draft (a version check on focus and every few
   seconds while it is visible) and offers to load it, so an agent's change shows on the owner's screen.
 - New tools: `storyboard_validate` (content's validate + rhythm), `list_generations` / `mark_generation`, and
-  **`prepare_generation`** (generator, model, prompt, references, estimate), which goes into the shot as a pending
-  request. **The member confirms the cost in the creator** (Q3).
+  **`start_generation`** (generator, model, prompt, references): **the MCP may start paid jobs itself** (owner
+  2026-10-20, Q3: "may start paid jobs"), inside the budget gate (§2.5) – the API refuses over the budget, and every job
+  is in the ledger with who started it ("(AI: <connection>)").
 - `storyboard-taste.md` becomes a document the MCP serves as a prompt or resource, so it is no longer a repo file the
   studio appends to (Q7).
 
@@ -240,7 +241,9 @@ gone). The phone connects through a **WebRTC data channel**. Pairing is a QR cod
 answer travel through two short API calls (a small table, deleted after pairing). On the same Wi-Fi no TURN server is
 needed. The poses run peer to peer, so nothing per frame goes through PHP. The take is recorded in the browser
 (MediaRecorder, replacing ffmpeg) and saved into the workspace folder. The phone page needs no sign-in, because the one-time code
-grants only this channel (Q6).
+grants only this channel. **A barebone page** (owner 2026-10-20: "a barebone page so it doesnt need to load so much
+grap. it is only accessed through a qr code when linked anyhow"): its own small route without the creator's shell,
+menus or editors – only the camera, the pose sensor and the channel.
 
 ## 3. What stays local, what is deleted
 
@@ -258,52 +261,53 @@ grants only this channel (Q6).
 | `storyboards/_out` | the owner's local folder, deletable | never tracked |
 | `lib.mjs` readEntity (`docker exec`), `mediaRoot` | **deleted** | the API, the CDN |
 
-## 4. Order – stages (each its own issue once agreed)
+## 4. Order – now (owner 2026-10-20: "now over night")
 
-| Stage | What | Touches the running studio / ch3? | When | Effort (agent days) |
-|---|---|---|---|---|
-| **S0** | content `storyboard/*.ts`: types, validate / measure, the slice grid (out of spec.js), rhythm + safe envelope, schematic, prompts, record format – tested. spec.js / lib.mjs **import** it (node's `--experimental-transform-types`, as check-draft.mjs does), so there is one source. | only the imports (same numbers, the studio's tests stay green) | now, after #62 lands | 2–3 |
-| **S1** | server: `storyboard` entity kind, `storyboard_generations`, the shared work storage on the app host (quota + upload limit measured first); the import migration (written, dry-run on the dev DB; **applied only at the cutover**) | no | before Nov 15 | 2–3 |
-| **S2** | creator page: shot list, Shot inspector, Script, schematic + rhythm rail, validate; read / save the entity (dev DB); the workspace folder (pick, read, write) | no | before Nov 15 | 3–4 |
-| **S3** | 3D: the renderer as TS in the creator, the Viewport (orbit, figures, hand camera), frames rendered in the browser, not stored | no | Nov 13–20 | 3–5 |
-| **S4** | Generate + Variants board + Compare (port of #62); the budget gate (3a) + the server registry (Runway first, then Luma API / Gemini – #61, #112's fit step) | no | after Nov 15 | 5–8 |
-| **S5** | Handheld (WebRTC), Output / Export; **cutover**: apply the import, the creator is the studio | ends it | for ch4's first throw (~Nov 16–20) or right after | 3–4 |
-| **S6** | the local kit: MCP storyboard tools, `prepare_generation`, `generate_local`, the workspace setting; the Figma relay inside the extension + the plugin download; Figma tools from the online storyboard (the figma-* scripts → TS); "Set up your machine" on the account page | after ch3 | Nov 16 → Dec | 4–6 |
-| **S7** | delete the studio, the moved scripts, `dev:studio`, the scene files | – | after S5 + S6 | 1 |
+The switch happens now, not at ch4 (Q1). Everything moves; the 3D view (three.js) is the storyboard's main tool (owner
+2026-10-20: "of course threejs, it is the main tool of the storyboard"). The generators are connected first,
+starting with **Luma for images** (owner 2026-10-20: "important the generators … we will connect asap, starting with
+luma for images"), and the 3D view comes right after the page. Each stage is its own issue under #118.
+
+| Stage | What |
+|---|---|
+| **N1** | content `storyboard/*.ts`: types, validate / measure, the slice grid (out of spec.js), rhythm + safe envelope, prompts (luma.js / prompts.mjs), the generation record – tested. spec.js / lib.mjs **import** it (node's `--experimental-transform-types`, as check-draft.mjs does), so there is one source and the old tools keep working. |
+| **N2** | server: the `storyboard` entity kind; `storyboard_generations` (= the ledger); the import migration of the 14 scene files (runs with the deploy); the shared work storage on the app host (members only). |
+| **N3** | server generators: the registry (PHP, image / video kinds, #61), **Luma image first**, the budget gate (`generation_budget` in the admin, hard cut 402, the creator's notice), keys only in the server's config. Runway / Gemini after. |
+| **N4** | MCP: storyboard read / save / validate, `start_generation`, `list_generations`, `mark_generation`. |
+| **N5** | creator Storyboard page: the shot list, the Shot inspector, Script, validate / rhythm, Generate (Luma) → results into the workspace folder, share → work storage, approve. |
+| **N6** | the 3D view: the renderer (tools/storyboard-render) as TS in the creator, the Viewport (orbit, figures, hand camera), frames rendered in the browser. |
+| **N7** | the variants board + Compare (the port of #62's phases 1–4, its tests as the spec). |
+| **N8** | the barebone phone page (WebRTC), the timeline, Output. |
+| **N9** | the local kit: the Figma relay in the MCP extension, the plugin download, `generate_local`, "Set up your machine"; the figma-* scripts → MCP tools (after ch3's art freeze, 2026-11-10). |
+| **N10** | delete the studio, the moved scripts, `dev:studio`, the scene files. |
 
 Against the other work:
-- **#62** (variants canvas, phases 1–4 on `claude/studio-layout-afe926`, +3,000 lines JS, not merged): it lands as it
-  is (the owner uses it for ch3's gaps, and DECISIONS 2026-10-20 says the ch3 layout waits for #62 + #92). After that
-  the local studio is **frozen**: bug fixes, plus #111's Aspect select (a select over content's SLICE_ASPECTS after S0).
-  Phase 5 and any new studio features are built only in the creator (Q2). The #62 modules' tests are the spec for S4's
-  port.
-- **#92** (creator navigation draft D, built on origin/main): the Storyboard page is a chapter page and a tab next to the
-  chapter, and the shot list is "the page's own list beside the menu". Nothing waits on it apart from merging it first.
-- **#111 / #112:** the grid numbers move into content in S0 (from spec.js, af0bb53a). #112's prompts in slices and the
-  fit step (crop to 1170 × 1872k on approve) are written against content's TS prompts after S0, not in luma.js.
-- **#61** (generators image vs video, Luma API): it becomes S4's server registry instead of another studio adapter.
-- **#64** (ch3, 2026-11-15; art freeze 11-10, deploy freeze 11-12): nothing in S0–S3 changes the studio's behaviour or
-  the figma / production scripts. S4–S7 start after 11-15.
-- **#56** (cast from 3D models): S3 loads `personaModel` from the CDN, which is #56's open renderer step.
+- **#62** (variants canvas, phases 1–4 on `claude/studio-layout-afe926`, not merged): the switch answers its freeze
+  question (Q2) – no more features in the local studio. Its code is read from the branch and ported in N7; the branch
+  itself stays the owner's to merge or drop.
+- **#92** (creator navigation draft D, on origin/main): the Storyboard page is a chapter page; the shot list is "the
+  page's own list beside the menu".
+- **#111 / #112:** the grid numbers move into content in N1; #112's prompts in slices and the fit step are written
+  against content's TS prompts.
+- **#61**: becomes N3's registry.
+- **#64** (ch3, 2026-11-15; art freeze 11-10, deploy freeze 11-12): the figma / production scripts stay untouched until
+  after the art freeze (N9); the old studio keeps working on the files until N2's import runs with a push.
+- **#56**: the 3D view (N6) loads `personaModel` from the CDN.
 
-## 5. Questions for the owner (each with a recommendation)
+## 5. Questions for the owner – answered 2026-10-20 (except 7)
 
-1. **When do you switch to the creator?** (a) **ch4's first throw, ~Nov 16–20** (recommended: S0–S3 fit before it
-   without touching ch3), (b) now, with ch4–5's whole-slice rewrite (it would compete with ch3's tools), (c) after ch5
-   (2027-01-15).
-2. **The local studio until then:** (a) **frozen once #62 lands, only fixes and #111's Aspect select** (recommended:
-   nothing is built twice), (b) features continue there (built twice).
-3. **Paid generation from the MCP:** (a) **the MCP prepares, and you confirm the cost in the creator** (recommended,
-   like "drafts → member confirms"), (b) the MCP may start paid jobs on its own within the budget.
-4. ~~Generated files online~~ – **answered 2026-10-20:** three places – the local workspace folder, a shared work
-   storage on the owner's own servers, the readers' CDN only for what is approved (§2.2); no desktop app now, the
-   web creator in Chrome.
-5. ~~Local work~~ – **answered 2026-10-20:** through each member's Claude + the MCP, with one local kit for everyone
-   (§2.4).
-6. **The phone as a camera:** (a) **directly in the creator (WebRTC, QR pairing, no certificate prompt)** (recommended),
-   (b) keep a local relay (then the handheld step only works on your PC).
-7. **The taste rules** (`storyboard-taste.md`, appended from reviews): (a) **a document in the DB that the MCP reads and
-   the creator shows** (recommended: it works online, with versions), (b) it stays a repo file (agents only).
+1. **When to switch:** now, over night ("now over night").
+2. **The local studio:** answered by 1 ("1 before answeres the question") – no freeze period, the creator replaces it.
+3. **Paid generation from the MCP:** the MCP may start paid jobs ("may start paid jobs. we do not have anything
+   connected yet"), inside the budget gate.
+4. **Files:** three places – the local workspace folder, a shared work storage on the owner's own servers, the readers'
+   CDN only for approved art (§2.2); no desktop app now, the web creator in Chrome.
+5. **Local work:** through each member's Claude + the MCP, one local kit for everyone (§2.4).
+6. **The phone as a camera:** in the creator, as a barebone page reached by the QR code (§2.6).
+7. **The taste rules** – open (owner: "taste?"): `workflows/scenes/storyboard-taste.md`, 69 lines – the owner's
+   feedback distilled into rules (look: Sin City, hard light, outer outlines …), each with the quote and date; agents
+   read it before drafting a storyboard, and the studio's "Ask for a change" appends to it. Recommendation: a document
+   in the DB that the MCP serves and the creator shows (online, versioned); until answered it stays the repo file.
 
 ## 6. Measured how
 
