@@ -2,14 +2,15 @@
 // API anbinden kann."): one registry of generators, the running jobs of this studio session (in memory), the session's
 // spend, and the results written as the shot's generated variants – storyboards/_out/<ch>/generated/<shot>--g<n>.<ext>
 // + a v2 record in _out/<ch>/generated.jsonl (scripts/storyboard/generated-log.mjs – the same log as comfy.mjs: the
-// inputs as keys with their roles, the parents, the take, the seed; a failed or cancelled job writes its line too), so
-// Variants → "Approve as chosen" works unchanged. README "Generators", agents/research/VARIANTS-CANVAS.md §3.7.
+// inputs as keys with their roles, the parents, the take, the seed; a failed or cancelled job writes its line too) – the
+// variants board's cards. A job's view carries its inputs and parents too: the board puts its running placeholder where
+// the result will land. README "Generators", agents/research/VARIANTS-CANVAS.md §3.3, §3.7.
 //
 // A generator (generators/*.mjs):
 //   { id, label, kinds: ['image' | 'video'], paid: boolean, creditUsd?: number (what one of its credits costs),
 //     transport: 'api' | 'local' | 'manual',         – how a job gets made (research/GENERATORS.md §2): a provider's API,
 //       this PC, or by hand (luma-manual.mjs: never started, never run – the Generate panel shows the prompt to copy
-//       instead of Generate; the result is dropped onto Variants)
+//       instead of Generate; the result is dropped onto the variants board)
 //     models: [{ id, label, kind, mode, inputs: ['still' | 'control' | 'characters' | 'style' | 'prompt' | 'duration'
 //               | 'ratio'], durations?: { min, max } | number[], ratios?: string[], price?: { creditsPerSecond, minCredits },
 //               seed?: true (it takes a seed: the manager picks one, 0 … 2³² − 1, when the job has none) }],
@@ -38,7 +39,7 @@ export function createManager({ generators, out, now = () => new Date(), parentO
 
 	const gen = (id) => { const g = byId.get(id); if (!g) throw new Error(`no generator ${id}`); return g; };
 	const modelOf = (g, id) => g.models.find((m) => m.id === id) ?? g.models[0] ?? null;
-	const view = (j) => ({ id: j.id, generator: j.generator, model: j.model, shot: j.shot, ch: j.ch, status: j.status, progress: j.progress, message: j.message, task: j.task, estimate: j.estimate, cost: j.cost, seed: j.input.seed, files: j.files, created: j.created, ended: j.ended });
+	const view = (j) => ({ id: j.id, generator: j.generator, model: j.model, kind: j.kind, shot: j.shot, ch: j.ch, status: j.status, progress: j.progress, message: j.message, task: j.task, estimate: j.estimate, cost: j.cost, seed: j.input.seed, inputs: j.inputs, parents: j.parents, files: j.files, created: j.created, ended: j.ended });
 
 	/** the record of one result, or of a job that ended without one (generated-log.mjs) */
 	const line = (j, fields) => record({

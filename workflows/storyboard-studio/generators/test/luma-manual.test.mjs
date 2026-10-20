@@ -18,7 +18,7 @@ test('listed as by hand (transport manual), configured and free, with one manual
 	assert.equal(g.configured, true);
 	assert.equal(g.paid, false);
 	assert.match(g.note, /lumalabs\.ai/);
-	assert.match(g.note, /Variants/);
+	assert.match(g.note, /drop the result onto the board/);
 	assert.deepEqual(g.models.map(({ id, mode, inputs }) => ({ id, mode, inputs })), [{ id: 'manual', mode: 'manual', inputs: ['prompt'] }]);
 });
 

@@ -3,8 +3,8 @@
 // attaches in Luma – the render without texts (the layout: composition, camera, poses, the hard light), the style
 // pictures (storyboards/style/), each figure's character image (media dev copy, the shot's mood) – with the shot's
 // prompt (luma.js), and drops the result where the studio's uploads go: _out/<ch>/generated/<id>--g<n>.png (the highest
-// n + 1) with its v2 record in _out/<ch>/generated.jsonl (generated-log.mjs) – so the Variants panel shows it, "Approve
-// as chosen" takes it, and figma-chapter.mjs places it.
+// n + 1) with its v2 record in _out/<ch>/generated.jsonl (generated-log.mjs) – so the studio's variants board shows it,
+// its ✓ (chosen) approves it, and figma-chapter.mjs places it.
 //
 // Costs money per image: it runs only on the shots named (--only) or at most --max (default 3) – never a whole chapter
 // by accident. The key: GEMINI_API_KEY in the repo's .env (git-ignored; https://aistudio.google.com/apikey).

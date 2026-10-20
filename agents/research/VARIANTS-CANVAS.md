@@ -1,4 +1,4 @@
-Status 2026-10-20: concept, all owner questions answered (§6; Q4 not as recommended: one band per picked shot now, 3.2) – being built in stages (owner 2026-10-20: "bitte gern schon anfangen mit dem Studio"): phase 1 (the record, §3.7 – studio README "The record") built on the branch, the conversion of the owner's logs not run yet; static mockup; statuses as icon bullets, set on the selected card (3.3). Issue #62; the generators' side: #61 (research/GENERATORS.md).
+Status 2026-10-20: concept, all owner questions answered (§6; Q4 not as recommended: one band per picked shot now, 3.2) – being built in stages (owner 2026-10-20: "bitte gern schon anfangen mit dem Studio"): phase 1 (the record, §3.7 – studio README "The record") and stage 2 (the board, 2a + 2b – studio README "The variants board"; the Variants panel retired) built on the branch, the conversion of the owner's logs not run yet; next: phase 3 (Improve on this). Static mockup; statuses as icon bullets, set on the selected card (3.3). Issue #62; the generators' side: #61 (research/GENERATORS.md).
 
 # VARIANTS-CANVAS – every generation of a shot on one board (concept, 2026-10-19)
 
@@ -35,7 +35,7 @@ What "reference" means for the models built (docs.dev.runwayml.com/api.md, read 
 - **comfy-local** (Qwen-Image-Edit, free, ~10 min a shot): image 1 = the picture to edit, 2–3 = characters / style –
   "improve" = the previous generation as image 1 + an edit prompt.
 
-## 2. What exists
+## 2. What existed before the board (2026-10-19)
 
 - **Variants panel** (dock, 18rem, opens with Generate in the Generate step): the saved frame, the layout variants
   (Load / Take this), "Generated" = a drop slot (png / jpeg / webp only) and the files one under another – picture or

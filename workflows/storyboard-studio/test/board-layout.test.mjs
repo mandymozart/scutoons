@@ -2,10 +2,11 @@
 // column 0, a parent's results as one row, a generation's results one row down and one column right, the main input,
 // the rightmost parent's rows first, records without a parent (the render by its inputs, the take, the earlier row),
 // a loop in the parents, the lines (comb, ticks, drops), the card sizes, the keys across rows and bands, X's ids, the
-// head's figures.
+// head's figures; the fold (§3.5): strips, a branch in one strip, shared strips, a row lying down, the look, Show
+// rejected, the keys skipping strips and folded bands; the captions below 60 %.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { bandFacts, bandLayout, branchOf, CAPTION_W, cardSize, COMB, GAP_X, GAP_Y, LABELS, META, neighbour, PAD, PAD_T, PIC_H, ratioOf, rejectIds, shortId, statusOf, TOP, unrejectIds } from '../src/lib/board-layout.js';
+import { bandFacts, bandLayout, branchOf, CAPTION_W, cardSize, COMB, GAP_X, GAP_Y, LABELS, LIE_W, lookKeys, META, neighbour, nodeOf, PAD, PAD_B, PAD_T, PIC_H, ratioOf, rejectIds, shortId, statusOf, stripLabel, SW, TOP, unrejectIds } from '../src/lib/board-layout.js';
 
 const S = 'sb-25-2';
 const CLEAN = { role: 'still', key: `out:s1c3/clean/${S}.png` };
@@ -20,13 +21,18 @@ test('sizes: one picture height, the aspect, a caption wide at least', () => {
 	assert.equal(ratioOf('9:16'), 9 / 16);
 	assert.equal(ratioOf('1:3'), 1 / 3);
 	assert.equal(ratioOf('nonsense'), 9 / 16);
-	assert.deepEqual(cardSize('9:16'), { h: PIC_H, pw: PIC_H * 9 / 16, w: PIC_H * 9 / 16 });
+	assert.deepEqual(cardSize('9:16'), { h: PIC_H, pw: PIC_H * 9 / 16, w: PIC_H * 9 / 16, meta: META });
 	const narrow = cardSize('1:3');
 	assert.equal(narrow.h, PIC_H);
 	assert.equal(narrow.pw, 3);
 	assert.equal(narrow.w, CAPTION_W);
 	assert.equal(cardSize('2:1').w, 18);
 	assert.equal(cardSize('9:16', 0.5).h, PIC_H / 2);
+	// below 60 %: the captions hide – no caption row, the column is the picture's width
+	assert.deepEqual(cardSize('1:3', 0.5), { h: PIC_H / 2, pw: 1.5, w: 1.5, meta: 0 });
+	assert.deepEqual(cardSize('1:3', 0.6), { h: PIC_H * 0.6, pw: PIC_H * 0.6 / 3, w: CAPTION_W * 0.6, meta: META });
+	const small = bandLayout({ shot: S, records: [rec(1), rec(2, { parents: [id(1)] })], aspect: '9:16', zoom: 0.5 });
+	assert.equal(small.rows[1].y, PAD_T + TOP + PIC_H / 2 + GAP_Y, 'a row is the picture high (no caption)');
 	assert.equal(shortId(id(7)), 'g7');
 });
 
@@ -213,4 +219,169 @@ test('the head\'s figures: results, rejected, the money of every job', () => {
 	const records = [rec(1, { cost: { usd: 0.25 } }), rec(2, { mark: 'rejected', cost: { usd: 0.6 } }), { ...rec(3), file: null, cost: { usd: 0.25 } }, rec(4, { cost: null })];
 	assert.deepEqual(bandFacts(records), { done: 3, rejected: 1, usd: 1.1 });
 	assert.deepEqual(bandFacts(), { done: 0, rejected: 0, usd: 0 });
+});
+
+// --- the fold (§3.5) ---------------------------------------------------------------------------------------------------
+const T = '2026-10-20T15:22:00.000Z';
+const R = (n, f = {}) => rec(n, { mark: 'rejected', marked: T, ...f });
+/** render → g1 (rejected), g2 (chosen), g3 (rejected with g4 + g6), g5; g5 → g7; g2 → g9, g11 (both rejected) */
+const FOLD = () => [R(1, { marked: '2026-10-20T15:20:00.000Z' }), rec(2, { approved: true }), R(3), R(4, { parents: [id(3)] }), rec(5), R(6, { parents: [id(3)] }), rec(7, { parents: [id(5)] }), R(9, { parents: [id(2)], marked: '2026-10-20T15:24:00.000Z' }), R(11, { parents: [id(2)], marked: '2026-10-20T15:24:00.000Z' })];
+
+test('a rejected card is a strip in its place; its branch with nothing open under it is ONE strip; the row closes up', () => {
+	const lay = bandLayout({ shot: S, records: FOLD(), aspect: '9:16' });
+	const { w } = cardSize('9:16');
+	assert.deepEqual(lay.rows.map((r) => r.keys), [[`render:${S}`, id(1), id(2), id(3), id(5)], [id(7)], [id(9)]]);
+	const g1 = at(lay, id(1)), g2 = at(lay, id(2)), g3 = at(lay, id(3)), g5 = at(lay, id(5));
+	assert.equal(g1.kind, 'strip');
+	assert.deepEqual([g1.w, g1.pw, g1.h, g1.lie], [SW, SW, PIC_H, false], 'the picture\'s height, SW wide');
+	assert.equal(g2.x, g1.x + SW + GAP_X, 'the row closes up');
+	assert.equal(g2.kind, 'result');
+	assert.deepEqual(g3.keys, [id(3), id(4), id(6)], 'g3 with its branch');
+	assert.equal(g3.whole, true);
+	assert.equal(stripLabel(g3), 'g3 +2');
+	assert.equal(stripLabel(g1), 'g1');
+	assert.equal(g5.x, g3.x + SW + GAP_X);
+	assert.equal(lay.nodes.some((n) => n.key === id(4) || n.key === id(6)), false, 'its row is gone');
+	assert.equal(nodeOf(lay, id(4)), g3, 'a folded card is found in its strip');
+	assert.ok(lay.tree.get(id(4)).record, 'the tree keeps every card');
+	// the line to a strip stays: a tick into its middle
+	const r0 = lay.rows[0].y;
+	assert.ok(lay.lines.some(([x1, y1, x2, y2]) => x1 === g1.x + SW / 2 && x2 === x1 && y1 === r0 + COMB && y2 === r0 + TOP));
+	assert.ok(lay.lines.some(([x1, , x2, y2]) => x1 === g3.x + SW / 2 && x2 === x1 && y2 === r0 + TOP));
+	assert.equal(at(lay, id(7)).x, g5.x + w + GAP_X);
+});
+
+test('a row of nothing but strips lies down as one line – the height comes back', () => {
+	const lay = bandLayout({ shot: S, records: FOLD(), aspect: '9:16' });
+	const { w } = cardSize('9:16');
+	const g2 = at(lay, id(2)), g9 = at(lay, id(9));
+	const row = lay.rows[2];
+	assert.equal(row.lie, true);
+	assert.deepEqual([g9.kind, g9.lie, g9.h, g9.w], ['strip', true, SW, Math.max(w, LIE_W)]);
+	assert.deepEqual(g9.keys, [id(9), id(11)], 'rejected neighbours share one strip');
+	assert.equal(stripLabel(g9), 'g9 +1');
+	assert.equal(g9.x, g2.x + w + GAP_X, 'one column right of its parent');
+	assert.equal(lay.height, row.y + TOP + SW + PAD_B, 'a lying row is TOP + SW high');
+	// the drop from g2's caption into the lying row's comb, a tick into its middle
+	assert.ok(lay.lines.some(([x1, y1, x2, y2]) => x1 === g2.x + g2.pw / 2 && x2 === x1 && y1 === g2.y + TOP + PIC_H + META && y2 === row.y + COMB));
+	assert.ok(lay.lines.some(([x1, , , y2]) => x1 === g9.x + g9.w / 2 && y2 === row.y + TOP));
+	assert.equal(lay.rows[0].lie, false, 'a source row never lies down (its source is a card)');
+});
+
+test('folded neighbours share one strip; something open under a rejected card keeps its row', () => {
+	// g1 + g2 rejected apart (two stamps) → one strip; g3 rejected, its g4 rejected with it, its g6 the chosen → g3 its own strip
+	const records = [R(1), R(2, { marked: '2026-10-20T16:00:00.000Z' }), R(3), R(4, { parents: [id(3)] }), rec(6, { parents: [id(3)], approved: true }), rec(8)];
+	const lay = bandLayout({ shot: S, records, aspect: '9:16' });
+	assert.deepEqual(lay.rows.map((r) => r.keys), [[`render:${S}`, id(1), id(3), id(8)], [id(4), id(6)]]);
+	const g1 = at(lay, id(1)), g3 = at(lay, id(3)), g4 = at(lay, id(4));
+	assert.deepEqual(g1.keys, [id(1), id(2)]);
+	assert.equal(stripLabel(g1), 'g1 +1');
+	assert.deepEqual([g3.kind, g3.whole, g3.keys], ['strip', false, [id(3)]], 'not merged: its line goes down');
+	assert.equal(g3.x, g1.x + SW + GAP_X, 'next to the shared strip, not merged with it');
+	assert.equal(lay.rows[1].lie, false, 'the chosen is a card – the row stands');
+	assert.equal(lay.rows[1].x, g3.x + SW + GAP_X, 'one column right of the strip');
+	assert.deepEqual([g4.kind, g4.w], ['strip', SW]);
+	// the drop from the strip's foot (no caption under a strip)
+	assert.ok(lay.lines.some(([x1, y1, x2, y2]) => x1 === g3.x + SW / 2 && x2 === x1 && y1 === g3.y + TOP + PIC_H && y2 === lay.rows[1].y + COMB));
+});
+
+test('Show rejected folds nothing; a look unfolds a strip with its branch', () => {
+	const all = bandLayout({ shot: S, records: FOLD(), aspect: '9:16', showRejected: true });
+	assert.equal(all.nodes.some((n) => n.kind === 'strip'), false);
+	assert.deepEqual(all.rows.map((r) => r.keys), [[`render:${S}`, id(1), id(2), id(3), id(5)], [id(7)], [id(4), id(6)], [id(9), id(11)]]);
+	const lay = bandLayout({ shot: S, records: FOLD(), aspect: '9:16' });
+	assert.deepEqual(lookKeys(lay, id(3)), [id(3), id(4), id(6)]);
+	assert.deepEqual(lookKeys(lay, id(4)), [id(3), id(4), id(6)], 'a card inside a strip opens the whole strip');
+	assert.deepEqual(lookKeys(lay, id(9)), [id(9), id(11)]);
+	const look = bandLayout({ shot: S, records: FOLD(), aspect: '9:16', open: lookKeys(lay, id(3)) });
+	assert.deepEqual(look.rows.map((r) => r.keys), [[`render:${S}`, id(1), id(2), id(3), id(5)], [id(7)], [id(4), id(6)], [id(9)]]);
+	assert.equal(at(look, id(3)).kind, 'result', 'unfolded: a card again (muted – its status stays rejected)');
+	assert.equal(at(look, id(1)).kind, 'strip', 'the other strips stay folded');
+	assert.equal(statusOf(at(look, id(4)).record), 'rejected');
+});
+
+test('the keys skip strips and folded bands; from a strip they go to the nearest card', () => {
+	const a = bandLayout({ shot: S, records: FOLD(), aspect: '9:16' });
+	const B = 'sb-25-3', C = 'sb-25-4';
+	const one = (s) => bandLayout({ shot: s, records: [{ ...rec(1), id: `${s}--g1`, file: `${s}--g1.png`, inputs: [{ role: 'still', key: `out:s1c3/clean/${s}.png` }] }], aspect: '9:16' });
+	const bands = [{ shot: S, layout: a }, { shot: B, layout: one(B) }, { shot: C, layout: one(C) }];
+	const go = (key, dir, shot = S, list = bands) => neighbour(list, { shot, key }, dir);
+	assert.deepEqual(go(`render:${S}`, 'right'), { shot: S, key: id(2) }, 'over the strip g1');
+	assert.deepEqual(go(id(2), 'right'), { shot: S, key: id(5) }, 'over the strip g3 +2');
+	assert.deepEqual(go(id(5), 'left'), { shot: S, key: id(2) });
+	assert.deepEqual(go(id(4), 'right'), { shot: S, key: id(5) }, 'from a strip (its folded card current)');
+	assert.deepEqual(go(id(3), 'left'), { shot: S, key: id(2) });
+	assert.deepEqual(go(id(2), 'down'), { shot: S, key: id(7) });
+	assert.deepEqual(go(id(7), 'down'), { shot: B, key: `${B}--g1` }, 'the lying row is skipped – into the next band');
+	assert.deepEqual(go(`render:${B}`, 'up', B), { shot: S, key: id(7) });
+	assert.deepEqual(go(id(9), 'up'), { shot: S, key: id(7) }, 'from the lying strip up');
+	// a folded band is skipped; from a folded band ← → stay, ↑ ↓ leave it
+	const folded = bands.map((b) => ({ ...b, folded: b.shot === B }));
+	assert.deepEqual(go(id(7), 'down', S, folded), { shot: C, key: `${C}--g1` });
+	assert.deepEqual(go(`render:${C}`, 'up', C, folded), { shot: S, key: id(7) });
+	assert.equal(go(`render:${B}`, 'right', B, folded), null);
+	assert.deepEqual(go(`${B}--g1`, 'down', B, folded), { shot: C, key: `${C}--g1` });
+	// a look: its cards are cards – the arrows walk them
+	const look = [{ shot: S, layout: bandLayout({ shot: S, records: FOLD(), aspect: '9:16', open: lookKeys(a, id(3)) }) }];
+	assert.deepEqual(go(id(3), 'down', S, look), { shot: S, key: id(7) });
+	assert.deepEqual(go(id(7), 'down', S, look), { shot: S, key: id(6) }, 'g3\'s row: g6 under g7');
+	assert.deepEqual(go(id(6), 'left', S, look), { shot: S, key: id(4) });
+});
+
+test('X on a folded layout: the tree answers – what a reject marks, what comes back', () => {
+	const lay = bandLayout({ shot: S, records: FOLD(), aspect: '9:16' });
+	assert.deepEqual(rejectIds(lay, id(5)), [id(5), id(7)]);
+	assert.deepEqual(rejectIds(lay, id(2)), [], 'the chosen');
+	assert.deepEqual(unrejectIds(lay, id(3)), [{ mark: null, marked: null, ids: [id(3), id(4), id(6)] }], 'the root of its X: the whole branch');
+	assert.deepEqual(unrejectIds(lay, id(4)), [{ mark: null, marked: null, ids: [id(4)] }], 'a folded card inside its X: only itself');
+	assert.deepEqual(branchOf(lay, id(2)), [id(2), id(9), id(11)]);
+});
+
+test('layout variants are source cards after the render (Q5: A), a row each – no status; an input naming one hangs under it', () => {
+	const variants = [{ id: 'v1', note: 'low angle' }, { id: 'v2', note: '' }, { note: 'no id – skipped' }, { id: 'v1', note: 'twice – once' }];
+	const lay = bandLayout({ shot: S, variants, takes: ['t1'], records: [rec(1), rec(8, { generator: 'upload', inputs: [] })], aspect: '9:16' });
+	const v1 = `variant:${S}:v1`, v2 = `variant:${S}:v2`;
+	assert.deepEqual(lay.rows.map((r) => r.keys), [[`render:${S}`, id(1)], [v1], [v2], [`take:${S}:t1`], [id(8)]]);
+	assert.deepEqual(lay.rows.map((r) => r.label), [LABELS.source, LABELS.variant, LABELS.variant, LABELS.source, LABELS.source]);
+	const n = at(lay, v1);
+	assert.deepEqual([n.kind, n.source, n.variant.note, n.record, n.x], ['source', 'variant', 'twice – once', null, PAD]);
+	assert.deepEqual(rejectIds(lay, v1), [], 'a source can\'t be rejected');
+	// the keys walk them as cards: ↓ from the render, ↑ from the take
+	const bands = [{ shot: S, layout: lay }];
+	assert.deepEqual(neighbour(bands, { shot: S, key: id(1) }, 'down'), { shot: S, key: v1 });
+	assert.deepEqual(neighbour(bands, { shot: S, key: `take:${S}:t1` }, 'up'), { shot: S, key: v2 });
+	// a result whose main input is a variant's saved frame hangs in that variant's row (stage 3 sends one) – a variant
+	// that is gone (taken): the earlier row, nothing guessed
+	const frame = (v) => ({ inputs: [{ role: 'still', key: `out:s1c3/variants/${S}--${v}.png` }] });
+	const from = bandLayout({ shot: S, variants, records: [rec(2, frame('v1')), rec(3, frame('v9'))], aspect: '9:16' });
+	assert.deepEqual(from.rows.map((r) => r.keys), [[`render:${S}`], [v1, id(2)], [v2], [id(3)]]);
+	assert.equal(from.rows.at(-1).label, LABELS.earlier);
+});
+
+test('a running job is a placeholder at the end of its main input\'s row (else the render\'s) – the keys skip it', () => {
+	const jobs = [
+		{ id: 'j3', status: 'running', progress: 0.4, inputs: [CLEAN], parents: [] },
+		{ id: 'j4', status: 'queued', progress: null, inputs: [GEN(id(1))], parents: [id(1)] },
+		{ id: 'j5', status: 'running', progress: 0.1, inputs: [], parents: [] },
+		{ id: 'j6', status: 'running', progress: 0.9, inputs: [GEN(id(3))], parents: [id(3)] }
+	];
+	const records = [rec(1), rec(2), rec(3, { mark: 'rejected', marked: '2026-10-20T12:00:00Z' }), rec(7, { parents: [id(1)] })];
+	const lay = bandLayout({ shot: S, records, jobs, aspect: '9:16' });
+	assert.deepEqual(lay.rows.map((r) => r.keys), [[`render:${S}`, id(1), id(2), id(3), 'job:j3', 'job:j5'], ['job:j6'], [id(7), 'job:j4']]);
+	const j3 = at(lay, 'job:j3');
+	assert.deepEqual([j3.kind, j3.record, j3.job.progress, j3.parent, j3.w, j3.h], ['running', null, 0.4, `render:${S}`, cardSize('9:16').w, PIC_H]);
+	assert.equal(at(lay, 'job:j4').parent, id(1), 'from g1: in g1\'s row, after g7 – a new run lands at the row\'s end');
+	// under a rejected card: something open under it – the strip stands, the placeholder's row stays
+	assert.equal(at(lay, id(3)).kind, 'strip');
+	assert.equal(at(lay, id(3)).whole, false);
+	assert.equal(at(lay, 'job:j6').parent, id(3));
+	// a line into a placeholder as into a card; the keys skip it
+	const tick = (k) => lay.lines.some(([x1, , x2, y2]) => x1 === x2 && Math.abs(x1 - (at(lay, k).x + at(lay, k).pw / 2)) < 1e-9 && Math.abs(y2 - (at(lay, k).y + TOP)) < 1e-9);
+	assert.ok(tick('job:j3') && tick('job:j4'));
+	const bands = [{ shot: S, layout: lay }];
+	assert.equal(neighbour(bands, { shot: S, key: id(2) }, 'right'), null, 'g2 →: the strip g3 and the placeholders skipped');
+	assert.deepEqual(neighbour(bands, { shot: S, key: id(7) }, 'right'), null);
+	assert.deepEqual(rejectIds(lay, id(1)), [id(1), id(7)], 'X on g1: its records only (a running job has none)');
+	// no jobs: the same layout as before
+	assert.deepEqual(bandLayout({ shot: S, records, aspect: '9:16' }).rows.map((r) => r.keys), [[`render:${S}`, id(1), id(2), id(3)], [id(7)]]);
 });

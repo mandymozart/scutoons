@@ -31,7 +31,6 @@
 	import StudioPanel from './lib/components/StudioPanel.svelte';
 	import ShotPanel from './lib/components/ShotPanel.svelte';
 	import ScriptPanel from './lib/components/ScriptPanel.svelte';
-	import VariantsPanel from './lib/components/VariantsPanel.svelte';
 	import HandheldPanel from './lib/components/HandheldPanel.svelte';
 	import GeneratePanel from './lib/components/GeneratePanel.svelte';
 	import OutputPanel from './lib/components/OutputPanel.svelte';
@@ -39,7 +38,7 @@
 	// every step's own panel widths (remembered per step and kind)
 	const sizes = Object.fromEntries(STEPS.map((s) => [s.id, Object.fromEntries(PANELS.map((p) => [p.kind, panelWidth(`storyboard-studio:${s.id}:${p.kind}`, p.rem, undefined, { foldable: true })]))]));
 	// read when the dock asks (the snippets are declared below)
-	const body = (kind) => ({ shot: shotBody, script: scriptBody, variants: variantsBody, handheld: handheldBody, generate: generateBody, output: outputBody })[kind];
+	const body = (kind) => ({ shot: shotBody, script: scriptBody, handheld: handheldBody, generate: generateBody, output: outputBody })[kind];
 	const panel = (kind) => PANELS.find((p) => p.kind === kind);
 	// the Shot panel names the shot (• = unsaved); the others are about the same shot – their word is enough
 	const titleOf = (p) => (p.kind === 'shot' && studio.sel ? `Shot · ${studio.sel.id}${studio.dirty ? ' •' : ''}` : p.title);
@@ -123,7 +122,6 @@
 {#snippet scriptBody()}<StudioPanel title={titleOf(panel('script'))} icon="file-text" onclose={() => setOpen('script', false)}><ScriptPanel /></StudioPanel>{/snippet}
 {#snippet handheldBody()}<StudioPanel title={titleOf(panel('handheld'))} icon="smartphone" onclose={() => setOpen('handheld', false)}><HandheldPanel /></StudioPanel>{/snippet}
 {#snippet generateBody()}<StudioPanel title={titleOf(panel('generate'))} icon="zap" onclose={() => setOpen('generate', false)}><GeneratePanel /></StudioPanel>{/snippet}
-{#snippet variantsBody()}<StudioPanel title={titleOf(panel('variants'))} icon="grid" onclose={() => setOpen('variants', false)}><VariantsPanel /></StudioPanel>{/snippet}
 {#snippet outputBody()}<StudioPanel title="Output" icon="download" onclose={() => setOpen('output', false)}><OutputPanel /></StudioPanel>{/snippet}
 
 {#snippet bottom()}

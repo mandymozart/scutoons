@@ -2,10 +2,10 @@
 	// Generate a shot with a pluggable generator (owner 2026-10-19: "Ja, generator pluggable ist smart. Erstmal soweit
 	// bauen, dass ich die Runway API anbinden kann."): pick the generator + model, its inputs pre-filled from the shot,
 	// the estimate before anything is sent (a paid one asks with the cost), the shot's jobs with progress + cancel; the
-	// results land in Variants → Generated. "Build from the shot" fills the prompt with everything set for the shot; Luma –
-	// by hand (transport 'manual') shows it to copy instead of Generate (ManualGenerate – the former Luma panel, owner
-	// 2026-10-19). Prices in euro, the provider's credits + USD in their tooltips (owner 2026-10-20: "preise in euro").
-	// README "Generators", generators/jobs.mjs.
+	// results land on the variants board (a running one is a placeholder there). "Build from the shot" fills the prompt
+	// with everything set for the shot; Luma – by hand (transport 'manual') shows it to copy instead of Generate
+	// (ManualGenerate – the former Luma panel, owner 2026-10-19). Prices in euro, the provider's credits + USD in their
+	// tooltips (owner 2026-10-20: "preise in euro"). README "Generators", generators/jobs.mjs.
 	import { untrack } from 'svelte';
 	import { Icon, IconButton, PropRow, PropSelect, ScrubNumber } from '@scutoons/ui';
 	import { fail, studio } from '../studio.svelte.js';

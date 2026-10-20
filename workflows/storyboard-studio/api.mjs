@@ -7,7 +7,7 @@
 // (storyboards/<toon>/<chapter>/…, workflows/scenes/storyboard-taste.md). Listens on 127.0.0.1 only.
 
 import { execFile } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync, appendFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync, appendFileSync } from 'node:fs';
 import { dirname, extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mediaRoot, readEntity } from '../../scripts/storyboard/lib.mjs';
@@ -154,10 +154,13 @@ const api = {
 		save(hit.file, hit.sb);
 		return { saved: true };
 	},
-	'POST /api/frame': ({ toon, ch, id, variant, png }) => {
-		if (!/^[\w-]+$/.test(id) || (variant && !/^[\w-]+$/.test(variant))) throw new Error('bad id');
+	// the shot's frame (or a variant's); `clean` = its render without texts too (clean/ – the board's render card, the
+	// generators' "The render (no texts)"; the variants board's Take this sends it)
+	'POST /api/frame': ({ toon, ch, id, variant, png, clean }) => {
+		if (!/^[\w-]+$/.test(id) || (variant && !/^[\w-]+$/.test(variant)) || !/^[a-z0-9-]+$/.test(ch ?? '')) throw new Error('bad id');
 		const file = variant ? resolve(OUT, ch, 'variants', `${id}--${variant}.png`) : resolve(OUT, ch, 'frames', `${id}.png`);
 		writePng(file, png);
+		if (clean && !variant) writePng(resolve(OUT, ch, 'clean', `${id}.png`), clean);
 		return { file: file.slice(ROOT.length + 1) };
 	},
 	// the shot's generated files and their records – dropped files (Luma results, a photo, a drawing, a clip), approve,
@@ -195,7 +198,14 @@ const api = {
 		if (!v) throw new Error(`no variant ${vid}`);
 		const hit = findShot(toon, ch, id);
 		// the current shot becomes a variant, the picked one the shot
-		list.push({ id: `v${list.reduce((m, x) => Math.max(m, Number(x.id.slice(1)) || 0), 0) + 1}`, created: new Date().toISOString(), note: `before picking ${vid}`, shot: hit.group.shots[hit.index] });
+		const before = { id: `v${list.reduce((m, x) => Math.max(m, Number(x.id.slice(1)) || 0), 0) + 1}`, created: new Date().toISOString(), note: `before picking ${vid}`, shot: hit.group.shots[hit.index] };
+		list.push(before);
+		// its picture: the shot's saved frame (the variants board's source card – Keep as variant saves one the same way)
+		const frame = resolve(OUT, ch, 'frames', `${id}.png`);
+		if (/^[\w-]+$/.test(id) && existsSync(frame)) {
+			mkdirSync(resolve(OUT, ch, 'variants'), { recursive: true });
+			copyFileSync(frame, resolve(OUT, ch, 'variants', `${id}--${before.id}.png`));
+		}
 		hit.group.shots[hit.index] = { ...v.shot, id };
 		save(hit.file, hit.sb);
 		writeVariants(toon, ch, id, list.filter((x) => x.id !== vid));

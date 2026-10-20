@@ -10,8 +10,8 @@
 // ~10 min a shot): a long-running server (the desktop app) grows to 53 GB, Windows pages, and a step takes 350 s.
 // The per-shot server loop: agents/STORYBOARD.md §9 / BACKLOG (the night run).
 //
-// The result lands where the studio's uploads go: _out/<ch>/generated/<id>--g<n>.png (the highest n + 1 – Variants,
-// Approve as chosen, figma-chapter.mjs), its v2 record in _out/<ch>/generated.jsonl (generated-log.mjs: the inputs as
+// The result lands where the studio's uploads go: _out/<ch>/generated/<id>--g<n>.png (the highest n + 1 – the variants
+// board, its ✓ chosen, figma-chapter.mjs), its v2 record in _out/<ch>/generated.jsonl (generated-log.mjs: the inputs as
 // keys with their roles, the seed, the settings). --from <shot>--g<n>.png improves on a result (agents/research/
 // VARIANTS-CANVAS.md §3.6): that generated image is image 1 instead of the render, and the record's parent.
 //

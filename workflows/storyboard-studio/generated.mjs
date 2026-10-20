@@ -1,5 +1,4 @@
 // A shot's generated files and their records (agents/research/VARIANTS-CANVAS.md §3.7) – the routes api.mjs spreads in:
-//   GET  /api/generated?ch&id          – the shot's file names (the Variants panel, until the board replaces it)
 //   GET  /api/generated?ch&ids=a,b     – the picked shots' records, shot by shot in that order, each in log order:
 //        [{ id, shot, file, url, kind, take, parents, inputs, generator, model, mode, job, status, prompt, seed, ratio,
 //           duration, ms (a video file's real length), estimate, cost, date, error?, params?, approved, mark, marked,
@@ -115,11 +114,10 @@ export function generatedRoutes({ out, boards, run, now = () => new Date(), fetc
 	}
 
 	return {
-		'GET /api/generated': ({ ch, id, ids }) => {
-			if (ids != null) return records(ch, ids);
-			checkCh(ch);
-			if (!SHOT.test(id ?? '')) throw new Error('bad id');
-			return filesOf(ch).filter((f) => f.startsWith(`${id}--`)).sort();
+		// the board's one request (the Variants panel's `?ch&id` – a shot's file names – left with it)
+		'GET /api/generated': ({ ch, ids }) => {
+			if (ids == null) throw new Error('ids missing – GET /api/generated?ch=<ch>&ids=<shot>,<shot>');
+			return records(ch, ids);
 		},
 		'POST /api/generated': drop,
 		'POST /api/generated/approve': approve,

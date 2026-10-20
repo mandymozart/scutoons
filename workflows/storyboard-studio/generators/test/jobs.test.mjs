@@ -24,6 +24,8 @@ test('a paid job needs the confirmed cost, then runs to succeeded and writes a v
 	await assert.rejects(m.start(job(), { confirm: 0.02 }), /confirm the cost first/);
 	const j = await m.start(job({ still: 'out:s1c3/clean/sb-1-1.png', characters: ['media:characters/plf/plf_full-neutral.webp'] }), { confirm: 0.03 });
 	assert.equal(j.status, 'running');
+	// the view carries what the variants board needs for its running placeholder: the inputs (the main one first), the parents
+	assert.deepEqual([j.kind, j.inputs, j.parents], ['image', [{ role: 'still', key: 'out:s1c3/clean/sb-1-1.png' }], []]);
 	await m.wait(j.id);
 	const [done] = m.jobs({ ch: 's1c3', shot: 'sb-1-1' });
 	assert.equal(done.status, 'succeeded');

@@ -34,5 +34,8 @@ export const EXTRA_ICONS: Record<string, { contents: string }> = {
 	blur: { contents: '<circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="9" stroke-dasharray="0.1 5.555"/>' },
 	// a bare question mark – "review" (the studio's variants board, research/VARIANTS-CANVAS.md §3.3: "? not an eye");
 	// Feather's help-circle is too busy inside a status bullet
-	question: { contents: '<path d="M8 8a4 4 0 1 1 5.6 3.7c-1 .45-1.6 1.3-1.6 2.4V15"/><line x1="12" y1="19.5" x2="12.01" y2="19.5"/>' }
+	question: { contents: '<path d="M8 8a4 4 0 1 1 5.6 3.7c-1 .45-1.6 1.3-1.6 2.4V15"/><line x1="12" y1="19.5" x2="12.01" y2="19.5"/>' },
+	// two arrows the other way round – "Take this": a kept layout becomes the shot, the shot a variant (the studio's
+	// variants board, research/studio-layout/variants-canvas-q5.html A); Feather's repeat reads as a loop
+	swap: { contents: '<polyline points="8 3 4 7 8 11"/><line x1="4" y1="7" x2="20" y2="7"/><polyline points="16 21 20 17 16 13"/><line x1="20" y1="17" x2="4" y2="17"/>' }
 };

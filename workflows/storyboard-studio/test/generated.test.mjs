@@ -53,10 +53,9 @@ test('drops: images and videos, named by the highest n + 1 over the files and th
 	assert.equal(readFileSync(join(out, 'c1/generated/s-2--g1.png'), 'utf8'), 'one');
 });
 
-test('GET ?ch&id still answers the file names (the Variants panel)', () => {
-	assert.deepEqual(get({ ch: 'c1', id: 's-1' }), ['s-1--g1.png', 's-1--g2.mp4', 's-1--g3.webm', 's-1--g4.mp4']);
-	assert.deepEqual(get({ ch: 'c1', id: 'nope' }), []);
-	assert.throws(() => get({ ch: '../x', id: 's-1' }), /bad chapter/);
+test('GET without ids is refused (the Variants panel\'s file names left with it – the board asks for records)', () => {
+	assert.throws(() => get({ ch: 'c1', id: 's-1' }), /ids missing/);
+	assert.throws(() => get({ ch: '../x', ids: 's-1' }), /bad chapter/);
 });
 
 test('GET ?ch&ids: the picked shots\' records – log order, earlier files, missing files, approved from `from`', () => {

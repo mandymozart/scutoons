@@ -28,7 +28,7 @@ every step.
 | Shots | Shot (tab Shot) | folded (Shot) |
 | Layout | Shot (tab Camera) | folded (Shot) |
 | Handheld | Handheld | open (Take – the take's trim) |
-| Generate | Generate + Variants; the main view: the Variants board; the ActionBar's Review (Approve / Ask for a change) | open (Generated) |
+| Generate | Generate; the main view: the Variants board; the ActionBar's Review (Approve / Ask for a change) | open (Generated) |
 | Export | Output | folded (Rendered) |
 
 - **Sidebar – the shots** in the toon's order, by scene (owner 2026-10-19: "the left side is our timeline vertically, the
@@ -57,9 +57,9 @@ every step.
   facing, framing, mood, x / y / h); **Script** – the scene's script lines + notes; **Handheld** – below;
   **Generate** – a generator per shot (below, "Generators"), with **Build from the shot** (the full prompt) and **Luma –
   by hand** (the prompt to copy, the render without texts, the references to attach – the former Luma panel, owner
-  2026-10-19: "this should be somehow now be covered by the generate right?"); **Variants** – the saved frame,
-  variants (Load / Take this), generated images and videos (Approve as chosen → the dataset); **Output** – the
-  chapter's handheld videos and downloads (below).
+  2026-10-19: "this should be somehow now be covered by the generate right?"); **Output** – the chapter's handheld
+  videos and downloads (below). (The Variants panel left the dock: the frame, the layout variants, the generated files
+  and the drops are on the Variants board – "The variants board" below.)
 - **Timeline** along the bottom, under the main view and the panels (owner: "the timeline underneath the other windows
   was also good"; then "every scene is first of all spatial in the webtoon … depending on how long a camera is recorded
   and or trimmed to, thats the length of that clip for that shot"): only the **picked** shots, back to back in toon
@@ -91,24 +91,44 @@ every step.
 ## The variants board
 
 Owner 2026-10-19: "variants can be a huge open canvas with each generation next to the others, we can scroll and compare
-generation to each other. and pick the one we like" (agents/research/VARIANTS-CANVAS.md, issue #62). Stage 2a is built:
+generation to each other. and pick the one we like" (agents/research/VARIANTS-CANVAS.md, issue #62). Stage 2 is built:
 the main's editor **Variants** (Generate opens it) – every generation of the **picked** shots, a **band** each in toon
 order (the timeline's clips, the same set and order). A band's head: the review dot, the id, the format, "n done · cost"
 (euro; sticks while its band scrolls by; the current shot's inverted). In a band, laid out by the record
 (`src/lib/board-layout.js`, node tests): column 0 = the **sources** – the render without texts (else the saved frame),
-one card per take with a handheld render, a dropped file –; a parent's results = one row, oldest left; a generation's
+the kept **layout variants** (v1, v2 …, "Keep as variant": its saved frame + the note; Q5 A), one card per take with
+a handheld render, a dropped file –; a parent's results = one row, oldest left; a generation's
 results a row under it, one column right; several generated inputs → under the main one (`parents[0]`); a result
 without a parent under the source its inputs name, else in the row **Earlier – no record** (files without a v2 record
 too). Lines: a comb above each row, a tick into every result, a drop from the parent. One picture height for all bands
 (9rem), the width by the shot's aspect. A card: the image or a video's first frame (`GET /api/thumbs`, one tile), a
 video's length, id + model, the record as its tooltip, the **status** as a bullet – ✓ chosen · ? review · ✕ rejected.
-A click in a band = its shot current; on a card = the **current card** (its actions under it: the status ✓ ? ✕ and –
-later – Improve · Vary · More); **Ctrl / ⌘ + click** selects (A–D, for Compare later); the board scrolls to the current
+A video **scrubs under the pointer** (x = time – one sprite of 32 frames from `GET /api/thumbs`, asked on its first
+hover; the chip says the time there; without ffmpeg the card's own video seeks). A click in a band = its shot current;
+on a card = the **current card** (its actions under it: a result's status ✓ ? ✕ and – later – Improve · Vary · More; a
+layout variant's **Load** – into the Viewport, unsaved – and **Take this** – after an in-page confirm it becomes the
+shot, the shot as saved a variant with its saved frame, the frame and the render without texts are saved again; the
+render and the takes take no status); **Ctrl / ⌘ + click** selects (A–D, for Compare later); the board scrolls to the current
 band when the list, ‹ ›, or the timeline changes it. Keys: ← → in the row, ↑ ↓ the rows (across bands – the shot becomes
 current), **Enter** chosen (= approve: the review + the dataset, one chosen image and one chosen video per shot), **R**
 review / none, **X** reject – with what hangs under it, one stamp; again: back (`POST /api/generated/mark`; the chosen
-and the sources – a dropped file too – can't be rejected, a rejected card can't be chosen), Esc the selection off. Not yet (2b and later): folding rejected cards and bands, pan / zoom, drops
-and layout variants on the board (the Variants panel still holds them), Improve / Vary, Compare.
+and the sources – a dropped file too – can't be rejected, a rejected card can't be chosen or put in review), Esc the
+selection off. **The fold** (2b): a rejected card is a **strip** in its place (the picture's height, 1.5rem wide, drawn
+like the Rail – ✕ and the id upwards, muted); with nothing open under it its branch folds into that strip ("g3 +2"),
+folded neighbours in a row share one; a row of nothing but strips **lies down** as one line. The strip stays current
+after its X (X again: back); the arrow keys skip strips; a click on a strip (Enter when current) opens a **look** – it
+unfolds with its branch, muted, until the current card leaves it or Esc. **Show rejected · n** (the tool row, hidden at
+0) unfolds them all; rejected cards stay out of the selection. A band's head has a **fold** button: folded, the band is
+its head line (a click on it unfolds it), loads nothing, the keys skip it; not remembered. **Pan / zoom**: the wheel
+scrolls down, Shift + wheel sideways, a drag on the background pans, Ctrl + wheel / + / − zoom about the pointer (one
+zoom for all bands, 25–200 %: the picture height in rem – `src/lib/board-zoom.js`), 0 fits the widest band, the %
+button → 100 %; below 60 % the captions hide. A band fills its cards only once it comes near the view (or holds the
+current card). **Drops**: images (png / jpeg / webp) or videos (mp4 / webm) dragged over a band outline it (2px dashed);
+dropped, each is an upload for that band's shot (`POST /api/generated`, a source card in column 0) – the tool row's
+round button picks files for the current shot; what can't be added is a toast. A **running** job of a picked shot (the
+session's jobs, `GET /api/generate/jobs?ch`, polled while one runs) is a placeholder where its result will land – at the
+end of its main input's row: the progress over the house bar and the estimate; its card replaces it, cancel and
+failures stay in Generate's Jobs list. Not yet: Improve / Vary (stage 3), Compare (stage 4).
 
 ## Files
 
@@ -185,9 +205,9 @@ Owner 2026-10-19: film a shot's blocked scene with the phone, trim, render contr
 ## Generators
 
 Owner 2026-10-19: "Ja, generator pluggable ist smart. Erstmal soweit bauen, dass ich die Runway API anbinden kann."
-The **Generate** panel sends a shot to a generator; the result lands in Variants → Generated
-(`_out/<chapter>/generated/<shot>--g<n>.png|mp4`, recorded in `generated.jsonl` – "The record" below), so "Approve as
-chosen" works as before. Each generator says what it takes; the inputs are
+The **Generate** panel sends a shot to a generator; the result lands on the Variants board
+(`_out/<chapter>/generated/<shot>--g<n>.png|mp4`, recorded in `generated.jsonl` – "The record" below; a placeholder
+while it runs), where ✓ / Enter approves it as the chosen. Each generator says what it takes; the inputs are
 pre-filled from the shot (the approved image, else the render without texts; the newest handheld render pass; the
 shot's "Image (EN)" text as the prompt). **Build from the shot** next to the Prompt replaces it with everything set for
 the shot – also unsaved changes – as one prompt (the story moment, perspective, figures, camera, light, empty zones,
@@ -201,7 +221,7 @@ Generate; agents/research/GENERATORS.md §2).
 |---|---|---|---|
 | ComfyUI (this PC) – `comfy-local` | local | `scripts/storyboard/comfy.mjs` unchanged: Qwen-Image-Edit, the render + character images → a still | free |
 | Runway – `runway` | api | **Gen-4 Turbo** / **Gen-4.5** image to video (the still + prompt, 2–10 s); **Aleph 2** video to video (the handheld render pass ≤ 30 s, restyled by the prompt; the still as keyframe) | 5 / 12 / 28 credits per second (Aleph at least 56); 1 credit = 0.01 USD (≈ 0,0089 €) |
-| Luma – by hand – `luma-manual` | manual | no API: the built prompt (read-only) + **Copy prompt**, **Render (no texts)** (Luma's image reference, a download) and the references to attach (links) – made on lumalabs.ai, the result dropped onto Variants | your Luma subscription |
+| Luma – by hand – `luma-manual` | manual | no API: the built prompt (read-only) + **Copy prompt**, **Render (no texts)** (Luma's image reference, a download) and the references to attach (links) – made on lumalabs.ai, the result dropped onto its shot's band on the board | your Luma subscription |
 | ComfyUI (cloud GPU) – `comfyui-remote` | api | the same graphs on RunPod / Comfy Cloud – not built yet (`generators/others.mjs`) | – |
 
 Safety: the estimate is shown before sending; every paid call asks once more with the cost; nothing is retried by
@@ -246,7 +266,7 @@ by hand – a dry run with a report first:
 3. In die Datei **`.env` im Repo-Ordner** (`C:\Development\scutoons\.env`, sie ist in `.gitignore`, wird nie
    committet) eine Zeile schreiben: `RUNWAY_API_KEY=key_…`. Ein Neustart des Studios ist nicht nötig.
 4. Im Studio: Shot wählen → **Generate** → Generator „Runway“, Modell wählen, Bild / Video und Prompt prüfen →
-   **Generate** → die Rückfrage zeigt den Preis in Euro → bestätigen. Das Video erscheint unter Variants → Generated.
+   **Generate** → die Rückfrage zeigt den Preis in Euro → bestätigen. Das Video erscheint auf dem Variants-Board (V).
 
 Alle Preise im Studio stehen in Euro – ungefähr (≈), umgerechnet zum Euro-Referenzkurs der EZB des Tages; fährt man mit
 der Maus über einen Betrag, zeigt der Tooltip Runways eigene Zahlen (Credits, USD) und den Kurs. Abgerechnet wird bei

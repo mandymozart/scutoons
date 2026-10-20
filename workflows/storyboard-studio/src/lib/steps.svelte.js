@@ -7,13 +7,13 @@
 // – no server state); the panels' widths are per step too
 // (`storyboard-studio:<step>:<kind>`, App). The current and the picked shots are shared by all steps (studio.svelte.js).
 
-/** the dock panels in their fixed places, from the main view outwards (`order`) */
+/** the dock panels in their fixed places, from the main view outwards (`order`) – the Variants panel left the dock: its
+ * frame, layout variants, generated files and drops are on the main's Variants board (research/VARIANTS-CANVAS.md §3.1) */
 export const PANELS = [
 	{ kind: 'shot', title: 'Shot', icon: 'sliders', rem: 24 },
 	{ kind: 'script', title: 'Script', icon: 'file-text', rem: 20 },
 	{ kind: 'handheld', title: 'Handheld', icon: 'smartphone', rem: 22 },
 	{ kind: 'generate', title: 'Generate', icon: 'zap', rem: 22 },
-	{ kind: 'variants', title: 'Variants', icon: 'grid', rem: 18 },
 	{ kind: 'output', title: 'Output', icon: 'download', rem: 24 }
 ];
 
@@ -51,7 +51,7 @@ export const STEPS = [
 	{ id: 'shots', label: 'Shots', title: 'The shots in order – what each shows', panels: ['shot'], tab: 'shot', editor: 'viewport', view: 'shot', timeline: false },
 	{ id: 'layout', label: 'Layout', title: 'Blocking: format, camera, light, figures in the 3D view', panels: ['shot'], tab: 'camera', editor: 'viewport', view: 'shot', timeline: false },
 	{ id: 'handheld', label: 'Handheld', title: 'Film the shot with the phone, trim the take on the timeline', panels: ['handheld'], tab: 'camera', editor: 'viewport', view: 'take', timeline: true },
-	{ id: 'generate', label: 'Generate', title: 'Generate the shot, pick and approve the result', panels: ['generate', 'variants'], tab: 'shot', editor: 'variants', view: 'generated', timeline: true },
+	{ id: 'generate', label: 'Generate', title: 'Generate the shot, pick and approve the result', panels: ['generate'], tab: 'shot', editor: 'variants', view: 'generated', timeline: true },
 	{ id: 'export', label: 'Export', title: 'The chapter\'s outputs: handheld videos, downloads, the draft', panels: ['output'], tab: 'shot', editor: 'viewport', view: 'rendered', timeline: false }
 ];
 
@@ -62,8 +62,9 @@ const read = (k) => { try { return JSON.parse(localStorage.getItem(k) ?? 'null')
 const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* not remembered */ } };
 
 /** a step's remembered layout: { panels: kind[], tab, editor, view, timeline } – `editor` = the main view's editor
- * (EDITORS), `view` = the timeline's view mode (VIEW_MODES); a kind no longer in PANELS is dropped – the Luma panel 'prompt' (gone into Generate 2026-10-19) opens
- * Generate in its place */
+ * (EDITORS), `view` = the timeline's view mode (VIEW_MODES); a kind no longer in PANELS is dropped (the Variants panel
+ * 'variants' – on the board since 2026-10-20) – the Luma panel 'prompt' (gone into Generate 2026-10-19) opens Generate
+ * in its place */
 function load(step) {
 	const saved = read(layoutKey(step.id));
 	const kinds = PANELS.map((p) => p.kind);

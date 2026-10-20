@@ -158,7 +158,7 @@ export async function loadJobs() {
 	gen.spend = r.spend;
 	if (r.rate) gen.rate = r.rate;
 	const finished = r.jobs.filter((j) => j.status === 'succeeded' && before.get(j.id) && before.get(j.id) !== 'succeeded');
-	if (finished.length) { studio.version++; notify(`Generated: ${finished.flatMap((j) => j.files).join(', ')} – in Variants.`, 'success'); }
+	if (finished.length) { studio.version++; notify(`Generated: ${finished.flatMap((j) => j.files).join(', ')} – on the board (Variants, V).`, 'success'); }
 	const active = r.jobs.some((j) => j.status === 'queued' || j.status === 'running');
 	clearTimeout(poll);
 	if (active) poll = setTimeout(() => loadJobs().catch(() => {}), 1500);

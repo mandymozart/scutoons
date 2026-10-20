@@ -2,8 +2,9 @@
 	// Luma – by hand in the Generate panel (generators/luma-manual.mjs; owner 2026-10-19: "the luma tab is weird. this
 	// should be somehow now be covered by the generate right?"): what the Luma panel offered, in Generate's place – the
 	// prompt built from the shot (GeneratePanel's Prompt row, read-only), the render without texts (Luma's image
-	// reference), the references to attach; the result comes back by dropping it onto Variants. One primary (RULES):
-	// "Build from the shot" until there is a prompt, then Copy prompt. README "Generators".
+	// reference), the references to attach; the result comes back by dropping it onto the board (its shot's band – a
+	// source card, board-sources.svelte.js). One primary (RULES): "Build from the shot" until there is a prompt, then
+	// Copy prompt. README "Generators".
 	import { fail, notify, studio } from '../studio.svelte.js';
 	import { framePng } from '../frames.js';
 	import { gen } from '../generate.svelte.js';
