@@ -10,6 +10,7 @@
 //   locations:<toon>:<locale>         routes:<toon>:<locale>             (the map)
 //   cast:<toon>                       credits:<toon>                     (language-neutral, per toon)
 //   script:<toon>:<locale>            the toon's screenplay (creator only: no library endpoint, readers never get it)
+//   storyboard:<toon>:<n>             a chapter's storyboard (creator only, language-neutral; research/STUDIO-IN-CREATOR.md §2.2)
 //   characters  moods  asset-requests  people  roles  events  map  colorations   (platform-wide, language-neutral;
 //                                     `colorations` = the custom collage presets, research/COLLAGE.md §12)
 //   place:<id>  route:<id>            one document per place / route of the world map (agents/MAP-DOCUMENTS.md):
@@ -35,6 +36,7 @@ export type EntityKind =
 	| 'cast'
 	| 'credits'
 	| 'script'
+	| 'storyboard'
 	| 'characters'
 	| 'moods'
 	| 'asset-requests'
@@ -70,6 +72,7 @@ const SHAPES: Record<Exclude<EntityKind, CatalogEntityKind>, [boolean, boolean, 
 	cast: [true, false, false],
 	credits: [true, false, false],
 	script: [true, false, true],
+	storyboard: [true, true, false],
 	characters: [false, false, false],
 	moods: [false, false, false],
 	'asset-requests': [false, false, false],
@@ -118,6 +121,8 @@ export const entities = {
 	cast: (toon: string) => `cast:${toon}`,
 	credits: (toon: string) => `credits:${toon}`,
 	script: (toon: string) => `script:${toon}`,
+	/** a chapter's storyboard (creator only, server EntityKey::CREATOR_ONLY_KINDS) */
+	storyboard: (toon: string, chapter: number) => `storyboard:${toon}:${chapter}`,
 	characters: 'characters',
 	moods: 'moods',
 	assetRequests: 'asset-requests',

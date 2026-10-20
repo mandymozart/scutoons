@@ -20,6 +20,7 @@ use Scutoons\Domain\Settings\RuntimeSettings;
 use Scutoons\Http\Controllers\AccessController;
 use Scutoons\Http\Controllers\ApiTokensController;
 use Scutoons\Http\Controllers\ReviewsController;
+use Scutoons\Http\Controllers\StoryboardController;
 use Scutoons\Http\Controllers\AssetsController;
 use Scutoons\Http\Controllers\Admin\BatchesController;
 use Scutoons\Http\Controllers\Admin\CatalogController as CatalogAdminController;
@@ -262,6 +263,16 @@ return static function (App $app): void {
     $app->get("/api/assets/$asset", [AssetsController::class, 'get']);
     $app->put("/api/assets/$asset", [AssetsController::class, 'update']);
 
+    // Storyboard (#120, docs/API.md "Storyboard", content editors): the generations (the ledger) and the shared work
+    // storage on this host's disk – the document itself is the entity storyboard:<toon>:<chapter> (/api/entities)
+    $app->get('/api/storyboard/generations', [StoryboardController::class, 'list']);
+    $app->post('/api/storyboard/generations', [StoryboardController::class, 'record']);
+    $app->get('/api/storyboard/generations/{id:[1-9][0-9]{0,18}}', [StoryboardController::class, 'get']);
+    $app->put('/api/storyboard/generations/{id:[1-9][0-9]{0,18}}', [StoryboardController::class, 'update']);
+    $app->get('/api/storyboard/work', [StoryboardController::class, 'listWork']);
+    $app->put('/api/storyboard/work', [StoryboardController::class, 'putWork']);
+    $app->get('/api/storyboard/work/{toon:[a-z0-9_-]{1,64}}/{chapter:[0-9]{1,6}}/{name:[A-Za-z0-9._%-]{1,200}}', [StoryboardController::class, 'getWork']);
+
     // Library: the reader's entities composed from the content store (agents/DATA.md, docs/API.md "Library")
     $app->get('/api/library/toons', [LibraryController::class, 'toons']);
     $app->get('/api/library/toons/{toon}', [LibraryController::class, 'toon']);
@@ -463,6 +474,8 @@ return static function (App $app): void {
         $admin->get("/assets/$asset/delete-check", [AssetsController::class, 'deleteCheck']);
         $admin->delete("/assets/$asset", [AssetsController::class, 'delete']);
         $admin->post("/assets/$asset/jobs", [AssetsController::class, 'enqueue']);
+        // the storyboard's work storage of a chapter, emptied after its release (#120)
+        $admin->delete('/storyboard/work/{toon:[a-z0-9_-]{1,64}}/{chapter:[0-9]{1,6}}', [StoryboardController::class, 'deleteWork']);
     })->add(new RequireRole($c->get(Roles::class), Roles::ADMIN));
 
     // ── Developer API: Session + RequireRole(developer) – the migrations (BACKLOG 10.61, DevController); a developer's

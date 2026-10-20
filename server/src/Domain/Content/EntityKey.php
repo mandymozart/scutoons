@@ -18,6 +18,8 @@ use Scutoons\Domain\ApiError;
  *   locations:<toon>:<l>  routes:<toon>:<l>                            the map
  *   cast:<toon>  credits:<toon>                                        language-neutral, per toon
  *   script:<toon>:<l>                    the toon's screenplay per locale (creator material, CREATOR_ONLY_KINDS)
+ *   storyboard:<toon>:<n>                a chapter's storyboard: `{ storyboard: 2, toon, chapter, scenes }`, language-neutral
+ *                                        (creator material, CREATOR_ONLY_KINDS; agents/research/STUDIO-IN-CREATOR.md §2.2, #120)
  *   characters  moods  asset-requests  people  roles  events  map  colorations
  *                                        platform-wide, language-neutral (`colorations` = the custom collage presets –
  *                                        CollagePresets, agents/research/COLLAGE.md §12)
@@ -50,6 +52,7 @@ final class EntityKey
         'cast' => [true, false, false],
         'credits' => [true, false, false],
         'script' => [true, false, true],
+        'storyboard' => [true, true, false],
         'characters' => [false, false, false],
         'moods' => [false, false, false],
         'asset-requests' => [false, false, false],
@@ -73,9 +76,9 @@ final class EntityKey
     /**
      * Kinds that are working material of the creators, never content for readers: no library endpoint reads them (only
      * `/api/entities`, role creator) and the production seed (`import-content --sql`) leaves them out unless `--only`
-     * names them (agents/DATA.md "Script").
+     * names them (agents/DATA.md "Script"). The storyboards (#120) too: their working material, never a reader's.
      */
-    public const CREATOR_ONLY_KINDS = ['script'];
+    public const CREATOR_ONLY_KINDS = ['script', 'storyboard'];
     /** document kind → catalog kind (CatalogStore::KINDS) of the catalog documents `<kind>:<id>` */
     public const CATALOG_KINDS = ['item' => 'items', 'recipe' => 'recipes', 'album' => 'albums', 'product' => 'products', 'edition' => 'editions', 'home-scene' => 'home-scenes', 'airlift-carrier' => 'airlift-carriers'];
     /** a catalog document's id: the widest catalog id rule (CatalogValidator checks the kind's own rule on save) */

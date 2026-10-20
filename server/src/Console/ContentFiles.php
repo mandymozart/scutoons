@@ -24,6 +24,7 @@ use Scutoons\Domain\Content\EntityKey;
  *   <toon>/<l>/season<N>.json, chapter<N>.json                       → season:<toon>:<N>:<l>, chapter:<toon>:<N>:<l>  (legacy per locale)
  *   <toon>/<l>/locations.json, routes.json                           → locations:<toon>:<l>, routes:<toon>:<l>
  *   <toon>/<l>/script.json             (the screenplay)              → script:<toon>:<l>
+ *   <toon>/_/storyboard<N>.json        (a chapter's storyboard)      → storyboard:<toon>:<N>  (creator only, like the script)
  * A chapter is one file with its groups inline (the scene files `chapter<N>/<name>.json` went 2026-10-19).
  * Legacy per-locale characters.json / credits.json (replaced by the registry and the credits entities) are no entities.
  */
@@ -54,6 +55,7 @@ final class ContentFiles
     {
         $suffix = $locale === null ? '' : ":$locale";
         if (preg_match('#^(season)([1-9][0-9]{0,5})\.json$#', $relative, $n) || preg_match('#^(chapter)(0|[1-9][0-9]{0,5})\.json$#', $relative, $n)) return "$n[1]:$dir:$n[2]$suffix";
+        if ($locale === null && preg_match('#^storyboard(0|[1-9][0-9]{0,5})\.json$#', $relative, $n)) return "storyboard:$dir:$n[1]";
         return null;
     }
 
@@ -66,6 +68,7 @@ final class ContentFiles
             'cast', 'credits' => "$key->toon/_/$key->kind.json",
             'toon-settings' => "$key->toon/$key->locale/toon.json",
             'season', 'chapter' => "$key->toon/" . ($key->locale ?? self::NEUTRAL_DIR) . "/$key->kind$key->number.json",
+            'storyboard' => "$key->toon/" . self::NEUTRAL_DIR . "/storyboard$key->number.json",
             'locations', 'routes', 'script' => "$key->toon/$key->locale/$key->kind.json",
             default => self::PLATFORM_DIR . "/_/$key->kind.json",
         };

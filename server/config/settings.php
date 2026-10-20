@@ -198,6 +198,13 @@ return [
     'MCP_PATH' => 'mcp',
     // ML-DSA-65 keypair of the certificate signatures (was api/keys/keypair.json)
     'KEYPAIR_PATH' => 'storage/keys/keypair.json',
+    // The storyboard's shared work storage (#120, agents/research/STUDIO-IN-CREATOR.md §2.2): attempts members share for
+    // review, <toon>/<chapter>/<name> on the API host's own disk – never the readers' CDN, served to creators only;
+    // emptied per chapter after its release (DELETE /api/admin/storyboard/work/<toon>/<chapter>)
+    'STORYBOARD_WORK_PATH' => 'storage/storyboard-work',
+    // Largest work file through the API in bytes (a raw PUT body: PHP's post_max_size doesn't apply; the host's
+    // request body limit and the disk do)
+    'STORYBOARD_WORK_MAX_BYTES' => '268435456',
 
     // ── Media assets (agents/ASSETS.md): the asset registry + its storage drivers ─────────────────────────
     // Which storage the asset layer works on: auto (the local folder ASSET_LOCAL_ROOT when it exists – every dev

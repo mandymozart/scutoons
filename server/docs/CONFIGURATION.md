@@ -79,6 +79,8 @@ Today: `scan_limit_per_hour` (default `SCAN_MAX_PER_IP_HOUR`), `lookup_limit_per
 | `FILES_PATH` | `storage/files` | batch manifests, QR SVGs, certificates, signatures, ZIPs (was `generate/files/`) |
 | `MCP_PATH` | `mcp` | the member's MCP bundle (`GET /api/mcp/download`, `/version`; agents/MCP.md §3a): the api deploy builds it there, locally `npm run build:mcp` |
 | `KEYPAIR_PATH` | `storage/keys/keypair.json` | ML-DSA-65 keypair (was `api/keys/keypair.json`) |
+| `STORYBOARD_WORK_PATH` | `storage/storyboard-work` | the storyboard's shared work storage (`<toon>/<chapter>/<name>`, creators only, never served by the web server – docs/API.md "Storyboard") |
+| `STORYBOARD_WORK_MAX_BYTES` | 268435456 | largest work file (a raw `PUT` body) |
 | `LOG_PATH` | `logs/error.log` | PHP/API error log; empty = the host's log |
 | `ASSET_STORAGE` | `auto` | the media storage of the asset layer (agents/ASSETS.md): `auto` = the local folder `ASSET_LOCAL_ROOT` when it exists (every dev machine – credentials in the root `.env` never make a dev server write to the production zone), else `bunny` when configured; `local`, `bunny` |
 | `ASSET_LOCAL_ROOT` | `../media` | the local media folder (`scripts/dev/media-serve.mjs` serves it on :8001) |

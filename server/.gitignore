@@ -13,6 +13,7 @@ vendor/
 .phpstan.cache/
 storage/cache/
 storage/migration-backups/
+storage/storyboard-work/
 # production data for the local seed (agents/CUTOVER.md 10.30) – may hold creator emails (entity_versions.author)
 db/prod-seed*.sql
 # the member MCP bundle (npm run build:mcp; the api deploy builds it – McpController)

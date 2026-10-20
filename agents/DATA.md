@@ -192,7 +192,7 @@ round-trip byte-identically). Format = the screenplay editor (`C:\Development\sc
 `lib/src/parse.js`); `scriptOutline(text)` (`@scutoons/content` `script.ts`) reads chapters `# <n>. Kapitel|Chapter`,
 scene headings `<n>   INT./EXT. …` (column 0, inside a chapter) and songs `# <n>. Lied|Song` with their lines, the same
 rules as the editor's parser (which knows only the German terms; the English script writes Chapter/Song).
-- **Creator only**: `EntityKey::CREATOR_ONLY_KINDS = ['script']`. Read/written only through `/api/entities` (role creator;
+- **Creator only**: `EntityKey::CREATOR_ONLY_KINDS = ['script', 'storyboard']`. Read/written only through `/api/entities` (role creator;
   member 403, anonymous 401); no library endpoint, and `Library\Snapshot` excludes the kind, so no reader answer can
   contain it and a script save never changes a library cache key (`LibraryTest::testScriptsAreNeverInTheLibrary`,
   entities-smoke "Script"). Validation: `validateFile('script')` (text a string, meta fields text, unknown meta keys

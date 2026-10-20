@@ -29,6 +29,8 @@ final class ContentSchemas
         'cast' => 'cast',
         'credits' => 'credits',
         'script' => 'script',
+        // the storyboard's type lives in @scutoons/content storyboard/ (#119); no generated schema yet – not checked here
+        'storyboard' => null,
         'characters' => 'characters',
         'moods' => 'moods',
         'asset-requests' => 'asset-requests',

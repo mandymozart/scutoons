@@ -14,6 +14,7 @@ use Scutoons\Domain\Assets\AssetUsages;
 use Scutoons\Domain\Roles\Roles;
 use Scutoons\Http\CurrentSession;
 use Scutoons\Http\Json;
+use Scutoons\Http\RawUpload;
 use Scutoons\Http\Middleware\JsonBody;
 use Scutoons\Infrastructure\AssetStorage\AssetStorages;
 use Scutoons\Infrastructure\AssetStorage\StorageKey;
@@ -316,34 +317,6 @@ final class AssetsController
     /** Streams the raw request body into a temp file (never the whole video in memory); 413 above the limit */
     private function bodyToFile(Request $request): string
     {
-        $max = $this->service->maxUploadBytes();
-        $declared = (int) $request->getHeaderLine('Content-Length');
-        if ($declared > $max) throw new ApiError(413, 'file_too_large', "The file is larger than $max bytes.");
-        $tmp = (string) tempnam(sys_get_temp_dir(), 'asset-upload-');
-        $out = fopen($tmp, 'wb');
-        if ($out === false) throw new ApiError(500, 'upload_failed', 'No temp file.');
-        $raw = $request->getAttribute(JsonBody::ATTRIBUTE);
-        $written = 0;
-        if (is_string($raw)) {
-            $written = (int) fwrite($out, $raw);
-        } else {
-            $body = $request->getBody();
-            if ($body->isSeekable()) $body->rewind();
-            while (!$body->eof()) {
-                $chunk = $body->read(1048576);
-                $written += (int) fwrite($out, $chunk);
-                if ($written > $max) {
-                    fclose($out);
-                    @unlink($tmp);
-                    throw new ApiError(413, 'file_too_large', "The file is larger than $max bytes.");
-                }
-            }
-        }
-        fclose($out);
-        if ($written === 0) {
-            @unlink($tmp);
-            throw new ApiError(422, 'empty_file', 'The request carried no file.');
-        }
-        return $tmp;
+        return RawUpload::toTempFile($request, $this->service->maxUploadBytes(), 'asset-upload-');
     }
 }
