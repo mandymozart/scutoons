@@ -35,7 +35,8 @@
 // One file on purpose: plan, files, upload, save and verify share the plan and its checks. Its own size reader works on
 // bytes (the CDN's answers, not only files – lib.mjs imageSize reads a file) and made.json records more per slice than
 // lib.mjs runManifest (the source's and the outputs' hashes).
-// The Figma drafts of chapters 1–5 stay on the 625 grid: a re-cut from them goes through figma-clean-slices.mjs --grid 625.
+// Run once per chapter (2026-10-20: ch1–5 → drafts v733–v737): from then on slices are cut from the draft document at
+// 390 × 624 (figma-production.mjs); the old 625 cuts get no re-cut (owner: "manual slicing is not required anymore").
 
 import { execFile, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
