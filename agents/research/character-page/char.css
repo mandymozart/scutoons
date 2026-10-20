@@ -1,0 +1,135 @@
+/* The character page drafts (agents/research/CHARACTER-PAGE.md) – pictures, not app code. On top of nav.css (D's frame).
+   rem only; px only in the 1px / 2px frames (tokens). */
+
+/* the area's own tabs (Characters · Moods · Wanted images) – D: "a toon's pages are tabs", the same for an area */
+.atabs { display: flex; border-bottom: var(--line); padding: 0 var(--space-1); white-space: nowrap; overflow: hidden; flex: none; }
+.atabs span { display: inline-flex; align-items: center; gap: var(--space-05); height: var(--bar); padding: 0 var(--space-1); border-bottom: calc(2 * var(--border-width-regular)) solid transparent; }
+.atabs span.on { border-bottom-color: var(--ink); }
+.atabs span .n { color: var(--text-muted); font-size: var(--caption); }
+.atabs .end { margin-left: auto; display: inline-flex; align-items: center; gap: var(--space-025); border: 0; padding: 0; }
+
+.pg { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
+.scroll { min-height: 0; overflow: hidden; }
+.pad { padding: var(--space-15); }
+.phone .pad { padding: var(--space-1); }
+
+/* filters: one row of a search field + squares */
+.filters { display: flex; align-items: center; gap: var(--space-025); min-width: 0; }
+.field { display: inline-flex; align-items: center; gap: var(--space-05); height: var(--control-height); padding: 0 var(--space-05); border: var(--hair); min-width: 0; color: var(--text-muted); white-space: nowrap; overflow: hidden; }
+.field.ink { color: var(--ink); }
+.field.grow { flex: 1; }
+.sel { display: inline-flex; align-items: center; justify-content: space-between; gap: var(--space-05); height: var(--control-height); padding: 0 var(--space-05); border: var(--hair); white-space: nowrap; flex: none; }
+
+/* a character row (list) */
+.crow { display: flex; align-items: center; gap: var(--space-075); min-height: calc(var(--sq) + var(--space-05)); padding: var(--space-025) var(--space-05); border-bottom: var(--hair); min-width: 0; }
+.crow.on { background: var(--ink); color: var(--paper); }
+.crow.on .muted { color: var(--paper); opacity: 0.75; }
+.crow img.av, .crow .noimg { width: 2.5rem; height: 2.5rem; object-fit: cover; flex: none; background: var(--surface-hover); }
+.crow .t { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.crow .t > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.faces { display: inline-flex; flex: none; }
+.faces img { width: 1.6rem; height: 1.6rem; object-fit: cover; border: var(--border-width-regular) solid var(--paper); margin-left: -0.4rem; background: var(--surface-hover); }
+.faces img:first-child { margin-left: 0; }
+.num { font-size: var(--caption); color: var(--text-muted); white-space: nowrap; flex: none; min-width: 4.5rem; text-align: right; }
+.thead { display: flex; align-items: center; gap: var(--space-075); padding: 0 var(--space-05); height: var(--sq); border-bottom: var(--line); }
+
+/* a character card (gallery) */
+.gallery { display: grid; gap: var(--space-1); grid-template-columns: repeat(auto-fill, minmax(min(11rem, 100%), 1fr)); }
+.phone .gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-05); }
+.card { display: flex; flex-direction: column; border: var(--hair); min-width: 0; }
+.card .pic { aspect-ratio: 1; background: var(--surface-hover); position: relative; overflow: hidden; }
+.card .pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.card .pic .chip { position: absolute; left: 0; top: 0; }
+.card .t { padding: var(--space-05); display: flex; flex-direction: column; gap: var(--space-025); min-width: 0; }
+.card .t > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card.add { align-items: center; justify-content: center; border-style: dashed; color: var(--text-muted); min-height: 8rem; gap: var(--space-05); }
+
+/* the character head */
+.chead { display: flex; align-items: center; gap: var(--space-1); min-width: 0; }
+.chead img { width: 4rem; height: 4rem; object-fit: cover; flex: none; background: var(--surface-hover); }
+.phone .chead img { width: 3rem; height: 3rem; }
+.chead .t { display: flex; flex-direction: column; gap: var(--space-025); min-width: 0; flex: 1; }
+.chead h1 { margin: 0; font-size: var(--type-h3-size, 1.25rem); font-weight: 400; line-height: 1.2; }
+
+/* section tabs (variant A) */
+.stabs { display: flex; gap: var(--space-025); border-bottom: var(--line); padding-bottom: var(--space-025); white-space: nowrap; overflow: hidden; }
+.stabs span { display: inline-flex; align-items: center; gap: var(--space-05); height: var(--control-height); padding: 0 var(--space-05); }
+.stabs span.on { background: var(--ink); color: var(--paper); }
+
+/* persona / look pickers: faces with words */
+.pick { display: flex; gap: var(--space-025); flex-wrap: nowrap; overflow: hidden; align-items: center; }
+.pick > span { display: inline-flex; align-items: center; gap: var(--space-05); height: var(--sq); padding: 0 var(--space-05) 0 var(--space-025); border: var(--hair); white-space: nowrap; flex: none; }
+.pick > span img { width: calc(var(--sq) - 0.5rem); height: calc(var(--sq) - 0.5rem); object-fit: cover; }
+.pick > span.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.pick > span.on .muted { color: var(--paper); opacity: 0.75; }
+.pick > span.plus { border-style: dashed; color: var(--text-muted); padding: 0 var(--space-05); }
+
+/* the moods grid */
+.moods { display: grid; gap: var(--space-025); grid-template-columns: repeat(auto-fill, minmax(min(7rem, 100%), 1fr)); }
+.phone .moods { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.mood { display: flex; flex-direction: column; min-width: 0; }
+.mood .pic { aspect-ratio: 1; background: var(--surface-hover); overflow: hidden; position: relative; }
+.mood .pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mood .pic .views { position: absolute; right: 0.2rem; bottom: 0.2rem; display: inline-flex; gap: 0.15rem; }
+.mood .pic .views i { width: 0.45rem; height: 0.45rem; border-radius: 50%; background: var(--ink); display: block; }
+.mood .pic .views i.no { background: transparent; border: var(--border-width-hairline) solid var(--ink); }
+.mood span { font-size: var(--caption); line-height: var(--type-caption-line); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mood.empty .pic { border: var(--border-width-regular) dashed var(--border-muted); background: transparent; display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
+.filmstrip { display: flex; gap: var(--space-025); overflow: hidden; }
+.filmstrip .mood { width: 5rem; flex: none; }
+.filmstrip .mood.on .pic { outline: var(--line); outline-offset: calc(-1 * var(--border-width-regular)); }
+
+/* fields (label above, frameless groups) */
+.fgrid { display: grid; gap: var(--space-075) var(--space-1); grid-template-columns: repeat(auto-fill, minmax(min(12rem, 100%), 1fr)); }
+.phone .fgrid { grid-template-columns: minmax(0, 1fr); }
+.f { display: flex; flex-direction: column; gap: var(--space-025); min-width: 0; }
+.f .label { color: var(--ink); }
+.f.wide { grid-column: 1 / -1; }
+.sw { display: inline-block; width: 1.25rem; height: 1.25rem; background: #0066cc; flex: none; }
+
+/* the Kanon text (research/KANON.md: per character, persona, look) */
+.kanon { border: var(--hair); padding: var(--space-075) var(--space-1); display: flex; flex-direction: column; gap: var(--space-05); min-width: 0; }
+.kanon h3 { margin: 0; white-space: nowrap; min-width: 0; font-size: var(--caption); font-weight: 400; text-transform: uppercase; letter-spacing: var(--tracking-label); display: flex; align-items: center; gap: var(--space-05); }
+.kanon h4 { margin: var(--space-05) 0 0; font-weight: 400; font-size: 1rem; }
+.kanon h4::before { content: '## '; color: var(--text-muted); }
+.kanon p { margin: 0; font-size: var(--caption); line-height: var(--type-caption-line); }
+.kanon p.todo { color: var(--text-muted); font-style: italic; }
+
+/* side column / inspector parts */
+.side { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.slot { border: var(--border-width-regular) solid var(--ink); background: var(--surface-hover); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.slot img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+.slot.empty { border-style: dashed; border-color: var(--border-muted); background: transparent; color: var(--text-muted); }
+.h { margin: 0; font-size: var(--caption); font-weight: 400; text-transform: uppercase; letter-spacing: var(--tracking-label); display: flex; align-items: center; gap: var(--space-05); }
+.h .n { color: var(--text-muted); }
+.h .end { margin-left: auto; display: inline-flex; gap: var(--space-025); text-transform: none; letter-spacing: 0; }
+
+/* the character's own tree (variant B: "trees belong to their pages") */
+.ctree { border-right: var(--line); overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+.ctree .node img { width: 1.6rem; height: 1.6rem; object-fit: cover; flex: none; }
+.ctree .node.l2 { padding-left: calc(var(--space-1) + 1.6rem + var(--space-05)); }
+.ctree .node .muted { margin-left: auto; font-size: var(--caption); }
+.ctree .node.on .muted { color: var(--paper); }
+.ctree .mhead { padding-top: var(--space-1); }
+
+/* the stage (variant C) */
+.stage { background: var(--surface-hover); display: flex; align-items: flex-end; justify-content: center; min-height: 0; overflow: hidden; position: relative; }
+.stage img.figure { height: 92%; width: auto; display: block; }
+.stage .tl { position: absolute; left: var(--space-1); top: var(--space-1); display: flex; flex-direction: column; gap: var(--space-05); }
+.stage .tr { position: absolute; right: var(--space-05); top: var(--space-05); display: flex; gap: var(--space-025); }
+.stage .tr .sq { background: var(--paper); }
+
+/* phone sheets (the strip editor's pattern: a sheet on the bottom row, its head the tab row) */
+.sheet { position: absolute; z-index: 3; left: 0; right: 0; bottom: var(--bar); background: var(--paper); border-top: var(--line); display: flex; flex-direction: column; overflow: hidden; }
+.sheet .grab { width: 2.5rem; height: 0.25rem; background: var(--border-muted); align-self: center; margin: var(--space-05) 0 var(--space-025); }
+.sel-bar { justify-content: space-between !important; padding: 0 !important; }
+.sel-bar .sq { flex: 1; }
+.sel-bar .back { border-right: var(--line); flex: none; width: var(--bar); height: var(--bar); }
+.kinds2 .sq { flex: 1; height: var(--bar); }
+.kinds2 .sq.on { background: var(--ink); color: var(--paper); }
+.longpress { position: absolute; z-index: 6; background: var(--paper); border: var(--line); display: flex; flex-direction: column; min-width: 12rem; }
+.longpress .mi { min-height: var(--sq); }
+.ring { outline: calc(2 * var(--border-width-regular)) solid var(--ink); outline-offset: var(--border-width-regular); }
+
+/* a column of page parts never squeezes its rows (overflow-hidden rows would shrink to nothing) */
+.pad > *, .side > *, .pg > *:not(.pad):not(div[style*="grid"]) { flex-shrink: 0; }
