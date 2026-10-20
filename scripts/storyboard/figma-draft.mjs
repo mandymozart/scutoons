@@ -1,7 +1,8 @@
 // The first throw as Figma draft frames (STORYBOARD.md §9 "The first throw lands in Figma"): per scene a frame
 // "s1c3 / scene-25 – draft", 390 wide, on a page of its own, holding
 //   storyboard  (locked) the schematic shots as SVG at their y – hide it to judge the layout alone
-//   guides      (locked, hidden) a line every screen (844) and every slice (SLICE_H, 624)
+//   guides      (locked, hidden) a line every screen (844); per group a line at each cut (SLICE_H, 624, from the group's
+//               top – where figma-production.mjs cuts, #107) and one at its end; a band's ends
 //   text        the dialog as real TEXT layers (Track A's convention: text becomes live text boxes later)
 //   layout      empty, on top – the owner's work, never touched by a re-run
 // and the rhythm rail as text beside the frame (x > 390, never exported).
@@ -14,7 +15,7 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
-import { ROOT, S, SLICE_H, W, textOf } from './lib.mjs';
+import { ROOT, S, W, layoutGroup, sliceLines, textOf } from './lib.mjs';
 import { shotSvg } from './schematic.mjs';
 import { loadStoryboards, measureShot } from './storyboard.mjs';
 
@@ -32,33 +33,36 @@ const pluginCode = readFileSync(resolve(ROOT, 'tools/figma-bridge/plugin/code.js
 const applier = /\/\/ <applyDraft>[^\n]*\n([\s\S]*?)\/\/ <\/applyDraft>/.exec(pluginCode)?.[1];
 if (!applier) throw new Error('applyDraft not found in tools/figma-bridge/plugin/code.js');
 
-/** the scene's spec: frame, guides, rail, shots (svg + live text) */
+/** the scene's spec: frame, guides (per group its cuts – lib.mjs sliceLines, #107), rail, shots (svg + live text) */
 export function sceneSpec(sb, x) {
-	const shots = (sb.groups ?? []).flatMap((g) => g.shots ?? []);
 	let y = 0;
-	const placed = shots.map((shot) => {
-		const { svg, w, h } = shotSvg(shot, sb, { noText: true });
-		const pano = shot.format === 'loop360';
-		const band = pano ? S : h;
-		const scale = pano ? W / w : 1;
-		const top = pano ? y + Math.round((S - h * scale) / 2) : y;
-		const texts = (shot.dialog ?? []).map((d) => ({
-			x: +(((d.rect?.x ?? 5) / 100) * W).toFixed(1), y: +(y + ((d.rect?.y ?? 5) / 100) * band).toFixed(1), w: +(((d.rect?.width ?? 60) / 100) * W).toFixed(1),
-			text: textOf(d.text), lettering: d.font === 'lettering', variant: d.variant ?? 'narration'
-		}));
-		const m = measureShot(shot);
-		const p = { id: shot.id, svg, x: 0, y: top, scale: +scale.toFixed(5), texts, rail: { y, label: `${shot.id}  ${m.seconds.toFixed(0)} s · ${m.words} w · ${shot.source?.want ?? ''}` } };
-		y += band;
-		return p;
-	});
-	const guides = [];
-	for (let gy = S; gy < y; gy += S) guides.push({ y: gy, kind: 'screen' });
-	for (let gy = SLICE_H; gy < y; gy += SLICE_H) guides.push({ y: gy, kind: 'slice' });
+	const placed = [], groups = [];
+	for (const g of sb.groups ?? []) {
+		const top = y;
+		let slides = 0;
+		for (const shot of g.shots ?? []) {
+			const { svg, w, h } = shotSvg(shot, sb, { noText: true });
+			const pano = shot.format === 'loop360';
+			const band = pano ? S : h;
+			const scale = pano ? W / w : 1;
+			const at = pano ? y + Math.round((S - h * scale) / 2) : y;
+			const texts = (shot.dialog ?? []).map((d) => ({
+				x: +(((d.rect?.x ?? 5) / 100) * W).toFixed(1), y: +(y + ((d.rect?.y ?? 5) / 100) * band).toFixed(1), w: +(((d.rect?.width ?? 60) / 100) * W).toFixed(1),
+				text: textOf(d.text), lettering: d.font === 'lettering', variant: d.variant ?? 'narration'
+			}));
+			const m = measureShot(shot);
+			placed.push({ id: shot.id, svg, x: 0, y: at, scale: +scale.toFixed(5), texts, rail: { y, label: `${shot.id}  ${m.seconds.toFixed(0)} s · ${m.words} w · ${shot.source?.want ?? ''}` } });
+			if (pano) slides += Math.max(1, Math.round(w / W)); // compile's slides
+			y += band;
+		}
+		groups.push(layoutGroup({ label: g.label, pano: slides > 0, own: true, top, h: y - top, slides }));
+	}
+	const lines = sliceLines(groups);
 	return {
 		page: PAGE,
 		frame: { name: `${name} / scene-${sb.source?.scene} – draft`, x, w: W, h: y },
-		guides,
-		rail: placed.map((p) => p.rail),
+		guides: lines.guides,
+		rail: [...lines.rail, ...placed.map((p) => p.rail)],
 		shots: placed.map(({ rail, ...p }) => p)
 	};
 }

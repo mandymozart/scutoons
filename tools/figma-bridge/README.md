@@ -104,7 +104,7 @@ stale, the supervisor's restarts; appended, rotated to `figma-relay.1.log` at ~5
 | `read --page "S1C3" [--depth 2]` / `read --node 555:2354` | the node tree: id, name, type, x / y / w / h, text, image hash, locked / hidden – a node is much cheaper than a page (a page loads whole) |
 | `export --node 555:2354 --format png --scale 1 --to out.png` | a node as PNG / JPG / SVG (thumbnails for matching, slices for the CDN) |
 | `run file-info [--args '{…}']` | a command module from `commands/` (below, "Command modules") |
-| `draft storyboards/_out/s1c3/figma/scene-25.spec.json …` | builds / updates a scene's draft frame (from `scripts/storyboard/figma-draft.mjs`): locked `storyboard`, hidden `guides`, `text`, empty `layout` on top, the rail beside it. Re-runs replace shots by id and never touch `layout`. |
+| `draft storyboards/_out/s1c3/figma/scene-25.spec.json …` | builds / updates a scene's draft frame (from `scripts/storyboard/figma-draft.mjs`): locked `storyboard`, hidden `guides`, `text`, empty `layout` on top, the rail beside it. Re-runs replace shots by id and never touch `layout` – but resize and re-stack the frame and replace the shots' texts: for the lines of a frame in work, `slice-guides` (below). |
 
 `export` and the storyboard scripts' commands (`region`, `sliceFrames`, `exportScales`, `thumbs`, `place`) are
 modules in `commands/` (below); the core keeps `ping`, `pages`, `read`, `draft` and `run`. The draft code (`applyDraft` in `plugin/code.js`) is the same one `figma-draft.mjs` inlines for Figma's own
@@ -134,6 +134,12 @@ no plugin re-run, no hot reload:
   change there still reloads the plugin (above). The smallest example module: `commands/file-info.js`.
 - `commands/text-paints.js` (#94): text layers' fill / stroke as SCUTOONS paints – a colour or a linear / radial
   gradient (Figma's gradientTransform → CSS angle / centre + radius); `figma-clean-slices.mjs` uses it for lettering boxes.
+- `commands/slice-guides.js` (#107): a storyboard draft frame's slice lines and rail, redrawn – and nothing else. The
+  frame by its exact name; only `guides`' children and the "… · rail" group are replaced (the rail stays at its x, a
+  shot keeps its old label); the frame and its layers are never resized, re-stacked, shown / hidden or locked, and
+  `storyboard`, `text`, `layout` are never touched. A shot not where the cut expects it → nothing is drawn. Run it with
+  `figma-chapter.mjs … --name "<frame>" --guides-only` (the lines = lib.mjs `sliceLines`: every 624 from each group's
+  top, "end · +r px" per group – where `figma-production.mjs` cuts; its `--dry` checks they agree).
 
 ## In the SCUTOONS MCP
 

@@ -479,6 +479,38 @@ try {
 	}
 	step(`plugin: applyDraft – layers, order, lock, idempotent (${specs.length > 1 ? `+ the real ${specs[1].frame.name}` : 'no real spec – run figma-draft.mjs for that check'})`);
 
+	// slice-guides (#107): only the guides' children and the rail are redrawn – the frame the owner works in stays as it is
+	r = await ask(fig, 'draft', { spec: { page: 'G', frame: { name: 's1c3 – draft', x: 0, w: 390, h: 1300 }, guides: [{ kind: 'slice', y: 625 }], rail: [{ y: 0, label: '— scene-25' }, { y: 16, label: 'sb-25-1  luma' }], shots: [{ id: 'sb-25-1', svg: '<svg width="390" height="700"></svg>', y: 0, texts: [{ text: 'Hallo', x: 10, y: 10, w: 100, variant: 'bubble' }] }, { id: 'sb-25-2', svg: '<svg width="390" height="600"></svg>', y: 700 }] } });
+	assert.equal(r.ok, true, r.error);
+	const gp = fig.root.children.find((c) => c.name === 'G');
+	const gf = gp.children.find((n) => n.name === 's1c3 – draft');
+	const [gStory, gGuides, gText, gLayout] = gf.children;
+	const owners = fig.createRectangle(); gLayout.appendChild(owners); owners.name = 'owner art';
+	gText.children[0].characters = 'Hallo, as the owner edited it';
+	gf.x = 1472; gf.y = -225; gGuides.visible = true; // the owner moved the frame and shows the guides
+	gp.children.find((n) => n.name === 's1c3 – draft · rail').x = 7802; // the rail left where it was (Figma reports a group's box)
+	const gLines = [{ y: 624, kind: 'slice' }, { y: 1300 - 24, kind: 'end', label: 'end · +652 px' }, { y: 5000, kind: 'slice' }];
+	const before = { size: [gf.width, gf.height], kids: gf.children.map((c) => [c.name, c.width, c.height, c.locked, c.visible]), story: gStory.children.map((c) => c.name), text: gText.children.map((c) => c.characters) };
+	const gArgs = { page: 'G', frame: 's1c3 – draft', guides: gLines, rail: [{ y: 0, label: 'scene-25 · 2 slices + 52 px' }, { y: 16, label: 'sb-25-1  render', shot: 'sb-25-1' }, { y: 716, label: 'sb-25-2  render', shot: 'sb-25-2' }], shots: [{ id: 'sb-25-1', y: 0 }, { id: 'sb-25-2', y: 700 }, { id: 'mama-1', y: 1300 }] };
+	r = await ask(fig, 'slice-guides', gArgs);
+	assert.equal(r.ok, true, r.error);
+	assert.deepEqual([r.result.drawn, r.result.guides, r.result.labels, r.result.outside, r.result.rail, r.result.railX, r.result.missing, r.result.hidden], [true, 2, 1, 1, 3, 7802, ['mama-1'], false]);
+	assert.deepEqual(gGuides.children.map((c) => c.name), ['slice 624', 'end 1276 · end · +652 px', 'end 1276 label'], 'only the new lines (+ a label), the 625 line gone, none outside the frame');
+	assert.deepEqual({ size: [gf.width, gf.height], kids: gf.children.map((c) => [c.name, c.width, c.height, c.locked, c.visible]), story: gStory.children.map((c) => c.name), text: gText.children.map((c) => c.characters) }, before, 'frame, layers (size, order, lock, visibility), storyboard and text untouched');
+	assert.deepEqual(gLayout.children.map((c) => c.name), ['owner art'], 'the owner\'s layout untouched');
+	const rails = gp.children.filter((n) => n.name === 's1c3 – draft · rail');
+	assert.equal(rails.length, 1, 'one rail');
+	assert.deepEqual(rails[0].children.map((t) => [t.characters, t.x, t.y]), [['scene-25 · 2 slices + 52 px', 7802, -225], ['sb-25-1  luma', 7802, -209], ['sb-25-2  render', 7802, 491]], 'the group\'s cut; a shot keeps its old label; at the rail\'s x, y from the frame\'s top');
+	r = await ask(fig, 'slice-guides', { ...gArgs, guides: [{ y: 100, kind: 'slice' }], shots: [{ id: 'sb-25-2', y: 624 }] });
+	assert.deepEqual([r.result.drawn, r.result.moved], [false, ['sb-25-2 at 700, the cut expects 624']]);
+	assert.equal(gGuides.children.length, 3, 'a shot not where the cut expects it: nothing drawn');
+	r = await ask(fig, 'slice-guides', { ...gArgs, frame: 's1c3 – draft 2026' });
+	assert.match(r.error, /no frame "s1c3 – draft 2026" on "G"/, 'the exact name only');
+	const twin = fig.createFrame(); twin.name = 's1c3 – draft'; gp.appendChild(twin);
+	r = await ask(fig, 'slice-guides', gArgs);
+	assert.match(r.error, /2 frames named "s1c3 – draft"/);
+	step('module slice-guides: only the guides and the rail redrawn (frame, layers, storyboard, text, layout untouched), the rail kept at its x with its shot labels, a moved shot → nothing drawn, exact name, never two');
+
 	// command modules in the plugin (#93): compiled once per hash, `figma` a global, `lib` the core's helpers
 	const mod = (name, hash, src, args) => ask(fig, 'run', { name, hash, src, args });
 	const base = (await ask(fig, 'ping')).result; // export / region ran as modules above

@@ -130,6 +130,59 @@ export function esc(s) {
 
 export const fmtMin = (sec) => `${(sec / 60).toFixed(1)} min`;
 
+/**
+ * A group's place in a draft frame and its cut (#107, SLICE-GRID.md §3.2): a vertical scene group (`own`) is cut every
+ * SLICE_H from ITS OWN top – not from the frame's –, the last piece the rest (< SLICE_H; 0 = it ends on a line); a band
+ * (`pano`) is one screen high, cut into `slides` slides. → the group + { pieces: [[a, b]], rest }
+ */
+export function layoutGroup(G) {
+	const pieces = [];
+	if (G.own && !G.pano) for (let at = G.top; at < G.top + G.h; at += SLICE_H) pieces.push([at, Math.min(at + SLICE_H, G.top + G.h)]);
+	return { ...G, pieces, rest: G.pano ? 0 : G.h % SLICE_H };
+}
+
+/**
+ * The chapter draft (compile.mjs → chapter.draft.json) as one frame: what figma-chapter.mjs draws and
+ * figma-production.mjs cuts – the groups stacked from y 0, a horizontal group one screen high; scene groups
+ * (label scene-…) are cut, the others (existing slices) are not. → [layoutGroup + { g, label, slides, shots: [{ id, y,
+ * h, dialog, slice | slices }] }]
+ */
+export function chapterLayout(draft) {
+	let y = 0;
+	return draft.groups.map((g) => {
+		const top = y, pano = g.renderer?.type === 'horizontal';
+		const shots = pano
+			? [{ id: basename(g.slices[0].image).replace(/-\d+\.png$/, ''), y, h: S, dialog: g.slices.flatMap((s) => s.dialog ?? []), slices: g.slices }]
+			: g.slices.map((s) => { const o = { id: basename(s.image).replace(/\.\w+$/, ''), y, h: s.height, dialog: s.dialog ?? [], slice: s }; y += s.height; return o; });
+		if (pano) y += S;
+		return layoutGroup({ g, label: g.label, pano, own: /^scene-/.test(g.label ?? ''), top, h: y - top, slides: pano ? g.slices.length : 0, shots });
+	});
+}
+
+/**
+ * The guides and the rail of a draft frame laid out by layoutGroup (#107): a line every screen from the frame's top
+ * (the reading rhythm); per vertical scene group a line at each of its cuts and an "end · +r px" line at its end; a
+ * band's top and end. The rail names each group with its cut: "scene-25 · 11 slices + 588 px".
+ * → { guides: [{ y, kind: screen | slice | end | band, label? }], rail: [{ y, label }] } (y from the frame's top)
+ */
+export function sliceLines(groups) {
+	const total = groups.reduce((a, G) => Math.max(a, G.top + G.h), 0);
+	const guides = [], rail = [];
+	for (let y = S; y < total; y += S) guides.push({ y, kind: 'screen' });
+	for (const G of groups) {
+		if (G.pano) {
+			guides.push({ y: G.top, kind: 'band', label: `band · ${G.slides} slides` }, { y: G.top + G.h, kind: 'band', label: 'band end' });
+			rail.push({ y: G.top, label: `${G.label} · band, ${G.slides} slides of ${W} × ${S}` });
+		} else if (!G.own) rail.push({ y: G.top, label: `${G.label} · not cut (existing slices)` });
+		else {
+			for (const [a] of G.pieces.slice(1)) guides.push({ y: a, kind: 'slice' });
+			guides.push({ y: G.top + G.h, kind: 'end', label: G.rest ? `end · +${G.rest} px` : 'end · on the line' });
+			rail.push({ y: G.top, label: `${G.label} · ${Math.floor(G.h / SLICE_H)} slices${G.rest ? ` + ${G.rest} px` : ''}` });
+		}
+	}
+	return { guides, rail };
+}
+
 // ── The SCUTOONS Figma bridge client (#78) ──────────────────────────────────────────────────────────────────────────
 // figma(cmd, args, opts): one command through the relay (tools/figma-bridge), self-healing, so a long run gets over a
 // slow or restarted Figma by itself (owner 2026-10-20: "i dont like manually restarting figma and the bridge or claude

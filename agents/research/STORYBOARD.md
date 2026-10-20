@@ -661,7 +661,8 @@ another page. Per scene:
 - inside it a **locked group `storyboard`**: one sub-group per shot (`shot-25-03`) at its y – the schematic SVG, the
   air zones hatched, the shot's id / format / move as a small label; optionally the preselected Figma images placed
   in their slot (same file, so no upload);
-- a **screen ruler** (a faint line every 844) and **slice guides** (every 624, `SLICE_H`) as a second locked group, hideable;
+- a **screen ruler** (a faint line every 844) and **slice guides** (every 624, `SLICE_H`, from each group's top – where
+  the production cut runs; an "end · +r px" line per group, #107) as a second locked group, hideable;
 - the **rhythm rail** *beside* the frame (x > 390), so it never exports;
 - the dialog as **real TEXT layers** in an unlocked group `text` – the convention Track A wants (PLAN.md), so the
   text later becomes live, translatable text boxes without retyping;
