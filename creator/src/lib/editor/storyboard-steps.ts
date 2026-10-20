@@ -10,7 +10,9 @@ export const PANELS = [
 	{ kind: 'shot', icon: 'sliders', rem: 24 },
 	{ kind: 'script', icon: 'file-text', rem: 20 },
 	{ kind: 'rhythm', icon: 'activity', rem: 20 },
-	{ kind: 'generate', icon: 'zap', rem: 22 }
+	{ kind: 'generate', icon: 'zap', rem: 22 },
+	{ kind: 'handheld', icon: 'smartphone', rem: 22 },
+	{ kind: 'output', icon: 'download', rem: 22 }
 ] as const;
 export type PanelKind = (typeof PANELS)[number]['kind'];
 
@@ -29,14 +31,14 @@ export interface Step {
 	ready: boolean;
 }
 
-/** the six steps of the studio's design; Handheld and Export wait for #126 (their panels: the phone, takes, Output) */
+/** the six steps of the studio's design (Handheld and Export since #126: the phone + takes, Output) */
 export const STEPS: Step[] = [
 	{ id: 'script', key: 1, panels: ['shot', 'script'], tab: 'shot', ready: true },
 	{ id: 'shots', key: 2, panels: ['shot'], tab: 'shot', ready: true },
 	{ id: 'layout', key: 3, panels: ['shot'], tab: 'camera', ready: true },
-	{ id: 'handheld', key: 4, panels: [], tab: 'camera', ready: false },
+	{ id: 'handheld', key: 4, panels: ['handheld'], tab: 'camera', ready: true },
 	{ id: 'generate', key: 5, panels: ['generate'], tab: 'shot', ready: true },
-	{ id: 'export', key: 6, panels: [], tab: 'shot', ready: false }
+	{ id: 'export', key: 6, panels: ['output'], tab: 'shot', ready: true }
 ];
 export const READY_STEPS = STEPS.filter((s) => s.ready);
 export const DEFAULT_STEP = 'shots';

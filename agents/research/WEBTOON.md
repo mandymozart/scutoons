@@ -325,7 +325,7 @@ So a released episode can't be split, merged or moved, and no new episode can co
 
 ### The creator's Episodes page
 - **Where:** decided on a design draft, shown on phone and desktop first.
-  - Rec.: a toon page of its own, `/<toon>/episodes`, beside cast, credits and script (creator/src/routes/[toonId]/…). Its buttons write at once, which fits neither the toon settings (one document with Save / Publish, DESIGN.md:843) nor the chapter list (read-only badges, DESIGN.md:823-825).
+  - Rec.: a toon page of its own, `/<toon>/episodes`, beside cast, credits and script (creator/src/routes/(app)/[toonId]/…). Its buttons write at once, which fits neither the toon settings (one document with Save / Publish, DESIGN.md:843) nor the chapter list (read-only badges, DESIGN.md:823-825).
   - The draft also asks for the German term ("Folge" or "Episode"); DESIGN.md's term table gets the row.
 - **The table:** one row per episode: number · chapter · first – last group (linked into the chapter) · story images (muted outside 12–32) · one column per series ("WEBTOON en", "WEBTOON de"). Each series cell shows the state (proposed / scheduled 03-07 / live / correction proposed) and the chapter version.
 - **Confirming:** one "Confirm upload …" button per series that has proposals. It opens an `askDialog` listing the proposed episodes with their dates (editable) and an optional URL each. The series' last confirmed episode has "Cancelled on WEBTOON …" in its row's menu.

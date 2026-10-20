@@ -665,6 +665,28 @@ refused). Code: `Domain\Storyboard\{Generations, GenerationJobs, GenerationBudge
 
 Before the migration the generation endpoints answer `503 not_available`.
 
+### Handheld pairing (#126 – migration `2026-10-21-storyboard-pairings`)
+
+The handheld camera's phone joins the member's PC over ONE WebRTC data channel (agents/research/STUDIO-IN-CREATOR.md
+§2.6): the creator's Handheld panel asks for a one-time code (a QR code to the creator's barebone page `/h/<code>`), puts
+its offer (ICE candidates gathered, public STUN only, no TURN), the phone reads it with the code and puts its answer, the
+PC polls until it reads the answer – that read deletes the row. The poses then run peer to peer (nothing per frame
+through PHP). The phone has **no session**: the code (22 characters base64url, 128 bits, case-sensitive) is its only
+right – this one row's offer and answer, each written once; nothing else of the API opens with it. A row lives 10
+minutes (`Pairings::MINUTES`); a wrong, used or expired code is a plain 404; a new pairing sweeps the expired rows; a
+member holds at most 10 open pairings. The calls without a session count against `pairing:<ip>` (1200 per hour).
+Code: Domain\Storyboard\Pairings, Http\Controllers\StoryboardPairingsController.
+
+| Method | Path | Body / query → answer |
+|---|---|---|
+| POST | `/storyboard/pairings` | (content editor) `{ toon, chapter, shot? }` → `201 { status, pairing: { code, toon, chapter, shot, expires_at } }` · `400 invalid_toon\|invalid_chapter` · `422 invalid_pairing { field }` · `429 rate_limited` (10 open) |
+| PUT | `/storyboard/pairings/{code}/offer` | (no session) `{ sdp }` → `{ status }` · `409 offer_exists` · `422 invalid_pairing` (`v=0 …`, ≤ 32 KB) · 404 |
+| PUT | `/storyboard/pairings/{code}/answer` | (no session) `{ sdp }` → `{ status }` · `409 no_offer\|answer_exists` · 422 · 404 |
+| GET | `/storyboard/pairings/{code}` | (no session) `{ status, pairing: { code, toon, chapter, shot, offer, answered, expires_at } }`; the member who asked for it also gets `answer` – and that read ends the pairing · 404 |
+| DELETE | `/storyboard/pairings/{code}` | (its creator) → `{ status }` – Disconnect / a new code |
+
+Before the migration the pairing endpoints answer `503 not_available`.
+
 ## AI connections (personal access tokens, 2026-10-09 – migration `2026-10-09-api-tokens`)
 
 A member's own AI (Claude Desktop / Claude Code running the SCUTOONS MCP server, tools/mcp/README.md, agents/MCP.md §3)

@@ -135,6 +135,8 @@ export interface GenerateForm {
 	duration: number;
 	/** the character images ticked (CharacterRef keys) */
 	characters: string[];
+	/** the seed to send again (a board card's – #125 Improve; null / missing = new: the provider picks one) */
+	seed?: number | null;
 }
 
 /** a reference before it is sent: a generation (shared first when it is only local) or a CDN link */
@@ -155,15 +157,23 @@ export function pickedRefs(form: GenerateForm, m: GeneratorModel | null, gens: r
 }
 
 /** the job as it is estimated, confirmed and sent – one body for all three */
-export function jobBody(at: { toon: string; chapter: number; shot: string; aspect?: string }, form: GenerateForm, m: GeneratorModel | null, references: JobReference[]): JobBody {
+export function jobBody(at: { toon: string; chapter: number; shot: string; aspect?: string }, form: GenerateForm, m: GeneratorModel | null, references: JobReference[], parents: number[] = []): JobBody {
 	const body: JobBody = { toon: at.toon, chapter: at.chapter, shot: at.shot, generator: form.generator, model: form.model };
 	if (form.prompt.trim()) body.prompt = form.prompt;
 	if (references.length) body.references = references;
 	const aspect = jobAspect(at.aspect);
 	if (aspect) body.aspect = aspect;
 	if (m?.durations) body.params = { duration: Math.min(Math.max(Math.round(form.duration), m.durations.min), m.durations.max) };
+	// a board card's seed again (#125 – only a model that takes one: Runway's video models)
+	if (form.seed != null && m?.kind === 'video' && m.mode !== 'manual') body.params = { ...body.params, seed: form.seed };
+	// the generated inputs, the main input first – the variants board hangs the result under its first parent (#125)
+	if (parents.length) body.parents = parents;
 	return body;
 }
+
+/** the generations the form's references are (the main input first: the control video before the still) – a job's
+ *  `parents` (#125) */
+export const pickedParents = (picked: readonly PickedRef[]): number[] => [...new Set(picked.flatMap((p) => ('gen' in p ? [p.gen.id] : [])))];
 
 /** the stand-in host of a file not shared yet (the live estimate only – the server prices it by role and type, fetches nothing) */
 export const UNSHARED_HOST = 'https://unshared.invalid/';

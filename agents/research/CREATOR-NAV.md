@@ -91,7 +91,7 @@ images), **Toons** (avatar · name · state). The ActionBar keeps Publish (every
 
 ## 3. What changes where (D)
 
-- `creator/src/routes/+layout.svelte`: the header (mark cell, path, squares; one row on phones: the logo = home, ☰ on the
+- `creator/src/routes/(app)/+layout.svelte`: the header (mark cell, path, squares; one row on phones: the logo = home, ☰ on the
   right opens the areas from the right), the sidebar = the areas menu (folded: the rail); `nav-sidebar.svelte` → an areas menu; the start route → the dashboard.
 - `@scutoons/ui` AppShell: none for the menu (it is the sidebar); Breadcrumbs: a `root`-less variant, no underline.
 - Pages: the toon page gets its tab row (Cast, Script, Credits, Settings move from the sidebar); the season page and the

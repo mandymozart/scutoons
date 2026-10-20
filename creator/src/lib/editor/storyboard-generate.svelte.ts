@@ -20,6 +20,7 @@ import {
 	newlyDone,
 	pickGenerator,
 	pickModel,
+	pickedParents,
 	pickedRefs,
 	previewRefs,
 	recordManual,
@@ -119,7 +120,7 @@ export class GenerateState {
 		if (shot === this.shot) return;
 		this.shot = shot;
 		const { stills, controls } = shot ? inputOptions(this.sb.generations, shot) : { stills: [], controls: [] };
-		Object.assign(this.form, { prompt: '', still: defaultStill(stills), control: controls[0]?.id ?? null, characters: [] });
+		Object.assign(this.form, { prompt: '', still: defaultStill(stills), control: controls[0]?.id ?? null, characters: [], seed: null });
 		this.estimate = null;
 		this.estimateError = null;
 		this.notice = null;
@@ -158,7 +159,7 @@ export class GenerateState {
 			this.estimateError = null;
 			return null;
 		}
-		const job = body ?? jobBody(this.at(), this.form, this.model, previewRefs(this.picked));
+		const job = body ?? jobBody(this.at(), this.form, this.model, previewRefs(this.picked), pickedParents(this.picked));
 		try {
 			const e = await estimateJob(api, job);
 			if (n === this.asked) {
@@ -184,7 +185,7 @@ export class GenerateState {
 	async prepare(): Promise<{ body: JobBody; estimate: Estimate } | null> {
 		if (!this.sb.sel || !this.model) return null;
 		const { references } = await resolveRefs(this.picked, (g) => this.sb.share(g).then(() => this.sb.generations.find((x) => x.id === g.id) ?? g), this.sb.localFiles);
-		const body = jobBody(this.at(), this.form, this.model, references);
+		const body = jobBody(this.at(), this.form, this.model, references, pickedParents(this.picked));
 		const estimate = await this.estimateNow(body);
 		if (!estimate) throw new Error(this.estimateError ?? 'No estimate – nothing is sent.');
 		return { body, estimate };
@@ -252,7 +253,7 @@ export class GenerateState {
 		if (!sel) throw new Error('No shot.');
 		this.adding = true;
 		try {
-			const item = await recordManual({ api, workspace: this.sb.workspace, machine: this.sb.machine }, { toon: this.sb.toon, chapter: this.sb.chapter, shot: sel.id }, file, { prompt: this.form.prompt, ratio: sel.shot.aspect });
+			const item = await recordManual({ api, workspace: this.sb.workspace, machine: this.sb.machine }, { toon: this.sb.toon, chapter: this.sb.chapter, shot: sel.id }, file, { prompt: this.form.prompt, ratio: sel.shot.aspect, parents: pickedParents(this.picked) });
 			this.sb.upsert(item);
 			await this.sb.refreshLocal();
 			return item;

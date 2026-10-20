@@ -34,6 +34,10 @@ export class Stage3d {
 	/** the camera controls and the gizmo of the current scene (their components set them) */
 	controls: OrbitControls | null = null;
 	gizmo: TransformControls | null = null;
+	/** a pose holds the camera (#126: the phone's live pose, a take's moment) – the orbit rests until release() */
+	held = $state(false);
+	/** the shot camera while a pose holds it */
+	private rest: { position: number[]; quaternion: number[]; fov: number } | null = null;
 	private building = false;
 	private next: ShotSpec | null = null;
 	private look: LookParams = {};
@@ -101,6 +105,8 @@ export class Stage3d {
 			this.pivots.push(pivot);
 		}
 		this.look = { sky: built.skyWhite ? 1 : 0, accent: this.spec?.accent ?? '#c00000', K: 1, seed: seedOf(this.spec?.id ?? '') };
+		this.held = false;
+		this.rest = null;
 		this.built = built;
 	}
 
@@ -150,6 +156,53 @@ export class Stage3d {
 				places.forEach((p, i) => p && shot.figures?.[i] && applyPlace(shot.figures[i], p));
 			}
 		};
+	}
+
+	/** the shot camera's pose now (the one a pose replaces while it holds) – the handheld camera's origin; null: no
+	 *  perspective scene (an isometric shot keeps its preset camera) */
+	shotPose(): { position: [number, number, number]; quaternion: [number, number, number, number]; fov: number } | null {
+		const cam = this.built?.camera as THREE.PerspectiveCamera | undefined;
+		if (!cam?.isPerspectiveCamera) return null;
+		const r = this.rest ?? { position: cam.position.toArray(), quaternion: cam.quaternion.toArray(), fov: cam.fov };
+		return { position: [...r.position] as [number, number, number], quaternion: [...r.quaternion] as [number, number, number, number], fov: r.fov };
+	}
+
+	/** the camera at a pose (#126: the phone, a take's moment): the orbit and the figures rest while it holds; false
+	 *  while there is nothing to hold (the scene builds, an isometric shot) */
+	hold(pose: { position: readonly number[]; quaternion: readonly number[]; fov?: number }): boolean {
+		const cam = this.built?.camera as THREE.PerspectiveCamera | undefined;
+		if (!cam?.isPerspectiveCamera) return false;
+		if (!this.held) {
+			this.rest = { position: cam.position.toArray(), quaternion: cam.quaternion.toArray(), fov: cam.fov };
+			this.held = true;
+			if (this.controls) this.controls.enabled = false;
+		}
+		cam.position.fromArray(pose.position as number[]);
+		cam.quaternion.fromArray(pose.quaternion as number[]);
+		if (pose.fov && Math.abs(pose.fov - cam.fov) > 1e-3) {
+			cam.fov = pose.fov;
+			cam.updateProjectionMatrix();
+		}
+		cam.updateMatrixWorld();
+		this.draw();
+		return true;
+	}
+
+	/** the shot camera back (the orbit works again) */
+	release(): void {
+		const cam = this.built?.camera as THREE.PerspectiveCamera | undefined;
+		if (!this.held || !cam || !this.rest) return;
+		cam.position.fromArray(this.rest.position);
+		cam.quaternion.fromArray(this.rest.quaternion);
+		if (cam.fov !== this.rest.fov) {
+			cam.fov = this.rest.fov;
+			cam.updateProjectionMatrix();
+		}
+		cam.updateMatrixWorld();
+		this.rest = null;
+		this.held = false;
+		if (this.controls) this.controls.enabled = true;
+		this.draw();
 	}
 
 	/** the frame fitted into the stage (px of the stage), its canvas sized in rem */

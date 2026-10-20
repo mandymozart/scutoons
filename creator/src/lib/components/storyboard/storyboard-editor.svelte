@@ -6,10 +6,10 @@
 	// The steps (keys 1–6) remember their panels and the inspector's tab; T folds the shots, N the step's panels, ← → the
 	// previous / next shot. The document `storyboard:<toon>:<chapter>` saves, autosaves, recovers and refuses a stale
 	// save like every creator page (MetaPage); its check is the creator's Problems panel (a row picks its shot).
-	import { onMount, type Snippet } from 'svelte';
+	import { onDestroy, onMount, untrack, type Snippet } from 'svelte';
 	import { replaceState } from '$app/navigation';
 	import { page } from '$app/state';
-	import { Icon, Segmented, useDock } from '@scutoons/ui';
+	import { Icon, panelHeight, Segmented, useDock } from '@scutoons/ui';
 	import type { Problem } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { dockWidth, usePageNav } from '$lib/nav.svelte.ts';
@@ -23,7 +23,11 @@
 	import ScriptPanel from '$lib/components/storyboard/script-panel.svelte';
 	import RhythmPanel from '$lib/components/storyboard/rhythm-panel.svelte';
 	import GeneratePanel from '$lib/components/storyboard/generate-panel.svelte';
-	import ShotCanvas from '$lib/components/storyboard/shot-canvas.svelte';
+	import MainView from '$lib/components/storyboard/main-view.svelte';
+	import HandheldPanel from '$lib/components/storyboard/handheld-panel.svelte';
+	import OutputPanel from '$lib/components/storyboard/output-panel.svelte';
+	import StoryboardTimeline from '$lib/components/storyboard/storyboard-timeline.svelte';
+	import ClipView from '$lib/components/storyboard/clip-view.svelte';
 	import WorkspaceField from '$lib/components/storyboard/workspace-field.svelte';
 
 	let { toon, chapterNumber, source }: { toon: string; chapterNumber: number; source: string } = $props();
@@ -45,13 +49,17 @@
 		shot: () => m['storyboard.panel_shot'](),
 		script: () => m['storyboard.panel_script'](),
 		rhythm: () => m['storyboard.panel_rhythm'](),
-		generate: () => m['storyboard.panel_generate']()
+		generate: () => m['storyboard.panel_generate'](),
+		handheld: () => m['storyboard.panel_handheld'](),
+		output: () => m['storyboard.panel_output']()
 	};
 	const STEP_WORD: Record<string, [() => string, () => string]> = {
 		script: [() => m['storyboard.step_script'](), () => m['storyboard.step_script_hint']()],
 		shots: [() => m['storyboard.step_shots'](), () => m['storyboard.step_shots_hint']()],
 		layout: [() => m['storyboard.step_layout'](), () => m['storyboard.step_layout_hint']()],
-		generate: [() => m['storyboard.step_generate'](), () => m['storyboard.step_generate_hint']()]
+		generate: [() => m['storyboard.step_generate'](), () => m['storyboard.step_generate_hint']()],
+		handheld: [() => m['storyboard.step_handheld'](), () => m['storyboard.step_handheld_hint']()],
+		export: [() => m['storyboard.step_export'](), () => m['storyboard.step_export_hint']()]
 	};
 	const TAB_WORD = {
 		shot: [() => m['storyboard.tab_shot'](), () => m['storyboard.tab_shot_hint']()],
@@ -62,7 +70,7 @@
 
 	// every step's own panel widths (remembered per step and kind, sc-panel-width:storyboard-<step>-<kind>)
 	const sizes = Object.fromEntries(STEPS.map((s) => [s.id, Object.fromEntries(PANELS.map((p) => [p.kind, dockWidth(`storyboard-${s.id}-${p.kind}`, p.rem)]))]));
-	const bodies: Record<PanelKind, Snippet> = { shot: shotBody, script: scriptBody, rhythm: rhythmBody, generate: generateBody };
+	const bodies: Record<PanelKind, Snippet> = { shot: shotBody, script: scriptBody, rhythm: rhythmBody, generate: generateBody, handheld: handheldBody, output: outputBody };
 	/** the Shot panel names the shot (• = unsaved changes of the page) */
 	const titleOf = (kind: PanelKind) => (kind === 'shot' && sb.sel ? `${PANEL_WORD.shot()} · ${sb.sel.id}` : PANEL_WORD[kind]());
 	// the squeeze floor (DOCKING "Running out of room"): the compact inspector's rows need about 18rem
@@ -74,7 +82,30 @@
 		)
 	);
 
-	usePageNav({ sidebar: shotsNav, fill: true, extra: () => [{ href: `/${toon}/chapter/${chapterNumber}/storyboard`, label: m['storyboard.title']() }] });
+	// the timeline along the bottom (#126): one height for every step, each step its own fold (TimelineState)
+	const timelineSize = panelHeight('sc-panel-height:storyboard-timeline', 10);
+	usePageNav({
+		sidebar: shotsNav,
+		fill: true,
+		extra: () => [{ href: `/${toon}/chapter/${chapterNumber}/storyboard`, label: m['storyboard.title']() }],
+		bottom: () => (sb.data ? { panel: timelineBody, size: timelineSize, label: m['storyboard.tl_title'](), icon: 'film', resizeLabel: m['storyboard.tl_resize'](), unfoldLabel: m['storyboard.tl_unfold']() } : null)
+	});
+	sb.tl.follow();
+	// a step shows its timeline folded or open; a fold by hand (the button, the rail, a drag) is the step's
+	$effect(() => {
+		const folded = sb.tl.here.folded;
+		untrack(() => timelineSize.folded !== folded && timelineSize.fold(folded));
+	});
+	$effect(() => {
+		const folded = timelineSize.folded;
+		untrack(() => sb.tl.setFolded(folded));
+	});
+	// the phone sees the current shot and whether its camera is on
+	$effect(() => {
+		void [sb.current, sb.sel?.shot.takes?.on];
+		untrack(() => sb.hh.sendState());
+	});
+	onDestroy(() => sb.hh.unpair());
 
 	// the storyboard check (validateChapter) in the creator's Problems panel: "scene-25 sb-25-3: …" → place + text
 	const validate = (): Problem[] => {
@@ -106,6 +137,8 @@
 		else if (e.key === 't' || e.key === 'T') window.dispatchEvent(new KeyboardEvent('keydown', { key: '\\', code: 'Backslash', ctrlKey: true }));
 		else if (e.key === 'n' || e.key === 'N') foldPanels();
 		else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') sb.move(e.key === 'ArrowLeft' ? -1 : 1);
+		// I / O: the take under the playhead trimmed at the playhead (Take mode, #126 – research/TIMELINE.md §4)
+		else if ((e.key === 'i' || e.key === 'I' || e.key === 'o' || e.key === 'O') && sb.tl.trimAtPlayhead(e.key.toLowerCase() === 'i' ? 'in' : 'out')) void 0;
 		else return;
 		e.preventDefault();
 	}
@@ -121,6 +154,9 @@
 {#snippet shotBody()}<StoryboardPanel title={titleOf('shot')} icon="sliders" onclose={() => sb.setOpen('shot', false)} tabs={shotTabs} testid="panel-shot"><ShotInspector {sb} tab={sb.layout.tab} /></StoryboardPanel>{/snippet}
 {#snippet scriptBody()}<StoryboardPanel title={titleOf('script')} icon="file-text" onclose={() => sb.setOpen('script', false)} testid="panel-script"><ScriptPanel {sb} /></StoryboardPanel>{/snippet}
 {#snippet rhythmBody()}<StoryboardPanel title={titleOf('rhythm')} icon="activity" onclose={() => sb.setOpen('rhythm', false)} testid="panel-rhythm"><RhythmPanel {sb} /></StoryboardPanel>{/snippet}
+{#snippet handheldBody()}<StoryboardPanel title={titleOf('handheld')} icon="smartphone" onclose={() => sb.setOpen('handheld', false)} testid="panel-handheld"><HandheldPanel {sb} /></StoryboardPanel>{/snippet}
+{#snippet outputBody()}<StoryboardPanel title={titleOf('output')} icon="download" onclose={() => sb.setOpen('output', false)} testid="panel-output"><OutputPanel {sb} /></StoryboardPanel>{/snippet}
+{#snippet timelineBody()}<StoryboardTimeline {sb} onfold={() => timelineSize.fold(true)} />{/snippet}
 {#snippet generateBody()}<StoryboardPanel title={titleOf('generate')} icon="zap" onclose={() => sb.setOpen('generate', false)} testid="panel-generate"><GeneratePanel {sb} /></StoryboardPanel>{/snippet}
 
 {#snippet stepper()}
@@ -155,7 +191,7 @@
 				<span class="grow"></span>
 				<WorkspaceField {sb} />
 			</div>
-			<div class="view"><ShotCanvas {sb} /></div>
+			<div class="view"><MainView {sb} /><ClipView {sb} /></div>
 		</div>
 	{/if}
 </MetaPage>
@@ -187,6 +223,7 @@
 		flex: 1;
 	}
 	.view {
+		position: relative;
 		flex: 1 1 auto;
 		min-height: 0;
 	}

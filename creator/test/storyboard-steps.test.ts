@@ -10,11 +10,12 @@ const memory = (): KeyValue & { map: Map<string, string> } => {
 };
 const step = (id: string) => STEPS.find((s) => s.id === id)!;
 
-test('the six steps keep their keys; Handheld and Export wait for #126', () => {
+test('the six steps keep their keys, all ready (Handheld and Export since #126)', () => {
 	assert.deepEqual(STEPS.map((s) => s.key), [1, 2, 3, 4, 5, 6]);
-	assert.deepEqual(READY_STEPS.map((s) => s.id), ['script', 'shots', 'layout', 'generate']);
+	assert.deepEqual(READY_STEPS.map((s) => s.id), ['script', 'shots', 'layout', 'handheld', 'generate', 'export']);
 	assert.equal(stepOfKey('5')?.id, 'generate');
-	assert.equal(stepOfKey('4'), null);
+	assert.equal(stepOfKey('4')?.id, 'handheld');
+	assert.deepEqual([step('handheld').panels, step('export').panels], [['handheld'], ['output']]);
 	assert.equal(stepOfKey('x'), null);
 });
 
@@ -51,11 +52,13 @@ test('a storage that throws never breaks the page', () => {
 	assert.equal(loadStep(null), 'shots');
 });
 
-test('the current step is remembered – a step that is not ready falls back', () => {
+test('the current step is remembered – an unknown one falls back', () => {
 	const s = memory();
 	saveStep(s, 'generate');
 	assert.equal(loadStep(s), 'generate');
 	saveStep(s, 'handheld');
+	assert.equal(loadStep(s), 'handheld');
+	saveStep(s, 'gone');
 	assert.equal(loadStep(s), 'shots');
 });
 

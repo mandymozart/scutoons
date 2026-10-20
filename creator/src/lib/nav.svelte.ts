@@ -1,5 +1,5 @@
 import { getContext, setContext, type Snippet } from 'svelte';
-import { panelWidth } from '@scutoons/ui';
+import { panelWidth, type PanelHeight } from '@scutoons/ui';
 import { chapterPlace, toonName as entryName, type SeasonPlaces, type ToonIndex } from '@scutoons/content';
 import { getLocale } from '$lib/paraglide/runtime.js';
 import { contentIndex, getDraft } from '$lib/api.ts';
@@ -19,6 +19,20 @@ export interface Crumb {
 
 let nextOwner = 0;
 
+/** a route's id as the URL reads it: every creator page lives in the route group (app) (#126 – the phone page /h/ lives
+ *  outside it), which SvelteKit keeps in `page.route.id` ("/(app)/map") but not in the URL ("/map") */
+export const routeId = (id: string | null | undefined): string => (id ?? '/').replace(/^\/\(app\)(?=\/|$)/, '') || '/';
+
+/** a page's bottom region in the shell (the storyboard's timeline, #126): its content, height and words */
+export interface PageBottom {
+	panel: Snippet;
+	size: PanelHeight;
+	label: string;
+	icon: string;
+	resizeLabel: string;
+	unfoldLabel: string;
+}
+
 export class CreatorNav {
 	/** the route's crumbs (set by the layout) */
 	base = $state<Crumb[]>([]);
@@ -32,6 +46,8 @@ export class CreatorNav {
 	crumbEnd = $state<Snippet | null>(null);
 	/** editors that scroll their own columns (AppShell mode "fill") */
 	fill = $state(false);
+	/** the page's bottom region (AppShell `bottom`, fill mode only – the storyboard's timeline, #126) */
+	bottom = $state<PageBottom | null>(null);
 	/** which page registered `extra` / `sidebar` / `fill` (a page leaving must not clear the next page's entries) */
 	owner = 0;
 
@@ -102,7 +118,7 @@ export function getCreatorNav(): CreatorNav {
  * Registers a page's part of the navigation while the page is mounted (call during component init).
  * `extra` is a function so the crumbs follow the page's state.
  */
-export function usePageNav(options: { sidebar?: Snippet; actions?: Snippet; crumbEnd?: Snippet; extra?: () => Crumb[]; fill?: boolean }) {
+export function usePageNav(options: { sidebar?: Snippet; actions?: Snippet; crumbEnd?: Snippet; extra?: () => Crumb[]; fill?: boolean; bottom?: () => PageBottom | null }) {
 	const nav = getCreatorNav();
 	const owner = ++nextOwner;
 	$effect(() => {
@@ -117,12 +133,18 @@ export function usePageNav(options: { sidebar?: Snippet; actions?: Snippet; crum
 			nav.actions = null;
 			nav.crumbEnd = null;
 			nav.fill = false;
+			nav.bottom = null;
 			nav.extra = [];
 		};
 	});
 	$effect(() => {
 		const extra = options.extra?.() ?? [];
 		if (nav.owner === owner || nav.owner === 0) nav.extra = extra;
+	});
+	// the bottom region follows the page (null: none)
+	$effect(() => {
+		const bottom = options.bottom?.() ?? null;
+		if (nav.owner === owner || nav.owner === 0) nav.bottom = bottom;
 	});
 }
 

@@ -6,7 +6,7 @@
 	// components on the shared Stage3d. Every write goes through the page's editShot – one undo step per gesture, the
 	// dirty dot and autosave as every edit. A change the view wrote itself doesn't rebuild the scene (it is already so);
 	// any other change of the shot (a field, undo, another shot) rebuilds it – the old scene freed first.
-	import { onMount, untrack } from 'svelte';
+	import { onMount, untrack, type Snippet } from 'svelte';
 	import { base } from '$app/paths';
 	import { Segmented } from '@scutoons/ui';
 	import { shotSpec, type Shot } from '@scutoons/content/storyboard';
@@ -20,7 +20,8 @@
 	import View3dGizmo from '$lib/components/storyboard/view-3d-gizmo.svelte';
 	import View3dTexts from '$lib/components/storyboard/view-3d-texts.svelte';
 
-	let { sb }: { sb: StoryboardPage } = $props();
+	// `lead`: the main view's editor switch at the start of the tool row (#125)
+	let { sb, lead }: { sb: StoryboardPage; lead?: Snippet } = $props();
 
 	const stage = new Stage3d(personaModelUrls(base));
 	let host = $state<HTMLDivElement>();
@@ -74,7 +75,10 @@
 		if (host) ro.observe(host);
 		// for checks in the browser (dev only): the stage
 		if (import.meta.env.DEV) (window as unknown as { __storyboard3d?: Stage3d }).__storyboard3d = stage;
+		// the handheld camera's live pose and a take's moment hold this view's camera (#126)
+		sb.hh.attach(stage);
 		return () => {
+			sb.hh.detach(stage);
 			ro.disconnect();
 			stage.dispose();
 		};
@@ -90,6 +94,7 @@
 
 <section class="view" aria-label={sb.sel ? m['storyboard.view3d_label']({ id: sb.sel.id }) : undefined} data-testid="shot-3d-view">
 	<div class="tools">
+		{@render lead?.()}
 		<Segmented
 			label={m['storyboard.view3d_tool']()}
 			options={[

@@ -767,7 +767,7 @@ dream montage), 4 Werbung Schaffhausen, 23 Werbung Fidget Cube (commercials). Th
 
 ### 8.5 Builder (M2), start view, wanted images, the bidirectional unlock
 
-- `creator/src/routes/map/+page.svelte` → `lib/components/map/map-builder.svelte` (page, sidebar, toolbar, validation,
+- `creator/src/routes/(app)/map/+page.svelte` → `lib/components/map/map-builder.svelte` (page, sidebar, toolbar, validation,
   URL, start view), `map-canvas.svelte` (canvas + tools), `map-props.svelte` (properties), `lib/editor/map.ts`. Universe:
   Characters · Moods · Wanted images · **Map**; crumbs `Creator / Map / <selection>` (like Characters; there is no Universe
   page).

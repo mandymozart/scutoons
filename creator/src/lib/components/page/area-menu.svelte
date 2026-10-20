@@ -11,6 +11,7 @@
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { recent } from '$lib/recent.svelte.ts';
+	import { routeId } from '$lib/nav.svelte.ts';
 
 	/**
 	 * The creator's menu by areas (CREATOR-NAV.md §2a, draft D; agents/DESIGN.md "Creator navigation"): Dashboard,
@@ -47,7 +48,7 @@
 		foot?: Snippet;
 	} = $props();
 
-	const route = $derived(page.route.id ?? '/');
+	const route = $derived(routeId(page.route.id));
 	/** the area of the route (a toon's pages belong to Toons) */
 	const area = $derived<AreaId | null>(
 		route === '/'

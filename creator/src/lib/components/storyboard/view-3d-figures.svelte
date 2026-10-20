@@ -45,7 +45,7 @@
 
 	function onDown(e: PointerEvent) {
 		down = null;
-		if (!stage.built || e.button !== 0 || stage.gizmo?.axis) return; // a gizmo handle under the pointer: the gizmo's
+		if (!stage.built || stage.held || e.button !== 0 || stage.gizmo?.axis) return; // a gizmo handle under the pointer: the gizmo's
 		const i = stage.figureAt(e);
 		if (i < 0) {
 			down = { x: e.clientX, y: e.clientY };
@@ -94,7 +94,7 @@
 	let wheelTimer: ReturnType<typeof setTimeout> | 0 = 0;
 	let wheeled = -1;
 	function onWheel(e: WheelEvent) {
-		if (!stage.built) return;
+		if (!stage.built || stage.held) return; // a pose holds the camera (#126): the figures rest
 		const i = stage.figureAt(e);
 		if (i < 0) return; // the camera's dolly
 		e.preventDefault();

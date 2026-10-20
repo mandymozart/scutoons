@@ -14,6 +14,9 @@ import { browserWorkspace, type WorkspaceState } from '$lib/editor/storyboard-wo
 import { listGenerations, shareGeneration, updateGeneration, type Generation, type GenerationPatch } from '$lib/editor/storyboard-generations.ts';
 import { loadMachine, saveMachine } from '$lib/editor/storyboard-generate.ts';
 import { GenerateState } from '$lib/editor/storyboard-generate.svelte.ts';
+import { BoardState } from '$lib/editor/storyboard-board.svelte.ts';
+import { HandheldState } from '$lib/editor/storyboard-handheld.svelte.ts';
+import { TimelineState } from '$lib/editor/storyboard-timeline.svelte.ts';
 
 const storage = browserStorage();
 
@@ -44,6 +47,12 @@ export class StoryboardPage {
 	machine = $state(loadMachine(storage));
 	/** the Generate panel: generators, the form, the estimate, the running jobs (#121) */
 	readonly gen: GenerateState = new GenerateState(this);
+	/** the main view's editor (Viewport · Variants), the variants board, Compare, Improve on this (#125) */
+	readonly board: BoardState = new BoardState(this);
+	/** the handheld camera: the phone's pairing, the live pose, recording and rendering takes (#126) */
+	readonly hh: HandheldState = new HandheldState(this);
+	/** the timeline along the bottom: the picked shots' clips, the playhead, the trim (#126) */
+	readonly tl: TimelineState = new TimelineState(this);
 
 	constructor(
 		readonly toon: string,
@@ -88,6 +97,13 @@ export class StoryboardPage {
 		this.picked = next.picked;
 		this.current = next.current;
 		this.anchor = next.anchor;
+	}
+
+	/** a picked shot becomes the current one, the picked set stays (a click in a variants band, #125); not picked: a pick */
+	focus(id: string): void {
+		if (!this.picked.includes(id)) return this.pick(id);
+		this.current = id;
+		this.anchor = id;
 	}
 
 	/** ← / → in the toon's order */

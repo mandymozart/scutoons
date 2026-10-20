@@ -21,6 +21,7 @@ use Scutoons\Http\Controllers\AccessController;
 use Scutoons\Http\Controllers\ApiTokensController;
 use Scutoons\Http\Controllers\ReviewsController;
 use Scutoons\Http\Controllers\StoryboardController;
+use Scutoons\Http\Controllers\StoryboardPairingsController;
 use Scutoons\Http\Controllers\AssetsController;
 use Scutoons\Http\Controllers\Admin\BatchesController;
 use Scutoons\Http\Controllers\Admin\CatalogController as CatalogAdminController;
@@ -117,6 +118,16 @@ return static function (App $app): void {
         5,
         3600,
         'Too many messages – try again later or write to hello@scutoons.com.',
+    );
+
+    // The handheld camera's pairing (#126): the phone's page has no session – the one-time code is its right; the PC
+    // polls the answer every 2 s for at most 10 minutes – a limit for loops and guessing, not for people
+    $pairingLimit = new RateLimit(
+        $c->get(RateLimiter::class),
+        static fn(Request $request): string => 'pairing:' . $ipHash(),
+        1200,
+        3600,
+        'Too many pairing requests – try again later.',
     );
 
     // ── Public API (agents/ITEMS.md) ───────────────────────────────────────────────────────────────────
@@ -279,6 +290,13 @@ return static function (App $app): void {
     $app->get('/api/storyboard/work', [StoryboardController::class, 'listWork']);
     $app->put('/api/storyboard/work', [StoryboardController::class, 'putWork']);
     $app->get('/api/storyboard/work/{toon:[a-z0-9_-]{1,64}}/{chapter:[0-9]{1,6}}/{name:[A-Za-z0-9._%-]{1,200}}', [StoryboardController::class, 'getWork']);
+    // the handheld camera's pairing (#126): a one-time code for the phone, the WebRTC offer / answer – no session for
+    // the phone's calls (the code is the right), rate-limited per client IP
+    $app->post('/api/storyboard/pairings', [StoryboardPairingsController::class, 'create']);
+    $app->get('/api/storyboard/pairings/{code:[A-Za-z0-9_-]{22}}', [StoryboardPairingsController::class, 'get'])->add($pairingLimit);
+    $app->put('/api/storyboard/pairings/{code:[A-Za-z0-9_-]{22}}/offer', [StoryboardPairingsController::class, 'offer'])->add($pairingLimit);
+    $app->put('/api/storyboard/pairings/{code:[A-Za-z0-9_-]{22}}/answer', [StoryboardPairingsController::class, 'answer'])->add($pairingLimit);
+    $app->delete('/api/storyboard/pairings/{code:[A-Za-z0-9_-]{22}}', [StoryboardPairingsController::class, 'delete']);
 
     // Library: the reader's entities composed from the content store (agents/DATA.md, docs/API.md "Library")
     $app->get('/api/library/toons', [LibraryController::class, 'toons']);

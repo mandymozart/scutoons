@@ -19,7 +19,7 @@
 			const t = new TransformControls(built.camera, stage.renderer.domElement);
 			t.size = 0.8;
 			t.addEventListener('dragging-changed', (e) => {
-				if (stage.controls) stage.controls.enabled = !e.value;
+				if (stage.controls) stage.controls.enabled = !e.value && !stage.held;
 			});
 			t.addEventListener('objectChange', () => stage.draw());
 			t.addEventListener('mouseUp', () => {

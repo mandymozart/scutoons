@@ -3,12 +3,14 @@
 	// dynamic import: the rest of the creator doesn't grow); its schematic (@scutoons/content/storyboard shotSvg –
 	// figures, texts, the scroll move, the air) while the 3D view loads and where WebGL is missing. One boundary: it gets
 	// the page state and draws the current shot.
+	import type { Snippet } from 'svelte';
 	import { shotSvg } from '@scutoons/content/storyboard';
 	import { m } from '$lib/paraglide/messages.js';
 	import { svgSource } from '$lib/editor/storyboard-shots.ts';
 	import type { StoryboardPage } from '$lib/editor/storyboard-page.svelte.ts';
 
-	let { sb }: { sb: StoryboardPage } = $props();
+	// `lead`: the main view's editor switch at the start of the tool row (#125)
+	let { sb, lead }: { sb: StoryboardPage; lead?: Snippet } = $props();
 
 	/** WebGL here? (a throwaway context, released at once) */
 	function webgl(): boolean {
@@ -25,7 +27,8 @@
 </script>
 
 {#snippet schematic(title?: string)}
-	<div class="canvas" data-testid="shot-canvas">
+	{#if lead}<div class="lead">{@render lead()}</div>{/if}
+	<div class="canvas" class:led={!!lead} data-testid="shot-canvas">
 		{#if frame && sb.sel}
 			<img src={svgSource(frame.svg)} alt={m['storyboard.view_label']({ id: sb.sel.id })} {title} style:aspect-ratio="{frame.w} / {frame.h}" />
 		{:else if sb.entries.length}
@@ -38,7 +41,7 @@
 	{@render schematic()}
 {:then { default: Shot3dView }}
 	{#if sb.sel}
-		<Shot3dView {sb} />
+		<Shot3dView {sb} {lead} />
 	{:else}
 		{@render schematic()}
 	{/if}
@@ -56,6 +59,16 @@
 		justify-content: center;
 		align-items: flex-start;
 		background: var(--surface-panel, var(--paper));
+	}
+	/* the editor switch's row over the schematic (#125): the canvas takes the rest */
+	.lead {
+		display: flex;
+		align-items: center;
+		padding: var(--space-025) var(--space-1);
+		border-bottom: var(--border-width-regular) solid var(--ink);
+	}
+	.canvas.led {
+		height: calc(100% - var(--control-height) - 2 * var(--space-025) - var(--border-width-regular));
 	}
 	/* the canvas's width (390) at most 24rem – a tall shot scrolls, as the reader would */
 	img {

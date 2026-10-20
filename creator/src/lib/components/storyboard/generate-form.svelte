@@ -13,6 +13,7 @@
 	import { euro, estimateLine, figuresTitle, money } from '$lib/editor/storyboard-money.ts';
 	import type { StoryboardPage } from '$lib/editor/storyboard-page.svelte.ts';
 	import GenerateManual from '$lib/components/storyboard/generate-manual.svelte';
+	import ImproveLine from '$lib/components/storyboard/improve-line.svelte';
 
 	let { sb }: { sb: StoryboardPage } = $props();
 	const gen = $derived(sb.gen);
@@ -81,6 +82,7 @@
 </script>
 
 <div class="form" data-testid="generate-form">
+	<ImproveLine {sb} />
 	{#if gen.loadError}<p class="hint sc-error">{m['storyboard.gen_load_error']({ error: gen.loadError })}</p>{/if}
 	{#if gen.generators.length}
 		<PropRow label={m['storyboard.gen_generator']()}>

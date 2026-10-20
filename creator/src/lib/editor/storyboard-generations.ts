@@ -38,6 +38,11 @@ export interface Generation {
 	/** the API path that serves it (`/api/storyboard/work/…`) */
 	work_url: string | null;
 	mark: GenerationMark | null;
+	/** when the mark was set (the server's clock – the board's X groups its marks by it, #125) */
+	marked_at?: string | null;
+	/** the references as the job took them ({ role, work | url }) */
+	inputs?: { role: string; work?: string; url?: string }[] | null;
+	mode?: string | null;
 	approved: boolean;
 	dataset: boolean;
 	note: string | null;
