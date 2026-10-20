@@ -1,4 +1,4 @@
-Status 2026-10-20: plan agreed – every question answered by the owner (§9); nothing built. Milestone "Top Toy workshop" (due 2027-02-17): #80–#91 + #28, #56, #62, #74, #75. Building starts after chapter 3's release (#64, 2026-11-15).
+Status 2026-10-20: plan agreed – every question answered by the owner (§9); nothing built. Milestone "Top Toy workshop" (due 2027-02-17): #80–#91 + #28, #56, #62, #75 (#74 left it: exploratory). Building starts after chapter 3's release (#64, 2026-11-15).
 
 # KANON — season / chapter scripts and the Kanon texts of characters, personas, looks, places (plan, 2026-10-20)
 
@@ -62,7 +62,7 @@ what tools extract). Prose under `## ` headings; every section optional, the ord
   and why it appears) · `## Look` · `## Rules`.
 - **Look** – `## Look` (outfit, gear, what changes against the persona) · `## When` (when / why it is worn).
 - **Place** – `## Backstory` (history, who lives there, what happened there) · `## Scenery` (what it looks like:
-  architecture, materials, light, weather, season, sounds – generators, dioramas and the 3D rooms (#74) read this) ·
+  architecture, materials, light, weather, season, sounds – generators, dioramas and a place's background (#74: a looped video or an externally built room) follows it) ·
   `## Rules`.
 - **Generators read English**: the `en` text, else the source language (the brief says so – the MCP's Claude can draft
   the translation).
@@ -106,7 +106,7 @@ Code complete **Fri 2027-02-05**; test week Feb 8–12 (every generator on the r
 | Nov 16 – Dec 4 | the text model, entities, validation, the editor everywhere, migration 1, the MCP | LIVE phase 0–1 (bus, spikes, relay, MIDI / DMX) | – |
 | Dec 7 – 18 | migration 2, generators read the texts, Wanted-image briefs | LIVE phase 2 (protocol, outputs, hosted relay) | **writes**: Top Toy toon, characters, places, season / chapter scripts (until Feb 5) |
 | Jan 4 – 22 | artist brief + references export; #61's generators on the texts | LIVE phases 3–4 (audience, stage builder, rehearsal) | publishes the texts (= Kanon) |
-| Jan 25 – Feb 5 | fixes, #56 / #74 parts the owner keeps in | LIVE phase 5 (full run-through) | – |
+| Jan 25 – Feb 5 | fixes, #56 | LIVE phase 5 (full run-through) | – |
 | Feb 8 – 12 | **test week**: generators + briefs on the real texts | the stage experience on the real Top Toy chapter | freeze Feb 12 |
 
 Issues (new): the text model + editor · season / chapter scripts + migration 1 · character / persona / look texts ·
@@ -114,7 +114,7 @@ place texts · generators read the texts (+ migration 2) · artist brief + refer
 the stage experience (performance mode, LIVE.md – as one issue or one per phase).
 Created 2026-10-20: #80 model + editor · #81 scripts + toon texts · #82 character texts · #83 place texts · #84 MCP ·
 #85 generators · #86 briefs + references · #87 test week · #88 owner writes · #89–#91 LIVE phases 0–1, 2–3, 4–5.
-Moved in (owner: "add the character, location, scene, references to this milestone"): #56, #75, #74, #28, #62.
+Moved in (owner: "add the character, location, scene, references to this milestone"): #56, #75, #28, #62 (#74 taken out again 2026-10-20: exploratory).
 
 ## 9. Owner answers (2026-10-20)
 1. Cat Pope's toon script becomes season 1's script (migration 1) – "yes".
@@ -126,5 +126,5 @@ Moved in (owner: "add the character, location, scene, references to this milesto
 6. External artists: a **shareable link**, not a PDF / zip – "shareable link, we can try to get them to work inside the
    creator if they need more info" (#86).
 7. Performance mode: the full LIVE Must list from Nov 16; the workshop replaces the first show Feb 1–14.
-8. The milestone takes #56, #75, #74, #28, #62 (no preference – the recommendation); #55 and #61 stay in chapter 3.
+8. The milestone takes #56, #75, #28, #62 (no preference – the recommendation; #74 out: "74 is exploratovire"); #55 and #61 stay in chapter 3.
 9. Dates: code complete Fri Feb 5, test week Feb 8–12, freeze Fri Feb 12 – "we push through".

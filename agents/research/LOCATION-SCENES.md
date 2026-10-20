@@ -1,4 +1,4 @@
-Status 2026-10-20: concept + a working one-room prototype (the cathedral from the owner's Unreal level, dev lab `/account/lab/room`, tools/rooms – §7); the owner OKed the look (2026-10-20); nothing reader-facing built; three more rooms 2026-10-20 (§7b: the station, the garden hut and the library as splats); next: the owner's look at them (issue #74). Not on chapter 3's critical path (#64).
+Status 2026-10-20: EXPLORATORY (owner: rooms end up as looped video backgrounds (fallback) or built externally in Blender and dropped in – no in-house room pipeline as the goal; no deadline, not in the "Top Toy workshop" milestone); concept + a working one-room prototype (the cathedral from the owner's Unreal level, dev lab `/account/lab/room`, tools/rooms – §7); the owner OKed the look (2026-10-20); nothing reader-facing built; three more rooms 2026-10-20 (§7b: the station, the garden hut and the library as splats); next: the owner's look at them (issue #74). Not on chapter 3's critical path (#64).
 
 # LOCATION-SCENES — a 3D room for every place on the map
 
