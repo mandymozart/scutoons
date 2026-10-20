@@ -1,4 +1,4 @@
-Status 2026-10-20: plan, nothing built. Vertical versions redesigned with the owner (§8: a second layout of a horizontal group with its own slice list, every text box, item and event mapped onto both, readers by a condition, the export asks for a missing one); the standard slice is 390 × 624 since #78 (= one WEBTOON image); waiting for the owner's agreement and the other answers (§12, issue #77); then the milestone "Webtoon.com Publishing" (due = the launch, §12 Q2) and its issues. Not on chapter 3's critical path (#64): before 2026-11-15 only two small steps (§10); the vertical versions come after #44's strip editor.
+Status 2026-10-20: plan, nothing built. Vertical versions redesigned with the owner (§8: a second layout of a horizontal group with its own slice list, every text box, item and event mapped onto both, readers by a condition, the export asks for a missing one); the standard slice is 390 × 624 since #78 (= one WEBTOON image); the launch is in February 2027 after the Top Toy workshop (§10, Q2 answered); waiting for the owner's agreement and the other answers (§12, issue #77); then the milestone "Webtoon.com Publishing" (due = the launch) and its issues. Not on chapter 3's critical path (#64): before 2026-11-15 only two small steps (§10); the vertical versions come after #44's strip editor.
 
 # WEBTOON — SCUTOONS chapters as WEBTOON CANVAS episodes
 
@@ -503,13 +503,15 @@ before. The owner's art time is the bottleneck in all three months.
   after #44's strip editor, whose files the creator part changes); their reader side is outside the milestone. The owner
   orders them against #62 (studio) and ch4. The export view changes the viewer's root layout, so it deploys outside a chapter's deploy
   freeze.
-- **The launch** (§12 Q2) starts with ch1's three episodes (WEBTOON's advice: launch with 3; the subscribe pop-up
-  follows the third), then one episode every Sunday, never ahead of scutoons.com; ch2's first part follows a week later
-  and needs the four strips' vertical versions by then (the export stops without them). A Sunday 2026-12-13 launch puts the upload, the Content Review
-  and the ch2 vertical versions into ch4's last two weeks. A Sunday 2027-01-24 launch comes after ch5: the whole season
-  is on scutoons.com, all eight vertical versions can be done in one go, the upload falls just after ch5's release,
-  and the weekly queue (13 episodes, to early April) can't run dry. Episode 10, the earliest AI-translation date,
-  lands about 7 weeks after the launch. The de series follows about two weeks after en.
+- **The launch** (owner 2026-10-20: "launch date is february. after the scutoons top toy event."): a Sunday after the
+  Top Toy workshop (Wed 2027-02-17 – Fri 02-19, no code work from the 17th; milestone "Top Toy workshop"), so Sun
+  2027-02-21 or 02-28 – planned: **Sun 2027-02-28** (the upload and the Content Review, 2–3 business days, right after
+  the workshop, Feb 20–23). It starts with ch1's three episodes (WEBTOON's advice: launch with 3; the subscribe pop-up
+  follows the third), then one episode every Sunday, never ahead of scutoons.com: the whole season is on scutoons.com
+  by then (ch5 on 2027-01-15), all eight vertical versions are done in one go, and the weekly queue (13 episodes, to
+  late May) can't run dry. The build (export view, exporter, kit, vertical versions) falls between #64 and the
+  workshop, beside the reader's foundation work (Nov 15 – January); the test draft by early February. Episode 10, the
+  earliest AI-translation date, lands about 7 weeks after the launch. The de series follows about two weeks after en.
 
 ## 11. Left out, and why
 - **A WEBTOON panel in the creator, WEBTOON metadata in the DB** (cuts, titles, notes, upload state): one-time entries;
@@ -541,12 +543,9 @@ before. The owner's art time is the bottleneck in all three months.
    A separate de series splits the audience (the thresholds are per series), but WEBTOON's AI could only make German
    from our English translation of a German original, de earns nothing either way, and under-16s in Germany can't read
    CANVAS. Rec.: yes; en earns money and reaches the most readers.
-2. **Launch date** (the milestone's due date; then one episode every Sunday, never ahead of scutoons.com): (a) Sun
-   2026-12-13, if by about Dec 6 the kit has passed the test draft, the ch2 vertical versions are in (now the model, the
-   creator's slice list and placing and the export branch – about twice the old plan's creator work, §8) and the export
-   view is deployed before ch4's freeze; or (b) Sun 2027-01-24, after ch5, with the whole season ready (§10). Rec.: (b);
-   chapter releases on scutoons.com come first, a full queue never forces a hiatus, and you are on the reader's
-   foundation from Nov 15 to January.
+2. **Launch date** – answered (owner 2026-10-20: "launch date is february. after the scutoons top toy event."): a
+   Sunday after the workshop (Feb 17–19, 2027); planned Sun 2027-02-28, the milestone's due date (§10). Sun 02-21 only
+   if the upload and the Content Review are done before the workshop – say so if you want it.
 3. **Version:** export only what is published on scutoons.com, test kits from drafts? Rec.: yes; #68 publishes the
    they / them drafts first.
 4. **VN lines:** drop them in the export (the preflight quotes them)? catpope's one story line is ch3's "No photos,
