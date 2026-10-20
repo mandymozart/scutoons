@@ -99,6 +99,7 @@ const lang = () => `<span class="sq txt lang" title="Text language">${ic('globe'
 function pathFor() {
 	if (screen === 'list') return ['Characters'];
 	if (phone) return V === 'b' && !sheetOpen ? ['päpstlich'] : ['Katzenpapst'];
+	if (V === 'e') return ['Characters', 'Katzenpapst'];
 	return V === 'a' ? ['Characters', 'Katzenpapst'] : ['Characters', 'Katzenpapst', 'Regular', 'päpstlich'];
 }
 const path = () => `<nav class="path">${pathFor().map((p, i, a) => `<a>${p}</a>${i < a.length - 1 ? '<span class="sep">/</span>' : ''}`).join('')}</nav>`;
@@ -244,19 +245,44 @@ function cChar() {
 	return `<main class="pg" style="grid-area:main">${atabs()}<div class="editor" style="grid-template-columns:minmax(0,1fr) 22rem;flex:1;min-height:0">${center}${insp}</div></main>`;
 }
 
+// ── variant E (owner 2026-10-20: "c in mobile … in b die Kartenansicht"): B's cards, C's editor; the four axes of a
+// picture each get ONE control: persona (faces) › look (only a select – most personas have one) › mood (the strip) ·
+// view (Avatar · Portrait · Ganz, a segmented switch on the stage) ──
+const view = flags.includes('avatar') ? 'avatar' : flags.includes('portrait') ? 'portrait' : 'full';
+const VIEWS = [['avatar', 'Avatar'], ['portrait', 'Portrait'], ['full', 'Ganz']];
+const viewSeg = () => `<span class="seg">${VIEWS.map(([id, w]) => `<span class="${id === view ? 'on' : ''}">${w}</span>`).join('')}</span>`;
+const lookSel = () => `<span class="sel" title="Look of this persona">${phone ? '' : 'Look: '}päpstlich ${ic('down')}</span>`;
+const where = () => `<span class="axes cap"><b>Regular</b> › <b>päpstlich</b> › <b>neutral</b> · <b>${VIEWS.find((v) => v[0] === view)[1]}</b></span>`;
+function eStage() {
+	const src = view === 'full' ? I('full-catpope') : view === 'portrait' ? I('portrait-catpope') : I('mood-neutral');
+	return `<div class="stage ${view}" style="flex:1"><img class="figure" src="${src}" alt="" /><div class="tl">${where()}</div><div class="tr">${sq('maximize', { title: 'Maximize' })}</div></div>`;
+}
+function eChar() {
+	const controls = `<div class="ctl">${lookSel()}<span class="grow"></span>${viewSeg()}</div>`;
+	if (phone) {
+		const top = `<div style="padding:var(--space-05) var(--space-1);display:flex;flex-direction:column;gap:var(--space-05);border-bottom:var(--hair)">${personaPick()}${controls}</div>`;
+		const strip = `<div style="padding:var(--space-05) var(--space-1);border-top:var(--hair)">${stageStrip()}</div>`;
+		const overlay = sheetOpen ? `<div class="sheet" style="height:62%;bottom:0"><span class="grab"></span><div style="padding:0 var(--space-1) var(--space-1);display:flex;flex-direction:column;gap:var(--space-075);overflow:hidden">${kanon('character')}</div></div>` : '';
+		return `<main class="pg" style="grid-area:main;position:relative">${top}${eStage()}${strip}${overlay}</main>`;
+	}
+	const center = `<div style="display:flex;flex-direction:column;min-width:0;min-height:0"><div style="padding:var(--space-075) var(--space-1);display:flex;flex-direction:column;gap:var(--space-05);border-bottom:var(--hair)">${head({ small: true })}${personaPick()}${controls}</div>${eStage()}<div style="padding:var(--space-05) var(--space-1);border-top:var(--hair)">${stageStrip()}</div></div>`;
+	const insp = `<aside class="insp" style="gap:var(--space-075)">${cInspTabs(1)}${kanon('character')}<h2 class="h">This persona's Kanon ${chips([['no', 'not written']])}</h2><h2 class="h">This look's Kanon ${chips([['no', 'not written']])}</h2></aside>`;
+	return `<main class="pg" style="grid-area:main">${atabs()}<div class="editor" style="grid-template-columns:minmax(0,1fr) 22rem;flex:1;min-height:0">${center}${insp}</div></main>`;
+}
+
 // ── phone bottom rows ──
 function phoneBottom() {
 	const back = `<span class="sq back">${ic('left')}</span>`;
 	if (screen === 'list') return `<footer class="bottom" style="grid-area:bottom">${act('plus', 'New')}${act('save', 'Save', { dim: true })}${act('cloud', 'Publish', { dot: true })}${act('more', 'More')}</footer>`;
 	// one row of functions with a ‹ back (owner 2026-10-19, #44): the page's kinds as icon squares
-	const kinds = V === 'c' ? [['user', 'Profile'], ['file', 'Kanon'], ['smile', 'Moods'], ['box', 'Model'], ['inbox', 'Wanted'], ['more', 'More']] : V === 'a' ? [['user', 'Profile'], ['smile', 'Looks & moods'], ['file', 'Kanon'], ['inbox', 'Wanted'], ['zap', 'Prompts'], ['more', 'More']] : sheetOpen ? [['plus', 'New persona'], ['upload', 'Import images …'], ['more', 'More']] : [['upload', 'Import'], ['plus', 'Mood'], ['file', 'Kanon'], ['inbox', 'Wanted'], ['more', 'More']];
-	const on = V === 'c' ? (sheetOpen ? 1 : -1) : V === 'a' ? (sheetOpen ? 2 : 1) : -1;
+	const kinds = V === 'c' || V === 'e' ? [['user', 'Profile'], ['file', 'Kanon'], ['smile', 'Moods'], ['box', 'Model'], ['inbox', 'Wanted'], ['more', 'More']] : V === 'a' ? [['user', 'Profile'], ['smile', 'Looks & moods'], ['file', 'Kanon'], ['inbox', 'Wanted'], ['zap', 'Prompts'], ['more', 'More']] : sheetOpen ? [['plus', 'New persona'], ['upload', 'Import images …'], ['more', 'More']] : [['upload', 'Import'], ['plus', 'Mood'], ['file', 'Kanon'], ['inbox', 'Wanted'], ['more', 'More']];
+	const on = V === 'c' || V === 'e' ? (sheetOpen ? 1 : -1) : V === 'a' ? (sheetOpen ? 2 : 1) : -1;
 	return `<footer class="bottom sel-bar kinds2" style="grid-area:bottom">${back}${kinds.map(([i, t], k) => sq(i, { title: t, on: k === on })).join('')}</footer>`;
 }
 
 // ── assemble ──
 function page() {
-	const fn = { a: [aList, aChar], b: [bList, bChar], c: [cList, cChar] }[V];
+	const fn = { a: [aList, aChar], b: [bList, bChar], c: [cList, cChar], e: [bList, eChar] }[V];
 	return (screen === 'list' ? fn[0] : fn[1])();
 }
 function build() {

@@ -133,3 +133,16 @@
 
 /* a column of page parts never squeezes its rows (overflow-hidden rows would shrink to nothing) */
 .pad > *, .side > *, .pg > *:not(.pad):not(div[style*="grid"]) { flex-shrink: 0; }
+
+/* variant E: one control per axis */
+.ctl { display: flex; align-items: center; gap: var(--space-05); min-width: 0; }
+.seg { display: inline-flex; border: var(--line); flex: none; }
+.seg span { display: inline-flex; align-items: center; height: calc(var(--control-height) - 0.25rem); padding: 0 var(--space-075); border-left: var(--line); white-space: nowrap; }
+.seg span:first-child { border-left: 0; }
+.seg span.on { background: var(--ink); color: var(--paper); }
+.axes { background: var(--paper); padding: 0.1rem var(--space-05); }
+.axes b { font-weight: 400; }
+.stage.avatar, .stage.portrait { align-items: center; }
+.stage.avatar img.figure { height: auto; width: min(18rem, 70%); }
+.stage.portrait img.figure { height: 88%; align-self: flex-end; }
+.phone .seg span { padding: 0 var(--space-05); }

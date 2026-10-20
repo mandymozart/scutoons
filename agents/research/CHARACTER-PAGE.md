@@ -1,4 +1,4 @@
-Status 2026-10-20: drafts A, B, C for the owner to pick (issue #104) – nothing built beyond the small fixes (commit "Characters page: layout fixes").
+Status 2026-10-20: draft E (B's cards + C's editor) after the owner's first look, to confirm (issue #104) – nothing built beyond the small fixes (commit "Characters page: layout fixes").
 
 # CHARACTER-PAGE – the creator's Characters area inside navigation D
 
@@ -55,6 +55,20 @@ Pictures: `character-page/index.html` (A, B, C at 1440 × 900 and 390 × 844; `a
   Prompts). Phone: the stage full width, the strip, the bottom row opens sheets (the #44 pattern).
   + the picture first – good for checking art; the same model as the slice editor. − the grid of all moods becomes a
   second mode (the grid square); the most new code.
+
+## 3a. E – B's cards + C's editor (owner 2026-10-20)
+
+"ich mag c in mobile schon gern. in b find ich die Kartenansicht gut auf der characters page" · "mir ist noch nicht
+klar wie ich die verschiedenen avatar, portrait, full anwähle" · "looks und moods ist irgendwie verwirrend. weil wir
+haben personas, looks, moods".
+
+- A picture has four axes: **persona** (who: Regular, Mensch, Katze …) › **look** (what the persona wears) › **mood**
+  (the face) · **view** (avatar = head, portrait = bust, full). E gives each axis ONE control: the persona faces row,
+  a look select (most personas have one look), the moods strip under the stage, a segmented switch Avatar · Portrait ·
+  Ganz. The stage names what it shows ("Regular › päpstlich › neutral · Ganz"); no "Looks & moods" anywhere.
+- Overview = B's cards; the character = C's stage + inspector (desktop) and C's phone (bottom row, sheets).
+- Pictures: `e.html` (`#list`, `#char`, `-avatar` / `-portrait`, phones `-sheet`); `CHARACTER-PAGE-drafts.html` = all
+  drafts in one file with the pictures inside (opens in the app's browser pane).
 
 ## 4. Questions to the owner
 
