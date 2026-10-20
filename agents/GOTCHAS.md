@@ -10,6 +10,9 @@ From the old MEMORY.md (archive/MEMORY.md, 2026-09-28 … 10-04) and later sessi
 - PowerShell: `git commit -m @'…'@` with quotes breaks native argument passing → `git commit -F <file>` (UTF-8 without
   BOM; `Set-Content -Encoding utf8` writes a BOM). `[IO.File]` paths resolve against the process cwd – use absolute paths.
 - symfony/console prints CRLF on Windows – diff with `--strip-trailing-cr`.
+- Figma bridge: never run the relay as a Claude background task (it dies with the session) – `supervise.mjs --detach`;
+  after a relay.mjs change `supervise.mjs --restart`; saving plugin/code.js or ui.html restarts the running plugin (Figma's
+  hot reload brings it back, the call in flight is lost) – not during an export run (tools/figma-bridge/README.md).
 - PHP curl on Windows has no CA bundle → `CurlHttpClient` uses `CURLSSLOPT_NATIVE_CA`.
 
 ## Svelte, Vite, paraglide

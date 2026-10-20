@@ -32,7 +32,7 @@
 // Out: storyboards/_out/<ch>/production/ – chapter.json (the language-neutral chapter: the scene groups replaced by the
 // sliced ones and nothing else – no test groups, no thumbnail slice), uploads.json [{ file, path }], slices/*.webp, preview.png. Nothing is uploaded here.
 
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { ROOT, S, SLICE_H, W, figma, figmaPacer, figmaPreflight, readEntity, runManifest, variantsOk, webpVariants } from './lib.mjs';
 
@@ -144,6 +144,13 @@ if (sliceX != null) {
 if (fromFrames && sliceX == null) {
 	const pg = await bridge('read', { page, depth: 1 }, { timeout: 240_000 });
 	for (const n of pg.children) if (/-slice-\d+$/.test(n.name)) frameIds[n.name] = n.id;
+}
+// an earlier cut at another standard (chapters 3–5: 625, no run.json) holds the only lossless masters of the published
+// slices – copied once to production-<standard>/ before this cut overwrites them (#78)
+const prevStandard = readdirSync(resolve(PROD, 'png')).length ? (JSON.parse(existsSync(resolve(PROD, 'run.json')) ? readFileSync(resolve(PROD, 'run.json'), 'utf8') : '{}').standard ?? 625) : SLICE;
+if (prevStandard !== SLICE && !existsSync(resolve(OUT, `production-${prevStandard}`))) {
+	cpSync(PROD, resolve(OUT, `production-${prevStandard}`), { recursive: true });
+	console.log(`the ${prevStandard} cut copied to ${ch}/production-${prevStandard}/ (its lossless masters) before this ${SLICE} cut`);
 }
 // the run manifest: a slice is done when this run (or a crashed one before it) exported it at this standard from the same
 // region and its three files have the expected size. From slice frames (--figma-slices / --from-figma-slices) everything

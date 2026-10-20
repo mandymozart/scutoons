@@ -24,7 +24,8 @@ to 1:7** (beyond 1:4 most generators give up).
   shots first; the first throw is layouted, brought into the creator, and only the **gaps** are prompted (§9 "The flow").
 
 - **The storyboard is a list of shots, stacked.** Each shot = one image on the 390-wide canvas, delivered as one slice or
-  cut into 625-high slices like chapters 1 and 2 (a 360° loop = one panorama, cut into the slides of a looping
+  cut into 624-high slices (the standard since #78; chapters 1–5 were cut at 625 and resampled) (a 360° loop = one
+  panorama, cut into the slides of a looping
   horizontal group). There is no gutter field, and none is needed: a pause
   is a shot (or part of one) with "air" – sky, a colour field, darkness – and the storyboard marks that air as zones,
   so the rhythm can be measured.
