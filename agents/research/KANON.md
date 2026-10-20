@@ -1,6 +1,8 @@
 Status 2026-10-20: plan agreed (owner: Q2, Q3, Q7 answered; the other questions take the recommendation until the owner says otherwise); nothing built. Milestone "Top Toy workshop" (due 2027-02-17): #80–#91 + #28, #56, #62, #74, #75, #79. Building starts after chapter 3's release (#64, 2026-11-15).
 
-# STORY-BIBLE — season / chapter scripts, character / persona / look / place texts (plan, 2026-10-20)
+# KANON — season / chapter scripts and the Kanon texts of characters, personas, looks, places (plan, 2026-10-20)
+
+The word is **Kanon** (owner 2026-10-20: "i hate bibel as a work use KANON") – never "bible" in UI, code or docs.
 
 ## 1. What the owner asked
 Owner 2026-10-20: "currently only toon has a script" · "character backstories in each character" · "a script for each
@@ -35,15 +37,15 @@ say how it is written and what tools read from it.
 |---|---|---|---|
 | a season | script | `script:<toon>:season:<n>:<l>` (replaces `script:<toon>:<l>`) | screenplay, chapters + scenes + songs |
 | a chapter | script | `script:<toon>:chapter:<n>:<l>` | screenplay, scenes + songs (the chapter is the document) |
-| a character | bible | `bible:character:<id>:<l>` | Backstory · Who · Look · Rules |
-| a persona | bible | `bible:character:<id>:<persona>:<l>` | What · Why different · Look · Rules |
-| a look | bible | `bible:character:<id>:<persona>:<look>:<l>` | Look · When |
-| a map place | bible | `bible:place:<id>:<l>` | Backstory · Scenery · Rules |
-| the toon (§9 Q5) | bible | `bible:toon:<toon>:<l>` | Premise · Tone · World rules |
+| a character | kanon | `kanon:character:<id>:<l>` | Backstory · Who · Look · Rules |
+| a persona | kanon | `kanon:character:<id>:<persona>:<l>` | What · Why different · Look · Rules |
+| a look | kanon | `kanon:character:<id>:<persona>:<look>:<l>` | Look · When |
+| a map place | kanon | `kanon:place:<id>:<l>` | Backstory · Scenery · Rules |
+| the toon (§9 Q5) | kanon | `kanon:toon:<toon>:<l>` | Premise · Tone · World rules |
 
 - Season and chapter scripts may both exist: a tool that needs chapter n takes the **chapter script**, else chapter n's
   part of the season script (`# n. Kapitel`). Cat Pope stays season-written, Top Toy is chapter-written.
-- **Publish = canon.** Generators, briefs and the MCP's answers use the published version; drafts are work in
+- **Publish = Kanon.** Generators, briefs and the MCP's answers use the published version; drafts are work in
   progress (the member's Claude only saves drafts – RULES "Working with the owner").
 - The short reader-facing `description` stays as it is; the text is the long, internal one behind it.
 - Stored in production like every document (the only source of content); the 2026-10-01 default "scripts are not in
@@ -101,7 +103,7 @@ Code complete **Fri 2027-02-05**; test week Feb 8–12 (every generator on the r
 |---|---|---|---|
 | Nov 16 – Dec 4 | the text model, entities, validation, the editor everywhere, migration 1, the MCP | LIVE phase 0–1 (bus, spikes, relay, MIDI / DMX) | – |
 | Dec 7 – 18 | migration 2, generators read the texts, Wanted-image briefs | LIVE phase 2 (protocol, outputs, hosted relay) | **writes**: Top Toy toon, characters, places, season / chapter scripts (until Feb 5) |
-| Jan 4 – 22 | artist brief + references export; #61's generators on the texts | LIVE phases 3–4 (audience, stage builder, rehearsal) | publishes the texts as canon |
+| Jan 4 – 22 | artist brief + references export; #61's generators on the texts | LIVE phases 3–4 (audience, stage builder, rehearsal) | publishes the texts (= Kanon) |
 | Jan 25 – Feb 5 | fixes, #56 / #74 parts the owner keeps in | LIVE phase 5 (full run-through) | – |
 | Feb 8 – 12 | **test week**: generators + briefs on the real texts | the stage experience on the real Top Toy chapter | freeze Feb 12 |
 
@@ -120,7 +122,7 @@ first show. Q8: no preference – the recommended five went in. Q1, Q4, Q5, Q6 (
 2. **Personas and looks: their own text each** (rec.: they are edited on their own cards, the generator picks exactly
    the persona / look of a figure) – or sections inside the character's one text?
 3. **Languages:** per language like the script, generators read en with the source as fallback (rec.) – or the
-   bible texts in English only?
+   Kanon texts in English only?
 4. **In production** (creator only): yes (rec.; needed by the MCP, generators, artists) – the 2026-10-01 default goes.
 5. **A toon text** (premise, tone, world rules – Top Toy's for the workshop): yes (rec.). A universe text (the art style
    for every generator) stays in `storyboards/style/` for now.
