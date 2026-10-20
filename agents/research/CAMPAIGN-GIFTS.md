@@ -1,4 +1,4 @@
-Status 2026-10-20: concept, owner answered §8 1–3, question 4 open (#66) – nothing of it is committed; a first newsletter-only build lies unused in the working tree (§9).
+Status 2026-10-20: concept decided (§8), being built (#66) – nothing of it is committed; a first newsletter-only build lies unused in the working tree (§9).
 
 # CAMPAIGN-GIFTS — SCUTOONS gives an item away: one campaign, several ways to hand it out
 
@@ -94,7 +94,8 @@ campaign.
 2. One campaign, several newsletters (a reminder) – yes; the claim stays once per address.
 3. A claimed physical gift without an address lapses 30 days after the window ends – yes (a reminder on the account page
    meanwhile).
-4. **Open – who of the recipients can take part** ("bitte mal die faelle auflisten. das muessen wir abwegen"):
+4. **Who can take part: b – members and QR owners without an account** (they make the account with their product
+   code); event contacts without a code get no button ("4b", after weighing the cases below):
 
 | # | Recipient | What the button does | Note |
 |---|---|---|---|
@@ -111,7 +112,7 @@ campaign.
 
 Ways to decide 4:
 - **a. members only (A, B, F):** simplest; QR owners without an account get the gift only after they sign up some other way.
-- **b. members + QR owners (A–D, F–J)** – recommended: the gift is the reason to finally make the account; risk G (a
+- **b. members + QR owners (A–D, F–J)** – **chosen**: the gift is the reason to finally make the account; risk G (a
   second account) is small and the same as today's sign-up page.
 - **c. b + event contacts (E)** with a personal promo code each: reaches everyone, but a giveaway then creates codes
   again – exactly what the owner wants to avoid.
