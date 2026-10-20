@@ -43,8 +43,11 @@ try {
 			const nx = b && fb ? b.x - fb.x : dx + n.x, ny = b && fb ? b.y - fb.y : dy + n.y, nw = b ? b.width : n.width, nh = b ? b.height : n.height;
 			return !(nx >= args.x + args.w || nx + nw <= args.x || ny >= args.y + args.h || ny + nh <= args.y);
 		};
+		// a frame that doesn't clip reaches as far as its children: a band's picture is 2340 wide in a 390-wide layer
+		// (#108 – by the layer's own box, band slides 2–6 came out white)
+		const reachesDeep = (n) => reaches(n, 0, 0) || (n.type === 'FRAME' && !n.clipsContent && n.children.some((k) => k.visible !== false && reaches(k, n.x, n.y)));
 		for (const n of f.children) {
-			if ((args.hide ?? []).includes(n.name) || n.visible === false || ids.has(n.id) || !reaches(n, 0, 0)) continue;
+			if ((args.hide ?? []).includes(n.name) || n.visible === false || ids.has(n.id) || !reachesDeep(n)) continue;
 			// a layer frame (not a group, not one holding a mask): a shell in its place with its look, its children
 			// that reach into the region inside, each with its own transform in the layer (rotation included)
 			if (args.layers && n.type === 'FRAME' && !n.children.some((k) => k.isMask)) {

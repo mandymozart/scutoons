@@ -504,13 +504,41 @@ export function variantsOk(dir, name, w, h) {
 	});
 }
 
-/** <dir>/png/<name>@{1,2,3}x.png → <dir>/slices/<name>{,.2x,.3x}.webp (PIL, quality 90; written to .tmp, then renamed) */
-export function webpVariants(dir, name) {
+/**
+ * <dir>/png/<name>@{1,2,3}x.png → <dir>/slices/<name>{,.2x,.3x}.webp (PIL, quality 90; written to .tmp, then renamed).
+ * pad { h, rgb }: a shorter piece is padded below to h (× the scale) in rgb (a group's end, #108)
+ */
+export function webpVariants(dir, name, pad = null) {
 	execFileSync('python', ['-I', '-c', `import os, sys
 from PIL import Image
-d, n = sys.argv[1], sys.argv[2]
+d, n, ph = sys.argv[1], sys.argv[2], int(sys.argv[3])
+rgb = tuple(int(c) for c in sys.argv[4].split(','))
 for s, suf in ((1, ''), (2, '.2x'), (3, '.3x')):
     out = f'{d}/slices/{n}{suf}.webp'
-    Image.open(f'{d}/png/{n}@{s}x.png').convert('RGB').save(out + '.tmp', 'WEBP', quality=90, method=6)
-    os.replace(out + '.tmp', out)`, dir, name]);
+    im = Image.open(f'{d}/png/{n}@{s}x.png').convert('RGB')
+    if ph and im.height < ph * s:
+        padded = Image.new('RGB', (im.width, ph * s), rgb)
+        padded.paste(im, (0, 0))
+        im = padded
+    im.save(out + '.tmp', 'WEBP', quality=90, method=6)
+    os.replace(out + '.tmp', out)`, dir, name, String(pad?.h ?? 0), (pad?.rgb ?? [255, 255, 255]).join(',')]);
 }
+
+/**
+ * a group's last piece as exported (<dir>/png/<name>@1x / @3x.png, #108): `flat` = all of it one colour (each channel
+ * within `tolerance`), `rgb` its colour; `bottom` = the colour of its bottom row at 3x when that row is one colour, else
+ * null → { flat, rgb, bottom }
+ */
+export function pieceLook(dir, name, tolerance = 8) {
+	return JSON.parse(execFileSync('python', ['-I', '-c', `import json, sys
+from PIL import Image
+d, n, tol = sys.argv[1], sys.argv[2], int(sys.argv[3])
+one = lambda ex: all(hi - lo <= tol for lo, hi in ex)
+mid = lambda ex: [(lo + hi) // 2 for lo, hi in ex]
+small = Image.open(f'{d}/png/{n}@1x.png').convert('RGB')
+big = Image.open(f'{d}/png/{n}@3x.png').convert('RGB')
+row = big.crop((0, big.height - 1, big.width, big.height)).getextrema()
+ex = small.getextrema()
+print(json.dumps({'flat': one(ex), 'rgb': mid(ex), 'bottom': mid(row) if one(row) else None}))`, dir, name, String(tolerance)]).toString());
+}
+export const hexOf = (rgb) => `#${rgb.map((c) => c.toString(16).padStart(2, '0')).join('')}`;

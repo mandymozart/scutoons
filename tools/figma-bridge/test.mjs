@@ -445,6 +445,18 @@ try {
 	assert.equal(draftFrame.children.length, 4, 'the draft is untouched');
 	step('plugin: region partial + layers – a shell per layer with its look, only the nodes in the slice, the frame\'s fills, hide / hideIds, no temporary frame left');
 
+	// a band (#108): its picture is 2340 wide in a 390-wide layer that doesn't clip – the last slide holds it too (by the
+	// layer's own box it was skipped: slides 2–6 came out white)
+	const bandFrame = fig.createFrame(); bandFrame.name = 'band draft'; bandFrame.resize(390, 844); fig.currentPage.appendChild(bandFrame);
+	const bandLayer = fig.createFrame(); bandLayer.name = 'storyboard'; bandLayer.resize(390, 844); bandLayer.clipsContent = false; bandFrame.appendChild(bandLayer);
+	const pano = fig.createRectangle(); pano.name = 'sb-28-4'; pano.resize(2340, 844); bandLayer.appendChild(pano);
+	fig.exports.length = 0;
+	const slide6 = await ask(fig, 'region', { frame: bandFrame.id, x: 1950, y: 0, w: 390, h: 844, hide: ['text', 'guides'], partial: true, layers: true, unclip: true, scales: [1] });
+	assert.equal(slide6.ok, true, slide6.error);
+	assert.deepEqual(fig.exports[0].children.map((c) => [c.name, c.x, c.children.map((k) => k.name)]), [['storyboard', -1950, ['sb-28-4']]], 'the band\'s last slide holds its picture');
+	bandFrame.remove();
+	step('plugin: region of a band slide – a layer that doesn\'t clip reaches as far as its children');
+
 	// dynamic-page: a node on a page that is not loaded – that page's `children` throws; export and region still work
 	const page3 = fig.createPage(); page3.name = 'not loaded';
 	const far = fig.createFrame(); far.name = 'far'; far.resize(390, 1300); page3.appendChild(far);

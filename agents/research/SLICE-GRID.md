@@ -1,4 +1,4 @@
-Status 2026-10-20: concept agreed – every owner question answered (§8); issues filed under #96: #107–#109 for chapter 3's first cut, the rest after them (chapters 4–5's storyboards on whole slices now, Q5). Nothing built yet. No stored format changes, no migration.
+Status 2026-10-20: concept agreed – every owner question answered (§8); issues filed under #96: #107–#109 for chapter 3's first cut, the rest after them (chapters 4–5's storyboards on whole slices now, Q5). Built: A (#107, the lines – on ch3–5's frames) and B (#108, the cutter); J (#109) confirmed on screen, its compile fix after Nov 15. No stored format changes, no migration.
 
 # SLICE-GRID — one slice size across the platform
 
