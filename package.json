@@ -41,6 +41,7 @@
 		"check:creator-flow-dock": "node scripts/dev/creator-flow-dock-check.mjs",
 		"check:creator-reader": "node scripts/dev/creator-reader-check.mjs",
 		"check:creator-collage": "node scripts/dev/creator-collage-check.mjs",
+		"check:creator-strip": "node scripts/dev/creator-strip-check.mjs",
 		"check:endless": "node scripts/dev/endless-check.mjs",
 		"check:endless-engines": "node scripts/dev/endless-engines-check.mjs",
 		"check:crossing": "node scripts/dev/crossing-check.mjs",

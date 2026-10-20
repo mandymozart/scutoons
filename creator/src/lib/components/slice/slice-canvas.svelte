@@ -49,7 +49,9 @@
 		presets,
 		onshown,
 		onselect,
-		oncreate
+		oncreate,
+		strip = null,
+		open = true
 	}: {
 		doc: ContentDoc;
 		slicePath: Path;
@@ -88,6 +90,13 @@
 		onselect?: (selection: CanvasSelection | null) => void;
 		/** a rect was drawn on empty space */
 		oncreate?: (tool: Tool, rect: Required<Rect>) => void;
+		/**
+		 * one slice of the strip editor (strip-canvas.svelte, TEXT-ACROSS-SLICES.md §4): its axis sizes it – vertical = the
+		 * reading width (the slice's 1x width, at most the area's), horizontal = the area's height; null = the one-slice canvas
+		 */
+		strip?: 'vertical' | 'horizontal' | null;
+		/** the open slice of the strip: it carries the test ids (the others are its neighbours) */
+		open?: boolean;
 	} = $props();
 
 	/** the slice as the reader shows it in `locale` (texts resolved – the editing below writes the document itself) */
@@ -225,6 +234,8 @@
 	let overlay = $state<HTMLDivElement | null>(null);
 	let imageLoaded = $state(false);
 	let imageError = $state(false);
+	/** the canvas's drawn width in px: 1 % of it is the in-place editor's text unit (--cqw – no container, see the CSS) */
+	let canvasPx = $state(0);
 	/** rendered heights (% of the slice) of text boxes without rect.height, by text box index */
 	let measured = $state<Record<number, number>>({});
 	/** rendered widths (% of the slice) of auto-width text boxes (fit 'width'), by text box index */
@@ -235,6 +246,7 @@
 	function measure() {
 		if (!canvas) return;
 		const height = canvas.clientHeight;
+		canvasPx = canvas.clientWidth;
 		if (!height) return;
 		const boxes: Record<number, number> = {};
 		const widths: Record<number, number> = {};
@@ -624,17 +636,20 @@
 <div
 	class="canvas-wrap"
 	class:fit={zoom === null}
+	class:strip-v={strip === 'vertical'}
+	class:strip-h={strip === 'horizontal'}
 	bind:this={wrap}
 	style:--slice-w="{sliceWidth}px"
 	style:--fit-h="calc(100cqh * {1 / sliceRatio})"
 	style:--zoom={zoom}
-	data-testid="canvas-wrap"
+	data-testid={open ? 'canvas-wrap' : 'strip-canvas-wrap'}
 >
 	<div
 		class="slice creator-canvas"
 		bind:this={canvas}
 		style:aspect-ratio={imageLoaded ? null : `${sliceWidth} / ${sliceWidth * sliceRatio}`}
-		data-testid="slice-canvas"
+		style:--cqw={canvasPx ? `${canvasPx / 100}px` : null}
+		data-testid={open ? 'slice-canvas' : 'strip-slice-canvas'}
 	>
 		{#if image}
 			<!-- the picture + its collage pieces: one blend group, under the lettering (COLLAGE.md §3) -->
@@ -698,7 +713,7 @@
 					class:auto-height={item.rect.height === undefined && item.kind !== 'item'}
 					style:transform={item.rotation || item.scale !== 1 ? `rotate(${item.rotation}deg) scale(${item.scale})` : null}
 					style:--box-scale={item.scale}
-					data-testid="box-{item.kind}-{item.index}"
+					data-testid="{open ? '' : 'strip-'}box-{item.kind}-{item.index}"
 					onpointerdown={(e) => beginEdit(e, item, 'move')}
 				>
 					{#if item.kind === 'dialog' && editingText === item.index}
@@ -707,7 +722,7 @@
 					{/if}
 					<span class="tag">{item.label}</span>
 					{#if item.revealedBy}
-						<span class="tag hidden-until" data-testid="hidden-until-{item.index}">{m['creator.reveal_hidden_until']({ event: item.revealedBy })}</span>
+						<span class="tag hidden-until" data-testid="{open ? '' : 'strip-'}hidden-until-{item.index}">{m['creator.reveal_hidden_until']({ event: item.revealedBy })}</span>
 					{/if}
 					{#if anchorHint && drag?.item?.kind === item.kind && drag.item.index === item.index}
 						<span class="tag anchor-hint" data-testid="anchor-hint">{m['creator.anchor_suggest']({ anchor: m[`creator.anchor_${anchorHint}`]() })}</span>
@@ -766,11 +781,30 @@
 			max-width: calc(2 * var(--slice-w));
 		}
 	}
+	/* the strip (TEXT-ACROSS-SLICES.md §4): vertical = the reading width (the slice's 1x width, at most the area's – a phone:
+	   its full width), the slices stacked without a gap; horizontal = the area's height, side by side */
+	.canvas-wrap.strip-v.fit {
+		max-width: var(--slice-w);
+	}
+	.canvas-wrap.strip-h {
+		margin: 0;
+	}
+	.canvas-wrap.strip-h.fit {
+		width: var(--fit-h);
+		max-width: none;
+	}
+	@media (max-width: 767px) {
+		.canvas-wrap.strip-v.fit {
+			max-width: none;
+		}
+	}
+	/* no container and no stacking context here or on the overlay (TEXT-ACROSS-SLICES.md §7): a box crossing into the next
+	   slice of the strip must paint – and take the pointer – over that slice's picture and overlay, also where an old
+	   engine makes a container a stacking context. The lettering's cqw come from the reader's .slice-layers; the in-place
+	   editor's from --cqw (1 % of the canvas, measured) */
 	.creator-canvas {
 		position: relative;
 		width: 100%;
-		/* same as the reader's .slice: dialog font sizes are cqw */
-		container-type: inline-size;
 		background: var(--surface-panel);
 		user-select: none;
 	}
@@ -786,12 +820,11 @@
 		text-align: center;
 		color: var(--error);
 	}
+	/* z-index auto: its boxes (z 2, selected 3) lie over every slice's lettering (.slice-layers, z 1) and over the next
+	   slice's overlay – the overlay itself (empty space: drawing) stays under all lettering */
 	.overlay {
 		position: absolute;
 		inset: 0;
-		z-index: 3;
-		/* cqw for the in-place text editor (the reader's text sizes are in cqw of the slice) */
-		container-type: inline-size;
 		cursor: crosshair;
 		touch-action: none;
 	}
@@ -803,6 +836,7 @@
 		pointer-events: none;
 	}
 	.grid {
+		z-index: 1;
 		opacity: 0.5;
 	}
 	.grid.dragging {
@@ -820,7 +854,7 @@
 	.guides {
 		position: absolute;
 		inset: 0;
-		z-index: 2;
+		z-index: 4;
 		width: 100%;
 		height: 100%;
 		pointer-events: none;
@@ -842,6 +876,7 @@
 		outline: 1px dashed rgba(255, 255, 255, 0.8);
 		outline-offset: -2px;
 		cursor: move;
+		z-index: 2;
 	}
 	.box.kind-dialog {
 		border-color: var(--cyan);
@@ -862,11 +897,12 @@
 		border-width: 2px;
 		border-style: solid;
 		background: rgba(0, 209, 255, 0.08);
-		z-index: 2;
+		z-index: 3;
 	}
 	.box.ghost {
 		border-style: dashed;
 		pointer-events: none;
+		z-index: 3;
 	}
 	.tag {
 		position: absolute;

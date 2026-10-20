@@ -10,7 +10,8 @@
 	/**
 	 * The slice editor's tool strip, left of the canvas (UI-CONCEPTS E.4, owner 2026-10-07): two square vertical groups.
 	 * **View** – the grid (pressed = snap on, its size in the corner; hold, right-click, the number or → open the sizes),
-	 * the zoom (opens zoom out · % · zoom in · fit · 1:1 – the Flow's square group), and with texts holding `{…}` the
+	 * the zoom (opens zoom out · % · zoom in · fit · 1:1 – the Flow's square group), the strip's seams (a hairline across
+	 * the art – TEXT-ACROSS-SLICES.md §4.1), and with texts holding `{…}` the
 	 * sample-reader preview (agents/EXPRESSIONS.md step 4). **Content** – the canvas tools, icon-only (owner 2026-10-03),
 	 * each tied to its inspector tab: text · item · piece (collage – research/COLLAGE.md §3) · sound · event. One flyout at a time, beside its button; Esc / a click outside closes it.
 	 */
@@ -123,6 +124,17 @@
 			data-testid="canvas-zoom"
 		>
 			<Icon name="zoom-in" />
+		</button>
+		<!-- the strip's seams as a hairline across the art (TEXT-ACROSS-SLICES.md §4.1; the numbers always show) -->
+		<button
+			type="button"
+			aria-pressed={view.seams}
+			aria-label={m['creator.canvas_seams']()}
+			title={m['creator.canvas_seams']()}
+			onclick={() => (view.seams = !view.seams)}
+			data-testid="seams-toggle"
+		>
+			<Icon name="scissors" />
 		</button>
 		{#if expressions}
 			<button
@@ -243,8 +255,9 @@
 	.flyout.at-2 {
 		--row: 1;
 	}
+	/* the sample preview: under the seams toggle */
 	.flyout.at-3 {
-		--row: 2;
+		--row: 3;
 	}
 	.flyout > button.word {
 		padding: 0 var(--space-05);

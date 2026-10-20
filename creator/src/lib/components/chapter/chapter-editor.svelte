@@ -38,7 +38,8 @@
 	import { loadIncoming, loadToonDocs } from '$lib/editor/toon-facts.ts';
 	import { JumpPlaces, setJumpPlaces } from '$lib/editor/jump-places.svelte.ts';
 	import type { ReachMark } from '$lib/components/chapter/reach-chip.svelte';
-	import SliceCanvas, { type Tool } from '$lib/components/slice/slice-canvas.svelte';
+	import { type Tool } from '$lib/components/slice/slice-canvas.svelte';
+	import StripCanvas from '$lib/components/slice/strip-canvas.svelte';
 	import { piecePlace } from '$lib/editor/canvas-pieces.ts';
 	import type { PickedPiece } from '$lib/editor/collage-pick.ts';
 	import { followPieces, piecesMoved } from '$lib/editor/collage-edit.ts';
@@ -355,11 +356,12 @@
 	// the canvas and the inspector show the top bar's TEXT language (default the source; owner
 	// 2026-10-06: one language everywhere, the header's switch the only one)
 	const displayLocale = $derived(textLanguage.current(languages.languages, languages.source));
-	// snap, grid size and zoom are remembered on this device
+	// snap, grid size, zoom and the seams toggle are remembered on this device
 	$effect(() => {
 		void view.snap;
 		void view.gridSize;
 		void view.zoom;
+		void view.seams;
 		view.savePrefs();
 	});
 	// the Flow / Problems / Reader the last page docked stay open here (taken over, not remounted – UI-CONCEPTS E.3 b);
@@ -416,7 +418,7 @@
 	function togglePanel(next: PanelKind) {
 		open[next] = !open[next];
 	}
-	let canvas = $state<SliceCanvas | null>(null);
+	let canvas = $state<StripCanvas | null>(null);
 	/**
 	 * Ctrl / Cmd + wheel over the slice area zooms the canvas (also with the zoom flyout closed; a trackpad's pinch is the
 	 * same event), 50–300 %, the point under the pointer stays put (UI-CONCEPTS E.4). Non-passive: it replaces the
@@ -1255,14 +1257,17 @@
 						<p>{m['creator.loading']()}</p>
 					{/if}
 				{:else if view.section === 'slice' && activeDoc && activeSlice}
-					<!-- the tool strip left of the canvas, the canvas fills the rest (UI-CONCEPTS E.4) -->
+					<!-- the tool strip left of the canvas, the canvas fills the rest (UI-CONCEPTS E.4); the canvas is the group's strip –
+					     every slice, the open one holds the selection (TEXT-ACROSS-SLICES.md §4) -->
 					<div class="slice-room">
 					<SliceToolbar {view} expressions={sliceHasExpressions(activeSlice)} />
 					<div class="canvas-scroll" {@attach wheelZoom} data-testid="canvas-area">
-						<SliceCanvas
+						<StripCanvas
 							bind:this={canvas}
 							doc={activeDoc}
-							{slicePath}
+							{groupPath}
+							active={view.sliceIndex}
+							seams={view.seams}
 							locale={displayLocale}
 							grid={view.grid}
 							tool={view.tool}
@@ -1273,8 +1278,15 @@
 							pieceName={(p) => pieceLabel(p, choices?.registry, choices?.moods)}
 							presets={collagePresets}
 							onshown={(f) => (view.shownZoom = f)}
-							onselect={(next) => view.select(next)}
-							oncreate={(t, rect) => CREATE[t](rect)}
+							onselect={(i, next) => {
+								view.focusSlice(i);
+								view.select(next);
+							}}
+							oncreate={(i, t, rect) => {
+								view.focusSlice(i);
+								CREATE[t](rect);
+							}}
+							oncentre={(i) => !view.selection && view.focusSlice(i)}
 						/>
 					</div>
 					</div>

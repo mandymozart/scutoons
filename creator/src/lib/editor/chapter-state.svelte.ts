@@ -17,6 +17,7 @@ export const GRID_SIZES = [5, 10, 15, 30];
 const SNAP_KEY = 'scutoons_creator_snap';
 const GRID_KEY = 'scutoons_creator_grid';
 const ZOOM_KEY = 'scutoons_creator_zoom';
+const SEAMS_KEY = 'scutoons_creator_seams';
 /** the slice canvas's zoom range (owner 2026-10-07, UI-CONCEPTS E.4): 50–300 % of the slice's 1x width */
 export const ZOOM_MIN = 0.5;
 export const ZOOM_MAX = 3;
@@ -63,6 +64,11 @@ export class ChapterView {
 	 * its width) – remembered on this device (UI-CONCEPTS E.4)
 	 */
 	zoom = $state<number | null>(readPref(ZOOM_KEY, null, (v) => v === null || (typeof v === 'number' && v >= ZOOM_MIN && v <= ZOOM_MAX)));
+	/**
+	 * the strip's seams as a hairline across the art (agents/research/TEXT-ACROSS-SLICES.md §4.1, the View toggle; the slice
+	 * numbers at the seams always show) – remembered on this device
+	 */
+	seams = $state(readPref(SEAMS_KEY, false, (v) => typeof v === 'boolean'));
 	/** the factor the canvas is shown at (measured – in fit mode too): the zoom's percentage, the steps start from it */
 	shownZoom = $state(1);
 	/** the item tool's click on the canvas: where the picked item goes */
@@ -105,6 +111,7 @@ export class ChapterView {
 			localStorage.setItem(SNAP_KEY, JSON.stringify(this.snap));
 			localStorage.setItem(GRID_KEY, JSON.stringify(this.gridSize));
 			localStorage.setItem(ZOOM_KEY, JSON.stringify(this.zoom));
+			localStorage.setItem(SEAMS_KEY, JSON.stringify(this.seams));
 		} catch {
 			/* not remembered */
 		}
@@ -127,6 +134,16 @@ export class ChapterView {
 		this.selectGroup(index);
 	}
 	selectSlice(index: number) {
+		this.sliceIndex = index;
+		this.selection = null;
+		this.section = 'slice';
+	}
+	/**
+	 * the strip (TEXT-ACROSS-SLICES.md §4): the slice in the view's centre, or the one a pointer went down on, becomes the
+	 * open slice – without the jump of selectSlice (the strip scrolls itself); a selection on another slice is let go
+	 */
+	focusSlice(index: number) {
+		if (index === this.sliceIndex && this.section === 'slice') return;
 		this.sliceIndex = index;
 		this.selection = null;
 		this.section = 'slice';

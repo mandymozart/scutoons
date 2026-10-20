@@ -411,6 +411,8 @@
 		"canvas_zoom": "Zoom {percent} % – Strg + Mausrad über dem Slice",
 		"canvas_zoom_fit": "Einpassen",
 		"canvas_zoom_1x": "Originalgröße (1:1)",
+		"canvas_seams": "Nähte über dem Bild",
+		"strip_slice": "Slice {number} im Streifen",
 		"canvas_preview": "Vorschau der Texte mit Ausdrücken",
 		"slice_item_change": "Gegenstand wählen …",
 		"respawn_item_never": "Dieser Gegenstand taucht nie wieder auf (Katalog) – ein einmaliger Fund. Welche Gegenstände wiederkommen, legt der Katalog fest.",

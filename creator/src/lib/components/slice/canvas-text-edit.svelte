@@ -91,8 +91,9 @@
 ></textarea>
 
 <style>
-	/* over the box, set like the reader's text (shared/reader dialog.svelte: size in cqw of the slice – the canvas overlay
-	   is the inline-size container); paper behind it while editing, the live frame around it */
+	/* over the box, set like the reader's text (shared/reader dialog.svelte: size in cqw of the slice – here --cqw, 1 % of
+	   the canvas: no container around the boxes, slice-canvas.svelte); paper behind it while editing, the live frame
+	   around it */
 	.canvas-text-edit {
 		position: absolute;
 		inset: 0 0 auto;
@@ -107,7 +108,7 @@
 		outline: var(--border-width-regular) solid var(--select-live-border);
 		background: var(--paper);
 		color: var(--ink);
-		font-size: calc(var(--size) * 1cqw);
+		font-size: calc(var(--size) * var(--cqw, 1cqw));
 		line-height: 1.15;
 		white-space: pre-wrap;
 		resize: none;

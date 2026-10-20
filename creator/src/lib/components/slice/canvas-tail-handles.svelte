@@ -198,7 +198,8 @@
 	/* the tip: a round ink dot (like the canvas' round handles); the base: a paper diamond on the outline */
 	.handle {
 		position: absolute;
-		z-index: 2;
+		/* over the selected box (z 3, slice-canvas.svelte) */
+		z-index: 4;
 		width: 0.875rem;
 		height: 0.875rem;
 		box-sizing: border-box;
