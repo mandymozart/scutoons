@@ -132,23 +132,49 @@ final class ApiTokensApiTest extends TestCase
     {
         [$admin] = $this->session([Roles::ADMIN, 'creator'], 'admin@scutoons.test');
         $ai = ['Authorization' => 'Bearer ' . $this->token($admin)];
+        $id = '01a10b79-f3c4-7aaf-8d00-2402d01438a4';
         $refused = [
             ['POST', '/api/auth/session'],
             ['POST', '/api/auth/logout'],
             ['GET', '/api/me/tokens'],
             ['POST', '/api/me/tokens'],
+            ['POST', "/api/me/tokens/$id/renew"],
+            ['DELETE', "/api/me/tokens/$id"],
             ['POST', '/api/entities/moods/publish'],
+            ['POST', '/api/entities/moods/unpublish'],
+            // the batch publish (#100)
+            ['POST', '/api/entities/publish'],
+            ['POST', '/api/entities/publish/'],
             ['POST', '/api/reviews/publish'],
-            ['POST', '/api/embassy/orgs/01a10b79-f3c4-7aaf-8d00-2402d01438a4/mail'],
+            ['POST', '/api/reviews/return'],
+            // new bytes under a published file reach readers at once (agents/MCP.md §2: replace-in-place = a proposal)
+            ['PUT', '/api/assets/replace?path=catpope/images/x.png'],
+            // a mail to someone else: an invite (a person without an account), a gift (another reader)
+            ['POST', '/api/invites'],
+            ['POST', '/api/inventory/gift'],
+            ['POST', "/api/embassy/orgs/$id/mail"],
+            ['DELETE', "/api/embassy/orgs/$id"],
+            ['POST', '/api/embassy/import'],
             ['PUT', '/api/admin/catalog/items/camera'],
-            ['PUT', '/api/admin/proposals/01a10b79-f3c4-7aaf-8d00-2402d01438a4'],
+            ['PUT', "/api/admin/proposals/$id"],
             ['POST', '/api/admin/codes'],
+            // routing decodes %xx (Slim's RouteResolver) – so does the guard
+            ['POST', '/api/entities/%70ublish'],
+            ['POST', '/api/entities/moods/%70ublish'],
+            ['PUT', '/api/%61dmin/catalog/items/camera'],
+            ['PUT', '/api%2Fadmin/catalog/items/camera'],
         ];
+        $answers = [];
         foreach ($refused as [$method, $path]) {
             $r = $this->request($method, $path, $ai, []);
-            self::assertSame([403, 'not_for_ai'], [$r->getStatusCode(), self::json($r)['error'] ?? null], "$method $path");
+            $answers["$method $path"] = $r->getStatusCode() . ' ' . (self::json($r)['error'] ?? '');
         }
-        // reading the admin data and proposing stay possible
+        self::assertSame(array_fill_keys(array_keys($answers), '403 not_for_ai'), $answers);
+        // a draft and its restore stay possible (the creator publishes), so do reading the admin data and proposing
+        $r = $this->request('PUT', '/api/entities/moods', $ai, ['content' => ['moods' => [['id' => 'happy', 'label' => ['en' => 'Happy']]]]]);
+        self::assertSame(200, $r->getStatusCode(), (string) $r->getBody());
+        $r = $this->request('POST', '/api/entities/moods/restore', $ai, ['id' => self::json($r)['version']['id']]);
+        self::assertSame([200, 'draft'], [$r->getStatusCode(), self::json($r)['version']['status'] ?? null], (string) $r->getBody());
         self::assertSame(200, $this->request('GET', '/api/admin/dashboard', $ai)->getStatusCode());
         self::assertSame(201, $this->request('POST', '/api/admin/proposals', $ai, ['title' => 'x', 'changes' => [['type' => 'asset', 'path' => 'a.webp', 'source' => null, 'usages' => 0]]])->getStatusCode());
     }

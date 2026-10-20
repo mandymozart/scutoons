@@ -36,7 +36,7 @@ The AI never publishes, sends or applies. It saves a draft and hands back the li
 | `propose_changes` | a proposal (`/api/admin/proposals`) | `admin…/proposals/<id>`: before → after, **Apply** or Dismiss |
 
 The API enforces it too: a personal token is refused (403 `not_for_ai`, `server/src/Http/ApiTokenScope.php`) on publish,
-review decisions, sending a mail, admin changes other than proposals, sign-in and managing tokens. Saves through a token
+replacing a file in place, review decisions, sending a mail, admin changes other than proposals, sign-in and managing tokens. Saves through a token
 are signed "(AI: <connection name>)" in the history. `save_draft` validates first (the creator's checks; errors refuse
 the save unless `allow_errors`), and a newer save since `base` answers 409.
 
