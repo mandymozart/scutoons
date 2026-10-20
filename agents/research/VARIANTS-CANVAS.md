@@ -1,4 +1,4 @@
-Status 2026-10-20: concept – owner to choose (§6 questions; static mockup, nothing built; statuses as icon bullets, set on the selected card – no right-click menu, 3.3; Q6 answered). Issue #62; the generators' side: #61 (research/GENERATORS.md).
+Status 2026-10-20: concept – Q1–Q4 + Q6 answered (Q4 not as recommended: one band per picked shot now, 3.2), Q5 open (§6: a comparison page); static mockup, nothing built; statuses as icon bullets, set on the selected card (3.3). Issue #62; the generators' side: #61 (research/GENERATORS.md).
 
 # VARIANTS-CANVAS – every generation of a shot on one board (concept, 2026-10-19)
 
@@ -6,12 +6,12 @@ Owner 2026-10-19 (storyboard studio): "variants can be a huge open canvas with e
 scroll and compare generation to each other. and pick the one we like. the generator takes previous as reference so we
 can improve on them, right="
 
-Mockup (static HTML on the real tokens, 1440 × 900): [variants-canvas.html](studio-layout/variants-canvas.html).
+Mockup (static HTML, the real tokens, 1440 × 900): [variants-canvas.html](studio-layout/variants-canvas.html) – 3 bands.
 Builds on research/STUDIO-LAYOUT.md (stage 2: the main's editor switch, §4 C "Compare"), research/TIMELINE.md (the view
 modes), research/GENERATORS.md (#61: `transport` api / local / manual, the kinds, the Image | Video switch, the record's
 `kind` + `take`), the studio README "The layout" / "Generators", DESIGN "Order is space, time is clips".
-**In scope**: the board (pan / zoom, every generation of the current shot side by side, compare, pick) and "improve on
-this". **Not here** (GENERATORS / #61): the kind split, caps, the Image | Video switch, new providers, the budget.
+**In scope**: the board (a band per picked shot, pan / zoom, every generation side by side, compare, pick) and "improve
+on this". **Not here** (GENERATORS / #61): the kind split, caps, the Image | Video switch, new providers, the budget.
 
 ## 1. The answer first – "the generator takes previous as reference … right?"
 
@@ -53,41 +53,50 @@ What "reference" means for the models built (docs.dev.runwayml.com/api.md, read 
 
 ## 3. The concept
 
-### 3.1 Where it lives: the main view's editor "Variants"
+### 3.1 Where it lives: the main view's editor "Variants" (Q1, owner 2026-10-20: as recommended)
 - The main gets stage 2's editor switch (STUDIO-LAYOUT §4 C) – a square `Segmented` in its tool row, key **V**:
   **Viewport · Variants**. Viewport = stage 2's "3D" (the 3D view, the take's camera or the clip's video, following the
   timeline); Frames joins later. The board takes stage 2's Compare editor's place; Compare becomes a split in it (3.4).
 - **Generate opens Variants** (a step remembers its main view); every other step keeps the Viewport.
-- **The Variants panel leaves the dock** – everything it holds moves onto the board (frame, layout variants, generated,
-  drops); its grid icon moves from the top bar's panel group to the main's switch; stage 2's tab column has no Variants
-  tab. Generate's dock = the Generate panel (22rem): at 1440 the board gets ~64rem.
-- **Order stays space**: the shot list is the toon order; the board shows the **current** shot (the last clicked of the
-  picked) and follows it (the list, ‹ › in the ActionBar, a click or seek on the timeline).
+- **The Variants panel leaves the dock** – everything it holds moves onto the board (frame, layout variants (Q5),
+  generated, drops); its grid icon moves from the top bar's panel group to the main's switch; stage 2's tab column has
+  no Variants tab. Generate's dock = the Generate panel (22rem): at 1440 the board gets ~64rem.
+- **Order stays space**: the shot list is the toon order; the board shows **every picked shot**, a band each in that
+  order (3.2), and scrolls to the **current** one (the last clicked) when the list, ‹ ›, the timeline or a band moves it.
 - **Two cuts of the same clips**: the timeline = ONE clip per picked shot along time; the board = ALL candidates of the
-  current shot in space. Its sources are the view modes' clips (Shot = the render, Take / Rendered = the take and its
-  passes); its generations are what Generated chooses from. **Play** needs a picture: it switches the main to Viewport
-  (V goes back to the board).
-- **Audition** (Q3): while the board is open, the shot's Generated clip is the **current card** (tagged "audition"; a
-  rejected one: the chosen) – Play shows it between its neighbours; the chosen again when the board closes.
+  picked shots in space – the same set, the same order (band n = clip n). Its sources are the view modes' clips (Shot =
+  the render, Take / Rendered = the take and its passes); its generations are what Generated chooses from. **Play**
+  needs a picture: it switches the main to Viewport (V goes back to the board).
+- **Audition** (Q3): while the board is open, the **current shot's** Generated clip is the **current card** (tagged
+  "audition"; a rejected one or a source: the chosen) – Play shows it among the picked shots' clips; the chosen on close.
 
-### 3.2 The layout on the board – rows of results (Q2)
-Laid out by the data – nobody drags or wires (FLORA / Krea / Weave node graphs are the anti-pattern for one shot):
-- **Column 0 = the sources**: the render without texts (what the generators get; the saved frame is the same card), one
-  card per take (its beauty pass), the layout variants (Q5), dropped images.
-- **A parent's results form one row**, oldest left, newest right – a new run lands at the row's end. A source's results
-  sit on its own row; a generation's results open a **new row under it, one column right of it**. So alternatives sit
-  side by side (the comparison you make most), improvements walk down and right.
-- A generation with several generated inputs (Aleph's video + a keyframe) hangs under its **main input** (the still or
-  the video); the others are named in its tooltip – one line into every card.
-- **Lines** (2px ink): a comb above each row with a tick into every result, a drop from the parent into it. Child rows
-  follow right under their parent's row, the rightmost parent's first – no line crosses.
-- **One card size** per shot – its aspect (another ratio is letterboxed). At 100 % a picture is 9rem tall.
-- **Pan / zoom** (the Timeline's keys): wheel scrolls, Shift + wheel sideways, a drag on the background pans, Ctrl + wheel /
-  + / − zoom about the pointer, **0** fits all; the zoom % in the tool row; below ~60 % the captions hide. No minimap
-  (≤ ~50 cards per shot).
-- **Keys** (board focused): ← → in the row, ↑ ↓ the row above / below (nearest column), Ctrl + click adds to the
-  selection (as in the shot list), **Enter** chosen (= approve), **R** review / none, **X** reject / unreject (3.5),
-  **I** improve, **C** compare, **Esc** steps back: Compare, a look, selection.
+### 3.2 The layout – a band per picked shot, rows of results in it (Q4, Q2)
+- **Bands** (Q4, owner 2026-10-20: "One band per shot NOW"): one horizontal band per picked shot, stacked in toon order
+  – the board scrolls down through them, continuity reads top to bottom; one shot picked = one band, as before.
+- **A band's head**, one line: fold button (round, 1rem from the left, as the bottom region's rail), review dot, id,
+  format, "n done · cost"; it sticks to the top while its band scrolls by. The **current** band (the shot the panels
+  edit) has its head inverted, as the shot list's row; a click in a band makes its shot current (a pan doesn't).
+- **Folding** (DOCKING's fold to a rail, lying down): a band folds to its head line, a click on the line unfolds it;
+  not remembered (a newly picked shot opens unfolded, as a dock panel). A folded band loads nothing; keys skip it.
+- **In a band**, laid out by the data (Q2, owner 2026-10-20: rows of results, as recommended) – nobody drags or wires
+  (FLORA / Krea / Weave node graphs are the anti-pattern for one shot):
+  - **Column 0 = the sources**: the render without texts (what the generators get; the saved frame is the same card),
+    one card per take (its beauty pass), the layout variants (Q5), dropped images.
+  - **A parent's results form one row**, oldest left, newest right – a new run lands at the row's end. A source's
+    results sit on its own row; a generation's results open a **new row under it, one column right of it**. So
+    alternatives sit side by side (the comparison you make most), improvements walk down and right.
+  - A generation with several generated inputs (Aleph's video + a keyframe) hangs under its **main input** (the still
+    or the video); the others are named in its tooltip – one line into every card.
+  - **Lines** (2px ink): a comb above each row with a tick into every result, a drop from the parent into it. Child
+    rows follow right under their parent's row, the rightmost parent's first – no line crosses.
+- **One card size** per shot – its aspect (another ratio is letterboxed); **one picture height in all bands** (9rem at
+  100 %) – a 1:3 beside a 9:16 compares at one size; a column stays a caption wide (a narrow picture leaves room).
+- **Pan / zoom** (the Timeline's keys): wheel scrolls (down through the bands), Shift + wheel sideways, a drag on the
+  background pans, Ctrl + wheel / + / − zoom about the pointer (one zoom for all bands), **0** fits the widest band's
+  width; the zoom % in the tool row; below ~60 % the captions hide. No minimap (≤ ~50 cards per shot; bands fold).
+- **Keys** (board focused): ← → in the row, ↑ ↓ the row above / below (nearest column; over a band's edge = the next
+  band, its shot current), Ctrl + click adds to the selection (any band; the current shot stays), **Enter** chosen
+  (= approve), **R** review / none, **X** reject / unreject (3.5), **I** improve, **C** compare, **Esc** steps back.
 
 ### 3.3 The cards
 - Picture: the image, or a video's poster (its first frame, cut once by ffmpeg, cached by mtime); a video **scrubs under
@@ -100,16 +109,17 @@ Laid out by the data – nobody drags or wires (FLORA / Krea / Weave node graphs
 - **Selected** (2–4, for Compare): the caption inverted with its letter A–D. The **current** card (the last clicked) gets
   its actions under it, above the row below – two square groups: the **status** ✓ · ? · ✕ (pressed = its status; again
   = none) and Improve on this · Vary · More ▾ (Add to / Remove from Compare, Still First | <time> | Last for a video or
-  Use as start frame / keyframe, Show the file, Delete). **No right-click menu** – the owner took it back the same day:
-  "sorry, correction. the right click is when you select. that is better … my mistake the design was better".
+  Use as start frame / keyframe, Show the file, Delete). **No right-click menu** (owner 2026-10-20: "the right click is
+  when you select. that is better … my mistake the design was better").
 - **Running**: a placeholder where the result will land – the house progress bar and the estimate. Cancel and failures
   stay in the Generate panel's Jobs list (it also holds the other shots' jobs) – the board shows results only.
 
 ### 3.4 Comparing
 - Select 2–4, then **C** or "Compare · n": the main splits – the board left, **Compare** right (a `Divider`, its width
   remembered; ✕ / Esc closes). T folds the shot list, N the step's panels – the board gets the window.
-- The cards side by side at the same height, letter + status bullet over each. **A is the reference** (the first
-  selected, by default the chosen): a click on another card replaces the last side – walk the board against a fixed one.
+- The cards side by side at the same height, each in its aspect – **from any bands** (continuity across shots: the
+  previous shot's chosen beside this one's candidate; a side names its shot then), letter + status bullet over each.
+  **A is the reference** (the first selected; default: the current shot's chosen): a click elsewhere replaces the last side.
 - Videos on **one clock** (Frame.io): one Play, one scrubber, the same moment in each; a shorter one holds its last frame.
 - Under each side: model · length · seed · cost, what it came from, the prompt.
 
@@ -130,14 +140,16 @@ Laid out by the data – nobody drags or wires (FLORA / Krea / Weave node graphs
     stamp, 3.7); the arrow keys skip strips. **A look, not a verdict**: a click on a strip opens it with its branch
     (muted, ✕ bullets; ✕ pressed in its status group) until the current card leaves it, or Esc – owner 2026-10-20: "a
     rejected tree is folded. unfolding makes it always possible to dive in that tree and explore if nessecary"; inside it
-    the arrows walk the tree; a result wanted back: X on it. **Show rejected · n** (a square toggle in the tool row; hidden at 0, not remembered) opens all – arrows visit them.
+    the arrows walk the tree; a result wanted back: X on it. **Show rejected · n** (a square toggle in the tool row;
+    hidden at 0, not remembered) opens all, in every band – arrows visit them.
   - Rejected cards **stay out**: not in Compare (X on side B folds it and empties B), not the audition, no Approve /
     Improve / Vary. Not rejectable: the chosen (approve another first) and the sources.
 
 ### 3.6 "Improve on this"
-- **I** / ⚡ on a card fills the Generate panel, which then starts with "Improve on g2" and the card's thumbnail (✕ = back
-  to the shot's own inputs), the card's prompt (editable; the edit is kept with the result) and the seed **New** (or the
-  card's). Nothing is sent: Generate asks with the cost as today; once sent, a placeholder lands in its child row.
+- **I** / ⚡ on a card makes its shot current and fills the Generate panel, which then starts with "Improve on g2" and the
+  card's thumbnail (✕ = back to the shot's own inputs), the card's prompt (editable; the edit is kept with the result)
+  and the seed **New** (or the card's). Nothing is sent: Generate asks with the cost as today; once sent, a placeholder
+  lands in its child row – in the card's own band.
 - The card goes in as the input its kind fits – in today's panel fields; with #61 the Image | Video switch decides what
   comes out and which of these the panel offers (GENERATORS §4, not redesigned here):
   - **image** → the still (gen4_turbo / gen4.5: the first frame) or comfy-local's image 1 (an edit, `--from`);
@@ -149,7 +161,7 @@ Laid out by the data – nobody drags or wires (FLORA / Krea / Weave node graphs
 - **Frame → still**: the first / last / scrubbed frame of a video becomes an image input. A last frame → image to video
   makes a NEW clip from where the old one ends, not an extension.
 
-### 3.7 Data + server – what each generation records
+### 3.7 Data + server – what each generation records (the bands change only the GET)
 - **Lineage record**: `generated.jsonl` stays the log; each line becomes v2 –
   `{ v: 2, id: "sb-25-2--g6", file, kind: "image" | "video", take: "<take id>" | null, generator, model, mode, job,
   status, parents: ["sb-25-2--g3"], inputs: [{ role: "still" | "control" | "keyframe" | "reference" | "character" |
@@ -166,8 +178,8 @@ Laid out by the data – nobody drags or wires (FLORA / Krea / Weave node graphs
   mark, marked }` appends `{ v: 2, id, mark, marked }` lines, the last per id wins (append-only – no rewrite racing comfy.mjs).
 - **Manual** ("Luma – by hand", `transport: 'manual'`): its result dropped on the manual form's slot in Generate is
   recorded as that generator's candidate – with the form's prompt, inputs and parent; a drop on the board is a source.
-- `GET /api/generated?ch&id` returns records – `[{ file, id, kind, take, parents, generator, model, prompt, seed, cost,
-  date, duration, approved, mark, marked }]` (approved from `from`): enough to lay out the board, its bullets and folds.
+- `GET /api/generated?ch&ids=…` returns the picked shots' records in one request – `[{ file, id, kind, take, parents,
+  generator, model, prompt, seed, cost, date, duration, approved, mark, marked }]` (approved from `from`): the board.
 - **Video → still**: `inputs()` offers the shot's generated videos as Aleph's video and `frame:<key>#first|last|<ms>`
   stills; `fileOf` cuts it with ffmpeg (api.mjs has it) to `_out/<ch>/generated/frames/`, cached by mtime; posters too.
 - **The existing log**: one conversion script (basenames resolved inside the chapter, roles from the generator's mode,
@@ -180,26 +192,28 @@ Laid out by the data – nobody drags or wires (FLORA / Krea / Weave node graphs
 1. **Record the lineage now** (~1 day, = GENERATORS §6 step 2): invisible, but every generation from then on carries its
    history – old runs can't get it back. v2 lines (+ `kind`, `take`, `mark`), seeds, failed jobs, uploads, `from` on
    approve, the naming fix, the conversion script, GET returns records; node tests (jobs, api, clips).
-2. **The board** (~3–3.5 days) – "a huge open canvas … pick the one we like": Viewport · Variants in the main, Generate
-   opens it, the Variants panel retires; sources, rows of results + lines (the layout a pure module with node tests –
-   strips, the branch strip and the lying row included), posters + hover scrub, pan / zoom / fit, select + keys, the
-   card's status group + bullets (chosen = approve, review, reject), the fold + Show rejected, running placeholders, drops,
-   layout variants as source cards. Board, card, strip and lines as separate components (≤ 300 lines each), maths in `lib/`.
+2. **The board** (~4.5–5 days, the bands ~1.5 of it – Q4) – "a huge open canvas … pick the one we like": Viewport ·
+   Variants in the main, Generate opens it, the Variants panel retires; **a band per picked shot** (head, fold, the
+   current band + the scroll to it, keys across bands, posters for the bands in view); sources, rows of results + lines
+   (a pure layout module with node tests – strips, branch strip, lying row, the bands' stacking), posters + hover scrub,
+   pan / zoom / fit, select + keys, the status group + bullets, the fold + Show rejected, running placeholders, drops,
+   layout variants as source cards (Q5's A; B ≈ ¼ day less). Board, band, card, strip, lines ≤ 300 lines each, maths in `lib/`.
 3. **Improve on this** (~1.5 days): the pre-fill, Vary, use as start frame / keyframe, generated videos as Aleph's
    video, frame → still, comfy `--from`, the manual result slot.
-4. **Compare** (~1–1.5 days): the split, A pinned, one clock; the audition on the timeline (Q3).
-5. **Later, when wanted**: a wipe between two and the prompt's differences marked; "clean up rejected" (their files);
-   one band per picked shot (Q4); a minimap past ~50 cards.
+4. **Compare** (~1.25–1.75 days): the split, A pinned, one clock, sides from any band; the audition on the timeline (Q3).
+5. **Later, when wanted**: a wipe between two and the prompt's differences marked; a cut view (A's last frame beside B's
+   first); "clean up rejected" (their files); a minimap past ~50 cards.
 
-Effort 1–4: ~6.5–7.5 agent days with checks (`npm run check`, `check:tools-css`, the studio's node tests, the Generate
-step in the browser at 1440 and 1920). Not counted (GENERATORS rollout, #61): caps and the switch, Aleph keyframes ≤ 5,
-gen4_image, the Luma API, the budget.
+Effort 1–4: ~8.25–9.25 agent days with checks (was ~6.5–7.5 – the bands add ~1.75; `npm run check`, `check:tools-css`,
+the studio's node tests, the Generate step in the browser at 1440 and 1920). Not counted (GENERATORS rollout, #61): caps
+and the switch, Aleph keyframes ≤ 5, gen4_image, the Luma API, the budget.
 
 ## 5. Risks
 
-- **Room at 1440**: board + Compare + Generate (22rem) is the tight case – the mockup is that case (cards at 90 %); T / N
-  give the board the window.
-- **Many videos**: posters only, one live `<video>` (the hovered card) and ≤ 4 in Compare – never 50 playing at once.
+- **Room at 1440**: board + Compare + Generate (22rem) is the tight case – the mockup is that case (cards at 80 %, three
+  bands, the board scrolls); T / N give the board the window.
+- **Many picked shots × many cards** (10 × 50 = 500): posters only, for the bands in view (lazy; a folded band loads
+  nothing, far bands are drawn as their height), one live `<video>` (the hovered card), ≤ 4 in Compare, one GET.
 - **Old generations** have no parents and partly unknown inputs – an honest "no record" row, no guessed lines.
 - **Improving a video costs**: Aleph 2 ≈ 1,25 € per 5 s against ≈ 0,22 € for gen4_turbo from a frame (ECB 2026-10-19). The estimate + the
   confirm stay per job; the budget gate is GENERATORS §6 step 3 – it comes before anything sends several jobs at once.
@@ -211,17 +225,12 @@ gen4_image, the Luma API, the budget.
 
 ## 6. Questions for the owner
 
-1. **Where** – the board as the main view's editor (Viewport · Variants, in the place of stage 2's Compare; Generate
-   opens it; the Variants panel retires), or a dock panel you maximize? → Recommended: the main – it needs the room, and
-   Generate must stay beside it.
-2. **Layout** – rows of results (a parent's results side by side; improving on one opens a row under it, one column
-   right; laid out automatically), or each run a row in time order, or a free canvas you arrange by hand? →
-   Recommended: rows of results, no dragging.
-3. **Audition** – while the board is open, does the timeline's Generated clip of the current shot play the current card
-   (tagged), so you see it between its neighbours before approving – or always the chosen? → Recommended: audition.
-4. **Several picked shots** – only the current shot's board, or one band per picked shot in toon order (continuity across
-   shots)? → Recommended: the current shot now; bands in phase 5.
-5. **Layout variants** ("Keep as variant") as source cards on the board – one place for everything a shot tried – or into
-   the Shot panel (Layout step)? → Recommended: source cards on the board.
-6. ~~Rejecting a card with results~~ – **answered** (owner 2026-10-20): the tree folds with it ("a rejected tree is
-   folded"), and unfolding it always lets you dive in and explore.
+1. ~~Where~~ – **answered** (owner 2026-10-20, as recommended): the main view's editor, Viewport · Variants (3.1).
+2. ~~Layout~~ – **answered** (owner 2026-10-20, as recommended): rows of results, laid out automatically, no dragging.
+3. ~~Audition~~ – **answered** (owner 2026-10-20, as recommended): the shot's Generated clip plays the current card, tagged (3.1).
+4. ~~Several picked shots~~ – **answered** (owner 2026-10-20: "One band per shot NOW" – over the recommendation (the
+   current shot first, bands later)): a band per picked shot in toon order (3.2), built in the board's phase (§4).
+5. **Layout variants** ("Keep as variant" – other blockings of the shot): source cards on the board – one place for all
+   a shot tried – or the Shot panel (Layout step)? → Recommended: the board. Owner 2026-10-20: "show me the difference
+   to decide" → the comparison: [variants-canvas-q5.html](studio-layout/variants-canvas-q5.html).
+6. ~~Rejecting a card with results~~ – **answered** (owner 2026-10-20): its tree folds with it, unfolding explores (3.5).
