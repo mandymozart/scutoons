@@ -1,4 +1,4 @@
-Status 2026-10-20: concept, all owner questions answered (§6; Q4 not as recommended: one band per picked shot now, 3.2) – ready to build, nothing built yet; static mockup; statuses as icon bullets, set on the selected card (3.3). Issue #62; the generators' side: #61 (research/GENERATORS.md).
+Status 2026-10-20: concept, all owner questions answered (§6; Q4 not as recommended: one band per picked shot now, 3.2) – being built in stages (owner 2026-10-20: "bitte gern schon anfangen mit dem Studio"); static mockup; statuses as icon bullets, set on the selected card (3.3). Issue #62; the generators' side: #61 (research/GENERATORS.md).
 
 # VARIANTS-CANVAS – every generation of a shot on one board (concept, 2026-10-19)
 
