@@ -1,4 +1,4 @@
-Status 2026-10-20: plan agreed (owner: Q2, Q3, Q7 answered; the other questions take the recommendation until the owner says otherwise); nothing built. Milestone "Top Toy workshop" (due 2027-02-17): #80–#91 + #28, #56, #62, #74, #75, #79. Building starts after chapter 3's release (#64, 2026-11-15).
+Status 2026-10-20: plan agreed – every question answered by the owner (§9); nothing built. Milestone "Top Toy workshop" (due 2027-02-17): #80–#91 + #28, #56, #62, #74, #75. Building starts after chapter 3's release (#64, 2026-11-15).
 
 # KANON — season / chapter scripts and the Kanon texts of characters, personas, looks, places (plan, 2026-10-20)
 
@@ -41,7 +41,7 @@ say how it is written and what tools read from it.
 | a persona | kanon | `kanon:character:<id>:<persona>:<l>` | What · Why different · Look · Rules |
 | a look | kanon | `kanon:character:<id>:<persona>:<look>:<l>` | Look · When |
 | a map place | kanon | `kanon:place:<id>:<l>` | Backstory · Scenery · Rules |
-| the toon (§9 Q5) | kanon | `kanon:toon:<toon>:<l>` | Premise · Tone · World rules |
+| every toon (catpope, toptoy, yellowmouse) | kanon | `kanon:toon:<toon>:<l>` | Premise · Tone · World rules |
 
 - Season and chapter scripts may both exist: a tool that needs chapter n takes the **chapter script**, else chapter n's
   part of the season script (`# n. Kapitel`). Cat Pope stays season-written, Top Toy is chapter-written.
@@ -89,7 +89,9 @@ what tools extract). Prose under `## ` headings; every section optional, the ord
   references.
 - **Artist brief + references** – per character / persona / look / place one page in the creator: the texts (Look /
   Scenery, Backstory, Rules) + the reference images (portraits per mood, A-pose, 3D model, place image, the style refs
-  in `storyboards/style/`), printable, "Download" as PDF / zip for external artists (§9 Q6).
+  in `storyboards/style/`). External artists get a **shareable link** to it (read-only, no account; revocable, the
+  creator lists the links it gave out); an artist who needs more gets a creator account and works inside the creator
+  (§9 Q6).
 - **The MCP** – reads and drafts every text (read_entity / save_draft know the kinds; the rules resource carries §4),
   so the member's own Claude can write backstories, translate and build briefs – also during the workshop.
 - **Performance mode** – the chapter script is where performers' lines and cues come from (LIVE B.2); optional.
@@ -110,28 +112,19 @@ Code complete **Fri 2027-02-05**; test week Feb 8–12 (every generator on the r
 Issues (new): the text model + editor · season / chapter scripts + migration 1 · character / persona / look texts ·
 place texts · generators read the texts (+ migration 2) · artist brief + references · MCP · generator test week ·
 the stage experience (performance mode, LIVE.md – as one issue or one per phase).
-Created 2026-10-20: #80 model + editor · #81 scripts + toon text · #82 character texts · #83 place texts · #84 MCP ·
+Created 2026-10-20: #80 model + editor · #81 scripts + toon texts · #82 character texts · #83 place texts · #84 MCP ·
 #85 generators · #86 briefs + references · #87 test week · #88 owner writes · #89–#91 LIVE phases 0–1, 2–3, 4–5.
 Moved in (owner: "add the character, location, scene, references to this milestone"): #56, #75, #74, #28, #62.
 
-## 9. Owner questions (recommendation first)
-Answered 2026-10-20: Q2 own text each · Q3 per language · Q7 the full LIVE Must list, the workshop instead of the
-first show. Q8: no preference – the recommended five went in. Q1, Q4, Q5, Q6 (#86), Q9 follow the recommendation.
-
-1. **Cat Pope's script = season 1's script?** Move it (migration 1) – yes.
-2. **Personas and looks: their own text each** (rec.: they are edited on their own cards, the generator picks exactly
-   the persona / look of a figure) – or sections inside the character's one text?
-3. **Languages:** per language like the script, generators read en with the source as fallback (rec.) – or the
-   Kanon texts in English only?
-4. **In production** (creator only): yes (rec.; needed by the MCP, generators, artists) – the 2026-10-01 default goes.
-5. **A toon text** (premise, tone, world rules – Top Toy's for the workshop): yes (rec.). A universe text (the art style
-   for every generator) stays in `storyboards/style/` for now.
-6. **External artists:** a brief page + PDF / zip download from the creator, sent by a member (rec.) – or a shareable
-   link for people without an account?
-7. **Performance mode in this milestone:** the stage experience needs it on Feb 17 – the full LIVE B.10 Must list
-   from Nov 16 (tight: ~11 weeks as planned before, now beside lane 1) or a cut to what the workshop's stage needs
-   (which: projection + conductor? audience phones? MIDI / DMX?). And: the workshop replaces the "first show Feb 1–14"?
-8. **Existing issues into the milestone:** character #56 (cast 3D models), #75 (pronouns); location #74 (3D rooms),
-   #28 (places ↔ story); scene #62 (studio stage 2; #55 stays in chapter 3); references – a new issue (§7). #61 stays in
-   chapter 3 for the gap prompts, its test on the texts is a new issue here. Which of these?
-9. **Dates:** code complete Feb 5, test week Feb 8–12, freeze Feb 12 – fine?
+## 9. Owner answers (2026-10-20)
+1. Cat Pope's toon script becomes season 1's script (migration 1) – "yes".
+2. Personas and looks: their own text each – "Own text each".
+3. Languages: per language like the script; generators read en, the source language as fallback.
+4. The texts live in production (creator only); the 2026-10-01 default "scripts are not in production" goes – "yes".
+5. A toon text for **every toon** – "so does cat pope and yellow mouse, each toon". A universe text (the art style for
+   every generator) stays in `storyboards/style/` for now.
+6. External artists: a **shareable link**, not a PDF / zip – "shareable link, we can try to get them to work inside the
+   creator if they need more info" (#86).
+7. Performance mode: the full LIVE Must list from Nov 16; the workshop replaces the first show Feb 1–14.
+8. The milestone takes #56, #75, #74, #28, #62 (no preference – the recommendation); #55 and #61 stay in chapter 3.
+9. Dates: code complete Fri Feb 5, test week Feb 8–12, freeze Fri Feb 12 – "we push through".
