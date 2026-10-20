@@ -38,6 +38,8 @@ const P = {
 	copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
 	maximize: '<path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>',
 	filter: '<path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>',
+	// Prompts (owner 2026-10-20: "prompts some stary symbol"): a big and a small four-point star
+	sparkles: '<path d="M10 3l1.8 5.2L17 10l-5.2 1.8L10 17l-1.8-5.2L3 10l5.2-1.8z"/><path d="M18 14l.9 2.1L21 17l-2.1.9L18 20l-.9-2.1L15 17l2.1-.9z"/>',
 	// the three views of a mood picture (draft E): head · bust · whole figure
 	vAvatar: '<circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M9 15.5c1.8 1.3 4.2 1.3 6 0"/>',
 	vPortrait: '<circle cx="12" cy="8" r="4.5"/><path d="M3 22c0-5.5 4-8.5 9-8.5s9 3 9 8.5"/>',
@@ -232,7 +234,7 @@ function cList() {
 	if (phone) return `<main class="pg" style="grid-area:main">${atabsPhone()}<div class="pad" style="display:flex;flex-direction:column;gap:var(--space-05);overflow:hidden">${filters(true)}<div>${body}</div></div></main>`;
 	return `<main class="pg" style="grid-area:main">${atabs(`<span class="btn">${ic('plus')} New character</span>`)}<div class="pad" style="display:flex;flex-direction:column;gap:var(--space-05);overflow:hidden;max-width:64rem">${filters()}<div>${body}</div></div></main>`;
 }
-const cInspTabs = (on) => `<div class="tabs">${[['user', 'Profile'], ['file', 'Kanon'], ['box', 'Model'], ['inbox', 'Wanted'], ['zap', 'Prompts']].map(([i, t], k) => `<span class="${k === on ? 'on' : ''}" title="${t}">${ic(i)}</span>`).join('')}</div>`;
+const cInspTabs = (on) => `<div class="tabs">${[['user', 'Profile'], ['file', 'Kanon'], ['box', 'Model'], ['inbox', 'Wanted'], ['sparkles', 'Prompts']].map(([i, t], k) => `<span class="${k === on ? 'on' : ''}" title="${t}">${ic(i)}</span>`).join('')}</div>`;
 const stageStrip = () => `<div class="filmstrip">${MOODS.slice(0, 12).map(([id, de], i) => `<div class="mood ${i === 0 ? 'on' : ''}"><div class="pic"><img src="${I('mood-' + id)}" alt="" /></div><span>${de}</span></div>`).join('')}</div>`;
 function cChar() {
 	if (phone) {
@@ -314,8 +316,8 @@ function kanonPanel() {
 		// persona row, look row; its dot = the state). EVERY inspector panel shows the level picked on the page (a tap on
 		// the head / a persona / a look; the page rings it) under the same title: its face · panel · level · name
 		const panel = ['profile', 'model', 'wanted', 'prompts'].find((x) => flags.includes(x)) ?? '';
-		const TABS = [['profile', 'user', 'Profile'], ['model', 'box', 'Model'], ['wanted', 'inbox', 'Wanted images'], ['prompts', 'zap', 'Prompts']];
-		const t = TABS.map(([id, i, w]) => `<span class="${id === panel ? 'on' : ''}" title="${w}">${ic(i)}</span>`).join('');
+		const TABS = [['profile', 'user', 'Profile'], ['model', 'box', 'Model'], ['wanted', 'inbox', 'Wanted images'], ['prompts', 'sparkles', 'Prompts']];
+		const t = TABS.map(([id, i, w]) => `<span class="${id === panel ? 'on' : ''}" title="${w}">${ic(i)}${id === 'model' ? '<b class="b3d">3D</b>' : ''}</span>`).join('');
 		const title = (what, lvl, name, state) => `<div class="ktitle"><img src="${I('av-catpope')}" alt="" /><span class="t"><span class="muted cap">${what} · ${lvl}</span><span>${name}</span></span><span class="grow"></span>${state ? chips([state]) : ''}</div>`;
 		let body;
 		if (panel === 'profile') body = title('Profile', 'Character', 'Katzenpapst', ['pub', 'published']) + `<div class="insp-scroll">${profile()}</div>`;
@@ -340,7 +342,7 @@ function phoneBottom() {
 	const back = `<span class="sq back">${ic('left')}</span>`;
 	if (screen === 'list') return `<footer class="bottom" style="grid-area:bottom">${act('plus', 'New')}${act('save', 'Save', { dim: true })}${act('cloud', 'Publish', { dot: true })}${act('more', 'More')}</footer>`;
 	// one row of functions with a ‹ back (owner 2026-10-19, #44): the page's kinds as icon squares
-	const kinds = V === 'c' || V === 'e' ? [['user', 'Profile'], ['file', 'Kanon'], ['grid', 'All moods'], ['box', 'Model'], ['inbox', 'Wanted'], ['more', 'More']] : V === 'a' ? [['user', 'Profile'], ['smile', 'Looks & moods'], ['file', 'Kanon'], ['inbox', 'Wanted'], ['zap', 'Prompts'], ['more', 'More']] : sheetOpen ? [['plus', 'New persona'], ['upload', 'Import images …'], ['more', 'More']] : [['upload', 'Import'], ['plus', 'Mood'], ['file', 'Kanon'], ['inbox', 'Wanted'], ['more', 'More']];
+	const kinds = V === 'c' || V === 'e' ? [['user', 'Profile'], ['file', 'Kanon'], ['grid', 'All moods'], ['box', 'Model'], ['inbox', 'Wanted'], ['more', 'More']] : V === 'a' ? [['user', 'Profile'], ['smile', 'Looks & moods'], ['file', 'Kanon'], ['inbox', 'Wanted'], ['sparkles', 'Prompts'], ['more', 'More']] : sheetOpen ? [['plus', 'New persona'], ['upload', 'Import images …'], ['more', 'More']] : [['upload', 'Import'], ['plus', 'Mood'], ['file', 'Kanon'], ['inbox', 'Wanted'], ['more', 'More']];
 	const on = V === 'c' || V === 'e' ? (sheetOpen ? 1 : -1) : V === 'a' ? (sheetOpen ? 2 : 1) : -1;
 	return `<footer class="bottom sel-bar kinds2" style="grid-area:bottom">${back}${kinds.map(([i, t], k) => sq(i, { title: t, on: k === on })).join('')}</footer>`;
 }

@@ -198,3 +198,4 @@
 .insp-scroll { min-height: 0; overflow: hidden; }
 .e-insp .fgrid { grid-template-columns: minmax(0, 1fr); gap: var(--space-05); }
 .seg.group { display: inline-flex; }
+.tabs span { position: relative; } .b3d { position: absolute; right: 0.35rem; top: 0.15rem; font-size: 0.55rem; line-height: 1; font-weight: 400; letter-spacing: 0; padding: 0.05rem 0.1rem; background: var(--ink); color: var(--paper); } .tabs span.on .b3d { background: var(--paper); color: var(--ink); }

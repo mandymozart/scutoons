@@ -89,8 +89,8 @@ haben personas, looks, moods".
 - **Chosen: K3** (owner 2026-10-20: "ich find k3 am sinnvollsten … wenn die anderen dinge im inspector auch so
   contextualisiert sind"): the level is picked on the page (a tap on the head = character, a persona, a look; the page
   rings it) and EVERY inspector tab shows that level under one title (face · tab · level · name · state): Profile
-  (person), Model (hexagon: the persona's GLB or the look's own, the placeholder body, the look's A-pose), Wanted images
-  (inbox: what this level lacks, upload, copy list / CSV), Prompts (bolt: built from the Kanon chain + the mood). The
+  (person), Model (hexagon + a tiny "3D" badge: the persona's GLB or the look's own, the placeholder body, the look's A-pose), Wanted images
+  (inbox: what this level lacks, upload, copy list / CSV), Prompts (sparkles – owner: "some stary symbol": built from the Kanon chain + the mood). The
   Kanon has no tab: the text square at the end of each level opens it. `e.html#char-k3[-profile|-model|-wanted|-prompts]`.
 - Pictures: `e.html` (`#list`, `#char`, `-avatar` / `-portrait`, phones `-sheet`); `CHARACTER-PAGE-drafts.html` = all
   drafts in one file with the pictures inside (opens in the app's browser pane).
