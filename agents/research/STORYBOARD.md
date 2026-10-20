@@ -14,8 +14,8 @@ to 1:7** (beyond 1:4 most generators give up).
 
 ## Summary + recommendation
 
-- **Timeline:** ch3 **2026-12-15** (owner 2026-10-19; was 2026-11-15), ch4 / ch5 to be re-set (were 2026-12-15 /
-  2027-01-15); ch3 layout started the week of 2026-10-12. The tool's first job is the **ch3 storyboard + flow before that layout** – what gets built when: §9.
+- **Timeline (owner 2026-10-09):** ch3 2026-11-15, ch4 2026-12-15, ch5 2027-01-15; ch3 layout starts the week of
+  2026-10-12. The tool's first job is the **ch3 storyboard + flow before that layout** – what gets built when: §9.
 - **Generation today = manual prompting in Luma** (owner 2026-10-09: Luma Labs subscription this month; FLORA isn't
   used now and may not fit at all, since the aim is own workflows on a cloud GPU). The tool writes the prompts (text +
   which Figma images to attach as references); the owner pastes them into Luma. Every "FLORA" below is research
@@ -617,8 +617,8 @@ and a time model tied to scroll length. That justifies owning the schema; it sta
 
 ## 9. Build strategy against the release dates (owner 2026-10-09)
 
-**The dates are fixed, the tool flexes.** Chapter 3 releases **Tue 2026-12-15** (owner 2026-10-19; was Sun
-2026-11-15); chapter 4 / 5 are to be re-set (were Tue 2026-12-15 / Fri 2027-01-15 – M4–M6 below still carry them). Chapter 3's layout starts the **week of Mon 2026-10-12**. Script scenes per chapter
+**The dates are fixed, the tool flexes.** Chapter 3 releases **Sun 2026-11-15**, chapter 4 **Tue 2026-12-15**,
+chapter 5 **Fri 2027-01-15**. Chapter 3's layout starts the **week of Mon 2026-10-12**. Script scenes per chapter
 (MAP.md): ch3 = scenes 25–34 (10 scenes), ch4 = 35–37, ch5 = 38.
 
 **Rule: build only what the next chapter needs, one step ahead of it.** Each chapter is one month. Nothing of the tool
@@ -713,7 +713,7 @@ the owner's answers, the first Figma run, the bridge's MCP tools after the refac
 | M1 | **Mon–Tue 2026-10-12/13** | **0b** read ch3's preselection from Figma (thumbnails + node ids per scene / place) · **1 slim** (`workflows/scenes/storyboard.md`, `scripts/storyboard/`: types, validate, storyboard page with the matched images + rhythm rail) · **1a** rhythm report ch1 (+ ch2) for the targets | **ch3 first throw**: storyboards for scenes 25–34 with matched images, owner gate G1 |
 | M2 | ~Fri 2026-10-16 | **2** first throw → draft of chapter 3 in the creator (images + schematics for the gaps, text boxes, VN, items, loop groups) – or the owner's layouted draft brought back (see Q below) | **ch3 draft on the phone** (G2); the gap list |
 | M3 | **~Fri 2026-10-23** | **3** prompts for the gaps: per gap shot a ready-to-paste Luma prompt + the Figma images to attach as references, inside the safe formats; gap shot list for Unreal / direct shots. **Manual prompting** (Luma subscription) – no API jobs, so the budget gate (3a) moves to M5 | **filling ch3's gaps** (Oct 26 – Nov 13) |
-| – | Dec 11 | – | ch3 final, rhythm check on the real slices; release **Dec 15** (moved 2026-10-19) |
+| – | Nov 13 | – | ch3 final, rhythm check on the real slices; release **Nov 15** |
 | M4 | Nov 16–20 | read ch4's preselection (`crypt`, `graveyard`, `well`) | **ch4 first throw** (scenes 35–37); gaps prompted; release **Dec 15** |
 | M5 | Dec 11 (pilot) | **3a** budget gate, then **3b** serverless GPU with open models – the **long-run direction for cost** (owner 2026-10-09). Season 1 still runs on manual prompting; a pilot on a few ch4/ch5 gap shots (same shots also in Luma) compares cost and quality | ch5 gaps, then season 2 |
 | M6 | Dec 16–18 | read ch5's preselection (`garden`) | **ch5 first throw** (scene 38) before the holidays; release **Jan 15** |
