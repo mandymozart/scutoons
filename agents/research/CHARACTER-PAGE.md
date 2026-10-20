@@ -78,6 +78,14 @@ haben personas, looks, moods".
 - Round 3 (owner 2026-10-20: "the dropdown for the look can also be a button with preview and sideways menu … why are
   we switching concept here?"): the look is the same row as the persona (preview + word, sideways with the fade, + at
   the end), the view squares fixed at the end of the look row; no select left.
+- The Kanon on the desktop (owner 2026-10-20: "the kanon slide out is a bit confusing … hierarchy is important … but
+  also not overwhelming. so the sidebar is independent of the stage?" – it was: round 3 showed the character's text
+  whatever the stage showed). Three options, all following the stage (character › persona › look, one text each):
+  **K1 stack** (the three levels indented, the current look open, the others one line each with state + headings);
+  **K2 path** (ONE text, the stage's path Katzenpapst › Regular › päpstlich above it picks the level, a state dot per
+  crumb – recommended, the calmest); **K3 in place** (no Kanon tab: a text square with a state dot at the end of each
+  level on the page – the head, the persona row, the look row; the inspector shows the clicked one). `e.html#char-k1`
+  / `-k2` / `-k3`.
 - Pictures: `e.html` (`#list`, `#char`, `-avatar` / `-portrait`, phones `-sheet`); `CHARACTER-PAGE-drafts.html` = all
   drafts in one file with the pictures inside (opens in the app's browser pane).
 

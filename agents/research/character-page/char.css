@@ -170,3 +170,24 @@
 .e-insp .ktext { border: var(--hair); padding: var(--space-075); }
 /* the look row: the face row scrolls, the view squares are fixed at its end (their own padding to the edge) */
 .bar-rows .ctl.look-row { padding: 0 var(--space-05) 0 0; gap: 0; }
+
+/* Kanon panel options (K1 stack, K2 path, K3 a text square per level) */
+.klevels { display: flex; flex-direction: column; border-top: var(--hair); }
+.klevel { display: flex; flex-direction: column; padding: var(--space-025) 0 var(--space-025) calc(var(--lvl) * 1rem); border-bottom: var(--hair); }
+.kline { display: flex; align-items: center; gap: var(--space-05); min-height: var(--control-height); white-space: nowrap; min-width: 0; }
+.kheads { padding-left: calc(1.25em + var(--space-05)); }
+.kpath { display: flex; align-items: center; gap: var(--space-025); white-space: nowrap; overflow: hidden; border-bottom: var(--hair); padding-bottom: var(--space-05); }
+.kpath .sep { color: var(--border-muted); }
+.kcrumb { display: inline-flex; align-items: center; gap: var(--space-05); height: var(--control-height); padding: 0 var(--space-05); }
+.kcrumb.on { background: var(--ink); color: var(--paper); }
+.kstate { width: 0.55rem; height: 0.55rem; border-radius: 50%; flex: none; border: var(--border-width-hairline) solid currentColor; }
+.kstate.pub { background: var(--badge-published); border-color: var(--badge-published); }
+.kstate.draft { background: var(--badge-draft); border-color: var(--badge-draft); }
+.kdoc { position: relative; display: inline-flex; flex: none; }
+.kdoc .kstate { position: absolute; right: 0.35rem; top: 0.35rem; }
+.k3head { display: flex; align-items: center; gap: var(--space-05); }
+.k3head .chead { flex: 1; }
+.ktitle { display: flex; align-items: center; gap: var(--space-075); min-height: var(--sq); border-bottom: var(--hair); padding-bottom: var(--space-05); }
+.ktitle img { width: 2.5rem; height: 2.5rem; object-fit: cover; }
+.ktitle .t { display: flex; flex-direction: column; }
+.kpath { font-size: var(--caption); } .kcrumb { padding: 0 var(--space-025); gap: var(--space-025); }

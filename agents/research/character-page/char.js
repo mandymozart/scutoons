@@ -265,11 +265,13 @@ function eStage() {
 function eChar() {
 	// side-scrolling rows run edge to edge between the dividers, their padding inside the scroller; a fade at an edge
 	// says "more this way" (none at the start / end)
-	const personas = `<div class="hs fade-r">${personaPick()}</div>`;
+	const k3 = flags.includes('k3');
+	const kdoc = (on, state) => (k3 ? `<span class="kdoc ${on ? 'on' : ''}" title="Kanon of this level">${sq('file', { on })}<span class="kstate ${state}"></span></span>` : '');
+	const personas = `<div class="ctl look-row"><div class="hs fade-r grow">${personaPick()}</div>${kdoc(false, 'no')}</div>`;
 	// the look is the same kind of row as the persona (owner 2026-10-20: "why are we switching concept here?"): a
 	// preview + its word, sideways with the fade; the view squares stay fixed at its end
 	const looks = PERSONAS[0].looks.concat(phone ? [] : []).map(([l, n, img]) => ({ img, label: l, n: `${n}` }));
-	const controls = `<div class="ctl look-row"><div class="hs fade-r grow">${pick(looks, 0)}</div>${viewSeg()}</div>`;
+	const controls = `<div class="ctl look-row"><div class="hs fade-r grow">${pick(looks, 0)}</div>${viewSeg()}${k3 ? '<span class="vsep"></span>' : ''}${kdoc(true, 'draft')}</div>`;
 	const strip = `<div class="hs fade-r strip-row">${stageStrip()}</div>`;
 	if (phone) {
 		const top = `<div class="bar-rows">${personas}${controls}</div>`;
@@ -278,10 +280,41 @@ function eChar() {
 			: '';
 		return `<main class="pg" style="grid-area:main;position:relative">${top}${eStage()}${strip}${overlay}</main>`;
 	}
-	const center = `<div style="display:flex;flex-direction:column;min-width:0;min-height:0"><div class="pad-x">${head({ small: true })}</div><div class="bar-rows">${personas}${controls}</div>${eStage()}${strip}</div>`;
-	const insp = `<aside class="insp e-insp">${cInspTabs(1)}<div class="sheet-head" style="padding:0"><span class="label">Kanon · Katzenpapst</span><span class="grow"></span>${chips([['no', 'not written']])}<span class="muted cap">de ★</span></div>${kanonText()}<div class="cap muted">Persona: Regular ${chips([['no', 'not written']])} · Look: päpstlich ${chips([['no', 'not written']])}</div></aside>`;
+	const center = `<div style="display:flex;flex-direction:column;min-width:0;min-height:0"><div class="pad-x ${k3 ? 'k3head' : ''}">${head({ small: true })}${kdoc(false, 'pub')}</div><div class="bar-rows">${personas}${controls}</div>${eStage()}${strip}</div>`;
+	const insp = kanonPanel();
 	return `<main class="pg" style="grid-area:main">${atabs()}<div class="editor" style="grid-template-columns:minmax(0,1fr) 22rem;flex:1;min-height:0">${center}${insp}</div></main>`;
 }
+// ── the Kanon panel on the desktop: three options (owner 2026-10-20: "the kanon slide out is a bit confusing …
+// hierarchy is important … but also not overwhelming. so the sidebar is independent of the stage?"). Round 3 showed the
+// character's text whatever the stage showed – independent, which was the confusion. ──
+const LEVELS = [
+	{ kind: 'Character', name: 'Katzenpapst', state: ['pub', 'published'], heads: 'Backstory · Who · Look · Rules' },
+	{ kind: 'Persona', name: 'Regular', state: ['no', 'not written'], heads: 'What · Why different · Look · Rules' },
+	{ kind: 'Look', name: 'päpstlich', state: ['draft', 'draft'], heads: 'Look · When' }
+];
+const lookText = () => `<div class="ktext"><span class="h2">## Look</span>Das weiß-blaue Ornat mit dem Kreuzmuster, die Kappe, Sandalen.<br><br><span class="h2">## When</span>Im Dienst – alle Kapitel bis auf die Reise.<span class="caret"></span></div>`;
+function kanonPanel() {
+	const tabs = cInspTabs(1);
+	if (flags.includes('k1')) {
+		// K1 – a stack that follows the stage: character › persona › look, the current look open, the levels above folded
+		// to one line each (state, headings); a click unfolds one, the others fold
+		const fold = (l, i) => `<div class="klevel" style="--lvl:${i}"><span class="kline">${ic(i === 2 ? 'down' : 'right')}<span class="muted cap">${l.kind}</span><span class="ell">${l.name}</span><span class="grow"></span>${chips([l.state])}</span>${i === 2 ? '' : `<span class="muted cap kheads">${l.heads}</span>`}</div>`;
+		return `<aside class="insp e-insp">${tabs}<div class="klevels">${LEVELS.map(fold).join('')}</div>${lookText()}</aside>`;
+	}
+	if (flags.includes('k2')) {
+		// K2 – ONE text; a path that mirrors the stage picks its level (the deepest = the default), a state dot per crumb
+		const crumbs = LEVELS.map((l, i) => `<span class="kcrumb ${i === 2 ? 'on' : ''}"><span class="kstate ${l.state[0]}"></span>${l.name}</span>`).join('<span class="sep">›</span>');
+		return `<aside class="insp e-insp">${tabs}<div class="kpath">${crumbs}</div><div class="sheet-head" style="padding:0"><span class="muted cap">${LEVELS[2].heads}</span><span class="grow"></span>${chips([LEVELS[2].state])}<span class="muted cap">de ★</span></div>${lookText()}</aside>`;
+	}
+	if (flags.includes('k3')) {
+		// K3 – no Kanon tab: a text square at the end of each level on the page (head = character, persona row, look row;
+		// its dot = the state); the inspector shows the clicked one, titled with its face and level
+		const t = [['user', 'Profile'], ['box', 'Model'], ['inbox', 'Wanted'], ['zap', 'Prompts']].map(([i, w]) => `<span title="${w}">${ic(i)}</span>`).join('');
+		return `<aside class="insp e-insp"><div class="tabs">${t}</div><div class="ktitle"><img src="${I('av-catpope')}" alt="" /><span class="t"><span class="muted cap">Kanon · Look</span><span>päpstlich</span></span><span class="grow"></span>${chips([LEVELS[2].state])}</div>${lookText()}</aside>`;
+	}
+	return `<aside class="insp e-insp">${tabs}<div class="sheet-head" style="padding:0"><span class="label">Kanon · Katzenpapst</span><span class="grow"></span>${chips([['no', 'not written']])}<span class="muted cap">de ★</span></div>${kanonText()}<div class="cap muted">Persona: Regular ${chips([['no', 'not written']])} · Look: päpstlich ${chips([['no', 'not written']])}</div></aside>`;
+}
+
 // the Kanon as ONE text field that fills its panel (owner 2026-10-20: "the text field could cover the entire panel")
 const kanonText = () =>
 	`<div class="ktext"><span class="h2">## Backstory</span>PLF wurde im Vatikan der Katzen geboren und …<br><br><span class="h2">## Who</span>Ruhig, neugierig, spricht in kurzen Sätzen …<br><br><span class="h2">## Look</span>Rosa Nacktkatze, blaue Augen, das weiß-blaue Ornat mit dem Kreuzmuster – nie ohne.<br><br><span class="h2">## Rules</span><span class="muted">what an artist or a generator must never change …</span><span class="caret"></span></div>`;
