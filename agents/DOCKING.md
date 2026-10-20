@@ -226,6 +226,7 @@ fold and maximize = "fold everything else": BACKLOG 10.57 (owner 2026-10-07, bel
 | Info (help) | `shared/ui/src/action-bar.svelte` → `useDock`, `info-panel.svelte` | shell dock | 16rem, drags, DockFold + rail; next to the page's panels, outermost | `:info`, open state `infoKey` |
 | List + detail | `shared/ui/src/split-view.svelte` (admin catalog, codes) → `useDock` (`kind: 'detail'`) | shell dock | 24rem, drags, DockFold + rail, Escape / ✕ close; next to Info; on phones covers the page | `:detail` |
 | Reader | `reader/reader-dock.svelte` (`kind: 'reader'`) | shell dock | 24rem, DockFold + rail; next to the Flow | `:reader` |
+| Newsletter preview | admin `lib/components/newsletter-preview.svelte` (`kind: 'newsletter-preview'`, #98) | shell dock | 30rem, DockFold + rail, phone / desktop width; between the Reader's place and Info | `:newsletter-preview` |
 | Main (folded) | AppShell `main-rail` (`shellDock.foldMain`) | shell main | by hand: the leftmost panel's "Fold the page", Ctrl+Shift+\; rail with the page's place | not remembered |
 | Bottom region (timeline) | AppShell `bottom` + `panelHeight` (`shell-bottom.svelte`; storyboard studio: `Timeline`, its FoldButton) | shell bottom (fill) | Divider on top, 12rem … ½ the frame; folds (the page's FoldButton, drag < 60 %), a rail while maximized; hidden on phones | `storyboard-studio:timeline`; the fold per step (the studio's) |
 | Right drawers | `shared/ui/src/sheet.svelte` (`side="right"`) | modal | Divider inside the drawer, normal … ½ window | `sc-sheet-width:<kind>` |

@@ -975,6 +975,13 @@
 		"help": "The newest entries of the PHP error logs – the API's and the QR app's – newest first, with the lines that follow an entry (a stack trace) under \"Details\". Messages only: e-mail addresses, tokens and passwords are masked, the server's folder is cut from file paths. Only the last 512 KB of a log are read."
 	},
 	"newsletter": {
+		"preview_desktop": "Desktop",
+		"preview_phone": "Phone",
+		"preview_device": "Screen",
+		"button_text": "Button text",
+		"button_add": "Insert button",
+		"tools": "Insert",
+		"text": "Text",
 		"variable_gift": "Gift button (the campaign under “Gift”)",
 		"gift_email_only": "{count} with nothing but an email address, nothing bought – get a personal promo code and with it a new account",
 		"gift_product_code": "{count} with a QR code, no account – make an account with their product code",
@@ -1035,7 +1042,7 @@
 		"variable_name": "the name (empty when there is none)",
 		"variable_name_or": "the name, else “{word}”",
 		"variable_signin": "Sign-in button (personal: members “Sign in”, QR owners “Create your account”)",
-		"body_hint": "A blank line starts a paragraph. A line [Button text](https://…) becomes a button, a line ![description](picture) a picture, a line {signin_line} the personal sign-in button (one click signs in, valid 14 days; the preview shows a member's). {example} = the name, or the word after | when there is none.",
+		"body_hint": "A blank line starts a paragraph. {example} = the name, or the word after | when there is none. The buttons above insert pictures, buttons and placeholders.",
 		"preview": "Preview",
 		"save": "Save",
 		"saved": "Saved.",
