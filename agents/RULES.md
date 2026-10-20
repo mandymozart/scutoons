@@ -87,7 +87,8 @@ agents/DECISIONS.md. A change to how agents work changes this file in the same c
 - Every control at `--control-height`; one tooltip style via `title`; bold very rarely; field groups without frames
   (fieldset has no border, legend = the label – tools.css).
 - **Round vs square:** a standalone icon-only button is round (`sc-round`); grouped controls (segmented `sc-seg`,
-  toolbars, tab rows, every language switcher) and controls with text are square (DESIGN "Round vs square").
+  toolbars, tab rows, every language switcher) and controls with text are square; fold / unfold buttons are quiet
+  (borderless, muted – `sc-quiet`) (DESIGN "Round vs square").
 - Spacing on a 1rem line: sidebars, outline, fold button start at 1rem; dividers run edge to edge.
 - **One layout model** (DOCKING.md): regions tile (sidebar | page | right dock, AppShell), one `Divider` per drag
   edge, one fold to a `Rail`, page panels side by side in the right dock (`useDock`), maximize folds the rest; the

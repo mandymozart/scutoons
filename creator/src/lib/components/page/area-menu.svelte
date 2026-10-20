@@ -93,7 +93,7 @@
 		</ul>
 		<div class="foot">
 			<a class="sq" href="/notifications" title={accountLabel} aria-label={accountLabel}><Icon name="user" /></a>
-			<button type="button" class="sq" onclick={() => onfold?.()} aria-label={m['creator.unfold_menu']()} title="{m['creator.unfold_menu']()} (Ctrl + \)" aria-expanded="false" data-testid="menu-unfold"><Icon name="chevrons-right" /></button>
+			<button type="button" class="sq quiet" onclick={() => onfold?.()} aria-label={m['creator.unfold_menu']()} title="{m['creator.unfold_menu']()} (Ctrl + \)" aria-expanded="false" data-testid="menu-unfold"><Icon name="chevrons-right" /></button>
 		</div>
 	</div>
 {:else}
@@ -136,7 +136,7 @@
 			{:else}
 				<a class="sc-nav-item" href="/notifications" title={accountLabel}><Icon name="user" /><span class="ell">{account}</span></a>
 				<div class="fold">
-					<button type="button" class="sq" onclick={() => onfold?.()} aria-label={m['creator.fold_menu']()} title="{m['creator.fold_menu']()} (Ctrl + \)" aria-expanded="true" aria-controls="creator-nav" data-testid="menu-fold"><Icon name="chevrons-left" /></button>
+					<button type="button" class="sq quiet" onclick={() => onfold?.()} aria-label={m['creator.fold_menu']()} title="{m['creator.fold_menu']()} (Ctrl + \)" aria-expanded="true" aria-controls="creator-nav" data-testid="menu-fold"><Icon name="chevrons-left" /></button>
 				</div>
 			{/if}
 		</div>
@@ -233,6 +233,13 @@
 	.sq:focus-visible {
 		outline: var(--border-width-focus) solid var(--ink);
 		outline-offset: calc(-1 * var(--border-width-focus));
+	}
+	/* the fold / unfold: quiet (owner 2026-10-20: fold buttons took a lot of visual focus) */
+	.sq.quiet {
+		color: var(--text-muted);
+	}
+	.sq.quiet:hover {
+		color: var(--ink);
 	}
 	.sq[aria-current='page'] {
 		background: var(--ink);

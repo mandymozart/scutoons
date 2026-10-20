@@ -798,10 +798,15 @@ The creator is a hierarchy: **toon → season → chapter → group (scene) → 
   (inside a toon: the toon); the account (→ Notifications) and the fold button at its foot. It folds **by hand** (the
   button, Ctrl + \, remembered) to an icon rail of the areas (unfold at its foot), and to the rail while a region is
   maximized. A page's own list (the chapter tree, a season's chapters, the map's lists – `usePageNav({ sidebar })`)
-  sits beside the menu in the same region, its right edge the one `Divider`; it hides while a region is maximized.
+  sits beside the menu in the same region, its right edge the one `Divider`; its sticky head names the place (Chapter 2,
+  Map) with a quiet « that folds the list by hand to a slim rail (remembered, `sc-creator-list-folded`); it hides while
+  a region is maximized. The map's lists (Layers, Places, Routes, Regions) are all folded at first, then stay as the
+  member left them (`sc-map-nav-open`, owner 2026-10-20).
 - **A toon's pages are tabs** (`toon-tabs.svelte`): Stories (the toon page; a season's page belongs to it) · Cast ·
   Script · Credits · Settings. The chapter editor and the cover editor have their own frames.
-- **Phones** (< 768px, like the reader): one row – mark (home) · path (no area) · the page's end (the strip editor's
+- **Phones** (< 768px, like the reader): one row – mark (home) · the place's name as a small text button (in the chapter
+  editor the group = the scene, not the slice – the editor scrolls through a group's slices; `path-menu.svelte`) that
+  drops the whole path down, one level per row, indented (owner 2026-10-20) · the page's end (the strip editor's
   ⚠ · Save · Publish · •••) · on the dashboard search + notifications · ☰ on the right. ☰ slides the menu in from the
   right (`AppShell drawerSide="right"`): the areas, the page's own list, "Recent" (this browser's last places,
   `recent.svelte.ts`); at its foot search, notifications, the text language and the page's tools.
@@ -1313,11 +1318,13 @@ inert without it). The shop already uses the reader's rem scale and keeps the re
   two exceptions: the live selection's 2px inset frame (rows would overlap as outlines) and a dragged row's lift.
 - **Round vs square** (owner 2026-10-07, every app – creator, admin, embassy, viewer, shop): a **standalone icon-only
   button is round** – a `--control-height` circle, 2px ink ring (`class="sc-round"`, tools.css; `IconButton`,
-  `FoldButton`, `MaximizeButton`, `Rail`; the viewer's top-right toggles; the palette trigger in its icon-only state).
+  `MaximizeButton`; the viewer's top-right toggles; the palette trigger in its icon-only state).
   **Grouped controls are square**: segmented groups (`sc-seg` / `Segmented`), toolbars (the Flow's zoom / fit is one
   `sc-seg`, the ActionBar, canvas tools), tab rows, and every **language switcher** (the creator's text-language
   switch, the viewer menu's languages – one joined frame, the chosen one inverted – the shop's). A control that shows
-  text (label, code, "Ctrl K") is square too. Open: is the frameless close cross (`CloseButton`, "Close cross" below) round too? – FEATURES 10.70.
+  text (label, code, "Ctrl K") is square too. **Fold / unfold buttons are quiet** (owner 2026-10-20: they "take a lot of
+  visual focus"): `FoldButton`, `Rail` and the creator's menu / list folds are borderless muted squares (`sc-round
+  sc-quiet`), ink + the nav outline on hover. Open: is the frameless close cross (`CloseButton`, "Close cross" below) round too? – FEATURES 10.70.
 - Cyan (`primary-cyan`) only for **live** states: the "published" badge, the live selection (see "Selection" below),
   the canvas selection. Never for the current nav entry or a selected row outside the live region.
 - **Badges are FILLED** (owner 2026-10-01): status chips, tags, counts = a solid fill, **white text where it reaches

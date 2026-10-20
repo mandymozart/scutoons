@@ -84,7 +84,7 @@ const go = async (url, ready) => {
 	return until(ready, 30000);
 };
 /** rects of the regions (px, rounded) */
-const layout = () => js(`(() => { const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return { l: Math.round(b.left), r: Math.round(b.right), w: Math.round(b.width), h: Math.round(b.height) }; }; return { sidebar: r('.sc-shell-sidebar'), content: r('.sc-shell-content'), dock: r('.sc-shell-dock'), folded: !!document.querySelector('.sc-app-shell.folded'), rail: !!document.querySelector('[data-testid="shell-rail"]'), dockRail: !!document.querySelector('[data-testid="dock-rail"]') }; })()`);
+const layout = () => js(`(() => { const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return { l: Math.round(b.left), r: Math.round(b.right), w: Math.round(b.width), h: Math.round(b.height) }; }; return { sidebar: r('.sc-shell-sidebar'), content: r('.sc-shell-content'), dock: r('.sc-shell-dock'), folded: !!document.querySelector('[data-testid="shell-rail"]'), rail: !!document.querySelector('[data-testid="shell-rail"]'), dockRail: !!document.querySelector('[data-testid="dock-rail"]') }; })()`);
 async function drag(selector, dx) {
 	const p = await js(`(() => { const b = document.querySelector('${selector}').getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; })()`);
 	await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p.x, y: p.y });
@@ -123,35 +123,43 @@ try {
 		await shot(`${w}-season-problems`);
 	}
 
-	// ── sidebar fold / unfold, the dock divider (1600) ──
+	// ── the menu: folds by hand to the areas' rail; a page's list beside it folds on its own (1600, DESIGN "Creator
+	// navigation" – draft D) ──
 	await size(1600);
-	await go('/catpope', `!!document.querySelector('.sc-shell-sidebar')`);
+	await go('/catpope', `!!document.querySelector('.sc-shell-sidebar [data-testid="menu-fold"]')`);
 	await sleep(400);
-	await shot('1600-toon-sidebar-open');
+	await shot('1600-toon-menu-open');
+	const menuRailPx = await js(`(() => { const p = document.createElement('div'); p.style.width = 'var(--sc-shell-rail-width)'; (document.querySelector('.sc-app-shell') ?? document.body).append(p); const w = Math.round(p.getBoundingClientRect().width); p.remove(); return w; })()`);
 	await send('Input.dispatchKeyEvent', { type: 'keyDown', key: '\\', code: 'Backslash', modifiers: 2, windowsVirtualKeyCode: 220 });
 	await send('Input.dispatchKeyEvent', { type: 'keyUp', key: '\\', code: 'Backslash', modifiers: 2, windowsVirtualKeyCode: 220 });
 	await sleep(300);
 	let g = await layout();
-	check(g.folded && g.rail && g.sidebar.w <= (await js(`(() => { const p = document.createElement('div'); p.style.width = 'var(--sc-shell-rail-width)'; (document.querySelector('.sc-app-shell') ?? document.body).append(p); const w = Math.round(p.getBoundingClientRect().width); p.remove(); return w; })()`)) + 2, 'Ctrl+\\ folds the sidebar to its rail', JSON.stringify(g));
-	await shot('1600-toon-sidebar-folded');
-	await js(`document.querySelector('[data-testid="shell-rail"] button').click(), true`);
+	check(g.rail && g.sidebar.w <= menuRailPx + 2, 'Ctrl+\\ folds the menu to its rail', JSON.stringify(g));
+	await shot('1600-toon-menu-folded');
+	await js(`document.querySelector('[data-testid="menu-unfold"]').click(), true`);
 	await sleep(300);
 	g = await layout();
-	check(!g.folded, 'the rail\'s chevrons unfold it');
-	// drag the sidebar edge narrow: snaps to the rail; drag out again
+	check(!g.rail && !!(await js(`!!document.querySelector('[data-testid="menu-fold"]')`)), "the rail's unfold opens the menu");
+	check(!(await js(`!!document.querySelector('.sc-shell-resize')`)), 'the menu alone has no drag edge');
+	// a page's list (the chapter tree): the region's edge widens it, double-click resets, « folds it to its rail
+	check(await go('/catpope/chapter/1', `!!document.querySelector('.sc-shell-sidebar .page-list') && !!document.querySelector('.sc-shell-resize')`), 'chapter editor: the tree beside the menu, one drag edge');
+	await sleep(400);
+	g = await layout();
 	const s0 = g.sidebar.w;
-	let d = await drag('.sc-shell-resize', -s0 * 0.6);
+	let d = await drag('.sc-shell-resize', 120);
 	await d.release();
 	g = await layout();
-	check(g.folded, 'dragging the sidebar edge narrow folds it to the rail', JSON.stringify(g));
-	d = await drag('.sc-shell-resize', s0 * 1.2);
-	await d.release();
-	g = await layout();
-	check(!g.folded && g.sidebar.w >= s0, `dragging out of the rail opens it (${g.sidebar.w} px)`, JSON.stringify(g));
+	check(g.sidebar.w >= s0 + 100, `dragging the edge widens the list (${s0} → ${g.sidebar.w} px)`, JSON.stringify(g));
 	await js(`document.querySelector('.sc-shell-resize').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })), true`);
 	await sleep(200);
 	g = await layout();
-	check(g.sidebar.w === s0, `double-click resets the sidebar (${g.sidebar.w} px)`);
+	check(g.sidebar.w === s0, `double-click resets it (${g.sidebar.w} px)`);
+	await js(`document.querySelector('[data-testid="list-fold"]').click(), true`);
+	await sleep(300);
+	check(await js(`!!document.querySelector('[data-testid="list-rail"]') && !document.querySelector('.sc-shell-sidebar .page-list')`), "the list's « folds it to a rail, the menu stays");
+	await js(`document.querySelector('[data-testid="list-rail"] button').click(), true`);
+	await sleep(300);
+	check(await js(`!!document.querySelector('.sc-shell-sidebar .page-list')`), 'its rail unfolds it');
 
 	await size(1920);
 	// the toon page's Flow: the dock divider drags it wider (held for a screenshot), the content gives way
@@ -330,7 +338,7 @@ try {
 	const i0m = await js(`Math.round(document.querySelector('[data-testid="inspector-region"]').getBoundingClientRect().width)`);
 	await js(`${q('inspector-maximize')}.click(), true`);
 	await sleep(400);
-	let im = await js(`(() => { const r = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return { l: Math.round(b.left), r: Math.round(b.right), w: Math.round(b.width) }; }; return { region: r('[data-testid="inspector-region"]'), columns: r('.columns'), main: getComputedStyle(document.querySelector('.columns > .main')).visibility, flowRail: !!document.querySelector('.sc-shell-dock[data-kind="flow"] [data-testid="dock-rail-maximized"]'), shell: !!document.querySelector('.sc-app-shell.max-main'), folded: !!document.querySelector('.sc-app-shell.folded'), icon: ${q('inspector-maximize')}.querySelector('svg').dataset.icon, title: ${q('inspector-maximize')}.title }; })()`);
+	let im = await js(`(() => { const r = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return { l: Math.round(b.left), r: Math.round(b.right), w: Math.round(b.width) }; }; return { region: r('[data-testid="inspector-region"]'), columns: r('.columns'), main: getComputedStyle(document.querySelector('.columns > .main')).visibility, flowRail: !!document.querySelector('.sc-shell-dock[data-kind="flow"] [data-testid="dock-rail-maximized"]'), shell: !!document.querySelector('.sc-app-shell.max-main'), folded: !!document.querySelector('[data-testid="shell-rail"]'), icon: ${q('inspector-maximize')}.querySelector('svg').dataset.icon, title: ${q('inspector-maximize')}.title }; })()`);
 	check(im.shell && im.folded && im.main === 'hidden' && im.flowRail && Math.abs(im.region.l - im.columns.l) <= 2 && im.region.r >= 1600 - railPx - 2 && im.icon === 'minimize-2' && im.title.startsWith('Restore'), `the inspector maximized: it fills from the sidebar's rail to the Flow's (${im.region.w} px), the canvas hidden, the Flow on its rail`, JSON.stringify(im));
 	check((await maxState()).bar, 'the inspector maximized: the ActionBar stays visible');
 	// Esc in a text field belongs to the field (a field of the maximized inspector)
@@ -392,7 +400,8 @@ try {
 		await js(`document.activeElement?.blur(), true`);
 		if (!(await js(`!!${q('shell-rail')}`))) await press('\\', 'Backslash', 220, 2);
 		await press('|', 'Backslash', 220, 2 + 8);
-		const tops = await js(`(() => { const t = (s) => { const e = document.querySelector(s); return e ? Math.round(e.getBoundingClientRect().top * 10) / 10 : null; }; return { sidebar: t('[data-testid="shell-rail"] button'), main: t('[data-testid="main-rail"] button'), dock: t('[data-testid="dock-rail"] button, [data-testid="dock-rail-squeezed"] button') }; })()`);
+		// the creator's menu rail has its unfold at its foot (draft D); the page list's rail lines up with the others
+		const tops = await js(`(() => { const t = (s) => { const e = document.querySelector(s); return e ? Math.round(e.getBoundingClientRect().top * 10) / 10 : null; }; return { sidebar: t('[data-testid="list-rail"] button') ?? t('[data-testid="main-rail"] button'), main: t('[data-testid="main-rail"] button'), dock: t('[data-testid="dock-rail"] button, [data-testid="dock-rail-squeezed"] button') }; })()`);
 		check(tops.sidebar !== null && tops.main !== null && tops.dock !== null && [tops.main, tops.dock].every((t) => Math.abs(t - tops.sidebar) <= 1), `${w}: every rail's button at one height (sidebar ${tops.sidebar}, main ${tops.main}, panel ${tops.dock})`, JSON.stringify(tops));
 		await shot(`${w}-rails`);
 		await press('|', 'Backslash', 220, 2 + 8);

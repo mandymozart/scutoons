@@ -10,6 +10,7 @@
 		Breadcrumbs,
 		CommandPalette,
 		Icon,
+		Rail,
 		PaletteTrigger,
 		languageCommand,
 		linkCommands,
@@ -42,6 +43,7 @@
 	import { fileLabel } from '$lib/labels.ts';
 	import AreaMenu from '$lib/components/page/area-menu.svelte';
 	import ToonTabs from '$lib/components/toon/toon-tabs.svelte';
+	import PathMenu from '$lib/components/page/path-menu.svelte';
 	import { recent } from '$lib/recent.svelte.ts';
 	import { reviews } from '$lib/editor/reviews.svelte.ts';
 	import TextLanguageSwitch from '$lib/components/text/text-language-switch.svelte';
@@ -113,6 +115,24 @@
 			// no storage: unfolded
 		}
 	});
+	/** the page's own list (the chapter tree …) folded to a slim rail by hand (its head's «; remembered) */
+	const LIST_FOLD_KEY = 'sc-creator-list-folded';
+	let listFolded = $state(false);
+	onMount(() => {
+		try {
+			listFolded = localStorage.getItem(LIST_FOLD_KEY) === '1';
+		} catch {
+			// unfolded
+		}
+	});
+	function foldList(folded: boolean) {
+		listFolded = folded;
+		try {
+			localStorage.setItem(LIST_FOLD_KEY, folded ? '1' : '0');
+		} catch {
+			// the fold holds for this visit
+		}
+	}
 	function foldMenu(folded: boolean) {
 		menuFolded = folded;
 		try {
@@ -248,6 +268,12 @@
 	/** the page's own list beside the menu (the chapter tree, a season's chapters, the map's lists) – not while maximized */
 	const pageList = $derived(!!nav.sidebar && !shellDock.maximized);
 	const menuWidth = $derived(railed ? 'var(--sc-shell-rail-width)' : 'var(--creator-menu-width)');
+	/** phones: the name on the path button – a page's own first level (the chapter editor's group = the scene; the slices
+	 * scroll inside it), else the place */
+	const phoneTitle = $derived(nav.extra[0] ?? nav.crumbs.at(-1) ?? null);
+	/** the list's name in its head and on its rail: the page's place (Chapter 2, Season 1, Map) */
+	const listTitle = $derived(nav.base.at(-1)?.label ?? '');
+	const listWidth = $derived(listFolded ? 'var(--sc-shell-rail-width)' : 'var(--tool-sidebar-width)');
 	// Ctrl + \ folds / unfolds the menu (desktop; phones open it with ☰)
 	function onFoldKey(event: KeyboardEvent) {
 		if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey || (event.key !== '\\' && event.code !== 'Backslash') || phone.current) return;
@@ -368,8 +394,8 @@
 		     areas on the left (+ the page's own list beside it), content, and the page's ActionBar at the bottom -->
 		<AppShell
 			mode={nav.fill ? 'fill' : 'page'}
-			sidebarWidth={pageList ? `calc(${menuWidth} + var(--tool-sidebar-width))` : menuWidth}
-			resizeKey={pageList ? (railed ? 'creator-rail' : 'creator') : undefined}
+			sidebarWidth={pageList ? `calc(${menuWidth} + ${listWidth})` : menuWidth}
+			resizeKey={pageList && !listFolded ? (railed ? 'creator-rail' : 'creator') : undefined}
 			resizeLabel={m['creator.resize_sidebar']()}
 			minContent={24}
 			dockLabel={m['creator.dock_label']()}
@@ -390,7 +416,14 @@
 				<header class="creator-bar" data-testid="creator-bar">
 					<!-- the reader's square mark, a full-height cell: home (the dashboard) -->
 					<a class="brand" href="/" title={m['creator.dashboard']()} aria-label={m['creator.dashboard']()} data-testid="creator-brand">{@render logo()}</a>
-					<Breadcrumbs items={phone.current && nav.crumbs.length > 1 ? nav.crumbs.slice(1) : nav.crumbs} label={m['creator.breadcrumb']()} moreLabel={m['creator.breadcrumb_more']()} plain keep={phone.current ? 1 : 2} testid={phone.current ? 'phone-crumb' : 'crumb'} />
+					{#if !phone.current}
+						<Breadcrumbs items={nav.crumbs} label={m['creator.breadcrumb']()} moreLabel={m['creator.breadcrumb_more']()} plain />
+					{:else if nav.crumbs.length > 1 && phoneTitle}
+						<!-- phones: the place's name (a chapter: its scene); the whole path drops down from it -->
+						<PathMenu items={nav.crumbs} current={phoneTitle} />
+					{:else}
+						<span class="phone-title">{nav.crumbs[0]?.label ?? ''}</span>
+					{/if}
 					<!-- the page's own thing at the end of the path (the map's toon pill; on phones the strip editor's ⚠ · Save · Publish · •••) -->
 					{#if nav.crumbEnd}<span class="crumb-end">{@render nav.crumbEnd()}</span>{/if}
 					{#if phone.current}
@@ -432,8 +465,18 @@
 						<div class="areas" class:railed>
 							<AreaMenu variant={railed ? 'rail' : 'menu'} toons={nav.toons} toon={toonId} account={session.user?.email ?? ''} badge={waitingCount} onfold={() => (shellDock.maximized ? shellDock.restore() : foldMenu(!menuFolded))} />
 						</div>
-						{#if pageList && nav.sidebar}
-							<div class="page-list">{@render nav.sidebar()}</div>
+						{#if pageList && nav.sidebar && listFolded}
+							<div class="list-rail">
+								<Rail side="left" label={listTitle} unfoldLabel={m['creator.unfold_list']()} onunfold={() => foldList(false)} testid="list-rail" />
+							</div>
+						{:else if pageList && nav.sidebar}
+							<div class="page-list">
+								<div class="list-head">
+									<span class="sc-nav-head">{listTitle}</span>
+									<button type="button" class="sc-round sc-quiet" onclick={() => foldList(true)} aria-label={m['creator.fold_list']()} title={m['creator.fold_list']()} aria-expanded="true" data-testid="list-fold"><Icon name="chevrons-left" /></button>
+								</div>
+								{@render nav.sidebar()}
+							</div>
 						{/if}
 					</div>
 				{/if}
@@ -502,6 +545,14 @@
 	}
 	.creator-bar > :global(.sc-breadcrumbs) {
 		padding-left: var(--space-05);
+	}
+	.phone-title {
+		flex: 1 1 auto;
+		min-width: 0;
+		padding-left: var(--space-075);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 	.crumb-end {
 		display: flex;
@@ -577,6 +628,10 @@
 		display: flex;
 		flex-direction: column;
 	}
+	/* the columns scroll on their own; the region itself never scrolls (sideways it cut the menu's words) */
+	:global(.creator .sc-shell-sidebar:has(> .side)) {
+		overflow: hidden;
+	}
 	.side {
 		display: flex;
 		flex: 1 1 auto;
@@ -612,6 +667,30 @@
 		flex: 1 1 auto;
 		flex-direction: column;
 		min-height: 0;
+	}
+	.list-rail {
+		flex: none;
+		width: calc(var(--sc-shell-rail-width) - var(--border-width-regular));
+		border-left: var(--border-width-regular) solid var(--ink);
+	}
+	/* the list's head: its place, the quiet fold at the right (CREATOR-NAV d-slice) */
+	.list-head {
+		position: sticky;
+		top: 0;
+		z-index: 2;
+		background: var(--paper);
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-025);
+		padding-right: var(--space-025);
+	}
+	.list-head .sc-nav-head {
+		min-width: 0;
+		padding-bottom: var(--space-1);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 	.drawer .page-list {
 		border-top: var(--border-width-regular) solid var(--ink);

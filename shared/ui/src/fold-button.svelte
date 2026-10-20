@@ -25,7 +25,7 @@
 	} = $props();
 </script>
 
-<button type="button" class="sc-fold-button sc-round {className}" {onclick} aria-label={label} {title} aria-expanded="true" aria-controls={controls} data-testid={testid}>
+<button type="button" class="sc-fold-button sc-round sc-quiet {className}" {onclick} aria-label={label} {title} aria-expanded="true" aria-controls={controls} data-testid={testid}>
 	<Icon name={side === 'left' ? 'chevrons-left' : side === 'bottom' ? 'chevrons-down' : 'chevrons-right'} />
 </button>
 

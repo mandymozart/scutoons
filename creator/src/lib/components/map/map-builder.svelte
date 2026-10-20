@@ -342,6 +342,27 @@
 		if (s.kind === 'region') return mapName(map.regions?.find((r) => r.id === s.id)?.name, locale) || s.id;
 		return s.id;
 	});
+	// the lists' fold-outs (owner 2026-10-20: "start with everything collapsed at first, but perhaps save its state when
+	// going somewhere else"): all folded at first, then as the member left them (this browser)
+	const NAV_OPEN = 'sc-map-nav-open';
+	let navOpen = $state<Record<string, boolean>>({});
+	onMount(() => {
+		try {
+			const stored = JSON.parse(localStorage.getItem(NAV_OPEN) ?? '{}');
+			if (stored && typeof stored === 'object') navOpen = stored;
+		} catch {
+			// all folded
+		}
+	});
+	function toggleNav(id: string, open: boolean) {
+		if (!!navOpen[id] === open) return;
+		navOpen = { ...navOpen, [id]: open };
+		try {
+			localStorage.setItem(NAV_OPEN, JSON.stringify(navOpen));
+		} catch {
+			// remembered for this visit only
+		}
+	}
 	usePageNav({
 		sidebar: mapNav,
 		crumbEnd: toonChip,
@@ -797,8 +818,9 @@
 	<!-- the nav lists + the map = ONE selection region ('map', DESIGN.md "Selection"): the selected layer / place / route
 	     is sc-selected here, the marker's halo on the map -->
 	<div class="map-nav" data-testid="map-nav" use:region={'map'}>
-		<!-- three fold-outs (owner 2026-10-12: "layers, routes und places als collapsibles – default collapsed, places offen") -->
-		<details class="fold" data-testid="map-nav-layers-fold">
+		<!-- the fold-outs (owner 2026-10-12: "layers, routes und places als collapsibles"; 2026-10-20: all folded at first,
+		     then remembered – `navOpen`) -->
+		<details class="fold" open={!!navOpen.layers} ontoggle={(e) => toggleNav('layers', e.currentTarget.open)} data-testid="map-nav-layers-fold">
 		<summary class="head"><Icon name="layers" size="1.1em" /> {m['creator.map_layers']()}</summary>
 		<ul>
 			{#each map?.layers ?? [] as l (l.id)}
@@ -815,7 +837,7 @@
 			<label class="check bounded" title={m['creator.map_bounded_hint']()}><input type="checkbox" checked={!!map.bounded} onchange={(e) => { const on = e.currentTarget.checked; editMap(doc!, (w) => { if (on) w.bounded = true; else delete w.bounded; }); }} data-testid="map-bounded" /> {m['creator.map_bounded']()}</label>
 		{/if}
 		</details>
-		<details class="fold" open data-testid="map-nav-places-fold">
+		<details class="fold" open={!!navOpen.places} ontoggle={(e) => toggleNav('places', e.currentTarget.open)} data-testid="map-nav-places-fold">
 		<summary class="head">{m['creator.map_places']()} ({map?.locations.length ?? 0})</summary>
 		<ul data-testid="map-nav-places">
 			{#each sortedPlaces as p (p.id)}
@@ -829,7 +851,7 @@
 			<li><button type="button" class="item add" onclick={() => (tool = 'place')} data-testid="nav-add-place">{m['creator.map_add_place']()}</button></li>
 		</ul>
 		</details>
-		<details class="fold" data-testid="map-nav-routes-fold">
+		<details class="fold" open={!!navOpen.routes} ontoggle={(e) => toggleNav('routes', e.currentTarget.open)} data-testid="map-nav-routes-fold">
 		<summary class="head">{m['creator.map_routes']()} ({map?.routes.length ?? 0})</summary>
 		<ul data-testid="map-nav-routes">
 			{#each map?.routes ?? [] as r (r.id)}
@@ -843,7 +865,7 @@
 		</ul>
 		</details>
 		<!-- the regions (agents/MAP.md §8.10, owner 2026-10-12): areas of the map's hex cells, pre-drawn from the zones -->
-		<details class="fold" data-testid="map-nav-regions-fold">
+		<details class="fold" open={!!navOpen.regions} ontoggle={(e) => toggleNav('regions', e.currentTarget.open)} data-testid="map-nav-regions-fold">
 		<summary class="head">{m['creator.map_regions']()} ({map?.regions?.length ?? 0})</summary>
 		<ul data-testid="map-nav-regions">
 			{#each map?.regions ?? [] as r (r.id)}

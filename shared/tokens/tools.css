@@ -903,3 +903,15 @@
 	background: var(--ink);
 	color: var(--paper);
 }
+/* quiet: the regions' fold / unfold buttons (FoldButton, Rail – owner 2026-10-20: "fold buttons across the app are a
+   bit weird anyhow, taking a lot of visual focus"): a borderless muted square; ink + the nav outline on hover */
+:where(.sc-tool) .sc-round.sc-quiet {
+	border-color: transparent;
+	border-radius: var(--radius-none);
+	background: transparent;
+	color: var(--text-muted);
+}
+:where(.sc-tool) .sc-round.sc-quiet:hover:not(:disabled) {
+	color: var(--ink);
+	outline-offset: calc(-1 * var(--border-width-regular));
+}

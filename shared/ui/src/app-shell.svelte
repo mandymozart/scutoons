@@ -462,7 +462,7 @@ class:collapsible
 style:--sc-shell-content-col={contentCol}
 style:--sc-shell-main-kept={mainRailed && keptMain ? `${keptMain}px` : null}
 	style:--sc-shell-top="{topHeight}px"
-	style:--sc-shell-sidebar-width={folded && foldKey ? 'var(--sc-shell-rail-width)' : region.width !== null ? `max(${region.width}px, ${sidebarWidth})` : sidebarWidth}
+	style:--sc-shell-sidebar-width={folded && foldKey ? 'var(--sc-shell-rail-width)' : widthKey && region.width !== null ? `max(${region.width}px, ${sidebarWidth})` : sidebarWidth}
 style:--sc-shell-columns={columns}
 	style:--sc-shell-columns-phone={phoneColumns}
 	style:--sc-shell-bottom-size={hasBottom ? bottomSize?.css : null}
