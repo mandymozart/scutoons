@@ -65,9 +65,9 @@ dev server (vite.config.js).
 
 **The local API's routes** and where each one goes: `GET chapters / chapter` (validate + script + variants + handheld)
 → the entity + content's validate. `PUT shot / scene` → a save of the entity. `POST frame` (a rendered PNG) and
-`GET/POST variants`, `variants/pick` → assets + the entity. `POST prompt` → content's prompt builder.
+`GET/POST variants`, `variants/pick` → the workspace folder / work storage + the entity. `POST prompt` → content's prompt builder.
 `POST review` → the generations table (approve). `POST taste` (appends to workflows/scenes/storyboard-taste.md) →
-a document the MCP reads (Q7). `GET/PUT takes`, `takes/all` → the entity / assets. `GET clips / thumbs` → the browser
+a document the MCP reads (Q7). `GET/PUT takes`, `takes/all` → the entity (pose samples) / the workspace folder (videos). `GET clips / thumbs` → the browser
 (`<video>` metadata, a canvas). `GET handheld/urls`, `POST handheld/frame / encode` (ffmpeg) → the browser
 (MediaRecorder). `generate*` (6) → the server's generator API. `generated*` (3) → the generations table.
 `POST run` → gone (§3).
@@ -157,9 +157,11 @@ is no ledger and no budget. Prices are shown in euro at the ECB rate, which the 
      next to bunny) and serves it only to signed-in members, so unpublished attempts are never public. A file goes there
      when it is marked for review or shared, so collaborators can see and compare it. It is emptied per chapter after
      the release (an admin action). To measure first: the host's disk quota and its upload limit (PHP's `post_max_size`
-     – videos may need chunked uploads). A separate bunny zone stays the fallback if the disk is too small. A file on someone else's disk shows as a record with "on <member>'s machine – ask to
+     – videos may need chunked uploads). If the disk is too small: more disk on the own servers, never the CDN. A file on someone else's disk shows as a record with "on <member>'s machine – ask to
      share".
-  3. **The readers' CDN** (the asset manager) gets only what is approved and placed in the chapter.
+  3. **The readers' CDN** (the asset manager) gets only what is approved and placed in the chapter. The rule (owner
+     2026-10-20): "the cdn is designated for stuff that needs global delivery fast, collaboration tools do not at the
+     meoment" – nothing of the studio's work goes to the CDN before it is reader material.
 
   Upload time is spent only on what someone deliberately shares or approves. ch3's generated files so far are 44 MB
   for 54 generations.
@@ -203,8 +205,8 @@ The kit's local steps:
 - **Figma:** `figma_place_draft` builds its spec from the online storyboard instead of `_out/…/spec.json`. figma-chapter,
   figma-match and figma-production become MCP tools (TS) after ch3.
 - **Local GPU (comfy-local):** a `generate_local` tool. It costs no money, so no budget is needed.
-- **Batch renders** (all frames of a chapter): the creator renders a shot's frame in the browser on save and uploads it,
-  which makes the headless batch unnecessary. If one is still wanted, the MCP opens the creator's render route in a
+- **Batch renders** (all frames of a chapter): every browser renders a shot's frame itself from the
+  storyboard (the renderer is deterministic), so frames are not stored at all, and the headless batch is unnecessary. If one is still wanted, the MCP opens the creator's render route in a
   headless browser.
 - No always-on local agent and no polling (STORYBOARD §7 "no silent costs"; Q5 answered).
 
@@ -263,7 +265,7 @@ grants only this channel (Q6).
 | **S0** | content `storyboard/*.ts`: types, validate / measure, the slice grid (out of spec.js), rhythm + safe envelope, schematic, prompts, record format – tested. spec.js / lib.mjs **import** it (node's `--experimental-transform-types`, as check-draft.mjs does), so there is one source. | only the imports (same numbers, the studio's tests stay green) | now, after #62 lands | 2–3 |
 | **S1** | server: `storyboard` entity kind, `storyboard_generations`, the shared work storage on the app host (quota + upload limit measured first); the import migration (written, dry-run on the dev DB; **applied only at the cutover**) | no | before Nov 15 | 2–3 |
 | **S2** | creator page: shot list, Shot inspector, Script, schematic + rhythm rail, validate; read / save the entity (dev DB); the workspace folder (pick, read, write) | no | before Nov 15 | 3–4 |
-| **S3** | 3D: the renderer as TS in the creator, the Viewport (orbit, figures, hand camera), frames rendered and uploaded on save | no | Nov 13–20 | 3–5 |
+| **S3** | 3D: the renderer as TS in the creator, the Viewport (orbit, figures, hand camera), frames rendered in the browser, not stored | no | Nov 13–20 | 3–5 |
 | **S4** | Generate + Variants board + Compare (port of #62); the budget gate (3a) + the server registry (Runway first, then Luma API / Gemini – #61, #112's fit step) | no | after Nov 15 | 5–8 |
 | **S5** | Handheld (WebRTC), Output / Export; **cutover**: apply the import, the creator is the studio | ends it | for ch4's first throw (~Nov 16–20) or right after | 3–4 |
 | **S6** | the local kit: MCP storyboard tools, `prepare_generation`, `generate_local`, the workspace setting; the Figma relay inside the extension + the plugin download; Figma tools from the online storyboard (the figma-* scripts → TS); "Set up your machine" on the account page | after ch3 | Nov 16 → Dec | 4–6 |
