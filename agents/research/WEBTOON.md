@@ -197,9 +197,15 @@ CANVAS episodes run about 3–41k px; Originals 75–91k.
   the season's credits, the last part "End of chapter 1 – next: Anger" and one line naming scutoons.com as the
   interactive version with music, a map and things to collect; an optional content-warning line (ch4, §6). The tool's
   own en / de template; the owner edits it once. Only existing addresses (`scutoons.com`, `scutoons.com/catpope`).
-- **End card** (§12 Q7): one image per language that the owner makes, a local kit input (`--end-card`), never SCUTOONS
-  media; it goes last in a chapter's last episode. No URL on story slices, no QR code: WEBTOON's community policy bans
-  series made mainly to drive traffic to external sites.
+- **Endings** (owner 2026-10-20: "if we ever lose our even 1280x N rule in a chapter, we simply put white space in the
+  end. and we will put infos there what is coming next anyway. or a link to read original with sound and interactions
+  at scutoons.com"): every episode ends on a full 1280 px at 800 wide. The exporter adds white space after the last
+  story slice up to the next 1280 (a whole extra unit when the rest would be too small for the text), and that space is
+  the episode's **end card**, lettered per language by the export view like any text box: what comes next ("Next: Denial
+  (2)" / at a chapter's end the next chapter) and "Read the original – with sound and interactions – at scutoons.com"
+  (plain text; WEBTOON shows no links in images). No URL on story slices, no QR code: the community policy bans series
+  made primarily to drive traffic to external sites, so the card stays one modest labelled panel (named in the Content
+  Review request).
 
 ## 6. The upload kit and the fastest import
 **There is no faster legitimate path than a person with a perfect kit.** CANVAS has no API, no bulk import and no app
@@ -557,10 +563,10 @@ before. The owner's art time is the bottleneck in all three months.
    thumbnail? Rec.: yes; confirm the cuts on the first export.
 6. **Chapter 0** (only the music video): skip it, and put the video in the creator profile's links and the first note?
    Rec.: skip; a one-image episode pointing elsewhere is the external-traffic pattern WEBTOON bans.
-7. **End card:** one image per language at each chapter's last episode ("made for scutoons.com – with music, a map and
-   things to collect"), made by you, kept as a local kit input? Rec.: yes, mentioned in the Content Review request. If
-   a funder (SKE / austro mechana, Westbahnstudios, Künstlerhof Frohnau) requires a logo on every publication, it goes
-   there – please check.
+7. **End card** – answered (owner 2026-10-20): white space at every episode's end up to the next full 1280, with what
+   comes next and "read the original with sound and interactions at scutoons.com" (§5 "Endings"). Still open: if a
+   funder (SKE / austro mechana, Westbahnstudios, Künstlerhof Frohnau) needs a logo on every publication, it goes there
+   – please check.
 8. **Vertical versions for readers** (answered 2026-10-20: one tall picture per scene, a slice list of its own, every
    text box, item and event on both layouts, readers by a condition, the export asks for a missing one – §8). Still
    open: (a) no condition = export only, so readers keep strips and bands until an author adds one? (b) the conditions:
