@@ -106,8 +106,8 @@ stale, the supervisor's restarts; appended, rotated to `figma-relay.1.log` at ~5
 | `run file-info [--args '{…}']` | a command module from `commands/` (below, "Command modules") |
 | `draft storyboards/_out/s1c3/figma/scene-25.spec.json …` | builds / updates a scene's draft frame (from `scripts/storyboard/figma-draft.mjs`): locked `storyboard`, hidden `guides`, `text`, empty `layout` on top, the rail beside it. Re-runs replace shots by id and never touch `layout`. |
 
-The plugin's other commands (`region`, `sliceFrames`, `exportScales`, `thumbs`, `place`) are for the storyboard
-scripts. The draft code (`applyDraft` in `plugin/code.js`) is the same one `figma-draft.mjs` inlines for Figma's own
+`export` and the storyboard scripts' commands (`region`, `sliceFrames`, `exportScales`, `thumbs`, `place`) are
+modules in `commands/` (below); the core keeps `ping`, `pages`, `read`, `draft` and `run`. The draft code (`applyDraft` in `plugin/code.js`) is the same one `figma-draft.mjs` inlines for Figma's own
 MCP (`use_figma`) – one implementation for both ways.
 
 ## Command modules (#93)
@@ -128,9 +128,10 @@ no plugin re-run, no hot reload:
 - Plugin-sandbox syntax: no `?.`, no object spread (`??` and array spread work). A syntax error or a throw →
   `plugin_error` with the message; no such file → `bad_request`. The log names the module and its hash
   (`where where@1a2b3c4d → ok …`); `ping` → `modules`, `compiles`, `compiler`.
-- A module named like a core command replaces it – the way to move `region`, `export` … out of the core later.
-- The core (`plugin/code.js`: connection, queue, ping, sweep, helpers, `run`) changes rarely; a change there still
-  reloads the plugin (above). Example module: `commands/file-info.js`.
+- A module named like a core command replaces it. `export`, `region`, `sliceFrames`, `exportScales`, `thumbs` and
+  `place` moved out of the core this way (2026-10-20) – callers are unchanged (`figma('region', …)`).
+- The core (`plugin/code.js`: connection, queue, ping, pages, read, draft, sweep, helpers, `run`) changes rarely; a
+  change there still reloads the plugin (above). The smallest example module: `commands/file-info.js`.
 - `commands/text-paints.js` (#94): text layers' fill / stroke as SCUTOONS paints – a colour or a linear / radial
   gradient (Figma's gradientTransform → CSS angle / centre + radius); `figma-clean-slices.mjs` uses it for lettering boxes.
 

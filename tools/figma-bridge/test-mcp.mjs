@@ -29,7 +29,9 @@ const seen = [];
 const ws = new WebSocket(`ws://127.0.0.1:${PORT}/plugin`);
 await new Promise((ok, fail) => { ws.onopen = ok; ws.onerror = fail; });
 ws.onmessage = (e) => {
-	const m = JSON.parse(e.data);
+	let m = JSON.parse(e.data);
+	// a command module (export – #93) comes as run { name, hash, src, args }: answered by its name
+	if (m.cmd === 'run') { assert.match(m.args.src, /exportAsync/); m = { id: m.id, cmd: m.args.name, args: m.args.args }; }
 	seen.push([m.cmd, m.args]);
 	const answer = {
 		ping: { file: 'Cat-Pope', page: 'S1C3', user: 'Mandy Mozart' },

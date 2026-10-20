@@ -1,8 +1,9 @@
 // SCUTOONS Figma bridge – the plugin's main thread (Figma Plugin API). The UI (ui.html) holds the WebSocket to the
 // local relay (tools/figma-bridge/relay.mjs on 127.0.0.1); commands arrive here, run against the open file, and the
 // result goes back the same way. Runs only while the owner has the plugin open in Figma desktop – it acts as them.
-// Commands: ping · pages · read · export · draft · region · sliceFrames · exportScales · thumbs · place · run (a module
-// from tools/figma-bridge/commands/, loaded at runtime – new commands go there, not here: README "Command modules")
+// The core's commands: ping · pages · read · draft · run. Everything else is a module in tools/figma-bridge/commands/
+// (export, region, sliceFrames, exportScales, thumbs, place …), loaded at runtime by `run` – new commands go there,
+// not here: README "Command modules". The core keeps the helpers they share (lib: describe, nodeOrPage, sweep …).
 // (agents/STORYBOARD.md §9 "SCUTOONS Figma bridge"). One command at a time (a queue here too); `ping` is answered at
 // once, even while busy – { busy, version } for the runners (scripts/storyboard/lib.mjs figmaPreflight).
 //
@@ -14,7 +15,7 @@
 // code instead of finding out mid-run), and say so – never during an export run (#78, failures A / A' on 2026-10-18).
 // Plugin-sandbox syntax: no `?.` and no object spread here (`??` and array spread work).
 
-const VERSION = '2026-10-20.3';
+const VERSION = '2026-10-20.4';
 const TEMP = 'scutoons-export (temporary)';
 
 figma.showUI(__html__, { width: 260, height: 132, themeColors: true });
@@ -236,198 +237,8 @@ const commands = {
 		const node = await nodeOrPage(args);
 		return describe(node, args.depth ?? 2);
 	},
-	async export(args) {
-		const node = await nodeOrPage(args);
-		if (!('exportAsync' in node)) throw new Error(`${node.type} can't be exported`);
-		const format = (args.format ?? 'PNG').toUpperCase();
-		const settings = format === 'SVG' ? { format: 'SVG' } : { format, constraint: { type: 'SCALE', value: args.scale ?? 1 } };
-		const bytes = await node.exportAsync(settings);
-		sweepPage(figma.currentPage);
-		return { name: node.name, format, bytes: bytes.length, base64: figma.base64Encode(bytes) };
-	},
 	async draft(args) {
 		return applyDraft(args.spec);
-	},
-	/**
-	 * a region of a frame as PNGs at several scales, some of its layers hidden – the production slices (figma-production.mjs):
-	 * { frame, x, y, w, h, hide: ['text', 'guides'], hideIds: ['2231:5'], scales: [1, 2, 3], partial?, layers? } →
-	 * [{ scale, base64 }] (hide = the frame's direct children by name, hideIds = layers at any depth by id). Works on a
-	 * clone inside a clipping frame far off the canvas of the CURRENT page (always loaded – the draft's page may not be),
-	 * removed afterwards – the draft itself is never touched.
-	 * partial: clone only what reaches into the region (always for long drafts – a whole clone per slice was failure D);
-	 * the box takes the frame's own fills (over white). layers: with partial, the frame's direct children are layer
-	 * frames (a storyboard draft: storyboard / guides / text / layout) – per layer a shell with the layer's look (fills,
-	 * strokes, effects, opacity, blend mode, clipping) at the layer's place, holding clones of only ITS children that
-	 * reach into the region, each at its own place in the layer – not the whole layer. A layer holding a mask is cloned
-	 * whole (a mask alone would cover the rest).
-	 */
-	async region(args) {
-		const f = await figma.getNodeByIdAsync(args.frame);
-		if (!f || !('clone' in f)) throw new Error(`no frame ${args.frame}`);
-		const page = figma.currentPage;
-		const box = figma.createFrame();
-		box.name = TEMP;
-		const boxId = box.id;
-		setTemps(temps().concat(boxId));
-		box.resize(args.w, args.h);
-		box.clipsContent = true;
-		// white under everything (a transparent PNG turns black in the WebP); partial: the frame's own fills on top – the
-		// whole clone below brings them itself
-		box.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }].concat(args.partial && Array.isArray(f.fills) ? f.fills : []);
-		page.appendChild(box);
-		box.x = -200000; box.y = -200000;
-		// hideIds: layers hidden at any depth (lettering nested in groups) – the clone keeps the original's child order,
-		// so original and clone are walked side by side
-		const ids = new Set(args.hideIds ?? []);
-		const hideIn = (o, c) => {
-			if (!ids.size || !('children' in o) || !('children' in c)) return;
-			o.children.forEach((k, i) => { const ck = c.children[i]; if (!ck) return; if (ids.has(k.id)) ck.visible = false; else hideIn(k, ck); });
-		};
-		try {
-			if (args.partial && 'children' in f) {
-				// a huge hand-made draft: clone only the frame's direct children that reach into the region (their
-				// own positions stay – a child's x / y are relative to the frame), not the whole frame each time
-				const fb = f.absoluteBoundingBox;
-				// by the drawn box on the page: a rotated layer reaches far from its x / y (blood vessels turned 146°)
-				const reaches = (n, dx, dy) => {
-					const b = n.absoluteBoundingBox;
-					const nx = b && fb ? b.x - fb.x : dx + n.x, ny = b && fb ? b.y - fb.y : dy + n.y, nw = b ? b.width : n.width, nh = b ? b.height : n.height;
-					return !(nx >= args.x + args.w || nx + nw <= args.x || ny >= args.y + args.h || ny + nh <= args.y);
-				};
-				for (const n of f.children) {
-					if ((args.hide ?? []).includes(n.name) || n.visible === false || ids.has(n.id) || !reaches(n, 0, 0)) continue;
-					// a layer frame (not a group, not one holding a mask): a shell in its place with its look, its children
-					// that reach into the region inside, each with its own transform in the layer (rotation included)
-					if (args.layers && n.type === 'FRAME' && !n.children.some((k) => k.isMask)) {
-						const shell = figma.createFrame();
-						box.appendChild(shell);
-						shell.name = n.name;
-						shell.fills = []; shell.clipsContent = false; // a new frame is white and clips – the layer's own look below
-						copyLook(n, shell);
-						shell.resize(Math.max(0.01, n.width), Math.max(0.01, n.height));
-						const t = n.relativeTransform;
-						shell.relativeTransform = [[t[0][0], t[0][1], t[0][2] - args.x], [t[1][0], t[1][1], t[1][2] - args.y]];
-						for (const k of n.children) {
-							if (k.visible === false || ids.has(k.id) || !reaches(k, n.x, n.y)) continue;
-							const c = k.clone();
-							shell.appendChild(c);
-							c.relativeTransform = k.relativeTransform;
-							hideIn(k, c);
-						}
-						continue;
-					}
-					const c = n.clone();
-					box.appendChild(c);
-					c.x = n.x - args.x; c.y = n.y - args.y;
-					hideIn(n, c);
-				}
-				const out = [];
-				for (const s of args.scales ?? [1]) out.push({ scale: s, base64: figma.base64Encode(await box.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: s } })) });
-				return out;
-			}
-			const c = f.clone();
-			box.appendChild(c);
-			c.x = -args.x; c.y = -args.y;
-			if (args.unclip && 'clipsContent' in c) c.clipsContent = false; // a panorama strip reaches past the frame's width
-			if ('children' in c) for (const l of c.children) if ((args.hide ?? []).includes(l.name)) l.visible = false;
-			hideIn(f, c);
-			const out = [];
-			for (const s of args.scales ?? [1]) out.push({ scale: s, base64: figma.base64Encode(await box.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: s } })) });
-			return out;
-		} finally {
-			// never throws: an exception here would replace the export's result
-			try { box.remove(); setTemps(temps().filter((id) => id !== boxId)); } catch (e) {} // still listed: the next sweep takes it
-			sweepPage(page);
-		}
-	},
-	/**
-	 * production slice frames from a draft – the owner's way ("ich ziehe immer die ebenen auf einen slice die auf der
-	 * selben hoehe im slice active werden … dannach loesche ich die textebenen"): per slice a frame (name, w × h,
-	 * clipping) at { px, py } on the page, holding copies of every node of the draft's layers (minus `skip`) that reaches
-	 * into the slice, placed as in the draft, unlocked (owner: locked layers must be unlocked before copying); hidden
-	 * nodes stay hidden. { frame, skip: ['text', 'guides'], slices: [{ name, x, y, w, h, px, py }] } – frames of the same
-	 * name are replaced.
-	 */
-	async sliceFrames(args) {
-		const f = await figma.getNodeByIdAsync(args.frame);
-		if (!f || !('children' in f)) throw new Error(`no frame ${args.frame}`);
-		const page = f.parent;
-		const nodes = [];
-		for (const layer of f.children) {
-			if ((args.skip ?? []).includes(layer.name)) continue;
-			const kids = 'children' in layer && layer.type !== 'INSTANCE' ? layer.children : [layer];
-			for (const n of kids) nodes.push({ n, x: (layer === n ? 0 : layer.x) + n.x, y: (layer === n ? 0 : layer.y) + n.y, w: n.width, h: n.height });
-		}
-		const out = [];
-		for (const s of args.slices ?? []) {
-			for (const old of page.children.filter((c) => c.name === s.name)) old.remove();
-			const fr = figma.createFrame();
-			fr.name = s.name;
-			fr.resize(s.w, s.h);
-			fr.clipsContent = true;
-			fr.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
-			page.appendChild(fr);
-			fr.x = s.px; fr.y = s.py;
-			let count = 0;
-			for (const it of nodes) {
-				if (it.x >= s.x + s.w || it.x + it.w <= s.x || it.y >= s.y + s.h || it.y + it.h <= s.y) continue;
-				const c = it.n.clone();
-				fr.appendChild(c);
-				c.x = it.x - s.x; c.y = it.y - s.y;
-				if ('locked' in c) c.locked = false;
-				count++;
-			}
-			out.push({ name: s.name, id: fr.id, layers: count });
-		}
-		return out;
-	},
-	/** a node (a slice frame) as PNGs at several scales: { node, scales } → [{ scale, base64 }] */
-	async exportScales(args) {
-		const n = await figma.getNodeByIdAsync(args.node);
-		if (!n || !('exportAsync' in n)) throw new Error(`no node ${args.node}`);
-		const out = [];
-		for (const s of args.scales ?? [1]) out.push({ scale: s, base64: figma.base64Encode(await n.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: s } })) });
-		sweepPage(figma.currentPage);
-		return out;
-	},
-	/** many nodes as small JPGs at one width – for matching pictures to shots: { ids, width } → [{ id, base64 } | { id, error }] */
-	async thumbs(args) {
-		const out = [];
-		for (const id of args.ids ?? []) {
-			try {
-				const n = await figma.getNodeByIdAsync(id);
-				if (!n || !('exportAsync' in n)) throw new Error('not exportable');
-				const bytes = await n.exportAsync({ format: 'JPG', constraint: { type: 'WIDTH', value: args.width ?? 160 } });
-				out.push({ id, base64: figma.base64Encode(bytes) });
-			} catch (e) { out.push({ id, error: String(e && e.message ? e.message : e) }); }
-		}
-		return out;
-	},
-	/**
-	 * copies of pictures beside a frame, at the height of the shot they belong to (the originals stay where they are):
-	 * { page, group, items: [{ id, x, y, w }] } – x / y absolute on the page, w the copy's width (height keeps the
-	 * aspect). The group (by name) is replaced on a re-run.
-	 */
-	async place(args) {
-		const page = figma.root.children.find((p) => p.name === args.page);
-		if (!page) throw new Error(`no page "${args.page}"`);
-		await page.loadAsync();
-		const old = page.children.find((n) => n.name === args.group);
-		if (old) old.remove();
-		const copies = [];
-		for (const it of args.items ?? []) {
-			const n = await figma.getNodeByIdAsync(it.id);
-			if (!n || !('clone' in n)) continue;
-			const c = n.clone();
-			page.appendChild(c);
-			const s = it.w / c.width;
-			if ('rescale' in c) c.rescale(s); else c.resize(it.w, c.height * s);
-			c.x = it.x; c.y = it.y;
-			c.name = `${it.shot ?? ''} · ${n.name}`;
-			copies.push(c);
-		}
-		if (copies.length) { const g = figma.group(copies, page); g.name = args.group; }
-		return { placed: copies.length };
 	},
 	/**
 	 * a command module from tools/figma-bridge/commands/<name>.js (#93) – the relay reads the file per call and sends

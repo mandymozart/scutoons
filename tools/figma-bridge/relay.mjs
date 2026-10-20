@@ -17,7 +17,8 @@
 //   - command modules (#93): a call whose command has a file tools/figma-bridge/commands/<cmd>.js (or `run` with
 //     { name, args }) goes to the plugin's generic `run` as { name, hash, src, args } – the file read from disk at each
 //     send, never source from the caller (what runs in Figma = what is in the repo). A new or edited module needs no
-//     relay restart and no plugin re-run; a module named like a core command replaces it
+//     relay restart and no plugin re-run; a module named like a core command replaces it (export, region … moved
+//     out of the core that way)
 //   - local tools only, never a web page: /cmd takes `content-type: application/json` without an Origin header (browsers
 //     send one, and JSON needs their preflight, which this relay never answers); /plugin takes the Origin of Figma's
 //     plugin iframes (`null`), none, or figma.com. A second plugin window takes over only with its hello

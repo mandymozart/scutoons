@@ -33,7 +33,7 @@ import { connect } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { RELAY_VERSION, makeLogger, startRelay } from './relay.mjs';
+import { RELAY_VERSION, makeLogger, resolveCall, startRelay } from './relay.mjs';
 import { bridge } from './cli.mjs';
 import { enoughMemory, figma, figmaOnce, figmaPreflight, figmaStatus } from '../../scripts/storyboard/lib.mjs';
 
@@ -406,7 +406,7 @@ try {
 	const exports = ['e1', 'e2', 'e3'].map(() => ask(fig, 'export', { nodeId: art.id, format: 'PNG', scale: 1 }));
 	const pong = await ask(fig, 'ping');
 	assert.equal(pong.result.version, plugin.VERSION);
-	assert.equal(pong.result.busy.cmd, 'export', 'ping answered while an export runs');
+	assert.equal(pong.result.busy.cmd, 'run', 'ping answered while an export (a module) runs');
 	assert.equal(pong.result.queue, 2);
 	const exported = await Promise.all(exports);
 	assert.ok(exported.every((e) => e.ok));
@@ -481,15 +481,16 @@ try {
 
 	// command modules in the plugin (#93): compiled once per hash, `figma` a global, `lib` the core's helpers
 	const mod = (name, hash, src, args) => ask(fig, 'run', { name, hash, src, args });
+	const base = (await ask(fig, 'ping')).result; // export / region ran as modules above
 	r = await mod('hello', 'h1', 'return { file: figma.root.name, k: args.k, core: lib.VERSION, has: typeof lib.describe };', { k: 2 });
 	assert.deepEqual(r.result, { file: 'Cat-Pope', k: 2, core: plugin.VERSION, has: 'function' }, r.error);
 	r = await mod('hello', 'h1', undefined, { k: 3 }); // the same hash: no source needed, not compiled again
 	assert.equal(r.result.k, 3, r.error);
 	const pp = (await ask(fig, 'ping')).result;
-	assert.deepEqual([pp.modules, pp.compiles, pp.compiler], [1, 1, 'Function']);
+	assert.deepEqual([pp.modules - base.modules, pp.compiles - base.compiles, pp.compiler], [1, 1, 'Function']);
 	r = await mod('hello', 'h2', 'return { edited: true };');
 	assert.deepEqual(r.result, { edited: true });
-	assert.equal((await ask(fig, 'ping')).result.compiles, 2, 'a new hash → compiled again');
+	assert.equal((await ask(fig, 'ping')).result.compiles - base.compiles, 2, 'a new hash → compiled again');
 	r = await mod('bad', 'h3', 'return {');
 	assert.equal(r.ok, false);
 	assert.match(r.error, /^module bad: /);
@@ -636,12 +637,13 @@ function loadPlugin(fig) {
 	return new Function('figma', '__html__', `${code}\nreturn { commands, VERSION };`)(fig, '<html></html>');
 }
 
-/** a command into the plugin (as ui.html passes it) → its answer */
+/** a command into the plugin (as ui.html passes it; a module of commands/ as the relay sends it) → its answer */
 function ask(fig, cmd, args = {}) {
+	const out = cmd === 'run' ? { cmd, args } : resolveCall(cmd, args, resolve(here, 'commands'));
 	return new Promise((ok) => {
 		const id = `t${++tid}`;
 		const l = (m) => { if (m.id === id) { fig.ui.listeners.splice(fig.ui.listeners.indexOf(l), 1); ok(m); } };
 		fig.ui.listeners.push(l);
-		fig.ui.onmessage({ id, cmd, args });
+		fig.ui.onmessage({ id, cmd: out.cmd, args: out.args });
 	});
 }
