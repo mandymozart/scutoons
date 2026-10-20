@@ -9,7 +9,13 @@
 //        --frame 2369:3211 --top 13867 --changed-only [--upload]
 //
 // Source: the owner's per-slice frames (`--page` + `--prefix`: slice `…-slice-N` ↔ frame "<prefix>N"; slices without
-// a frame – the key visual – stay) or one long draft frame (`--frame` + `--top`: slice i = the region top + i · 625).
+// a frame – the key visual – stay) or one long draft frame (`--frame` + `--top`: slice i starts at the top + the heights
+// of the slices above it – each slice keeps its OWN height, never the new standard: this re-cuts the slices the chapter
+// has; a cut at another standard (another slice count) is a different job – figma-production.mjs).
+// The Figma drafts of chapters 1–5 stay on the 625 grid while their standard slices are stored at 624 since #78
+// (resampled, convert-624.mjs): a per-slice frame is cut at its own height and resampled to the slice's (≤ 2 px apart);
+// in a long frame the draft's step can't be read from the chapter – a group with SLICE_H slices needs `--grid <px>`
+// (625 for chapters 1–5: each such slice is cut 625 high and resampled to 624; 624 for a draft drawn at 624).
 // Hidden at any depth (bridge `region` hideIds): the instances Dialog Textbox / Speech Bubble / Action Button, every
 // TEXT layer except KEEP (elevator floor numbers, the book title), the vector letter groups "ROAARR". A hidden lettering
 // text (short, not a sentence) becomes a text box in its slice – font lettering, Figma's size / angle / colours, the
@@ -17,14 +23,21 @@
 // before, figma-reslice.mjs): only slices where something hides that the old rule kept (Dialog Textbox + top-level
 // reading texts). Out: storyboards/_out/s1c<n>/clean/ (slices/*.webp, plan.json); --upload: new CDN paths (never
 // overwrites) + ONE draft that sets image + imageVariants and appends the lettering boxes – nothing else changes.
+// Figma through the self-healing bridge client (lib.mjs figma(), #78): a preflight first (also the Figma file – a plugin
+// re-run in another file is waited for), waits for a plugin that went away, never re-sends a timed-out region before
+// Figma is free. Resumable: clean/run.json says which slice is done from which region + hidden layers; done = that entry
+// AND the three WebPs at the slice's size. A slice that still fails is marked failed, the rest goes on (two in a row
+// timing out, or Figma stuck: the run stops) – and nothing is uploaded until every slice is there. Pacing as
+// figma-production.
 
+import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, resolve } from 'node:path';
 import { Client } from '@modelcontextprotocol/client';
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
-import { ROOT, SLICE_H } from './lib.mjs';
+import { ROOT, SLICE_H, figma, figmaPacer, figmaPreflight, runManifest, variantsOk, webpVariants } from './lib.mjs';
 
 const args = process.argv.slice(2);
 const take = (f, d) => { const i = args.indexOf(f); return i >= 0 ? args.splice(i, 2)[1] : d; };
@@ -35,14 +48,16 @@ const colors = Object.fromEntries((take('--color') ?? '').split(',').filter(Bool
 // --hide id,id: more layers to hide (a panel that only held a text – owner's pick)
 const extra = new Set((take('--hide') ?? '').split(',').filter(Boolean));
 const upload = args.includes('--upload'), changedOnly = args.includes('--changed-only');
-if (!key || !groupLabel || !folder || !((page && prefix) || (frameId && Number.isFinite(top)))) {
-	console.error('usage: figma-clean-slices.mjs --key chapter:<toon>:<n> --group <label> --folder <s1/c1/v2> (--page <id> --prefix "<name> " | --frame <id> --top <y> [--changed-only]) [--upload]');
+// --grid <px>: the long draft's step for a slice stored at SLICE_H (chapters 1–5: 625) – see the header
+const gridArg = take('--grid'), grid = gridArg === undefined ? null : Number(gridArg);
+if (!key || !groupLabel || !folder || !((page && prefix) || (frameId && Number.isFinite(top))) || (grid !== null && !(Number.isInteger(grid) && grid > 0))) {
+	console.error('usage: figma-clean-slices.mjs --key chapter:<toon>:<n> --group <label> --folder <s1/c1/v2> (--page <id> --prefix "<name> " | --frame <id> --top <y> [--grid 625] [--changed-only]) [--upload]');
 	process.exit(2);
 }
 const [, toon, n] = key.split(':');
 const OUT = resolve(ROOT, 'storyboards/_out', `s1c${n}`, 'clean');
 for (const d of ['png', 'slices', 'trees']) mkdirSync(resolve(OUT, d), { recursive: true });
-const W = 390, H = SLICE_H;
+const W = 390; // the height is each slice's own (s.height) – never a standard
 
 const cfg = JSON.parse(readFileSync(resolve(homedir(), '.claude.json'), 'utf8')).mcpServers?.scutoons;
 const client = new Client({ name: 'scutoons-clean-slices', version: '1.0.0' });
@@ -53,21 +68,12 @@ const call = async (name, a) => {
 	let data; try { data = JSON.parse(text); } catch { data = text; }
 	return { error: !!r.isError, data };
 };
-const bridge = async (c, a, tries = 5) => {
-	const r = await fetch(`http://127.0.0.1:${process.env.SCUTOONS_FIGMA_PORT ?? 3056}/cmd`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ cmd: c, args: a, timeout: 600_000 }) }).catch(() => null);
-	const j = r && await r.json().catch(() => null);
-	if (!j?.ok && tries > 1 && (!j || /no plugin/.test(j.error))) { // a relay / plugin restart: wait and try again
-		await new Promise((ok) => setTimeout(ok, 10_000));
-		return bridge(c, a, tries - 1);
-	}
-	if (!j) throw new Error('no relay – node tools/figma-bridge/relay.mjs');
-	if (!j.ok) throw new Error(j.error);
-	return j.result;
-};
+let expectFile = null; // the Figma file the run started in (preflight)
+const bridge = (c, a, o) => figma(c, a, { client: `figma-clean-slices ${key}`, expectFile, ...o });
 const tree = async (id) => { // cached: re-runs resume without reading Figma again
 	const f = resolve(OUT, 'trees', `${id.replace(':', '-')}.json`);
 	if (existsSync(f)) return JSON.parse(readFileSync(f, 'utf8'));
-	const t = await bridge('read', { nodeId: id, depth: 6 });
+	const t = await bridge('read', { nodeId: id, depth: 6 }, { timeout: 240_000 });
 	writeFileSync(f, JSON.stringify(t));
 	return t;
 };
@@ -107,8 +113,8 @@ function classify(root, decor) {
 	return { hide, letters };
 }
 
-// a lettering text box from a hidden Figma text, in a slice whose top is `y0` in the root's coordinates
-const letterBox = (l, y0, id) => {
+// a lettering text box from a hidden Figma text, in a slice whose top is `y0` in the root's coordinates, `h` high
+const letterBox = (l, y0, h, id) => {
 	const t = l.node, size = (t.fontSize ?? 24) / W * 100, cx = l.box.x + l.box.w / 2, cy = l.box.y + l.box.h / 2 - y0;
 	const text = (t.text ?? '').replace(/\r\n?/g, '\n').split('\n').map((s) => s.trim()).filter(Boolean).join('\n');
 	// auto width (a word never wraps) anchored where Figma's frame holds the text: its left / right edge (rotated with it)
@@ -117,7 +123,7 @@ const letterBox = (l, y0, id) => {
 	const side = align === 'left' ? -1 : align === 'right' ? 1 : 0, half = (t.w ?? l.box.w) / 2 * side;
 	const px = cx + half * Math.cos(rot), py = cy + half * Math.sin(rot);
 	return {
-		id, rect: { x: +(px / W * 100).toFixed(2), y: +(py / H * 100).toFixed(2), width: +((t.w ?? l.box.w) * 1.5 / W * 100).toFixed(2) }, fit: 'width', // max width 1.5 × Figma's: never reached
+		id, rect: { x: +(px / W * 100).toFixed(2), y: +(py / h * 100).toFixed(2), width: +((t.w ?? l.box.w) * 1.5 / W * 100).toFixed(2) }, fit: 'width', // max width 1.5 × Figma's: never reached
 		anchor: side < 0 ? 'l' : side > 0 ? 'r' : 'c', text: { de: text, en: text }, variant: 'bubble', font: 'lettering', align, size: +size.toFixed(2),
 		...(colors[text] ? { color: colors[text] } : t.fill && t.fill !== '#000000' ? { color: t.fill } : {}),
 		...(t.stroke ? { stroke: t.stroke, strokeWidth: +Math.max(0.05, (t.strokeWeight ?? 1) / (t.fontSize ?? 24)).toFixed(2) } : {}),
@@ -137,35 +143,51 @@ try {
 	if (gi < 0) throw new Error(`no group "${groupLabel}" in ${key}`);
 	const group = cur.data.content.groups[gi];
 	console.log(`${key} version ${base}: group ${gi} "${groupLabel}", ${group.slices.length} slices`);
+	// one long frame: slice i starts at the top + the heights of the slices above it – a slice without a stored height
+	// can't be placed (guessing the standard is the 1-px-per-slice drift)
+	const noHeight = frameId ? group.slices.findIndex((s) => !(s.height > 0)) : -1;
+	if (noHeight >= 0) throw new Error(`slice ${noHeight + 1} of "${groupLabel}" has no height – every slice carries its own (RULES "Product rules"); fix the chapter first`);
+	const standard = group.slices.filter((s) => s.height === SLICE_H).length;
+	if (frameId && standard && grid === null) throw new Error(`${standard} slices of "${groupLabel}" are ${SLICE_H} high – the long draft's step for them can't be read from the chapter: --grid 625 for the drafts of chapters 1–5 (their slices were resampled 625 → ${SLICE_H}, #78), --grid ${SLICE_H} for a draft drawn at ${SLICE_H}`);
+	const pre = await figmaPreflight();
+	expectFile = pre.file;
+	console.log(`Figma: "${pre.file}" (plugin ${pre.version}, ping ${pre.pingMs} ms, ${pre.freeGB} GB RAM free)`);
 
 	const items = [], kept = [];
 	if (page) {
-		const p = await bridge('read', { nodeId: page, depth: 1 });
+		const p = await bridge('read', { nodeId: page, depth: 1 }, { timeout: 240_000 }); // a page: it may load whole
 		const frames = new Map(p.children.filter((c) => c.type === 'FRAME' && c.name.startsWith(prefix)).map((c) => [c.name.slice(prefix.length), c.id]));
 		for (const [i, s] of group.slices.entries()) {
 			const num = s.image.match(/slice-(\d+)\.\w+$/)?.[1], id = num && frames.get(num);
 			if (!id) { kept.push(`${basename(s.image)} (no Figma frame)`); continue; }
 			const t = await tree(id);
 			const { hide, letters } = classify(t, true);
-			items.push({ i, name: basename(s.image).replace(/\.\w+$/, ''), frame: id, region: { x: 0, y: 0 }, hideIds: hide.map((h) => h.id), boxes: letters.map((l, k) => letterBox(l, 0, `${toon}-c${n}-${num}-l${k + 1}`)) });
+			// cut at the frame's own height, stored at the slice's: a 625 frame of chapters 1–5 → a 624 slice (#78)
+			const h = Math.round(t.h ?? s.height), out = s.height ?? h;
+			if (Math.abs(h - out) > 2) throw new Error(`${basename(s.image)}: its Figma frame is ${h} high, the slice ${out} – not the same picture`);
+			items.push({ i, name: basename(s.image).replace(/\.\w+$/, ''), frame: id, region: { x: 0, y: 0 }, h, out, hideIds: hide.map((x) => x.id), boxes: letters.map((l, k) => letterBox(l, 0, h, `${toon}-c${n}-${num}-l${k + 1}`)) });
 			process.stdout.write(`\rread ${i + 1}/${group.slices.length}   `);
 		}
 		console.log();
 	} else {
+		// one long frame: each slice at its own height – a SLICE_H one at --grid –, its top the running sum (checked above)
 		const t = await tree(frameId);
 		const { hide, letters } = classify(t);
+		let next = top;
 		for (const [i, s] of group.slices.entries()) {
-			const y0 = top + i * H, y1 = y0 + (s.height ?? H), hit = (b) => b.y < y1 && b.y + b.h > y0 && b.x < W && b.x + b.w > 0;
+			const out = s.height, h = out === SLICE_H ? grid : out, y0 = next, y1 = y0 + h, hit = (b) => b.y < y1 && b.y + b.h > y0 && b.x < W && b.x + b.w > 0;
+			next = y1;
 			const name = basename(s.image).replace(/\.\w+$/, ''), num = name.match(/(\d+)$/)?.[1];
 			const mine = letters.filter((l) => { const cy = l.box.y + l.box.h / 2; return cy >= y0 && cy < y1 && l.box.x < W && l.box.x + l.box.w > 0; }); // a word running out of the frame stays (the art's way)
-			if (changedOnly && !hide.some((h) => !h.old && hit(h.box))) { kept.push(`${name} (nothing new to hide)`); continue; }
-			items.push({ i, name, frame: frameId, region: { x: 0, y: y0 }, partial: true, hideIds: hide.filter((h) => hit(h.box)).map((h) => h.id), boxes: mine.map((l, k) => letterBox(l, y0, `${toon}-c${n}-${num}-l${k + 1}`)) });
+			if (changedOnly && !hide.some((x) => !x.old && hit(x.box))) { kept.push(`${name} (nothing new to hide)`); continue; }
+			items.push({ i, name, frame: frameId, region: { x: 0, y: y0 }, h, out, partial: true, hideIds: hide.filter((x) => hit(x.box)).map((x) => x.id), boxes: mine.map((l, k) => letterBox(l, y0, h, `${toon}-c${n}-${num}-l${k + 1}`)) });
 		}
 	}
-	// a word across a seam sits in both slice frames: the lower slice owns it (research/TEXT-ACROSS-SLICES.md §1)
+	// a word across a seam sits in both slice frames: the lower slice owns it (research/TEXT-ACROSS-SLICES.md §1) – the
+	// same spot when its top in the lower slice + this slice's height ≈ its top here (in px: the heights may differ)
 	for (const it of items) {
 		const next = items.find((x) => x.i === it.i + 1);
-		if (next) it.boxes = it.boxes.filter((d) => !next.boxes.some((e) => norm(e.text.de) === norm(d.text.de) && Math.abs(e.rect.y + 100 - d.rect.y) < 2 && Math.abs(e.rect.x - d.rect.x) < 2));
+		if (next) it.boxes = it.boxes.filter((d) => !next.boxes.some((e) => norm(e.text.de) === norm(d.text.de) && Math.abs(e.rect.y * next.h / 100 + it.h - d.rect.y * it.h / 100) < 12 && Math.abs(e.rect.x - d.rect.x) < 2));
 	}
 	// this script's own boxes (made once; a re-run leaves them)
 	const own = (e) => new RegExp(`^${toon}-c${n}-\\d+-l\\d+$`).test(e.id ?? '');
@@ -173,18 +195,38 @@ try {
 	for (const it of items) it.boxes = it.boxes.filter((d) => !dl(it.i).some((e) => said(e, d) || over(e, d)) && ![...dl(it.i - 1), ...dl(it.i + 1)].some((e) => said(e, d)));
 	console.log(`replace ${items.length}, keep ${kept.length}; lettering boxes to add: ${items.reduce((a, it) => a + it.boxes.length, 0)}`);
 
+	// the run manifest: done = exported from the same region with the same hidden layers, and the three files at the size
+	const manifest = runManifest(resolve(OUT, 'run.json'), { key, group: groupLabel, folder });
+	const pace = figmaPacer();
+	const failed = [];
+	let skipped = 0, timedOut = 0;
 	for (const it of items) {
-		if (existsSync(resolve(OUT, 'slices', `${it.name}.3x.webp`))) continue;
-		const res = await bridge('region', { frame: it.frame, x: it.region.x, y: it.region.y, w: W, h: group.slices[it.i].height ?? H, hideIds: it.hideIds, partial: !!it.partial, scales: [1, 2, 3] });
-		for (const r of res) writeFileSync(resolve(OUT, 'png', `${it.name}@${r.scale}x.png`), Buffer.from(r.base64, 'base64'));
-		execFileSync('python', ['-I', '-c', `import sys
-from PIL import Image
-d, n = sys.argv[1], sys.argv[2]
-for s, suf in ((1, ''), (2, '.2x'), (3, '.3x')):
-    Image.open(f'{d}/png/{n}@{s}x.png').convert('RGB').save(f'{d}/slices/{n}{suf}.webp', 'WEBP', quality=90, method=6)`, OUT, it.name]);
-		process.stdout.write(`\rexport ${items.indexOf(it) + 1}/${items.length} ${it.name}   `);
+		const h = it.h, out = it.out ?? h; // cut h rows, stored out high (resampled when they differ – #78, --grid)
+		const regionArgs = { frame: it.frame, x: it.region.x, y: it.region.y, w: W, h, hideIds: it.hideIds, partial: !!it.partial, scales: [1, 2, 3] };
+		const source = `${it.frame} ${it.region.x},${it.region.y} ${W}×${h}${out !== h ? ` → ${out}` : ''}${it.partial ? ' partial' : ''} hide ${createHash('sha1').update(it.hideIds.join(',')).digest('hex').slice(0, 10)}`;
+		const m = manifest.get(it.name);
+		if (m?.status === 'done' && m.source === source && variantsOk(resolve(OUT, 'slices'), it.name, W, out)) { skipped++; continue; }
+		const t0 = Date.now();
+		try {
+			const res = await bridge('region', regionArgs);
+			for (const r of res) writeFileSync(resolve(OUT, 'png', `${it.name}@${r.scale}x.png`), Buffer.from(r.base64, 'base64'));
+			webpVariants(OUT, it.name, { w: W, h: out });
+			if (!variantsOk(resolve(OUT, 'slices'), it.name, W, out)) throw Object.assign(new Error(`the export is not ${W} × ${out} (1x)`), { code: 'size' });
+			manifest.set(it.name, { status: 'done', source, ms: Date.now() - t0 });
+			timedOut = 0;
+		} catch (e) {
+			// this slice failed for good (after the client's retries) – the rest goes on; anything else (Figma stuck, no
+			// plugin for 30 min …) ends the run, as do two slices in a row timing out (a re-run resumes)
+			if (!['plugin_error', 'timeout', 'queue_timeout', 'size'].includes(e.code)) throw e;
+			manifest.set(it.name, { status: 'failed', source, error: e.message });
+			failed.push(`${it.name}: ${e.message}`);
+			if (/timeout/.test(e.code) && ++timedOut >= 2) throw new Error(`two slices in a row timed out – Figma is too slow or stuck right now; nothing uploaded, run again (it resumes):\n  ${failed.join('\n  ')}`);
+		}
+		const paused = await pace(Date.now() - t0);
+		process.stdout.write(`\rexport ${items.indexOf(it) + 1}/${items.length} ${it.name}${paused ? ` (paused: ${paused})` : ''}   `);
 	}
-	console.log();
+	console.log(skipped ? `\n${skipped} slices already done (run.json) – skipped` : '');
+	if (failed.length) throw new Error(`${failed.length} slice(s) FAILED – nothing uploaded; run again (it resumes):\n  ${failed.join('\n  ')}`);
 	if (changedOnly) { // what comes out pixel-identical to the picture there now stays
 		const same = execFileSync('python', ['-I', '-c', `import sys, io, urllib.request
 from PIL import Image, ImageChops, ImageStat

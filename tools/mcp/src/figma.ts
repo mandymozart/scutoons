@@ -11,24 +11,67 @@ type Result = { content: Content[]; isError?: boolean };
 const text = (value: unknown): Result => ({ content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value) }] });
 const fail = (message: string): Result => ({ ...text(message), isError: true });
 
-const SETUP =
-	'The SCUTOONS Figma bridge is not ready: (1) `node tools/figma-bridge/relay.mjs` running on this computer, (2) in Figma desktop the file open and Plugins → Development → SCUTOONS Bridge started (green dot). Setup: tools/figma-bridge/README.md.';
+const PLUGIN = 'in Figma desktop the file open and the SCUTOONS Bridge started (Ctrl+Alt+P "Run last plugin", or Plugins → Development → SCUTOONS Bridge; green dot)';
+const SETUP = `The SCUTOONS Figma bridge is not ready: (1) the relay running on this computer – \`node tools/figma-bridge/supervise.mjs --detach\` keeps tools/figma-bridge/relay.mjs running in the background, (2) ${PLUGIN}. Setup: tools/figma-bridge/README.md.`;
+const NO_PLUGIN = `The relay runs, but no plugin is connected: ${PLUGIN}.`;
+
+/**
+ * per command (ms): how long the plugin may work on it (the relay answers `timeout` after that, Figma finishes it
+ * anyway) – plus up to WAIT in the relay's queue behind another call (a script's export run). Together below fetch's
+ * own 300 s limit (undici headersTimeout), so a slow call ends with a clear message, not "fetch failed".
+ */
+const TIMEOUTS: Record<string, number> = { ping: 15_000, pages: 30_000, read: 180_000, export: 120_000, draft: 180_000 };
+const WAIT = 60_000;
 
 export function figmaPort(): number {
 	return Number(process.env.SCUTOONS_FIGMA_PORT ?? 3056);
 }
 
+/** the relay's error code → what the member (and their AI) should know */
+function explain(cmd: string, code: string | undefined, error: string | undefined, timeout: number): string {
+	switch (code) {
+		case 'no_plugin':
+			return NO_PLUGIN;
+		case 'plugin_disconnected':
+			return `The plugin went away during ${cmd} (Figma closed or reloaded it). ${NO_PLUGIN}`;
+		case 'timeout':
+			return `Figma did not answer ${cmd} within ${Math.round(timeout / 1000)} s – it is still working on it; the bridge sends the next call when it is done. Try again in a minute, read a node instead of a whole page, or view at a smaller scale.`;
+		case 'queue_timeout':
+			return `The bridge is busy with another call (a script's export run?) – ${cmd} was not sent. Try again in a few minutes.`;
+		case 'forbidden':
+			return `The relay refused the call (${error ?? 'forbidden'}) – it takes calls from local tools only.`;
+		default:
+			return error ?? `${cmd} failed`;
+	}
+}
+
 /** one command through the relay → the plugin's answer ({ ok, result } / { ok: false, error }) */
 export async function bridge(cmd: string, args: Record<string, unknown> = {}, port = figmaPort()): Promise<{ ok: boolean; result?: any; error?: string }> {
+	const timeout = TIMEOUTS[cmd] ?? 120_000;
 	let res: Response;
 	try {
-		res = await fetch(`http://127.0.0.1:${port}/cmd`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ cmd, args }) });
-	} catch {
-		return { ok: false, error: SETUP };
+		res = await fetch(`http://127.0.0.1:${port}/cmd`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ cmd, args, timeout, wait: WAIT, client: 'scutoons-mcp' }),
+			signal: AbortSignal.timeout(timeout + WAIT + 20_000)
+		});
+	} catch (error) {
+		const e = error as { name?: string; cause?: { code?: string } };
+		if (e.cause?.code === 'ECONNREFUSED') return { ok: false, error: SETUP };
+		if (e.name === 'TimeoutError') return { ok: false, error: `The SCUTOONS Figma relay did not answer ${cmd} within ${Math.round((timeout + WAIT + 20_000) / 1000)} s (node tools/figma-bridge/cli.mjs status shows what it is doing).` };
+		return { ok: false, error: `The connection to the SCUTOONS Figma relay broke (${e.cause?.code ?? e.name ?? 'unknown'}) – it may be restarting; try again in a moment.` };
 	}
-	const out = (await res.json()) as { ok: boolean; result?: unknown; error?: string };
-	if (!out.ok && /no plugin connected/.test(out.error ?? '')) return { ok: false, error: SETUP };
-	return out;
+	let out: { ok: boolean; result?: unknown; code?: string; error?: string };
+	try {
+		out = await res.json();
+	} catch {
+		return { ok: false, error: `${SETUP} (port ${port} answers, but not as the relay – HTTP ${res.status})` };
+	}
+	if (out.ok) return out;
+	// a relay from before #78 answers without a code
+	const code = out.code ?? (/no plugin connected/.test(out.error ?? '') ? 'no_plugin' : undefined);
+	return { ok: false, error: explain(cmd, code, out.error, timeout) };
 }
 
 const read = { readOnlyHint: true, openWorldHint: false };

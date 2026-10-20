@@ -1,7 +1,20 @@
 // SCUTOONS Figma bridge – the plugin's main thread (Figma Plugin API). The UI (ui.html) holds the WebSocket to the
 // local relay (tools/figma-bridge/relay.mjs on 127.0.0.1); commands arrive here, run against the open file, and the
 // result goes back the same way. Runs only while the owner has the plugin open in Figma desktop – it acts as them.
-// Commands: ping · pages · read · export · draft (agents/STORYBOARD.md §9 "SCUTOONS Figma bridge").
+// Commands: ping · pages · read · export · draft · region · sliceFrames · exportScales · thumbs · place
+// (agents/STORYBOARD.md §9 "SCUTOONS Figma bridge"). One command at a time (a queue here too); `ping` is answered at
+// once, even while busy – { busy, version } for the runners (scripts/storyboard/lib.mjs figmaPreflight).
+//
+// !! EDITING THIS FILE (or ui.html) RESTARTS THE RUNNING PLUGIN IN FIGMA. With "Hot reload plugin" on (Figma desktop:
+// Plugins → Development; seen 2026-10-20: every save → close code 1001, the new code connected 0.3 s later) it comes
+// back by itself, but the command it was running is lost (its caller gets plugin_disconnected – figma() sends it again).
+// With hot reload off, Figma closes it and the owner runs it again, once: Ctrl+Alt+P ("Run last plugin") or Plugins →
+// Development → SCUTOONS Bridge. So batch the changes, bump VERSION with every change (the runners wait for the new
+// code instead of finding out mid-run), and say so – never during an export run (#78, failures A / A' on 2026-10-18).
+// Plugin-sandbox syntax: no `?.` and no object spread here (`??` and array spread work).
+
+const VERSION = '2026-10-20.2';
+const TEMP = 'scutoons-export (temporary)';
 
 figma.showUI(__html__, { width: 260, height: 132, themeColors: true });
 
@@ -143,11 +156,77 @@ async function nodeOrPage(args) {
 	return figma.currentPage;
 }
 
+// Temporary frames (region's clipping box, always on the current page) are listed in the document's plugin data while
+// they exist: a plugin closed in the middle of a region leaves its box at −200000 – removed on the next start (by id:
+// its page loads on demand, no page is loaded whole for it) and after every region / export (the current page).
+const TEMP_KEY = 'scutoons-temp';
+function temps() {
+	try { return JSON.parse(figma.root.getPluginData(TEMP_KEY) || '[]'); } catch (e) { return []; }
+}
+function setTemps(ids) {
+	try { figma.root.setPluginData(TEMP_KEY, ids.length ? JSON.stringify(ids) : ''); } catch (e) {}
+}
+/** best effort, never throws: in dynamic-page mode a page that is not loaded throws on `children` */
+function sweepPage(page) {
+	try {
+		const old = page.children.filter((c) => c.name === TEMP);
+		for (const c of old) c.remove();
+		return old.length;
+	} catch (e) { return 0; }
+}
+const fileName = () => { try { return figma.root.name; } catch (e) { return null; } };
+// what a layer shell takes over from its layer frame (region with layers) – everything that changes how its content looks
+const LOOK = ['fills', 'strokes', 'strokeWeight', 'strokeAlign', 'effects', 'opacity', 'blendMode', 'clipsContent', 'cornerRadius'];
+function copyLook(from, to) {
+	for (const p of LOOK) {
+		try { if (p in from && from[p] !== figma.mixed) to[p] = from[p]; } catch (e) {} // one that can't be set stays the shell's default (none)
+	}
+}
+async function sweep() {
+	let n = 0;
+	for (const id of temps()) {
+		try { const node = await figma.getNodeByIdAsync(id); if (node && node.name === TEMP) { node.remove(); n++; } } catch (e) {}
+	}
+	setTemps([]);
+	return n + sweepPage(figma.currentPage);
+}
+
+// the queue: one command at a time (failure E – two page loads at once, then Figma gone); the UI forwards the state
+// to the relay, which sends nothing new while the plugin is still busy (also with work from before a relay restart)
+const queue = [];
+let running = null; // { cmd, id, since }
+const state = () => ({ busy: running ? { cmd: running.cmd, id: running.id, since: running.since } : null, queue: queue.length });
+const tell = () => figma.ui.postMessage({ state: state() });
+const errorText = (e) => String(e && e.message ? e.message : e);
+// the leftovers of a closed plugin go first, before any command
+const ready = sweep().then((n) => { if (n) figma.ui.postMessage({ note: `removed ${n} leftover export frame${n > 1 ? 's' : ''}` }); }, () => {});
+
+async function pump() {
+	if (running || !queue.length) return;
+	const msg = queue.shift();
+	running = { cmd: msg.cmd, id: msg.id, since: Date.now() };
+	tell();
+	try {
+		await ready;
+		const fn = commands[msg.cmd];
+		if (!fn) throw new Error(`unknown command ${msg.cmd} (${Object.keys(commands).join(', ')})`);
+		const result = await fn(msg.args || {});
+		figma.ui.postMessage({ id: msg.id, ok: true, result });
+	} catch (e) {
+		figma.ui.postMessage({ id: msg.id, ok: false, error: errorText(e) });
+	} finally {
+		running = null;
+		tell();
+		pump();
+	}
+}
+
 const commands = {
 	async ping() {
 		let user = null;
 		try { user = figma.currentUser ? figma.currentUser.name : null; } catch {} // needs the 'currentuser' permission – not asked for
-		return { file: figma.root.name, page: figma.currentPage.name, user, editor: figma.editorType };
+		const s = state();
+		return { file: figma.root.name, page: figma.currentPage.name, user, editor: figma.editorType, version: VERSION, busy: s.busy, queue: s.queue };
 	},
 	async pages() {
 		return figma.root.children.map((p) => ({ id: p.id, name: p.name }));
@@ -162,6 +241,7 @@ const commands = {
 		const format = (args.format ?? 'PNG').toUpperCase();
 		const settings = format === 'SVG' ? { format: 'SVG' } : { format, constraint: { type: 'SCALE', value: args.scale ?? 1 } };
 		const bytes = await node.exportAsync(settings);
+		sweepPage(figma.currentPage);
 		return { name: node.name, format, bytes: bytes.length, base64: figma.base64Encode(bytes) };
 	},
 	async draft(args) {
@@ -169,19 +249,30 @@ const commands = {
 	},
 	/**
 	 * a region of a frame as PNGs at several scales, some of its layers hidden – the production slices (figma-production.mjs):
-	 * { frame, x, y, w, h, hide: ['text', 'guides'], hideIds: ['2231:5'], scales: [1, 2, 3] } → [{ scale, base64 }] (hide =
-	 * the frame's direct children by name, hideIds = layers at any depth by id). Works on a clone inside a
-	 * clipping frame far off the canvas, removed afterwards – the draft itself is never touched.
+	 * { frame, x, y, w, h, hide: ['text', 'guides'], hideIds: ['2231:5'], scales: [1, 2, 3], partial?, layers? } →
+	 * [{ scale, base64 }] (hide = the frame's direct children by name, hideIds = layers at any depth by id). Works on a
+	 * clone inside a clipping frame far off the canvas of the CURRENT page (always loaded – the draft's page may not be),
+	 * removed afterwards – the draft itself is never touched.
+	 * partial: clone only what reaches into the region (always for long drafts – a whole clone per slice was failure D);
+	 * the box takes the frame's own fills (over white). layers: with partial, the frame's direct children are layer
+	 * frames (a storyboard draft: storyboard / guides / text / layout) – per layer a shell with the layer's look (fills,
+	 * strokes, effects, opacity, blend mode, clipping) at the layer's place, holding clones of only ITS children that
+	 * reach into the region, each at its own place in the layer – not the whole layer. A layer holding a mask is cloned
+	 * whole (a mask alone would cover the rest).
 	 */
 	async region(args) {
 		const f = await figma.getNodeByIdAsync(args.frame);
 		if (!f || !('clone' in f)) throw new Error(`no frame ${args.frame}`);
-		const page = f.parent;
+		const page = figma.currentPage;
 		const box = figma.createFrame();
-		box.name = 'scutoons-export (temporary)';
+		box.name = TEMP;
+		const boxId = box.id;
+		setTemps(temps().concat(boxId));
 		box.resize(args.w, args.h);
 		box.clipsContent = true;
-		box.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
+		// white under everything (a transparent PNG turns black in the WebP); partial: the frame's own fills on top – the
+		// whole clone below brings them itself
+		box.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }].concat(args.partial && Array.isArray(f.fills) ? f.fills : []);
 		page.appendChild(box);
 		box.x = -200000; box.y = -200000;
 		// hideIds: layers hidden at any depth (lettering nested in groups) – the clone keeps the original's child order,
@@ -195,13 +286,35 @@ const commands = {
 			if (args.partial && 'children' in f) {
 				// a huge hand-made draft: clone only the frame's direct children that reach into the region (their
 				// own positions stay – a child's x / y are relative to the frame), not the whole frame each time
+				const fb = f.absoluteBoundingBox;
+				// by the drawn box on the page: a rotated layer reaches far from its x / y (blood vessels turned 146°)
+				const reaches = (n, dx, dy) => {
+					const b = n.absoluteBoundingBox;
+					const nx = b && fb ? b.x - fb.x : dx + n.x, ny = b && fb ? b.y - fb.y : dy + n.y, nw = b ? b.width : n.width, nh = b ? b.height : n.height;
+					return !(nx >= args.x + args.w || nx + nw <= args.x || ny >= args.y + args.h || ny + nh <= args.y);
+				};
 				for (const n of f.children) {
-					if ((args.hide ?? []).includes(n.name) || n.visible === false) continue;
-					// by the drawn box on the page: a rotated layer reaches far from its x / y (blood vessels turned 146°)
-					const b = n.absoluteBoundingBox, fb = f.absoluteBoundingBox;
-					const nx = b ? b.x - fb.x : n.x, ny = b ? b.y - fb.y : n.y, nw = b ? b.width : n.width, nh = b ? b.height : n.height;
-					if (nx >= args.x + args.w || nx + nw <= args.x || ny >= args.y + args.h || ny + nh <= args.y) continue;
-					if (ids.has(n.id)) continue;
+					if ((args.hide ?? []).includes(n.name) || n.visible === false || ids.has(n.id) || !reaches(n, 0, 0)) continue;
+					// a layer frame (not a group, not one holding a mask): a shell in its place with its look, its children
+					// that reach into the region inside, each with its own transform in the layer (rotation included)
+					if (args.layers && n.type === 'FRAME' && !n.children.some((k) => k.isMask)) {
+						const shell = figma.createFrame();
+						box.appendChild(shell);
+						shell.name = n.name;
+						shell.fills = []; shell.clipsContent = false; // a new frame is white and clips – the layer's own look below
+						copyLook(n, shell);
+						shell.resize(Math.max(0.01, n.width), Math.max(0.01, n.height));
+						const t = n.relativeTransform;
+						shell.relativeTransform = [[t[0][0], t[0][1], t[0][2] - args.x], [t[1][0], t[1][1], t[1][2] - args.y]];
+						for (const k of n.children) {
+							if (k.visible === false || ids.has(k.id) || !reaches(k, n.x, n.y)) continue;
+							const c = k.clone();
+							shell.appendChild(c);
+							c.relativeTransform = k.relativeTransform;
+							hideIn(k, c);
+						}
+						continue;
+					}
 					const c = n.clone();
 					box.appendChild(c);
 					c.x = n.x - args.x; c.y = n.y - args.y;
@@ -220,7 +333,11 @@ const commands = {
 			const out = [];
 			for (const s of args.scales ?? [1]) out.push({ scale: s, base64: figma.base64Encode(await box.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: s } })) });
 			return out;
-		} finally { box.remove(); }
+		} finally {
+			// never throws: an exception here would replace the export's result
+			try { box.remove(); setTemps(temps().filter((id) => id !== boxId)); } catch (e) {} // still listed: the next sweep takes it
+			sweepPage(page);
+		}
 	},
 	/**
 	 * production slice frames from a draft – the owner's way ("ich ziehe immer die ebenen auf einen slice die auf der
@@ -269,6 +386,7 @@ const commands = {
 		if (!n || !('exportAsync' in n)) throw new Error(`no node ${args.node}`);
 		const out = [];
 		for (const s of args.scales ?? [1]) out.push({ scale: s, base64: figma.base64Encode(await n.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: s } })) });
+		sweepPage(figma.currentPage);
 		return out;
 	},
 	/** many nodes as small JPGs at one width – for matching pictures to shots: { ids, width } → [{ id, base64 } | { id, error }] */
@@ -312,14 +430,15 @@ const commands = {
 	}
 };
 
-figma.ui.onmessage = async (msg) => {
+figma.ui.onmessage = (msg) => {
+	if (msg && msg.uiReady) { figma.ui.postMessage({ hello: VERSION, file: fileName(), state: state() }); return; } // the UI (re)loaded
 	if (!msg || !msg.id || !msg.cmd) return;
-	try {
-		const fn = commands[msg.cmd];
-		if (!fn) throw new Error(`unknown command ${msg.cmd} (${Object.keys(commands).join(', ')})`);
-		const result = await fn(msg.args ?? {});
-		figma.ui.postMessage({ id: msg.id, ok: true, result });
-	} catch (e) {
-		figma.ui.postMessage({ id: msg.id, ok: false, error: String(e && e.message ? e.message : e) });
+	if (msg.cmd === 'ping') { // past the queue: the health probe answers while a long command runs
+		commands.ping().then((result) => figma.ui.postMessage({ id: msg.id, ok: true, result }), (e) => figma.ui.postMessage({ id: msg.id, ok: false, error: errorText(e) }));
+		return;
 	}
+	queue.push(msg);
+	tell();
+	pump();
 };
+figma.ui.postMessage({ hello: VERSION, file: fileName(), state: state() });

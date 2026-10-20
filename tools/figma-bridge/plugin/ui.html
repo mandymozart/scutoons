@@ -1,22 +1,42 @@
-<!-- SCUTOONS Figma bridge – the plugin UI: the WebSocket to the local relay (127.0.0.1 only), passing commands to code.js
-     and results back. Reconnects on its own while the plugin is open. -->
+<!-- SCUTOONS Figma bridge – the plugin UI: the WebSocket to the local relay (localhost only), passing commands to code.js
+     and results back. Reconnects on its own while the plugin is open (after 2 s, 4 s, 8 s, then every 10 s); tells the
+     relay the plugin's code version, the file and whether it is busy (on every connect and every change). Another Figma
+     window that takes over the bridge (with its hello) closes this one with code 4001 – then it waits for a re-run
+     instead of fighting back. -->
 <style>
 	body { font: 0.75rem/1.4 system-ui, sans-serif; margin: 0.75rem; color: var(--figma-color-text, #222); background: var(--figma-color-bg, #fff); }
 	b { font-weight: 600; }
 	#dot { display: inline-block; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: #c33; margin-right: 0.375rem; }
 	#dot.on { background: #2a2; }
-	#log { color: var(--figma-color-text-secondary, #777); margin-top: 0.5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	#dot.busy { background: #d90; }
+	#log, #ver { color: var(--figma-color-text-secondary, #777); margin-top: 0.5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	#ver { margin-top: 0.25rem; }
 </style>
 <div><span id="dot"></span><b>SCUTOONS bridge</b> <span id="state">connecting …</span></div>
-<div id="log">relay ws://localhost:3056 – start it with<br>node tools/figma-bridge/relay.mjs</div>
+<div id="log">relay ws://localhost:3056 – started by<br>node tools/figma-bridge/supervise.mjs --detach</div>
+<div id="ver"></div>
 <script>
 	const URL = 'ws://localhost:3056/plugin'; // Figma's manifest takes host names only, no IPs
-	const dot = document.getElementById('dot'), state = document.getElementById('state'), log = document.getElementById('log');
-	let ws = null, count = 0;
+	const dot = document.getElementById('dot'), state = document.getElementById('state'), log = document.getElementById('log'), ver = document.getElementById('ver');
+	let ws = null, count = 0, delay = 2000, version = null, file = null, mine = { busy: null, queue: 0 };
+	const send = (obj) => { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); };
+	const hello = () => { if (version) send({ hello: { version, file, busy: mine.busy, queue: mine.queue } }); };
+	const show = () => {
+		const open = ws && ws.readyState === 1;
+		dot.className = open ? (mine.busy ? 'busy' : 'on') : '';
+		if (open) state.textContent = mine.busy ? `working: ${mine.busy.cmd}${mine.queue ? ` (+${mine.queue} waiting)` : ''}` : 'connected';
+	};
 	function connect() {
+		state.textContent = 'connecting …';
 		ws = new WebSocket(URL);
-		ws.onopen = () => { dot.className = 'on'; state.textContent = 'connected'; };
-		ws.onclose = () => { dot.className = ''; state.textContent = 'waiting for the relay …'; setTimeout(connect, 2000); };
+		ws.onopen = () => { delay = 2000; hello(); show(); };
+		ws.onclose = (e) => {
+			dot.className = '';
+			if (e.code === 4001) { state.textContent = 'another Figma window has the bridge'; log.textContent = 'run the plugin here again to take it back'; return; }
+			state.textContent = `waiting for the relay – next try in ${delay / 1000} s`;
+			setTimeout(connect, delay);
+			delay = Math.min(delay * 2, 10000);
+		};
 		ws.onerror = () => {};
 		ws.onmessage = (e) => {
 			let msg;
@@ -28,7 +48,13 @@
 	}
 	window.onmessage = (e) => {
 		const msg = e.data && e.data.pluginMessage;
-		if (msg && ws && ws.readyState === 1) ws.send(JSON.stringify(msg));
+		if (!msg) return;
+		if (msg.hello) { version = msg.hello; file = msg.file || null; ver.textContent = `code ${version}${file ? ` · ${file}` : ''}`; }
+		if (msg.state) { mine = msg.state; send({ state: mine }); show(); }
+		if (msg.hello) hello();
+		if (msg.note) log.textContent = msg.note;
+		if (msg.id) send(msg);
 	};
+	parent.postMessage({ pluginMessage: { uiReady: true } }, '*');
 	connect();
 </script>
