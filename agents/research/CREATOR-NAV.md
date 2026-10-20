@@ -1,4 +1,4 @@
-Status 2026-10-20: drafts for review (issue #92) – nothing built; waiting for the owner's pick and the answers in "Questions".
+Status 2026-10-20: draft D chosen (§2a, issue #92) – nothing built; questions 3–9 open.
 
 # CREATOR-NAV – the creator's top bar, menu and dashboard
 
@@ -71,15 +71,28 @@ They differ in where the areas live.
 **Recommendation: B** – it says what the owner said (areas, toons don't unfold, characters in one place), its folded
 state is A's rail, and its phone row is #44 2d's row as it is.
 
+## 2a. Chosen: D (owner 2026-10-20)
+
+"von A mag ich die Bar an der linken Seite … von B mag ich das Menü auf dem Desktop links … immer auch da bleibt … man kann
+das ja dann einfahren und dann wird es zum Area Rail. Und von C mag ich das Mobile. Das ist einfach am saubersten."
+
+- **Desktop = B:** the menu by areas on the left, always there, the place you are in marked (the toon under Toons); the
+  toon's pages are tabs, the chapter tree the editor's own column.
+- **Folded = A's rail:** the menu folds by hand (Ctrl \\, remembered) to the 3rem icon rail; its foot unfolds it.
+- **Phones = C:** the logo is home (the dashboard), ☰ on the right like the reader's, the menu slides in from the right
+  with the areas and "Recent"; the strip editor's row is logo · path · ⚠ · Save · Publish · ••• · ☰ (the path gets less
+  room than in #44 2d's row – to watch when it is built).
+- Pictures: `creator-nav/d.html` (`#dash`, `#toon`, `#toon-folded`, `#slice`, `#slice-folded`, `#toon-menu`).
+
 **The dashboard** (the same in all three; desktop three columns, phone one): **Continue** (the last place edited, with
 its picture, one Open), **Not live yet** (drafts newer than live: chapters, characters, map places), **Problems** (per
 document, errors / warnings counts – opens the page with Problems docked), **Waiting for you** (open reviews, Wanted
 images), **Toons** (avatar · name · state). The ActionBar keeps Publish (everything) · Reader.
 
-## 3. What changes where (if B)
+## 3. What changes where (D)
 
-- `creator/src/routes/+layout.svelte`: the header (mark cell, path, squares; one row on phones, the logo = the drawer's
-  button), the sidebar = the areas menu; `nav-sidebar.svelte` → an areas menu; the start route → the dashboard.
+- `creator/src/routes/+layout.svelte`: the header (mark cell, path, squares; one row on phones: the logo = home, ☰ on the
+  right opens the areas from the right), the sidebar = the areas menu (folded: the rail); `nav-sidebar.svelte` → an areas menu; the start route → the dashboard.
 - `@scutoons/ui` AppShell: none for the menu (it is the sidebar); Breadcrumbs: a `root`-less variant, no underline.
 - Pages: the toon page gets its tab row (Cast, Script, Credits, Settings move from the sidebar); the season page and the
   chapter editor render their tree in a page column instead of `usePageNav({ sidebar })`.
@@ -91,8 +104,8 @@ images), **Toons** (avatar · name · state). The ActionBar keeps Publish (every
 
 ## 4. Questions to the owner
 
-1. **Which draft** – A, B or C (or a mix)? Recommendation B.
-2. **Phones:** the logo opens the menu (A, B: no separate ☰, the logo stays put), or ☰ on the right like the reader (C)?
+1. ~~Which draft~~ – answered: D (§2a).
+2. ~~Phones~~ – answered: ☰ on the right like the reader (C).
 3. **Bar icons:** borderless squares instead of the round framed buttons, in the top bar and the ActionBar?
 4. **The areas:** Dashboard · Toons · Characters (Moods, Wanted images as its tabs) · Map · Catalog · Flow – right?
    Where do the style guide, notifications and the account go (B: the menu's foot)?

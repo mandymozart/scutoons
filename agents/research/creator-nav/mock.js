@@ -40,10 +40,12 @@ const ic = (n) => `<svg class="i" aria-hidden="true"><use href="#${n}"/></svg>`;
 const LOGO = '../../../viewer/static/SCUTOONS-logo-animated.svg';
 const SLICE = (n) => `../strip-editor/img/s1c2-slice-${n}.webp`;
 
-const D = window.DRAFT;
+const phone = innerWidth < 768;
+// D (owner 2026-10-20): B's menu on the desktop (folded = A's rail), C on phones
+const D = window.DRAFT === 'd' ? (phone ? 'c' : 'b') : window.DRAFT;
 const [screen, ...flags] = (location.hash.slice(1) || 'dash').split('-');
 const menuOpen = flags.includes('menu');
-const phone = innerWidth < 768;
+const folded = flags.includes('folded');
 document.body.classList.add(phone ? 'phone' : 'desk', `draft-${D}`, `screen-${screen}`);
 
 const AREAS = [
@@ -127,7 +129,8 @@ function bottombar() {
 
 // ── menus ──
 function rail() {
-	return `<nav class="rail" style="grid-area:rail">${AREAS.map((a) => sq(a.icon, { on: a.id === area, title: a.label })).join('')}<div class="foot">${sq('search', { title: 'Search  Ctrl K' })}${sq('bell', { title: 'Notifications' })}${sq('user', { title: 'agent@scutoons.test' })}</div></nav>`;
+	const foot = D === 'b' ? sq('user', { title: 'agent@scutoons.test' }) + sq('fold', { title: 'Unfold the menu  Ctrl \\', cls: 'flip' }) : sq('search', { title: 'Search  Ctrl K' }) + sq('bell', { title: 'Notifications' }) + sq('user', { title: 'agent@scutoons.test' });
+	return `<nav class="rail" style="grid-area:rail">${AREAS.map((a) => sq(a.icon, { on: a.id === area, title: a.label })).join('')}<div class="foot">${foot}</div></nav>`;
 }
 const mi = (icon, label, { on = false, n = '', badge = '' } = {}) =>
 	`<li><a class="mi ${on ? 'on' : ''}">${icon ? ic(icon) : ''}<span class="ell">${label}</span>${n ? `<span class="n">${n}</span>` : ''}${badge ? `<span class="badge">${badge}</span>` : ''}</a></li>`;
@@ -227,9 +230,9 @@ function build() {
 		cols = ctx ? 'var(--bar) 12rem minmax(0,1fr)' : 'var(--bar) minmax(0,1fr)';
 		parts = [`<div style="grid-area:mark;border-bottom:var(--line)">${mark(true)}</div>`, topbar(), rail(), ctx ? `<nav class="menu" style="grid-area:ctx">${contextList()}</nav>` : '', page(), bottombar()];
 	} else if (D === 'b') {
-		grid = "'top top' 'menu main' 'bottom bottom'";
-		cols = '12rem minmax(0,1fr)';
-		parts = [topbar(), areaMenu(), page(), bottombar()];
+		grid = folded ? "'top top' 'rail main' 'bottom bottom'" : "'top top' 'menu main' 'bottom bottom'";
+		cols = folded ? 'var(--bar) minmax(0,1fr)' : '12rem minmax(0,1fr)';
+		parts = [topbar(), folded ? rail() : areaMenu(), page(), bottombar()];
 	} else {
 		grid = "'top' 'main' 'bottom'";
 		cols = 'minmax(0,1fr)';
