@@ -8,6 +8,7 @@
 // pictures < all overlays of the group; between two slices the later slice's overlays win – a box reaching into a later
 // slice lies UNDER that slice's boxes (a collision). Shared by the validator and the creator's strip editor.
 import { anchoredRect } from './anchor.ts';
+import { DEFAULT_SLICE } from './content.ts';
 import { dialogFit, estimatedWidth } from './dialog-fit.ts';
 
 /** how a slice's edge behaves: open (crossable), or the window that cuts there */
@@ -110,8 +111,8 @@ interface GroupBox {
 function extents(slices: Obj[], axis: GroupAxis): { start: number; length: number }[] {
 	let at = 0;
 	return slices.map((s) => {
-		const w = isNum(s?.width) && s.width > 0 ? s.width : 390;
-		const h = isNum(s?.height) && s.height > 0 ? s.height : 625;
+		const w = isNum(s?.width) && s.width > 0 ? s.width : DEFAULT_SLICE.width;
+		const h = isNum(s?.height) && s.height > 0 ? s.height : DEFAULT_SLICE.height;
 		const length = axis === 'vertical' ? (h / w) * 100 : (w / h) * 100;
 		const out = { start: at, length };
 		at += length;

@@ -334,12 +334,12 @@
 		text-align: left;
 		min-width: 0;
 	}
-	/* the slice's standard shape, also while its picture is missing */
+	/* the slice's standard shape (DEFAULT_SLICE, 390 × 624), also while its picture is missing */
 	.frame {
 		position: relative;
 		display: block;
 		width: 100%;
-		aspect-ratio: 390 / 625;
+		aspect-ratio: 390 / 624;
 		border: var(--border-width-hairline) solid var(--ink);
 		background: var(--surface-panel);
 	}
