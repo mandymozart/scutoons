@@ -31,5 +31,8 @@ export const EXTRA_ICONS: Record<string, { contents: string }> = {
 	blend: { contents: '<circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/>' },
 	gradient: { contents: '<rect x="3" y="3" width="18" height="18"/><line x1="10" y1="3" x2="10" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="18.5" y1="3" x2="18.5" y2="21"/>' },
 	shadow: { contents: '<rect x="3" y="3" width="14" height="14"/><polyline points="21 7 21 21 7 21"/>' },
-	blur: { contents: '<circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="9" stroke-dasharray="0.1 5.555"/>' }
+	blur: { contents: '<circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="9" stroke-dasharray="0.1 5.555"/>' },
+	// a bare question mark – "review" (the studio's variants board, research/VARIANTS-CANVAS.md §3.3: "? not an eye");
+	// Feather's help-circle is too busy inside a status bullet
+	question: { contents: '<path d="M8 8a4 4 0 1 1 5.6 3.7c-1 .45-1.6 1.3-1.6 2.4V15"/><line x1="12" y1="19.5" x2="12.01" y2="19.5"/>' }
 };

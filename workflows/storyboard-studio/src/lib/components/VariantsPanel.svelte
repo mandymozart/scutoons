@@ -4,6 +4,7 @@
 	import { askDialog } from '@scutoons/ui';
 	import { api, ch, loadChapter, notify, studio, toon, touched } from '../studio.svelte.js';
 	import { framePng } from '../frames.js';
+	import { loadBoard } from '../board.svelte.js';
 
 	let variants = $state([]);
 	let generated = $state([]);
@@ -36,6 +37,8 @@
 			await api('POST', '/api/generated', { ch: ch(), id, name: file.name, data });
 		}
 		generated = await api('GET', `/api/generated?ch=${ch()}&id=${id}`);
+		// the board beside it shows the drop too (a source card – research/VARIANTS-CANVAS.md §3.2)
+		loadBoard().catch(() => {});
 	}
 	async function approve(file) {
 		const note = await askDialog({ title: 'The chosen image', message: 'Approves the shot with this image (review + dataset).', label: 'Note (optional)', confirmLabel: 'Approve', skipLabel: 'Approve without note' });

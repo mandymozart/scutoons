@@ -17,8 +17,8 @@ npm run dev:studio
 
 Owner 2026-10-19 (research/STUDIO-LAYOUT.md, concept C stage 1): **steps** over one layout that always looks the same –
 "it makes sense for it to always look the same". The top bar's step tabs (keys **1–6**): **Script · Shots · Layout ·
-Handheld · Generate · Export**. A step only changes which dock panels are open, the Shot panel's tab, the timeline's view
-mode (= what the main view shows), its fold and the panels' widths – each step remembers its own (localStorage
+Handheld · Generate · Export**. A step only changes which dock panels are open, the Shot panel's tab, the main view's
+editor (Viewport · Variants), the timeline's view mode, its fold and the panels' widths – each step remembers its own (localStorage
 `storyboard-studio:step:v2:<id>`, `storyboard-studio:<step>:<kind>`); the current and the picked shots are shared by
 every step.
 
@@ -28,7 +28,7 @@ every step.
 | Shots | Shot (tab Shot) | folded (Shot) |
 | Layout | Shot (tab Camera) | folded (Shot) |
 | Handheld | Handheld | open (Take – the take's trim) |
-| Generate | Generate + Variants; the ActionBar's Review (Approve / Ask for a change) | open (Generated) |
+| Generate | Generate + Variants; the main view: the Variants board; the ActionBar's Review (Approve / Ask for a change) | open (Generated) |
 | Export | Output | folded (Rendered) |
 
 - **Sidebar – the shots** in the toon's order, by scene (owner 2026-10-19: "the left side is our timeline vertically, the
@@ -37,7 +37,9 @@ every step.
   last clicked one. The last clicked is the **current** shot (inverted – the one the panels edit; unsaved changes ask
   first), the others picked show an ink frame with a bar; the timeline shows the picked ones. Resizable, folds to a rail
   (**T** or Ctrl + \).
-- **Page – the main view** follows the clip under the timeline's playhead: the **3D view** for a still or the current
+- **Page – the main view** has two editors – a square switch at the start of its tool row, **V** outside text fields:
+  **Viewport** (below) and **Variants** (the board, "The variants board" below); the 3D view stays mounted under the
+  board. Play switches to the Viewport. The **Viewport** follows the clip under the timeline's playhead: the **3D view** for a still or the current
   shot's take (its camera at that moment), a **video** (a rendered / generated clip, at the playhead's time) or another
   shot's frame over it – the 3D view stays mounted underneath. **The 3D view**: the shot's scene with the frames' own renderer (`tools/storyboard-render/core.js`), live.
   Drag = orbit, right-drag = pan, wheel = dolly – the camera is written into the shot as a hand camera
@@ -85,6 +87,28 @@ every step.
 - **ActionBar**: ‹ the shot › (n / N, through the whole toon), the keys; the storyboard check's notes (a click picks the
   shot a note names); Revert · Keep as variant · Review ▾ (Generate) · **Save + frame** (• = unsaved). Messages are
   toasts (bottom left, above the ActionBar).
+
+## The variants board
+
+Owner 2026-10-19: "variants can be a huge open canvas with each generation next to the others, we can scroll and compare
+generation to each other. and pick the one we like" (agents/research/VARIANTS-CANVAS.md, issue #62). Stage 2a is built:
+the main's editor **Variants** (Generate opens it) – every generation of the **picked** shots, a **band** each in toon
+order (the timeline's clips, the same set and order). A band's head: the review dot, the id, the format, "n done · cost"
+(euro; sticks while its band scrolls by; the current shot's inverted). In a band, laid out by the record
+(`src/lib/board-layout.js`, node tests): column 0 = the **sources** – the render without texts (else the saved frame),
+one card per take with a handheld render, a dropped file –; a parent's results = one row, oldest left; a generation's
+results a row under it, one column right; several generated inputs → under the main one (`parents[0]`); a result
+without a parent under the source its inputs name, else in the row **Earlier – no record** (files without a v2 record
+too). Lines: a comb above each row, a tick into every result, a drop from the parent. One picture height for all bands
+(9rem), the width by the shot's aspect. A card: the image or a video's first frame (`GET /api/thumbs`, one tile), a
+video's length, id + model, the record as its tooltip, the **status** as a bullet – ✓ chosen · ? review · ✕ rejected.
+A click in a band = its shot current; on a card = the **current card** (its actions under it: the status ✓ ? ✕ and –
+later – Improve · Vary · More); **Ctrl / ⌘ + click** selects (A–D, for Compare later); the board scrolls to the current
+band when the list, ‹ ›, or the timeline changes it. Keys: ← → in the row, ↑ ↓ the rows (across bands – the shot becomes
+current), **Enter** chosen (= approve: the review + the dataset, one chosen image and one chosen video per shot), **R**
+review / none, **X** reject – with what hangs under it, one stamp; again: back (`POST /api/generated/mark`; the chosen
+and the sources – a dropped file too – can't be rejected, a rejected card can't be chosen), Esc the selection off. Not yet (2b and later): folding rejected cards and bands, pan / zoom, drops
+and layout variants on the board (the Variants panel still holds them), Improve / Vary, Compare.
 
 ## Files
 

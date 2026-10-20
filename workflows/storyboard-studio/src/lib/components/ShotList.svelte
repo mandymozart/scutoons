@@ -148,9 +148,9 @@
 		border-radius: 50%;
 	}
 	.dot.ok {
-		background: var(--state-success);
+		background: var(--badge-published);
 	}
 	.dot.change {
-		background: var(--state-warning);
+		background: var(--badge-warning);
 	}
 </style>

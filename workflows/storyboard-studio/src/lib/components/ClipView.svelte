@@ -8,6 +8,7 @@
 	import { ch, studio } from '../studio.svelte.js';
 	import { isVideo } from '../timeline-lanes.js';
 	import { media } from '../timeline.svelte.js';
+	import EditorSwitch from './EditorSwitch.svelte';
 
 	/** @type {{ clip: { item: any, off: number }, playing: boolean }} */
 	let { clip, playing } = $props();
@@ -40,7 +41,7 @@
 </script>
 
 <section class="clip-view" aria-label="Clip">
-	<div class="tools"><span class="cap" title={what}>{what}</span></div>
+	<div class="tools"><EditorSwitch /><span class="cap" title={what}>{what}</span></div>
 	<div class="stage">
 		{#if url}
 			<!-- svelte-ignore a11y_media_has_caption -->
@@ -65,6 +66,7 @@
 	.tools {
 		display: flex;
 		align-items: center;
+		gap: var(--space-05);
 		min-height: var(--control-height);
 		padding: var(--space-025) var(--space-1);
 		border-bottom: var(--border-width-regular) solid var(--ink);
