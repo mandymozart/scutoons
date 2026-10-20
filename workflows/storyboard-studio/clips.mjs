@@ -11,10 +11,13 @@
 // the moov sits, a fragmented file summed; WebM: the Info's Duration), null = unknown – the client then takes the
 // video's metadata; images: ms null, video false. Everything read is cached by mtime + size, so a chapter with many
 // files answers from memory. sendFile: api.mjs serves its mounts (/out/ …) with byte ranges – a <video> seeks only in
-// a file it got as 206. No dependencies. test/clips.test.mjs.
+// a file it got as 206. The timeline's filmstrip: GET /api/thumbs (clipThumbs, at the end – ffmpeg). No dependencies.
+// test/clips.test.mjs, test/thumbs.test.mjs.
 
-import { closeSync, createReadStream, fstatSync, openSync, readdirSync, readFileSync, readSync, statSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { closeSync, createReadStream, fstatSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, renameSync, rmSync, statSync } from 'node:fs';
+import { basename, relative, resolve, sep } from 'node:path';
 import { pipeline } from 'node:stream';
 
 const PASSES = ['beauty', 'depth', 'normals', 'grey']; // api.mjs PASSES – the beauty pass first
@@ -280,7 +283,10 @@ export function chapterClips({ boards, toon, ch }) {
  *  [0, 0] and every currentTime snaps back to 0 (ClipView's seek); a plain GET gets the whole file, as before */
 export function sendFile(req, res, file, type) {
 	const size = statSync(file).size;
-	const head = { 'content-type': type, 'cache-control': 'no-store', 'accept-ranges': 'bytes' };
+	// a filmstrip sprite's name carries its video's mtime + size (thumbName): the browser keeps it – the sprite ClipStrip
+	// decoded before the swap is the one its tiles show (no-store fetched it a second time: a blank between two sprites)
+	const keep = SPRITE.test(file);
+	const head = { 'content-type': type, 'cache-control': keep ? 'max-age=31536000, immutable' : 'no-store', 'accept-ranges': 'bytes' };
 	const m = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers?.range ?? '').trim());
 	if (!m || (!m[1] && !m[2]) || !size) {
 		const body = readFileSync(file);
@@ -296,4 +302,117 @@ export function sendFile(req, res, file, type) {
 	res.writeHead(206, { ...head, 'content-range': `bytes ${start}-${end}/${size}`, 'content-length': end - start + 1 });
 	// pipeline, not pipe: a <video> drops most range requests early – the file is closed then too (Windows locks open files)
 	pipeline(createReadStream(file, { start, end }), res, () => {});
+}
+
+// --- the filmstrip: a video clip's frames one after another (Timeline.svelte → ClipStrip.svelte) ---------------------
+// Owner 2026-10-20: "previews in the timeline, should be not cover, but show the frame after frame". `GET /api/thumbs?
+// url=/out/<ch>/…/<video>&w=&h=` (the clip's width and height on screen, device px; `ms` = its length when neither the
+// file nor ffmpeg says) → { url, n, tw, th }: ONE sprite (a JPEG under /out/) of n tiles tw × th side by side at the
+// video's aspect, tile j = the frame showing at j · duration / n. n = the smallest of TILE_STEPS whose tiles cover the
+// clip's width (at most 64, the sprite at most MAX_SPRITE px wide); the client lays tiles at that aspect along the clip
+// and gives each the sprite's latest tile at or before its time – so a zoom inside one step needs no new sprite.
+// ffmpeg (on the PATH or FFMPEG=<path>, as the handheld encode) reads the size (`ffmpeg -i`) and makes the sprite
+// (fps → scale → tile); cached in _out/<ch>/thumbs/ by file + mtime + size + n + h (a changed video gets new names, the
+// oldest go past THUMB_KEEP), at most two ffmpeg at a time. Only video files under /out/ (the mount's own check).
+const TILE_STEPS = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64];
+const MAX_SPRITE = 16384; // px – a sprite's width
+const THUMB_H = { min: 32, max: 480, step: 16 }; // px – a tile's height, rounded up to the step
+const THUMB_KEEP = { over: 300, down: 200 }; // a chapter's thumbs folder: past 300 sprites the oldest go, down to 200
+const SPRITE = /[\\/]thumbs[\\/][\w-]+--[0-9a-f]{12}-n\d+-h\d+\.jpg$/; // a sprite as thumbName names it (sendFile: cached)
+
+/** GET /api/thumbs's query → { file, ch, w, h, th, ms } – or throws: `url` a video under /out/ (the mount's own path
+ *  check – nothing outside `out`), in a chapter folder; w, h > 0; th = the tiles' height (h rounded up to 16, within
+ *  32…480); ms > 0, else null */
+export function thumbParams(q, out) {
+	const root = resolve(out);
+	let file = null;
+	try {
+		const u = new URL(String(q?.url ?? ''), 'http://x');
+		if (u.origin === 'http://x' && String(q.url).startsWith('/out/') && u.pathname.startsWith('/out/')) {
+			const rel = decodeURIComponent(u.pathname.slice(5));
+			if (!/[\\\0]/.test(rel)) file = resolve(root, rel); // a backslash or a NUL: no file
+		}
+	} catch {}
+	const ch = file?.startsWith(root + sep) ? relative(root, file).split(sep)[0] : '';
+	if (!/^[a-z0-9-]+$/.test(ch) || !VIDEO.test(file)) throw new Error('bad url – a video under /out/');
+	const w = Number(q.w), h = Number(q.h), ms = Number(q.ms);
+	if (!(w > 0 && w <= 1e6) || !(h > 0 && h <= 1e5)) throw new Error('bad size');
+	const th = Math.min(THUMB_H.max, Math.max(THUMB_H.min, Math.ceil(h / THUMB_H.step) * THUMB_H.step));
+	return { file, ch, w: Math.round(w), h: Math.round(h) || 1, th, ms: ms > 0 && ms < 864e5 ? Math.round(ms) : null };
+}
+
+/** the sprite of a width × height video for a clip w × h px: { tw, th, n } – tiles th high at the video's aspect (tw
+ *  even); n the smallest step whose tiles AS SHOWN (h high) cover w – every tile on screen its own frame – capped */
+export function thumbPlan({ width, height, w, h, th = h }) {
+	const tw = Math.max(2, 2 * Math.round((th * width) / height / 2));
+	const cap = TILE_STEPS.filter((s) => s * tw <= MAX_SPRITE).at(-1) ?? 1;
+	return { tw, th, n: Math.min(cap, TILE_STEPS.find((s) => (s * h * width) / height >= w) ?? cap) };
+}
+
+/** a sprite's file name (the cache key): the video's name, a hash of its path + mtime + size, n, h */
+export function thumbName({ file, st, n, h }) {
+	const hash = createHash('sha1').update(`${file}|${st.mtimeMs}|${st.size}`).digest('hex').slice(0, 12);
+	return `${basename(file).replace(/\.[^.]+$/, '').replace(/[^\w-]+/g, '_').slice(0, 60)}--${hash}-n${n}-h${h}.jpg`;
+}
+
+let busy = 0;
+const waiting = [];
+/** at most two ffmpeg at a time (memory): a finished one hands its place to the next */
+async function slot(fn) {
+	if (busy < 2) busy++;
+	else await new Promise((go) => waiting.push(go));
+	try { return await fn(); } finally { const next = waiting.shift(); if (next) next(); else busy--; }
+}
+const ff = (ffmpeg, args) => slot(() => new Promise((ok) => execFile(ffmpeg, args, { timeout: 120000, maxBuffer: 4 << 20, windowsHide: true }, (err, _out, stderr) => ok({ err, out: String(stderr ?? '') }))));
+const noFfmpeg = (ffmpeg) => new Error(`${ffmpeg} not found (FFMPEG=<path>)`);
+
+/** the video's size and duration as ffmpeg reads them (`ffmpeg -i` prints them and stops) – cached by mtime + size */
+function probe(ffmpeg, file, st) {
+	return cached(`probe:${ffmpeg}|${file}`, [st], () => ff(ffmpeg, ['-hide_banner', '-i', file]).then(({ err, out }) => {
+		if (err?.code === 'ENOENT') throw noFfmpeg(ffmpeg);
+		const size = /Stream #[^\n]*?Video:[^\n]*?\b(\d{2,5})x(\d{2,5})\b/.exec(out);
+		const d = /Duration: (\d+):(\d\d):(\d\d(?:\.\d+)?)/.exec(out);
+		if (!size) throw new Error('no video stream');
+		return { width: +size[1], height: +size[2], ms: d ? Math.round(((+d[1] * 60 + +d[2]) * 60 + +d[3]) * 1000) : null };
+	}));
+}
+
+const making = new Map();
+/** GET /api/thumbs: the sprite (made once) → { url, n, tw, th } */
+export async function clipThumbs(q, { out, ffmpeg = 'ffmpeg' }) {
+	const p = thumbParams(q, out);
+	const st = statOf(p.file);
+	if (!st) throw new Error('no such clip');
+	const size = await probe(ffmpeg, p.file, st);
+	const ms = durationOf(p.file, st) ?? size.ms ?? p.ms;
+	if (!(ms > 0)) throw new Error('unknown duration');
+	const plan = thumbPlan({ ...size, w: p.w, h: p.h, th: p.th });
+	const name = thumbName({ file: p.file, st, n: plan.n, h: plan.th });
+	const dir = resolve(out, p.ch, 'thumbs');
+	const target = resolve(dir, name);
+	if (!statOf(target)) {
+		if (!making.has(target)) making.set(target, makeSprite(ffmpeg, p.file, dir, name, plan, ms).finally(() => making.delete(target)));
+		await making.get(target);
+	}
+	return { url: `/out/${p.ch}/thumbs/${name}`, n: plan.n, tw: plan.tw, th: plan.th };
+}
+
+/** ffmpeg: n frames at j · ms / n (round=up: the frame showing then; start_time=0: the first tile is the first frame),
+ *  scaled to tw × th, side by side – written next to its place, then renamed (a reader never sees half a file). tpad
+ *  holds the last frame past the picture's end: a file longer than its picture (a longer sound track – ms is the file's)
+ *  fills its last tiles with that frame, as the player shows it, not black */
+async function makeSprite(ffmpeg, file, dir, name, { tw, th, n }, ms) {
+	mkdirSync(dir, { recursive: true });
+	const tmp = resolve(dir, `${name}.${process.pid}.tmp.jpg`);
+	const vf = `tpad=stop=-1:stop_mode=clone,fps=fps=${((n * 1000) / ms).toFixed(6)}:start_time=0:round=up,scale=${tw}:${th},tile=${n}x1`;
+	const r = await ff(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-y', '-threads', '2', '-i', file, '-an', '-vf', vf, '-frames:v', '1', '-q:v', '5', tmp]);
+	if (r.err || !statOf(tmp)) {
+		rmSync(tmp, { force: true });
+		throw r.err?.code === 'ENOENT' ? noFfmpeg(ffmpeg) : new Error(`ffmpeg: ${r.out.trim().split('\n').at(-1) || 'no sprite'}`);
+	}
+	renameSync(tmp, resolve(dir, name));
+	const sprites = list(dir).filter((f) => f.endsWith('.jpg') && !f.includes('.tmp.'));
+	if (sprites.length <= THUMB_KEEP.over) return;
+	sprites.map((f) => ({ f, t: statOf(resolve(dir, f))?.mtimeMs ?? 0 })).sort((a, b) => a.t - b.t)
+		.slice(0, sprites.length - THUMB_KEEP.down).forEach(({ f }) => rmSync(resolve(dir, f), { force: true }));
 }

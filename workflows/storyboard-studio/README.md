@@ -66,7 +66,11 @@ every step.
   one, else the newest), **Rendered** = the newest handheld render of the active take (beauty pass), **Take** = the
   active take (its kept part; in Take mode the whole take with its in / out handles), **Shot** = a still – each falling
   back down generated → rendered → take → a still of 5 s; a clip's tag says which it is. The clips come from
-  `GET /api/clips` (clips.mjs). Hover a clip: its first frame next to the pointer. Click a clip = its shot current
+  `GET /api/clips` (clips.mjs). A clip shows its **frames one after another** (owner 2026-10-20: "should be not
+  cover, but show the frame after frame"): a video as a filmstrip – tiles at its aspect along the clip, each the frame
+  at its time, as many as fit (zoom in → more; ffmpeg makes one sprite per clip and zoom step, `GET /api/thumbs`,
+  cached in `_out/<ch>/thumbs/`); a still or a take (only the shot's frame exists) shows that frame once at the left;
+  without ffmpeg a video shows its first frame at the left. Hover a clip: its first frame next to the pointer. Click a clip = its shot current
   (← → the previous / next clip); click / drag the ruler = the playhead – in Shot / Take mode the shot under it becomes
   current on release (unsaved changes ask first), in the video modes the current shot stays. **Play** runs the
   sequence: a video plays (it is the clock), a take moves the 3D view's camera (its kept part), a still waits 5 s; in

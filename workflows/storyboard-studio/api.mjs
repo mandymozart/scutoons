@@ -16,7 +16,7 @@ import { lumaPrompt } from '../../scripts/storyboard/luma.js';
 import { shotCharacters, styleFiles } from '../../scripts/storyboard/refs.mjs';
 import { generatorRoutes } from './generators/index.mjs';
 import { lanIps, phone } from './phone-https.mjs';
-import { chapterClips, sendFile } from './clips.mjs';
+import { chapterClips, clipThumbs, sendFile } from './clips.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
@@ -253,6 +253,8 @@ const api = {
 	},
 	// each shot's clips – the active take, the handheld renders, the generated files, with their real durations (clips.mjs)
 	'GET /api/clips': ({ toon, ch }) => chapterClips({ boards: BOARDS, toon, ch }),
+	// a video clip's frames one after another for the timeline (w / h = the clip on screen, px): one sprite (clips.mjs, ffmpeg)
+	'GET /api/thumbs': (q) => clipThumbs(q, { out: OUT, ffmpeg }),
 	// the phone's address(es): this PC on the LAN over HTTPS (phone-https.mjs), or why not
 	'GET /api/handheld/urls': () => ({ wifi: phone.on, port: phone.port, error: phone.error, ips: lanIps() }),
 	// one frame of a pass → storyboards/_out/<chapter>/handheld/<shot>--<take>/<pass>/f00001.png

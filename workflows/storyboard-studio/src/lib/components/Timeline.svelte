@@ -3,7 +3,9 @@
 	// underneath the other windows was also good"; then "the other timeline underneath the clip only shows those shots
 	// that are selected, not all"): the shared @scutoons/ui Timeline (research/TIMELINE.md) with ONE lane – the picked
 	// shots' clips back to back, each as long as its clip in the view mode (timeline.svelte.js, timeline-lanes.js); a clip
-	// shows the shot's frame and a tag with its source (still · take · rendered · generated). The header: the view mode
+	// shows its frames one after another (ClipStrip: a video's filmstrip; a still / a take: the shot's frame once at the
+	// left – owner 2026-10-20: "should be not cover, but show the frame after frame") and a tag with its source (still ·
+	// take · rendered · generated). The header: the view mode
 	// (a square Segmented, the step's main view – "like in blender … shot/take/rendered/generated"), the clips' count and
 	// length, "Back to the shot camera" while a take's moment holds the 3D view, Play / Pause for the sequence, the fold.
 	// A hover shows the clip's first frame next to the pointer (the Timeline's `preview`). AppShell bottom region (App).
@@ -14,6 +16,7 @@
 	import { hh } from '../handheld/handheld.svelte.js';
 	import { backToShot, seek, select, tl, togglePlay, trim } from '../timeline.svelte.js';
 	import { isVideo } from '../timeline-lanes.js';
+	import ClipStrip from './ClipStrip.svelte';
 
 	/** @type {{ view: { mode: string, lanes: any[], items: any[], span: number, sel: any }, onfold: () => void }} */
 	let { view, onfold } = $props();
@@ -27,13 +30,13 @@
 	const reveal = $derived(view.sel ? [view.sel.start, view.sel.start + view.sel.length] : undefined);
 	const frame = (id) => `/out/${ch()}/frames/${id}.png?v=${studio.version}`;
 	const short = (id) => id.replace(/^sb-/, '');
-	// a frame that is still missing stays black (the frames are rendered by "All frames" / Save + frame)
+	// a frame that is still missing stays blank (the frames are rendered by "All frames" / Save + frame)
 	const missing = (e) => e.currentTarget.classList.add('missing');
 </script>
 
 {#snippet item(it)}
 	{@const s = SOURCES[it.state] ?? SOURCES.still}
-	<img src={frame(it.id)} alt="" loading="lazy" draggable="false" onerror={missing} onload={(e) => e.currentTarget.classList.remove('missing')} />
+	<ClipStrip {it} frame={frame(it.id)} />
 	<span class="tag" data-source={it.state}><Icon name={s.icon} size="0.9em" /><span class="id">{short(it.id)}</span><span class="word">{s.word}</span></span>
 {/snippet}
 
@@ -127,19 +130,7 @@
 		margin: 0;
 		padding: var(--space-05) var(--space-1);
 	}
-	/* a clip's inside (the shared Timeline positions and frames it) */
-	img {
-		position: absolute;
-		inset: 0;
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-		object-position: top;
-		pointer-events: none;
-	}
-	img:global(.missing) {
-		visibility: hidden;
-	}
+	/* a clip's tag over its frames (ClipStrip; the shared Timeline positions and frames the item) */
 	.tag {
 		position: absolute;
 		left: 0;
@@ -184,13 +175,15 @@
 	}
 	.peek video,
 	.peek img {
-		position: static;
 		display: block;
 		width: auto;
 		height: 10rem;
 		max-width: 16rem;
 		object-fit: contain;
 		background: var(--ink);
+	}
+	.peek img:global(.missing) {
+		visibility: hidden;
 	}
 	.line {
 		white-space: nowrap;
