@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 // Which targets a deploy run has to upload: for each target (deploy order), the files changed between the commit it
-// is serving right now (deploy/live.mjs) and HEAD, matched against its `watch` patterns in deploy/targets.json.
+// is serving right now (deploy/live.mjs) and HEAD, filtered by `relevantFiles` (deploy/live.mjs:
+// its `watch` + the shared packages it imports, minus `watchIgnore`; deploy/targets.json only when its block changed).
 // Comparing with what is LIVE (not with the previous push) means a skipped or failed run is caught by the next one.
 // A target whose live commit is unknown (unreachable, first deploy) is deployed.
 //   node deploy/changed.mjs [--apps changed|all|<name,name>] [--head <sha>] [--github]
 //   → prints the plan; --github writes `apps=[…]` (deploy order) to GITHUB_OUTPUT and the plan to the run summary.
 // `all` = every target in `order`; explicit names may also be held-back targets (embassy).
 import { appendFileSync } from 'node:fs';
-import { config, git, knownCommit, liveSha, ordered, watched } from './live.mjs';
+import { config, configAt, git, knownCommit, liveSha, ordered, relevantFiles } from './live.mjs';
 
 const args = process.argv.slice(2);
 const choice = (args.includes('--apps') ? args[args.indexOf('--apps') + 1] : '') || 'changed';
@@ -37,7 +38,7 @@ for (const target of targets) {
 		continue;
 	}
 	const files = git('diff', '--name-only', live, head).split('\n').filter(Boolean);
-	const hits = files.filter((f) => watched(target, f));
+	const hits = relevantFiles(target, files, { oldConfig: configAt(live) });
 	if (hits.length) {
 		apps.push(target.name);
 		lines.push(`${target.name.padEnd(8)} deploy (${hits.length} changed since ${live.slice(0, 7)}, e.g. ${hits[0]})`);

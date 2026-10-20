@@ -25,7 +25,9 @@ the root [`.env.example`](../.env.example).
 |---|---|
 | `order` | deploy order (api → qr → frontends); only these are deployed automatically |
 | `targets.<app>.status` | URL answering with the live `git_sha` (version.json / API health) – `deploy/changed.mjs`, `npm run deploy:status` |
-| `watch` | paths whose change needs a redeploy of the target (`dir/**` or a file; `!pattern` excludes, e.g. the content seed) |
+| `watch` | paths whose change needs a redeploy of the target (globs `**` / `*`; `!pattern` excludes, e.g. `server/tests/**`) |
+| `watchPackages` | package dirs (`viewer`, `tools/mcp`) whose `@scutoons/*` dependencies, transitively, add `shared/<pkg>/**` to the watch – derived from package.json, never listed by hand |
+| `watchIgnore` / `watchKeep` | for every target: changed paths that never ship (tests, `*.md`, seed / scripts) – unless `watchKeep` matches (markdown under `src/` is imported). `deploy/targets.json` itself counts for a target only when its own block or a top-level key changed. Tests: `node --test deploy/test/*.test.mjs` |
 | `protocols.<p>.credentials` | environment variable names of the host credentials (`ftp`: `FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD`) |
 | `targets.<app>.source` | the app folder in the repo |
 | `setup` | what CI installs first: `npm` (npm ci), `php` (PHP 8.3 + Composer) |
@@ -81,8 +83,9 @@ shares the concurrency group `production-deploy` and `deploy.yml` runs its targe
 in the group replaces an older waiting one – nothing is lost, because:
 
 **What gets deployed is decided by what is live**, not by the push: `deploy/changed.mjs` reads each target's live
-`git_sha` (`status` URL) and deploys it when files under its `watch` paths changed since that commit (or the commit is
-unknown). A failed, cancelled or skipped deploy is therefore picked up by the next run – or by a manual run of
+`git_sha` (`status` URL) and deploys it when files relevant to it changed since that commit (`relevantFiles` in `deploy/live.mjs`; or the commit is
+unknown). Doc-only pushes (`agents/`, `research/`, `storyboards/`, `*.md` outside `src/`) start no run at all (`paths`
+in `deploy.yml`). A failed, cancelled or skipped deploy is therefore picked up by the next run – or by a manual run of
 `deploy.yml` with apps `changed`.
 
 **What is live:** `npm run deploy:status` – every target's live commit next to `origin/main` (exit code 1 if one is

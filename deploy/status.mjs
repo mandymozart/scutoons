@@ -2,7 +2,7 @@
 // What is live: each target's commit (its status URL, deploy/targets.json) next to main.
 //   npm run deploy:status [-- --ref origin/main]
 import { execFileSync } from 'node:child_process';
-import { git, knownCommit, liveSha, ordered, watched } from './live.mjs';
+import { configAt, git, knownCommit, liveSha, ordered, relevantFiles } from './live.mjs';
 
 const args = process.argv.slice(2);
 const ref = args.includes('--ref') ? args[args.indexOf('--ref') + 1] : 'origin/main';

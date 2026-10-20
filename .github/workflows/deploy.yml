@@ -1,8 +1,9 @@
 # THE deploy (owner 2026-10-02: one run, one FTP connection at a time – parallel uploads from several workflows made
 # all-inkl drop connections, ECONNRESET). Every push to main runs it:
 #   1. plan   – deploy/changed.mjs asks every target what commit it is serving (status URL in deploy/targets.json) and
-#               picks the ones with changes under their `watch` paths since then. Compared with what is LIVE, so a
-#               failed or skipped run is simply caught by the next one.
+#               picks the ones with relevant changes since then (their `watch` + the shared packages they import,
+#               minus tests / docs; deploy/targets.json only for a changed block – deploy/live.mjs, issue 73).
+#               Compared with what is LIVE, so a failed or skipped run is simply caught by the next one.
 #   2. tests  – API (server.yml) and qr (qr.yml) checks, when those are in the plan
 #   3. deploy – the picked targets strictly one after another in deploy order (api → qr → viewer → shop → creator → admin → embassy),
 #               steps in deploy-app.yml (with one FTP retry).
@@ -13,6 +14,15 @@ on:
   push:
     branches:
       - main
+    # doc-only pushes start no run (issue 73); later patterns win, so imported markdown under src/ (admin's ?raw
+    # templates) still counts. Nothing is lost: the next run deploys whatever is not live yet. Tags ignore paths.
+    paths:
+      - '**'
+      - '!agents/**'
+      - '!**/research/**'
+      - '!storyboards/**'
+      - '!**/*.md'
+      - '**/src/**/*.md'
     tags:
       - 'deploy-*'
   workflow_dispatch:
