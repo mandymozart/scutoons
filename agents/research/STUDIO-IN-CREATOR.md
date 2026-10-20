@@ -1,4 +1,4 @@
-Status 2026-10-20: concept, for the owner to decide (§5 questions). No app code yet. Issue #118. Once the owner agrees, the stages in §4 become issues.
+Status 2026-10-20: concept; the owner chose the web creator + three storage places + the local kit for every member (§2.2, §2.4, Q4 / Q5 answered); questions 1–3, 6, 7 open (§5). No app code yet. Issue #118. Once the owner agrees, the stages in §4 become issues.
 
 # STUDIO-IN-CREATOR – the storyboard studio as part of the creator (concept, 2026-10-20)
 
@@ -16,12 +16,18 @@ but for maintable code please refrain from such madness" (about the .mjs / .cjs 
   generator keys in the repo's `.env` on the owner's PC (§1).
 - **The target** is a **Storyboard page in the creator** (Svelte + TS). Its model lives in **@scutoons/content** (TS,
   tested), and the 3D renderer becomes a creator module (TS, three.js, loaded lazily). The data moves online: a
-  `storyboard:<toon>:<chapter>` entity (creator-only, like `script:`), a generations table, and files in the asset
-  manager (§2).
+  `storyboard:<toon>:<chapter>` entity (creator-only, like `script:`) and a generations table. **Files live in three
+  places** (owner 2026-10-20, §2.2): the member's **local workspace folder** for every attempt (fast, never uploaded),
+  a **shared work storage on the owner's own servers** (signed-in members only) for what is marked for review or
+  shared, and **the readers' CDN** for what is approved and used.
 - **Remote control:** the SCUTOONS MCP reads and saves the storyboard like any other entity. It prepares generations,
-  but **the member confirms the cost in the creator**. The **member's machine** handles what needs a local machine: the
-  Figma relay, the owner's local GPU and batch renders. It does this through the MCP, which already runs there and
-  already drives Figma. The browser never talks to localhost (§2.4).
+  but **the member confirms the cost in the creator**. The **member's machine** handles what needs a local machine:
+  Figma, a local GPU and batch renders. It does this through the MCP, which already runs there and already drives
+  Figma. **Every member gets the same local kit** (owner 2026-10-20: no collaborator types – install, connect your
+  Claude, go): the MCP extension from the account page with the Figma relay inside, the Figma plugin and the workspace
+  folder. No checkout is needed. The browser never talks to localhost (§2.4).
+- **No desktop app now** (owner 2026-10-20): the creator in Chrome is always current for everyone. An Electron wrapper
+  stays an option for later (§2.4 "When a desktop app").
 - **External generators run through the server** (PHP). The keys stay on the server, and the **budget gate** with a hard
   cut (STORYBOARD §7 "Budget", decided 2026-10-09) comes before the first paid job. The jobs need no worker and no cron:
   the server starts the provider's task, and the open page asks the server about it, which asks the provider (§2.5).
@@ -140,9 +146,23 @@ is no ledger and no budget. Prices are shown in euro at the ECB rate, which the 
   inputs + roles, generator, model, prompt, seed, ratio, duration, estimate, cost, status, mark, approved, who, date).
   This **is the budget ledger** (STORYBOARD §7: reserved → actual cost). The approve flow writes the shot's `from` and
   the dataset row here (`dataset` = a flag + note, no copy).
-- **Files** go to the asset manager under `storyboard/<toon>/<ch>/…`: frames, variants, generated stills and videos,
-  rendered takes. That is bunny.net, upload max 200 MB. ch3's generated files so far are 44 MB. Rejected ones get
-  cleaned up after the chapter's release with the admin's existing unused-asset cleanup (Q4).
+- **Files: three places** (owner 2026-10-20: "i like the step plan. 1 2 3"):
+  1. **The local workspace folder.** The member picks it once on the Storyboard page (Chrome / Edge folder access,
+     the permission remembered), and the MCP is set to the same folder (the extension's setting, default
+     `Documents/SCUTOONS`). Every attempt is written there: generated stills and videos, rendered frames, takes,
+     thumbnails. Its generation record online names the file (name + hash) and its machine, and nothing is uploaded.
+  2. **The shared work storage – on the owner's own servers** (owner 2026-10-20: "i also have some low cost servers
+     where i am hosting the apps atm. we could use them for file clutter that is not publish material"). It is never
+     the readers' CDN: the API stores the file on the host's disk (the asset layer already has a local storage driver
+     next to bunny) and serves it only to signed-in members, so unpublished attempts are never public. A file goes there
+     when it is marked for review or shared, so collaborators can see and compare it. It is emptied per chapter after
+     the release (an admin action). To measure first: the host's disk quota and its upload limit (PHP's `post_max_size`
+     – videos may need chunked uploads). A separate bunny zone stays the fallback if the disk is too small. A file on someone else's disk shows as a record with "on <member>'s machine – ask to
+     share".
+  3. **The readers' CDN** (the asset manager) gets only what is approved and placed in the chapter.
+
+  Upload time is spent only on what someone deliberately shares or approves. ch3's generated files so far are 44 MB
+  for 54 generations.
 - **Script text** comes from `script:<toon>` through the API, which replaces `docker exec`. **Character images** come
   from the CDN, which replaces `media/`.
 
@@ -162,8 +182,23 @@ is no ledger and no budget. Prices are shown in euro at the ECB rate, which the 
 Today the online creator would have to reach localhost to talk to Figma (the relay on 127.0.0.1:3056) or the local GPU.
 Browsers increasingly block that (Chrome's local network access prompt), and it would only work on the owner's PC.
 **The MCP already runs on the member's machine and already drives Figma.** So the local work is done by the MCP: the
-member asks their Claude, and the MCP reads the online storyboard, runs the local step and uploads the result
-(`upload_asset` + a generation record):
+member asks their Claude, and the MCP reads the online storyboard, runs the local step, writes the file into the
+workspace folder and adds its generation record:
+
+**The local kit – the same for every member** (owner 2026-10-20: "there needs to be no differentiation between the
+types of collaborators. they can just install the stuff and connect their claude and go"). It builds on what exists
+(MCP.md: the one-file build and the Claude Desktop extension `scutoons.mcpb`, downloaded from the account page's
+"AI connections", no checkout, no npm):
+- **The MCP extension** also carries the Figma relay. The MCP starts it on demand, which replaces the separate
+  `supervise.mjs --detach`. Its settings: the token and the workspace folder.
+- **The Figma plugin** is a download next to it (the manifest + code; Figma desktop → "Import plugin from manifest"),
+  versioned with the MCP.
+- **A local GPU** (optional): the MCP's `generate_local` talks to a ComfyUI the member runs (`COMFY_URL`). It has no
+  owner-specific paths.
+- **"Set up your machine"** on the account page: one short page with the three steps and a check (`whoami` +
+  `figma_status`). The version check that exists says when the kit is outdated.
+
+The kit's local steps:
 
 - **Figma:** `figma_place_draft` builds its spec from the online storyboard instead of `_out/…/spec.json`. figma-chapter,
   figma-match and figma-production become MCP tools (TS) after ch3.
@@ -171,7 +206,13 @@ member asks their Claude, and the MCP reads the online storyboard, runs the loca
 - **Batch renders** (all frames of a chapter): the creator renders a shot's frame in the browser on save and uploads it,
   which makes the headless batch unnecessary. If one is still wanted, the MCP opens the creator's render route in a
   headless browser.
-- No always-on local agent and no polling (STORYBOARD §7 "no silent costs"). The alternative is in Q5.
+- No always-on local agent and no polling (STORYBOARD §7 "no silent costs"; Q5 answered).
+
+**When a desktop app.** Not now (owner 2026-10-20: the web is current for everyone, Chrome is fine). An Electron wrapper
+around the same creator page comes up only if the local steps have to work without Claude (a button instead of asking
+your AI). Its costs would then be: signing (Windows) and notarizing (macOS), an updater and release hosting, version
+skew against the API, and one more CI build. Because the page is Svelte + TS either way, wrapping it later needs no
+rewrite.
 
 ### 2.5 External generators through the server
 
@@ -180,7 +221,9 @@ member asks their Claude, and the MCP reads the online storyboard, runs the loca
   "configured", never the key. **Owner step:** put RUNWAY / LUMA / GEMINI keys on the server.
 - **Jobs without a worker:** `POST /storyboard/generations` checks the budget, reserves the estimate, starts the
   provider's task and stores the task id. `GET …/{id}` (polled by the open page, and by the MCP) asks the provider once
-  per call. On success the server copies the result into the asset storage and books the actual cost. If no page is
+  per call. On success the server books the actual cost, and the page downloads the result straight into the member's
+  workspace folder (through the server as a pass-through when the provider's link refuses the browser; the server
+  stores nothing). If no page is
   open, the next open page or the MCP picks it up. A cron URL like the Embassy's is only an option. This fits the host:
   shared PHP, no long-running process, no sockets.
 - **The budget gate** (phase 3a, decided 2026-10-09): `generation_budget` in the admin, the ledger above, a hard cut
@@ -194,14 +237,14 @@ Both the phone and the PC open the creator (HTTPS, a real certificate, so the se
 gone). The phone connects through a **WebRTC data channel**. Pairing is a QR code with a one-time code, and the offer and
 answer travel through two short API calls (a small table, deleted after pairing). On the same Wi-Fi no TURN server is
 needed. The poses run peer to peer, so nothing per frame goes through PHP. The take is recorded in the browser
-(MediaRecorder, replacing ffmpeg) and uploaded as an asset. The phone page needs no sign-in, because the one-time code
+(MediaRecorder, replacing ffmpeg) and saved into the workspace folder. The phone page needs no sign-in, because the one-time code
 grants only this channel (Q6).
 
 ## 3. What stays local, what is deleted
 
 | Part | Fate | Why |
 |---|---|---|
-| tools/figma-bridge (plugin, relay, supervise, cli) | **stays local**, driven by the MCP; relay / CLI → TS + a thin CLI after ch3 | a Figma plugin can only talk to a socket on the member's machine |
+| tools/figma-bridge (plugin, relay, supervise, cli) | **stays local**, in every member's kit: the relay → TS inside the MCP extension, the plugin a download (after ch3); `supervise.mjs` goes | a Figma plugin can only talk to a socket on the member's machine |
 | figma-draft / chapter / match / production, production-upload | **stay as they are until after 2026-11-15**, then become MCP tools in TS | the owner's ch3 pipeline (#107–#109 just landed); art freeze 2026-11-10 |
 | comfy.mjs (local GPU) | stays local behind the MCP (`generate_local`) → TS; retired if ComfyUI remote replaces it | the owner's own GPU |
 | convert-624.mjs, figma-reslice, figma-clean-slices, convert-generated-log.mjs | **deleted** once their one run is done | one-offs; no re-cut tooling for 625 (DECISIONS 2026-10-20) |
@@ -218,12 +261,12 @@ grants only this channel (Q6).
 | Stage | What | Touches the running studio / ch3? | When | Effort (agent days) |
 |---|---|---|---|---|
 | **S0** | content `storyboard/*.ts`: types, validate / measure, the slice grid (out of spec.js), rhythm + safe envelope, schematic, prompts, record format – tested. spec.js / lib.mjs **import** it (node's `--experimental-transform-types`, as check-draft.mjs does), so there is one source. | only the imports (same numbers, the studio's tests stay green) | now, after #62 lands | 2–3 |
-| **S1** | server: `storyboard` entity kind, `storyboard_generations`, assets folder; the import migration (written, dry-run on the dev DB; **applied only at the cutover**) | no | before Nov 15 | 2–3 |
-| **S2** | creator page: shot list, Shot inspector, Script, schematic + rhythm rail, validate; read / save the entity (dev DB) | no | before Nov 15 | 3–4 |
+| **S1** | server: `storyboard` entity kind, `storyboard_generations`, the shared work storage on the app host (quota + upload limit measured first); the import migration (written, dry-run on the dev DB; **applied only at the cutover**) | no | before Nov 15 | 2–3 |
+| **S2** | creator page: shot list, Shot inspector, Script, schematic + rhythm rail, validate; read / save the entity (dev DB); the workspace folder (pick, read, write) | no | before Nov 15 | 3–4 |
 | **S3** | 3D: the renderer as TS in the creator, the Viewport (orbit, figures, hand camera), frames rendered and uploaded on save | no | Nov 13–20 | 3–5 |
 | **S4** | Generate + Variants board + Compare (port of #62); the budget gate (3a) + the server registry (Runway first, then Luma API / Gemini – #61, #112's fit step) | no | after Nov 15 | 5–8 |
 | **S5** | Handheld (WebRTC), Output / Export; **cutover**: apply the import, the creator is the studio | ends it | for ch4's first throw (~Nov 16–20) or right after | 3–4 |
-| **S6** | MCP: storyboard tools, `prepare_generation`, `generate_local`, Figma tools from the online storyboard (the figma-* scripts → TS) | after ch3 | Nov 16 → Dec | 3–4 |
+| **S6** | the local kit: MCP storyboard tools, `prepare_generation`, `generate_local`, the workspace setting; the Figma relay inside the extension + the plugin download; Figma tools from the online storyboard (the figma-* scripts → TS); "Set up your machine" on the account page | after ch3 | Nov 16 → Dec | 4–6 |
 | **S7** | delete the studio, the moved scripts, `dev:studio`, the scene files | – | after S5 + S6 | 1 |
 
 Against the other work:
@@ -250,12 +293,11 @@ Against the other work:
    nothing is built twice), (b) features continue there (built twice).
 3. **Paid generation from the MCP:** (a) **the MCP prepares, and you confirm the cost in the creator** (recommended,
    like "drafts → member confirms"), (b) the MCP may start paid jobs on its own within the budget.
-4. **Generated files online:** (a) **every generation is stored on bunny, and the rejected ones are cleaned up after the
-   chapter's release** (recommended: Compare and "improve on this" need them), (b) only approved ones are uploaded, and
-   the rest stay on the machine that made them (server jobs can't do that).
-5. **Local work (Figma, local GPU):** (a) **through your Claude + the MCP when you ask** (recommended: nothing runs in
-   the background, and it already works for Figma), (b) a small local helper that waits for jobs from the creator (the
-   creator gets buttons for Figma, but a process has to run all the time).
+4. ~~Generated files online~~ – **answered 2026-10-20:** three places – the local workspace folder, a shared work
+   storage on the owner's own servers, the readers' CDN only for what is approved (§2.2); no desktop app now, the
+   web creator in Chrome.
+5. ~~Local work~~ – **answered 2026-10-20:** through each member's Claude + the MCP, with one local kit for everyone
+   (§2.4).
 6. **The phone as a camera:** (a) **directly in the creator (WebRTC, QR pairing, no certificate prompt)** (recommended),
    (b) keep a local relay (then the handheld step only works on your PC).
 7. **The taste rules** (`storyboard-taste.md`, appended from reviews): (a) **a document in the DB that the MCP reads and
