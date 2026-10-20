@@ -93,9 +93,13 @@ test('bad shot ids are refused (they become file names)', async () => {
 	assert.equal(readdirSync(tmp()).length, 0);
 });
 
-test('every generator in the registry says how a job gets made: GET /api/generators carries its transport', async () => {
+test('every generator in the registry says how a job gets made: GET /api/generators carries its transport, its credit price and the euro rate', async () => {
 	const dir = tmp();
-	const { routes } = generatorRoutes({ root: dir, out: dir, boards: dir, media: dir, findShot: () => null, shotCharacters: () => [], styleFiles: () => [], env: { STUDIO_FAKE_GENERATOR: '1', COMFY_URL: 'http://127.0.0.1:9' } });
-	const { generators } = await routes['GET /api/generators']();
+	// the rate fixed by the env – no ECB fetch from a test (rate.test.mjs)
+	const { routes } = generatorRoutes({ root: dir, out: dir, boards: dir, media: dir, findShot: () => null, shotCharacters: () => [], styleFiles: () => [], env: { STUDIO_FAKE_GENERATOR: '1', COMFY_URL: 'http://127.0.0.1:9', STUDIO_EUR_PER_USD: '0.9' } });
+	const { generators, rate } = await routes['GET /api/generators']();
 	assert.deepEqual(Object.fromEntries(generators.map((g) => [g.id, g.transport])), { 'comfy-local': 'local', runway: 'api', 'luma-manual': 'manual', 'comfyui-remote': 'api', fake: 'api' });
+	assert.equal(generators.find((g) => g.id === 'runway').creditUsd, 0.01);
+	assert.deepEqual(rate, { eurPerUsd: 0.9, usdPerEur: 1.111111, date: null, source: 'env' });
+	assert.equal((await routes['GET /api/generate/jobs']({ ch: 's1c3', id: 'sb-1-1' })).rate.source, 'env');
 });

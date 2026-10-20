@@ -5,7 +5,7 @@
 // "Approve as chosen" works unchanged. README "Generators", agents/research/STORYBOARD.md §3 "As built".
 //
 // A generator (generators/*.mjs):
-//   { id, label, kinds: ['image' | 'video'], paid: boolean,
+//   { id, label, kinds: ['image' | 'video'], paid: boolean, creditUsd?: number (what one of its credits costs),
 //     transport: 'api' | 'local' | 'manual',         – how a job gets made (research/GENERATORS.md §2): a provider's API,
 //       this PC, or by hand (luma-manual.mjs: never started, never run – the Generate panel shows the prompt to copy
 //       instead of Generate; the result is dropped onto Variants)
@@ -19,6 +19,8 @@
 //   }
 // Safety (owner): a paid job starts only with `confirm` ≥ the server's own estimate (the UI shows it first); a job is
 // never retried by itself; the spend of this session is counted (final cost when the provider reports it).
+// Money here is the provider's: credits + USD (the estimate, the cost, the spend, `confirm`, generated.jsonl); the UI
+// shows it in euro at the rate GET /api/generators serves (rate.mjs – owner 2026-10-20: "preise in euro").
 
 import { appendFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
@@ -90,14 +92,14 @@ export function createManager({ generators, out, now = () => new Date() }) {
 
 	return {
 		async list() {
-			return Promise.all(generators.map(async (g) => ({ id: g.id, label: g.label, transport: g.transport, kinds: g.kinds, paid: !!g.paid, models: g.models, note: g.note ?? '', ...(await g.status().catch((e) => ({ configured: false, how: e.message }))) })));
+			return Promise.all(generators.map(async (g) => ({ id: g.id, label: g.label, transport: g.transport, kinds: g.kinds, paid: !!g.paid, creditUsd: g.creditUsd ?? null, models: g.models, note: g.note ?? '', ...(await g.status().catch((e) => ({ configured: false, how: e.message }))) })));
 		},
 		estimate(job) {
 			const g = gen(job.generator);
 			const m = modelOf(g, job.model);
 			return { paid: !!g.paid, model: m?.id ?? null, ...g.estimate({ ...job, model: m?.id }) };
 		},
-		/** starts a job; a paid one needs `confirm` (the USD the owner saw) ≥ the estimate */
+		/** starts a job; a paid one needs `confirm` (the USD behind the euro figure the owner saw) ≥ the estimate */
 		async start(job, { confirm } = {}) {
 			const g = gen(job.generator);
 			// by hand there is nothing to send – refused before a job exists (no failed entry in the shot's jobs)
@@ -107,7 +109,7 @@ export function createManager({ generators, out, now = () => new Date() }) {
 			const m = modelOf(g, job.model);
 			const input = { ...job, model: m?.id };
 			const est = g.estimate(input);
-			if (g.paid && !(Number(confirm) >= est.usd)) throw new Error(`confirm the cost first (${est.usd.toFixed(2)} USD)`);
+			if (g.paid && !(Number(confirm) >= est.usd)) throw new Error(`confirm the cost first (${est.credits} credits)`);
 			if (!/^[\w-]+$/.test(job.shot ?? '') || !/^[a-z0-9-]+$/.test(job.ch ?? '')) throw new Error('bad shot');
 			const j = {
 				id: `j${++seq}`, generator: g.id, model: m?.id ?? null, mode: m?.mode ?? null, shot: job.shot, ch: job.ch, status: 'queued', progress: null,

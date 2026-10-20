@@ -87,7 +87,8 @@ every step.
 - variants: `storyboards/<toon>/<chapter>/variants/<shot>.json`, frames under `storyboards/_out/<chapter>/` (`frames/`,
   `clean/` without texts, `variants/`, `generated/` + `generated.jsonl` – the generators' results and their log)
 - the generators: `generators/` (`jobs.mjs` the interface, `runway.mjs`, `comfy-local.mjs`, `luma-manual.mjs`,
-  `others.mjs`; tests: `npm test -w workflows/storyboard-studio`)
+  `others.mjs`, `rate.mjs` the euro rate; tests: `npm test -w workflows/storyboard-studio`); the rate's cache
+  `.cache/eur-usd.json` (gitignored)
 
 ## Handheld camera (the phone as the shot's camera)
 
@@ -163,7 +164,7 @@ Generate; agents/research/GENERATORS.md §2).
 | Generator | Transport | What | Cost |
 |---|---|---|---|
 | ComfyUI (this PC) – `comfy-local` | local | `scripts/storyboard/comfy.mjs` unchanged: Qwen-Image-Edit, the render + character images → a still | free |
-| Runway – `runway` | api | **Gen-4 Turbo** / **Gen-4.5** image to video (the still + prompt, 2–10 s); **Aleph 2** video to video (the handheld render pass ≤ 30 s, restyled by the prompt; the still as keyframe) | 5 / 12 / 28 credits per second (Aleph at least 56); 1 credit = 0.01 USD |
+| Runway – `runway` | api | **Gen-4 Turbo** / **Gen-4.5** image to video (the still + prompt, 2–10 s); **Aleph 2** video to video (the handheld render pass ≤ 30 s, restyled by the prompt; the still as keyframe) | 5 / 12 / 28 credits per second (Aleph at least 56); 1 credit = 0.01 USD (≈ 0,0089 €) |
 | Luma – by hand – `luma-manual` | manual | no API: the built prompt (read-only) + **Copy prompt**, **Render (no texts)** (Luma's image reference, a download) and the references to attach (links) – made on lumalabs.ai, the result dropped onto Variants | your Luma subscription |
 | ComfyUI (cloud GPU) – `comfyui-remote` | api | the same graphs on RunPod / Comfy Cloud – not built yet (`generators/others.mjs`) | – |
 
@@ -171,29 +172,44 @@ Safety: the estimate is shown before sending; every paid call asks once more wit
 itself (a failed or timed-out create call is reported, not sent again); the panel shows what this studio session has
 spent (it resets when the studio restarts). Cancel stops the job and cancels the task at Runway.
 
+Prices are shown in euro (owner 2026-10-20: "preise in euro"): the estimate, the confirmation ("Generate for 0,22 €"),
+each job's cost and the session's spend, `de-DE` formatted; the tooltip of each figure shows the provider's own –
+credits, USD – and the rate. The rate: the ECB euro reference rate (`generators/rate.mjs` – eurofxref-daily.xml, USD per
+EUR → 1 / that), served with `GET /api/generators` and `GET /api/generate/jobs`, fetched at most once a day in the
+background (a request never waits for it), cached in `.cache/eur-usd.json` (gitignored); offline → the last cached
+rate, else a fixed fallback (ECB 2026-10-19: 1 USD = 0.8909 €), marked as such in the tooltip;
+`STUDIO_EUR_PER_USD=<EUR per USD>` overrides it. Inside, the money stays in USD: the estimate, the jobs, the spend,
+`generated.jsonl` and the confirm check of `POST /api/generate` (`confirm` = the USD behind the euro figure).
+
 ### Runway einrichten (für den Owner)
 
 1. Auf **https://dev.runwayml.com** anmelden (das Entwicklerportal – nicht das normale Runway-Abo, die Credits sind
-   getrennt), ein Projekt anlegen, Credits kaufen (1 Credit = 0,01 USD). Der Start-Tier erlaubt bis 100 USD im Monat
-   und wenige Generierungen gleichzeitig / pro Tag; mehr gibt es automatisch nach den ersten Käufen.
+   getrennt), ein Projekt anlegen, Credits kaufen – Runway rechnet in Dollar: 1 Credit ≈ 0,0089 € (0,01 USD). Der
+   Start-Tier erlaubt bis ≈ 89 € (100 USD) im Monat und wenige Generierungen gleichzeitig / pro Tag; mehr gibt es
+   automatisch nach den ersten Käufen.
 2. Unter **API Keys** einen Schlüssel erzeugen und kopieren (er wird nur einmal angezeigt).
 3. In die Datei **`.env` im Repo-Ordner** (`C:\Development\scutoons\.env`, sie ist in `.gitignore`, wird nie
    committet) eine Zeile schreiben: `RUNWAY_API_KEY=key_…`. Ein Neustart des Studios ist nicht nötig.
 4. Im Studio: Shot wählen → **Generate** → Generator „Runway“, Modell wählen, Bild / Video und Prompt prüfen →
-   **Generate** → die Rückfrage zeigt den Preis → bestätigen. Das Video erscheint unter Variants → Generated.
+   **Generate** → die Rückfrage zeigt den Preis in Euro → bestätigen. Das Video erscheint unter Variants → Generated.
 
-Was ein Shot kostet (Preise laut docs.dev.runwayml.com, Stand 2026-10-19):
+Alle Preise im Studio stehen in Euro – ungefähr (≈), umgerechnet zum Euro-Referenzkurs der EZB des Tages; fährt man mit
+der Maus über einen Betrag, zeigt der Tooltip Runways eigene Zahlen (Credits, USD) und den Kurs. Abgerechnet wird bei
+Runway in USD, darum kann der Euro-Betrag auf der Kreditkarte leicht abweichen.
+
+Was ein Shot kostet (Preise laut docs.dev.runwayml.com, Stand 2026-10-19; in Euro zum EZB-Kurs vom 2026-10-19,
+1 USD = 0,8909 €, gerundet – Runways Dollar in Klammern):
 
 | Modell | pro Sekunde | 5-s-Shot | 10-s-Shot |
 |---|---|---|---|
-| Gen-4 Turbo (Bild → Video) | 5 Credits = 0,05 USD | 0,25 USD | 0,50 USD |
-| Gen-4.5 (Bild → Video) | 12 Credits = 0,12 USD | 0,60 USD | 1,20 USD |
-| Aleph 2 (Handheld-Video → Video) | 28 Credits = 0,28 USD (min. 0,56 USD) | 1,40 USD | 2,80 USD |
+| Gen-4 Turbo (Bild → Video) | 5 Credits ≈ 0,04 € (0,05 USD) | ≈ 0,22 € | ≈ 0,45 € |
+| Gen-4.5 (Bild → Video) | 12 Credits ≈ 0,11 € (0,12 USD) | ≈ 0,53 € | ≈ 1,07 € |
+| Aleph 2 (Handheld-Video → Video) | 28 Credits ≈ 0,25 € (0,28 USD), min. ≈ 0,50 € (0,56 USD) | ≈ 1,25 € | ≈ 2,49 € |
 
 Ohne Schlüssel zeigt der Generator „not configured“ mit dieser Anleitung in einer Zeile. Der Schlüssel bleibt auf dem
 PC: er geht nie an den Browser und nie in Git.
 
-For development: `STUDIO_FAKE_GENERATOR=1` adds a fake generator (fake credits); `RUNWAY_API_URL` points the adapter at
+For development: `STUDIO_FAKE_GENERATOR=1` adds a fake generator (fake credits, 1 credit = 0.01 USD); `RUNWAY_API_URL` points the adapter at
 the mock (`node workflows/storyboard-studio/generators/test/runway-mock.mjs --port 14091`, key `mock-key`).
 
 ## Not yet

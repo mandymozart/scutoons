@@ -147,7 +147,7 @@ export function createRunway({ root, env = process.env, pollMs = 5000, fetchImpl
 		paid: true,
 		creditUsd: 0.01,
 		models: MODELS,
-		note: 'Runway developer API – billed per second of video (1 credit = 0.01 USD)',
+		note: 'Runway developer API – billed in credits per second of video',
 		async status() {
 			return apiKey() ? { configured: true } : { configured: false, how: 'Not configured: put RUNWAY_API_KEY=… into the repo\'s .env (dev.runwayml.com → API keys) – README "Generators".' };
 		},

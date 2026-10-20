@@ -1,7 +1,9 @@
 // The Generate panel's state (README "Generators", generators/jobs.mjs): the generators and whether they are
 // configured, the shot's inputs (pre-filled), "Build from the shot" (the shot's full prompt + the references to attach),
 // the estimate shown before anything is sent, the jobs of the shot (polled while one runs) and the session's spend. A
-// paid job is sent only after confirmDialog with the estimate.
+// paid job is sent only after confirmDialog with the estimate. Every price is shown in euro (owner 2026-10-20: "preise
+// in euro") at the rate the server serves (generators/rate.mjs); the provider's own figures (credits, USD) stay in the
+// tooltip. What is sent and kept stays in USD (`confirm`, the jobs, the spend).
 import { confirmDialog } from '@scutoons/ui';
 import { api, ch, fail, notify, studio, toon } from './studio.svelte.js';
 
@@ -11,6 +13,8 @@ const recall = (k) => { try { return localStorage.getItem(`storyboard-studio:${k
 export const gen = $state({
 	generators: [],
 	spend: { usd: 0, credits: 0, jobs: 0 },
+	/** the euro rate: { eurPerUsd, usdPerEur, date, source: 'ecb' | 'fallback' | 'env' } (GET /api/generators, …/jobs) */
+	rate: null,
 	/** the shot's inputs: { stills, controls, characters, style, prompt, aspect, duration } */
 	inputs: null,
 	shot: null,
@@ -32,6 +36,7 @@ export async function loadGenerators() {
 	const r = await api('GET', '/api/generators');
 	gen.generators = r.generators;
 	gen.spend = r.spend;
+	gen.rate = r.rate;
 	const want = recall('generator');
 	const pick = r.generators.find((g) => g.id === want) ?? r.generators.find((g) => g.configured && g.paid) ?? r.generators.find((g) => g.configured) ?? r.generators[0];
 	if (pick && !gen.form.generator) setGenerator(pick.id);
@@ -94,8 +99,26 @@ export function estimate() {
 	}, 150);
 }
 
-const money = (usd) => `${usd.toFixed(2)} USD`;
-export const costText = (e) => (!e ? '' : e.error ? e.error : !e.paid ? `Free${e.note ? ` – ${e.note}` : ''}` : `≈ ${e.credits} credits · ${money(e.usd)}${e.seconds ? ` · ${Number(e.seconds.toFixed(1))} s` : ''}${e.ratio ? ` · ${e.ratio}` : ''}`);
+const EUR = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' });
+const EUR_FINE = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 4 });
+/** a USD amount in euro at the served rate: "0,22 €" (`fine`: up to 4 decimals – "0,0089 €" for a credit; an amount
+ *  under half a cent gets them too, so a cost never shows as "0,00 €") */
+export function euro(usd, fine = false) {
+	if (!gen.rate) return '–';
+	const eur = Number(usd) * gen.rate.eurPerUsd;
+	return (fine || (eur !== 0 && Math.abs(eur) < 0.005) ? EUR_FINE : EUR).format(eur);
+}
+/** the provider's figures behind a euro amount, for its tooltip: "25 credits = 0.25 USD · 1 USD = 0.8909 € (ECB 2026-10-19)" */
+export function usdTitle({ credits, usd } = {}) {
+	const r = gen.rate;
+	const figure = `${credits != null ? `${credits} credit${credits === 1 ? '' : 's'} = ` : ''}${Number(usd ?? 0).toFixed(2)} USD`;
+	const rate = !r ? '' : r.source === 'env' ? `1 USD = ${r.eurPerUsd} € (STUDIO_EUR_PER_USD)` : r.source === 'fallback' ? `1 USD ≈ ${r.eurPerUsd.toFixed(4)} € (the fixed fallback, ECB ${r.date} – no newer rate could be fetched)` : `1 USD = ${r.eurPerUsd.toFixed(4)} € (ECB ${r.date})`;
+	return rate ? `${figure} · ${rate}` : figure;
+}
+const extras = (e) => `${e.seconds ? ` · ${Number(e.seconds.toFixed(1))} s` : ''}${e.ratio ? ` · ${e.ratio}` : ''}`;
+export const costText = (e) => (!e ? '' : e.error ? e.error : !e.paid ? `Free${e.note ? ` – ${e.note}` : ''}` : `≈ ${euro(e.usd)}${extras(e)}`);
+/** the estimate line's tooltip: the provider's figures */
+export const costTitle = (e) => (e?.paid && !e.error ? usdTitle(e) : '');
 
 export async function start() {
 	const g = current();
@@ -105,8 +128,8 @@ export async function start() {
 	if (e.paid) {
 		const ok = await confirmDialog({
 			title: `Send to ${g.label}?`,
-			message: `${e.model} · ${costText(e).replace(/^≈ /, 'about ')}${e.rate ? ` (${e.rate})` : ''}. Charged to your ${g.label} account – this session so far: ${money(gen.spend.usd)}.`,
-			confirmLabel: `Generate for ${money(e.usd)}`
+			message: `${e.model} · about ${euro(e.usd)}${extras(e)} – ${e.credits} credits${e.rate ? ` (${e.rate})` : ''}. Charged to your ${g.label} account – this session so far: ${euro(gen.spend.usd)}.`,
+			confirmLabel: `Generate for ${euro(e.usd)}`
 		});
 		if (!ok) return;
 	}
@@ -133,6 +156,7 @@ export async function loadJobs() {
 	const r = await api('GET', `/api/generate/jobs?ch=${ch()}&id=${gen.shot}`);
 	gen.jobs = r.jobs;
 	gen.spend = r.spend;
+	if (r.rate) gen.rate = r.rate;
 	const finished = r.jobs.filter((j) => j.status === 'succeeded' && before.get(j.id) && before.get(j.id) !== 'succeeded');
 	if (finished.length) { studio.version++; notify(`Generated: ${finished.flatMap((j) => j.files).join(', ')} – in Variants.`, 'success'); }
 	const active = r.jobs.some((j) => j.status === 'queued' || j.status === 'running');

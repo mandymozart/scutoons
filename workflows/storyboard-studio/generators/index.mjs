@@ -1,25 +1,32 @@
 // The studio's generator routes (api.mjs spreads them in): the registry (comfy-local · runway · luma-manual ·
 // comfyui-remote, + fake with STUDIO_FAKE_GENERATOR=1), the inputs a shot offers, the estimate, start / cancel, the jobs
-// and the session's spend. The interface: jobs.mjs. README "Generators".
+// and the session's spend (in USD) + the euro rate the UI shows them in (rate.mjs). The interface: jobs.mjs. README
+// "Generators".
 //
 // Inputs travel as keys, never as paths: "out:<ch>/clean/<shot>.png" (storyboards/_out), "boards:<…>"
 // (storyboards/ – the approved images, the style folder), "media:<…>" (the media root) – resolved and checked here.
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { relative, resolve, sep } from 'node:path';
+import { dirname, relative, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createManager } from './jobs.mjs';
 import { createRunway } from './runway.mjs';
 import { createComfyLocal } from './comfy-local.mjs';
 import { createLumaManual } from './luma-manual.mjs';
 import { createComfyRemote, createFake } from './others.mjs';
+import { createRate } from './rate.mjs';
 
 const PASS_ORDER = ['grey', 'beauty', 'depth', 'normals'];
+/** the euro rate's cache – gitignored (workflows/storyboard-studio/.gitignore) */
+const RATE_FILE = resolve(dirname(fileURLToPath(import.meta.url)), '../.cache/eur-usd.json');
 
-export function generatorRoutes({ root, out, boards, media, findShot, shotCharacters, styleFiles, env = process.env }) {
+export function generatorRoutes({ root, out, boards, media, findShot, shotCharacters, styleFiles, env = process.env, rate = createRate({ cacheFile: RATE_FILE, env }) }) {
 	const roots = { out, boards, media };
 	const generators = [createComfyLocal({ root, env }), createRunway({ root, env }), createLumaManual(), createComfyRemote()];
 	if (env.STUDIO_FAKE_GENERATOR === '1') generators.push(createFake({ read: (f) => readFileSync(f) }));
 	const manager = createManager({ generators, out });
+	// the first fetch starts with the studio (in the background), so the first page load already has today's rate
+	rate.get();
 
 	const keyOf = (rootName, file) => `${rootName}:${relative(roots[rootName], file).replaceAll('\\', '/')}`;
 	function fileOf(key) {
@@ -76,11 +83,11 @@ export function generatorRoutes({ root, out, boards, media, findShot, shotCharac
 	return {
 		manager,
 		routes: {
-			'GET /api/generators': async () => ({ generators: await manager.list(), spend: manager.spend() }),
+			'GET /api/generators': async () => ({ generators: await manager.list(), spend: manager.spend(), rate: rate.get() }),
 			'GET /api/generate/inputs': inputs,
 			'POST /api/generate/estimate': (body) => manager.estimate(jobOf(body)),
 			'POST /api/generate': (body) => manager.start(jobOf(body), { confirm: body.confirm }),
-			'GET /api/generate/jobs': ({ ch, id }) => ({ jobs: manager.jobs({ ch, shot: id }), spend: manager.spend() }),
+			'GET /api/generate/jobs': ({ ch, id }) => ({ jobs: manager.jobs({ ch, shot: id }), spend: manager.spend(), rate: rate.get() }),
 			'POST /api/generate/cancel': ({ job }) => manager.cancel(job)
 		}
 	};

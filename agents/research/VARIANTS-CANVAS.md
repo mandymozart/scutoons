@@ -27,7 +27,7 @@ So "improve on them" needs two things besides the board: **frames out of videos*
 inputs, prompt, seed and parent. Nothing records lineage today beyond the generators' `generated.jsonl`.
 
 What "reference" means for the models built (docs.dev.runwayml.com/api.md, read 2026-10-19; prices runway.mjs,
-1 credit = 0.01 USD; all other providers: GENERATORS §5):
+1 credit = 0.01 USD ≈ 0,0089 € – the studio shows euro, owner 2026-10-20; all other providers: GENERATORS §5):
 - **gen4_turbo / gen4.5** (image → video, 5 / 12 credits/s, 2–10 s): ONE still at position `first` + the prompt – no
   last frame on these two.
 - **aleph2** (video → video, 28 credits/s, at least 56): the video (≤ 30 s) + 1–5 keyframes, each at `at` (0–1) or
@@ -185,7 +185,7 @@ gen4_image, the Luma API, the budget.
   give the board the window.
 - **Many videos**: posters only, one live `<video>` (the hovered card) and ≤ 4 in Compare – never 50 playing at once.
 - **Old generations** have no parents and partly unknown inputs – an honest "no record" row, no guessed lines.
-- **Improving a video costs**: Aleph 2 = 1.40 USD per 5 s against 0.25 for gen4_turbo from a frame. The estimate + the
+- **Improving a video costs**: Aleph 2 ≈ 1,25 € per 5 s against ≈ 0,22 € for gen4_turbo from a frame (ECB 2026-10-19). The estimate + the
   confirm stay per job; the budget gate is GENERATORS §6 step 3 – it comes before anything sends several jobs at once.
 - **Files moved by hand** leave records without files (a "missing" card) and files without records ("no record" row).
 - **Aleph 2 takes ≤ 30 s**: a handheld render or a gen-4 result fits; a longer take is trimmed first.
