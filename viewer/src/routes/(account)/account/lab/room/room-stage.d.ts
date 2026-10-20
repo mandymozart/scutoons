@@ -18,6 +18,7 @@ export interface RoomStats {
 	calls: number;
 	textures: number;
 	pixelRatio: number;
+	splats: number;
 	fps: number;
 }
 
@@ -35,6 +36,9 @@ export function mountRoom(
 		things: RoomThing[];
 		maxPixelRatio?: number;
 		maxZoom?: number;
+		/** overrides the room's own view / spots (a `.glb`'s nodes, a `.splat`'s `.splat.json`) */
+		view?: { at: number[]; look: number[]; fov?: number };
+		spots?: { id: string; at: number[] }[];
 		onstats?: (s: RoomStats) => void;
 		ontap?: (hit: { thing?: string; point: number[] }) => void;
 	}

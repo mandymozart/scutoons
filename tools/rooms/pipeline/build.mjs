@@ -66,7 +66,9 @@ const ue = ([x, y, z]) => [x / 100, z / 100, y / 100];
 const ueDir = ([x, y, z]) => [x, z, y];
 
 /** a vertex's light from the level's lights: inverse square with Unreal's radius window, the spot cones, n·l */
-function lightAt(p, n) {
+function lightAt(ps, n) {
+	// the bake runs in Unreal's own size: a room scaled with `scale` (room.json) is lit as composed
+	const p = ps.map((v) => v / (room.scale ?? 1));
 	const c = [0, 0, 0];
 	for (const l of lights) {
 		const lp = ue(l.pos);
@@ -149,6 +151,74 @@ doc.createExtension(EXTTextureWebP).setRequired(true);
 for (const node of root.listNodes())
 	if ((room.drop ?? []).some((p) => node.getName().startsWith(p)))
 		node.dispose();
+
+// 1b. `scale`: the level at real size (a scan blown up for a shot) – view, spots and cut are in the scaled metres
+if (room.scale && room.scale !== 1) {
+	for (const node of root.listScenes()[0].listChildren()) {
+		node.setTranslation(node.getTranslation().map((v) => v * room.scale));
+		node.setScale(node.getScale().map((v) => v * room.scale));
+	}
+}
+
+// 1c. `ground: { y, center: [x, z], size: [w, d], color }` – a plain floor where the scan has none (a forecourt), a grid
+// fine enough for the light bake
+if (room.ground) {
+	const { y, center, size, color } = room.ground;
+	const nx = 48,
+		nz = 32,
+		pos = [],
+		idx = [];
+	for (let j = 0; j <= nz; j++)
+		for (let i = 0; i <= nx; i++)
+			pos.push(
+				center[0] + (i / nx - 0.5) * size[0],
+				y,
+				center[1] + (j / nz - 0.5) * size[1],
+			);
+	for (let j = 0; j < nz; j++)
+		for (let i = 0; i < nx; i++) {
+			const a = j * (nx + 1) + i;
+			idx.push(a, a + nx + 1, a + 1, a + 1, a + nx + 1, a + nx + 2);
+		}
+	const buffer = root.listBuffers()[0];
+	const prim = doc
+		.createPrimitive()
+		.setAttribute(
+			"POSITION",
+			doc
+				.createAccessor()
+				.setType("VEC3")
+				.setArray(new Float32Array(pos))
+				.setBuffer(buffer),
+		)
+		.setAttribute(
+			"NORMAL",
+			doc
+				.createAccessor()
+				.setType("VEC3")
+				.setArray(
+					new Float32Array(pos.length).map((_, k) => (k % 3 === 1 ? 1 : 0)),
+				)
+				.setBuffer(buffer),
+		)
+		.setIndices(
+			doc
+				.createAccessor()
+				.setType("SCALAR")
+				.setArray(new Uint32Array(idx))
+				.setBuffer(buffer),
+		)
+		.setMaterial(
+			doc.createMaterial("ground").setBaseColorFactor([...color, 1]),
+		);
+	root
+		.listScenes()[0]
+		.addChild(
+			doc
+				.createNode("ground")
+				.setMesh(doc.createMesh("ground").addPrimitive(prim)),
+		);
+}
 
 // 2. textures back onto the scans: actor label = node name → its material → BaseColorTexture → tex/<name>.png
 const actors = Object.fromEntries(

@@ -1,9 +1,10 @@
 <script lang="ts">
 	// Dev-only prototype of a place's 3D room (agents/research/LOCATION-SCENES.md §7, issue #74): the cathedral from the
-	// owner's Unreal level (tools/rooms), a pickup, a resident, the quality levels and what each costs. Nothing is saved.
+	// owner's Unreal levels (tools/rooms; ?room=<id>), pickups, a resident, the quality levels and what each costs. Nothing is
+	// saved.
 	import { onDestroy } from 'svelte';
 	import { asset } from '$lib/utils/cdn.ts';
-	import { mountRoom, type RoomStage, type RoomStats } from './room-stage.js';
+	import { mountRoom, type RoomStage, type RoomStats, type RoomThing } from './room-stage.js';
 
 	const isDev = import.meta.env.DEV;
 	const levels = ['low', 'medium', 'high'] as const;
@@ -15,33 +16,65 @@
 	let taken = $state<string[]>([]);
 	let room: RoomStage | null = null;
 
-	const things = [
+	const pope = {
+		model: asset('characters/catpope/catpope-regular.glb'),
+		height: 1.1,
+		label: 'Cat Pope'
+	};
+	const cucumber = { icon: asset('catpope/items/cucumber.webp'), height: 0.25, label: 'Gurke' };
+	const record = {
+		model: asset('catpope/items/awakening_vinyl.v2.set.glb'),
+		label: 'Awakening LP'
+	};
+	/** the lab's rooms (tools/rooms/rooms/<id>.json) and what stands at their spots */
+	const rooms: Record<
+		string,
 		{
-			id: 'record',
-			spot: 'altar',
-			kind: 'pickup' as const,
-			model: asset('catpope/items/awakening_vinyl.v2.set.glb'),
-			label: 'Awakening LP'
-		},
-		{
-			id: 'cucumber',
-			spot: 'pew',
-			kind: 'pickup' as const,
-			icon: asset('catpope/items/cucumber.webp'),
-			height: 0.25,
-			label: 'Gurke'
-		},
-		{
-			id: 'catpope',
-			spot: 'aisle',
-			kind: 'resident' as const,
-			model: asset('characters/catpope/catpope-regular.glb'),
-			height: 1.1,
-			label: 'Cat Pope'
+			label: string;
+			things: (RoomThing & { label: string })[];
+			/** a splat room (its view + spots: `<id>.splat.json` next to the file) */
+			ext?: 'splat';
 		}
-	];
+	> = {
+		cathedral: {
+			label: 'Kathedrale',
+			things: [
+				{ id: 'record', spot: 'altar', kind: 'pickup', ...record },
+				{ id: 'cucumber', spot: 'pew', kind: 'pickup', ...cucumber },
+				{ id: 'catpope', spot: 'aisle', kind: 'resident', ...pope }
+			]
+		},
+		'garden-hut': {
+			label: 'Gartenhütte',
+			ext: 'splat',
+			things: [
+				{ id: 'cucumber', spot: 'grass', kind: 'pickup', ...cucumber },
+				{ id: 'catpope', spot: 'step', kind: 'resident', ...pope }
+			]
+		},
+		library: {
+			label: 'Bibliothek',
+			ext: 'splat',
+			things: [
+				{ id: 'record', spot: 'desk', kind: 'pickup', ...record },
+				{ id: 'catpope', spot: 'floor', kind: 'resident', ...pope }
+			]
+		},
+		station: {
+			label: 'Bahnhof',
+			things: [
+				{ id: 'cucumber', spot: 'platform', kind: 'pickup', ...cucumber },
+				{ id: 'catpope', spot: 'door', kind: 'resident', ...pope }
+			]
+		}
+	};
+	let which = $state(
+		(typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('room')) ??
+			'cathedral'
+	);
+	const things = $derived(rooms[which]?.things ?? []);
 
-	async function load(l: string) {
+	async function load(id: string, l: string) {
 		room?.dispose();
 		room = null;
 		stats = null;
@@ -50,7 +83,7 @@
 		if (!canvas) return;
 		try {
 			room = await mountRoom(canvas, {
-				url: asset(`scutoons/rooms/cathedral.${l}.glb`),
+				url: asset(`scutoons/rooms/${id}.${l}.${rooms[id]?.ext ?? 'glb'}`),
 				things,
 				onstats: (s) => (stats = s),
 				ontap: (hit) => {
@@ -69,7 +102,7 @@
 		}
 	}
 	$effect(() => {
-		if (canvas) load(level);
+		if (canvas) load(which, level);
 	});
 	onDestroy(() => room?.dispose());
 </script>
@@ -79,7 +112,16 @@
 		<canvas bind:this={canvas} onpointerdown={() => room?.allowTilt()} data-testid="room-canvas"
 		></canvas>
 		<div class="bar">
-			<span class="where">Kathedrale</span>
+			<div class="sc-seg" role="group" aria-label="Raum">
+				{#each Object.entries(rooms) as [id, r] (id)}
+					<button
+						class:active={which === id}
+						aria-pressed={which === id}
+						onclick={() => (which = id)}
+						data-testid="room-{id}">{r.label}</button
+					>
+				{/each}
+			</div>
 			<div class="sc-seg" role="group" aria-label="Qualität">
 				{#each levels as l (l)}
 					<button

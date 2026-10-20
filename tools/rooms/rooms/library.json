@@ -1,0 +1,46 @@
+{
+	"name": "library",
+	"about": "The monastery library as a Gaussian splat: Unreal Projects/InnerScope 5.6, /Game/XV3dGS/SCENE_6_-_MONASTARY_-_LIBRARY_-_Terminals_(1) (XV3dGS data textures, colour only) – the map's places `library` / `monastery` (ch3). Export: tools/rooms/unreal/export_splat.py. A scanned window wall (backlit lattice windows), not a whole room: no upright in the data – levelled by PCA (~18°), still slightly bent; halo splats > 25 cm dropped.",
+	"view": {
+		"at": [
+			-2.8,
+			0.91,
+			-0.28
+		],
+		"look": [
+			0.28,
+			0.21,
+			-1.15
+		],
+		"fov": 55
+	},
+	"spots": [
+		{
+			"id": "floor",
+			"at": [
+				-1.2,
+				-0.59,
+				-0.6
+			]
+		},
+		{
+			"id": "desk",
+			"at": [
+				-0.7,
+				-0.2,
+				-0.9
+			]
+		}
+	],
+	"splat": {
+		"minOpacity": 0.05,
+		"maxScale": 0.25,
+		"radius": 5,
+		"levels": {
+			"low": 150000,
+			"medium": 300000,
+			"high": 600000
+		},
+		"level": "pca"
+	}
+}

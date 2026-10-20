@@ -1,4 +1,4 @@
-Status 2026-10-20: concept + a working one-room prototype (the cathedral from the owner's Unreal level, dev lab `/account/lab/room`, tools/rooms – §7); the owner OKed the look (2026-10-20); nothing reader-facing built; next: a chapter 3 room from the Unreal map / Blender file the owner names (issue #74). Not on chapter 3's critical path (#64).
+Status 2026-10-20: concept + a working one-room prototype (the cathedral from the owner's Unreal level, dev lab `/account/lab/room`, tools/rooms – §7); the owner OKed the look (2026-10-20); nothing reader-facing built; three more rooms 2026-10-20 (§7b: the station, the garden hut and the library as splats); next: the owner's look at them (issue #74). Not on chapter 3's critical path (#64).
 
 # LOCATION-SCENES — a 3D room for every place on the map
 
@@ -187,6 +187,21 @@ Portrait phones keep ≥ 60° across. Measured on this PC (dev server, local CDN
   would show them all (another reason for the diorama).
 - Gaps: not measured on a phone yet (none attached – the owner's Android over USB + `chrome://inspect` gives fps / memory);
   no still fallback rendered yet; KTX2; the incense smoke (Niagara) is not exported.
+
+### 7b. Three more rooms (2026-10-20 – owner: "try to build the garden hut … also the train station")
+| room | source | kind | medium | |
+|---|---|---|---|---|
+| `station` (ch2 `station`) | Roar `/Game/Maps/Mercury`, the part around the Mount Royal station scan (`ROOM_CENTER` / `ROOM_RADIUS`) + its 9 lights | mesh | **0.73 MB**, 7.5k tris, 2 draw calls | Unreal shows it at 200× – `scale` 0.35 = its real ~60 m; the scan has no forecourt: a plain baked `ground`; a forecourt view, not an interior; close up the 4.4k-triangle scan shows its coarseness |
+| `garden-hut` (ch5 `garden`) | InnerScope 5.6 `/Game/XV3dGS/SCENE_8_-_GARDEN_HUT_-_Gate(1)` | splat | **9.6 MB**, 300k of 1.49M splats (low 150k 4.8 MB, high 600k 19.2 MB) | the Roar project's Postshot original is on drive E: (not connected); the XV3dGS copy = 4 float data textures (pos, quat, scale, colour + opacity – no view-dependent SH) → EXR → `.splat`; already level; reads well at eye height (a garden path, posts, the hedge) |
+| `library` (ch3 `library` / `monastery`) | InnerScope 5.6 `/Game/XV3dGS/SCENE_6_-_MONASTARY_-_LIBRARY_-_Terminals_(1)` | splat | 9.6 MB, 300k of 978k | a scanned **window wall**, not a room; no upright in the data (placed in no level) – `level: "pca"` turns it ~18°, still bent; a halo of big background splats dropped (> 25 cm). Owner 2026-10-20: "the library is in a blender file actually … on my external in the ROAR project folder footage perhapse" – not on C: / D: (searched every .blend); the external E: (`E:4_Roar\FOOTAGE\…`) wasn't connected → the mesh library waits for it |
+
+- **Splats render in the lab without a library** (room-splat.js: data textures + one instanced quad a splat, a worker's
+  counting sort when the view turns). A splat library (Spark …) would bring its own three.js, and the viewer's npm lock
+  is shared – for the real thing pick one then. Pickups and residents stand in a splat like in a mesh room (depth-tested).
+- **Splat costs:** 32 B a splat as `.splat` – 9.6 MB for 300k is ~4× a mesh room's budget (§4); `.spz` (quantized +
+  gzip) is roughly 3–4× smaller (estimate). The sort costs CPU per view change (300k ≈ tens of ms, in a worker).
+  → Mesh rooms stay the default; a splat is the look for a scanned place, at 150k (4.8 MB) on phones.
+- Not measured: fps of the splat rooms (the browser pane was hidden – its frames are throttled); a phone.
 
 ## 8. Owner questions (with recommendations)
 1. ~~The cathedral's look~~ – OK (2026-10-20). **Next room:** a ch3 interior (the monastery or the library) – the owner

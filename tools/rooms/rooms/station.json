@@ -1,0 +1,75 @@
+{
+	"name": "station",
+	"about": "The Roar project's /Game/Maps/Mercury, the part around the Mount Royal station scan (ROOM_CENTER=71829,11859,-12653 ROOM_RADIUS=9000): one photo-scanned building (4,430 triangles, an 8k texture) + its 9 lights – the map's place `station` (ch2). Unreal shows it at 200× (170 m wide); scale 0.35 = the real ~60 m.",
+	"drop": [
+		"Sphynx"
+	],
+	"ambient": [
+		0.08,
+		0.08,
+		0.09
+	],
+	"exposure": 1,
+	"spots": [
+		{
+			"id": "door",
+			"at": [
+				246.5,
+				-41.72,
+				51
+			]
+		},
+		{
+			"id": "platform",
+			"at": [
+				252,
+				-41.78,
+				57
+			]
+		}
+	],
+	"levels": {
+		"low": {
+			"ratio": 1,
+			"texture": 1024
+		},
+		"medium": {
+			"ratio": 1,
+			"texture": 2048
+		},
+		"high": {
+			"ratio": 1,
+			"texture": 4096
+		}
+	},
+	"scale": 0.35,
+	"ground": {
+		"y": -41.78,
+		"center": [
+			250,
+			62
+		],
+		"size": [
+			110,
+			60
+		],
+		"color": [
+			0.32,
+			0.3,
+			0.28
+		]
+	},
+	"view": {
+		"at": [
+			250,
+			-40.1,
+			68
+		],
+		"look": [
+			250,
+			-34,
+			46
+		],
+		"fov": 55
+	}
+}

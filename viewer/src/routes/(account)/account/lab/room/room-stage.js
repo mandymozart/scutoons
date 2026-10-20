@@ -2,6 +2,7 @@
 // record-stage.js. The room is a static diorama: the `.glb`'s `view` camera looks in, a drag / the phone's tilt pivots it
 // a little (±18° yaw, ±6° pitch), wheel / pinch moves it in. The room's light is baked (vertex colours, unlit), so the
 // scene has no lights; the things in it (pickups, residents) get one soft light. Spots = the model's `spot_<id>` nodes.
+// A `.splat` room (room-splat.js) has no nodes: its view and spots come from `<room>.splat.json` next to it.
 import { loadThree } from '@scutoons/media/model-view';
 
 const YAW = (18 * Math.PI) / 180;
@@ -15,11 +16,36 @@ export async function mountRoom(canvas, opts) {
 	const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 	const tThree = performance.now();
 
-	const res = await fetch(opts.url);
-	if (!res.ok) throw new Error(`${res.status} ${opts.url}`);
-	const bytes = await res.arrayBuffer();
+	// a `.glb` (a mesh room with its view + spot nodes) or a `.splat` (a splat room: view + spots from opts)
+	let gltf,
+		bytes,
+		splat = null;
+	if (opts.url.endsWith('.splat')) {
+		const { loadSplat } = await import('./room-splat.js');
+		// its view and spots: `<room>.splat.json` next to it (tools/rooms/pipeline/splat.mjs)
+		const side = await fetch(opts.url.replace(/\.[a-z]+\.splat$/, '.splat.json')).then((r) =>
+			r.ok ? r.json() : {}
+		);
+		opts = { ...opts, view: opts.view ?? side.view, spots: opts.spots ?? side.spots };
+		splat = await loadSplat(THREE, opts.url);
+		splat.mesh.raycast = () => {};
+		const root = new THREE.Group();
+		root.add(splat.mesh);
+		for (const s of opts.spots ?? []) {
+			const n = new THREE.Object3D();
+			n.name = 'spot_' + s.id;
+			n.position.fromArray(s.at);
+			root.add(n);
+		}
+		gltf = { scene: root, cameras: [] };
+		bytes = { byteLength: splat.mb * 1e6 };
+	} else {
+		const res = await fetch(opts.url);
+		if (!res.ok) throw new Error(`${res.status} ${opts.url}`);
+		bytes = await res.arrayBuffer();
+	}
 	const tFetch = performance.now();
-	const gltf = await loader.parseAsync(bytes, opts.url.replace(/[^/]*$/, ''));
+	gltf ??= await loader.parseAsync(bytes, opts.url.replace(/[^/]*$/, ''));
 	const tParse = performance.now();
 
 	const renderer = new THREE.WebGLRenderer({
@@ -36,7 +62,11 @@ export async function mountRoom(canvas, opts) {
 	// the room's own camera (`view`), else a look from the front at its box
 	let camera = gltf.cameras[0]?.clone();
 	const view = gltf.scene.getObjectByName('view') ?? gltf.cameras[0]?.parent;
-	if (camera && view) {
+	if (opts.view) {
+		camera = new THREE.PerspectiveCamera(opts.view.fov ?? 55, 1, 0.05, 300);
+		camera.position.fromArray(opts.view.at);
+		camera.lookAt(new THREE.Vector3().fromArray(opts.view.look));
+	} else if (camera && view) {
 		camera.position.setFromMatrixPosition(gltf.cameras[0].matrixWorld);
 		camera.quaternion.setFromRotationMatrix(
 			new THREE.Matrix4().extractRotation(gltf.cameras[0].matrixWorld)
@@ -77,7 +107,12 @@ export async function mountRoom(canvas, opts) {
 		} else {
 			const map = await textures.loadAsync(t.icon);
 			map.colorSpace = THREE.SRGBColorSpace;
-			obj = new THREE.Sprite(new THREE.SpriteMaterial({ map }));
+			obj = new THREE.Sprite(
+				new THREE.SpriteMaterial({
+					map,
+					alphaTest: 0.5
+				}) /* its clear corners write no depth: no hole in a splat behind */
+			);
 			const h = t.height ?? 0.3;
 			obj.scale.set(h * (map.image.width / map.image.height), h, 1);
 			obj.position.y = h / 2;
@@ -193,7 +228,10 @@ export async function mountRoom(canvas, opts) {
 		camera.aspect = w / h;
 		// a phone in portrait keeps the room's width: at least 60° across (at most 90° high)
 		const minH = (60 * Math.PI) / 180;
-		camera.fov = Math.min(90, Math.max(baseFov, ((2 * Math.atan(Math.tan(minH / 2) / camera.aspect)) * 180) / Math.PI));
+		camera.fov = Math.min(
+			90,
+			Math.max(baseFov, (2 * Math.atan(Math.tan(minH / 2) / camera.aspect) * 180) / Math.PI)
+		);
 		camera.updateProjectionMatrix();
 	};
 	const ro = new ResizeObserver(resize);
@@ -211,6 +249,7 @@ export async function mountRoom(canvas, opts) {
 		calls: renderer.info.render.calls,
 		textures: renderer.info.memory.textures,
 		pixelRatio: renderer.getPixelRatio(),
+		splats: splat?.count ?? 0,
 		fps,
 		...extra
 	});
@@ -224,6 +263,8 @@ export async function mountRoom(canvas, opts) {
 		qPitch.setFromAxisAngle(X, pitch);
 		camera.quaternion.copy(qYaw).multiply(home.quat).multiply(qPitch);
 		camera.position.copy(home.pos).addScaledVector(forward, zoom);
+		camera.updateMatrixWorld();
+		splat?.update(camera, renderer);
 		renderer.render(scene, camera);
 		frames++;
 		const now = performance.now();
@@ -267,6 +308,7 @@ export async function mountRoom(canvas, opts) {
 					m.dispose?.();
 				}
 			});
+			splat?.dispose();
 			renderer.dispose();
 		}
 	};

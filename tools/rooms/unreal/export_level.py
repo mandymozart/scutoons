@@ -2,6 +2,7 @@
 # (tools/rooms/pipeline/build.mjs) reads. Read-only – nothing in the project is saved. Runs headless, no GPU needed:
 #
 #   set ROOM_OUT=C:\…\out   &   set ROOM_MAP=/Game/Maps/Church   (Git Bash: also MSYS_NO_PATHCONV=1)
+#   optional, for a part of a big map: ROOM_CENTER=x,y,z (cm) + ROOM_RADIUS=cm – only actors that near
 #   "C:\Epic\UE_5.6\Engine\Binaries\Win64\UnrealEditor-Cmd.exe" "<project>.uproject" -run=pythonscript
 #       -script="<this file>" -EnablePlugins=PythonScriptPlugin,GLTFExporter -unattended -nosplash -nullrhi -nop4
 #
@@ -16,8 +17,10 @@ import unreal
 
 OUT = os.environ['ROOM_OUT']
 MAP = os.environ.get('ROOM_MAP', '/Game/Maps/Church')
+CENTER = [float(v) for v in os.environ['ROOM_CENTER'].split(',')] if os.environ.get('ROOM_CENTER') else None
+RADIUS = float(os.environ.get('ROOM_RADIUS', '0'))
 os.makedirs(OUT + '/tex', exist_ok=True)
-info = {'map': MAP, 'actors': [], 'materials': {}, 'cameras': []}
+info = {'map': MAP, 'center': CENTER, 'radius': RADIUS, 'actors': [], 'materials': {}, 'cameras': []}
 lights = {'lights': []}
 
 
@@ -31,7 +34,19 @@ def textures_of(material):
     if isinstance(material, unreal.MaterialInstance):
         return [str(v.parameter_info.name) + '=' + v.parameter_value.get_path_name()
                 for v in material.get_editor_property('texture_parameter_values') if v.parameter_value]
-    return [t.get_path_name() for t in unreal.MaterialEditingLibrary.get_used_textures(material)]
+    used = [t.get_path_name() for t in unreal.MaterialEditingLibrary.get_used_textures(material)]
+    if used:
+        return used
+    # a plain material whose textures the library can't list (no compiled shaders without a renderer): its package's
+    # texture dependencies, named BaseColorTexture= when there is only one
+    reg = unreal.AssetRegistryHelpers.get_asset_registry()
+    deps = reg.get_dependencies(material.get_outermost().get_name(), unreal.AssetRegistryDependencyOptions(True, True, True, True, True)) or []
+    texs = []
+    for d in deps:
+        for a in reg.get_assets_by_package_name(str(d)):
+            if str(a.asset_class_path.asset_name).startswith('Texture'):
+                texs.append(f'{a.package_name}.{a.asset_name}')
+    return ['BaseColorTexture=' + texs[0]] if len(texs) == 1 else texs
 
 
 if not MAP.startswith('/Game/'):
@@ -44,6 +59,8 @@ selected = set()
 for actor in unreal.GameplayStatics.get_all_actors_of_class(world, unreal.Actor):
     cls = actor.get_class().get_name()
     t = actor.get_actor_transform()
+    if CENTER and sum((a - b) ** 2 for a, b in zip([t.translation.x, t.translation.y, t.translation.z], CENTER)) > RADIUS ** 2:
+        continue
     row = {'name': actor.get_actor_label(), 'class': cls, 'loc': str(t.translation), 'rot': str(t.rotation.rotator()),
            'scale': str(t.scale3d), 'hidden': actor.is_hidden_ed()}
     meshes = []
