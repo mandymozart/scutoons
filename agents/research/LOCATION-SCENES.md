@@ -236,9 +236,11 @@ cloister for the monastery?).
 - **The right library isn't on disk:** the owner's renders (an elevator shaft with stairs, Cat Pope in its door, the round
   ceiling with a round window – render 9 = the wanted camera) aren't in `library-scene.blend` (14 tiles, no character),
   `MODELS/blender/blender.blend` / `MODELS/fbx/fbx.fbx` (the incense burner + one vault tile) or any Unreal map (C:, D:,
-  F: searched). Owner: "create a scene like picture 9 with the stuff you have" → `blender/compose_rotunda.py`: the hall's
-  central tile becomes a rotunda – a ribbed dome, a round window (ring + cross, `glow_` = full colour), a light in it, a
-  floor – exported like any .blend → `library-rotunda`: **0.63 MB** medium, 30k triangles, the view inside looking up.
+  F: searched). Owner: "create a scene like picture 9 with the stuff you have" + "it uses an extruded version of one of
+  the circular vectors in our ornament library" → `blender/compose_rotunda.py`: the hall's central tile becomes a round
+  ceiling with the vector library's **`ring-dial`** extruded as relief under it (any SVG as the 3rd argument), a round
+  window with a cross (`glow_` = full colour) and a light in the middle, a floor – exported like any .blend →
+  `library-rotunda`: **1.11 MB** medium, 62k triangles, the view low looking up at the ring (render 9).
 - **A generic sky in every room** (owner: "a generic skybox … later interchangeable … it might also follow day times"):
   a gradient dome with a sun glow behind the room, no light cost; presets day / dusk / night (`SKIES`, lab switch).
 - Pipeline fixes found on the way: meshes / accessors several nodes share are copied per node before the cut and the bake

@@ -321,11 +321,13 @@ if (room.view && room.cut) {
 	];
 	const vfov = ((room.view.fov ?? 55) * Math.PI) / 180;
 	const deg = Math.PI / 180;
-	const tanH = Math.tan(
+	// the cone's half angles, kept under 90° (a wide view + the look-around + the margin can pass it: tan turns negative)
+	const cap = (a) => Math.tan(Math.min(a, 89 * deg));
+	const tanH = cap(
 		Math.atan(Math.tan(vfov / 2) * (room.cut.aspect ?? 2)) +
 			(18 + room.cut.margin) * deg,
 	);
-	const tanV = Math.tan(vfov / 2 + (6 + room.cut.margin) * deg);
+	const tanV = cap(vfov / 2 + (6 + room.cut.margin) * deg);
 	const far = room.cut.far ?? 30;
 	let kept = 0,
 		all = 0;

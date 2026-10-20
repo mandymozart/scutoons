@@ -1,6 +1,6 @@
 {
 	"name": "library-rotunda",
-	"about": "The library composed like the owner's render 9 (2026-10-20: \"create a scene like picture 9 with the stuff you have\"): library-scene.blend's hall with its central tile replaced by a rotunda – a ribbed dome with a round window (ring + cross) and a light in it (tools/rooms/blender/compose_rotunda.py). Scale 2.4 = the Cat Pope scan's size (the scene's lights at her head height); the dome's crown ≈ 6 m. The view: low, looking up into the dome (render 9). The map's places `library` / `monastery` (ch3).",
+	"about": "The library composed like the owner's render 9 (2026-10-20: \"create a scene like picture 9 with the stuff you have\"; \"it uses an extruded version of one of the circular vectors in our ornament library\"): library-scene.blend's hall with its central tile replaced by a round ceiling – the vector library's ring-dial extruded as relief under it, a round window with a cross and a light in the middle (tools/rooms/blender/compose_rotunda.py). Scale 2.4 = the Cat Pope scan's size; the ceiling ≈ 3.4 m. The view: low, looking up at the ring (render 9). The map's places `library` / `monastery` (ch3).",
 	"drop": [],
 	"allLights": true,
 	"ambient": [
@@ -46,16 +46,16 @@
 	},
 	"view": {
 		"at": [
-			-8.19,
+			-6.99,
 			1.0,
-			-1.28
+			-0.68
 		],
 		"look": [
 			-10.39,
-			5.8,
+			3.4,
 			-2.28
 		],
-		"fov": 75
+		"fov": 80
 	},
 	"scale": 2.4,
 	"glow": [
