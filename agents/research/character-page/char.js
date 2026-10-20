@@ -266,12 +266,14 @@ function eChar() {
 	// side-scrolling rows run edge to edge between the dividers, their padding inside the scroller; a fade at an edge
 	// says "more this way" (none at the start / end)
 	const k3 = flags.includes('k3');
+	const panel = ['profile', 'model', 'wanted', 'prompts'].find((x) => flags.includes(x)) ?? '';
+	const level = panel === 'profile' ? 'character' : 'look';
 	const kdoc = (on, state) => (k3 ? `<span class="kdoc ${on ? 'on' : ''}" title="Kanon of this level">${sq('file', { on })}<span class="kstate ${state}"></span></span>` : '');
 	const personas = `<div class="ctl look-row"><div class="hs fade-r grow">${personaPick()}</div>${kdoc(false, 'no')}</div>`;
 	// the look is the same kind of row as the persona (owner 2026-10-20: "why are we switching concept here?"): a
 	// preview + its word, sideways with the fade; the view squares stay fixed at its end
 	const looks = PERSONAS[0].looks.concat(phone ? [] : []).map(([l, n, img]) => ({ img, label: l, n: `${n}` }));
-	const controls = `<div class="ctl look-row"><div class="hs fade-r grow">${pick(looks, 0)}</div>${viewSeg()}${k3 ? '<span class="vsep"></span>' : ''}${kdoc(true, 'draft')}</div>`;
+	const controls = `<div class="ctl look-row"><div class="hs fade-r grow ${panel && level === 'look' ? 'lvl-look' : ''}">${pick(looks, 0)}</div>${viewSeg()}${k3 ? '<span class="vsep"></span>' : ''}${kdoc(!panel, 'draft')}</div>`;
 	const strip = `<div class="hs fade-r strip-row">${stageStrip()}</div>`;
 	if (phone) {
 		const top = `<div class="bar-rows">${personas}${controls}</div>`;
@@ -280,7 +282,7 @@ function eChar() {
 			: '';
 		return `<main class="pg" style="grid-area:main;position:relative">${top}${eStage()}${strip}${overlay}</main>`;
 	}
-	const center = `<div style="display:flex;flex-direction:column;min-width:0;min-height:0"><div class="pad-x ${k3 ? 'k3head' : ''}">${head({ small: true })}${kdoc(false, 'pub')}</div><div class="bar-rows">${personas}${controls}</div>${eStage()}${strip}</div>`;
+	const center = `<div style="display:flex;flex-direction:column;min-width:0;min-height:0"><div class="pad-x ${k3 ? 'k3head' : ''} ${panel && level === 'character' ? 'lvl-on' : ''}">${head({ small: true })}${kdoc(false, 'pub')}</div><div class="bar-rows">${personas}${controls}</div>${eStage()}${strip}</div>`;
 	const insp = kanonPanel();
 	return `<main class="pg" style="grid-area:main">${atabs()}<div class="editor" style="grid-template-columns:minmax(0,1fr) 22rem;flex:1;min-height:0">${center}${insp}</div></main>`;
 }
@@ -307,10 +309,24 @@ function kanonPanel() {
 		return `<aside class="insp e-insp">${tabs}<div class="kpath">${crumbs}</div><div class="sheet-head" style="padding:0"><span class="muted cap">${LEVELS[2].heads}</span><span class="grow"></span>${chips([LEVELS[2].state])}<span class="muted cap">de ★</span></div>${lookText()}</aside>`;
 	}
 	if (flags.includes('k3')) {
-		// K3 – no Kanon tab: a text square at the end of each level on the page (head = character, persona row, look row;
-		// its dot = the state); the inspector shows the clicked one, titled with its face and level
-		const t = [['user', 'Profile'], ['box', 'Model'], ['inbox', 'Wanted'], ['zap', 'Prompts']].map(([i, w]) => `<span title="${w}">${ic(i)}</span>`).join('');
-		return `<aside class="insp e-insp"><div class="tabs">${t}</div><div class="ktitle"><img src="${I('av-catpope')}" alt="" /><span class="t"><span class="muted cap">Kanon · Look</span><span>päpstlich</span></span><span class="grow"></span>${chips([LEVELS[2].state])}</div>${lookText()}</aside>`;
+		// K3 (owner 2026-10-20: "ich find k3 am sinnvollsten … wenn die anderen dinge im inspector auch so
+		// contextualisiert sind"): no Kanon tab – a text square at the end of each level on the page (head = character,
+		// persona row, look row; its dot = the state). EVERY inspector panel shows the level picked on the page (a tap on
+		// the head / a persona / a look; the page rings it) under the same title: its face · panel · level · name
+		const panel = ['profile', 'model', 'wanted', 'prompts'].find((x) => flags.includes(x)) ?? '';
+		const TABS = [['profile', 'user', 'Profile'], ['model', 'box', 'Model'], ['wanted', 'inbox', 'Wanted images'], ['prompts', 'zap', 'Prompts']];
+		const t = TABS.map(([id, i, w]) => `<span class="${id === panel ? 'on' : ''}" title="${w}">${ic(i)}</span>`).join('');
+		const title = (what, lvl, name, state) => `<div class="ktitle"><img src="${I('av-catpope')}" alt="" /><span class="t"><span class="muted cap">${what} · ${lvl}</span><span>${name}</span></span><span class="grow"></span>${state ? chips([state]) : ''}</div>`;
+		let body;
+		if (panel === 'profile') body = title('Profile', 'Character', 'Katzenpapst', ['pub', 'published']) + `<div class="insp-scroll">${profile()}</div>`;
+		else if (panel === 'model')
+			body = title('Model', 'Look', 'päpstlich') + `<div class="insp-scroll side" style="gap:var(--space-075)"><h2 class="h">3D model <span class="n">the persona's · 2400 tris · 19 bones</span></h2><div class="slot" style="height:12rem"><img src="${I('full-catpope')}" alt="" style="height:100%" /></div><div class="cap muted">This look's own model: <span class="chip no">none</span> ${ic('plus')}</div><h2 class="h">Body (for the placeholder)</h2><span class="group seg"><span class="on">2 legs</span><span>more legs</span><span>wings</span></span><h2 class="h">A-pose (avatar body)</h2><div class="slot" style="height:12rem"><img src="${I('apose-catpope')}" alt="" style="height:100%" /></div></div>`;
+		else if (panel === 'wanted')
+			body = title('Wanted images', 'Look', 'päpstlich', ['warn', '3 open']) + `<div class="insp-scroll side" style="gap:var(--space-05)"><div class="ctl" style="padding:0">${sq('copy', { title: 'Copy as list' })}${sq('file', { title: 'Copy as CSV' })}<span class="grow"></span><span class="cap muted">only with a note</span></div>${[['traurig', 'portrait'], ['weinend', 'full'], ['Akzeptanz', 'full']].map(([m, v]) => `<div class="crow" style="padding-left:0"><span class="sq">${ic(VICON[v === 'full' ? 'full' : 'portrait'])}</span><span class="t"><span>${m} · ${v === 'full' ? 'Ganz' : 'Portrait'}</span><span class="muted cap">catpope_${v}-${m === 'traurig' ? 'sad' : m === 'weinend' ? 'crying' : 'acceptance'}.webp</span></span>${sq('upload', { title: 'Upload' })}</div>`).join('')}<div class="cap muted">The whole list of every character: the area tab "Wanted images".</div></div>`;
+		else if (panel === 'prompts')
+			body = title('Prompts', 'Look · neutral', 'päpstlich') + `<div class="insp-scroll side" style="gap:var(--space-05)"><div class="ctl" style="padding:0"><span class="cap muted">for Luma / an artist, from the Kanon (character › persona › look) + the mood</span><span class="grow"></span>${sq('copy', { title: 'Copy' })}</div><div class="ktext" style="border:var(--hair)">A pink sphynx cat, blue eyes, in a white papal robe with blue cross ornaments and a cap; neutral face, calm; full figure, front view, plain light background …</div></div>`;
+		else body = title('Kanon', 'Look', 'päpstlich', LEVELS[2].state) + lookText();
+		return `<aside class="insp e-insp"><div class="tabs">${t}</div>${body}</aside>`;
 	}
 	return `<aside class="insp e-insp">${tabs}<div class="sheet-head" style="padding:0"><span class="label">Kanon · Katzenpapst</span><span class="grow"></span>${chips([['no', 'not written']])}<span class="muted cap">de ★</span></div>${kanonText()}<div class="cap muted">Persona: Regular ${chips([['no', 'not written']])} · Look: päpstlich ${chips([['no', 'not written']])}</div></aside>`;
 }

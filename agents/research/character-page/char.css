@@ -191,3 +191,10 @@
 .ktitle img { width: 2.5rem; height: 2.5rem; object-fit: cover; }
 .ktitle .t { display: flex; flex-direction: column; }
 .kpath { font-size: var(--caption); } .kcrumb { padding: 0 var(--space-025); gap: var(--space-025); }
+
+/* K3 panels: the level the inspector shows is ringed on the page */
+.lvl-on .chead img, .lvl-look .pick > span.on { outline: calc(2 * var(--border-width-regular)) solid var(--ink); outline-offset: var(--border-width-regular); }
+.lvl-look { padding-top: 0.2rem; padding-bottom: 0.2rem; }
+.insp-scroll { min-height: 0; overflow: hidden; }
+.e-insp .fgrid { grid-template-columns: minmax(0, 1fr); gap: var(--space-05); }
+.seg.group { display: inline-flex; }

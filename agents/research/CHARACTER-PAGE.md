@@ -1,4 +1,4 @@
-Status 2026-10-20: draft E (B's cards + C's editor) after the owner's first look, to confirm (issue #104) – nothing built beyond the small fixes (commit "Characters page: layout fixes").
+Status 2026-10-20: draft E with the Kanon option K3 (§3a) – the direction, to confirm before building (issue #104) – nothing built beyond the small fixes (commit "Characters page: layout fixes").
 
 # CHARACTER-PAGE – the creator's Characters area inside navigation D
 
@@ -86,6 +86,12 @@ haben personas, looks, moods".
   crumb – recommended, the calmest); **K3 in place** (no Kanon tab: a text square with a state dot at the end of each
   level on the page – the head, the persona row, the look row; the inspector shows the clicked one). `e.html#char-k1`
   / `-k2` / `-k3`.
+- **Chosen: K3** (owner 2026-10-20: "ich find k3 am sinnvollsten … wenn die anderen dinge im inspector auch so
+  contextualisiert sind"): the level is picked on the page (a tap on the head = character, a persona, a look; the page
+  rings it) and EVERY inspector tab shows that level under one title (face · tab · level · name · state): Profile
+  (person), Model (hexagon: the persona's GLB or the look's own, the placeholder body, the look's A-pose), Wanted images
+  (inbox: what this level lacks, upload, copy list / CSV), Prompts (bolt: built from the Kanon chain + the mood). The
+  Kanon has no tab: the text square at the end of each level opens it. `e.html#char-k3[-profile|-model|-wanted|-prompts]`.
 - Pictures: `e.html` (`#list`, `#char`, `-avatar` / `-portrait`, phones `-sheet`); `CHARACTER-PAGE-drafts.html` = all
   drafts in one file with the pictures inside (opens in the app's browser pane).
 
