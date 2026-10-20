@@ -249,6 +249,14 @@ test('slice items: placed catalog items with an action chosen by the creator; te
 	assert.deepEqual(sliceProblems({ dialog: [{ rect, text: 'BAM', variant: 'sfx' }] }), ['error groups.0.slices.0.dialog.0.variant']);
 	// lyrics (owner 2026-10-17): a song line, the caption box with musical notes
 	assert.deepEqual(sliceProblems({ dialog: [{ rect, text: 'I want to be a cloud', variant: 'lyrics', font: 'mono' }] }), []);
+	// gradient paints (issue #94): color / stroke = a colour or a linear / radial gradient with ascending stops
+	const stops = [{ at: 0, color: '#ffc531' }, { at: 100, color: '#00ff94' }];
+	assert.deepEqual(sliceProblems({ dialog: [{ rect, text: 'LAUT', color: { type: 'linear', angle: 180, stops }, stroke: { type: 'radial', center: { x: 50, y: 50 }, radius: 80, stops } }] }), []);
+	assert.deepEqual(sliceProblems({ dialog: [{ rect, text: 'LAUT', color: { type: 'linear', stops } }] }), ['error groups.0.slices.0.dialog.0.color.angle']);
+	assert.deepEqual(sliceProblems({ dialog: [{ rect, text: 'LAUT', color: { type: 'radial', center: { x: 50 }, radius: 0, stops } }] }), ['error groups.0.slices.0.dialog.0.color.center', 'error groups.0.slices.0.dialog.0.color.radius']);
+	assert.deepEqual(sliceProblems({ dialog: [{ rect, text: 'LAUT', stroke: { type: 'linear', angle: 0, stops: [stops[1], stops[0]] } }] }), ['error groups.0.slices.0.dialog.0.stroke.stops.1.at']);
+	assert.deepEqual(sliceProblems({ dialog: [{ rect, text: 'LAUT', color: { type: 'conic', stops } }] }), ['error groups.0.slices.0.dialog.0.color']);
+	assert.deepEqual(sliceProblems({ dialog: [{ rect, text: 'LAUT', color: { type: 'linear', angle: 0, stops: [stops[0]] } }] }), ['error groups.0.slices.0.dialog.0.color.stops']);
 	// line height (owner 2026-10-17): × the font size, 0.5–3
 	assert.deepEqual(sliceProblems({ dialog: [{ rect, text: 'BAM', lineHeight: 1.2 }] }), []);
 	assert.deepEqual(sliceProblems({ dialog: [{ rect, text: 'BAM', lineHeight: 0 }] }), ['error groups.0.slices.0.dialog.0.lineHeight']);

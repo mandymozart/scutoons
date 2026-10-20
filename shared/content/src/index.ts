@@ -2,6 +2,7 @@
 export * from './enums.ts';
 export * from './fx.ts';
 export * from './content.ts';
+export * from './paint.ts';
 export * from './audio.ts';
 export * from './visual-novel.ts';
 export * from './vn-script.ts';

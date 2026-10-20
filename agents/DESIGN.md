@@ -625,7 +625,9 @@ export interface Dialog {
   uppercase?: boolean;
   letterSpacing?: number;      // em of the font size (owner 2026-10-03); default the font's own
   lineHeight?: number;         // × the font size (owner 2026-10-17); default the font's own: lettering 1.1, mono 1.35
-  color?: string;              // default ink
+  color?: DialogPaint;         // default ink – a CSS colour or a gradient (issue #94, below)
+  stroke?: DialogPaint;        // the letters' outline – a CSS colour or a gradient; none = no outline
+  strokeWidth?: number;        // em of the font size, default 0.14
   rotation?: number;           // degrees
   mask?: string | true;        // DEPRECATED (owner 2026-10-03): re-import the art text-free, keep the dialog data.
                                // Fills the rect (+ `pad`) to cover text baked into legacy art (chapter 1). true = '#ffffff'.
@@ -650,6 +652,18 @@ Backwards compatible with the existing chapter-2 entry (`rect {x,y,width}` + `te
 - Each box: `position:absolute; left:x%; top:y%; width:w%; height:h%` (+ the anchor's `translate`), flex for `valign`,
   `font-size: calc(var(--size) * 1cqw)`, `line-height: 1.15`, `overflow-wrap: anywhere`, `hyphens: auto` with
   `lang` set from the chapter language (German compounds).
+- **Gradient paints** (issue #94, owner 2026-10-18 / 2026-10-20: "a gradient tool like in figma for radial linear
+  gradients for outline and for fills"): `color` / `stroke` = a CSS colour or `{ type: 'linear', angle, stops }` /
+  `{ type: 'radial', center: {x, y} %, radius % of the farthest corner, stops }`, stops `{ at 0–100 ascending, color
+  #hex, opacity? }` (collage.ts `GradientStop`; validator: ≥ 2 stops, ascending). CSS: `paintCss` (shared/content
+  paint.ts). A box with a gradient draws its lines twice in one grid cell: behind, the outline layer (a transparent
+  `-webkit-text-stroke`, the outline's paint as a background cut to the letters – `background-clip: text` includes the
+  stroke); in front, the fill (a colour, or its gradient cut to the letters); both layers padded 0.2em with the same
+  negative margin, else the last glyph's outline is cut. Same look in Chromium 140, Firefox 141, WebKit 26. Solid
+  boxes keep the one-layer `.stroked` path. Creator: the Colour / Outline fields are `PaintField` (shared/ui): a switch
+  Solid · Linear · Radial as icons (a square filled flat / with a bw gradient), a stop bar (drag, click to add, Delete or
+  the bin removes, two stops at least), the stop's position, the angle or centre X / Y + radius, the colour popover for
+  the selected stop. Figma: the bridge module `commands/text-paints.js` reads a text's fill / stroke as these paints.
 - Variants: `bubble` — plain text inside the art's bubble; `caption` — `paper` box, 2px `ink` border, square
   (on-brand panel caption); `narration` — like caption, italic; `lyrics` — like caption, plus two drawn notes (inline
   SVG, `currentColor`, aria-hidden, sized in em of the text, outside the text flow, logical sides for RTL): a ♪ over the

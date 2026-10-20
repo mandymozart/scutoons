@@ -693,12 +693,12 @@
 					"description": "The point of the box that `rect.x` / `rect.y` place (anchor.ts): the box grows away from it when its drawn size differs from the stored one. Default 'tl' (top-left)."
 				},
 				"color": {
-					"type": "string",
-					"description": "Text color, default ink (#000)."
+					"$ref": "#/definitions/DialogPaint",
+					"description": "Text colour (a CSS colour) or a gradient (issue #94), default ink (#000)."
 				},
 				"stroke": {
-					"type": "string",
-					"description": "Outline of the letters (a CSS colour), e.g. white letters with an ink outline for an onomatopoeia; none = no outline."
+					"$ref": "#/definitions/DialogPaint",
+					"description": "Outline of the letters – a CSS colour or a gradient (issue #94) – e.g. white letters with an ink outline for an onomatopoeia; none = no outline."
 				},
 				"strokeWidth": {
 					"type": "number",
@@ -878,6 +878,116 @@
 				"b",
 				"br"
 			]
+		},
+		"DialogPaint": {
+			"anyOf": [
+				{
+					"type": "string"
+				},
+				{
+					"$ref": "#/definitions/Gradient"
+				}
+			],
+			"description": "A text's fill or outline (issue #94, owner 2026-10-18: \"a gradient tool like in figma for radial linear gradients for outline and for fills\"): a CSS colour as before, or a gradient (two stops at least). Language-independent like every look field."
+		},
+		"Gradient": {
+			"anyOf": [
+				{
+					"$ref": "#/definitions/LinearGradient"
+				},
+				{
+					"$ref": "#/definitions/RadialGradient"
+				}
+			]
+		},
+		"LinearGradient": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "linear"
+				},
+				"angle": {
+					"type": "number"
+				},
+				"stops": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/GradientStop"
+					}
+				}
+			},
+			"required": [
+				"type",
+				"angle",
+				"stops"
+			],
+			"description": "A linear gradient across the text box (its stops: collage.ts GradientStop – the collage's own gradients use them too): `angle` in degrees as CSS (0 = to the top, 90 = to the right, 180 = down)"
+		},
+		"GradientStop": {
+			"type": "object",
+			"properties": {
+				"at": {
+					"type": "number",
+					"description": "% along the line, ascending"
+				},
+				"color": {
+					"$ref": "#/definitions/PieceColor"
+				},
+				"opacity": {
+					"type": "number",
+					"description": "0…1"
+				}
+			},
+			"required": [
+				"at",
+				"color"
+			]
+		},
+		"PieceColor": {
+			"type": "string",
+			"description": "#rgb | #rrggbb – it reaches readers' CSS as written, so nothing else is a colour (no url(), no `;`)",
+			"pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+		},
+		"RadialGradient": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "radial"
+				},
+				"center": {
+					"type": "object",
+					"properties": {
+						"x": {
+							"type": "number"
+						},
+						"y": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"x",
+						"y"
+					]
+				},
+				"radius": {
+					"type": "number"
+				},
+				"stops": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/GradientStop"
+					}
+				}
+			},
+			"required": [
+				"type",
+				"center",
+				"radius",
+				"stops"
+			],
+			"description": "A radial gradient: a circle around `center` (% of the box) out to `radius` % of the box's farthest corner"
 		},
 		"SliceItem": {
 			"type": "object",
@@ -2368,11 +2478,6 @@
 				"luminosity"
 			]
 		},
-		"PieceColor": {
-			"type": "string",
-			"description": "#rgb | #rrggbb – it reaches readers' CSS as written, so nothing else is a colour (no url(), no `;`)",
-			"pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
-		},
 		"PieceGradient": {
 			"type": "object",
 			"properties": {
@@ -2392,26 +2497,6 @@
 				"stops"
 			],
 			"description": "one linear gradient across the whole silhouette"
-		},
-		"GradientStop": {
-			"type": "object",
-			"properties": {
-				"at": {
-					"type": "number",
-					"description": "% along the line, ascending"
-				},
-				"color": {
-					"$ref": "#/definitions/PieceColor"
-				},
-				"opacity": {
-					"type": "number",
-					"description": "0…1"
-				}
-			},
-			"required": [
-				"at",
-				"color"
-			]
 		},
 		"PieceOutline": {
 			"type": "object",

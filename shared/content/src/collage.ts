@@ -423,7 +423,8 @@ function styleProblems(style: Record<string, any>, path: Path, add: CollageAdd) 
 	} else if (blur !== undefined && blur !== null) add('error', [...path, 'blur'], 'blur must be { amount, from?, to? } or null');
 }
 
-function gradientProblems(fill: Record<string, any>, path: Path, add: CollageAdd) {
+/** a gradient's angle and stops (also the text boxes' gradient paints, validate.ts – issue #94) */
+export function gradientProblems(fill: Record<string, any>, path: Path, add: CollageAdd) {
 	if (fill.angle !== undefined && !isNum(fill.angle)) add('error', [...path, 'angle'], 'angle must be a number (CSS degrees)');
 	if (!Array.isArray(fill.stops) || fill.stops.length < 2) return add('error', [...path, 'stops'], 'a gradient needs at least 2 stops');
 	let last = -Infinity;

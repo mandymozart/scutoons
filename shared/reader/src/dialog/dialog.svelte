@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { TextBoxEffect, anchorTranslate, dialogFit, dialogTail, evaluateText, type Dialog, type DialogFont, type DialogVariant } from '@scutoons/content';
+	import { TextBoxEffect, anchorTranslate, dialogFit, dialogTail, evaluateText, isGradient, paintCss, paintImage, type Dialog, type DialogFont, type DialogVariant } from '@scutoons/content';
 	import type { DialogPlay, TextExpressions } from '../types.ts';
 	import { wobblyPath } from './wobbly.ts';
 	import { measureTail, type TailDrawing } from './tail.ts';
@@ -60,6 +60,11 @@
 	/** clip-path ids of the free tail */
 	const uid = $props.id();
 	const stroked = $derived(!!dialog.stroke);
+	/**
+	 * a gradient fill or outline (issue #94): the lines twice in one grid cell – behind, the outline layer (a transparent
+	 * stroke, the outline's paint cut to the letters); in front, the fill (a colour, or its gradient cut to the letters)
+	 */
+	const painted = $derived(isGradient(dialog.color) || isGradient(dialog.stroke));
 	const font: DialogFont = $derived(dialog.font ?? (boxed ? 'mono' : 'lettering'));
 	const align = $derived(dialog.align ?? (boxed ? 'left' : 'center'));
 	const valign = $derived(dialog.valign ?? 'middle');
@@ -182,7 +187,10 @@
 	class:framed
 	class:bubble
 	class:wobbly={shape === 'wobbly'}
-	class:stroked
+	class:stroked={stroked && !painted}
+	class:painted
+	class:fill-gradient={isGradient(dialog.color)}
+	class:outlined={painted && stroked}
 	class:uppercase={dialog.uppercase ?? false}
 	data-id={dialog.id}
 	data-index={index}
@@ -196,9 +204,11 @@
 	style:--pad={dialog.pad ?? 0.5}
 	style:--rotation="{dialog.rotation ?? 0}deg"
 	style:--scale={dialog.scale ?? 1}
-	style:--dialog-color={dialog.color ?? null}
+	style:--dialog-color={isGradient(dialog.color) ? null : (dialog.color ?? null)}
+	style:--dialog-fill-image={isGradient(dialog.color) ? paintCss(dialog.color) : null}
+	style:--dialog-stroke-image={painted && stroked ? paintImage(dialog.stroke) : null}
 	style:--dialog-weight={dialog.weight ?? null}
-	style:--dialog-stroke={stroked ? dialog.stroke : null}
+	style:--dialog-stroke={stroked && !painted ? paintCss(dialog.stroke) : null}
 	style:--dialog-stroke-width={stroked && dialog.strokeWidth !== undefined ? `${dialog.strokeWidth}em` : null}
 	style:letter-spacing={dialog.letterSpacing ? `${dialog.letterSpacing}em` : null}
 	style:line-height={dialog.lineHeight ?? null}
@@ -279,11 +289,28 @@
 				<path d="M10.5 5 L31.4 1.3 L31.4 5.9 L10.5 9.6 Z" />
 			</svg>
 		{/if}
-		<div bind:this={content} class="content" style:text-align={align}>
-			{#each lines as line, index (index)}
-				<span class="line">{line}</span>
-			{/each}
-		</div>
+		{#if painted}
+			<div class="paint">
+				{#if stroked}
+					<div class="content paint-outline" style:text-align={align} aria-hidden="true">
+						{#each lines as line, index (index)}
+							<span class="line">{line}</span>
+						{/each}
+					</div>
+				{/if}
+				<div bind:this={content} class="content paint-fill" style:text-align={align}>
+					{#each lines as line, index (index)}
+						<span class="line">{line}</span>
+					{/each}
+				</div>
+			</div>
+		{:else}
+			<div bind:this={content} class="content" style:text-align={align}>
+				{#each lines as line, index (index)}
+					<span class="line">{line}</span>
+				{/each}
+			</div>
+		{/if}
 	</div>
 {/snippet}
 
@@ -535,6 +562,33 @@
 	.stroked {
 		-webkit-text-stroke: var(--dialog-stroke-width, 0.14em) var(--dialog-stroke);
 		paint-order: stroke fill;
+	}
+
+	/* gradient paints (issue #94): both layers in one grid cell, so they lay out the same; each a little padding (with the
+	   same negative margin – the layout stays) so a paint cut to the letters reaches the outline of the last glyph */
+	.paint {
+		display: grid;
+		min-width: 0;
+	}
+	.paint > .content {
+		grid-area: 1 / 1;
+		padding: 0.2em;
+		margin: -0.2em;
+	}
+	/* behind: the letters grown by the outline (a transparent stroke), filled with the outline's paint */
+	.outlined .paint-outline {
+		-webkit-text-stroke: var(--dialog-stroke-width, 0.14em) transparent;
+		background: var(--dialog-stroke-image);
+		-webkit-background-clip: text;
+		background-clip: text;
+		color: transparent;
+	}
+	/* in front: the fill – a colour (inherited), or its gradient cut to the letters */
+	.fill-gradient .paint-fill {
+		background: var(--dialog-fill-image);
+		-webkit-background-clip: text;
+		background-clip: text;
+		color: transparent;
 	}
 
 </style>
