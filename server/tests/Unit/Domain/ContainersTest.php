@@ -275,6 +275,9 @@ final class ContainersTest extends TestCase
         [$ties] = $this->add('zip_tie', 6);
         $this->containers->move($this->id, ['entry_id' => $ties, 'into' => $bag]);
         $this->containers->split($this->id, ['entry_id' => $ties, 'qty' => 2]);
-        self::assertSame([4, 2], array_map(fn($e) => $e['qty'], array_values(array_filter($this->inventory->entries($this->id), fn($e) => $e['item_id'] === 'zip_tie' && $e['in'] === $bag))));
+        // the entries' order isn't defined (both fields share acquired_at) – compare the quantities sorted
+        $inBag = array_map(fn($e) => $e['qty'], array_values(array_filter($this->inventory->entries($this->id), fn($e) => $e['item_id'] === 'zip_tie' && $e['in'] === $bag)));
+        rsort($inBag);
+        self::assertSame([4, 2], $inBag);
     }
 }
