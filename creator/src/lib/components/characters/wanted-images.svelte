@@ -33,6 +33,8 @@
 		requests,
 		locale,
 		character,
+		persona,
+		look,
 		map = null,
 		onopen
 	}: {
@@ -42,6 +44,9 @@
 		locale: string;
 		/** only this character */
 		character?: string;
+		/** only this persona of it / this look of the persona (the character page's inspector at that level, K3) */
+		persona?: string;
+		look?: string;
 		/** the world map: its places without an image are wanted media too */
 		map?: WorldMap | null;
 		/** open a character on the Characters page */
@@ -56,7 +61,7 @@
 	const mapPlaces = $derived(character ? [] : mapMediaRequests(map, locale));
 	const media = $derived(character ? [] : [...mediaRequests(requests), ...mapPlaces]);
 	const storedMedia = $derived(media.filter((r) => !r.id.startsWith(MAP_PLACE_REQUEST_PREFIX)));
-	const wanted = $derived(wantedImages(registry, { moods, requests, character }).filter((w) => !requestedOnly || w.request));
+	const wanted = $derived(wantedImages(registry, { moods, requests, character }).filter((w) => (!requestedOnly || w.request) && (!persona || w.persona === persona) && (!look || w.look === look)));
 	const groups = $derived.by(() => {
 		const out: { key: string; character: string; persona: string; look: string; items: typeof wanted }[] = [];
 		for (const w of wanted) {

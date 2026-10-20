@@ -1230,6 +1230,28 @@ page"). The toon settings have no cover.
 - Check: `npm run check:creator-cover` (SCUTOONS_API / SCUTOONS_CREATOR / SCUTOONS_VIEWER / SCUTOONS_CDN for other ports;
   `-- --toon=catpope`, `-- --shots=<dir>`).
 
+### Creator: Characters page (owner 2026-10-21, research/CHARACTER-PAGE.md E + K3, #104)
+
+- **The area's tabs** Characters · Moods · Wanted images (`character-area-tabs.svelte`, the toon tabs' look; links with
+  `?tab=`). **Characters** = cards (`character-cards.svelte`: the neutral avatar, name, toons, the personas' faces,
+  "missing images"; search, toon filter, a missing-images square); a card opens the character (`?id=`).
+- **A character** (`character-editor.svelte`): the head (avatar = the character level, Import images as an icon square,
+  Delete), the **personas** and the **looks** as the same face row (`face-row.svelte`: picture + word, sideways, edge to
+  edge with the padding inside, a fade at the edge that has more – `edgeFade`; `+` turns into a name field), the
+  **stage** (`character-stage.svelte`): one picture of persona › look › mood · view (the fallback rule's picture, marked
+  "not drawn yet" when it is not the look's own), the views as three icon squares at the end of the look row (face ·
+  bust · figure), the grid square swaps the picture for the look's ExpressionGrid (every mood × view to fill), the moods
+  as a strip under it; it zooms (two fingers / Ctrl + wheel, drag pans while zoomed, double click fits).
+- **The inspector** (`character-inspector.svelte`) is a right region with its Divider (22rem, remembered:
+  `sc-panel-width:character-inspector`); its icon tabs Profile · 3D model (a tiny "3D" badge) · Wanted images · Prompts
+  (sparkles) all show the **level picked on the page** – a tap on the head (character), a persona, a look; the page
+  rings it – under one title (face · tab · level · name). Profile: the identity / the persona's fields + transitions /
+  the look's label, default, remove; 3D model: the persona's GLB + body / the look's own GLB + its A-pose; Wanted: what
+  that level lacks; Prompts: the persona + look's. Phones: the inspector is a sheet from below (as tall as its content,
+  at most 60 %; its head drags it to any height – `SheetDrag`), the bar's selection row opens it: ‹ · Profile · 3D model
+  · Wanted · Prompts · All moods · Delete.
+- The Kanon (research/KANON.md) gets a text square at the end of each level's row when it is built.
+
 ### Creator: season page (owner 2026-10-03)
 
 Owner: "clean this season view up, like we did on the chapter page" (chapter meta, 876abb0). `/<toon>/season/<n>`

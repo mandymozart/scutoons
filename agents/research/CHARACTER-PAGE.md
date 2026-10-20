@@ -1,4 +1,4 @@
-Status 2026-10-20: draft E with the Kanon option K3 (§3a) – the direction, to confirm before building (issue #104) – nothing built beyond the small fixes (commit "Characters page: layout fixes").
+Status 2026-10-21: E + K3 built (#104, DESIGN "Creator: Characters page"); the Kanon squares wait for research/KANON.md.
 
 # CHARACTER-PAGE – the creator's Characters area inside navigation D
 

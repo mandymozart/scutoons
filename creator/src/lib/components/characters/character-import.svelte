@@ -31,7 +31,8 @@
 		requests,
 		character,
 		languages,
-		bust = $bindable(0)
+		bust = $bindable(0),
+		compact = false
 	}: {
 		registry: ContentDoc;
 		moodsDoc: ContentDoc;
@@ -41,6 +42,8 @@
 		character: RegistryCharacter;
 		languages: string[];
 		bust?: number;
+		/** an icon square (the character page's stage bar) instead of the text button */
+		compact?: boolean;
 	} = $props();
 
 	const id = $derived(character.id);
@@ -120,10 +123,15 @@
 </script>
 
 <div class="import">
-	<button type="button" class="secondary" disabled={!!importing} onclick={() => importInput?.click()} title={m['creator.characters_import_hint']({ id })} data-testid="character-import">
-		<Icon name="upload" />
-		{importing ? m['creator.import_slices_progress']({ done: importing.done, total: importing.total }) : m['creator.characters_import']()}
-	</button>
+	{#if compact}
+		<button type="button" class="sq" disabled={!!importing} onclick={() => importInput?.click()} title="{m['creator.characters_import']()} – {m['creator.characters_import_hint']({ id })}" aria-label={m['creator.characters_import']()} data-testid="character-import"><Icon name="upload" /></button>
+		{#if importing}<span class="sc-caption" role="status">{m['creator.import_slices_progress']({ done: importing.done, total: importing.total })}</span>{/if}
+	{:else}
+		<button type="button" class="secondary" disabled={!!importing} onclick={() => importInput?.click()} title={m['creator.characters_import_hint']({ id })} data-testid="character-import">
+			<Icon name="upload" />
+			{importing ? m['creator.import_slices_progress']({ done: importing.done, total: importing.total }) : m['creator.characters_import']()}
+		</button>
+	{/if}
 	<input bind:this={importInput} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onchange={importImages} />
 	{#if summary}<span class="sc-caption" role="status">{summary}</span>{/if}
 </div>
@@ -136,5 +144,30 @@
 		gap: 0.75rem;
 		align-items: center;
 		margin-bottom: 1rem;
+	}
+	/* compact: one borderless icon square in a bar (CREATOR-NAV D) */
+	.import:has(.sq) {
+		margin: 0;
+		gap: var(--space-05);
+		flex-wrap: nowrap;
+	}
+	.sq {
+		all: unset;
+		box-sizing: border-box;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: var(--control-height);
+		height: var(--control-height);
+		cursor: pointer;
+	}
+	.sq:hover,
+	.sq:focus-visible {
+		outline: var(--border-width-regular) solid var(--ink);
+		outline-offset: calc(-1 * var(--border-width-regular));
+	}
+	.sq:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
 	}
 </style>
