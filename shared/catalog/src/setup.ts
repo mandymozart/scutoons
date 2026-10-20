@@ -4,6 +4,7 @@
 //   setupCatalog({ locale: getLocale, locales, adminUrl: ADMIN_URL }); // the creator (links to codes / batches)
 //
 // A module setting, not a Svelte context: kinds.ts' labels and text() are called outside components too.
+import { crossAppClick } from '@scutoons/pwa';
 
 export interface CatalogSetup {
 	/** the app's UI locale (paraglide `getLocale`); read on every render */
@@ -31,6 +32,7 @@ export const catalogLocales = (): readonly string[] => need().locales;
 export const adminHref = (path: string): string => `${(need().adminUrl ?? '').replace(/\/$/, '')}${path}`;
 /**
  * the link attributes for an admin page: elsewhere (the creator) the admin is another app – a new window without an
- * opener, so the installed Admin opens if there is one (research/PWA-APPS.md §3a); in the admin itself none
+ * opener (on Android inside the installed Creator: an intent, @scutoons/pwa cross-app.ts), so the installed Admin opens if there is one (research/PWA-APPS.md §3a); in the admin itself none
  */
-export const adminLinkTarget = (): { target?: string; rel?: string } => (need().adminUrl ? { target: '_blank', rel: 'noopener' } : {});
+export const adminLinkTarget = (): { target?: string; rel?: string; onclick?: (event: MouseEvent) => void } =>
+	need().adminUrl ? { target: '_blank', rel: 'noopener', onclick: crossAppClick } : {};

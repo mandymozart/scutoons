@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { crossAppClick } from '@scutoons/pwa';
 	import { draftPreview } from '$lib/draft-preview.svelte.ts';
 	import { invalidateAll } from '$app/navigation';
 	import { confirmDialog } from '@scutoons/ui';
@@ -27,7 +28,7 @@
 
 <p class="line">
 	<!-- another app: a new window without an opener – the installed Creator opens if there is one (research/PWA-APPS.md §3a) -->
-	<a class="btn btn-secondary" href={CREATOR_URL} target="_blank" rel="noopener">{m['account.creator_link']()}</a>
+	<a class="btn btn-secondary" href={CREATOR_URL} target="_blank" rel="noopener" onclick={crossAppClick}>{m['account.creator_link']()}</a>
 	<small>{m['account.creator_hint']()}</small>
 </p>
 <AccountToggle

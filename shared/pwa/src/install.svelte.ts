@@ -5,6 +5,7 @@
 // iPhone Safari and Firefox on Android send no such event: there the bar shows the how-to by hand (`way` 'ios' /
 // 'android-firefox'). `?install` in the URL shows the bar at once (testing on a real phone, PWA.md §6).
 import { EMPTY_MEMORY, canInstall, forcedOffer, installWay, isAndroidFirefox, isChromium, isIosSafari, manualWay, readMemory, shouldOffer, type InstallFacts, type InstallMemory, type InstallWay } from './install-rules.ts';
+import { runsInstalled } from './cross-app.ts';
 
 const browser = typeof window !== 'undefined';
 
@@ -22,13 +23,6 @@ interface BeforeInstallPromptEvent extends Event {
 	userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
 }
 
-/** an installed app (any non-browser display mode), also iOS home-screen apps and a TWA */
-function runsInstalled(): boolean {
-	const modes = ['standalone', 'fullscreen', 'minimal-ui', 'window-controls-overlay'];
-	if (modes.some((mode) => window.matchMedia(`(display-mode: ${mode})`).matches)) return true;
-	if ((navigator as Navigator & { standalone?: boolean }).standalone === true) return true;
-	return document.referrer.startsWith('android-app://');
-}
 
 export class Install {
 	/** the bar shows */

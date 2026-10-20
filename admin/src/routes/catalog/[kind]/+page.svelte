@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { crossAppClick } from '@scutoons/pwa';
 	import type { Component } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -51,7 +52,7 @@
 <PageHeader type={m['nav.group_data']()} title={m['catalog.title']()} meta={m['catalog.meta']()} />
 
 <!-- items, recipes, albums, products, editions: drafts, versions and review in the creator (agents/research/CATALOG-IN-CREATOR.md) -->
-<p class="muted note" data-testid="catalog-in-creator">{m['catalog.in_creator']()} <a href="{CREATOR_URL}/catalog/items" target="_blank" rel="noopener">{m['catalog.in_creator_link']()}</a></p>
+<p class="muted note" data-testid="catalog-in-creator">{m['catalog.in_creator']()} <a href="{CREATOR_URL}/catalog/items" target="_blank" rel="noopener" onclick={crossAppClick}>{m['catalog.in_creator_link']()}</a></p>
 
 <Tabs {tabs} value={kind} label={m['catalog.title']()} onchange={(id) => goto(`/catalog/${id}`, { keepFocus: true, noScroll: true })}>
 	{#snippet children()}
@@ -63,7 +64,7 @@
 </Tabs>
 
 {#snippet toonActions(id: string)}
-	<Button size="sm" variant="secondary" href="{CREATOR_URL}/{encodeURIComponent(id)}" target="_blank" rel="noopener" data-testid="toon-open-creator">{m['catalog.toon_fill']()}</Button>
+	<Button size="sm" variant="secondary" href="{CREATOR_URL}/{encodeURIComponent(id)}" target="_blank" rel="noopener" data-testid="toon-open-creator" onclick={crossAppClick}>{m['catalog.toon_fill']()}</Button>
 {/snippet}
 
 <style>

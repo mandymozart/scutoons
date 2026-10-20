@@ -3,6 +3,7 @@
 // side and the install / update bars. The reader keeps its own worker and bars (viewer/src/service-worker.ts).
 export * from './install-rules.ts';
 export * from './push-rules.ts';
+export { crossAppClick, intentsNeeded, intentUrl, openApp, runsInstalled } from './cross-app.ts';
 export { Install, type InstallOptions } from './install.svelte.ts';
 export { ToolPwa } from './tool-pwa.svelte.ts';
 export { PushSwitch, type PushApi, type PushKind, type PushState, type PushSwitchOptions } from './push.svelte.ts';

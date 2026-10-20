@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { crossAppClick } from '@scutoons/pwa';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { Badge, Button, Icon, SplitView } from '@scutoons/ui';
@@ -276,7 +277,7 @@
 						<p class="caption muted">{m['store.carries_none']()}</p>
 					{/if}
 					{#if shown}
-						<a class="caption" href={`${VIEWER_URL}/stores`} target="_blank" rel="noopener noreferrer"><Icon name="external-link" /> {m['store.public_page']()}</a>
+						<a class="caption" href={`${VIEWER_URL}/stores`} target="_blank" rel="noopener noreferrer" onclick={crossAppClick}><Icon name="external-link" /> {m['store.public_page']()}</a>
 					{/if}
 				</section>
 			{/if}

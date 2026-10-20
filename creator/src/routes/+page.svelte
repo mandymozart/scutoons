@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { openApp } from '@scutoons/pwa';
 	import { onMount } from 'svelte';
 	import { ActionBar, Badge, PhoneBar, ToonAvatar, type PhoneBarItem } from '@scutoons/ui';
 	import { statusWord } from '$lib/editor/status-word.ts';
@@ -44,7 +45,7 @@
 	// the bar (UI-CONCEPTS E.10, the editors' one bar – every width since 2026-10-12): Publish everything · the reader – icon + a small word
 	const phoneItems = $derived<PhoneBarItem[]>([
 		{ id: 'publish', icon: 'upload-cloud', label: m['creator.publish'](), disabled: publishing || !toons.length, run: publishEverything, testid: 'publish-everything' },
-		{ id: 'reader', icon: 'book-open', label: m['creator.reader'](), run: () => window.open(VIEWER_URL, '_blank', 'noopener'), testid: 'open-reader' }
+		{ id: 'reader', icon: 'book-open', label: m['creator.reader'](), run: () => openApp(VIEWER_URL), testid: 'open-reader' }
 	]);
 </script>
 
