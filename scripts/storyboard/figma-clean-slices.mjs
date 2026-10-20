@@ -76,6 +76,9 @@ const tree = async (id) => { // cached: re-runs resume without reading Figma aga
 	return t;
 };
 
+// the letters' paints, gradients included (the bridge module commands/text-paints.js – no plugin restart for it)
+const textPaints = async (ids) => Object.fromEntries((ids.length ? await bridge('text-paints', { ids }) : []).map((p) => [p.id, p]));
+
 const KEEP = (t) => /^[0-9E]$/.test(t.trim()) || /Boccaccio|Decameron/.test(t);
 const BOX = /^(Dialog Textbox|Speech Bubble|Action Button)/;
 const reading = (t) => t.trim().length > 20 || (t.trim().split(/\s+/).length >= 2 && /[a-zäöüß]/.test(t));
@@ -112,7 +115,7 @@ function classify(root, decor) {
 }
 
 // a lettering text box from a hidden Figma text, in a slice whose top is `y0` in the root's coordinates, `h` high
-const letterBox = (l, y0, h, id) => {
+const letterBox = (l, y0, h, id, paint = {}) => {
 	const t = l.node, size = (t.fontSize ?? 24) / W * 100, cx = l.box.x + l.box.w / 2, cy = l.box.y + l.box.h / 2 - y0;
 	const text = (t.text ?? '').replace(/\r\n?/g, '\n').split('\n').map((s) => s.trim()).filter(Boolean).join('\n');
 	// auto width (a word never wraps) anchored where Figma's frame holds the text: its left / right edge (rotated with it)
@@ -123,8 +126,9 @@ const letterBox = (l, y0, h, id) => {
 	return {
 		id, rect: { x: +(px / W * 100).toFixed(2), y: +(py / h * 100).toFixed(2), width: +((t.w ?? l.box.w) * 1.5 / W * 100).toFixed(2) }, fit: 'width', // max width 1.5 × Figma's: never reached
 		anchor: side < 0 ? 'l' : side > 0 ? 'r' : 'c', text: { de: text, en: text }, variant: 'bubble', font: 'lettering', align, size: +size.toFixed(2),
-		...(colors[text] ? { color: colors[text] } : t.fill && t.fill !== '#000000' ? { color: t.fill } : {}),
-		...(t.stroke ? { stroke: t.stroke, strokeWidth: +Math.max(0.05, (t.strokeWeight ?? 1) / (t.fontSize ?? 24)).toFixed(2) } : {}),
+		// a gradient from Figma as it is (issue #94: text-paints module); else the colour (--color wins for a word)
+		...(colors[text] ? { color: colors[text] } : typeof paint.fill === 'object' && paint.fill ? { color: paint.fill } : t.fill && t.fill !== '#000000' ? { color: t.fill } : {}),
+		...(t.stroke ? { stroke: typeof paint.stroke === 'object' && paint.stroke ? paint.stroke : t.stroke, strokeWidth: +Math.max(0.05, (t.strokeWeight ?? 1) / (t.fontSize ?? 24)).toFixed(2) } : {}),
 		...(t.rotation ? { rotation: -t.rotation } : {})
 	};
 };
@@ -160,8 +164,9 @@ try {
 			if (!id) { kept.push(`${basename(s.image)} (no Figma frame)`); continue; }
 			const t = await tree(id);
 			const { hide, letters } = classify(t, true);
+			const paints = await textPaints(letters.map((l) => l.node.id));
 			const h = s.height ?? t.h; // the slice's own height (its frame's, if the slice has none)
-			items.push({ i, name: basename(s.image).replace(/\.\w+$/, ''), frame: id, region: { x: 0, y: 0 }, h, hideIds: hide.map((x) => x.id), boxes: letters.map((l, k) => letterBox(l, 0, h, `${toon}-c${n}-${num}-l${k + 1}`)) });
+			items.push({ i, name: basename(s.image).replace(/\.\w+$/, ''), frame: id, region: { x: 0, y: 0 }, h, hideIds: hide.map((x) => x.id), boxes: letters.map((l, k) => letterBox(l, 0, h, `${toon}-c${n}-${num}-l${k + 1}`, paints[l.node.id])) });
 			process.stdout.write(`\rread ${i + 1}/${group.slices.length}   `);
 		}
 		console.log();
@@ -169,6 +174,7 @@ try {
 		// one long frame: each slice at its own height (the 625 cuts), its top the running sum (checked above)
 		const t = await tree(frameId);
 		const { hide, letters } = classify(t);
+		const paints = await textPaints(letters.map((l) => l.node.id));
 		let next = top;
 		for (const [i, s] of group.slices.entries()) {
 			const h = s.height, y0 = next, y1 = y0 + h, hit = (b) => b.y < y1 && b.y + b.h > y0 && b.x < W && b.x + b.w > 0;
@@ -176,7 +182,7 @@ try {
 			const name = basename(s.image).replace(/\.\w+$/, ''), num = name.match(/(\d+)$/)?.[1];
 			const mine = letters.filter((l) => { const cy = l.box.y + l.box.h / 2; return cy >= y0 && cy < y1 && l.box.x < W && l.box.x + l.box.w > 0; }); // a word running out of the frame stays (the art's way)
 			if (changedOnly && !hide.some((x) => !x.old && hit(x.box))) { kept.push(`${name} (nothing new to hide)`); continue; }
-			items.push({ i, name, frame: frameId, region: { x: 0, y: y0 }, h, partial: true, hideIds: hide.filter((x) => hit(x.box)).map((x) => x.id), boxes: mine.map((l, k) => letterBox(l, y0, h, `${toon}-c${n}-${num}-l${k + 1}`)) });
+			items.push({ i, name, frame: frameId, region: { x: 0, y: y0 }, h, partial: true, hideIds: hide.filter((x) => hit(x.box)).map((x) => x.id), boxes: mine.map((l, k) => letterBox(l, y0, h, `${toon}-c${n}-${num}-l${k + 1}`, paints[l.node.id])) });
 		}
 	}
 	// a word across a seam sits in both slice frames: the lower slice owns it (research/TEXT-ACROSS-SLICES.md §1) – the

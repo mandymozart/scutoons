@@ -131,6 +131,8 @@ no plugin re-run, no hot reload:
 - A module named like a core command replaces it – the way to move `region`, `export` … out of the core later.
 - The core (`plugin/code.js`: connection, queue, ping, sweep, helpers, `run`) changes rarely; a change there still
   reloads the plugin (above). Example module: `commands/file-info.js`.
+- `commands/text-paints.js` (#94): text layers' fill / stroke as SCUTOONS paints – a colour or a linear / radial
+  gradient (Figma's gradientTransform → CSS angle / centre + radius); `figma-clean-slices.mjs` uses it for lettering boxes.
 
 ## In the SCUTOONS MCP
 
