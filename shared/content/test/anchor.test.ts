@@ -86,7 +86,7 @@ test('validation: the anchor enum; edge warnings use the drawn box', () => {
 	assert.deepEqual(problems({ dialog: [{ rect: { x: 10, y: 10, width: 40 }, text: 'Hi', anchor: 'middle' }] }), ['error groups.0.slices.0.dialog.0.anchor']);
 	assert.deepEqual(problems({ items: [{ id: 'a-1', item: 'x', rect: { x: 50, y: 95, width: 20 }, anchor: 'b' }] }), []);
 	assert.deepEqual(problems({ items: [{ id: 'a-1', item: 'x', rect: { x: 50, y: 95, width: 20 }, anchor: 'down' }] }), ['error groups.0.slices.0.items.0.anchor']);
-	// x past 100 is fine when the anchor is on the right
-	assert.deepEqual(problems({ items: [{ id: 'a-1', item: 'x', rect: { x: 110, y: 10, width: 20 }, anchor: 'tr' }] }), []);
-	assert.deepEqual(problems({ items: [{ id: 'a-1', item: 'x', rect: { x: 110, y: 10, width: 20 } }] }), ['warning groups.0.slices.0.items.0.rect.x']);
+	// the anchor on the right: x is the right edge – inside at 98, past the column at 110
+	assert.deepEqual(problems({ items: [{ id: 'a-1', item: 'x', rect: { x: 98, y: 10, width: 20 }, anchor: 'tr' }] }), []);
+	assert.deepEqual(problems({ items: [{ id: 'a-1', item: 'x', rect: { x: 110, y: 10, width: 20 } }] }), ['warning groups.0.slices.0.items.0.rect'], 'past the column (sliceEdges)');
 });

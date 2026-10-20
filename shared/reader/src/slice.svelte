@@ -140,7 +140,7 @@
 			eager={videoEager ?? eager}
 		/>
 	{:else}
-		<SlicePicture pieces={slice.pieces} {pieceSrc} {eager}>
+		<SlicePicture pieces={slice.pieces} {pieceSrc} {eager} always>
 			<img
 				{src}
 				{alt}
@@ -176,8 +176,9 @@
 		position: relative;
 		width: 100%;
 		min-height: 200px;
-		/* dialog font sizes are in cqw = % of the slice width */
-		container-type: inline-size;
+		/* no container-type here (agents/research/TEXT-ACROSS-SLICES.md §7 step 1): in older engines (Safari / every iPhone
+		   browser up to iOS 18) it made the slice a stacking context, so a box crossing into the next slice was painted
+		   under that slice's picture; the text boxes' cqw come from .slice-layers (the slice's own box) */
 		/* a text box reaching past the slice's side (or one shivering there) never widens the page – on phones a page
 		   wider than the screen moves / re-zooms ("the page jumps", owner 2026-10-07, BACKLOG M.2); up / down it may
 		   still overlap the next slice (clip: no scroll container) */

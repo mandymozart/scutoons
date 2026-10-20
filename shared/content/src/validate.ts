@@ -17,6 +17,7 @@ import { isWrittenVariable, WRITTEN_VARIABLE } from './variables.ts';
 import { ANCHORS, anchoredRect, isAnchor } from './anchor.ts';
 import { collageProblems, colorationProblems, type CollagePreset } from './collage.ts';
 import { DIALOG_FITS, dialogFit, estimatedWidth, isDialogFit } from './dialog-fit.ts';
+import { crossedEdges, dialogBox, dialogCollisions, edgeReason, rectBox, sliceEdges, type EdgeBox } from './slice-edges.ts';
 import { isFreeTail, TAIL_KINDS, TAIL_SIDES } from './dialog-tail.ts';
 
 /** a variable's spelling (variables.ts) */
@@ -196,8 +197,9 @@ function checkRect(c: Collector, rect: unknown, path: Path, heightRequired: bool
 	if (isNum(rect.height) && rect.height <= 0) c.error([...path, 'height'], 'rect.height must be > 0');
 	// the box's drawn corner (anchor.ts: x / y place the anchor point)
 	const box = isNum(rect.x) && isNum(rect.y) && isNum(rect.width) ? anchoredRect(rect as any, anchor) : null;
-	if (box && (box.left < -20 || box.left > 100)) c.warn([...path, 'x'], 'rect.x is outside the slice');
-	if (box && (box.top < -100 || box.top > 100)) c.warn([...path, 'y'], 'rect.y is far outside the slice');
+	// crossing an edge is a tool (sliceEdges – checkSliceEdges); this only catches a typo far away
+	if (box && (box.left < -100 || box.left > 200)) c.warn([...path, 'x'], 'rect.x is far outside the slice');
+	if (box && (box.top < -300 || box.top > 300)) c.warn([...path, 'y'], 'rect.y is far outside the slice');
 }
 
 /** a text box's / placed item's anchor (anchor.ts) */
@@ -214,17 +216,6 @@ function checkDialog(c: Collector, d: any, path: Path) {
 	if (d.fit !== undefined && !isDialogFit(d.fit)) c.error([...path, 'fit'], `fit must be one of ${DIALOG_FITS.join(', ')}`);
 	if (d.fit === 'fixed' && isObj(d.rect) && !isNum(d.rect.height)) c.error([...path, 'rect', 'height'], 'fit fixed needs rect.height');
 	if (d.fit === 'height' && isObj(d.rect) && d.rect.height !== undefined) c.info([...path, 'rect', 'height'], 'rect.height is not used with fit height (the box grows with its text)');
-	// the reader clips a slice sideways (a box past the side used to widen the page – BACKLOG M.2); measured on the drawn
-	// box: from its anchor, an auto-width box at its estimated text width
-	if (isObj(d.rect) && isNum(d.rect.x)) {
-		const width = fit === 'width' ? estimatedWidth(d) : isNum(d.rect.width) ? d.rect.width : null;
-		if (width !== null) {
-			const left = anchoredRect({ x: d.rect.x, y: 0, width }, d.anchor).left;
-			if (left < -0.5 || left + width > 100.5) {
-				c.warn([...path, 'rect'], `the text box reaches past the slice's side (${Math.round(left)} – ${Math.round(left + width)} %) – the reader cuts it at the edge${fit === 'width' ? ' (auto width: set a max width)' : ''}`);
-			}
-		}
-	}
 	const text = d.text;
 	if (!(isStr(text) || (Array.isArray(text) && text.every(isStr)))) c.error([...path, 'text'], 'text must be a string or string[]');
 	if (d.id !== undefined && !isStr(d.id)) c.error([...path, 'id'], 'id must be a string');
@@ -887,6 +878,40 @@ function checkVnFlow(c: Collector, g: any, path: Path) {
 	for (const ep of choices) c.warn(ep, 'addChoice is never shown – add a showChoices after it');
 }
 
+/**
+ * What reaches over a slice's edge (slice-edges.ts, agents/research/TEXT-ACROSS-SLICES.md §7): nothing for an open edge
+ * (owner 2026-10-15: crossing is a tool); a warning per cut edge (the layout's window cuts it there) and per collision
+ * (a later slice's text box lies on it); an old-style click / hover area: only the part on its own slice reacts.
+ * Auto-height boxes and items without a height escape the up / down checks – the creator's strip shows those.
+ */
+function checkSliceEdges(c: Collector, g: any, path: Path) {
+	const slices: any[] = g.slices;
+	slices.forEach((s: any, si: number) => {
+		if (!isObj(s)) return;
+		const edges = sliceEdges(g, si);
+		const sp = [...path, 'slices', si];
+		const report = (box: EdgeBox | null, at: Path, what: string) => {
+			if (!box) return;
+			for (const { side, edge } of crossedEdges(box, edges)) if (edge !== 'open') c.warn(at, `${what} reaches ${edgeReason(edge, side)}`);
+		};
+		(Array.isArray(s.dialog) ? s.dialog : []).forEach((d: any, di: number) => {
+			const fitWidth = isObj(d) && isObj(d.rect) && dialogFit(d) === 'width';
+			report(dialogBox(d), [...sp, 'dialog', di, 'rect'], fitWidth ? 'the text box (auto width: set a max width)' : 'the text box');
+		});
+		(Array.isArray(s.items) ? s.items : []).forEach((it: any, ii: number) => report(isObj(it) ? rectBox(it.rect, it.anchor) : null, [...sp, 'items', ii, 'rect'], 'the item'));
+		const area = (rect: unknown, at: Path) => {
+			const box = rectBox(rect);
+			if (box && crossedEdges(box, edges).length) c.warn(at, 'the area reaches past its slice – only the part on its own slice reacts');
+		};
+		(Array.isArray(s.events) ? s.events : []).forEach((e: any, ei: number) => isObj(e?.trigger) && area(e.trigger.rect, [...sp, 'events', ei, 'trigger', 'rect']));
+		const samples = s.audio?.audio?.samples;
+		(Array.isArray(samples) ? samples : []).forEach((smp: any, mi: number) => isObj(smp?.trigger) && area(smp.trigger.rect, [...sp, 'audio', 'audio', 'samples', mi, 'trigger', 'rect']));
+	});
+	for (const hit of dialogCollisions(g)) {
+		c.warn([...path, 'slices', hit.slice, 'dialog', hit.dialog, 'rect'], `covered by '${hit.byLabel}' on slice ${hit.bySlice + 1} – the later slice paints on top (move one, or anchor this box on slice ${hit.bySlice + 1})`);
+	}
+}
+
 export function checkGroup(c: Collector, g: any, path: Path, ctx: ValidateContext) {
 	if (!isObj(g)) return c.error(path, 'group must be an object');
 	if (!g.renderer || !values(Renderer).includes(g.renderer.type)) {
@@ -898,6 +923,7 @@ export function checkGroup(c: Collector, g: any, path: Path, ctx: ValidateContex
 	if (Array.isArray(g.slices)) {
 		if (!g.slices.length && !g.events) c.warn([...path, 'slices'], 'group has no slices');
 		g.slices.forEach((s: any, i: number) => checkSlice(c, s, [...path, 'slices', i], ctx));
+		checkSliceEdges(c, g, path);
 	}
 	if (g.events !== undefined) {
 		if (!Array.isArray(g.events)) c.error([...path, 'events'], 'events must be an array');

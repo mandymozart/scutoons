@@ -7,7 +7,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import Slice from '../slice.svelte';
 	import { ratioSum, stripFrames, stripOffset, stripScroll } from './strip-scroll.ts';
-	import { nearScreen, viewportWidth } from './strip-dom.ts';
+	import { framesWidth, nearScreen, viewportWidth } from './strip-dom.ts';
 
 	/**
 	 * A horizontal group (owner 2026-10-06; an `endless` one is strip-endless.svelte): the slices side by side as one
@@ -48,7 +48,7 @@
 	function measure() {
 		if (!pin || !track || !section) return;
 		const fraction = travel > 0 ? offset / travel : 0;
-		travel = Math.max(0, track.scrollWidth - pin.clientWidth);
+		travel = Math.max(0, framesWidth(track) - pin.clientWidth);
 		range = Math.max(0, section.offsetHeight - pin.offsetHeight);
 		offset = fraction * travel;
 		if (!fullscreen) follow();
@@ -184,7 +184,7 @@
 <section class="strip" data-group-label={group.label} bind:this={section} style:--ratios={ratios} {@attach viewportWidth} {@attach nearScreen(() => (near = true))}>
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<!-- data-fx-screen: in full screen a screen shake / punch moves the strip itself (fx/cues.ts onScreen) -->
-	<div class="pin" class:fits={travel === 0} class:fullscreen data-fx-screen={fullscreen || undefined} bind:this={pin} {@attach (el) => on(el, 'wheel', onWheel, { passive: false })}>
+	<div class="pin" class:fits={travel === 0} class:fullscreen data-fx-screen={fullscreen || undefined} data-fx-window bind:this={pin} {@attach (el) => on(el, 'wheel', onWheel, { passive: false })}>
 		<div class="track" bind:this={track} style:transform="translate3d({-offset}px, 0, 0)">
 			{#each frames as frame, index}
 				<div class="frame" style:aspect-ratio="{frame.width} / {frame.height}">
@@ -264,8 +264,11 @@
 		flex: none;
 		height: 100%;
 	}
+	/* a box may reach across a frame's side into the next / previous slice (TEXT-ACROSS-SLICES.md §7): the pin is the
+	   window, not the slice */
 	.frame :global(.slice) {
 		min-height: 0;
+		overflow-x: visible;
 	}
 	.controls {
 		position: absolute;

@@ -220,19 +220,31 @@ function shakeFrames(px: number, zoom = 1): Keyframe[] {
 	}).concat([{ transform: 'none' }]);
 }
 
+/** a slice's picture wrappers: the picture + pieces group, a blurred picture, a video's box (they clip, see inFrame) */
+const MEDIA = '.slice-media, .blurred, .video-box';
+
 /**
- * A slice's own impact (owner 2026-10-07: no white gaps to the slices before / after): the slice's box stays where it is
- * and clips; its content (image, text boxes, items, areas – every child, the same keyframes) moves inside it, zoomed
- * just enough that no edge shows. The whole column moving together is the `screen` target.
+ * A slice's own impact (owner 2026-10-07: no white gaps to the slices before / after): the picture's box stays where it
+ * is and clips; the picture inside it moves, zoomed just enough that no edge shows. The overlays (text boxes, items,
+ * areas – every other child) get the same keyframes unclipped, so a box reaching into the next slice keeps its crossing
+ * part (TEXT-ACROSS-SLICES.md §7 – the slice itself clipped them before). The whole column moving together is the
+ * `screen` target.
  */
 function inFrame(slice: HTMLElement, frames: (zoom: number) => Keyframe[], ms: number, easing: string, px = 0) {
-	const before = slice.style.clipPath;
-	slice.style.clipPath = 'inset(0)';
 	// enough zoom that a shift of px never uncovers an edge
 	const zoom = 1 + (2 * px) / Math.max(1, Math.min(slice.offsetWidth, slice.offsetHeight)) + 0.01;
 	const keyframes = frames(zoom);
-	for (const child of slice.children) if (child instanceof HTMLElement || child instanceof SVGElement) child.animate(keyframes, { duration: ms, easing });
-	setTimeout(() => (slice.style.clipPath = before), ms + 30);
+	const restore: (() => void)[] = [];
+	for (const child of slice.children) {
+		if (!(child instanceof HTMLElement || child instanceof SVGElement)) continue;
+		if (child instanceof HTMLElement && child.matches(MEDIA)) {
+			const before = child.style.clipPath;
+			child.style.clipPath = 'inset(0)';
+			restore.push(() => (child.style.clipPath = before));
+			for (const inner of child.children) if (inner instanceof HTMLElement || inner instanceof SVGElement) inner.animate(keyframes, { duration: ms, easing });
+		} else child.animate(keyframes, { duration: ms, easing });
+	}
+	setTimeout(() => restore.forEach((r) => r()), ms + 30);
 }
 
 /**

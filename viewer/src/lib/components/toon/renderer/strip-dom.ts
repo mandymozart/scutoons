@@ -81,3 +81,16 @@ export function nearScreen(onNear: () => void): Attachment<HTMLElement> {
 		return () => observer.disconnect();
 	};
 }
+
+/**
+ * The frames' width in the track (px): the first frame's left to the last one's right – never `scrollWidth`, which grows
+ * with a text box reaching past the last frame (the strip would run on onto ink, and "fits" would flicker –
+ * TEXT-ACROSS-SLICES.md §7).
+ */
+export function framesWidth(track: HTMLElement): number {
+	const frames = [...track.children] as HTMLElement[];
+	if (!frames.length) return 0;
+	const first = frames[0];
+	const last = frames[frames.length - 1];
+	return last.offsetLeft + last.offsetWidth - first.offsetLeft;
+}

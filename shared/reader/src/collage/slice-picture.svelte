@@ -15,8 +15,9 @@
 	 * `.slice-pieces` must never become a group of its own (z-index, transform, opacity, filter, will-change, isolation,
 	 * container-type): the pieces would blend with nothing.
 	 *
-	 * Drawn only with pieces and a resolver (`pieceSrc`; none = no art, like items without `itemInfo`) – a slice without
-	 * pieces keeps today's DOM (no wrapper). `always` = the wrapper even without pieces (the creator canvas: no remount
+	 * Drawn only with pieces and a resolver (`pieceSrc`; none = no art, like items without `itemInfo`). `always` = the
+	 * wrapper even without pieces – the reader's slices (an fx impact clips the picture's box, not the slice: a box
+	 * crossing into the next slice keeps its crossing part, TEXT-ACROSS-SLICES.md §7) and the creator canvas (no remount
 	 * when the first piece arrives). The pieces mount once the slice comes near (one screen ahead) and then stay – CSS
 	 * masks don't load lazily; `eager` mounts them at once (the first slices, the creator).
 	 */
@@ -54,7 +55,9 @@
 
 	/** near = within one screen of the viewport, once */
 	function nearing(node: HTMLElement) {
-		if (untrack(() => near)) return;
+		// a slice without pieces needs no observer (the wrapper is there for the fx clip only); tracked: the first piece
+		// arriving later runs it again
+		if (!wanted || untrack(() => near)) return;
 		if (eager || typeof IntersectionObserver === 'undefined') {
 			near = true;
 			return;

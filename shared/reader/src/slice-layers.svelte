@@ -77,10 +77,14 @@
 {/if}
 
 <style>
+	/* the overlay plane: above every picture of the group, later slices' planes over earlier ones (DOM order); the
+	   container of the boxes' cqw (= % of the slice width – TEXT-ACROSS-SLICES.md §7: on the slice itself it was a
+	   stacking context per slice in older engines; here it lands on an element that is one anyway) */
 	.slice-layers {
 		position: absolute;
 		inset: 0;
 		z-index: 1;
 		pointer-events: none;
+		container-type: inline-size;
 	}
 </style>

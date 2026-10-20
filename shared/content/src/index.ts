@@ -40,6 +40,7 @@ export * from './save-game.ts';
 export * from './chains.ts';
 export * from './reach.ts';
 export * from './stuck.ts';
+export * from './slice-edges.ts';
 export * from './flow.ts';
 export * from './toon-flow-input.ts';
 export * from './script.ts';

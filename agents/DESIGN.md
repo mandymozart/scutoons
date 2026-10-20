@@ -638,6 +638,14 @@ Backwards compatible with the existing chapter-2 entry (`rect {x,y,width}` + `te
 
 ### Rendering
 
+- **Paint order across slices** (2026-10-20, research/TEXT-ACROSS-SLICES.md §3, §7): a group is one strip – its pictures
+  (with their collage pieces) below, every slice's overlay plane (`.slice-layers`: text boxes, items, areas) above all of
+  them; between two slices the later slice's plane wins, inside a slice `layer`. A box may reach over its slice's edge;
+  only the layout's window cuts it: vertical = the column's sides, a strip / the endless band = the screen's top and
+  bottom (+ a pinned strip's start and end). `.slice` is no container and no stacking context (the boxes' `cqw` come
+  from `.slice-layers`); a strip's frames don't clip sideways; an fx impact clips the picture's box, not the slice. The
+  validator (`sliceEdges`, slice-edges.ts) warns at a cut edge and when a later slice's box covers one – never for an
+  open edge.
 - `dialogs.svelte`: absolute layer `inset: 0`, `pointer-events: none`, above the `<img>`, below trigger hotzones.
 - Each box: `position:absolute; left:x%; top:y%; width:w%; height:h%` (+ the anchor's `translate`), flex for `valign`,
   `font-size: calc(var(--size) * 1cqw)`, `line-height: 1.15`, `overflow-wrap: anywhere`, `hyphens: auto` with

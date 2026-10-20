@@ -18,6 +18,7 @@
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import Group from '$lib/components/toon/group.svelte';
 	import { stripScroll } from '$lib/components/toon/renderer/strip-scroll.ts';
+	import { framesWidth } from '$lib/components/toon/renderer/strip-dom.ts';
 	import { STRIP_SHOW } from '$lib/components/toon/renderer/strip-drag.ts';
 	import VnPage from '$lib/components/toon/interactions/vn-page.svelte';
 	import { m } from '$lib/paraglide/messages.js';
@@ -124,7 +125,7 @@
 			if (strip && frame && track) {
 				const pin = track.parentElement ?? strip;
 				const x = frame.getBoundingClientRect().left - track.getBoundingClientRect().left;
-				const travel = Math.max(0, track.scrollWidth - pin.clientWidth);
+				const travel = Math.max(0, framesWidth(track as HTMLElement) - pin.clientWidth);
 				top += stripScroll(x, (strip as HTMLElement).offsetHeight - (pin as HTMLElement).offsetHeight, travel);
 			}
 			if (Math.abs(top) >= 1) window.scrollTo({ top: window.scrollY + top, behavior: 'instant' });

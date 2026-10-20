@@ -283,6 +283,8 @@
 	.frame :global(.slice) {
 		min-height: 0;
 		width: calc(100% + var(--border-width-hairline));
+		/* a box may reach across the seam into the neighbour, the wrap seam too (TEXT-ACROSS-SLICES.md §7) */
+		overflow-x: visible;
 	}
 	/* the later slice on screen paints on top, at the wrap seam too (frame N left of frame 1); it reaches across slices
 	   once a slice is no stacking context of its own (TEXT-ACROSS-SLICES.md §7 step 1) */
