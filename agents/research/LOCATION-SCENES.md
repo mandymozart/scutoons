@@ -1,4 +1,4 @@
-Status 2026-10-20: EXPLORATORY (owner: rooms end up as looped video backgrounds (fallback) or built externally in Blender and dropped in – no in-house room pipeline as the goal; no deadline, not in the "Top Toy workshop" milestone); concept + a working one-room prototype (the cathedral from the owner's Unreal level, dev lab `/account/lab/room`, tools/rooms – §7); the owner OKed the look (2026-10-20); nothing reader-facing built; more rooms 2026-10-20 (§7b station, garden hut, library splat; §7c the library from the owner's Blender file); next: the owner's look at them (issue #74). Not on chapter 3's critical path (#64).
+Status 2026-10-20: EXPLORATORY (owner: rooms end up as looped video backgrounds (fallback) or built externally in Blender and dropped in – no in-house room pipeline as the goal; no deadline, not in the "Top Toy workshop" milestone); concept + a working one-room prototype (the cathedral from the owner's Unreal level, dev lab `/account/lab/room`, tools/rooms – §7); the owner OKed the look (2026-10-20); nothing reader-facing built; more rooms 2026-10-20 (§7b station, garden hut, library splat; §7c the library from the owner's Blender file; §7d Cat Pope's scan as the size, a rotunda like the owner's render 9, a sky); next: the owner's look at them, the room size, the real elevator-shaft library file (issue #74). Not on chapter 3's critical path (#64).
 
 # LOCATION-SCENES — a 3D room for every place on the map
 
@@ -222,6 +222,27 @@ Unreal at all: Blender alone is the whole pipeline's first step.
 Also on the drive: `FOOTAGE/SPLATS/SCENE 6 - MONASTARY - LIBRARY - Terminals (1).ply` + `library-window-wall-fullversion.psht`
 (the splat originals), `FOOTAGE/IPad Lidar/…library_terminals.glb` (3 iPad scans), `MODELS/gothic-cloister-corner` (a
 cloister for the monastery?).
+
+### 7d. Cat Pope at real size, a rotunda, a sky (2026-10-20)
+- **The scale reference** (owner: "proportions are a bit off … there is a character inside the scene, that is cat pope as
+  3d scan … use it as reference for the size of the room"; "the cat pope is still really really tall"): the scan is Roar's
+  `Characters/PopePlayer` (= `MODELS/Roar3DFullbody.fbx`, the drunk-animation pack) – 1.84 m, a Mixamo rig (25 joints) in
+  T-pose, 184k triangles, an 8k texture. `pipeline/character.mjs` → **1.65 MB** (40k tris, 2048 WebP, quantized, no
+  meshopt – the tools' ModelPreview has no decoder), front +Z, feet on 0, left hand +x (CHARACTERS3D's contract; not yet
+  A-pose, Mixamo names). Uploaded as `characters/catpope/catpope-human.scan.glb`, the **Silikon** persona's (`human`)
+  `model` in draft **738** of `character:catpope` – the owner publishes. The lab's residents stand at their own size now.
+- **The library hall at her scale:** ×2.4 (the scene's lights at her head height); still too small per the owner → the
+  lab has a **room size** switch (×1 / 1.5 / 2 / 3, the camera keeps its eye height) to pick by eye; the pick gets baked.
+- **The right library isn't on disk:** the owner's renders (an elevator shaft with stairs, Cat Pope in its door, the round
+  ceiling with a round window – render 9 = the wanted camera) aren't in `library-scene.blend` (14 tiles, no character),
+  `MODELS/blender/blender.blend` / `MODELS/fbx/fbx.fbx` (the incense burner + one vault tile) or any Unreal map (C:, D:,
+  F: searched). Owner: "create a scene like picture 9 with the stuff you have" → `blender/compose_rotunda.py`: the hall's
+  central tile becomes a rotunda – a ribbed dome, a round window (ring + cross, `glow_` = full colour), a light in it, a
+  floor – exported like any .blend → `library-rotunda`: **0.63 MB** medium, 30k triangles, the view inside looking up.
+- **A generic sky in every room** (owner: "a generic skybox … later interchangeable … it might also follow day times"):
+  a gradient dome with a sun glow behind the room, no light cost; presets day / dusk / night (`SKIES`, lab switch).
+- Pipeline fixes found on the way: meshes / accessors several nodes share are copied per node before the cut and the bake
+  (they were cut and lit by one tile's position); every room material is double-sided; texture memory counted after prune.
 
 ## 8. Owner questions (with recommendations)
 1. ~~The cathedral's look~~ – OK (2026-10-20). **Next room:** a ch3 interior (the monastery or the library) – the owner

@@ -257,6 +257,49 @@ for (const node of root.listNodes()) {
 // 2b. a diorama has no backside: keep only the triangles the view can see while the reader looks around (the view's
 // cone widened by the look-around and a margin, up to `far` metres) – room.json `cut: { margin, far, aspect }`
 flatten(doc);
+// a mesh several nodes share (linked duplicates – the library's 13 tiles) gets one copy each: the cut and the bake work
+// in world space, per node
+{
+	const seen = new Set();
+	for (const node of root.listNodes()) {
+		const mesh = node.getMesh();
+		if (!mesh) continue;
+		if (seen.has(mesh)) {
+			const copy = mesh.clone();
+			copy.listPrimitives().forEach((p, i) => copy.removePrimitive(p));
+			for (const p of mesh.listPrimitives()) {
+				const q = p.clone();
+				for (const sem of p.listSemantics())
+					q.setAttribute(sem, p.getAttribute(sem).clone());
+				if (p.getIndices()) q.setIndices(p.getIndices().clone());
+				copy.addPrimitive(q);
+			}
+			node.setMesh(copy);
+		} else seen.add(mesh);
+	}
+	// …and so does data several primitives share (Blender's exporter shares the tiles' accessors): the cut rewrites indices
+	const used = new Map();
+	for (const mesh of root.listMeshes())
+		for (const prim of mesh.listPrimitives())
+			for (const a of [prim.getIndices(), ...prim.listAttributes()])
+				if (a) used.set(a, (used.get(a) ?? 0) + 1);
+	const once = new Set();
+	for (const mesh of root.listMeshes())
+		for (const prim of mesh.listPrimitives()) {
+			const idx = prim.getIndices();
+			if (idx && used.get(idx) > 1) {
+				if (once.has(idx)) prim.setIndices(idx.clone());
+				else once.add(idx);
+			}
+			for (const sem of prim.listSemantics()) {
+				const a = prim.getAttribute(sem);
+				if (used.get(a) > 1) {
+					if (once.has(a)) prim.setAttribute(sem, a.clone());
+					else once.add(a);
+				}
+			}
+		}
+}
 if (room.view && room.cut) {
 	const q = lookRotation(room.view.at, room.view.look);
 	// the camera's axes from the quaternion (x right, y up, z back)
@@ -338,6 +381,7 @@ for (const node of root.listNodes()) {
 	const mesh = node.getMesh();
 	if (!mesh) continue;
 	const m = node.getWorldMatrix();
+	const glows = (room.glow ?? []).some((g) => node.getName().startsWith(g));
 	for (const prim of mesh.listPrimitives()) {
 		const pos = prim.getAttribute("POSITION");
 		const nor = prim.getAttribute("NORMAL");
@@ -367,7 +411,8 @@ for (const node of root.listNodes()) {
 			);
 			for (let k = 0; k < 3; k++) {
 				const l = room.ambient[k] + room.exposure * (L[k] + 0.35 * L2[k]);
-				color[i * 4 + k] = 1 - Math.exp(-l);
+				// `glow`: nodes that shine themselves (a window, a lamp's face) – full colour, no bake
+				color[i * 4 + k] = glows ? 1 : 1 - Math.exp(-l);
 			}
 			color[i * 4 + 3] = 1;
 		}
@@ -385,6 +430,7 @@ for (const node of root.listNodes()) {
 		if (mat)
 			mat
 				.setExtension("KHR_materials_unlit", unlit.createUnlit())
+				.setDoubleSided(true) // a room is seen from inside and from below: no face may vanish
 				.setMetallicRoughnessTexture(null)
 				.setNormalTexture(null)
 				.setOcclusionTexture(null);

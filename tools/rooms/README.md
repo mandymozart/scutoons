@@ -17,6 +17,9 @@ media quality, with the level's light baked in – or a Gaussian splat becomes a
    → `pos / quat / scale / sh_0.exr`. **From Blender** (read-only, the .blend is never saved; ~45 s):
    `blender.exe -b "<scene>.blend" --python tools/rooms/blender/export_blend.py -- "<export dir>" [triangle budget]`
    → the same files (decimated to the budget, textures inside the .glb, lights in the Unreal convention).
+   `blender/compose_rotunda.py` instead: the library hall with a rotunda (render 9), then the same export.
+   A character (a skeletal mesh export + its texture): `node pipeline/character.mjs <in.glb> <texture.png> <out.glb>
+   [triangles] [px]` → the model spec (ASSETS.md "3D models").
 2. **Build** (`pipeline/` is its own npm project, not a workspace: `npm install` there once):
    `node pipeline/build.mjs rooms/<room>.json --source "<export dir>"` → `media/scutoons/rooms/<room>.<level>.glb` (the
    local CDN copy) + `<room>.report.json` (MB, triangles, draw calls, texture memory per level).
@@ -27,7 +30,7 @@ media quality, with the level's light baked in – or a Gaussian splat becomes a
 `rooms/<room>.json`: `view { at, look, fov }` (the reader's camera, metres, glTF axes – the lab's tap prints a point),
 `spots [{ id, at }]` (empty nodes `spot_<id>` for pickups / residents), `cut { margin, far, aspect }` (drops what the
 view never sees), `ambient` + `exposure` (the light bake), `levels { low | medium | high: { ratio, error, texture } }`,
-`drop` (node name prefixes to leave out), `allLights` (also the lights a scene keeps off for its renders), `sun` (a
+`drop` (node name prefixes to leave out), `glow` (node name prefixes that shine – no bake), `allLights` (also the lights a scene keeps off for its renders), `sun` (a
 directional light's weight), `scale` (the level at real size – the bake stays in Unreal's), `ground { y, center,
 size, color }` (a plain floor where the scan has none). Splat rooms: `splat { minOpacity, maxScale, radius, center?,
 level?: "pca", levels { low | medium | high: splat count } }` (`level: "pca"` turns a scan without an upright level).

@@ -21,7 +21,8 @@ BUDGET = int(args[1]) if len(args) > 1 else 150000
 os.makedirs(OUT + '/tex', exist_ok=True)
 scene = bpy.context.scene
 
-meshes = [o for o in scene.objects if o.type == 'MESH' and not o.hide_render]
+# objects named rotunda_ / glow_ (compose_rotunda.py's new parts) keep their few triangles
+meshes = [o for o in scene.objects if o.type == 'MESH' and not o.hide_render and not o.name.startswith(('rotunda_', 'glow_'))]
 tris = {o.name: sum(len(p.vertices) - 2 for p in o.data.polygons) for o in meshes}
 total = sum(tris.values()) or 1
 ratio = min(1.0, BUDGET / total)

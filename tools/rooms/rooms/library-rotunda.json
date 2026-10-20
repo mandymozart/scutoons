@@ -1,0 +1,69 @@
+{
+	"name": "library-rotunda",
+	"about": "The library composed like the owner's render 9 (2026-10-20: \"create a scene like picture 9 with the stuff you have\"): library-scene.blend's hall with its central tile replaced by a rotunda – a ribbed dome with a round window (ring + cross) and a light in it (tools/rooms/blender/compose_rotunda.py). Scale 2.4 = the Cat Pope scan's size (the scene's lights at her head height); the dome's crown ≈ 6 m. The view: low, looking up into the dome (render 9). The map's places `library` / `monastery` (ch3).",
+	"drop": [],
+	"allLights": true,
+	"ambient": [
+		0.3,
+		0.36,
+		0.44
+	],
+	"exposure": 0.0008,
+	"sun": 0.04,
+	"spots": [
+		{
+			"id": "floor",
+			"at": [
+				-10.99,
+				0,
+				-2.68
+			]
+		},
+		{
+			"id": "desk",
+			"at": [
+				-9.49,
+				0,
+				-3.18
+			]
+		}
+	],
+	"levels": {
+		"low": {
+			"ratio": 0.4,
+			"error": 0.01,
+			"texture": 512
+		},
+		"medium": {
+			"ratio": 0.7,
+			"error": 0.005,
+			"texture": 1024
+		},
+		"high": {
+			"ratio": 1,
+			"texture": 2048
+		}
+	},
+	"view": {
+		"at": [
+			-8.19,
+			1.0,
+			-1.28
+		],
+		"look": [
+			-10.39,
+			5.8,
+			-2.28
+		],
+		"fov": 75
+	},
+	"scale": 2.4,
+	"glow": [
+		"glow_"
+	],
+	"cut": {
+		"margin": 15,
+		"far": 30,
+		"aspect": 2
+	}
+}

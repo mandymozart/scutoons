@@ -9,6 +9,10 @@
 	const isDev = import.meta.env.DEV;
 	const levels = ['low', 'medium', 'high'] as const;
 	let level = $state<(typeof levels)[number]>('medium');
+	const times = ['day', 'dusk', 'night'] as const;
+	let time = $state<(typeof times)[number]>('dusk');
+	const scales = [1, 1.5, 2, 3] as const;
+	let scale = $state<number>(1);
 	let canvas = $state<HTMLCanvasElement>();
 	let stats = $state<RoomStats | null>(null);
 	let notice = $state('');
@@ -16,11 +20,8 @@
 	let taken = $state<string[]>([]);
 	let room: RoomStage | null = null;
 
-	const pope = {
-		model: asset('characters/catpope/catpope-regular.glb'),
-		height: 1.1,
-		label: 'Cat Pope'
-	};
+	// the Cat Pope scan (Roar's PopePlayer → tools/rooms/pipeline/character.mjs): at its own 1.82 m – the rooms' scale
+	const pope = { model: asset('characters/catpope/catpope-silikon.scan.glb'), label: 'Cat Pope' };
 	const cucumber = { icon: asset('catpope/items/cucumber.webp'), height: 0.25, label: 'Gurke' };
 	const record = {
 		model: asset('catpope/items/awakening_vinyl.v2.set.glb'),
@@ -52,6 +53,13 @@
 				{ id: 'catpope', spot: 'step', kind: 'resident', ...pope }
 			]
 		},
+		'library-rotunda': {
+			label: 'Bibliothek (Rotunde)',
+			things: [
+				{ id: 'record', spot: 'desk', kind: 'pickup', ...record },
+				{ id: 'catpope', spot: 'floor', kind: 'resident', ...pope }
+			]
+		},
 		'library-blend': {
 			label: 'Bibliothek (Blender)',
 			things: [
@@ -81,7 +89,7 @@
 	);
 	const things = $derived(rooms[which]?.things ?? []);
 
-	async function load(id: string, l: string) {
+	async function load(id: string, l: string, sky: (typeof times)[number], roomScale: number) {
 		room?.dispose();
 		room = null;
 		stats = null;
@@ -91,6 +99,8 @@
 		try {
 			room = await mountRoom(canvas, {
 				url: asset(`scutoons/rooms/${id}.${l}.${rooms[id]?.ext ?? 'glb'}`),
+				sky,
+				roomScale,
 				things,
 				onstats: (s) => (stats = s),
 				ontap: (hit) => {
@@ -109,7 +119,7 @@
 		}
 	}
 	$effect(() => {
-		if (canvas) load(which, level);
+		if (canvas) load(which, level, time, scale);
 	});
 	onDestroy(() => room?.dispose());
 </script>
@@ -126,6 +136,26 @@
 						aria-pressed={which === id}
 						onclick={() => (which = id)}
 						data-testid="room-{id}">{r.label}</button
+					>
+				{/each}
+			</div>
+			<div class="sc-seg" role="group" aria-label="Raumgröße">
+				{#each scales as k (k)}
+					<button
+						class:active={scale === k}
+						aria-pressed={scale === k}
+						onclick={() => (scale = k)}
+						data-testid="room-scale-{k}">×{k}</button
+					>
+				{/each}
+			</div>
+			<div class="sc-seg" role="group" aria-label="Tageszeit">
+				{#each times as t (t)}
+					<button
+						class:active={time === t}
+						aria-pressed={time === t}
+						onclick={() => (time = t)}
+						data-testid="room-sky-{t}">{t}</button
 					>
 				{/each}
 			</div>

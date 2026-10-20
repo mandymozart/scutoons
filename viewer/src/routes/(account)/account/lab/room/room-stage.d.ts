@@ -29,6 +29,11 @@ export interface RoomStage {
 	dispose(): void;
 }
 
+export const SKIES: Record<
+	'day' | 'dusk' | 'night',
+	{ zenith: number; horizon: number; ground: number; sun: number; height: number }
+>;
+
 export function mountRoom(
 	canvas: HTMLCanvasElement,
 	opts: {
@@ -36,6 +41,10 @@ export function mountRoom(
 		things: RoomThing[];
 		maxPixelRatio?: number;
 		maxZoom?: number;
+		/** the lab: the room this much bigger (the camera keeps its height, things their size) */
+		roomScale?: number;
+		/** the sky's time of day (SKIES) – default dusk */
+		sky?: 'day' | 'dusk' | 'night';
 		/** overrides the room's own view / spots (a `.glb`'s nodes, a `.splat`'s `.splat.json`) */
 		view?: { at: number[]; look: number[]; fov?: number };
 		spots?: { id: string; at: number[] }[];

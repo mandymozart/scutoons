@@ -8,6 +8,45 @@ import { loadThree } from '@scutoons/media/model-view';
 const YAW = (18 * Math.PI) / 180;
 const PITCH = (6 * Math.PI) / 180;
 
+/** the sky's looks by the time of day: zenith, horizon, ground, the sun's colour and height (0 = horizon, 1 = up) */
+export const SKIES = {
+	day: { zenith: 0x3d7fd6, horizon: 0xcfe3f5, ground: 0x5a5a55, sun: 0xfff6e0, height: 0.75 },
+	dusk: { zenith: 0x1f2a5a, horizon: 0xf0a060, ground: 0x2a2228, sun: 0xffb070, height: 0.06 },
+	night: { zenith: 0x02040c, horizon: 0x101a30, ground: 0x050508, sun: 0x8090c0, height: 0.4 }
+};
+
+/** the sky dome: a big inside-out sphere around the camera, a gradient by the view's height + a glow around the sun */
+function skyDome(THREE, time) {
+	const k = SKIES[time] ?? SKIES.dusk;
+	const sunDir = new THREE.Vector3(-0.6, k.height, -0.8).normalize();
+	const material = new THREE.ShaderMaterial({
+		side: THREE.BackSide,
+		depthWrite: false,
+		depthTest: false,
+		uniforms: {
+			zenith: { value: new THREE.Color(k.zenith) },
+			horizon: { value: new THREE.Color(k.horizon) },
+			ground: { value: new THREE.Color(k.ground) },
+			sun: { value: new THREE.Color(k.sun) },
+			sunDir: { value: sunDir }
+		},
+		vertexShader: `varying vec3 vDir; void main() { vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+		fragmentShader: `uniform vec3 zenith; uniform vec3 horizon; uniform vec3 ground; uniform vec3 sun; uniform vec3 sunDir; varying vec3 vDir;
+			void main() {
+				float h = vDir.y;
+				vec3 c = h > 0.0 ? mix(horizon, zenith, pow(h, 0.6)) : mix(horizon, ground, pow(-h, 0.4));
+				float s = max(dot(normalize(vDir), sunDir), 0.0);
+				c += sun * (pow(s, 600.0) * 2.0 + pow(s, 12.0) * 0.25);
+				gl_FragColor = vec4(c, 1.0);
+			}`
+	});
+	const mesh = new THREE.Mesh(new THREE.SphereGeometry(250, 32, 16), material);
+	mesh.renderOrder = -100;
+	mesh.frustumCulled = false;
+	mesh.raycast = () => {};
+	return { mesh };
+}
+
 /** the room in `canvas` – the types: room-stage.d.ts */
 export async function mountRoom(canvas, opts) {
 	const t0 = performance.now();
@@ -56,6 +95,10 @@ export async function mountRoom(canvas, opts) {
 	renderer.setPixelRatio(Math.min(opts.maxPixelRatio ?? 1.5, window.devicePixelRatio || 1));
 	const scene = new THREE.Scene();
 	scene.background = new THREE.Color(0x000000);
+	// a generic sky behind every room (owner 2026-10-20: "a generic skybox … later interchangeable … might follow day
+	// times"): a gradient dome with a sun glow, drawn first, no depth, no light – the room's baked light stays as it is
+	const sky = skyDome(THREE, opts.sky ?? 'dusk');
+	scene.add(sky.mesh);
 	scene.add(gltf.scene);
 	gltf.scene.updateMatrixWorld(true);
 
@@ -81,6 +124,18 @@ export async function mountRoom(canvas, opts) {
 	camera.near = 0.05;
 	const baseFov = camera.fov;
 	camera.far = 300;
+	// the lab's room scale (owner 2026-10-20: "cat pope is still really really tall"): the room grows around its floor's
+	// origin, the camera keeps its eye height, the things (pickups, residents) keep their real size
+	const roomScale = opts.roomScale ?? 1;
+	if (roomScale !== 1) {
+		gltf.scene.scale.setScalar(roomScale);
+		gltf.scene.updateMatrixWorld(true);
+		camera.position.set(
+			camera.position.x * roomScale,
+			camera.position.y,
+			camera.position.z * roomScale
+		);
+	}
 	const home = { pos: camera.position.clone(), quat: camera.quaternion.clone() };
 	const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(home.quat);
 
@@ -264,6 +319,7 @@ export async function mountRoom(canvas, opts) {
 		camera.quaternion.copy(qYaw).multiply(home.quat).multiply(qPitch);
 		camera.position.copy(home.pos).addScaledVector(forward, zoom);
 		camera.updateMatrixWorld();
+		sky.mesh.position.copy(camera.position);
 		splat?.update(camera, renderer);
 		renderer.render(scene, camera);
 		frames++;
