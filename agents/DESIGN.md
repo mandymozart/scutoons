@@ -1035,7 +1035,8 @@ Three kinds, three places; none moves the layout:
   (ms; the ruler's ticks 1-2-5, markers = scene / bar / row labels with a line), lanes with a 5rem label column; a tall
   lane carries pictures (the app draws an item's inside); the selected item inverted, the playhead an ink line;
   click / drag the ruler or a lane's background = the playhead (the app selects on release), ← → / Home / End move the
-  selection in a lane, Ctrl + wheel / + / − zoom, 0 fits; a kept part (trim) has in / out handles (← → by the lane's
+  selection in a lane, Ctrl + wheel / + / − zoom, 0 fits; a kept part (trim, TIMELINE §4 way C) has in / out lines with bracket cursors and a tab, a slip bar
+  (or Alt-drag), hold-to-zoom to frames, readouts while trimming – the app shows the in / out pair; ← → by the lane's
   step, Shift ×10, Alt ×0.1); a lane can be not selectable (a take: a press seeks); a hover shows the app's preview
   next to the cursor (the studio: the clip's first frame). No transport in the component – Play, the clock and Space
   belong to the app (the score's pedal keys stay free).

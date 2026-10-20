@@ -7,13 +7,15 @@
 // part. In Shot / Take mode the clip under the playhead makes its shot the current one (a seek on release, Play when it
 // crosses – unsaved changes ask, a refusal stops Play); in the video modes the current shot stays. Play ends on a seek,
 // a step / chapter / mode / picked-set change, another current shot than Play's, the timeline folding (App). No Space
-// key (the score's pedal keys stay free).
+// key (the score's pedal keys stay free). The trim (Take mode, research/TIMELINE.md §4 – way C): the in / out / slip of
+// the shared Timeline and App's I / O keys write the take's in / out; while a trim runs the main view shows the in / out
+// pair (`tl.pair`, TrimPair).
 import { untrack } from 'svelte';
 import { api, ch, notify, pickedShots, pickShot, studio, toon } from './studio.svelte.js';
 import { activeTake, endPreview, hh, preview, saveDoc } from './handheld/handheld.svelte.js';
 import { steps } from './steps.svelte.js';
 import { out } from './output.svelte.js';
-import { clipAt, clipsLane, isVideo, kept } from './timeline-lanes.js';
+import { clipAt, clipsLane, FRAME_MS, isVideo, kept, movedEdge, trimAt, trimPoint } from './timeline-lanes.js';
 
 export const tl = $state({
 	playhead: 0,
@@ -22,7 +24,13 @@ export const tl = $state({
 	/** GET /api/clips of the chapter: { [shot]: { take, rendered, generated } } */
 	clips: {},
 	/** video lengths read from their metadata (url → ms) where the API had none */
-	known: {}
+	known: {},
+	/** the in / out pair in the main view (TrimPair) while a trim runs and a moment after: { n (the gesture), id (the
+	 *  shot), take, edge 'in' | 'out' | 'slip', in, out (ms of the take), live (the gesture still runs) } | null */
+	pair: null,
+	/** a trim gesture runs (its calls with final false came, the final one not yet): the timeline's reveal waits for its
+	 *  end (Timeline.svelte) – a trim that picks its take's shot never moves the view under the dragging pointer */
+	trimming: false
 });
 /** the main view's <video> while a video clip shows (ClipView) – the transport's clock (not state: an element) */
 export const media = { video: null };
@@ -110,11 +118,14 @@ export function useTimeline(view, cur) {
 	const played = $derived(`${steps.current}|${studio.chapter}|${view().mode}|${view().items.map((i) => i.id)}`);
 	$effect(() => {
 		void played;
-		untrack(stop);
+		untrack(() => { stop(); endPair(); tl.trimming = false; });
 	});
 	$effect(() => {
 		const id = studio.sel?.id;
-		untrack(() => id !== asked && stop());
+		untrack(() => {
+			if (id !== asked) stop();
+			if (id !== tl.pair?.id) endPair();
+		});
 	});
 	// the current shot, the mode or the picked set changed (a pick in the list, the stepper, a click on a clip): the
 	// playhead to the current's clip – unless it is on it already (a seek that picked it) or Play runs
@@ -140,7 +151,7 @@ export function useTimeline(view, cur) {
 			else if (hh.held) endPreview();
 		});
 	});
-	$effect(() => () => { stop(); cancelAnimationFrame(retry); });
+	$effect(() => () => { stop(); endPair(); tl.trimming = false; cancelAnimationFrame(retry); });
 }
 
 let retry = 0;
@@ -163,6 +174,7 @@ export function backToShot() {
 // --- what the timeline asks -------------------------------------------------------------------------------------------
 export function seek(v, t, final) {
 	stop();
+	endPair();
 	tl.playhead = t;
 	if (!final || !followsShot(v.mode)) return;
 	const it = clipAt(v.items, t)?.item;
@@ -173,26 +185,67 @@ export function seek(v, t, final) {
 /** a click on a clip: its shot becomes the current one (in every mode – the panels edit it) */
 export function select(v, laneId, id) {
 	stop();
+	endPair();
 	pickShot(id);
 }
 
 let picking = null;
-/** a trim handle (Take mode): the kept part of the current shot's take, the 3D view at the moved point; a take of another
- *  shot first becomes the current one (its takes file loads – then the handles trim it) */
-export function trim(v, laneId, id, k, final) {
+/** a trim (Take mode; the shared Timeline's ontrim, App's I / O): `k` = the kept part { in, out } (ms of the take), `edge`
+ *  'in' / 'out' (the playhead on the moved point – the in, or the last kept frame before the out) or 'slip' (both moved,
+ *  the length kept; the playhead on the new in) – the 3D view shows the take's camera there; a gesture = calls with
+ *  `final` false, then one with true (the release, a cancel; a key: one call), the takes file written on it. Meanwhile the
+ *  main view shows the in / out pair. A take of another shot first becomes the current one (its takes file loads – then
+ *  the handles trim it). */
+export function trim(v, laneId, id, k, final, edge) {
 	stop();
+	tl.trimming = !final;
 	const it = v.items.find((i) => i.id === id);
 	if (!it?.trim) return;
-	tl.playhead = it.start + Math.min(k.in !== it.trim.in ? k.in : k.out, it.length - 1);
+	// a caller without the edge (the shared Timeline before its 5th argument): the one that moved
+	edge ??= movedEdge(it.trim, k);
+	tl.playhead = trimPoint(it, k, edge, v.lanes.find((l) => l.id === laneId)?.step ?? FRAME_MS);
 	if (id !== studio.sel?.id) {
-		if (picking !== id) pickShot((picking = id)).finally(() => (picking = null));
+		// a cancelled "Discard the changes?" keeps the shot – the playhead goes back to it (as a seek)
+		if (picking !== id) pickShot((picking = id)).then((ok) => { if (!ok && v.sel) tl.playhead = startOf(v.sel); }).finally(() => (picking = null));
 		return;
 	}
 	const take = activeTake();
 	if (hh.docShot !== id || !take || take.id !== it.clip.take?.id) return;
 	take.in = +(k.in / 1000).toFixed(3);
 	take.out = +(k.out / 1000).toFixed(3);
+	showPair(id, take.id, edge, k, final);
 	if (final) saveDoc(true);
+}
+
+/** I / O (App's keys): the take under the playhead trimmed at the playhead – I: the frame under it is the first one kept,
+ *  O: the last one kept (written at once, like a key on a handle). Only a take in Take mode (`v` null: the timeline is
+ *  out of sight) – elsewhere a hint. */
+export function trimAtPlayhead(v, edge) {
+	const lane = v?.mode === 'take' ? v.lanes[0] : null;
+	const at = lane && trimAt(v.items, tl.playhead, edge, lane.step ?? FRAME_MS);
+	if (!at) return notify('I / O trim the take under the playhead – in Take mode, the timeline open.');
+	trim(v, lane.id, at.item.id, { in: at.in, out: at.out }, true, edge);
+}
+
+// --- the in / out pair (TrimPair) -------------------------------------------------------------------------------------
+/** one picture again this long after a trim's release (research/TIMELINE.md §4: "shortly after release") */
+const PAIR_MS = 600;
+let pairTimer = 0;
+let gestures = 0;
+/** a trim's call: the pair shows its values – the same gesture keeps its number (TrimPair keeps the other side's still),
+ *  a new one (another edge, after a release, a key) gets a new one; the release lets it go PAIR_MS later */
+function showPair(id, take, edge, k, final) {
+	clearTimeout(pairTimer);
+	const p = tl.pair;
+	const same = p?.live && p.id === id && p.take === take && p.edge === edge;
+	tl.pair = { n: same ? p.n : ++gestures, id, take, edge, in: k.in, out: k.out, live: !final };
+	if (final) pairTimer = setTimeout(endPair, PAIR_MS);
+}
+/** back to one picture: a seek, a pick, Play, a step / mode / shot change (a gesture its lane lost on the way included) –
+ *  it only writes (effects call it: GOTCHAS "an $effect that reads state it writes loops") */
+export function endPair() {
+	clearTimeout(pairTimer);
+	tl.pair = null;
 }
 
 // --- the transport ----------------------------------------------------------------------------------------------------
@@ -210,6 +263,7 @@ export const togglePlay = () => (tl.playing ? stop() : start());
 function start() {
 	const v = viewOf();
 	if (!v?.items.length) return;
+	endPair();
 	tl.playhead = kept(v.items, tl.playhead >= v.span - 1 ? 0 : tl.playhead);
 	tl.playing = true;
 	asked = studio.sel?.id ?? null;

@@ -62,11 +62,31 @@
 				if (!built || building) return;
 				const cam = built.camera;
 				if (!held) { settle(); hold({ p: cam.position.clone(), q: cam.quaternion.clone(), fov: cam.fov }); }
-				cam.position.fromArray(s.position);
-				cam.quaternion.fromArray(s.quaternion);
-				if (s.fov && cam.isPerspectiveCamera && Math.abs(cam.fov - s.fov) > 1e-3) { cam.fov = s.fov; cam.updateProjectionMatrix(); }
-				cam.updateMatrixWorld();
+				place(cam, s);
 				draw();
+			},
+			// the trim's in / out pair (TrimPair via handheld stillAt): the picture into a 2D canvas – at a pose `s`
+			// (rendered without the gizmo, the camera back where it was after) or as the view shows it now; false while
+			// the scene builds
+			still(canvas, s) {
+				if (!built || building || !size.w) return false;
+				if (canvas.width !== size.w || canvas.height !== size.h) [canvas.width, canvas.height] = [size.w, size.h];
+				const g = canvas.getContext('2d');
+				g.clearRect(0, 0, size.w, size.h);
+				if (!s) {
+					g.drawImage(renderer.domElement, 0, 0);
+					if (overlay) g.drawImage(overlay, 0, 0);
+					return true;
+				}
+				const cam = built.camera;
+				const was = { position: cam.position.toArray(), quaternion: cam.quaternion.toArray(), fov: cam.fov };
+				place(cam, s);
+				pass.render(built.scene, cam, size.w, size.h, look);
+				g.drawImage(renderer.domElement, 0, 0);
+				if (texts) drawDialog(g, spec, figureBoxes(built.figs, cam, size.w, size.h, 1), size.w, size.h, size.scale);
+				place(cam, was);
+				draw();
+				return true;
 			},
 			release() {
 				if (!held || !built) { hold(null); return; }
@@ -82,6 +102,13 @@
 		return () => { ro.disconnect(); handheldView.api = null; hold(null); };
 	});
 	let held = null; // the camera before the handheld took it over
+	// a pose (a take's sample, the phone's: { position, quaternion, fov }) onto the camera
+	function place(cam, s) {
+		cam.position.fromArray(s.position);
+		cam.quaternion.fromArray(s.quaternion);
+		if (s.fov && cam.isPerspectiveCamera && Math.abs(cam.fov - s.fov) > 1e-3) { cam.fov = s.fov; cam.updateProjectionMatrix(); }
+		cam.updateMatrixWorld();
+	}
 	// held: the orbit and the gizmo rest (the figure gestures check `held` themselves); hh.held follows (view.js onheld)
 	function hold(h) {
 		held = h;

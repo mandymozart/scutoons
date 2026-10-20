@@ -65,7 +65,7 @@ designs: a seam for later, shared-first, live / creator-risk-first; a judge) –
 - Waveforms (peaks from the creator's `decodeAudio`) – per lane item, drawn by the app's snippet or a shared one.
 - Editing items by drag (move / resize) – not needed by the studio; the creator's Events lane might want it.
 
-## 4. Trim (2026-10-20) – how it would work
+## 4. Trim (2026-10-20) – way C is built
 
 Owner 2026-10-20: "show me in dept how the trim will work? like on a mobile app, or in ableton?" → a prototype to try:
 `studio-layout/trim-prototype.html` (opens via file://, keys 1–3 switch the ways; one drawn 6 s take at 24 fps, the
@@ -118,5 +118,10 @@ keys – one trim, two views. The frame-after-frame pictures in the clips are th
   canvas at drag start; a video clip: a seek).
 - Docs: DESIGN "Steps and the timeline", §1 here; the studio's timeline check.
 
-**Owner question:** is C the way – trim where the clips are, in the timeline, the cut parts staying in place – or
-should a trim open its own focused view like the phone (A)?
+**Owner 2026-10-20: "Build trim way C (Studio) as recommended"** – built (issue #62): the shared Timeline's trim
+(`timeline-trim.svelte`: the bracket cursors + the tab, finger-sized on a coarse pointer, the slip bar + Alt-drag, hold
+a grip 450 ms = zoom to frames and back, the readouts while trimming; `ontrim(lane, id, { in, out }, final, edge)` with
+edge in / out / slip – a gesture = final false … one final true, Escape / pointercancel = the start values;
+`clampTrim(…, 'slip')`, node tests) and the studio's (`trim()` with the edge, the in / out pair in the main view –
+`TrimPair.svelte`, the other edge a still rendered at the gesture's start – I / O at the playhead in Take mode).
+Not built: the phone page's A strip; ZOOM_MAX 64 caps hold-to-zoom on long sequences (> ~32 s picked).

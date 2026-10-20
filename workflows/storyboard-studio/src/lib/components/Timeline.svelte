@@ -27,7 +27,13 @@
 		generated: { icon: 'zap', word: 'generated' }
 	};
 	const selected = $derived(view.sel ? [view.sel.id] : []);
-	const reveal = $derived(view.sel ? [view.sel.start, view.sel.start + view.sel.length] : undefined);
+	// the current shot's clip comes into view when it changes – not while a trim gesture runs: a trim of another shot's
+	// take picks that shot, and the view must not move (zoom out) under the dragging pointer – it comes on the release
+	const shown = { range: undefined };
+	const reveal = $derived.by(() => {
+		const r = view.sel ? [view.sel.start, view.sel.start + view.sel.length] : undefined;
+		return tl.trimming ? shown.range : (shown.range = r);
+	});
 	const frame = (id) => `/out/${ch()}/frames/${id}.png?v=${studio.version}`;
 	const short = (id) => id.replace(/^sb-/, '');
 	// a frame that is still missing stays blank (the frames are rendered by "All frames" / Save + frame)
@@ -37,7 +43,8 @@
 {#snippet item(it)}
 	{@const s = SOURCES[it.state] ?? SOURCES.still}
 	<ClipStrip {it} frame={frame(it.id)} />
-	<span class="tag" data-source={it.state}><Icon name={s.icon} size="0.9em" /><span class="id">{short(it.id)}</span><span class="word">{s.word}</span></span>
+	<!-- a take with its trim: the tag starts right of the in line's tab (the shared lane does the same for its own label) -->
+	<span class="tag" class:after-in={!!it.trim} style:--in={it.trim ? `${(it.trim.in / (it.length || 1)) * 100}%` : null} data-source={it.state}><Icon name={s.icon} size="0.9em" /><span class="id">{short(it.id)}</span><span class="word">{s.word}</span></span>
 {/snippet}
 
 <!-- next to the pointer: the clip's first frame (a video's frame 0; a take / a still: the shot's frame), the shot, the time -->
@@ -77,7 +84,7 @@
 			{preview}
 			onseek={(t, final) => seek(view, t, final)}
 			onselect={(lane, id) => select(view, lane, id)}
-			ontrim={view.mode === 'take' ? (lane, id, kept, final) => trim(view, lane, id, kept, final) : undefined}
+			ontrim={view.mode === 'take' ? (lane, id, kept, final, edge) => trim(view, lane, id, kept, final, edge) : undefined}
 		/>
 	{:else}
 		<p class="sc-empty">Pick a shot on the left – Ctrl + click adds more to the timeline.</p>
@@ -129,6 +136,17 @@
 	.sc-empty {
 		margin: 0;
 		padding: var(--space-05) var(--space-1);
+	}
+	/* a take's tag clears the in line's tab (timeline-trim.svelte: 1rem, a finger's 1.75rem) */
+	.tag.after-in {
+		left: calc(var(--in) + 1rem + var(--space-025));
+		max-width: calc(100% - var(--in) - 1rem - var(--space-025));
+	}
+	@media (pointer: coarse) {
+		.tag.after-in {
+			left: calc(var(--in) + 1.75rem + var(--space-025));
+			max-width: calc(100% - var(--in) - 1.75rem - var(--space-025));
+		}
 	}
 	/* a clip's tag over its frames (ClipStrip; the shared Timeline positions and frames the item) */
 	.tag {

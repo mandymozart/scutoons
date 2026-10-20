@@ -1,9 +1,9 @@
 // The studio's clips lane (src/lib/timeline-lanes.js): the picked shots back to back, one clip each by the view mode
 // with its fallbacks (generated → rendered → take → a 5 s still), the take's trim in Take mode, unknown video lengths,
-// the clip under the playhead, Play's skip over cut parts.
+// the clip under the playhead, Play's skip over cut parts, the trim's edge / playhead and I / O.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { clipAt, clipOf, clipsLane, isVideo, kept, MODES, STILL_MS } from '../src/lib/timeline-lanes.js';
+import { clipAt, clipOf, clipsLane, FRAME_MS, isVideo, kept, MODES, movedEdge, STILL_MS, trimAt, trimPoint } from '../src/lib/timeline-lanes.js';
 
 const take = { id: 't2', in: 1200, out: 4800, length: 6010, kept: 3600 };
 const clips = {
@@ -117,4 +117,42 @@ test('Play skips the cut parts: before the in → the in, from the out → the n
 	assert.equal(kept(items, 7600), 8010);
 	assert.equal(kept(items, 9000), 9000);
 	assert.equal(kept(items, 13010), 13010); // the end
+});
+
+test('a trim: the moved edge (both = a slip) and where the playhead goes – the in, or the last kept frame', () => {
+	assert.equal(FRAME_MS, 1000 / 24);
+	assert.equal(clipsLane(['sb-1'], 'take', { 'sb-1': { take } }).lane.step, FRAME_MS);
+	const was = { in: 1200, out: 4800 };
+	assert.equal(movedEdge(was, { in: 1000, out: 4800 }), 'in');
+	assert.equal(movedEdge(was, { in: 1200, out: 5000 }), 'out');
+	assert.equal(movedEdge(was, { in: 1400, out: 5000 }), 'slip');
+	const it = { start: 6010 };
+	assert.equal(trimPoint(it, { in: 500, out: 1500 }, 'in'), 6510);
+	assert.equal(trimPoint(it, { in: 500, out: 1500 }, 'slip'), 6510);
+	assert.equal(trimPoint(it, { in: 500, out: 1500 }, 'out'), 6010 + 1500 - FRAME_MS);
+	// a kept part shorter than a frame: never before the in
+	assert.equal(trimPoint(it, { in: 500, out: 520 }, 'out'), 6510);
+});
+
+test('I / O at the playhead: I = the frame under it is the first kept, O = the last kept; the other edge stays', () => {
+	const t3 = { id: 't1', in: 500, out: 1500, length: 2000, kept: 1000 };
+	const items = clipsLane(['sb-1', 'sb-3', 'sb-2'], 'take', { 'sb-1': { take }, 'sb-3': { take: t3 } }).lane.items;
+	const r = (x) => x && [x.item.id, Math.round(x.in * 1000) / 1000, Math.round(x.out * 1000) / 1000];
+	assert.deepEqual(r(trimAt(items, 2000, 'in')), ['sb-1', 2000, 4800]); // frame 48 starts at 2000
+	assert.deepEqual(r(trimAt(items, 2030, 'in')), ['sb-1', 2000, 4800]); // still frame 48
+	assert.deepEqual(r(trimAt(items, 2000, 'out')), ['sb-1', 1200, 2041.667]); // frame 48 is the last kept
+	// the kept part stays ≥ its min: I past the out, O before the in
+	assert.deepEqual(r(trimAt(items, 5000, 'in')), ['sb-1', 4700, 4800]);
+	assert.deepEqual(r(trimAt(items, 1000, 'out')), ['sb-1', 1200, 1300]);
+	// O on the take's last frame: its end
+	assert.deepEqual(r(trimAt(items, 6009, 'out')), ['sb-1', 1200, 6010]);
+	// the next take, ms of its own take
+	assert.deepEqual(r(trimAt(items, 6010 + 1000, 'in')), ['sb-3', 1000, 1500]);
+	// the O of a trimPoint keeps the out (the playhead on the last kept frame)
+	const back = trimAt(items, trimPoint(items[0], { in: 1200, out: 2000 }, 'out'), 'out');
+	assert.equal(Math.round(back.out * 1000) / 1000, 2000);
+	// a still, a take outside Take mode: nothing to trim
+	assert.equal(trimAt(items, 9000, 'in'), null);
+	assert.equal(trimAt(clipsLane(['sb-1'], 'rendered', clips).lane.items, 2000, 'in'), null);
+	assert.equal(trimAt([], 0, 'out'), null);
 });

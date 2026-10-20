@@ -177,6 +177,17 @@ export function preview(t) {
 	const s = sampleAt(smoothed(take), t);
 	if (s) handheldView.api?.pose(s);
 }
+/** a picture of the 3D view into a 2D canvas (the trim's in / out pair, TrimPair): at the active take's moment `t` (s) –
+ *  rendered at that pose, the view's own camera stays – or, without `t`, as the view shows it now; false while there is
+ *  nothing to render (no view, it builds, no take) */
+export function stillAt(canvas, t) {
+	const api = handheldView.api;
+	if (!api?.still) return false;
+	if (t == null) return api.still(canvas);
+	const take = activeTake();
+	const s = take && sampleAt(smoothed(take), t);
+	return !!s && api.still(canvas, s);
+}
 let raf = 0;
 export function play() {
 	const take = activeTake();

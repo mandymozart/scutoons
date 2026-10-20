@@ -15,6 +15,8 @@
 export const STILL_MS = 5000;
 /** a trim's shortest kept part */
 export const TRIM_MIN = 100;
+/** the clips lane's step (a frame at 24 fps): trims snap to it, I / O count in it */
+export const FRAME_MS = 1000 / 24;
 /** the view modes, like Blender's viewport shading (owner: "in our case, it is shot/take/rendered/generated") */
 export const MODES = ['shot', 'take', 'rendered', 'generated'];
 const CHAIN = { shot: ['still'], take: ['take', 'still'], rendered: ['rendered', 'take', 'still'], generated: ['generated', 'rendered', 'take', 'still'] };
@@ -69,7 +71,7 @@ export function clipsLane(/** @type {string[]} */ ids, mode, clips = {}, known =
 		items.push(item);
 		at += clip.length;
 	}
-	return { lane: { id: 'clips', label: 'Clips', items, tall: true, step: 1000 / 24 }, span: at, probe };
+	return { lane: { id: 'clips', label: 'Clips', items, tall: true, step: FRAME_MS }, span: at, probe };
 }
 
 /** the clip under `t`: { item, off } – [start, end); from the end of the last one on, the last one at its end */
@@ -90,4 +92,30 @@ export function kept(items, t) {
 		t = c.item.start + c.item.length;
 	}
 	return t;
+}
+
+// --- the trim (Take mode, research/TIMELINE.md §4) --------------------------------------------------------------------
+
+/** which edge a trim moved, for a caller that does not say: both = a slip (the kept part moved, its length kept) */
+export function movedEdge(was, k) {
+	const [i, o] = [k.in !== was.in, k.out !== was.out];
+	return i && o ? 'slip' : i ? 'in' : 'out';
+}
+
+/** where a trim puts the playhead (ms of the timeline): on the in for 'in' and 'slip', on the last kept frame for 'out'
+ *  (a frame before the out – the frame under it is the last one kept, so O there keeps the out) */
+export const trimPoint = (it, k, edge, step = FRAME_MS) => it.start + (edge === 'out' ? Math.max(k.in, k.out - step) : k.in);
+
+/** I / O: the take under `t` trimmed there – I: the frame under `t` is the first one kept, O: the last one kept (frames
+ *  of `step` ms from the take's start); the other edge stays, the kept part ≥ its min and inside the take. → { item, in,
+ *  out } – null where the clip under `t` has no trim (a still, a take outside Take mode) */
+export function trimAt(items, t, edge, step = FRAME_MS) {
+	const c = clipAt(items, t);
+	const tr = c?.item.trim;
+	if (!tr) return null;
+	const length = c.item.length;
+	// the frame under t (the clips' end counts as the last frame; the epsilon keeps n × step on frame n)
+	const f = Math.floor(Math.min(Math.max(0, c.off), length - 1) / step + 1e-6);
+	if (edge === 'in') return { item: c.item, in: Math.max(0, Math.min(f * step, tr.out - tr.min)), out: tr.out };
+	return { item: c.item, in: tr.in, out: Math.min(length, Math.max((f + 1) * step, tr.in + tr.min)) };
 }

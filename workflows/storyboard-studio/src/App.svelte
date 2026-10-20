@@ -7,13 +7,14 @@
 	// other windows was also good") – the picked shots' clips in the step's view mode –, the ActionBar. The main view
 	// follows the clip under the playhead: the 3D view (a still, the current shot's take) or ClipView over it (a video, or
 	// another shot's frame) – the 3D view stays mounted underneath (WebGL). A step only changes which panels are open, the
-	// Shot panel's tab, the view mode, the timeline's fold and the panels' widths (steps.svelte.js). Keys outside text
-	// fields: 1–6 the step, T the shot list, N the step's panels; Ctrl + Space, Ctrl + \, Ctrl + Shift + \ as in the creator.
-	// agents/DOCKING.md, DESIGN.md.
+	// Shot panel's tab, the view mode, the timeline's fold and the panels' widths (steps.svelte.js). While a take is
+	// trimmed the main view shows the in / out pair (TrimPair). Keys outside text fields: 1–6 the step, T the shot list,
+	// N the step's panels, I / O the trim at the playhead (Take mode); Ctrl + Space, Ctrl + \, Ctrl + Shift + \ as in the
+	// creator. agents/DOCKING.md, DESIGN.md.
 	import { onMount, untrack } from 'svelte';
 	import { AppShell, DialogHost, installTooltips, panelHeight, panelWidth, Segmented, shellDock, ToastStack, useDock } from '@scutoons/ui';
 	import { fail, loadChapters, studio, toaster } from './lib/studio.svelte.js';
-	import { stop, timelineOf, tl, useTimeline } from './lib/timeline.svelte.js';
+	import { endPair, stop, timelineOf, tl, trimAtPlayhead, useTimeline } from './lib/timeline.svelte.js';
 	import { clipAt, isVideo } from './lib/timeline-lanes.js';
 	import { here, isOpen, PANELS, setOpen, setStep, setTab, setTimeline, SHOT_TABS, STEPS, steps } from './lib/steps.svelte.js';
 	import { followSelection } from './lib/handheld/handheld.svelte.js';
@@ -22,6 +23,7 @@
 	import Viewport from './lib/components/Viewport.svelte';
 	import Timeline from './lib/components/Timeline.svelte';
 	import ClipView from './lib/components/ClipView.svelte';
+	import TrimPair from './lib/components/TrimPair.svelte';
 	import StudioActions from './lib/components/StudioActions.svelte';
 	import StudioPanel from './lib/components/StudioPanel.svelte';
 	import ShotPanel from './lib/components/ShotPanel.svelte';
@@ -53,15 +55,15 @@
 	});
 	$effect(() => {
 		const open = !timeline.folded;
-		// folded, its Pause is out of sight: Play ends
+		// folded, its Pause is out of sight: Play ends (and a trim's pair – a gesture its lane lost)
 		untrack(() => {
 			setTimeline(open);
-			if (!open) stop();
+			if (!open) { stop(); endPair(); }
 		});
 	});
 	// a maximized region rails the timeline without folding it – its Pause is out of sight too: Play ends
 	$effect(() => {
-		if (shellDock.maximized) untrack(stop);
+		if (shellDock.maximized) untrack(() => { stop(); endPair(); });
 	});
 
 	// the timeline: the picked shots' clips in the step's view mode, the clip under the playhead (the main view follows it)
@@ -77,7 +79,7 @@
 		loadChapters().catch(fail);
 	});
 
-	// 1–6, T, N – only outside text fields and dialogs, without modifiers (Blender-like; owner 2026-10-19)
+	// 1–6, T, N, I / O – only outside text fields and dialogs, without modifiers (Blender-like; owner 2026-10-19)
 	const typing = (el) => !!el?.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"])');
 	function keys(e) {
 		if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || e.defaultPrevented || typing(document.activeElement) || document.querySelector('dialog[open]')) return;
@@ -85,6 +87,8 @@
 		if (n >= 1 && n <= STEPS.length) setStep(STEPS[n - 1].id);
 		else if (e.key === 't' || e.key === 'T') window.dispatchEvent(new KeyboardEvent('keydown', { key: '\\', code: 'Backslash', ctrlKey: true }));
 		else if (e.key === 'n' || e.key === 'N') foldPanels();
+		// I / O: the take under the playhead trimmed there – only where the timeline shows (research/TIMELINE.md §4)
+		else if (/^[io]$/i.test(e.key)) trimAtPlayhead(!timeline.folded && !shellDock.maximized ? view : null, e.key.toLowerCase() === 'i' ? 'in' : 'out');
 		else return;
 		e.preventDefault();
 	}
@@ -122,8 +126,8 @@
 			<ShotList />
 		{/snippet}
 		<div class="main">
-			<div class="three" inert={!!clip}><Viewport /></div>
-			{#if clip}<ClipView {clip} playing={tl.playing} />{/if}
+			<div class="three" inert={!!clip || !!tl.pair}><Viewport /></div>
+			{#if tl.pair}<TrimPair pair={tl.pair} step={view.lanes[0]?.step} />{:else if clip}<ClipView {clip} playing={tl.playing} />{/if}
 		</div>
 		<StudioActions />
 	</AppShell>

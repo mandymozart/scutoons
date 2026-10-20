@@ -75,7 +75,8 @@ every step.
   current on release (unsaved changes ask first), in the video modes the current shot stays. **Play** runs the
   sequence: a video plays (it is the clock), a take moves the 3D view's camera (its kept part), a still waits 5 s; in
   Shot / Take mode each shot it reaches becomes current (a refused change stops it); a seek, another step, mode or picked
-  set, another current shot (the list, the stepper) or folding the timeline ends it. No Space key. "Back to the shot
+  set, another current shot (the list, the stepper) or folding the timeline ends it. No Space key; I / O trim at the
+  playhead (Take mode – "Trim" below). "Back to the shot
   camera" gives the 3D view back to the shot until the playhead moves. Ctrl + wheel or + / − zoom, 0 fits. Drag its top edge for the height
   (one height for all steps), its fold button folds it to a rail (per step). The shared `@scutoons/ui` Timeline
   (creator-ready: the creator and the live mode will use the same component – research/TIMELINE.md).
@@ -110,9 +111,15 @@ Owner 2026-10-19: film a shot's blocked scene with the phone, trim, render contr
 - **Record / Stop** on the PC or the phone → a take: samples `{ t, position, quaternion, fov }` (~60 Hz, the scene's
   metres, Y up, glTF's camera convention) in `storyboards/<toon>/<chapter>/takes/<shot>.json` (`{ on, active, takes }`;
   raw samples + the take's smoothing, in / out). Several takes per shot, one active (the radio); delete = the bin.
-- **Trim**: the timeline in Take mode (the Handheld step's) – the take is its shot's clip, the whole take with its in /
-  out handles: drag them (or ← → on them by a frame, Shift ×10, Alt ×0.1), click / drag = the playhead, the 3D view shows
-  the moment; the timeline's Play = the kept parts. "Back to the shot camera" / "Shot camera" give the view back.
+- **Trim** (research/TIMELINE.md §4, way C): the timeline in Take mode (the Handheld step's) – the take is its shot's
+  clip, the whole take, the cut parts hatched in place: drag its in / out (or ← → on them by a frame, Shift ×10, Alt ×0.1)
+  or slip the kept part (both move, its length stays); **I / O** put the in / out of the take under the playhead at the
+  playhead (I: the frame under it is the first one kept, O: the last one kept). The playhead goes to the moved point (the
+  in, the last kept frame; a slip: the new in) and the 3D view shows the take's camera there; the takes file is written
+  on release. While a trim runs the main view shows the **in / out pair** – the kept part's first and last frame side by
+  side, the moved one marked (live; the other a still the 3D view renders at its moment) – one picture again 0.6 s after
+  the release. Click / drag = the playhead; the timeline's Play = the kept parts. "Back to the shot camera" / "Shot
+  camera" give the view back.
 - **Render all handheld shots** (the Export step's **Output** panel): every shot with the camera on and an active take, along its
   trimmed, smoothed track, rendered in the studio's browser with the frames' renderer, at 24 / 25 / 30 fps, 1× or 2×.
   Passes: **Beauty** (the studio look – lines + hatch, also the lineart), **Depth** (white = near, inverse depth with
