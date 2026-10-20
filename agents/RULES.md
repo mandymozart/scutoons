@@ -119,6 +119,10 @@ agents/DECISIONS.md. A change to how agents work changes this file in the same c
 - New items and recipes are data (the admin catalog); fundamentals (what items can do) change with the code (ITEMS.md).
 
 ## Code
+- **TypeScript + unit tests** (owner 2026-10-20: "typescript and unit tests will help us save a lot of time during future
+  iterations"): new code is TypeScript (Svelte + TS in the apps, TS in the shared packages) and its logic has unit tests.
+  Scripts and tools too: logic in tested TS modules, a CLI only as a thin entry; no new plain-JS / .mjs layers (the
+  storyboard's move into the creator: #118).
 - Shared packages: apps → shared, never the reverse; `tokens ← ui ← reader`; `content` without Svelte; no app state,
   routing or paraglide in shared; moving code into shared is a move, not a copy (PLATFORM.md "dogmas").
 - One component = one job; ≤ 300 lines (> 400 needs a reason in its header); logic in `lib/editor/*.ts`; no local
