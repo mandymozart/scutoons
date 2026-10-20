@@ -327,7 +327,7 @@
 											<span class="avatar" style:background={c.color || 'transparent'}>{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" loading="lazy" />{/if}</span>
 											<span class="text">
 												<span>{shownCharacterName(c)}</span>
-												<span class="hint">{c.id}{c.own_toon ? ` · ${c.own_toon}` : ''}{castsOf(c.id, casts).length ? ` · ${castsOf(c.id, casts).join(', ')}` : ''}</span>
+												<span class="hint">{[c.id, [...new Set([c.own_toon, ...castsOf(c.id, casts)].filter(Boolean))].join(', ')].filter(Boolean).join(' · ')}</span>
 												{#if personaIds(c).length > 1}
 													<span class="chips">
 														{#each personaIds(c) as p (p)}
@@ -397,7 +397,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
-		max-height: calc(100vh - 170px);
+		max-height: calc(100dvh - 10rem);
 		overflow: auto;
 	}
 	.filters {
@@ -425,7 +425,7 @@
 		padding: 0;
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
+		gap: 0.125rem;
 	}
 	.item {
 		all: unset;

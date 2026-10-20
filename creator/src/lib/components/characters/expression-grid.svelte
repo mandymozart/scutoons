@@ -249,7 +249,7 @@
 	.grid { /* grid-ok: the expression thumbnails, not fields */
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
-		gap: 4px;
+		gap: 0.25rem;
 	}
 	.grid.all {
 		grid-template-columns: 1fr;
@@ -257,12 +257,12 @@
 	.mood-row {
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
+		gap: 0.125rem;
 	}
 	.grid.all .mood-row {
 		display: grid;
 		grid-template-columns: 8rem repeat(3, minmax(0, 1fr));
-		gap: 4px;
+		gap: 0.25rem;
 	}
 	.mood {
 		font-weight: var(--font-weight-regular);
