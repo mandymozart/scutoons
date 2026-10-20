@@ -1,4 +1,4 @@
-Status 2026-10-20: concept, nothing built. Q1, Q2 and Q7 answered (§8); the other answers and the owner's agreement wait (issue #96). Before chapter 3's first scene cut (~Oct 26): the storyboard-script steps A, B, J (§3.2). Everything else comes after #64 (Nov 15). No stored format changes, no migration.
+Status 2026-10-20: concept agreed – every owner question answered (§8); issues filed under #96: #107–#109 for chapter 3's first cut, the rest after them (chapters 4–5's storyboards on whole slices now, Q5). Nothing built yet. No stored format changes, no migration.
 
 # SLICE-GRID — one slice size across the platform
 
@@ -249,6 +249,10 @@ But #67 also names Import slices, which takes any height until G ships: a change
   - 9:16 and square leave the list. Stored frames keep working, and the warning names them.
 - **Size line** (slice-media.svelte:86-87): it says "390 × 845 · 1.35 slices – not whole slices" instead of
   "standard 390 × 624".
+- **Seeing it** (owner, Q4): in the film strip and the strip canvas a slice shorter than whole units shows the missing
+  part below it as an orange / red offset, and its slice marker (the number) gets the same colour; a slice taller than
+  whole units that isn't a multiple only colours its marker. Accepting the warning keeps the marks (they show a fact,
+  not a to-do). The colour comes from the tokens' warning colour; a design draft on the real page first.
 - **Four texts say "other heights are fine".** They state the rule instead: content.ts:193, creator defaults.ts:5, the
   `format_hint` message (creator/messages/en.json:495 and de) and the MCP's resources.ts:245.
 
@@ -436,33 +440,19 @@ first throw now (#67).
    - Rec.: (c), with (b) wherever it suits the art. Every ch3 slice is then 390 × 624.
    - Answered (owner 2026-10-20: "Q2 b and c are fine"): (c), with (b) wherever it suits the art.
 
-**After Nov 15:**
-3. **A tall picture: k slices of one unit each (sharing its shot), or one slice of k units?**
-   - k slices keep the reader as it is: events, music and autoplay wait for half a slice, and a slice of 3 or more
-     units never shows half of itself on a phone.
-   - Every slice is one WEBTOON image, and the film strip needs nothing new.
-   - The price: replace, flag and delete happen as a range (#44 step 4).
-   - Rec.: k slices.
-4. **The creator: a warning or an error for a column slice that isn't whole slices, and on which toons?**
-   - One rule is the point, and the workshop's artists learn the same unit.
-   - toptoy's 34 square and tall choice cards keep their warnings until the workshop art (they never go to WEBTOON).
-   - An error would block toptoy and ch4–5's storyboard drafts.
-   - Rec.: a warning, accepted per slice, on every toon.
-5. **Chapters 4–5: rewrite the storyboards to whole slices before their Figma layout?**
-   - 9:16 becomes 1:1.6, so a viewport stop then fills 74 % of a phone, not all of it.
-   - 1:3 becomes 1:3.2.
-   - The 13 shots at 1:4 become 1:3.2 or 1:4.8 (an agent proposes, you confirm in the studio).
-   - ch4 gets 8.5 % shorter, ch5 8.9 %. It saves at most 6 pads, and their Figma frames are placed again.
-   - "No" means ch4–5 are made the ch3 way (lines + pads).
-   - Rec.: whole slices for every new storyboard; for ch4–5 only if their Figma layout hasn't started by Nov 16,
-     otherwise the ch3 way.
-6. **Key visuals in the column (ch1 and ch2 at 6:13; ch3 per Q1).** Q1 settles the export for a key visual composed
-   with the 5:8 band (the export crops to it). ch1's and ch2's weren't composed that way – for them:
-   - (a) outside the rule in the reader; the export cuts each once, invisibly (two WEBTOON images, no crop);
-   - (b) a 5:8 frame, "Fill (cropped)", at top, centre or bottom. ch1's poster loses either the figure at the top
-     right or the sphynx cat at the bottom in every position (viewed); ch2's is still to be previewed;
-   - (c) you recompose ch1 and ch2 for 5:8.
-   - Rec.: (a).
+**The rest (answered the same day):**
+3. **A tall picture** – answered (owner 2026-10-20: "agreed"): k slices of one unit each, sharing its shot.
+4. **Warning or error** – answered (owner 2026-10-20: "agreed also maybe we can visualize it with a orange or red offset
+   for if it is smaller and the same color on the slice marker. if it is longer same thing applies but just the slice
+   marker gets the color indication"): a warning, accepted per slice, on every toon; in the creator a slice shorter than
+   whole units shows the missing part as an orange / red offset and its slice marker in the same colour; a taller one
+   that isn't whole units only colours its marker (§3.4).
+5. **Chapters 4–5** – answered (owner 2026-10-20: "we do it now. layouting in figma hasnt started for sure."): their
+   storyboards move to whole slices now, before their Figma layout (E).
+6. **Key visuals** – answered (owner 2026-10-20: "key visuals stay outside the rule. key visual i anwsered with q1."):
+   outside the rule in the reader (6:13, made for one screen); the WEBTOON export crops each to its centred 5:8 band
+   (Q1). ch1's and ch2's weren't composed with the band: the crop preview shows what each loses (ch1: the figure at
+   the top right or the cat at the bottom, viewed) – the owner looks before the first export (C).
 7. **ch2's vertical pictures** – answered (owner 2026-10-20: "all need to be upscaled and normalized to 2340 pixel width
    at 1:4.8 ratio"): all four scenes at 1:4.8 = 3 slices each, masters 2340 × 11232 (Luma's upscale); church and alley
    from their 1-48 versions, the pool and Combo4 re-made at 1:4.8.
