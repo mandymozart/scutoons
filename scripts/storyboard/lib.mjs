@@ -9,16 +9,16 @@ import { request } from 'node:http';
 import { freemem } from 'node:os';
 import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { S, SLICE_ASPECTS, UNIT, W, aspectSlices, parseAspect, slicesOf } from '../../tools/storyboard-render/spec.js';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
 /**
- * Phone canvas: width W, one screen S (390 × 844), the standard slice height SLICE_H = DEFAULT_SLICE (shared/content
- * content.ts; plain Node, so a copy): 624 since 2026-10-20 (#78, its 3x = WEBTOON's 800 × 1280); chapters 1–5 were cut at 625
+ * Phone canvas and slices, one source: tools/storyboard-render/spec.js (#111) – width W, one screen S (390 × 844), one
+ * slice UNIT = 624 (#78; SLICE_H is its name here), slicesOf, aspectSlices, the slice aspects (SLICE-GRID.md §1)
  */
-export const W = 390;
-export const S = 844;
-export const SLICE_H = 624;
+export { S, SLICE_ASPECTS, UNIT, W, aspectSlices, parseAspect, slicesOf };
+export const SLICE_H = UNIT;
 
 /**
  * The rhythm model (STORYBOARD.md §6), calibrated on chapter 1 (owner 2026-10-09: careful reading 15–20 min; chapters
@@ -66,12 +66,6 @@ export const FACING = ['front', 'away', 'left', 'right', 'three-quarter-left', '
 export const VIEWS = ['real', 'belief', 'narration', 'memory'];
 export const SOURCES = ['schematic', 'photo', 'unreal', 'direct', 'generated', 'art'];
 export const STATUS = ['draft', 'layout-ok', 'refs-locked', 'generating', 'still-ok', 'in-chapter'];
-
-/** "1:4" → { w: 1, h: 4 }; "9:16" → { w: 9, h: 16 }; "6:1" → { w: 6, h: 1 } */
-export function parseAspect(a) {
-	const m = /^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/.exec(String(a ?? ''));
-	return m ? { w: Number(m[1]), h: Number(m[2]) } : null;
-}
 
 /** height in px of a shot of this aspect on the 390-wide canvas (loop360: the height of one slide row) */
 export function shotHeight(aspect, format) {

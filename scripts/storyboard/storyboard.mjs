@@ -3,7 +3,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import {
-	ANGLES, FACING, FORMATS, LIGHT, MOVES, POSES, VIEWS, PROJECTIONS, RHYTHM, S, SAFE, SIZES, SOURCES, STATUS, W, parseAspect, readSeconds, shotHeight, words
+	ANGLES, FACING, FORMATS, LIGHT, MOVES, POSES, VIEWS, PROJECTIONS, RHYTHM, S, SAFE, SIZES, SLICE_ASPECTS, SOURCES, STATUS, UNIT, W, parseAspect, readSeconds, shotHeight, slicesOf, words
 } from './lib.mjs';
 
 /** a file or a folder of scene-*.json → [{ file, sb }] in scene order */
@@ -102,10 +102,16 @@ export function validate(sb, file = '') {
 			for (const k of ['key', 'height', 'source', 'shadow']) if (light[k] && !LIGHT[k].includes(light[k])) err(id, `light.${k} "${light[k]}" – ${LIGHT[k].join(' | ')}`);
 			if (light.soft != null && !(light.soft >= 0 && light.soft <= 1)) err(id, `light.soft ${light.soft} – 0 (hard) … 1 (soft)`);
 			if (light.quality && light.quality !== 'hard') err(id, 'light.quality – the storyboard light is always hard (owner 2026-10-09)');
+			// whole slices (SLICE-GRID.md §1, #111): a viewport is one slice, a vertical shot 2 or more
+			if (a && (shot.format === 'viewport' || shot.format === 'vertical')) {
+				const h = (W * a.h) / a.w, n = h / UNIT, k = slicesOf(h), was = `${shot.format} ${shot.aspect} is ${+n.toFixed(2)} slices`;
+				if (shot.format === 'viewport' && k !== 1) warn(id, `${was} – a viewport is one slice, ${SLICE_ASPECTS[0]}`);
+				else if (shot.format === 'vertical' && n < 2 - 0.005) warn(id, `${was} – under 2 slices: a viewport (${SLICE_ASPECTS[0]})? else ${SLICE_ASPECTS[1]}`);
+				else if (!k) warn(id, `${was} – not whole slices: ${[Math.floor(n), Math.ceil(n)].map((j) => SLICE_ASPECTS[j - 1] ?? `1:${+((j * UNIT) / W).toFixed(2)}`).join(' or ')}`);
+			}
 			// safe formats (warnings: "beyond what we can generate today")
 			if (a && shot.format === 'vertical') {
 				const tall = a.h / a.w;
-				if (tall < 16 / 9 - 0.01) warn(id, `vertical ${shot.aspect} is wider than a screen – a viewport?`);
 				if (tall > SAFE.vertical.maxTall + 1e-6 && shot.source?.want !== 'unreal')
 					warn(id, `1:${tall.toFixed(1)} is beyond what we can generate today (max 1:${SAFE.vertical.maxTall}) – split, or source.want unreal / photo stitch`);
 				else if (tall > SAFE.vertical.plan + 1e-6 && shot.source?.want === 'generated') warn(id, `1:${tall.toFixed(1)} generated: above the planning size 1:${SAFE.vertical.plan} – the maximum is the exception`);
@@ -116,7 +122,6 @@ export function validate(sb, file = '') {
 				else if (widthScreens > SAFE.loop360.plan + 1e-6) warn(id, `panorama ${widthScreens.toFixed(1)} screens wide – above the planning width ${SAFE.loop360.plan}`);
 				if (g.renderer?.type !== 'horizontal') warn(id, 'loop360 belongs in a horizontal group (Endless: params.endless)');
 			}
-			if (a && shot.format === 'viewport' && Math.abs(a.h / a.w - 16 / 9) > 0.2) warn(id, `viewport ${shot.aspect} – a viewport is 9:16`);
 			for (const [f, t] of shot.air ?? []) if (!(f >= 0 && t <= 100 && f < t)) err(id, `air [${f}, ${t}] – % from < to within 0…100`);
 			for (const fig of shot.figures ?? []) {
 				if (!castRefs.has(fig.cast)) err(id, `figure cast "${fig.cast}" not in cast`);
