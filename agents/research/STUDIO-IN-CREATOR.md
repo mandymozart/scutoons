@@ -1,4 +1,4 @@
-Status 2026-10-20: concept agreed – the switch runs now (§4 N1–N10: generators first with Luma images, then the page and the 3D view); question 7 (taste rules) open. Issue #118.
+Status 2026-10-20: concept agreed – the switch runs now (§4: the model, the data, the page + the 3D view first; the generators second, keys from the owner); question 7 (taste rules) open. Issue #118.
 
 # STUDIO-IN-CREATOR – the storyboard studio as part of the creator (concept, 2026-10-20)
 
@@ -263,36 +263,37 @@ menus or editors – only the camera, the pose sensor and the channel.
 
 ## 4. Order – now (owner 2026-10-20: "now over night")
 
-The switch happens now, not at ch4 (Q1). Everything moves; the 3D view (three.js) is the storyboard's main tool (owner
-2026-10-20: "of course threejs, it is the main tool of the storyboard"). The generators are connected first,
-starting with **Luma for images** (owner 2026-10-20: "important the generators … we will connect asap, starting with
-luma for images"), and the 3D view comes right after the page. Each stage is its own issue under #118.
+The switch happens now, not at ch4 (Q1). Everything moves, built as designed. The 3D view (three.js) is the
+storyboard's main tool (owner 2026-10-20: "of course threejs, it is the main tool of the storyboard") and comes with the
+page. **The generators come second** (owner 2026-10-20: "no the other way around generators second. can be done in two
+weeks even" · "but we build everything as designed and add credentials for the generators tomorrow or the day after"):
+built and tested against stand-ins, live once the owner puts the keys on the server – Luma for images first.
 
-| Stage | What |
-|---|---|
-| **N1** | content `storyboard/*.ts`: types, validate / measure, the slice grid (out of spec.js), rhythm + safe envelope, prompts (luma.js / prompts.mjs), the generation record – tested. spec.js / lib.mjs **import** it (node's `--experimental-transform-types`, as check-draft.mjs does), so there is one source and the old tools keep working. |
-| **N2** | server: the `storyboard` entity kind; `storyboard_generations` (= the ledger); the import migration of the 14 scene files (runs with the deploy); the shared work storage on the app host (members only). |
-| **N3** | server generators: the registry (PHP, image / video kinds, #61), **Luma image first**, the budget gate (`generation_budget` in the admin, hard cut 402, the creator's notice), keys only in the server's config. Runway / Gemini after. |
-| **N4** | MCP: storyboard read / save / validate, `start_generation`, `list_generations`, `mark_generation`. |
-| **N5** | creator Storyboard page: the shot list, the Shot inspector, Script, validate / rhythm, Generate (Luma) → results into the workspace folder, share → work storage, approve. |
-| **N6** | the 3D view: the renderer (tools/storyboard-render) as TS in the creator, the Viewport (orbit, figures, hand camera), frames rendered in the browser. |
-| **N7** | the variants board + Compare (the port of #62's phases 1–4, its tests as the spec). |
-| **N8** | the barebone phone page (WebRTC), the timeline, Output. |
-| **N9** | the local kit: the Figma relay in the MCP extension, the plugin download, `generate_local`, "Set up your machine"; the figma-* scripts → MCP tools (after ch3's art freeze, 2026-11-10). |
-| **N10** | delete the studio, the moved scripts, `dev:studio`, the scene files. |
+| # | Issue | What |
+|---|---|---|
+| 1 | #119 | content `storyboard/*.ts`: types, validate / measure, the slice grid (out of spec.js), rhythm + safe envelope, prompts (luma.js / prompts.mjs), the generation record – tested. spec.js / lib.mjs **import** it (node's `--experimental-transform-types`, as check-draft.mjs does), so there is one source and the old tools keep working. |
+| 2 | #120 | server: the `storyboard` entity kind; `storyboard_generations` (= the ledger); the import migration of the 14 scene files (runs with the deploy); the shared work storage on the app host (members only). |
+| 3 | #123 | creator Storyboard page: the shot list, the Shot inspector, Script, validate / rhythm, the workspace folder, share → work storage, approve. |
+| 4 | #124 | the 3D view: the renderer (tools/storyboard-render) as TS in the creator, the Viewport (orbit, figures, hand camera), frames rendered in the browser. |
+| 5 | #125 | the variants board + Compare (the port of #62's phases 1–4, its tests as the spec). |
+| 6 | #126 | the barebone phone page (WebRTC), takes, the timeline, Output. |
+| 7 | #122 | MCP: storyboard read / save / validate, `start_generation`, `list_generations`, `mark_generation`. |
+| 8 | #121 | server generators: the registry (PHP, image / video kinds, #61), Luma image first, then Runway / Gemini; the budget gate (`generation_budget` in the admin, hard cut 402, the creator's notice); keys only in the server's config; Generate in the page. |
+| 9 | #127 | the local kit: the Figma relay in the MCP extension, the plugin download, `generate_local`, "Set up your machine"; the figma-* scripts → MCP tools (after ch3's art freeze, 2026-11-10). |
+| 10 | #128 | delete the studio, the moved scripts, `dev:studio`, the scene files. |
 
 Against the other work:
 - **#62** (variants canvas, phases 1–4 on `claude/studio-layout-afe926`, not merged): the switch answers its freeze
-  question (Q2) – no more features in the local studio. Its code is read from the branch and ported in N7; the branch
+  question (Q2) – no more features in the local studio. Its code is read from the branch and ported in #125; the branch
   itself stays the owner's to merge or drop.
 - **#92** (creator navigation draft D, on origin/main): the Storyboard page is a chapter page; the shot list is "the
   page's own list beside the menu".
-- **#111 / #112:** the grid numbers move into content in N1; #112's prompts in slices and the fit step are written
+- **#111 / #112:** the grid numbers move into content in #119; #112's prompts in slices and the fit step are written
   against content's TS prompts.
-- **#61**: becomes N3's registry.
+- **#61**: becomes #121's registry.
 - **#64** (ch3, 2026-11-15; art freeze 11-10, deploy freeze 11-12): the figma / production scripts stay untouched until
-  after the art freeze (N9); the old studio keeps working on the files until N2's import runs with a push.
-- **#56**: the 3D view (N6) loads `personaModel` from the CDN.
+  after the art freeze (#127); the old studio keeps working on the files until #120's import runs with a push.
+- **#56**: the 3D view (#124) loads `personaModel` from the CDN.
 
 ## 5. Questions for the owner – answered 2026-10-20 (except 7)
 
