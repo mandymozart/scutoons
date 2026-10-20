@@ -46,7 +46,7 @@
 //            file, "Save as preset …" keeps its pixels, the toast's Undo leaves no presets document to save (nor its
 //            local autosave); an unsaved preset left by a reload is offered at load ("Collage presets" next to the
 //            chapter), Restore on both brings the piece's preset back (--pieces only)
-//   VN:      a scene with a group script + slice events (catpope's, else the sandbox's): each event type's line opens its form (+ "Only if"); "+ setVariable" adds one, open,
+//   VN:      a group with a script + slice events (catpope's, else the sandbox's): each event type's line opens its form (+ "Only if"); "+ setVariable" adds one, open,
 //            the cursor in it; "+ event" on the chapter's slice adds one line; a slice event has its trigger (never saved)
 // Afterwards every entity the run changed is restored (content as before, published again if it was), also on failure.
 // Refuses to run while the chapter has an unpublished draft (someone's work in progress is never touched).
@@ -129,25 +129,25 @@ const baselineGroupKey = baseline[CHAPTER_KEYS[0]].content.groups[GROUP].label ?
 if ((slice.events ?? []).length) console.log(`note: slice ${SLICE + 1} has events – the empty-slice event check is weaker`);
 
 /**
- * The VN part's scene: one with a group script and a slice with events – catpope's scenes first, else the sandbox's
- * (generated, always has them; the dev content changes – catpope's scene-14 lost its script on 2026-10-06)
+ * The VN part's group: one with a group script and a slice with events – catpope's chapters first, else the sandbox's
+ * (generated, always has them; the dev content changes). Groups are inline in their chapter since 2026-10-19 (step 3 of
+ * agents/research/TEXT-ACROSS-SLICES.md – no scene documents any more)
  */
 async function findVnScene() {
 	for (const toon of [TOON, 'sandbox']) {
-		const keys = (await api('GET', `/entities?toon=${toon}`)).entities.map((e) => e.key).filter((k) => /^scene:[^:]+:\d+:[^:]+$/.test(k)).sort();
+		const keys = (await api('GET', `/entities?toon=${toon}`)).entities.map((e) => e.key).filter((k) => /^chapter:[^:]+:\d+$/.test(k)).sort();
 		for (const key of keys) {
 			const doc = (await api('GET', `/entities/${key}?draft=1&wrap=1`)).content;
-			const slice = (doc?.slices ?? []).findIndex((s) => (s?.events ?? []).length > 0);
-			if ((doc?.events ?? []).length && slice >= 0) {
-				const [, , chapter, name] = key.split(':');
-				return { key, toon, chapter: Number(chapter), group: doc.label ?? name, slice: slice + 1 };
+			for (const [gi, g] of (doc?.groups ?? []).entries()) {
+				const slice = (g?.slices ?? []).findIndex((s) => (s?.events ?? []).length > 0);
+				if ((g?.events ?? []).length && slice >= 0) return { key, toon, chapter: Number(key.split(':')[2]), group: g.label ?? String(gi + 1), slice: slice + 1 };
 			}
 		}
 	}
 	return null;
 }
 const VN = await findVnScene();
-if (!VN) console.log('note: no scene with a group script and slice events – the VN part is skipped');
+if (!VN) console.log('note: no group with a script and slice events – the VN part is skipped');
 
 /** every entity whose newest version changed during the run gets its old content back (published again if it was) */
 async function restore() {
@@ -1156,7 +1156,7 @@ try {
 	// edits here are never saved (the page is left with them; nothing is written)
 	if (VN) {
 		await send('Page.navigate', { url: `${CREATOR}/${VN.toon}/chapter/${VN.chapter}?group=${encodeURIComponent(VN.group)}` });
-		check(await until(`!!${q('vn-events')} && !!${q('event-line-0')}`, 30000), `VN: the group script of ${VN.key} lists its events`);
+		check(await until(`!!${q('vn-events')} && !!${q('event-line-0')}`, 30000), `VN: the group script of ${VN.key} · ${VN.group} lists its events`);
 		const typeIndex = await js(`(() => { const out = {}; document.querySelectorAll('[data-testid^="event-line-"]').forEach((b) => { const t = b.querySelector('.type')?.textContent; if (t && !(t in out)) out[t] = Number(b.dataset.testid.slice(11)); }); return out; })()`);
 		/** what each type's form shows once its line is opened */
 		const FORMS = {
