@@ -781,24 +781,35 @@ slice's picture or on a score: one piece (`CollagePiece`, @scutoons/content coll
 | node id | `id` → `i18n/s1c2.json` key |
 | `characters` (split on `\n`) | `text` (de source; `en` from i18n file) |
 
-## Creator navigation (owner 2026-09-30)
+## Creator navigation (owner 2026-09-30; draft D 2026-10-20, research/CREATOR-NAV.md §2a, #92)
 
-The creator is a hierarchy: **Creator → toon → season → chapter → group (scene) → slice**, plus the platform-wide
-**Universe** (characters, moods, wanted images). Editing deeper must never change the frame around you.
+The creator is a hierarchy: **toon → season → chapter → group (scene) → slice**, next to the platform-wide areas
+(characters, the map, the catalog, the Flow). Editing deeper must never change the frame around you.
 
-- **One top bar, the same on every page.** It holds only the breadcrumb of the full path
-  (`SCUTOONS › Cat Pope › Season 1 › Chapter 2 › scene-14 › Slice 3` – the logo is the root crumb; the "Creator" word
-  is gone, the app name stays in the tab title, owner 2026-10-07) and, from 1600px, the signed-in account. Every crumb
-  is a link with its full text – never a per-crumb ellipsis. The structure never changes between pages, only the depth.
-  **Breadcrumbs** (`@scutoons/ui` `Breadcrumbs`, UI-CONCEPTS E.2): when the trail doesn't fit, the crumbs after the
-  root collapse from the left into ONE "…" button (square – a text control) that opens a small menu of them (Enter /
-  ↓ open, ↑ ↓ Home End move, Esc back); the last two never collapse; when even they don't fit the trail wraps. The
-  season crumb is the chapter's real season (the season whose sequence lists it). Burger for the sidebar below 768px.
-- **Left sidebar = the children of the current level:** home → toons; toon (and its cast / credits / settings) →
-  seasons + Cast + Credits + Script + Toon settings; season → its chapters with the status per language; chapter → Meta,
-  Audio, groups → slices (the chapter tree). A leaf page shows its siblings with the
-  current one marked. The **Universe** section (Characters, Moods, Wanted images) is pinned to the bottom of the
-  sidebar on every page.
+- **One top bar, the same on every page:** the reader's square mark (a full-height cell, as wide as the rail) = home
+  (the dashboard); the **path** (`Toons / Cat Pope / Season 1 / Chapter 2 / scene-14 / Slice 3` – the area first; no
+  underlines, the levels above muted, `/` between: `Breadcrumbs` `plain`); the page's end (`crumbEnd`); the text
+  language, the page's tools (Flow …), search, notifications. The bar's icon buttons are borderless squares (hover = the
+  nav outline, on = inverted). Every crumb is a link with its full text – never a per-crumb ellipsis; when the path
+  doesn't fit, the crumbs collapse from the left into ONE "…" (UI-CONCEPTS E.2); the last two never collapse. The
+  season crumb is the chapter's real season (the season whose sequence lists it).
+- **The menu by areas on the left** (`area-menu.svelte`), always there: Dashboard, Toons with every toon flat under it
+  (never deeper), Characters (Moods, Wanted images are its tabs), Map, Catalog, Flow; the place you are in inverted
+  (inside a toon: the toon); the account (→ Notifications) and the fold button at its foot. It folds **by hand** (the
+  button, Ctrl + \, remembered) to an icon rail of the areas (unfold at its foot), and to the rail while a region is
+  maximized. A page's own list (the chapter tree, a season's chapters, the map's lists – `usePageNav({ sidebar })`)
+  sits beside the menu in the same region, its right edge the one `Divider`; it hides while a region is maximized.
+- **A toon's pages are tabs** (`toon-tabs.svelte`): Stories (the toon page; a season's page belongs to it) · Cast ·
+  Script · Credits · Settings. The chapter editor and the cover editor have their own frames.
+- **Phones** (< 768px, like the reader): one row – mark (home) · path (no area) · the page's end (the strip editor's
+  ⚠ · Save · Publish · •••) · on the dashboard search + notifications · ☰ on the right. ☰ slides the menu in from the
+  right (`AppShell drawerSide="right"`): the areas, the page's own list, "Recent" (this browser's last places,
+  `recent.svelte.ts`); at its foot search, notifications, the text language and the page's tools.
+- **Dashboard** (home, `routes/+page.svelte`; desktop three columns, a phone one): Continue (the last place, from
+  Recent – opens it, a chapter at its slice) · Toons · Not live yet (every file with a draft newer than live, the
+  newest first – the list Publish offers) · Waiting for you (the open reviews). An empty section shows nothing.
+  **Toons** (`/toons`): every toon as one compact row (avatar · name · state). Both: the PhoneBar (Publish everything ·
+  Reader).
 - **Content** edits the selected item. **Bottom ActionBar** is the same component everywhere: Info (left-most),
   "up" (the parent level), page status / filters, secondary actions, primary action right-most.
 - **URLs follow the hierarchy.** The existing routes map cleanly and stay: `/<toon>`, `/<toon>/season/<n>`,
@@ -806,18 +817,15 @@ The creator is a hierarchy: **Creator → toon → season → chapter → group 
   `/characters?tab=moods|wanted&id=`. Inside the chapter the selection is in the query:
   `/<toon>/chapter/2?group=scene-14&slice=3` (`group` = the group's label or scene name, else its number;
   `slice` 1-based; `?section=audio`). Deep links, crumbs and back/forward all work through the URL.
-- **Keyboard:** Alt+ArrowUp = one level up (the parent crumb); Alt+ArrowDown = the first child in the sidebar.
+- **Keyboard:** Alt+ArrowUp = one level up (the parent crumb); Alt+ArrowDown = the first child in the page's list.
 - **Names, not files:** the UI never shows storage keys (`chapter2.json` …): one mapping `entityLabel()` in
   `@scutoons/ui` → "Chapter 2", "Season 1", "Scene 14", "Toon settings", "Characters", "Moods", "Wanted images".
   **No version numbers anywhere** (owner 2026-09-30; the ids are store-wide row ids, kept in the API only): state chips
   read "de · Published", "Draft · not published" (newer unpublished changes), "Not published" (never published), with
   the last change's date in the title; the History panel lists versions by date, author and note (restore / publish
   stay); the admin content overview shows the same state words + "N versions · changed <date>".
-- **Start page** (owner 2026-10-12, "mehr Konzepte aus der Mobile in die Desktop-Variante – Platz sparen"): no "Toons"
-  heading; one compact row per toon (avatar · name · state badge) in columns when there is room; phones: the PhoneBar
-  (Publish everything · Reader).
-- **Toon page** (owner 2026-09-30; 2026-10-12): no title row – the toon's settings are a round pill with its avatar at the
-  end of the crumbs (`crumbEnd`, like the map's toon pill); "Season 1: <title>" links to the season editor; no "Chapters"
+- **Toon page** (owner 2026-09-30; 2026-10-12; 2026-10-20): no title row – the toon's settings are its Settings tab;
+  "Season 1: <title>" links to the season editor; no "Chapters"
   heading; "+ New chapter" is the list's last row; the languages are one row of chips (the source filled, translations
   with ★ make-source and ×, an "+ Add" select); phones: the PhoneBar (Save · Publish); a chapter row (its title link covers the row) opens
   the chapter – no separate "Edit season" / "Toon settings" / "Open" buttons. **Statuses in lists are read-only badges**
@@ -829,8 +837,9 @@ The creator is a hierarchy: **Creator → toon → season → chapter → group 
   slice) have an accessible label.
 
 Implementation: `creator/src/lib/nav.svelte.ts` (`CreatorNav` context: route crumbs from the root layout, `extra`
-crumbs + `sidebar` + `fill` registered by a page with `usePageNav`), root layout = `AppShell` with the top bar and
-sidebar (`nav-sidebar.svelte` for the default levels), `up-link.svelte` in every ActionBar.
+crumbs + `sidebar` (the page's own list) + `fill` registered by a page with `usePageNav`), root layout = `AppShell`
+with the top bar and the sidebar region (`area-menu.svelte` + the page's list), `toon-tabs.svelte`, `recent.svelte.ts`,
+`up-link.svelte` in every ActionBar.
 
 ### Creator wording (owner 2026-10-06)
 
@@ -1127,9 +1136,8 @@ Translators switch back and forth to copy, adapt and review originals, and there
   the row's tooltip. Right-aligned filled badges with a word only when something is up (`chapter-badges.svelte`):
   visibility draft / coming soon (season sequence), "Not published" (info), "not saved" (warning), "Missing" (error),
   "· ko" when only some languages are concerned. Everything published: nothing.
-- **Header on phones** (< 768px, where the sidebar is the ☰ drawer; owner-approved draft 2026-10-07): ☰ · logo ·
-  search (round); the crumbs in their OWN row under the header (`… › Chapter 1 › blotter-deal › Slice 1`, every part
-  tappable, no root – the logo is above); the text-language switch and the page's Flow button at the top of the drawer.
+- **Header on phones** (< 768px; draft D 2026-10-20 – "Creator navigation" above): one row, the menu from the right;
+  the text-language switch and the page's Flow button at the foot of the menu.
 - Language-neutral fields (`PropField`, media slots: the same in every language) don't follow the switch.
 
 ### Expressions in text fields (owner 2026-10-06, agents/EXPRESSIONS.md step 4)

@@ -3,11 +3,11 @@
 	// account reviews; "Your submissions" – its own, open or sent back. One row per submit (a chapter = its languages +
 	// scenes). Shown only when there is something in it (less UI).
 	import { askDialog, Badge } from '@scutoons/ui';
-	import { entityOf, parseEntityKey } from '@scutoons/content';
-	import { catalogDocKey } from '@scutoons/api';
+	import { entityOf } from '@scutoons/content';
 	import type { ContentReview } from '@scutoons/api';
 	import { contentApi } from '$lib/api.ts';
 	import { reviews } from '$lib/editor/reviews.svelte.ts';
+	import { placeHref } from '$lib/editor/place-href.ts';
 	import { fileLabels } from '$lib/labels.ts';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
@@ -47,28 +47,8 @@
 		return d && !Number.isNaN(d.getTime()) ? new Intl.DateTimeFormat(getLocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(d) : '';
 	};
 
-	/** the page of a group's first file (chapter / season / toon entry / cast / credits / script) */
-	function href(g: Group): string {
-		const ref = parseEntityKey(g.items[0].key);
-		const toon = g.toon;
-		// a catalog entry (agents/CATALOG-IN-CREATOR.md): its page in the catalog
-		const doc = catalogDocKey(g.items[0].key);
-		if (doc) return `/catalog/${doc.kind}?id=${encodeURIComponent(doc.id)}`;
-		switch (ref?.kind) {
-			case 'chapter':
-				return `/${toon}/chapter/${ref.number}`;
-			case 'season':
-				return `/${toon}/season/${ref.number}`;
-			case 'toon':
-				return `/${toon}/toon`;
-			case 'cast':
-			case 'credits':
-			case 'script':
-				return `/${toon}/${ref.kind}`;
-			default:
-				return `/${toon}`;
-		}
-	}
+	/** the page of a group's first file (chapter / season / toon entry / cast / credits / script / a catalog entry) */
+	const href = (g: Group) => placeHref(g.items[0].key, g.toon);
 
 	async function decide(g: Group, action: 'publish' | 'return') {
 		const vars = { file: files(g), author: author(g) };

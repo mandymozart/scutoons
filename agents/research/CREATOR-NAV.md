@@ -1,4 +1,4 @@
-Status 2026-10-20: draft D chosen (§2a, issue #92) – nothing built; questions 3–9 open.
+Status 2026-10-20: draft D chosen (§2a, issue #92) and built (agents/DESIGN.md "Creator navigation"); open: the dashboard's Problems (needs a server summary, Q8), the chapter tree's own fold; questions 3–9 open (built as drafted: Q3 squares in the bars, Q4 the areas, Q7 "Toons").
 
 # CREATOR-NAV – the creator's top bar, menu and dashboard
 

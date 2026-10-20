@@ -22,6 +22,7 @@
 		moreLabel,
 		root,
 		keep = 2,
+		plain = false,
 		testid = 'crumb'
 	}: {
 		items: BreadcrumbItem[];
@@ -33,6 +34,8 @@
 		root?: Snippet<[BreadcrumbItem]>;
 		/** how many crumbs at the end never collapse */
 		keep?: number;
+		/** a path (the creator, CREATOR-NAV.md §2a): no underlines, the levels above muted, `/` between */
+		plain?: boolean;
 		/** data-testid prefix: `<testid>-<index>` per crumb, `<testid>-more` for the "…" button, `<testid>-menu` */
 		testid?: string;
 	} = $props();
@@ -169,7 +172,7 @@
 	</li>
 {/snippet}
 
-<nav class="sc-breadcrumbs" aria-label={label} bind:this={nav} {@attach clickOutside(() => close(false), { escape: false })}>
+<nav class="sc-breadcrumbs" class:plain aria-label={label} bind:this={nav} {@attach clickOutside(() => close(false), { escape: false })}>
 	<ol class:tight>
 		{#each items as item, i (i)}
 			{#if i === first && hidden.length}{@render more()}{/if}
@@ -249,6 +252,26 @@
 	}
 	.root a {
 		text-decoration: none;
+	}
+	/* a path: links all the same, without underlines; the current place ink, the levels above muted */
+	.plain a {
+		color: var(--text-muted);
+		text-decoration: none;
+	}
+	.plain a:hover,
+	.plain a[aria-current='page'] {
+		color: var(--ink);
+	}
+	.plain .more-button {
+		min-width: 0;
+		border-color: transparent;
+		padding: 0 var(--space-025);
+	}
+	.plain li + li::before,
+	.plain .sep::before {
+		content: '/';
+		padding: 0 var(--space-05);
+		color: var(--border-muted);
 	}
 	/* "…": a text control – square (DESIGN.md "Round vs square") */
 	.more-button {
