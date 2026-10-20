@@ -1,4 +1,4 @@
-Status 2026-10-20: concept + a working one-room prototype (the cathedral from the owner's Unreal level, dev lab `/account/lab/room`, tools/rooms – §7); nothing reader-facing built; waiting for the owner's look at it and §8 (issue #74). Not on chapter 3's critical path (#64).
+Status 2026-10-20: concept + a working one-room prototype (the cathedral from the owner's Unreal level, dev lab `/account/lab/room`, tools/rooms – §7); the owner OKed the look (2026-10-20); nothing reader-facing built; next: a chapter 3 room from the Unreal map / Blender file the owner names (issue #74). Not on chapter 3's critical path (#64).
 
 # LOCATION-SCENES — a 3D room for every place on the map
 
@@ -189,8 +189,8 @@ Portrait phones keep ≥ 60° across. Measured on this PC (dev server, local CDN
   no still fallback rendered yet; KTX2; the incense smoke (Niagara) is not exported.
 
 ## 8. Owner questions (with recommendations)
-1. **The cathedral prototype (§7): is this the look and the kind of view you want?** Next room – rec.: a ch3 interior
-   (the monastery or the library – which Unreal map or Blender file?), then the same pipeline.
+1. ~~The cathedral's look~~ – OK (2026-10-20). **Next room:** a ch3 interior (the monastery or the library) – the owner
+   names the Unreal map or Blender file; then the same pipeline.
 2. **Static diorama view (tilt, zoom, tap-to-focus) or free walking?** Rec.: diorama. "Static room, like home" fits
    it; walking costs a lot of time and data.
 3. **Splats:** keep them for later (a backdrop behind mesh rooms), or is a scanned place (library wall, crypt) the
