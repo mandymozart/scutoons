@@ -1,0 +1,71 @@
+{
+	"name": "cathedral",
+	"about": "The Unreal map /Game/Maps/Church of the Roar project (Stephansdom scans: nave, side altar, pews, outer wall + roses, incense) – the map's place `cathedral` (ch2). Export: tools/rooms/unreal/export_level.py. Floor ≈ y −1.55.",
+	"drop": [],
+	"ambient": [
+		0.05,
+		0.05,
+		0.06
+	],
+	"exposure": 1,
+	"view": {
+		"at": [
+			-0.5,
+			0.35,
+			5.6
+		],
+		"look": [
+			6,
+			-0.4,
+			4.6
+		],
+		"fov": 55
+	},
+	"spots": [
+		{
+			"id": "altar",
+			"at": [
+				2.9,
+				-0.44,
+				6.35
+			]
+		},
+		{
+			"id": "aisle",
+			"at": [
+				4.3,
+				-1.56,
+				3.9
+			]
+		},
+		{
+			"id": "pew",
+			"at": [
+				2.6,
+				-1.55,
+				4.9
+			]
+		}
+	],
+	"levels": {
+		"low": {
+			"ratio": 0.3,
+			"error": 0.02,
+			"texture": 512
+		},
+		"medium": {
+			"ratio": 0.6,
+			"error": 0.01,
+			"texture": 1024
+		},
+		"high": {
+			"ratio": 1,
+			"texture": 2048
+		}
+	},
+	"cut": {
+		"margin": 10,
+		"far": 25,
+		"aspect": 2
+	}
+}

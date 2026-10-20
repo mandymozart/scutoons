@@ -1,0 +1,14 @@
+{
+	"name": "scutoons-rooms-pipeline",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "A place's room: an Unreal level export (.glb + textures + lights) → web .glb per media quality – agents/research/LOCATION-SCENES.md. Not an npm workspace on purpose (tools/rooms/pipeline is two levels deep): install here with `npm install`.",
+	"dependencies": {
+		"@gltf-transform/core": "4.2.1",
+		"@gltf-transform/extensions": "4.2.1",
+		"@gltf-transform/functions": "4.2.1",
+		"meshoptimizer": "0.25.0",
+		"sharp": "0.35.5"
+	}
+}

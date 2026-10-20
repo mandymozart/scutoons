@@ -1,4 +1,4 @@
-Status 2026-10-20: concept + measurements, nothing built; waiting for the owner to name the first scene for a one-room prototype (issue #74). Not on chapter 3's critical path (#64).
+Status 2026-10-20: concept + a working one-room prototype (the cathedral from the owner's Unreal level, dev lab `/account/lab/room`, tools/rooms – §7); nothing reader-facing built; waiting for the owner's look at it and §8 (issue #74). Not on chapter 3's critical path (#64).
 
 # LOCATION-SCENES — a 3D room for every place on the map
 
@@ -80,9 +80,9 @@ and WebP becomes full RGBA in the GPU (226 MB at 1024² – an Android phone wit
 textures and GPU-compressed ones (KTX2)**, i.e. a bake.
 
 **The pipeline (proposal):**
-1. **Compose in Unreal or Blender**, whichever has the place. From Unreal: export the room's actors (File → Export
-   Selected, FBX or USD; the glTF Exporter plugin with "bake material inputs" is the quick path – try it in the
-   prototype). Landscapes: only the visible patch, as a mesh.
+1. **Compose in Unreal or Blender**, whichever has the place. From Unreal: `tools/rooms/unreal/export_level.py` (the
+   glTF Exporter headless, without material baking – that needs a renderer; textures and lights come as files, §7).
+   Landscapes: only the visible patch, as a mesh.
 2. **Blender = the bake station:** cut to what the camera sees (a diorama has no backside), decimate to the budget,
    **one UV atlas + Cycles bake** of colour × light × AO into 1–2 textures ("baked lighting": the moody Unreal look
    becomes texture; at runtime a single unlit or lightly-lit material). Name the empties for spots (§4). Export glTF
@@ -146,27 +146,51 @@ room the reader enters is loaded. `none` tier / save-data: the still only.
 - The storyboard studio's 3D viewport is a separate tool (shots); later it could load a room `.glb` to frame
   storyboard shots in the real place.
 
-## 7. Prototype (proposal: one room, ~2–3 sessions after the owner names the scene)
-1. **Export + bake** the named scene (§3, steps 1–3), by script where it can be: a Blender `--background` Python bake
-   and `tools/rooms/build.mjs`. Measure each step's size, triangles, draw calls and GPU memory against §4.
-2. **A lab page** `/account/lab/room` (dev only, like `/account/lab/cave`): the room in HomeView's 3D mode, tilt / zoom,
-   one pickup, one resident, the still fallback. Measured on the owner's Android phone: load time, fps, memory.
-3. **Show the owner** (phone + desktop), then decide the data fields (§5) and the editor; only then build them.
+## 7. Prototype (built 2026-10-20 – owner: "go try")
+**The room:** the Roar project's `/Game/Maps/Church` → the map's place `cathedral` (ch2): an interior composed in Unreal
+from 4 Stephansdom photo scans (nave, side altar, pews, outer wall) + roses, the incense burner, 9 lights. Chosen over
+the church ruin / cabin because it is the "combine what exists in Unreal" case and already a room.
 
-**Which scene first (recommendation):** an interior that fits "a room", from a model that exists:
-- **The library (ch3)**, if there is a mesh version. Today it exists as a splat (`library-window-wall`), and a splat
-  alone would test the hard path first.
-- **The cabin** (`Model/cabin`, 111 MB) or **the church ruin** (`kirchenruine`, 176 MB) – meshes, probably interiors;
-  if one is the monastery or the mountain village (ch3) it is the best start.
-- Not first: `Mercury_Mountain_Path` (a landscape – an outdoor place needs a "room" cut out of it, a later case) and
-  `station` (650 MB).
-- Note: the map's `mountain-village` place is removed (a tombstone); ch3's open places are beyond-the-crossroads,
-  mountain-path, forest-clearing, monastery, library.
+**Pipeline** (tools/rooms/README.md): `unreal/export_level.py` runs headless in the owner's UE 5.6 (`-nullrhi`, ~10 s,
+read-only) → `level.glb` (158k triangles, 16 draw calls, no textures – the glTF exporter can't bake materials without a
+renderer) + the 4 scan textures as PNG (8k–10k², 217 MB) + the actors / materials / lights as json →
+`pipeline/build.mjs rooms/cathedral.json`: textures back onto the scans; **Unreal's 9 lights baked into vertex colours**
+(inverse square, Unreal's radius window, spot cones, no shadows) and every material unlit, normals / tangents dropped;
+the room's own eye-level `view`; `spot_<id>` nodes; **a view cut** (the triangles the view can't see while the reader looks
+around go: 158k → 129k); per level simplify, WebP, quantize, meshopt. Whole build ~20 s.
+
+| cathedral | low | medium | high |
+|---|---|---|---|
+| Download | 1.82 MB | **2.43 MB** | 3.78 MB |
+| Triangles | 84,760 | 99,241 | 129,205 |
+| Draw calls (room) | 6 | 6 | 6 |
+| Texture memory | 5.6 MB | 22.4 MB | 81.6 MB |
+
+Medium is inside §4's budget; low is 0.3 MB over (the scans' UV seams stop the simplifier – a Blender re-bake onto one
+atlas would fix both); high is over on texture memory (4 × 2048² WebP = RGBA in the GPU – KTX2 needed, `toktx` not
+installed yet).
+
+**Lab** `/account/lab/room` (dev only; room-stage.js – own three.js stage with the meshopt decoder): the room, the
+Awakening LP (its item `.glb`) on the altar, a cucumber (its icon as a standing card) on the floor, Cat Pope (her
+persona `.glb`, 1.1 m) as a resident; drag / tilt pivots (±18° / ±6°), wheel / pinch moves in, a tap takes a pickup ("ist
+jetzt in deiner Tasche") or greets the resident, a tap on the room prints the point (= how the editor would set a spot).
+Portrait phones keep ≥ 60° across. Measured on this PC (dev server, local CDN): fetch 16 ms + parse 45 ms + things
+60 ms; 47 fps at 1024 × 768 (with things: 101k triangles, 15 draw calls). On 4G (20 Mbit/s) medium ≈ 1 s download.
+
+**Learned:**
+- Unreal → web works headless and needs no Blender for scan-based rooms: the scans' textures already carry their light,
+  the vertex bake adds Unreal's mood for free at runtime. Blender stays the step for modelled (non-scan) rooms: one
+  atlas, a real light bake (shadows), better simplification.
+- The level's own camera is a cinematic top-down shot – a room needs its reader view set by hand (`view` in room.json;
+  the lab's tap gives the points).
+- Scan rooms have holes where the scanner didn't look; the view cut + a fixed camera hide most of them – a free walk
+  would show them all (another reason for the diorama).
+- Gaps: not measured on a phone yet (none attached – the owner's Android over USB + `chrome://inspect` gives fps / memory);
+  no still fallback rendered yet; KTX2; the incense smoke (Niagara) is not exported.
 
 ## 8. Owner questions (with recommendations)
-1. **Which scene first?** Rec.: a ch3 interior that exists as a mesh – the monastery / library if you have one, else
-   the cabin or the church ruin (§7). Which Unreal map or Blender file is it, and which camera (an existing
-   storyboard render's camera = the room's view)?
+1. **The cathedral prototype (§7): is this the look and the kind of view you want?** Next room – rec.: a ch3 interior
+   (the monastery or the library – which Unreal map or Blender file?), then the same pipeline.
 2. **Static diorama view (tilt, zoom, tap-to-focus) or free walking?** Rec.: diorama. "Static room, like home" fits
    it; walking costs a lot of time and data.
 3. **Splats:** keep them for later (a backdrop behind mesh rooms), or is a scanned place (library wall, crypt) the
