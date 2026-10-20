@@ -5,25 +5,30 @@ agents/DECISIONS.md. A change to how agents work changes this file in the same c
 
 ## Backlog – GitHub issues (every session, except hotfixes; owner 2026-10-19)
 - **All open work is a GitHub issue** in `mandymozart/scutoons` (private): bugs, features, changes, owner steps, open
-  decisions. Priority = the status on the board **SCUTOONS** (GitHub → Projects). Never a backlog in docs, memory or
-  HANDOVER. ISSUES.md / FEATURES.md are gone; an old number 10.N / M.N: `gh issue list -s all --search '"10.N" in:body'`.
+  decisions. The board **SCUTOONS** (GitHub → Projects) has six statuses (owner 2026-10-20): **Backlog** (wanted; the
+  board's order top down = the owner's priority) · **Proposals** (new issues + open `decide` questions; an open issue
+  without a status counts here) · **In progress** · **Review on staging** (built and committed – the owner checks it on
+  production after the push) · **Deployed** (closed by the push) · **Done** (the owner checked it). Never a backlog in
+  docs, memory or HANDOVER. ISSUES.md / FEATURES.md are gone; an old number 10.N / M.N: `gh issue list -s all --search '"10.N" in:body'`.
 - **Start:** every session works on an issue. The owner names it (`#N`), or the request becomes one before the first
   edit – search first (`gh issue list --search …`), else `gh issue create` (form below). Read it with
   `gh issue view N --comments`, then `npm run backlog -- set N "In progress"`. Unattended runs: `npm run backlog`,
-  the Now column top down.
+  Backlog top down.
 - **Scope creep** (CLAUDE.md one level up): anything outside the issue becomes a new issue (no status = the owner's
   inbox), not part of this session – unless the owner says so.
 - **Commits** name the issue: the message ends with `Refs #N` for a step, `Fixes #N` on the commit that finishes it
   (GitHub closes it when the owner pushes = when it is live). `#N` never starts a line (git drops it as a comment).
 - **End of a session:** one comment on the issue (`gh issue comment N`): what was built / decided, what is open, which
-  checks are green. An open rest goes into the issue body's **Open:** list and the status back to Now / Next (or what
-  the owner said). The history lives in the issue and in git, never in docs.
+  checks are green. Finished (`Fixes #N` committed) → `npm run backlog -- set N "Review on staging"`; an open rest
+  goes into the issue body's **Open:** list and the status back to Backlog (or what the owner said). The history lives in the issue and in git, never in docs.
 - **Owner decision:** label `decide`, assigned to the owner (agents use the owner's gh login: `--add-assignee @me`),
   the question with the options and your recommendation in the issue; the answer → a DECISIONS line (+ the topic doc),
   the label off. **Owner step** (secrets, publishing, art, uploads): label `owner`, assigned too – the owner's
   "Assigned to me" is their to-do list.
-- **Priorities are the owner's:** a new issue gets no status (inbox); agents set Now / Next / Later / Someday only when
-  the owner says so, and move only their own issue to In progress and back. Closing moves it to Done by itself.
+- **Priorities are the owner's:** a new issue gets no status or Proposals; agents move an issue into Backlog, reorder
+  Backlog, or set Deployed / Done only when the owner says so, and move only their own issue to In progress, Review on
+  staging and back. The push closes a `Fixes #N` issue → Deployed (board workflow "Item closed", #63); Done is the
+  owner's.
 - **Hotfix** = production is broken and the fix is small: no issue needed, the commit message starts with `hotfix:`;
   whatever it leaves open becomes an issue.
 - **Issue form:** title = the thing (no number). Labels: one type (`bug` · `feature` · `chore`), one `area:*`, +
