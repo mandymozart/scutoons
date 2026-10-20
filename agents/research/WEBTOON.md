@@ -69,7 +69,7 @@ yet, every reveal in its end state, nothing that needs a tap. One rule set, no p
 | Boxes revealed by `showTextBox` | drawn in their end state (no box hides itself again) | ch1 s30; ch2 scene-14 (2), scene-17-24 (2) |
 | Placed items (none / pickup / events) | drawn at rest as plain art, on vertical versions too (§8); the tap is lost | ch1 2, ch2 8 (6 on the strips), ch3 6, ch4 1, ch5 2 |
 | VN lines (`showMessage`), item events, click / sound areas | dropped; the preflight quotes each dropped line (§12 Q4) | ch2 swim pants (a tap event), ch3 scene-25 s0 "No photos, please!" |
-| Video | the slice image (its poster) at its best variant | ch1 key visual (3x poster); ch2 key visual (1x only → upscaled 2.05×, its own issue); ch0 is only a music video (§12 Q6) |
+| Video | the slice image (its poster) at its best variant; a key visual composed with the centred 5:8 band (ch3 on, SLICE-GRID Q1) is cropped to that band = one image | ch1 key visual (3x poster); ch2 key visual (1x only → upscaled 2.05×, its own issue); ch0 is only a music video (§12 Q6) |
 | Audio, lyrics notes' animation, FX | dropped (CANVAS has no music, GIF or animation); lyrics boxes are text and stay | ch1 11 slices, ch2 26 |
 | Sensitive slices | shown clear (WEBTOON bans blur, box and mosaic censoring); listed for the rating | none |
 | `{…}` expressions, choices, jumps inside a chapter | refused (an error): a static episode has one reader and one path | none in catpope; toptoy ch1 is out of scope |

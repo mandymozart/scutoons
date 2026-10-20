@@ -1,4 +1,4 @@
-Status 2026-10-20: concept, nothing built; waiting for the owner (§8, issue #96). Chapter 3 needs two answers by Sun Oct 25 (Q1, Q2) and three small storyboard-script fixes before its first scene cut (A, B, J). Everything else comes after #64 (Nov 15). No stored format changes, no migration.
+Status 2026-10-20: concept, nothing built. Q1, Q2 and Q7 answered (§8); the other answers and the owner's agreement wait (issue #96). Before chapter 3's first scene cut (~Oct 26): the storyboard-script steps A, B, J (§3.2). Everything else comes after #64 (Nov 15). No stored format changes, no migration.
 
 # SLICE-GRID — one slice size across the platform
 
@@ -79,7 +79,7 @@ screen stay outside the rule (§2).
 |---|---|---|
 | Slices of vertical groups and of vertical versions | on | they are the column that readers scroll and that WEBTOON gets |
 | A framed video in the column (`video.frame`) | on, through its frame: 5:8 = 1 slice | the frame sets the slice size (`fillSliceSize`, creator images.ts:74-98); its fit decides crop or bars |
-| Key visuals (ch1 s0, ch2 `keyvisual`: 390 × 845 = 6:13) | outside (recommended, Q6) | composed for one phone screen. The coming-soon teaser shows the same media full screen (chapter-teaser.svelte:16, "Portrait windows crop to fill"). The export cuts each one once, invisibly |
+| Key visuals (ch1 s0, ch2 `keyvisual`: 390 × 845 = 6:13) | outside in the reader; the export crops a key visual composed with the centred 5:8 band to it (Q1: ch3 on); ch1 / ch2 per Q6 | composed for one phone screen. The coming-soon teaser shows the same media full screen (chapter-teaser.svelte:16, "Portrait windows crop to fill"). The export cuts each one once, invisibly |
 | Full-viewport video (`video.viewport`, ch0) | outside | its box is the screen (content.ts:204-206); the stored height is only the poster's |
 | Pinned-strip and endless-band frames | outside | drawn at the screen's height (viewer strip.svelte:12-14, `lvh`). Their ratio only counts how many screens wide they are, and they are never exported (the vertical version is). A 5:8 frame would be 1.35 screens wide on an 844 phone (computed) |
 | Storyboard `loop360` and `strip` (the sideways pass) | outside | they become those frames; their slides stay 390 × 844 (compile.mjs:59-64) |
@@ -421,12 +421,9 @@ first throw now (#67).
 
 ## 8. Owner questions (with recommendations)
 **By Sun Oct 25 (chapter 3):**
-1. **Chapter 3's key visual: compose it for the screen (6:13, 390 × 845 at 1x), with everything that matters inside
-   the centred 5:8 band (the middle 624 rows)?**
-   - The Nov 1 teaser shows it full screen and crops portrait windows to fill (chapter-teaser.svelte:16).
-   - A picture made for 5:8 alone would lose 26 % of its width there on a 390 × 844 phone (computed).
-   - With the band, it also crops cleanly to one slice if Q6 later picks a 5:8 frame.
-   - Rec.: yes.
+1. **Chapter 3's key visual** – answered (owner 2026-10-20: "i like the crop for export"): composed for the screen (6:13,
+   390 × 845 at 1x) with everything that matters inside the centred 5:8 band (the middle 624 rows). The reader and the
+   Nov 1 teaser show it whole; the WEBTOON export crops it to the band = exactly one WEBTOON image.
 2. **Chapter 3's group ends at the cut.** On today's storyboard the 11 groups end on pieces of 51–597 px. Today's
    cutter keeps them as short slices and joins ends under 160 px into 669–745 px slices (two images each). Options:
    - (a) Never join, and keep the short ends. Each fits one WEBTOON image but isn't a whole slice, and one of them
@@ -437,6 +434,7 @@ first throw now (#67).
      1959 px: about 2.3 phone screens of flat colour at scene changes.
    - The fallback for all three is today's cutter.
    - Rec.: (c), with (b) wherever it suits the art. Every ch3 slice is then 390 × 624.
+   - Answered (owner 2026-10-20: "Q2 b and c are fine"): (c), with (b) wherever it suits the art.
 
 **After Nov 15:**
 3. **A tall picture: k slices of one unit each (sharing its shot), or one slice of k units?**
@@ -458,9 +456,9 @@ first throw now (#67).
    - "No" means ch4–5 are made the ch3 way (lines + pads).
    - Rec.: whole slices for every new storyboard; for ch4–5 only if their Figma layout hasn't started by Nov 16,
      otherwise the ch3 way.
-6. **Key visuals in the column (ch1 and ch2 at 6:13; ch3 per Q1):**
-   - (a) outside the rule, like full-viewport video: they are made for one screen, and the export cuts each once,
-     invisibly;
+6. **Key visuals in the column (ch1 and ch2 at 6:13; ch3 per Q1).** Q1 settles the export for a key visual composed
+   with the 5:8 band (the export crops to it). ch1's and ch2's weren't composed that way – for them:
+   - (a) outside the rule in the reader; the export cuts each once, invisibly (two WEBTOON images, no crop);
    - (b) a 5:8 frame, "Fill (cropped)", at top, centre or bottom. ch1's poster loses either the figure at the top
      right or the sphynx cat at the bottom in every position (viewed); ch2's is still to be previewed;
    - (c) you recompose ch1 and ch2 for 5:8.
