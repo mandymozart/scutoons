@@ -25,7 +25,7 @@ gift goes straight to the recipients of a newsletter. Same page in the admin, sa
 | limit | per member, per day, stock | stock; per account: the item's own limit (`max`, e.g. 1) |
 | after the window | not joined → back to the member | not claimed → it lapses ("verfällt") |
 | physical | the friend gives an address per invite | the reader's **account address** (§5) |
-| new codes | **yes**: one promo code per invite (the friend's way in) | **none** (§3) |
+| new codes | **yes**: one promo code per invite (the friend's way in) | only for recipients who gave nothing but their email (§3) |
 
 One campaign has one kind (the admin picks it when creating it; it can't change once something went out).
 
@@ -34,16 +34,19 @@ One campaign has one kind (the admin picks it when creating it; it can't change 
 - **Product codes** (QR on a record, shirt, amulet): printed, unchanged. They are how people own things and sign up.
 - **Einladen** makes **one promo code per invite** – only so a friend without a product can make an account. It works
   once and ends with the invite. The admin never handles these codes; they show only as "Einladungen" on the campaign.
-- **Verschenken makes no codes.** The newsletter button is a personal *link* (signed with the address, single use for
+- **Verschenken makes codes only for people who gave nothing but their email** (the event sign-up lists, §8 4): one
+  promo code each, made when their mail goes out, single use, ending with the campaign – their way in, like an
+  invite's. Not the event codes (multi-use, on posters, links to event info): those are never a campaign. Everyone
+  else's button is a personal *link* (signed with the address, single use for
   the sign-in part, #65) – not a code. Who can receive:
   - members: sign in with the link, claim
   - old QR-form contacts without an account: the link signs them up **with their own existing product code** (#65), then they claim
-  - contacts without an account and without any code (event lists): no button – an account still needs a code
+  - contacts without an account and without any code (event lists): the link signs them up with their personal promo code
 - **A physical gift** is shipped; the product in the parcel carries its own printed QR code, claimed the normal way.
   Verschenken itself still adds no code.
 
-So the code list (admin → Codes) only ever grows by printed product batches, promo batches and invite codes – never by
-a giveaway.
+So the code list grows by printed product batches, promo batches, and the codes campaigns make themselves (one per
+invite, one per email-only recipient of a giveaway) – those show on their campaign, never typed by hand.
 
 ## 4. What the admin does
 
@@ -54,7 +57,9 @@ stock (empty = no limit), for a physical item the countries it ships to. Start /
 (name, address, country, claimed on) with **Versendet**, and "Wartet auf Adresse" (count). A started campaign keeps its
 item (things went out).
 
-**Newsletter editor:** a select "Geschenk" with the running and planned Verschenken campaigns (none = no gift); the
+**Newsletter editor:** a select "Geschenk" with the running and planned Verschenken campaigns (none = no gift); under
+it what each group gets: "N Mitglieder – melden sich an und holen ab · N mit QR-Code, ohne Account – legen mit ihrem
+Code einen Account an · N nur E-Mail (nichts gekauft) – bekommen einen eigenen Promo-Code und damit einen neuen Account"; the
 placeholder list offers `{gift}` (a line of its own, like `{signin}`). Start refuses a `{gift}` line without a campaign,
 and a campaign whose window ends before the start. The newsletter keeps nothing of the gift itself – only which
 campaign.
@@ -94,8 +99,11 @@ campaign.
 2. One campaign, several newsletters (a reminder) – yes; the claim stays once per address.
 3. A claimed physical gift without an address lapses 30 days after the window ends – yes (a reminder on the account page
    meanwhile).
-4. **Who can take part: b – members and QR owners without an account** (they make the account with their product
-   code); event contacts without a code get no button ("4b", after weighing the cases below):
+4. **Who can take part: everyone in the newsletter – c.** First "4b" (event contacts no button), then: "muessen aber
+   mitglieder werden. also zumindest account. mit den promo codes gehen wir im moment mal noch chillig um" and, asked
+   about the people on the event sign-up lists (contacts, not the multi-use event codes on posters – those stay apart):
+   a personal promo code – "wichtig. aber das das in der ui klar wird. das da an leute die ausser ihrer email adresse
+   nichts gegeben oder gekauft haben" (§4: the editor shows the three groups and what each gets). The cases:
 
 | # | Recipient | What the button does | Note |
 |---|---|---|---|
@@ -112,9 +120,10 @@ campaign.
 
 Ways to decide 4:
 - **a. members only (A, B, F):** simplest; QR owners without an account get the gift only after they sign up some other way.
-- **b. members + QR owners (A–D, F–J)** – **chosen**: the gift is the reason to finally make the account; risk G (a
+- **b. members + QR owners (A–D, F–J)** – chosen first: the gift is the reason to finally make the account; risk G (a
   second account) is small and the same as today's sign-up page.
-- **c. b + event contacts (E)** with a personal promo code each: reaches everyone, but a giveaway then creates codes
+- **c. b + event contacts (E)** with a personal promo code each – **chosen** (made when their mail goes out, single
+  use, ending with the campaign; shown on the campaign): reaches everyone, but a giveaway then creates codes
   again – exactly what the owner wants to avoid.
 
 ## 9. Where the first build stands
