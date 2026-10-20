@@ -47,6 +47,7 @@ import {
 import type { Config } from './config.ts';
 import { RULES } from './resources.ts';
 import { creatorHref, type AppLinks } from './services.ts';
+import { checkStoryboard } from './storyboard-model.ts';
 
 type Json = any;
 type Result = { content: { type: 'text'; text: string }[]; isError?: boolean };
@@ -236,6 +237,12 @@ export function registerContentTools(server: McpServer, config: Config, options:
 			const [{ docs }, moods] = await Promise.all([collection(CHARACTERS_COLLECTION, 'draft', { key, doc }), data<MoodVocabulary>('moods')]);
 			const problems = checkCharacterDocs(docs, { languages: ['de', 'en'], moods: moods ?? defaultMoodVocabulary() }).filter((p) => p.key === key);
 			return { problems: problems.map(({ level, docPath, message }) => ({ level, file: key, locale: null, path: docPath, message })), validated: true };
+		}
+		// a chapter's storyboard (#122): the storyboard page's checks – content's validateChapter (warnings include the rhythm)
+		if (ref.kind === 'storyboard') {
+			const { errors, warnings } = checkStoryboard(doc);
+			const problem = (level: 'error' | 'warning') => (message: string): Problem => ({ level, file: key, locale: null, path: [], message });
+			return { problems: [...errors.map(problem('error')), ...warnings.map(problem('warning'))], validated: true };
 		}
 		const kind = ({ chapter: 'chapter', season: 'season', 'toon-settings': 'toon', toon: 'index', script: 'script', colorations: 'colorations' } as Record<string, string>)[ref.kind];
 		// the toon entry: its language-neutral settings + its texts per language (agents/NEUTRAL.md step 4)

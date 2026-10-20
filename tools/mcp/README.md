@@ -15,6 +15,7 @@ Readers (no member role) can't connect. ChatGPT / Cursor: not offered for now.
 | creator | content (read + write) | `src/server.ts`: `list_toons`, `list_chapters`, `read_entity`, `list_entities`, `search_content`, `read_characters`, `read_map_places`, `search_assets`, `list_versions`, `validate`, `upload_asset`, `save_draft`, `restore_version`, `submit_for_review` – plus `src/story.ts` |
 | admin (not creator) | content (read only) | the reading tools above + `src/story.ts` |
 | creator / admin | story | `src/story.ts`: `read_flow` (SCUTOONS / toon / chapter / group – the Flow panel's own functions, stuck points), `story_variables`, `dead_things`, `item_placements`, `asset_usages`, `missing_assets`, `list_reviews`, `compare_versions` |
+| creator / admin | storyboard (#122) | `src/storyboard.ts`: `read_storyboard` (the chapter's `storyboard:<toon>:<n>` as an outline with each shot's JSON path – edits go through `save_draft`), `storyboard_validate` (validateChapter + the rhythm), `storyboard_prompt` (a shot's Luma prompt + the files to attach found on this machine), `list_generations`; creators also `mark_generation`, `approve_generation`, `record_generation` (a generation made on the member's machine – a ledger row, nothing uploaded). Paid jobs: #121 |
 | creator | Figma (the member's own file) | `src/figma.ts`: `figma_status`, `figma_read`, `figma_view` (a node as a picture), `figma_place_draft` (storyboard draft frames) – through the SCUTOONS Figma bridge on the member's computer (`tools/figma-bridge`: relay + development plugin in Figma desktop; no Figma token, no call cap) |
 | liaison / ambassador / admin | Embassy | `src/embassy.ts`: `today`, `my_portion`, `search_orgs`, `read_org`, `list_team`, `list_releases`, `log_activity`, `set_lead`, `create_org`, `update_org`, `add_person`, `update_person`, `delete_person`, `draft_mail`, `check_inbox` |
 | admin | admin | `src/admin.ts`: `dashboard`, `count_codes`, `list_codes`, `read_code`, `list_events`, `list_users`, `read_user`, `reading_stats`, `list_claims`, `read_claim`, `email_log`, `read_catalog`, `catalog_history`, `read_calendar`, `read_settings`, `propose_changes` |
@@ -86,6 +87,9 @@ Check (local only, restores what it changes):
 ```bash
 npm run check:mcp
 ```
+
+`npm run check -w tools/mcp` = tsc + the unit tests (`test/*.test.ts`, `npm run test -w tools/mcp`). `storyboard_prompt`
+finds the files to attach in a checkout's `storyboards/` + `media/`, or in `SCUTOONS_STORYBOARDS` / `SCUTOONS_MEDIA`.
 
 ## Example
 

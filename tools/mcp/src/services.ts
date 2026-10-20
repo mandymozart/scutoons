@@ -79,6 +79,8 @@ export function creatorHref(links: AppLinks, key: string): string | null {
 	switch (ref.kind) {
 		case 'chapter':
 			return `${base}/chapter/${ref.number}`;
+		case 'storyboard':
+			return `${base}/chapter/${ref.number}/storyboard`;
 		case 'season':
 			return `${base}/season/${ref.number}`;
 		case 'script':

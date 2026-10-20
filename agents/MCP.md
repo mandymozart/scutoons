@@ -232,3 +232,17 @@ Open:
   in the agent's reach).
 - The four browser checks that lost their Ask steps (creator-dock, creator-flow-dock, creator-reader, tools-dock) were
   not run after the change – ISSUES 10.87.
+
+## 9. Storyboard (#122, 2026-10-21)
+
+The chapter storyboard `storyboard:<toon>:<n>` and its generations (research/STUDIO-IN-CREATOR.md §2.3, server/docs/API.md
+"Storyboard"), `src/storyboard.ts` (tools) + `storyboard-model.ts` (pure: outline, shot paths, record bodies – unit tests
+in `test/`) + `storyboard-refs.ts` (the files on the member's machine). Content editors; an admin who isn't a creator reads.
+- `read_storyboard` (an outline: scenes → groups → shots with their JSON `path` for save_draft ops; `scene` / `shot` /
+  `full` add the JSON), `storyboard_validate` (content's validateChapter + summarize's rhythm; `ops` = check before
+  saving), `storyboard_prompt` (content's lumaPrompt; the render / style / character files when this machine has a
+  `storyboards/` folder – a checkout, or `SCUTOONS_STORYBOARDS`), `list_generations`.
+- Writes (creators): `mark_generation`, `approve_generation` (the record only), `record_generation` (a generation made on
+  the member's machine – a row in the ledger, nothing uploaded). Edits of the document: `save_draft` – the storyboard's
+  checks run there too (errors refuse the save), and every result links the creator's `/<toon>/chapter/<n>/storyboard`.
+- Paid provider jobs (`start_generation`) come with the server's generators (#121).

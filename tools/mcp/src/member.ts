@@ -12,6 +12,7 @@ import { instructions, registerPrompts } from './prompts.ts';
 import { registerContentTools } from './server.ts';
 import { appLinks, type Member, type Services } from './services.ts';
 import { registerStoryTools } from './story.ts';
+import { registerStoryboardTools } from './storyboard.ts';
 import { pendingUpdate, takeUpdateOnce } from './update.ts';
 import { registerVectorTools } from './vectors.ts';
 
@@ -59,6 +60,8 @@ export function createMemberServer(config: Config, member: Member, services: Ser
 	if (services.content) {
 		registerContentTools(server, config, { write: services.content === 'write', links });
 		registerStoryTools(server, config);
+		// the chapter storyboards and their generations (#122) – an admin who isn't a creator reads
+		registerStoryboardTools(server, config, { write: services.content === 'write', links });
 		// the member's own Figma file through the SCUTOONS Figma bridge (tools/figma-bridge) – creators who write
 		if (services.content === 'write') registerFigmaTools(server);
 	}
