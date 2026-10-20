@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import EmailsNav from '$lib/components/emails-nav.svelte';
+	import NewsletterGift from '$lib/components/newsletter-gift.svelte';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -28,7 +29,7 @@
 	let selection = $state<{ count: number; missing_locale: number; locales: Record<string, number> } | null>(null);
 	let locale = $state<NewsletterLocale>('de');
 	let busy = $state(false);
-	let draft = $state({ title: '', audiences: [] as string[], subject_de: '', subject_en: '', body_de: '', body_en: '' });
+	let draft = $state({ title: '', audiences: [] as string[], subject_de: '', subject_en: '', body_de: '', body_en: '', gift_campaign_id: null as string | null });
 	let previewHtml = $state('');
 	// pictures (owner 2026-10-09): the asset manager's picker puts `![](path)` as its own paragraph at the cursor
 	let picking = $state(false);
@@ -50,10 +51,12 @@
 	// the placeholders the renderer knows (NewsletterRenderer: {name}, {name|fallback}, the {signin} paragraph – #65),
 	// picked from a list (owner 2026-10-09)
 	const SIGNIN = '{signin}';
+	const GIFT = '{gift}';
 	const variables = $derived([
 		{ value: '{name}', label: m['newsletter.variable_name']() },
 		{ value: locale === 'de' ? '{name|du}' : '{name|there}', label: m['newsletter.variable_name_or']({ word: locale === 'de' ? 'du' : 'there' }) },
-		{ value: SIGNIN, label: m['newsletter.variable_signin']() }
+		{ value: SIGNIN, label: m['newsletter.variable_signin']() },
+		{ value: GIFT, label: m['newsletter.variable_gift']() }
 	]);
 	/** puts a placeholder at the cursor of the body, inside the line – the sign-in button as a paragraph of its own */
 	function insertVariable(value: string) {
@@ -62,7 +65,7 @@
 		const start = bodyArea?.selectionStart ?? text.length;
 		const end = bodyArea?.selectionEnd ?? start;
 		let caret = start + value.length;
-		if (value === SIGNIN) {
+		if (value === SIGNIN || value === GIFT) {
 			const before = text.slice(0, start).replace(/\s*$/, '');
 			draft[key] = [before, value, text.slice(end).replace(/^\s*/, '')].filter((part) => part !== '').join('\n\n');
 			caret = (before ? before.length + 2 : 0) + value.length;
@@ -76,14 +79,22 @@
 	}
 	let previewSubject = $state('');
 
-	const fields = ['title', 'audiences', 'subject_de', 'subject_en', 'body_de', 'body_en'] as const;
+	const fields = ['title', 'audiences', 'subject_de', 'subject_en', 'body_de', 'body_en', 'gift_campaign_id'] as const;
 	const dirty = $derived(!!item && fields.some((f) => JSON.stringify(draft[f]) !== JSON.stringify(item![f])));
 	const editable = $derived(item?.status === 'draft');
 	const textEditable = $derived(item?.status === 'draft' || item?.status === 'paused');
 
 	function apply(next: Newsletter) {
 		item = next;
-		draft = { title: next.title, audiences: [...next.audiences], subject_de: next.subject_de, subject_en: next.subject_en, body_de: next.body_de, body_en: next.body_en };
+		draft = {
+			title: next.title,
+			audiences: [...next.audiences],
+			subject_de: next.subject_de,
+			subject_en: next.subject_en,
+			body_de: next.body_de,
+			body_en: next.body_en,
+			gift_campaign_id: next.gift_campaign_id
+		};
 	}
 
 	$effect(() => {
@@ -300,6 +311,8 @@
 			</p>
 		{/if}
 	</Section>
+
+	<NewsletterGift newsletterId={item.id} value={draft.gift_campaign_id} audiences={draft.audiences} {editable} onchange={(next) => (draft.gift_campaign_id = next)} />
 
 	<div class="compose">
 		<div class="text">

@@ -18,7 +18,8 @@ use Scutoons\Support\Time;
  *   paused   no batch sends; subject / body can still be fixed (the rest of the mails get the new text)
  *   done     every recipient is sent, failed or skipped
  * Start refuses: no recipients, a recipient without a language (a contact – set it on the Contacts page), no subject /
- * body for a language a recipient has.
+ * body for a language a recipient has, a `{gift}` paragraph without a gift, a gift whose claim window is over.
+ * The gift (#66): `gift_campaign_id` = a giveaway campaign (Campaigns\Giveaways) or null – set in the draft.
  */
 final class Campaigns
 {
@@ -59,7 +60,9 @@ final class Campaigns
             $fields['title'], $fields['audiences'] ?? '[]', $fields['subject_de'] ?? '', $fields['subject_en'] ?? '', $fields['body_de'] ?? '', $fields['body_en'] ?? '',
             'draft', $now, mb_substr($by, 0, 255), $now, mb_substr($by, 0, 255),
         ]);
-        return $this->get($this->db->lastInsertId());
+        $id = $this->db->lastInsertId();
+        if (array_key_exists('gift_campaign_id', $fields)) return $this->update($id, ['gift_campaign_id' => $body['gift_campaign_id']], $by);
+        return $this->get($id);
     }
 
     /**
@@ -109,6 +112,17 @@ final class Campaigns
             foreach (array_unique(array_column($recipients, 'locale')) as $locale) {
                 if (trim((string) $row["subject_$locale"]) === '' || trim((string) $row["body_$locale"]) === '') {
                     throw new ApiError(409, 'missing_text', "Subject and text in $locale are missing – some recipients read $locale.", ['locale' => $locale]);
+                }
+            }
+            foreach (MailTemplates::LOCALES as $locale) {
+                if (($row['gift_campaign_id'] ?? null) === null && preg_match('/^[ \t]*\{gift\}[ \t]*$/m', (string) $row["body_$locale"])) {
+                    throw new ApiError(409, 'gift_missing', "The $locale text has a {gift} line, but the newsletter has no gift.", ['locale' => $locale]);
+                }
+            }
+            if (($row['gift_campaign_id'] ?? null) !== null) {
+                $gift = $this->db->one('SELECT status, ends_at FROM campaigns WHERE id = ?', [$row['gift_campaign_id']]);
+                if ($gift === null || $gift['status'] === 'stopped' || (string) $gift['ends_at'] <= $this->clock->utc()) {
+                    throw new ApiError(409, 'gift_ended', 'The gift\'s campaign is over or stopped – choose another one.');
                 }
             }
             foreach (array_chunk($recipients, 200) as $chunk) {
@@ -194,7 +208,7 @@ final class Campaigns
     /**
      * The changeable columns in $body, checked for the newsletter's status
      * @param array<mixed> $body
-     * @return array<string, string>
+     * @return array<string, string|null>
      */
     private function fields(array $body, bool $requireTitle, string $status): array
     {
@@ -205,6 +219,7 @@ final class Campaigns
             $fields['title'] = $title;
         }
         if (array_key_exists('audiences', $body)) $fields['audiences'] = (string) json_encode(Audiences::check($body['audiences']), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        if (array_key_exists('gift_campaign_id', $body)) $fields['gift_campaign_id'] = $this->giftCampaign($body['gift_campaign_id']);
         foreach (MailTemplates::LOCALES as $locale) {
             if (array_key_exists("subject_$locale", $body)) {
                 $subject = $body["subject_$locale"];
@@ -230,6 +245,17 @@ final class Campaigns
                 : 'A newsletter that is sending or done can\'t change – pause it first.', ['status' => $status]);
         }
         return $fields;
+    }
+
+    /**
+     * The newsletter's gift: null or the id of a giveaway campaign that is not stopped. 400 invalid_gift
+     */
+    private function giftCampaign(mixed $id): ?string
+    {
+        if ($id === null || $id === '') return null;
+        $ok = is_string($id) && $this->db->value("SELECT 1 FROM campaigns WHERE id = ? AND kind = 'giveaway' AND status <> 'stopped'", [$id]) !== null;
+        if (!$ok) throw new ApiError(400, 'invalid_gift', 'gift_campaign_id: a "Verschenken" campaign that is not stopped.');
+        return $id;
     }
 
     /**
@@ -272,6 +298,7 @@ final class Campaigns
             'subject_en' => (string) $r['subject_en'],
             'body_de' => (string) $r['body_de'],
             'body_en' => (string) $r['body_en'],
+            'gift_campaign_id' => isset($r['gift_campaign_id']) ? (string) $r['gift_campaign_id'] : null,
             'status' => (string) $r['status'],
             'last_error' => $r['last_error'] !== null ? (string) $r['last_error'] : null,
             'created_at' => Time::iso($r['created_at']),

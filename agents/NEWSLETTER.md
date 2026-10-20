@@ -53,6 +53,16 @@ The link `APP_URL[/en]/?signin=<token>` is a login request made when the mail is
 used or expired → "Der Link geht nicht mehr" → the sign-in page. Preview: a member's button to /account; Test to me:
 the admin's own (staff → /account).
 
+**The gift** (owner 2026-10-20, #66; agents/research/CAMPAIGN-GIFTS.md): the editor's "Geschenk" picks a campaign of the
+kind "Verschenken" (Campaigns – item, stock, window, countries live there), and a paragraph `{gift}` becomes the
+recipient's button "Ein Geschenk wartet auf dich": the #65 sign-in link + `&gift=<token>` (staff: `?gift=` alone). Members
+sign in, QR owners sign up with their product code, and recipients who gave nothing but their email get a personal promo
+code (`campaign_codes`, one per campaign + address, ending with the campaign, then the campaign's reading rule) – the
+editor lists the three groups with their counts. The viewer opens the gift sheet: "Abholen" (once per address, while the
+campaign runs and its stock lasts); a physical gift waits for the account's shipping address (account → Stammdaten).
+Start refuses a `{gift}` line without a gift and a campaign that is over or stopped. One campaign may serve several
+newsletters (a reminder).
+
 States: draft (everything changes) → sending (recipients fixed at the start – later contacts are not added) ⇄ paused
 (subject and text can still be fixed; the rest gets the new text) → done. Draft and done can be deleted (mail_log keeps
 its rows).

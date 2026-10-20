@@ -1,4 +1,4 @@
-Status 2026-10-20: concept decided (§8), being built (#66) – nothing of it is committed; a first newsletter-only build lies unused in the working tree (§9).
+Status 2026-10-20: built (#66) – how it is now: ITEMS.md "Gift invites" (Giveaways), NEWSLETTER.md "The gift"; this file keeps the decisions and their story.
 
 # CAMPAIGN-GIFTS — SCUTOONS gives an item away: one campaign, several ways to hand it out
 
@@ -125,11 +125,3 @@ Ways to decide 4:
 - **c. b + event contacts (E)** with a personal promo code each – **chosen** (made when their mail goes out, single
   use, ending with the campaign; shown on the campaign): reaches everyone, but a giveaway then creates codes
   again – exactly what the owner wants to avoid.
-
-## 9. Where the first build stands
-
-Built this session before the owner asked for campaigns (working tree, not committed): the claim logic (once per
-address, stock, window, the item's per-account limit, physical → address → ship → shipped), the `{gift}` button with the
-#65 sign-in, `ShippingAddress` + `GET/PUT /api/me/shipping`, admin endpoints, 4 tests. It hangs the gift on the
-newsletter (`mail_campaigns.gift_*`, `mail_gift_claims`); after this concept it moves to the campaign (§6) – the logic
-stays, the place changes. Not built yet: the admin and viewer UI.

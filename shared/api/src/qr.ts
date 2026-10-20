@@ -107,6 +107,31 @@ export interface InviteOffer {
 	left: number;
 }
 
+/** a giveaway campaign's gift from a newsletter (#66, research/CAMPAIGN-GIFTS.md): GET / POST /api/gift */
+export interface GiftInfo {
+	/** open · claimed (this address has it) · not_started · ended · sold_out · other_account (signed in with another address) */
+	state: 'open' | 'claimed' | 'not_started' | 'ended' | 'sold_out' | 'other_account';
+	item: { id: string; variant: string | null; name: string; physical: boolean };
+	starts_at: string | null;
+	until: string | null;
+	/** null = no limit */
+	left: number | null;
+	/** claimed = in the inventory; address = waits for the account's shipping address; ship / shipped; lapsed */
+	claim: { status: 'claimed' | 'address' | 'ship' | 'shipped' | 'lapsed'; created_at: string | null } | null;
+}
+
+export interface ShippingAddress {
+	name: string;
+	address: string;
+	country: string;
+}
+
+/** GET / PUT /api/me/shipping: the account's shipping address and the physical gifts waiting for it */
+export interface ShippingResult {
+	address: ShippingAddress | null;
+	waiting: { id: number; item: string; countries: string[]; until: string | null }[];
+}
+
 export interface InvitesResult {
 	status: string;
 	campaign: InviteOffer | null;
@@ -261,6 +286,12 @@ export function createQrApi(api: ApiClient) {
 			api.post<InventoryResult & { invite: CampaignInvite }>('/invites/', invite),
 		/** calls an invite back while it is not accepted (the own item comes back) */
 		recallInvite: (id: string) => api.post<InventoryResult & { invite: CampaignInvite }>(`/invites/${encodeURIComponent(id)}/recall/`),
+		/** a newsletter's gift (#66): what the link holds (no session needed) · claim it (signed in) */
+		giftInfo: (token: string, locale?: string) => api.get<{ status: string; gift: GiftInfo }>(`/gift/?t=${encodeURIComponent(token)}${locale ? `&locale=${locale}` : ''}`),
+		claimGift: (token: string, locale?: string) => api.post<{ status: string; gift: GiftInfo }>('/gift/', { t: token, locale }),
+		/** the account's shipping address (physical gifts wait for it) */
+		shipping: () => api.get<{ status: string } & ShippingResult>('/me/shipping/'),
+		setShipping: (address: ShippingAddress | { name: ''; address: ''; country: '' }) => api.put<{ status: string } & ShippingResult>('/me/shipping/', address),
 		/** the shipping address of a physical gift the member joined by */
 		inviteAddress: (id: string, address: { name: string; address: string; country: string }) =>
 			api.put<InvitesResult>(`/invites/${encodeURIComponent(id)}/address/`, address),

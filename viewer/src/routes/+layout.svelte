@@ -36,6 +36,8 @@
 	import { initAppBadge } from '$lib/app-badge.ts';
 	import { CONTINUE_PARAM, continuePath } from '$lib/continue-reading.ts';
 	import { newsletterSignin } from '$lib/newsletter-signin.ts';
+	import { giftLink } from '$lib/gift-link.svelte.ts';
+	import GiftSheet from '$lib/components/items/gift-sheet.svelte';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
@@ -100,6 +102,8 @@
 		const magicToken = params.get('login') || params.get('token') || null;
 		// the personal link of a newsletter's sign-in button: `/?signin=<token>` (asks once – lib/newsletter-signin.ts)
 		const signinToken = params.get('signin');
+		// a newsletter's gift (#66): `&gift=<token>` – the gift sheet (lib/gift-link.svelte.ts)
+		const giftToken = params.get('gift');
 		const code = params.get('code') || (magicToken ? params.get('c') : null) || null;
 		// `?code=…&claim=1` = "This is mine? File a claim" from the QR landing page (ITEMS.md "Ownership, claims, gifting")
 		const dispute = params.get('claim') === '1';
@@ -107,7 +111,7 @@
 		const visit = params.get('visit');
 
 		// `?preview=draft` from the creator: already read by lib/draft-preview.svelte.ts
-		if (code || magicToken || signinToken || visit || params.has('preview')) {
+		if (code || magicToken || signinToken || giftToken || visit || params.has('preview')) {
 			const url = new URL(window.location.href);
 			url.searchParams.delete('preview');
 			url.searchParams.delete('code');
@@ -119,12 +123,16 @@
 			url.searchParams.delete('login');
 			url.searchParams.delete('token');
 			url.searchParams.delete('signin');
+			url.searchParams.delete('gift');
 			goto(url.pathname + url.search, { replaceState: true });
 		}
 
 		// magic link from the login mail, else the single sign-on session (any SCUTOONS app) or a stored token
 		await session.init(magicToken);
-		if (signinToken) void newsletterSignin(signinToken, session, (claimCode, auto) => itemsUi.openClaim(claimCode, auto));
+		// signed in already (a second click on the gift button): straight to the gift – its sheet says if it's another account's
+		const openGift = giftToken ? () => giftLink.open(giftToken) : undefined;
+		if (signinToken && !(openGift && session.isLoggedIn)) void newsletterSignin(signinToken, session, (claimCode, auto) => itemsUi.openClaim(claimCode, auto), openGift);
+		else openGift?.();
 
 		// the installed app's "Continue reading" shortcut (manifest `shortcuts`): the chapter read last, where it stopped
 		if (params.has(CONTINUE_PARAM)) {
@@ -173,6 +181,7 @@
 </div>
 
 <ItemsHost />
+<GiftSheet />
 <HomeHost />
 <!-- in-page confirmations (confirmDialog / askDialog from @scutoons/ui) -->
 <DialogHost />

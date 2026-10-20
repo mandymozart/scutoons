@@ -60,8 +60,10 @@
 	let base = $state(untrack(() => JSON.stringify(fromCampaign(campaign))));
 	const dirty = $derived(JSON.stringify(draft) !== base);
 	const item = $derived(items.find((i) => i.id === draft.item_id) ?? null);
-	const physical = $derived(draft.gift === 'campaign' && item?.kind === 'physical');
-	const locked = $derived(campaign.counts.sent > 0);
+	// "Verschenken" (research/CAMPAIGN-GIFTS.md): always the campaign's item, SCUTOONS pays, no inviters or limits
+	const giveaway = $derived(campaign.kind === 'giveaway');
+	const physical = $derived((giveaway || draft.gift === 'campaign') && item?.kind === 'physical');
+	const locked = $derived(campaign.counts.sent > 0 || campaign.counts.claimed > 0);
 
 	async function save() {
 		busy = true;
@@ -70,14 +72,14 @@
 				name: draft.name,
 				starts_at: fromLocalInput(draft.starts_at) ?? undefined,
 				ends_at: fromLocalInput(draft.ends_at) ?? undefined,
-				gift: draft.gift,
-				item_id: draft.gift === 'campaign' ? draft.item_id || null : null,
-				variant: draft.gift === 'campaign' ? draft.variant || null : null,
-				stock: draft.gift === 'campaign' && draft.stock !== '' ? Number(draft.stock) : null,
+				gift: giveaway ? 'campaign' : draft.gift,
+				item_id: giveaway || draft.gift === 'campaign' ? draft.item_id || null : null,
+				variant: giveaway || draft.gift === 'campaign' ? draft.variant || null : null,
+				stock: (giveaway || draft.gift === 'campaign') && draft.stock !== '' ? Number(draft.stock) : null,
 				per_member: Number(draft.per_member),
 				per_day: Number(draft.per_day),
 				wait_days: Number(draft.wait_days),
-				payer: physical ? (draft.payer as 'scutoons' | 'member') : null,
+				payer: physical ? (giveaway ? 'scutoons' : (draft.payer as 'scutoons' | 'member')) : null,
 				price_cents: physical && draft.payer === 'member' && draft.price !== '' ? Math.round(Number(draft.price.replace(',', '.')) * 100) : null,
 				countries: physical ? draft.countries : [],
 				access: draft.access,
@@ -105,13 +107,14 @@
 		<Field label={m['campaigns.starts_at']()}>
 			{#snippet children({ id })}<input {id} type="datetime-local" bind:value={draft.starts_at} />{/snippet}
 		</Field>
-		<Field label={m['campaigns.ends_at']()} hint={m['campaigns.ends_at_hint']()}>
+		<Field label={m['campaigns.ends_at']()} hint={giveaway ? m['campaigns.ends_at_hint_giveaway']() : m['campaigns.ends_at_hint']()}>
 			{#snippet children({ id, describedby })}<input {id} type="datetime-local" aria-describedby={describedby} bind:value={draft.ends_at} />{/snippet}
 		</Field>
 	</div>
 
 	<Section title={m['campaigns.gift']()}>
 		{#if locked}<p class="muted">{m['campaigns.gift_locked']()}</p>{/if}
+		{#if giveaway}<p class="muted choice">{m['campaigns.giveaway_hint']()}</p>{:else}
 		<Segmented
 			label={m['campaigns.gift']()}
 			radio
@@ -126,7 +129,8 @@
 			}}
 		/>
 		<p class="muted choice">{draft.gift === 'own' ? m['campaigns.gift_own_hint']() : m['campaigns.gift_campaign_hint']()}</p>
-		{#if draft.gift === 'campaign'}
+		{/if}
+		{#if giveaway || draft.gift === 'campaign'}
 			<div class="row">
 				<Field label={m['campaigns.item']()} hint={m['campaigns.item_hint']()}>
 					{#snippet children({ id, describedby })}
@@ -146,11 +150,18 @@
 						{/snippet}
 					</Field>
 				{/if}
-				<Field label={m['campaigns.stock']()} hint={m['campaigns.stock_hint']()}>
+				<Field label={m['campaigns.stock']()} hint={giveaway ? m['campaigns.stock_hint_giveaway']() : m['campaigns.stock_hint']()}>
 					{#snippet children({ id, describedby })}<input {id} aria-describedby={describedby} type="number" min="1" bind:value={draft.stock} />{/snippet}
 				</Field>
 			</div>
-			{#if physical}
+			{#if physical && giveaway}
+				<div class="physical">
+					<p class="muted choice">{m['campaigns.giveaway_physical_hint']()}</p>
+					<Field label={m['campaigns.countries']()} hint={m['campaigns.countries_hint']()}>
+						{#snippet children({ id, describedby })}<input {id} aria-describedby={describedby} bind:value={draft.countries} />{/snippet}
+					</Field>
+				</div>
+			{:else if physical}
 				<div class="physical">
 					<Segmented
 						label={m['campaigns.payer']()}
@@ -179,19 +190,20 @@
 		{/if}
 	</Section>
 
-	<Section title={m['campaigns.access']()}>
+	<Section title={giveaway ? m['campaigns.access_giveaway']() : m['campaigns.access']()}>
+		{#if giveaway}<p class="muted choice">{m['campaigns.access_giveaway_hint']()}</p>{/if}
 		<Segmented
 			label={m['campaigns.access']()}
 			radio
 			vertical
 			options={[
-				{ value: 'keep', label: m['campaigns.access_keep'](), title: m['campaigns.access_keep_hint']() },
+				{ value: 'keep', label: m['campaigns.access_keep'](), title: giveaway ? m['campaigns.access_keep_hint_giveaway']() : m['campaigns.access_keep_hint']() },
 				{ value: 'until', label: m['campaigns.access_until'](), title: m['campaigns.access_until_hint']() }
 			]}
 			value={draft.access}
 			onchange={(v) => (draft.access = v)}
 		/>
-		<p class="muted choice">{draft.access === 'keep' ? m['campaigns.access_keep_hint']() : m['campaigns.access_until_hint']()}</p>
+		<p class="muted choice">{draft.access === 'keep' ? (giveaway ? m['campaigns.access_keep_hint_giveaway']() : m['campaigns.access_keep_hint']()) : m['campaigns.access_until_hint']()}</p>
 		{#if draft.access === 'until'}
 			<Field label={m['campaigns.access_until_date']()}>
 				{#snippet children({ id })}<input {id} type="datetime-local" bind:value={draft.access_until} />{/snippet}
@@ -199,6 +211,7 @@
 		{/if}
 	</Section>
 
+	{#if !giveaway}
 	<Section title={m['campaigns.limits']()}>
 		<div class="row">
 			<Field label={m['campaigns.wait_days']()} hint={m['campaigns.wait_days_hint']()}>
@@ -212,6 +225,7 @@
 			</Field>
 		</div>
 	</Section>
+	{/if}
 
 	<div class="save">
 		<Button disabled={busy || !dirty} onclick={save}>{m['campaigns.save']()}</Button>

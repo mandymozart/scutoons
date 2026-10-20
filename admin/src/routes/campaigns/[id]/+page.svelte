@@ -4,6 +4,7 @@
 	import CampaignAccounts from '$lib/components/campaigns/campaign-accounts.svelte';
 	import CampaignInvites from '$lib/components/campaigns/campaign-invites.svelte';
 	import CampaignStats from '$lib/components/campaigns/campaign-stats.svelte';
+	import CampaignClaims from '$lib/components/campaigns/campaign-claims.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { ActionBar, Badge, Button, Skeleton, Tabs, confirmDialog } from '@scutoons/ui';
@@ -17,11 +18,12 @@
 	/**
 	 * One campaign (agents/research/GIFT-INVITES.md): Settings (window, gift, the invitees' reading, limits), Who may
 	 * invite (all / ticked accounts / a segment, with the account filters), Invites (payments to clear, gifts to ship)
-	 * and Statistics. Start / stop in the bar; a draft without invites can be deleted.
+	 * and Statistics. A "Verschenken" campaign (research/CAMPAIGN-GIFTS.md): Settings and Claims (gifts to send).
+	 * Start / stop in the bar; a draft without invites or claims can be deleted.
 	 */
 	const toaster = getToaster();
 	const id = $derived(page.params.id ?? '');
-	const TABS = ['settings', 'inviters', 'invites', 'stats'] as const;
+	const TABS = ['settings', 'inviters', 'invites', 'stats', 'claims'] as const;
 	type TabId = (typeof TABS)[number];
 
 	let item = $state<Campaign | null>(null);
@@ -47,7 +49,7 @@
 	async function setStatus(action: 'start' | 'stop') {
 		if (!item) return;
 		if (action === 'start') {
-			const ok = await confirmDialog({ title: m['campaigns.start_title'](), message: m['campaigns.start_message']({ from: day(item.starts_at), until: day(item.ends_at) }), confirmLabel: m['campaigns.start']() });
+			const ok = await confirmDialog({ title: m['campaigns.start_title'](), message: (giveaway ? m['campaigns.start_message_giveaway'] : m['campaigns.start_message'])({ from: day(item.starts_at), until: day(item.ends_at) }), confirmLabel: m['campaigns.start']() });
 			if (!ok) return;
 		} else {
 			const ok = await confirmDialog({ title: m['campaigns.stop_title'](), message: m['campaigns.stop_message'](), confirmLabel: m['campaigns.stop']() });
@@ -74,15 +76,23 @@
 		}
 	}
 
-	const tabs = $derived([
-		{ id: 'settings', label: m['campaigns.tab_settings']() },
-		{ id: 'inviters', label: m['campaigns.tab_inviters']() },
-		{ id: 'invites', label: m['campaigns.tab_invites'](), count: item?.counts.sent },
-		{ id: 'stats', label: m['campaigns.tab_stats']() }
-	]);
+	const giveaway = $derived(item?.kind === 'giveaway');
+	const tabs = $derived(
+		giveaway
+			? [
+					{ id: 'settings', label: m['campaigns.tab_settings']() },
+					{ id: 'claims', label: m['campaigns.tab_claims'](), count: item?.counts.to_ship || undefined }
+				]
+			: [
+					{ id: 'settings', label: m['campaigns.tab_settings']() },
+					{ id: 'inviters', label: m['campaigns.tab_inviters']() },
+					{ id: 'invites', label: m['campaigns.tab_invites'](), count: item?.counts.sent },
+					{ id: 'stats', label: m['campaigns.tab_stats']() }
+				]
+	);
 </script>
 
-<PageHeader type={m['campaigns.title']()} title={item?.name ?? '…'} meta={item ? m['campaigns.meta_counts']({ sent: number(item.counts.sent), joined: number(item.counts.joined) }) : undefined} />
+<PageHeader type={m['campaigns.title']()} title={item?.name ?? '…'} meta={item ? (giveaway ? m['campaigns.meta_claims']({ claimed: number(item.counts.claimed), to_ship: number(item.counts.to_ship) }) : m['campaigns.meta_counts']({ sent: number(item.counts.sent), joined: number(item.counts.joined) })) : undefined} />
 
 {#snippet barStart()}
 	<a href="/campaigns">{m['campaigns.back']()}</a>
@@ -91,7 +101,7 @@
 
 <ActionBar start={barStart} label={m['shell.page_actions']()} moreLabel={m['shell.more']()}>
 	{#snippet secondary()}
-		{#if item && item.counts.sent === 0}
+		{#if item && item.counts.sent === 0 && item.counts.claimed === 0}
 			<Button size="sm" variant="secondary" onclick={remove}>{m['campaigns.delete']()}</Button>
 		{/if}
 	{/snippet}
@@ -119,6 +129,8 @@
 			<CampaignAccounts campaign={item} />
 		{:else if tab === 'invites'}
 			<CampaignInvites campaign={item} />
+		{:else if tab === 'claims'}
+			<CampaignClaims campaign={item} />
 		{:else}
 			<CampaignStats campaign={item} />
 		{/if}

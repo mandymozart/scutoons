@@ -7,6 +7,7 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Scutoons\Domain\Admin\ListQuery;
 use Scutoons\Domain\ApiError;
+use Scutoons\Domain\Campaigns\Giveaways;
 use Scutoons\Domain\Mail\MailLog;
 use Scutoons\Domain\Mail\MailTemplates;
 use Scutoons\Domain\Newsletter\Audiences;
@@ -46,6 +47,8 @@ use Throwable;
  *   POST   /newsletter/campaigns/{id}/start|pause|resume → { item }
  *   GET    /newsletter/campaigns/{id}/recipients    list (sort email|status|sent_at|locale; filters status, locale, source; q)
  *   POST   /newsletter/send                         one batch now (NewsletterSender::batch) → { result, items }
+ *   GET    /newsletter/campaigns/{id}/gift?selected=a,b  who of the recipients (the saved audiences, or the unsaved choice)
+ *                                                gets what from its gift (#66) { reach: { members, product_code, email_only } }
  */
 final class NewsletterController
 {
@@ -56,6 +59,7 @@ final class NewsletterController
         private readonly Suppressions $suppressions,
         private readonly NewsletterRenderer $renderer,
         private readonly NewsletterSignin $signin,
+        private readonly Giveaways $giveaways,
         private readonly NewsletterSender $sender,
         private readonly Transport $transport,
         private readonly MailLog $log,
@@ -169,6 +173,21 @@ final class NewsletterController
         return $this->ok($response, []);
     }
 
+    /**
+     * The newsletter's gift and who gets what (the editor shows it: members sign in, QR owners sign up with their product
+     * code, email-only recipients get a personal promo code – owner: "das das in der ui klar wird")
+     * @param array<string, string> $args
+     */
+    public function gift(Request $request, Response $response, array $args): Response
+    {
+        $item = $this->campaigns->get((int) $args['id']);
+        // ?selected=a,b = the editor's unsaved choice of audiences (as GET /newsletter/audiences)
+        $selected = $request->getQueryParams()['selected'] ?? null;
+        $chosen = is_string($selected) ? Audiences::check(array_values(array_filter(explode(',', $selected)))) : $item['audiences'];
+        $emails = array_column($chosen !== [] ? $this->audiences->recipients($chosen) : [], 'email');
+        return $this->ok($response, ['reach' => $this->giveaways->reach($emails)]);
+    }
+
     /** @param array<string, string> $args */
     public function preview(Request $request, Response $response, array $args): Response
     {
@@ -195,7 +214,9 @@ final class NewsletterController
         }
         $admin = $this->admin($request);
         // the admin's own `{signin}` button: a staff account's = the account page (NewsletterSignin)
-        $mail = $this->renderer->render($content, $locale, $admin['email'], $admin['name'], fn() => $this->signin->button($admin['email'], $locale));
+        $mail = $this->renderer->render($content, $locale, $admin['email'], $admin['name'], fn(string $kind) => $kind === 'gift'
+            ? $this->giveaways->buttonFor($this->db->one('SELECT * FROM mail_campaigns WHERE id = ?', [(int) $args['id']]) ?? [], $admin['email'], $locale)
+            : $this->signin->button($admin['email'], $locale));
         try {
             $this->transport->deliverWithHeaders($admin['email'], '[Test] ' . $mail['subject'], $mail['text'], $mail['html'],
                 ['List-Unsubscribe: <' . $mail['unsubscribe'] . '>', 'List-Unsubscribe-Post: List-Unsubscribe=One-Click']);

@@ -1,6 +1,6 @@
 // Labels of the campaign pages (agents/research/GIFT-INVITES.md): states and invite statuses with their badge tones,
 // money, the API errors the pages show in the admin's language, and the datetime-local ↔ UTC conversions of the form.
-import { ApiError, type CampaignState, type InviteStatus } from '@scutoons/api';
+import { ApiError, type CampaignClaimStatus, type CampaignKind, type CampaignState, type InviteStatus } from '@scutoons/api';
 import { errorText } from '$lib/format.ts';
 import { m } from '$lib/paraglide/messages.js';
 
@@ -29,6 +29,21 @@ export const inviteStatus = (status: InviteStatus | 'to_ship') =>
 
 const INVITE_TONES = { payment: 'warning', waiting: 'info', joined: 'published', returned: 'neutral', recalled: 'neutral', unpaid: 'neutral' } as const;
 export const inviteTone = (status: InviteStatus) => INVITE_TONES[status] ?? 'neutral';
+
+/** the two kinds (agents/research/CAMPAIGN-GIFTS.md): Einladen / Verschenken */
+export const campaignKind = (kind: CampaignKind) => ({ gift_invite: m['campaigns.kind_gift_invite'](), giveaway: m['campaigns.kind_giveaway']() })[kind] ?? kind;
+
+export const claimStatus = (status: CampaignClaimStatus) =>
+	({
+		claimed: m['campaigns.claim_claimed'](),
+		address: m['campaigns.claim_address'](),
+		ship: m['campaigns.claim_ship'](),
+		shipped: m['campaigns.claim_shipped_status'](),
+		lapsed: m['campaigns.claim_lapsed']()
+	})[status] ?? status;
+
+const CLAIM_TONES = { claimed: 'published', address: 'info', ship: 'warning', shipped: 'published', lapsed: 'neutral' } as const;
+export const claimTone = (status: CampaignClaimStatus) => CLAIM_TONES[status] ?? 'neutral';
 
 /** 3900 EUR → "39,00 €" in the admin's language */
 export function money(cents: number | null | undefined, currency = 'EUR'): string {

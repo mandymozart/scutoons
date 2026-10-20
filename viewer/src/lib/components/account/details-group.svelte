@@ -6,10 +6,12 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { formatDate } from '$lib/utils/date.ts';
 	import ReaderNameSetting from './reader-name-setting.svelte';
+	import ShippingAddressSetting from './shipping-address-setting.svelte';
 
 	/**
 	 * Account page "Stammdaten" (owner 2026-10-16): the reader's name first (prominent – stories call the reader by it),
-	 * then for members the address + sign out, roles, the memberships and the date the account was made, and "Delete
+	 * then for members the address + sign out, roles, the memberships and the date the account was made, the shipping
+	 * address (physical gifts of newsletters wait for it – #66), and "Delete
 	 * account" – for now a link to the contact form with the privacy topic chosen (owner: "vorerst einmal einen Link auf
 	 * das Kontaktformular mit der Option vorausgewählt"). Guests: the name only (kept on this device).
 	 */
@@ -53,6 +55,7 @@
 			{/if}
 		</tbody>
 	</table>
+	<ShippingAddressSetting />
 	<p class="delete">
 		<a class="btn btn-secondary" href={localizeHref('/contact') + '?topic=privacy&from=account'} data-testid="delete-account">{m['account.delete_account']()}</a>
 		<small>{m['account.delete_account_hint']()}</small>

@@ -109,7 +109,23 @@ final class CodeService
             if ($row['claimed_by'] !== null || ($legacyEmail !== '' && $legacyEmail !== $email)) return 'already_claimed';
         }
         if ($this->inviteCodeUsed($code)) return 'used';
+        if ($this->giveawayCodeOfOther($code, $email)) return 'used';
         return null;
+    }
+
+    /**
+     * A promo code a giveaway made for an email-only recipient (Domain\Campaigns\Giveaways, #66) signs up only that
+     * address. Nothing before the 2026-10-20 migration.
+     */
+    private function giveawayCodeOfOther(string $code, string $email): bool
+    {
+        try {
+            $owner = $this->db->value('SELECT email FROM campaign_codes WHERE code = ? LIMIT 1', [$code]);
+        } catch (PDOException $error) {
+            if ($error->getCode() === '42S02' || preg_match('/Base table or view not found/i', $error->getMessage()) === 1) return false;
+            throw $error;
+        }
+        return $owner !== null && strtolower((string) $owner) !== strtolower(trim($email));
     }
 
     /**

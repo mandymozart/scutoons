@@ -6,6 +6,7 @@ namespace Scutoons\Domain\Auth;
 use Scutoons\Domain\Access\Permissions;
 use Scutoons\Domain\Accounts\Users;
 use Scutoons\Domain\ApiError;
+use Scutoons\Domain\Campaigns\Giveaways;
 use Scutoons\Domain\Campaigns\Invites;
 use Scutoons\Domain\Codes\CodeRules;
 use Scutoons\Domain\Codes\CodeService;
@@ -50,6 +51,7 @@ final class LoginService
         private readonly EventLog $events,
         private readonly Mailer $mailer,
         private readonly Invites $invites,
+        private readonly Giveaways $giveaways,
     ) {
     }
 
@@ -237,6 +239,8 @@ final class LoginService
                 $claimedNew = $claimable ? $this->codes->claimInTransaction($user, (string) $code, $itemId, $variant) : null;
                 // gift invites waiting for this address arrive with the account (agents/research/GIFT-INVITES.md)
                 $this->invites->deliverTo($user, $code);
+                // a giveaway's promo code gets its campaign's reading rule (agents/research/CAMPAIGN-GIFTS.md §3)
+                $this->giveaways->joined($user, $code);
                 return [$user, true, $this->sessions->create((string) $user['id']), $claimedNew];
             });
         } catch (ApiError $error) {

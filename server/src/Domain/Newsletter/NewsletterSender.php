@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Scutoons\Domain\Newsletter;
 
+use Scutoons\Domain\Campaigns\Giveaways;
 use Scutoons\Domain\Mail\MailLog;
 use Scutoons\Domain\Settings\RuntimeSettings;
 use Scutoons\Infrastructure\Clock\Clock;
@@ -45,6 +46,7 @@ final class NewsletterSender
         private readonly Transport $transport,
         private readonly NewsletterRenderer $renderer,
         private readonly NewsletterSignin $signin,
+        private readonly Giveaways $giveaways,
         private readonly Suppressions $suppressions,
         private readonly MailLog $log,
     ) {
@@ -117,7 +119,7 @@ final class NewsletterSender
                     $mail = $this->renderer->render(
                         ['subject' => (string) $campaign["subject_$locale"], 'body' => (string) $campaign["body_$locale"]],
                         $locale, $email, $recipient['name'] !== null ? (string) $recipient['name'] : null,
-                        fn() => $this->signin->button($email, $locale));
+                        fn(string $kind) => $kind === 'gift' ? $this->giveaways->buttonFor($campaign, $email, $locale) : $this->signin->button($email, $locale));
                     $this->transport->deliverWithHeaders($email, $mail['subject'], $mail['text'], $mail['html'], [
                         'List-Unsubscribe: <' . $mail['unsubscribe'] . '>',
                         'List-Unsubscribe-Post: List-Unsubscribe=One-Click',
