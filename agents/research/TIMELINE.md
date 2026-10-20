@@ -1,4 +1,4 @@
-Status 2026-10-19: the shared Timeline is built (`@scutoons/ui` timeline.ts + timeline.svelte); its first user is the storyboard studio – since the owner's second look a clip sequence of the picked shots (§1). The creator, scores and live below are a plan – nothing built there.
+Status 2026-10-19: the shared Timeline is built (`@scutoons/ui` timeline.ts + timeline.svelte); its first user is the storyboard studio – since the owner's second look a clip sequence of the picked shots (§1). The creator, scores and live below are a plan – nothing built there. The trim (§4, 2026-10-20): three ways to try in a prototype + a recommendation for the owner – not built beyond §1.
 
 # TIMELINE – one time axis for the studio, the creator and the live mode (2026-10-19)
 
@@ -64,3 +64,59 @@ designs: a seam for later, shared-first, live / creator-risk-first; a judge) –
 
 - Waveforms (peaks from the creator's `decodeAudio`) – per lane item, drawn by the app's snippet or a shared one.
 - Editing items by drag (move / resize) – not needed by the studio; the creator's Events lane might want it.
+
+## 4. Trim (2026-10-20) – how it would work
+
+Owner 2026-10-20: "show me in dept how the trim will work? like on a mobile app, or in ableton?" → a prototype to try:
+`studio-layout/trim-prototype.html` (opens via file://, keys 1–3 switch the ways; one drawn 6 s take at 24 fps, the
+frame number on each picture; the right column says how each way behaves, its pros and cons).
+
+**Built (§1).** Take mode shows each picked shot's whole take; its kept part `trim { in, out, min }` (ms, `min` =
+TRIM_MIN 100 ms) – the cut parts hatched in place (timeline-lane.svelte `.cut`). With `ontrim` the in / out lines are
+sliders: a 3px ink bar in a 0.75rem grip zone the lane's height, dragged by how far it moved (no jump), snapped to the
+lane's `step` (the studio: a frame at 24 fps); ← → a step, Shift ×10, Alt ×0.1, Home / End; `clampTrim` keeps it in
+0..length and ≥ `min`, the dragged edge stops at the other. The studio (timeline.svelte.js `trim`) puts the playhead on
+the moved point – the main view shows the take's camera there – and writes the take's in / out (s) into the takes file,
+saved on release; Play plays the kept parts (`kept()`); Ctrl + wheel / + − 0 zoom.
+
+**Three ways** (the prototype):
+- **A · Mobile** (iPhone Photos, CapCut, Instagram): the whole take as one strip, a frame with two thick grips over it,
+  outside dimmed; the big picture shows the dragged grip's frame; holding a grip still zooms the strip to single frames
+  (let go: back); pinch / Ctrl + wheel; a tap plays the kept part. + one thumb, nothing to learn. − a mode of its own
+  (one take, no neighbours, Cancel / Done), a frame is a sliver at full width, a mouse and keys get no more.
+- **B · Ableton** (arrangement + clip view): a clip is a window onto its take – drag an edge (a bracket cursor) and the
+  picture stays put in time; drag = move, Alt-drag = slip (the window stays, the take moves under it); edges snap to a
+  grid that follows the zoom, Alt = single frames; the clip view shows the whole take with start / end markers, outside
+  greyed. + precise, slip. − the cut parts vanish from the arrangement (against "Order is space"), a trim leaves a gap,
+  two places for one cut, modifiers a phone lacks, a lot of UI.
+- **C · Studio** – the recommendation: the built timeline, grown by the best of both.
+
+**Recommendation – C.** Keep what is built (whole take, cut parts hatched in place, frame steps, the keys) and add:
+1. Ableton's edge: the bracket cursors on the in / out line (already grabbable along its height) + a tab at its top,
+   inside the kept part; on a coarse pointer the zone and the tab finger-sized (2.75rem).
+2. The in / out pair in the main view while trimming (Final Cut's two-up): both frames side by side, the moved one
+   marked; one picture again shortly after release. The dragged side live, the other a still taken when the drag starts.
+3. Slip: a bar under the kept part's middle (works by finger) or Alt-drag on the kept picture – the kept part moves
+   through the take, its length stays; ← → slip a frame on the focused bar.
+4. I / O: the in / out of the clip under the playhead, at the playhead (I: the frame under it is the first one kept, O:
+   the last one kept); no Space key – Play stays the studio's button (§1).
+5. Hold a grip still (450 ms): the timeline zooms to a frame per picture around it; let go: the zoom before (A's best idea).
+6. Readouts while trimming: in / out next to their lines (outside the kept part; at the lane's end inside, a row
+   lower), the kept length in its middle.
+On phones the timeline is hidden (DOCKING "Bottom region"): the phone page would get A's strip on the same model and
+keys – one trim, two views. The frame-after-frame pictures in the clips are the owner's other 2026-10-20 point.
+
+**What it takes** (about 2 days with tests; no data change – the takes file keeps in / out):
+- `shared/ui/src/timeline.ts`: `clampTrim` for a slip (both edges, the length kept inside 0..length) + node tests.
+- `shared/ui/src/timeline-lane.svelte` (212 lines – the trim part may become its own `timeline-trim.svelte`): the tab,
+  the cursors, coarse-pointer sizes, the slip bar (a third slider; `ontrim` with both values), Alt-drag on the kept part,
+  the readout chips; a `timelineSlip` label in ui-labels.
+- `shared/ui/src/timeline.svelte`: hold-to-zoom around a time and back (`zoomAround` exists), panning while a held grip
+  sits at the strip's end.
+- `workflows/storyboard-studio/src/lib/timeline.svelte.js` + the main view: slip in `trim()`, I / O (free in App.svelte's
+  keys – check the 3D view's), a trimming state with both edges for the pair, the other edge's still (one render to a
+  canvas at drag start; a video clip: a seek).
+- Docs: DESIGN "Steps and the timeline", §1 here; the studio's timeline check.
+
+**Owner question:** is C the way – trim where the clips are, in the timeline, the cut parts staying in place – or
+should a trim open its own focused view like the phone (A)?

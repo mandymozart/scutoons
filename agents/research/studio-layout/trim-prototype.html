@@ -1,0 +1,1220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Trim – three ways</title>
+<link rel="stylesheet" href="mock.css" />
+<style>
+	/* research/TIMELINE.md "Trim (2026-10-20)" – an interactive prototype, not app code. Opens via file://, no build, no
+	   media: the take is drawn on canvases (6 s at 24 fps = 144 frames, the frame number on each picture). Everything in
+	   rem; px only in the tokens' frames and the canvases' bitmaps (device pixels, computed from rem in the script).
+	   The bracket cursors are SVG images (their size is the image's, not a CSS size). */
+	:root {
+		--cur-in: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cg fill='none'%3E%3Cpath d='M15 4H10V20H15M3 12H8M5 9L2 12L5 15' stroke='white' stroke-width='4'/%3E%3Cpath d='M15 4H10V20H15M3 12H8M5 9L2 12L5 15' stroke='black' stroke-width='2'/%3E%3C/g%3E%3C/svg%3E") 10 12, w-resize;
+		--cur-out: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cg fill='none'%3E%3Cpath d='M9 4H14V20H9M21 12H16M19 9L22 12L19 15' stroke='white' stroke-width='4'/%3E%3Cpath d='M9 4H14V20H9M21 12H16M19 9L22 12L19 15' stroke='black' stroke-width='2'/%3E%3C/g%3E%3C/svg%3E") 14 12, e-resize;
+		--cur-slip: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cg fill='none'%3E%3Cpath d='M7 5H4V19H7M17 5H20V19H17M8 12H16M10 9L7 12L10 15M14 9L17 12L14 15' stroke='white' stroke-width='4'/%3E%3Cpath d='M7 5H4V19H7M17 5H20V19H17M8 12H16M10 9L7 12L10 15M14 9L17 12L14 15' stroke='black' stroke-width='2'/%3E%3C/g%3E%3C/svg%3E") 12 12, ew-resize;
+	}
+	body { height: auto; min-height: 100dvh; overflow: auto; }
+	.app { height: 100dvh; min-height: 52rem; grid-template-rows: var(--bar) minmax(0, 1fr) var(--bar); grid-template-columns: minmax(0, 1fr); }
+	button { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; }
+	canvas { display: block; }
+	:focus-visible { outline: var(--border-width-focus) solid var(--ink); outline-offset: var(--focus-offset); }
+	.chip.data { text-transform: none; letter-spacing: normal; }
+	.round svg.i { width: 1rem; height: 1rem; }
+	.round .pause, .round[aria-pressed='true'] .play { display: none; }
+	.round[aria-pressed='true'] .pause { display: block; }
+
+	/* the three ways: a square tab row, its number key before the word (DESIGN "Steps") */
+	.tabs { display: inline-flex; border: var(--line); height: var(--control-height); }
+	.tabs > button { display: inline-flex; align-items: center; gap: var(--space-05); padding: 0 var(--space-1); border-left: var(--line); }
+	.tabs > button:first-child { border-left: 0; }
+	.tabs > button .n { font-size: var(--caption); color: var(--text-muted); }
+	.tabs > button[aria-selected='true'] { background: var(--ink); color: var(--paper); }
+	.tabs > button[aria-selected='true'] .n { color: var(--paper); }
+
+	.main { grid-template-columns: minmax(0, 1fr) 30rem; }
+	#stage { position: relative; min-width: 0; min-height: 0; overflow: hidden; border-right: var(--line); user-select: none; }
+	.variant { position: absolute; inset: 0; display: none; }
+	.variant.on { display: flex; flex-direction: column; }
+	.about .rbody { overflow: auto; }
+	.about h2 { margin: 0; font-size: 1rem; font-weight: 400; text-transform: uppercase; letter-spacing: var(--tracking-label); }
+	.about h3 { margin: var(--space-1) 0 var(--space-025); font-size: var(--caption); font-weight: 400; text-transform: uppercase; letter-spacing: var(--tracking-label); }
+	.about p { margin: 0 0 var(--space-05); }
+	.about ul { margin: 0; padding-left: 1.1rem; }
+	.about li { margin-bottom: var(--space-025); }
+	.about [data-about] { display: none; }
+	.about [data-about].on { display: block; }
+	.actionbar #readout { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+	.actionbar .keys { flex: 0 1 auto; min-width: 0; }
+
+	/* ---------- A · mobile: an ink phone page, the take as one strip ---------- */
+	.a-wrap { flex: 1; min-height: 0; display: flex; justify-content: center; padding: var(--space-1); }
+	.phone { width: 25rem; display: flex; flex-direction: column; background: var(--ink); color: var(--paper); border: var(--line); }
+	.phone :focus-visible { outline-color: var(--paper); }
+	.p-head { display: flex; align-items: center; justify-content: space-between; height: var(--bar); padding: 0 var(--space-05); flex: none; }
+	.phone .ctl { background: var(--ink); color: var(--paper); border-color: var(--paper); }
+	.phone .ctl.ghost { border-color: transparent; }
+	.phone .ctl.primary { background: var(--paper); color: var(--ink); }
+	.phone .round { background: var(--ink); color: var(--paper); border-color: var(--paper); }
+	.a-pic { flex: 1; min-height: 0; position: relative; display: flex; justify-content: center; cursor: pointer; }
+	.a-pic canvas { height: 100%; width: auto; aspect-ratio: 9 / 16; border: var(--border-width-regular) solid var(--paper); }
+	.a-pic .chip { position: absolute; top: var(--space-05); left: 50%; transform: translateX(-50%); background: var(--paper); color: var(--ink); }
+	.a-bar { display: flex; align-items: center; gap: var(--space-075); padding: var(--space-075) var(--space-1) 0; flex: none; }
+	.a-stripwrap { overflow: hidden; padding: 2rem 1.5rem 0.75rem; flex: none; }
+	.a-strip { position: relative; height: 4rem; touch-action: none; cursor: pointer; }
+	.a-strip canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+	.a-dim { position: absolute; top: 0; bottom: 0; background: rgb(0 0 0 / 0.62); pointer-events: none; }
+	.a-dim.l { left: 0; }
+	.a-dim.r { right: 0; }
+	.a-frame { position: absolute; top: -0.25rem; bottom: -0.25rem; border-top: 0.25rem solid var(--paper); border-bottom: 0.25rem solid var(--paper); pointer-events: none; }
+	.a-grip { position: absolute; top: -0.25rem; bottom: -0.25rem; width: 1.25rem; display: flex; align-items: center; justify-content: center; background: var(--paper); color: var(--ink); pointer-events: auto; cursor: ew-resize; touch-action: none; }
+	.a-grip.in { left: -1.25rem; }
+	.a-grip.out { right: -1.25rem; }
+	.a-grip.away { opacity: 0; pointer-events: none; }
+	.a-grip svg.i { width: 1rem; height: 1rem; stroke-width: 3; }
+	.a-ph { position: absolute; top: -0.5rem; bottom: -0.5rem; width: 0.25rem; margin-left: -0.125rem; background: var(--paper); border: var(--border-width-hairline) solid var(--ink); pointer-events: none; }
+	.a-bubble { position: absolute; bottom: calc(100% + 0.5rem); transform: translateX(-50%); background: var(--paper); color: var(--ink); display: none; }
+	/* two lines tall always: a one-line note never moves the picture and the strip */
+	.a-note { padding: 0 var(--space-1) var(--space-075); font-size: var(--caption); color: var(--border-muted); flex: none; min-height: calc(2 * 1.4 * var(--caption) + var(--space-075)); }
+
+	/* ---------- B · Ableton: arrangement + clip view + the video window ---------- */
+	.b-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 17rem; grid-template-rows: auto minmax(0, 1fr); }
+	.b-arr { border-right: var(--line); border-bottom: var(--line); min-width: 0; }
+	.b-tl { position: relative; display: grid; grid-template-columns: 6rem minmax(0, 1fr); }
+	.b-corner { border-right: var(--line); border-bottom: var(--line); }
+	.b-ruler { position: relative; height: 2rem; border-bottom: var(--line); cursor: pointer; touch-action: none; }
+	.b-ruler canvas, .b-lane > canvas, .c-ruler canvas, .c-lane > canvas, .b-cvstrip canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+	.b-thead { border-right: var(--line); display: flex; flex-direction: column; justify-content: center; padding: 0 var(--space-05); font-size: var(--caption); }
+	.b-lane { position: relative; height: 12rem; overflow: hidden; touch-action: none; }
+	.b-clip { position: absolute; top: 0.75rem; bottom: 0.75rem; border: var(--line); display: flex; flex-direction: column; }
+	.b-name { height: 1.5rem; flex: none; display: flex; align-items: center; padding: 0 0.25rem; background: var(--paper); border-bottom: var(--line); font-size: var(--caption); white-space: nowrap; overflow: hidden; }
+	.b-clip.sel .b-name { background: var(--ink); color: var(--paper); }
+	.b-body { flex: 1; min-height: 0; }
+	.b-clip.sel .b-body { cursor: default; }
+	.alt .b-clip.sel .b-body { cursor: var(--cur-slip); }
+	.b-edge { position: absolute; top: 0; bottom: 0; width: 0.75rem; z-index: 2; cursor: var(--cur-in); touch-action: none; }
+	.b-edge.in { left: -0.375rem; }
+	.b-edge.out { right: -0.375rem; cursor: var(--cur-out); }
+	.b-ph, .c-ph { position: absolute; top: 0; bottom: 0; width: var(--border-width-regular); margin-left: -0.0625rem; background: var(--ink); pointer-events: none; z-index: 4; }
+	.b-ph { left: calc(6rem + (100% - 6rem) * var(--p, 0)); }
+	.b-video { grid-row: 1 / 3; grid-column: 2; display: flex; flex-direction: column; min-height: 0; }
+	.b-video .stage { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: var(--space-05); padding: var(--space-1); background: var(--ink); color: var(--paper); }
+	.b-video canvas { width: 100%; height: auto; aspect-ratio: 9 / 16; border: var(--border-width-regular) solid var(--paper); }
+	.b-cv { display: grid; grid-template-columns: 13rem minmax(0, 1fr); gap: var(--space-15); padding: var(--space-1); border-right: var(--line); align-content: start; }
+	.b-fields { display: flex; flex-direction: column; gap: var(--space-05); }
+	.b-fields .f { flex: none; }
+	.b-cvwrap { padding-top: 1.5rem; min-width: 0; }
+	.b-cvstrip { position: relative; height: 12rem; border: var(--line); touch-action: none; }
+	.b-cvdim { position: absolute; top: 0; bottom: 0; background: rgb(0 0 0 / 0.5); pointer-events: none; }
+	.b-cvdim.l { left: 0; }
+	.b-cvdim.r { right: 0; }
+	.b-mark { position: absolute; top: -1.5rem; bottom: 0; width: 0.75rem; margin-left: -0.375rem; cursor: ew-resize; touch-action: none; z-index: 2;
+		background: linear-gradient(var(--ink), var(--ink)) center / var(--border-width-focus) 100% no-repeat; }
+	.b-mark .flag { position: absolute; top: 0; width: 1rem; height: 1.25rem; background: var(--ink); }
+	.b-mark.in .flag { left: 50%; clip-path: polygon(0 0, 100% 50%, 0 100%); }
+	.b-mark.out .flag { right: 50%; clip-path: polygon(100% 0, 0 50%, 100% 100%); }
+	.b-cvph { position: absolute; top: 0; bottom: 0; width: var(--border-width-regular); background: var(--paper); outline: var(--border-width-hairline) solid var(--ink); pointer-events: none; }
+	.b-cvscale { display: flex; justify-content: space-between; font-size: var(--caption); color: var(--text-muted); margin-top: var(--space-025); }
+
+	/* ---------- C · studio: the main view over the built timeline ---------- */
+	.c-view { flex: 1; min-height: 0; display: flex; justify-content: center; gap: var(--space-15); padding: var(--space-1); background: var(--ink); color: var(--paper); position: relative; }
+	.c-frame { height: 100%; display: flex; flex-direction: column; align-items: center; gap: var(--space-05); min-width: 0; }
+	.c-frame .lbl { height: 1.5rem; flex: none; display: flex; align-items: center; padding: 0 var(--space-05); font-size: var(--caption); border: var(--border-width-regular) solid var(--paper); }
+	.c-frame .lbl.on { background: var(--paper); color: var(--ink); }
+	.c-frame canvas { height: calc(100% - 2rem); width: auto; aspect-ratio: 9 / 16; border: var(--border-width-regular) solid var(--paper); }
+	.c-cam { position: absolute; right: var(--space-1); bottom: var(--space-1); font-size: var(--caption); text-align: right; }
+	.c-cam .chip { background: var(--paper); color: var(--ink); }
+	.c-tl { flex: none; border-top: var(--line); position: relative; background: var(--paper); }
+	.c-head { display: flex; align-items: center; gap: var(--space-05); height: var(--bar); padding: 0 var(--space-1); border-bottom: var(--line); }
+	.c-head .seg > span { font-size: 1rem; }
+	.c-grid { position: relative; display: grid; grid-template-columns: 5rem minmax(0, 1fr); }
+	.c-lab { display: flex; align-items: center; padding: 0 var(--space-05); border-right: var(--line); font-size: var(--caption); text-transform: uppercase; letter-spacing: var(--tracking-label); }
+	.c-ruler { position: relative; height: 2rem; border-bottom: var(--border-width-hairline) solid var(--ink); cursor: pointer; touch-action: none; }
+	.c-lane { position: relative; height: 9rem; overflow: hidden; touch-action: none; }
+	.c-item { position: absolute; top: 0; bottom: 0; overflow: hidden; border: var(--border-width-hairline) solid var(--ink); }
+	.c-item.sel { outline: var(--border-width-focus) solid var(--ink); outline-offset: calc(-1 * var(--border-width-focus)); }
+	.c-tag { position: absolute; left: 0; bottom: 0; padding: 0 0.25rem; background: var(--paper); font-size: var(--caption); white-space: nowrap; }
+	.c-item.sel .c-tag { background: var(--ink); color: var(--paper); }
+	.c-cut { position: absolute; top: 0; bottom: 0; pointer-events: none; background-color: rgb(255 255 255 / 0.55);
+		background-image: repeating-linear-gradient(135deg, transparent 0 0.25rem, var(--ink) 0 0.375rem); }
+	.c-cut.l { left: 0; }
+	.c-cut.r { right: 0; }
+	.c-h { position: absolute; top: 0; bottom: 0; width: 0.75rem; margin-left: -0.375rem; z-index: 2; cursor: var(--cur-in); touch-action: none;
+		background: linear-gradient(var(--ink), var(--ink)) center / var(--border-width-focus) 100% no-repeat; }
+	.c-h.out { cursor: var(--cur-out); }
+	.c-h:hover, .c-h.on { background-size: 0.25rem 100%; }
+	.c-h .tab { position: absolute; top: 0; width: 1rem; height: 1.75rem; display: flex; align-items: center; justify-content: center; background: var(--ink); color: var(--paper); font-size: var(--caption); }
+	.c-h.in .tab { left: 50%; }
+	.c-h.out .tab { right: 50%; }
+	.c-slip { position: absolute; bottom: 0; width: 3rem; height: 1.25rem; margin-left: -1.5rem; z-index: 1; display: flex; align-items: center; justify-content: center; background: var(--ink); cursor: var(--cur-slip); touch-action: none; }
+	.c-slip::before { content: ''; width: 1.5rem; height: 0.5rem; background: repeating-linear-gradient(90deg, var(--paper) 0 var(--border-width-regular), transparent 0 0.375rem); }
+	/* finger-sized grips where the pointer is a finger (the phone / tablet page later) */
+	@media (pointer: coarse) {
+		.c-h { width: 2.75rem; margin-left: -1.375rem; }
+		.c-h .tab { width: 1.75rem; height: var(--control-height); }
+		.c-slip { width: 5rem; margin-left: -2.5rem; height: var(--control-height); }
+	}
+	.c-chip { position: absolute; top: 2.25rem; z-index: 3; pointer-events: none; display: none; white-space: nowrap; }
+	/* in / out sit outside the kept part, next to their line (they never cover each other); kept in its middle */
+	.c-chip.in { transform: translateX(calc(-100% - 0.75rem)); }
+	.c-chip.out { margin-left: 0.75rem; }
+	.c-chip.kept { top: 4rem; transform: translateX(-50%); }
+	/* at the lane's end a readout moves to the line's other side, a row lower (never cut off, never on the other one) */
+	.c-chip.in.flip { transform: none; margin-left: 0.75rem; top: 5.75rem; }
+	.c-chip.out.flip { transform: translateX(calc(-100% - 0.75rem)); margin-left: 0; top: 5.75rem; }
+	.c-ph { left: calc(5rem + (100% - 5rem) * var(--p, 0)); }
+	.c-zoom { position: absolute; right: var(--space-05); top: var(--space-05); z-index: 3; display: none; }
+	.c-time { font-size: var(--caption); min-width: 11rem; text-align: right; }
+</style>
+</head>
+<body>
+<div class="app">
+	<header class="topbar">
+		<span class="brand">Studio</span>
+		<span class="cap muted">trim – three ways to try</span>
+		<div class="tabs" role="tablist" aria-label="Way to trim">
+			<button role="tab" id="tab-a" data-v="a" aria-controls="va"><span class="n">1</span>Mobile</button>
+			<button role="tab" id="tab-b" data-v="b" aria-controls="vb"><span class="n">2</span>Ableton</button>
+			<button role="tab" id="tab-c" data-v="c" aria-controls="vc"><span class="n">3</span>Studio</button>
+		</div>
+		<span class="grow"></span>
+		<span class="cap muted">one take · 6 s · 24 fps · 144 frames · kept f 12 – f 107 to start</span>
+	</header>
+
+	<div class="body main">
+		<main id="stage">
+			<!-- A · mobile -->
+			<section class="variant" id="va" role="tabpanel" aria-labelledby="tab-a">
+				<div class="a-wrap">
+					<div class="phone">
+						<div class="p-head">
+							<button class="ctl ghost" id="aCancel">Cancel</button>
+							<span class="label">Trim</span>
+							<button class="ctl primary" id="aDone">Done</button>
+						</div>
+						<div class="a-pic" id="aPic"><canvas id="aBig"></canvas><span class="chip data" id="aTime"></span></div>
+						<div class="a-bar">
+							<button class="round" id="aPlay" aria-label="Play the kept part" aria-pressed="false">
+								<svg class="i play" viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z" /></svg>
+								<svg class="i pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" /></svg>
+							</button>
+							<span id="aSum"></span>
+						</div>
+						<div class="a-stripwrap">
+							<div class="a-strip" id="aStrip">
+								<canvas></canvas>
+								<div class="a-dim l"></div><div class="a-dim r"></div>
+								<div class="a-frame">
+									<div class="a-grip in" data-edge="in" role="slider" tabindex="0" aria-label="Start of the kept part">
+										<svg class="i" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6" /></svg>
+									</div>
+									<div class="a-grip out" data-edge="out" role="slider" tabindex="0" aria-label="End of the kept part">
+										<svg class="i" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>
+									</div>
+								</div>
+								<div class="a-ph"></div>
+								<span class="chip data a-bubble"></span>
+							</div>
+						</div>
+						<div class="a-note" id="aNote"></div>
+					</div>
+				</div>
+			</section>
+
+			<!-- B · Ableton -->
+			<section class="variant" id="vb" role="tabpanel" aria-labelledby="tab-b">
+				<div class="b-grid">
+					<div class="b-arr">
+						<div class="rhead"><span class="label">Arrangement</span><span class="grow"></span><span class="cap" id="bGrid"></span></div>
+						<div class="b-tl" id="bTl">
+							<div class="b-corner"></div>
+							<div class="b-ruler" id="bRuler"><canvas></canvas></div>
+							<div class="b-thead"><span class="label">Takes</span><span class="muted">video</span></div>
+							<div class="b-lane" id="bLane"><canvas></canvas></div>
+							<div class="b-ph"></div>
+						</div>
+					</div>
+					<div class="b-video">
+						<div class="rhead"><span class="label">Video</span></div>
+						<div class="stage"><canvas id="bBig"></canvas><span class="cap" id="bVid"></span></div>
+					</div>
+					<div>
+						<div class="rhead" style="border-right: var(--line)"><span class="label">Clip</span><span class="cap">&nbsp;s12 · take 3</span></div>
+						<div class="b-cv">
+							<div class="b-fields">
+								<div class="f"><span class="tag">Start</span><span id="bStart"></span></div>
+								<div class="f"><span class="tag">End</span><span id="bEnd"></span></div>
+								<div class="f"><span class="tag">Length</span><span id="bLen"></span></div>
+								<div class="f"><span class="tag">Position</span><span id="bPos"></span></div>
+							</div>
+							<div class="b-cvwrap">
+								<div class="b-cvstrip" id="bCv">
+									<canvas></canvas>
+									<div class="b-cvdim l"></div><div class="b-cvdim r"></div>
+									<div class="b-cvph"></div>
+									<div class="b-mark in" data-edge="in" role="slider" tabindex="0" aria-label="Start marker"><span class="flag"></span></div>
+									<div class="b-mark out" data-edge="out" role="slider" tabindex="0" aria-label="End marker"><span class="flag"></span></div>
+								</div>
+								<div class="b-cvscale"><span>0:00:00</span><span>the whole take</span><span>0:06:00</span></div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</section>
+
+			<!-- C · studio -->
+			<section class="variant" id="vc" role="tabpanel" aria-labelledby="tab-c">
+				<div class="c-view">
+					<div class="c-frame" id="cF1"><span class="lbl"></span><canvas></canvas></div>
+					<div class="c-frame" id="cF2"><span class="lbl"></span><canvas></canvas></div>
+					<div class="c-cam" id="cCam"></div>
+				</div>
+				<div class="c-tl">
+					<div class="c-head">
+						<span class="label">Timeline</span>
+						<span class="seg" aria-hidden="true"><span>Shot</span><span class="on">Take</span><span>Rendered</span><span>Generated</span></span>
+						<span class="grow"></span>
+						<button class="round" id="cPlay" aria-label="Play the kept parts" aria-pressed="false">
+							<svg class="i play" viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z" /></svg>
+							<svg class="i pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" /></svg>
+						</button>
+						<span class="c-time" id="cTime"></span>
+					</div>
+					<div class="c-grid">
+						<div class="c-lab"></div>
+						<div class="c-ruler" id="cRuler" role="slider" tabindex="0" aria-label="Playhead"><canvas></canvas></div>
+						<div class="c-lab">Clips</div>
+						<div class="c-lane" id="cLane">
+							<canvas></canvas>
+							<span class="chip data c-chip in"></span><span class="chip data c-chip out"></span><span class="chip data c-chip kept"></span>
+							<span class="chip data c-zoom" id="cZoom"></span>
+						</div>
+						<div class="c-ph"></div>
+					</div>
+				</div>
+			</section>
+		</main>
+
+		<aside class="region about">
+			<div class="rhead"><span class="label">How it works</span></div>
+			<div class="rbody">
+				<div data-about="a">
+					<h2>A · Mobile</h2>
+					<p class="muted">iPhone Photos, CapCut, Instagram</p>
+					<h3>How it behaves</h3>
+					<ul>
+						<li>The take is one filmstrip; a frame with two thick grips lies over it, the rest is dimmed.</li>
+						<li>Drag a grip: the big picture shows the frame under the grip, with its time.</li>
+						<li>Hold a grip still for half a second: the strip zooms to single frames under it; let go and it zooms back. Pinch or Ctrl + wheel zooms too.</li>
+						<li>Tap the picture (or Space) to play the kept part once.</li>
+					</ul>
+					<h3>Try</h3>
+					<p>Drag the left grip, then hold it still. Tap the picture.</p>
+					<h3>Good for the studio</h3>
+					<ul>
+						<li>One thumb, nothing to learn; the frame you cut on is the big picture.</li>
+						<li>The natural trim for the phone page (Handheld) – the timeline is hidden on phones.</li>
+					</ul>
+					<h3>Not so good</h3>
+					<ul>
+						<li>A mode of its own: one take at a time, no neighbours, no time axis, Cancel / Done.</li>
+						<li>At full width a frame is a sliver; precision only by holding or zooming.</li>
+						<li>A mouse and keys get no more than a finger.</li>
+					</ul>
+				</div>
+				<div data-about="b">
+					<h2>B · Ableton</h2>
+					<p class="muted">Live's arrangement + clip view</p>
+					<h3>How it behaves</h3>
+					<ul>
+						<li>In the arrangement a clip is a window onto its take. Drag its left or right edge (the cursor turns into a bracket): the picture stays where it is in time, only the window opens or closes.</li>
+						<li>Drag the clip to move it; Alt-drag slips the take inside the window – the window stays, the picture moves.</li>
+						<li>Edges snap to the grid, and the grid follows the zoom (seconds, parts of a second, frames). Hold Alt while dragging for single frames.</li>
+						<li>The clip view shows the whole take with a start and an end marker – the same cut; outside them is greyed. ← → nudge a marker by a frame, Shift ×10.</li>
+					</ul>
+					<h3>Try</h3>
+					<p>Drag the left edge of s12, Alt-drag its picture, Ctrl + wheel over the arrangement and drag again.</p>
+					<h3>Good for the studio</h3>
+					<ul>
+						<li>Precise: a grid, a modifier, keys.</li>
+						<li>Slip is a real tool: keep the length, choose the moment.</li>
+					</ul>
+					<h3>Not so good</h3>
+					<ul>
+						<li>The cut parts vanish from the arrangement – you only see what you cut away in the clip view (against "order is space").</li>
+						<li>A trimmed clip leaves a gap; nothing closes up.</li>
+						<li>Two places for one cut, modifiers a phone doesn't have, a lot of UI.</li>
+					</ul>
+				</div>
+				<div data-about="c">
+					<h2>C · Studio – recommended</h2>
+					<p class="muted">the built timeline, grown by the best of A and B</p>
+					<h3>How it behaves</h3>
+					<ul>
+						<li>Take mode shows the whole take; the cut parts stay in place, hatched (as built) – you see what you cut away.</li>
+						<li>Grab the in or out line anywhere along its height (Ableton's edge, the bracket cursor) or by its tab (finger-sized on a touch screen).</li>
+						<li>While you trim, the main view shows the in and the out frame side by side; the one you move is marked.</li>
+						<li>Edges snap to frames. The bar under the kept part – or Alt-drag on its picture – slips the kept part through the take: same length, another moment.</li>
+						<li>Hold a grip still: the timeline zooms to single frames under it; let go and it zooms back. Ctrl + wheel, + / − / 0 as now.</li>
+						<li>← → a frame, Shift ×10 on a focused grip, the slip bar or the ruler (the playhead); I / O = in / out at the playhead. Play plays the kept parts in order (Space here – the studio itself has no Space key).</li>
+					</ul>
+					<h3>Try</h3>
+					<p>Drag the out line of s12, hold it still, slip with the bar, put the playhead somewhere and press I.</p>
+					<h3>Built today</h3>
+					<p>The hatched cut parts, the in / out lines grabbable along their height, frame steps, ← → (Shift ×10), the playhead + 3D view at the moved point, Play skipping the cut parts, Ctrl + wheel, + / − / 0.</p>
+					<h3>New</h3>
+					<p>The bracket cursors + the tab, the in / out pair in the main view, slip, I / O, hold to zoom, the readouts.</p>
+					<h3>Good for the studio</h3>
+					<ul>
+						<li>One place, spatial, mouse and finger, keys for precision.</li>
+						<li>No new data: the take keeps its in / out.</li>
+					</ul>
+					<h3>Not so good</h3>
+					<ul>
+						<li>The lane carries pictures, grips and the slip bar – busier at zoom 1.</li>
+						<li>The pair in the main view needs a second picture of the 3D view (one still when a drag starts).</li>
+					</ul>
+				</div>
+			</div>
+		</aside>
+	</div>
+
+	<footer class="actionbar">
+		<span id="readout"></span>
+		<span class="keys" id="keys"></span>
+	</footer>
+</div>
+
+<script>
+'use strict';
+// ---------- shared ----------------------------------------------------------------------------------------------------
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const FPS = 24, TAKE = 144, MIN = 3, HOLD_MS = 450; // MIN: the built TRIM_MIN 100 ms = 3 frames
+const INK = '#000', PAPER = '#fff';
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const remPx = () => parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+const dpr = () => window.devicePixelRatio || 1;
+const pad = (n) => String(n).padStart(2, '0');
+/** m:ss:ff at 24 fps (the built formatTime { fps }) */
+const tc = (f) => { f = Math.max(0, Math.round(f)); const s = Math.floor(f / FPS); return `${Math.floor(s / 60)}:${pad(s % 60)}:${pad(f % FPS)}`; };
+const secs = (f) => `${(f / FPS).toFixed(2)} s`;
+const pc = (n) => `${n}%`;
+const later = (fn, ms) => setTimeout(fn, ms);
+
+/** what a strip shows: `span` frames, `zoom` views wide, the view starting at frame `start` */
+class View {
+	constructor(span, max = 64) { this.span = span; this.max = max; this.zoom = 1; this.start = 0; }
+	get vis() { return this.span / this.zoom; }
+	clamp() { this.zoom = clamp(this.zoom, 1, this.max); this.start = clamp(this.start, 0, this.span - this.vis); }
+	pct(f) { return ((f - this.start) / this.vis) * 100; }
+	at(el, x) { const r = el.getBoundingClientRect(); return this.start + ((x - r.left) / r.width) * this.vis; }
+	zoomTo(z, f, frac) { this.zoom = clamp(z, 1, this.max); this.start = f - frac * this.vis; this.clamp(); }
+	zoomAt(el, x, z) { const r = el.getBoundingClientRect(); const frac = clamp((x - r.left) / r.width, 0, 1); this.zoomTo(z, this.start + frac * this.vis, frac); }
+	save() { return { zoom: this.zoom, start: this.start }; }
+	restore(s) { Object.assign(this, s); this.clamp(); }
+}
+
+/** a canvas' bitmap = its CSS box in device pixels */
+function fit(cv) {
+	const r = cv.getBoundingClientRect(), d = dpr();
+	const w = Math.max(1, Math.round(r.width * d)), h = Math.max(1, Math.round(r.height * d));
+	if (cv.width !== w) cv.width = w;
+	if (cv.height !== h) cv.height = h;
+	const g = cv.getContext('2d');
+	g.setTransform(1, 0, 0, 1, 0, 0);
+	g.clearRect(0, 0, w, h);
+	return g;
+}
+
+// ---------- the synthetic takes: ink drawings, one per frame --------------------------------------------------------------
+function hatch(g, x, y, w, h, gap, dir, lw) {
+	g.save(); g.beginPath(); g.rect(x, y, w, h); g.clip();
+	g.strokeStyle = INK; g.lineWidth = lw; g.beginPath();
+	if (dir === 'v') for (let i = x; i < x + w; i += gap) { g.moveTo(i, y); g.lineTo(i, y + h); }
+	else if (dir === 'h') for (let j = y; j < y + h; j += gap) { g.moveTo(x, j); g.lineTo(x + w, j); }
+	else for (let i = x - h; i < x + w; i += gap) { g.moveTo(i, y + h); g.lineTo(i + h, y); }
+	g.stroke(); g.restore();
+}
+/** a walking figure, feet at (fx, base), `s` tall – paper under ink so it reads on hatching */
+function figure(g, fx, base, s, f, lw) {
+	const sw = Math.sin(f * 0.55) * 0.45, hip = base - s * 0.45, sh = base - s * 0.8;
+	const path = () => {
+		g.beginPath();
+		g.moveTo(fx, sh); g.lineTo(fx, hip);
+		g.moveTo(fx, hip); g.lineTo(fx + Math.sin(sw) * s * 0.4, base);
+		g.moveTo(fx, hip); g.lineTo(fx - Math.sin(sw) * s * 0.4, base);
+		g.moveTo(fx, sh + s * 0.05); g.lineTo(fx - Math.sin(sw) * s * 0.3, hip);
+		g.moveTo(fx, sh + s * 0.05); g.lineTo(fx + Math.sin(sw) * s * 0.3, hip);
+	};
+	g.lineCap = 'square';
+	path(); g.strokeStyle = PAPER; g.lineWidth = lw * 5; g.stroke();
+	path(); g.strokeStyle = INK; g.lineWidth = lw * 2.4; g.stroke();
+	g.beginPath(); g.arc(fx, sh - s * 0.12, s * 0.12, 0, 7);
+	g.fillStyle = INK; g.fill(); g.strokeStyle = PAPER; g.lineWidth = lw * 1.2; g.stroke();
+}
+/** scene 0: a street, the camera pans along, the sky changes every 2 s; 1: a door opens, someone comes closer;
+ *  2: a close-up (blinks, talks) */
+function drawFrame(g, x, y, w, h, f, scene, label) {
+	g.save(); g.beginPath(); g.rect(x, y, w, h); g.clip();
+	g.fillStyle = PAPER; g.fillRect(x, y, w, h);
+	const u = w / 100, lw = Math.max(1, u * 0.8);
+	g.strokeStyle = INK; g.fillStyle = INK; g.lineWidth = lw;
+	if (scene === 0) {
+		const t = f / (TAKE - 1), hz = y + h * 0.64, beat = Math.min(2, Math.floor(f / 48));
+		if (beat === 1) hatch(g, x, y, w, hz - y, u * 6, 'd', lw * 0.7);
+		if (beat === 2) { g.fillStyle = INK; g.fillRect(x, y, w, hz - y); g.fillStyle = PAPER; g.beginPath(); g.arc(x + w * 0.72, y + h * 0.14, w * 0.09, 0, 7); g.fill(); }
+		if (beat === 0) { g.lineWidth = lw * 1.5; g.beginPath(); g.arc(x + w * (0.2 + 1.5 * t), y + h * 0.15, w * 0.09, 0, 7); g.stroke(); }
+		const pan = t * w * 1.4;
+		for (let i = 0; i < 9; i++) {
+			const bw = w * 0.3, bx = x + i * w * 0.34 - pan, bh = h * (0.16 + 0.06 * ((i * 7) % 4));
+			if (bx > x + w || bx + bw < x) continue;
+			g.fillStyle = PAPER; g.fillRect(bx, hz - bh, bw, bh);
+			hatch(g, bx, hz - bh, bw, bh, u * 3.2, 'v', lw * 0.7);
+			g.strokeStyle = INK; g.lineWidth = lw * 1.4; g.strokeRect(bx, hz - bh, bw, bh);
+			for (let r = 0; r < 2; r++) for (let c = 0; c < 2; c++) {
+				const wx = bx + bw * (0.16 + 0.44 * c), wy = hz - bh + bh * (0.14 + 0.36 * r);
+				g.fillStyle = PAPER; g.fillRect(wx, wy, bw * 0.24, bh * 0.2); g.lineWidth = lw; g.strokeRect(wx, wy, bw * 0.24, bh * 0.2);
+			}
+		}
+		g.fillStyle = INK; g.fillRect(x, hz, w, lw * 2);
+		hatch(g, x, hz + lw * 2, w, y + h - hz, u * 7, 'h', lw * 0.6);
+		figure(g, x + w * (0.1 + 0.8 * t), hz + h * 0.06, h * 0.22, f, lw);
+	} else if (scene === 1) {
+		const t = f / 95, fl = y + h * 0.78;
+		hatch(g, x, y, w, fl - y, u * 4, 'v', lw * 0.6);
+		g.fillStyle = INK; g.fillRect(x, fl, w, lw * 2);
+		hatch(g, x, fl, w, y + h - fl, u * 9, 'd', lw * 0.6);
+		const dx = x + w * 0.42, dw = w * 0.4, dy = y + h * 0.3, dh = fl - y - h * 0.3;
+		g.fillStyle = INK; g.fillRect(dx, dy, dw, dh);
+		const open = clamp((t - 0.2) / 0.6, 0, 1), pw = dw * (1 - open * open * (3 - 2 * open));
+		g.fillStyle = PAPER; g.fillRect(dx, dy, pw, dh);
+		g.strokeStyle = INK; g.lineWidth = lw * 1.4; g.strokeRect(dx, dy, pw, dh);
+		if (pw > dw * 0.2) { g.beginPath(); g.arc(dx + pw - dw * 0.12, dy + dh * 0.55, w * 0.025, 0, 7); g.fillStyle = INK; g.fill(); }
+		g.lineWidth = lw * 2.5; g.strokeRect(dx, dy, dw, dh);
+		figure(g, x + w * (0.08 + 0.3 * t), fl + h * (0.04 + 0.12 * t), h * (0.2 + 0.3 * t), f, lw);
+	} else {
+		hatch(g, x, y, w, h, u * 7, 'd', lw * 0.6);
+		const cx = x + w * 0.5, cy = y + h * 0.42, r = w * 0.34;
+		g.fillStyle = INK; g.fillRect(cx - r * 1.4, cy + r * 0.95, r * 2.8, h);
+		g.beginPath(); g.arc(cx, cy, r, 0, 7); g.fillStyle = PAPER; g.fill(); g.lineWidth = lw * 2.5; g.stroke();
+		const blink = f % 30 < 3;
+		g.fillStyle = INK;
+		for (const ex of [-0.38, 0.38]) {
+			if (blink) g.fillRect(cx + ex * r - r * 0.12, cy - r * 0.12, r * 0.24, lw * 2);
+			else { g.beginPath(); g.arc(cx + ex * r, cy - r * 0.1, r * 0.1, 0, 7); g.fill(); }
+			g.fillRect(cx + ex * r - r * 0.18, cy - r * 0.42, r * 0.36, lw * 2);
+		}
+		const m = Math.abs(Math.sin(f * 0.45)) * r * 0.18;
+		g.fillRect(cx - r * 0.25, cy + r * 0.45, r * 0.5, Math.max(lw * 2, m));
+	}
+	if (label) {
+		const fs = Math.min(w * 0.3, 0.8 * remPx() * dpr());
+		g.font = `${fs}px "IBM Plex Mono", monospace`; g.textBaseline = 'top';
+		const t = String(f), tw = g.measureText(t).width;
+		g.fillStyle = INK; g.fillRect(x, y, tw + fs * 0.5, fs * 1.3);
+		g.fillStyle = PAPER; g.fillText(t, x + fs * 0.25, y + fs * 0.15);
+	}
+	g.restore();
+}
+
+/** frame after frame (owner 2026-10-20): content frame c at x0 + c × k (device px); a picture per tile, as many as fit –
+ *  zoomed in further than a picture per frame, each frame's picture sits on its left and the rest stays paper; a still has
+ *  one picture, on the left. Draws [c0, c1) clipped to [L, R]. */
+function tiles(g, { x0, k, c0, c1, y, h, scene, still = false, L, R }) {
+	const a = Math.max(L, x0 + c0 * k), b = Math.min(R, x0 + c1 * k);
+	if (b <= a) return;
+	g.save(); g.beginPath(); g.rect(a, y, b - a, h); g.clip();
+	g.fillStyle = PAPER; g.fillRect(a, y, b - a, h);
+	const tw = (h * 9) / 16, dt = Math.max(1, tw / k), sep = Math.max(1, Math.round(dpr()));
+	const n0 = still ? 0 : Math.max(0, Math.floor((a - x0) / k / dt)), n1 = still ? 0 : Math.ceil((b - x0) / k / dt);
+	const label = tw > 1.6 * remPx() * dpr();
+	for (let n = n0; n <= n1; n++) {
+		const c = n * dt;
+		if (c >= c1) break;
+		const px = x0 + c * k;
+		drawFrame(g, px, y, tw, h, Math.min(Math.floor(c), c1 - 1), scene, label);
+		g.fillStyle = INK;
+		g.fillRect(px, y, sep, h);
+		if (dt * k > tw + sep) g.fillRect(px + tw, y, sep, h);
+	}
+	g.restore();
+}
+
+/** the ruler: labels ≥ 5rem apart (frames below a second, then 1-2-5 s), ticks at `minor` frames */
+function ruler(g, W, H, v, minor) {
+	const k = W / v.vis, r = remPx() * dpr();
+	const L = [1, 2, 3, 6, 12, 24, 48, 120, 240, 480].find((s) => s * k >= 5 * r) ?? 480;
+	const m = minor && L % minor === 0 ? minor : ([1, 2, 3, 6, 12, 24, 48].filter((s) => L % s === 0 && s * k >= 0.6 * r)[0] ?? L);
+	g.fillStyle = INK; g.font = `${0.8125 * r}px "IBM Plex Mono", monospace`; g.textBaseline = 'top';
+	for (let f = Math.ceil(v.start / m) * m; f <= v.start + v.vis; f += m) {
+		const x = Math.round((f - v.start) * k), major = f % L === 0;
+		g.fillRect(x, major ? 0 : H * 0.6, Math.max(1, Math.round(dpr())), major ? H : H * 0.4);
+		if (major) g.fillText(L >= FPS ? `${f / FPS} s` : tc(f), x + 0.3 * r, 0.25 * r);
+	}
+}
+
+/** a drag: `begin(e)` returns { move(ev, dx), up?(ev), hold?(ev) – the pointer held still HOLD_MS, auto?(ev) – every
+ *  animation frame (edge panning) } or nothing. A focusable target takes the focus (the keys work after a click). */
+function onDrag(el, begin) {
+	el.addEventListener('pointerdown', (e) => {
+		if (e.button !== 0) return;
+		const h = begin(e);
+		if (!h) return;
+		e.preventDefault(); e.stopPropagation();
+		if (el.tabIndex >= 0) el.focus({ preventScroll: true });
+		const id = e.pointerId;
+		try { el.setPointerCapture(id); } catch { /* a synthetic pointer */ }
+		let last = e, lastX = e.clientX, stillX = e.clientX, held = false, timer = 0, raf = 0;
+		const arm = () => { clearTimeout(timer); if (h.hold && !held) timer = later(() => { held = true; h.hold(last); }, HOLD_MS); };
+		arm();
+		const loop = () => { h.auto(last); raf = requestAnimationFrame(loop); };
+		if (h.auto) raf = requestAnimationFrame(loop);
+		const move = (ev) => {
+			if (ev.pointerId !== id) return;
+			const dx = ev.clientX - lastX;
+			lastX = ev.clientX; last = ev;
+			if (Math.abs(ev.clientX - stillX) > 0.3 * remPx()) { stillX = ev.clientX; arm(); }
+			h.move(ev, dx);
+		};
+		const end = (ev) => {
+			if (ev.pointerId !== id) return;
+			clearTimeout(timer); cancelAnimationFrame(raf);
+			el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', end); el.removeEventListener('pointercancel', end);
+			h.up?.(ev);
+		};
+		el.addEventListener('pointermove', move); el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+	});
+}
+/** a slider's keys: ← → / ↓ ↑ one frame, Shift ×10, Home / End to the ends */
+function sliderKeys(el, get, set) {
+	el.addEventListener('keydown', (e) => {
+		const s = e.shiftKey ? 10 : 1;
+		const by = { ArrowLeft: -s, ArrowDown: -s, ArrowRight: s, ArrowUp: s, Home: -1e6, End: 1e6 }[e.key];
+		if (by === undefined || e.ctrlKey || e.metaKey || e.altKey) return;
+		e.preventDefault(); e.stopPropagation();
+		set(get() + by);
+	});
+}
+function aria(el, now, lo, hi) {
+	el.setAttribute('aria-valuemin', lo); el.setAttribute('aria-valuemax', hi);
+	el.setAttribute('aria-valuenow', now); el.setAttribute('aria-valuetext', `frame ${now}, ${tc(now)}`);
+}
+/** Ctrl + wheel zooms around the pointer; a plain wheel pans a zoomed strip */
+function wheel(el, v, render) {
+	el.addEventListener('wheel', (e) => {
+		if (e.ctrlKey) { e.preventDefault(); v.zoomAt(el, e.clientX, v.zoom * Math.exp(-e.deltaY * 0.0025)); render(); }
+		else if (v.zoom > 1) { e.preventDefault(); v.start += ((e.deltaX || e.deltaY) / el.getBoundingClientRect().width) * v.vis * 0.5; v.clamp(); render(); }
+	}, { passive: false });
+}
+/** two fingers on `el` zoom it around their middle; returns "pinching now?" */
+function pinch(el, v, render) {
+	const pts = new Map();
+	let base = null;
+	el.addEventListener('pointerdown', (e) => {
+		if (e.pointerType !== 'touch') return;
+		pts.set(e.pointerId, e.clientX);
+		if (pts.size === 2) { const [a, b] = [...pts.values()]; base = { d: Math.abs(a - b) || 1, z: v.zoom }; }
+	}, true);
+	el.addEventListener('pointermove', (e) => {
+		if (!pts.has(e.pointerId)) return;
+		pts.set(e.pointerId, e.clientX);
+		if (base && pts.size === 2) { const [a, b] = [...pts.values()]; v.zoomAt(el, (a + b) / 2, (base.z * Math.abs(a - b)) / base.d); render(); }
+	}, true);
+	const up = (e) => { pts.delete(e.pointerId); if (pts.size < 2) base = null; };
+	el.addEventListener('pointerup', up, true); el.addEventListener('pointercancel', up, true);
+	return () => !!base;
+}
+/** a grip held near a zoomed strip's end pans it (frames moved, 0 = none) */
+function edgePan(el, v, ev) {
+	if (v.zoom <= 1) return 0;
+	const r = el.getBoundingClientRect(), z = 1.5 * remPx();
+	const dir = ev.clientX < r.left + z ? -1 : ev.clientX > r.right - z ? 1 : 0;
+	if (!dir) return 0;
+	const before = v.start;
+	v.start += dir * v.vis * 0.012; v.clamp();
+	return v.start - before;
+}
+/** one frame per picture: the zoom at which a `px`-wide strip of `h`-tall pictures shows a frame per tile */
+const framesZoom = (v, el) => { const r = el.getBoundingClientRect(); return clamp(v.span / (r.width / ((r.height * 9) / 16)), 1, v.max); };
+
+// ---------- playback (one at a time) ----------------------------------------------------------------------------------
+let play = null;
+const RENDER = {};
+const playing = (v) => play?.v === v;
+function startPlay(v, advance) {
+	stopPlay();
+	const p = { v, raf: 0, last: performance.now(), acc: 0 };
+	play = p;
+	const step = (now) => {
+		if (play !== p) return;
+		p.acc += ((now - p.last) * FPS) / 1000; p.last = now;
+		const d = Math.floor(p.acc); p.acc -= d;
+		if (d && !advance(d)) play = null;
+		RENDER[v]();
+		if (play === p) p.raf = requestAnimationFrame(step);
+	};
+	p.raf = requestAnimationFrame(step);
+	RENDER[v]();
+}
+function stopPlay() {
+	if (!play) return;
+	cancelAnimationFrame(play.raf);
+	const v = play.v; play = null; RENDER[v]();
+}
+
+let cur = 'a';
+const readout = $('#readout'), keys = $('#keys');
+const K = (k) => `<kbd>${k}</kbd>`;
+
+// ---------- A · mobile ------------------------------------------------------------------------------------------------
+const A = { in: 12, out: 108, ph: 12, view: new View(TAKE, 16), drag: null, saved: null, done: null, msg: '' };
+A.done = { in: A.in, out: A.out };
+const aStrip = $('#aStrip'), aCv = $('#aStrip canvas'), aBig = $('#aBig');
+const aGrip = { in: $('.a-grip.in'), out: $('.a-grip.out') };
+function setA(edge, f) {
+	if (edge === 'in') A.in = clamp(Math.round(f), 0, A.out - MIN);
+	else A.out = clamp(Math.round(f), A.in + MIN, TAKE);
+}
+const aShown = () => (A.drag === 'in' ? A.in : A.drag === 'out' ? A.out - 1 : A.ph);
+RENDER.a = function renderA() {
+	if (cur !== 'a') return;
+	const v = A.view, g = fit(aCv), W = aCv.width, H = aCv.height, k = W / v.vis;
+	tiles(g, { x0: -v.start * k, k, c0: 0, c1: TAKE, y: 0, h: H, scene: 0, L: 0, R: W });
+	const l = v.pct(A.in), r = v.pct(A.out);
+	$('.a-dim.l').style.width = pc(clamp(l, 0, 100));
+	$('.a-dim.r').style.left = pc(clamp(r, 0, 100));
+	// zoomed, the frame ends at the strip's ends (its lines never run on into the phone's margin); a grip whose edge is out
+	// of view hides – the dragged one never does; it stays focusable (Tab to it pans it into view)
+	const fr = $('.a-frame'), cl = clamp(l, 0, 100), cr = clamp(r, 0, 100);
+	fr.style.left = pc(cl); fr.style.width = pc(cr - cl);
+	const off = (p) => p < -0.01 || p > 100.01;
+	aGrip.in.classList.toggle('away', off(l) && A.drag !== 'in');
+	aGrip.out.classList.toggle('away', off(r) && A.drag !== 'out');
+	const ph = v.pct(A.ph + 0.5);
+	$('.a-ph').style.left = pc(ph);
+	$('.a-ph').style.display = A.drag || off(ph) ? 'none' : '';
+	const bub = $('.a-bubble');
+	bub.style.display = A.drag ? 'block' : 'none';
+	if (A.drag) { bub.style.left = pc(A.drag === 'in' ? l : r); bub.textContent = tc(aShown()); }
+	const f = aShown();
+	drawFrame(fit(aBig), 0, 0, aBig.width, aBig.height, f, 0, false);
+	$('#aTime').textContent = A.drag ? `${A.drag === 'in' ? 'start' : 'end'} · ${tc(f)}` : tc(f);
+	$('#aSum').textContent = `${tc(A.in)} – ${tc(A.out - 1)} · ${secs(A.out - A.in)}`;
+	$('#aPlay').setAttribute('aria-pressed', playing('a'));
+	aria(aGrip.in, A.in, 0, A.out - MIN); aria(aGrip.out, A.out - 1, A.in + MIN - 1, TAKE - 1);
+	$('#aNote').textContent = A.msg || (v.zoom > 1.01
+		? `zoomed ×${v.zoom.toFixed(1)} · ${Math.round(v.vis)} frames on the strip${A.saved ? ' – let go to zoom back' : ''}`
+		: 'Hold a grip still to zoom in to single frames · pinch or Ctrl + wheel');
+	readout.textContent = `kept ${tc(A.in)} – ${tc(A.out - 1)} · ${secs(A.out - A.in)} (${A.out - A.in} frames)`;
+};
+for (const edge of ['in', 'out']) {
+	const el = aGrip[edge];
+	onDrag(el, () => {
+		stopPlay(); A.drag = edge; A.msg = '';
+		let fF = A[edge];
+		const apply = () => {
+			const lo = edge === 'in' ? 0 : A.in + MIN, hi = edge === 'in' ? A.out - MIN : TAKE;
+			fF = clamp(fF, lo - 0.49, hi + 0.49);
+			setA(edge, fF); A.ph = aShown(); RENDER.a();
+		};
+		RENDER.a();
+		return {
+			move: (ev, dx) => { fF += (dx / aStrip.getBoundingClientRect().width) * A.view.vis; apply(); },
+			hold: () => {
+				if (A.saved) return;
+				A.saved = A.view.save();
+				A.view.zoomTo(framesZoom(A.view, aStrip), A[edge], clamp(A.view.pct(A[edge]) / 100, 0, 1));
+				RENDER.a();
+			},
+			auto: (ev) => { const d = edgePan(aStrip, A.view, ev); if (d) { fF += d; apply(); } },
+			up: () => { A.drag = null; if (A.saved) { A.view.restore(A.saved); A.saved = null; } RENDER.a(); },
+		};
+	});
+	// zoomed, a focused grip is always in view: Tab to one out of view, or a key that moves it out, pans the strip to it
+	const reveal = () => { const p = A.view.pct(A[edge]); if (p < 5 || p > 95) { A.view.start = A[edge] - A.view.vis / 2; A.view.clamp(); } };
+	el.addEventListener('focus', () => { if (!A.drag) { reveal(); RENDER.a(); } });
+	sliderKeys(el, () => A[edge], (f) => { stopPlay(); A.msg = ''; setA(edge, f); A.ph = edge === 'in' ? A.in : A.out - 1; reveal(); RENDER.a(); });
+}
+const aPinching = pinch(aStrip, A.view, () => RENDER.a());
+onDrag(aStrip, (e) => {
+	if (e.target.closest('.a-grip')) return null;
+	stopPlay();
+	const seek = (ev) => { if (aPinching()) return; A.ph = clamp(Math.floor(A.view.at(aStrip, ev.clientX)), A.in, A.out - 1); RENDER.a(); };
+	seek(e);
+	return { move: seek };
+});
+wheel(aStrip, A.view, () => RENDER.a());
+function playA() {
+	if (A.ph < A.in || A.ph >= A.out - 1) A.ph = A.in;
+	startPlay('a', (d) => { A.ph = Math.min(A.out - 1, A.ph + d); return A.ph < A.out - 1; });
+}
+$('#aPic').addEventListener('click', () => (playing('a') ? stopPlay() : playA()));
+$('#aPlay').addEventListener('click', () => (playing('a') ? stopPlay() : playA()));
+$('#aCancel').addEventListener('click', () => { stopPlay(); A.in = A.done.in; A.out = A.done.out; A.ph = A.in; A.msg = 'Cancel: back to the last Done'; RENDER.a(); });
+$('#aDone').addEventListener('click', () => { A.done = { in: A.in, out: A.out }; A.msg = `Done: the take keeps ${tc(A.in)} – ${tc(A.out - 1)}`; RENDER.a(); });
+
+// ---------- B · Ableton -----------------------------------------------------------------------------------------------
+// a clip = a window [anchor + in, anchor + out) onto its take (content frame c sits at arrangement frame anchor + c)
+const B = {
+	view: new View(288), ph: 84, drag: null, peek: 0,
+	clips: [
+		{ id: 's11', name: 's11 · take 1', scene: 2, len: 72, anchor: 12, in: 0, out: 48 },
+		{ id: 's12', name: 's12 · take 3', scene: 0, len: TAKE, anchor: 72, in: 12, out: 108, sel: true },
+		{ id: 's13', name: 's13 · take 2', scene: 1, len: 96, anchor: 204, in: 0, out: 72 },
+	],
+};
+const BC = B.clips[1];
+const bTl = $('#bTl'), bLane = $('#bLane'), bLaneCv = $('#bLane canvas'), bRuler = $('#bRuler'), bCv = $('#bCv'), bBig = $('#bBig');
+const bEl = {};
+for (const c of B.clips) {
+	const el = document.createElement('div');
+	el.className = `b-clip${c.sel ? ' sel' : ''}`;
+	el.innerHTML = `<div class="b-name">${c.name}</div><div class="b-body"></div>`;
+	if (c.sel) {
+		el.insertAdjacentHTML('beforeend', '<div class="b-edge in" data-edge="in" role="slider" tabindex="0" aria-label="Left edge of s12"></div><div class="b-edge out" data-edge="out" role="slider" tabindex="0" aria-label="Right edge of s12"></div>');
+		const body = el.querySelector('.b-body');
+		body.tabIndex = 0; body.setAttribute('role', 'slider'); body.setAttribute('aria-label', 'Position of s12 (← → by the grid)');
+	}
+	bLane.append(el);
+	bEl[c.id] = el;
+}
+const bLo = () => B.clips[0].anchor + B.clips[0].out, bHi = () => B.clips[2].anchor + B.clips[2].in;
+const GRIDS = [1, 2, 3, 4, 6, 8, 12, 24, 48, 96];
+const gridB = () => { const k = bLane.getBoundingClientRect().width / B.view.vis; return GRIDS.find((s) => s * k >= 1.1 * remPx()) ?? 96; };
+const gridCv = () => { const k = bCv.getBoundingClientRect().width / BC.len; return GRIDS.find((s) => s * k >= 1.1 * remPx()) ?? 96; };
+const gridName = (s) => (s === 1 ? '1 frame' : s >= FPS ? `${s / FPS} s` : FPS % s === 0 ? `1/${FPS / s} s` : `${s} frames`);
+const snap = (f, s, free) => (free ? Math.round(f) : Math.round(f / s) * s);
+function setB(edge, v) {
+	if (edge === 'in') BC.in = clamp(Math.round(v), Math.max(0, bLo() - BC.anchor), BC.out - MIN);
+	else BC.out = clamp(Math.round(v), BC.in + MIN, Math.min(BC.len, bHi() - BC.anchor));
+}
+const bAt = (t) => B.clips.find((c) => t >= c.anchor + c.in && t < c.anchor + c.out);
+let bAlt = false;
+RENDER.b = function renderB() {
+	if (cur !== 'b') return;
+	const v = B.view, s = gridB();
+	if (playing('b') && (B.ph < v.start || B.ph > v.start + v.vis)) { v.start = B.ph - v.vis * 0.1; v.clamp(); }
+	const rc = $('#bRuler canvas'), gr = fit(rc);
+	ruler(gr, rc.width, rc.height, v, s);
+	const g = fit(bLaneCv), W = bLaneCv.width, H = bLaneCv.height, k = W / v.vis, d = dpr();
+	for (let f = Math.ceil(v.start / s) * s; f <= v.start + v.vis; f += s) {
+		g.fillStyle = f % FPS === 0 ? '#9a9a9a' : '#dddddd';
+		g.fillRect(Math.round((f - v.start) * k), 0, Math.max(1, Math.round(d)), H);
+	}
+	const lr = bLane.getBoundingClientRect();
+	for (const c of B.clips) {
+		const el = bEl[c.id];
+		el.style.left = pc(v.pct(c.anchor + c.in)); el.style.width = pc(((c.out - c.in) / v.vis) * 100);
+		const br = el.querySelector('.b-body').getBoundingClientRect();
+		tiles(g, { x0: (c.anchor - v.start) * k, k, c0: c.in, c1: c.out, y: (br.top - lr.top) * d, h: br.height * d, scene: c.scene, L: 0, R: W });
+	}
+	const p = v.pct(B.ph) / 100;
+	$('.b-ph').style.setProperty('--p', p); $('.b-ph').style.display = p < 0 || p > 1 ? 'none' : '';
+	// the video window: the edge being cut (a drag, a key), else the frame under the playhead
+	const edge = B.drag === 'in' || B.drag === 'out' ? B.drag : B.drag === 'slip' ? 'in' : performance.now() < B.peek ? B.peekEdge : null;
+	const hit = edge ? { c: BC, f: edge === 'in' ? BC.in : BC.out - 1 } : (() => { const c = bAt(B.ph); return c && { c, f: B.ph - c.anchor }; })();
+	const gb = fit(bBig);
+	if (hit) drawFrame(gb, 0, 0, bBig.width, bBig.height, hit.f, hit.c.scene, false);
+	else { gb.fillStyle = INK; gb.fillRect(0, 0, bBig.width, bBig.height); }
+	$('#bVid').textContent = hit ? `${hit.c.id} · f ${hit.f} · ${tc(hit.f)}${edge ? ` · ${edge === 'in' ? 'start' : 'end'}` : ''}` : 'no clip under the playhead';
+	// the clip view: the whole take, the markers, outside greyed
+	const cc = $('#bCv canvas'), g2 = fit(cc);
+	tiles(g2, { x0: 0, k: cc.width / BC.len, c0: 0, c1: BC.len, y: 0, h: cc.height, scene: BC.scene, L: 0, R: cc.width });
+	$('.b-cvdim.l').style.width = pc((BC.in / BC.len) * 100);
+	$('.b-cvdim.r').style.left = pc((BC.out / BC.len) * 100);
+	$('.b-mark.in').style.left = pc((BC.in / BC.len) * 100);
+	$('.b-mark.out').style.left = pc((BC.out / BC.len) * 100);
+	const off = B.ph - BC.anchor, inClip = off >= BC.in && off < BC.out;
+	$('.b-cvph').style.display = inClip ? '' : 'none';
+	$('.b-cvph').style.left = pc((off / BC.len) * 100);
+	$('#bStart').textContent = tc(BC.in); $('#bEnd').textContent = tc(BC.out - 1);
+	$('#bLen').textContent = secs(BC.out - BC.in); $('#bPos').textContent = tc(BC.anchor + BC.in);
+	$('#bGrid').textContent = `Grid ${gridName(s)}${bAlt ? ' · off while Alt' : ''} · ×${v.zoom.toFixed(1)}`;
+	aria($('.b-mark.in'), BC.in, 0, BC.out - MIN); aria($('.b-mark.out'), BC.out - 1, BC.in + MIN - 1, BC.len - 1);
+	aria($('.b-edge.in'), BC.in, 0, BC.out - MIN); aria($('.b-edge.out'), BC.out - 1, BC.in + MIN - 1, BC.len - 1);
+	aria(bEl.s12.querySelector('.b-body'), BC.anchor + BC.in, bLo(), bHi() - (BC.out - BC.in));
+	readout.textContent = `s12 · start ${tc(BC.in)} · end ${tc(BC.out - 1)} · ${secs(BC.out - BC.in)} · at ${tc(BC.anchor + BC.in)} in the arrangement`;
+};
+const bW = () => bLane.getBoundingClientRect().width;
+function peekB(edge) { B.peek = performance.now() + 1200; B.peekEdge = edge; later(RENDER.b, 1250); }
+for (const edge of ['in', 'out']) {
+	const el = bEl.s12.querySelector(`.b-edge.${edge}`);
+	onDrag(el, () => {
+		stopPlay(); B.drag = edge;
+		let fF = BC.anchor + BC[edge];
+		RENDER.b();
+		return {
+			move: (ev, dx) => {
+				fF += (dx / bW()) * B.view.vis;
+				const lo = edge === 'in' ? Math.max(BC.anchor, bLo()) : BC.anchor + BC.in + MIN, hi = edge === 'in' ? BC.anchor + BC.out - MIN : Math.min(BC.anchor + BC.len, bHi());
+				fF = clamp(fF, lo - 0.49, hi + 0.49);
+				setB(edge, snap(fF, gridB(), ev.altKey) - BC.anchor); RENDER.b();
+			},
+			up: () => { B.drag = null; peekB(edge); RENDER.b(); },
+		};
+	});
+	sliderKeys(el, () => BC[edge], (f) => { stopPlay(); setB(edge, f); peekB(edge); RENDER.b(); });
+	const mk = $(`.b-mark.${edge}`);
+	onDrag(mk, () => {
+		stopPlay(); B.drag = edge;
+		let fF = BC[edge];
+		RENDER.b();
+		return {
+			move: (ev, dx) => { fF += (dx / bCv.getBoundingClientRect().width) * BC.len; fF = clamp(fF, -0.49, BC.len + 0.49); setB(edge, snap(fF, gridCv(), ev.altKey)); RENDER.b(); },
+			up: () => { B.drag = null; peekB(edge); RENDER.b(); },
+		};
+	});
+	sliderKeys(mk, () => BC[edge], (f) => { stopPlay(); setB(edge, f); peekB(edge); RENDER.b(); });
+}
+const bBody = bEl.s12.querySelector('.b-body');
+onDrag(bBody, (e) => {
+	stopPlay();
+	if (e.altKey) {
+		// slip: the window stays in the arrangement, the take moves under it
+		B.drag = 'slip';
+		const in0 = BC.in, a0 = BC.anchor, kept = BC.out - BC.in;
+		let fF = 0;
+		RENDER.b();
+		return {
+			move: (ev, dx) => {
+				fF += (dx / bW()) * B.view.vis;
+				fF = clamp(fF, in0 - (BC.len - kept) - 0.49, in0 + 0.49);
+				const nin = clamp(in0 - Math.round(fF), 0, BC.len - kept);
+				BC.in = nin; BC.out = nin + kept; BC.anchor = a0 + (in0 - nin); RENDER.b();
+			},
+			up: () => { B.drag = null; RENDER.b(); },
+		};
+	}
+	B.drag = 'move';
+	let fF = BC.anchor + BC.in;
+	return {
+		move: (ev, dx) => {
+			fF += (dx / bW()) * B.view.vis;
+			const kept = BC.out - BC.in;
+			fF = clamp(fF, bLo() - 0.49, bHi() - kept + 0.49);
+			BC.anchor = clamp(snap(fF, gridB(), ev.altKey), bLo(), bHi() - kept) - BC.in; RENDER.b();
+		},
+		up: () => { B.drag = null; RENDER.b(); },
+	};
+});
+bBody.addEventListener('keydown', (e) => {
+	const by = { ArrowLeft: -1, ArrowRight: 1 }[e.key];
+	if (!by || e.ctrlKey || e.metaKey || e.altKey) return;
+	e.preventDefault(); e.stopPropagation();
+	const kept = BC.out - BC.in, s = gridB() * (e.shiftKey ? 10 : 1);
+	BC.anchor = clamp(snap(BC.anchor + BC.in + by * s, s, false), bLo(), bHi() - kept) - BC.in; RENDER.b();
+});
+for (const el of [bRuler, bLane]) {
+	onDrag(el, (e) => {
+		if (e.target.closest('.b-clip')) return null;
+		stopPlay();
+		const seek = (ev) => { B.ph = clamp(snap(B.view.at(el, ev.clientX), gridB(), ev.altKey), 0, B.view.span - 1); RENDER.b(); };
+		seek(e);
+		return { move: seek };
+	});
+	wheel(el, B.view, () => RENDER.b());
+}
+function playB() {
+	if (B.ph >= B.view.span - 1) B.ph = 0;
+	startPlay('b', (d) => { B.ph = Math.min(B.view.span - 1, B.ph + d); return B.ph < B.view.span - 1; });
+}
+
+// ---------- C · studio ------------------------------------------------------------------------------------------------
+// Take mode as built: the picked shots back to back, each take whole, its trim hatched; a still = 5 s (STILL_MS)
+const C = {
+	view: new View(360), sel: 's12', ph: 132, drag: null, peek: 0, peekEdge: null, saved: null,
+	items: [
+		{ id: 's11', kind: 'still', scene: 2, len: 120 },
+		{ id: 's12', kind: 'take', scene: 0, len: TAKE, trim: { in: 12, out: 108 } },
+		{ id: 's13', kind: 'take', scene: 1, len: 96, trim: { in: 6, out: 90 } },
+	],
+};
+{ let at = 0; for (const it of C.items) { it.start = at; at += it.len; } }
+const cLane = $('#cLane'), cLaneCv = $('#cLane canvas'), cRuler = $('#cRuler');
+const cItem = (id) => C.items.find((i) => i.id === id);
+const cAt = (t) => C.items.find((i) => t >= i.start && t < i.start + i.len) ?? C.items.at(-1);
+const cEl = {};
+for (const it of C.items) {
+	const el = document.createElement('div');
+	el.className = 'c-item';
+	el.innerHTML = `${it.trim ? '<span class="c-cut l"></span><span class="c-cut r"></span>' : ''}<span class="c-tag">${it.id} · ${it.kind}</span>`;
+	cLane.append(el);
+	cEl[it.id] = { box: el };
+	if (!it.trim) continue;
+	for (const edge of ['in', 'out']) {
+		const h = document.createElement('div');
+		h.className = `c-h ${edge}`;
+		h.tabIndex = 0; h.setAttribute('role', 'slider');
+		h.setAttribute('aria-label', `${edge === 'in' ? 'In' : 'Out'} · ${it.id}`);
+		h.innerHTML = `<span class="tab">${edge === 'in' ? '[' : ']'}</span>`;
+		cLane.append(h);
+		cEl[it.id][edge] = h;
+	}
+	const sl = document.createElement('div');
+	sl.className = 'c-slip';
+	sl.tabIndex = 0; sl.setAttribute('role', 'slider'); sl.setAttribute('aria-label', `Slip the kept part · ${it.id}`);
+	cLane.append(sl);
+	cEl[it.id].slip = sl;
+}
+function setC(it, edge, v) {
+	const t = it.trim;
+	if (edge === 'in') t.in = clamp(Math.round(v), 0, t.out - MIN);
+	else t.out = clamp(Math.round(v), t.in + MIN, it.len);
+}
+/** `t` out of a cut part – the built kept(): before an in → the in, at / past an out → the next clip */
+function keptC(t) {
+	for (const it of C.items) {
+		if (t < it.start || t >= it.start + it.len) continue;
+		if (!it.trim || t >= it.start + it.trim.in && t < it.start + it.trim.out) return t;
+		if (t < it.start + it.trim.in) return it.start + it.trim.in;
+		t = it.start + it.len;
+	}
+	return t;
+}
+RENDER.c = function renderC() {
+	if (cur !== 'c') return;
+	const v = C.view, now = performance.now();
+	if (playing('c') && (C.ph < v.start || C.ph > v.start + v.vis)) { v.start = C.ph - v.vis * 0.1; v.clamp(); }
+	const rc = $('#cRuler canvas'), gr = fit(rc);
+	ruler(gr, rc.width, rc.height, v);
+	const g = fit(cLaneCv), W = cLaneCv.width, H = cLaneCv.height, k = W / v.vis;
+	const active = C.drag ? cItem(C.drag.id) : now < C.peek ? cItem(C.sel) : null;
+	for (const it of C.items) {
+		tiles(g, { x0: (it.start - v.start) * k, k, c0: 0, c1: it.len, y: 0, h: H, scene: it.scene, still: it.kind === 'still', L: 0, R: W });
+		const e = cEl[it.id];
+		e.box.style.left = pc(v.pct(it.start)); e.box.style.width = pc((it.len / v.vis) * 100);
+		e.box.classList.toggle('sel', it.id === C.sel);
+		if (!it.trim) continue;
+		const t = it.trim;
+		e.box.querySelector('.c-cut.l').style.width = pc((t.in / it.len) * 100);
+		e.box.querySelector('.c-cut.r').style.width = pc((1 - t.out / it.len) * 100);
+		// the name starts right of the in line (the line never crosses it)
+		e.box.querySelector('.c-tag').style.left = `calc(${(t.in / it.len) * 100}% + 0.375rem)`;
+		e.in.style.left = pc(v.pct(it.start + t.in)); e.out.style.left = pc(v.pct(it.start + t.out));
+		e.in.classList.toggle('on', C.drag?.id === it.id && C.drag.edge === 'in');
+		e.out.classList.toggle('on', C.drag?.id === it.id && C.drag.edge === 'out');
+		e.slip.style.left = pc(v.pct(it.start + (t.in + t.out) / 2));
+		aria(e.in, t.in, 0, t.out - MIN); aria(e.out, t.out - 1, t.in + MIN - 1, it.len - 1); aria(e.slip, t.in, 0, it.len - (t.out - t.in));
+	}
+	// the readouts on the lane while one is trimmed
+	const [ci, co, ck] = $$('.c-chip');
+	const show = !!active?.trim;
+	for (const c of [ci, co, ck]) c.style.display = show ? 'inline-flex' : 'none';
+	if (show) {
+		const t = active.trim;
+		ci.style.left = pc(v.pct(active.start + t.in)); ci.textContent = `in ${tc(t.in)}`;
+		co.style.left = pc(v.pct(active.start + t.out)); co.textContent = `out ${tc(t.out - 1)}`;
+		ck.style.left = pc(v.pct(active.start + (t.in + t.out) / 2)); ck.textContent = `kept ${secs(t.out - t.in)}`;
+		const lw = cLane.clientWidth, gap = 0.75 * remPx(), pi = v.pct(active.start + t.in), po = v.pct(active.start + t.out);
+		ci.classList.toggle('flip', (pi / 100) * lw - gap - ci.offsetWidth < 0);
+		co.classList.toggle('flip', (po / 100) * lw + gap + co.offsetWidth > lw);
+		// a line out of view (zoomed): its readout goes with it
+		if (pi < 0 || pi > 100) ci.style.display = 'none';
+		if (po < 0 || po > 100) co.style.display = 'none';
+	}
+	const p = v.pct(C.ph) / 100;
+	$('.c-ph').style.setProperty('--p', p); $('.c-ph').style.display = p < 0 || p > 1 ? 'none' : '';
+	$('#cZoom').style.display = C.saved ? 'inline-flex' : 'none';
+	$('#cZoom').textContent = `frames · ×${v.zoom.toFixed(0)} – let go to zoom back`;
+	// the main view: the in / out pair while trimming, else the frame under the playhead
+	const [f1, f2] = [$('#cF1'), $('#cF2')];
+	if (show) {
+		const t = active.trim, edge = C.drag?.edge ?? C.peekEdge;
+		f2.style.display = '';
+		for (const [box, which, f] of [[f1, 'in', t.in], [f2, 'out', t.out - 1]]) {
+			const cv = box.querySelector('canvas');
+			drawFrame(fit(cv), 0, 0, cv.width, cv.height, f, active.scene, false);
+			const lbl = box.querySelector('.lbl');
+			lbl.textContent = `${which.toUpperCase()} · f ${f} · ${tc(f)}`;
+			lbl.classList.toggle('on', edge === which || edge === 'slip');
+		}
+		$('#cCam').innerHTML = `<span class="chip data">${active.id} · kept ${secs(t.out - t.in)}</span>`;
+	} else {
+		f2.style.display = 'none';
+		const it = cAt(C.ph), off = clamp(C.ph - it.start, 0, it.len - 1), f = it.kind === 'still' ? 0 : off;
+		const cv = f1.querySelector('canvas');
+		drawFrame(fit(cv), 0, 0, cv.width, cv.height, f, it.scene, false);
+		const cut = it.trim && (off < it.trim.in || off >= it.trim.out);
+		f1.querySelector('.lbl').textContent = `${it.id} · ${it.kind}${it.kind === 'take' ? ` · f ${f}` : ''}`;
+		f1.querySelector('.lbl').classList.remove('on');
+		$('#cCam').innerHTML = cut ? '<span class="chip data">in a cut part – Play skips it</span>' : `${tc(C.ph)}`;
+	}
+	$('#cTime').textContent = `${tc(C.ph)} / ${tc(v.span)}`;
+	aria(cRuler, C.ph, 0, v.span - 1);
+	$('#cPlay').setAttribute('aria-pressed', playing('c'));
+	const s = cItem(C.sel);
+	readout.textContent = s.trim
+		? `${s.id} · in ${tc(s.trim.in)} · out ${tc(s.trim.out - 1)} · kept ${secs(s.trim.out - s.trim.in)} (${s.trim.out - s.trim.in} frames)`
+		: `${s.id} · a still, 5 s – nothing to trim`;
+};
+const cW = () => cLane.getBoundingClientRect().width;
+function peekC(it, edge) { C.sel = it.id; C.peek = performance.now() + 1200; C.peekEdge = edge; later(RENDER.c, 1250); }
+function holdC(f) {
+	if (C.saved) return;
+	C.saved = C.view.save();
+	C.view.zoomTo(framesZoom(C.view, cLane), f, clamp(C.view.pct(f) / 100, 0, 1));
+	RENDER.c();
+}
+function unholdC() { if (C.saved) { C.view.restore(C.saved); C.saved = null; } }
+function slipC(it) {
+	stopPlay(); C.sel = it.id; C.drag = { id: it.id, edge: 'slip' };
+	const t = it.trim, kept = t.out - t.in, in0 = t.in;
+	let fF = 0;
+	const apply = () => {
+		fF = clamp(fF, -in0 - 0.49, it.len - kept - in0 + 0.49);
+		t.in = clamp(in0 + Math.round(fF), 0, it.len - kept); t.out = t.in + kept;
+		C.ph = it.start + t.in; RENDER.c();
+	};
+	RENDER.c();
+	return {
+		move: (ev, dx) => { fF += (dx / cW()) * C.view.vis; apply(); },
+		hold: () => { holdC(it.start + t.in); },
+		auto: (ev) => { const d = edgePan(cLane, C.view, ev); if (d) { fF += d; apply(); } },
+		up: () => { C.drag = null; unholdC(); peekC(it, 'slip'); RENDER.c(); },
+	};
+}
+for (const it of C.items) {
+	if (!it.trim) continue;
+	for (const edge of ['in', 'out']) {
+		const el = cEl[it.id][edge];
+		onDrag(el, () => {
+			stopPlay(); C.sel = it.id; C.drag = { id: it.id, edge };
+			let fF = it.start + it.trim[edge];
+			const apply = () => {
+				const lo = it.start + (edge === 'in' ? 0 : it.trim.in + MIN), hi = it.start + (edge === 'in' ? it.trim.out - MIN : it.len);
+				fF = clamp(fF, lo - 0.49, hi + 0.49);
+				setC(it, edge, Math.round(fF) - it.start);
+				C.ph = it.start + (edge === 'in' ? it.trim.in : it.trim.out - 1); RENDER.c();
+			};
+			RENDER.c();
+			return {
+				move: (ev, dx) => { fF += (dx / cW()) * C.view.vis; apply(); },
+				hold: () => holdC(it.start + it.trim[edge]),
+				auto: (ev) => { const d = edgePan(cLane, C.view, ev); if (d) { fF += d; apply(); } },
+				up: () => { C.drag = null; unholdC(); peekC(it, edge); RENDER.c(); },
+			};
+		});
+		sliderKeys(el, () => it.trim[edge], (f) => {
+			stopPlay(); setC(it, edge, f);
+			C.ph = it.start + (edge === 'in' ? it.trim.in : it.trim.out - 1); peekC(it, edge); RENDER.c();
+		});
+	}
+	const sl = cEl[it.id].slip;
+	onDrag(sl, () => slipC(it));
+	sliderKeys(sl, () => it.trim.in, (f) => {
+		stopPlay();
+		const t = it.trim, kept = t.out - t.in;
+		t.in = clamp(f, 0, it.len - kept); t.out = t.in + kept; C.ph = it.start + t.in; peekC(it, 'slip'); RENDER.c();
+	});
+}
+onDrag(cLane, (e) => {
+	if (e.target.closest('.c-h, .c-slip')) return null;
+	const f = C.view.at(cLane, e.clientX), it = cAt(f);
+	if (e.altKey && it.trim && f >= it.start + it.trim.in && f < it.start + it.trim.out) return slipC(it);
+	stopPlay();
+	const x0 = e.clientX;
+	let moved = false;
+	const seek = (ev) => { C.ph = clamp(Math.floor(C.view.at(cLane, ev.clientX)), 0, C.view.span - 1); RENDER.c(); };
+	return {
+		move: (ev) => { if (Math.abs(ev.clientX - x0) > 0.25 * remPx()) moved = true; if (moved) seek(ev); },
+		up: (ev) => { if (!moved) { C.sel = it.id; seek(ev); } RENDER.c(); },
+	};
+});
+onDrag(cRuler, (e) => {
+	stopPlay();
+	const seek = (ev) => { C.ph = clamp(Math.floor(C.view.at(cRuler, ev.clientX)), 0, C.view.span - 1); RENDER.c(); };
+	seek(e);
+	return { move: seek };
+});
+sliderKeys(cRuler, () => C.ph, (f) => { stopPlay(); C.ph = clamp(f, 0, C.view.span - 1); RENDER.c(); });
+wheel(cLane, C.view, () => RENDER.c());
+wheel(cRuler, C.view, () => RENDER.c());
+pinch(cLane, C.view, () => RENDER.c());
+function playC() {
+	if (C.ph >= C.view.span - 1) C.ph = 0;
+	C.ph = keptC(C.ph);
+	startPlay('c', (d) => {
+		for (let i = 0; i < d; i++) {
+			const n = keptC(C.ph + 1);
+			if (n >= C.view.span) { C.ph = C.view.span - 1; return false; }
+			C.ph = n;
+		}
+		return true;
+	});
+}
+$('#cPlay').addEventListener('click', () => (playing('c') ? stopPlay() : playC()));
+/** I / O: the clip under the playhead gets its in / out there (the frame under the playhead is the last one kept) */
+function atPlayhead(edge) {
+	const it = cAt(C.ph);
+	stopPlay();
+	if (!it.trim) { C.sel = it.id; RENDER.c(); return; }
+	const off = C.ph - it.start;
+	setC(it, edge, edge === 'in' ? off : off + 1);
+	peekC(it, edge); RENDER.c();
+}
+
+// ---------- the page --------------------------------------------------------------------------------------------------
+const KEYS = {
+	a: `${K('Space')} play · ${K('←')} ${K('→')} a frame · ${K('Shift')} ×10 · hold a grip = zoom · ${K('1')}–${K('3')} way`,
+	b: `${K('Alt')} no grid / slip · ${K('Ctrl')} + wheel zoom · ${K('←')} ${K('→')} a frame · ${K('Shift')} ×10 · ${K('Space')} play`,
+	c: `${K('I')} ${K('O')} at the playhead · ${K('←')} ${K('→')} a frame · ${K('Shift')} ×10 · ${K('Alt')}-drag slip · ${K('+')} ${K('−')} ${K('0')} zoom · ${K('Space')} play`,
+};
+function show(v) {
+	stopPlay();
+	cur = v;
+	for (const b of $$('.tabs > button')) { const on = b.dataset.v === v; b.setAttribute('aria-selected', on); b.tabIndex = on ? 0 : -1; }
+	for (const s of $$('.variant')) s.classList.toggle('on', s.id === `v${v}`);
+	for (const s of $$('[data-about]')) s.classList.toggle('on', s.dataset.about === v);
+	keys.innerHTML = KEYS[v];
+	try { localStorage.setItem('trim-prototype:way', v); } catch { /* storage off */ }
+	if (location.hash !== `#${v}`) history.replaceState(null, '', `#${v}`);
+	RENDER[v]();
+}
+for (const b of $$('.tabs > button')) b.addEventListener('click', () => show(b.dataset.v));
+$('.tabs').addEventListener('keydown', (e) => {
+	const i = 'abc'.indexOf(cur), to = { ArrowLeft: i - 1, ArrowRight: i + 1 }[e.key];
+	if (to === undefined) return;
+	e.preventDefault(); show('abc'[(to + 3) % 3]); $(`#tab-${cur}`).focus();
+});
+/** the focus came by keys (Tab, the tab row's arrows) – not by a press */
+let focusByKeys = false;
+document.addEventListener('pointerdown', () => (focusByKeys = false), true);
+document.addEventListener('keydown', (e) => { if (e.key === 'Tab' || (e.key.startsWith('Arrow') && e.target.closest?.('.tabs'))) focusByKeys = true; }, true);
+document.addEventListener('keydown', (e) => {
+	if (e.key === 'Alt') { bAlt = true; document.body.classList.add('alt'); if (cur === 'b') RENDER.b(); e.preventDefault(); return; }
+	if (e.ctrlKey || e.metaKey || e.altKey) return;
+	if ('123'.includes(e.key) && e.key.length === 1) { e.preventDefault(); show('abc'[+e.key - 1]); return; }
+	if (e.key === ' ') {
+		// a button reached by keys keeps its Space (a tab, Cancel / Done); after a click Space plays – and the clicked button
+		// lets go of the focus, or the Space's keyup would click it once more (:focus-visible can't tell: any key makes it match)
+		const btn = e.target.closest?.('button');
+		if (btn && focusByKeys) return;
+		e.preventDefault(); btn?.blur();
+		if (playing(cur)) stopPlay(); else ({ a: playA, b: playB, c: playC })[cur]();
+		return;
+	}
+	const io = e.key.toLowerCase();
+	if (cur === 'c' && (io === 'i' || io === 'o')) { e.preventDefault(); atPlayhead(io === 'i' ? 'in' : 'out'); return; }
+	if (cur !== 'a' && ['+', '=', '-', '0'].includes(e.key)) {
+		e.preventDefault();
+		const st = cur === 'b' ? B : C, v = st.view;
+		if (e.key === '0') { v.zoom = 1; v.start = 0; }
+		else v.zoomTo(v.zoom * (e.key === '-' ? 0.5 : 2), st.ph, clamp(v.pct(st.ph) / 100, 0, 1));
+		RENDER[cur]();
+	}
+});
+const altOff = () => { if (!bAlt) return; bAlt = false; document.body.classList.remove('alt'); if (cur === 'b') RENDER.b(); };
+document.addEventListener('keyup', (e) => { if (e.key === 'Alt') { e.preventDefault(); altOff(); } });
+window.addEventListener('blur', altOff);
+document.addEventListener('pointermove', (e) => { if (e.altKey !== bAlt) { if (e.altKey) { bAlt = true; document.body.classList.add('alt'); if (cur === 'b') RENDER.b(); } else altOff(); } });
+let rz = 0;
+window.addEventListener('resize', () => { cancelAnimationFrame(rz); rz = requestAnimationFrame(() => RENDER[cur]()); });
+let first = location.hash.slice(1);
+if (!'abc'.includes(first) || first.length !== 1) { try { first = localStorage.getItem('trim-prototype:way') || 'a'; } catch { first = 'a'; } }
+show('abc'.includes(first) && first.length === 1 ? first : 'a');
+document.fonts?.ready.then(() => RENDER[cur]());
+</script>
+</body>
+</html>
