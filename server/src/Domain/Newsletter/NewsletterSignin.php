@@ -58,11 +58,11 @@ final class NewsletterSignin
             if (array_diff($this->roles->of((string) $user['id']), [Roles::MEMBER]) !== []) {
                 return ['text' => $texts['signin'], 'url' => $this->viewer($locale) . 'account'];
             }
-            return ['text' => $texts['signin'], 'url' => $this->link($email, $locale, null)];
+            return ['text' => $texts['signin'], 'url' => $this->signupLink($email, $locale, null)];
         }
         $code = $this->codes->legacySignupCode($email);
         if ($code === null) return null;
-        return ['text' => $texts['signup'], 'url' => $this->link($email, $locale, $code)];
+        return ['text' => $texts['signup'], 'url' => $this->signupLink($email, $locale, $code)];
     }
 
     /**
@@ -75,7 +75,11 @@ final class NewsletterSignin
         return ['text' => self::TEXTS[$locale]['signin'], 'url' => rtrim($appUrl, '/') . ($locale === 'en' ? '/en' : '') . '/account'];
     }
 
-    private function link(string $email, string $locale, ?string $code): string
+    /**
+     * A single-use login request for $email and its link; $code = the code a new account is made with (a waiting QR
+     * code, a giveaway's promo code – Campaigns\Giveaways)
+     */
+    public function signupLink(string $email, string $locale, ?string $code): string
     {
         $id = Ids::uuid7($this->clock->ms());
         $token = Ids::token();
@@ -90,7 +94,7 @@ final class NewsletterSignin
     }
 
     /** The viewer's root in the recipient's language (de = the base locale, no prefix) */
-    private function viewer(string $locale): string
+    public function viewer(string $locale): string
     {
         return rtrim($this->settings->get('APP_URL'), '/') . ($locale === 'en' ? '/en/' : '/');
     }

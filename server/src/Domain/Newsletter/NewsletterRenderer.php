@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Scutoons\Domain\Newsletter;
 
+use Scutoons\Domain\Campaigns\Giveaways;
 use Scutoons\Domain\Mail\MailTemplates;
 use Scutoons\Infrastructure\AssetStorage\AssetStorages;
 use Scutoons\Infrastructure\Config\Settings;
@@ -18,7 +19,8 @@ use Scutoons\Infrastructure\Templates\Templates;
  *     description. Anything else that looks like it stays text.
  *   - `{name}` = the recipient's name (empty without one), `{name|there}` = the name or "there" (also in the subject)
  *   - a paragraph that is only `{signin}` becomes the recipient's personal sign-in / sign-up button (NewsletterSignin,
- *     #65) – left out when there is none for them
+ *     #65), one that is only `{gift}` the button to the newsletter's gift (Campaigns\Giveaways, #66) – left out when there
+ *     is none for them
  * Under the body: why the person gets it and the unsubscribe link (also the List-Unsubscribe header, NewsletterSender).
  */
 final class NewsletterRenderer
@@ -59,11 +61,11 @@ final class NewsletterRenderer
 
     /**
      * @param array{subject: string, body: string} $content the locale's subject + body
-     * @param (\Closure(): ?array{text: string, url: string})|null $signin the `{signin}` button, asked only when the body has
-     *        one (it makes a login request); null = the preview's sample
+     * @param (\Closure(string): ?array{text: string, url: string})|null $button the `{signin}` / `{gift}` button (its
+     *        argument: signin | gift), asked only when the body has one (it makes a login request); null = the preview's samples
      * @return array{subject: string, text: string, html: string, unsubscribe: string}
      */
-    public function render(array $content, string $locale, string $email, ?string $name, ?\Closure $signin = null): array
+    public function render(array $content, string $locale, string $email, ?string $name, ?\Closure $button = null): array
     {
         $locale = MailTemplates::locale($locale);
         $fill = static fn(string $text): string => (string) preg_replace_callback('/\{name(?:\|([^}]*))?\}/', static fn(array $m) =>
@@ -75,13 +77,16 @@ final class NewsletterRenderer
         foreach (preg_split('/\n[ \t]*\n/', trim($body)) ?: [] as $paragraph) {
             $paragraph = trim($paragraph);
             if ($paragraph === '') continue;
-            if ($paragraph === '{signin}') {
-                $button = $signin !== null ? $signin() : NewsletterSignin::sample($locale, $this->settings->get('APP_URL'));
-                if ($button === null) continue;
-                $blocks[] = ['type' => 'button', 'text' => $button['text'], 'url' => $button['url']];
-                $text .= $button['text'] . ': ' . $button['url'] . "
-
-";
+            if ($paragraph === '{signin}' || $paragraph === '{gift}') {
+                $kind = trim($paragraph, '{}');
+                $personal = match (true) {
+                    $button !== null => $button($kind),
+                    $kind === 'gift' => Giveaways::sample($locale, $this->settings->get('APP_URL')),
+                    default => NewsletterSignin::sample($locale, $this->settings->get('APP_URL')),
+                };
+                if ($personal === null) continue;
+                $blocks[] = ['type' => 'button', 'text' => $personal['text'], 'url' => $personal['url']];
+                $text .= $personal['text'] . ': ' . $personal['url'] . "\n\n";
             } elseif (($picture = $this->picture($paragraph)) !== null) {
                 [$alt, $url] = $picture;
                 $blocks[] = ['type' => 'image', 'text' => $alt, 'url' => $url];

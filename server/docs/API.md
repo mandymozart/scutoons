@@ -773,11 +773,26 @@ Member (session):
 
 `POST /inventory/gift/` → `404 recipient_not_found` carries `invite` (the offer) while a campaign runs for the giver.
 
+Giveaways – "Verschenken" (2026-10-20, migration `2026-10-20-campaign-giveaways` – agents/research/CAMPAIGN-GIFTS.md,
+`Domain\Campaigns\Giveaways`): a campaign of kind `giveaway` gives its item to the recipients of a newsletter.
+
+| Method | Path | Body | Answer |
+|---|---|---|---|
+| GET | `/gift/?t=<token>&locale=` | – (no session needed) | `{ gift: { state: open \| claimed \| not_started \| ended \| sold_out \| other_account, item: { id, variant, name, physical }, starts_at, until, left, claim: { status, created_at } \| null } }` · 404 invalid_token |
+| POST | `/gift/` | `{ t, locale? }` (session) | `{ gift }` · 403 other_account · 409 already_claimed / max_reached · 410 not_started / ended / sold_out |
+| GET | `/me/shipping/` | – (session) | `{ address: { name, address, country } \| null, waiting: [{ id, item, countries, until }] }` |
+| PUT | `/me/shipping/` | `{ name, address, country }` (all empty = remove) | as GET; waiting physical gifts whose countries fit move on to `ship` · 400 invalid_address / invalid_country |
+
+Token = `base64url("<campaign id>|<email>") . "." . base64url(HMAC-SHA256 truncated to 16 bytes)` (label
+`campaign-gift`): only the account with that email claims it. A claim: virtual → `claimed` (the inventory, the item's own
+`max`); physical → `address` → `ship` → `shipped`, or `lapsed` without an address 30 days after the campaign's end.
+
 Admin (`/api/admin`): `GET|POST /campaigns`, `GET|PUT|DELETE /campaigns/{id}` (DELETE only without invites),
 `POST /campaigns/{id}/start|stop`, `GET /campaigns/{id}/accounts` (?q, page, page_size + the account filters) and
 `PUT …/accounts` (`{ all }` · `{ segment_id }` · `{ add, remove }` · `{ add_matching: true, q, filters }`),
 `GET /campaigns/{id}/invites?status=…|to_ship`, `GET /campaigns/{id}/stats`, `POST /campaigns/invites/{id}/paid`,
-`POST /campaigns/invites/{id}/shipped { note? }`. Segments: `GET|POST /segments`, `PUT|DELETE /segments/{id}`,
+`POST /campaigns/invites/{id}/shipped { note? }`; a giveaway: `GET /campaigns/{id}/claims` (`{ counts, physical }`),
+`POST /campaigns/claims/{id}/shipped`. Segments: `GET|POST /segments`, `PUT|DELETE /segments/{id}`,
 `POST /segments/{id}/members` (`{ ids }` or `{ matching: true, q, filters }`), `POST /segments/{id}/members/remove`.
 Account filters (Users list too): `signup` membership | promo | invite | none, `edition`, `batch`, `campaign` +
 `campaign_role` invited | joined, `segment` (an id or none). `POST /batches { type: promo, name, count, toon_id?,
@@ -812,18 +827,19 @@ Admin (`/api/admin/newsletter/*`, role `admin`):
 | POST | `contacts/delete` | `{ ids }` → `{ deleted }` |
 | GET | `suppressions?q=&reason=` | list `{ email, reason: unsubscribe\|bounce\|manual, detail, created_at }` |
 | POST | `suppressions` · `suppressions/remove` | `{ email }` – block by hand · mail again |
-| GET / POST | `campaigns` | `{ items }` · create `{ title, audiences?, subject_de?, subject_en?, body_de?, body_en? }` → 201 `{ item }` |
+| GET / POST | `campaigns` | `{ items }` · create `{ title, audiences?, subject_de?, subject_en?, body_de?, body_en?, gift_campaign_id? }` → 201 `{ item }` |
 | GET / PUT / DELETE | `campaigns/{id}` | a draft changes everything, a paused one only subject / body (409 `invalid_status` otherwise); delete: draft or done |
 | POST | `campaigns/{id}/preview` | `{ locale, subject?, body? }` (unsaved text) → `{ subject, text, html }` |
 | POST | `campaigns/{id}/test` | `{ locale }` → the saved text to the signed-in admin, subject `[Test] …` (502 `mail_failed`) |
-| POST | `campaigns/{id}/start` | draft → sending, recipients fixed (snapshot); 409 `no_audience` · `no_recipients` · `missing_locale` (`count`, `emails`) · `missing_text` (`locale`) |
+| GET | `campaigns/{id}/gift[?selected=a,b]` | who of the recipients gets what from its gift: `{ reach: { members, product_code, email_only } }` |
+| POST | `campaigns/{id}/start` | draft → sending, recipients fixed (snapshot); 409 `no_audience` · `no_recipients` · `missing_locale` (`count`, `emails`) · `missing_text` (`locale`) · `gift_missing` (a `{gift}` line without a gift) · `gift_ended` |
 | POST | `campaigns/{id}/pause` · `resume` | sending ⇄ paused |
 | GET | `campaigns/{id}/recipients?status=&locale=&source=&q=` | `{ email, locale, name, source: member\|contact, status: queued\|sent\|failed\|skipped, attempts, next_attempt_at, sent_at, error }` |
 | POST | `send` | one batch now → `{ result, items }` |
 
 A newsletter item: `id, title, audiences, subject_de, subject_en, body_de, body_en, status (draft | sending | paused |
 done), last_error, created_at/by, updated_at/by, started_at, finished_at, progress { queued, sent, failed, skipped,
-total }`. A batch result: `{ status: idle | sent | limit | busy | error, sent, failed, retry, skipped, queued, per_hour,
+total }, gift_campaign_id` (a giveaway campaign or null, set in the draft). A batch result: `{ status: idle | sent | limit | busy | error, sent, failed, retry, skipped, queued, per_hour,
 sent_last_hour, error }`.
 
 ## Web Push (2026-10-16, migration `2026-10-16-push-subscriptions` – agents/research/PWA.md §2b)

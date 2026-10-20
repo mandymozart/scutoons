@@ -1177,6 +1177,15 @@ rule). A keeps reading with the code on their devices (device access ≠ ownersh
   `invite_returned`), not paid → `unpaid`; swept by GET /api/invites, the admin views and `/api/invites/cron?key=
   CAMPAIGN_CRON_KEY`. A piece with a code or a container goes only to an account. A physical gift: the friend gives a
   shipping address, the admin marks it shipped; the product's own QR code claims it.
+- **Giveaways – "Verschenken"** (kind `giveaway`, 2026-10-20, #66, research/CAMPAIGN-GIFTS.md; `Domain\Campaigns\Giveaways`,
+  tables `campaign_claims`, `campaign_codes`): SCUTOONS gives the campaign's item (stock; per account: the item's own
+  `max`) to the recipients of a newsletter whose "Geschenk" is the campaign; no inviters, limits or payer (SCUTOONS pays
+  shipping). The newsletter's `{gift}` button → the gift sheet → "Abholen", once per address while the campaign runs.
+  Virtual → the inventory (source `gift`); physical → waits for the account's **shipping address** (`users.ship_*`,
+  account → Stammdaten, `PUT /me/shipping`) → "Zu verschicken" on the campaign → Verschickt; no address 30 days after the
+  end → lapsed (the piece is free again). Email-only recipients sign up with a personal promo code that signs up only
+  their address and gets the campaign's reading rule (keep / until) at signup. Event codes (multi-use, posters) are never
+  a campaign.
 - **Segments, account filters, promo batches** (`Domain\Admin\Segments`, `AccountFilters`): accounts filter by signed
   up with (product / promo / invite / none), edition, batch, campaign (invited / joined), segment; segments are filled
   by hand (Users & roles); `qr.batch` = the batch a code was made in – product and **promo batches** (POST

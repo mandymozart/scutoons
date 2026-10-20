@@ -16,14 +16,17 @@ use Scutoons\Support\Time;
 /**
  * Campaigns (agents/research/GIFT-INVITES.md, FEATURES 10.96; owner 2026-10-14: "the most basic implementation"): the
  * admin's campaigns (table campaigns, migration 2026-10-14-campaigns), who may invite (all accounts – also later ones –,
- * the chosen ones (campaign_inviters) or a segment's members) and the campaign running for a member right now (`offerFor`). Only one kind
- * so far, `gift_invite`: members give an item to someone without an account; the invite flow is Invites.
+ * the chosen ones (campaign_inviters) or a segment's members) and the campaign running for a member right now (`offerFor`). Two kinds
+ * (agents/research/CAMPAIGN-GIFTS.md): `gift_invite` ("Einladen") – members give an item to someone without an account,
+ * the invite flow is Invites; `giveaway` ("Verschenken", #66) – SCUTOONS gives its item to the recipients of a
+ * newsletter, they claim it while it runs (Giveaways; no inviters, limits or payer – the stock and the item's own
+ * per-account limit).
  * A campaign runs while status = started and now is inside starts_at … ends_at (UTC). Stopping ends it at once; the
  * invites already out keep waiting until their own end.
  */
 final class CampaignStore
 {
-    public const KINDS = ['gift_invite'];
+    public const KINDS = ['gift_invite', 'giveaway'];
     public const STATUSES = ['draft', 'started', 'stopped'];
     private const COUNTRY = '/^[A-Z]{2}$/';
 
@@ -99,9 +102,10 @@ final class CampaignStore
         $this->requireTables();
         $row = $this->row($id);
         $fields = $this->fields($body + $row, $row);
-        if ($this->counts($id)['sent'] > 0) {
+        $counts = $this->counts($id);
+        if ($counts['sent'] > 0 || $counts['claimed'] > 0) {
             foreach (['kind', 'gift', 'item_id', 'variant'] as $key) {
-                if ((string) ($fields[$key] ?? '') !== (string) ($row[$key] ?? '')) throw new ApiError(409, 'locked', 'Invites are out: the gift of this campaign stays as it is.', ['field' => $key]);
+                if ((string) ($fields[$key] ?? '') !== (string) ($row[$key] ?? '')) throw new ApiError(409, 'locked', 'Gifts are out: the gift of this campaign stays as it is.', ['field' => $key]);
             }
         }
         $sets = implode(', ', array_map(fn(string $c) => "$c = ?", array_keys($fields)));
@@ -114,7 +118,8 @@ final class CampaignStore
     {
         $this->requireTables();
         $this->row($id);
-        if ($this->counts($id)['sent'] > 0) throw new ApiError(409, 'has_invites', 'Invites were sent – stop the campaign instead.');
+        $counts = $this->counts($id);
+        if ($counts['sent'] > 0 || $counts['claimed'] > 0) throw new ApiError(409, 'has_invites', 'Gifts went out – stop the campaign instead.');
         $this->db->transaction(function () use ($id) {
             $this->db->run('DELETE FROM campaign_inviters WHERE campaign_id = ?', [$id]);
             $this->db->run('DELETE FROM campaigns WHERE id = ?', [$id]);
@@ -129,7 +134,7 @@ final class CampaignStore
     {
         $this->requireTables();
         $row = $this->row($id);
-        if ($status === 'started') $this->fields($row, $row); // complete? (throws what is missing)
+        if ($status === 'started') $this->fields($row, $row, true); // complete? (throws what is missing)
         $this->db->run('UPDATE campaigns SET status = ?, updated_at = ? WHERE id = ?', [$status, $this->clock->utc(), $id]);
         return $this->get($id);
     }
@@ -295,6 +300,10 @@ final class CampaignStore
     public function stockLeft(array $c): ?int
     {
         if ($c['gift'] !== 'campaign' || $c['stock'] === null) return null;
+        if ($c['kind'] === 'giveaway') {
+            $claimed = (int) $this->db->value("SELECT COUNT(*) FROM campaign_claims WHERE campaign_id = ? AND status <> 'lapsed'", [$c['id']]);
+            return max(0, (int) $c['stock'] - $claimed);
+        }
         $used = (int) $this->db->value("SELECT COALESCE(SUM(qty), 0) FROM campaign_invites WHERE campaign_id = ? AND gift = 'campaign' AND status IN ('payment', 'waiting', 'joined')", [$c['id']]);
         return max(0, (int) $c['stock'] - $used);
     }
@@ -317,12 +326,21 @@ final class CampaignStore
 
     // ── internal ─────────────────────────────────────────────────────────────────────────────────────────────
 
-    /** @return array{sent: int, payment: int, waiting: int, joined: int, ended: int} */
+    /** @return array{sent: int, payment: int, waiting: int, joined: int, ended: int, claimed: int, to_ship: int} */
     private function counts(string $id): array
     {
         $by = [];
         foreach ($this->db->all('SELECT status, COUNT(*) AS n FROM campaign_invites WHERE campaign_id = ? GROUP BY status', [$id]) as $r) $by[(string) $r['status']] = (int) $r['n'];
+        // a giveaway's claims (Giveaways) – nothing before the 2026-10-20 migration
+        $claims = [];
+        try {
+            foreach ($this->db->all('SELECT status, COUNT(*) AS n FROM campaign_claims WHERE campaign_id = ? GROUP BY status', [$id]) as $r) $claims[(string) $r['status']] = (int) $r['n'];
+        } catch (PDOException $error) {
+            if (!OwnershipTransfers::missingTable($error)) throw $error;
+        }
         return [
+            'claimed' => array_sum($claims) - ($claims['lapsed'] ?? 0),
+            'to_ship' => $claims['ship'] ?? 0,
             'sent' => array_sum($by),
             'payment' => $by['payment'] ?? 0,
             'waiting' => $by['waiting'] ?? 0,
@@ -338,12 +356,18 @@ final class CampaignStore
      * @param array<string, mixed> $before
      * @return array<string, mixed> column → value
      */
-    private function fields(array $v, array $before): array
+    private function fields(array $v, array $before, bool $complete = false): array
     {
         $name = is_string($v['name'] ?? null) ? trim($v['name']) : '';
         if ($name === '' || mb_strlen($name) > 200) throw new ApiError(400, 'invalid_name', 'name: 1–200 characters (only admins see it).');
         $kind = (string) ($v['kind'] ?? '');
-        if (!in_array($kind, self::KINDS, true)) throw new ApiError(400, 'invalid_kind', 'kind: gift_invite.');
+        if (!in_array($kind, self::KINDS, true)) throw new ApiError(400, 'invalid_kind', 'kind: gift_invite | giveaway.');
+        $giveaway = $kind === 'giveaway';
+        // a giveaway always gives the campaign's item, SCUTOONS pays its shipping
+        if ($giveaway) {
+            $v['gift'] = 'campaign';
+            $v['payer'] = 'scutoons';
+        }
         $starts = self::utc($v['starts_at'] ?? null) ?? throw new ApiError(400, 'invalid_window', 'starts_at: a date and time.');
         $ends = self::utc($v['ends_at'] ?? null) ?? throw new ApiError(400, 'invalid_window', 'ends_at: a date and time.');
         if ($ends <= $starts) throw new ApiError(400, 'invalid_window', 'The campaign must end after it starts.');
@@ -354,7 +378,8 @@ final class CampaignStore
         $item = null;
         if ($gift === 'campaign') {
             $item = $itemId !== null ? $this->catalog->item($itemId) : null;
-            if ($item === null) throw new ApiError(400, 'invalid_item', 'A campaign gift needs an item of the catalog.');
+            // a giveaway is made before its item is chosen – it needs one to start
+            if ($item === null && ($complete || !$giveaway || $itemId !== null)) throw new ApiError(400, 'invalid_item', 'A campaign gift needs an item of the catalog.');
         }
         $physical = $item !== null && self::isPhysical($item);
         $int = static function (mixed $value, string $key, int $min, int $max, bool $nullable = false): ?int {

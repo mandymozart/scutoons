@@ -14,6 +14,9 @@ export {
 	type GiftResult,
 	type InviteOffer,
 	type InvitesResult,
+	type GiftInfo,
+	type ShippingAddress,
+	type ShippingResult,
 	type ContactMessage
 } from './qr.ts';
 export {
@@ -124,7 +127,11 @@ export {
 	type ListParams,
 	type ListResult,
 	type Pagination,
-	type RoleInfo
+	type RoleInfo,
+	type CampaignKind,
+	type CampaignClaims,
+	type CampaignClaimStatus,
+	type NewsletterGiftReach
 } from './admin.ts';
 export {
 	ACTIVITY_KINDS,

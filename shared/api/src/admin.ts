@@ -624,9 +624,18 @@ export interface Newsletter {
 	started_at: string | null;
 	finished_at: string | null;
 	progress: NewsletterProgress;
+	/** the gift: a giveaway campaign ("Verschenken", #66), or null */
+	gift_campaign_id: string | null;
 }
 
-export type NewsletterInput = Partial<Pick<Newsletter, 'title' | 'audiences' | 'subject_de' | 'subject_en' | 'body_de' | 'body_en'>>;
+export type NewsletterInput = Partial<Pick<Newsletter, 'title' | 'audiences' | 'subject_de' | 'subject_en' | 'body_de' | 'body_en' | 'gift_campaign_id'>>;
+
+/** who of a newsletter's recipients gets what from its gift: members sign in, QR owners sign up with their product code, email-only ones get a personal promo code */
+export interface NewsletterGiftReach {
+	members: number;
+	product_code: number;
+	email_only: number;
+}
 
 export interface NewsletterRecipient {
 	id: number;
@@ -806,9 +815,12 @@ export type CampaignStatus = 'draft' | 'started' | 'stopped';
 export type CampaignState = 'running' | 'scheduled' | 'ended' | 'draft' | 'stopped';
 export type CampaignInviters = 'all' | 'chosen' | 'segment';
 
+/** gift_invite = "Einladen" (members invite friends), giveaway = "Verschenken" (a newsletter's gift; research/CAMPAIGN-GIFTS.md) */
+export type CampaignKind = 'gift_invite' | 'giveaway';
+
 export interface Campaign {
 	id: string;
-	kind: 'gift_invite';
+	kind: CampaignKind;
 	name: string;
 	status: CampaignStatus;
 	state: CampaignState;
@@ -836,11 +848,12 @@ export interface Campaign {
 	access_until: string | null;
 	created_at: string;
 	updated_at: string;
-	counts: { sent: number; payment: number; waiting: number; joined: number; ended: number };
+	/** invites: sent … ended; a giveaway: claimed (not lapsed), to_ship (physical, with an address, not sent) */
+	counts: { sent: number; payment: number; waiting: number; joined: number; ended: number; claimed: number; to_ship: number };
 }
 
 export type CampaignInput = Partial<
-	Pick<Campaign, 'name' | 'starts_at' | 'ends_at' | 'gift' | 'item_id' | 'variant' | 'stock' | 'per_member' | 'per_day' | 'wait_days' | 'payer' | 'price_cents' | 'currency' | 'access' | 'access_until'>
+	Pick<Campaign, 'kind' | 'name' | 'starts_at' | 'ends_at' | 'gift' | 'item_id' | 'variant' | 'stock' | 'per_member' | 'per_day' | 'wait_days' | 'payer' | 'price_cents' | 'currency' | 'access' | 'access_until'>
 > & { countries?: string[] | string };
 
 export interface CampaignAccounts {
@@ -875,6 +888,24 @@ export interface CampaignInvite {
 	joined_at: string | null;
 	ended_at: string | null;
 	shipped: boolean;
+}
+
+/** a giveaway's claim (#66): claimed = in the inventory; physical: address (waits for the account's) → ship → shipped; lapsed */
+export type CampaignClaimStatus = 'claimed' | 'address' | 'ship' | 'shipped' | 'lapsed';
+
+export interface CampaignClaims {
+	counts: Record<CampaignClaimStatus, number>;
+	/** the physical ones, "to send" first */
+	physical: {
+		id: number;
+		email: string;
+		status: CampaignClaimStatus;
+		ship_name: string | null;
+		ship_address: string | null;
+		ship_country: string | null;
+		created_at: string | null;
+		shipped_at: string | null;
+	}[];
 }
 
 export interface AdminCampaignInvite extends CampaignInvite {
@@ -975,6 +1006,8 @@ export function createAdminApi(api: ApiClient) {
 		campaignInvites: (id: string, status?: InviteStatus | 'to_ship') =>
 			api.get<{ status: string; items: AdminCampaignInvite[] }>(`/admin/campaigns/${seg(id)}/invites${toQuery({ status })}`),
 		campaignStats: (id: string) => api.get<{ status: string } & CampaignStats>(`/admin/campaigns/${seg(id)}/stats`),
+		campaignClaims: (id: string) => api.get<{ status: string } & CampaignClaims>(`/admin/campaigns/${seg(id)}/claims`),
+		claimShipped: (claimId: number) => api.post<{ status: string } & CampaignClaims>(`/admin/campaigns/claims/${claimId}/shipped`),
 		invitePaid: (inviteId: string) => api.post<{ status: string; item: AdminCampaignInvite }>(`/admin/campaigns/invites/${seg(inviteId)}/paid`),
 		inviteShipped: (inviteId: string, note?: string) =>
 			api.post<{ status: string; item: AdminCampaignInvite }>(`/admin/campaigns/invites/${seg(inviteId)}/shipped`, { note: note ?? null }),
@@ -1086,6 +1119,8 @@ export function createAdminApi(api: ApiClient) {
 		newsletterUnsuppress: (email: string) => api.post<{ status: 'success'; removed: boolean }>('/admin/newsletter/suppressions/remove', { email }),
 		newsletters: () => api.get<{ status: 'success'; items: Newsletter[] }>('/admin/newsletter/campaigns'),
 		newsletter: (id: number) => api.get<{ status: 'success'; item: Newsletter }>(`/admin/newsletter/campaigns/${id}`),
+		newsletterGift: (id: number, selected?: string[]) =>
+			api.get<{ status: 'success'; reach: NewsletterGiftReach }>(`/admin/newsletter/campaigns/${id}/gift${toQuery({ selected: selected?.join(',') })}`),
 		createNewsletter: (input: NewsletterInput & { title: string }) => api.post<{ status: 'success'; item: Newsletter }>('/admin/newsletter/campaigns', input),
 		saveNewsletter: (id: number, input: NewsletterInput) => api.put<{ status: 'success'; item: Newsletter }>(`/admin/newsletter/campaigns/${id}`, input),
 		deleteNewsletter: (id: number) => api.delete<{ status: 'success' }>(`/admin/newsletter/campaigns/${id}`),

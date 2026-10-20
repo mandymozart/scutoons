@@ -62,6 +62,11 @@ export const {
 	createInvite,
 	recallInvite,
 	inviteAddress,
+	// a newsletter's gift + the account's shipping address (#66, research/CAMPAIGN-GIFTS.md)
+	giftInfo,
+	claimGift,
+	shipping: fetchShipping,
+	setShipping,
 	fileClaim,
 	addClaimFile,
 	myClaims,

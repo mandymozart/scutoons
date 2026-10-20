@@ -7,6 +7,7 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Scutoons\Domain\Admin\AccountFilters;
 use Scutoons\Domain\Campaigns\CampaignStore;
+use Scutoons\Domain\Campaigns\Giveaways;
 use Scutoons\Domain\Campaigns\Invites;
 use Scutoons\Http\CurrentSession;
 use Scutoons\Http\Json;
@@ -26,12 +27,15 @@ use Scutoons\Http\Middleware\JsonBody;
  *   GET    /campaigns/{id}/stats           { inviters, sent, by_status, joined_later, members }
  *   POST   /campaigns/invites/{id}/paid    → { item } (the member paid: the invite goes out)
  *   POST   /campaigns/invites/{id}/shipped { note? } → { item }
+ *   GET    /campaigns/{id}/claims          a giveaway's claims (#66, Giveaways) { counts, physical: [{ id, email, status, ship_* }] }
+ *   POST   /campaigns/claims/{id}/shipped  a physical giveaway gift is sent → the claims of its campaign
  */
 final class CampaignsController
 {
     public function __construct(
         private readonly CampaignStore $campaigns,
         private readonly Invites $invites,
+        private readonly Giveaways $giveaways,
     ) {
     }
 
@@ -103,6 +107,19 @@ final class CampaignsController
     public function stats(Request $request, Response $response, array $args): Response
     {
         return Json::response($response, 200, ['status' => 'success'] + $this->invites->stats($args['id']));
+    }
+
+    /** @param array{id: string} $args */
+    public function claims(Request $request, Response $response, array $args): Response
+    {
+        return Json::response($response, 200, ['status' => 'success'] + $this->giveaways->forCampaign($args['id']));
+    }
+
+    /** @param array{id: string} $args */
+    public function claimShipped(Request $request, Response $response, array $args): Response
+    {
+        $campaign = $this->giveaways->markShipped((int) $args['id']);
+        return Json::response($response, 200, ['status' => 'success'] + $this->giveaways->forCampaign($campaign));
     }
 
     /** @param array{id: string} $args */

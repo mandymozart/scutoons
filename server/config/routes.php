@@ -58,6 +58,7 @@ use Scutoons\Http\Controllers\LibraryController;
 use Scutoons\Http\Controllers\Legacy\SignatureController;
 use Scutoons\Http\Controllers\MeController;
 use Scutoons\Http\Controllers\NewsletterController;
+use Scutoons\Http\Controllers\CampaignGiftsController;
 use Scutoons\Http\Controllers\NotFoundController;
 use Scutoons\Http\Controllers\PageNotFoundController;
 use Scutoons\Http\Controllers\ProductsController;
@@ -168,11 +169,17 @@ return static function (App $app): void {
     $app->get('/api/newsletter/unsubscribe', [NewsletterController::class, 'unsubscribePage']);
     $app->post('/api/newsletter/unsubscribe', [NewsletterController::class, 'unsubscribe']);
     $app->map(['GET', 'POST'], '/api/newsletter/cron', [NewsletterController::class, 'cron']);
+    // a giveaway campaign's gift from a newsletter (#66): what the link holds (no session needed) · claim it (signed in)
+    $app->get('/api/gift', [CampaignGiftsController::class, 'info']);
+    $app->post('/api/gift', [CampaignGiftsController::class, 'claim']);
     // Gift invites (agents/research/GIFT-INVITES.md): returns the invites that ran out (the host's daily cron; a key)
     $app->map(['GET', 'POST'], '/api/invites/cron', [InvitesController::class, 'cron']);
 
     $app->get('/api/me', [MeController::class, 'get']);
     $app->put('/api/me', [MeController::class, 'put']);
+    // the account's shipping address (#66 – physical newsletter gifts wait for it)
+    $app->get('/api/me/shipping', [CampaignGiftsController::class, 'shipping']);
+    $app->put('/api/me/shipping', [CampaignGiftsController::class, 'setShipping']);
     // AI connections: personal access tokens for the member's own AI (agents/MCP.md §3; a real session only)
     $app->get('/api/me/tokens', [ApiTokensController::class, 'list']);
     $app->post('/api/me/tokens', [ApiTokensController::class, 'create']);
@@ -370,6 +377,7 @@ return static function (App $app): void {
         $admin->post("/newsletter/campaigns/$newsletter/resume", [AdminNewsletterController::class, 'resume']);
         $admin->get("/newsletter/campaigns/$newsletter/recipients", [AdminNewsletterController::class, 'recipients']);
         $admin->post('/newsletter/send', [AdminNewsletterController::class, 'send']);
+        $admin->get("/newsletter/campaigns/$newsletter/gift", [AdminNewsletterController::class, 'gift']);
         // the editions on the landing page (table catalog_featured; GET /api/products/featured/ reads it)
         $admin->get('/featured', [FeaturedController::class, 'get']);
         $admin->put('/featured', [FeaturedController::class, 'put']);
@@ -391,6 +399,7 @@ return static function (App $app): void {
         $admin->post('/campaigns', [CampaignsController::class, 'create']);
         $admin->post('/campaigns/invites/{id:[0-9a-f-]{36}}/paid', [CampaignsController::class, 'paid']);
         $admin->post('/campaigns/invites/{id:[0-9a-f-]{36}}/shipped', [CampaignsController::class, 'shipped']);
+        $admin->post('/campaigns/claims/{id:[0-9]{1,18}}/shipped', [CampaignsController::class, 'claimShipped']);
         $admin->get('/campaigns/{id:[0-9a-f-]{36}}', [CampaignsController::class, 'get']);
         $admin->put('/campaigns/{id:[0-9a-f-]{36}}', [CampaignsController::class, 'update']);
         $admin->delete('/campaigns/{id:[0-9a-f-]{36}}', [CampaignsController::class, 'delete']);
@@ -400,6 +409,7 @@ return static function (App $app): void {
         $admin->put('/campaigns/{id:[0-9a-f-]{36}}/accounts', [CampaignsController::class, 'setAccounts']);
         $admin->get('/campaigns/{id:[0-9a-f-]{36}}/invites', [CampaignsController::class, 'invites']);
         $admin->get('/campaigns/{id:[0-9a-f-]{36}}/stats', [CampaignsController::class, 'stats']);
+        $admin->get('/campaigns/{id:[0-9a-f-]{36}}/claims', [CampaignsController::class, 'claims']);
 
         // segments: named groups of accounts (agents/research/GIFT-INVITES.md 1b)
         $admin->get('/segments', [SegmentsController::class, 'list']);
