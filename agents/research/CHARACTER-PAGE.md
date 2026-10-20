@@ -64,7 +64,7 @@ haben personas, looks, moods".
 
 - A picture has four axes: **persona** (who: Regular, Mensch, Katze …) › **look** (what the persona wears) › **mood**
   (the face) · **view** (avatar = head, portrait = bust, full). E gives each axis ONE control: the persona faces row,
-  a look select (most personas have one look), the moods strip under the stage, a segmented switch Avatar · Portrait ·
+  the look row (the same kind, round 3), the moods strip under the stage, a segmented switch Avatar · Portrait ·
   Ganz. The stage names what it shows ("Regular › päpstlich › neutral · Ganz"); no "Looks & moods" anywhere.
 - Overview = B's cards; the character = C's stage + inspector (desktop) and C's phone (bottom row, sheets).
 - Round 2 (owner 2026-10-20: "the text field could cover the entire panel" · "anything sliding sideways … that
@@ -75,6 +75,9 @@ haben personas, looks, moods".
   moods strip run edge to edge, their padding inside the scroller, a fade at the edge that has more; the views are
   three icon squares (face · bust · figure, the word in the tooltip), the bottom row's "All moods" is the grid icon;
   the stage zooms like the slice canvas (pinch / Ctrl + wheel, double tap = fit).
+- Round 3 (owner 2026-10-20: "the dropdown for the look can also be a button with preview and sideways menu … why are
+  we switching concept here?"): the look is the same row as the persona (preview + word, sideways with the fade, + at
+  the end), the view squares fixed at the end of the look row; no select left.
 - Pictures: `e.html` (`#list`, `#char`, `-avatar` / `-portrait`, phones `-sheet`); `CHARACTER-PAGE-drafts.html` = all
   drafts in one file with the pictures inside (opens in the app's browser pane).
 

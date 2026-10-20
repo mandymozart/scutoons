@@ -266,7 +266,10 @@ function eChar() {
 	// side-scrolling rows run edge to edge between the dividers, their padding inside the scroller; a fade at an edge
 	// says "more this way" (none at the start / end)
 	const personas = `<div class="hs fade-r">${personaPick()}</div>`;
-	const controls = `<div class="ctl">${lookSel()}<span class="grow"></span>${viewSeg()}</div>`;
+	// the look is the same kind of row as the persona (owner 2026-10-20: "why are we switching concept here?"): a
+	// preview + its word, sideways with the fade; the view squares stay fixed at its end
+	const looks = PERSONAS[0].looks.concat(phone ? [] : []).map(([l, n, img]) => ({ img, label: l, n: `${n}` }));
+	const controls = `<div class="ctl look-row"><div class="hs fade-r grow">${pick(looks, 0)}</div>${viewSeg()}</div>`;
 	const strip = `<div class="hs fade-r strip-row">${stageStrip()}</div>`;
 	if (phone) {
 		const top = `<div class="bar-rows">${personas}${controls}</div>`;

@@ -168,3 +168,5 @@
 .ktext .caret { display: inline-block; width: 0.1rem; height: 1em; background: var(--ink); vertical-align: text-bottom; margin-left: 0.1rem; }
 .e-insp { gap: var(--space-05) !important; }
 .e-insp .ktext { border: var(--hair); padding: var(--space-075); }
+/* the look row: the face row scrolls, the view squares are fixed at its end (their own padding to the edge) */
+.bar-rows .ctl.look-row { padding: 0 var(--space-05) 0 0; gap: 0; }
