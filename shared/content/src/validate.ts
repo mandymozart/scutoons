@@ -15,7 +15,7 @@ import { linksToNext, scriptJumps } from './chains.ts';
 import { askVariable, chapterReach, factKey, factNames, similarVariable, type ToonFacts } from './reach.ts';
 import { isWrittenVariable, WRITTEN_VARIABLE } from './variables.ts';
 import { ANCHORS, anchoredRect, isAnchor } from './anchor.ts';
-import { collageProblems, colorationProblems, type CollagePreset } from './collage.ts';
+import { collageProblems, colorationProblems, gradientProblems, type CollagePreset } from './collage.ts';
 import { DIALOG_FITS, dialogFit, estimatedWidth, isDialogFit } from './dialog-fit.ts';
 import { crossedEdges, dialogBox, dialogCollisions, edgeReason, rectBox, sliceEdges, type EdgeBox } from './slice-edges.ts';
 import { isFreeTail, TAIL_KINDS, TAIL_SIDES } from './dialog-tail.ts';
@@ -228,8 +228,7 @@ function checkDialog(c: Collector, d: any, path: Path) {
 	if (d.font !== undefined && !['lettering', 'mono'].includes(d.font)) c.error([...path, 'font'], 'font must be lettering or mono');
 	if (d.weight !== undefined && d.weight !== 400 && d.weight !== 700) c.error([...path, 'weight'], 'weight must be 400 or 700');
 	if (d.uppercase !== undefined && typeof d.uppercase !== 'boolean') c.error([...path, 'uppercase'], 'uppercase must be true/false');
-	if (d.color !== undefined && !isStr(d.color)) c.error([...path, 'color'], 'color must be a CSS color string');
-	if (d.stroke !== undefined && !isStr(d.stroke)) c.error([...path, 'stroke'], 'stroke must be a CSS color string');
+	for (const key of ['color', 'stroke'] as const) checkPaint(c, d[key], [...path, key]);
 	if (d.strokeWidth !== undefined && (!isNum(d.strokeWidth) || d.strokeWidth < 0)) c.error([...path, 'strokeWidth'], 'strokeWidth must be a number ≥ 0 (em)');
 	if (d.letterSpacing !== undefined && (!isNum(d.letterSpacing) || d.letterSpacing < -0.5 || d.letterSpacing > 2)) c.error([...path, 'letterSpacing'], 'letterSpacing must be a number of em between -0.5 and 2');
 	if (d.lineHeight !== undefined && (!isNum(d.lineHeight) || d.lineHeight < 0.5 || d.lineHeight > 3)) c.error([...path, 'lineHeight'], 'lineHeight must be a number between 0.5 and 3 (× the font size)');
@@ -247,6 +246,18 @@ function checkDialog(c: Collector, d: any, path: Path) {
 }
 
 /** a drawn bubble's tail: an older fixed one (a name) or a free one (dialog-tail.ts) */
+/** a text's fill or outline (Dialog.color / stroke): a CSS colour or a linear / radial gradient (issue #94) */
+function checkPaint(c: Collector, v: unknown, path: Path) {
+	if (v === undefined || isStr(v)) return;
+	if (!isObj(v) || (v.type !== 'linear' && v.type !== 'radial')) return c.error(path, `${path.at(-1)} must be a CSS colour or a gradient { type: 'linear' | 'radial', … }`);
+	if (v.type === 'linear' && !isNum(v.angle)) c.error([...path, 'angle'], 'a linear gradient needs an angle (CSS degrees)');
+	if (v.type === 'radial') {
+		if (!isObj(v.center) || !isNum(v.center.x) || !isNum(v.center.y)) c.error([...path, 'center'], 'a radial gradient needs a center { x, y } in % of the box');
+		if (!isNum(v.radius) || v.radius <= 0) c.error([...path, 'radius'], 'radius must be a number > 0 (% of the box)');
+	}
+	gradientProblems(v, path, (level, at, message) => (level === 'error' ? c.error(at, message) : c.warn(at, message)));
+}
+
 function checkTail(c: Collector, tail: any, path: Path) {
 	if (typeof tail === 'string') {
 		if (!(DIALOG_TAILS as readonly string[]).includes(tail)) c.error(path, `tail must be one of ${DIALOG_TAILS.join(', ')} or { kind, tip, base }`);

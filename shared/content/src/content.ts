@@ -6,6 +6,7 @@ import type { QualityVariants } from './media-quality.ts';
 import type { ToonMapView } from './map.ts';
 import type { SliceItemRespawn } from './respawn.ts';
 import type { FxSoundChoice, Highlighter } from './fx.ts';
+import type { GradientStop } from './collage.ts';
 import type { Repeat } from './recurrence.ts';
 import type { CoverLettering } from './cover.ts';
 import type { AcceptedWarnings } from './accepted.ts';
@@ -42,6 +43,28 @@ export type DialogTail = (typeof DIALOG_TAILS)[number];
 export type DialogFont = 'lettering' | 'mono';
 export type { DialogFit } from './dialog-fit.ts';
 import type { DialogFit } from './dialog-fit.ts';
+
+
+/** A linear gradient across the text box (its stops: collage.ts GradientStop – the collage's own gradients use them too): `angle` in degrees as CSS (0 = to the top, 90 = to the right, 180 = down) */
+export interface LinearGradient {
+	type: 'linear';
+	angle: number;
+	stops: GradientStop[];
+}
+/** A radial gradient: a circle around `center` (% of the box) out to `radius` % of the box's farthest corner */
+export interface RadialGradient {
+	type: 'radial';
+	center: { x: number; y: number };
+	radius: number;
+	stops: GradientStop[];
+}
+export type Gradient = LinearGradient | RadialGradient;
+/**
+ * A text's fill or outline (issue #94, owner 2026-10-18: "a gradient tool like in figma for radial linear gradients for
+ * outline and for fills"): a CSS colour as before, or a gradient (two stops at least). Language-independent like every
+ * look field.
+ */
+export type DialogPaint = string | Gradient;
 
 /** A live, translatable text box on top of a slice image (see agents/DESIGN.md → Part 2). */
 export interface Dialog {
@@ -96,12 +119,13 @@ export interface Dialog {
 	 * differs from the stored one. Default 'tl' (top-left).
 	 */
 	anchor?: Anchor;
-	/** Text color, default ink (#000). */
-	color?: string;
+	/** Text colour (a CSS colour) or a gradient (issue #94), default ink (#000). */
+	color?: DialogPaint;
 	/**
-	 * Outline of the letters (a CSS colour), e.g. white letters with an ink outline for an onomatopoeia; none = no outline.
+	 * Outline of the letters – a CSS colour or a gradient (issue #94) – e.g. white letters with an ink outline for an
+	 * onomatopoeia; none = no outline.
 	 */
-	stroke?: string;
+	stroke?: DialogPaint;
 	/** outline width in em of the font size, default 0.14 */
 	strokeWidth?: number;
 	/** letter spacing in em of the font size (owner 2026-10-03), e.g. 0.05; default the font's own (0) */
