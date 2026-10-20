@@ -149,9 +149,6 @@ final class ApiTokensApiTest extends TestCase
             ['POST', '/api/reviews/return'],
             // new bytes under a published file reach readers at once (agents/MCP.md §2: replace-in-place = a proposal)
             ['PUT', '/api/assets/replace?path=catpope/images/x.png'],
-            // a mail to someone else: an invite (a person without an account), a gift (another reader)
-            ['POST', '/api/invites'],
-            ['POST', '/api/inventory/gift'],
             ['POST', "/api/embassy/orgs/$id/mail"],
             ['DELETE', "/api/embassy/orgs/$id"],
             ['POST', '/api/embassy/import'],
@@ -177,5 +174,19 @@ final class ApiTokensApiTest extends TestCase
         self::assertSame([200, 'draft'], [$r->getStatusCode(), self::json($r)['version']['status'] ?? null], (string) $r->getBody());
         self::assertSame(200, $this->request('GET', '/api/admin/dashboard', $ai)->getStatusCode());
         self::assertSame(201, $this->request('POST', '/api/admin/proposals', $ai, ['title' => 'x', 'changes' => [['type' => 'asset', 'path' => 'a.webp', 'source' => null, 'usages' => 0]]])->getStatusCode());
+    }
+
+    /** invites and gifts are the member's rights through their AI too – the admin's campaigns and the limits decide (owner 2026-10-21) */
+    public function testInvitesAndGiftsAreTheMembersRights(): void
+    {
+        [$creator] = $this->session(['creator'], 'creator@scutoons.test');
+        $ai = ['Authorization' => 'Bearer ' . $this->token($creator)];
+        $answers = [];
+        foreach (['/api/invites', '/api/inventory/gift'] as $path) {
+            $r = $this->request('POST', $path, $ai, []);
+            $answers[$path] = $r->getStatusCode() . ' ' . (self::json($r)['error'] ?? '');
+        }
+        // the endpoint answers (it wants a recipient), not the token rule
+        self::assertSame(['/api/invites' => '400 invalid_email', '/api/inventory/gift' => '400 invalid_email'], $answers);
     }
 }

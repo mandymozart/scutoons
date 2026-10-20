@@ -100,8 +100,9 @@ variable to the local server (`SCUTOONS_TOKEN`), as today with the copied cookie
 - **Limits:** a token can't become a cookie (`POST /api/auth/session/` refuses it) and can't create tokens, change the
   password or email, or delete the account – those routes are marked "session only". The draft links (§2) are opened
   in the browser with the member's normal sign-in, never with the token. Every confirm step of §2 is refused for a token
-  too (`ApiTokenScope`, 403 not_for_ai): publish (one document or the batch), replace a file in place, a mail to someone
-  else (Embassy, invite, gift), review decisions, admin changes but proposals – the list: server/docs/API.md "AI connections".
+  too (`ApiTokenScope`, 403 not_for_ai): publish (one document or the batch), replace a file in place, an Embassy mail,
+  review decisions, admin changes but proposals – the list: server/docs/API.md "AI connections". Invites and gifts are
+  the member's rights through the AI too: the admin's campaigns and the limits decide (owner 2026-10-21).
 - UI: the account page (scutoons.com/account), section **"AI connections"**: create (name → the token shown once with a
   copy button and the setup steps for Claude Desktop / Claude Code), list (name, created, last used),
   revoke. One page for every role; only members with a role that has tools (creator, liaison, ambassador, admin) see it

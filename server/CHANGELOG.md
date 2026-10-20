@@ -5,9 +5,9 @@ Versions: `composer.json` `version`; `GET /api/health/` returns `version` + `git
 ## Unreleased
 
 - AI connections (#100): `Http\ApiTokenScope` also refuses a token (`403 not_for_ai`) on the batch publish
-  `POST /api/entities/publish`, on `PUT /api/assets/replace` (replace in place), `POST /api/invites` and
-  `POST /api/inventory/gift` (a mail to someone else), and matches the path decoded like the router – a `%xx` path
-  (`/api/%61dmin/…`, `/api/entities/<key>/%70ublish`) no longer slips past it.
+  `POST /api/entities/publish` and on `PUT /api/assets/replace` (replace in place), and matches the path decoded like
+  the router – a `%xx` path (`/api/%61dmin/…`, `/api/entities/<key>/%70ublish`) no longer slips past it. Invites and
+  gifts stay open to a token (owner 2026-10-21).
 - Ask removed, the member's own AI through the MCP (agents/MCP.md, owner 2026-10-09). Gone: `/api/agent-chats`,
   `POST /api/agent-usage`, `GET /api/admin/agent-usage`, `Domain\Agent`, `AgentChatsController` /
   `AgentUsageController` + their tests, the setting `AGENT_SERVICE_KEY`, the agent-chats CORS rule (the tables stay

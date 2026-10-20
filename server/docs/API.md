@@ -635,9 +635,10 @@ signs in with a personal token from the account page ("AI connections"). Code: `
   a token stops working (401) once its account has none of those roles left. At most 20 per account (`409 too_many`).
 - **Refused for a token** (`403 not_for_ai` – the member does it in the app): `POST /entities/<key>/publish|unpublish`,
   the batch `POST /entities/publish` (#100), `PUT /assets/replace` (new bytes under a live file), `POST /reviews/publish|return`,
-  a mail to someone else (`POST /invites`, `POST /inventory/gift`, `POST /embassy/orgs/{id}/mail`),
-  `DELETE /embassy/orgs/{id}`, `POST /embassy/import`, every `/admin/*` call but GET / HEAD and `POST /admin/proposals`,
-  `POST /auth/session|logout`, `/me/tokens*`. The path is matched decoded, as the router sees it (`%61dmin` = `admin`).
+  `POST /embassy/orgs/{id}/mail`, `DELETE /embassy/orgs/{id}`, `POST /embassy/import`, every `/admin/*` call but GET /
+  HEAD and `POST /admin/proposals`, `POST /auth/session|logout`, `/me/tokens*`. The path is matched decoded, as the router
+  sees it (`%61dmin` = `admin`). Invites and gifts are allowed – what the admin's campaigns and the limits allow the
+  member (owner 2026-10-21).
 - A save through a token is signed "(AI: <connection name>)" in the version message.
 - **Six months** (owner 2026-10-09, migration `2026-10-09-tokens-expire`): `expires_at` = made / last renewed + 182 days;
   expired → 401. Renewing (`POST /me/tokens/{id}/renew`, a real sign-in) moves the SAME token six months on – nothing to
