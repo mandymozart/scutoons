@@ -32,6 +32,11 @@ export interface EntityLabels {
 	script: string;
 	/** a chapter's storyboard (`storyboard:<toon>:<n>`, creator only) */
 	storyboard: (number: number) => string;
+	/** a season's / a chapter's screenplay (`season-script:<toon>:<n>`, `chapter-script:<toon>:<n>`, creator only) */
+	seasonScript: (number: number) => string;
+	chapterScript: (number: number) => string;
+	/** a Kanon text (`kanon:<subject>`, research/KANON.md): the subject segment, e.g. `character.catpope.human` */
+	kanon: (subject: string) => string;
 	/** a catalog entry's document (`item:camera` → kind `item`, id `camera`; agents/CATALOG-IN-CREATOR.md) */
 	catalog: (kind: string, id: string) => string;
 }
@@ -57,6 +62,9 @@ export const ENTITY_LABELS: EntityLabels = {
 	events: 'Events',
 	script: 'Script',
 	storyboard: (n) => `Storyboard · Chapter ${n}`,
+	seasonScript: (n) => `Script · Season ${n}`,
+	chapterScript: (n) => `Script · Chapter ${n}`,
+	kanon: (subject) => `Kanon · ${subject.split('.').slice(1).join(' · ')}`,
 	catalog: (kind, id) => `${kind[0].toUpperCase()}${kind.slice(1)} ${id}`
 };
 
@@ -88,6 +96,9 @@ export function entityLabel(key: string, labels: Partial<EntityLabels> = {}): st
 	if (kind === 'chapter' && number) return l.chapter(Number(number));
 	if (kind === 'season' && number) return l.season(Number(number));
 	if (kind === 'storyboard' && number) return l.storyboard(Number(number));
+	if (kind === 'season-script' && number) return l.seasonScript(Number(number));
+	if (kind === 'chapter-script' && number) return l.chapterScript(Number(number));
+	if (kind === 'kanon' && id) return l.kanon(id);
 	if ((kind === 'place' || kind === 'route' || kind === 'region' || kind === 'character') && key.split(':')[1]) return l[kind](key.split(':')[1]);
 	const named = NAMED[kind];
 	if (named) return l[named] as string;

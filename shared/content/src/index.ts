@@ -45,6 +45,7 @@ export * from './slice-edges.ts';
 export * from './flow.ts';
 export * from './toon-flow-input.ts';
 export * from './script.ts';
+export * from './kanon.ts';
 export * from './media-quality.ts';
 export * from './map.ts';
 export * from './homes.ts';

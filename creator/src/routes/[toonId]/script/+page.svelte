@@ -3,6 +3,7 @@
 	import { DockHold } from '@scutoons/ui';
 	import ScriptEditor from '$lib/components/script/script-editor.svelte';
 	import { loadToonLanguages } from '$lib/editor/languages.ts';
+	import { entities } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 
 	const toon = $derived(page.params.toonId as string);
@@ -15,7 +16,7 @@
 	<DockHold />
 {:then langs}
 	{#key `${toon}/${langs.languages.join(',')}`}
-		<ScriptEditor {toon} languages={langs} />
+		<ScriptEditor entity={entities.script(toon)} {toon} languages={langs} title={m['creator.script']()} />
 	{/key}
 {:catch error}
 	<p class="pad error">{error instanceof Error ? error.message : String(error)}</p>

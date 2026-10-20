@@ -10,6 +10,10 @@
 //   locations:<toon>:<locale>         routes:<toon>:<locale>             (the map)
 //   cast:<toon>                       credits:<toon>                     (language-neutral, per toon)
 //   script:<toon>:<locale>            the toon's screenplay (creator only: no library endpoint, readers never get it)
+//   season-script:<toon>:<n>:<locale>  chapter-script:<toon>:<n>:<locale>
+//                                     a season's / a chapter's screenplay (creator only; research/KANON.md §3)
+//   kanon:<subject>:<locale>          a Kanon text (creator only; subject `toon.<toon>`, `character.<id>[.<persona>[.<look>]]`,
+//                                     `place.<id>` – kanon.ts, research/KANON.md)
 //   storyboard:<toon>:<n>             a chapter's storyboard (creator only, language-neutral; research/STUDIO-IN-CREATOR.md §2.2)
 //   characters  moods  asset-requests  people  roles  events  map  colorations   (platform-wide, language-neutral;
 //                                     `colorations` = the custom collage presets, research/COLLAGE.md §12)
@@ -25,6 +29,7 @@
 // groups shared by reference) were inlined into their chapters 2026-10-19 (research/TEXT-ACROSS-SLICES.md §5 step 3).
 
 import { NEUTRAL_LOCALE } from './languages.ts';
+import { parseKanonSubject } from './kanon.ts';
 
 export type EntityKind =
 	| 'toon'
@@ -36,6 +41,9 @@ export type EntityKind =
 	| 'cast'
 	| 'credits'
 	| 'script'
+	| 'season-script'
+	| 'chapter-script'
+	| 'kanon'
 	| 'storyboard'
 	| 'characters'
 	| 'moods'
@@ -72,6 +80,10 @@ const SHAPES: Record<Exclude<EntityKind, CatalogEntityKind>, [boolean, boolean, 
 	cast: [true, false, false],
 	credits: [true, false, false],
 	script: [true, false, true],
+	'season-script': [true, true, true],
+	'chapter-script': [true, true, true],
+	// one segment: the subject (`character.catpope.human`), then the locale – parseEntityKey
+	kanon: [false, false, true],
 	storyboard: [true, true, false],
 	characters: [false, false, false],
 	moods: [false, false, false],
@@ -105,7 +117,10 @@ export interface EntityRef {
 	number?: number;
 	/** only on stored keys of localized kinds */
 	locale?: string;
-	/** the id of an ID_KINDS key (`place:cathedral` → `cathedral`) or a catalog document's entry id (`item:camera` → camera) */
+	/**
+	 * the id of an ID_KINDS key (`place:cathedral` → `cathedral`), a catalog document's entry id (`item:camera` → camera) or
+	 * a Kanon text's subject segment (`kanon:character.catpope.human` → `character.catpope.human`)
+	 */
 	id?: string;
 }
 
@@ -121,6 +136,12 @@ export const entities = {
 	cast: (toon: string) => `cast:${toon}`,
 	credits: (toon: string) => `credits:${toon}`,
 	script: (toon: string) => `script:${toon}`,
+	/** a season's screenplay (creator only) */
+	seasonScript: (toon: string, n: number) => `season-script:${toon}:${n}`,
+	/** a chapter's screenplay (creator only) */
+	chapterScript: (toon: string, n: number) => `chapter-script:${toon}:${n}`,
+	/** a Kanon text (creator only): its subject segment, `kanonSubjectSegment` */
+	kanon: (subject: string) => `kanon:${subject}`,
 	/** a chapter's storyboard (creator only, server EntityKey::CREATOR_ONLY_KINDS) */
 	storyboard: (toon: string, chapter: number) => `storyboard:${toon}:${chapter}`,
 	characters: 'characters',
@@ -183,6 +204,11 @@ export function parseEntityKey(key: string): EntityRef | null {
 	const shape = SHAPES[kind];
 	if (!shape) return null;
 	if (ID_KINDS.includes(kind)) return parts.length === 1 && ENTITY_ID.test(parts[0]) ? { kind, id: parts[0] } : null;
+	if (kind === 'kanon') {
+		const subject = parseKanonSubject(parts[0] ?? '');
+		if (!subject || parts.length > 2 || (parts.length === 2 && !/^[a-z]{2}$/.test(parts[1]))) return null;
+		return { kind, id: parts[0], ...(subject.kind === 'toon' ? { toon: subject.toon } : {}), ...(parts[1] ? { locale: parts[1] } : {}) };
+	}
 	const [hasToon, hasNumber, localized] = shape;
 	const base = Number(hasToon) + Number(hasNumber);
 	if (parts.length !== base && !(localized && parts.length === base + 1)) return null;
@@ -191,7 +217,7 @@ export function parseEntityKey(key: string): EntityRef | null {
 	if (hasNumber) {
 		// seasons start at 1, chapters at 0 (a season's prologue); digits only, no leading zeros (like the server)
 		const raw = parts.shift() ?? '';
-		if (!(kind === 'season' ? /^[1-9]\d{0,5}$/ : /^(0|[1-9]\d{0,5})$/).test(raw)) return null;
+		if (!(kind === 'season' || kind === 'season-script' ? /^[1-9]\d{0,5}$/ : /^(0|[1-9]\d{0,5})$/).test(raw)) return null;
 		ref.number = Number(raw);
 	}
 	if (localized && parts.length) ref.locale = parts.shift();

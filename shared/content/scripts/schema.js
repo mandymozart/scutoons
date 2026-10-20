@@ -35,6 +35,8 @@ const SCHEMAS = {
 	'asset-requests': 'AssetRequests',
 	cast: 'ToonCast',
 	script: 'ToonScript',
+	// a Kanon text (research/KANON.md): `kanon:<subject>:<l>`
+	kanon: 'KanonText',
 	// the world map as documents (agents/MAP-DOCUMENTS.md): `map` = its settings, `place:<id>`, `route:<id>`
 	map: 'MapSettings',
 	'map-place': 'PlaceDoc',

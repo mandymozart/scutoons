@@ -39,7 +39,9 @@ import {
 	type ToonIndex
 } from './content.ts';
 import { checkWorldMap } from './map.ts';
-import { SCRIPT_META_FIELDS } from './script.ts';
+import { isScriptKind, SCRIPT_META_FIELDS } from './script.ts';
+import { kanonProblems, kanonRole, parseKanonSubject } from './kanon.ts';
+import { parseEntityKey } from './entities.ts';
 import { mediaLocaleMessage, mediaPathsWithLocale } from './media.ts';
 import { isMediaQuality } from './media-quality.ts';
 import { checkRelatedItems } from './albums.ts';
@@ -1430,6 +1432,16 @@ function checkScript(c: Collector, s: any) {
 	}
 }
 
+/** A Kanon text (`KanonText`, entity `kanon:<subject>:<l>`, research/KANON.md §4): `{ text }`, the headings by its role's rules */
+function checkKanon(c: Collector, k: any, file: string) {
+	if (!isObj(k)) return c.error([], 'a Kanon text must be { text }');
+	if (!isStr(k.text)) return c.error(['text'], 'text must be a string (the whole Kanon text)');
+	const ref = parseEntityKey(file);
+	const subject = ref?.kind === 'kanon' && ref.id ? parseKanonSubject(ref.id) : null;
+	if (!subject) return;
+	for (const p of kanonProblems(k.text, kanonRole(subject))) c.warn(['text'], `line ${p.line}: ${p.message}`);
+}
+
 /** A CSS colour as the registry writes them: a name (`blue`, `darkgreen`) or a hex colour */
 const CSS_COLOR = /^(?:[a-z]+|#[0-9a-f]{3}|#[0-9a-f]{6})$/i;
 
@@ -1463,11 +1475,12 @@ export function validateFile(kind: string, data: any, locale: string, ctx: Valid
 	else if (kind === 'season') checkSeason(c, data, locale, ctx);
 	else if (kind === 'toon') checkToon(c, data, locale);
 	else if (kind === 'index') checkToonIndex(c, data);
-	else if (kind === 'script') checkScript(c, data);
+	else if (isScriptKind(kind)) checkScript(c, data);
+	else if (kind === 'kanon') checkKanon(c, data, ctx.file);
 	else if (kind === 'map') for (const p of checkWorldMap(data)) c.add(p.level, p.path, p.message);
 	else if (kind === 'colorations') colorationProblems(data, (level, path, message) => c.add(level, path, message));
-	// a screenplay is plain text, no media paths
-	if (kind !== 'script') checkMediaLocale(c, data);
+	// a screenplay / a Kanon text is plain text, no media paths
+	if (!isScriptKind(kind) && kind !== 'kanon') checkMediaLocale(c, data);
 	return c.problems;
 }
 
@@ -1653,9 +1666,9 @@ export function validateLocales(kind: string, file: string, files: Record<string
 				const numbers = (file: any) => (file?.sequence ?? []).map((i: any) => Number(i?.number)).sort((a: number, b: number) => a - b).join(',');
 				if (numbers(source) !== numbers(data)) add('warning', locale, ['sequence'], `${locale} season lists chapters ${numbers(data) || '–'}, ${primary} lists ${numbers(source) || '–'}`);
 			}
-		} else if (kind === 'script') {
+		} else if (isScriptKind(kind) || kind === 'kanon') {
 			// a translation may be partial (it grows scene by scene); only an empty one is worth a note
-			if (textOf(source.text).trim() && !textOf(data.text).trim()) add('info', locale, ['text'], `the ${locale} script is empty`);
+			if (textOf(source.text).trim() && !textOf(data.text).trim()) add('info', locale, ['text'], `the ${locale} ${kind === 'kanon' ? 'text' : 'script'} is empty`);
 			continue;
 		}
 		forEachSlice(kind, source, (slice, path) => {

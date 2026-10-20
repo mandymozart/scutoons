@@ -1,45 +1,62 @@
+<script lang="ts" module>
+	import type { ScriptOutlineItem } from '@scutoons/content';
+
+	/** a Kanon text's `## ` heading (research/KANON.md §4); `known` = one of its role's sections */
+	export interface SectionOutlineItem {
+		kind: 'section';
+		line: number;
+		heading: string;
+		known: boolean;
+	}
+	export type OutlineItem = ScriptOutlineItem | SectionOutlineItem;
+</script>
+
 <script lang="ts">
 	import { FoldButton } from '@scutoons/ui';
-	import type { ScriptOutlineItem } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
 	 * The script's outline (screenplay editor rules, `scriptOutline`): chapters, songs and scenes; a click jumps there, the
 	 * cursor's item is marked. Its fold button folds the page's outline region to a rail labelled "Outline" (owner 2026-10-03;
-	 * the rail and the region: script-editor.svelte, @scutoons/ui `Rail` / `dockRegion`).
+	 * the rail and the region: script-editor.svelte, @scutoons/ui `Rail` / `dockRegion`). A Kanon text's outline is its
+	 * sections (`label` "Sections"; a heading that is not one of its role's is muted).
 	 */
 	let {
 		outline,
 		current,
+		label = m['creator.script_outline'](),
+		foldLabel = m['creator.script_outline_fold'](),
 		list = $bindable(),
 		onfold,
 		onjump
 	}: {
-		outline: ScriptOutlineItem[];
-		current: ScriptOutlineItem | null;
+		outline: OutlineItem[];
+		current: OutlineItem | null;
+		label?: string;
+		foldLabel?: string;
 		/** the scrolling list (its height is fitted to the action bar by the page) */
 		list?: HTMLElement;
 		onfold: () => void;
 		onjump: (line: number) => void;
 	} = $props();
 
-	function itemLabel(item: ScriptOutlineItem): string {
-		if (item.kind === 'scene') return item.heading;
+	function itemLabel(item: OutlineItem): string {
+		if (item.kind === 'scene' || item.kind === 'section') return item.heading;
 		const head = item.kind === 'chapter' ? m['creator.entity_chapter']({ number: item.number }) : m['creator.script_song']({ number: item.number });
 		return item.title ? `${head} · ${item.title}` : head;
 	}
 </script>
 
-<section class="outline" data-testid="script-outline" aria-label={m['creator.script_outline']()}>
+<section class="outline" data-testid="script-outline" aria-label={label}>
 	<h2>
-		<span>{m['creator.script_outline']()}</span>
-		<FoldButton side="left" label={m['creator.script_outline_fold']()} controls="script-outline" onclick={onfold} testid="script-outline-fold" />
+		<span>{label}</span>
+		<FoldButton side="left" label={foldLabel} controls="script-outline" onclick={onfold} testid="script-outline-fold" />
 	</h2>
 	{#if outline.length}
 		<ol bind:this={list} class="outline-list">
 			{#each outline as item (item.line)}
-				<li class={item.kind}>
-					<button type="button" class:current={item === current} onclick={() => onjump(item.line)} title="{itemLabel(item)} ({item.line})" data-line={item.line} data-testid="script-outline-item">
+				<li class={item.kind} class:unknown={item.kind === 'section' && !item.known}>
+					<button type="button" class:current={item === current} onclick={() => onjump(item.line)} title={item.kind === 'section' && !item.known ? `${itemLabel(item)} – ${m['creator.kanon_not_a_section']()} (${item.line})` : `${itemLabel(item)} (${item.line})`} data-line={item.line} data-testid="script-outline-item">
 						{#if item.kind === 'scene'}<span class="num">{item.number}</span>{/if}
 						<span class="label">{itemLabel(item)}</span>
 					</button>
@@ -110,6 +127,9 @@
 	li.song button {
 		font-style: italic;
 		margin-top: 0.35rem;
+	}
+	li.unknown button:not(.current) {
+		color: var(--muted);
 	}
 	.num {
 		min-width: 1.75rem;

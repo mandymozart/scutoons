@@ -66,11 +66,15 @@ final class EntityStoreTest extends TestCase
     {
         foreach (['toon:catpope', 'toon-settings:catpope:de', 'season:catpope:1:en', 'chapter:catpope:12:de', 'chapter:catpope:0:de',
             'locations:catpope:de', 'routes:catpope:en', 'cast:catpope', 'credits:catpope', 'script:catpope:de', 'script:yellowmouse:en', 'characters', 'moods', 'asset-requests', 'people', 'roles', 'events', 'colorations',
-            'chapter:catpope:1', 'chapter:catpope:0', 'season:catpope:1'] as $key) {
+            'chapter:catpope:1', 'chapter:catpope:0', 'season:catpope:1',
+            'season-script:catpope:1:de', 'chapter-script:toptoy:0:en', 'kanon:toon.toptoy:de', 'kanon:character.catpope:en',
+            'kanon:character.catpope.human.helmet:de', 'kanon:place.cathedral:de'] as $key) {
             self::assertSame($key, (string) EntityKey::parse($key), $key);
         }
         // chapter 0 = a season's prologue; seasons start at 1; no leading zeros
-        foreach (['chapter:catpope:00:de', 'chapter:catpope:01:de', 'chapter:catpope::de', 'season:catpope:0:de', 'chapter:Cat:1:de', 'toon:scutoons', 'characters:x', 'colorations:catpope', 'nope', 'scene:catpope:2', 'scene:catpope:2:scene-14', 'scene:catpope:2:scene-14:de', 'season:catpope:1:deu', 'season:catpope', 'toon-settings:catpope', 'locations:catpope', 'chapter:catpope:1:de:x', 'items', '', 'script:catpope', 'script:catpope:1:de', 'script:de'] as $key) {
+        foreach (['chapter:catpope:00:de', 'chapter:catpope:01:de', 'chapter:catpope::de', 'season:catpope:0:de', 'chapter:Cat:1:de', 'toon:scutoons', 'characters:x', 'colorations:catpope', 'nope', 'scene:catpope:2', 'scene:catpope:2:scene-14', 'scene:catpope:2:scene-14:de', 'season:catpope:1:deu', 'season:catpope', 'toon-settings:catpope', 'locations:catpope', 'chapter:catpope:1:de:x', 'items', '', 'script:catpope', 'script:catpope:1:de', 'script:de',
+            'season-script:catpope:0:de', 'chapter-script:catpope:01:de', 'chapter-script:catpope', 'season-script:catpope:1', 'kanon', 'kanon:place.cathedral', 'kanon:toon.scutoons:de', 'kanon:place.a.b:de',
+            'kanon:character.a.b.c.d:de', 'kanon:item.x:de', 'kanon:character.catpope:de:x', 'kanon:character.catpope:deu', 'kanon:place.Cathedral:de'] as $key) {
             self::assertFalse(EntityKey::isValid($key), $key);
         }
         // one document per chapter since 2026-10-19: the scene keys are gone (their versions archived)
@@ -83,6 +87,12 @@ final class EntityStoreTest extends TestCase
         self::assertSame([null, true, true, 'chapter:catpope:2'], [$neutral->locale, $neutral->isNeutral(), $neutral->isNeutralDoc(), $neutral->entity()]);
         self::assertSame([false, false], [$key->isNeutral(), $key->isNeutralDoc()]);
         self::assertSame([true, false], [EntityKey::parse('toon:catpope')->isNeutral(), EntityKey::parse('toon:catpope')->isNeutralDoc()]);
+        // a Kanon text (research/KANON.md): the subject is its id, a toon's text carries the toon (its toon column)
+        $kanon = EntityKey::parse('kanon:character.catpope.human:de');
+        self::assertSame(['kanon', null, 'character.catpope.human', 'de', 'kanon:character.catpope.human', 'kanon:character.catpope.human:en'],
+            [$kanon->kind, $kanon->toon, $kanon->id, $kanon->locale, $kanon->entity(), (string) $kanon->withLocale('en')]);
+        self::assertSame('toptoy', EntityKey::parse('kanon:toon.toptoy:de')->toon);
+        self::assertSame([2, 'season-script:catpope:2'], [EntityKey::parse('season-script:catpope:2:de')->number, EntityKey::parse('season-script:catpope:2:de')->entity()]);
     }
 
     public function testInterchangeLayout(): void
@@ -95,12 +105,14 @@ final class EntityStoreTest extends TestCase
             ['scutoons', '_', 'colorations.json', 'colorations'],
             ['catpope', 'de', 'script.json', 'script:catpope:de'], ['catpope', 'en', 'script.json', 'script:catpope:en'],
             ['catpope', '_', 'chapter2.json', 'chapter:catpope:2'], ['catpope', '_', 'season1.json', 'season:catpope:1'],
+            ['catpope', 'de', 'season-script1.json', 'season-script:catpope:1:de'], ['toptoy', 'en', 'chapter-script0.json', 'chapter-script:toptoy:0:en'],
+            ['scutoons', 'de', 'kanon/character.catpope.human.json', 'kanon:character.catpope.human:de'], ['scutoons', 'en', 'kanon/toon.toptoy.json', 'kanon:toon.toptoy:en'],
         ];
         foreach ($cases as [$dir, $locale, $path, $key]) {
             self::assertSame($key, ContentFiles::keyOf($dir, $locale, $path), "$dir/$locale/$path");
             self::assertSame("$dir/$locale/$path", ContentFiles::pathOf(EntityKey::parse($key)), $key);
         }
-        foreach ([['catpope', '_', 'script.json'], ['scutoons', 'de', 'script.json'], ['catpope', 'de', 'scripts.json'],['catpope', 'de', 'characters.json'],['catpope', 'de', 'credits.json'], ['catpope', 'de', 'collectables.json'], ['catpope', '_', 'index.json'], ['scutoons', 'de', 'toon.json'], ['scutoons', 'de', 'colorations.json'], ['catpope', '_', 'colorations.json'], ['catpope', 'de', 'season0.json'], ['catpope', 'de', 'chapter01.json'], ['catpope', '_', 'season0.json'], ['catpope', '_', 'toon.json'], ['scutoons', '_', 'chapter1.json'], ['catpope', '_', 'chapter2/scene-14.json'], ['catpope', 'de', 'chapter2/scene-14.json']] as [$dir, $locale, $path]) {
+        foreach ([['catpope', '_', 'script.json'], ['scutoons', 'de', 'script.json'], ['catpope', 'de', 'scripts.json'],['catpope', 'de', 'characters.json'],['catpope', 'de', 'credits.json'], ['catpope', 'de', 'collectables.json'], ['catpope', '_', 'index.json'], ['scutoons', 'de', 'toon.json'], ['scutoons', 'de', 'colorations.json'], ['catpope', '_', 'colorations.json'], ['catpope', 'de', 'season0.json'], ['catpope', 'de', 'chapter01.json'], ['catpope', '_', 'season0.json'], ['catpope', '_', 'toon.json'], ['scutoons', '_', 'chapter1.json'], ['catpope', '_', 'chapter2/scene-14.json'], ['catpope', 'de', 'chapter2/scene-14.json'], ['scutoons', '_', 'kanon/place.x.json'], ['scutoons', 'de', 'kanon/item.x.json'], ['catpope', 'de', 'season-script0.json'], ['catpope', '_', 'chapter-script1.json']] as [$dir, $locale, $path]) {
             self::assertNull(ContentFiles::keyOf($dir, $locale, $path), "$dir/$locale/$path is no entity");
         }
         self::assertSame('toons.json', ContentFiles::pathOf(EntityKey::parse('toon:catpope')));
@@ -120,7 +132,7 @@ final class EntityStoreTest extends TestCase
     /** Screenplays are creator material: out of the production seed unless named, imported locally like the rest */
     public function testScriptsStayOutOfTheProductionSeed(): void
     {
-        self::assertSame(['script', 'storyboard'], EntityKey::CREATOR_ONLY_KINDS);
+        self::assertSame(['script', 'storyboard', 'season-script', 'chapter-script', 'kanon'], EntityKey::CREATOR_ONLY_KINDS);
         self::assertFalse(ImportContentCommand::includesKind('script', [], true));
         self::assertTrue(ImportContentCommand::includesKind('script', ['script'], true));
         self::assertTrue(ImportContentCommand::includesKind('script', [], false));
@@ -139,6 +151,29 @@ final class EntityStoreTest extends TestCase
         $store->publish('script:smoke:de', null);
         $read = json_decode((string) $store->read('script:smoke:de', false, 0)['json']);
         self::assertSame($text, $read->text);
+    }
+
+    /** A Kanon text and a chapter script save like the screenplay: schema-checked, per locale, a toon's text in its toon's rows */
+    public function testKanonAndChapterScriptsSave(): void
+    {
+        $store = $this->get(EntityStore::class);
+        $user = $this->user();
+        $saved = $store->save($user, EntityKey::parse('kanon:toon.smoke:de'), (object) ['content' => (object) ['text' => "## Prämisse
+Eine Katze.
+"]]);
+        self::assertSame(['kanon', 'smoke', 'de'], [$saved['version']['kind'], $saved['version']['toon'], $saved['version']['locale']]);
+        $saved = $store->save($user, EntityKey::parse('kanon:character.catpope.human:en'), (object) ['content' => (object) ['text' => "## Look
+Pale.
+"]]);
+        self::assertSame(['kanon', null, 'en'], [$saved['version']['kind'], $saved['version']['toon'], $saved['version']['locale']]);
+        $saved = $store->save($user, EntityKey::parse('chapter-script:smoke:1:de'), (object) ['content' => (object) ['text' => "1   INT. KÜCHE - NACHT
+"]]);
+        self::assertSame(['chapter-script', 'smoke', 'de'], [$saved['version']['kind'], $saved['version']['toon'], $saved['version']['locale']]);
+        // the API's write path checks the type (ContentSchemas): a Kanon text is { text: string }
+        $schemas = $this->get(\Scutoons\Domain\Content\ContentSchemas::class);
+        self::assertSame([], $schemas->problemsOf(EntityKey::parse('kanon:place.cathedral:de'), (object) ['text' => 'x']));
+        self::assertNotSame([], $schemas->problemsOf(EntityKey::parse('kanon:place.cathedral:de'), (object) ['text' => 3]));
+        self::assertNotSame([], $schemas->problemsOf(EntityKey::parse('season-script:smoke:1:de'), (object) ['meta' => (object) []]));
     }
 
     /** 2026-10-06-show-text-box: the event type `showOnomatopeia` → `showTextBox` in every stored version, texts untouched */

@@ -203,6 +203,15 @@
 			const kind = page.params.kind ?? 'items';
 			if (isCatalogPageKind(kind)) out.push({ href: `/catalog/${kind}`, label: CATALOG_LABELS[kind]() });
 		}
+		// a Kanon text (research/KANON.md §5): Creator / <its area> / Kanon · …
+		if (route === '/kanon/[subject]') {
+			const subject = page.params.subject ?? '';
+			const area = subject.split('.')[0];
+			if (area === 'character') out.push({ href: '/characters', label: m['creator.characters']() });
+			if (area === 'place') out.push({ href: '/map', label: m['creator.map']() });
+			if (area === 'toon') out.push({ href: '/toons', label: m['creator.toons']() }, { href: `/${subject.slice(5)}`, label: toonName(subject.slice(5)) });
+			out.push({ href: `/kanon/${subject}`, label: fileLabel(entities.kanon(subject)) });
+		}
 		// the SCUTOONS-wide Flow (owner 2026-10-06): Creator / Ablauf
 		if (route === '/flow') out.push({ href: '/flow', label: m['creator.flow_universe']() });
 		if (!toonId) return out;

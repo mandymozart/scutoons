@@ -18,6 +18,11 @@ use Scutoons\Domain\ApiError;
  *   locations:<toon>:<l>  routes:<toon>:<l>                            the map
  *   cast:<toon>  credits:<toon>                                        language-neutral, per toon
  *   script:<toon>:<l>                    the toon's screenplay per locale (creator material, CREATOR_ONLY_KINDS)
+ *   season-script:<toon>:<n>:<l>  chapter-script:<toon>:<n>:<l>
+ *                                        a season's / a chapter's screenplay per locale (creator material; research/KANON.md §3)
+ *   kanon:<subject>:<l>                  a Kanon text per locale (creator material; subject `toon.<toon>`,
+ *                                        `character.<id>[.<persona>[.<look>]]`, `place.<id>` – KANON_SUBJECT_PATTERN; `id` = the
+ *                                        subject, `toon` set for a toon's text; research/KANON.md)
  *   storyboard:<toon>:<n>                a chapter's storyboard: `{ storyboard: 2, toon, chapter, scenes }`, language-neutral
  *                                        (creator material, CREATOR_ONLY_KINDS; agents/research/STUDIO-IN-CREATOR.md §2.2, #120)
  *   characters  moods  asset-requests  people  roles  events  map  colorations
@@ -52,6 +57,10 @@ final class EntityKey
         'cast' => [true, false, false],
         'credits' => [true, false, false],
         'script' => [true, false, true],
+        'season-script' => [true, true, true],
+        'chapter-script' => [true, true, true],
+        // one segment: the subject (`character.catpope.human`), then the locale – parse()
+        'kanon' => [false, false, true],
         'storyboard' => [true, true, false],
         'characters' => [false, false, false],
         'moods' => [false, false, false],
@@ -78,7 +87,9 @@ final class EntityKey
      * `/api/entities`, role creator) and the production seed (`import-content --sql`) leaves them out unless `--only`
      * names them (agents/DATA.md "Script"). The storyboards (#120) too: their working material, never a reader's.
      */
-    public const CREATOR_ONLY_KINDS = ['script', 'storyboard'];
+    public const CREATOR_ONLY_KINDS = ['script', 'storyboard', 'season-script', 'chapter-script', 'kanon'];
+    /** a Kanon text's subject segment (no id holds a dot, so a key never reads two ways; @scutoons/content KANON_SUBJECT) */
+    public const KANON_SUBJECT_PATTERN = '#^(?:toon\.[a-z0-9_-]{1,64}|place\.[a-z0-9][a-z0-9_-]{0,63}|character\.[a-z0-9][a-z0-9_-]{0,63}(?:\.[a-z0-9][a-z0-9-]{0,63}){0,2})$#';
     /** document kind → catalog kind (CatalogStore::KINDS) of the catalog documents `<kind>:<id>` */
     public const CATALOG_KINDS = ['item' => 'items', 'recipe' => 'recipes', 'album' => 'albums', 'product' => 'products', 'edition' => 'editions', 'home-scene' => 'home-scenes', 'airlift-carrier' => 'airlift-carriers'];
     /** a catalog document's id: the widest catalog id rule (CatalogValidator checks the kind's own rule on save) */
@@ -120,6 +131,12 @@ final class EntityKey
             if (count($parts) !== 1 || !preg_match(self::ID_PATTERN, $parts[0])) throw $invalid;
             return new self((string) $kind, id: $parts[0]);
         }
+        if ($kind === 'kanon') {
+            if (count($parts) !== 2 || !preg_match(self::KANON_SUBJECT_PATTERN, $parts[0]) || !preg_match(self::LOCALE_PATTERN, $parts[1])) throw $invalid;
+            $toon = str_starts_with($parts[0], 'toon.') ? substr($parts[0], 5) : null;
+            if ($toon === 'scutoons') throw $invalid;
+            return new self('kanon', $toon, null, $parts[1], $parts[0]);
+        }
         [$hasToon, $hasNumber, $localized] = $shape;
         $expected = (int) $hasToon + (int) $hasNumber + (int) $localized;
         if ($localized && count($parts) === $expected - 1 && in_array($kind, self::NEUTRAL_DOC_KINDS, true)) $localized = false; // the neutral document
@@ -128,7 +145,7 @@ final class EntityKey
         $number = $hasNumber ? array_shift($parts) : null;
         $locale = $localized ? array_shift($parts) : null;
         if ($toon !== null && (!preg_match(self::TOON_PATTERN, $toon) || $toon === 'scutoons')) throw $invalid;
-        if ($number !== null && !preg_match($kind === 'season' ? self::SEASON_NUMBER_PATTERN : self::CHAPTER_NUMBER_PATTERN, $number)) throw $invalid;
+        if ($number !== null && !preg_match(in_array($kind, ['season', 'season-script'], true) ? self::SEASON_NUMBER_PATTERN : self::CHAPTER_NUMBER_PATTERN, $number)) throw $invalid;
         if ($locale !== null && !preg_match(self::LOCALE_PATTERN, $locale)) throw $invalid;
         return new self((string) $kind, $toon, $number === null ? null : (int) $number, $locale);
     }
@@ -145,6 +162,7 @@ final class EntityKey
 
     public function __toString(): string
     {
+        if ($this->kind === 'kanon') return $this->entity() . ":$this->locale";
         return implode(':', array_filter([$this->kind, $this->toon, $this->number === null ? null : (string) $this->number, $this->locale, $this->id],
             fn($p) => $p !== null));
     }
@@ -182,6 +200,7 @@ final class EntityKey
     /** Key without the locale (the entity across its languages), e.g. `chapter:catpope:2` */
     public function entity(): string
     {
+        if ($this->kind === 'kanon') return "kanon:$this->id";
         return implode(':', array_filter([$this->kind, $this->toon, $this->number === null ? null : (string) $this->number, $this->id], fn($p) => $p !== null));
     }
 }

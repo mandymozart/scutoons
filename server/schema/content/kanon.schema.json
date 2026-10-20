@@ -1,0 +1,28 @@
+{
+	"$id": "https://scutoons.com/schema/kanon.schema.json",
+	"title": "KanonText",
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$ref": "#/definitions/KanonText",
+	"definitions": {
+		"KanonText": {
+			"type": "object",
+			"properties": {
+				"accepted_warnings": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "warnings accepted in the creator: `<place>#<hash>` (acceptedWarningKey)"
+				},
+				"text": {
+					"type": "string",
+					"description": "the whole text, plain, exactly as typed (LF line ends)"
+				}
+			},
+			"required": [
+				"text"
+			],
+			"description": "One Kanon text (entity `kanon:<subject>:<l>`)"
+		}
+	}
+}

@@ -1,4 +1,5 @@
-// A toon's screenplay (entity `script:<toon>:<locale>`, agents/DATA.md "Script"): one big text per language, versioned
+// A screenplay (agents/DATA.md "Script", research/KANON.md §3): a season's (`season-script:<toon>:<n>:<locale>`), a
+// chapter's (`chapter-script:<toon>:<n>:<locale>`) or – until migration 1 – the toon's (`script:<toon>:<locale>`); one big text per language, versioned
 // like every entity, for the creator only (no library endpoint, readers never get it). The text follows the format of
 // the screenplay editor (C:\Development\screenplay-editor, README "Writing Guide", lib/src/parse.js + utils/regex.js);
 // it is stored exactly as typed (whitespace, indentation and trailing spaces are part of the format).
@@ -17,6 +18,10 @@ export interface ScriptMeta {
 	/** e.g. "Mandy Mozart" */
 	basedOnFrom?: string;
 }
+
+/** The entity kinds holding a screenplay (`ToonScript`) */
+export const SCRIPT_KINDS = ['script', 'season-script', 'chapter-script'] as const;
+export const isScriptKind = (kind: string): boolean => (SCRIPT_KINDS as readonly string[]).includes(kind);
 
 /** The screenplay of a toon in one language (the source language is the master, translations may be partial) */
 export interface ToonScript extends AcceptedWarnings {

@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	export type HelpPage = 'home' | 'toon' | 'chapter' | 'season' | 'toon-file' | 'cover' | 'credits' | 'characters' | 'cast' | 'script' | 'guide' | 'map' | 'catalog' | 'storyboard';
+	export type HelpPage = 'home' | 'toon' | 'chapter' | 'season' | 'toon-file' | 'cover' | 'credits' | 'characters' | 'cast' | 'script' | 'kanon' | 'guide' | 'map' | 'catalog' | 'storyboard';
 	export type ChapterSection = 'meta' | 'audio' | 'group' | 'slice';
 </script>
 
@@ -8,6 +8,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import StyleGuide from '$lib/components/page/style-guide.svelte';
 	import ScriptRules from '$lib/components/script/script-rules.svelte';
+	import KanonRules from '$lib/components/script/kanon-rules.svelte';
 
 	/**
 	 * The help of every creator page, shown in the ActionBar's Info panel (@scutoons/ui `InfoPanel`, owner 2026-09-30):
@@ -142,6 +143,10 @@
 		<p>{m['creator.help_script']()}</p>
 		<h3>{m['creator.script_rules']()}</h3>
 		<ScriptRules />
+		{@render saving()}
+	{:else if page === 'kanon'}
+		<p>{m['creator.help_kanon']()}</p>
+		<KanonRules />
 		{@render saving()}
 	{:else if page === 'guide'}
 		<p>{m['creator.help_guide']()}</p>
