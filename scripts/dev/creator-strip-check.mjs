@@ -293,6 +293,9 @@ try {
 			let b1 = null, restored = false;
 			if (editing && b0) {
 				const old = await page.evaluate(() => document.querySelector('[data-testid="canvas-text-edit"]').value);
+				// owner 2026-10-21 ("I can not move the cursor or delete text or write"): the caret at the end, the field selectable
+				const caret = await page.evaluate(() => { const a = document.querySelector('[data-testid="canvas-text-edit"]'); return { end: a.selectionStart === a.value.length && a.selectionEnd === a.value.length, select: getComputedStyle(a).userSelect, handles: document.querySelectorAll('.box.selected .handle').length }; });
+				check('390: the text opens with the caret at the end, selectable by a finger, no handles over it', caret.end && caret.select === 'text' && caret.handles === 0, JSON.stringify(caret));
 				await page.keyboard.type('X');
 				b1 = await bar();
 				await page.touchscreen.tap(...(await page.evaluate(() => { const r = document.querySelector('[data-testid="text-edit-revert"]').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })));
@@ -359,6 +362,21 @@ try {
 			check('390: its delete removes the text, undo puts it back', after === before - 1 && back === before, JSON.stringify({ before, after, back }));
 		}
 
+		// owner 2026-10-21 ("zoom inside the slices stage … finger gestures should apply"): two fingers zoom the slices
+		// (pinchZoom in chapter-editor.svelte), not the page
+		const cdp2 = await context.newCDPSession(page);
+		const w0 = await page.evaluate(() => Math.round(document.querySelector('[data-testid="canvas-wrap"]').getBoundingClientRect().width));
+		const mid = await page.evaluate(() => { const r = document.querySelector('[data-testid="canvas-area"]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+		const at = (i, d) => [{ x: mid.x - 40 - i * d, y: mid.y, id: 1 }, { x: mid.x + 40 + i * d, y: mid.y, id: 2 }];
+		await cdp2.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: at(0, 0) });
+		for (let i = 1; i <= 10; i++) {
+			await cdp2.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: at(i, 6) });
+			await sleep(40);
+		}
+		await cdp2.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+		await sleep(400);
+		const pz = await page.evaluate(() => ({ w: Math.round(document.querySelector('[data-testid="canvas-wrap"]').getBoundingClientRect().width), scale: visualViewport.scale }));
+		check(`390: two fingers zoom the slices, not the page (${w0} → ${pz.w} px)`, pz.w > w0 * 1.4 && pz.scale === 1, JSON.stringify({ w0, ...pz }));
 		// E3: Layers opens the sheet with the group's flat list
 		await page.keyboard.press('Escape');
 		await toKinds();

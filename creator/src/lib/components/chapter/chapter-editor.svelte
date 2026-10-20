@@ -448,7 +448,65 @@
 			area.scrollTop += after.top + fy * after.height - event.clientY;
 		};
 		area.addEventListener('wheel', onWheel, { passive: false });
-		return () => area.removeEventListener('wheel', onWheel);
+		const offPinch = pinchZoom(area);
+		return () => {
+			area.removeEventListener('wheel', onWheel);
+			offPinch();
+		};
+	}
+	/**
+	 * Two fingers on the slice area zoom it (owner 2026-10-21: "zoom inside the slices stage to do things carefully in
+	 * detail. Finger gestures should apply"): the same 50–300 % as Ctrl + wheel, the point between the fingers stays put;
+	 * the second finger drops the drag / draw the first one started. Non-passive: it replaces the browser's page zoom.
+	 */
+	function pinchZoom(area: HTMLElement) {
+		let pinch: { d0: number; z0: number } | null = null;
+		const dist = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+		const centre = (t: TouchList) => ({ x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2 });
+		/** the element that scrolls vertically (the area on a desktop, the page column on a phone) */
+		const vScroller = () => {
+			for (let el: HTMLElement | null = area; el; el = el.parentElement) {
+				const o = getComputedStyle(el).overflowY;
+				if ((o === 'auto' || o === 'scroll') && el.scrollHeight > el.clientHeight) return el;
+			}
+			return (document.scrollingElement as HTMLElement | null) ?? document.documentElement;
+		};
+		const onStart = (event: TouchEvent) => {
+			if (event.touches.length !== 2) return;
+			canvas?.cancelGesture();
+			pinch = { d0: dist(event.touches) || 1, z0: view.shownZoom };
+		};
+		const onMove = async (event: TouchEvent) => {
+			if (!pinch || event.touches.length !== 2) return;
+			event.preventDefault();
+			const el = area.querySelector<HTMLElement>('[data-testid="canvas-wrap"]');
+			if (!el) return;
+			const c = centre(event.touches);
+			const before = el.getBoundingClientRect();
+			const fx = (c.x - before.left) / (before.width || 1);
+			const fy = (c.y - before.top) / (before.height || 1);
+			const next = clampZoom(pinch.z0 * (dist(event.touches) / pinch.d0));
+			if (next === view.shownZoom && view.zoom !== null) return;
+			view.zoom = next;
+			view.shownZoom = next;
+			await tick();
+			const after = el.getBoundingClientRect();
+			area.scrollLeft += after.left + fx * after.width - c.x;
+			vScroller().scrollTop += after.top + fy * after.height - c.y;
+		};
+		const onEnd = (event: TouchEvent) => {
+			if (event.touches.length < 2) pinch = null;
+		};
+		area.addEventListener('touchstart', onStart, { passive: true });
+		area.addEventListener('touchmove', onMove, { passive: false });
+		area.addEventListener('touchend', onEnd);
+		area.addEventListener('touchcancel', onEnd);
+		return () => {
+			area.removeEventListener('touchstart', onStart);
+			area.removeEventListener('touchmove', onMove);
+			area.removeEventListener('touchend', onEnd);
+			area.removeEventListener('touchcancel', onEnd);
+		};
 	}
 	/** save / publish / conflict / the notice (lib/editor/doc-session.svelte.ts – the same as the meta pages') */
 	const session = new DocSession({
@@ -1754,6 +1812,8 @@
 	.canvas-scroll {
 		overflow: auto;
 		padding: var(--space-1) 0 var(--space-15);
+		/* two fingers zoom the slices (pinchZoom), not the whole page */
+		touch-action: pan-x pan-y;
 	}
 	/* the slice editor (UI-CONCEPTS E.4): the tool strip left, the slice fills the rest – fit = the column's height (at most
 	   2x the slice), zoomed = the area scrolls (owner 2026-10-03 + 2026-10-07) */

@@ -428,6 +428,30 @@
 		if (holding) clearTimeout(holding);
 		holding = null;
 	};
+	/**
+	 * a second finger came down (the page's pinch zoom, chapter-editor.svelte): the one-finger drag / draw it started is
+	 * dropped – a moved box goes back to where it was
+	 */
+	export function cancelGesture() {
+		stopHold();
+		if (!drag) return;
+		if (drag.mode === 'edit' && drag.moved && drag.item && drag.handle !== 'rotate' && drag.handle !== 'scale') {
+			for (const [l, start] of Object.entries(drag.startRects)) {
+				const rect = doc.get(l, drag.item.path);
+				if (!rect) continue;
+				rect.x = start.x;
+				rect.y = start.y;
+				if (drag.storedWidths[l] === undefined) delete rect.width;
+				else rect.width = drag.storedWidths[l];
+				if (start.height === undefined) delete rect.height;
+				else rect.height = start.height;
+			}
+			followTail(drag.item);
+		}
+		drag = null;
+		guides = { x: false, y: false };
+		checkpointed = false;
+	}
 	/** the in-place editor on box `index` (the phone's pencil / tap; a desktop's double click) */
 	export function editText(index: number) {
 		editingText = index;
@@ -779,7 +803,9 @@
 					{#if anchorHint && drag?.item?.kind === item.kind && drag.item.index === item.index}
 						<span class="tag anchor-hint" data-testid="anchor-hint">{m['creator.anchor_suggest']({ anchor: m[`creator.anchor_${anchorHint}`]() })}</span>
 					{/if}
-					{#if selected && live}
+					<!-- no handles while its words are edited: they covered the text, and a phone's tap landed on one instead of
+					     the text field (the keyboard then stayed closed) -->
+					{#if selected && live && !(item.kind === 'dialog' && editingText === item.index)}
 						{#each handlesOf(item) as h}
 							<!-- svelte-ignore a11y_no_static_element_interactions -->
 							<span class="handle h-{h}" onpointerdown={(e) => beginEdit(e, item, h)}></span>

@@ -89,6 +89,10 @@
 	export function editText(index: number) {
 		canvases[active]?.editText(index);
 	}
+	/** a pinch began (two fingers): every canvas drops the one-finger drag the first finger started */
+	export function cancelGesture() {
+		for (const c of canvases) c?.cancelGesture();
+	}
 	/** the keyboard's nudge acts on the open slice's canvas */
 	export function nudge(dxPx: number, dyPx: number) {
 		return canvases[active]?.nudge(dxPx, dyPx) ?? false;

@@ -403,7 +403,7 @@
 		"event_off_stage_ask": "{who} isn't in the scene here – the question shows without their face.",
 		"event_off_stage_join": "joinScene before",
 		"canvas_snap_hint": "Snap to the grid: moving, resizing and scaling in grid steps, rotating in 15° steps (Shift switches). Remembered on this device.",
-		"canvas_snap": "Snap",
+		"canvas_snap": "Grid",
 		"canvas_view": "View",
 		"canvas_content": "Content",
 		"canvas_snap_size": "Snap {size} px – click: on / off; hold, right-click or the number: the grid size",

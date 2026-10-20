@@ -989,6 +989,10 @@ Three kinds, three places; none moves the layout:
 - **Flyouts**: one at a time, beside its button, over the canvas; Esc / ← / a click outside closes it, the focus goes
   back to its button. The zoom flyout is the Flow's look – one square group: zoom out · percentage · zoom in · fit ·
   **1:1** (original size).
+- **Phones** (owner 2026-10-21): two fingers on the slice area zoom it (the same 50–300 %, the point between the fingers
+  stays; the second finger drops the first one's drag – `pinchZoom`); the grid is "Grid" / "Raster" in the top row's •••.
+  A text tapped open has the caret at the end (a desktop's double click selects the words), no handles over it, and the
+  field is selectable by a finger (the canvas itself is `user-select: none`).
 - **Zoom**: 50–300 % of the slice's 1x width, remembered on this device (`scutoons_creator_zoom`; fit = null). Fit =
   the area's height, at most 2x the slice (a phone: the full width, the area scrolls down). Zoomed, the canvas is laid
   out at that width – no transform – and the area scrolls; boxes, handles and snapping stay in slice coordinates.

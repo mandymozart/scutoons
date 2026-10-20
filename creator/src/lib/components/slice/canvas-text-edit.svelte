@@ -91,7 +91,10 @@
 
 	onMount(() => {
 		area?.focus();
-		area?.select();
+		// a desktop's double click selects the words (to type over them); a phone puts the caret at the end – one key
+		// must never wipe the text (owner 2026-10-21: "I can not move the cursor or delete text or write")
+		if (bar && area) area.setSelectionRange(area.value.length, area.value.length);
+		else area?.select();
 		if (!bar || !window.visualViewport) return;
 		const vv = window.visualViewport;
 		const place = () => {
@@ -197,6 +200,9 @@
 		white-space: pre-wrap;
 		resize: none;
 		cursor: text;
+		/* the canvas is user-select: none (drags); inherited, it kept a finger from placing the caret or selecting */
+		-webkit-user-select: text;
+		user-select: text;
 	}
 	.font-lettering {
 		font-family: var(--font-lettering);
