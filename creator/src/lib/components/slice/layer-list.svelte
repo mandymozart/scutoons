@@ -35,7 +35,8 @@
 		registry = null,
 		moods = null,
 		boxOf,
-		onpick
+		onpick,
+		onlongpress
 	}: {
 		view: ChapterView;
 		doc: ContentDoc;
@@ -46,6 +47,8 @@
 		boxOf: (slice: number) => DrawnBox | null;
 		/** a row was picked (its slice opens, the row's entry is selected) */
 		onpick: (slice: number, selection: CanvasSelection) => void;
+		/** a finger held on a row (500 ms): the phone's context – copy · cut · delete · edit (E3) */
+		onlongpress?: (slice: number, selection: CanvasSelection, box: DOMRect) => void;
 		toon: string;
 		/** the language the canvas shows */
 		locale: string;
@@ -139,6 +142,32 @@
 		if (done.slice !== open || (wasSelected && done.kind !== 'piece')) onpick(done.slice, { kind: done.kind, index: done.index });
 		else if (done.moved) view.selection = followPieces(view.selection, done.moved);
 	}
+	/** the long press on a row's button (a finger, not moved): its timer; the tap that ends it does nothing else */
+	let hold: { timer: ReturnType<typeof setTimeout>; x: number; y: number; fired: boolean } | null = null;
+	function holdStart(event: PointerEvent, row: LayerRow) {
+		if (!onlongpress || event.pointerType !== 'touch') return;
+		const el = event.currentTarget as HTMLElement;
+		hold = { x: event.clientX, y: event.clientY, fired: false, timer: setTimeout(() => {
+			if (!hold) return;
+			hold.fired = true;
+			onlongpress?.(row.slice, { kind: row.kind, index: row.index }, el.getBoundingClientRect());
+		}, 500) };
+	}
+	function holdMove(event: PointerEvent) {
+		if (hold && !hold.fired && Math.hypot(event.clientX - hold.x, event.clientY - hold.y) > 8) holdEnd();
+	}
+	function holdEnd() {
+		if (hold && !hold.fired) clearTimeout(hold.timer);
+		if (hold && !hold.fired) hold = null;
+	}
+	function rowClick(row: LayerRow) {
+		if (hold?.fired) {
+			hold = null;
+			return;
+		}
+		hold = null;
+		onpick(row.slice, { kind: row.kind, index: row.index });
+	}
 	/** the row's testids: the open slice's as before (`dialog-0` …), another slice's with its number (`s3-dialog-0`) */
 	const rowTestid = (row: LayerRow) =>
 		(row.slice === open ? '' : `s${row.slice}-`) +
@@ -151,7 +180,7 @@
 			<!-- the canvas selection: the canvas + this inspector are ONE region ('slice', the chapter editor) -->
 			<li data-sort-row class:sc-selected={isSelected(row)} class:boundary={i === firstPiece && i > 0} data-slice={row.slice} data-testid="layer-{row.slice === open ? '' : `s${row.slice}-`}{row.kind}-{row.index}">
 				<SortGrip label={m['creator.sort_move']({ name: row.name })} title={m['creator.sort_hint']()} />
-				<button type="button" class="ghost row" title={row.title} onclick={() => onpick(row.slice, { kind: row.kind, index: row.index })} data-testid={rowTestid(row)}>
+				<button type="button" class="ghost row" title={row.title} onclick={() => rowClick(row)} onpointerdown={(e) => holdStart(e, row)} onpointermove={holdMove} onpointerup={holdEnd} onpointercancel={holdEnd} oncontextmenu={(e) => onlongpress && e.preventDefault()} data-testid={rowTestid(row)}>
 					<span class="thumb" class:sc-checker={row.kind === 'piece'}>
 						{#if row.icon}<img src={row.icon} alt="" draggable="false" />{:else}<Icon name={row.glyph} size="1rem" />{/if}
 					</span>

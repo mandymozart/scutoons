@@ -10,6 +10,7 @@
 	 * across the art with `seams` (the View toggle).
 	 */
 	import { tick, untrack } from 'svelte';
+	import { MediaQuery } from 'svelte/reactivity';
 	import { DEFAULT_SLICE, groupAxis, type CollagePiece, type Path, type PresetList } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { SLICE_RATIO } from '$lib/editor/defaults.ts';
@@ -35,7 +36,8 @@
 		onshown,
 		onselect,
 		oncreate,
-		oncentre
+		oncentre,
+		onlongpress
 	}: {
 		doc: ContentDoc;
 		groupPath: Path;
@@ -60,6 +62,8 @@
 		oncreate?: (index: number, tool: Tool, rect: Required<Rect>) => void;
 		/** slice `index` lies in the view's centre (scrolled there) */
 		oncentre?: (index: number) => void;
+		/** a finger held on a box of slice `index` (the phone's context, E3) */
+		onlongpress?: (index: number, item: CanvasSelection, box: DOMRect) => void;
 	} = $props();
 
 	const group = $derived<any>(doc.get(doc.primary, groupPath));
@@ -69,6 +73,8 @@
 	const sliceW = $derived(slices[0]?.width > 0 ? slices[0].width : DEFAULT_SLICE.width);
 
 	let strip = $state<HTMLDivElement | null>(null);
+	/** the phone: a tap with the text tool places one (E3) */
+	const phone = new MediaQuery('max-width: 767px', false);
 	const slots: HTMLElement[] = [];
 	/** the slices mounted (within a screen of the view) */
 	let near = $state<Set<number>>(new Set());
@@ -79,6 +85,10 @@
 	let reported = -1;
 
 	const canvases: (SliceCanvas | undefined)[] = $state([]);
+	/** the open slice's in-place text editor on its text box `index` */
+	export function editText(index: number) {
+		canvases[active]?.editText(index);
+	}
 	/** the keyboard's nudge acts on the open slice's canvas */
 	export function nudge(dxPx: number, dyPx: number) {
 		return canvases[active]?.nudge(dxPx, dyPx) ?? false;
@@ -312,6 +322,7 @@
 					{presets}
 					strip={axis}
 					open={i === active}
+					tapPlaces={phone.current}
 					onshown={i === active ? onshown : undefined}
 					onselect={(next) => {
 						take(i);
@@ -322,6 +333,13 @@
 						oncreate?.(i, t, rect);
 					}}
 					ondrop={(item) => dropped(i, item)}
+					onlongpress={onlongpress && phone.current
+						? (item, box) => {
+								take(i);
+								onselect?.(i, item);
+								onlongpress?.(i, item, box);
+							}
+						: undefined}
 				/>
 			{:else}
 				<div class="placeholder" style:--ratio={ratioOf(i)}></div>

@@ -52,7 +52,9 @@
 		oncreate,
 		strip = null,
 		open = true,
-		ondrop
+		tapPlaces = false,
+		ondrop,
+		onlongpress
 	}: {
 		doc: ContentDoc;
 		slicePath: Path;
@@ -98,6 +100,13 @@
 		strip?: 'vertical' | 'horizontal' | null;
 		/** the open slice of the strip: it carries the test ids (the others are its neighbours) */
 		open?: boolean;
+		/**
+		 * a finger held still on a box (500 ms): the phone's context – copy · cut · delete · edit (E3); the box is selected,
+		 * no drag. `box` = the box on screen
+		 */
+		onlongpress?: (item: { kind: ItemKind; index: number }, box: DOMRect) => void;
+		/** a tap on free canvas with the text tool places a text (the phone, E3 – on a desktop a click only lets go) */
+		tapPlaces?: boolean;
 		/** a text box / placed item was moved by the pointer and let go (the strip re-anchors it when it left the slice) */
 		ondrop?: (item: { kind: 'dialog' | 'item'; index: number }) => void;
 	} = $props();
@@ -413,10 +422,31 @@
 		return doc.present;
 	}
 
+	/** the long press on a box (a finger, not moved): its timer */
+	let holding: ReturnType<typeof setTimeout> | null = null;
+	const stopHold = () => {
+		if (holding) clearTimeout(holding);
+		holding = null;
+	};
+	/** the in-place editor on box `index` (the phone's pencil / tap; a desktop's double click) */
+	export function editText(index: number) {
+		editingText = index;
+	}
+
 	function beginEdit(event: PointerEvent, item: Item, handle: Handle) {
 		releaseField();
 		event.stopPropagation();
 		event.preventDefault();
+		stopHold();
+		if (onlongpress && handle === 'move' && event.pointerType === 'touch') {
+			const target = event.currentTarget as HTMLElement;
+			holding = setTimeout(() => {
+				holding = null;
+				if (!drag || drag.moved) return;
+				drag = null;
+				onlongpress?.({ kind: item.kind, index: item.index }, target.getBoundingClientRect());
+			}, 500);
+		}
 		onselect?.({ kind: item.kind, index: item.index });
 		const startRects: Record<string, Rect> = {};
 		const storedWidths: Record<string, number | undefined> = {};
@@ -528,6 +558,7 @@
 		const dy = p.y - drag.start.y;
 		if (!drag.moved && Math.abs(dx) < 0.3 && Math.abs(dy) < 0.3) return;
 		drag.moved = true;
+		stopHold();
 		if (drag.mode === 'draw') {
 			const x2 = snapX(p.x);
 			const y2 = snapY(p.y);
@@ -596,6 +627,7 @@
 	}
 
 	function onPointerUp(event: PointerEvent) {
+		stopHold();
 		if (!drag) return;
 		try {
 			overlay?.releasePointerCapture(event.pointerId);
@@ -605,13 +637,15 @@
 		if (drag.mode === 'draw' && drag.draw && drag.draw.width >= 2 && drag.draw.height >= 1) {
 			const r = drag.draw;
 			oncreate?.(tool, { x: round2(r.x), y: round2(r.y), width: round2(r.width), height: round2(r.height) });
-		} else if (drag.mode === 'draw' && (tool === 'item' || tool === 'piece' || tool === 'event') && !drag.moved) {
+		} else if (drag.mode === 'draw' && (tool === 'item' || tool === 'piece' || tool === 'event' || (tool === 'text' && tapPlaces)) && !drag.moved) {
 			// a click is enough: the item / piece tool places one there; the event tool makes a whole-slice event (no area).
 			// A finger's tap: its click would land on the picker that opens here (swallowTapClick)
 			swallowTapClick(event);
 			oncreate?.(tool, { x: round2(drag.start.x), y: round2(drag.start.y), width: 0, height: 0 });
 		}
 		const dropped = drag.mode === 'edit' && drag.handle === 'move' && drag.moved && (drag.item?.kind === 'dialog' || drag.item?.kind === 'item') ? drag.item : null;
+		// the phone (E3): a tap on a text box edits its words in place – a single click on a desktop selects (and drags)
+		if (tapPlaces && event.pointerType === 'touch' && drag.mode === 'edit' && drag.handle === 'move' && !drag.moved && drag.item?.kind === 'dialog') editingText = drag.item.index;
 		drag = null;
 		if (dropped) ondrop?.({ kind: dropped.kind as 'dialog' | 'item', index: dropped.index });
 		guides = { x: false, y: false };
@@ -693,6 +727,7 @@
 			onpointermove={onPointerMove}
 			onpointerup={onPointerUp}
 			onpointercancel={onPointerUp}
+		oncontextmenu={(e) => onlongpress && e.preventDefault()}
 			ondblclick={() => {
 				// the dblclick lands on the overlay (it holds the pointer capture): the box the double click selected
 				if (selection?.kind === 'dialog') editingText = selection.index;
@@ -735,7 +770,7 @@
 				>
 					{#if item.kind === 'dialog' && editingText === item.index}
 						{@const d = slice?.dialog?.[item.index]}
-						<CanvasTextEdit {doc} path={item.path.slice(0, -1)} {locale} dialog={d} boxed={BOXED.includes(d?.variant)} onclose={() => (editingText = null)} />
+						<CanvasTextEdit {doc} path={item.path.slice(0, -1)} {locale} dialog={d} boxed={BOXED.includes(d?.variant)} bar={tapPlaces} onclose={() => (editingText = null)} />
 					{/if}
 					<span class="tag">{item.label}</span>
 					{#if item.revealedBy}

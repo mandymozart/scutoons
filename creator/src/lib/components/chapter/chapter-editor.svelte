@@ -40,6 +40,10 @@
 	import type { ReachMark } from '$lib/components/chapter/reach-chip.svelte';
 	import { type Tool } from '$lib/components/slice/slice-canvas.svelte';
 	import StripCanvas from '$lib/components/slice/strip-canvas.svelte';
+	import PhoneKinds from '$lib/components/slice/phone-kinds.svelte';
+	import LongPressMenu from '$lib/components/slice/long-press-menu.svelte';
+	import { TEXT_PRESETS } from '$lib/editor/text-presets.ts';
+	import { Menu } from '@scutoons/ui';
 	import { piecePlace } from '$lib/editor/canvas-pieces.ts';
 	import type { PickedPiece } from '$lib/editor/collage-pick.ts';
 	import { followPieces, piecesMoved } from '$lib/editor/collage-edit.ts';
@@ -512,6 +516,7 @@
 	usePageNav({
 		sidebar: tree,
 		actions: flowToggle,
+		crumbEnd: phoneTop,
 		fill: true,
 		extra: () => {
 			if (view.section !== 'group' && view.section !== 'slice') return [];
@@ -787,7 +792,15 @@
 	}
 	/** what a tool makes of a click / a drawn rect on the canvas (a click: width 0) */
 	const CREATE: Record<Tool, (rect: { x: number; y: number; width: number; height: number }) => void> = {
-		text: (rect) => addDialog(rect),
+		// a tap (no rect – the phone, E3): the picked preset at its size, centred on the tap
+		text: (rect) => {
+			if (rect.width >= 2) return addDialog(rect);
+			const preset = TEXT_PRESETS.find((p) => p.id === view.textPreset) ?? TEXT_PRESETS[0];
+			const w = preset.rect.width ?? 70;
+			const h = preset.rect.height ?? 10;
+			const x = Math.max(0, Math.min(100 - w, rect.x - w / 2));
+			addDialog({ x: Math.round(x * 100) / 100, y: Math.round((rect.y - h / 2) * 100) / 100, width: w, ...(preset.rect.height !== undefined ? { height: h } : {}) }, preset);
+		},
 		item: (rect) => view.pickItem({ x: rect.x, y: rect.y }),
 		piece: (rect) => view.pickPiece(rect),
 		sample: (rect) => addSampleArea(rect),
@@ -863,6 +876,15 @@
 			view.setTab(id);
 			sheetOpen = true;
 		}
+	}
+	/** the phone's long-press context (E3): on a box of the strip or a Layers row – the selection is already made */
+	let longMenu = $state<DOMRect | null>(null);
+	/** Edit (the pencil): a text box in place, anything else its inspector */
+	function editSelected() {
+		const sel = view.selection;
+		if (!sel) return;
+		if (sel.kind === 'dialog') return canvas?.editText(sel.index);
+		pickSheetTab(sel.kind === 'event' ? 'events' : sel.kind === 'sample' ? 'audio' : 'layers');
 	}
 	/** copy / cut / paste on the slice (the live region), as the clipboard menu */
 	async function clip(action: 'copy' | 'cut' | 'paste' | 'duplicate') {
@@ -1158,6 +1180,25 @@
 
 <!-- the Flow panel opens where the Ask panel does: a round button in the top bar (owner 2026-10-06); the Reader next to it
      (BACKLOG 10.49) -->
+<!-- phones, the strip editor (TEXT-ACROSS-SLICES.md §4.1 E3): the crumb row is the top bar – ⚠ · Save · Publish · •••
+     (versions, paste, snap, seams); the bottom row is the kinds (PhoneKinds) -->
+{#snippet phoneTop()}
+	{#if phoneWidth.current && view.section === 'slice' && activeSlice}
+		<span class="phone-top" data-testid="phone-top">
+			<button type="button" class="sq" title={m['creator.problems']()} aria-label={m['creator.problems']()} aria-pressed={open.problems} onclick={() => togglePanel('problems')} data-testid="problems-toggle"><Icon name="alert-triangle" />{#if errorCount + warningCount}<span class="badge">{errorCount + warningCount}</span>{/if}</button>
+			<button type="button" class="sq" title={anySaving ? m['creator.saving']() : m['creator.save_short']()} aria-label={m['creator.save_short']()} disabled={!anyDirty || anySaving} onclick={() => session.saveDraft()} data-testid="save-draft"><Icon name="save" />{#if anyDirty}<span class="dot">•</span>{/if}</button>
+			<button type="button" class="sq" title={publishLabel(toon)} aria-label={publishLabel(toon)} disabled={anySaving} onclick={() => session.publishAll()} data-testid="publish"><Icon name="upload-cloud" />{#if liveFiles.some((f) => f.doc.unpublished.length)}<span class="dot">•</span>{/if}</button>
+			<Menu label={m['creator.more']()} align="end">
+				{#snippet trigger()}<span data-testid="phone-bar-more"><Icon name="more-horizontal" label={m['creator.more']()} /></span>{/snippet}
+				<button type="button" onclick={() => togglePanel('history')} data-testid="history-versions">{m['creator.bar_versions']()}</button>
+				<button type="button" onclick={() => clip('paste')} data-testid="paste">{m['creator.clip_paste']()}</button>
+				<button type="button" aria-pressed={view.snap} onclick={() => (view.snap = !view.snap)} data-testid="phone-snap">{m['creator.canvas_snap']()}</button>
+				<button type="button" aria-pressed={view.seams} onclick={() => (view.seams = !view.seams)} data-testid="phone-seams">{m['creator.canvas_seams']()}</button>
+			</Menu>
+		</span>
+	{/if}
+{/snippet}
+
 {#snippet flowToggle()}
 	<button type="button" class="sc-round" aria-pressed={open.reader} title={m['creator.reader_open']()} aria-label={m['creator.reader_open']()} onclick={() => togglePanel('reader')} data-testid="reader-toggle"><Icon name="smartphone" /></button>
 	<button type="button" class="sc-round" aria-pressed={open.flow} title={m['creator.flow_open']()} aria-label={m['creator.flow_open']()} onclick={() => togglePanel('flow')} data-testid="flow-toggle"><Icon name="git-merge" /></button>
@@ -1173,10 +1214,17 @@
 	<!-- prev / next slice: in the bar's end from 768px (always at hand), in "More" on phones (the end holds only save) -->
 	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
 		{#snippet phone()}
-			<PhoneBar items={phoneItems} selection={phoneSelection} label={m['creator.bar_actions']()} backLabel={m['creator.bar_back']()} />
+			{#if phoneWidth.current && view.section === 'slice' && activeSlice}
+				<PhoneKinds {view} canUndo={!!undoDoc} canRedo={!!redoDoc} onundo={undoLast} onredo={redoLast} oninspector={pickSheetTab} />
+			{:else}
+				<PhoneBar items={phoneItems} selection={phoneSelection} label={m['creator.bar_actions']()} backLabel={m['creator.bar_back']()} />
+			{/if}
 		{/snippet}
 	</ActionBar>
 
+	{#if longMenu}
+		<LongPressMenu at={longMenu} oncopy={() => clip('copy')} oncut={() => clip('cut')} ondelete={removeSelected} onedit={editSelected} onclose={() => (longMenu = null)} />
+	{/if}
 	{#if chapter.loading}
 		<p class="pad">{m['creator.loading']()}</p>
 	{:else if chapter.error}
@@ -1295,6 +1343,7 @@
 								CREATE[t](rect);
 							}}
 							oncentre={(i) => !view.selection && view.focusSlice(i)}
+							onlongpress={(_i, _item, box) => (longMenu = box)}
 						/>
 					</div>
 					</div>
@@ -1347,6 +1396,11 @@
 					onpick={(i, next) => {
 						view.focusSlice(i);
 						view.select(next);
+					}}
+					onlongpress={(i, next, box) => {
+						view.focusSlice(i);
+						view.select(next);
+						longMenu = box;
 					}}
 					doc={activeDoc}
 					slice={activeSlice}
@@ -1624,6 +1678,23 @@
 		.sheet-closed .inspector-region > :global(:not(.sheet-tabs)) {
 			display: none;
 		}
+		/* the strip editor, E3: the tools are the bottom row (PhoneKinds) – no tool strip left of the canvas, no tab row on
+		   the sheet; the sheet opens from the row, its grab handle drags it, closed it takes no room */
+		.slice-room :global(.slice-tools) {
+			display: none;
+		}
+		.sheet-tabs {
+			display: none;
+		}
+		.columns.has-inspector:not(.sheet-closed) .sheet-handle {
+			display: flex;
+		}
+		.columns.has-inspector.sheet-closed {
+			grid-template-rows: minmax(0, 1fr) 0;
+		}
+		.sheet-closed .inspector-region {
+			border-top: 0;
+		}
 	}
 	/* the inspector maximized: it covers the columns (beside or below the canvas), the canvas stays laid out, hidden */
 	.columns.inspector-max .main {
@@ -1643,6 +1714,42 @@
 		overflow: auto;
 		padding: var(--space-1) var(--space-1) var(--space-3);
 		min-width: 0;
+	}
+	/* the phone's top bar in the crumb row (E3): equal squares, borderless */
+	.phone-top {
+		display: flex;
+		align-items: center;
+	}
+	.phone-top .sq,
+	.phone-top :global(.trigger) {
+		position: relative;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: var(--control-height);
+		height: var(--control-height);
+		min-width: 0;
+		padding: 0;
+		border: 0;
+		background: transparent;
+		color: var(--ink);
+	}
+	.phone-top .sq[aria-pressed='true'] {
+		background: var(--ink);
+		color: var(--paper);
+	}
+	.phone-top .badge,
+	.phone-top .dot {
+		position: absolute;
+		top: var(--space-025);
+		right: var(--space-025);
+		font-size: var(--type-caption-size);
+		line-height: 1;
+	}
+	.phone-top .badge {
+		padding: 0 var(--space-025);
+		background: var(--state-warning);
+		color: var(--ink);
 	}
 	.canvas-scroll {
 		overflow: auto;

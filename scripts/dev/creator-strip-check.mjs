@@ -15,7 +15,10 @@
 //    10. Layers = the group's flat list, front first; a row of another slice opens it, its box selected
 //    11. Alt + ↑ on the open slice's front text row (a later slice's row above): re-anchored there, selected; one undo
 //   a horizontal group (default group 2): the slices side by side at the area's height
-//   phone 390 × 844 (touch): the strip at full width, a tap on a box selects it
+//   phone 390 × 844 (touch, E3 – TEXT-ACROSS-SLICES.md §4.1): the strip at full width, a tap on a box selects it, a tap
+//   on a text edits it in place (the bar: ✕ after a change, the language, ✓); the bottom row = the kinds (no tool strip),
+//   Text's row, a preset + a tap places a text, undo there only with something to undo; a long press = copy · cut ·
+//   delete · edit (delete + undo); Layers opens the sheet with the group's flat list
 //   node scripts/dev/creator-strip-check.mjs [--toon=catpope] [--chapter=2] [--group=6] [--slice=20] [--hgroup=2]
 //        (creator :10000, API :9000 – local only)
 import { chromium } from 'playwright-core';
@@ -283,7 +286,86 @@ try {
 			await page.touchscreen.tap(box.x + box.width / 2, box.y + Math.min(box.height / 2, 6));
 			await sleep(400);
 			check(`390: a tap on ${t} selects it`, await page.evaluate((x) => !!document.querySelector(`[data-testid="${x}"].selected`), t));
+			// E3: a tap on a text edits it in place – the bar above the keyboard (✕ only after a change, the language, ✓)
+			const bar = () => page.evaluate(() => { const b = document.querySelector('[data-testid="text-edit-bar"]'); return b ? { revert: getComputedStyle(b.querySelector('[data-testid="text-edit-revert"]')).visibility, lang: b.querySelector('[data-testid="text-edit-language"]')?.textContent.trim() } : null; });
+			const editing = await page.evaluate(() => !!document.querySelector('[data-testid="slice-canvas"] [data-testid="canvas-text-edit"]'));
+			const b0 = await bar();
+			let b1 = null, restored = false;
+			if (editing && b0) {
+				const old = await page.evaluate(() => document.querySelector('[data-testid="canvas-text-edit"]').value);
+				await page.keyboard.type('X');
+				b1 = await bar();
+				await page.touchscreen.tap(...(await page.evaluate(() => { const r = document.querySelector('[data-testid="text-edit-revert"]').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })));
+				await sleep(300);
+				restored = await page.evaluate((o) => !document.querySelector('[data-testid="canvas-text-edit"]') && ![...document.querySelectorAll('[data-testid="slice-canvas"] .slice-layers .dialog')].some((d) => d.textContent.includes(o + 'X')), old);
+			}
+			check('390: a tap on a text edits it in place, the bar: ✕ only after a change (it puts the words back), the language chip', editing && b0?.revert === 'hidden' && b1?.revert === 'visible' && /DE/.test(b0?.lang ?? '') && restored, JSON.stringify({ editing, b0, b1, restored }));
 		}
+
+		// E3: the bottom row – the kinds; Text = ‹ · the tool (pressed) · presets · inspector; no tool strip, no sheet tabs
+		const tapId = async (id) => { const r = await page.locator(`[data-testid="${id}"]`).first().boundingBox(); await page.touchscreen.tap(r.x + r.width / 2, r.y + r.height / 2); await sleep(300); };
+		/** ‹ back to the kinds (a selection shows its kind's row – E3) */
+		const toKinds = async () => { if (await page.evaluate(() => !!document.querySelector('[data-testid="phone-kind-back"]'))) await tapId('phone-kind-back'); };
+		await toKinds();
+		const rowOf = () => page.evaluate(() => [...document.querySelectorAll('[data-testid="phone-kinds"] .row > button')].filter((b) => getComputedStyle(b).visibility !== 'hidden').map((b) => b.dataset.testid));
+		const kinds = await rowOf();
+		const hidden = await page.evaluate(() => ({ tools: getComputedStyle(document.querySelector('[data-testid="slice-tools"]')).display, top: !!document.querySelector('[data-testid="phone-top"] [data-testid="save-draft"]') }));
+		check('390: the bottom row is the kinds (no tool strip), Save in the top bar', kinds.filter((k) => k !== 'undo' && k !== 'redo').join() === 'kind-group,kind-slice,tool-text,tool-item,tool-piece,tool-sample,tool-event,kind-layers' && hidden.tools === 'none' && hidden.top, JSON.stringify({ kinds, hidden }));
+		await tapId('tool-text');
+		const textRow = await rowOf();
+		const pressed = await page.evaluate(() => document.querySelector('[data-testid="phone-kinds"] [data-testid="tool-text"]')?.getAttribute('aria-pressed'));
+		check('390: Text – ‹ · Text (pressed) · presets · inspector', textRow.slice(0, 4).join() === 'phone-kind-back,tool-text,phone-presets-toggle,phone-inspector' && pressed === 'true', JSON.stringify({ textRow, pressed }));
+		// a preset, then a tap on free canvas places it
+		await tapId('phone-presets-toggle');
+		await tapId('phone-preset-narration');
+		const n0 = await page.evaluate(() => document.querySelectorAll('[data-testid="slice-canvas"] [data-testid^="box-dialog-"]').length);
+		const free = await page.evaluate(() => {
+			const c = document.querySelector('[data-testid="slice-canvas"]').getBoundingClientRect();
+			for (let y = c.top + 20; y < Math.min(c.bottom, innerHeight - 120); y += 15)
+				for (let x = c.left + 20; x < c.right - 20; x += 25) { const e = document.elementFromPoint(x, y); if (e?.classList.contains('overlay')) return [x, y]; }
+			return null;
+		});
+		if (free) {
+			await page.touchscreen.tap(...free);
+			await sleep(500);
+		}
+		const n1 = await page.evaluate(() => ({ n: document.querySelectorAll('[data-testid="slice-canvas"] [data-testid^="box-dialog-"]').length, sel: document.querySelector('[data-testid="slice-canvas"] .box.selected')?.dataset.testid }));
+		check('390: a preset picked, a tap on free canvas places a text there, selected', !!free && n1.n === n0 + 1 && n1.sel === `box-dialog-${n0}`, JSON.stringify({ free, n0, n1 }));
+		// the undo square appears (there is something to undo); it takes the text back
+		const undoShown = await page.evaluate(() => getComputedStyle(document.querySelector('[data-testid="phone-kinds"] [data-testid="undo"]')).visibility);
+		await page.keyboard.press('Escape');
+		await tapId('undo');
+		const n2 = await page.evaluate(() => document.querySelectorAll('[data-testid="slice-canvas"] [data-testid^="box-dialog-"]').length);
+		check('390: undo shows once there is something to undo, and takes the new text back', undoShown === 'visible' && n2 === n0, JSON.stringify({ undoShown, n2, n0 }));
+
+		// E3: a long press on a box – copy · cut · delete · edit at it; delete, then undo
+		const target = await page.evaluate(() => { const b = document.querySelector('[data-testid="slice-canvas"] [data-testid^="box-dialog-"]'); if (!b) return null; b.scrollIntoView({ block: 'center' }); return b.dataset.testid; });
+		if (target) {
+			await sleep(400);
+			const r = await page.locator(`[data-testid="slice-canvas"] [data-testid="${target}"]`).boundingBox();
+			const cdp = await context.newCDPSession(page);
+			const at = { x: r.x + r.width / 2, y: r.y + Math.min(6, r.height / 2), id: 1 };
+			await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [at] });
+			await sleep(800);
+			await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+			await sleep(300);
+			const menu = await page.evaluate(() => { const m = document.querySelector('[data-testid="long-press-menu"]'); return m ? { buttons: [...m.querySelectorAll('button')].map((b) => b.dataset.testid.replace('long-press-menu-', '')), frame: getComputedStyle(m).borderTopWidth, edit: !!document.querySelector('[data-testid="canvas-text-edit"]') } : null; });
+			check('390: a long press on a text: copy · cut · delete · edit in one framed group, no edit, no drag', menu?.buttons.join() === 'copy,cut,delete,edit' && parseFloat(menu.frame) >= 2 && !menu.edit, JSON.stringify(menu));
+			const before = await page.evaluate(() => document.querySelectorAll('[data-testid="slice-canvas"] [data-testid^="box-dialog-"]').length);
+			if (menu) await tapId('long-press-menu-delete');
+			const after = await page.evaluate(() => document.querySelectorAll('[data-testid="slice-canvas"] [data-testid^="box-dialog-"]').length);
+			await tapId('undo');
+			const back = await page.evaluate(() => document.querySelectorAll('[data-testid="slice-canvas"] [data-testid^="box-dialog-"]').length);
+			check('390: its delete removes the text, undo puts it back', after === before - 1 && back === before, JSON.stringify({ before, after, back }));
+		}
+
+		// E3: Layers opens the sheet with the group's flat list
+		await page.keyboard.press('Escape');
+		await toKinds();
+		await tapId('kind-layers');
+		await tapId('kind-layers-open');
+		const sheet = await page.evaluate(() => ({ open: !document.querySelector('.columns')?.classList.contains('sheet-closed'), rows: document.querySelectorAll('[data-testid="layers"] > li').length, slices: new Set([...document.querySelectorAll('[data-testid="layers"] > li')].map((l) => l.dataset.slice)).size }));
+		check('390: Layers opens the sheet with the group\'s flat list', sheet.open && sheet.rows > 1 && sheet.slices > 1, JSON.stringify(sheet));
 		check('390: no page errors', !errors.length, errors.join(' | ').slice(0, 300));
 		await context.close();
 	}

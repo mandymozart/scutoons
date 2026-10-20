@@ -81,6 +81,8 @@ export class ChapterView {
 	pickingPiece = $state(false);
 	/** "+ Add text" shows the presets (owner 2026-10-03) */
 	pickingPreset = $state(false);
+	/** the phone's text preset (E3, the presets row): a tap on the canvas with the text tool places one of it */
+	textPreset = $state('speech');
 
 	/** `onopen`: a group opened */
 	constructor(private readonly onopen: (group: number) => void = () => {}) {}

@@ -711,6 +711,9 @@ async function tap(selector) {
  *  never turns a tool off) */
 async function tapTool(tool) {
 	const pressed = `${q(tool)}.getAttribute('aria-pressed') === 'true'`;
+	// the phone's bottom row (E3): another kind's row is open – ‹ back to the kinds first
+	const inRow = `!!document.querySelector('[data-testid="phone-kinds"] [data-testid="${tool}"]')`;
+	if ((await js(`!!${q('phone-kinds')}`)) && !(await js(inRow)) && (await js(`!!${q('phone-kind-back')}`))) await tap(tid('phone-kind-back'));
 	await tap(tid(tool));
 	if (await until(pressed, 1500)) return true;
 	await tap(tid(tool));

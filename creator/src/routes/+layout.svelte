@@ -481,6 +481,15 @@
 		border-bottom: var(--border-width-regular) solid var(--ink);
 		background: var(--paper);
 	}
+	/* one line: the crumbs give way to the page's end (the strip editor's top bar on phones – ⚠ · Save · Publish · •••) */
+	.crumb-row > :global(:first-child) {
+		flex: 1;
+		min-width: 0;
+		overflow: hidden;
+	}
+	.crumb-row > :global(:first-child ol) {
+		flex-wrap: nowrap;
+	}
 	.drawer-tools {
 		display: flex;
 		align-items: center;
