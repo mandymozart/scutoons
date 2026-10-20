@@ -2576,7 +2576,7 @@
 				},
 				"player": {
 					"type": "boolean",
-					"description": "A video player instead of the loop: sound, native controls (fullscreen through them), started by the reader, no loop. The slice's `width` / `height` are the video's aspect ratio at the slice width (no 390 × 625 crop). While it plays the chapter's music is paused; watching it to its end (≥ 95 %) is the slice's reading progress."
+					"description": "A video player instead of the loop: sound, native controls (fullscreen through them), started by the reader, no loop. The slice's `width` / `height` are the video's aspect ratio at the slice width (no standard-slice crop). While it plays the chapter's music is paused; watching it to its end (≥ 95 %) is the slice's reading progress."
 				},
 				"controls": {
 					"type": "boolean",

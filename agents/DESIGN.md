@@ -274,7 +274,7 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
 - **Video placement** (owner 2026-10-01; there was no "full viewport" slice option before – the VN "full" view is the
   only other full-height placement). A video sits in a **box** and is placed in it with a **fit** + a **position**:
   - **The box:** in the column the media's own ratio ("Original", the default) or a **frame** `SliceVideo.frame { ratio,
-    fit?, position? }`: "Normaler Slice" 5:8 (390 × 625), "Keyvisual" 6:13 (the key visuals are 390 × 845, measured),
+    fit?, position? }`: "Normaler Slice" 5:8 (390 × 624 = the standard), "Keyvisual" 6:13 (the key visuals are 390 × 845, measured),
     "HD Hochformat" 9:16, "Quadrat" 1:1, "Eigenes" w:h (clamped 4:1 … 1:4); stored as `"9:16"` or `[w, h]`, the slice
     stays 390 wide and its `height` follows (390 × 693 for 9:16), so the space is reserved before anything loads. Or
     **full viewport** `SliceVideo.viewport { position, fit }`: the slice leaves the 500 px column and fills the viewport –
@@ -756,7 +756,7 @@ slice's picture or on a score: one piece (`CollagePiece`, @scutoons/content coll
 
 | Figma | Config |
 |---|---|
-| slice frame `s1c2-slice-NN` (W × H) | `slice.image = images/webtoon/s1c2/s1c2-slice-NN.webp` (1x, 390 × 625; `width`/`height` set) |
+| slice frame `s1c2-slice-NN` (W × H) | `slice.image = images/webtoon/s1c2/s1c2-slice-NN.webp` (1x, 390 × 624; `width`/`height` set) |
 | TEXT node bbox (x, y, w, h relative to frame) | `rect = {x/W·100, y/H·100, w/W·100, h/H·100}` (2 decimals) |
 | `style.fontSize` | `size = fontSize / W · 100` |
 | `textAlignHorizontal` / `textAlignVertical` | `align` / `valign` |
@@ -1456,6 +1456,6 @@ single-line control exactly `--control-height` ("One control height" below).
   square, a `.sc-chip-control`). The icon is centred in it, and the control's centre sits on the headline line's centre
   (header rows `align-items: center`; the map card positions its absolute close from the title line: card padding + half
   the line − half the control).
-- Exempt: none so far. A real need for a glyph (e.g. "3 × item" counts, sizes "390 × 625") is text, not a cross.
+- Exempt: none so far. A real need for a glyph (e.g. "3 × item" counts, sizes "390 × 624") is text, not a cross.
 - **Check:** `npm run check:tools-css` (part of `npm run check`) fails on a × ✕ ✖ `&times;` glyph as the content of a
   button / link / `Button`, and on `<Icon name="x">`, in the markup of every app (`close-ok` + the reason exempts a line).

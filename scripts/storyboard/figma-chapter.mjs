@@ -8,7 +8,7 @@
 //   storyboard (locked)  per shot its picture – a Luma result if there is one (the chosen image in storyboards/dataset,
 //                        else the newest in _out/<ch>/generated/), otherwise the render without texts (_out/<ch>/clean/);
 //                        a panorama as its whole strip, one screen high (the frame shows its first screen)
-//   guides (hidden)      every screen (844) and slice (625) · text  the texts as live text · layout  empty, on top
+//   guides (hidden)      every screen (844) and slice (SLICE_H, 624) · text  the texts as live text · layout  empty, on top
 // and the rail beside it (shot · source). Re-runs replace shots by id and never touch `layout`.
 //
 //   node scripts/storyboard/figma-chapter.mjs storyboards/catpope/s1c3 --page "S1C3 - BARGAINING" [--x 7400] [--y -109] [--name "…"] [--dry]

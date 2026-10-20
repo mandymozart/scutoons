@@ -88,7 +88,7 @@ Verified in the code 2026-10-09. Types: `shared/content/src/content.ts`, `visual
 
 | Part | Today | For the storyboard |
 |---|---|---|
-| Image = slice | `Slice {image, width, height, …}`. Width 390 (reference), height free (no upper limit on images; default 625). Slices stack edge to edge (`renderer/vertical.svelte`). Rects in % of the slice, font size in % of the width | a shot = one image, one or more slices. 9:16 = 390 × 693, 1:4 = 390 × 1560, 1:7 = 390 × 2730 (3.2 phone screens) |
+| Image = slice | `Slice {image, width, height, …}`. Width 390 (reference), height free (no upper limit on images; default 624 since #78, was 625). Slices stack edge to edge (`renderer/vertical.svelte`). Rects in % of the slice, font size in % of the width | a shot = one image, one or more slices. 9:16 = 390 × 693, 1:4 = 390 × 1560, 1:7 = 390 × 2730 (3.2 phone screens) |
 | Viewport | `Slice.video.viewport {fit, position}` (full-screen video); in-column video `frame {ratio}` clamped 4:1 … 1:4 | format `viewport`: one screen, a stop. A still viewport = a 9:16 image; a moving one = video |
 | Vertical group | `renderer.type: 'vertical'` | format `vertical` |
 | Horizontal | `horizontal` → the pinned strip (`strip.svelte`: screen-high, moved sideways by the page scroll, travel computed). `horizontal` + `params.endless` → the endless band (`strip-endless.svelte`: screen-high in the page flow, dragged sideways with momentum, wraps without end – FEATURES 10.100; Swiper is gone) | `loop360` = an endless horizontal group (`{endless: true}`). A one-way sideways pass = the pinned strip |
@@ -272,8 +272,8 @@ Example (JSONC; the same scene as [storyboard-example.html](storyboard-example.h
 
 The compile (storyboard → chapter draft), deterministic:
 1. **viewport / vertical:** the shots are stacked on one 390-wide canvas (as chapters 1 and 2 are made: one long
-   canvas, cut into 625-high slices). Two delivery options, the storyboard doesn't care: **one shot → one slice**
-   (`height = 390 × h/w`), or **the canvas cut into 625-high slices** like today (lazy loading, smaller files; the cut
+   canvas, cut into 624-high slices since #78). Two delivery options, the storyboard doesn't care: **one shot → one slice**
+   (`height = 390 × h/w`), or **the canvas cut into 624-high slices** like today (lazy loading, smaller files; the cut
    moves off text boxes and items). Dialog / items / events / audio are converted from % of the shot to % of the
    slice. `image` = the rasterized schematic, later the still.
 2. **loop360:** the panorama → N slides (slices) of equal width, the group gets `endless`. Items / dialogs
@@ -660,7 +660,7 @@ another page. Per scene:
 - inside it a **locked group `storyboard`**: one sub-group per shot (`shot-25-03`) at its y – the schematic SVG, the
   air zones hatched, the shot's id / format / move as a small label; optionally the preselected Figma images placed
   in their slot (same file, so no upload);
-- a **screen ruler** (a faint line every 844) and **slice guides** (every 625) as a second locked group, hideable;
+- a **screen ruler** (a faint line every 844) and **slice guides** (every 624, `SLICE_H`) as a second locked group, hideable;
 - the **rhythm rail** *beside* the frame (x > 390), so it never exports;
 - the dialog as **real TEXT layers** in an unlocked group `text` – the convention Track A wants (PLAN.md), so the
   text later becomes live, translatable text boxes without retyping;

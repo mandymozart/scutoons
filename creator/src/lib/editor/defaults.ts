@@ -2,7 +2,7 @@
 import type { Chapter, ChapterDoc, Dialog, DialogDoc, Group, Season, SeasonDoc, SequenceItemDoc, Slice } from '@scutoons/content';
 import { DEFAULT_SLICE, Renderer, Status } from '@scutoons/content';
 
-/** The standard slice (PLAN.md rule, owner 2026-09-30): 390 × 625 px, delivered at 1x as WebP; other heights are fine. */
+/** The standard slice (owner 2026-10-20, #78): 390 × 624 px (3x = WEBTOON's 800 × 1280), 1x WebP + `.2x` / `.3x`; other heights are fine. */
 export const SLICE_RATIO = DEFAULT_SLICE.height / DEFAULT_SLICE.width;
 
 /** `s1c2` for season 1 chapter 2 – prefix of image names and dialog ids */

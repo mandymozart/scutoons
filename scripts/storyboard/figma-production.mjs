@@ -6,7 +6,7 @@
 //   node scripts/storyboard/figma-production.mjs storyboards/catpope/s1c3 --page "S1C3 - BARGAINING" --frame "s1c3 – storyboard draft 2026-10-09" [--only 1-5]
 //
 // Per scene group (compile.mjs's chapter draft – the same layout figma-chapter.mjs drew):
-//   vertical    cut at shot boundaries into slices of 625 (the rest: a shorter slice; a rest < 160 joins the one above)
+//   vertical    cut at shot boundaries into slices of SLICE_H = 624 (the rest: a shorter slice; a rest < 160 joins the one above)
 //   panorama    the strip as 390 × 844 slides
 // each exported from the frame with `text` and `guides` hidden, at 1x / 2x / 3x → WebP
 // `<toon>/s<n>/c<n>/s<n>c<n>-slice-NN.webp` (+ `.2x.webp`, `.3x.webp` = imageVariants low / medium / high).
@@ -19,7 +19,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
-import { ROOT, S, W, readEntity } from './lib.mjs';
+import { ROOT, S, SLICE_H, W, readEntity } from './lib.mjs';
 
 const args = process.argv.slice(2);
 const take = (f, d) => { const i = args.indexOf(f); return i >= 0 ? args.splice(i, 2)[1] : d; };
@@ -40,7 +40,7 @@ const PROD = resolve(OUT, 'production');
 mkdirSync(resolve(PROD, 'slices'), { recursive: true });
 mkdirSync(resolve(PROD, 'png'), { recursive: true });
 const port = Number(process.env.SCUTOONS_FIGMA_PORT ?? 3056);
-const SLICE = 625, MIN_REST = 160;
+const SLICE = SLICE_H, MIN_REST = 160;
 
 async function bridge(c, a) {
 	const r = await fetch(`http://127.0.0.1:${port}/cmd`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ cmd: c, args: a }) }).catch(() => null);

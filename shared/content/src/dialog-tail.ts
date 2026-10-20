@@ -8,7 +8,10 @@
  *
  * The pixel geometry here is shared by the reader (draws it) and the creator (its handles): no Svelte, no DOM.
  */
-import type { Dialog, DialogTail } from './content.ts';
+import { DEFAULT_SLICE, type Dialog, type DialogTail } from './content.ts';
+
+/** the standard slice's height / width – the fallback when a slice has no size */
+const STANDARD_RATIO = DEFAULT_SLICE.height / DEFAULT_SLICE.width;
 
 export const TAIL_KINDS = ['speech', 'thought'] as const;
 export type TailKind = (typeof TAIL_KINDS)[number];
@@ -91,7 +94,7 @@ export interface TailBox {
  * A new free tail for a bubble drawn at `box` (owner 2026-10-18: base on the bottom at 0.3, the tip a bit below-left).
  * `ratio` = the slice's height / width (the tip's distance looks the same across and down).
  */
-export function defaultTail(kind: TailKind, box: TailBox, ratio = 625 / 390): FreeTail {
+export function defaultTail(kind: TailKind, box: TailBox, ratio = STANDARD_RATIO): FreeTail {
 	const at = 0.3;
 	const x = box.left + box.width * at;
 	const y = box.top + box.height;
@@ -102,7 +105,7 @@ export function defaultTail(kind: TailKind, box: TailBox, ratio = 625 / 390): Fr
  * An old fixed tail as a free one that looks the same (the creator converts on the first edit): the base where the old
  * tail sat, the tip about one em past the side. `size` = the font size in % of the slice width.
  */
-export function freeTailFrom(fixed: Exclude<DialogTail, 'none'>, box: TailBox, size = 4, ratio = 625 / 390, kind: TailKind = 'speech'): FreeTail {
+export function freeTailFrom(fixed: Exclude<DialogTail, 'none'>, box: TailBox, size = 4, ratio = STANDARD_RATIO, kind: TailKind = 'speech'): FreeTail {
 	const top = fixed.startsWith('top');
 	const where = fixed.endsWith('left') ? 'left' : fixed.endsWith('right') ? 'right' : 'centre';
 	const at = where === 'left' ? 0.25 : where === 'right' ? 0.75 : 0.5;

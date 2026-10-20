@@ -120,7 +120,7 @@
 		return { resolver: (_text, lang) => sampleResolver(sample, lang ?? locale) };
 	});
 	const image = $derived(slice?.image ? replacedImages.src(toonUrl(doc.toon, slice.image), toonAsset(doc.toon, slice.image)) : '');
-	/** the slice's 1x size (standard 390 × 625) – the canvas never shows it larger */
+	/** the slice's 1x size (standard 390 × 624) – the canvas never shows it larger */
 	const sliceWidth = $derived(slice?.width > 0 ? slice.width : DEFAULT_SLICE.width);
 	const sliceRatio = $derived(slice?.width > 0 && slice?.height > 0 ? slice.height / slice.width : SLICE_RATIO);
 	/** the collage pieces as drawn: a custom preset baked into the piece's style (the same indices – boxes, ramp dots) */

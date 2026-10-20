@@ -9,10 +9,13 @@ import { fileURLToPath } from 'node:url';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
-/** Phone canvas: width W, one screen S (390 × 844), the delivery slice height of chapters 1 + 2 */
+/**
+ * Phone canvas: width W, one screen S (390 × 844), the standard slice height SLICE_H = DEFAULT_SLICE (shared/content
+ * content.ts; plain Node, so a copy): 624 since 2026-10-20 (#78, its 3x = WEBTOON's 800 × 1280); chapters 1–5 were cut at 625
+ */
 export const W = 390;
 export const S = 844;
-export const SLICE_H = 625;
+export const SLICE_H = 624;
 
 /**
  * The rhythm model (STORYBOARD.md §6), calibrated on chapter 1 (owner 2026-10-09: careful reading 15–20 min; chapters

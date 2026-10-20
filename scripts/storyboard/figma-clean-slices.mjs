@@ -24,7 +24,7 @@ import { homedir } from 'node:os';
 import { basename, resolve } from 'node:path';
 import { Client } from '@modelcontextprotocol/client';
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
-import { ROOT } from './lib.mjs';
+import { ROOT, SLICE_H } from './lib.mjs';
 
 const args = process.argv.slice(2);
 const take = (f, d) => { const i = args.indexOf(f); return i >= 0 ? args.splice(i, 2)[1] : d; };
@@ -42,7 +42,7 @@ if (!key || !groupLabel || !folder || !((page && prefix) || (frameId && Number.i
 const [, toon, n] = key.split(':');
 const OUT = resolve(ROOT, 'storyboards/_out', `s1c${n}`, 'clean');
 for (const d of ['png', 'slices', 'trees']) mkdirSync(resolve(OUT, d), { recursive: true });
-const W = 390, H = 625;
+const W = 390, H = SLICE_H;
 
 const cfg = JSON.parse(readFileSync(resolve(homedir(), '.claude.json'), 'utf8')).mcpServers?.scutoons;
 const client = new Client({ name: 'scutoons-clean-slices', version: '1.0.0' });

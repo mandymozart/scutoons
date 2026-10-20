@@ -15,6 +15,7 @@
 	} from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import type { Rect } from '$lib/editor/canvas-geometry.ts';
+	import { SLICE_RATIO } from '$lib/editor/defaults.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
@@ -57,7 +58,7 @@
 		return () => ro.disconnect();
 	});
 
-	const ratio = $derived(size.w > 0 ? size.h / size.w : 625 / 390);
+	const ratio = $derived(size.w > 0 ? size.h / size.w : SLICE_RATIO);
 	const tailBox = $derived({ left: box.x, top: box.y, width: box.width, height: box.height });
 	/** the tail as it is drawn: a free one, or an old fixed one as the free tail that looks the same */
 	const tail = $derived.by<FreeTail | null>(() => {

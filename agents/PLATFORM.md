@@ -682,7 +682,7 @@ Rules now:
   config change, not a code change.
 - New uploads get content-hashed or versioned filenames where they may change (cache-safe for a global CDN).
 - Media conventions (2026-09-30, PERFORMANCE.md P1–P3): slices `<toon>/images/webtoon/<sXcY>/<sXcY>-slice-N.webp` (1x, 390 px
-  wide, standard 390 × 625, every slice carries width/height); character images WebP next to the delivered PNGs; music
+  wide, standard 390 × 624, every slice carries width/height); character images WebP next to the delivered PNGs; music
   `audio/music/<name>.128.mp3` (128 kbps, streamed); slice videos H.264 MP4 ≤ 3 MB with the size in the name
   (`videos/s1c1-key-visual.900w.mp4`). A changed file gets a new name – the old one stays on the CDN for older builds.
 - A separate CDN plan (bunny pull zone ↔ all-inkl origin, cache purge on sync, app builds on CDN) is written with the

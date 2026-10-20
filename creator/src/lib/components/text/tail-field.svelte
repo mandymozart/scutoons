@@ -2,6 +2,7 @@
 	import { Icon, PropRow, Segmented } from '@scutoons/ui';
 	import { getAt, isDrawnBubble, tailKindOf, type Path } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
+	import { SLICE_RATIO } from '$lib/editor/defaults.ts';
 	import { drawnBox, resetTail, setTailKind } from '$lib/editor/tail-edit.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
@@ -15,7 +16,7 @@
 	const kind = $derived(tailKindOf(dialog));
 	const ratio = $derived.by(() => {
 		const slice = doc.get(doc.primary, path.slice(0, -2));
-		return slice?.width > 0 && slice?.height > 0 ? slice.height / slice.width : 625 / 390;
+		return slice?.width > 0 && slice?.height > 0 ? slice.height / slice.width : SLICE_RATIO;
 	});
 	const KINDS = ['none', 'speech', 'thought'] as const;
 

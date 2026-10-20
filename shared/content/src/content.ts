@@ -188,10 +188,11 @@ export interface MapRoute {
 }
 
 /**
- * The standard slice (owner 2026-09-30): 390 × 625 px, the Naver webtoon size. Slices are delivered and served at 1x as
+ * The standard slice (owner 2026-10-20, #78; 390 × 625 from 2026-09-30): 390 × 624 px – its 3x file (1170 × 1872) is
+ * exactly WEBTOON's 800 × 1280, so a standard slice is one WEBTOON image. Slices are delivered and served at 1x as
  * one WebP (`s<n>/c<n>/<sXcY>-slice-N.webp`, agents/ASSETS.md "Folder convention"); other heights are fine, the width stays 390.
  */
-export const DEFAULT_SLICE = { width: 390, height: 625 } as const;
+export const DEFAULT_SLICE = { width: 390, height: 624 } as const;
 
 /** One encoding of the season trailer's loop: a CDN path + an optional media query (`<source media>`) */
 export interface SliceVideoSource {
@@ -323,7 +324,7 @@ export interface SliceVideo {
 	autoplay?: boolean;
 	/**
 	 * A video player instead of the loop: sound, native controls (fullscreen through them), started by the reader, no
-	 * loop. The slice's `width` / `height` are the video's aspect ratio at the slice width (no 390 × 625 crop). While it
+	 * loop. The slice's `width` / `height` are the video's aspect ratio at the slice width (no standard-slice crop). While it
 	 * plays the chapter's music is paused; watching it to its end (≥ 95 %) is the slice's reading progress.
 	 */
 	player?: boolean;

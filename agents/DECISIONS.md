@@ -6,6 +6,7 @@ stays and gets "(superseded YYYY-MM-DD → …)" appended. Rules for agents: age
 to mark them superseded.
 
 ## 2026-10
+- 2026-10-20 · media · Default slice 390 × 624: its 3x 1170 × 1872 = WEBTOON's 800 × 1280, so a standard slice is one WEBTOON image; ch1–5's 368 standard slices are resampled from their lossless exports (no Figma; text boxes, items and events stay on their art), ch3's remaining scenes are cut at 624, the Figma pipeline recovers by itself · "i would go for it. do it now i will not have much time after chapter 3 release" · → RULES "Product rules", #78
 - 2026-10-20 · storyboard studio · Variants canvas built now, alongside the ch3 layout work (in stages on the studio branch, the owner's running studio untouched) · "bitte gern schon anfangen mit dem Studio. Ich muss sowieso layouten und der Computer kann gern schon arbeiten am Studio-Editor." · → research/VARIANTS-CANVAS.md §4, #62
 - 2026-10-20 · webtoon · A horizontal group's vertical version (for the WEBTOON export) is one tall image of the same scene, 1:4 … 1:7, not one picture per frame (Q8 of #77; "export only" still open) · "one vertical image of the same scene, it is also longer between 1:4 to 1:7" · → research/WEBTOON.md §8
 - 2026-10-20 · map · Place rooms: the cathedral prototype is the look – an Unreal level exported headless, its lights baked into the vertices, a static diorama view at eye level, pickups and residents standing in it; next a chapter 3 room from an Unreal map or Blender file the owner names · "The look works. Next: a chapter 3 room" · → research/LOCATION-SCENES.md §7, #74
@@ -503,7 +504,7 @@ to mark them superseded.
 - 2026-09-30 · platform · Printed / public URLs never change; new ones may be added · → RULES "Product rules", PLATFORM.md "Printed URLs"
 - 2026-09-30 · data · Every chapter belongs to a season · → RULES "Product rules"
 - 2026-09-30 · data · Keep the configuration small: model only what a screen edits or code reads · → RULES "Product rules"
-- 2026-09-30 · media · Default slice 390 × 625, 1x WebP; every slice carries width / height · → RULES "Product rules"
+- 2026-09-30 · media · Default slice 390 × 625, 1x WebP; every slice carries width / height · → RULES "Product rules" (superseded 2026-10-20 → 390 × 624, #78)
 - 2026-09-30 · media · One resolution everywhere · → archive/PLAN.md (superseded 2026-10-01 → one file per quality level)
 - 2026-09-30 · media · Slices 1x WebP only, no srcset, as sharp as possible; music 128 kbps · → research/PERFORMANCE.md (superseded 2026-10-01 → quality levels)
 - 2026-09-30 · process · Done = the full suite green (check, PHPUnit, builds, dev servers start) · → RULES "Dev setup and checks"

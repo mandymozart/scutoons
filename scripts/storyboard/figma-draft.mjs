@@ -1,7 +1,7 @@
 // The first throw as Figma draft frames (STORYBOARD.md §9 "The first throw lands in Figma"): per scene a frame
 // "s1c3 / scene-25 – draft", 390 wide, on a page of its own, holding
 //   storyboard  (locked) the schematic shots as SVG at their y – hide it to judge the layout alone
-//   guides      (locked, hidden) a line every screen (844) and every slice (625)
+//   guides      (locked, hidden) a line every screen (844) and every slice (SLICE_H, 624)
 //   text        the dialog as real TEXT layers (Track A's convention: text becomes live text boxes later)
 //   layout      empty, on top – the owner's work, never touched by a re-run
 // and the rhythm rail as text beside the frame (x > 390, never exported).

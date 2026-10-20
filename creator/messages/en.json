@@ -492,7 +492,7 @@
 		"reader_uses_season": "The reader shows the season's title and description on the toon page; the chapters' status (per language) decides which are listed and readable. The cover (square, one image for every language, in the cover editor) is the toon page's cover, its lettering in the reader's language. The trailer loop comes in up to three qualities (480p / 720p / 1080p); readers get the one their quality setting picks. Authors and release date are not shown yet; the credits page shows the toon's credits.",
 		"reader_uses_toon": "The reader shows title and description on the toon page and the title on the download page (downloads and covers belong to the seasons). The same in every language: the tile and “Announce” on the homepage and in the menu, the map's start view; authors, chapter count and thumbnail are not used by the reader. Per language: title, description, release date and status.",
 		"missing": "missing",
-		"format_hint": "SCUTOONS slice: 390 × 625 px (the webtoon standard), delivered at 1x as WebP in the chapter's folder (<toon>/s1/c2/s1c2-slice-N.webp) – other heights are fine, the width stays 390. Text-free art, the words are text boxes.",
+		"format_hint": "SCUTOONS slice: 390 × 624 px (at 3x exactly one WEBTOON image, 800 × 1280), delivered at 1x as WebP in the chapter's folder (<toon>/s1/c2/s1c2-slice-N.webp) – other heights are fine, the width stays 390. Text-free art, the words are text boxes.",
 		"draw_hint": "Drag on the image to draw a text box. Arrows nudge, Shift+arrows ×10, Delete removes.",
 		"select_slice": "Select a slice on the left.",
 		"text_language": "i18n",

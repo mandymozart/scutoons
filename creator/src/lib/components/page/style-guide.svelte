@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { DEFAULT_SLICE } from '@scutoons/content';
 	// The SCUTOONS style guide for creators: agents/DESIGN.md (Part 2 "Text box on slice"), the PLAN.md rules (slice size
-	// 390 × 625, 1x only) and the content model in @scutoons/content (slices, characters, credits). Shown in full on
+	// = DEFAULT_SLICE, 1x + 2x / 3x) and the content model in @scutoons/content (slices, characters, credits). Shown in full on
 	// /guide, the chapter editor's Info panel shows the same sections.
 	let { sections = ['slices', 'art', 'lettering', 'variants', 'characters', 'credits'] }: { sections?: string[] } = $props();
 	const W = DEFAULT_SLICE.width;
@@ -12,7 +12,7 @@
 	{#if sections.includes('slices')}
 		<h3>Slices</h3>
 		<ul>
-			<li>One size in the whole app: the standard slice is {W} × {H} px (the webtoon standard, Naver), delivered and shown at 1x only, as WebP. There are no 2x / 3x exports.</li>
+			<li>One size in the whole app: the standard slice is {W} × {H} px – at 3x exactly one WEBTOON image (800 × 1280) –, delivered as WebP at 1x with 2x / 3x variants for the reader's media quality.</li>
 			<li>Other heights are fine, the width stays {W}. The editor warns when an image is not {W} px wide.</li>
 			<li>Path on the CDN: <code>&lt;toon&gt;/s&lt;n&gt;/c&lt;n&gt;/&lt;sXcY&gt;-slice-N.webp</code>, the chapter's folder (e.g. <code>s1/c2/s1c2-slice-1.webp</code>); density variants as suffixes (<code>.2x</code>, <code>.3x</code>).</li>
 			<li>Every slice carries <code>width</code> / <code>height</code> (required – a missing size is an error). The editor reads them from the image when you set its path; new slices start at {W} × {H}.</li>

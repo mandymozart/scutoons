@@ -11,7 +11,7 @@ No Svelte, no DOM access, no bundler globals (`import.meta.env`), no app state: 
 | Module | Exports |
 |---|---|
 | `enums.ts` | `Renderer`, `Status`, `Language`, `EventCategory`, `Trigger`, `TriggerMode`, `TextBoxEffect` (a `showTextBox` event's effect), `JumpToTargetType` |
-| `content.ts` | `Toon`, `ToonIndex`, `Season`, `SequenceItem`, `Chapter`, `Group`, `Slice` (`image` + required `width` / `height` in px + optional `video` `SliceVideo` { src, loop?, autoplay? } – the image is the video's poster), `DEFAULT_SLICE` (390 × 625), `Dialog` (+ `DialogVariant`, `DialogFont`), `Onomatopoeia`, `KeyVisual`, map / credits / event types, `LoadedSequenceItem` |
+| `content.ts` | `Toon`, `ToonIndex`, `Season`, `SequenceItem`, `Chapter`, `Group`, `Slice` (`image` + required `width` / `height` in px + optional `video` `SliceVideo` { src, loop?, autoplay? } – the image is the video's poster), `DEFAULT_SLICE` (390 × 624), `Dialog` (+ `DialogVariant`, `DialogFont`), `Onomatopoeia`, `KeyVisual`, map / credits / event types, `LoadedSequenceItem` |
 | `audio.ts` | `AudioConfiguration`, `AudioTrack`, `AudioEvents`, `MusicEvent(Track)`, `Sample`, `SampleTrigger`, `AudioEventsConfig` |
 | `visual-novel.ts` | `VNEvent` (union of all event types), `VNSliceEvent`, `VNEventTrigger`, `Character`, choices / setters / jumpTo |
 | `items.ts` | `Catalog`, `ItemDef`, `Skill`, `Recipe`, `Entry`, `Avatar`, `AVATAR_SLOTS`, `User`, `Me`, `Access`, `CodeInfo`, `Edition` (API contract: agents/ITEMS.md) |
@@ -28,8 +28,8 @@ JSON Schemas (generated from the types, draft-07): `@scutoons/content/schema/{ch
 
 ## Slices (owner 2026-09-30)
 
-- The standard slice is **390 × 625 px** (the Naver webtoon size, `DEFAULT_SLICE`), delivered and served at **1x only as
-  WebP**: `<toon>/s<n>/c<n>/<sXcY>-slice-N.webp` (the chapter's folder, agents/ASSETS.md "Folder convention";
+- The standard slice is **390 × 624 px** (`DEFAULT_SLICE`; its 3x 1170 × 1872 is exactly WEBTOON's 800 × 1280, #78),
+  delivered as **1x WebP with `.2x` / `.3x` variants**: `<toon>/s<n>/c<n>/<sXcY>-slice-N.webp` (the chapter's folder, agents/ASSETS.md "Folder convention";
   390 px wide, never scaled up). Other heights are fine, the width stays 390.
 - Every slice carries `width` / `height` (px of the image): the reader reserves the space before the lazy image loads
   (no layout shift, the audio intersection triggers fire slice by slice). `validateFile` reports a missing size as an

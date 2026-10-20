@@ -492,7 +492,7 @@
 		"reader_uses_season": "Der Reader zeigt Titel und Beschreibung der Staffel auf der Toon-Seite; der Status der Kapitel (pro Sprache) entscheidet, welche gelistet und lesbar sind. Das Cover (quadratisch, ein Bild für alle Sprachen, im Cover-Editor) ist das Cover der Toon-Seite, der Schriftzug in der Sprache der Leser:innen. Den Trailer-Loop gibt es in bis zu drei Qualitäten (480p / 720p / 1080p); Leser:innen bekommen die ihrer Qualitätseinstellung. Autor:innen und Erscheinungsdatum zeigt der Reader noch nicht; die Credits-Seite zeigt die Credits des Toons.",
 		"reader_uses_toon": "Der Reader zeigt Titel und Beschreibung auf der Toon-Seite und den Titel auf der Download-Seite (Downloads und Cover gehören zur Staffel). Für alle Sprachen gleich: Kachel und „Ankündigen“ auf der Startseite und im Menü, die Startansicht der Karte; Autor:innen, Kapitelzahl und Vorschaubild nutzt der Reader nicht. Pro Sprache: Titel, Beschreibung, Erscheinungsdatum und Status.",
 		"missing": "fehlt",
-		"format_hint": "SCUTOONS-Slice: 390 × 625 px (Webtoon-Standard), geliefert in 1x als WebP im Ordner des Kapitels (<toon>/s1/c2/s1c2-slice-N.webp) – andere Höhen gehen, die Breite bleibt 390. Bild ohne Text, die Worte sind Textboxen.",
+		"format_hint": "SCUTOONS-Slice: 390 × 624 px (in 3x genau ein WEBTOON-Bild, 800 × 1280), geliefert in 1x als WebP im Ordner des Kapitels (<toon>/s1/c2/s1c2-slice-N.webp) – andere Höhen gehen, die Breite bleibt 390. Bild ohne Text, die Worte sind Textboxen.",
 		"draw_hint": "Auf dem Bild ziehen, um eine Textbox zu zeichnen. Pfeiltasten verschieben, Shift+Pfeil ×10, Entf löscht.",
 		"select_slice": "Wähle links einen Slice.",
 		"text_language": "i18n",

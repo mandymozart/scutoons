@@ -14,7 +14,7 @@
 
 	/**
 	 * The slice's background ("Hintergrund"): an image, or a video with the image as its poster. Width / height are read
-	 * from the image on the CDN whenever its path is set (every slice carries its size; the standard is 390 × 625).
+	 * from the image on the CDN whenever its path is set (every slice carries its size; the standard is 390 × 624).
 	 * A video has one file per quality level (480p / 720p / 1080p = `video.variants`, one of them the default `video.src`)
 	 * – one resolution slot (`media-variants-slot.svelte`, owner 2026-10-03, like the season trailer) – the flags player / loop / autoplay / controls and its placement (in the column or full viewport, agents/DESIGN.md
 	 * "Video placement").
@@ -83,7 +83,7 @@
 		}, 'slice-sensitive');
 	}
 
-	/** the size line only when it is not the standard 390 × 625 (owner 2026-10-03) */
+	/** the size line only when it is not the standard 390 × 624 (owner 2026-10-03; 624 since 2026-10-20) */
 	const offStandard = $derived(!!slice && (slice.width !== DEFAULT_SLICE.width || slice.height !== DEFAULT_SLICE.height));
 
 	/** edits `video` of the shown slice (shared by every language) */
@@ -96,7 +96,7 @@
 
 	/**
 	 * player: a video to watch (sound, controls, no loop / autoplay); stored only when on. The slice then takes the
-	 * poster's ratio at the slice width (the video's ratio, no 390 × 625 crop).
+	 * poster's ratio at the slice width (the video's ratio, no standard-slice crop).
 	 */
 	function setPlayer(on: boolean) {
 		editVideo((v) => {
