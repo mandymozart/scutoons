@@ -510,6 +510,15 @@
 		"newsletter_per_hour": "Newsletter-Mails pro Stunde",
 		"newsletter_per_hour_hint": "Höchstens so viele Mails pro Stunde über das SMTP-Konto, solange ein Newsletter verschickt wird – jede Mail der letzten Stunde zählt, auch Anmeldecodes. Frag deinen Mail-Host nach seinem Limit. 0 = kein Limit.",
 		"newsletter_batch": "Newsletter-Mails pro Paket",
+		"section_budget": "Generierungsbudget",
+		"generation_budget": "Budget für bezahlte Generierungen (€)",
+		"generation_budget_hint": "Ganze Euro, die alle bezahlten Storyboard-Generierungen (Luma, Runway – gestartet von Mitgliedern oder ihrer KI) zusammen kosten dürfen. Vor jedem Job prüft der Server ausgegeben + laufend + die Schätzung des Jobs dagegen und lehnt mit einer Meldung ab, wenn es nicht passt; laufende Jobs laufen zu Ende. Erhöhen öffnet sofort wieder. 0 = kein Budget: bezahlte Generierungen sind aus. Nicht mitgezählt: Claude-Abos, Speicher, bunny.net.",
+		"no_budget": "kein Budget (bezahlte Jobs aus)",
+		"budget_spent": "Ausgegeben",
+		"budget_reserved": "Laufend (reserviert)",
+		"budget_left": "Übrig",
+		"budget_rate": "Anbieter rechnen in USD ab – umgerechnet zum EZB-Kurs vom {date}: 1 USD = {rate} €.",
+		"budget_rate_fallback": "Anbieter rechnen in USD ab – umgerechnet zum festen Kurs vom {date} (1 USD = {rate} €), bis die EZB erreicht wird.",
 		"newsletter_batch_hint": "Wie viele Mails ein Paket verschickt – der Cronjob alle 5 Minuten oder ein Schritt von „Jetzt senden“. 20 alle 5 Minuten ergibt 200 pro Stunde. Höchstens 25: ein Paket hört nach 25 Sekunden auf, eine Mail pro Sekunde."
 	},
 	"emails": {

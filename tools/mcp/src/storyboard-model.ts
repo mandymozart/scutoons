@@ -166,3 +166,109 @@ export function markBody(mark: 'review' | 'rejected' | 'none', note?: string): R
 export function approveBody(approved: boolean, note?: string): Record<string, unknown> {
 	return { approved, ...(note !== undefined ? { note } : {}) };
 }
+
+// ── paid provider jobs (#121: server Domain\Storyboard\GenerationJobs, docs/API.md "Storyboard" → "Provider jobs") ─────
+
+/** a generator as GET /storyboard/generators lists it */
+export interface GeneratorInfo {
+	id: string;
+	label: string;
+	configured: boolean;
+	setting: string;
+	unavailable: string | null;
+	kinds: string[];
+	models: { id: string; label: string; kind: string; mode: string; price: Record<string, unknown> | null; [field: string]: unknown }[];
+}
+
+/** the generation budget in euro (server GenerationBudget) */
+export interface BudgetState {
+	currency: 'EUR';
+	budget: number;
+	spent: number;
+	reserved: number;
+	left: number;
+	rate: { eur_per_usd: number; date: string; source: string };
+}
+
+const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+
+/** a model's price in words, in the provider's currency (+ euro at the server's rate) */
+export function priceText(price: Record<string, unknown> | null, eurPerUsd: number | null = null): string {
+	if (!price) return 'no price (not startable)';
+	const cur = String(price.currency ?? 'USD');
+	const eur = (usd: number) => (eurPerUsd && cur === 'USD' ? ` (≈ ${(usd * eurPerUsd).toFixed(3)} €)` : '');
+	const text = num(price.text);
+	const one = num(price.one_image);
+	const more = num(price.per_more_image);
+	if (text !== null && one !== null) return `${text} ${cur}${eur(text)} per image from text, ${one} ${cur} with 1 input image${more ? `, + ${more} per more` : ''}`;
+	const perSecond = num(price.credits_per_second);
+	const credit = num(price.credit) ?? 0.01;
+	if (perSecond !== null) {
+		const min = num(price.min_credits);
+		return `${perSecond} credits/s = ${round(perSecond * credit, 3)} ${cur}/s${eur(perSecond * credit)}${min ? `, at least ${min} credits` : ''}`;
+	}
+	return JSON.stringify(price);
+}
+
+/** list_generators: what can run here, the models with their prices in words, the budget */
+export function generatorSummary(generators: GeneratorInfo[], budget: BudgetState) {
+	return {
+		generators: generators.map((g) =>
+			compact({
+				id: g.id,
+				label: g.label,
+				startable: g.configured && !g.unavailable,
+				why_not: g.unavailable ?? (g.configured ? undefined : `no key on the server (the owner sets ${g.setting})`),
+				models: g.models.map((m) => compact({ id: m.id, label: m.label, kind: m.kind, mode: m.mode, refs: m.refs, ratios: m.ratios, durations: m.durations, price: priceText(m.price, budget.rate.eur_per_usd) }))
+			})
+		),
+		budget: budgetText(budget)
+	};
+}
+
+/** the budget in one line */
+export function budgetText(b: BudgetState): string {
+	if (b.budget <= 0) return 'No generation budget is set – paid generations are off until the owner sets one (admin → Settings).';
+	return `Budget ${b.budget} € · spent ${b.spent.toFixed(2)} € · running ${b.reserved.toFixed(2)} € · left ${b.left.toFixed(2)} €`;
+}
+
+/** a reference as start_generation takes it: a local file (uploaded to the work storage first), a work file, a public URL */
+export interface RefArg {
+	role: 'still' | 'control' | 'keyframe' | 'reference' | 'character' | 'style';
+	file?: string;
+	work?: string;
+	url?: string;
+}
+
+export const WORK_EXT: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', mp4: 'video/mp4', webm: 'video/webm' };
+
+/** the work-storage name a local reference is uploaded under: by its content, so the same file is stored once */
+export function refUploadName(shot: string, sha256: string, file: string): string {
+	const ext = (/\.([a-z0-9]+)$/i.exec(file)?.[1] ?? '').toLowerCase();
+	if (!WORK_EXT[ext]) throw new Error(`${file}: a reference is a png, jpg, webp, mp4 or webm`);
+	return `${shot.replace(/[^\w.-]/g, '-')}-ref-${sha256.slice(0, 12)}.${ext === 'jpeg' ? 'jpg' : ext}`;
+}
+
+/** the POST body of a provider job: only the fields given */
+export function jobBody(args: { toon: string; chapter: number; shot: string; generator: string; model: string; prompt?: string; aspect?: string; params?: Record<string, unknown>; take?: string; parents?: number[]; note?: string }, references: { role: string; work?: string; url?: string }[]) {
+	const body: Record<string, unknown> = { ...args, ...(references.length ? { references } : {}) };
+	return Object.fromEntries(Object.entries(body).filter(([, v]) => v !== undefined && v !== ''));
+}
+
+/** the file extension of a result: the content type, else the link's path */
+export function resultExt(contentType: string | null, url: string | null = null): string {
+	const type = (contentType ?? '').split(';')[0].trim().toLowerCase();
+	const byType: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'video/mp4': 'mp4', 'video/webm': 'webm', 'video/quicktime': 'mov' };
+	if (byType[type]) return byType[type];
+	const m = url ? /\.(png|jpe?g|webp|mp4|webm|mov)(?:\?|$)/i.exec(url) : null;
+	return m ? m[1].toLowerCase().replace('jpeg', 'jpg') : 'bin';
+}
+
+/** this computer's label for `machine` (SCUTOONS_MACHINE, else the host name) in the API's form */
+export function machineLabel(env: NodeJS.ProcessEnv, hostname: string): string {
+	const raw = (env.SCUTOONS_MACHINE || hostname || 'machine').replace(/[^A-Za-z0-9 ._-]/g, '-').replace(/^[^A-Za-z0-9]+/, '');
+	return (raw || 'machine').slice(0, 64);
+}
+
+/** where a result goes in the member's workspace folder: <workspace>/<toon>/<chapter>/ */
+export const resultDir = (workspace: string, toon: string, chapter: number): string[] => [workspace, toon, String(chapter)];

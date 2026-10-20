@@ -130,6 +130,11 @@
 			<dt>{m['settings.newsletter_batch']()}</dt>
 			<dd>{m['settings.newsletter_batch_hint']()}</dd>
 		</dl>
+		<h3>{m['settings.section_budget']()}</h3>
+		<dl>
+			<dt>{m['settings.generation_budget']()}</dt>
+			<dd>{m['settings.generation_budget_hint']()}</dd>
+		</dl>
 	{:else if page === 'homepage'}
 		<p>{m['help.homepage']()}</p>
 	{:else if page === 'assets'}

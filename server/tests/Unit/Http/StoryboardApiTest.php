@@ -81,7 +81,7 @@ final class StoryboardApiTest extends TestCase
         $item = self::json($r)['item'];
         self::assertSame(['creator@scutoons.test', 'Claude on my laptop', 'succeeded'], [$item['author'], $item['via'], $item['status']]);
         $r = $this->request('POST', '/api/storyboard/generations', $creator, ['job' => 'x'] + self::RECORD);
-        self::assertSame([422, 'provider_jobs_later'], [$r->getStatusCode(), self::json($r)['error']]);
+        self::assertSame([422, 'invalid_generation', 'job'], [$r->getStatusCode(), self::json($r)['error'], self::json($r)['field']]);
         $r = $this->request('POST', '/api/storyboard/generations', $creator, ['kind' => 'gif'] + self::RECORD);
         self::assertSame([422, 'invalid_generation', 'kind'], [$r->getStatusCode(), self::json($r)['error'], self::json($r)['field']]);
 

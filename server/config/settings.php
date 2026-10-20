@@ -206,6 +206,28 @@ return [
     // request body limit and the disk do)
     'STORYBOARD_WORK_MAX_BYTES' => '268435456',
 
+    // ── Storyboard generators (#121, docs/API.md "Storyboard" → "Provider jobs"; Domain\Storyboard\Generators) ──
+    // The paid providers' API keys – secrets: GitHub secrets → the deploy's config.php (deploy/targets.json), or
+    // QR_<KEY> in the environment. Never the repository-root .env (it is not read for these), never in an answer: a
+    // provider without its key is listed as `configured: false` with the key's name. _URL = the provider's API base
+    // (the tests point it at a stand-in).
+    'LUMA_API_KEY' => '',
+    'LUMA_API_URL' => 'https://agents.lumalabs.ai',
+    'RUNWAY_API_KEY' => '',
+    'RUNWAY_API_URL' => 'https://api.dev.runwayml.com',
+    'GEMINI_API_KEY' => '',
+    // The default of the runtime setting generation_budget (admin → Settings): whole euros all paid generations may
+    // cost together (spent + reserved + the next estimate ≤ budget, else 402 budget_exhausted). 0 = no budget = every
+    // paid job is refused (402 no_budget) – the owner sets it in the admin.
+    'GENERATION_BUDGET' => '0',
+    // The ECB's daily euro reference rates (prices are shown in euro – DECISIONS 2026-10-20): fetched at most once a
+    // day, cached; empty = never fetched (the fixed fallback rate of Domain\Storyboard\EuroRates applies)
+    'ECB_RATES_URL' => 'https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml',
+    // How long a signed reference link (a work-storage file handed to a provider) works, in minutes
+    'STORYBOARD_REF_MINUTES' => '15',
+    // A provider job's status is asked for at most once per this many seconds (GET /storyboard/generations[/{id}])
+    'GENERATION_POLL_SECONDS' => '5',
+
     // ── Media assets (agents/ASSETS.md): the asset registry + its storage drivers ─────────────────────────
     // Which storage the asset layer works on: auto (the local folder ASSET_LOCAL_ROOT when it exists – every dev
     // machine –, else bunny when configured) | local | bunny

@@ -19,7 +19,8 @@ Relative paths are relative to the server folder. Secrets never go into the repo
 **Runtime settings** (table `settings`, admin app → Settings, `GET/PUT /api/admin/settings`): a few values the owner
 changes without a deploy. A stored value wins over the config; without a row the config value below is the default.
 Today: `scan_limit_per_hour` (default `SCAN_MAX_PER_IP_HOUR`), `lookup_limit_per_hour` (default
-`ACCESS_MAX_PER_IP_HOUR`). `Domain\Settings\RuntimeSettings`.
+`ACCESS_MAX_PER_IP_HOUR`), `newsletter_per_hour`, `newsletter_batch`, `generation_budget` (whole euros for paid
+storyboard generations, default `GENERATION_BUDGET`; 0 = no budget = paid jobs refused). `Domain\Settings\RuntimeSettings`.
 
 | Key | Default | Notes |
 |---|---|---|
@@ -33,6 +34,12 @@ Today: `scan_limit_per_hour` (default `SCAN_MAX_PER_IP_HOUR`), `lookup_limit_per
 | `NEWSLETTER_CRON_KEY` | – | key of the newsletter cron URL `GET\|POST /api/newsletter/cron?key=…` (one batch, agents/NEWSLETTER.md; also the HTTP Basic password). Empty = 404 (off). `openssl rand -hex 32` |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | – | the Web Push key pair (base64url: the 65-byte P-256 point / the 32-byte scalar; docs/API.md "Web Push"). `php bin/console push:vapid-keys` prints one. Empty (or not a pair) = push off. Keep the pair: a new public key makes every subscription useless |
 | `VAPID_SUBJECT` | `mailto:hello@scutoons.com` | the contact push services may write to (VAPID `sub`) |
+| `LUMA_API_KEY` / `RUNWAY_API_KEY` / `GEMINI_API_KEY` | – | the paid storyboard generators' keys (#121, docs/API.md "Storyboard" → "Provider jobs"): Luma Agents API (platform → API keys), Runway developer API (dev.runwayml.com), Google AI Studio (Gemini – listed, not startable yet). Secrets: GitHub secrets of the same name → the deploy's `config.php` (deploy/targets.json), or `QR_<KEY>`. **Never read from the repository-root `.env`** (not in `DOTENV_KEYS` – a dev server never spends the owner's money by accident). Empty = that generator is `configured: false` |
+| `LUMA_API_URL` / `RUNWAY_API_URL` | `https://agents.lumalabs.ai` / `https://api.dev.runwayml.com` | the providers' API base (the tests point them at a stand-in) |
+| `GENERATION_BUDGET` | `0` | the default of the runtime setting `generation_budget` (admin → Settings): whole euros all paid generations may cost together; 0 = no budget = every paid job `402 no_budget` – **the owner sets the amount in the admin** |
+| `ECB_RATES_URL` | the ECB's `eurofxref-daily.xml` | the euro reference rates the budget converts provider USD at – fetched at most once a day, cached (`CACHE_DRIVER`); empty = never fetched (the fixed fallback 1 EUR = 1.1225 USD of 2026-10-19) |
+| `STORYBOARD_REF_MINUTES` | `15` | how long a signed link to a work-storage file (handed to a provider as a reference) works |
+| `GENERATION_POLL_SECONDS` | `5` | a provider job is asked about at most once per this many seconds when it is read |
 | `QR_URL` | `https://qr.scutoons.com` | the qr app: magic links of login requests without an Origin (it forwards `/?login=` to the viewer) |
 | `APP_URL` | `https://scutoons.com` | the viewer: old magic links are forwarded there; "Open SCUTOONS" in mails |
 | `ADMIN_URL` | `https://admin.scutoons.com` | the admin app: links in admin notification mails (a new ownership claim); the link of an AI proposal (`/proposals/<id>`) |

@@ -267,7 +267,14 @@ return static function (App $app): void {
     // storage on this host's disk – the document itself is the entity storyboard:<toon>:<chapter> (/api/entities)
     $app->get('/api/storyboard/generations', [StoryboardController::class, 'list']);
     $app->post('/api/storyboard/generations', [StoryboardController::class, 'record']);
+    $app->post('/api/storyboard/generations/estimate', [StoryboardController::class, 'estimate']);
     $app->get('/api/storyboard/generations/{id:[1-9][0-9]{0,18}}', [StoryboardController::class, 'get']);
+    $app->post('/api/storyboard/generations/{id:[1-9][0-9]{0,18}}/cancel', [StoryboardController::class, 'cancel']);
+    $app->get('/api/storyboard/generations/{id:[1-9][0-9]{0,18}}/result', [StoryboardController::class, 'result']);
+    // paid provider jobs (#121): the generators, the budget, the signed links providers fetch work files by (no session)
+    $app->get('/api/storyboard/generators', [StoryboardController::class, 'generators']);
+    $app->get('/api/storyboard/budget', [StoryboardController::class, 'budget']);
+    $app->get('/api/storyboard/ref/{toon:[a-z0-9_-]{1,64}}/{chapter:[0-9]{1,6}}/{name:[A-Za-z0-9._%-]{1,200}}', [StoryboardController::class, 'ref']);
     $app->put('/api/storyboard/generations/{id:[1-9][0-9]{0,18}}', [StoryboardController::class, 'update']);
     $app->get('/api/storyboard/work', [StoryboardController::class, 'listWork']);
     $app->put('/api/storyboard/work', [StoryboardController::class, 'putWork']);

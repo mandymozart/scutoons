@@ -572,6 +572,9 @@ The budget is how the owner steers the business (grants, investment plans): the 
   admin shows one notice ("Budget used up: 412 € of 400 € – ask the owner to raise it"), the worker stops and reports
   the same. A job already running finishes (it is paid either way); no new one starts. Raising the amount in the admin
   opens the gate again at once.
+- **Built 2026-10-21 (#121)**: `generation_budget` (whole euros) in admin → Settings with spent / running / left, the
+  gate in the API (`402 no_budget` / `budget_exhausted`), the ledger = `storyboard_generations` – server/docs/API.md
+  "Storyboard" → "The budget gate".
 - **Costs outside the gate** (stated, not booked): the Claude subscription / tokens of the agent sessions, storage of
   model weights, bunny.net. Shown as a note under the budget, not part of the cut.
 

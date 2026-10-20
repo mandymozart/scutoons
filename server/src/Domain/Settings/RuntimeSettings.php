@@ -22,7 +22,10 @@ use Scutoons\Support\Time;
  *                          mail of the last hour counts, login codes too) – default NEWSLETTER_PER_HOUR
  *   newsletter_batch       mails per newsletter batch (one cron call / one "Send now" step), 1–25: a batch also stops
  *                          after NEWSLETTER_SECONDS with NEWSLETTER_DELAY_MS between two mails, so more never fit – default NEWSLETTER_BATCH
- * 0 = no limit.
+ *   generation_budget      whole euros all paid storyboard generations may cost together (#121,
+ *                          Domain\Storyboard\GenerationBudget: spent + reserved + the next estimate ≤ budget) – default GENERATION_BUDGET;
+ *                          here 0 = NO budget: every paid job is refused
+ * 0 = no limit (the limits).
  */
 final class RuntimeSettings
 {
@@ -30,6 +33,7 @@ final class RuntimeSettings
     public const LOOKUP_LIMIT = 'lookup_limit_per_hour';
     public const NEWSLETTER_PER_HOUR = 'newsletter_per_hour';
     public const NEWSLETTER_BATCH = 'newsletter_batch';
+    public const GENERATION_BUDGET = 'generation_budget';
     public const MAX_LIMIT = 1000000;
 
     /** key → config key of the default, allowed range */
@@ -38,6 +42,7 @@ final class RuntimeSettings
         self::LOOKUP_LIMIT => ['config' => 'ACCESS_MAX_PER_IP_HOUR', 'min' => 0, 'max' => self::MAX_LIMIT],
         self::NEWSLETTER_PER_HOUR => ['config' => 'NEWSLETTER_PER_HOUR', 'min' => 0, 'max' => self::MAX_LIMIT],
         self::NEWSLETTER_BATCH => ['config' => 'NEWSLETTER_BATCH', 'min' => 1, 'max' => 25],
+        self::GENERATION_BUDGET => ['config' => 'GENERATION_BUDGET', 'min' => 0, 'max' => self::MAX_LIMIT, 'zero' => 'no budget – paid generations are refused'],
     ];
 
     /** @var array<string, array{value: mixed, updated_at: string, updated_by: ?string}>|null */
@@ -69,6 +74,12 @@ final class RuntimeSettings
     public function newsletterBatch(): int
     {
         return max(1, $this->int(self::NEWSLETTER_BATCH));
+    }
+
+    /** The generation budget in whole euros; 0 = none (paid generations are refused) */
+    public function generationBudget(): int
+    {
+        return $this->int(self::GENERATION_BUDGET);
     }
 
     public function int(string $key): int
@@ -122,7 +133,8 @@ final class RuntimeSettings
             $key = (string) $key;
             $definition = self::DEFINITIONS[$key] ?? throw new ApiError(400, 'unknown_setting', "Unknown setting: $key", ['settings' => array_keys(self::DEFINITIONS)]);
             if ($value !== null && (!is_int($value) || $value < $definition['min'] || $value > $definition['max'])) {
-                throw new ApiError(400, 'invalid_setting', "$key must be a whole number from {$definition['min']} to {$definition['max']} (0 = no limit) or null (default).",
+                $zero = $definition['zero'] ?? 'no limit';
+                throw new ApiError(400, 'invalid_setting', "$key must be a whole number from {$definition['min']} to {$definition['max']} (0 = $zero) or null (default).",
                     ['key' => $key, 'min' => $definition['min'], 'max' => $definition['max']]);
             }
             $clean[$key] = $value;

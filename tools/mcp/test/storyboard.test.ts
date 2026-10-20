@@ -7,7 +7,27 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import type { ChapterStoryboard, StoryboardDoc } from '@scutoons/content/storyboard';
 import { creatorHref } from '../src/services.ts';
-import { approveBody, checkStoryboard, compactGeneration, generationTotals, locateShot, markBody, outline, recordBody, shotIds, storyboardHref, type Generation } from '../src/storyboard-model.ts';
+import {
+	approveBody,
+	budgetText,
+	checkStoryboard,
+	compactGeneration,
+	generationTotals,
+	generatorSummary,
+	jobBody,
+	locateShot,
+	machineLabel,
+	markBody,
+	outline,
+	priceText,
+	recordBody,
+	refUploadName,
+	resultExt,
+	shotIds,
+	storyboardHref,
+	type BudgetState,
+	type Generation
+} from '../src/storyboard-model.ts';
 import { shotReferences, studioFolders } from '../src/storyboard-refs.ts';
 
 const scene = (n: number, shots: string[], extra: Partial<StoryboardDoc> = {}): StoryboardDoc => ({
@@ -162,4 +182,38 @@ test('shotReferences: the render, the style pictures, the character image – an
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}
+});
+
+const budget = (over: Partial<BudgetState> = {}): BudgetState => ({ currency: 'EUR', budget: 50, spent: 1.5, reserved: 0.25, left: 48.25, rate: { eur_per_usd: 0.8909, date: '2026-10-19', source: 'fallback' }, ...over });
+
+test('provider jobs: prices in words, the generator summary, the budget line', () => {
+	assert.equal(priceText({ currency: 'USD', text: 0.0404, one_image: 0.0434, per_more_image: 0.003 }), '0.0404 USD per image from text, 0.0434 USD with 1 input image, + 0.003 per more');
+	assert.match(priceText({ currency: 'USD', text: 0.0404, one_image: 0.0434, per_more_image: 0.003 }, 0.8909), /0\.0404 USD \(≈ 0\.036 €\)/);
+	assert.equal(priceText({ currency: 'USD', credits_per_second: 28, min_credits: 56, credit: 0.01 }), '28 credits/s = 0.28 USD/s, at least 56 credits');
+	assert.equal(priceText(null), 'no price (not startable)');
+	const s = generatorSummary(
+		[
+			{ id: 'luma-image', label: 'Luma', configured: true, setting: 'LUMA_API_KEY', unavailable: null, kinds: ['image'], models: [{ id: 'uni-1', label: 'uni-1', kind: 'image', mode: 'image', price: { currency: 'USD', text: 0.0404, one_image: 0.0434 } }] },
+			{ id: 'runway', label: 'Runway', configured: false, setting: 'RUNWAY_API_KEY', unavailable: null, kinds: ['video'], models: [] },
+			{ id: 'gemini-image', label: 'Gemini', configured: true, setting: 'GEMINI_API_KEY', unavailable: 'inline only', kinds: ['image'], models: [] }
+		],
+		budget()
+	);
+	assert.deepEqual(s.generators.map((g) => [g.id, g.startable, g.why_not]), [['luma-image', true, undefined], ['runway', false, 'no key on the server (the owner sets RUNWAY_API_KEY)'], ['gemini-image', false, 'inline only']]);
+	assert.equal(s.budget, 'Budget 50 € · spent 1.50 € · running 0.25 € · left 48.25 €');
+	assert.match(budgetText(budget({ budget: 0 })), /No generation budget/);
+});
+
+test('provider jobs: the job body, reference names, result names, the machine label', () => {
+	assert.deepEqual(jobBody({ toon: 'catpope', chapter: 3, shot: 'sb-28-2', generator: 'luma-image', model: 'uni-1', prompt: '', aspect: '9:16', params: undefined }, []), {
+		toon: 'catpope', chapter: 3, shot: 'sb-28-2', generator: 'luma-image', model: 'uni-1', aspect: '9:16'
+	});
+	assert.deepEqual(jobBody({ toon: 't', chapter: 1, shot: 's', generator: 'runway', model: 'gen4_turbo', params: { duration: 5 } }, [{ role: 'still', work: 'a.png' }]).references, [{ role: 'still', work: 'a.png' }]);
+	assert.equal(refUploadName('sb-28-2', 'ab'.repeat(32), 'C:/x/render.JPEG'), 'sb-28-2-ref-abababababab.jpg');
+	assert.throws(() => refUploadName('sb-28-2', 'ab'.repeat(32), 'notes.txt'), /png, jpg/);
+	assert.equal(resultExt('image/png; charset=binary'), 'png');
+	assert.equal(resultExt(null, 'https://files.example/x/out.MP4?sig=1'), 'mp4');
+	assert.equal(resultExt('application/octet-stream'), 'bin');
+	assert.equal(machineLabel({ SCUTOONS_MACHINE: 'Tilman+s PC' }, 'x'), 'Tilman-s PC');
+	assert.equal(machineLabel({}, '-studio.local'), 'studio.local');
 });

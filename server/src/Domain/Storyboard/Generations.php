@@ -17,9 +17,8 @@ use Throwable;
  *
  * Here: records WITHOUT a provider job – a local generation (ComfyUI on the member's GPU, a Figma render) or an upload:
  * stored finished (`succeeded`, or `failed` with its `error`). Server-side provider jobs (#121: the registry, the budget
- * gate `402 budget_exhausted`, `job` = the provider's task id, queued → running → succeeded, estimate → cost) start
- * through their own method next to record(); until then a body with `job` or a queued / running status is refused
- * (422 provider_jobs_later).
+ * gate, `job` = the provider's task id, queued → running → succeeded, estimate → cost) start in GenerationJobs; a record
+ * with `job` or a queued / running status is refused (422 invalid_generation).
  */
 final class Generations
 {
@@ -41,14 +40,14 @@ final class Generations
     private const RECORD_FIELDS = ['toon', 'chapter', 'shot', 'kind', 'take', 'parents', 'inputs', 'generator', 'model', 'mode', 'status', 'prompt', 'seed',
         'ratio', 'duration', 'ms', 'estimate', 'cost', 'currency', 'file', 'file_hash', 'machine', 'work_path', 'mark', 'approved', 'dataset', 'note', 'error', 'params'];
     /** the fields an update (PUT) takes: the review and where the file is */
-    private const UPDATE_FIELDS = ['mark', 'approved', 'dataset', 'note', 'machine', 'work_path'];
+    private const UPDATE_FIELDS = ['mark', 'approved', 'dataset', 'note', 'machine', 'work_path', 'file', 'file_hash'];
 
     public function __construct(private readonly Database $db, private readonly Clock $clock, private readonly WorkStorage $work)
     {
     }
 
     /** Before migration 2026-10-20-storyboard-generations the endpoints answer 503 */
-    private function requireAvailable(): void
+    public function requireAvailable(): void
     {
         try {
             $this->db->value('SELECT COUNT(*) FROM storyboard_generations WHERE 1 = 0');
@@ -86,7 +85,7 @@ final class Generations
 
     /**
      * Records a generation without a provider job (a local one, an upload) → the stored row. 422 invalid_generation
-     * { field } for a field that doesn't fit; 422 provider_jobs_later for a provider job (#121).
+     * { field } for a field that doesn't fit (also `job` or a queued / running status: provider jobs are GenerationJobs').
      * @param array<string, mixed> $user the signed-in member
      * @param array{id: string, name: string}|null $token the AI connection it came through
      * @param array<mixed> $body
@@ -95,11 +94,11 @@ final class Generations
     public function record(array $user, ?array $token, array $body): array
     {
         $this->requireAvailable();
-        self::onlyFields($body, self::RECORD_FIELDS, ['job' => 'Provider jobs start on the server (#121) – a record has none.']);
+        self::onlyFields($body, self::RECORD_FIELDS, ['job' => 'A record has no job – a provider job starts with { generator, model, prompt, references, params } (GET /storyboard/generators).']);
         [$toon, $chapter] = WorkStorage::check($body['toon'] ?? null, $body['chapter'] ?? null);
         $status = $body['status'] ?? 'succeeded';
         if (in_array($status, ['queued', 'running'], true)) {
-            throw new ApiError(422, 'provider_jobs_later', 'Queued / running generations are provider jobs, started on the server (#121); record a finished one.');
+            self::invalid('status', 'Queued / running generations are provider jobs, started by the server ({ generator, model, … } without a status); record a finished one.');
         }
         if (!in_array($status, ['succeeded', 'failed', 'cancelled'], true)) self::invalid('status', 'status is succeeded, failed or cancelled.');
         $kind = $body['kind'] ?? null;
@@ -134,14 +133,15 @@ final class Generations
 
     /**
      * The review of a generation and where its file is: `mark` (review | rejected | null), `approved`, `dataset`, `note`,
-     * `machine`, `work_path` (a file of the work storage of its chapter – sharing it) → the row
+     * `machine`, `work_path` (a file of the work storage of its chapter – sharing it), `file` + `file_hash` (a provider
+     * job's result saved into a member's workspace folder) → the row
      * @param array<mixed> $body
      * @return array<string, mixed>
      */
     public function update(int $id, array $body): array
     {
         $row = $this->get($id);
-        self::onlyFields($body, self::UPDATE_FIELDS, ['status' => 'The status is the generator\'s (#121).', 'job' => 'The job is the generator\'s (#121).']);
+        self::onlyFields($body, self::UPDATE_FIELDS, ['status' => 'The status is the generator\'s (POST …/{id}/cancel stops a job).', 'job' => 'The job is the generator\'s.']);
         $set = [];
         if (array_key_exists('mark', $body)) {
             $mark = self::mark($body);
@@ -154,6 +154,8 @@ final class Generations
             if (array_key_exists($flag, $body)) $set[$flag] = (int) self::flag($body, $flag);
         }
         if (array_key_exists('note', $body)) $set['note'] = self::text($body, 'note', 1000);
+        if (array_key_exists('file', $body)) $set['file'] = self::text($body, 'file', 191, self::FILE);
+        if (array_key_exists('file_hash', $body)) $set['file_hash'] = self::text($body, 'file_hash', 64, '#^[a-f0-9]{64}$#');
         if (array_key_exists('work_path', $body)) $set['work_path'] = $this->workPath((string) $row['toon'], (int) $row['chapter'], $body);
         if (array_key_exists('machine', $body)) {
             $set['machine'] = self::text($body, 'machine', 64, self::MACHINE);
@@ -186,10 +188,11 @@ final class Generations
         return [
             'id' => (int) $row['id'], 'toon' => $row['toon'], 'chapter' => (int) $row['chapter'], 'shot' => $row['shot'], 'kind' => $row['kind'], 'take' => $row['take'],
             'parents' => $json($row['parents']) ?? [], 'inputs' => $json($row['inputs']), 'generator' => $row['generator'], 'model' => $row['model'], 'mode' => $row['mode'],
-            'job' => $row['job'], 'status' => $row['status'], 'prompt' => $row['prompt'], 'seed' => $row['seed'] === null ? null : (int) $row['seed'], 'ratio' => $row['ratio'],
+            'job' => $row['job'], 'status' => $row['status'], 'progress' => $decimal($row['progress'] ?? null), 'prompt' => $row['prompt'], 'seed' => $row['seed'] === null ? null : (int) $row['seed'], 'ratio' => $row['ratio'],
             'duration' => $decimal($row['duration']), 'ms' => $row['ms'] === null ? null : (int) $row['ms'], 'estimate' => $decimal($row['estimate']),
             'cost' => $decimal($row['cost']), 'currency' => $row['currency'], 'file' => $row['file'], 'file_hash' => $row['file_hash'], 'machine' => $row['machine'],
-            'work_path' => $row['work_path'],
+            'work_path' => $row['work_path'], 'result_url' => $row['result_url'] ?? null,
+            'result' => ($row['result_url'] ?? null) !== null ? '/api/storyboard/generations/' . $row['id'] . '/result' : null,
             'work_url' => $row['work_path'] === null ? null : WorkStorage::url((string) $row['toon'], (int) $row['chapter'], (string) $row['work_path']),
             'mark' => $row['mark'], 'marked_at' => Time::iso($row['marked_at']), 'approved' => (bool) $row['approved'], 'dataset' => (bool) $row['dataset'],
             'note' => $row['note'], 'error' => $row['error'], 'params' => $json($row['params']),
@@ -214,7 +217,7 @@ final class Generations
     {
         foreach (array_keys($body) as $field) {
             if (isset($refused[$field])) {
-                throw new ApiError(422, $field === 'job' ? 'provider_jobs_later' : 'invalid_generation', $refused[$field], ['field' => $field]);
+                throw new ApiError(422, 'invalid_generation', $refused[$field], ['field' => $field]);
             }
             if (!in_array($field, $allowed, true)) self::invalid((string) $field, "Unknown field $field.");
         }

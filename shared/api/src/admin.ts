@@ -360,7 +360,7 @@ export interface AdminContentIndex {
 
 /** A runtime setting (table `settings`), see ITEMS.md "Admin API" → Settings. 0 = no limit for the limits. */
 export interface AdminSetting {
-	key: 'scan_limit_per_hour' | 'lookup_limit_per_hour' | (string & {});
+	key: 'scan_limit_per_hour' | 'lookup_limit_per_hour' | 'newsletter_per_hour' | 'newsletter_batch' | 'generation_budget' | (string & {});
 	value: number;
 	/** the config value used when nothing is stored */
 	default: number;
@@ -378,6 +378,22 @@ export interface AdminSettings {
 	items: AdminSetting[];
 	/** PUT only: the keys that changed */
 	changed?: string[];
+	/** the generation budget's state (server GenerationBudget, #121) – read-only beside the setting `generation_budget` */
+	budget?: GenerationBudgetState;
+}
+
+/** The storyboard generation budget in euro (`GET /storyboard/budget`, `/admin/settings`): budget 0 = none (paid jobs refused) */
+export interface GenerationBudgetState {
+	currency: 'EUR';
+	/** whole euros (the setting `generation_budget`) */
+	budget: number;
+	/** booked costs of every generation */
+	spent: number;
+	/** estimates of the provider jobs still running */
+	reserved: number;
+	left: number;
+	/** the ECB rate the providers' USD were converted at (`fallback` = the fixed rate, the ECB not reached yet) */
+	rate: { eur_per_usd: number; usd_per_eur: number; date: string; source: 'ecb' | 'fallback' };
 }
 
 /** The editions on the landing page (admin page "Startseite", `GET/PUT /admin/featured`): `[{ product, variant? }]` in order */

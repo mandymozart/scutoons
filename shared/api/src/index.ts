@@ -84,6 +84,7 @@ export {
 	type AdminFeatured,
 	type AdminKeys,
 	type AdminSetting,
+	type GenerationBudgetState,
 	type AdminSettings,
 	type AdminUserDetail,
 	type AdminUserReading,

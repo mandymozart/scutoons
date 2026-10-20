@@ -64,7 +64,7 @@ final class SettingsApiTest extends TestCase
         $auth = ['Authorization' => 'Bearer ' . $this->adminToken()];
         $r = $this->request('GET', '/api/admin/settings', $auth);
         self::assertSame(200, $r->getStatusCode());
-        self::assertSame([1000, 120, 200, 20], array_column(self::json($r)['items'], 'value'));
+        self::assertSame([1000, 120, 200, 20, 0], array_column(self::json($r)['items'], 'value'));
 
         $r = $this->request('PUT', '/api/admin/settings', $auth, '{"scan_limit_per_hour":3}');
         $body = self::json($r);

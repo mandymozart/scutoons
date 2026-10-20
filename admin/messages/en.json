@@ -510,6 +510,15 @@
 		"newsletter_per_hour": "Newsletter mails per hour",
 		"newsletter_per_hour_hint": "At most this many mails per hour through the SMTP account while a newsletter sends – every mail of the last hour counts, sign-in codes too. Ask your mail host for its limit. 0 = no limit.",
 		"newsletter_batch": "Newsletter mails per batch",
+		"section_budget": "Generation budget",
+		"generation_budget": "Budget for paid generations (€)",
+		"generation_budget_hint": "Whole euros all paid storyboard generations (Luma, Runway – started by members or their AI) may cost together. Before every job the server checks spent + running + the job's estimate against it and refuses with a message when it doesn't fit; jobs already running finish. Raising it opens the gate at once. 0 = no budget: paid generations are off. Not counted: Claude subscriptions, storage, bunny.net.",
+		"no_budget": "no budget (paid jobs off)",
+		"budget_spent": "Spent",
+		"budget_reserved": "Running (reserved)",
+		"budget_left": "Left",
+		"budget_rate": "Providers bill in USD – converted at the ECB rate of {date}: 1 USD = {rate} €.",
+		"budget_rate_fallback": "Providers bill in USD – converted at the fixed rate of {date} (1 USD = {rate} €) until the ECB is reached.",
 		"newsletter_batch_hint": "How many mails one batch sends – the cron every 5 minutes, or one step of \"Send now\". 20 per 5 minutes reaches 200 an hour. At most 25: a batch stops after 25 seconds, one mail per second."
 	},
 	"emails": {

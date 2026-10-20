@@ -246,4 +246,8 @@ in `test/`) + `storyboard-refs.ts` (the files on the member's machine). Content 
 - Writes (creators): `mark_generation`, `approve_generation` (the record only), `record_generation` (a generation made on
   the member's machine – a row in the ledger, nothing uploaded). Edits of the document: `save_draft` – the storyboard's
   checks run there too (errors refuse the save), and every result links the creator's `/<toon>/chapter/<n>/storyboard`.
-- Paid provider jobs (`start_generation`) come with the server's generators (#121).
+- Paid provider jobs (#121, server/docs/API.md "Storyboard" → "Provider jobs"): `list_generators` (what can run, the
+  prices, the budget in euro), `start_generation` (SPENDS MONEY – the API's budget gate decides; local `file`
+  references are uploaded to the work storage first, the server hands the provider signed links; `estimate_only`),
+  `check_generation` (polls once; a finished result is saved into `SCUTOONS_WORKSPACE/<toon>/<chapter>/<shot>--g<n>.<ext>`
+  and the row gets file + sha256 + machine – `SCUTOONS_MACHINE` or the host name), `cancel_generation` (Runway only).

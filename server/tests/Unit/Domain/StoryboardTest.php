@@ -121,8 +121,8 @@ final class StoryboardTest extends TestCase
         $generations = $this->get(Generations::class);
         $user = $this->user();
         $base = ['toon' => 'catpope', 'chapter' => 3, 'shot' => 'sb-25-1', 'kind' => 'image', 'generator' => 'comfy-local', 'file' => 'a.png', 'machine' => 'pc'];
-        self::fails(fn() => $generations->record($user, null, ['job' => 'luma-123'] + $base), 422, 'provider_jobs_later');
-        self::fails(fn() => $generations->record($user, null, ['status' => 'queued'] + $base), 422, 'provider_jobs_later');
+        self::fails(fn() => $generations->record($user, null, ['job' => 'luma-123'] + $base), 422, 'invalid_generation');
+        self::fails(fn() => $generations->record($user, null, ['status' => 'queued'] + $base), 422, 'invalid_generation');
         self::fails(fn() => $generations->record($user, null, ['toon' => 'Cat Pope'] + $base), 400, 'invalid_toon');
         self::fails(fn() => $generations->record($user, null, ['chapter' => -1] + $base), 400, 'invalid_chapter');
         foreach ([

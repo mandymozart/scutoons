@@ -4,6 +4,18 @@ Versions: `composer.json` `version`; `GET /api/health/` returns `version` + `git
 
 ## Unreleased
 
+- Storyboard provider jobs + the generation budget (#121, docs/API.md "Storyboard"): `Domain\Storyboard\Generators`
+  (`luma-image` – Luma Agents API uni-1 / uni-1-max; `runway` – gen4_turbo / gen4.5 / aleph2; `gemini-image` listed,
+  not startable), `GenerationJobs` (start inside the gate, poll on read, cancel, the result passed through),
+  `GenerationBudget` (runtime setting `generation_budget`, whole euros; `402 no_budget` / `budget_exhausted`),
+  `EuroRates` (ECB, daily, cached), `RefLinks` (signed links to work files for the providers). New:
+  `POST /api/storyboard/generations` with a provider job body, `POST …/estimate`, `POST …/{id}/cancel`,
+  `GET …/{id}/result`, `GET /api/storyboard/generators`, `GET /api/storyboard/budget`, `GET /api/storyboard/ref/…`;
+  `PUT …/{id}` takes `file` + `file_hash`; `budget` in `GET|PUT /api/admin/settings`. `422 provider_jobs_later` is
+  gone (a record with `job` / a queued status: `422 invalid_generation`). Settings `LUMA_API_KEY`, `RUNWAY_API_KEY`,
+  `GEMINI_API_KEY` (+ `_API_URL`), `GENERATION_BUDGET`, `ECB_RATES_URL`, `STORYBOARD_REF_MINUTES`,
+  `GENERATION_POLL_SECONDS`. Migration `2026-10-21-storyboard-provider-jobs` (progress, result_url, polled_at;
+  additive). PHPUnit `StoryboardJobsApiTest` against a stand-in provider.
 - AI connections (#100): `Http\ApiTokenScope` also refuses a token (`403 not_for_ai`) on the batch publish
   `POST /api/entities/publish` and on `PUT /api/assets/replace` (replace in place), and matches the path decoded like
   the router – a `%xx` path (`/api/%61dmin/…`, `/api/entities/<key>/%70ublish`) no longer slips past it. Invites and

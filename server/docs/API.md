@@ -583,11 +583,12 @@ scripts, slice triggers, item taps); `dead` = @scutoons/content `deadThings`' ru
 but never set, script points and group labels nothing jumps to). Cached under the version ids it was built from (the
 library's cache, nothing to invalidate).
 
-## Storyboard (2026-10-20, #120 – migrations `2026-10-20-storyboard-generations`, `2026-10-20-storyboard-import`)
+## Storyboard (2026-10-20, #120 / #121 – migrations `2026-10-20-storyboard-generations`, `2026-10-20-storyboard-import`, `2026-10-21-storyboard-provider-jobs`)
 
 The storyboard studio's data on the server (agents/research/STUDIO-IN-CREATOR.md §2.2). Content editors (creator, admin:
 `401` / `403 forbidden { role: "creator" }`); an AI connection reads and writes all of it (only the admin's emptying is
-refused). Code: `Domain\Storyboard\{Generations, WorkStorage}`, `StoryboardController`.
+refused). Code: `Domain\Storyboard\{Generations, GenerationJobs, GenerationBudget, EuroRates, RefLinks, WorkStorage}`,
+`Domain\Storyboard\Generators\*`, `StoryboardController`.
 
 - **The document** is an entity: `storyboard:<toon>:<n>` (the chapter's number, language-neutral) = `{ storyboard: 2, toon,
   chapter, scenes: [scene] }` (the type: @scutoons/content `storyboard/`, #119; not schema-checked on the server yet).
@@ -598,12 +599,46 @@ refused). Code: `Domain\Storyboard\{Generations, WorkStorage}`, `StoryboardContr
   (`--check`: the committed file still matches the files). Only where the toon exists; a stored storyboard is kept.
 - **Generations** (`storyboard_generations`, one row per still / video – the budget ledger and the review): `generation =
   { id, toon, chapter, shot, kind: image|video, take, parents: [id], inputs, generator, model, mode, job, status:
-  queued|running|succeeded|failed|cancelled, prompt, seed, ratio, duration, ms, estimate, cost, currency, file, file_hash,
-  machine, work_path, work_url, mark: review|rejected|null, marked_at, approved, dataset, note, error, params, created_by,
-  author, via, created_at, updated_at }` – `file` = the name in the member's workspace folder, `machine` = where it is (a
-  member's label, or `work` = the work storage, then `work_path` names it), `via` = the AI connection's name.
-  **Provider jobs come with #121** (registry, budget gate `402 budget_exhausted`, `job` = the provider's task id); until
-  then a record is a finished local / uploaded generation and `job` or a queued / running status is `422 provider_jobs_later`.
+  queued|running|succeeded|failed|cancelled, progress, prompt, seed, ratio, duration, ms, estimate, cost, currency, file,
+  file_hash, machine, work_path, result_url, result, work_url, mark: review|rejected|null, marked_at, approved, dataset,
+  note, error, params, created_by, author, via, created_at, updated_at }` – `file` = the name in the member's workspace
+  folder, `machine` = where it is (a member's label, or `work` = the work storage, then `work_path` names it), `via` = the
+  AI connection's name. A **record** (`POST` with `file` / `machine` / `status`) is a finished local / uploaded
+  generation; `job` or a queued / running status there is `422 invalid_generation`. **Provider jobs** below.
+- **Provider jobs** (#121, research/STUDIO-IN-CREATOR.md §2.5) – PAID, started by the server, no worker. Generators
+  (`GET /storyboard/generators`): `luma-image` (Luma Agents API, uni-1 / uni-1-max, USD per image: 0.0404 / 0.1000 from
+  text, 0.0434 / 0.1030 with one input image, + 0.0030 per more, ≤ 9; a `still` reference = `image_edit`), `runway`
+  (gen4_turbo 5 · gen4.5 12 credits/s image → video 2–10 s; aleph2 28 credits/s, ≥ 56, video → video ≤ 30 s; 1 credit =
+  0.01 USD), `gemini-image` (listed, `unavailable`: its answer is the image inline – nothing to poll, nowhere to keep
+  it). A provider without its key: `configured: false` + `setting` (the key's name – never the key).
+  `POST /storyboard/generations` with `{ toon, chapter, shot, generator: luma-image|runway, model, prompt?, references?:
+  [{ role: still|control|keyframe|reference|character|style, work: <a work-storage file> | url: <public https, a CDN
+  asset> }], params?, aspect? (the shot's – the ratio snaps to the provider's), take?, parents?, note? }` (no `file` /
+  `machine` / `status` – that is a record) → **the budget gate** → the row (`queued`, `estimate` + `currency` reserved) →
+  the provider's start call, exactly once (never retried) → `job` = its task id → `201`. A refused start: `502
+  provider_failed { item }` (the row `failed`, cost 0); no answer: the same, but the estimate is booked (it may have been
+  billed). `GET …/{id}` and the list ask the provider about open jobs (the list: at most 10 per call) at most once per
+  `GENERATION_POLL_SECONDS` (5) – `running` + `progress`; `succeeded` books `cost` (the provider's when it reports it –
+  Runway's credits –, else the estimate: Luma reports none) and stores `result_url` (Luma's expires after 1 h, Runway's
+  after 24–48 h); `failed` books the provider's cost (Luma refunds content_moderated / generation_failed /
+  output_not_found = 0), else the estimate. `GET …/{id}/result` streams the provider's result through the API (browsers
+  the provider's CORS blocks) – nothing is stored; the MCP's `check_generation` saves it into the member's workspace
+  folder and `PUT`s `file` + `file_hash` + `machine`. `POST …/{id}/cancel`: Runway only (Luma `409 not_cancellable`); a
+  queued job costs 0, a running one its estimate. Tokens (AI connections) may start paid jobs (owner 2026-10-20); the row
+  says who (`created_by`, `via`).
+- **The budget gate** (owner 2026-10-09, research/STORYBOARD.md §7 "Budget"): the runtime setting `generation_budget`
+  (whole euros, admin → Settings; default `GENERATION_BUDGET`). Spent = every booked `cost` (records too), reserved =
+  the `estimate` of the open jobs; a job starts only when spent + reserved + its estimate ≤ budget – under a database
+  lock, so two starts can't share the last euros. Else `402 budget_exhausted { spent, reserved, budget, estimate,
+  currency: EUR }` (nothing is started, nothing booked); **no budget (0, the default) = `402 no_budget`: paid jobs are
+  off until the owner sets one.** Raising it opens the gate at once; running jobs always finish. Money stays in the
+  provider's currency in the rows (a row without one counts as USD); the gate and the display convert at the ECB's
+  euro reference rate (`EuroRates`: fetched from `ECB_RATES_URL` at most once a day, cached; the fixed fallback of
+  2026-10-19, 1 EUR = 1.1225 USD, until the ECB answers – `rate.source`).
+- **Signed reference links**: the work storage is private, the providers fetch references by URL – a `work` reference
+  goes to the provider as `<API_URL>/api/storyboard/ref/<toon>/<chapter>/<name>?expires=&sig=` (no session; an HMAC of
+  toon, chapter, name and expiry with a key derived from `AUTH_SECRET`; GET only; `STORYBOARD_REF_MINUTES`, 15). A bad
+  or expired link is a plain 404. The row's `inputs` keep `{ role, work | url }`, never the signed link.
 - **The work storage**: files members share for review, on the API host's disk under `STORYBOARD_WORK_PATH` (default
   `storage/storyboard-work/<toon>/<chapter>/<name>` – outside the web root and `media/`, never the CDN, protected from the
   deploy), served only through the API to content editors (`Cache-Control: private, no-store`). png / jpeg / webp / mp4 / webm,
@@ -613,9 +648,16 @@ refused). Code: `Domain\Storyboard\{Generations, WorkStorage}`, `StoryboardContr
 | Method | Path | Body / query → answer |
 |---|---|---|
 | GET | `/storyboard/generations?toon=&chapter=[&shot=]` | `{ status, items: [generation] }` oldest first (at most 5000) · `400 invalid_toon\|invalid_chapter` |
-| POST | `/storyboard/generations` | `{ toon, chapter, shot, kind, generator, file, machine, file_hash?, work_path?, take?, parents?, inputs?, model?, mode?, status?: succeeded\|failed\|cancelled, prompt?, seed?, ratio?, duration?, ms?, estimate?, cost?, currency?, mark?, approved?, dataset?, note?, error?, params? }` → `201 { status, item }` · `422 invalid_generation { field }` (also an unknown field; `file` + `machine` required when succeeded; `work_path` must exist) · `422 provider_jobs_later` |
-| GET | `/storyboard/generations/{id}` | `{ status, item }` · 404 |
-| PUT | `/storyboard/generations/{id}` | `{ mark?, approved?, dataset?, note?, machine?, work_path? }` → `{ status, item }` (`marked_at` set with the mark) · 422 as above (`status` / `job` are the generator's) |
+| POST | `/storyboard/generations` | a record: `{ toon, chapter, shot, kind, generator, file, machine, file_hash?, work_path?, take?, parents?, inputs?, model?, mode?, status?: succeeded\|failed\|cancelled, prompt?, seed?, ratio?, duration?, ms?, estimate?, cost?, currency?, mark?, approved?, dataset?, note?, error?, params? }` → `201 { status, item }` · `422 invalid_generation { field }` (also an unknown field; `file` + `machine` required when succeeded; `work_path` must exist) |
+| POST | `/storyboard/generations` | a **paid provider job**: `{ toon, chapter, shot, generator, model, prompt?, references?, params?, aspect?, take?, parents?, note? }` → `201 { status, item }` (queued, `job`) · `402 no_budget\|budget_exhausted { spent, reserved, budget, estimate, currency }` · `409 generator_not_configured { generator, setting }` · `422 unknown_generator\|generator_unavailable\|invalid_job { field }\|invalid_generation { field }` · `502 provider_failed { item }` |
+| POST | `/storyboard/generations/estimate` | the job body → `{ status, estimate: { amount, currency, kind, mode, model, ratio, duration, seed, note, generator, budget } }` – nothing started or booked |
+| GET | `/storyboard/generators` | `{ status, generators: [{ id, label, configured, setting, paid, unavailable, kinds, models: [{ id, label, kind, mode, refs, ratios?, durations?, price }] }], budget }` |
+| GET | `/storyboard/budget` | `{ status, budget: { currency: EUR, budget, spent, reserved, left, rate: { eur_per_usd, usd_per_eur, date, source: ecb\|fallback } } }` (also in `GET/PUT /admin/settings`) |
+| POST | `/storyboard/generations/{id}/cancel` | `{ status, item }` · `409 not_open\|not_cancellable` · `502 provider_failed` |
+| GET | `/storyboard/generations/{id}/result` | the provider's result passed through (`Cache-Control: private, no-store`) · `409 no_result` · `410 result_gone` (the provider's link ran out) · `502 provider_failed` |
+| GET | `/storyboard/ref/{toon}/{chapter}/{name}?expires=&sig=` | (no session – the signed link) a work file for a provider, `Range` like the work storage · 404 |
+| GET | `/storyboard/generations/{id}` | `{ status, item }` (an open provider job asked about first) · 404 |
+| PUT | `/storyboard/generations/{id}` | `{ mark?, approved?, dataset?, note?, machine?, work_path?, file?, file_hash? }` → `{ status, item }` (`marked_at` set with the mark) · 422 as above (`status` / `job` are the generator's) |
 | PUT | `/storyboard/work?toon=&chapter=&name=` | raw body → `201 { status, file: { name, type, size, sha256, url, created } }`; the same bytes again `200` (`created: false`) · `409 exists` · `400 invalid_name` · `422 invalid_type\|content_mismatch\|empty_file` · `413 file_too_large` |
 | GET | `/storyboard/work?toon=&chapter=` | `{ status, items: [{ name, type, size, modified_at, url }] }` |
 | GET | `/storyboard/work/{toon}/{chapter}/{name}` | the file; `Range: bytes=…` → `206` (at most 8 MB per answer), `416` past the end · 404 |

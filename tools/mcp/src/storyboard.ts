@@ -3,27 +3,43 @@
 // short (an outline with the JSON paths – read_entity / save_draft do the rest, saves are drafts as always), checked
 // (content's validateChapter + the rhythm), a shot's Luma prompt, and the generations – the records of what was made
 // for which shot (`storyboard_generations`, server/docs/API.md "Storyboard"): listed, marked, approved, and recorded
-// when a member's own tools made one. Paid provider jobs are the server's (#121) and join here as their own tool.
+// when a member's own tools made one. Paid provider jobs (#121) are started by the server inside the generation budget:
+// list_generators, start_generation (spends money), check_generation (polls; saves the result into SCUTOONS_WORKSPACE),
+// cancel_generation.
 // Every result carries the creator's storyboard page, where the member looks and publishes.
+import { createHash } from 'node:crypto';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { hostname } from 'node:os';
+import { resolve } from 'node:path';
 import type { McpServer } from '@modelcontextprotocol/server';
 import * as z from 'zod';
 import { ApiError, createApiClient, createContentApi, type WrappedContent } from '@scutoons/api';
-import { lumaPrompt, storyboardKey, type ChapterStoryboard } from '@scutoons/content/storyboard';
+import { lumaPrompt, nextName, storyboardKey, type ChapterStoryboard } from '@scutoons/content/storyboard';
 import type { Config } from './config.ts';
 import { apiMessage, applyOps } from './server.ts';
 import type { AppLinks } from './services.ts';
 import {
 	approveBody,
+	budgetText,
 	checkStoryboard,
 	compactGeneration,
 	generationTotals,
+	generatorSummary,
+	jobBody,
 	locateShot,
+	machineLabel,
 	markBody,
 	outline,
 	recordBody,
+	refUploadName,
+	resultDir,
+	resultExt,
 	shotIds,
 	storyboardHref,
+	WORK_EXT,
+	type BudgetState,
 	type Generation,
+	type GeneratorInfo,
 	type RecordArgs
 } from './storyboard-model.ts';
 import { shotReferences, studioFolders } from './storyboard-refs.ts';
@@ -32,6 +48,9 @@ type Result = { content: { type: 'text'; text: string }[]; isError?: boolean };
 // compact JSON: a chapter's outline runs to 60+ shots
 const text = (value: unknown): Result => ({ content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value) }] });
 const fail = (message: string): Result => ({ ...text(message), isError: true });
+/** an estimate in euro at the server's rate (the providers bill in USD) */
+const euroOf = (e: { amount?: unknown; currency?: unknown }, b: { rate: { eur_per_usd: number } }): string | undefined =>
+	typeof e.amount === 'number' ? `≈ ${(e.currency === 'EUR' ? e.amount : e.amount * b.rate.eur_per_usd).toFixed(3)} €` : undefined;
 const guard =
 	<A>(fn: (args: A) => Promise<Result>) =>
 	async (args: A): Promise<Result> => {
@@ -158,7 +177,7 @@ export function registerStoryboardTools(server: McpServer, config: Config, optio
 		})
 	);
 
-	// ── generations: the records (provider jobs come with the server's generators, #121) ──
+	// ── generations: the records, the generators ──
 
 	server.registerTool(
 		'list_generations',
@@ -180,6 +199,20 @@ export function registerStoryboardTools(server: McpServer, config: Config, optio
 			const r = await client.get<{ items: Generation[] }>(`/storyboard/generations?${q}`);
 			const items = r.items.filter((g) => (mark === undefined || (g.mark ?? 'none') === mark) && (approved === undefined || g.approved === approved));
 			return text({ toon, chapter, ...(shot ? { shot } : {}), totals: generationTotals(items), items: full ? items : items.map(compactGeneration), open: open(toon, chapter) });
+		})
+	);
+
+	server.registerTool(
+		'list_generators',
+		{
+			description:
+				'The PAID generators the server can start jobs at (Luma uni-1 images, Runway video …): which are startable here (a key on the server), their models with the price per image / per second, and the generation budget in euro (spent, running, left). Reads only – start_generation spends money.',
+			inputSchema: z.object({}),
+			annotations: read
+		},
+		guard(async () => {
+			const r = await client.get<{ generators: GeneratorInfo[]; budget: BudgetState }>('/storyboard/generators');
+			return text(generatorSummary(r.generators, r.budget));
 		})
 	);
 
@@ -252,6 +285,121 @@ export function registerStoryboardTools(server: McpServer, config: Config, optio
 		guard(async (args) => {
 			const { item } = await client.post<{ item: Generation }>('/storyboard/generations', recordBody(args as RecordArgs));
 			return text({ recorded: item.id, item: compactGeneration(item), open: open(item.toon, item.chapter) });
+		})
+	);
+
+	// ── paid provider jobs (#121): started by the server inside the budget, polled here, the result saved locally ──
+
+	/** a local file as a work-storage reference (uploaded once – the name is its content hash) */
+	async function uploadRef(toon: string, chapter: number, shot: string, file: string): Promise<string> {
+		const bytes = await readFile(file);
+		const name = refUploadName(shot, createHash('sha256').update(bytes).digest('hex'), file);
+		const type = WORK_EXT[name.split('.').pop() ?? ''];
+		await client.put(`/storyboard/work?${new URLSearchParams({ toon, chapter: String(chapter), name })}`, new Blob([bytes], { type }));
+		return name;
+	}
+
+	server.registerTool(
+		'start_generation',
+		{
+			description:
+				'SPENDS MONEY: starts a paid generation for one shot at a provider through the server (list_generators: luma-image uni-1 / uni-1-max for stills, runway gen4_turbo / gen4.5 / aleph2 for video). The server checks the generation budget first (402 budget_exhausted / no_budget = refused, nothing spent) and books the estimate; the job then runs at the provider – check_generation polls it and saves the result. The result shows the estimate (provider currency + euro). `estimate_only: true` = only the price, nothing started. References: `file` (a local image / video – uploaded to the chapter\'s work storage first), `work` (a file already there) or `url` (a public CDN link), each with its role (still = the picture edited / the first frame, control = the video restyled, reference / character / style = guides). Prompt: for luma-image the shot\'s Luma prompt (storyboard_prompt) when left out; the shot\'s aspect from the storyboard. Only when the member asked for it.',
+			inputSchema: z.object({
+				toon: toonSchema,
+				chapter: chapterSchema,
+				shot: shotSchema,
+				generator: z.string().describe('luma-image | runway (list_generators)'),
+				model: z.string().describe('e.g. uni-1, uni-1-max, gen4_turbo, gen4.5, aleph2'),
+				prompt: z.string().max(20000).optional(),
+				references: z
+					.array(z.object({ role: z.enum(['still', 'control', 'keyframe', 'reference', 'character', 'style']), file: z.string().optional(), work: z.string().optional(), url: z.string().optional() }))
+					.max(12)
+					.optional(),
+				params: z.record(z.string(), z.unknown()).optional().describe('luma: style auto|manga, output_format png|jpeg, ratio; runway: duration (s), ratio, seed'),
+				take: z.string().max(64).optional(),
+				parents: z.array(z.number().int().min(1)).max(100).optional().describe('ids of the generations it builds on'),
+				note: z.string().max(1000).optional(),
+				estimate_only: z.boolean().optional().describe('only the price – nothing is started or booked')
+			}),
+			annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true }
+		},
+		guard(async ({ toon, chapter, shot, generator, model, prompt, references, params, take, parents, note, estimate_only }) => {
+			const doc = (await load(toon, chapter)).content;
+			const found = locateShot(doc, shot);
+			if (!found) return fail(`no shot ${shot} in ${storyboardKey(toon, chapter)} (shots: ${shotIds(doc).join(', ')})`);
+			const refs: { role: string; work?: string; url?: string }[] = [];
+			for (const r of references ?? []) {
+				if ([r.file, r.work, r.url].filter(Boolean).length !== 1) return fail(`reference (${r.role}): give exactly one of file, work, url`);
+				refs.push(r.file ? { role: r.role, work: await uploadRef(toon, chapter, shot, r.file) } : r.work ? { role: r.role, work: r.work } : { role: r.role, url: r.url });
+			}
+			const usedPrompt = prompt ?? (generator === 'luma-image' ? lumaPrompt(found.scene, found.shot, {}) : undefined);
+			const body = jobBody({ toon, chapter, shot, generator, model, prompt: usedPrompt, aspect: found.shot.aspect, params, take, parents, note }, refs);
+			if (estimate_only) {
+				const { estimate } = await client.post<{ estimate: Record<string, unknown> & { budget: BudgetState } }>('/storyboard/generations/estimate', body);
+				const { budget, ...rest } = estimate;
+				return text({ estimate: rest, euro: euroOf(rest, budget), budget: budgetText(budget), started: false });
+			}
+			const { item } = await client.post<{ item: Generation }>('/storyboard/generations', body);
+			const { budget } = await client.get<{ budget: BudgetState }>('/storyboard/budget');
+			return text({
+				started: item.id,
+				job: item.job,
+				status: item.status,
+				estimate: { amount: item.estimate, currency: item.currency },
+				euro: euroOf({ amount: item.estimate, currency: item.currency }, budget),
+				budget: budgetText(budget),
+				next: `check_generation { id: ${item.id} } in a few seconds (images ≈ 10–60 s, video minutes)`,
+				open: open(toon, chapter)
+			});
+		})
+	);
+
+	server.registerTool(
+		'check_generation',
+		{
+			description:
+				'Asks the server about a provider job once (it asks the provider – at most every few seconds): status, progress, cost. When it succeeded and SCUTOONS_WORKSPACE is set, the result is downloaded through the server into <workspace>/<toon>/<chapter>/<shot>--g<n>.<ext> and the record gets the file, its sha256 and this machine (SCUTOONS_MACHINE or the host name). `download: false` only reports. Costs nothing.',
+			inputSchema: z.object({ id: z.number().int().min(1), download: z.boolean().optional().describe('default true') }),
+			annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true }
+		},
+		guard(async ({ id, download }) => {
+			let { item } = await client.get<{ item: Generation }>(`/storyboard/generations/${id}`);
+			const out: Record<string, unknown> = { id, status: item.status, progress: item.progress ?? undefined, cost: item.cost, currency: item.currency, error: item.error ?? undefined };
+			const workspace = process.env.SCUTOONS_WORKSPACE;
+			if (item.status === 'succeeded' && !item.file && download !== false) {
+				if (!workspace) out.download = 'set SCUTOONS_WORKSPACE (the workspace folder) to save results here – or open the storyboard page';
+				else {
+					const res = await client.fetchRaw(`/storyboard/generations/${id}/result`);
+					const bytes = Buffer.from(await res.arrayBuffer());
+					const dir = resolve(...resultDir(workspace, item.toon, item.chapter));
+					await mkdir(dir, { recursive: true });
+					const listed = await client.get<{ items: Generation[] }>(`/storyboard/generations?${new URLSearchParams({ toon: item.toon, chapter: String(item.chapter), shot: item.shot })}`);
+					const taken = [...(await readdir(dir)), ...listed.items.map((g) => String(g.file ?? ''))];
+					const { file } = nextName(item.shot, taken, resultExt(res.headers.get('content-type'), String(item.result_url ?? '')));
+					const path = resolve(dir, file!);
+					await writeFile(path, bytes, { flag: 'wx' });
+					const hash = createHash('sha256').update(bytes).digest('hex');
+					item = (await client.put<{ item: Generation }>(`/storyboard/generations/${id}`, { file, file_hash: hash, machine: machineLabel(process.env, hostname()) })).item;
+					out.saved = path;
+				}
+			}
+			out.item = compactGeneration(item);
+			out.open = open(item.toon, item.chapter);
+			return text(out);
+		})
+	);
+
+	server.registerTool(
+		'cancel_generation',
+		{
+			description:
+				'Cancels a running provider job (Runway can; Luma can\'t – its images finish in seconds). A queued job costs nothing; one already running is booked at its estimate unless the provider says otherwise.',
+			inputSchema: z.object({ id: z.number().int().min(1) }),
+			annotations: { ...write, idempotentHint: true, openWorldHint: true }
+		},
+		guard(async ({ id }) => {
+			const { item } = await client.post<{ item: Generation }>(`/storyboard/generations/${id}/cancel`, {});
+			return text({ cancelled: id, item: compactGeneration(item), open: open(item.toon, item.chapter) });
 		})
 	);
 }
