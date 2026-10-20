@@ -1,4 +1,4 @@
-Status 2026-10-19: concept – owner to choose (§6 questions; static mockup, nothing built). Issue #62; the generators' side: #61 (research/GENERATORS.md).
+Status 2026-10-20: concept – owner to choose (§6 questions; static mockup, nothing built). Issue #62; the generators' side: #61 (research/GENERATORS.md).
 
 # VARIANTS-CANVAS – every generation of a shot on one board (concept, 2026-10-19)
 
@@ -28,8 +28,7 @@ inputs, prompt, seed and parent. Nothing records lineage today beyond the genera
 
 What "reference" means for the models built (docs.dev.runwayml.com/api.md, read 2026-10-19; prices runway.mjs,
 1 credit = 0.01 USD ≈ 0,0089 € – the studio shows euro, owner 2026-10-20; all other providers: GENERATORS §5):
-- **gen4_turbo / gen4.5** (image → video, 5 / 12 credits/s, 2–10 s): ONE still at position `first` + the prompt – no
-  last frame on these two.
+- **gen4_turbo / gen4.5** (image → video, 5 / 12 credits/s, 2–10 s): ONE still at `first` + the prompt, no last frame.
 - **aleph2** (video → video, 28 credits/s, at least 56): the video (≤ 30 s) + 1–5 keyframes, each at `at` (0–1) or
   `seconds`, optionally a `range`; no references. runway.mjs sends one keyframe at 0 today.
 - Both take a `seed` (0 – 2³² − 1, random when none is sent); the task (`GET /v1/tasks/{id}`) doesn't return it.
@@ -44,22 +43,20 @@ What "reference" means for the models built (docs.dev.runwayml.com/api.md, read 
 - **Generate panel** (22rem): generator, model, inputs (Still / Keyframe: the chosen image, the clean render, the saved
   frame, the generated images; Pass: the handheld render passes), prompt, length, the estimate, Generate (a paid one asks
   with the cost), the session's Jobs (progress, cancel). **"Luma – by hand"** is one entry in its generator list
-  (luma-manual.mjs, GENERATORS' `transport: 'manual'`; uncommitted in this worktree): the prompt to copy, the result
-  dropped onto Variants. Results: `_out/<ch>/generated/<shot>--g<n>.<ext>`.
+  (luma-manual.mjs, GENERATORS' `transport: 'manual'`): the prompt to copy, the result dropped onto Variants.
+  Results: `_out/<ch>/generated/<shot>--g<n>.<ext>`.
 - **Chosen per kind**: approve.mjs copies `chosen<ext>` – a shot has a chosen image AND a chosen video.
-- **Timeline**: the picked shots' clips; the view mode Shot · Take · Rendered · Generated picks ONE clip per shot
-  (Generated = the chosen video, else the newest) and what the main view shows; a click or seek on a clip makes its shot
-  the current one.
+- **Timeline**: the picked shots' clips; the view mode Shot · Take · Rendered · Generated picks ONE clip per shot (Generated
+  = the chosen video, else the newest) and what the main view shows; a click or seek on a clip makes its shot current.
 - **Naming bug**: `POST /api/generated` (api.mjs) and comfy.mjs name by count + 1 – once a `g<n>` was deleted they
   overwrite a file (jobs.mjs `nextName` takes the highest n + 1 – the right way).
 
 ## 3. The concept
 
 ### 3.1 Where it lives: the main view's editor "Variants"
-- The main gets stage 2's editor switch (STUDIO-LAYOUT §4 C: 3D · Frames · Compare) – a square `Segmented` in its tool
-  row, key **V**: **Viewport · Variants**. Viewport = stage 2's "3D" (the 3D view, the take's camera or the clip's video,
-  following the timeline); Frames joins later. The board takes the place of stage 2's Compare editor; Compare becomes a
-  split inside it (3.4).
+- The main gets stage 2's editor switch (STUDIO-LAYOUT §4 C) – a square `Segmented` in its tool row, key **V**:
+  **Viewport · Variants**. Viewport = stage 2's "3D" (the 3D view, the take's camera or the clip's video, following the
+  timeline); Frames joins later. The board takes stage 2's Compare editor's place; Compare becomes a split in it (3.4).
 - **Generate opens Variants** (a step remembers its main view); every other step keeps the Viewport.
 - **The Variants panel leaves the dock** – everything it holds moves onto the board (frame, layout variants, generated,
   drops); its grid icon moves from the top bar's panel group to the main's switch; stage 2's tab column has no Variants
@@ -70,9 +67,8 @@ What "reference" means for the models built (docs.dev.runwayml.com/api.md, read 
   current shot in space. Its sources are the view modes' clips (Shot = the render, Take / Rendered = the take and its
   passes); its generations are what Generated chooses from. **Play** needs a picture: it switches the main to Viewport
   (V goes back to the board).
-- **Audition** (Q3): while the board is open, the current shot's clip in Generated mode is the **current card** (tagged
-  "audition"), so Play shows it between its neighbours; the chosen again when the board closes. Approving stays a
-  deliberate act.
+- **Audition** (Q3): while the board is open, the shot's Generated clip is the **current card** (tagged "audition"; a
+  rejected one: the chosen) – Play shows it between its neighbours; the chosen again when the board closes.
 
 ### 3.2 The layout on the board – rows of results (Q2)
 Laid out by the data – nobody drags or wires (FLORA / Krea / Weave node graphs are the anti-pattern for one shot):
@@ -90,8 +86,8 @@ Laid out by the data – nobody drags or wires (FLORA / Krea / Weave node graphs
   + / − zoom about the pointer, **0** fits all; the zoom % in the tool row; below ~60 % the captions hide. No minimap
   (≤ ~50 cards per shot).
 - **Keys** (board focused): ← → in the row, ↑ ↓ the row above / below (nearest column), Ctrl + click adds to the
-  selection (as in the shot list), **Enter** approve, **I** improve on this, **C** compare, **Esc** closes Compare, then
-  clears the selection.
+  selection (as in the shot list), **Enter** approve, **I** improve on this, **C** compare, **X** reject / unreject
+  (3.5), **Esc** closes Compare, then folds a strip opened for a look, then clears the selection.
 
 ### 3.3 The cards
 - Picture: the image, or a video's poster (its first frame, cut once by ffmpeg, cached by mtime); a video **scrubs under
@@ -99,8 +95,8 @@ Laid out by the data – nobody drags or wires (FLORA / Krea / Weave node graphs
 - Caption: id + model; the full record as its tooltip (generator, model, seed, cost, time, inputs, parent).
 - **Chosen**: a ✓ chip + a 0.5rem cyan left rule (the shot list's approved colour) – one image, one video.
 - **Selected** (2–4, for Compare): the caption inverted with its letter A–D. The **current** card (the last clicked)
-  gets one square icon group under it, drawn above the row below: Approve · Improve on this · Vary · More ▾ (first /
-  last / this frame → still, use as start frame, use as keyframe, show the file, delete with an `askDialog`).
+  gets one square icon group under it, drawn above the row below: Approve · Improve on this · Vary · Reject · More ▾
+  (first / last / this frame → still, use as start frame, use as keyframe, show the file, delete with an `askDialog`).
   Right-click = the same as a menu.
 - **Running**: a placeholder where the result will land – the house progress bar and the estimate. Cancel and failures
   stay in the Generate panel's Jobs list (it also holds the other shots' jobs) – the board shows results only.
@@ -113,18 +109,29 @@ Laid out by the data – nobody drags or wires (FLORA / Krea / Weave node graphs
 - Videos on **one clock** (Frame.io): one Play, one scrubber, the same moment in each; a shorter one holds its last frame.
 - Under each side: model · length · seed · cost, what it came from, the prompt.
 
-### 3.5 Picking
+### 3.5 Picking – and rejecting
 - **Approve** (Enter / ✓): today's `askDialog` (review + dataset); the card gets ✓, the previous chosen of that kind
   loses it and stays on the board. Generated mode plays the chosen video.
 - approve.mjs records `from: "<shot>--g<n>.<ext>"` (GENERATORS §3: the chosen per kind) → clips.mjs stops comparing
   bytes (kept for old approvals).
-- Nothing is hidden: the board keeps every generation; delete only under More ▾ (phase 5 may fold away rejected ones).
+- **Reject folds to make room** (owner 2026-10-20: "wenn rejected the need to fold somehow so we can make space"): the
+  house's fold-to-rail (DOCKING) on the board. Nothing is deleted – files and records stay; delete = More ▾.
+  - **Reject** (X / ✕): the card folds to a **strip** in its place – the picture's height, 1.5rem wide, drawn like the
+    `Rail` (muted frame, ✕ and id muted, the id written upwards); the row closes up, its line stays. What hangs under it
+    is rejected with it (not the chosen); with nothing open under it the branch is ONE strip ("g3 +2": +n = the cards
+    folded in; folded neighbours share a strip too). A row of nothing but strips **lies down** as one line (the bottom
+    region's rail) – height back, not only width.
+  - The strip **stays current** (an ink frame): X again brings back exactly what that X folded (one stamp, 3.7); the
+    arrow keys skip strips. **A look, not a verdict**: a click on a strip opens it with its branch (muted; the group
+    Unreject · More ▾) until the current card leaves it, or Esc; a result wanted back: open, X on it. **Show rejected ·
+    n** (a square toggle in the tool row; hidden at 0, not remembered) opens all – the arrow keys visit them then.
+  - Rejected cards **stay out**: not in Compare (X on side B folds it and empties B), not the audition, no Approve /
+    Improve / Vary. Not rejectable: the chosen (approve another first) and the sources.
 
 ### 3.6 "Improve on this"
 - **I** / ⚡ on a card fills the Generate panel, which then starts with "Improve on g2" and the card's thumbnail (✕ = back
   to the shot's own inputs), the card's prompt (editable; the edit is kept with the result) and the seed **New** (or the
-  card's). Nothing is sent: Generate asks with the cost as today; once sent, the running placeholder appears in the
-  card's child row.
+  card's). Nothing is sent: Generate asks with the cost as today; once sent, a placeholder lands in its child row.
 - The card goes in as the input its kind fits – in today's panel fields; with #61 the Image | Video switch decides what
   comes out and which of these the panel offers (GENERATORS §4, not redesigned here):
   - **image** → the still (gen4_turbo / gen4.5: the first frame) or comfy-local's image 1 (an edit, `--from`);
@@ -141,17 +148,18 @@ Laid out by the data – nobody drags or wires (FLORA / Krea / Weave node graphs
   `{ v: 2, id: "sb-25-2--g6", file, kind: "image" | "video", take: "<take id>" | null, generator, model, mode, job,
   status, parents: ["sb-25-2--g3"], inputs: [{ role: "still" | "control" | "keyframe" | "reference" | "character" |
   "style", key: "out:s1c3/generated/…", frame?: "first" | "last" | <ms>, at? }], prompt, seed, ratio, duration,
-  estimate, cost, date }`. `kind` + `take` as GENERATORS §3 (take = the control video's or the handheld frame's take,
-  null for a pure image → video). `parents` = every input under `generated/` (a frame counts as its video), the main
-  input first.
+  estimate, cost, date, rejected: "<date-time>" | null }`. `kind` + `take` as GENERATORS §3 (take = the control video's
+  or the handheld frame's take, null for a pure image → video). `parents` = every input under `generated/` (a frame
+  counts as its video), the main input first. `rejected` = one X's time on its card + branch; the fold is derived (3.5).
 - **Writers**: jobs.mjs keeps full keys + roles (not basenames); the server **picks a seed** (0 … 2³² − 1) when the model
   takes one and none is given; failed / cancelled jobs write their line too (status, cost); `POST /api/generated` writes
   `{ generator: "upload" }` and takes mp4 too; comfy.mjs takes `--from <generated file>` (image 1) and writes `parents`;
-  both count + 1 writers take the highest n + 1; approve.mjs writes `from`.
+  both count + 1 writers take the highest n + 1; approve.mjs writes `from`; `POST /api/generated/reject { ch, ids,
+  rejected }` appends `{ v: 2, id, rejected }` lines, the last per id wins (append-only – no rewrite racing comfy.mjs).
 - **Manual** ("Luma – by hand", `transport: 'manual'`): its result dropped on the manual form's slot in Generate is
   recorded as that generator's candidate – with the form's prompt, inputs and parent; a drop on the board is a source.
 - `GET /api/generated?ch&id` returns records – `[{ file, id, kind, take, parents, generator, model, prompt, seed, cost,
-  date, duration, approved }]`: enough to lay out the board and draw its lines.
+  date, duration, approved, rejected }]`: enough to lay out the board, fold it and draw its lines.
 - **Video → still**: `inputs()` offers the shot's generated videos as Aleph's video and `frame:<key>#first|last|<ms>`
   stills; `fileOf` cuts the frame with ffmpeg (api.mjs has it) into `_out/<ch>/generated/frames/`, cached by mtime. The
   board's posters the same way.
@@ -163,20 +171,21 @@ Laid out by the data – nobody drags or wires (FLORA / Krea / Weave node graphs
 ## 4. Phases – smallest useful first
 
 1. **Record the lineage now** (~1 day, = GENERATORS §6 step 2): invisible, but every generation from then on carries its
-   history – old runs can't get it back. v2 lines (+ `kind`, `take`), seeds, failed jobs, uploads, `from` on approve,
-   the naming fix, the conversion script, GET returns records; node tests (jobs, api, clips).
-2. **The board** (~2.5–3 days) – "a huge open canvas … pick the one we like": Viewport · Variants in the main, Generate
-   opens it, the Variants panel retires; sources, rows of results + lines (the layout a pure module with node tests),
-   posters + hover scrub, pan / zoom / fit, select + keys, approve, running placeholders, drops, layout variants as
-   source cards. Board, card and lines as separate components (≤ 300 lines each), the maths in `lib/`.
+   history – old runs can't get it back. v2 lines (+ `kind`, `take`, `rejected`), seeds, failed jobs, uploads, `from` on
+   approve, the naming fix, the conversion script, GET returns records; node tests (jobs, api, clips).
+2. **The board** (~3–3.5 days) – "a huge open canvas … pick the one we like": Viewport · Variants in the main, Generate
+   opens it, the Variants panel retires; sources, rows of results + lines (the layout a pure module with node tests –
+   strips, the branch strip and the lying row included), posters + hover scrub, pan / zoom / fit, select + keys,
+   approve, reject + fold + Show rejected, running placeholders, drops, layout variants as source cards. Board, card,
+   strip and lines as separate components (≤ 300 lines each), the maths in `lib/`.
 3. **Improve on this** (~1.5 days): the pre-fill, Vary, use as start frame / keyframe, generated videos as Aleph's
    video, frame → still, comfy `--from`, the manual result slot.
 4. **Compare** (~1–1.5 days): the split, A pinned, one clock; the audition on the timeline (Q3).
-5. **Later, when wanted**: a wipe between two and the prompt's differences marked; folding away rejected cards; one band
-   per picked shot (Q4); a minimap past ~50 cards.
+5. **Later, when wanted**: a wipe between two and the prompt's differences marked; "clean up rejected" (their files);
+   one band per picked shot (Q4); a minimap past ~50 cards.
 
-Effort 1–4: ~6–7 agent days with checks (`npm run check`, `check:tools-css`, the studio's node tests, the Generate step in
-the browser at 1440 and 1920). Not counted (GENERATORS rollout, #61): caps and the switch, Aleph keyframes ≤ 5,
+Effort 1–4: ~6.5–7.5 agent days with checks (`npm run check`, `check:tools-css`, the studio's node tests, the Generate
+step in the browser at 1440 and 1920). Not counted (GENERATORS rollout, #61): caps and the switch, Aleph keyframes ≤ 5,
 gen4_image, the Luma API, the budget.
 
 ## 5. Risks
@@ -188,6 +197,7 @@ gen4_image, the Luma API, the budget.
 - **Improving a video costs**: Aleph 2 ≈ 1,25 € per 5 s against ≈ 0,22 € for gen4_turbo from a frame (ECB 2026-10-19). The estimate + the
   confirm stay per job; the budget gate is GENERATORS §6 step 3 – it comes before anything sends several jobs at once.
 - **Files moved by hand** leave records without files (a "missing" card) and files without records ("no record" row).
+- **A wrong X folds a branch**: X again undoes exactly that (one stamp); the board keeps the strip under the pointer.
 - **Aleph 2 takes ≤ 30 s**: a handheld render or a gen-4 result fits; a longer take is trimmed first.
 - **Stage 2 overlap**: the main's switch is stage 2 – the board can come first with Viewport · Variants; Frames and the
   inspector's tab column follow.
@@ -206,3 +216,5 @@ gen4_image, the Luma API, the budget.
    shots)? → Recommended: the current shot now; bands in phase 5.
 5. **Layout variants** ("Keep as variant") as source cards on the board – one place for everything a shot tried – or into
    the Shot panel (Layout step)? → Recommended: source cards on the board.
+6. **Rejecting a card with results** – they fold with it ("g3 +2"; the chosen excepted, X again brings them back), or
+   only the card (its results hang from its strip)? → Recommended: with it – a dead direction goes in one key.
