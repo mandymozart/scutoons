@@ -1,4 +1,4 @@
-Status 2026-10-20: plan, nothing built. Q8's art answered (one tall picture per scene, §8); waiting for the owner's agreement and the other answers (§12, issue #77); then the milestone "Webtoon.com Publishing" (due = the launch, §12 Q2) and its issues. Not on chapter 3's critical path (#64): before 2026-11-15 only two small steps (§10).
+Status 2026-10-20: plan, nothing built. Vertical versions redesigned with the owner (§8: a second layout of a horizontal group with its own slice list, every text box, item and event mapped onto both, readers by a condition, the export asks for a missing one); the standard slice is 390 × 624 since #78 (= one WEBTOON image); waiting for the owner's agreement and the other answers (§12, issue #77); then the milestone "Webtoon.com Publishing" (due = the launch, §12 Q2) and its issues. Not on chapter 3's critical path (#64): before 2026-11-15 only two small steps (§10); the vertical versions come after #44's strip editor.
 
 # WEBTOON — SCUTOONS chapters as WEBTOON CANVAS episodes
 
@@ -12,15 +12,16 @@ Also how are different languages handled there?"
 viewer, driven by a zero-dependency local Node tool through the installed Chrome). The tool cuts the column into
 800-px-wide JPEGs between text boxes, groups them into episodes of about 40k px and writes one upload kit per language.
 A person uploads the kit in WEBTOON's web dashboard (there is no API, and bots are forbidden), one series per language,
-English first. Horizontal groups get an optional, export-only vertical version: one tall picture of the same scene
-(1:4 … 1:7) on which the frames' own text boxes and items are placed. It is asked for in Wanted images and placed in
-the chapter editor.
+English first. Horizontal groups can have a vertical version, and the export needs it: a second layout with its own
+slices (one tall picture of the same scene, 1:4 … 1:7) onto which the frames' own text boxes, items and events are
+mapped, never copied. The export stops at a group without one and asks the creator to add it; readers get it when its
+condition holds. The art is asked for in Wanted images; the creator flips a group between its two layouts.
 
 ## 1. Resolutions: what WEBTOON takes and what we export
 | | WEBTOON CANVAS | Our export |
 |---|---|---|
 | Image width | ≤ 800 px; the desktop viewer shows every image at 800 CSS px (narrower ones are upscaled) | exactly 800 **[test]** |
-| Image height | ≤ 1280 px; longer images are auto-sliced at fixed heights (through bubbles too) | 320–1280, cut by us between boxes (§4) |
+| Image height | ≤ 1280 px; longer images are auto-sliced at fixed heights (through bubbles too) | a standard slice = exactly 1280 (#78); else 320–1280, cut by us between boxes (§4) |
 | Format | JPG / JPEG / PNG; PNG is served as an 8-bit palette (bands); re-encoded without metadata | baseline sRGB JPEG |
 | Per image | ≤ 2 MB | ≤ 1,900,000 B (safe whether "MB" is 10⁶ or 2²⁰) |
 | Per upload | ≤ 20 MB and ≤ 100 images in total; the sources don't say "per episode" **[test]** | ≤ 19,000,000 B; about 32 images (≈ 40k px, §5) |
@@ -41,9 +42,10 @@ viewers. No current Help Center article states the image limits and the dashboar
 **Why these targets:**
 - **Exactly 800 wide, cut by us.** WEBTOON rescales anything else, and its auto-slicer cuts at fixed heights, through
   speech bubbles. That also hurts the AI translation, which re-letters the bubbles it finds (§7).
-- **One slice is not one image.** A standard slice is 390 × 625 (`DEFAULT_SLICE`, content.ts:194). At 800 wide that is
-  1282.05 px, 2 px over the limit, and boxes cross slice edges (TEXT-ACROSS-SLICES.md §1). So the export renders one
-  continuous column and cuts it.
+- **One standard slice is one image.** Since #78 the standard slice is 390 × 624 (`DEFAULT_SLICE`; it was 390 × 625,
+  1282 px at 800, 2 px over the limit): its 3x 1170 × 1872 is exactly 800 × 1280. Still the export renders one continuous
+  column and cuts it: boxes cross slice edges (TEXT-ACROSS-SLICES.md §1), and key visuals, group ends and the vertical
+  pictures (1:4 … 1:7) have other heights. Where no box crosses a seam, the pieces are the slices.
 - **Rendered at 400 CSS px × DPR 2**, not 390 × 2.05 and not 1600 then downscaled. 400 × 2 is the only integer mapping:
   2 px borders and the 2.5 px outline (dialog.svelte) stay crisp, and cut lines fall on whole device pixels. Text sizes
   are `cqw` of the slice (dialog.svelte:306), so lettering keeps its proportions. The root font stays 14 px as on a phone
@@ -68,7 +70,7 @@ yet, every reveal in its end state, nothing that needs a tap. One rule set, no p
 | Audio, lyrics notes' animation, FX | dropped (CANVAS has no music, GIF or animation); lyrics boxes are text and stay | ch1 11 slices, ch2 26 |
 | Sensitive slices | shown clear (WEBTOON bans blur, box and mosaic censoring); listed for the rating | none |
 | `{…}` expressions, choices, jumps inside a chapter | refused (an error): a static episode has one reader and one path | none in catpope; toptoy ch1 is out of scope |
-| Horizontal groups | their vertical version (§8); without one, the frames stacked + a warning | 8 groups, 68 frames, 17 boxes, 6 items |
+| Horizontal groups | always their vertical version (§8); a group without one stops the chapter's export and is named with a link to add it (§9) – never the frames stacked | 8 groups, 68 frames, 17 boxes, 6 items |
 | Translation gaps | a box without the language's text falls back as in the reader; validate's warnings for that language show in the preflight | ch1: 6 one-language boxes |
 
 **ch1's one-language boxes** (v731): `s1c1-4-1`, a German-only heading under `s1c1-5-1` (the same heading in both
@@ -108,8 +110,8 @@ What export mode switches, mostly for free, because the shared `Slice` without t
 - a video slice is passed without `video`, so its image (the poster) is drawn at the slice's size;
 - no header, VN, next bar, fx layer, reader effects, audio or tracking (not mounted); animations off
   (`prefers-reduced-motion` emulated + `animation: none`; the check asserts `document.getAnimations()` is empty);
-- a horizontal group: its vertical version through `verticalSlice` (§8), else its frames stacked. Box rects are % of
-  each frame and sizes are `cqw`, so stacked frames compose exactly as in the strip.
+- a horizontal group: its vertical version through `verticalSlices` (§8), whatever its `if`; a group without one never
+  reaches the page (the preflight stops the chapter, §9).
 
 **Ready and report:** `load()` resolves when the hyphenation probe passes (§4), every font face in use is loaded with
 the real text (`document.fonts.load`; the faces are split by unicode-range), every image is complete with a natural
@@ -151,7 +153,8 @@ not carry it later.
    outside every overlay; pieces are 160–640 CSS (320–1280 px). Dynamic programming picks the fewest pieces, then the
    cheapest lines (a slice seam costs 0, a line through art costs more the closer it is to a box). A cut through art is
    invisible on WEBTOON, which shows images edge to edge; a cut through a box never happens: an overlay cluster taller
-   than a piece is an error naming the boxes. No pixel gutter detection.
+   than a piece is an error naming the boxes. No pixel gutter detection. A standard slice is exactly one 640-CSS piece
+   (#78), so wherever no box crosses a seam the pieces are the slices.
 6. **Capture** each piece per asked language: scroll to its top, read `scrollY` (clamped at the document's end) and
    assert the piece lies inside the viewport (a clip outside it returns plain white, no error), two frames, decode the
    piece's images, then `Page.captureScreenshot { format: 'jpeg', quality, clip }`. The clip is in page coordinates
@@ -168,18 +171,20 @@ The CLI: `npm run webtoon -- catpope 1-2 --lang en,de [--draft] [--viewer URL] [
 the checkout by default.
 
 ## 5. Episodes
-A chapter does not fit one episode (ch1 ≈ 122k px at 800 wide, ch2 ≈ 112k + its vertical versions, ch3 ≈ 122k + 2).
+A chapter does not fit one episode (at 800 wide: ch1 ≈ 122k px, ch2 ≈ 112k + 4 vertical pictures of 3.2–5.6k ≈ 125–134k,
+ch3 ≈ 122k + 2 ≈ 128–133k, ch4 ≈ 83k + 1, ch5 ≈ 54k + 1).
 CANVAS episodes run about 3–41k px; Originals 75–91k.
 
-- **Size:** about 40k px per episode (≈ 32 images, 10–16 MB), so n = round(H / 40k), plus one when a budget forces it.
-  Season 1 becomes about 15 episodes (ch1 3, ch2 3–4, ch3 3–4, ch4 2–3, ch5 2).
+- **Size:** about 40k px per episode, at most 45k (≈ 32 images, 10–16 MB), so n = ceil(H / 45k), plus one when a
+  budget forces it. Season 1 becomes about 13 episodes (ch1 3, ch2 3, ch3 3, ch4 2, ch5 2).
 - **Breaks** fall on slice seams that no box crosses in any of the chapter's languages, so de and en get the same
   parts. Within ±30 % of the even split the tool prefers a group start, then the seam above a screenplay heading ("8 INT.
   KITCHEN"; the headings stay, owner via #68), then the nearest free seam. ch1 that way: s0–30 · s31–62 · s63–94 (s31
   opens "8 INT. KITCHEN"), 40.2k · 41.0k · 41.0k px.
 - **Stable:** the breaks are stored in the kit's `plan.json` as slice image names, written after all languages are
   measured; the next run reuses them, so a published episode never shifts when a box moves. Editing `plan.json` moves a
-  break. Nothing goes into the DB.
+  break. A break never falls inside a horizontal group; a stored break whose slice is gone (a converted or replaced
+  picture) is planned again with a warning. Nothing goes into the DB.
 - **Corrections:** scutoons.com keeps fixing published text (#68). `plan.json` keeps each image's sha256; the upload
   sheet marks the episodes whose images changed since the last kit, and only those are re-uploaded through Edit **[test]**.
 - **Titles:** the chapter title plus the part: "Denial (1)" / "Leugnen (1)"; an unsplit chapter keeps its title.
@@ -286,85 +291,185 @@ documented.
 - **AI translation:** for es, fr, id, th and zh-hant only, never de (we run our own). Our tightly fitted boxes may
   overflow; we accept that rather than re-letter. Never copy those translations back to scutoons.com.
 
-## 8. Vertical versions of horizontal groups
-| Chapter | Group | Layout | Frames (1x) | Boxes | Items |
-|---|---|---|---|---|---|
-| 2 | scene-12 · 13 · 14 · 15 | pinned strip | 7 · 12 · 12 · 13 × 390 × 693 (2x at most) | 0 · 1 · 2 · 2 | 2 · 3 · 1 · 0 |
-| 3 | scene-28-duel · scene-32-hall | endless | 6 × 390 × 844 each (3x) | 1 · 3 | – |
-| 4 | scene-36-cat | endless | 6 × 390 × 844 | 2 | – |
-| 5 | scene-38-garden | endless | 6 × 390 × 844 | 6 (a list read in order) | – |
+## 8. Vertical versions: a second layout of a horizontal group
+Owner 2026-10-20, after (1) at the top of this doc: (2) "one vertical image of the same scene, it is also longer
+between 1:4 to 1:7" · (3) "creator, it can become a slice list as well. we only have to map the items and events
+accordingly ... it is basically like a flip vertical to horizontal for a group. we can use this as a feature also.
+depending on some conditions the group can show the vertical or the horizontal version" · (4) "for the export of
+horizontal only scenes, we will need to ask the creator to add the vertical." · (5) "any text box, item, event def gets
+onto both."
 
-**The art** (owner 2026-10-20: "one vertical image of the same scene, it is also longer between 1:4 to 1:7"): one tall
-picture per horizontal group, the whole scene recomposed top to bottom, without text and without the pickups. At the
-390 basis that is 390 × 1560–2730 (1x); delivered 1170 wide (3x: 4680–8190 px tall, within WebP's 16,383). At 800 wide
-it is 3200–5600 px, which the cut (§4) splits into 3–5 WEBTOON images like any other part of the column.
+| Chapter | Group | Layout | Frames (1x) | Boxes | Items | Events, sound (frame) |
+|---|---|---|---|---|---|---|
+| 2 | scene-12 | pinned strip | 7 × 390 × 693 | 0 | 2 pickups | unlock (0), music (0) |
+| 2 | scene-13 | pinned strip | 12 × 390 × 693 | 1 | 2 pickups, 1 tap item | unlock (0) |
+| 2 | scene-14 | pinned strip | 12 × 390 × 693 | 2 | 1 pickup | unlock (0), 2 reveals (4, 7) |
+| 2 | scene-15 | pinned strip | 13 × 390 × 693 | 2 | – | unlock (0) |
+| 3 | scene-28-duel · scene-32-hall | endless | 6 × 390 × 844 each | 1 · 3 | – | – |
+| 4 | scene-36-cat | endless | 6 × 390 × 844 | 2 | – | – |
+| 5 | scene-38-garden | endless | 6 × 390 × 844 | 6 (a list read in order) | – | – |
 
-**The model:** an optional `Group.vertical`, next to `continues` / `end` (content.ts:469-490): one picture, and
-placements that put the frames' own boxes and items on it. Nothing is copied.
+Frames = a horizontal group's own slices (ch2's 2x at most, the others 3x). Unlock = `unlockLocation` (map "open"),
+reveal = `showTextBox`, both whole-frame intersect events. Every box, item and event of chapters 1–4 has an id; none of
+the 8 groups has a free tail, a sample, a piece, a sensitive frame or a `layer` value (checked 2026-10-20). Code lines
+in this section: main after #44 steps 1–3 (098e5c98).
+
+**The art** (owner (2)): one tall picture per group, the whole scene recomposed top to bottom, without text and without
+the placed items (they go on top); 390 × 1560–2730 at 1x, delivered 1170 wide (4680–8190 px, within WebP's 16,383); at 800 wide 3200–5600 px
+= 3–5 WEBTOON images after the cut (§4). In the creator it is a slice list (owner (3)): one slice (the picture whole,
+the default) or its tiles once #44 step 4 cuts tall pictures (TEXT-ACROSS-SLICES.md §5); at 390 × 1872 (1:4.8) or 390 × 2496
+(1:6.4) the picture is exactly 3 or 4 standard slices (#78), i.e. 3 or 4 WEBTOON images.
+
+**The model:** `Group.vertical`, next to `continues` / `end` (content.ts:475-495). It holds pictures and positions only;
+every text box, item and event stays defined once, on its frame, and is mapped onto the vertical layout.
 ```ts
-vertical?: VerticalVersion;  // Group: export only – readers never draw it
-// VerticalVersion (@additionalProperties false): image, width, height, imageVariants?, place?: VerticalPlace[]
-// VerticalPlace: { of: string; x: number; y: number }  // a frame box (Dialog.id) or placed item (SliceItem.id)
-                                                       // of this group; its anchor point in % of the picture
+vertical?: VerticalVersion; // Group, horizontal / endless only: the second layout; the WEBTOON export always draws it
+// VerticalVersion (@additionalProperties false): { slices: VerticalSlice[]; if?: VNEventCondition }
+//   if (comes with the reader step): readers get this layout when it holds; none = export only
+// VerticalSlice (closed): image, width, height, imageVariants?, shot?, place?: VerticalPlace[]
+// VerticalPlace (closed): { of: string; x: number; y: number }
+//   of = a text box id, a placement id or any event id of an area run of this group's frames, placed at most once;
+//   x / y = its anchor point in % of this vertical slice
 ```
-- **One picture, not a list,** because that is what the art is (keep the configuration small). If a scene ever needs
-  two, the field becomes a list with a migration over a handful of groups.
-- **`verticalSlice(group)`** in `@scutoons/content` (pure, tested; the export column and the creator canvas use it)
-  turns a resolved group into the one slice to draw: the picture plus every frame box and item, each keeping its text,
-  look, width, rotation and anchor; its height is rescaled to keep its px (the picture is taller than a frame); a free
-  tail's tip moves with its box. Width % and `cqw` sizes carry over unchanged, because frames and picture share the 390
-  basis. Its position is its placement, else the **automatic spot**: frame i of n at y % → y = (i + y / 100) / n of the
-  picture, x as in its frame – the strip read left to right becomes the picture read top to bottom. So nothing is
-  dropped and a box added to a frame later shows up by itself; the author only moves what sits wrong.
-- **Why placements, not copies:** each text exists once in every language, so a translation or a #68-style fix
-  reaches both versions with no linking field and no change to translation checks, resolution (TS `{ ...group }`,
-  neutral.ts:265; PHP `clone`, NeutralDoc.php:170-177) or `TextCheck.php`. No item is placed twice, so placement counts
-  (ItemPlacements.php), pickup refs and event ids stay as they are, and "bake everything" holds for ch2's six strip
-  items. Not a second group (the reader would show it; reach, chains, the next bar and `Checkpoint.group` indexes would
-  need a hide flag), not `renderer.params` (closed, `@additionalProperties false`, content.ts:439; validate.ts:931).
-  Frame pieces are art: a vertical picture includes them (catpope has none).
-- **Where the field flows:** the types (content.ts; `GroupDoc` inherits it, neutral.ts:115); the generated schemas
-  and the server copy (`npm run schema -w @scutoons/content`; a test that `vertical` stays optional); `checkVertical`
-  next to `checkRendererParams` (validate.ts:902: horizontal groups only, the picture with its width / height like a
-  slice image, each `of` names one box or item of the group's frames and is placed once, a stale `of` warns); `ChapterFiles` walks with
-  `['vertical']` skipped (the call at ChapterFiles.php:70; offline downloads don't fetch export-only images); the
-  library's chapter answer drops it (Library.php:344 ff.); the MCP rules text (the MCP validates with the bundled
-  validator anyway). AssetUsages walks the whole document, so the pictures count as used. No migration: a new optional
-  field reshapes no stored data.
-- **Readers keep the strip and the band.** A reader option ("reduced motion → vertical") would change what progress
-  positions mean and where the frames' unlock events and reveals fire. It can come later without a migration.
+- **The automatic spot, else a placement.** Frame i of n owns the share i/n … (i+1)/n of the whole vertical version's
+  height (its slices stacked): the strip read left to right becomes the picture read top to bottom. An unplaced element
+  sits in its share: an anchor at y % of frame i lands at (i + y / 100) / n of the height; x, width, `cqw` size,
+  rotation and anchor as on the frame (both share the 390 basis); its height kept in px, a free tail's tip at its
+  distance. The author moves only what sits wrong: the move writes a placement into the vertical slice that holds it,
+  so reordering or splitting the vertical slices carries it along. Inserting or removing a frame changes n: every share
+  and unplaced spot moves, placed ones stay (the creator's hairlines show it).
+- **"Gets onto both" = one definition.** Added to a frame, an element shows up on the vertical layout at its automatic
+  spot. Added on the vertical layout, it goes into the frame whose share is under it, at the matching frame spot, and a
+  placement pins it where it was dropped. Text, look, size, settings and events are edited once for both; deleting
+  deletes both, with the placement. So each text keeps one locale map, and `event:<id>` history, `resolved(id)`,
+  once-events, reveals, pickups, placement counts (ItemPlacements.php:38-41 walks the frames) and reach stay single.
+  Copies would double grants and fire once-events twice.
+- **Derived, never stored:** a vertical slice is sensitive when a frame whose share it covers is; its layer stack is its
+  frames' stacks in frame order, a later frame in front – the order of #44's group-wide Layers list.
 
-**Asking for them:** Wanted images' stored media requests already do it: `view: 'media'`, `toon`, `path`, `size`,
-`note` (characters.ts:392-417), listed under Toon media with copy as text / CSV (wanted-images.svelte:56-57), closed by
-themselves once a file exists at `path` (characters-editor.svelte:113-127). One request per horizontal group (the 8,
-written as one draft through the MCP): path = its picture's 1x name in the chapter's folder
-(`s1c2-scene-12-vertical.webp`; `.2x` / `.3x` beside it), size "1170 wide, 1:4 … 1:7, one image", note = the brief
-("the whole scene recomposed top to bottom, without text and without the pickups – they are placed on top; leave room
-between panels, ≥ 200 px at 800"). A later horizontal group: its empty "Vertical version" slot and the export preflight
-name it.
+**Mapping per kind:** `verticalSlices(group)` in `@scutoons/content` (pure, tested) returns one mapped `Slice` per
+vertical slice plus the frames' shares; the reader, the export column and the creator canvas draw what it returns.
 
-**Creator UI** (a design draft on the real page first, phone + desktop):
+| Defined on the frame | On the vertical layout | `of` | Keyed by (the same on both) |
+|---|---|---|---|
+| Text box | its spot; hidden until its reveal | box id | reveal `<group>\|<id>`, across the group (visual-novel.svelte.ts:38, 306) |
+| Placed item (pickup / events / none) | its spot | placement id | `picked:<placement id>` (slice-items.ts:31-32); taps `event:<id>` |
+| Area run (click / hover, intersect with a rect) | its spot, size kept; every event of the run with the same rect and stack place | any event id of the run | `event:<id>`; the run `on/<first id>` (intersect.svelte:36) |
+| Whole-frame event (no rect) | the frame's share as its rect (on the vertical slice holding its middle) | – | the same |
+| Sound in view, music | on the frame's share, with the frame's index | – | – |
+| Sound area (a click / hover sample – audio, not an event) | not mapped yet (no id; none in the 8 groups): a validator warning | – | – |
+| Group script, label, continues, end | nothing to place; a deferred script starts at the first share | – | `event:<id>` |
+| Collage pieces, video | part of the picture | – | – |
+
+- **Why shares.** Whole-slice triggers watch their slice at 0.5 (intersect.svelte:53-64, music.ts:73, samples.ts:66):
+  a 390 × 2730 slice never shows half of itself on an 844-px phone, so ch2's 4 unlocks and 2 reveals would never fire;
+  and events with the same trigger run as one (triggers.svelte:19-27), so scene-14's frames 0, 4 and 7 would fire
+  together – while a run given two rects splits (triggers.svelte:15-17). `of` matches any id of its run.
+
+**The reader** (owner (3): "we can use this as a feature also"):
+- **Which layout, decided once.** `group.svelte:46-56` picks the renderer: a horizontal group whose `vertical.if` holds
+  gets a new `vertical-version.svelte` (≤ 300 lines) over `verticalSlices(group)`; every other group renders as today.
+  `if` is the events' "Only if" (`VNEventCondition`, visual-novel.ts:177; `testCondition`, vn-script.ts:19, with the
+  reader's resolver, runner.ts:44) over the names events and texts read today – a device name only if the owner wants
+  one (§12 Q8). A page's groups are decided together, once per page view, before they mount (inside the `{#key}`,
+  +page.svelte:351): at once when none has an `if`, else after `readerKnown()` (reader-name.svelte.ts:101) and a
+  member's save-game sync (world.svelte.ts:175-188; `sync()` then hands out its promise), at most 3 s (`arriveAt`
+  waits up to 10 s anyway, +page.svelte:92). So no group changes height after the arrival aligned the page (:111-128);
+  a choice on the page or a turned phone counts from the next page view; a flip between page views fires and grants
+  nothing twice. The VN script is the renderer's sibling (group.svelte:42-44): the layout never restarts it.
+- **Frame units.** One share per frame lies over the column (no pointer events) and carries the frame's page index
+  (`data-slice-index` = `sliceOffset` + i) and its sound (`sliceAudio` with the frame's index and the frames, so music's
+  walk back, music.ts:19, holds). The vertical slices carry neither: the viewer's slice.svelte gets one prop that leaves
+  out `data-slice-index` (:266) and `sliceAudio` (:288-293). So reading progress (track-reading.ts:88-99), checkpoints
+  (`position`, `{group, slice}`: content.ts:459-471, +page.svelte:229-249), resume and `?label=` arrivals, chain offsets
+  (chains.ts:71-82), the follow-up bar (next-bar.svelte:129) and a deferred script start
+  (interactions/visual-novel.svelte:113) keep their meaning, and a checkpoint from one layout resumes at the same frame
+  in the other. `sliceInView` (visual-novel.svelte.ts:245-258, screen effects) also finds a vertical slice.
+- **Payload.** The library's chapter answer (Library.php:376) keeps `vertical` when it has an `if`, else drops it.
+  Offline downloads walk that answer (ChapterFiles.php:54-56, :134-155): a layout readers can get is saved with the
+  frames (the condition may change offline); an export-only one costs them nothing.
+
+**The WEBTOON export** always draws the vertical version, whatever its `if`: the column (§3) passes `verticalSlices`
+to the shared `Slice` without callbacks – boxes in their end state, items at rest, no areas. A horizontal group without
+one is an **error** that stops its chapter (§9), never frames stacked: "Chapter 2 · scene-14 (12 frames) has no
+vertical version – add it in the creator: …/catpope/chapter/2?group=scene-14&version=vertical".
+
+**Asking for them** (owner (1), (4)):
+- **The artist:** Wanted images' stored media requests (`view: 'media'`, `toon`, `path`, `size`, `note`;
+  characters.ts:391-417), closed by themselves once a file is at `path` (characters-editor.svelte:113-127). `path` is
+  from the CDN root (characters.ts:399; `imageExists` → `asset`, creator characters.ts:235, cdn.ts:5-6), so it starts
+  with the toon: `catpope/s1/c2/s1c2-scene-12-v1.webp`, the name the empty vertical list gives its first slice (below),
+  so "Add slice" picks a delivered file up. One request per group the owner names as missing, written as one MCP draft;
+  size "1170 wide, 1:4 … 1:7, one image"; note "the whole scene recomposed top to bottom, without text and without the
+  placed items (they go on top: scene-13's swim pants is a tap item, not a pickup); room between panels and for the
+  boxes, ≥ 300 px at 1170 (≈ 200 at 800)".
+- **The creator:** the export's error links to the group's empty vertical list.
+
+**Creator** (on #44's strip editor; a design draft on the real page first, phone + desktop):
 ```
-ChapterTree                      GroupPanel (horizontal groups only)
-⋮ scene-12  7                    Name [scene-12]  Layout [Horizontal ▾]  Continues ☑  [+ End]
-  1 … 7  (the frames)            Vertical version  [ picture ] (×)   1x · 2x · 3x
-  Vertical                                         └ the dashed slot while empty
+┌ catpope › Ch2 › scene-12                                                 Save  Publish ┐
+├ sidebar ──────────────────────────┬ canvas ──────────────────────┬ inspector ───────────┤
+│ ⋮ scene-12                     7  │ ┌───────────────────────┐ 1  │ [Group│Layers│⚡│Slice]│
+│ [Horizontal │▓Vertical version▓]  │ │ tall picture  ┌─────┐ │    │ Layout [Horizontal ▾]│
+│ ▣1  ┌╌+╌┐  Import slices …        │ │ ⚡ unlock     │ box │ │    │ Readers see it if    │
+│ ⋮ scene-13                    12  │ │┄┄┄┄┄┄┄┄┄┄┄┄┄┄└─────┘┄│ 2  │ [ Only if …        ] │
+phone, no vertical version yet: [Horizontal │Vertical version] → only ┌╌+╌┐ and Import slices …
 ```
-1. **The slot:** a horizontal group's panel gets "Vertical version", the same `MediaVariantsSlot kind="image"` a
-   slice's image uses (slice-media.svelte:219; one slot with 1x / 2x / 3x chips, DESIGN "Media with quality levels =
-   one slot"). Empty = the dashed slot; picking writes `vertical.image` / `imageVariants` and reads the size (like
-   `fillSliceSize`); the round × clears it (undo brings it back, the file stays an unused asset). No import step, no
-   list, no "+" button.
-2. **The tree:** with a picture set, one row "Vertical" after the group's frames; selecting it shows the picture in the
-   canvas. `slicePath` (chapter-editor.svelte:508) gains this `['vertical']` target.
-3. **The canvas** (slice-canvas.svelte, today `doc.resolvedSlice(slicePath)` at :94): for that row it draws
-   `verticalSlice(doc.resolvedGroup(groupPath, locale))` (doc.svelte.ts:438) – the picture with the frames' boxes and
-   items at their places or automatic spots. The only tool is moving: a drag writes the placement
-   (`lib/editor/vertical.ts`, pure, tested). Text and style are edited on the frame.
-4. Group copy / paste re-ids boxes and items (slice-clip.ts:104-107) and remaps `of` with them.
-5. Logic in `lib/editor/*.ts`: slice-canvas (955 lines) doesn't grow; group-panel (111) takes the slot.
-6. No counter, no hint line (DESIGN: the explanations are the fields' tooltips), no Problems entry, no Reader-panel
-   mode (DOCKING: two messages only): the canvas is the preview, Wanted images and the preflight are the lists.
+1. **The flip:** one square `sc-seg` above the open group's film strip (horizontal and endless groups only): the group's
+   Layout value (`Horizontal` / `Endless`) │ `Vertical version`, so no half reads as another Layout value. View state,
+   not data (`view.version` and the open vertical slice in ChapterView, chapter-state.svelte.ts:50;
+   `&version=vertical` in `hrefFor`, chapter-editor.svelte:504). The film strip, the canvas and the Slice tab switch
+   with it; the open frame maps to the vertical slice over its share and back; the tooltip says readers get it by a
+   condition, the WEBTOON export always. Empty, the vertical film strip shows the list's own empty slot ("Add slice" or
+   drop images, slice-list.svelte:242-264) and "Import slices …": no new pattern, no Problems entry (it would flag every
+   horizontal group of every toon).
+2. **List and import** take a `listPath` (`[...group, 'vertical', 'slices']`) and a `stem` (`s1c2-scene-12-v` → `-v1`,
+   `-v2`; today `s1c2-slice-<n>`, slice-list.svelte:134, slice-import.svelte:206-219), and create a missing parent
+   instead of falling back to the chapter's root (`getAt(file, groupPath) ?? file`, slice-list.svelte:128,
+   slice-import.svelte:239). The first slice creates `vertical`; removing the last one (after its confirmation, :144)
+   removes it. **Layout → Vertical** while a vertical version exists asks first (`askDialog`: "removes its vertical
+   version – n slices, m placements"), then drops it in the layout's undo step (group-panel.svelte:44-50).
+3. **The canvas:** a new `vertical-canvas.svelte` (≤ 300 lines) stacks the vertical slices like strip-canvas, with
+   hairlines and frame numbers at the shares. Each is a `SliceCanvas` with one new prop, `source`: the mapped slice to
+   draw (else `doc.resolvedSlice`, slice-canvas.svelte:106) and, per overlay, where its move writes. Selecting an
+   overlay selects its definition on its frame (`view.sliceIndex` + the usual `{kind, index}`, slice-canvas.svelte:4-7),
+   so the inspectors, Layers and the clipboard work as on the frame – on both layouts. A drag or nudge writes only the
+   placement; a resize, a turn or a text edit changes the definition. Adding a text, item or area: `sliceTarget()`
+   (chapter-editor.svelte:731) of the frame under the click, the inverse spot, and the placement. A drop over a vertical
+   seam moves the placement to that slice (not #44's `moveAcrossSeam`, strip-anchor.ts:43, which moves definitions);
+   "Back to the automatic spot" removes it. No piece tool, no Audio tab; a vertical slice's Slice tab is its picture.
+4. **The condition** (with the reader step): under Layout in the Group tab, while a vertical version exists, "Readers
+   see it if" = event-condition.svelte on `[...group, 'vertical']`; empty = export only. The Reader panel shows what a
+   reader gets; an export-only layout is seen on the canvas (DOCKING's two messages stay).
+5. **Logic in `lib/editor/vertical.ts`** (pure, tested); the existing components take a prop or a few lines each. The
+   spot and its inverse; place, move across a seam, unplace; deleting a definition removes its placement; slices pasted
+   into the vertical list keep only the picture fields. Group paste remaps `of`: `prepareGroup` (clip.ts:329-345) gives
+   the events new ids itself (`newEventId`, event-ids.ts:11) instead of dropping them (:100, :337), keeps the old → new
+   maps of boxes (`renameBoxes`, :288), placements (`freshSlice`, :105) and events, and rebases the vertical pictures
+   like the frames'. A problem on a vertical slice opens it (`gotoProblem`, chapter-editor.svelte:650).
+
+**Validation** (`checkVertical`, next to `checkRendererParams`, validate.ts:959):
+- **Errors:** `vertical` on a vertical group; no slices; a vertical slice without image / width / height (the picture
+  part of `checkSlice`, validate.ts:671-676); an `of` placed twice; a broken `if` (`checkCondition`, validate.ts:424).
+- **Warnings:** an `of` naming nothing placeable in the group (old data, the MCP; the reader ignores it); a sound
+  area on a frame of a group with a vertical version (not on the vertical layout yet).
+- **No new id rule:** an element without an id keeps its automatic spot; box, event and placement ids are unique per
+  chapter already (validate.ts:1061-1124).
+
+**Where the fields flow:** the types (content.ts; `GroupDoc` inherits, neutral.ts:115); the schemas and the server's
+copy (`npm run schema -w @scutoons/content` → server/schema/content, checked on save by ContentSchemas.php); the
+validator; resolving passes `vertical` through, it holds no text (neutral.ts:248, NeutralDoc.php:169-177); TextCheck.php
+one line for `vertical.if.expr` (like :61 for events); Library.php:376 (the `if` rule); ChapterFiles, ItemPlacements
+and AssetUsages unchanged (the last walks the whole document: the pictures count as used); flow, reach and dead things
+stay on the frames (flow.ts:1255 already reads any `if.expr` in a group); the MCP's workflow rules
+(tools/mcp/src/resources.ts:82) get one paragraph: place, never copy.
+
+**Migrations: none.** A new optional field reshapes no stored data, and every box, item and event already has an id.
+
+**Left out:** an element on one layout only (owner (5)); per-layout text, look, size or settings; a tail tip of its own
+on the vertical layout (none of the 8 groups has a free tail); a vertical slice's own captions, pieces, audio or
+sensitive flag; sound areas on the vertical layout; a horizontal version of a vertical group; a live flip, a reader
+setting, a chapter / toon default, `device.reducedMotion`; a Problems entry.
 
 ## 9. Preflight
 Data checks run on the neutral chapter before rendering (in the tool; they move to `@scutoons/content` only if the
@@ -378,8 +483,8 @@ export. Everything prints in the CLI and appears on the upload sheet.
 | validate's errors (`validateNeutral`) | error |
 | Missing media, a glyph in a fallback font, no hyphenation, no possible cut, a page of another version | error |
 | The chapter not published in that language (without `--draft`) | error |
+| A horizontal group without a vertical version – named with its frames and the creator link `…/chapter/<n>?group=<label>&version=vertical` | error |
 | validate's unaccepted warnings for that language (missing translations, validate.ts:1538-1558) | warning |
-| A horizontal group without a vertical version (frames stacked) | warning |
 | A slice without 3x art (upscaled: 1x by 2.05×, 2x by 1.026×) | warning |
 | Dropped VN lines (quoted), sensitive slices exported clear | warning |
 | A fixed box overflowing at fit 0.8; lettering under 20 px at 800 | warning |
@@ -394,15 +499,16 @@ before. The owner's art time is the bottleneck in all three months.
 
 - **Before Nov 15: no build work.** Two small steps fit without touching ch3: the WEBTOON ACCOUNT and the support email
   (lead time; Claude drafts it), and ch1's one-language boxes (an agent draft, published with #68's drafts).
-- **After #64 closes:** the build (export view, exporter, kit; vertical model, creator UI). The owner orders it against
-  #62 (studio) and ch4. The export view changes the viewer's root layout, so it deploys outside a chapter's deploy
+- **After #64 closes:** the build (export view, exporter, kit) and the vertical versions (model, creator, export branch –
+  after #44's strip editor, whose files the creator part changes); their reader side is outside the milestone. The owner
+  orders them against #62 (studio) and ch4. The export view changes the viewer's root layout, so it deploys outside a chapter's deploy
   freeze.
 - **The launch** (§12 Q2) starts with ch1's three episodes (WEBTOON's advice: launch with 3; the subscribe pop-up
   follows the third), then one episode every Sunday, never ahead of scutoons.com; ch2's first part follows a week later
-  and needs the four strips' vertical versions by then. A Sunday 2026-12-13 launch puts the upload, the Content Review
+  and needs the four strips' vertical versions by then (the export stops without them). A Sunday 2026-12-13 launch puts the upload, the Content Review
   and the ch2 vertical versions into ch4's last two weeks. A Sunday 2027-01-24 launch comes after ch5: the whole season
   is on scutoons.com, all eight vertical versions can be done in one go, the upload falls just after ch5's release,
-  and the weekly queue (15 episodes, to about mid-April) can't run dry. Episode 10, the earliest AI-translation date,
+  and the weekly queue (13 episodes, to early April) can't run dry. Episode 10, the earliest AI-translation date,
   lands about 7 weeks after the launch. The de series follows about two weeks after en.
 
 ## 11. Left out, and why
@@ -413,11 +519,15 @@ before. The owner's art time is the bottleneck in all three months.
   MCP's first process spawn, a Chrome path on macOS / Linux and a job for runs longer than a tool call.
 - **Rendering in PHP, in a creator canvas or via `foreignObject`:** second renderers that drift. **Rendering at 1600,
   pixel gutter detection, 16-px alignment, encoding in the page:** no visible gain; Chrome's capture returns the JPEG.
-- **Copied or linked texts on vertical versions (`textOf`), their own captions or pieces, pickups painted into the
-  art:** placements cover boxes and items with one text each; a caption or pieces can come later as optional fields.
-- **Derived "vertical version" requests (a flow index v7) and a Problems entry:** 8 stored requests, the group's empty
-  slot and the preflight say it; derive them if horizontal groups become common.
-- **Several pictures per vertical version, a slice list or import for it:** the art is one picture per scene (owner).
+- **Copied or linked texts on vertical versions (`textOf`), an element on one layout only, per-layout size or look, a
+  vertical slice's own captions, pieces, audio or sensitive flag, pickups painted into the art:** one definition gets
+  onto both layouts (owner: "any text box, item, event def gets onto both"); a caption or pieces can come later.
+- **Derived "vertical version" requests (a flow index v7), a Problems entry, a dashed "missing" mark:** the stored
+  requests, the empty vertical list and the export's error with its link say it; derive them if horizontal groups
+  become common.
+- **A live flip on rotation, a reader setting "scroll horizontal scenes vertically", a chapter / toon default,
+  `device.reducedMotion`:** the group's `if` decides once per page view (§8); no own reduced-motion setting (DECISIONS
+  2026-10-07), and the band keeps drag + glide under reduced motion (TEXT-ACROSS-SLICES.md §8).
 - **Scene (`ref`) groups in the export:** catpope has none; one fetch per ref when a chapter needs it.
 - **`--break` / `--episode` flags, zip files, q70 copies in every kit:** `plan.json` is the override, a run re-renders
   everything, the uploader multi-selects files, and one look on a phone during the build is enough.
@@ -432,15 +542,17 @@ before. The owner's art time is the bottleneck in all three months.
    from our English translation of a German original, de earns nothing either way, and under-16s in Germany can't read
    CANVAS. Rec.: yes; en earns money and reaches the most readers.
 2. **Launch date** (the milestone's due date; then one episode every Sunday, never ahead of scutoons.com): (a) Sun
-   2026-12-13, if by about Dec 6 the kit has passed the test draft, the ch2 vertical versions are in and the export view
-   is deployed before ch4's freeze; or (b) Sun 2027-01-24, after ch5, with the whole season ready (§10). Rec.: (b);
-   chapter releases on scutoons.com come first, and a full queue never forces a hiatus.
+   2026-12-13, if by about Dec 6 the kit has passed the test draft, the ch2 vertical versions are in (now the model, the
+   creator's slice list and placing and the export branch – about twice the old plan's creator work, §8) and the export
+   view is deployed before ch4's freeze; or (b) Sun 2027-01-24, after ch5, with the whole season ready (§10). Rec.: (b);
+   chapter releases on scutoons.com come first, a full queue never forces a hiatus, and you are on the reader's
+   foundation from Nov 15 to January.
 3. **Version:** export only what is published on scutoons.com, test kits from drafts? Rec.: yes; #68 publishes the
    they / them drafts first.
 4. **VN lines:** drop them in the export (the preflight quotes them)? catpope's one story line is ch3's "No photos,
    please!" on a slice whose furniture still moves (DECISIONS 2026-10-20). Rec.: drop; whether that line becomes a
    normal text box (then on scutoons.com too) is asked with ch3's kit.
-5. **Episodes:** about 40k px (≈ 32 images, ch1 = 3 parts), titled "Denial (1)", every part with the chapter's
+5. **Episodes:** about 40k px, at most 45k (≈ 32 images, ch1 = 3 parts), titled "Denial (1)", every part with the chapter's
    thumbnail? Rec.: yes; confirm the cuts on the first export.
 6. **Chapter 0** (only the music video): skip it, and put the video in the creator profile's links and the first note?
    Rec.: skip; a one-image episode pointing elsewhere is the external-traffic pattern WEBTOON bans.
@@ -448,9 +560,16 @@ before. The owner's art time is the bottleneck in all three months.
    things to collect"), made by you, kept as a local kit input? Rec.: yes, mentioned in the Content Review request. If
    a funder (SKE / austro mechana, Westbahnstudios, Künstlerhof Frohnau) requires a logo on every publication, it goes
    there – please check.
-8. **Vertical versions:** the art is answered – "one vertical image of the same scene, it is also longer between 1:4 to
-   1:7" (owner 2026-10-20, §8). Still open: export only, so scutoons.com readers keep strips and bands? Rec.: export
-   only.
+8. **Vertical versions for readers** (answered 2026-10-20: one tall picture per scene, a slice list of its own, every
+   text box, item and event on both layouts, readers by a condition, the export asks for a missing one – §8). Still
+   open: (a) no condition = export only, so readers keep strips and bands until an author adds one? (b) the conditions:
+   only the names events and texts read today, or also `device.portrait` (the window taller than wide when the page
+   opens; opt-in per group)? A layout picked by orientation is no quality level of one picture, so RULES' "media quality
+   … never by viewport" stays untouched – fine? No reduced-motion name (DECISIONS 2026-10-07). (c) decided once per page
+   view, before the page's groups appear (on a page with a condition a member waits up to 3 s for the save game), so a
+   choice or a turned phone counts from the next page (a live flip risks the 2026-10-10 kind of scroll jump)? And which
+   of the 8 vertical pictures exist already (then the requests are uploads, not new art)? Rec.: (a) yes, (b) also
+   `device.portrait`, opt-in, and fine, (c) yes.
 9. **AI-assisted art** (ch3's gap shots, #61; anything else?): if any, one disclosure line in the creator profile and
    no WEBTOON contests? Rec.: yes; WEBTOON asks nothing, the line costs nothing.
 10. **Series thumbnails:** the season cover's art without lettering (WEBTOON advises no text; one set for both series),
