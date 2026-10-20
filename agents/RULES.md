@@ -109,6 +109,7 @@ agents/DECISIONS.md. A change to how agents work changes this file in the same c
 - Media quality is a reader setting (low / medium / high, or Automatic by bandwidth) – one file per level, never by
   viewport (no `srcset` / `<source media>`). A changed file gets a new name (immutable CDN paths).
 - Default slice 390 × 624 (its 3x 1170 × 1872 = WEBTOON's 800 × 1280), 1x WebP + `.2x` / `.3x`; every slice carries width / height.
+  New art from a lossless master 2340 wide (6x); WEBTOON's 800 × 1280 is an export, never a stored level (ASSETS.md).
 - Content is served by the API from the DB (one request per chapter); JSON only as import / export.
 - New items and recipes are data (the admin catalog); fundamentals (what items can do) change with the code (ITEMS.md).
 

@@ -51,7 +51,9 @@ viewers. No current Help Center article states the image limits and the dashboar
   are `cqw` of the slice (dialog.svelte:306), so lettering keeps its proportions. The root font stays 14 px as on a phone
   (shared/tokens/base.css:67-70, `max-width: 480px`), so the one rem inside a slice, the tail's corner inset
   (dialog-tail.ts:28), looks as on a phone. The art is 3x (1170 px) for nearly everything, so Chrome downsamples it
-  ×0.684. Rendering at 1600 would cost 4× the pixels, need an in-page resampler and upscale the 1170 art.
+  ×0.684. The 800 × 1280 images are an export from our masters or the 3x (owner 2026-10-20: "we have the webtoon
+  800x1280 as an export from our masters or 3x"): the 3x by default, `--masters <dir>` swaps in a slice's 2340-wide
+  master where one exists (ASSETS.md "Slice resolutions"). Rendering at 1600 would cost 4× the pixels, need an in-page resampler and upscale the 1170 art.
 - **Lettering reads as on scutoons.com.** A phone shows the 800 image at device width, the same scale as our 390 reader
   column. What is new is JPEG q70 on phones: the build looks at it once on a phone (§4), the test draft again (§6).
 - **JPEG, not PNG:** WEBTOON turns PNG into 256 colours; the JPEG it re-encodes stays close to ours.

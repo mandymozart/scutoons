@@ -330,6 +330,11 @@ Content editors: `GET /api/assets` (q, folder, kind, tag, state used|unused, res
   map's import (`<id>` painted, `<id>-plaster` the plaster model, `.2x` / `.3x` / `@2x` in the name; 1x / 2x / 3x
   written to `image.src` / `variants` / `plaster` / `plasterVariants`), the asset picker's upload (converts by default,
   untickable; always with `webp`).
+- **Slice resolutions** (owner 2026-10-20, #96): readers get 1x / 2x / 3x = 390 / 780 / 1170 wide on the 390 × 624
+  basis (the 3x 1170 × 1872 = WEBTOON's 800 × 1280). New art comes as a **master 2340 wide** (6x; heights in units of
+  3744 = 1:1.6 each), kept lossless and never served; every level is cut from it (2340 → 1170 → 780 → 390). WEBTOON's
+  800 × 1280 is an **export** rendered from the master or the 3x, never a stored level. Open (#96): where masters live
+  for good (today the storyboard `_out` folders) and a 4x level (1560) for 1440p phones.
 - **Admin – Assets → Standard** (the optimisation tool, 2026-10-12): `media-audit.ts` audits the files content / the
   catalog REFERENCE (the list's per-file `usages`, AssetRegistry) – an unused PNG master beside its used WebP is
   "Unused"'s business, not this tab's. Per file: `convert` (encode → a NEW file `standardName(path)`, `-2` … when taken
