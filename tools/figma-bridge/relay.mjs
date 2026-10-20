@@ -14,6 +14,10 @@
 //     dead (Figma closed, crashed, asleep). Pongs come from Figma's network layer, not the plugin's code: a plugin stuck
 //     in a long step still answers them – lib.mjs notBusy() finds that with application pings
 //   - single instance: a taken port with a relay behind it → "already running", exit 0; anything else there → exit 2
+//   - command modules (#93): a call whose command has a file tools/figma-bridge/commands/<cmd>.js (or `run` with
+//     { name, args }) goes to the plugin's generic `run` as { name, hash, src, args } – the file read from disk at each
+//     send, never source from the caller (what runs in Figma = what is in the repo). A new or edited module needs no
+//     relay restart and no plugin re-run; a module named like a core command replaces it
 //   - local tools only, never a web page: /cmd takes `content-type: application/json` without an Origin header (browsers
 //     send one, and JSON needs their preflight, which this relay never answers); /plugin takes the Origin of Figma's
 //     plugin iframes (`null`), none, or figma.com. A second plugin window takes over only with its hello
@@ -25,14 +29,16 @@
 //   node tools/figma-bridge/relay.mjs [--port 3056] [--log-file <path> | --no-log-file]
 
 import { createHash, randomUUID } from 'node:crypto';
-import { appendFileSync, mkdirSync, renameSync, statSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, renameSync, statSync } from 'node:fs';
 import { createServer, request } from 'node:http';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /** the relay's own version (GET /status → relay) – bump it with a change of behaviour */
-export const RELAY_VERSION = '2026-10-20.2';
+export const RELAY_VERSION = '2026-10-20.3';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const COMMANDS = resolve(ROOT, 'tools/figma-bridge/commands');
+const MODULE_NAME = /^[a-z][\w-]*$/;
 const GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 const TIMEOUT = 120_000, MAX_TIMEOUT = 900_000; // a caller may ask for longer (a huge draft: up to 15 min)
 const WAIT = 600_000; // how long a call may wait in the queue by default
@@ -91,7 +97,27 @@ const clamp = (v, d, max) => Math.min(Number(v) > 0 ? Number(v) : d, max);
 /** what a call works on, for the log: node / frame id, a region's box, the scales */
 const target = (a = {}) => [a.nodeId ?? a.node ?? a.frame ?? (a.page ? `page "${a.page}"` : ''), a.y != null && a.h ? `@${a.x ?? 0},${a.y} ${a.w}×${a.h}` : '', a.scales ? `×${a.scales.join(',')}` : '', a.ids ? `${a.ids.length} ids` : '', a.slices ? `${a.slices.length} slices` : ''].filter(Boolean).join(' ');
 
-export async function startRelay({ port = 3056, log = console.log, heartbeat = HEARTBEAT, helloWait = HELLO_WAIT } = {}) {
+/**
+ * a call → what goes to the plugin: a command with a module file (or `run` { name, args }) → `run` { name, hash, src,
+ * args }, read from `dir` now; anything else as it is. A `run` without such a file throws (code bad_request).
+ */
+export function resolveCall(cmd, args, dir = COMMANDS) {
+	const explicit = cmd === 'run';
+	const name = explicit ? args?.name : cmd;
+	if (cmd === 'ping' || typeof name !== 'string' || !MODULE_NAME.test(name)) {
+		if (explicit) throw new Error(`run: a module name (${MODULE_NAME}), not ${JSON.stringify(name ?? null)}`);
+		return { cmd, args };
+	}
+	let src;
+	try { src = readFileSync(resolve(dir, `${name}.js`), 'utf8'); } catch (e) {
+		if (explicit) throw new Error(`no module commands/${name}.js${e.code === 'ENOENT' ? '' : ` (${e.code ?? e.message})`}`);
+		return { cmd, args }; // a core command (or an unknown one – the plugin says which it has)
+	}
+	const hash = createHash('sha256').update(src).digest('hex').slice(0, 16);
+	return { cmd: 'run', args: { name, hash, src, args: (explicit ? args.args : args) ?? {} }, module: `${name}@${hash.slice(0, 8)}` };
+}
+
+export async function startRelay({ port = 3056, log = console.log, heartbeat = HEARTBEAT, helloWait = HELLO_WAIT, commandsDir = COMMANDS } = {}) {
 	let plugin = null; // { socket, send, since, lastSeen, stale, version, file, state }
 	let busy = null; // the call at the plugin (stays after its timeout until the late answer)
 	const queue = []; // calls waiting for the plugin, oldest first
@@ -138,13 +164,16 @@ export async function startRelay({ port = 3056, log = console.log, heartbeat = H
 		if (plugin.state?.busy) return;
 		const c = queue.shift();
 		clearTimeout(c.waitTimer);
+		let out;
+		try { out = resolveCall(c.cmd, c.args, commandsDir); } catch (e) { answer(c, fail('bad_request', e.message)); return pump(); }
+		if (out.module) c.target = [out.module, c.target].filter(Boolean).join(' ');
 		busy = c;
 		c.sent = Date.now();
 		c.timer = setTimeout(() => {
 			c.timedOut = true; // the caller gets its answer; the plugin keeps working – busy until the late answer
 			answer(c, fail('timeout', `timeout after ${Math.round(c.timeout / 1000)} s – Figma is still working on it; the bridge sends the next call when it answers (GET /status → busy)`));
 		}, c.timeout);
-		plugin.send({ id: c.id, cmd: c.cmd, args: c.args });
+		plugin.send({ id: c.id, cmd: out.cmd, args: out.args });
 	}
 
 	function sendSide(c) {

@@ -1,7 +1,8 @@
 // SCUTOONS Figma bridge – the plugin's main thread (Figma Plugin API). The UI (ui.html) holds the WebSocket to the
 // local relay (tools/figma-bridge/relay.mjs on 127.0.0.1); commands arrive here, run against the open file, and the
 // result goes back the same way. Runs only while the owner has the plugin open in Figma desktop – it acts as them.
-// Commands: ping · pages · read · export · draft · region · sliceFrames · exportScales · thumbs · place
+// Commands: ping · pages · read · export · draft · region · sliceFrames · exportScales · thumbs · place · run (a module
+// from tools/figma-bridge/commands/, loaded at runtime – new commands go there, not here: README "Command modules")
 // (agents/STORYBOARD.md §9 "SCUTOONS Figma bridge"). One command at a time (a queue here too); `ping` is answered at
 // once, even while busy – { busy, version } for the runners (scripts/storyboard/lib.mjs figmaPreflight).
 //
@@ -13,7 +14,7 @@
 // code instead of finding out mid-run), and say so – never during an export run (#78, failures A / A' on 2026-10-18).
 // Plugin-sandbox syntax: no `?.` and no object spread here (`??` and array spread work).
 
-const VERSION = '2026-10-20.2';
+const VERSION = '2026-10-20.3';
 const TEMP = 'scutoons-export (temporary)';
 
 figma.showUI(__html__, { width: 260, height: 132, themeColors: true });
@@ -226,7 +227,7 @@ const commands = {
 		let user = null;
 		try { user = figma.currentUser ? figma.currentUser.name : null; } catch {} // needs the 'currentuser' permission – not asked for
 		const s = state();
-		return { file: figma.root.name, page: figma.currentPage.name, user, editor: figma.editorType, version: VERSION, busy: s.busy, queue: s.queue };
+		return { file: figma.root.name, page: figma.currentPage.name, user, editor: figma.editorType, version: VERSION, busy: s.busy, queue: s.queue, modules: Object.keys(modules).length, compiles, compiler };
 	},
 	async pages() {
 		return figma.root.children.map((p) => ({ id: p.id, name: p.name }));
@@ -427,8 +428,46 @@ const commands = {
 		}
 		if (copies.length) { const g = figma.group(copies, page); g.name = args.group; }
 		return { placed: copies.length };
+	},
+	/**
+	 * a command module from tools/figma-bridge/commands/<name>.js (#93) – the relay reads the file per call and sends
+	 * { name, hash, src, args }: compiled once per hash, then run as `async (args, lib) => { src }`. A new or edited
+	 * module needs no plugin re-run and no relay restart.
+	 */
+	async run(msg) {
+		if (!/^[a-z][\w-]*$/.test(String(msg.name))) throw new Error(`run: a module name, not "${msg.name}"`);
+		let m = modules[msg.name];
+		if (!m || m.hash !== msg.hash) {
+			if (typeof msg.src !== 'string') throw new Error(`run: no source for module ${msg.name}`);
+			m = modules[msg.name] = { hash: msg.hash, fn: compile(msg.name, msg.src) }; // an edited file replaces the old one
+			compiles++;
+		}
+		return m.fn(msg.args || {}, lib);
 	}
 };
+
+// ── command modules (#93) ──
+const modules = {}; // name → { hash, fn }
+let compiles = 0;
+let compiler = null; // 'Function' | 'eval' – what this sandbox allows, found on the first module
+/** a module's source → its async function; a syntax error throws (the caller gets plugin_error with the message) */
+function compile(name, src) {
+	const wrap = `(async function (args, lib) {\n${src}\n})\n//# sourceURL=commands/${name}.js`;
+	const ways = {
+		Function: () => new Function(`return ${wrap}`)(),
+		eval: () => (0, eval)(wrap) // indirect: global scope, no access to this file's locals – modules get `lib`
+	};
+	let first = null;
+	for (const way of compiler ? [compiler] : ['Function', 'eval']) {
+		try { const fn = ways[way](); compiler = way; return fn; } catch (e) {
+			if (e && e.name === 'SyntaxError') throw new Error(`module ${name}: ${errorText(e)}`); // the sandbox allows it – the source is wrong
+			if (!first) first = e;
+		}
+	}
+	throw new Error(`module ${name}: this plugin sandbox can't compile code (${errorText(first)})`);
+}
+/** what modules get as `lib`: the core's helpers and commands (figma itself is a global) */
+const lib = { VERSION, TEMP, applyDraft, describe, nodeOrPage, sweep, sweepPage, temps, setTemps, copyLook, errorText, commands };
 
 figma.ui.onmessage = (msg) => {
 	if (msg && msg.uiReady) { figma.ui.postMessage({ hello: VERSION, file: fileName(), state: state() }); return; } // the UI (re)loaded

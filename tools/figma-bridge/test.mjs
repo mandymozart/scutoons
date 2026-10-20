@@ -19,12 +19,15 @@
 //           at a time, ping answered while busy), region partial + layers (layer shells with the layer's look, only the
 //           nodes that reach into the slice, placed right, the frame's fills, no temporary frame left), a node on a page
 //           that is not loaded (dynamic-page) exports, applyDraft (layers, order, lock, idempotence) – also end to end
+//   modules command modules (#93): the plugin's `run` compiles once per hash (an edited module → a new hash → compiled
+//           again), a syntax error → plugin_error; the relay reads commands/<name>.js per call (by its command name or
+//           `run` { name }), never source from the caller; an unknown module / a bad name → bad_request, the queue goes on
 //   node tools/figma-bridge/test.mjs
 
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createServer, request } from 'node:http';
 import { connect } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -83,7 +86,9 @@ const supervised = new Set(); // ports whose supervisor a failed check must stop
 try {
 	// ── relay: basics ─────────────────────────────────────────────────────────────────────────────────────────────
 	const quiet = [];
-	const relay = await startRelay({ port: PORT, log: (m) => quiet.push(m), helloWait: 300 });
+	const mods = join(tmp, 'commands'); // the relay's commands/ for this test
+	mkdirSync(mods);
+	const relay = await startRelay({ port: PORT, log: (m) => quiet.push(m), helloWait: 300, commandsDir: mods });
 	let r = await bridge('ping', {}, PORT);
 	assert.equal(r.ok, false);
 	assert.equal(r.code, 'no_plugin');
@@ -474,6 +479,27 @@ try {
 	}
 	step(`plugin: applyDraft – layers, order, lock, idempotent (${specs.length > 1 ? `+ the real ${specs[1].frame.name}` : 'no real spec – run figma-draft.mjs for that check'})`);
 
+	// command modules in the plugin (#93): compiled once per hash, `figma` a global, `lib` the core's helpers
+	const mod = (name, hash, src, args) => ask(fig, 'run', { name, hash, src, args });
+	r = await mod('hello', 'h1', 'return { file: figma.root.name, k: args.k, core: lib.VERSION, has: typeof lib.describe };', { k: 2 });
+	assert.deepEqual(r.result, { file: 'Cat-Pope', k: 2, core: plugin.VERSION, has: 'function' }, r.error);
+	r = await mod('hello', 'h1', undefined, { k: 3 }); // the same hash: no source needed, not compiled again
+	assert.equal(r.result.k, 3, r.error);
+	const pp = (await ask(fig, 'ping')).result;
+	assert.deepEqual([pp.modules, pp.compiles, pp.compiler], [1, 1, 'Function']);
+	r = await mod('hello', 'h2', 'return { edited: true };');
+	assert.deepEqual(r.result, { edited: true });
+	assert.equal((await ask(fig, 'ping')).result.compiles, 2, 'a new hash → compiled again');
+	r = await mod('bad', 'h3', 'return {');
+	assert.equal(r.ok, false);
+	assert.match(r.error, /^module bad: /);
+	r = await mod('ghost', 'h4');
+	assert.match(r.error, /no source for module ghost/);
+	r = await mod('throws', 'h5', 'await null; throw new Error("nope " + args.k);', { k: 7 });
+	assert.equal(r.error, 'nope 7');
+	assert.equal((await ask(fig, 'pages')).ok, true, 'the queue goes on');
+	step('modules in the plugin: run compiles once per hash (Function), an edited source recompiles, figma / args / lib in scope; syntax error, no source, a throw → errors');
+
 	// end to end: code.js (on the fake) as THE plugin behind the relay, wired like ui.html
 	await p.close();
 	fig = fakeFigma();
@@ -492,9 +518,52 @@ try {
 	assert.deepEqual([r.result.version, r.result.busy, r.result.file], [plugin.VERSION, null, 'Cat-Pope']);
 	s = await figmaStatus(PORT);
 	assert.deepEqual([s.busy, s.queue], [null, 0]);
+	step('end to end: code.js behind the relay – hello → /status version, draft, ping, state messages');
+
+	// command modules through the relay (#93): the file is read per call – no relay restart, no plugin re-run
+	writeFileSync(join(mods, 'where.js'), 'return { file: figma.root.name, page: figma.currentPage.name, k: args.k };');
+	r = await bridge('run', { name: 'where', args: { k: 1 } }, PORT);
+	assert.deepEqual(r.result, { file: 'Cat-Pope', page: 'S1C3', k: 1 }, r.error);
+	r = await bridge('where', { k: 2 }, PORT); // by its own name, like a core command
+	assert.equal(r.result.k, 2, r.error);
+	assert.equal((await bridge('ping', {}, PORT)).result.compiles, 1, 'the same file: compiled once');
+	assert.ok(quiet.some((l) => /^where where@[0-9a-f]{8} → ok /.test(l)), 'the log names the module and its hash');
+	writeFileSync(join(mods, 'where.js'), 'return { edited: args.k };');
+	r = await bridge('where', { k: 3 }, PORT);
+	assert.deepEqual(r.result, { edited: 3 }, 'an edited file runs at once');
+	assert.equal((await bridge('ping', {}, PORT)).result.compiles, 2);
+	r = await bridge('run', { name: 'where', src: 'return "from the caller"', args: {} }, PORT);
+	assert.deepEqual(r.result, {}, 'source from the caller is ignored – the file runs');
+	r = await bridge('run', { name: 'missing' }, PORT);
+	assert.deepEqual([r.ok, r.code], [false, 'bad_request']);
+	assert.match(r.error, /no module commands\/missing\.js/);
+	r = await bridge('run', { name: '../relay' }, PORT);
+	assert.equal(r.code, 'bad_request', 'a path is no module name');
+	writeFileSync(join(mods, 'broken.js'), 'return {');
+	r = await bridge('broken', {}, PORT);
+	assert.deepEqual([r.ok, r.code], [false, 'plugin_error']);
+	assert.match(r.error, /^module broken: /);
+	r = await bridge('nope', {}, PORT);
+	assert.match(r.error, /unknown command nope/, 'no file, no core command: the plugin says so');
+	r = await bridge('pages', {}, PORT);
+	assert.equal(r.ok, true, 'the queue goes on');
 	wire.close();
 	await relay.close();
-	step('end to end: code.js behind the relay – hello → /status version, draft, ping, state messages');
+	step('modules through the relay: commands/<name>.js read per call (by name or run), an edit runs at once (new hash), caller source ignored; missing / bad name → bad_request; syntax error → plugin_error');
+
+	// the repo's own modules: each compiles as a module body, in plugin-sandbox syntax (no `?.`, no object spread)
+	const real = readdirSync(resolve(here, 'commands')).filter((f) => f.endsWith('.js'));
+	for (const f of real) {
+		const src = readFileSync(resolve(here, 'commands', f), 'utf8');
+		assert.match(f, /^[a-z][\w-]*\.js$/, `${f}: a module name`);
+		new Function(`return (async function (args, lib) {
+${src}
+})`)();
+		const code = src.replace(/\/\/.*$/gm, '').replace(/(['"`])(?:\.|(?!).)*/g, '""');
+		assert.ok(!/\?\.(?!\d)/.test(code), `${f}: no ?. in the plugin sandbox`);
+		assert.ok(!/\{\s*\.\.\.|,\s*\.\.\.[\w.]+\s*\}/.test(code), `${f}: no object spread in the plugin sandbox`);
+	}
+	step(`the repo's modules (${real.length}): compile, plugin-sandbox syntax`);
 
 	console.log(`bridge self-test ok – ${done.length} checks`);
 } finally {
@@ -563,6 +632,7 @@ function fakeFigma() {
 /** runs plugin/code.js against a fake (as Figma would: figma + __html__ in scope) → its commands and VERSION */
 function loadPlugin(fig) {
 	const code = readFileSync(resolve(here, 'plugin/code.js'), 'utf8');
+	globalThis.figma = fig; // a global in Figma – command modules compile in global scope
 	return new Function('figma', '__html__', `${code}\nreturn { commands, VERSION };`)(fig, '<html></html>');
 }
 

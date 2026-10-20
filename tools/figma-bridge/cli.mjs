@@ -7,6 +7,7 @@
 //   node tools/figma-bridge/cli.mjs read [--page "S1C3" | --node 555:2354] [--depth 2]
 //   node tools/figma-bridge/cli.mjs export --node 555:2354 [--format png|svg] [--scale 1] --to out.png
 //   node tools/figma-bridge/cli.mjs draft storyboards/_out/s1c3/figma/scene-25.spec.json [more specs …]
+//   node tools/figma-bridge/cli.mjs run file-info [--args '{"k":1}'] [--timeout 120]   a module from commands/ (#93)
 // One try per command (node:http, the per-command timeouts of scripts/storyboard/lib.mjs); long runs use figma() from
 // there, which waits for the plugin and retries.
 
@@ -43,6 +44,10 @@ async function main() {
 			writeFileSync(to, Buffer.from(out.result.base64, 'base64'));
 			out = { ok: true, result: { ...out.result, base64: undefined, to } };
 		}
+	} else if (cmd === 'run') {
+		const name = argv.shift();
+		const args = JSON.parse(opt('--args', '{}'));
+		out = await bridge('run', { name, args }, port, { timeout: Number(opt('--timeout', 120)) * 1000 });
 	} else if (cmd === 'draft') {
 		for (const file of argv) {
 			const spec = JSON.parse(readFileSync(file, 'utf8'));
@@ -52,7 +57,7 @@ async function main() {
 		}
 		return;
 	} else {
-		console.log('commands: status · preflight · ping · pages · read · export · draft (see the head of cli.mjs)');
+		console.log('commands: status · preflight · ping · pages · read · export · draft · run (see the head of cli.mjs)');
 		process.exitCode = 2;
 		return;
 	}

@@ -103,11 +103,34 @@ stale, the supervisor's restarts; appended, rotated to `figma-relay.1.log` at ~5
 | `pages` | the file's pages (id, name) |
 | `read --page "S1C3" [--depth 2]` / `read --node 555:2354` | the node tree: id, name, type, x / y / w / h, text, image hash, locked / hidden – a node is much cheaper than a page (a page loads whole) |
 | `export --node 555:2354 --format png --scale 1 --to out.png` | a node as PNG / JPG / SVG (thumbnails for matching, slices for the CDN) |
+| `run file-info [--args '{…}']` | a command module from `commands/` (below, "Command modules") |
 | `draft storyboards/_out/s1c3/figma/scene-25.spec.json …` | builds / updates a scene's draft frame (from `scripts/storyboard/figma-draft.mjs`): locked `storyboard`, hidden `guides`, `text`, empty `layout` on top, the rail beside it. Re-runs replace shots by id and never touch `layout`. |
 
 The plugin's other commands (`region`, `sliceFrames`, `exportScales`, `thumbs`, `place`) are for the storyboard
 scripts. The draft code (`applyDraft` in `plugin/code.js`) is the same one `figma-draft.mjs` inlines for Figma's own
 MCP (`use_figma`) – one implementation for both ways.
+
+## Command modules (#93)
+
+New commands are files, not plugin code (owner 2026-10-20: "whenever you write new scripts you need to restart the
+bridge, can you conceive a method to load modules on demand while in runtime?"): **`commands/<name>.js`** holds the
+body of `async (args, lib) => { … }` and returns the answer (JSON). Write or edit one and call it – no relay restart,
+no plugin re-run, no hot reload:
+
+- `node tools/figma-bridge/cli.mjs run <name> [--args '{"k":1}']`, or from a script `figma('<name>', args)` /
+  `figma('run', { name, args })` – the relay treats a command with a module file as a module.
+- The relay reads the file **from disk at each send** (name `^[a-z][\w-]*$` only, never source from the caller: what
+  runs in Figma = what is in the repo) and sends `run { name, hash, src, args }`; the plugin compiles it once per hash
+  (`new Function`, else indirect `eval` – the first module probes the sandbox), so an edited file runs at once.
+- In scope: `figma` (the Plugin API), `args`, `lib` = the core's helpers (`describe`, `nodeOrPage`, `sweep`,
+  `sweepPage`, `temps` / `setTemps`, `copyLook`, `applyDraft`, `errorText`, `TEMP`, `VERSION`) and `lib.commands`
+  (the core commands, e.g. `await lib.commands.read({ nodeId })`).
+- Plugin-sandbox syntax: no `?.`, no object spread (`??` and array spread work). A syntax error or a throw →
+  `plugin_error` with the message; no such file → `bad_request`. The log names the module and its hash
+  (`where where@1a2b3c4d → ok …`); `ping` → `modules`, `compiles`, `compiler`.
+- A module named like a core command replaces it – the way to move `region`, `export` … out of the core later.
+- The core (`plugin/code.js`: connection, queue, ping, sweep, helpers, `run`) changes rarely; a change there still
+  reloads the plugin (above). Example module: `commands/file-info.js`.
 
 ## In the SCUTOONS MCP
 
@@ -121,7 +144,8 @@ own timeout (below fetch's 300 s) and the errors say what to do (no relay, no pl
 timeouts, disconnects, heartbeat, local-tools-only, single instance, the log, the lib client's waiting and retrying
 (plugin back, right file, Figma stuck), the supervisor (started detached, restart, stop, stale locks), and
 `plugin/code.js` against a small fake of the Plugin API (its queue, the temporary-frame sweep, region partial + layers,
-a page not loaded, applyDraft) – also end to end through the relay.
+a page not loaded, applyDraft, command modules: compiled once per hash, an edit recompiles, errors) – also end to end
+through the relay (modules read per call, caller source ignored, unknown module / bad name).
 `node --experimental-transform-types --no-warnings tools/figma-bridge/test-mcp.mjs` – the MCP's figma_* tools through
 the relay and a stand-in plugin.
 
