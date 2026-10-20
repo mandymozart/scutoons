@@ -1,4 +1,4 @@
-Status 2026-10-20: concept for the owner to review (#66) – nothing of it is committed; a first newsletter-only build lies unused in the working tree (§9).
+Status 2026-10-20: concept, owner answered §8 1–3, question 4 open (#66) – nothing of it is committed; a first newsletter-only build lies unused in the working tree (§9).
 
 # CAMPAIGN-GIFTS — SCUTOONS gives an item away: one campaign, several ways to hand it out
 
@@ -88,14 +88,33 @@ campaign.
   per reader everywhere.
 - Paid physical gifts (Einladen's "member pays") stay Einladen-only.
 
-## 8. Open questions for the owner
+## 8. Owner answers (2026-10-20) and the one still open
 
-1. **Names:** the kinds "Einladen" and "Verschenken" – ok?
-2. **One campaign, several newsletters?** E.g. a reminder newsletter for the same gift – allowed (the claim is once per
-   address anyway). Recommendation: yes.
-3. **Physical without an address at the end:** wait forever, or lapse some time after the window (e.g. 30 days)?
-   Recommendation: lapse 30 days after the window, with a reminder on the account page meanwhile.
-4. **Members only, or also the old QR-form contacts?** (They sign up with their product code first.) Recommendation: both.
+1. Names "Einladen" / "Verschenken" – yes ("in deutsch passt das").
+2. One campaign, several newsletters (a reminder) – yes; the claim stays once per address.
+3. A claimed physical gift without an address lapses 30 days after the window ends – yes (a reminder on the account page
+   meanwhile).
+4. **Open – who of the recipients can take part** ("bitte mal die faelle auflisten. das muessen wir abwegen"):
+
+| # | Recipient | What the button does | Note |
+|---|---|---|---|
+| A | member (role member only) | signs in with one click (#65), "Abholen" | the main case |
+| B | staff account (admin, creator, …) | opens the viewer; they sign in themselves, then "Abholen" | no one-click sign-in for staff (#65) |
+| C | old QR-form contact, no account, their product code still free | **creates their account** with that product code (the code is claimed into it), then "Abholen" | the account is made by the newsletter click – the same as signing up with that email on the account page today |
+| D | old QR-form contact whose code was claimed by someone else meanwhile, or expired / revoked | no button | nothing to sign up with |
+| E | event-list contact (no account, no code) | no button | an account needs a code; giving them one = a new promo code per person (what §3 avoids) |
+| F | a contact who made an account with the same email meanwhile | as A | member data wins (NEWSLETTER.md) |
+| G | a contact who has an account under **another** email | as C/D for the contact's email – C would make a **second account** | we can't know the two belong together |
+| H | a forwarded mail | the one-click sign-in works once for whoever clicks first (14 days); the gift belongs to the address, so only that account can claim it | the sign-in risk exists since #65 |
+| I | a second newsletter for the same campaign (reminder) | "Schon deins" when claimed already | answer 2 |
+| J | C, but the product code offers a choice of items | the code's claim sheet first (pick the item), then the gift | rare (#65) |
+
+Ways to decide 4:
+- **a. members only (A, B, F):** simplest; QR owners without an account get the gift only after they sign up some other way.
+- **b. members + QR owners (A–D, F–J)** – recommended: the gift is the reason to finally make the account; risk G (a
+  second account) is small and the same as today's sign-up page.
+- **c. b + event contacts (E)** with a personal promo code each: reaches everyone, but a giveaway then creates codes
+  again – exactly what the owner wants to avoid.
 
 ## 9. Where the first build stands
 

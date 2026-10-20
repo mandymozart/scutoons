@@ -6,6 +6,7 @@ stays and gets "(superseded YYYY-MM-DD → …)" appended. Rules for agents: age
 to mark them superseded.
 
 ## 2026-10
+- 2026-10-20 · campaigns · Gifts from SCUTOONS are a campaign kind: "Einladen" (members invite, built) and "Verschenken" (the newsletter's gift button); one campaign may serve several newsletters (reminders, once per address); a claimed physical gift without a shipping address lapses 30 days after the window · "in deutsch passt das … ja … ja" · #66 → research/CAMPAIGN-GIFTS.md §8
 - 2026-10-20 · storyboard studio · Variants canvas built now, alongside the ch3 layout work (in stages on the studio branch, the owner's running studio untouched) · "bitte gern schon anfangen mit dem Studio. Ich muss sowieso layouten und der Computer kann gern schon arbeiten am Studio-Editor." · → research/VARIANTS-CANVAS.md §4, #62
 - 2026-10-20 · webtoon · A horizontal group's vertical version (for the WEBTOON export) is one tall image of the same scene, 1:4 … 1:7, not one picture per frame (Q8 of #77; "export only" still open) · "one vertical image of the same scene, it is also longer between 1:4 to 1:7" · → research/WEBTOON.md §8
 - 2026-10-20 · map · Place rooms: the cathedral prototype is the look – an Unreal level exported headless, its lights baked into the vertices, a static diorama view at eye level, pickups and residents standing in it; next a chapter 3 room from an Unreal map or Blender file the owner names · "The look works. Next: a chapter 3 room" · → research/LOCATION-SCENES.md §7, #74
