@@ -20,6 +20,7 @@
 	import { specOf, studio, touched } from '../studio.svelte.js';
 	import { handheldView } from '../handheld/view.js';
 	import { endPreview, hh } from '../handheld/handheld.svelte.js';
+	import EditorSwitch from './EditorSwitch.svelte';
 
 	const D = Math.PI / 180;
 	const FACE = { front: 0, away: 180, left: -90, right: 90, 'three-quarter-left': -40, 'three-quarter-right': 40 }; // as core.js
@@ -451,6 +452,7 @@
 
 <section class="view" aria-label="3D view">
 	<div class="tools">
+		<EditorSwitch />
 		<Segmented label="Figure tool" options={[{ value: 'move', label: 'Move', icon: 'move' }, { value: 'turn', label: 'Turn', icon: 'rotate-cw' }]} value={tool} onchange={(v) => (tool = v)} />
 		<Segmented label="Texts" options={[{ value: 'on', label: 'Texts', icon: 'type', title: 'The texts (SCUTOONS presets) on top' }]} value={texts ? 'on' : null} onchange={() => (texts = true)} onclear={() => (texts = false)} />
 		<button type="button" class="secondary" onclick={resetCamera} disabled={!studio.sel?.shot.camera && !hh.held} title="Back to the camera the shot's size / angle give (removes the hand camera, ends a take's preview)">Shot camera</button>
@@ -477,6 +479,7 @@
 		min-height: 0;
 		min-width: 0;
 	}
+	/* a container: the editor switch keeps only its icons where the words would wrap the row (EditorSwitch) */
 	.tools {
 		display: flex;
 		align-items: center;
@@ -484,6 +487,7 @@
 		padding: var(--space-025) var(--space-1);
 		border-bottom: var(--border-width-regular) solid var(--ink);
 		flex-wrap: wrap;
+		container: viewport-tools / inline-size;
 	}
 	/* one line in the room the tools leave, the full text in its tooltip – the view keeps its height. Where that room is
 	   narrower than the line (≈ 29.7rem at the caption size) it goes as a whole instead of being cut mid-word

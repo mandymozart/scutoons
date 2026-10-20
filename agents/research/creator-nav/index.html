@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Creator navigation drafts</title>
+<link rel="stylesheet" href="nav.css" />
+<style>
+	body { height: auto; overflow: auto; padding: var(--space-15) var(--space-1) var(--space-3); max-width: 90rem; margin: 0 auto; }
+	h1 { margin: 0 0 var(--space-05); font-size: 1.5rem; font-weight: 400; }
+	h2 { font-weight: 400; text-transform: uppercase; letter-spacing: var(--tracking-label); font-size: 1rem; margin: 0 0 var(--space-05); }
+	section { border-top: var(--line); padding-top: var(--space-15); margin-top: var(--space-15); }
+	.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(30rem, 100%), 1fr)); gap: var(--space-1); }
+	.phones { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr)); gap: var(--space-1); margin-top: var(--space-1); }
+	figure { margin: 0; }
+	figure img { width: 100%; height: auto; border: var(--line); display: block; }
+	figcaption { font-size: var(--caption); color: var(--text-muted); margin-top: var(--space-025); }
+	figcaption a { color: inherit; }
+	p, ul.notes { max-width: 52rem; }
+	ul.notes { padding-left: var(--space-15); }
+	table { border-collapse: collapse; font-size: var(--caption); margin: var(--space-05) 0; }
+	td, th { border-bottom: var(--hair); padding: var(--space-025) var(--space-1) var(--space-025) 0; text-align: left; font-weight: 400; }
+</style>
+</head>
+<body>
+<h1>Creator navigation – drafts</h1>
+<p class="muted">Issue #92 · agents/research/CREATOR-NAV.md (the review and the questions). Static pictures in the creator's tokens (rem only;
+1440 × 900 and 390 × 844), not the app. The logo is the reader's square mark (viewer/static/SCUTOONS-logo-animated.svg).</p>
+
+<section>
+	<h2>D – chosen (owner 2026-10-20): B's menu on the desktop, folded = A's rail; C on phones</h2>
+	<p>The desktop keeps B's menu by areas (the toon you are in marked under Toons), always there; folded by hand it is A's area
+	rail. Phones are C: the logo is home, ☰ on the right opens the areas + Recent from the right.</p>
+	<div class="pair">
+		<figure><img src="d-dash-1440.png" alt="" /><figcaption>Dashboard · <a href="d.html#dash">HTML</a></figcaption></figure>
+		<figure><img src="d-toon-1440.png" alt="" /><figcaption>A toon: tabs · <a href="d.html#toon">HTML</a></figcaption></figure>
+		<figure><img src="d-toon-folded-1440.png" alt="" /><figcaption>The menu folded = the area rail · <a href="d.html#toon-folded">HTML</a></figcaption></figure>
+		<figure><img src="d-slice-1440.png" alt="" /><figcaption>The slice editor, menu open · <a href="d.html#slice">HTML</a></figcaption></figure>
+		<figure><img src="d-slice-folded-1440.png" alt="" /><figcaption>The slice editor, menu folded · <a href="d.html#slice-folded">HTML</a></figcaption></figure>
+	</div>
+	<div class="phones">
+		<figure><img src="d-dash-390.png" alt="" /><figcaption>Phone dashboard</figcaption></figure>
+		<figure><img src="d-menu-390.png" alt="" /><figcaption>Menu from the right · <a href="d.html#toon-menu">HTML</a></figcaption></figure>
+		<figure><img src="d-toon-390.png" alt="" /><figcaption>A toon: tabs</figcaption></figure>
+		<figure><img src="d-slice-390.png" alt="" /><figcaption>Slice editor: logo · path · ⚠ Save Publish ••• ☰</figcaption></figure>
+	</div>
+</section>
+
+<section>
+	<h2>Now (local dev, test user, 2026-10-20)</h2>
+	<table>
+		<tr><th></th><th>1440 (root 16.8px)</th><th>390 (root 14px)</th></tr>
+		<tr><td>header</td><td>50.4px (3rem)</td><td>48px + crumb row 53px = 101px</td></tr>
+		<tr><td>ActionBar</td><td>50.4px</td><td>48px – chrome 149px = 18 % of the screen</td></tr>
+		<tr><td>sidebar</td><td>12rem; its fold button takes its own row (~4rem)</td><td>drawer 18rem</td></tr>
+		<tr><td>logo</td><td>wordmark 54 × 21px</td><td>45 × 44px, pushed right by ☰</td></tr>
+		<tr><td>top bar buttons</td><td>38px circles with a 2px frame (3–5) + a framed language box + the toon pill</td><td>44px circles</td></tr>
+	</table>
+	<div class="pair">
+		<figure><img src="now-home-1440.png" alt="" /><figcaption>Start: the sidebar repeats the start page's toons; Universe below</figcaption></figure>
+		<figure><img src="now-toon-1440.png" alt="" /><figcaption>A toon: the sidebar swaps to its children (Seasons, Meta) – the areas are gone</figcaption></figure>
+		<figure><img src="now-characters-1440.png" alt="" /><figcaption>Characters (a Universe page): the sidebar shows Toons, not the Universe</figcaption></figure>
+		<figure><img src="now-slice-1440.png" alt="" /><figcaption>The slice editor: path of 6 crumbs, five round buttons</figcaption></figure>
+	</div>
+	<div class="phones">
+		<figure><img src="now-home-drawer-390.png" alt="" /><figcaption>Phone drawer, start</figcaption></figure>
+		<figure><img src="now-toon-drawer-390.png" alt="" /><figcaption>Phone drawer, a toon</figcaption></figure>
+		<figure><img src="now-chapter-390.png" alt="" /><figcaption>Phone chapter: two rows on top</figcaption></figure>
+		<figure><img src="now-slice-390.png" alt="" /><figcaption>Phone slice editor (#44 2d): "… › scene-17-24 › S"</figcaption></figure>
+	</div>
+</section>
+
+<section>
+	<h2>A – area rail + the context list</h2>
+	<p>An always-there icon rail (Dashboard, Toons, Characters, Map, Catalog, Flow; search, notifications, account at its foot) with the
+	logo in its top cell. Next to it today's sidebar (the children of the place) only where the place has some. The smallest change.</p>
+	<div class="pair">
+		<figure><img src="a-dash-1440.png" alt="" /><figcaption>Dashboard · <a href="a.html#dash">HTML</a></figcaption></figure>
+		<figure><img src="a-toon-1440.png" alt="" /><figcaption>A toon: its stories and pages in the context list · <a href="a.html#toon">HTML</a></figcaption></figure>
+		<figure><img src="a-slice-1440.png" alt="" /><figcaption>The slice editor: rail + chapter tree · <a href="a.html#slice">HTML</a></figcaption></figure>
+	</div>
+	<div class="phones">
+		<figure><img src="a-dash-390.png" alt="" /><figcaption>Phone dashboard: the logo opens the menu</figcaption></figure>
+		<figure><img src="a-menu-390.png" alt="" /><figcaption>Menu: the rail sideways, the place below · <a href="a.html#toon-menu">HTML</a></figcaption></figure>
+		<figure><img src="a-toon-390.png" alt="" /><figcaption>A toon</figcaption></figure>
+		<figure><img src="a-slice-390.png" alt="" /><figcaption>Slice editor: one row (logo · path · ⚠ Save Publish •••)</figcaption></figure>
+	</div>
+</section>
+
+<section>
+	<h2>B – one menu by areas; pages own their trees</h2>
+	<p>The left menu lists the areas with words, the toons flat under Toons (never unfolding further). A toon's own pages are tabs
+	(Stories · Cast · Script · Credits · Settings); the chapter tree is the chapter editor's own column. The menu folds to a rail by hand.</p>
+	<div class="pair">
+		<figure><img src="b-dash-1440.png" alt="" /><figcaption>Dashboard · <a href="b.html#dash">HTML</a></figcaption></figure>
+		<figure><img src="b-toon-1440.png" alt="" /><figcaption>A toon: tabs instead of a second sidebar · <a href="b.html#toon">HTML</a></figcaption></figure>
+		<figure><img src="b-slice-1440.png" alt="" /><figcaption>The slice editor: menu + the page's tree (fold the menu for room) · <a href="b.html#slice">HTML</a></figcaption></figure>
+	</div>
+	<div class="phones">
+		<figure><img src="b-dash-390.png" alt="" /><figcaption>Phone dashboard</figcaption></figure>
+		<figure><img src="b-menu-390.png" alt="" /><figcaption>Menu: the same list as the desktop · <a href="b.html#toon-menu">HTML</a></figcaption></figure>
+		<figure><img src="b-toon-390.png" alt="" /><figcaption>A toon: tabs</figcaption></figure>
+		<figure><img src="b-slice-390.png" alt="" /><figcaption>Slice editor: one row</figcaption></figure>
+	</div>
+</section>
+
+<section>
+	<h2>C – like the reader: logo home, area tabs, menu on the right</h2>
+	<p>No left menu. The logo is home (the dashboard), the areas are words in the top bar, the trees belong to the pages. On phones the
+	areas move into a menu from the right – the reader's ☰, with the last places under it.</p>
+	<div class="pair">
+		<figure><img src="c-dash-1440.png" alt="" /><figcaption>Dashboard: the whole width · <a href="c.html#dash">HTML</a></figcaption></figure>
+		<figure><img src="c-toon-1440.png" alt="" /><figcaption>A toon · <a href="c.html#toon">HTML</a></figcaption></figure>
+		<figure><img src="c-slice-1440.png" alt="" /><figcaption>The slice editor: the most room for the canvas · <a href="c.html#slice">HTML</a></figcaption></figure>
+	</div>
+	<div class="phones">
+		<figure><img src="c-dash-390.png" alt="" /><figcaption>Phone dashboard</figcaption></figure>
+		<figure><img src="c-menu-390.png" alt="" /><figcaption>Menu from the right, + Recent · <a href="c.html#toon-menu">HTML</a></figcaption></figure>
+		<figure><img src="c-toon-390.png" alt="" /><figcaption>A toon: tabs</figcaption></figure>
+		<figure><img src="c-slice-390.png" alt="" /><figcaption>Slice editor: ☰ costs the path its room</figcaption></figure>
+	</div>
+</section>
+</body>
+</html>

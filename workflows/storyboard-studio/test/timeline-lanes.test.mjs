@@ -79,7 +79,8 @@ test('the picked shots back to back in the given (toon) order, one lane, the sou
 	assert.equal(span, 22000);
 	assert.deepEqual(probe, ['/g/b1.mp4']); // … until its metadata is read
 	assert.deepEqual([lane.id, lane.tall], ['clips', true]);
-	assert.deepEqual(lane.items.map((i) => i.label), ['sb-1 · generated', 'sb-2 · generated', 'sb-3 · take', 'sb-9 · still']);
+	// a generated clip names its generation and its status (the chosen = approved)
+	assert.deepEqual(lane.items.map((i) => i.label), ['sb-1 · generated g1 · chosen', 'sb-2 · generated g1', 'sb-3 · take', 'sb-9 · still']);
 	assert.equal(lane.selectable, undefined); // a click on a clip makes its shot the current one
 });
 

@@ -2,12 +2,14 @@
 	// The clip under the playhead in the main area, over the 3D view (which stays mounted underneath – WebGL – App):
 	// a rendered / generated video at the playhead's time (owner 2026-10-19: "video over take, but i think it is a choice
 	// what to see … in our case, it is shot/take/rendered/generated"), or – for a still / a take of a shot that is not the
-	// current one (a video mode does not change the current shot; a drag across other shots) – that shot's frame. Paused it
+	// current one (a video mode does not change the current shot; a drag across other shots) – that shot's frame, or an
+	// auditioned image (the board's current card, a still on the lane – research/VARIANTS-CANVAS.md §3.1 Q3). Paused it
 	// shows the frame at the playhead (a seek); while Play runs the video plays and is the transport's clock
 	// (timeline.svelte.js media). No native controls: the timeline is the transport.
 	import { ch, studio } from '../studio.svelte.js';
 	import { isVideo } from '../timeline-lanes.js';
 	import { media } from '../timeline.svelte.js';
+	import EditorSwitch from './EditorSwitch.svelte';
 
 	/** @type {{ clip: { item: any, off: number }, playing: boolean }} */
 	let { clip, playing } = $props();
@@ -18,7 +20,8 @@
 	const url = $derived(isVideo(c.source) ? c.url : null);
 	/** where the media is (s): its start + the playhead's place in the clip */
 	const at = $derived((c.from + clip.off) / 1000);
-	const what = $derived(url ? `${clip.item.id} · ${c.source} · ${c.file ?? ''}${failed === url ? ' – the file can\'t be played' : ''}` : `${clip.item.id} · ${c.source} – its shot is not the current one (a click on the clip edits it)`);
+	// the clip's words: its label (the shot, the source – a generated one's id, status, "audition") + its file
+	const what = $derived(url || c.image ? `${clip.item.label} · ${c.file ?? ''}${url && failed === url ? ' – the file can\'t be played' : ''}` : `${clip.item.id} · ${c.source} – its shot is not the current one (a click on the clip edits it)`);
 
 	$effect(() => {
 		const v = el;
@@ -40,13 +43,13 @@
 </script>
 
 <section class="clip-view" aria-label="Clip">
-	<div class="tools"><span class="cap" title={what}>{what}</span></div>
+	<div class="tools"><EditorSwitch /><span class="cap" title={what}>{what}</span></div>
 	<div class="stage">
 		{#if url}
 			<!-- svelte-ignore a11y_media_has_caption -->
 			<video bind:this={el} src={url} data-url={url} preload="auto" playsinline onerror={() => (failed = url)}></video>
 		{:else}
-			<img src={`/out/${ch()}/frames/${clip.item.id}.png?v=${studio.version}`} alt={clip.item.id} />
+			<img src={c.image ?? `/out/${ch()}/frames/${clip.item.id}.png?v=${studio.version}`} alt={clip.item.label} />
 		{/if}
 	</div>
 </section>
@@ -65,6 +68,7 @@
 	.tools {
 		display: flex;
 		align-items: center;
+		gap: var(--space-05);
 		min-height: var(--control-height);
 		padding: var(--space-025) var(--space-1);
 		border-bottom: var(--border-width-regular) solid var(--ink);

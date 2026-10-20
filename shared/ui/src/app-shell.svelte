@@ -26,7 +26,8 @@
 	 * instead of the `body` padding the ActionBar adds, so the page never scrolls by a wrong amount (rem-based padding
 	 * on a fluid root size). The top bar's height is measured (`--sc-shell-top`), so a wrapping top bar is fine.
 	 *
-	 * `collapsible`: below 768px the sidebar becomes an off-canvas drawer (`sidebarOpen`, scrim → `onclose`).
+	 * `collapsible`: below 768px the sidebar becomes an off-canvas drawer (`sidebarOpen`, scrim → `onclose`); `drawerSide`
+	 * `right` slides it in from the right (the creator's menu like the reader's – CREATOR-NAV.md §2a).
 	 * `resizeKey`: from 768px on, the sidebar's right edge (a `Divider`) drags it wider (owner 2026-10-02: creator) –
 	 * from its normal width up to a third of the window; arrow keys on the handle, double-click resets; remembered per
 	 * key in localStorage (`sc-sidebar-width:<key>`).
@@ -72,6 +73,7 @@
 		sidebarId,
 		sidebarTag = 'nav',
 		collapsible = false,
+		drawerSide = 'left',
 		sidebarOpen = false,
 		onclose,
 		closeLabel = 'Close menu',
@@ -108,6 +110,8 @@
 		sidebarId?: string;
 		sidebarTag?: 'nav' | 'aside' | 'div';
 		collapsible?: boolean;
+		/** phones: the side the drawer comes from */
+		drawerSide?: 'left' | 'right';
 		sidebarOpen?: boolean;
 		onclose?: () => void;
 		closeLabel?: string;
@@ -448,6 +452,7 @@
 	class:has-sidebar={!!sidebar}
 	class:has-dock={panels.length > 0}
 class:collapsible
+	class:drawer-right={drawerSide === 'right'}
 	class:folded={folded && !!foldKey}
 	class:max-dock={maximized === 'dock'}
 	class:max-main={!!maximized && maximized !== 'dock'}
@@ -457,7 +462,7 @@ class:collapsible
 style:--sc-shell-content-col={contentCol}
 style:--sc-shell-main-kept={mainRailed && keptMain ? `${keptMain}px` : null}
 	style:--sc-shell-top="{topHeight}px"
-	style:--sc-shell-sidebar-width={folded && foldKey ? 'var(--sc-shell-rail-width)' : region.width !== null ? `max(${region.width}px, ${sidebarWidth})` : sidebarWidth}
+	style:--sc-shell-sidebar-width={folded && foldKey ? 'var(--sc-shell-rail-width)' : widthKey && region.width !== null ? `max(${region.width}px, ${sidebarWidth})` : sidebarWidth}
 style:--sc-shell-columns={columns}
 	style:--sc-shell-columns-phone={phoneColumns}
 	style:--sc-shell-bottom-size={hasBottom ? bottomSize?.css : null}
@@ -479,7 +484,9 @@ style:--sc-shell-columns={columns}
 				{#if railed}
 					<Rail side="left" label={railLabel} {unfoldLabel} title="{unfoldLabel} (Ctrl + \)" controls={sidebarId} onunfold={() => (maximized ? shellDock.restore() : region.fold(false))} testid="shell-rail" />
 				{:else}
-					{#if drawer}
+					{#if drawer && drawerSide === 'right'}
+						<!-- a drawer from the right closes by its own toggle (the app's ☰ next to it) and the scrim -->
+					{:else if drawer}
 						<!-- the drawer's fold = close it (BACKLOG 10.50 a) -->
 						<FoldButton side="left" label={closeLabel} title={closeLabel} controls={sidebarId} onclick={() => onclose?.()} class="sc-shell-fold" />
 					{:else if foldKey}
@@ -787,6 +794,13 @@ style:--sc-shell-columns={columns}
 			transform: translateX(-100%);
 			transition: transform var(--duration-base) var(--easing);
 			visibility: hidden;
+		}
+		.collapsible.drawer-right .sc-shell-sidebar {
+			left: auto;
+			right: 0;
+			border-right: 0;
+			border-left: var(--border-width-regular) solid var(--ink);
+			transform: translateX(100%);
 		}
 		.collapsible .sc-shell-sidebar.open {
 			transform: none;

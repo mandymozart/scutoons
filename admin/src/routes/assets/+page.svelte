@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { crossAppClick } from '@scutoons/pwa';
 	import { infoBar } from '$lib/info.ts';
 	import PageHelp from '$lib/components/page-help.svelte';
 	import PageHeader from '$lib/components/page-header.svelte';
@@ -312,7 +313,7 @@
 					{#if drafts.length}
 						<p class="sc-caption">{m['assets.standard_report_drafts']()}</p>
 						<ul class="refs">
-							{#each drafts as c (c.ref)}<li>{#if contentHref(c.ref)}<a href={contentHref(c.ref)} target="_blank" rel="noreferrer">{c.ref}</a>{:else}{c.ref}{/if}{#if c.version}{' '}<Badge tone="draft">v{c.version}</Badge>{/if}</li>{/each}
+							{#each drafts as c (c.ref)}<li>{#if contentHref(c.ref)}<a href={contentHref(c.ref)} target="_blank" rel="noreferrer" onclick={crossAppClick}>{c.ref}</a>{:else}{c.ref}{/if}{#if c.version}{' '}<Badge tone="draft">v{c.version}</Badge>{/if}</li>{/each}
 						</ul>
 					{/if}
 					{#if report.relink?.manual.length}

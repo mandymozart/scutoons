@@ -2,7 +2,7 @@
 	import { publishTree } from '$lib/editor/publish-tree.ts';
 	import { publishLabel } from '$lib/editor/reviews.svelte.ts';
 	import { onMount } from 'svelte';
-	import { ActionBar, CloseIcon, Icon, PhoneBar, confirmDialog, ToonAvatar, shellDock, useDock, type PhoneBarItem } from '@scutoons/ui';
+	import { ActionBar, CloseIcon, Icon, PhoneBar, confirmDialog, shellDock, useDock, type PhoneBarItem } from '@scutoons/ui';
 	import SourceMark from '$lib/components/text/source-mark.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -12,7 +12,6 @@
 	import { contentIndex } from '$lib/api.ts';
 	import { toonDoc, toonIndexDoc } from '$lib/editor/languages.ts';
 	import { chapterSyncChanges, syncChapter } from '$lib/editor/visibility.ts';
-	import { toonUrl } from '$lib/utils/cdn.ts';
 	import { entities, Language, NEUTRAL_LOCALE, parseEntityKey, previewText, Status, toonLanguages, withToonLanguages } from '@scutoons/content';
 	import type { SequenceItem, ToonLanguages } from '@scutoons/content';
 	import { fileLabel, fileLabels } from '$lib/labels.ts';
@@ -34,9 +33,8 @@
 	useDock(() =>
 		flowOpen ? { kind: 'flow', content: { component: FlowDock, props: flowProps }, size: flowSize, title: m['creator.flow'](), icon: 'git-merge', close: () => (flowOpen = false) } : null
 	);
-	// owner 2026-10-12, approved from the draft: "mehr Konzepte aus der Mobile in die Desktop-Variante": the toon's settings as a pill with its
-	// avatar at the end of the crumbs (like the map's toon pill) – the big title row goes
-	usePageNav({ actions: flowToggle, crumbEnd: settingsPill });
+	// the toon's settings are its Settings tab (CREATOR-NAV.md §2a – the toon pill went); the big title row stays gone
+	usePageNav({ actions: flowToggle });
 	/** the toon's display name in the UI language (never the id as a title) */
 	const toonName = $derived(nav.toonName(toonId));
 
@@ -66,8 +64,6 @@
 	const addable = $derived(edited ? ALL_LANGUAGES.filter((l) => !edited.languages.includes(l)) : []);
 	const languagesChanged = $derived(!!edited && !!langs && edited.languages.join(',') !== langs.languages.join(','));
 
-	/** navigation avatar: the index entry's `avatar`, else the convention `<toon>/avatar.webp` */
-	const avatarSrc = $derived(toonUrl(toonId, index?.data?.[NEUTRAL_LOCALE]?.avatar || 'avatar.webp'));
 
 	/** titles in lists: one language – the i18n switch's, else the source; the others in the tooltip (owner 2026-10-02) */
 	const titleLocale = $derived(season ? listLanguage(season.textLanguages, season.textSource) : '');
@@ -398,9 +394,6 @@
 		{/snippet}
 	</ActionBar>
 </div>
-{#snippet settingsPill()}
-	<a class="settings-pill" href="/{toonId}/toon" title={m['creator.open_toon_settings']({ name: toonName })} aria-label={m['creator.open_toon_settings']({ name: toonName })} data-testid="toon-title"><ToonAvatar src={avatarSrc} name={toonName} size="1.75rem" /><Icon name="settings" size="1rem" /></a>
-{/snippet}
 {#snippet flowToggle()}
 	<button type="button" class="sc-round" aria-pressed={flowOpen} title={m['creator.flow_toon_open']()} aria-label={m['creator.flow_toon_open']()} onclick={() => (flowOpen = !flowOpen)} data-testid="flow-toggle"><Icon name="git-merge" /></button>
 {/snippet}
@@ -495,23 +488,6 @@
 		gap: var(--space-025);
 		padding-left: var(--space-05);
 		padding-right: var(--space-05);
-	}
-	/* the toon's settings at the end of the crumbs (like the map's toon pill) */
-	.settings-pill {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.2rem;
-		min-height: 2.25rem;
-		padding: 0 0.45rem 0 0.15rem;
-		border: var(--border-width-regular) solid var(--ink);
-		border-radius: 999rem;
-		background: var(--paper);
-		color: var(--ink);
-	}
-	.settings-pill:hover,
-	.settings-pill:focus-visible {
-		outline: var(--border-width-focus) solid var(--ink);
-		outline-offset: 2px;
 	}
 	.chips {
 		display: flex;

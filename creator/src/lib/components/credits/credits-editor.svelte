@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { crossAppClick } from '@scutoons/pwa';
 	import { onMount } from 'svelte';
 	import {
 		cdnUrl,
@@ -108,7 +109,7 @@
 			<aside class="preview" data-testid="credits-preview">
 				<header>
 					<span>{m['creator.preview']()}</span>
-					<a class="hint" href="{VIEWER_URL}/{toon}/credits" target="_blank" rel="noreferrer">{m['creator.credits_live']()}</a>
+					<a class="hint" href="{VIEWER_URL}/{toon}/credits" target="_blank" rel="noreferrer" onclick={crossAppClick}>{m['creator.credits_live']()}</a>
 				</header>
 				<div class="frame" lang={previewLocale}>
 					{#if preview}<CreditsView credits={preview} imageUrl={(path) => cdnUrl(CDN_SERVER, path)} />{/if}

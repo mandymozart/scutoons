@@ -66,6 +66,7 @@
 	}
 	canvas {
 		display: block;
+		box-sizing: border-box; /* the frame inside the 12rem (it stuck out 4px) */
 		width: 100%;
 		aspect-ratio: 1;
 		border: var(--border-width-regular) solid var(--ink);

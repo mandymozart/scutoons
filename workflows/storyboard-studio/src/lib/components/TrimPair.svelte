@@ -11,6 +11,7 @@
 	import { formatTime } from '@scutoons/ui/timeline';
 	import { hh, stillAt } from '../handheld/handheld.svelte.js';
 	import { FRAME_MS } from '../timeline-lanes.js';
+	import EditorSwitch from './EditorSwitch.svelte';
 
 	/** @type {{ pair: { n: number, id: string, take: string, edge: 'in' | 'out' | 'slip', in: number, out: number, live: boolean }, step?: number }} */
 	let { pair, step = FRAME_MS } = $props();
@@ -48,7 +49,7 @@
 </script>
 
 <section class="trim-pair" aria-label="The kept part's in and out">
-	<div class="tools"><span class="cap" title={what}>{what}</span></div>
+	<div class="tools"><EditorSwitch /><span class="cap" title={what}>{what}</span></div>
 	<div class="stage">
 		<figure class:moved={pair.edge !== 'out'}>
 			<figcaption>In · {formatTime(pair.in, fps)}</figcaption>
@@ -75,6 +76,7 @@
 	.tools {
 		display: flex;
 		align-items: center;
+		gap: var(--space-05);
 		min-height: var(--control-height);
 		padding: var(--space-025) var(--space-1);
 		border-bottom: var(--border-width-regular) solid var(--ink);

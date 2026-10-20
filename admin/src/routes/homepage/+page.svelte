@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { crossAppClick } from '@scutoons/pwa';
 	import { infoBar } from '$lib/info.ts';
 	import PageHelp from '$lib/components/page-help.svelte';
 	import { ActionBar, Badge, Button, CloseIcon, Section, Skeleton, SortGrip, sortable } from '@scutoons/ui';
@@ -102,7 +103,7 @@
 		{/if}
 	{/snippet}
 	{#snippet end()}
-		<Button size="sm" variant="secondary" href={homepage} target="_blank" rel="noopener">{m['homepage.preview']()}</Button>
+		<Button size="sm" variant="secondary" href={homepage} target="_blank" rel="noopener" onclick={crossAppClick}>{m['homepage.preview']()}</Button>
 		<Button size="sm" onclick={() => save($state.snapshot(draft))} disabled={!current || saving || !changed} data-testid="featured-save">
 			{saving ? m['homepage.saving']() : m['homepage.save']()}
 		</Button>

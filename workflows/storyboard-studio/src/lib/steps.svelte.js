@@ -1,18 +1,19 @@
 // The studio's steps (owner 2026-10-19, research/STUDIO-LAYOUT.md concept C stage 1 = B: "Script · Shots · Layout ·
 // Handheld · Generate · Export", "it makes sense for it to always look the same"): one layout – the shot list, the main
 // view, the panels in their fixed places, the timeline along the bottom – and per step only which panels are open, the
-// Shot panel's tab, the main view (the timeline's view mode) and the timeline's fold differ. Each step remembers its own
-// (localStorage `storyboard-studio:step:v2:<id>` – v2: the view modes and the timeline open only in Handheld + Generate,
-// owner 2026-10-19; a browser's chrome – no server state); the panels' widths are per step too
+// Shot panel's tab, the main view's editor (Viewport · Variants), the timeline's view mode and its fold differ. Each step
+// remembers its own (localStorage `storyboard-studio:step:v2:<id>` – v2: the view modes and the timeline open only in
+// Handheld + Generate, owner 2026-10-19; a layout saved before the editor existed gets the step's own; a browser's chrome
+// – no server state); the panels' widths are per step too
 // (`storyboard-studio:<step>:<kind>`, App). The current and the picked shots are shared by all steps (studio.svelte.js).
 
-/** the dock panels in their fixed places, from the main view outwards (`order`) */
+/** the dock panels in their fixed places, from the main view outwards (`order`) – the Variants panel left the dock: its
+ * frame, layout variants, generated files and drops are on the main's Variants board (research/VARIANTS-CANVAS.md §3.1) */
 export const PANELS = [
 	{ kind: 'shot', title: 'Shot', icon: 'sliders', rem: 24 },
 	{ kind: 'script', title: 'Script', icon: 'file-text', rem: 20 },
 	{ kind: 'handheld', title: 'Handheld', icon: 'smartphone', rem: 22 },
 	{ kind: 'generate', title: 'Generate', icon: 'zap', rem: 22 },
-	{ kind: 'variants', title: 'Variants', icon: 'grid', rem: 18 },
 	{ kind: 'output', title: 'Output', icon: 'download', rem: 24 }
 ];
 
@@ -35,15 +36,23 @@ export const VIEW_MODES = [
 	{ value: 'generated', label: 'Generated', title: 'The generated video (the approved one, else the newest) – else rendered, the take, a still' }
 ];
 
+/** the main view's editor (research/VARIANTS-CANVAS.md §3.1, STUDIO-LAYOUT §4 C – Blender's editor type, only for the
+ * main; key V): the Viewport (the 3D view, or the clip under the playhead over it) or the Variants board (every
+ * generation of the picked shots, a band each). Not the timeline's view mode – that picks the clips. */
+export const EDITORS = [
+	{ value: 'viewport', label: 'Viewport', icon: 'box', title: 'The 3D view – or the clip under the playhead (V)' },
+	{ value: 'variants', label: 'Variants', icon: 'grid', title: 'Every generation of the picked shots, a band each – compare and pick (V)' }
+];
+
 /** the steps and what each opens the first time (each fits 1440: shots + a 24rem main + its panels); the timeline open
  * only where time matters – Handheld + Generate (owner 2026-10-19) */
 export const STEPS = [
-	{ id: 'script', label: 'Script', title: 'The scene\'s script next to the shot – what each shot shows', panels: ['shot', 'script'], tab: 'shot', view: 'shot', timeline: false },
-	{ id: 'shots', label: 'Shots', title: 'The shots in order – what each shows', panels: ['shot'], tab: 'shot', view: 'shot', timeline: false },
-	{ id: 'layout', label: 'Layout', title: 'Blocking: format, camera, light, figures in the 3D view', panels: ['shot'], tab: 'camera', view: 'shot', timeline: false },
-	{ id: 'handheld', label: 'Handheld', title: 'Film the shot with the phone, trim the take on the timeline', panels: ['handheld'], tab: 'camera', view: 'take', timeline: true },
-	{ id: 'generate', label: 'Generate', title: 'Generate the shot, pick and approve the result', panels: ['generate', 'variants'], tab: 'shot', view: 'generated', timeline: true },
-	{ id: 'export', label: 'Export', title: 'The chapter\'s outputs: handheld videos, downloads, the draft', panels: ['output'], tab: 'shot', view: 'rendered', timeline: false }
+	{ id: 'script', label: 'Script', title: 'The scene\'s script next to the shot – what each shot shows', panels: ['shot', 'script'], tab: 'shot', editor: 'viewport', view: 'shot', timeline: false },
+	{ id: 'shots', label: 'Shots', title: 'The shots in order – what each shows', panels: ['shot'], tab: 'shot', editor: 'viewport', view: 'shot', timeline: false },
+	{ id: 'layout', label: 'Layout', title: 'Blocking: format, camera, light, figures in the 3D view', panels: ['shot'], tab: 'camera', editor: 'viewport', view: 'shot', timeline: false },
+	{ id: 'handheld', label: 'Handheld', title: 'Film the shot with the phone, trim the take on the timeline', panels: ['handheld'], tab: 'camera', editor: 'viewport', view: 'take', timeline: true },
+	{ id: 'generate', label: 'Generate', title: 'Generate the shot, pick and approve the result', panels: ['generate'], tab: 'shot', editor: 'variants', view: 'generated', timeline: true },
+	{ id: 'export', label: 'Export', title: 'The chapter\'s outputs: handheld videos, downloads, the draft', panels: ['output'], tab: 'shot', editor: 'viewport', view: 'rendered', timeline: false }
 ];
 
 const KEY = 'storyboard-studio:step';
@@ -52,9 +61,10 @@ const layoutKey = (id) => `${KEY}:v2:${id}`;
 const read = (k) => { try { return JSON.parse(localStorage.getItem(k) ?? 'null'); } catch { return null; } };
 const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* not remembered */ } };
 
-/** a step's remembered layout: { panels: kind[], tab, view, timeline } – `view` = the main view: the timeline's view mode
- * (VIEW_MODES); a kind no longer in PANELS is dropped – the Luma panel 'prompt' (gone into Generate 2026-10-19) opens
- * Generate in its place */
+/** a step's remembered layout: { panels: kind[], tab, editor, view, timeline } – `editor` = the main view's editor
+ * (EDITORS), `view` = the timeline's view mode (VIEW_MODES); a kind no longer in PANELS is dropped (the Variants panel
+ * 'variants' – on the board since 2026-10-20) – the Luma panel 'prompt' (gone into Generate 2026-10-19) opens Generate
+ * in its place */
 function load(step) {
 	const saved = read(layoutKey(step.id));
 	const kinds = PANELS.map((p) => p.kind);
@@ -62,6 +72,7 @@ function load(step) {
 	return {
 		panels: panels ? [...new Set(panels)].filter((k) => kinds.includes(k)) : [...step.panels],
 		tab: SHOT_TABS.some((t) => t.value === saved?.tab) ? saved.tab : step.tab,
+		editor: EDITORS.some((e) => e.value === saved?.editor) ? saved.editor : step.editor,
 		view: VIEW_MODES.some((m) => m.value === saved?.view) ? saved.view : step.view,
 		timeline: typeof saved?.timeline === 'boolean' ? saved.timeline : step.timeline
 	};
@@ -94,6 +105,12 @@ export function setOpen(kind, open) {
 }
 export function setTab(tab) {
 	here().tab = tab;
+	keep();
+}
+/** the main view's editor (the switch, V; Play goes back to the Viewport – App) */
+export function setEditor(editor) {
+	if (here().editor === editor || !EDITORS.some((e) => e.value === editor)) return;
+	here().editor = editor;
 	keep();
 }
 export function setView(view) {

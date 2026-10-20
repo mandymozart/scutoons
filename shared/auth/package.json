@@ -26,6 +26,7 @@
 	"dependencies": {
 		"@scutoons/api": "*",
 		"@scutoons/content": "*",
+		"@scutoons/pwa": "*",
 		"@scutoons/tokens": "*",
 		"@scutoons/ui": "*"
 	},

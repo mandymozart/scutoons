@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { crossAppClick } from '@scutoons/pwa';
 	import type { Snippet } from 'svelte';
 	import { Button } from '@scutoons/ui';
 	import LoginForm from './login-form.svelte';
@@ -68,7 +69,7 @@
 			<Button onclick={switchAccount} disabled={switching} data-testid="auth-switch-account">{t.switchAccount}</Button>
 			{#if readerHref}
 				<!-- the reader is another app: a new window without an opener opens the installed one (research/PWA-APPS.md §3a) -->
-				<Button variant="secondary" href={readerHref} target="_blank" rel="noopener">{t.openReader}</Button>
+				<Button variant="secondary" href={readerHref} target="_blank" rel="noopener" onclick={crossAppClick}>{t.openReader}</Button>
 			{/if}
 		</p>
 	</section>

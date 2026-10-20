@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { crossAppClick } from '@scutoons/pwa';
 	import { Badge, Button, DataTable, Section, type Column } from '@scutoons/ui';
 	import type { AssetDeleteCheck, AssetDetail, AssetJob, AssetRendition, AssetUsage } from '@scutoons/api';
 	import { ApiError, assets } from '$lib/api.ts';
@@ -222,7 +223,7 @@
 		<Section title={m['assets.usages_title']({ count: detail.usages.length })}>
 			<DataTable columns={usageColumns} rows={detail.usages} rowKey={(u) => `${u.ref}|${u.field}|${u.state}`} labels={tableLabels()}>
 				{#snippet cell(u, column)}
-					{#if column.id === 'ref'}{#if editHref(u)}<a href={editHref(u)} target="_blank" rel="noreferrer">{u.ref}</a>{:else}{u.ref}{/if}
+					{#if column.id === 'ref'}{#if editHref(u)}<a href={editHref(u)} target="_blank" rel="noreferrer" onclick={crossAppClick}>{u.ref}</a>{:else}{u.ref}{/if}
 					{:else if column.id === 'field'}<code title={u.raw}>{u.field}</code> <span class="sc-caption">{u.path.split('/').pop()}</span>
 					{:else}<Badge tone={stateTone(u)}>{u.state}</Badge>{/if}
 				{/snippet}

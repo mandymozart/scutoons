@@ -215,7 +215,8 @@ fold and maximize = "fold everything else": BACKLOG 10.57 (owner 2026-10-07, bel
 
 | Area | Where | Region | Size / fold / keys | Remembered |
 | --- | --- | --- | --- | --- |
-| Left sidebar + rail | `shared/ui/src/app-shell.svelte` (creator, admin) | shell left | `dockRegion`: Divider, 12rem (admin 14rem) … ⅓ window; folds (FoldButton, drag < 60 %, Ctrl+\\); folds by itself for `foldWhen` / a maximized region | `sc-sidebar-width/-folded:<app>` |
+| Creator menu + page list | `creator/src/routes/+layout.svelte` (inside the shell's sidebar, no shell fold; DESIGN "Creator navigation") | shell left | the menu 12rem, folds by hand to its icon rail (its foot button, Ctrl+\\; a maximized region rails it); with a page's list (chapter tree …) the region's Divider widens the list; phones: the drawer from the right | `sc-creator-menu-folded`, `sc-sidebar-width:creator(-rail)` |
+| Left sidebar + rail | `shared/ui/src/app-shell.svelte` (admin, the studio) | shell left | `dockRegion`: Divider, 12rem (admin 14rem) … ⅓ window; folds (FoldButton, drag < 60 %, Ctrl+\\); folds by itself for `foldWhen` / a maximized region | `sc-sidebar-width/-folded:<app>` |
 | Chapter tree | in the sidebar (`usePageNav({ sidebar })`) | = sidebar | = sidebar | = sidebar |
 | Script outline | `script/script-editor.svelte` + `script-outline.svelte` | page left | `dockRegion` + Divider + Rail ("Outline"), 16rem … ½ page; above the text < 900px | `sc-script-outline-width/-folded` |
 | Slice inspector | `chapter/chapter-editor.svelte` (`.inspector-region`) | page right | `panelWidth` + Divider, 22rem … ½ the editor's area; below the canvas < 1280px; maximizes | `sc-panel-width:slice-inspector` |

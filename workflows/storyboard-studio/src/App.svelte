@@ -4,31 +4,37 @@
 	// it to always look the same"): the shots as the sidebar (the toon's order – a click picks one, Ctrl / Shift + click
 	// more), the main view as the page, the step's panels in the right dock (each with the creator's head, folds to its
 	// rail, drags wider), the timeline along the bottom under the view and the panels (owner: "the timeline underneath the
-	// other windows was also good") – the picked shots' clips in the step's view mode –, the ActionBar. The main view
-	// follows the clip under the playhead: the 3D view (a still, the current shot's take) or ClipView over it (a video, or
-	// another shot's frame) – the 3D view stays mounted underneath (WebGL). A step only changes which panels are open, the
-	// Shot panel's tab, the view mode, the timeline's fold and the panels' widths (steps.svelte.js). While a take is
-	// trimmed the main view shows the in / out pair (TrimPair). Keys outside text fields: 1–6 the step, T the shot list,
-	// N the step's panels, I / O the trim at the playhead (Take mode); Ctrl + Space, Ctrl + \, Ctrl + Shift + \ as in the
-	// creator. agents/DOCKING.md, DESIGN.md.
+	// other windows was also good") – the picked shots' clips in the step's view mode –, the ActionBar. The main view has
+	// two editors (the switch in its tool row, key V – research/VARIANTS-CANVAS.md §3.1): the VIEWPORT follows the clip
+	// under the playhead – the 3D view (a still, the current shot's take) or ClipView over it (a video, or another shot's
+	// frame); while a take is trimmed the in / out pair (TrimPair) – and the VARIANTS board (Board: every generation of the
+	// picked shots, a band each); the 3D view stays mounted under both (WebGL), hidden under the board. Play needs a
+	// picture: it switches to the Viewport (the board ends Play) – while the board is open, and through that switch, the
+	// current shot's Generated clip is the board's current card (the audition, audition.svelte.js; an image: ClipView
+	// shows it). A step only changes which panels are open, the Shot
+	// panel's tab, the main's editor, the view mode, the timeline's fold and the panels' widths (steps.svelte.js). Keys
+	// outside text fields: 1–6 the step, T the shot list, N the step's panels, V the main's editor, I / O the trim at the
+	// playhead (Take mode); Ctrl + Space, Ctrl + \, Ctrl + Shift + \ as in the creator. agents/DOCKING.md, DESIGN.md.
 	import { onMount, untrack } from 'svelte';
 	import { AppShell, DialogHost, installTooltips, panelHeight, panelWidth, Segmented, shellDock, ToastStack, useDock } from '@scutoons/ui';
 	import { fail, loadChapters, studio, toaster } from './lib/studio.svelte.js';
 	import { endPair, stop, timelineOf, tl, trimAtPlayhead, useTimeline } from './lib/timeline.svelte.js';
 	import { clipAt, isVideo } from './lib/timeline-lanes.js';
-	import { here, isOpen, PANELS, setOpen, setStep, setTab, setTimeline, SHOT_TABS, STEPS, steps } from './lib/steps.svelte.js';
+	import { here, isOpen, PANELS, setEditor, setOpen, setStep, setTab, setTimeline, SHOT_TABS, STEPS, steps } from './lib/steps.svelte.js';
 	import { followSelection } from './lib/handheld/handheld.svelte.js';
+	import { gen } from './lib/generate.svelte.js';
+	import { playSwitch, useAudition } from './lib/audition.svelte.js';
 	import TopBar from './lib/components/TopBar.svelte';
 	import ShotList from './lib/components/ShotList.svelte';
 	import Viewport from './lib/components/Viewport.svelte';
 	import Timeline from './lib/components/Timeline.svelte';
 	import ClipView from './lib/components/ClipView.svelte';
 	import TrimPair from './lib/components/TrimPair.svelte';
+	import Board from './lib/components/Board.svelte';
 	import StudioActions from './lib/components/StudioActions.svelte';
 	import StudioPanel from './lib/components/StudioPanel.svelte';
 	import ShotPanel from './lib/components/ShotPanel.svelte';
 	import ScriptPanel from './lib/components/ScriptPanel.svelte';
-	import VariantsPanel from './lib/components/VariantsPanel.svelte';
 	import HandheldPanel from './lib/components/HandheldPanel.svelte';
 	import GeneratePanel from './lib/components/GeneratePanel.svelte';
 	import OutputPanel from './lib/components/OutputPanel.svelte';
@@ -36,7 +42,7 @@
 	// every step's own panel widths (remembered per step and kind)
 	const sizes = Object.fromEntries(STEPS.map((s) => [s.id, Object.fromEntries(PANELS.map((p) => [p.kind, panelWidth(`storyboard-studio:${s.id}:${p.kind}`, p.rem, undefined, { foldable: true })]))]));
 	// read when the dock asks (the snippets are declared below)
-	const body = (kind) => ({ shot: shotBody, script: scriptBody, variants: variantsBody, handheld: handheldBody, generate: generateBody, output: outputBody })[kind];
+	const body = (kind) => ({ shot: shotBody, script: scriptBody, handheld: handheldBody, generate: generateBody, output: outputBody })[kind];
 	const panel = (kind) => PANELS.find((p) => p.kind === kind);
 	// the Shot panel names the shot (• = unsaved); the others are about the same shot – their word is enough
 	const titleOf = (p) => (p.kind === 'shot' && studio.sel ? `Shot · ${studio.sel.id}${studio.dirty ? ' •' : ''}` : p.title);
@@ -46,6 +52,12 @@
 	PANELS.forEach((p, order) =>
 		useDock(() => (isOpen(p.kind) && (studio.sel || p.kind === 'output') ? { kind: `storyboard-${p.kind}`, order, min: MIN, size: sizes[steps.current][p.kind], title: titleOf(p), icon: p.icon, close: () => setOpen(p.kind, false), panel: body(p.kind) } : null))
 	);
+
+	// a card filled the Generate form from the board (Improve on this · Vary · More ▾ – improve.svelte.js): its panel opens
+	// in this step, unfolded – the line "Improve on g2" is where the work goes on
+	$effect(() => {
+		if (gen.reveal) untrack(() => { setOpen('generate', true); sizes[steps.current].generate.fold(false); });
+	});
 
 	// the timeline: one height for all steps, its fold per step (both ways – the fold button / a drag write the step's)
 	const timeline = panelHeight('storyboard-studio:timeline', 12);
@@ -69,8 +81,21 @@
 	// the timeline: the picked shots' clips in the step's view mode, the clip under the playhead (the main view follows it)
 	const view = $derived(timelineOf(here().view));
 	const cur = $derived(clipAt(view.items, tl.playhead));
-	// ClipView over the 3D view: a video clip – or a still / take of a shot that isn't the current one (its frame)
-	const clip = $derived(cur && (isVideo(cur.item.clip.source) || cur.item.id !== studio.sel?.id) ? cur : null);
+	// ClipView over the 3D view: a video clip, an auditioned image (its picture) – or a still / take of a shot that isn't
+	// the current one (its frame)
+	const clip = $derived(cur && (isVideo(cur.item.clip.source) || cur.item.clip.image || cur.item.id !== studio.sel?.id) ? cur : null);
+	// the main's editor: the variants board over the (hidden, still mounted) 3D view
+	const board = $derived(here().editor === 'variants');
+	// Play needs a picture: the main goes to the Viewport (V back to the board) – and the board, opened, ends Play. The
+	// audition (the current shot's Generated clip = the board's current card) holds through Play's switch while that
+	// Play runs; Play's end, the board closed by hand or another step: the chosen again (audition.svelte.js)
+	$effect(() => {
+		if (tl.playing) untrack(() => playSwitch(board));
+	});
+	useAudition(() => board, () => tl.playing);
+	$effect(() => {
+		if (board) untrack(() => stop());
+	});
 
 	followSelection();
 	useTimeline(() => view, () => cur);
@@ -87,6 +112,7 @@
 		if (n >= 1 && n <= STEPS.length) setStep(STEPS[n - 1].id);
 		else if (e.key === 't' || e.key === 'T') window.dispatchEvent(new KeyboardEvent('keydown', { key: '\\', code: 'Backslash', ctrlKey: true }));
 		else if (e.key === 'n' || e.key === 'N') foldPanels();
+		else if (e.key === 'v' || e.key === 'V') setEditor(board ? 'viewport' : 'variants');
 		// I / O: the take under the playhead trimmed there – only where the timeline shows (research/TIMELINE.md §4)
 		else if (/^[io]$/i.test(e.key)) trimAtPlayhead(!timeline.folded && !shellDock.maximized ? view : null, e.key.toLowerCase() === 'i' ? 'in' : 'out');
 		else return;
@@ -110,7 +136,6 @@
 {#snippet scriptBody()}<StudioPanel title={titleOf(panel('script'))} icon="file-text" onclose={() => setOpen('script', false)}><ScriptPanel /></StudioPanel>{/snippet}
 {#snippet handheldBody()}<StudioPanel title={titleOf(panel('handheld'))} icon="smartphone" onclose={() => setOpen('handheld', false)}><HandheldPanel /></StudioPanel>{/snippet}
 {#snippet generateBody()}<StudioPanel title={titleOf(panel('generate'))} icon="zap" onclose={() => setOpen('generate', false)}><GeneratePanel /></StudioPanel>{/snippet}
-{#snippet variantsBody()}<StudioPanel title={titleOf(panel('variants'))} icon="grid" onclose={() => setOpen('variants', false)}><VariantsPanel /></StudioPanel>{/snippet}
 {#snippet outputBody()}<StudioPanel title="Output" icon="download" onclose={() => setOpen('output', false)}><OutputPanel /></StudioPanel>{/snippet}
 
 {#snippet bottom()}
@@ -118,7 +143,7 @@
 {/snippet}
 
 <div class="studio sc-tool">
-	<AppShell mode="fill" minContent={24} resizeKey="storyboard-studio:shots" foldable railLabel="Shots" sidebarLabel="Shots" sidebarTag="aside" dockLabel="Shot panels" pageLabel="3D view" {bottom} bottomSize={timeline} bottomLabel="Timeline" bottomIcon="film" bottomResizeLabel="Resize the timeline" bottomUnfoldLabel="Show the timeline">
+	<AppShell mode="fill" minContent={24} resizeKey="storyboard-studio:shots" foldable railLabel="Shots" sidebarLabel="Shots" sidebarTag="aside" dockLabel="Shot panels" pageLabel="Main view" {bottom} bottomSize={timeline} bottomLabel="Timeline" bottomIcon="film" bottomResizeLabel="Resize the timeline" bottomUnfoldLabel="Show the timeline">
 		{#snippet topbar()}
 			<TopBar />
 		{/snippet}
@@ -126,8 +151,8 @@
 			<ShotList />
 		{/snippet}
 		<div class="main">
-			<div class="three" inert={!!clip || !!tl.pair}><Viewport /></div>
-			{#if tl.pair}<TrimPair pair={tl.pair} step={view.lanes[0]?.step} />{:else if clip}<ClipView {clip} playing={tl.playing} />{/if}
+			<div class="three" class:covered={board} inert={board || !!clip || !!tl.pair}><Viewport /></div>
+			{#if board}<Board />{:else if tl.pair}<TrimPair pair={tl.pair} step={view.lanes[0]?.step} />{:else if clip}<ClipView {clip} playing={tl.playing} />{/if}
 		</div>
 		<StudioActions />
 	</AppShell>
@@ -155,6 +180,10 @@
 	}
 	.three {
 		height: 100%;
+	}
+	/* under the board: still mounted (the WebGL context and the built scene stay), not drawn */
+	.three.covered {
+		visibility: hidden;
 	}
 	.studio {
 		height: 100dvh;

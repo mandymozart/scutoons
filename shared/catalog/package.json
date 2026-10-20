@@ -27,6 +27,7 @@
 		"@scutoons/api": "*",
 		"@scutoons/content": "*",
 		"@scutoons/media": "*",
+		"@scutoons/pwa": "*",
 		"@scutoons/tokens": "*",
 		"@scutoons/ui": "*"
 	},

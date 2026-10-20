@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { crossAppClick } from '@scutoons/pwa';
 	import { infoBar } from '$lib/info.ts';
 	import PageHelp from '$lib/components/page-help.svelte';
 	import { ActionBar, Button, CloseIcon, Section, Skeleton } from '@scutoons/ui';
@@ -121,7 +122,7 @@
 		{/if}
 	{/snippet}
 	{#snippet end()}
-		<Button size="sm" variant="secondary" href={eventsPage} target="_blank" rel="noopener">{m['calendar.preview']()}</Button>
+		<Button size="sm" variant="secondary" href={eventsPage} target="_blank" rel="noopener" onclick={crossAppClick}>{m['calendar.preview']()}</Button>
 		<Button size="sm" variant="secondary" onclick={add} disabled={!loaded} data-testid="events-add">{m['calendar.add']()}</Button>
 		<Button size="sm" onclick={save} disabled={!loaded || saving || !(changed || unpublished)} data-testid="events-save">
 			{saving ? m['calendar.saving']() : changed ? m['calendar.save']() : unpublished ? m['calendar.publish']() : m['calendar.save']()}

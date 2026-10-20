@@ -19,7 +19,7 @@
 		type Command,
 		installTooltips,
 	} from '@scutoons/ui';
-	import { InstallBar, UpdateBar, pwaLabels } from '@scutoons/pwa';
+	import { InstallBar, UpdateBar, openApp, pwaLabels } from '@scutoons/pwa';
 	import { APP_NAME, initPwa, install, pwa } from '$lib/pwa.svelte.ts';
 	import { AuthGate, takeMagicToken } from '@scutoons/auth';
 	import { setAdminSession } from '$lib/session.svelte.ts';
@@ -95,9 +95,9 @@
 			m['palette.actions']()
 		),
 		// the content lives in the creator (the admin's read-only Content page is gone, owner 2026-10-02)
-		{ id: 'open-creator', label: m['palette.open_creator'](), group: m['palette.actions'](), keywords: 'content chapters toons creator', run: () => void window.open(CREATOR_URL, '_blank', 'noopener') },
+		{ id: 'open-creator', label: m['palette.open_creator'](), group: m['palette.actions'](), keywords: 'content chapters toons creator', run: () => openApp(CREATOR_URL) },
 		// the catalog's items, recipes, albums, products, editions (owner 2026-10-12, D6)
-		{ id: 'creator-catalog', label: m['catalog.in_creator_link'](), group: m['palette.actions'](), keywords: 'catalog katalog item items recipe album product edition', run: () => void window.open(`${CREATOR_URL}/catalog/items`, '_blank', 'noopener') },
+		{ id: 'creator-catalog', label: m['catalog.in_creator_link'](), group: m['palette.actions'](), keywords: 'catalog katalog item items recipe album product edition', run: () => openApp(`${CREATOR_URL}/catalog/items`) },
 		languageCommand({ locales, current: getLocale(), setLocale, label: (locale) => m['palette.language']({ locale }), group: m['palette.actions']() }),
 		signOutCommand({ label: m['shell.sign_out'](), run: () => session.logout(), group: m['palette.actions']() })
 	]);

@@ -9,12 +9,14 @@
 // a step / chapter / mode / picked-set change, another current shot than Play's, the timeline folding (App). No Space
 // key (the score's pedal keys stay free). The trim (Take mode, research/TIMELINE.md §4 – way C): the in / out / slip of
 // the shared Timeline and App's I / O keys write the take's in / out; while a trim runs the main view shows the in / out
-// pair (`tl.pair`, TrimPair).
+// pair (`tl.pair`, TrimPair). The board's marks and its current card reach the lane as an override per shot (the
+// status bullets, the AUDITION – audition.svelte.js laneOver; research/VARIANTS-CANVAS.md §3.1 Q3).
 import { untrack } from 'svelte';
 import { api, ch, notify, pickedShots, pickShot, studio, toon } from './studio.svelte.js';
 import { activeTake, endPreview, hh, preview, saveDoc } from './handheld/handheld.svelte.js';
 import { steps } from './steps.svelte.js';
 import { out } from './output.svelte.js';
+import { laneOver } from './audition.svelte.js';
 import { clipAt, clipsLane, FRAME_MS, isVideo, kept, movedEdge, trimAt, trimPoint } from './timeline-lanes.js';
 
 export const tl = $state({
@@ -56,7 +58,9 @@ function liveTake() {
 export function timelineOf(mode) {
 	const id = studio.sel?.id;
 	const live = id && hh.docShot === id && hh.doc ? { [id]: liveTake() } : {};
-	const { lane, span, probe } = clipsLane(pickedShots(), mode, tl.clips, tl.known, live);
+	const ids = pickedShots();
+	// the board's marks (the status bullets) and the audition (the current shot's Generated clip = the current card)
+	const { lane, span, probe } = clipsLane(ids, mode, tl.clips, tl.known, live, laneOver(ids));
 	return { mode, lanes: [lane], items: lane.items, span, probe, sel: lane.items.find((i) => i.id === id) ?? null };
 }
 
@@ -127,9 +131,10 @@ export function useTimeline(view, cur) {
 			if (id !== tl.pair?.id) endPair();
 		});
 	});
-	// the current shot, the mode or the picked set changed (a pick in the list, the stepper, a click on a clip): the
-	// playhead to the current's clip – unless it is on it already (a seek that picked it) or Play runs
-	const key = $derived(`${studio.sel?.id}|${view().mode}|${view().items.map((i) => i.id)}|${view().sel?.start}`);
+	// the current shot, the mode or the picked set changed (a pick in the list, the stepper, a click on a clip), or the
+	// current's clip got another length (an audition – another card): the playhead to the current's clip – unless it
+	// is on it already (a seek that picked it) or Play runs
+	const key = $derived(`${studio.sel?.id}|${view().mode}|${view().items.map((i) => i.id)}|${view().sel?.start}|${view().sel?.length}`);
 	$effect(() => {
 		void key;
 		untrack(() => {

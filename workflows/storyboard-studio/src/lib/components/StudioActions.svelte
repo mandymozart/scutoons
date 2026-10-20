@@ -13,8 +13,8 @@
 	const at = $derived(shots.findIndex((s) => s.id === studio.sel?.id));
 	// the keys outside text fields, most needed first: a hint that doesn't fit the bar goes whole (never cut mid-word);
 	// the full list is the tooltip
-	const KEYS = [['1', '6', 'step'], ['T', null, 'shots'], ['N', null, 'panels'], ['Ctrl', 'Space', 'maximize']];
-	const ALL_KEYS = "Keys outside text fields: 1–6 step · T shot list · N the step's panels · Ctrl + Space maximize · Ctrl + \\ shot list · Ctrl + Shift + \\ fold the 3D view";
+	const KEYS = [['1', '6', 'step'], ['T', null, 'shots'], ['N', null, 'panels'], ['V', null, 'variants'], ['Ctrl', 'Space', 'maximize']];
+	const ALL_KEYS = "Keys outside text fields: 1–6 step · T shot list · N the step's panels · V the main view: Viewport · Variants · Ctrl + Space maximize · Ctrl + \\ shot list · Ctrl + Shift + \\ fold the 3D view";
 	const problems = $derived(studio.data?.problems ?? []);
 	const errors = $derived(problems.filter((p) => p.level === 'error').length);
 	const step = (d) => pickShot(shots[Math.max(0, Math.min(shots.length - 1, (at < 0 ? 0 : at) + d))]?.id);

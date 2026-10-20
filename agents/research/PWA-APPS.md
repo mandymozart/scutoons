@@ -70,10 +70,14 @@ not the page inside the current one.
   app's open window (and navigates it there) instead of stacking a new window per tap (Chrome parses it, 155).
 - **What the platforms do with it**: desktop Chrome (Windows / Mac / Linux, 139+) captures such a click into the
   installed app ("navigation capturing"; the person can switch it off in the app's settings). Android: installing an
-  app registers its origin with the system; a link the person taps to another origin gives Chrome the chance to hand it
-  to that app – inside an installed app, Chrome otherwise shows other origins in a Custom Tab (the overlay with a URL
-  bar). Chrome documents no Android rule for app-to-app links: check on the phone (§7). iPhone / iPad: home-screen apps
-  can't open each other – links open in Safari's in-app sheet; nothing to do on our side.
+  app registers its origin with the system, but inside an installed app Chrome keeps a link to another origin in a
+  Custom Tab (the overlay with a URL bar) – the owner's phone, 2026-10-20: "didn't work". So **on Android inside an
+  installed app a cross-app link goes out as an Android intent** (`@scutoons/pwa` cross-app.ts: `crossAppClick` on the
+  link, `openApp(url)` from a command): `intent://<host>/<path>#Intent;scheme=https;action=VIEW;category=BROWSABLE;
+  launchFlags=NEW_TASK;S.browser_fallback_url=<the address>;end` – the system hands the address to the app registered
+  for it (the other installed SCUTOONS app), else the browser opens it. Outside an installed app (a browser tab,
+  desktop, iOS) the plain link. iPhone / iPad: home-screen apps can't open each other – links open in Safari's in-app
+  sheet; nothing to do on our side.
 - Not a cross-app link: the creator's dock Reader is the reader in a frame on purpose (the draft preview beside the
   editor, DOCKING.md "The Reader panel").
 
@@ -150,7 +154,9 @@ every 5 min), each guarded by a key. Only the reader has a worker that shows not
   event, the menu how-to without it, the Share how-to with an iPhone user agent).
 - **App-to-app on a phone**: install the reader and the creator from Chrome (⋮ → App installieren); in the reader
   Mein Konto → Creator → "Creator öffnen" – the Creator app should open (not a Custom Tab with a URL bar); in the
-  Creator, the palette's "Reader" – the reader app. If Android shows the Custom Tab, Chrome doesn't hand app-to-app
-  links over yet: tell the agents (Chromium issue 40745354 is about links from installed apps).
+  Creator, the palette's "Reader" – the reader app. Android may first ask which app should open it ("SCUTOONS Creator"
+  or Chrome – "Immer"): then once. If the browser opens instead, Android doesn't send the address to the installed app:
+  tell the agents. Checked 2026-10-20 in Chrome with an Android user agent and an installed display mode (emulated): the
+  tap navigates to the intent, no Custom Tab; in a browser tab the plain new tab.
 - To do: the signed-in pages of all three at 390 px (`scrollWidth` = `clientWidth`, nothing past the edge outside its own
   scroller) – the test user over the dev API; a throw-away origin needs the app's dev origin sent along (CSRF check).

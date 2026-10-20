@@ -131,6 +131,12 @@
 	.sc-fields {
 		--fields-fill-min: 11.875rem;
 	}
+	/* phones: one field per row (two columns cut the selects: "Cat Pope · catpop") */
+	@media (max-width: 767px) {
+		.sc-fields {
+			--fields-fill-min: 100%;
+		}
+	}
 	label {
 		font-size: var(--type-caption-size);
 		text-transform: uppercase;
@@ -146,6 +152,10 @@
 		gap: 0.3rem;
 		align-items: center;
 		font-weight: 400;
+	}
+	.inline > input:not(.picker) {
+		flex: 1;
+		min-width: 0;
 	}
 	/* the native colour picker as the swatch (square, the design's 2px rule) */
 	.picker {

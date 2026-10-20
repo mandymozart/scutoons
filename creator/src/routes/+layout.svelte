@@ -10,6 +10,7 @@
 		Breadcrumbs,
 		CommandPalette,
 		Icon,
+		Rail,
 		PaletteTrigger,
 		languageCommand,
 		linkCommands,
@@ -19,6 +20,7 @@
 		installTooltips,
 		DialogHost,
 		ToastStack,
+		shellDock,
 		provideColourSampler,
 		provideUiLabels
 	} from '@scutoons/ui';
@@ -39,7 +41,10 @@
 	import { getLocale, locales, setLocale } from '$lib/paraglide/runtime.js';
 	import { setCreatorNav, type Crumb } from '$lib/nav.svelte.ts';
 	import { fileLabel } from '$lib/labels.ts';
-	import NavSidebar from '$lib/components/page/nav-sidebar.svelte';
+	import AreaMenu from '$lib/components/page/area-menu.svelte';
+	import ToonTabs from '$lib/components/toon/toon-tabs.svelte';
+	import PathMenu from '$lib/components/page/path-menu.svelte';
+	import { recent } from '$lib/recent.svelte.ts';
 	import { reviews } from '$lib/editor/reviews.svelte.ts';
 	import TextLanguageSwitch from '$lib/components/text/text-language-switch.svelte';
 	import { PLATFORM_SOURCE_LANGUAGE, textLanguage } from '$lib/editor/text-language.svelte.ts';
@@ -95,9 +100,47 @@
 	onMount(initPwa);
 	afterNavigate(({ from }) => from && install.check());
 
-	// ── Navigation (agents/DESIGN.md "Creator navigation"): one top bar, sidebar = children of the current level ──
+	// ── Navigation (agents/DESIGN.md "Creator navigation", CREATOR-NAV.md §2a – draft D): one top bar with the path, the
+	// menu by areas on the left (folded by hand to the areas' rail; a page's own list – the chapter tree – beside it);
+	// phones: one row (logo = home · path · the page's end · ☰), the menu slides in from the right ──
 	const nav = setCreatorNav();
 	let menuOpen = $state(false);
+	/** the desktop menu folded to its rail (by hand: its fold button, Ctrl + \; remembered) */
+	const FOLD_KEY = 'sc-creator-menu-folded';
+	let menuFolded = $state(false);
+	onMount(() => {
+		try {
+			menuFolded = localStorage.getItem(FOLD_KEY) === '1';
+		} catch {
+			// no storage: unfolded
+		}
+	});
+	/** the page's own list (the chapter tree …) folded to a slim rail by hand (its head's «; remembered) */
+	const LIST_FOLD_KEY = 'sc-creator-list-folded';
+	let listFolded = $state(false);
+	onMount(() => {
+		try {
+			listFolded = localStorage.getItem(LIST_FOLD_KEY) === '1';
+		} catch {
+			// unfolded
+		}
+	});
+	function foldList(folded: boolean) {
+		listFolded = folded;
+		try {
+			localStorage.setItem(LIST_FOLD_KEY, folded ? '1' : '0');
+		} catch {
+			// the fold holds for this visit
+		}
+	}
+	function foldMenu(folded: boolean) {
+		menuFolded = folded;
+		try {
+			localStorage.setItem(FOLD_KEY, folded ? '1' : '0');
+		} catch {
+			// the fold holds for this visit
+		}
+	}
 	// the toons (names for crumbs, sidebar, titles): loaded once the signed-in creator is known – a request before the
 	// session is restored (or before a login) would be refused and leave the ids in the UI
 	let toonsLoaded = false;
@@ -135,13 +178,16 @@
 		textLanguage.page = textLanguages;
 	});
 	/**
-	 * the crumbs of the route: SCUTOONS (the logo, the root crumb) / toon / season / chapter (the chapter editor adds
-	 * group and slice) – UI-CONCEPTS E.2
+	 * the path of the route (UI-CONCEPTS E.2, CREATOR-NAV.md §2a): the area first (Dashboard, Toons, Characters …), then
+	 * toon / season / chapter (the chapter editor adds group and slice); the logo is home, not a crumb
 	 */
 	const base = $derived.by<Crumb[]>(() => {
-		const out: Crumb[] = [{ href: '/', label: 'SCUTOONS' }];
+		const out: Crumb[] = [];
 		const route = page.route.id ?? '/';
 		const tab = page.url.searchParams.get('tab');
+		if (route === '/') out.push({ href: '/', label: m['creator.dashboard']() });
+		if (route === '/toons' || toonId) out.push({ href: '/toons', label: m['creator.toons']() });
+		if (route === '/notifications') out.push({ href: '/notifications', label: pwaLabels(getLocale()).notifications });
 		if (route === '/guide') out.push({ href: '/guide', label: m['creator.style_guide']() });
 		if (route === '/characters') {
 			out.push({ href: '/characters', label: m['creator.characters']() });
@@ -173,8 +219,21 @@
 		if (route === '/[toonId]/cast') out.push({ href: `/${toonId}/cast`, label: m['creator.cast']() });
 		if (route === '/[toonId]/credits') out.push({ href: `/${toonId}/credits`, label: m['creator.credits']() });
 		if (route === '/[toonId]/script') out.push({ href: `/${toonId}/script`, label: m['creator.script']() });
-		if (route === '/[toonId]/toon') out.push({ href: `/${toonId}/toon`, label: fileLabel(entities.toonSettings(toonId)) });
+		if (route === '/[toonId]/toon') out.push({ href: `/${toonId}/toon`, label: m['creator.toon_settings']() });
 		return out;
+	});
+	/** a toon's own pages show its tabs (Stories · Cast · Script · Credits · Settings); the editors have their own frames */
+	const TOON_TAB_ROUTES = ['/[toonId]', '/[toonId]/cast', '/[toonId]/credits', '/[toonId]/script', '/[toonId]/toon', '/[toonId]/season/[seasonNumber]'];
+	const toonTabs = $derived(!!toonId && TOON_TAB_ROUTES.includes(page.route.id ?? ''));
+	// where this member was (the phone menu's Recent, the dashboard's Continue): every place below an area's top, once
+	// the toons' names are known (no ids in the list)
+	const NOT_RECENT = ['/', '/toons', '/notifications', '/guide'];
+	$effect(() => {
+		const crumbs = nav.crumbs;
+		if (!isCreator || !nav.toons.length || NOT_RECENT.includes(page.route.id ?? '/')) return;
+		// the season only where it is the place itself (a chapter reads "Cat Pope · Chapter 2 · …")
+		const trail = (crumbs[0]?.href === '/toons' ? crumbs.slice(1) : crumbs).filter((c, i, all) => i === all.length - 1 || !c.href.includes('/season/')).map((c) => c.label);
+		recent.visit({ href: page.url.pathname + page.url.search, trail, toon: toonId });
 	});
 	$effect(() => {
 		nav.base = base;
@@ -186,8 +245,8 @@
 		if (isCreator && toon && chapter) void nav.loadSeasons(toon);
 	});
 	/**
-	 * narrow screens (< 768px – where the sidebar is the ☰ drawer; DESIGN.md "Header on phones"): the crumbs get their own
-	 * row under the header, the text language + the page's Flow move to the top of the drawer
+	 * narrow screens (< 768px – where the menu is the ☰ drawer from the right; DESIGN.md "Header on phones"): one row,
+	 * the text language + the page's Flow + search + notifications move to the drawer's foot
 	 */
 	const phone = new MediaQuery('max-width: 767px', false);
 	// the drawer (< 768px) closes on every navigation
@@ -204,26 +263,25 @@
 			if (el.getAttribute('aria-expanded') !== 'false') menuOpen = false;
 		});
 	}
-	const universe = $derived([
-		{ href: '/characters', label: m['creator.characters'](), tab: null as string | null },
-		{ href: '/characters?tab=moods', label: m['creator.characters_moods'](), tab: 'moods' },
-		{ href: '/characters?tab=wanted', label: m['creator.characters_wanted'](), tab: 'wanted' },
-		{ href: '/map', label: m['creator.map'](), tab: 'map' },
-		{ href: '/catalog/items', label: m['creator.catalog'](), tab: 'catalog', title: m['creator.catalog_hint']() },
-		{ href: '/flow', label: m['creator.flow_universe'](), tab: 'flow', title: m['creator.flow_universe_hint']() }
-	]);
-	const universeCurrent = (tab: string | null) =>
-		tab === 'catalog'
-			? page.route.id?.startsWith('/catalog/')
-				? 'page'
-				: undefined
-			: tab === 'map' || tab === 'flow'
-			? page.route.id === `/${tab}`
-				? 'page'
-				: undefined
-			: page.route.id === '/characters' && (page.url.searchParams.get('tab') ?? null) === tab
-				? 'page'
-				: undefined;
+	/** the desktop menu as its rail: folded by hand, or while a region is maximized (it gets everything right of it) */
+	const railed = $derived(menuFolded || !!shellDock.maximized);
+	/** the page's own list beside the menu (the chapter tree, a season's chapters, the map's lists) – not while maximized */
+	const pageList = $derived(!!nav.sidebar && !shellDock.maximized);
+	const menuWidth = $derived(railed ? 'var(--sc-shell-rail-width)' : 'var(--creator-menu-width)');
+	/** phones: the name on the path button – a page's own first level (the chapter editor's group = the scene; the slices
+	 * scroll inside it), else the place */
+	const phoneTitle = $derived(nav.extra[0] ?? nav.crumbs.at(-1) ?? null);
+	/** the list's name in its head and on its rail: the page's place (Chapter 2, Season 1, Map) */
+	const listTitle = $derived(nav.base.at(-1)?.label ?? '');
+	const listWidth = $derived(listFolded ? 'var(--sc-shell-rail-width)' : 'var(--tool-sidebar-width)');
+	// Ctrl + \ folds / unfolds the menu (desktop; phones open it with ☰)
+	function onFoldKey(event: KeyboardEvent) {
+		if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey || (event.key !== '\\' && event.code !== 'Backslash') || phone.current) return;
+		event.preventDefault();
+		foldMenu(!menuFolded);
+	}
+	/** what waits for this member: the submits to review (the dashboard's count in the menu) */
+	const waitingCount = $derived(new Set((reviews.overview?.to_review ?? []).map((r) => `${r.author?.id ?? ''}|${r.created_at}|${r.toon}`)).size);
 
 	/** Alt+ArrowUp: one level up (the parent crumb); Alt+ArrowDown: the first child in the sidebar */
 	function onKeydown(event: KeyboardEvent) {
@@ -235,7 +293,7 @@
 			event.preventDefault();
 			goto(nav.parent.href);
 		} else {
-			const child = document.querySelector<HTMLElement>('.sc-shell-sidebar [data-nav-child], .sc-shell-sidebar [data-child-slices] .thumb');
+			const child = document.querySelector<HTMLElement>('.sc-shell-sidebar .page-list [data-nav-child], .sc-shell-sidebar [data-child-slices] .thumb');
 			if (!child) return;
 			event.preventDefault();
 			child.click();
@@ -272,7 +330,12 @@
 		const actions = m['palette.actions']();
 		const pages: PaletteLink[] = [
 			{ id: 'home', label: m['palette.home'](), href: '/', keywords: 'toons home start' },
-			...universe.map((item) => ({ id: `universe-${item.tab ?? 'characters'}`, label: item.label, hint: m['creator.universe'](), href: item.href })),
+			{ id: 'toons', label: m['creator.toons'](), href: '/toons', keywords: 'toons stories' },
+			{ id: 'universe-characters', label: m['creator.characters'](), href: '/characters', keywords: 'characters figuren' },
+			{ id: 'universe-moods', label: m['creator.characters_moods'](), hint: m['creator.characters'](), href: '/characters?tab=moods' },
+			{ id: 'universe-wanted', label: m['creator.characters_wanted'](), hint: m['creator.characters'](), href: '/characters?tab=wanted' },
+			{ id: 'universe-map', label: m['creator.map'](), href: '/map', keywords: 'map karte' },
+			{ id: 'universe-flow', label: m['creator.flow_universe'](), href: '/flow', keywords: 'flow ablauf' },
 			// every catalog page (owner 2026-10-14: the search should know the new pages – home scenes, airlift carriers …)
 			...CATALOG_PAGE_KINDS.map((kind) => ({ id: `catalog-${kind}`, label: `${m['creator.catalog']()} · ${CATALOG_LABELS[kind]()}`, href: `/catalog/${kind}`, keywords: `catalog katalog ${kind.replace('-', ' ')}` })),
 			{ id: 'guide', label: m['creator.style_guide'](), href: '/guide', keywords: 'style guide design' }
@@ -293,7 +356,7 @@
 				entry('script', m['creator.script'](), `/${t.id}/script`, 'script drehbuch screenplay'),
 				entry('cast', m['creator.cast'](), `/${t.id}/cast`, 'cast besetzung'),
 				entry('credits', m['creator.credits'](), `/${t.id}/credits`, 'credits'),
-				entry('settings', fileLabel(entities.toonSettings(t.id)), `/${t.id}/toon`, 'settings einstellungen')
+				entry('settings', m['creator.toon_settings'](), `/${t.id}/toon`, 'settings einstellungen')
 			];
 		});
 		return [
@@ -309,24 +372,31 @@
 	<title>{nav.crumbs.length > 1 ? `${nav.crumbs[nav.crumbs.length - 1].label} · ` : ''}{m['creator.title']()}</title>
 </svelte:head>
 
-<svelte:window onkeydown={onKeydown} />
+<svelte:window onkeydown={(e) => (onKeydown(e), onFoldKey(e))} />
 
-{#snippet logo()}<img src="/SCUTOONS-logo.svg" alt="SCUTOONS" width="120" height="20" />{/snippet}
-{#snippet logoCrumb()}<span class="brand" data-testid="creator-brand">{@render logo()}</span>{/snippet}
+{#snippet logo()}<img src="/SCUTOONS-logo-animated.svg" alt="SCUTOONS" width="40" height="64" />{/snippet}
+{#snippet pageTools()}
+	<!-- the page's own tools: the desktop's top bar; on phones the drawer's foot -->
+	{#if textLanguages.languages.length > 1}
+		<TextLanguageSwitch languages={textLanguages.languages} source={textLanguages.source} />
+	{/if}
+	{#if nav.actions}{@render nav.actions()}{/if}
+{/snippet}
+{#snippet findTools()}
+	<PaletteTrigger label={m['palette.search']()} compact onclick={() => (paletteOpen = true)} />
+	<!-- the signed-in account → "Benachrichtigungen" (push, the kinds, the app – research/PWA-APPS.md §6) -->
+	<a class="who-icon sc-round" href="/notifications" aria-label={pwaLabels(getLocale()).notifications} title={pwaLabels(getLocale()).notifications}><Icon name="bell" /></a>
+{/snippet}
 
 <div class="creator sc-tool">
 	<AuthGate {session} app="creator" appName="Creator" locale={getLocale()} readerHref={VIEWER_URL}>
-		<!-- One stable frame for every page: top bar (breadcrumb of the full path), sidebar (children of the current
-		     level + Universe), content, and the page's ActionBar at the bottom (reserved by the shell) -->
+		<!-- One stable frame for every page: the top bar (the reader's mark = home, the path, the page's tools), the menu by
+		     areas on the left (+ the page's own list beside it), content, and the page's ActionBar at the bottom -->
 		<AppShell
 			mode={nav.fill ? 'fill' : 'page'}
-			sidebarWidth="var(--tool-sidebar-width)"
-			resizeKey="creator"
+			sidebarWidth={pageList ? `calc(${menuWidth} + ${listWidth})` : menuWidth}
+			resizeKey={pageList && !listFolded ? (railed ? 'creator-rail' : 'creator') : undefined}
 			resizeLabel={m['creator.resize_sidebar']()}
-			foldable
-			railLabel={nav.crumbs.slice(-2).map((c) => c.label).join(' · ')}
-			foldLabel={m['creator.fold_sidebar']()}
-			unfoldLabel={m['creator.unfold_sidebar']()}
 			minContent={24}
 			dockLabel={m['creator.dock_label']()}
 			dockResizeLabel={m['creator.resize_panel']()}
@@ -337,80 +407,81 @@
 			sidebarLabel={m['creator.nav_label']()}
 			sidebarId="creator-nav"
 			collapsible
+			drawerSide="right"
 			sidebarOpen={menuOpen}
 			onclose={() => (menuOpen = false)}
 			closeLabel={m['creator.nav_close']()}
 		>
 			{#snippet topbar()}
 				<header class="creator-bar" data-testid="creator-bar">
-					<button
-						type="button"
-						class="burger sc-round"
-						aria-label={m['creator.nav_menu']()}
-						aria-expanded={menuOpen}
-						aria-controls="creator-nav"
-						onclick={() => (menuOpen = !menuOpen)}
-					>
-						<Icon name="menu" />
-					</button>
-					{#if phone.current}
-						<!-- phones: the logo alone here, the trail in its own row below (without the root) -->
-						<a class="brand" href="/" data-testid="creator-brand">{@render logo()}</a>
-						<span class="spacer"></span>
+					<!-- the reader's square mark, a full-height cell: home (the dashboard) -->
+					<a class="brand" href="/" title={m['creator.dashboard']()} aria-label={m['creator.dashboard']()} data-testid="creator-brand">{@render logo()}</a>
+					{#if !phone.current}
+						<Breadcrumbs items={nav.crumbs} label={m['creator.breadcrumb']()} moreLabel={m['creator.breadcrumb_more']()} plain />
+					{:else if nav.crumbs.length > 1 && phoneTitle}
+						<!-- phones: the place's name (a chapter: its scene); the whole path drops down from it -->
+						<PathMenu items={nav.crumbs} current={phoneTitle} />
 					{:else}
-						<!-- the logo is the trail's root crumb (the "CREATOR" word went – the app name is in the tab title) -->
-						<Breadcrumbs items={nav.crumbs} label={m['creator.breadcrumb']()} moreLabel={m['creator.breadcrumb_more']()} root={logoCrumb} />
-						<!-- the page's own thing at the end of the trail (the map's toon pill – owner 2026-10-11, desktop like phones) -->
-						{#if nav.crumbEnd}{@render nav.crumbEnd()}{/if}
-						{#if textLanguages.languages.length > 1}
-							<TextLanguageSwitch languages={textLanguages.languages} source={textLanguages.source} />
-						{/if}
-						{#if nav.actions}{@render nav.actions()}{/if}
+						<span class="phone-title">{nav.crumbs[0]?.label ?? ''}</span>
 					{/if}
-					<PaletteTrigger label={m['palette.search']()} compact onclick={() => (paletteOpen = true)} />
-					<!-- the signed-in account → "Benachrichtigungen" (push, the kinds, the app – research/PWA-APPS.md §6) -->
-					<a class="who" href="/notifications" title={pwaLabels(getLocale()).notifications}>{session.user?.email ?? ''}</a>
-					<a class="who-icon sc-round" href="/notifications" aria-label={pwaLabels(getLocale()).notifications} title={pwaLabels(getLocale()).notifications}><Icon name="bell" /></a>
+					<!-- the page's own thing at the end of the path (the map's toon pill; on phones the strip editor's ⚠ · Save · Publish · •••) -->
+					{#if nav.crumbEnd}<span class="crumb-end">{@render nav.crumbEnd()}</span>{/if}
+					{#if phone.current}
+						{#if page.route.id === '/'}{@render findTools()}{/if}
+						<button
+							type="button"
+							class="burger"
+							aria-label={m['creator.nav_menu']()}
+							title={m['creator.nav_menu']()}
+							aria-expanded={menuOpen}
+							aria-controls="creator-nav"
+							onclick={() => (menuOpen = !menuOpen)}
+							data-testid="menu-button"
+						>
+							<Icon name="menu" />
+						</button>
+					{:else}
+						{@render pageTools()}
+						<span class="vsep" aria-hidden="true"></span>
+						{@render findTools()}
+					{/if}
 				</header>
-				{#if phone.current && nav.crumbs.length > 1}
-					<div class="crumb-row" data-testid="crumb-row">
-						<Breadcrumbs items={nav.crumbs.slice(1)} label={m['creator.breadcrumb']()} moreLabel={m['creator.breadcrumb_more']()} testid="phone-crumb" />
-						{#if nav.crumbEnd}<span class="crumb-end">{@render nav.crumbEnd()}</span>{/if}
-					</div>
-				{/if}
 			{/snippet}
 			{#snippet sidebar()}
-				{#if phone.current && (textLanguages.languages.length > 1 || nav.actions)}
-					<!-- phones: the header's text language + the page's Flow sit at the top of the drawer (BACKLOG 10.50 draft) -->
+				{#if phone.current}
+					<!-- phones: the areas, the page's own list, Recent; search + notifications + the page's tools at the foot -->
 					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-					<div class="drawer-tools" data-testid="drawer-tools" onclick={(e) => (e.target as HTMLElement).closest('button') && (menuOpen = false)}>
-						{#if textLanguages.languages.length > 1}
-							<TextLanguageSwitch languages={textLanguages.languages} source={textLanguages.source} />
-						{/if}
-						{#if nav.actions}{@render nav.actions()}{/if}
+					<div class="drawer" onclick={closeOnPick}>
+						<AreaMenu variant="drawer" toons={nav.toons} toon={toonId} account={session.user?.email ?? ''} badge={waitingCount}>
+							{#snippet list()}{#if nav.sidebar}<div class="page-list">{@render nav.sidebar()}</div>{/if}{/snippet}
+							{#snippet foot()}
+								<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+								<span class="drawer-tools" data-testid="drawer-tools" onclick={(e) => (e.target as HTMLElement).closest('button') && (menuOpen = false)}>{@render findTools()}<span class="spacer"></span>{@render pageTools()}</span>
+							{/snippet}
+						</AreaMenu>
 					</div>
-				{/if}
-				<!-- phones: a pick in the drawer (a group, a slice, Meta / Audio – `data-drawer-pick`) closes it, like a link (10.50 b) -->
-				<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-				<div class="nav-children" onclick={closeOnPick}>
-					{#if nav.sidebar}
-						{@render nav.sidebar()}
-					{:else}
-						<NavSidebar toons={nav.toons} toon={toonId} />
-					{/if}
-				</div>
-				<!-- Universe only on the dashboard (owner 2026-10-03) -->
-				{#if page.route.id === '/'}
-					<div class="universe">
-						<p class="sc-nav-head">{m['creator.universe']()}</p>
-						<ul>
-							{#each universe as item (item.href)}
-								<li><a class="sc-nav-item" href={item.href} title={'title' in item ? item.title : undefined} aria-current={universeCurrent(item.tab)} data-testid="nav-universe-{item.tab ?? 'characters'}">{item.label}</a></li>
-							{/each}
-						</ul>
+				{:else}
+					<div class="side" class:with-list={pageList && !!nav.sidebar}>
+						<div class="areas" class:railed>
+							<AreaMenu variant={railed ? 'rail' : 'menu'} toons={nav.toons} toon={toonId} account={session.user?.email ?? ''} badge={waitingCount} onfold={() => (shellDock.maximized ? shellDock.restore() : foldMenu(!menuFolded))} />
+						</div>
+						{#if pageList && nav.sidebar && listFolded}
+							<div class="list-rail">
+								<Rail side="left" label={listTitle} unfoldLabel={m['creator.unfold_list']()} onunfold={() => foldList(false)} testid="list-rail" />
+							</div>
+						{:else if pageList && nav.sidebar}
+							<div class="page-list">
+								<div class="list-head">
+									<span class="sc-nav-head">{listTitle}</span>
+									<button type="button" class="sc-round sc-quiet" onclick={() => foldList(true)} aria-label={m['creator.fold_list']()} title={m['creator.fold_list']()} aria-expanded="true" data-testid="list-fold"><Icon name="chevrons-left" /></button>
+								</div>
+								{@render nav.sidebar()}
+							</div>
+						{/if}
 					</div>
 				{/if}
 			{/snippet}
+			{#if toonTabs && toonId}<ToonTabs toon={toonId} />{/if}
 			{@render children()}
 		</AppShell>
 		<CommandPalette
@@ -444,129 +515,192 @@
 		min-height: 100dvh;
 	}
 
-	/* ── the one top bar (same on every page, only the depth of the breadcrumb changes) ── */
+	/* ── the one top bar (same on every page, only the path changes; CREATOR-NAV.md §2a) ── */
 	.creator-bar {
 		display: flex;
 		align-items: center;
-		gap: var(--space-075);
+		gap: var(--space-025);
 		box-sizing: border-box;
 		min-height: var(--top);
-		padding: 0 var(--space-1);
+		padding: 0 var(--space-05) 0 0;
 		border-bottom: var(--border-width-regular) solid var(--ink);
 		background: var(--paper);
 	}
-	/* the logo: the root crumb (wide screens) or alone (phones) */
+	/* the reader's square mark, a full-height cell (as wide as the menu's rail): home */
 	.brand {
 		display: flex;
 		flex: none;
 		align-items: center;
+		justify-content: center;
+		box-sizing: border-box;
+		width: var(--sc-shell-rail-width);
+		align-self: stretch;
 		color: var(--ink);
 		text-decoration: none;
 	}
 	:global(.creator .brand img) {
 		display: block;
-		height: 1.25rem;
+		height: calc(var(--top) - var(--space-05));
 		width: auto;
 	}
-	.burger {
-		display: none;
+	.creator-bar > :global(.sc-breadcrumbs) {
+		padding-left: var(--space-05);
 	}
-	/* touch screens: the logo link is a full-height target (BACKLOG 10.50 d) */
-	@media (pointer: coarse) {
-		a.brand {
-			min-height: var(--control-height);
-		}
+	.phone-title {
+		flex: 1 1 auto;
+		min-width: 0;
+		padding-left: var(--space-075);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.crumb-end {
+		display: flex;
+		flex: none;
+		align-items: center;
+		gap: var(--space-025);
+	}
+	.vsep {
+		flex: none;
+		align-self: stretch;
+		width: var(--border-width-hairline);
+		margin: var(--space-05) var(--space-025);
+		background: var(--border-muted);
 	}
 	.spacer {
 		flex: 1;
 	}
-	/* phones: the trail in its own row under the header (the root is the header's logo) */
-	.crumb-end {
-		margin-left: auto;
-		flex: none;
-		padding-left: var(--space-05);
-	}
-	.crumb-row {
-		display: flex;
+	/* the bar's icon buttons are borderless squares (CREATOR-NAV.md §2: one shape in the row – hover = the nav outline,
+	   on = inverted); the pages' own round buttons too while they sit in the bar */
+	.creator-bar :global(.sc-round),
+	.creator-bar :global(.sc-palette-trigger.compact),
+	.drawer-tools :global(.sc-round),
+	.drawer-tools :global(.sc-palette-trigger.compact),
+	.burger {
+		display: inline-flex;
 		align-items: center;
+		justify-content: center;
 		box-sizing: border-box;
+		width: auto;
+		min-width: var(--control-height);
 		min-height: var(--control-height);
-		padding: var(--space-025) var(--space-1);
-		border-bottom: var(--border-width-regular) solid var(--ink);
-		background: var(--paper);
-	}
-	/* one line: the crumbs give way to the page's end (the strip editor's top bar on phones – ⚠ · Save · Publish · •••) */
-	.crumb-row > :global(:first-child) {
-		flex: 1;
-		min-width: 0;
-		overflow: hidden;
-	}
-	.crumb-row > :global(:first-child ol) {
-		flex-wrap: nowrap;
-	}
-	.drawer-tools {
-		display: flex;
-		align-items: center;
-		gap: var(--space-075);
-		padding: var(--space-05) var(--space-1);
-		border-bottom: var(--border-width-regular) solid var(--ink);
-	}
-	.who {
-		flex: none;
-		max-width: 16rem;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		font-size: var(--type-caption-size);
-		color: var(--muted);
-	}
-	.who {
-		text-decoration: none;
-	}
-	.who:hover {
+		padding: 0;
+		border: 0;
+		border-radius: var(--radius-none);
+		background: transparent;
 		color: var(--ink);
 	}
-	.who-icon {
-		display: none;
-		flex: none;
+	.creator-bar :global(.sc-round:hover:not(:disabled)),
+	.creator-bar :global(.sc-palette-trigger.compact:hover),
+	.drawer-tools :global(.sc-round:hover:not(:disabled)),
+	.drawer-tools :global(.sc-palette-trigger.compact:hover),
+	.burger:hover {
+		outline: var(--border-width-regular) solid var(--ink);
+		outline-offset: calc(-1 * var(--border-width-regular));
 	}
-	/* the account only where the full trail still fits beside it (the crumbs come first, E.2) */
-	@media (max-width: 1599px) {
-		.who {
-			display: none;
-		}
-		.who-icon {
-			display: inline-flex;
-			align-items: center;
-			justify-content: center;
-		}
+	.creator-bar :global(.sc-round[aria-pressed='true']),
+	.drawer-tools :global(.sc-round[aria-pressed='true']),
+	.burger[aria-expanded='true'] {
+		background: var(--ink);
+		color: var(--paper);
 	}
+	/* the text language in the bar: a word, no box (the frame comes on hover like the squares') */
+	.creator-bar :global(.text-language.sc-control:not(:hover):not(:focus-within)),
+	.drawer-tools :global(.text-language.sc-control:not(:hover):not(:focus-within)) {
+		border-color: transparent;
+	}
+	/* phones: one row – the path gives way to the page's end and ☰ */
 	@media (max-width: 767px) {
-		.burger {
-			display: inline-flex;
-			align-items: center;
-			justify-content: center;
-			min-width: var(--control-height);
+		.creator-bar {
+			padding-right: 0;
 		}
+		.creator-bar > :global(.sc-breadcrumbs ol) {
+			flex-wrap: nowrap;
+			overflow: hidden;
+		}
+	}
+
+	/* ── the left side: the menu by areas (or its rail) + the page's own list beside it, each scrolling on its own ── */
+	.creator {
+		--creator-menu-width: 12rem;
 	}
 	:global(.creator .sc-shell-sidebar) {
 		display: flex;
 		flex-direction: column;
 	}
-	/* Universe follows right below the page's own entries (owner 2026-10-03: pushed to the bottom it looked absent) */
-	.nav-children {
+	/* the columns scroll on their own; the region itself never scrolls (sideways it cut the menu's words) */
+	:global(.creator .sc-shell-sidebar:has(> .side)) {
+		overflow: hidden;
+	}
+	.side {
+		display: flex;
+		flex: 1 1 auto;
+		min-height: 0;
+	}
+	/* alone the menu is the region (its width is the sidebar's); with the page's list it keeps its own width */
+	.areas {
+		flex: 1 1 auto;
+		min-width: 0;
+		overflow: hidden auto;
+		overscroll-behavior: contain;
+	}
+	.with-list .areas {
 		flex: none;
+		width: var(--creator-menu-width);
 	}
-	.universe {
+	.with-list .areas.railed {
+		width: calc(var(--sc-shell-rail-width) - var(--border-width-regular));
+	}
+	.side > .page-list {
+		flex: 1 1 auto;
+		min-width: 0;
+		overflow-y: auto;
+		overscroll-behavior: contain;
+		border-left: var(--border-width-regular) solid var(--ink);
+	}
+	/* phones: the drawer fills the sidebar; its list scrolls, the foot stays */
+	:global(.creator .sc-shell-sidebar:has(> .drawer)) {
+		overflow: hidden;
+	}
+	.drawer {
+		display: flex;
+		flex: 1 1 auto;
+		flex-direction: column;
+		min-height: 0;
+	}
+	.list-rail {
+		flex: none;
+		width: calc(var(--sc-shell-rail-width) - var(--border-width-regular));
+		border-left: var(--border-width-regular) solid var(--ink);
+	}
+	/* the list's head: its place, the quiet fold at the right (CREATOR-NAV d-slice) */
+	.list-head {
 		position: sticky;
-		bottom: 0;
+		top: 0;
+		z-index: 2;
 		background: var(--paper);
-		border-top: var(--border-width-regular) solid var(--ink);
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-025);
+		padding-right: var(--space-025);
 	}
-	.universe ul {
-		list-style: none;
-		margin: 0;
-		padding: 0 0 var(--space-05);
+	.list-head .sc-nav-head {
+		min-width: 0;
+		padding-bottom: var(--space-1);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.drawer .page-list {
+		border-top: var(--border-width-regular) solid var(--ink);
+		margin-top: var(--space-05);
+	}
+	.drawer-tools {
+		display: flex;
+		flex: 1;
+		align-items: center;
+		gap: var(--space-05);
 	}
 
 	/* ── Creator-wide controls (fields, focus, headings: tools.css; @scutoons/ui components style themselves) ──

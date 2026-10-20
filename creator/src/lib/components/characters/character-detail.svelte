@@ -232,9 +232,11 @@
 		gap: 0.25rem;
 		align-items: center;
 		margin-left: auto;
+		max-width: 100%;
 	}
 	.add input {
-		width: 12rem;
+		width: 16rem;
+		min-width: 0;
 	}
 	.persona {
 		display: flex;

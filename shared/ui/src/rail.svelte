@@ -36,7 +36,7 @@
 <div class="sc-rail" class:bottom={side === 'bottom'} onclick={onunfold} data-testid={testid}>
 	<button
 		type="button"
-		class="sc-round"
+		class="sc-round sc-quiet"
 		onclick={(e) => (e.stopPropagation(), onunfold())}
 		aria-label={unfoldLabel}
 		{title}

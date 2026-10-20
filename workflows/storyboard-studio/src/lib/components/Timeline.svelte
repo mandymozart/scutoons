@@ -5,7 +5,9 @@
 	// shots' clips back to back, each as long as its clip in the view mode (timeline.svelte.js, timeline-lanes.js); a clip
 	// shows its frames one after another (ClipStrip: a video's filmstrip; a still / a take: the shot's frame once at the
 	// left – owner 2026-10-20: "should be not cover, but show the frame after frame") and a tag with its source (still ·
-	// take · rendered · generated). The header: the view mode
+	// take · rendered · generated). A generated clip's tag: its status bullet (StatusBullet – ✓ the chosen, ? review, ✕
+	// rejected; research/VARIANTS-CANVAS.md §3.3), its id (g3) and – while the board's current card plays there – a small
+	// ink tag "audition" (§3.1 Q3; an auditioned image is a still that shows the image). The header: the view mode
 	// (a square Segmented, the step's main view – "like in blender … shot/take/rendered/generated"), the clips' count and
 	// length, "Back to the shot camera" while a take's moment holds the 3D view, Play / Pause for the sequence, the fold.
 	// A hover shows the clip's first frame next to the pointer (the Timeline's `preview`). AppShell bottom region (App).
@@ -16,7 +18,9 @@
 	import { hh } from '../handheld/handheld.svelte.js';
 	import { backToShot, seek, select, tl, togglePlay, trim } from '../timeline.svelte.js';
 	import { isVideo } from '../timeline-lanes.js';
+	import { shortId } from '../board-layout.js';
 	import ClipStrip from './ClipStrip.svelte';
+	import StatusBullet from './StatusBullet.svelte';
 
 	/** @type {{ view: { mode: string, lanes: any[], items: any[], span: number, sel: any }, onfold: () => void }} */
 	let { view, onfold } = $props();
@@ -42,9 +46,11 @@
 
 {#snippet item(it)}
 	{@const s = SOURCES[it.state] ?? SOURCES.still}
-	<ClipStrip {it} frame={frame(it.id)} />
-	<!-- a take with its trim: the tag starts right of the in line's tab (the shared lane does the same for its own label) -->
-	<span class="tag" class:after-in={!!it.trim} style:--in={it.trim ? `${(it.trim.in / (it.length || 1)) * 100}%` : null} data-source={it.state}><Icon name={s.icon} size="0.9em" /><span class="id">{short(it.id)}</span><span class="word">{s.word}</span></span>
+	{@const g = it.clip.gen}
+	<ClipStrip {it} frame={it.clip.image ?? frame(it.id)} />
+	<!-- a take with its trim: the tag starts right of the in line's tab (the shared lane does the same for its own label);
+	     a generated clip: its status bullet first, its id as the word, "audition" when it is the board's current card -->
+	<span class="tag" class:after-in={!!it.trim} class:with-aud={!!g?.audition} style:--in={it.trim ? `${(it.trim.in / (it.length || 1)) * 100}%` : null} data-source={it.state}>{#if g}<StatusBullet status={g.status} />{/if}<Icon name={s.icon} size="0.9em" /><span class="id">{short(it.id)}</span><span class="word">{g ? shortId(g.id) : s.word}</span>{#if g?.audition}<span class="aud" title="The board's current card plays here – Play shows it among the picked shots (V: the board). A tag, not a status." data-testid="audition">audition</span>{/if}</span>
 {/snippet}
 
 <!-- next to the pointer: the clip's first frame (a video's frame 0; a take / a still: the shot's frame), the shot, the time -->
@@ -53,9 +59,9 @@
 		{#if isVideo(it.clip.source)}
 			<video src="{it.clip.url}#t=0.001" preload="metadata" muted playsinline></video>
 		{:else}
-			<img src={frame(it.id)} alt="" onerror={missing} />
+			<img src={it.clip.image ?? frame(it.id)} alt="" onerror={missing} />
 		{/if}
-		<span class="line">{it.id} · {SOURCES[it.state]?.word ?? ''}</span>
+		<span class="line">{it.label}</span>
 		<span class="line">{formatTime(t - it.start, 's', 1)} of {formatTime(it.length, 's', 1)}</span>
 	</span>
 {/snippet}
@@ -169,9 +175,32 @@
 	.word {
 		color: var(--text-muted);
 	}
-	/* narrow clips: the word goes first, then the id, then the tag – the frame stays */
+	/* a generated clip's status bullet (StatusBullet) at the tag's start, flush with the clip's corner */
+	.tag > :global(.stat) {
+		margin-left: -0.25rem;
+	}
+	/* the audition: a small ink tag beside the label – the board's current card plays here (a tag, not a status) */
+	.aud {
+		padding: 0 0.25rem;
+		background: var(--ink);
+		color: var(--paper);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+	}
+	/* narrow clips: the word goes first (earlier beside the audition), then the audition, the id, then the tag – the
+	   frame stays (the item's label still says it all) */
+	@container (max-width: 11rem) {
+		.tag.with-aud .word {
+			display: none;
+		}
+	}
 	@container (max-width: 8rem) {
 		.word {
+			display: none;
+		}
+	}
+	@container (max-width: 6.5rem) {
+		.aud {
 			display: none;
 		}
 	}
