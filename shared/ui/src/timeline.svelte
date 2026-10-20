@@ -2,29 +2,31 @@
 	/**
 	 * The Timeline (agents/DOCKING.md "Bottom region"; owner 2026-10-19: "the timeline underneath the other windows was
 	 * also good" – one timeline for the storyboard studio now, the creator and the live mode, research/LIVE.md, later):
-	 * lanes of items (timeline-lane.svelte) on ONE linear axis in ms (timeline.ts – a clip as wide as it lasts, no
-	 * per-item minimum that bends the ruler), the ruler with ticks + markers, the playhead, zoom (1 = the span fits).
-	 * No transport: the app owns the clock and plays – no Play button, no Space, never PageUp / PageDown (the score's
-	 * pedal keys, research/SCORES.md §4). It shows and asks (onseek / onselect / ontrim); without them it is read-only.
+	 * lanes of items (timeline-lane.svelte) on ONE linear axis in ms (timeline.ts – a clip as wide as it lasts, no per-item
+	 * minimum that bends the ruler), the ruler with ticks + markers, the playhead, zoom (1 = the span fits). No transport:
+	 * the app owns the clock and plays – no Play button, no Space, never PageUp / PageDown (the score's pedal keys,
+	 * research/SCORES.md §4). It shows and asks (onseek / onselect / ontrim); without them it is read-only.
 	 * Pointer: press + drag on the ruler or a lane's background seeks (a finger pans a lane, a tap seeks); a click on an
 	 * item selects (a lane with `selectable: false` seeks there too); Ctrl / ⌘ + wheel zooms around the pointer; + / − / 0
-	 * (fit) while the focus is inside. `reveal` brings a range into view when it changes (zoomed in to `revealFill` of the
-	 * view, e.g. a take to trim precisely) and when the app sets the zoom (its remembered zoom per step – then only panned
-	 * there, the zoom stays); `follow` keeps the playhead in view – a manual scroll pauses it until the playhead is back in
-	 * view or the next playback starts.
+	 * (fit) while the focus is inside. A trim (timeline-trim.svelte) asks the `host`: a grip held still zooms to about a
+	 * frame per picture around it (back on release), a grip at the visible end pans; while a trim drag runs the view stays
+	 * under the pointer (no follow; a new reveal comes on the release, from the view before the hold). `reveal` brings a
+	 * range into view when it changes (zoomed in to `revealFill` of the view, e.g. a take to trim precisely) and when the
+	 * app sets the zoom (its remembered zoom per step – then only panned there); `follow` keeps the playhead in view – a
+	 * manual scroll pauses it until the playhead is back in view or the next playback starts.
 	 * Hover (a mouse / a pen, never a finger): `onhover` gets the time under the pointer on the ruler and the lanes (the
 	 * app's hover line); over an item `preview` shows the app's snippet (the studio: the clip's first frame) in a box in the
-	 * top layer (no region clips it) on the item's top / bottom edge at the pointer – never over the item –, sliding along
-	 * the timeline, inside the window. Both end on leave, a press / drag / trim, a scroll, a zoom, Escape, new lanes.
-	 * One group, not a landmark: the AppShell's bottom region around it is the region.
-	 * Sizes: the strip is --zoom × the view wide (cqi of the scroller), everything on it in % – no px, no root font size.
+	 * top layer on the item's top / bottom edge at the pointer – never over it –, sliding along the timeline, inside the
+	 * window. Both end on leave, a press / drag / trim, a scroll, a zoom, Escape, new lanes. One group, not a landmark (the
+	 * AppShell's bottom region is the region). Sizes: the strip is --zoom × the view wide (cqi of the scroller), all on it
+	 * in % – no px, no root font size.
 	 */
 	import { tick, untrack, type Snippet } from 'svelte';
 	import Lane from './timeline-lane.svelte';
 	import Preview from './timeline-preview.svelte';
 	import { clamp, stepFor } from './scrub.ts';
-	import { followView, formatTime, frac, inView, panView, previewPlace, revealView, tickStep, ticks, timeAt, zoomAround, ZOOM_MAX, ZOOM_MIN } from './timeline.ts';
-	import type { Ms, TimelineHover, TimelineItem, TimelineLane, TimelineMarker, View } from './timeline.ts';
+	import { followView, formatTime, frac, holdView, inView, panDir, panView, PICTURE, previewPlace, revealView, tickStep, ticks, timeAt, zoomAround, ZOOM_MAX, ZOOM_MIN } from './timeline.ts';
+	import type { Ms, TimelineHover, TimelineItem, TimelineLane, TimelineMarker, TrimEdge, TrimHost, View } from './timeline.ts';
 	import { uiLabels } from './ui-labels.ts';
 
 	let { lanes, span, markers = [], playhead, selected = [], zoom = $bindable(1), reveal, revealFill = 0, follow = false, label, item, preview, onseek, onselect, ontrim, onhover }: {
@@ -50,7 +52,8 @@
 		preview?: Snippet<[TimelineItem, TimelineLane, Ms]>;
 		onseek?: (t: Ms, final: boolean) => void;
 		onselect?: (laneId: string, itemId: string) => void;
-		ontrim?: (laneId: string, itemId: string, trim: { in: Ms; out: Ms }, final: boolean) => void;
+		/** a drag = calls with final = false, then one with final = true (Escape / pointercancel: the start values); a key: final */
+		ontrim?: (laneId: string, itemId: string, trim: { in: Ms; out: Ms }, final: boolean, edge: TrimEdge) => void;
 		/** the time under a hovering mouse / pen on the ruler or a lane; null when that ends (the app's hover line) */
 		onhover?: (t: Ms | null) => void;
 	} = $props();
@@ -77,17 +80,21 @@
 	/** a hovering mouse / pen on the axis: the time under it and, over an item, that item and where its preview goes */
 	let hover = $state<TimelineHover | null>(null);
 	const hovering = $derived(hover !== null);
-	/** the view now and a pointer's time, read from the DOM (the strip as laid out) */
-	const current = (): View => ({ zoom: z, scrollFrac: (scroller?.scrollLeft ?? 0) / (strip?.getBoundingClientRect().width || 1) });
+	/** the view now – the one applied last while its scroll waits for the layout (`pending`: a second apply in the same
+	 *  turn, e.g. a reveal on a hold's release, builds on it) – and a pointer's time, read from the DOM (the strip as laid out) */
+	let pending: View | null = null;
+	const current = (): View => (pending?.zoom === z ? pending : { zoom: z, scrollFrac: (scroller?.scrollLeft ?? 0) / (strip?.getBoundingClientRect().width || 1) });
 	const timeAtX = (clientX: number): Ms => (strip ? timeAt((clientX - strip.getBoundingClientRect().left) / strip.getBoundingClientRect().width, span) : 0);
 	async function apply(v: View) {
 		const n = ++applies;
 		unhover(); // what was under the pointer moves
 		applied = clamp(v.zoom, ZOOM_MIN, ZOOM_MAX);
-		zoom = v.zoom;
+		[pending, zoom] = [{ zoom: applied, scrollFrac: v.scrollFrac }, v.zoom];
 		await tick();
 		// two in one turn (a reveal and the app's zoom on mount): only the last scrolls (the first's share is of the old width)
-		if (n !== applies || !scroller || !strip) return;
+		if (n !== applies) return;
+		pending = null;
+		if (!scroller || !strip) return;
 		scroller.scrollLeft = v.scrollFrac * strip.getBoundingClientRect().width;
 		ours = scrollPx = scroller.scrollLeft;
 	}
@@ -121,6 +128,29 @@
 		el.addEventListener('pointerup', end, off);
 		el.addEventListener('pointercancel', end, off);
 	}
+	/** a trim's side here (TrimHost): hold-to-zoom (`before`: the view to go back to); in the visible end's 1.5rem (0.3 of
+	 *  the measured 5rem label column) a grip pans 1.2 % of the view a frame; `grips`: trim drags running (follow and a new
+	 *  reveal wait – the held view stays on the grip, the trim never jumps by a pan it did not ask for) */
+	let before: View | null = null;
+	let grips = $state(0);
+	const area = () => ((r) => r && { left: r.left + labelW, top: r.top, right: r.left + fit, bottom: r.bottom })(scroller?.getBoundingClientRect());
+	const host: TrimHost = {
+		timeAtX,
+		area,
+		async hold(at, step, height) {
+			const v = before ? null : holdView(current(), at, span, step, viewW / Math.max(1, height * PICTURE));
+			if (!v) return;
+			before = current();
+			await apply(v);
+		},
+		unhold: () => void (before && apply(before), (before = null)),
+		grip: (on) => void (grips = Math.max(0, grips + (on ? 1 : -1))),
+		pan(x) {
+			const [a, was] = [area(), scroller?.scrollLeft ?? 0];
+			if (a && scroller) scroller.scrollLeft = was + panDir(x, a.left, a.right, 0.3 * labelW) * Math.max(1, 0.012 * viewW);
+			return (scroller?.scrollLeft ?? 0) !== was;
+		}
+	};
 	/** a mouse / pen on the ruler or a lane – never a finger, never while pressed (a seek, a drag, a trim) */
 	function hovered(e: PointerEvent) {
 		const on = e.target instanceof Element && !e.buttons && e.pointerType !== 'touch' ? e.target : null;
@@ -161,7 +191,7 @@
 
 	$effect(() => {
 		const [r, key] = [reveal, reveal ? `${reveal[0]}:${reveal[1]}` : ''];
-		if (!strip || key === revealed) return;
+		if (!strip || key === revealed || grips) return;
 		revealed = key;
 		if (r) untrack(() => apply(revealView(current(), r, span, revealFill)));
 	});
@@ -189,7 +219,7 @@
 		// a new playback always starts following (a scroll during the last one paused it)
 		if (!follow) return void (paused = false);
 		const f = head;
-		if (f === null || !strip) return;
+		if (f === null || !strip || grips) return;
 		untrack(() => {
 			const v = current();
 			if (paused) paused = !inView(v, f);
@@ -211,7 +241,7 @@
 				{#each markers as m}<span class="marker" style:left={pct(m.at)}>{m.label}</span>{/each}
 			</div>
 			{#each lanes as lane (lane.id)}
-				<Lane {lane} {span} {selected} {item} previewed={!!preview} {press} {timeAtX} {onselect} {ontrim} />
+				<Lane {lane} {span} {selected} {item} previewed={!!preview} {press} {host} {onselect} {ontrim} />
 			{/each}
 			<div class="strip" bind:this={strip} aria-hidden="true">
 				{#if head !== null}<span class="head" style:left="{head * 100}%"></span>{/if}
@@ -222,22 +252,9 @@
 </div>
 
 <style>
-	.sc-timeline {
-		--timeline-label: 5rem;
-		display: flex;
-		flex-direction: column;
-		height: 100%;
-		min-height: 0;
-		background: var(--paper);
-	}
-	.scroller {
-		flex: 1 1 auto;
-		min-height: 0;
-		overflow: auto;
-		overscroll-behavior-x: contain;
-		/* 100cqi = the scroller's width: the strip gets its size without being measured */
-		container-type: inline-size;
-	}
+	.sc-timeline { --timeline-label: 5rem; display: flex; flex-direction: column; height: 100%; min-height: 0; background: var(--paper); }
+	/* 100cqi = the scroller's width: the strip gets its size without being measured */
+	.scroller { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior-x: contain; container-type: inline-size; }
 	.body {
 		position: relative;
 		display: grid;
@@ -255,21 +272,10 @@
 		line-height: var(--type-caption-line);
 		font-variant-numeric: tabular-nums;
 	}
-	.corner {
-		left: 0;
-		z-index: 5;
-		display: flex;
-		align-items: center;
-		padding: 0 var(--space-05);
-		border-right: var(--border-width-regular) solid var(--ink);
-	}
+	.corner { left: 0; z-index: 5; display: flex; align-items: center; padding: 0 var(--space-05); border-right: var(--border-width-regular) solid var(--ink); }
 	.ruler { overflow: hidden; cursor: ew-resize; touch-action: none; user-select: none; }
 	/* markers (scenes) on the upper half with a 2px line, ticks on the lower half with a hairline */
-	.tick, .marker {
-		position: absolute;
-		padding-left: var(--space-025);
-		white-space: nowrap;
-	}
+	.tick, .marker { position: absolute; padding-left: var(--space-025); white-space: nowrap; }
 	.tick { bottom: 0; color: var(--text-muted); border-left: var(--border-width-hairline) solid var(--ink); }
 	.marker { top: 0; border-left: var(--border-width-regular) solid var(--ink); }
 	/* the playhead's layer over the ruler and the lanes, under the sticky labels; clipped: a playhead at the end sticks out */
@@ -284,14 +290,5 @@
 		background: var(--ink);
 		outline: var(--border-width-hairline) solid var(--paper);
 	}
-	.head::before {
-		content: '';
-		position: absolute;
-		top: 0;
-		left: calc(50% - 0.375rem);
-		width: 0.75rem;
-		height: 0.5rem;
-		background: var(--ink);
-		clip-path: polygon(0 0, 100% 0, 50% 100%);
-	}
+	.head::before { content: ''; position: absolute; top: 0; left: calc(50% - 0.375rem); width: 0.75rem; height: 0.5rem; background: var(--ink); clip-path: polygon(0 0, 100% 0, 50% 100%); }
 </style>

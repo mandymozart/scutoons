@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { clampTrim, followView, formatTime, frac, inView, itemAt, msOf, ordered, panView, placeOf, previewPlace, revealView, sequence, tickStep, ticks, timeAt, zoomAround, ZOOM_MAX, ZOOM_MIN, type TimelineItem } from '../src/timeline.ts';
+import { clampTrim, followView, formatTime, frac, FRAME, frameZoom, holdView, inView, itemAt, msOf, ordered, panDir, panView, placeOf, previewPlace, revealView, sequence, tickStep, ticks, timeAt, trimBy, trimReadouts, zoomAround, ZOOM_MAX, ZOOM_MIN, type TimelineItem } from '../src/timeline.ts';
 
 const near = (actual: number | null, expected: number, what = '') => assert.ok(actual !== null && Math.abs(actual - expected) < 1e-6, `${what}: ${actual} ≠ ${expected}`);
 
@@ -170,6 +170,59 @@ test('clampTrim keeps the bounds and the minimum; the dragged edge stops at the 
 			assert.ok(c.in >= 0 && c.out <= len && c.out - c.in >= c.min - 1e-9, JSON.stringify([t, edge, c]));
 		}
 	}
+});
+
+test('clampTrim slip: both edges move, the length is kept, stopping at the take ends', () => {
+	const len = 3000;
+	assert.deepEqual(clampTrim({ in: 500, out: 1500, min: 100 }, len, 'slip'), { in: 500, out: 1500, min: 100 }, 'inside: unchanged');
+	assert.deepEqual(clampTrim({ in: -400, out: 600, min: 100 }, len, 'slip'), { in: 0, out: 1000, min: 100 }, 'stops at 0, length kept');
+	assert.deepEqual(clampTrim({ in: 2500, out: 3500, min: 100 }, len, 'slip'), { in: 2000, out: 3000, min: 100 }, 'stops at the end, length kept');
+	assert.deepEqual(clampTrim({ in: 1000, out: 1050, min: 100 }, len, 'slip'), { in: 1000, out: 1100, min: 100 }, 'never shorter than min');
+	assert.deepEqual(clampTrim({ in: -10, out: 4000, min: 100 }, len, 'slip'), { in: 0, out: 3000, min: 100 }, 'longer than the take: all of it');
+});
+
+test('trimBy: an edge or a slip by ms, snapped to the step on a drag, Home / End as ±Infinity', () => {
+	const t = { in: 1000, out: 2000, min: 100 };
+	assert.deepEqual(trimBy(t, 3000, 'in', 260, 100), { in: 1300, out: 2000, min: 100 }, 'the moved point lands on a step');
+	assert.deepEqual(trimBy(t, 3000, 'out', -1950, 100), { in: 1000, out: 1100, min: 100 }, 'out stops min after in');
+	assert.deepEqual(trimBy(t, 3000, 'in', 33), { in: 1033, out: 2000, min: 100 }, 'keys: no snapping (Alt ×0.1)');
+	assert.deepEqual(trimBy(t, 3000, 'slip', 440, 100), { in: 1400, out: 2400, min: 100 }, 'slip: in on a step, the length kept');
+	assert.deepEqual(trimBy(t, 3000, 'slip', 5000, 100), { in: 2000, out: 3000, min: 100 }, 'slip stops at the end');
+	assert.deepEqual(trimBy(t, 3000, 'slip', -Infinity), { in: 0, out: 1000, min: 100 }, 'Home on the slip bar');
+	assert.deepEqual(trimBy(t, 3000, 'slip', Infinity), { in: 2000, out: 3000, min: 100 }, 'End on the slip bar');
+	assert.deepEqual(trimBy(t, 3000, 'in', -Infinity, 100), { in: 0, out: 2000, min: 100 }, 'Home on in');
+	assert.deepEqual(trimBy(t, 3000, 'out', Infinity, 100), { in: 1000, out: 3000, min: 100 }, 'End on out');
+	const f = trimBy({ in: 0, out: 6000, min: 100 }, 6000, 'in', 1010, FRAME);
+	near(f.in / FRAME, Math.round(f.in / FRAME), 'a frame step at 24 fps');
+	// keys snap too: an app that stores whole ms (the studio: s with 3 decimals) never drifts off the frames
+	let k = { in: 500, out: 6000, min: 100 };
+	for (let i = 0; i < 120; i++) k = ((n) => ({ ...n, in: Math.round(n.in) }))(trimBy(k, 6000, 'in', FRAME, FRAME));
+	assert.ok(Math.abs(k.in / FRAME - 132) < 0.02, `120 frames on from frame 12: ${k.in / FRAME}`);
+});
+
+test('frameZoom / holdView: a frame per picture around the held point, never zooming out', () => {
+	// 12 s at 24 fps, 16 pictures in the view → 288 frames / 16 = 18 views wide
+	near(frameZoom(12_000, FRAME, 16), 18, 'frames per view = pictures');
+	assert.equal(frameZoom(600_000, FRAME, 16), ZOOM_MAX, 'clamped to the zoom range');
+	assert.equal(frameZoom(1000, FRAME, 0), ZOOM_MIN);
+	const v = { zoom: 1, scrollFrac: 0 };
+	const h = holdView(v, 3000, 12_000, FRAME, 16);
+	assert.ok(h);
+	near(h.zoom, 18, 'held zoom');
+	near((frac(3000, 12_000) - h.scrollFrac) * h.zoom, 0.25, 'the held point stays at a quarter of the view');
+	assert.equal(holdView({ zoom: 20, scrollFrac: 0.1 }, 3000, 12_000, FRAME, 16), null, 'closer already: no hold zoom');
+});
+
+test('panDir: back near the left end, on near the right, else stay', () => {
+	assert.equal(panDir(105, 100, 900, 24), -1);
+	assert.equal(panDir(890, 100, 900, 24), 1);
+	assert.equal(panDir(500, 100, 900, 24), 0);
+});
+
+test('trimReadouts: in / the last kept frame as a timecode at a frame step, kept in seconds', () => {
+	assert.deepEqual(trimReadouts({ in: 500, out: 4500, min: 100 }, FRAME), { in: '0:00:12', out: '0:04:11', kept: '4 s' });
+	assert.deepEqual(trimReadouts({ in: 1000, out: 2250, min: 100 }, 100), { in: '0:01:0', out: '0:02:1', kept: '1.25 s' }, '10 fps');
+	assert.deepEqual(trimReadouts({ in: 1000, out: 2250, min: 100 }, 300), { in: '1 s', out: '2.25 s', kept: '1.25 s' }, 'no whole frame rate: seconds');
 });
 
 test('formatTime: clock, seconds and frames at 24, 25 and 30 fps', () => {

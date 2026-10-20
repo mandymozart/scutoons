@@ -20,11 +20,12 @@ export interface UiLabels {
 	/** the eyedropper: any colour on the screen (the browser's EyeDropper) / a point of the app's picture (fallback) */
 	eyedropper: string;
 	eyedropperPicture: string;
-	/** the Timeline: its ruler (the playhead's slider), the ruler's tooltip, a trimmed item's two handles */
+	/** the Timeline: its ruler (the playhead's slider), the ruler's tooltip, a trimmed item's two handles and its slip bar */
 	timelinePlayhead: string;
 	timelineHint: string;
 	timelineTrimIn: string;
 	timelineTrimOut: string;
+	timelineSlip: string;
 }
 
 const DEFAULTS: UiLabels = {
@@ -42,7 +43,8 @@ const DEFAULTS: UiLabels = {
 	timelinePlayhead: 'Playhead',
 	timelineHint: 'Drag: move the playhead · Ctrl + wheel, + / −: zoom · 0: fit',
 	timelineTrimIn: 'Trim start',
-	timelineTrimOut: 'Trim end'
+	timelineTrimOut: 'Trim end',
+	timelineSlip: 'Slip the kept part'
 };
 
 const KEY = Symbol.for('scutoons:ui-labels');

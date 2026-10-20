@@ -158,14 +158,78 @@ export function previewPlace(x: number, item: Rect, area: Rect, win: { width: nu
 	return { x: at / w, shift: r > l ? (at - l) / (r - l) : 0.5, y: (above ? top : bottom) / h, above, room: (above ? top : h - bottom) / h, width: (r - l) / w };
 }
 
-/** keeps a trim inside 0..length and at least `min` long; the dragged `edge` stops at the other one */
-export function clampTrim(trim: TimelineTrim, length: Ms, edge?: 'in' | 'out'): TimelineTrim {
+/** what a trim moves: its in, its out, or both – a slip (the kept part slides through the take, its length kept) */
+export type TrimEdge = 'in' | 'out' | 'slip';
+
+/** keeps a trim inside 0..length and at least `min` long; the dragged `edge` stops at the other one; a 'slip' keeps the
+ *  length (out − in, at least `min`) and stops at the take's ends */
+export function clampTrim(trim: TimelineTrim, length: Ms, edge?: TrimEdge): TimelineTrim {
 	const total = Math.max(0, length);
 	const min = clamp(trim.min, 0, total);
+	if (edge === 'slip') {
+		const kept = clamp(trim.out - trim.in, min, total);
+		const start = clamp(trim.in, 0, total - kept);
+		return { in: start, out: start + kept, min };
+	}
 	const out = clamp(trim.out, min, total);
 	if (edge === 'in') return { in: clamp(trim.in, 0, out - min), out, min };
 	const start = clamp(trim.in, 0, total - min);
 	return { in: start, out: clamp(trim.out, start + min, total), min };
+}
+
+/** `edge` moved by `by` ms ('slip': both, the length kept) – its new point on a multiple of `snap` (a drag and a key: the
+ *  lane's step, what the shot will show – an app that rounds never drifts off it; Alt's fine steps: none) – clamped
+ *  (clampTrim); ±Infinity = to the end (Home / End) */
+export function trimBy(trim: TimelineTrim, length: Ms, edge: TrimEdge, by: Ms, snap = 0): TimelineTrim {
+	const to = (v: Ms) => (snap > 0 && Number.isFinite(v) ? Math.round(v / snap) * snap : v);
+	if (edge !== 'slip') return clampTrim({ ...trim, [edge]: to(trim[edge] + by) }, length, edge);
+	const at = to(trim.in + clamp(by, -Math.abs(length), Math.abs(length)));
+	return clampTrim({ ...trim, in: at, out: at + trim.out - trim.in }, length, 'slip');
+}
+
+/** a picture on a tall lane: portrait, 9:16 of the lane's height (the studio's frames) */
+export const PICTURE = 9 / 16;
+
+/** hold-to-zoom (research/TIMELINE.md §4 item 5): the zoom at which one `step` (a frame) is as wide as a picture –
+ *  `pictures` = how many pictures fill the view (its width / a picture's) */
+export function frameZoom(span: Ms, step: Ms, pictures: number): number {
+	return span > 0 && step > 0 && pictures > 0 ? clampZoom(span / (step * pictures)) : ZOOM_MIN;
+}
+
+/** the held view: zoomed to frameZoom around `at` (it stays where it is in the view); null when `v` is that close already */
+export function holdView(v: View, at: Ms, span: Ms, step: Ms, pictures: number): View | null {
+	const want = frameZoom(span, step, pictures);
+	return want > v.zoom ? zoomAround(v.zoom, want / v.zoom, clamp((frac(at, span) - v.scrollFrac) * v.zoom, 0, 1), v.scrollFrac) : null;
+}
+
+/** a dragged grip near the visible part's ends (`left` .. `right`, the zone `edge` wide): −1 pan back, 1 on, 0 stay */
+export const panDir = (x: number, left: number, right: number, edge: number): -1 | 0 | 1 => (x < left + edge ? -1 : x > right - edge ? 1 : 0);
+
+/** the readouts while trimming (§4 item 6): in = its first kept frame, out = its last one (out − a step), as a timecode
+ *  when the step is a whole frame rate's frame – else in seconds, out as it is; kept = the length in seconds */
+export function trimReadouts(trim: TimelineTrim, step: Ms): { in: string; out: string; kept: string } {
+	const fps = step > 0 ? 1000 / step : 0;
+	const frames = fps >= 1 && Math.abs(fps - Math.round(fps)) < 1e-6;
+	const format: TimeFormat = frames ? { fps } : 's';
+	const out = frames ? Math.max(trim.in, trim.out - step) : trim.out;
+	return { in: formatTime(trim.in, format), out: formatTime(out, format), kept: formatTime(trim.out - trim.in, 's') };
+}
+
+/** what a lane's trim asks of the Timeline during a drag (timeline-trim.svelte) */
+export interface TrimHost {
+	/** a pointer's clientX → ms on the axis */
+	timeAtX: (clientX: number) => Ms;
+	/** a grip held still: zoom around `at` to about one `step` per picture (`height`: the lane's, a picture is PICTURE of
+	 *  it); resolves when the view is there – never zooms out */
+	hold: (at: Ms, step: Ms, height: number) => Promise<void>;
+	/** back to the zoom before the hold */
+	unhold: () => void;
+	/** a dragged grip at the visible strip's end scrolls it on a little (called every frame); true when it scrolled */
+	pan: (clientX: number) => boolean;
+	/** the axis' visible part as a window box (the readouts turn inwards at its ends) */
+	area: () => Rect | undefined;
+	/** a trim drag starts / ends: meanwhile the view stays under the pointer – no follow, a new reveal waits for the end */
+	grip: (on: boolean) => void;
 }
 
 /** 'clock' = [h:]m:ss (+ `digits` decimals), 's' = "1.25 s" (`digits` default 2, trailing zeros dropped), { fps } = m:ss:ff */
