@@ -12,10 +12,10 @@
 // a frame – the key visual – stay) or one long draft frame (`--frame` + `--top`: slice i starts at the top + the heights
 // of the slices above it – each slice keeps its OWN height, never the new standard: this re-cuts the slices the chapter
 // has; a cut at another standard (another slice count) is a different job – figma-production.mjs).
-// The Figma drafts of chapters 1–5 stay on the 625 grid while their standard slices are stored at 624 since #78
-// (resampled, convert-624.mjs): a per-slice frame is cut at its own height and resampled to the slice's (≤ 2 px apart);
-// in a long frame the draft's step can't be read from the chapter – a group with SLICE_H slices needs `--grid <px>`
-// (625 for chapters 1–5: each such slice is cut 625 high and resampled to 624; 624 for a draft drawn at 624).
+// Legacy since #78 (owner 2026-10-20: "we go from the draft document. since manual slicing is not required anymore"):
+// the standard slice is 390 × 624, cut from the draft document (figma-production.mjs); the 625 cuts of chapters 1–2
+// (generated or by hand) were resampled to 624 (convert-624.mjs) and get no re-cut here – a group with SLICE_H slices
+// is refused.
 // Hidden at any depth (bridge `region` hideIds): the instances Dialog Textbox / Speech Bubble / Action Button, every
 // TEXT layer except KEEP (elevator floor numbers, the book title), the vector letter groups "ROAARR". A hidden lettering
 // text (short, not a sentence) becomes a text box in its slice – font lettering, Figma's size / angle / colours, the
@@ -48,10 +48,8 @@ const colors = Object.fromEntries((take('--color') ?? '').split(',').filter(Bool
 // --hide id,id: more layers to hide (a panel that only held a text – owner's pick)
 const extra = new Set((take('--hide') ?? '').split(',').filter(Boolean));
 const upload = args.includes('--upload'), changedOnly = args.includes('--changed-only');
-// --grid <px>: the long draft's step for a slice stored at SLICE_H (chapters 1–5: 625) – see the header
-const gridArg = take('--grid'), grid = gridArg === undefined ? null : Number(gridArg);
-if (!key || !groupLabel || !folder || !((page && prefix) || (frameId && Number.isFinite(top))) || (grid !== null && !(Number.isInteger(grid) && grid > 0))) {
-	console.error('usage: figma-clean-slices.mjs --key chapter:<toon>:<n> --group <label> --folder <s1/c1/v2> (--page <id> --prefix "<name> " | --frame <id> --top <y> [--grid 625] [--changed-only]) [--upload]');
+if (!key || !groupLabel || !folder || !((page && prefix) || (frameId && Number.isFinite(top)))) {
+	console.error('usage: figma-clean-slices.mjs --key chapter:<toon>:<n> --group <label> --folder <s1/c1/v2> (--page <id> --prefix "<name> " | --frame <id> --top <y> [--changed-only]) [--upload]');
 	process.exit(2);
 }
 const [, toon, n] = key.split(':');
@@ -148,7 +146,7 @@ try {
 	const noHeight = frameId ? group.slices.findIndex((s) => !(s.height > 0)) : -1;
 	if (noHeight >= 0) throw new Error(`slice ${noHeight + 1} of "${groupLabel}" has no height – every slice carries its own (RULES "Product rules"); fix the chapter first`);
 	const standard = group.slices.filter((s) => s.height === SLICE_H).length;
-	if (frameId && standard && grid === null) throw new Error(`${standard} slices of "${groupLabel}" are ${SLICE_H} high – the long draft's step for them can't be read from the chapter: --grid 625 for the drafts of chapters 1–5 (their slices were resampled 625 → ${SLICE_H}, #78), --grid ${SLICE_H} for a draft drawn at ${SLICE_H}`);
+	if (standard) throw new Error(`${standard} slices of "${groupLabel}" are ${SLICE_H} high – the standard since #78: they are cut from the draft document (figma-production.mjs), not re-cut here (the old 625 cuts only – legacy)`);
 	const pre = await figmaPreflight();
 	expectFile = pre.file;
 	console.log(`Figma: "${pre.file}" (plugin ${pre.version}, ping ${pre.pingMs} ms, ${pre.freeGB} GB RAM free)`);
@@ -162,25 +160,23 @@ try {
 			if (!id) { kept.push(`${basename(s.image)} (no Figma frame)`); continue; }
 			const t = await tree(id);
 			const { hide, letters } = classify(t, true);
-			// cut at the frame's own height, stored at the slice's: a 625 frame of chapters 1–5 → a 624 slice (#78)
-			const h = Math.round(t.h ?? s.height), out = s.height ?? h;
-			if (Math.abs(h - out) > 2) throw new Error(`${basename(s.image)}: its Figma frame is ${h} high, the slice ${out} – not the same picture`);
-			items.push({ i, name: basename(s.image).replace(/\.\w+$/, ''), frame: id, region: { x: 0, y: 0 }, h, out, hideIds: hide.map((x) => x.id), boxes: letters.map((l, k) => letterBox(l, 0, h, `${toon}-c${n}-${num}-l${k + 1}`)) });
+			const h = s.height ?? t.h; // the slice's own height (its frame's, if the slice has none)
+			items.push({ i, name: basename(s.image).replace(/\.\w+$/, ''), frame: id, region: { x: 0, y: 0 }, h, hideIds: hide.map((x) => x.id), boxes: letters.map((l, k) => letterBox(l, 0, h, `${toon}-c${n}-${num}-l${k + 1}`)) });
 			process.stdout.write(`\rread ${i + 1}/${group.slices.length}   `);
 		}
 		console.log();
 	} else {
-		// one long frame: each slice at its own height – a SLICE_H one at --grid –, its top the running sum (checked above)
+		// one long frame: each slice at its own height (the 625 cuts), its top the running sum (checked above)
 		const t = await tree(frameId);
 		const { hide, letters } = classify(t);
 		let next = top;
 		for (const [i, s] of group.slices.entries()) {
-			const out = s.height, h = out === SLICE_H ? grid : out, y0 = next, y1 = y0 + h, hit = (b) => b.y < y1 && b.y + b.h > y0 && b.x < W && b.x + b.w > 0;
+			const h = s.height, y0 = next, y1 = y0 + h, hit = (b) => b.y < y1 && b.y + b.h > y0 && b.x < W && b.x + b.w > 0;
 			next = y1;
 			const name = basename(s.image).replace(/\.\w+$/, ''), num = name.match(/(\d+)$/)?.[1];
 			const mine = letters.filter((l) => { const cy = l.box.y + l.box.h / 2; return cy >= y0 && cy < y1 && l.box.x < W && l.box.x + l.box.w > 0; }); // a word running out of the frame stays (the art's way)
 			if (changedOnly && !hide.some((x) => !x.old && hit(x.box))) { kept.push(`${name} (nothing new to hide)`); continue; }
-			items.push({ i, name, frame: frameId, region: { x: 0, y: y0 }, h, out, partial: true, hideIds: hide.filter((x) => hit(x.box)).map((x) => x.id), boxes: mine.map((l, k) => letterBox(l, y0, h, `${toon}-c${n}-${num}-l${k + 1}`)) });
+			items.push({ i, name, frame: frameId, region: { x: 0, y: y0 }, h, partial: true, hideIds: hide.filter((x) => hit(x.box)).map((x) => x.id), boxes: mine.map((l, k) => letterBox(l, y0, h, `${toon}-c${n}-${num}-l${k + 1}`)) });
 		}
 	}
 	// a word across a seam sits in both slice frames: the lower slice owns it (research/TEXT-ACROSS-SLICES.md §1) – the
@@ -201,17 +197,17 @@ try {
 	const failed = [];
 	let skipped = 0, timedOut = 0;
 	for (const it of items) {
-		const h = it.h, out = it.out ?? h; // cut h rows, stored out high (resampled when they differ – #78, --grid)
+		const h = it.h;
 		const regionArgs = { frame: it.frame, x: it.region.x, y: it.region.y, w: W, h, hideIds: it.hideIds, partial: !!it.partial, scales: [1, 2, 3] };
-		const source = `${it.frame} ${it.region.x},${it.region.y} ${W}×${h}${out !== h ? ` → ${out}` : ''}${it.partial ? ' partial' : ''} hide ${createHash('sha1').update(it.hideIds.join(',')).digest('hex').slice(0, 10)}`;
+		const source = `${it.frame} ${it.region.x},${it.region.y} ${W}×${h}${it.partial ? ' partial' : ''} hide ${createHash('sha1').update(it.hideIds.join(',')).digest('hex').slice(0, 10)}`;
 		const m = manifest.get(it.name);
-		if (m?.status === 'done' && m.source === source && variantsOk(resolve(OUT, 'slices'), it.name, W, out)) { skipped++; continue; }
+		if (m?.status === 'done' && m.source === source && variantsOk(resolve(OUT, 'slices'), it.name, W, h)) { skipped++; continue; }
 		const t0 = Date.now();
 		try {
 			const res = await bridge('region', regionArgs);
 			for (const r of res) writeFileSync(resolve(OUT, 'png', `${it.name}@${r.scale}x.png`), Buffer.from(r.base64, 'base64'));
-			webpVariants(OUT, it.name, { w: W, h: out });
-			if (!variantsOk(resolve(OUT, 'slices'), it.name, W, out)) throw Object.assign(new Error(`the export is not ${W} × ${out} (1x)`), { code: 'size' });
+			webpVariants(OUT, it.name);
+			if (!variantsOk(resolve(OUT, 'slices'), it.name, W, h)) throw Object.assign(new Error(`the export is not ${W} × ${h} (1x)`), { code: 'size' });
 			manifest.set(it.name, { status: 'done', source, ms: Date.now() - t0 });
 			timedOut = 0;
 		} catch (e) {

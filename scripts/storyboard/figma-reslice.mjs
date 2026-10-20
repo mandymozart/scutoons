@@ -57,9 +57,9 @@ try {
 	if (gi < 0) throw new Error(`no group "${groupLabel}" in ${key}`);
 	const group = cur.data.content.groups[gi];
 	console.log(`${key} version ${base}: group ${gi} "${groupLabel}", ${group.slices.length} slices`);
-	// the draft's 625 grid below: a slice stored at another height (624 since #78, convert-624.mjs) would lose its rows
+	// the draft's 625 grid below (legacy): the standard 390 × 624 (#78) comes from the draft document – figma-production.mjs
 	const off = group.slices.filter((s) => (s.height ?? 625) !== 625).length;
-	if (off) throw new Error(`${off} slices of "${groupLabel}" are not 625 high – this script cuts the 625 grid; figma-clean-slices.mjs --frame … --grid 625 re-cuts them (resampled to their height)`);
+	if (off) throw new Error(`${off} slices of "${groupLabel}" are not 625 high – this script re-cuts the old 625 grid only; 390 × 624 slices are cut from the draft document (figma-production.mjs)`);
 
 	// the draft's reading texts (hidden) vs lettering (kept): a reading text has a sentence (two words with a lower-case
 	// letter, or more than 20 characters) – or is the chapter title / a note

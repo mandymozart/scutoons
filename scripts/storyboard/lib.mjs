@@ -451,19 +451,13 @@ export function variantsOk(dir, name, w, h) {
 	});
 }
 
-/**
- * <dir>/png/<name>@{1,2,3}x.png → <dir>/slices/<name>{,.2x,.3x}.webp (PIL, quality 90; written to .tmp, then renamed).
- * `to` { w, h } (1x): resampled to that size × density when the export differs (Lanczos, as convert-624.mjs) – a cut on
- * the 625 grid of the chapter 1–5 drafts for a slice stored at 624 (#78)
- */
-export function webpVariants(dir, name, to = null) {
+/** <dir>/png/<name>@{1,2,3}x.png → <dir>/slices/<name>{,.2x,.3x}.webp (PIL, quality 90; written to .tmp, then renamed) */
+export function webpVariants(dir, name) {
 	execFileSync('python', ['-I', '-c', `import os, sys
 from PIL import Image
-d, n, w, h = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
+d, n = sys.argv[1], sys.argv[2]
 for s, suf in ((1, ''), (2, '.2x'), (3, '.3x')):
     out = f'{d}/slices/{n}{suf}.webp'
-    im = Image.open(f'{d}/png/{n}@{s}x.png').convert('RGB')
-    if w and im.size != (w * s, h * s): im = im.resize((w * s, h * s), Image.Resampling.LANCZOS)
-    im.save(out + '.tmp', 'WEBP', quality=90, method=6)
-    os.replace(out + '.tmp', out)`, dir, name, String(to?.w ?? 0), String(to?.h ?? 0)]);
+    Image.open(f'{d}/png/{n}@{s}x.png').convert('RGB').save(out + '.tmp', 'WEBP', quality=90, method=6)
+    os.replace(out + '.tmp', out)`, dir, name]);
 }

@@ -84,11 +84,10 @@ version = code.js, a ping, free RAM, the file – then passed as `expectFile`), 
 for storyboard drafts: per layer a shell with the layer's look, holding only its nodes that reach into the slice), and
 pause 15 s every 25 exports and after a call slower than twice the median. `figma-production.mjs` writes to new CDN
 paths (`--folder`, default `s<n>/c<n>/v624` – the 625 cut keeps its own) and writes `chapter.json` / `uploads.json`
-only when every slice is exported at the standard. `figma-clean-slices.mjs` re-cuts each slice at its own height. The
-drafts of chapters 1–5 stay on the 625 grid while their standard slices are stored at 624 since #78 (resampled –
-`scripts/storyboard/convert-624.mjs`): a per-slice frame is cut at its own height and resampled to the slice's; a long
-draft (`--frame … --top`) with 624 slices needs `--grid 625` (cut 625 high, resampled to 624). `figma-reslice.mjs`
-(the 625 grid only) refuses them.
+only when every slice is exported at the standard. The standard slice is 390 × 624, cut from the draft document
+(owner 2026-10-20: "we go from the draft document. since manual slicing is not required anymore"); the 625 cuts of
+chapters 1–5 were resampled to 624 (`scripts/storyboard/convert-624.mjs`, #78). `figma-clean-slices.mjs` and
+`figma-reslice.mjs` re-cut only the old 625 cuts (legacy) and refuse a group with 624 slices.
 
 **The log**: `logs/figma-relay.log` – ISO time, command, node, ms, bytes in / out, the caller, connects / close codes,
 stale, the supervisor's restarts; appended, rotated to `figma-relay.1.log` at ~5 MB.
