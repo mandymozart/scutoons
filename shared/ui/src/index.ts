@@ -23,6 +23,8 @@ export { default as FieldReset } from './field-reset.svelte';
 export { roundTo, type UnitOption, type Units } from './units.ts';
 export { unitPrefs } from './unit-prefs.svelte.ts';
 export { default as ColourPopover } from './colour-popover.svelte';
+export { default as PaintField } from './paint-field.svelte';
+export { isGradient, paintCss, type Paint, type Gradient, type GradientStop } from './paint.ts';
 export { colourSampler, provideColourSampler, provideUiLabels, uiLabels, type ColourSampler, type UiLabels } from './ui-labels.ts';
 export { clamp, evaluate, roundToStep, stepFor } from './scrub.ts';
 export { sortable, type SortableOptions } from './sortable.ts';

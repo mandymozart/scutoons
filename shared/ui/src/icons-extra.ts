@@ -2,6 +2,12 @@
 // missing icon goes into shared/ui, never into an app). `Icon` looks here after Feather. Trusted markup, not user input.
 
 export const EXTRA_ICONS: Record<string, { contents: string }> = {
+	// paints (issue #94, owner 2026-10-20: "fill a square with a bw gradient"): a filled square = solid; a framed square
+	// filled from the ink to nothing – left → right = linear, centre → edges = radial (currentColor, so the active
+	// segment's paper colour works too; the same gradient ids in every copy are harmless)
+	'paint-solid': { contents: '<rect x="4" y="4" width="16" height="16" fill="currentColor"/>' },
+	'paint-linear': { contents: '<defs><linearGradient id="sc-icon-paint-linear"><stop offset="0" stop-color="currentColor"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs><rect x="4" y="4" width="16" height="16" fill="url(#sc-icon-paint-linear)"/>' },
+	'paint-radial': { contents: '<defs><radialGradient id="sc-icon-paint-radial"><stop offset="0" stop-color="currentColor"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></radialGradient></defs><rect x="4" y="4" width="16" height="16" fill="url(#sc-icon-paint-radial)"/>' },
 	// vertical alignment: the box's top and bottom edge, two text lines at the top / in the middle / at the bottom
 	'valign-top': { contents: '<line x1="3" y1="3" x2="21" y2="3"/><line x1="3" y1="21" x2="21" y2="21"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/>' },
 	'valign-middle': { contents: '<line x1="3" y1="3" x2="21" y2="3"/><line x1="3" y1="21" x2="21" y2="21"/><line x1="7" y1="10" x2="17" y2="10"/><line x1="7" y1="14" x2="17" y2="14"/>' },

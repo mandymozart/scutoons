@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { ColorField, LinkedPair, PropRow, PropSelect, ScrubNumber, Segmented } from '@scutoons/ui';
+	import { LinkedPair, PaintField, PropRow, PropSelect, ScrubNumber, Segmented } from '@scutoons/ui';
 	import { DEFAULT_SLICE, dialogFit, getAt, round2, type DialogFit, type Path } from '@scutoons/content';
 	import { drawnHeights, drawnKey, drawnWidths } from '$lib/editor/drawn-heights.svelte.ts';
 	import { fontLength, fontPx, sliceLength } from '$lib/editor/length-units.ts';
@@ -219,10 +219,10 @@
 			</PropRow>
 
 			<PropRow label={m['creator.field_color']()}>
-				<ColorField label={m['creator.field_color']()} value={dialog.color} placeholder="#000000" onchange={set('color')} testid="dialog-color" />
+				<PaintField label={m['creator.field_color']()} value={dialog.color} placeholder="#000000" onchange={set('color')} testid="dialog-color" />
 			</PropRow>
 			<PropRow label={m['creator.text_outline']()}>
-				<ColorField label={m['creator.text_outline']()} value={dialog.stroke} placeholder={m['creator.text_outline_none']()} onchange={set('stroke')} testid="dialog-stroke" />
+				<PaintField label={m['creator.text_outline']()} value={dialog.stroke} placeholder={m['creator.text_outline_none']()} onchange={set('stroke')} testid="dialog-stroke" />
 				{#if dialog.stroke}
 					<ScrubNumber icon="outline-width" label={m['creator.text_outline_width']()} units={units.stroke} min={0} value={dialog.strokeWidth} placeholder="0.14" onchange={set('strokeWidth')} testid="dialog-stroke-width" />
 				{/if}
