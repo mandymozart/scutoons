@@ -260,7 +260,7 @@
 		<button type="button" class="secondary" onclick={create} data-testid="catalog-new"><Icon name="plus" /> {m['creator.catalog_new']({ what: def.singular() })}</button>
 		{#if kind === 'items' || kind === 'recipes'}
 			<input bind:this={importInput} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onchange={importImages} data-testid="catalog-import-input" />
-			<button type="button" class="secondary" disabled={!!importing} onclick={() => importInput?.click()} title={m['creator.catalog_import_hint']()} data-testid="catalog-import">{importing ?? m['creator.catalog_import']()}</button>
+			<button type="button" class="secondary" disabled={!!importing} onclick={() => importInput?.click()} title={m['creator.catalog_import_hint']()} data-testid="catalog-import"><Icon name="upload" />{importing ?? m['creator.catalog_import']()}</button>
 		{/if}
 		{#if data && selected}
 			<!-- a score item: its pieces on the score (research/COLLAGE.md §4.4) -->

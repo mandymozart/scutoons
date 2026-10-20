@@ -106,7 +106,7 @@
 	<button type="button" class="ref" class:unknown={!!id && !character} class:off-cast={!!character && (!inCast || !inCast.personas.includes(persona))} onclick={() => (open = true)} data-testid="character-ref-open">
 		<span class="img" style:background={character?.color || 'transparent'}>{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" />{/if}</span>
 		<span class="text">{summary}</span>
-		<span class="hint">{m['creator.characters_choose']()} …</span>
+		<span class="hint">{m['creator.characters_choose']()}</span>
 	</button>
 	{#if character && (!inCast || !inCast.personas.includes(persona))}
 		<button type="button" class="ghost warn" onclick={() => choices.ensureCast(id, persona)}>{m['creator.characters_add_to_cast']()}</button>

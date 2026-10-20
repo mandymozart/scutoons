@@ -760,7 +760,7 @@ slice's picture or on a score: one piece (`CollagePiece`, @scutoons/content coll
   under it, each control only where it applies: **Save as preset …** (the piece draws differently from what it names) ·
   **Update preset** (confirmed: every piece with it changes) · round **•••** → Rename … / Delete … (a tombstone – pieces
   keep drawing it); a toast's Undo takes back both documents, Ctrl+Z only the page's.
-- **Slice editor:** the piece tool – a click opens the picker (Shapes · Characters, **Image …**; a character never
+- **Slice editor:** the piece tool – a click opens the picker (Shapes · Characters, **Image**; a character never
   joins the cast) and the piece lands centred there, 30 % wide; a drag sets its corner and width; "+ Add a piece …" in
   Layers puts it in the middle. Canvas: move, rotate, scale evenly (no side handles), a ramp blur's two dots; a piece
   takes the pointer only under the piece tool or while selected (another tool draws over art). Layers: pieces below the
@@ -850,7 +850,10 @@ with the top bar and the sidebar region (`area-menu.svelte` + the page's list), 
 
 Short, plain, no marketing, no exclamation marks; de and en say the same. Messages: `creator/messages/{de,en}.json`
 (paraglide, keys `creator.*`); no user-facing text hard-coded in `creator/src` (field labels included – a label is a
-word, never a data path; technical detail at most in the label's `title`). One term per concept:
+word, never a data path; technical detail at most in the label's `title`). **No "…" on actions** (owner 2026-10-20:
+the dots read as "several" or nothing): a button or menu entry that opens a dialog, a picker or the file chooser says
+only what it does ("Import images", "Rename"); "…" stays only on something running ("Loading …", "Uploading 3 / 12 …")
+and in placeholders (search fields, a select's empty choice). One term per concept:
 
 | de | en | means |
 |---|---|---|

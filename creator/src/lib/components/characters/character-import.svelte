@@ -8,6 +8,7 @@
 		type MoodVocabulary,
 		type RegistryCharacter
 	} from '@scutoons/content';
+	import { Icon } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { edit, editCharacter, ensureMoods } from '$lib/editor/characters.ts';
 	import { closeRequests, setLookApose } from '$lib/editor/character-form.ts';
@@ -120,6 +121,7 @@
 
 <div class="import">
 	<button type="button" class="secondary" disabled={!!importing} onclick={() => importInput?.click()} title={m['creator.characters_import_hint']({ id })} data-testid="character-import">
+		<Icon name="upload" />
 		{importing ? m['creator.import_slices_progress']({ done: importing.done, total: importing.total }) : m['creator.characters_import']()}
 	</button>
 	<input bind:this={importInput} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onchange={importImages} />
