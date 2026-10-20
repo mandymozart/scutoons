@@ -1,4 +1,4 @@
-Status 2026-10-12: PARKED until February 2027 (owner). The dates below (building from 2026-11-02, show-ready 2027-02-01, the B.10 schedule) are void – a new schedule when the owner restarts it.
+Status 2026-10-20: RESTARTED for the Top Toy workshop (owner: the full Must list, the stage experience on Wed 2027-02-17 instead of the first show Feb 1–14); building from Mon 2026-11-16 in lane 2 of research/STORY-BIBLE.md §8, issues #89–#91 (milestone "Top Toy workshop"). The B.10 dates below are void – the new ones: STORY-BIBLE §8. (Parked 2026-10-12 → 2026-10-20.)
 2026-10-14: a score view (MusicXML rendered by Verovio, pages, zoom, pedal keys) is built for score items – research/SCORES.md §4; musicians' sheets can use it, and score annotations and turning parts of a score on / off (performance groups) are planned here (SCORES §6a, §7) – the "no score rendering" below is superseded.
 
 # LIVE — performance mode (plan, final; not started)

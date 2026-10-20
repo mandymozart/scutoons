@@ -1,4 +1,4 @@
-Status 2026-10-20: plan, nothing built; waiting for the owner's answers (§9) – then the milestone "Top Toy workshop" and its issues (§8). Issue #79. Building starts after chapter 3's release (#64, 2026-11-15) unless the owner says otherwise.
+Status 2026-10-20: plan agreed (owner: Q2, Q3, Q7 answered; the other questions take the recommendation until the owner says otherwise); nothing built. Milestone "Top Toy workshop" (due 2027-02-17): #80–#91 + #28, #56, #62, #74, #75, #79. Building starts after chapter 3's release (#64, 2026-11-15).
 
 # STORY-BIBLE — season / chapter scripts, character / persona / look / place texts (plan, 2026-10-20)
 
@@ -108,9 +108,14 @@ Code complete **Fri 2027-02-05**; test week Feb 8–12 (every generator on the r
 Issues (new): the text model + editor · season / chapter scripts + migration 1 · character / persona / look texts ·
 place texts · generators read the texts (+ migration 2) · artist brief + references · MCP · generator test week ·
 the stage experience (performance mode, LIVE.md – as one issue or one per phase).
-Existing ones to move in (owner: "add the character, location, scene, references to this milestone") – §9 Q8.
+Created 2026-10-20: #80 model + editor · #81 scripts + toon text · #82 character texts · #83 place texts · #84 MCP ·
+#85 generators · #86 briefs + references · #87 test week · #88 owner writes · #89–#91 LIVE phases 0–1, 2–3, 4–5.
+Moved in (owner: "add the character, location, scene, references to this milestone"): #56, #75, #74, #28, #62.
 
 ## 9. Owner questions (recommendation first)
+Answered 2026-10-20: Q2 own text each · Q3 per language · Q7 the full LIVE Must list, the workshop instead of the
+first show. Q8: no preference – the recommended five went in. Q1, Q4, Q5, Q6 (#86), Q9 follow the recommendation.
+
 1. **Cat Pope's script = season 1's script?** Move it (migration 1) – yes.
 2. **Personas and looks: their own text each** (rec.: they are edited on their own cards, the generator picks exactly
    the persona / look of a figure) – or sections inside the character's one text?
