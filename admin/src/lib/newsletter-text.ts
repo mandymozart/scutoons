@@ -31,9 +31,30 @@ export function insertInline(text: string, start: number, end: number, value: st
 	return { text: text.slice(0, start) + value + text.slice(end), start: caret, end: caret };
 }
 
-/** a button paragraph `[label](https://)` with its label selected – typing replaces it */
-export function insertButton(text: string, at: number, label: string): Inserted {
-	const done = insertParagraph(text, at, `[${label}](https://)`);
-	const start = done.end - `[${label}](https://)`.length + 1;
+/** a button paragraph `[label](url)` with its label selected – typing replaces it */
+export function insertButton(text: string, at: number, label: string, url = 'https://'): Inserted {
+	const line = `[${label}](${url})`;
+	const done = insertParagraph(text, at, line);
+	const start = done.end - line.length + 1;
 	return { text: done.text, start, end: start + label.length };
+}
+
+/**
+ * The target of a sign-in button (#106) from what the admin pasted: a reader link (https://scutoons.com/en/catpope/chapter/2)
+ * or a path → `/catpope/chapter/2` (no language prefix – the mail adds the recipient's); null = not one
+ */
+export function readerPath(input: string): string | null {
+	const value = input.trim();
+	if (!value) return null;
+	let path = value;
+	if (/^https?:\/\//i.test(value)) {
+		try {
+			const url = new URL(value);
+			path = url.pathname + url.search;
+		} catch {
+			return null;
+		}
+	}
+	if (!/^\/(?![/\\])[A-Za-z0-9/_.~%?=&-]*$/.test(path)) return null;
+	return path.replace(/^\/(de|en)(?=\/|$|\?)/, '') || '/';
 }

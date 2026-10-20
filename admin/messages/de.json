@@ -975,6 +975,12 @@
 		"help": "Die neuesten Einträge der PHP-Fehlerprotokolle – der API und der QR-App –, die neuesten zuerst; die Zeilen danach (ein Stacktrace) unter „Details“. Nur Meldungen: E-Mail-Adressen, Tokens und Passwörter sind verdeckt, der Ordner des Servers ist aus den Pfaden gekürzt. Gelesen werden nur die letzten 512 KB eines Protokolls."
 	},
 	"newsletter": {
+		"read_link_invalid": "Das ist kein Link zu SCUTOONS. Kopier ihn aus dem Reader, z. B. https://scutoons.com/catpope/chapter/2.",
+		"read_link_text": "Jetzt lesen",
+		"read_link_insert": "Einfügen",
+		"read_link_target": "Ziel – ein Link aus dem Reader",
+		"read_link_message": "Ein Button mit eigenem Text: Ein Klick meldet an und öffnet das Ziel, z. B. das neue Kapitel. Den Text kannst du danach überschreiben.",
+		"read_link": "Lese-Link mit Anmeldung",
 		"preview_desktop": "Desktop",
 		"preview_phone": "Handy",
 		"preview_device": "Bildschirm",
