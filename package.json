@@ -43,6 +43,7 @@
 		"check:creator-collage": "node scripts/dev/creator-collage-check.mjs",
 		"check:endless": "node scripts/dev/endless-check.mjs",
 		"check:endless-engines": "node scripts/dev/endless-engines-check.mjs",
+		"check:crossing": "node scripts/dev/crossing-check.mjs",
 		"check:tools-dock": "node scripts/dev/tools-dock-check.mjs",
 		"check:mcp": "node scripts/dev/mcp-check.mjs",
 		"build:mcp": "node tools/mcp/scripts/build.mjs",

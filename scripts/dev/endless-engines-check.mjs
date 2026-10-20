@@ -27,7 +27,7 @@
 // The browsers: `npx playwright-core install chromium firefox webkit` installs the builds of the pinned playwright-core
 // (into %LOCALAPPDATA%\ms-playwright) – not `npx playwright install`: that fetches the newest playwright, other builds.
 //   node scripts/dev/endless-engines-check.mjs [--engines=chromium,firefox,webkit] [--only=390|1440|1.5]
-//        [--page=/de/catpope/chapter/2] [--group=0] [--pinned=<group index>]   (viewer :8000, API :9000 – local only)
+//        [--page=/de/catpope/chapter/2] [--group=1] [--pinned=<group index>]   (viewer :8000, API :9000 – local only)
 import { chromium, firefox, webkit } from 'playwright-core';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -43,7 +43,7 @@ if (![VIEWER, API].every((u) => /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\
 const PAGE = String(opt.page || '/de/catpope/chapter/2');
 const [, TOON, CHAPTER] = PAGE.match(/\/([^/?]+)\/chapter\/(\d+)/) ?? [];
 if (!TOON) { console.error(`--page=${PAGE}: no /<toon>/chapter/<n> in it`); process.exit(2); }
-const GROUP = Number(opt.group ?? 0);
+const GROUP = Number(opt.group ?? 1); // catpope ch2: group 0 is the keyvisual since step 3 (inline scenes), 1 the first story group
 const ENGINES = { chromium, firefox, webkit };
 const engines = String(opt.engines || 'chromium,firefox,webkit').split(',').filter((e) => ENGINES[e]);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -95,6 +95,8 @@ async function contextFor(browser, size, { hints = false, reducedMotion = 'no-pr
 		if (res.status() !== 200) return route.fulfill({ response: res });
 		const json = await res.json();
 		const group = (json.groups ?? json.chapter?.groups)?.[GROUP];
+		// an event that opens the map (unlockLocation, map: 'open') would lay the map over the band – unlocked quietly
+		for (const g of json.groups ?? json.chapter?.groups ?? []) for (const s of g?.slices ?? []) for (const e of s?.events ?? []) if (e?.params?.map === 'open') delete e.params.map;
 		if (group) group.renderer = { type: 'horizontal', params: { endless: true } };
 		await route.fulfill({ response: res, json });
 	});

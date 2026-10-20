@@ -29,7 +29,7 @@
 //      screen bounces once (zoomed for the band's width), and never again after scrolling away and back; under html[data-vn-blocking] nothing (it plays once the story
 //      lets go); a touch (390) / mouse press (1440) on the band mid-sweep cancels it (line gone, no bounce, no replay);
 //      prefers-reduced-motion: the line stands still (fades) and there is no bounce
-//   node scripts/dev/endless-check.mjs [--page=/de/catpope/chapter/2] [--group=0] [--pinned=<group index>]
+//   node scripts/dev/endless-check.mjs [--page=/de/catpope/chapter/2] [--group=1] [--pinned=<group index>]
 //        [--only=390|1440|1.5] [--shots=<dir>]       (viewer :8000, API :9000 – local only; npm run dev:test-user)
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -48,7 +48,7 @@ if (![VIEWER, API].every((u) => /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\
 const PAGE = String(opt.page || '/de/catpope/chapter/2');
 const [, TOON, CHAPTER] = PAGE.match(/\/([^/?]+)\/chapter\/(\d+)/) ?? [];
 if (!TOON) { console.error(`--page=${PAGE}: no /<toon>/chapter/<n> in it`); process.exit(2); }
-const GROUP = Number(opt.group ?? 0);
+const GROUP = Number(opt.group ?? 1); // catpope ch2: group 0 is the keyvisual since step 3 (inline scenes), 1 the first story group
 const SHOTS = opt.shots ? String(opt.shots) : null;
 if (SHOTS) mkdirSync(SHOTS, { recursive: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -109,6 +109,8 @@ async function endless({ requestId, responseStatusCode, responseHeaders }) {
 	try {
 		const json = JSON.parse(body);
 		const group = (json.groups ?? json.chapter?.groups)?.[GROUP];
+		// an event that opens the map (unlockLocation, map: 'open') would lay the map over the band – unlocked quietly
+		for (const g of json.groups ?? json.chapter?.groups ?? []) for (const s of g?.slices ?? []) for (const e of s?.events ?? []) if (e?.params?.map === 'open') delete e.params.map;
 		if (group) (group.renderer = { type: 'horizontal', params: { endless: true } }), (body = JSON.stringify(json)), rewritten++;
 	} catch {}
 	send('Fetch.fulfillRequest', { requestId, responseCode: 200, responseHeaders: responseHeaders.filter((h) => !/^content-(length|encoding)$/i.test(h.name)), body: Buffer.from(body).toString('base64') });
@@ -154,7 +156,10 @@ async function state() {
 // ── input ──
 const point = async (fx = 0.5, fy = 0.5) => {
 	const at = await js(`__endless.point(${fx}, ${fy})`);
-	if (!at) throw new Error('something covers the whole band');
+	if (!at) {
+		const what = await js(`(() => { const r = __endless.band().getBoundingClientRect(); const y = (Math.max(r.top, 0) + Math.min(r.bottom, innerHeight)) / 2; const e = document.elementFromPoint(r.left + r.width / 2, y); const out = []; for (let x = e; x && out.length < 4; x = x.parentElement) out.push(x.tagName.toLowerCase() + (x.className && typeof x.className === 'string' ? '.' + x.className.trim().split(/\s+/).slice(0, 2).join('.') : '')); return out.join(' < ') + ' (band ' + Math.round(r.top) + '…' + Math.round(r.bottom) + ', y ' + Math.round(y) + ')'; })()`);
+		throw new Error(`something covers the whole band: ${what}`);
+	}
 	return at;
 };
 const mouse = (type, { x, y }, held = type !== 'mouseReleased') => send('Input.dispatchMouseEvent', { type, x, y, button: 'left', buttons: held ? 1 : 0, clickCount: 1 });
@@ -588,10 +593,10 @@ async function nudges(name, mobile) {
 		check(`${name}: html[data-vn-blocking] – no hint line, no bounce while it blocks (${say(r1)}); after it: ${say(r2)}`, p);
 	}
 
-	// a touch / press on the band mid-sweep cancels it
+	// a touch / press on the band mid-sweep cancels it (the band brought on screen first – it need not be the first group)
 	await fresh(true);
-	await send('Page.navigate', { url: VIEWER + PAGE });
 	let caught = null;
+	if (await openPage(`${name} cancel`)) await place(false);
 	for (const stop = Date.now() + 20000; Date.now() < stop && !caught; await sleep(30)) {
 		const r = await js('window.__nudge?.read()').catch(() => null);
 		if (r?.sweeps.length) caught = r;
