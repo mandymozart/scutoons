@@ -1198,6 +1198,10 @@ askText's placeholder / default stay plain fields (the reader shows them as writ
   stringifies, validates or parses the whole text. Measured on the 1834-line Cat Pope script: one frame per keystroke
   (~17 ms round trip headless), no long tasks.
 - Check: `npm run check:creator-script` (SCUTOONS_API / SCUTOONS_CREATOR for other ports).
+- **Kanon texts** (research/KANON.md §5, #80): the same editor at `/kanon/<subject>` – the text wraps (prose), the
+  outline is "Sections" (the role's `## ` headings; one that is not the role's is muted), no title page, "Start with the
+  headings" while the text is empty and being edited, the section rules in the Info panel; the edit lock asks with the
+  Kanon's words (publishing makes it Kanon).
 
 ### Creator: cover editor (owner 2026-10-02)
 

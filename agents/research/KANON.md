@@ -33,15 +33,19 @@ document), per language (the source language is the master, translations optiona
 (never served to readers: spoilers, working material), attached to **one document**, with a **kind** whose **rules**
 say how it is written and what tools read from it.
 
-| Text of | Kind | Entity (proposal) | Rules (§4) |
+| Text of | Kind | Entity (built 2026-10-21, #80) | Rules (§4) |
 |---|---|---|---|
-| a season | script | `script:<toon>:season:<n>:<l>` (replaces `script:<toon>:<l>`) | screenplay, chapters + scenes + songs |
-| a chapter | script | `script:<toon>:chapter:<n>:<l>` | screenplay, scenes + songs (the chapter is the document) |
-| a character | kanon | `kanon:character:<id>:<l>` | Backstory · Who · Look · Rules |
-| a persona | kanon | `kanon:character:<id>:<persona>:<l>` | What · Why different · Look · Rules |
-| a look | kanon | `kanon:character:<id>:<persona>:<look>:<l>` | Look · When |
-| a map place | kanon | `kanon:place:<id>:<l>` | Backstory · Scenery · Rules |
-| every toon (catpope, toptoy, yellowmouse) | kanon | `kanon:toon:<toon>:<l>` | Premise · Tone · World rules |
+| a season | season-script | `season-script:<toon>:<n>:<l>` (replaces `script:<toon>:<l>`, #81) | screenplay, chapters + scenes + songs |
+| a chapter | chapter-script | `chapter-script:<toon>:<n>:<l>` | screenplay, scenes + songs (the chapter is the document) |
+| a character | kanon | `kanon:character.<id>:<l>` | Backstory · Who · Look · Rules |
+| a persona | kanon | `kanon:character.<id>.<persona>:<l>` | What · Why different · Look · Rules |
+| a look | kanon | `kanon:character.<id>.<persona>.<look>:<l>` | Look · When |
+| a map place | kanon | `kanon:place.<id>:<l>` | Backstory · Scenery · Rules |
+| every toon (catpope, toptoy, yellowmouse) | kanon | `kanon:toon.<toon>:<l>` (the toon column set) | Premise · Tone · World rules |
+
+The keys keep the store's fixed shapes (`<kind>:<toon>:<n>:<l>`); a Kanon text's subject is ONE segment joined by "."
+(no id may hold a dot, so a key never reads two ways – `KANON_SUBJECT` / `EntityKey::KANON_SUBJECT_PATTERN`). All three
+kinds are creator only (`CREATOR_ONLY_KINDS`). Code: `@scutoons/content` kanon.ts, script.ts (`SCRIPT_KINDS`).
 
 - Season and chapter scripts may both exist: a tool that needs chapter n takes the **chapter script**, else chapter n's
   part of the season script (`# n. Kapitel`). Cat Pope stays season-written, Top Toy is chapter-written.
@@ -74,9 +78,12 @@ what tools extract). Prose under `## ` headings; every section optional, the ord
   toon sidebar's "Script" → the toon's scripts (seasons, chapters); character page → "Text" per character, per persona,
   per look; map builder's place inspector → "Text". A small marker shows which texts exist / are published.
 - The toon's script page today moves to season 1 (§6); `/<toon>/script` stays as the list (creator URLs aren't printed).
+- Built (#80): `creator/src/lib/components/script/script-editor.svelte` takes any entity; a Kanon text wraps, its outline
+  = its sections (an unknown heading muted), "Start with the headings" while empty, its rules in the Info panel
+  (`kanon-rules.svelte`). Route `/kanon/<subject>` (a toon's text in the toon's languages, the others in the universe's).
 
 ## 6. Migrations (RULES "Stored format changes")
-1. `script:<toon>:<l>` → `script:<toon>:season:1:<l>` with every version (catpope de / en); the old key form leaves
+1. `script:<toon>:<l>` → `season-script:<toon>:1:<l>` with every version (catpope de / en); the old key form leaves
    the code (`EntityKey`, `parseEntityKey`, MCP, studio api.mjs), no alias.
 2. The hard-coded `PERSONA` (luma.js) and `PLACE_DESCRIPTIONS` (map.ts) become **draft** texts (`## Look` /
    `## Scenery`, en) by a migration; the code then reads the texts and the constants go. The owner publishes them.

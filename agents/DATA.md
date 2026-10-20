@@ -25,7 +25,9 @@ UI translations stay in the apps' message files; the catalog (items, editions, p
 | characters, personas, looks, mood labels, wanted images | DB `characters`, `moods`, `asset-requests` (`{ de, en }` texts; a look may carry an A-pose – the reader's avatar body in that look, no naked body (owner 2026-10-12), ITEMS.md "Reader avatar bodies"; **no male/female** – an optional `testo` level 0–100 per character/persona (more testo → reads more male, less → more female) and `tendencies`, ITEMS.md "Substances"; a 3D `model` (.glb) per persona, a look may have its own, and the body preset `body` two-legs / more-legs / wings for the mannequin fallback – `personaModelSource`, ASSETS.md "3D models") | creator (characters) |
 | reader stats (testo, appetite) and timed effects | tables `member_stats`, `member_effects` (guests: localStorage `scutoons_reader`), via `GET /me/`, `POST /inventory/use/` | reader inventory ("Benutzen") |
 | credits (sections, custom roles) · people · role labels | DB `credits:<toon>` · `people` · `roles` | creator (credits) |
-| the toon's screenplay (per language, creator only, never served to readers) | DB `script:<toon>:<l>` | creator (script page) |
+| the toon's screenplay (per language, creator only, never served to readers; → season 1's with #81) | DB `script:<toon>:<l>` | creator (script page) |
+| a season's / a chapter's screenplay (per language, creator only) | DB `season-script:<toon>:<n>:<l>`, `chapter-script:<toon>:<n>:<l>` | creator (#81) |
+| the Kanon: a toon's, a character's, a persona's, a look's, a place's story text (per language, creator only; research/KANON.md) | DB `kanon:<subject>:<l>` (subject `toon.<toon>`, `character.<id>[.<persona>[.<look>]]`, `place.<id>`) | creator (`/kanon/<subject>`) |
 | events | DB `events` (toon-bound entries) | import (no editor yet) |
 | items, recipes, albums, editions, products, toons (catalog texts; wearables' `wear` overlays per body, ITEMS.md "Wardrobe") | tables `catalog_*` / `toons` (2026-10-04, agents/CATALOG.md; no file seed since 10.30 – tests: `server/tests/fixtures/catalog/`) via `/api/items/`, `/api/editions/`, `/api/products/`, `/api/toons/` | admin API `/api/admin/catalog/…` (history, undo); admin UI = CATALOG Part 3 |
 | the landing page's featured editions (order, colour) | table `catalog_featured` (no default list since 10.30) via `/api/products/featured/` | admin ("Startseite") |
@@ -51,6 +53,7 @@ toon:<toon>                              index entry            toon-settings:<t
 season:<toon>:<n>                        chapter:<toon>:<n>      (language-neutral)
 season:<toon>:<n>:<l>                    chapter:<toon>:<n>:<l>  (legacy per locale)
 cast:<toon>   credits:<toon>   script:<toon>:<l>  (creator only)
+season-script:<toon>:<n>:<l>   chapter-script:<toon>:<n>:<l>   kanon:<subject>:<l>   (creator only, research/KANON.md)
 characters   moods   asset-requests   people   roles   events   map   colorations    (platform-wide)
 ```
 Segments are `:`-separated; numbers are digits without leading zeros – seasons from 1, **chapters
