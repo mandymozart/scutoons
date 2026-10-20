@@ -271,7 +271,7 @@ built and tested against stand-ins, live once the owner puts the keys on the ser
 
 | # | Issue | What |
 |---|---|---|
-| 1 | #119 | content `storyboard/*.ts`: types, validate / measure, the slice grid (out of spec.js), rhythm + safe envelope, prompts (luma.js / prompts.mjs), the generation record – tested. spec.js / lib.mjs **import** it (node's `--experimental-transform-types`, as check-draft.mjs does), so there is one source and the old tools keep working. |
+| 1 | #119 | content `storyboard/*.ts`: types, validate / measure, the slice grid (out of spec.js), rhythm + safe envelope, prompts (luma.js / prompts.mjs), the generation record – tested. The old JS stays untouched until #128 deletes it (the owner's ch3 tools run on it; node 22.14 can't import .ts unflagged); a parity test runs the old JS against the TS on the 14 real scene files, so the two can't drift. |
 | 2 | #120 | server: the `storyboard` entity kind; `storyboard_generations` (= the ledger); the import migration of the 14 scene files (runs with the deploy); the shared work storage on the app host (members only). |
 | 3 | #123 | creator Storyboard page: the shot list, the Shot inspector, Script, validate / rhythm, the workspace folder, share → work storage, approve. |
 | 4 | #124 | the 3D view: the renderer (tools/storyboard-render) as TS in the creator, the Viewport (orbit, figures, hand camera), frames rendered in the browser. |
