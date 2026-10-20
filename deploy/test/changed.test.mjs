@@ -24,15 +24,19 @@ test('a shared package reaches exactly the apps that import it (transitively)', 
 	assert.deepEqual(deploys(['shared/catalog/src/index.ts']), ['creator', 'admin']);
 	assert.deepEqual(deploys(['shared/reader/src/page.svelte']), ['viewer', 'creator']);
 	assert.deepEqual(deploys(['shared/tokens/tokens.css']), ['qr', 'viewer', 'shop', 'creator', 'admin', 'embassy']);
-	// content is imported by every frontend (directly or through api / auth)
-	assert.deepEqual(deploys(['shared/content/src/content.ts']), ['viewer', 'shop', 'creator', 'admin', 'embassy']);
-	// the viewer bundles the MCP server (its build runs tools/mcp/scripts/build.mjs), which reads creator's text presets
-	assert.deepEqual(deploys(['tools/mcp/src/server.ts']), ['viewer']);
-	assert.deepEqual(deploys(['creator/src/lib/editor/text-presets.ts']), ['viewer', 'creator']);
+	// content is imported by every frontend (directly or through api / auth) and by the MCP bundle the api ships
+	assert.deepEqual(deploys(['shared/content/src/content.ts']), ['api', 'viewer', 'shop', 'creator', 'admin', 'embassy']);
+	// the api ships the member's MCP bundle (issue 76: its build runs tools/mcp/scripts/build.mjs), which reads
+	// creator's text presets and the vector import; the viewer no longer does
+	assert.deepEqual(deploys(['tools/mcp/src/server.ts']), ['api']);
+	assert.deepEqual(deploys(['tools/mcp/scripts/build.mjs']), ['api']);
+	assert.deepEqual(deploys(['creator/src/lib/editor/text-presets.ts']), ['api', 'creator']);
+	assert.deepEqual(deploys(['scripts/vectors-core.mjs']), ['api']);
 });
 
 test('root build files and the deploy machinery still reach every app', () => {
-	assert.deepEqual(deploys(['package-lock.json']), ['viewer', 'shop', 'creator', 'admin', 'embassy']);
+	// the api too: its deploy builds the MCP bundle with the workspace's packages
+	assert.deepEqual(deploys(['package-lock.json']), ['api', 'viewer', 'shop', 'creator', 'admin', 'embassy']);
 	assert.deepEqual(deploys(['deploy/deploy.mjs']), config.order);
 	assert.deepEqual(deploys(['shared/inlang/plugin-message-format.js']), ['viewer', 'shop', 'creator', 'admin', 'embassy']);
 });

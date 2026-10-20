@@ -7,6 +7,12 @@
 	RewriteRule ^android-chrome-(192|512)x(192|512)\.png$ /app-icon-$1.png [R=301,L]
 	RewriteRule ^icon-maskable-(192|512)\.png$ /app-icon-maskable-$1.png [R=301,L]
 	RewriteRule ^apple-touch-icon(-precomposed)?\.png$ /app-icon-apple-180.png [R=301,L]
+	# the member's SCUTOONS MCP server ships with the API (issue 76, agents/MCP.md §3a): the short links the account page
+	# and the MCP's update notice give, and the old viewer copies (/ai/…, until 2026-10-20) so old instructions still work
+	RewriteRule ^mcp/?$ https://api.scutoons.com/api/mcp/download [R=302,L]
+	RewriteRule ^mcp\.mcpb$ https://api.scutoons.com/api/mcp/download?file=mcpb [R=302,L]
+	RewriteRule ^ai/scutoons-mcp\.mjs$ https://api.scutoons.com/api/mcp/download [R=301,L]
+	RewriteRule ^ai/scutoons\.mcpb$ https://api.scutoons.com/api/mcp/download?file=mcpb [R=301,L]
 	RewriteCond %{REQUEST_FILENAME} !-f
 	RewriteCond %{REQUEST_FILENAME} !-d
 	RewriteRule . /index.html [L]

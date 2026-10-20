@@ -37,6 +37,10 @@
 	let renewed = $state<string | null>(null);
 
 	const when = (utc: string) => formatDate(new Date(`${utc.replace(' ', 'T')}Z`));
+	// the downloads ship with the API (issue 76): the short links scutoons.com/mcp(.mcpb) redirect there
+	// (static/.htaccess); the dev viewer has no .htaccess, so it links its dev API directly
+	const download = import.meta.env.DEV ? `${API_URL}/mcp/download` : '/mcp';
+	const downloadMcpb = import.meta.env.DEV ? `${API_URL}/mcp/download?file=mcpb` : '/mcp.mcpb';
 	const command = $derived(
 		`claude mcp add scutoons --scope user -e SCUTOONS_API=${API_URL} -e SCUTOONS_TOKEN=${fresh?.token ?? 'sct_…'} -- node <folder>/scutoons-mcp.mjs`
 	);
@@ -156,13 +160,13 @@
 				</div>
 				{#if app === 'desktop'}
 					<ol class="steps">
-						<li><a href="/ai/scutoons.mcpb" download>{m['account.ai_desktop_1']()}</a></li>
+						<li><a href={downloadMcpb} download data-sveltekit-reload>{m['account.ai_desktop_1']()}</a></li>
 						<li>{m['account.ai_desktop_2']()}</li>
 						<li>{m['account.ai_desktop_3']()}</li>
 					</ol>
 				{:else}
 					<ol class="steps">
-						<li><a href="/ai/scutoons-mcp.mjs" download>{m['account.ai_code_1']()}</a></li>
+						<li><a href={download} download data-sveltekit-reload>{m['account.ai_code_1']()}</a></li>
 					</ol>
 					<pre class="command">{command}</pre>
 					<p class="hint">{m['account.ai_code_2']()}</p>

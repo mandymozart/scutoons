@@ -194,6 +194,8 @@ return [
     'CONTENT_SHOW_DRAFTS' => '0',
     // Batch manifests, QR SVGs, certificates, signatures, ZIPs (was generate/files/)
     'FILES_PATH' => 'storage/files',
+    // The member's MCP server bundle (GET /api/mcp/download, /version – agents/MCP.md §3a): the api deploy builds it here
+    'MCP_PATH' => 'mcp',
     // ML-DSA-65 keypair of the certificate signatures (was api/keys/keypair.json)
     'KEYPAIR_PATH' => 'storage/keys/keypair.json',
 

@@ -44,8 +44,8 @@ the save unless `allow_errors`), and a newer save since `base` answers 409.
 
 On scutoons.com/account → **AI connections** → New connection: the token is shown once, with the steps.
 
-- **Claude Desktop:** download `scutoons.com/ai/scutoons.mcpb`, double-click, paste the token.
-- **Claude Code:** download `scutoons.com/ai/scutoons-mcp.mjs` (Node ≥ 22), then
+- **Claude Desktop:** download `scutoons.com/mcp.mcpb`, double-click, paste the token.
+- **Claude Code:** download `scutoons.com/mcp` (= `scutoons-mcp.mjs`, Node ≥ 22), then
   `claude mcp add scutoons --scope user -e SCUTOONS_API=https://api.scutoons.com/api -e SCUTOONS_TOKEN=sct_… -- node <folder>/scutoons-mcp.mjs`.
   Claude Code's Remote Control (driving the session from claude.ai or the phone) works: the server runs where the session runs.
 
@@ -60,8 +60,10 @@ npm run build:mcp
 
 `scripts/build.mjs` bundles the server with rolldown into ONE file (the format rules read at build time and embedded; the
 API defaults to production) and packs `scutoons.mcpb` (MCPB manifest 0.3, the token as a sensitive setting) into
-`viewer/static/ai/` (gitignored). The viewer's build runs it, so every viewer deploy serves the current version from our
-own host.
+`server/mcp/` (gitignored) with `scutoons-mcp.json` (version, sha256). The api deploy builds it, so every api deploy
+serves the current version: `GET /api/mcp/download` (`?file=mcpb`), `GET /api/mcp/version`; the short links
+scutoons.com/mcp(.mcpb) redirect there. On start a member's copy checks the version and says in whoami / the first tool
+result when a newer one is out (agents/MCP.md §3a). Bump `version` here and `VERSION` in src/member.ts together.
 
 ## Local (dev stack)
 

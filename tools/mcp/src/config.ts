@@ -13,7 +13,7 @@ const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
 
 /** set by the one-file build (scripts/build.mjs): a member's copy, no checkout – the API defaults to production */
 declare const __SCUTOONS_BUNDLE__: boolean | undefined;
-const BUNDLED = typeof __SCUTOONS_BUNDLE__ !== 'undefined' && __SCUTOONS_BUNDLE__;
+export const BUNDLED = typeof __SCUTOONS_BUNDLE__ !== 'undefined' && __SCUTOONS_BUNDLE__;
 const PRODUCTION_API = 'https://api.scutoons.com/api';
 
 export interface Config {

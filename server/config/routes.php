@@ -50,6 +50,7 @@ use Scutoons\Http\Controllers\EmbassyController;
 use Scutoons\Http\Controllers\EntitiesController;
 use Scutoons\Http\Controllers\FlowController;
 use Scutoons\Http\Controllers\HealthController;
+use Scutoons\Http\Controllers\McpController;
 use Scutoons\Http\Controllers\InventoryController;
 use Scutoons\Http\Controllers\InvitesController;
 use Scutoons\Http\Controllers\KeysController;
@@ -118,6 +119,9 @@ return static function (App $app): void {
 
     // ── Public API (agents/ITEMS.md) ───────────────────────────────────────────────────────────────────
     $app->get('/api/health', HealthController::class);
+    // the member's MCP server, built with the api deploy (agents/MCP.md §3a; scutoons.com/mcp redirects here)
+    $app->get('/api/mcp/download', [McpController::class, 'download']);
+    $app->get('/api/mcp/version', [McpController::class, 'version']);
 
     $app->any('/api/items[/index.php]', [CatalogController::class, 'items']);
     // a score's MusicXML / PDF as a short-lived signed URL (agents/research/SCORES.md §5)

@@ -2,11 +2,13 @@
 // stdout is the MCP channel. Readers (no member role) can't connect (owner 2026-10-09).
 import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 import { loadConfig } from './config.ts';
-import { createMemberServer } from './member.ts';
+import { createMemberServer, VERSION } from './member.ts';
 import { fetchMember, hasAny, servicesOf } from './services.ts';
+import { checkForUpdate } from './update.ts';
 
 try {
 	const config = loadConfig();
+	checkForUpdate(config, VERSION); // non-blocking: whoami / the first tool result say it when a newer one is out
 	const member = await fetchMember(config);
 	if (!member) throw new Error(`the token doesn't work at ${config.api} – expired (six months) or revoked: renew it or create a new one on scutoons.com/account → AI connections`);
 	const services = servicesOf(member.roles);

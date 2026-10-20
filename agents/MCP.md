@@ -122,9 +122,21 @@ the format rules from creator / viewer source files at start). Fine for the owne
 - **Claude Desktop extension** (`scutoons.mcpb`, the bundle + a manifest): double-click → Claude Desktop installs it and
   asks for the token (a `user_config` field, kept in the OS keychain). No Node install needed (Claude Desktop brings
   its own). Best path for non-developers.
-- **Served from our own host** (no third party, owner 2026-10-09 "alles bei uns"): the account page's "AI connections"
-  links both files (the CDN or the viewer's static files), versioned; the server tells the AI when it is older than
-  the API expects (`/api/meta` → `mcp_min_version`), so the member is told to download it again.
+- **Shipped with the API** (no third party, owner 2026-10-09 "alles bei uns"; with the API since 2026-10-20, issue 76:
+  "den MCP vom Server aus mitgeben"): the api deploy runs `tools/mcp/scripts/build.mjs mcp` in its staging copy
+  (deploy/targets.json; `tools/mcp/**`, the text presets, scripts/vectors-core.mjs and the shared packages it imports
+  redeploy the api, not the viewer). `server/mcp/` = scutoons-mcp.mjs, scutoons.mcpb, scutoons-mcp.json
+  { version, git_sha, sha256, sha256_mcpb, built_at } (locally `npm run build:mcp`, gitignored). McpController:
+  `GET /api/mcp/download` (the .mjs; `?file=mcpb` the extension; attachment, ETag, 5 minutes) and `GET /api/mcp/version`
+  ({ version, git_sha, sha256, sha256_mcpb }); not built → 404 not_built.
+- **Links:** members get the short links `scutoons.com/mcp` and `scutoons.com/mcp.mcpb` (viewer/static/.htaccess →
+  302 to the API) – the account page's "AI connections" uses them; the old `scutoons.com/ai/scutoons-mcp.mjs` /
+  `scutoons.mcpb` redirect (301) so old instructions still work.
+- **Updates:** a member's copy (bundle / extension; a checkout never) asks `/api/mcp/version` once on start
+  (tools/mcp/src/update.ts, 3 s timeout, silent on errors). Newer = a higher version (tools/mcp/package.json = `VERSION`
+  in member.ts – bump both) or the same version with another sha256 (a rebuild). Then whoami gets an `update` field and
+  the first other tool result one line: "Eine neue SCUTOONS-MCP-Version ist da: https://scutoons.com/mcp" (`/mcp.mcpb`
+  for the extension). No auto-update: the member downloads, replaces the file, restarts Claude.
 - Claude Code: `claude mcp add scutoons --scope user -e SCUTOONS_TOKEN=sct_… -- node <path>/scutoons-mcp.mjs`
   (the snippet on the token page fills in the token).
 - `upload_asset` from a local file works (it's their computer) – as today.
@@ -216,6 +228,5 @@ replaces or deletes a file, stops on a path held by a non-shape (research/VECTOR
 Open:
 - **Owner:** install the extension once in Claude Desktop (account page → AI connections) – not tried (no Claude Desktop
   in the agent's reach).
-- Not built: the version check (`/api/meta` → `mcp_min_version`, §3a) – a member with an old copy simply downloads again.
 - The four browser checks that lost their Ask steps (creator-dock, creator-flow-dock, creator-reader, tools-dock) were
   not run after the change – ISSUES 10.87.

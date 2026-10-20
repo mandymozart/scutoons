@@ -785,7 +785,8 @@ flags mismatches (e.g. a frontend built against an older `@scutoons/api` than th
   production is fixed to `https://api.scutoons.com` in `targets.json` (never from `VITE_API_URL`, which points at qr
   during the transition → loop).
 - Deploy: `deploy.mjs` stages exactly the upload (PHP targets build `vendor/` inside the staging copy, the dev vendor is
-  never touched), `SamKirkland/FTP-Deploy-Action` uploads it; `protect` globs become its `exclude` (neither uploaded
+  never touched; the api build also writes the member's MCP bundle into the copy's `mcp/` – `setup` php + npm, watch
+  `tools/mcp/**` + what it imports, agents/MCP.md §3a), `SamKirkland/FTP-Deploy-Action` uploads it; `protect` globs become its `exclude` (neither uploaded
   nor deleted: `api/storage/`, `db/`, `logs/`, `config.local.php`, `.htpasswd`; `qr/cache/`). Generated values with
   an unset `${VAR}` are left out (the app default applies). The creator reads `VITE_WWW_URL` (old `VITE_VIEWER_URL`
   still read); the admin build gets `VITE_VIEWER_URL=${VITE_WWW_URL}` via `buildEnv`; `VITE_STATIC_API` dropped

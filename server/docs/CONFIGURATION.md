@@ -77,6 +77,7 @@ Today: `scan_limit_per_hour` (default `SCAN_MAX_PER_IP_HOUR`), `lookup_limit_per
 | `MIGRATIONS_PATH` | `migrations` | the migration files the developer's runs plan and apply (`<path>/mysql/*.mysql.sql`; tests point it elsewhere) |
 | `CONTENT_SHOW_DRAFTS` | `0` | `1` = the library endpoints show `draft` toons/chapters (local development, like the dev viewer); production `0` |
 | `FILES_PATH` | `storage/files` | batch manifests, QR SVGs, certificates, signatures, ZIPs (was `generate/files/`) |
+| `MCP_PATH` | `mcp` | the member's MCP bundle (`GET /api/mcp/download`, `/version`; agents/MCP.md §3a): the api deploy builds it there, locally `npm run build:mcp` |
 | `KEYPAIR_PATH` | `storage/keys/keypair.json` | ML-DSA-65 keypair (was `api/keys/keypair.json`) |
 | `LOG_PATH` | `logs/error.log` | PHP/API error log; empty = the host's log |
 | `ASSET_STORAGE` | `auto` | the media storage of the asset layer (agents/ASSETS.md): `auto` = the local folder `ASSET_LOCAL_ROOT` when it exists (every dev machine – credentials in the root `.env` never make a dev server write to the production zone), else `bunny` when configured; `local`, `bunny` |

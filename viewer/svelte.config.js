@@ -17,9 +17,8 @@ const config = {
 		// the build's name = the service worker's cache name (agents/research/PWA.md): package version + the git sha
 		// version.json reports (deploy/version.mjs) + the build time, so every build is a new version
 		version: { name: `${pkg.version}-${gitSha().slice(0, 12)}-${process.env.SCUTOONS_BUILD_ID}` },
-		// src/service-worker.ts is registered by lib/pwa.svelte.ts (the update prompt, the VITE_SW=off kill switch);
-		// static/ai (the MCP download) is never precached
-		serviceWorker: { register: false, files: (file) => !/^ai\/|\.DS_Store/.test(file) }
+		// src/service-worker.ts is registered by lib/pwa.svelte.ts (the update prompt, the VITE_SW=off kill switch)
+		serviceWorker: { register: false, files: (file) => !/\.DS_Store/.test(file) }
 	}
 };
 

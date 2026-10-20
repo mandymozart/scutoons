@@ -3,21 +3,24 @@
 // no npm install – and the Claude Desktop extension around it. The format rules (resources.ts reads them from the
 // source files at run time) are read HERE and embedded; the API defaults to production (config.ts BUNDLED).
 //
-//   node tools/mcp/scripts/build.mjs [outDir]        default: viewer/static/ai (served as scutoons.com/ai/…, owner
-//                                                     2026-10-09 "alles bei uns" – no third-party host)
-// Writes <outDir>/scutoons-mcp.mjs (Claude Code: `node scutoons-mcp.mjs`) and <outDir>/scutoons.mcpb (Claude Desktop:
-// a zip – manifest.json + server/index.mjs; double-click, paste the token). The viewer's build runs it (prebuild).
+//   node tools/mcp/scripts/build.mjs [outDir]        default: server/mcp – shipped with the API (issue 76, owner
+//                                                     2026-10-20 "den MCP vom Server aus mitgeben"): the api deploy
+//                                                     runs it into its staging copy; GET /api/mcp/download serves it
+// Writes <outDir>/scutoons-mcp.mjs (Claude Code: `node scutoons-mcp.mjs`), <outDir>/scutoons.mcpb (Claude Desktop:
+// a zip – manifest.json + server/index.mjs; double-click, paste the token) and <outDir>/scutoons-mcp.json
+// { version, git_sha, sha256, sha256_mcpb, built_at } (GET /api/mcp/version; the bundle compares itself with it).
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { crc32, deflateRawSync } from 'node:zlib';
+import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { rolldown } from 'rolldown';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PKG = resolve(HERE, '..');
 const ROOT = resolve(PKG, '../..');
-const OUT = resolve(process.cwd(), process.argv[2] ?? resolve(ROOT, 'viewer/static/ai'));
+const OUT = resolve(process.cwd(), process.argv[2] ?? resolve(ROOT, 'server/mcp'));
 const { version } = JSON.parse(readFileSync(resolve(PKG, 'package.json'), 'utf8'));
 
 // 1. the rules, read now (Node's type stripping runs resources.ts like the server does)
@@ -128,10 +131,22 @@ function zip(files) {
 	return Buffer.concat([...local, ...central, end]);
 }
 
+const sha256 = (data) => createHash('sha256').update(data).digest('hex');
+let gitSha = process.env.GITHUB_SHA || '';
+try {
+	gitSha ||= execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT }).toString('utf8').trim();
+} catch {
+	gitSha ||= 'dev';
+}
+const codeBuf = Buffer.from(code);
+const json = (value) => JSON.stringify(value, null, '\t') + '\n';
+const mcpb = zip({ 'manifest.json': Buffer.from(json(manifest)), 'server/index.mjs': codeBuf });
+
 mkdirSync(OUT, { recursive: true });
-writeFileSync(resolve(OUT, 'scutoons-mcp.mjs'), code);
+writeFileSync(resolve(OUT, 'scutoons-mcp.mjs'), codeBuf);
+writeFileSync(resolve(OUT, 'scutoons.mcpb'), mcpb);
 writeFileSync(
-	resolve(OUT, 'scutoons.mcpb'),
-	zip({ 'manifest.json': Buffer.from(JSON.stringify(manifest, null, '\t') + '\n'), 'server/index.mjs': Buffer.from(code) })
+	resolve(OUT, 'scutoons-mcp.json'),
+	json({ version, git_sha: gitSha, sha256: sha256(codeBuf), sha256_mcpb: sha256(mcpb), built_at: new Date().toISOString() })
 );
-console.log(`scutoons-mcp ${version}: ${OUT} – scutoons-mcp.mjs (${Math.round(code.length / 1024)} KB), scutoons.mcpb, ${rules.length} rules embedded`);
+console.log(`scutoons-mcp ${version}: ${OUT} – scutoons-mcp.mjs (${Math.round(code.length / 1024)} KB), scutoons.mcpb, scutoons-mcp.json, ${rules.length} rules embedded`);

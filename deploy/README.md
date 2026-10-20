@@ -26,7 +26,7 @@ the root [`.env.example`](../.env.example).
 | `order` | deploy order (api → qr → frontends); only these are deployed automatically |
 | `targets.<app>.status` | URL answering with the live `git_sha` (version.json / API health) – `deploy/changed.mjs`, `npm run deploy:status` |
 | `watch` | paths whose change needs a redeploy of the target (globs `**` / `*`; `!pattern` excludes, e.g. `server/tests/**`) |
-| `watchPackages` | package dirs (`viewer`, `tools/mcp`) whose `@scutoons/*` dependencies, transitively, add `shared/<pkg>/**` to the watch – derived from package.json, never listed by hand |
+| `watchPackages` | package dirs (`viewer`; the api: `tools/mcp`, the MCP bundle it ships) whose `@scutoons/*` dependencies, transitively, add `shared/<pkg>/**` to the watch – derived from package.json, never listed by hand |
 | `watchIgnore` / `watchKeep` | for every target: changed paths that never ship (tests, `*.md`, seed / scripts) – unless `watchKeep` matches (markdown under `src/` is imported). `deploy/targets.json` itself counts for a target only when its own block or a top-level key changed. Tests: `node --test deploy/test/*.test.mjs` |
 | `protocols.<p>.credentials` | environment variable names of the host credentials (`ftp`: `FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD`) |
 | `targets.<app>.source` | the app folder in the repo |

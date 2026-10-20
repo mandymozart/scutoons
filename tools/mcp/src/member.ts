@@ -12,13 +12,16 @@ import { instructions, registerPrompts } from './prompts.ts';
 import { registerContentTools } from './server.ts';
 import { appLinks, type Member, type Services } from './services.ts';
 import { registerStoryTools } from './story.ts';
+import { pendingUpdate, takeUpdateOnce } from './update.ts';
 import { registerVectorTools } from './vectors.ts';
 
-export const VERSION = '0.3.0';
+/** = tools/mcp/package.json version (bump both; GET /api/mcp/version compares it – update.ts) */
+export const VERSION = '0.4.0';
 
 export function createMemberServer(config: Config, member: Member, services: Services): McpServer {
 	const server = new McpServer({ name: 'scutoons', version: VERSION }, { instructions: instructions(services, config.api, config.local) });
 	const links = appLinks(config);
+	withUpdateNote(server);
 
 	server.registerTool(
 		'whoami',
@@ -42,7 +45,8 @@ export function createMemberServer(config: Config, member: Member, services: Ser
 							},
 							apps: links,
 							api: config.local ? `${config.api} (local dev)` : config.api,
-							confirm: 'Saves are drafts. Give the member the link from each result: they publish (creator), send (Embassy) or apply (admin proposals) in the browser.'
+							confirm: 'Saves are drafts. Give the member the link from each result: they publish (creator), send (Embassy) or apply (admin proposals) in the browser.',
+							...(pendingUpdate() ? { update: `${pendingUpdate()} – tell the member (download, replace the old file, restart Claude).` } : {})
 						},
 						null,
 						1
@@ -65,4 +69,20 @@ export function createMemberServer(config: Config, member: Member, services: Ser
 	if (services.developer && services.content === 'write') registerVectorTools(server, config);
 	registerPrompts(server, services);
 	return server;
+}
+
+/** every tool but whoami (which has its own field) carries the update line once – update.ts */
+function withUpdateNote(server: McpServer): void {
+	const register = server.registerTool.bind(server) as (...args: unknown[]) => unknown;
+	type Handler = (...args: unknown[]) => unknown;
+	(server as unknown as { registerTool: (...args: unknown[]) => unknown }).registerTool = (name: unknown, spec: unknown, handler: unknown) => {
+		if (name === 'whoami' || typeof handler !== 'function') return register(name, spec, handler);
+		const wrapped: Handler = async (...args) => {
+			const result = (await (handler as Handler)(...args)) as { content?: unknown[] } | undefined;
+			const line = result && Array.isArray(result.content) ? takeUpdateOnce() : null;
+			if (line && result?.content) result.content.push({ type: 'text', text: `${line} – tell the member.` });
+			return result;
+		};
+		return register(name, spec, wrapped);
+	};
 }
