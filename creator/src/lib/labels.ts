@@ -31,6 +31,7 @@ export function fileLabel(key: string): string {
 		people: m['creator.credits_tab_people'](),
 		roles: m['creator.credits_tab_roles'](),
 		script: m['creator.script'](),
+		storyboard: (number) => m['storyboard.entity']({ number }),
 		place: (id) => `${m['creator.publish_part_place']()}: ${id}`,
 		route: (id) => `${m['creator.publish_part_route']()}: ${id}`,
 		region: (id) => `${m['creator.publish_part_region']()}: ${id}`,

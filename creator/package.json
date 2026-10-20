@@ -10,7 +10,7 @@
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "node scripts/paraglide.js && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && npm run test",
-		"test": "node --experimental-transform-types --no-warnings --test test/canvas-geometry.test.ts test/repair-booleans.test.ts test/event-ids.test.ts test/expr-edit.test.ts test/shared.test.ts test/multi-select.test.ts test/clip.test.ts test/slice-marks.test.ts test/length-units.test.ts test/collage-edit.test.ts test/canvas-pieces.test.ts test/score-collage.test.ts test/text-presets.test.ts test/picture-pick.test.ts test/collage-presets.test.ts test/version-note.test.ts test/strip-anchor.test.ts test/group-layers.test.ts"
+		"test": "node --experimental-transform-types --no-warnings --test test/canvas-geometry.test.ts test/repair-booleans.test.ts test/event-ids.test.ts test/expr-edit.test.ts test/shared.test.ts test/multi-select.test.ts test/clip.test.ts test/slice-marks.test.ts test/length-units.test.ts test/collage-edit.test.ts test/canvas-pieces.test.ts test/score-collage.test.ts test/text-presets.test.ts test/picture-pick.test.ts test/collage-presets.test.ts test/version-note.test.ts test/strip-anchor.test.ts test/group-layers.test.ts test/storyboard-steps.test.ts test/storyboard-shots.test.ts test/storyboard-workspace.test.ts test/storyboard-generations.test.ts"
 	},
 	"dependencies": {
 		"@dagrejs/dagre": "^3.1.1",

@@ -46,8 +46,11 @@
 		dockOpen = $bindable(false),
 		phoneMore = [],
 		phoneSelection = null,
-		tree
+		tree,
+		ongoto
 	}: {
+		/** a Problems row's "go to" (the page's own places – the storyboard's shots); without it a row only restores */
+		ongoto?: (problem: Problem) => void;
 		/** the page's level in the tree: Publish lists every file below it with a draft (BACKLOG 10.60, publish-tree.ts) */
 		tree?: () => { scope: PublishScope; title: string } | null;
 		/** phones: the page's own entries in the bar's "More" group (the map builder's Import) */
@@ -102,7 +105,7 @@
 	const open = $state({ problems: shellDock.has('problems'), history: false });
 	// docked in the shell's right dock (agents/DOCKING.md): the page makes room; with Ask open too the sidebar folds. The
 	// Flow and Problems are mounted by the shell: the next page of the same kind takes them over
-	const problemsProps = () => ({ problems, docs, home: main?.entity, onclose: () => (open.problems = false) });
+	const problemsProps = () => ({ problems, docs, home: main?.entity, ongoto, onclose: () => (open.problems = false) });
 	useDock(() => (dockOpen && dock ? { kind: 'flow', content: dock, size: dockSize, title: m['creator.flow'](), icon: 'git-merge', close: () => (dockOpen = false) } : null));
 	useDock(() =>
 		open.problems

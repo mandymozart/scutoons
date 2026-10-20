@@ -124,6 +124,8 @@
 <div class="tree" data-testid="chapter-tree" use:region={'tree'}>
 	<button class="node sc-nav-item" class:is-current={view.section === 'meta'} onclick={() => (view.section = 'meta')} data-drawer-pick data-testid="tree-meta">{m['creator.meta']()}</button>
 	<button class="node sc-nav-item" class:is-current={view.section === 'audio'} onclick={() => (view.section = 'audio')} data-drawer-pick data-testid="tree-audio">{m['creator.audio']()}</button>
+	<!-- the chapter's storyboard (#123): its own page, the shots as that page's list -->
+	<a class="node sc-nav-item" href="/{chapter.toon}/chapter/{chapterNumber}/storyboard" data-drawer-pick data-testid="tree-storyboard">{m['storyboard.title']()}</a>
 	<div class="sc-nav-head">{m['creator.groups']()}</div>
 	<div class="groups" use:sortable={{ onmove: moveGroups }}>
 	{#each groups as g, gi (gi)}

@@ -35,7 +35,7 @@ import { repairBooleans } from '$lib/editor/repair-booleans.ts';
 import { assignEventIds } from '$lib/editor/event-ids.ts';
 import { draftSaves } from '$lib/editor/draft-saves.svelte.ts';
 
-export type DocKind = 'chapter' | 'group' | 'season' | 'index' | 'credits' | 'people' | 'roles' | 'characters' | 'cast' | 'moods' | 'colorations' | 'requests' | 'map' | 'events' | 'script' | 'catalog';
+export type DocKind = 'chapter' | 'group' | 'season' | 'index' | 'credits' | 'people' | 'roles' | 'characters' | 'cast' | 'moods' | 'colorations' | 'requests' | 'map' | 'events' | 'script' | 'storyboard' | 'catalog';
 export type DocSource = 'store' | 'new' | 'missing';
 
 const HISTORY_LIMIT = 150;
@@ -105,6 +105,9 @@ export function kindOfEntity(entity: string): DocKind {
 			return 'events';
 		case 'script':
 			return 'script';
+		// a chapter's storyboard (#123): checked by @scutoons/content/storyboard validateChapter on its page
+		case 'storyboard':
+			return 'storyboard';
 		// a catalog entry's document (item:<id> …, agents/CATALOG-IN-CREATOR.md)
 		case 'item':
 		case 'recipe':

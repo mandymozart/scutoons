@@ -30,6 +30,8 @@ export interface EntityLabels {
 	events: string;
 	/** the toon's screenplay (one per language, creator only) */
 	script: string;
+	/** a chapter's storyboard (`storyboard:<toon>:<n>`, creator only) */
+	storyboard: (number: number) => string;
 	/** a catalog entry's document (`item:camera` → kind `item`, id `camera`; agents/CATALOG-IN-CREATOR.md) */
 	catalog: (kind: string, id: string) => string;
 }
@@ -54,6 +56,7 @@ export const ENTITY_LABELS: EntityLabels = {
 	character: (id) => `Character ${id}`,
 	events: 'Events',
 	script: 'Script',
+	storyboard: (n) => `Storyboard · Chapter ${n}`,
 	catalog: (kind, id) => `${kind[0].toUpperCase()}${kind.slice(1)} ${id}`
 };
 
@@ -84,6 +87,7 @@ export function entityLabel(key: string, labels: Partial<EntityLabels> = {}): st
 	if (CATALOG.includes(kind) && id) return l.catalog(kind, id);
 	if (kind === 'chapter' && number) return l.chapter(Number(number));
 	if (kind === 'season' && number) return l.season(Number(number));
+	if (kind === 'storyboard' && number) return l.storyboard(Number(number));
 	if ((kind === 'place' || kind === 'route' || kind === 'region' || kind === 'character') && key.split(':')[1]) return l[kind](key.split(':')[1]);
 	const named = NAMED[kind];
 	if (named) return l[named] as string;
