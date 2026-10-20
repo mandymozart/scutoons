@@ -1,0 +1,65 @@
+{
+	"name": "library-blend",
+	"about": "The library from the owner's Blender scene F:/2024_Roar/FOOTAGE/MODELS/Library/library-scene.blend (a vaulted hall: 14 displaced concrete tiles, 2.75M triangles, a 10 mm camera, 4 lights – 3 off for its renders). Export: tools/rooms/blender/export_blend.py (decimated to 150k) – the map's places `library` / `monastery` (ch3). Floor y 0; the view = its camera at 1.2 m with 70° (its 10 mm lens is ~100°).",
+	"drop": [],
+	"allLights": true,
+	"ambient": [
+		0.03,
+		0.03,
+		0.035
+	],
+	"exposure": 0.0003,
+	"sun": 0.02,
+	"spots": [
+		{
+			"id": "floor",
+			"at": [
+				0.11,
+				0,
+				0.01
+			]
+		},
+		{
+			"id": "desk",
+			"at": [
+				0.18,
+				0,
+				-0.6
+			]
+		}
+	],
+	"levels": {
+		"low": {
+			"ratio": 0.4,
+			"error": 0.01,
+			"texture": 512
+		},
+		"medium": {
+			"ratio": 0.7,
+			"error": 0.005,
+			"texture": 1024
+		},
+		"high": {
+			"ratio": 1,
+			"texture": 2048
+		}
+	},
+	"view": {
+		"at": [
+			1.89,
+			1.2,
+			0.83
+		],
+		"look": [
+			-2.56,
+			0.15,
+			-1.22
+		],
+		"fov": 70
+	},
+	"cut": {
+		"margin": 10,
+		"far": 20,
+		"aspect": 2
+	}
+}

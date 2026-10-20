@@ -57,9 +57,10 @@ const io = new NodeIO()
 		"meshopt.encoder": MeshoptEncoder,
 	});
 const manifest = JSON.parse(await readFile(join(src, "manifest.json"), "utf8"));
+// `allLights`: also the lights the scene keeps off for its renders (a Blender file's hide_render)
 const lights = JSON.parse(
 	await readFile(join(src, "lights.json"), "utf8"),
-).lights.filter((l) => l.visible);
+).lights.filter((l) => room.allLights || l.visible);
 
 /** Unreal (cm, Z up, X forward, left-handed) → glTF (m, Y up): the exporter's mapping, read off the actors */
 const ue = ([x, y, z]) => [x / 100, z / 100, y / 100];
@@ -71,6 +72,14 @@ function lightAt(ps, n) {
 	const p = ps.map((v) => v / (room.scale ?? 1));
 	const c = [0, 0, 0];
 	for (const l of lights) {
+		if (l.class === "DirectionalLightComponent") {
+			// a sun: no falloff, n·l against its direction
+			const ld = ueDir(l.dir);
+			const ndl = Math.max(0, -(n[0] * ld[0] + n[1] * ld[1] + n[2] * ld[2]));
+			for (let i = 0; i < 3; i++)
+				c[i] += (l.color[i] / 255) * l.intensity * ndl * (room.sun ?? 0.1);
+			continue;
+		}
 		const lp = ue(l.pos);
 		const d = [lp[0] - p[0], lp[1] - p[1], lp[2] - p[2]];
 		const dist = Math.hypot(...d) || 1e-3;
@@ -418,7 +427,7 @@ for (const [level, cfg] of Object.entries(room.levels)) {
 				error: cfg.error ?? 0.002,
 			}),
 		);
-	let gpu = 0;
+	const gpuOf = new Map(); // a texture's GPU bytes (RGBA + mips) – summed after prune, over what stays
 	for (const t of d.getRoot().listTextures()) {
 		const buf = await sharp(Buffer.from(t.getImage()), {
 			limitInputPixels: false,
@@ -430,7 +439,7 @@ for (const [level, cfg] of Object.entries(room.levels)) {
 			.webp({ quality: cfg.quality ?? 80 })
 			.toBuffer();
 		const meta = await sharp(buf).metadata();
-		gpu += (meta.width * meta.height * 4 * 4) / 3;
+		gpuOf.set(t, (meta.width * meta.height * 4 * 4) / 3);
 		t.setImage(new Uint8Array(buf)).setMimeType("image/webp");
 	}
 	d.createExtension(EXTMeshoptCompression)
@@ -460,7 +469,12 @@ for (const [level, cfg] of Object.entries(room.levels)) {
 		tris: Math.round(tris),
 		drawCalls: draws,
 		textures: d.getRoot().listTextures().length,
-		gpuTexturesMB: +(gpu / 1e6).toFixed(1),
+		gpuTexturesMB: +(
+			d
+				.getRoot()
+				.listTextures()
+				.reduce((n, t) => n + (gpuOf.get(t) ?? 0), 0) / 1e6
+		).toFixed(1),
 	};
 }
 await writeFile(

@@ -52,8 +52,15 @@
 				{ id: 'catpope', spot: 'step', kind: 'resident', ...pope }
 			]
 		},
+		'library-blend': {
+			label: 'Bibliothek (Blender)',
+			things: [
+				{ id: 'record', spot: 'desk', kind: 'pickup', ...record },
+				{ id: 'catpope', spot: 'floor', kind: 'resident', ...pope }
+			]
+		},
 		library: {
-			label: 'Bibliothek',
+			label: 'Bibliothek (Splat)',
 			ext: 'splat',
 			things: [
 				{ id: 'record', spot: 'desk', kind: 'pickup', ...record },
@@ -160,6 +167,7 @@
 		display: flex;
 		gap: 1rem;
 		align-items: center;
+		flex-wrap: wrap;
 		justify-content: space-between;
 		color: #fff;
 		pointer-events: none; /* taps go through to the room, only the buttons take them */

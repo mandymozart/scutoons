@@ -1,4 +1,4 @@
-Status 2026-10-20: EXPLORATORY (owner: rooms end up as looped video backgrounds (fallback) or built externally in Blender and dropped in – no in-house room pipeline as the goal; no deadline, not in the "Top Toy workshop" milestone); concept + a working one-room prototype (the cathedral from the owner's Unreal level, dev lab `/account/lab/room`, tools/rooms – §7); the owner OKed the look (2026-10-20); nothing reader-facing built; three more rooms 2026-10-20 (§7b: the station, the garden hut and the library as splats); next: the owner's look at them (issue #74). Not on chapter 3's critical path (#64).
+Status 2026-10-20: EXPLORATORY (owner: rooms end up as looped video backgrounds (fallback) or built externally in Blender and dropped in – no in-house room pipeline as the goal; no deadline, not in the "Top Toy workshop" milestone); concept + a working one-room prototype (the cathedral from the owner's Unreal level, dev lab `/account/lab/room`, tools/rooms – §7); the owner OKed the look (2026-10-20); nothing reader-facing built; more rooms 2026-10-20 (§7b station, garden hut, library splat; §7c the library from the owner's Blender file); next: the owner's look at them (issue #74). Not on chapter 3's critical path (#64).
 
 # LOCATION-SCENES — a 3D room for every place on the map
 
@@ -202,6 +202,26 @@ Portrait phones keep ≥ 60° across. Measured on this PC (dev server, local CDN
   gzip) is roughly 3–4× smaller (estimate). The sort costs CPU per view change (300k ≈ tens of ms, in a worker).
   → Mesh rooms stay the default; a splat is the look for a scanned place, at 150k (4.8 MB) on phones.
 - Not measured: fps of the splat rooms (the browser pane was hidden – its frames are throttled); a phone.
+
+### 7c. The library from Blender (2026-10-20 – owner: "the library is in a blender file actually")
+`F:4_Roar\FOOTAGE\MODELS\Library\library-scene.blend` (the external drive – Unreal knew it as E:): a **vaulted hall**,
+a forest of pillars – 14 displaced concrete tiles of 196k polygons (2.75M), 58 packed images (most duplicates), a 10 mm
+camera, 4 lights of which 3 are off for its renders. `blender/export_blend.py` (headless, read-only): Decimate in memory
+to 150k → GLB (5 textures) + the lights in the Unreal export's convention → the same `build.mjs` (+ suns, `allLights`):
+
+| library-blend | low | medium | high |
+|---|---|---|---|
+| Download | 0.71 MB | **1.13 MB** | 2.08 MB |
+| Triangles | 39,031 | 68,166 | 97,078 |
+| Texture memory | 1.4 MB | 5.6 MB | 22.4 MB |
+
+The cheapest room so far and the best fit for ch3 (`library` / `monastery`): Cat Pope stands between the pillars, the
+LP on the floor. The view = the file's camera at 1.2 m with 70° (its 10 mm lens is ~100°). The light is a guess at the
+mood (all 4 lights baked, the scene's own render used only the sun) – the owner's look decides. A Blender file needs no
+Unreal at all: Blender alone is the whole pipeline's first step.
+Also on the drive: `FOOTAGE/SPLATS/SCENE 6 - MONASTARY - LIBRARY - Terminals (1).ply` + `library-window-wall-fullversion.psht`
+(the splat originals), `FOOTAGE/IPad Lidar/…library_terminals.glb` (3 iPad scans), `MODELS/gothic-cloister-corner` (a
+cloister for the monastery?).
 
 ## 8. Owner questions (with recommendations)
 1. ~~The cathedral's look~~ – OK (2026-10-20). **Next room:** a ch3 interior (the monastery or the library) – the owner
