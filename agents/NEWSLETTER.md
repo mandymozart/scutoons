@@ -58,6 +58,14 @@ The link `APP_URL[/en]/?signin=<token>` is a login request made when the mail is
 used or expired → "Der Link geht nicht mehr" → the sign-in page. Preview: a member's button to /account; Test to me:
 the admin's own (staff → /account).
 
+**With its own text and a target** (owner 2026-10-20, #106: "Jetzt S1C2 'Ärger' lesen! … das sich dann automatisch
+einloggt und im zweiten kapitel anfaengt"): a button paragraph `[Jetzt S1C2 „Ärger“ lesen!]({signin}/catpope/chapter/2)`
+= the same one-click sign-in with that text, the link carrying `&to=<path>` – the viewer goes there after signing in
+(also when the sign-in is declined; the failure dialog's sign-in returns there). The path: the viewer's, without the
+language prefix (the link adds the recipient's); another site stays text. Staff and recipients without a possible
+account get a plain link to the target. The editor's "Lese-Link mit Anmeldung" square asks for the target (a reader
+link pasted is fine) and selects the text to type over.
+
 **The gift** (owner 2026-10-20, #66; agents/research/CAMPAIGN-GIFTS.md): the editor's "Geschenk" picks a campaign of the
 kind "Verschenken" (Campaigns – item, stock, window, countries live there), and a paragraph `{gift}` becomes the
 recipient's button "Ein Geschenk wartet auf dich": the #65 sign-in link + `&gift=<token>` (staff: `?gift=` alone). Members

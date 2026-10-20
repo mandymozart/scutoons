@@ -119,7 +119,7 @@ final class NewsletterSender
                     $mail = $this->renderer->render(
                         ['subject' => (string) $campaign["subject_$locale"], 'body' => (string) $campaign["body_$locale"]],
                         $locale, $email, $recipient['name'] !== null ? (string) $recipient['name'] : null,
-                        fn(string $kind) => $kind === 'gift' ? $this->giveaways->buttonFor($campaign, $email, $locale) : $this->signin->button($email, $locale));
+                        fn(string $kind, ?string $to = null) => $kind === 'gift' ? $this->giveaways->buttonFor($campaign, $email, $locale) : $this->signin->button($email, $locale, $to));
                     $this->transport->deliverWithHeaders($email, $mail['subject'], $mail['text'], $mail['html'], [
                         'List-Unsubscribe: <' . $mail['unsubscribe'] . '>',
                         'List-Unsubscribe-Post: List-Unsubscribe=One-Click',

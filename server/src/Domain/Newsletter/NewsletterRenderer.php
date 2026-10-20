@@ -14,6 +14,8 @@ use Scutoons\Infrastructure\Templates\Templates;
  * platform mail (templates/mail/layout.html.php), text and HTML from the same blocks. The body is plain text:
  *   - a blank line starts a new paragraph; single line breaks stay
  *   - a paragraph that is only `[Button text](https://…)` becomes a button (the text part prints the URL)
+ *   - `[Button text]({signin}/path)` = the personal sign-in button with that text, landing on the viewer path after
+ *     signing in (#106; NewsletterSignin::target – an invalid path stays text)
  *   - a paragraph that is only `![description](path)` becomes a picture (owner 2026-10-09): the path from the CDN root
  *     (what the asset picker gives) or an http(s) URL; the mail loads it from the public CDN, the text part prints the
  *     description. Anything else that looks like it stays text.
@@ -61,8 +63,9 @@ final class NewsletterRenderer
 
     /**
      * @param array{subject: string, body: string} $content the locale's subject + body
-     * @param (\Closure(string): ?array{text: string, url: string})|null $button the `{signin}` / `{gift}` button (its
-     *        argument: signin | gift), asked only when the body has one (it makes a login request); null = the preview's samples
+     * @param (\Closure(string, ?string=): ?array{text: string, url: string})|null $button the `{signin}` / `{gift}` button
+     *        (its arguments: signin | gift, a sign-in button's target), asked only when the body has one (it makes a login
+     *        request); null = the preview's samples
      * @return array{subject: string, text: string, html: string, unsubscribe: string}
      */
     public function render(array $content, string $locale, string $email, ?string $name, ?\Closure $button = null): array
@@ -87,6 +90,12 @@ final class NewsletterRenderer
                 if ($personal === null) continue;
                 $blocks[] = ['type' => 'button', 'text' => $personal['text'], 'url' => $personal['url']];
                 $text .= $personal['text'] . ': ' . $personal['url'] . "\n\n";
+            } elseif (preg_match('/^\[([^\]\n]+)\]\(\{signin\}(\/[^\s)]*)?\)$/', $paragraph, $m) && ($m[2] ?? '') !== '' && ($to = NewsletterSignin::target($m[2])) !== null) {
+                // a sign-in button with its own text and a target (#106)
+                $personal = $button !== null ? $button('signin', $to) : NewsletterSignin::sample($locale, $this->settings->get('APP_URL'), $to);
+                if ($personal === null) continue;
+                $blocks[] = ['type' => 'button', 'text' => $m[1], 'url' => $personal['url']];
+                $text .= $m[1] . ': ' . $personal['url'] . "\n\n";
             } elseif (($picture = $this->picture($paragraph)) !== null) {
                 [$alt, $url] = $picture;
                 $blocks[] = ['type' => 'image', 'text' => $alt, 'url' => $url];

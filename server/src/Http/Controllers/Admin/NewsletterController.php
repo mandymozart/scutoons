@@ -214,9 +214,9 @@ final class NewsletterController
         }
         $admin = $this->admin($request);
         // the admin's own `{signin}` button: a staff account's = the account page (NewsletterSignin)
-        $mail = $this->renderer->render($content, $locale, $admin['email'], $admin['name'], fn(string $kind) => $kind === 'gift'
+        $mail = $this->renderer->render($content, $locale, $admin['email'], $admin['name'], fn(string $kind, ?string $to = null) => $kind === 'gift'
             ? $this->giveaways->buttonFor($this->db->one('SELECT * FROM mail_campaigns WHERE id = ?', [(int) $args['id']]) ?? [], $admin['email'], $locale)
-            : $this->signin->button($admin['email'], $locale));
+            : $this->signin->button($admin['email'], $locale, $to));
         try {
             $this->transport->deliverWithHeaders($admin['email'], '[Test] ' . $mail['subject'], $mail['text'], $mail['html'],
                 ['List-Unsubscribe: <' . $mail['unsubscribe'] . '>', 'List-Unsubscribe-Post: List-Unsubscribe=One-Click']);

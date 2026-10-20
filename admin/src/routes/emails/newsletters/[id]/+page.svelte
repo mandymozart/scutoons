@@ -7,13 +7,13 @@
 	import PageHeader from '$lib/components/page-header.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { ActionBar, Badge, Button, Field, Icon, Section, Segmented, Skeleton, confirmDialog } from '@scutoons/ui';
+	import { ActionBar, Badge, Button, Field, Icon, Section, Segmented, Skeleton, askDialog, confirmDialog } from '@scutoons/ui';
 	import type { Newsletter, NewsletterAudience, NewsletterLocale } from '@scutoons/api';
 	import { admin } from '$lib/api.ts';
 	import { errorText, number } from '$lib/format.ts';
 	import { getToaster } from '$lib/toasts.ts';
 	import { audienceLabel, newsletterError, newsletterStatus, statusTone } from '$lib/newsletter.ts';
-	import { insertButton, insertInline, insertParagraph, type Inserted } from '$lib/newsletter-text.ts';
+	import { insertButton, insertInline, insertParagraph, readerPath, type Inserted } from '$lib/newsletter-text.ts';
 	import { AssetPickerSheet, type PickedAsset } from '@scutoons/media';
 	import { m } from '$lib/paraglide/messages.js';
 
@@ -64,6 +64,24 @@
 		{ value: '{signin}', icon: 'log-in', label: m['newsletter.variable_signin']() },
 		{ value: '{gift}', icon: 'gift', label: m['newsletter.variable_gift']() }
 	]);
+	/** a sign-in button with its own text and a target (#106): asks where it leads, the label selected to type over */
+	async function insertReadLink() {
+		const at = cursor();
+		const input = await askDialog({
+			title: m['newsletter.read_link'](),
+			message: m['newsletter.read_link_message'](),
+			label: m['newsletter.read_link_target'](),
+			placeholder: 'https://scutoons.com/catpope/chapter/2',
+			confirmLabel: m['newsletter.read_link_insert']()
+		});
+		if (input === null) return;
+		const path = readerPath(input);
+		if (!path) {
+			toaster.addToast({ message: m['newsletter.read_link_invalid'](), type: 'error' });
+			return;
+		}
+		put(insertButton(draft[bodyKey], at, m['newsletter.read_link_text'](), `{signin}${path}`));
+	}
 	function insertVariable(value: string) {
 		const start = cursor();
 		const end = bodyArea?.selectionEnd ?? start;
@@ -313,6 +331,7 @@
 						aria-label={m['newsletter.button_add']()}
 						onclick={() => put(insertButton(draft[bodyKey], cursor(), m['newsletter.button_text']()))}><Icon name="link" /></button
 					>
+					<button type="button" class="is-square" title={m['newsletter.read_link']()} aria-label={m['newsletter.read_link']()} onclick={insertReadLink}><Icon name="book-open" /></button>
 					{#each variables as v (v.value)}
 						<button type="button" class="is-square" title="{v.value} – {v.label}" aria-label="{v.value} – {v.label}" onclick={() => insertVariable(v.value)}><Icon name={v.icon} /></button>
 					{/each}

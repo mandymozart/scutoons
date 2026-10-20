@@ -975,6 +975,12 @@
 		"help": "The newest entries of the PHP error logs – the API's and the QR app's – newest first, with the lines that follow an entry (a stack trace) under \"Details\". Messages only: e-mail addresses, tokens and passwords are masked, the server's folder is cut from file paths. Only the last 512 KB of a log are read."
 	},
 	"newsletter": {
+		"read_link_invalid": "That is not a SCUTOONS link. Copy it from the reader, e.g. https://scutoons.com/catpope/chapter/2.",
+		"read_link_text": "Read now",
+		"read_link_insert": "Insert",
+		"read_link_target": "Target – a link from the reader",
+		"read_link_message": "A button with its own text: a click signs in and opens the target, e.g. the new chapter. You can type over the text afterwards.",
+		"read_link": "Read link with sign-in",
 		"preview_desktop": "Desktop",
 		"preview_phone": "Phone",
 		"preview_device": "Screen",

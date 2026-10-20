@@ -104,6 +104,9 @@
 		const signinToken = params.get('signin');
 		// a newsletter's gift (#66): `&gift=<token>` – the gift sheet (lib/gift-link.svelte.ts)
 		const giftToken = params.get('gift');
+		// a sign-in button's target (#106): `&to=<path>` – same-site paths only, like `/account?return=`
+		const signinTo = params.get('to');
+		const target = signinToken && signinTo && signinTo.startsWith('/') && !signinTo.startsWith('//') && !signinTo.includes('\\') ? signinTo : null;
 		const code = params.get('code') || (magicToken ? params.get('c') : null) || null;
 		// `?code=…&claim=1` = "This is mine? File a claim" from the QR landing page (ITEMS.md "Ownership, claims, gifting")
 		const dispute = params.get('claim') === '1';
@@ -124,14 +127,15 @@
 			url.searchParams.delete('token');
 			url.searchParams.delete('signin');
 			url.searchParams.delete('gift');
+			url.searchParams.delete('to');
 			goto(url.pathname + url.search, { replaceState: true });
 		}
 
 		// magic link from the login mail, else the single sign-on session (any SCUTOONS app) or a stored token
 		await session.init(magicToken);
 		// signed in already (a second click on the gift button): straight to the gift – its sheet says if it's another account's
-		const openGift = giftToken ? () => giftLink.open(giftToken) : undefined;
-		if (signinToken && !(openGift && session.isLoggedIn)) void newsletterSignin(signinToken, session, (claimCode, auto) => itemsUi.openClaim(claimCode, auto), openGift);
+		const openGift = giftToken ? () => giftLink.open(giftToken) : target ? () => goto(localizeHref(target)) : undefined;
+		if (signinToken && !(openGift && session.isLoggedIn)) void newsletterSignin(signinToken, session, (claimCode, auto) => itemsUi.openClaim(claimCode, auto), openGift, target);
 		else openGift?.();
 
 		// the installed app's "Continue reading" shortcut (manifest `shortcuts`): the chapter read last, where it stopped

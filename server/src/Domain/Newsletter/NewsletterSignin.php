@@ -23,6 +23,8 @@ use Scutoons\Support\Ids;
  * valid NEWSLETTER_SIGNIN_DAYS. The viewer asks once before it signs in (mail scanners open links). It has no 6-digit
  * code and doesn't count for the hourly login limits (its `ip_hash` is IP_HASH). Staff accounts (any role beyond
  * member) get the account page instead – a forwarded newsletter must never open an admin's account.
+ * With a target (#106, `[Jetzt lesen]({signin}/catpope/chapter/2)`): the link carries `&to=<path>` – the viewer goes
+ * there after signing in; staff, and recipients who can't have an account, get a plain link to the target.
  */
 final class NewsletterSignin
 {
@@ -45,34 +47,47 @@ final class NewsletterSignin
     }
 
     /**
-     * The button for one recipient; makes its login request
+     * The button for one recipient; makes its login request. $to = a viewer path (target()) to land on
      * @return array{text: string, url: string}|null
      */
-    public function button(string $email, string $locale): ?array
+    public function button(string $email, string $locale, ?string $to = null): ?array
     {
         $locale = MailTemplates::locale($locale);
         $email = strtolower(trim($email));
         $user = $this->users->byEmail($email);
         $texts = self::TEXTS[$locale];
+        $land = $to !== null ? '&to=' . rawurlencode($to) : '';
         if ($user !== null) {
             if (array_diff($this->roles->of((string) $user['id']), [Roles::MEMBER]) !== []) {
-                return ['text' => $texts['signin'], 'url' => $this->viewer($locale) . 'account'];
+                return ['text' => $texts['signin'], 'url' => $this->viewer($locale) . ($to !== null ? ltrim($to, '/') : 'account')];
             }
-            return ['text' => $texts['signin'], 'url' => $this->signupLink($email, $locale, null)];
+            return ['text' => $texts['signin'], 'url' => $this->signupLink($email, $locale, null) . $land];
         }
         $code = $this->codes->legacySignupCode($email);
-        if ($code === null) return null;
-        return ['text' => $texts['signup'], 'url' => $this->signupLink($email, $locale, $code)];
+        if ($code === null) return $to !== null ? ['text' => $texts['signin'], 'url' => $this->viewer($locale) . ltrim($to, '/')] : null;
+        return ['text' => $texts['signup'], 'url' => $this->signupLink($email, $locale, $code) . $land];
     }
 
     /**
-     * The button as the preview shows it: a member's, pointing to the account page (no login request)
+     * The button as the preview shows it: a member's, pointing to the account page or the target (no login request)
      * @return array{text: string, url: string}
      */
-    public static function sample(string $locale, string $appUrl): array
+    public static function sample(string $locale, string $appUrl, ?string $to = null): array
     {
         $locale = MailTemplates::locale($locale);
-        return ['text' => self::TEXTS[$locale]['signin'], 'url' => rtrim($appUrl, '/') . ($locale === 'en' ? '/en' : '') . '/account'];
+        return ['text' => self::TEXTS[$locale]['signin'], 'url' => rtrim($appUrl, '/') . ($locale === 'en' ? '/en' : '') . ($to ?? '/account')];
+    }
+
+    /**
+     * A sign-in button's target: a path of the viewer (`/catpope/chapter/2`, a query allowed), without the language
+     * prefix (the link adds the recipient's); null = not one (another site, `//…`, odd characters)
+     */
+    public static function target(string $path): ?string
+    {
+        // a path of this site only: one leading slash (not `//host` or `/\host`), plain URL characters
+        if (!preg_match('#^/(?![/\\\\])[A-Za-z0-9/_.~%?=&-]*$#', $path)) return null;
+        $path = (string) preg_replace('#^/(de|en)(?=/|$|\?)#', '', $path);
+        return $path === '' ? '/' : $path;
     }
 
     /**

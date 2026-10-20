@@ -107,6 +107,31 @@ final class NewsletterSigninTest extends TestCase
         self::assertSame(1, (int) $this->db->value('SELECT attempts FROM login_requests WHERE id = ?', [$mail['id']]), 'the code mail is still the newest request');
     }
 
+    public function testASignInButtonWithItsOwnTextLandsOnItsTarget(): void
+    {
+        $this->user('member@example.com');
+        $admin = $this->user('boss@example.com');
+        $this->get(Roles::class)->grant((string) $admin['id'], Roles::ADMIN, 'test');
+        $this->get(Contacts::class)->import('event@example.com, de', 'event:Leipzig', null, null, false, 'admin:x');
+        $transport = new FakeNewsletterTransport(Settings::fixed(self::root(), $this->settings()), []);
+        $this->container->set(Transport::class, $transport);
+        $id = (int) $this->get(Campaigns::class)->create([
+            'title' => 'Read', 'audiences' => ['members_all', 'contacts'], 'subject_de' => 'S', 'subject_en' => 'S',
+            'body_de' => "[Jetzt S1C2 „Ärger“ lesen!]({signin}/de/catpope/chapter/2)\n\n[kaputt]({signin}//evil.example)",
+            'body_en' => "[Read S1C2 now!]({signin}/catpope/chapter/2)",
+        ], 'admin:x')['id'];
+        $this->get(Campaigns::class)->start($id, 'admin:x');
+        $this->get(NewsletterSender::class)->batch();
+        $texts = array_column($transport->sent, 'text', 'to');
+
+        self::assertMatchesRegularExpression('#Read S1C2 now!: https://app\.test/en/\?signin=[A-Za-z0-9_-]+&to=%2Fcatpope%2Fchapter%2F2#', $texts['member@example.com'], 'a member: one click signs in and lands on the chapter');
+        self::assertStringContainsString('Read S1C2 now!: https://app.test/en/catpope/chapter/2', $texts['boss@example.com'], 'staff: a plain link');
+        self::assertStringContainsString('Jetzt S1C2 „Ärger“ lesen!: https://app.test/catpope/chapter/2', $texts['event@example.com'], 'no account possible: a plain link, the language prefix dropped');
+        self::assertStringContainsString('[kaputt]({signin}//evil.example)', $texts['event@example.com'], 'another site stays text');
+        self::assertNull(NewsletterSignin::target('/\\evil.example'));
+        self::assertSame('/catpope?label=a', NewsletterSignin::target('/en/catpope?label=a'));
+    }
+
     public function testThePreviewShowsAMembersButtonWithoutALoginRequest(): void
     {
         $mail = $this->get(NewsletterRenderer::class)->render(['subject' => 'S', 'body' => "A\n\n{signin}"], 'en', 'nobody@example.com', null);
