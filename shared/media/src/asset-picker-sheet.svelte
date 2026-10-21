@@ -197,9 +197,12 @@
 		timer = setTimeout(() => load(1), 200);
 	}
 
-	/** the file a card shows: an image itself, a video's poster rendition, nothing for audio / zip */
+	/** the file a card shows: the image the field uses (#162 – a stale original must not hide it), else the smallest
+	 *  image, a video's poster rendition, nothing for audio / zip */
 	function thumb(a: AssetSummary): string {
 		if (a.kind === 'image') {
+			const inUse = a.renditions.find((r) => r.path === value && r.mime?.startsWith('image/'));
+			if (inUse) return inUse.path;
 			const small = [...a.renditions].filter((r) => r.mime?.startsWith('image/')).sort((x, y) => (x.size || 0) - (y.size || 0))[0];
 			return small?.path ?? a.path;
 		}
@@ -406,6 +409,7 @@
 		<!-- order (owner 2026-10-03): the selected asset · upload · the library (search, filters, grid) -->
 		{#if chosen}
 			{@const c = chosen}
+			{@const shown = c.renditions.some((r) => r.path === value) ? value : c.path}
 			<!-- the chosen asset (owner 2026-10-16, phone first): picture + whole name in one row, the facts under it, the files
 			     as tiles (the resolution is the name; the original has a star like the source language), Use across -->
 			<section class="detail" data-testid="asset-detail" aria-label={c.title}>
@@ -414,8 +418,8 @@
 						{#if c.kind === 'model'}<ModelThumb path={c.path} size="2.5em" />{:else if thumb(c)}<img src={cdnAsset(thumb(c))} alt="" />{:else if previewVideo(c)}<video src="{cdnAsset(previewVideo(c))}#t=1" muted playsinline preload="metadata"></video>{:else}<Icon name={icon(c.kind)} size="2.5em" />{/if}
 					</span>
 					<div class="detail-text">
-						<span class="name wrap">{fileName(c.path)}</span>
-						<span class="sc-caption wrap">{c.path.slice(0, c.path.length - fileName(c.path).length)}</span>
+						<span class="name wrap">{fileName(shown)}</span>
+						<span class="sc-caption wrap">{shown.slice(0, shown.length - fileName(shown).length)}</span>
 					</div>
 					<CloseButton label={t.back} onclick={() => (chosen = null)} />
 				</div>
