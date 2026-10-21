@@ -49,6 +49,8 @@ export interface Dashboard {
 		users: number;
 		users_opted_in: number;
 		users_new: number;
+		/** document versions a purge of everything older than 30 days would remove (Data → Old versions, issue 154) */
+		old_versions: number;
 	};
 	period: EventCounts & { unique_devices: number };
 	editions: DashboardEdition[];
@@ -350,6 +352,39 @@ export interface AdminContentEntity {
 	published: number | null;
 	published_at: string | null;
 	versions: number;
+}
+
+/** One document of the old-versions dry run (`GET /admin/content/old-versions`, issue 154) */
+export interface AdminOldVersionsItem {
+	key: string;
+	kind: string;
+	toon: string | null;
+	/** versions saved before the day that go (never the published, the newest or a review's) */
+	remove: number;
+	/** versions that stay */
+	keep: number;
+	bytes: number;
+	/** UTC `YYYY-MM-DD HH:MM:SS` of the oldest / newest version that goes */
+	oldest: string;
+	newest: string;
+}
+export interface AdminOldVersions {
+	status: 'success';
+	/** the day asked for, YYYY-MM-DD; `cutoff` = its UTC midnight */
+	before: string;
+	cutoff: string;
+	documents: number;
+	versions: number;
+	bytes: number;
+	items: AdminOldVersionsItem[];
+}
+export interface AdminOldVersionsPurge {
+	status: 'success';
+	before: string;
+	cutoff: string;
+	documents: number;
+	deleted: number;
+	bytes: number;
 }
 
 export interface AdminContentIndex {
@@ -1057,6 +1092,11 @@ export function createAdminApi(api: ApiClient) {
 		catalog: () => api.get<AdminCatalog>('/admin/catalog'),
 		keys: () => api.get<AdminKeys>('/admin/keys'),
 		content: (params: { toon?: string } = {}) => api.get<AdminContentIndex>(`/admin/content${toQuery(params)}`),
+		/** the dry run: document versions saved before the day (YYYY-MM-DD) that a purge removes (issue 154) */
+		oldVersions: (before: string) => api.get<AdminOldVersions>(`/admin/content/old-versions${toQuery({ before })}`),
+		/** deletes them – with the dry run's counts; 409 plan_changed { documents, versions } when they no longer hold */
+		purgeOldVersions: (input: { before: string; documents: number; versions: number }) =>
+			api.post<AdminOldVersionsPurge>('/admin/content/old-versions/purge', input),
 
 		settings: () => api.get<AdminSettings>('/admin/settings'),
 		/** key → whole number (min…max), or null = back to the default */

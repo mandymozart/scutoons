@@ -485,6 +485,9 @@ return static function (App $app): void {
         $admin->get('/roles', [UsersController::class, 'roles']);
 
         $admin->get('/content', [AdminContentController::class, 'index']);
+        // purge old document versions before a day (issue 154): dry run, then the delete with the dry run's counts
+        $admin->get('/content/old-versions', [AdminContentController::class, 'oldVersions']);
+        $admin->post('/content/old-versions/purge', [AdminContentController::class, 'purgeOldVersions']);
 
         // the asset manager's storage operations (agents/ASSETS.md "Operations")
         $asset = '{id:[0-9a-f-]{36}}';

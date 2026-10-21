@@ -295,3 +295,5 @@ in `test/`) + `storyboard-refs.ts` (the files on the member's machine). Content 
   the API decides who may) as groups (a map tile set as one, else by folder; files, bytes, what) + totals; `files: true`
   lists path / size, paged. Index = published + newest draft only, so check older versions before proposing a delete.
   No delete tool: the cleanup stays in the admin.
+- `old_versions` (admin, read only, #154): the dry run of Data → Old versions (`GET /admin/content/old-versions`) –
+  history versions before a day (default 30 days ago) per document, totals; no purge tool.

@@ -356,6 +356,24 @@ export function registerAdminTools(server: McpServer, config: Config, options: {
 		)
 	);
 
+	server.registerTool(
+		'old_versions',
+		{
+			description:
+				'Data → Old versions (read only, issue 154): the dry run of a purge – document history versions saved before a day (default 30 days ago) that the admin could delete: totals (documents, versions, bytes) and the documents with the most versions first (key, remove, keep, bytes, oldest / newest). Never counted: the published version, the newest version, versions a review points to. Nothing is deleted here – the admin does that in Data → Old versions.',
+			inputSchema: z.object({
+				before: day.optional().describe('YYYY-MM-DD, not in the future; default 30 days ago'),
+				limit: z.number().int().min(1).max(500).optional().describe('documents in the answer, default 50')
+			}),
+			annotations: read
+		},
+		guard(async ({ before, limit }) => {
+			const plan = await admin.oldVersions(before ?? new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10));
+			const items = plan.items.slice(0, limit ?? 50);
+			return text({ ...plan, items, more: plan.items.length - items.length });
+		})
+	);
+
 	// ── changes: a proposal the admin applies (agents/MCP.md "Draft → link") ───────────────────────────────────────────────────────────────────────────
 
 	const fieldsOf = (data: unknown, set: Record<string, unknown>, where: string): AdminChangeField[] | string => {

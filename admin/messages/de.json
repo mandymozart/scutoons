@@ -68,7 +68,9 @@
 		"reading": "Lesestand",
 		"reading_hint": "Wo die Mitglieder in den Kapiteln stehen",
 		"campaigns": "Kampagnen",
-		"campaigns_hint": "Geschenk-Einladungen: wer einlädt, wer dazukam"
+		"campaigns_hint": "Geschenk-Einladungen: wer einlädt, wer dazukam",
+		"old_versions": "Alte Fassungen",
+		"old_versions_hint": "Verlaufsfassungen der Dokumente vor einem Tag löschen"
 	},
 	"palette": {
 		"label": "Befehlspalette",
@@ -142,7 +144,9 @@
 		"editions_hint": "Eingelöst von allen Codes (gesamt); Scans und Claims im Zeitraum.",
 		"claimed_total": "Eingelöst / Codes",
 		"of_edition": "Edition von {count}",
-		"signed": "Signiert"
+		"signed": "Signiert",
+		"old_versions": "{count} Dokumentfassungen sind älter als 30 Tage.",
+		"old_versions_link": "Alte Fassungen"
 	},
 	"events": {
 		"scan": "Scan",
@@ -1384,5 +1388,27 @@
 		"kind_reviews": "Freigabe",
 		"kind_drafts": "Offene Entwürfe",
 		"kind_embassy": "Erinnerung"
+	},
+	"old_versions": {
+		"title": "Alte Fassungen",
+		"meta": "{versions} Fassungen in {documents} Dokumenten · {size}",
+		"before": "Gespeichert vor",
+		"reload": "Probelauf wiederholen",
+		"purge": "{versions} Fassungen löschen",
+		"col_document": "Dokument",
+		"col_remove": "Weg",
+		"col_keep": "Bleibt",
+		"col_size": "Größe",
+		"col_span": "Gespeichert",
+		"rule": "Nie gelöscht: die veröffentlichte Fassung, die neueste Fassung (der Arbeitsstand) und Fassungen, auf die ein Review zeigt.",
+		"none": "Vor dem {before} gibt es nichts zu löschen.",
+		"confirm_title": "{versions} Fassungen löschen?",
+		"confirm_message": "Verlaufsfassungen von {documents} Dokumenten, gespeichert vor dem {before}, werden endgültig gelöscht – sie lassen sich nicht mehr wiederherstellen.",
+		"confirm": "Löschen",
+		"changed": "Die Fassungen haben sich seit dem Probelauf geändert (jemand hat gespeichert). Prüf den neuen Probelauf und lösch noch einmal.",
+		"done": "{deleted} Fassungen von {documents} Dokumenten gelöscht, gespeichert vor dem {before} ({size}).",
+		"next_unused": "Dateien, die nur diese Fassungen nutzten: Die nächste Bereinigung unter Assets → Unbenutzt kann sie entfernen.",
+		"help": "Jedes Speichern im Creator und im Admin-Katalog legt eine Fassung an. Diese Seite löscht die alten Verlaufsfassungen, die vor einem Tag gespeichert wurden: Erst listet ein Probelauf pro Dokument, was wegfällt, dann ein bestätigtes Löschen. Die veröffentlichte Fassung, die neueste Fassung und Fassungen, auf die ein Review zeigt, bleiben immer. Ab und zu ausführen.",
+		"help_assets": "Dateien, die nur gelöschte Fassungen nannten, standen schon als unbenutzt in der Liste (der Verwendungsindex kennt die veröffentlichte und die neueste Fassung); nach dem Löschen kann sie keine Wiederherstellung zurückbringen, also kann die nächste Bereinigung unter Assets → Unbenutzt sie sicher entfernen."
 	}
 }

@@ -11,6 +11,8 @@
 	import PageHeader from '$lib/components/page-header.svelte';
 
 	const DAY_CHOICES = [7, 14, 30, 60, 90, 180, 365];
+	/** the reminder for Data → Old versions (issue 154) shows from this many purgeable versions older than 30 days */
+	const OLD_VERSIONS_REMINDER = 1000;
 
 	const days = $derived(Number(page.url.searchParams.get('days')) || 30);
 	const editionId = $derived(page.url.searchParams.get('edition_id') ?? '');
@@ -94,6 +96,11 @@
 	<br />
 	<Skeleton variant="block" height="14rem" label={m['shell.loading']()} />
 {:else}
+	{#if data.totals.old_versions >= OLD_VERSIONS_REMINDER}
+		<p class="sc-caption" data-testid="dashboard-old-versions">
+			{m['dashboard.old_versions']({ count: number(data.totals.old_versions) })} <a href="/old-versions">{m['dashboard.old_versions_link']()}</a>
+		</p>
+	{/if}
 	<ul class="kpis" aria-busy={loading}>
 		{#each kpis as kpi (kpi.label)}
 			<li>

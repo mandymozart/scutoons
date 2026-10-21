@@ -20,6 +20,7 @@ final class Dashboard
         private readonly Database $db,
         private readonly Clock $clock,
         private readonly Editions $editions,
+        private readonly VersionPurge $versions,
     ) {
     }
 
@@ -99,6 +100,8 @@ final class Dashboard
             'users' => (int) $this->db->value('SELECT COUNT(*) FROM users'),
             'users_opted_in' => (int) $this->db->value('SELECT COUNT(*) FROM users WHERE marketing_opt_in = 1'),
             'users_new' => (int) $this->db->value('SELECT COUNT(*) FROM users WHERE created_at >= ?', ["$from 00:00:00"]),
+            // the reminder for Data → Old versions (issue 154): what a purge of everything older than 30 days removes
+            'old_versions' => $this->versions->countOlderThan(30),
         ];
 
         return [

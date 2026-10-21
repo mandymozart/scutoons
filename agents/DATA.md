@@ -44,6 +44,11 @@ No app ships content files any more: `viewer/static/api/**` is gone, and so is e
 every save is a new version, at most one `published` per key, the newest is the working copy (draft/publish/history/
 restore). Documents are in the configuration format of `@scutoons/content` (unchanged). No relational content tables:
 every read is "one entity (+ its children) of one toon in one locale"; compositions are cached (§3).
+**Old versions** (#154, admin → Data → Old versions, `VersionPurge`): deletes history versions saved before a day –
+never a key's published or newest version, nor one a `content_reviews` row points to; a dry run (`GET
+/api/admin/content/old-versions?before=`) per document, then `POST …/purge { before, documents, versions }`, refused
+(409 `plan_changed`) when the counts moved. Ids stay (labels), files only purged versions named go with Assets → Unused.
+The dashboard reminds from 1,000 purgeable versions older than 30 days.
 
 **Entity keys** (`EntityKey` in PHP, `parseEntityKey` / `entities` in `@scutoons/content`):
 

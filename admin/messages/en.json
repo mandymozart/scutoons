@@ -68,7 +68,9 @@
 		"reading": "Reading",
 		"reading_hint": "Where the members are in the chapters",
 		"campaigns": "Campaigns",
-		"campaigns_hint": "Gift invites: who invites, who joined"
+		"campaigns_hint": "Gift invites: who invites, who joined",
+		"old_versions": "Old versions",
+		"old_versions_hint": "Delete document history versions before a day"
 	},
 	"palette": {
 		"label": "Command palette",
@@ -142,7 +144,9 @@
 		"editions_hint": "Claimed of all codes (all time); scans and claims in the period.",
 		"claimed_total": "Claimed / codes",
 		"of_edition": "edition of {count}",
-		"signed": "Signed"
+		"signed": "Signed",
+		"old_versions": "{count} document versions are older than 30 days.",
+		"old_versions_link": "Old versions"
 	},
 	"events": {
 		"scan": "Scan",
@@ -1384,5 +1388,27 @@
 		"kind_reviews": "Publishing request",
 		"kind_drafts": "Open drafts",
 		"kind_embassy": "Reminder"
+	},
+	"old_versions": {
+		"title": "Old versions",
+		"meta": "{versions} versions in {documents} documents · {size}",
+		"before": "Saved before",
+		"reload": "Dry run again",
+		"purge": "Delete {versions} versions",
+		"col_document": "Document",
+		"col_remove": "Go",
+		"col_keep": "Stay",
+		"col_size": "Size",
+		"col_span": "Saved",
+		"rule": "Never deleted: the published version, the newest version (the working copy) and versions a review points to.",
+		"none": "Nothing to delete before {before}.",
+		"confirm_title": "Delete {versions} versions?",
+		"confirm_message": "History versions of {documents} documents saved before {before} are deleted for good – they can no longer be restored.",
+		"confirm": "Delete",
+		"changed": "The versions changed since the dry run (someone saved). Check the new dry run and delete again.",
+		"done": "Deleted {deleted} versions of {documents} documents saved before {before} ({size}).",
+		"next_unused": "Files only these versions used: the next cleanup in Assets → Unused can remove them.",
+		"help": "Every save in the creator and the admin catalog keeps a version. This page deletes the old history versions saved before a day: first a dry run lists per document what goes, then one confirmed delete. The published version, the newest version and versions a review points to always stay. Run it every once in a while.",
+		"help_assets": "Files that only deleted versions named were already listed as unused (the usage index covers the published and the newest version); after a purge no restore can bring them back, so the next Assets → Unused cleanup can remove them safely."
 	}
 }
