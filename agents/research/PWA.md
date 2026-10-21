@@ -220,12 +220,14 @@ waiting update goes first): "Install SCUTOONS as an app" · Not now · Install �
 - **Not now** (or dismissing Chrome's dialog) → away for 30 days; **appinstalled** → never again on this browser.
   Stored in localStorage `scutoons_install` `{ visits, chapters, snoozedAt, installed }` (try/catch; blocked storage =
   this visit only).
-- `/account/offline` → "App · Install app" whenever the browser can install (also while the bar is snoozed); the bar's
-  text links there (ACCOUNT-PAGE.md §0.7).
+- `/account/offline` → "App · Install app" whenever the browser can install (also while the bar is snoozed). The bar's
+  text and "How?" lead to **`/app`** (#159): iPhone | Android, three steps each with a drawn picture of the system UI
+  (`scripts/install-mockups/`, the reader's phone first, the real "Install app" when there is an event); the account
+  page's "App" links there too. No bar on `/app` and `/account/offline`.
 - Dev: no real event on the dev server – `__scFakeInstallPrompt('dismissed' | 'accepted')` in the console (dev builds only).
 - **Without an install event** (owner 2026-10-17: "no prompt, nothing" – his Android phone runs Firefox, which never
   sends `beforeinstallprompt`): iPhone / iPad Safari and Firefox on Android get the same bar at the same moment, its
-  button "How?" leads to `/account/offline` (seen = snoozed like "Not now"). Never on that page itself.
+  button "How?" leads to `/app` (seen = snoozed like "Not now"). Never on that page itself.
 - **The account page's "App" item always says what this browser can do** (`installWay`): `available` → "Install app";
   `ios` → "tap Share [icon], then 'Add to Home Screen'" (`isIosSafari`: iPadOS = a Mac UA with touch; not CriOS / FxiOS /
   in-app browsers); `android-firefox` → "tap the menu ⋮, then 'Add to Home screen' (or 'Install')"; `installed` → "You're

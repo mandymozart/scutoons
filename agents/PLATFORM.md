@@ -480,6 +480,7 @@ they are** — in every refactor, on every host/docroot change, in both old and 
 | scutoons.com | `/<toonId>/credits`, `/<toonId>/download` | links in prints / socials |
 | scutoons.com | query param **`code`** on any viewer page (`?code=<CODE>`), plus `&inventory=open` | redirects from the QR landing page |
 | scutoons.com | `/de/...`, `/en/...` locale prefixes | shared links |
+| scutoons.com | `/app` (+ `/de/app`, `/en/app`) – the install how-to (#159) and its pictures `/app/<ios\|android>-<n>.<de\|en>[.2x].png` | newsletters (NEWSLETTER.md "Install block") |
 
 - New URLs may be **added**; existing ones may only change through server-side code mappings (redirects per code),
   with a migration plan, tests against real printed codes and a rollback. Not now.

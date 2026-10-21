@@ -80,6 +80,50 @@ States: draft (everything changes) → sending (recipients fixed at the start �
 (subject and text can still be fixed; the rest gets the new text) → done. Draft and done can be deleted (mail_log keeps
 its rows).
 
+## Install block (ready to paste, #159)
+
+The how-to of scutoons.com/app as mail paragraphs (the pictures: `viewer/static/app/<ios|android>-<1–3>.<de|en>.2x.png`,
+drawn in `scripts/install-mockups/` – `node --experimental-transform-types --no-warnings scripts/install-mockups/render.ts`
+redraws them). They load once the viewer with them is live. DE:
+
+```
+SCUTOONS als App – mit einem Symbol auf deinem Startbildschirm, ohne Browserleiste.
+
+iPhone: Öffne scutoons.com in Safari, tippe auf Teilen, dann auf „Zum Home-Bildschirm“ und „Hinzufügen“.
+
+![iPhone: Teilen, dann „Zum Home-Bildschirm“](https://scutoons.com/app/ios-2.de.2x.png)
+
+Android: Öffne scutoons.com in Chrome, tippe auf das Menü ⋮, dann auf „App installieren“.
+
+![Android: Menü ⋮, dann „App installieren“](https://scutoons.com/app/android-2.de.2x.png)
+
+[So geht's – Schritt für Schritt](https://scutoons.com/de/app)
+
+[Jetzt installieren](https://scutoons.com/de?install)
+```
+
+EN:
+
+```
+SCUTOONS as an app – with an icon on your home screen, without the browser's bars.
+
+iPhone: open scutoons.com in Safari, tap Share, then “Add to Home Screen” and “Add”.
+
+![iPhone: Share, then “Add to Home Screen”](https://scutoons.com/app/ios-2.en.2x.png)
+
+Android: open scutoons.com in Chrome, tap the menu ⋮, then “Install app”.
+
+![Android: menu ⋮, then “Install app”](https://scutoons.com/app/android-2.en.2x.png)
+
+[How it works – step by step](https://scutoons.com/en/app)
+
+[Install now](https://scutoons.com/en?install)
+```
+
+One picture per phone keeps the mail short; all six are on the page. "Jetzt installieren" opens the reader with the
+install bar at once (`?install`, research/PWA.md §2a): on Android Chrome its "Installieren" is Chrome's dialog, elsewhere
+"So geht's" leads to /app.
+
 ## Sending
 
 `NewsletterSender::batch()` – from the host's cron (`/api/newsletter/cron?key=NEWSLETTER_CRON_KEY`, every 5 minutes) or
