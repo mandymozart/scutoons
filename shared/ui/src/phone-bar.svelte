@@ -256,12 +256,13 @@
 		background: var(--paper);
 		color: var(--ink);
 	}
-	/* phones: icons only (owner 2026-10-21: "i dont want the labels there") – the word is the tooltip and the aria-label */
+	/* icons only, at every width (owner 2026-10-21: "i dont want the labels there" · "so please remove everywhere") – the
+	   word is the tooltip and the aria-label */
 	.word {
 		display: none;
 		white-space: nowrap;
 	}
-	/* desktop: a row of cells at the bar's end – icon + word side by side, the control height, square (grouped controls) */
+	/* desktop: a row of icon squares at the bar's end – the control height, square (grouped controls) */
 	@media (min-width: 768px) {
 		.phone-bar {
 			justify-content: flex-end;
@@ -282,7 +283,7 @@
 			gap: var(--space-05);
 			min-width: var(--control-height);
 			min-height: var(--control-height);
-			padding: 0 var(--space-075);
+			padding: 0;
 			border: var(--border-width-regular) solid transparent;
 		}
 		.back {
@@ -299,11 +300,6 @@
 		.cell.active {
 			box-shadow: none;
 			border-color: var(--ink);
-		}
-		.word {
-			display: inline;
-			font-size: var(--type-body-size);
-			line-height: var(--type-button-line);
 		}
 		.badge {
 			top: -0.45rem;

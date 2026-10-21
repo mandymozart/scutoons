@@ -136,6 +136,7 @@
 	<button
 		type="button"
 		class="info-toggle"
+		title={infoLabels.toggle ?? 'Info'}
 		aria-expanded={infoOpen}
 		aria-controls="{uid}-info"
 		onclick={() => setInfo(!infoOpen)}
@@ -244,11 +245,13 @@
 	.info-toggle {
 		display: inline-flex;
 		align-items: center;
+		justify-content: center;
 		gap: var(--space-05);
 		flex: none;
 		box-sizing: border-box;
 		min-height: var(--control-height);
-		padding: 0 var(--space-1);
+		min-width: var(--control-height);
+		padding: 0;
 		border: var(--border-width-regular) solid var(--border-muted);
 		line-height: var(--type-button-line);
 		background: var(--paper);
@@ -298,17 +301,16 @@
 		.sc-action-bar :global(:is(button, a.sc-button)) {
 			padding-inline: var(--space-1);
 		}
-		.info-toggle {
-			padding-inline: var(--space-05);
-		}
-		.info-word {
-			position: absolute;
-			width: 1px;
-			height: 1px;
-			overflow: hidden;
-			clip-path: inset(50%);
-			white-space: nowrap;
-		}
+	}
+	/* the bar's icons carry no words, at every width (owner 2026-10-21: "so please remove everywhere"): the word is the
+	   accessible name, the tooltip shows it */
+	.info-word {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
 	}
 	.more-panel {
 		position: absolute;

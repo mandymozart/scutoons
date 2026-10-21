@@ -1094,7 +1094,7 @@ Three kinds, three places; none moves the layout:
   field in the bar – Save asks for the versions' note (owner 2026-10-18) – and no reader-preview links (the docked
   reader is the preview). Toasts sit above it (`--sc-above-action-bar`).
 - **The bottom bar is grouped at every width** (owner 2026-10-11 phones, 2026-10-12 desktop – UI-CONCEPTS E.10):
-  Save · History (undo, redo, versions) · Publish · More, icon + word; Save carries a dot while dirty, Publish while
+  Save · History (undo, redo, versions) · Publish · More, icons only at every width (owner 2026-10-21: "so please remove everywhere" – the word is the tooltip and the accessible name, also the bar's Info); Save carries a dot while dirty, Publish while
   drafts are not live; on a desktop Problems (and the chapter editor's slice stepper) lead the row. A selection (a text
   box, a place, a character, picked slices / groups – a long press picks on a phone) swaps the row for its own actions
   with ‹ – on phones only.
