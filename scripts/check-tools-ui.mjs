@@ -226,7 +226,7 @@ const PAGES = [
 	['creator-season', `${CREATOR}/catpope/season/1`],
 	['creator-chapter-meta', `${CREATOR}/catpope/chapter/1`],
 	['creator-chapter-audio', `${CREATOR}/catpope/chapter/1?section=audio`],
-	['creator-chapter-slice', `${CREATOR}/catpope/chapter/1?group=1&slice=3`],
+	['creator-chapter-slice', `${CREATOR}/catpope/chapter/1?group=1&slice=2`], // a slice with text boxes in both shapes (#145: group 1 = keyvisual, 2 slices)
 	['creator-cast', `${CREATOR}/catpope/cast`],
 	['creator-credits', `${CREATOR}/catpope/credits`],
 	['creator-script', `${CREATOR}/catpope/script`],

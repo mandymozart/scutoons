@@ -3,10 +3,12 @@
 // 3 resolutions"; the sound words "add as lettering boxes"; ads "need to also be translated", the fidget cube "just
 // remove the original text"; the elevator numbers are "picture"). Replaces figma-reslice.mjs's rule (lettering kept).
 //
-//   node scripts/storyboard/figma-clean-slices.mjs --key chapter:catpope:1 --group scenes-1-to-10 --folder s1/c1/v2 \
+//   node scripts/storyboard/figma-clean-slices.mjs --key chapter:catpope:1 --group scene-10 --folder s1/c1/v2 \
 //        --page 1526:10190 --prefix "S1C1 - Slice " [--upload]
-//   node scripts/storyboard/figma-clean-slices.mjs --key chapter:catpope:2 --group scene-17-24 --folder s1/c2/v3 \
+//   node scripts/storyboard/figma-clean-slices.mjs --key chapter:catpope:2 --group scene-17 --folder s1/c2/v3 \
 //        --frame 2369:3211 --top 13867 --changed-only [--upload]
+//   One group per run: chapter 1's scenes-1-to-10 and chapter 2's scene-17-24 are scene groups since #145 / #146; with
+//   --frame, --top is the frame y of that group's first slice (13867 = scene-17's, the old scene-17-24's).
 //
 // Source: the owner's per-slice frames (`--page` + `--prefix`: slice `…-slice-N` ↔ frame "<prefix>N"; slices without
 // a frame – the key visual – stay) or one long draft frame (`--frame` + `--top`: slice i starts at the top + the heights

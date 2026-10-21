@@ -12,11 +12,11 @@
 //   (another local stack, e.g. a worktree's side ports: SCUTOONS_API=http://localhost:19420/api
 //    SCUTOONS_CREATOR=http://localhost:20420, like dev:test-user's SCUTOONS_API)
 //   The run reads inline slices (a group that is a scene ref – every sandbox chapter's – it can't) and wants a slice with
-//   a text box or item (layers) and a group of ≥ 3 slices (reorder) – catpope 1's first group; catpope 3
+//   a text box or item (layers) and a group of ≥ 3 slices (reorder) – by default the first such group (catpope 1: scene-2); catpope 3
 //   (SCUTOONS_CHAPTER=3 SCUTOONS_CHAPTER_GROUP=2 SCUTOONS_CHAPTER_SLICE=1: inline slices, a next slice) has neither, so
 //   those 2 checks fail there and the rest runs
 //
-// Checks (catpope chapter 1, its first group, desktop 1440 × 900):
+// Checks (catpope chapter 1, that group, desktop 1440 × 900):
 //   tree:    Audio / Meta select their section; a click on the group opens it (slice list), a slice opens the slice
 //            editor (canvas + inspector) and the URL follows (?group=…&slice=2)
 //   tabs:    each inspector tab activates and picks its canvas tool; each tool opens its tab (text + item: Layers)
@@ -63,8 +63,7 @@ const API = (process.env.SCUTOONS_API ?? local('api', '/api')).replace(/\/$/, ''
 const CREATOR = (process.env.SCUTOONS_CREATOR ?? local('creator')).replace(/\/$/, '');
 const TOON = process.env.SCUTOONS_CHAPTER_TOON ?? 'catpope';
 const CHAPTER = Number(process.env.SCUTOONS_CHAPTER ?? 1);
-const GROUP = Number(process.env.SCUTOONS_CHAPTER_GROUP ?? 1) - 1;
-const SLICE = Number(process.env.SCUTOONS_CHAPTER_SLICE ?? 2) - 1; // the first story slice (1 is the key visual)
+const SLICE = Number(process.env.SCUTOONS_CHAPTER_SLICE ?? 2) - 1;
 /** only the collage pieces part (it saves, reloads and restores too) */
 const ONLY_PIECES = process.argv.includes('--pieces');
 /** the chapter's one language-neutral document (agents/NEUTRAL.md) */
@@ -122,6 +121,11 @@ for (const key of CHAPTER_KEYS) {
 }
 const baseline = {};
 for (const key of CHAPTER_KEYS) baseline[key] = await api('GET', `/entities/${key}?draft=1&wrap=1`);
+// the group: SCUTOONS_CHAPTER_GROUP, else the first of ≥ 3 slices (reorder) whose slice SLICE has a text box (#145:
+// chapter 1 is scene groups now – its keyvisual has 2 slices, scene-2 is the one)
+const GROUP = process.env.SCUTOONS_CHAPTER_GROUP
+	? Number(process.env.SCUTOONS_CHAPTER_GROUP) - 1
+	: Math.max(0, baseline[CHAPTER_KEYS[0]].content.groups.findIndex((g) => (g.slices?.length ?? 0) >= 3 && (g.slices[SLICE]?.dialog ?? []).length));
 const slice = baseline[CHAPTER_KEYS[0]].content.groups[GROUP].slices[SLICE];
 const sliceWidth = slice.width > 0 ? slice.width : 390;
 const dialogsBefore = (slice.dialog ?? []).length;

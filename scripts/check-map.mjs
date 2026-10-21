@@ -431,11 +431,12 @@ async function reading() {
 		report(`${label}: a toast per unlocked place ("${wantToasts.join('", "')}"), the map stays closed`,
 			JSON.stringify(toasts) === JSON.stringify(wantToasts) && !r.mapOpened ? [] : [`toasts ${JSON.stringify(toasts)}`, `map opened ${r.mapOpened}`]);
 	};
-	// R1. chapter 1 (one group)
+	// R1. chapter 1 (its scene groups are one chain = one page, #145): page slice k → "<group>#<slice in it>"
 	const c1 = await chapterOf(1);
 	const r1 = await readSlices(`${viewer}/catpope/chapter/1`);
-	const got1 = Object.fromEntries(Object.entries(r1.appeared).map(([k, v]) => [`${c1.groups[0].label}#${k}`, v]));
-	const exp1 = want(c1, [c1.groups[0].label]);
+	const pageSlice = c1.groups.flatMap((g) => g.slices.map((_, i) => `${g.label}#${i + 1}`));
+	const got1 = Object.fromEntries(Object.entries(r1.appeared).map(([k, v]) => [pageSlice[k - 1] ?? `?#${k}`, v]));
+	const exp1 = want(c1, c1.groups.map((g) => g.label));
 	checkRead('chapter 1', c1, got1, exp1, r1);
 	await shot('map-reading-chapter-1');
 	// R2. chapter 2, group by group (its walk is a VN choice: a group not visited unlocks nothing) – only when a guest can

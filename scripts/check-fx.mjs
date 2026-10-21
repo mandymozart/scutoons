@@ -285,7 +285,7 @@ let alphaReadable = false;
 for (const kind of ['pop', 'slam', 'fade', 'typeOn']) {
 	const p = [];
 	rewriteEffect = kind;
-	await open(`${viewer}/de/catpope/chapter/2?label=scene-17-24`);
+	await open(`${viewer}/de/catpope/chapter/2?label=scene-17`);
 	const slice = await waitFor(`(() => { const i = [...document.querySelectorAll('[data-slice-index] img')].find((x) => /s1c2-slice-24\\./.test(x.src)); if (!i) return null; const s = i.closest('[data-slice-index]'); s.scrollIntoView({ block: 'center' }); const b = s.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; })()`, 20000);
 	if (!slice) { report(`entrance ${kind}`, ['slice 24 not found']); continue; }
 	await sleep(800);
@@ -313,7 +313,7 @@ for (const kind of ['pop', 'slam', 'fade', 'typeOn']) {
 for (const [effect, target] of [['shake', 'slice'], ['shake', 'screen'], ['flash', 'screen'], ['punch', 'screen'], ['vignette', 'slice']]) {
 	const p = [];
 	rewriteEffect = `fx:${effect}:${target}`;
-	await open(`${viewer}/de/catpope/chapter/2?label=scene-17-24`);
+	await open(`${viewer}/de/catpope/chapter/2?label=scene-17`);
 	const slice = await waitFor(`(() => { const i = [...document.querySelectorAll('[data-slice-index] img')].find((x) => /s1c2-slice-24\\./.test(x.src)); if (!i) return null; const s = i.closest('[data-slice-index]'); s.scrollIntoView({ block: 'center' }); const b = s.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; })()`, 20000);
 	if (!slice) { report(`fx ${effect}`, ['slice 24 not found']); continue; }
 	await sleep(800);

@@ -18,7 +18,7 @@
 //             chapter 2 published in the toon answer (rewritten): "Kapitel 2: Ärger →" + countdown; scrolling back up
 //             stops it; opening the chapter list (an overlay) stops it; "↺ Nochmal" starts the chapter from the top;
 //   with the test user's draft preview (role creator: chapter 2, the sandbox):
-//          7. chapter 2's first linked groups (scene-12 … scene-17-24, one page): their end "Weiter →" + countdown → the
+//          7. chapter 2's first linked groups (scene-12 … scene-24, one page): their end "Weiter →" + countdown → the
 //             group after them (?label=mama-start – read from the chapter);
 //          8. the season's end (the check drops the chapters after 1 from the toon answer, chapter 1's end): "Staffel 1
 //             geschafft" + "Zur Übersicht" + "Musik herunterladen", no countdown;
