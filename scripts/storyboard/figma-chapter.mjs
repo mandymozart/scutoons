@@ -7,7 +7,8 @@
 // as tall as the shots stacked:
 //   storyboard (locked)  per shot its picture – a Luma result if there is one (the chosen image in storyboards/dataset,
 //                        else the newest in _out/<ch>/generated/), otherwise the render without texts (_out/<ch>/clean/);
-//                        a panorama as its whole strip, one screen high (the frame shows its first screen)
+//                        a panorama as its whole strip, one screen high (the frame shows its first screen); an endless
+//                        band's seamless panorama cropped to the band's 2340 so it still wraps (band-wrap.ts, #109)
 //   guides (hidden)      every screen (844) from the top; per scene group a line at each cut (SLICE_H, 624, from the
 //                        GROUP's top – where figma-production.mjs cuts, #107) and "end · +r px" at its end; a band's ends
 //   text  the texts as live text · layout  empty, on top
@@ -21,7 +22,7 @@
 //   node scripts/storyboard/figma-chapter.mjs storyboards/catpope/s1c3 --page "S1C3 - BARGAINING" --name "s1c3 – storyboard draft 2026-10-09" --guides-only [--dry]
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, extname, resolve } from 'node:path';
 import { ROOT, S, W, chapterLayout, figma, sliceLines, textOf, mediaRoot } from './lib.mjs';
 
@@ -58,6 +59,17 @@ function bytesOf(file) {
 	if (['.png', '.jpg', '.jpeg'].includes(ext) && !big()) return readFileSync(file).toString('base64');
 	return execFileSync('python', ['-I', '-c', py, file], { maxBuffer: 1 << 28 }).toString();
 }
+/**
+ * An endless band's picture (#109, owner 2026-10-21: "crop it"): a seamless panorama wider than the band (3:1 = 2532 ×
+ * 844) is cropped to the band's 2340 : 844 so it still wraps (band-wrap.ts) – then the FILL crops nothing and the cut's
+ * slides are exactly it. → _out/<ch>/band/<id>.png, or the file itself when it needs no crop.
+ */
+function bandOf(id, file) {
+	const out = resolve(OUT, 'band', `${id}.png`);
+	mkdirSync(resolve(OUT, 'band'), { recursive: true });
+	const said = execFileSync(process.execPath, ['--experimental-transform-types', '--no-warnings', resolve(ROOT, 'scripts/storyboard/band-wrap.ts'), file, out]).toString();
+	return said.includes('nothing to crop') ? file : out;
+}
 const texts = (dialog, x0, top, h) => (dialog ?? []).map((d) => ({
 	x: +(x0 + ((d.rect?.x ?? 5) / 100) * W).toFixed(1), y: +(top + ((d.rect?.y ?? 5) / 100) * h).toFixed(1), w: +(((d.rect?.width ?? 60) / 100) * W).toFixed(1),
 	text: textOf(d.text), lettering: d.font === 'lettering', variant: d.variant ?? 'narration', size: d.font === 'lettering' ? +((((d.size ?? 15) / 100) * W)).toFixed(1) : undefined, title: !!d.title
@@ -73,7 +85,8 @@ for (const G of layout) {
 		const { id, y: top, slices } = G.shots[0];
 		const file = luma(id) ?? resolve(OUT, 'clean', `${id}.png`);
 		const w = slices.reduce((a, s) => a + s.width, 0);
-		shots.push({ id, file, from: file.includes('clean') ? 'render' : 'luma', x: 0, y: top, w, h: S, texts: slices.flatMap((s, i) => texts(s.dialog, i * W, top, S)) });
+		const endless = !!(G.g.renderer?.params?.loop || G.g.renderer?.params?.endless);
+		shots.push({ id, file, from: file.includes('clean') ? 'render' : 'luma', endless, x: 0, y: top, w, h: S, texts: slices.flatMap((s, i) => texts(s.dialog, i * W, top, S)) });
 		rail.push({ y: top + 16, label: `${id}  panorama ${slices.length} screens · ${shots.at(-1).from}`, shot: id });
 		continue;
 	}
@@ -115,8 +128,8 @@ async function send(spec) {
 await send({ page, frame, guides: [], rail: [], shots: [] }); // the frame and its layers (guides cleared, hidden) – the lines come last
 for (const [i, s] of shots.entries()) {
 	if (!existsSync(s.file)) continue;
-	const { file, from, ...shot } = s;
-	await send({ page, frame, shots: [{ ...shot, image: bytesOf(file) }] });
+	const { file, from, endless, ...shot } = s;
+	await send({ page, frame, shots: [{ ...shot, image: bytesOf(endless ? bandOf(s.id, file) : file) }] });
 	process.stdout.write(`\r${i + 1}/${shots.length} ${s.id}            `);
 }
 console.log();

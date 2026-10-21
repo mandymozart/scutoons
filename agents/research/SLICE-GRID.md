@@ -1,4 +1,4 @@
-Status 2026-10-20: concept agreed – every owner question answered (§8); issues filed under #96: #107–#109 for chapter 3's first cut, the rest after them (chapters 4–5's storyboards on whole slices now, Q5). Built: A (#107, the lines – on ch3–5's frames), B (#108, the cutter) and E's numbers + validator (#111: spec.js, storyboard.mjs); J (#109) confirmed on screen, its compile fix after Nov 15. No stored format changes, no migration.
+Status 2026-10-20: concept agreed – every owner question answered (§8); issues filed under #96: #107–#109 for chapter 3's first cut, the rest after them (chapters 4–5's storyboards on whole slices now, Q5). Built: A (#107, the lines – on ch3–5's frames), B (#108, the cutter) and E's numbers + validator (#111: spec.js, storyboard.mjs); J (#109): the 3:1 band art is cropped seamlessly by the pipeline (owner 2026-10-21: "crop it"), compile's text mapping after Nov 15. No stored format changes, no migration.
 
 # SLICE-GRID — one slice size across the platform
 
@@ -182,15 +182,16 @@ But #67 also names Import slices, which takes any height until G ships: a change
 
 **J: endless bands are 2340 px wide, not 2532 (a bug; bands are outside the rule).**
 - compile cuts a panorama into n = round(w / 390) slides (compile.mjs:61). A 3:1 panorama at 844 high is 2532 wide,
-  so it gets 6 slides = 2340 px (computed).
-- figma-chapter draws the band 2340 wide (:65) and `FILL` centre-crops the picture into it (code.js:83). Each wrap
-  edge loses 96 px, so the endless join no longer matches.
-- The cut takes 6 frames (figma-production.mjs:113-117).
-- All four bands are 3:1 (measured: sb-28-4, sb-32-1, sb-36-4, sb-38-11). ch3's scene-28-duel and scene-32-hall have
-  6 slides each in chapter.draft.json.
-- For ch3: look at one band on screen. Before the band art is made, tell the owner the band is 2340 × 844 at 1x
-  (7020 × 2532 at 3x) and must wrap at that width.
-- The compile fix lands before ch4–5's band art.
+  so it gets 6 slides = 2340 px (computed). The cut takes 6 frames (figma-production.mjs:113-117).
+- **The art stays 3:1, the pipeline crops it (owner 2026-10-21: "crop it").** figma-chapter places an endless band's
+  picture through `scripts/storyboard/band-wrap.ts`: the panorama is cropped to 2340 : 844 (2532 → 2340 at 1x,
+  7596 → 7020 at 3x), and its last 192 columns (576 at 3x) switch over to the dropped columns 2340–2532, which run on
+  into column 0 – cut along the path where both agree (minimum-error seam, feathered 8 px; a plain fade ghosts line
+  art). The band wraps like the source, the `FILL` crops nothing, the cut's six slides are exactly it.
+  Measured on sb-28-4 (last vs first column): source 3.2, centred FILL 11.3, band-wrap 3.2. Art placed by hand:
+  `node --experimental-transform-types scripts/storyboard/band-wrap.ts <panorama> <out.png>` first, placed at x 0.
+- Open (#109, after Nov 15): compile places a band's texts by % of n × 390 (compile.mjs:64-68), not of the true
+  2532 – a text near the right end drifts up to 192 px left in the draft (the owner's Figma texts are what the cut reads).
 
 ### 3.3 Generators and prompts (issue F, after Nov 15)
 - **Today nothing fits a generated picture to its slot.**
@@ -296,7 +297,7 @@ Two notes for WEBTOON.md:
 ### 3.8 Found on the way (real whatever the owner decides)
 - The Figma lines miss the real cuts (A).
 - figma-production's header is wrong, and the cutter drops a stray text silently (B).
-- The endless bands lose 96 px at each wrap edge (J).
+- The endless bands lost 96 px at each wrap edge (J; cropped seamlessly since 2026-10-21).
 - A replace that changes the height leaves overlays in % (§3.4).
 - The docs disagree on what the generators can make (§3.3).
 
@@ -386,7 +387,7 @@ first throw now (#67).
 | by Sun Oct 25 | Q1 (ch3 key visual) and Q2 (ch3 group ends) answered | #96 | – |
 | before ch3's first scene cut (~Oct 26) | lines per group, through a guides-only module | A | S |
 | before ch3's first scene cut | the cutter per Q2 | B | S |
-| before ch3's band art (scene-28, scene-32) | the band width checked on screen, the owner told | J | XS |
+| before ch3's band art (scene-28, scene-32) | the band width checked on screen; the 3:1 art cropped seamlessly (band-wrap.ts) | J | XS |
 | week of Oct 26 | ch3's key visual composed per Q1 (owner) | a line on #70 | – |
 | when #96 is answered | the docs: DECISIONS lines (+ "superseded in part" on :21 and :24), RULES "Product rules", ASSETS "Slice resolutions", WEBTOON.md, TEXT-ACROSS-SLICES.md §5 step 4, STORYBOARD.md §1 and §3 | #96 | XS |
 | after Nov 15, before ch4's layout | the storyboard on whole slices (Q5); the band fix in compile | E, J | M |

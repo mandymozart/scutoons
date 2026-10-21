@@ -278,7 +278,9 @@ The compile (storyboard → chapter draft), deterministic:
    moves off text boxes and items). Dialog / items / events / audio are converted from % of the shot to % of the
    slice. `image` = the rasterized schematic, later the still.
 2. **loop360:** the panorama → N slides (slices) of equal width, the group gets `endless`. Items / dialogs
-   are assigned to the slide they fall in (a rect over a cut is moved, with a warning).
+   are assigned to the slide they fall in (a rect over a cut is moved, with a warning). A panorama wider than its
+   N × 390 slides (3:1 = 2532 → 6 × 390 = 2340) is cropped so it still wraps: scripts/storyboard/band-wrap.ts
+   (owner 2026-10-21: "crop it"; SLICE-GRID.md §3.2 J).
 3. **VN:** plate shots → the group's slices; `events` copied, ids `<label>-<n>`.
 4. Ids via `defaults.ts` / `nextDialogId`; `validateFile` before `save_draft` (the MCP server does it). Unknown
    characters / moods / items → the wanted list. The panel id may go into the slice's optional `_label`.
