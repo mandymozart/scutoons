@@ -267,7 +267,8 @@ try {
 	await until(`!document.querySelector('[data-testid="file-status"] .sc-chip')`);
 	const published = writesSince(n).map((w) => `${w.method} ${w.url} ${w.status}`);
 	const en = await api('GET', `/entities/${KEYS[1]}?draft=1&wrap=1`);
-	check(published.includes(`POST /entities/${KEYS[0]}/publish 200`) && en.version.id === baseline[KEYS[1]].id && en.published.id === baseline[KEYS[1]].id,
+	// one key's publish or the batch publish (`POST /entities/publish`, the page's Publish since the storyboard work)
+	check((published.includes(`POST /entities/${KEYS[0]}/publish 200`) || published.includes('POST /entities/publish 200')) && en.version.id === baseline[KEYS[1]].id && en.published.id === baseline[KEYS[1]].id,
 		'Publish publishes the edited German script; the English one stays the same version', JSON.stringify(published));
 	// the bar's History is a group (UI-CONCEPTS E.10, every width since 2026-10-12): its Versions opens the panel
 	await js(`${historyButton}?.click()`);
