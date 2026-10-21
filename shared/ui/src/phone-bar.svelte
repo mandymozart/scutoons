@@ -125,6 +125,7 @@
 						aria-pressed={item.active ?? undefined}
 						aria-haspopup={item.items ? 'true' : undefined}
 						title={item.label}
+						aria-label={item.label}
 						onclick={() => tap(item)}
 						data-testid={item.testid ?? `phone-bar-${item.id}`}
 					>
@@ -255,9 +256,9 @@
 		background: var(--paper);
 		color: var(--ink);
 	}
+	/* phones: icons only (owner 2026-10-21: "i dont want the labels there") – the word is the tooltip and the aria-label */
 	.word {
-		font-size: 0.625rem;
-		line-height: 1;
+		display: none;
 		white-space: nowrap;
 	}
 	/* desktop: a row of cells at the bar's end – icon + word side by side, the control height, square (grouped controls) */
@@ -300,6 +301,7 @@
 			border-color: var(--ink);
 		}
 		.word {
+			display: inline;
 			font-size: var(--type-body-size);
 			line-height: var(--type-button-line);
 		}
