@@ -108,6 +108,13 @@ try {
 	check(/interface CollagePreset extends PieceStyle/.test(slices) && /removed\?: boolean/.test(slices) && /save_draft` of `colorations`/.test(slices), 'slices rules: custom presets (colorations, the CollagePreset type)', slices.slice(-600));
 	const keys = textOf({ content: (await client.readResource({ uri: 'scutoons://rules/entity-keys' })).contents });
 	check(/colorations/.test(keys), 'entity-keys rules name colorations');
+	// the story texts (#84, research/KANON.md): scripts per season / chapter, the Kanon's sections per role
+	const story = textOf({ content: (await client.readResource({ uri: 'scutoons://rules/story' })).contents });
+	check(/chapter-script:<toon>:<n>:<locale>/.test(story) && /persona: ## What \(## Was\)/.test(story) && /place → scenery/.test(story), 'story rules: scripts, the Kanon sections, what generators read', story.slice(0, 400));
+	const kanon = await call(client, 'validate', { key: 'kanon:place.cathedral:de', content: { text: '## Szenerie\nHohe Fenster.\n\n## Hobbies\n' } });
+	check(kanon.json?.problems?.some((p) => p.level === 'warning' && /Hobbies/.test(p.message)) && !kanon.json.problems.some((p) => p.level === 'error'), 'validate a Kanon text: an unknown heading is a warning', kanon.raw.slice(0, 300));
+	const kanonRead = await call(client, 'read_entity', { key: 'kanon:character.catpope' });
+	check(!/no entity key|unknown toon/.test(kanonRead.raw), "read_entity a character's Kanon text: the universe's languages (no toon)", kanonRead.raw.slice(0, 300));
 	// a type block the source lost (a renamed declaration) would be an empty code block
 	const empty = [];
 	for (const uri of resources)

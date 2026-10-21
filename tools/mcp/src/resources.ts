@@ -11,6 +11,9 @@ import {
 	FRAME_RATIO_MAX,
 	FRAME_RATIO_MIN,
 	IMAGE_QUALITY_DENSITIES,
+	KANON_SECTIONS,
+	KANON_VISUAL_SECTION,
+	type KanonRole,
 	PRESET_ID,
 	VIDEO_QUALITY_LABELS
 } from '@scutoons/content';
@@ -139,7 +142,7 @@ export const RULES: RuleResource[] = [
 				'Only the screenplays (`season-script:` / `chapter-script:<toon>:<n>:<locale>`) and the Kanon texts (`kanon:<subject>:<locale>`) are stored per language: save each locale on its own key.',
 				'',
 				'Rules: scutoons://rules/entity-keys, scutoons://rules/vn-events, scutoons://rules/flow,',
-				'scutoons://rules/text-presets, scutoons://rules/slices.'
+				'scutoons://rules/text-presets, scutoons://rules/slices, scutoons://rules/story (scripts and the Kanon).'
 			].join('\n')
 	},
 	{
@@ -229,6 +232,53 @@ export const RULES: RuleResource[] = [
 				'',
 				'Dialog type (shared/content/src/content.ts):',
 				code('ts', block('shared/content/src/content.ts', 'export interface Dialog'))
+			].join('\n')
+	},
+	{
+		name: 'story',
+		uri: 'scutoons://rules/story',
+		title: 'Scripts and the Kanon (story texts)',
+		description: 'Season / chapter screenplays and the Kanon texts of toons, characters, personas, looks and places – their keys, sections and how to draft them (shared/content/src/kanon.ts, script.ts; agents/research/KANON.md)',
+		text: () =>
+			[
+				'# Scripts and the Kanon',
+				'',
+				'The story texts behind the documents – what generators, artist briefs and you read to write and draw "according',
+				'to the universe". Creator only: readers never see them. One big plain text per document and language (the toon\'s',
+				'source language is the master, translations may be partial); versioned like every document.',
+				'',
+				'## Screenplays',
+				'',
+				headerComment('shared/content/src/script.ts'),
+				'',
+				'- `season-script:<toon>:<n>:<locale>` – a season\'s screenplay (Cat Pope is written per season: season 1 = "Das',
+				'  Erwachen"); chapters `# <n>. Kapitel|Chapter`, scenes `<n>   INT./EXT. …` at column 0, songs `# <n>. Lied|Song`.',
+				'- `chapter-script:<toon>:<n>:<locale>` – a chapter\'s screenplay (Top Toy is written per chapter): no chapter',
+				'  markers, its scenes count from the first line.',
+				'- For chapter n take its chapter script, else its season\'s. `{ text, meta? }`; keep every space as written.',
+				'',
+				'## The Kanon',
+				'',
+				headerComment('shared/content/src/kanon.ts'),
+				'',
+				'Sections per role (`## <heading>` at column 0, German or English; every section optional, this order):',
+				...(Object.entries(KANON_SECTIONS) as [KanonRole, { de: string; en: string }[]][]).map(
+					([role, sections]) => `- ${role}: ${sections.map((s) => `## ${s.en} (## ${s.de})`).join(' · ')}`
+				),
+				'',
+				`Generators read the visual section: ${Object.entries(KANON_VISUAL_SECTION).filter(([, s]) => s).map(([r, s]) => `${r} → ${s}`).join(', ')}`,
+				'(in English – write or translate the `en` text too when a generator or an artist needs it).',
+				'',
+				'## Drafting',
+				'',
+				'- Read first: `read_entity` "kanon:character.catpope" (every language) or a stored key with its locale; `list_entities`',
+				'  (toon "" for characters\' and places\' texts, the toon for its own text and scripts).',
+				'- Write: `save_draft` on the stored key (`kanon:character.catpope.human:de`) with `{ "text": "…" }` – the whole text,',
+				'  its role\'s headings; `validate` warns on an unknown heading, one twice or out of order. A persona\'s text says what',
+				'  the persona is and why it differs from the character; a look\'s what changes and when it is worn.',
+				'- Never publish: publishing makes a text Kanon – the member does it in the creator. Give the link:',
+				'  `<creator>/kanon/<subject>` (a Kanon text), `<creator>/<toon>/season/<n>/script`, `<creator>/<toon>/chapter/<n>/script`.',
+				'- Keep the short reader-facing `description` of a character / persona as it is: the Kanon text is the long one behind it.'
 			].join('\n')
 	},
 	{

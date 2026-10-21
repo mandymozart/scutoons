@@ -280,3 +280,12 @@ in `test/`) + `storyboard-refs.ts` (the files on the member's machine). Content 
   Not ported: comfy.mjs's owner-specific character descriptions, `--fresh` server per image, the greyscale pass.
 - whoami → `kit` (creators): the workspace folder, the Figma relay (which one) + plugin (file, code version), ComfyUI
   reachable – each with its next step (src/kit.ts; probes ≤ 1.5 s, it never starts the relay).
+
+## 10. Story texts: scripts and the Kanon (#84, 2026-10-21)
+- Resource `scutoons://rules/story` (tools/mcp/src/resources.ts, generated from kanon.ts / script.ts): the keys
+  `season-script:` / `chapter-script:<toon>:<n>:<l>` and `kanon:<subject>:<l>`, each role's sections (de / en), what
+  generators read (Look / Scenery), drafting = `save_draft` on a stored key with `{ text }`, never publish (publishing
+  makes it Kanon – the member, in the creator), the creator links to give. research/KANON.md.
+- `read_entity` / `validate` / `save_draft` take the kinds like any localized document; a character's or place's Kanon
+  text (no toon) uses the universe's languages (every toon's, `de` first – `universeLanguages`). `validate` warns on an
+  unknown heading, one twice or out of order. `check:mcp` covers the resource, a Kanon validate and a character's read.

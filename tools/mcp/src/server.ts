@@ -177,6 +177,14 @@ export function registerContentTools(server: McpServer, config: Config, options:
 		return { ...index, languages, sourceLanguage: index.sourceLanguage ?? languages[0] };
 	}
 
+	/** every toon's languages, the platform's source `de` first (the creator's universe pages) */
+	async function universeLanguages(): Promise<{ languages: string[]; sourceLanguage: string }> {
+		const all = await client.get<{ entities: ContentIndexEntity[] }>('/entities');
+		const indexes = await Promise.all(all.entities.filter((e) => e.kind === 'toon').map((t) => data<Json>(t.key)));
+		const languages = ['de', ...indexes.flatMap((i) => (Array.isArray(i?.languages) ? (i.languages as string[]) : []))];
+		return { languages: [...new Set(languages)], sourceLanguage: 'de' };
+	}
+
 	/**
 	 * The stored keys of an entity or key: one key; a chapter / season entity = its one language-neutral
 	 * document; every locale of another localized entity (the script; the legacy per-language toon settings)
@@ -186,7 +194,8 @@ export function registerContentTools(server: McpServer, config: Config, options:
 		if (!ref) throw new Error(`"${keyOrEntity}" is no entity key (scutoons://rules/entity-keys)`);
 		const entity = entityOf(keyOrEntity);
 		if (!isLocalizedEntity(entity)) return { entity, keys: [entity], primary: null };
-		const index = await toonIndex(ref.toon!);
+		// a character's / a place's Kanon text has no toon: the universe's languages (every toon's, `de` first – the creator's)
+		const index = ref.toon ? await toonIndex(ref.toon) : await universeLanguages();
 		if (ref.locale || isNeutralKind(ref.kind)) return { entity, keys: [keyOrEntity], primary: index.sourceLanguage };
 		const locales = !locale || locale === 'all' ? index.languages : [locale];
 		return { entity, keys: locales.map((l) => entityKeyFor(entity, l)), primary: index.sourceLanguage };
