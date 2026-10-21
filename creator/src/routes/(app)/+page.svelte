@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Badge, ToonAvatar } from '@scutoons/ui';
 	import type { ContentIndexEntity } from '@scutoons/api';
+	import { toonAsset } from '@scutoons/content';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
 	import { recent } from '$lib/recent.svelte.ts';
 	import { reviews } from '$lib/editor/reviews.svelte.ts';
@@ -43,7 +44,7 @@
 	const toonOf = (id: string | null | undefined) => (id ? nav.toons.find((t) => t.id === id || t.uri === id) : undefined);
 	const avatarOf = (id: string | null | undefined) => {
 		const t = toonOf(id);
-		return t?.avatar ? asset(`${t.id}/${t.avatar}`) : null;
+		return t?.avatar ? asset(toonAsset(t.id, t.avatar)) : null;
 	};
 	const when = (value: string | number | undefined) => {
 		const d = value === undefined ? null : new Date(value);

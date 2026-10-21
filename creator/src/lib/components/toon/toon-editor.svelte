@@ -20,7 +20,7 @@
 	 * The toon's settings: ONE document, the toon entry `toon:<toon>` (agents/NEUTRAL.md step 4). Per language: title /
 	 * description and release (the header's text language, like a chapter's), the status (the toon page of a language
 	 * that isn't published is closed in it); the same in every language (`TOON_NEUTRAL_FIELDS`): authors, chapter count,
-	 * thumbnail, the landing tile, announce, the map's start view. An entry without texts yet gets them from the old
+	 * thumbnail, the avatar + the landing tile, announce, the map's start view. An entry without texts yet gets them from the old
 	 * per-language toon settings on load (a notice; saving stores them in the entry). Plus the toon's open media requests
 	 * (wanted images). Covers are per season (owner 2026-10-02; the season's cover editor) – the toon is shown with its avatar.
 	 */
@@ -112,6 +112,7 @@
 				</label>
 				<p class="hint">{m['creator.announce_hint']()}</p>
 				<div class="media">
+					<MediaSlot {toon} label={m['creator.field_avatar']()} value={data?.avatar || undefined} onchange={(v) => entry.set(['avatar'], v || 'avatar.webp')} testid="toon-avatar" />
 					<MediaSlot {toon} label={m['creator.field_tile_image']()} value={data?.tile?.image || undefined} onchange={(v) => entry.set(['tile', 'image'], v || undefined)} testid="toon-tile-image" />
 				</div>
 				<div class="sc-fields" data-cols="3" data-align="start">

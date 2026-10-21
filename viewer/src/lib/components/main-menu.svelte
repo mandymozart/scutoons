@@ -5,7 +5,7 @@
 	import { holdChrome } from '$lib/chrome.ts';
 	import { loadStockists } from '$lib/stockists.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import { asset, toonImage } from '$lib/utils/cdn.ts';
+	import { toonImage, toonUrl } from '$lib/utils/cdn.ts';
 	import { shopUrl } from '$lib/config.ts';
 	import { toonName, type ToonIndex } from '@scutoons/content';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
@@ -175,7 +175,7 @@
 							</span>
 						{:else}
 							<a class="nav-btn" data-control-exempt="toon avatar row" href={localizeHref('/' + toon.id)} onclick={closeMenu} data-toon={toon.id}>
-								<img src={asset(`${toon.id}/${toon.avatar}`)} alt="" />
+								<img src={toonUrl(toon.id, toon.avatar)} alt="" />
 								<span class="name">
 									{toonName(toon, getLocale())}
 								</span>

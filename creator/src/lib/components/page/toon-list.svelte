@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Badge, ToonAvatar } from '@scutoons/ui';
-	import { toonName, type ToonIndex } from '@scutoons/content';
+	import { toonAsset, toonName, type ToonIndex } from '@scutoons/content';
 	import { statusWord } from '$lib/editor/status-word.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
@@ -18,7 +18,7 @@
 	{#each toons as toon (toon.id)}
 		<li>
 			<a href="/{toon.id}" data-testid="toon-{toon.id}">
-				<ToonAvatar src={toon.avatar ? asset(`${toon.id}/${toon.avatar}`) : null} name={name(toon)} size="2rem" />
+				<ToonAvatar src={toon.avatar ? asset(toonAsset(toon.id, toon.avatar)) : null} name={name(toon)} size="2rem" />
 				<span class="name">{name(toon)}</span>
 				<Badge tone={toon.status === 'published' ? 'published' : toon.status === 'coming-soon' ? 'soon' : 'draft'}>{statusWord(toon.status)}</Badge>
 			</a>

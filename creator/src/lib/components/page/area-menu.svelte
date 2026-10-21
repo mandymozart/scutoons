@@ -6,7 +6,7 @@
 	import type { Snippet } from 'svelte';
 	import { page } from '$app/state';
 	import { Icon, ToonAvatar } from '@scutoons/ui';
-	import { toonName, type ToonIndex } from '@scutoons/content';
+	import { toonAsset, toonName, type ToonIndex } from '@scutoons/content';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
@@ -113,7 +113,7 @@
 						{#each toons as t (t.id)}
 							<li>
 								<a class="sc-nav-item sub" href="/{t.id}" aria-current={toon === t.id || toon === t.uri ? 'page' : undefined} data-testid="nav-toon-{t.id}">
-									<ToonAvatar src={t.avatar ? asset(`${t.id}/${t.avatar}`) : null} name={name(t)} size="1.5rem" />
+									<ToonAvatar src={t.avatar ? asset(toonAsset(t.id, t.avatar)) : null} name={name(t)} size="1.5rem" />
 									<span class="ell">{name(t)}</span>
 								</a>
 							</li>
