@@ -505,7 +505,8 @@
 				{/if}
 			{/snippet}
 			{#if toonTabs && toonId}<ToonTabs toon={toonId} />{/if}
-			{@render children()}
+			<!-- another toon from the menu = the same route with a new param: the pages load once on mount, so they start anew -->
+			{#key toonId}{@render children()}{/key}
 		</AppShell>
 		<CommandPalette
 			bind:open={paletteOpen}
