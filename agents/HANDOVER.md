@@ -45,23 +45,16 @@ State 2026-10-12. How agents work: agents/RULES.md. Open work: GitHub issues + t
   The sketch → 3D experiment is removed; its learnings: research/CHARACTERS3D.md.
 
 ## Last run
-2026-10-20 night → 10-21, unattended on `main`: the storyboard studio moved into the creator (#118, owner: "now over night").
-- **Built** (research/STUDIO-IN-CREATOR.md §4): the model `@scutoons/content/storyboard` (#119, parity-tested against the
-  old JS); `storyboard:<toon>:<n>` + `storyboard_generations` (= the budget ledger) + ch3–5 imported + the work storage
-  on the API host (#120); the creator page /<toon>/chapter/<n>/storyboard – shots, inspector, script, problems, rhythm,
-  the member's workspace folder (#123); the three.js 3D view (#124); generators through the server (Luma images,
-  Runway) with the budget gate in admin → Settings + the Generate panel (#121); the MCP's storyboard tools incl.
-  start_generation (#122); the variants board + Compare (#125); the phone camera at /h/<code> (WebRTC), takes, the
-  timeline, Output (#126) – the creator's pages moved into the route group `(app)`, URLs unchanged; the local kit part 1
-  – the Figma relay inside the MCP (never auto-started from a checkout), the plugin download, generate_local, "Set up
-  your machine" (#127).
-- **Owner steps:** GitHub secrets LUMA_API_KEY / RUNWAY_API_KEY (+ GEMINI) and an amount in admin → Settings →
-  Generation budget (until then paid jobs answer no_budget); measure the API host's request limit + disk (#120).
-- **Look at:** the storyboard page on ch3 (the import ran with the 10-20 night push – edits made in the old local studio
-  since then are not in it); the 3D view; the phone camera on a real phone.
-- **Assumed overnight, owner to confirm** (DECISIONS): the old studio stays until you have used the creator's (#128);
-  ✓ approves without a dialog and "the mark before" lasts a session (#125); the import stored ch3–5 as published versions.
-- **Open:** Q7 taste rules (#118); #127 part 2 after the art freeze (figma-* scripts → MCP tools, then the switch –
-  MCP.md §3a); #128 the removal.
-- **Green:** content 352 tests; creator 0 / 0 + 260 tests + build; PHPUnit 474 / 5629 + PHPStan; tools/mcp 35 tests +
-  build:mcp; admin 0 / 0; viewer 0 errors (11 old warnings) + 147 tests; figma-bridge test.mjs 29. Not pushed.
+2026-10-21 night, on `main` after the storyboard run (#118's result: its issue comments): the Kanon, milestone "Top Toy
+workshop" (research/KANON.md; owner: "Do this task here" – #80 → #81 → #84 → #83).
+- **Built:** #80 the kinds `season-script:` / `chapter-script:<toon>:<n>:<l>` and `kanon:<subject>:<l>` (creator only),
+  the rules per role, one editor (the script editor), `/kanon/<subject>`, the API routes accept the dot · #81 migration
+  `2026-10-21-season-scripts` (catpope's toon script → season 1, every version – runs with the deploy), the season /
+  chapter script pages, `/<toon>/script` = the list (toon Kanon + scripts with their state), the storyboard reads the
+  chapter's script else its season's · #84 MCP resource `scutoons://rules/story`, Kanon reads without a toon · #83 the
+  map place panel's "Kanon" link.
+- **Look at:** /catpope/script, /toptoy/script, a character's /kanon/character.<id>, a place via Map → Kanon.
+- **Next:** #82 (character page – after #104's redesign is merged), #85 (generators read the texts + migration 2).
+- **Green:** content 356; creator 0 / 0, 260 tests; admin 0 / 0; viewer 0 errors (11 old warnings); MCP 35 + check:mcp
+  52/52; PHPUnit 474 + PHPStan; check:creator-script 28/28 (updated for the batch publish); check:tools-css 16 old lines
+  (none touched). Not pushed.
