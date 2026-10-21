@@ -258,7 +258,8 @@ waiting update goes first): "Install SCUTOONS as an app" · Not now · Install �
   secrets → config.php (owner steps: FEATURES 10.107; `php bin/console push:vapid-keys`).
 - **Worker** (`lib/sw/push.ts`, pure rules `lib/sw/push-rules.ts`): `push` → `showNotification(title, { body, tag, icon,
   data.url })` (a payload it can't read → a plain "SCUTOONS"; the tag = the chapter, a second send replaces it);
-  `notificationclick` → the chapter in an open SCUTOONS window (focus + navigate), else a new one; only paths on our origin.
+  `notificationclick` → the chapter in an open SCUTOONS window (focus + navigate), else a new one; only paths on our origin. A deep link only – no
+  sign-in token (owner 2026-10-21, #156): the device subscribed signed in and its session lives a year.
   `service-worker.ts` only imports and calls `registerPush(sw)`.
 - **Badge – a proposal the owner may reject** (`decide`, FEATURES 10.74): the app icon counts the **new-chapter
   notifications that came since the app was last opened** (each chapter once; the worker keeps the tags in the cache
