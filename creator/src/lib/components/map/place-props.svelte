@@ -118,6 +118,8 @@
 	<input type="text" value={place.id} disabled={locked} title={locked ? m['creator.map_id_locked']() : undefined} onchange={(e) => changeId(e.currentTarget.value)} data-testid="place-id" />
 </label>
 <LocaleMapField value={place.name} {languages} label={m['creator.map_name']()} required testid="place-name" onchange={setName} />
+<!-- the place's Kanon text (research/KANON.md, #83): backstory and scenery – what generators, the dioramas and artists read -->
+<a class="kanon-link" href="/kanon/place.{place.id}" title={m['creator.map_kanon_hint']()} data-testid="place-kanon">{m['creator.kanon']()}</a>
 <div class="row">
 	<label class="field"><span>x</span><input type="number" value={place.x} onchange={(e) => editPlace(doc, place.id, (p) => (p.x = Math.round(Number(e.currentTarget.value))))} data-testid="place-x" /></label>
 	<label class="field"><span>y</span><input type="number" value={place.y} onchange={(e) => editPlace(doc, place.id, (p) => (p.y = Math.round(Number(e.currentTarget.value))))} data-testid="place-y" /></label>
@@ -220,5 +222,9 @@
 	/* the phone sheet's tabs (map-builder.svelte, UI-CONCEPTS E.10) show one group; elsewhere the wrappers are invisible */
 	.tab {
 		display: contents;
+	}
+	.kanon-link {
+		color: var(--ink);
+		align-self: flex-start;
 	}
 </style>

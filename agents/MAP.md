@@ -346,6 +346,8 @@ selection in the query (DESIGN.md "Creator navigation"): `/map?location=cathedra
   suggested from the de name (`kathedrale` → editable until the first publish, then fixed: ids are referenced by
   events – a rename after publishing is "duplicate + replace references", offered only when nothing references it).
 - **Drag** moves (snap to whole world units; arrow keys nudge 1, Shift+arrow 10); x/y also numeric.
+- **Kanon** (2026-10-21, #83, research/KANON.md): under the name a link to the place's Kanon text `/kanon/place.<id>`
+  (Backstory · Scenery · Rules – generators, dioramas, artists read the scenery). Rename an id only before a text exists.
 - **Properties:** ID · Name de / en (side by side, like the text boxes) · Position · Bild · Größe · Bodenpunkt ·
   Toons (chips, + from the toon list) · "versteckt bis freigeschaltet" · Kapitel-Link (toon + chapter select) ·
   **Verwendet in** (read-only: every event that references the place, as links to the chapter/scene editor; found by
@@ -460,6 +462,7 @@ the others ("same scale, same ground patch, same light").
    `map/`), then pick it in the builder.
 
 ### 5.4 Place descriptions for today's catpope places (to generate first)
+(These live in code as `PLACE_DESCRIPTIONS` until #85 moves them into each place's Kanon text, `## Scenery`.)
 
 | id | Place description |
 |---|---|

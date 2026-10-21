@@ -976,6 +976,7 @@
 		"script_rules_intro": "The screenplay follows the format of the screenplay editor; the outline reads the headings with its rules.",
 		"scripts_intro": "The screenplays: one per season (how Cat Pope was written) and one per chapter (how Top Toy is written), and the toon's Kanon text. Working material – readers never see them.",
 		"scripts_not_written": "not written",
+		"map_kanon_hint": "The place's Kanon text: its backstory and its scenery – what the generators, the map pictures and artists read",
 		"kanon": "Kanon",
 		"kanon_sections": "Sections",
 		"kanon_sections_fold": "Fold the sections",

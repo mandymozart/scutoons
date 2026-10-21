@@ -976,6 +976,7 @@
 		"script_rules_intro": "Das Drehbuch folgt dem Format des Screenplay-Editors; die Gliederung liest die Überschriften nach seinen Regeln.",
 		"scripts_intro": "Die Drehbücher: eins pro Staffel (so wurde Cat Pope geschrieben) und eins pro Kapitel (so wird Top Toy geschrieben), dazu der Kanon-Text des Toons. Arbeitsmaterial – Leser:innen sehen sie nie.",
 		"scripts_not_written": "nicht geschrieben",
+		"map_kanon_hint": "Der Kanon-Text des Orts: seine Vorgeschichte und Szenerie – das lesen die Generatoren, die Kartenbilder und Künstler:innen",
 		"kanon": "Kanon",
 		"kanon_sections": "Abschnitte",
 		"kanon_sections_fold": "Abschnitte einklappen",
