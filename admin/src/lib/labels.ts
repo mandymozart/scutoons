@@ -67,6 +67,8 @@ export function fileLabel(key: string): string {
 		credits: m['entity.credits'](),
 		people: m['entity.people'](),
 		roles: m['entity.roles'](),
-		script: m['entity.script']()
+		seasonScript: (number) => `${m['entity.script']()} · ${m['entity.season']({ number })}`,
+		chapterScript: (number) => `${m['entity.script']()} · ${m['entity.chapter']({ number })}`,
+		kanon: (subject) => `Kanon · ${subject.split('.').slice(1).join(' · ')}`
 	});
 }
