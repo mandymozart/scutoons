@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Scutoons\Domain\Assets;
 
 use Scutoons\Domain\Catalog\CatalogStore;
+use Scutoons\Domain\Catalog\ProtectedFiles;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Config\Settings;
@@ -112,7 +113,7 @@ final class AssetUsages
             foreach ([...$rows, ...$catalog, ...$code] as $row) $this->insert($row);
         });
         $known = $this->known();
-        $missing = count(array_filter([...$rows, ...$catalog, ...$code], fn(array $r) => !isset($known[$r['path']])));
+        $missing = count(array_filter([...$rows, ...$catalog, ...$code], fn(array $r) => !isset($known[$r['path']]) && !ProtectedFiles::inVault($r['path'])));
         return ['content' => count($rows), 'catalog' => count($catalog), 'code' => count($code), 'entities' => $entities, 'missing' => $missing];
     }
 
@@ -268,7 +269,9 @@ final class AssetUsages
     // ── Queries ───────────────────────────────────────────────────────────────────────────────────────────
 
     /**
-     * References to files the registry does not know (missing on the storage or never scanned)
+     * References to files the registry does not know (missing on the storage or never scanned). Vault paths
+     * (`ProtectedFiles::inVault`: scores' files, albums' audio) are skipped: they live on the protected storage, which
+     * the rescan doesn't list, so they would be false alarms (#157).
      * @return list<array{path: string, usages: list<array<string, mixed>>}>
      */
     public function missing(): array
@@ -276,7 +279,7 @@ final class AssetUsages
         $known = array_fill_keys($this->registry->currentPaths(), true);
         $out = [];
         foreach ($this->db->all('SELECT * FROM asset_usages ORDER BY path, source, ref, field') as $u) {
-            if (isset($known[(string) $u['path']])) continue;
+            if (isset($known[(string) $u['path']]) || ProtectedFiles::inVault((string) $u['path'])) continue;
             $out[(string) $u['path']][] = ['source' => $u['source'], 'ref' => $u['ref'], 'field' => $u['field'], 'state' => $u['state'], 'raw' => $u['raw']];
         }
         return array_map(fn(string $path, array $usages) => ['path' => $path, 'usages' => $usages], array_keys($out), array_values($out));

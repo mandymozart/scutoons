@@ -19,6 +19,7 @@
 		| 'claims'
 		| 'claim'
 		| 'server-errors'
+		| 'old-versions'
 		| 'reading';
 </script>
 
@@ -40,6 +41,9 @@
 <div data-testid="page-help-{page}">
 	{#if page === 'server-errors'}
 		<p>{m['server_errors.help']()}</p>
+	{:else if page === 'old-versions'}
+		<p>{m['old_versions.help']()}</p>
+		<p>{m['old_versions.help_assets']()}</p>
 	{:else if page === 'reading'}
 		<p>{m['help.reading']()}</p>
 	{:else if page === 'dashboard'}
