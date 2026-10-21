@@ -1,4 +1,4 @@
-Status 2026-10-21: plan agreed in parts; the open §12 answers ASSUMED overnight as recommended (owner to confirm – see "Assumed overnight" at the end of §12); milestone "Webtoon.com Publishing" (#4, due 2027-02-28) and its issues #129–#151 filed. Nothing built.
+Status 2026-10-21: plan agreed – the §12 answers taken overnight as recommended, confirmed by the owner 2026-10-21; milestone "Webtoon.com Publishing" (#4, due 2027-02-28) and its issues #129–#151 filed. Nothing built.
 
 # WEBTOON — SCUTOONS chapters as WEBTOON CANVAS episodes
 
@@ -761,4 +761,4 @@ before. The owner's art time is the bottleneck in all three months.
 10. **Series thumbnails:** the season cover's art without lettering (WEBTOON advises no text; one set for both series),
     or with the cover's lettering per language? Rec.: without.
 
-**Assumed overnight 2026-10-21** (owner: "try to guess anwesers for questions. i cant anwser over night anymore"): every open question above takes its recommendation – Q1 en at launch, de two weeks later, no own es, ko / ja not now; Q3 published only; Q4 drop VN lines; Q5 (a) 12 / 32 → 19 episodes, (b) split at s63, (c) every scene its own group, (d)–(h) yes; Q6 skip chapter 0; Q8 (a) no condition = export only, (b) also `device.portrait` opt-in, (c) decided once per page view; Q9 one disclosure line if any art is AI-assisted; Q10 series thumbnails without lettering. Owner to confirm or correct on #77.
+**Answered 2026-10-21** (assumed overnight, confirmed by the owner: "yes go with this decision") (owner: "try to guess anwesers for questions. i cant anwser over night anymore"): every open question above takes its recommendation – Q1 en at launch, de two weeks later, no own es, ko / ja not now; Q3 published only; Q4 drop VN lines; Q5 (a) 12 / 32 → 19 episodes, (b) split at s63, (c) every scene its own group, (d)–(h) yes; Q6 skip chapter 0; Q8 (a) no condition = export only, (b) also `device.portrait` opt-in, (c) decided once per page view; Q9 one disclosure line if any art is AI-assisted; Q10 series thumbnails without lettering.
