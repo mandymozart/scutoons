@@ -136,7 +136,7 @@ test('chapterClips: takes on / off, renders of two takes, generated images + vid
 	put('boards/dataset/files/c1/s-1/chosen.png', g1, T - 100); // an older approval
 	put('boards/dataset/files/c1/s-1/chosen.mp4', g2, T); // the newest: the video
 
-	const gen = (file, ms, video, approved = false) => ({ file, url: `/out/c1/generated/${file}`, ms, video, approved });
+	const gen = (file, ms, video, approved = false) => ({ file, url: `/out/c1/generated/${file}`, ms, video, approved, mark: null });
 	const ren = (file, pass, take, ms) => ({ file, url: `/out/c1/handheld/${file}`, pass, take, ms });
 	assert.deepEqual(chapterClips({ boards, toon: 'cat', ch: 'c1' }), {
 		's-1': {
@@ -162,6 +162,43 @@ test('chapterClips: takes on / off, renders of two takes, generated images + vid
 	const again = chapterClips({ boards, toon: 'cat', ch: 'c1' })['s-1'];
 	assert.deepEqual(again.take, { id: 't2', in: 500, out: 2750, length: 3000, kept: 2250 });
 	assert.deepEqual(again.generated.filter((g) => g.approved).map((g) => g.file), ['s-1--g10.jpg', 's-1--g2.mp4']);
+});
+
+test('chapterClips: each generated file carries its last mark from generated.jsonl (v2) – the chosen none, read again when the log grows', () => {
+	const boards = join(tmp, 'marks');
+	const T = Date.now() / 1000 - 1000;
+	const g2 = mp4(1000, 2000);
+	put('marks/_out/c1/generated/s-1--g1.mp4', mp4(1000, 1000));
+	put('marks/_out/c1/generated/s-1--g2.mp4', g2);
+	put('marks/_out/c1/generated/s-1--g3.mp4', mp4(1000, 3000));
+	put('marks/_out/c1/generated/s-1--g4.png', 'a png');
+	put('marks/dataset/files/c1/s-1/chosen.mp4', g2, T); // g2 is the chosen (an older approval, by its bytes)
+	const rec = (n, more = {}) => JSON.stringify({ v: 2, id: `s-1--g${n}`, shot: 's-1', file: `s-1--g${n}.${n === 4 ? 'png' : 'mp4'}`, kind: n === 4 ? 'image' : 'video', mark: null, marked: null, ...more });
+	const mark = (n, m) => JSON.stringify({ v: 2, id: `s-1--g${n}`, mark: m, marked: m ? '2026-10-21T10:00:00.000Z' : null });
+	const log = [
+		'{"shot":"s-1","file":"s-1--g1.mp4","model":"gen4_turbo"}', // an old line: never read for marks
+		rec(1), rec(2), rec(3), rec(4),
+		mark(3, 'review'), mark(3, 'rejected'), // the last per id wins
+		mark(2, 'rejected'), // the chosen: none (a hand-edited log – the studio refuses this)
+		mark(4, 'review'),
+		'{broken'
+	];
+	const lines = (list) => list.map((l) => l + '\n').join('');
+	put('marks/_out/c1/generated.jsonl', lines(log), T);
+	const marks = () => Object.fromEntries(chapterClips({ boards, toon: 'cat', ch: 'c1' })['s-1'].generated.map((g) => [g.file, [g.mark, g.approved]]));
+	assert.deepEqual(marks(), {
+		's-1--g4.png': ['review', false],
+		's-1--g3.mp4': ['rejected', false],
+		's-1--g2.mp4': [null, true],
+		's-1--g1.mp4': [null, false]
+	});
+	// X again (a mark line appended): read again – the log's size changed
+	put('marks/_out/c1/generated.jsonl', lines([...log, mark(3, null), mark(1, 'rejected')]), T);
+	assert.deepEqual(marks()['s-1--g3.mp4'], [null, false]);
+	assert.deepEqual(marks()['s-1--g1.mp4'], ['rejected', false]);
+	// no log: no marks
+	rmSync(join(tmp, 'marks/_out/c1/generated.jsonl'));
+	assert.equal(chapterClips({ boards, toon: 'cat', ch: 'c1' })['s-1'].generated.every((g) => g.mark === null), true);
 });
 
 test('sendFile: byte ranges as 206 (a <video> seeks only then), a plain GET whole, an unsatisfiable range 416', async () => {

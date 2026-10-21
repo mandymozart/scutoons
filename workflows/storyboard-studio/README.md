@@ -189,14 +189,16 @@ tests –, `audition.svelte.js`): while the board is open, the current shot's **
 board's **current card** – the one the board marks current: the last clicked (the arrows' too), nothing clicked yet in
 the current shot's band its chosen (the video first, else the image) –, tagged **audition** – a small ink tag beside
 the clip's label. A rejected card, a source (the render, a layout variant, a take, a dropped file), a running job or a
-card whose file is gone: the Generated mode's own clip, no tag (the approved video, else the newest – never one the
-board knows as rejected). An image auditions as a still of 5 s that shows the image (the Viewport shows it too).
+card whose file is gone: the Generated mode's own clip, no tag (the approved video, else the newest – never a rejected
+one: `GET /api/clips` returns each file's last mark from the log, so this holds before the board is opened too). An image auditions as a still of 5 s that shows the image (the Viewport shows it too).
 **Play** shows it among the picked shots' clips: Play switches the main to the Viewport and the audition holds while
 that Play runs (V back to the board); Play's end (or a pause), the board closed by hand (V, the switch, a source's Load)
 or another step: the chosen again.
 The timeline's Generated clips carry the **status bullet** (the cards' `StatusBullet`) and the generation's id ("g3")
-in their tag: ✓ the chosen (`GET /api/clips`), ? review, ✕ rejected (the marks the board has loaded). Only the Generated
-view mode; the lane takes the board's marks and the pick as an override per shot (`timeline-lanes.js` `clipsLane`).
+in their tag: ✓ the chosen, ? review, ✕ rejected – from `GET /api/clips` (the log's marks); the board's own marks count
+instead when it read the log after the clips did (`audition.js` `boardMarks` – a board closed earlier keeps its records,
+a mark set since in another window or by hand comes with the clips). Only the Generated view mode; the lane takes the
+board's marks and the pick as an override per shot (`clipsLane`, `markOf`).
 
 ## Files
 

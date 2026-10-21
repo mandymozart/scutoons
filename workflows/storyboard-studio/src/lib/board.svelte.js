@@ -22,6 +22,8 @@ import { addSide, resolveSides, takeOut } from './compare.js';
 export const board = $state({
 	/** GET /api/generated's records per picked shot: { [shot]: record[] } */
 	records: {},
+	/** when that GET was asked (performance.now()) – the clips lane takes the board's marks only when newer (laneOver) */
+	recordsAt: 0,
 	/** GET /api/variants per picked shot – its kept layouts: { [shot]: [{ id, note, created, shot }] } */
 	variants: {},
 	/** the picked shots' running jobs (board-sources.svelte.js pollJobs): { [shot]: job[] } */
@@ -60,6 +62,7 @@ export async function loadBoard() {
 	// the jobs the Generate panel saw end before this GET: their records are in it (jobs.mjs writes a result's line before
 	// its status flips) – their placeholders go in the same update, never beside their cards (pollJobs follows later)
 	const over = new Set(gen.jobs.filter((j) => j.status !== 'queued' && j.status !== 'running').map((j) => j.id));
+	const at = performance.now();
 	const [list, variants] = await Promise.all([
 		api('GET', `/api/generated?ch=${c}&ids=${ids.join(',')}`),
 		Promise.all(open.map((id) => variantsOf(t, c, id)))
@@ -68,6 +71,7 @@ export async function loadBoard() {
 	const records = Object.fromEntries(ids.map((id) => [id, []]));
 	for (const r of list) records[r.shot]?.push(r);
 	board.records = records;
+	board.recordsAt = at;
 	if (Object.values(board.jobs).flat().some((j) => over.has(j.id))) board.jobs = Object.fromEntries(Object.entries(board.jobs).map(([s, js]) => [s, js.filter((j) => !over.has(j.id))]));
 	const got = new Map(open.map((id, i) => [id, variants[i]]));
 	board.variants = Object.fromEntries(ids.map((id) => [id, got.get(id) ?? board.variants[id] ?? []]));

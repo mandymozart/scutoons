@@ -2,12 +2,13 @@
 // board is open – or Play switched the main from the board to the Viewport and still runs (Play shows the audition
 // among the picked shots' clips; V goes back to the board); Play's end, the board closed by hand (V, the switch, a
 // source's Load) or another step ends it. Not remembered. The clips lane takes an override per picked shot (laneOver – timeline.svelte.js timelineOf):
-// the marks the board knows (the status bullets) and, while the audition holds, the current shot's pick.
+// the board's marks when it read the log after the clips did (the status bullets – audition.js boardMarks) and, while
+// the audition holds, the current shot's pick.
 import { untrack } from 'svelte';
 import { board } from './board.svelte.js';
 import { ch, studio } from './studio.svelte.js';
 import { setEditor, steps } from './steps.svelte.js';
-import { auditionPick, currentCard, holds, marksOf } from './audition.js';
+import { auditionPick, boardMarks, currentCard, holds } from './audition.js';
 
 export const aud = $state({ on: false });
 /** the next editor change is Play's (App) – the audition holds through it */
@@ -37,16 +38,18 @@ export function useAudition(isOpen, isPlaying) {
 	});
 }
 
-/** the clips lane's override per picked shot (timeline-lanes.js clipsLane `over`): { [shot]: { marks, pick? } } – read
- *  inside a $derived (the board's records, its current card, the current shot, `aud.on`) */
-export function laneOver(ids) {
+/** the clips lane's override per picked shot (timeline-lanes.js clipsLane `over`): { [shot]: { marks?, pick? } } – read
+ *  inside a $derived (the board's records, its current card, the current shot, `aud.on`); clipsAt = when the clips
+ *  were asked (tl.clipsAt) */
+export function laneOver(ids, clipsAt = 0) {
 	// the board keeps its records while it is closed: only this chapter's files count (another chapter's are stale)
 	const at = studio.chapter ? `/out/${ch()}/` : null;
 	const own = (id) => (at ? (board.records[id] ?? []).filter((r) => r?.url?.startsWith(at)) : []);
 	const over = {};
 	for (const id of ids) {
 		const records = own(id);
-		if (records.length) over[id] = { marks: marksOf(records) };
+		const marks = records.length ? boardMarks(records, board.recordsAt, clipsAt) : null;
+		if (marks) over[id] = { marks };
 	}
 	const shot = studio.sel?.id;
 	// the card the board shows as current – none clicked there: the shot's chosen (Board's `cur`)

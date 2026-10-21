@@ -25,6 +25,8 @@ export const tl = $state({
 	playing: false,
 	/** GET /api/clips of the chapter: { [shot]: { take, rendered, generated } } */
 	clips: {},
+	/** when that GET was asked (performance.now()) – the board's marks win only when newer (audition.svelte.js laneOver) */
+	clipsAt: 0,
 	/** video lengths read from their metadata (url → ms) where the API had none */
 	known: {},
 	/** the in / out pair in the main view (TrimPair) while a trim runs and a moment after: { n (the gesture), id (the
@@ -60,7 +62,7 @@ export function timelineOf(mode) {
 	const live = id && hh.docShot === id && hh.doc ? { [id]: liveTake() } : {};
 	const ids = pickedShots();
 	// the board's marks (the status bullets) and the audition (the current shot's Generated clip = the current card)
-	const { lane, span, probe } = clipsLane(ids, mode, tl.clips, tl.known, live, laneOver(ids));
+	const { lane, span, probe } = clipsLane(ids, mode, tl.clips, tl.known, live, laneOver(ids, tl.clipsAt));
 	return { mode, lanes: [lane], items: lane.items, span, probe, sel: lane.items.find((i) => i.id === id) ?? null };
 }
 
@@ -79,8 +81,9 @@ async function loadClips() {
 	const chapter = studio.chapter;
 	if (!chapter) return;
 	try {
+		const at = performance.now();
 		const clips = await api('GET', `/api/clips?toon=${toon()}&ch=${ch()}`);
-		if (studio.chapter === chapter) [tl.clips, loadedFor] = [clips ?? {}, chapter];
+		if (studio.chapter === chapter) [tl.clips, tl.clipsAt, loadedFor] = [clips ?? {}, at, chapter];
 		lastError = '';
 	} catch (e) {
 		if (studio.chapter === chapter) tl.clips = {};

@@ -6,9 +6,10 @@
 // card, a source (the render, a layout variant, a take, a dropped file), a running job, a card whose file is gone or
 // another shot's card → no pick: the clip is the chosen, as without the board (timeline-lanes.js clipOf – a rejected
 // video is never its fallback either). Play's end, the board closed by hand (V, the switch, a source's Load) or another
-// step: the chosen again. The marks the board knows give the timeline's Generated clips their status bullets (? review,
-// ✕ rejected – ✓ the chosen comes from GET /api/clips). Images stay stills on the clips lane (STILL_MS) – showing the
-// image.
+// step: the chosen again. The timeline's Generated clips carry status bullets (✓ the chosen, ? review, ✕ rejected): GET
+// /api/clips brings the log's marks; the board's own count instead when it read the log after the clips did (boardMarks
+// – a board closed earlier keeps its records, a mark set since in another window or by hand comes with the clips).
+// Images stay stills on the clips lane (STILL_MS) – showing the image.
 import { statusOf } from './board-layout.js';
 
 /** a record that is a source on the board: a dropped file (board-layout.js bandLayout – an upload without parents) */
@@ -51,6 +52,10 @@ export function marksOf(records = []) {
 	for (const r of records ?? []) if (r?.file && !r.approved && (r.mark === 'review' || r.mark === 'rejected')) marks[r.file] = r.mark;
 	return marks;
 }
+
+/** the board's marks for the clips lane – only when the board read the log after the clips did (`recordsAt` /
+ *  `clipsAt`: when each GET was asked, performance.now()); else null: the clips' own marks (the log's) count */
+export const boardMarks = (records, recordsAt, clipsAt) => (recordsAt >= clipsAt ? marksOf(records) : null);
 
 /**
  * Whether the audition holds now – and whether Play carries it: while the board is open (`open`); Play's switch from

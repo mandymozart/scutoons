@@ -4,9 +4,11 @@
 //   { [shot]: { take: { id, in, out, length, kept } | null,      – the active take while the handheld camera is on (ms)
 //               rendered: [{ file, url, pass, take, ms }],     – _out/<ch>/handheld/<shot>--<take>--<pass>.mp4|webm,
 //                                                                 the newest take first, the beauty pass first
-//               generated: [{ file, url, ms, video, approved }] } } – _out/<ch>/generated/<shot>--g<n>.<ext>, newest
-//                                                                 first; approved = the shot's chosen video and chosen image:
-//                                                                 approve.mjs's `from` (an older approval: the dataset copy's bytes)
+//               generated: [{ file, url, ms, video, approved, mark }] } } – _out/<ch>/generated/<shot>--g<n>.<ext>,
+//                                                                 newest first; approved = the shot's chosen video and chosen image:
+//                                                                 approve.mjs's `from` (an older approval: the dataset copy's bytes);
+//                                                                 mark = the log's last mark ('review' | 'rejected' | null – the
+//                                                                 chosen: null), so the timeline never falls back to a rejected video
 // Shots with nothing are left out. ms = the real duration read from the video file (MP4 / MOV: the mvhd box wherever
 // the moov sits, a fragmented file summed; WebM: the Info's Duration), null = unknown – the client then takes the
 // video's metadata; images: ms null, video false. Everything read is cached by mtime + size, so a chapter with many
@@ -19,6 +21,7 @@ import { createHash } from 'node:crypto';
 import { closeSync, createReadStream, fstatSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, renameSync, rmSync, statSync } from 'node:fs';
 import { basename, relative, resolve, sep } from 'node:path';
 import { pipeline } from 'node:stream';
+import { idOf, logFile, readLog } from '../../scripts/storyboard/generated-log.mjs';
 
 const PASSES = ['beauty', 'depth', 'normals', 'grey']; // api.mjs PASSES – the beauty pass first
 const RENDER = new RegExp(`^([\\w-]+?)--([\\w-]+?)--(${PASSES.join('|')})\\.(mp4|webm)$`);
@@ -279,6 +282,23 @@ export function clipMs(file) {
 	return st ? durationOf(file, st) : null;
 }
 
+/** the marks of a chapter's generated files – generated.jsonl, the last mark line per id wins (generated-log.mjs):
+ *  { [id]: 'review' | 'rejected' }, read again when the log changes; a log that can't be read gives none (not cached –
+ *  the next request tries again), never a failed GET /api/clips */
+function marksOf(out, ch) {
+	const st = statOf(logFile(out, ch));
+	if (!st) return {};
+	try {
+		return cached(`marks:${logFile(out, ch)}`, [st], () => {
+			const marks = {};
+			for (const [id, m] of readLog(out, ch).marks) if (m.mark === 'review' || m.mark === 'rejected') marks[id] = m.mark;
+			return marks;
+		});
+	} catch {
+		return {};
+	}
+}
+
 /** the clips of a chapter's shots (the shape at the top); boards = the storyboards folder, toon / ch as in api.mjs */
 export function chapterClips({ boards, toon, ch }) {
 	if (!/^[a-z0-9-]+$/.test(toon ?? '') || !/^[a-z0-9-]+$/.test(ch ?? '')) throw new Error('bad chapter');
@@ -304,13 +324,17 @@ export function chapterClips({ boards, toon, ch }) {
 		const st = m && statOf(resolve(gd, f));
 		if (!st) continue;
 		const video = VIDEO.test(f);
-		const entry = { file: f, url: `/out/${ch}/generated/${encodeURIComponent(f)}`, ms: video ? durationOf(resolve(gd, f), st) : null, video, approved: false };
+		const entry = { file: f, url: `/out/${ch}/generated/${encodeURIComponent(f)}`, ms: video ? durationOf(resolve(gd, f), st) : null, video, approved: false, mark: null };
 		(generated[m[1]] ??= []).push({ entry, file: resolve(gd, f), st, n: Number(/^g(\d+)$/.exec(m[2])?.[1] ?? 0) });
 	}
+	const marks = marksOf(resolve(boards, '_out'), ch);
 	for (const [id, items] of Object.entries(generated)) {
 		items.sort((a, b) => b.n - a.n || b.st.mtimeMs - a.st.mtimeMs || b.entry.file.localeCompare(a.entry.file));
 		const approved = approvedOf({ boards, ch, shot: id, files: items.map((g) => g.entry.file) });
-		for (const g of items) g.entry.approved = approved.has(g.entry.file);
+		for (const g of items) {
+			g.entry.approved = approved.has(g.entry.file);
+			g.entry.mark = g.entry.approved ? null : marks[idOf(g.entry.file)] ?? null;
+		}
 		at(id).generated = items.map((g) => g.entry);
 	}
 	const fmt = (f) => (f.endsWith('.mp4') ? 0 : 1);

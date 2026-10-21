@@ -3,7 +3,7 @@
 // the clip under the playhead, Play's skip over cut parts, the trim's edge / playhead and I / O.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { clipAt, clipOf, clipsLane, FRAME_MS, isVideo, kept, MODES, movedEdge, STILL_MS, trimAt, trimPoint } from '../src/lib/timeline-lanes.js';
+import { clipAt, clipOf, clipsLane, FRAME_MS, isVideo, kept, markOf, MODES, movedEdge, STILL_MS, trimAt, trimPoint } from '../src/lib/timeline-lanes.js';
 
 const take = { id: 't2', in: 1200, out: 4800, length: 6010, kept: 3600 };
 const clips = {
@@ -38,6 +38,30 @@ test('generated: the approved video, else the newest – an image never', () => 
 	assert.equal(newest.url, '/g/2.mp4');
 	const images = clipOf({ take: null, generated: [clips['sb-1'].generated[0]] }, 'generated');
 	assert.equal(images.source, 'still');
+});
+
+test('generated: the marks from the log (clips.mjs) before the board has the shot – a rejected newest video is skipped, the chosen never; the board marks win once it has the records', () => {
+	const gen = (n, more = {}) => ({ file: `sb-1--g${n}.mp4`, url: `/g/${n}.mp4`, ms: 1000 * n, video: true, approved: false, mark: null, ...more });
+	// no chosen video, the newest (g3) rejected in the log → g2, with its own mark (review)
+	const shot = { take: null, generated: [gen(3, { mark: 'rejected' }), gen(2, { mark: 'review' }), gen(1)] };
+	const c = clipOf(shot, 'generated');
+	assert.deepEqual([c.url, c.gen.id, c.gen.status], ['/g/2.mp4', 'sb-1--g2', 'review']);
+	// the chosen plays even when the log says rejected (a hand-edited log – the studio never rejects the chosen)
+	const chosen = clipOf({ take: null, generated: [gen(3), gen(2, { approved: true, mark: 'rejected' })] }, 'generated');
+	assert.deepEqual([chosen.url, chosen.gen.status], ['/g/2.mp4', 'chosen']);
+	// every video rejected in the log → the next source (the still)
+	assert.equal(clipOf({ take: null, generated: [gen(3, { mark: 'rejected' }), gen(1, { mark: 'rejected' })] }, 'generated').source, 'still');
+	// the board has the shot's records: its marks win – g3 unrejected there (missing = none) plays, without a bullet
+	const board = clipOf(shot, 'generated', {}, { marks: {} });
+	assert.deepEqual([board.url, board.gen.status], ['/g/3.mp4', null]);
+	// … and a mark the board set after the clips were read counts too
+	assert.equal(clipOf(shot, 'generated', {}, { marks: { 'sb-1--g3.mp4': 'rejected', 'sb-1--g2.mp4': 'rejected' } }).url, '/g/1.mp4');
+	// markOf: none for the chosen, the board's when it has the shot, else the log's; old clips data without `mark` = none
+	assert.equal(markOf(gen(1, { approved: true, mark: 'review' })), null);
+	assert.equal(markOf(gen(1, { mark: 'review' }), { marks: { 'sb-1--g1.mp4': 'rejected' } }), 'rejected');
+	assert.equal(markOf(gen(1, { mark: 'review' }), { pick: null, marks: {} }), null);
+	assert.equal(markOf(gen(1, { mark: 'review' }), { pick: null }), 'review');
+	assert.equal(markOf({ file: 'x.mp4', approved: false }), null);
 });
 
 test('rendered: the active take\'s beauty pass (an older take\'s render is not it)', () => {

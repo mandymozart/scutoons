@@ -5,7 +5,7 @@
 // ONE lane: the PICKED shots back to back in toon order, each ONE clip – the clip of the view mode, falling back
 // generated → rendered → take → still (research/TIMELINE.md §1; the clips from GET /api/clips, clips.mjs):
 //   generated: the shot's generated video – the approved one, else the newest (clips.mjs lists the newest first) that
-//              the board doesn't know as rejected;
+//              isn't rejected (markOf: the board's marks once it has the shot's records, else the log's from clips.mjs);
 //   rendered:  the newest handheld render of the active take, its beauty pass;
 //   take:      the active take's kept part (out − in); in Take mode the whole take with its trim (the in / out handles);
 //   still:     STILL_MS (owner: "those without a recorded or rendered video will need a default length").
@@ -15,7 +15,7 @@
 // current shot's `pick` (the board's current card) is its generated clip while the audition holds (the board open, or
 // Play from it – audition.svelte.js), tagged `audition`;
 // an image stays a still (STILL_MS) that shows the image (`clip.image`). Every generated clip carries `gen` { id,
-// status, audition } – its status bullet: ✓ the chosen (approved), ? / ✕ the marks the board knows (`over.marks`).
+// status, audition } – its status bullet: ✓ the chosen (approved), ? / ✕ its mark (markOf).
 import { shortId } from './board-layout.js';
 
 /** a shot without a recorded / rendered / generated clip (owner: "perhapse 5 seconds or 15 sec" – 5) */
@@ -33,7 +33,7 @@ const CHAIN = { shot: ['still'], take: ['take', 'still'], rendered: ['rendered',
 export const isVideo = (source) => source === 'rendered' || source === 'generated';
 
 /** @typedef {{ id: string, in: number, out: number, length: number, kept: number }} TakeIn – ms, as clips.mjs activeTake */
-/** @typedef {{ take?: TakeIn|null, rendered?: { file: string, url: string, pass: string, take: string, ms: number|null }[], generated?: { file: string, url: string, ms: number|null, video: boolean, approved: boolean }[] }} ClipsIn */
+/** @typedef {{ take?: TakeIn|null, rendered?: { file: string, url: string, pass: string, take: string, ms: number|null }[], generated?: { file: string, url: string, ms: number|null, video: boolean, approved: boolean, mark?: string|null }[] }} ClipsIn */
 /** @typedef {{ id: string, file: string, url: string, video: boolean, ms: number|null, status: string|null }} Pick – the audition (audition.js auditionPick) */
 /** @typedef {{ pick?: Pick|null, marks?: Record<string, string> }} Over – a shot's override (audition.svelte.js laneOver) */
 
@@ -47,6 +47,11 @@ function video(source, v, known, take) {
 /** a generated file's id ("sb-2--g3.webm" → "sb-2--g3") */
 const idOfFile = (file) => String(file ?? '').replace(/\.[^.]+$/, '');
 
+/** a generated file's mark: none for the chosen; the board's marks when they are there (`over.marks` – laneOver passes
+ *  them only when the board read the log after the clips did; review / rejected only, so a file missing there has
+ *  none), else the log's from GET /api/clips (clips.mjs) */
+export const markOf = (g, /** @type {Over|null} */ over = null) => (g.approved ? null : over?.marks ? over.marks[g.file] ?? null : g.mark ?? null);
+
 /** one shot's clip in a view mode: { source, length, from, url?, file?, image?, take, probe, gen? } – `probe`: a video of
  *  unknown length (it counts STILL_MS until its metadata is read); `over` = the shot's override (Over) */
 export function clipOf(/** @type {ClipsIn|undefined} */ entry, mode, known = {}, /** @type {Over|null} */ over = null) {
@@ -59,11 +64,11 @@ export function clipOf(/** @type {ClipsIn|undefined} */ entry, mode, known = {},
 				// an image stays a still on the lane (STILL_MS) – the image is its picture
 				return a.video ? { ...video(source, a, known, take), gen } : { source: 'still', image: a.url, file: a.file, length: STILL_MS, from: 0, take, probe: false, gen };
 			}
-			// a video the board knows as rejected is no fallback (§3.5 – rejected cards stay out): the approved, else the
-			// newest of the others, else the next source in the chain
-			const videos = (entry?.generated ?? []).filter((g) => g.video && over?.marks?.[g.file] !== 'rejected');
+			// a rejected video is no fallback (§3.5 – rejected cards stay out): the approved, else the newest of the
+			// others, else the next source in the chain
+			const videos = (entry?.generated ?? []).filter((g) => g.video && markOf(g, over) !== 'rejected');
 			const g = videos.find((x) => x.approved) ?? videos[0];
-			if (g) return { ...video(source, g, known, take), gen: { id: idOfFile(g.file), status: g.approved ? 'chosen' : over?.marks?.[g.file] ?? null, audition: false } };
+			if (g) return { ...video(source, g, known, take), gen: { id: idOfFile(g.file), status: g.approved ? 'chosen' : markOf(g, over), audition: false } };
 		} else if (source === 'rendered') {
 			const r = take && (entry?.rendered ?? []).find((x) => x.take === take.id && x.pass === 'beauty');
 			if (r) return video(source, r, known, take);

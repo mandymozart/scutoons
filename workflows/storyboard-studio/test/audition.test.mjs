@@ -6,7 +6,7 @@
 // and while Play from it runs – not after Play's end, the board closed by hand or another step.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { auditionPick, currentCard, holds, marksOf } from '../src/lib/audition.js';
+import { auditionPick, boardMarks, currentCard, holds, marksOf } from '../src/lib/audition.js';
 import { clipAt, clipOf, clipsLane, labelOf, STILL_MS } from '../src/lib/timeline-lanes.js';
 
 const S = 'sb-25-2';
@@ -50,6 +50,21 @@ test('the marks the board knows, by file – the chosen\'s ✓ comes from the cl
 	assert.deepEqual(marksOf(records), { [`${S}--g2.webm`]: 'review', [`${S}--g5.webm`]: 'rejected' });
 	assert.deepEqual(marksOf([{ file: 'x.webm', approved: true, mark: 'review' }]), {});
 	assert.deepEqual(marksOf(undefined), {});
+});
+
+test('the board\'s marks reach the lane only when the board read the log after the clips did – else the clips\' own (the log\'s)', () => {
+	const marks = { [`${S}--g2.webm`]: 'review', [`${S}--g5.webm`]: 'rejected' };
+	// the board loaded after the clips (a mark set on it): its marks
+	assert.deepEqual(boardMarks(records, 200, 100), marks);
+	assert.deepEqual(boardMarks(records, 100, 100), marks);
+	// a board closed earlier keeps its records – clips asked since (another window's mark, one by hand) win: none
+	assert.equal(boardMarks(records, 100, 200), null);
+	// the lane then reads the clips' marks: g5 rejected in the log is no fallback although the board's old records say none
+	const shot = { take: null, generated: [{ file: `${S}--g5.webm`, url: '/g5', ms: 4000, video: true, approved: false, mark: 'rejected' }, { file: `${S}--g2.webm`, url: '/g2', ms: 3000, video: true, approved: false, mark: 'review' }] };
+	const stale = boardMarks([{ file: `${S}--g5.webm`, approved: false, mark: null }], 100, 200);
+	assert.equal(clipOf(shot, 'generated', {}, stale ? { marks: stale } : null).url, '/g2');
+	const fresh = boardMarks([{ file: `${S}--g5.webm`, approved: false, mark: null }], 300, 200);
+	assert.equal(clipOf(shot, 'generated', {}, fresh ? { marks: fresh } : null).url, '/g5');
 });
 
 test('it holds while the board is open and while Play from it runs – not after Play\'s end, by hand or another step', () => {
