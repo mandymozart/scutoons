@@ -21,6 +21,7 @@ import {
 import type { Config } from './config.ts';
 import type { AppLinks } from './services.ts';
 import { apiMessage } from './server.ts';
+import { summarizeUnused } from './unused.ts';
 
 type Result = { content: { type: 'text'; text: string }[]; isError?: boolean };
 const text = (value: unknown): Result => ({ content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value, null, 1) }] });
@@ -329,6 +330,30 @@ export function registerAdminTools(server: McpServer, config: Config, options: {
 			const [settings, recipients] = await Promise.all([admin.settings(), admin.emailRecipients().catch(() => null)]);
 			return text({ settings: settings.items, mail_admin_recipients: recipients?.items ?? null });
 		})
+	);
+
+	// ── assets ──────────────────────────────────────────────────────────────────────────────────────────────────────
+
+	server.registerTool(
+		'unused_files',
+		{
+			description:
+				'Assets → Unused (read only): the storage files no content uses – what a cleanup in the admin could delete. Groups (a map tile set as one group, other files by folder) with files, bytes and kind (`current` unreferenced file, `old` left by a rename, `archive` old bytes of a replace), the totals; `files: true` lists the files (path, size), paged. The list comes from the usage index (published + newest draft, not older versions). Nothing is deleted here – the admin does that in Assets → Unused.',
+			inputSchema: z.object({
+				folder: z.string().optional().describe('a top-level folder ("catpope") or a path prefix with a "/" ("catpope/s1/c2")'),
+				kind: z.enum(['image', 'video', 'audio', 'archive', 'document', 'model', 'other']).optional(),
+				what: z.enum(['asset', 'files']).optional().describe('asset = whole assets nothing uses; files = leftovers of a used asset'),
+				tiles: z.enum(['all', 'hide', 'only']).optional().describe('map tile sets: all (default), hide, only'),
+				q: z.string().optional().describe('slug contains'),
+				files: z.boolean().optional().describe('also list the files, sorted by path'),
+				offset: z.number().int().min(0).optional(),
+				limit: z.number().int().min(1).max(2000).optional().describe('files per answer, default 500')
+			}),
+			annotations: read
+		},
+		guard(async ({ folder, kind, what, tiles, q, files, offset, limit }) =>
+			text(summarizeUnused(await assets.unused(query({ all: 1, folder, kind, what, tiles: tiles ?? 'all', q })), { files, offset, limit }))
+		)
 	);
 
 	// ── changes: a proposal the admin applies (agents/MCP.md "Draft → link") ───────────────────────────────────────────────────────────────────────────

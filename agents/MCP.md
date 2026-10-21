@@ -289,3 +289,9 @@ in `test/`) + `storyboard-refs.ts` (the files on the member's machine). Content 
 - `read_entity` / `validate` / `save_draft` take the kinds like any localized document; a character's or place's Kanon
   text (no toon) uses the universe's languages (every toon's, `de` first – `universeLanguages`). `validate` warns on an
   unknown heading, one twice or out of order. `check:mcp` covers the resource, a Kanon validate and a character's read.
+
+## 11. Unused storage files (#152, 2026-10-21)
+- `unused_files` (admin, read only – src/unused.ts): the admin's Assets → Unused list (`GET /admin/assets/unused?all=1`,
+  the API decides who may) as groups (a map tile set as one, else by folder; files, bytes, what) + totals; `files: true`
+  lists path / size, paged. Index = published + newest draft only, so check older versions before proposing a delete.
+  No delete tool: the cleanup stays in the admin.
