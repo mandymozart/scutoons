@@ -225,6 +225,22 @@ final class AssetsTest extends TestCase
         self::assertSame(0, $perFile['catpope/videos/s1-trailer-loop.1920w.mp4']);
     }
 
+    public function testVaultPathsAreNotMissing(): void
+    {
+        // #157: the vault (scores/, albums/) is the protected storage the rescan doesn't list – not a missing file
+        $store = $this->get(CatalogStore::class);
+        $store->save('albums', 'v', (object) ['id' => 'v', 'title' => (object) ['en' => 'V'], 'tracks' => [], 'download' => 'albums/v/v.zip'], 'test');
+        $store->save('albums', 'g', (object) ['id' => 'g', 'title' => (object) ['en' => 'G'], 'tracks' => [], 'download' => 'catpope/audio/gone.zip'], 'test');
+        $this->scan();
+        $usages = $this->get(AssetUsages::class);
+        $missing = $usages->missing();
+        $paths = array_column($missing, 'path');
+        self::assertNotContains('albums/v/v.zip', $paths, 'a vault usage is not missing');
+        self::assertContains('catpope/audio/gone.zip', $paths, 'a normal path without a file still is');
+        self::assertContains('albums/v/v.zip', array_column($this->get(AssetRegistry::class)->usagesOf(['albums/v/v.zip']), 'path'), 'the vault usage stays in the index');
+        self::assertSame(array_sum(array_map(fn(array $m) => count($m['usages']), $missing)), $usages->rebuild()['missing'], 'the scan count skips the vault too');
+    }
+
     public function testDeleteIsRefusedWhileReferenced(): void
     {
         $this->fixture();

@@ -98,7 +98,7 @@ the BACKLOG draft's `/<toon>/…` is not written; a leading `/` still resolves, 
 | relink | every use of path A → existing path B: content gets a new **draft** per entity (`publish: true` publishes when the newest version was the published one), catalog entries are updated in their table (validated, catalog_history; a refused one is listed as manual) | admin |
 | rename | copies the current files to the new slug (markers / extensions kept), new version, relink; old files stay with the archived version until nothing uses them | admin |
 | delete | the delete check (uses by state); published / catalog uses block, draft-only uses need `force`; deletes all versions' files + purges; the row stays `deleted` for history | admin |
-| missing / orphans | uses whose file the registry doesn't know · current files nothing references | admin page, API |
+| missing / orphans | uses whose file the registry doesn't know (vault paths – `scores/`, `albums/`, `ProtectedFiles::inVault` – are skipped: the rescan doesn't list the protected storage) · current files nothing references | admin page, API, MCP `missing_assets` |
 | cleanup | admin → Assets → Unused (owner 2026-10-03: "clean up the CDN"): per asset the files nothing references (index rebuilt first) – whole unused assets, unused renditions of used assets (never their source), files left behind by a rename, replace archives under `.versions/`; select rows (or all matching) → one in-page confirm → `POST /admin/assets/cleanup` in batches of 25 files – the first rebuilds the index, each skips anything referenced by now | admin |
 | jobs | queued in the admin / CLI, run by `php bin/console assets:jobs` where ffmpeg is (the owner's machine): download the source, transcode, upload next to it, register | admin, CLI |
 
