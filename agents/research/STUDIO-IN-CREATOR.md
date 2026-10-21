@@ -1,4 +1,4 @@
-Status 2026-10-20: concept agreed – the switch runs now (§4: the model, the data, the page + the 3D view first; the generators second, keys from the owner); question 7 (taste rules) open. Issue #118.
+Status 2026-10-21: built over night – #119–#127 (part 1) committed on main, not pushed; open: #127 part 2 (after the ch3 art freeze), #128 the removal (after the owner's OK), question 7 (taste rules). Issue #118.
 
 # STUDIO-IN-CREATOR – the storyboard studio as part of the creator (concept, 2026-10-20)
 

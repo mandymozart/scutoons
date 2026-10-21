@@ -45,23 +45,23 @@ State 2026-10-12. How agents work: agents/RULES.md. Open work: GitHub issues + t
   The sketch → 3D experiment is removed; its learnings: research/CHARACTERS3D.md.
 
 ## Last run
-2026-10-18 evening, unattended on `main`: custom collage presets (research/COLLAGE.md §12, steps 1–6, one agent each).
-- **Built** ("Next: 'Save as preset' – my own colourations as named presets … applied to any piece"): the platform-wide
-  document `colorations`; the server bakes custom presets into the chapter and score answers (readers unchanged); the
-  creator draws / edits / checks them on slices and the score stage, and the chapter / season / toon / score Publish
-  lists offer "Collage presets"; the preset grid previews each look on the piece ("in dem Wort auf dem Selector zeigen,
-  was das dann wird") + Save as preset … · Update preset · ••• Rename / Delete; the MCP validates and judges presets.
-  §12.8's defaults (FEATURES 10.105); changed from the spec: from the 6th custom preset (measured) a "Custom (n)" fold.
-- **Final review** (2 lenses) → fixed: an unsaved presets copy is offered at load (chapter editor and score stage, next
-  to the page's Recover bar); a score's catalog page lists "Collage presets" in Publish; a name never ends in half an
-  emoji (the server refused the document); Rename selects the old name. The minors left: COLLAGE §12.9 "Open".
-- **Where:** steps 1–4 and the phone item / piece tool fix are on production since your push this evening. Not pushed,
-  rebased on origin/main (2026-10-19): the autosave fix, the MCP part (live after the MCP's next restart), the docs, the
-  final-review fixes – 10 commits.
-- **Green:** content 319 tests; creator 0 / 0, 105 tests; @scutoons/ui 0 / 0; viewer 0 errors (11 old warnings), 143
-  tests; per step: PHPUnit of the touched classes (74 tests) + PHPStan, `check:creator-collage` 51/51,
-  `check:creator-chapter -- --pieces` (catpope 4 slice 1: phone 10/10, recover 5/5; its 2 old misses: anchor top-left,
-  scale handle), `check:mcp` 48/48 – `colorations` cleaned up. By hand on a slice: the grid's previews, Save as preset,
-  Rename, Delete (the tombstone), both Recover bars at load.
-- **Red:** `check:tools-css` 16 old lines (map editor, phone-bar, bar-tabs), none in a touched file; no new backlog
-  item added (the 58 open ones are GitHub issues #3–#60 since 2026-10-19).
+2026-10-20 night → 10-21, unattended on `main`: the storyboard studio moved into the creator (#118, owner: "now over night").
+- **Built** (research/STUDIO-IN-CREATOR.md §4): the model `@scutoons/content/storyboard` (#119, parity-tested against the
+  old JS); `storyboard:<toon>:<n>` + `storyboard_generations` (= the budget ledger) + ch3–5 imported + the work storage
+  on the API host (#120); the creator page /<toon>/chapter/<n>/storyboard – shots, inspector, script, problems, rhythm,
+  the member's workspace folder (#123); the three.js 3D view (#124); generators through the server (Luma images,
+  Runway) with the budget gate in admin → Settings + the Generate panel (#121); the MCP's storyboard tools incl.
+  start_generation (#122); the variants board + Compare (#125); the phone camera at /h/<code> (WebRTC), takes, the
+  timeline, Output (#126) – the creator's pages moved into the route group `(app)`, URLs unchanged; the local kit part 1
+  – the Figma relay inside the MCP (never auto-started from a checkout), the plugin download, generate_local, "Set up
+  your machine" (#127).
+- **Owner steps:** GitHub secrets LUMA_API_KEY / RUNWAY_API_KEY (+ GEMINI) and an amount in admin → Settings →
+  Generation budget (until then paid jobs answer no_budget); measure the API host's request limit + disk (#120).
+- **Look at:** the storyboard page on ch3 (the import ran with the 10-20 night push – edits made in the old local studio
+  since then are not in it); the 3D view; the phone camera on a real phone.
+- **Assumed overnight, owner to confirm** (DECISIONS): the old studio stays until you have used the creator's (#128);
+  ✓ approves without a dialog and "the mark before" lasts a session (#125); the import stored ch3–5 as published versions.
+- **Open:** Q7 taste rules (#118); #127 part 2 after the art freeze (figma-* scripts → MCP tools, then the switch –
+  MCP.md §3a); #128 the removal.
+- **Green:** content 352 tests; creator 0 / 0 + 260 tests + build; PHPUnit 474 / 5629 + PHPStan; tools/mcp 35 tests +
+  build:mcp; admin 0 / 0; viewer 0 errors (11 old warnings) + 147 tests; figma-bridge test.mjs 29. Not pushed.
