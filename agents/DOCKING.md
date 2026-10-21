@@ -1,4 +1,4 @@
-# DOCKING – one layout model for the tool shell (creator, admin, embassy, the storyboard studio)
+# DOCKING – one layout model for the tool shell (creator, admin, embassy)
 
 Owner 2026-10-06: "these areas should all behave a bit more like in Blender or here in the Claude Code desktop app, so we
 don't have to deal with their sizing and collapsing individually. Closing them is a different story." Status: approved
@@ -19,7 +19,7 @@ fold and maximize = "fold everything else": BACKLOG 10.57 (owner 2026-10-07, bel
  │ folds to │╫  folds to a rail only by hand  │╫ (e.g. │ Flow       │╫ Reader     │╫ Info)   │
  │ a rail   │╫  (10.57)                       │╫                                            │
  │          │╠════════════════════════════════╧╩═════════════╧╩═════════════╧╩═════════════╡
- │          │╫ BOTTOM (fill mode only) under the main AND the dock: e.g. the studio's      │
+ │          │╫ BOTTOM (fill mode only) under the main AND the dock: e.g. the storyboard's  │
  │          │╫ timeline; its top edge a Divider; folds to a horizontal rail                │
  ├──────────┴╫─────────────────────────────────────────────────────────────────────────────┤
  └──────── bottom ActionBar (page actions – stays, also while maximized) ──────────────────┘
@@ -27,7 +27,7 @@ fold and maximize = "fold everything else": BACKLOG 10.57 (owner 2026-10-07, bel
 ```
 
 - **Regions tile, never overlap** (from 768px): every open region pushes its neighbour; nothing is positioned over the
-  page. The shell (`@scutoons/ui` `AppShell`, in creator, admin, embassy AND the storyboard studio) owns the grid:
+  page. The shell (`@scutoons/ui` `AppShell`, in creator, admin and embassy) owns the grid:
   `sidebar | content | dock` (`--sc-shell-columns`), in fill mode with an optional row under content and dock ("Bottom
   region"). Pages never position panels themselves.
 - **Panels live in regions**: a component hands its open panel to the right dock with `useDock(() => ({ kind, panel |
@@ -86,7 +86,7 @@ fold and maximize = "fold everything else": BACKLOG 10.57 (owner 2026-10-07, bel
   1. **One per kind, a fixed place** (`DOCK_ORDER`, from the main outwards): list detail · History · Problems · Flow ·
      Reader · Info. What belongs to the page's document sits next to it, the Flow drives the main, the Reader
      shows the result, help is outermost. A panel opens in its place – nothing jumps when another opens or
-     closes (Blender's areas, not a tab stack); an app's own kinds (the storyboard studio's panels) between the
+     closes (Blender's areas, not a tab stack); an app's own kinds (the Storyboard page's panels) between the
      Reader and Info by their `order` (0–499, clamped – never past Info), equal places by opening order.
   2. **Each panel is a region of its own**: its header (title – cut with … first when narrow –, its buttons), its
      `DockFold` (fold to its rail, maximize), its ✕, and a `Divider` on its left edge; dragging it resizes that panel
@@ -116,11 +116,11 @@ fold and maximize = "fold everything else": BACKLOG 10.57 (owner 2026-10-07, bel
   is wide: the button 1rem from the left, icon, label) by the page's fold button (a `FoldButton side="bottom"` in the
   page's own header – the shell has none) or a drag below 60 % of the normal height; a drag from the rail only opens
   it. A rail while any region is maximized (a click on it restores). On its rail it stays MOUNTED (laid out at its
-  height, hidden). Height remembered per key; the fold is the page's to remember (the studio: per step). Ctrl+Space
+  height, hidden). Height remembered per key; the fold is the page's to remember (the Storyboard page: per step). Ctrl+Space
   inside it or on its edge does nothing (it maximizes nothing; Esc and Ctrl+Space still restore). Toasts sit above it
   while it shows (`--sc-shell-bottom-lift` on the root, read by `ToastStack`). Phones: hidden (still mounted) – the
-  dock covers the page there; the studio is a desktop tool. First user: the storyboard studio's timeline – the shared
-  `Timeline` (`@scutoons/ui` timeline.svelte, research/TIMELINE.md), which the creator adopts later.
+  dock covers the page there. User: the creator's Storyboard page's timeline – the shared `Timeline` (`@scutoons/ui`
+  timeline.svelte, research/TIMELINE.md).
 - **ONE `Divider`** (`@scutoons/ui` divider.svelte) for every drag edge: `role="separator"`, 0.75rem hit zone on the
   2px border, 3px ink line on hover / focus, pointer drag, ← / → 16 px (Shift 64; the bottom region's top edge ↑ / ↓),
   Home or double-click = normal size, `html.sc-resizing` during a drag. It drives any size object (`resizable`,
@@ -145,7 +145,7 @@ fold and maximize = "fold everything else": BACKLOG 10.57 (owner 2026-10-07, bel
   16rem), `:meta` (meta pages, 24rem), `:flow` (every level, 28rem), `:info` (16rem), `:detail` (admin list detail,
   24rem), `:slice-inspector` (22rem), `sc-script-outline-width` (16rem) / `-folded`,
   `sc-sheet-width:<kind>` (right drawers: picker, assets, history, problems, asset, form), the bottom region's height
-  per `panelHeight` key (`storyboard-studio:timeline`, 12rem). Normal size = the minimum; max = half the window
+  per `panelHeight` key (`sc-panel-height:storyboard-timeline`, 10rem). Normal size = the minimum; max = half the window
   (sidebar a third; the inspector half the editor's area; the bottom region half the shell's frame).
 - **Running out of room** – who gives way, in order (10.57: several panels):
   1. the sidebar never folds for room by itself (decision 1); it folds only while the page's `foldWhen` holds (no page
@@ -154,7 +154,7 @@ fold and maximize = "fold everything else": BACKLOG 10.57 (owner 2026-10-07, bel
      20rem) next to the sidebar and the other panels (`panelWidth.room`, set by the shell);
   3. the open panels get narrower together – each by the same share of what it is above its floor – down to 12rem each
      (or its normal width, if smaller), while the main keeps `minContent`; a kind whose contents collide below that sets
-     its own floor, `DockPanel.min` in rem (the storyboard studio's inspectors) – it folds sooner instead;
+     its own floor, `DockPanel.min` in rem (the Storyboard page's inspectors) – it folds sooner instead;
   4. even the floors don't fit: the LEAST RECENTLY USED panel folds to its rail (`dock-rail-squeezed`, not remembered),
      then the next – the newest you opened always shows. A click on a squeezed panel's rail makes it the most recently
      used: it comes back and the now least recently used folds instead;
@@ -216,7 +216,7 @@ fold and maximize = "fold everything else": BACKLOG 10.57 (owner 2026-10-07, bel
 | Area | Where | Region | Size / fold / keys | Remembered |
 | --- | --- | --- | --- | --- |
 | Creator menu + page list | `creator/src/routes/(app)/+layout.svelte` (the route group of every page but the phone page /h/; inside the shell's sidebar, no shell fold; DESIGN "Creator navigation") | shell left | the menu 12rem, folds by hand to its icon rail (its foot button, Ctrl+\\; a maximized region rails it); with a page's list (chapter tree …) the region's Divider widens the list; phones: the drawer from the right | `sc-creator-menu-folded`, `sc-sidebar-width:creator(-rail)` |
-| Left sidebar + rail | `shared/ui/src/app-shell.svelte` (admin, the studio) | shell left | `dockRegion`: Divider, 12rem (admin 14rem) … ⅓ window; folds (FoldButton, drag < 60 %, Ctrl+\\); folds by itself for `foldWhen` / a maximized region | `sc-sidebar-width/-folded:<app>` |
+| Left sidebar + rail | `shared/ui/src/app-shell.svelte` (admin) | shell left | `dockRegion`: Divider, 12rem (admin 14rem) … ⅓ window; folds (FoldButton, drag < 60 %, Ctrl+\\); folds by itself for `foldWhen` / a maximized region | `sc-sidebar-width/-folded:<app>` |
 | Chapter tree | in the sidebar (`usePageNav({ sidebar })`) | = sidebar | = sidebar | = sidebar |
 | Script outline | `script/script-editor.svelte` + `script-outline.svelte` | page left | `dockRegion` + Divider + Rail ("Outline"), 16rem … ½ page; above the text < 900px | `sc-script-outline-width/-folded` |
 | Slice inspector | `chapter/chapter-editor.svelte` (`.inspector-region`) | page right | `panelWidth` + Divider, 22rem … ½ the editor's area; below the canvas < 1280px; maximizes | `sc-panel-width:slice-inspector` |
@@ -229,7 +229,7 @@ fold and maximize = "fold everything else": BACKLOG 10.57 (owner 2026-10-07, bel
 | Reader | `reader/reader-dock.svelte` (`kind: 'reader'`) | shell dock | 24rem, DockFold + rail; next to the Flow | `:reader` |
 | Newsletter preview | admin `lib/components/newsletter-preview.svelte` (`kind: 'newsletter-preview'`, #98) | shell dock | 30rem, DockFold + rail, phone / desktop width; between the Reader's place and Info | `:newsletter-preview` |
 | Main (folded) | AppShell `main-rail` (`shellDock.foldMain`) | shell main | by hand: the leftmost panel's "Fold the page", Ctrl+Shift+\; rail with the page's place | not remembered |
-| Bottom region (timeline) | AppShell `bottom` + `panelHeight` (`shell-bottom.svelte`; storyboard studio: `Timeline`, its FoldButton) | shell bottom (fill) | Divider on top, 12rem … ½ the frame; folds (the page's FoldButton, drag < 60 %), a rail while maximized; hidden on phones | `storyboard-studio:timeline`; the fold per step (the studio's) |
+| Bottom region (timeline) | AppShell `bottom` + `panelHeight` (`shell-bottom.svelte`; the Storyboard page: `Timeline`, its FoldButton) | shell bottom (fill) | Divider on top, 10rem … ½ the frame; folds (the page's FoldButton, drag < 60 %), a rail while maximized; hidden on phones | `sc-panel-height:storyboard-timeline`; the fold per step (the page's) |
 | Right drawers | `shared/ui/src/sheet.svelte` (`side="right"`) | modal | Divider inside the drawer, normal … ½ window | `sc-sheet-width:<kind>` |
 
 Gone with the migration: the creator's `usePageDock` / `nav.dock` (→ `useDock`), AppShell's `dock` / `dockSize` props,

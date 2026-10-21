@@ -1055,19 +1055,19 @@ Three kinds, three places; none moves the layout:
   rotation, Over / Behind (scores), blend + opacity, fill, outline, shadow, blur. The effect fields show the piece as
   drawn (clearing a look's effect = off); ≤ 3 controls a line.
 
-### Steps and the timeline (owner 2026-10-19, research/STUDIO-LAYOUT.md, research/TIMELINE.md) – the storyboard studio; the creator later
+### Steps and the timeline (owner 2026-10-19, research/STUDIO-LAYOUT.md, research/TIMELINE.md) – the creator's Storyboard page
 
-- **Steps** (the studio): a square tab row in the top bar (`.sc-seg`, the current one inverted, its number key before
+- **Steps** (the Storyboard page): a square tab row in the top bar (`.sc-seg`, the current one inverted, its number key before
   the word – keys 1–6 outside text fields); a step is a remembered SET of what is open over ONE layout ("it makes sense
   for it to always look the same"): the sidebar, the main view and the dock keep their places, only the open panels,
   the inspector's tab, the timeline's fold and the widths differ per step. The step's panels: an icon group
   (`.sc-seg` square, `aria-pressed`) right of the steps; T / N toggle the sidebar / the step's panels (Blender).
 - **Panel head** (every dock panel, the creator's): icon + title (cut with …), `DockFold` (the leftmost: Fold the page),
   maximize, ✕; an inspector's tab row (`Segmented` stretch) directly under the head.
-- **Buttons outside the creator** (the studio, owner 2026-10-19: "Use the dogma from the creator please"): the creator's
-  button rules (creator +layout "Creator-wide controls") – ink primary, `.secondary`, `.ghost`, disabled 0.5, one control
-  height – also in workflows/storyboard-studio `buttons.css` (on its ink phone page inverted); never a native-looking
-  control: sliders, checkboxes and file inputs become `ScrubNumber`, `Segmented` and a slot with a button.
+- **Buttons** (owner 2026-10-19: "Use the dogma from the creator please"): the creator's button rules (creator +layout
+  "Creator-wide controls") – ink primary, `.secondary`, `.ghost`, disabled 0.5, one control height – also on the phone
+  page of the handheld camera (inverted on ink); never a native-looking control: sliders, checkboxes and file inputs
+  become `ScrubNumber`, `Segmented` and a slot with a button.
 - **Timeline** (`@scutoons/ui` Timeline in the AppShell's bottom region, DOCKING "Bottom region"): a linear time axis
   (ms; the ruler's ticks 1-2-5, markers = scene / bar / row labels with a line), lanes with a 5rem label column; a tall
   lane carries pictures (the app draws an item's inside); the selected item inverted, the playhead an ink line;
@@ -1075,11 +1075,11 @@ Three kinds, three places; none moves the layout:
   selection in a lane, Ctrl + wheel / + / − zoom, 0 fits; a kept part (trim, TIMELINE §4 way C) has in / out lines with bracket cursors and a tab, a slip bar
   (or Alt-drag), hold-to-zoom to frames, readouts while trimming – the app shows the in / out pair; ← → by the lane's
   step, Shift ×10, Alt ×0.1); a lane can be not selectable (a take: a press seeks); a hover shows the app's preview
-  next to the cursor (the studio: the clip's first frame). No transport in the component – Play, the clock and Space
+  next to the cursor (the Storyboard page: the clip's first frame). No transport in the component – Play, the clock and Space
   belong to the app (the score's pedal keys stay free).
 - **Order is space, time is clips** (owner 2026-10-19: "every scene is first of all spatial in the webtoon … the left side
-  is our timeline vertically, the toon order"): a list in reading order (the studio's shot list, the creator's slices)
-  is the order; a time axis only for what really runs – clips, takes, videos, audio, live. The studio's timeline shows
+  is our timeline vertically, the toon order"): a list in reading order (the storyboard's shot list, the chapter's slices)
+  is the order; a time axis only for what really runs – clips, takes, videos, audio, live. The storyboard's timeline shows
   the picked shots' clips; the view mode Shot · Take · Rendered · Generated (a square `Segmented`, like Blender's viewport
   shading) says which clip and what the main view shows.
 

@@ -12,9 +12,9 @@
 //     mark: null, marked: null, error? (a failed job's message), params? (the generator's own settings: comfy's LoRA …) }
 //   a mark line { v: 2, id, mark: 'review' | 'rejected' | null, marked: '<date-time>' | null } – the last per id wins
 //   (approve appends mark: null; chosen is no mark – approve.mjs's `from` in the dataset manifest).
-// Old lines (no `v`) are converted once by workflows/storyboard-studio/scripts/convert-generated-log.mjs; one still
-// there is never read as a record (the studio lists its file under "earlier – no record").
-// Writers: generators/jobs.mjs, the studio's drops (generated.mjs), comfy.mjs, gemini.mjs. Plain Node, no dependencies.
+// Old lines (no `v`) are never read as a record (the old studio's one-off converter went with it, #128).
+// Writers: comfy.mjs, gemini.mjs (the creator keeps its own record: @scutoons/content storyboard/generations.ts). Plain
+// Node, no dependencies.
 
 import { randomInt } from 'node:crypto';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';

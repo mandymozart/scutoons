@@ -585,7 +585,7 @@ library's cache, nothing to invalidate).
 
 ## Storyboard (2026-10-20, #120 / #121 – migrations `2026-10-20-storyboard-generations`, `2026-10-20-storyboard-import`, `2026-10-21-storyboard-provider-jobs`)
 
-The storyboard studio's data on the server (agents/research/STUDIO-IN-CREATOR.md §2.2). Content editors (creator, admin:
+The storyboard's data on the server (agents/research/STUDIO-IN-CREATOR.md §2.2). Content editors (creator, admin:
 `401` / `403 forbidden { role: "creator" }`); an AI connection reads and writes all of it (only the admin's emptying is
 refused). Code: `Domain\Storyboard\{Generations, GenerationJobs, GenerationBudget, EuroRates, RefLinks, WorkStorage}`,
 `Domain\Storyboard\Generators\*`, `StoryboardController`.

@@ -1,4 +1,4 @@
-Status 2026-10-21: built over night – #119–#127 (part 1) committed on main, not pushed; open: #127 part 2 (after the ch3 art freeze), #128 the removal (after the owner's OK), question 7 (taste rules). Issue #118.
+Status 2026-10-21: built over night – #119–#127 (part 1) committed on main, not pushed; open: #127 part 2 (after the ch3 art freeze), #128 part 1 done 2026-10-21 (the studio, `dev:studio`, the old renderer, approve.mjs deleted), its rest with #127 part 2, question 7 (taste rules). Issue #118.
 
 # STUDIO-IN-CREATOR – the storyboard studio as part of the creator (concept, 2026-10-20)
 
@@ -255,8 +255,8 @@ menus or editors – only the camera, the pose sensor and the channel.
 | convert-624.mjs, figma-reslice, figma-clean-slices, convert-generated-log.mjs | **deleted** once their one run is done | one-offs; no re-cut tooling for 625 (DECISIONS 2026-10-20) |
 | outline.py | stays a local tool (Python, like the `cdn/` tools) or goes into the asset pipeline | makes character outlines once per image |
 | rhythm-report.mjs | content function + a thin CLI | measures existing chapters |
-| workflows/storyboard-studio (all of it), `dev:studio`, ports 14000 / 14443 | **deleted** after S5 | replaced by the creator page |
-| scripts/storyboard model files, tools/storyboard-render | **moved** (a move, not a copy – PLATFORM "dogmas") | §2.1 |
+| workflows/storyboard-studio (all of it), `dev:studio`, ports 14000 / 14443 | **deleted** 2026-10-21 (#128) | replaced by the creator page |
+| scripts/storyboard model files, tools/storyboard-render | **moved** (a move, not a copy – PLATFORM "dogmas"); the renderer's old JS + approve.mjs deleted 2026-10-21, the model files + spec.js / text-presets.js stay while the ch3 scripts import them (#128 after 11-10) | §2.1 |
 | `storyboards/<toon>/*.json`, `takes/`, `dataset/` | **deleted** after the import | the entity / table are the truth |
 | `storyboards/_out` | the owner's local folder, deletable | never tracked |
 | `lib.mjs` readEntity (`docker exec`), `mediaRoot` | **deleted** | the API, the CDN |

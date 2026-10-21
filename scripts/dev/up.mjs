@@ -27,9 +27,7 @@ const SERVICES = [
 	{ name: 'creator', path: '/', cmd: 'npm run dev -w creator' },
 	{ name: 'admin', path: '/', cmd: 'npm run dev -w admin' },
 	{ name: 'shop', path: '/', cmd: 'npm run dev -w shop' },
-	{ name: 'embassy', path: '/', cmd: 'npm run dev -w embassy' },
-	// the storyboard studio (workflows/storyboard-studio): a local workflow tool, only on request
-	{ name: 'studio', path: '/', cmd: 'npm run dev -w workflows/storyboard-studio', skip: 'off (npm run dev -- studio, or npm run dev:studio)' }
+	{ name: 'embassy', path: '/', cmd: 'npm run dev -w embassy' }
 ].map((s) => ({ ...s, port: PORTS[s.name] }));
 for (const name of Object.keys(PORTS)) if (!SERVICES.some((s) => s.name === name)) throw new Error(`shared/dev-ports.json: no start command for "${name}" in scripts/dev/up.mjs`);
 

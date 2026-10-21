@@ -11,8 +11,7 @@
 		"shop",
 		"embassy",
 		"shared/*",
-		"tools/*",
-		"workflows/storyboard-studio"
+		"tools/*"
 	],
 	"engines": {
 		"node": ">=22"
@@ -54,7 +53,6 @@
 		"dev:admin": "npm run dev -w admin",
 		"dev:shop": "npm run dev -w shop",
 		"dev:embassy": "npm run dev -w embassy",
-		"dev:studio": "npm run dev -w workflows/storyboard-studio",
 		"dev:api": "node server/bin/dev-serve.mjs",
 		"dev:qr": "php scripts/dev/php-serve.php qr qr/public qr/public/router.php",
 		"check": "npm run check:ports && npm run check:tools-css && npm run check:boot && npm run check --workspaces --if-present",

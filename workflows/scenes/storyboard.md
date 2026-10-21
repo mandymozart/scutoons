@@ -88,7 +88,7 @@ monospaced typewriter face; scene headings appear as such boxes ("2 INT. SCHLAFZ
 - `air`: `[[from %, to %], …]` along the shot – zones with nothing to read (sky, snow, darkness, a colour field). A pure
   transition shot is `[[0, 100]]`.
 - `figures`: `cast` = a ref from the storyboard's `cast`; x across, y along the shot (0…1), h = figure height as a
-  fraction of the **screen**. `ground: false` keeps a figure in the air where it is drawn (the studio sets it when a
+  fraction of the **screen**. `ground: false` keeps a figure in the air where it is drawn (the 3D view sets it when a
   hand camera would otherwise put a floating figure on the ground).
 - `figures[].pose` (the 3D mannequin of the schematics takes it): `stand` · `walk` · `run` · `jump` · `fall` · `slip` ·
   `crouch` · `kneel` · `crawl` · `sit` · `lie` · `reach` · `point` · `throw` · `cast` (both hands forward – the energy
@@ -105,8 +105,8 @@ monospaced typewriter face; scene headings appear as such boxes ("2 INT. SCHLAFZ
 - `prompt`: `{ "en": "…" }` – only for shots that want `generated`: the image in English, concrete (what, where, who,
   light), without text or lettering; `prompts.mjs` builds the full prompt around it (format, framing, figures, air,
   the toon's style block).
-- `review`: the owner's verdict – `{ "status": "ok" | "change", "note": "…", "date": "…" }` (`approve.mjs`); an open
-  `change` shows as a warning until it is done. An approved shot goes into `storyboards/dataset/` (for training later).
+- `review`: the owner's verdict – `{ "status": "ok" | "change", "note": "…", "date": "…" }` (approved in the creator's
+  Storyboard page); an open `change` shows as a warning until it is done.
 - `items`, `events`, `audio`: the chapter's own types (SliceItem, VNEvent, audio) – only where the script asks.
 
 ## The storyboard file
