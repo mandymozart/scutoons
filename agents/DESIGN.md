@@ -806,7 +806,9 @@ The creator is a hierarchy: **toon → season → chapter → group (scene) → 
   Script · Credits · Settings. The chapter editor and the cover editor have their own frames.
 - **Phones** (< 768px, like the reader): one row – mark (home) · the place's name as a small text button (in the chapter
   editor the group = the scene, not the slice – the editor scrolls through a group's slices; `path-menu.svelte`) that
-  drops the whole path down, one level per row, indented (owner 2026-10-20) · the page's end (the strip editor's
+  drops the whole path down, one level per row, indented (owner 2026-10-20); on a toon's own pages the toon picker
+  instead – avatar · name · a small chevron, no frame; another toon opens the same tab (`toon-switch.svelte`, owner
+  2026-10-21) · the page's end (the strip editor's
   ⚠ · Save · Publish · •••) · on the dashboard search + notifications · ☰ on the right. ☰ slides the menu in from the
   right (`AppShell drawerSide="right"`): the areas, the page's own list, "Recent" (this browser's last places,
   `recent.svelte.ts`); at its foot search, notifications, the text language and the page's tools.

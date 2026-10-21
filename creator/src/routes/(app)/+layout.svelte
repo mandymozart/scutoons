@@ -44,6 +44,7 @@
 	import AreaMenu from '$lib/components/page/area-menu.svelte';
 	import ToonTabs from '$lib/components/toon/toon-tabs.svelte';
 	import PathMenu from '$lib/components/page/path-menu.svelte';
+	import ToonSwitch from '$lib/components/toon/toon-switch.svelte';
 	import { recent } from '$lib/recent.svelte.ts';
 	import { reviews } from '$lib/editor/reviews.svelte.ts';
 	import TextLanguageSwitch from '$lib/components/text/text-language-switch.svelte';
@@ -437,6 +438,9 @@
 					<a class="brand" href="/" title={m['creator.dashboard']()} aria-label={m['creator.dashboard']()} data-testid="creator-brand">{@render logo()}</a>
 					{#if !phone.current}
 						<Breadcrumbs items={nav.crumbs} label={m['creator.breadcrumb']()} moreLabel={m['creator.breadcrumb_more']()} plain />
+					{:else if toonTabs && toonId}
+						<!-- phones on a toon's own pages: the toon picker (avatar · name · chevron) -->
+						<ToonSwitch toons={nav.toons} toon={toonId} />
 					{:else if nav.crumbs.length > 1 && phoneTitle}
 						<!-- phones: the place's name (a chapter: its scene); the whole path drops down from it -->
 						<PathMenu items={nav.crumbs} current={phoneTitle} />
