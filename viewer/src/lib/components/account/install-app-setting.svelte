@@ -7,8 +7,9 @@
 	// - chromium-menu: Chrome / Brave / Edge without an install event now (installed already, not offered yet): ⋮ → "Install app";
 	// - installed: "You're using the app";
 	// - unsupported: no install here (Chrome on Android, Safari on iPhone; already installed → open it from the home screen).
-	// Nothing only in the creator's Reader frame.
+	// Nothing only in the creator's Reader frame. Not installed: a link to /app, the how-to with pictures (#159).
 	import { install } from '$lib/install.svelte.ts';
+	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 </script>
 
@@ -54,6 +55,9 @@
 				<small>{m['pwa.cannot_install_hint']()}</small>
 			</p>
 		{/if}
+		{#if install.way !== 'installed'}
+			<p class="guide"><a href={localizeHref('/app')} data-testid="install-guide">{m['app.guide_link']()}</a></p>
+		{/if}
 	</fieldset>
 {/if}
 
@@ -88,6 +92,10 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.25rem;
+	}
+	.guide {
+		margin-top: 0.5rem;
+		font-size: 0.875rem;
 	}
 	.share {
 		width: 1rem;
