@@ -558,14 +558,17 @@ final class LibraryTest extends TestCase
         self::assertSame($pieces, $stored['groups'][0]['slices'][0]['pieces'] ?? null, 'the stored chapter is untouched');
     }
 
-    /** The screenplay (creator material) is never in a library answer and saving it changes no reader cache key */
+    /** The screenplays and the Kanon (creator material) are never in a library answer and saving it changes no reader cache key */
     public function testScriptsAreNeverInTheLibrary(): void
     {
         $this->seedToon();
         $answers = fn(bool $draft) => [$this->library()->toon('t', 'de', $draft), $this->library()->chapter('t', 1, 'de', $draft), $this->library()->season('t', 1, 'de', $draft)];
         $before = array_map(fn($a) => [$a->etag, $a->body], $answers(false));
-        $this->doc('t', 'de', 'script.json', ['text' => "    # 1. Kapitel\nGEHEIMES DREHBUCH\n", 'meta' => ['title' => 'Geheim']]);
-        $this->doc('t', 'en', 'script.json', ['text' => 'SECRET SCREENPLAY'], false);
+        $this->doc('t', 'de', 'season-script1.json', ['text' => "    # 1. Kapitel\nGEHEIMES DREHBUCH\n", 'meta' => ['title' => 'Geheim']]);
+        $this->doc('t', 'en', 'season-script1.json', ['text' => 'SECRET SCREENPLAY'], false);
+        $this->doc('t', 'de', 'chapter-script1.json', ['text' => "1   INT. GEHEIM\n"]);
+        // the Kanon (research/KANON.md): creator material too
+        $this->doc('scutoons', 'de', 'kanon/toon.t.json', ['text' => "## Prämisse\nGEHEIMER KANON\n"]);
         self::assertSame($before, array_map(fn($a) => [$a->etag, $a->body], $answers(false)), 'same answers and cache keys after a script publish');
         foreach ([...$answers(false), ...$answers(true)] as $answer) {
             self::assertStringNotContainsString('GEHEIM', $answer->body);

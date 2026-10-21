@@ -74,6 +74,8 @@ export function appLinks(config: Config): AppLinks {
 /** the creator page of a stored document (where the member checks a draft and publishes); null = no page of its own */
 export function creatorHref(links: AppLinks, key: string): string | null {
 	const ref = parseEntityKey(key);
+	// a Kanon text (research/KANON.md): its own page, whatever its subject
+	if (ref?.kind === 'kanon') return `${links.creator}/kanon/${ref.id}`;
 	if (!ref?.toon) return null;
 	const base = `${links.creator}/${ref.toon}`;
 	switch (ref.kind) {
@@ -83,7 +85,10 @@ export function creatorHref(links: AppLinks, key: string): string | null {
 			return `${base}/chapter/${ref.number}/storyboard`;
 		case 'season':
 			return `${base}/season/${ref.number}`;
-		case 'script':
+		case 'season-script':
+			return `${base}/season/${ref.number}/script`;
+		case 'chapter-script':
+			return `${base}/chapter/${ref.number}/script`;
 		case 'cast':
 		case 'credits':
 			return `${base}/${ref.kind}`;

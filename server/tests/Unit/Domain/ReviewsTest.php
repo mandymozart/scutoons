@@ -28,7 +28,7 @@ final class ReviewsTest extends TestCase
         $reviews->guardPublish($writer, EntityKey::parse('chapter:yellowmouse:2:de'), null); // another toon
         $reviews->guardPublish($writer, EntityKey::parse('characters'), null); // platform-wide: never reviewed
         // the language-neutral chapter / season (agents/NEUTRAL.md) belong to the toon like their per-locale keys
-        foreach (['chapter:catpope:2:de', 'script:catpope:de', 'toon:catpope', 'cast:catpope', 'chapter:catpope:2', 'season:catpope:1'] as $key) {
+        foreach (['chapter:catpope:2:de', 'season-script:catpope:1:de', 'chapter-script:catpope:3:en', 'kanon:toon.catpope:de', 'toon:catpope', 'cast:catpope', 'chapter:catpope:2', 'season:catpope:1'] as $key) {
             $this->assertApiError(403, 'review_required', fn() => $reviews->guardPublish($writer, EntityKey::parse($key), null));
         }
         $this->assertApiError(403, 'review_required', fn() => $reviews->guardPublish($writer, EntityKey::parse('chapter:catpope:2:de'), null, true));

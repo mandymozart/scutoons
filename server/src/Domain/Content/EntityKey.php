@@ -17,9 +17,9 @@ use Scutoons\Domain\ApiError;
  *                                        the legacy per-locale documents: read while the entity has no neutral document
  *   locations:<toon>:<l>  routes:<toon>:<l>                            the map
  *   cast:<toon>  credits:<toon>                                        language-neutral, per toon
- *   script:<toon>:<l>                    the toon's screenplay per locale (creator material, CREATOR_ONLY_KINDS)
  *   season-script:<toon>:<n>:<l>  chapter-script:<toon>:<n>:<l>
- *                                        a season's / a chapter's screenplay per locale (creator material; research/KANON.md §3)
+ *                                        a season's / a chapter's screenplay per locale (creator material, CREATOR_ONLY_KINDS;
+ *                                        research/KANON.md §3 – the toon's `script:<toon>:<l>` became season 1's, 2026-10-21-season-scripts)
  *   kanon:<subject>:<l>                  a Kanon text per locale (creator material; subject `toon.<toon>`,
  *                                        `character.<id>[.<persona>[.<look>]]`, `place.<id>` – KANON_SUBJECT_PATTERN; `id` = the
  *                                        subject, `toon` set for a toon's text; research/KANON.md)
@@ -56,7 +56,6 @@ final class EntityKey
         'routes' => [true, false, true],
         'cast' => [true, false, false],
         'credits' => [true, false, false],
-        'script' => [true, false, true],
         'season-script' => [true, true, true],
         'chapter-script' => [true, true, true],
         // one segment: the subject (`character.catpope.human`), then the locale – parse()
@@ -87,7 +86,7 @@ final class EntityKey
      * `/api/entities`, role creator) and the production seed (`import-content --sql`) leaves them out unless `--only`
      * names them (agents/DATA.md "Script"). The storyboards (#120) too: their working material, never a reader's.
      */
-    public const CREATOR_ONLY_KINDS = ['script', 'storyboard', 'season-script', 'chapter-script', 'kanon'];
+    public const CREATOR_ONLY_KINDS = ['storyboard', 'season-script', 'chapter-script', 'kanon'];
     /** a Kanon text's subject segment (no id holds a dot, so a key never reads two ways; @scutoons/content KANON_SUBJECT) */
     public const KANON_SUBJECT_PATTERN = '#^(?:toon\.[a-z0-9_-]{1,64}|place\.[a-z0-9][a-z0-9_-]{0,63}|character\.[a-z0-9][a-z0-9_-]{0,63}(?:\.[a-z0-9][a-z0-9-]{0,63}){0,2})$#';
     /** document kind → catalog kind (CatalogStore::KINDS) of the catalog documents `<kind>:<id>` */

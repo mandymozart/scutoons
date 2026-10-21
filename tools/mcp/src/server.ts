@@ -244,7 +244,7 @@ export function registerContentTools(server: McpServer, config: Config, options:
 			const problem = (level: 'error' | 'warning') => (message: string): Problem => ({ level, file: key, locale: null, path: [], message });
 			return { problems: [...errors.map(problem('error')), ...warnings.map(problem('warning'))], validated: true };
 		}
-		const kind = ({ chapter: 'chapter', season: 'season', 'toon-settings': 'toon', toon: 'index', script: 'script', colorations: 'colorations' } as Record<string, string>)[ref.kind];
+		const kind = ({ chapter: 'chapter', season: 'season', 'toon-settings': 'toon', toon: 'index', 'season-script': 'season-script', 'chapter-script': 'chapter-script', kanon: 'kanon', colorations: 'colorations' } as Record<string, string>)[ref.kind];
 		// the toon entry: its language-neutral settings + its texts per language (agents/NEUTRAL.md step 4)
 		if (kind === 'index') {
 			const { source, languages } = toonLanguages(doc as ToonIndex);
@@ -382,7 +382,7 @@ export function registerContentTools(server: McpServer, config: Config, options:
 			description:
 				'Reads a stored document by entity key (scutoons://rules/entity-keys). A chapter / season (`chapter:catpope:2`) is ONE language-neutral document: structure once, every text a locale map { "de": …, "en": … }; so is the toon entry `toon:catpope` with the toon\'s settings (title / description / release / languageStatus per language). The script without locale returns every language, a full key one. Each result has `version.id` – pass it as `base` to save_draft. `source`: draft = the newest version (draft or published), published = what readers see, or one old version by id. `path` returns only that part of the content; `lines` [from, to] (1-based) only those lines of a text (e.g. the screenplay: path ["text"], line numbers from search_content).',
 			inputSchema: z.object({
-				key: z.string().describe('entity (`chapter:catpope:2`, `script:catpope`) or stored key (`script:catpope:de`)'),
+				key: z.string().describe('entity (`chapter:catpope:2`, `season-script:catpope:1`, `kanon:character.catpope`) or stored key (`season-script:catpope:1:de`)'),
 				source: z.enum(['draft', 'published']).optional().describe('default draft'),
 				version: z.number().int().optional().describe('one stored version by id (overrides source; needs a full key)'),
 				locale: z.string().optional().describe('the script: one language, or "all" (default); not for language-neutral documents'),
@@ -447,7 +447,7 @@ export function registerContentTools(server: McpServer, config: Config, options:
 			inputSchema: z.object({
 				query: z.string().min(2),
 				toon: z.string().describe('toon id, "" = platform-wide documents'),
-				kinds: z.array(z.string()).optional().describe('only these kinds, e.g. ["script"]'),
+				kinds: z.array(z.string()).optional().describe('only these kinds, e.g. ["season-script", "kanon"]'),
 				locale: z.string().optional().describe('only this language'),
 				limit: z.number().int().min(1).max(100).optional().describe('default 30')
 			}),
@@ -726,7 +726,7 @@ export function registerContentTools(server: McpServer, config: Config, options:
 			description:
 				'Saves a NEW draft version of one stored key (append-only: nothing is overwritten, every older version stays restorable; readers keep seeing the published version). Give `ops` (changes applied to the version `base`) or the full `content`. `base` = the version id you read (read_entity) – a newer save in between → 409 conflict. A chapter / season is saved as its one language-neutral document (`chapter:catpope:2`; a text is { "de": …, "en": … } – set one language at e.g. ["events", 3, "params", "text", "en"]); the toon settings are the toon entry `toon:catpope` (["title", "en"], ["languageStatus", "en"] …). The creator\'s checks run first: errors refuse the save (unless allow_errors), warnings are returned.',
 			inputSchema: z.object({
-				key: z.string().describe('stored key: chapter / season / toon entry without locale (`chapter:catpope:2`, `toon:catpope`); the script with it (`script:catpope:de`)'),
+				key: z.string().describe('stored key: chapter / season / toon entry without locale (`chapter:catpope:2`, `toon:catpope`); a script / Kanon text with it (`season-script:catpope:1:de`, `kanon:place.cathedral:en`)'),
 				base: z.number().int().nullable().describe('the version id the change starts from (null = nothing stored yet)'),
 				ops: z.array(opSchema).optional(),
 				content: z.unknown().optional().describe('the whole document (instead of ops)'),

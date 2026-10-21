@@ -142,7 +142,7 @@
 	const script = $derived<ToonScript | null>(doc.data[locale] ?? null);
 	const text = $derived(typeof script?.text === 'string' ? script.text : '');
 	const outline = $derived<OutlineItem[]>(
-		role ? kanonHeadings(text, role).map((h) => ({ kind: 'section', line: h.line, heading: h.heading, known: h.id !== null })) : scriptOutline(text)
+		role ? kanonHeadings(text, role).map((h) => ({ kind: 'section', line: h.line, heading: h.heading, known: h.id !== null })) : scriptOutline(text, { chapter: kind === 'chapter-script' })
 	);
 	const lineCount = $derived(text ? (text.match(/\n/g)?.length ?? 0) + (text.endsWith('\n') ? 0 : 1) : 0);
 	/** the outline item the cursor is in */

@@ -1420,7 +1420,7 @@ function checkToonIndex(c: Collector, t: any) {
 	}
 }
 
-/** A toon's screenplay (`ToonScript`, entity `script:<toon>:<l>`): `{ text, meta? }`, the text is kept exactly as typed */
+/** A screenplay (`ToonScript`, `season-script:` / `chapter-script:<toon>:<n>:<l>`): `{ text, meta? }`, the text kept exactly as typed */
 function checkScript(c: Collector, s: any) {
 	if (!isObj(s)) return c.error([], 'script must be { text, meta? }');
 	if (!isStr(s.text)) c.error(['text'], 'text must be a string (the whole screenplay)');

@@ -28,7 +28,6 @@ final class ContentSchemas
         'routes' => null,
         'cast' => 'cast',
         'credits' => 'credits',
-        'script' => 'script',
         'season-script' => 'script',
         'chapter-script' => 'script',
         'kanon' => 'kanon',

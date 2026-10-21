@@ -21,8 +21,13 @@ export function placeHref(key: string, toon: string | null = null): string {
 			return `/${t}/toon`;
 		case 'cast':
 		case 'credits':
-		case 'script':
 			return `/${t}/${ref.kind}`;
+		case 'season-script':
+			return `/${t}/season/${ref.number}/script`;
+		case 'chapter-script':
+			return `/${t}/chapter/${ref.number}/script`;
+		case 'kanon':
+			return `/kanon/${ref.id}`;
 		case 'map':
 		case 'place':
 		case 'route':

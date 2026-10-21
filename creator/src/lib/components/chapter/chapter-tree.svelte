@@ -126,6 +126,8 @@
 	<button class="node sc-nav-item" class:is-current={view.section === 'audio'} onclick={() => (view.section = 'audio')} data-drawer-pick data-testid="tree-audio">{m['creator.audio']()}</button>
 	<!-- the chapter's storyboard (#123): its own page, the shots as that page's list -->
 	<a class="node sc-nav-item" href="/{chapter.toon}/chapter/{chapterNumber}/storyboard" data-drawer-pick data-testid="tree-storyboard">{m['storyboard.title']()}</a>
+	<!-- the chapter's script (research/KANON.md §3, #81): its own page -->
+	<a class="node sc-nav-item" href="/{chapter.toon}/chapter/{chapterNumber}/script" data-drawer-pick data-testid="tree-script">{m['creator.script']()}</a>
 	<div class="sc-nav-head">{m['creator.groups']()}</div>
 	<div class="groups" use:sortable={{ onmove: moveGroups }}>
 	{#each groups as g, gi (gi)}

@@ -221,9 +221,11 @@
 		const season = page.params.seasonNumber ?? (chapterSeason != null ? String(chapterSeason) : null);
 		if (season) out.push({ href: `/${toonId}/season/${season}`, label: fileLabel(entities.season(toonId, Number(season))) });
 		if (route === '/[toonId]/season/[seasonNumber]/cover') out.push({ href: `/${toonId}/season/${season}/cover`, label: m['creator.cover_editor']() });
+		if (route === '/[toonId]/season/[seasonNumber]/script') out.push({ href: `/${toonId}/season/${season}/script`, label: m['creator.script']() });
 		if (page.params.chapterNumber) {
 			const n = page.params.chapterNumber;
 			out.push({ href: `/${toonId}/chapter/${n}`, label: fileLabel(entities.chapter(toonId, Number(n))) });
+			if (route === '/[toonId]/chapter/[chapterNumber]/script') out.push({ href: `/${toonId}/chapter/${n}/script`, label: m['creator.script']() });
 		}
 		if (route === '/[toonId]/cast') out.push({ href: `/${toonId}/cast`, label: m['creator.cast']() });
 		if (route === '/[toonId]/credits') out.push({ href: `/${toonId}/credits`, label: m['creator.credits']() });

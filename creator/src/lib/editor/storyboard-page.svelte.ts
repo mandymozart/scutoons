@@ -2,7 +2,7 @@
 // autosave, drafts, the stale-save conflict and Recover are the creator's, meta-page.svelte / doc-session), the shot
 // list's picking, the steps, the script, the member's workspace folder and the shots' generations. The logic lives in
 // the tested storyboard-*.ts modules; this class only holds their state for the page's components.
-import { entities, entityKeyFor } from '@scutoons/content';
+import { chapterScriptEntities, entityKeyFor } from '@scutoons/content';
 import { storyboardKey, validateChapter, type ChapterStoryboard, type Shot } from '@scutoons/content/storyboard';
 import { ApiError, api, getDraft } from '$lib/api.ts';
 import { neutralDoc } from '$lib/editor/languages.ts';
@@ -33,6 +33,8 @@ export class StoryboardPage {
 	/** the script's text in the toon's source language ('' = none); `scriptError` when it couldn't be read */
 	script = $state<string | null>(null);
 	scriptError = $state<string | null>(null);
+	/** the text is the chapter's own script (no chapter markers: its scenes count from the first line) */
+	chapterScript = false;
 
 	readonly workspace = browserWorkspace();
 	workspaceState = $state<WorkspaceState>('none');
@@ -57,7 +59,9 @@ export class StoryboardPage {
 	constructor(
 		readonly toon: string,
 		readonly chapter: number,
-		private readonly source: string
+		private readonly source: string,
+		/** the season the chapter belongs to (the creator nav's; none / unknown → season 1's script) */
+		private readonly season: () => number | null | undefined = () => null
 	) {
 		this.doc = neutralDoc(storyboardKey(toon, chapter));
 	}
@@ -156,16 +160,25 @@ export class StoryboardPage {
 
 	private async loadScript(): Promise<void> {
 		try {
-			const r = await getDraft<{ text?: string }>(entityKeyFor(entities.script(this.toon), this.source));
-			this.script = r.content?.text ?? '';
+			// the chapter's own script, else its season's (research/KANON.md §3) – scene numbers run through a season's script
+			this.script = '';
+			for (const entity of chapterScriptEntities(this.toon, this.chapter, this.season() ?? 1)) {
+				try {
+					const r = await getDraft<{ text?: string }>(entityKeyFor(entity, this.source));
+					this.script = r.content?.text ?? '';
+					this.chapterScript = entity.startsWith('chapter-script:');
+					return;
+				} catch (e) {
+					if (!(e instanceof ApiError && e.status === 404)) throw e;
+				}
+			}
 		} catch (e) {
-			if (e instanceof ApiError && e.status === 404) this.script = '';
-			else this.scriptError = e instanceof Error ? e.message : String(e);
+			this.scriptError = e instanceof Error ? e.message : String(e);
 		}
 	}
 	/** the script lines of a scene (null: the scene isn't in the script) */
 	sceneScript(scene: number | undefined): string[] | null {
-		return this.script && scene !== undefined ? sceneLines(this.script, scene) : null;
+		return this.script && scene !== undefined ? sceneLines(this.script, scene, this.chapterScript) : null;
 	}
 
 	// ── Workspace folder ───────────────────────────────────────────────────────────────────────────────────

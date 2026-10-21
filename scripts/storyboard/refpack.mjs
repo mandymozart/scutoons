@@ -29,7 +29,7 @@ const styles = styleFiles();
 
 // the script per scene (local dev DB, read-only) for the prompt's context; without the DB the prompt goes without it
 let scriptText = '';
-try { scriptText = readEntity(`script:${loadStoryboards(src)[0]?.sb.toon ?? 'catpope'}:de`).text ?? ''; } catch {}
+try { scriptText = readEntity(`season-script:${loadStoryboards(src)[0]?.sb.toon ?? 'catpope'}:1:de`).text ?? ''; } catch {}
 function sceneScript(n) {
 	const lines = scriptText.split('\n');
 	const start = lines.findIndex((l) => new RegExp(`^${n}\\s{1,4}\\S`).test(l));

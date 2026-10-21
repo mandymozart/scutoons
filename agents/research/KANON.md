@@ -77,13 +77,14 @@ what tools extract). Prose under `## ` headings; every section optional, the ord
 - Opened where the document is edited, no new navigation: season page → "Script"; chapter page → "Script"; the
   toon sidebar's "Script" → the toon's scripts (seasons, chapters); character page → "Text" per character, per persona,
   per look; map builder's place inspector → "Text". A small marker shows which texts exist / are published.
-- The toon's script page today moves to season 1 (§6); `/<toon>/script` stays as the list (creator URLs aren't printed).
+- Built (#81): `/<toon>/script` is the list (the toon's Kanon text, a script per season and chapter, their state);
+  `/<toon>/season/<n>/script` (the season page's link), `/<toon>/chapter/<n>/script` (the chapter tree's "Script").
 - Built (#80): `creator/src/lib/components/script/script-editor.svelte` takes any entity; a Kanon text wraps, its outline
   = its sections (an unknown heading muted), "Start with the headings" while empty, its rules in the Info panel
   (`kanon-rules.svelte`). Route `/kanon/<subject>` (a toon's text in the toon's languages, the others in the universe's).
 
 ## 6. Migrations (RULES "Stored format changes")
-1. `script:<toon>:<l>` → `season-script:<toon>:1:<l>` with every version (catpope de / en); the old key form leaves
+1. **Built 2026-10-21 (#81, `2026-10-21-season-scripts`, dev DB: 38 versions):** `script:<toon>:<l>` → `season-script:<toon>:1:<l>` with every version (catpope de / en); the old key form leaves
    the code (`EntityKey`, `parseEntityKey`, MCP, studio api.mjs), no alias.
 2. The hard-coded `PERSONA` (luma.js) and `PLACE_DESCRIPTIONS` (map.ts) become **draft** texts (`## Look` /
    `## Scenery`, en) by a migration; the code then reads the texts and the constants go. The owner publishes them.

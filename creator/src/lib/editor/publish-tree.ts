@@ -22,6 +22,7 @@
 import { checklistDialog, askDialog, type ChecklistGroup } from '@scutoons/ui';
 import { ApiError, catalogDocKey, type ContentIndexEntity } from '@scutoons/api';
 import { contentApi, contentIndex, publishMany, withContent } from '$lib/api.ts';
+import { parseEntityKey } from '@scutoons/content';
 import { fileLabel } from '$lib/labels.ts';
 import { reviews } from '$lib/editor/reviews.svelte.ts';
 import { m } from '$lib/paraglide/messages.js';
@@ -66,7 +67,7 @@ export function inScope(key: string, scope: PublishScope): boolean {
  * the order in a list: the level's own files first, then down the tree; the catalog last, in the order its entries
  * refer to each other (an item names its edition / album, a product its item, a recipe its items)
  */
-const KIND_ORDER = ['toon', 'entry', 'season', 'chapter', 'script', 'cast', 'credits', 'map', 'place', 'route', 'region', 'characters', 'character', 'colorations', 'edition', 'album', 'item', 'product', 'recipe'];
+const KIND_ORDER = ['toon', 'entry', 'season', 'chapter', 'season-script', 'chapter-script', 'kanon', 'cast', 'credits', 'map', 'place', 'route', 'region', 'characters', 'character', 'colorations', 'edition', 'album', 'item', 'product', 'recipe'];
 const rank = (key: string) => {
 	const i = KIND_ORDER.indexOf(key.split(':')[0]);
 	return i < 0 ? KIND_ORDER.length : i;
@@ -75,9 +76,9 @@ const byTree = (a: ContentIndexEntity, b: ContentIndexEntity) => rank(a.key) - r
 
 /** a line's label: a per-language file names its language */
 function label(key: string): string {
-	const parts = key.split(':');
+	const ref = parseEntityKey(key);
 	const base = fileLabel(key);
-	return parts[0] === 'script' && parts[2] ? `${base} (${parts[2]})` : base;
+	return ref?.locale ? `${base} (${ref.locale})` : base;
 }
 
 /** a line's detail: the version, when, who and the note */

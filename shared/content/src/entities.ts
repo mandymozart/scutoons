@@ -9,9 +9,9 @@
 //                                     legacy per-locale documents: read while the entity has no neutral document
 //   locations:<toon>:<locale>         routes:<toon>:<locale>             (the map)
 //   cast:<toon>                       credits:<toon>                     (language-neutral, per toon)
-//   script:<toon>:<locale>            the toon's screenplay (creator only: no library endpoint, readers never get it)
 //   season-script:<toon>:<n>:<locale>  chapter-script:<toon>:<n>:<locale>
-//                                     a season's / a chapter's screenplay (creator only; research/KANON.md §3)
+//                                     a season's / a chapter's screenplay (creator only: no library endpoint, readers never
+//                                     get it; research/KANON.md §3 – the toon's `script:<toon>:<l>` became season 1's, 2026-10-21)
 //   kanon:<subject>:<locale>          a Kanon text (creator only; subject `toon.<toon>`, `character.<id>[.<persona>[.<look>]]`,
 //                                     `place.<id>` – kanon.ts, research/KANON.md)
 //   storyboard:<toon>:<n>             a chapter's storyboard (creator only, language-neutral; research/STUDIO-IN-CREATOR.md §2.2)
@@ -40,7 +40,6 @@ export type EntityKind =
 	| 'routes'
 	| 'cast'
 	| 'credits'
-	| 'script'
 	| 'season-script'
 	| 'chapter-script'
 	| 'kanon'
@@ -79,7 +78,6 @@ const SHAPES: Record<Exclude<EntityKind, CatalogEntityKind>, [boolean, boolean, 
 	routes: [true, false, true],
 	cast: [true, false, false],
 	credits: [true, false, false],
-	script: [true, false, true],
 	'season-script': [true, true, true],
 	'chapter-script': [true, true, true],
 	// one segment: the subject (`character.catpope.human`), then the locale – parseEntityKey
@@ -135,7 +133,6 @@ export const entities = {
 	routes: (toon: string) => `routes:${toon}`,
 	cast: (toon: string) => `cast:${toon}`,
 	credits: (toon: string) => `credits:${toon}`,
-	script: (toon: string) => `script:${toon}`,
 	/** a season's screenplay (creator only) */
 	seasonScript: (toon: string, n: number) => `season-script:${toon}:${n}`,
 	/** a chapter's screenplay (creator only) */

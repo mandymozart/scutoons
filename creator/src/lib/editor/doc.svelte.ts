@@ -103,7 +103,6 @@ export function kindOfEntity(entity: string): DocKind {
 			return 'map';
 		case 'events':
 			return 'events';
-		case 'script':
 		case 'season-script':
 		case 'chapter-script':
 			return 'script';

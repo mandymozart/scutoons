@@ -134,6 +134,8 @@
 				<LocaleText doc={season} path={['release']} label={m['creator.field_release']()} type="date" />
 				<PropField doc={season} path={['authors']} label={m['creator.field_authors']()} type="list" required testid="season-authors" />
 			</div>
+			<!-- the season's script (research/KANON.md §3, #81): its own page -->
+			<a class="script-link" href="/{toon}/season/{number}/script" data-testid="season-script-link">{fileLabel(entities.seasonScript(toon, number))}</a>
 		</section>
 
 		<!-- media as slots (owner 2026-10-03, like the chapter page): the preview is the button, paths only as tooltips -->

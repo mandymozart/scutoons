@@ -25,8 +25,7 @@ UI translations stay in the apps' message files; the catalog (items, editions, p
 | characters, personas, looks, mood labels, wanted images | DB `characters`, `moods`, `asset-requests` (`{ de, en }` texts; a look may carry an A-pose – the reader's avatar body in that look, no naked body (owner 2026-10-12), ITEMS.md "Reader avatar bodies"; **no male/female** – an optional `testo` level 0–100 per character/persona (more testo → reads more male, less → more female) and `tendencies`, ITEMS.md "Substances"; a 3D `model` (.glb) per persona, a look may have its own, and the body preset `body` two-legs / more-legs / wings for the mannequin fallback – `personaModelSource`, ASSETS.md "3D models") | creator (characters) |
 | reader stats (testo, appetite) and timed effects | tables `member_stats`, `member_effects` (guests: localStorage `scutoons_reader`), via `GET /me/`, `POST /inventory/use/` | reader inventory ("Benutzen") |
 | credits (sections, custom roles) · people · role labels | DB `credits:<toon>` · `people` · `roles` | creator (credits) |
-| the toon's screenplay (per language, creator only, never served to readers; → season 1's with #81) | DB `script:<toon>:<l>` | creator (script page) |
-| a season's / a chapter's screenplay (per language, creator only) | DB `season-script:<toon>:<n>:<l>`, `chapter-script:<toon>:<n>:<l>` | creator (#81) |
+| a season's / a chapter's screenplay (per language, creator only, never served to readers) | DB `season-script:<toon>:<n>:<l>`, `chapter-script:<toon>:<n>:<l>` | creator (`/<toon>/season/<n>/script`, `/<toon>/chapter/<n>/script`) |
 | the Kanon: a toon's, a character's, a persona's, a look's, a place's story text (per language, creator only; research/KANON.md) | DB `kanon:<subject>:<l>` (subject `toon.<toon>`, `character.<id>[.<persona>[.<look>]]`, `place.<id>`) | creator (`/kanon/<subject>`) |
 | events | DB `events` (toon-bound entries) | import (no editor yet) |
 | items, recipes, albums, editions, products, toons (catalog texts; wearables' `wear` overlays per body, ITEMS.md "Wardrobe") | tables `catalog_*` / `toons` (2026-10-04, agents/CATALOG.md; no file seed since 10.30 – tests: `server/tests/fixtures/catalog/`) via `/api/items/`, `/api/editions/`, `/api/products/`, `/api/toons/` | admin API `/api/admin/catalog/…` (history, undo); admin UI = CATALOG Part 3 |
@@ -52,7 +51,7 @@ every read is "one entity (+ its children) of one toon in one locale"; compositi
 toon:<toon>                              index entry            toon-settings:<toon>:<l>      settings
 season:<toon>:<n>                        chapter:<toon>:<n>      (language-neutral)
 season:<toon>:<n>:<l>                    chapter:<toon>:<n>:<l>  (legacy per locale)
-cast:<toon>   credits:<toon>   script:<toon>:<l>  (creator only)
+cast:<toon>   credits:<toon>
 season-script:<toon>:<n>:<l>   chapter-script:<toon>:<n>:<l>   kanon:<subject>:<l>   (creator only, research/KANON.md)
 characters   moods   asset-requests   people   roles   events   map   colorations    (platform-wide)
 ```
@@ -186,28 +185,32 @@ en 2025-12-01 – a translation is released later) and **`status`** (the library
   (it lagged behind the last colour change). Idempotent per key: a database that already has these keys needs the new
   versions imported separately.
 
-**Script (2026-10-01, owner):** "Per toon a place where I can put scripts … a huge text block which I can edit and that is
-versioned, like the rest. Scripts come per toon, not per chapter." Entity `script:<toon>:<l>` (localized: a script is
-text; the source language is the master, translations may be partial) = `ToonScript { text, meta? }`, `meta` = the
-screenplay editor's `config.json` meta (`title, author, status, date, basedOn, basedOnFrom`, all text; `SCRIPT_META_FIELDS`).
-The text is stored exactly as typed (LF, indentation, trailing spaces – the format is whitespace-based; JSON escapes
-round-trip byte-identically). Format = the screenplay editor (`C:\Development\screenplay-editor`, README "Writing Guide",
-`lib/src/parse.js`); `scriptOutline(text)` (`@scutoons/content` `script.ts`) reads chapters `# <n>. Kapitel|Chapter`,
-scene headings `<n>   INT./EXT. …` (column 0, inside a chapter) and songs `# <n>. Lied|Song` with their lines, the same
-rules as the editor's parser (which knows only the German terms; the English script writes Chapter/Song).
-- **Creator only**: `EntityKey::CREATOR_ONLY_KINDS = ['script', 'storyboard']`. Read/written only through `/api/entities` (role creator;
-  member 403, anonymous 401); no library endpoint, and `Library\Snapshot` excludes the kind, so no reader answer can
-  contain it and a script save never changes a library cache key (`LibraryTest::testScriptsAreNeverInTheLibrary`,
-  entities-smoke "Script"). Validation: `validateFile('script')` (text a string, meta fields text, unknown meta keys
-  warned), `validateLocales` notes an empty translation only; the media-locale check skips it (plain text).
-- **Seed / interchange**: `<toon>/<l>/script.json` (`ContentFiles`). `import-content --sql` (the production seed) leaves
-  scripts out unless `--only=script` – **the seed SQL does not contain them (owner default: scripts are not in
-  production)**; a local `import-content` takes them like everything else. Generator: `shared/content/scripts/
-  import-screenplay.ts --dir=<folder with screenplay.txt + config.json> --toon= --locale=` (checks the round trip).
-- **Content**: catpope de = `cat-pope-awakening/de/screenplay.txt` (1834 lines, 71 177 bytes, complete), en = the partial
-  translation (395 lines, 13 039 bytes), meta from each `config.json`; byte-identical in the seed and in the local store
-  (published versions 482/483, backup `server/db/local.sqlite.bak-2026-10-01-script`). Other toons have none (the page
-  starts empty).
+**Scripts (2026-10-01; per season and chapter since 2026-10-21, research/KANON.md §3, #81):** owner 2026-10-20: "i need a
+script for each seasons, because that is how cat pope was written. i also need chapter scripts, since this is how top toy
+will be written." Entities `season-script:<toon>:<n>:<l>` and `chapter-script:<toon>:<n>:<l>` (localized: the source
+language is the master, translations may be partial) = `ToonScript { text, meta? }`, `meta` = the screenplay editor's
+`config.json` meta (`title, author, status, date, basedOn, basedOnFrom`, all text; `SCRIPT_META_FIELDS`). The toon's old
+`script:<toon>:<l>` became season 1's (migration 2026-10-21-season-scripts, every version; the old kind left the code).
+A tool that needs chapter n takes its chapter script, else its season's (`chapterScriptEntities`; scene numbers run
+through a season's script – the storyboard's Script panel). The text is stored exactly as typed (LF, indentation,
+trailing spaces – the format is whitespace-based). Format = the screenplay editor (`C:\Development\screenplay-editor`,
+README "Writing Guide", `lib/src/parse.js`); `scriptOutline(text, { chapter? })` (`@scutoons/content` `script.ts`) reads
+chapters `# <n>. Kapitel|Chapter`, scene headings `<n>   INT./EXT. …` (column 0, inside a chapter – a chapter script is
+one, it has no markers) and songs `# <n>. Lied|Song`, the same rules as the editor's parser.
+- **Creator only** (`EntityKey::CREATOR_ONLY_KINDS`, with `storyboard` and `kanon`): only through `/api/entities` (role
+  creator); `Library\Snapshot` excludes the kinds, so no reader answer contains them and a save never changes a library
+  cache key (`LibraryTest::testScriptsAreNeverInTheLibrary`). Validation: `validateFile('season-script' | 'chapter-script')`
+  (text a string, meta fields text, unknown meta keys warned), `validateLocales` notes an empty translation only.
+- **In production** (owner 2026-10-20, KANON §9 Q4): the texts live in the production DB like every document; the old
+  "scripts are not in production" default is gone (the seed SQL still leaves creator-only kinds out unless `--only`).
+- **Interchange**: `<toon>/<l>/season-script<n>.json`, `chapter-script<n>.json` (`ContentFiles`). Generator:
+  `shared/content/scripts/import-screenplay.ts --dir=<folder with screenplay.txt + config.json> --toon= --locale=
+  [--season=<n> | --chapter=<n>]` (checks the round trip).
+- **Content**: catpope season 1 de = `cat-pope-awakening/de/screenplay.txt` (1834 lines, complete), en = the partial
+  translation (395 lines). Other toons: none yet – Top Toy is written per chapter (the workshop, KANON §8).
+- **Pages**: `/<toon>/script` lists the toon's Kanon text and a script per season and chapter (published / draft / not
+  written); `/<toon>/season/<n>/script`, `/<toon>/chapter/<n>/script` (the season page's link, the chapter tree's
+  "Script") – DESIGN "Creator: script page".
 
 **The save game** (owner 2026-10-06: "Variables are per save game … make them across all toons"): ONE state per reader
 for every toon, under the reserved id `scutoons` – guests localStorage `scutoons_game_scutoons`, members the relational

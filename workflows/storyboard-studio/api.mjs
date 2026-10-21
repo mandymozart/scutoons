@@ -41,7 +41,7 @@ function scriptScenes(toon) {
 	if (scriptCache[toon]) return scriptCache[toon];
 	const scenes = {};
 	try {
-		const text = readEntity(`script:${toon}:de`).text ?? '';
+		const text = readEntity(`season-script:${toon}:1:de`).text ?? '';
 		const lines = text.split('\n');
 		let cur = null;
 		lines.forEach((line, i) => {

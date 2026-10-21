@@ -127,13 +127,13 @@ try {
 
 	// finding things: the document list, a full-text search in the screenplay (source language), a part of a long text
 	const listed = await call(client, 'list_entities', { toon: TOON });
-	check(listed.json?.some((e) => e.key === `script:${TOON}:de`), 'list_entities has the screenplay', listed.raw.slice(0, 200));
+	check(listed.json?.some((e) => e.key === `season-script:${TOON}:1:de`), 'list_entities has the screenplay', listed.raw.slice(0, 200));
 	const found1 = await call(client, 'search_content', { query: 'not my city', toon: TOON });
-	const hit = found1.json?.hits?.find((h) => h.key === `script:${TOON}:de` && / line \d+$/.test(h.where));
+	const hit = found1.json?.hits?.find((h) => h.key === `season-script:${TOON}:1:de` && / line \d+$/.test(h.where));
 	check(hit, 'search_content finds the song in the German screenplay', found1.raw.slice(0, 300));
 	if (hit) {
 		const line = Number(/ line (\d+)$/.exec(hit.where)[1]);
-		const part = await call(client, 'read_entity', { key: `script:${TOON}:de`, path: ['text'], lines: [line, line + 2] });
+		const part = await call(client, 'read_entity', { key: `season-script:${TOON}:1:de`, path: ['text'], lines: [line, line + 2] });
 		check(typeof part.json?.content === 'string' && part.json.content.startsWith(`${line}: `) && part.json.content.split('\n').length === 3, 'read_entity lines: three numbered lines', part.raw.slice(0, 200));
 	}
 

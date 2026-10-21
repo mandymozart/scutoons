@@ -23,7 +23,6 @@ use Scutoons\Domain\Content\EntityKey;
  *   <toon>/_/season<N>.json, chapter<N>.json                         → season:<toon>:<N>, chapter:<toon>:<N>  (language-neutral, agents/NEUTRAL.md)
  *   <toon>/<l>/season<N>.json, chapter<N>.json                       → season:<toon>:<N>:<l>, chapter:<toon>:<N>:<l>  (legacy per locale)
  *   <toon>/<l>/locations.json, routes.json                           → locations:<toon>:<l>, routes:<toon>:<l>
- *   <toon>/<l>/script.json             (the screenplay)              → script:<toon>:<l>
  *   <toon>/<l>/season-script<N>.json, chapter-script<N>.json          → season-script:<toon>:<N>:<l>, chapter-script:<toon>:<N>:<l>
  *   scutoons/<l>/kanon/<subject>.json  (a Kanon text)                → kanon:<subject>:<l>  (creator only, like the script)
  *   <toon>/_/storyboard<N>.json        (a chapter's storyboard)      → storyboard:<toon>:<N>  (creator only, like the script)
@@ -49,7 +48,7 @@ final class ContentFiles
         if ($dir === self::PLATFORM_DIR && preg_match(EntityKey::LOCALE_PATTERN, $localeDir) && preg_match('#^kanon/([a-z0-9._-]+)\.json$#', $relative, $k) && preg_match(EntityKey::KANON_SUBJECT_PATTERN, $k[1])) return "kanon:$k[1]:$localeDir";
         if ($dir === self::PLATFORM_DIR || !preg_match(EntityKey::TOON_PATTERN, $dir) || !preg_match(EntityKey::LOCALE_PATTERN, $localeDir)) return null;
         if ($name === 'toon') return "toon-settings:$dir:$localeDir";
-        if ($name === 'locations' || $name === 'routes' || $name === 'script') return "$name:$dir:$localeDir";
+        if ($name === 'locations' || $name === 'routes') return "$name:$dir:$localeDir";
         if (preg_match('#^(season-script)([1-9][0-9]{0,5})\.json$#', $relative, $n) || preg_match('#^(chapter-script)(0|[1-9][0-9]{0,5})\.json$#', $relative, $n)) return "$n[1]:$dir:$n[2]:$localeDir";
         return self::numbered($dir, $relative, $localeDir);
     }
@@ -73,7 +72,7 @@ final class ContentFiles
             'toon-settings' => "$key->toon/$key->locale/toon.json",
             'season', 'chapter' => "$key->toon/" . ($key->locale ?? self::NEUTRAL_DIR) . "/$key->kind$key->number.json",
             'storyboard' => "$key->toon/" . self::NEUTRAL_DIR . "/storyboard$key->number.json",
-            'locations', 'routes', 'script' => "$key->toon/$key->locale/$key->kind.json",
+            'locations', 'routes' => "$key->toon/$key->locale/$key->kind.json",
             'season-script', 'chapter-script' => "$key->toon/$key->locale/$key->kind$key->number.json",
             'kanon' => self::PLATFORM_DIR . "/$key->locale/kanon/$key->id.json",
             default => self::PLATFORM_DIR . "/_/$key->kind.json",

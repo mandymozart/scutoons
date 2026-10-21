@@ -1,16 +1,19 @@
-// The toon screenplay (entity `script:<toon>:<l>`, agents/DATA.md "Script").   npm test -w @scutoons/content
+// The screenplays: a season's and a chapter's (entities `season-script:` / `chapter-script:<toon>:<n>:<l>`, agents/DATA.md
+// "Script", research/KANON.md §3).   npm test -w @scutoons/content
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { entities, entityKeyFor, isLocalizedEntity, parseEntityKey, scriptOutline, validateFile, validateLocales } from '../src/index.ts';
+import { chapterScriptEntities, entities, entityKeyFor, isLocalizedEntity, parseEntityKey, scriptOutline, validateFile, validateLocales } from '../src/index.ts';
 
-const problems = (data: unknown) => validateFile('script', data, 'de', { file: 'script:catpope' } as never).map((p) => `${p.level} ${p.path.join('.')}`);
+const problems = (data: unknown) => validateFile('season-script', data, 'de', { file: 'season-script:catpope:1' } as never).map((p) => `${p.level} ${p.path.join('.')}`);
 
-test('script entity: per toon, per language', () => {
-	assert.equal(entities.script('catpope'), 'script:catpope');
-	assert.equal(isLocalizedEntity('script:catpope'), true);
-	assert.equal(entityKeyFor('script:catpope', 'de'), 'script:catpope:de');
-	assert.deepEqual(parseEntityKey('script:catpope:en'), { kind: 'script', toon: 'catpope', locale: 'en' });
-	assert.equal(parseEntityKey('script:catpope:1:de'), null, 'no chapter in a script key (scripts come per toon)');
+test('script entities: per season or chapter, per language; the toon script is gone', () => {
+	assert.equal(entities.seasonScript('catpope', 1), 'season-script:catpope:1');
+	assert.equal(isLocalizedEntity('season-script:catpope:1'), true);
+	assert.equal(entityKeyFor('season-script:catpope:1', 'de'), 'season-script:catpope:1:de');
+	assert.deepEqual(parseEntityKey('season-script:catpope:1:en'), { kind: 'season-script', toon: 'catpope', number: 1, locale: 'en' });
+	assert.equal(parseEntityKey('script:catpope:de'), null, 'the toon script became season 1 (2026-10-21)');
+	assert.deepEqual(chapterScriptEntities('toptoy', 3, 1), ['chapter-script:toptoy:3', 'season-script:toptoy:1']);
+	assert.deepEqual(chapterScriptEntities('toptoy', 3, null), ['chapter-script:toptoy:3']);
 });
 
 test('script validation: { text, meta? }', () => {
@@ -25,9 +28,9 @@ test('script validation: { text, meta? }', () => {
 
 test('script translations: partial is fine, empty is a note', () => {
 	const files = { de: { text: 'A\nB' }, en: { text: 'A' } };
-	assert.deepEqual(validateLocales('script', 'script:catpope', files, 'de'), []);
+	assert.deepEqual(validateLocales('season-script', 'season-script:catpope:1', files, 'de'), []);
 	assert.deepEqual(
-		validateLocales('script', 'script:catpope', { ...files, en: { text: '  ' } }, 'de').map((p) => `${p.level} ${p.locale} ${p.path.join('.')}`),
+		validateLocales('season-script', 'season-script:catpope:1', { ...files, en: { text: '  ' } }, 'de').map((p) => `${p.level} ${p.locale} ${p.path.join('.')}`),
 		['info en text']
 	);
 });
@@ -75,4 +78,10 @@ test('script outline: chapters, scenes, songs with their lines (screenplay edito
 		{ kind: 'scene', line: 25, number: 2, heading: 'INT. SCHLAFZIMMER - NACHT' }
 	]);
 	assert.deepEqual(scriptOutline(''), []);
+});
+
+test('a chapter script has no chapter markers: its scenes count from the first line', () => {
+	const text = ['1   INT. KÜCHE - NACHT', '', 'PLF kocht.', '', '2   EXT. GARTEN - TAG', ''].join(String.fromCharCode(10));
+	assert.deepEqual(scriptOutline(text).map((o) => o.kind), []);
+	assert.deepEqual(scriptOutline(text, { chapter: true }).map((o) => `${o.kind} ${o.number} ${o.heading}`), ['scene 1 INT. KÜCHE - NACHT', 'scene 2 EXT. GARTEN - TAG']);
 });

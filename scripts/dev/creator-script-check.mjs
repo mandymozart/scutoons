@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Check of the creator's script page (the toon screenplay, entity `script:<toon>:<l>`, agents/DATA.md "Script"):
+// Check of the creator's script page (the toon screenplay, entity `season-script:<toon>:1:<l>`, research/KANON.md, agents/DATA.md "Script"):
 // headless Chrome (own throw-away profile, CDP, no dependencies) signed in as the local test user
 // (agent@scutoons.test, `npm run dev:test-user`) on the running dev stack (creator :10000, API :9000 – or
 // SCUTOONS_API / SCUTOONS_CREATOR for servers on other ports).
@@ -24,7 +24,7 @@ const API = (process.env.SCUTOONS_API ?? local('api', '/api')).replace(/\/$/, ''
 const CREATOR = (process.env.SCUTOONS_CREATOR ?? local('creator')).replace(/\/$/, '');
 const TOON = 'catpope';
 const LOCALES = ['de', 'en'];
-const KEYS = LOCALES.map((l) => `script:${TOON}:${l}`);
+const KEYS = LOCALES.map((l) => `season-script:${TOON}:1:${l}`);
 const SCREENPLAY_DE = process.env.SCREENPLAY_DE ?? 'C:/Development/cat-pope-agent/external-repos/cat-pope-awakening/de/screenplay.txt';
 const EDIT = ' [script-check]';
 
@@ -201,7 +201,7 @@ try {
 	await until('document.readyState === "complete"');
 	await js(`localStorage.setItem('scutoons_session', ${JSON.stringify(token)})`);
 	const t0 = Date.now();
-	await send('Page.navigate', { url: `${CREATOR}/${TOON}/script` });
+	await send('Page.navigate', { url: `${CREATOR}/${TOON}/season/1/script` });
 	check(await until(`(${area}?.value.length ?? 0) > 1000 && !!${q('script-stats')}`), `script page loads (${Date.now() - t0} ms)`);
 
 	// 1. the whole German script, formatting intact
@@ -258,7 +258,7 @@ try {
 	await answerDialog('button.primary'); // saved with the suggested note (version-note.ts)
 	await until(`!document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•') && !${q('save-draft')}.disabled`);
 	const saved = writesSince(n);
-	check(saved.length === 1 && saved[0].method === 'PUT' && saved[0].url === `/entities/${KEYS[0]}` && saved[0].status === 200, 'Save draft: PUT script:catpope:de 200', JSON.stringify(saved));
+	check(saved.length === 1 && saved[0].method === 'PUT' && saved[0].url === `/entities/${KEYS[0]}` && saved[0].status === 200, 'Save draft: PUT season-script:catpope:1:de 200', JSON.stringify(saved));
 	const draft = await api('GET', `/entities/${KEYS[0]}?draft=1&wrap=1`);
 	check(draft.content.text === edited.join('\n') && draft.published.id === baseline[KEYS[0]].id, 'the draft is stored exactly, the original stays published');
 	n = writes.length;
@@ -299,9 +299,14 @@ try {
 	check(await until(`${area}.value === ${JSON.stringify(source)}`), 'back to de');
 
 	// 7. a toon without a script: an empty page, nothing dirty
-	await send('Page.navigate', { url: `${CREATOR}/sandbox/script` });
+	await send('Page.navigate', { url: `${CREATOR}/sandbox/season/1/script` });
 	const empty = await until(`!!${area} && !!${q('script-rules-link')}`);
 	check(empty && (await value()) === '' && !(await js(`!!document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•')`)), 'a toon without a script: empty editor, not dirty');
+	// 8. the toon's script list (#81): the Kanon text, a script per season and per chapter – season 1's published
+	await send('Page.navigate', { url: `${CREATOR}/${TOON}/script` });
+	const scriptsListed = await until(`document.querySelectorAll('[data-testid="scripts-link"]').length > 2`);
+	const s1 = await js(`[...document.querySelectorAll('[data-testid="scripts-link"]')].find((a) => a.getAttribute('href') === '/${TOON}/season/1/script')?.nextElementSibling?.className ?? ''`);
+	check(scriptsListed && s1.includes('is-published'), 'the script list: Kanon, seasons and chapters; season 1 published', s1);
 	check(errors.length === 0, 'no page errors', errors.join(' | '));
 } catch (e) {
 	failed = true;

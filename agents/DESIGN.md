@@ -1178,7 +1178,8 @@ askText's placeholder / default stay plain fields (the reader shows them as writ
 
 ### Creator: script page (owner 2026-10-01)
 
-`/<toon>/script` – "Drehbuch" / "Script" in the toon's sidebar between Credits and Toon settings (DATA.md "Script").
+`/<toon>/season/<n>/script`, `/<toon>/chapter/<n>/script` (since 2026-10-21, #81; the toon's tab "Script" `/<toon>/script` lists
+the toon's Kanon text and every season's / chapter's script with its state – DATA.md "Scripts").
 - **One big text per language**: a plain `<textarea>` in IBM Plex Mono at the body size (1rem, line 1.4 – the tool
   type scale; owner 2026-10-01, the earlier 13/20 px is superseded), `white-space: pre`, `wrap="off"` (line n
   = row n, horizontal scroll instead of wrapping), spellcheck off, as wide as the content column, `tab-size: 4`. Tab

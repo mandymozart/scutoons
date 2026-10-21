@@ -12,7 +12,7 @@
 	import { Icon, panelHeight, Segmented, useDock } from '@scutoons/ui';
 	import type { Problem } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
-	import { dockWidth, usePageNav } from '$lib/nav.svelte.ts';
+	import { dockWidth, getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
 	import { StoryboardPage } from '$lib/editor/storyboard-page.svelte.ts';
 	import { splitMessage } from '$lib/editor/storyboard-shots.ts';
 	import { PANELS, READY_STEPS, SHOT_TABS, STEPS, stepOfKey, type PanelKind } from '$lib/editor/storyboard-steps.ts';
@@ -30,11 +30,12 @@
 	import ClipView from '$lib/components/storyboard/clip-view.svelte';
 	import WorkspaceField from '$lib/components/storyboard/workspace-field.svelte';
 
+	const nav = getCreatorNav();
 	let { toon, chapterNumber, source }: { toon: string; chapterNumber: number; source: string } = $props();
 
 	// the page is keyed by toon + chapter (the route remounts it)
 	// svelte-ignore state_referenced_locally
-	const sb = new StoryboardPage(toon, chapterNumber, source);
+	const sb = new StoryboardPage(toon, chapterNumber, source, () => nav.chapterSeason(toon, chapterNumber));
 	onMount(() => void sb.load());
 	// the current shot in the address (a link to it – the MCP's drafts, a colleague – opens it)
 	$effect(() => {

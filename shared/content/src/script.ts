@@ -1,5 +1,5 @@
-// A screenplay (agents/DATA.md "Script", research/KANON.md §3): a season's (`season-script:<toon>:<n>:<locale>`), a
-// chapter's (`chapter-script:<toon>:<n>:<locale>`) or – until migration 1 – the toon's (`script:<toon>:<locale>`); one big text per language, versioned
+// A screenplay (agents/DATA.md "Script", research/KANON.md §3): a season's (`season-script:<toon>:<n>:<locale>`, how Cat
+// Pope was written) or a chapter's (`chapter-script:<toon>:<n>:<locale>`, how Top Toy is written); one big text per language, versioned
 // like every entity, for the creator only (no library endpoint, readers never get it). The text follows the format of
 // the screenplay editor (C:\Development\screenplay-editor, README "Writing Guide", lib/src/parse.js + utils/regex.js);
 // it is stored exactly as typed (whitespace, indentation and trailing spaces are part of the format).
@@ -20,7 +20,7 @@ export interface ScriptMeta {
 }
 
 /** The entity kinds holding a screenplay (`ToonScript`) */
-export const SCRIPT_KINDS = ['script', 'season-script', 'chapter-script'] as const;
+export const SCRIPT_KINDS = ['season-script', 'chapter-script'] as const;
 export const isScriptKind = (kind: string): boolean => (SCRIPT_KINDS as readonly string[]).includes(kind);
 
 /** The screenplay of a toon in one language (the source language is the master, translations may be partial) */
@@ -64,13 +64,14 @@ const PAGE_BREAK = /^---+/;
 
 /**
  * Chapters, scenes and songs of a screenplay with their line numbers (for the creator's outline, click to jump).
- * Same rules as the screenplay editor's parser: a scene counts only inside a chapter; a song's lyrics run until the
- * next chapter, song or page break (`---`); the title (and subtitle) are the `# …` lines right after a marker.
+ * Same rules as the screenplay editor's parser: a scene counts only inside a chapter (a chapter's script is one); a
+ * song's lyrics run until the next chapter, song or page break (`---`); the title (and subtitle) are the `# …` lines
+ * right after a marker.
  */
-export function scriptOutline(text: string): ScriptOutlineItem[] {
+export function scriptOutline(text: string, options: ScriptOutlineOptions = {}): ScriptOutlineItem[] {
 	const lines = text.split('\n');
 	const out: ScriptOutlineItem[] = [];
-	let inChapter = false;
+	let inChapter = !!options.chapter;
 	let inSong = false;
 	for (let i = 0; i < lines.length; i++) {
 		const line = lines[i];
@@ -106,4 +107,17 @@ function titlesAfter(lines: string[], marker: number): string[] {
 		titles.push(title[1]);
 	}
 	return titles;
+}
+
+export interface ScriptOutlineOptions {
+	/** a chapter's script (`chapter-script:`): it has no chapter markers – its scenes count from the first line */
+	chapter?: boolean;
+}
+
+/**
+ * Where a chapter's screenplay is, in the order to try (research/KANON.md §3): its own chapter script, else the script
+ * of the season it belongs to (scene numbers run through a season's script, so a scene is found in either).
+ */
+export function chapterScriptEntities(toon: string, chapter: number, season: number | null): string[] {
+	return [`chapter-script:${toon}:${chapter}`, ...(season ? [`season-script:${toon}:${season}`] : [])];
 }

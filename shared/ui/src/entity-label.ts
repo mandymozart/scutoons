@@ -28,8 +28,6 @@ export interface EntityLabels {
 	/** one character of the registry (`character:<id>`) */
 	character: (id: string) => string;
 	events: string;
-	/** the toon's screenplay (one per language, creator only) */
-	script: string;
 	/** a chapter's storyboard (`storyboard:<toon>:<n>`, creator only) */
 	storyboard: (number: number) => string;
 	/** a season's / a chapter's screenplay (`season-script:<toon>:<n>`, `chapter-script:<toon>:<n>`, creator only) */
@@ -60,7 +58,6 @@ export const ENTITY_LABELS: EntityLabels = {
 	region: (id) => `Region ${id}`,
 	character: (id) => `Character ${id}`,
 	events: 'Events',
-	script: 'Script',
 	storyboard: (n) => `Storyboard · Chapter ${n}`,
 	seasonScript: (n) => `Script · Season ${n}`,
 	chapterScript: (n) => `Script · Chapter ${n}`,
@@ -84,8 +81,7 @@ const NAMED: Record<string, keyof EntityLabels> = {
 	locations: 'map',
 	routes: 'map',
 	map: 'map',
-	events: 'events',
-	script: 'script'
+	events: 'events'
 };
 
 /** `chapter:catpope:2` → "Chapter 2", `season:catpope:1:de` → "Season 1" … */
