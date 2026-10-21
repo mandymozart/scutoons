@@ -43,5 +43,11 @@ export const EXTRA_ICONS: Record<string, { contents: string }> = {
 	question: { contents: '<path d="M8 8a4 4 0 1 1 5.6 3.7c-1 .45-1.6 1.3-1.6 2.4V15"/><line x1="12" y1="19.5" x2="12.01" y2="19.5"/>' },
 	// two arrows the other way round – "Take this": a kept layout becomes the shot, the shot a variant (the studio's
 	// variants board, research/studio-layout/variants-canvas-q5.html A); Feather's repeat reads as a loop
-	swap: { contents: '<polyline points="8 3 4 7 8 11"/><line x1="4" y1="7" x2="20" y2="7"/><polyline points="16 21 20 17 16 13"/><line x1="20" y1="17" x2="4" y2="17"/>' }
+	swap: { contents: '<polyline points="8 3 4 7 8 11"/><line x1="4" y1="7" x2="20" y2="7"/><polyline points="16 21 20 17 16 13"/><line x1="20" y1="17" x2="4" y2="17"/>' },
+	// prompts for a generator / an artist (owner 2026-10-20: "prompts some stary symbol"): a big and a small four-point star
+	sparkles: { contents: '<path d="M10 3l1.8 5.2L17 10l-5.2 1.8L10 17l-1.8-5.2L3 10l5.2-1.8z"/><path d="M18 14l.9 2.1L21 17l-2.1.9L18 20l-.9-2.1L15 17l2.1-.9z"/>' },
+	// the three views of a character picture (research/CHARACTER-PAGE.md E): a face · a bust · the whole figure
+	'view-avatar': { contents: '<circle cx="12" cy="12" r="9"/><line x1="9" y1="10" x2="9.01" y2="10"/><line x1="15" y1="10" x2="15.01" y2="10"/><path d="M9 15.5c1.8 1.3 4.2 1.3 6 0"/>' },
+	'view-portrait': { contents: '<circle cx="12" cy="8" r="4.5"/><path d="M3 22c0-5.5 4-8.5 9-8.5s9 3 9 8.5"/>' },
+	'view-full': { contents: '<circle cx="12" cy="3.5" r="2.2"/><line x1="12" y1="7" x2="12" y2="15"/><line x1="7" y1="10" x2="17" y2="10"/><line x1="12" y1="15" x2="8.5" y2="22"/><line x1="12" y1="15" x2="15.5" y2="22"/>' }
 };

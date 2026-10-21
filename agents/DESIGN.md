@@ -760,7 +760,7 @@ slice's picture or on a score: one piece (`CollagePiece`, @scutoons/content coll
   under it, each control only where it applies: **Save as preset …** (the piece draws differently from what it names) ·
   **Update preset** (confirmed: every piece with it changes) · round **•••** → Rename … / Delete … (a tombstone – pieces
   keep drawing it); a toast's Undo takes back both documents, Ctrl+Z only the page's.
-- **Slice editor:** the piece tool – a click opens the picker (Shapes · Characters, **Image …**; a character never
+- **Slice editor:** the piece tool – a click opens the picker (Shapes · Characters, **Image**; a character never
   joins the cast) and the piece lands centred there, 30 % wide; a drag sets its corner and width; "+ Add a piece …" in
   Layers puts it in the middle. Canvas: move, rotate, scale evenly (no side handles), a ramp blur's two dots; a piece
   takes the pointer only under the piece tool or while selected (another tool draws over art). Layers: pieces below the
@@ -850,7 +850,10 @@ with the top bar and the sidebar region (`area-menu.svelte` + the page's list), 
 
 Short, plain, no marketing, no exclamation marks; de and en say the same. Messages: `creator/messages/{de,en}.json`
 (paraglide, keys `creator.*`); no user-facing text hard-coded in `creator/src` (field labels included – a label is a
-word, never a data path; technical detail at most in the label's `title`). One term per concept:
+word, never a data path; technical detail at most in the label's `title`). **No "…" on actions** (owner 2026-10-20:
+the dots read as "several" or nothing): a button or menu entry that opens a dialog, a picker or the file chooser says
+only what it does ("Import images", "Rename"); "…" stays only on something running ("Loading …", "Uploading 3 / 12 …")
+and in placeholders (search fields, a select's empty choice). One term per concept:
 
 | de | en | means |
 |---|---|---|
@@ -986,6 +989,10 @@ Three kinds, three places; none moves the layout:
 - **Flyouts**: one at a time, beside its button, over the canvas; Esc / ← / a click outside closes it, the focus goes
   back to its button. The zoom flyout is the Flow's look – one square group: zoom out · percentage · zoom in · fit ·
   **1:1** (original size).
+- **Phones** (owner 2026-10-21): two fingers on the slice area zoom it (the same 50–300 %, the point between the fingers
+  stays; the second finger drops the first one's drag – `pinchZoom`); the grid is "Grid" / "Raster" in the top row's •••.
+  A text tapped open has the caret at the end (a desktop's double click selects the words), no handles over it, and the
+  field is selectable by a finger (the canvas itself is `user-select: none`).
 - **Zoom**: 50–300 % of the slice's 1x width, remembered on this device (`scutoons_creator_zoom`; fit = null). Fit =
   the area's height, at most 2x the slice (a phone: the full width, the area scrolls down). Zoomed, the canvas is laid
   out at that width – no transform – and the area scrolls; boxes, handles and snapping stay in slice coordinates.
@@ -1231,6 +1238,28 @@ page"). The toon settings have no cover.
   Feather icons, tooltips via `title`; the lettering itself is comic lettering (cqw, exempt).
 - Check: `npm run check:creator-cover` (SCUTOONS_API / SCUTOONS_CREATOR / SCUTOONS_VIEWER / SCUTOONS_CDN for other ports;
   `-- --toon=catpope`, `-- --shots=<dir>`).
+
+### Creator: Characters page (owner 2026-10-21, research/CHARACTER-PAGE.md E + K3, #104)
+
+- **The area's tabs** Characters · Moods · Wanted images (`character-area-tabs.svelte`, the toon tabs' look; links with
+  `?tab=`). **Characters** = cards (`character-cards.svelte`: the neutral avatar, name, toons, the personas' faces,
+  "missing images"; search, toon filter, a missing-images square); a card opens the character (`?id=`).
+- **A character** (`character-editor.svelte`): the head (avatar = the character level, Import images as an icon square,
+  Delete), the **personas** and the **looks** as the same face row (`face-row.svelte`: picture + word, sideways, edge to
+  edge with the padding inside, a fade at the edge that has more – `edgeFade`; `+` turns into a name field), the
+  **stage** (`character-stage.svelte`): one picture of persona › look › mood · view (the fallback rule's picture, marked
+  "not drawn yet" when it is not the look's own), the views as three icon squares at the end of the look row (face ·
+  bust · figure), the grid square swaps the picture for the look's ExpressionGrid (every mood × view to fill), the moods
+  as a strip under it; it zooms (two fingers / Ctrl + wheel, drag pans while zoomed, double click fits).
+- **The inspector** (`character-inspector.svelte`) is a right region with its Divider (22rem, remembered:
+  `sc-panel-width:character-inspector`); its icon tabs Profile · 3D model (a tiny "3D" badge) · Wanted images · Prompts
+  (sparkles) all show the **level picked on the page** – a tap on the head (character), a persona, a look; the page
+  rings it – under one title (face · tab · level · name). Profile: the identity / the persona's fields + transitions /
+  the look's label, default, remove; 3D model: the persona's GLB + body / the look's own GLB + its A-pose; Wanted: what
+  that level lacks; Prompts: the persona + look's. Phones: the inspector is a sheet from below (as tall as its content,
+  at most 60 %; its head drags it to any height – `SheetDrag`), the bar's selection row opens it: ‹ · Profile · 3D model
+  · Wanted · Prompts · All moods · Delete.
+- The Kanon (research/KANON.md) gets a text square at the end of each level's row when it is built.
 
 ### Creator: season page (owner 2026-10-03)
 

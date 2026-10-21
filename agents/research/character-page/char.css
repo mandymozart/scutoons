@@ -133,3 +133,69 @@
 
 /* a column of page parts never squeezes its rows (overflow-hidden rows would shrink to nothing) */
 .pad > *, .side > *, .pg > *:not(.pad):not(div[style*="grid"]) { flex-shrink: 0; }
+
+/* variant E: one control per axis */
+.ctl { display: flex; align-items: center; gap: var(--space-05); min-width: 0; }
+.seg { display: inline-flex; border: var(--line); flex: none; }
+.seg span { display: inline-flex; align-items: center; height: calc(var(--control-height) - 0.25rem); padding: 0 var(--space-075); border-left: var(--line); white-space: nowrap; }
+.seg span:first-child { border-left: 0; }
+.seg span.on { background: var(--ink); color: var(--paper); }
+.axes { background: var(--paper); padding: 0.1rem var(--space-05); }
+.axes b { font-weight: 400; }
+.stage.avatar, .stage.portrait { align-items: center; }
+.stage.avatar img.figure { height: auto; width: min(18rem, 70%); }
+.stage.portrait img.figure { height: 88%; align-self: flex-end; }
+.phone .seg span { padding: 0 var(--space-05); }
+
+/* E, round 2 (owner 2026-10-20): rows edge to edge, padding inside the scroller, fades at the edges with more */
+.bar-rows { display: flex; flex-direction: column; gap: var(--space-05); padding: var(--space-05) 0; border-bottom: var(--hair); }
+.bar-rows .ctl { padding: 0 var(--space-1); }
+.pad-x { padding: var(--space-075) var(--space-1) var(--space-025); }
+.hs { overflow: hidden; }
+.hs > .pick, .hs > .filmstrip { padding: 0 var(--space-1); }
+.fade-r { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent); }
+.fade-lr { -webkit-mask-image: linear-gradient(to right, transparent, #000 2.5rem, #000 calc(100% - 2.5rem), transparent); mask-image: linear-gradient(to right, transparent, #000 2.5rem, #000 calc(100% - 2.5rem), transparent); }
+.strip-row { border-top: var(--hair); padding: var(--space-05) 0; }
+
+.group .sq.on { background: var(--ink); color: var(--paper); }
+/* the text sheet: its head is the drag row (the chapter editor's phone inspector sheet), the text fills the rest */
+.text-sheet { gap: 0; }
+.sheet-head { display: flex; align-items: center; gap: var(--space-05); min-height: var(--sq); padding: 0 var(--space-1); border-bottom: var(--hair); position: relative; white-space: nowrap; }
+.sheet-head .grab { position: absolute; left: 50%; top: 0.3rem; margin: 0; transform: translateX(-50%); }
+.sheet-head .label { display: inline-flex; align-items: center; gap: var(--space-05); }
+.ktext { flex: 1; min-height: 0; overflow: hidden; padding: var(--space-075) var(--space-1); font-size: var(--caption); line-height: 1.6; }
+.ktext .h2 { display: block; font-size: 1rem; }
+.ktext .caret { display: inline-block; width: 0.1rem; height: 1em; background: var(--ink); vertical-align: text-bottom; margin-left: 0.1rem; }
+.e-insp { gap: var(--space-05) !important; }
+.e-insp .ktext { border: var(--hair); padding: var(--space-075); }
+/* the look row: the face row scrolls, the view squares are fixed at its end (their own padding to the edge) */
+.bar-rows .ctl.look-row { padding: 0 var(--space-05) 0 0; gap: 0; }
+
+/* Kanon panel options (K1 stack, K2 path, K3 a text square per level) */
+.klevels { display: flex; flex-direction: column; border-top: var(--hair); }
+.klevel { display: flex; flex-direction: column; padding: var(--space-025) 0 var(--space-025) calc(var(--lvl) * 1rem); border-bottom: var(--hair); }
+.kline { display: flex; align-items: center; gap: var(--space-05); min-height: var(--control-height); white-space: nowrap; min-width: 0; }
+.kheads { padding-left: calc(1.25em + var(--space-05)); }
+.kpath { display: flex; align-items: center; gap: var(--space-025); white-space: nowrap; overflow: hidden; border-bottom: var(--hair); padding-bottom: var(--space-05); }
+.kpath .sep { color: var(--border-muted); }
+.kcrumb { display: inline-flex; align-items: center; gap: var(--space-05); height: var(--control-height); padding: 0 var(--space-05); }
+.kcrumb.on { background: var(--ink); color: var(--paper); }
+.kstate { width: 0.55rem; height: 0.55rem; border-radius: 50%; flex: none; border: var(--border-width-hairline) solid currentColor; }
+.kstate.pub { background: var(--badge-published); border-color: var(--badge-published); }
+.kstate.draft { background: var(--badge-draft); border-color: var(--badge-draft); }
+.kdoc { position: relative; display: inline-flex; flex: none; }
+.kdoc .kstate { position: absolute; right: 0.35rem; top: 0.35rem; }
+.k3head { display: flex; align-items: center; gap: var(--space-05); }
+.k3head .chead { flex: 1; }
+.ktitle { display: flex; align-items: center; gap: var(--space-075); min-height: var(--sq); border-bottom: var(--hair); padding-bottom: var(--space-05); }
+.ktitle img { width: 2.5rem; height: 2.5rem; object-fit: cover; }
+.ktitle .t { display: flex; flex-direction: column; }
+.kpath { font-size: var(--caption); } .kcrumb { padding: 0 var(--space-025); gap: var(--space-025); }
+
+/* K3 panels: the level the inspector shows is ringed on the page */
+.lvl-on .chead img, .lvl-look .pick > span.on { outline: calc(2 * var(--border-width-regular)) solid var(--ink); outline-offset: var(--border-width-regular); }
+.lvl-look { padding-top: 0.2rem; padding-bottom: 0.2rem; }
+.insp-scroll { min-height: 0; overflow: hidden; }
+.e-insp .fgrid { grid-template-columns: minmax(0, 1fr); gap: var(--space-05); }
+.seg.group { display: inline-flex; }
+.tabs span { position: relative; } .b3d { position: absolute; right: 0.35rem; top: 0.15rem; font-size: 0.55rem; line-height: 1; font-weight: 400; letter-spacing: 0; padding: 0.05rem 0.1rem; background: var(--ink); color: var(--paper); } .tabs span.on .b3d { background: var(--paper); color: var(--ink); }

@@ -25,7 +25,7 @@
 		type ToonCast
 	} from '@scutoons/content';
 	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
-	import { Badge, CloseIcon, Icon, Tabs, region, type PhoneBarItem } from '@scutoons/ui';
+	import { CloseIcon, Icon, type PhoneBarItem } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import {
 		addCharacter,
@@ -51,15 +51,19 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { usePageNav } from '$lib/nav.svelte.ts';
 	import MetaPage from '$lib/components/page/meta-page.svelte';
-	import CharacterDetail from '$lib/components/characters/character-detail.svelte';
+	import CharacterEditor from '$lib/components/characters/character-editor.svelte';
+	import CharacterCards from '$lib/components/characters/character-cards.svelte';
+	import AreaTabs from '$lib/components/characters/character-area-tabs.svelte';
+	import type { InspectorTab } from '$lib/components/characters/character-inspector.svelte';
 	import MoodsPanel from '$lib/components/characters/moods-panel.svelte';
 	import WantedImages from '$lib/components/characters/wanted-images.svelte';
 	import { mapDoc, mapOf, mapPlaces, mapRegions } from '$lib/editor/map.ts';
 
 	/**
-	 * The global Characters page: the registry (entity `characters`) as a searchable, filterable list (characters
-	 * with persona chips) with a detail editor, the shared groups, the mood vocabulary and the wanted images (asset
-	 * requests). Casts of every toon are read for "appears in", the filters and the validation; people for "voiced by".
+	 * The global Characters page (research/CHARACTER-PAGE.md E + K3, owner 2026-10-20): the area's tabs Characters ·
+	 * Moods · Wanted images; Characters = the registry (entity `characters`) as cards (search, toon filter, missing
+	 * images) – a card opens the character's editor (CharacterEditor: face rows, stage, inspector). Casts of every toon
+	 * are read for "appears in", the filters and the validation; people for "voiced by".
 	 */
 	const registry = registryDoc();
 	const moods = moodsDoc();
@@ -242,9 +246,13 @@
 		return out;
 	}
 
-	const thumb = (c: RegistryCharacter) => characterImage(c, {}, AUTHORED_VIEW, { isMissing: isKnownMissing });
+	/** the toons a character is in: its own + the casts, each once */
+	const toonsOf = (c: RegistryCharacter) => [...new Set([c.own_toon, ...castsOf(c.id, casts)].filter((t): t is string => !!t))];
 	// the selected character is the deepest crumb (Creator / Characters / <name>)
 	usePageNav({
+		get fill() {
+			return !!selectedCharacter;
+		},
 		extra: () => {
 			const c = tab === 'characters' ? characters.find((x) => x.id === selected) : undefined;
 			return c ? [{ href: `/characters?id=${encodeURIComponent(c.id)}`, label: shownCharacterName(c) || c.id }] : [];
@@ -261,218 +269,119 @@
 			if ((nextId ?? '') !== selected && (nextId !== null || nextTab === 'characters')) selected = nextId ?? '';
 		});
 	});
-	// phones (owner 2026-10-12: "das Zurück unten in der Auswahl-Leiste … brutal einführen", UI-CONCEPTS E.10): a selected
-	// character is the selection – the list steps aside for its detail, the bar shows its own row (Delete; ‹ back to the list)
-	let detail = $state<ReturnType<typeof CharacterDetail>>();
+	// phones: an open character is the selection – its row in the bar (owner 2026-10-12: "das Zurück unten in der
+	// Auswahl-Leiste", UI-CONCEPTS E.10; #44: one row of icon squares with ‹): the inspector's tabs open its sheet, the
+	// grid square every mood, Delete; ‹ back to the cards
+	let detail = $state<ReturnType<typeof CharacterEditor>>();
+	let inspectorTab = $state<InspectorTab>('profile');
+	let sheet = $state(false);
+	let grid = $state(false);
 	const selectedCharacter = $derived(tab === 'characters' ? characters.find((c) => c.id === selected) : undefined);
+	function openTab(t: InspectorTab) {
+		if (sheet && inspectorTab === t) sheet = false;
+		else {
+			inspectorTab = t;
+			sheet = true;
+		}
+	}
 	const phoneSelection = $derived(
 		selectedCharacter
 			? {
 					label: shownCharacterName(selectedCharacter) || selectedCharacter.id,
-					onback: () => (selected = ''),
-					items: [{ id: 'delete', icon: 'trash-2', label: m['creator.bar_delete'](), run: () => detail?.remove(), testid: 'phone-sel-delete' }] satisfies PhoneBarItem[]
+					onback: () => ((selected = ''), (sheet = false)),
+					items: [
+						{ id: 'profile', icon: 'user', label: m['creator.characters_tab_profile'](), active: sheet && inspectorTab === 'profile', run: () => openTab('profile'), testid: 'phone-sel-profile' },
+						{ id: 'model', icon: 'box', label: m['creator.characters_tab_model'](), active: sheet && inspectorTab === 'model', run: () => openTab('model'), testid: 'phone-sel-model' },
+						{ id: 'wanted', icon: 'inbox', label: m['creator.characters_wanted'](), active: sheet && inspectorTab === 'wanted', run: () => openTab('wanted'), testid: 'phone-sel-wanted' },
+						{ id: 'prompts', icon: 'sparkles', label: m['creator.prompts_title'](), active: sheet && inspectorTab === 'prompts', run: () => openTab('prompts'), testid: 'phone-sel-prompts' },
+						{ id: 'grid', icon: 'grid', label: m['creator.characters_all_moods'](), active: grid, run: () => ((grid = !grid), (sheet = false)), testid: 'phone-sel-grid' },
+						{ id: 'delete', icon: 'trash-2', label: m['creator.bar_delete'](), run: () => detail?.remove(), testid: 'phone-sel-delete' }
+					] satisfies PhoneBarItem[]
 				}
 			: null
 	);
 	const openRequests = $derived((requestsOf(requests)?.requests ?? []).filter((r) => r.status === 'open').length);
 </script>
 
-<MetaPage toon="" title={m['creator.characters']()} {docs} {validate} wide help="characters" {phoneSelection}>
+<MetaPage toon="" title={m['creator.characters']()} {docs} {validate} wide fill={!!selectedCharacter} help="characters" {phoneSelection}>
 	{#snippet actions()}
 		<button type="button" class="secondary" onclick={startNew} data-testid="new-character"><Icon name="plus" /> {m['creator.characters_new']()}</button>
 	{/snippet}
-	<Tabs
-		tabs={[
-			{ id: 'characters', label: `${m['creator.characters']()} (${characters.length})` },
-			{ id: 'moods', label: `${m['creator.characters_moods']()} (${vocabulary.moods.length})` },
-			{ id: 'wanted', label: `${m['creator.characters_wanted']()}${openRequests ? ` (${openRequests} ✉)` : ''}` }
-		]}
-		bind:value={tab}
-		label={m['creator.characters']()}
-	>
-		{#snippet children(active)}
-			{#if active === 'moods'}
-				<div class="pad-top"><MoodsPanel {moods} registry={file} languages={allLanguages} /></div>
-			{:else if active === 'wanted'}
-				<div class="pad-top"><WantedImages registry={file} moods={vocabulary} requests={requestsOf(requests)} locale={textLanguage.names} onopen={(id, p, l) => select(id, p, l)} map={mapOf(worldMap)} /></div>
-			{:else}
-				<div class="layout" class:picked={!!selectedCharacter}>
-					<aside class="list" data-testid="character-list">
-						<div class="filters">
-							<input type="search" bind:value={query} placeholder={m['creator.characters_search']()} data-testid="character-search" />
-							<select bind:value={toonFilter} aria-label={m['creator.characters_filter_toon']()} data-testid="filter-toon">
-								<option value="">{m['creator.characters_all_toons']()}</option>
-								{#each toons as t (t.id)}<option value={t.id}>{t.name}</option>{/each}
-								<option value="__none">{m['creator.characters_no_toon']()}</option>
-							</select>
-							<label class="check"><input type="checkbox" bind:checked={missingOnly} data-testid="filter-missing" /> {m['creator.characters_missing_images']()}</label>
-						</div>
-						{#if creating}
-							<span class="new">
-								<input bind:this={nameInput} type="text" bind:value={newName} placeholder={m['creator.characters_name']()} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); create(); } else if (e.key === 'Escape') creating = false; }} data-testid="new-character-name" />
-								<button type="button" onclick={create} disabled={!newName.trim()} data-testid="new-character-create">{m['creator.characters_create']()}</button>
-								<button type="button" class="ghost" onclick={() => (creating = false)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
-							</span>
-						{/if}
-						{#if registry.loading}
-							<p class="hint">{m['creator.loading']()}</p>
-						{:else}
-							<!-- a selection region (DESIGN.md "Selection"): the open character is sc-selected -->
-							<ul use:region={'characters'}>
-								{#each visible as c (c.id)}
-									{@const issues = imageIssues(c)}
-									{@const src = thumb(c)}
-									<li>
-										<button type="button" class="item" data-control-exempt="two-line list row with avatar" class:sc-selected={c.id === selected} onclick={() => select(c.id)} data-testid="character-{c.id}">
-											<span class="avatar" style:background={c.color || 'transparent'}>{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" loading="lazy" />{/if}</span>
-											<span class="text">
-												<span>{shownCharacterName(c)}</span>
-												<span class="hint">{[c.id, [...new Set([c.own_toon, ...castsOf(c.id, casts)].filter(Boolean))].join(', ')].filter(Boolean).join(' · ')}</span>
-												{#if personaIds(c).length > 1}
-													<span class="chips">
-														{#each personaIds(c) as p (p)}
-															<span class="sc-chip is-tag" class:is-quiet={p === REGULAR_PERSONA}>{p === REGULAR_PERSONA ? m['creator.characters_regular']() : pickText(findPersona(c, p)?.label, textLanguage.names) || p}</span>
-														{/each}
-													</span>
-												{/if}
-											</span>
-											{#if issues.length}<span class="issue" title={issues.map((x) => `${x.persona} · ${x.look}: ${x.path ?? 'no neutral portrait'}`).join('\n')}><Badge tone="warning">{m['creator.characters_missing_images']()}</Badge></span>{/if}
-										</button>
-									</li>
-								{/each}
-							</ul>
-						{/if}
-					</aside>
-					<div class="detail">
-						{#if !registry.loading}
-							{#key selected}
-								<CharacterDetail
-									bind:this={detail}
-									{registry}
-									moodsDoc={moods}
-									requestsDoc={requests}
-									moods={vocabulary}
-									id={selected}
-									bind:persona
-									bind:look
-									{toons}
-									{casts}
-									people={peopleListOf(people)}
-									onselect={(id) => select(id)}
-								/>
-							{/key}
-						{/if}
-					</div>
-				</div>
+	<div class="area" class:open={!!selectedCharacter}>
+		<div class="tabs-row"><AreaTabs {tab} counts={{ characters: characters.length, moods: vocabulary.moods.length, wanted: openRequests }} /></div>
+		{#if tab === 'moods'}
+			<div class="pad-top"><MoodsPanel {moods} registry={file} languages={allLanguages} /></div>
+		{:else if tab === 'wanted'}
+			<div class="pad-top"><WantedImages registry={file} moods={vocabulary} requests={requestsOf(requests)} locale={textLanguage.names} onopen={(id, p, l) => select(id, p, l)} map={mapOf(worldMap)} /></div>
+		{:else if registry.loading}
+			<p class="hint pad-top">{m['creator.loading']()}</p>
+		{:else if selectedCharacter}
+			{#key selected}
+				<CharacterEditor
+					bind:this={detail}
+					{registry}
+					moodsDoc={moods}
+					requestsDoc={requests}
+					moods={vocabulary}
+					id={selected}
+					bind:persona
+					bind:look
+					bind:tab={inspectorTab}
+					bind:grid
+					bind:sheet
+					{toons}
+					{casts}
+					people={peopleListOf(people)}
+					onselect={(id) => select(id)}
+				/>
+			{/key}
+		{:else}
+			{#if creating}
+				<span class="new">
+					<input bind:this={nameInput} type="text" bind:value={newName} placeholder={m['creator.characters_name']()} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); create(); } else if (e.key === 'Escape') creating = false; }} data-testid="new-character-name" />
+					<button type="button" onclick={create} disabled={!newName.trim()} data-testid="new-character-create">{m['creator.characters_create']()}</button>
+					<button type="button" class="ghost" onclick={() => (creating = false)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
+				</span>
 			{/if}
-		{/snippet}
-	</Tabs>
+			<CharacterCards characters={visible} {toons} {toonsOf} issues={(c) => imageIssues(c).length} bind:query bind:toonFilter bind:missingOnly onselect={(id) => select(id)} />
+		{/if}
+	</div>
 </MetaPage>
 
 <style>
-	.layout {
-		display: grid;
-		grid-template-columns: 20rem minmax(0, 1fr);
-		gap: 1.25rem;
-		align-items: start;
-		padding-top: 0.75rem;
+	.area {
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
 	}
-	@media (max-width: 900px) {
-		.layout {
-			grid-template-columns: 1fr;
-		}
+	/* an open character fills the page (MetaPage fill): the tabs on top, the editor the rest */
+	.area.open {
+		height: 100%;
 	}
-	/* phones: a selected character's detail alone (the bar's ‹ / the crumb go back to the list) */
-	@media (max-width: 767px) {
-		.layout.picked .list {
-			display: none;
-		}
+	/* the tabs run edge to edge: out of the page's padding (none while an open character fills the page) */
+	.tabs-row {
+		margin: -1rem -1rem 0;
+	}
+	.area.open .tabs-row {
+		margin: 0;
+	}
+	.area.open > :global(.char-editor) {
+		flex: 1;
+		min-height: 0;
 	}
 	.pad-top {
 		padding-top: 0.75rem;
 	}
-	.list {
-		position: sticky;
-		top: 0.5rem;
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-		max-height: calc(100dvh - 10rem);
-		overflow: auto;
-	}
-	.filters {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 0.3rem;
-	}
-	.filters input[type='search'] {
-		grid-column: 1 / -1;
-	}
-	.check {
-		display: flex;
-		gap: 0.3rem;
-		align-items: center;
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
-	}
 	.new {
 		display: flex;
 		gap: 0.3rem;
+		max-width: 40rem;
+		padding-top: var(--space-1);
 	}
-	ul {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 0.125rem;
-	}
-	.item {
-		all: unset;
-		box-sizing: border-box;
-		width: 100%;
-		display: flex;
-		gap: 0.5rem;
-		align-items: center;
-		padding: 0.3rem;
-		border: 1px solid var(--border-subtle);
-		cursor: pointer;
-	}
-	.item:hover {
-		border-color: var(--ink);
-	}
-	.avatar {
-		width: 2.6rem;
-		height: 2.6rem;
-		flex: none;
-		overflow: hidden;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-	.avatar img {
-		max-width: 100%;
-		max-height: 100%;
-		object-fit: contain;
-	}
-	.text {
-		display: flex;
-		flex-direction: column;
-		min-width: 0;
-	}
-	.text .hint {
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-	.chips {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.2rem;
-		margin-top: 0.15rem;
-	}
-	.issue {
-		margin-left: auto;
-		align-self: center;
+	/* phones: an open character is the whole page (the bar's ‹ goes back to the cards) */
+	@media (max-width: 767px) {
+		.area.open .tabs-row {
+			display: none;
+		}
 	}
 </style>

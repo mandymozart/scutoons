@@ -880,7 +880,8 @@
 		</ul>
 		</details>
 		<p class="nav-import">
-			<button type="button" class="item add" disabled={!!importing} onclick={() => importInput?.click()} title={m['creator.map_import_hint']()}>
+			<!-- a real button (owner 2026-10-20: the list-row look was "not really clearly a button") -->
+			<button type="button" class="secondary" disabled={!!importing} onclick={() => importInput?.click()} title={m['creator.map_import_hint']()} data-testid="map-import">
 				<Icon name="upload" size="1.1em" />
 				{importing ? m['creator.import_slices_progress']({ done: importing.done, total: importing.total }) : m['creator.characters_import']()}
 			</button>
@@ -1119,7 +1120,14 @@
 		gap: 0.4rem;
 	}
 	.nav-import {
-		margin: 0.5rem 0 0;
+		margin: var(--space-1) 0 0;
+		padding: 0 var(--space-05);
+	}
+	/* one line across the list (12rem) */
+	.nav-import button {
+		width: 100%;
+		padding: 0 var(--space-05);
+		white-space: nowrap;
 	}
 	.import-summary {
 		grid-column: 1 / -1;

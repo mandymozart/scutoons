@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { ApiError, rootPath, toonRelativePath } from '@scutoons/api';
 	import { DEFAULT_SLICE, getAt, type Path, type QualityVariants } from '@scutoons/content';
-	import { confirmDialog, Sheet } from '@scutoons/ui';
+	import { confirmDialog, Icon, Sheet } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { chapterFolder, chapterSlug } from '$lib/editor/defaults.ts';
 	import { densityLevel, densityPath, mediaAssets, splitMediaName, standardDensities, uploadOrReplace, type Density } from '@scutoons/media';
@@ -265,6 +265,7 @@
 
 <div class="slice-import">
 	<button type="button" class="secondary" disabled={!!progress} onclick={() => input?.click()} title={m['creator.import_slices_hint']()} data-testid="slice-import">
+		<Icon name="upload" />
 		{progress ? m['creator.import_slices_progress']({ done: progress.done, total: progress.total }) : m['creator.import_slices']()}
 	</button>
 	<input

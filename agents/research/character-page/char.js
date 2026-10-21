@@ -37,7 +37,13 @@ const P = {
 	trash: '<path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
 	copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
 	maximize: '<path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>',
-	filter: '<path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>'
+	filter: '<path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>',
+	// Prompts (owner 2026-10-20: "prompts some stary symbol"): a big and a small four-point star
+	sparkles: '<path d="M10 3l1.8 5.2L17 10l-5.2 1.8L10 17l-1.8-5.2L3 10l5.2-1.8z"/><path d="M18 14l.9 2.1L21 17l-2.1.9L18 20l-.9-2.1L15 17l2.1-.9z"/>',
+	// the three views of a mood picture (draft E): head · bust · whole figure
+	vAvatar: '<circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M9 15.5c1.8 1.3 4.2 1.3 6 0"/>',
+	vPortrait: '<circle cx="12" cy="8" r="4.5"/><path d="M3 22c0-5.5 4-8.5 9-8.5s9 3 9 8.5"/>',
+	vFull: '<circle cx="12" cy="3.5" r="2.2"/><path d="M12 7v8M7 10h10M12 15l-3.5 7M12 15l3.5 7"/>'
 };
 const ic = (n) => `<svg class="i" aria-hidden="true"><use href="#${n}"/></svg>`;
 const LOGO = '../../../viewer/static/SCUTOONS-logo-animated.svg';
@@ -99,6 +105,7 @@ const lang = () => `<span class="sq txt lang" title="Text language">${ic('globe'
 function pathFor() {
 	if (screen === 'list') return ['Characters'];
 	if (phone) return V === 'b' && !sheetOpen ? ['päpstlich'] : ['Katzenpapst'];
+	if (V === 'e') return ['Characters', 'Katzenpapst'];
 	return V === 'a' ? ['Characters', 'Katzenpapst'] : ['Characters', 'Katzenpapst', 'Regular', 'päpstlich'];
 }
 const path = () => `<nav class="path">${pathFor().map((p, i, a) => `<a>${p}</a>${i < a.length - 1 ? '<span class="sep">/</span>' : ''}`).join('')}</nav>`;
@@ -227,7 +234,7 @@ function cList() {
 	if (phone) return `<main class="pg" style="grid-area:main">${atabsPhone()}<div class="pad" style="display:flex;flex-direction:column;gap:var(--space-05);overflow:hidden">${filters(true)}<div>${body}</div></div></main>`;
 	return `<main class="pg" style="grid-area:main">${atabs(`<span class="btn">${ic('plus')} New character</span>`)}<div class="pad" style="display:flex;flex-direction:column;gap:var(--space-05);overflow:hidden;max-width:64rem">${filters()}<div>${body}</div></div></main>`;
 }
-const cInspTabs = (on) => `<div class="tabs">${[['user', 'Profile'], ['file', 'Kanon'], ['box', 'Model'], ['inbox', 'Wanted'], ['zap', 'Prompts']].map(([i, t], k) => `<span class="${k === on ? 'on' : ''}" title="${t}">${ic(i)}</span>`).join('')}</div>`;
+const cInspTabs = (on) => `<div class="tabs">${[['user', 'Profile'], ['file', 'Kanon'], ['box', 'Model'], ['inbox', 'Wanted'], ['sparkles', 'Prompts']].map(([i, t], k) => `<span class="${k === on ? 'on' : ''}" title="${t}">${ic(i)}</span>`).join('')}</div>`;
 const stageStrip = () => `<div class="filmstrip">${MOODS.slice(0, 12).map(([id, de], i) => `<div class="mood ${i === 0 ? 'on' : ''}"><div class="pic"><img src="${I('mood-' + id)}" alt="" /></div><span>${de}</span></div>`).join('')}</div>`;
 function cChar() {
 	if (phone) {
@@ -244,19 +251,105 @@ function cChar() {
 	return `<main class="pg" style="grid-area:main">${atabs()}<div class="editor" style="grid-template-columns:minmax(0,1fr) 22rem;flex:1;min-height:0">${center}${insp}</div></main>`;
 }
 
+// ── variant E (owner 2026-10-20: "c in mobile … in b die Kartenansicht"): B's cards, C's editor; the four axes of a
+// picture each get ONE control: persona (faces) › look (only a select – most personas have one) › mood (the strip) ·
+// view (Avatar · Portrait · Ganz, a segmented switch on the stage) ──
+const view = flags.includes('avatar') ? 'avatar' : flags.includes('portrait') ? 'portrait' : 'full';
+const VIEWS = [['avatar', 'Avatar'], ['portrait', 'Portrait'], ['full', 'Ganz']];
+const VICON = { avatar: 'vAvatar', portrait: 'vPortrait', full: 'vFull' };
+const viewSeg = () => `<span class="group">${VIEWS.map(([id, w]) => sq(VICON[id], { on: id === view, title: w })).join('')}</span>`;
+const lookSel = () => `<span class="sel" title="Look of this persona">${phone ? '' : 'Look: '}päpstlich ${ic('down')}</span>`;
+const where = () => `<span class="axes cap"><b>Regular</b> › <b>päpstlich</b> › <b>neutral</b> · <b>${VIEWS.find((v) => v[0] === view)[1]}</b></span>`;
+function eStage() {
+	const src = view === 'full' ? I('full-catpope') : view === 'portrait' ? I('portrait-catpope') : I('mood-neutral');
+	return `<div class="stage ${view}" style="flex:1"><img class="figure" src="${src}" alt="" /><div class="tl">${where()}</div><div class="tr">${sq('maximize', { title: 'Maximize' })}</div></div>`;
+}
+function eChar() {
+	// side-scrolling rows run edge to edge between the dividers, their padding inside the scroller; a fade at an edge
+	// says "more this way" (none at the start / end)
+	const k3 = flags.includes('k3');
+	const panel = ['profile', 'model', 'wanted', 'prompts'].find((x) => flags.includes(x)) ?? '';
+	const level = panel === 'profile' ? 'character' : 'look';
+	const kdoc = (on, state) => (k3 ? `<span class="kdoc ${on ? 'on' : ''}" title="Kanon of this level">${sq('file', { on })}<span class="kstate ${state}"></span></span>` : '');
+	const personas = `<div class="ctl look-row"><div class="hs fade-r grow">${personaPick()}</div>${kdoc(false, 'no')}</div>`;
+	// the look is the same kind of row as the persona (owner 2026-10-20: "why are we switching concept here?"): a
+	// preview + its word, sideways with the fade; the view squares stay fixed at its end
+	const looks = PERSONAS[0].looks.concat(phone ? [] : []).map(([l, n, img]) => ({ img, label: l, n: `${n}` }));
+	const controls = `<div class="ctl look-row"><div class="hs fade-r grow ${panel && level === 'look' ? 'lvl-look' : ''}">${pick(looks, 0)}</div>${viewSeg()}${k3 ? '<span class="vsep"></span>' : ''}${kdoc(!panel, 'draft')}</div>`;
+	const strip = `<div class="hs fade-r strip-row">${stageStrip()}</div>`;
+	if (phone) {
+		const top = `<div class="bar-rows">${personas}${controls}</div>`;
+		const overlay = sheetOpen
+			? `<div class="sheet text-sheet" style="height:58%;bottom:0"><div class="sheet-head"><span class="grab"></span><span class="label">${ic('file')} Kanon · Katzenpapst</span><span class="grow"></span>${chips([['no', 'not written']])}<span class="muted cap">de ★</span></div>${kanonText()}</div>`
+			: '';
+		return `<main class="pg" style="grid-area:main;position:relative">${top}${eStage()}${strip}${overlay}</main>`;
+	}
+	const center = `<div style="display:flex;flex-direction:column;min-width:0;min-height:0"><div class="pad-x ${k3 ? 'k3head' : ''} ${panel && level === 'character' ? 'lvl-on' : ''}">${head({ small: true })}${kdoc(false, 'pub')}</div><div class="bar-rows">${personas}${controls}</div>${eStage()}${strip}</div>`;
+	const insp = kanonPanel();
+	return `<main class="pg" style="grid-area:main">${atabs()}<div class="editor" style="grid-template-columns:minmax(0,1fr) 22rem;flex:1;min-height:0">${center}${insp}</div></main>`;
+}
+// ── the Kanon panel on the desktop: three options (owner 2026-10-20: "the kanon slide out is a bit confusing …
+// hierarchy is important … but also not overwhelming. so the sidebar is independent of the stage?"). Round 3 showed the
+// character's text whatever the stage showed – independent, which was the confusion. ──
+const LEVELS = [
+	{ kind: 'Character', name: 'Katzenpapst', state: ['pub', 'published'], heads: 'Backstory · Who · Look · Rules' },
+	{ kind: 'Persona', name: 'Regular', state: ['no', 'not written'], heads: 'What · Why different · Look · Rules' },
+	{ kind: 'Look', name: 'päpstlich', state: ['draft', 'draft'], heads: 'Look · When' }
+];
+const lookText = () => `<div class="ktext"><span class="h2">## Look</span>Das weiß-blaue Ornat mit dem Kreuzmuster, die Kappe, Sandalen.<br><br><span class="h2">## When</span>Im Dienst – alle Kapitel bis auf die Reise.<span class="caret"></span></div>`;
+function kanonPanel() {
+	const tabs = cInspTabs(1);
+	if (flags.includes('k1')) {
+		// K1 – a stack that follows the stage: character › persona › look, the current look open, the levels above folded
+		// to one line each (state, headings); a click unfolds one, the others fold
+		const fold = (l, i) => `<div class="klevel" style="--lvl:${i}"><span class="kline">${ic(i === 2 ? 'down' : 'right')}<span class="muted cap">${l.kind}</span><span class="ell">${l.name}</span><span class="grow"></span>${chips([l.state])}</span>${i === 2 ? '' : `<span class="muted cap kheads">${l.heads}</span>`}</div>`;
+		return `<aside class="insp e-insp">${tabs}<div class="klevels">${LEVELS.map(fold).join('')}</div>${lookText()}</aside>`;
+	}
+	if (flags.includes('k2')) {
+		// K2 – ONE text; a path that mirrors the stage picks its level (the deepest = the default), a state dot per crumb
+		const crumbs = LEVELS.map((l, i) => `<span class="kcrumb ${i === 2 ? 'on' : ''}"><span class="kstate ${l.state[0]}"></span>${l.name}</span>`).join('<span class="sep">›</span>');
+		return `<aside class="insp e-insp">${tabs}<div class="kpath">${crumbs}</div><div class="sheet-head" style="padding:0"><span class="muted cap">${LEVELS[2].heads}</span><span class="grow"></span>${chips([LEVELS[2].state])}<span class="muted cap">de ★</span></div>${lookText()}</aside>`;
+	}
+	if (flags.includes('k3')) {
+		// K3 (owner 2026-10-20: "ich find k3 am sinnvollsten … wenn die anderen dinge im inspector auch so
+		// contextualisiert sind"): no Kanon tab – a text square at the end of each level on the page (head = character,
+		// persona row, look row; its dot = the state). EVERY inspector panel shows the level picked on the page (a tap on
+		// the head / a persona / a look; the page rings it) under the same title: its face · panel · level · name
+		const panel = ['profile', 'model', 'wanted', 'prompts'].find((x) => flags.includes(x)) ?? '';
+		const TABS = [['profile', 'user', 'Profile'], ['model', 'box', 'Model'], ['wanted', 'inbox', 'Wanted images'], ['prompts', 'sparkles', 'Prompts']];
+		const t = TABS.map(([id, i, w]) => `<span class="${id === panel ? 'on' : ''}" title="${w}">${ic(i)}${id === 'model' ? '<b class="b3d">3D</b>' : ''}</span>`).join('');
+		const title = (what, lvl, name, state) => `<div class="ktitle"><img src="${I('av-catpope')}" alt="" /><span class="t"><span class="muted cap">${what} · ${lvl}</span><span>${name}</span></span><span class="grow"></span>${state ? chips([state]) : ''}</div>`;
+		let body;
+		if (panel === 'profile') body = title('Profile', 'Character', 'Katzenpapst', ['pub', 'published']) + `<div class="insp-scroll">${profile()}</div>`;
+		else if (panel === 'model')
+			body = title('Model', 'Look', 'päpstlich') + `<div class="insp-scroll side" style="gap:var(--space-075)"><h2 class="h">3D model <span class="n">the persona's · 2400 tris · 19 bones</span></h2><div class="slot" style="height:12rem"><img src="${I('full-catpope')}" alt="" style="height:100%" /></div><div class="cap muted">This look's own model: <span class="chip no">none</span> ${ic('plus')}</div><h2 class="h">Body (for the placeholder)</h2><span class="group seg"><span class="on">2 legs</span><span>more legs</span><span>wings</span></span><h2 class="h">A-pose (avatar body)</h2><div class="slot" style="height:12rem"><img src="${I('apose-catpope')}" alt="" style="height:100%" /></div></div>`;
+		else if (panel === 'wanted')
+			body = title('Wanted images', 'Look', 'päpstlich', ['warn', '3 open']) + `<div class="insp-scroll side" style="gap:var(--space-05)"><div class="ctl" style="padding:0">${sq('copy', { title: 'Copy as list' })}${sq('file', { title: 'Copy as CSV' })}<span class="grow"></span><span class="cap muted">only with a note</span></div>${[['traurig', 'portrait'], ['weinend', 'full'], ['Akzeptanz', 'full']].map(([m, v]) => `<div class="crow" style="padding-left:0"><span class="sq">${ic(VICON[v === 'full' ? 'full' : 'portrait'])}</span><span class="t"><span>${m} · ${v === 'full' ? 'Ganz' : 'Portrait'}</span><span class="muted cap">catpope_${v}-${m === 'traurig' ? 'sad' : m === 'weinend' ? 'crying' : 'acceptance'}.webp</span></span>${sq('upload', { title: 'Upload' })}</div>`).join('')}<div class="cap muted">The whole list of every character: the area tab "Wanted images".</div></div>`;
+		else if (panel === 'prompts')
+			body = title('Prompts', 'Look · neutral', 'päpstlich') + `<div class="insp-scroll side" style="gap:var(--space-05)"><div class="ctl" style="padding:0"><span class="cap muted">for Luma / an artist, from the Kanon (character › persona › look) + the mood</span><span class="grow"></span>${sq('copy', { title: 'Copy' })}</div><div class="ktext" style="border:var(--hair)">A pink sphynx cat, blue eyes, in a white papal robe with blue cross ornaments and a cap; neutral face, calm; full figure, front view, plain light background …</div></div>`;
+		else body = title('Kanon', 'Look', 'päpstlich', LEVELS[2].state) + lookText();
+		return `<aside class="insp e-insp"><div class="tabs">${t}</div>${body}</aside>`;
+	}
+	return `<aside class="insp e-insp">${tabs}<div class="sheet-head" style="padding:0"><span class="label">Kanon · Katzenpapst</span><span class="grow"></span>${chips([['no', 'not written']])}<span class="muted cap">de ★</span></div>${kanonText()}<div class="cap muted">Persona: Regular ${chips([['no', 'not written']])} · Look: päpstlich ${chips([['no', 'not written']])}</div></aside>`;
+}
+
+// the Kanon as ONE text field that fills its panel (owner 2026-10-20: "the text field could cover the entire panel")
+const kanonText = () =>
+	`<div class="ktext"><span class="h2">## Backstory</span>PLF wurde im Vatikan der Katzen geboren und …<br><br><span class="h2">## Who</span>Ruhig, neugierig, spricht in kurzen Sätzen …<br><br><span class="h2">## Look</span>Rosa Nacktkatze, blaue Augen, das weiß-blaue Ornat mit dem Kreuzmuster – nie ohne.<br><br><span class="h2">## Rules</span><span class="muted">what an artist or a generator must never change …</span><span class="caret"></span></div>`;
+
 // ── phone bottom rows ──
 function phoneBottom() {
 	const back = `<span class="sq back">${ic('left')}</span>`;
 	if (screen === 'list') return `<footer class="bottom" style="grid-area:bottom">${act('plus', 'New')}${act('save', 'Save', { dim: true })}${act('cloud', 'Publish', { dot: true })}${act('more', 'More')}</footer>`;
 	// one row of functions with a ‹ back (owner 2026-10-19, #44): the page's kinds as icon squares
-	const kinds = V === 'c' ? [['user', 'Profile'], ['file', 'Kanon'], ['smile', 'Moods'], ['box', 'Model'], ['inbox', 'Wanted'], ['more', 'More']] : V === 'a' ? [['user', 'Profile'], ['smile', 'Looks & moods'], ['file', 'Kanon'], ['inbox', 'Wanted'], ['zap', 'Prompts'], ['more', 'More']] : sheetOpen ? [['plus', 'New persona'], ['upload', 'Import images …'], ['more', 'More']] : [['upload', 'Import'], ['plus', 'Mood'], ['file', 'Kanon'], ['inbox', 'Wanted'], ['more', 'More']];
-	const on = V === 'c' ? (sheetOpen ? 1 : -1) : V === 'a' ? (sheetOpen ? 2 : 1) : -1;
+	const kinds = V === 'c' || V === 'e' ? [['user', 'Profile'], ['file', 'Kanon'], ['grid', 'All moods'], ['box', 'Model'], ['inbox', 'Wanted'], ['more', 'More']] : V === 'a' ? [['user', 'Profile'], ['smile', 'Looks & moods'], ['file', 'Kanon'], ['inbox', 'Wanted'], ['sparkles', 'Prompts'], ['more', 'More']] : sheetOpen ? [['plus', 'New persona'], ['upload', 'Import images …'], ['more', 'More']] : [['upload', 'Import'], ['plus', 'Mood'], ['file', 'Kanon'], ['inbox', 'Wanted'], ['more', 'More']];
+	const on = V === 'c' || V === 'e' ? (sheetOpen ? 1 : -1) : V === 'a' ? (sheetOpen ? 2 : 1) : -1;
 	return `<footer class="bottom sel-bar kinds2" style="grid-area:bottom">${back}${kinds.map(([i, t], k) => sq(i, { title: t, on: k === on })).join('')}</footer>`;
 }
 
 // ── assemble ──
 function page() {
-	const fn = { a: [aList, aChar], b: [bList, bChar], c: [cList, cChar] }[V];
+	const fn = { a: [aList, aChar], b: [bList, bChar], c: [cList, cChar], e: [bList, eChar] }[V];
 	return (screen === 'list' ? fn[0] : fn[1])();
 }
 function build() {

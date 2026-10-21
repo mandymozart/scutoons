@@ -1,4 +1,4 @@
-Status 2026-10-20: drafts A, B, C for the owner to pick (issue #104) – nothing built beyond the small fixes (commit "Characters page: layout fixes").
+Status 2026-10-21: E + K3 built (#104, DESIGN "Creator: Characters page"); the Kanon squares wait for research/KANON.md.
 
 # CHARACTER-PAGE – the creator's Characters area inside navigation D
 
@@ -55,6 +55,45 @@ Pictures: `character-page/index.html` (A, B, C at 1440 × 900 and 390 × 844; `a
   Prompts). Phone: the stage full width, the strip, the bottom row opens sheets (the #44 pattern).
   + the picture first – good for checking art; the same model as the slice editor. − the grid of all moods becomes a
   second mode (the grid square); the most new code.
+
+## 3a. E – B's cards + C's editor (owner 2026-10-20)
+
+"ich mag c in mobile schon gern. in b find ich die Kartenansicht gut auf der characters page" · "mir ist noch nicht
+klar wie ich die verschiedenen avatar, portrait, full anwähle" · "looks und moods ist irgendwie verwirrend. weil wir
+haben personas, looks, moods".
+
+- A picture has four axes: **persona** (who: Regular, Mensch, Katze …) › **look** (what the persona wears) › **mood**
+  (the face) · **view** (avatar = head, portrait = bust, full). E gives each axis ONE control: the persona faces row,
+  the look row (the same kind, round 3), the moods strip under the stage, a segmented switch Avatar · Portrait ·
+  Ganz. The stage names what it shows ("Regular › päpstlich › neutral · Ganz"); no "Looks & moods" anywhere.
+- Overview = B's cards; the character = C's stage + inspector (desktop) and C's phone (bottom row, sheets).
+- Round 2 (owner 2026-10-20: "the text field could cover the entire panel" · "anything sliding sideways … that
+  transparent gradient overlay" · "the padding inside the list and the container full between the page dividers" ·
+  "avatar, portrait, ganz, maybe create some symbols … those buttons are huge" · "i hope our stage is finger
+  zoomable"): the Kanon is ONE text field filling its panel (phone: the sheet's head is the drag row – the chapter
+  editor's phone inspector sheet, dragged to any height; desktop: the inspector's Kanon tab); the persona row and the
+  moods strip run edge to edge, their padding inside the scroller, a fade at the edge that has more; the views are
+  three icon squares (face · bust · figure, the word in the tooltip), the bottom row's "All moods" is the grid icon;
+  the stage zooms like the slice canvas (pinch / Ctrl + wheel, double tap = fit).
+- Round 3 (owner 2026-10-20: "the dropdown for the look can also be a button with preview and sideways menu … why are
+  we switching concept here?"): the look is the same row as the persona (preview + word, sideways with the fade, + at
+  the end), the view squares fixed at the end of the look row; no select left.
+- The Kanon on the desktop (owner 2026-10-20: "the kanon slide out is a bit confusing … hierarchy is important … but
+  also not overwhelming. so the sidebar is independent of the stage?" – it was: round 3 showed the character's text
+  whatever the stage showed). Three options, all following the stage (character › persona › look, one text each):
+  **K1 stack** (the three levels indented, the current look open, the others one line each with state + headings);
+  **K2 path** (ONE text, the stage's path Katzenpapst › Regular › päpstlich above it picks the level, a state dot per
+  crumb – recommended, the calmest); **K3 in place** (no Kanon tab: a text square with a state dot at the end of each
+  level on the page – the head, the persona row, the look row; the inspector shows the clicked one). `e.html#char-k1`
+  / `-k2` / `-k3`.
+- **Chosen: K3** (owner 2026-10-20: "ich find k3 am sinnvollsten … wenn die anderen dinge im inspector auch so
+  contextualisiert sind"): the level is picked on the page (a tap on the head = character, a persona, a look; the page
+  rings it) and EVERY inspector tab shows that level under one title (face · tab · level · name · state): Profile
+  (person), Model (hexagon + a tiny "3D" badge: the persona's GLB or the look's own, the placeholder body, the look's A-pose), Wanted images
+  (inbox: what this level lacks, upload, copy list / CSV), Prompts (sparkles – owner: "some stary symbol": built from the Kanon chain + the mood). The
+  Kanon has no tab: the text square at the end of each level opens it. `e.html#char-k3[-profile|-model|-wanted|-prompts]`.
+- Pictures: `e.html` (`#list`, `#char`, `-avatar` / `-portrait`, phones `-sheet`); `CHARACTER-PAGE-drafts.html` = all
+  drafts in one file with the pictures inside (opens in the app's browser pane).
 
 ## 4. Questions to the owner
 
