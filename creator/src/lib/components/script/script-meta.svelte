@@ -47,16 +47,25 @@
 </details>
 
 <style>
+	/* beside the head's buttons while closed; open, the title page takes the whole row (owner 2026-10-21 on phones:
+	   the fields were squeezed to 2rem next to "Edit script") */
 	.meta {
-		flex: 1;
+		flex: 1 1 16rem;
 		min-width: 0;
+	}
+	.meta[open] {
+		flex-basis: 100%;
 	}
 	.meta summary:hover span {
 		text-decoration: underline;
 	}
 	.meta-grid {
-		--fields-fill-min: 220px;
+		--fields-fill-min: 13rem;
 		padding-top: 0.4rem;
+	}
+	.meta-grid input {
+		width: 100%;
+		min-width: 0;
 	}
 	.meta-grid label {
 		display: flex;

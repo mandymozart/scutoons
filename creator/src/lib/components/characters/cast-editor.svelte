@@ -40,6 +40,7 @@
 	} from '$lib/editor/characters.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { asset } from '$lib/utils/cdn.ts';
+	import { edgeFade } from '$lib/editor/edge-fade.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import MetaPage from '$lib/components/page/meta-page.svelte';
 	import LocaleMapField from '$lib/components/fields/locale-map-field.svelte';
@@ -157,33 +158,37 @@
 					{@const c = index.get(entry.character)}
 					{@const src = c ? characterImage(c, { persona: entry.personas[0] }, AUTHORED_VIEW, { isMissing: isKnownMissing }) : ''}
 					<li class="member" data-sort-row data-testid="cast-member-{entry.character}">
-						<SortGrip label={m['creator.sort_move']({ name: c ? shownCharacterName(c) : entry.character })} title={m['creator.sort_hint']()} />
+						<span class="grip"><SortGrip label={m['creator.sort_move']({ name: c ? shownCharacterName(c) : entry.character })} title={m['creator.sort_hint']()} /></span>
 						<span class="avatar" style:background={c?.color || 'transparent'}>{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" />{/if}</span>
 						<span class="who">
 							{#if c}
 								<span>{shownCharacterName(c)}{#if c.id === star} <span class="star sc-chip" title={m['creator.cast_star_locked']()} data-testid="cast-star">{m['creator.cast_star']()}</span>{/if}</span>
 								<a class="hint" href="/characters?id={encodeURIComponent(c.id)}&toon={toon}">{m['creator.characters_edit']()}</a>
-								<!-- a character with one persona has nothing to choose: no row (owner read "regular" as a flag) -->
-								{#if personaIds(c).length > 1}
-								<span class="personas" data-testid="cast-personas-{entry.character}">
-									<span class="personas-label">{m['creator.cast_personas']()}</span>
-									{#each personaIds(c) as p (p)}
-										{@const on = entry.personas.includes(p)}
-										{@const last = on && entry.personas.length === 1}
-										<!-- the last persona can't be unticked (an entry has at least one): disabled instead of a tick that changes nothing -->
-										<label class="chip" class:on class:last title={last ? m['creator.cast_last_persona']() : undefined}>
-											<input type="checkbox" checked={on} disabled={last} onchange={(e) => togglePersona(entry.character, p, e.currentTarget.checked)} />
-											{p === REGULAR_PERSONA ? m['creator.characters_regular']() : pickText(findPersona(c, p)?.label, textLanguage.names, [source, ...langs]) || p}
-										</label>
-									{/each}
-								</span>
-								{/if}
 							{:else}
 								<span class="bad">{entry.character}</span>
 								<span class="hint bad">{m['creator.characters_not_in_registry']()}</span>
 							{/if}
 						</span>
-						<LocaleMapField value={entry.role} languages={langs} label={m['creator.cast_role']()} onchange={(v) => setRole(entry.character, v)} testid="cast-role-{entry.character}" />
+						{#if c}
+							<!-- a character with one persona has nothing to choose: no row (owner read "regular" as a flag) -->
+							{#if personaIds(c).length > 1}
+							<span class="personas" use:edgeFade data-testid="cast-personas-{entry.character}">
+								<span class="personas-label">{m['creator.cast_personas']()}</span>
+								{#each personaIds(c) as p (p)}
+									{@const on = entry.personas.includes(p)}
+									{@const last = on && entry.personas.length === 1}
+									<!-- the last persona can't be unticked (an entry has at least one): disabled instead of a tick that changes nothing -->
+									{@const face = characterImage(c, { persona: p }, 'avatar', { isMissing: isKnownMissing })}
+									<label class="chip" class:on class:last title={last ? m['creator.cast_last_persona']() : undefined} data-control-exempt="a persona toggle: face + word">
+										<input class="sr-only" type="checkbox" checked={on} disabled={last} onchange={(e) => togglePersona(entry.character, p, e.currentTarget.checked)} />
+										{#if face}<img src={asset(face)} alt="" loading="lazy" />{/if}
+										{p === REGULAR_PERSONA ? m['creator.characters_regular']() : pickText(findPersona(c, p)?.label, textLanguage.names, [source, ...langs]) || p}
+									</label>
+								{/each}
+							</span>
+							{/if}
+						{/if}
+						<span class="role"><LocaleMapField value={entry.role} languages={langs} label={m['creator.cast_role']()} onchange={(v) => setRole(entry.character, v)} testid="cast-role-{entry.character}" /></span>
 						<span class="order">
 							{#if entry.character === star}
 								<button type="button" class="ghost" disabled title={m['creator.cast_star_locked']()} aria-label={m['creator.cast_star_locked']()} data-testid="cast-star-locked"><CloseIcon /></button>
@@ -231,16 +236,30 @@
 		flex-direction: column;
 		gap: 0.4rem;
 	}
+	/* a cast card (research/CHARACTER-PAGE.md, #104 – owner 2026-10-21 "those two pages are fucked up" on phones):
+	   desktop one row grip · avatar · who · role · ✕; phones (below) the head row, then the role across the card */
 	.member {
 		display: grid;
 		grid-template-columns: auto 3.2rem minmax(12rem, 18rem) minmax(0, 1fr) auto;
-		gap: 0.6rem;
+		grid-template-areas:
+			'grip avatar who role x'
+			'. . personas role x';
+		gap: var(--space-075);
 		align-items: center;
-		border: 1px solid var(--border-subtle);
-		padding: 0.4rem;
+		border: var(--border-width-hairline) solid var(--border-subtle);
+		padding: var(--space-05);
 		background: var(--paper);
 	}
+	.grip {
+		grid-area: grip;
+		display: flex;
+	}
+	.role {
+		grid-area: role;
+		min-width: 0;
+	}
 	.avatar {
+		grid-area: avatar;
 		width: 3.2rem;
 		height: 3.2rem;
 		display: flex;
@@ -254,30 +273,54 @@
 		object-fit: contain;
 	}
 	.who {
+		grid-area: who;
 		display: flex;
 		flex-direction: column;
-		gap: 0.15rem;
+		gap: var(--space-025);
+		min-width: 0;
 	}
 	.personas {
+		grid-area: personas;
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: 0.2rem;
+		gap: var(--space-025);
+		min-width: 0;
 	}
 	.personas-label {
+		flex-basis: 100%;
 		font-size: var(--type-caption-size);
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
 		color: var(--text-muted);
 	}
+	/* a persona toggle like the character page's face row: face + word, inverted when in this toon */
 	.chip {
 		display: inline-flex;
-		gap: 0.2rem;
+		gap: var(--space-05);
 		align-items: center;
-		font-size: var(--type-caption-size);
-		border: 1px solid var(--border-muted);
-		padding: 0 0.3rem;
+		height: var(--control-height);
+		padding: 0 var(--space-05) 0 var(--space-025);
+		border: var(--border-width-hairline) solid var(--border-muted);
+		white-space: nowrap;
 		cursor: pointer;
+	}
+	.chip img {
+		width: calc(var(--control-height) - 0.5rem);
+		height: calc(var(--control-height) - 0.5rem);
+		object-fit: cover;
+	}
+	.chip:focus-within {
+		outline: var(--border-width-focus) solid var(--ink);
+		outline-offset: var(--border-width-regular);
+	}
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
 	}
 	/* a chosen persona = a pressed toggle: inverted */
 	.chip.on {
@@ -289,8 +332,10 @@
 		cursor: default;
 	}
 	.order {
+		grid-area: x;
 		display: flex;
 		align-items: center;
+		align-self: start;
 	}
 	.star {
 		margin-left: 0.4rem;
@@ -316,7 +361,37 @@
 	}
 	@media (max-width: 800px) {
 		.member {
-			grid-template-columns: auto 3.2rem 1fr auto;
+			grid-template-columns: auto 3.2rem minmax(0, 1fr) auto;
+			grid-template-areas:
+				'grip avatar who x'
+				'personas personas personas personas'
+				'role role role role';
+			align-items: start;
+		}
+		.grip,
+		.avatar {
+			align-self: center;
+		}
+		/* one row across the card, sideways with the fade where more follows (as the character page's face rows) */
+		.personas {
+			flex-wrap: nowrap;
+			overflow-x: auto;
+			scrollbar-width: none;
+		}
+		.personas::-webkit-scrollbar {
+			display: none;
+		}
+		.personas:global([data-fade='r']) {
+			mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent);
+		}
+		.personas:global([data-fade='l']) {
+			mask-image: linear-gradient(to right, transparent, #000 2.5rem);
+		}
+		.personas:global([data-fade='lr']) {
+			mask-image: linear-gradient(to right, transparent, #000 2.5rem, #000 calc(100% - 2.5rem), transparent);
+		}
+		.personas-label {
+			display: none;
 		}
 	}
 </style>

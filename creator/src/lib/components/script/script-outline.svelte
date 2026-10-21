@@ -88,6 +88,10 @@
 	@media (max-width: 900px) {
 		.outline-list {
 			max-height: 15rem !important;
+			/* the list goes on below: it fades out instead of cutting a row in half (owner 2026-10-21: the fade where a
+			   list has more) */
+			mask-image: linear-gradient(#000 calc(100% - 2rem), transparent);
+			padding-bottom: 1rem;
 		}
 	}
 	ol {

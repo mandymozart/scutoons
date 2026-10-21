@@ -960,7 +960,7 @@
 		"cast_star": "Star",
 		"cast_star_locked": "The toon’s star is always in the cast",
 		"cast_last_persona": "At least one persona: tick another one first",
-		"cast_personas": "Personas in this toon:",
+		"cast_personas": "Personas in this toon",
 		"status_where": "The status is changed only on the chapter page (Meta); the toon page and the season show it read-only.",
 		"cast_star_hint": "The toon’s star is always in the cast (added automatically, cannot be removed). Seasons are created on the toon page; who appears in a chapter is set on the chapter page (Featuring).",
 		"script": "Script",

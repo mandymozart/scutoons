@@ -488,8 +488,9 @@
 	/* the title page row; "Edit script" at its right while the script is read-only */
 	.head {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: flex-start;
-		gap: 1rem;
+		gap: var(--space-05) 1rem;
 	}
 	.edit-script {
 		display: inline-flex;
