@@ -25,7 +25,6 @@ export function warmModel(source: ModelSource | null | undefined): void {
 		() => {
 			// three.js, the stage's light environment and its table texture too: a cold card waits for all of them
 			loadThree()
-				// @ts-expect-error – three's addons come without types here (record-stage.js imports the same module)
 				.then(() => import('three/addons/environments/RoomEnvironment.js'))
 				.catch(() => {});
 			for (const url of files) {

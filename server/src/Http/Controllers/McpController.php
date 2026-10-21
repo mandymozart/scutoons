@@ -11,12 +11,16 @@ use Scutoons\Infrastructure\Config\Settings;
 
 /**
  * The member's SCUTOONS MCP server, shipped with the API (agents/MCP.md §3a, issue 76): the api deploy builds it
- * (tools/mcp/scripts/build.mjs) into `MCP_PATH` – scutoons-mcp.mjs, scutoons.mcpb and scutoons-mcp.json
- * { version, git_sha, sha256, sha256_mcpb, built_at }. Locally `npm run build:mcp` writes the same folder.
+ * (tools/mcp/scripts/build.mjs) into `MCP_PATH` – scutoons-mcp.mjs, scutoons.mcpb, scutoons-figma-plugin.zip and
+ * scutoons-mcp.json { version, git_sha, sha256, sha256_mcpb, sha256_figma_plugin, figma_plugin_version, built_at }.
+ * Locally `npm run build:mcp` writes the same folder.
  *
- * GET /api/mcp/download            → scutoons-mcp.mjs (Claude Code; short link scutoons.com/mcp)
- * GET /api/mcp/download?file=mcpb  → scutoons.mcpb (the Claude Desktop extension; scutoons.com/mcp.mcpb)
- * GET /api/mcp/version             → { version, git_sha, sha256, sha256_mcpb } – the local MCP checks it on start
+ * GET /api/mcp/download                    → scutoons-mcp.mjs (Claude Code; short link scutoons.com/mcp)
+ * GET /api/mcp/download?file=mcpb          → scutoons.mcpb (the Claude Desktop extension; scutoons.com/mcp.mcpb)
+ * GET /api/mcp/download?file=figma-plugin  → scutoons-figma-plugin.zip (the SCUTOONS Bridge plugin for Figma desktop,
+ *                                            #127; scutoons.com/figma-plugin)
+ * GET /api/mcp/version → { version, git_sha, sha256, sha256_mcpb, sha256_figma_plugin, figma_plugin_version } – the
+ *                        local MCP checks it on start
  * Not built → 404 not_built.
  */
 final class McpController
@@ -24,6 +28,7 @@ final class McpController
     private const FILES = [
         'mjs' => ['scutoons-mcp.mjs', 'application/javascript; charset=utf-8', 'sha256'],
         'mcpb' => ['scutoons.mcpb', 'application/zip', 'sha256_mcpb'],
+        'figma-plugin' => ['scutoons-figma-plugin.zip', 'application/zip', 'sha256_figma_plugin'],
     ];
 
     public function __construct(private readonly Settings $settings)
@@ -47,6 +52,8 @@ final class McpController
             'git_sha' => (string) ($manifest['git_sha'] ?? ''),
             'sha256' => (string) ($manifest['sha256'] ?? ''),
             'sha256_mcpb' => (string) ($manifest['sha256_mcpb'] ?? ''),
+            'sha256_figma_plugin' => (string) ($manifest['sha256_figma_plugin'] ?? ''),
+            'figma_plugin_version' => is_string($manifest['figma_plugin_version'] ?? null) ? $manifest['figma_plugin_version'] : null,
         ], ['Cache-Control' => 'public, max-age=60', 'Access-Control-Allow-Origin' => '*']);
     }
 

@@ -11,6 +11,8 @@
 	# and the MCP's update notice give (the old /ai/… copies are gone – owner 2026-10-20: nothing refers to them)
 	RewriteRule ^mcp/?$ https://api.scutoons.com/api/mcp/download [R=302,L]
 	RewriteRule ^mcp\.mcpb$ https://api.scutoons.com/api/mcp/download?file=mcpb [R=302,L]
+	# the SCUTOONS Bridge plugin for Figma desktop, built with the MCP (#127, agents/MCP.md §3a)
+	RewriteRule ^figma-plugin/?$ https://api.scutoons.com/api/mcp/download?file=figma-plugin [R=302,L]
 	RewriteCond %{REQUEST_FILENAME} !-f
 	RewriteCond %{REQUEST_FILENAME} !-d
 	RewriteRule . /index.html [L]

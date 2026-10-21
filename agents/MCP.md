@@ -123,17 +123,36 @@ the format rules from creator / viewer source files at start). Fine for the owne
 - **Build one file**: `npm run build:mcp` bundles the server (esbuild) into `scutoons-mcp.mjs` with the rule texts
   embedded at build time – needs only Node ≥ 22, no checkout, no npm install.
 - **Claude Desktop extension** (`scutoons.mcpb`, the bundle + a manifest): double-click → Claude Desktop installs it and
-  asks for the token (a `user_config` field, kept in the OS keychain). No Node install needed (Claude Desktop brings
-  its own). Best path for non-developers.
+  asks for the token (a `user_config` field, kept in the OS keychain), the **Workspace folder** (`directory` →
+  `SCUTOONS_WORKSPACE`) and the **ComfyUI address** (→ `COMFY_URL`, default http://127.0.0.1:8188); both optional – an
+  empty one (or its unreplaced `${user_config.…}`) counts as unset (config.ts dropUnsetSettings). No Node install needed
+  (Claude Desktop brings its own). Best path for non-developers.
+- **The local kit** (#127, research/STUDIO-IN-CREATOR.md §2.4 – the same for every member): the MCP **carries the Figma
+  relay** (`src/figma-relay.ts` + the pure `figma-relay-core.ts`: a TS port of tools/figma-bridge/relay.mjs, the same
+  protocol on 3056 – tested against relay.mjs with the same stand-in-plugin scenarios). A figma_* call that finds nothing
+  on the port starts it in the MCP process (no `supervise.mjs`); a running relay (relay.mjs, another MCP) is used. The
+  command modules (`tools/figma-bridge/commands/*.js`) are embedded at build time (`figma-commands.ts` replaced). It
+  starts by itself **only in the one-file copy / extension** – from a checkout only with `SCUTOONS_FIGMA_RELAY=mcp`
+  (`off` turns it off anywhere): the owner's production scripts keep relay.mjs under supervise.mjs on the same port, and
+  an MCP relay grabbing it during a relay restart would lock the supervisor out (2026-10-21, ch3). **The Figma plugin**
+  is a download built with the MCP: `server/mcp/scutoons-figma-plugin.zip` (`scutoons-figma-plugin/` manifest.json,
+  code.js, ui.html as in the checkout – only the UI's hint names the MCP –, README.txt), Figma desktop → Plugins →
+  Development → Import plugin from manifest. **ComfyUI** (optional): `generate_local` (§9). The check: whoami's `kit`.
+- **Switching the owner's checkout later** (after the art freeze, #127's second part): set `SCUTOONS_FIGMA_RELAY=mcp` for
+  the checkout's MCP and stop the supervisor (`node tools/figma-bridge/supervise.mjs --stop`) – the scripts'
+  `figma()` (scripts/storyboard/lib.mjs) would still start supervise.mjs when no relay answers, so that switch comes
+  with the figma-* scripts becoming MCP tools; until then nothing changes for the checkout.
 - **Shipped with the API** (no third party, owner 2026-10-09 "alles bei uns"; with the API since 2026-10-20, issue 76:
   "den MCP vom Server aus mitgeben"): the api deploy runs `tools/mcp/scripts/build.mjs mcp` in its staging copy
   (deploy/targets.json; `tools/mcp/**`, the text presets, scripts/vectors-core.mjs and the shared packages it imports
   redeploy the api, not the viewer). `server/mcp/` = scutoons-mcp.mjs, scutoons.mcpb, scutoons-mcp.json
   { version, git_sha, sha256, sha256_mcpb, built_at } (locally `npm run build:mcp`, gitignored). McpController:
-  `GET /api/mcp/download` (the .mjs; `?file=mcpb` the extension; attachment, ETag, 5 minutes) and `GET /api/mcp/version`
-  ({ version, git_sha, sha256, sha256_mcpb }); not built → 404 not_built.
-- **Links:** members get the short links `scutoons.com/mcp` and `scutoons.com/mcp.mcpb` (viewer/static/.htaccess →
-  302 to the API) – the account page's "AI connections" uses them. The old `scutoons.com/ai/…` URLs are gone
+  `GET /api/mcp/download` (the .mjs; `?file=mcpb` the extension; `?file=figma-plugin` the plugin zip; attachment, ETag,
+  5 minutes) and `GET /api/mcp/version` ({ version, git_sha, sha256, sha256_mcpb, sha256_figma_plugin,
+  figma_plugin_version }); not built → 404 not_built.
+- **Links:** members get the short links `scutoons.com/mcp`, `scutoons.com/mcp.mcpb` and `scutoons.com/figma-plugin`
+  (viewer/static/.htaccess → 302 to the API) – the account page's "AI connections" uses them, with a folded "Set up your
+  machine" (the three steps + "ask your Claude whoami"; viewer account/machine-setup.svelte). The old `scutoons.com/ai/…` URLs are gone
   (owner 2026-10-20).
 - **Updates:** a member's copy (bundle / extension; a checkout never) asks `/api/mcp/version` once on start
   (tools/mcp/src/update.ts, 3 s timeout, silent on errors). Newer = a higher version (tools/mcp/package.json = `VERSION`
@@ -251,3 +270,13 @@ in `test/`) + `storyboard-refs.ts` (the files on the member's machine). Content 
   references are uploaded to the work storage first, the server hands the provider signed links; `estimate_only`),
   `check_generation` (polls once; a finished result is saved into `SCUTOONS_WORKSPACE/<toon>/<chapter>/<shot>--g<n>.<ext>`
   and the row gets file + sha256 + machine – `SCUTOONS_MACHINE` or the host name), `cancel_generation` (Runway only).
+- The member's own GPU (#127): `generate_local` (`src/storyboard-local.ts` + the pure `comfy-local.ts`) – comfy.mjs's
+  Qwen-Image-Edit 2509 graph (image 1 = the shot's render, found here or given as `still`; up to two guides, default the
+  character images) posted to `COMFY_URL`; models / LoRA from `COMFY_UNET` / `COMFY_CLIP` / `COMFY_VAE` / `COMFY_LORA`
+  (`none` = no Lightning) / `COMFY_STEPS` / `COMFY_CFG` / `COMFY_MP` / `COMFY_CHAR_LORA` / `COMFY_REF_METHOD`, comfy.mjs's
+  defaults. Prompt: the shot's lumaPrompt unless given. Waits up to `wait` s (default 50), else `running` + a prompt_id
+  to collect with a second call. The result → `SCUTOONS_WORKSPACE/<toon>/<chapter>/<shot>--g<n>.png` + a record
+  (generator comfy-local, model qwen-image-edit, seed, params, cost 0). No money, no budget. ComfyUI down → what to run.
+  Not ported: comfy.mjs's owner-specific character descriptions, `--fresh` server per image, the greyscale pass.
+- whoami → `kit` (creators): the workspace folder, the Figma relay (which one) + plugin (file, code version), ComfyUI
+  reachable – each with its next step (src/kit.ts; probes ≤ 1.5 s, it never starts the relay).

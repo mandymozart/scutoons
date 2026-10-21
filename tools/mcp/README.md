@@ -16,11 +16,12 @@ Readers (no member role) can't connect. ChatGPT / Cursor: not offered for now.
 | admin (not creator) | content (read only) | the reading tools above + `src/story.ts` |
 | creator / admin | story | `src/story.ts`: `read_flow` (SCUTOONS / toon / chapter / group – the Flow panel's own functions, stuck points), `story_variables`, `dead_things`, `item_placements`, `asset_usages`, `missing_assets`, `list_reviews`, `compare_versions` |
 | creator / admin | storyboard (#122) | `src/storyboard.ts`: `read_storyboard` (the chapter's `storyboard:<toon>:<n>` as an outline with each shot's JSON path – edits go through `save_draft`), `storyboard_validate` (validateChapter + the rhythm), `storyboard_prompt` (a shot's Luma prompt + the files to attach found on this machine), `list_generations`; creators also `mark_generation`, `approve_generation`, `record_generation` (a generation made on the member's machine – a ledger row, nothing uploaded); paid jobs (#121): `list_generators` (read), `start_generation` (SPENDS MONEY – inside the server's budget gate; `estimate_only`), `check_generation` (polls; saves the result into `SCUTOONS_WORKSPACE`/<toon>/<chapter>/<shot>--g<n>.<ext>, the machine = `SCUTOONS_MACHINE` or the host name), `cancel_generation` |
-| creator | Figma (the member's own file) | `src/figma.ts`: `figma_status`, `figma_read`, `figma_view` (a node as a picture), `figma_place_draft` (storyboard draft frames) – through the SCUTOONS Figma bridge on the member's computer (`tools/figma-bridge`: relay + development plugin in Figma desktop; no Figma token, no call cap) |
+| creator | Figma (the member's own file) | `src/figma.ts`: `figma_status`, `figma_read`, `figma_view` (a node as a picture), `figma_place_draft` (storyboard draft frames) – through the SCUTOONS Bridge plugin in Figma desktop and a relay on 127.0.0.1:3056 (no Figma token, no call cap). A member's copy carries the relay (`src/figma-relay.ts`, started on the first figma_* call when none runs); a checkout uses `tools/figma-bridge/relay.mjs` (or `SCUTOONS_FIGMA_RELAY=mcp`) |
+| creator | local generation (#127) | `src/storyboard-local.ts`: `generate_local` – a still from the member's own ComfyUI (`COMFY_URL`, comfy.mjs's Qwen-Edit graph, `COMFY_*` models), saved into `SCUTOONS_WORKSPACE` and recorded (comfy-local); free |
 | liaison / ambassador / admin | Embassy | `src/embassy.ts`: `today`, `my_portion`, `search_orgs`, `read_org`, `list_team`, `list_releases`, `log_activity`, `set_lead`, `create_org`, `update_org`, `add_person`, `update_person`, `delete_person`, `draft_mail`, `check_inbox` |
 | admin | admin | `src/admin.ts`: `dashboard`, `count_codes`, `list_codes`, `read_code`, `list_events`, `list_users`, `read_user`, `reading_stats`, `list_claims`, `read_claim`, `email_log`, `read_catalog`, `catalog_history`, `read_calendar`, `read_settings`, `propose_changes` |
 | developer | migrations | `src/dev.ts`: `migration_status`, `plan_migrations` (a dry run: row counts, nothing changes), `apply_migrations` (that plan, backups, cache emptied) – the deploy runs pending ones by itself |
-| everyone | – | `whoami` (member, services, the app links) |
+| everyone | – | `whoami` (member, services, the app links; creators: `kit` – workspace, Figma relay + plugin, ComfyUI, `src/kit.ts`) |
 
 **Prompts** (`src/prompts.ts`; Claude Desktop "+" menu, Claude Code `/`): `creator`, `embassy` (how SCUTOONS writes to
 its network), `embassy-my-week`, `embassy-first-contact`, `admin`. **Resources** `scutoons://rules/*` (workflow, entity
@@ -45,7 +46,11 @@ the save unless `allow_errors`), and a newer save since `base` answers 409.
 
 On scutoons.com/account → **AI connections** → New connection: the token is shown once, with the steps.
 
-- **Claude Desktop:** download `scutoons.com/mcp.mcpb`, double-click, paste the token.
+- **Claude Desktop:** download `scutoons.com/mcp.mcpb`, double-click, paste the token; optional settings: the
+  Workspace folder (generated stills / videos land there) and the ComfyUI address.
+- **Figma** (creators): download `scutoons.com/figma-plugin`, unzip, Figma desktop → Plugins → Development → Import
+  plugin from manifest… → its `manifest.json`; run it in the file. The MCP starts its relay itself.
+- **Check:** ask Claude "whoami" – `kit` says what is ready (account page → AI connections → "Set up your machine").
 - **Claude Code:** download `scutoons.com/mcp` (= `scutoons-mcp.mjs`, Node ≥ 22), then
   `claude mcp add scutoons --scope user -e SCUTOONS_API=https://api.scutoons.com/api -e SCUTOONS_TOKEN=sct_… -- node <folder>/scutoons-mcp.mjs`.
   Claude Code's Remote Control (driving the session from claude.ai or the phone) works: the server runs where the session runs.
@@ -59,11 +64,12 @@ mail comes two weeks before the end if the AI still uses it. Revoking it there e
 npm run build:mcp
 ```
 
-`scripts/build.mjs` bundles the server with rolldown into ONE file (the format rules read at build time and embedded; the
-API defaults to production) and packs `scutoons.mcpb` (MCPB manifest 0.3, the token as a sensitive setting) into
-`server/mcp/` (gitignored) with `scutoons-mcp.json` (version, sha256). The api deploy builds it, so every api deploy
-serves the current version: `GET /api/mcp/download` (`?file=mcpb`), `GET /api/mcp/version`; the short links
-scutoons.com/mcp(.mcpb) redirect there. On start a member's copy checks the version and says in whoami / the first tool
+`scripts/build.mjs` bundles the server with rolldown into ONE file (the format rules and the Figma command modules read
+at build time and embedded; the API defaults to production) and packs `scutoons.mcpb` (MCPB manifest 0.3: the token as a
+sensitive setting, the workspace folder, the ComfyUI address) and `scutoons-figma-plugin.zip` (tools/figma-bridge/plugin)
+into `server/mcp/` (gitignored) with `scutoons-mcp.json` (version, sha256s, the plugin's code version). The api deploy builds it, so every api deploy
+serves the current version: `GET /api/mcp/download` (`?file=mcpb`, `?file=figma-plugin`), `GET /api/mcp/version`; the
+short links scutoons.com/mcp(.mcpb) and scutoons.com/figma-plugin redirect there. On start a member's copy checks the version and says in whoami / the first tool
 result when a newer one is out (agents/MCP.md §3a). Bump `version` here and `VERSION` in src/member.ts together.
 
 ## Local (dev stack)

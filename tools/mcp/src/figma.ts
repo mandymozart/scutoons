@@ -2,9 +2,15 @@
 // open in Figma desktop with the "SCUTOONS Bridge" development plugin, reached through the relay on 127.0.0.1. No
 // Figma API, no token, no monthly cap – the plugin acts as the member, only while its window is open. Read the
 // selection, look at frames as pictures, place storyboard draft frames (scripts/storyboard/figma-draft.mjs specs).
+// The relay (#127): a running one is used (the owner's relay.mjs under supervise.mjs); with none on the port, a member's
+// copy starts its own in-process (figma-relay.ts) – from a checkout only with SCUTOONS_FIGMA_RELAY=mcp (relayAutoStart).
 import type { McpServer } from '@modelcontextprotocol/server';
 import { readFileSync } from 'node:fs';
 import * as z from 'zod';
+import { BUNDLED } from './config.ts';
+import { commandSource } from './figma-commands.ts';
+import { relayAutoStart, type ModuleSource } from './figma-relay-core.ts';
+import { ensureRelay } from './figma-relay.ts';
 
 type Content = { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string };
 type Result = { content: Content[]; isError?: boolean };
@@ -12,8 +18,10 @@ const text = (value: unknown): Result => ({ content: [{ type: 'text', text: type
 const fail = (message: string): Result => ({ ...text(message), isError: true });
 
 const PLUGIN = 'in Figma desktop the file open and the SCUTOONS Bridge started (Ctrl+Alt+P "Run last plugin", or Plugins → Development → SCUTOONS Bridge; green dot)';
+/** the plugin isn't installed yet? (a member's copy: the download beside the MCP) */
+const INSTALL = 'Not installed yet: download https://scutoons.com/figma-plugin, unzip it, then Figma desktop → Plugins → Development → Import plugin from manifest… → its manifest.json';
 const SETUP = `The SCUTOONS Figma bridge is not ready: (1) the relay running on this computer – \`node tools/figma-bridge/supervise.mjs --detach\` keeps tools/figma-bridge/relay.mjs running in the background, (2) ${PLUGIN}. Setup: tools/figma-bridge/README.md.`;
-const NO_PLUGIN = `The relay runs, but no plugin is connected: ${PLUGIN}.`;
+const noPlugin = (auto: boolean) => `The relay runs, but no plugin is connected: ${PLUGIN}.${auto ? ` ${INSTALL}.` : ''}`;
 
 /**
  * per command (ms): how long the plugin may work on it (the relay answers `timeout` after that, Figma finishes it
@@ -28,12 +36,12 @@ export function figmaPort(): number {
 }
 
 /** the relay's error code → what the member (and their AI) should know */
-function explain(cmd: string, code: string | undefined, error: string | undefined, timeout: number): string {
+function explain(cmd: string, code: string | undefined, error: string | undefined, timeout: number, auto: boolean): string {
 	switch (code) {
 		case 'no_plugin':
-			return NO_PLUGIN;
+			return noPlugin(auto);
 		case 'plugin_disconnected':
-			return `The plugin went away during ${cmd} (Figma closed or reloaded it). ${NO_PLUGIN}`;
+			return `The plugin went away during ${cmd} (Figma closed or reloaded it). ${noPlugin(auto)}`;
 		case 'timeout':
 			return `Figma did not answer ${cmd} within ${Math.round(timeout / 1000)} s – it is still working on it; the bridge sends the next call when it is done. Try again in a minute, read a node instead of a whole page, or view at a smaller scale.`;
 		case 'queue_timeout':
@@ -45,17 +53,42 @@ function explain(cmd: string, code: string | undefined, error: string | undefine
 	}
 }
 
+export interface BridgeOptions {
+	/** start this MCP's own relay when nothing listens (default: relayAutoStart – a member's copy, or SCUTOONS_FIGMA_RELAY=mcp) */
+	autoStart?: boolean;
+	/** the command modules for that relay (default: the checkout's tools/figma-bridge/commands, embedded in a member's copy) */
+	modules?: ModuleSource;
+	/** after starting the relay: how long to wait for an open plugin window to reconnect (ms, default 11 s) */
+	pluginWait?: number;
+}
+
+const post = (port: number, body: string, ms: number) =>
+	fetch(`http://127.0.0.1:${port}/cmd`, { method: 'POST', headers: { 'content-type': 'application/json' }, body, signal: AbortSignal.timeout(ms) });
+
 /** one command through the relay → the plugin's answer ({ ok, result } / { ok: false, error }) */
-export async function bridge(cmd: string, args: Record<string, unknown> = {}, port = figmaPort()): Promise<{ ok: boolean; result?: any; error?: string }> {
+export async function bridge(cmd: string, args: Record<string, unknown> = {}, port = figmaPort(), opts: BridgeOptions = {}): Promise<{ ok: boolean; result?: any; error?: string }> {
 	const timeout = TIMEOUTS[cmd] ?? 120_000;
+	const auto = opts.autoStart ?? relayAutoStart(process.env, BUNDLED);
+	const body = JSON.stringify({ cmd, args, timeout, wait: WAIT, client: 'scutoons-mcp' });
 	let res: Response;
 	try {
-		res = await fetch(`http://127.0.0.1:${port}/cmd`, {
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ cmd, args, timeout, wait: WAIT, client: 'scutoons-mcp' }),
-			signal: AbortSignal.timeout(timeout + WAIT + 20_000)
-		});
+		try {
+			res = await post(port, body, timeout + WAIT + 20_000);
+		} catch (error) {
+			if (!auto || (error as { cause?: { code?: string } }).cause?.code !== 'ECONNREFUSED') throw error;
+			// nothing on the port: this MCP's own relay (the plugin finds it within 10 s – ui.html reconnects by itself)
+			try {
+				await ensureRelay(port, opts.modules ?? commandSource);
+			} catch (e) {
+				return { ok: false, error: `The SCUTOONS Figma relay could not start on 127.0.0.1:${port} (${(e as Error).message}) – another program uses the port? Set SCUTOONS_FIGMA_PORT to a free one (the plugin needs 3056).` };
+			}
+			// an open plugin window retries every ≤ 10 s – give it that long before answering no_plugin
+			for (let t0 = Date.now(); Date.now() - t0 < (opts.pluginWait ?? 11_000); ) {
+				if ((await relayStatus(port))?.plugin) break;
+				await new Promise((ok) => setTimeout(ok, 250));
+			}
+			res = await post(port, body, timeout + WAIT + 20_000);
+		}
 	} catch (error) {
 		const e = error as { name?: string; cause?: { code?: string } };
 		if (e.cause?.code === 'ECONNREFUSED') return { ok: false, error: SETUP };
@@ -71,15 +104,26 @@ export async function bridge(cmd: string, args: Record<string, unknown> = {}, po
 	if (out.ok) return out;
 	// a relay from before #78 answers without a code
 	const code = out.code ?? (/no plugin connected/.test(out.error ?? '') ? 'no_plugin' : undefined);
-	return { ok: false, error: explain(cmd, code, out.error, timeout) };
+	return { ok: false, error: explain(cmd, code, out.error, timeout, auto) };
+}
+
+/** the relay's GET /status on the port, or null (nothing there / not a relay) */
+export async function relayStatus(port = figmaPort(), ms = 1_500): Promise<Record<string, unknown> | null> {
+	try {
+		const res = await fetch(`http://127.0.0.1:${port}/status`, { signal: AbortSignal.timeout(ms) });
+		const s = (await res.json()) as Record<string, unknown>;
+		return s && typeof s === 'object' && 'plugin' in s ? s : null;
+	} catch {
+		return null;
+	}
 }
 
 const read = { readOnlyHint: true, openWorldHint: false };
 
-export function registerFigmaTools(server: McpServer, opts: { port?: number } = {}) {
+export function registerFigmaTools(server: McpServer, opts: { port?: number } & BridgeOptions = {}) {
 	const port = opts.port ?? figmaPort();
 	const call = async (cmd: string, args: Record<string, unknown> = {}) => {
-		const r = await bridge(cmd, args, port);
+		const r = await bridge(cmd, args, port, opts);
 		if (!r.ok) throw new Error(r.error ?? 'bridge error');
 		return r.result;
 	};

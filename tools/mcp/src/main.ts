@@ -1,12 +1,13 @@
 // stdio entry: `node bin/scutoons-mcp.mjs` (Claude Code / Claude Desktop start it; README.md). Logs go to stderr only –
 // stdout is the MCP channel. Readers (no member role) can't connect (owner 2026-10-09).
 import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
-import { loadConfig } from './config.ts';
+import { dropUnsetSettings, loadConfig } from './config.ts';
 import { createMemberServer, VERSION } from './member.ts';
 import { fetchMember, hasAny, servicesOf } from './services.ts';
 import { checkForUpdate } from './update.ts';
 
 try {
+	dropUnsetSettings(); // the extension's empty optional settings (workspace, ComfyUI address)
 	const config = loadConfig();
 	checkForUpdate(config, VERSION); // non-blocking: whoami / the first tool result say it when a newer one is out
 	const member = await fetchMember(config);

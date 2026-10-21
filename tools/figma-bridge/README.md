@@ -147,6 +147,14 @@ Creators (content write) get `figma_status`, `figma_read`, `figma_view` (a node 
 `figma_place_draft` (`tools/mcp/src/figma.ts`) – the same relay; `SCUTOONS_FIGMA_PORT` if not 3056. Each call has its
 own timeout (below fetch's 300 s) and the errors say what to do (no relay, no plugin, Figma still busy, queue busy).
 
+**Members (#127): the MCP carries the relay.** A member's SCUTOONS MCP (the one-file copy / Claude Desktop extension)
+has a TypeScript port of this relay (`tools/mcp/src/figma-relay.ts`, the same protocol on 3056 – its test runs this
+relay and the port through the same stand-in-plugin scenarios) and starts it on the first figma_* call when nothing
+listens; the plugin is a download built with the MCP (`scutoons.com/figma-plugin`, these `plugin/` files). Members need
+no checkout and no `supervise.mjs`. From a checkout the MCP never starts its own relay (only with
+`SCUTOONS_FIGMA_RELAY=mcp`): this folder's relay.mjs + supervise.mjs + cli.mjs stay as they are for the production
+scripts until #127's second part after the art freeze (the figma-* scripts → MCP tools; agents/MCP.md §3a "Switching").
+
 ## Check
 
 `node tools/figma-bridge/test.mjs` – no Figma needed: relays on spare ports (3993–3999), stand-in plugins, the queue,

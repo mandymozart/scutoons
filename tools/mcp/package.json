@@ -1,6 +1,6 @@
 {
 	"name": "@scutoons/mcp",
-	"version": "0.4.0",
+	"version": "0.5.0",
 	"private": true,
 	"type": "module",
 	"description": "SCUTOONS MCP server (stdio): the member's own AI with their rights over the API – tools by role, drafts only, the member confirms in the browser",
@@ -10,7 +10,7 @@
 	"scripts": {
 		"start": "node bin/scutoons-mcp.mjs",
 		"check": "tsc --noEmit -p tsconfig.json && npm run test",
-		"test": "node --experimental-transform-types --no-warnings --test test/storyboard.test.ts"
+		"test": "node --experimental-transform-types --no-warnings --test test/*.test.ts"
 	},
 	"dependencies": {
 		"@modelcontextprotocol/server": "^2.3.0",

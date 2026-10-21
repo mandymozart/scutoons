@@ -29,6 +29,17 @@ function localApi(): string {
 	return `http://localhost:${ports.api}/api`;
 }
 
+/**
+ * the extension's optional settings (scripts/build.mjs user_config → env): one left empty may arrive as "" or as its
+ * unreplaced placeholder "${user_config.x}" – both mean "not set" (the variable is removed)
+ */
+export function dropUnsetSettings(env: NodeJS.ProcessEnv = process.env, names = ['SCUTOONS_WORKSPACE', 'COMFY_URL', 'SCUTOONS_MACHINE']): void {
+	for (const name of names) {
+		const v = env[name];
+		if (v !== undefined && (v.trim() === '' || /^\$\{user_config\.[\w-]+\}$/.test(v.trim()))) delete env[name];
+	}
+}
+
 export function isLocalUrl(url: string): boolean {
 	try {
 		return LOCAL_HOSTS.has(new URL(url).hostname);

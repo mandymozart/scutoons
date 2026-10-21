@@ -5,6 +5,7 @@
 	import { API_URL } from '$lib/config.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { formatDate } from '$lib/utils/date.ts';
+	import MachineSetup from '$lib/components/account/machine-setup.svelte';
 
 	/**
 	 * "AI connections" on the account page (agents/MCP.md §3, approved screen 2026-10-09): the member's personal tokens
@@ -187,6 +188,7 @@
 			<Button size="sm" variant="secondary" onclick={() => (adding = true)} data-testid="ai-new">{m['account.ai_new']()}</Button>
 		{/if}
 		{#if error}<p class="error" role="alert">{error}</p>{/if}
+		<MachineSetup />
 	</div>
 {/if}
 

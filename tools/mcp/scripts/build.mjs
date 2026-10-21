@@ -7,9 +7,12 @@
 //                                                     2026-10-20 "den MCP vom Server aus mitgeben"): the api deploy
 //                                                     runs it into its staging copy; GET /api/mcp/download serves it
 // Writes <outDir>/scutoons-mcp.mjs (Claude Code: `node scutoons-mcp.mjs`), <outDir>/scutoons.mcpb (Claude Desktop:
-// a zip – manifest.json + server/index.mjs; double-click, paste the token) and <outDir>/scutoons-mcp.json
-// { version, git_sha, sha256, sha256_mcpb, built_at } (GET /api/mcp/version; the bundle compares itself with it).
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+// a zip – manifest.json + server/index.mjs; double-click, paste the token, pick the workspace folder),
+// <outDir>/scutoons-figma-plugin.zip (the SCUTOONS Bridge plugin for Figma desktop, #127 – its manifest, code.js, ui.html;
+// the command modules travel inside the MCP, whose relay sends them) and <outDir>/scutoons-mcp.json
+// { version, git_sha, sha256, sha256_mcpb, sha256_figma_plugin, figma_plugin_version, built_at } (GET /api/mcp/version;
+// the bundle compares itself with it).
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { crc32, deflateRawSync } from 'node:zlib';
@@ -31,8 +34,18 @@ const rules = JSON.parse(
 	], { maxBuffer: 64 * 1024 * 1024 }).toString('utf8')
 );
 
-// 2. one ES module: resources.ts replaced by the embedded rules
+// the Figma bridge's command modules (tools/figma-bridge/commands/*.js) – the MCP's own relay sends them to the plugin
+const BRIDGE = resolve(ROOT, 'tools/figma-bridge');
+const commands = Object.fromEntries(
+	readdirSync(resolve(BRIDGE, 'commands'))
+		.filter((f) => /^[a-z][\w-]*\.js$/.test(f))
+		.sort()
+		.map((f) => [f.slice(0, -3), readFileSync(resolve(BRIDGE, 'commands', f), 'utf8')])
+);
+
+// 2. one ES module: resources.ts replaced by the embedded rules, figma-commands.ts by the embedded modules
 const RESOURCES = resolve(PKG, 'src/resources.ts');
+const COMMANDS = resolve(PKG, 'src/figma-commands.ts');
 const bundle = await rolldown({
 	input: resolve(PKG, 'src/main.ts'),
 	platform: 'node',
@@ -41,12 +54,16 @@ const bundle = await rolldown({
 		{
 			name: 'embedded-rules',
 			resolveId(source, importer) {
-				if (importer && resolve(dirname(importer), source) === RESOURCES) return '\0scutoons-rules';
+				const path = importer ? resolve(dirname(importer), source) : null;
+				if (path === RESOURCES) return '\0scutoons-rules';
+				if (path === COMMANDS) return '\0scutoons-figma-commands';
 				return null;
 			},
 			load(id) {
-				if (id !== '\0scutoons-rules') return null;
-				return `export const RULES = ${JSON.stringify(rules)}.map((r) => ({ ...r, text: () => r.body }));`;
+				if (id === '\0scutoons-rules') return `export const RULES = ${JSON.stringify(rules)}.map((r) => ({ ...r, text: () => r.body }));`;
+				if (id === '\0scutoons-figma-commands')
+					return `const C = ${JSON.stringify(commands)};\nexport const COMMANDS_DIR = null;\nexport function commandSource(name) { return Object.hasOwn(C, name) ? C[name] : null; }`;
+				return null;
 			}
 		}
 	]
@@ -71,7 +88,11 @@ const manifest = {
 	server: {
 		type: 'node',
 		entry_point: 'server/index.mjs',
-		mcp_config: { command: 'node', args: ['${__dirname}/server/index.mjs'], env: { SCUTOONS_TOKEN: '${user_config.token}' } }
+		mcp_config: {
+			command: 'node',
+			args: ['${__dirname}/server/index.mjs'],
+			env: { SCUTOONS_TOKEN: '${user_config.token}', SCUTOONS_WORKSPACE: '${user_config.workspace}', COMFY_URL: '${user_config.comfy_url}' }
+		}
 	},
 	user_config: {
 		token: {
@@ -80,6 +101,19 @@ const manifest = {
 			description: 'Create it on scutoons.com/account → AI connections (sct_…). Revoke it there any time.',
 			sensitive: true,
 			required: true
+		},
+		workspace: {
+			type: 'directory',
+			title: 'Workspace folder',
+			description: 'Where generated stills and videos are saved (<toon>/<chapter>/<shot>--g<n>.png). Optional – needed for check_generation and generate_local.',
+			required: false
+		},
+		comfy_url: {
+			type: 'string',
+			title: 'ComfyUI address',
+			description: 'Only if you run ComfyUI on this computer for generate_local (free stills on your own GPU).',
+			default: 'http://127.0.0.1:8188',
+			required: false
 		}
 	},
 	compatibility: { platforms: ['darwin', 'win32', 'linux'], runtimes: { node: '>=22.0.0' } }
@@ -142,11 +176,46 @@ const codeBuf = Buffer.from(code);
 const json = (value) => JSON.stringify(value, null, '\t') + '\n';
 const mcpb = zip({ 'manifest.json': Buffer.from(json(manifest)), 'server/index.mjs': codeBuf });
 
+// 4. the Figma plugin (#127): the files Figma's "Import plugin from manifest…" reads, as they are in the checkout – only
+// the UI's hint names the MCP instead of the checkout's supervisor (the plugin's code and protocol are unchanged)
+const plugin = (f) => readFileSync(resolve(BRIDGE, 'plugin', f));
+const pluginUi = plugin('ui.html').toString('utf8').replace('node tools/figma-bridge/supervise.mjs --detach', 'your SCUTOONS MCP (ask Claude: figma_status)');
+const pluginVersion = /const VERSION = '([^']+)'/.exec(plugin('code.js').toString('utf8'))?.[1] ?? null;
+const pluginReadme = [
+	`SCUTOONS Bridge – the Figma plugin of the SCUTOONS MCP ${version} (plugin code ${pluginVersion})`,
+	'',
+	'1. Figma desktop (not the browser) -> open any design file -> Plugins -> Development -> Import plugin from manifest...',
+	'   -> pick manifest.json in this folder. Keep the folder where it is (Figma loads the plugin from here).',
+	'2. Run it in the file you work on: Plugins -> Development -> SCUTOONS Bridge (afterwards Ctrl+Alt+P / Cmd+Option+P).',
+	'   The small window shows a green dot when it is connected to your SCUTOONS MCP.',
+	'3. Check: ask your Claude "whoami" (kit -> figma) or "figma_status".',
+	'',
+	'A newer SCUTOONS MCP may bring a newer plugin: download https://scutoons.com/figma-plugin again and replace these files.',
+	''
+].join('\r\n');
+const figmaZip = zip({
+	'scutoons-figma-plugin/manifest.json': plugin('manifest.json'),
+	'scutoons-figma-plugin/code.js': plugin('code.js'),
+	'scutoons-figma-plugin/ui.html': Buffer.from(pluginUi),
+	'scutoons-figma-plugin/README.txt': Buffer.from(pluginReadme)
+});
+
 mkdirSync(OUT, { recursive: true });
 writeFileSync(resolve(OUT, 'scutoons-mcp.mjs'), codeBuf);
 writeFileSync(resolve(OUT, 'scutoons.mcpb'), mcpb);
+writeFileSync(resolve(OUT, 'scutoons-figma-plugin.zip'), figmaZip);
 writeFileSync(
 	resolve(OUT, 'scutoons-mcp.json'),
-	json({ version, git_sha: gitSha, sha256: sha256(codeBuf), sha256_mcpb: sha256(mcpb), built_at: new Date().toISOString() })
+	json({
+		version,
+		git_sha: gitSha,
+		sha256: sha256(codeBuf),
+		sha256_mcpb: sha256(mcpb),
+		sha256_figma_plugin: sha256(figmaZip),
+		figma_plugin_version: pluginVersion,
+		built_at: new Date().toISOString()
+	})
 );
-console.log(`scutoons-mcp ${version}: ${OUT} – scutoons-mcp.mjs (${Math.round(code.length / 1024)} KB), scutoons.mcpb, scutoons-mcp.json, ${rules.length} rules embedded`);
+console.log(
+	`scutoons-mcp ${version}: ${OUT} – scutoons-mcp.mjs (${Math.round(code.length / 1024)} KB), scutoons.mcpb, scutoons-figma-plugin.zip (plugin ${pluginVersion}), scutoons-mcp.json, ${rules.length} rules + ${Object.keys(commands).length} Figma command modules embedded`
+);

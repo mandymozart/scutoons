@@ -8,16 +8,18 @@ import type { Config } from './config.ts';
 import { registerDevTools } from './dev.ts';
 import { registerEmbassyTools } from './embassy.ts';
 import { registerFigmaTools } from './figma.ts';
+import { kitState } from './kit.ts';
 import { instructions, registerPrompts } from './prompts.ts';
 import { registerContentTools } from './server.ts';
 import { appLinks, type Member, type Services } from './services.ts';
 import { registerStoryTools } from './story.ts';
+import { registerLocalGenerationTools } from './storyboard-local.ts';
 import { registerStoryboardTools } from './storyboard.ts';
 import { pendingUpdate, takeUpdateOnce } from './update.ts';
 import { registerVectorTools } from './vectors.ts';
 
 /** = tools/mcp/package.json version (bump both; GET /api/mcp/version compares it – update.ts) */
-export const VERSION = '0.4.0';
+export const VERSION = '0.5.0';
 
 export function createMemberServer(config: Config, member: Member, services: Services): McpServer {
 	const server = new McpServer({ name: 'scutoons', version: VERSION }, { instructions: instructions(services, config.api, config.local) });
@@ -27,34 +29,39 @@ export function createMemberServer(config: Config, member: Member, services: Ser
 	server.registerTool(
 		'whoami',
 		{
-			description: 'Who you work for (name, email, roles), which SCUTOONS services that opens, and the app links drafts are confirmed in. Call it first.',
+			description:
+				'Who you work for (name, email, roles), which SCUTOONS services that opens, and the app links drafts are confirmed in. For creators also `kit`: this computer’s set-up (the workspace folder, the Figma relay + plugin, ComfyUI) with the next step for what isn’t ready. Call it first.',
 			inputSchema: z.object({}),
 			annotations: { readOnlyHint: true, openWorldHint: false }
 		},
-		async () => ({
-			content: [
-				{
-					type: 'text',
-					text: JSON.stringify(
-						{
-							member: { name: member.name || null, email: member.email, roles: member.roles },
-							services: {
-								content: services.content ?? 'none',
-								embassy: services.embassy,
-								admin: services.admin,
-								developer: services.developer
+		async () => {
+			const kit = services.content === 'write' ? await kitState() : undefined;
+			return {
+				content: [
+					{
+						type: 'text',
+						text: JSON.stringify(
+							{
+								member: { name: member.name || null, email: member.email, roles: member.roles },
+								services: {
+									content: services.content ?? 'none',
+									embassy: services.embassy,
+									admin: services.admin,
+									developer: services.developer
+								},
+								apps: links,
+								api: config.local ? `${config.api} (local dev)` : config.api,
+								confirm: 'Saves are drafts. Give the member the link from each result: they publish (creator), send (Embassy) or apply (admin proposals) in the browser.',
+								...(kit ? { kit } : {}),
+								...(pendingUpdate() ? { update: `${pendingUpdate()} – tell the member (download, replace the old file, restart Claude).` } : {})
 							},
-							apps: links,
-							api: config.local ? `${config.api} (local dev)` : config.api,
-							confirm: 'Saves are drafts. Give the member the link from each result: they publish (creator), send (Embassy) or apply (admin proposals) in the browser.',
-							...(pendingUpdate() ? { update: `${pendingUpdate()} – tell the member (download, replace the old file, restart Claude).` } : {})
-						},
-						null,
-						1
-					)
-				}
-			]
-		})
+							null,
+							1
+						)
+					}
+				]
+			};
+		}
 	);
 
 	if (services.content) {
@@ -64,6 +71,8 @@ export function createMemberServer(config: Config, member: Member, services: Ser
 		registerStoryboardTools(server, config, { write: services.content === 'write', links });
 		// the member's own Figma file through the SCUTOONS Figma bridge (tools/figma-bridge) – creators who write
 		if (services.content === 'write') registerFigmaTools(server);
+		// a still from the member's own ComfyUI (#127) – free, recorded like every generation
+		if (services.content === 'write') registerLocalGenerationTools(server, config, { links });
 	}
 	if (services.embassy) registerEmbassyTools(server, config, { member, links });
 	if (services.admin) registerAdminTools(server, config, { links });
