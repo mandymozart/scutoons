@@ -1,6 +1,7 @@
 <script lang="ts" module>
 	export type Level = 'character' | 'persona' | 'look';
-	export type InspectorTab = 'profile' | 'model' | 'wanted' | 'prompts';
+	/** `kanon`: no tab of its own – the level's text square opens it (CHARACTER-PAGE §3a K3, #82) */
+	export type InspectorTab = 'profile' | 'model' | 'wanted' | 'prompts' | 'kanon';
 </script>
 
 <script lang="ts">
@@ -21,6 +22,8 @@
 	import AposeEditor from '$lib/components/characters/apose-editor.svelte';
 	import WantedImages from '$lib/components/characters/wanted-images.svelte';
 	import CharacterPrompts from '$lib/components/characters/character-prompts.svelte';
+	import KanonPanel from '$lib/components/characters/kanon-panel.svelte';
+	import type { KanonState } from '$lib/editor/kanon-docs.svelte.ts';
 
 	/**
 	 * The character page's inspector (research/CHARACTER-PAGE.md E, K3 – owner 2026-10-20: "wenn die anderen dinge im
@@ -28,6 +31,7 @@
 	 * a persona or a look – under one title (face · tab · level · name). Profile: the character's identity / the persona's
 	 * fields + its transitions / the look's label, default, remove. Model: the persona's GLB + body / the look's own GLB
 	 * and its A-pose. Wanted images: what this level lacks. Prompts: for a generator or an artist, from the persona + look.
+	 * Kanon (the level's text square, no tab): the level's Kanon text filling the panel, its state in the title.
 	 * The tab row is the page's (desktop: above the panel; phones: the bar opens the sheet).
 	 */
 	let {
@@ -48,6 +52,8 @@
 		bust,
 		personaName,
 		lookName,
+		kanonDoc = null,
+		kanonState = 'none',
 		onpersonaremoved,
 		onlookremoved
 	}: {
@@ -68,6 +74,9 @@
 		bust: number;
 		personaName: string;
 		lookName: string;
+		/** the level's Kanon text (open while `tab` is `kanon`) */
+		kanonDoc?: ContentDoc | null;
+		kanonState?: KanonState;
 		onpersonaremoved: () => void;
 		onlookremoved: () => void;
 	} = $props();
@@ -76,7 +85,13 @@
 		profile: () => m['creator.characters_tab_profile'](),
 		model: () => m['creator.characters_tab_model'](),
 		wanted: () => m['creator.characters_wanted'](),
-		prompts: () => m['creator.prompts_title']()
+		prompts: () => m['creator.prompts_title'](),
+		kanon: () => m['creator.kanon']()
+	};
+	const STATE_CHIP: Record<KanonState, { cls: string; label: () => string }> = {
+		none: { cls: 'is-off', label: () => m['creator.scripts_not_written']() },
+		draft: { cls: 'is-draft', label: () => m['creator.status_draft']() },
+		published: { cls: 'is-published', label: () => m['creator.status_published']() }
 	};
 	const LEVEL_LABELS: Record<Level, () => string> = {
 		character: () => m['creator.characters_character'](),
@@ -106,6 +121,7 @@
 			<span class="cap">{TAB_LABELS[tab]()} · {LEVEL_LABELS[level]()}</span>
 			<span class="name" data-testid="inspector-name">{name}</span>
 		</span>
+		{#if tab === 'kanon'}<span class="sc-chip {STATE_CHIP[kanonState].cls} state" data-testid="kanon-state">{STATE_CHIP[kanonState].label()}</span>{/if}
 	</header>
 	<div class="body">
 		{#if tab === 'profile'}
@@ -135,6 +151,8 @@
 			{/if}
 		{:else if tab === 'wanted'}
 			<WantedImages registry={file} {moods} {requests} locale={source} character={character.id} persona={level === 'character' ? undefined : persona.id} look={level === 'look' ? lookId : undefined} />
+		{:else if tab === 'kanon'}
+			{#if kanonDoc}<KanonPanel doc={kanonDoc} role={level} />{/if}
 		{:else}
 			<CharacterPrompts registry={file} {character} persona={persona.id} look={lookId} {moods} {requests} locale={source} />
 		{/if}
@@ -166,6 +184,10 @@
 		display: flex;
 		flex-direction: column;
 		min-width: 0;
+		flex: 1;
+	}
+	.state {
+		flex: none;
 	}
 	.cap {
 		font-size: var(--type-caption-size);

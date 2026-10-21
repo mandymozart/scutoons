@@ -1,4 +1,4 @@
-Status 2026-10-21: E + K3 built (#104, DESIGN "Creator: Characters page"); the Kanon squares wait for research/KANON.md.
+Status 2026-10-21: E + K3 built (#104, DESIGN "Creator: Characters page"); the Kanon squares built (#82, research/KANON.md).
 
 # CHARACTER-PAGE – the creator's Characters area inside navigation D
 

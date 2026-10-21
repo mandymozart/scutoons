@@ -77,6 +77,8 @@ what tools extract). Prose under `## ` headings; every section optional, the ord
 - Opened where the document is edited, no new navigation: season page → "Script"; chapter page → "Script"; the
   toon sidebar's "Script" → the toon's scripts (seasons, chapters); character page → "Text" per character, per persona,
   per look; map builder's place inspector → "Text". A small marker shows which texts exist / are published.
+- Built (#82): the character page's K3 squares (head, persona row, look row) open the level's text in the inspector,
+  saved with the page – DESIGN "Creator: Characters page". The `/kanon/<subject>` page stays for the long view.
 - Built (#81): `/<toon>/script` is the list (the toon's Kanon text, a script per season and chapter, their state);
   `/<toon>/season/<n>/script` (the season page's link), `/<toon>/chapter/<n>/script` (the chapter tree's "Script").
 - Built (#80): `creator/src/lib/components/script/script-editor.svelte` takes any entity; a Kanon text wraps, its outline

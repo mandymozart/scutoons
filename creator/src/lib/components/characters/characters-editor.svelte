@@ -16,6 +16,8 @@
 		findPersona,
 		searchCharacters,
 		validateAssetRequests,
+		validateFile,
+		validateLocales,
 		validateCast,
 		validateCharacters,
 		validateMoods,
@@ -55,6 +57,7 @@
 	import CharacterCards from '$lib/components/characters/character-cards.svelte';
 	import AreaTabs from '$lib/components/characters/character-area-tabs.svelte';
 	import type { InspectorTab } from '$lib/components/characters/character-inspector.svelte';
+	import { KanonDocs } from '$lib/editor/kanon-docs.svelte.ts';
 	import MoodsPanel from '$lib/components/characters/moods-panel.svelte';
 	import WantedImages from '$lib/components/characters/wanted-images.svelte';
 	import { mapDoc, mapOf, mapPlaces, mapRegions } from '$lib/editor/map.ts';
@@ -71,6 +74,9 @@
 	const people = peopleDoc();
 	// the map's region ids (origin / residence – agents/MAP.md §8.10); undefined until loaded (no false warnings)
 	let regionIds = $state<string[] | undefined>(undefined);
+	// the Kanon texts of the characters, personas and looks (K3, #82): opened from their squares, saved with this page
+	const kanon = new KanonDocs();
+	onMount(() => void kanon.refresh());
 	onMount(() => void mapRegions().then((list) => (regionIds = list.length ? list.map((r) => r.id) : undefined)));
 	// the homes' places (research/CAVE.md D1): an unknown one warns – add it in the map builder
 	let placeIds = $state<string[] | undefined>(undefined);
@@ -239,6 +245,10 @@
 		if (moods.present.length) out.push(...validateMoods(vocabulary, allLanguages, entities.moods));
 		const r = requestsOf(requests);
 		if (r) out.push(...validateAssetRequests(r, file, entities.assetRequests));
+		for (const doc of kanon.all()) {
+			for (const l of doc.locales) if (doc.data[l] != null) out.push(...validateFile('kanon', doc.data[l], l, { file: doc.entity }));
+			out.push(...validateLocales('kanon', doc.entity, doc.data, doc.primary));
+		}
 		for (const [toon, doc] of Object.entries(castDocs)) {
 			const cast = castOf(doc);
 			if (cast) out.push(...validateCast(cast, { registry: file, languages: toons.find((t) => t.id === toon)?.languages.languages ?? ['de'], file: entities.cast(toon) }));
@@ -291,6 +301,8 @@
 					onback: () => ((selected = ''), (sheet = false)),
 					items: [
 						{ id: 'profile', icon: 'user', label: m['creator.characters_tab_profile'](), active: sheet && inspectorTab === 'profile', run: () => openTab('profile'), testid: 'phone-sel-profile' },
+						// the picked level's Kanon text (CHARACTER-PAGE §3a: the phone's sheet, e-kanon-390: right after Profile)
+						{ id: 'kanon', icon: 'file-text', label: m['creator.kanon'](), active: sheet && inspectorTab === 'kanon', run: () => openTab('kanon'), testid: 'phone-sel-kanon' },
 						{ id: 'model', icon: 'box', label: m['creator.characters_tab_model'](), active: sheet && inspectorTab === 'model', run: () => openTab('model'), testid: 'phone-sel-model' },
 						{ id: 'wanted', icon: 'inbox', label: m['creator.characters_wanted'](), active: sheet && inspectorTab === 'wanted', run: () => openTab('wanted'), testid: 'phone-sel-wanted' },
 						{ id: 'prompts', icon: 'sparkles', label: m['creator.prompts_title'](), active: sheet && inspectorTab === 'prompts', run: () => openTab('prompts'), testid: 'phone-sel-prompts' },
@@ -303,7 +315,7 @@
 	const openRequests = $derived((requestsOf(requests)?.requests ?? []).filter((r) => r.status === 'open').length);
 </script>
 
-<MetaPage toon="" title={m['creator.characters']()} {docs} {validate} wide fill={!!selectedCharacter} help="characters" {phoneSelection}>
+<MetaPage toon="" title={m['creator.characters']()} {docs} along={() => kanon.all()} {validate} wide fill={!!selectedCharacter} help="characters" {phoneSelection}>
 	{#snippet actions()}
 		<button type="button" class="secondary" onclick={startNew} data-testid="new-character"><Icon name="plus" /> {m['creator.characters_new']()}</button>
 	{/snippet}
@@ -332,6 +344,7 @@
 					{toons}
 					{casts}
 					people={peopleListOf(people)}
+					{kanon}
 					onselect={(id) => select(id)}
 				/>
 			{/key}

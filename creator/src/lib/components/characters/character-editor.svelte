@@ -32,13 +32,18 @@
 	import CharacterImport from '$lib/components/characters/character-import.svelte';
 	import ExpressionGrid from '$lib/components/characters/expression-grid.svelte';
 	import CharacterInspector, { type InspectorTab, type Level } from '$lib/components/characters/character-inspector.svelte';
+	import KanonSquare from '$lib/components/characters/kanon-square.svelte';
+	import { characterSubject, type KanonDocs } from '$lib/editor/kanon-docs.svelte.ts';
 
 	/**
 	 * One character (research/CHARACTER-PAGE.md E + K3, owner 2026-10-20): the head (= the character level), the personas
 	 * and the looks as face rows, the stage (one picture: persona › look › mood · view; the grid square = every mood to
 	 * fill), and the inspector beside it (desktop: a right region with its Divider; phones: a sheet from below whose head
 	 * drags it, opened from the bar). The inspector follows the level picked on the page – a tap on the head, a persona,
-	 * a look – which the page rings. Replaces character-detail.svelte (one long page).
+	 * a look – which the page rings. Each level ends in its Kanon text square (K3, #82): it opens that level's text in the
+	 * inspector (no tab of its own). Replaces character-detail.svelte (one long page).
+	 * Over 400 lines (RULES "Code"): the page's one layout – head, rows, stage, inspector region and phone sheet – in one
+	 * place; its parts (FaceRow, CharacterStage, CharacterInspector, KanonSquare) are components.
 	 */
 	let {
 		registry,
@@ -54,6 +59,7 @@
 		toons,
 		casts,
 		people,
+		kanon,
 		onselect
 	}: {
 		registry: ContentDoc;
@@ -70,6 +76,8 @@
 		toons: ToonInfo[];
 		casts: Record<string, ToonCast | null>;
 		people: CreditPerson[];
+		/** the page's Kanon texts (saved with the page) */
+		kanon: KanonDocs;
 		onselect: (id: string) => void;
 	} = $props();
 
@@ -132,6 +140,18 @@
 		onselect('');
 	}
 
+	// ── the Kanon (K3): a level's square opens its text in the inspector; the open text follows the picked level ──
+	const subjectOf = (l: Level) => characterSubject(id, l === 'character' ? null : personaId, l === 'look' ? lookId : null);
+	const kanonSubject = $derived(subjectOf(level));
+	function openKanon(l: Level) {
+		level = l;
+		tab = 'kanon';
+		sheet = true;
+	}
+	$effect(() => {
+		if (tab === 'kanon') kanon.open(kanonSubject, languages, source);
+	});
+
 	// ── the inspector: desktop = a right region (Divider, remembered width); phones = a sheet from below ──
 	let editorEl = $state<HTMLElement>();
 	let sheetEl = $state<HTMLElement>();
@@ -176,7 +196,9 @@
 				</div>
 				<CharacterImport {registry} {moodsDoc} {requestsDoc} {moods} {requests} {character} {languages} bind:bust compact />
 				<button type="button" class="sq desktop-only" onclick={remove} title={m['creator.characters_remove']()} aria-label={m['creator.characters_remove']()} data-testid="remove-character"><Icon name="trash-2" /></button>
+				<KanonSquare state={kanon.state(subjectOf('character'))} open={tab === 'kanon' && level === 'character'} label={m['creator.kanon']()} onclick={() => openKanon('character')} testid="kanon-character" />
 			</header>
+			<div class="level-row">
 			<FaceRow
 				label={m['creator.characters_personas']()}
 				items={personas.map((p) => ({ id: p, label: personaLabel(p), src: face({ persona: p }) }))}
@@ -187,6 +209,8 @@
 				onadd={newPersona}
 				testid="persona"
 			/>
+			<KanonSquare state={kanon.state(subjectOf('persona'))} open={tab === 'kanon' && level === 'persona'} label={m['creator.kanon']()} onclick={() => openKanon('persona')} testid="kanon-persona" />
+			</div>
 			{#if currentLook}
 				<CharacterStage {character} persona={personaId} look={currentLook} {moods} locale={textLanguage.names} bind:mood bind:view bind:grid {bust} label="{personaLabel(personaId)} › {lookLabel(currentPersona, lookId, textLanguage.names)}">
 					{#snippet lead()}
@@ -200,6 +224,9 @@
 							onadd={newLook}
 							testid="look"
 						/>
+					{/snippet}
+					{#snippet tools()}
+						<KanonSquare state={kanon.state(subjectOf('look'))} open={tab === 'kanon' && level === 'look'} label={m['creator.kanon']()} onclick={() => openKanon('look')} testid="kanon-look" />
 					{/snippet}
 					{#snippet gridContent()}
 						{#key `${personaId}/${lookId}`}
@@ -238,6 +265,8 @@
 				{bust}
 				personaName={shownCharacterName(character, personaId)}
 				lookName={lookLabel(currentPersona, lookId, textLanguage.names)}
+				kanonDoc={tab === 'kanon' ? (kanon.docs[kanonSubject] ?? null) : null}
+				kanonState={kanon.state(kanonSubject)}
 				onpersonaremoved={personaRemoved}
 				onlookremoved={() => (look = '')}
 			/>
@@ -269,6 +298,16 @@
 		padding: var(--space-075) var(--space-05) var(--space-05) var(--space-1);
 		min-width: 0;
 		cursor: pointer;
+	}
+	/* the persona row and its Kanon square: the row scrolls (its fade), the square stays at the end (K3) */
+	.level-row {
+		display: flex;
+		align-items: center;
+		min-width: 0;
+		padding-right: var(--space-05);
+	}
+	.level-row > :global(.face-row) {
+		flex: 1;
 	}
 	.avatar {
 		all: unset;

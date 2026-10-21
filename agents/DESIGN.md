@@ -1257,9 +1257,15 @@ page"). The toon settings have no cover.
   rings it – under one title (face · tab · level · name). Profile: the identity / the persona's fields + transitions /
   the look's label, default, remove; 3D model: the persona's GLB + body / the look's own GLB + its A-pose; Wanted: what
   that level lacks; Prompts: the persona + look's. Phones: the inspector is a sheet from below (as tall as its content,
-  at most 60 %; its head drags it to any height – `SheetDrag`), the bar's selection row opens it: ‹ · Profile · 3D model
-  · Wanted · Prompts · All moods · Delete.
-- The Kanon (research/KANON.md) gets a text square at the end of each level's row when it is built.
+  at most 60 %; its head drags it to any height – `SheetDrag`), the bar's selection row opens it: ‹ · Profile · Kanon ·
+  3D model · Wanted · Prompts · All moods · Delete.
+- **The Kanon** (K3, #82, research/KANON.md): a text square (`kanon-square.svelte`: file icon, borderless like the view
+  squares, inverted while open) ends each level – the head, the persona row (the row scrolls, the square stays), the look
+  row (after the views) – with a state dot: hollow = not written, the draft / published chip colour otherwise. It picks
+  that level and shows its Kanon in the inspector (no tab of its own, no tab lit): the title + the state chip, ONE text
+  field filling the panel (`kanon-panel.svelte`, wrapped prose, the header's text language; "Start with the headings"
+  while empty; the rules' warnings under it). The texts are saved and published with the page (`KanonDocs`, MetaPage
+  `along`); the dots come from the open doc, else one content index request.
 
 ### Creator: season page (owner 2026-10-03)
 
