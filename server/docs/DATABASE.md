@@ -25,7 +25,8 @@ fresh databases, run `npm run dev:db` (migrates the local database) and `npm run
 **Production (no shell) – through the API since 2026-10-11 (BACKLOG 10.61):** the deploy uploads `migrations/` (denied
 to the web by `.htaccess`) and, right after the API upload, calls `POST /api/deploy/migrate` with the header
 `X-Migrate-Key` (GitHub secret `MIGRATE_KEY` → `config.php`): the pending files are planned and applied, the result is in
-the run summary, a failed run fails the deploy job. A developer's agents do the same over MCP with their normal AI
+the run summary, a failed run fails the deploy job and is the only run that reaches the PHP error log (the admin's
+Server errors page; an applied run is its `dev_migration_runs` row alone – #166). A developer's agents do the same over MCP with their normal AI
 connection (role `developer`: `migration_status`, `plan_migrations`, `apply_migrations`). Code: `Domain\Dev\Migrations`,
 `MigrationRunner::plan()` / `applyFile()`, `SqlStatement`, `DevController` (docs/API.md "Developer API").
 

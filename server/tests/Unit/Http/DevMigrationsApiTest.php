@@ -15,7 +15,8 @@ use Slim\Psr7\Factory\ServerRequestFactory;
 /**
  * The developer role and migrations through the API (BACKLOG 10.61): only a developer hands the role on, the last one
  * stays; a developer's AI connection plans (a dry run) and applies – the planned files exactly, the changed rows backed
- * up; the deploy runs them with MIGRATE_KEY.
+ * up; the deploy runs them with MIGRATE_KEY. Only a failed run reaches the PHP error log (#166: the admin's Server
+ * errors page shows every app line as an error); an applied run is its dev_migration_runs row alone.
  */
 final class DevMigrationsApiTest extends TestCase
 {
@@ -36,7 +37,14 @@ final class DevMigrationsApiTest extends TestCase
 
     protected function settings(): array
     {
-        return ['MIGRATIONS_PATH' => $this->dir . '/migrations', 'MIGRATION_BACKUP_PATH' => $this->dir . '/backups', 'MIGRATE_KEY' => str_repeat('k', 40)] + parent::settings();
+        return ['MIGRATIONS_PATH' => $this->dir . '/migrations', 'MIGRATION_BACKUP_PATH' => $this->dir . '/backups', 'MIGRATE_KEY' => str_repeat('k', 40), 'LOG_PATH' => $this->dir . '/logs/error.log'] + parent::settings();
+    }
+
+    /** what the API wrote to the PHP error log (LOG_PATH) so far */
+    private function errorLog(): string
+    {
+        $path = $this->dir . '/logs/error.log';
+        return is_file($path) ? (string) file_get_contents($path) : '';
     }
 
     /** @param array<string, string> $headers */
@@ -136,10 +144,13 @@ final class DevMigrationsApiTest extends TestCase
         self::assertSame(['applied', 'deploy', null], [$run['status'], $run['created_via'], $run['created_by']]);
         self::assertSame('Deployed', $this->db->value("SELECT display_name FROM users WHERE email = 'a@scutoons.test'"));
         self::assertNull(self::json($this->request('POST', '/api/deploy/migrate', ['X-Migrate-Key' => str_repeat('k', 40)]))['run']);
-        // a failing run → 500, so the deploy job fails
+        // an applied run is only its row – nothing in the error log (#166)
+        self::assertStringNotContainsString('migrations', $this->errorLog());
+        // a failing run → 500, so the deploy job fails; the failure is in the error log
         $this->migration('2099-03-02-broken', "UPDATE no_such_table SET x = 1;
 ");
         self::assertSame(500, $this->request('POST', '/api/deploy/migrate', ['X-Migrate-Key' => str_repeat('k', 40)])->getStatusCode());
+        self::assertMatchesRegularExpression('/\[qr-api\] migrations \S+ failed by the deploy: .*no_such_table/', $this->errorLog());
     }
 
     public function testPlanIsADryRunAndApplyRunsExactlyThePlannedFiles(): void
@@ -196,5 +207,6 @@ final class DevMigrationsApiTest extends TestCase
         self::assertSame('failed', $run['status']);
         self::assertSame(0, (int) $this->db->value("SELECT COUNT(*) FROM users WHERE display_name = 'Half'"));
         self::assertSame(1, self::json($this->request('GET', '/api/dev/migrations', $developer))['pending']);
+        self::assertStringContainsString("[qr-api] migrations {$run['id']} failed by dev@scutoons.test: ", $this->errorLog());
     }
 }

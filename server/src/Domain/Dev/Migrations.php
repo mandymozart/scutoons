@@ -145,7 +145,9 @@ final class Migrations
             }
             $this->db->run('UPDATE dev_migration_runs SET status = ?, applied_by = ?, applied_at = ?, log = ?, error = ?, backup = ? WHERE id = ?',
                 [$status, $user !== null ? (string) $user['id'] : null, $this->clock->utc(), implode("\n", $log), $error, is_file($backup) ? $this->relative($backup) : null, $id]);
-            error_log("[qr-api] migrations $id $status by " . ($user !== null ? (string) ($user['email'] ?? $user['id']) : 'the deploy') . ($error !== null ? ": $error" : ''));
+            // only a failure reaches the error log (#166: the admin's Server errors page shows every app line as an error);
+            // the run itself, applied or failed, is the dev_migration_runs row (migration_status)
+            if ($error !== null) error_log("[qr-api] migrations $id failed by " . ($user !== null ? (string) ($user['email'] ?? $user['id']) : 'the deploy') . ": $error");
             return $this->get($id);
         });
     }
