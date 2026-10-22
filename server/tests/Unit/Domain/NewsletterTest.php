@@ -337,7 +337,7 @@ fan@notscutoons.com, en", 'qr-claim', null, null, false, 'admin:x');
         $mail = $this->get(NewsletterRenderer::class)->render(['subject' => 'S', 'body' => $body], 'de', 'a@example.com', null);
         self::assertStringContainsString('<img src="' . $base . '/catpope/s1/cover.png" alt="Das Cover &lt;neu&gt;"', $mail['html']);
         self::assertStringContainsString('<img src="https://example.test/a.jpg" alt=""', $mail['html']);
-        self::assertSame(2, substr_count($mail['html'], '<img '), 'a path stepping out, a script URL and an inline one stay text');
+        self::assertSame(3, substr_count($mail['html'], '<img '), 'the logo + two: a path stepping out, a script URL and an inline one stay text');
         self::assertStringContainsString('![up](../secret.png)', $mail['text']);
         self::assertStringContainsString("[Das Cover <neu>]\n\n", $mail['text']);
     }

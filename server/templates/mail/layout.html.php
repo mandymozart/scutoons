@@ -1,7 +1,7 @@
 <?php
 /**
  * The HTML frame of every email (Domain\Mail\MailRenderer): ink on paper, monospace, square 2px frame, the SCUTOONS
- * header, the template's blocks, the fine print. Plain inline styles only (mail clients).
+ * logo (viewer/static/SCUTOONS-logo-mail.png, 2x of 120 px – mail clients show no SVG), the template's blocks, the fine print. Plain inline styles only (mail clients).
  * Blocks: p (a paragraph) · lines (a paragraph with line breaks) · button (a black link button) · code (a label + a big code)
  * · image (a picture as wide as the frame: url, text = its description – the newsletter).
  * @var callable $e  @var string $locale
@@ -15,7 +15,7 @@ $mono = "'IBM Plex Mono',Menlo,Consolas,monospace";
 <html lang="<?= $e($locale) ?>">
 <body style="margin:0;padding:24px;background:#ffffff;color:#000000;font-family:<?= $mono ?>;font-size:15px;line-height:1.4">
 <div style="max-width:480px;margin:0 auto;border:2px solid #000000;padding:24px">
-<p style="margin:0 0 20px;font-weight:700;letter-spacing:1px">SCUTOONS</p>
+<p style="margin:0 0 20px"><img src="https://scutoons.com/SCUTOONS-logo-mail.png" alt="SCUTOONS" width="120" height="47" style="display:block;width:120px;height:auto;border:0;font-weight:700;letter-spacing:1px"></p>
 <?php foreach ($blocks as $block): ?>
 <?php if ($block['type'] === 'p'): ?>
 <p style="margin:0 0 20px"><?= $e($block['text']) ?></p>
