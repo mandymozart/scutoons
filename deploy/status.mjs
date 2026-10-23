@@ -2,7 +2,7 @@
 // What is live: each target's commit (its status URL, deploy/targets.json) next to main.
 //   npm run deploy:status [-- --ref origin/main]
 import { execFileSync } from 'node:child_process';
-import { configAt, git, knownCommit, liveSha, ordered, relevantFiles } from './live.mjs';
+import { git, liveSha, liveState, ordered } from './live.mjs';
 
 const args = process.argv.slice(2);
 const ref = args.includes('--ref') ? args[args.indexOf('--ref') + 1] : 'origin/main';
@@ -22,14 +22,7 @@ console.log(`main = ${main.slice(0, 7)} (${ref})\n`);
 let behind = 0;
 for (const target of ordered()) {
 	const live = await liveSha(target);
-	let state;
-	if (!live) state = '✗ unknown (not reachable / no version.json)';
-	else if (live === main || main.startsWith(live)) state = '✓ = main';
-	else if (!knownCommit(live)) state = '✗ commit not in this clone';
-	else {
-		const relevant = git('diff', '--name-only', live, main).split('\n').filter((f) => f && watched(target, f));
-		state = relevant.length ? `✗ behind main (${relevant.length} changed files)` : '✓ no relevant change since';
-	}
+	const state = liveState(target, live, main, { diff: (from, to) => git('diff', '--name-only', from, to).split('\n').filter(Boolean) });
 	if (state.startsWith('✗')) behind++;
 	console.log(`${target.name.padEnd(8)} ${(live ?? '–').slice(0, 7).padEnd(8)} ${state}   ${target.status ?? ''}`);
 }

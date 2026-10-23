@@ -133,6 +133,18 @@ export function relevantFiles(target, files, { oldConfig = null, cfg = config, p
 	return files.filter((file) => (file === TARGETS_FILE ? targetConfigChanged(target.name, oldConfig, cfg) : watched(target, file, { cfg, patterns })));
 }
 
+/**
+ * One target's state next to main (npm run deploy:status, issue 167): `live` = its live commit or null, `diff(live, main)`
+ * = the changed paths between the two, `known(sha)` = is that commit in this clone, `oldConfig(sha)` = targets.json then.
+ */
+export function liveState(target, live, main, { diff, known = knownCommit, oldConfig = configAt, cfg = config } = {}) {
+	if (!live) return '✗ unknown (not reachable / no version.json)';
+	if (live === main || main.startsWith(live)) return '✓ = main';
+	if (!known(live)) return '✗ commit not in this clone';
+	const relevant = relevantFiles(target, diff(live, main), { oldConfig: oldConfig(live), cfg });
+	return relevant.length ? `✗ behind main (${relevant.length} changed files, e.g. ${relevant[0]})` : '✓ no relevant change since';
+}
+
 /** deploy/targets.json at a commit (text), or null. */
 export function configAt(sha) {
 	try {
