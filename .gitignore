@@ -20,3 +20,4 @@ node_modules
 # Python bytecode caches
 __pycache__/
 *.pyc
+deck/os/out/

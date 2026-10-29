@@ -72,7 +72,9 @@
 		"deploy:dry-run": "node deploy/deploy.mjs all --dry-run --list=summary",
 		"deploy:status": "node deploy/status.mjs",
 		"deploy:changed": "node deploy/changed.mjs",
-		"backlog": "node scripts/backlog.mjs"
+		"backlog": "node scripts/backlog.mjs",
+		"deck:iso": "bash deck/os/build.sh",
+		"deck:vm": "bash deck/os/vm/run.sh"
 	},
 	"devDependencies": {
 		"playwright-core": "1.55.0",

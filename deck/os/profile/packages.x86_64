@@ -1,0 +1,81 @@
+# The deck's package set (CYBERDECKS.md §3; #173). One line per package, `#` comments. The kernel line is rewritten by
+# container/build.sh when DECK_KERNEL is not linux-rt (the boot entries + the mkinitcpio preset follow it).
+
+# base + boot
+base
+linux-rt
+linux-firmware
+mkinitcpio
+mkinitcpio-archiso
+amd-ucode
+intel-ucode
+syslinux
+edk2-shell
+memtest86+
+memtest86+-efi
+
+# the kiosk: a Wayland compositor running one app, the browser for the conductor page
+cage
+chromium
+noto-fonts
+noto-fonts-emoji
+ttf-dejavu
+
+# audio: PipeWire with a realtime config (rootfs/etc/pipewire), rtkit + the realtime group
+pipewire
+pipewire-alsa
+pipewire-jack
+pipewire-pulse
+wireplumber
+rtkit
+realtime-privileges
+alsa-utils
+
+# network: NetworkManager on the iwd backend (nmtui = the Wi-Fi picker), mDNS
+networkmanager
+iwd
+avahi
+nss-mdns
+
+# graphics: Mesa Vulkan (Intel anv, AMD radv, llvmpipe as the software fallback the dogma asks for), VA-API decode / encode
+mesa
+vulkan-intel
+vulkan-radeon
+vulkan-swrast
+vulkan-tools
+intel-media-driver
+libva-mesa-driver
+libva-utils
+libva-intel-driver
+
+# video pipelines (the cut tool later, CYBERDECKS.md §5)
+gstreamer
+gst-plugins-base
+gst-plugins-good
+gst-plugins-bad
+gst-plugin-va
+gst-libav
+
+# the check + the installer + persistence (deck-check, deck-install, deck-persist)
+usbutils
+pciutils
+dmidecode
+gptfdisk
+parted
+dosfstools
+e2fsprogs
+squashfs-tools
+arch-install-scripts
+rsync
+
+# a live stick is also a rescue stick
+nano
+less
+openssh
+sudo
+terminus-font
+wget
+curl
+git
+htop
+zsh
