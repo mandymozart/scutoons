@@ -1,0 +1,237 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://scutoons.com/schema/live/protocol.v1.json",
+  "title": "SCUTOONS Live relay protocol v1",
+  "description": "agents/research/LIVE.md B.6. One envelope per message, JSON over one WebSocket per client. The generator (deck/protocol/generate.ts) reads only the subset used here: object / string / integer / number / boolean / array / $ref / enum / const / oneOf discriminated by `kind` / additionalProperties maps. Edit this file, run `npm run generate -w shared/live`, commit both outputs.",
+  "$ref": "#/definitions/Envelope",
+  "definitions": {
+    "Role": {
+      "description": "LIVE.md B.2. `uplink` is the local relay connected to the hosted one (B.6 Uplink).",
+      "type": "string",
+      "enum": ["conductor", "output", "bridge", "performer", "musician", "audience", "uplink"]
+    },
+    "To": {
+      "description": "Who a message reaches. Every field narrows; all missing = everyone the sender may reach.",
+      "type": "object",
+      "properties": {
+        "role": { "$ref": "#/definitions/Role" },
+        "group": { "type": "string", "description": "a group id (B.5.3)" },
+        "client": { "type": "string", "description": "one client id (assigned in `welcome`)" }
+      },
+      "additionalProperties": false
+    },
+    "Envelope": {
+      "description": "B.6: `{ v: 1, seq, at?, from, to?, kind, p }`. `seq` is per session, assigned by the relay; `at` = relay time (ms) when the effect should happen.",
+      "allOf": [
+        {
+          "type": "object",
+          "properties": {
+            "v": { "type": "integer", "const": 1 },
+            "seq": { "type": "integer", "minimum": 0, "description": "0 before the relay stamped it (client → relay)" },
+            "at": { "type": "integer", "description": "relay time in ms when the effect should happen" },
+            "from": { "type": "string", "description": "client id; `relay` for the relay's own messages" },
+            "to": { "$ref": "#/definitions/To" }
+          },
+          "required": ["v", "seq", "from"]
+        },
+        { "$ref": "#/definitions/Message" }
+      ]
+    },
+    "Message": {
+      "description": "`kind` + its payload `p`. One entry per B.6 message; a loose payload (`Loose`) marks a kind whose shape is not fixed yet.",
+      "oneOf": [
+        { "type": "object", "properties": { "kind": { "const": "hello" }, "p": { "$ref": "#/definitions/Hello" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "welcome" }, "p": { "$ref": "#/definitions/Welcome" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "ping" }, "p": { "$ref": "#/definitions/Ping" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "pong" }, "p": { "$ref": "#/definitions/Pong" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "state" }, "p": { "$ref": "#/definitions/State" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "cue" }, "p": { "$ref": "#/definitions/Cue" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "vote.open" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "vote.close" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "vote.cast" }, "p": { "$ref": "#/definitions/VoteCast" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "vote.tally" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "vote.result" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "assign" }, "p": { "$ref": "#/definitions/Assign" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "panic" }, "p": { "$ref": "#/definitions/Panic" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "media.preload" }, "p": { "$ref": "#/definitions/MediaPreload" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "snapshot" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "cell" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "say" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "line" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "fx" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "colour" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "presence" }, "p": { "$ref": "#/definitions/Presence" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "ready" }, "p": { "$ref": "#/definitions/Empty" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "pickup" }, "p": { "$ref": "#/definitions/Pickup" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "react" }, "p": { "$ref": "#/definitions/React" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "device" }, "p": { "$ref": "#/definitions/Device" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "device.in" }, "p": { "$ref": "#/definitions/DeviceIn" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "devices" }, "p": { "$ref": "#/definitions/Devices" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "error" }, "p": { "$ref": "#/definitions/Error" } }, "required": ["kind", "p"] }
+      ]
+    },
+    "Loose": {
+      "description": "A payload whose shape B.6 names but this skeleton does not fix yet (votes, snapshot, cells, say / line / fx / colour).",
+      "type": "object",
+      "additionalProperties": true
+    },
+    "Empty": { "type": "object", "additionalProperties": false },
+    "Hello": {
+      "description": "client → relay, the first message. Audience / performer / musician / output join with the session code (+ group from their QR); conductor and bridge with a session token.",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string" },
+        "role": { "$ref": "#/definitions/Role" },
+        "group": { "type": "string" },
+        "nick": { "type": "string", "description": "trimmed to 24 characters by the relay" },
+        "token": { "type": "string", "description": "HMAC session token (conductor, bridge, uplink)" },
+        "resume": { "$ref": "#/definitions/Resume" }
+      },
+      "required": ["code", "role"],
+      "additionalProperties": false
+    },
+    "Resume": {
+      "type": "object",
+      "properties": { "client": { "type": "string" }, "seq": { "type": "integer" } },
+      "required": ["client", "seq"],
+      "additionalProperties": false
+    },
+    "Welcome": {
+      "description": "relay → client after `hello`. `snapshot` is loose until the relay keeps state.",
+      "type": "object",
+      "properties": {
+        "client": { "type": "string" },
+        "group": { "type": "string" },
+        "snapshot": { "$ref": "#/definitions/Loose" },
+        "now": { "type": "integer", "description": "relay time, ms" }
+      },
+      "required": ["client", "snapshot", "now"],
+      "additionalProperties": false
+    },
+    "Ping": { "type": "object", "properties": { "t0": { "type": "integer" } }, "required": ["t0"], "additionalProperties": false },
+    "Pong": { "type": "object", "properties": { "t0": { "type": "integer" }, "t1": { "type": "integer" } }, "required": ["t0", "t1"], "additionalProperties": false },
+    "State": {
+      "description": "conductor → relay on every change; folded into the snapshot.",
+      "type": "object",
+      "properties": {
+        "row": { "type": "integer" },
+        "slice": { "type": "integer" },
+        "vars": { "type": "object", "additionalProperties": { "type": "number" } },
+        "inventory": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["row", "slice", "vars"],
+      "additionalProperties": false
+    },
+    "Cue": {
+      "description": "conductor → relay; the relay splits `actions` per outlet → `to`. Actions are loose until the show schema (B.5) lands.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "actions": { "type": "array", "items": { "$ref": "#/definitions/Loose" } }
+      },
+      "required": ["id", "actions"],
+      "additionalProperties": false
+    },
+    "VoteCast": {
+      "type": "object",
+      "properties": { "vote": { "type": "string" }, "option": { "type": "integer" } },
+      "required": ["vote", "option"],
+      "additionalProperties": false
+    },
+    "Assign": {
+      "type": "object",
+      "properties": { "client": { "type": "string" }, "group": { "type": "string" } },
+      "required": ["client", "group"],
+      "additionalProperties": false
+    },
+    "Panic": {
+      "type": "object",
+      "properties": { "black": { "type": "boolean" }, "stop": { "type": "boolean" } },
+      "additionalProperties": false
+    },
+    "MediaPreload": {
+      "type": "object",
+      "properties": { "outlet": { "type": "string" }, "urls": { "type": "array", "items": { "type": "string" } } },
+      "required": ["outlet", "urls"],
+      "additionalProperties": false
+    },
+    "Presence": {
+      "description": "relay → conductor.",
+      "type": "object",
+      "properties": {
+        "groups": { "type": "object", "additionalProperties": { "type": "integer" } },
+        "ready": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["groups", "ready"],
+      "additionalProperties": false
+    },
+    "Pickup": {
+      "type": "object",
+      "properties": { "item": { "type": "string" }, "placement": { "type": "string" } },
+      "required": ["item", "placement"],
+      "additionalProperties": false
+    },
+    "React": {
+      "type": "object",
+      "properties": { "kind": { "type": "string" } },
+      "required": ["kind"],
+      "additionalProperties": false
+    },
+    "DeviceMsg": {
+      "description": "One message for a device, resolved against the venue patch. `midi`: raw bytes (status + data). `osc` / `dmx` come with their adapters (CYBERDECKS.md §4).",
+      "oneOf": [
+        { "type": "object", "properties": { "kind": { "const": "midi" }, "p": { "$ref": "#/definitions/MidiBytes" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "osc" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "dmx" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] }
+      ]
+    },
+    "MidiBytes": {
+      "type": "object",
+      "properties": { "bytes": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 255 } } },
+      "required": ["bytes"],
+      "additionalProperties": false
+    },
+    "Device": {
+      "description": "relay → bridge: play `msgs` on `outlet` at `at`.",
+      "type": "object",
+      "properties": {
+        "outlet": { "type": "string" },
+        "msgs": { "type": "array", "items": { "$ref": "#/definitions/DeviceMsg" } },
+        "at": { "type": "integer" }
+      },
+      "required": ["outlet", "msgs"],
+      "additionalProperties": false
+    },
+    "DeviceIn": {
+      "description": "bridge → conductor: MIDI / OSC in, mapped to actions there.",
+      "type": "object",
+      "properties": { "outlet": { "type": "string" }, "msg": { "$ref": "#/definitions/DeviceMsg" } },
+      "required": ["outlet", "msg"],
+      "additionalProperties": false
+    },
+    "Port": {
+      "type": "object",
+      "properties": {
+        "adapter": { "type": "string", "description": "midi · osc · dmx-artnet · …" },
+        "name": { "type": "string" },
+        "direction": { "type": "string", "enum": ["in", "out"] }
+      },
+      "required": ["adapter", "name", "direction"],
+      "additionalProperties": false
+    },
+    "Devices": {
+      "description": "bridge → relay: the ports the bridge sees, for the patch UI.",
+      "type": "object",
+      "properties": { "ports": { "type": "array", "items": { "$ref": "#/definitions/Port" } } },
+      "required": ["ports"],
+      "additionalProperties": false
+    },
+    "Error": {
+      "description": "relay → client (not in B.6; the relay's refusals: bad hello, unknown kind, rate limit).",
+      "type": "object",
+      "properties": { "code": { "type": "string" }, "message": { "type": "string" } },
+      "required": ["code", "message"],
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,16 @@
+# A venue patch (LIVE.md B.5.4): the show names outlets logically, this file maps them to the real things.
+# `bridge venue.toml`. The session code is the relay URL's last segment; the token comes from here or BRIDGE_TOKEN.
+relay = "ws://127.0.0.1:7700/live/A7K2"
+token = "dev"
+
+[[device]]
+outlet = "ableton"        # the outlet name the show's cues address
+adapter = "midi"
+port = "IAC"              # a substring of the port name as the OS lists it (the bridge logs all ports at start)
+input = true              # also open the input of that name → device.in to the conductor
+
+[[device]]
+outlet = "pedal"
+adapter = "midi"
+port = "Pedal"
+input = true

@@ -13,9 +13,8 @@ State 2026-10-12. How agents work: agents/RULES.md. Open work: GitHub issues + t
 - Content lives in the production DB (`entity_versions`), edited in the creator; language-neutral documents
   (`chapter:<toon>:<n>` with its groups inline – the `scene:…` documents were inlined 2026-10-19 –, `season:…`, `toon:<toon>`, texts as locale maps). The per-language legacy copies and
   the per-toon map lists were purged 2026-10-11/12 (archived in `entity_versions_legacy`).
-- The catalog (items, recipes, albums, products, editions, featured, code types, toons) lives in the DB since
-  2026-10-04, edited in the admin (`/catalog/<kind>`, history + undo; agents/CATALOG.md); tests use
-  `server/tests/fixtures/catalog/`.
+- The catalog (items, recipes, albums, products, editions, featured, code types, toons) lives in the DB since 2026-10-04,
+  edited in the admin (`/catalog/<kind>`, history + undo; agents/CATALOG.md); tests use `server/tests/fixtures/catalog/`.
 - Production DB: MariaDB 10.11, tables utf8mb4, strict session sql_mode (`DB_SQL_MODE`); codes case-sensitive
   (utf8mb4_bin). All migrations up to `2026-10-12-purge-legacy-map-lists` are applied (`migration_status`: 0 pending);
   `2026-10-13-apose-per-look` (branch of the A-pose-per-look worktree) runs with its deploy.
@@ -29,9 +28,10 @@ State 2026-10-12. How agents work: agents/RULES.md. Open work: GitHub issues + t
 - AI = the member's own Claude through the SCUTOONS MCP (agents/MCP.md); the Ask panel / service is gone (2026-10-09,
   clean-up done). Developers' agents run migrations over the MCP (developer role).
 - Embassy live (embassy.scutoons.com, agents/EMBASSY.md); newsletter live (agents/NEWSLETTER.md).
+- `deck/` (2026-10-29, #172): the Rust workspace of research/CYBERDECKS.md – `relay`, `bridge`, `adapters/core` + `midi`,
+  `protocol` generated from `deck/protocol/schema.json` with `shared/live` (`@scutoons/live`); CI deck.yml; deck/README.md.
 - Live performance mode restarts 2026-11-16 for the Top Toy workshop (2027-02-17; research/LIVE.md, KANON.md §8);
-  parked: the onion camera (checkout
-  `C:\Development\scutoons-onion-camera`, branch `items/onion-camera`).
+  parked: the onion camera (checkout `C:\Development\scutoons-onion-camera`, branch `items/onion-camera`).
 - Other checkouts (`git worktree list`): owner-requested drafts and parked branches (newsletter, onion-camera,
   storyboard, the 2026-10-12 catalog → creator and map-places drafts) and the app's session worktrees
   (`.claude/worktrees/claude-*`) – the owner reviews and merges them; agents don't.

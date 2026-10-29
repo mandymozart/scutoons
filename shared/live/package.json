@@ -1,0 +1,25 @@
+{
+	"name": "@scutoons/live",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "SCUTOONS Live: the relay protocol types (v1, LIVE.md B.6), generated from deck/protocol/schema.json – the same schema generates the Rust `protocol` crate",
+	"sideEffects": false,
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"default": "./src/index.ts"
+		}
+	},
+	"files": [
+		"src"
+	],
+	"scripts": {
+		"generate": "node --experimental-transform-types --no-warnings ../../deck/protocol/generate.ts",
+		"check": "tsc --noEmit -p tsconfig.json && npm run generate -- --check && npm run test",
+		"test": "node --experimental-transform-types --no-warnings --test test/protocol.test.ts test/generate.test.ts"
+	},
+	"devDependencies": {
+		"typescript": "^5.9.3"
+	}
+}

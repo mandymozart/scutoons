@@ -1,0 +1,38 @@
+# deck/ – the SCUTOONS deck suite in Rust (agents/research/CYBERDECKS.md; relay + bridge: LIVE.md B.4, B.6, B.7).
+# Build: `cargo build --release` here; run: deck/README.md. The release profile follows the dogma (CYBERDECKS.md §2).
+[workspace]
+resolver = "2"
+members = ["protocol", "adapters/core", "adapters/midi", "relay", "bridge"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+license = "UNLICENSED"
+publish = false
+
+[workspace.dependencies]
+protocol = { path = "protocol" }
+adapters-core = { path = "adapters/core" }
+adapters-midi = { path = "adapters/midi" }
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "sync", "time", "signal"] }
+tokio-tungstenite = "0.24"
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+midir = "0.10"
+
+# Dogma (CYBERDECKS.md §2): LTO, one codegen unit, abort on panic; the bridge is built for size (per-package below).
+[profile.release]
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+opt-level = 3
+strip = true
+
+[profile.release.package.bridge]
+opt-level = "z"

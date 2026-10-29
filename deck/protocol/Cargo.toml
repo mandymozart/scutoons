@@ -1,0 +1,12 @@
+[package]
+name = "protocol"
+description = "SCUTOONS Live relay protocol v1 (LIVE.md B.6): serde types generated from deck/protocol/schema.json"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

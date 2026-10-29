@@ -1,0 +1,94 @@
+# The deck suite (deck/ Cargo workspace: relay, bridge, adapters, protocol – agents/research/CYBERDECKS.md) and its
+# TypeScript twin (shared/live, generated from the same schema). Build + test on every platform the bridge ships for
+# (CYBERDECKS.md §2: Linux x86_64 + aarch64 decks, macOS, Windows). Nothing here deploys; the per-app deploy jobs are
+# untouched (deploy.yml, issue 73 / DECISIONS 2026-10-20).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'deck/**'
+      - 'shared/live/**'
+      - '.github/workflows/deck.yml'
+  pull_request:
+    paths:
+      - 'deck/**'
+      - 'shared/live/**'
+      - '.github/workflows/deck.yml'
+  workflow_dispatch:
+
+name: 🦀 Deck (relay, bridge, adapters)
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+defaults:
+  run:
+    working-directory: deck
+
+jobs:
+  # The schema's two outputs are committed; a stale one fails here (shared/live `npm run check`).
+  protocol:
+    name: 📐 Protocol schema → TS + Rust current
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+        working-directory: .
+      - run: npm run check -w shared/live
+        working-directory: .
+
+  native:
+    name: 🦀 ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x86_64
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - name: macOS arm64
+            os: macos-latest
+            target: aarch64-apple-darwin
+          - name: Windows x86_64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: deck
+      - name: 🔊 ALSA headers (midir on Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libasound2-dev
+      - run: cargo build --release --target ${{ matrix.target }}
+      - run: cargo test --target ${{ matrix.target }}
+      - name: 📏 Binary sizes (the dogma's size column, CYBERDECKS.md §2)
+        shell: bash
+        run: ls -l target/${{ matrix.target }}/release/relay* target/${{ matrix.target }}/release/bridge* | grep -v '\.d$'
+
+  # Class B / C decks (RK3588, Pi 5): a cross build with `cross` (docker, the arm64 ALSA headers from Cross.toml).
+  # Build only – the tests run on x86_64 above; a qemu run comes with the first real board.
+  aarch64-linux:
+    name: 🦀 Linux aarch64 (cross)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: deck
+      - run: cargo install cross --git https://github.com/cross-rs/cross --locked
+      - run: cross build --release --target aarch64-unknown-linux-gnu
+      - run: ls -l target/aarch64-unknown-linux-gnu/release/relay target/aarch64-unknown-linux-gnu/release/bridge

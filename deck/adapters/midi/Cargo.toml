@@ -1,0 +1,16 @@
+[package]
+name = "adapters-midi"
+description = "MIDI adapter (midir: ALSA / CoreMIDI / WinMM) with the default map of LIVE.md B.3"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+adapters-core = { workspace = true }
+protocol = { workspace = true }
+anyhow = { workspace = true }
+midir = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }

@@ -1,0 +1,22 @@
+[
+	{ "v": 1, "seq": 0, "from": "", "kind": "hello", "p": { "code": "A7K2", "role": "output", "group": "left" } },
+	{ "v": 1, "seq": 0, "from": "", "kind": "hello", "p": { "code": "A7K2", "role": "bridge", "token": "t.0", "resume": { "client": "c1", "seq": 41 } } },
+	{ "v": 1, "seq": 1, "from": "relay", "to": { "client": "c3" }, "kind": "welcome", "p": { "client": "c3", "group": "left", "snapshot": {}, "now": 1761700000000 } },
+	{ "v": 1, "seq": 0, "from": "c3", "kind": "ping", "p": { "t0": 1761700000100 } },
+	{ "v": 1, "seq": 2, "from": "relay", "to": { "client": "c3" }, "kind": "pong", "p": { "t0": 1761700000100, "t1": 1761700000103 } },
+	{ "v": 1, "seq": 3, "from": "c1", "kind": "state", "p": { "row": 4, "slice": 12, "vars": { "mood": 2.5, "coins": 0.5 }, "inventory": ["lp-01"] } },
+	{ "v": 1, "seq": 4, "at": 1761700000250, "from": "c1", "to": { "role": "output", "group": "left" }, "kind": "cue", "p": { "id": "cue-7", "actions": [{ "outlet": "left", "cell": "black" }] } },
+	{ "v": 1, "seq": 5, "from": "c9", "kind": "vote.cast", "p": { "vote": "v1", "option": 2 } },
+	{ "v": 1, "seq": 6, "from": "c1", "kind": "assign", "p": { "client": "c9", "group": "right" } },
+	{ "v": 1, "seq": 7, "from": "c1", "kind": "panic", "p": { "black": true } },
+	{ "v": 1, "seq": 8, "from": "c1", "to": { "role": "output" }, "kind": "media.preload", "p": { "outlet": "left", "urls": ["https://cdn.scutoons.com/live/x.webm"] } },
+	{ "v": 1, "seq": 9, "from": "relay", "to": { "role": "conductor" }, "kind": "presence", "p": { "groups": { "left": 12, "right": 9 }, "ready": ["c4"] } },
+	{ "v": 1, "seq": 10, "from": "c4", "kind": "ready", "p": {} },
+	{ "v": 1, "seq": 11, "from": "c9", "kind": "pickup", "p": { "item": "lp-01", "placement": "stage" } },
+	{ "v": 1, "seq": 12, "from": "c9", "kind": "react", "p": { "kind": "applause" } },
+	{ "v": 1, "seq": 13, "at": 1761700000300, "from": "relay", "to": { "role": "bridge" }, "kind": "device", "p": { "outlet": "ableton", "msgs": [{ "kind": "midi", "p": { "bytes": [159, 12, 100] } }], "at": 1761700000300 } },
+	{ "v": 1, "seq": 14, "from": "c2", "to": { "role": "conductor" }, "kind": "device.in", "p": { "outlet": "pedal", "msg": { "kind": "midi", "p": { "bytes": [144, 60, 127] } } } },
+	{ "v": 1, "seq": 15, "from": "c2", "kind": "devices", "p": { "ports": [{ "adapter": "midi", "name": "IAC Driver Bus 1", "direction": "out" }] } },
+	{ "v": 1, "seq": 16, "from": "relay", "to": { "client": "c9" }, "kind": "error", "p": { "code": "rate", "message": "5 messages per second" } },
+	{ "v": 1, "seq": 17, "from": "c1", "kind": "vote.open", "p": { "vote": "v1", "options": ["a", "b"], "rule": "majority", "seconds": 20 } }
+]
