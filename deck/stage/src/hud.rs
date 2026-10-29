@@ -4,7 +4,9 @@ use font8x8::UnicodeFonts;
 use std::collections::VecDeque;
 
 pub const W: u32 = 320;
-pub const H: u32 = 84;
+/// text lines the HUD has room for (above the frame-time graph)
+pub const LINES: usize = 9;
+pub const H: u32 = 4 + LINES as u32 * 10 + GRAPH_H + 4;
 const GRAPH_H: u32 = 20;
 /// the graph's full height in ms (two 60 Hz frames)
 const GRAPH_MS: f32 = 33.3;

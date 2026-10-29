@@ -89,7 +89,8 @@ browser's window is there.
    stage that fails opens Chromium alone.
    `kiosk = "browser"` = Chromium only. `deck-bridge.service` joins the local relay with `/var/lib/deck/venue.toml`.
 
-tty2 is a shell (Ctrl+Alt+F2), so is the serial port; ssh is key-only (no passwords on the image). `pacman -S` works
+tty2 is a shell (Ctrl+Alt+F2 – cage runs with `-s`, VT switching on; Ctrl+Alt+F1 back), the stage powers off on
+Ctrl+Alt+Del and logind on a short press of the power button, so is the serial port; ssh is key-only (no passwords on the image). `pacman -S` works
 on the live stick (the cache lives on DECKDATA); the live image overrides mkinitcpio's install hook to do nothing on the booted stick (it still runs in the build), since
 the kernel and initramfs stay in the ISO (an installed deck gets the stock hook back). The user `deck`
 (uid 1000) is in audio, video, input, realtime, uucp; PipeWire runs at 48 kHz / quantum 128 with rtkit

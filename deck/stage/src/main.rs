@@ -1,6 +1,6 @@
 //! deck-stage – the native AV app the deck boots into (CYBERDECKS.md §8, #179). One window (fullscreen; under cage on
 //! the deck), a node graph from a TOML scene: video passes on wgpu, an audio graph on PipeWire / cpal, control values
-//! per frame. Keys: F1 the HUD · F2 the browser · Ctrl+Q quit. The splash (the logo) covers the start until the
+//! per frame. Keys: F1 the HUD · F2 the browser · Ctrl+Q quit · Ctrl+Alt+Del power off (on a deck). The splash (the logo) covers the start until the
 //! chapter's first slice and the music are there, and the browser's start: with DECK_BROWSER set (deck-session does)
 //! F2 starts that command on top of the running stage – cage shows the newest window – and the stage pauses and mutes
 //! behind it until it closes; without it F2 quits with exit code 10 (deck-session's older loop opens the browser).
@@ -175,6 +175,22 @@ impl App {
         }
     }
 
+    /// Ctrl+Alt+Del: a clean power-off (logind lets the active local session do it); the logo stays up meanwhile.
+    /// Not in a --windowed stage (a desktop).
+    fn power_off(&mut self) {
+        if self.args.windowed {
+            return;
+        }
+        tracing::info!("power off (Ctrl+Alt+Del)");
+        self.browser.get_or_insert_with(Instant::now); // the splash comes up and stays
+        if let Some(m) = &self.master {
+            m.set(0.0);
+        }
+        if let Err(e) = std::process::Command::new("systemctl").arg("poweroff").spawn() {
+            tracing::error!("systemctl poweroff: {e}");
+        }
+    }
+
     fn redraw(&mut self, el: &ActiveEventLoop) {
         if self.paused {
             return; // the browser has the screen; the next frame comes when it closes
@@ -242,6 +258,7 @@ impl App {
         };
         let mut lines = vec![
             format!("SCUTOONSDECK STAGE  {}", self.scene_name),
+            "F2 WEB  CTRL+ALT+ F2 SHELL / DEL OFF".into(),
             format!("FPS {:.1}  FRAME {:.1} MS  CPU {:.2} MS", self.stats.fps, last(&self.stats.intervals), last(&self.stats.work)),
             format!("GPU {gpu}"),
             format!("AUDIO {audio}  T {:.1} S", self.time()),
@@ -255,7 +272,7 @@ impl App {
         for s in self.renderer.as_ref().map(|r| r.slides_status()).unwrap_or_default() {
             lines.push(format!("SLICE {s}"));
         }
-        lines.truncate(8);
+        lines.truncate(hud::LINES);
         lines
     }
 
@@ -354,6 +371,7 @@ impl ApplicationHandler<Event> for App {
                     Key::Named(NamedKey::F1) => self.hud.visible = !self.hud.visible,
                     Key::Named(NamedKey::F2) => self.open_browser(el),
                     Key::Named(NamedKey::Escape) if self.args.windowed => el.exit(),
+                    Key::Named(NamedKey::Delete) if self.mods.control_key() && self.mods.alt_key() => self.power_off(),
                     Key::Character("q") if self.mods.control_key() => el.exit(),
                     _ => {}
                 }

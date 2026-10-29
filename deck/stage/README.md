@@ -19,8 +19,8 @@ PipeWire → cpal → null; null runs the engine on a timer, no device – the c
 `--api` / `--cdn` (or `DECK_API` / `DECK_CDN`) · `--windowed` · `--frames N` (quit after N frames and print the numbers –
 a check run) · `--no-hud`. Logs: `RUST_LOG`.
 
-Keys: **F1** the HUD · **F2** the browser · **Ctrl+Q** quit (on the deck the stage starts again) · Esc quits a
-`--windowed` stage. F2 with `DECK_BROWSER` set (deck-session sets it to `deck-session browser`) starts that command on
+Keys: **F1** the HUD · **F2** the browser · **Ctrl+Q** quit (on the deck the stage starts again) · **Ctrl+Alt+Del** power off (`systemctl
+poweroff`, the logo stays up; not in a `--windowed` stage) · Esc quits a `--windowed` stage. The HUD names the keys. F2 with `DECK_BROWSER` set (deck-session sets it to `deck-session browser`) starts that command on
 top of the running stage: the logo comes up until the browser's window takes the focus (cage shows the newest window),
 then the stage stops drawing and mutes; when the command exits the stage is back at once. Without `DECK_BROWSER` F2
 quits with exit code 10.

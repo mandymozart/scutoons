@@ -40,7 +40,8 @@ d}" /usr/share/deck/start.html <<<"$report" >"$page"
 case "${1:-}" in
   inside) ;;
   browser) browser; exit $? ;;              # the stage's F2 (DECK_BROWSER), inside cage already
-  *) exec cage -- "$0" inside ;;
+  # -s: VT switching stays on (Ctrl+Alt+F2 = the shell on tty2; cage blocks it without -s – X1, 2026-10-29)
+  *) exec cage -s -- "$0" inside ;;
 esac
 
 mode=$(setting kiosk)
