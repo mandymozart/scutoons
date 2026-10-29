@@ -1,4 +1,4 @@
-Status 2026-10-29: research brief, nothing built (#171, milestone "Cyberdecks"). Decisions open: #171 "Decide". Builds on research/LIVE.md (B.4 relay, B.6 protocol, B.7 bridge) – the Live kickoff 2026-11-16 is where this plan first meets code.
+Status 2026-10-29: research brief, nothing built (#171, milestone "Cyberdecks"). Decided (owner 2026-10-29, DECISIONS): **Rust first** – the Live relay + bridge in Rust from the 2026-11-16 kickoff, no Node + Electron. Still open in #171: repo place, milestone date, first hardware. Builds on research/LIVE.md (B.4 relay, B.6 protocol, B.7 bridge) – the Live kickoff 2026-11-16 is where this plan first meets code.
 
 # CYBERDECKS — Arch Linux decks running the SCUTOONS suite natively (Rust)
 
@@ -23,8 +23,8 @@ image and hides what the deck cannot do. Phones, tablets and the audience never 
 ## 2. Why Rust, and the dogma
 - One language for the timing-critical parts (MIDI clock, DMX refresh at 40–44 Hz, audio buffers of 64–256 frames),
   hardware access (serial, UDP, V4L2, GPU), and throughput (decode, render) – without a runtime, a GC or Electron.
-- Cross-compiles to all three classes and to macOS / Windows from the same code: the Rust bridge can **replace** the
-  Electron app of LIVE B.7 everywhere, not only on decks (decide, #171).
+- Cross-compiles to all three classes and to macOS / Windows from the same code: the Rust bridge **replaces** the
+  Electron app of LIVE B.7 everywhere, not only on decks (owner 2026-10-29: "we can port better from rust to others").
 - **Dogma** (checked per release, like the viewer's size checks): idle RAM of relay + bridge < 150 MB; cold start < 2 s;
   no busy loops (timers by `tokio` / the audio callback, never polling); release builds with LTO, `panic = "abort"`,
   `opt-level = "z"` for the bridge; every acceleration path has a software fallback that is chosen, never crashed into.
@@ -87,8 +87,8 @@ always be the deployed version** (the conductor, LIVE B.7).
 | Video editing | nothing yet | **native** `deck/cut` – an assemble / cut / export tool on GStreamer (`gstreamer-rs`, VA-API / rkmpp through its plugins): chapter videos, storyboard previews, show recordings. Not a Premiere clone (§7 risk) | throughput, hardware encode |
 | Score rendering (Verovio) | web, lazy | **web** (Verovio is C++ with a JS build; a native build is possible later via its C API) | built, good enough |
 
-## 6. Phases (no dates until #171 is decided; nothing before the Live kickoff 2026-11-16)
-0. **Inventory + decisions** (this brief → #171): first hardware, repo place, Rust-from-the-start for Live.
+## 6. Phases (owner 2026-10-29: starts now, parallel to Chapter 3 – agents build while the owner edits content; phase 1 merges with the Live kickoff 2026-11-16)
+0. **Inventory + decisions** (this brief → #171): first hardware, repo place (Rust-from-the-start: decided).
 1. **Relay + bridge in Rust** = LIVE phase 1 on the deck stack: `deck/relay`, `deck/bridge` with `midi`, `osc`,
    `dmx-artnet`; protocol from the shared schema; runs on a class-A laptop (Linux, macOS, Windows). Proof: the Top Toy
    workshop's cue chain (B.10 spike list) against Ableton over MIDI from the Rust bridge.
@@ -98,9 +98,8 @@ always be the deployed version** (the conductor, LIVE B.7).
 5. **Cut tool**: `deck/cut` – only when a concrete export need exists (a chapter video, show recordings).
 
 ## 7. Risks and what to verify first
-- **Double work on Live**: the LIVE plan says Node + Electron from 2026-11-16. Building it in Node and porting is the
-  same relay twice. Recommendation: Rust from the start for relay + bridge (the protocol is designed, B.6; the scope of
-  phase 1 is the same). Cost: the first week is slower; agents write Rust as well as TypeScript.
+- **Double work on Live** – resolved 2026-10-29: Rust from the start for relay + bridge (the protocol is designed, B.6;
+  the scope of phase 1 is the same). Cost: the first week is slower; agents write Rust as well as TypeScript.
 - **Class B drivers**: Panthor Vulkan and rkmpp encode are mainline-recent; verify on real hardware before promising
   video on ARM. Class C has no hardware encode at all – never plan recording on a Pi.
 - **The video editor** is the only part that is a product of its own; it is phase 5 and may stay a CLI (`deck cut

@@ -49,7 +49,10 @@ the story logic (variables, jumps, the save game) stays the toon's own – the s
 vibesss (`mandymozart/vibesss`) is used **as a concept only**: a socket relay between a host that speaks MIDI and grouped
 clients that receive instructions. Its stack (Socket.io in Next.js, Keystone, Prisma, broadcast to everyone with
 client-side filtering, a raw cache of 100 messages) is not taken over. New, in this repo:
-- **`live/` workspace** (Node 22 + `ws`, TypeScript): `live/relay` (sessions, roles, groups routed on the server,
+- **Superseded 2026-10-29 (owner: Rust first, DECISIONS, #171):** the relay and the devices are Rust crates in the
+  `deck/` Cargo workspace – `deck/relay`, `deck/bridge`, `deck/adapters/*` (research/CYBERDECKS.md §4); the protocol
+  types are generated from one schema for TypeScript and Rust. The original plan was: a `live/` workspace (Node 22 +
+  `ws`, TypeScript): `live/relay` (sessions, roles, groups routed on the server,
   snapshot + replay, vote tally, clock), `live/devices` (MIDI / DMX / OSC drivers), `live/app` (the Electron shell, B.7),
   `shared/live` (`@scutoons/live`: the protocol types + the client used by viewer and creator, the show schema helpers).
 - **Hosted: its own bunny Magic Containers app `scutoons-live`** (`live.scutoons.com`; owner 2026-10-07) – the
@@ -257,6 +260,9 @@ list for the patch UI). MIDI clock in is used only for timed cues (a cue's `wait
 audience groups, and returns `vote.cast` / `react` / `presence`. Sequence numbers are the local relay's.
 
 ## B.7 The device bridge: the **Scutoons Live** app
+Superseded 2026-10-29 (owner: Rust first, #171): the bridge is the Rust binary `deck/bridge` (research/CYBERDECKS.md
+§4 adapters, §5 split) for Linux decks, macOS and Windows – no Electron; its small status window is a native / `wry`
+window, the conductor stays the deployed web page as below. The Electron paragraphs below are the original plan.
 Owner 2026-10-07: **one local bridge for all devices, shipped as an installable app for macOS and Windows**, so any
 computer can become the conductor.
 - **Electron** (`live/app`): runs the same Node relay as the hosted one (B.4 local / linked) + the drivers: MIDI via
