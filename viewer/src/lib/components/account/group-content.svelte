@@ -11,6 +11,7 @@
 	import CollectionGroup from './collection-group.svelte';
 	import AiConnections from './ai-connections.svelte';
 	import CreatorGroup from './creator-group.svelte';
+	import DecksGroup from './decks-group.svelte';
 	import AccountToggle from './account-toggle.svelte';
 	import NotificationsSetting from './notifications-setting.svelte';
 
@@ -47,6 +48,8 @@
 {:else if group === 'connections'}
 	<p class="hint">{m['account.ai_hint']()}</p>
 	<AiConnections />
+{:else if group === 'decks'}
+	<DecksGroup />
 {:else if group === 'creator'}
 	<CreatorGroup />
 {/if}

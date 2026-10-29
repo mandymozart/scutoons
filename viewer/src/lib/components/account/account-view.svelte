@@ -52,7 +52,11 @@
 	$effect(() => {
 		// only once this device's facts are known (push / the worker / install answer after the first render – a deep link
 		// to "Offline-Inhalte" or a guest's "Benachrichtigungen" must not bounce)
-		if (group && !session.pending && push.checked && !groups.includes(group)) goto(localizeHref('/account'), { replaceState: true });
+		if (group && !session.pending && push.checked && !groups.includes(group)) {
+			// a deck's pairing link (`/account/decks?deck=…`, #180) signed out: back to it after signing in
+			const back = group === 'decks' && page.url.searchParams.has('deck') ? `?return=${encodeURIComponent(page.url.pathname + page.url.search)}` : '';
+			goto(localizeHref('/account') + back, { replaceState: true });
+		}
 	});
 
 	// `?return=<path>` (the follow-up bar's "Anmelden" before a members-only chapter): back there after signing in

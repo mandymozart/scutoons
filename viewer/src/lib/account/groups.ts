@@ -13,7 +13,7 @@ export interface AccountReader {
 	push: boolean;
 }
 
-export const ACCOUNT_GROUPS = ['details', 'reading', 'sound', 'offline', 'notifications', 'collection', 'connections', 'creator'] as const;
+export const ACCOUNT_GROUPS = ['details', 'reading', 'sound', 'offline', 'notifications', 'collection', 'connections', 'decks', 'creator'] as const;
 export type AccountGroup = (typeof ACCOUNT_GROUPS)[number];
 
 /** a Feather icon per group (shown before its title in the index and on its page) */
@@ -25,6 +25,7 @@ export const GROUP_ICON: Record<AccountGroup, string> = {
 	notifications: 'bell',
 	collection: 'package',
 	connections: 'link',
+	decks: 'monitor',
 	creator: 'edit-3'
 };
 
@@ -46,6 +47,9 @@ export function groupVisible(group: AccountGroup, reader: AccountReader): boolea
 			return reader.signedIn || reader.push;
 		case 'connections':
 			return reader.signedIn && reader.roles.some((r) => AI_ROLES.includes(r));
+		case 'decks':
+			// every member pairs decks, readers included (#180, owner 2026-10-29)
+			return reader.signedIn;
 		case 'creator':
 			return reader.signedIn && reader.creator;
 		default:

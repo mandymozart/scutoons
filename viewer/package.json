@@ -8,7 +8,7 @@
 		"prepare": "svelte-kit sync || echo ''",
 		"prepack": "svelte-kit sync && svelte-package && publint",
 		"check": "node scripts/paraglide.js && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && npm run test",
-		"test": "node --experimental-transform-types --no-warnings --test test/script-queue.test.ts test/expressions.test.ts test/jump-to.test.ts test/vn-safety.test.ts test/typed-code.test.ts test/strip-scroll.test.ts test/freeze-scroll.test.ts test/map-view.test.ts test/playlist.test.ts test/marquee.test.ts test/pull-exclusive.test.ts test/pickup-rules.test.ts test/save-failure.test.ts test/sw-cache-rules.test.ts test/sw-saved-rules.test.ts test/sw-outbox-rules.test.ts test/continue-reading.test.ts test/strip-loop.test.ts test/strip-drag.test.ts test/strip-nudge.test.ts test/slides-autoplay.test.ts test/draft-preview.test.ts",
+		"test": "node --experimental-transform-types --no-warnings --test test/script-queue.test.ts test/expressions.test.ts test/jump-to.test.ts test/vn-safety.test.ts test/typed-code.test.ts test/strip-scroll.test.ts test/freeze-scroll.test.ts test/map-view.test.ts test/playlist.test.ts test/marquee.test.ts test/pull-exclusive.test.ts test/pickup-rules.test.ts test/save-failure.test.ts test/sw-cache-rules.test.ts test/sw-saved-rules.test.ts test/sw-outbox-rules.test.ts test/continue-reading.test.ts test/strip-loop.test.ts test/strip-drag.test.ts test/strip-nudge.test.ts test/slides-autoplay.test.ts test/draft-preview.test.ts test/deck-pairing.test.ts",
 		"check:watch": "node scripts/paraglide.js && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"format": "prettier --write .",
 		"lint": "prettier --check . && eslint ."

@@ -58,6 +58,8 @@
 				return m['account.items_count']({ count: inventory.entries.reduce((sum, e) => sum + e.qty, 0) });
 			case 'connections':
 				return m['account.ai_title']();
+			case 'decks':
+				return m['account.decks_summary']();
 			case 'creator':
 				return onOff(m['account.draft_preview'](), draftPreview.on);
 		}
