@@ -1,6 +1,6 @@
 # deck/ – the SCUTOONS deck suite (Rust)
 
-The native half of the platform: the Live relay and device bridge today, audio / video / 3D later
+The native half of the platform: the Live relay and device bridge, the stage (audio + video; 3D later)
 (agents/research/CYBERDECKS.md – the plan; LIVE.md B.3, B.4, B.6, B.7 – what relay and bridge do; #172 – the work).
 Owner 2026-10-29: Rust first, no Node + Electron for anything native.
 
@@ -13,6 +13,7 @@ Owner 2026-10-29: Rust first, no Node + Electron for anything native.
 | `adapters/midi` | lib | `midir` in / out + the **default map** of B.3 (slice enter = note on ch 16, event types per channel, variables as CC) |
 | `adapters/osc` | lib | OSC over UDP (`rosc`): `host` = out (Resolume, TouchDesigner, laser software), `listen` = in → `device.in`; typed args (`int` / `float` / `string` / `bool`), bundles flattened |
 | `relay` | bin | WebSocket server: sessions by code, roles + groups from the URL / `hello`, stamps `seq` + `from`, routes by `to`, `ping` → `pong`, `GET /status`. Not yet: snapshot / replay, votes, clock lead, HMAC tokens, rate limits (each a `TODO(B.6 …)` in `relay/src/lib.rs`) |
+| `stage` | bin + lib | `deck-stage`, the AV app the deck boots into (CYBERDECKS.md §8, #179): winit + wgpu, a node graph from a TOML scene, an audio graph on PipeWire / cpal with synths + an FFT, chapter music from the library API with a disk cache – stage/README.md |
 | `bridge` | bin | loads a TOML venue patch (B.5.4), builds + starts the adapters, joins the relay as `bridge`, sends `devices { ports }`, plays `device` messages at their `at`, forwards device input as `device.in`. Not yet: the status window, osc / dmx adapters, a measured clock offset |
 
 `dmx-*`, `gpio`, `audio`, `video-in`, `display`, `laser` (CYBERDECKS.md §4, #178) do not exist yet – the bridge names them
@@ -81,8 +82,8 @@ Checked per release like the viewer's size checks; measured numbers go into `dec
       justify each
 - [x] release profile: `lto = "fat"`, `codegen-units = 1`, `panic = "abort"`, `strip`; the bridge at `opt-level = "z"`
       (`Cargo.toml` `[profile.release]`)
-- [ ] every acceleration path has a software fallback that is chosen, never crashed into (none yet – audio / video come
-      with phase 3)
+- [ ] every acceleration path has a software fallback that is chosen, never crashed into – the stage: software adapter at
+      half size, null audio backend, `pass` for a broken shader (stage/README.md); video decode comes with S4
 - [x] builds for Linux x86_64 + aarch64 (`cross`, `Cross.toml`), macOS, Windows – `.github/workflows/deck.yml`, only on
       changes under `deck/` or `shared/live/`
 
@@ -98,5 +99,6 @@ deck/
   adapters/osc/       rosc over UDP, in + out
   relay/              the relay binary + tests/routing.rs (a real server, three roles, two groups)
   bridge/             the bridge binary + venue.example.toml
+  stage/              deck-stage: src/ (graph, audio, render, library) · scenes/ · tests/no_alloc.rs
 shared/live/          @scutoons/live: src/protocol.ts (generated), test/ (fixture + generator tests)
 ```

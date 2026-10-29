@@ -2,7 +2,7 @@
 # Build: `cargo build --release` here; run: deck/README.md. The release profile follows the dogma (CYBERDECKS.md §2).
 [workspace]
 resolver = "2"
-members = ["protocol", "adapters/core", "adapters/midi", "adapters/osc", "relay", "bridge", "os/check"]
+members = ["protocol", "adapters/core", "adapters/midi", "adapters/osc", "relay", "bridge", "os/check", "stage"]
 
 [workspace.package]
 version = "0.1.0"

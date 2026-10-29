@@ -1,0 +1,41 @@
+# deck-stage – the native AV app the deck boots into (CYBERDECKS.md §8, #179): winit + wgpu, a node graph from a TOML
+# scene, an audio graph on PipeWire (cpal elsewhere), chapter music from the library API with a disk cache.
+# Versions are pinned to the APIs this code was written against; a bump is its own step.
+[package]
+name = "deck-stage"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "deck-stage"
+path = "src/main.rs"
+
+[features]
+default = []
+# the PipeWire backend (Linux, needs libpipewire + clang at build time); without it the stage plays through cpal
+pipewire = ["dep:pipewire"]
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+wgpu = "25"
+winit = "0.30"
+pollster = "0.4"
+bytemuck = { version = "1", features = ["derive"] }
+font8x8 = { version = "0.3", default-features = false, features = ["unicode"] }
+cpal = "0.15"
+fundsp = { version = "0.20", default-features = false, features = ["std"] }
+rustfft = "6"
+rtrb = "0.3"
+symphonia = { version = "0.5", default-features = false, features = ["mp3", "wav", "pcm"] }
+ureq = "2"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+pipewire = { version = "0.10", optional = true }

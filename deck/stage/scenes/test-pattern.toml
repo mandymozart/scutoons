@@ -1,0 +1,25 @@
+# Step S1 (#179): the test pattern alone, no sound, no network – the first boot check of a deck's GPU.
+[stage]
+name = "test pattern (S1)"
+
+[[node]]
+id = "drift"
+kind = "lfo"
+rate = 0.1
+
+[[node]]
+id = "pattern"
+kind = "test_pattern"
+speed = 1.0
+
+[[node]]
+id = "screen"
+kind = "screen"
+
+[[link]]
+from = "drift"
+to = "pattern.pulse"
+
+[[link]]
+from = "pattern"
+to = "screen.in"
