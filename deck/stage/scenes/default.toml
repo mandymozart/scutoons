@@ -1,9 +1,10 @@
-# "AV madness", step S2 (CYBERDECKS.md §8, #179): catpope chapter 1's music from scutoons.com (cached on the deck) plus
-# a sequenced FM synth and pink noise, mixed, analysed by the FFT – bass, mid, high and the level drive the test
-# pattern and two shader passes. S3–S6 add the chapter's slices, a video, a 3D object and MIDI / OSC mapping.
-# Ports and kinds: deck/stage/README.md.
+# "AV madness", step S3 (CYBERDECKS.md §8, #179): catpope chapter 1 from scutoons.com (cached on the deck) – its music
+# plus a sequenced FM synth and pink noise, mixed, analysed by the FFT; its slices one after the other (a cut on a bass
+# hit, at the latest every 6 s) with their dialog set in, over the kaleidoscoped test pattern, the slice's caption big
+# on top. Bass, mid, high and the level drive the cuts, the zoom, the shader passes and the caption's shake.
+# S4–S6 add a video, a 3D object and MIDI / OSC mapping. Ports and kinds: deck/stage/README.md.
 [stage]
-name = "AV madness (S2)"
+name = "AV madness (S3)"
 
 # ── sound ───────────────────────────────────────────────────────────────────────────────────────────────────────────
 [[node]]
@@ -111,6 +112,21 @@ kind = "shader"
 effect = "rgb_shift"
 b = 0.4
 
+# the chapter: its slices over the pattern, the caption on top
+[[node]]
+id = "slices"
+kind = "chapter"
+toon = "catpope"
+chapter = 1
+quality = "medium"
+hold = 6
+min_hold = 1.8
+threshold = 0.62
+
+[[node]]
+id = "caption"
+kind = "overlay"
+
 [[node]]
 id = "screen"
 kind = "screen"
@@ -146,7 +162,24 @@ to = "kaleido.c"
 [[link]]
 from = "fft.level"
 to = "glitch.a"
-scale = 0.6
+scale = 0.3
+
+[[link]]
+from = "fft.bass"
+to = "slices.next"
+
+[[link]]
+from = "fft.bass"
+to = "slices.pulse"
+
+[[link]]
+from = "fft.level"
+to = "caption.pulse"
+
+[[link]]
+from = "fft.high"
+to = "caption.shake"
+scale = 1.5
 
 [[link]]
 from = "pattern"
@@ -154,8 +187,20 @@ to = "kaleido.in"
 
 [[link]]
 from = "kaleido"
+to = "slices.in"
+
+[[link]]
+from = "slices"
 to = "glitch.in"
 
 [[link]]
 from = "glitch"
+to = "caption.in"
+
+[[link]]
+from = "slices.text"
+to = "caption.top"
+
+[[link]]
+from = "caption"
 to = "screen.in"

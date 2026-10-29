@@ -36,6 +36,10 @@ rustfft = "6"
 rtrb = "0.3"
 symphonia = { version = "0.5", default-features = false, features = ["mp3", "wav", "pcm"] }
 ureq = "2"
+# S3: the chapter's slices (webp), its dialog set in the reader's fonts, the splash logo (the SVG)
+image = { version = "0.25", default-features = false, features = ["webp", "png"] }
+ab_glyph = "0.2"
+resvg = { version = "0.45", default-features = false }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 pipewire = { version = "0.10", optional = true }

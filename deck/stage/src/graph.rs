@@ -44,6 +44,11 @@ pub enum Kind {
     Shader,
     /// the window – the video sink
     Screen,
+    /// a chapter's slices from the library API, one after the other (its dialog set in), over its `in` (or a dark,
+    /// stretched copy of the slice); `text` = the current slice's caption on transparent, for an overlay
+    Chapter,
+    /// `top` over `in` (alpha), the top popping in when it changes, shaken by `shake`
+    Overlay,
     /// a low-frequency oscillator (control)
     Lfo,
     /// a band-limited oscillator (sine / saw / square / triangle), pitched by its `cv` input or `freq`
@@ -70,6 +75,8 @@ impl Kind {
             "test_pattern" => Kind::TestPattern,
             "shader" => Kind::Shader,
             "screen" => Kind::Screen,
+            "chapter" => Kind::Chapter,
+            "overlay" => Kind::Overlay,
             "lfo" => Kind::Lfo,
             "osc" => Kind::Osc,
             "noise" => Kind::Noise,
@@ -85,7 +92,7 @@ impl Kind {
 
     pub fn domain(self) -> Domain {
         match self {
-            Kind::TestPattern | Kind::Shader | Kind::Screen => Domain::Video,
+            Kind::TestPattern | Kind::Shader | Kind::Screen | Kind::Chapter | Kind::Overlay => Domain::Video,
             Kind::Lfo => Domain::Control,
             _ => Domain::Audio,
         }
@@ -96,6 +103,8 @@ impl Kind {
             Kind::TestPattern => &[p!("speed", C), p!("zoom", C), p!("hue", C), p!("pulse", C)],
             Kind::Shader => &[p!("in", V), p!("a", C), p!("b", C), p!("c", C), p!("d", C)],
             Kind::Screen => &[p!("in", V)],
+            Kind::Chapter => &[p!("in", V), p!("next", C), p!("hold", C), p!("zoom", C), p!("pulse", C)],
+            Kind::Overlay => &[p!("in", V), p!("top", V), p!("opacity", C), p!("pulse", C), p!("shake", C)],
             Kind::Lfo => &[p!("rate", C), p!("depth", C)],
             Kind::Osc => &[p!("cv", A), p!("freq", C), p!("gain", C)],
             Kind::Noise => &[p!("cutoff", C), p!("gain", C)],
@@ -113,7 +122,8 @@ impl Kind {
 
     pub fn outputs(self) -> &'static [Port] {
         match self {
-            Kind::TestPattern | Kind::Shader => &[p!("out", V)],
+            Kind::TestPattern | Kind::Shader | Kind::Overlay => &[p!("out", V)],
+            Kind::Chapter => &[p!("out", V), p!("text", V)],
             Kind::Screen | Kind::AudioOut => &[],
             Kind::Lfo => &[p!("out", C)],
             Kind::Seq => &[p!("cv", A)],

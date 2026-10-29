@@ -1,7 +1,10 @@
 //! deck-stage – the native AV app the deck boots into (CYBERDECKS.md §8, #179). One window (fullscreen; under cage on
 //! the deck), a node graph from a TOML scene: video passes on wgpu, an audio graph on PipeWire / cpal, control values
-//! per frame. Keys: F1 the HUD · F2 the browser (exit code 10 – deck-session opens the conductor page) · Ctrl+Q quit.
-use deck_stage::{audio, control, graph, hud, library, render, scene};
+//! per frame. Keys: F1 the HUD · F2 the browser · Ctrl+Q quit. The splash (the logo) covers the start until the
+//! chapter's first slice and the music are there, and the browser's start: with DECK_BROWSER set (deck-session does)
+//! F2 starts that command on top of the running stage – cage shows the newest window – and the stage pauses and mutes
+//! behind it until it closes; without it F2 quits with exit code 10 (deck-session's older loop opens the browser).
+use deck_stage::{audio, chapter, control, graph, hud, library, render, scene, splash};
 
 use anyhow::{bail, Context, Result};
 use audio::backend::{self, Choice};
@@ -10,12 +13,21 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use winit::application::ApplicationHandler;
 use winit::event::{ElementState, WindowEvent};
-use winit::event_loop::{ActiveEventLoop, EventLoop};
+use winit::event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy};
 use winit::keyboard::{Key, ModifiersState, NamedKey};
 use winit::window::{Fullscreen, Window, WindowId};
 
 /// the exit code that asks deck-session for the browser (the conductor page) instead of the stage
 const EXIT_BROWSER: i32 = 10;
+/// the splash waits this long at most for the chapter and the music (offline without a cache: the scene anyway)
+const SPLASH_MAX_S: f32 = 30.0;
+
+/// what other threads tell the event loop
+#[derive(Debug)]
+enum Event {
+    /// the browser (DECK_BROWSER) exited
+    BrowserClosed,
+}
 
 const HELP: &str = "deck-stage [--scene FILE] [--audio auto|pipewire|cpal|null] [--volume 0-1] [--cache DIR]
            [--api URL] [--cdn URL] [--windowed] [--frames N] [--no-hud]
@@ -104,6 +116,15 @@ struct App {
     stats: Stats,
     mods: ModifiersState,
     exit: i32,
+    /// the chapter nodes' loaders, until the renderer takes them
+    feeds: Vec<chapter::ChapterFeed>,
+    splash: splash::Fade,
+    /// the master gain (the browser mutes it; it returns to --volume)
+    master: Option<audio::Param>,
+    /// the browser on top: since when; `paused` once it has the focus (the stage stops drawing)
+    browser: Option<Instant>,
+    paused: bool,
+    proxy: EventLoopProxy<Event>,
 }
 
 impl App {
@@ -114,7 +135,50 @@ impl App {
         }
     }
 
+    /// still loading what the splash waits for: a chapter's first slice, a music track
+    fn loading(&self) -> bool {
+        if self.started.elapsed().as_secs_f32() > SPLASH_MAX_S {
+            return false;
+        }
+        let music = self.music.iter().any(|s| {
+            let s = s.lock().unwrap();
+            s.is_empty() || ["waiting", "loading", "fetching", "decoding"].iter().any(|p| s.starts_with(p))
+        });
+        music || self.renderer.as_ref().is_some_and(|r| !r.slides_ready())
+    }
+
+    /// F2: the browser on top of the stage (DECK_BROWSER), else exit code 10 for deck-session
+    fn open_browser(&mut self, el: &ActiveEventLoop) {
+        if self.browser.is_some() {
+            return;
+        }
+        let Some(cmd) = std::env::var("DECK_BROWSER").ok().filter(|c| !c.trim().is_empty()) else {
+            self.exit = EXIT_BROWSER;
+            el.exit();
+            return;
+        };
+        tracing::info!("browser: {cmd}");
+        match std::process::Command::new("/bin/sh").arg("-c").arg(&cmd).spawn() {
+            Ok(mut child) => {
+                let proxy = self.proxy.clone();
+                std::thread::spawn(move || {
+                    let st = child.wait();
+                    tracing::info!("browser closed ({st:?})");
+                    let _ = proxy.send_event(Event::BrowserClosed);
+                });
+                self.browser = Some(Instant::now());
+                if let Some(m) = &self.master {
+                    m.set(0.0);
+                }
+            }
+            Err(e) => tracing::error!("browser: {cmd}: {e}"),
+        }
+    }
+
     fn redraw(&mut self, el: &ActiveEventLoop) {
+        if self.paused {
+            return; // the browser has the screen; the next frame comes when it closes
+        }
         let now = Instant::now();
         let dt = self.last.map(|l| (now - l).as_secs_f32()).unwrap_or(1.0 / 60.0).min(0.25);
         if let Some(l) = self.last {
@@ -138,10 +202,13 @@ impl App {
         if self.hud.visible {
             self.hud.raster();
         }
+        let cover = self.loading() || self.browser.is_some();
+        self.splash.step(cover, dt);
+        let splash = (self.splash.alpha, cover);
         let Some(r) = self.renderer.as_mut() else { return };
         let shown = (self.args.hud && self.hud.visible).then_some(&self.hud);
         let before = (now.elapsed().as_secs_f32()) * 1000.0;
-        match r.frame(&self.graph, &self.controls, time, dt, shown) {
+        match r.frame(&self.graph, &self.controls, time, dt, shown, splash) {
             // the frame thread's work: controls + HUD before the render, the render after the surface's vsync wait
             Ok(ms) => push_capped(&mut self.stats.work, before + ms),
             Err(e) => {
@@ -185,7 +252,10 @@ impl App {
         for s in &self.music {
             lines.push(format!("MUSIC {}", s.lock().unwrap()));
         }
-        lines.truncate(6);
+        for s in self.renderer.as_ref().map(|r| r.slides_status()).unwrap_or_default() {
+            lines.push(format!("SLICE {s}"));
+        }
+        lines.truncate(8);
         lines
     }
 
@@ -216,7 +286,23 @@ fn push_capped(v: &mut Vec<f32>, x: f32) {
     v.push(x);
 }
 
-impl ApplicationHandler for App {
+impl ApplicationHandler<Event> for App {
+    fn user_event(&mut self, _: &ActiveEventLoop, event: Event) {
+        match event {
+            Event::BrowserClosed => {
+                self.browser = None;
+                self.paused = false;
+                self.last = None; // the pause is not a frame interval
+                if let Some(m) = &self.master {
+                    m.set(self.args.volume);
+                }
+                if let Some(w) = &self.window {
+                    w.request_redraw();
+                }
+            }
+        }
+    }
+
     fn resumed(&mut self, el: &ActiveEventLoop) {
         if self.window.is_some() {
             return;
@@ -239,7 +325,7 @@ impl ApplicationHandler for App {
         if !self.args.windowed {
             window.set_cursor_visible(false);
         }
-        match render::Renderer::new(window.clone(), &self.graph, self.render_scale) {
+        match render::Renderer::new(window.clone(), &self.graph, self.render_scale, std::mem::take(&mut self.feeds)) {
             Ok(r) => self.renderer = Some(r),
             Err(e) => {
                 tracing::error!("render: {e:#}");
@@ -261,13 +347,12 @@ impl ApplicationHandler for App {
                 }
             }
             WindowEvent::ModifiersChanged(m) => self.mods = m.state(),
+            // the browser's window took the screen: stop drawing behind it (hidden, a frame could block on vsync)
+            WindowEvent::Focused(false) if self.browser.is_some() => self.paused = true,
             WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && !event.repeat => {
                 match event.logical_key.as_ref() {
                     Key::Named(NamedKey::F1) => self.hud.visible = !self.hud.visible,
-                    Key::Named(NamedKey::F2) => {
-                        self.exit = EXIT_BROWSER;
-                        el.exit();
-                    }
+                    Key::Named(NamedKey::F2) => self.open_browser(el),
                     Key::Named(NamedKey::Escape) if self.args.windowed => el.exit(),
                     Key::Character("q") if self.mods.control_key() => el.exit(),
                     _ => {}
@@ -335,10 +420,16 @@ fn run() -> Result<i32> {
             library::spawn_music_loader(lib.clone(), &graph.nodes[feed.node], feed);
         }
     }
+    let feeds: Vec<chapter::ChapterFeed> = (0..graph.nodes.len())
+        .filter(|&i| graph.nodes[i].kind == graph::Kind::Chapter)
+        .map(|i| chapter::spawn(lib.clone(), &graph.nodes[i], i))
+        .collect();
+    let master = handles.as_ref().map(|h| h.master.clone());
     let clock = handles.as_ref().map(|h| h.clock.clone());
     let controls = control::Controls::new(&graph, handles.as_mut());
 
-    let event_loop = EventLoop::new().context("no event loop (no display?)")?;
+    let event_loop = EventLoop::<Event>::with_user_event().build().context("no event loop (no display?)")?;
+    let proxy = event_loop.create_proxy();
     let mut app = App {
         hud: hud::Hud::default(),
         args,
@@ -358,6 +449,12 @@ fn run() -> Result<i32> {
         stats: Stats::default(),
         mods: ModifiersState::empty(),
         exit: 0,
+        feeds,
+        splash: splash::Fade { alpha: 1.0 },
+        master,
+        browser: None,
+        paused: false,
+        proxy,
     };
     event_loop.run_app(&mut app)?;
     let summary = app.summary();

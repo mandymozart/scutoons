@@ -1,4 +1,4 @@
-// Prepended to every pass (render.rs): the uniforms, the input texture, a fullscreen triangle. A pass body defines
+// Prepended to every pass (render.rs): the uniforms, the input textures, a fullscreen triangle. A pass body defines
 // `fn effect(uv: vec2<f32>) -> vec4<f32>`; uv is 0–1 from the top left, u.p0 / u.p1 are the node's eight params.
 struct U {
     time: f32,
@@ -10,6 +10,9 @@ struct U {
 @group(0) @binding(0) var<uniform> u: U;
 @group(0) @binding(1) var src: texture_2d<f32>;
 @group(0) @binding(2) var samp: sampler;
+// two more inputs (the chapter's current / previous slice, an overlay's top); a 1 × 1 transparent texture when unused
+@group(0) @binding(3) var src2: texture_2d<f32>;
+@group(0) @binding(4) var src3: texture_2d<f32>;
 
 struct VsOut {
     @builtin(position) pos: vec4<f32>,

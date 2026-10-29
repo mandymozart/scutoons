@@ -28,6 +28,32 @@ pub struct Chapter {
     pub title: String,
     #[serde(default)]
     pub audio: Option<Audio>,
+    #[serde(default)]
+    pub groups: Vec<Group>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Group {
+    #[serde(default)]
+    pub slices: Vec<Slice>,
+}
+
+/// One slice of the strip (content.ts `Slice`): the image (CDN path, per quality), its size, the dialog over it.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Slice {
+    #[serde(default)]
+    pub image: Option<String>,
+    #[serde(default)]
+    pub image_variants: HashMap<String, String>,
+    #[serde(default)]
+    pub dialog: Vec<crate::text::Dialog>,
+}
+
+impl Slice {
+    pub fn image_path(&self, quality: &str) -> Option<&str> {
+        self.image_variants.get(quality).or(self.image.as_ref()).map(String::as_str)
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -55,6 +81,11 @@ pub struct MusicTrack {
 }
 
 impl Chapter {
+    /// the slices with an image, in reading order
+    pub fn slices(&self) -> impl Iterator<Item = &Slice> {
+        self.groups.iter().flat_map(|g| &g.slices).filter(|s| s.image.is_some() || !s.image_variants.is_empty())
+    }
+
     /// the track `id` (else the chapter's default track, else the first) at `quality` (else its plain path)
     pub fn music_path(&self, id: Option<&str>, quality: &str) -> Option<(&str, &str)> {
         let m = self.audio.as_ref()?.music.as_ref()?;
@@ -249,7 +280,8 @@ mod tests {
     const CHAPTER: &str = r#"{"title":"Leugnen","audio":{"music":{"defaultTrack":"calmness","tracks":[
         {"id":"tension","path":"s1/c2/t.128.mp3"},
         {"id":"calmness","path":"s1/c1/c.128.mp3","variants":{"low":"s1/c1/c.96.mp3","high":"s1/c1/c.320.mp3"}}]}},
-        "groups":[]}"#;
+        "groups":[{"slices":[{"image":"s1/c1/a.webp","imageVariants":{"medium":"s1/c1/a.2x.webp"},
+          "dialog":[{"rect":{"x":1,"y":2,"width":50},"text":"Leugnen","font":"lettering"}]},{"width":3}]}]}"#;
 
     #[test]
     fn the_music_path_follows_track_default_and_quality() {
@@ -257,6 +289,10 @@ mod tests {
         assert_eq!(ch.music_path(None, "high"), Some(("calmness", "s1/c1/c.320.mp3")));
         assert_eq!(ch.music_path(None, "medium"), Some(("calmness", "s1/c1/c.128.mp3"))); // no variant: the path
         assert_eq!(ch.music_path(Some("tension"), "low"), Some(("tension", "s1/c2/t.128.mp3")));
+        let slices: Vec<&Slice> = ch.slices().collect();
+        assert_eq!(slices.len(), 1, "a slice without an image is skipped");
+        assert_eq!((slices[0].image_path("medium"), slices[0].image_path("high")), (Some("s1/c1/a.2x.webp"), Some("s1/c1/a.webp")));
+        assert_eq!(slices[0].dialog[0].text(), "Leugnen");
         let none: Chapter = serde_json::from_str(r#"{"title":"x"}"#).unwrap();
         assert_eq!(none.music_path(None, "low"), None);
     }

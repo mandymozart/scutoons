@@ -4,7 +4,8 @@
 (Vulkan on the deck), an audio graph on PipeWire (cpal elsewhere), control values per frame – and chapter content from
 scutoons.com's library API with a disk cache. On the deck `deck-session` runs it under `cage` instead of Chromium
 (deck/os/README.md "What happens at boot"). Built so far: S1 (window, wgpu, graph core, test pattern, shader passes,
-HUD) and S2 (audio graph, synths, FFT, chapter music). Open: S3–S6 (#179).
+HUD), S2 (audio graph, synths, FFT, chapter music) and S3 (the chapter's slices with their dialog, the caption overlay,
+the splash). Open: S4–S6 (#179).
 
 ## Run
 
@@ -18,8 +19,16 @@ PipeWire → cpal → null; null runs the engine on a timer, no device – the c
 `--api` / `--cdn` (or `DECK_API` / `DECK_CDN`) · `--windowed` · `--frames N` (quit after N frames and print the numbers –
 a check run) · `--no-hud`. Logs: `RUST_LOG`.
 
-Keys: **F1** the HUD · **F2** the browser (exit code 10; deck-session opens the conductor page, closing it returns) ·
-**Ctrl+Q** quit (on the deck the stage starts again) · Esc quits a `--windowed` stage.
+Keys: **F1** the HUD · **F2** the browser · **Ctrl+Q** quit (on the deck the stage starts again) · Esc quits a
+`--windowed` stage. F2 with `DECK_BROWSER` set (deck-session sets it to `deck-session browser`) starts that command on
+top of the running stage: the logo comes up until the browser's window takes the focus (cage shows the newest window),
+then the stage stops drawing and mutes; when the command exits the stage is back at once. Without `DECK_BROWSER` F2
+quits with exit code 10.
+
+**The splash** (owner 2026-10-29: "das scutoons logo gross in weiss"): the official logo (viewer/static/SCUTOONS-logo.svg
+with a white fill – `assets/SCUTOONS-logo-white.svg`, rendered with resvg) at half the width on black, a loading line at
+the top. The window's first frame is the splash (before the scene's shaders compile); it fades once every chapter
+node shows a slice and every music track is loaded (or failed), at the latest after 30 s.
 
 The PipeWire backend is the cargo feature `pipewire` (Linux; needs libpipewire + clang at build time) – the ISO and
 the PKGBUILD build with it. Without it the stage plays through cpal (ALSA on Linux, so PipeWire's ALSA plugin still works).
@@ -34,6 +43,8 @@ An input takes one link; an output feeds any number. Every control input can als
 |---|---|---|---|
 | `test_pattern` | speed, zoom, hue, pulse (control) | out (video) | – |
 | `shader` | in (video), a, b, c, d (control) | out (video) | `effect` = `kaleido` · `rgb_shift` · `invert` · `pass`, or `wgsl` = a file defining `fn effect(uv: vec2<f32>) -> vec4<f32>` (bindings: shaders/common.wgsl) |
+| `chapter` | in (video), next, hold, zoom, pulse (control) | out (video), text (video) | `toon`, `chapter`, `quality` = low · medium · high, `dialog` (true: set the dialog in), `start` (slice index), `threshold` (0.6), `min_hold` (1.5 s); `hold` default 6 s |
+| `overlay` | in, top (video), opacity, pulse, shake (control) | out (video) | – |
 | `screen` | in (video) | – | the window (one per scene) |
 | `lfo` | rate (Hz), depth | out (control, 0–depth) | `shape` = sine · saw · square |
 | `osc` | cv (audio), freq, gain | out (audio) | `wave` = sine · saw · square · triangle, `attack`, `release` |
@@ -45,12 +56,24 @@ An input takes one link; an output feeds any number. Every control input can als
 | `fft` | in (audio) | level, bass, mid, high (control, 0–1) | `release` (s) |
 | `audio_out` | in (audio), volume | – | the device (one per scene) |
 
+**chapter** shows the chapter's slices one after the other in reading order (looping), the slice fitted to the height
+over `in` (darkened; without an input a dark stretched copy of the slice), a slow push-in over the hold, a kick by
+`pulse`, a short cross-fade with a flash at each cut. It cuts when `hold` is over, or when `next` rises past
+`threshold` after `min_hold` (a bass hit). The dialog is set into the slice the way the reader places it (rect, size
+in % of the slice width, shrunk to fit, paper boxes for captions / narration / framed bubbles, a rounded paper field
+behind a plain bubble, coloured + stroked lettering, the rotation) in the reader's fonts – Bangers and IBM Plex Mono
+Bold (`assets/`, SIL OFL); bubble tails, wobbly shapes and gradients are not drawn. `text` = the slice's caption: its
+shortest painted lettering (a sound, a title), else its shortest line of dialog (≤ 48 characters), big in Bangers,
+white with a black stroke on transparent – no caption, nothing. **overlay** puts `top` over `in` in the lower part of
+the frame (80 % of the width, at most 40 % of the height), popping in when it changes.
+
 With a `cv` link an oscillator / FM voice takes its pitch and gate from the sequencer and ignores `freq`. A control link
 out of the FFT or into an audio node crosses threads a frame late, so feedback through it (FFT → synth → mix → FFT) is
 allowed; every other cycle is an error.
 
-`scenes/default.toml` – catpope 1's music + a sequenced FM voice + pink noise → mixer → FFT → test pattern →
-kaleidoscope → RGB shift → screen. `scenes/test-pattern.toml` – the picture alone (no sound, no network). Both land in
+`scenes/default.toml` ("AV madness (S3)") – catpope 1's music + a sequenced FM voice + pink noise → mixer → FFT; test
+pattern → kaleidoscope → the chapter's slices (cut on a bass hit, every 6 s at the latest) → RGB shift → the caption
+overlay → screen. `scenes/test-pattern.toml` – the picture alone (no sound, no network). Both land in
 `/usr/share/deck/scenes` on the deck; `scene = "…"` in `/var/lib/deck/deck.toml` picks one.
 
 ## How it is built
@@ -70,9 +93,14 @@ kaleidoscope → RGB shift → screen. `scenes/test-pattern.toml` – the pictur
 - **Library** (`src/library.rs`): `GET {api}/library/toons/<toon>/chapters/<n>` → `<cache>/api/…json` (the cached copy
   when offline), CDN files `{cdn}/<toon>/<path>` → `<cache>/cdn/<toon>/<path>` once (CDN paths are immutable), decoded
   whole with symphonia (mp3, wav).
+- **Slices** (`src/chapter.rs`, `src/text.rs`): one loader thread per chapter node – the chapter (retried every 10 s
+  while there is neither a network nor a cached copy), then slice after slice: the image from the cache, decoded
+  (`image`: webp, png), the dialog set in and the caption drawn on the CPU (ab_glyph), handed over through a channel of
+  one (the next slice is always ready, at most two in memory); the renderer uploads it at the cut. A pass reads up to
+  three textures (bindings 1, 3, 4: `in`, the current / previous slice or an overlay's `top`).
 
 Dependencies are pinned to the APIs this was written against (wgpu 25, winit 0.30, cpal 0.15, pipewire 0.10 (0.8's libspa no longer builds against Arch's PipeWire headers), fundsp
-0.20, symphonia 0.5, ureq 2); `Cargo.lock` points gpu-allocator at windows 0.58 (cpal 0.15 pulls 0.54, which breaks
+0.20, symphonia 0.5, ureq 2, image 0.25, ab_glyph 0.2, resvg 0.45); `Cargo.lock` points gpu-allocator at windows 0.58 (cpal 0.15 pulls 0.54, which breaks
 wgpu-hal's DX12 build on Windows). A bump is its own step.
 
 ## Measured

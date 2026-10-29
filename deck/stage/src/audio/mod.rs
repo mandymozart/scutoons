@@ -84,6 +84,8 @@ pub struct Engine {
     slots: Vec<Slot>,
     out_slot: Option<usize>,
     master: Param,
+    /// the master gain the last block ended on – a change ramps over one block (no click on a mute)
+    gain: f32,
     frames: Arc<AtomicU64>,
 }
 
@@ -149,7 +151,7 @@ impl Engine {
             slots.push(Slot { block, out: (0..outs).map(|_| Stereo::new()).collect(), inputs });
         }
         let out_slot = graph.first(Kind::AudioOut).and_then(|i| slot_of[i]);
-        let engine = Engine { slots, out_slot, master: handles.master.clone(), frames: handles.clock.frames.clone() };
+        let engine = Engine { slots, out_slot, master: handles.master.clone(), gain: volume, frames: handles.clock.frames.clone() };
         Ok((engine, handles))
     }
 
@@ -161,11 +163,13 @@ impl Engine {
         while done < total {
             let n = (total - done).min(MAX_BLOCK);
             self.run(n);
-            let master = self.master.get();
+            let (from, to) = (self.gain, self.master.get());
+            self.gain = to;
             let frames = &mut out[done * channels..(done + n) * channels];
             match self.out_slot.map(|s| &self.slots[s].out[0]) {
                 Some(o) => {
                     for (f, frame) in frames.chunks_exact_mut(channels).enumerate() {
+                        let master = from + (to - from) * (f + 1) as f32 / n as f32;
                         let (l, r) = (safe(o.l[f] * master), safe(o.r[f] * master));
                         if channels == 1 {
                             frame[0] = conv(0.5 * (l + r));
@@ -237,6 +241,8 @@ mod tests {
         let (mut e, h) = engine(OSC_OUT);
         h.master.set(0.0);
         let mut buf = vec![1.0f32; 512 * 4];
+        e.render(&mut buf, 4, |x| x); // the ramp down
+        assert_eq!(buf[511 * 4], 0.0, "the ramp ends at the new gain");
         e.render(&mut buf, 4, |x| x);
         assert!(buf.iter().all(|x| *x == 0.0));
     }
