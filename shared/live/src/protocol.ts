@@ -33,16 +33,16 @@ export type Message =
 	| { kind: 'pong'; p: Pong }
 	| { kind: 'state'; p: State }
 	| { kind: 'cue'; p: Cue }
-	| { kind: 'vote.open'; p: Loose }
-	| { kind: 'vote.close'; p: Loose }
+	| { kind: 'vote.open'; p: VoteOpen }
+	| { kind: 'vote.close'; p: VoteClose }
 	| { kind: 'vote.cast'; p: VoteCast }
-	| { kind: 'vote.tally'; p: Loose }
-	| { kind: 'vote.result'; p: Loose }
+	| { kind: 'vote.tally'; p: VoteTally }
+	| { kind: 'vote.result'; p: VoteResult }
 	| { kind: 'assign'; p: Assign }
 	| { kind: 'panic'; p: Panic }
 	| { kind: 'media.preload'; p: MediaPreload }
-	| { kind: 'snapshot'; p: Loose }
-	| { kind: 'cell'; p: Loose }
+	| { kind: 'snapshot'; p: Snapshot }
+	| { kind: 'cell'; p: CellChange }
 	| { kind: 'say'; p: Loose }
 	| { kind: 'line'; p: Loose }
 	| { kind: 'fx'; p: Loose }
@@ -58,6 +58,66 @@ export type Message =
 
 /** A payload whose shape B.6 names but this skeleton does not fix yet (votes, snapshot, cells, say / line / fx / colour). */
 export type Loose = Record<string, unknown>;
+
+/** B.11 (3): majority = most votes; groups = each group's majority is one vote; first = the first option to reach `n`. */
+export type VoteRule = 'majority' | 'groups' | 'first';
+
+/** conductor → relay → the voting groups. `options` are the choice event's labels (index = option). The relay tallies, closes at `seconds` by itself and sends `vote.result`. */
+export interface VoteOpen {
+	vote: string;
+	options: string[];
+	rule: VoteRule;
+	/** rule first: the votes an option needs */
+	n?: number;
+	seconds: number;
+	/** the option when nobody voted (default 0) */
+	fallback?: number;
+	/** which groups vote (default: all audience) */
+	groups?: string[];
+	/** the audience sees the tally too */
+	show?: boolean;
+}
+
+/** conductor → relay: close now; `override` = the conductor's option instead of the rule's. */
+export interface VoteClose {
+	vote: string;
+	override?: number;
+}
+
+/** relay → conductor every 250 ms while a vote is open (→ the audience too when the vote shows it). */
+export interface VoteTally {
+	vote: string;
+	counts: number[];
+	voters: number;
+	/** ms until the vote closes by itself */
+	left: number;
+}
+
+export type VoteHow = 'rule' | 'fallback' | 'override';
+
+/** relay → everyone: the option the conductor applies as the choice event (B.1). */
+export interface VoteResult {
+	vote: string;
+	option: number;
+	counts: number[];
+	how: VoteHow;
+}
+
+/** conductor → relay → the outlet's clients on a row change: the outlet's new cell (B.5.2 `Cell`, loose until the show schema lands). */
+export interface CellChange {
+	outlet: string;
+	cell: Loose;
+}
+
+/** What a client shows when it joins / reconnects / is moved (B.6): the last state, the current cell per outlet it sees, the open vote, the last instruction (say) per group it sees. The conductor sees every outlet and group. */
+export interface Snapshot {
+	state?: State;
+	cells?: Record<string, Loose>;
+	vote?: VoteOpen;
+	say?: Record<string, Loose>;
+	/** the session's seq when the snapshot was taken */
+	seq?: number;
+}
 
 export type Empty = Record<string, never>;
 
@@ -78,11 +138,11 @@ export interface Resume {
 	seq: number;
 }
 
-/** relay → client after `hello`. `snapshot` is loose until the relay keeps state. */
+/** relay → client after `hello`: the snapshot of what this client should show now (B.6). On a `resume` inside the replay buffer the snapshot is empty and the missed messages follow. */
 export interface Welcome {
 	client: string;
 	group?: string;
-	snapshot: Loose;
+	snapshot: Snapshot;
 	/** relay time, ms */
 	now: number;
 }

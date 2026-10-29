@@ -12,7 +12,7 @@ Owner 2026-10-29: Rust first, no Node + Electron for anything native.
 | `adapters/core` | lib | the `Adapter` trait (start / send / stop / ports), `DeviceConfig`, the bus events the default maps translate |
 | `adapters/midi` | lib | `midir` in / out + the **default map** of B.3 (slice enter = note on ch 16, event types per channel, variables as CC) |
 | `adapters/osc` | lib | OSC over UDP (`rosc`): `host` = out (Resolume, TouchDesigner, laser software), `listen` = in → `device.in`; typed args (`int` / `float` / `string` / `bool`), bundles flattened |
-| `relay` | bin | WebSocket server: sessions by code, roles + groups from the URL / `hello`, stamps `seq` + `from`, routes by `to`, `ping` → `pong`, `GET /status`. Not yet: snapshot / replay, votes, clock lead, HMAC tokens, rate limits (each a `TODO(B.6 …)` in `relay/src/lib.rs`) |
+| `relay` | bin | WebSocket server: sessions by code, roles + groups from the URL / `hello`, stamps `seq` + `from`, routes by `to`, `GET /status`; B.6 rules in `relay/src/session.rs`: conductor-only kinds, audience 5 / s, the clock lead on effects without `at` (`RELAY_LEAD_MS`, 50 / 150), snapshot per role, replay on `resume` (500 messages / 5 min, the same client id), votes (`vote.rs`: majority / groups / first-to-n, fallback, override, tally every 250 ms, closes itself), cue split per outlet, presence, `assign`, nick trim + `RELAY_BLOCKLIST`; HMAC session tokens (`token.rs`, `LIVE_TOKEN_SECRET`; unset = dev mode). Not yet: the uplink, pickups via the API |
 | `stage` | bin + lib | `deck-stage`, the AV app the deck boots into (CYBERDECKS.md §8, #179): winit + wgpu, a node graph from a TOML scene, an audio graph on PipeWire / cpal with synths + an FFT, chapter music from the library API with a disk cache – stage/README.md |
 | `link` | bin + lib | `deck-link`, the deck's identity and access (CYBERDECKS.md §9, #180): an Ed25519 key made at first boot in `/var/lib/deck/identity`, the request with the code for the splash, polling until a member approves it on scutoons.com/account/decks, ~1 h tokens from a signed challenge, renewed by itself; `deck-link id` / `deck-link pair` for the boot flow and tests. Server side: server/docs/API.md "Decks" |
 | `bridge` | bin | loads a TOML venue patch (B.5.4), builds + starts the adapters, joins the relay as `bridge`, sends `devices { ports }`, plays `device` messages at their `at`, forwards device input as `device.in`. Not yet: the status window, osc / dmx adapters, a measured clock offset |
@@ -48,7 +48,8 @@ cd deck && cargo run --release -p bridge -- bridge/venue.toml
 
 A client joins at `ws://127.0.0.1:7700/live/<code>?role=output&group=left` and sends
 `{"v":1,"seq":0,"from":"","kind":"hello","p":{"code":"<code>","role":"output","group":"left"}}`; the relay answers
-`welcome`. Conductor, bridge and uplink need a `token` in `hello` (any non-empty string until the HMAC check lands).
+`welcome`. Conductor, bridge and uplink need a `token` in `hello`: with `LIVE_TOKEN_SECRET` set an HMAC token from the API
+(`relay/src/token.rs` – `base64url(payload).base64url(HMAC-SHA256)`), without it any non-empty string (dev mode).
 `curl http://127.0.0.1:7700/status` → `{"sessions":n,"live":n}`.
 
 Logs: `RUST_LOG=debug` (tracing, `info` by default).

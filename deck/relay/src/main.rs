@@ -1,6 +1,8 @@
 //! `relay` – the Live relay binary (agents/research/LIVE.md B.4). `relay [addr]`, default `0.0.0.0:7700`
-//! (`RELAY_ADDR` env). Clients connect to `ws://<host>:7700/live/<code>?role=<role>&group=<group>` and send `hello`;
-//! `GET /status` → `{ "sessions": n, "live": n }` (the deploy freeze check of B.4).
+//! (`RELAY_ADDR` env). Clients connect to `ws://<host>:7700/live/<code>?role=<role>&group=<group>` and send `hello`.
+//! Env: `LIVE_TOKEN_SECRET` (the HMAC secret shared with the API), `RELAY_LEAD_MS` (50 LAN, 150 hosted),
+//! `RELAY_BLOCKLIST` (nickname words, comma-separated). `GET /status` → `{ "sessions": n, "live": n }` (the deploy
+//! freeze check of B.4).
 
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -22,7 +24,12 @@ async fn main() -> anyhow::Result<()> {
     let listener = TcpListener::bind(addr).await?;
     tracing::info!(%addr, "relay listening");
 
-    let relay = Arc::new(relay::Relay::new());
+    let config = relay::Config::from_env();
+    if config.token_secret.is_none() {
+        tracing::warn!("LIVE_TOKEN_SECRET unset: dev mode, any non-empty session token passes");
+    }
+    tracing::info!(lead_ms = config.lead_ms, "clock lead");
+    let relay = Arc::new(relay::Relay::with_config(config));
     tokio::select! {
         r = relay::serve(listener, relay) => r,
         _ = tokio::signal::ctrl_c() => {

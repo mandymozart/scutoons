@@ -46,16 +46,16 @@
         { "type": "object", "properties": { "kind": { "const": "pong" }, "p": { "$ref": "#/definitions/Pong" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "state" }, "p": { "$ref": "#/definitions/State" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "cue" }, "p": { "$ref": "#/definitions/Cue" } }, "required": ["kind", "p"] },
-        { "type": "object", "properties": { "kind": { "const": "vote.open" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] },
-        { "type": "object", "properties": { "kind": { "const": "vote.close" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "vote.open" }, "p": { "$ref": "#/definitions/VoteOpen" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "vote.close" }, "p": { "$ref": "#/definitions/VoteClose" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "vote.cast" }, "p": { "$ref": "#/definitions/VoteCast" } }, "required": ["kind", "p"] },
-        { "type": "object", "properties": { "kind": { "const": "vote.tally" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] },
-        { "type": "object", "properties": { "kind": { "const": "vote.result" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "vote.tally" }, "p": { "$ref": "#/definitions/VoteTally" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "vote.result" }, "p": { "$ref": "#/definitions/VoteResult" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "assign" }, "p": { "$ref": "#/definitions/Assign" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "panic" }, "p": { "$ref": "#/definitions/Panic" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "media.preload" }, "p": { "$ref": "#/definitions/MediaPreload" } }, "required": ["kind", "p"] },
-        { "type": "object", "properties": { "kind": { "const": "snapshot" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] },
-        { "type": "object", "properties": { "kind": { "const": "cell" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "snapshot" }, "p": { "$ref": "#/definitions/Snapshot" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "cell" }, "p": { "$ref": "#/definitions/CellChange" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "say" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "line" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "fx" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] },
@@ -74,6 +74,78 @@
       "description": "A payload whose shape B.6 names but this skeleton does not fix yet (votes, snapshot, cells, say / line / fx / colour).",
       "type": "object",
       "additionalProperties": true
+    },
+    "VoteRule": {
+      "description": "B.11 (3): majority = most votes; groups = each group's majority is one vote; first = the first option to reach `n`.",
+      "type": "string",
+      "enum": ["majority", "groups", "first"]
+    },
+    "VoteOpen": {
+      "description": "conductor → relay → the voting groups. `options` are the choice event's labels (index = option). The relay tallies, closes at `seconds` by itself and sends `vote.result`.",
+      "type": "object",
+      "properties": {
+        "vote": { "type": "string" },
+        "options": { "type": "array", "items": { "type": "string" } },
+        "rule": { "$ref": "#/definitions/VoteRule" },
+        "n": { "type": "integer", "description": "rule first: the votes an option needs" },
+        "seconds": { "type": "integer" },
+        "fallback": { "type": "integer", "description": "the option when nobody voted (default 0)" },
+        "groups": { "type": "array", "items": { "type": "string" }, "description": "which groups vote (default: all audience)" },
+        "show": { "type": "boolean", "description": "the audience sees the tally too" }
+      },
+      "required": ["vote", "options", "rule", "seconds"],
+      "additionalProperties": false
+    },
+    "VoteClose": {
+      "description": "conductor → relay: close now; `override` = the conductor's option instead of the rule's.",
+      "type": "object",
+      "properties": { "vote": { "type": "string" }, "override": { "type": "integer" } },
+      "required": ["vote"],
+      "additionalProperties": false
+    },
+    "VoteTally": {
+      "description": "relay → conductor every 250 ms while a vote is open (→ the audience too when the vote shows it).",
+      "type": "object",
+      "properties": {
+        "vote": { "type": "string" },
+        "counts": { "type": "array", "items": { "type": "integer" } },
+        "voters": { "type": "integer" },
+        "left": { "type": "integer", "description": "ms until the vote closes by itself" }
+      },
+      "required": ["vote", "counts", "voters", "left"],
+      "additionalProperties": false
+    },
+    "VoteHow": { "type": "string", "enum": ["rule", "fallback", "override"] },
+    "VoteResult": {
+      "description": "relay → everyone: the option the conductor applies as the choice event (B.1).",
+      "type": "object",
+      "properties": {
+        "vote": { "type": "string" },
+        "option": { "type": "integer" },
+        "counts": { "type": "array", "items": { "type": "integer" } },
+        "how": { "$ref": "#/definitions/VoteHow" }
+      },
+      "required": ["vote", "option", "counts", "how"],
+      "additionalProperties": false
+    },
+    "CellChange": {
+      "description": "conductor → relay → the outlet's clients on a row change: the outlet's new cell (B.5.2 `Cell`, loose until the show schema lands).",
+      "type": "object",
+      "properties": { "outlet": { "type": "string" }, "cell": { "$ref": "#/definitions/Loose" } },
+      "required": ["outlet", "cell"],
+      "additionalProperties": false
+    },
+    "Snapshot": {
+      "description": "What a client shows when it joins / reconnects / is moved (B.6): the last state, the current cell per outlet it sees, the open vote, the last instruction (say) per group it sees. The conductor sees every outlet and group.",
+      "type": "object",
+      "properties": {
+        "state": { "$ref": "#/definitions/State" },
+        "cells": { "type": "object", "additionalProperties": { "$ref": "#/definitions/Loose" } },
+        "vote": { "$ref": "#/definitions/VoteOpen" },
+        "say": { "type": "object", "additionalProperties": { "$ref": "#/definitions/Loose" } },
+        "seq": { "type": "integer", "description": "the session's seq when the snapshot was taken" }
+      },
+      "additionalProperties": false
     },
     "Empty": { "type": "object", "additionalProperties": false },
     "Hello": {
@@ -97,12 +169,12 @@
       "additionalProperties": false
     },
     "Welcome": {
-      "description": "relay → client after `hello`. `snapshot` is loose until the relay keeps state.",
+      "description": "relay → client after `hello`: the snapshot of what this client should show now (B.6). On a `resume` inside the replay buffer the snapshot is empty and the missed messages follow.",
       "type": "object",
       "properties": {
         "client": { "type": "string" },
         "group": { "type": "string" },
-        "snapshot": { "$ref": "#/definitions/Loose" },
+        "snapshot": { "$ref": "#/definitions/Snapshot" },
         "now": { "type": "integer", "description": "relay time, ms" }
       },
       "required": ["client", "snapshot", "now"],

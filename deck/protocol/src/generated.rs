@@ -40,7 +40,7 @@ impl Role {
 }
 
 /// Who a message reaches. Every field narrows; all missing = everyone the sender may reach.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct To {
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub role: Option<Role>,
@@ -86,15 +86,15 @@ pub enum Message {
 	#[serde(rename = "cue")]
 	Cue(Cue),
 	#[serde(rename = "vote.open")]
-	VoteOpen(Loose),
+	VoteOpen(VoteOpen),
 	#[serde(rename = "vote.close")]
-	VoteClose(Loose),
+	VoteClose(VoteClose),
 	#[serde(rename = "vote.cast")]
 	VoteCast(VoteCast),
 	#[serde(rename = "vote.tally")]
-	VoteTally(Loose),
+	VoteTally(VoteTally),
 	#[serde(rename = "vote.result")]
-	VoteResult(Loose),
+	VoteResult(VoteResult),
 	#[serde(rename = "assign")]
 	Assign(Assign),
 	#[serde(rename = "panic")]
@@ -102,9 +102,9 @@ pub enum Message {
 	#[serde(rename = "media.preload")]
 	MediaPreload(MediaPreload),
 	#[serde(rename = "snapshot")]
-	Snapshot(Loose),
+	Snapshot(Snapshot),
 	#[serde(rename = "cell")]
-	Cell(Loose),
+	Cell(CellChange),
 	#[serde(rename = "say")]
 	Say(Loose),
 	#[serde(rename = "line")]
@@ -167,6 +167,118 @@ impl Message {
 	}
 }
 
+/// B.11 (3): majority = most votes; groups = each group's majority is one vote; first = the first option to reach `n`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum VoteRule {
+	#[serde(rename = "majority")]
+	Majority,
+	#[serde(rename = "groups")]
+	Groups,
+	#[serde(rename = "first")]
+	First,
+}
+
+impl VoteRule {
+	pub fn as_str(self) -> &'static str {
+		match self {
+			VoteRule::Majority => "majority",
+			VoteRule::Groups => "groups",
+			VoteRule::First => "first",
+		}
+	}
+}
+
+/// conductor → relay → the voting groups. `options` are the choice event's labels (index = option). The relay tallies, closes at `seconds` by itself and sends `vote.result`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct VoteOpen {
+	pub vote: String,
+	pub options: Vec<String>,
+	pub rule: VoteRule,
+	/// rule first: the votes an option needs
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub n: Option<i64>,
+	pub seconds: i64,
+	/// the option when nobody voted (default 0)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub fallback: Option<i64>,
+	/// which groups vote (default: all audience)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub groups: Option<Vec<String>>,
+	/// the audience sees the tally too
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub show: Option<bool>,
+}
+
+/// conductor → relay: close now; `override` = the conductor's option instead of the rule's.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct VoteClose {
+	pub vote: String,
+	#[serde(rename = "override", default, skip_serializing_if = "Option::is_none")]
+	pub r#override: Option<i64>,
+}
+
+/// relay → conductor every 250 ms while a vote is open (→ the audience too when the vote shows it).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct VoteTally {
+	pub vote: String,
+	pub counts: Vec<i64>,
+	pub voters: i64,
+	/// ms until the vote closes by itself
+	pub left: i64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum VoteHow {
+	#[serde(rename = "rule")]
+	Rule,
+	#[serde(rename = "fallback")]
+	Fallback,
+	#[serde(rename = "override")]
+	Override,
+}
+
+impl VoteHow {
+	pub fn as_str(self) -> &'static str {
+		match self {
+			VoteHow::Rule => "rule",
+			VoteHow::Fallback => "fallback",
+			VoteHow::Override => "override",
+		}
+	}
+}
+
+/// relay → everyone: the option the conductor applies as the choice event (B.1).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct VoteResult {
+	pub vote: String,
+	pub option: i64,
+	pub counts: Vec<i64>,
+	pub how: VoteHow,
+}
+
+/// conductor → relay → the outlet's clients on a row change: the outlet's new cell (B.5.2 `Cell`, loose until the show schema lands).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CellChange {
+	pub outlet: String,
+	pub cell: Loose,
+}
+
+/// What a client shows when it joins / reconnects / is moved (B.6): the last state, the current cell per outlet it sees, the open vote, the last instruction (say) per group it sees. The conductor sees every outlet and group.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct Snapshot {
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub state: Option<State>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub cells: Option<std::collections::HashMap<String, Loose>>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub vote: Option<VoteOpen>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub say: Option<std::collections::HashMap<String, Loose>>,
+	/// the session's seq when the snapshot was taken
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub seq: Option<i64>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Empty {}
 
@@ -193,13 +305,13 @@ pub struct Resume {
 	pub seq: i64,
 }
 
-/// relay → client after `hello`. `snapshot` is loose until the relay keeps state.
+/// relay → client after `hello`: the snapshot of what this client should show now (B.6). On a `resume` inside the replay buffer the snapshot is empty and the missed messages follow.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Welcome {
 	pub client: String,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub group: Option<String>,
-	pub snapshot: Loose,
+	pub snapshot: Snapshot,
 	/// relay time, ms
 	pub now: i64,
 }
@@ -244,7 +356,7 @@ pub struct Assign {
 	pub group: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct Panic {
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub black: Option<bool>,

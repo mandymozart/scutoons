@@ -19,5 +19,10 @@
 	{ "v": 1, "seq": 14, "from": "c2", "to": { "role": "conductor" }, "kind": "device.in", "p": { "outlet": "pedal", "msg": { "kind": "midi", "p": { "bytes": [144, 60, 127] } } } },
 	{ "v": 1, "seq": 15, "from": "c2", "kind": "devices", "p": { "ports": [{ "adapter": "midi", "name": "IAC Driver Bus 1", "direction": "out" }] } },
 	{ "v": 1, "seq": 16, "from": "relay", "to": { "client": "c9" }, "kind": "error", "p": { "code": "rate", "message": "5 messages per second" } },
-	{ "v": 1, "seq": 17, "from": "c1", "kind": "vote.open", "p": { "vote": "v1", "options": ["a", "b"], "rule": "majority", "seconds": 20 } }
+	{ "v": 1, "seq": 17, "from": "c1", "kind": "vote.open", "p": { "vote": "v1", "options": ["a", "b"], "rule": "majority", "seconds": 20 } },
+	{ "v": 1, "seq": 19, "from": "relay", "to": { "role": "conductor" }, "kind": "vote.tally", "p": { "vote": "v1", "counts": [3, 5], "voters": 8, "left": 12750 } },
+	{ "v": 1, "seq": 0, "from": "c1", "kind": "vote.close", "p": { "vote": "v1", "override": 0 } },
+	{ "v": 1, "seq": 20, "from": "relay", "kind": "vote.result", "p": { "vote": "v1", "option": 0, "counts": [3, 5], "how": "override" } },
+	{ "v": 1, "seq": 21, "at": 1761700000350, "from": "c1", "to": { "group": "left" }, "kind": "cell", "p": { "outlet": "left", "cell": { "mode": "black" } } },
+	{ "v": 1, "seq": 22, "from": "relay", "to": { "client": "c9" }, "kind": "snapshot", "p": { "state": { "row": 4, "slice": 12, "vars": {} }, "cells": { "right": { "mode": "mirror", "of": "left" } }, "say": { "right": { "outlet": "right", "text": { "de": "Aufstehen" } } }, "seq": 21 } }
 ]
