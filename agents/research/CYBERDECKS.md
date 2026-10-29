@@ -155,6 +155,22 @@ Proven on the X1 first: Vulkan on the iGPU (anv), VA-API decode h264 / hevc / vp
   synth generators, chapter music from the API with the cache · S3 slices + overlays from the chapter · S4 video via
   VA-API · S5 glTF · S6 MIDI / OSC mapping + the default scene. Each step runs on the X1 before the next.
 
-## 9. Open work
+## 9. Deck identity and access (#180, owner 2026-10-29)
+Handshake, then approval, then data – a deck touches no SCUTOONS data before a member approved it.
+1. **Identity:** at first boot the deck makes an Ed25519 key pair on the persistence partition; the private key never
+   leaves it. No shared secret in the image – anything in the ISO is public.
+2. **Request:** the deck sends its public key, build, class and hostname; the splash shows a short code ("K7-42").
+   Pending requests expire after minutes and are rate-limited.
+3. **Approval:** the conductor / the account page lists waiting decks; a member compares the code, approves and maps
+   the deck to a member, a role or a Live session. Approval lasts until revoked, until N idle days or until the Live
+   session ends.
+4. **Access:** the deck signs a server challenge and gets a short-lived token (~1 h) with the mapped rights, renewed
+   while it runs. Read-only for content; cached content keeps playing offline.
+5. **Revoke / timeout:** the next renewal fails → the splash with a new code, a new request. The build never becomes
+   useless.
+Every deck is a row of its own (build, last seen, mapping), even when all map to one user. Before approval the stage
+plays built-in scenes only. Master-quality media (stems, high-res video, signed vault URLs) come after the handshake.
+
+## 10. Open work
 Lives in the issues, not here: the phases #172–#176, the stage #179 (#171 holds the plan and the decisions, all taken 2026-10-29).
 LIVE.md B.4 / B.7 point here since 2026-10-29.
