@@ -7,7 +7,7 @@ once measured on a deck.
 
 | Machine | Class | CPU | RAM | GPU driver · Vulkan (driver, API) | VA-API decode / encode | Audio · PipeWire | MIDI / USB / serial | Features | Checked |
 |---|---|---|---|---|---|---|---|---|---|
-| QEMU VM (`npm run deck:vm`, virtio-vga, intel-hda, TCG) | A | 2 × QEMU Virtual CPU | 4 GB | virtio_gpu · llvmpipe (software) | none / none | HDA Intel (hda-duplex) · 48 kHz / 128 | – / QEMU keyboard, tablet / – | display, audio; no video, no editing | _pending: the first VM boot of the built ISO – see #173_ |
+| QEMU VM (`npm run deck:vm --docker`, UEFI, virtio-vga, intel-hda, TCG – no KVM on the Windows host) | A | 2 × QEMU TCG CPU 2.5+ | 3900 MiB | virtio-pci · llvmpipe 1.4.354 (software, warned) | none / none | HDA Intel · 48 kHz / 1024 (PipeWire's own VM rule forces 1024; the deck config is read – allowed-rates applied) | – / QEMU USB keyboard, tablet, hard drive / – | display, audio; no video, encode, midi, editing | 2026-10-29: boot → Wi-Fi (wired) → check → cage + Chromium on the start page, the bridge joined the local relay (`{"sessions":1}`); the persistence partition after the MBR fix not re-verified (the owner stopped the slow TCG runs) |
 | ThinkPad X1 (owner's) | A | | | | | | | | _owner step: boot the stick, paste the report (#173)_ |
 | Framework 13 AMD mainboard (the built deck) | A | | | | | | | | _not yet available_ |
 | Rockchip RK3588 board | B | | | | | | | | _phase 3 (#174)_ |

@@ -40,6 +40,11 @@ npm run deck:vm -- --docker   # no QEMU on the host: QEMU inside a container, sc
 `vm/run.sh` copies the ISO to `out/vm/stick.img` with 4 GiB free (so persistence can be seen on the second boot) and
 boots it as a USB stick with audio (intel-hda), a wired NIC, USB keyboard + tablet, 4 GB RAM. The serial console
 (`ttyS0`) is the terminal: a root shell for `journalctl -u deck-firstboot -u deck-kiosk`, `deck-check`, `deck-install`.
+Without a terminal (an agent) the Docker mode logs the serial console to `out/vm/serial.log` and keeps it reachable
+with `docker exec <vm container> socat - UNIX-CONNECT:/tmp/deck-serial`; screenshots land in `out/vm/shot-*.png`.
+Without KVM (Docker Desktop on Windows has none) QEMU emulates the CPU: ~5 min to the kiosk, Chromium's first paint
+minutes later – fine for a check, too slow for routine. In a VM PipeWire's own rule forces the quantum to 1024; the
+deck config (48 kHz / 128) is read all the same (the allowed-rates line proves it) and applies on real hardware.
 Host QEMU on Windows: `winget install SoftwareFreedomConservancy.QEMU`. VirtualBox works as well: a new Linux VM,
 the ISO as an optical drive (then without persistence) or `VBoxManage convertfromraw out/vm/stick.img stick.vdi` as
 a disk with EFI enabled.
@@ -89,4 +94,6 @@ deck/HARDWARE.md                  the matrix of §1 with what deck-check measure
 ## Open (#173)
 
 Pairing by QR / code with the API's device id · the pacman repository (`pkg.scutoons.com`, the PKGBUILD built by
-CI) · the ARM images (phase 3, #174) · `deck-install` on real hardware · the ThinkPad X1 row in HARDWARE.md (owner).
+CI) · the ARM images (phase 3, #174) · `deck-install` on real hardware · the persistence partition on a real stick
+(the MBR append was verified by hand in the VM, not yet as a full first boot + reboot) · the ThinkPad X1 row in
+HARDWARE.md (owner).
