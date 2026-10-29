@@ -1,0 +1,5 @@
+# The deck's default venue patch (deck/bridge/venue.example.toml has the full form). deck-firstboot copies this to
+# /var/lib/deck/venue.toml once; edit it there (it survives reboots on the persistence partition).
+# No devices yet: the bridge joins the local relay and reports an empty port list; add [[device]] blocks per venue.
+relay = "ws://127.0.0.1:7700/live/DECK"
+token = "deck"

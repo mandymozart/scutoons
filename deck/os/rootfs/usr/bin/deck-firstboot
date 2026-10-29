@@ -1,0 +1,50 @@
+#!/bin/bash
+# The deck's boot flow on tty1 (deck-firstboot.service; CYBERDECKS.md §3, #173):
+#   1. persistence   deck-persist  – mount (or create) the DECKDATA partition at /var/lib/deck (live stick only)
+#   2. network       deck-wifi     – the Wi-Fi picker (nmtui), the deck's hotspot, or "go on without"
+#   3. hardware      deck-check    – GPU / Vulkan, VA-API, audio, MIDI / USB / serial, RAM, CPU → machine.toml
+# then deck-kiosk.service takes the tty (cage + the browser). Every step is idempotent: a second boot with a
+# persistence partition, a known network and a machine.toml goes straight to the kiosk.
+# Exit non-zero = the kiosk does not start; a rescue shell stays on this tty (and tty2, the serial console).
+set -u
+
+STATE=/var/lib/deck
+CYAN=$'\e[36m'; RED=$'\e[31m'; DIM=$'\e[2m'; OFF=$'\e[0m'
+say() { printf '%s[deck]%s %s\n' "$CYAN" "$OFF" "$*"; }
+fail() {
+  printf '\n%s[deck] %s%s\n' "$RED" "$*" "$OFF"
+  printf '%sThe kiosk does not start. This is a shell (root); `deck-check` re-runs the check, `exit` ends it.%s\n' "$DIM" "$OFF"
+  exec /bin/bash -l
+}
+
+clear
+printf '\n  %sSCUTOONS deck%s · live image %s · %s\n\n' "$CYAN" "$OFF" "$(cat /etc/deck-release 2>/dev/null || echo dev)" "$(uname -r)"
+
+# 1. persistence
+say "persistence"
+deck-persist || say "no persistence – this boot keeps nothing (${DIM}deck-persist said why${OFF})"
+install -d -o deck -g deck "$STATE" "$STATE/home"
+[ -f "$STATE/venue.toml" ] || install -o deck -g deck -m 644 /usr/share/deck/venue.default.toml "$STATE/venue.toml"
+[ -f "$STATE/deck.toml" ] || install -o deck -g deck -m 644 /usr/share/deck/deck.default.toml "$STATE/deck.toml"
+systemctl start deck-relay.service 2>/dev/null || true
+
+# 2. network
+say "network"
+deck-wifi
+
+# 3. hardware check (once; `deck-check` on a shell re-runs it; RECHECK=1 on the kernel line forces it)
+if [ -s "$STATE/machine.toml" ] && ! grep -qw 'deck.recheck' /proc/cmdline; then
+  say "hardware: $(grep -E '^class' "$STATE/machine.toml" | head -1) – checked before, ${DIM}machine.toml kept (deck.recheck on the kernel line re-runs it)${OFF}"
+else
+  say "hardware check"
+  if ! deck-check --out "$STATE/machine.toml"; then
+    fail "deck-check: a must-have is missing (above). Not a deck until it is fixed."
+  fi
+  chown deck:deck "$STATE/machine.toml" 2>/dev/null || true
+  sleep 3
+fi
+
+# a deck is a device of a member: the pairing QR / code comes with the API's device id (#173 Open) – for now the hostname
+say "starting the kiosk ${DIM}(tty2: a shell · Ctrl+Alt+F2)${OFF}"
+systemctl start deck-bridge.service 2>/dev/null || true
+exit 0

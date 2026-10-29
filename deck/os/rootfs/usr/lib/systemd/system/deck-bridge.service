@@ -1,0 +1,16 @@
+# The device bridge (deck/bridge, LIVE.md B.7) on the venue patch in /var/lib/deck (deck-firstboot copies the default
+# there once; the bridge reconnects to the relay by itself).
+[Unit]
+Description=SCUTOONS Live device bridge
+After=deck-relay.service deck-firstboot.service
+Wants=deck-relay.service
+ConditionPathExists=/var/lib/deck/venue.toml
+
+[Service]
+User=deck
+ExecStart=/usr/bin/deck-bridge /var/lib/deck/venue.toml
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

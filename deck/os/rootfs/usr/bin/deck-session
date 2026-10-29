@@ -1,0 +1,28 @@
+#!/bin/bash
+# The kiosk session (deck-kiosk.service, as the user deck): cage runs the browser on the deck's page –
+# `conductor` from /var/lib/deck/deck.toml, else the deck's own start page (the machine report, the relay status).
+set -u
+
+STATE=/var/lib/deck
+export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+export XDG_CONFIG_HOME="$STATE/home/.config"
+export XDG_CACHE_HOME="$STATE/home/.cache"
+export HOME="$STATE/home"
+mkdir -p "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME"
+
+url=$(sed -n 's/^conductor *= *"\([^"]*\)".*/\1/p' "$STATE/deck.toml" 2>/dev/null | head -1)
+if [ -z "$url" ]; then
+  page="$XDG_RUNTIME_DIR/deck-start.html"
+  relay=$(curl -s -m 2 http://127.0.0.1:7700/status 2>/dev/null || echo '(not running)')
+  report=$(sed 's/&/\&amp;/g; s/</\&lt;/g' "$STATE/machine.toml" 2>/dev/null || echo '(no machine.toml)')
+  nets=$(nmcli -t -f DEVICE,STATE,CONNECTION device 2>/dev/null | grep ':connected:' | tr '\n' ' ')
+  sed -e "s|@HOST@|$(hostname)|g" -e "s|@RELAY@|$relay|g" -e "s|@NETS@|${nets:-offline}|g" \
+      -e "/@REPORT@/{r /dev/stdin
+d}" /usr/share/deck/start.html <<<"$report" >"$page"
+  url="file://$page"
+fi
+
+exec cage -- chromium \
+  --kiosk --ozone-platform=wayland --no-first-run --password-store=basic \
+  --disable-session-crashed-bubble --disable-infobars --noerrdialogs --autoplay-policy=no-user-gesture-required \
+  --user-data-dir="$XDG_CONFIG_HOME/chromium" "$url"

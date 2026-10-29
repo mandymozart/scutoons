@@ -1,0 +1,43 @@
+#!/bin/bash
+# The Wi-Fi picker of the boot flow (deck-firstboot step 2). Online already (wired, or a Wi-Fi NetworkManager remembers
+# on the persistence partition) → a countdown, Enter changes the network. Otherwise a menu: nmtui's network picker,
+# the deck's own hotspot (deck-hotspot.nmconnection), or no network (the local relay works without one).
+set -u
+
+CYAN=$'\e[36m'; DIM=$'\e[2m'; OFF=$'\e[0m'
+wait_s=$(sed -n 's/^wifi_wait *= *\([0-9]*\).*/\1/p' /var/lib/deck/deck.toml 2>/dev/null | head -1)
+wait_s=${wait_s:-8}
+
+online() {
+  # connectivity needs a check URL round trip; "connected" with an address is what the relay + the browser need
+  nmcli -t -f STATE general 2>/dev/null | grep -q '^connected' || return 1
+  ip -o -4 addr show scope global 2>/dev/null | grep -q inet
+}
+status() {
+  local dev
+  dev=$(nmcli -t -f DEVICE,TYPE,STATE,CONNECTION device 2>/dev/null | grep ':connected:' | head -1)
+  printf '%s' "${dev##*:} (${dev%%:*}: $(ip -o -4 addr show scope global 2>/dev/null | awk '{print $4; exit}'))"
+}
+
+# NetworkManager needs a moment after boot before a wired link or a remembered Wi-Fi is up
+for _ in 1 2 3 4 5 6; do online && break; sleep 1; done
+
+while true; do
+  if online; then
+    printf '%sonline:%s %s – Enter to change the network, going on in %ss ' "$CYAN" "$OFF" "$(status)" "$wait_s"
+    if read -r -t "$wait_s" -n 1; then echo; else echo; exit 0; fi
+  else
+    printf '%snot online.%s\n' "$CYAN" "$OFF"
+  fi
+  printf '  %sW%s  pick a Wi-Fi (nmtui)\n' "$CYAN" "$OFF"
+  printf '  %sH%s  start the deck'"'"'s own hotspot (scutoons-deck / scutoons-deck)\n' "$CYAN" "$OFF"
+  printf '  %sN%s  no network – go on (the local relay works; the conductor page needs one later)\n' "$CYAN" "$OFF"
+  printf '  %sS%s  a shell\n' "$CYAN" "$OFF"
+  read -r -p "> " -n 1 choice; echo
+  case "${choice,,}" in
+    w) nmtui-connect ;;
+    h) nmcli connection up deck-hotspot && printf '%shotspot up:%s SSID scutoons-deck, key scutoons-deck, the deck is 10.42.0.1\n' "$CYAN" "$OFF"; sleep 2; exit 0 ;;
+    n|'') exit 0 ;;
+    s) printf '%sexit returns here%s\n' "$DIM" "$OFF"; /bin/bash -l ;;
+  esac
+done

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SCUTOONS deck</title>
+<style>
+  :root { --bg: #111; --fg: #eee; --dim: #888; --accent: #7fd; font-size: 100%; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); font: 1rem/1.5 system-ui, sans-serif; }
+  main { padding: 2rem; max-width: 60rem; margin: 0 auto; }
+  h1 { font-weight: 400; font-size: 1.5rem; margin: 0 0 1rem; }
+  h1 b { color: var(--accent); font-weight: 400; }
+  dl { display: grid; grid-template-columns: 8rem 1fr; gap: .25rem 1rem; margin: 0 0 1.5rem; }
+  dt { color: var(--dim); }
+  pre { background: #1a1a1a; padding: 1rem; border-radius: .5rem; overflow: auto; font-size: .85rem; max-height: 60vh; }
+  a { color: var(--accent); }
+  p.dim { color: var(--dim); }
+</style>
+</head>
+<body>
+<main>
+  <h1><b>SCUTOONS deck</b> · @HOST@</h1>
+  <dl>
+    <dt>network</dt><dd>@NETS@</dd>
+    <dt>relay</dt><dd>ws://@HOST@.local:7700/live/&lt;code&gt; · status <code>@RELAY@</code></dd>
+    <dt>conductor</dt><dd><a href="https://scutoons.com/live">scutoons.com/live</a> – set <code>conductor</code> in /var/lib/deck/deck.toml to open a session's page at boot</dd>
+  </dl>
+  <pre>@REPORT@</pre>
+  <p class="dim">machine.toml by deck-check · tty2 is a shell (Ctrl+Alt+F2) · deck/os/README.md</p>
+</main>
+</body>
+</html>

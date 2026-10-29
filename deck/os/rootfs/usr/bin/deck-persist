@@ -1,0 +1,61 @@
+#!/bin/bash
+# Persistence on the live stick (CYBERDECKS.md §3): a second partition DECKDATA after the ISO, created on first boot
+# when the stick has free space, mounted at /var/lib/deck (venue patch, pairing, machine.toml, the pacman cache).
+# Exit 0 = /var/lib/deck is persistent (or this is an installed system); 1 = tmpfs this boot, the reason printed.
+# The ISO is an isohybrid (MBR boot code + GPT): sgdisk keeps the boot code, moves the backup GPT to the end of the
+# stick (-e) and appends the partition; `partx -a` tells the kernel about the new one while the ISO stays mounted.
+set -u
+
+STATE=/var/lib/deck
+LABEL=DECKDATA
+MIN_MIB=256
+
+# an installed system has /var/lib/deck on its root – nothing to do
+boot=$(findmnt -no SOURCE /run/archiso/bootmnt 2>/dev/null)
+if [ -z "$boot" ]; then
+  echo "installed system – $STATE lives on the root filesystem"
+  exit 0
+fi
+
+mount_part() {
+  install -d "$STATE"
+  if ! findmnt -no SOURCE "$STATE" >/dev/null 2>&1; then
+    mount -o noatime "$1" "$STATE" || return 1
+  fi
+  install -d -o root -g root "$STATE/pacman-cache"
+  install -d "/var/cache/pacman/pkg"
+  findmnt /var/cache/pacman/pkg >/dev/null 2>&1 || mount --bind "$STATE/pacman-cache" /var/cache/pacman/pkg
+  echo "persistent: $1 at $STATE"
+}
+
+part=$(blkid -L "$LABEL" 2>/dev/null)
+if [ -n "$part" ]; then
+  mount_part "$part"; exit $?
+fi
+
+# the stick: the parent disk of whatever archiso mounted (a partition or the whole device)
+disk=$(lsblk -no PKNAME "$boot" 2>/dev/null | head -1)
+[ -n "$disk" ] && disk="/dev/$disk" || disk="$boot"
+case "$disk" in
+  /dev/sr*|/dev/loop*) echo "booted from $disk (optical / loop) – no partition to write"; exit 1 ;;
+esac
+if [ "$(blockdev --getro "$disk" 2>/dev/null)" = 1 ]; then echo "$disk is read-only"; exit 1; fi
+
+size_b=$(blockdev --getsize64 "$disk")
+used_b=$(( $(sgdisk -p "$disk" 2>/dev/null | awk '/^ +[0-9]+ /{if ($3 > max) max = $3} END {print max+0}') * 512 ))
+free_mib=$(( (size_b - used_b) / 1048576 ))
+if [ "$free_mib" -lt "$MIN_MIB" ]; then
+  echo "$disk has ${free_mib} MiB free after the image – nothing to create (${MIN_MIB} MiB needed)"; exit 1
+fi
+
+echo "creating $LABEL on $disk (${free_mib} MiB free after the image)"
+sgdisk -e "$disk" >/dev/null 2>&1 || true
+if ! sgdisk -n 0:0:0 -t 0:8300 -c "0:$LABEL" "$disk" >/dev/null; then
+  echo "sgdisk could not add a partition on $disk"; exit 1
+fi
+partx -a "$disk" >/dev/null 2>&1 || partprobe "$disk" >/dev/null 2>&1 || true
+sleep 1
+new=$(lsblk -rpno NAME,PARTLABEL "$disk" | awk -v l="$LABEL" '$2 == l {print $1; exit}')
+if [ -z "$new" ]; then echo "the new partition did not appear – a reboot will mount it"; exit 1; fi
+mkfs.ext4 -q -L "$LABEL" "$new" || { echo "mkfs on $new failed"; exit 1; }
+mount_part "$new"

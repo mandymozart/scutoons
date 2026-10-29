@@ -1,0 +1,7 @@
+# The deck's settings (copied to /var/lib/deck/deck.toml on first boot; read by deck-session with grep – keep one key per
+# line, strings in double quotes).
+# The page the kiosk opens. Empty = the deck's own start page (the machine report + relay status + a link to the
+# conductor). A session's conductor is https://scutoons.com/live/<code>/conduct (LIVE.md B.7).
+conductor = ""
+# Seconds deck-wifi waits on an already online deck before it goes on without asking.
+wifi_wait = 8

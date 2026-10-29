@@ -1,0 +1,84 @@
+#!/bin/bash
+# deck-install – the guided install of the live image to a partition (CYBERDECKS.md §3: optional, "never the whole
+# disk unasked"). The user picks the root partition from a list (the boot stick is excluded), confirms by typing its
+# name, optionally picks an EFI system partition for systemd-boot. The partition itself is made before (cfdisk /
+# gparted on another machine, or `cfdisk /dev/sdX` here): this script never changes a partition table.
+# What it does: mkfs.ext4 on the chosen partition → unsquashfs the live root there → drop the live-only parts
+# (archiso hooks, the live mkinitcpio config, the persistence step stays harmless) → fstab → mkinitcpio → systemd-boot
+# entry (when an ESP was picked). The installed deck boots the same flow: Wi-Fi → check (once) → kiosk.
+set -u
+
+RED=$'\e[31m'; CYAN=$'\e[36m'; DIM=$'\e[2m'; OFF=$'\e[0m'
+die() { printf '%sdeck-install: %s%s\n' "$RED" "$*" "$OFF" >&2; exit 1; }
+[ "$(id -u)" = 0 ] || die "run as root (sudo deck-install)"
+[ -d /run/archiso ] || die "run this from the live stick, not an installed system"
+SFS=/run/archiso/bootmnt/arch/x86_64/airootfs.sfs
+[ -f "$SFS" ] || die "$SFS not found (copytoram? then /run/archiso/copytoram/airootfs.sfs)"
+
+boot=$(findmnt -no SOURCE /run/archiso/bootmnt 2>/dev/null)
+bootdisk=$(lsblk -no PKNAME "$boot" 2>/dev/null | head -1); bootdisk=${bootdisk:-${boot#/dev/}}
+
+printf '\n%sSCUTOONS deck install%s – partitions on this machine (the stick %s is left out):\n\n' "$CYAN" "$OFF" "$bootdisk"
+mapfile -t parts < <(lsblk -rpno NAME,PKNAME,SIZE,FSTYPE,LABEL,MOUNTPOINT,TYPE | awk -v b="$bootdisk" '$NF == "part" && $2 != b {print}')
+[ ${#parts[@]} -gt 0 ] || die "no partitions – make one first (cfdisk /dev/sdX), then run deck-install again"
+i=0
+for p in "${parts[@]}"; do
+  i=$((i + 1)); read -r name pk size fs label mnt _ <<<"$p"
+  printf '  %s%2d%s  %-14s %8s  %-8s %-12s %s\n' "$CYAN" "$i" "$OFF" "$name" "$size" "${fs:--}" "${label:--}" "${mnt:+mounted at $mnt}"
+done
+echo
+read -r -p "root partition number (Enter = abort): " n
+[[ "$n" =~ ^[0-9]+$ ]] && [ "$n" -ge 1 ] && [ "$n" -le ${#parts[@]} ] || die "aborted"
+read -r root _ size fs label mnt _ <<<"${parts[$((n - 1))]}"
+[ -z "$mnt" ] || die "$root is mounted at $mnt – not touching it"
+printf '\n%sEVERYTHING on %s (%s, %s %s) is erased.%s Type the partition name to confirm: ' "$RED" "$root" "$size" "${fs:-no fs}" "${label:-}" "$OFF"
+read -r confirm; [ "$confirm" = "$root" ] || die "aborted (typed '$confirm')"
+
+esp=""
+mapfile -t esps < <(lsblk -rpno NAME,PKNAME,PARTTYPE,FSTYPE "$(lsblk -no PKNAME "$root" | head -1 | sed 's|^|/dev/|')" 2>/dev/null \
+  | awk '$3 == "c12a7328-f81f-11d2-ba4b-00a0c93ec93b" || $4 == "vfat" {print $1}')
+if [ ${#esps[@]} -gt 0 ]; then
+  printf '\nEFI system partition for the boot entry (systemd-boot; Enter = none, you add the entry yourself):\n'
+  i=0; for e in "${esps[@]}"; do i=$((i + 1)); printf '  %s%d%s  %s\n' "$CYAN" "$i" "$OFF" "$e"; done
+  read -r -p "> " en
+  [[ "$en" =~ ^[0-9]+$ ]] && [ "$en" -ge 1 ] && [ "$en" -le ${#esps[@]} ] && esp="${esps[$((en - 1))]}"
+fi
+
+set -e
+M=/mnt/deck-install
+printf '\n%s1/5%s mkfs.ext4 %s\n' "$CYAN" "$OFF" "$root"
+mkfs.ext4 -q -F -L DECKROOT "$root"
+mkdir -p "$M"; mount "$root" "$M"
+if [ -n "$esp" ]; then mkdir -p "$M/boot"; mount "$esp" "$M/boot"; fi
+
+printf '%s2/5%s unsquashfs the live root (a few minutes)\n' "$CYAN" "$OFF"
+unsquashfs -f -q -n -d "$M" "$SFS" >/dev/null
+
+printf '%s3/5%s the installed system: no live hooks, fstab, hostname\n' "$CYAN" "$OFF"
+rm -f "$M/etc/mkinitcpio.conf.d/archiso.conf" "$M/etc/deck-live"
+rm -rf "$M/etc/systemd/system/getty@tty1.service.d" "$M/root/.automated_script.sh"
+[ -d "$M/var/lib/deck" ] || install -d -o 1000 -g 1000 "$M/var/lib/deck"
+genfstab -U "$M" >"$M/etc/fstab"
+printf '%s\n' "scutoons-deck" >"$M/etc/hostname"
+# HOOKS without archiso: the stock mkinitcpio.conf of the package already is that; the live one came from conf.d
+kernel=$(ls "$M/boot" 2>/dev/null | sed -n 's/^vmlinuz-//p' | head -1)
+[ -n "$kernel" ] || kernel=$(ls "$M/usr/lib/modules" | head -1 | xargs -I{} cat "$M/usr/lib/modules/{}/pkgbase")
+printf '%s4/5%s initramfs for %s\n' "$CYAN" "$OFF" "$kernel"
+arch-chroot "$M" mkinitcpio -P >/dev/null
+
+if [ -n "$esp" ]; then
+  printf '%s5/5%s systemd-boot on %s\n' "$CYAN" "$OFF" "$esp"
+  arch-chroot "$M" bootctl --esp-path=/boot install >/dev/null
+  uuid=$(blkid -s PARTUUID -o value "$root")
+  ucode=""; for u in intel-ucode amd-ucode; do [ -f "$M/boot/$u.img" ] && ucode="$ucode"$'\n'"initrd  /$u.img"; done
+  mkdir -p "$M/boot/loader/entries"
+  printf 'title   SCUTOONS deck\nlinux   /vmlinuz-%s%s\ninitrd  /initramfs-%s.img\noptions root=PARTUUID=%s rw quiet\n' \
+    "$kernel" "$ucode" "$kernel" "$uuid" >"$M/boot/loader/entries/deck.conf"
+  printf 'default deck.conf\ntimeout 1\n' >"$M/boot/loader/loader.conf"
+else
+  printf '%s5/5%s no ESP picked – add a boot entry yourself: kernel /vmlinuz-%s, initrd /initramfs-%s.img, root=PARTUUID=%s\n' \
+    "$CYAN" "$OFF" "$kernel" "$kernel" "$(blkid -s PARTUUID -o value "$root")"
+fi
+
+[ -n "$esp" ] && umount "$M/boot"; umount "$M"
+printf '\n%sdone.%s %s holds the deck; reboot and pick it in the firmware boot menu.\n' "$CYAN" "$OFF" "$root"

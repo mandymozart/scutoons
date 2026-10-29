@@ -1,0 +1,22 @@
+# The deck's own hotspot (CYBERDECKS.md §3: the deck is the venue's LAN when there is none). Started from deck-wifi
+# ("H"), never by itself. SSID scutoons-deck, WPA2 key: scutoons-deck (phones join the relay at 10.42.0.1:7700).
+[connection]
+id=deck-hotspot
+type=wifi
+autoconnect=false
+interface-name=
+
+[wifi]
+mode=ap
+ssid=scutoons-deck
+band=bg
+
+[wifi-security]
+key-mgmt=wpa-psk
+psk=scutoons-deck
+
+[ipv4]
+method=shared
+
+[ipv6]
+method=ignore

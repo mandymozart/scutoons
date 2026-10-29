@@ -1,0 +1,24 @@
+# The deck's boot flow on tty1 (CYBERDECKS.md §3, #173): persistence → Wi-Fi picker → deck-check → then deck-kiosk.service
+# takes the tty. Runs on every boot; each step skips itself when its result exists (deck-firstboot).
+[Unit]
+Description=SCUTOONS deck boot flow (persistence, Wi-Fi, hardware check)
+After=systemd-user-sessions.service NetworkManager.service plymouth-quit-wait.service
+Wants=NetworkManager.service
+Conflicts=getty@tty1.service
+Before=deck-kiosk.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/deck-firstboot
+StandardInput=tty-force
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target
