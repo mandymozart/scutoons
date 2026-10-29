@@ -86,7 +86,7 @@ always be the deployed version** (the conductor, LIVE B.7).
 | Relay | Node 22 + `ws` (LIVE B.4, not started) | **native** `deck/relay` | timing, one binary everywhere, the hosted container too |
 | Device bridge | Electron + node drivers (B.7) | **native** `deck/bridge` | hardware; Electron is the resource waste the goal names |
 | Conductor UI | web, in the Electron window | **web** in the deck's kiosk browser or a `wry` webview | always the deployed version, iterated in the creator's toolkit |
-| Outputs (projection) | a fullscreen browser per outlet | **both**: web first (the reader's slices are `@scutoons/reader`, Svelte), the **video / media layer native** (`display` adapter: hardware-decoded video, live camera, black, vsync) composited under or over the browser surface; a fully native slice renderer only if the browser's scroll ever drops frames on class B | throughput where it matters, no second reader implementation |
+| Outputs (projection) | a fullscreen browser per outlet | **native on the deck since 2026-10-29: the stage (§8)**; before that: **both**: web first (the reader's slices are `@scutoons/reader`, Svelte), the **video / media layer native** (`display` adapter: hardware-decoded video, live camera, black, vsync) composited under or over the browser surface; a fully native slice renderer only if the browser's scroll ever drops frames on class B | throughput where it matters, no second reader implementation |
 | Audio engine (cues, samples, score synth) | Web Audio in the browser | **native** `audio` adapter on the deck; Web Audio stays on phones | latency, PipeWire, the DAW clock |
 | Performer / musician / audience | web (phones, tablets) | **web** – unchanged | joined by URL, not our hardware |
 | Reader, creator, admin, embassy, shop | web / PWA | **web** – unchanged, installed on class A decks like any PWA | built, iterated, deployed |
@@ -116,6 +116,45 @@ as the workshop, refined); **public = a tour in summer 2027** (phases 4–5 as f
   and B in phase 3's first week; the fallback is "video inside the browser" (what the plan has today).
 - **Signing / distribution** on macOS / Windows stays as in B.7 (unsigned for now); Linux decks need none.
 
-## 8. Open work
-Lives in the issues, not here: the phases #172–#176 (#171 holds the plan and the decisions, all taken 2026-10-29).
+## 8. The stage – the native AV app the deck boots into (#179)
+Owner 2026-10-29: "start building a ui … some hardware accelerated … amazing tool … which the machine boots right into …
+and connect directly to our scutoons.com ecosystem. … a default [that reads] some 3d content, some audio synth
+generators and from some chapter some audio files and display an interactive scene with a video and some overlays. so
+we can play av madness" · "a concept called oss which uses modular architecture which we can run close to the hardware".
+Proven on the X1 first: Vulkan on the iGPU (anv), VA-API decode h264 / hevc / vp9, the SOF card (HARDWARE.md).
+
+- **What:** `deck/stage`, one Rust binary – the deck's kiosk app (cage runs it instead of Chromium; the browser stays
+  for the conductor page, on demand or on a second output). Changes §5's "Outputs" row: the deck renders natively.
+- **Modular (the owner's "oss" – read as ossia score, ossia.io, the open-source intermedia sequencer; to confirm):** a
+  node graph with typed ports. Sources: chapter slices, chapter music / samples, slice videos, a camera, a glTF model,
+  synth generators. Processors: shader passes, audio FX, mixers, an FFT that turns sound into control values. Sinks: a
+  screen outlet, the audio out, MIDI / DMX / OSC through the adapters (§4). A scene is a graph document (TOML now,
+  later an entity on scutoons.com like the show document). ossia score itself (C++ / Qt, GPL) is not embedded: we take
+  its model and can talk OSC to it.
+- **Render:** wgpu on Vulkan, winit on Wayland under cage, one surface per outlet, vsync; a pass list per frame; 2D
+  overlays (slices, text boxes, titles) by our own sprite + text pass (`glyphon`). No toolkit, no browser engine.
+- **Video:** GStreamer (`gstreamer-rs`) with the VA-API plugin (vah264dec / vah265dec / vavp9dec) → appsink → a GPU
+  texture; step two zero-copy (dmabuf import into Vulkan). Software decode is the fallback, chosen by deck-check's feature set.
+- **3D:** glTF (`gltf` crate) in the same renderer; a placeholder object until the artists' cast models exist
+  (research/CHARACTERS3D.md).
+- **Audio:** our own graph on PipeWire (`pipewire-rs`, `cpal` fallback), a realtime thread that never allocates; DSP
+  blocks from `fundsp` (oscillators, noise, FM, filters; granular on chapter samples); chapter music decoded with
+  `symphonia`; out through the default sink (the RME UCX II in Class Compliant mode, #174). The audio clock is the master
+  clock for video, MIDI and the bus.
+- **scutoons.com:** the public library API read-only (`/api/library/toons/<toon>/chapters/<n>`: slices, slice videos,
+  music paths; files from cdn.scutoons.com), cached on DECKDATA (`/var/lib/deck/cache`) so a venue runs offline; later
+  the paired member's token for drafts. The relay bus (LIVE B.1: slice enter, VN events, FX cues) feeds node parameters.
+- **Control:** MIDI / OSC learnable onto any parameter (the UCX II's MIDI, a controller), the deck's keyboard and
+  touchpad, a small on-screen HUD.
+- **The default scene "AV madness"** (what the deck boots into): a chapter (catpope 1 unless configured) – its slices as
+  a moving layer, its music plus a synth generator that reacts to it (FFT → visuals), a slice video or a local clip on a
+  plane, a 3D object in the middle, overlays (title, text boxes); everything modulated by MIDI.
+- **Dogma:** 60 fps at 1080p on the X1's UHD 620 with video + 3D + synth running; first frame < 3 s from a warm cache;
+  idle CPU near zero when nothing moves. Measured per step in HARDWARE.md.
+- **Steps:** S1 window + wgpu + the graph core + a test pattern, booted by cage on the stick · S2 the audio graph,
+  synth generators, chapter music from the API with the cache · S3 slices + overlays from the chapter · S4 video via
+  VA-API · S5 glTF · S6 MIDI / OSC mapping + the default scene. Each step runs on the X1 before the next.
+
+## 9. Open work
+Lives in the issues, not here: the phases #172–#176, the stage #179 (#171 holds the plan and the decisions, all taken 2026-10-29).
 LIVE.md B.4 / B.7 point here since 2026-10-29.
