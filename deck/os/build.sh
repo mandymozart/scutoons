@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # deck/os/build.sh – build the deck live ISO (class A x86) in Docker: `npm run deck:iso` (Git Bash / WSL / Linux / macOS).
-# Result: deck/os/out/deck-<date>-x86_64.iso (+ mkarchiso.log). Named volumes keep the cargo target and the pacman
+# Result: deck/os/out/scutoonsdeck-<date>-x86_64.iso (+ mkarchiso.log; volume label SCUTOONSDECK). Named volumes keep the cargo target and the pacman
 # cache between builds (scutoons-deck-work, scutoons-deck-pkg; `docker volume rm` them for a cold build).
 # Env: DECK_KERNEL=linux-rt|linux · DECK_SKIP_CARGO=1 · DECK_IMAGE (archlinux:latest). Details: deck/os/README.md.
 set -euo pipefail

@@ -59,7 +59,7 @@ rm -f "$M/etc/mkinitcpio.conf.d/archiso.conf" "$M/etc/deck-live"
 rm -rf "$M/etc/systemd/system/getty@tty1.service.d" "$M/root/.automated_script.sh"
 [ -d "$M/var/lib/deck" ] || install -d -o 1000 -g 1000 "$M/var/lib/deck"
 genfstab -U "$M" >"$M/etc/fstab"
-printf '%s\n' "scutoons-deck" >"$M/etc/hostname"
+printf '%s\n' "scutoonsdeck" >"$M/etc/hostname"
 # HOOKS without archiso: the stock mkinitcpio.conf of the package already is that; the live one came from conf.d
 kernel=$(ls "$M/boot" 2>/dev/null | sed -n 's/^vmlinuz-//p' | head -1)
 [ -n "$kernel" ] || kernel=$(ls "$M/usr/lib/modules" | head -1 | xargs -I{} cat "$M/usr/lib/modules/{}/pkgbase")

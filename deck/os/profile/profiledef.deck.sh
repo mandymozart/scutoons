@@ -1,7 +1,7 @@
 # Appended to releng's profiledef.sh by container/build.sh (the identity lines of releng are removed first; buildmodes,
 # bootmodes and the image options stay releng's, so the profile follows archiso upstream). CYBERDECKS.md §3, #173.
-iso_name="deck"
-iso_label="DECK_$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y%m)"
+iso_name="scutoonsdeck"
+iso_label="SCUTOONSDECK"
 iso_publisher="SCUTOONS <https://scutoons.com>"
 iso_application="SCUTOONS deck live"
 # a serial console next to tty1 (the VM test, a cable on a real deck); harmless without a port

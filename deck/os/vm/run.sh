@@ -15,7 +15,7 @@ set -euo pipefail
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd); os=$(cd "$here/.." && pwd)
 mode=uefi; docker=0
 for a in "$@"; do case "$a" in bios) mode=bios ;; uefi) mode=uefi ;; --docker) docker=1 ;; esac; done
-iso=$(ls -t "$os"/out/deck-*-x86_64.iso 2>/dev/null | head -1) || true
+iso=$(ls -t "$os"/out/scutoonsdeck-*-x86_64.iso 2>/dev/null | head -1) || true
 [ -n "${iso:-}" ] || { echo "no ISO in deck/os/out – npm run deck:iso first"; exit 1; }
 mkdir -p "$os/out/vm"
 stick="$os/out/vm/stick.img"

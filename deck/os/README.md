@@ -13,7 +13,7 @@ Docker Desktop (or any Docker) is all the host needs – the build runs in an `a
 npm run deck:iso
 ```
 
-→ `deck/os/out/deck-<date>-x86_64.iso` (+ `mkarchiso.log`). Two named volumes keep the cargo target and the pacman
+→ `deck/os/out/scutoonsdeck-<date>-x86_64.iso` (volume label `SCUTOONSDECK`, hostname `scutoonsdeck`; + `mkarchiso.log`). Two named volumes keep the cargo target and the pacman
 cache between builds (`scutoons-deck-work`, `scutoons-deck-pkg`; `docker volume rm` both for a cold build). The first
 run downloads ~1 GB of packages. `DECK_KERNEL=linux` builds on the stock kernel when `linux-rt` is not in the repos.
 

@@ -72,7 +72,7 @@ echo "   kernel: $(grep -E '^linux' "$PROFILE/packages.x86_64" | tr '\n' ' ')"
 echo "== mkarchiso"
 rm -rf "$WORK/iso"; mkdir -p "$OUT"
 mkarchiso -v -w "$WORK/iso" -o "$OUT" "$PROFILE" >"$WORK/mkarchiso.log" 2>&1 || { tail -40 "$WORK/mkarchiso.log"; exit 1; }
-iso=$(ls -t "$OUT"/deck-*-x86_64.iso | head -1)
+iso=$(ls -t "$OUT"/scutoonsdeck-*-x86_64.iso | head -1)
 cp "$WORK/mkarchiso.log" "$OUT/mkarchiso.log"
 ls -l "$iso"
 echo "== done: $iso"
