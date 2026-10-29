@@ -45,16 +45,10 @@ State 2026-10-12. How agents work: agents/RULES.md. Open work: GitHub issues + t
   The sketch → 3D experiment is removed; its learnings: research/CHARACTERS3D.md.
 
 ## Last run
-2026-10-21 night, on `main` after the storyboard run (#118's result: its issue comments): the Kanon, milestone "Top Toy
-workshop" (research/KANON.md; owner: "Do this task here" – #80 → #81 → #84 → #83).
-- **Built:** #80 the kinds `season-script:` / `chapter-script:<toon>:<n>:<l>` and `kanon:<subject>:<l>` (creator only),
-  the rules per role, one editor (the script editor), `/kanon/<subject>`, the API routes accept the dot · #81 migration
-  `2026-10-21-season-scripts` (catpope's toon script → season 1, every version – runs with the deploy), the season /
-  chapter script pages, `/<toon>/script` = the list (toon Kanon + scripts with their state), the storyboard reads the
-  chapter's script else its season's · #84 MCP resource `scutoons://rules/story`, Kanon reads without a toon · #83 the
-  map place panel's "Kanon" link.
-- **Look at:** /catpope/script, /toptoy/script, a character's /kanon/character.<id>, a place via Map → Kanon.
-- **Next:** #82 (character page – after #104's redesign is merged), #85 (generators read the texts + migration 2).
-- **Green:** content 356; creator 0 / 0, 260 tests; admin 0 / 0; viewer 0 errors (11 old warnings); MCP 35 + check:mcp
-  52/52; PHPUnit 474 + PHPStan; check:creator-script 28/28 (updated for the batch publish); check:tools-css 16 old lines
-  (none touched). Not pushed.
+2026-10-29 night, #182 on its own branch `wip/live-night-75b685` (worktree, owner-requested; not merged, not pushed).
+- **Built:** relay B.6 rules (authority, rate limit, clock lead, snapshot, replay on resume, votes, presence, HMAC
+  tokens); bridge clock offset + timed queue + panic; `deck/core` (modules as features, patcher + batch graph, own
+  maths, FFT – builds for the deck and wasm32); `deck/lab` (wasm worker page, wasmtime, dylib, TS suite, results).
+- **Look at:** research/LIVE-NIGHT-2026-10-29.md §0 + §4 (the measurements), then decide #183–#187.
+- **Green:** deck workspace clippy -D warnings + all tests (relay 30, bridge 6, deck-core 19, stage 33 …);
+  shared/live 6 + tsc + generate --check; the lab's TS tsc --strict.
