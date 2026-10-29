@@ -5,6 +5,7 @@
 # Steps: packages → the deck binaries (cargo, release) → releng + deck/os/profile + deck/os/rootfs → mkarchiso → /out.
 # Env: DECK_KERNEL (linux-rt; `linux` when the rt kernel is unavailable), DECK_SKIP_CARGO=1 (reuse /work/target).
 set -euo pipefail
+[ "${DECK_TRACE:-0}" = 1 ] && set -x
 
 KERNEL=${DECK_KERNEL:-linux-rt}
 SRC=/src; WORK=/work; OUT=/out
@@ -43,10 +44,13 @@ install -Dm755 "$WORK/target/release/bridge" "$PROFILE/airootfs/usr/bin/deck-bri
 install -Dm755 "$WORK/target/release/deck-check" "$PROFILE/airootfs/usr/bin/deck-check"
 chmod 755 "$PROFILE/airootfs/usr/bin/"deck-*
 wants="$PROFILE/airootfs/etc/systemd/system/multi-user.target.wants"; mkdir -p "$wants"
-for u in pacman-init NetworkManager iwd avahi-daemon sshd deck-firstboot deck-kiosk deck-relay; do
+for u in NetworkManager iwd avahi-daemon sshd deck-firstboot deck-kiosk deck-relay; do
   ln -sf "/usr/lib/systemd/system/$u.service" "$wants/$u.service"
 done
-[ -e "$PROFILE/airootfs/etc/systemd/system/pacman-init.service" ] || rm -f "$wants/pacman-init.service"
+# releng's pacman-init (the live keyring) lives in /etc – keep it while releng ships it
+[ -e "$PROFILE/airootfs/etc/systemd/system/pacman-init.service" ] && ln -sf /etc/systemd/system/pacman-init.service "$wants/pacman-init.service"
+# releng's file_permissions name a file we removed
+sed -i '/automated_script/d' "$PROFILE/profiledef.sh"
 # a serial console on ttyS0 (the VM test, a cable on a real deck); no password = key-only ssh, root on serial only
 mkdir -p "$PROFILE/airootfs/etc/systemd/system/getty.target.wants"
 ln -sf /usr/lib/systemd/system/serial-getty@.service "$PROFILE/airootfs/etc/systemd/system/getty.target.wants/serial-getty@ttyS0.service"
@@ -55,7 +59,7 @@ date -u +%Y.%m.%d >"$PROFILE/airootfs/etc/deck-release"
 # the kernel: releng names linux everywhere (boot entries, the mkinitcpio preset) – rename to $KERNEL
 if [ "$KERNEL" != linux ]; then
   sed -i "s/^linux-rt$/$KERNEL/" "$PROFILE/packages.x86_64"
-  grep -rl -e 'vmlinuz-linux' -e 'initramfs-linux' "$PROFILE/grub" "$PROFILE/syslinux" "$PROFILE/efiboot" "$PROFILE/airootfs/etc/mkinitcpio.d" 2>/dev/null \
+  { grep -rl -e 'vmlinuz-linux' -e 'initramfs-linux' "$PROFILE/grub" "$PROFILE/syslinux" "$PROFILE/efiboot" 2>/dev/null || true; } \
     | xargs -r sed -i -e "s|vmlinuz-linux\b|vmlinuz-$KERNEL|g" -e "s|initramfs-linux\.img|initramfs-$KERNEL.img|g" -e "s|initramfs-linux-fallback|initramfs-$KERNEL-fallback|g"
   if [ -f "$PROFILE/airootfs/etc/mkinitcpio.d/linux.preset" ]; then
     mv "$PROFILE/airootfs/etc/mkinitcpio.d/linux.preset" "$PROFILE/airootfs/etc/mkinitcpio.d/$KERNEL.preset"
@@ -63,9 +67,6 @@ if [ "$KERNEL" != linux ]; then
 else
   sed -i 's/^linux-rt$/linux/' "$PROFILE/packages.x86_64"
 fi
-# the kernel line: a serial console next to tty1 (the VM, a cable); harmless without a port
-grep -rl 'archisobasedir' "$PROFILE/grub" "$PROFILE/syslinux" "$PROFILE/efiboot" 2>/dev/null \
-  | xargs -r sed -i -E '/archisobasedir/s/$/ console=ttyS0,115200 console=tty1/'
 echo "   kernel: $(grep -E '^linux' "$PROFILE/packages.x86_64" | tr '\n' ' ')"
 
 echo "== mkarchiso"

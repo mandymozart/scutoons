@@ -13,7 +13,7 @@ if command -v cygpath >/dev/null 2>&1; then deck_m=$(cygpath -m "$deck"); out_m=
 docker version >/dev/null 2>&1 || { echo "Docker does not answer – start Docker Desktop"; exit 1; }
 echo "building the deck ISO in Docker (kernel ${DECK_KERNEL:-linux-rt}) – the first run downloads ~1 GB"
 MSYS_NO_PATHCONV=1 docker run --rm --privileged \
-  -e DECK_KERNEL -e DECK_SKIP_CARGO \
+  -e DECK_KERNEL -e DECK_SKIP_CARGO -e DECK_TRACE \
   -v "$deck_m:/src:ro" \
   -v scutoons-deck-work:/work \
   -v scutoons-deck-pkg:/var/cache/pacman/pkg \

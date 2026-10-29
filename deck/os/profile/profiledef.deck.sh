@@ -4,6 +4,8 @@ iso_name="deck"
 iso_label="DECK_$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y%m)"
 iso_publisher="SCUTOONS <https://scutoons.com>"
 iso_application="SCUTOONS deck live"
+# a serial console next to tty1 (the VM test, a cable on a real deck); harmless without a port
+kernel_params_x86_64="console=ttyS0,115200 console=tty1"
 iso_version="$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y.%m.%d)"
 file_permissions+=(
   ["/usr/bin/deck-firstboot"]="0:0:755"
