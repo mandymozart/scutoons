@@ -2,7 +2,7 @@
 # Runs INSIDE the archlinux:latest container (deck/os/build.sh starts it; --privileged for pacstrap's chroot).
 #   /src   = deck/ (read-only)        /work = a named volume (cargo target, the profile, mkarchiso's work dir)
 #   /out   = deck/os/out on the host  /var/cache/pacman/pkg = a named volume (the package cache between builds)
-# Steps: packages → the deck binaries (cargo, release) → releng + deck/os/profile + deck/os/rootfs → mkarchiso → /out.
+# Steps: packages → the deck binaries (cargo, release; the stage with PipeWire) → releng + deck/os/profile + deck/os/rootfs → mkarchiso → /out.
 # Env: DECK_KERNEL (linux-rt; `linux` when the rt kernel is unavailable), DECK_SKIP_CARGO=1 (reuse /work/target).
 set -euo pipefail
 [ "${DECK_TRACE:-0}" = 1 ] && set -x
@@ -14,15 +14,16 @@ RELENG=/usr/share/archiso/configs/releng
 
 echo "== packages (host tools)"
 pacman-key --init >/dev/null 2>&1 || true
-pacman -Syu --noconfirm --needed archiso rust base-devel alsa-lib git >/dev/null
+# pipewire + clang: the stage's PipeWire backend (pipewire-sys runs bindgen against libpipewire's headers)
+pacman -Syu --noconfirm --needed archiso rust base-devel alsa-lib git pipewire clang >/dev/null
 echo "   archiso $(pacman -Q archiso | cut -d' ' -f2), rust $(rustc --version | cut -d' ' -f2), kernel package: $KERNEL"
 pacman -Si "$KERNEL" >/dev/null 2>&1 || { echo "no package '$KERNEL' in the repos – set DECK_KERNEL=linux"; exit 1; }
 
-echo "== the deck binaries (relay, bridge, deck-check) – release, Linux x86_64"
+echo "== the deck binaries (relay, bridge, deck-check, deck-stage with PipeWire) – release, Linux x86_64"
 if [ "${DECK_SKIP_CARGO:-0}" != 1 ]; then
-  (cd "$SRC" && CARGO_TARGET_DIR=$WORK/target CARGO_HOME=$WORK/cargo-home cargo build --release --locked -p relay -p bridge -p deck-check 2>&1 | tail -3)
+  (cd "$SRC" && CARGO_TARGET_DIR=$WORK/target CARGO_HOME=$WORK/cargo-home cargo build --release --locked     -p relay -p bridge -p deck-check -p deck-stage --features deck-stage/pipewire 2>&1 | tail -3)
 fi
-for b in relay bridge deck-check; do [ -x "$WORK/target/release/$b" ] || { echo "missing $WORK/target/release/$b"; exit 1; }; done
+for b in relay bridge deck-check deck-stage; do [ -x "$WORK/target/release/$b" ] || { echo "missing $WORK/target/release/$b"; exit 1; }; done
 
 echo "== the profile: releng + deck/os/profile + deck/os/rootfs"
 rm -rf "$PROFILE"; cp -r "$RELENG" "$PROFILE"
@@ -50,6 +51,8 @@ fi
 install -Dm755 "$WORK/target/release/relay" "$PROFILE/airootfs/usr/bin/deck-relay"
 install -Dm755 "$WORK/target/release/bridge" "$PROFILE/airootfs/usr/bin/deck-bridge"
 install -Dm755 "$WORK/target/release/deck-check" "$PROFILE/airootfs/usr/bin/deck-check"
+install -Dm755 "$WORK/target/release/deck-stage" "$PROFILE/airootfs/usr/bin/deck-stage"
+install -Dm644 -t "$PROFILE/airootfs/usr/share/deck/scenes" "$SRC"/stage/scenes/*.toml
 chmod 755 "$PROFILE/airootfs/usr/bin/"deck-*
 wants="$PROFILE/airootfs/etc/systemd/system/multi-user.target.wants"; mkdir -p "$wants"
 for u in NetworkManager iwd avahi-daemon sshd deck-firstboot deck-kiosk deck-relay deck-bridge; do

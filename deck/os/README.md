@@ -17,11 +17,11 @@ npm run deck:iso
 cache between builds (`scutoons-deck-work`, `scutoons-deck-pkg`; `docker volume rm` both for a cold build). The first
 run downloads ~1 GB of packages. `DECK_KERNEL=linux` builds on the stock kernel when `linux-rt` is not in the repos.
 
-What `container/build.sh` does: installs archiso + rust → `cargo build --release` for `relay`, `bridge`, `deck-check`
-→ copies archiso's **releng** profile, removes its live-only bits (root autologin, reflector, the mirror chooser,
+What `container/build.sh` does: installs archiso + rust (+ pipewire, clang for the stage) → `cargo build --release` for
+`relay`, `bridge`, `deck-check`, `deck-stage` (feature `pipewire`) → copies archiso's **releng** profile, removes its live-only bits (root autologin, reflector, the mirror chooser,
 networkd), overlays `profile/` (packages, pacman.conf, identity, airootfs) and `rootfs/` (the deck's units, scripts
 and config – the same tree the PKGBUILD installs), drops the binaries in as `deck-relay`, `deck-bridge`,
-`deck-check`, renames the kernel in the boot entries to `linux-rt`, adds a serial console → `mkarchiso`.
+`deck-check`, `deck-stage` (+ its scenes in `/usr/share/deck/scenes`), renames the kernel in the boot entries to `linux-rt`, adds a serial console → `mkarchiso`.
 
 ## Write it to a stick
 
@@ -68,12 +68,15 @@ the existing OS", Reboot, Power Off on BIOS. Nothing on the stick installs anyth
    stick; `deck.recheck` on the kernel line or `deck-check` in a shell re-runs it. Everything degrades with a warning
    (no Vulkan, software Vulkan, no audio device = the feature off, the kiosk still starts); only a machine without any
    display device leaves a root shell instead of the kiosk.
-4. `deck-kiosk.service` – `cage` + Chromium (`deck-session`) as the user `deck` on the page `conductor` names in
-   `/var/lib/deck/deck.toml`; empty = the deck's own start page (the machine report, the relay's `/status`, the link
-   to the conductor). `deck-bridge.service` joins the local relay with `/var/lib/deck/venue.toml`.
+4. `deck-kiosk.service` – `cage` runs `deck-session` as the user `deck`, which plays `kiosk` from
+   `/var/lib/deck/deck.toml`: **`stage`** (the default) = `deck-stage` (deck/stage/README.md) with `scene` (empty = the
+   built-in "AV madness": catpope 1's music + synths, the FFT drives the picture; its cache in `/var/lib/deck/cache`);
+   **F2** or a stage that fails opens Chromium on the page `conductor` names (empty = the deck's own start page: the
+   machine report, the relay's `/status`, the link to the conductor), closing it (Ctrl+Shift+W) returns to the stage.
+   `kiosk = "browser"` = Chromium only. `deck-bridge.service` joins the local relay with `/var/lib/deck/venue.toml`.
 
 tty2 is a shell (Ctrl+Alt+F2), so is the serial port; ssh is key-only (no passwords on the image). `pacman -S` works
-on the live stick (the cache lives on DECKDATA); the live image overrides mkinitcpio's install hook with a no-op, since
+on the live stick (the cache lives on DECKDATA); the live image overrides mkinitcpio's install hook to do nothing on the booted stick (it still runs in the build), since
 the kernel and initramfs stay in the ISO (an installed deck gets the stock hook back). The user `deck`
 (uid 1000) is in audio, video, input, realtime, uucp; PipeWire runs at 48 kHz / quantum 128 with rtkit
 (`rootfs/etc/pipewire/pipewire.conf.d/10-deck-rt.conf`) under `user@1000` (linger) so the check can read it.

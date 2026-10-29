@@ -11,9 +11,11 @@ amd-ucode
 intel-ucode
 syslinux
 
-# the kiosk: a Wayland compositor running one app, the browser for the conductor page
+# the kiosk: a Wayland compositor running one app – deck-stage (wgpu on Vulkan; winit on Wayland needs libxkbcommon),
+# the browser for the conductor page
 cage
 chromium
+libxkbcommon
 noto-fonts
 noto-fonts-emoji
 ttf-dejavu

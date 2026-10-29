@@ -1,14 +1,43 @@
-# Live image only: overrides mkinitcpio's hook of the same name. The stick keeps the kernel + initramfs in its ISO
-# (nothing in /boot), so the stock hook's `mkinitcpio -p linux-rt` fails after any firmware / module package
-# (`pacman -S sof-firmware` on the X1, 2026-10-29). deck-install drops this file on an installed deck, where the
-# stock hook rebuilds the initramfs as usual. mkarchiso runs mkinitcpio itself at build time, not through this hook.
+# Live image: overrides mkinitcpio's hook of the same name (its triggers copied from mkinitcpio 42.2). The stick keeps
+# the kernel + initramfs in its ISO (nothing in /boot), so the stock `mkinitcpio install` fails after any firmware /
+# module package (`pacman -S sof-firmware` on the X1, 2026-10-29) – on a booted stick (archisobasedir= on the kernel
+# line) the hook does nothing. At build time it must run: mkarchiso's pacstrap makes the ISO's initramfs through it
+# (a plain no-op left the 2026-10-29 build without one). deck-install drops this file on an installed deck.
+[Trigger]
+Type = Path
+Operation = Install
+Operation = Upgrade
+Operation = Remove
+Target = usr/lib/initcpio/*
+Target = usr/lib/firmware/*
+Target = usr/lib/modules/*/extramodules/
+Target = usr/src/*/dkms.conf
+Target = usr/lib/systemd/systemd
+Target = usr/lib/systemd/systemd-udevd
+Target = usr/bin/cryptsetup
+Target = usr/bin/lvm
+Target = usr/bin/mdadm
+Target = usr/bin/pdata_tools
+Target = usr/lib/libcryptsetup.so
+Target = usr/lib/libp11-kit.so
+Target = usr/lib/libpcsclite.so
+Target = usr/lib/modprobe.d/
+
+[Trigger]
+Type = Path
+Operation = Install
+Operation = Upgrade
+Target = usr/lib/modules/*/vmlinuz
+
 [Trigger]
 Type = Package
 Operation = Install
 Operation = Upgrade
 Target = mkinitcpio
+Target = mkinitcpio-git
 
 [Action]
-Description = Live image: the initramfs lives on the stick, nothing to rebuild
+Description = Updating linux initcpios (skipped on the live stick – the initramfs lives in the ISO)...
 When = PostTransaction
-Exec = /usr/bin/true
+Exec = /usr/bin/sh -c 'if grep -q archisobasedir= /proc/cmdline; then cat >/dev/null; else exec /usr/share/libalpm/scripts/mkinitcpio install; fi'
+NeedsTargets

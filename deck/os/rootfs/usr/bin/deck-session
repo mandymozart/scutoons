@@ -1,6 +1,12 @@
 #!/bin/bash
-# The kiosk session (deck-kiosk.service, as the user deck): cage runs the browser on the deck's page –
-# `conductor` from /var/lib/deck/deck.toml, else the deck's own start page (the machine report, the relay status).
+# The kiosk session (deck-kiosk.service, as the user deck): cage runs this script again inside the compositor
+# ("inside"), which plays the deck's app – `kiosk` in /var/lib/deck/deck.toml:
+#   "stage" (the default) – deck-stage, the native AV app (CYBERDECKS.md §8, #179); F2 in the stage (exit code 10) or a
+#                           stage that fails opens the browser on the conductor page; closing the browser
+#                           (Ctrl+Shift+W) returns to the stage
+#   "browser"             – Chromium only, as before the stage (the conductor page)
+# `scene` = a scene TOML for the stage (empty = the built-in "AV madness"); `conductor` = the browser's page (empty =
+# the deck's own start page: the machine report, the relay status).
 set -u
 
 STATE=/var/lib/deck
@@ -10,19 +16,43 @@ export XDG_CACHE_HOME="$STATE/home/.cache"
 export HOME="$STATE/home"
 mkdir -p "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME"
 
-url=$(sed -n 's/^conductor *= *"\([^"]*\)".*/\1/p' "$STATE/deck.toml" 2>/dev/null | head -1)
-if [ -z "$url" ]; then
-  page="$XDG_RUNTIME_DIR/deck-start.html"
-  relay=$(curl -s -m 2 http://127.0.0.1:7700/status 2>/dev/null || echo '(not running)')
-  report=$(sed 's/&/\&amp;/g; s/</\&lt;/g' "$STATE/machine.toml" 2>/dev/null || echo '(no machine.toml)')
-  nets=$(nmcli -t -f DEVICE,STATE,CONNECTION device 2>/dev/null | grep ':connected:' | tr '\n' ' ')
-  sed -e "s|@HOST@|$(uname -n)|g" -e "s|@RELAY@|$relay|g" -e "s|@NETS@|${nets:-offline}|g" \
-      -e "/@REPORT@/{r /dev/stdin
-d}" /usr/share/deck/start.html <<<"$report" >"$page"
-  url="file://$page"
+setting() { sed -n "s/^$1 *= *\"\([^\"]*\)\".*/\1/p" "$STATE/deck.toml" 2>/dev/null | head -1; }
+
+if [ "${1:-}" != inside ]; then
+  exec cage -- "$0" inside
 fi
 
-exec cage -- chromium \
-  --kiosk --ozone-platform=wayland --no-first-run --password-store=basic \
-  --disable-session-crashed-bubble --disable-infobars --noerrdialogs --autoplay-policy=no-user-gesture-required \
-  --user-data-dir="$XDG_CONFIG_HOME/chromium" "$url"
+browser() {
+  local url; url=$(setting conductor)
+  if [ -z "$url" ]; then
+    local page="$XDG_RUNTIME_DIR/deck-start.html" relay report nets
+    relay=$(curl -s -m 2 http://127.0.0.1:7700/status 2>/dev/null || echo '(not running)')
+    report=$(sed 's/&/\&amp;/g; s/</\&lt;/g' "$STATE/machine.toml" 2>/dev/null || echo '(no machine.toml)')
+    nets=$(nmcli -t -f DEVICE,STATE,CONNECTION device 2>/dev/null | grep ':connected:' | tr '\n' ' ')
+    sed -e "s|@HOST@|$(uname -n)|g" -e "s|@RELAY@|$relay|g" -e "s|@NETS@|${nets:-offline}|g" \
+        -e "/@REPORT@/{r /dev/stdin
+d}" /usr/share/deck/start.html <<<"$report" >"$page"
+    url="file://$page"
+  fi
+  chromium --kiosk --ozone-platform=wayland --no-first-run --password-store=basic \
+    --disable-session-crashed-bubble --disable-infobars --noerrdialogs --autoplay-policy=no-user-gesture-required \
+    --user-data-dir="$XDG_CONFIG_HOME/chromium" "$url"
+}
+
+mode=$(setting kiosk)
+if [ "${mode:-stage}" = browser ] || ! command -v deck-stage >/dev/null; then
+  browser
+  exit $?
+fi
+
+scene=$(setting scene)
+while :; do
+  deck-stage --cache "$STATE/cache" ${scene:+--scene "$scene"}
+  rc=$?
+  case $rc in
+    0) continue ;;                       # Ctrl+Q: the stage starts again
+    10) browser ;;                       # F2: the conductor page, then back to the stage
+    *) echo "deck-stage exited with $rc – the browser instead (journalctl -u deck-kiosk)" >&2
+       sleep 1; browser ;;
+  esac
+done

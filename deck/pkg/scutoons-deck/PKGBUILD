@@ -1,19 +1,20 @@
 # Maintainer: SCUTOONS <https://scutoons.com>
 # scutoons-deck – the deck suite as one Arch package (CYBERDECKS.md §3: the decks update with `pacman -Syu` from our
-# own repository; #173). Builds relay, bridge and deck-check from this repository's deck/ workspace and installs the
-# boot flow (deck/os/rootfs: units, scripts, PipeWire / NetworkManager config, the kiosk user).
+# own repository; #173). Builds relay, bridge, deck-check and deck-stage (the AV app the kiosk plays, #179; with its
+# PipeWire backend) from this repository's deck/ workspace and installs the boot flow (deck/os/rootfs: units, scripts, PipeWire / NetworkManager config, the kiosk user).
 # Build (in the repo, on Arch): `cd deck/pkg/scutoons-deck && makepkg -sf` (as a user, never root). The live ISO
 # (deck/os) still copies the binaries + rootfs directly; once the repository exists it installs this package instead.
 pkgname=scutoons-deck
 pkgver=0.1.0
 pkgrel=1
-pkgdesc="SCUTOONS deck suite: Live relay, device bridge, hardware check, the kiosk boot flow"
+pkgdesc="SCUTOONS deck suite: Live relay, device bridge, hardware check, the stage, the kiosk boot flow"
 arch=('x86_64' 'aarch64')
 url="https://scutoons.com"
 license=('custom:UNLICENSED')
 depends=('cage' 'chromium' 'pipewire' 'wireplumber' 'rtkit' 'realtime-privileges' 'networkmanager' 'iwd'
-         'vulkan-tools' 'libva-utils' 'alsa-lib' 'curl' 'gptfdisk' 'squashfs-tools' 'arch-install-scripts')
-makedepends=('cargo' 'alsa-lib')
+         'vulkan-icd-loader' 'libxkbcommon' 'vulkan-tools' 'libva-utils' 'alsa-lib' 'curl' 'gptfdisk' 'squashfs-tools'
+         'arch-install-scripts')
+makedepends=('cargo' 'alsa-lib' 'pipewire' 'clang')
 backup=('etc/pipewire/pipewire.conf.d/10-deck-rt.conf'
         'etc/NetworkManager/conf.d/deck.conf'
         'etc/NetworkManager/system-connections/deck-hotspot.nmconnection')
@@ -33,18 +34,20 @@ pkgver() {
 
 build() {
   cd "$_deck"
-  CARGO_TARGET_DIR="$srcdir/target" cargo build --release --locked -p relay -p bridge -p deck-check
+  CARGO_TARGET_DIR="$srcdir/target" cargo build --release --locked -p relay -p bridge -p deck-check -p deck-stage --features deck-stage/pipewire
 }
 
 check() {
   cd "$_deck"
-  CARGO_TARGET_DIR="$srcdir/target" cargo test --release --locked -p deck-check -p bridge -p relay
+  CARGO_TARGET_DIR="$srcdir/target" cargo test --release --locked -p deck-check -p bridge -p relay -p deck-stage
 }
 
 package() {
   install -Dm755 "$srcdir/target/release/relay" "$pkgdir/usr/bin/deck-relay"
   install -Dm755 "$srcdir/target/release/bridge" "$pkgdir/usr/bin/deck-bridge"
   install -Dm755 "$srcdir/target/release/deck-check" "$pkgdir/usr/bin/deck-check"
+  install -Dm755 "$srcdir/target/release/deck-stage" "$pkgdir/usr/bin/deck-stage"
+  install -Dm644 -t "$pkgdir/usr/share/deck/scenes" "$_deck"/stage/scenes/*.toml
   # the boot flow: everything under deck/os/rootfs lands as it is laid out there
   cp -r "$_deck/os/rootfs/." "$pkgdir/"
   chmod 755 "$pkgdir"/usr/bin/deck-*

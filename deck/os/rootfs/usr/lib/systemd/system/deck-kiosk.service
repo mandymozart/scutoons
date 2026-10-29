@@ -1,7 +1,7 @@
-# cage + the browser on the deck's page, as the user `deck` on tty1 (the cage wiki's systemd pattern: PAMName gives the
+# cage + the stage (or the browser on the deck's page), as the user `deck` on tty1 (the cage wiki's systemd pattern: PAMName gives the
 # service a logind session, so the compositor gets the seat without a display manager).
 [Unit]
-Description=SCUTOONS deck kiosk (cage + the conductor page)
+Description=SCUTOONS deck kiosk (cage + the stage, the browser on demand)
 Requires=deck-firstboot.service
 After=deck-firstboot.service systemd-user-sessions.service deck-relay.service
 Conflicts=getty@tty1.service

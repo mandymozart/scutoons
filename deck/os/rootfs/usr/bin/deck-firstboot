@@ -3,7 +3,7 @@
 #   1. persistence   deck-persist  – mount (or create) the DECKDATA partition at /var/lib/deck (live stick only)
 #   2. network       deck-wifi     – the Wi-Fi picker (nmtui), the deck's hotspot, or "go on without"
 #   3. hardware      deck-check    – GPU / Vulkan, VA-API, audio, MIDI / USB / serial, RAM, CPU → machine.toml
-# then deck-kiosk.service takes the tty (cage + the browser). Every step is idempotent: a second boot with a
+# then deck-kiosk.service takes the tty (cage + the stage, deck-session). Every step is idempotent: a second boot with a
 # persistence partition, a known network and a machine.toml goes straight to the kiosk.
 # Exit non-zero = the kiosk does not start; a rescue shell stays on this tty (and tty2, the serial console).
 set -u
@@ -23,7 +23,7 @@ printf '\n  %sSCUTOONS deck%s · live image %s · %s\n\n' "$CYAN" "$OFF" "$(cat 
 # 1. persistence
 say "persistence"
 deck-persist || say "no persistence – this boot keeps nothing (${DIM}deck-persist said why${OFF})"
-install -d -o deck -g deck "$STATE" "$STATE/home"
+install -d -o deck -g deck "$STATE" "$STATE/home" "$STATE/cache"
 [ -f "$STATE/venue.toml" ] || install -o deck -g deck -m 644 /usr/share/deck/venue.default.toml "$STATE/venue.toml"
 [ -f "$STATE/deck.toml" ] || install -o deck -g deck -m 644 /usr/share/deck/deck.default.toml "$STATE/deck.toml"
 
