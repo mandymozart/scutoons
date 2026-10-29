@@ -90,15 +90,12 @@ always be the deployed version** (the conductor, LIVE B.7).
 ## 6. Phases (owner 2026-10-29: starts now, parallel to Chapter 3 – agents build while the owner edits content)
 Two dated targets: **beta = the Top Toy workshop, 2027-02-17** (phases 1–3: the workshop runs on a deck – the same idea
 as the workshop, refined); **public = a tour in summer 2027** (phases 4–5 as far as the tour needs them; milestone due
-2027-06-30 as a placeholder). Phase 1 merges with the Live kickoff 2026-11-16 (KANON §8 lane 2).
-0. **Inventory + decisions** (this brief → #171): first hardware, repo place (Rust-from-the-start: decided).
-1. **Relay + bridge in Rust** = LIVE phase 1 on the deck stack: `deck/relay`, `deck/bridge` with `midi`, `osc`,
-   `dmx-artnet`; protocol from the shared schema; runs on a class-A laptop (Linux, macOS, Windows). Proof: the Top Toy
-   workshop's cue chain (B.10 spike list) against Ableton over MIDI from the Rust bridge.
-2. **The image**: `deck/os/` for class A, boot to kiosk, PipeWire RT, pairing; one deck in the rehearsal room.
-3. **Native audio + video layer**: the `audio` and `display` adapters; class B image; a fanless output deck.
-4. **3D viewer**: `deck/view3d` with the artists' models (CHARACTERS3D).
-5. **Cut tool**: `deck/cut` – only when a concrete export need exists (a chapter video, show recordings).
+2027-06-30 as a placeholder). The work items are the issues of milestone "Cyberdecks"; the plan and its decisions: #171.
+1. **Relay + bridge in Rust** – #172 (= LIVE phase 1 on the deck stack; merges with the Live kickoff 2026-11-16).
+2. **The class-A image** – #173 (boot to kiosk, PipeWire RT, pairing, `deck/HARDWARE.md`).
+3. **Native audio + display adapters, class-B image** – #174.
+4. **3D viewer** – #175.
+5. **Cut tool** – #176 (only when a concrete export need exists).
 
 ## 7. Risks and what to verify first
 - **Double work on Live** – resolved 2026-10-29: Rust from the start for relay + bridge (the protocol is designed, B.6;
@@ -111,10 +108,6 @@ as the workshop, refined); **public = a tour in summer 2027** (phases 4–5 as f
   and B in phase 3's first week; the fallback is "video inside the browser" (what the plan has today).
 - **Signing / distribution** on macOS / Windows stays as in B.7 (unsigned for now); Linux decks need none.
 
-## 8. Phase 0 checklist (the issue's Open list)
-- [ ] Owner: the four decisions in #171.
-- [ ] One class-A machine chosen and named (CPU / iGPU, RAM); one class-B board ordered if B is wanted this winter.
-- [ ] `deck/` Cargo workspace skeleton with `relay`, `bridge`, `adapters/midi`, the shared protocol schema and its two
-      generators; CI builds Linux x86_64 + aarch64, macOS, Windows.
-- [ ] LIVE.md B.4 / B.7 updated to point here once decided (the Node / Electron paragraphs become history).
-- [ ] A short HARDWARE.md in `deck/` as the matrix of §1 grows with measured numbers (idle RAM, start time, decode fps).
+## 8. Open work
+Lives in the issues, not here: the decisions in #171 (repo place, the first class-A machine), the phases #172–#176.
+LIVE.md B.4 / B.7 point here since 2026-10-29.
