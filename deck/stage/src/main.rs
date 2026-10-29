@@ -113,6 +113,8 @@ struct App {
     hud_at: f32,
     last: Option<Instant>,
     t0: Instant,
+    /// the video clock: real frame time, pulled softly toward the audio clock (see `advance_time`)
+    vt: Option<f64>,
     stats: Stats,
     mods: ModifiersState,
     exit: i32,
@@ -128,11 +130,32 @@ struct App {
 }
 
 impl App {
-    fn time(&self) -> f32 {
+    /// the master clock as the audio device counts it: frames rendered – it moves in blocks of the device's period,
+    /// which can be longer than a video frame (the X1's SOF card: whole blocks per frame or none – the picture stepped)
+    fn audio_time(&self) -> f64 {
         match &self.clock {
-            Some(c) => c.seconds() as f32,
-            None => self.t0.elapsed().as_secs_f32(),
+            Some(c) => c.seconds(),
+            None => self.t0.elapsed().as_secs_f64(),
         }
+    }
+
+    fn time(&self) -> f32 {
+        self.vt.unwrap_or_else(|| self.audio_time()) as f32
+    }
+
+    /// the video clock moves by the real frame time and follows the audio clock softly: 5 % of the gap per frame,
+    /// a jump only past 100 ms (a seek, a stalled device) – smooth motion, still locked to the music
+    fn advance_time(&mut self, dt: f32) {
+        let audio = self.audio_time();
+        let vt = match self.vt {
+            None => audio,
+            Some(v) => {
+                let v = v + dt as f64;
+                let gap = audio - v;
+                if gap.abs() > 0.1 { audio } else { v + gap * 0.05 }
+            }
+        };
+        self.vt = Some(vt);
     }
 
     /// still loading what the splash waits for: a chapter's first slice, a music track
@@ -204,6 +227,7 @@ impl App {
         }
         self.last = Some(now);
         self.controls.update(&self.graph, dt);
+        self.advance_time(dt);
         let time = self.time();
         self.stats.window.0 += 1;
         self.stats.window.1 += dt;
@@ -464,6 +488,7 @@ fn run() -> Result<i32> {
         hud_at: -1.0,
         last: None,
         t0: Instant::now(),
+        vt: None,
         stats: Stats::default(),
         mods: ModifiersState::empty(),
         exit: 0,
