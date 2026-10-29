@@ -14,6 +14,7 @@ Owner 2026-10-29: Rust first, no Node + Electron for anything native.
 | `adapters/osc` | lib | OSC over UDP (`rosc`): `host` = out (Resolume, TouchDesigner, laser software), `listen` = in → `device.in`; typed args (`int` / `float` / `string` / `bool`), bundles flattened |
 | `relay` | bin | WebSocket server: sessions by code, roles + groups from the URL / `hello`, stamps `seq` + `from`, routes by `to`, `ping` → `pong`, `GET /status`. Not yet: snapshot / replay, votes, clock lead, HMAC tokens, rate limits (each a `TODO(B.6 …)` in `relay/src/lib.rs`) |
 | `stage` | bin + lib | `deck-stage`, the AV app the deck boots into (CYBERDECKS.md §8, #179): winit + wgpu, a node graph from a TOML scene, an audio graph on PipeWire / cpal with synths + an FFT, chapter music from the library API with a disk cache – stage/README.md |
+| `link` | bin + lib | `deck-link`, the deck's identity and access (CYBERDECKS.md §9, #180): an Ed25519 key made at first boot in `/var/lib/deck/identity`, the request with the code for the splash, polling until a member approves it on scutoons.com/account/decks, ~1 h tokens from a signed challenge, renewed by itself; `deck-link id` / `deck-link pair` for the boot flow and tests. Server side: server/docs/API.md "Decks" |
 | `bridge` | bin | loads a TOML venue patch (B.5.4), builds + starts the adapters, joins the relay as `bridge`, sends `devices { ports }`, plays `device` messages at their `at`, forwards device input as `device.in`. Not yet: the status window, osc / dmx adapters, a measured clock offset |
 
 `dmx-*`, `gpio`, `audio`, `video-in`, `display`, `laser` (CYBERDECKS.md §4, #178) do not exist yet – the bridge names them
@@ -99,6 +100,7 @@ deck/
   adapters/osc/       rosc over UDP, in + out
   relay/              the relay binary + tests/routing.rs (a real server, three roles, two groups)
   bridge/             the bridge binary + venue.example.toml
+  link/               deck-link: src/ (identity, link, http) · tests/link.rs (a fake server)
   stage/              deck-stage: src/ (graph, audio, render, library) · scenes/ · tests/no_alloc.rs
 shared/live/          @scutoons/live: src/protocol.ts (generated), test/ (fixture + generator tests)
 ```

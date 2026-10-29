@@ -1,0 +1,26 @@
+# deck-link – the deck's identity and access to scutoons.com (CYBERDECKS.md §9, #180): an Ed25519 key pair made at
+# first boot on the persistence partition (/var/lib/deck/identity), the request with the code for the splash, polling
+# until a member approves it, and the ~1 h tokens from a signed challenge, renewed by itself. The protocol logic runs
+# over a `Transport` trait (tests use a fake server); `HttpTransport` is ureq. Server side: server/docs/API.md "Decks".
+[package]
+name = "deck-link"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "deck-link"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+ed25519-dalek = "2"
+getrandom = "0.2"
+ureq = "2"
