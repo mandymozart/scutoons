@@ -17,7 +17,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use futures_util::{SinkExt, StreamExt};
 use protocol::{Envelope, Error as ProtocolError, Message, Pong, Role, To, Welcome};
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::handshake::server::{ErrorResponse, Request, Response};
@@ -189,12 +189,31 @@ pub async fn serve(listener: TcpListener, relay: Arc<Relay>) -> anyhow::Result<(
     }
 }
 
+/// Read one HTTP request head (up to and including the blank line) and discard it; bounded to 8 KiB.
+async fn drain_http_request(stream: &mut TcpStream) -> anyhow::Result<()> {
+    let mut buf = Vec::with_capacity(512);
+    let mut chunk = [0u8; 512];
+    loop {
+        let n = stream.read(&mut chunk).await?;
+        if n == 0 {
+            return Ok(());
+        }
+        buf.extend_from_slice(&chunk[..n]);
+        if buf.windows(4).any(|w| w == b"\r\n\r\n") || buf.len() > 8192 {
+            return Ok(());
+        }
+    }
+}
+
 async fn connection(mut stream: TcpStream, relay: Arc<Relay>) -> anyhow::Result<()> {
     // `GET /status` is plain HTTP (B.4 deploy freeze): tungstenite refuses a request without the upgrade headers
     // before any callback runs, so peek at the request line first and answer it ourselves.
     let mut head = [0u8; 512];
     let n = stream.peek(&mut head).await?;
     if head[..n].starts_with(b"GET /status ") {
+        // Consume the request before answering: a socket closed with unread bytes in its receive buffer is reset
+        // (RST, not FIN) on macOS / BSD, and the client's read then fails with ConnectionReset (CI 2026-10-29).
+        drain_http_request(&mut stream).await?;
         let (sessions, live) = relay.status();
         let body = format!(r#"{{"sessions":{sessions},"live":{live}}}"#);
         let response = format!(
