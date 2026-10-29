@@ -10,6 +10,7 @@ use std::time::Duration;
 
 use adapters_core::{Adapter, DeviceConfig, Inbound};
 use adapters_midi::MidiAdapter;
+use adapters_osc::OscAdapter;
 use anyhow::{anyhow, Context};
 use futures_util::{SinkExt, StreamExt};
 use protocol::{Devices, Envelope, Hello, Message, Port, Role, To, DeviceIn};
@@ -42,7 +43,7 @@ impl Patch {
 }
 
 /// Build (not start) an adapter per device. Adapters that are not built yet are an error that names them
-/// (CYBERDECKS.md §4: osc, dmx-artnet, dmx-sacn, dmx-usb, gpio, audio, video-in, display).
+/// (CYBERDECKS.md §4: dmx-artnet, dmx-sacn, dmx-usb, gpio, audio, video-in, display, laser #178).
 pub fn build_adapters(patch: &Patch) -> anyhow::Result<Vec<(String, Box<dyn Adapter>)>> {
     patch
         .devices
@@ -53,6 +54,11 @@ pub fn build_adapters(patch: &Patch) -> anyhow::Result<Vec<(String, Box<dyn Adap
                     let port = d.options.get("port").and_then(|v| v.as_str()).ok_or_else(|| anyhow!("{}: midi needs `port`", d.outlet))?;
                     let input = d.options.get("input").and_then(|v| v.as_bool()).unwrap_or(false);
                     Box::new(MidiAdapter::new(&d.outlet, port, input))
+                }
+                "osc" => {
+                    let host = d.options.get("host").and_then(|v| v.as_str());
+                    let listen = d.options.get("listen").and_then(|v| v.as_str());
+                    Box::new(OscAdapter::new(&d.outlet, host, listen).with_context(|| d.outlet.clone())?)
                 }
                 other => return Err(anyhow!("{}: adapter {other:?} is not built yet (#172 Open)", d.outlet)),
             };
@@ -150,10 +156,13 @@ mod tests {
     fn example_patch_parses_and_builds() {
         let patch = Patch::parse(EXAMPLE).unwrap();
         assert_eq!(patch.code().unwrap(), "A7K2");
-        assert_eq!(patch.devices.len(), 2);
+        assert_eq!(patch.devices.len(), 3);
         let adapters = build_adapters(&patch).unwrap();
         assert_eq!(adapters[0].0, "ableton");
         assert_eq!(adapters[0].1.name(), "midi");
+        assert_eq!(adapters[2].0, "resolume");
+        assert_eq!(adapters[2].1.name(), "osc");
+        assert_eq!(adapters[2].1.ports().len(), 2, "host out + listen in");
     }
 
     #[test]
@@ -161,6 +170,17 @@ mod tests {
         let patch = Patch::parse("relay = \"ws://x/live/Q\"\n[[device]]\noutlet = \"lights\"\nadapter = \"dmx-artnet\"\n").unwrap();
         let err = build_adapters(&patch).err().expect("an error").to_string();
         assert!(err.contains("dmx-artnet") && err.contains("lights"), "{err}");
+    }
+
+    #[test]
+    fn osc_needs_host_or_listen() {
+        let patch = Patch::parse("relay = \"ws://x/live/Q\"
+[[device]]
+outlet = \"td\"
+adapter = \"osc\"
+").unwrap();
+        let err = format!("{:#}", build_adapters(&patch).err().expect("an error"));
+        assert!(err.contains("td") && err.contains("host"), "{err}");
     }
 
     #[test]

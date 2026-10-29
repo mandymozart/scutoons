@@ -11,10 +11,11 @@ Owner 2026-10-29: Rust first, no Node + Electron for anything native.
 | `protocol` | lib | the B.6 envelope + message kinds as serde types, **generated** from `protocol/schema.json` (below) |
 | `adapters/core` | lib | the `Adapter` trait (start / send / stop / ports), `DeviceConfig`, the bus events the default maps translate |
 | `adapters/midi` | lib | `midir` in / out + the **default map** of B.3 (slice enter = note on ch 16, event types per channel, variables as CC) |
+| `adapters/osc` | lib | OSC over UDP (`rosc`): `host` = out (Resolume, TouchDesigner, laser software), `listen` = in → `device.in`; typed args (`int` / `float` / `string` / `bool`), bundles flattened |
 | `relay` | bin | WebSocket server: sessions by code, roles + groups from the URL / `hello`, stamps `seq` + `from`, routes by `to`, `ping` → `pong`, `GET /status`. Not yet: snapshot / replay, votes, clock lead, HMAC tokens, rate limits (each a `TODO(B.6 …)` in `relay/src/lib.rs`) |
 | `bridge` | bin | loads a TOML venue patch (B.5.4), builds + starts the adapters, joins the relay as `bridge`, sends `devices { ports }`, plays `device` messages at their `at`, forwards device input as `device.in`. Not yet: the status window, osc / dmx adapters, a measured clock offset |
 
-`osc`, `dmx-*`, `gpio`, `audio`, `video-in`, `display` (CYBERDECKS.md §4) do not exist yet – the bridge names them
+`dmx-*`, `gpio`, `audio`, `video-in`, `display`, `laser` (CYBERDECKS.md §4, #178) do not exist yet – the bridge names them
 in its error when a patch asks for one.
 
 ## Build and run
@@ -94,6 +95,7 @@ deck/
   protocol/           schema.json · generate.ts · fixtures/ · src/generated.rs (generated) · src/lib.rs (helpers, tests)
   adapters/core/      the Adapter trait
   adapters/midi/      midir + default map
+  adapters/osc/       rosc over UDP, in + out
   relay/              the relay binary + tests/routing.rs (a real server, three roles, two groups)
   bridge/             the bridge binary + venue.example.toml
 shared/live/          @scutoons/live: src/protocol.ts (generated), test/ (fixture + generator tests)

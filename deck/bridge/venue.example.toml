@@ -14,3 +14,9 @@ outlet = "pedal"
 adapter = "midi"
 port = "Pedal"
 input = true
+
+[[device]]
+outlet = "resolume"
+adapter = "osc"
+host = "127.0.0.1:7000"    # where messages go (Resolume / TouchDesigner / Ableton via a bridge, laser software)
+listen = "0.0.0.0:9000"    # optional: OSC in → device.in to the conductor (a controller, a tablet)

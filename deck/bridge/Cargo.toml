@@ -15,6 +15,7 @@ path = "src/main.rs"
 protocol = { workspace = true }
 adapters-core = { workspace = true }
 adapters-midi = { workspace = true }
+adapters-osc = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

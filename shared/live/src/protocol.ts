@@ -145,14 +145,28 @@ export interface React {
 	kind: string;
 }
 
-/** One message for a device, resolved against the venue patch. `midi`: raw bytes (status + data). `osc` / `dmx` come with their adapters (CYBERDECKS.md §4). */
+/** One message for a device, resolved against the venue patch. `midi`: raw bytes (status + data). `osc`: address + typed args. `dmx` comes with its adapters (CYBERDECKS.md §4). */
 export type DeviceMsg =
 	| { kind: 'midi'; p: MidiBytes }
-	| { kind: 'osc'; p: Loose }
+	| { kind: 'osc'; p: OscMessage }
 	| { kind: 'dmx'; p: Loose };
 
 export interface MidiBytes {
 	bytes: number[];
+}
+
+/** One OSC argument, typed (JSON alone cannot tell 2 from 2.0). On the wire: int32, float32, string, bool. Blobs / timetags come when something needs them. */
+export type OscArg =
+	| { kind: 'int'; p: number }
+	| { kind: 'float'; p: number }
+	| { kind: 'string'; p: string }
+	| { kind: 'bool'; p: boolean };
+
+/** An OSC message (in or out): the address pattern and its arguments. Bundles are flattened by the adapter. */
+export interface OscMessage {
+	/** `/like/this` */
+	address: string;
+	args: OscArg[];
 }
 
 /** relay → bridge: play `msgs` on `outlet` at `at`. */

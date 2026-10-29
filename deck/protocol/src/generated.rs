@@ -276,14 +276,14 @@ pub struct React {
 	pub kind: String,
 }
 
-/// One message for a device, resolved against the venue patch. `midi`: raw bytes (status + data). `osc` / `dmx` come with their adapters (CYBERDECKS.md §4).
+/// One message for a device, resolved against the venue patch. `midi`: raw bytes (status + data). `osc`: address + typed args. `dmx` comes with its adapters (CYBERDECKS.md §4).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "p")]
 pub enum DeviceMsg {
 	#[serde(rename = "midi")]
 	Midi(MidiBytes),
 	#[serde(rename = "osc")]
-	Osc(Loose),
+	Osc(OscMessage),
 	#[serde(rename = "dmx")]
 	Dmx(Loose),
 }
@@ -302,6 +302,40 @@ impl DeviceMsg {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MidiBytes {
 	pub bytes: Vec<u8>,
+}
+
+/// One OSC argument, typed (JSON alone cannot tell 2 from 2.0). On the wire: int32, float32, string, bool. Blobs / timetags come when something needs them.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", content = "p")]
+pub enum OscArg {
+	#[serde(rename = "int")]
+	Int(i64),
+	#[serde(rename = "float")]
+	Float(f64),
+	#[serde(rename = "string")]
+	String(String),
+	#[serde(rename = "bool")]
+	Bool(bool),
+}
+
+impl OscArg {
+	/// The `kind` string on the wire.
+	pub fn kind(&self) -> &'static str {
+		match self {
+			OscArg::Int(_) => "int",
+			OscArg::Float(_) => "float",
+			OscArg::String(_) => "string",
+			OscArg::Bool(_) => "bool",
+		}
+	}
+}
+
+/// An OSC message (in or out): the address pattern and its arguments. Bundles are flattened by the adapter.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OscMessage {
+	/// `/like/this`
+	pub address: String,
+	pub args: Vec<OscArg>,
 }
 
 /// relay → bridge: play `msgs` on `outlet` at `at`.

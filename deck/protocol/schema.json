@@ -178,10 +178,10 @@
       "additionalProperties": false
     },
     "DeviceMsg": {
-      "description": "One message for a device, resolved against the venue patch. `midi`: raw bytes (status + data). `osc` / `dmx` come with their adapters (CYBERDECKS.md §4).",
+      "description": "One message for a device, resolved against the venue patch. `midi`: raw bytes (status + data). `osc`: address + typed args. `dmx` comes with its adapters (CYBERDECKS.md §4).",
       "oneOf": [
         { "type": "object", "properties": { "kind": { "const": "midi" }, "p": { "$ref": "#/definitions/MidiBytes" } }, "required": ["kind", "p"] },
-        { "type": "object", "properties": { "kind": { "const": "osc" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "osc" }, "p": { "$ref": "#/definitions/OscMessage" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "dmx" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] }
       ]
     },
@@ -189,6 +189,25 @@
       "type": "object",
       "properties": { "bytes": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 255 } } },
       "required": ["bytes"],
+      "additionalProperties": false
+    },
+    "OscArg": {
+      "description": "One OSC argument, typed (JSON alone cannot tell 2 from 2.0). On the wire: int32, float32, string, bool. Blobs / timetags come when something needs them.",
+      "oneOf": [
+        { "type": "object", "properties": { "kind": { "const": "int" }, "p": { "type": "integer" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "float" }, "p": { "type": "number" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "string" }, "p": { "type": "string" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "bool" }, "p": { "type": "boolean" } }, "required": ["kind", "p"] }
+      ]
+    },
+    "OscMessage": {
+      "description": "An OSC message (in or out): the address pattern and its arguments. Bundles are flattened by the adapter.",
+      "type": "object",
+      "properties": {
+        "address": { "type": "string", "description": "`/like/this`" },
+        "args": { "type": "array", "items": { "$ref": "#/definitions/OscArg" } }
+      },
+      "required": ["address", "args"],
       "additionalProperties": false
     },
     "Device": {

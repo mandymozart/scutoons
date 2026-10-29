@@ -1,0 +1,16 @@
+[package]
+name = "adapters-osc"
+description = "OSC adapter (rosc over UDP): out to Ableton / TouchDesigner / Resolume / laser software, in from controllers"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+adapters-core = { workspace = true }
+protocol = { workspace = true }
+anyhow = { workspace = true }
+rosc = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }

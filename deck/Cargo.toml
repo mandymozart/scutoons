@@ -2,7 +2,7 @@
 # Build: `cargo build --release` here; run: deck/README.md. The release profile follows the dogma (CYBERDECKS.md §2).
 [workspace]
 resolver = "2"
-members = ["protocol", "adapters/core", "adapters/midi", "relay", "bridge"]
+members = ["protocol", "adapters/core", "adapters/midi", "adapters/osc", "relay", "bridge"]
 
 [workspace.package]
 version = "0.1.0"
@@ -15,6 +15,7 @@ publish = false
 protocol = { path = "protocol" }
 adapters-core = { path = "adapters/core" }
 adapters-midi = { path = "adapters/midi" }
+adapters-osc = { path = "adapters/osc" }
 anyhow = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -25,6 +26,7 @@ futures-util = { version = "0.3", default-features = false, features = ["sink", 
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 midir = "0.10"
+rosc = "0.10"
 
 # Dogma (CYBERDECKS.md §2): LTO, one codegen unit, abort on panic; the bridge is built for size (per-package below).
 [profile.release]
