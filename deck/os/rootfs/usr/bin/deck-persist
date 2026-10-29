@@ -2,8 +2,9 @@
 # Persistence on the live stick (CYBERDECKS.md §3): a second partition DECKDATA after the ISO, created on first boot
 # when the stick has free space, mounted at /var/lib/deck (venue patch, pairing, machine.toml, the pacman cache).
 # Exit 0 = /var/lib/deck is persistent (or this is an installed system); 1 = tmpfs this boot, the reason printed.
-# The ISO is an isohybrid (MBR boot code + GPT): sgdisk keeps the boot code, moves the backup GPT to the end of the
-# stick (-e) and appends the partition; `partx -a` tells the kernel about the new one while the ISO stays mounted.
+# archiso 91 writes an MBR (the ISO partition, the EFI partition) with the isohybrid boot code: sfdisk appends a third
+# partition and leaves the boot code alone; a GPT image gets sgdisk. `partx -a` tells the kernel about the new
+# partition while the stick is in use.
 set -u
 
 STATE=/var/lib/deck
@@ -46,21 +47,31 @@ case "$disk" in
 esac
 if [ "$(blockdev --getro "$disk" 2>/dev/null)" = 1 ]; then echo "$disk is read-only"; exit 1; fi
 
-size_b=$(blockdev --getsize64 "$disk")
-used_b=$(( $(sgdisk -p "$disk" 2>/dev/null | awk '/^ +[0-9]+ /{if ($3 > max) max = $3} END {print max+0}') * 512 ))
-free_mib=$(( (size_b - used_b) / 1048576 ))
+# free space after the image: sfdisk reports it for both label types (archiso 91 writes an MBR: ISO + EFI partitions)
+free_mib=$(( $(sfdisk -F "$disk" 2>/dev/null | awk '/^Unpartitioned space/ {gsub(",", "", $5); print $5; exit}') / 1048576 ))
 if [ "$free_mib" -lt "$MIN_MIB" ]; then
   echo "$disk has ${free_mib} MiB free after the image – nothing to create (${MIN_MIB} MiB needed)"; exit 1
 fi
 
 echo "creating $LABEL on $disk (${free_mib} MiB free after the image)"
-sgdisk -e "$disk" >/dev/null 2>&1 || true
-if ! sgdisk -n 0:0:0 -t 0:8300 -c "0:$LABEL" "$disk" >/dev/null; then
-  echo "sgdisk could not add a partition on $disk"; exit 1
-fi
+case "$(blkid -p -s PTTYPE -o value "$disk" 2>/dev/null)" in
+  dos)
+    # the MBR's boot code and the two image partitions stay; a third Linux partition fills the rest
+    if ! echo ',,L' | sfdisk --quiet --append --no-reread --no-tell-kernel "$disk" >/dev/null 2>&1; then
+      echo "sfdisk could not append a partition on $disk"; exit 1
+    fi
+    ;;
+  gpt)
+    sgdisk -e "$disk" >/dev/null 2>&1 || true
+    if ! sgdisk -n 0:0:0 -t 0:8300 -c "0:$LABEL" "$disk" >/dev/null; then
+      echo "sgdisk could not add a partition on $disk"; exit 1
+    fi
+    ;;
+  *) echo "$disk has no partition table I know"; exit 1 ;;
+esac
 partx -a "$disk" >/dev/null 2>&1 || partprobe "$disk" >/dev/null 2>&1 || true
 sleep 1
-new=$(lsblk -rpno NAME,PARTLABEL "$disk" | awk -v l="$LABEL" '$2 == l {print $1; exit}')
+new=$(lsblk -rpno NAME,TYPE "$disk" | awk '$2 == "part" {p = $1} END {print p}')
 if [ -z "$new" ]; then echo "the new partition did not appear – a reboot will mount it"; exit 1; fi
 mkfs.ext4 -q -L "$LABEL" "$new" || { echo "mkfs on $new failed"; exit 1; }
 mount_part "$new"
