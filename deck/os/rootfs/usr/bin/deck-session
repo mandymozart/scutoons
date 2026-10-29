@@ -1,9 +1,11 @@
 #!/bin/bash
 # The kiosk session (deck-kiosk.service, as the user deck): cage runs this script again inside the compositor
 # ("inside"), which plays the deck's app – `kiosk` in /var/lib/deck/deck.toml:
-#   "stage" (the default) – deck-stage, the native AV app (CYBERDECKS.md §8, #179); F2 in the stage (exit code 10) or a
-#                           stage that fails opens the browser on the conductor page; closing the browser
-#                           (Ctrl+Shift+W) returns to the stage
+#   "stage" (the default) – deck-stage, the native AV app (CYBERDECKS.md §8, #179); F2 in the stage starts the browser
+#                           on the conductor page ON TOP of the stage (DECK_BROWSER = "deck-session browser"; cage
+#                           shows the newest window): the stage keeps the logo up until the browser's window maps,
+#                           then pauses and mutes; closing the browser (Ctrl+Shift+W) shows the stage at once. A stage
+#                           that fails opens the browser alone.
 #   "browser"             – Chromium only, as before the stage (the conductor page)
 # `scene` = a scene TOML for the stage (empty = the built-in "AV madness"); `conductor` = the browser's page (empty =
 # the deck's own start page: the machine report, the relay status).
@@ -17,10 +19,6 @@ export HOME="$STATE/home"
 mkdir -p "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME"
 
 setting() { sed -n "s/^$1 *= *\"\([^\"]*\)\".*/\1/p" "$STATE/deck.toml" 2>/dev/null | head -1; }
-
-if [ "${1:-}" != inside ]; then
-  exec cage -- "$0" inside
-fi
 
 browser() {
   local url; url=$(setting conductor)
@@ -39,6 +37,12 @@ d}" /usr/share/deck/start.html <<<"$report" >"$page"
     --user-data-dir="$XDG_CONFIG_HOME/chromium" "$url"
 }
 
+case "${1:-}" in
+  inside) ;;
+  browser) browser; exit $? ;;              # the stage's F2 (DECK_BROWSER), inside cage already
+  *) exec cage -- "$0" inside ;;
+esac
+
 mode=$(setting kiosk)
 if [ "${mode:-stage}" = browser ] || ! command -v deck-stage >/dev/null; then
   browser
@@ -46,12 +50,13 @@ if [ "${mode:-stage}" = browser ] || ! command -v deck-stage >/dev/null; then
 fi
 
 scene=$(setting scene)
+export DECK_BROWSER="$0 browser"
 while :; do
   deck-stage --cache "$STATE/cache" ${scene:+--scene "$scene"}
   rc=$?
   case $rc in
     0) continue ;;                       # Ctrl+Q: the stage starts again
-    10) browser ;;                       # F2: the conductor page, then back to the stage
+    10) browser ;;                       # F2 of a stage without DECK_BROWSER: the conductor page, then back
     *) echo "deck-stage exited with $rc – the browser instead (journalctl -u deck-kiosk)" >&2
        sleep 1; browser ;;
   esac

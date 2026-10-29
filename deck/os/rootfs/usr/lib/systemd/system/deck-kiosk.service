@@ -14,6 +14,9 @@ StandardInput=tty-fail
 StandardOutput=journal
 StandardError=journal
 UtmpIdentifier=tty1
+# the boot splash steps down (keeping its last frame) right before cage takes the screen (#179); + = as root, - = fine
+# without plymouth (the safe boot entries)
+ExecStartPre=+-/usr/bin/plymouth quit --retain-splash
 ExecStart=/usr/bin/deck-session
 Restart=on-failure
 RestartSec=2

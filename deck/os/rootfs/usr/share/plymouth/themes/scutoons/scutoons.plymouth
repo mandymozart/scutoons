@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=SCUTOONS
+Description=The SCUTOONS logo in white on black, the boot's messages under it (deck/os, #179)
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/scutoons
+ScriptFile=/usr/share/plymouth/themes/scutoons/scutoons.script

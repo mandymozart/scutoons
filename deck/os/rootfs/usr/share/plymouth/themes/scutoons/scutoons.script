@@ -1,0 +1,33 @@
+# The deck's boot splash (#179): the logo (logo.png – rendered from the official SVG at image build time, build.sh) at
+# half the screen width, centred on black; `plymouth display-message` (deck-firstboot's steps) in grey under it.
+Window.SetBackgroundTopColor(0, 0, 0);
+Window.SetBackgroundBottomColor(0, 0, 0);
+
+logo.raw = Image("logo.png");
+logo.w = Window.GetWidth() * 0.5;
+logo.h = logo.raw.GetHeight() * logo.w / logo.raw.GetWidth();
+logo.image = logo.raw.Scale(logo.w, logo.h);
+logo.sprite = Sprite(logo.image);
+logo.sprite.SetX(Window.GetX() + (Window.GetWidth() - logo.w) / 2);
+logo.sprite.SetY(Window.GetY() + (Window.GetHeight() - logo.h) / 2);
+
+message.sprite = Sprite();
+fun message_callback(text) {
+  message.image = Image.Text(text, 0.6, 0.6, 0.6, 1, "Sans 14");
+  message.sprite.SetImage(message.image);
+  message.sprite.SetX(Window.GetX() + (Window.GetWidth() - message.image.GetWidth()) / 2);
+  message.sprite.SetY(Window.GetY() + (Window.GetHeight() + logo.h) / 2 + Window.GetHeight() * 0.06);
+}
+Plymouth.SetMessageFunction(message_callback);
+
+# a password / question prompt (not used by the deck, but never a blank screen if something asks)
+fun display_normal_callback() { prompt.sprite.SetOpacity(0); }
+fun display_question_callback(prompt_text, entry_text) {
+  prompt.image = Image.Text(prompt_text + " " + entry_text, 1, 1, 1, 1, "Sans 14");
+  prompt.sprite = Sprite(prompt.image);
+  prompt.sprite.SetX(Window.GetX() + (Window.GetWidth() - prompt.image.GetWidth()) / 2);
+  prompt.sprite.SetY(Window.GetY() + Window.GetHeight() * 0.85);
+  prompt.sprite.SetOpacity(1);
+}
+Plymouth.SetDisplayNormalFunction(display_normal_callback);
+Plymouth.SetDisplayQuestionFunction(display_question_callback);

@@ -1,8 +1,10 @@
 # The deck's boot flow on tty1 (CYBERDECKS.md §3, #173): persistence → Wi-Fi picker → deck-check → then deck-kiosk.service
-# takes the tty. Runs on every boot; each step skips itself when its result exists (deck-firstboot).
+# takes the tty. Runs on every boot; each step skips itself when its result exists (deck-firstboot). Under the boot
+# splash (plymouth, #179): its steps show as messages under the logo, the splash steps aside only for a menu – so no
+# TTY reset / hangup here (that would pull the VT from under plymouth); plymouth quits when the kiosk starts.
 [Unit]
 Description=SCUTOONS deck boot flow (persistence, Wi-Fi, hardware check)
-After=systemd-user-sessions.service NetworkManager.service plymouth-quit-wait.service
+After=systemd-user-sessions.service NetworkManager.service plymouth-start.service
 Wants=NetworkManager.service
 Conflicts=getty@tty1.service
 Before=deck-kiosk.service
@@ -15,9 +17,6 @@ StandardInput=tty-force
 StandardOutput=tty
 StandardError=tty
 TTYPath=/dev/tty1
-TTYReset=yes
-TTYVHangup=yes
-TTYVTDisallocate=yes
 TimeoutStartSec=0
 
 [Install]

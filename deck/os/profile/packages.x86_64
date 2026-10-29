@@ -80,3 +80,5 @@ curl
 git
 htop
 zsh
+# the boot splash: the SCUTOONS logo (rootfs/usr/share/plymouth/themes/scutoons, #179)
+plymouth

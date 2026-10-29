@@ -13,8 +13,8 @@ url="https://scutoons.com"
 license=('custom:UNLICENSED')
 depends=('cage' 'chromium' 'pipewire' 'wireplumber' 'rtkit' 'realtime-privileges' 'networkmanager' 'iwd'
          'vulkan-icd-loader' 'libxkbcommon' 'vulkan-tools' 'libva-utils' 'alsa-lib' 'curl' 'gptfdisk' 'squashfs-tools'
-         'arch-install-scripts')
-makedepends=('cargo' 'alsa-lib' 'pipewire' 'clang')
+         'arch-install-scripts' 'plymouth')
+makedepends=('cargo' 'alsa-lib' 'pipewire' 'clang' 'librsvg')
 backup=('etc/pipewire/pipewire.conf.d/10-deck-rt.conf'
         'etc/NetworkManager/conf.d/deck.conf'
         'etc/NetworkManager/system-connections/deck-hotspot.nmconnection')
@@ -50,6 +50,8 @@ package() {
   install -Dm644 -t "$pkgdir/usr/share/deck/scenes" "$_deck"/stage/scenes/*.toml
   # the boot flow: everything under deck/os/rootfs lands as it is laid out there
   cp -r "$_deck/os/rootfs/." "$pkgdir/"
+  # the boot splash's logo (#179): the official SVG in white → plymouth's PNG
+  rsvg-convert -w 1536 "$_deck/stage/assets/SCUTOONS-logo-white.svg" -o "$pkgdir/usr/share/plymouth/themes/scutoons/logo.png"
   chmod 755 "$pkgdir"/usr/bin/deck-*
   chmod 600 "$pkgdir/etc/NetworkManager/system-connections/deck-hotspot.nmconnection"
   install -Dm644 "$_deck/README.md" "$pkgdir/usr/share/doc/$pkgname/README.md"

@@ -2,6 +2,8 @@
 # The Wi-Fi picker of the boot flow (deck-firstboot step 2). Online already (wired, or a Wi-Fi NetworkManager remembers
 # on the persistence partition) → a countdown, Enter changes the network. Otherwise a menu: nmtui's network picker,
 # the deck's own hotspot (deck-hotspot.nmconnection), or no network (the local relay works without one).
+# Under the boot splash (plymouth, #179) the countdown is a message under the logo and any key opens the menu; the
+# splash steps aside for the menu (deck-firstboot brings it back).
 set -u
 
 CYAN=$'\e[36m'; DIM=$'\e[2m'; OFF=$'\e[0m'
@@ -19,16 +21,30 @@ status() {
   printf '%s' "${dev##*:} (${dev%%:*}: $(ip -o -4 addr show scope global 2>/dev/null | awk '{print $4; exit}'))"
 }
 
+splash() { command -v plymouth >/dev/null && plymouth --ping 2>/dev/null; }
+
 # NetworkManager needs a moment after boot before a wired link or a remembered Wi-Fi is up
 for _ in 1 2 3 4 5 6; do online && break; sleep 1; done
 
-while true; do
+asked=0   # a key under the splash asked for the menu already: no second countdown
+if splash; then
   if online; then
+    plymouth display-message --text="online: $(status) – a key changes the network (${wait_s} s)"
+    timeout "$wait_s" plymouth watch-keystroke >/dev/null 2>&1 || exit 0
+    asked=1
+  fi
+  plymouth hide-splash 2>/dev/null
+  clear
+fi
+
+while true; do
+  if online && [ "$asked" = 0 ]; then
     printf '%sonline:%s %s – Enter to change the network, going on in %ss ' "$CYAN" "$OFF" "$(status)" "$wait_s"
     if read -r -t "$wait_s" -n 1; then echo; else echo; exit 0; fi
-  else
+  elif ! online; then
     printf '%snot online.%s\n' "$CYAN" "$OFF"
   fi
+  asked=0
   printf '  %sW%s  pick a Wi-Fi (nmtui)\n' "$CYAN" "$OFF"
   printf '  %sH%s  start the deck'"'"'s own hotspot (scutoons-deck / scutoons-deck)\n' "$CYAN" "$OFF"
   printf '  %sN%s  no network – go on (the local relay works; the conductor page needs one later)\n' "$CYAN" "$OFF"

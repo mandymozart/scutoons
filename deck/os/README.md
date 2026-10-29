@@ -21,7 +21,9 @@ What `container/build.sh` does: installs archiso + rust (+ pipewire, clang for t
 `relay`, `bridge`, `deck-check`, `deck-stage` (feature `pipewire`) → copies archiso's **releng** profile, removes its live-only bits (root autologin, reflector, the mirror chooser,
 networkd), overlays `profile/` (packages, pacman.conf, identity, airootfs) and `rootfs/` (the deck's units, scripts
 and config – the same tree the PKGBUILD installs), drops the binaries in as `deck-relay`, `deck-bridge`,
-`deck-check`, `deck-stage` (+ its scenes in `/usr/share/deck/scenes`), renames the kernel in the boot entries to `linux-rt`, adds a serial console → `mkarchiso`.
+`deck-check`, `deck-stage` (+ its scenes in `/usr/share/deck/scenes`), renders the logo (deck/stage/assets, the
+official SVG in white) into plymouth's `logo.png` and the BIOS menu's `splash.png` (librsvg + imagemagick), renames the
+kernel in the boot entries to `linux-rt`, adds a serial console → `mkarchiso`.
 
 ## Write it to a stick
 
@@ -51,17 +53,27 @@ a disk with EFI enabled.
 
 ## The boot menu
 
-UEFI (systemd-boot, 5 s) and BIOS (syslinux) show the same three entries: **SCUTOONSDECK (live)** – the default;
+UEFI (systemd-boot) boots straight on – **hold / tap Space at power-on** for its menu; BIOS (syslinux) shows the menu
+under the logo. The same three entries: **SCUTOONSDECK (live)** – the default;
 **recheck the hardware** – `deck.recheck` on the kernel line, deck-check runs again on a stick that already knows the
 machine; **safe graphics, messages stay on screen** – `nomodeset panic=0 loglevel=7 console=tty1`, no serial console:
-for a machine that resets or shows nothing (the kernel's messages stay readable, a panic does not reboot). Plus "Boot
+for a machine that resets or shows nothing (the kernel's messages stay readable, a panic does not reboot, no boot
+splash: `plymouth.enable=0`). Plus "Boot
 the existing OS", Reboot, Power Off on BIOS. Nothing on the stick installs anything by itself.
 
 ## What happens at boot (tty1)
 
+Under the logo (owner 2026-10-29, #179): the SCUTOONS logo in white on black from the initramfs on (plymouth, theme
+`rootfs/usr/share/plymouth/themes/scutoons`, a quiet kernel line: `quiet splash loglevel=3 …`). deck-firstboot's
+steps show as messages under it; it steps aside only for a menu (the Wi-Fi menu when offline or asked for, a failing
+check's shell) and quits, keeping its last frame, right before cage starts (deck-kiosk.service); the stage's first
+frame is the logo again (deck/stage: until the chapter and the music are loaded), and F2 keeps it up until the
+browser's window is there.
+
 1. `deck-firstboot.service` – persistence (`deck-persist`), the defaults into `/var/lib/deck` (`venue.toml`,
    `deck.toml`), the local relay starts.
-2. `deck-wifi` – online already (wired, a remembered Wi-Fi) → 8 s countdown; else **W** nmtui's picker, **H** the deck's
+2. `deck-wifi` – online already (wired, a remembered Wi-Fi) → 8 s countdown (under the splash: a message, any key
+   opens the menu); else **W** nmtui's picker, **H** the deck's
    own hotspot (`deck-hotspot.nmconnection`: SSID `scutoons-deck`, key `scutoons-deck`, the deck is 10.42.0.1),
    **N** no network, **S** a shell.
 3. `deck-check` – the report on screen, `/var/lib/deck/machine.toml` (class + features; CYBERDECKS.md §1). Once per
@@ -70,9 +82,11 @@ the existing OS", Reboot, Power Off on BIOS. Nothing on the stick installs anyth
    display device leaves a root shell instead of the kiosk.
 4. `deck-kiosk.service` – `cage` runs `deck-session` as the user `deck`, which plays `kiosk` from
    `/var/lib/deck/deck.toml`: **`stage`** (the default) = `deck-stage` (deck/stage/README.md) with `scene` (empty = the
-   built-in "AV madness": catpope 1's music + synths, the FFT drives the picture; its cache in `/var/lib/deck/cache`);
-   **F2** or a stage that fails opens Chromium on the page `conductor` names (empty = the deck's own start page: the
-   machine report, the relay's `/status`, the link to the conductor), closing it (Ctrl+Shift+W) returns to the stage.
+   built-in "AV madness": catpope 1's slices, captions and music + synths, the FFT drives the picture; its cache in
+   `/var/lib/deck/cache`); **F2** opens Chromium on the page `conductor` names (empty = the deck's own start page: the
+   machine report, the relay's `/status`, the link to the conductor) on top of the stage, which shows the logo until
+   Chromium's window covers it, then pauses and mutes; closing Chromium (Ctrl+Shift+W) shows the stage at once. A
+   stage that fails opens Chromium alone.
    `kiosk = "browser"` = Chromium only. `deck-bridge.service` joins the local relay with `/var/lib/deck/venue.toml`.
 
 tty2 is a shell (Ctrl+Alt+F2), so is the serial port; ssh is key-only (no passwords on the image). `pacman -S` works

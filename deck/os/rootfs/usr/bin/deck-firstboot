@@ -10,8 +10,15 @@ set -u
 
 STATE=/var/lib/deck
 CYAN=$'\e[36m'; RED=$'\e[31m'; DIM=$'\e[2m'; OFF=$'\e[0m'
-say() { printf '%s[deck]%s %s\n' "$CYAN" "$OFF" "$*"; }
+# the boot splash (plymouth, #179): while it is up, each step is a message under the logo (the tty gets it too)
+splash() { command -v plymouth >/dev/null && plymouth --ping 2>/dev/null; }
+say() {
+  printf '%s[deck]%s %s\n' "$CYAN" "$OFF" "$*"
+  splash && plymouth display-message --text="$(printf '%s' "$*" | sed 's/\x1b\[[0-9;]*m//g')" 2>/dev/null
+  return 0
+}
 fail() {
+  splash && plymouth quit 2>/dev/null   # the shell below needs the screen
   printf '\n%s[deck] %s%s\n' "$RED" "$*" "$OFF"
   printf '%sThe kiosk does not start. This is a shell (root); `deck-check` re-runs the check, `exit` ends it.%s\n' "$DIM" "$OFF"
   exec /bin/bash -l
@@ -27,9 +34,10 @@ install -d -o deck -g deck "$STATE" "$STATE/home" "$STATE/cache"
 [ -f "$STATE/venue.toml" ] || install -o deck -g deck -m 644 /usr/share/deck/venue.default.toml "$STATE/venue.toml"
 [ -f "$STATE/deck.toml" ] || install -o deck -g deck -m 644 /usr/share/deck/deck.default.toml "$STATE/deck.toml"
 
-# 2. network
+# 2. network (deck-wifi hides the splash for its menu and says so; the logo comes back after it)
 say "network"
 deck-wifi
+splash && plymouth show-splash 2>/dev/null
 
 # 3. hardware check (once; `deck-check` on a shell re-runs it; RECHECK=1 on the kernel line forces it)
 if [ -s "$STATE/machine.toml" ] && ! grep -qw 'deck.recheck' /proc/cmdline; then

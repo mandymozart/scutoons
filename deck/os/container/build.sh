@@ -14,8 +14,9 @@ RELENG=/usr/share/archiso/configs/releng
 
 echo "== packages (host tools)"
 pacman-key --init >/dev/null 2>&1 || true
-# pipewire + clang: the stage's PipeWire backend (pipewire-sys runs bindgen against libpipewire's headers)
-pacman -Syu --noconfirm --needed archiso rust base-devel alsa-lib git pipewire clang >/dev/null
+# pipewire + clang: the stage's PipeWire backend (pipewire-sys runs bindgen against libpipewire's headers);
+# librsvg + imagemagick: the logo's PNGs (plymouth, the BIOS menu) from the SVG
+pacman -Syu --noconfirm --needed archiso rust base-devel alsa-lib git pipewire clang librsvg imagemagick >/dev/null
 echo "   archiso $(pacman -Q archiso | cut -d' ' -f2), rust $(rustc --version | cut -d' ' -f2), kernel package: $KERNEL"
 pacman -Si "$KERNEL" >/dev/null 2>&1 || { echo "no package '$KERNEL' in the repos – set DECK_KERNEL=linux"; exit 1; }
 
@@ -38,7 +39,7 @@ rm -rf "$PROFILE/airootfs/etc/systemd/system/getty@tty1.service.d" "$PROFILE/air
        "$PROFILE/airootfs/etc/xdg/reflector" "$PROFILE/airootfs/etc/systemd/network" \
        "$PROFILE/airootfs/etc/systemd/system/systemd-networkd-wait-online.service.d"
 # the boot menus are ours (SCUTOONSDECK, no install-medium / speech / memtest entries, no PXE, no grub – the bootmodes are
-# bios.syslinux + uefi.systemd-boot); releng's splash.png stays
+# bios.syslinux + uefi.systemd-boot); the BIOS menu's splash.png is the logo (below)
 rm -rf "$PROFILE/efiboot/loader/entries" "$PROFILE/grub" "$PROFILE/syslinux/archiso_pxe.cfg" "$PROFILE/syslinux/archiso_pxe-linux.cfg"
 cp -r "$SRC/os/profile/packages.x86_64" "$SRC/os/profile/pacman.conf" "$PROFILE/"
 cp -r "$SRC/os/profile/efiboot" "$SRC/os/profile/syslinux" "$PROFILE/"
@@ -48,6 +49,11 @@ cp -r "$SRC/os/rootfs/." "$PROFILE/airootfs/"
 if grep -nE '^[A-Za-z0-9_.-]+=$' "$PROFILE"/airootfs/etc/NetworkManager/system-connections/*.nmconnection; then
   echo "an empty value in a NetworkManager keyfile (above) – NetworkManager would drop the profile"; exit 1
 fi
+# the logo (#179) – the official SVG in white (deck/stage/assets) → plymouth's logo.png and the BIOS menu's background
+logo="$SRC/stage/assets/SCUTOONS-logo-white.svg"
+rsvg-convert -w 1536 "$logo" -o "$PROFILE/airootfs/usr/share/plymouth/themes/scutoons/logo.png"
+rsvg-convert -w 320 "$logo" -o "$WORK/logo-320.png"
+magick -size 640x480 xc:black "$WORK/logo-320.png" -gravity north -geometry +0+24 -composite PNG24:"$PROFILE/syslinux/splash.png"
 install -Dm755 "$WORK/target/release/relay" "$PROFILE/airootfs/usr/bin/deck-relay"
 install -Dm755 "$WORK/target/release/bridge" "$PROFILE/airootfs/usr/bin/deck-bridge"
 install -Dm755 "$WORK/target/release/deck-check" "$PROFILE/airootfs/usr/bin/deck-check"
