@@ -1,4 +1,4 @@
-Status 2026-10-29: research brief, nothing built (#171, milestone "Cyberdecks"). Decided (owner 2026-10-29, DECISIONS): **Rust first** – the Live relay + bridge in Rust from the 2026-11-16 kickoff, no Node + Electron. Dates (owner 2026-10-29): beta at the Top Toy workshop 2027-02-17, public for a tour in summer 2027. Still open in #171: repo place, first hardware. Builds on research/LIVE.md (B.4 relay, B.6 protocol, B.7 bridge) – the Live kickoff 2026-11-16 is where this plan first meets code.
+Status 2026-10-29: research brief, nothing built (#171, milestone "Cyberdecks"). Decided (owner 2026-10-29, DECISIONS): **Rust first** – the Live relay + bridge in Rust from the 2026-11-16 kickoff, no Node + Electron. Dates (owner 2026-10-29): beta at the Top Toy workshop 2027-02-17, public for a tour in summer 2027. Hardware (owner 2026-10-29): the owner's ThinkPad X1 first, a Framework 13 AMD mainboard for the built deck; the code lives in `deck/` (#172). Builds on research/LIVE.md (B.4 relay, B.6 protocol, B.7 bridge) – the Live kickoff 2026-11-16 is where this plan first meets code.
 
 # CYBERDECKS — Arch Linux decks running the SCUTOONS suite natively (Rust)
 
@@ -13,7 +13,7 @@ Three hardware classes, one image each (§3), the same binaries:
 
 | Class | Example | GPU / Vulkan | Video decode | Video encode | Fit |
 |---|---|---|---|---|---|
-| **A x86** | an old ThinkPad, a NUC / mini PC, a Steam-Deck-like handheld | Intel / AMD iGPU, Mesa (anv / radv) | VA-API (H.264, HEVC, AV1 on newer) | VA-API | conductor laptop, editing, 3D – **first target** |
+| **A x86** | an old ThinkPad, a NUC / mini PC, a Steam-Deck-like handheld | Intel / AMD iGPU, Mesa (anv / radv) | VA-API (H.264, HEVC, AV1 on newer) | VA-API | conductor laptop, editing, 3D – **first target**: the owner's ThinkPad X1 (today), a Framework 13 AMD mainboard (the built deck) |
 | **B ARM big** | Rockchip RK3588 boards (Orange Pi 5, Rock 5, Radxa) | Mali G610, Mesa Panthor (Vulkan since kernel 6.10) | V4L2 stateless + rkmpp (4K HEVC / AV1) | rkmpp (H.264 / HEVC) | a fanless output / bridge deck, 8–16 GB |
 | **C ARM small** | Raspberry Pi 5 | VideoCore VII, Mesa V3D (Vulkan 1.2) | HEVC only (V4L2) | **none** – software | the cheapest bridge: MIDI / DMX / OSC / GPIO, no video |
 
@@ -110,5 +110,5 @@ as the workshop, refined); **public = a tour in summer 2027** (phases 4–5 as f
 - **Signing / distribution** on macOS / Windows stays as in B.7 (unsigned for now); Linux decks need none.
 
 ## 8. Open work
-Lives in the issues, not here: the decisions in #171 (repo place, the first class-A machine), the phases #172–#176.
+Lives in the issues, not here: the phases #172–#176 (#171 holds the plan and the decisions, all taken 2026-10-29).
 LIVE.md B.4 / B.7 point here since 2026-10-29.
