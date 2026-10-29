@@ -31,6 +31,13 @@ image and hides what the deck cannot do. Phones, tablets and the audience never 
 - Sizes in the UI follow DESIGN.md as far as the toolkit allows (rem-like scaling by the display's DPI).
 
 ## 3. The OS image
+- **A live USB stick first** (owner 2026-10-29: "hijack any hardware around"): the x86 image boots any machine from the
+  stick without touching its disk – first screen: pick the Wi-Fi (or the deck's own hotspot), then `deck-check` runs:
+  GPU + Vulkan driver, video decode / encode paths, audio device + latency, MIDI / USB / serial devices, RAM, and writes
+  the result as the machine's class and feature set (what §1 calls "the suite reads the class"); then the suite starts.
+  Persistence on the stick (a second partition: venue patches, pairing, the pacman cache). **Install to a partition is
+  optional** – the same image, `deck-install` next to the check (a guided partition pick, never the whole disk unasked).
+  The ARM images (B, C) are SD / eMMC images of the same package set; the check and the installer are the same scripts.
 - **Arch Linux** (x86) and **Arch Linux ARM** (B, C) – the same package set, built reproducibly from the repo:
   `deck/os/` with an `archiso`-style profile for x86 and a `pacstrap` image builder for ARM; the suite as PKGBUILDs in
   `deck/pkg/`, published to our own pacman repository (a bunny storage zone, like the CDN) – a deck updates with
