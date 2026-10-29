@@ -169,7 +169,10 @@ Handshake, then approval, then data – a deck touches no SCUTOONS data before a
    rights, renewed by itself while it runs – an internal detail, not a setting. Read-only for content; cached content keeps playing offline.
 5. **Revoke / timeout:** the next renewal fails → the splash with a new code, a new request. The build never becomes
    useless.
-Every deck is a row of its own (build, last seen, mapping), even when all map to one user. Before approval the stage
+**Who:** every member can pair a deck, readers included (owner 2026-10-29: gadgets people buy and link to their
+account) – a device gets exactly its owner's rights, so pairing sits on the viewer's account page, phone-first (scan
+the QR on the splash). Open: pairing a gadget without a screen (a code printed on it, or the phone over the local
+network). Every deck is a row of its own (build, last seen, mapping), even when all map to one user. Before approval the stage
 plays built-in scenes only. Master-quality media (stems, high-res video) are not part of this: they are show media,
 assigned to outlets in the Live conductor (LIVE.md B.5.6) – a concept still to make (storyboard, slice editor and Live
 views together, owner 2026-10-29); the deck then fetches what its outlet is given, with its access token.
