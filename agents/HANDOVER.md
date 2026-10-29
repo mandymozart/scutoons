@@ -28,8 +28,8 @@ State 2026-10-12. How agents work: agents/RULES.md. Open work: GitHub issues + t
 - AI = the member's own Claude through the SCUTOONS MCP (agents/MCP.md); the Ask panel / service is gone (2026-10-09,
   clean-up done). Developers' agents run migrations over the MCP (developer role).
 - Embassy live (embassy.scutoons.com, agents/EMBASSY.md); newsletter live (agents/NEWSLETTER.md).
-- `deck/` (2026-10-29, #172): the Rust workspace of research/CYBERDECKS.md – `relay`, `bridge`, `adapters/core` + `midi`,
-  `protocol` generated from `deck/protocol/schema.json` with `shared/live` (`@scutoons/live`); CI deck.yml; deck/README.md.
+- `deck/` (2026-10-29, #172 / #173): the Rust workspace of research/CYBERDECKS.md – relay, bridge, adapters, protocol from
+  `deck/protocol/schema.json` (+ shared/live); `deck/os` = the class-A live ISO (`npm run deck:iso` in Docker, `deck:vm`), deck/pkg, HARDWARE.md.
 - Live performance mode restarts 2026-11-16 for the Top Toy workshop (2027-02-17; research/LIVE.md, KANON.md §8);
   parked: the onion camera (checkout `C:\Development\scutoons-onion-camera`, branch `items/onion-camera`).
 - Other checkouts (`git worktree list`): owner-requested drafts and parked branches (newsletter, onion-camera,
