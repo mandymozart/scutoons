@@ -55,7 +55,7 @@ printf '%s2/5%s unsquashfs the live root (a few minutes)\n' "$CYAN" "$OFF"
 unsquashfs -f -q -n -d "$M" "$SFS" >/dev/null
 
 printf '%s3/5%s the installed system: no live hooks, fstab, hostname\n' "$CYAN" "$OFF"
-rm -f "$M/etc/mkinitcpio.conf.d/archiso.conf" "$M/etc/deck-live"
+rm -f "$M/etc/mkinitcpio.conf.d/archiso.conf" "$M/etc/deck-live" "$M/etc/pacman.d/hooks/90-mkinitcpio-install.hook"
 rm -rf "$M/etc/systemd/system/getty@tty1.service.d" "$M/root/.automated_script.sh"
 [ -d "$M/var/lib/deck" ] || install -d -o 1000 -g 1000 "$M/var/lib/deck"
 genfstab -U "$M" >"$M/etc/fstab"

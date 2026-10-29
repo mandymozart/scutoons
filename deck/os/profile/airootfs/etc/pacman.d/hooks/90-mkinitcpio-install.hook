@@ -1,0 +1,14 @@
+# Live image only: overrides mkinitcpio's hook of the same name. The stick keeps the kernel + initramfs in its ISO
+# (nothing in /boot), so the stock hook's `mkinitcpio -p linux-rt` fails after any firmware / module package
+# (`pacman -S sof-firmware` on the X1, 2026-10-29). deck-install drops this file on an installed deck, where the
+# stock hook rebuilds the initramfs as usual. mkarchiso runs mkinitcpio itself at build time, not through this hook.
+[Trigger]
+Type = Package
+Operation = Install
+Operation = Upgrade
+Target = mkinitcpio
+
+[Action]
+Description = Live image: the initramfs lives on the stick, nothing to rebuild
+When = PostTransaction
+Exec = /usr/bin/true

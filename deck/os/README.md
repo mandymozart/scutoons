@@ -72,7 +72,9 @@ the existing OS", Reboot, Power Off on BIOS. Nothing on the stick installs anyth
    `/var/lib/deck/deck.toml`; empty = the deck's own start page (the machine report, the relay's `/status`, the link
    to the conductor). `deck-bridge.service` joins the local relay with `/var/lib/deck/venue.toml`.
 
-tty2 is a shell (Ctrl+Alt+F2), so is the serial port; ssh is key-only (no passwords on the image). The user `deck`
+tty2 is a shell (Ctrl+Alt+F2), so is the serial port; ssh is key-only (no passwords on the image). `pacman -S` works
+on the live stick (the cache lives on DECKDATA); the live image overrides mkinitcpio's install hook with a no-op, since
+the kernel and initramfs stay in the ISO (an installed deck gets the stock hook back). The user `deck`
 (uid 1000) is in audio, video, input, realtime, uucp; PipeWire runs at 48 kHz / quantum 128 with rtkit
 (`rootfs/etc/pipewire/pipewire.conf.d/10-deck-rt.conf`) under `user@1000` (linger) so the check can read it.
 
