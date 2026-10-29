@@ -16,7 +16,7 @@ if [ -z "$url" ]; then
   relay=$(curl -s -m 2 http://127.0.0.1:7700/status 2>/dev/null || echo '(not running)')
   report=$(sed 's/&/\&amp;/g; s/</\&lt;/g' "$STATE/machine.toml" 2>/dev/null || echo '(no machine.toml)')
   nets=$(nmcli -t -f DEVICE,STATE,CONNECTION device 2>/dev/null | grep ':connected:' | tr '\n' ' ')
-  sed -e "s|@HOST@|$(hostname)|g" -e "s|@RELAY@|$relay|g" -e "s|@NETS@|${nets:-offline}|g" \
+  sed -e "s|@HOST@|$(uname -n)|g" -e "s|@RELAY@|$relay|g" -e "s|@NETS@|${nets:-offline}|g" \
       -e "/@REPORT@/{r /dev/stdin
 d}" /usr/share/deck/start.html <<<"$report" >"$page"
   url="file://$page"

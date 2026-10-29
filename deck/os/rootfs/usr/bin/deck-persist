@@ -11,10 +11,15 @@ LABEL=DECKDATA
 MIN_MIB=256
 
 # an installed system has /var/lib/deck on its root – nothing to do
-boot=$(findmnt -no SOURCE /run/archiso/bootmnt 2>/dev/null)
-if [ -z "$boot" ]; then
+if [ ! -d /run/archiso ]; then
   echo "installed system – $STATE lives on the root filesystem"
   exit 0
+fi
+# the stick: archiso 91 copies the image to RAM and unmounts it, so find the disk by the ISO's label (DECK_<yyyymm>)
+boot=$(lsblk -rpno NAME,FSTYPE,LABEL,TYPE | awk '$2 == "iso9660" && $3 ~ /^DECK_/ {print $1; exit}')
+if [ -z "$boot" ]; then
+  echo "no disk with the DECK_ image label – booted from the network or an unknown medium"
+  exit 1
 fi
 
 mount_part() {

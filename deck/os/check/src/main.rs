@@ -188,8 +188,8 @@ fn classify(m: &mut Machine) {
     } else if !m.audio.pipewire_live {
         m.warnings.push("PipeWire rate / quantum are the configured values (the daemon was not running)".to_owned());
     }
-    if gb < 4 {
-        m.warnings.push(format!("{gb} GB RAM – the browser kiosk wants 4 GB or more"));
+    if m.memory.total_mib < 3800 {
+        m.warnings.push(format!("{} MiB RAM – the browser kiosk wants 4 GB or more", m.memory.total_mib));
     }
 }
 

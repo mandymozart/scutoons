@@ -6,8 +6,10 @@
 #   host mode   : qemu-system-x86_64 on PATH (Windows: `winget install SoftwareFreedomConservancy.QEMU`,
 #                 C:\Program Files\qemu is tried too) – a window opens; UEFI needs OVMF next to qemu (share/edk2-x86_64-code.fd).
 #   --docker    : QEMU inside an archlinux container, no window: the serial console on the terminal, screenshots every
-#                 15 s to deck/os/out/vm/shot-*.png (the kiosk is visible there), monitor on deck/os/out/vm/monitor.
+#                 15 s to deck/os/out/vm/shot-*.png (the kiosk is visible there), monitor socket inside the container.
 #                 KVM when Docker exposes /dev/kvm (WSL2 nested virtualization), else TCG (slow: ~5 min to the kiosk).
+#                 Without a terminal (an agent) the serial console is logged to out/vm/serial.log and reachable with
+#                 `docker exec -it <container> socat - UNIX-CONNECT:/tmp/deck-serial` (root, no password).
 set -euo pipefail
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd); os=$(cd "$here/.." && pwd)
@@ -37,16 +39,18 @@ common=(-m 4G -smp 2 -rtc base=utc
 if [ "$docker" = 1 ]; then
   out_m=$(command -v cygpath >/dev/null 2>&1 && cygpath -m "$os/out" || echo "$os/out")
   kvm=(); [ -e /dev/kvm ] && kvm=(--device /dev/kvm)
-  args=("${common[@]}"); args=("${args[@]/STICK//out/vm/stick.img}"); args=("${args[@]/SERIAL/mon:stdio}")
-  echo "QEMU in Docker ($mode) – serial console here, screenshots in deck/os/out/vm/ (Ctrl+C ends it)"
-  MSYS_NO_PATHCONV=1 docker run --rm -it "${kvm[@]}" -v "$out_m:/out" -v scutoons-deck-pkg:/var/cache/pacman/pkg \
+  args=("${common[@]}"); args=("${args[@]/STICK//out/vm/stick.img}")
+  # a terminal: the serial console is interactive here; none (an agent, CI): serial → out/vm/serial.log
+  if [ -t 0 ]; then tty=(-it); args=("${args[@]/SERIAL/mon:stdio}"); else tty=(); args=("${args[@]/SERIAL/chardev:ser0}" -chardev socket,id=ser0,path=/tmp/deck-serial,server=on,wait=off,logfile=/out/vm/serial.log); fi
+  echo "QEMU in Docker ($mode) – serial console: ${tty:+this terminal}${tty:-out/vm/serial.log}; screenshots in deck/os/out/vm/ (Ctrl+C ends it)"
+  MSYS_NO_PATHCONV=1 docker run --rm "${tty[@]}" "${kvm[@]}" -v "$out_m:/out" -v scutoons-deck-pkg:/var/cache/pacman/pkg \
     -e MODE="$mode" -e ARGS="${args[*]}" "${DECK_IMAGE:-archlinux:latest}" bash -c '
-      pacman -Syu --noconfirm --needed qemu-base edk2-ovmf >/dev/null
+      pacman -Syu --noconfirm --needed qemu-desktop edk2-ovmf socat >/dev/null
       accel=tcg; [ -e /dev/kvm ] && accel=kvm
       fw=(); [ "$MODE" = uefi ] && fw=(-drive if=pflash,format=raw,readonly=on,file=/usr/share/edk2/x64/OVMF_CODE.4m.fd)
-      rm -f /out/vm/shot-*.png /out/vm/monitor
-      (sleep 20; n=0; while [ -S /out/vm/monitor ]; do n=$((n+1)); printf "screendump /out/vm/shot-%02d.png -f png\n" $n | socat - UNIX-CONNECT:/out/vm/monitor >/dev/null 2>&1 || true; sleep 15; done) &
-      exec qemu-system-x86_64 -accel $accel -cpu max "${fw[@]}" -display none -monitor unix:/out/vm/monitor,server,nowait $ARGS'
+      rm -f /out/vm/shot-*.png; mon=/tmp/deck-monitor
+      (sleep 30; n=0; while [ -S $mon ]; do n=$((n+1)); printf "screendump /out/vm/shot-%02d.png -f png\n" $n | socat - UNIX-CONNECT:$mon >/dev/null 2>&1 || true; sleep 15; done) &
+      exec qemu-system-x86_64 -accel $accel -cpu max "${fw[@]}" -display none -monitor unix:$mon,server,nowait $ARGS'
   exit
 fi
 

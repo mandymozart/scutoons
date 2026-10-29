@@ -26,7 +26,6 @@ deck-persist || say "no persistence – this boot keeps nothing (${DIM}deck-pers
 install -d -o deck -g deck "$STATE" "$STATE/home"
 [ -f "$STATE/venue.toml" ] || install -o deck -g deck -m 644 /usr/share/deck/venue.default.toml "$STATE/venue.toml"
 [ -f "$STATE/deck.toml" ] || install -o deck -g deck -m 644 /usr/share/deck/deck.default.toml "$STATE/deck.toml"
-systemctl start deck-relay.service 2>/dev/null || true
 
 # 2. network
 say "network"
@@ -44,7 +43,8 @@ else
   sleep 3
 fi
 
-# a deck is a device of a member: the pairing QR / code comes with the API's device id (#173 Open) – for now the hostname
+# a deck is a device of a member: the pairing QR / code comes with the API's device id (#173 Open) – for now the hostname.
+# deck-kiosk and deck-bridge are ordered After= this service and start by themselves when it ends (never `systemctl
+# start` them from here: a oneshot waiting for a unit that waits for the oneshot is a deadlock).
 say "starting the kiosk ${DIM}(tty2: a shell · Ctrl+Alt+F2)${OFF}"
-systemctl start deck-bridge.service 2>/dev/null || true
 exit 0

@@ -44,7 +44,7 @@ install -Dm755 "$WORK/target/release/bridge" "$PROFILE/airootfs/usr/bin/deck-bri
 install -Dm755 "$WORK/target/release/deck-check" "$PROFILE/airootfs/usr/bin/deck-check"
 chmod 755 "$PROFILE/airootfs/usr/bin/"deck-*
 wants="$PROFILE/airootfs/etc/systemd/system/multi-user.target.wants"; mkdir -p "$wants"
-for u in NetworkManager iwd avahi-daemon sshd deck-firstboot deck-kiosk deck-relay; do
+for u in NetworkManager iwd avahi-daemon sshd deck-firstboot deck-kiosk deck-relay deck-bridge; do
   ln -sf "/usr/lib/systemd/system/$u.service" "$wants/$u.service"
 done
 # releng's pacman-init (the live keyring) lives in /etc – keep it while releng ships it

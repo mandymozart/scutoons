@@ -1,5 +1,5 @@
 # The device bridge (deck/bridge, LIVE.md B.7) on the venue patch in /var/lib/deck (deck-firstboot copies the default
-# there once; the bridge reconnects to the relay by itself).
+# there once – the condition below is checked after it, by the After= ordering; the bridge reconnects to the relay by itself).
 [Unit]
 Description=SCUTOONS Live device bridge
 After=deck-relay.service deck-firstboot.service
