@@ -36,9 +36,17 @@ rm -rf "$PROFILE/airootfs/etc/systemd/system/getty@tty1.service.d" "$PROFILE/air
        "$PROFILE/airootfs/etc/systemd/system/choose-mirror.service" "$PROFILE/airootfs/etc/systemd/scripts" \
        "$PROFILE/airootfs/etc/xdg/reflector" "$PROFILE/airootfs/etc/systemd/network" \
        "$PROFILE/airootfs/etc/systemd/system/systemd-networkd-wait-online.service.d"
+# the boot menus are ours (SCUTOONSDECK, no install-medium / speech / memtest entries, no PXE, no grub – the bootmodes are
+# bios.syslinux + uefi.systemd-boot); releng's splash.png stays
+rm -rf "$PROFILE/efiboot/loader/entries" "$PROFILE/grub" "$PROFILE/syslinux/archiso_pxe.cfg" "$PROFILE/syslinux/archiso_pxe-linux.cfg"
 cp -r "$SRC/os/profile/packages.x86_64" "$SRC/os/profile/pacman.conf" "$PROFILE/"
+cp -r "$SRC/os/profile/efiboot" "$SRC/os/profile/syslinux" "$PROFILE/"
 cp -r "$SRC/os/profile/airootfs/." "$PROFILE/airootfs/"
 cp -r "$SRC/os/rootfs/." "$PROFILE/airootfs/"
+# a NetworkManager keyfile with an empty value (`interface-name=`) is rejected whole – the profile never loads
+if grep -nE '^[A-Za-z0-9_.-]+=$' "$PROFILE"/airootfs/etc/NetworkManager/system-connections/*.nmconnection; then
+  echo "an empty value in a NetworkManager keyfile (above) – NetworkManager would drop the profile"; exit 1
+fi
 install -Dm755 "$WORK/target/release/relay" "$PROFILE/airootfs/usr/bin/deck-relay"
 install -Dm755 "$WORK/target/release/bridge" "$PROFILE/airootfs/usr/bin/deck-bridge"
 install -Dm755 "$WORK/target/release/deck-check" "$PROFILE/airootfs/usr/bin/deck-check"

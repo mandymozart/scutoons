@@ -1,8 +1,9 @@
 //! deck-check – the hardware check of the deck's boot flow (CYBERDECKS.md §1 classes, §3 the image; #173).
 //! `deck-check [--out /var/lib/deck/machine.toml] [--no-write]`: probes GPU + Vulkan (vulkaninfo), VA-API decode /
 //! encode (vainfo), audio cards + PipeWire rate / quantum, MIDI / USB / serial devices, RAM, CPU, network; prints the
-//! report, writes machine.toml (class + feature set – what the suite reads), exits 1 when a must-have is missing
-//! (no Vulkan at all, no audio device). Software Vulkan (llvmpipe) passes with a warning: the dogma's fallback.
+//! report, writes machine.toml (class + feature set – what the suite reads), exits 1 only when there is no display
+//! device at all (no DRM driver). Everything else degrades with a warning (§1): no Vulkan, software Vulkan (llvmpipe,
+//! the dogma's fallback), no audio device – the feature is off and the kiosk still starts.
 
 mod parse;
 
@@ -42,7 +43,7 @@ struct Audio { cards: Vec<String>, pipewire_rate: u32, pipewire_quantum: u32, pi
 #[derive(Serialize, Default)]
 struct Devices { midi: Vec<String>, usb: Vec<String>, serial: Vec<String> }
 #[derive(Serialize, Default)]
-struct Network { wired: Vec<String>, wifi: Vec<String> }
+struct Network { wired: Vec<String>, wifi: Vec<String>, cellular: Vec<String> }
 /// What the suite shows per deck (§1: every feature degrades per class).
 #[derive(Serialize, Default)]
 struct Features { video: bool, video_encode: bool, audio: bool, midi: bool, editing: bool, display: bool }
@@ -148,7 +149,9 @@ fn probe(pw_uid: &str) -> Machine {
         if n == "lo" {
             continue;
         }
-        if Path::new(&format!("/sys/class/net/{n}/wireless")).exists() || n.starts_with("wl") {
+        if n.starts_with("wwan") || n.starts_with("ww") {
+            m.network.cellular.push(n);
+        } else if Path::new(&format!("/sys/class/net/{n}/wireless")).exists() || n.starts_with("wl") {
             m.network.wifi.push(n);
         } else if Path::new(&format!("/sys/class/net/{n}/device")).exists() {
             m.network.wired.push(n);
@@ -177,8 +180,13 @@ fn classify(m: &mut Machine) {
         midi: !m.devices.midi.is_empty(),
         editing: m.class == "A" && hw_vulkan && gb >= 8,
     };
-    if m.gpu.vulkan_software {
+    if !m.gpu.vulkan {
+        m.warnings.push("no Vulkan at all (not even llvmpipe – mesa / vulkan-swrast?) – the display adapter will not run".to_owned());
+    } else if m.gpu.vulkan_software {
         m.warnings.push("Vulkan is software only (llvmpipe) – no GPU driver found; video and 3D will be slow".to_owned());
+    }
+    if m.audio.cards.is_empty() {
+        m.warnings.push("no audio device (ALSA lists no card) – audio off; a USB interface, or the DSP firmware (sof-firmware) for a laptop".to_owned());
     }
     if m.video.decode.is_empty() && m.class != "C" {
         m.warnings.push("no VA-API decode profiles – video plays in software".to_owned());
@@ -206,7 +214,7 @@ fn report(m: &Machine) -> String {
     s += &format!("  midi      {}\n", list(&m.devices.midi));
     s += &format!("  serial    {}\n", list(&m.devices.serial));
     s += &format!("  usb       {}\n", list(&m.devices.usb));
-    s += &format!("  network   wired {} · wifi {}\n", list(&m.network.wired), list(&m.network.wifi));
+    s += &format!("  network   wired {} · wifi {} · cellular {}\n", list(&m.network.wired), list(&m.network.wifi), list(&m.network.cellular));
     s += &format!("  features  display {} · video {} · encode {} · audio {} · midi {} · editing {}\n", yes(m.features.display), yes(m.features.video), yes(m.features.video_encode), yes(m.features.audio), yes(m.features.midi), yes(m.features.editing));
     for w in &m.warnings {
         s += &format!("  warning   {w}\n");
@@ -234,12 +242,11 @@ fn main() {
     let m = probe(&pw_uid);
     print!("{}", report(&m));
 
+    // §1: every feature degrades per class – the only must-have is a display to run the kiosk on; everything else
+    // (Vulkan, audio, MIDI) turns a feature off with a warning ("hijack any hardware around").
     let mut missing = Vec::new();
-    if !m.gpu.vulkan {
-        missing.push("no Vulkan device at all (not even llvmpipe – is mesa / vulkan-swrast installed?)");
-    }
-    if m.audio.cards.is_empty() {
-        missing.push("no audio device (ALSA lists no card)");
+    if m.gpu.drivers.is_empty() {
+        missing.push("no display device (no DRM driver bound) – nothing to run the kiosk on");
     }
 
     if write {
@@ -257,5 +264,49 @@ fn main() {
             eprintln!("  MISSING   {x}");
         }
         std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn no_audio_degrades_with_a_warning() {
+        let mut m = Machine { arch: "x86_64".to_owned(), ..Machine::default() };
+        m.memory.total_mib = 15664;
+        m.gpu = Gpu { drivers: vec!["i915".to_owned()], vulkan: true, vulkan_software: false, ..Gpu::default() };
+        m.video.decode = vec!["h264".to_owned()];
+        classify(&mut m);
+        assert_eq!(m.class, "A");
+        assert!(!m.features.audio);
+        assert!(m.features.video && m.features.editing && m.features.display);
+        assert!(m.warnings.iter().any(|w| w.starts_with("no audio device")));
+    }
+
+    #[test]
+    fn software_vulkan_is_class_a_without_video() {
+        let mut m = Machine { arch: "x86_64".to_owned(), ..Machine::default() };
+        m.memory.total_mib = 3900;
+        m.gpu = Gpu { drivers: vec!["virtio-pci".to_owned()], vulkan: true, vulkan_software: true, ..Gpu::default() };
+        m.audio.cards = vec!["HDA Intel".to_owned()];
+        classify(&mut m);
+        assert_eq!(m.class, "A");
+        assert!(m.features.display && m.features.audio && !m.features.video && !m.features.editing);
+        assert!(m.warnings.iter().any(|w| w.starts_with("Vulkan is software only")));
+    }
+
+    #[test]
+    fn arm_classes() {
+        let mut b = Machine { arch: "aarch64".to_owned(), ..Machine::default() };
+        b.memory.total_mib = 8192;
+        b.gpu = Gpu { drivers: vec!["panthor".to_owned()], vulkan: true, ..Gpu::default() };
+        classify(&mut b);
+        assert_eq!(b.class, "B");
+        let mut c = Machine { arch: "aarch64".to_owned(), ..Machine::default() };
+        c.memory.total_mib = 4096;
+        classify(&mut c);
+        assert_eq!(c.class, "C");
+        assert!(!c.features.video);
     }
 }

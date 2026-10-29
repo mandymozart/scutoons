@@ -49,6 +49,14 @@ Host QEMU on Windows: `winget install SoftwareFreedomConservancy.QEMU`. VirtualB
 the ISO as an optical drive (then without persistence) or `VBoxManage convertfromraw out/vm/stick.img stick.vdi` as
 a disk with EFI enabled.
 
+## The boot menu
+
+UEFI (systemd-boot, 5 s) and BIOS (syslinux) show the same three entries: **SCUTOONSDECK (live)** – the default;
+**recheck the hardware** – `deck.recheck` on the kernel line, deck-check runs again on a stick that already knows the
+machine; **safe graphics, messages stay on screen** – `nomodeset panic=0 loglevel=7 console=tty1`, no serial console:
+for a machine that resets or shows nothing (the kernel's messages stay readable, a panic does not reboot). Plus "Boot
+the existing OS", Reboot, Power Off on BIOS. Nothing on the stick installs anything by itself.
+
 ## What happens at boot (tty1)
 
 1. `deck-firstboot.service` – persistence (`deck-persist`), the defaults into `/var/lib/deck` (`venue.toml`,
@@ -57,8 +65,9 @@ a disk with EFI enabled.
    own hotspot (`deck-hotspot.nmconnection`: SSID `scutoons-deck`, key `scutoons-deck`, the deck is 10.42.0.1),
    **N** no network, **S** a shell.
 3. `deck-check` – the report on screen, `/var/lib/deck/machine.toml` (class + features; CYBERDECKS.md §1). Once per
-   stick; `deck.recheck` on the kernel line or `deck-check` in a shell re-runs it. A missing must-have (no Vulkan at
-   all, no audio device) leaves a root shell instead of the kiosk.
+   stick; `deck.recheck` on the kernel line or `deck-check` in a shell re-runs it. Everything degrades with a warning
+   (no Vulkan, software Vulkan, no audio device = the feature off, the kiosk still starts); only a machine without any
+   display device leaves a root shell instead of the kiosk.
 4. `deck-kiosk.service` – `cage` + Chromium (`deck-session`) as the user `deck` on the page `conductor` names in
    `/var/lib/deck/deck.toml`; empty = the deck's own start page (the machine report, the relay's `/status`, the link
    to the conductor). `deck-bridge.service` joins the local relay with `/var/lib/deck/venue.toml`.
