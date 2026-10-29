@@ -170,7 +170,9 @@ Handshake, then approval, then data – a deck touches no SCUTOONS data before a
 5. **Revoke / timeout:** the next renewal fails → the splash with a new code, a new request. The build never becomes
    useless.
 Every deck is a row of its own (build, last seen, mapping), even when all map to one user. Before approval the stage
-plays built-in scenes only. Master-quality media (stems, high-res video, signed vault URLs) come after the handshake.
+plays built-in scenes only. Master-quality media (stems, high-res video) are not part of this: they are show media,
+assigned to outlets in the Live conductor (LIVE.md B.5.6) – a concept still to make (storyboard, slice editor and Live
+views together, owner 2026-10-29); the deck then fetches what its outlet is given, with its access token.
 
 ## 10. Open work
 Lives in the issues, not here: the phases #172–#176, the stage #179 (#171 holds the plan and the decisions, all taken 2026-10-29).
