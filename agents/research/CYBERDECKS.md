@@ -162,10 +162,11 @@ Handshake, then approval, then data – a deck touches no SCUTOONS data before a
 2. **Request:** the deck sends its public key, build, class and hostname; the splash shows a short code ("K7-42").
    Pending requests expire after minutes and are rate-limited.
 3. **Approval:** the conductor / the account page lists waiting decks; a member compares the code, approves and maps
-   the deck to a member, a role or a Live session. Approval lasts until revoked, until N idle days or until the Live
-   session ends.
-4. **Access:** the deck signs a server challenge and gets a short-lived token (~1 h) with the mapped rights, renewed
-   while it runs. Read-only for content; cached content keeps playing offline.
+   the deck to a member, a role or a Live session. The approval's lifetime is set there, like the MCP keys (MCP.md §3):
+   default six months, renewable on the account page with one reminder mail; or shorter – N idle days, the end of the
+   Live session. Revocable any time.
+4. **Access:** within its approval the deck signs a server challenge and gets a short token (~1 h) with the mapped
+   rights, renewed by itself while it runs – an internal detail, not a setting. Read-only for content; cached content keeps playing offline.
 5. **Revoke / timeout:** the next renewal fails → the splash with a new code, a new request. The build never becomes
    useless.
 Every deck is a row of its own (build, last seen, mapping), even when all map to one user. Before approval the stage
