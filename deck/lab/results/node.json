@@ -1,0 +1,132 @@
+[
+  {
+    "path": "TypeScript (Node)",
+    "workload": "control step (300 nodes, deep)",
+    "us": 13.818545
+  },
+  {
+    "path": "TypeScript (Node) · batch",
+    "workload": "control step (300 nodes, deep)",
+    "us": 19.466139999999996
+  },
+  {
+    "path": "TypeScript (Node)",
+    "workload": "audio block (16 FM voices, 128 frames)",
+    "us": 125.02227999999995
+  },
+  {
+    "path": "TypeScript (Node) · batch",
+    "workload": "audio block (16 FM voices, 128 frames)",
+    "us": 114.65147999999972
+  },
+  {
+    "path": "TypeScript (Node)",
+    "workload": "control step (300 nodes, wide)",
+    "us": 13.206934999999975
+  },
+  {
+    "path": "TypeScript (Node) · batch",
+    "workload": "control step (300 nodes, wide)",
+    "us": 5.293119999999999
+  },
+  {
+    "path": "TypeScript (Node)",
+    "workload": "FFT bands (1024)",
+    "us": 41.002719999999684
+  },
+  {
+    "path": "TypeScript (Node)",
+    "workload": "codec decode + encode (cue, 330 B)",
+    "us": 7.073850000000021
+  },
+  {
+    "path": "wasm (Node)",
+    "workload": "control step (300 nodes, deep)",
+    "us": 7.895279999999912
+  },
+  {
+    "path": "wasm (Node) · batch",
+    "workload": "control step (300 nodes, deep)",
+    "us": 5.233469999999943
+  },
+  {
+    "path": "wasm (Node)",
+    "workload": "audio block (16 FM voices, 128 frames)",
+    "us": 40.77652000000016
+  },
+  {
+    "path": "wasm (Node) · batch",
+    "workload": "audio block (16 FM voices, 128 frames)",
+    "us": 55.41929999999993
+  },
+  {
+    "path": "wasm (Node)",
+    "workload": "control step (300 nodes, wide)",
+    "us": 8.057409999999981
+  },
+  {
+    "path": "wasm (Node) · batch",
+    "workload": "control step (300 nodes, wide)",
+    "us": 3.3892350000000078
+  },
+  {
+    "path": "wasm (Node)",
+    "workload": "FFT bands (1024)",
+    "us": 14.446620000000257
+  },
+  {
+    "path": "wasm (Node)",
+    "workload": "codec decode + encode (cue, 330 B)",
+    "us": 7.828218000000052
+  },
+  {
+    "path": "wasm (Node) (loop inside)",
+    "workload": "codec decode + encode (cue, 330 B)",
+    "us": 6.670139999999992
+  },
+  {
+    "path": "wasm simd128 (Node)",
+    "workload": "control step (300 nodes, deep)",
+    "us": 7.921600000000035
+  },
+  {
+    "path": "wasm simd128 (Node) · batch",
+    "workload": "control step (300 nodes, deep)",
+    "us": 6.745499999999811
+  },
+  {
+    "path": "wasm simd128 (Node)",
+    "workload": "audio block (16 FM voices, 128 frames)",
+    "us": 40.71649999999936
+  },
+  {
+    "path": "wasm simd128 (Node) · batch",
+    "workload": "audio block (16 FM voices, 128 frames)",
+    "us": 30.95871999999945
+  },
+  {
+    "path": "wasm simd128 (Node)",
+    "workload": "control step (300 nodes, wide)",
+    "us": 8.576300000000264
+  },
+  {
+    "path": "wasm simd128 (Node) · batch",
+    "workload": "control step (300 nodes, wide)",
+    "us": 2.7334149999998774
+  },
+  {
+    "path": "wasm simd128 (Node)",
+    "workload": "FFT bands (1024)",
+    "us": 12.11189999999915
+  },
+  {
+    "path": "wasm simd128 (Node)",
+    "workload": "codec decode + encode (cue, 330 B)",
+    "us": 8.017612000000081
+  },
+  {
+    "path": "wasm simd128 (Node) (loop inside)",
+    "workload": "codec decode + encode (cue, 330 B)",
+    "us": 6.439280000000144
+  }
+]
