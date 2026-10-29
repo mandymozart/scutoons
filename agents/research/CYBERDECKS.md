@@ -141,6 +141,11 @@ Proven on the X1 first: Vulkan on the iGPU (anv), VA-API decode h264 / hevc / vp
   blocks from `fundsp` (oscillators, noise, FM, filters; granular on chapter samples); chapter music decoded with
   `symphonia`; out through the default sink (the RME UCX II in Class Compliant mode, #174). The audio clock is the master
   clock for video, MIDI and the bus.
+- **Two clocks** (#181, owner 2026-10-29): the **time base** = the exact audio position (a monotonic timestamp per audio
+  block, interpolated per video frame, minus the output latency – the picture shows what is heard); on top the **tempo
+  clock** = BPM, beat, bar, phase for every node, a click out, one source at a time: internal (set / tap), MIDI clock in,
+  Ableton Link, OSC, the relay's show clock; MIDI clock out from it. Since 8e1cab16 the video clock follows the audio
+  clock softly (the X1 stepped: SOF hands over whole periods).
 - **scutoons.com:** the public library API read-only (`/api/library/toons/<toon>/chapters/<n>`: slices, slice videos,
   music paths; files from cdn.scutoons.com), cached on DECKDATA (`/var/lib/deck/cache`) so a venue runs offline; later
   the paired member's token for drafts. The relay bus (LIVE B.1: slice enter, VN events, FX cues) feeds node parameters.
