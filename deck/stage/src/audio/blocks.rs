@@ -6,8 +6,8 @@ use anyhow::{bail, Result};
 use fundsp::hacker32::{lowpass, noise, pink, saw, sine, square, triangle, AudioUnit};
 use std::sync::{Arc, Mutex};
 
-/// how many samples the FFT ring holds (≈ 85 ms at 48 kHz; the frame thread drains it every frame)
-const TAP_RING: usize = 4096;
+/// how many samples the FFT ring holds (≈ 170 ms at 48 kHz; the frame thread drains it every frame)
+const TAP_RING: usize = 8192;
 
 /// a control input's value when neither the node nor a link sets it
 pub fn default_for(kind: Kind, port: &str) -> f32 {

@@ -1,6 +1,6 @@
 //! The audio callback never allocates (CYBERDECKS.md §8): a counting global allocator around Engine::render for the
 //! default scene (music player with a track, sequencer, FM, noise, mixer, FFT tap, output) – zero allocations and
-//! frees over 20 seconds of audio in device-sized blocks.
+//! frees over 20 seconds of audio in device-sized blocks, each stamped for the time base (`Engine::mark`).
 use deck_stage::audio::{Engine, Track};
 use deck_stage::graph::Graph;
 use deck_stage::scene::{Scene, DEFAULT_SCENE};
@@ -48,6 +48,7 @@ fn the_default_scene_renders_without_allocating() {
     COUNTING.store(true, Ordering::SeqCst);
     for i in 0..2000 {
         let b = &mut bufs[i % 4];
+        engine.mark(i as u64 * 1_000_000); // the block's stamp (the time base's seqlock)
         engine.render(b, 2, |x| x);
         // the frame thread's side: the tap ring is drained (pop never allocates either)
         while handles.taps[0].1.pop().is_ok() {

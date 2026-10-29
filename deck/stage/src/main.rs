@@ -4,7 +4,7 @@
 //! chapter's first slice and the music are there, and the browser's start: with DECK_BROWSER set (deck-session does)
 //! F2 starts that command on top of the running stage – cage shows the newest window – and the stage pauses and mutes
 //! behind it until it closes; without it F2 quits with exit code 10 (deck-session's older loop opens the browser).
-use deck_stage::{audio, chapter, control, graph, hud, library, render, scene, splash};
+use deck_stage::{audio, chapter, clock, control, graph, hud, library, render, scene, splash};
 
 use anyhow::{bail, Context, Result};
 use audio::backend::{self, Choice};
@@ -113,8 +113,10 @@ struct App {
     hud_at: f32,
     last: Option<Instant>,
     t0: Instant,
-    /// the video clock: real frame time, pulled softly toward the audio clock (see `advance_time`)
-    vt: Option<f64>,
+    /// the time base's frame-thread half (clock.rs); None without audio (then the wall clock since the start)
+    timebase: Option<clock::TimeBase>,
+    /// this frame's time (s): the audio position heard at the frame's moment
+    now: f64,
     stats: Stats,
     mods: ModifiersState,
     exit: i32,
@@ -130,32 +132,31 @@ struct App {
 }
 
 impl App {
-    /// the master clock as the audio device counts it: frames rendered – it moves in blocks of the device's period,
-    /// which can be longer than a video frame (the X1's SOF card: whole blocks per frame or none – the picture stepped)
-    fn audio_time(&self) -> f64 {
-        match &self.clock {
-            Some(c) => c.seconds(),
-            None => self.t0.elapsed().as_secs_f64(),
-        }
-    }
-
     fn time(&self) -> f32 {
-        self.vt.unwrap_or_else(|| self.audio_time()) as f32
+        self.now as f32
     }
 
-    /// the video clock moves by the real frame time and follows the audio clock softly: 5 % of the gap per frame,
-    /// a jump only past 100 ms (a seek, a stalled device) – smooth motion, still locked to the music
-    fn advance_time(&mut self, dt: f32) {
-        let audio = self.audio_time();
-        let vt = match self.vt {
-            None => audio,
-            Some(v) => {
-                let v = v + dt as f64;
-                let gap = audio - v;
-                if gap.abs() > 0.1 { audio } else { v + gap * 0.05 }
+    /// the time base (clock.rs, CYBERDECKS.md §8 "Two clocks"): the audio position heard at this frame's moment – the
+    /// device's block stamps through a DLL, interpolated between blocks, minus the output latency, never backwards (the
+    /// X1's SOF card hands over whole periods – counting rendered frames stepped the picture). No audio: the wall clock.
+    fn advance_time(&mut self) {
+        self.now = match (&self.clock, self.timebase.as_mut()) {
+            (Some(c), Some(tb)) => {
+                tb.poll(&c.stamp);
+                tb.seconds(clock::now_ns()).unwrap_or(0.0)
             }
+            _ => self.t0.elapsed().as_secs_f64(),
         };
-        self.vt = Some(vt);
+    }
+
+    /// how many samples the audio callback has rendered past the heard moment (the FFT looks back by it)
+    fn lead(&self) -> usize {
+        match &self.clock {
+            Some(c) if self.timebase.as_ref().is_some_and(|t| t.line().is_some()) => {
+                (c.rendered() as f64 - self.now * c.rate as f64).max(0.0) as usize
+            }
+            _ => 0,
+        }
     }
 
     /// still loading what the splash waits for: a chapter's first slice, a music track
@@ -226,8 +227,8 @@ impl App {
             self.hud.push_frame(ms);
         }
         self.last = Some(now);
-        self.controls.update(&self.graph, dt);
-        self.advance_time(dt);
+        self.advance_time();
+        self.controls.update(&self.graph, dt, self.lead());
         let time = self.time();
         self.stats.window.0 += 1;
         self.stats.window.1 += dt;
@@ -285,7 +286,7 @@ impl App {
             "F2 WEB  CTRL+ALT+ F2 SHELL / DEL OFF".into(),
             format!("FPS {:.1}  FRAME {:.1} MS  CPU {:.2} MS", self.stats.fps, last(&self.stats.intervals), last(&self.stats.work)),
             format!("GPU {gpu}"),
-            format!("AUDIO {audio}  T {:.1} S", self.time()),
+            format!("AUDIO {audio}  T {:.1} S  AHEAD {:.0} MS", self.time(), self.lead() as f32 * 1000.0 / self.clock.as_ref().map_or(48_000.0, |c| c.rate)),
         ];
         if let Some([l, b, m, h]) = self.controls.fft() {
             lines.push(format!("FFT L {l:.2} B {b:.2} M {m:.2} H {h:.2}"));
@@ -468,6 +469,7 @@ fn run() -> Result<i32> {
         .collect();
     let master = handles.as_ref().map(|h| h.master.clone());
     let clock = handles.as_ref().map(|h| h.clock.clone());
+    let timebase = clock.as_ref().map(|c| clock::TimeBase::new(c.rate));
     let controls = control::Controls::new(&graph, handles.as_mut());
 
     let event_loop = EventLoop::<Event>::with_user_event().build().context("no event loop (no display?)")?;
@@ -488,7 +490,8 @@ fn run() -> Result<i32> {
         hud_at: -1.0,
         last: None,
         t0: Instant::now(),
-        vt: None,
+        timebase,
+        now: 0.0,
         stats: Stats::default(),
         mods: ModifiersState::empty(),
         exit: 0,

@@ -1,10 +1,15 @@
 //! Sound → control values (the FFT node's frame-thread half): the audio callback pushes the mono sum into a ring
 //! (audio/blocks.rs FftTap), the analyzer drains it every frame and turns the newest window into level / bass / mid /
-//! high in 0–1 (dB-scaled; a fast rise and a `release` in seconds).
+//! high in 0–1 (dB-scaled; a fast rise and a `release` in seconds). The window ends at the heard moment, not at the
+//! newest sample: the callback renders ahead of the speaker by the output latency + a block (`lead`, from the time base),
+//! so the analyzer keeps that much more history and looks back by it – the picture reacts to what is heard now.
 use rustfft::{num_complex::Complex, Fft, FftPlanner};
 use std::sync::Arc;
 
 pub const SIZE: usize = 1024;
+/// how far back the window may end (≈ 170 ms at 48 kHz – more than any sane output latency + block)
+pub const MAX_LEAD: usize = 8192;
+const HIST: usize = SIZE + MAX_LEAD;
 /// the dB range mapped onto 0–1
 const FLOOR_DB: f32 = -70.0;
 const RANGE_DB: f32 = 60.0;
@@ -26,7 +31,7 @@ impl Analyzer {
         let hann = (0..SIZE).map(|i| 0.5 - 0.5 * (std::f32::consts::TAU * i as f32 / SIZE as f32).cos()).collect();
         Analyzer {
             ring,
-            window: vec![0.0; SIZE],
+            window: vec![0.0; HIST],
             pos: 0,
             hann,
             fft: FftPlanner::new().plan_fft_forward(SIZE),
@@ -37,14 +42,16 @@ impl Analyzer {
         }
     }
 
-    /// drain the ring, analyse the newest SIZE samples, smooth into `values` (level, bass, mid, high)
-    pub fn update(&mut self, dt: f32) -> [f32; 4] {
+    /// drain the ring, analyse the SIZE samples that end `lead` samples before the newest (the heard moment), smooth
+    /// into `values` (level, bass, mid, high)
+    pub fn update(&mut self, dt: f32, lead: usize) -> [f32; 4] {
         while let Ok(x) = self.ring.pop() {
             self.window[self.pos] = x;
-            self.pos = (self.pos + 1) % SIZE;
+            self.pos = (self.pos + 1) % HIST;
         }
+        let start = self.pos + HIST - SIZE - lead.min(MAX_LEAD);
         for i in 0..SIZE {
-            let x = self.window[(self.pos + i) % SIZE];
+            let x = self.window[(start + i) % HIST];
             self.buf[i] = Complex::new(x * self.hann[i], 0.0);
         }
         let raw = bands(&mut self.buf, &*self.fft, self.rate);
@@ -93,7 +100,7 @@ mod tests {
         }
         let mut a = Analyzer::new(rx, 48_000.0, 0.2);
         for _ in 0..8 {
-            a.update(1.0 / 60.0);
+            a.update(1.0 / 60.0, 0);
         }
         a.values
     }
@@ -112,9 +119,32 @@ mod tests {
     }
 
     #[test]
+    fn the_window_ends_at_the_heard_moment() {
+        // a bass tone, then 2048 samples of silence rendered ahead: with that lead the analyzer still hears the tone
+        let (mut tx, rx) = rtrb::RingBuffer::new(SIZE * 4);
+        for i in 0..SIZE {
+            tx.push(0.5 * (std::f32::consts::TAU * 100.0 * i as f32 / 48_000.0).sin()).unwrap();
+        }
+        for _ in 0..2048 {
+            tx.push(0.0).unwrap();
+        }
+        let mut a = Analyzer::new(rx, 48_000.0, 0.2);
+        let mut heard = 0.0;
+        for _ in 0..8 {
+            heard = a.update(1.0 / 60.0, 2048)[1];
+        }
+        assert!(heard > 0.8, "heard: the tone ({heard})");
+        let mut b = a.update(1.0 / 60.0, 0)[1];
+        for _ in 0..90 {
+            b = a.update(1.0 / 60.0, 0)[1];
+        }
+        assert!(b < 0.05, "the newest samples: silence ({b})");
+    }
+
+    #[test]
     fn silence_is_zero() {
         let (_, rx) = rtrb::RingBuffer::new(16);
         let mut a = Analyzer::new(rx, 48_000.0, 0.2);
-        assert_eq!(a.update(0.016), [0.0; 4]);
+        assert_eq!(a.update(0.016, 0), [0.0; 4]);
     }
 }

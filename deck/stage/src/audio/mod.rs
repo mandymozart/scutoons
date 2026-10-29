@@ -1,10 +1,12 @@
 //! The audio graph (CYBERDECKS.md §8): the graph's audio nodes as blocks in topological order, run by the device
 //! callback in blocks of at most MAX_BLOCK frames. Everything is allocated at build time – the callback only reads
 //! atomics (Param), pops lock-free rings (rtrb) and writes preallocated buffers (tests/no_alloc.rs proves it).
-//! The frame counter is the stage's master clock (§8: "the audio clock is the master clock").
+//! The frame counter and the per-block stamps are the stage's time base (§8 "Two clocks", clock.rs): each backend calls
+//! `mark` with the moment the block it is about to render will be heard.
 pub mod backend;
 mod blocks;
 
+use crate::clock::Stamp;
 use crate::graph::{Domain, Graph, Kind, PortType};
 use anyhow::Result;
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
@@ -67,16 +69,19 @@ struct Slot {
     inputs: Vec<Option<(usize, usize)>>,
 }
 
-/// The stage's clock: frames played by the audio device (or by the null backend's timer).
+/// The stage's clock: frames rendered for the device (or by the null backend's timer) and the stamp of the newest
+/// block – when its first frame is heard (clock.rs turns the stamps into the heard position per video frame).
 #[derive(Clone)]
 pub struct Clock {
     pub frames: Arc<AtomicU64>,
     pub rate: f32,
+    pub stamp: Arc<Stamp>,
 }
 
 impl Clock {
-    pub fn seconds(&self) -> f64 {
-        self.frames.load(Ordering::Relaxed) as f64 / self.rate as f64
+    /// frames rendered so far (ahead of what is heard by the output latency + the block)
+    pub fn rendered(&self) -> u64 {
+        self.frames.load(Ordering::Relaxed)
     }
 }
 
@@ -87,6 +92,7 @@ pub struct Engine {
     /// the master gain the last block ended on – a change ramps over one block (no click on a mute)
     gain: f32,
     frames: Arc<AtomicU64>,
+    stamp: Arc<Stamp>,
 }
 
 /// What the frame thread keeps of a built engine.
@@ -117,7 +123,7 @@ impl Engine {
             params: Vec::new(),
             music: Vec::new(),
             taps: Vec::new(),
-            clock: Clock { frames: Arc::new(AtomicU64::new(0)), rate },
+            clock: Clock { frames: Arc::new(AtomicU64::new(0)), rate, stamp: Arc::new(Stamp::default()) },
             master: Param::new(volume),
         };
         for &i in &graph.order {
@@ -151,8 +157,21 @@ impl Engine {
             slots.push(Slot { block, out: (0..outs).map(|_| Stereo::new()).collect(), inputs });
         }
         let out_slot = graph.first(Kind::AudioOut).and_then(|i| slot_of[i]);
-        let engine = Engine { slots, out_slot, master: handles.master.clone(), gain: volume, frames: handles.clock.frames.clone() };
+        let engine = Engine {
+            slots,
+            out_slot,
+            master: handles.master.clone(),
+            gain: volume,
+            frames: handles.clock.frames.clone(),
+            stamp: handles.clock.stamp.clone(),
+        };
         Ok((engine, handles))
+    }
+
+    /// The block about to be rendered is heard at `heard_ns` (clock::now_ns's clock) – the backends call this right
+    /// before `render`. Never allocates, never waits.
+    pub fn mark(&self, heard_ns: u64) {
+        self.stamp.write([self.frames.load(Ordering::Relaxed), heard_ns]);
     }
 
     /// Fill an interleaved device buffer (`channels` per frame; L, R, the rest silent). Never allocates.

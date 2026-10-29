@@ -1,7 +1,10 @@
 //! Where the engine plays: PipeWire (Linux, feature `pipewire` – the deck), cpal (every OS; on Linux through ALSA), or
 //! the null backend (a timer thread, no device – the chosen fallback when there is no audio device, CYBERDECKS.md §2).
-//! `auto` tries them in that order and logs why one was skipped.
+//! `auto` tries them in that order and logs why one was skipped. Each one stamps its blocks with the moment they are
+//! heard (`Engine::mark`, the time base of clock.rs): PipeWire from its cycle timing (pw_time: now + the delay to the
+//! device + what the resampler holds), cpal from the stream's playback instant, the null backend from its schedule.
 use super::Engine;
+use crate::clock::now_ns;
 use anyhow::{bail, Result};
 use std::any::Any;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -75,7 +78,11 @@ fn null(factory: &mut Factory) -> Result<Running> {
         let mut buf = vec![0.0f32; NULL_BLOCK * 2];
         let period = Duration::from_secs_f64(NULL_BLOCK as f64 / NULL_RATE as f64);
         let mut next = std::time::Instant::now();
+        // block k is "heard" on its schedule (no device, no latency)
+        let (t0, mut k) = (now_ns(), 0u64);
         while !flag.load(Ordering::Relaxed) {
+            engine.mark(t0 + k * NULL_BLOCK as u64 * 1_000_000_000 / NULL_RATE as u64);
+            k += 1;
             engine.render(&mut buf, 2, |x| x);
             next += period;
             if let Some(wait) = next.checked_duration_since(std::time::Instant::now()) {
@@ -102,13 +109,27 @@ fn cpal(factory: &mut Factory) -> Result<Running> {
     let mut engine = factory(rate as f32)?;
     let sc: cpal::StreamConfig = cfg.config();
     let err = |e| tracing::error!("audio stream: {e}");
+    // the block is heard at its playback instant: now + (playback − callback), the output latency cpal reports
+    let heard = |info: &cpal::OutputCallbackInfo| {
+        let ts = info.timestamp();
+        now_ns() + ts.playback.duration_since(&ts.callback).map(|d| d.as_nanos() as u64).unwrap_or(0)
+    };
     let stream = match cfg.sample_format() {
-        SampleFormat::F32 => {
-            device.build_output_stream(&sc, move |d: &mut [f32], _| engine.render(d, channels, |x| x), err, None)?
-        }
+        SampleFormat::F32 => device.build_output_stream(
+            &sc,
+            move |d: &mut [f32], info| {
+                engine.mark(heard(info));
+                engine.render(d, channels, |x| x)
+            },
+            err,
+            None,
+        )?,
         SampleFormat::I16 => device.build_output_stream(
             &sc,
-            move |d: &mut [i16], _| engine.render(d, channels, |x| (x * i16::MAX as f32) as i16),
+            move |d: &mut [i16], info| {
+                engine.mark(heard(info));
+                engine.render(d, channels, |x| (x * i16::MAX as f32) as i16)
+            },
             err,
             None,
         )?,
@@ -159,6 +180,18 @@ fn pipewire(factory: &mut Factory) -> Result<Running> {
                     let Some(mut buffer) = stream.dequeue_buffer() else { return };
                     let datas = buffer.datas_mut();
                     let Some(data) = datas.first_mut() else { return };
+                    // pw_time (RT-safe): `now` = this cycle on CLOCK_MONOTONIC, `delay` = until the device plays the
+                    // next sample (ticks of `rate`), `buffered` = frames in the resampler; no timing yet → the quantum
+                    let heard = match stream.time() {
+                        Ok(t) if t.rate().denom > 0 && t.now() > 0 => {
+                            let r = t.rate();
+                            let delay = t.delay().max(0) as f64 * r.num as f64 / r.denom as f64;
+                            let buffered = t.buffered() as f64 / RATE as f64;
+                            t.now() as u64 + ((delay + buffered) * 1e9) as u64
+                        }
+                        _ => now_ns() + 128 * 1_000_000_000 / RATE as u64,
+                    };
+                    engine.mark(heard);
                     let stride = std::mem::size_of::<f32>() * CHANNELS;
                     let frames = match data.data() {
                         Some(bytes) => match bytemuck::try_cast_slice_mut::<u8, f32>(bytes) {

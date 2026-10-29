@@ -40,9 +40,10 @@ impl Controls {
         }
     }
 
-    pub fn update(&mut self, graph: &Graph, dt: f32) {
+    /// one frame: `lead` = how many samples the audio callback has rendered past the heard moment (the FFT looks back)
+    pub fn update(&mut self, graph: &Graph, dt: f32, lead: usize) {
         for (node, a) in &mut self.analyzers {
-            self.out[*node].copy_from_slice(&a.update(dt));
+            self.out[*node].copy_from_slice(&a.update(dt, lead));
         }
         for &i in &graph.order {
             if graph.nodes[i].kind == Kind::Lfo {
@@ -89,12 +90,12 @@ mod tests {
         let (_, mut h) = Engine::build(&g, 48_000.0, 1.0).unwrap();
         let freq = h.params[0].2.clone();
         let mut c = Controls::new(&g, Some(&mut h));
-        c.update(&g, 0.1);
+        c.update(&g, 0.1, 0);
         assert_eq!(c.input(&g, 1, "speed", 0.0), 3.0); // square high = 1 → 1 * 2 + 1
         assert_eq!(c.input(&g, 1, "zoom", 1.0), 3.0); // unlinked: the node's param
         assert_eq!(c.input(&g, 1, "hue", 0.5), 0.5); // neither: the default
         assert_eq!(freq.get(), 100.0);
-        c.update(&g, 2.0); // phase 0.025 + 0.5 → the low half
+        c.update(&g, 2.0, 0); // phase 0.025 + 0.5 → the low half
         assert_eq!(c.input(&g, 1, "speed", 0.0), 1.0);
     }
 }

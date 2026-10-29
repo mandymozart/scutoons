@@ -732,6 +732,7 @@ dependencies = [
  "font8x8",
  "fundsp",
  "image",
+ "libc",
  "pipewire",
  "pollster",
  "resvg",

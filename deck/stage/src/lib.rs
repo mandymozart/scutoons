@@ -2,6 +2,7 @@
 //! (tests/) drive the audio engine directly.
 pub mod audio;
 pub mod chapter;
+pub mod clock;
 pub mod control;
 pub mod fft;
 pub mod graph;
