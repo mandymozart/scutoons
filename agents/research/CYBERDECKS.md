@@ -1,4 +1,4 @@
-Status 2026-10-29: research brief, nothing built (#171, milestone "Cyberdecks"). Decided (owner 2026-10-29, DECISIONS): **Rust first** – the Live relay + bridge in Rust from the 2026-11-16 kickoff, no Node + Electron. Still open in #171: repo place, milestone date, first hardware. Builds on research/LIVE.md (B.4 relay, B.6 protocol, B.7 bridge) – the Live kickoff 2026-11-16 is where this plan first meets code.
+Status 2026-10-29: research brief, nothing built (#171, milestone "Cyberdecks"). Decided (owner 2026-10-29, DECISIONS): **Rust first** – the Live relay + bridge in Rust from the 2026-11-16 kickoff, no Node + Electron. Dates (owner 2026-10-29): beta at the Top Toy workshop 2027-02-17, public for a tour in summer 2027. Still open in #171: repo place, first hardware. Builds on research/LIVE.md (B.4 relay, B.6 protocol, B.7 bridge) – the Live kickoff 2026-11-16 is where this plan first meets code.
 
 # CYBERDECKS — Arch Linux decks running the SCUTOONS suite natively (Rust)
 
@@ -87,7 +87,10 @@ always be the deployed version** (the conductor, LIVE B.7).
 | Video editing | nothing yet | **native** `deck/cut` – an assemble / cut / export tool on GStreamer (`gstreamer-rs`, VA-API / rkmpp through its plugins): chapter videos, storyboard previews, show recordings. Not a Premiere clone (§7 risk) | throughput, hardware encode |
 | Score rendering (Verovio) | web, lazy | **web** (Verovio is C++ with a JS build; a native build is possible later via its C API) | built, good enough |
 
-## 6. Phases (owner 2026-10-29: starts now, parallel to Chapter 3 – agents build while the owner edits content; phase 1 merges with the Live kickoff 2026-11-16)
+## 6. Phases (owner 2026-10-29: starts now, parallel to Chapter 3 – agents build while the owner edits content)
+Two dated targets: **beta = the Top Toy workshop, 2027-02-17** (phases 1–3: the workshop runs on a deck – the same idea
+as the workshop, refined); **public = a tour in summer 2027** (phases 4–5 as far as the tour needs them; milestone due
+2027-06-30 as a placeholder). Phase 1 merges with the Live kickoff 2026-11-16 (KANON §8 lane 2).
 0. **Inventory + decisions** (this brief → #171): first hardware, repo place (Rust-from-the-start: decided).
 1. **Relay + bridge in Rust** = LIVE phase 1 on the deck stack: `deck/relay`, `deck/bridge` with `midi`, `osc`,
    `dmx-artnet`; protocol from the shared schema; runs on a class-A laptop (Linux, macOS, Windows). Proof: the Top Toy
