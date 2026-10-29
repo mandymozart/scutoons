@@ -3,7 +3,7 @@
 # on the persistence partition) → a countdown, Enter changes the network. Otherwise a menu: nmtui's network picker,
 # the deck's own hotspot (deck-hotspot.nmconnection), or no network (the local relay works without one).
 # Under the boot splash (plymouth, #179) the countdown is a message under the logo and any key opens the menu; the
-# splash steps aside for the menu (deck-firstboot brings it back).
+# splash quits for the menu (a hidden one still eats the keys); the rest of that boot is text.
 set -u
 
 CYAN=$'\e[36m'; DIM=$'\e[2m'; OFF=$'\e[0m'
@@ -33,7 +33,9 @@ if splash; then
     timeout "$wait_s" plymouth watch-keystroke >/dev/null 2>&1 || exit 0
     asked=1
   fi
-  plymouth hide-splash 2>/dev/null
+  # quit, not hide-splash: a hidden plymouthd keeps reading tty1's keyboard, so nmtui got no Enter / Activate
+  # (the X1, 2026-10-29); after the menu the boot goes on in text until the kiosk
+  plymouth quit 2>/dev/null
   clear
 fi
 
