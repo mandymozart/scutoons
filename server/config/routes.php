@@ -19,6 +19,7 @@ use Scutoons\Domain\Secrets;
 use Scutoons\Domain\Settings\RuntimeSettings;
 use Scutoons\Http\Controllers\AccessController;
 use Scutoons\Http\Controllers\ApiTokensController;
+use Scutoons\Http\Controllers\DecksController;
 use Scutoons\Http\Controllers\ReviewsController;
 use Scutoons\Http\Controllers\StoryboardController;
 use Scutoons\Http\Controllers\StoryboardPairingsController;
@@ -130,6 +131,24 @@ return static function (App $app): void {
         'Too many pairing requests – try again later.',
     );
 
+    // Cyberdecks (#180): a deck asks for access without a session (its key is its identity) – a few requests per client
+    // IP and hour (a deck asks once per boot, or again after a revoke); polling + token renewal (every few seconds while
+    // a code waits, then once an hour) – a limit for loops, not for decks
+    $deckRequestLimit = new RateLimit(
+        $c->get(RateLimiter::class),
+        static fn(Request $request): string => 'deckreq:' . $ipHash(),
+        30,
+        3600,
+        'Too many deck requests – try again later.',
+    );
+    $deckPollLimit = new RateLimit(
+        $c->get(RateLimiter::class),
+        static fn(Request $request): string => 'deckpoll:' . $ipHash(),
+        1200,
+        3600,
+        'Too many deck requests – try again later.',
+    );
+
     // ── Public API (agents/ITEMS.md) ───────────────────────────────────────────────────────────────────
     $app->get('/api/health', HealthController::class);
     // the member's MCP server, built with the api deploy (agents/MCP.md §3a; scutoons.com/mcp redirects here)
@@ -197,6 +216,16 @@ return static function (App $app): void {
     $app->post('/api/me/tokens', [ApiTokensController::class, 'create']);
     $app->post('/api/me/tokens/{id:[0-9a-f-]{36}}/renew', [ApiTokensController::class, 'renew']);
     $app->delete('/api/me/tokens/{id:[0-9a-f-]{36}}', [ApiTokensController::class, 'revoke']);
+    // Cyberdecks (#180, agents/research/CYBERDECKS.md §9): the deck's handshake (no session) and the member's decks (a
+    // real sign-in; every member, readers included)
+    $app->post('/api/decks/request', [DecksController::class, 'request'])->add($deckRequestLimit);
+    $app->post('/api/decks/challenge', [DecksController::class, 'challenge'])->add($deckPollLimit);
+    $app->post('/api/decks/token', [DecksController::class, 'token'])->add($deckPollLimit);
+    $app->get('/api/me/decks', [DecksController::class, 'list']);
+    $app->get('/api/me/decks/pending', [DecksController::class, 'pending']);
+    $app->post('/api/me/decks/approve', [DecksController::class, 'approve']);
+    $app->post('/api/me/decks/{id:[0-9a-f-]{36}}/renew', [DecksController::class, 'renew']);
+    $app->delete('/api/me/decks/{id:[0-9a-f-]{36}}', [DecksController::class, 'revoke']);
 
     $app->map(['GET', 'POST'], '/api/access', [AccessController::class, 'access'])->add($lookupLimit);
     $app->get('/api/code', [AccessController::class, 'code'])->add($codeLimit);

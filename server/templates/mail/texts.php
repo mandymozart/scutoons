@@ -156,6 +156,13 @@ return [
             'button' => 'Open my account',
             'why' => 'You get this because your AI used this connection in its last two weeks. Not yours any more? Revoke it there.',
         ],
+        'deck_expiring' => [
+            'subject' => 'Your deck "{name}" loses its access on {date}',
+            'intro' => 'Your deck "{name}" can no longer reach SCUTOONS from {date}.',
+            'how' => 'Still using it? Renew it on your account page (Decks → Renew) – nothing to pair again.',
+            'button' => 'Open my account',
+            'why' => 'You get this because this deck was in use in its last two weeks. Not yours any more? Revoke it there.',
+        ],
     ],
     'de' => [
         '_layout' => [
@@ -306,6 +313,13 @@ return [
             'how' => 'Nutzt du sie noch? Verlängere sie auf deiner Kontoseite (KI-Verbindungen → Verlängern) – sie läuft dann 6 Monate weiter, nichts neu einzurichten.',
             'button' => 'Mein Konto öffnen',
             'why' => 'Du bekommst das, weil deine KI diese Verbindung in ihren letzten zwei Wochen genutzt hat. Gehört sie nicht mehr zu dir? Dort widerrufen.',
+        ],
+        'deck_expiring' => [
+            'subject' => 'Dein Deck „{name}“ verliert am {date} den Zugang',
+            'intro' => 'Dein Deck „{name}“ erreicht SCUTOONS ab {date} nicht mehr.',
+            'how' => 'Nutzt du es noch? Verlängere es auf deiner Kontoseite (Decks → Verlängern) – nichts neu zu koppeln.',
+            'button' => 'Mein Konto öffnen',
+            'why' => 'Du bekommst das, weil dieses Deck in seinen letzten zwei Wochen benutzt wurde. Gehört es nicht mehr zu dir? Dort widerrufen.',
         ],
     ],
 ];

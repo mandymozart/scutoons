@@ -9,9 +9,11 @@ use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface as Handler;
 use Scutoons\Domain\Auth\ApiTokens;
 use Scutoons\Domain\Auth\Sessions;
+use Scutoons\Domain\Decks\Decks;
 use Scutoons\Http\AllowedOrigins;
 use Scutoons\Http\ApiTokenScope;
 use Scutoons\Http\CurrentSession;
+use Scutoons\Http\DeckTokenScope;
 use Scutoons\Http\SessionCookie;
 use Scutoons\Infrastructure\Config\Settings;
 
@@ -24,13 +26,14 @@ use Scutoons\Infrastructure\Config\Settings;
  * CSRF: a cookie on POST/PUT/DELETE/PATCH counts only with an `Origin` from ALLOWED_ORIGINS (CurrentSession).
  *
  * A personal access token (`Bearer sct_…`, an AI connection) is refused on what only the member does in the app
- * (ApiTokenScope: publish, send, apply, manage tokens, admin changes) – 403 not_for_ai.
+ * (ApiTokenScope: publish, send, apply, manage tokens, admin changes) – 403 not_for_ai. A deck token (`Bearer scd_…`)
+ * only reads (DeckTokenScope) – 403 not_for_deck.
  */
 final class Session implements MiddlewareInterface
 {
     private const SAFE_METHODS = ['GET', 'HEAD', 'OPTIONS'];
 
-    public function __construct(private readonly Sessions $sessions, private readonly Settings $settings, private readonly ApiTokens $apiTokens)
+    public function __construct(private readonly Sessions $sessions, private readonly Settings $settings, private readonly ApiTokens $apiTokens, private readonly Decks $decks)
     {
     }
 
@@ -52,8 +55,9 @@ final class Session implements MiddlewareInterface
                     && !AllowedOrigins::allows($this->settings, $request->getHeaderLine('Origin'));
             }
         }
-        $session = new CurrentSession($this->sessions, $token, $via, $csrfBlocked, $this->apiTokens);
+        $session = new CurrentSession($this->sessions, $token, $via, $csrfBlocked, $this->apiTokens, $this->decks);
         if ($session->isApiToken()) ApiTokenScope::guard($request->getMethod(), $request->getUri()->getPath());
+        if ($session->isDeckToken()) DeckTokenScope::guard($request->getMethod(), $request->getUri()->getPath());
         return $handler->handle($request->withAttribute(CurrentSession::ATTRIBUTE, $session));
     }
 }

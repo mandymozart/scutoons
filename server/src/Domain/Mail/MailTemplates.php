@@ -55,6 +55,7 @@ final class MailTemplates
     public const REVIEW_RETURNED = 'review_returned';
     public const EMBASSY_PORTION = 'embassy_portion';
     public const AI_TOKEN_EXPIRING = 'ai_token_expiring';
+    public const DECK_EXPIRING = 'deck_expiring';
 
     public const LOCALES = ['de', 'en'];
     public const DEFAULT_LOCALE = 'en';
@@ -279,6 +280,18 @@ final class MailTemplates
             'description' => 'An AI connection (personal token, Domain\\Auth\\ApiTokens) is used within its last 14 days: to its member, once per period – renew it on the account page',
             'vars' => ['name' => 'string', 'date' => 'string', 'url' => 'url'],
             'sample' => ['name' => 'Claude on my laptop', 'date' => '2027-04-09', 'url' => 'https://scutoons.com/account'],
+            'blocks' => [
+                ['p', 'intro'],
+                ['p', 'how'],
+                ['button', 'button', 'url' => 'url'],
+            ],
+            'fineprint' => ['why'],
+        ],
+        self::DECK_EXPIRING => [
+            'audience' => 'member',
+            'description' => 'A deck (Domain\Decks\Decks, #180) renews its access within the last 14 days of its approval: to its member, once per period – renew it on the account page',
+            'vars' => ['name' => 'string', 'date' => 'string', 'url' => 'url'],
+            'sample' => ['name' => 'x1-stage', 'date' => '2027-04-29', 'url' => 'https://scutoons.com/account'],
             'blocks' => [
                 ['p', 'intro'],
                 ['p', 'how'],

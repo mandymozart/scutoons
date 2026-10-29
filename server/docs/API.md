@@ -58,6 +58,8 @@ Locally `http://localhost:9000/api` (`VITE_API_URL`; the qr app on :9001). Publi
 | POST | `/entities/<key>/publish`, `/unpublish`, `/restore` | creator | make a version live / nothing live / old version → new draft · publish / unpublish `403 review_required` when the account needs a review for the toon – see "Reviews" |
 | GET/POST | `/reviews`, `/reviews/publish`, `/reviews/return` | creator | review before publish – see "Reviews" |
 | GET/POST/DELETE | `/me/tokens`, `/me/tokens/{id}` | session (members) | the member's AI connections (personal tokens `sct_…`) – see "AI connections" |
+| POST | `/decks/request`, `/decks/challenge`, `/decks/token` | none (the deck's key) | a cyberdeck's handshake – see "Decks" |
+| GET/POST/DELETE | `/me/decks`, `/me/decks/pending`, `/me/decks/approve`, `/me/decks/{id}` | session (every member) | the member's paired decks – see "Decks" |
 | GET/POST | `/validate/` | – | PUBLIC URL (printed): legacy, backwards compatible – success for any existing, unexpired, unrevoked code (claimed or not); CORS `*` |
 | GET | `/keys/keys.php` | – | PUBLIC URL (printed): the public key of the certificate signatures |
 | * | `/admin/*` | admin | the admin API – see "Admin API" |
@@ -702,7 +704,7 @@ signs in with a personal token from the account page ("AI connections"). Code: `
 - **Refused for a token** (`403 not_for_ai` – the member does it in the app): `POST /entities/<key>/publish|unpublish`,
   the batch `POST /entities/publish` (#100), `PUT /assets/replace` (new bytes under a live file), `POST /reviews/publish|return`,
   `POST /embassy/orgs/{id}/mail`, `DELETE /embassy/orgs/{id}`, `POST /embassy/import`, every `/admin/*` call but GET /
-  HEAD and `POST /admin/proposals`, `POST /auth/session|logout`, `/me/tokens*`. The path is matched decoded, as the router
+  HEAD and `POST /admin/proposals`, `POST /auth/session|logout`, `/me/tokens*`, `/me/decks*`. The path is matched decoded, as the router
   sees it (`%61dmin` = `admin`). Invites and gifts are allowed – what the admin's campaigns and the limits allow the
   member (owner 2026-10-21).
 - A save through a token is signed "(AI: <connection name>)" in the version message.
@@ -720,6 +722,43 @@ signs in with a personal token from the account page ("AI connections"). Code: `
 | DELETE | `/me/tokens/{id}` | → `{ status }` – revoked: the next call with it answers 401 |
 
 A real session only (cookie or a session Bearer); CORS allows DELETE there.
+
+## Decks (cyberdecks, 2026-10-29, #180 – migration `2026-10-29-decks`)
+
+Handshake, then approval, then data (agents/research/CYBERDECKS.md §9). Code: `Domain\Decks\Decks`, `DecksController`,
+`Http\DeckTokenScope`; the deck's client: `deck/link` (Rust).
+
+- **Identity:** every deck has its own Ed25519 key pair (made at first boot, the private key never leaves it). One row per
+  public key; `public_key` = 32 bytes as hex.
+- **Request:** the deck sends its key (+ build, class, hostname) and shows the code (6 characters from
+  `ABCDEFGHJKMNPQRSTUVWXYZ23456789`, shown `K7Q-42M`; typed in any case, dashes / spaces ignored). A pending request ends
+  after 10 minutes (expired rows are swept); asking again while it waits gives the same code. 30 requests per client IP
+  and hour (`deckreq:`), polling and tokens 1200 (`deckpoll:`).
+- **Approval:** a signed-in member – **every member, readers included** – approves the code on the account page; the
+  deck becomes theirs (`mapping` member; role / Live session later). Lifetime set there like the AI connections:
+  `days` 1–182 (default 182), optional `idle_days` (ends when the deck was not seen that long); renew moves it `days` on
+  from now (also an expired one), one reminder mail per period (`deck_expiring`) when the deck renews within its last
+  14 days. Wrong codes: 20 per member and hour (`deckcode:`), then 429. At most 50 decks per member (`409 too_many`).
+- **Tokens:** within the approval the deck asks for a challenge (single use, 2 minutes) and signs
+  `scutoons-deck-token:v1:<challenge hex>:<public key hex>` → a token `scd_…` for 1 hour (only its SHA-256 stored, one
+  per deck). `Authorization: Bearer scd_…` = the member's account, **read-only** (`DeckTokenScope`, `403 not_for_deck`):
+  GET / HEAD only, never `/me/decks*`, `/me/tokens*`, `/auth/*`. The handshake routes ignore the session.
+- **Revoke / expiry:** the token stops at once (401); the next challenge answers `401 revoked | expired`, an unknown key
+  `401 unknown_deck`, an expired request `401 request_expired` → the deck asks again (the same row goes back to pending,
+  nothing of the old approval stays).
+- Managing decks is a real sign-in (session cookie or session Bearer): AI connections get `403 not_for_ai`.
+- Before the migration the endpoints answer `503 not_available`.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| POST | `/decks/request` | `{ public_key, build?, class?, hostname? }` → `201 { status, deck: { status: pending, id, code, expires_at } }`, or `200 { deck: { status: approved, id } }` while its approval holds · `400 invalid_public_key` · `429` |
+| POST | `/decks/challenge` | `{ public_key }` → `202 { deck: { status: pending, id, code, expires_at } }` · `200 { deck: { status: approved, challenge, expires_at } }` · `401 unknown_deck / request_expired / revoked / expired` |
+| POST | `/decks/token` | `{ public_key, challenge, signature }` (64 bytes hex) → `{ status, token, expires_at, approval_expires_at, deck: { id, name } }` · `401 bad_challenge / bad_signature / not_approved / revoked / expired` |
+| GET | `/me/decks` | `{ status, items: [{ id, name, hostname, build, class, mapping, approved_at, last_seen_at, expires_at, lifetime_days, idle_days, expired }] }` |
+| GET | `/me/decks/pending?code=` | `{ status, deck: { code, hostname, build, class, expires_at } }` – the pairing page shows it before approving · `404 unknown_code` |
+| POST | `/me/decks/approve` | `{ code, days?, idle_days?, name? }` → `{ status, item }` · `400 invalid_days / invalid_idle_days` · `404 unknown_code` · `409 too_many` |
+| POST | `/me/decks/{id}/renew` | → `{ status, item }` |
+| DELETE | `/me/decks/{id}` | → `{ status }` – revoked |
 
 ## Developer API (`/api/dev/*`, role `developer` – BACKLOG 10.61)
 

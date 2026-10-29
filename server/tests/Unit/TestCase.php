@@ -29,6 +29,8 @@ abstract class TestCase extends BaseTestCase
 
     protected function setUp(): void
     {
+        // a limit some code sets for its request (PushSender: 60 s, wall time on Windows) must not cut the later tests
+        set_time_limit(0);
         $this->dir = str_replace('\\', '/', sys_get_temp_dir()) . '/scutoons-unit-' . bin2hex(random_bytes(6));
         mkdir($this->dir . '/files', 0777, true);
         MysqlTestDatabase::reset(self::root());

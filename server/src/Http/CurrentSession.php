@@ -8,6 +8,7 @@ use RuntimeException;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Auth\ApiTokens;
 use Scutoons\Domain\Auth\Sessions;
+use Scutoons\Domain\Decks\Decks;
 
 /**
  * The session of a request (request attribute, set by the Session middleware): a Bearer token, or – single sign-on – the
@@ -19,7 +20,8 @@ use Scutoons\Domain\Auth\Sessions;
  * keep working for everybody.
  *
  * A personal access token (`Bearer sct_…`, ApiTokens – "AI connections", agents/MCP.md) is a Bearer like a session: the
- * member's account while it has a member role; what it may not do, ApiTokenScope refuses.
+ * member's account while it has a member role; what it may not do, ApiTokenScope refuses. A deck token (`Bearer scd_…`,
+ * Decks, #180) is its member's account too – read-only (DeckTokenScope).
  */
 final class CurrentSession
 {
@@ -41,6 +43,7 @@ final class CurrentSession
         private readonly ?string $via = null,
         private readonly bool $csrfBlocked = false,
         private readonly ?ApiTokens $apiTokens = null,
+        private readonly ?Decks $decks = null,
     ) {
     }
 
@@ -69,6 +72,12 @@ final class CurrentSession
         return $this->via() === self::VIA_BEARER && ApiTokens::isApiToken($this->token);
     }
 
+    /** The request came with a deck's short token (a paired cyberdeck, #180) */
+    public function isDeckToken(): bool
+    {
+        return $this->via() === self::VIA_BEARER && Decks::isDeckToken($this->token);
+    }
+
     /** @return array{id: string, name: string}|null the AI connection's id and name */
     public function apiToken(): ?array
     {
@@ -85,7 +94,12 @@ final class CurrentSession
     {
         if (!$this->resolved) {
             $token = $this->token();
-            $this->user = $token === null ? null : ($this->isApiToken() ? $this->apiTokens?->user($token) : $this->sessions->user($token));
+            $this->user = match (true) {
+                $token === null => null,
+                $this->isApiToken() => $this->apiTokens?->user($token),
+                $this->isDeckToken() => $this->decks?->user($token),
+                default => $this->sessions->user($token),
+            };
             $this->resolved = true;
         }
         return $this->user;
