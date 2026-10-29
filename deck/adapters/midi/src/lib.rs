@@ -98,6 +98,11 @@ impl MidiAdapter {
     }
 }
 
+/// The panic messages: CC 120 (all sound off) and CC 123 (all notes off), value 0, on channels 1–16.
+pub fn panic_bytes() -> Vec<[u8; 3]> {
+    (0..16u8).flat_map(|ch| [[0xB0 | ch, 120, 0], [0xB0 | ch, 123, 0]]).collect()
+}
+
 impl Adapter for MidiAdapter {
     fn name(&self) -> &'static str {
         "midi"
@@ -136,6 +141,15 @@ impl Adapter for MidiAdapter {
                 )
                 .map_err(|e| anyhow!("MIDI in connect: {e}"))?;
             self.in_conn = Some(conn);
+        }
+        Ok(())
+    }
+
+    /// All sound off (CC 120) + all notes off (CC 123) on all 16 channels.
+    fn panic(&mut self) -> anyhow::Result<()> {
+        let Some(out) = self.out.as_mut() else { return Ok(()) };
+        for bytes in panic_bytes() {
+            out.send(&bytes).map_err(|e| anyhow!("MIDI out: {e}"))?;
         }
         Ok(())
     }
@@ -207,5 +221,13 @@ mod tests {
         assert_eq!(note_on(1, 60, 100), [0x90, 60, 100]);
         assert_eq!(note_off(16, 60), [0x8F, 60, 0]);
         assert_eq!(control_change(16, 7, 127), [0xBF, 7, 127]);
+    }
+
+    #[test]
+    fn panic_silences_every_channel() {
+        let b = super::panic_bytes();
+        assert_eq!(b.len(), 32);
+        assert_eq!(b[0], [0xB0, 120, 0]);
+        assert_eq!(b[31], [0xBF, 123, 0]);
     }
 }

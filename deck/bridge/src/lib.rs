@@ -3,9 +3,12 @@
 //! as `bridge`, reports its ports (`devices`), plays `device` messages at their `at`, and forwards what comes in as
 //! `device.in` to the conductor.
 //!
-//! Not yet (each a `TODO` below): the clock offset from 5 ping samples, the status window, osc / dmx adapters.
+//! Timing (B.6 clock): the offset to the relay is the median of 5 ping samples at join; `device` messages wait in a
+//! queue until their `at` (a late one plays at once), and `panic` empties the queue and silences every adapter.
+//! Not yet: the status window, the dmx adapters.
 
-use std::collections::HashMap;
+use std::cmp::Reverse;
+use std::collections::{BinaryHeap, HashMap};
 use std::time::Duration;
 
 use adapters_core::{Adapter, DeviceConfig, Inbound};
@@ -91,16 +94,40 @@ pub async fn session(patch: &Patch, adapters: &mut [(String, Box<dyn Adapter>)],
         other => return Err(anyhow!("no welcome: {other:?}")),
     };
     let Message::Welcome(w) = welcome.message else { return Err(anyhow!("relay refused: {:?}", welcome.message)) };
-    // TODO(B.6 clock): 5 ping samples at join, offset = median of t1 − (t0 + rtt / 2); one sample for now.
-    let offset_ms = now_ms() - w.now;
+    // B.6 clock: 5 samples, offset = median of t1 − (t0 + rtt / 2); stored as local − relay
+    let mut samples = vec![];
+    for _ in 0..SAMPLES {
+        let t0 = now_ms();
+        sink.send(Ws::Text(serde_json::to_string(&Envelope::new("", Message::Ping(protocol::Ping { t0 })))?)).await?;
+        loop {
+            let Some(Ok(Ws::Text(t))) = source.next().await else { return Err(anyhow!("relay closed during the clock")) };
+            if let Ok(Envelope { message: Message::Pong(p), .. }) = serde_json::from_str::<Envelope>(&t) {
+                if p.t0 == t0 {
+                    samples.push((p.t0, p.t1, now_ms()));
+                    break;
+                }
+            }
+        }
+    }
+    let offset_ms = clock_offset(&samples).unwrap_or_else(|| now_ms() - w.now);
     tracing::info!(client = w.client, offset_ms, "joined the relay");
 
     sink.send(Ws::Text(serde_json::to_string(&Envelope::new("", Message::Devices(Devices { ports: ports(adapters) })))?)).await?;
 
     let mut by_outlet: HashMap<&str, &mut Box<dyn Adapter>> = adapters.iter_mut().map(|(o, a)| (o.as_str(), a)).collect();
+    // device messages waiting for their time (local ms), earliest first; `n` keeps the arrival order on equal times
+    let mut queue: BinaryHeap<Reverse<(i64, u64, Timed)>> = BinaryHeap::new();
+    let mut n = 0u64;
     let mut keepalive = tokio::time::interval(Duration::from_secs(20));
     keepalive.tick().await;
     loop {
+        let next = queue.peek().map(|Reverse((t, _, _))| *t);
+        let due = async {
+            match next {
+                Some(t) => tokio::time::sleep(Duration::from_millis((t - now_ms()).max(0) as u64)).await,
+                None => std::future::pending().await,
+            }
+        };
         tokio::select! {
             frame = source.next() => {
                 let text = match frame {
@@ -112,22 +139,30 @@ pub async fn session(patch: &Patch, adapters: &mut [(String, Box<dyn Adapter>)],
                 let Ok(envelope) = serde_json::from_str::<Envelope>(&text) else { continue };
                 match envelope.message {
                     Message::Device(d) => {
-                        // Play at `at` on the bridge's own clock (B.7: never a browser tab). A late message plays at once.
-                        if let Some(at) = d.at {
-                            let local = at + offset_ms;
-                            let wait = local - now_ms();
-                            if wait > 0 { tokio::time::sleep(Duration::from_millis(wait as u64)).await; }
-                        }
-                        match by_outlet.get_mut(d.outlet.as_str()) {
-                            Some(adapter) => for msg in &d.msgs {
-                                if let Err(e) = adapter.send(msg) { tracing::warn!(outlet = d.outlet, "send failed: {e}"); }
-                            },
-                            None => tracing::warn!(outlet = d.outlet, "device for an unpatched outlet"),
-                        }
+                        // play at `at` on the bridge's own clock (B.7: never a browser tab); without `at` at once
+                        let local = d.at.or(envelope.at).map_or(0, |at| at + offset_ms);
+                        n += 1;
+                        queue.push(Reverse((local, n, Timed(d))));
                     }
-                    Message::Pong(_) => {}
-                    Message::Panic(_) => { /* TODO(B.6 panic): all notes off / DMX black on every adapter */ }
+                    Message::Panic(_) => {
+                        queue.clear();
+                        for (outlet, adapter) in by_outlet.iter_mut() {
+                            if let Err(e) = adapter.panic() { tracing::warn!(outlet, "panic failed: {e}"); }
+                        }
+                        tracing::info!("panic: queue cleared, devices silenced");
+                    }
                     _ => {}
+                }
+            }
+            _ = due => {
+                while queue.peek().is_some_and(|Reverse((t, _, _))| *t <= now_ms()) {
+                    let Reverse((_, _, Timed(d))) = queue.pop().expect("peeked");
+                    match by_outlet.get_mut(d.outlet.as_str()) {
+                        Some(adapter) => for msg in &d.msgs {
+                            if let Err(e) = adapter.send(msg) { tracing::warn!(outlet = d.outlet, "send failed: {e}"); }
+                        },
+                        None => tracing::warn!(outlet = d.outlet, "device for an unpatched outlet"),
+                    }
                 }
             }
             Some(inbound) = inbound.recv() => {
@@ -139,6 +174,40 @@ pub async fn session(patch: &Patch, adapters: &mut [(String, Box<dyn Adapter>)],
                 sink.send(Ws::Text(serde_json::to_string(&Envelope::new("", ping))?)).await?;
             }
         }
+    }
+}
+
+/// B.6: 5 clock samples at join.
+pub const SAMPLES: usize = 5;
+
+/// The clock offset (local − relay, ms) from ping samples `(t0, t1, t2)`: t0 sent and t2 received on the local clock,
+/// t1 the relay's time – the median of `t1 − (t0 + rtt / 2)`, negated. None without samples.
+pub fn clock_offset(samples: &[(i64, i64, i64)]) -> Option<i64> {
+    let mut d: Vec<i64> = samples.iter().map(|&(t0, t1, t2)| t1 - (t0 + (t2 - t0) / 2)).collect();
+    if d.is_empty() {
+        return None;
+    }
+    d.sort_unstable();
+    Some(-d[d.len() / 2])
+}
+
+/// A `device` message in the queue, ordered only by its time (the heap's key ahead of it).
+struct Timed(protocol::Device);
+
+impl PartialEq for Timed {
+    fn eq(&self, _: &Self) -> bool {
+        true
+    }
+}
+impl Eq for Timed {}
+impl PartialOrd for Timed {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl Ord for Timed {
+    fn cmp(&self, _: &Self) -> std::cmp::Ordering {
+        std::cmp::Ordering::Equal
     }
 }
 
@@ -187,5 +256,13 @@ adapter = \"osc\"
     fn midi_needs_a_port() {
         let patch = Patch::parse("relay = \"ws://x/live/Q\"\n[[device]]\noutlet = \"a\"\nadapter = \"midi\"\n").unwrap();
         assert!(build_adapters(&patch).err().expect("an error").to_string().contains("port"));
+    }
+
+    #[test]
+    fn clock_offset_is_the_median() {
+        // the relay is 1000 ms ahead; one sample has a slow return trip (the outlier the median drops)
+        let samples = [(0, 1_005, 10), (100, 1_104, 108), (200, 1_210, 220), (300, 1_302, 304), (400, 1_700, 1_400)];
+        assert_eq!(clock_offset(&samples), Some(-1_000));
+        assert_eq!(clock_offset(&[]), None);
     }
 }

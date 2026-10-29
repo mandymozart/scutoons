@@ -308,6 +308,7 @@ dependencies = [
  "anyhow",
  "futures-util",
  "protocol",
+ "relay",
  "serde",
  "serde_json",
  "tokio",
