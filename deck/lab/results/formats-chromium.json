@@ -1,0 +1,253 @@
+{
+  "isolated": true,
+  "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36 Edg/156.0.0.0",
+  "crossings": [
+    {
+      "probe": "postMessage, an object { mode, node, port, amount, v } (one-way, 4000 back to back)",
+      "us": 6.0162499994039536,
+      "runs": [
+        34.024999998509884,
+        4.811249997466803,
+        5.777499999850988,
+        6.8599999994039536,
+        6.0162499994039536
+      ]
+    },
+    {
+      "probe": "postMessage, 16 record bytes transferred (one-way, 4000 back to back)",
+      "us": 5.431249998509884,
+      "runs": [
+        5.987500000745058,
+        5.431249998509884,
+        5.317499998956919,
+        7.171249996870756,
+        5.4087500013411045
+      ]
+    },
+    {
+      "probe": "SharedArrayBuffer ring, a 16-byte record (one-way, 4000 back to back)",
+      "us": 0.4737499989569187,
+      "runs": [
+        0.7037499994039536,
+        0.3999999985098839,
+        0.4637500010430813,
+        0.4737499989569187,
+        0.9149999991059303
+      ]
+    },
+    {
+      "probe": "postMessage round trip (median of 300)",
+      "us": 64.99999761581421,
+      "runs": [
+        69.99999284744263,
+        64.99999761581421,
+        64.99999761581421,
+        60.00000238418579,
+        60.00000238418579
+      ]
+    },
+    {
+      "probe": "SharedArrayBuffer ring round trip, Atomics.waitAsync both ways (median of 300)",
+      "us": 30.000001192092896,
+      "runs": [
+        30.000001192092896,
+        30.000001192092896,
+        34.99999642372131,
+        20.00001072883606,
+        25.000005960464478
+      ]
+    }
+  ],
+  "rows": [
+    {
+      "host": "Chromium worker",
+      "workload": "control: one scalar (force)",
+      "format": "JSON",
+      "encodeUs": 0.5358499999344349,
+      "totalUs": 1.1568999999761582,
+      "min": 1.0724500000476838,
+      "max": 1.7106499999761582,
+      "runs": 5
+    },
+    {
+      "host": "Chromium worker",
+      "workload": "control: one scalar (force)",
+      "format": "postcard",
+      "encodeUs": 0.08585000008344651,
+      "totalUs": 0.2325,
+      "min": 0.19819999992847442,
+      "max": 0.2825,
+      "runs": 5
+    },
+    {
+      "host": "Chromium worker",
+      "workload": "control: one scalar (force)",
+      "format": "wire, copied",
+      "encodeUs": 0.04114999994635582,
+      "totalUs": 0.1753999999165535,
+      "min": 0.1695999999344349,
+      "max": 0.26004999995231626,
+      "runs": 5
+    },
+    {
+      "host": "Chromium worker",
+      "workload": "control: one scalar (force)",
+      "format": "wire, in place",
+      "encodeUs": 0.04310000002384186,
+      "totalUs": 0.08120000004768371,
+      "min": 0.07184999987483025,
+      "max": 0.11200000002980232,
+      "runs": 5
+    },
+    {
+      "host": "Chromium worker",
+      "workload": "parameter vector, 4 floats (blend)",
+      "format": "JSON",
+      "encodeUs": 0.7507999999821187,
+      "totalUs": 1.7915500000119209,
+      "min": 1.6265000000596046,
+      "max": 2.338700000047684,
+      "runs": 5
+    },
+    {
+      "host": "Chromium worker",
+      "workload": "parameter vector, 4 floats (blend)",
+      "format": "postcard",
+      "encodeUs": 0.10980000004172324,
+      "totalUs": 0.3585999999940395,
+      "min": 0.25895000010728836,
+      "max": 0.3870499999821186,
+      "runs": 5
+    },
+    {
+      "host": "Chromium worker",
+      "workload": "parameter vector, 4 floats (blend)",
+      "format": "wire, copied",
+      "encodeUs": 0.0671000000834465,
+      "totalUs": 0.27344999998807906,
+      "min": 0.20125,
+      "max": 0.3079000000655651,
+      "runs": 5
+    },
+    {
+      "host": "Chromium worker",
+      "workload": "parameter vector, 4 floats (blend)",
+      "format": "wire, in place",
+      "encodeUs": 0.058499999940395356,
+      "totalUs": 0.12810000002384186,
+      "min": 0.10695000007748603,
+      "max": 0.18495000004768372,
+      "runs": 5
+    },
+    {
+      "host": "Chromium worker",
+      "workload": "parameter vector, 64 floats (blend)",
+      "format": "JSON",
+      "encodeUs": 4.897499999900659,
+      "totalUs": 12.059500000377495,
+      "min": 9.789666666587193,
+      "max": 14.557000000278155,
+      "runs": 5
+    },
+    {
+      "host": "Chromium worker",
+      "workload": "parameter vector, 64 floats (blend)",
+      "format": "postcard",
+      "encodeUs": 0.465166666607062,
+      "totalUs": 0.7671666666865349,
+      "min": 0.623333332935969,
+      "max": 1.0484999999403954,
+      "runs": 5
+    },
+    {
+      "host": "Chromium worker",
+      "workload": "parameter vector, 64 floats (blend)",
+      "format": "wire, copied",
+      "encodeUs": 0.14183333317438762,
+      "totalUs": 0.2766666665673256,
+      "min": 0.2619999999801318,
+      "max": 0.46500000009934106,
+      "runs": 5
+    },
+    {
+      "host": "Chromium worker",
+      "workload": "parameter vector, 64 floats (blend)",
+      "format": "wire, in place",
+      "encodeUs": 0.14716666688521704,
+      "totalUs": 0.19849999994039536,
+      "min": 0.16183333347241083,
+      "max": 0.28266666680574415,
+      "runs": 5
+    },
+    {
+      "host": "Chromium worker",
+      "workload": "analysis frame out (4 bands + 512 bins)",
+      "format": "JSON",
+      "encodeUs": null,
+      "totalUs": 38.614000000059605,
+      "min": 37.41200000047684,
+      "max": 48.83500000089407,
+      "runs": 5
+    },
+    {
+      "host": "Chromium worker",
+      "workload": "analysis frame out (4 bands + 512 bins)",
+      "format": "postcard",
+      "encodeUs": null,
+      "totalUs": 3.729500000178814,
+      "min": 3.559499999880791,
+      "max": 5.315999999642372,
+      "runs": 5
+    },
+    {
+      "host": "Chromium worker",
+      "workload": "analysis frame out (4 bands + 512 bins)",
+      "format": "wire, copied",
+      "encodeUs": null,
+      "totalUs": 1.4109999999403953,
+      "min": 0.8515000000596047,
+      "max": 2.007999999821186,
+      "runs": 5
+    },
+    {
+      "host": "Chromium worker",
+      "workload": "analysis frame out (4 bands + 512 bins)",
+      "format": "wire, in place",
+      "encodeUs": null,
+      "totalUs": 0.09799999892711639,
+      "min": 0.07599999904632568,
+      "max": 0.15150000005960465,
+      "runs": 5
+    },
+    {
+      "host": "Chromium worker",
+      "workload": "cue / cell in (the 330 B relay envelope)",
+      "format": "JSON",
+      "encodeUs": 0.8496000000834465,
+      "totalUs": 5.4075,
+      "min": 5.310299999713898,
+      "max": 6.453100000023841,
+      "runs": 5
+    },
+    {
+      "host": "Chromium worker",
+      "workload": "cue / cell in (the 330 B relay envelope)",
+      "format": "postcard",
+      "encodeUs": 7.048299999833107,
+      "totalUs": 7.320300000011921,
+      "min": 7.0725,
+      "max": 8.413400000035763,
+      "runs": 5
+    },
+    {
+      "host": "Chromium worker",
+      "workload": "cue / cell in (the 330 B relay envelope)",
+      "format": "TS only (JSON.parse – it stays in TS)",
+      "encodeUs": null,
+      "totalUs": 1.944399999976158,
+      "min": 1.7466999998688697,
+      "max": 2.245,
+      "runs": 5
+    }
+  ]
+}

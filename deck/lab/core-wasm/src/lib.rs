@@ -7,6 +7,8 @@ use deck_core::batch::BatchGraph;
 use deck_core::{ControlGraph, Registry, SceneDef};
 use wasm_bindgen::prelude::*;
 
+pub mod formats;
+
 const RATE: f32 = 48_000.0;
 
 #[wasm_bindgen]

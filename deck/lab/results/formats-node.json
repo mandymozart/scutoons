@@ -1,0 +1,192 @@
+[
+  {
+    "host": "Node 22",
+    "workload": "control: one scalar (force)",
+    "format": "JSON",
+    "encodeUs": 1.522161000000001,
+    "totalUs": 2.4505160000000616,
+    "min": 2.2853819999999905,
+    "max": 3.0056239999999526,
+    "runs": 5
+  },
+  {
+    "host": "Node 22",
+    "workload": "control: one scalar (force)",
+    "format": "postcard",
+    "encodeUs": 0.08125800000001618,
+    "totalUs": 0.27254000000000816,
+    "min": 0.22696800000000167,
+    "max": 0.38628599999996366,
+    "runs": 5
+  },
+  {
+    "host": "Node 22",
+    "workload": "control: one scalar (force)",
+    "format": "wire, copied",
+    "encodeUs": 0.041381000000110364,
+    "totalUs": 0.25717599999999946,
+    "min": 0.19883899999999813,
+    "max": 0.31076600000000326,
+    "runs": 5
+  },
+  {
+    "host": "Node 22",
+    "workload": "control: one scalar (force)",
+    "format": "wire, in place",
+    "encodeUs": 0.040054000000018276,
+    "totalUs": 0.07110100000005332,
+    "min": 0.0700709999999981,
+    "max": 0.12110899999999675,
+    "runs": 5
+  },
+  {
+    "host": "Node 22",
+    "workload": "parameter vector, 4 floats (blend)",
+    "format": "JSON",
+    "encodeUs": 2.177894000000015,
+    "totalUs": 3.3619910000000073,
+    "min": 3.0285490000000572,
+    "max": 4.3966229999999635,
+    "runs": 5
+  },
+  {
+    "host": "Node 22",
+    "workload": "parameter vector, 4 floats (blend)",
+    "format": "postcard",
+    "encodeUs": 0.09040399999998044,
+    "totalUs": 0.28877300000000106,
+    "min": 0.2783589999999913,
+    "max": 0.47005000000004654,
+    "runs": 5
+  },
+  {
+    "host": "Node 22",
+    "workload": "parameter vector, 4 floats (blend)",
+    "format": "wire, copied",
+    "encodeUs": 0.05138500000000931,
+    "totalUs": 0.23934399999998276,
+    "min": 0.23566500000000815,
+    "max": 0.39327000000004775,
+    "runs": 5
+  },
+  {
+    "host": "Node 22",
+    "workload": "parameter vector, 4 floats (blend)",
+    "format": "wire, in place",
+    "encodeUs": 0.0515690000000177,
+    "totalUs": 0.10612699999997859,
+    "min": 0.10028800000000046,
+    "max": 0.1787039999999979,
+    "runs": 5
+  },
+  {
+    "host": "Node 22",
+    "workload": "parameter vector, 64 floats (blend)",
+    "format": "JSON",
+    "encodeUs": 11.582273333333433,
+    "totalUs": 18.559216666666668,
+    "min": 18.008040000000133,
+    "max": 23.021536666666602,
+    "runs": 5
+  },
+  {
+    "host": "Node 22",
+    "workload": "parameter vector, 64 floats (blend)",
+    "format": "postcard",
+    "encodeUs": 0.3786133333333661,
+    "totalUs": 0.7520833333333333,
+    "min": 0.6398800000000241,
+    "max": 0.912353333333643,
+    "runs": 5
+  },
+  {
+    "host": "Node 22",
+    "workload": "parameter vector, 64 floats (blend)",
+    "format": "wire, copied",
+    "encodeUs": 0.0859033333331657,
+    "totalUs": 0.33144333333329995,
+    "min": 0.2897999999999835,
+    "max": 0.4530866666667862,
+    "runs": 5
+  },
+  {
+    "host": "Node 22",
+    "workload": "parameter vector, 64 floats (blend)",
+    "format": "wire, in place",
+    "encodeUs": 0.08346333333320217,
+    "totalUs": 0.17127000000012535,
+    "min": 0.15264333333331404,
+    "max": 0.2577333333334536,
+    "runs": 5
+  },
+  {
+    "host": "Node 22",
+    "workload": "analysis frame out (4 bands + 512 bins)",
+    "format": "JSON",
+    "encodeUs": null,
+    "totalUs": 71.62820000000029,
+    "min": 64.8114999999998,
+    "max": 75.35472000000009,
+    "runs": 5
+  },
+  {
+    "host": "Node 22",
+    "workload": "analysis frame out (4 bands + 512 bins)",
+    "format": "postcard",
+    "encodeUs": null,
+    "totalUs": 4.016779999999926,
+    "min": 3.659389999999985,
+    "max": 4.8179900000002815,
+    "runs": 5
+  },
+  {
+    "host": "Node 22",
+    "workload": "analysis frame out (4 bands + 512 bins)",
+    "format": "wire, copied",
+    "encodeUs": null,
+    "totalUs": 1.4976799999989452,
+    "min": 1.2983499999994819,
+    "max": 1.7600900000001274,
+    "runs": 5
+  },
+  {
+    "host": "Node 22",
+    "workload": "analysis frame out (4 bands + 512 bins)",
+    "format": "wire, in place",
+    "encodeUs": null,
+    "totalUs": 0.10820999999996275,
+    "min": 0.08778999999922235,
+    "max": 0.14052000000083353,
+    "runs": 5
+  },
+  {
+    "host": "Node 22",
+    "workload": "cue / cell in (the 330 B relay envelope)",
+    "format": "JSON",
+    "encodeUs": 2.7058600000001025,
+    "totalUs": 9.143919999999925,
+    "min": 8.202855999999883,
+    "max": 9.551612000000024,
+    "runs": 5
+  },
+  {
+    "host": "Node 22",
+    "workload": "cue / cell in (the 330 B relay envelope)",
+    "format": "postcard",
+    "encodeUs": 2.1425299999999696,
+    "totalUs": 3.0383500000002095,
+    "min": 2.7866860000000453,
+    "max": 3.2898460000002525,
+    "runs": 5
+  },
+  {
+    "host": "Node 22",
+    "workload": "cue / cell in (the 330 B relay envelope)",
+    "format": "TS only (JSON.parse – it stays in TS)",
+    "encodeUs": null,
+    "totalUs": 4.736233999999822,
+    "min": 4.268034000000044,
+    "max": 5.822927999999957,
+    "runs": 5
+  }
+]

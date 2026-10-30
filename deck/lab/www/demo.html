@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>live-core demo</title>
+		<style>
+			body { font: 0.875rem/1.4 ui-monospace, monospace; margin: 1rem; background: #111; color: #eee; max-width: 60rem; }
+			h1 { font-size: 1.1rem; }
+			canvas { width: 100%; aspect-ratio: 3 / 1; background: #111; border: 0.0625rem solid #333; display: block; }
+			fieldset { border: 0; padding: 0; margin: 1rem 0; display: grid; grid-template-columns: 6rem 1fr; gap: 0.5rem 1rem; align-items: center; }
+			legend { padding: 0; margin-bottom: 0.5rem; color: #aaa; }
+			input[type='range'] { width: 100%; }
+			button { font: inherit; padding: 0.4rem 1rem; }
+			#status, #vector { color: #aaa; }
+		</style>
+	</head>
+	<body>
+		<h1>@scutoons/live-core – deck-core in a worker, audio through an AudioWorklet (#184)</h1>
+		<p><button id="start">Start</button> <span id="status">press Start (the AudioContext needs a gesture)</span></p>
+		<canvas id="fft" width="1200" height="400"></canvas>
+		<fieldset>
+			<legend>The lead voice's vector: one float vector onto fm's freq, ratio, index, gain (#189)</legend>
+			<label for="freq">freq</label><input id="freq" type="range" min="0" max="1" step="0.001" value="0.6" />
+			<label for="ratio">ratio</label><input id="ratio" type="range" min="0.5" max="4" step="0.01" value="1.5" />
+			<label for="index">index</label><input id="index" type="range" min="0" max="8" step="0.01" value="2" />
+			<label for="gain">gain</label><input id="gain" type="range" min="0" max="0.3" step="0.001" value="0.12" />
+		</fieldset>
+		<fieldset>
+			<legend>How it lands</legend>
+			<span>mode</span>
+			<span>
+				<label><input type="radio" name="mode" value="force" /> force</label>
+				<label><input type="radio" name="mode" value="blend" checked /> blend</label>
+				<label><input type="radio" name="mode" value="release" /> release</label>
+			</span>
+			<label for="amount">amount</label><input id="amount" type="range" min="0" max="1" step="0.01" value="0.75" />
+		</fieldset>
+		<p id="vector"></p>
+		<script type="module" src="./dist/demo.js"></script>
+	</body>
+</html>
