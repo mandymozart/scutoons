@@ -1,8 +1,9 @@
 //! The audio callback never allocates (CYBERDECKS.md §8): a counting global allocator around Engine::render for the
 //! default scene (music player with a track, the sequencer on the tempo clock, FM, noise, the click, mixer, FFT tap,
 //! output) – zero allocations and frees over 20 seconds of audio in device-sized blocks, each stamped for the time base
-//! (`Engine::mark`), with the click on and the tempo map changing under it (the frame thread's seqlock writes).
-use deck_stage::audio::{Engine, Track};
+//! (`Engine::mark`), with the click on and the tempo map changing under it (the frame thread's seqlock writes) – on the
+//! batch runtime (#183) with its AVX2 loops (where the CPU has them) and its baseline loops.
+use deck_stage::audio::{Build, Engine, Track};
 use deck_stage::graph::Graph;
 use deck_stage::scene::{Scene, DEFAULT_SCENE};
 use std::alloc::{GlobalAlloc, Layout, System};
@@ -40,7 +41,14 @@ static A: Counting = Counting;
 #[test]
 fn the_default_scene_renders_without_allocating() {
     let graph = Graph::build(&Scene::parse(DEFAULT_SCENE).unwrap()).unwrap();
-    let (mut engine, mut handles) = Engine::build(&graph, 48_000.0, 1.0).unwrap();
+    for build in [Build::detect(), Build { batch: true, avx2: false }] {
+        renders_without_allocating(&graph, build);
+    }
+}
+
+fn renders_without_allocating(graph: &Graph, build: Build) {
+    let (mut engine, mut handles) = Engine::build_with(graph, 48_000.0, 1.0, build).unwrap();
+    assert!(engine.shape().1 > 0, "the FM voice runs as a batch");
     let track = Track { rate: 44_100.0, l: vec![0.1; 44_100], r: vec![-0.1; 44_100] };
     handles.music[0].tracks.push(Arc::new(track)).ok().unwrap();
     // 128 frames like the deck's PipeWire quantum, plus odd sizes and one bigger than MAX_BLOCK
@@ -65,7 +73,7 @@ fn the_default_scene_renders_without_allocating() {
         }
     }
     COUNTING.store(false, Ordering::SeqCst);
-    assert_eq!(CALLS.load(Ordering::SeqCst), 0, "allocations / frees in the audio path");
+    assert_eq!(CALLS.load(Ordering::SeqCst), 0, "allocations / frees in the audio path ({})", build.label());
     assert!(drained > 0);
     assert!(bufs[0].iter().any(|x| *x != 0.0), "the scene makes sound");
 }

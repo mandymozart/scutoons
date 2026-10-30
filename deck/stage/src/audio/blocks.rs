@@ -1,5 +1,8 @@
-//! The audio kinds' blocks. Oscillators, noise and the filter are fundsp units (built and warmed up here, outside the
-//! callback); the wiring, envelopes, sequencer, player, mixer and FFT tap are ours. Nothing in `process` allocates.
+//! The audio kinds' blocks – the patcher model: one block per node (#183). The batch runtime runs sine oscillators and
+//! FM voices as batches (voices.rs) and everything else as these blocks; a patcher build (`Build::patcher`, the tests'
+//! and the bench's reference) runs every node as a block. Oscillators, noise and the filter are fundsp units (built and
+//! warmed up here, outside the callback); the wiring, envelopes, sequencer, player, mixer and FFT tap are ours. Nothing
+//! in `process` allocates.
 use super::click::Click;
 use super::{Block, Handles, MusicFeed, Param, Stereo, Track};
 use crate::graph::{Kind, Node};
@@ -119,10 +122,16 @@ struct Env {
     rel: f32,
 }
 
+/// the envelope's per-sample coefficients (attack, release) – the batched voices (voices.rs) use them too
+pub(super) fn env_coefs(rate: f32, node: &Node) -> (f32, f32) {
+    let coef = |t: f32| 1.0 - (-1.0 / (t.max(1e-4) * rate)).exp();
+    (coef(node.f32("attack", 0.005)), coef(node.f32("release", 0.15)))
+}
+
 impl Env {
     fn new(rate: f32, node: &Node) -> Env {
-        let coef = |t: f32| 1.0 - (-1.0 / (t.max(1e-4) * rate)).exp();
-        Env { level: 0.0, att: coef(node.f32("attack", 0.005)), rel: coef(node.f32("release", 0.15)) }
+        let (att, rel) = env_coefs(rate, node);
+        Env { level: 0.0, att, rel }
     }
     fn next(&mut self, gate: f32) -> f32 {
         let target = if gate > 0.5 { 1.0 } else { 0.0 };

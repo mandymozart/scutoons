@@ -1,17 +1,24 @@
-//! The audio graph (CYBERDECKS.md §8): the graph's audio nodes as blocks in topological order, run by the device
-//! callback in blocks of at most MAX_BLOCK frames. Everything is allocated at build time – the callback only reads
-//! atomics (Param), pops lock-free rings (rtrb) and writes preallocated buffers (tests/no_alloc.rs proves it).
+//! The audio graph (CYBERDECKS.md §8), run by the device callback in blocks of at most MAX_BLOCK frames, on the batch
+//! model (#183): at build the audio nodes are split into dependency levels (by their audio links); inside a level the
+//! sine oscillators and the FM voices become one batch each (voices.rs: struct of arrays, the voice loop vectorised,
+//! AVX2 where the CPU has it), every other node stays a block of its own (blocks.rs – the patcher model, for the
+//! one-off nodes). Every output port has one buffer in a pool ordered like the steps, so a step reads only buffers
+//! before its own. Everything is allocated at build time – the callback only reads atomics (Param), pops lock-free
+//! rings (rtrb) and writes preallocated buffers (tests/no_alloc.rs proves it).
 //! The frame counter and the per-block stamps are the stage's time base (§8 "Two clocks", clock.rs): each backend calls
 //! `mark` with the moment the block it is about to render will be heard. The tempo map (tempo/, #181) reaches the
 //! click and the synced sequencer through a seqlock, read once per block.
 pub mod backend;
 mod blocks;
 mod click;
+mod voices;
 
 use crate::clock::Stamp;
 use crate::tempo;
 use crate::graph::{Domain, Graph, Kind, PortType};
 use anyhow::Result;
+use deck_core::batch::levels;
+use voices::{VoiceKind, Voices};
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -65,11 +72,43 @@ pub trait Block: Send {
     fn process(&mut self, ins: &[Option<&Stereo>], outs: &mut [Stereo], n: usize);
 }
 
-struct Slot {
-    block: Box<dyn Block>,
-    out: Vec<Stereo>,
-    /// per input port: the (slot, output port) it reads
-    inputs: Vec<Option<(usize, usize)>>,
+/// How an engine is built. The stage runs `Build::detect()`; the patcher build is the reference the tests and the bench
+/// compare with (every node a block, the sine oscillators and FM voices on fundsp – the stage before #183).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Build {
+    /// sine oscillators and FM voices batched per level (else every node a block)
+    pub batch: bool,
+    /// the batches' loops in AVX2 (only where the CPU has it)
+    pub avx2: bool,
+}
+
+impl Build {
+    /// The batch runtime, AVX2 where the CPU has it – `DECK_SIMD=baseline` keeps the baseline loops (to compare).
+    pub fn detect() -> Build {
+        let baseline = std::env::var("DECK_SIMD").is_ok_and(|v| v == "baseline");
+        Build { batch: true, avx2: voices::avx2_available() && !baseline }
+    }
+
+    pub const fn patcher() -> Build {
+        Build { batch: false, avx2: false }
+    }
+
+    /// for the HUD and the log: "batch avx2" · "batch" · "patcher"
+    pub fn label(self) -> &'static str {
+        match (self.batch, self.avx2) {
+            (true, true) => "batch avx2",
+            (true, false) => "batch",
+            (false, _) => "patcher",
+        }
+    }
+}
+
+/// One step of a block, in level order.
+enum Step {
+    /// one node (the patcher model): its block, the buffer each input port reads, its outputs from buffer `out` on
+    Node { block: Box<dyn Block>, inputs: Vec<Option<usize>>, out: usize, outs: usize },
+    /// a level's voices of one kind as one batch
+    Voices(Box<Voices>),
 }
 
 /// The stage's clock: frames rendered for the device (or by the null backend's timer) and the stamp of the newest
@@ -89,8 +128,10 @@ impl Clock {
 }
 
 pub struct Engine {
-    slots: Vec<Slot>,
-    out_slot: Option<usize>,
+    /// every output port's buffer (and the audio_out's own), in step order
+    bufs: Vec<Stereo>,
+    steps: Vec<Step>,
+    out_buf: Option<usize>,
     master: Param,
     /// the master gain the last block ended on – a change ramps over one block (no click on a mute)
     gain: f32,
@@ -110,6 +151,8 @@ pub struct Handles {
     pub master: Param,
     /// the tempo map the frame thread publishes (tempo::Tempo) and the audio thread reads
     pub tempo: Arc<tempo::Shared>,
+    /// how the engine was built (the HUD shows it)
+    pub build: Build,
 }
 
 pub struct MusicFeed {
@@ -120,10 +163,13 @@ pub struct MusicFeed {
 }
 
 impl Engine {
-    /// Build the graph's audio nodes for `rate`. `volume` is the master gain on top of the audio_out node's own.
+    /// Build the graph's audio nodes for `rate` on the batch runtime (`Build::detect`). `volume` is the master gain on
+    /// top of the audio_out node's own.
     pub fn build(graph: &Graph, rate: f32, volume: f32) -> Result<(Engine, Handles)> {
-        let mut slot_of = vec![None; graph.nodes.len()];
-        let mut slots = Vec::new();
+        Engine::build_with(graph, rate, volume, Build::detect())
+    }
+
+    pub fn build_with(graph: &Graph, rate: f32, volume: f32, build: Build) -> Result<(Engine, Handles)> {
         let mut handles = Handles {
             params: Vec::new(),
             music: Vec::new(),
@@ -131,50 +177,80 @@ impl Engine {
             clock: Clock { frames: Arc::new(AtomicU64::new(0)), rate, stamp: Arc::new(Stamp::default()) },
             master: Param::new(volume),
             tempo: Arc::new(tempo::Shared::default()),
+            build,
         };
         // the scene's tempo until the frame thread takes over
         let cfg = tempo::Config::from_graph(graph)?;
         handles.tempo.publish(&cfg.map(rate as f64), cfg.click);
-        for &i in &graph.order {
-            let node = &graph.nodes[i];
-            if node.kind.domain() != Domain::Audio {
-                continue;
+        let audio = |i: usize| graph.nodes[i].kind.domain() == Domain::Audio;
+        // levels by the audio links (control links into or out of audio nodes cross threads and never order them)
+        let deps: Vec<Vec<usize>> = (0..graph.nodes.len())
+            .map(|t| graph.links.iter().filter(|l| l.to.0 == t && l.ty == PortType::Audio).map(|l| l.from.0).collect())
+            .collect();
+        let level = levels(&deps).map_err(|e| anyhow::anyhow!("the audio graph: {e}"))?;
+        let depth = (0..graph.nodes.len()).filter(|&i| audio(i)).map(|i| level[i] + 1).max().unwrap_or(0);
+        let mut bufs: Vec<Stereo> = Vec::new();
+        let mut steps = Vec::new();
+        let mut buf_of: Vec<Option<usize>> = vec![None; graph.nodes.len()];
+        for l in 0..depth {
+            let nodes: Vec<usize> = graph.order.iter().copied().filter(|&i| audio(i) && level[i] == l).collect();
+            // the level's batches first: one per kind, its voices' outputs side by side
+            for kind in [VoiceKind::Sine, VoiceKind::Fm] {
+                let voices: Vec<usize> =
+                    nodes.iter().copied().filter(|&i| build.batch && VoiceKind::of(&graph.nodes[i]) == Some(kind)).collect();
+                if voices.is_empty() {
+                    continue;
+                }
+                let mut batch = Voices::new(kind, bufs.len(), rate, build.avx2);
+                for &i in &voices {
+                    let node = &graph.nodes[i];
+                    let params = node_params(graph, i, &mut handles);
+                    let p = |name: &str| params[node.kind.input(name).expect("a port of this kind")].clone();
+                    let (ratio, index) = match kind {
+                        VoiceKind::Fm => (p("ratio"), p("index")),
+                        VoiceKind::Sine => (Param::new(1.0), Param::new(1.0)),
+                    };
+                    let cv = node.kind.input("cv").and_then(|k| audio_in(graph, &buf_of, i, k));
+                    batch.push([p("freq"), p("gain"), ratio, index], cv, blocks::env_coefs(rate, node));
+                    buf_of[i] = Some(bufs.len());
+                    bufs.push(Stereo::new());
+                }
+                batch.finish();
+                steps.push(Step::Voices(Box::new(batch)));
             }
-            let ports = node.kind.inputs();
-            debug_assert!(ports.len() <= MAX_PORTS);
-            let params: Vec<Param> = ports
-                .iter()
-                .enumerate()
-                .map(|(k, port)| {
-                    let p = Param::new(node.f32(port.name, blocks::default_for(node.kind, port.name)));
-                    if port.ty == PortType::Control && graph.link_into(i, k).is_some() {
-                        handles.params.push((i, k, p.clone()));
-                    }
-                    p
-                })
-                .collect();
-            let inputs = (0..ports.len())
-                .map(|k| match graph.link_into(i, k) {
-                    Some(l) if l.ty == PortType::Audio => slot_of[l.from.0].map(|s| (s, l.from.1)),
-                    _ => None,
-                })
-                .collect();
-            let block = blocks::make(node, i, rate, &params, &mut handles)?;
-            slot_of[i] = Some(slots.len());
-            // the audio_out sink has no output port but keeps its block in one buffer – render() reads it
-            let outs = if node.kind == Kind::AudioOut { 1 } else { node.kind.outputs().len() };
-            slots.push(Slot { block, out: (0..outs).map(|_| Stereo::new()).collect(), inputs });
+            // the one-off nodes
+            for &i in &nodes {
+                if buf_of[i].is_some() {
+                    continue; // batched above
+                }
+                let node = &graph.nodes[i];
+                let params = node_params(graph, i, &mut handles);
+                let inputs = (0..node.kind.inputs().len()).map(|k| audio_in(graph, &buf_of, i, k)).collect();
+                let block = blocks::make(node, i, rate, &params, &mut handles)?;
+                // the audio_out sink has no output port but keeps its block in one buffer – render() reads it
+                let outs = if node.kind == Kind::AudioOut { 1 } else { node.kind.outputs().len() };
+                buf_of[i] = Some(bufs.len());
+                steps.push(Step::Node { block, inputs, out: bufs.len(), outs });
+                bufs.extend((0..outs).map(|_| Stereo::new()));
+            }
         }
-        let out_slot = graph.first(Kind::AudioOut).and_then(|i| slot_of[i]);
+        let out_buf = graph.first(Kind::AudioOut).and_then(|i| buf_of[i]);
         let engine = Engine {
-            slots,
-            out_slot,
+            bufs,
+            steps,
+            out_buf,
             master: handles.master.clone(),
             gain: volume,
             frames: handles.clock.frames.clone(),
             stamp: handles.clock.stamp.clone(),
         };
         Ok((engine, handles))
+    }
+
+    /// (steps, batches, the batches' loops: "avx2" / "baseline" / "-") – the shape the build found
+    pub fn shape(&self) -> (usize, usize, &'static str) {
+        let batches: Vec<&Voices> = self.steps.iter().filter_map(|s| if let Step::Voices(v) = s { Some(v.as_ref()) } else { None }).collect();
+        (self.steps.len(), batches.len(), batches.first().map_or("-", |v| v.label()))
     }
 
     /// The block about to be rendered is heard at `heard_ns` (clock::now_ns's clock) – the backends call this right
@@ -194,7 +270,7 @@ impl Engine {
             let (from, to) = (self.gain, self.master.get());
             self.gain = to;
             let frames = &mut out[done * channels..(done + n) * channels];
-            match self.out_slot.map(|s| &self.slots[s].out[0]) {
+            match self.out_buf.map(|b| &self.bufs[b]) {
                 Some(o) => {
                     for (f, frame) in frames.chunks_exact_mut(channels).enumerate() {
                         let master = from + (to - from) * (f + 1) as f32 / n as f32;
@@ -218,17 +294,49 @@ impl Engine {
     }
 
     fn run(&mut self, n: usize) {
-        for i in 0..self.slots.len() {
-            let (before, rest) = self.slots.split_at_mut(i);
-            let slot = &mut rest[0];
-            let mut ins: [Option<&Stereo>; MAX_PORTS] = [None; MAX_PORTS];
-            for (k, src) in slot.inputs.iter().enumerate() {
-                if let Some((s, p)) = *src {
-                    ins[k] = Some(&before[s].out[p]);
+        for step in &mut self.steps {
+            match step {
+                Step::Node { block, inputs, out, outs } => {
+                    let (before, after) = self.bufs.split_at_mut(*out);
+                    let mut ins: [Option<&Stereo>; MAX_PORTS] = [None; MAX_PORTS];
+                    for (k, src) in inputs.iter().enumerate() {
+                        ins[k] = src.map(|b| &before[b]);
+                    }
+                    block.process(&ins[..inputs.len()], &mut after[..*outs], n);
+                }
+                Step::Voices(v) => {
+                    let (before, after) = self.bufs.split_at_mut(v.out);
+                    v.process(before, &mut after[..v.len()], n);
                 }
             }
-            slot.block.process(&ins[..slot.inputs.len()], &mut slot.out, n);
         }
+    }
+}
+
+/// `node`'s input params, one per input port: its param (or the kind's default); a linked control port's goes to the
+/// frame thread (`Handles::params`)
+fn node_params(graph: &Graph, i: usize, h: &mut Handles) -> Vec<Param> {
+    let node = &graph.nodes[i];
+    let ports = node.kind.inputs();
+    debug_assert!(ports.len() <= MAX_PORTS);
+    ports
+        .iter()
+        .enumerate()
+        .map(|(k, port)| {
+            let p = Param::new(node.f32(port.name, blocks::default_for(node.kind, port.name)));
+            if port.ty == PortType::Control && graph.link_into(i, k).is_some() {
+                h.params.push((i, k, p.clone()));
+            }
+            p
+        })
+        .collect()
+}
+
+/// the buffer `node`'s input port `k` reads, if an audio link feeds it (its source sits in an earlier level)
+fn audio_in(graph: &Graph, buf_of: &[Option<usize>], node: usize, k: usize) -> Option<usize> {
+    match graph.link_into(node, k) {
+        Some(l) if l.ty == PortType::Audio => buf_of[l.from.0].map(|b| b + l.from.1),
+        _ => None,
     }
 }
 
@@ -281,6 +389,147 @@ mod tests {
         let mut buf = vec![1.0f32; 256];
         e.render(&mut buf, 2, |x| x);
         assert!(buf.iter().all(|x| *x == 0.0));
+    }
+
+    /// `n` voices of `kind`, a param set each (pitches, gains, envelopes apart), half of them on a sequencer's cv,
+    /// mixed four by four into the output – plus `extra` nodes / links
+    fn voices(kind: &str, n: usize, extra: &str) -> String {
+        let mut s = String::from("[[node]]
+id=\"seq\"
+kind=\"seq\"
+bpm=133
+division=4
+gate=0.45
+steps=[45, 0, 52, 57, 55, 0, 60, 64]
+");
+        for i in 0..n {
+            let (f, a, r) = (97.0 + 41.3 * i as f32, 0.001 + 0.002 * i as f32, 0.05 + 0.03 * i as f32);
+            s += &format!("[[node]]
+id=\"v{i}\"
+kind=\"{kind}\"
+freq={f}
+gain=0.06
+ratio={}
+index={}
+attack={a}
+release={r}
+", 1.0 + 0.5 * (i % 4) as f32, 0.3 * i as f32);
+            s += &format!("[[link]]
+from=\"v{i}\"
+to=\"m{}.in{}\"
+", i / 4, i % 4 + 1);
+            if i % 2 == 1 {
+                s += &format!("[[link]]
+from=\"seq.cv\"
+to=\"v{i}.cv\"
+");
+            }
+        }
+        for m in 0..n.div_ceil(4) {
+            s += &format!("[[node]]
+id=\"m{m}\"
+kind=\"mixer\"
+[[link]]
+from=\"m{m}\"
+to=\"sum.in{}\"
+", m + 1);
+        }
+        s + "[[node]]
+id=\"sum\"
+kind=\"mixer\"
+[[node]]
+id=\"out\"
+kind=\"audio_out\"
+volume=1
+[[link]]
+from=\"sum\"
+to=\"out.in\"
+" + extra
+    }
+
+    /// two seconds of `text` through two builds, in blocks of 128, 37 and 1024 frames (a track for its chapter_music);
+    /// the largest sample difference
+    fn compare(text: &str, a: Build, b: Build) -> f32 {
+        let g = Graph::build(&Scene::parse(text).unwrap()).unwrap();
+        let (mut x, mut hx) = Engine::build_with(&g, 48_000.0, 1.0, a).unwrap();
+        let (mut y, mut hy) = Engine::build_with(&g, 48_000.0, 1.0, b).unwrap();
+        for h in [&mut hx, &mut hy] {
+            if let Some(m) = h.music.first_mut() {
+                let t = Track { rate: 44_100.0, l: (0..44_100).map(|i| (i as f32 * 0.01).sin() * 0.3).collect(), r: vec![0.1; 44_100] };
+                m.tracks.push(Arc::new(t)).ok().unwrap();
+            }
+        }
+        let mut worst = 0.0f32;
+        let mut done = 0;
+        for i in 0.. {
+            let n = [128, 37, 1024][i % 3];
+            let (mut p, mut q) = (vec![0.0f32; n * 2], vec![0.0f32; n * 2]);
+            x.render(&mut p, 2, |v| v);
+            y.render(&mut q, 2, |v| v);
+            worst = p.iter().zip(&q).fold(worst, |w, (u, v)| w.max((u - v).abs()));
+            done += n;
+            if done >= 96_000 {
+                break;
+            }
+        }
+        assert!(hx.clock.rendered() == 96_000 || done > 96_000);
+        worst
+    }
+
+    const BASELINE: Build = Build { batch: true, avx2: false };
+
+    /// The same scenes through the patcher (every node a block, fundsp's sines – the stage before #183) and the batch
+    /// runtime, two seconds each: the same samples within a tolerance. Sines differ only by deck-core's sine (< 2e-7);
+    /// FM multiplies the modulator's tiny difference by index × its frequency into the carrier's phase, which walks –
+    /// at 4.5 × 1.8 kHz of deviation (the stress scene) by ~1e-4 of the voice's 0.06 after 2 s, the default scene's FM
+    /// (index ≤ 3.5) by ~1e-5. Measured 2026-10-30: 2.2e-7 · 6.4e-6 · 1.7e-4.
+    #[test]
+    fn the_batches_sound_like_the_patcher() {
+        let extra = "[[node]]
+id=\"saw\"
+kind=\"osc\"
+wave=\"saw\"
+freq=55
+gain=0.1
+[[link]]
+from=\"saw\"
+to=\"sum.in4\"
+";
+        for (name, text, batches, tolerance) in [
+            ("12 sines + a saw", voices("osc", 12, extra), 2, 1e-5),
+            ("the default scene", crate::scene::DEFAULT_SCENE.to_string(), 1, 1e-4),
+            ("16 FM voices, index up to 4.5", voices("fm", 16, ""), 2, 1e-3),
+        ] {
+            let g = Graph::build(&Scene::parse(&text).unwrap()).unwrap();
+            let (e, _) = Engine::build_with(&g, 48_000.0, 1.0, BASELINE).unwrap();
+            // the sequenced voices sit a level above the free ones: two batches
+            assert_eq!(e.shape().1, batches, "{name}: {:?}", e.shape());
+            for b in [BASELINE, Build::detect()] {
+                let worst = compare(&text, Build::patcher(), b);
+                assert!(worst < tolerance, "{name} ({}): the largest difference {worst}", b.label());
+            }
+        }
+    }
+
+    /// AVX2 changes the lanes, not the maths: the same samples, bit for bit.
+    #[test]
+    fn avx2_and_baseline_are_bit_identical() {
+        if !voices::avx2_available() {
+            return;
+        }
+        let avx2 = Build { batch: true, avx2: true };
+        assert_eq!(compare(&voices("fm", 13, ""), BASELINE, avx2), 0.0);
+        assert_eq!(compare(&voices("osc", 16, ""), BASELINE, avx2), 0.0);
+    }
+
+    #[test]
+    fn levels_and_batches() {
+        let g = Graph::build(&Scene::parse(&voices("fm", 16, "")).unwrap()).unwrap();
+        let (b, _) = Engine::build_with(&g, 48_000.0, 1.0, BASELINE).unwrap();
+        // seq + the free voices' batch | the sequenced voices' batch | 4 mixers | sum | out
+        assert_eq!(b.shape(), (2 + 1 + 4 + 1 + 1, 2, "baseline"));
+        let (p, _) = Engine::build_with(&g, 48_000.0, 1.0, Build::patcher()).unwrap();
+        assert_eq!(p.shape(), (1 + 16 + 4 + 1 + 1, 0, "-"));
     }
 
     #[test]

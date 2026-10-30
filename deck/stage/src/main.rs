@@ -108,6 +108,8 @@ struct App {
     render_scale: f32,
     controls: control::Controls,
     audio: Option<backend::Running>,
+    /// how the audio graph runs: "batch avx2" · "batch" (the summary of a --frames run)
+    audio_build: &'static str,
     clock: Option<audio::Clock>,
     music: Vec<Arc<Mutex<String>>>,
     window: Option<Arc<Window>>,
@@ -344,7 +346,7 @@ impl App {
             p99,
             avg(&self.stats.work),
             self.stats.first_frame_ms.unwrap_or(0.0),
-            self.audio.as_ref().map(|a| format!("{} {} Hz", a.name, a.rate)).unwrap_or_else(|| "off".into()),
+            self.audio.as_ref().map(|a| format!("{} {} Hz ({})", a.name, a.rate, self.audio_build)).unwrap_or_else(|| "off".into()),
         )
     }
 }
@@ -471,6 +473,7 @@ fn run() -> Result<i32> {
     let audio = if has_audio {
         let mut factory = |rate: f32| {
             let (engine, h) = audio::Engine::build(&graph, rate, args.volume)?;
+            tracing::info!("audio graph: {} ({} steps, {} batches)", h.build.label(), engine.shape().0, engine.shape().1);
             handles = Some(h);
             Ok(engine)
         };
@@ -503,6 +506,7 @@ fn run() -> Result<i32> {
         .map(|i| chapter::spawn(lib.clone(), &graph.nodes[i], i))
         .collect();
     let master = handles.as_ref().map(|h| h.master.clone());
+    let audio_build = handles.as_ref().map_or("", |h| h.build.label());
     let clock = handles.as_ref().map(|h| h.clock.clone());
     let timebase = clock.as_ref().map(|c| clock::TimeBase::new(c.rate));
     let controls = control::Controls::new(&graph, handles.as_mut());
@@ -523,6 +527,7 @@ fn run() -> Result<i32> {
         render_scale: scene.stage.render_scale,
         controls,
         audio,
+        audio_build,
         clock,
         music,
         window: None,

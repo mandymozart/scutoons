@@ -37,14 +37,16 @@ pub fn fract_fast(x: f32) -> f32 {
 }
 
 /// sin(2π·x) – the sine of `x` full turns, |x| < 2²². Range-reduced to a quarter turn without branches, then a
-/// 9th-order odd polynomial: error < 1e-5 (−100 dB; the f32 reference itself is off by ~4e-6 at 15 turns).
+/// 11th-order odd polynomial: error < 2e-7 against the exact sine (−134 dB, f32's own rounding; the 9th order's 4e-6 –
+/// #182 – let FM voices drift audibly far from fundsp's, #183). The f32 `(TAU * x).sin()` is itself off by ~4e-6 at 15
+/// turns (TAU * x rounds).
 #[inline(always)]
 pub fn sin_turns(x: f32) -> f32 {
     let u = x - round_fast(x); // −0.5 … 0.5
     let q = u.abs().min(0.5 - u.abs()).copysign(u); // −0.25 … 0.25: sin(π − a) = sin(a)
     let a = TAU * q;
     let a2 = a * a;
-    a * (1.0 + a2 * (-1.0 / 6.0 + a2 * (1.0 / 120.0 + a2 * (-1.0 / 5040.0 + a2 * (1.0 / 362_880.0)))))
+    a * (1.0 + a2 * (-1.0 / 6.0 + a2 * (1.0 / 120.0 + a2 * (-1.0 / 5040.0 + a2 * (1.0 / 362_880.0 + a2 * (-1.0 / 39_916_800.0))))))
 }
 
 #[cfg(test)]
@@ -58,6 +60,12 @@ mod tests {
             .map(|x| (sin_turns(x) - (TAU * x).sin()).abs())
             .fold(0.0f32, f32::max);
         assert!(worst < 1e-5, "worst error {worst}");
+        // against the exact sine (f64), over the turns a phase lives in
+        let exact = (-20_000..20_000)
+            .map(|i| i as f32 * 0.000_051)
+            .map(|x| (sin_turns(x) as f64 - (std::f64::consts::TAU * x as f64).sin()).abs())
+            .fold(0.0f64, f64::max);
+        assert!(exact < 2e-7, "worst error against f64 {exact}");
     }
 
     #[test]
