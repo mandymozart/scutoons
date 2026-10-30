@@ -149,6 +149,11 @@ Proven on the X1 first: Vulkan on the iGPU (anv), VA-API decode h264 / hevc / vp
   shape. Audio: a level's sine oscillators and FM voices as one batch in deck-core's 8-lane `F8`; sequencer, player,
   noise, mixer, FFT tap stay blocks. **x86-64-v3:** one baseline binary whose voice loops also exist in AVX2, picked at
   start; a whole v3 binary is optional (the one-off nodes gain too). Numbers: deck/stage/README.md "Measured".
+- **Modules** (#185, DECISIONS 2026-10-30): cargo features of deck-stage – the core (graph, control, the basic audio
+  nodes, render, HUD) + `space`, `chapter`, `midi`, `osc`, `link`, `pipewire`. A deck build carries what its scenes
+  need (`deck-scene-features scenes/*.toml`); a scene that needs a module the build lacks is refused with the feature's
+  name, on screen. Visuals as data reload (`--dev`: WGSL, scenes). Later: sandboxed wasm generators (wasmtime – no GPU,
+  they may hand over WGSL as data); no dylib plugins. deck/stage/README.md "Modules".
 - **Two clocks** (#181, owner 2026-10-29: "ein richtiger Klick … 60 BPM … Oder eine Clock, die von extern kommt"): the
   **time base** (`clock.rs`) = the exact audio position – each audio block stamped with the monotonic moment it is heard
   (PipeWire's pw_time, cpal's playback instant), a DLL on the frame thread interpolates per video frame, never
@@ -157,8 +162,8 @@ Proven on the X1 first: Vulkan on the iGPU (anv), VA-API decode h264 / hevc / vp
   frame, the `click` and the sequencer per sample, chapter cuts quantised to beat / bar. One master at a time (the
   scene's `source`, F3): internal (+ / −, tap), MIDI clock in (least squares over two beats), Ableton Link (cargo
   feature `link`), OSC (`/tempo/*`), the relay's show clock (a stub until the relay has one, #172). MIDI clock out runs
-  from the audio clock (each tick when its beat is heard). The platform-free part (map, followers, schedules) moves into
-  deck-core as its `tempo` module with #185. Link on the ISO: `cmake` in os/container/build.sh and the PKGBUILD,
+  from the audio clock (each tick when its beat is heard). The map, quantize and tap tempo are deck-core's `tempo`
+  module (#185), like the FFT analyzer (`analysis`). Link on the ISO: `cmake` in os/container/build.sh and the PKGBUILD,
   `--features deck-stage/link` on their cargo lines.
 - **scutoons.com:** the public library API read-only (`/api/library/toons/<toon>/chapters/<n>`: slices, slice videos,
   music paths; files from cdn.scutoons.com), cached on DECKDATA (`/var/lib/deck/cache`) so a venue runs offline; later

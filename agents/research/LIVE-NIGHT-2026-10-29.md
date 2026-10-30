@@ -166,7 +166,7 @@ Recommendation (#185): the core + compiled-in modules, visuals as data, wasm mod
 | Relay protocol codec | 0.5× (TS's JSON.parse is native) | **no** – keep the generated TS types + JSON |
 | Text layout, slice compositing (wgpu / WebGPU in an OffscreenCanvas) | not measured | **no for now**: the reader renders slices; a WebGPU output only if a browser output drops frames |
 
-"One crate, two targets" works: `deck-core` builds for the deck and for `wasm32` unchanged. Its FFT is the stage's FFT. Since #183 the stage uses deck-core's maths, `F8` lanes and batch columns; its FFT and the tempo map move into deck-core with #185.
+"One crate, two targets" works: `deck-core` builds for the deck and for `wasm32` unchanged. Its FFT is the stage's FFT. Since #183 the stage uses deck-core's maths, `F8` lanes and batch columns, since #185 its FFT analyzer and the tempo map too.
 
 ## 5. What was built (branch `wip/live-night-75b685`)
 | Commit | What | Tests |

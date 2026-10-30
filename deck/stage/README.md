@@ -20,7 +20,8 @@ PipeWire → cpal → null; null runs the engine on a timer, no device – the c
 `--volume 0–1` · `--cache DIR` (default `/var/lib/deck/cache` on a deck, `DECK_CACHE`, else the user cache folder) ·
 `--api` / `--cdn` (or `DECK_API` / `DECK_CDN`) · `--windowed` · `--frames N` (quit after N frames and print the numbers –
 a check run) · `--screenshot FILE` (the last frame of a `--frames` run as a PNG) · `--pointer X,Y` (the pointer at a
-window pixel for a check run – a hovered button shows in the HUD) · `--no-hud`. Logs: `RUST_LOG`. `DECK_SIMD=baseline` – the audio batches without AVX2 (to compare).
+window pixel for a check run – a hovered button shows in the HUD) · `--no-hud` · `--dev` (hot reload, below) ·
+`--modules` (what this build carries). Logs: `RUST_LOG`. `DECK_SIMD=baseline` – the audio batches without AVX2 (to compare).
 The graph's workloads: `cargo bench -p deck-stage` (patcher | batch | batch AVX2, µs per block).
 
 Keys: **F1** the HUD · **F2** the browser · **Ctrl+Q** quit (on the deck the stage starts again) · **Ctrl+Alt+Del** power off (`systemctl
@@ -36,6 +37,38 @@ quits with exit code 10.
 with a white fill – `assets/SCUTOONS-logo-white.svg`, rendered with resvg) at half the width on black, a loading line at
 the top. The window's first frame is the splash (before the scene's shaders compile); it fades once every chapter
 node shows a slice and every music track is loaded (or failed), at the latest after 30 s.
+
+## Modules (#185)
+
+Modules are cargo features (DECISIONS 2026-10-30: compiled in, scene-driven builds; wasm generators later, no dylib
+plugins). The **core** is always built: the graph, control (`lfo`, `tempo` with the internal clock and the relay stub),
+the basic audio nodes (`osc`, `noise`, `fm`, `seq`, `click`, `mixer`, `fft`, `audio_out`), the render passes
+(`test_pattern`, `shader`, `overlay`, `screen`), the HUD, cpal.
+
+| Feature | Adds | Dependencies |
+|---|---|---|
+| `space` | the `space` kind (3D room + the being, #188) | glam, image/webp, serde_json |
+| `chapter` | `chapter`, `chapter_music` (the library API + cache) | ureq, symphonia, ab_glyph, image/webp |
+| `midi` | the tempo source `midi`, `midi_out` (MIDI clock in / out) | midir |
+| `osc` | the tempo source `osc` (`/tempo/*`) | rosc |
+| `link` | the tempo source `link` (Ableton Link) | rusty_link (cmake, libclang) |
+| `pipewire` | the PipeWire backend (Linux) | pipewire (clang) |
+
+Default = `space`, `chapter`, `midi`, `osc` – a plain build plays every bundled scene. The table lives in deck-core
+(`core/src/stage.rs`, data only); `src/modules.rs` says which modules this build carries. A scene that needs a module
+the build lacks is refused at load with the feature's name (`this build of the stage does not carry the module 'space'
+(node space) – build deck-stage with --features space`): the stage plays the test pattern and shows that in the HUD –
+it never exits for it (deck-session would fall back to the browser); a `--frames` check run exits 2. F3 onto a source
+that isn't built says `NOT IN THIS BUILD`. **Scene-driven builds:** `cargo run -p deck-scene-features -- scenes/*.toml`
+prints the features a set of scenes needs (`chapter,space` for the bundled ones; the core alone prints nothing), so a
+deck build is `cargo build --release -p deck-stage --no-default-features --features "pipewire,$(deck-scene-features …)"`
+– the platform's features (pipewire) come from the build, not from scenes. Checked: the default, the core alone, each
+feature alone, all with `link` – tests and clippy `-D warnings`.
+
+**Hot reload** (`--dev`): the scene file and its shader nodes' `wgsl` files are watched (`src/watch.rs`, their
+modification times polled every 300 ms). A changed WGSL file recompiles only its pass – the audio plays on; one that
+doesn't compile keeps the running pipeline, the error in the HUD. A changed scene is checked first (a broken one keeps
+the running show and says why), then the show is rebuilt: audio device, tempo sources, loaders, renderer.
 
 The PipeWire backend is the cargo feature `pipewire` (Linux; needs libpipewire + clang at build time) – the ISO and
 the PKGBUILD build with it. Without it the stage plays through cpal (ALSA on Linux, so PipeWire's ALSA plugin still works).
@@ -130,6 +163,9 @@ screen. `scenes/test-pattern.toml` – the picture alone (no sound, no network).
   `audio graph: batch avx2 …`, a `--frames` run's summary too; `DECK_SIMD=baseline` keeps the baseline loops. A
   whole-program v3 binary (`cargo stage-v3`, deck/.cargo/config.toml) is faster again on the one-off nodes (the default
   scene 10.0 → 7.5 µs per block); the ISO may ship it beside the baseline one (#183).
+- **Shared with deck-core** (#183, #185): the maths, `F8` lanes and batch columns, the FFT analyzer (`analysis::Analyzer`
+  – `src/fft.rs` only drains the audio ring into it) and the tempo map (`tempo`: map, quantize, tap); the same code
+  builds for wasm32 (the browser's Live mode).
 - **Tempo** (`src/tempo/`, #181): a tempo map over the audio frame position (beat = f(audio position)); the frame thread
   follows the master source, re-anchors the map at the audio thread's frontier and publishes it through a seqlock – the
   click and the sequencer read it per block (sample-accurate), MIDI clock out (`midi_out`, its own thread) per tick, the
