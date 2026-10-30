@@ -30,6 +30,27 @@ enum Shape {
     Square,
 }
 
+/// an LFO's shapes by name (its `shape` param), in the order `lfo_shape` counts them
+pub const LFO_SHAPES: [&str; 3] = ["sine", "saw", "square"];
+
+impl Shape {
+    fn parse(s: &str) -> Shape {
+        match s {
+            "saw" => Shape::Saw,
+            "square" => Shape::Square,
+            _ => Shape::Sine,
+        }
+    }
+
+    fn index(self) -> usize {
+        self as usize
+    }
+
+    fn of(i: usize) -> Shape {
+        [Shape::Sine, Shape::Saw, Shape::Square][i.min(2)]
+    }
+}
+
 /// The LFOs of one level and one shape: rate and depth as columns, the phase per LFO.
 struct Lfos {
     shape: Shape,
@@ -80,6 +101,9 @@ pub struct Controls {
     knobs: Vec<(usize, usize, Param)>,
     /// per node: where an LFO sits in the batches (level, batch, index)
     lfo_at: Vec<Option<(usize, usize, usize)>>,
+    /// the LFOs in graph order with their dependency level, and every node's shape (the LFOs' matter)
+    lfo_order: Vec<(usize, usize)>,
+    shapes: Vec<Shape>,
     /// this frame's tempo clock (quantised cuts read it)
     pub tempo: tempo::Now,
 }
@@ -121,18 +145,18 @@ impl Controls {
             params: Vec::new(),
             knobs: Vec::new(),
             lfo_at: vec![None; graph.nodes.len()],
+            lfo_order: Vec::new(),
+            shapes: graph.nodes.iter().map(|n| Shape::parse(n.str("shape").unwrap_or("sine"))).collect(),
             tempo: tempo::Now::default(),
         };
-        c.lfos = c.batch_lfos(graph);
-        for (l, level) in c.lfos.iter().enumerate() {
-            for (b, batch) in level.iter().enumerate() {
-                for (k, &slot) in batch.out.iter().enumerate() {
-                    if let Some(node) = c.base.iter().position(|&x| x == slot) {
-                        c.lfo_at[node] = Some((l, b, k));
-                    }
-                }
-            }
-        }
+        // an LFO feeding another's rate / depth sits a level above it (Graph::build refused cycles already)
+        let is_lfo = |i: usize| graph.nodes[i].kind == Kind::Lfo;
+        let deps: Vec<Vec<usize>> = (0..graph.nodes.len())
+            .map(|t| graph.links.iter().filter(|l| l.to.0 == t && is_lfo(t) && is_lfo(l.from.0)).map(|l| l.from.0).collect())
+            .collect();
+        let level = levels(&deps).expect("the graph is acyclic");
+        c.lfo_order = graph.order.iter().filter(|&&i| is_lfo(i)).map(|&i| (i, level[i])).collect();
+        c.batch_lfos();
         if let Some(h) = audio {
             let rate = h.clock.rate;
             for (node, ring) in h.taps.drain(..) {
@@ -178,26 +202,19 @@ impl Controls {
         }
     }
 
-    /// The LFOs by level (an LFO feeding another's rate / depth sits a level above it; the tempo and the FFT are written
-    /// before any level) and by shape inside a level.
-    fn batch_lfos(&self, graph: &Graph) -> Vec<Vec<Lfos>> {
-        let is_lfo = |i: usize| graph.nodes[i].kind == Kind::Lfo;
-        let deps: Vec<Vec<usize>> = (0..graph.nodes.len())
-            .map(|t| graph.links.iter().filter(|l| l.to.0 == t && is_lfo(t) && is_lfo(l.from.0)).map(|l| l.from.0).collect())
+    /// The LFOs into batches by level (the tempo and the FFT are written before any level) and by shape inside a level –
+    /// at the start and when a shape changes (the phases carry over).
+    fn batch_lfos(&mut self) {
+        let phase_of: Vec<(usize, f32)> = (0..self.lfo_at.len())
+            .filter_map(|n| self.lfo_at[n].map(|(l, b, k)| (n, self.lfos[l][b].phase[k])))
             .collect();
-        // Graph::build refused cycles already
-        let level = levels(&deps).expect("the graph is acyclic");
         let mut out: Vec<Vec<Lfos>> = Vec::new();
-        for &i in graph.order.iter().filter(|&&i| is_lfo(i)) {
-            let shape = match graph.nodes[i].str("shape").unwrap_or("sine") {
-                "saw" => Shape::Saw,
-                "square" => Shape::Square,
-                _ => Shape::Sine,
-            };
-            if out.len() <= level[i] {
-                out.resize_with(level[i] + 1, Vec::new);
+        for &(i, level) in &self.lfo_order {
+            let shape = self.shapes[i];
+            if out.len() <= level {
+                out.resize_with(level + 1, Vec::new);
             }
-            let list = &mut out[level[i]];
+            let list = &mut out[level];
             let b = match list.iter().position(|b| b.shape == shape) {
                 Some(p) => &mut list[p],
                 None => {
@@ -207,11 +224,39 @@ impl Controls {
             };
             self.column(&mut b.rate, i, 0, 0.25);
             self.column(&mut b.depth, i, 1, 1.0);
-            b.phase.push(0.0);
+            b.phase.push(phase_of.iter().find(|(n, _)| *n == i).map_or(0.0, |p| p.1));
             b.out.push(self.base[i]);
         }
         out.retain(|l| !l.is_empty());
-        out
+        self.lfos = out;
+        self.lfo_at.iter_mut().for_each(|x| *x = None);
+        for (l, level) in self.lfos.iter().enumerate() {
+            for (b, batch) in level.iter().enumerate() {
+                for (k, &slot) in batch.out.iter().enumerate() {
+                    if let Some(node) = self.base.iter().position(|&x| x == slot) {
+                        self.lfo_at[node] = Some((l, b, k));
+                    }
+                }
+            }
+        }
+    }
+
+    /// an LFO's shape (an index into LFO_SHAPES); None for other nodes
+    pub fn lfo_shape(&self, node: usize) -> Option<usize> {
+        self.lfo_at.get(node).copied().flatten().map(|_| self.shapes[node].index())
+    }
+
+    /// An LFO's shape from outside (the being's waveform button): the batches are rebuilt – the LFO moves into its new
+    /// shape's batch, every phase carries over. A user's action, not a frame's: this allocates.
+    pub fn set_lfo_shape(&mut self, node: usize, shape: usize) -> bool {
+        if self.lfo_shape(node).is_none() {
+            return false;
+        }
+        if self.shapes[node] != Shape::of(shape) {
+            self.shapes[node] = Shape::of(shape);
+            self.batch_lfos();
+        }
+        true
     }
 
     /// `node`'s control input `port`: the linked output mapped by the link, else the node's own param, else `default`
@@ -332,6 +377,24 @@ to=\"p.speed\"
         assert!(c.set(0, 0, 50.0), "the rate");
         c.update(0.011, 0, &tempo::Now::default()); // phase 0.55 → the low half
         assert_eq!(c.input(1, "speed", 1.0), 0.0);
+    }
+
+    #[test]
+    fn an_lfo_changes_its_shape_and_keeps_its_phase() {
+        let g = graph("[[node]]\nid=\"a\"\nkind=\"lfo\"\nrate=0.1\n[[node]]\nid=\"b\"\nkind=\"lfo\"\nrate=0.1\nshape=\"saw\"\n");
+        let mut c = Controls::new(&g, None);
+        assert_eq!((c.lfo_shape(0), c.lfo_shape(1)), (Some(0), Some(1)));
+        assert_eq!(c.shape(), (1, 2));
+        c.update(1.0, 0, &tempo::Now::default()); // phase 0.1
+        assert!(c.set_lfo_shape(0, 2));
+        assert_eq!(c.shape(), (1, 2), "a square batch and a saw batch");
+        c.update(1.0, 0, &tempo::Now::default()); // phase 0.2: a square's high half
+        assert_eq!(c.outputs(0)[0], 1.0);
+        assert!(c.set_lfo_shape(0, 1));
+        assert_eq!(c.shape(), (1, 1), "both saws: one batch");
+        c.update(1.0, 0, &tempo::Now::default()); // phase 0.3 → saw −0.4 → 0.3
+        assert!((c.outputs(0)[0] - c.outputs(1)[0]).abs() < 1e-6, "same phase, same rate, same shape");
+        assert!(!c.set_lfo_shape(5, 0) && c.lfo_shape(5).is_none());
     }
 
     #[test]
