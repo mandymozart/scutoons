@@ -45,10 +45,16 @@ State 2026-10-12. How agents work: agents/RULES.md. Open work: GitHub issues + t
   The sketch → 3D experiment is removed; its learnings: research/CHARACTERS3D.md.
 
 ## Last run
-2026-10-29 night, #182 on its own branch `wip/live-night-75b685` (worktree, owner-requested; not merged, not pushed).
-- **Built:** relay B.6 rules (authority, rate limit, clock lead, snapshot, replay on resume, votes, presence, HMAC
-  tokens); bridge clock offset + timed queue + panic; `deck/core` (modules as features, patcher + batch graph, own
-  maths, FFT – builds for the deck and wasm32); `deck/lab` (wasm worker page, wasmtime, dylib, TS suite, results).
-- **Look at:** research/LIVE-NIGHT-2026-10-29.md §0 + §4 (the measurements), then decide #183–#187.
-- **Green:** deck workspace clippy -D warnings + all tests (relay 30, bridge 6, deck-core 19, stage 33 …);
-  shared/live 6 + tsc + generate --check; the lab's TS tsc --strict.
+2026-10-30 night, coordinated with the OSCT orchestration (agents/ORCHESTRATION.md); one agent at a time on `main`,
+nothing pushed after 7afaa558 (#182 merged + pushed on the owner's word).
+- **Built, deck:** #181 tempo clock (BPM / click / MIDI clock in+out / OSC / Link feature) · #183 batch graph in the
+  stage (16 FM voices 38 → 10 µs, AVX2 by runtime dispatch) · #188 phases 1–3 cathedral scene (`--scene cathedral`:
+  glTF room, orbit camera, the being from the graph, 3D buttons) · #185 modules as cargo features + `--dev` hot reload ·
+  #187 `dmx-usbpro` adapter · #186 the `live` module (a deck plays its outlet's cells; research/LIVE-LENSES.md) ·
+  #184 `@scutoons/live-core` (deck-core wasm in a worker + AudioWorklet; fixed wire records, not JSON).
+- **Built, web:** #194 season save in the draft preview (published chapters only) + the dialog buttons on a phone.
+- **ISO:** deck/os/out/s4 (08:14) – everything above except #186 / #184 and Link; not on a stick, not on the X1.
+- **New issues from the owner:** #188–#193 (cathedral, conductor, sermon rehearsal, beings, carrier bag, sets).
+- **Look at / owner:** the X1 test of s4 (cathedral needs `cathedral.low.glb` in the cache's `rooms/`); buy the
+  Enttec DMX USB Pro (#187); #186's four questions; #192's timing vs Chapter 3; push when ready.
+- **Green:** deck workspace 250 tests + clippy -D warnings; viewer check 0 errors / 150 tests; live-core 15.
