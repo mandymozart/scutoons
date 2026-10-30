@@ -16,6 +16,7 @@
 	{ "v": 1, "seq": 12, "from": "c9", "kind": "react", "p": { "kind": "applause" } },
 	{ "v": 1, "seq": 13, "at": 1761700000300, "from": "relay", "to": { "role": "bridge" }, "kind": "device", "p": { "outlet": "ableton", "msgs": [{ "kind": "midi", "p": { "bytes": [159, 12, 100] } }], "at": 1761700000300 } },
 	{ "v": 1, "seq": 18, "at": 1761700000300, "from": "relay", "to": { "role": "bridge" }, "kind": "device", "p": { "outlet": "resolume", "msgs": [{ "kind": "osc", "p": { "address": "/composition/layers/1/opacity", "args": [{ "kind": "float", "p": 0.75 }, { "kind": "int", "p": 3 }, { "kind": "string", "p": "go" }, { "kind": "bool", "p": true }] } }] } },
+	{ "v": 1, "seq": 23, "at": 1761700000400, "from": "relay", "to": { "role": "bridge" }, "kind": "device", "p": { "outlet": "lights", "msgs": [{ "kind": "dmx", "p": { "ch": 1, "values": [255, 0, 128, 0] } }, { "kind": "dmx", "p": { "ch": 17, "values": [200], "fade": 1500 } }], "at": 1761700000400 } },
 	{ "v": 1, "seq": 14, "from": "c2", "to": { "role": "conductor" }, "kind": "device.in", "p": { "outlet": "pedal", "msg": { "kind": "midi", "p": { "bytes": [144, 60, 127] } } } },
 	{ "v": 1, "seq": 15, "from": "c2", "kind": "devices", "p": { "ports": [{ "adapter": "midi", "name": "IAC Driver Bus 1", "direction": "out" }] } },
 	{ "v": 1, "seq": 16, "from": "relay", "to": { "client": "c9" }, "kind": "error", "p": { "code": "rate", "message": "5 messages per second" } },

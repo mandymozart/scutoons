@@ -388,7 +388,7 @@ pub struct React {
 	pub kind: String,
 }
 
-/// One message for a device, resolved against the venue patch. `midi`: raw bytes (status + data). `osc`: address + typed args. `dmx` comes with its adapters (CYBERDECKS.md §4).
+/// One message for a device, resolved against the venue patch. `midi`: raw bytes (status + data). `osc`: address + typed args. `dmx`: channel values of the outlet's universe (a look resolves to one per fixture).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "p")]
 pub enum DeviceMsg {
@@ -397,7 +397,7 @@ pub enum DeviceMsg {
 	#[serde(rename = "osc")]
 	Osc(OscMessage),
 	#[serde(rename = "dmx")]
-	Dmx(Loose),
+	Dmx(DmxMessage),
 }
 
 impl DeviceMsg {
@@ -448,6 +448,15 @@ pub struct OscMessage {
 	/// `/like/this`
 	pub address: String,
 	pub args: Vec<OscArg>,
+}
+
+/// DMX out (#187): `values` from channel `ch` on (1-based; ch + values − 1 ≤ 512) in the outlet's universe; `fade` ms from the current values (missing / 0 = at once). Several ranges = several messages in `msgs`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DmxMessage {
+	pub ch: u64,
+	pub values: Vec<u8>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub fade: Option<u64>,
 }
 
 /// relay → bridge: play `msgs` on `outlet` at `at`.

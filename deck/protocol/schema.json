@@ -250,11 +250,11 @@
       "additionalProperties": false
     },
     "DeviceMsg": {
-      "description": "One message for a device, resolved against the venue patch. `midi`: raw bytes (status + data). `osc`: address + typed args. `dmx` comes with its adapters (CYBERDECKS.md §4).",
+      "description": "One message for a device, resolved against the venue patch. `midi`: raw bytes (status + data). `osc`: address + typed args. `dmx`: channel values of the outlet's universe (a look resolves to one per fixture).",
       "oneOf": [
         { "type": "object", "properties": { "kind": { "const": "midi" }, "p": { "$ref": "#/definitions/MidiBytes" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "osc" }, "p": { "$ref": "#/definitions/OscMessage" } }, "required": ["kind", "p"] },
-        { "type": "object", "properties": { "kind": { "const": "dmx" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] }
+        { "type": "object", "properties": { "kind": { "const": "dmx" }, "p": { "$ref": "#/definitions/DmxMessage" } }, "required": ["kind", "p"] }
       ]
     },
     "MidiBytes": {
@@ -280,6 +280,17 @@
         "args": { "type": "array", "items": { "$ref": "#/definitions/OscArg" } }
       },
       "required": ["address", "args"],
+      "additionalProperties": false
+    },
+    "DmxMessage": {
+      "description": "DMX out (#187): `values` from channel `ch` on (1-based; ch + values − 1 ≤ 512) in the outlet's universe; `fade` ms from the current values (missing / 0 = at once). Several ranges = several messages in `msgs`.",
+      "type": "object",
+      "properties": {
+        "ch": { "type": "integer", "minimum": 1, "maximum": 512 },
+        "values": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 255 } },
+        "fade": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["ch", "values"],
       "additionalProperties": false
     },
     "Device": {
