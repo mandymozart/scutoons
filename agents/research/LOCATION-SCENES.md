@@ -1,4 +1,4 @@
-Status 2026-10-20: EXPLORATORY (owner: rooms end up as looped video backgrounds (fallback) or built externally in Blender and dropped in – no in-house room pipeline as the goal; no deadline, not in the "Top Toy workshop" milestone); concept + a working one-room prototype (the cathedral from the owner's Unreal level, dev lab `/account/lab/room`, tools/rooms – §7); the owner OKed the look (2026-10-20); nothing reader-facing built; more rooms 2026-10-20 (§7b station, garden hut, library splat; §7c the library from the owner's Blender file; §7d Cat Pope's scan as the size, a rotunda like the owner's render 9, a sky); the owner picked ring-dial for the rotunda's ceiling and closed the round (2026-10-20: "amazing lets finish this up. we can go into more detail later"); left for later: the room size pick (lab switch), the real elevator-shaft library file, publishing the Silikon scan (draft 738), KTX2, a phone measurement (issue #74). Not on chapter 3's critical path (#64).
+Status 2026-10-20: EXPLORATORY (owner: rooms end up as looped video backgrounds (fallback) or built externally in Blender and dropped in – no in-house room pipeline as the goal; no deadline, not in the "Top Toy workshop" milestone); concept + a working one-room prototype (the cathedral from the owner's Unreal level, dev lab `/account/lab/room`, tools/rooms – §7; re-baked onto atlases in Blender 2026-10-31, §7e); the owner OKed the look (2026-10-20); nothing reader-facing built; more rooms 2026-10-20 (§7b station, garden hut, library splat; §7c the library from the owner's Blender file; §7d Cat Pope's scan as the size, a rotunda like the owner's render 9, a sky); the owner picked ring-dial for the rotunda's ceiling and closed the round (2026-10-20: "amazing lets finish this up. we can go into more detail later"); left for later: the room size pick (lab switch), the real elevator-shaft library file, publishing the Silikon scan (draft 738), KTX2, a phone measurement (issue #74). Not on chapter 3's critical path (#64).
 
 # LOCATION-SCENES — a 3D room for every place on the map
 
@@ -166,9 +166,8 @@ around go: 158k → 129k); per level simplify, WebP, quantize, meshopt. Whole bu
 | Draw calls (room) | 6 | 6 | 6 |
 | Texture memory | 5.6 MB | 22.4 MB | 81.6 MB |
 
-Medium is inside §4's budget; low is 0.3 MB over (the scans' UV seams stop the simplifier – a Blender re-bake onto one
-atlas would fix both); high is over on texture memory (4 × 2048² WebP = RGBA in the GPU – KTX2 needed, `toktx` not
-installed yet).
+These were the first build's numbers (the scans' UV seams stopped the simplifier; high was over on texture memory) –
+since 2026-10-31 the atlas re-bake (§7e) replaces them.
 
 **Lab** `/account/lab/room` (dev only; room-stage.js – own three.js stage with the meshopt decoder): the room, the
 Awakening LP (its item `.glb`) on the altar, a cucumber (its icon as a standing card) on the floor, Cat Pope (her
@@ -245,6 +244,27 @@ cloister for the monastery?).
   a gradient dome with a sun glow behind the room, no light cost; presets day / dusk / night (`SKIES`, lab switch).
 - Pipeline fixes found on the way: meshes / accessors several nodes share are copied per node before the cut and the bake
   (they were cut and lit by one tile's position); every room material is double-sided; texture memory counted after prune.
+
+### 7e. The cathedral re-baked onto atlases (2026-10-31 – owner: "Can you do that in Blender for me?", #74)
+`blender/bake_atlas.py` (headless Blender 5.1, Cycles on the RTX 2070 SUPER via OptiX, **~4.7 min** for all three
+levels): the export without the incense burner, joined, the same view cut (133.6k → 104.9k triangles); per level a
+welded copy decimated to `levels.<l>.tris`, Smart UV Project (scans and the untextured roses / ornaments apart, the
+latter held to 12 % of the atlas), selected-to-active bakes from the full mesh – colour (16 spp), Unreal's 8 lights
+(direct + 2 bounces, 128 spp, Unreal's radius window as a light node) and AO (1.5 m, 64 spp) – combined in build.mjs's
+tone curve (ambient × AO + light), missed-ray texels filled from their neighbours. build.mjs reads `level.<level>.glb`
+per level and skips its vertex bake and simplify (manifest `baked`).
+
+| cathedral | low | medium | high |
+|---|---|---|---|
+| Download (was) | **0.52 MB** (2.05) | **0.98 MB** (2.57) | **1.45 MB** (3.79) |
+| Triangles (was) | 34,935 (96,605) | 64,971 (96,661) | 104,914 (104,920) |
+| Draw calls (was) | 1 (5) | 1 (5) | 2 (5) |
+| Textures · memory (was) | 1 × 1024² · 5.6 MB (4 × 512² · 5.6) | 1 × 2048² · 22.4 MB (4 × 1024² · 22.4) | 2 × 2048² · 44.7 MB (4 × 2048² · 81.6) |
+| Stage load (was) | 142 ms (211) | 562 ms (592) | 978 ms (1791) |
+
+All three now inside §4's budgets. Real shadows instead of the vertex light; low no longer melts the pews into a blob.
+Stage on this PC: 60 fps (vsync) at every level, CPU 0.7 ms per frame. The scans' Smart-UV islands are small (noisy
+normals), so ~25–45 % of each atlas is margin; low is soft. KTX2 still needs `toktx`.
 
 ## 8. Owner questions (with recommendations)
 1. ~~The cathedral's look~~ – OK (2026-10-20). **Next room:** a ch3 interior (the monastery or the library) – the owner
