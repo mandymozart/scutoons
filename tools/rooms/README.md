@@ -18,6 +18,12 @@ media quality, with the level's light baked in – or a Gaussian splat becomes a
    `blender.exe -b "<scene>.blend" --python tools/rooms/blender/export_blend.py -- "<export dir>" [triangle budget]`
    → the same files (decimated to the budget, textures inside the .glb, lights in the Unreal convention).
    `blender/compose_rotunda.py` instead: the library hall with a rotunda (render 9), then the same export.
+   **Re-bake a scan room onto atlases** (the cathedral, #74; Cycles on the GPU, ~5 min):
+   `blender.exe -b --factory-startup --python tools/rooms/blender/bake_atlas.py -- rooms/<room>.json "<Unreal export
+   dir>" "<bake dir>" [--only <level>] [--samples N] [--cpu]` → per level a decimated mesh (`levels.<l>.tris`) with its
+   own Smart-UV atlas (`.atlas` px, `.atlases`), Cycles-baked: the scans' colour × Unreal's lights (shadows, bounce) +
+   AO, in build.mjs's tone curve → `level.<level>.glb` + a `manifest.json` with `baked`; build.mjs then skips its
+   vertex-light bake and its simplify for those levels (the script's header has the details).
    A character (a skeletal mesh export + its texture): `node pipeline/character.mjs <in.glb> <texture.png> <out.glb>
    [triangles] [px]` → the model spec (ASSETS.md "3D models").
 2. **Build** (`pipeline/` is its own npm project, not a workspace: `npm install` there once):
@@ -29,7 +35,7 @@ media quality, with the level's light baked in – or a Gaussian splat becomes a
 
 `rooms/<room>.json`: `view { at, look, fov }` (the reader's camera, metres, glTF axes – the lab's tap prints a point),
 `spots [{ id, at }]` (empty nodes `spot_<id>` for pickups / residents), `cut { margin, far, aspect }` (drops what the
-view never sees), `ambient` + `exposure` (the light bake), `levels { low | medium | high: { ratio, error, texture } }`,
+view never sees), `ambient` + `exposure` (the light bake), `levels { low | medium | high: { ratio, error, texture, tris?, atlas?, atlases? } }` (the last three: bake_atlas.py),
 `drop` (node name prefixes to leave out), `glow` (node name prefixes that shine – no bake), `allLights` (also the lights a scene keeps off for its renders), `sun` (a
 directional light's weight), `scale` (the level at real size – the bake stays in Unreal's), `ground { y, center,
 size, color }` (a plain floor where the scan has none). Splat rooms: `splat { minOpacity, maxScale, radius, center?,

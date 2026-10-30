@@ -51,16 +51,23 @@
 		"low": {
 			"ratio": 0.3,
 			"error": 0.02,
-			"texture": 512
+			"texture": 1024,
+			"tris": 35000,
+			"atlas": 2048
 		},
 		"medium": {
 			"ratio": 0.6,
 			"error": 0.01,
-			"texture": 1024
+			"texture": 2048,
+			"tris": 65000,
+			"atlas": 4096
 		},
 		"high": {
 			"ratio": 1,
-			"texture": 2048
+			"texture": 2048,
+			"tris": 130000,
+			"atlas": 4096,
+			"atlases": 2
 		}
 	},
 	"cut": {
