@@ -37,9 +37,12 @@ unsafe impl GlobalAlloc for Counting {
 
 #[global_allocator]
 static A: Counting = Counting;
+/// the counter is global: the tests take turns
+static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 #[test]
 fn the_default_scene_renders_without_allocating() {
+    let _turn = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     let graph = Graph::build(&Scene::parse(DEFAULT_SCENE).unwrap()).unwrap();
     for build in [Build::detect(), Build { batch: true, avx2: false }] {
         renders_without_allocating(&graph, build);
@@ -76,4 +79,38 @@ fn renders_without_allocating(graph: &Graph, build: Build) {
     assert_eq!(CALLS.load(Ordering::SeqCst), 0, "allocations / frees in the audio path ({})", build.label());
     assert!(drained > 0);
     assert!(bufs[0].iter().any(|x| *x != 0.0), "the scene makes sound");
+}
+
+/// The being's frame (#188) never allocates either: the control step, the body's pose, the hoses' bubbles, the buttons'
+/// values, picking, a button turned like a CC and the geometry written into the renderer's preallocated buffers.
+#[test]
+fn the_being_steps_without_allocating() {
+    let _turn = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    use deck_stage::control::Controls;
+    use deck_stage::scene::CATHEDRAL_SCENE;
+    use deck_stage::space::being::Being;
+    use deck_stage::space::camera::Orbit;
+    use deck_stage::tempo;
+    let scene = Scene::parse(CATHEDRAL_SCENE).unwrap();
+    let graph = Graph::build(&scene).unwrap();
+    let mut ctl = Controls::new(&graph, None);
+    let mut being = Being::new(&graph, &scene.being);
+    let (ns, nv) = being.capacity();
+    let (mut spheres, mut tubes) = (Vec::with_capacity(ns), Vec::with_capacity(nv));
+    let cam = Orbit::new(being.anchor, 0.3, 0.1, 2.0);
+    let knob = being.buttons.iter().find(|b| !b.linked).map(|b| (b.node, b.port)).unwrap();
+    let meter = |n: usize, p: usize| ((n * 7 + p) % 5) as f32 * 0.2;
+    COUNTING.store(true, Ordering::SeqCst);
+    let before = CALLS.load(Ordering::SeqCst);
+    for f in 0..600 {
+        let beat = tempo::Now { bpm: 84.0, pos: tempo::position(f as f64 * 0.023, 4), per_bar: 4, running: true };
+        ctl.update(1.0 / 60.0, 0, &beat);
+        ctl.set(knob.0, knob.1, (f % 100) as f32 * 0.01);
+        being.update(1.0 / 60.0, f as f32 / 60.0, &ctl, &beat, &meter);
+        let _ = being.pick(&cam.ray(640.0 + f as f32, 360.0, 1280.0, 720.0));
+        being.write(&mut spheres, &mut tubes);
+    }
+    COUNTING.store(false, Ordering::SeqCst);
+    assert_eq!(CALLS.load(Ordering::SeqCst) - before, 0, "allocations / frees in the being's frame");
+    assert!(being.hoses.iter().any(|h| h.bubbles.iter().any(|b| b.size > 0.0)), "it bubbles");
 }

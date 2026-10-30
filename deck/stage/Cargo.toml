@@ -46,6 +46,8 @@ ureq = "2"
 image = { version = "0.25", default-features = false, features = ["webp", "png"] }
 ab_glyph = "0.2"
 resvg = { version = "0.45", default-features = false }
+# the space node (#188): vectors and matrices for the camera, the room, the being
+glam = "0.28"
 # the tempo clock's external sources (#181): MIDI clock in / out, OSC
 midir.workspace = true
 rosc.workspace = true

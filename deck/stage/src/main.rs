@@ -5,7 +5,9 @@
 //! chapter's first slice and the music are there, and the browser's start: with DECK_BROWSER set (deck-session does)
 //! F2 starts that command on top of the running stage – cage shows the newest window – and the stage pauses and mutes
 //! behind it until it closes; without it F2 quits with exit code 10 (deck-session's older loop opens the browser).
-use deck_stage::{audio, chapter, clock, control, graph, hud, library, render, scene, splash, tempo};
+//! A scene with a `space` node (#188): the mouse turns the camera or the being's 3D buttons, the wheel / ↑ ↓ zoom,
+//! ← → turn, R resets the camera.
+use deck_stage::{audio, chapter, clock, control, graph, hud, library, render, scene, space, splash, tempo};
 
 use anyhow::{bail, Context, Result};
 use audio::backend::{self, Choice};
@@ -13,7 +15,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use winit::application::ApplicationHandler;
-use winit::event::{ElementState, WindowEvent};
+use winit::event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy};
 use winit::keyboard::{Key, ModifiersState, NamedKey};
 use winit::window::{Fullscreen, Window, WindowId};
@@ -32,12 +34,16 @@ enum Event {
     BrowserClosed,
 }
 
-const HELP: &str = "deck-stage [--scene FILE] [--audio auto|pipewire|cpal|null] [--volume 0-1] [--cache DIR]
-           [--api URL] [--cdn URL] [--windowed] [--frames N] [--no-hud]
-  --scene    a scene TOML (default: the built-in scene, deck/stage/scenes/default.toml)
-  --audio    the backend; auto = PipeWire → cpal → null (no device: the clock and the FFT still run)
-  --cache    the library cache (default /var/lib/deck/cache on a deck, DECK_CACHE, else the user cache folder)
-  --frames   quit after N frames and print the measured numbers (a check run)";
+const HELP: &str = "deck-stage [--scene FILE|cathedral] [--audio auto|pipewire|cpal|null] [--volume 0-1] [--cache DIR]
+           [--rooms DIR] [--api URL] [--cdn URL] [--windowed] [--frames N] [--screenshot FILE] [--pointer X,Y] [--no-hud]
+  --scene      a scene TOML (default: the built-in scene, deck/stage/scenes/default.toml); `cathedral` = the built-in
+               Cathedral of decks (scenes/cathedral.toml)
+  --audio      the backend; auto = PipeWire → cpal → null (no device: the clock and the FFT still run)
+  --cache      the library cache (default /var/lib/deck/cache on a deck, DECK_CACHE, else the user cache folder)
+  --rooms      where a space node's rooms are (.glb; default DECK_ROOMS, else <cache>/rooms)
+  --frames     quit after N frames and print the measured numbers (a check run)
+  --screenshot save the last frame of a --frames run as a PNG
+  --pointer    put the pointer at window pixel X,Y (a check run's hover)";
 
 struct Args {
     scene: Option<PathBuf>,
@@ -49,6 +55,9 @@ struct Args {
     windowed: bool,
     frames: Option<u64>,
     hud: bool,
+    rooms: Option<PathBuf>,
+    screenshot: Option<PathBuf>,
+    pointer: Option<(f32, f32)>,
 }
 
 fn args() -> Result<Args> {
@@ -62,6 +71,9 @@ fn args() -> Result<Args> {
         windowed: false,
         frames: None,
         hud: true,
+        rooms: std::env::var_os("DECK_ROOMS").map(PathBuf::from),
+        screenshot: None,
+        pointer: None,
     };
     let mut it = std::env::args().skip(1);
     while let Some(arg) = it.next() {
@@ -77,6 +89,13 @@ fn args() -> Result<Args> {
             "--api" => a.api = val()?,
             "--cdn" => a.cdn = val()?,
             "--frames" => a.frames = Some(val()?.parse()?),
+            "--rooms" => a.rooms = Some(val()?.into()),
+            "--screenshot" => a.screenshot = Some(val()?.into()),
+            "--pointer" => {
+                let v = val()?;
+                let (x, y) = v.split_once(',').with_context(|| format!("--pointer {v}: X,Y"))?;
+                a.pointer = Some((x.trim().parse()?, y.trim().parse()?));
+            }
             "--windowed" => a.windowed = true,
             "--no-hud" => a.hud = false,
             "-h" | "--help" => {
@@ -137,6 +156,10 @@ struct App {
     browser: Option<Instant>,
     paused: bool,
     proxy: EventLoopProxy<Event>,
+    /// the scene's space node (#188): the camera, the being, the pointer
+    space: Option<space::Space>,
+    /// the audio outputs' peaks (the being's audio hoses)
+    meters: Option<Arc<audio::Meters>>,
 }
 
 impl App {
@@ -236,6 +259,10 @@ impl App {
         let beat = self.tempo.frame(&self.moment);
         self.controls.update(dt, self.lead(), &beat);
         let time = self.time();
+        if let Some(s) = self.space.as_mut() {
+            let meters = self.meters.as_deref();
+            s.update(dt, time, &self.controls, &beat, &|n, p| meters.map_or(0.0, |m| m.level(n, p)));
+        }
         self.stats.window.0 += 1;
         self.stats.window.1 += dt;
         if self.stats.window.1 >= 1.0 {
@@ -256,8 +283,11 @@ impl App {
         let splash = (self.splash.alpha, cover);
         let Some(r) = self.renderer.as_mut() else { return };
         let shown = (self.args.hud && self.hud.visible).then_some(&self.hud);
+        if self.args.frames.is_some_and(|n| self.stats.frames + 1 >= n) {
+            r.capture = self.args.screenshot.clone();
+        }
         let before = (now.elapsed().as_secs_f32()) * 1000.0;
-        match r.frame(&self.graph, &self.controls, time, dt, shown, splash) {
+        match r.frame(&self.graph, &self.controls, time, dt, shown, splash, self.space.as_mut()) {
             // the frame thread's work: controls + HUD before the render, the render after the surface's vsync wait
             Ok(ms) => push_capped(&mut self.stats.work, before + ms),
             Err(e) => {
@@ -300,6 +330,10 @@ impl App {
             self.source_line(),
         ];
         debug_assert!(lines[TEMPO_ROW].starts_with("BPM"), "the beat lights' row");
+        if let Some(s) = &self.space {
+            lines.push("DRAG TURN/KNOB WHEEL ZOOM R HOME".into());
+            lines.push(s.hud_line(&self.graph));
+        }
         if let Some([l, b, m, h]) = self.controls.fft() {
             lines.push(format!("FFT L {l:.2} B {b:.2} M {m:.2} H {h:.2}"));
         }
@@ -395,8 +429,16 @@ impl ApplicationHandler<Event> for App {
                 return;
             }
         };
-        if !self.args.windowed {
+        // the kiosk hides the pointer – unless the scene has a space to point into
+        if !self.args.windowed && self.space.is_none() {
             window.set_cursor_visible(false);
+        }
+        if let Some(s) = self.space.as_mut() {
+            let size = window.inner_size();
+            s.set_view(size.width as f32, size.height as f32);
+            if let Some((x, y)) = self.args.pointer {
+                s.pointer_moved(x, y, &mut self.controls);
+            }
         }
         match render::Renderer::new(window.clone(), &self.graph, self.render_scale, std::mem::take(&mut self.feeds)) {
             Ok(r) => self.renderer = Some(r),
@@ -418,6 +460,38 @@ impl ApplicationHandler<Event> for App {
                 if let Some(r) = self.renderer.as_mut() {
                     r.resize(s.width, s.height);
                 }
+                if let Some(sp) = self.space.as_mut() {
+                    sp.set_view(s.width as f32, s.height as f32);
+                }
+            }
+            // a check run's --pointer stays where it was put
+            WindowEvent::CursorMoved { .. } | WindowEvent::CursorLeft { .. } if self.args.pointer.is_some() => {}
+            WindowEvent::CursorMoved { position, .. } => {
+                if let Some(s) = self.space.as_mut() {
+                    s.pointer_moved(position.x as f32, position.y as f32, &mut self.controls);
+                }
+            }
+            WindowEvent::CursorLeft { .. } => {
+                if let Some(s) = self.space.as_mut() {
+                    s.pointer_left();
+                }
+            }
+            WindowEvent::MouseInput { state, button: MouseButton::Left, .. } => {
+                if let Some(s) = self.space.as_mut() {
+                    match state {
+                        ElementState::Pressed => s.press(),
+                        ElementState::Released => s.release(),
+                    }
+                }
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                if let Some(s) = self.space.as_mut() {
+                    let steps = match delta {
+                        MouseScrollDelta::LineDelta(_, y) => y,
+                        MouseScrollDelta::PixelDelta(p) => p.y as f32 / 60.0,
+                    };
+                    s.camera.zoom(steps);
+                }
             }
             WindowEvent::ModifiersChanged(m) => self.mods = m.state(),
             // the browser's window took the screen: stop drawing behind it (hidden, a frame could block on vsync)
@@ -435,7 +509,18 @@ impl ApplicationHandler<Event> for App {
                     Key::Character("+" | "=") => self.tempo.key(tempo::Key::Faster),
                     Key::Character("-") => self.tempo.key(tempo::Key::Slower),
                     Key::Character("k") => self.tempo.key(tempo::Key::Click),
-                    _ => {}
+                    key => {
+                        if let Some(s) = self.space.as_mut() {
+                            match key {
+                                Key::Character("r") => s.camera.reset(),
+                                Key::Named(NamedKey::ArrowLeft) => s.camera.turn(-0.12),
+                                Key::Named(NamedKey::ArrowRight) => s.camera.turn(0.12),
+                                Key::Named(NamedKey::ArrowUp) | Key::Named(NamedKey::PageUp) => s.camera.zoom(1.0),
+                                Key::Named(NamedKey::ArrowDown) | Key::Named(NamedKey::PageDown) => s.camera.zoom(-1.0),
+                                _ => {}
+                            }
+                        }
+                    }
                 }
             }
             WindowEvent::RedrawRequested => self.redraw(el),
@@ -461,6 +546,7 @@ fn run() -> Result<i32> {
     let started = Instant::now();
     let args = args()?;
     let scene = match &args.scene {
+        Some(p) if p.as_os_str() == "cathedral" && !p.exists() => scene::Scene::parse(scene::CATHEDRAL_SCENE)?,
         Some(p) => scene::Scene::load(p)?,
         None => scene::Scene::parse(scene::DEFAULT_SCENE)?,
     };
@@ -506,6 +592,12 @@ fn run() -> Result<i32> {
         .map(|i| chapter::spawn(lib.clone(), &graph.nodes[i], i))
         .collect();
     let master = handles.as_ref().map(|h| h.master.clone());
+    let meters = handles.as_ref().and_then(|h| h.meters.clone());
+    let rooms = args.rooms.clone().unwrap_or_else(|| lib.cache.join("rooms"));
+    let space = graph.first(graph::Kind::Space).map(|n| {
+        tracing::info!("space: rooms in {}", rooms.display());
+        space::Space::new(&graph, n, &scene.being, &rooms)
+    });
     let audio_build = handles.as_ref().map_or("", |h| h.build.label());
     let clock = handles.as_ref().map(|h| h.clock.clone());
     let timebase = clock.as_ref().map(|c| clock::TimeBase::new(c.rate));
@@ -547,6 +639,8 @@ fn run() -> Result<i32> {
         browser: None,
         paused: false,
         proxy,
+        space,
+        meters,
     };
     event_loop.run_app(&mut app)?;
     let summary = app.summary();

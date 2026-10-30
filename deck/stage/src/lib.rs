@@ -10,6 +10,7 @@ pub mod hud;
 pub mod library;
 pub mod render;
 pub mod scene;
+pub mod space;
 pub mod splash;
 pub mod tempo;
 pub mod text;

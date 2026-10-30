@@ -5,7 +5,8 @@
 scutoons.com's library API with a disk cache. On the deck `deck-session` runs it under `cage` instead of Chromium
 (deck/os/README.md "What happens at boot"). Built so far: S1 (window, wgpu, graph core, test pattern, shader passes,
 HUD), S2 (audio graph, synths, FFT, chapter music) and S3 (the chapter's slices with their dialog, the caption overlay,
-the splash). Open: S4–S6 (#179).
+the splash), and the 3D space of #188 phases 1–3 (the Cathedral of decks: a glTF room, the deck's being, its 3D
+buttons). Open: S4–S6 (#179), #188 phases 4–5 (several decks around the conductor over the relay, the portrait head).
 
 ## Run
 
@@ -13,16 +14,20 @@ the splash). Open: S4–S6 (#179).
 cd deck && cargo run --release -p deck-stage -- --windowed
 ```
 
-`--scene FILE` (default: the built-in `scenes/default.toml`, "AV madness") · `--audio auto|pipewire|cpal|null` (auto =
+`--scene FILE` (default: the built-in `scenes/default.toml`, "AV madness"; `--scene cathedral` = the built-in
+`scenes/cathedral.toml`) · `--rooms DIR` (a space node's rooms, `DECK_ROOMS`, default `<cache>/rooms`) · `--audio auto|pipewire|cpal|null` (auto =
 PipeWire → cpal → null; null runs the engine on a timer, no device – the clock, the music and the FFT still move) ·
 `--volume 0–1` · `--cache DIR` (default `/var/lib/deck/cache` on a deck, `DECK_CACHE`, else the user cache folder) ·
 `--api` / `--cdn` (or `DECK_API` / `DECK_CDN`) · `--windowed` · `--frames N` (quit after N frames and print the numbers –
-a check run) · `--no-hud`. Logs: `RUST_LOG`. `DECK_SIMD=baseline` – the audio batches without AVX2 (to compare).
+a check run) · `--screenshot FILE` (the last frame of a `--frames` run as a PNG) · `--pointer X,Y` (the pointer at a
+window pixel for a check run – a hovered button shows in the HUD) · `--no-hud`. Logs: `RUST_LOG`. `DECK_SIMD=baseline` – the audio batches without AVX2 (to compare).
 The graph's workloads: `cargo bench -p deck-stage` (patcher | batch | batch AVX2, µs per block).
 
 Keys: **F1** the HUD · **F2** the browser · **Ctrl+Q** quit (on the deck the stage starts again) · **Ctrl+Alt+Del** power off (`systemctl
 poweroff`, the logo stays up; not in a `--windowed` stage) · Esc quits a `--windowed` stage · the tempo clock: **T** tap ·
-**+ / −** BPM · **Space** start / stop · **F3** the next source (internal → MIDI → Link → OSC → relay) · **K** the click. The HUD names the keys. F2 with `DECK_BROWSER` set (deck-session sets it to `deck-session browser`) starts that command on
+**+ / −** BPM · **Space** start / stop · **F3** the next source (internal → MIDI → Link → OSC → relay) · **K** the click. In a scene with a `space` node: a **mouse drag** turns the camera around the being (or, on a 3D
+button, its value – up = more), the **wheel** / **↑ ↓** zoom, **← →** turn, **R** the camera's home; the pointer stays
+visible in the kiosk then. The HUD names the keys. F2 with `DECK_BROWSER` set (deck-session sets it to `deck-session browser`) starts that command on
 top of the running stage: the logo comes up until the browser's window takes the focus (cage shows the newest window),
 then the stage stops drawing and mutes; when the command exits the stage is back at once. Without `DECK_BROWSER` F2
 quits with exit code 10.
@@ -59,6 +64,7 @@ An input takes one link; an output feeds any number. Every control input can als
 | `mixer` | in1–in4 (audio), gain1–gain4 | out | – |
 | `fft` | in (audio) | level, bass, mid, high (control, 0–1) | `release` (s) |
 | `audio_out` | in (audio), volume | – | the device (one per scene) |
+| `space` | hue, glow, light, pulse (control) | out (video) | `room` (a name → `<rooms>/<room>.<quality>.glb`, or a path with its extension), `quality` = low · medium · high (low, the X1's), `at` = [x, y, z] (where the being floats, room metres) or `spot` (a node of the room, `spot_aisle`) + `lift` (1.5 m), `yaw` / `pitch` (°) / `distance` (m) – the camera's start, `max_texture` (2048) – one per scene |
 
 **chapter** shows the chapter's slices one after the other in reading order (looping), the slice fitted to the height
 over `in` (darkened; without an input a dark stretched copy of the slice), a slow push-in over the hold, a kick by
@@ -74,6 +80,25 @@ the frame (80 % of the width, at most 40 % of the height), popping in when it ch
 With a `cv` link an oscillator / FM voice takes its pitch and gate from the sequencer and ignores `freq`. A control link
 out of the FFT or into an audio node crosses threads a frame late, so feedback through it (FFT → synth → mix → FFT) is
 allowed; every other cycle is an error.
+
+**space** (#188 "Cathedral of decks", phases 1–3) draws a glTF room and this deck's **being** – the running graph as a
+floating body – through an orbit camera. The body: a translucent core (the space node's own point sits in it), one node
+point per graph node (sources low, sinks high: data rises toward where the head will be), a hose per link (a curved
+tube; audio thick, video middle, control thin) and thin tendrils from the core to every point. **Bubbles** run along a
+hose from its source to its target when its value changes – control links: the change against the value's recent
+range, more and bigger the more it moves (a steady value: none); audio links: the source buffer's block peak; video
+links: a steady trickle. Every point carries its node's control inputs as **3D buttons** (a lit band shows the value
+in its range, `space/params.rs`) and an LFO also its waveform (sine · saw · square); dragging one sets the input like
+a MIDI CC (`Controls::set`), a button on a linked input has a dark collar, shows the hose's value and does not turn.
+The HUD's last line names the hovered button (`VOICE.INDEX 2.00 [0.00-10.0]`, `SPACE.PULSE 0.58 < FFT`) or node. The
+body drifts, sways and breathes on the tempo clock (a swell on each beat, a wave over the bar; `pulse` kicks it); `hue`
+/ `glow` colour it, `light` dims the room. The scene's `[being]` table is its shape: `size` (body radius, 0.5 m),
+`drift` (0.06 m), `breath` (0.035), `wobble` (0.025), `hose` / `bubbles` (thickness / rate factors), `expose` (the
+buttons: `"node"` or `"node.port"`, empty = all) – with the graph that is what a being preset saves (#191).
+`scenes/cathedral.toml` ("Cathedral of decks") – the room from Cat Pope chapter 2 (`cathedral`, low), the being ahead of
+the reader's view in the nave; catpope 2's music, a choir line (seq → FM), a drone (its gain on the bass), pink-noise
+incense swayed by an LFO → mixer → FFT (its level kicks the breath) → out. An audio oscillator's `wave` can't change
+while it plays yet (an engine rebuild); MIDI / OSC learn onto the same `Controls::set` is S6.
 
 `scenes/default.toml` ("AV madness (S3)") – the tempo clock at 96 BPM; catpope 1's music + an FM voice sequenced on
 the beat + pink noise + the click (off until K) → mixer → FFT; test pattern (pulsing on the beat) → kaleidoscope → the
@@ -117,6 +142,23 @@ screen. `scenes/test-pattern.toml` – the picture alone (no sound, no network).
   surface, the HUD (`src/hud.rs`, font8x8 into a small texture, integer scale by the screen height) on top. No hardware
   adapter → the software one (llvmpipe / lavapipe / WARP) at half the render size; a shader that does not compile →
   `pass` with the error in the log.
+- **Space** (`src/space/`, #188): `glb.rs` reads a room (.glb) – meshes with POSITION, COLOR_0 (the rooms' build
+  bakes Unreal's lights into the vertex colours), TEXCOORD_0, unlit base-colour materials, WebP / PNG images
+  (`EXT_texture_webp`), quantized attributes (`KHR_mesh_quantization`), **`EXT_meshopt_compression`** (decoded by
+  `meshopt.rs` in plain Rust – the vertex codec v0 and the index codec v0 / v1 of the extension's bitstream spec; the
+  decoded positions are checked against the accessors' min / max), named empty nodes as spots – flattened at load into
+  one world-space vertex / index list with a draw per texture, the images halved to `max_texture` and their mip chains
+  made on the loader's thread (the frame that uploads only copies). Not read: the INDICES mode, meshopt filters, Draco,
+  KTX2 / Basis, external buffers – a room with those is refused with the extension's name (the rooms' build encodes
+  with meshopt's FILTER method, which filters only normals / rotations – the rooms carry none); a plain variant: the
+  rooms' build (tools/rooms/pipeline/build.mjs §5) without its `EXTMeshoptCompression`. `camera.rs` the orbit camera (glam; it turns by itself after 4 s without input, eased in; the ray through a
+  pixel for picking), `being.rs` the body (layout from the graph, the hoses' Béziers, the bubble pools – 12 per hose –,
+  the buttons, picking by ray / sphere), `gpu.rs` + `shaders/space.wgsl` the passes into the node's texture with its
+  own Depth32 buffer: the room unlit (texture × vertex light × `light`, fog), the solid spheres (nuclei, buttons), then
+  the tubes and the ghost spheres (core, shells, bubbles) additive and depth-tested only. The being's buffers are sized
+  once (`Being::capacity`) and rewritten per frame; `Being::update` / `write` never allocate (tests/no_alloc.rs). The
+  values come from the control domain's slots and the audio meters (`audio::Meters`: every output buffer's block peak,
+  only built for a scene with a space node).
 - **Library** (`src/library.rs`): `GET {api}/library/toons/<toon>/chapters/<n>` → `<cache>/api/…json` (the cached copy
   when offline), CDN files `{cdn}/<toon>/<path>` → `<cache>/cdn/<toon>/<path>` once (CDN paths are immutable), decoded
   whole with symphonia (mp3, wav).
@@ -136,4 +178,6 @@ wgpu-hal's DX12 build on Windows). A bump is its own step.
 |---|---|---|
 | Windows 10, RTX 2070 SUPER, Vulkan, release | default (null audio) | 60.3 fps, 16.6 ms avg frame, 0.29 ms CPU per frame, first frame 845 ms, catpope 1 music online in 1.1 s (cached 0.4 s) |
 | ThinkPad X1 Carbon Gen 7, UHD 620 (anv) | default | open – the owner's stick (deck/HARDWARE.md) |
+| Windows 10, RTX 2070 SUPER, Vulkan, release, 1280 × 720 window (2026-10-30, #188) | cathedral (null audio) – room low / medium / high | 59.7 / 58.8 / 55.1 fps (vsync), CPU per frame 0.52 / 0.83 / 1.96 ms (the default scene: 0.31), first frame 860 / 960 / 1617 ms; the low room loads in 74 ms on its thread (114,788 triangles, 4 WebP), its upload ~65 ms |
+| ThinkPad X1 Carbon Gen 7, UHD 620 (anv) | cathedral | open – the owner's stick |
 | Windows 10, Ryzen 5 3600X, `cargo bench -p deck-stage` (2026-10-30, #183) | the graph, µs per 128-frame block: before #183 → patcher → batch → batch AVX2 | default scene 11.0 → 9.9 → 11.1 → 10.0 (whole v3 binary 7.5) · 1 FM voice – → 2.2 → 3.5 → 2.2 · 16 FM voices 37.8 → 34.1 → 10.2 → 7.7 · 16 sines 20.1 → 15.4 → 7.3 → 5.3 · 64 FM voices – → 125 → 41 → 27 · control step, 300 LFOs: 58.4 → 2.1 (3 levels × 100), 69.6 → 5.5 (300 levels) |

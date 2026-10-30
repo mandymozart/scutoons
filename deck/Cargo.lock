@@ -753,6 +753,7 @@ dependencies = [
  "deck-core",
  "font8x8",
  "fundsp",
+ "glam",
  "image",
  "libc",
  "midir",

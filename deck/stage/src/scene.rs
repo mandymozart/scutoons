@@ -1,12 +1,16 @@
 //! The scene document: a TOML node graph (CYBERDECKS.md §8 – "a scene is a graph document, TOML now, later an entity on
 //! scutoons.com"). `[[node]]` = id + kind + the kind's params, `[[link]]` = `from = "node.port"` → `to = "node.port"`
-//! (a bare node id means its port `out`); control links map the value with `scale` and `offset`.
+//! (a bare node id means its port `out`); control links map the value with `scale` and `offset`. `[being]` = the
+//! being's look when the scene has a `space` node (space/being.rs, #188 – with the graph it is what a being preset
+//! saves, #191).
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use std::path::Path;
 
 /// The scene the stage plays when none is given: catpope 1's music + a synth, the FFT drives the test pattern.
 pub const DEFAULT_SCENE: &str = include_str!("../scenes/default.toml");
+/// The Cathedral of decks (#188): the room from Cat Pope chapter 2 and this deck's being in it.
+pub const CATHEDRAL_SCENE: &str = include_str!("../scenes/cathedral.toml");
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -17,6 +21,8 @@ pub struct Scene {
     pub nodes: Vec<NodeDef>,
     #[serde(default, rename = "link")]
     pub links: Vec<LinkDef>,
+    #[serde(default)]
+    pub being: crate::space::being::Look,
 }
 
 #[derive(Debug, Clone, Deserialize)]

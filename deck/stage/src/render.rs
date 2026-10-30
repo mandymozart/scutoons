@@ -5,13 +5,17 @@
 //! S3: a pass reads up to three textures (its `in`, a chapter's current / previous slice, an overlay's `top`); the
 //! chapter nodes' slices arrive from their loaders (chapter.rs) and are uploaded when the node cuts; the splash (the
 //! logo, splash.rs) goes over everything – its first frame is shown before the scene's shaders are compiled.
+//! #188: a `space` node is not a fullscreen pass – space/gpu.rs draws the room and the being into its texture with a
+//! depth buffer. `capture` saves the next frame as a PNG (`--screenshot`).
 use crate::chapter::{ChapterFeed, Prepared};
 use crate::control::Controls;
 use crate::graph::{Graph, Kind};
+use crate::space::{gpu::SpaceGpu, Space};
 use crate::hud::{self, Hud};
 use crate::tempo::Quantize;
 use anyhow::{bail, Context, Result};
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 use winit::window::Window;
 
@@ -59,7 +63,8 @@ enum Src {
 struct Pass {
     node: usize,
     kind: Kind,
-    pipeline: wgpu::RenderPipeline,
+    /// the fullscreen pass (None for a space node – its own pipelines)
+    pipeline: Option<wgpu::RenderPipeline>,
     ubuf: wgpu::Buffer,
     /// what bindings 1, 3 and 4 read
     inputs: [Option<Src>; 3],
@@ -108,6 +113,11 @@ pub struct Renderer {
     slides: Vec<Slides>,
     splash: Pass,
     logo: Image,
+    /// the space node's GPU side, made at its first frame
+    space: Option<SpaceGpu>,
+    /// save the next frame here (PNG), then forget it
+    pub capture: Option<PathBuf>,
+    can_capture: bool,
 }
 
 impl Renderer {
@@ -143,8 +153,10 @@ impl Renderer {
         let Some(&first) = caps.formats.first() else { bail!("the surface offers no format") };
         // shaders write display values: a non-sRGB surface keeps them as written
         let format = caps.formats.iter().copied().find(|f| !f.is_srgb()).unwrap_or(first);
+        // a screenshot copies the surface's texture – where the surface allows it
+        let can_capture = caps.usages.contains(wgpu::TextureUsages::COPY_SRC);
         let config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | if can_capture { wgpu::TextureUsages::COPY_SRC } else { wgpu::TextureUsages::empty() },
             format,
             width: size.width.max(1),
             height: size.height.max(1),
@@ -200,7 +212,7 @@ impl Renderer {
             Ok(Pass {
                 node: usize::MAX,
                 kind: Kind::Screen,
-                pipeline: pipeline(&device, &layout, label, body, format, true)?,
+                pipeline: Some(pipeline(&device, &layout, label, body, format, true)?),
                 ubuf: uniform_buffer(&device),
                 inputs: [None; 3],
                 target: None,
@@ -228,6 +240,9 @@ impl Renderer {
             hud_tex,
             render_scale: if software { render_scale.min(0.5) } else { render_scale }.clamp(0.25, 1.0),
             slides: Vec::new(),
+            space: None,
+            capture: None,
+            can_capture,
         };
         r.rebind();
         r.show_splash();
@@ -239,6 +254,10 @@ impl Renderer {
                 Kind::Screen => builtin("pass").unwrap().to_string(),
                 Kind::Chapter => builtin("chapter").unwrap().to_string(),
                 Kind::Overlay => builtin("overlay").unwrap().to_string(),
+                Kind::Space => {
+                    r.passes.push(Pass { node: i, kind: Kind::Space, pipeline: None, ubuf: uniform_buffer(&r.device), inputs: [None; 3], target: None, bind: None });
+                    continue;
+                }
                 _ => continue,
             };
             let fmt = if node.kind == Kind::Screen { format } else { OFFSCREEN };
@@ -255,7 +274,7 @@ impl Renderer {
                 Kind::Overlay => [link("in"), link("top"), None],
                 _ => [link("in"), None, None],
             };
-            let pass = Pass { node: i, kind: node.kind, pipeline, ubuf: uniform_buffer(&r.device), inputs, target: None, bind: None };
+            let pass = Pass { node: i, kind: node.kind, pipeline: Some(pipeline), ubuf: uniform_buffer(&r.device), inputs, target: None, bind: None };
             if node.kind == Kind::Screen {
                 r.screen = Some(pass);
             } else {
@@ -324,6 +343,9 @@ impl Renderer {
         for p in &mut self.passes {
             p.target = Some(Target { view: texture(&self.device, w, h, OFFSCREEN, usage).create_view(&Default::default()) });
         }
+        if let Some(s) = self.space.as_mut() {
+            s.resize(&self.device, (w, h));
+        }
         self.rebind();
     }
 
@@ -382,7 +404,7 @@ impl Renderer {
         {
             let view = frame.texture.create_view(&Default::default());
             let mut rp = begin(&mut enc, &view);
-            rp.set_pipeline(&self.splash.pipeline);
+            rp.set_pipeline(self.splash.pipeline.as_ref().expect("the splash's pipeline"));
             rp.set_bind_group(0, self.splash.bind.as_ref(), &[]);
             rp.draw(0..3, 0..1);
         }
@@ -453,7 +475,9 @@ impl Renderer {
 
     /// One frame; returns the CPU time spent after the surface handed out its texture (the vsync wait excluded), in ms.
     /// `splash` = the splash's alpha (0 = none) and whether its loading line runs.
-    pub fn frame(&mut self, graph: &Graph, ctl: &Controls, time: f32, dt: f32, hud: Option<&Hud>, splash: (f32, bool)) -> Result<f32> {
+    /// `space` = the scene's space node's state (its room arrives through it once).
+    #[allow(clippy::too_many_arguments)]
+    pub fn frame(&mut self, graph: &Graph, ctl: &Controls, time: f32, dt: f32, hud: Option<&Hud>, splash: (f32, bool), space: Option<&mut Space>) -> Result<f32> {
         let frame = match self.surface.get_current_texture() {
             Ok(f) => f,
             Err(wgpu::SurfaceError::Outdated | wgpu::SurfaceError::Lost) => {
@@ -471,6 +495,18 @@ impl Renderer {
             self.rebind();
         }
         let (w, h) = self.render_size();
+        let space: Option<&Space> = match space {
+            Some(s) => {
+                let gpu = self.space.get_or_insert_with(|| SpaceGpu::new(&self.device, &self.queue, s, OFFSCREEN, (w, h)));
+                if let Some(room) = s.take_room() {
+                    let t = std::time::Instant::now();
+                    gpu.upload_room(&self.device, &self.queue, &room);
+                    tracing::info!("room on the GPU in {:.0} ms", t.elapsed().as_secs_f32() * 1000.0);
+                }
+                Some(&*s)
+            }
+            None => None,
+        };
         for p in self.passes.iter().chain(self.screen.as_ref()) {
             let mut params = params(ctl, p);
             self.extra(p, time, &mut params);
@@ -485,8 +521,15 @@ impl Renderer {
         }
         let mut enc = self.device.create_command_encoder(&Default::default());
         for p in &self.passes {
-            let mut rp = begin(&mut enc, &p.target.as_ref().unwrap().view);
-            rp.set_pipeline(&p.pipeline);
+            let target = &p.target.as_ref().unwrap().view;
+            let Some(pipeline) = &p.pipeline else {
+                if let (Some(gpu), Some(s)) = (self.space.as_mut(), space) {
+                    gpu.draw(&self.queue, &mut enc, target, (w, h), s, time);
+                }
+                continue;
+            };
+            let mut rp = begin(&mut enc, target);
+            rp.set_pipeline(pipeline);
             rp.set_bind_group(0, p.bind.as_ref(), &[]);
             rp.draw(0..3, 0..1);
         }
@@ -494,7 +537,7 @@ impl Renderer {
         {
             let mut rp = begin(&mut enc, &view);
             if let Some(s) = &self.screen {
-                rp.set_pipeline(&s.pipeline);
+                rp.set_pipeline(s.pipeline.as_ref().expect("the screen's pipeline"));
                 rp.set_bind_group(0, s.bind.as_ref(), &[]);
                 rp.draw(0..3, 0..1);
             }
@@ -515,21 +558,63 @@ impl Renderer {
                 let (hw, hh) = ((hud::W as f32 * s).min(sw), (hud::H as f32 * s).min(sh));
                 let m = (16.0 * s).min(sw - hw).max(0.0);
                 rp.set_viewport(m, m.min(sh - hh).max(0.0), hw, hh, 0.0, 1.0);
-                rp.set_pipeline(&self.hud_pass.pipeline);
+                rp.set_pipeline(self.hud_pass.pipeline.as_ref().expect("the HUD's pipeline"));
                 rp.set_bind_group(0, self.hud_pass.bind.as_ref(), &[]);
                 rp.draw(0..3, 0..1);
             }
             if splash.0 > 0.0 {
                 rp.set_viewport(0.0, 0.0, sw, sh, 0.0, 1.0);
-                rp.set_pipeline(&self.splash.pipeline);
+                rp.set_pipeline(self.splash.pipeline.as_ref().expect("the splash's pipeline"));
                 rp.set_bind_group(0, self.splash.bind.as_ref(), &[]);
                 rp.draw(0..3, 0..1);
             }
         }
+        let shot = self.capture.take().filter(|_| self.can_capture).map(|path| {
+            let (w, h) = (self.config.width, self.config.height);
+            let row = (w * 4).div_ceil(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT) * wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
+            let buf = self.device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("screenshot"),
+                size: (row * h) as u64,
+                usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+                mapped_at_creation: false,
+            });
+            enc.copy_texture_to_buffer(
+                frame.texture.as_image_copy(),
+                wgpu::TexelCopyBufferInfo { buffer: &buf, layout: wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(row), rows_per_image: None } },
+                wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
+            );
+            (path, buf, row, w, h)
+        });
         self.queue.submit([enc.finish()]);
         let ms = work.elapsed().as_secs_f32() * 1000.0;
+        if let Some((path, buf, row, w, h)) = shot {
+            if let Err(e) = self.save(&path, &buf, row, w, h) {
+                tracing::error!("screenshot {}: {e:#}", path.display());
+            }
+        }
         frame.present();
         Ok(ms)
+    }
+
+    /// the copied frame → a PNG (BGRA surfaces swapped to RGBA)
+    fn save(&self, path: &std::path::Path, buf: &wgpu::Buffer, row: u32, w: u32, h: u32) -> Result<()> {
+        let slice = buf.slice(..);
+        slice.map_async(wgpu::MapMode::Read, |_| {});
+        self.device.poll(wgpu::PollType::Wait)?;
+        let data = slice.get_mapped_range();
+        let bgra = matches!(self.config.format, wgpu::TextureFormat::Bgra8Unorm | wgpu::TextureFormat::Bgra8UnormSrgb);
+        let mut px = Vec::with_capacity((w * h * 4) as usize);
+        for y in 0..h {
+            for p in data[(y * row) as usize..(y * row + w * 4) as usize].chunks_exact(4) {
+                px.extend_from_slice(&if bgra { [p[2], p[1], p[0], 255] } else { [p[0], p[1], p[2], 255] });
+            }
+        }
+        if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty()) {
+            std::fs::create_dir_all(dir)?;
+        }
+        image::save_buffer(path, &px, w, h, image::ExtendedColorType::Rgba8)?;
+        tracing::info!("screenshot: {}", path.display());
+        Ok(())
     }
 }
 
@@ -537,18 +622,19 @@ impl Renderer {
 /// hold rides in the last slot (the renderer fills slots 2–6, `extra`)
 fn params(ctl: &Controls, p: &Pass) -> [f32; 8] {
     let mut out = [0.0; 8];
-    let names: &[(&str, f32)] = match p.kind {
-        Kind::TestPattern => &[("speed", 1.0), ("zoom", 1.0), ("hue", 0.0), ("pulse", 0.0)],
-        Kind::Shader => &[("a", 0.5), ("b", 0.5), ("c", 0.5), ("d", 0.0)],
-        Kind::Chapter => &[("zoom", 1.0), ("pulse", 0.0)],
-        Kind::Overlay => &[("opacity", 1.0), ("pulse", 0.0), ("shake", 0.0)],
+    let names: &[&str] = match p.kind {
+        Kind::TestPattern => &["speed", "zoom", "hue", "pulse"],
+        Kind::Shader => &["a", "b", "c", "d"],
+        Kind::Chapter => &["zoom", "pulse"],
+        Kind::Overlay => &["opacity", "pulse", "shake"],
         _ => &[],
     };
-    for (i, (name, default)) in names.iter().enumerate() {
-        out[i] = ctl.input(p.node, name, *default);
+    let input = |name: &str| ctl.input(p.node, name, crate::space::params::default(p.kind, name));
+    for (i, name) in names.iter().enumerate() {
+        out[i] = input(name);
     }
     if p.kind == Kind::Chapter {
-        out[7] = ctl.input(p.node, "hold", 6.0);
+        out[7] = input("hold");
     }
     out
 }

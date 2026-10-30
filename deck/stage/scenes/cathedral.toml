@@ -1,0 +1,156 @@
+# The Cathedral of decks (#188, phases 1–3): the room from Cat Pope chapter 2 – the sermon's cathedral (the owner's
+# Unreal export, agents/research/LOCATION-SCENES.md §7) – and this deck's being floating in the nave: its graph as a
+# body, node points with their parameters as 3D buttons, the links as hoses with bubbles. Run it:
+#   cargo run --release -p deck-stage -- --scene cathedral --windowed --rooms ../media/scutoons/rooms
+# Mouse: drag = turn the camera (or a button's value), wheel = zoom; ← → turn, ↑ ↓ zoom, R the camera's home.
+
+[stage]
+name = "Cathedral of decks"
+render_scale = 1.0
+
+# the being's shape (space/being.rs; the colours are the space node's hue / glow below)
+[being]
+size = 0.5
+drift = 0.06
+breath = 0.04
+wobble = 0.025
+
+[[node]]
+id = "tempo"
+kind = "tempo"
+bpm = 84
+beats = 4
+source = "internal"
+
+# the sermon's chapter: its music under everything (cached; offline the rest still plays)
+[[node]]
+id = "music"
+kind = "chapter_music"
+toon = "catpope"
+chapter = 2
+quality = "low"
+gain = 0.55
+
+# the choir's line, on the beat
+[[node]]
+id = "seq"
+kind = "seq"
+division = 2
+gate = 0.6
+steps = [50, 0, 57, 55, 53, 0, 52, 50]
+
+[[node]]
+id = "voice"
+kind = "fm"
+ratio = 1.5
+index = 2.0
+gain = 0.16
+attack = 0.02
+release = 0.4
+
+[[node]]
+id = "drone"
+kind = "osc"
+freq = 55
+gain = 0.1
+
+[[node]]
+id = "incense"
+kind = "noise"
+color = "pink"
+cutoff = 1800
+gain = 0.03
+
+# the incense sways slowly
+[[node]]
+id = "sway"
+kind = "lfo"
+rate = 0.07
+
+[[node]]
+id = "mix"
+kind = "mixer"
+gain1 = 1.0
+gain2 = 1.0
+gain3 = 1.0
+gain4 = 1.0
+
+[[node]]
+id = "fft"
+kind = "fft"
+release = 0.35
+
+[[node]]
+id = "out"
+kind = "audio_out"
+volume = 0.8
+
+# the space: the room (rooms/cathedral.<quality>.glb under --rooms), where the being floats (`at` in the room's
+# metres – in the nave, ahead of the reader's view; or `spot` = a spot of the room + `lift`), the camera's start (yaw /
+# pitch in degrees, distance in metres – yaw 279 looks the way the reader's view does); hue / glow colour the being,
+# light dims the room, pulse kicks its breath
+[[node]]
+id = "space"
+kind = "space"
+room = "cathedral"
+quality = "low"
+at = [2.4, 0.2, 5.2]
+yaw = 279
+pitch = 6
+distance = 1.9
+hue = 0.52
+glow = 0.6
+light = 0.85
+
+[[node]]
+id = "screen"
+kind = "screen"
+
+[[link]]
+from = "seq.cv"
+to = "voice.cv"
+
+[[link]]
+from = "music"
+to = "mix.in1"
+
+[[link]]
+from = "voice"
+to = "mix.in2"
+
+[[link]]
+from = "drone"
+to = "mix.in3"
+
+[[link]]
+from = "incense"
+to = "mix.in4"
+
+[[link]]
+from = "mix"
+to = "fft.in"
+
+[[link]]
+from = "mix"
+to = "out.in"
+
+[[link]]
+from = "sway"
+to = "incense.cutoff"
+scale = 3000
+offset = 600
+
+[[link]]
+from = "fft.level"
+to = "space.pulse"
+scale = 0.6
+
+[[link]]
+from = "fft.bass"
+to = "drone.gain"
+scale = 0.25
+offset = 0.04
+
+[[link]]
+from = "space"
+to = "screen.in"
