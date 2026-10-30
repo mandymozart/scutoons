@@ -5,8 +5,8 @@
 scutoons.com's library API with a disk cache. On the deck `deck-session` runs it under `cage` instead of Chromium
 (deck/os/README.md "What happens at boot"). Built so far: S1 (window, wgpu, graph core, test pattern, shader passes,
 HUD), S2 (audio graph, synths, FFT, chapter music) and S3 (the chapter's slices with their dialog, the caption overlay,
-the splash), and the 3D space of #188 phases 1–3 (the Cathedral of decks: a glTF room, the deck's being, its 3D
-buttons). Open: S4–S6 (#179), #188 phases 4–5 (several decks around the conductor over the relay, the portrait head).
+the splash), the 3D space of #188 phases 1–3 (the Cathedral of decks: a glTF room, the deck's being, its 3D
+buttons) and the Live outlet of #186 (the relay's cells for this deck's outlet, natively – below). Open: S4–S6 (#179), #188 phases 4–5 (several decks around the conductor over the relay, the portrait head).
 
 ## Run
 
@@ -49,18 +49,19 @@ the basic audio nodes (`osc`, `noise`, `fm`, `seq`, `click`, `mixer`, `fft`, `au
 |---|---|---|
 | `space` | the `space` kind (3D room + the being, #188) | glam, image/webp, serde_json |
 | `chapter` | `chapter`, `chapter_music` (the library API + cache) | ureq, symphonia, ab_glyph, image/webp |
+| `live` | `outlet` (a Live outlet, #186 – below) | `chapter`, protocol, tungstenite, deck-link |
 | `midi` | the tempo source `midi`, `midi_out` (MIDI clock in / out) | midir |
 | `osc` | the tempo source `osc` (`/tempo/*`) | rosc |
 | `link` | the tempo source `link` (Ableton Link) | rusty_link (cmake, libclang) |
 | `pipewire` | the PipeWire backend (Linux) | pipewire (clang) |
 
-Default = `space`, `chapter`, `midi`, `osc` – a plain build plays every bundled scene. The table lives in deck-core
+Default = `space`, `chapter`, `live`, `midi`, `osc` – a plain build plays every bundled scene. The table lives in deck-core
 (`core/src/stage.rs`, data only); `src/modules.rs` says which modules this build carries. A scene that needs a module
 the build lacks is refused at load with the feature's name (`this build of the stage does not carry the module 'space'
 (node space) – build deck-stage with --features space`): the stage plays the test pattern and shows that in the HUD –
 it never exits for it (deck-session would fall back to the browser); a `--frames` check run exits 2. F3 onto a source
 that isn't built says `NOT IN THIS BUILD`. **Scene-driven builds:** `cargo run -p deck-scene-features -- scenes/*.toml`
-prints the features a set of scenes needs (`chapter,space` for the bundled ones; the core alone prints nothing), so a
+prints the features a set of scenes needs (`chapter,live,space` for the bundled ones; the core alone prints nothing), so a
 deck build is `cargo build --release -p deck-stage --no-default-features --features "pipewire,$(deck-scene-features …)"`
 – the platform's features (pipewire) come from the build, not from scenes. Checked: the default, the core alone, each
 feature alone, all with `link` – tests and clippy `-D warnings`.
@@ -97,6 +98,7 @@ An input takes one link; an output feeds any number. Every control input can als
 | `mixer` | in1–in4 (audio), gain1–gain4 | out | – |
 | `fft` | in (audio) | level, bass, mid, high (control, 0–1) | `release` (s) |
 | `audio_out` | in (audio), volume | – | the device (one per scene) |
+| `outlet` | in (video: the backdrop), opacity | out (video) | – (one per scene; the relay and the outlet from deck.toml / the CLI – "Live outlet") |
 | `space` | hue, glow, light, pulse (control) | out (video) | `room` (a name → `<rooms>/<room>.<quality>.glb`, or a path with its extension), `quality` = low · medium · high (low, the X1's), `at` = [x, y, z] (where the being floats, room metres) or `spot` (a node of the room, `spot_aisle`) + `lift` (1.5 m), `yaw` / `pitch` (°) / `distance` (m) – the camera's start, `max_texture` (2048) – one per scene |
 
 **chapter** shows the chapter's slices one after the other in reading order (looping), the slice fitted to the height
@@ -138,6 +140,43 @@ the beat + pink noise + the click (off until K) → mixer → FFT; test pattern 
 chapter's slices (cut on a bass hit snapped to the beat, every 6 s at the latest) → RGB shift → the caption overlay →
 screen. `scenes/test-pattern.toml` – the picture alone (no sound, no network). Both land in
 `/usr/share/deck/scenes` on the deck; `scene = "…"` in `/var/lib/deck/deck.toml` picks one.
+
+## Live outlet (#186)
+
+A deck is a screen outlet of a Live show (research/LIVE-LENSES.md, DECISIONS 2026-10-30): the scene's `outlet` node
+joins the relay as `output` of this deck's outlet and draws the cells the conductor sends – no browser. Settings:
+`relay = "ws://<host>:7700/live/<code>"`, `outlet = "left"`, `locale` in `/var/lib/deck/deck.toml`, or `--relay`,
+`--outlet`, `--locale`; with both set and no `--scene` the stage plays `scenes/outlet.toml` (a space node → the outlet →
+the screen). ws:// only (the venue's local relay; the client has no TLS). `src/live/`:
+
+- **client.rs** – tungstenite on its own thread: `hello { role: output, group: <outlet> }`; the outlet's `cell`,
+  `media.preload`, `state.slice`, `panic` in; `media.ready` out; a ping every 20 s; a lost connection joins again with
+  `resume` (the relay replays what it missed) or gets the snapshot (the outlet's cell and last preload) – shown at once.
+- **media.rs** – the preload: each item fetched with the deck token (`DECK_TOKEN`, else deck-link's pairing on a deck,
+  #180; not paired = the code as the reason) into `<cache>/live/<hash>-<name>` (immutable URLs: once), then
+  `media.ready { ready, missing, why }`; what is missing is tried again after 2, 5, 10, 20, then every 30 s. Sets
+  (#193: set + spot + mode, never a file) resolve through the `Resolve` trait – today `LocalSets`: `<rooms>/<set>.low.glb`
+  for 3D, `<cache>/sets/<set>/<spot>.<still|video>.<ext>`, else the item's `url`.
+- **plan.rs** – a cell's layers → stage nodes: `scroll` / `slice` / `panel` → chapter (a slice by its reading-order
+  index, a crop), `image` and a set's still → an image, `video` → video (S4 – a set spot's still stands in), `model3d` /
+  a set in 3D → the space node (its room and spot), `text` / `surtitles` → text, `colour` → a solid, `camera` →
+  video-in (S4). A missing module or node is a problem with the layer's id – the HUD shows it, the rest plays.
+- **compose.rs** – the flat layers painted into one plane at the render size on the composer's thread (fit cover /
+  contain, opacity, text in Bangers, the surtitles of the show's slice; a scroll steps every 6 s); the 3D set goes to
+  the space node (`Space::show`: another room loads on its thread, the being and the camera move to the spot).
+- **render.rs** – the `outlet` pass (`shaders/outlet.wgsl`) uploads each plane and cross-fades it over its `in` by the
+  cell's longest `enter` / `exit` (default 0.6 s); the backdrop shows only where the cell has a 3D set. The frame path
+  only polls the channels and computes the fade – no allocation (tests/no_alloc.rs).
+- **HUD** – under the title: `LIVE <outlet>  OUTPUT c4 OF left @ CODE` (or joining / offline and why), `MEDIA n / m
+  READY – <id>: <why>`, `CELL n LAYERS + SPACE`, then `! <layer>: <reason>` for everything the cell can't show.
+
+Try it without the conductor app: `cargo run --release -p relay -- 127.0.0.1:7070`, the stage with `--scene outlet
+--relay ws://127.0.0.1:7070/live/DECK --outlet left --windowed --rooms <rooms>`, then the stand-in conductor
+`cargo run --release -p deck-stage --example live-cue -- ws://127.0.0.1:7070/live/DECK stage/examples/sermon.json`
+(Cat Pope s1c2's sermon, LIVE-LENSES §5: comic → the live cathedral → comic; 60 fps, 0.3 ms CPU per frame on the RTX
+2070 desktop). Tests: `tests/live_relay.rs` (the real relay on 127.0.0.1, ports 7000–7099, a local file server: preload
+with the token, ready, the cell, resume, the snapshot after a restart). Not yet: video / video-in (S4), audio layers,
+`mirror` (the conductor resolves it), cells at their `at`, the API set resolver, signed show-media URLs (#186 "Open").
 
 ## How it is built
 

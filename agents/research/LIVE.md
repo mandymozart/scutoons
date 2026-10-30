@@ -1,4 +1,5 @@
 Status 2026-10-20: RESTARTED for the Top Toy workshop (owner: the full Must list, the stage experience on Wed 2027-02-17 instead of the first show Feb 1–14); building from Mon 2026-11-16 in lane 2 of research/KANON.md §8, issues #89–#91 (milestone "Top Toy workshop"). The B.10 dates below are void – the new ones: KANON §8. (Parked 2026-10-12 → 2026-10-20.)
+2026-10-30: a deck renders its outlet's cells natively; storyboard, slice editor and Live = three lenses on one flow (#186, DECISIONS) – research/LIVE-LENSES.md; the wire `Cell` / `Layer` / `media.preload` / `media.ready`: deck/protocol/schema.json.
 2026-10-30: the full picture after the Rust-first / cyberdeck decisions, the Live stage on a deck, the modular core: research/LIVE-NIGHT-2026-10-29.md (decide #183–#187).
 2026-10-14: a score view (MusicXML rendered by Verovio, pages, zoom, pedal keys) is built for score items – research/SCORES.md §4; musicians' sheets can use it, and score annotations and turning parts of a score on / off (performance groups) are planned here (SCORES §6a, §7) – the "no score rendering" below is superseded.
 
@@ -215,7 +216,8 @@ outlets / devices are red in the conductor's checklist, simulated in rehearsal.
 ### B.5.6 Live-only media
 Videos (the media slots with resolutions), **3D scenes** (glTF / GLB in a three.js layer: a camera path, or a camera
 driven by cues / MIDI CC, a model turntable, a room as backdrop), images / backdrops, PDFs (musicians' sheets – free form; since 2026-10-14 the score view where a score item exists, SCORES.md; pdf.js), light looks (B.5.2). Stored as show assets (the asset manager, prefix `live/<toon>/` on the
-CDN). Every output / phone **preloads** its outlet's media before doors (a "ready" light per outlet in the conductor;
+CDN). Every output / phone **preloads** its outlet's media before doors (a "ready" light per outlet in the conductor – a deck
+outlet: research/LIVE-LENSES.md §3;
 a phone preloads only its group's media, capped – big media belongs on screens).
 
 ## B.6 The relay protocol (`@scutoons/live` `protocol.ts`, v1)
@@ -242,7 +244,8 @@ up to 300 ms late it plays at once, later it applies the state but skips the fla
 **Conductor → relay** (state is authoritative, the relay only routes, tallies and remembers):
 `state { row, slice, vars, inventory? }` (on every change; folded into the snapshot) · `cue { id, actions }` (the relay
 splits actions per outlet → `to`) · `vote.open { vote, options, rule, seconds, groups }` · `vote.close { vote,
-result?, override? }` · `assign { client, group }` · `panic { black?, stop? }` · `media.preload { outlet, urls }`.
+result?, override? }` · `assign { client, group }` · `panic { black?, stop? }` · `media.preload { outlet, items: [{ id,
+url | set + spot + mode }] }` (#186; an output answers `media.ready { outlet, ready, missing, why? }` → the conductor).
 
 **Relay → clients**: `snapshot` (on join / reconnect: row, the current cell per outlet for this client, open vote, last
 instruction per group) · `cell { outlet, cell }` (row change) · `cue`, `say`, `line`, `fx`, `colour` · `vote.open`,

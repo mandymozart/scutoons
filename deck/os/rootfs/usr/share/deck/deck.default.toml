@@ -10,3 +10,9 @@ scene = ""
 conductor = ""
 # Seconds deck-wifi waits on an already online deck before it goes on without asking.
 wifi_wait = 8
+# A Live outlet (#186, deck/stage/README.md "Live outlet"): the relay with the session code and this deck's outlet –
+# with both set the stage plays the outlet (scenes/outlet.toml) unless `scene` names another. `locale` = the language
+# of its text layers (empty = de).
+relay = ""
+outlet = ""
+locale = ""

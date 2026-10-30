@@ -165,6 +165,10 @@ Proven on the X1 first: Vulkan on the iGPU (anv), VA-API decode h264 / hevc / vp
   from the audio clock (each tick when its beat is heard). The map, quantize and tap tempo are deck-core's `tempo`
   module (#185), like the FFT analyzer (`analysis`). Link on the ISO: `cmake` in os/container/build.sh and the PKGBUILD,
   `--features deck-stage/link` on their cargo lines.
+- **Live outlet** (#186, DECISIONS 2026-10-30, research/LIVE-LENSES.md): a deck is a screen outlet – the `live`
+  module's `outlet` node joins the relay as `output` of the outlet set in deck.toml, preloads the show media with the
+  deck token (`media.ready` = the conductor's ready light) and draws the cells natively (layers → stage nodes, a 3D set
+  through the space node, crossfades); a reconnect shows the snapshot's cell at once. deck/stage/README.md "Live outlet".
 - **scutoons.com:** the public library API read-only (`/api/library/toons/<toon>/chapters/<n>`: slices, slice videos,
   music paths; files from cdn.scutoons.com), cached on DECKDATA (`/var/lib/deck/cache`) so a venue runs offline; later
   the paired member's token for drafts. The relay bus (LIVE B.1: slice enter, VN events, FX cues) feeds node parameters.
@@ -199,8 +203,8 @@ the QR on the splash). Open: pairing a gadget without a screen (a code printed o
 network). Every deck is a row of its own (build, last seen, mapping), even when all map to one user. Before approval the stage
 plays built-in scenes only. **Code:** server `Domain\Decks\Decks` (server/docs/API.md "Decks", migration `2026-10-29-decks`), the
 account page's "Decks" (`/account/decks?deck=<code>` = the splash's QR), the deck's `deck/link` (`deck-link`). Master-quality media (stems, high-res video) are not part of this: they are show media,
-assigned to outlets in the Live conductor (LIVE.md B.5.6) – a concept still to make (storyboard, slice editor and Live
-views together, owner 2026-10-29); the deck then fetches what its outlet is given, with its access token.
+assigned to outlets in the Live conductor (LIVE.md B.5.6) – the concept: research/LIVE-LENSES.md (#186); the deck
+fetches what its outlet is given at `media.preload`, with its access token (deck/stage/README.md "Live outlet").
 
 ## 10. Open work
 Lives in the issues, not here: the phases #172–#176, the stage #179 (#171 holds the plan and the decisions, all taken 2026-10-29).
