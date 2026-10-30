@@ -8,11 +8,13 @@ on:
     paths:
       - 'deck/**'
       - 'shared/live/**'
+      - 'shared/live-core/**'
       - '.github/workflows/deck.yml'
   pull_request:
     paths:
       - 'deck/**'
       - 'shared/live/**'
+      - 'shared/live-core/**'
       - '.github/workflows/deck.yml'
   workflow_dispatch:
 
@@ -41,6 +43,31 @@ jobs:
       - run: npm ci --no-audit --no-fund
         working-directory: .
       - run: npm run check -w shared/live
+        working-directory: .
+
+  # The browser Live engine (#184): deck/live-core built for wasm32, then shared/live-core's check runs its tests
+  # against it (the wire fixture TS ↔ Rust, the rings, the engine with the real wasm).
+  live-core:
+    name: 🕸 live-core (wasm32 + shared/live-core)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: deck
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+        working-directory: .
+      - run: npm run build:wasm -w shared/live-core
+        working-directory: .
+      - run: npm run check -w shared/live-core
         working-directory: .
 
   native:
