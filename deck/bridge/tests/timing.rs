@@ -132,10 +132,11 @@ async fn dmx_plays_at_at_and_blacks_out_on_panic() {
     let late = (lit - sent).as_millis() as i64 - 300;
     assert!((0..60).contains(&late), "lit {late} ms after `at`");
 
-    // the fade on channel 10: on its way after ~200 ms, 200 at the end
+    // the fade on channel 10: on its way after ~200 ms (neither a jump nor done – how far depends on the runner's
+    // load: macOS CI saw 27, run 41128816256), 200 at the end
     tokio::time::sleep(Duration::from_millis(200)).await;
     let mid = widget.last_frame().unwrap()[9];
-    assert!((40..190).contains(&mid), "half-way: {mid}");
+    assert!((1..200).contains(&mid), "half-way: {mid}");
     frame(&widget, Duration::from_secs(1), |f| f[9] == 200).await.expect("faded in");
 
     let panic_at = Instant::now();

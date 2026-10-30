@@ -330,21 +330,29 @@ mod tests {
 
     #[test]
     fn readers_never_see_a_torn_stamp() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        // the writer writes until the reader has read enough (a fixed count let a busy CI runner finish the writes
+        // before the reader got a single turn – Windows, run 41128816256)
         let s = std::sync::Arc::new(Stamp::default());
-        let w = s.clone();
+        let done = std::sync::Arc::new(AtomicBool::new(false));
+        let (w, stop) = (s.clone(), done.clone());
         let writer = std::thread::spawn(move || {
-            for i in 1..200_000u64 {
+            let mut i = 0u64;
+            while !stop.load(Ordering::Relaxed) {
+                i += 1;
                 w.write([i, i * 3]);
             }
+            i
         });
-        let mut seen = 0;
-        while !writer.is_finished() {
+        let (mut seen, start) = (0, std::time::Instant::now());
+        while seen < 20_000 && start.elapsed() < std::time::Duration::from_secs(10) {
             if let Some((_, [a, b])) = s.read() {
                 assert_eq!(b, a * 3);
                 seen += 1;
             }
         }
-        writer.join().unwrap();
-        assert!(seen > 0);
+        done.store(true, Ordering::Relaxed);
+        let writes = writer.join().unwrap();
+        assert!(seen > 0 && writes > 0, "{seen} reads while {writes} writes");
     }
 }
