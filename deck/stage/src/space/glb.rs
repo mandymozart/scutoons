@@ -1,10 +1,11 @@
 //! A set's 3D from a binary glTF (.glb) – the subset tools/rooms' build writes (agents/research/LOCATION-SCENES.md §7):
-//! triangle meshes with POSITION, COLOR_0 (Unreal's lights baked into the vertex colours), TEXCOORD_0, unlit materials
-//! (KHR_materials_unlit: base colour texture × factor), WebP / PNG images (EXT_texture_webp), quantized attributes
-//! (KHR_mesh_quantization), meshopt-compressed buffer views (EXT_meshopt_compression, meshopt.rs) and empty nodes as
-//! named spots (`spot_*`, `view`). Everything is flattened at load into one world-space vertex / index list with a draw
-//! range per material – the GPU side (gpu.rs) draws it unlit with a depth buffer. Normals, tangents, skins, morph
-//! targets, animations and cameras are ignored; sparse accessors are refused.
+//! triangle meshes with POSITION, COLOR_0 if any (Unreal's lights in the vertex colours – an atlas bake carries them
+//! in its texture), TEXCOORD_0, unlit materials (KHR_materials_unlit: base colour texture × factor), WebP / PNG images
+//! (EXT_texture_webp), quantized attributes (KHR_mesh_quantization), meshopt-compressed buffer views
+//! (EXT_meshopt_compression, meshopt.rs) and empty nodes as named spots (`spot_*`, `view`). Everything is flattened
+//! at load into one world-space vertex / index list with a draw range per material – the GPU side (gpu.rs) draws it
+//! unlit with a depth buffer. Normals, tangents, skins, morph targets, animations and cameras are ignored; sparse
+//! accessors are refused.
 use anyhow::{bail, ensure, Context, Result};
 use glam::{Mat4, Quat, Vec3};
 use serde::Deserialize;
@@ -588,14 +589,11 @@ mod tests {
             return;
         }
         let r = load(&path, 1024, &[]).unwrap();
-        // built without the incense burner (owner 2026-10-30: tools/rooms/rooms/cathedral.json `drop`)
-        assert_eq!(r.triangles(), 96_605, "the report's count");
-        assert_eq!(r.draws.len(), 5, "the report's draw calls: 4 textures + the untextured roses");
-        // a hidden node: fewer triangles, the spots all there
-        let hidden = load(&path, 1024, &["roses".to_string()]).unwrap();
-        assert!(hidden.triangles() < r.triangles(), "{} → {}", r.triangles(), hidden.triangles());
-        assert_eq!(hidden.spots, r.spots);
-        assert!(r.images.len() == 4 && r.images.iter().all(|i| i.size().0 <= 1024 && i.levels.last().unwrap().0 == 1));
+        // the atlas re-bake (#74, tools/rooms/blender/bake_atlas.py): without the incense burner (cathedral.json `drop`),
+        // decimated to the low level's 35k, one 1024² atlas with the light in it – one draw call
+        assert_eq!(r.triangles(), 34_935, "the report's count");
+        assert_eq!(r.draws.len(), 1, "the report's draw calls: one atlas");
+        assert!(r.images.len() == 1 && r.images.iter().all(|i| i.size().0 <= 1024 && i.levels.last().unwrap().0 == 1));
         assert!(r.spot("spot_aisle").is_some() && r.spot("view").is_some());
         let size = r.max - r.min;
         assert!(size.max_element() < 100.0 && size.min_element() > 2.0, "a room in metres: {size}");
