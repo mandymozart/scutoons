@@ -1,7 +1,7 @@
 {
 	"name": "cathedral",
 	"about": "The Unreal map /Game/Maps/Church of the Roar project (Stephansdom scans: nave, side altar, pews, outer wall + roses, incense) – the map's place `cathedral` (ch2). Export: tools/rooms/unreal/export_level.py. Floor ≈ y −1.55.",
-	"drop": [],
+	"drop": ["SM_Weihrauch"],
 	"ambient": [
 		0.05,
 		0.05,

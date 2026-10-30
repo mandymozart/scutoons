@@ -588,10 +588,11 @@ mod tests {
             return;
         }
         let r = load(&path, 1024, &[]).unwrap();
-        assert_eq!(r.triangles(), 114_788, "the report's count");
-        assert_eq!(r.draws.len(), 5, "4 textures + the untextured incense burner and roses");
-        // the scenes leave the incense burner out (owner 2026-10-30): fewer triangles, the spots all there
-        let hidden = load(&path, 1024, &["SM_Weihrauch".to_string()]).unwrap();
+        // built without the incense burner (owner 2026-10-30: tools/rooms/rooms/cathedral.json `drop`)
+        assert_eq!(r.triangles(), 96_605, "the report's count");
+        assert_eq!(r.draws.len(), 5, "the report's draw calls: 4 textures + the untextured roses");
+        // a hidden node: fewer triangles, the spots all there
+        let hidden = load(&path, 1024, &["roses".to_string()]).unwrap();
         assert!(hidden.triangles() < r.triangles(), "{} → {}", r.triangles(), hidden.triangles());
         assert_eq!(hidden.spots, r.spots);
         assert!(r.images.len() == 4 && r.images.iter().all(|i| i.size().0 <= 1024 && i.levels.last().unwrap().0 == 1));
