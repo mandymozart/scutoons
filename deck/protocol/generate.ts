@@ -110,7 +110,7 @@ export function emitTypeScript(root: Root): string {
 
 // ---------------------------------------------------------------------- Rust
 
-const RUST_KEYWORDS = new Set(['type', 'match', 'ref', 'self', 'use', 'mod', 'fn', 'in', 'as', 'loop', 'move', 'box']);
+const RUST_KEYWORDS = new Set(['type', 'match', 'ref', 'self', 'use', 'mod', 'fn', 'in', 'as', 'loop', 'move', 'box', 'override', 'final', 'abstract', 'virtual', 'yield', 'async', 'await', 'dyn', 'try', 'macro', 'priv', 'typeof', 'do', 'become', 'static', 'struct', 'enum', 'trait', 'impl', 'where', 'while', 'for', 'if', 'else', 'let', 'mut', 'const', 'return', 'unsafe', 'extern', 'pub', 'break', 'continue']);
 const snake = (s: string): string => s.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
 const pascal = (s: string): string =>
 	s
@@ -199,7 +199,9 @@ export function emitRust(root: Root): string {
 			const flat = rest.map((r) => `\t#[serde(flatten)]\n\tpub ${snake(refName(r.$ref!))}: ${refName(r.$ref!)},\n`).join('');
 			out.push(`${DERIVE}\npub struct ${name} {\n${rustFields(base)}${flat}}\n`);
 		} else if (def.type === 'object' && def.properties) {
-			out.push(`${DERIVE}\npub struct ${name} {\n${rustFields(def)}}\n`);
+			// all fields optional → `Default` too (an empty snapshot, a bare panic)
+			const derive = def.required?.length ? DERIVE : DERIVE.replace('PartialEq,', 'PartialEq, Default,');
+			out.push(`${derive}\npub struct ${name} {\n${rustFields(def)}}\n`);
 		} else if (isEmpty(def)) {
 			out.push(`#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]\npub struct ${name} {}\n`);
 		} else {

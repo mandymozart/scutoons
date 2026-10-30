@@ -1,0 +1,16 @@
+[package]
+name = "core-wasm"
+description = "deck-core + the relay protocol for a browser Web Worker (wasm-bindgen) – the #182 prototype"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+deck-core = { path = "../../core" }
+protocol = { path = "../../protocol" }
+serde_json = "1"
+wasm-bindgen = "=0.2.129"

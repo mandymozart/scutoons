@@ -1,0 +1,29 @@
+# deck-core – the platform-free core of the stage (#182, research/LIVE-NIGHT-2026-10-29.md §4): the module registry, the
+# control graph and the DSP / analysis modules. No GPU, no audio device, no network – so the same crate builds for the
+# deck (native, deck/stage) and for the browser (wasm32, deck/lab/core-wasm in a Web Worker).
+# A module is a cargo feature: a build carries only the modules its scenes need (`deck-scene-features`, below).
+[package]
+name = "deck-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+default = ["control", "synth", "analysis"]
+# LFOs, math, smoothing – the control domain (one f32 per frame)
+control = []
+# oscillators, FM, filters – audio blocks
+synth = []
+# sound → control values (an FFT: level, bass, mid, high)
+analysis = ["dep:rustfft"]
+
+[dependencies]
+rustfft = { version = "6", optional = true, default-features = false }
+toml = { workspace = true }
+serde = { workspace = true }
+
+[[bin]]
+name = "deck-scene-features"
+path = "src/bin/scene_features.rs"

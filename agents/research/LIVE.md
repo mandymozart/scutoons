@@ -1,4 +1,5 @@
 Status 2026-10-20: RESTARTED for the Top Toy workshop (owner: the full Must list, the stage experience on Wed 2027-02-17 instead of the first show Feb 1–14); building from Mon 2026-11-16 in lane 2 of research/KANON.md §8, issues #89–#91 (milestone "Top Toy workshop"). The B.10 dates below are void – the new ones: KANON §8. (Parked 2026-10-12 → 2026-10-20.)
+2026-10-30: the full picture after the Rust-first / cyberdeck decisions, the Live stage on a deck, the modular core: research/LIVE-NIGHT-2026-10-29.md (decide #183–#187).
 2026-10-14: a score view (MusicXML rendered by Verovio, pages, zoom, pedal keys) is built for score items – research/SCORES.md §4; musicians' sheets can use it, and score annotations and turning parts of a score on / off (performance groups) are planned here (SCORES §6a, §7) – the "no score rendering" below is superseded.
 
 # LIVE — performance mode (plan, final; not started)
@@ -55,7 +56,7 @@ client-side filtering, a raw cache of 100 messages) is not taken over. New, in t
   `ws`, TypeScript): `live/relay` (sessions, roles, groups routed on the server,
   snapshot + replay, vote tally, clock), `live/devices` (MIDI / DMX / OSC drivers), `live/app` (the Electron shell, B.7),
   `shared/live` (`@scutoons/live`: the protocol types + the client used by viewer and creator, the show schema helpers).
-- **Hosted: its own bunny Magic Containers app `scutoons-live`** (`live.scutoons.com`; owner 2026-10-07) – the
+- **Hosted: its own bunny Magic Containers app `scutoons-live`** (since 2026-10-29 running the Rust `deck/relay` binary, not Node) (`live.scutoons.com`; owner 2026-10-07) – the
   pattern the Ask service used until 2026-10-09 (a Dockerfile → ghcr.io → an image workflow →
   `BunnyWay/actions/container-update-image`; Ask's own files are deleted, see git history `ask-image.yml`) as
   `live-image.yml`. The app can be stopped between shows.
@@ -213,8 +214,7 @@ outlets / devices are red in the conductor's checklist, simulated in rehearsal.
 
 ### B.5.6 Live-only media
 Videos (the media slots with resolutions), **3D scenes** (glTF / GLB in a three.js layer: a camera path, or a camera
-driven by cues / MIDI CC, a model turntable, a room as backdrop), images / backdrops, PDFs (musicians' sheets – free form, no score
-rendering or following; pdf.js), light looks (B.5.2). Stored as show assets (the asset manager, prefix `live/<toon>/` on the
+driven by cues / MIDI CC, a model turntable, a room as backdrop), images / backdrops, PDFs (musicians' sheets – free form; since 2026-10-14 the score view where a score item exists, SCORES.md; pdf.js), light looks (B.5.2). Stored as show assets (the asset manager, prefix `live/<toon>/` on the
 CDN). Every output / phone **preloads** its outlet's media before doors (a "ready" light per outlet in the conductor;
 a phone preloads only its group's media, capped – big media belongs on screens).
 
@@ -299,7 +299,7 @@ All four (owner 2026-10-07):
 - Effects stay within the viewport (FX.md rules); no reduced-motion setting.
 - Background: a phone that sleeps / switches app reconnects with `resume` and gets the snapshot.
 
-## B.10 Phases (dated; building starts Mon 2026-11-02, show-ready Fri 2027-01-29)
+## B.10 Phases (void since 2026-10-20 – dates: KANON §8 lane 2; Electron / `live/` / serialport below: superseded by `deck/`, CYBERDECKS.md)
 Owner 2026-10-07: **target February 1st** – the first show may be in the first two weeks of February. That is ~11
 working weeks (holiday break 2026-12-21 → 2027-01-01 assumed), four fewer than first sketched, so the scope is cut to
 what the first show needs. Must = the first show needs it; Could = after the first show, or earlier if a phase ends

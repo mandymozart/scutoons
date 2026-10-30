@@ -1,0 +1,92 @@
+[
+  {
+    "path": "native",
+    "us": 3.89,
+    "workload": "control step (300 nodes, deep)"
+  },
+  {
+    "path": "native · batch",
+    "us": 3.74,
+    "workload": "control step (300 nodes, deep)"
+  },
+  {
+    "path": "native",
+    "us": 34.47,
+    "workload": "audio block (16 FM voices, 128 frames)"
+  },
+  {
+    "path": "native · batch",
+    "us": 8.9,
+    "workload": "audio block (16 FM voices, 128 frames)"
+  },
+  {
+    "path": "native",
+    "us": 3.61,
+    "workload": "control step (300 nodes, wide)"
+  },
+  {
+    "path": "native · batch",
+    "us": 2.03,
+    "workload": "control step (300 nodes, wide)"
+  },
+  {
+    "path": "native",
+    "us": 9.21,
+    "workload": "FFT bands (1024)"
+  },
+  {
+    "path": "native",
+    "us": 5.65,
+    "workload": "codec decode + encode (cue, 330 B)"
+  },
+  {
+    "path": "native",
+    "us": 730.2,
+    "workload": "graph build from TOML (348 nodes)"
+  },
+  {
+    "path": "dylib",
+    "us": 3.7,
+    "workload": "control step (300 nodes, deep)"
+  },
+  {
+    "path": "dylib",
+    "us": 35.34,
+    "workload": "audio block (16 FM voices, 128 frames)"
+  },
+  {
+    "path": "dylib",
+    "us": 9.39,
+    "workload": "FFT bands (1024)"
+  },
+  {
+    "path": "wasmtime",
+    "us": 606402.3,
+    "workload": "module compile (Cranelift, cold)"
+  },
+  {
+    "path": "wasmtime",
+    "us": 71.7,
+    "workload": "instantiate"
+  },
+  {
+    "path": "wasmtime",
+    "us": 9.2,
+    "workload": "control step (300 nodes, deep)"
+  },
+  {
+    "path": "wasmtime (loop inside)",
+    "us": 9.24,
+    "workload": "control step (300 nodes, deep)"
+  },
+  {
+    "path": "wasmtime",
+    "us": 35.77,
+    "workload": "audio block (16 FM voices, 128 frames)"
+  },
+  {
+    "path": "wasmtime",
+    "us": 11.62,
+    "workload": "FFT bands (1024)"
+  }
+]

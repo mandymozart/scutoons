@@ -1,0 +1,15 @@
+[package]
+name = "bench"
+description = "#182: the same deck-core workloads native, through a dylib (libloading) and as a wasmtime-hosted module"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+deck-core = { path = "../../core" }
+protocol = { path = "../../protocol" }
+serde_json = "1"
+libloading = "0.8"
+wasmtime = { version = "38", default-features = false, features = ["cranelift", "runtime", "std"] }
+anyhow = "1"

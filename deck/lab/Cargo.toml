@@ -1,0 +1,22 @@
+# deck/lab – the #182 experiments, its own workspace (excluded from deck/): deck-core in a browser worker (core-wasm,
+# wasm-bindgen), the same core as a raw C-ABI module (core-raw: a wasm32 module for wasmtime, a native dylib for
+# libloading), and the benchmark that compares them (bench). Results: agents/research/LIVE-NIGHT-2026-10-29.md §4.
+# How to run: deck/lab/README.md.
+[workspace]
+resolver = "2"
+members = ["core-wasm", "core-raw", "bench"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2021"
+license = "UNLICENSED"
+publish = false
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+opt-level = 3
+
+[profile.release.package.core-wasm]
+opt-level = 3

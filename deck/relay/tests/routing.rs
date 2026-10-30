@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use futures_util::{SinkExt, StreamExt};
-use protocol::{Cue, Envelope, Hello, Message, Panic, Ping, Role, To};
+use protocol::{Cue, Envelope, Hello, Message, Panic, Ping, Resume, Role, To, VoteCast, VoteHow, VoteOpen, VoteRule};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio_tungstenite::tungstenite::Message as Ws;
@@ -20,14 +20,26 @@ async fn start() -> u16 {
     port
 }
 
+/// The next message that is not `presence` (the relay tells the conductor about every join / leave / ready).
 async fn recv(ws: &mut Socket) -> Envelope {
-    let frame = tokio::time::timeout(Duration::from_secs(2), ws.next()).await.expect("a message").unwrap().unwrap();
-    let Ws::Text(text) = frame else { panic!("text expected, got {frame:?}") };
-    serde_json::from_str(&text).unwrap()
+    loop {
+        let frame = tokio::time::timeout(Duration::from_secs(3), ws.next()).await.expect("a message").unwrap().unwrap();
+        let Ws::Text(text) = frame else { panic!("text expected, got {frame:?}") };
+        let e: Envelope = serde_json::from_str(&text).unwrap();
+        if !matches!(e.message, Message::Presence(_)) {
+            return e;
+        }
+    }
 }
 
+/// No message other than `presence` within 300 ms.
 async fn nothing(ws: &mut Socket) {
-    assert!(tokio::time::timeout(Duration::from_millis(300), ws.next()).await.is_err(), "no message expected");
+    let deadline = tokio::time::Instant::now() + Duration::from_millis(300);
+    while let Ok(frame) = tokio::time::timeout_at(deadline, ws.next()).await {
+        let Some(Ok(Ws::Text(text))) = frame else { return };
+        let e: Envelope = serde_json::from_str(&text).unwrap();
+        assert!(matches!(e.message, Message::Presence(_)), "no message expected, got {e:?}");
+    }
 }
 
 async fn send(ws: &mut Socket, message: Message, to: Option<To>) {
@@ -38,6 +50,17 @@ async fn send(ws: &mut Socket, message: Message, to: Option<To>) {
 
 /// Connect, say hello, return the socket + the client id from `welcome`.
 async fn join(port: u16, code: &str, role: Role, group: Option<&str>, token: Option<&str>) -> (Socket, String) {
+    join_resume(port, code, role, group, token, None).await
+}
+
+async fn join_resume(
+    port: u16,
+    code: &str,
+    role: Role,
+    group: Option<&str>,
+    token: Option<&str>,
+    resume: Option<Resume>,
+) -> (Socket, String) {
     let url = format!("ws://127.0.0.1:{port}/live/{code}?role={}", role.as_str());
     let (mut ws, _) = connect_async(url).await.unwrap();
     let hello = Hello {
@@ -46,12 +69,14 @@ async fn join(port: u16, code: &str, role: Role, group: Option<&str>, token: Opt
         group: group.map(str::to_owned),
         nick: None,
         token: token.map(str::to_owned),
-        resume: None,
+        resume: resume.clone(),
     };
     send(&mut ws, Message::Hello(hello), None).await;
     let welcome = recv(&mut ws).await;
     let Message::Welcome(w) = welcome.message else { panic!("welcome expected: {welcome:?}") };
-    assert_eq!(w.group.as_deref(), group);
+    if resume.is_none() {
+        assert_eq!(w.group.as_deref(), group);
+    }
     assert_eq!(welcome.from, "relay");
     (ws, w.client)
 }
@@ -119,4 +144,63 @@ async fn status_is_plain_http() {
     tcp.read_to_string(&mut buf).await.unwrap();
     assert!(buf.starts_with("HTTP/1.1 200"), "{buf}");
     assert!(buf.ends_with(r#"{"sessions":2,"live":1}"#), "{buf}");
+}
+
+#[tokio::test]
+async fn a_vote_closes_by_itself() {
+    let port = start().await;
+    let (mut cond, _) = join(port, "V1", Role::Conductor, None, Some("t")).await;
+    let (mut a1, _) = join(port, "V1", Role::Audience, Some("left"), None).await;
+    let (mut a2, _) = join(port, "V1", Role::Audience, Some("right"), None).await;
+    let open = VoteOpen {
+        vote: "v1".into(),
+        options: vec!["stay".into(), "go".into()],
+        rule: VoteRule::Majority,
+        n: None,
+        seconds: 1,
+        fallback: None,
+        groups: None,
+        show: None,
+    };
+    send(&mut cond, Message::VoteOpen(open), None).await;
+    assert!(matches!(recv(&mut a1).await.message, Message::VoteOpen(_)));
+    assert!(matches!(recv(&mut a2).await.message, Message::VoteOpen(_)));
+    send(&mut a1, Message::VoteCast(VoteCast { vote: "v1".into(), option: 1 }), None).await;
+    // the conductor gets tallies every 250 ms, then the result after ~1 s
+    let first = recv(&mut cond).await;
+    let Message::VoteTally(t) = first.message else { panic!("tally expected: {first:?}") };
+    assert!(t.left <= 1000);
+    let result = loop {
+        let e = recv(&mut cond).await;
+        if let Message::VoteResult(r) = e.message {
+            break r;
+        }
+    };
+    assert_eq!((result.option, result.how, result.counts), (1, VoteHow::Rule, vec![0, 1]));
+    assert!(matches!(recv(&mut a2).await.message, Message::VoteResult(_)), "everyone gets the result");
+}
+
+#[tokio::test]
+async fn a_phone_resumes_without_losing_messages() {
+    let port = start().await;
+    let (mut cond, _) = join(port, "R1", Role::Conductor, None, Some("t")).await;
+    let (mut phone, phone_id) = join(port, "R1", Role::Audience, Some("left"), None).await;
+    let say = |t: &str| Message::Say(serde_json::from_str(&format!(r#"{{"outlet":"left","text":"{t}"}}"#)).unwrap());
+    send(&mut cond, say("one"), None).await;
+    let seen = recv(&mut phone).await.seq;
+    drop(phone); // the phone sleeps
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    send(&mut cond, say("two"), None).await;
+    send(&mut cond, say("three"), None).await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let resume = Resume { client: phone_id.clone(), seq: seen as i64 };
+    let (mut phone, again) = join_resume(port, "R1", Role::Audience, None, None, Some(resume)).await;
+    assert_eq!(again, phone_id, "the same client id (its vote stays counted)");
+    // (join_resume skipped the group check: a resumed phone keeps its QR's group "left" without naming it)
+    for want in ["two", "three"] {
+        let e = recv(&mut phone).await;
+        let Message::Say(p) = e.message else { panic!("say expected: {e:?}") };
+        assert_eq!(p["text"], want);
+    }
+    nothing(&mut phone).await;
 }

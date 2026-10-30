@@ -1,0 +1,32 @@
+[
+  {
+    "path": "native x86-64-v3",
+    "us": 3.74,
+    "workload": "control step (300 nodes, deep)"
+  },
+  {
+    "path": "native x86-64-v3 · batch",
+    "us": 3.69,
+    "workload": "control step (300 nodes, deep)"
+  },
+  {
+    "path": "native x86-64-v3",
+    "us": 32.63,
+    "workload": "audio block (16 FM voices, 128 frames)"
+  },
+  {
+    "path": "native x86-64-v3 · batch",
+    "us": 5.1,
+    "workload": "audio block (16 FM voices, 128 frames)"
+  },
+  {
+    "path": "native x86-64-v3",
+    "us": 3.52,
+    "workload": "control step (300 nodes, wide)"
+  },
+  {
+    "path": "native x86-64-v3 · batch",
+    "us": 2.08,
+    "workload": "control step (300 nodes, wide)"
+  }
+]
