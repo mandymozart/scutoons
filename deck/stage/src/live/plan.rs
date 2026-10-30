@@ -326,6 +326,20 @@ mod tests {
         assert_eq!(plan(&cell(r#"{"mode":"own","layers":[]}"#), "de", |_| true).fades(), (DEFAULT_FADE_MS, DEFAULT_FADE_MS));
     }
 
+    /// the runnable sermon (examples/sermon.json, LIVE-LENSES.md §5): every step plans; only the choir's video waits for S4
+    #[test]
+    fn the_sermon_script_plans() {
+        let script: serde_json::Value = serde_json::from_str(include_str!("../../examples/sermon.json")).unwrap();
+        let mut problems = vec![];
+        for step in script["cells"].as_array().unwrap() {
+            let c: Cell = serde_json::from_value(step["cell"].clone()).unwrap();
+            let p = plan(&c, "de", |_| true);
+            assert!(!p.layers.is_empty());
+            problems.extend(p.problems);
+        }
+        assert_eq!(problems, ["choir: the stage plays no video yet (S4, #179)"]);
+    }
+
     #[test]
     fn locales_and_colours() {
         let m: HashMap<String, String> = [("fr", "Bonjour"), ("de", "Hallo")].iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();

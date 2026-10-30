@@ -40,6 +40,11 @@ pub struct Space {
     /// the room, from its loader until the renderer takes it
     room_rx: Option<mpsc::Receiver<Result<glb::Room>>>,
     room: Option<glb::Room>,
+    /// the room file shown (or loading) and its spots (kept after the renderer took the room – a Live cell moves the
+    /// camera to one, #186)
+    room_path: Option<PathBuf>,
+    spots: Vec<(String, Vec3)>,
+    max_texture: u32,
     /// what the HUD says about the room ("cathedral.low.glb 114788 tris", "loading …", the error)
     pub room_status: String,
     spot: String,
@@ -66,6 +71,24 @@ pub fn room_path(graph: &Graph, node: usize, rooms: &Path) -> Option<PathBuf> {
     })
 }
 
+/// a room file → its loader thread; the receiver and the HUD's "LOADING …"
+fn load_room(path: PathBuf, max: u32) -> (Option<mpsc::Receiver<Result<glb::Room>>>, String) {
+    let (tx, rx) = mpsc::channel();
+    let shown = path.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default();
+    std::thread::Builder::new()
+        .name("room".into())
+        .spawn(move || {
+            let t = std::time::Instant::now();
+            let r = glb::load(&path, max);
+            if let Ok(room) = &r {
+                tracing::info!("room {}: {} triangles, {} images, {:.0} ms", path.display(), room.triangles(), room.images.len(), t.elapsed().as_secs_f32() * 1000.0);
+            }
+            let _ = tx.send(r);
+        })
+        .expect("a thread");
+    (Some(rx), format!("LOADING {shown}"))
+}
+
 impl Space {
     /// The space node `node` of `graph`: its being from the graph + `look`, its room loading on a thread of its own
     /// (from `rooms`, the `--rooms` folder).
@@ -77,24 +100,10 @@ impl Space {
             _ => None,
         };
         being.anchor = at.unwrap_or(FALLBACK_ANCHOR);
-        let (room_rx, room_status) = match room_path(graph, node, rooms) {
-            Some(path) => {
-                let (tx, rx) = mpsc::channel();
-                let max = n.f32("max_texture", 2048.0) as u32;
-                let shown = path.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default();
-                std::thread::Builder::new()
-                    .name("room".into())
-                    .spawn(move || {
-                        let t = std::time::Instant::now();
-                        let r = glb::load(&path, max);
-                        if let Ok(room) = &r {
-                            tracing::info!("room {}: {} triangles, {} images, {:.0} ms", path.display(), room.triangles(), room.images.len(), t.elapsed().as_secs_f32() * 1000.0);
-                        }
-                        let _ = tx.send(r);
-                    })
-                    .expect("a thread");
-                (Some(rx), format!("LOADING {shown}"))
-            }
+        let max_texture = n.f32("max_texture", 2048.0) as u32;
+        let path = room_path(graph, node, rooms);
+        let (room_rx, room_status) = match &path {
+            Some(path) => load_room(path.clone(), max_texture),
             None => (None, "NO ROOM".into()),
         };
         let camera = Orbit::new(being.anchor, n.f32("yaw", 20.0).to_radians(), n.f32("pitch", 8.0).to_radians(), n.f32("distance", 2.4));
@@ -104,6 +113,9 @@ impl Space {
             camera,
             room_rx,
             room: None,
+            room_path: path,
+            spots: Vec::new(),
+            max_texture,
             room_status,
             spot: n.str("spot").unwrap_or("spot_aisle").to_string(),
             lift: n.f32("lift", 1.5),
@@ -128,6 +140,7 @@ impl Space {
                     self.being.anchor = self.at.unwrap_or(base + Vec3::Y * self.lift);
                     self.camera.target = self.being.anchor;
                     self.room_status = format!("ROOM {}K TRIS", room.triangles() / 1000);
+                    self.spots = room.spots.clone();
                     self.room = Some(room);
                     self.room_rx = None;
                 }
@@ -147,6 +160,30 @@ impl Space {
             self.being.hover = self.pointer.and_then(|(x, y)| self.being.pick(&self.camera.ray(x, y, self.view.0, self.view.1)));
         }
         self.being.dragging = matches!(self.drag, Drag::Knob { .. });
+    }
+
+    /// A Live cell's 3D set (#186, #193: set + spot): another room file loads on its thread (the old one stays until
+    /// it is there), and the being and the camera go to `spot` (in the new room once it has arrived). A spot the room
+    /// lacks keeps the place – the room's status says so.
+    pub fn show(&mut self, room: Option<&Path>, spot: Option<&str>) {
+        if let Some(spot) = spot {
+            self.spot = spot.to_owned();
+            self.at = None;
+        }
+        match room {
+            Some(p) if self.room_path.as_deref() != Some(p) => {
+                (self.room_rx, self.room_status) = load_room(p.to_path_buf(), self.max_texture);
+                self.room_path = Some(p.to_path_buf());
+            }
+            _ => {
+                if let Some(pos) = self.spots.iter().find(|(n, _)| *n == self.spot).map(|(_, p)| *p) {
+                    self.being.anchor = pos + Vec3::Y * self.lift;
+                    self.camera.target = self.being.anchor;
+                } else if spot.is_some() && self.room_rx.is_none() {
+                    tracing::warn!("room: no spot '{}' – the being stays", self.spot);
+                }
+            }
+        }
     }
 
     /// the room, once – the renderer uploads it

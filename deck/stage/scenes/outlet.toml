@@ -1,0 +1,49 @@
+# A Live outlet (#186, research/LIVE-LENSES.md): this deck shows the cells the conductor sends to its outlet –
+# slices, panels, pictures, text, colour drawn by the `outlet` node, a 3D set (#193) through the space node behind them.
+# The relay and the outlet come from /var/lib/deck/deck.toml (`relay = "ws://<host>:7700/live/<code>"`, `outlet =
+# "left"`) or the CLI; the stage plays this scene by itself when both are set and no scene is named. Run it:
+#   cargo run --release -p deck-stage -- --scene outlet --relay ws://127.0.0.1:7700/live/DECK --outlet left --windowed
+# Until the first cell arrives the outlet is black (the HUD says why: joining, offline, not paired …).
+
+[stage]
+name = "Live outlet"
+render_scale = 1.0
+
+[being]
+size = 0.5
+drift = 0.06
+breath = 0.04
+wobble = 0.025
+
+[[node]]
+id = "tempo"
+kind = "tempo"
+bpm = 84
+source = "internal"
+
+# the 3D set a cell names (set + spot + model3d) – the cathedral is the default room; a cell's set and spot replace them
+[[node]]
+id = "space"
+kind = "space"
+room = "cathedral"
+quality = "low"
+spot = "spot_aisle"
+yaw = 279
+pitch = 6
+distance = 1.9
+
+[[node]]
+id = "outlet"
+kind = "outlet"
+
+[[node]]
+id = "screen"
+kind = "screen"
+
+[[link]]
+from = "space"
+to = "outlet.in"
+
+[[link]]
+from = "outlet"
+to = "screen.in"

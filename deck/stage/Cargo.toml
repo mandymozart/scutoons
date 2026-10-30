@@ -89,3 +89,8 @@ harness = false
 # tests/live_relay.rs: the deck's outlet against the real relay on 127.0.0.1 (#186)
 relay = { path = "../relay" }
 tokio = { workspace = true }
+
+# a stand-in conductor for trying an outlet (#186): `cargo run -p deck-stage --example live-cue -- <relay> examples/sermon.json`
+[[example]]
+name = "live-cue"
+required-features = ["live"]

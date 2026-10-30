@@ -86,6 +86,47 @@ mod running {
     use std::sync::{mpsc, Arc, Mutex};
     use std::time::{Duration, Instant};
 
+    /// The outlet of a scene with an `outlet` node: deck.toml under the CLI's settings → the relay and outlet; the media
+    /// with the deck's resolver (`rooms`, `<cache>/sets`), HTTP and the token (`DECK_TOKEN`, else the paired deck's on a
+    /// deck – deck-link, #180 –, else none); then the threads. Err = why the outlet doesn't play (the HUD says it).
+    pub fn start_outlet(cli: super::config::Settings, lib: Library, rooms: std::path::PathBuf, size: (u32, u32)) -> Result<Live, String> {
+        use super::config::{Settings, DECK_TOML};
+        use super::media::{Fixed, HttpFetch, LocalSets, NoToken, Paired, Token};
+        let settings = Settings::read(std::path::Path::new(DECK_TOML)).merged(cli);
+        let cfg = settings
+            .config()
+            .ok_or("no outlet: set relay + outlet in /var/lib/deck/deck.toml (or --relay / --outlet)")?
+            .map_err(|e| format!("{e:#}"))?;
+        let identity = std::path::Path::new(deck_link::DEFAULT_DIR);
+        let token: Box<dyn Token> = match std::env::var("DECK_TOKEN") {
+            Ok(t) if !t.is_empty() => Box::new(Fixed(t)),
+            _ if identity.parent().is_some_and(|p| p.is_dir()) => match deck_link::Identity::load_or_create(identity) {
+                Ok(id) => {
+                    let info = deck_link::DeckInfo { build: env!("CARGO_PKG_VERSION").into(), class: String::new(), hostname: hostname().unwrap_or_default() };
+                    Box::new(Paired(Mutex::new(deck_link::Link::new(deck_link::HttpTransport::new(&lib.api), id, info))))
+                }
+                Err(e) => {
+                    tracing::warn!("live: no deck identity ({e:#}) – show media without a token");
+                    Box::new(NoToken)
+                }
+            },
+            _ => Box::new(NoToken),
+        };
+        let media = Media {
+            cache: lib.cache.clone(),
+            resolve: Box::new(LocalSets { rooms, sets: lib.cache.join("sets"), quality: "low".into() }),
+            fetch: Box::new(HttpFetch::default()),
+            token,
+            local: Mutex::new(Default::default()),
+        };
+        tracing::info!("live: outlet '{}' of session {} via {}", cfg.outlet, cfg.code, cfg.base);
+        Ok(Live::start(cfg, lib, media, size, hostname()))
+    }
+
+    fn hostname() -> Option<String> {
+        std::fs::read_to_string("/etc/hostname").map(|h| h.trim().to_owned()).or_else(|_| std::env::var("COMPUTERNAME")).ok().filter(|h| !h.is_empty())
+    }
+
     /// how long a scroll layer holds a slice (the chapter node's default hold)
     pub const SCROLL_HOLD: Duration = Duration::from_secs(6);
 

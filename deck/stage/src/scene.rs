@@ -11,6 +11,8 @@ use std::path::Path;
 pub const DEFAULT_SCENE: &str = include_str!("../scenes/default.toml");
 /// The Cathedral of decks (#188): the room from Cat Pope chapter 2 and this deck's being in it.
 pub const CATHEDRAL_SCENE: &str = include_str!("../scenes/cathedral.toml");
+/// A Live outlet (#186): the relay's cells for this deck's outlet over the space (the `live` and `space` modules).
+pub const OUTLET_SCENE: &str = include_str!("../scenes/outlet.toml");
 /// The core alone (#185): an LFO, the test pattern, the screen – what a stage shows when a scene can't be played.
 pub const TEST_PATTERN_SCENE: &str = include_str!("../scenes/test-pattern.toml");
 

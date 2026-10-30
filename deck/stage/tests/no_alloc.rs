@@ -119,3 +119,29 @@ fn the_being_steps_without_allocating() {
     assert_eq!(CALLS.load(Ordering::SeqCst) - before, 0, "allocations / frees in the being's frame");
     assert!(being.hoses.iter().any(|h| h.bubbles.iter().any(|b| b.size > 0.0)), "it bubbles");
 }
+
+/// The outlet's frame (#186) never allocates: the crossfade's numbers per frame and the empty polls of the composer's
+/// channels (a new plane is an upload, like a chapter's cut – not every frame).
+#[test]
+fn the_outlet_frame_does_not_allocate() {
+    let _turn = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    use deck_stage::live::frame::{Crossfade, Frame, SpaceTarget};
+    let (_frames_tx, frames) = std::sync::mpsc::sync_channel::<Frame>(2);
+    let (_space_tx, space) = std::sync::mpsc::channel::<SpaceTarget>();
+    let mut fade = Crossfade::default();
+    fade.cut(0.0, true, 1200, 300);
+    let mut sum = 0.0;
+    COUNTING.store(true, Ordering::SeqCst);
+    let before = CALLS.load(Ordering::SeqCst);
+    for f in 0..600 {
+        let t = f as f32 / 60.0;
+        if f == 300 {
+            fade.cut(t, false, 600, 600);
+        }
+        assert!(frames.try_recv().is_err() && space.try_recv().is_err());
+        sum += fade.mix(t).iter().sum::<f32>();
+    }
+    COUNTING.store(false, Ordering::SeqCst);
+    assert_eq!(CALLS.load(Ordering::SeqCst) - before, 0, "allocations / frees in the outlet's frame");
+    assert!(sum > 0.0);
+}

@@ -19,6 +19,8 @@ use tungstenite::{Message as Ws, WebSocket};
 const PING_EVERY: Duration = Duration::from_secs(20);
 /// how long a read waits before the outbox and the flags get a turn
 const POLL: Duration = Duration::from_millis(50);
+/// after a dropped connection, before joining again (the relay frees the client id for the resume)
+const REJOIN_PAUSE: Duration = Duration::from_millis(250);
 /// reconnect backoff (s)
 const BACKOFF: [u64; 5] = [1, 2, 4, 8, 10];
 
@@ -62,6 +64,8 @@ impl Client {
                     }
                     tracing::info!("live: the relay connection ended ({why}) – joining again");
                     self.set_link(format!("OFFLINE {why}"));
+                    // a moment for the relay to see the old connection go – then the resume takes the old id
+                    std::thread::sleep(REJOIN_PAUSE);
                 }
                 Err(e) => {
                     let wait = BACKOFF[tries.min(BACKOFF.len() - 1)];

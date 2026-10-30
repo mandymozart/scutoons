@@ -9,6 +9,9 @@
 //! ← → turn, R resets the camera.
 //! A scene that can't be played (a module this build lacks – #185 –, a broken file) never stops the stage: it shows the
 //! test pattern with the reason in the HUD. `--dev` reloads the scene file and its WGSL files when they change.
+//! A scene with an `outlet` node (#186, the `live` module) joins the relay as `output` of this deck's outlet
+//! (deck.toml's `relay` + `outlet`, or `--relay` / `--outlet`) and shows its cells; with both set and no `--scene`
+//! the stage plays the built-in `scenes/outlet.toml`.
 use deck_stage::{audio, cache, chapter, clock, control, graph, hud, modules, render, scene, splash, tempo, watch};
 
 use anyhow::{bail, Context, Result};
@@ -36,11 +39,14 @@ enum Event {
     BrowserClosed,
 }
 
-const HELP: &str = "deck-stage [--scene FILE|cathedral] [--audio auto|pipewire|cpal|null] [--volume 0-1] [--cache DIR]
+const HELP: &str = "deck-stage [--scene FILE|cathedral|outlet] [--audio auto|pipewire|cpal|null] [--volume 0-1] [--cache DIR]
            [--rooms DIR] [--api URL] [--cdn URL] [--windowed] [--frames N] [--screenshot FILE] [--pointer X,Y] [--no-hud]
-           [--dev] [--modules]
+           [--dev] [--modules] [--relay ws://HOST:PORT/live/CODE] [--outlet ID] [--locale de]
   --scene      a scene TOML (default: the built-in scene, deck/stage/scenes/default.toml); `cathedral` = the built-in
-               Cathedral of decks (scenes/cathedral.toml)
+               Cathedral of decks (scenes/cathedral.toml), `outlet` = the built-in Live outlet (scenes/outlet.toml – the
+               default when a relay and an outlet are set)
+  --relay      the Live relay with the session code (default: deck.toml's `relay`); --outlet this deck's outlet
+               (deck.toml's `outlet`); --locale the language of its text layers (deck.toml's `locale`, else de)
   --audio      the backend; auto = PipeWire → cpal → null (no device: the clock and the FFT still run)
   --cache      the library cache (default /var/lib/deck/cache on a deck, DECK_CACHE, else the user cache folder)
   --rooms      where a space node's rooms are (.glb; default DECK_ROOMS, else <cache>/rooms)
@@ -64,6 +70,10 @@ struct Args {
     screenshot: Option<PathBuf>,
     pointer: Option<(f32, f32)>,
     dev: bool,
+    /// the Live outlet (#186): --relay, --outlet, --locale over deck.toml's keys
+    relay: Option<String>,
+    outlet: Option<String>,
+    locale: Option<String>,
 }
 
 fn args() -> Result<Args> {
@@ -81,6 +91,9 @@ fn args() -> Result<Args> {
         screenshot: None,
         pointer: None,
         dev: false,
+        relay: None,
+        outlet: None,
+        locale: None,
     };
     let mut it = std::env::args().skip(1);
     while let Some(arg) = it.next() {
@@ -106,6 +119,9 @@ fn args() -> Result<Args> {
             "--windowed" => a.windowed = true,
             "--no-hud" => a.hud = false,
             "--dev" => a.dev = true,
+            "--relay" => a.relay = Some(val()?),
+            "--outlet" => a.outlet = Some(val()?),
+            "--locale" => a.locale = Some(val()?),
             "--modules" => {
                 for m in modules::registry() {
                     let what: Vec<&str> = m.kinds.iter().chain(m.sources).copied().collect();
@@ -156,16 +172,41 @@ struct Show {
     master: Option<audio::Param>,
     /// the scene's space node (#188): the camera, the being, the pointer
     space: Option<render::Space>,
+    /// the Live outlet (#186): its threads, the space targets for the space node; or why it doesn't play
+    #[cfg(feature = "live")]
+    live: Option<deck_stage::live::Live>,
+    live_note: Option<String>,
     /// the audio outputs' peaks (the being's audio hoses)
     #[cfg_attr(not(feature = "space"), allow(dead_code))]
     meters: Option<Arc<audio::Meters>>,
 }
 
-/// the scene the arguments name: a file, `cathedral` (built in), or the default
+/// the Live outlet's settings from the CLI (deck.toml's under them – live/config.rs)
+#[cfg(feature = "live")]
+fn outlet_settings(args: &Args) -> deck_stage::live::config::Settings {
+    deck_stage::live::config::Settings { relay: args.relay.clone(), outlet: args.outlet.clone(), locale: args.locale.clone() }
+}
+
+/// a relay and an outlet are set (deck.toml or the CLI): the deck is a Live outlet
+fn outlet_configured(args: &Args) -> bool {
+    #[cfg(feature = "live")]
+    {
+        let file = deck_stage::live::config::Settings::read(std::path::Path::new(deck_stage::live::config::DECK_TOML));
+        file.merged(outlet_settings(args)).config().is_some()
+    }
+    #[cfg(not(feature = "live"))]
+    {
+        args.relay.is_some() && args.outlet.is_some()
+    }
+}
+
+/// the scene the arguments name: a file, `cathedral` / `outlet` (built in), the outlet when one is set, or the default
 fn read_scene(args: &Args) -> Result<scene::Scene> {
     match &args.scene {
         Some(p) if p.as_os_str() == "cathedral" && !p.exists() => scene::Scene::parse(scene::CATHEDRAL_SCENE),
+        Some(p) if p.as_os_str() == "outlet" && !p.exists() => scene::Scene::parse(scene::OUTLET_SCENE),
         Some(p) => scene::Scene::load(p),
+        None if outlet_configured(args) => scene::Scene::parse(scene::OUTLET_SCENE),
         None => scene::Scene::parse(scene::DEFAULT_SCENE),
     }
 }
@@ -200,6 +241,24 @@ impl Show {
         };
         #[cfg(any(feature = "chapter", feature = "space"))]
         let cache = args.cache.clone().unwrap_or_else(cache::default_dir);
+        // the Live outlet (#186): its threads start with the scene; the renderer takes its planes
+        #[cfg(feature = "live")]
+        let (live, live_note) = match graph.first(graph::Kind::Outlet) {
+            Some(_) => {
+                let lib = deck_stage::library::Library { api: args.api.clone(), cdn: args.cdn.clone(), cache: cache.clone() };
+                let rooms = args.rooms.clone().unwrap_or_else(|| cache.join("rooms"));
+                match deck_stage::live::start_outlet(outlet_settings(args), lib, rooms, (1920, 1080)) {
+                    Ok(l) => (Some(l), None),
+                    Err(e) => {
+                        tracing::warn!("live: {e}");
+                        (None, Some(e))
+                    }
+                }
+            }
+            None => (None, None),
+        };
+        #[cfg(not(feature = "live"))]
+        let live_note: Option<String> = None;
         #[cfg(feature = "chapter")]
         let lib = deck_stage::library::Library { api: args.api.clone(), cdn: args.cdn.clone(), cache: cache.clone() };
         // the chapter_music nodes' loaders (their status for the HUD and the splash)
@@ -257,6 +316,9 @@ impl Show {
             feeds,
             master,
             space,
+            #[cfg(feature = "live")]
+            live,
+            live_note,
             meters,
         })
     }
@@ -437,7 +499,19 @@ impl App {
         window.set_cursor_visible(self.args.windowed || self.show.space.is_some());
         let feeds = std::mem::take(&mut self.show.feeds);
         match render::Renderer::new(window.clone(), &self.show.graph, self.show.render_scale, feeds) {
-            Ok(r) => self.renderer = Some(r),
+            #[allow(unused_mut)]
+            Ok(mut r) => {
+                #[cfg(feature = "live")]
+                if let Some(l) = self.show.live.as_mut() {
+                    if let Some(rx) = l.frames.take() {
+                        r.set_outlet(rx);
+                    }
+                    let size = window.inner_size();
+                    let k = self.show.render_scale.clamp(0.25, 1.0);
+                    l.resize((size.width as f32 * k) as u32, (size.height as f32 * k) as u32);
+                }
+                self.renderer = Some(r)
+            }
             Err(e) => {
                 tracing::error!("render: {e:#}");
                 self.exit = 1;
@@ -511,6 +585,13 @@ impl App {
         let beat = self.show.tempo.frame(&self.moment);
         self.show.controls.update(dt, self.lead(), &beat);
         let time = self.time();
+        // a Live cell's 3D set: the space node's room and spot (#186)
+        #[cfg(all(feature = "live", feature = "space"))]
+        if let (Some(l), Some(s)) = (self.show.live.as_ref(), self.show.space.as_mut()) {
+            while let Ok(t) = l.space.try_recv() {
+                s.show(t.room.as_deref(), t.spot.as_deref());
+            }
+        }
         #[cfg(feature = "space")]
         if let Some(s) = self.show.space.as_mut() {
             let meters = self.show.meters.as_deref();
@@ -585,8 +666,20 @@ impl App {
             lines.push("SCENE ERROR - THE TEST PATTERN INSTEAD".into());
             lines.extend(hud::wrap(&e.replace(['–', '—'], "-"), hud::COLS).into_iter().take(hud::LINES - 4));
         }
+        // the Live outlet (#186) right under the title – its link, media, cell and every reason it can't show a layer
+        // come first (the HUD has 11 lines; the key help and the rest follow as far as they fit)
+        let mut live: Vec<String> = Vec::new();
+        #[cfg(feature = "live")]
+        if let Some(l) = &self.show.live {
+            live.extend(l.hud_lines());
+        }
+        if let Some(n) = &self.show.live_note {
+            live.push(format!("LIVE: {}", n.replace(['–', '—'], "-").to_uppercase()));
+        }
+        let live = live.iter().flat_map(|l| hud::wrap(l, hud::COLS));
+        lines.push(format!("SCUTOONSDECK STAGE  {}", self.show.scene_name));
+        lines.extend(live);
         lines.extend([
-            format!("SCUTOONSDECK STAGE  {}", self.show.scene_name),
             "F2 WEB  CTRL+ALT+ F2 SHELL / DEL OFF".into(),
             "T TAP +/- BPM SPACE RUN F3 SRC K CLICK".into(),
             format!("FPS {:.1}  FRAME {:.1} MS  CPU {:.2} MS", self.stats.fps, last(&self.stats.intervals), last(&self.stats.work)),
@@ -609,6 +702,7 @@ impl App {
         for s in self.renderer.as_ref().map(|r| r.slides_status()).unwrap_or_default() {
             lines.push(format!("SLICE {s}"));
         }
+
         lines.truncate(hud::LINES);
         lines
     }
@@ -748,6 +842,11 @@ impl ApplicationHandler<Event> for App {
             WindowEvent::Resized(s) => {
                 if let Some(r) = self.renderer.as_mut() {
                     r.resize(s.width, s.height);
+                }
+                #[cfg(feature = "live")]
+                if let Some(l) = &self.show.live {
+                    let k = self.show.render_scale.clamp(0.25, 1.0);
+                    l.resize((s.width as f32 * k) as u32, (s.height as f32 * k) as u32);
                 }
                 #[cfg(feature = "space")]
                 self.space_event(&event);

@@ -57,7 +57,8 @@ impl Resolve for LocalSets {
             SpotMode::Video => VIDEO_EXT.iter().map(|e| self.sets.join(set).join(format!("{spot_name}.video.{e}"))).collect(),
         };
         tried.iter().find(|p| p.is_file()).map(|p| Source::File(p.clone())).ok_or_else(|| {
-            format!("set {set} {spot_name} ({}) not on this deck (the set model #193 is not built) – looked for {}", mode.as_str(), tried[0].display())
+            tracing::debug!("live: set {set} {spot_name} ({}): looked for {}", mode.as_str(), tried[0].display());
+            format!("set {set} {spot_name} ({}) is not on this deck – no set data yet (#193)", mode.as_str())
         })
     }
 }
@@ -311,7 +312,7 @@ pub(crate) mod tests {
         assert_eq!(r.missing, ["organ", "crypt"]);
         let why = r.why.unwrap();
         assert_eq!(why["organ"], "HTTP 404");
-        assert!(why["crypt"].contains("not on this deck") && why["crypt"].contains("crypt.still.webp"), "{}", why["crypt"]);
+        assert_eq!(why["crypt"], "set cathedral crypt (still) is not on this deck – no set data yet (#193)");
         let choir = m.file_of(&MediaRef::Item("choir".into())).unwrap();
         assert!(choir.starts_with(root.join("cache").join("live")) && choir.to_string_lossy().ends_with("-choir.webm"));
         assert_eq!(std::fs::read_to_string(&choir).unwrap(), "choir");

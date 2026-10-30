@@ -5,6 +5,7 @@
 //! S3: a pass reads up to three textures (its `in`, a chapter's current / previous slice, an overlay's `top`); the
 //! chapter nodes' slices arrive from their loaders (chapter.rs) and are uploaded when the node cuts; the splash (the
 //! logo, splash.rs) goes over everything – its first frame is shown before the scene's shaders are compiled.
+//! #186: an `outlet` node cross-fades the composed planes of its cells (live/) over its `in` (shaders/outlet.wgsl).
 //! #188: a `space` node is not a fullscreen pass – space/gpu.rs draws the room and the being into its texture with a
 //! depth buffer (the `space` module, #185). `capture` saves the next frame as a PNG (`--screenshot`). `reload_shaders`
 //! recompiles the passes whose WGSL file changed (the dev mode's hot reload).
@@ -12,6 +13,7 @@ use crate::chapter::{ChapterFeed, Prepared};
 use crate::control::Controls;
 use crate::graph::{Graph, Kind};
 use crate::hud::{self, Hud};
+use crate::live::frame::{Crossfade, Frame};
 #[cfg(feature = "space")]
 use crate::space::gpu::SpaceGpu;
 #[cfg(feature = "space")]
@@ -37,6 +39,7 @@ fn builtin(name: &str) -> Option<&'static str> {
         "pass" => include_str!("shaders/pass.wgsl"),
         "chapter" => include_str!("shaders/chapter.wgsl"),
         "overlay" => include_str!("shaders/overlay.wgsl"),
+        "outlet" => include_str!("shaders/outlet.wgsl"),
         "splash" => include_str!("shaders/splash.wgsl"),
         _ => return None,
     })
@@ -99,6 +102,15 @@ struct Slides {
     last_beat: f64,
 }
 
+/// the outlet node's planes (#186, live/): the composer's channel, the current and previous plane, their crossfade
+struct OutletPlanes {
+    node: usize,
+    rx: Option<std::sync::mpsc::Receiver<Frame>>,
+    current: Option<Image>,
+    previous: Option<Image>,
+    fade: Crossfade,
+}
+
 /// Without the `space` module no scene has a space node (modules.rs refuses it): nothing to draw.
 #[cfg(not(feature = "space"))]
 pub enum Space {}
@@ -119,6 +131,8 @@ pub struct Renderer {
     hud_tex: wgpu::Texture,
     render_scale: f32,
     slides: Vec<Slides>,
+    /// the outlet node's planes (#186)
+    outlet: Option<OutletPlanes>,
     splash: Pass,
     logo: Image,
     /// the space node's GPU side, made at its first frame
@@ -249,6 +263,7 @@ impl Renderer {
             hud_tex,
             render_scale: if software { render_scale.min(0.5) } else { render_scale }.clamp(0.25, 1.0),
             slides: Vec::new(),
+            outlet: None,
             #[cfg(feature = "space")]
             space: None,
             capture: None,
@@ -264,6 +279,10 @@ impl Renderer {
                 Kind::Screen => builtin("pass").unwrap().to_string(),
                 Kind::Chapter => builtin("chapter").unwrap().to_string(),
                 Kind::Overlay => builtin("overlay").unwrap().to_string(),
+                Kind::Outlet => {
+                    r.outlet = Some(OutletPlanes { node: i, rx: None, current: None, previous: None, fade: Crossfade::default() });
+                    builtin("outlet").unwrap().to_string()
+                }
                 Kind::Space => {
                     r.passes.push(Pass { node: i, kind: Kind::Space, pipeline: None, ubuf: uniform_buffer(&r.device), inputs: [None; 3], target: None, bind: None });
                     continue;
@@ -280,7 +299,7 @@ impl Renderer {
             };
             let link = |port| node.kind.input(port).and_then(|k| graph.link_into(i, k)).map(|l| Src::Out(l.from.0, l.from.1));
             let inputs = match node.kind {
-                Kind::Chapter => [link("in"), Some(Src::Current(i)), Some(Src::Previous(i))],
+                Kind::Chapter | Kind::Outlet => [link("in"), Some(Src::Current(i)), Some(Src::Previous(i))],
                 Kind::Overlay => [link("in"), link("top"), None],
                 _ => [link("in"), None, None],
             };
@@ -313,6 +332,18 @@ impl Renderer {
         }
         r.rebuild();
         Ok(r)
+    }
+
+    /// the composer's channel for the scene's outlet node (live/, #186); without an outlet node it is dropped
+    pub fn set_outlet(&mut self, rx: std::sync::mpsc::Receiver<Frame>) {
+        if let Some(o) = self.outlet.as_mut() {
+            o.rx = Some(rx);
+        }
+    }
+
+    /// the outlet's crossfade at `time` (the HUD: still fading)
+    pub fn outlet_fading(&self, time: f32) -> bool {
+        self.outlet.as_ref().is_some_and(|o| o.fade.fading(time))
     }
 
     /// every chapter node shows a slice (the splash may go)
@@ -396,6 +427,13 @@ impl Renderer {
                 }
             }
         }
+        if let Some(o) = &self.outlet {
+            for (src, img) in [(Src::Current(o.node), &o.current), (Src::Previous(o.node), &o.previous)] {
+                if let Some(i) = img {
+                    views.insert(src, &i.view);
+                }
+            }
+        }
         let find = |s: Option<Src>| s.and_then(|s| views.get(&s).copied()).unwrap_or(&self.dummy);
         let bind = |p: &Pass, v: [&wgpu::TextureView; 3], sampler: &wgpu::Sampler| {
             self.device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -448,6 +486,15 @@ impl Renderer {
     /// ready. Returns whether a texture changed (the bind groups follow).
     fn advance(&mut self, graph: &Graph, ctl: &Controls, time: f32) -> bool {
         let mut changed = false;
+        // the outlet: a composed cell → its plane on the GPU, the crossfade from the last one (#186)
+        if let Some(o) = self.outlet.as_mut() {
+            if let Some(f) = o.rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
+                let img = upload(&self.device, &self.queue, f.plane.width(), f.plane.height(), f.plane.as_raw());
+                o.previous = o.current.replace(img);
+                o.fade.cut(time, f.backdrop, f.enter_ms, f.exit_ms);
+                changed = true;
+            }
+        }
         for s in &mut self.slides {
             let node = &graph.nodes[s.node];
             let hold = ctl.input(s.node, "hold", 6.0).max(0.5);
@@ -488,6 +535,11 @@ impl Renderer {
                 out[4] = s.current.as_ref().map_or(1.0, |c| c.aspect);
                 out[5] = s.previous.as_ref().map_or(1.0, |c| c.aspect);
                 out[6] = age;
+            }
+            Kind::Outlet => {
+                let Some(o) = &self.outlet else { return };
+                let [a, gone, cur_bg, prev_bg] = o.fade.mix(time);
+                (out[1], out[2], out[3], out[4], out[5]) = (a, gone, cur_bg, prev_bg, if p.inputs[0].is_some() { 1.0 } else { 0.0 });
             }
             Kind::Overlay => {
                 let top = p.inputs[1];
@@ -662,6 +714,7 @@ fn params(ctl: &Controls, p: &Pass) -> [f32; 8] {
         Kind::Shader => &["a", "b", "c", "d"],
         Kind::Chapter => &["zoom", "pulse"],
         Kind::Overlay => &["opacity", "pulse", "shake"],
+        Kind::Outlet => &["opacity"],
         _ => &[],
     };
     let input = |name: &str| ctl.input(p.node, name, crate::params::default(p.kind, name));

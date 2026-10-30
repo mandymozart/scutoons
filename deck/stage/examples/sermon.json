@@ -1,0 +1,31 @@
+{
+  "outlet": "left",
+  "preload": [
+    { "id": "nave", "set": "cathedral", "spot": "spot_aisle", "mode": "model3d" },
+    { "id": "choir", "set": "cathedral", "spot": "choir", "mode": "video" }
+  ],
+  "cells": [
+    { "label": "comic – the way in", "hold": 4, "cell": { "mode": "own", "layers": [
+      { "id": "slice", "src": { "kind": "slice", "p": { "toon": "catpope", "chapter": 2, "slice": 59 } }, "fit": "contain" } ] } },
+    { "label": "comic – \"Die Predigt stand bevor\"", "hold": 5, "cell": { "mode": "own", "layers": [
+      { "id": "slice", "src": { "kind": "slice", "p": { "toon": "catpope", "chapter": 2, "slice": 61 } }, "fit": "contain" } ] } },
+    { "label": "live – the cathedral, PLF in the nave", "hold": 6, "cell": { "mode": "own", "layers": [
+      { "id": "room", "src": { "kind": "set", "p": { "set": "cathedral", "spot": "spot_aisle", "mode": "model3d" } }, "enter": { "ms": 2500 } },
+      { "id": "roar", "src": { "kind": "text", "p": { "text": { "de": "ROARRRRRRR" }, "size": 14, "colour": "#ffd23f" } },
+        "box": { "x": 5, "y": 8, "w": 90, "h": 25 }, "enter": { "ms": 400 } } ] } },
+    { "label": "live – the sermon's lines", "hold": 6, "cell": { "mode": "own", "layers": [
+      { "id": "room", "src": { "kind": "set", "p": { "set": "cathedral", "spot": "spot_aisle", "mode": "model3d" } } },
+      { "id": "line", "src": { "kind": "text", "p": { "text": { "de": "Neuer Tag, neues Spiel – mein Pfad, meine Mission." }, "size": 6 } },
+        "box": { "x": 8, "y": 72, "w": 84, "h": 22 } },
+      { "id": "panel", "src": { "kind": "panel", "p": { "toon": "catpope", "chapter": 2, "slice": 67, "crop": { "x": 0, "y": 0, "w": 100, "h": 45 } } },
+        "box": { "x": 68, "y": 4, "w": 28, "h": 60 }, "fit": "contain", "opacity": 0.9 } ] } },
+    { "label": "live – the choir: Cloud", "hold": 6, "cell": { "mode": "own", "layers": [
+      { "id": "room", "src": { "kind": "set", "p": { "set": "cathedral", "spot": "spot_aisle", "mode": "model3d" } } },
+      { "id": "choir", "src": { "kind": "video", "p": { "media": "choir" } }, "box": { "x": 4, "y": 4, "w": 30, "h": 30 }, "loop": true },
+      { "id": "wash", "src": { "kind": "colour", "p": { "colour": "#2a0b4a40" } } },
+      { "id": "song", "src": { "kind": "text", "p": { "text": { "de": "Ich wär so gern eine Cloud, laut, laut, laut." }, "size": 7, "colour": "#e6d7ff" } },
+        "box": { "x": 6, "y": 70, "w": 88, "h": 26 } } ] } },
+    { "label": "comic again – the cat", "hold": 5, "cell": { "mode": "own", "layers": [
+      { "id": "slice", "src": { "kind": "slice", "p": { "toon": "catpope", "chapter": 2, "slice": 72 } }, "fit": "contain", "enter": { "ms": 1500 } } ] } }
+  ]
+}
