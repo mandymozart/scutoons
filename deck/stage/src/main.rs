@@ -325,6 +325,11 @@ impl Show {
             let faces = args.portraits.clone().unwrap_or_else(|| cache.join("portraits"));
             tracing::info!("space: sets in {}, portraits in {}", sets.display(), faces.display());
             use deck_stage::space::portrait::Portraits;
+            // the one request for the scene goes out before the head asks for its first sprite
+            #[cfg(feature = "sync")]
+            if let Some(y) = &sync {
+                y.prepare(deck_stage::sync::needs_of(&graph, &scene.being));
+            }
             // through the sync (it fetches, then the folder is read), else the local folders as they are
             #[cfg(feature = "sync")]
             let (portraits, gate) = match &sync {
@@ -335,10 +340,6 @@ impl Show {
             let (portraits, gate) = (Portraits::local(&faces), None);
             #[cfg_attr(not(feature = "live"), allow(unused_mut))]
             let mut s = deck_stage::space::Space::with_gate(&graph, n, &scene.being, &sets, portraits, gate);
-            #[cfg(feature = "sync")]
-            if let Some(y) = &sync {
-                y.prepare(deck_stage::sync::needs_of(&graph, &s));
-            }
             // phase 4: with a relay (deck.toml or --relay) the being joins the session as its `join` says
             #[cfg(feature = "live")]
             {

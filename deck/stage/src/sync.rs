@@ -239,14 +239,22 @@ impl DeckSync {
     }
 }
 
-/// What a scene with a space node needs: every space node's set (by id) and its being's character with the being's
-/// whole palette (`look.moods` + the moods its feelings name).
+/// What a scene with a space node needs, before its space is built (so the one request names it all): every space
+/// node's set (by id) and the being's character with the being's whole palette – `look.moods`, then the moods its
+/// feelings and nudges name (Feel::new's order).
 #[cfg(feature = "space")]
-pub fn needs_of(graph: &crate::graph::Graph, space: &crate::space::Space) -> Needs {
+pub fn needs_of(graph: &crate::graph::Graph, look: &crate::space::being::Look) -> Needs {
     let sets = (0..graph.nodes.len()).filter(|&i| graph.nodes[i].kind == crate::graph::Kind::Space).filter_map(|i| crate::space::set_need(graph, i)).collect();
-    let c = &space.being.look.character;
-    let characters = if c.is_empty() { Vec::new() } else { vec![(c.clone(), space.being.moods.clone())] };
-    Needs { sets, characters }
+    if look.character.is_empty() {
+        return Needs { sets, characters: Vec::new() };
+    }
+    let mut moods = look.moods.clone();
+    for m in look.feel.iter().map(|r| &r.mood).chain(look.react.iter().map(|n| &n.mood)) {
+        if !moods.contains(m) {
+            moods.push(m.clone());
+        }
+    }
+    Needs { sets, characters: vec![(look.character.clone(), moods)] }
 }
 
 /// The portraits through the sync (a portrait::Source next to LocalDir): wait for the sprite, then read the folder.
@@ -565,6 +573,19 @@ mod tests {
         assert_eq!(s.set_want(&Path::new("/c/sets").join("cathedral.low.glb")), None, "a flat build output");
         assert_eq!(s.set_want(Path::new("/elsewhere/cathedral/cathedral.low.glb")), None);
         assert_eq!(s.set_want(&Path::new("/c/sets").join("x").join("cathedral.low.glb")), None);
+    }
+
+    /// the one request names the being's whole palette – what its head will ask for
+    #[cfg(feature = "space")]
+    #[test]
+    fn a_scene_s_needs_are_its_set_and_the_being_s_palette() {
+        use crate::scene::{Scene, CONDUCTOR_SCENE};
+        let scene = crate::modules::carried_part(&Scene::parse(CONDUCTOR_SCENE).unwrap());
+        let g = crate::graph::Graph::build(&scene).unwrap();
+        let needs = needs_of(&g, &scene.being);
+        assert_eq!(needs.sets, [("cathedral".to_string(), "low".to_string())]);
+        let being = crate::space::being::Being::new(&g, &scene.being);
+        assert_eq!(needs.characters, [("plf".to_string(), being.moods.clone())]);
     }
 
     #[test]

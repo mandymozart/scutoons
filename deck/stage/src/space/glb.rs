@@ -195,15 +195,15 @@ const SUPPORTED: &[&str] = &["EXT_meshopt_compression", "KHR_mesh_quantization",
 /// `hide` = node names whose mesh is left out (the scene's `hide`, owner 2026-10-30: the cathedral without its incense
 /// burner – the export stays as it is; the node's children and spots stay).
 pub fn load(path: &Path, max_texture: u32, hide: &[String]) -> Result<Model> {
-    let bytes = std::fs::read(path).with_context(|| format!("reading the room {}", path.display()))?;
-    parse(&bytes, max_texture, hide).with_context(|| format!("in the room {}", path.display()))
+    let bytes = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
+    parse(&bytes, max_texture, hide).with_context(|| format!("in {}", path.display()))
 }
 
 pub fn parse(bytes: &[u8], max_texture: u32, hide: &[String]) -> Result<Model> {
     let (doc, bin) = split_glb(bytes)?;
     let doc: Doc = serde_json::from_slice(doc).context("the glTF JSON")?;
     for e in &doc.extensions_required {
-        ensure!(SUPPORTED.contains(&e.as_str()), "the room requires the glTF extension {e}, which the stage does not read");
+        ensure!(SUPPORTED.contains(&e.as_str()), "the file requires the glTF extension {e}, which the stage does not read");
     }
     let mut views: HashMap<usize, Vec<u8>> = HashMap::new();
     let mut room = Model { vertices: Vec::new(), indices: Vec::new(), draws: Vec::new(), images: Vec::new(), spots: Vec::new(), min: Vec3::INFINITY, max: Vec3::NEG_INFINITY };
