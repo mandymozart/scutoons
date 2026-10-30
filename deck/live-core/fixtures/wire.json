@@ -1,0 +1,73 @@
+[
+	{
+		"name": "control: one scalar, forced",
+		"record": {
+			"mode": "force",
+			"node": 3,
+			"port": 1,
+			"amount": 1,
+			"v": [
+				0.7
+			]
+		},
+		"hex": "01000100030001000000803f3333333f"
+	},
+	{
+		"name": "parameter vector: an fm voice's freq / ratio / index / gain, blended",
+		"record": {
+			"mode": "blend",
+			"node": 12,
+			"port": 0,
+			"amount": 0.25,
+			"v": [
+				330,
+				2,
+				1.5,
+				0.1
+			]
+		},
+		"hex": "010104000c0000000000803e0000a543000000400000c03fcdcccc3d"
+	},
+	{
+		"name": "release: the four inputs as built again",
+		"record": {
+			"mode": "release",
+			"node": 12,
+			"port": 0,
+			"amount": 0,
+			"v": [
+				0,
+				0,
+				0,
+				0
+			]
+		},
+		"hex": "010204000c0000000000000000000000000000000000000000000000"
+	},
+	{
+		"name": "an empty vector",
+		"record": {
+			"mode": "force",
+			"node": 0,
+			"port": 0,
+			"amount": 1,
+			"v": []
+		},
+		"hex": "01000000000000000000803f"
+	},
+	{
+		"name": "the edges: the largest node index, a far port, tiny / huge / negative values",
+		"record": {
+			"mode": "blend",
+			"node": 65535,
+			"port": 513,
+			"amount": 0.1,
+			"v": [
+				-1.25,
+				1e-07,
+				3.4e+38
+			]
+		},
+		"hex": "01010300ffff0102cdcccc3d0000a0bf95bfd6339ec97f7f"
+	}
+]

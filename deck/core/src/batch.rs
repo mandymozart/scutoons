@@ -37,6 +37,16 @@ impl K {
     fn audio(self) -> bool {
         matches!(self, K::Osc | K::Fm)
     }
+    fn name(self) -> &'static str {
+        match self {
+            K::Lfo => "lfo",
+            K::Smooth => "smooth",
+            K::Mul => "mul",
+            K::Add => "add",
+            K::Osc => "osc",
+            K::Fm => "fm",
+        }
+    }
 }
 
 /// One input port of a batch, a column per node: `values[src] * scale + offset`. A constant is a link to a slot that
@@ -64,7 +74,12 @@ impl Col {
 
     /// node `i`'s input becomes the constant `value` (a value set from outside – a MIDI CC, a 3D button, #188)
     pub fn set_constant(&mut self, i: usize, value: f32) {
-        (self.src[i], self.scale[i], self.offset[i]) = (0, 0.0, value);
+        self.set(i, 0, 0.0, value);
+    }
+
+    /// node `i`'s input becomes `values[src] * scale + offset`
+    pub fn set(&mut self, i: usize, src: u32, scale: f32, offset: f32) {
+        (self.src[i], self.scale[i], self.offset[i]) = (src, scale, offset);
     }
 
     pub fn len(&self) -> usize {
@@ -142,8 +157,15 @@ pub struct BatchGraph {
     /// slot 0 is always 0 (the constant source); node n writes slot n + 1
     values: Vec<f32>,
     ids: Vec<String>,
+    kinds: Vec<K>,
+    /// each node's inputs as built (src, scale, offset) – what `send` mixes from, and returns to at amount 0
+    base: Vec<Vec<(u32, f32, f32)>>,
+    /// where node n's columns are: (level, or `AUDIO` for the audio batches; the batch; the index in it)
+    place: Vec<(usize, usize, usize)>,
     rate: f32,
 }
+
+const AUDIO: usize = usize::MAX;
 
 impl BatchGraph {
     pub fn build(scene: &SceneDef, rate: f32) -> Result<BatchGraph, String> {
@@ -178,16 +200,16 @@ impl BatchGraph {
         let depth = (0..n).filter(|&i| !kinds[i].0.audio()).map(|i| level[i] + 1).max().unwrap_or(0);
         let mut levels: Vec<Vec<Batch>> = (0..depth).map(|_| vec![]).collect();
         let mut audio: Vec<Batch> = vec![];
+        let mut place = Vec::with_capacity(n);
         for i in 0..n {
             let (k, ports) = kinds[i];
             let list = if k.audio() { &mut audio } else { &mut levels[level[i]] };
-            let b = match list.iter_mut().position(|b| b.kind == k) {
-                Some(p) => &mut list[p],
-                None => {
-                    list.push(Batch::new(k, ports.len()));
-                    list.last_mut().expect("pushed")
-                }
-            };
+            let at = list.iter().position(|b| b.kind == k).unwrap_or_else(|| {
+                list.push(Batch::new(k, ports.len()));
+                list.len() - 1
+            });
+            let b = &mut list[at];
+            place.push((if k.audio() { AUDIO } else { level[i] }, at, b.len()));
             for (c, &(src, scale, offset)) in b.cols.iter_mut().zip(&inputs[i]) {
                 c.push(src, scale, offset);
             }
@@ -199,7 +221,9 @@ impl BatchGraph {
             b.p = std::array::from_fn(|_| vec![0.0; b.out.len()]);
             b.y = vec![0.0; b.out.len()];
         }
-        Ok(BatchGraph { levels, audio, values: vec![0.0; n + 1], ids: scene.nodes.iter().map(|x| x.id.clone()).collect(), rate })
+        let ids = scene.nodes.iter().map(|x| x.id.clone()).collect();
+        let kinds = kinds.iter().map(|(k, _)| *k).collect();
+        Ok(BatchGraph { levels, audio, values: vec![0.0; n + 1], ids, kinds, base: inputs, place, rate })
     }
 
     /// One frame of the control domain: per level, per kind, one loop.
@@ -297,6 +321,28 @@ impl BatchGraph {
         self.ids.iter().position(|x| x == id).map(|i| self.values[i + 1])
     }
 
+    /// A value sent from outside onto node `node`'s input `port` (#189 force / blend, #184): the input becomes
+    /// `own · (1 − amount) + value · amount` – amount 1 = force (the value alone), 0 = the input as built again; a link
+    /// keeps flowing in proportion. One affine change of the input's column, nothing per frame. `false` = no such input.
+    pub fn send(&mut self, node: usize, port: usize, value: f32, amount: f32) -> bool {
+        let Some(&(src, scale, offset)) = self.base.get(node).and_then(|b| b.get(port)) else { return false };
+        let a = amount.clamp(0.0, 1.0);
+        let (list, batch, i) = self.place[node];
+        let b = if list == AUDIO { &mut self.audio[batch] } else { &mut self.levels[list][batch] };
+        b.cols[port].set(i, src, scale * (1.0 - a), offset * (1.0 - a) + value * a);
+        true
+    }
+
+    /// Node `node`'s input port names (`None` past the last node).
+    pub fn ports(&self, node: usize) -> Option<&'static [&'static str]> {
+        self.kinds.get(node).map(|k| K::parse(k.name()).expect("a batch kind").1)
+    }
+
+    /// The nodes in scene order: (id, kind, input port names) – the table a host resolves `node.port` names with.
+    pub fn nodes(&self) -> impl Iterator<Item = (&str, &'static str, &'static [&'static str])> + '_ {
+        self.ids.iter().zip(&self.kinds).map(|(id, k)| (id.as_str(), k.name(), K::parse(k.name()).expect("a batch kind").1))
+    }
+
     /// (levels, batches) – the shape the build found.
     pub fn shape(&self) -> (usize, usize) {
         (self.levels.len(), self.levels.iter().map(Vec::len).sum::<usize>() + self.audio.len())
@@ -355,6 +401,54 @@ mod tests {
         assert!(e("[[node]]\nid = \"f\"\nkind = \"fft\"\n").contains("does not batch"));
         let cycle = "[[node]]\nid = \"a\"\nkind = \"add\"\n[[node]]\nid = \"b\"\nkind = \"add\"\n[[link]]\nfrom = \"a\"\nto = \"b.a\"\n[[link]]\nfrom = \"b\"\nto = \"a.a\"\n";
         assert!(e(cycle).contains("cycle"));
+    }
+
+    #[test]
+    fn sent_values_force_blend_and_release() {
+        let s = "[[node]]
+id = \"l\"
+kind = \"lfo\"
+rate = 0.0
+depth = 1.0
+phase = 0.25
+[[node]]
+id = \"m\"
+kind = \"mul\"
+b = 2.0
+[[link]]
+from = \"l\"
+to = \"m.a\"
+[[node]]
+id = \"o\"
+kind = \"osc\"
+freq = 440.0
+gain = 0.0
+";
+        let mut g = BatchGraph::build(&SceneDef::parse(s).unwrap(), 48_000.0).unwrap();
+        let m = |g: &mut BatchGraph| {
+            g.step(0.0);
+            g.value("m").unwrap()
+        };
+        assert!((m(&mut g) - 2.0).abs() < 1e-5, "the lfo holds 1 (phase 0.25), m = 1 · 2");
+        assert!(g.send(1, 0, 3.0, 1.0));
+        assert!((m(&mut g) - 6.0).abs() < 1e-5, "force: a = 3");
+        assert!(g.send(1, 0, 3.0, 0.5));
+        assert!((m(&mut g) - 4.0).abs() < 1e-5, "blend half: a = (1 + 3) / 2");
+        assert!(g.send(1, 1, 0.5, 1.0));
+        assert!((m(&mut g) - 1.0).abs() < 1e-5, "a constant input: b = 0.5");
+        g.send(1, 0, 3.0, 0.0);
+        g.send(1, 1, 0.0, 0.0);
+        assert!((m(&mut g) - 2.0).abs() < 1e-5, "amount 0 = as built");
+        // the audio batch: gain 0 → silence, a forced gain → sound
+        let mut out = [0.0; 128];
+        g.render(&mut out);
+        assert!(out.iter().all(|x| *x == 0.0));
+        assert!(g.send(2, 1, 0.5, 1.0));
+        g.render(&mut out);
+        assert!(out.iter().any(|x| x.abs() > 0.1));
+        assert!(!g.send(2, 2, 1.0, 1.0) && !g.send(9, 0, 1.0, 1.0), "no such input");
+        let table: Vec<_> = g.nodes().collect();
+        assert_eq!(table[2], ("o", "osc", &["freq", "gain"][..]));
     }
 
     #[test]

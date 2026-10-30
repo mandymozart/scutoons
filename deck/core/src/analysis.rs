@@ -7,6 +7,8 @@ use rustfft::{num_complex::Complex, Fft, FftPlanner};
 use std::sync::Arc;
 
 pub const SIZE: usize = 1024;
+/// the bins `Bands::spectrum` fills: 0 Hz … rate / 2 in `SIZE / 2` steps (46.9 Hz at 48 kHz)
+pub const SPECTRUM: usize = SIZE / 2;
 /// how far back the window may end (≈ 170 ms at 48 kHz – more than any sane output latency + block)
 pub const MAX_LEAD: usize = 8192;
 const HIST: usize = SIZE + MAX_LEAD;
@@ -45,6 +47,15 @@ impl Bands {
     /// The four values of the newest `SIZE` samples (`window` is in time order).
     pub fn analyse(&mut self, window: &[f32]) -> [f32; 4] {
         self.analyse_by(|i| window.get(i).copied().unwrap_or(0.0))
+    }
+
+    /// The last analysed window's magnitudes, bin k = k · rate / `SIZE` Hz, each in 0–1 (dB-scaled like the bands):
+    /// fills `out[..min(out.len(), SPECTRUM)]` – a visualiser's frame or a vector to send (#184, #189).
+    pub fn spectrum(&self, out: &mut [f32]) {
+        let n = self.buf.len();
+        for (o, c) in out.iter_mut().zip(&self.buf[..n / 2]) {
+            *o = to_unit(c.norm() * 4.0 / n as f32);
+        }
     }
 
     /// The four values of the `SIZE` samples `sample(0..SIZE)` (in time order).
@@ -88,6 +99,11 @@ impl Analyzer {
             *v = if r > *v { *v + (r - *v) * 0.6 } else { (*v * fall).max(r) };
         }
         self.values
+    }
+
+    /// the spectrum of the last `update`'s window, unsmoothed (`Bands::spectrum`)
+    pub fn spectrum(&self, out: &mut [f32]) {
+        self.bands.spectrum(out);
     }
 }
 
@@ -191,6 +207,17 @@ mod tests {
             b = a.update(1.0 / 60.0, 0)[1];
         }
         assert!(b < 0.05, "the newest samples: silence ({b})");
+    }
+
+    #[test]
+    fn the_spectrum_peaks_at_the_tone() {
+        let mut b = Bands::new(48_000.0);
+        b.analyse(&sine(1500.0));
+        let mut s = [0.0; SPECTRUM];
+        b.spectrum(&mut s);
+        let peak = (0..SPECTRUM).max_by(|&i, &j| s[i].total_cmp(&s[j])).unwrap();
+        assert_eq!(peak, (1500.0 / (48_000.0 / SIZE as f32)).round() as usize, "the bin of 1500 Hz");
+        assert!(s[peak] > 0.8 && s[400] < 0.3, "{} {}", s[peak], s[400]);
     }
 
     #[test]
