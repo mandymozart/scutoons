@@ -147,7 +147,7 @@ final class LibraryApiTest extends TestCase
         $body = self::json($r);
         self::assertSame(['t', 1, 'de', true], [$body['toon'], $body['chapter'], $body['locale'], $body['gated']]);
         $files = [];
-        foreach ($body['files'] as $f) $files[$f['path']] = [$f['kind'], $f['model'] ?? 'all', $f['size']];
+        foreach ($body['files'] as $f) $files[$f['path']] = [$f['kind'], $f['levels'] ?? 'all', $f['size']];
         $groups = [];
         foreach ($body['files'] as $f) if (isset($f['group'])) $groups[$f['group']][] = $f['path'];
         self::assertSame([['t/s1/a.320.mp3', 't/s1/a.96.mp3'], ['t/s1/one.webp', 't/s1/one@2x.webp', 't/s1/one@3x.webp'], ['t/s1/v.480p.mp4', 't/s1/v.720p.mp4']],

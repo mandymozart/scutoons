@@ -174,7 +174,7 @@ final class HomesTest extends TestCase
         self::assertSame([], $validator->problems('home-scenes', 'cave', ['id' => 'cave', 'name' => ['en' => 'Cave'], 'image' => ['src' => 'a.webp', 'variants' => ['high' => 'a.4k.webp']], 'video' => ['src' => 'a.mp4']]));
         self::assertSame(['cave: video must be { src: an .mp4 / .webm path, variants? }'], $validator->problems('home-scenes', 'cave', ['id' => 'cave', 'name' => ['en' => 'Cave'], 'image' => ['src' => ''], 'video' => ['src' => 'a.gif']]));
         $set = ['id' => 'cathedral', 'name' => ['en' => 'Cathedral'], 'image' => ['src' => '']];
-        self::assertSame([], $validator->problems('home-scenes', 'cathedral', $set + ['model' => ['src' => 'r/c.medium.v1.glb', 'variants' => ['low' => 'r/c.low.v1.glb']]]), 'a set's 3D room per level (#195)');
+        self::assertSame([], $validator->problems('home-scenes', 'cathedral', $set + ['model' => ['src' => 'r/c.medium.v1.glb', 'variants' => ['low' => 'r/c.low.v1.glb']]]), 'the 3D of a set per level (#195)');
         self::assertSame(['cathedral: model must be { src: a .glb path, variants?: { <level>: a .glb path } }'], $validator->problems('home-scenes', 'cathedral', $set + ['model' => ['src' => 'r/c.glb', 'variants' => ['high' => 'r/c.gltf']]]));
         self::assertContains('at can only be "workshop"', $validator->problems('recipes', 'r', ['id' => 'r', 'at' => 'kitchen', 'inputs' => [['item' => 'songbook_diy_broken', 'qty' => 1]], 'output' => ['item' => 'songbook_diy', 'qty' => 1]]));
         self::assertSame(['cave', 'tatami_room', 'cathedral'], array_column($this->get(\Scutoons\Domain\Catalog\Catalog::class)->data()['home_scenes'], 'id'));
