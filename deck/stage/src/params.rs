@@ -65,7 +65,7 @@ pub fn spec(kind: Kind, port: &str) -> Spec {
         (TestPattern | Space, "hue") => lin(0.0, 1.0, if kind == Space { 0.52 } else { 0.0 }),
         (Shader, "a" | "b" | "c") => lin(0.0, 1.0, 0.5),
         (Chapter, "hold") => log(0.5, 30.0, 6.0),
-        (Overlay, "opacity") => lin(0.0, 1.0, 1.0),
+        (Overlay | Outlet, "opacity") => lin(0.0, 1.0, 1.0),
         (Lfo, "rate") => log(0.01, 20.0, 0.25),
         (Lfo, "depth") => lin(0.0, 2.0, 1.0),
         (Space, "glow") => lin(0.0, 2.0, 0.6),

@@ -14,6 +14,7 @@ pub fn built(feature: &str) -> Option<bool> {
         "core" => true,
         "space" => cfg!(feature = "space"),
         "chapter" => cfg!(feature = "chapter"),
+        "live" => cfg!(feature = "live"),
         "midi" => cfg!(feature = "midi"),
         "osc" => cfg!(feature = "osc"),
         "link" => cfg!(feature = "link"),

@@ -19,12 +19,15 @@ path = "src/main.rs"
 # `cargo run -p deck-scene-features -- scenes/*.toml` lists what a set of scenes needs. The default = everything but the
 # platform's (pipewire) and link (it needs cmake): a plain `cargo build` plays every bundled scene.
 [features]
-default = ["space", "chapter", "midi", "osc"]
+default = ["space", "chapter", "live", "midi", "osc"]
 # the 3D space and the deck's being (#188): glTF rooms (meshopt, WebP), the orbit camera, the 3D buttons
 space = ["dep:glam", "dep:serde_json", "image/webp"]
 # a chapter from scutoons.com (library API + disk cache): `chapter` (its slices, the dialog set in the reader's fonts)
 # and `chapter_music` (its music, decoded with symphonia)
 chapter = ["dep:ureq", "dep:serde_json", "dep:symphonia", "dep:ab_glyph", "image/webp"]
+# a Live outlet (#186): the `outlet` node joins the relay as `output` of this deck's outlet, preloads the show media with
+# the deck token (deck-link) and renders the outlet's cells natively (live/); slices and text come from `chapter`
+live = ["chapter", "dep:protocol", "dep:tungstenite", "dep:deck-link"]
 # MIDI clock in and out (the tempo clock's `midi` source, the tempo node's `midi_out`)
 midi = ["dep:midir"]
 # the OSC remote for the tempo clock (`/tempo/bpm` …, the `osc` source)
@@ -66,6 +69,11 @@ glam = { version = "0.28", optional = true }
 midir = { workspace = true, optional = true }
 rosc = { workspace = true, optional = true }
 rusty_link = { version = "0.4.9", optional = true }
+# the Live outlet (#186): the relay protocol (one schema → TS + Rust), a blocking WebSocket client on its own thread (the
+# version tokio-tungstenite already pulls), the deck's identity and token (#180)
+protocol = { workspace = true, optional = true }
+tungstenite = { version = "0.24", optional = true }
+deck-link = { path = "../link", optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 pipewire = { version = "0.10", optional = true, features = ["v0_3_50"] }
@@ -76,3 +84,8 @@ libc = "0.2"
 [[bench]]
 name = "graph"
 harness = false
+
+[dev-dependencies]
+# tests/live_relay.rs: the deck's outlet against the real relay on 127.0.0.1 (#186)
+relay = { path = "../relay" }
+tokio = { workspace = true }

@@ -30,6 +30,7 @@ pub const STAGE_MODULES: &[StageModule] = &[
     ),
     module("space", "the 3D space: a glTF room and the deck's being (#188)", &["space"], &[]),
     module("chapter", "a chapter from scutoons.com: its slices and its music, cached (library API)", &["chapter", "chapter_music"], &[]),
+    module("live", "a Live outlet: the relay's cells for this deck's outlet, drawn natively; show media preloaded with the deck token (#186)", &["outlet"], &[]),
     module("midi", "MIDI clock in and out (the tempo clock's `midi` source, `midi_out`)", &[], &["midi"]),
     module("osc", "the OSC remote for the tempo clock (`/tempo/*`)", &[], &["osc"]),
     module("link", "Ableton Link as a tempo source (needs cmake + libclang to build)", &[], &["link"]),

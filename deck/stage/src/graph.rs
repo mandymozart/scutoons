@@ -54,6 +54,10 @@ pub enum Kind {
     /// a 3D space (space/, #188): a glTF room and the deck's being – the running graph as a floating body – seen by an
     /// orbit camera; its inputs colour the being (hue, glow), light the room and kick its breath
     Space,
+    /// a Live outlet (live/, #186): this deck's outlet's cells from the relay, drawn natively – the flat layers (slices,
+    /// panels, pictures, text, colour) as one plane over `in` (the backdrop: a space node, where a cell has a 3D set),
+    /// cross-faded on each cell change; `opacity` dims it
+    Outlet,
     /// a low-frequency oscillator (control)
     Lfo,
     /// the tempo clock (tempo/, #181): bpm, beat, bar, phase, bar_phase, pulse – one per scene, its params set the
@@ -81,13 +85,14 @@ pub enum Kind {
 
 impl Kind {
     /// every kind with its name in a scene
-    const NAMES: [(&'static str, Kind); 17] = [
+    const NAMES: [(&'static str, Kind); 18] = [
         ("test_pattern", Kind::TestPattern),
         ("shader", Kind::Shader),
         ("screen", Kind::Screen),
         ("chapter", Kind::Chapter),
         ("overlay", Kind::Overlay),
         ("space", Kind::Space),
+        ("outlet", Kind::Outlet),
         ("lfo", Kind::Lfo),
         ("tempo", Kind::Tempo),
         ("click", Kind::Click),
@@ -100,10 +105,10 @@ impl Kind {
         ("fft", Kind::Fft),
         ("audio_out", Kind::AudioOut),
     ];
-    pub const ALL: [Kind; 17] = {
-        let mut all = [Kind::Screen; 17];
+    pub const ALL: [Kind; 18] = {
+        let mut all = [Kind::Screen; 18];
         let mut i = 0;
-        while i < 17 {
+        while i < 18 {
             all[i] = Kind::NAMES[i].1;
             i += 1;
         }
@@ -121,7 +126,7 @@ impl Kind {
 
     pub fn domain(self) -> Domain {
         match self {
-            Kind::TestPattern | Kind::Shader | Kind::Screen | Kind::Chapter | Kind::Overlay | Kind::Space => Domain::Video,
+            Kind::TestPattern | Kind::Shader | Kind::Screen | Kind::Chapter | Kind::Overlay | Kind::Space | Kind::Outlet => Domain::Video,
             Kind::Lfo | Kind::Tempo => Domain::Control,
             _ => Domain::Audio,
         }
@@ -135,6 +140,7 @@ impl Kind {
             Kind::Chapter => &[p!("in", V), p!("next", C), p!("hold", C), p!("zoom", C), p!("pulse", C)],
             Kind::Overlay => &[p!("in", V), p!("top", V), p!("opacity", C), p!("pulse", C), p!("shake", C)],
             Kind::Space => &[p!("hue", C), p!("glow", C), p!("light", C), p!("pulse", C)],
+            Kind::Outlet => &[p!("in", V), p!("opacity", C)],
             Kind::Lfo => &[p!("rate", C), p!("depth", C)],
             Kind::Tempo => &[],
             Kind::Click => &[p!("gain", C)],
@@ -154,7 +160,7 @@ impl Kind {
 
     pub fn outputs(self) -> &'static [Port] {
         match self {
-            Kind::TestPattern | Kind::Shader | Kind::Overlay | Kind::Space => &[p!("out", V)],
+            Kind::TestPattern | Kind::Shader | Kind::Overlay | Kind::Space | Kind::Outlet => &[p!("out", V)],
             Kind::Chapter => &[p!("out", V), p!("text", V)],
             Kind::Screen | Kind::AudioOut => &[],
             Kind::Lfo => &[p!("out", C)],
@@ -237,7 +243,7 @@ impl Graph {
             nodes.push(Node { id: n.id.clone(), kind, params: n.params.clone() });
         }
         crate::modules::check(scene)?;
-        for sink in [Kind::Screen, Kind::AudioOut, Kind::Tempo, Kind::Space] {
+        for sink in [Kind::Screen, Kind::AudioOut, Kind::Tempo, Kind::Space, Kind::Outlet] {
             if nodes.iter().filter(|n| n.kind == sink).count() > 1 {
                 bail!("a scene has at most one {sink:?} node");
             }

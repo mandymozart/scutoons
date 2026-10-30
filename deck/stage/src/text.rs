@@ -369,9 +369,39 @@ pub fn caption(text: &str, width: u32, max_lines: usize) -> Option<RgbaImage> {
     Some(img)
 }
 
+/// A Live outlet's text layer (#186): `text` in Bangers at `px` (the line height), wrapped to `width`, centred, in
+/// `fill` with a black stroke, on transparent – at most `max_h` px high (the lines that don't fit are dropped).
+pub fn text_lines(text: &str, width: u32, px: f32, fill: [u8; 4], max_h: u32) -> Option<RgbaImage> {
+    let text = text.trim();
+    if text.is_empty() || width < 8 || px < 4.0 {
+        return None;
+    }
+    let f = font("lettering");
+    let margin = px * 0.25;
+    let lh = px * 1.05;
+    let mut lines = wrap(f, px, text, width as f32 - 2.0 * margin);
+    let fit = (((max_h as f32 - 2.0 * margin) / lh).floor() as usize).max(1);
+    lines.truncate(fit);
+    let h = ((lines.len() as f32 * lh + 2.0 * margin).ceil() as u32).min(max_h.max(1));
+    let mut img = RgbaImage::from_pixel(width, h, Rgba([fill[0], fill[1], fill[2], 0]));
+    draw_lines(&mut img, f, px, lh, &lines, margin, margin, width as f32 - 2.0 * margin, "center", fill, Some(([0, 0, 0, fill[3]], px * 0.06)));
+    Some(img)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn outlet_text_wraps_into_its_box() {
+        let img = text_lines("Liebe Gemeinde, die Predigt steht bevor", 300, 40.0, [255, 200, 0, 255], 400).unwrap();
+        assert_eq!(img.width(), 300);
+        assert!(img.height() > 80, "two lines at least: {}", img.height());
+        assert!(img.pixels().any(|p| p.0 == [255, 200, 0, 255]), "the fill colour");
+        let short = text_lines("Liebe Gemeinde, die Predigt steht bevor", 300, 40.0, [255; 4], 60).unwrap();
+        assert!(short.height() <= 60, "clipped to its box");
+        assert!(text_lines("  ", 300, 40.0, [255; 4], 60).is_none());
+    }
 
     #[test]
     fn colours_parse() {

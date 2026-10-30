@@ -9,6 +9,7 @@ pub mod control;
 pub mod fft;
 pub mod graph;
 pub mod hud;
+pub mod live;
 pub mod modules;
 pub mod params;
 pub mod render;
