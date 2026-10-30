@@ -1,0 +1,140 @@
+# The Cathedral of decks (#188 phase 4) – the conductor: a being made the same way as the decks' (its body = this
+# graph's nodes, its parameters 3D buttons), bigger, with PLF's portrait as its head – not PLF herself (owner
+# 2026-10-30) – in the middle of the nave; every deck that joins the session floats into a circle around it, its being
+# built from what it streams, the hoses between beings following who sends to whom. Cat Pope s1c2: the sermon, the
+# decks the congregation and the choir. Needs a relay (deck.toml `relay` or --relay) and, on a relay with a secret,
+# the conductor's session token (--token / LIVE_TOKEN). Run it:
+#   cargo run --release -p deck-stage -- --scene conductor --windowed --rooms ../media/scutoons/rooms \
+#     --portraits ../media/characters --relay ws://127.0.0.1:7700/live/CATH
+# Stand-in decks: cargo run --release -p deck-stage --example decks -- ws://127.0.0.1:7700/live/CATH 4
+
+[stage]
+name = "Cathedral of decks - conductor"
+render_scale = 1.0
+
+# the conductor's head: PLF's portrait (plf_portrait-<mood> under --portraits); the moods of the sermon, calm → the
+# explosive crescendo
+[being]
+character = "plf"
+moods = ["neutral", "thinking", "smug", "laughing", "furious"]
+size = 0.8
+drift = 0.04
+breath = 0.05
+wobble = 0.02
+
+# the show's clock – the decks' beings breathe on it too
+[[node]]
+id = "tempo"
+kind = "tempo"
+bpm = 84
+beats = 4
+source = "internal"
+
+# the sermon's chapter
+[[node]]
+id = "music"
+kind = "chapter_music"
+toon = "catpope"
+chapter = 2
+quality = "low"
+gain = 0.6
+
+# the organ under the sermon: a low drone that swells with the bass
+[[node]]
+id = "organ"
+kind = "osc"
+freq = 41.2
+gain = 0.08
+
+# the crescendo's swell: a slow LFO over the organ's partner voice
+[[node]]
+id = "swell"
+kind = "lfo"
+rate = 0.05
+depth = 1.0
+
+[[node]]
+id = "voice"
+kind = "fm"
+freq = 82.4
+ratio = 2.0
+index = 1.0
+gain = 0.06
+
+[[node]]
+id = "mix"
+kind = "mixer"
+gain1 = 1.0
+gain2 = 1.0
+gain3 = 1.0
+
+[[node]]
+id = "fft"
+kind = "fft"
+release = 0.4
+
+[[node]]
+id = "out"
+kind = "audio_out"
+volume = 0.8
+
+# the middle of the nave (room metres), the camera outside the circle of decks; `ring` = the circle's radius (m)
+[[node]]
+id = "space"
+kind = "space"
+room = "cathedral"
+quality = "low"
+at = [5.2, -0.2, 0.5]
+yaw = 180
+pitch = 12
+distance = 6.0
+ring = 3.0
+hue = 0.08
+glow = 0.75
+light = 0.8
+join = "conductor"
+
+[[node]]
+id = "screen"
+kind = "screen"
+
+[[link]]
+from = "music"
+to = "mix.in1"
+
+[[link]]
+from = "organ"
+to = "mix.in2"
+
+[[link]]
+from = "voice"
+to = "mix.in3"
+
+[[link]]
+from = "mix"
+to = "fft.in"
+
+[[link]]
+from = "mix"
+to = "out.in"
+
+[[link]]
+from = "swell"
+to = "voice.index"
+scale = 4
+offset = 0.5
+
+[[link]]
+from = "fft.bass"
+to = "organ.gain"
+scale = 0.2
+offset = 0.04
+
+[[link]]
+from = "fft.level"
+to = "space.pulse"
+scale = 0.8
+
+[[link]]
+from = "space"
+to = "screen.in"

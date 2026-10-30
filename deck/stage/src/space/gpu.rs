@@ -1,11 +1,39 @@
 //! The space node on the GPU (#188): its own depth buffer at the render size; per frame the room (one vertex / index
 //! buffer, a draw per texture, unlit, depth-written), the being's solid spheres (depth-written), then its tubes and
 //! ghost spheres (additive, depth-tested only – the order among them doesn't matter). The sphere and tube buffers are
-//! sized once from the being (`Being::capacity`) and rewritten per frame from preallocated vectors.
+//! sized from the beings (`Space::capacity`) – again only when one comes or goes (`Space::generation`) – and rewritten
+//! per frame from preallocated vectors.
+//!
+//! The heads (#188 phase 5) come between the solids and the ghosts: per head, far to near, a curved face plate (a grid
+//! bulged toward the eye, turned to it around the vertical) drawn twice – the dark machine layer behind, then the
+//! portrait (the previous mood fading out under the new one) – alpha-blended, depth-tested and written, so the skin's
+//! ghost sphere and the bubbles behind the face sit right. A sprite is a texture per portrait slot, uploaded when its
+//! loader has it.
 use super::being::{Sphere, TubeVertex};
 use super::glb::{Image, Room, RoomVertex};
 use super::Space;
 use glam::Vec3;
+
+/// the face plate's grid (quads per side)
+const PLATE: u32 = 16;
+/// how far the face plate bulges toward the eye (a fraction of its half width)
+const BULGE: f32 = 0.32;
+
+/// one face-plate layer for the GPU (80 bytes): centre + half width, right + bulge, up + alpha, forward + layer
+/// (0 = the machine behind, 1 = the portrait), extra = (glow, hue, energy, has a face)
+#[repr(C)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+struct HeadLayer {
+    center: [f32; 3],
+    size: f32,
+    right: [f32; 3],
+    bulge: f32,
+    up: [f32; 3],
+    alpha: f32,
+    fwd: [f32; 3],
+    layer: f32,
+    extra: [f32; 4],
+}
 
 const SHADER: &str = include_str!("../shaders/space.wgsl");
 const DEPTH: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
@@ -55,6 +83,21 @@ pub struct SpaceGpu {
     depth: wgpu::TextureView,
     spheres: Vec<Sphere>,
     tubes: Vec<TubeVertex>,
+    /// the Space generation the buffers are sized for
+    generation: u64,
+    head_pipe: wgpu::RenderPipeline,
+    plate_vb: wgpu::Buffer,
+    plate_ib: wgpu::Buffer,
+    plate_count: u32,
+    head_buf: wgpu::Buffer,
+    head_sampler: wgpu::Sampler,
+    /// a texture per portrait slot (None until its sprite came), and the blank one for a head without a face
+    sprites: Vec<Option<wgpu::BindGroup>>,
+    blank: wgpu::BindGroup,
+    /// this frame's head layers and their textures (slot, or None = blank); the heads far to near
+    layers: Vec<HeadLayer>,
+    layer_tex: Vec<Option<usize>>,
+    order: Vec<(f32, usize)>,
 }
 
 impl SpaceGpu {
@@ -149,6 +192,35 @@ impl SpaceGpu {
         let solid_pipe = pipe("space solid", &being_layout, "vs_sphere", "fs_solid", &sphere_vbl, None, true, Some(wgpu::Face::Back));
         let ghost_pipe = pipe("space ghost", &being_layout, "vs_sphere", "fs_ghost", &sphere_vbl, Some(additive), false, Some(wgpu::Face::Back));
         let tube_pipe = pipe("space tube", &being_layout, "vs_tube", "fs_tube", &tube_vbl, Some(additive), false, None);
+        // the heads: premultiplied alpha over, depth written; LessEqual – the mood fading in lies on the old one
+        let plate_attrs = wgpu::vertex_attr_array![0 => Float32x2];
+        let layer_attrs = wgpu::vertex_attr_array![1 => Float32x4, 2 => Float32x4, 3 => Float32x4, 4 => Float32x4, 5 => Float32x4];
+        let head_vbl = [
+            wgpu::VertexBufferLayout { array_stride: 8, step_mode: wgpu::VertexStepMode::Vertex, attributes: &plate_attrs },
+            wgpu::VertexBufferLayout { array_stride: std::mem::size_of::<HeadLayer>() as u64, step_mode: wgpu::VertexStepMode::Instance, attributes: &layer_attrs },
+        ];
+        let head_pipe = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("space head"),
+            layout: Some(&room_layout),
+            vertex: wgpu::VertexState { module: &module, entry_point: Some("vs_head"), compilation_options: Default::default(), buffers: &head_vbl },
+            primitive: Default::default(),
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: DEPTH,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::LessEqual,
+                stencil: Default::default(),
+                bias: Default::default(),
+            }),
+            multisample: Default::default(),
+            fragment: Some(wgpu::FragmentState {
+                module: &module,
+                entry_point: Some("fs_head"),
+                compilation_options: Default::default(),
+                targets: &[Some(wgpu::ColorTargetState { format: color, blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING), write_mask: wgpu::ColorWrites::COLOR })],
+            }),
+            multiview: None,
+            cache: None,
+        });
 
         let (unit_v, unit_i) = unit_sphere(14, 9);
         let buffer = |label: &str, size: usize, usage: wgpu::BufferUsages| {
@@ -156,11 +228,27 @@ impl SpaceGpu {
         };
         let unit_vb = buffer("space unit sphere", unit_v.len() * 12, wgpu::BufferUsages::VERTEX);
         let unit_ib = buffer("space unit sphere idx", unit_i.len() * 4, wgpu::BufferUsages::INDEX);
-        let (ns, nv) = space.being.capacity();
+        let (plate_v, plate_i) = plate(PLATE);
+        let plate_vb = buffer("space face plate", plate_v.len() * 8, wgpu::BufferUsages::VERTEX);
+        let plate_ib = buffer("space face plate idx", plate_i.len() * 4, wgpu::BufferUsages::INDEX);
+        queue.write_buffer(&plate_vb, 0, bytemuck::cast_slice(&plate_v));
+        queue.write_buffer(&plate_ib, 0, bytemuck::cast_slice(&plate_i));
+        let (ns, nv) = space.capacity();
         let inst_buf = buffer("space spheres", ns * std::mem::size_of::<Sphere>(), wgpu::BufferUsages::VERTEX);
         let tube_vb = buffer("space tubes", nv * std::mem::size_of::<TubeVertex>(), wgpu::BufferUsages::VERTEX);
-        let tube_idx = space.being.tube_indices();
+        let tube_idx = super::being::tube_indices(space.tubes());
         let tube_ib = buffer("space tube idx", tube_idx.len() * 4, wgpu::BufferUsages::INDEX);
+        let heads = space.beings().count();
+        let head_buf = buffer("space heads", heads * 3 * std::mem::size_of::<HeadLayer>(), wgpu::BufferUsages::VERTEX);
+        let head_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("space head"),
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Linear,
+            ..Default::default()
+        });
+        let blank_view = texture(device, queue, &Image { levels: vec![(1, 1, vec![255; 4])] });
+        let blank = tex_bind(device, &tex_layout, &blank_view, &head_sampler);
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("space room"),
             address_mode_u: wgpu::AddressMode::Repeat,
@@ -193,6 +281,96 @@ impl SpaceGpu {
             depth: depth_view(device, size),
             spheres: Vec::with_capacity(ns),
             tubes: Vec::with_capacity(nv),
+            generation: space.generation,
+            head_pipe,
+            plate_vb,
+            plate_ib,
+            plate_count: plate_i.len() as u32,
+            head_buf,
+            head_sampler,
+            sprites: Vec::new(),
+            blank,
+            layers: Vec::with_capacity(heads * 3),
+            layer_tex: Vec::with_capacity(heads * 3),
+            order: Vec::with_capacity(heads),
+        }
+    }
+
+    /// Before a frame: the room once it arrived, the sprites the loader finished, and buffers sized anew when beings
+    /// came or went (a join – not a frame's work).
+    pub fn sync(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, space: &mut Space) {
+        if let Some(room) = space.take_room() {
+            let t = std::time::Instant::now();
+            self.upload_room(device, queue, &room);
+            tracing::info!("room on the GPU in {:.0} ms", t.elapsed().as_secs_f32() * 1000.0);
+        }
+        for (slot, img) in space.portraits.take() {
+            let view = texture(device, queue, &img);
+            if self.sprites.len() <= slot {
+                self.sprites.resize_with(slot + 1, || None);
+            }
+            self.sprites[slot] = Some(tex_bind(device, &self.tex_layout, &view, &self.head_sampler));
+        }
+        if space.generation != self.generation {
+            self.generation = space.generation;
+            let buffer = |label: &str, size: usize, usage: wgpu::BufferUsages| {
+                device.create_buffer(&wgpu::BufferDescriptor { label: Some(label), size: size.max(16) as u64, usage: usage | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false })
+            };
+            let (ns, nv) = space.capacity();
+            self.inst_buf = buffer("space spheres", ns * std::mem::size_of::<Sphere>(), wgpu::BufferUsages::VERTEX);
+            self.tube_vb = buffer("space tubes", nv * std::mem::size_of::<TubeVertex>(), wgpu::BufferUsages::VERTEX);
+            let idx = super::being::tube_indices(space.tubes());
+            self.tube_ib = buffer("space tube idx", idx.len() * 4, wgpu::BufferUsages::INDEX);
+            queue.write_buffer(&self.tube_ib, 0, bytemuck::cast_slice(&idx));
+            self.tube_count = idx.len() as u32;
+            let heads = space.beings().count();
+            self.head_buf = buffer("space heads", heads * 3 * std::mem::size_of::<HeadLayer>(), wgpu::BufferUsages::VERTEX);
+            self.spheres = Vec::with_capacity(ns);
+            self.tubes = Vec::with_capacity(nv);
+            self.layers = Vec::with_capacity(heads * 3);
+            self.layer_tex = Vec::with_capacity(heads * 3);
+            self.order = Vec::with_capacity(heads);
+        }
+    }
+
+    /// the heads' layers this frame, far to near (into the preallocated vectors – no allocation)
+    fn heads(&mut self, space: &Space, eye: Vec3) {
+        self.layers.clear();
+        self.layer_tex.clear();
+        self.order.clear();
+        for (i, b) in space.beings().enumerate() {
+            self.order.push(((b.head.pos - eye).length_squared(), i));
+        }
+        self.order.sort_unstable_by(|a, b| b.0.total_cmp(&a.0));
+        for k in 0..self.order.len() {
+            let Some(b) = space.beings().nth(self.order[k].1) else { continue };
+            let h = &b.head;
+            let flat = Vec3::new(eye.x - h.pos.x, 0.0, eye.z - h.pos.z);
+            let fwd = flat.try_normalize().unwrap_or(Vec3::Z);
+            let right = Vec3::Y.cross(fwd);
+            let have = |s: Option<usize>| s.filter(|&s| self.sprites.get(s).is_some_and(Option::is_some));
+            let now = have(space.portraits.pick(&h.sprites, h.mood));
+            let before = have(space.portraits.pick(&h.sprites, h.prev));
+            let layer = |alpha: f32, layer: f32, face: bool| HeadLayer {
+                center: h.pos.into(),
+                size: h.radius * 1.35,
+                right: right.into(),
+                bulge: BULGE,
+                up: [0.0, 1.0, 0.0],
+                alpha,
+                fwd: fwd.into(),
+                layer,
+                extra: [b.glow, b.hue, h.energy, if face { 1.0 } else { 0.0 }],
+            };
+            // the machine behind (the silhouette of the face it carries), then the portrait: the old mood under the new
+            self.layers.push(layer(1.0, 0.0, now.is_some()));
+            self.layer_tex.push(now);
+            if h.fade < 1.0 && before.is_some() && before != now {
+                self.layers.push(layer(1.0, 1.0, true));
+                self.layer_tex.push(before);
+            }
+            self.layers.push(layer(if before.is_some() && before != now { h.fade } else { 1.0 }, 1.0, now.is_some()));
+            self.layer_tex.push(now);
         }
     }
 
@@ -221,31 +399,21 @@ impl SpaceGpu {
         let mut views: Vec<wgpu::TextureView> = room.images.iter().map(|i| texture(device, queue, i)).collect();
         views.push(texture(device, queue, &Image { levels: vec![(1, 1, vec![255; 4])] }));
         let white = views.len() - 1;
-        let binds = views
-            .iter()
-            .map(|v| {
-                device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    label: Some("room texture"),
-                    layout: &self.tex_layout,
-                    entries: &[
-                        wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(v) },
-                        wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Sampler(&self.sampler) },
-                    ],
-                })
-            })
-            .collect();
+        let binds = views.iter().map(|v| tex_bind(device, &self.tex_layout, v, &self.sampler)).collect();
         let draws = room.draws.iter().map(|d| (d.first, d.count, d.image.unwrap_or(white))).collect();
         self.room = Some(RoomGpu { vb, ib, draws, binds });
     }
 
     /// One frame of the space into `target` (the node's texture, `size` = its size). `time` drives the shimmer.
     pub fn draw(&mut self, queue: &wgpu::Queue, enc: &mut wgpu::CommandEncoder, target: &wgpu::TextureView, size: (u32, u32), space: &Space, time: f32) {
-        let solid = space.being.write(&mut self.spheres, &mut self.tubes) as u32;
+        let solid = space.write(&mut self.spheres, &mut self.tubes) as u32;
         let all = self.spheres.len() as u32;
         queue.write_buffer(&self.inst_buf, 0, bytemuck::cast_slice(&self.spheres));
         queue.write_buffer(&self.tube_vb, 0, bytemuck::cast_slice(&self.tubes));
         let cam = &space.camera;
         let eye: Vec3 = cam.eye();
+        self.heads(space, eye);
+        queue.write_buffer(&self.head_buf, 0, bytemuck::cast_slice(&self.layers));
         let u = FrameUniform {
             view_proj: cam.view_proj(size.0 as f32 / size.1.max(1) as f32).to_cols_array_2d(),
             eye: [eye.x, eye.y, eye.z, 1.0],
@@ -287,12 +455,22 @@ impl SpaceGpu {
         rp.set_vertex_buffer(1, self.inst_buf.slice(..));
         rp.set_index_buffer(self.unit_ib.slice(..), wgpu::IndexFormat::Uint32);
         rp.draw_indexed(0..self.unit_count, 0, 0..solid);
+        rp.set_pipeline(&self.head_pipe);
+        rp.set_vertex_buffer(0, self.plate_vb.slice(..));
+        rp.set_vertex_buffer(1, self.head_buf.slice(..));
+        rp.set_index_buffer(self.plate_ib.slice(..), wgpu::IndexFormat::Uint32);
+        for (i, tex) in self.layer_tex.iter().enumerate() {
+            let bind = tex.and_then(|s| self.sprites[s].as_ref()).unwrap_or(&self.blank);
+            rp.set_bind_group(1, bind, &[]);
+            rp.draw_indexed(0..self.plate_count, 0, i as u32..i as u32 + 1);
+        }
         rp.set_pipeline(&self.tube_pipe);
         rp.set_vertex_buffer(0, self.tube_vb.slice(..));
         rp.set_index_buffer(self.tube_ib.slice(..), wgpu::IndexFormat::Uint32);
         rp.draw_indexed(0..self.tube_count, 0, 0..1);
         rp.set_pipeline(&self.ghost_pipe);
         rp.set_vertex_buffer(0, self.unit_vb.slice(..));
+        rp.set_vertex_buffer(1, self.inst_buf.slice(..));
         rp.set_index_buffer(self.unit_ib.slice(..), wgpu::IndexFormat::Uint32);
         rp.draw_indexed(0..self.unit_count, 0, solid..all);
     }
@@ -335,6 +513,36 @@ fn texture(device: &wgpu::Device, queue: &wgpu::Queue, img: &Image) -> wgpu::Tex
         );
     }
     tex.create_view(&Default::default())
+}
+
+fn tex_bind(device: &wgpu::Device, layout: &wgpu::BindGroupLayout, view: &wgpu::TextureView, sampler: &wgpu::Sampler) -> wgpu::BindGroup {
+    device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("space texture"),
+        layout,
+        entries: &[
+            wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(view) },
+            wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Sampler(sampler) },
+        ],
+    })
+}
+
+/// the face plate: an `n` × `n` grid over [-1, 1]² (the shader bulges it and turns it to the eye)
+fn plate(n: u32) -> (Vec<[f32; 2]>, Vec<u32>) {
+    let mut v = Vec::new();
+    for j in 0..=n {
+        for i in 0..=n {
+            v.push([i as f32 / n as f32 * 2.0 - 1.0, j as f32 / n as f32 * 2.0 - 1.0]);
+        }
+    }
+    let mut idx = Vec::new();
+    for j in 0..n {
+        for i in 0..n {
+            let a = j * (n + 1) + i;
+            let b = a + n + 1;
+            idx.extend_from_slice(&[a, a + 1, b, a + 1, b + 1, b]);
+        }
+    }
+    (v, idx)
 }
 
 /// a UV sphere of radius 1: `lon` × `lat` quads (its normals = its positions)

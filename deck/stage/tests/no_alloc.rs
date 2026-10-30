@@ -102,7 +102,8 @@ fn renders_without_allocating(graph: &Graph, build: Build) {
 }
 
 /// The being's frame (#188) never allocates either: the control step, the body's pose, the hoses' bubbles, the buttons'
-/// values, picking, a button turned like a CC and the geometry written into the renderer's preallocated buffers.
+/// values, the head's energy and mood, picking, a button turned like a CC and the geometry written into the renderer's
+/// preallocated buffers; and a deck's being at the conductor on its stream's values (#188 phase 4, `Mirror`).
 #[cfg(feature = "space")]
 #[test]
 fn the_being_steps_without_allocating() {
@@ -111,11 +112,17 @@ fn the_being_steps_without_allocating() {
     use deck_stage::scene::CATHEDRAL_SCENE;
     use deck_stage::space::being::Being;
     use deck_stage::space::camera::Orbit;
+    use deck_stage::space::values::Local;
     use deck_stage::tempo;
     let scene = deck_stage::modules::carried_part(&Scene::parse(CATHEDRAL_SCENE).unwrap());
     let graph = Graph::build(&scene).unwrap();
     let mut ctl = Controls::new(&graph, None);
     let mut being = Being::new(&graph, &scene.being);
+    // phase 4: a deck's being at the conductor, on its stream's values
+    let mut remote = Being::new(&graph, &scene.being);
+    let mut mirror = deck_stage::space::values::Mirror::new(&graph);
+    assert!(mirror.apply(&graph, "fft.level", &[0.8]) && mirror.apply(&graph, "voice.index", &[3.0]));
+    let (mut rs, mut rt) = { let (a, b) = remote.capacity(); (Vec::with_capacity(a), Vec::with_capacity(b)) };
     let (ns, nv) = being.capacity();
     let (mut spheres, mut tubes) = (Vec::with_capacity(ns), Vec::with_capacity(nv));
     let cam = Orbit::new(being.anchor, 0.3, 0.1, 2.0);
@@ -127,9 +134,11 @@ fn the_being_steps_without_allocating() {
         let beat = tempo::Now { bpm: 84.0, pos: tempo::position(f as f64 * 0.023, 4), per_bar: 4, running: true };
         ctl.update(1.0 / 60.0, 0, &beat);
         ctl.set(knob.0, knob.1, (f % 100) as f32 * 0.01);
-        being.update(1.0 / 60.0, f as f32 / 60.0, &ctl, &beat, &meter);
+        being.update(1.0 / 60.0, f as f32 / 60.0, &Local { ctl: &ctl, meter: &meter }, &beat);
         let _ = being.pick(&cam.ray(640.0 + f as f32, 360.0, 1280.0, 720.0));
         being.write(&mut spheres, &mut tubes);
+        remote.update(1.0 / 60.0, f as f32 / 60.0, &mirror, &beat);
+        remote.write(&mut rs, &mut rt);
     }
     measure(false);
     assert_eq!(CALLS.load(Ordering::SeqCst) - before, 0, "allocations / frees in the being's frame");

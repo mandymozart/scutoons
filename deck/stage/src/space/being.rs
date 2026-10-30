@@ -4,15 +4,21 @@
 //! direction, more and bigger the more it changes (control links: the change against the value's recent range; audio
 //! links: the block peak of the source's output buffer; video links: a steady trickle). Every point carries its node's
 //! control inputs as 3D buttons (crate::params ranges); a button on a linked input shows the hose's value and can't be
-//! turned. The body drifts slowly and breathes on the tempo clock. The head (phase 5, the portrait) will sit at `head`.
+//! turned. The body drifts slowly and breathes on the tempo clock.
+//!
+//! **The head** (phase 5, owner 2026-10-30: "the portrait becomes the being's head … the interface between organic and
+//! synthetic", Ghost in the Shell): the character's portrait mood sprite on a curved face plate over a dark machine
+//! layer, inside a translucent synthetic skin; cables run from the core and the body's highest node points up into
+//! sockets in its neck, their bands rising into the head. The mood follows the energy (the FFT level and the tempo):
+//! `look.moods` calm → wild, held a moment before it changes, cross-faded (portrait.rs loads the sprites).
 //!
 //! Data-driven so a being can later be saved as a preset (#191): the body is the graph + the scene's `[being]` look;
-//! the colours are the space node's inputs (hue, glow). Values are read from the control domain's batch columns
-//! (`Controls::outputs` / `input`) and the audio meters – no per-node copies; `update` and `write` never allocate
-//! (tests/no_alloc.rs).
-use crate::control::Controls;
+//! the colours are the space node's inputs (hue, glow). Values come through `Values` (values.rs): this deck's control
+//! domain and audio meters, or another deck's stream (phase 4) – no per-node copies; `update` and `write` never
+//! allocate (tests/no_alloc.rs).
 use crate::graph::{Domain, Graph, Kind, PortType};
 use crate::space::camera::Ray;
+use crate::space::values::{Path, Values};
 use crate::params::{self, Spec};
 use crate::tempo;
 use glam::Vec3;
@@ -23,6 +29,13 @@ pub const BUBBLES: usize = 12;
 /// a tube's rings along its curve and vertices around a ring
 pub const SEGMENTS: usize = 18;
 pub const SIDES: usize = 8;
+/// neck cables at most: the core's spine + the body's highest points
+pub const NECK: usize = 6;
+/// the head's moods from calm to wild when the scene names none (the sprites' `<char>_portrait-<mood>`)
+pub const MOODS: [&str; 5] = ["neutral", "thinking", "happy", "laughing", "surprised"];
+/// how long a new mood must hold before the head shows it (s), and the cross-fade (s)
+const MOOD_HOLD: f32 = 1.2;
+const MOOD_FADE: f32 = 0.5;
 const TAU: f32 = std::f32::consts::TAU;
 
 /// The scene's `[being]` table – the body's shape (the colours are the space node's inputs).
@@ -43,11 +56,54 @@ pub struct Look {
     pub bubbles: f32,
     /// the parameters shown as buttons: "node" (all its inputs) or "node.port"; empty = every control input
     pub expose: Vec<String>,
+    /// the head's character (its portrait sprites `<character>_portrait-<mood>`); empty = a head without a face
+    pub character: String,
+    /// the moods the energy walks through, calm → wild (default MOODS)
+    pub moods: Vec<String>,
 }
 
 impl Default for Look {
     fn default() -> Self {
-        Look { size: 0.5, drift: 0.06, breath: 0.035, wobble: 0.025, hose: 1.0, bubbles: 1.0, expose: Vec::new() }
+        Look {
+            size: 0.5,
+            drift: 0.06,
+            breath: 0.035,
+            wobble: 0.025,
+            hose: 1.0,
+            bubbles: 1.0,
+            expose: Vec::new(),
+            character: String::new(),
+            moods: MOODS.iter().map(|m| m.to_string()).collect(),
+        }
+    }
+}
+
+/// The head (phase 5): where it floats, its size, the energy and the mood it shows (an index into `look.moods`,
+/// cross-faded from `prev` by `fade`).
+#[derive(Debug, Clone)]
+pub struct Head {
+    pub pos: Vec3,
+    pub radius: f32,
+    /// 0..1: the FFT level and the tempo, smoothed
+    pub energy: f32,
+    pub mood: usize,
+    pub prev: usize,
+    /// 0 = `prev` shows, 1 = `mood`
+    pub fade: f32,
+    /// the mood the energy asks for, and since when
+    candidate: usize,
+    held: f32,
+    /// the portrait sprite per mood (portrait.rs slots); empty = no face
+    pub sprites: Vec<usize>,
+    /// a mood set from outside (another deck's stream says its mood): the energy doesn't pick it then
+    pub fixed: Option<usize>,
+}
+
+impl Head {
+    /// the neck's socket `i` of `n`: a ring under the head's centre
+    pub fn socket(&self, i: usize, n: usize) -> Vec3 {
+        let a = TAU * (i as f32 + 0.5) / n.max(1) as f32 + 0.4;
+        self.pos + Vec3::new(a.cos() * 0.38, -0.8, a.sin() * 0.38) * self.radius
     }
 }
 
@@ -147,9 +203,12 @@ pub mod kind {
     pub const SHELL: f32 = 2.0;
     pub const BUBBLE: f32 = 3.0;
     pub const CORE: f32 = 4.0;
+    /// the head's translucent synthetic skin
+    pub const SKIN: f32 = 5.0;
 }
 
-/// one tube vertex (40 bytes): position, normal, t along the tube, its flow (activity), hue tint, kind (0 hose, 1 tendril)
+/// one tube vertex (40 bytes): position, normal, t along the tube, its flow (activity), hue tint, kind (0 hose,
+/// 1 tendril, 2 neck cable, 3 a hose between beings)
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct TubeVertex {
@@ -180,6 +239,11 @@ pub struct Being {
     /// the hovered / dragged part (the renderer lights it)
     pub hover: Option<Hit>,
     pub dragging: bool,
+    pub head: Head,
+    /// the points whose cables run up into the neck (the core first, then the highest points)
+    pub neck: Vec<usize>,
+    /// the FFT node (the head's energy)
+    fft: Option<usize>,
 }
 
 impl Being {
@@ -302,6 +366,10 @@ impl Being {
             }
         }
         let core_point = core_node.map(point_of);
+        // the neck: the core's spine, then the points nearest the head (the sinks – where the data has risen to)
+        let mut by_height: Vec<usize> = (0..points.len()).filter(|&i| Some(i) != core_point).collect();
+        by_height.sort_by(|&a, &b| points[b].rest.y.total_cmp(&points[a].rest.y));
+        let neck: Vec<usize> = core_point.into_iter().chain(by_height).take(NECK).collect();
         Being {
             look: look.clone(),
             points,
@@ -316,23 +384,37 @@ impl Being {
             glow: params::default(Kind::Space, "glow"),
             hover: None,
             dragging: false,
+            head: Head {
+                pos: Vec3::ZERO,
+                radius: s * 0.55,
+                energy: 0.0,
+                mood: 0,
+                prev: 0,
+                fade: 1.0,
+                candidate: 0,
+                held: 0.0,
+                sprites: Vec::new(),
+                fixed: None,
+            },
+            neck,
+            fft: graph.first(Kind::Fft),
         }
     }
 
-    /// where the head goes (phase 5): above the body's top
+    /// where the head floats: above the body's top
     pub fn head(&self) -> Vec3 {
-        self.center + Vec3::Y * self.look.size * 1.25 * self.swell
+        self.center + Vec3::Y * self.look.size * 1.3 * self.swell
     }
 
-    /// One frame: the body's pose (drift, breath, sway), the hoses' curves and bubbles, the buttons' values. `meter`
-    /// = an audio output's newest peak (node, port). Never allocates.
-    pub fn update(&mut self, dt: f32, time: f32, ctl: &Controls, beat: &tempo::Now, meter: &dyn Fn(usize, usize) -> f32) {
+    /// One frame: the body's pose (drift, breath, sway), the hoses' curves and bubbles, the buttons' values, the head's
+    /// energy and mood. Never allocates.
+    pub fn update(&mut self, dt: f32, time: f32, vals: &dyn Values, beat: &tempo::Now) {
         let look = &self.look;
         let s = look.size;
         if let Some(c) = self.core_point {
             let node = self.points[c].node;
-            self.hue = ctl.input(node, "hue", params::default(Kind::Space, "hue"));
-            self.glow = ctl.input(node, "glow", params::default(Kind::Space, "glow"));
+            self.hue = vals.input(node, "hue", params::default(Kind::Space, "hue"));
+            self.glow = vals.input(node, "glow", params::default(Kind::Space, "glow"));
         }
         // breath: a swell on each beat and a slow wave over the bar; without a running clock a calm 0.2 Hz
         let b = if beat.running {
@@ -341,7 +423,7 @@ impl Being {
         } else {
             0.5 - 0.5 * (TAU * 0.2 * time).cos()
         };
-        let pulse = self.core_point.map_or(0.0, |c| ctl.input(self.points[c].node, "pulse", 0.0));
+        let pulse = self.core_point.map_or(0.0, |c| vals.input(self.points[c].node, "pulse", 0.0));
         self.swell = 1.0 + look.breath * (b + 0.5 * pulse);
         let d = look.drift;
         self.center = self.anchor + Vec3::new(d * (0.13 * time).sin(), 0.6 * d * (0.21 * time + 1.0).sin(), d * (0.17 * time + 2.0).sin());
@@ -360,7 +442,7 @@ impl Being {
             // how much changes → bubbles per second and their size
             let (rate, size) = match h.flow {
                 Flow::Control(n, p) => {
-                    let v = ctl.outputs(n).get(p).copied().unwrap_or(0.0);
+                    let v = vals.output(n, p);
                     if h.last.is_nan() {
                         (h.last, h.lo, h.hi) = (v, v, v);
                     }
@@ -374,7 +456,7 @@ impl Being {
                     ((rel / dt.max(1e-3) * 2.5).min(14.0), 0.35 + 0.65 * (rel * 6.0).min(1.0))
                 }
                 Flow::Audio(n, p) => {
-                    let level = meter(n, p).clamp(0.0, 1.0);
+                    let level = vals.meter(n, p).clamp(0.0, 1.0);
                     (level.sqrt() * 9.0, 0.3 + 0.7 * level.sqrt())
                 }
                 Flow::Video => (1.5, 0.35),
@@ -400,7 +482,7 @@ impl Being {
         for bt in &mut self.buttons {
             let p = &self.points[bt.point];
             let node = p.node;
-            bt.value = if bt.shape { ctl.lfo_shape(node).unwrap_or(0) as f32 } else { ctl.input(node, bt.name, bt.spec.default) };
+            bt.value = if bt.shape { vals.lfo_shape(node).unwrap_or(0) as f32 } else { vals.input(node, bt.name, bt.spec.default) };
             bt.norm = bt.spec.norm(bt.value);
             let (angle, count) = bt.slot;
             bt.pos = if Some(bt.point) == self.core_point {
@@ -415,6 +497,32 @@ impl Being {
                 p.pos + out * p.radius * 1.9 + (u * angle.cos() + v * angle.sin()) * ring
             };
         }
+        self.step_head(dt, vals, beat);
+    }
+
+    /// The head's place, its energy (the FFT level – this deck's sound – and the tempo: a fast clock is a little
+    /// wilder) and its mood: the energy's mood must hold MOOD_HOLD before it shows, then it cross-fades. A fixed mood
+    /// (another deck's stream says it) shows at once.
+    fn step_head(&mut self, dt: f32, vals: &dyn Values, beat: &tempo::Now) {
+        let pos = self.head();
+        let h = &mut self.head;
+        h.pos = pos;
+        let level = self.fft.map_or(0.0, |n| vals.output(n, 0)).clamp(0.0, 1.0);
+        let bpm = if beat.running { beat.bpm as f32 } else { 0.0 };
+        let target = (0.8 * (level * 1.3).min(1.0) + 0.2 * ((bpm - 60.0) / 100.0).clamp(0.0, 1.0)).clamp(0.0, 1.0);
+        // quick up, slow down: a crescendo shows at once, the calm comes back gently
+        let k = if target > h.energy { dt / 0.3 } else { dt / 1.5 };
+        h.energy += (target - h.energy) * k.min(1.0);
+        let n = self.look.moods.len().max(1);
+        let want = h.fixed.unwrap_or(((h.energy * (n - 1) as f32).round() as usize).min(n - 1));
+        if want != h.candidate {
+            (h.candidate, h.held) = (want, 0.0);
+        }
+        h.held += dt;
+        if h.candidate != h.mood && (h.held >= MOOD_HOLD || h.fixed.is_some()) {
+            (h.prev, h.mood, h.fade) = (h.mood, h.candidate, 0.0);
+        }
+        h.fade = (h.fade + dt / MOOD_FADE).min(1.0);
     }
 
     /// the nearest button under the ray (a little easier to hit than it looks), else the nearest node point
@@ -427,39 +535,54 @@ impl Being {
             .or_else(|| nearest(&mut self.points.iter().enumerate().map(|(i, p)| (ray.sphere(p.pos, p.radius * 0.7), Hit::Point(i)))))
     }
 
+    /// What the body shows of the graph's values: every button's input (or an LFO's shape) and every hose's source
+    /// output – what a deck streams (phase 4), each once.
+    pub fn shown(&self) -> Vec<Path> {
+        let mut out: Vec<Path> = Vec::new();
+        let buttons = self.buttons.iter().map(|b| if b.shape { Path::Shape(b.node) } else { Path::Input(b.node, b.port) });
+        let hoses = self.hoses.iter().filter_map(|h| match h.flow {
+            Flow::Control(n, p) | Flow::Audio(n, p) => Some(Path::Output(n, p)),
+            Flow::Video => None,
+        });
+        for p in buttons.chain(hoses) {
+            if !out.contains(&p) {
+                out.push(p);
+            }
+        }
+        out
+    }
+
     /// how many spheres / tube vertices `write` produces at most (the GPU buffers' sizes)
     pub fn capacity(&self) -> (usize, usize) {
-        let spheres = 1 + 2 * self.points.len() + self.buttons.len() + self.hoses.len() * BUBBLES;
+        let spheres = 2 + 2 * self.points.len() + self.buttons.len() + self.hoses.len() * BUBBLES + self.neck.len();
         (spheres, self.tubes() * (SEGMENTS + 1) * SIDES)
     }
 
-    /// hoses + tendrils
+    /// hoses + tendrils + neck cables
     pub fn tubes(&self) -> usize {
-        self.hoses.len() + self.points.len() - self.core_point.map_or(0, |_| 1)
+        self.hoses.len() + self.points.len() - self.core_point.map_or(0, |_| 1) + self.neck.len()
     }
 
     /// the tubes' triangle list (fixed: only the vertices move)
     pub fn tube_indices(&self) -> Vec<u32> {
-        let mut idx = Vec::with_capacity(self.tubes() * SEGMENTS * SIDES * 6);
-        for t in 0..self.tubes() {
-            let base = (t * (SEGMENTS + 1) * SIDES) as u32;
-            for s in 0..SEGMENTS as u32 {
-                for k in 0..SIDES as u32 {
-                    let (a, b) = (base + s * SIDES as u32 + k, base + s * SIDES as u32 + (k + 1) % SIDES as u32);
-                    let (c, d) = (a + SIDES as u32, b + SIDES as u32);
-                    idx.extend_from_slice(&[a, c, b, b, c, d]);
-                }
-            }
-        }
-        idx
+        tube_indices(self.tubes())
     }
 
     /// This frame's geometry into the caller's buffers (cleared first; their capacity from `capacity` – no allocation):
-    /// the solid spheres (nuclei, buttons) first, then the translucent ones (core, shells, bubbles); returns how many are
-    /// solid. Tubes: the hoses, then the tendrils.
+    /// the solid spheres first, then the translucent ones; returns how many are solid. Several beings (phase 4) write
+    /// their parts one after the other instead: `write_solid` of all, then `write_ghosts`, and `write_tubes`.
     pub fn write(&self, spheres: &mut Vec<Sphere>, tubes: &mut Vec<TubeVertex>) -> usize {
         spheres.clear();
         tubes.clear();
+        self.write_solid(spheres);
+        let solid = spheres.len();
+        self.write_ghosts(spheres);
+        self.write_tubes(tubes);
+        solid
+    }
+
+    /// the solid spheres: nuclei, buttons, the neck's sockets
+    pub fn write_solid(&self, spheres: &mut Vec<Sphere>) {
         let hover = |h: Hit| match self.hover {
             Some(x) if x == h => {
                 if self.dragging {
@@ -485,7 +608,17 @@ impl Being {
             let link = if b.linked { 1.0 } else { 0.0 };
             spheres.push(Sphere { pos: b.pos.into(), radius: b.radius, color: [c[0], c[1], c[2], link], extra: [kind::BUTTON, self.glow, hover(Hit::Button(i)), b.norm] });
         }
-        let solid = spheres.len();
+        // the sockets: dark metal where the cables plug into the neck, lit up by the energy
+        let c = rgb(0.0, 0.3, 0.3 + 0.7 * self.head.energy);
+        for i in 0..self.neck.len() {
+            let pos = self.head.socket(i, self.neck.len());
+            spheres.push(Sphere { pos: pos.into(), radius: self.look.size * 0.03, color: [c[0], c[1], c[2], 1.0], extra: [kind::NUCLEUS, self.glow, 0.0, 0.0] });
+        }
+    }
+
+    /// the translucent spheres: core, shells, bubbles, the head's synthetic skin
+    pub fn write_ghosts(&self, spheres: &mut Vec<Sphere>) {
+        let rgb = |tint: f32, sat: f32, val: f32| hsv(self.hue + tint, sat, val);
         let c = rgb(0.0, 0.5, 1.0);
         spheres.push(Sphere { pos: self.center.into(), radius: self.core_radius * self.swell, color: [c[0], c[1], c[2], 0.5], extra: [kind::CORE, self.glow, 0.0, 0.0] });
         for p in self.points.iter().filter(|p| p.rest != Vec3::ZERO) {
@@ -501,6 +634,12 @@ impl Being {
                 spheres.push(Sphere { pos: pos.into(), radius: h.radius * (0.6 + 0.9 * b.size) * fade.max(0.2), color: [c[0], c[1], c[2], 0.9], extra: [kind::BUBBLE, self.glow, 0.0, b.size] });
             }
         }
+        let c = rgb(-0.05, 0.35, 1.0);
+        spheres.push(Sphere { pos: self.head.pos.into(), radius: self.head.radius, color: [c[0], c[1], c[2], 0.5], extra: [kind::SKIN, self.glow, 0.0, self.head.energy] });
+    }
+
+    /// the tubes: the hoses, the tendrils, the neck's cables
+    pub fn write_tubes(&self, tubes: &mut Vec<TubeVertex>) {
         for h in &self.hoses {
             tube(tubes, &h.ctrl, h.radius, h.radius, h.activity, self.points[h.from].tint, 0.0);
         }
@@ -512,12 +651,37 @@ impl Being {
             let r = self.look.size * 0.009;
             tube(tubes, &ctrl, r * 1.8, r, 0.0, p.tint, 1.0);
         }
-        solid
+        // the neck: from each point up into its socket (t 0 → 1: the data rising into the head)
+        let n = self.neck.len();
+        for (i, &pi) in self.neck.iter().enumerate() {
+            let (a, b) = (self.points[pi].pos, self.head.socket(i, n));
+            let len = (b - a).length();
+            let out = (a - center).try_normalize().unwrap_or(Vec3::Y);
+            let ctrl = [a, a + (out * 0.35 + Vec3::Y * 0.5) * len * 0.5, b - Vec3::Y * len * 0.45, b];
+            let r = self.look.size * if Some(pi) == self.core_point { 0.05 } else { 0.028 };
+            tube(tubes, &ctrl, r, r * 0.8, 0.25 + 0.75 * self.head.energy, self.points[pi].tint, 2.0);
+        }
     }
 }
 
+/// the triangle list of `count` tubes (fixed: only their vertices move)
+pub fn tube_indices(count: usize) -> Vec<u32> {
+    let mut idx = Vec::with_capacity(count * SEGMENTS * SIDES * 6);
+    for t in 0..count {
+        let base = (t * (SEGMENTS + 1) * SIDES) as u32;
+        for s in 0..SEGMENTS as u32 {
+            for k in 0..SIDES as u32 {
+                let (a, b) = (base + s * SIDES as u32 + k, base + s * SIDES as u32 + (k + 1) % SIDES as u32);
+                let (c, d) = (a + SIDES as u32, b + SIDES as u32);
+                idx.extend_from_slice(&[a, c, b, b, c, d]);
+            }
+        }
+    }
+    idx
+}
+
 /// a tube along a cubic Bézier: SEGMENTS + 1 rings of SIDES vertices, radius r0 → r1
-fn tube(out: &mut Vec<TubeVertex>, c: &[Vec3; 4], r0: f32, r1: f32, flow: f32, tint: f32, kind: f32) {
+pub fn tube(out: &mut Vec<TubeVertex>, c: &[Vec3; 4], r0: f32, r1: f32, flow: f32, tint: f32, kind: f32) {
     let mut prev_n = Vec3::ZERO;
     for s in 0..=SEGMENTS {
         let t = s as f32 / SEGMENTS as f32;
@@ -572,7 +736,9 @@ fn exposed(list: &[String], node: &str, port: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::control::Controls;
     use crate::scene::Scene;
+    use crate::space::values::Local;
 
     const SCENE: &str = "[[node]]\nid=\"space\"\nkind=\"space\"\n[[node]]\nid=\"screen\"\nkind=\"screen\"\n\
         [[node]]\nid=\"lfo\"\nkind=\"lfo\"\nrate=2\n[[node]]\nid=\"fm\"\nkind=\"fm\"\n[[node]]\nid=\"out\"\nkind=\"audio_out\"\n\
@@ -602,11 +768,14 @@ mod tests {
         let index = b.buttons.iter().find(|x| x.name == "index").unwrap();
         assert!(index.linked, "fm.index is driven by the LFO's hose");
         assert_eq!(b.points[b.core_point.unwrap()].rest, Vec3::ZERO, "the space node is the core");
+        // the neck: the core's spine first, then every other point (five nodes – all of them, under NECK)
+        assert_eq!(b.neck.len(), 5);
+        assert_eq!(b.neck[0], b.core_point.unwrap());
         let (spheres, verts) = b.capacity();
-        assert_eq!(b.tubes(), 3 + 4, "hoses + a tendril per non-core point");
-        assert_eq!(verts, 7 * (SEGMENTS + 1) * SIDES);
-        assert_eq!(spheres, 1 + 10 + 12 + 3 * BUBBLES);
-        assert_eq!(b.tube_indices().len(), 7 * SEGMENTS * SIDES * 6);
+        assert_eq!(b.tubes(), 3 + 4 + 5, "hoses + a tendril per non-core point + the neck's cables");
+        assert_eq!(verts, 12 * (SEGMENTS + 1) * SIDES);
+        assert_eq!(spheres, 1 + 10 + 12 + 3 * BUBBLES + 5 + 1, "core, nuclei + shells, buttons, bubbles, sockets, skin");
+        assert_eq!(b.tube_indices().len(), 12 * SEGMENTS * SIDES * 6);
         assert!(b.tube_indices().iter().all(|&i| (i as usize) < verts));
     }
 
@@ -628,7 +797,7 @@ mod tests {
         let silent = |_: usize, _: usize| 0.0;
         for f in 0..120 {
             c.update(1.0 / 60.0, 0, &now(f as f64 / 30.0));
-            b.update(1.0 / 60.0, f as f32 / 60.0, &c, &now(f as f64 / 30.0), &silent);
+            b.update(1.0 / 60.0, f as f32 / 60.0, &Local { ctl: &c, meter: &silent }, &now(f as f64 / 30.0));
         }
         let h = &b.hoses[lfo_hose];
         assert!(h.bubbles.iter().any(|x| x.size > 0.0), "a 2 Hz LFO keeps the hose bubbling");
@@ -637,7 +806,7 @@ mod tests {
         assert_eq!((h.ctrl[0], h.ctrl[3]), (b.points[h.from].pos, b.points[h.to].pos));
         let before = h.bubbles;
         c.update(1.0 / 60.0, 0, &now(4.0));
-        b.update(1.0 / 60.0, 2.0, &c, &now(4.0), &silent);
+        b.update(1.0 / 60.0, 2.0, &Local { ctl: &c, meter: &silent }, &now(4.0));
         let h = &b.hoses[lfo_hose];
         let mut moved = 0;
         for (x0, x) in before.iter().zip(&h.bubbles) {
@@ -653,7 +822,7 @@ mod tests {
         let audio = b.hoses.iter().position(|h| h.ty == PortType::Audio).unwrap();
         assert!(b.hoses[audio].bubbles.iter().all(|x| x.size == 0.0));
         let loud = |_: usize, _: usize| 0.8;
-        b.update(0.25, 2.25, &c, &now(4.5), &loud);
+        b.update(0.25, 2.25, &Local { ctl: &c, meter: &loud }, &now(4.5));
         assert!(b.hoses[audio].bubbles.iter().any(|x| x.size > 0.0));
     }
 
@@ -664,7 +833,7 @@ mod tests {
         let mut c = Controls::new(&g, None);
         for f in 0..300 {
             c.update(1.0 / 60.0, 0, &now(0.0));
-            b.update(1.0 / 60.0, f as f32 / 60.0, &c, &now(0.0), &|_, _| 0.0);
+            b.update(1.0 / 60.0, f as f32 / 60.0, &Local { ctl: &c, meter: &|_, _| 0.0 }, &now(0.0));
         }
         assert!(b.hoses[0].bubbles.iter().all(|x| x.size == 0.0));
         assert!(b.hoses[0].activity < 0.01);
@@ -675,7 +844,7 @@ mod tests {
         let g = graph(SCENE);
         let mut b = Being::new(&g, &Look::default());
         let c = Controls::new(&g, None);
-        b.update(0.0, 0.0, &c, &now(0.0), &|_, _| 0.0);
+        b.update(0.0, 0.0, &Local { ctl: &c, meter: &|_, _| 0.0 }, &now(0.0));
         let target = b.buttons[3].pos;
         let origin = target + Vec3::new(0.0, 0.0, 5.0);
         let ray = Ray { origin, dir: (target - origin).normalize() };
@@ -695,9 +864,9 @@ mod tests {
         let (mut s, mut v) = (Vec::with_capacity(ns), Vec::with_capacity(nv));
         for f in 0..200 {
             c.update(1.0 / 60.0, 0, &now(f as f64 / 20.0));
-            b.update(1.0 / 60.0, f as f32 / 60.0, &c, &now(f as f64 / 20.0), &|_, _| 1.0);
+            b.update(1.0 / 60.0, f as f32 / 60.0, &Local { ctl: &c, meter: &|_, _| 1.0 }, &now(f as f64 / 20.0));
             let solid = b.write(&mut s, &mut v);
-            assert_eq!(solid, 5 + 12, "nuclei + buttons");
+            assert_eq!(solid, 5 + 12 + 5, "nuclei + buttons + sockets");
             assert!(s.len() <= ns && v.len() == nv);
             assert_eq!((s.capacity(), v.capacity()), (ns, nv), "no growth");
         }
@@ -709,11 +878,44 @@ mod tests {
         let g = graph(SCENE);
         let mut b = Being::new(&g, &Look::default());
         let c = Controls::new(&g, None);
-        b.update(0.0, 0.0, &c, &now(8.0), &|_, _| 0.0);
+        b.update(0.0, 0.0, &Local { ctl: &c, meter: &|_, _| 0.0 }, &now(8.0));
         let on = b.swell;
-        b.update(0.0, 0.0, &c, &now(8.9), &|_, _| 0.0);
+        b.update(0.0, 0.0, &Local { ctl: &c, meter: &|_, _| 0.0 }, &now(8.9));
         assert!(on > b.swell, "fuller on the beat than just before the next");
         assert!(b.head().y > b.center.y + b.look.size);
+    }
+
+    /// phase 5: silence is the first mood; a loud, fast deck walks up to the last – a new mood only once it has held,
+    /// then cross-faded; a mood fixed from outside (another deck's stream) shows at once
+    #[test]
+    fn the_mood_follows_the_energy_and_holds() {
+        use crate::space::values::Mirror;
+        let g = graph("[[node]]\nid=\"space\"\nkind=\"space\"\n[[node]]\nid=\"n\"\nkind=\"noise\"\n[[node]]\nid=\"fft\"\nkind=\"fft\"\n[[link]]\nfrom=\"n\"\nto=\"fft.in\"\n");
+        let mut b = Being::new(&g, &Look::default());
+        let mut m = Mirror::new(&g);
+        let fast = tempo::Now { bpm: 170.0, pos: tempo::position(0.0, 4), per_bar: 4, running: true };
+        let still = tempo::Now::default();
+        let run = |b: &mut Being, m: &Mirror, beat: &tempo::Now, frames: usize| {
+            for _ in 0..frames {
+                b.update(1.0 / 60.0, 0.0, m, beat);
+            }
+        };
+        run(&mut b, &m, &still, 60);
+        assert_eq!((b.head.mood, b.head.energy), (0, 0.0), "silence");
+        m.apply(&g, "fft.level", &[1.0]);
+        run(&mut b, &m, &fast, 20);
+        assert_eq!(b.head.mood, 0, "a third of a second is not yet a mood");
+        run(&mut b, &m, &fast, 240);
+        assert!(b.head.energy > 0.95, "{}", b.head.energy);
+        assert_eq!(b.head.mood, b.look.moods.len() - 1);
+        assert_eq!(b.head.fade, 1.0, "faded in");
+        b.head.fixed = Some(1);
+        run(&mut b, &m, &fast, 1);
+        assert_eq!((b.head.mood, b.head.prev), (1, 4));
+        assert!(b.head.fade < 1.0, "cross-fading");
+        // the head floats above the body with its neck's sockets under it
+        let h = &b.head;
+        assert!(h.pos.y > b.center.y + b.look.size && (0..5).all(|i| h.socket(i, 5).y < h.pos.y));
     }
 
     #[test]

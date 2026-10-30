@@ -94,3 +94,8 @@ tokio = { workspace = true }
 [[example]]
 name = "live-cue"
 required-features = ["live"]
+
+# stand-in decks for the Cathedral of decks (#188 phase 4): `cargo run -p deck-stage --example decks -- <relay> 4`
+[[example]]
+name = "decks"
+required-features = ["live", "space"]

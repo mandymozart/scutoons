@@ -39,17 +39,22 @@ enum Event {
     BrowserClosed,
 }
 
-const HELP: &str = "deck-stage [--scene FILE|cathedral|outlet] [--audio auto|pipewire|cpal|null] [--volume 0-1] [--cache DIR]
-           [--rooms DIR] [--api URL] [--cdn URL] [--windowed] [--frames N] [--screenshot FILE] [--pointer X,Y] [--no-hud]
-           [--dev] [--modules] [--relay ws://HOST:PORT/live/CODE] [--outlet ID] [--locale de]
+const HELP: &str = "deck-stage [--scene FILE|cathedral|conductor|outlet] [--audio auto|pipewire|cpal|null] [--volume 0-1] [--cache DIR]
+           [--rooms DIR] [--portraits DIR] [--token T] [--api URL] [--cdn URL] [--windowed] [--frames N]
+           [--screenshot FILE] [--pointer X,Y] [--no-hud] [--dev] [--modules] [--relay ws://HOST:PORT/live/CODE]
+           [--outlet ID] [--locale de]
   --scene      a scene TOML (default: the built-in scene, deck/stage/scenes/default.toml); `cathedral` = the built-in
-               Cathedral of decks (scenes/cathedral.toml), `outlet` = the built-in Live outlet (scenes/outlet.toml – the
-               default when a relay and an outlet are set)
+               Cathedral of decks (scenes/cathedral.toml – a deck's being), `conductor` = its conductor in the middle
+               (scenes/conductor.toml), `outlet` = the built-in Live outlet (scenes/outlet.toml – the default when a
+               relay and an outlet are set)
   --relay      the Live relay with the session code (default: deck.toml's `relay`); --outlet this deck's outlet
                (deck.toml's `outlet`); --locale the language of its text layers (deck.toml's `locale`, else de)
   --audio      the backend; auto = PipeWire → cpal → null (no device: the clock and the FFT still run)
   --cache      the library cache (default /var/lib/deck/cache on a deck, DECK_CACHE, else the user cache folder)
   --rooms      where a space node's rooms are (.glb; default DECK_ROOMS, else <cache>/rooms)
+  --portraits  the beings' heads: <char>_portrait-<mood>.png|webp (default DECK_PORTRAITS, else <cache>/portraits)
+  --token      the conductor's session token for a space node with join = conductor (default LIVE_TOKEN; a dev relay
+               takes any)
   --frames     quit after N frames and print the measured numbers (a check run)
   --screenshot save the last frame of a --frames run as a PNG
   --pointer    put the pointer at window pixel X,Y (a check run's hover)
@@ -67,6 +72,9 @@ struct Args {
     frames: Option<u64>,
     hud: bool,
     rooms: Option<PathBuf>,
+    /// the heads' sprites (#188 phase 5) and the conductor's session token (phase 4)
+    portraits: Option<PathBuf>,
+    token: Option<String>,
     screenshot: Option<PathBuf>,
     pointer: Option<(f32, f32)>,
     dev: bool,
@@ -88,6 +96,8 @@ fn args() -> Result<Args> {
         frames: None,
         hud: true,
         rooms: std::env::var_os("DECK_ROOMS").map(PathBuf::from),
+        portraits: std::env::var_os("DECK_PORTRAITS").map(PathBuf::from),
+        token: std::env::var("LIVE_TOKEN").ok().filter(|t| !t.is_empty()),
         screenshot: None,
         pointer: None,
         dev: false,
@@ -110,6 +120,8 @@ fn args() -> Result<Args> {
             "--cdn" => a.cdn = val()?,
             "--frames" => a.frames = Some(val()?.parse()?),
             "--rooms" => a.rooms = Some(val()?.into()),
+            "--portraits" => a.portraits = Some(val()?.into()),
+            "--token" => a.token = Some(val()?),
             "--screenshot" => a.screenshot = Some(val()?.into()),
             "--pointer" => {
                 let v = val()?;
@@ -204,6 +216,7 @@ fn outlet_configured(args: &Args) -> bool {
 fn read_scene(args: &Args) -> Result<scene::Scene> {
     match &args.scene {
         Some(p) if p.as_os_str() == "cathedral" && !p.exists() => scene::Scene::parse(scene::CATHEDRAL_SCENE),
+        Some(p) if p.as_os_str() == "conductor" && !p.exists() => scene::Scene::parse(scene::CONDUCTOR_SCENE),
         Some(p) if p.as_os_str() == "outlet" && !p.exists() => scene::Scene::parse(scene::OUTLET_SCENE),
         Some(p) => scene::Scene::load(p),
         None if outlet_configured(args) => scene::Scene::parse(scene::OUTLET_SCENE),
@@ -289,8 +302,18 @@ impl Show {
         #[cfg(feature = "space")]
         let space = graph.first(graph::Kind::Space).map(|n| {
             let rooms = args.rooms.clone().unwrap_or_else(|| cache.join("rooms"));
-            tracing::info!("space: rooms in {}", rooms.display());
-            deck_stage::space::Space::new(&graph, n, &scene.being, &rooms)
+            // #180: the deck-token fetch of the sprites goes here (a portrait::Source that caches into this folder)
+            let faces = args.portraits.clone().unwrap_or_else(|| cache.join("portraits"));
+            tracing::info!("space: rooms in {}, portraits in {}", rooms.display(), faces.display());
+            #[cfg_attr(not(feature = "live"), allow(unused_mut))]
+            let mut s = deck_stage::space::Space::new(&graph, n, &scene.being, &rooms, deck_stage::space::portrait::Portraits::local(&faces));
+            // phase 4: with a relay (deck.toml or --relay) the being joins the session as its `join` says
+            #[cfg(feature = "live")]
+            {
+                let relay = outlet_settings(args).relay.or_else(|| deck_stage::live::config::Settings::read(std::path::Path::new(deck_stage::live::config::DECK_TOML)).relay);
+                s.connect(relay.as_deref(), args.token.clone(), Some(scene.stage.name.clone()));
+            }
+            s
         });
         #[cfg(not(feature = "space"))]
         let space = None;
@@ -692,6 +715,7 @@ impl App {
         if let Some(s) = &self.show.space {
             lines.push("DRAG TURN/KNOB WHEEL ZOOM R HOME".into());
             lines.push(s.hud_line(&self.show.graph));
+            lines.extend(s.session_lines());
         }
         if let Some([l, b, m, h]) = self.show.controls.fft() {
             lines.push(format!("FFT L {l:.2} B {b:.2} M {m:.2} H {h:.2}"));

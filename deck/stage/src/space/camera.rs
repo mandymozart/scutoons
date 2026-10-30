@@ -63,6 +63,11 @@ impl Orbit {
         }
     }
 
+    /// the start view (yaw, pitch, distance) – R goes back to it
+    pub fn home(&self) -> (f32, f32, f32) {
+        self.home
+    }
+
     pub fn eye(&self) -> Vec3 {
         let (sy, cy) = self.yaw.sin_cos();
         let (sp, cp) = self.pitch.sin_cos();

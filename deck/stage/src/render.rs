@@ -584,11 +584,7 @@ impl Renderer {
         let space: Option<&Space> = match space {
             Some(s) => {
                 let gpu = self.space.get_or_insert_with(|| SpaceGpu::new(&self.device, &self.queue, s, OFFSCREEN, (w, h)));
-                if let Some(room) = s.take_room() {
-                    let t = std::time::Instant::now();
-                    gpu.upload_room(&self.device, &self.queue, &room);
-                    tracing::info!("room on the GPU in {:.0} ms", t.elapsed().as_secs_f32() * 1000.0);
-                }
+                gpu.sync(&self.device, &self.queue, s);
                 Some(&*s)
             }
             None => None,

@@ -1,15 +1,22 @@
-# The Cathedral of decks (#188, phases 1–3): the room from Cat Pope chapter 2 – the sermon's cathedral (the owner's
+# The Cathedral of decks (#188) – a deck: the room from Cat Pope chapter 2 – the sermon's cathedral (the owner's
 # Unreal export, agents/research/LOCATION-SCENES.md §7) – and this deck's being floating in the nave: its graph as a
-# body, node points with their parameters as 3D buttons, the links as hoses with bubbles. Run it:
-#   cargo run --release -p deck-stage -- --scene cathedral --windowed --rooms ../media/scutoons/rooms
+# body, node points with their parameters as 3D buttons, the links as hoses with bubbles, its head the character's
+# portrait (phase 5). With a relay set (deck.toml `relay` or --relay) it joins the session as a deck (`join` below) and
+# streams its being to the conductor (scenes/conductor.toml). Run it:
+#   cargo run --release -p deck-stage -- --scene cathedral --windowed --rooms ../media/scutoons/rooms \
+#     --portraits ../media/characters
 # Mouse: drag = turn the camera (or a button's value), wheel = zoom; ← → turn, ↑ ↓ zoom, R the camera's home.
 
 [stage]
 name = "Cathedral of decks"
 render_scale = 1.0
 
-# the being's shape (space/being.rs; the colours are the space node's hue / glow below)
+# the being's shape (space/being.rs; the colours are the space node's hue / glow below) and its head: the character
+# whose portrait mood sprites it wears (<character>_portrait-<mood>.png under --portraits); `moods` = calm → wild, the
+# energy (the FFT level, the tempo) walks through them
 [being]
+character = "catpope"
+moods = ["neutral", "thinking", "happy", "laughing", "surprised"]
 size = 0.5
 drift = 0.06
 breath = 0.04
@@ -88,7 +95,8 @@ volume = 0.8
 # the space: the room (rooms/cathedral.<quality>.glb under --rooms), where the being floats (`at` in the room's
 # metres – in the nave, ahead of the reader's view; or `spot` = a spot of the room + `lift`), the camera's start (yaw /
 # pitch in degrees, distance in metres – yaw 279 looks the way the reader's view does); hue / glow colour the being,
-# light dims the room, pulse kicks its breath
+# light dims the room, pulse kicks its breath; `join` = how it takes part in a session with a relay set (deck · conductor ·
+# alone)
 [[node]]
 id = "space"
 kind = "space"
@@ -97,10 +105,11 @@ quality = "low"
 at = [2.4, 0.2, 5.2]
 yaw = 279
 pitch = 6
-distance = 1.9
+distance = 2.4
 hue = 0.52
 glow = 0.6
 light = 0.85
+join = "deck"
 
 [[node]]
 id = "screen"
