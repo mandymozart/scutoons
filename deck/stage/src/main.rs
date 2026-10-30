@@ -232,7 +232,7 @@ impl App {
         self.last = Some(now);
         self.advance_time();
         let beat = self.tempo.frame(&self.moment);
-        self.controls.update(&self.graph, dt, self.lead(), &beat);
+        self.controls.update(dt, self.lead(), &beat);
         let time = self.time();
         self.stats.window.0 += 1;
         self.stats.window.1 += dt;

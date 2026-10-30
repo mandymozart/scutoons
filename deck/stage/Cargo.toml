@@ -23,6 +23,8 @@ pipewire = ["dep:pipewire"]
 link = ["dep:rusty_link"]
 
 [dependencies]
+# the batch evaluator's pieces (#183): `math` (sine, rounding without libm), `batch` (input columns, dependency levels)
+deck-core.workspace = true
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -53,3 +55,8 @@ rusty_link = { version = "0.4.9", optional = true }
 pipewire = { version = "0.10", optional = true, features = ["v0_3_50"] }
 # CLOCK_MONOTONIC for the time base (clock.rs – the clock PipeWire stamps its cycles with)
 libc = "0.2"
+
+# `cargo bench -p deck-stage`: the graph workloads (#183) – µs per audio block / control step
+[[bench]]
+name = "graph"
+harness = false

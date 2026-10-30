@@ -20,6 +20,22 @@ pub fn wrap01(x: f32) -> f32 {
     x - round_fast(x - 0.5)
 }
 
+/// `x` rounded toward zero, exactly like `f32::trunc` for |x| < 2²² – without the libm call baseline x86-64 makes
+/// (no SSE4.1 `roundps` there), branch-free, so loops over it vectorise.
+#[inline(always)]
+pub fn trunc_fast(x: f32) -> f32 {
+    let r = round_fast(x);
+    // nearest rounding went away from zero: one step back toward it
+    let back = if r.abs() > x.abs() { 1.0f32 } else { 0.0 };
+    r - back.copysign(x)
+}
+
+/// `x - x.trunc()` – exactly `f32::fract` for |x| < 2²² (negative `x` → a negative fraction), see `trunc_fast`.
+#[inline(always)]
+pub fn fract_fast(x: f32) -> f32 {
+    x - trunc_fast(x)
+}
+
 /// sin(2π·x) – the sine of `x` full turns, |x| < 2²². Range-reduced to a quarter turn without branches, then a
 /// 9th-order odd polynomial: error < 1e-5 (−100 dB; the f32 reference itself is off by ~4e-6 at 15 turns).
 #[inline(always)]
@@ -53,5 +69,15 @@ mod tests {
         assert!((wrap01(3.25) - 0.25).abs() < 1e-6);
         assert!(wrap01(0.0) == 0.0 || wrap01(0.0) == 1.0);
         assert!((wrap01(-0.25) - 0.75).abs() < 1e-6);
+    }
+
+    #[test]
+    fn trunc_and_fract_match_std_exactly() {
+        let edge = [0.0f32, -0.0, 0.5, -0.5, 1.0, -1.0, 1.5, 2.5, -2.5, 3.5, 0.999_999_9, -0.999_999_9, 4_194_303.5];
+        let sweep = (-30_000..30_000).map(|i| i as f32 * 0.000_731 + (i % 7) as f32 * 0.25);
+        for x in edge.into_iter().chain(sweep) {
+            assert_eq!(trunc_fast(x), x.trunc(), "trunc {x}");
+            assert_eq!(fract_fast(x).to_bits() & !(1 << 31), x.fract().to_bits() & !(1 << 31), "fract {x}");
+        }
     }
 }

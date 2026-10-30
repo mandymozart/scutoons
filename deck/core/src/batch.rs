@@ -39,19 +39,73 @@ impl K {
     }
 }
 
-/// One input port of a batch, a column per node: `values[src] * scale + offset`.
-#[derive(Default)]
-struct Col {
+/// One input port of a batch, a column per node: `values[src] * scale + offset`. A constant is a link to a slot that
+/// stays 0 (slot 0 by convention) with scale 0 and the constant as the offset – no branch on the input's kind. Shared
+/// with deck-stage's control and audio batches (#183).
+#[derive(Default, Debug, Clone)]
+pub struct Col {
     src: Vec<u32>,
     scale: Vec<f32>,
     offset: Vec<f32>,
 }
 
 impl Col {
+    /// node `len()`'s input: `values[src] * scale + offset`
+    pub fn push(&mut self, src: u32, scale: f32, offset: f32) {
+        self.src.push(src);
+        self.scale.push(scale);
+        self.offset.push(offset);
+    }
+
+    /// node `len()`'s input as a constant (read from slot 0, which must stay 0)
+    pub fn constant(&mut self, value: f32) {
+        self.push(0, 0.0, value);
+    }
+
+    pub fn len(&self) -> usize {
+        self.src.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.src.is_empty()
+    }
+
+    /// node `i`'s input this step
     #[inline(always)]
-    fn get(&self, v: &[f32], i: usize) -> f32 {
+    pub fn get(&self, v: &[f32], i: usize) -> f32 {
         v[self.src[i] as usize] * self.scale[i] + self.offset[i]
     }
+}
+
+/// Each node's dependency level (Kahn's order): 0 for a node with no dependencies, else 1 + its deepest dependency's.
+/// `deps[t]` = the nodes `t` reads (repeats allowed). Nodes of one level never read each other, so a level's nodes of
+/// one kind can run as one batch. A cycle is an error.
+pub fn levels(deps: &[Vec<usize>]) -> Result<Vec<usize>, String> {
+    let n = deps.len();
+    let mut users: Vec<Vec<usize>> = vec![vec![]; n];
+    for (t, d) in deps.iter().enumerate() {
+        for &f in d {
+            users[f].push(t);
+        }
+    }
+    let mut level = vec![0usize; n];
+    let mut indeg: Vec<usize> = deps.iter().map(Vec::len).collect();
+    let mut ready: Vec<usize> = (0..n).filter(|&i| indeg[i] == 0).collect();
+    let mut seen = 0;
+    while let Some(i) = ready.pop() {
+        seen += 1;
+        for &t in &users[i] {
+            level[t] = level[t].max(level[i] + 1);
+            indeg[t] -= 1;
+            if indeg[t] == 0 {
+                ready.push(t);
+            }
+        }
+    }
+    if seen < n {
+        return Err("the links form a cycle".into());
+    }
+    Ok(level)
 }
 
 struct Batch {
@@ -114,26 +168,8 @@ impl BatchGraph {
             inputs[t][p] = (f as u32 + 1, l.scale, l.offset);
             deps[t].push(f);
         }
-        // level = 1 + the deepest dependency (Kahn's order first, so a cycle is an error)
-        let mut level = vec![0usize; n];
-        let mut indeg: Vec<usize> = deps.iter().map(Vec::len).collect();
-        let mut ready: Vec<usize> = (0..n).filter(|&i| indeg[i] == 0).collect();
-        let mut seen = 0;
-        while let Some(i) = ready.pop() {
-            seen += 1;
-            for t in 0..n {
-                for _ in deps[t].iter().filter(|&&f| f == i) {
-                    level[t] = level[t].max(level[i] + 1);
-                    indeg[t] -= 1;
-                    if indeg[t] == 0 {
-                        ready.push(t);
-                    }
-                }
-            }
-        }
-        if seen < n {
-            return Err("the control links form a cycle".into());
-        }
+        // level = 1 + the deepest dependency
+        let level = levels(&deps).map_err(|e| format!("the control graph: {e}"))?;
         let depth = (0..n).filter(|&i| !kinds[i].0.audio()).map(|i| level[i] + 1).max().unwrap_or(0);
         let mut levels: Vec<Vec<Batch>> = (0..depth).map(|_| vec![]).collect();
         let mut audio: Vec<Batch> = vec![];
@@ -148,9 +184,7 @@ impl BatchGraph {
                 }
             };
             for (c, &(src, scale, offset)) in b.cols.iter_mut().zip(&inputs[i]) {
-                c.src.push(src);
-                c.scale.push(scale);
-                c.offset.push(offset);
+                c.push(src, scale, offset);
             }
             b.out.push(i as u32 + 1);
             b.s1.push(if k == K::Lfo { param(&scene.nodes[i].params, "phase", 0.0) } else { 0.0 });
@@ -316,5 +350,17 @@ mod tests {
         assert!(e("[[node]]\nid = \"f\"\nkind = \"fft\"\n").contains("does not batch"));
         let cycle = "[[node]]\nid = \"a\"\nkind = \"add\"\n[[node]]\nid = \"b\"\nkind = \"add\"\n[[link]]\nfrom = \"a\"\nto = \"b.a\"\n[[link]]\nfrom = \"b\"\nto = \"a.a\"\n";
         assert!(e(cycle).contains("cycle"));
+    }
+
+    #[test]
+    fn levels_and_columns() {
+        // 0 → 1 → 3, 2 → 3 (read twice), 4 alone
+        assert_eq!(levels(&[vec![], vec![0], vec![], vec![1, 2, 2], vec![]]).unwrap(), vec![0, 1, 0, 2, 0]);
+        assert!(levels(&[vec![1], vec![0]]).is_err());
+        let mut c = Col::default();
+        c.push(1, 2.0, 0.5);
+        c.constant(7.0);
+        let v = [0.0, 3.0];
+        assert_eq!((c.len(), c.get(&v, 0), c.get(&v, 1)), (2, 6.5, 7.0));
     }
 }

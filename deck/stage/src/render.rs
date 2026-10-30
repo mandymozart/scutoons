@@ -397,8 +397,8 @@ impl Renderer {
         let mut changed = false;
         for s in &mut self.slides {
             let node = &graph.nodes[s.node];
-            let hold = ctl.input(graph, s.node, "hold", 6.0).max(0.5);
-            let next = ctl.input(graph, s.node, "next", 0.0);
+            let hold = ctl.input(s.node, "hold", 6.0).max(0.5);
+            let next = ctl.input(s.node, "next", 0.0);
             let (threshold, shortest) = (node.f32("threshold", 0.6), node.f32("min_hold", 1.5));
             let age = time - s.cut_at;
             let kick = next > threshold && s.last_next <= threshold && age >= shortest;
@@ -472,7 +472,7 @@ impl Renderer {
         }
         let (w, h) = self.render_size();
         for p in self.passes.iter().chain(self.screen.as_ref()) {
-            let mut params = params(graph, ctl, p);
+            let mut params = params(ctl, p);
             self.extra(p, time, &mut params);
             let u = Uniforms { time, dt, res: [w as f32, h as f32], p: params };
             self.queue.write_buffer(&p.ubuf, 0, bytemuck::bytes_of(&u));
@@ -535,7 +535,7 @@ impl Renderer {
 
 /// a pass's eight params: its control inputs (linked or the node's own) in port order, defaults per kind; the chapter's
 /// hold rides in the last slot (the renderer fills slots 2–6, `extra`)
-fn params(graph: &Graph, ctl: &Controls, p: &Pass) -> [f32; 8] {
+fn params(ctl: &Controls, p: &Pass) -> [f32; 8] {
     let mut out = [0.0; 8];
     let names: &[(&str, f32)] = match p.kind {
         Kind::TestPattern => &[("speed", 1.0), ("zoom", 1.0), ("hue", 0.0), ("pulse", 0.0)],
@@ -545,10 +545,10 @@ fn params(graph: &Graph, ctl: &Controls, p: &Pass) -> [f32; 8] {
         _ => &[],
     };
     for (i, (name, default)) in names.iter().enumerate() {
-        out[i] = ctl.input(graph, p.node, name, *default);
+        out[i] = ctl.input(p.node, name, *default);
     }
     if p.kind == Kind::Chapter {
-        out[7] = ctl.input(graph, p.node, "hold", 6.0);
+        out[7] = ctl.input(p.node, "hold", 6.0);
     }
     out
 }

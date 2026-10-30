@@ -750,6 +750,7 @@ dependencies = [
  "anyhow",
  "bytemuck",
  "cpal",
+ "deck-core",
  "font8x8",
  "fundsp",
  "image",
