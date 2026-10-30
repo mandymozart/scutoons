@@ -60,7 +60,7 @@ One trait, one crate each, loaded by the venue patch (LIVE B.5, a TOML file on t
 |---|---|---|---|
 | `midi` | `midir` (ALSA / CoreMIDI / WinMM) | A B C | in + out, default map of LIVE B.3, clock from the bridge's own timer |
 | `dmx-artnet`, `dmx-sacn` | UDP via `tokio`, `sacn` | A B C | refresh at 40 Hz even when nothing changes (fixtures expect it) |
-| `dmx-usb` | `serialport` (Enttec Open DMX, DMX USB Pro) | A B C | the Open DMX bit-bangs: its own thread, never async |
+| `dmx-usbpro` | `serialport` | A B C | **built** (#187): the Enttec DMX USB Pro widget protocol (Enttec Pro, DMXKing ultraDMX); the widget keeps the refresh, the adapter sends on change ≤ 40 Hz + a keep-alive, fades, reconnects; its own thread, never async. No Open DMX bit-banging (owner 2026-10-30) – deck/adapters/dmx-usbpro/README.md |
 | `osc` | `rosc` | A B C | in + out, Ableton / TouchDesigner / Resolume |
 | `laser` | `ether-dream` / `helios-dac` (nannou laser), own frame + path optimiser | A B | owner 2026-10-29: ILDA DACs (Ether Dream over the LAN, Helios over USB); frames at 20–30k pps with blanking + corner dwell; the **laser tracing** effect: edges of the live camera (`video-in`) or a slice's outlines → vector paths → the beam. Safety: audience scanning is the venue's licence, never ours by default |
 | `gpio` | `gpiocdev` | B C | the deck's own buttons, encoders, LEDs; a class-A deck has none |
