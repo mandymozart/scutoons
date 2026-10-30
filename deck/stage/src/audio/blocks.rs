@@ -1,7 +1,9 @@
 //! The audio kinds' blocks. Oscillators, noise and the filter are fundsp units (built and warmed up here, outside the
 //! callback); the wiring, envelopes, sequencer, player, mixer and FFT tap are ours. Nothing in `process` allocates.
+use super::click::Click;
 use super::{Block, Handles, MusicFeed, Param, Stereo, Track};
 use crate::graph::{Kind, Node};
+use crate::tempo::BeatReader;
 use anyhow::{bail, Result};
 use fundsp::hacker32::{lowpass, noise, pink, saw, sine, square, triangle, AudioUnit};
 use std::sync::{Arc, Mutex};
@@ -58,7 +60,12 @@ pub fn make(node: &Node, index: usize, rate: f32, params: &[Param], h: &mut Hand
             gain: p("gain"),
             env: Env::new(rate, node),
         }),
-        Kind::Seq => Box::new(Seq::new(node, rate, p("rate"))),
+        Kind::Seq => {
+            // a `bpm` of its own: free-running; else on the tempo clock's beat
+            let beats = (!node.params.contains_key("bpm")).then(|| beats(h));
+            Box::new(Seq::new(node, rate, p("rate"), beats))
+        }
+        Kind::Click => Box::new(Click::new(node, rate, p("gain"), beats(h))),
         Kind::ChapterMusic => {
             let (tx, rx) = rtrb::RingBuffer::new(2);
             let (trash_tx, trash_rx) = rtrb::RingBuffer::new(2);
@@ -83,6 +90,10 @@ pub fn make(node: &Node, index: usize, rate: f32, params: &[Param], h: &mut Hand
         Kind::AudioOut => Box::new(Out { volume: p("volume") }),
         k => bail!("{k:?} is not an audio kind"),
     })
+}
+
+fn beats(h: &Handles) -> BeatReader {
+    BeatReader { shared: h.tempo.clone(), frames: h.clock.frames.clone() }
 }
 
 /// fundsp units set up outside the callback: sample rate, state reset, one tick so lazy tables exist before RT
@@ -192,7 +203,9 @@ impl Block for Fm {
     }
 }
 
-/// `steps` = MIDI notes (0 = a rest), `bpm`, `division` steps per beat (4 = 16ths), `gate` = the note's share of a step
+/// `steps` = MIDI notes (0 = a rest), `division` steps per beat (4 = 16ths), `gate` = the note's share of a step.
+/// On the tempo clock (no `bpm` param) step k plays from beat k / division – the steps snap to the beat, follow every
+/// tempo change and stand while the clock is stopped; `rate` scales the division. With `bpm` it runs on its own.
 struct Seq {
     hz: Vec<f32>,
     step: usize,
@@ -201,10 +214,12 @@ struct Seq {
     per_sample: f32,
     gate: f32,
     rate: Param,
+    division: f64,
+    beats: Option<BeatReader>,
 }
 
 impl Seq {
-    fn new(node: &Node, sr: f32, rate: Param) -> Seq {
+    fn new(node: &Node, sr: f32, rate: Param, beats: Option<BeatReader>) -> Seq {
         let transpose = node.f32("transpose", 0.0);
         let mut hz: Vec<f32> = node
             .f32s("steps")
@@ -216,12 +231,33 @@ impl Seq {
         }
         let held = hz.iter().copied().find(|&f| f > 0.0).unwrap_or(220.0);
         let steps_per_sec = node.f32("bpm", 120.0) / 60.0 * node.f32("division", 4.0);
-        Seq { hz, step: 0, phase: 0.0, held, per_sample: steps_per_sec / sr, gate: node.f32("gate", 0.5), rate }
+        let division = node.f32("division", 4.0) as f64;
+        Seq { hz, step: 0, phase: 0.0, held, per_sample: steps_per_sec / sr, gate: node.f32("gate", 0.5), rate, division, beats }
+    }
+
+    /// on the clock: the step and its phase from the beat of each frame
+    fn synced(&mut self, outs: &mut [Stereo], n: usize) -> bool {
+        let Some((map, _, start)) = self.beats.as_ref().and_then(|b| b.block()) else { return false };
+        let per_beat = self.division * self.rate.get().max(0.0) as f64;
+        let len = self.hz.len() as f64;
+        for i in 0..n {
+            let s = map.beat_at(start + i as f64) * per_beat;
+            let f = self.hz[s.floor().rem_euclid(len) as usize];
+            if f > 0.0 {
+                self.held = f;
+            }
+            outs[0].l[i] = self.held;
+            outs[0].r[i] = if f > 0.0 && map.running && (s.rem_euclid(1.0) as f32) < self.gate { 1.0 } else { 0.0 };
+        }
+        true
     }
 }
 
 impl Block for Seq {
     fn process(&mut self, _: &[Option<&Stereo>], outs: &mut [Stereo], n: usize) {
+        if self.synced(outs, n) {
+            return;
+        }
         let inc = self.per_sample * self.rate.get().max(0.0);
         for i in 0..n {
             self.phase += inc;
@@ -362,6 +398,7 @@ mod tests {
                 .nodes[0],
             100.0,
             Param::new(1.0),
+            None,
         );
         let mut out = [Stereo::new()];
         s.process(&[], &mut out, 300);

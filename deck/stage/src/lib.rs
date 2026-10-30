@@ -11,4 +11,5 @@ pub mod library;
 pub mod render;
 pub mod scene;
 pub mod splash;
+pub mod tempo;
 pub mod text;

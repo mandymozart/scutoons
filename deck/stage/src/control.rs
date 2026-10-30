@@ -1,8 +1,10 @@
-//! The control domain, evaluated once per frame: the FFT analyzers, the LFOs, then every control link mapped
-//! (`value * scale + offset`) into its input – video nodes read theirs with `input()`, audio nodes get theirs as Params.
+//! The control domain, evaluated once per frame: the FFT analyzers, the tempo node (the clock at the heard moment), the
+//! LFOs, then every control link mapped (`value * scale + offset`) into its input – video nodes read theirs with
+//! `input()`, audio nodes get theirs as Params.
 use crate::audio::{Handles, Param};
 use crate::fft::Analyzer;
 use crate::graph::{Graph, Kind, PortType};
+use crate::tempo;
 
 pub struct Controls {
     /// per node, per output port: this frame's value
@@ -10,6 +12,8 @@ pub struct Controls {
     phase: Vec<f32>,
     analyzers: Vec<(usize, Analyzer)>,
     params: Vec<(usize, usize, Param)>,
+    /// this frame's tempo clock (quantised cuts read it)
+    pub tempo: tempo::Now,
 }
 
 impl Controls {
@@ -19,6 +23,7 @@ impl Controls {
             phase: vec![0.0; graph.nodes.len()],
             analyzers: Vec::new(),
             params: Vec::new(),
+            tempo: tempo::Now::default(),
         };
         if let Some(h) = audio {
             let rate = h.clock.rate;
@@ -40,10 +45,21 @@ impl Controls {
         }
     }
 
-    /// one frame: `lead` = how many samples the audio callback has rendered past the heard moment (the FFT looks back)
-    pub fn update(&mut self, graph: &Graph, dt: f32, lead: usize) {
+    /// one frame: `lead` = how many samples the audio callback has rendered past the heard moment (the FFT looks
+    /// back), `tempo` = the clock at the heard moment
+    pub fn update(&mut self, graph: &Graph, dt: f32, lead: usize, tempo: &tempo::Now) {
         for (node, a) in &mut self.analyzers {
             self.out[*node].copy_from_slice(&a.update(dt, lead));
+        }
+        self.tempo = *tempo;
+        if let Some(i) = graph.first(Kind::Tempo) {
+            let p = &tempo.pos;
+            // pulse: 1 on the beat, gone by its middle (0 while stopped)
+            let pulse = if tempo.running { (1.0 - p.phase).powi(6) } else { 0.0 };
+            let v = [tempo.bpm, p.beat, p.bar as f64, p.phase, p.bar_phase, pulse];
+            for (o, x) in self.out[i].iter_mut().zip(v) {
+                *o = x as f32;
+            }
         }
         for &i in &graph.order {
             if graph.nodes[i].kind == Kind::Lfo {
@@ -90,12 +106,37 @@ mod tests {
         let (_, mut h) = Engine::build(&g, 48_000.0, 1.0).unwrap();
         let freq = h.params[0].2.clone();
         let mut c = Controls::new(&g, Some(&mut h));
-        c.update(&g, 0.1, 0);
+        c.update(&g, 0.1, 0, &tempo::Now::default());
         assert_eq!(c.input(&g, 1, "speed", 0.0), 3.0); // square high = 1 → 1 * 2 + 1
         assert_eq!(c.input(&g, 1, "zoom", 1.0), 3.0); // unlinked: the node's param
         assert_eq!(c.input(&g, 1, "hue", 0.5), 0.5); // neither: the default
         assert_eq!(freq.get(), 100.0);
-        c.update(&g, 2.0, 0); // phase 0.025 + 0.5 → the low half
+        c.update(&g, 2.0, 0, &tempo::Now::default()); // phase 0.025 + 0.5 → the low half
         assert_eq!(c.input(&g, 1, "speed", 0.0), 1.0);
+    }
+
+    #[test]
+    fn the_tempo_node_outputs_the_clock() {
+        let g = Graph::build(
+            &Scene::parse("[[node]]
+id=\"t\"
+kind=\"tempo\"
+[[node]]
+id=\"p\"
+kind=\"test_pattern\"
+[[link]]
+from=\"t.pulse\"
+to=\"p.pulse\"
+")
+                .unwrap(),
+        )
+        .unwrap();
+        let mut c = Controls::new(&g, None);
+        let now = tempo::Now { bpm: 96.0, pos: tempo::position(9.0, 4), per_bar: 4, running: true };
+        c.update(&g, 0.016, 0, &now);
+        assert_eq!(c.out[0], vec![96.0, 9.0, 2.0, 0.0, 0.25, 1.0]);
+        assert_eq!(c.input(&g, 1, "pulse", 0.0), 1.0);
+        c.update(&g, 0.016, 0, &tempo::Now { pos: tempo::position(9.5, 4), ..now });
+        assert!(c.input(&g, 1, "pulse", 0.0) < 0.02);
     }
 }

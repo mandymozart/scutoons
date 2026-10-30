@@ -17,6 +17,10 @@ path = "src/main.rs"
 default = []
 # the PipeWire backend (Linux, needs libpipewire + clang at build time); without it the stage plays through cpal
 pipewire = ["dep:pipewire"]
+# Ableton Link as a tempo source (tempo/link.rs; rusty_link builds Ableton's abl_link C++ library – needs cmake, a C++
+# compiler and libclang at build time). On Windows a debug build links only with an optimised rusty_link:
+# `--config 'profile.dev.package.rusty_link.opt-level=1'` (its cmake Debug build wants the debug CRT) – deck/stage/README.md
+link = ["dep:rusty_link"]
 
 [dependencies]
 anyhow.workspace = true
@@ -40,6 +44,10 @@ ureq = "2"
 image = { version = "0.25", default-features = false, features = ["webp", "png"] }
 ab_glyph = "0.2"
 resvg = { version = "0.45", default-features = false }
+# the tempo clock's external sources (#181): MIDI clock in / out, OSC
+midir.workspace = true
+rosc.workspace = true
+rusty_link = { version = "0.4.9", optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 pipewire = { version = "0.10", optional = true, features = ["v0_3_50"] }

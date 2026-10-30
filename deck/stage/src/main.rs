@@ -4,7 +4,7 @@
 //! chapter's first slice and the music are there, and the browser's start: with DECK_BROWSER set (deck-session does)
 //! F2 starts that command on top of the running stage – cage shows the newest window – and the stage pauses and mutes
 //! behind it until it closes; without it F2 quits with exit code 10 (deck-session's older loop opens the browser).
-use deck_stage::{audio, chapter, clock, control, graph, hud, library, render, scene, splash};
+use deck_stage::{audio, chapter, clock, control, graph, hud, library, render, scene, splash, tempo};
 
 use anyhow::{bail, Context, Result};
 use audio::backend::{self, Choice};
@@ -112,11 +112,14 @@ struct App {
     hud: hud::Hud,
     hud_at: f32,
     last: Option<Instant>,
-    t0: Instant,
+    /// the start on clock::now_ns's clock (the time base without audio)
+    t0_ns: u64,
     /// the time base's frame-thread half (clock.rs); None without audio (then the wall clock since the start)
     timebase: Option<clock::TimeBase>,
-    /// this frame's time (s): the audio position heard at the frame's moment
-    now: f64,
+    /// this frame's view of the time base: the audio position heard at the frame's moment, what is rendered, the line
+    moment: clock::Moment,
+    /// the tempo clock on top of it (tempo/, #181)
+    tempo: tempo::Tempo,
     stats: Stats,
     mods: ModifiersState,
     exit: i32,
@@ -133,30 +136,27 @@ struct App {
 
 impl App {
     fn time(&self) -> f32 {
-        self.now as f32
+        self.moment.seconds() as f32
     }
 
     /// the time base (clock.rs, CYBERDECKS.md §8 "Two clocks"): the audio position heard at this frame's moment – the
     /// device's block stamps through a DLL, interpolated between blocks, minus the output latency, never backwards (the
-    /// X1's SOF card hands over whole periods – counting rendered frames stepped the picture). No audio: the wall clock.
+    /// X1's SOF card hands over whole periods – counting rendered frames stepped the picture). Before the first block
+    /// it stands at 0; no audio: the wall clock since the start.
     fn advance_time(&mut self) {
-        self.now = match (&self.clock, self.timebase.as_mut()) {
+        let now = clock::now_ns();
+        self.moment = match (&self.clock, self.timebase.as_mut()) {
             (Some(c), Some(tb)) => {
                 tb.poll(&c.stamp);
-                tb.seconds(clock::now_ns()).unwrap_or(0.0)
+                tb.moment(now, c.rendered()).unwrap_or_else(|| clock::Moment::wall(now, now, c.rate as f64))
             }
-            _ => self.t0.elapsed().as_secs_f64(),
+            _ => clock::Moment::wall(now, self.t0_ns, 48_000.0),
         };
     }
 
     /// how many samples the audio callback has rendered past the heard moment (the FFT looks back by it)
     fn lead(&self) -> usize {
-        match &self.clock {
-            Some(c) if self.timebase.as_ref().is_some_and(|t| t.line().is_some()) => {
-                (c.rendered() as f64 - self.now * c.rate as f64).max(0.0) as usize
-            }
-            _ => 0,
-        }
+        self.moment.lead()
     }
 
     /// still loading what the splash waits for: a chapter's first slice, a music track
@@ -228,7 +228,8 @@ impl App {
         }
         self.last = Some(now);
         self.advance_time();
-        self.controls.update(&self.graph, dt, self.lead());
+        let beat = self.tempo.frame(&self.moment);
+        self.controls.update(&self.graph, dt, self.lead(), &beat);
         let time = self.time();
         self.stats.window.0 += 1;
         self.stats.window.1 += dt;
@@ -471,6 +472,11 @@ fn run() -> Result<i32> {
     let clock = handles.as_ref().map(|h| h.clock.clone());
     let timebase = clock.as_ref().map(|c| clock::TimeBase::new(c.rate));
     let controls = control::Controls::new(&graph, handles.as_mut());
+    // the tempo clock: the engine's shared map (or its own without audio), the scene's source opened
+    let rate = clock.as_ref().map_or(48_000.0, |c| c.rate as f64);
+    let shared = handles.as_ref().map(|h| h.tempo.clone()).unwrap_or_default();
+    let mut tempo = tempo::Tempo::new(tempo::Config::from_graph(&graph)?, shared, rate);
+    tempo.start();
 
     let event_loop = EventLoop::<Event>::with_user_event().build().context("no event loop (no display?)")?;
     let proxy = event_loop.create_proxy();
@@ -489,9 +495,10 @@ fn run() -> Result<i32> {
         renderer: None,
         hud_at: -1.0,
         last: None,
-        t0: Instant::now(),
+        t0_ns: clock::now_ns(),
         timebase,
-        now: 0.0,
+        moment: clock::Moment::wall(clock::now_ns(), clock::now_ns(), rate),
+        tempo,
         stats: Stats::default(),
         mods: ModifiersState::empty(),
         exit: 0,

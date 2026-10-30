@@ -103,6 +103,42 @@ impl Line {
     }
 }
 
+/// One video frame's view of the time base: what is heard now, what the audio thread has rendered, and the line that
+/// maps any moment (an event's timestamp) to a frame position. Without audio a virtual 48 kHz line from the start.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Moment {
+    pub now_ns: u64,
+    pub rate: f64,
+    /// the frame position heard now
+    pub heard: f64,
+    /// frames the audio thread has rendered (≥ heard by the output latency + a block)
+    pub rendered: f64,
+    pub line: Line,
+}
+
+impl Moment {
+    /// no audio: frames on the wall clock since `origin_ns` at `rate` (heard = rendered)
+    pub fn wall(now_ns: u64, origin_ns: u64, rate: f64) -> Moment {
+        let line = Line { t: origin_ns as f64 * 1e-9, f: 0.0, spf: 1.0 / rate };
+        let heard = line.frames_at(now_ns as f64 * 1e-9).max(0.0);
+        Moment { now_ns, rate, heard, rendered: heard, line }
+    }
+
+    /// the frame position heard at `ns` (an event's moment)
+    pub fn frames_at(&self, ns: u64) -> f64 {
+        self.line.frames_at(ns as f64 * 1e-9)
+    }
+
+    pub fn seconds(&self) -> f64 {
+        self.heard / self.rate
+    }
+
+    /// samples rendered past the heard moment
+    pub fn lead(&self) -> usize {
+        (self.rendered - self.heard).max(0.0) as usize
+    }
+}
+
 /// The frame thread's half: block stamps in, the heard position (s) per video frame out.
 pub struct TimeBase {
     rate: f64,
@@ -166,6 +202,13 @@ impl TimeBase {
         let s = (m.frames_at(t) / self.rate).max(self.out);
         self.out = s;
         Some(s)
+    }
+
+    /// this frame's Moment (None before the first block): `rendered` = the engine's frame counter
+    pub fn moment(&mut self, now_ns: u64, rendered: u64) -> Option<Moment> {
+        let s = self.seconds(now_ns)?;
+        let heard = s * self.rate;
+        Some(Moment { now_ns, rate: self.rate, heard, rendered: (rendered as f64).max(heard), line: self.line? })
     }
 }
 

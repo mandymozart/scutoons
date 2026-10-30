@@ -51,6 +51,11 @@ pub enum Kind {
     Overlay,
     /// a low-frequency oscillator (control)
     Lfo,
+    /// the tempo clock (tempo/, #181): bpm, beat, bar, phase, bar_phase, pulse – one per scene, its params set the
+    /// clock (bpm, beats per bar, the source, the click, MIDI / OSC ports)
+    Tempo,
+    /// a metronome on the tempo clock: a short tick per beat, higher on the bar's first (while the click is on)
+    Click,
     /// a band-limited oscillator (sine / saw / square / triangle), pitched by its `cv` input or `freq`
     Osc,
     /// white or pink noise through a lowpass
@@ -78,6 +83,8 @@ impl Kind {
             "chapter" => Kind::Chapter,
             "overlay" => Kind::Overlay,
             "lfo" => Kind::Lfo,
+            "tempo" => Kind::Tempo,
+            "click" => Kind::Click,
             "osc" => Kind::Osc,
             "noise" => Kind::Noise,
             "fm" => Kind::Fm,
@@ -93,7 +100,7 @@ impl Kind {
     pub fn domain(self) -> Domain {
         match self {
             Kind::TestPattern | Kind::Shader | Kind::Screen | Kind::Chapter | Kind::Overlay => Domain::Video,
-            Kind::Lfo => Domain::Control,
+            Kind::Lfo | Kind::Tempo => Domain::Control,
             _ => Domain::Audio,
         }
     }
@@ -106,6 +113,8 @@ impl Kind {
             Kind::Chapter => &[p!("in", V), p!("next", C), p!("hold", C), p!("zoom", C), p!("pulse", C)],
             Kind::Overlay => &[p!("in", V), p!("top", V), p!("opacity", C), p!("pulse", C), p!("shake", C)],
             Kind::Lfo => &[p!("rate", C), p!("depth", C)],
+            Kind::Tempo => &[],
+            Kind::Click => &[p!("gain", C)],
             Kind::Osc => &[p!("cv", A), p!("freq", C), p!("gain", C)],
             Kind::Noise => &[p!("cutoff", C), p!("gain", C)],
             Kind::Fm => &[p!("cv", A), p!("freq", C), p!("ratio", C), p!("index", C), p!("gain", C)],
@@ -126,6 +135,7 @@ impl Kind {
             Kind::Chapter => &[p!("out", V), p!("text", V)],
             Kind::Screen | Kind::AudioOut => &[],
             Kind::Lfo => &[p!("out", C)],
+            Kind::Tempo => &[p!("bpm", C), p!("beat", C), p!("bar", C), p!("phase", C), p!("bar_phase", C), p!("pulse", C)],
             Kind::Seq => &[p!("cv", A)],
             Kind::Fft => &[p!("level", C), p!("bass", C), p!("mid", C), p!("high", C)],
             _ => &[p!("out", A)],
@@ -202,7 +212,7 @@ impl Graph {
             }
             nodes.push(Node { id: n.id.clone(), kind, params: n.params.clone() });
         }
-        for sink in [Kind::Screen, Kind::AudioOut] {
+        for sink in [Kind::Screen, Kind::AudioOut, Kind::Tempo] {
             if nodes.iter().filter(|n| n.kind == sink).count() > 1 {
                 bail!("a scene has at most one {sink:?} node");
             }

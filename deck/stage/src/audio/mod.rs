@@ -2,11 +2,14 @@
 //! callback in blocks of at most MAX_BLOCK frames. Everything is allocated at build time – the callback only reads
 //! atomics (Param), pops lock-free rings (rtrb) and writes preallocated buffers (tests/no_alloc.rs proves it).
 //! The frame counter and the per-block stamps are the stage's time base (§8 "Two clocks", clock.rs): each backend calls
-//! `mark` with the moment the block it is about to render will be heard.
+//! `mark` with the moment the block it is about to render will be heard. The tempo map (tempo/, #181) reaches the
+//! click and the synced sequencer through a seqlock, read once per block.
 pub mod backend;
 mod blocks;
+mod click;
 
 use crate::clock::Stamp;
+use crate::tempo;
 use crate::graph::{Domain, Graph, Kind, PortType};
 use anyhow::Result;
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
@@ -105,6 +108,8 @@ pub struct Handles {
     pub taps: Vec<(usize, rtrb::Consumer<f32>)>,
     pub clock: Clock,
     pub master: Param,
+    /// the tempo map the frame thread publishes (tempo::Tempo) and the audio thread reads
+    pub tempo: Arc<tempo::Shared>,
 }
 
 pub struct MusicFeed {
@@ -125,7 +130,11 @@ impl Engine {
             taps: Vec::new(),
             clock: Clock { frames: Arc::new(AtomicU64::new(0)), rate, stamp: Arc::new(Stamp::default()) },
             master: Param::new(volume),
+            tempo: Arc::new(tempo::Shared::default()),
         };
+        // the scene's tempo until the frame thread takes over
+        let cfg = tempo::Config::from_graph(graph)?;
+        handles.tempo.publish(&cfg.map(rate as f64), cfg.click);
         for &i in &graph.order {
             let node = &graph.nodes[i];
             if node.kind.domain() != Domain::Audio {
