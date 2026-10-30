@@ -1,0 +1,6 @@
+# Cargo settings for the deck workspace.
+[alias]
+# deck-stage built whole for x86-64-v3 (AVX2, FMA, BMI2 …) into its own target folder (#183) – the optional second
+# binary for CPUs that have it (deck/stage/README.md "x86-64-v3"). The default build stays baseline x86-64 and picks
+# its audio batches' AVX2 loops at start. Add flags as usual: `cargo stage-v3 --locked --features deck-stage/pipewire`.
+stage-v3 = ["build", "--release", "-p", "deck-stage", "--target-dir", "target-v3", "--config", "build.rustflags=['-Ctarget-cpu=x86-64-v3']"]

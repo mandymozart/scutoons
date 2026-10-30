@@ -17,7 +17,8 @@ cd deck && cargo run --release -p deck-stage -- --windowed
 PipeWire → cpal → null; null runs the engine on a timer, no device – the clock, the music and the FFT still move) ·
 `--volume 0–1` · `--cache DIR` (default `/var/lib/deck/cache` on a deck, `DECK_CACHE`, else the user cache folder) ·
 `--api` / `--cdn` (or `DECK_API` / `DECK_CDN`) · `--windowed` · `--frames N` (quit after N frames and print the numbers –
-a check run) · `--no-hud`. Logs: `RUST_LOG`.
+a check run) · `--no-hud`. Logs: `RUST_LOG`. `DECK_SIMD=baseline` – the audio batches without AVX2 (to compare).
+The graph's workloads: `cargo bench -p deck-stage` (patcher | batch | batch AVX2, µs per block).
 
 Keys: **F1** the HUD · **F2** the browser · **Ctrl+Q** quit (on the deck the stage starts again) · **Ctrl+Alt+Del** power off (`systemctl
 poweroff`, the logo stays up; not in a `--windowed` stage) · Esc quits a `--windowed` stage · the tempo clock: **T** tap ·
@@ -84,12 +85,26 @@ screen. `scenes/test-pattern.toml` – the picture alone (no sound, no network).
 
 - **Threads:** the event loop (winit) renders per frame at vsync (Fifo – no busy loop); the audio callback (PipeWire's
   realtime data thread, or cpal's) runs the audio nodes per block; one loader thread per `chapter_music` node.
-- **Audio** (`src/audio/`): the audio nodes in topological order, one preallocated stereo buffer per output port, blocks of
-  ≤ 1024 frames. Oscillators, noise and the lowpass are fundsp units, warmed up at build time; envelopes, sequencer,
-  player (linear resampling to the device rate), mixer and FFT tap are ours. Control values reach the callback as atomics
-  (`Param`), tracks through a lock-free ring (rtrb), the FFT's samples leave through another; a hard limit before the
-  device. `tests/no_alloc.rs` counts allocations around 2000 callbacks of the default scene (the click on, the tempo
-  changing): zero. Each block is stamped with the moment it is heard – the time base (`src/clock.rs`).
+- **The graph runs on the batch model** (#183 – the engine model of ECS systems, TouchDesigner's channels, gen~, over
+  the patcher's one object per node): compiled at load into dependency levels × kinds, struct-of-arrays loops.
+  **Control** (`src/control.rs`): one value slot per control output, every control input a column (deck-core's `Col`:
+  the linked slot × scale + offset, or the param as a constant), the LFOs one batch per level and shape. **Audio**
+  (`src/audio/`): levels by the audio links; a level's sine oscillators and FM voices run as one batch each
+  (`voices.rs`: groups of eight voices in deck-core's `F8` lanes, the group's state in registers for the block),
+  every other node as a block of its own (`blocks.rs`, the patcher model for one-off nodes: saw / square / triangle
+  oscillators, noise and the lowpass on fundsp; sequencer, click, player with linear resampling, mixer, FFT tap,
+  output). One preallocated stereo buffer per output port, blocks of ≤ 1024 frames. `Build::patcher()` runs every node
+  as a block (the stage before #183) – the reference the tests compare with: two seconds of the same scene agree
+  within 2e-7 (sines), 1e-5 (the default scene), 2e-4 (16 FM voices at index 4.5 – FM multiplies deck-core's sine
+  error by the modulation). Control values reach the callback as atomics (`Param`), tracks through a lock-free ring
+  (rtrb), the FFT's samples leave through another; a hard limit before the device. `tests/no_alloc.rs` counts
+  allocations around 2000 callbacks of the default scene (the click on, the tempo changing), AVX2 and baseline: zero.
+  Each block is stamped with the moment it is heard – the time base (`src/clock.rs`).
+- **x86-64-v3** (owner 2026-10-30): one baseline x86-64 binary; the voice batches' loops are compiled twice (once with
+  `#[target_feature(avx2, fma)]`) and picked at start by CPU detection, bit-identical results – the start log says
+  `audio graph: batch avx2 …`, a `--frames` run's summary too; `DECK_SIMD=baseline` keeps the baseline loops. A
+  whole-program v3 binary (`cargo stage-v3`, deck/.cargo/config.toml) is faster again on the one-off nodes (the default
+  scene 10.0 → 7.5 µs per block); the ISO may ship it beside the baseline one (#183).
 - **Tempo** (`src/tempo/`, #181): a tempo map over the audio frame position (beat = f(audio position)); the frame thread
   follows the master source, re-anchors the map at the audio thread's frontier and publishes it through a seqlock – the
   click and the sequencer read it per block (sample-accurate), MIDI clock out (`midi_out`, its own thread) per tick, the
@@ -121,3 +136,4 @@ wgpu-hal's DX12 build on Windows). A bump is its own step.
 |---|---|---|
 | Windows 10, RTX 2070 SUPER, Vulkan, release | default (null audio) | 60.3 fps, 16.6 ms avg frame, 0.29 ms CPU per frame, first frame 845 ms, catpope 1 music online in 1.1 s (cached 0.4 s) |
 | ThinkPad X1 Carbon Gen 7, UHD 620 (anv) | default | open – the owner's stick (deck/HARDWARE.md) |
+| Windows 10, Ryzen 5 3600X, `cargo bench -p deck-stage` (2026-10-30, #183) | the graph, µs per 128-frame block: before #183 → patcher → batch → batch AVX2 | default scene 11.0 → 9.9 → 11.1 → 10.0 (whole v3 binary 7.5) · 1 FM voice – → 2.2 → 3.5 → 2.2 · 16 FM voices 37.8 → 34.1 → 10.2 → 7.7 · 16 sines 20.1 → 15.4 → 7.3 → 5.3 · 64 FM voices – → 125 → 41 → 27 · control step, 300 LFOs: 58.4 → 2.1 (3 levels × 100), 69.6 → 5.5 (300 levels) |

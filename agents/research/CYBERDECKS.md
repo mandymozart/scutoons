@@ -141,6 +141,12 @@ Proven on the X1 first: Vulkan on the iGPU (anv), VA-API decode h264 / hevc / vp
   blocks from `fundsp` (oscillators, noise, FM, filters; granular on chapter samples); chapter music decoded with
   `symphonia`; out through the default sink (the RME UCX II in Class Compliant mode, #174). The audio clock is the master
   clock for video, MIDI and the bus.
+- **Graph runtime** (#183, owner 2026-10-30: "Architecture is key for this"): the **batch model** – the graph compiled at
+  load into dependency levels × kinds, struct-of-arrays loops (ECS systems, TouchDesigner channels, gen~) – with the
+  **patcher** (one block per node) for one-off nodes. Control: every input a column, the LFOs batched per level and
+  shape. Audio: a level's sine oscillators and FM voices as one batch in deck-core's 8-lane `F8`; sequencer, player,
+  noise, mixer, FFT tap stay blocks. **x86-64-v3:** one baseline binary whose voice loops also exist in AVX2, picked at
+  start; a whole v3 binary is optional (the one-off nodes gain too). Numbers: deck/stage/README.md "Measured".
 - **Two clocks** (#181, owner 2026-10-29: "ein richtiger Klick … 60 BPM … Oder eine Clock, die von extern kommt"): the
   **time base** (`clock.rs`) = the exact audio position – each audio block stamped with the monotonic moment it is heard
   (PipeWire's pw_time, cpal's playback instant), a DLL on the frame thread interpolates per video frame, never
@@ -150,7 +156,7 @@ Proven on the X1 first: Vulkan on the iGPU (anv), VA-API decode h264 / hevc / vp
   scene's `source`, F3): internal (+ / −, tap), MIDI clock in (least squares over two beats), Ableton Link (cargo
   feature `link`), OSC (`/tempo/*`), the relay's show clock (a stub until the relay has one, #172). MIDI clock out runs
   from the audio clock (each tick when its beat is heard). The platform-free part (map, followers, schedules) moves into
-  deck-core as its `tempo` module with #183 / #185. Link on the ISO: `cmake` in os/container/build.sh and the PKGBUILD,
+  deck-core as its `tempo` module with #185. Link on the ISO: `cmake` in os/container/build.sh and the PKGBUILD,
   `--features deck-stage/link` on their cargo lines.
 - **scutoons.com:** the public library API read-only (`/api/library/toons/<toon>/chapters/<n>`: slices, slice videos,
   music paths; files from cdn.scutoons.com), cached on DECKDATA (`/var/lib/deck/cache`) so a venue runs offline; later
