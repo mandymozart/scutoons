@@ -1,4 +1,4 @@
-Status 2026-10-30: the morning report of the #182 night run (branch `wip/live-night-75b685`, not merged, not pushed). Decisions waiting: #183–#187.
+Status 2026-10-30: the morning report of the #182 night run (merged to main). #183 decided and built (the stage runs on the batch model: deck/stage/README.md); decisions waiting: #184–#187.
 
 # LIVE night run 2026-10-29 – the full picture, the Live stage on a deck, a modular core in Rust and wasm
 
@@ -166,7 +166,7 @@ Recommendation (#185): the core + compiled-in modules, visuals as data, wasm mod
 | Relay protocol codec | 0.5× (TS's JSON.parse is native) | **no** – keep the generated TS types + JSON |
 | Text layout, slice compositing (wgpu / WebGPU in an OffscreenCanvas) | not measured | **no for now**: the reader renders slices; a WebGPU output only if a browser output drops frames |
 
-"One crate, two targets" works: `deck-core` builds for the deck and for `wasm32` unchanged. Its FFT is the stage's FFT. The stage switches to `deck-core` in one step after the merge (it is not touched tonight, because #181 is being built in its files).
+"One crate, two targets" works: `deck-core` builds for the deck and for `wasm32` unchanged. Its FFT is the stage's FFT. Since #183 the stage uses deck-core's maths, `F8` lanes and batch columns; its FFT and the tempo map move into deck-core with #185.
 
 ## 5. What was built (branch `wip/live-night-75b685`)
 | Commit | What | Tests |
