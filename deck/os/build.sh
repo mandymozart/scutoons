@@ -9,7 +9,7 @@ set -euo pipefail
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 deck=$(cd "$here/.." && pwd)
 out=${DECK_OUT:-$here/out}
-mkdir -p "$out"
+mkdir -p "$out"; out=$(cd "$out" && pwd)   # docker wants an absolute path (a relative DECK_OUT is a volume name to it)
 if command -v cygpath >/dev/null 2>&1; then deck_m=$(cygpath -m "$deck"); out_m=$(cygpath -m "$out"); else deck_m=$deck; out_m=$out; fi
 
 docker version >/dev/null 2>&1 || { echo "Docker does not answer – start Docker Desktop"; exit 1; }
