@@ -4,7 +4,7 @@
 // being's exposed parameters; the head wears the character's mood sprite (the API's scene-content, #195).
 import { LiveCore, type Analysis } from '../../../shared/live-core/src/index.ts';
 import { DeckLink, ValueStream } from './deck-client.ts';
-import { deckGraph, ENGINE_TOML, ladderFor, midiHz, Moods, PARAMS, SEQ, STREAMED, toPos, toValue } from './deck-scene.ts';
+import { deckGraph, ENGINE_TOML, HELD_NOTE, ladderFor, midiHz, Moods, PARAMS, SEQ, STREAMED, toPos, toValue } from './deck-scene.ts';
 
 const API = 'https://api.scutoons.com/api';
 const CDN = 'https://cdn.scutoons.com/';
@@ -166,6 +166,7 @@ const read = (p: string): number => {
 };
 const cutoff = () => Math.min(12000, value['incense.cutoff'] * 2 ** (sway * 1.5));
 
+const SEQ_ON = new URLSearchParams(location.search).get('seq') === '1';
 let lastStep = -1;
 let last = performance.now() / 1000;
 function frame() {
@@ -182,7 +183,15 @@ function tick() {
 	last = now;
 	swayPhase = (swayPhase + value['sway.rate'] * dt) % 1;
 	sway = Math.sin(swayPhase * 2 * Math.PI) * value['sway.depth'];
-	if (core) {
+	if (core && !SEQ_ON) {
+		if (!gate) {
+			note = HELD_NOTE;
+			core.set('voice.freq', [midiHz(note)]);
+			gate = 1;
+			core.set('env', [1]);
+		}
+		noise?.filter.frequency.setTargetAtTime(cutoff(), core.context.currentTime, 0.03);
+	} else if (core) {
 		const stepDur = 60 / SEQ.bpm / SEQ.division;
 		const t = core.context.currentTime;
 		const step = Math.floor(t / stepDur);

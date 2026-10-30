@@ -34,6 +34,9 @@ export const PARAMS: Record<string, Spec> = {
 
 /** the choir's line (cathedral.toml `seq`): MIDI notes, 0 = rest; 84 bpm, two steps a beat, gate 0.6 */
 export const SEQ = { bpm: 84, division: 2, gate: 0.6, steps: [50, 0, 57, 55, 53, 0, 52, 50] };
+/** the voice held as a plain drone – the default (owner 2026-10-31: "the sequence is a little annoying for testing");
+ *  `?seq=1` plays the choir line instead */
+export const HELD_NOTE = 50;
 
 export const midiHz = (n: number) => 440 * 2 ** ((n - 69) / 12);
 
