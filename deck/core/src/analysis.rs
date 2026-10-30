@@ -1,10 +1,15 @@
-//! Module `analysis`: sound → control values. `bands` is the stage's FFT analysis (deck/stage/src/fft.rs uses it):
-//! level (RMS) + the peak magnitude of bass 20–250 Hz, mid 250–2000 Hz, high 2–8 kHz, each in 0–1 (dB-scaled).
+//! Module `analysis`: sound → control values – the stage's FFT (#185: deck/stage/src/fft.rs only drains its audio ring
+//! into an `Analyzer`): level (RMS) + the peak magnitude of bass 20–250 Hz, mid 250–2000 Hz, high 2–8 kHz, each in 0–1
+//! (dB-scaled). `Analyzer` keeps a history and looks back by the output lead, so the values are what is heard now (a
+//! fast rise, a `release` in seconds); `FftBlock` is the patcher's `fft` kind (one window, no lead, no smoothing).
 use crate::module::{Block, KindInfo, Module, Params, ANALYSIS_KINDS};
 use rustfft::{num_complex::Complex, Fft, FftPlanner};
 use std::sync::Arc;
 
 pub const SIZE: usize = 1024;
+/// how far back the window may end (≈ 170 ms at 48 kHz – more than any sane output latency + block)
+pub const MAX_LEAD: usize = 8192;
+const HIST: usize = SIZE + MAX_LEAD;
 /// the dB range mapped onto 0–1
 const FLOOR_DB: f32 = -70.0;
 const RANGE_DB: f32 = 60.0;
@@ -39,10 +44,50 @@ impl Bands {
 
     /// The four values of the newest `SIZE` samples (`window` is in time order).
     pub fn analyse(&mut self, window: &[f32]) -> [f32; 4] {
+        self.analyse_by(|i| window.get(i).copied().unwrap_or(0.0))
+    }
+
+    /// The four values of the `SIZE` samples `sample(0..SIZE)` (in time order).
+    fn analyse_by(&mut self, sample: impl Fn(usize) -> f32) -> [f32; 4] {
         for (i, b) in self.buf.iter_mut().enumerate() {
-            *b = Complex::new(window.get(i).copied().unwrap_or(0.0) * self.hann[i], 0.0);
+            *b = Complex::new(sample(i) * self.hann[i], 0.0);
         }
         bands(&mut self.buf, &*self.fft, self.rate)
+    }
+}
+
+/// The stage's FFT node on the frame thread: samples are pushed as they come (the audio thread renders ahead of the
+/// speaker), each `update` analyses the `SIZE` samples that end `lead` samples before the newest – the heard moment –
+/// and smooths them into `values` (level, bass, mid, high). Allocates only in `new`.
+pub struct Analyzer {
+    bands: Bands,
+    window: Vec<f32>,
+    pos: usize,
+    release: f32,
+    pub values: [f32; 4],
+}
+
+impl Analyzer {
+    pub fn new(rate: f32, release: f32) -> Analyzer {
+        Analyzer { bands: Bands::new(rate), window: vec![0.0; HIST], pos: 0, release: release.max(0.01), values: [0.0; 4] }
+    }
+
+    /// one sample, the newest
+    pub fn push(&mut self, x: f32) {
+        self.window[self.pos] = x;
+        self.pos = (self.pos + 1) % HIST;
+    }
+
+    /// analyse the window ending `lead` samples before the newest (at most `MAX_LEAD`), smooth into `values`
+    pub fn update(&mut self, dt: f32, lead: usize) -> [f32; 4] {
+        let start = self.pos + HIST - SIZE - lead.min(MAX_LEAD);
+        let window = &self.window;
+        let raw = self.bands.analyse_by(|i| window[(start + i) % HIST]);
+        let fall = (-dt / self.release).exp();
+        for (v, r) in self.values.iter_mut().zip(raw) {
+            *v = if r > *v { *v + (r - *v) * 0.6 } else { (*v * fall).max(r) };
+        }
+        self.values
     }
 }
 
@@ -110,6 +155,47 @@ mod tests {
     fn a_high_sine_is_high() {
         let [_, bass, _, high] = Bands::new(48_000.0).analyse(&sine(4000.0));
         assert!(high > 0.8 && high > bass + 0.3, "{bass} {high}");
+    }
+
+    /// the stage's frame-thread analyzer, fed `SIZE` samples of a sine, after 8 frames
+    fn follow(f: f32) -> [f32; 4] {
+        let mut a = Analyzer::new(48_000.0, 0.2);
+        sine(f).into_iter().for_each(|x| a.push(x));
+        for _ in 0..8 {
+            a.update(1.0 / 60.0, 0);
+        }
+        a.values
+    }
+
+    #[test]
+    fn the_analyzer_hears_bass_and_high() {
+        let [level, bass, mid, high] = follow(100.0);
+        assert!(level > 0.7, "level {level}");
+        assert!(bass > 0.8 && bass > mid + 0.2 && bass > high + 0.3, "{bass} {mid} {high}");
+        let [_, bass, _, high] = follow(4000.0);
+        assert!(high > 0.8 && high > bass + 0.3, "{bass} {high}");
+    }
+
+    #[test]
+    fn the_window_ends_at_the_heard_moment() {
+        // a bass tone, then 2048 samples of silence rendered ahead: with that lead the analyzer still hears the tone
+        let mut a = Analyzer::new(48_000.0, 0.2);
+        sine(100.0).into_iter().chain(std::iter::repeat(0.0).take(2048)).for_each(|x| a.push(x));
+        let mut heard = 0.0;
+        for _ in 0..8 {
+            heard = a.update(1.0 / 60.0, 2048)[1];
+        }
+        assert!(heard > 0.8, "heard: the tone ({heard})");
+        let mut b = a.update(1.0 / 60.0, 0)[1];
+        for _ in 0..90 {
+            b = a.update(1.0 / 60.0, 0)[1];
+        }
+        assert!(b < 0.05, "the newest samples: silence ({b})");
+    }
+
+    #[test]
+    fn silence_is_zero() {
+        assert_eq!(Analyzer::new(48_000.0, 0.2).update(0.016, 0), [0.0; 4]);
     }
 
     #[test]

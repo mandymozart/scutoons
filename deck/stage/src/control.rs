@@ -305,7 +305,7 @@ impl Controls {
 
     /// the first FFT node's values (for the HUD)
     pub fn fft(&self) -> Option<[f32; 4]> {
-        self.analyzers.first().map(|(_, a)| a.values)
+        self.analyzers.first().map(|(_, a)| a.values())
     }
 
     /// (levels, batches) of the LFOs – the shape the build found

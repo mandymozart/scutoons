@@ -6,12 +6,11 @@
 //! the audio thread's frontier and publishes it – the click and the synced sequencer read it per block, MIDI clock out
 //! per tick, the control domain per frame (the `tempo` node's outputs, quantised cuts).
 //!
-//! Platform-free except the I/O (midir, UDP, rusty_link), so the map, the followers and the schedules can move into
-//! deck-core as its `tempo` module (#183 batch graph, #185 modules as cargo features).
+//! The map, quantize and tap tempo are deck-core's `tempo` module (#185); here: the sources' I/O (midir, UDP,
+//! rusty_link), the followers and the hand-over across threads (map.rs).
 pub mod map;
 pub mod midi;
 pub mod osc;
-pub mod tap;
 #[cfg(feature = "link")]
 pub mod link;
 
@@ -170,7 +169,7 @@ pub struct Tempo {
     map: TempoMap,
     pub click: bool,
     shared: Arc<Shared>,
-    tap: tap::Tap,
+    tap: map::Tap,
     midi: midi::ClockIn,
     tx: Sender<Event>,
     rx: Receiver<Event>,
@@ -191,7 +190,7 @@ impl Tempo {
             click: cfg.click,
             map,
             shared,
-            tap: tap::Tap::default(),
+            tap: map::Tap::default(),
             midi: midi::ClockIn::default(),
             tx,
             rx,

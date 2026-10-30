@@ -762,7 +762,6 @@ dependencies = [
  "resvg",
  "rosc",
  "rtrb",
- "rustfft",
  "rusty_link",
  "serde",
  "serde_json",

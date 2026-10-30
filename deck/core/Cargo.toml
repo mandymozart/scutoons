@@ -11,13 +11,15 @@ license.workspace = true
 publish.workspace = true
 
 [features]
-default = ["control", "synth", "analysis"]
+default = ["control", "synth", "analysis", "tempo"]
 # LFOs, math, smoothing – the control domain (one f32 per frame)
 control = []
 # oscillators, FM, filters – audio blocks
 synth = []
 # sound → control values (an FFT: level, bass, mid, high)
 analysis = ["dep:rustfft"]
+# the tempo map (beat = f(audio frame)), quantize grids, tap tempo, the least squares fit – deck/stage's tempo clock
+tempo = []
 
 [dependencies]
 rustfft = { version = "6", optional = true, default-features = false }

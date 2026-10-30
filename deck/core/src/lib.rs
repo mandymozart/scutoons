@@ -2,7 +2,8 @@
 //!
 //! - **The core** (always): ports and kinds (`module`), the registry that knows which modules this build carries, the
 //!   control graph (`graph`) that checks a scene and runs its control domain once per frame.
-//! - **Modules** (cargo features): `control` (LFOs, math), `synth` (audio blocks), `analysis` (FFT bands). The stage's
+//! - **Modules** (cargo features): `control` (LFOs, math), `synth` (audio blocks), `analysis` (the FFT: bands, the
+//!   stage's analyzer), `tempo` (the tempo map, quantize, tap – #181 / #185). The stage's
 //!   GPU nodes (shader, chapter, overlay, 3D, text) stay in deck/stage – they need wgpu – but register the same way.
 //! - **Scene-driven builds**: every kind names its module; `features_for(scene)` lists the features a scene needs, so a
 //!   deck build (or a browser worker's wasm) carries exactly those (`deck-scene-features <scene.toml>`).
@@ -21,6 +22,8 @@ pub mod analysis;
 pub mod control;
 #[cfg(feature = "synth")]
 pub mod synth;
+#[cfg(feature = "tempo")]
+pub mod tempo;
 
 pub use graph::{ControlGraph, SceneDef};
 pub use module::{features_for, Block, KindInfo, Module, Params, Port, PortType, Registry};
