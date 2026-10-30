@@ -18,6 +18,7 @@
 //! allocate (tests/no_alloc.rs).
 use crate::graph::{Domain, Graph, Kind, PortType};
 use crate::space::camera::Ray;
+use crate::space::feel::{self, Feel, Senses};
 use crate::space::values::{Path, Values};
 use crate::params::{self, Spec};
 use crate::tempo;
@@ -60,6 +61,10 @@ pub struct Look {
     pub character: String,
     /// the moods the energy walks through, calm → wild (default MOODS)
     pub moods: Vec<String>,
+    /// feedback → emotion: `[[being.feel]]` rules (feel.rs)
+    pub feel: Vec<feel::Rule>,
+    /// emotion → sound: `[[being.react]]` nudges (feel.rs)
+    pub react: Vec<feel::Nudge>,
 }
 
 impl Default for Look {
@@ -74,12 +79,14 @@ impl Default for Look {
             expose: Vec::new(),
             character: String::new(),
             moods: MOODS.iter().map(|m| m.to_string()).collect(),
+            feel: Vec::new(),
+            react: Vec::new(),
         }
     }
 }
 
-/// The head (phase 5): where it floats, its size, the energy and the mood it shows (an index into `look.moods`,
-/// cross-faded from `prev` by `fade`).
+/// The head (phase 5): where it floats, its size, the energy and the mood it shows (an index into the being's `moods`
+/// – `look.moods`, then the moods its feelings name –, cross-faded from `prev` by `fade`).
 #[derive(Debug, Clone)]
 pub struct Head {
     pub pos: Vec3,
@@ -95,6 +102,8 @@ pub struct Head {
     held: f32,
     /// the portrait sprite per mood (portrait.rs slots); empty = no face
     pub sprites: Vec<usize>,
+    /// per mood: the moods to show instead while its sprite is missing, nearest first (portrait::near)
+    pub near: Vec<Vec<usize>>,
     /// a mood set from outside (another deck's stream says its mood): the energy doesn't pick it then
     pub fixed: Option<usize>,
 }
@@ -244,6 +253,10 @@ pub struct Being {
     pub neck: Vec<usize>,
     /// the FFT node (the head's energy)
     fft: Option<usize>,
+    /// the head's palette: `look.moods` (the energy's ladder) first, then every other mood the feelings name
+    pub moods: Vec<String>,
+    /// the feelings: rules that pick the mood, nudges that push it back into the graph (feel.rs)
+    pub feel: Feel,
 }
 
 impl Being {
@@ -370,6 +383,8 @@ impl Being {
         let mut by_height: Vec<usize> = (0..points.len()).filter(|&i| Some(i) != core_point).collect();
         by_height.sort_by(|&a, &b| points[b].rest.y.total_cmp(&points[a].rest.y));
         let neck: Vec<usize> = core_point.into_iter().chain(by_height).take(NECK).collect();
+        let mut moods = look.moods.clone();
+        let feel = Feel::new(graph, &look.feel, &look.react, &mut moods, (hash(&look.character) * 16_777_216.0) as u32 ^ 0x9e37_79b9);
         Being {
             look: look.clone(),
             points,
@@ -394,10 +409,13 @@ impl Being {
                 candidate: 0,
                 held: 0.0,
                 sprites: Vec::new(),
+                near: super::portrait::near(&moods),
                 fixed: None,
             },
             neck,
             fft: graph.first(Kind::Fft),
+            moods,
+            feel,
         }
     }
 
@@ -501,10 +519,12 @@ impl Being {
     }
 
     /// The head's place, its energy (the FFT level – this deck's sound – and the tempo: a fast clock is a little
-    /// wilder) and its mood: the energy's mood must hold MOOD_HOLD before it shows, then it cross-fades. A fixed mood
-    /// (another deck's stream says it) shows at once.
+    /// wilder) and its mood: a feeling's rule that fires shows its mood at once (feel.rs); else a fixed mood (another
+    /// deck's stream says it) shows at once; else the energy's mood, once it has held MOOD_HOLD. Each turn cross-fades
+    /// and kicks the new mood's nudges.
     fn step_head(&mut self, dt: f32, vals: &dyn Values, beat: &tempo::Now) {
         let pos = self.head();
+        let felt = self.feel.step(dt, vals, &Senses { energy: self.head.energy, touching: self.dragging, beat });
         let h = &mut self.head;
         h.pos = pos;
         let level = self.fft.map_or(0.0, |n| vals.output(n, 0)).clamp(0.0, 1.0);
@@ -514,15 +534,39 @@ impl Being {
         let k = if target > h.energy { dt / 0.3 } else { dt / 1.5 };
         h.energy += (target - h.energy) * k.min(1.0);
         let n = self.look.moods.len().max(1);
-        let want = h.fixed.unwrap_or(((h.energy * (n - 1) as f32).round() as usize).min(n - 1));
+        let want = felt.or(h.fixed).unwrap_or(((h.energy * (n - 1) as f32).round() as usize).min(n - 1));
         if want != h.candidate {
             (h.candidate, h.held) = (want, 0.0);
         }
         h.held += dt;
-        if h.candidate != h.mood && (h.held >= MOOD_HOLD || h.fixed.is_some()) {
+        if h.candidate != h.mood && (h.held >= MOOD_HOLD || h.fixed.is_some() || felt.is_some()) {
             (h.prev, h.mood, h.fade) = (h.mood, h.candidate, 0.0);
+            self.feel.turned(h.mood);
+            tracing::debug!("mood {} < {}", self.moods[h.mood], self.feel.because().unwrap_or(if h.fixed.is_some() { "stream" } else { "energy" }));
         }
         h.fade = (h.fade + dt / MOOD_FADE).min(1.0);
+    }
+
+    /// The feelings' nudges into this deck's graph (after `update`; a mirrored being has none of its own). Never
+    /// allocates.
+    pub fn push(&mut self, ctl: &mut crate::control::Controls) {
+        self.feel.push(ctl);
+    }
+
+    /// The HUD's word on the mood: `MOOD FURIOUS < FM.INDEX +2` (the rule that picked it, the nudges moving the graph),
+    /// `MOOD HAPPY < ENERGY 0.62` or `< STREAM`. ≤ 39 characters.
+    pub fn mood_line(&self) -> String {
+        let mood = self.moods.get(self.head.mood).map_or("-", String::as_str);
+        let why = match (self.feel.because(), self.head.fixed) {
+            (Some(w), _) => w.to_string(),
+            (None, Some(_)) => "stream".into(),
+            _ => format!("energy {:.2}", self.head.energy),
+        };
+        let kicks = match self.feel.nudging() {
+            0 => String::new(),
+            n => format!(" +{n}"),
+        };
+        format!("MOOD {mood} < {why}{kicks}").to_uppercase().chars().take(39).collect()
     }
 
     /// the nearest button under the ray (a little easier to hit than it looks), else the nearest node point

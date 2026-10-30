@@ -57,7 +57,7 @@ fn main() {
                 set(ctl, v, "ratio", 1.5 + (t * 0.3 + k).sin());
             }
             // each deck's energy: a mood of its own, changing every few seconds
-            space.being.head.fixed = Some(((t / (3.0 + k)) as usize + i) % space.being.look.moods.len());
+            space.being.head.fixed = Some(((t / (3.0 + k)) as usize + i) % space.being.moods.len());
             space.update(1.0 / 60.0, t, ctl, &beat, &|n, p| 0.4 + 0.4 * ((t * 3.0 + (n * 3 + p) as f32).sin()));
         }
         next += Duration::from_millis(16);

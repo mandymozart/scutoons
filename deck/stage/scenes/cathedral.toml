@@ -22,6 +22,79 @@ drift = 0.06
 breath = 0.04
 wobble = 0.025
 
+# feedback → emotion (space/feel.rs): a rule reads `when` (node.port – the node by id, else by kind -, bpm, touch,
+# energy, phrase = 0..8 through an 8-bar phrase), tests it (above / below, rising / falling = a jump over the last half
+# second, steady = moved less than `by` for that many s) and shows its mood for at least `hold` s; the heaviest
+# `weight` wins, a mood shown 6 s rests `cooldown` s (4); none firing = the energy's ladder above. Arbitrary on purpose
+# (owner 2026-10-30: "the main thing is that we get a change") – every mood of the set has one.
+feel = [
+  { mood = "smug", when = "touch", above = 0.5, weight = 6 },
+  { mood = "embarrassed", when = "touch", falling = 0.3, weight = 6, hold = 2 },
+  { mood = "dizzy", when = "sway.shape", rising = 0.5, weight = 6, hold = 3 },
+  { mood = "surprised", when = "fft.bass", rising = 0.12, weight = 5, hold = 1.2 },
+  { mood = "scared", when = "fft.level", rising = 0.2, weight = 5 },
+  { mood = "angry", when = "fft.high", rising = 0.08, weight = 4, hold = 1 },
+  { mood = "dying", when = "fft.level", below = 0.015, for = 1.5, weight = 4 },
+  { mood = "tripping", when = "sway.rate", above = 0.8, weight = 4 },
+  { mood = "furious", when = "voice.index", above = 4.5, weight = 3 },
+  { mood = "confused", when = "voice.ratio", above = 2.2, weight = 3 },
+  { mood = "crying", when = "fft.level", falling = 0.15, weight = 3 },
+  { mood = "laughing", when = "bpm", above = 104, weight = 2 },
+  { mood = "happy", when = "fft.mid", above = 0.3, for = 0.5, weight = 2, chance = 0.7 },
+  { mood = "disgusted", when = "incense.cutoff", below = 800, weight = 2 },
+  { mood = "denial", when = "phrase", above = 7, weight = 2 },
+  { mood = "bargaining", when = "phrase", above = 3, below = 3.5, weight = 2, chance = 0.6 },
+  { mood = "sad", when = "fft.bass", below = 0.04, for = 2 },
+  { mood = "thinking", when = "fft.level", steady = 3, by = 0.06 },
+  { mood = "acceptance", when = "energy", steady = 5, by = 0.08 },
+  { mood = "neutral", when = "phrase", below = 0.25 },
+]
+# emotion → sound: when the head turns to `mood`, `set` (an unlinked input) is kicked `by` / `to` over `attack` s
+# (0.1) and eases back over `release` s (2) – several chain into the rules above (surprised → furious, laughing →
+# tripping, smug → confused)
+react = [
+  { mood = "neutral", set = "space.light", by = 0.15, release = 3 },
+  { mood = "thinking", set = "voice.index", by = -1.2, attack = 0.5, release = 4 },
+  { mood = "thinking", set = "mix.gain4", by = -0.5, release = 4 },
+  { mood = "happy", set = "space.hue", by = 0.12, release = 3 },
+  { mood = "happy", set = "sway.depth", by = 0.5, release = 3 },
+  { mood = "laughing", set = "seq.rate", by = 1, attack = 0.05, release = 4 },
+  { mood = "laughing", set = "sway.rate", by = 0.9, release = 4 },
+  { mood = "smug", set = "voice.ratio", by = 0.8, release = 3 },
+  { mood = "smug", set = "space.glow", by = 0.3, release = 2 },
+  { mood = "surprised", set = "space.glow", by = 0.6, attack = 0.03, release = 0.8 },
+  { mood = "surprised", set = "drone.freq", by = 40, attack = 0.02, release = 0.35 },
+  { mood = "surprised", set = "voice.index", by = 3, release = 2 },
+  { mood = "scared", set = "space.light", by = -0.4, attack = 0.05, release = 1.5 },
+  { mood = "scared", set = "incense.gain", by = 0.08, attack = 0.05, release = 1.2 },
+  { mood = "furious", set = "space.hue", to = 0.0, attack = 0.2, release = 3 },
+  { mood = "furious", set = "space.glow", by = 0.5, release = 3 },
+  { mood = "furious", set = "voice.gain", by = 0.08, release = 2 },
+  { mood = "angry", set = "drone.freq", by = -14, release = 1.5 },
+  { mood = "angry", set = "space.hue", to = 0.03, release = 1.5 },
+  { mood = "disgusted", set = "space.hue", to = 0.22, release = 3 },
+  { mood = "disgusted", set = "voice.ratio", by = 1.27, release = 2.5 },
+  { mood = "embarrassed", set = "space.hue", to = 0.95, release = 2.5 },
+  { mood = "embarrassed", set = "voice.gain", by = -0.08, release = 2 },
+  { mood = "confused", set = "seq.rate", by = -0.5, release = 3 },
+  { mood = "confused", set = "sway.depth", by = -0.6, release = 3 },
+  { mood = "dizzy", set = "sway.rate", by = 1.5, release = 4 },
+  { mood = "dizzy", set = "space.light", by = -0.2, release = 2 },
+  { mood = "tripping", set = "space.hue", by = 0.5, attack = 1, release = 5 },
+  { mood = "tripping", set = "voice.ratio", by = 0.75, release = 4 },
+  { mood = "sad", set = "space.hue", to = 0.64, release = 4 },
+  { mood = "sad", set = "music.gain", by = -0.2, release = 4 },
+  { mood = "crying", set = "voice.index", by = -1.5, release = 3 },
+  { mood = "crying", set = "space.glow", by = -0.3, release = 3 },
+  { mood = "dying", set = "space.light", by = -0.5, attack = 1, release = 4 },
+  { mood = "dying", set = "drone.freq", by = -20, attack = 1, release = 4 },
+  { mood = "denial", set = "mix.gain1", by = -0.7, attack = 0.05, release = 1.8 },
+  { mood = "bargaining", set = "voice.ratio", by = -0.5, release = 3 },
+  { mood = "bargaining", set = "seq.rate", by = 0.5, release = 3 },
+  { mood = "acceptance", set = "space.glow", by = -0.2, release = 5 },
+  { mood = "acceptance", set = "space.light", by = 0.1, release = 5 },
+]
+
 [[node]]
 id = "tempo"
 kind = "tempo"

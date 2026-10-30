@@ -143,6 +143,12 @@ impl Portraits {
         (0..=m).rev().chain(m + 1..sprites.len()).map(|i| sprites[i]).find(|&s| self.ready(s))
     }
 
+    /// The slot a head shows for mood `mood`: its own sprite, else the first ready one of `near` (the related moods,
+    /// portrait::near), else `pick`'s walk toward calm. No allocation.
+    pub fn pick_near(&self, sprites: &[usize], near: Option<&Vec<usize>>, mood: usize) -> Option<usize> {
+        near.into_iter().flatten().filter_map(|&i| sprites.get(i).copied()).find(|&s| self.ready(s)).or_else(|| self.pick(sprites, mood))
+    }
+
     /// the HUD's word on a character's sprites: how many are there, the first reason one is missing
     pub fn status(&self, character: &str) -> String {
         let mine: Vec<&Slot> = self.slots.iter().filter(|s| s.character == character).collect();
@@ -156,6 +162,44 @@ impl Portraits {
 }
 
 /// a sprite → at most MAX, with its mip chain
+/// The complete mood set of the characters' sprites (production 2026-10-30: 17 every full set has, + `dizzy` (the
+/// cat popes, the helmet mouse), `dying` (billthefrog), `tripping` (yellowmouse)), each with the moods nearest to it –
+/// what a head shows while that mood's sprite is missing.
+pub const NEAR: [(&str, &[&str]); 20] = [
+    ("neutral", &["thinking", "acceptance"]),
+    ("thinking", &["confused", "neutral"]),
+    ("happy", &["laughing", "smug", "neutral"]),
+    ("laughing", &["happy", "smug"]),
+    ("smug", &["happy", "laughing"]),
+    ("surprised", &["scared", "confused"]),
+    ("scared", &["surprised", "crying"]),
+    ("furious", &["angry", "disgusted"]),
+    ("angry", &["furious", "disgusted"]),
+    ("disgusted", &["angry", "embarrassed"]),
+    ("embarrassed", &["smug", "confused"]),
+    ("confused", &["thinking", "dizzy", "surprised"]),
+    ("dizzy", &["confused", "tripping", "surprised"]),
+    ("tripping", &["dizzy", "confused", "laughing"]),
+    ("sad", &["crying", "acceptance"]),
+    ("crying", &["sad", "dying"]),
+    ("dying", &["crying", "sad", "scared"]),
+    ("denial", &["angry", "bargaining"]),
+    ("bargaining", &["denial", "thinking"]),
+    ("acceptance", &["sad", "neutral"]),
+];
+
+/// per mood of `moods`: itself, then its NEAR moods that are in `moods` (indices into it)
+pub fn near(moods: &[String]) -> Vec<Vec<usize>> {
+    moods
+        .iter()
+        .enumerate()
+        .map(|(i, m)| {
+            let related = NEAR.iter().find(|(n, _)| n == m).map_or(&[][..], |(_, r)| *r);
+            std::iter::once(i).chain(related.iter().filter_map(|r| moods.iter().position(|x| x == r))).collect()
+        })
+        .collect()
+}
+
 fn prepare(img: image::RgbaImage) -> Image {
     let mut img = img;
     while img.width().max(img.height()) > MAX {
@@ -215,6 +259,16 @@ mod tests {
         settle(&mut p);
         assert_eq!(p.pick(&none, 0), None, "a character without sprites: no face");
         assert!(p.status("nobody").starts_with("nobody NO FACE"));
+    }
+
+    #[test]
+    fn a_missing_mood_shows_its_nearest() {
+        let moods: Vec<String> = ["neutral", "happy", "dizzy", "confused", "tripping"].iter().map(|m| m.to_string()).collect();
+        let n = near(&moods);
+        assert_eq!(n[2], [2, 3, 4], "dizzy: itself, confused, tripping");
+        assert_eq!(n[4], [4, 2, 3], "tripping: itself, dizzy, confused (laughing isn't in the palette)");
+        assert_eq!(n[0], [0], "neutral's neighbours aren't there");
+        assert!(NEAR.iter().all(|(m, r)| r.iter().all(|x| x != m && NEAR.iter().any(|(y, _)| y == x))), "every neighbour is a mood of the set");
     }
 
     #[test]

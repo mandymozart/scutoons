@@ -618,7 +618,7 @@ impl App {
         #[cfg(feature = "space")]
         if let Some(s) = self.show.space.as_mut() {
             let meters = self.show.meters.as_deref();
-            s.update(dt, time, &self.show.controls, &beat, &|n, p| meters.map_or(0.0, |m| m.level(n, p)));
+            s.update(dt, time, &mut self.show.controls, &beat, &|n, p| meters.map_or(0.0, |m| m.level(n, p)));
         }
         self.stats.window.0 += 1;
         self.stats.window.1 += dt;
@@ -713,9 +713,11 @@ impl App {
         ]);
         #[cfg(feature = "space")]
         if let Some(s) = &self.show.space {
-            lines.push("DRAG TURN/KNOB WHEEL ZOOM R HOME".into());
+            // the mood and why (#188's feelings) first: the HUD shows 11 lines
+            lines.push(s.being.mood_line());
             lines.push(s.hud_line(&self.show.graph));
             lines.extend(s.session_lines());
+            lines.push("DRAG TURN/KNOB WHEEL ZOOM R HOME".into());
         }
         if let Some([l, b, m, h]) = self.show.controls.fft() {
             lines.push(format!("FFT L {l:.2} B {b:.2} M {m:.2} H {h:.2}"));

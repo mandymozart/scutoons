@@ -77,8 +77,9 @@ impl Link {
     }
 }
 
-/// a deck's being for the wire: its graph's nodes and links and the look's head
-pub fn deck_graph(graph: &Graph, look: &Look) -> DeckGraph {
+/// a deck's being for the wire: its graph's nodes and links and the look's head – `moods` = the head's whole palette
+/// (the energy's ladder + the feelings' moods), so the conductor knows every mood the deck may stream
+pub fn deck_graph(graph: &Graph, look: &Look, moods: &[String]) -> DeckGraph {
     let port = |(n, p): (usize, usize), out: bool| {
         let node = &graph.nodes[n];
         let name = if out { node.kind.outputs()[p].name } else { node.kind.inputs()[p].name };
@@ -98,7 +99,7 @@ pub fn deck_graph(graph: &Graph, look: &Look) -> DeckGraph {
             .collect(),
         character: (!look.character.is_empty()).then(|| look.character.clone()),
         size: Some(look.size as f64),
-        moods: Some(look.moods.clone()),
+        moods: Some(moods.to_vec()),
         expose: (!look.expose.is_empty()).then(|| look.expose.clone()),
     }
 }
@@ -308,7 +309,7 @@ mod tests {
     fn a_being_survives_the_wire() {
         let scene = crate::modules::carried_part(&Scene::parse(CATHEDRAL_SCENE).unwrap());
         let g = Graph::build(&scene).unwrap();
-        let wire = deck_graph(&g, &scene.being);
+        let wire = deck_graph(&g, &scene.being, &scene.being.moods);
         let json = serde_json::to_string(&Message::DeckGraph(wire.clone())).unwrap();
         let Message::DeckGraph(back) = serde_json::from_str(&json).unwrap() else { panic!() };
         let (g2, look) = from_wire(&back).unwrap();

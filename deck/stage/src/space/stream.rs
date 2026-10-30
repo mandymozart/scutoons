@@ -86,7 +86,7 @@ impl Stream {
         }
         if self.mood != Some(being.head.mood) {
             self.mood = Some(being.head.mood);
-            c.mood = being.look.moods.get(being.head.mood).cloned();
+            c.mood = being.moods.get(being.head.mood).cloned();
         }
         (!c.is_empty()).then_some(c)
     }

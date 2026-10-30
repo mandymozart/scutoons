@@ -22,6 +22,72 @@ drift = 0.04
 breath = 0.05
 wobble = 0.02
 
+# feedback → emotion and back (space/feel.rs; the format: scenes/cathedral.toml). The paths name nodes by their kind
+# (fm.index, lfo.out ...), so the same rules read every deck's being in the circle too – from what it streams.
+feel = [
+  { mood = "smug", when = "touch", above = 0.5, weight = 6 },
+  { mood = "embarrassed", when = "touch", falling = 0.3, weight = 6, hold = 2 },
+  { mood = "dizzy", when = "lfo.shape", rising = 0.5, weight = 6, hold = 3 },
+  { mood = "surprised", when = "fft.bass", rising = 0.12, weight = 5, hold = 1.2 },
+  { mood = "scared", when = "fft.level", rising = 0.2, weight = 5 },
+  { mood = "angry", when = "fft.high", rising = 0.08, weight = 4, hold = 1 },
+  { mood = "dying", when = "fft.level", below = 0.015, for = 1.5, weight = 4 },
+  { mood = "tripping", when = "lfo.rate", above = 0.4, weight = 4 },
+  { mood = "furious", when = "fm.index", above = 4.2, weight = 3 },
+  { mood = "confused", when = "fm.ratio", above = 2.6, weight = 3 },
+  { mood = "crying", when = "fft.level", falling = 0.15, weight = 3 },
+  { mood = "laughing", when = "bpm", above = 104, weight = 2 },
+  { mood = "happy", when = "fft.mid", above = 0.3, for = 0.5, weight = 2, chance = 0.7 },
+  { mood = "disgusted", when = "lfo.out", below = 0.05, weight = 2 },
+  { mood = "denial", when = "phrase", above = 7, weight = 2 },
+  { mood = "bargaining", when = "phrase", above = 3, below = 3.5, weight = 2, chance = 0.6 },
+  { mood = "sad", when = "fft.bass", below = 0.04, for = 2 },
+  { mood = "thinking", when = "fft.level", steady = 3, by = 0.06 },
+  { mood = "acceptance", when = "energy", steady = 5, by = 0.08 },
+  { mood = "neutral", when = "phrase", below = 0.25 },
+]
+react = [
+  { mood = "neutral", set = "space.light", by = 0.15, release = 3 },
+  { mood = "thinking", set = "organ.freq", by = -10, attack = 0.5, release = 4 },
+  { mood = "thinking", set = "swell.depth", by = -0.4, release = 4 },
+  { mood = "happy", set = "space.hue", by = 0.1, release = 3 },
+  { mood = "happy", set = "voice.ratio", by = 0.5, release = 3 },
+  { mood = "laughing", set = "swell.rate", by = 0.5, release = 4 },
+  { mood = "laughing", set = "voice.freq", by = 82, attack = 0.1, release = 3 },
+  { mood = "smug", set = "voice.ratio", by = 1, release = 3 },
+  { mood = "smug", set = "space.glow", by = 0.3, release = 2 },
+  { mood = "surprised", set = "space.glow", by = 0.7, attack = 0.03, release = 0.8 },
+  { mood = "surprised", set = "organ.freq", by = 20, attack = 0.02, release = 0.35 },
+  { mood = "scared", set = "space.light", by = -0.4, attack = 0.05, release = 1.5 },
+  { mood = "scared", set = "voice.gain", by = 0.05, attack = 0.05, release = 1.2 },
+  { mood = "furious", set = "space.hue", to = 0.0, attack = 0.2, release = 3 },
+  { mood = "furious", set = "space.glow", by = 0.5, release = 3 },
+  { mood = "furious", set = "organ.freq", by = -10, release = 2 },
+  { mood = "angry", set = "space.hue", to = 0.03, release = 1.5 },
+  { mood = "angry", set = "voice.freq", by = -20, release = 1.5 },
+  { mood = "disgusted", set = "space.hue", to = 0.22, release = 3 },
+  { mood = "disgusted", set = "voice.ratio", by = 1.41, release = 2.5 },
+  { mood = "embarrassed", set = "space.hue", to = 0.95, release = 2.5 },
+  { mood = "embarrassed", set = "voice.gain", by = -0.04, release = 2 },
+  { mood = "confused", set = "swell.depth", by = -0.5, release = 3 },
+  { mood = "confused", set = "mix.gain1", by = -0.3, release = 3 },
+  { mood = "dizzy", set = "swell.rate", by = 0.8, release = 4 },
+  { mood = "dizzy", set = "space.light", by = -0.2, release = 2 },
+  { mood = "tripping", set = "space.hue", by = 0.5, attack = 1, release = 5 },
+  { mood = "tripping", set = "voice.ratio", by = 0.5, release = 4 },
+  { mood = "sad", set = "space.hue", to = 0.64, release = 4 },
+  { mood = "sad", set = "music.gain", by = -0.2, release = 4 },
+  { mood = "crying", set = "voice.freq", by = -10, release = 3 },
+  { mood = "crying", set = "space.glow", by = -0.3, release = 3 },
+  { mood = "dying", set = "space.light", by = -0.5, attack = 1, release = 4 },
+  { mood = "dying", set = "organ.freq", by = -15, attack = 1, release = 4 },
+  { mood = "denial", set = "mix.gain1", by = -0.7, attack = 0.05, release = 1.8 },
+  { mood = "bargaining", set = "voice.ratio", by = -0.5, release = 3 },
+  { mood = "bargaining", set = "swell.rate", by = 0.1, release = 3 },
+  { mood = "acceptance", set = "space.glow", by = -0.2, release = 5 },
+  { mood = "acceptance", set = "space.light", by = 0.1, release = 5 },
+]
+
 # the show's clock – the decks' beings breathe on it too
 [[node]]
 id = "tempo"

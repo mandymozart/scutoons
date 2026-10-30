@@ -103,7 +103,8 @@ fn renders_without_allocating(graph: &Graph, build: Build) {
 
 /// The being's frame (#188) never allocates either: the control step, the body's pose, the hoses' bubbles, the buttons'
 /// values, the head's energy and mood, picking, a button turned like a CC and the geometry written into the renderer's
-/// preallocated buffers; and a deck's being at the conductor on its stream's values (#188 phase 4, `Mirror`).
+/// preallocated buffers; and a deck's being at the conductor on its stream's values (#188 phase 4, `Mirror`); the
+/// scene's feelings – every rule tested, moods turning, their nudges pushed into the control domain (feel.rs).
 #[cfg(feature = "space")]
 #[test]
 fn the_being_steps_without_allocating() {
@@ -128,13 +129,25 @@ fn the_being_steps_without_allocating() {
     let cam = Orbit::new(being.anchor, 0.3, 0.1, 2.0);
     let knob = being.buttons.iter().find(|b| !b.linked).map(|b| (b.node, b.port)).unwrap();
     let meter = |n: usize, p: usize| ((n * 7 + p) % 5) as f32 * 0.2;
+    let (rules, nudges) = being.feel.counts();
+    assert!(rules >= 20 && nudges >= 20 && being.feel.problems.is_empty(), "{:?}", being.feel.problems);
+    let mut turns = 0;
     measure(true);
     let before = CALLS.load(Ordering::SeqCst);
     for f in 0..600 {
         let beat = tempo::Now { bpm: 84.0, pos: tempo::position(f as f64 * 0.023, 4), per_bar: 4, running: true };
         ctl.update(1.0 / 60.0, 0, &beat);
         ctl.set(knob.0, knob.1, (f % 100) as f32 * 0.01);
+        let before = (being.head.mood, remote.head.mood);
+        // a hand on a button for half a second
+        being.dragging = (200..230).contains(&f);
         being.update(1.0 / 60.0, f as f32 / 60.0, &Local { ctl: &ctl, meter: &meter }, &beat);
+        being.push(&mut ctl);
+        // the deck's sound swells and drops: its rules see jumps, quiet and noise
+        let loud = ((f / 90) % 2) as f32;
+        mirror.apply(&graph, "fft.level", &[0.9 * loud]);
+        mirror.apply(&graph, "fft.bass", &[0.8 * loud]);
+        turns += usize::from(being.head.mood != before.0) + usize::from(remote.head.mood != before.1);
         let _ = being.pick(&cam.ray(640.0 + f as f32, 360.0, 1280.0, 720.0));
         being.write(&mut spheres, &mut tubes);
         remote.update(1.0 / 60.0, f as f32 / 60.0, &mirror, &beat);
@@ -143,6 +156,7 @@ fn the_being_steps_without_allocating() {
     measure(false);
     assert_eq!(CALLS.load(Ordering::SeqCst) - before, 0, "allocations / frees in the being's frame");
     assert!(being.hoses.iter().any(|h| h.bubbles.iter().any(|b| b.size > 0.0)), "it bubbles");
+    assert!(turns >= 3, "the feelings turn the mood: {turns}");
 }
 
 /// The outlet's frame (#186) never allocates: the crossfade's numbers per frame and the empty polls of the composer's

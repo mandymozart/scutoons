@@ -10,6 +10,7 @@
 pub mod being;
 pub mod camera;
 pub mod decks;
+pub mod feel;
 pub mod glb;
 pub mod gpu;
 #[cfg(feature = "live")]
@@ -159,7 +160,10 @@ impl Space {
     pub fn new(graph: &Graph, node: usize, look: &Look, rooms: &Path, mut portraits: Portraits) -> Space {
         let n = &graph.nodes[node];
         let mut being = Being::new(graph, look);
-        being.head.sprites = portraits.request(&look.character, &look.moods);
+        being.head.sprites = portraits.request(&look.character, &being.moods);
+        for p in &being.feel.problems {
+            tracing::warn!("being: {p} – left out");
+        }
         let join = n.str("join").map_or(Some(Join::Alone), Join::parse).unwrap_or_else(|| {
             tracing::warn!("space: join = '{}' – deck, conductor or alone; alone", n.str("join").unwrap_or_default());
             Join::Alone
@@ -222,7 +226,7 @@ impl Space {
             self.note = "NO RELAY SET (--relay)".into();
             return;
         };
-        let graph = (join == Join::Deck).then(|| link::deck_graph(&self.graph, &self.being.look));
+        let graph = (join == Join::Deck).then(|| link::deck_graph(&self.graph, &self.being.look, &self.being.moods));
         match link::Link::start(relay, join, token, nick, graph) {
             Ok(l) => {
                 if join == Join::Deck {
@@ -237,9 +241,9 @@ impl Space {
         }
     }
 
-    /// One frame: the room's arrival, the camera, the being, what the pointer is over; a deck's stream, the
-    /// conductor's congregation.
-    pub fn update(&mut self, dt: f32, time: f32, ctl: &Controls, beat: &tempo::Now, meter: &dyn Fn(usize, usize) -> f32) {
+    /// One frame: the room's arrival, the camera, the being (its feelings' nudges into `ctl`), what the pointer is
+    /// over; a deck's stream, the conductor's congregation.
+    pub fn update(&mut self, dt: f32, time: f32, ctl: &mut Controls, beat: &tempo::Now, meter: &dyn Fn(usize, usize) -> f32) {
         if let Some(rx) = &self.room_rx {
             match rx.try_recv() {
                 Ok(Ok(room)) => {
@@ -267,8 +271,9 @@ impl Space {
         self.portraits.poll();
         self.light = ctl.input(self.node, "light", params::default(crate::graph::Kind::Space, "light"));
         self.camera.step(dt);
+        self.being.update(dt, time, &Local { ctl, meter }, beat);
+        self.being.push(ctl);
         let local = Local { ctl, meter };
-        self.being.update(dt, time, &local, beat);
         if self.drag == Drag::None {
             self.being.hover = self.pointer.and_then(|(x, y)| self.being.pick(&self.camera.ray(x, y, self.view.0, self.view.1)));
         }
@@ -292,10 +297,12 @@ impl Space {
             match ev {
                 link::In::Me(id) => self.me = Some(id),
                 link::In::Deck { client, graph, values, mood } => match link::from_wire(&graph) {
-                    Ok((g, look)) => {
+                    Ok((g, mut look)) => {
+                        // the conductor's feelings read every deck's values (their nudges stay with the decks)
+                        look.feel = self.being.look.feel.clone();
                         tracing::info!("cathedral: deck {client} joined ({} nodes, {})", g.nodes.len(), if look.character.is_empty() { "no face" } else { &look.character });
                         let mut r = Remote::new(client.clone(), g, &look);
-                        r.being.head.sprites = self.portraits.request(&look.character, &look.moods);
+                        r.being.head.sprites = self.portraits.request(&look.character, &r.being.moods);
                         r.apply(&values, mood.as_deref());
                         self.add(r);
                     }
@@ -562,6 +569,30 @@ mod tests {
         assert_eq!(room_path(&g, 0, Path::new("/r")), None);
     }
 
+    /// the owner (2026-10-30): the whole mood set, every mood reachable – each has a rule and a nudge in both bundled
+    /// scenes, all of them resolve; the conductor's rules read a deck's graph too
+    #[test]
+    fn every_mood_has_a_rule_and_a_nudge() {
+        use crate::scene::CONDUCTOR_SCENE;
+        let cathedral = crate::modules::carried_part(&Scene::parse(CATHEDRAL_SCENE).unwrap());
+        let deck = Graph::build(&cathedral).unwrap();
+        for text in [CATHEDRAL_SCENE, CONDUCTOR_SCENE] {
+            let scene = crate::modules::carried_part(&Scene::parse(text).unwrap());
+            let g = Graph::build(&scene).unwrap();
+            let b = Being::new(&g, &scene.being);
+            assert!(b.feel.problems.is_empty(), "{}: {:?}", scene.stage.name, b.feel.problems);
+            for (mood, _) in portrait::NEAR {
+                assert!(scene.being.feel.iter().any(|r| r.mood == mood), "{}: no rule for {mood}", scene.stage.name);
+                assert!(scene.being.react.iter().any(|n| n.mood == mood), "{}: no nudge for {mood}", scene.stage.name);
+            }
+            assert_eq!(b.moods.len(), portrait::NEAR.len(), "the palette is the whole set");
+        }
+        let conductor = crate::modules::carried_part(&Scene::parse(CONDUCTOR_SCENE).unwrap());
+        let look = being::Look { feel: conductor.being.feel.clone(), ..cathedral.being.clone() };
+        let mirrored = Being::new(&deck, &look);
+        assert!(mirrored.feel.problems.is_empty(), "the conductor's rules on a deck's graph: {:?}", mirrored.feel.problems);
+    }
+
     #[test]
     fn a_drag_on_a_button_sets_its_input_and_elsewhere_turns_the_camera() {
         let scene = crate::modules::carried_part(&Scene::parse(CATHEDRAL_SCENE).unwrap());
@@ -571,13 +602,13 @@ mod tests {
         let mut ctl = Controls::new(&g, None);
         space.set_view(1280.0, 720.0);
         let beat = tempo::Now::default();
-        space.update(0.016, 0.0, &ctl, &beat, &|_, _| 0.0);
+        space.update(0.016, 0.0, &mut ctl, &beat, &|_, _| 0.0);
         // aim at an unlinked button: project its centre into the window
         let (i, b) = space.being.buttons.iter().enumerate().find(|(_, b)| !b.linked).unwrap();
         let clip = space.camera.view_proj(1280.0 / 720.0) * b.pos.extend(1.0);
         let (x, y) = ((clip.x / clip.w + 1.0) * 640.0, (1.0 - clip.y / clip.w) * 360.0);
         space.pointer_moved(x, y, &mut ctl);
-        space.update(0.0, 0.0, &ctl, &beat, &|_, _| 0.0);
+        space.update(0.0, 0.0, &mut ctl, &beat, &|_, _| 0.0);
         let Some(Hit::Button(hit)) = space.being.hover else { panic!("the button under the pointer: {:?}", space.being.hover) };
         let (node, port, before) = (space.being.buttons[hit].node, space.being.buttons[hit].port, space.being.buttons[hit].norm);
         let _ = i;

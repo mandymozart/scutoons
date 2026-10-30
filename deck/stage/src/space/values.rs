@@ -60,6 +60,16 @@ pub fn resolve(graph: &Graph, path: &str) -> Option<Path> {
     kind.input(port).map(|p| Path::Input(node, p)).or_else(|| kind.output(port).map(|p| Path::Output(node, p)))
 }
 
+/// `node.port` with the node named by its id, else by its kind (the first node of that kind: `fft.bass`, `fm.index`)
+/// – a being's feelings (feel.rs) read any deck's graph this way
+pub fn resolve_loose(graph: &Graph, path: &str) -> Option<Path> {
+    resolve(graph, path).or_else(|| {
+        let (kind, port) = path.split_once('.')?;
+        let node = graph.nodes.iter().find(|n| n.kind.name() == kind)?;
+        resolve(graph, &format!("{}.{port}", node.id))
+    })
+}
+
 /// the path of a resolved value (the wire's name)
 pub fn path_name(graph: &Graph, p: Path) -> String {
     let n = |i: usize| &graph.nodes[i];

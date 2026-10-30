@@ -349,8 +349,8 @@ impl SpaceGpu {
             let fwd = flat.try_normalize().unwrap_or(Vec3::Z);
             let right = Vec3::Y.cross(fwd);
             let have = |s: Option<usize>| s.filter(|&s| self.sprites.get(s).is_some_and(Option::is_some));
-            let now = have(space.portraits.pick(&h.sprites, h.mood));
-            let before = have(space.portraits.pick(&h.sprites, h.prev));
+            let now = have(space.portraits.pick_near(&h.sprites, h.near.get(h.mood), h.mood));
+            let before = have(space.portraits.pick_near(&h.sprites, h.near.get(h.prev), h.prev));
             let layer = |alpha: f32, layer: f32, face: bool| HeadLayer {
                 center: h.pos.into(),
                 size: h.radius * 1.35,

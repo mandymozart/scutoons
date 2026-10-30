@@ -42,7 +42,7 @@ impl Remote {
             self.mirror.apply(&self.graph, path, &v[..n]);
         }
         if let Some(m) = mood {
-            self.being.head.fixed = self.being.look.moods.iter().position(|x| x == m);
+            self.being.head.fixed = self.being.moods.iter().position(|x| x == m);
         }
         self.count += 1.0;
     }

@@ -59,7 +59,7 @@ impl Stage {
     fn step(&mut self, t: f32) {
         let beat = tempo::Now { bpm: 84.0, pos: tempo::position(t as f64 * 1.4, 4), per_bar: 4, running: true };
         self.ctl.update(1.0 / 60.0, 0, &beat);
-        self.space.update(1.0 / 60.0, t, &self.ctl, &beat, &|_, _| 0.3);
+        self.space.update(1.0 / 60.0, t, &mut self.ctl, &beat, &|_, _| 0.3);
     }
 }
 
