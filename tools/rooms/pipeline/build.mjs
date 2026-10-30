@@ -5,8 +5,11 @@
 //   - Unreal's lights are baked into vertex colours (no shadows) and every material becomes unlit: zero light cost at runtime
 //   - the level's CineCamera becomes the node `view`; the room's spots become empty nodes `spot_<id>`
 //   - weld, simplify (per level), quantize, meshopt; textures resized + WebP (KTX2 once toktx is installed)
+//   - a baked export (tools/rooms/blender/bake_atlas.py: level.<level>.glb + manifest `baked`): per level its own file,
+//     the light already in the atlas – no vertex-light bake, no simplify; the rest as above
 // Usage: node build.mjs <room.json> [--source <export dir>] [--out <dir>] – prints and writes a report per level.
 // Default out: media/scutoons/rooms/ (the local dev CDN copy); uploads go through the asset manager.
+import { existsSync } from "node:fs";
 import { readFile, writeFile, mkdir, stat } from "node:fs/promises";
 import { dirname, resolve, join } from "node:path";
 import { NodeIO } from "@gltf-transform/core";
@@ -151,323 +154,335 @@ function lookRotation(at, look) {
 	return [(m02 + m20) / s, (m12 + m21) / s, s / 4, (m10 - m01) / s];
 }
 
-const doc = await io.read(join(src, "level.glb"));
-const root = doc.getRoot();
-const unlit = doc.createExtension(KHRMaterialsUnlit);
-doc.createExtension(EXTTextureWebP).setRequired(true);
+/** steps 1–4 on one export file → the prepared glTF, simplified per level below */
+async function prepare(file) {
+	const doc = await io.read(file);
+	const root = doc.getRoot();
+	const unlit = doc.createExtension(KHRMaterialsUnlit);
+	doc.createExtension(EXTTextureWebP).setRequired(true);
 
-// 1. drop what the room doesn't show
-for (const node of root.listNodes())
-	if ((room.drop ?? []).some((p) => node.getName().startsWith(p)))
-		node.dispose();
+	// 1. drop what the room doesn't show
+	for (const node of root.listNodes())
+		if ((room.drop ?? []).some((p) => node.getName().startsWith(p)))
+			node.dispose();
 
-// 1b. `scale`: the level at real size (a scan blown up for a shot) – view, spots and cut are in the scaled metres
-if (room.scale && room.scale !== 1) {
-	for (const node of root.listScenes()[0].listChildren()) {
-		node.setTranslation(node.getTranslation().map((v) => v * room.scale));
-		node.setScale(node.getScale().map((v) => v * room.scale));
-	}
-}
-
-// 1c. `ground: { y, center: [x, z], size: [w, d], color }` – a plain floor where the scan has none (a forecourt), a grid
-// fine enough for the light bake
-if (room.ground) {
-	const { y, center, size, color } = room.ground;
-	const nx = 48,
-		nz = 32,
-		pos = [],
-		idx = [];
-	for (let j = 0; j <= nz; j++)
-		for (let i = 0; i <= nx; i++)
-			pos.push(
-				center[0] + (i / nx - 0.5) * size[0],
-				y,
-				center[1] + (j / nz - 0.5) * size[1],
-			);
-	for (let j = 0; j < nz; j++)
-		for (let i = 0; i < nx; i++) {
-			const a = j * (nx + 1) + i;
-			idx.push(a, a + nx + 1, a + 1, a + 1, a + nx + 1, a + nx + 2);
+	// 1b. `scale`: the level at real size (a scan blown up for a shot) – view, spots and cut are in the scaled metres
+	if (room.scale && room.scale !== 1) {
+		for (const node of root.listScenes()[0].listChildren()) {
+			node.setTranslation(node.getTranslation().map((v) => v * room.scale));
+			node.setScale(node.getScale().map((v) => v * room.scale));
 		}
-	const buffer = root.listBuffers()[0];
-	const prim = doc
-		.createPrimitive()
-		.setAttribute(
-			"POSITION",
-			doc
-				.createAccessor()
-				.setType("VEC3")
-				.setArray(new Float32Array(pos))
-				.setBuffer(buffer),
-		)
-		.setAttribute(
-			"NORMAL",
-			doc
-				.createAccessor()
-				.setType("VEC3")
-				.setArray(
-					new Float32Array(pos.length).map((_, k) => (k % 3 === 1 ? 1 : 0)),
-				)
-				.setBuffer(buffer),
-		)
-		.setIndices(
-			doc
-				.createAccessor()
-				.setType("SCALAR")
-				.setArray(new Uint32Array(idx))
-				.setBuffer(buffer),
-		)
-		.setMaterial(
-			doc.createMaterial("ground").setBaseColorFactor([...color, 1]),
-		);
-	root
-		.listScenes()[0]
-		.addChild(
-			doc
-				.createNode("ground")
-				.setMesh(doc.createMesh("ground").addPrimitive(prim)),
-		);
-}
-
-// 2. textures back onto the scans: actor label = node name → its material → BaseColorTexture → tex/<name>.png
-const actors = Object.fromEntries(
-	manifest.actors.filter((a) => a.meshes).map((a) => [a.name, a]),
-);
-const done = new Map();
-for (const node of root.listNodes()) {
-	const mesh = node.getMesh();
-	const actor = actors[node.getName()];
-	if (!mesh || !actor) continue;
-	const params = manifest.materials[actor.meshes[0].materials[0]] ?? [];
-	const baseTex = params.find((p) => p.startsWith("BaseColorTexture="));
-	if (!baseTex) continue;
-	const file = join(src, "tex", baseTex.split(".").pop() + ".png");
-	for (const prim of mesh.listPrimitives()) {
-		const mat = prim.getMaterial();
-		if (!mat || done.has(mat)) continue;
-		const tex = doc
-			.createTexture(node.getName())
-			.setImage(new Uint8Array(await readFile(file)))
-			.setMimeType("image/png");
-		mat.setBaseColorTexture(tex).setBaseColorFactor([1, 1, 1, 1]);
-		done.set(mat, tex);
 	}
-}
 
-// 2b. a diorama has no backside: keep only the triangles the view can see while the reader looks around (the view's
-// cone widened by the look-around and a margin, up to `far` metres) – room.json `cut: { margin, far, aspect }`
-flatten(doc);
-// a mesh several nodes share (linked duplicates – the library's 13 tiles) gets one copy each: the cut and the bake work
-// in world space, per node
-{
-	const seen = new Set();
+	// 1c. `ground: { y, center: [x, z], size: [w, d], color }` – a plain floor where the scan has none (a forecourt), a grid
+	// fine enough for the light bake
+	if (room.ground) {
+		const { y, center, size, color } = room.ground;
+		const nx = 48,
+			nz = 32,
+			pos = [],
+			idx = [];
+		for (let j = 0; j <= nz; j++)
+			for (let i = 0; i <= nx; i++)
+				pos.push(
+					center[0] + (i / nx - 0.5) * size[0],
+					y,
+					center[1] + (j / nz - 0.5) * size[1],
+				);
+		for (let j = 0; j < nz; j++)
+			for (let i = 0; i < nx; i++) {
+				const a = j * (nx + 1) + i;
+				idx.push(a, a + nx + 1, a + 1, a + 1, a + nx + 1, a + nx + 2);
+			}
+		const buffer = root.listBuffers()[0];
+		const prim = doc
+			.createPrimitive()
+			.setAttribute(
+				"POSITION",
+				doc
+					.createAccessor()
+					.setType("VEC3")
+					.setArray(new Float32Array(pos))
+					.setBuffer(buffer),
+			)
+			.setAttribute(
+				"NORMAL",
+				doc
+					.createAccessor()
+					.setType("VEC3")
+					.setArray(
+						new Float32Array(pos.length).map((_, k) => (k % 3 === 1 ? 1 : 0)),
+					)
+					.setBuffer(buffer),
+			)
+			.setIndices(
+				doc
+					.createAccessor()
+					.setType("SCALAR")
+					.setArray(new Uint32Array(idx))
+					.setBuffer(buffer),
+			)
+			.setMaterial(
+				doc.createMaterial("ground").setBaseColorFactor([...color, 1]),
+			);
+		root
+			.listScenes()[0]
+			.addChild(
+				doc
+					.createNode("ground")
+					.setMesh(doc.createMesh("ground").addPrimitive(prim)),
+			);
+	}
+
+	// 2. textures back onto the scans: actor label = node name → its material → BaseColorTexture → tex/<name>.png
+	const actors = Object.fromEntries(
+		manifest.actors.filter((a) => a.meshes).map((a) => [a.name, a]),
+	);
+	const done = new Map();
 	for (const node of root.listNodes()) {
 		const mesh = node.getMesh();
-		if (!mesh) continue;
-		if (seen.has(mesh)) {
-			const copy = mesh.clone();
-			copy.listPrimitives().forEach((p, i) => copy.removePrimitive(p));
-			for (const p of mesh.listPrimitives()) {
-				const q = p.clone();
-				for (const sem of p.listSemantics())
-					q.setAttribute(sem, p.getAttribute(sem).clone());
-				if (p.getIndices()) q.setIndices(p.getIndices().clone());
-				copy.addPrimitive(q);
-			}
-			node.setMesh(copy);
-		} else seen.add(mesh);
-	}
-	// …and so does data several primitives share (Blender's exporter shares the tiles' accessors): the cut rewrites indices
-	const used = new Map();
-	for (const mesh of root.listMeshes())
-		for (const prim of mesh.listPrimitives())
-			for (const a of [prim.getIndices(), ...prim.listAttributes()])
-				if (a) used.set(a, (used.get(a) ?? 0) + 1);
-	const once = new Set();
-	for (const mesh of root.listMeshes())
+		const actor = actors[node.getName()];
+		if (!mesh || !actor) continue;
+		const params = manifest.materials[actor.meshes[0].materials[0]] ?? [];
+		const baseTex = params.find((p) => p.startsWith("BaseColorTexture="));
+		if (!baseTex) continue;
+		const file = join(src, "tex", baseTex.split(".").pop() + ".png");
 		for (const prim of mesh.listPrimitives()) {
-			const idx = prim.getIndices();
-			if (idx && used.get(idx) > 1) {
-				if (once.has(idx)) prim.setIndices(idx.clone());
-				else once.add(idx);
-			}
-			for (const sem of prim.listSemantics()) {
-				const a = prim.getAttribute(sem);
-				if (used.get(a) > 1) {
-					if (once.has(a)) prim.setAttribute(sem, a.clone());
-					else once.add(a);
+			const mat = prim.getMaterial();
+			if (!mat || done.has(mat)) continue;
+			const tex = doc
+				.createTexture(node.getName())
+				.setImage(new Uint8Array(await readFile(file)))
+				.setMimeType("image/png");
+			mat.setBaseColorTexture(tex).setBaseColorFactor([1, 1, 1, 1]);
+			done.set(mat, tex);
+		}
+	}
+
+	// 2b. a diorama has no backside: keep only the triangles the view can see while the reader looks around (the view's
+	// cone widened by the look-around and a margin, up to `far` metres) – room.json `cut: { margin, far, aspect }`
+	flatten(doc);
+	// a mesh several nodes share (linked duplicates – the library's 13 tiles) gets one copy each: the cut and the bake work
+	// in world space, per node
+	{
+		const seen = new Set();
+		for (const node of root.listNodes()) {
+			const mesh = node.getMesh();
+			if (!mesh) continue;
+			if (seen.has(mesh)) {
+				const copy = mesh.clone();
+				copy.listPrimitives().forEach((p, i) => copy.removePrimitive(p));
+				for (const p of mesh.listPrimitives()) {
+					const q = p.clone();
+					for (const sem of p.listSemantics())
+						q.setAttribute(sem, p.getAttribute(sem).clone());
+					if (p.getIndices()) q.setIndices(p.getIndices().clone());
+					copy.addPrimitive(q);
+				}
+				node.setMesh(copy);
+			} else seen.add(mesh);
+		}
+		// …and so does data several primitives share (Blender's exporter shares the tiles' accessors): the cut rewrites indices
+		const used = new Map();
+		for (const mesh of root.listMeshes())
+			for (const prim of mesh.listPrimitives())
+				for (const a of [prim.getIndices(), ...prim.listAttributes()])
+					if (a) used.set(a, (used.get(a) ?? 0) + 1);
+		const once = new Set();
+		for (const mesh of root.listMeshes())
+			for (const prim of mesh.listPrimitives()) {
+				const idx = prim.getIndices();
+				if (idx && used.get(idx) > 1) {
+					if (once.has(idx)) prim.setIndices(idx.clone());
+					else once.add(idx);
+				}
+				for (const sem of prim.listSemantics()) {
+					const a = prim.getAttribute(sem);
+					if (used.get(a) > 1) {
+						if (once.has(a)) prim.setAttribute(sem, a.clone());
+						else once.add(a);
+					}
 				}
 			}
+	}
+	if (room.view && room.cut) {
+		const q = lookRotation(room.view.at, room.view.look);
+		// the camera's axes from the quaternion (x right, y up, z back)
+		const [qx, qy, qz, qw] = q;
+		const ax = [
+			1 - 2 * (qy * qy + qz * qz),
+			2 * (qx * qy + qz * qw),
+			2 * (qx * qz - qy * qw),
+		];
+		const ay = [
+			2 * (qx * qy - qz * qw),
+			1 - 2 * (qx * qx + qz * qz),
+			2 * (qy * qz + qx * qw),
+		];
+		const az = [
+			2 * (qx * qz + qy * qw),
+			2 * (qy * qz - qx * qw),
+			1 - 2 * (qx * qx + qy * qy),
+		];
+		const vfov = ((room.view.fov ?? 55) * Math.PI) / 180;
+		const deg = Math.PI / 180;
+		// the cone's half angles, kept under 90° (a wide view + the look-around + the margin can pass it: tan turns negative)
+		const cap = (a) => Math.tan(Math.min(a, 89 * deg));
+		const tanH = cap(
+			Math.atan(Math.tan(vfov / 2) * (room.cut.aspect ?? 2)) +
+				(18 + room.cut.margin) * deg,
+		);
+		const tanV = cap(vfov / 2 + (6 + room.cut.margin) * deg);
+		const far = room.cut.far ?? 30;
+		let kept = 0,
+			all = 0;
+		for (const node of root.listNodes()) {
+			const mesh = node.getMesh();
+			if (!mesh) continue;
+			const m = node.getWorldMatrix();
+			for (const prim of mesh.listPrimitives()) {
+				const pos = prim.getAttribute("POSITION"),
+					idx = prim.getIndices();
+				if (!idx) continue;
+				const src = idx.getArray(),
+					keep = [];
+				const p = [0, 0, 0],
+					c = [0, 0, 0];
+				for (let t = 0; t < src.length; t += 3) {
+					let seen = false;
+					// a triangle stays when one of its corners is in the cone (big scan triangles reach in from outside)
+					for (let k = 0; k < 3 && !seen; k++) {
+						pos.getElement(src[t + k], p);
+						for (let i = 0; i < 3; i++)
+							c[i] =
+								m[i] * p[0] +
+								m[4 + i] * p[1] +
+								m[8 + i] * p[2] +
+								m[12 + i] -
+								room.view.at[i];
+						const vz = -(c[0] * az[0] + c[1] * az[1] + c[2] * az[2]);
+						if (vz <= 0.05 || vz > far) continue;
+						const vx = c[0] * ax[0] + c[1] * ax[1] + c[2] * ax[2],
+							vy = c[0] * ay[0] + c[1] * ay[1] + c[2] * ay[2];
+						seen = Math.abs(vx / vz) < tanH && Math.abs(vy / vz) < tanV;
+					}
+					all++;
+					if (seen) {
+						kept++;
+						keep.push(src[t], src[t + 1], src[t + 2]);
+					}
+				}
+				idx.setArray(
+					src.length > 65535 * 3 || pos.getCount() > 65535
+						? new Uint32Array(keep)
+						: new Uint16Array(keep),
+				);
+				compactPrimitive(prim);
+			}
 		}
-}
-if (room.view && room.cut) {
-	const q = lookRotation(room.view.at, room.view.look);
-	// the camera's axes from the quaternion (x right, y up, z back)
-	const [qx, qy, qz, qw] = q;
-	const ax = [
-		1 - 2 * (qy * qy + qz * qz),
-		2 * (qx * qy + qz * qw),
-		2 * (qx * qz - qy * qw),
-	];
-	const ay = [
-		2 * (qx * qy - qz * qw),
-		1 - 2 * (qx * qx + qz * qz),
-		2 * (qy * qz + qx * qw),
-	];
-	const az = [
-		2 * (qx * qz + qy * qw),
-		2 * (qy * qz - qx * qw),
-		1 - 2 * (qx * qx + qy * qy),
-	];
-	const vfov = ((room.view.fov ?? 55) * Math.PI) / 180;
-	const deg = Math.PI / 180;
-	// the cone's half angles, kept under 90° (a wide view + the look-around + the margin can pass it: tan turns negative)
-	const cap = (a) => Math.tan(Math.min(a, 89 * deg));
-	const tanH = cap(
-		Math.atan(Math.tan(vfov / 2) * (room.cut.aspect ?? 2)) +
-			(18 + room.cut.margin) * deg,
-	);
-	const tanV = cap(vfov / 2 + (6 + room.cut.margin) * deg);
-	const far = room.cut.far ?? 30;
-	let kept = 0,
-		all = 0;
+		console.log(`cut: ${kept} of ${all} triangles in view`);
+	}
+
+	// 3. bake the lights into COLOR_0 (world space), tone-mapped so the room keeps Unreal's mood; every material unlit
 	for (const node of root.listNodes()) {
 		const mesh = node.getMesh();
 		if (!mesh) continue;
 		const m = node.getWorldMatrix();
+		const glows = (room.glow ?? []).some((g) => node.getName().startsWith(g));
 		for (const prim of mesh.listPrimitives()) {
-			const pos = prim.getAttribute("POSITION"),
-				idx = prim.getIndices();
-			if (!idx) continue;
-			const src = idx.getArray(),
-				keep = [];
-			const p = [0, 0, 0],
-				c = [0, 0, 0];
-			for (let t = 0; t < src.length; t += 3) {
-				let seen = false;
-				// a triangle stays when one of its corners is in the cone (big scan triangles reach in from outside)
-				for (let k = 0; k < 3 && !seen; k++) {
-					pos.getElement(src[t + k], p);
-					for (let i = 0; i < 3; i++)
-						c[i] =
-							m[i] * p[0] +
-							m[4 + i] * p[1] +
-							m[8 + i] * p[2] +
-							m[12 + i] -
-							room.view.at[i];
-					const vz = -(c[0] * az[0] + c[1] * az[1] + c[2] * az[2]);
-					if (vz <= 0.05 || vz > far) continue;
-					const vx = c[0] * ax[0] + c[1] * ax[1] + c[2] * ax[2],
-						vy = c[0] * ay[0] + c[1] * ay[1] + c[2] * ay[2];
-					seen = Math.abs(vx / vz) < tanH && Math.abs(vy / vz) < tanV;
+			// a baked export carries its light in the atlas already (manifest `baked`)
+			if (!manifest.baked) {
+				const pos = prim.getAttribute("POSITION");
+				const nor = prim.getAttribute("NORMAL");
+				const color = new Float32Array(pos.getCount() * 4);
+				const p = [0, 0, 0],
+					n = [0, 1, 0];
+				for (let i = 0; i < pos.getCount(); i++) {
+					pos.getElement(i, p);
+					if (nor) nor.getElement(i, n);
+					const w = [
+						m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12],
+						m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13],
+						m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14],
+					];
+					let wn = [
+						m[0] * n[0] + m[4] * n[1] + m[8] * n[2],
+						m[1] * n[0] + m[5] * n[1] + m[9] * n[2],
+						m[2] * n[0] + m[6] * n[1] + m[10] * n[2],
+					];
+					const len = Math.hypot(...wn);
+					wn = len > 1e-6 ? wn.map((v) => v / len) : [0, 1, 0];
+					// scans have no reliable normals everywhere: half-lambert keeps backfacing scan geometry from going black
+					const L = lightAt(w, wn);
+					const L2 = lightAt(
+						w,
+						wn.map((v) => -v),
+					);
+					for (let k = 0; k < 3; k++) {
+						const l = room.ambient[k] + room.exposure * (L[k] + 0.35 * L2[k]);
+						// `glow`: nodes that shine themselves (a window, a lamp's face) – full colour, no bake
+						color[i * 4 + k] = glows ? 1 : 1 - Math.exp(-l);
+					}
+					color[i * 4 + 3] = 1;
 				}
-				all++;
-				if (seen) {
-					kept++;
-					keep.push(src[t], src[t + 1], src[t + 2]);
-				}
+				prim.setAttribute(
+					"COLOR_0",
+					doc
+						.createAccessor()
+						.setType("VEC4")
+						.setArray(color)
+						.setBuffer(root.listBuffers()[0]),
+				);
 			}
-			idx.setArray(
-				src.length > 65535 * 3 || pos.getCount() > 65535
-					? new Uint32Array(keep)
-					: new Uint16Array(keep),
-			);
-			compactPrimitive(prim);
+			// unlit: normals and tangents only cost bytes and keep vertices apart (weld / simplify can't merge them)
+			prim.setAttribute("NORMAL", null).setAttribute("TANGENT", null);
+			const mat = prim.getMaterial();
+			if (mat)
+				mat
+					.setExtension("KHR_materials_unlit", unlit.createUnlit())
+					.setDoubleSided(true) // a room is seen from inside and from below: no face may vanish
+					.setMetallicRoughnessTexture(null)
+					.setNormalTexture(null)
+					.setOcclusionTexture(null);
 		}
 	}
-	console.log(`cut: ${kept} of ${all} triangles in view`);
-}
 
-// 3. bake the lights into COLOR_0 (world space), tone-mapped so the room keeps Unreal's mood; every material unlit
-for (const node of root.listNodes()) {
-	const mesh = node.getMesh();
-	if (!mesh) continue;
-	const m = node.getWorldMatrix();
-	const glows = (room.glow ?? []).some((g) => node.getName().startsWith(g));
-	for (const prim of mesh.listPrimitives()) {
-		const pos = prim.getAttribute("POSITION");
-		const nor = prim.getAttribute("NORMAL");
-		const color = new Float32Array(pos.getCount() * 4);
-		const p = [0, 0, 0],
-			n = [0, 1, 0];
-		for (let i = 0; i < pos.getCount(); i++) {
-			pos.getElement(i, p);
-			if (nor) nor.getElement(i, n);
-			const w = [
-				m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12],
-				m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13],
-				m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14],
-			];
-			let wn = [
-				m[0] * n[0] + m[4] * n[1] + m[8] * n[2],
-				m[1] * n[0] + m[5] * n[1] + m[9] * n[2],
-				m[2] * n[0] + m[6] * n[1] + m[10] * n[2],
-			];
-			const len = Math.hypot(...wn);
-			wn = len > 1e-6 ? wn.map((v) => v / len) : [0, 1, 0];
-			// scans have no reliable normals everywhere: half-lambert keeps backfacing scan geometry from going black
-			const L = lightAt(w, wn);
-			const L2 = lightAt(
-				w,
-				wn.map((v) => -v),
-			);
-			for (let k = 0; k < 3; k++) {
-				const l = room.ambient[k] + room.exposure * (L[k] + 0.35 * L2[k]);
-				// `glow`: nodes that shine themselves (a window, a lamp's face) – full colour, no bake
-				color[i * 4 + k] = glows ? 1 : 1 - Math.exp(-l);
-			}
-			color[i * 4 + 3] = 1;
-		}
-		prim.setAttribute(
-			"COLOR_0",
+	// 4. the camera = `view` (the spots = empty nodes `spot_<id>` come per level, step 5 – LOCATION-SCENES §5)
+	const scene = root.listScenes()[0];
+	const cam = root.listNodes().find((n) => n.getCamera());
+	if (room.view) {
+		// the room's own view (room.json `view: { at, look, fov? }`) replaces the level's (cinematic) camera
+		for (const n of root.listNodes()) if (n.getCamera()) n.dispose();
+		const camera = doc
+			.createCamera("view")
+			.setType("perspective")
+			.setYFov(((room.view.fov ?? 55) * Math.PI) / 180)
+			.setZNear(0.05)
+			.setZFar(300)
+			.setAspectRatio(1);
+		scene.addChild(
 			doc
-				.createAccessor()
-				.setType("VEC4")
-				.setArray(color)
-				.setBuffer(root.listBuffers()[0]),
+				.createNode("view")
+				.setCamera(camera)
+				.setTranslation(room.view.at)
+				.setRotation(lookRotation(room.view.at, room.view.look)),
 		);
-		// unlit: normals and tangents only cost bytes and keep vertices apart (weld / simplify can't merge them)
-		prim.setAttribute("NORMAL", null).setAttribute("TANGENT", null);
-		const mat = prim.getMaterial();
-		if (mat)
-			mat
-				.setExtension("KHR_materials_unlit", unlit.createUnlit())
-				.setDoubleSided(true) // a room is seen from inside and from below: no face may vanish
-				.setMetallicRoughnessTexture(null)
-				.setNormalTexture(null)
-				.setOcclusionTexture(null);
-	}
+	} else if (cam) cam.setName("view");
+	await doc.transform(dedup(), weld());
+	return io.writeBinary(doc);
 }
-
-// 4. the camera = `view` (the spots = empty nodes `spot_<id>` come per level, step 5 – LOCATION-SCENES §5)
-const scene = root.listScenes()[0];
-const cam = root.listNodes().find((n) => n.getCamera());
-if (room.view) {
-	// the room's own view (room.json `view: { at, look, fov? }`) replaces the level's (cinematic) camera
-	for (const n of root.listNodes()) if (n.getCamera()) n.dispose();
-	const camera = doc
-		.createCamera("view")
-		.setType("perspective")
-		.setYFov(((room.view.fov ?? 55) * Math.PI) / 180)
-		.setZNear(0.05)
-		.setZFar(300)
-		.setAspectRatio(1);
-	scene.addChild(
-		doc
-			.createNode("view")
-			.setCamera(camera)
-			.setTranslation(room.view.at)
-			.setRotation(lookRotation(room.view.at, room.view.look)),
-	);
-} else if (cam) cam.setName("view");
-await doc.transform(dedup(), weld());
 
 // 5. per quality level: simplify, textures, quantize + meshopt
 const report = {};
-const plain = await io.writeBinary(doc);
+// a baked export (bake_atlas.py) brings its own decimated mesh per level: level.<level>.glb; else one level.glb for all
+let common;
 for (const [level, cfg] of Object.entries(room.levels)) {
+	const own = existsSync(join(src, `level.${level}.glb`));
+	const plain = own
+		? await prepare(join(src, `level.${level}.glb`))
+		: (common ??= await prepare(join(src, "level.glb")));
 	const d = await io.readBinary(plain);
-	if (cfg.ratio < 1)
+	if (cfg.ratio < 1 && !own)
 		await d.transform(
 			simplify({
 				simplifier: MeshoptSimplifier,
