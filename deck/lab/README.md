@@ -12,6 +12,7 @@ Results and what they mean: agents/research/LIVE-NIGHT-2026-10-29.md §4; the wa
 | `www/` | the worker page: `main.ts` (postMessage round trips), `worker.ts` (the suite in a worker) |
 | `core-wasm/src/formats.rs`, `ts/formats.ts` | #184: the exchange formats (JSON, postcard, live-core's wire records copied / in place) into and out of wasm; `ts/bench-formats.ts` runs them in Node |
 | `www/formats.html` | #184: the same in a worker + page → worker (postMessage vs the SAB ring) |
+| `www/deck.html` | #197: a phone joins the Cathedral of decks as a being – `deck-client.ts` (relay link + values stream, = stage link.rs / stream.rs), `deck-scene.ts` (the trimmed cathedral deck: wire graph, engine TOML, exposed params, mood ladder); tests `ts/deck-client.test.ts` |
 | `www/demo.html` | #184: `@scutoons/live-core` playing a scene, the FFT bands, a float vector sent live; `?transport=transfer` / `?coi=0` = the fallback |
 | `ts/run-browser.ts` | formats.html + demo.html in a headless Edge / Chrome over plain CDP (own profile, port `LAB_DEBUG_PORT`, default 9531) → `results/formats-chromium.*`, screenshots |
 
@@ -53,3 +54,16 @@ node --experimental-transform-types ts/run-browser.ts http://127.0.0.1:4131 <pro
 `serve.ts` sends COOP / COEP (`?coi=0` on a page: without). Under playwright (its launch or connectOverCDP) `audioWorklet.addModule` never
 settles – most likely its auto-attach holding the worklet's new target; the same browser over plain CDP runs it, hence
 run-browser.ts.
+
+### #197: the browser deck on a phone (USB)
+
+```bash
+node --experimental-transform-types ts/build.ts && node --experimental-transform-types ts/serve.ts 4142
+adb -s <device> reverse tcp:4142 tcp:4142 && adb -s <device> reverse tcp:7070 tcp:7070   # the phone's localhost = this PC (a secure context)
+adb -s <device> shell am start -a android.intent.action.VIEW -d "'http://localhost:4142/deck.html?relay=ws://localhost:7070/live/CATH'"
+```
+
+It joins at once (`?relay=`, default `ws://<host>:7070/live/CATH`; `?character=<id>`, default yellowmouse or the last
+pick); Start plays it. Tests: `node --experimental-transform-types --no-warnings --test ts/deck-client.test.ts` (the last
+one starts `deck/target/debug/relay.exe` on `LAB_RELAY_PORT`, default 7072); the conductor's side:
+`cargo test -p deck-stage the_browser_decks_being` (`fixtures/deck-graph.json`).

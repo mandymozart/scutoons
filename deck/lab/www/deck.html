@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="theme-color" content="#000000" />
+		<title>deck</title>
+		<link rel="stylesheet" href="./dist/tokens.css" />
+		<style>
+			/* #197: the phone deck – touch first, phone width, rem only (DESIGN.md); the tokens are shared/tokens */
+			* { box-sizing: border-box; }
+			html { -webkit-text-size-adjust: 100%; }
+			body { margin: 0; font: 1rem/1.4 system-ui, sans-serif; background: var(--ink); color: var(--paper); }
+			main { max-width: 32rem; margin: 0 auto; padding: var(--space-1); display: grid; gap: var(--space-1); }
+			.head { display: grid; grid-template-columns: 7rem 1fr; gap: var(--space-1); align-items: center; }
+			.head img { width: 7rem; height: 7rem; object-fit: contain; background: #111; display: block; }
+			.who { display: grid; gap: var(--space-05); min-width: 0; }
+			select, button { font: inherit; color: inherit; border-radius: 0; }
+			select { width: 100%; min-height: 3rem; background: #111; border: 0.125rem solid #444; padding: 0 var(--space-05); }
+			#mood { font-size: 1.25rem; }
+			#status, #stats { color: #999; font-size: 0.8125rem; overflow-wrap: anywhere; }
+			#start { min-height: 4.5rem; font-size: 1.5rem; background: var(--primary-cyan); color: var(--ink); border: 0; }
+			#start[hidden] { display: none; }
+			canvas { width: 100%; height: 5rem; display: block; background: #111; }
+			.pads { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-1); }
+			.pad { position: relative; aspect-ratio: 1; background: #111; border: 0.125rem solid #444; touch-action: none; user-select: none; }
+			.pad.on { border-color: var(--primary-cyan); }
+			.pad i { position: absolute; width: 2.5rem; height: 2.5rem; margin: -1.25rem 0 0 -1.25rem; border-radius: 50%; background: var(--primary-cyan); pointer-events: none; }
+			.pad span { position: absolute; font-size: 0.75rem; color: #999; pointer-events: none; }
+			.pad .x { right: 0.25rem; bottom: 0.125rem; }
+			.pad .y { left: 0.25rem; top: 0.125rem; }
+			fieldset { border: 0; padding: 0; margin: 0; display: grid; grid-template-columns: 6.5rem 1fr 3.5rem; gap: var(--space-075) var(--space-05); align-items: center; }
+			fieldset output { text-align: right; color: #999; font-size: 0.8125rem; font-variant-numeric: tabular-nums; }
+			input[type='range'] { width: 100%; height: 3rem; margin: 0; accent-color: var(--primary-cyan); touch-action: pan-y; }
+		</style>
+	</head>
+	<body>
+		<main>
+			<div class="head">
+				<img id="face" alt="" crossorigin="anonymous" />
+				<div class="who">
+					<select id="character" aria-label="character"></select>
+					<div id="mood">–</div>
+				</div>
+			</div>
+			<button id="start">Start</button>
+			<div id="status">loading</div>
+			<canvas id="bands"></canvas>
+			<div class="pads">
+				<div class="pad" id="pad-voice" data-x="voice.ratio" data-y="voice.index"><i></i><span class="x">ratio →</span><span class="y">↑ index</span></div>
+				<div class="pad" id="pad-incense" data-x="incense.cutoff" data-y="sway.rate"><i></i><span class="x">cutoff →</span><span class="y">↑ LFO rate</span></div>
+			</div>
+			<fieldset id="sliders"></fieldset>
+			<div id="stats"></div>
+		</main>
+		<script type="module" src="./dist/deck.js"></script>
+	</body>
+</html>

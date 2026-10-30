@@ -1,7 +1,7 @@
 // `node --experimental-transform-types deck/lab/ts/build.ts` – builds the lab pages into www/dist:
 // - the #182 page: its TypeScript type-stripped file by file (typescript's transpileModule, no bundler), wasm-bindgen's
 //   www/pkg and www/pkg-simd copied next to it;
-// - the #184 pages (formats.html, demo.html): bundled with rolldown (vite 8's bundler, from the repo's node_modules) –
+// - the #184 / #197 pages (formats.html, demo.html, deck.html): bundled with rolldown (vite 8's bundler, from the repo's node_modules) –
 //   they import shared/live-core; the worker and the worklet are their own entries, live_core.wasm is copied from
 //   deck/target (`npm run build:wasm -w shared/live-core`).
 import { readFileSync, writeFileSync, mkdirSync, cpSync, existsSync } from 'node:fs';
@@ -33,6 +33,7 @@ const bundle = await rolldown({
 		'formats-main': `${lab}/www/formats-main.ts`,
 		'formats-worker': `${lab}/www/formats-worker.ts`,
 		demo: `${lab}/www/demo.ts`,
+		deck: `${lab}/www/deck.ts`,
 		'live-worker': `${liveCore}/worker.ts`,
 		'live-worklet': `${liveCore}/worklet.ts`
 	},
@@ -42,4 +43,6 @@ await bundle.write({ dir: dist, format: 'esm', entryFileNames: '[name].js', chun
 const wasm = `${lab}/../target/wasm32-unknown-unknown/release/live_core.wasm`;
 if (existsSync(wasm)) cpSync(wasm, `${dist}/live_core.wasm`);
 else console.warn('live_core.wasm is not built – npm run build:wasm -w shared/live-core');
+// deck.html (#197) wears the shared tokens
+cpSync(`${lab}/../../shared/tokens/tokens.css`, `${dist}/tokens.css`);
 console.log(`built ${dist}`);

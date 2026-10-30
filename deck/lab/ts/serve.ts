@@ -12,7 +12,8 @@ const types: Record<string, string> = {
 	'.html': 'text/html; charset=utf-8',
 	'.js': 'text/javascript',
 	'.wasm': 'application/wasm',
-	'.json': 'application/json'
+	'.json': 'application/json',
+	'.css': 'text/css'
 };
 
 createServer(async (req, res) => {

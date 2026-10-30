@@ -1,0 +1,100 @@
+{
+	"kind": "deck.graph",
+	"p": {
+		"nodes": [
+			{
+				"id": "seq",
+				"kind": "seq"
+			},
+			{
+				"id": "voice",
+				"kind": "fm"
+			},
+			{
+				"id": "drone",
+				"kind": "osc"
+			},
+			{
+				"id": "incense",
+				"kind": "noise"
+			},
+			{
+				"id": "sway",
+				"kind": "lfo"
+			},
+			{
+				"id": "mix",
+				"kind": "mixer"
+			},
+			{
+				"id": "fft",
+				"kind": "fft"
+			},
+			{
+				"id": "space",
+				"kind": "space"
+			},
+			{
+				"id": "out",
+				"kind": "audio_out"
+			}
+		],
+		"links": [
+			{
+				"from": "seq.cv",
+				"to": "voice.cv"
+			},
+			{
+				"from": "voice.out",
+				"to": "mix.in1"
+			},
+			{
+				"from": "drone.out",
+				"to": "mix.in2"
+			},
+			{
+				"from": "incense.out",
+				"to": "mix.in3"
+			},
+			{
+				"from": "sway.out",
+				"to": "incense.cutoff"
+			},
+			{
+				"from": "mix.out",
+				"to": "fft.in"
+			},
+			{
+				"from": "mix.out",
+				"to": "out.in"
+			},
+			{
+				"from": "fft.level",
+				"to": "space.pulse",
+				"scale": 0.6
+			}
+		],
+		"character": "yellowmouse",
+		"size": 0.5,
+		"moods": [
+			"neutral",
+			"thinking",
+			"happy",
+			"laughing",
+			"surprised"
+		],
+		"expose": [
+			"voice.ratio",
+			"voice.index",
+			"voice.gain",
+			"drone.freq",
+			"drone.gain",
+			"incense.cutoff",
+			"incense.gain",
+			"sway.rate",
+			"sway.depth",
+			"space.hue",
+			"space.glow"
+		]
+	}
+}
