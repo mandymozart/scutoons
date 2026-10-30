@@ -137,8 +137,8 @@ Proven on the X1 first: Vulkan on the iGPU (anv), VA-API decode h264 / hevc / vp
   texture; step two zero-copy (dmabuf import into Vulkan). Software decode is the fallback, chosen by deck-check's feature set.
 - **3D:** the `space` node (#188): rooms as .glb read by the stage itself (meshopt, quantization, WebP – no `gltf`
   crate: it refuses meshopt), drawn with a depth buffer through an orbit camera, and the deck's **being** (its graph as a
-  floating body, its parameters as 3D buttons; deck/stage/README.md). The artists' cast models (research/CHARACTERS3D.md)
-  and the several decks around the conductor (#188 phase 4) come later.
+  floating body, its parameters as 3D buttons, its head the character's portrait; the decks' beings around the
+  conductor's over the relay – deck/stage/README.md). The artists' cast models (research/CHARACTERS3D.md) come later.
 - **Audio:** our own graph on PipeWire (`pipewire-rs`, `cpal` fallback), a realtime thread that never allocates; DSP
   blocks from `fundsp` (oscillators, noise, FM, filters; granular on chapter samples); chapter music decoded with
   `symphonia`; out through the default sink (the RME UCX II in Class Compliant mode, #174). The audio clock is the master

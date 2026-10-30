@@ -5,8 +5,9 @@
 scutoons.com's library API with a disk cache. On the deck `deck-session` runs it under `cage` instead of Chromium
 (deck/os/README.md "What happens at boot"). Built so far: S1 (window, wgpu, graph core, test pattern, shader passes,
 HUD), S2 (audio graph, synths, FFT, chapter music) and S3 (the chapter's slices with their dialog, the caption overlay,
-the splash), the 3D space of #188 phases 1–3 (the Cathedral of decks: a glTF room, the deck's being, its 3D
-buttons) and the Live outlet of #186 (the relay's cells for this deck's outlet, natively – below). Open: S4–S6 (#179), #188 phases 4–5 (several decks around the conductor over the relay, the portrait head).
+the splash), the 3D space of #188 (the Cathedral of decks: a glTF room, the deck's being with its portrait head and
+3D buttons, the decks around the conductor over the relay) and the Live outlet of #186 (the relay's cells for this
+deck's outlet, natively – below). Open: S4–S6 (#179), #188's body parts and the browser scene.
 
 ## Run
 
@@ -14,8 +15,10 @@ buttons) and the Live outlet of #186 (the relay's cells for this deck's outlet, 
 cd deck && cargo run --release -p deck-stage -- --windowed
 ```
 
-`--scene FILE` (default: the built-in `scenes/default.toml`, "AV madness"; `--scene cathedral` = the built-in
-`scenes/cathedral.toml`) · `--rooms DIR` (a space node's rooms, `DECK_ROOMS`, default `<cache>/rooms`) · `--audio auto|pipewire|cpal|null` (auto =
+`--scene FILE` (default: the built-in `scenes/default.toml`, "AV madness"; `--scene cathedral` / `conductor` = the
+built-in `scenes/cathedral.toml` / `conductor.toml`) · `--rooms DIR` (a space node's rooms, `DECK_ROOMS`, default
+`<cache>/rooms`) · `--portraits DIR` (the heads' sprites, `DECK_PORTRAITS`, default `<cache>/portraits`) · `--token T`
+(the conductor's session token, `LIVE_TOKEN`) · `--audio auto|pipewire|cpal|null` (auto =
 PipeWire → cpal → null; null runs the engine on a timer, no device – the clock, the music and the FFT still move) ·
 `--volume 0–1` · `--cache DIR` (default `/var/lib/deck/cache` on a deck, `DECK_CACHE`, else the user cache folder) ·
 `--api` / `--cdn` (or `DECK_API` / `DECK_CDN`) · `--windowed` · `--frames N` (quit after N frames and print the numbers –
@@ -99,7 +102,7 @@ An input takes one link; an output feeds any number. Every control input can als
 | `fft` | in (audio) | level, bass, mid, high (control, 0–1) | `release` (s) |
 | `audio_out` | in (audio), volume | – | the device (one per scene) |
 | `outlet` | in (video: the backdrop), opacity | out (video) | – (one per scene; the relay and the outlet from deck.toml / the CLI – "Live outlet") |
-| `space` | hue, glow, light, pulse (control) | out (video) | `room` (a name → `<rooms>/<room>.<quality>.glb`, or a path with its extension), `quality` = low · medium · high (low, the X1's), `at` = [x, y, z] (where the being floats, room metres) or `spot` (a node of the room, `spot_aisle`) + `lift` (1.5 m), `yaw` / `pitch` (°) / `distance` (m) – the camera's start, `max_texture` (2048) – one per scene |
+| `space` | hue, glow, light, pulse (control) | out (video) | `room` (a name → `<rooms>/<room>.<quality>.glb`, or a path with its extension), `quality` = low · medium · high (low, the X1's), `at` = [x, y, z] (where the being floats, room metres) or `spot` (a node of the room, `spot_aisle`) + `lift` (1.5 m), `yaw` / `pitch` (°) / `distance` (m) – the camera's start, `max_texture` (2048), `join` = deck · conductor · alone (a session with a relay set), `ring` (3.2 m, the decks' circle around a conductor) – one per scene |
 
 **chapter** shows the chapter's slices one after the other in reading order (looping), the slice fitted to the height
 over `in` (darkened; without an input a dark stretched copy of the slice), a slow push-in over the hold, a kick by
@@ -116,9 +119,9 @@ With a `cv` link an oscillator / FM voice takes its pitch and gate from the sequ
 out of the FFT or into an audio node crosses threads a frame late, so feedback through it (FFT → synth → mix → FFT) is
 allowed; every other cycle is an error.
 
-**space** (#188 "Cathedral of decks", phases 1–3) draws a glTF room and this deck's **being** – the running graph as a
+**space** (#188 "Cathedral of decks") draws a glTF room and this deck's **being** – the running graph as a
 floating body – through an orbit camera. The body: a translucent core (the space node's own point sits in it), one node
-point per graph node (sources low, sinks high: data rises toward where the head will be), a hose per link (a curved
+point per graph node (sources low, sinks high: data rises toward the head), a hose per link (a curved
 tube; audio thick, video middle, control thin) and thin tendrils from the core to every point. **Bubbles** run along a
 hose from its source to its target when its value changes – control links: the change against the value's recent
 range, more and bigger the more it moves (a steady value: none); audio links: the source buffer's block peak; video
@@ -129,11 +132,41 @@ The HUD's last line names the hovered button (`VOICE.INDEX 2.00 [0.00-10.0]`, `S
 body drifts, sways and breathes on the tempo clock (a swell on each beat, a wave over the bar; `pulse` kicks it); `hue`
 / `glow` colour it, `light` dims the room. The scene's `[being]` table is its shape: `size` (body radius, 0.5 m),
 `drift` (0.06 m), `breath` (0.035), `wobble` (0.025), `hose` / `bubbles` (thickness / rate factors), `expose` (the
-buttons: `"node"` or `"node.port"`, empty = all) – with the graph that is what a being preset saves (#191).
-`scenes/cathedral.toml` ("Cathedral of decks") – the room from Cat Pope chapter 2 (`cathedral`, low), the being ahead of
-the reader's view in the nave; catpope 2's music, a choir line (seq → FM), a drone (its gain on the bass), pink-noise
-incense swayed by an LFO → mixer → FFT (its level kicks the breath) → out. An audio oscillator's `wave` can't change
-while it plays yet (an engine rebuild); MIDI / OSC learn onto the same `Controls::set` is S6.
+buttons: `"node"` or `"node.port"`, empty = all), `character` + `moods` (the head) – with the graph that is what a
+being preset saves (#191).
+
+**The head** (phase 5; owner 2026-10-30: the portrait *is* the head, organic on synthetic, Ghost in the Shell): the
+character's portrait mood sprite (`<character>_portrait-<mood>.png|webp`) on a curved face plate turned to the eye,
+over a dark machine layer behind it (circuit lines lit by the energy – the parallax of a layered head), inside a
+translucent synthetic skin (a ghost sphere with scan lines); below the chin the sprite dissolves into the neck, where
+cables from the core and the body's highest points plug into sockets, their bands rising into the head. The **mood
+follows the energy** (0.8 × the FFT level + 0.2 × the tempo): `moods` calm → wild (default neutral · thinking · happy ·
+laughing · surprised), a new mood must hold 1.2 s, then cross-fades in 0.5 s; a missing sprite shows the nearest mood
+there is (toward calm), a character without sprites a faceless visor. Sprites: `space/portrait.rs` – a `Source`, today
+`LocalDir` (`--portraits`: `<dir>/<char>/<char>_portrait-<mood>.*`, the media/characters layout, or flat), loaded and
+mipmapped on their own thread; **#180's deck-token fetch** becomes a second `Source` caching into that folder.
+
+**The session** (phase 4) – the space node's `join` with a relay set (deck.toml `relay` or `--relay`):
+- `join = "deck"` (`scenes/cathedral.toml`): joins as `musician` of the group `decks`, sends `deck.graph` (its graph,
+  character, size, moods, exposed parameters), then `deck.values` – every value its body shows (the buttons' inputs, the
+  hoses' sources; paths `node.port` / `node.shape` → float vectors, `values.rs`) that moved past its epsilon, at most
+  30 / s, and its mood when it changes (`stream.rs`, `link.rs`); after a reconnect the graph and every value again. It
+  shows only its own being.
+- `join = "conductor"` (`scenes/conductor.toml`; `--token`): gathers every deck's being from the snapshot and the stream
+  – its graph rebuilt from the wire, the same body code on a `Mirror` of its values, its own head and mood (`decks.rs`)
+  – into a circle (`ring`, 3 m) around its own bigger being in the middle of the nave, a deck drifting down into its
+  place; presence's `decks` drops the ones that left, its `routes` (who sent values to whom) become hoses sagging between
+  the beings' cores, bubbling while values come. Only this stage's own buttons turn.
+- The HUD: `CONDUCTOR c6 @ CATH 5 DECKS 5 ROUTES` / `DECK c1 @ CATH`, then `FACE plf 0/5 MOODS` (or why there is none).
+- Without the relay: stand-in decks, `cargo run --release -p deck-stage --example decks -- ws://127.0.0.1:7700/live/CATH 4`
+  (the cathedral scene as n decks, each another character, values and moods moving by themselves; no window).
+
+`scenes/cathedral.toml` ("Cathedral of decks", a deck: catpope's head) – the room from Cat Pope chapter 2 (`cathedral`,
+low), the being ahead of the reader's view in the nave; catpope 2's music, a choir line (seq → FM), a drone (its gain on
+the bass), pink-noise incense swayed by an LFO → mixer → FFT (its level kicks the breath) → out. `scenes/conductor.toml`
+– PLF's head on the conductor's being (size 0.8) in the middle of the nave, the sermon's music, an organ drone on the
+bass, a voice swelling with a slow LFO. An audio oscillator's `wave` can't change while it plays yet (an engine
+rebuild); MIDI / OSC learn onto the same `Controls::set` is S6.
 
 `scenes/default.toml` ("AV madness (S3)") – the tempo clock at 96 BPM; catpope 1's music + an FM voice sequenced on
 the beat + pink noise + the click (off until K) → mixer → FFT; test pattern (pulsing on the beat) → kaleidoscope → the
@@ -229,11 +262,14 @@ with the token, ready, the cell, resume, the snapshot after a restart). Not yet:
   rooms' build (tools/rooms/pipeline/build.mjs §5) without its `EXTMeshoptCompression`. `camera.rs` the orbit camera (glam; it turns by itself after 4 s without input, eased in; the ray through a
   pixel for picking), `being.rs` the body (layout from the graph, the hoses' Béziers, the bubble pools – 12 per hose –,
   the buttons, picking by ray / sphere), `gpu.rs` + `shaders/space.wgsl` the passes into the node's texture with its
-  own Depth32 buffer: the room unlit (texture × vertex light × `light`, fog), the solid spheres (nuclei, buttons), then
-  the tubes and the ghost spheres (core, shells, bubbles) additive and depth-tested only. The being's buffers are sized
-  once (`Being::capacity`) and rewritten per frame; `Being::update` / `write` never allocate (tests/no_alloc.rs). The
-  values come from the control domain's slots and the audio meters (`audio::Meters`: every output buffer's block peak,
-  only built for a scene with a space node).
+  own Depth32 buffer: the room unlit (texture × vertex light × `light`, fog), the solid spheres (nuclei, buttons,
+  sockets) of every being, the heads far to near (a 16 × 16 plate bulged toward the eye, the machine layer then the
+  portrait – the old mood under the new –, premultiplied alpha, depth written, a texture per sprite), then the tubes and
+  the ghost spheres (core, shells, bubbles, skin) additive and depth-tested only. The buffers are sized from all beings
+  (`Space::capacity`) – anew only when a deck comes or goes (`Space::generation`) – and rewritten per frame;
+  `Being::update` / `write` never allocate (tests/no_alloc.rs, a deck's being on a `Mirror` too). The values come
+  through `values.rs`: this deck's control slots and audio meters (`audio::Meters`: every output buffer's block peak,
+  only built for a scene with a space node), or a deck's stream (`Mirror`).
 - **Library** (`src/library.rs`): `GET {api}/library/toons/<toon>/chapters/<n>` → `<cache>/api/…json` (the cached copy
   when offline), CDN files `{cdn}/<toon>/<path>` → `<cache>/cdn/<toon>/<path>` once (CDN paths are immutable), decoded
   whole with symphonia (mp3, wav).
@@ -254,5 +290,6 @@ wgpu-hal's DX12 build on Windows). A bump is its own step.
 | Windows 10, RTX 2070 SUPER, Vulkan, release | default (null audio) | 60.3 fps, 16.6 ms avg frame, 0.29 ms CPU per frame, first frame 845 ms, catpope 1 music online in 1.1 s (cached 0.4 s) |
 | ThinkPad X1 Carbon Gen 7, UHD 620 (anv) | default | open – the owner's stick (deck/HARDWARE.md) |
 | Windows 10, RTX 2070 SUPER, Vulkan, release, 1280 × 720 window (2026-10-30, #188) | cathedral (null audio) – room low / medium / high | 60.4 / 60.4 / 60.3 fps (vsync), CPU per frame 0.37 / 0.39 / 0.40 ms (the default scene: 0.31), first frame 719 / 802 / 827 ms; the room loads on its thread in 174 / 449 / 1574 ms (114,788 / 116,163 / 129,205 triangles, 4 WebP + their mips), its upload 2 / 4 / 9 ms; p99 ~50 ms in every scene = the start |
-| ThinkPad X1 Carbon Gen 7, UHD 620 (anv) | cathedral | open – the owner's stick |
+| Windows 10, RTX 2070 SUPER, Vulkan, release, 1280 × 720 window (2026-10-30, #188 phases 4–5) | cathedral with its head · conductor + 5 stand-in decks (`--example decks`, same PC) | 60.8 fps, CPU per frame 0.42 ms (0.37 without the head) · 60.2 fps, 1.12 ms (0.39 alone) |
+| ThinkPad X1 Carbon Gen 7, UHD 620 (anv) | cathedral, conductor | open – the owner's stick |
 | Windows 10, Ryzen 5 3600X, `cargo bench -p deck-stage` (2026-10-30, #183) | the graph, µs per 128-frame block: before #183 → patcher → batch → batch AVX2 | default scene 11.0 → 9.9 → 11.1 → 10.0 (whole v3 binary 7.5) · 1 FM voice – → 2.2 → 3.5 → 2.2 · 16 FM voices 37.8 → 34.1 → 10.2 → 7.7 · 16 sines 20.1 → 15.4 → 7.3 → 5.3 · 64 FM voices – → 125 → 41 → 27 · control step, 300 LFOs: 58.4 → 2.1 (3 levels × 100), 69.6 → 5.5 (300 levels) |

@@ -252,6 +252,11 @@ instruction per group) · `cell { outlet, cell }` (row change) · `cue`, `say`, 
 `vote.tally { counts }` (to the conductor every 250 ms; to the audience only if the vote shows it) · `vote.result` ·
 `presence { groups: { id: n }, ready: [...] }` (to the conductor).
 
+**Decks → relay** (#188): `deck.graph { nodes, links, character?, size?, moods?, expose? }` (a deck's being; kept per
+client for the conductor's snapshot `decks`) · `deck.values { values: { "node.port": number[] }, mood? }` (only what
+changed, ≤ 30 / s – the relay drops more; folded, never replayed; to the conductor, and to `to` too) · presence adds
+`decks` and `routes` (who sent values to whom). The deck side: deck/stage/README.md "space".
+
 **Clients → relay**: `vote.cast { vote, option }` (one per client, changeable until close) · `ready` · `pickup { item,
 placement }` (the relay asks the API, like the reader does) · `react { kind }` (applause, a sound pad – rate-limited).
 
