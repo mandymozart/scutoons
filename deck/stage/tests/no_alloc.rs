@@ -7,28 +7,44 @@ use deck_stage::audio::{Build, Engine, Track};
 use deck_stage::graph::Graph;
 use deck_stage::scene::{Scene, DEFAULT_SCENE};
 use std::alloc::{GlobalAlloc, Layout, System};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::cell::Cell;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 struct Counting;
-static COUNTING: AtomicBool = AtomicBool::new(false);
 static CALLS: AtomicUsize = AtomicUsize::new(0);
+
+thread_local! {
+    /// counting on this thread only: the test harness's main thread prints the previous test's result ("test … ok")
+    /// while the next one measures – process-wide, those allocations landed in CALLS (#186, CI on Linux and macOS). A
+    /// const Cell needs no lazy init and no destructor, so reading it never allocates.
+    static MEASURED: Cell<bool> = const { Cell::new(false) };
+}
+
+fn counting() -> bool {
+    MEASURED.try_with(Cell::get).unwrap_or(false)
+}
+
+/// count this thread's allocations from now on (true) or no longer (false)
+fn measure(on: bool) {
+    MEASURED.with(|m| m.set(on));
+}
 
 unsafe impl GlobalAlloc for Counting {
     unsafe fn alloc(&self, l: Layout) -> *mut u8 {
-        if COUNTING.load(Ordering::Relaxed) {
+        if counting() {
             CALLS.fetch_add(1, Ordering::Relaxed);
         }
         System.alloc(l)
     }
     unsafe fn dealloc(&self, p: *mut u8, l: Layout) {
-        if COUNTING.load(Ordering::Relaxed) {
+        if counting() {
             CALLS.fetch_add(1, Ordering::Relaxed);
         }
         System.dealloc(p, l)
     }
     unsafe fn realloc(&self, p: *mut u8, l: Layout, n: usize) -> *mut u8 {
-        if COUNTING.load(Ordering::Relaxed) {
+        if counting() {
             CALLS.fetch_add(1, Ordering::Relaxed);
         }
         System.realloc(p, l, n)
@@ -37,7 +53,7 @@ unsafe impl GlobalAlloc for Counting {
 
 #[global_allocator]
 static A: Counting = Counting;
-/// the counter is global: the tests take turns
+/// CALLS is shared: the tests take turns
 static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 #[test]
@@ -63,7 +79,7 @@ fn renders_without_allocating(graph: &Graph, build: Build) {
     let mut drained = 0usize;
     let (map, _) = handles.tempo.map().unwrap();
     handles.tempo.publish(&map, true); // the click on
-    COUNTING.store(true, Ordering::SeqCst);
+    measure(true);
     for i in 0..2000 {
         if i % 250 == 0 {
             // what the frame thread does: a new tempo from the frontier on
@@ -79,7 +95,7 @@ fn renders_without_allocating(graph: &Graph, build: Build) {
             drained += 1;
         }
     }
-    COUNTING.store(false, Ordering::SeqCst);
+    measure(false);
     assert_eq!(CALLS.load(Ordering::SeqCst), 0, "allocations / frees in the audio path ({})", build.label());
     assert!(drained > 0);
     assert!(bufs[0].iter().any(|x| *x != 0.0), "the scene makes sound");
@@ -105,7 +121,7 @@ fn the_being_steps_without_allocating() {
     let cam = Orbit::new(being.anchor, 0.3, 0.1, 2.0);
     let knob = being.buttons.iter().find(|b| !b.linked).map(|b| (b.node, b.port)).unwrap();
     let meter = |n: usize, p: usize| ((n * 7 + p) % 5) as f32 * 0.2;
-    COUNTING.store(true, Ordering::SeqCst);
+    measure(true);
     let before = CALLS.load(Ordering::SeqCst);
     for f in 0..600 {
         let beat = tempo::Now { bpm: 84.0, pos: tempo::position(f as f64 * 0.023, 4), per_bar: 4, running: true };
@@ -115,7 +131,7 @@ fn the_being_steps_without_allocating() {
         let _ = being.pick(&cam.ray(640.0 + f as f32, 360.0, 1280.0, 720.0));
         being.write(&mut spheres, &mut tubes);
     }
-    COUNTING.store(false, Ordering::SeqCst);
+    measure(false);
     assert_eq!(CALLS.load(Ordering::SeqCst) - before, 0, "allocations / frees in the being's frame");
     assert!(being.hoses.iter().any(|h| h.bubbles.iter().any(|b| b.size > 0.0)), "it bubbles");
 }
@@ -131,7 +147,7 @@ fn the_outlet_frame_does_not_allocate() {
     let mut fade = Crossfade::default();
     fade.cut(0.0, true, 1200, 300);
     let mut sum = 0.0;
-    COUNTING.store(true, Ordering::SeqCst);
+    measure(true);
     let before = CALLS.load(Ordering::SeqCst);
     for f in 0..600 {
         let t = f as f32 / 60.0;
@@ -141,7 +157,7 @@ fn the_outlet_frame_does_not_allocate() {
         assert!(frames.try_recv().is_err() && space.try_recv().is_err());
         sum += fade.mix(t).iter().sum::<f32>();
     }
-    COUNTING.store(false, Ordering::SeqCst);
+    measure(false);
     assert_eq!(CALLS.load(Ordering::SeqCst) - before, 0, "allocations / frees in the outlet's frame");
     assert!(sum > 0.0);
 }
