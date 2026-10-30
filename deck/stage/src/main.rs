@@ -1,6 +1,7 @@
 //! deck-stage – the native AV app the deck boots into (CYBERDECKS.md §8, #179). One window (fullscreen; under cage on
 //! the deck), a node graph from a TOML scene: video passes on wgpu, an audio graph on PipeWire / cpal, control values
-//! per frame. Keys: F1 the HUD · F2 the browser · Ctrl+Q quit · Ctrl+Alt+Del power off (on a deck). The splash (the logo) covers the start until the
+//! per frame. Keys: F1 the HUD · F2 the browser · Ctrl+Q quit · Ctrl+Alt+Del power off (on a deck) · the tempo clock
+//! (#181): T tap · + / − BPM · Space start / stop · F3 the next source · K the click. The splash (the logo) covers the start until the
 //! chapter's first slice and the music are there, and the browser's start: with DECK_BROWSER set (deck-session does)
 //! F2 starts that command on top of the running stage – cage shows the newest window – and the stage pauses and mutes
 //! behind it until it closes; without it F2 quits with exit code 10 (deck-session's older loop opens the browser).
@@ -19,6 +20,8 @@ use winit::window::{Fullscreen, Window, WindowId};
 
 /// the exit code that asks deck-session for the browser (the conductor page) instead of the stage
 const EXIT_BROWSER: i32 = 10;
+/// the HUD's tempo line (the beat lights are drawn on it)
+const TEMPO_ROW: usize = 6;
 /// the splash waits this long at most for the chapter and the music (offline without a cache: the scene anyway)
 const SPLASH_MAX_S: f32 = 30.0;
 
@@ -240,6 +243,8 @@ impl App {
         if self.args.hud && time - self.hud_at >= 0.25 || self.stats.frames == 0 {
             self.hud_at = time;
             self.hud.set_lines(self.hud_lines());
+            let t = self.tempo.now();
+            self.hud.set_beat(Some(hud::Beat { row: TEMPO_ROW, beat: t.pos.beat_in_bar, per_bar: t.per_bar, running: t.running }));
         }
         if self.hud.visible {
             self.hud.raster();
@@ -285,10 +290,14 @@ impl App {
         let mut lines = vec![
             format!("SCUTOONSDECK STAGE  {}", self.scene_name),
             "F2 WEB  CTRL+ALT+ F2 SHELL / DEL OFF".into(),
+            "T TAP +/- BPM SPACE RUN F3 SRC K CLICK".into(),
             format!("FPS {:.1}  FRAME {:.1} MS  CPU {:.2} MS", self.stats.fps, last(&self.stats.intervals), last(&self.stats.work)),
             format!("GPU {gpu}"),
             format!("AUDIO {audio}  T {:.1} S  AHEAD {:.0} MS", self.time(), self.lead() as f32 * 1000.0 / self.clock.as_ref().map_or(48_000.0, |c| c.rate)),
+            self.tempo_line(),
+            self.source_line(),
         ];
+        debug_assert!(lines[TEMPO_ROW].starts_with("BPM"), "the beat lights' row");
         if let Some([l, b, m, h]) = self.controls.fft() {
             lines.push(format!("FFT L {l:.2} B {b:.2} M {m:.2} H {h:.2}"));
         }
@@ -300,6 +309,25 @@ impl App {
         }
         lines.truncate(hud::LINES);
         lines
+    }
+
+    /// BPM, bar and beat (the beat lights sit at its end), stopped, the click
+    fn tempo_line(&self) -> String {
+        let t = self.tempo.now();
+        format!(
+            "BPM {:.1}  BAR {} BEAT {}{}{}",
+            t.bpm,
+            t.pos.bar + 1,
+            t.pos.beat_in_bar + 1,
+            if t.running { "" } else { " STOP" },
+            if self.tempo.click { " CLK" } else { "" }
+        )
+    }
+
+    /// the clock's master and its state, the MIDI clock out
+    fn source_line(&self) -> String {
+        let out = self.tempo.clock_out().map(|_| "  > MIDI").unwrap_or_default();
+        format!("SRC {} {}{out}", self.tempo.source.name().to_uppercase(), self.tempo.status())
     }
 
     fn summary(&self) -> String {
@@ -399,6 +427,12 @@ impl ApplicationHandler<Event> for App {
                     Key::Named(NamedKey::Escape) if self.args.windowed => el.exit(),
                     Key::Named(NamedKey::Delete) if self.mods.control_key() && self.mods.alt_key() => self.power_off(),
                     Key::Character("q") if self.mods.control_key() => el.exit(),
+                    Key::Named(NamedKey::F3) => self.tempo.key(tempo::Key::NextSource),
+                    Key::Named(NamedKey::Space) => self.tempo.key(tempo::Key::StartStop),
+                    Key::Character("t") => self.tempo.key(tempo::Key::Tap),
+                    Key::Character("+" | "=") => self.tempo.key(tempo::Key::Faster),
+                    Key::Character("-") => self.tempo.key(tempo::Key::Slower),
+                    Key::Character("k") => self.tempo.key(tempo::Key::Click),
                     _ => {}
                 }
             }

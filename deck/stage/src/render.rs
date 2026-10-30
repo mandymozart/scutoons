@@ -9,6 +9,7 @@ use crate::chapter::{ChapterFeed, Prepared};
 use crate::control::Controls;
 use crate::graph::{Graph, Kind};
 use crate::hud::{self, Hud};
+use crate::tempo::Quantize;
 use anyhow::{bail, Context, Result};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -83,6 +84,10 @@ struct Slides {
     index: (usize, usize),
     cut_at: f32,
     last_next: f32,
+    /// `quantize`: a due cut waits for the next beat / bar of the tempo clock (#181)
+    quantize: Quantize,
+    pending: bool,
+    last_beat: f64,
 }
 
 pub struct Renderer {
@@ -259,7 +264,23 @@ impl Renderer {
         }
         for feed in feeds {
             let node = feed.node;
-            r.slides.push(Slides { node, feed, current: None, previous: None, caption: None, index: (0, 0), cut_at: 0.0, last_next: 0.0 });
+            let q = graph.nodes[node].str("quantize").unwrap_or("off");
+            let Some(quantize) = Quantize::parse(q) else {
+                bail!("node '{}': unknown quantize '{q}' (off, beat, bar)", graph.nodes[node].id)
+            };
+            r.slides.push(Slides {
+                node,
+                feed,
+                current: None,
+                previous: None,
+                caption: None,
+                index: (0, 0),
+                cut_at: 0.0,
+                last_next: 0.0,
+                quantize,
+                pending: false,
+                last_beat: 0.0,
+            });
         }
         r.rebuild();
         Ok(r)
@@ -369,8 +390,9 @@ impl Renderer {
         frame.present();
     }
 
-    /// The chapter nodes: a cut when the hold is over, or on `next` rising past `threshold` after `min_hold` – if the
-    /// loader has the next slice ready. Returns whether a texture changed (the bind groups follow).
+    /// The chapter nodes: a cut when the hold is over, or on `next` rising past `threshold` after `min_hold` – with
+    /// `quantize` on the next beat / bar after that (a stopped clock doesn't hold it) – if the loader has the next slice
+    /// ready. Returns whether a texture changed (the bind groups follow).
     fn advance(&mut self, graph: &Graph, ctl: &Controls, time: f32) -> bool {
         let mut changed = false;
         for s in &mut self.slides {
@@ -381,10 +403,17 @@ impl Renderer {
             let age = time - s.cut_at;
             let kick = next > threshold && s.last_next <= threshold && age >= shortest;
             s.last_next = next;
-            if s.current.is_some() && age < hold && !kick {
-                continue;
+            let beat = ctl.tempo.pos.beat;
+            let on_grid = !ctl.tempo.running || s.quantize.crossed(s.last_beat, beat, ctl.tempo.per_bar);
+            s.last_beat = beat;
+            if s.current.is_some() {
+                s.pending |= age >= hold || kick;
+                if !(s.pending && on_grid) {
+                    continue;
+                }
             }
             let Ok(Prepared { index, count, slice, caption }) = s.feed.rx.try_recv() else { continue };
+            s.pending = false;
             let img = upload(&self.device, &self.queue, slice.width(), slice.height(), slice.as_raw());
             s.previous = s.current.replace(img);
             s.caption = caption.map(|c| upload(&self.device, &self.queue, c.width(), c.height(), c.as_raw()));

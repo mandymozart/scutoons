@@ -411,6 +411,43 @@ mod tests {
     }
 
     #[test]
+    fn the_sequencer_on_the_clock_snaps_to_the_beat() {
+        use crate::tempo::{Shared, TempoMap};
+        use std::sync::atomic::{AtomicU64, Ordering};
+        let node = &Graph::build(&Scene::parse("[[node]]
+id=\"s\"
+kind=\"seq\"
+division=2
+gate=0.5
+steps=[69, 81]
+").unwrap())
+            .unwrap()
+            .nodes[0];
+        let shared = Arc::new(Shared::default());
+        let frames = Arc::new(AtomicU64::new(0));
+        // 60 BPM at 100 Hz: a beat = 100 frames, a step (division 2) = 50
+        shared.publish(&TempoMap::new(60.0, 4, 100.0), false);
+        let mut s = Seq::new(node, 100.0, Param::new(1.0), Some(BeatReader { shared: shared.clone(), frames: frames.clone() }));
+        let mut out = [Stereo::new()];
+        s.process(&[], &mut out, 200);
+        assert_eq!((out[0].l[0], out[0].r[0]), (440.0, 1.0), "step 0 on beat 0");
+        assert_eq!(out[0].r[24], 1.0);
+        assert_eq!(out[0].r[25], 0.0, "the gate is half a step");
+        assert_eq!((out[0].l[49], out[0].l[50]), (440.0, 880.0), "step 1 exactly at frame 50");
+        assert_eq!(out[0].l[100], 440.0, "beat 1: the pattern again");
+        // 120 BPM from frame 200 (beat 2): steps every 25 frames
+        frames.store(200, Ordering::Relaxed);
+        shared.publish(&TempoMap::new(60.0, 4, 100.0).with_bpm(200.0, 120.0), false);
+        s.process(&[], &mut out, 100);
+        assert_eq!((out[0].l[24], out[0].l[25], out[0].l[50]), (440.0, 880.0, 440.0));
+        // stopped: the gate closes, the pitch holds
+        frames.store(300, Ordering::Relaxed);
+        shared.publish(&TempoMap::new(60.0, 4, 100.0).with_bpm(200.0, 120.0).with_running(300.0, false), false);
+        s.process(&[], &mut out, 100);
+        assert!(out[0].r[..100].iter().all(|g| *g == 0.0));
+    }
+
+    #[test]
     fn music_plays_a_sent_track_and_loops() {
         let (mut e, mut h) = build(
             "[[node]]\nid=\"m\"\nkind=\"chapter_music\"\ntoon=\"x\"\nchapter=1\n\

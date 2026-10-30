@@ -20,7 +20,8 @@ PipeWire → cpal → null; null runs the engine on a timer, no device – the c
 a check run) · `--no-hud`. Logs: `RUST_LOG`.
 
 Keys: **F1** the HUD · **F2** the browser · **Ctrl+Q** quit (on the deck the stage starts again) · **Ctrl+Alt+Del** power off (`systemctl
-poweroff`, the logo stays up; not in a `--windowed` stage) · Esc quits a `--windowed` stage. The HUD names the keys. F2 with `DECK_BROWSER` set (deck-session sets it to `deck-session browser`) starts that command on
+poweroff`, the logo stays up; not in a `--windowed` stage) · Esc quits a `--windowed` stage · the tempo clock: **T** tap ·
+**+ / −** BPM · **Space** start / stop · **F3** the next source (internal → MIDI → Link → OSC → relay) · **K** the click. The HUD names the keys. F2 with `DECK_BROWSER` set (deck-session sets it to `deck-session browser`) starts that command on
 top of the running stage: the logo comes up until the browser's window takes the focus (cage shows the newest window),
 then the stage stops drawing and mutes; when the command exits the stage is back at once. Without `DECK_BROWSER` F2
 quits with exit code 10.
@@ -43,14 +44,16 @@ An input takes one link; an output feeds any number. Every control input can als
 |---|---|---|---|
 | `test_pattern` | speed, zoom, hue, pulse (control) | out (video) | – |
 | `shader` | in (video), a, b, c, d (control) | out (video) | `effect` = `kaleido` · `rgb_shift` · `invert` · `pass`, or `wgsl` = a file defining `fn effect(uv: vec2<f32>) -> vec4<f32>` (bindings: shaders/common.wgsl) |
-| `chapter` | in (video), next, hold, zoom, pulse (control) | out (video), text (video) | `toon`, `chapter`, `quality` = low · medium · high, `dialog` (true: set the dialog in), `start` (slice index), `threshold` (0.6), `min_hold` (1.5 s); `hold` default 6 s |
+| `chapter` | in (video), next, hold, zoom, pulse (control) | out (video), text (video) | `toon`, `chapter`, `quality` = low · medium · high, `dialog` (true: set the dialog in), `start` (slice index), `threshold` (0.6), `min_hold` (1.5 s), `quantize` = off · beat · bar (a due cut waits for the tempo clock's next beat / bar); `hold` default 6 s |
 | `overlay` | in, top (video), opacity, pulse, shake (control) | out (video) | – |
 | `screen` | in (video) | – | the window (one per scene) |
 | `lfo` | rate (Hz), depth | out (control, 0–depth) | `shape` = sine · saw · square |
+| `tempo` | – | bpm, beat, bar (counts), phase, bar_phase (0–1), pulse (1 on the beat, gone by its middle) | `bpm` (120), `beats` per bar (4), `source` = internal · midi · link · osc · relay, `click` (false), `midi_in` / `midi_out` (a part of a port name; out = MIDI clock out), `midi_out_lead` (ms), `osc_port` (9001) – one per scene |
+| `click` | gain | out | `freq` (1000 Hz), `accent` (1500 Hz, the bar's first beat), `decay` (0.03 s) – ticks on the tempo clock while the click is on |
 | `osc` | cv (audio), freq, gain | out (audio) | `wave` = sine · saw · square · triangle, `attack`, `release` |
 | `noise` | cutoff, gain | out | `color` = white · pink, `q` |
 | `fm` | cv, freq, ratio, index, gain | out | `attack`, `release` |
-| `seq` | rate | cv (audio: pitch Hz left, gate 0 / 1 right) | `steps` = MIDI notes (0 = rest), `bpm`, `division` (steps per beat), `gate`, `transpose` |
+| `seq` | rate | cv (audio: pitch Hz left, gate 0 / 1 right) | `steps` = MIDI notes (0 = rest), `division` (steps per beat), `gate`, `transpose`; on the tempo clock (step k from beat k / division, `rate` scales the division) unless it has a `bpm` of its own |
 | `chapter_music` | gain | out | `toon`, `chapter`, `track` (default: the chapter's default track), `quality` = low · medium · high, `loop` |
 | `mixer` | in1–in4 (audio), gain1–gain4 | out | – |
 | `fft` | in (audio) | level, bass, mid, high (control, 0–1) | `release` (s) |
@@ -71,9 +74,10 @@ With a `cv` link an oscillator / FM voice takes its pitch and gate from the sequ
 out of the FFT or into an audio node crosses threads a frame late, so feedback through it (FFT → synth → mix → FFT) is
 allowed; every other cycle is an error.
 
-`scenes/default.toml` ("AV madness (S3)") – catpope 1's music + a sequenced FM voice + pink noise → mixer → FFT; test
-pattern → kaleidoscope → the chapter's slices (cut on a bass hit, every 6 s at the latest) → RGB shift → the caption
-overlay → screen. `scenes/test-pattern.toml` – the picture alone (no sound, no network). Both land in
+`scenes/default.toml` ("AV madness (S3)") – the tempo clock at 96 BPM; catpope 1's music + an FM voice sequenced on
+the beat + pink noise + the click (off until K) → mixer → FFT; test pattern (pulsing on the beat) → kaleidoscope → the
+chapter's slices (cut on a bass hit snapped to the beat, every 6 s at the latest) → RGB shift → the caption overlay →
+screen. `scenes/test-pattern.toml` – the picture alone (no sound, no network). Both land in
 `/usr/share/deck/scenes` on the deck; `scene = "…"` in `/var/lib/deck/deck.toml` picks one.
 
 ## How it is built
@@ -84,8 +88,16 @@ overlay → screen. `scenes/test-pattern.toml` – the picture alone (no sound, 
   ≤ 1024 frames. Oscillators, noise and the lowpass are fundsp units, warmed up at build time; envelopes, sequencer,
   player (linear resampling to the device rate), mixer and FFT tap are ours. Control values reach the callback as atomics
   (`Param`), tracks through a lock-free ring (rtrb), the FFT's samples leave through another; a hard limit before the
-  device. `tests/no_alloc.rs` counts allocations around 2000 callbacks of the default scene: zero. The frames the device
-  played are the stage's clock.
+  device. `tests/no_alloc.rs` counts allocations around 2000 callbacks of the default scene (the click on, the tempo
+  changing): zero. Each block is stamped with the moment it is heard – the time base (`src/clock.rs`).
+- **Tempo** (`src/tempo/`, #181): a tempo map over the audio frame position (beat = f(audio position)); the frame thread
+  follows the master source, re-anchors the map at the audio thread's frontier and publishes it through a seqlock – the
+  click and the sequencer read it per block (sample-accurate), MIDI clock out (`midi_out`, its own thread) per tick, the
+  `tempo` node per frame. Sources stamp their messages on arrival; MIDI clock in is fitted by least squares over two
+  beats (±1 ms of jitter → < 0.1 BPM, < 1 ms of phase), Link answers its beat for the frame's moment, OSC listens for
+  `/tempo/bpm f`, `/tempo/beat f`, `/tempo/start`, `/tempo/stop`, `/tempo/tap`; the relay is a stub (no show clock yet).
+  Ableton Link is the cargo feature `link` (rusty_link 0.4.9: cmake, a C++ compiler and libclang at build time; on
+  Windows a debug build needs `--config 'profile.dev.package.rusty_link.opt-level=1'`, else its debug CRT doesn't link).
 - **Video** (`src/render.rs`): one fullscreen pass per video node into its own texture (Rgba8), the screen blits to the
   surface, the HUD (`src/hud.rs`, font8x8 into a small texture, integer scale by the screen height) on top. No hardware
   adapter → the software one (llvmpipe / lavapipe / WARP) at half the render size; a shader that does not compile →

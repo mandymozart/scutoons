@@ -1,6 +1,7 @@
 //! The audio callback never allocates (CYBERDECKS.md §8): a counting global allocator around Engine::render for the
-//! default scene (music player with a track, sequencer, FM, noise, mixer, FFT tap, output) – zero allocations and
-//! frees over 20 seconds of audio in device-sized blocks, each stamped for the time base (`Engine::mark`).
+//! default scene (music player with a track, the sequencer on the tempo clock, FM, noise, the click, mixer, FFT tap,
+//! output) – zero allocations and frees over 20 seconds of audio in device-sized blocks, each stamped for the time base
+//! (`Engine::mark`), with the click on and the tempo map changing under it (the frame thread's seqlock writes).
 use deck_stage::audio::{Engine, Track};
 use deck_stage::graph::Graph;
 use deck_stage::scene::{Scene, DEFAULT_SCENE};
@@ -45,8 +46,16 @@ fn the_default_scene_renders_without_allocating() {
     // 128 frames like the deck's PipeWire quantum, plus odd sizes and one bigger than MAX_BLOCK
     let mut bufs: Vec<Vec<f32>> = [128usize, 37, 480, 3000].iter().map(|n| vec![0.0; n * 2]).collect();
     let mut drained = 0usize;
+    let (map, _) = handles.tempo.map().unwrap();
+    handles.tempo.publish(&map, true); // the click on
     COUNTING.store(true, Ordering::SeqCst);
     for i in 0..2000 {
+        if i % 250 == 0 {
+            // what the frame thread does: a new tempo from the frontier on
+            let (m, click) = handles.tempo.map().unwrap();
+            let frontier = handles.clock.rendered() as f64;
+            handles.tempo.publish(&m.with_bpm(frontier, 80.0 + (i / 25) as f64), click);
+        }
         let b = &mut bufs[i % 4];
         engine.mark(i as u64 * 1_000_000); // the block's stamp (the time base's seqlock)
         engine.render(b, 2, |x| x);

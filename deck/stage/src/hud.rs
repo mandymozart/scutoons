@@ -1,11 +1,12 @@
 //! The on-screen HUD (CYBERDECKS.md §8 "a small on-screen HUD"): a few text lines and a frame-time graph rastered on
 //! the CPU into a small RGBA image (font8x8, no font files), drawn over the screen by render.rs at an integer scale.
+//! The tempo line carries a light per beat of the bar (#181): the current one lit, the bar's first in amber.
 use font8x8::UnicodeFonts;
 use std::collections::VecDeque;
 
 pub const W: u32 = 320;
 /// text lines the HUD has room for (above the frame-time graph)
-pub const LINES: usize = 9;
+pub const LINES: usize = 11;
 pub const H: u32 = 4 + LINES as u32 * 10 + GRAPH_H + 4;
 const GRAPH_H: u32 = 20;
 /// the graph's full height in ms (two 60 Hz frames)
@@ -16,17 +17,31 @@ pub struct Hud {
     pub visible: bool,
     lines: Vec<String>,
     times: VecDeque<f32>,
+    beat: Option<Beat>,
+}
+
+/// the beat lights: on text line `row`, `per_bar` lights (at most 8 drawn), `beat` (0-based) lit
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Beat {
+    pub row: usize,
+    pub beat: u32,
+    pub per_bar: u32,
+    pub running: bool,
 }
 
 impl Default for Hud {
     fn default() -> Self {
-        Hud { pixels: vec![0; (W * H * 4) as usize], visible: true, lines: Vec::new(), times: VecDeque::new() }
+        Hud { pixels: vec![0; (W * H * 4) as usize], visible: true, lines: Vec::new(), times: VecDeque::new(), beat: None }
     }
 }
 
 impl Hud {
     pub fn set_lines(&mut self, lines: Vec<String>) {
         self.lines = lines;
+    }
+
+    pub fn set_beat(&mut self, beat: Option<Beat>) {
+        self.beat = beat;
     }
 
     pub fn push_frame(&mut self, ms: f32) {
@@ -45,6 +60,22 @@ impl Hud {
             self.text(4, 4 + row as u32 * 10, line);
         }
         self.lines = lines;
+        if let Some(b) = self.beat {
+            let n = b.per_bar.clamp(1, 8);
+            for i in 0..n {
+                let c = match (b.running && i == b.beat % n, i == 0) {
+                    (true, true) => [250, 170, 40, 255],
+                    (true, false) => [235, 235, 235, 255],
+                    _ => [70, 70, 70, 255],
+                };
+                let (x, y) = (W - 4 - (n - i) * 8, 4 + b.row as u32 * 10 + 1);
+                for dy in 0..6 {
+                    for dx in 0..6 {
+                        self.put(x + dx, y + dy, c);
+                    }
+                }
+            }
+        }
         let base = H - 2;
         let target = base - (16.7 / GRAPH_MS * GRAPH_H as f32) as u32;
         for x in 0..W {
@@ -96,5 +127,17 @@ mod tests {
         assert!(lit > 20, "text pixels: {lit}");
         let green = h.pixels.chunks_exact(4).filter(|p| p[1] == 220).count();
         assert!(green > 0);
+    }
+
+    #[test]
+    fn the_beat_lights_show_the_bar() {
+        let mut h = Hud::default();
+        let amber = |h: &Hud| h.pixels.chunks_exact(4).filter(|p| p == &[250, 170, 40, 255]).count();
+        h.set_beat(Some(Beat { row: 2, beat: 0, per_bar: 4, running: true }));
+        h.raster();
+        assert_eq!(amber(&h), 36, "the bar's first beat, lit");
+        h.set_beat(Some(Beat { row: 2, beat: 1, per_bar: 4, running: true }));
+        h.raster();
+        assert_eq!(amber(&h), 0);
     }
 }

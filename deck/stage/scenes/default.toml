@@ -2,9 +2,20 @@
 # plus a sequenced FM synth and pink noise, mixed, analysed by the FFT; its slices one after the other (a cut on a bass
 # hit, at the latest every 6 s) with their dialog set in, over the kaleidoscoped test pattern, the slice's caption big
 # on top. Bass, mid, high and the level drive the cuts, the zoom, the shader passes and the caption's shake.
-# S4–S6 add a video, a 3D object and MIDI / OSC mapping. Ports and kinds: deck/stage/README.md.
+# The tempo clock (#181, 96 BPM in 4) runs the sequencer, pulses the pattern on every beat and snaps the cuts to the
+# beat; the click is there but off (K turns it on, F3 picks the clock's source – MIDI clock, Link, OSC). S4–S6 add a
+# video, a 3D object and MIDI / OSC mapping. Ports and kinds: deck/stage/README.md.
 [stage]
 name = "AV madness (S3)"
+
+# ── tempo ───────────────────────────────────────────────────────────────────────────────────────────────────────────
+[[node]]
+id = "tempo"
+kind = "tempo"
+bpm = 96
+beats = 4
+source = "internal"
+click = false
 
 # ── sound ───────────────────────────────────────────────────────────────────────────────────────────────────────────
 [[node]]
@@ -18,7 +29,6 @@ gain = 0.9
 [[node]]
 id = "seq"
 kind = "seq"
-bpm = 96
 division = 4
 gate = 0.4
 steps = [45, 0, 52, 45, 0, 57, 55, 0, 45, 0, 52, 60, 0, 57, 55, 52]
@@ -37,6 +47,11 @@ kind = "noise"
 color = "pink"
 cutoff = 6000
 gain = 0.04
+
+[[node]]
+id = "click"
+kind = "click"
+gain = 0.5
 
 [[node]]
 id = "mix"
@@ -67,6 +82,10 @@ to = "mix.in2"
 [[link]]
 from = "hiss"
 to = "mix.in3"
+
+[[link]]
+from = "click"
+to = "mix.in4"
 
 [[link]]
 from = "mix"
@@ -122,6 +141,7 @@ quality = "medium"
 hold = 6
 min_hold = 1.8
 threshold = 0.62
+quantize = "beat"
 
 [[node]]
 id = "caption"
@@ -138,7 +158,7 @@ scale = 2.5
 offset = 0.4
 
 [[link]]
-from = "fft.bass"
+from = "tempo.pulse"
 to = "pattern.pulse"
 
 [[link]]
