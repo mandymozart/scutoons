@@ -5,13 +5,14 @@
 //!
 //! Timing (B.6 clock): the offset to the relay is the median of 5 ping samples at join; `device` messages wait in a
 //! queue until their `at` (a late one plays at once), and `panic` empties the queue and silences every adapter.
-//! Not yet: the status window, the dmx adapters.
+//! Not yet: the status window, `dmx-artnet` / `dmx-sacn`.
 
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap};
 use std::time::Duration;
 
 use adapters_core::{Adapter, DeviceConfig, Inbound};
+use adapters_dmx_usbpro::DmxUsbProAdapter;
 use adapters_midi::MidiAdapter;
 use adapters_osc::OscAdapter;
 use anyhow::{anyhow, Context};
@@ -46,7 +47,7 @@ impl Patch {
 }
 
 /// Build (not start) an adapter per device. Adapters that are not built yet are an error that names them
-/// (CYBERDECKS.md §4: dmx-artnet, dmx-sacn, dmx-usb, gpio, audio, video-in, display, laser #178).
+/// (CYBERDECKS.md §4: dmx-artnet, dmx-sacn, gpio, audio, video-in, display, laser #178).
 pub fn build_adapters(patch: &Patch) -> anyhow::Result<Vec<(String, Box<dyn Adapter>)>> {
     patch
         .devices
@@ -62,6 +63,11 @@ pub fn build_adapters(patch: &Patch) -> anyhow::Result<Vec<(String, Box<dyn Adap
                     let host = d.options.get("host").and_then(|v| v.as_str());
                     let listen = d.options.get("listen").and_then(|v| v.as_str());
                     Box::new(OscAdapter::new(&d.outlet, host, listen).with_context(|| d.outlet.clone())?)
+                }
+                "dmx-usbpro" => {
+                    // optional: without `port` the first widget found (USB ids / names, adapters-dmx-usbpro detect)
+                    let port = d.options.get("port").and_then(|v| v.as_str());
+                    Box::new(DmxUsbProAdapter::new(&d.outlet, port))
                 }
                 other => return Err(anyhow!("{}: adapter {other:?} is not built yet (#172 Open)", d.outlet)),
             };
@@ -225,13 +231,15 @@ mod tests {
     fn example_patch_parses_and_builds() {
         let patch = Patch::parse(EXAMPLE).unwrap();
         assert_eq!(patch.code().unwrap(), "A7K2");
-        assert_eq!(patch.devices.len(), 3);
+        assert_eq!(patch.devices.len(), 4);
         let adapters = build_adapters(&patch).unwrap();
         assert_eq!(adapters[0].0, "ableton");
         assert_eq!(adapters[0].1.name(), "midi");
         assert_eq!(adapters[2].0, "resolume");
         assert_eq!(adapters[2].1.name(), "osc");
         assert_eq!(adapters[2].1.ports().len(), 2, "host out + listen in");
+        assert_eq!(adapters[3].0, "lights");
+        assert_eq!(adapters[3].1.name(), "dmx-usbpro");
     }
 
     #[test]

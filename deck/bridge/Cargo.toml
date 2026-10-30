@@ -16,6 +16,7 @@ protocol = { workspace = true }
 adapters-core = { workspace = true }
 adapters-midi = { workspace = true }
 adapters-osc = { workspace = true }
+adapters-dmx-usbpro = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

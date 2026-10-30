@@ -1,11 +1,14 @@
 //! The bridge against the real relay: a `device` message plays at its `at` (not before), a later one waits in the queue
-//! without blocking, and `panic` empties the queue and silences the adapters. A recording adapter stands in for MIDI.
+//! without blocking, and `panic` empties the queue and silences the adapters. A recording adapter stands in for MIDI;
+//! the DMX test runs the real dmx-usbpro adapter on its in-memory widget.
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use adapters_core::{Adapter, Inbound};
+use adapters_dmx_usbpro::mock::Widget;
+use adapters_dmx_usbpro::DmxUsbProAdapter;
 use futures_util::{SinkExt, StreamExt};
-use protocol::{Device, DeviceMsg, Envelope, Hello, MidiBytes, Message, Panic, Role};
+use protocol::{Device, DeviceMsg, DmxMessage, Envelope, Hello, MidiBytes, Message, Panic, Role};
 use tokio::net::TcpListener;
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::Message as Ws;
@@ -44,25 +47,29 @@ fn device(at: i64, note: u8) -> Message {
     Message::Device(Device { outlet: "synth".into(), msgs, at: Some(at) })
 }
 
-#[tokio::test]
-async fn plays_at_at_and_panics() {
+type Conductor = tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+
+fn send(m: Message) -> Ws {
+    Ws::Text(serde_json::to_string(&Envelope::new("", m)).unwrap())
+}
+
+/// A relay, a bridge session with `adapters` (started), and a conductor that waits until the bridge has joined.
+async fn stage(mut adapters: Vec<(String, Box<dyn Adapter>)>) -> Conductor {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
     tokio::spawn(relay::serve(listener, Arc::new(relay::Relay::new())));
 
-    let log = Arc::new(Mutex::new(Log::default()));
     let patch = bridge::Patch::parse(&format!("relay = \"ws://127.0.0.1:{port}/live/BT\"\ntoken = \"dev\"\n")).unwrap();
-    let rec = log.clone();
     tokio::spawn(async move {
-        let mut adapters: Vec<(String, Box<dyn Adapter>)> = vec![("synth".into(), Box::new(Recorder(rec)))];
-        let (_tx, mut rx) = mpsc::channel(8);
+        let (tx, mut rx) = mpsc::channel(8);
+        for (_, a) in adapters.iter_mut() {
+            a.start(tx.clone()).unwrap();
+        }
         bridge::session(&patch, &mut adapters, &mut rx).await
     });
 
-    // the conductor
     let (mut ws, _) = tokio_tungstenite::connect_async(format!("ws://127.0.0.1:{port}/live/BT")).await.unwrap();
     let hello = Hello { code: "BT".into(), role: Role::Conductor, group: None, nick: None, token: Some("dev".into()), resume: None };
-    let send = |m: Message| Ws::Text(serde_json::to_string(&Envelope::new("", m)).unwrap());
     ws.send(send(Message::Hello(hello))).await.unwrap();
     // wait until the bridge has joined (presence counts no bridge – wait for its `devices` instead)
     loop {
@@ -71,6 +78,13 @@ async fn plays_at_at_and_panics() {
             break;
         }
     }
+    ws
+}
+
+#[tokio::test]
+async fn plays_at_at_and_panics() {
+    let log = Arc::new(Mutex::new(Log::default()));
+    let mut ws = stage(vec![("synth".into(), Box::new(Recorder(log.clone())))]).await;
 
     let t0 = relay::now_ms();
     ws.send(send(device(t0 + 2_000, 61))).await.unwrap(); // far: must not block the next one
@@ -91,4 +105,41 @@ async fn plays_at_at_and_panics() {
     let l = log.lock().unwrap();
     assert_eq!(l.panics, 1);
     assert_eq!(l.sent.len(), 1, "panic dropped the queued note");
+}
+
+/// Waits off the runtime (the mock widget is polled) until its last frame satisfies `ok`; the frame's arrival time.
+async fn frame(widget: &Widget, timeout: Duration, ok: impl Fn(&[u8; 512]) -> bool + Send + 'static) -> Option<Instant> {
+    let w = widget.clone();
+    tokio::task::spawn_blocking(move || w.wait_frame(timeout, ok)).await.unwrap()
+}
+
+/// DMX through the queue with the real dmx-usbpro adapter: the look reaches the widget at `at` (not before), a fade
+/// runs on the 40 Hz frames, and `panic` blacks the universe out at once.
+#[tokio::test]
+async fn dmx_plays_at_at_and_blacks_out_on_panic() {
+    let widget = Widget::default();
+    let dmx = DmxUsbProAdapter::with_opener("lights", None, widget.opener());
+    let mut ws = stage(vec![("lights".into(), Box::new(dmx))]).await;
+    frame(&widget, Duration::from_secs(2), |_| true).await.expect("the widget is connected");
+
+    let look = |ch, values: &[u8], fade| DeviceMsg::Dmx(DmxMessage { ch, values: values.to_vec(), fade });
+    let msgs = vec![look(1, &[255, 0, 128], None), look(10, &[200], Some(400))];
+    let t0 = relay::now_ms();
+    let sent = Instant::now();
+    ws.send(send(Message::Device(Device { outlet: "lights".into(), msgs, at: Some(t0 + 300) }))).await.unwrap();
+
+    let lit = frame(&widget, Duration::from_secs(2), |f| f[..3] == [255, 0, 128]).await.expect("the look");
+    let late = (lit - sent).as_millis() as i64 - 300;
+    assert!((0..60).contains(&late), "lit {late} ms after `at`");
+
+    // the fade on channel 10: on its way after ~200 ms, 200 at the end
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    let mid = widget.last_frame().unwrap()[9];
+    assert!((40..190).contains(&mid), "half-way: {mid}");
+    frame(&widget, Duration::from_secs(1), |f| f[9] == 200).await.expect("faded in");
+
+    let panic_at = Instant::now();
+    ws.send(send(Message::Panic(Panic { black: Some(true), stop: None }))).await.unwrap();
+    let black = frame(&widget, Duration::from_millis(500), |f| f.iter().all(|&v| v == 0)).await.expect("black");
+    assert!(black - panic_at < Duration::from_millis(100), "black after {:?}", black - panic_at);
 }

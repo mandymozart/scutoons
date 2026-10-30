@@ -20,3 +20,8 @@ outlet = "resolume"
 adapter = "osc"
 host = "127.0.0.1:7000"    # where messages go (Resolume / TouchDesigner / Ableton via a bridge, laser software)
 listen = "0.0.0.0:9000"    # optional: OSC in → device.in to the conductor (a controller, a tablet)
+
+[[device]]
+outlet = "lights"
+adapter = "dmx-usbpro"    # an Enttec DMX USB Pro or a compatible widget (DMXKing ultraDMX …), one universe (#187)
+# port = "/dev/ttyUSB0"   # optional ("COM3" on Windows, "/dev/cu.usbserial-…" on macOS); without it the first widget found

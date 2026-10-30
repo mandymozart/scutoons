@@ -4,7 +4,7 @@
 resolver = "2"
 # deck/lab is its own workspace: the #182 experiments (wasm, wasmtime, plugins, benchmarks) stay out of CI and the deck builds
 exclude = ["lab"]
-members = ["core", "scene-features", "protocol", "adapters/core", "adapters/midi", "adapters/osc", "relay", "bridge", "os/check", "stage", "link"]
+members = ["core", "scene-features", "protocol", "adapters/core", "adapters/midi", "adapters/osc", "adapters/dmx-usbpro", "relay", "bridge", "os/check", "stage", "link"]
 
 [workspace.package]
 version = "0.1.0"
@@ -20,6 +20,7 @@ deck-core = { path = "core", default-features = false }
 adapters-core = { path = "adapters/core" }
 adapters-midi = { path = "adapters/midi" }
 adapters-osc = { path = "adapters/osc" }
+adapters-dmx-usbpro = { path = "adapters/dmx-usbpro" }
 anyhow = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -31,6 +32,8 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 midir = "0.10"
 rosc = "0.10"
+# no libudev: Linux lists the USB ids from sysfs (no system library, cross builds stay plain)
+serialport = { version = "4.10", default-features = false }
 
 # Dogma (CYBERDECKS.md §2): LTO, one codegen unit, abort on panic; the bridge is built for size (per-package below).
 [profile.release]

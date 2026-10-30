@@ -1,0 +1,19 @@
+[package]
+name = "adapters-dmx-usbpro"
+description = "USB-DMX adapter: the Enttec DMX USB Pro widget protocol over serial (Enttec DMX USB Pro, DMXKing ultraDMX …), #187"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+adapters-core = { workspace = true }
+protocol = { workspace = true }
+anyhow = { workspace = true }
+serialport = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tracing-subscriber = { workspace = true }
