@@ -3,6 +3,8 @@
 //! node's param as a constant) and the LFOs as batches – per dependency level, per shape, struct-of-arrays, one loop
 //! each. A frame: the FFT analyzers, the tempo node (the clock at the heard moment), the LFO batches level by level, then
 //! the audio nodes' linked inputs into their Params. Video nodes read theirs with `input()` (a table lookup).
+//! `set` changes an unlinked input from outside, like a MIDI CC (the being's 3D buttons, #188): the input's constant, the
+//! LFO batch's column entry or the audio node's Param – a linked input belongs to its link.
 use crate::audio::{Handles, Param};
 use crate::fft::Analyzer;
 use crate::graph::{Graph, Kind, PortType};
@@ -74,6 +76,10 @@ pub struct Controls {
     /// the audio nodes' linked control inputs: one column, one Param each
     param_in: Col,
     params: Vec<Param>,
+    /// the audio nodes' unlinked control inputs (node, port, param) – `set` writes them
+    knobs: Vec<(usize, usize, Param)>,
+    /// per node: where an LFO sits in the batches (level, batch, index)
+    lfo_at: Vec<Option<(usize, usize, usize)>>,
     /// this frame's tempo clock (quantised cuts read it)
     pub tempo: tempo::Now,
 }
@@ -113,9 +119,20 @@ impl Controls {
             analyzers: Vec::new(),
             param_in: Col::default(),
             params: Vec::new(),
+            knobs: Vec::new(),
+            lfo_at: vec![None; graph.nodes.len()],
             tempo: tempo::Now::default(),
         };
         c.lfos = c.batch_lfos(graph);
+        for (l, level) in c.lfos.iter().enumerate() {
+            for (b, batch) in level.iter().enumerate() {
+                for (k, &slot) in batch.out.iter().enumerate() {
+                    if let Some(node) = c.base.iter().position(|&x| x == slot) {
+                        c.lfo_at[node] = Some((l, b, k));
+                    }
+                }
+            }
+        }
         if let Some(h) = audio {
             let rate = h.clock.rate;
             for (node, ring) in h.taps.drain(..) {
@@ -127,8 +144,29 @@ impl Controls {
                 c.param_in = col;
                 c.params.push(p);
             }
+            c.knobs = std::mem::take(&mut h.knobs);
         }
         c
+    }
+
+    /// Set `node`'s unlinked control input `port` to `value` (a MIDI CC, a 3D button): what `input` reads, the LFO's
+    /// column, the audio node's Param. A linked input is its link's – false, nothing changes.
+    pub fn set(&mut self, node: usize, port: usize, value: f32) -> bool {
+        match self.inputs.get(node).and_then(|i| i.get(port)) {
+            None | Some(Src::Link(..)) => return false,
+            Some(_) => self.inputs[node][port] = Src::Param(value),
+        }
+        if let Some((l, b, k)) = self.lfo_at[node] {
+            let batch = &mut self.lfos[l][b];
+            match port {
+                0 => batch.rate.set_constant(k, value),
+                _ => batch.depth.set_constant(k, value),
+            }
+        }
+        for (_, _, p) in self.knobs.iter().filter(|(n, k, _)| (*n, *k) == (node, port)) {
+            p.set(value);
+        }
+        true
     }
 
     /// node `node`'s input `port` appended to `col` (a link, else the param, else `default` – as a constant)
@@ -258,6 +296,42 @@ mod tests {
         assert_eq!(freq.get(), 100.0);
         c.update(2.0, 0, &tempo::Now::default()); // phase 0.025 + 0.5 → the low half
         assert_eq!(c.input(1, "speed", 0.0), 1.0);
+    }
+
+    #[test]
+    fn set_writes_unlinked_inputs_like_a_cc() {
+        let g = graph(
+            "[[node]]
+id=\"l\"
+kind=\"lfo\"
+rate=0
+shape=\"square\"
+[[node]]
+id=\"p\"
+kind=\"test_pattern\"
+             [[node]]
+id=\"f\"
+kind=\"fm\"
+[[link]]
+from=\"l\"
+to=\"p.speed\"
+",
+        );
+        let (_, mut h) = Engine::build(&g, 48_000.0, 1.0).unwrap();
+        let index = h.knobs.iter().find(|k| (k.0, k.1) == (2, 3)).expect("fm.index is a knob").2.clone();
+        let mut c = Controls::new(&g, Some(&mut h));
+        assert!(c.set(1, 2, 0.7), "p.hue: unlinked");
+        assert_eq!(c.input(1, "hue", 0.0), 0.7);
+        assert!(!c.set(1, 0, 3.0), "p.speed belongs to its link");
+        assert!(c.set(2, 3, 4.5));
+        assert_eq!(index.get(), 4.5, "the audio thread's Param");
+        // the LFO's depth through its batch column: a square at phase 0 = depth
+        assert!(c.set(0, 1, 0.25));
+        c.update(0.01, 0, &tempo::Now::default());
+        assert_eq!(c.input(1, "speed", 0.0), 0.25);
+        assert!(c.set(0, 0, 50.0), "the rate");
+        c.update(0.011, 0, &tempo::Now::default()); // phase 0.55 → the low half
+        assert_eq!(c.input(1, "speed", 1.0), 0.0);
     }
 
     #[test]

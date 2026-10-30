@@ -22,6 +22,8 @@ use voices::{VoiceKind, Voices};
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
+pub use blocks::default_for;
+
 pub const MAX_BLOCK: usize = 1024;
 /// the most input ports any audio kind has (the mixer: 4 audio + 4 gains)
 const MAX_PORTS: usize = 8;
@@ -39,6 +41,24 @@ impl Param {
     }
     pub fn set(&self, v: f32) {
         self.0.store(v.to_bits(), Ordering::Relaxed)
+    }
+}
+
+/// Every output buffer's newest block peak – built only for a scene with a `space` node (the being's audio hoses,
+/// #188), so the other scenes' blocks cost nothing extra. Written by the audio thread after each block, read per frame.
+pub struct Meters {
+    levels: Box<[AtomicU32]>,
+    /// per graph node: its first output buffer
+    buf_of: Vec<Option<usize>>,
+}
+
+impl Meters {
+    /// `node`'s output `port`: the newest block's peak (0 for a node without audio outputs)
+    pub fn level(&self, node: usize, port: usize) -> f32 {
+        match self.buf_of.get(node).copied().flatten().and_then(|b| self.levels.get(b + port)) {
+            Some(l) => f32::from_bits(l.load(Ordering::Relaxed)),
+            None => 0.0,
+        }
     }
 }
 
@@ -137,12 +157,17 @@ pub struct Engine {
     gain: f32,
     frames: Arc<AtomicU64>,
     stamp: Arc<Stamp>,
+    meters: Option<Arc<Meters>>,
 }
 
 /// What the frame thread keeps of a built engine.
 pub struct Handles {
-    /// the control inputs of audio nodes: (graph node, input port, param)
+    /// the linked control inputs of audio nodes: (graph node, input port, param)
     pub params: Vec<(usize, usize, Param)>,
+    /// the unlinked ones (their param or default) – set from outside like a MIDI CC (a 3D button, #188)
+    pub knobs: Vec<(usize, usize, Param)>,
+    /// the output buffers' peaks (a scene with a `space` node)
+    pub meters: Option<Arc<Meters>>,
     /// chapter_music nodes: where their loader sends the decoded track
     pub music: Vec<MusicFeed>,
     /// fft nodes: their sample ring
@@ -172,6 +197,8 @@ impl Engine {
     pub fn build_with(graph: &Graph, rate: f32, volume: f32, build: Build) -> Result<(Engine, Handles)> {
         let mut handles = Handles {
             params: Vec::new(),
+            knobs: Vec::new(),
+            meters: None,
             music: Vec::new(),
             taps: Vec::new(),
             clock: Clock { frames: Arc::new(AtomicU64::new(0)), rate, stamp: Arc::new(Stamp::default()) },
@@ -235,7 +262,12 @@ impl Engine {
             }
         }
         let out_buf = graph.first(Kind::AudioOut).and_then(|i| buf_of[i]);
+        if graph.first(Kind::Space).is_some() {
+            let levels = (0..bufs.len()).map(|_| AtomicU32::new(0)).collect();
+            handles.meters = Some(Arc::new(Meters { levels, buf_of: buf_of.clone() }));
+        }
         let engine = Engine {
+            meters: handles.meters.clone(),
             bufs,
             steps,
             out_buf,
@@ -267,6 +299,12 @@ impl Engine {
         while done < total {
             let n = (total - done).min(MAX_BLOCK);
             self.run(n);
+            if let Some(m) = &self.meters {
+                for (b, level) in self.bufs.iter().zip(m.levels.iter()) {
+                    let peak = b.l[..n].iter().chain(&b.r[..n]).fold(0.0f32, |p, x| p.max(x.abs()));
+                    level.store(peak.to_bits(), Ordering::Relaxed);
+                }
+            }
             let (from, to) = (self.gain, self.master.get());
             self.gain = to;
             let frames = &mut out[done * channels..(done + n) * channels];
@@ -324,8 +362,9 @@ fn node_params(graph: &Graph, i: usize, h: &mut Handles) -> Vec<Param> {
         .enumerate()
         .map(|(k, port)| {
             let p = Param::new(node.f32(port.name, blocks::default_for(node.kind, port.name)));
-            if port.ty == PortType::Control && graph.link_into(i, k).is_some() {
-                h.params.push((i, k, p.clone()));
+            if port.ty == PortType::Control {
+                let list = if graph.link_into(i, k).is_some() { &mut h.params } else { &mut h.knobs };
+                list.push((i, k, p.clone()));
             }
             p
         })

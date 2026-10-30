@@ -62,6 +62,11 @@ impl Col {
         self.push(0, 0.0, value);
     }
 
+    /// node `i`'s input becomes the constant `value` (a value set from outside – a MIDI CC, a 3D button, #188)
+    pub fn set_constant(&mut self, i: usize, value: f32) {
+        (self.src[i], self.scale[i], self.offset[i]) = (0, 0.0, value);
+    }
+
     pub fn len(&self) -> usize {
         self.src.len()
     }

@@ -49,6 +49,9 @@ pub enum Kind {
     Chapter,
     /// `top` over `in` (alpha), the top popping in when it changes, shaken by `shake`
     Overlay,
+    /// a 3D space (space/, #188): a glTF room and the deck's being – the running graph as a floating body – seen by an
+    /// orbit camera; its inputs colour the being (hue, glow), light the room and kick its breath
+    Space,
     /// a low-frequency oscillator (control)
     Lfo,
     /// the tempo clock (tempo/, #181): bpm, beat, bar, phase, bar_phase, pulse – one per scene, its params set the
@@ -82,6 +85,7 @@ impl Kind {
             "screen" => Kind::Screen,
             "chapter" => Kind::Chapter,
             "overlay" => Kind::Overlay,
+            "space" => Kind::Space,
             "lfo" => Kind::Lfo,
             "tempo" => Kind::Tempo,
             "click" => Kind::Click,
@@ -99,7 +103,7 @@ impl Kind {
 
     pub fn domain(self) -> Domain {
         match self {
-            Kind::TestPattern | Kind::Shader | Kind::Screen | Kind::Chapter | Kind::Overlay => Domain::Video,
+            Kind::TestPattern | Kind::Shader | Kind::Screen | Kind::Chapter | Kind::Overlay | Kind::Space => Domain::Video,
             Kind::Lfo | Kind::Tempo => Domain::Control,
             _ => Domain::Audio,
         }
@@ -112,6 +116,7 @@ impl Kind {
             Kind::Screen => &[p!("in", V)],
             Kind::Chapter => &[p!("in", V), p!("next", C), p!("hold", C), p!("zoom", C), p!("pulse", C)],
             Kind::Overlay => &[p!("in", V), p!("top", V), p!("opacity", C), p!("pulse", C), p!("shake", C)],
+            Kind::Space => &[p!("hue", C), p!("glow", C), p!("light", C), p!("pulse", C)],
             Kind::Lfo => &[p!("rate", C), p!("depth", C)],
             Kind::Tempo => &[],
             Kind::Click => &[p!("gain", C)],
@@ -131,7 +136,7 @@ impl Kind {
 
     pub fn outputs(self) -> &'static [Port] {
         match self {
-            Kind::TestPattern | Kind::Shader | Kind::Overlay => &[p!("out", V)],
+            Kind::TestPattern | Kind::Shader | Kind::Overlay | Kind::Space => &[p!("out", V)],
             Kind::Chapter => &[p!("out", V), p!("text", V)],
             Kind::Screen | Kind::AudioOut => &[],
             Kind::Lfo => &[p!("out", C)],
@@ -212,7 +217,7 @@ impl Graph {
             }
             nodes.push(Node { id: n.id.clone(), kind, params: n.params.clone() });
         }
-        for sink in [Kind::Screen, Kind::AudioOut, Kind::Tempo] {
+        for sink in [Kind::Screen, Kind::AudioOut, Kind::Tempo, Kind::Space] {
             if nodes.iter().filter(|n| n.kind == sink).count() > 1 {
                 bail!("a scene has at most one {sink:?} node");
             }
