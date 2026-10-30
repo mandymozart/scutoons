@@ -1,11 +1,17 @@
 //! One Live session (LIVE.md B.6): its clients, the replay log, the snapshot state (the last `state`, the current cell
-//! and the last media preload per outlet, the last instruction per group, the open vote), presence. Synchronous and clock-free – the caller passes
-//! `now` (relay time, ms) – so every rule here is a unit test; lib.rs owns the sockets and the timers.
-use std::collections::{HashMap, VecDeque};
+//! and the last media preload per outlet, the last instruction per group, the open vote, every deck's being), presence.
+//! Synchronous and clock-free – the caller passes `now` (relay time, ms) – so every rule here is a unit test; lib.rs
+//! owns the sockets and the timers.
+//!
+//! The decks' stream (#188 phase 4): `deck.graph` (a deck's being – kept per client, logged, to the conductor) and
+//! `deck.values` (only what changed, ≤ 30 / s per deck – more is dropped; folded into the deck's state and never
+//! logged – a stream would push the cues out of the replay buffer; to the conductor, and to `to` as well when a deck
+//! sets one). Presence names the decks and every sender → receiver route their values took.
+use std::collections::{BTreeSet, HashMap, VecDeque};
 
 use protocol::{
-    Assign, Cell, CellMode, Cue, Envelope, Error as ProtocolError, Loose, MediaPreload, Message, Presence, Resume, Role,
-    Snapshot, State, To, VoteTally,
+    Assign, Cell, CellMode, Cue, DeckState, Envelope, Error as ProtocolError, Loose, MediaPreload, Message, Presence,
+    Resume, Role, Route, Snapshot, State, To, VoteTally,
 };
 use serde_json::Value;
 use tokio::sync::mpsc::UnboundedSender;
@@ -19,6 +25,9 @@ pub const REPLAY_MS: i64 = 5 * 60 * 1000;
 pub const AUDIENCE_RATE: f64 = 5.0;
 /// B.6: nicknames are trimmed to 24 characters.
 pub const NICK_MAX: usize = 24;
+/// #188: a deck's `deck.values` at most 30 / s (a bucket of 15 – a frame's jitter is no reason to drop one).
+pub const VALUES_RATE: f64 = 30.0;
+const VALUES_BURST: f64 = 15.0;
 
 /// What the relay knows about one connected client.
 #[derive(Debug, Clone)]
@@ -29,11 +38,15 @@ pub struct Client {
     pub ready: bool,
     tx: UnboundedSender<String>,
     bucket: Bucket,
+    /// #188: the deck's values stream
+    values: Bucket,
 }
 
 impl Client {
     pub fn new(role: Role, group: Option<String>, nick: Option<String>, tx: UnboundedSender<String>, now: i64) -> Self {
-        Client { role, group, nick, ready: false, tx, bucket: Bucket { tokens: AUDIENCE_RATE, at: now } }
+        let bucket = Bucket { tokens: AUDIENCE_RATE, at: now, rate: AUDIENCE_RATE, burst: AUDIENCE_RATE };
+        let values = Bucket { tokens: VALUES_BURST, at: now, rate: VALUES_RATE, burst: VALUES_BURST };
+        Client { role, group, nick, ready: false, tx, bucket, values }
     }
 }
 
@@ -41,12 +54,15 @@ impl Client {
 struct Bucket {
     tokens: f64,
     at: i64,
+    /// tokens per second, at most `burst`
+    rate: f64,
+    burst: f64,
 }
 
 impl Bucket {
     fn take(&mut self, now: i64) -> bool {
-        let refill = (now - self.at).max(0) as f64 / 1000.0 * AUDIENCE_RATE;
-        self.tokens = (self.tokens + refill).min(AUDIENCE_RATE);
+        let refill = (now - self.at).max(0) as f64 / 1000.0 * self.rate;
+        self.tokens = (self.tokens + refill).min(self.burst);
         self.at = now;
         if self.tokens >= 1.0 {
             self.tokens -= 1.0;
@@ -167,6 +183,12 @@ pub struct Session {
     pub vote: Option<OpenVote>,
     /// relay time when the last client left (the session is kept for a resume, then pruned)
     pub empty_since: Option<i64>,
+    /// #188: every deck's being (its graph, its latest values) by client id
+    decks: HashMap<String, DeckState>,
+    /// #188: who sent values to whom (sender, receiver)
+    routes: BTreeSet<(String, String)>,
+    /// `deck.values` dropped over the rate
+    pub dropped: u64,
 }
 
 impl Session {
@@ -224,6 +246,9 @@ impl Session {
         if let Some(c) = self.clients.remove(id) {
             self.departed.insert(id.to_owned(), Departed { role: c.role, group: c.group, at: now });
         }
+        // a deck that left takes its being and its routes along (it sends its graph again when it comes back)
+        self.decks.remove(id);
+        self.routes.retain(|(a, b)| a != id && b != id);
         self.departed.retain(|_, d| d.at >= now - REPLAY_MS);
         if self.clients.is_empty() {
             self.empty_since = Some(now);
@@ -302,6 +327,7 @@ impl Session {
             media: if bridge { None } else { pick(&self.media, all, group) },
             vote: if all || self.is_voter(role, group) { self.vote.as_ref().map(|v| v.open.clone()) } else { None },
             say: if bridge { None } else { pick(&self.say, all, group) },
+            decks: if all && !self.decks.is_empty() { Some(self.decks.clone()) } else { None },
             seq: Some(self.seq as i64),
         }
     }
@@ -319,7 +345,10 @@ impl Session {
             }
         }
         ready.sort();
-        Presence { groups, ready }
+        let mut decks: Vec<String> = self.decks.keys().cloned().collect();
+        decks.sort();
+        let routes = self.routes.iter().map(|(from, to)| Route { from: from.clone(), to: to.clone() }).collect();
+        Presence { groups, ready, decks: Some(decks), routes: Some(routes) }
     }
 
     pub fn tell_presence(&mut self) {
@@ -355,6 +384,10 @@ impl Session {
         }
         if matches!(e.message, Message::Devices(_) | Message::DeviceIn(_)) && role != Role::Bridge {
             self.error(id, "authority", "only the bridge sends device input");
+            return After::Nothing;
+        }
+        if matches!(e.message, Message::DeckGraph(_) | Message::DeckValues(_)) && matches!(role, Role::Audience | Role::Bridge) {
+            self.error(id, "authority", "only a deck streams a being");
             return After::Nothing;
         }
 
@@ -498,6 +531,15 @@ impl Session {
                 self.publish(id, e, now);
                 self.tell_presence();
             }
+            Message::DeckGraph(g) => {
+                self.decks.insert(id.to_owned(), DeckState { graph: g.clone(), values: HashMap::new(), mood: None });
+                if e.to.is_none() {
+                    e.to = Some(To::role(Role::Conductor));
+                }
+                self.publish(id, e, now);
+                self.tell_presence();
+            }
+            Message::DeckValues(_) => self.deck_values(id, e, now),
             Message::React(_) | Message::Pickup(_) | Message::Devices(_) | Message::DeviceIn(_) => {
                 // to the conductor (B.6: pickups are checked against the API there, like the reader does – TODO with
                 // the session API; reacts feed its meter; device input is mapped to actions there)
@@ -511,6 +553,40 @@ impl Session {
             }
         }
         After::Nothing
+    }
+
+    /// #188: a deck's values – over the rate: dropped; folded into its state; delivered (not logged) to the
+    /// conductor(s) and to `to`; a new sender → receiver pair is a new route (presence).
+    fn deck_values(&mut self, id: &str, mut e: Envelope, now: i64) {
+        let Some(c) = self.clients.get_mut(id) else { return };
+        if !c.values.take(now) {
+            self.dropped += 1;
+            return;
+        }
+        let Message::DeckValues(v) = &e.message else { return };
+        let Some(deck) = self.decks.get_mut(id) else {
+            self.error(id, "deck", "deck.graph first");
+            return;
+        };
+        for (path, x) in &v.values {
+            deck.values.insert(path.clone(), x.clone());
+        }
+        if v.mood.is_some() {
+            deck.mood.clone_from(&v.mood);
+        }
+        e.seq = self.next_seq();
+        e.from = id.to_owned();
+        let text = serde_json::to_string(&e).expect("envelope serializes");
+        let mut new_route = false;
+        for (cid, c) in &self.clients {
+            let addressed = e.to.is_some() && reaches(cid, c.role, c.group.as_deref(), id, e.to.as_ref());
+            if (addressed || (c.role == Role::Conductor && cid != id)) && c.tx.send(text.clone()).is_ok() {
+                new_route |= self.routes.insert((id.to_owned(), cid.clone()));
+            }
+        }
+        if new_route {
+            self.tell_presence();
+        }
     }
 
     /// B.6 cue: "the relay splits actions per outlet → `to`". A B.5.2 action is `{ <verb>: { outlet, … } }` (or a
@@ -882,6 +958,76 @@ mod tests {
         r.send("cond", Message::Assign(Assign { client: "a2".into(), group: "right".into() }), 0);
         assert_eq!(r.kinds("a2"), ["assign", "snapshot"]);
         assert_eq!(r.s.presence().groups["right"], 3);
+    }
+
+    fn graph() -> protocol::DeckGraph {
+        serde_json::from_str(r#"{"nodes":[{"id":"space","kind":"space"},{"id":"lfo","kind":"lfo"}],"links":[{"from":"lfo.out","to":"space.hue"}],"character":"catpope"}"#).unwrap()
+    }
+
+    fn values(pairs: &[(&str, f64)], mood: Option<&str>) -> Message {
+        let values = pairs.iter().map(|(k, v)| (k.to_string(), vec![*v])).collect();
+        Message::DeckValues(protocol::DeckValues { values, mood: mood.map(str::to_owned) })
+    }
+
+    /// #188 phase 4: a deck's graph reaches the conductor and stays for its snapshot; its values go to the conductor
+    /// only (and to `to`), are folded, never logged; presence names the decks and the routes; a deck that leaves takes
+    /// its being and its routes along
+    #[test]
+    fn decks_stream_their_beings() {
+        let mut r = room();
+        r.add("d1", Role::Musician, Some("decks"));
+        r.add("d2", Role::Musician, Some("decks"));
+        r.drain();
+        r.send("d1", values(&[("lfo.rate", 2.0)], None), 0);
+        assert!(matches!(&r.inbox("d1")[0].message, Message::Error(e) if e.code == "deck"), "the graph first");
+        r.send("d1", Message::DeckGraph(graph()), 0);
+        let c = r.inbox("cond");
+        assert!(matches!(&c[0].message, Message::DeckGraph(g) if g.character.as_deref() == Some("catpope")));
+        let Message::Presence(p) = &c[1].message else { panic!("{c:?}") };
+        assert_eq!(p.decks.as_deref(), Some(&["d1".to_owned()][..]));
+        assert!(r.inbox("d2").is_empty() && r.inbox("outL").is_empty() && r.inbox("a1").is_empty(), "to the conductor only");
+        let logged = r.s.log.len();
+        r.send("d1", values(&[("lfo.rate", 2.0), ("space.hue", 0.3)], Some("happy")), 10);
+        let c = r.inbox("cond");
+        assert!(matches!(&c[0].message, Message::DeckValues(v) if v.values["lfo.rate"] == [2.0] && c[0].from == "d1"));
+        let Message::Presence(p) = &c[1].message else { panic!("a new route: {c:?}") };
+        assert_eq!(p.routes.as_ref().unwrap(), &[Route { from: "d1".into(), to: "cond".into() }]);
+        assert!(r.inbox("d2").is_empty());
+        assert_eq!(r.s.log.len(), logged, "values are not kept for replay");
+        r.send("d1", values(&[("space.hue", 0.4)], None), 20);
+        assert_eq!(r.kinds("cond"), ["deck.values"], "a known route: no presence");
+        // the snapshot folds every value and the last mood – the conductor's only
+        let snap = r.s.snapshot_for(Role::Conductor, None);
+        let d1 = &snap.decks.as_ref().unwrap()["d1"];
+        assert_eq!((d1.values["lfo.rate"].clone(), d1.values["space.hue"].clone(), d1.mood.as_deref()), (vec![2.0], vec![0.4], Some("happy")));
+        assert!(r.s.snapshot_for(Role::Output, Some("left")).decks.is_none());
+        // a deck may send its values to another deck as well: a route between decks
+        r.send("d2", Message::DeckGraph(graph()), 30);
+        r.drain();
+        r.s.handle("d2", Envelope::new("", values(&[("lfo.depth", 0.5)], None)).to(To::client("d1")), 40, 50);
+        assert_eq!(r.kinds("d1"), ["deck.values"]);
+        assert!(r.kinds("cond").contains(&"deck.values"), "the conductor sees every stream");
+        let routes = r.s.presence().routes.unwrap();
+        assert_eq!(routes.len(), 3, "{routes:?}");
+        assert!(routes.contains(&Route { from: "d2".into(), to: "d1".into() }));
+        // the rate: a burst of 15, then 30 / s
+        r.drain();
+        for i in 0..40 {
+            r.send("d1", values(&[("space.hue", i as f64 / 40.0)], None), 1_000);
+        }
+        assert_eq!(r.inbox("cond").len(), 15);
+        assert_eq!(r.s.dropped, 25);
+        r.send("d1", values(&[("space.hue", 0.9)], None), 1_100);
+        assert_eq!(r.inbox("cond").len(), 1, "100 ms later: three tokens back");
+        // audience phones and the bridge don't stream beings
+        r.send("a1", Message::DeckGraph(graph()), 2_000);
+        assert_eq!(r.kinds("a1"), ["error"]);
+        // a deck that leaves
+        r.s.leave("d1", 3_000);
+        let p = r.s.presence();
+        assert_eq!(p.decks.unwrap(), ["d2"]);
+        assert!(p.routes.unwrap().iter().all(|x| x.from != "d1" && x.to != "d1"));
+        assert!(!r.s.snapshot_for(Role::Conductor, None).decks.unwrap().contains_key("d1"));
     }
 
     #[test]

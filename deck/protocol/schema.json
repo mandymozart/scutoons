@@ -68,6 +68,8 @@
         { "type": "object", "properties": { "kind": { "const": "device" }, "p": { "$ref": "#/definitions/Device" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "device.in" }, "p": { "$ref": "#/definitions/DeviceIn" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "devices" }, "p": { "$ref": "#/definitions/Devices" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "deck.graph" }, "p": { "$ref": "#/definitions/DeckGraph" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "deck.values" }, "p": { "$ref": "#/definitions/DeckValues" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "error" }, "p": { "$ref": "#/definitions/Error" } }, "required": ["kind", "p"] }
       ]
     },
@@ -145,6 +147,7 @@
         "media": { "type": "object", "additionalProperties": { "$ref": "#/definitions/MediaPreload" }, "description": "the last `media.preload` per outlet it sees – a reconnecting output resolves its cell's media ids with it" },
         "vote": { "$ref": "#/definitions/VoteOpen" },
         "say": { "type": "object", "additionalProperties": { "$ref": "#/definitions/Loose" } },
+        "decks": { "type": "object", "additionalProperties": { "$ref": "#/definitions/DeckState" }, "description": "#188: every deck's being by client id (the conductor's snapshot)" },
         "seq": { "type": "integer", "description": "the session's seq when the snapshot was taken" }
       },
       "additionalProperties": false
@@ -402,13 +405,74 @@
       "additionalProperties": false
     },
     "Presence": {
-      "description": "relay → conductor.",
+      "description": "relay → conductor: clients per group, who is ready; the decks that stream a being (#188 – a deck that left is gone from `decks`) and who sends values to whom (`routes`).",
       "type": "object",
       "properties": {
         "groups": { "type": "object", "additionalProperties": { "type": "integer" } },
-        "ready": { "type": "array", "items": { "type": "string" } }
+        "ready": { "type": "array", "items": { "type": "string" } },
+        "decks": { "type": "array", "items": { "type": "string" }, "description": "client ids with a `deck.graph`, sorted" },
+        "routes": { "type": "array", "items": { "$ref": "#/definitions/Route" }, "description": "every sender → receiver pair `deck.values` went along, sorted" }
       },
       "required": ["groups", "ready"],
+      "additionalProperties": false
+    },
+    "Route": {
+      "description": "#188: a deck's values flow from client `from` to client `to` (the conductor's scene draws a hose between their beings).",
+      "type": "object",
+      "properties": { "from": { "type": "string" }, "to": { "type": "string" } },
+      "required": ["from", "to"],
+      "additionalProperties": false
+    },
+    "DeckNode": {
+      "type": "object",
+      "properties": { "id": { "type": "string" }, "kind": { "type": "string", "description": "a deck-stage node kind (`fm`, `lfo`, `space` …)" } },
+      "required": ["id", "kind"],
+      "additionalProperties": false
+    },
+    "DeckLink": {
+      "type": "object",
+      "properties": {
+        "from": { "type": "string", "description": "`node.port` (an output)" },
+        "to": { "type": "string", "description": "`node.port` (an input)" },
+        "scale": { "type": "number" },
+        "offset": { "type": "number" }
+      },
+      "required": ["from", "to"],
+      "additionalProperties": false
+    },
+    "DeckGraph": {
+      "description": "#188 phase 4: a deck → relay → the conductor, on joining and when its scene changes: its being – the stage graph's nodes and links (the body), the head's character, the body's size (m), the moods calm → wild, the exposed parameters. The relay keeps the last one per client for the conductor's snapshot.",
+      "type": "object",
+      "properties": {
+        "nodes": { "type": "array", "items": { "$ref": "#/definitions/DeckNode" } },
+        "links": { "type": "array", "items": { "$ref": "#/definitions/DeckLink" } },
+        "character": { "type": "string" },
+        "size": { "type": "number" },
+        "moods": { "type": "array", "items": { "type": "string" } },
+        "expose": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["nodes", "links"],
+      "additionalProperties": false
+    },
+    "DeckValues": {
+      "description": "#188 phase 4 (the stream #189's sends build on): a deck → relay → the conductor (and `to`, if set), only what changed, at most 30 / s (the relay drops the rest). `values`: a path – `node.port` (a control input, a control output, an audio output's block peak) or `node.shape` (an LFO's waveform) – → a float vector (1 … n components; one today). `mood`: the head's mood when it changed. Not kept for replay: the relay folds them into the snapshot's `decks`.",
+      "type": "object",
+      "properties": {
+        "values": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "number" } } },
+        "mood": { "type": "string" }
+      },
+      "required": ["values"],
+      "additionalProperties": false
+    },
+    "DeckState": {
+      "description": "A deck's being in the conductor's snapshot: its graph and its latest values (all of them, folded).",
+      "type": "object",
+      "properties": {
+        "graph": { "$ref": "#/definitions/DeckGraph" },
+        "values": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "number" } } },
+        "mood": { "type": "string" }
+      },
+      "required": ["graph", "values"],
       "additionalProperties": false
     },
     "Pickup": {

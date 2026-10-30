@@ -129,6 +129,10 @@ pub enum Message {
 	DeviceIn(DeviceIn),
 	#[serde(rename = "devices")]
 	Devices(Devices),
+	#[serde(rename = "deck.graph")]
+	DeckGraph(DeckGraph),
+	#[serde(rename = "deck.values")]
+	DeckValues(DeckValues),
 	#[serde(rename = "error")]
 	Error(Error),
 }
@@ -165,6 +169,8 @@ impl Message {
 			Message::Device(_) => "device",
 			Message::DeviceIn(_) => "device.in",
 			Message::Devices(_) => "devices",
+			Message::DeckGraph(_) => "deck.graph",
+			Message::DeckValues(_) => "deck.values",
 			Message::Error(_) => "error",
 		}
 	}
@@ -280,6 +286,9 @@ pub struct Snapshot {
 	pub vote: Option<VoteOpen>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub say: Option<std::collections::HashMap<String, Loose>>,
+	/// #188: every deck's being by client id (the conductor's snapshot)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub decks: Option<std::collections::HashMap<String, DeckState>>,
 	/// the session's seq when the snapshot was taken
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub seq: Option<i64>,
@@ -632,11 +641,75 @@ pub struct CameraSrc {
 	pub input: String,
 }
 
-/// relay → conductor.
+/// relay → conductor: clients per group, who is ready; the decks that stream a being (#188 – a deck that left is gone from `decks`) and who sends values to whom (`routes`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Presence {
 	pub groups: std::collections::HashMap<String, i64>,
 	pub ready: Vec<String>,
+	/// client ids with a `deck.graph`, sorted
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub decks: Option<Vec<String>>,
+	/// every sender → receiver pair `deck.values` went along, sorted
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub routes: Option<Vec<Route>>,
+}
+
+/// #188: a deck's values flow from client `from` to client `to` (the conductor's scene draws a hose between their beings).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Route {
+	pub from: String,
+	pub to: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DeckNode {
+	pub id: String,
+	/// a deck-stage node kind (`fm`, `lfo`, `space` …)
+	pub kind: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DeckLink {
+	/// `node.port` (an output)
+	pub from: String,
+	/// `node.port` (an input)
+	pub to: String,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub scale: Option<f64>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub offset: Option<f64>,
+}
+
+/// #188 phase 4: a deck → relay → the conductor, on joining and when its scene changes: its being – the stage graph's nodes and links (the body), the head's character, the body's size (m), the moods calm → wild, the exposed parameters. The relay keeps the last one per client for the conductor's snapshot.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DeckGraph {
+	pub nodes: Vec<DeckNode>,
+	pub links: Vec<DeckLink>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub character: Option<String>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub size: Option<f64>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub moods: Option<Vec<String>>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub expose: Option<Vec<String>>,
+}
+
+/// #188 phase 4 (the stream #189's sends build on): a deck → relay → the conductor (and `to`, if set), only what changed, at most 30 / s (the relay drops the rest). `values`: a path – `node.port` (a control input, a control output, an audio output's block peak) or `node.shape` (an LFO's waveform) – → a float vector (1 … n components; one today). `mood`: the head's mood when it changed. Not kept for replay: the relay folds them into the snapshot's `decks`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DeckValues {
+	pub values: std::collections::HashMap<String, Vec<f64>>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub mood: Option<String>,
+}
+
+/// A deck's being in the conductor's snapshot: its graph and its latest values (all of them, folded).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DeckState {
+	pub graph: DeckGraph,
+	pub values: std::collections::HashMap<String, Vec<f64>>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub mood: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

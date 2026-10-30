@@ -55,6 +55,8 @@ export type Message =
 	| { kind: 'device'; p: Device }
 	| { kind: 'device.in'; p: DeviceIn }
 	| { kind: 'devices'; p: Devices }
+	| { kind: 'deck.graph'; p: DeckGraph }
+	| { kind: 'deck.values'; p: DeckValues }
 	| { kind: 'error'; p: Error };
 
 /** A payload whose shape B.6 names but this skeleton does not fix yet (say / line / fx / colour, cue actions). */
@@ -118,6 +120,8 @@ export interface Snapshot {
 	media?: Record<string, MediaPreload>;
 	vote?: VoteOpen;
 	say?: Record<string, Loose>;
+	/** #188: every deck's being by client id (the conductor's snapshot) */
+	decks?: Record<string, DeckState>;
 	/** the session's seq when the snapshot was taken */
 	seq?: number;
 }
@@ -331,10 +335,58 @@ export interface CameraSrc {
 	input: string;
 }
 
-/** relay → conductor. */
+/** relay → conductor: clients per group, who is ready; the decks that stream a being (#188 – a deck that left is gone from `decks`) and who sends values to whom (`routes`). */
 export interface Presence {
 	groups: Record<string, number>;
 	ready: string[];
+	/** client ids with a `deck.graph`, sorted */
+	decks?: string[];
+	/** every sender → receiver pair `deck.values` went along, sorted */
+	routes?: Route[];
+}
+
+/** #188: a deck's values flow from client `from` to client `to` (the conductor's scene draws a hose between their beings). */
+export interface Route {
+	from: string;
+	to: string;
+}
+
+export interface DeckNode {
+	id: string;
+	/** a deck-stage node kind (`fm`, `lfo`, `space` …) */
+	kind: string;
+}
+
+export interface DeckLink {
+	/** `node.port` (an output) */
+	from: string;
+	/** `node.port` (an input) */
+	to: string;
+	scale?: number;
+	offset?: number;
+}
+
+/** #188 phase 4: a deck → relay → the conductor, on joining and when its scene changes: its being – the stage graph's nodes and links (the body), the head's character, the body's size (m), the moods calm → wild, the exposed parameters. The relay keeps the last one per client for the conductor's snapshot. */
+export interface DeckGraph {
+	nodes: DeckNode[];
+	links: DeckLink[];
+	character?: string;
+	size?: number;
+	moods?: string[];
+	expose?: string[];
+}
+
+/** #188 phase 4 (the stream #189's sends build on): a deck → relay → the conductor (and `to`, if set), only what changed, at most 30 / s (the relay drops the rest). `values`: a path – `node.port` (a control input, a control output, an audio output's block peak) or `node.shape` (an LFO's waveform) – → a float vector (1 … n components; one today). `mood`: the head's mood when it changed. Not kept for replay: the relay folds them into the snapshot's `decks`. */
+export interface DeckValues {
+	values: Record<string, number[]>;
+	mood?: string;
+}
+
+/** A deck's being in the conductor's snapshot: its graph and its latest values (all of them, folded). */
+export interface DeckState {
+	graph: DeckGraph;
+	values: Record<string, number[]>;
+	mood?: string;
 }
 
 export interface Pickup {
