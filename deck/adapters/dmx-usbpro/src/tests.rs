@@ -40,15 +40,19 @@ fn device_check_then_frames_on_change() {
     std::thread::sleep(Duration::from_millis(300));
     assert_eq!(widget.frames().len(), before, "nothing changed, no frame");
 
-    // a burst: frames at most every 25 ms, the last one carries the last value
+    // a burst: frames at most every 25 ms, the last one carries the last value – the bound follows the burst's real
+    // length (a 2 ms sleep takes far longer on a busy CI runner: macOS stretched ~90 ms to ~450 ms)
+    let start = std::time::Instant::now();
     for v in 0..=40u8 {
         a.send(&dmx(10, &[v], None)).unwrap();
         std::thread::sleep(Duration::from_millis(2));
     }
+    let took = start.elapsed();
     assert!(widget.wait_frame(SOON, |f| f[9] == 40).is_some());
     let frames = widget.frames();
     let burst = &frames[before..];
-    assert!(burst.len() <= 6, "~90 ms of changes → ≤ 6 frames at 40 Hz, got {}", burst.len());
+    let most = (took.as_millis() / 25) as usize + 2;
+    assert!(burst.len() <= most, "{took:?} of changes → ≤ {most} frames at 40 Hz, got {}", burst.len());
     for pair in burst.windows(2) {
         let gap = pair[1].0 - pair[0].0;
         assert!(gap >= Duration::from_millis(24), "frames {gap:?} apart");
