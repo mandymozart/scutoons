@@ -30,6 +30,6 @@ over both. The git and backlog rules themselves stay in RULES.md ("Backlog", "Gi
 - Tests on the X1 / any deck are morning work for the owner: the worker lists exactly what to look at.
 
 ## Gallery and morning
-- Deck work is mostly code-only: the gallery entry says so and names what the owner checks on the X1. Web UI changes
-  get browser screenshots as usual.
+- No gallery (workspace "Publishing"): screenshots go into the chat with the summary. Deck work is mostly code-only:
+  the summary says so and names what the owner checks on the X1. Web UI changes get browser screenshots as usual.
 - The morning summary replaces HANDOVER "Last run"; every issue gets its own comment (RULES "Backlog").
