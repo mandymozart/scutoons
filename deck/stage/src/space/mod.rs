@@ -8,10 +8,10 @@ pub mod camera;
 pub mod glb;
 pub mod gpu;
 pub mod meshopt;
-pub mod params;
 
 use crate::control::Controls;
 use crate::graph::Graph;
+use crate::params;
 use crate::tempo;
 use anyhow::Result;
 use being::{Being, Hit, Look};
@@ -253,7 +253,7 @@ mod tests {
 
     #[test]
     fn a_drag_on_a_button_sets_its_input_and_elsewhere_turns_the_camera() {
-        let scene = Scene::parse(CATHEDRAL_SCENE).unwrap();
+        let scene = crate::modules::carried_part(&Scene::parse(CATHEDRAL_SCENE).unwrap());
         let g = Graph::build(&scene).unwrap();
         let node = g.first(crate::graph::Kind::Space).unwrap();
         let mut space = Space::new(&g, node, &scene.being, Path::new("/nowhere"));

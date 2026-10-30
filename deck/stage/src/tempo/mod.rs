@@ -153,8 +153,11 @@ pub struct Now {
 /// The sources' I/O, opened when a source is first chosen (MIDI out: at the start, it doesn't depend on the master).
 #[derive(Default)]
 struct Io {
+    #[cfg(feature = "midi")]
     midi_in: Option<(midir::MidiInputConnection<()>, String)>,
+    #[cfg(feature = "midi")]
     midi_out: Option<midi::ClockOutThread>,
+    #[cfg(feature = "osc")]
     osc: Option<osc::Listener>,
     #[cfg(feature = "link")]
     link: Option<link::Link>,
@@ -204,6 +207,7 @@ impl Tempo {
     /// open the sources' I/O: the MIDI clock out if configured, the scene's source
     pub fn start(&mut self) {
         self.live = true;
+        #[cfg(feature = "midi")]
         if let Some(want) = self.cfg.midi_out.clone() {
             match midi::spawn_out(&want, self.shared.clone(), self.cfg.midi_out_lead) {
                 Ok(t) => {
@@ -212,6 +216,10 @@ impl Tempo {
                 }
                 Err(e) => tracing::warn!("tempo: MIDI clock out: {e:#}"),
             }
+        }
+        #[cfg(not(feature = "midi"))]
+        if self.cfg.midi_out.is_some() {
+            tracing::warn!("tempo: MIDI clock out: {}", not_built("midi"));
         }
         self.set_source(self.cfg.source);
     }
@@ -243,11 +251,13 @@ impl Tempo {
     }
 
     fn open(&mut self, s: Source) {
-        let r = match s {
+        let r: Result<()> = match s {
+            #[cfg(feature = "midi")]
             Source::Midi if self.io.midi_in.is_none() => midi::connect_in(&self.cfg.midi_in, self.tx.clone()).map(|c| {
                 tracing::info!("tempo: MIDI clock in ← {}", c.1);
                 self.io.midi_in = Some(c);
             }),
+            #[cfg(feature = "osc")]
             Source::Osc if self.io.osc.is_none() => osc::listen(&self.cfg.osc, self.tx.clone()).map(|l| {
                 tracing::info!("tempo: OSC on {}", l.addr);
                 self.io.osc = Some(l);
@@ -257,6 +267,8 @@ impl Tempo {
                 self.io.link = Some(link::Link::new(self.map.bpm));
                 Ok(())
             }
+            // F3 reaches every source; one whose module isn't built says so (the HUD shows it)
+            _ if crate::modules::built(s.name()) == Some(false) => Err(anyhow::anyhow!(not_built(s.name()))),
             _ => Ok(()),
         };
         if let Err(e) = r {
@@ -362,18 +374,31 @@ impl Tempo {
             Source::Midi => String::new(),
             #[cfg(feature = "link")]
             Source::Link => self.io.link.as_ref().map(|l| format!("{} PEERS", l.peers())).unwrap_or_default(),
-            #[cfg(not(feature = "link"))]
-            Source::Link => "NOT IN THIS BUILD".into(),
+            #[cfg(feature = "osc")]
             Source::Osc => self.io.osc.as_ref().map(|l| format!("PORT {}", l.addr.port())).unwrap_or_default(),
+            // a source whose module isn't built (its error above says so)
+            #[allow(unreachable_patterns)]
+            Source::Link | Source::Osc => String::new(),
             Source::Relay => RelayClock.status().into(),
             Source::Internal => String::new(),
         }
     }
 
     /// the MIDI clock out's port, if it runs
+    #[cfg(feature = "midi")]
     pub fn clock_out(&self) -> Option<&str> {
         self.io.midi_out.as_ref().map(|t| t.port.as_str())
     }
+
+    #[cfg(not(feature = "midi"))]
+    pub fn clock_out(&self) -> Option<&str> {
+        None
+    }
+}
+
+/// why a source's module isn't there (the HUD upper-cases and cuts it)
+fn not_built(feature: &str) -> String {
+    format!("not in this build (--features {feature})")
 }
 
 /// The relay's show clock (LIVE.md B.6) – a stub: the relay has only the ping / pong offset so far (#172). When it
@@ -415,6 +440,7 @@ mod tests {
         Tempo::new(Config::from_graph(&g).unwrap(), Arc::new(Shared::default()), RATE)
     }
 
+    #[cfg(feature = "osc")]
     #[test]
     fn the_scene_configures_the_clock() {
         let g = Graph::build(
@@ -423,8 +449,9 @@ mod tests {
         .unwrap();
         let c = Config::from_graph(&g).unwrap();
         assert_eq!((c.bpm, c.per_bar, c.source, c.click, c.osc.as_str()), (60.0, 3, Source::Osc, true, "0.0.0.0:9100"));
-        let bad = Graph::build(&Scene::parse("[[node]]\nid=\"t\"\nkind=\"tempo\"\nsource=\"vinyl\"\n").unwrap()).unwrap();
-        assert!(Config::from_graph(&bad).is_err());
+        // an unknown source: the graph is refused already (the module check, #185)
+        let bad = Graph::build(&Scene::parse("[[node]]\nid=\"t\"\nkind=\"tempo\"\nsource=\"vinyl\"\n").unwrap());
+        assert!(bad.unwrap_err().to_string().contains("unknown source 'vinyl'"));
         assert_eq!(Config::from_graph(&Graph::build(&Scene::parse("").unwrap()).unwrap()).unwrap(), Config::default());
     }
 
@@ -463,7 +490,8 @@ mod tests {
 
     #[test]
     fn midi_clock_in_leads_and_a_key_takes_over() {
-        let mut t = tempo("[[node]]\nid=\"t\"\nkind=\"tempo\"\nsource=\"midi\"\nbpm=90\n");
+        // the follower is built without the `midi` module too (only its ports need it)
+        let mut t = tempo("[[node]]\nid=\"t\"\nkind=\"tempo\"\nbpm=90\n");
         t.set_source(Source::Midi);
         let tx = t.sender();
         tx.send(at(4.99, What::Midi([0xFA, 0, 0]))).unwrap();

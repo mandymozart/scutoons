@@ -11,6 +11,8 @@ use std::path::Path;
 pub const DEFAULT_SCENE: &str = include_str!("../scenes/default.toml");
 /// The Cathedral of decks (#188): the room from Cat Pope chapter 2 and this deck's being in it.
 pub const CATHEDRAL_SCENE: &str = include_str!("../scenes/cathedral.toml");
+/// The core alone (#185): an LFO, the test pattern, the screen – what a stage shows when a scene can't be played.
+pub const TEST_PATTERN_SCENE: &str = include_str!("../scenes/test-pattern.toml");
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -21,8 +23,13 @@ pub struct Scene {
     pub nodes: Vec<NodeDef>,
     #[serde(default, rename = "link")]
     pub links: Vec<LinkDef>,
+    #[cfg(feature = "space")]
     #[serde(default)]
     pub being: crate::space::being::Look,
+    /// without the `space` module the being's look is kept as it is (the scene still parses; its space node is refused)
+    #[cfg(not(feature = "space"))]
+    #[serde(default)]
+    pub being: toml::Table,
 }
 
 #[derive(Debug, Clone, Deserialize)]

@@ -3,7 +3,7 @@
 //! tendrils from the core to every point. Water bubbles run along a hose when its value changes: in the data's
 //! direction, more and bigger the more it changes (control links: the change against the value's recent range; audio
 //! links: the block peak of the source's output buffer; video links: a steady trickle). Every point carries its node's
-//! control inputs as 3D buttons (params.rs ranges); a button on a linked input shows the hose's value and can't be
+//! control inputs as 3D buttons (crate::params ranges); a button on a linked input shows the hose's value and can't be
 //! turned. The body drifts slowly and breathes on the tempo clock. The head (phase 5, the portrait) will sit at `head`.
 //!
 //! Data-driven so a being can later be saved as a preset (#191): the body is the graph + the scene's `[being]` look;
@@ -13,7 +13,7 @@
 use crate::control::Controls;
 use crate::graph::{Domain, Graph, Kind, PortType};
 use crate::space::camera::Ray;
-use crate::space::params::{self, Spec};
+use crate::params::{self, Spec};
 use crate::tempo;
 use glam::Vec3;
 use serde::Deserialize;

@@ -461,6 +461,7 @@ steps=[69, 81]
         assert!(out[0].r[..100].iter().all(|g| *g == 0.0));
     }
 
+    #[cfg(feature = "chapter")]
     #[test]
     fn music_plays_a_sent_track_and_loops() {
         let (mut e, mut h) = build(

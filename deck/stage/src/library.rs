@@ -11,8 +11,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
-pub const API: &str = "https://api.scutoons.com/api";
-pub const CDN: &str = "https://cdn.scutoons.com";
+pub use crate::cache::{API, CDN};
 
 #[derive(Clone)]
 pub struct Library {
@@ -96,24 +95,6 @@ impl Chapter {
 }
 
 impl Library {
-    /// the cache directory: `--cache` / DECK_CACHE, else the deck's DECKDATA (/var/lib/deck/cache) when it exists, else
-    /// the user's cache folder
-    pub fn default_cache() -> PathBuf {
-        if let Some(p) = std::env::var_os("DECK_CACHE") {
-            return p.into();
-        }
-        let deck = Path::new("/var/lib/deck");
-        if deck.is_dir() {
-            return deck.join("cache");
-        }
-        let base = std::env::var_os("LOCALAPPDATA")
-            .map(PathBuf::from)
-            .or_else(|| std::env::var_os("XDG_CACHE_HOME").map(PathBuf::from))
-            .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache")))
-            .unwrap_or_else(|| PathBuf::from("."));
-        base.join("scutoons").join("deck-cache")
-    }
-
     fn agent() -> ureq::Agent {
         ureq::AgentBuilder::new().timeout_connect(Duration::from_secs(5)).timeout(Duration::from_secs(60)).build()
     }

@@ -539,6 +539,10 @@ to=\"sum.in4\"
             ("the default scene", crate::scene::DEFAULT_SCENE.to_string(), 1, 1e-4),
             ("16 FM voices, index up to 4.5", voices("fm", 16, ""), 2, 1e-3),
         ] {
+            // the default scene has chapter nodes (#185: a build without the module refuses it)
+            if name == "the default scene" && !cfg!(feature = "chapter") {
+                continue;
+            }
             let g = Graph::build(&Scene::parse(&text).unwrap()).unwrap();
             let (e, _) = Engine::build_with(&g, 48_000.0, 1.0, BASELINE).unwrap();
             // the sequenced voices sit a level above the free ones: two batches

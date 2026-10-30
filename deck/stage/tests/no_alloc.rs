@@ -43,7 +43,9 @@ static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
 #[test]
 fn the_default_scene_renders_without_allocating() {
     let _turn = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
-    let graph = Graph::build(&Scene::parse(DEFAULT_SCENE).unwrap()).unwrap();
+    // a build without a module plays the scene without that module's nodes (#185: Graph::build refuses them)
+    let scene = deck_stage::modules::carried_part(&Scene::parse(DEFAULT_SCENE).unwrap());
+    let graph = Graph::build(&scene).unwrap();
     for build in [Build::detect(), Build { batch: true, avx2: false }] {
         renders_without_allocating(&graph, build);
     }
@@ -53,7 +55,9 @@ fn renders_without_allocating(graph: &Graph, build: Build) {
     let (mut engine, mut handles) = Engine::build_with(graph, 48_000.0, 1.0, build).unwrap();
     assert!(engine.shape().1 > 0, "the FM voice runs as a batch");
     let track = Track { rate: 44_100.0, l: vec![0.1; 44_100], r: vec![-0.1; 44_100] };
-    handles.music[0].tracks.push(Arc::new(track)).ok().unwrap();
+    if let Some(m) = handles.music.first_mut() {
+        m.tracks.push(Arc::new(track)).ok().unwrap();
+    }
     // 128 frames like the deck's PipeWire quantum, plus odd sizes and one bigger than MAX_BLOCK
     let mut bufs: Vec<Vec<f32>> = [128usize, 37, 480, 3000].iter().map(|n| vec![0.0; n * 2]).collect();
     let mut drained = 0usize;
@@ -83,6 +87,7 @@ fn renders_without_allocating(graph: &Graph, build: Build) {
 
 /// The being's frame (#188) never allocates either: the control step, the body's pose, the hoses' bubbles, the buttons'
 /// values, picking, a button turned like a CC and the geometry written into the renderer's preallocated buffers.
+#[cfg(feature = "space")]
 #[test]
 fn the_being_steps_without_allocating() {
     let _turn = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
@@ -91,7 +96,7 @@ fn the_being_steps_without_allocating() {
     use deck_stage::space::being::Being;
     use deck_stage::space::camera::Orbit;
     use deck_stage::tempo;
-    let scene = Scene::parse(CATHEDRAL_SCENE).unwrap();
+    let scene = deck_stage::modules::carried_part(&Scene::parse(CATHEDRAL_SCENE).unwrap());
     let graph = Graph::build(&scene).unwrap();
     let mut ctl = Controls::new(&graph, None);
     let mut being = Being::new(&graph, &scene.being);

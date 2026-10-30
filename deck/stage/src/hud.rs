@@ -7,6 +7,8 @@ use std::collections::VecDeque;
 pub const W: u32 = 320;
 /// text lines the HUD has room for (above the frame-time graph)
 pub const LINES: usize = 11;
+/// characters a line has room for (8 px each, a 4 px margin)
+pub const COLS: usize = 39;
 pub const H: u32 = 4 + LINES as u32 * 10 + GRAPH_H + 4;
 const GRAPH_H: u32 = 20;
 /// the graph's full height in ms (two 60 Hz frames)
@@ -33,6 +35,26 @@ impl Default for Hud {
     fn default() -> Self {
         Hud { pixels: vec![0; (W * H * 4) as usize], visible: true, lines: Vec::new(), times: VecDeque::new(), beat: None }
     }
+}
+
+/// `text` broken into HUD lines at spaces (a word longer than a line is cut)
+pub fn wrap(text: &str, cols: usize) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    let mut line = String::new();
+    for word in text.split_whitespace() {
+        let n = line.chars().count();
+        if n > 0 && n + 1 + word.chars().count() > cols {
+            out.push(std::mem::take(&mut line));
+        }
+        if !line.is_empty() {
+            line.push(' ');
+        }
+        line.extend(word.chars().take(cols));
+    }
+    if !line.is_empty() {
+        out.push(line);
+    }
+    out
 }
 
 impl Hud {
@@ -139,5 +161,13 @@ mod tests {
         h.set_beat(Some(Beat { row: 2, beat: 1, per_bar: 4, running: true }));
         h.raster();
         assert_eq!(amber(&h), 0);
+    }
+
+    #[test]
+    fn long_text_wraps_at_spaces() {
+        let w = wrap("this build of the stage does not carry the module 'space' (node space)", 20);
+        assert_eq!(w, ["this build of the", "stage does not carry", "the module 'space'", "(node space)"]);
+        assert_eq!(wrap("abcdefghij", 4), ["abcd"]);
+        assert!(wrap("  ", 10).is_empty());
     }
 }

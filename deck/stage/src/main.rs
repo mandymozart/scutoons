@@ -7,7 +7,9 @@
 //! behind it until it closes; without it F2 quits with exit code 10 (deck-session's older loop opens the browser).
 //! A scene with a `space` node (#188): the mouse turns the camera or the being's 3D buttons, the wheel / ↑ ↓ zoom,
 //! ← → turn, R resets the camera.
-use deck_stage::{audio, chapter, clock, control, graph, hud, library, render, scene, space, splash, tempo};
+//! A scene that can't be played (a module this build lacks – #185 –, a broken file) never stops the stage: it shows the
+//! test pattern with the reason in the HUD. `--dev` reloads the scene file and its WGSL files when they change.
+use deck_stage::{audio, cache, chapter, clock, control, graph, hud, modules, render, scene, splash, tempo, watch};
 
 use anyhow::{bail, Context, Result};
 use audio::backend::{self, Choice};
@@ -15,15 +17,15 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use winit::application::ApplicationHandler;
-use winit::event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent};
+use winit::event::{ElementState, WindowEvent};
+#[cfg(feature = "space")]
+use winit::event::{MouseButton, MouseScrollDelta};
 use winit::event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy};
 use winit::keyboard::{Key, ModifiersState, NamedKey};
 use winit::window::{Fullscreen, Window, WindowId};
 
 /// the exit code that asks deck-session for the browser (the conductor page) instead of the stage
 const EXIT_BROWSER: i32 = 10;
-/// the HUD's tempo line (the beat lights are drawn on it)
-const TEMPO_ROW: usize = 6;
 /// the splash waits this long at most for the chapter and the music (offline without a cache: the scene anyway)
 const SPLASH_MAX_S: f32 = 30.0;
 
@@ -36,6 +38,7 @@ enum Event {
 
 const HELP: &str = "deck-stage [--scene FILE|cathedral] [--audio auto|pipewire|cpal|null] [--volume 0-1] [--cache DIR]
            [--rooms DIR] [--api URL] [--cdn URL] [--windowed] [--frames N] [--screenshot FILE] [--pointer X,Y] [--no-hud]
+           [--dev] [--modules]
   --scene      a scene TOML (default: the built-in scene, deck/stage/scenes/default.toml); `cathedral` = the built-in
                Cathedral of decks (scenes/cathedral.toml)
   --audio      the backend; auto = PipeWire → cpal → null (no device: the clock and the FFT still run)
@@ -43,7 +46,9 @@ const HELP: &str = "deck-stage [--scene FILE|cathedral] [--audio auto|pipewire|c
   --rooms      where a space node's rooms are (.glb; default DECK_ROOMS, else <cache>/rooms)
   --frames     quit after N frames and print the measured numbers (a check run)
   --screenshot save the last frame of a --frames run as a PNG
-  --pointer    put the pointer at window pixel X,Y (a check run's hover)";
+  --pointer    put the pointer at window pixel X,Y (a check run's hover)
+  --dev        reload the scene file and its shaders' WGSL files when they change
+  --modules    print the modules (cargo features) this build carries and their kinds, then quit";
 
 struct Args {
     scene: Option<PathBuf>,
@@ -58,6 +63,7 @@ struct Args {
     rooms: Option<PathBuf>,
     screenshot: Option<PathBuf>,
     pointer: Option<(f32, f32)>,
+    dev: bool,
 }
 
 fn args() -> Result<Args> {
@@ -66,14 +72,15 @@ fn args() -> Result<Args> {
         audio: Choice::Auto,
         volume: 1.0,
         cache: None,
-        api: std::env::var("DECK_API").unwrap_or_else(|_| library::API.into()),
-        cdn: std::env::var("DECK_CDN").unwrap_or_else(|_| library::CDN.into()),
+        api: std::env::var("DECK_API").unwrap_or_else(|_| cache::API.into()),
+        cdn: std::env::var("DECK_CDN").unwrap_or_else(|_| cache::CDN.into()),
         windowed: false,
         frames: None,
         hud: true,
         rooms: std::env::var_os("DECK_ROOMS").map(PathBuf::from),
         screenshot: None,
         pointer: None,
+        dev: false,
     };
     let mut it = std::env::args().skip(1);
     while let Some(arg) = it.next() {
@@ -98,6 +105,14 @@ fn args() -> Result<Args> {
             }
             "--windowed" => a.windowed = true,
             "--no-hud" => a.hud = false,
+            "--dev" => a.dev = true,
+            "--modules" => {
+                for m in modules::registry() {
+                    let what: Vec<&str> = m.kinds.iter().chain(m.sources).copied().collect();
+                    println!("{:<9} {} – {}", m.feature, what.join(" "), m.what);
+                }
+                std::process::exit(0);
+            }
             "-h" | "--help" => {
                 println!("{HELP}");
                 std::process::exit(0);
@@ -119,9 +134,9 @@ struct Stats {
     fps: f32,
 }
 
-struct App {
-    args: Args,
-    started: Instant,
+/// A loaded scene and everything that plays it: the graph, the audio engine on its device, the control domain, the
+/// tempo clock, the loaders, the space. A reload (`--dev`) replaces it whole.
+struct Show {
     graph: graph::Graph,
     scene_name: String,
     render_scale: f32,
@@ -131,6 +146,155 @@ struct App {
     audio_build: &'static str,
     clock: Option<audio::Clock>,
     music: Vec<Arc<Mutex<String>>>,
+    /// the time base's frame-thread half (clock.rs); None without audio (then the wall clock since the start)
+    timebase: Option<clock::TimeBase>,
+    /// the tempo clock on top of it (tempo/, #181); its I/O opens with `start`
+    tempo: tempo::Tempo,
+    /// the chapter nodes' loaders, until the renderer takes them
+    feeds: Vec<chapter::ChapterFeed>,
+    /// the master gain (the browser mutes it; it returns to --volume)
+    master: Option<audio::Param>,
+    /// the scene's space node (#188): the camera, the being, the pointer
+    space: Option<render::Space>,
+    /// the audio outputs' peaks (the being's audio hoses)
+    #[cfg_attr(not(feature = "space"), allow(dead_code))]
+    meters: Option<Arc<audio::Meters>>,
+}
+
+/// the scene the arguments name: a file, `cathedral` (built in), or the default
+fn read_scene(args: &Args) -> Result<scene::Scene> {
+    match &args.scene {
+        Some(p) if p.as_os_str() == "cathedral" && !p.exists() => scene::Scene::parse(scene::CATHEDRAL_SCENE),
+        Some(p) => scene::Scene::load(p),
+        None => scene::Scene::parse(scene::DEFAULT_SCENE),
+    }
+}
+
+impl Show {
+    /// Build the scene's graph (refused when it needs a module this build lacks – modules.rs) and start what plays it.
+    fn load(args: &Args, scene: &scene::Scene) -> Result<Show> {
+        let graph = graph::Graph::build(scene)?;
+        tracing::info!("scene '{}': {} nodes, {} links (modules: {})", scene.stage.name, graph.nodes.len(), graph.links.len(), modules::summary());
+        let tempo_cfg = tempo::Config::from_graph(&graph)?;
+
+        // audio first: its clock is the master clock, its handles feed the control domain
+        let has_audio = graph.nodes.iter().any(|n| n.kind.domain() == graph::Domain::Audio);
+        let mut handles = None;
+        let audio = if has_audio {
+            let mut factory = |rate: f32| {
+                let (engine, h) = audio::Engine::build(&graph, rate, args.volume)?;
+                tracing::info!("audio graph: {} ({} steps, {} batches)", h.build.label(), engine.shape().0, engine.shape().1);
+                handles = Some(h);
+                Ok(engine)
+            };
+            match backend::start(args.audio, &mut factory) {
+                Ok(r) => Some(r),
+                Err(e) => {
+                    tracing::warn!("audio off: {e:#}");
+                    handles = None;
+                    None
+                }
+            }
+        } else {
+            None
+        };
+        #[cfg(any(feature = "chapter", feature = "space"))]
+        let cache = args.cache.clone().unwrap_or_else(cache::default_dir);
+        #[cfg(feature = "chapter")]
+        let lib = deck_stage::library::Library { api: args.api.clone(), cdn: args.cdn.clone(), cache: cache.clone() };
+        // the chapter_music nodes' loaders (their status for the HUD and the splash)
+        #[cfg(feature = "chapter")]
+        let music: Vec<Arc<Mutex<String>>> = match handles.as_mut() {
+            Some(h) if !h.music.is_empty() => {
+                tracing::info!("library: {} · cache {}", lib.api, lib.cache.display());
+                let spawn = |feed: audio::MusicFeed| {
+                    let status = feed.status.clone();
+                    deck_stage::library::spawn_music_loader(lib.clone(), &graph.nodes[feed.node], feed);
+                    status
+                };
+                h.music.drain(..).map(spawn).collect()
+            }
+            _ => Vec::new(),
+        };
+        #[cfg(not(feature = "chapter"))]
+        let music = Vec::new();
+        #[cfg(feature = "chapter")]
+        let feeds: Vec<chapter::ChapterFeed> = (0..graph.nodes.len())
+            .filter(|&i| graph.nodes[i].kind == graph::Kind::Chapter)
+            .map(|i| chapter::spawn(lib.clone(), &graph.nodes[i], i))
+            .collect();
+        #[cfg(not(feature = "chapter"))]
+        let feeds = Vec::new();
+        let master = handles.as_ref().map(|h| h.master.clone());
+        let meters = handles.as_ref().and_then(|h| h.meters.clone());
+        #[cfg(feature = "space")]
+        let space = graph.first(graph::Kind::Space).map(|n| {
+            let rooms = args.rooms.clone().unwrap_or_else(|| cache.join("rooms"));
+            tracing::info!("space: rooms in {}", rooms.display());
+            deck_stage::space::Space::new(&graph, n, &scene.being, &rooms)
+        });
+        #[cfg(not(feature = "space"))]
+        let space = None;
+        let audio_build = handles.as_ref().map_or("", |h| h.build.label());
+        let clock = handles.as_ref().map(|h| h.clock.clone());
+        let timebase = clock.as_ref().map(|c| clock::TimeBase::new(c.rate));
+        let controls = control::Controls::new(&graph, handles.as_mut());
+        // the tempo clock: the engine's shared map (or its own without audio)
+        let rate = clock.as_ref().map_or(48_000.0, |c| c.rate as f64);
+        let shared = handles.as_ref().map(|h| h.tempo.clone()).unwrap_or_default();
+        let tempo = tempo::Tempo::new(tempo_cfg, shared, rate);
+        Ok(Show {
+            scene_name: scene.stage.name.clone(),
+            render_scale: scene.stage.render_scale,
+            graph,
+            controls,
+            audio,
+            audio_build,
+            clock,
+            music,
+            timebase,
+            tempo,
+            feeds,
+            master,
+            space,
+            meters,
+        })
+    }
+
+    /// The scene the arguments name, or – when it can't be played – the test pattern and the reason.
+    fn load_or_explain(args: &Args) -> Result<(Show, Option<String>)> {
+        match read_scene(args).and_then(|s| Show::load(args, &s)) {
+            Ok(show) => Ok((show, None)),
+            Err(e) => {
+                tracing::error!("the scene can't be played – the test pattern instead: {e:#}");
+                let fallback = scene::Scene::parse(scene::TEST_PATTERN_SCENE)?;
+                Ok((Show::load(args, &fallback)?, Some(format!("{e:#}"))))
+            }
+        }
+    }
+
+    /// the shader nodes' WGSL files (what `--dev` watches besides the scene)
+    fn shader_files(&self) -> Vec<(usize, PathBuf)> {
+        let g = &self.graph;
+        (0..g.nodes.len()).filter(|&i| g.nodes[i].kind == graph::Kind::Shader).filter_map(|i| Some((i, g.nodes[i].str("wgsl")?.into()))).collect()
+    }
+}
+
+/// what `--dev` watches: the scene file, a shader node's WGSL file
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Watched {
+    Scene,
+    Shader(usize),
+}
+
+struct App {
+    args: Args,
+    started: Instant,
+    show: Show,
+    /// why the scene isn't playing (or the last reload failed) – the HUD shows it on top
+    error: Option<String>,
+    /// `--dev`: the files and what each one is
+    watch: Option<(watch::Watch, Vec<Watched>)>,
     window: Option<Arc<Window>>,
     renderer: Option<render::Renderer>,
     hud: hud::Hud,
@@ -138,28 +302,16 @@ struct App {
     last: Option<Instant>,
     /// the start on clock::now_ns's clock (the time base without audio)
     t0_ns: u64,
-    /// the time base's frame-thread half (clock.rs); None without audio (then the wall clock since the start)
-    timebase: Option<clock::TimeBase>,
     /// this frame's view of the time base: the audio position heard at the frame's moment, what is rendered, the line
     moment: clock::Moment,
-    /// the tempo clock on top of it (tempo/, #181)
-    tempo: tempo::Tempo,
     stats: Stats,
     mods: ModifiersState,
     exit: i32,
-    /// the chapter nodes' loaders, until the renderer takes them
-    feeds: Vec<chapter::ChapterFeed>,
     splash: splash::Fade,
-    /// the master gain (the browser mutes it; it returns to --volume)
-    master: Option<audio::Param>,
     /// the browser on top: since when; `paused` once it has the focus (the stage stops drawing)
     browser: Option<Instant>,
     paused: bool,
     proxy: EventLoopProxy<Event>,
-    /// the scene's space node (#188): the camera, the being, the pointer
-    space: Option<space::Space>,
-    /// the audio outputs' peaks (the being's audio hoses)
-    meters: Option<Arc<audio::Meters>>,
 }
 
 impl App {
@@ -173,7 +325,7 @@ impl App {
     /// it stands at 0; no audio: the wall clock since the start.
     fn advance_time(&mut self) {
         let now = clock::now_ns();
-        self.moment = match (&self.clock, self.timebase.as_mut()) {
+        self.moment = match (&self.show.clock, self.show.timebase.as_mut()) {
             (Some(c), Some(tb)) => {
                 tb.poll(&c.stamp);
                 tb.moment(now, c.rendered()).unwrap_or_else(|| clock::Moment::wall(now, now, c.rate as f64))
@@ -192,11 +344,106 @@ impl App {
         if self.started.elapsed().as_secs_f32() > SPLASH_MAX_S {
             return false;
         }
-        let music = self.music.iter().any(|s| {
+        let music = self.show.music.iter().any(|s| {
             let s = s.lock().unwrap();
             s.is_empty() || ["waiting", "loading", "fetching", "decoding"].iter().any(|p| s.starts_with(p))
         });
         music || self.renderer.as_ref().is_some_and(|r| !r.slides_ready())
+    }
+
+    /// the files `--dev` watches for this show
+    fn watch_files(&self) -> Option<(watch::Watch, Vec<Watched>)> {
+        if !self.args.dev {
+            return None;
+        }
+        let mut files = Vec::new();
+        let mut what = Vec::new();
+        if let Some(p) = self.args.scene.as_ref().filter(|p| p.exists()) {
+            files.push(p.clone());
+            what.push(Watched::Scene);
+        }
+        for (node, path) in self.show.shader_files() {
+            files.push(path);
+            what.push(Watched::Shader(node));
+        }
+        let w = watch::Watch::new(files);
+        tracing::info!("dev: watching {}", w.paths().map(|p| p.display().to_string()).collect::<Vec<_>>().join(", "));
+        Some((w, what))
+    }
+
+    /// `--dev`: a changed scene reloads the show, a changed WGSL file its pass
+    fn poll_watch(&mut self) {
+        let Some((w, what)) = self.watch.as_mut() else { return };
+        let changed: Vec<Watched> = w.changed().into_iter().map(|i| what[i]).collect();
+        if changed.contains(&Watched::Scene) {
+            self.reload();
+            return;
+        }
+        let nodes: Vec<usize> = changed.iter().filter_map(|w| if let Watched::Shader(n) = w { Some(*n) } else { None }).collect();
+        if let (false, Some(r)) = (nodes.is_empty(), self.renderer.as_mut()) {
+            let errors = r.reload_shaders(&self.show.graph, &nodes);
+            self.error = (!errors.is_empty()).then(|| errors.join("; "));
+            self.hud_at = -1.0;
+        }
+    }
+
+    /// The scene file again (`--dev`): checked first – a scene that doesn't build keeps the running show and says why –,
+    /// then the old show stops (its audio device, its sources' ports, its renderer's surface) and the new one starts.
+    fn reload(&mut self) {
+        self.hud_at = -1.0;
+        let scene = match read_scene(&self.args).and_then(|s| graph::Graph::build(&s).map(|_| s)) {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::error!("reload: {e:#} – the running scene stays");
+                self.error = Some(format!("{e:#}"));
+                return;
+            }
+        };
+        self.renderer = None;
+        self.show.audio = None;
+        let (show, error) = match Show::load(&self.args, &scene) {
+            Ok(s) => (s, None),
+            Err(e) => match scene::Scene::parse(scene::TEST_PATTERN_SCENE).and_then(|s| Show::load(&self.args, &s)) {
+                Ok(s) => (s, Some(format!("{e:#}"))),
+                Err(e2) => {
+                    tracing::error!("reload: {e:#}; the test pattern: {e2:#}");
+                    self.exit = 1;
+                    return;
+                }
+            },
+        };
+        self.show = show;
+        self.show.tempo.start();
+        self.error = error;
+        self.watch = self.watch_files();
+        self.last = None;
+        if let Some(w) = self.window.clone() {
+            self.start_renderer(&w);
+        }
+        tracing::info!("reloaded '{}'", self.show.scene_name);
+    }
+
+    /// the renderer for the current show on `window` (the space's view and the pointer with it)
+    fn start_renderer(&mut self, window: &Arc<Window>) {
+        #[cfg(feature = "space")]
+        if let Some(s) = self.show.space.as_mut() {
+            let size = window.inner_size();
+            s.set_view(size.width as f32, size.height as f32);
+            if let Some((x, y)) = self.args.pointer {
+                s.pointer_moved(x, y, &mut self.show.controls);
+            }
+        }
+        // the kiosk hides the pointer – unless the scene has a space to point into
+        window.set_cursor_visible(self.args.windowed || self.show.space.is_some());
+        let feeds = std::mem::take(&mut self.show.feeds);
+        match render::Renderer::new(window.clone(), &self.show.graph, self.show.render_scale, feeds) {
+            Ok(r) => self.renderer = Some(r),
+            Err(e) => {
+                tracing::error!("render: {e:#}");
+                self.exit = 1;
+            }
+        }
+        window.request_redraw();
     }
 
     /// F2: the browser on top of the stage (DECK_BROWSER), else exit code 10 for deck-session
@@ -219,7 +466,7 @@ impl App {
                     let _ = proxy.send_event(Event::BrowserClosed);
                 });
                 self.browser = Some(Instant::now());
-                if let Some(m) = &self.master {
+                if let Some(m) = &self.show.master {
                     m.set(0.0);
                 }
             }
@@ -235,7 +482,7 @@ impl App {
         }
         tracing::info!("power off (Ctrl+Alt+Del)");
         self.browser.get_or_insert_with(Instant::now); // the splash comes up and stays
-        if let Some(m) = &self.master {
+        if let Some(m) = &self.show.master {
             m.set(0.0);
         }
         if let Err(e) = std::process::Command::new("systemctl").arg("poweroff").spawn() {
@@ -247,6 +494,11 @@ impl App {
         if self.paused {
             return; // the browser has the screen; the next frame comes when it closes
         }
+        self.poll_watch();
+        if self.exit != 0 {
+            el.exit();
+            return;
+        }
         let now = Instant::now();
         let dt = self.last.map(|l| (now - l).as_secs_f32()).unwrap_or(1.0 / 60.0).min(0.25);
         if let Some(l) = self.last {
@@ -256,12 +508,13 @@ impl App {
         }
         self.last = Some(now);
         self.advance_time();
-        let beat = self.tempo.frame(&self.moment);
-        self.controls.update(dt, self.lead(), &beat);
+        let beat = self.show.tempo.frame(&self.moment);
+        self.show.controls.update(dt, self.lead(), &beat);
         let time = self.time();
-        if let Some(s) = self.space.as_mut() {
-            let meters = self.meters.as_deref();
-            s.update(dt, time, &self.controls, &beat, &|n, p| meters.map_or(0.0, |m| m.level(n, p)));
+        #[cfg(feature = "space")]
+        if let Some(s) = self.show.space.as_mut() {
+            let meters = self.show.meters.as_deref();
+            s.update(dt, time, &self.show.controls, &beat, &|n, p| meters.map_or(0.0, |m| m.level(n, p)));
         }
         self.stats.window.0 += 1;
         self.stats.window.1 += dt;
@@ -269,11 +522,18 @@ impl App {
             self.stats.fps = self.stats.window.0 as f32 / self.stats.window.1;
             self.stats.window = (0, 0.0);
         }
-        if self.args.hud && time - self.hud_at >= 0.25 || self.stats.frames == 0 {
+        // a scene that can't be played is explained even without the HUD
+        let hud_on = self.args.hud || self.error.is_some();
+        if hud_on && time - self.hud_at >= 0.25 || self.stats.frames == 0 || self.hud_at < 0.0 {
             self.hud_at = time;
-            self.hud.set_lines(self.hud_lines());
-            let t = self.tempo.now();
-            self.hud.set_beat(Some(hud::Beat { row: TEMPO_ROW, beat: t.pos.beat_in_bar, per_bar: t.per_bar, running: t.running }));
+            let lines = self.hud_lines();
+            let t = self.show.tempo.now();
+            let row = lines.iter().position(|l| l.starts_with("BPM"));
+            self.hud.set_beat(row.map(|row| hud::Beat { row, beat: t.pos.beat_in_bar, per_bar: t.per_bar, running: t.running }));
+            self.hud.set_lines(lines);
+        }
+        if self.error.is_some() {
+            self.hud.visible = true;
         }
         if self.hud.visible {
             self.hud.raster();
@@ -282,12 +542,12 @@ impl App {
         self.splash.step(cover, dt);
         let splash = (self.splash.alpha, cover);
         let Some(r) = self.renderer.as_mut() else { return };
-        let shown = (self.args.hud && self.hud.visible).then_some(&self.hud);
+        let shown = (hud_on && self.hud.visible).then_some(&self.hud);
         if self.args.frames.is_some_and(|n| self.stats.frames + 1 >= n) {
             r.capture = self.args.screenshot.clone();
         }
         let before = (now.elapsed().as_secs_f32()) * 1000.0;
-        match r.frame(&self.graph, &self.controls, time, dt, shown, splash, self.space.as_mut()) {
+        match r.frame(&self.show.graph, &self.show.controls, time, dt, shown, splash, self.show.space.as_mut()) {
             // the frame thread's work: controls + HUD before the render, the render after the surface's vsync wait
             Ok(ms) => push_capped(&mut self.stats.work, before + ms),
             Err(e) => {
@@ -315,29 +575,35 @@ impl App {
     fn hud_lines(&self) -> Vec<String> {
         let last = |v: &[f32]| v.iter().rev().take(60).sum::<f32>() / v.len().clamp(1, 60) as f32;
         let gpu = self.renderer.as_ref().map(|r| format!("{} {:?}", r.adapter.name, r.adapter.backend)).unwrap_or_default();
-        let audio = match &self.audio {
+        let audio = match &self.show.audio {
             Some(a) => format!("{} {} HZ", a.name, a.rate),
             None => "off".into(),
         };
-        let mut lines = vec![
-            format!("SCUTOONSDECK STAGE  {}", self.scene_name),
+        let mut lines = Vec::new();
+        if let Some(e) = &self.error {
+            // font8x8 has no dashes but the ASCII one
+            lines.push("SCENE ERROR - THE TEST PATTERN INSTEAD".into());
+            lines.extend(hud::wrap(&e.replace(['–', '—'], "-"), hud::COLS).into_iter().take(hud::LINES - 4));
+        }
+        lines.extend([
+            format!("SCUTOONSDECK STAGE  {}", self.show.scene_name),
             "F2 WEB  CTRL+ALT+ F2 SHELL / DEL OFF".into(),
             "T TAP +/- BPM SPACE RUN F3 SRC K CLICK".into(),
             format!("FPS {:.1}  FRAME {:.1} MS  CPU {:.2} MS", self.stats.fps, last(&self.stats.intervals), last(&self.stats.work)),
             format!("GPU {gpu}"),
-            format!("AUDIO {audio}  T {:.1} S  AHEAD {:.0} MS", self.time(), self.lead() as f32 * 1000.0 / self.clock.as_ref().map_or(48_000.0, |c| c.rate)),
+            format!("AUDIO {audio}  T {:.1} S  AHEAD {:.0} MS", self.time(), self.lead() as f32 * 1000.0 / self.show.clock.as_ref().map_or(48_000.0, |c| c.rate)),
             self.tempo_line(),
             self.source_line(),
-        ];
-        debug_assert!(lines[TEMPO_ROW].starts_with("BPM"), "the beat lights' row");
-        if let Some(s) = &self.space {
+        ]);
+        #[cfg(feature = "space")]
+        if let Some(s) = &self.show.space {
             lines.push("DRAG TURN/KNOB WHEEL ZOOM R HOME".into());
-            lines.push(s.hud_line(&self.graph));
+            lines.push(s.hud_line(&self.show.graph));
         }
-        if let Some([l, b, m, h]) = self.controls.fft() {
+        if let Some([l, b, m, h]) = self.show.controls.fft() {
             lines.push(format!("FFT L {l:.2} B {b:.2} M {m:.2} H {h:.2}"));
         }
-        for s in &self.music {
+        for s in &self.show.music {
             lines.push(format!("MUSIC {}", s.lock().unwrap()));
         }
         for s in self.renderer.as_ref().map(|r| r.slides_status()).unwrap_or_default() {
@@ -349,21 +615,21 @@ impl App {
 
     /// BPM, bar and beat (the beat lights sit at its end), stopped, the click
     fn tempo_line(&self) -> String {
-        let t = self.tempo.now();
+        let t = self.show.tempo.now();
         format!(
             "BPM {:.1}  BAR {} BEAT {}{}{}",
             t.bpm,
             t.pos.bar + 1,
             t.pos.beat_in_bar + 1,
             if t.running { "" } else { " STOP" },
-            if self.tempo.click { " CLK" } else { "" }
+            if self.show.tempo.click { " CLK" } else { "" }
         )
     }
 
     /// the clock's master and its state, the MIDI clock out
     fn source_line(&self) -> String {
-        let out = self.tempo.clock_out().map(|_| "  > MIDI").unwrap_or_default();
-        format!("SRC {} {}{out}", self.tempo.source.name().to_uppercase(), self.tempo.status())
+        let out = self.show.tempo.clock_out().map(|_| "  > MIDI").unwrap_or_default();
+        format!("SRC {} {}{out}", self.show.tempo.source.name().to_uppercase(), self.show.tempo.status())
     }
 
     fn summary(&self) -> String {
@@ -372,16 +638,51 @@ impl App {
         let avg = |v: &[f32]| v.iter().sum::<f32>() / v.len().max(1) as f32;
         let p99 = iv.get(((iv.len() as f32) * 0.99) as usize).or(iv.last()).copied().unwrap_or(0.0);
         let adapter = self.renderer.as_ref().map(|r| format!("{} ({:?})", r.adapter.name, r.adapter.backend)).unwrap_or_default();
+        let error = self.error.as_ref().map(|e| format!(" scene_error=\"{e}\"")).unwrap_or_default();
         format!(
-            "deck-stage: frames={} avg_fps={:.1} frame_ms avg={:.2} p99={:.2} cpu_ms avg={:.2} first_frame_ms={:.0} adapter={adapter} audio={}",
+            "deck-stage: frames={} avg_fps={:.1} frame_ms avg={:.2} p99={:.2} cpu_ms avg={:.2} first_frame_ms={:.0} adapter={adapter} audio={} modules={}{error}",
             self.stats.frames,
             1000.0 / avg(&iv).max(1e-3),
             avg(&iv),
             p99,
             avg(&self.stats.work),
             self.stats.first_frame_ms.unwrap_or(0.0),
-            self.audio.as_ref().map(|a| format!("{} {} Hz ({})", a.name, a.rate, self.audio_build)).unwrap_or_else(|| "off".into()),
+            self.show.audio.as_ref().map(|a| format!("{} {} Hz ({})", a.name, a.rate, self.show.audio_build)).unwrap_or_else(|| "off".into()),
+            modules::summary(),
         )
+    }
+
+    /// the space node's pointer, wheel and keys (#188); false = not the space's event
+    #[cfg(feature = "space")]
+    fn space_event(&mut self, event: &WindowEvent) -> bool {
+        let Some(s) = self.show.space.as_mut() else { return false };
+        match event {
+            WindowEvent::Resized(size) => s.set_view(size.width as f32, size.height as f32),
+            // a check run's --pointer stays where it was put
+            WindowEvent::CursorMoved { .. } | WindowEvent::CursorLeft { .. } if self.args.pointer.is_some() => {}
+            WindowEvent::CursorMoved { position, .. } => s.pointer_moved(position.x as f32, position.y as f32, &mut self.show.controls),
+            WindowEvent::CursorLeft { .. } => s.pointer_left(),
+            WindowEvent::MouseInput { state, button: MouseButton::Left, .. } => match state {
+                ElementState::Pressed => s.press(),
+                ElementState::Released => s.release(),
+            },
+            WindowEvent::MouseWheel { delta, .. } => s.camera.zoom(match delta {
+                MouseScrollDelta::LineDelta(_, y) => *y,
+                MouseScrollDelta::PixelDelta(p) => p.y as f32 / 60.0,
+            }),
+            WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && !event.repeat => {
+                match event.logical_key.as_ref() {
+                    Key::Character("r") => s.camera.reset(),
+                    Key::Named(NamedKey::ArrowLeft) => s.camera.turn(-0.12),
+                    Key::Named(NamedKey::ArrowRight) => s.camera.turn(0.12),
+                    Key::Named(NamedKey::ArrowUp) | Key::Named(NamedKey::PageUp) => s.camera.zoom(1.0),
+                    Key::Named(NamedKey::ArrowDown) | Key::Named(NamedKey::PageDown) => s.camera.zoom(-1.0),
+                    _ => return false,
+                }
+            }
+            _ => return false,
+        }
+        true
     }
 }
 
@@ -400,7 +701,7 @@ impl ApplicationHandler<Event> for App {
                 self.browser = None;
                 self.paused = false;
                 self.last = None; // the pause is not a frame interval
-                if let Some(m) = &self.master {
+                if let Some(m) = &self.show.master {
                     m.set(self.args.volume);
                 }
                 if let Some(w) = &self.window {
@@ -429,98 +730,46 @@ impl ApplicationHandler<Event> for App {
                 return;
             }
         };
-        // the kiosk hides the pointer – unless the scene has a space to point into
-        if !self.args.windowed && self.space.is_none() {
-            window.set_cursor_visible(false);
+        self.start_renderer(&window);
+        if self.exit != 0 {
+            el.exit();
+            return;
         }
-        if let Some(s) = self.space.as_mut() {
-            let size = window.inner_size();
-            s.set_view(size.width as f32, size.height as f32);
-            if let Some((x, y)) = self.args.pointer {
-                s.pointer_moved(x, y, &mut self.controls);
-            }
-        }
-        match render::Renderer::new(window.clone(), &self.graph, self.render_scale, std::mem::take(&mut self.feeds)) {
-            Ok(r) => self.renderer = Some(r),
-            Err(e) => {
-                tracing::error!("render: {e:#}");
-                self.exit = 1;
-                el.exit();
-                return;
-            }
-        }
-        window.request_redraw();
         self.window = Some(window);
     }
 
     fn window_event(&mut self, el: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
+        #[cfg(feature = "space")]
+        if !matches!(event, WindowEvent::Resized(_)) && self.space_event(&event) {
+            return;
+        }
         match event {
             WindowEvent::CloseRequested => el.exit(),
             WindowEvent::Resized(s) => {
                 if let Some(r) = self.renderer.as_mut() {
                     r.resize(s.width, s.height);
                 }
-                if let Some(sp) = self.space.as_mut() {
-                    sp.set_view(s.width as f32, s.height as f32);
-                }
-            }
-            // a check run's --pointer stays where it was put
-            WindowEvent::CursorMoved { .. } | WindowEvent::CursorLeft { .. } if self.args.pointer.is_some() => {}
-            WindowEvent::CursorMoved { position, .. } => {
-                if let Some(s) = self.space.as_mut() {
-                    s.pointer_moved(position.x as f32, position.y as f32, &mut self.controls);
-                }
-            }
-            WindowEvent::CursorLeft { .. } => {
-                if let Some(s) = self.space.as_mut() {
-                    s.pointer_left();
-                }
-            }
-            WindowEvent::MouseInput { state, button: MouseButton::Left, .. } => {
-                if let Some(s) = self.space.as_mut() {
-                    match state {
-                        ElementState::Pressed => s.press(),
-                        ElementState::Released => s.release(),
-                    }
-                }
-            }
-            WindowEvent::MouseWheel { delta, .. } => {
-                if let Some(s) = self.space.as_mut() {
-                    let steps = match delta {
-                        MouseScrollDelta::LineDelta(_, y) => y,
-                        MouseScrollDelta::PixelDelta(p) => p.y as f32 / 60.0,
-                    };
-                    s.camera.zoom(steps);
-                }
+                #[cfg(feature = "space")]
+                self.space_event(&event);
             }
             WindowEvent::ModifiersChanged(m) => self.mods = m.state(),
             // the browser's window took the screen: stop drawing behind it (hidden, a frame could block on vsync)
             WindowEvent::Focused(false) if self.browser.is_some() => self.paused = true,
             WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && !event.repeat => {
+                let tempo = &self.show.tempo;
                 match event.logical_key.as_ref() {
                     Key::Named(NamedKey::F1) => self.hud.visible = !self.hud.visible,
                     Key::Named(NamedKey::F2) => self.open_browser(el),
                     Key::Named(NamedKey::Escape) if self.args.windowed => el.exit(),
                     Key::Named(NamedKey::Delete) if self.mods.control_key() && self.mods.alt_key() => self.power_off(),
                     Key::Character("q") if self.mods.control_key() => el.exit(),
-                    Key::Named(NamedKey::F3) => self.tempo.key(tempo::Key::NextSource),
-                    Key::Named(NamedKey::Space) => self.tempo.key(tempo::Key::StartStop),
-                    Key::Character("t") => self.tempo.key(tempo::Key::Tap),
-                    Key::Character("+" | "=") => self.tempo.key(tempo::Key::Faster),
-                    Key::Character("-") => self.tempo.key(tempo::Key::Slower),
-                    Key::Character("k") => self.tempo.key(tempo::Key::Click),
-                    key => {
-                        if let Some(s) = self.space.as_mut() {
-                            match key {
-                                Key::Character("r") => s.camera.reset(),
-                                Key::Named(NamedKey::ArrowLeft) => s.camera.turn(-0.12),
-                                Key::Named(NamedKey::ArrowRight) => s.camera.turn(0.12),
-                                Key::Named(NamedKey::ArrowUp) | Key::Named(NamedKey::PageUp) => s.camera.zoom(1.0),
-                                Key::Named(NamedKey::ArrowDown) | Key::Named(NamedKey::PageDown) => s.camera.zoom(-1.0),
-                                _ => {}
-                            }
-                        }
-                    }
+                    Key::Named(NamedKey::F3) => tempo.key(tempo::Key::NextSource),
+                    Key::Named(NamedKey::Space) => tempo.key(tempo::Key::StartStop),
+                    Key::Character("t") => tempo.key(tempo::Key::Tap),
+                    Key::Character("+" | "=") => tempo.key(tempo::Key::Faster),
+                    Key::Character("-") => tempo.key(tempo::Key::Slower),
+                    Key::Character("k") => tempo.key(tempo::Key::Click),
+                    _ => {}
                 }
             }
             WindowEvent::RedrawRequested => self.redraw(el),
@@ -545,68 +794,9 @@ fn main() {
 fn run() -> Result<i32> {
     let started = Instant::now();
     let args = args()?;
-    let scene = match &args.scene {
-        Some(p) if p.as_os_str() == "cathedral" && !p.exists() => scene::Scene::parse(scene::CATHEDRAL_SCENE)?,
-        Some(p) => scene::Scene::load(p)?,
-        None => scene::Scene::parse(scene::DEFAULT_SCENE)?,
-    };
-    let graph = graph::Graph::build(&scene)?;
-    tracing::info!("scene '{}': {} nodes, {} links", scene.stage.name, graph.nodes.len(), graph.links.len());
-
-    // audio first: its clock is the master clock, its handles feed the control domain
-    let has_audio = graph.nodes.iter().any(|n| n.kind.domain() == graph::Domain::Audio);
-    let mut handles = None;
-    let audio = if has_audio {
-        let mut factory = |rate: f32| {
-            let (engine, h) = audio::Engine::build(&graph, rate, args.volume)?;
-            tracing::info!("audio graph: {} ({} steps, {} batches)", h.build.label(), engine.shape().0, engine.shape().1);
-            handles = Some(h);
-            Ok(engine)
-        };
-        match backend::start(args.audio, &mut factory) {
-            Ok(r) => Some(r),
-            Err(e) => {
-                tracing::warn!("audio off: {e:#}");
-                handles = None;
-                None
-            }
-        }
-    } else {
-        None
-    };
-    let lib = library::Library {
-        api: args.api.clone(),
-        cdn: args.cdn.clone(),
-        cache: args.cache.clone().unwrap_or_else(library::Library::default_cache),
-    };
-    let mut music = Vec::new();
-    if let Some(h) = handles.as_mut() {
-        tracing::info!("library: {} · cache {}", lib.api, lib.cache.display());
-        for feed in h.music.drain(..) {
-            music.push(feed.status.clone());
-            library::spawn_music_loader(lib.clone(), &graph.nodes[feed.node], feed);
-        }
-    }
-    let feeds: Vec<chapter::ChapterFeed> = (0..graph.nodes.len())
-        .filter(|&i| graph.nodes[i].kind == graph::Kind::Chapter)
-        .map(|i| chapter::spawn(lib.clone(), &graph.nodes[i], i))
-        .collect();
-    let master = handles.as_ref().map(|h| h.master.clone());
-    let meters = handles.as_ref().and_then(|h| h.meters.clone());
-    let rooms = args.rooms.clone().unwrap_or_else(|| lib.cache.join("rooms"));
-    let space = graph.first(graph::Kind::Space).map(|n| {
-        tracing::info!("space: rooms in {}", rooms.display());
-        space::Space::new(&graph, n, &scene.being, &rooms)
-    });
-    let audio_build = handles.as_ref().map_or("", |h| h.build.label());
-    let clock = handles.as_ref().map(|h| h.clock.clone());
-    let timebase = clock.as_ref().map(|c| clock::TimeBase::new(c.rate));
-    let controls = control::Controls::new(&graph, handles.as_mut());
-    // the tempo clock: the engine's shared map (or its own without audio), the scene's source opened
-    let rate = clock.as_ref().map_or(48_000.0, |c| c.rate as f64);
-    let shared = handles.as_ref().map(|h| h.tempo.clone()).unwrap_or_default();
-    let mut tempo = tempo::Tempo::new(tempo::Config::from_graph(&graph)?, shared, rate);
-    tempo.start();
+    let (mut show, error) = Show::load_or_explain(&args)?;
+    show.tempo.start();
+    let rate = show.clock.as_ref().map_or(48_000.0, |c| c.rate as f64);
 
     let event_loop = EventLoop::<Event>::with_user_event().build().context("no event loop (no display?)")?;
     let proxy = event_loop.create_proxy();
@@ -614,37 +804,28 @@ fn run() -> Result<i32> {
         hud: hud::Hud::default(),
         args,
         started,
-        graph,
-        scene_name: scene.stage.name.clone(),
-        render_scale: scene.stage.render_scale,
-        controls,
-        audio,
-        audio_build,
-        clock,
-        music,
+        show,
+        error,
+        watch: None,
         window: None,
         renderer: None,
         hud_at: -1.0,
         last: None,
         t0_ns: clock::now_ns(),
-        timebase,
         moment: clock::Moment::wall(clock::now_ns(), clock::now_ns(), rate),
-        tempo,
         stats: Stats::default(),
         mods: ModifiersState::empty(),
         exit: 0,
-        feeds,
         splash: splash::Fade { alpha: 1.0 },
-        master,
         browser: None,
         paused: false,
         proxy,
-        space,
-        meters,
     };
+    app.watch = app.watch_files();
     event_loop.run_app(&mut app)?;
     let summary = app.summary();
     tracing::info!("{summary}");
     println!("{summary}");
-    Ok(app.exit)
+    // a check run (--frames) that couldn't play its scene fails; the kiosk never exits for it
+    Ok(if app.exit == 0 && app.error.is_some() && app.args.frames.is_some() { 2 } else { app.exit })
 }

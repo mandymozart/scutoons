@@ -6,12 +6,16 @@
 //! chapter nodes' slices arrive from their loaders (chapter.rs) and are uploaded when the node cuts; the splash (the
 //! logo, splash.rs) goes over everything – its first frame is shown before the scene's shaders are compiled.
 //! #188: a `space` node is not a fullscreen pass – space/gpu.rs draws the room and the being into its texture with a
-//! depth buffer. `capture` saves the next frame as a PNG (`--screenshot`).
+//! depth buffer (the `space` module, #185). `capture` saves the next frame as a PNG (`--screenshot`). `reload_shaders`
+//! recompiles the passes whose WGSL file changed (the dev mode's hot reload).
 use crate::chapter::{ChapterFeed, Prepared};
 use crate::control::Controls;
 use crate::graph::{Graph, Kind};
-use crate::space::{gpu::SpaceGpu, Space};
 use crate::hud::{self, Hud};
+#[cfg(feature = "space")]
+use crate::space::gpu::SpaceGpu;
+#[cfg(feature = "space")]
+pub use crate::space::Space;
 use crate::tempo::Quantize;
 use anyhow::{bail, Context, Result};
 use std::collections::HashMap;
@@ -95,6 +99,10 @@ struct Slides {
     last_beat: f64,
 }
 
+/// Without the `space` module no scene has a space node (modules.rs refuses it): nothing to draw.
+#[cfg(not(feature = "space"))]
+pub enum Space {}
+
 pub struct Renderer {
     surface: wgpu::Surface<'static>,
     device: wgpu::Device,
@@ -114,6 +122,7 @@ pub struct Renderer {
     splash: Pass,
     logo: Image,
     /// the space node's GPU side, made at its first frame
+    #[cfg(feature = "space")]
     space: Option<SpaceGpu>,
     /// save the next frame here (PNG), then forget it
     pub capture: Option<PathBuf>,
@@ -240,6 +249,7 @@ impl Renderer {
             hud_tex,
             render_scale: if software { render_scale.min(0.5) } else { render_scale }.clamp(0.25, 1.0),
             slides: Vec::new(),
+            #[cfg(feature = "space")]
             space: None,
             capture: None,
             can_capture,
@@ -321,6 +331,26 @@ impl Renderer {
             .collect()
     }
 
+    /// The dev mode's hot reload: recompile the shader nodes `nodes` from their WGSL files. A file that doesn't read or
+    /// compile keeps the running pipeline; the errors come back for the HUD.
+    pub fn reload_shaders(&mut self, graph: &Graph, nodes: &[usize]) -> Vec<String> {
+        let mut errors = Vec::new();
+        for p in self.passes.iter_mut().filter(|p| nodes.contains(&p.node) && p.pipeline.is_some()) {
+            let node = &graph.nodes[p.node];
+            match shader_body(node).and_then(|body| pipeline(&self.device, &self.layout, &node.id, &body, OFFSCREEN, false)) {
+                Ok(pl) => {
+                    p.pipeline = Some(pl);
+                    tracing::info!("node '{}': shader reloaded", node.id);
+                }
+                Err(e) => {
+                    tracing::error!("node '{}': the shader does not compile – the last one runs on\n{e:#}", node.id);
+                    errors.push(format!("node '{}': {e:#}", node.id));
+                }
+            }
+        }
+        errors
+    }
+
     fn render_size(&self) -> (u32, u32) {
         let s = self.render_scale;
         (((self.config.width as f32 * s) as u32).max(1), ((self.config.height as f32 * s) as u32).max(1))
@@ -343,6 +373,7 @@ impl Renderer {
         for p in &mut self.passes {
             p.target = Some(Target { view: texture(&self.device, w, h, OFFSCREEN, usage).create_view(&Default::default()) });
         }
+        #[cfg(feature = "space")]
         if let Some(s) = self.space.as_mut() {
             s.resize(&self.device, (w, h));
         }
@@ -495,6 +526,9 @@ impl Renderer {
             self.rebind();
         }
         let (w, h) = self.render_size();
+        #[cfg(not(feature = "space"))]
+        let _ = space;
+        #[cfg(feature = "space")]
         let space: Option<&Space> = match space {
             Some(s) => {
                 let gpu = self.space.get_or_insert_with(|| SpaceGpu::new(&self.device, &self.queue, s, OFFSCREEN, (w, h)));
@@ -523,6 +557,7 @@ impl Renderer {
         for p in &self.passes {
             let target = &p.target.as_ref().unwrap().view;
             let Some(pipeline) = &p.pipeline else {
+                #[cfg(feature = "space")]
                 if let (Some(gpu), Some(s)) = (self.space.as_mut(), space) {
                     gpu.draw(&self.queue, &mut enc, target, (w, h), s, time);
                 }
@@ -629,7 +664,7 @@ fn params(ctl: &Controls, p: &Pass) -> [f32; 8] {
         Kind::Overlay => &["opacity", "pulse", "shake"],
         _ => &[],
     };
-    let input = |name: &str| ctl.input(p.node, name, crate::space::params::default(p.kind, name));
+    let input = |name: &str| ctl.input(p.node, name, crate::params::default(p.kind, name));
     for (i, name) in names.iter().enumerate() {
         out[i] = input(name);
     }

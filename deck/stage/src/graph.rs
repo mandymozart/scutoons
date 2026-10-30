@@ -35,7 +35,9 @@ macro_rules! p {
 }
 use PortType::{Audio as A, Control as C, Video as V};
 
-/// Every node kind the stage knows. A new kind = a variant here + its ports + its block (render.rs / audio.rs / control.rs).
+/// Every node kind the stage knows, built or not – a kind's implementation lives in its module (a cargo feature, #185:
+/// modules.rs, deck-core's stage.rs table). A new kind = a variant here + its name + its ports + its block
+/// (render.rs / audio / control.rs) + its line in that table.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
     /// procedural colour bars, rings and a grid – the S1 picture
@@ -78,27 +80,43 @@ pub enum Kind {
 }
 
 impl Kind {
+    /// every kind with its name in a scene
+    const NAMES: [(&'static str, Kind); 17] = [
+        ("test_pattern", Kind::TestPattern),
+        ("shader", Kind::Shader),
+        ("screen", Kind::Screen),
+        ("chapter", Kind::Chapter),
+        ("overlay", Kind::Overlay),
+        ("space", Kind::Space),
+        ("lfo", Kind::Lfo),
+        ("tempo", Kind::Tempo),
+        ("click", Kind::Click),
+        ("osc", Kind::Osc),
+        ("noise", Kind::Noise),
+        ("fm", Kind::Fm),
+        ("seq", Kind::Seq),
+        ("chapter_music", Kind::ChapterMusic),
+        ("mixer", Kind::Mixer),
+        ("fft", Kind::Fft),
+        ("audio_out", Kind::AudioOut),
+    ];
+    pub const ALL: [Kind; 17] = {
+        let mut all = [Kind::Screen; 17];
+        let mut i = 0;
+        while i < 17 {
+            all[i] = Kind::NAMES[i].1;
+            i += 1;
+        }
+        all
+    };
+
     pub fn parse(s: &str) -> Option<Kind> {
-        Some(match s {
-            "test_pattern" => Kind::TestPattern,
-            "shader" => Kind::Shader,
-            "screen" => Kind::Screen,
-            "chapter" => Kind::Chapter,
-            "overlay" => Kind::Overlay,
-            "space" => Kind::Space,
-            "lfo" => Kind::Lfo,
-            "tempo" => Kind::Tempo,
-            "click" => Kind::Click,
-            "osc" => Kind::Osc,
-            "noise" => Kind::Noise,
-            "fm" => Kind::Fm,
-            "seq" => Kind::Seq,
-            "chapter_music" => Kind::ChapterMusic,
-            "mixer" => Kind::Mixer,
-            "fft" => Kind::Fft,
-            "audio_out" => Kind::AudioOut,
-            _ => return None,
-        })
+        Kind::NAMES.iter().find(|(n, _)| *n == s).map(|&(_, k)| k)
+    }
+
+    /// the kind's name in a scene
+    pub fn name(self) -> &'static str {
+        Kind::NAMES.iter().find(|&&(_, k)| k == self).map(|&(n, _)| n).expect("every kind has a name")
     }
 
     pub fn domain(self) -> Domain {
@@ -207,6 +225,7 @@ pub struct Graph {
 }
 
 impl Graph {
+    /// The scene's graph – refused when it needs a module this build does not carry (modules.rs names the feature).
     pub fn build(scene: &Scene) -> Result<Graph> {
         let mut nodes = Vec::new();
         let mut by_id = HashMap::new();
@@ -217,6 +236,7 @@ impl Graph {
             }
             nodes.push(Node { id: n.id.clone(), kind, params: n.params.clone() });
         }
+        crate::modules::check(scene)?;
         for sink in [Kind::Screen, Kind::AudioOut, Kind::Tempo, Kind::Space] {
             if nodes.iter().filter(|n| n.kind == sink).count() > 1 {
                 bail!("a scene has at most one {sink:?} node");
@@ -297,7 +317,7 @@ mod tests {
 
     #[test]
     fn the_default_scene_builds_in_order() {
-        let g = Graph::build(&Scene::parse(crate::scene::DEFAULT_SCENE).unwrap()).unwrap();
+        let g = Graph::build(&crate::modules::carried_part(&Scene::parse(crate::scene::DEFAULT_SCENE).unwrap())).unwrap();
         assert!(g.links.iter().any(|l| !l.orders(&g.nodes)), "the scene's FFT feedback");
         for l in g.links.iter().filter(|l| l.orders(&g.nodes)) {
             let pos = |i| g.order.iter().position(|&x| x == i).unwrap();
