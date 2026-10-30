@@ -141,11 +141,17 @@ Proven on the X1 first: Vulkan on the iGPU (anv), VA-API decode h264 / hevc / vp
   blocks from `fundsp` (oscillators, noise, FM, filters; granular on chapter samples); chapter music decoded with
   `symphonia`; out through the default sink (the RME UCX II in Class Compliant mode, #174). The audio clock is the master
   clock for video, MIDI and the bus.
-- **Two clocks** (#181, owner 2026-10-29): the **time base** = the exact audio position (a monotonic timestamp per audio
-  block, interpolated per video frame, minus the output latency – the picture shows what is heard); on top the **tempo
-  clock** = BPM, beat, bar, phase for every node, a click out, one source at a time: internal (set / tap), MIDI clock in,
-  Ableton Link, OSC, the relay's show clock; MIDI clock out from it. Since 8e1cab16 the video clock follows the audio
-  clock softly (the X1 stepped: SOF hands over whole periods).
+- **Two clocks** (#181, owner 2026-10-29: "ein richtiger Klick … 60 BPM … Oder eine Clock, die von extern kommt"): the
+  **time base** (`clock.rs`) = the exact audio position – each audio block stamped with the monotonic moment it is heard
+  (PipeWire's pw_time, cpal's playback instant), a DLL on the frame thread interpolates per video frame, never
+  backwards; the picture and the FFT show what is heard. On top the **tempo clock** (`tempo/`) = a tempo map over that
+  frame axis (beat = f(audio position), never a second clock): the `tempo` node (bpm, beat, bar, phase, pulse) per
+  frame, the `click` and the sequencer per sample, chapter cuts quantised to beat / bar. One master at a time (the
+  scene's `source`, F3): internal (+ / −, tap), MIDI clock in (least squares over two beats), Ableton Link (cargo
+  feature `link`), OSC (`/tempo/*`), the relay's show clock (a stub until the relay has one, #172). MIDI clock out runs
+  from the audio clock (each tick when its beat is heard). The platform-free part (map, followers, schedules) moves into
+  deck-core as its `tempo` module with #183 / #185. Link on the ISO: `cmake` in os/container/build.sh and the PKGBUILD,
+  `--features deck-stage/link` on their cargo lines.
 - **scutoons.com:** the public library API read-only (`/api/library/toons/<toon>/chapters/<n>`: slices, slice videos,
   music paths; files from cdn.scutoons.com), cached on DECKDATA (`/var/lib/deck/cache`) so a venue runs offline; later
   the paired member's token for drafts. The relay bus (LIVE B.1: slice enter, VN events, FX cues) feeds node parameters.
