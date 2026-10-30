@@ -1,6 +1,6 @@
 //! deck-stage as a library: the binary (main.rs) is the window + event loop around these; the integration tests
 //! (tests/) drive the audio engine directly. Modules are cargo features (#185, modules.rs): the core is always here,
-//! `space`, `chapter`, `midi`, `osc`, `link`, `pipewire` only when the build asks for them.
+//! `space`, `sync`, `chapter`, `midi`, `osc`, `link`, `pipewire` only when the build asks for them.
 pub mod audio;
 pub mod cache;
 pub mod chapter;
@@ -24,3 +24,5 @@ pub mod library;
 pub mod text;
 #[cfg(feature = "space")]
 pub mod space;
+#[cfg(feature = "sync")]
+pub mod sync;

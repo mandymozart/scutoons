@@ -21,11 +21,11 @@ kind = "tempo"
 bpm = 84
 source = "internal"
 
-# the 3D set a cell names (set + spot + model3d) – the cathedral is the default room; a cell's set and spot replace them
+# the 3D set a cell names (set + spot + model3d) – the cathedral is the default set; a cell's set and spot replace them
 [[node]]
 id = "space"
 kind = "space"
-room = "cathedral"
+set = "cathedral"
 quality = "low"
 spot = "spot_aisle"
 yaw = 279

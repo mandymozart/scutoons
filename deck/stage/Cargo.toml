@@ -19,9 +19,12 @@ path = "src/main.rs"
 # `cargo run -p deck-scene-features -- scenes/*.toml` lists what a set of scenes needs. The default = everything but the
 # platform's (pipewire) and link (it needs cmake): a plain `cargo build` plays every bundled scene.
 [features]
-default = ["space", "chapter", "live", "midi", "osc"]
+default = ["space", "sync", "chapter", "live", "midi", "osc"]
 # the 3D space and the deck's being (#188): glTF rooms (meshopt, WebP), the orbit camera, the 3D buttons
 space = ["dep:glam", "dep:serde_json", "image/webp"]
+# the deck's sync (#195): what the scene needs – its sets' 3D, its beings' portraits – from the API (scene-content) into
+# the cache, only what is missing or changed, offline from the cache (sync.rs)
+sync = ["dep:ureq", "dep:serde_json"]
 # a chapter from scutoons.com (library API + disk cache): `chapter` (its slices, the dialog set in the reader's fonts)
 # and `chapter_music` (its music, decoded with symphonia)
 chapter = ["dep:ureq", "dep:serde_json", "dep:symphonia", "dep:ab_glyph", "image/webp"]

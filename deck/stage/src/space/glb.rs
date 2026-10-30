@@ -1,4 +1,4 @@
-//! A room from a binary glTF (.glb) – the subset the rooms' build writes (agents/research/LOCATION-SCENES.md §7):
+//! A set's 3D from a binary glTF (.glb) – the subset tools/rooms' build writes (agents/research/LOCATION-SCENES.md §7):
 //! triangle meshes with POSITION, COLOR_0 (Unreal's lights baked into the vertex colours), TEXCOORD_0, unlit materials
 //! (KHR_materials_unlit: base colour texture × factor), WebP / PNG images (EXT_texture_webp), quantized attributes
 //! (KHR_mesh_quantization), meshopt-compressed buffer views (EXT_meshopt_compression, meshopt.rs) and empty nodes as
@@ -26,7 +26,7 @@ pub struct RoomVertex {
 pub struct Draw {
     pub first: u32,
     pub count: u32,
-    /// into `Room::images`; None = untextured
+    /// into `Model::images`; None = untextured
     pub image: Option<usize>,
 }
 
@@ -42,7 +42,7 @@ impl Image {
     }
 }
 
-pub struct Room {
+pub struct Model {
     pub vertices: Vec<RoomVertex>,
     pub indices: Vec<u32>,
     pub draws: Vec<Draw>,
@@ -53,7 +53,7 @@ pub struct Room {
     pub max: Vec3,
 }
 
-impl Room {
+impl Model {
     pub fn triangles(&self) -> usize {
         self.indices.len() / 3
     }
@@ -194,19 +194,19 @@ const SUPPORTED: &[&str] = &["EXT_meshopt_compression", "KHR_mesh_quantization",
 /// Load a room; `max_texture` caps the images' longer side (a bigger one is halved until it fits – the X1's memory);
 /// `hide` = node names whose mesh is left out (the scene's `hide`, owner 2026-10-30: the cathedral without its incense
 /// burner – the export stays as it is; the node's children and spots stay).
-pub fn load(path: &Path, max_texture: u32, hide: &[String]) -> Result<Room> {
+pub fn load(path: &Path, max_texture: u32, hide: &[String]) -> Result<Model> {
     let bytes = std::fs::read(path).with_context(|| format!("reading the room {}", path.display()))?;
     parse(&bytes, max_texture, hide).with_context(|| format!("in the room {}", path.display()))
 }
 
-pub fn parse(bytes: &[u8], max_texture: u32, hide: &[String]) -> Result<Room> {
+pub fn parse(bytes: &[u8], max_texture: u32, hide: &[String]) -> Result<Model> {
     let (doc, bin) = split_glb(bytes)?;
     let doc: Doc = serde_json::from_slice(doc).context("the glTF JSON")?;
     for e in &doc.extensions_required {
         ensure!(SUPPORTED.contains(&e.as_str()), "the room requires the glTF extension {e}, which the stage does not read");
     }
     let mut views: HashMap<usize, Vec<u8>> = HashMap::new();
-    let mut room = Room { vertices: Vec::new(), indices: Vec::new(), draws: Vec::new(), images: Vec::new(), spots: Vec::new(), min: Vec3::INFINITY, max: Vec3::NEG_INFINITY };
+    let mut room = Model { vertices: Vec::new(), indices: Vec::new(), draws: Vec::new(), images: Vec::new(), spots: Vec::new(), min: Vec3::INFINITY, max: Vec3::NEG_INFINITY };
     // materials → images (a texture's source, WebP's through its extension)
     let mut image_of: HashMap<usize, usize> = HashMap::new();
     let roots = doc.scenes.get(doc.scene.unwrap_or(0)).map(|s| s.nodes.clone()).unwrap_or_else(|| (0..doc.nodes.len()).collect());

@@ -40,7 +40,7 @@ enum Event {
 }
 
 const HELP: &str = "deck-stage [--scene FILE|cathedral|conductor|outlet] [--audio auto|pipewire|cpal|null] [--volume 0-1] [--cache DIR]
-           [--rooms DIR] [--portraits DIR] [--token T] [--api URL] [--cdn URL] [--windowed] [--frames N]
+           [--sets DIR] [--portraits DIR] [--token T] [--api URL] [--cdn URL] [--windowed] [--frames N]
            [--screenshot FILE] [--pointer X,Y] [--no-hud] [--dev] [--modules] [--relay ws://HOST:PORT/live/CODE]
            [--outlet ID] [--locale de]
   --scene      a scene TOML (default: the built-in scene, deck/stage/scenes/default.toml); `cathedral` = the built-in
@@ -51,8 +51,10 @@ const HELP: &str = "deck-stage [--scene FILE|cathedral|conductor|outlet] [--audi
                (deck.toml's `outlet`); --locale the language of its text layers (deck.toml's `locale`, else de)
   --audio      the backend; auto = PipeWire → cpal → null (no device: the clock and the FFT still run)
   --cache      the library cache (default /var/lib/deck/cache on a deck, DECK_CACHE, else the user cache folder)
-  --rooms      where a space node's rooms are (.glb; default DECK_ROOMS, else <cache>/rooms)
-  --portraits  the beings' heads: <char>_portrait-<mood>.png|webp (default DECK_PORTRAITS, else <cache>/portraits)
+  --sets       a local folder of sets instead of the sync's: <id>/<id>.<quality>.glb or <id>.<quality>.glb (DECK_SETS;
+               default <cache>/sets, synced from the API)
+  --portraits  a local folder of the beings' heads instead of the sync's: <char>_portrait-<mood>.png|webp
+               (DECK_PORTRAITS; default <cache>/portraits, synced from the API)
   --token      the conductor's session token for a space node with join = conductor (default LIVE_TOKEN; a dev relay
                takes any)
   --frames     quit after N frames and print the measured numbers (a check run)
@@ -71,7 +73,8 @@ struct Args {
     windowed: bool,
     frames: Option<u64>,
     hud: bool,
-    rooms: Option<PathBuf>,
+    /// a local folder of sets (#195: else <cache>/sets, synced)
+    sets: Option<PathBuf>,
     /// the heads' sprites (#188 phase 5) and the conductor's session token (phase 4)
     portraits: Option<PathBuf>,
     token: Option<String>,
@@ -95,7 +98,7 @@ fn args() -> Result<Args> {
         windowed: false,
         frames: None,
         hud: true,
-        rooms: std::env::var_os("DECK_ROOMS").map(PathBuf::from),
+        sets: std::env::var_os("DECK_SETS").map(PathBuf::from),
         portraits: std::env::var_os("DECK_PORTRAITS").map(PathBuf::from),
         token: std::env::var("LIVE_TOKEN").ok().filter(|t| !t.is_empty()),
         screenshot: None,
@@ -119,7 +122,7 @@ fn args() -> Result<Args> {
             "--api" => a.api = val()?,
             "--cdn" => a.cdn = val()?,
             "--frames" => a.frames = Some(val()?.parse()?),
-            "--rooms" => a.rooms = Some(val()?.into()),
+            "--sets" => a.sets = Some(val()?.into()),
             "--portraits" => a.portraits = Some(val()?.into()),
             "--token" => a.token = Some(val()?),
             "--screenshot" => a.screenshot = Some(val()?.into()),
@@ -188,6 +191,9 @@ struct Show {
     #[cfg(feature = "live")]
     live: Option<deck_stage::live::Live>,
     live_note: Option<String>,
+    /// the deck's sync (#195): the scene's sets and portraits from the API into the cache; its HUD line
+    #[cfg(feature = "sync")]
+    sync: Option<deck_stage::sync::DeckSync>,
     /// the audio outputs' peaks (the being's audio hoses)
     #[cfg_attr(not(feature = "space"), allow(dead_code))]
     meters: Option<Arc<audio::Meters>>,
@@ -252,15 +258,30 @@ impl Show {
         } else {
             None
         };
-        #[cfg(any(feature = "chapter", feature = "space"))]
+        #[cfg(any(feature = "chapter", feature = "space", feature = "sync"))]
         let cache = args.cache.clone().unwrap_or_else(cache::default_dir);
+        #[cfg(any(feature = "live", feature = "space"))]
+        let sets = args.sets.clone().unwrap_or_else(|| cache.join("sets"));
+        // the sync (#195): what the scene needs, from the API into the cache – a kind given as a local folder is not synced
+        #[cfg(feature = "sync")]
+        let sync = graph.first(graph::Kind::Space).or(graph.first(graph::Kind::Outlet)).map(|_| {
+            deck_stage::sync::DeckSync::start(deck_stage::sync::Config {
+                api: args.api.clone(),
+                cdn: args.cdn.clone(),
+                cache: cache.clone(),
+                sets: args.sets.is_none().then(|| cache.join("sets")),
+                portraits: args.portraits.is_none().then(|| cache.join("portraits")),
+                // #180: the paired deck's token goes here once the stage pairs (deck-link); the content is public
+                token: std::env::var("DECK_TOKEN").ok().filter(|t| !t.is_empty()),
+            })
+        });
         // the Live outlet (#186): its threads start with the scene; the renderer takes its planes
         #[cfg(feature = "live")]
         let (live, live_note) = match graph.first(graph::Kind::Outlet) {
             Some(_) => {
                 let lib = deck_stage::library::Library { api: args.api.clone(), cdn: args.cdn.clone(), cache: cache.clone() };
-                let rooms = args.rooms.clone().unwrap_or_else(|| cache.join("rooms"));
-                match deck_stage::live::start_outlet(outlet_settings(args), lib, rooms, (1920, 1080)) {
+                let synced = cfg!(feature = "sync") && args.sets.is_none();
+                match deck_stage::live::start_outlet(outlet_settings(args), lib, sets.clone(), synced, (1920, 1080)) {
                     Ok(l) => (Some(l), None),
                     Err(e) => {
                         tracing::warn!("live: {e}");
@@ -301,12 +322,23 @@ impl Show {
         let meters = handles.as_ref().and_then(|h| h.meters.clone());
         #[cfg(feature = "space")]
         let space = graph.first(graph::Kind::Space).map(|n| {
-            let rooms = args.rooms.clone().unwrap_or_else(|| cache.join("rooms"));
-            // #180: the deck-token fetch of the sprites goes here (a portrait::Source that caches into this folder)
             let faces = args.portraits.clone().unwrap_or_else(|| cache.join("portraits"));
-            tracing::info!("space: rooms in {}, portraits in {}", rooms.display(), faces.display());
+            tracing::info!("space: sets in {}, portraits in {}", sets.display(), faces.display());
+            use deck_stage::space::portrait::Portraits;
+            // through the sync (it fetches, then the folder is read), else the local folders as they are
+            #[cfg(feature = "sync")]
+            let (portraits, gate) = match &sync {
+                Some(y) => (y.portraits().map_or_else(|| Portraits::local(&faces), |p| Portraits::new(Box::new(p))), Some(y.gate())),
+                None => (Portraits::local(&faces), None),
+            };
+            #[cfg(not(feature = "sync"))]
+            let (portraits, gate) = (Portraits::local(&faces), None);
             #[cfg_attr(not(feature = "live"), allow(unused_mut))]
-            let mut s = deck_stage::space::Space::new(&graph, n, &scene.being, &rooms, deck_stage::space::portrait::Portraits::local(&faces));
+            let mut s = deck_stage::space::Space::with_gate(&graph, n, &scene.being, &sets, portraits, gate);
+            #[cfg(feature = "sync")]
+            if let Some(y) = &sync {
+                y.prepare(deck_stage::sync::needs_of(&graph, &s));
+            }
             // phase 4: with a relay (deck.toml or --relay) the being joins the session as its `join` says
             #[cfg(feature = "live")]
             {
@@ -342,6 +374,8 @@ impl Show {
             #[cfg(feature = "live")]
             live,
             live_note,
+            #[cfg(feature = "sync")]
+            sync,
             meters,
         })
     }
@@ -608,11 +642,11 @@ impl App {
         let beat = self.show.tempo.frame(&self.moment);
         self.show.controls.update(dt, self.lead(), &beat);
         let time = self.time();
-        // a Live cell's 3D set: the space node's room and spot (#186)
+        // a Live cell's 3D set: the space node's set and spot (#186)
         #[cfg(all(feature = "live", feature = "space"))]
         if let (Some(l), Some(s)) = (self.show.live.as_ref(), self.show.space.as_mut()) {
             while let Ok(t) = l.space.try_recv() {
-                s.show(t.room.as_deref(), t.spot.as_deref());
+                s.show(t.set.as_deref(), t.spot.as_deref());
             }
         }
         #[cfg(feature = "space")]
@@ -711,6 +745,11 @@ impl App {
             self.tempo_line(),
             self.source_line(),
         ]);
+        // the sync (#195) while it fetches, is offline or failed
+        #[cfg(feature = "sync")]
+        if let Some(line) = self.show.sync.as_ref().map(|y| y.line()).filter(|l| !l.starts_with("SYNC OK")) {
+            lines.push(line);
+        }
         #[cfg(feature = "space")]
         if let Some(s) = &self.show.space {
             // the mood and why (#188's feelings) first: the HUD shows 11 lines

@@ -7,7 +7,7 @@
 //! | `slice`, `panel` | `chapter` (one slice, a crop) | drawn into the plane, the dialog set in |
 //! | `image`, `set` still | an image | drawn into the plane |
 //! | `video`, `set` video | `video` (S4, #179 – not built) | the set spot's still stands in; else a HUD reason |
-//! | `model3d`, `set` model3d | `space` (#188) | the scene's space node is the outlet's backdrop: its room, its spot |
+//! | `model3d`, `set` model3d | `space` (#188) | the scene's space node is the outlet's backdrop: its set, its spot |
 //! | `text`, `surtitles` | `text` | drawn into the plane (Bangers, like the chapter's caption) |
 //! | `colour` | a solid | drawn into the plane |
 //! | `camera` | `video-in` (S4 – not built) | a HUD reason |
@@ -40,8 +40,8 @@ pub enum LayerNode {
     Image { media: MediaRef },
     /// `video` (S4 – not built yet): `still` stands in where the set has one
     Video { media: MediaRef, still: Option<MediaRef>, looped: bool },
-    /// `space`: the room (a set in model3d mode, or a preloaded .glb) and the spot the camera goes to
-    Space { room: MediaRef, spot: Option<String> },
+    /// `space`: the set (in model3d mode, or a preloaded .glb) and the spot the camera goes to
+    Space { set: MediaRef, spot: Option<String> },
     /// `text`: the line in the deck's locale
     Text { text: String, size: f32, colour: [u8; 4] },
     /// `text` following the show: the dialog of the slice `state.slice` names
@@ -213,13 +213,13 @@ fn node_of(layer: &Layer, locale: &str, problems: &mut Vec<String>) -> Option<La
         LayerSrc::Surtitles(s) => LayerNode::Surtitles { toon: s.toon.clone(), chapter: chapter(s.chapter), locale: s.locale.clone() },
         LayerSrc::Image(m) => LayerNode::Image { media: MediaRef::Item(m.media.clone()) },
         LayerSrc::Video(m) => LayerNode::Video { media: MediaRef::Item(m.media.clone()), still: None, looped: layer.r#loop.unwrap_or(false) },
-        LayerSrc::Model3d(m) => LayerNode::Space { room: MediaRef::Item(m.media.clone()), spot: None },
+        LayerSrc::Model3d(m) => LayerNode::Space { set: MediaRef::Item(m.media.clone()), spot: None },
         LayerSrc::Set(s) => {
             let at = |mode| MediaRef::Set { set: s.set.clone(), spot: s.spot.clone(), mode };
             match s.mode {
                 SpotMode::Still => LayerNode::Image { media: at(SpotMode::Still) },
                 SpotMode::Video => LayerNode::Video { media: at(SpotMode::Video), still: Some(at(SpotMode::Still)), looped: layer.r#loop.unwrap_or(true) },
-                SpotMode::Model3d => LayerNode::Space { room: at(SpotMode::Model3d), spot: s.spot.clone() },
+                SpotMode::Model3d => LayerNode::Space { set: at(SpotMode::Model3d), spot: s.spot.clone() },
             }
         }
         LayerSrc::Text(t) => {
@@ -252,7 +252,7 @@ mod tests {
     /// the sermon (research/LIVE-LENSES.md §5, step 3): the cathedral as the space at the nave's centre, a line of the
     /// sermon, a panel of the comic, the choir's video, a colour wash
     const SERMON: &str = r##"{ "mode": "own", "layers": [
-        { "id": "room", "src": { "kind": "set", "p": { "set": "cathedral", "spot": "nave-centre", "mode": "model3d" } }, "enter": { "ms": 1200 } },
+        { "id": "set", "src": { "kind": "set", "p": { "set": "cathedral", "spot": "nave-centre", "mode": "model3d" } }, "enter": { "ms": 1200 } },
         { "id": "line", "src": { "kind": "text", "p": { "text": { "de": "Liebe Gemeinde", "en": "Dear congregation" }, "size": 7.5 } },
           "box": { "x": 10, "y": 75, "w": 80, "h": 15 }, "exit": { "ms": 300 } },
         { "id": "panel", "src": { "kind": "panel", "p": { "toon": "catpope", "chapter": 2, "slice": 41, "crop": { "x": 0, "y": 20, "w": 100, "h": 40 } } },
@@ -280,7 +280,7 @@ mod tests {
         let space = p.space().unwrap();
         assert_eq!(
             space.node,
-            LayerNode::Space { room: MediaRef::Set { set: "cathedral".into(), spot: Some("nave-centre".into()), mode: SpotMode::Model3d }, spot: Some("nave-centre".into()) }
+            LayerNode::Space { set: MediaRef::Set { set: "cathedral".into(), spot: Some("nave-centre".into()), mode: SpotMode::Model3d }, spot: Some("nave-centre".into()) }
         );
         assert!(matches!(&p.layers[1].node, LayerNode::Text { text, size, colour } if text == "Liebe Gemeinde" && *size == 7.5 && *colour == [255; 4]));
         assert_eq!(p.layers[1].rect, Rect { x: 0.1, y: 0.75, w: 0.8, h: 0.15 });
@@ -301,7 +301,7 @@ mod tests {
     fn a_missing_module_or_node_is_a_problem_not_a_panic() {
         let p = plan(&cell(SERMON), "de", |m| m != "space");
         assert!(p.space().is_none());
-        assert_eq!(p.problems[0], "room: this build does not carry the module 'space' (--features space)");
+        assert_eq!(p.problems[0], "set: this build does not carry the module 'space' (--features space)");
         assert_eq!(p.layers.len(), 4, "the rest of the cell plays");
         let cam = cell(r##"{ "mode": "own", "layers": [ { "id": "cam", "src": { "kind": "camera", "p": { "input": "usb-0" } } },
             { "id": "bad", "src": { "kind": "colour", "p": { "colour": "teal" } } },

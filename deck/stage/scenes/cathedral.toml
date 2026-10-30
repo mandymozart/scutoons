@@ -1,10 +1,11 @@
-# The Cathedral of decks (#188) – a deck: the room from Cat Pope chapter 2 – the sermon's cathedral (the owner's
+# The Cathedral of decks (#188) – a deck: the set `cathedral` from Cat Pope chapter 2 – the sermon's cathedral (the owner's
 # Unreal export, agents/research/LOCATION-SCENES.md §7) – and this deck's being floating in the nave: its graph as a
 # body, node points with their parameters as 3D buttons, the links as hoses with bubbles, its head the character's
 # portrait (phase 5). With a relay set (deck.toml `relay` or --relay) it joins the session as a deck (`join` below) and
 # streams its being to the conductor (scenes/conductor.toml). Run it:
-#   cargo run --release -p deck-stage -- --scene cathedral --windowed --rooms ../media/scutoons/rooms \
-#     --portraits ../media/characters
+#   cargo run --release -p deck-stage -- --scene cathedral --windowed
+# (the sync fetches the set and the portraits into the cache; local copies instead: --sets ../media/scutoons/rooms
+#  --portraits ../media/characters)
 # Mouse: drag = turn the camera (or a button's value), wheel = zoom; ← → turn, ↑ ↓ zoom, R the camera's home.
 
 [stage]
@@ -165,15 +166,15 @@ id = "out"
 kind = "audio_out"
 volume = 0.8
 
-# the space: the room (rooms/cathedral.<quality>.glb under --rooms), where the being floats (`at` in the room's
-# metres – in the nave, ahead of the reader's view; or `spot` = a spot of the room + `lift`), the camera's start (yaw /
-# pitch in degrees, distance in metres – yaw 279 looks the way the reader's view does); hue / glow colour the being,
-# light dims the room, pulse kicks its breath; `join` = how it takes part in a session with a relay set (deck · conductor ·
+# the space: the set by id (its 3D at `quality`: <sets>/cathedral/cathedral.<quality>.glb, synced from the API), where
+# the being floats (`at` in the set's metres – in the nave, ahead of the reader's view; or `spot` = a spot of the set +
+# `lift`), the camera's start (yaw / pitch in degrees, distance in metres – yaw 279 looks the way the reader's view
+# does); hue / glow colour the being, light dims the set, pulse kicks its breath; `join` = how it takes part in a session with a relay set (deck · conductor ·
 # alone)
 [[node]]
 id = "space"
 kind = "space"
-room = "cathedral"
+set = "cathedral"
 quality = "low"
 at = [2.4, 0.2, 5.2]
 yaw = 279

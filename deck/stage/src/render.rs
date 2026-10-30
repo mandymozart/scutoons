@@ -6,7 +6,7 @@
 //! chapter nodes' slices arrive from their loaders (chapter.rs) and are uploaded when the node cuts; the splash (the
 //! logo, splash.rs) goes over everything – its first frame is shown before the scene's shaders are compiled.
 //! #186: an `outlet` node cross-fades the composed planes of its cells (live/) over its `in` (shaders/outlet.wgsl).
-//! #188: a `space` node is not a fullscreen pass – space/gpu.rs draws the room and the being into its texture with a
+//! #188: a `space` node is not a fullscreen pass – space/gpu.rs draws the set and the being into its texture with a
 //! depth buffer (the `space` module, #185). `capture` saves the next frame as a PNG (`--screenshot`). `reload_shaders`
 //! recompiles the passes whose WGSL file changed (the dev mode's hot reload).
 use crate::chapter::{ChapterFeed, Prepared};
@@ -558,7 +558,7 @@ impl Renderer {
 
     /// One frame; returns the CPU time spent after the surface handed out its texture (the vsync wait excluded), in ms.
     /// `splash` = the splash's alpha (0 = none) and whether its loading line runs.
-    /// `space` = the scene's space node's state (its room arrives through it once).
+    /// `space` = the scene's space node's state (its set's 3D arrives through it once).
     #[allow(clippy::too_many_arguments)]
     pub fn frame(&mut self, graph: &Graph, ctl: &Controls, time: f32, dt: f32, hud: Option<&Hud>, splash: (f32, bool), space: Option<&mut Space>) -> Result<f32> {
         let frame = match self.surface.get_current_texture() {

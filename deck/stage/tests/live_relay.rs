@@ -188,14 +188,14 @@ struct Deck {
 }
 
 impl Deck {
-    /// a deck's outlet `left` of session `code`: its cache and rooms under `root`, the media server's token T
+    /// a deck's outlet `left` of session `code`: its cache and sets under `root`, the media server's token T
     fn start(&self, code: &str) -> Live {
         let cfg = Config::new(&format!("ws://127.0.0.1:{}/live/{code}", self.port), "left", "de").unwrap();
         let cache = self.root.join("cache");
         let lib = Library { api: "offline://api".into(), cdn: "offline://cdn".into(), cache: cache.clone() };
         let media = Media {
             cache,
-            resolve: Box::new(LocalSets { rooms: self.root.join("rooms"), sets: self.root.join("sets"), quality: "low".into() }),
+            resolve: Box::new(LocalSets { sets: self.root.join("sets"), quality: "low".into(), synced: false }),
             fetch: Box::new(HttpFetch::default()),
             token: Box::new(Fixed("T".into())),
             local: Mutex::new(HashMap::new()),
@@ -208,16 +208,16 @@ fn temp_root() -> PathBuf {
     let d = std::env::temp_dir().join(format!("deck-live-relay-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&d);
     std::fs::create_dir_all(d.join("www/live/catpope")).unwrap();
-    std::fs::create_dir_all(d.join("rooms")).unwrap();
+    std::fs::create_dir_all(d.join("sets/cathedral")).unwrap();
     RgbaImage::from_pixel(32, 18, Rgba([0, 180, 0, 255])).save(d.join("www/live/catpope/pulpit.png")).unwrap();
-    std::fs::write(d.join("rooms/cathedral.low.glb"), "a room").unwrap();
+    std::fs::write(d.join("sets/cathedral/cathedral.low.glb"), "a set").unwrap();
     d
 }
 
 fn sermon_cell() -> protocol::Cell {
     serde_json::from_str(
         r##"{ "mode": "own", "layers": [
-            { "id": "room", "src": { "kind": "set", "p": { "set": "cathedral", "spot": "nave-centre", "mode": "model3d" } }, "enter": { "ms": 1200 } },
+            { "id": "set", "src": { "kind": "set", "p": { "set": "cathedral", "spot": "nave-centre", "mode": "model3d" } }, "enter": { "ms": 1200 } },
             { "id": "pulpit", "src": { "kind": "image", "p": { "media": "pulpit" } }, "box": { "x": 0, "y": 0, "w": 50, "h": 50 } },
             { "id": "line", "src": { "kind": "text", "p": { "text": { "de": "Liebe Gemeinde" } } }, "box": { "x": 0, "y": 70, "w": 100, "h": 30 } }
         ] }"##,
@@ -263,10 +263,10 @@ fn preload_cells_ready_and_the_snapshot_on_a_restart() {
     let frames = live.frames.take().unwrap();
     cond.send(Message::Cell(CellChange { outlet: "left".into(), cell: sermon_cell() }));
     let f = frame(&frames, "the sermon", sermon);
-    assert_eq!((f.plane.width(), f.plane.height(), f.enter_ms), (160, 90, if SPACE { 1200 } else { 600 }), "the longest enter: the room's");
+    assert_eq!((f.plane.width(), f.plane.height(), f.enter_ms), (160, 90, if SPACE { 1200 } else { 600 }), "the longest enter: the set's");
     assert_eq!(f.plane.get_pixel(120, 30).0[3], 0, "the space shows through");
     if SPACE {
-        assert_eq!(space(&live.space), SpaceTarget { room: Some(root.join("rooms/cathedral.low.glb")), spot: Some("nave-centre".into()) });
+        assert_eq!(space(&live.space), SpaceTarget { set: Some(root.join("sets/cathedral/cathedral.low.glb")), spot: Some("nave-centre".into()) });
     } else {
         assert!(live.hud_lines().iter().any(|l| l.contains("MODULE 'SPACE'")), "{:?}", live.hud_lines());
     }

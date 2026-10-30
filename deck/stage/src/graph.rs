@@ -51,8 +51,8 @@ pub enum Kind {
     Chapter,
     /// `top` over `in` (alpha), the top popping in when it changes, shaken by `shake`
     Overlay,
-    /// a 3D space (space/, #188): a glTF room and the deck's being – the running graph as a floating body – seen by an
-    /// orbit camera; its inputs colour the being (hue, glow), light the room and kick its breath
+    /// a 3D space (space/, #188): a set's glTF and the deck's being – the running graph as a floating body – seen by an
+    /// orbit camera; its inputs colour the being (hue, glow), light the set and kick its breath
     Space,
     /// a Live outlet (live/, #186): this deck's outlet's cells from the relay, drawn natively – the flat layers (slices,
     /// panels, pictures, text, colour) as one plane over `in` (the backdrop: a space node, where a cell has a 3D set),

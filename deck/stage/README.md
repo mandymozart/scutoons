@@ -5,9 +5,10 @@
 scutoons.com's library API with a disk cache. On the deck `deck-session` runs it under `cage` instead of Chromium
 (deck/os/README.md "What happens at boot"). Built so far: S1 (window, wgpu, graph core, test pattern, shader passes,
 HUD), S2 (audio graph, synths, FFT, chapter music) and S3 (the chapter's slices with their dialog, the caption overlay,
-the splash), the 3D space of #188 (the Cathedral of decks: a glTF room, the deck's being with its portrait head and
+the splash), the 3D space of #188 (the Cathedral of decks: a set's glTF, the deck's being with its portrait head and
 3D buttons, the decks around the conductor over the relay) and the Live outlet of #186 (the relay's cells for this
-deck's outlet, natively – below). Open: S4–S6 (#179), #188's body parts and the browser scene.
+deck's outlet, natively – below) and the sync of #195 (the scene's sets and portraits from the API into the cache –
+below). Open: S4–S6 (#179), #188's body parts and the browser scene.
 
 ## Run
 
@@ -16,8 +17,10 @@ cd deck && cargo run --release -p deck-stage -- --windowed
 ```
 
 `--scene FILE` (default: the built-in `scenes/default.toml`, "AV madness"; `--scene cathedral` / `conductor` = the
-built-in `scenes/cathedral.toml` / `conductor.toml`) · `--rooms DIR` (a space node's rooms, `DECK_ROOMS`, default
-`<cache>/rooms`) · `--portraits DIR` (the heads' sprites, `DECK_PORTRAITS`, default `<cache>/portraits`) · `--token T`
+built-in `scenes/cathedral.toml` / `conductor.toml`) · `--sets DIR` (a local folder of sets instead of the synced
+`<cache>/sets`, `DECK_SETS` – e.g. `../media/scutoons/rooms`, tools/rooms' output) · `--portraits DIR` (a local folder
+of the heads' sprites instead of the synced `<cache>/portraits`, `DECK_PORTRAITS` – e.g. `../media/characters`) ·
+`DECK_TOKEN` (the deck token for the API and show media, #180) · `--token T`
 (the conductor's session token, `LIVE_TOKEN`) · `--audio auto|pipewire|cpal|null` (auto =
 PipeWire → cpal → null; null runs the engine on a timer, no device – the clock, the music and the FFT still move) ·
 `--volume 0–1` · `--cache DIR` (default `/var/lib/deck/cache` on a deck, `DECK_CACHE`, else the user cache folder) ·
@@ -50,7 +53,8 @@ the basic audio nodes (`osc`, `noise`, `fm`, `seq`, `click`, `mixer`, `fft`, `au
 
 | Feature | Adds | Dependencies |
 |---|---|---|
-| `space` | the `space` kind (3D room + the being, #188) | glam, image/webp, serde_json |
+| `space` | the `space` kind (a set's 3D + the being, #188) | glam, image/webp, serde_json |
+| `sync` | the scene's sets and portraits from the API into the cache (#195 – below); no node kind | ureq, serde_json |
 | `chapter` | `chapter`, `chapter_music` (the library API + cache) | ureq, symphonia, ab_glyph, image/webp |
 | `live` | `outlet` (a Live outlet, #186 – below) | `chapter`, protocol, tungstenite, deck-link |
 | `midi` | the tempo source `midi`, `midi_out` (MIDI clock in / out) | midir |
@@ -58,7 +62,7 @@ the basic audio nodes (`osc`, `noise`, `fm`, `seq`, `click`, `mixer`, `fft`, `au
 | `link` | the tempo source `link` (Ableton Link) | rusty_link (cmake, libclang) |
 | `pipewire` | the PipeWire backend (Linux) | pipewire (clang) |
 
-Default = `space`, `chapter`, `live`, `midi`, `osc` – a plain build plays every bundled scene. The table lives in deck-core
+Default = `space`, `sync`, `chapter`, `live`, `midi`, `osc` – a plain build plays every bundled scene. The table lives in deck-core
 (`core/src/stage.rs`, data only); `src/modules.rs` says which modules this build carries. A scene that needs a module
 the build lacks is refused at load with the feature's name (`this build of the stage does not carry the module 'space'
 (node space) – build deck-stage with --features space`): the stage plays the test pattern and shows that in the HUD –
@@ -102,7 +106,7 @@ An input takes one link; an output feeds any number. Every control input can als
 | `fft` | in (audio) | level, bass, mid, high (control, 0–1) | `release` (s) |
 | `audio_out` | in (audio), volume | – | the device (one per scene) |
 | `outlet` | in (video: the backdrop), opacity | out (video) | – (one per scene; the relay and the outlet from deck.toml / the CLI – "Live outlet") |
-| `space` | hue, glow, light, pulse (control) | out (video) | `room` (a name → `<rooms>/<room>.<quality>.glb`, or a path with its extension), `quality` = low · medium · high (low, the X1's), `at` = [x, y, z] (where the being floats, room metres) or `spot` (a node of the room, `spot_aisle`) + `lift` (1.5 m), `yaw` / `pitch` (°) / `distance` (m) – the camera's start, `max_texture` (2048), `hide` (room nodes whose mesh is left out, by name), `join` = deck · conductor · alone (a session with a relay set), `ring` (3.2 m, the decks' circle around a conductor) – one per scene |
+| `space` | hue, glow, light, pulse (control) | out (video) | `set` (a set id → its 3D at `quality`, `<sets>/<id>/<id>.<quality>.glb`, synced; or a path with its extension, relative to `--sets`), `quality` = low · medium · high (low, the X1's), `at` = [x, y, z] (where the being floats, the set's metres) or `spot` (a node of the set's glTF, `spot_aisle`) + `lift` (1.5 m), `yaw` / `pitch` (°) / `distance` (m) – the camera's start, `max_texture` (2048), `hide` (glTF nodes whose mesh is left out, by name), `join` = deck · conductor · alone (a session with a relay set), `ring` (3.2 m, the decks' circle around a conductor) – one per scene |
 
 **chapter** shows the chapter's slices one after the other in reading order (looping), the slice fitted to the height
 over `in` (darkened; without an input a dark stretched copy of the slice), a slow push-in over the hold, a kick by
@@ -119,7 +123,7 @@ With a `cv` link an oscillator / FM voice takes its pitch and gate from the sequ
 out of the FFT or into an audio node crosses threads a frame late, so feedback through it (FFT → synth → mix → FFT) is
 allowed; every other cycle is an error.
 
-**space** (#188 "Cathedral of decks") draws a glTF room and this deck's **being** – the running graph as a
+**space** (#188 "Cathedral of decks") draws a set's glTF and this deck's **being** – the running graph as a
 floating body – through an orbit camera. The body: a translucent core (the space node's own point sits in it), one node
 point per graph node (sources low, sinks high: data rises toward the head), a hose per link (a curved
 tube; audio thick, video middle, control thin) and thin tendrils from the core to every point. **Bubbles** run along a
@@ -130,7 +134,7 @@ in its range, `space/params.rs`) and an LFO also its waveform (sine · saw · sq
 a MIDI CC (`Controls::set`), a button on a linked input has a dark collar, shows the hose's value and does not turn.
 The HUD's last line names the hovered button (`VOICE.INDEX 2.00 [0.00-10.0]`, `SPACE.PULSE 0.58 < FFT`) or node. The
 body drifts, sways and breathes on the tempo clock (a swell on each beat, a wave over the bar; `pulse` kicks it); `hue`
-/ `glow` colour it, `light` dims the room. The scene's `[being]` table is its shape: `size` (body radius, 0.5 m),
+/ `glow` colour it, `light` dims the set. The scene's `[being]` table is its shape: `size` (body radius, 0.5 m),
 `drift` (0.06 m), `breath` (0.035), `wobble` (0.025), `hose` / `bubbles` (thickness / rate factors), `expose` (the
 buttons: `"node"` or `"node.port"`, empty = all), `character` + `moods` (the head), `feel` + `react` (its feelings,
 below) – with the graph that is what a being preset saves (#191).
@@ -170,7 +174,7 @@ one inline table per line:
   the energy standing still → acceptance, a phrase's start → neutral. Back into the sound: furious / angry / sad /
   disgusted / embarrassed paint the hue (red · rust · blue · bile · blush), surprised flashes the glow and blips the
   drone's pitch, laughing doubles the choir (`seq.rate`) and speeds the LFO, thinking drops the FM index, denial ducks
-  the music, dying darkens the room and sinks the drone … – several chain (surprised → furious, laughing → tripping,
+  the music, dying darkens the set and sinks the drone … – several chain (surprised → furious, laughing → tripping,
   smug / disgusted → confused). `--dev` reloads them with the scene.
 - The HUD's mood line: `MOOD FURIOUS < VOICE.INDEX +3` (the rule, the nudges at work), `MOOD HAPPY < ENERGY 0.62`, or `<
   STREAM`. The conductor runs its own `feel` rules on every deck's mirrored values (by kind, so they resolve on any
@@ -192,7 +196,7 @@ one inline table per line:
 - Without the relay: stand-in decks, `cargo run --release -p deck-stage --example decks -- ws://127.0.0.1:7700/live/CATH 4`
   (the cathedral scene as n decks, each another character, values and moods moving by themselves; no window).
 
-`scenes/cathedral.toml` ("Cathedral of decks", a deck: catpope's head) – the room from Cat Pope chapter 2 (`cathedral`,
+`scenes/cathedral.toml` ("Cathedral of decks", a deck: catpope's head) – the set from Cat Pope chapter 2 (`cathedral`,
 low), the being ahead of the reader's view in the nave; catpope 2's music, a choir line (seq → FM), a drone (its gain on
 the bass), pink-noise incense swayed by an LFO → mixer → FFT (its level kicks the breath) → out. `scenes/conductor.toml`
 – PLF's head on the conductor's being (size 0.8) in the middle of the nave, the sermon's music, an organ drone on the
@@ -204,6 +208,33 @@ the beat + pink noise + the click (off until K) → mixer → FFT; test pattern 
 chapter's slices (cut on a bass hit snapped to the beat, every 6 s at the latest) → RGB shift → the caption overlay →
 screen. `scenes/test-pattern.toml` – the picture alone (no sound, no network). Both land in
 `/usr/share/deck/scenes` on the deck; `scene = "…"` in `/var/lib/deck/deck.toml` picks one.
+
+## Sync (#195)
+
+Owner 2026-10-30: "Baked into the image is not what I want … The API should deliver this." The `sync` module
+(`src/sync.rs`) brings what a scene needs into the cache on DECKDATA; the ISO ships no sets and no portraits.
+
+- **At a scene's load** (start, `--dev` reload) with a `space` or `outlet` node: one request,
+  `GET <api>/library/scene-content?sets=<the space node's set>&characters=<the being's character>` (server/docs/API.md
+  "Library") – each set's 3D per quality and each character's portraits per mood, CDN paths with sizes. Fetched: the
+  set at the node's `quality` and the portraits of the being's whole palette (`look.moods` + its feelings' moods).
+- **Later wants** – a deck joining the conductor with another character, a Live cell's set – are asked for when the
+  portraits thread or the set loader wants them (`--example decks`' stand-ins: catpope-biker, yellowmouse …).
+- **Only what is missing or changed:** `<cache>/sync/index.json` records the CDN path each file came from (paths are
+  immutable – a new path is a new version); same path + size = skipped. A download is checked (the answer's size, the
+  glTF / WebP / PNG magic) before it replaces anything – a broken one is refused, the old file stays.
+- **Where:** `<cache>/sets/<id>/<id>.<quality>.glb`, `<cache>/portraits/<char>/<char>_portrait-<mood>.<ext>` – read by the
+  space node and the heads as before. `--sets` / `--portraits` (or `DECK_SETS` / `DECK_PORTRAITS`) name local folders
+  instead; that kind is then not synced.
+- **Never on the frame:** one worker thread does the network; the set loader (space::Gate) and the portraits thread
+  (`sync::Portraits`, a portrait::Source next to LocalDir) wait on their own threads until their file is settled.
+- **Offline:** the request fails → `SYNC OFFLINE - FROM THE CACHE`, everything settles at once, the cache plays; asked
+  again after 30 s for new wants and at the next scene load.
+- **HUD** (while it fetches, is offline or failed): `SYNC 2/7 3.1 MB` · `SYNC OFFLINE - FROM THE CACHE` · `SYNC ERR …`.
+- **Token:** `DECK_TOKEN` goes to the API as `Bearer` (never to the CDN); deck-link's paired token plugs in there once
+  the stage pairs (#180) – the content is public, nothing waits for it.
+- Tests: `tests/sync.rs` against a stub API + CDN on 127.0.0.1 (needs → one request, into the cache, cached skipped, a
+  changed path fetched again, a broken file refused, offline from the cache, a later character, the space loaders).
 
 ## Live outlet (#186)
 
@@ -219,15 +250,16 @@ the screen). ws:// only (the venue's local relay; the client has no TLS). `src/l
 - **media.rs** – the preload: each item fetched with the deck token (`DECK_TOKEN`, else deck-link's pairing on a deck,
   #180; not paired = the code as the reason) into `<cache>/live/<hash>-<name>` (immutable URLs: once), then
   `media.ready { ready, missing, why }`; what is missing is tried again after 2, 5, 10, 20, then every 30 s. Sets
-  (#193: set + spot + mode, never a file) resolve through the `Resolve` trait – today `LocalSets`: `<rooms>/<set>.low.glb`
-  for 3D, `<cache>/sets/<set>/<spot>.<still|video>.<ext>`, else the item's `url`.
+  (#193: set + spot + mode, never a file) resolve through the `Resolve` trait – today `LocalSets`: the set's 3D
+  (`cache::set_file`, low; with the sync on, where the sync puts it – the space node's gate fetches it),
+  `<sets>/<set>/<spot>.<still|video>.<ext>`, else the item's `url`.
 - **plan.rs** – a cell's layers → stage nodes: `scroll` / `slice` / `panel` → chapter (a slice by its reading-order
   index, a crop), `image` and a set's still → an image, `video` → video (S4 – a set spot's still stands in), `model3d` /
-  a set in 3D → the space node (its room and spot), `text` / `surtitles` → text, `colour` → a solid, `camera` →
+  a set in 3D → the space node (its set and spot), `text` / `surtitles` → text, `colour` → a solid, `camera` →
   video-in (S4). A missing module or node is a problem with the layer's id – the HUD shows it, the rest plays.
 - **compose.rs** – the flat layers painted into one plane at the render size on the composer's thread (fit cover /
   contain, opacity, text in Bangers, the surtitles of the show's slice; a scroll steps every 6 s); the 3D set goes to
-  the space node (`Space::show`: another room loads on its thread, the being and the camera move to the spot).
+  the space node (`Space::show`: another set loads on its thread, the being and the camera move to the spot).
 - **render.rs** – the `outlet` pass (`shaders/outlet.wgsl`) uploads each plane and cross-fades it over its `in` by the
   cell's longest `enter` / `exit` (default 0.6 s); the backdrop shows only where the cell has a 3D set. The frame path
   only polls the channels and computes the fade – no allocation (tests/no_alloc.rs).
@@ -235,7 +267,7 @@ the screen). ws:// only (the venue's local relay; the client has no TLS). `src/l
   READY – <id>: <why>`, `CELL n LAYERS + SPACE`, then `! <layer>: <reason>` for everything the cell can't show.
 
 Try it without the conductor app: `cargo run --release -p relay -- 127.0.0.1:7070`, the stage with `--scene outlet
---relay ws://127.0.0.1:7070/live/DECK --outlet left --windowed --rooms <rooms>`, then the stand-in conductor
+--relay ws://127.0.0.1:7070/live/DECK --outlet left --windowed`, then the stand-in conductor
 `cargo run --release -p deck-stage --example live-cue -- ws://127.0.0.1:7070/live/DECK stage/examples/sermon.json`
 (Cat Pope s1c2's sermon, LIVE-LENSES §5: comic → the live cathedral → comic; 60 fps, 0.3 ms CPU per frame on the RTX
 2070 desktop). Tests: `tests/live_relay.rs` (the real relay on 127.0.0.1, ports 7000–7099, a local file server: preload
@@ -281,19 +313,19 @@ with the token, ready, the cell, resume, the snapshot after a restart). Not yet:
   surface, the HUD (`src/hud.rs`, font8x8 into a small texture, integer scale by the screen height) on top. No hardware
   adapter → the software one (llvmpipe / lavapipe / WARP) at half the render size; a shader that does not compile →
   `pass` with the error in the log.
-- **Space** (`src/space/`, #188): `glb.rs` reads a room (.glb) – meshes with POSITION, COLOR_0 (the rooms' build
+- **Space** (`src/space/`, #188): `glb.rs` reads a set's 3D (.glb, tools/rooms' build) – meshes with POSITION, COLOR_0 (the rooms' build
   bakes Unreal's lights into the vertex colours), TEXCOORD_0, unlit base-colour materials, WebP / PNG images
   (`EXT_texture_webp`), quantized attributes (`KHR_mesh_quantization`), **`EXT_meshopt_compression`** (decoded by
   `meshopt.rs` in plain Rust – the vertex codec v0 and the index codec v0 / v1 of the extension's bitstream spec; the
   decoded positions are checked against the accessors' min / max), named empty nodes as spots – flattened at load into
   one world-space vertex / index list with a draw per texture, the images halved to `max_texture` and their mip chains
   made on the loader's thread (the frame that uploads only copies). Not read: the INDICES mode, meshopt filters, Draco,
-  KTX2 / Basis, external buffers – a room with those is refused with the extension's name (the rooms' build encodes
+  KTX2 / Basis, external buffers – a file with those is refused with the extension's name (the rooms' build encodes
   with meshopt's FILTER method, which filters only normals / rotations – the rooms carry none); a plain variant: the
   rooms' build (tools/rooms/pipeline/build.mjs §5) without its `EXTMeshoptCompression`. `camera.rs` the orbit camera (glam; it turns by itself after 4 s without input, eased in; the ray through a
   pixel for picking), `being.rs` the body (layout from the graph, the hoses' Béziers, the bubble pools – 12 per hose –,
   the buttons, picking by ray / sphere), `gpu.rs` + `shaders/space.wgsl` the passes into the node's texture with its
-  own Depth32 buffer: the room unlit (texture × vertex light × `light`, fog), the solid spheres (nuclei, buttons,
+  own Depth32 buffer: the set unlit (texture × vertex light × `light`, fog), the solid spheres (nuclei, buttons,
   sockets) of every being, the heads far to near (a 16 × 16 plate bulged toward the eye, the machine layer then the
   portrait – the old mood under the new –, premultiplied alpha, depth written, a texture per sprite), then the tubes and
   the ghost spheres (core, shells, bubbles, skin) additive and depth-tested only. The buffers are sized from all beings
@@ -320,7 +352,7 @@ wgpu-hal's DX12 build on Windows). A bump is its own step.
 |---|---|---|
 | Windows 10, RTX 2070 SUPER, Vulkan, release | default (null audio) | 60.3 fps, 16.6 ms avg frame, 0.29 ms CPU per frame, first frame 845 ms, catpope 1 music online in 1.1 s (cached 0.4 s) |
 | ThinkPad X1 Carbon Gen 7, UHD 620 (anv) | default | open – the owner's stick (deck/HARDWARE.md) |
-| Windows 10, RTX 2070 SUPER, Vulkan, release, 1280 × 720 window (2026-10-30, #188) | cathedral (null audio) – room low / medium / high | 60.4 / 60.4 / 60.3 fps (vsync), CPU per frame 0.37 / 0.39 / 0.40 ms (the default scene: 0.31), first frame 719 / 802 / 827 ms; the room loads on its thread in 174 / 449 / 1574 ms (114,788 / 116,163 / 129,205 triangles, 4 WebP + their mips), its upload 2 / 4 / 9 ms; p99 ~50 ms in every scene = the start |
+| Windows 10, RTX 2070 SUPER, Vulkan, release, 1280 × 720 window (2026-10-30, #188) | cathedral (null audio) – set low / medium / high | 60.4 / 60.4 / 60.3 fps (vsync), CPU per frame 0.37 / 0.39 / 0.40 ms (the default scene: 0.31), first frame 719 / 802 / 827 ms; the set loads on its thread in 174 / 449 / 1574 ms (114,788 / 116,163 / 129,205 triangles, 4 WebP + their mips), its upload 2 / 4 / 9 ms; p99 ~50 ms in every scene = the start |
 | Windows 10, RTX 2070 SUPER, Vulkan, release, 1280 × 720 window (2026-10-30, #188 phases 4–5) | cathedral with its head · conductor + 5 stand-in decks (`--example decks`, same PC) | 60.8 fps, CPU per frame 0.42 ms (0.37 without the head) · 60.2 fps, 1.12 ms (0.39 alone) |
 | ThinkPad X1 Carbon Gen 7, UHD 620 (anv) | cathedral, conductor | open – the owner's stick |
 | Windows 10, Ryzen 5 3600X, `cargo bench -p deck-stage` (2026-10-30, #183) | the graph, µs per 128-frame block: before #183 → patcher → batch → batch AVX2 | default scene 11.0 → 9.9 → 11.1 → 10.0 (whole v3 binary 7.5) · 1 FM voice – → 2.2 → 3.5 → 2.2 · 16 FM voices 37.8 → 34.1 → 10.2 → 7.7 · 16 sines 20.1 → 15.4 → 7.3 → 5.3 · 64 FM voices – → 125 → 41 → 27 · control step, 300 LFOs: 58.4 → 2.1 (3 levels × 100), 69.6 → 5.5 (300 levels) |

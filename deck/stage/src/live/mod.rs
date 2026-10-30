@@ -7,7 +7,7 @@
 //! - **preloader**: `media.preload` → fetched with the deck token into `<cache>/live/` (media.rs) → `media.ready` (the
 //!   conductor's ready light); what is missing is tried again (2, 5, 10, 20, then every 30 s).
 //! - **composer**: a cell → its plan (plan.rs: layers → stage nodes) → one plane (compose.rs) → the renderer's
-//!   `outlet` pass, which cross-fades it over its `in` (the scene's space node, whose room and spot a 3D set picks –
+//!   `outlet` pass, which cross-fades it over its `in` (the scene's space node, whose set and spot a 3D set picks –
 //!   `SpaceTarget`). A scroll steps its slices every 6 s; surtitles follow the show's slice; new media re-compose.
 //!
 //! The renderer's side (frame.rs: `Frame`, `Crossfade`) is built with or without the `live` module.
@@ -87,9 +87,9 @@ mod running {
     use std::time::{Duration, Instant};
 
     /// The outlet of a scene with an `outlet` node: deck.toml under the CLI's settings → the relay and outlet; the media
-    /// with the deck's resolver (`rooms`, `<cache>/sets`), HTTP and the token (`DECK_TOKEN`, else the paired deck's on a
+    /// with the deck's resolver (`sets`; `synced` = the sync fetches a set's 3D), HTTP and the token (`DECK_TOKEN`, else the paired deck's on a
     /// deck – deck-link, #180 –, else none); then the threads. Err = why the outlet doesn't play (the HUD says it).
-    pub fn start_outlet(cli: super::config::Settings, lib: Library, rooms: std::path::PathBuf, size: (u32, u32)) -> Result<Live, String> {
+    pub fn start_outlet(cli: super::config::Settings, lib: Library, sets: std::path::PathBuf, synced: bool, size: (u32, u32)) -> Result<Live, String> {
         use super::config::{Settings, DECK_TOML};
         use super::media::{Fixed, HttpFetch, LocalSets, NoToken, Paired, Token};
         let settings = Settings::read(std::path::Path::new(DECK_TOML)).merged(cli);
@@ -114,7 +114,7 @@ mod running {
         };
         let media = Media {
             cache: lib.cache.clone(),
-            resolve: Box::new(LocalSets { rooms, sets: lib.cache.join("sets"), quality: "low".into() }),
+            resolve: Box::new(LocalSets { sets, quality: "low".into(), synced }),
             fetch: Box::new(HttpFetch::default()),
             token,
             local: Mutex::new(Default::default()),
@@ -135,7 +135,7 @@ mod running {
         pub outlet: String,
         /// the composed cells → the renderer's outlet pass (taken by it; a channel of two – the next cell waits)
         pub frames: Option<Receiver<Frame>>,
-        /// a 3D set's room and spot → the scene's space node (main.rs applies it)
+        /// a 3D set's file and spot → the scene's space node (main.rs applies it)
         pub space: Receiver<SpaceTarget>,
         pub status: Arc<Mutex<Status>>,
         size: Arc<AtomicU64>,

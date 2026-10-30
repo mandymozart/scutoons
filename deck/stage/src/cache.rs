@@ -1,5 +1,5 @@
-//! Where the stage keeps what it fetched (the library's chapters and files, the space's rooms) and where it fetches
-//! from. The fetching itself is the `chapter` module's (library.rs).
+//! Where the stage keeps what it fetched (the library's chapters and files, the sets' 3D, the heads' portraits) and
+//! where it fetches from. The fetching itself is the `chapter` module's (library.rs) and the `sync` module's (sync.rs).
 use std::path::{Path, PathBuf};
 
 pub const API: &str = "https://api.scutoons.com/api";
@@ -21,4 +21,38 @@ pub fn default_dir() -> PathBuf {
         .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache")))
         .unwrap_or_else(|| PathBuf::from("."));
     base.join("scutoons").join("deck-cache")
+}
+
+/// A set's 3D file at `quality` under `sets` (`--sets`, default `<cache>/sets`): `<sets>/<id>/<id>.<quality>.glb` (the
+/// sync's layout), else `<sets>/<id>.<quality>.glb` (tools/rooms' build output, e.g. media/scutoons/rooms) – the first
+/// that exists, else the first (where the sync puts it).
+pub fn set_file(sets: &Path, id: &str, quality: &str) -> PathBuf {
+    let name = format!("{id}.{quality}.glb");
+    let canonical = sets.join(id).join(&name);
+    if canonical.is_file() {
+        return canonical;
+    }
+    let flat = sets.join(&name);
+    if flat.is_file() {
+        flat
+    } else {
+        canonical
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn a_set_file_is_in_its_folder_else_flat() {
+        let dir = std::env::temp_dir().join(format!("deck-cache-sets-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(super::set_file(&dir, "cathedral", "low"), dir.join("cathedral").join("cathedral.low.glb"), "neither: where the sync puts it");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("cathedral.low.glb"), "glTF").unwrap();
+        assert_eq!(super::set_file(&dir, "cathedral", "low"), dir.join("cathedral.low.glb"), "a build folder");
+        std::fs::create_dir_all(dir.join("cathedral")).unwrap();
+        std::fs::write(dir.join("cathedral").join("cathedral.low.glb"), "glTF").unwrap();
+        assert_eq!(super::set_file(&dir, "cathedral", "low"), dir.join("cathedral").join("cathedral.low.glb"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

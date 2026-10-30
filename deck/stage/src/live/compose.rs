@@ -19,7 +19,7 @@ const QUALITY: &str = "high";
 
 pub struct Composed {
     pub frame: Frame,
-    /// the space node's room and spot when the cell has a 3D set
+    /// the space node's set and spot when the cell has a 3D set
     pub space: Option<SpaceTarget>,
     /// what this cell can't show, by layer (with the plan's own problems)
     pub problems: Vec<String>,
@@ -104,10 +104,10 @@ impl Composer {
                     Some(s) => self.media.file_of(s).and_then(|p| decode(&p)).map(|img| paint(&mut plane, img, l)),
                     None => Ok(()),
                 },
-                LayerNode::Space { room, spot } => {
-                    let room = self.media.file_of(room);
-                    let r = room.as_ref().map(|_| ()).map_err(Clone::clone);
-                    space = Some(SpaceTarget { room: room.ok(), spot: spot.clone() });
+                LayerNode::Space { set, spot } => {
+                    let set = self.media.file_of(set);
+                    let r = set.as_ref().map(|_| ()).map_err(Clone::clone);
+                    space = Some(SpaceTarget { set: set.ok(), spot: spot.clone() });
                     r
                 }
                 LayerNode::Text { text, size, colour } => {
@@ -237,12 +237,12 @@ mod tests {
         png(&cache.join("cdn/catpope/s1c2/a.png"), 39, 62, [200, 0, 0, 255]);
         png(&cache.join("cdn/catpope/s1c2/b.png"), 39, 62, [0, 0, 200, 255]);
         png(&root.join("sets/cathedral/choir.still.png"), 16, 9, [0, 200, 0, 255]);
-        std::fs::create_dir_all(root.join("rooms")).unwrap();
-        std::fs::write(root.join("rooms/cathedral.low.glb"), "glb").unwrap();
+        std::fs::create_dir_all(root.join("sets/cathedral")).unwrap();
+        std::fs::write(root.join("sets/cathedral/cathedral.low.glb"), "glb").unwrap();
         let lib = Library { api: "offline://api".into(), cdn: "offline://cdn".into(), cache: cache.clone() };
         let media = Media {
             cache: cache.clone(),
-            resolve: Box::new(LocalSets { rooms: root.join("rooms"), sets: root.join("sets"), quality: "low".into() }),
+            resolve: Box::new(LocalSets { sets: root.join("sets"), quality: "low".into(), synced: false }),
             fetch: Box::new(FolderFetch { root: root.join("cdn"), secret: None, calls: Mutex::new(vec![]) }),
             token: Box::new(NoToken),
             local: Mutex::new(HashMap::new()),
@@ -259,7 +259,7 @@ mod tests {
         let (root, mut c) = setup("sermon");
         let sermon = cell(
             r##"{ "mode": "own", "layers": [
-            { "id": "room", "src": { "kind": "set", "p": { "set": "cathedral", "spot": "nave-centre", "mode": "model3d" } }, "enter": { "ms": 1200 } },
+            { "id": "set", "src": { "kind": "set", "p": { "set": "cathedral", "spot": "nave-centre", "mode": "model3d" } }, "enter": { "ms": 1200 } },
             { "id": "choir", "src": { "kind": "set", "p": { "set": "cathedral", "spot": "choir", "mode": "video" } }, "box": { "x": 0, "y": 0, "w": 25, "h": 25 } },
             { "id": "panel", "src": { "kind": "panel", "p": { "toon": "catpope", "chapter": 2, "slice": 0, "crop": { "x": 0, "y": 50, "w": 100, "h": 50 } } },
               "box": { "x": 50, "y": 0, "w": 50, "h": 50 }, "fit": "contain" },
@@ -271,7 +271,7 @@ mod tests {
         let out = c.compose(&p, None, 0);
         let f = &out.frame;
         assert_eq!((f.plane.width(), f.plane.height(), f.backdrop, f.enter_ms), (160, 90, true, 1200));
-        assert_eq!(out.space, Some(SpaceTarget { room: Some(root.join("rooms/cathedral.low.glb")), spot: Some("nave-centre".into()) }));
+        assert_eq!(out.space, Some(SpaceTarget { set: Some(root.join("sets/cathedral/cathedral.low.glb")), spot: Some("nave-centre".into()) }));
         assert_eq!(f.plane.get_pixel(5, 5).0, [0, 200, 0, 255], "the choir's still stands in for its video");
         assert_eq!(f.plane.get_pixel(120, 20).0, [200, 0, 0, 255], "the panel of slice 0, contained in its box");
         assert_eq!(f.plane.get_pixel(85, 20).0[3], 0, "beside the contained panel: the backdrop shows");

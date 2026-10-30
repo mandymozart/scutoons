@@ -4,8 +4,8 @@
 # built from what it streams, the hoses between beings following who sends to whom. Cat Pope s1c2: the sermon, the
 # decks the congregation and the choir. Needs a relay (deck.toml `relay` or --relay) and, on a relay with a secret,
 # the conductor's session token (--token / LIVE_TOKEN). Run it:
-#   cargo run --release -p deck-stage -- --scene conductor --windowed --rooms ../media/scutoons/rooms \
-#     --portraits ../media/characters --relay ws://127.0.0.1:7700/live/CATH
+#   cargo run --release -p deck-stage -- --scene conductor --windowed --relay ws://127.0.0.1:7700/live/CATH
+# (local copies of the set and the portraits instead of the sync: --sets ../media/scutoons/rooms --portraits ../media/characters)
 # Stand-in decks: cargo run --release -p deck-stage --example decks -- ws://127.0.0.1:7700/live/CATH 4
 
 [stage]
@@ -144,11 +144,11 @@ id = "out"
 kind = "audio_out"
 volume = 0.8
 
-# the middle of the nave (room metres), the camera outside the circle of decks; `ring` = the circle's radius (m)
+# the middle of the nave (the set's metres), the camera outside the circle of decks; `ring` = the circle's radius (m)
 [[node]]
 id = "space"
 kind = "space"
-room = "cathedral"
+set = "cathedral"
 quality = "low"
 at = [5.2, -0.2, 0.5]
 yaw = 180

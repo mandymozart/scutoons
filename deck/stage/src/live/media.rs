@@ -2,10 +2,9 @@
 //! DECKDATA (`<cache>/live/`), answered with `media.ready`; set references resolved through `Resolve` (#193).
 //!
 //! - **Sets** (#193: a use names set + spot + mode, never a file): `Resolve` turns one into a `Source`. The set data
-//!   model is not built yet, so `LocalSets` – today's resolver – looks on the deck first (`<rooms>/<set>.<quality>.glb`
-//!   for 3D, the rooms the space node already reads; `<sets>/<set>/<spot>.<mode>.<ext>` for stills and videos) and
-//!   otherwise uses the item's `url`. Later an API resolver asks `GET /api/sets/<id>` with the deck token and caches
-//!   the answer – the same trait.
+//!   model is not built yet, so `LocalSets` – today's resolver – looks on the deck first (`cache::set_file` for 3D, the
+//!   files the space node reads and the sync (sync.rs, #195) fetches; `<sets>/<set>/<spot>.<mode>.<ext>` for stills and
+//!   videos) and otherwise uses the item's `url`.
 //! - **Fetching** (`Fetch`): `HttpFetch` (ureq, `Authorization: Bearer <deck token>`, streamed into a `.part` file,
 //!   then renamed); tests use the file system or a local server. CDN paths are immutable (a changed file gets a new
 //!   name), so a cached URL is never fetched again.
@@ -31,14 +30,15 @@ pub trait Resolve: Send + Sync {
     fn spot(&self, set: &str, spot: Option<&str>, mode: SpotMode) -> Result<Source, String>;
 }
 
-/// Today's resolver: the deck's own files (the space node's rooms; a `sets` folder), no API yet.
+/// Today's resolver: the deck's own files (`--sets`, default `<cache>/sets`).
 pub struct LocalSets {
-    /// the space node's rooms (`--rooms`): `<set>.<quality>.glb`
-    pub rooms: PathBuf,
-    /// stills and videos per spot: `<sets>/<set>/<spot>.<still|video>.<ext>` (`default` = no spot)
+    /// a set's 3D: `cache::set_file` (`<sets>/<set>/<set>.<quality>.glb`); stills and videos per spot:
+    /// `<sets>/<set>/<spot>.<still|video>.<ext>` (`default` = no spot)
     pub sets: PathBuf,
     /// the 3D level (low = the X1's)
     pub quality: String,
+    /// the sync fetches a set's 3D when the space node loads it (its gate): a missing one resolves to where it lands
+    pub synced: bool,
 }
 
 const STILL_EXT: &[&str] = &["webp", "png"];
@@ -52,7 +52,13 @@ impl Resolve for LocalSets {
         }
         let spot_name = spot.unwrap_or("default");
         let tried: Vec<PathBuf> = match mode {
-            SpotMode::Model3d => vec![self.rooms.join(format!("{set}.{}.glb", self.quality)), self.rooms.join(format!("{set}.glb"))],
+            SpotMode::Model3d => {
+                let file = crate::cache::set_file(&self.sets, set, &self.quality);
+                if self.synced {
+                    return Ok(Source::File(file));
+                }
+                vec![file]
+            }
             SpotMode::Still => STILL_EXT.iter().map(|e| self.sets.join(set).join(format!("{spot_name}.still.{e}"))).collect(),
             SpotMode::Video => VIDEO_EXT.iter().map(|e| self.sets.join(set).join(format!("{spot_name}.video.{e}"))).collect(),
         };
@@ -195,7 +201,7 @@ impl Media {
     }
 
     /// A layer's medium → a local file: a preloaded id (Err while it is still missing), or a set reference resolved
-    /// now (a 3D room, a still that was not in the preload).
+    /// now (a set's 3D, a still that was not in the preload).
     pub fn file_of(&self, r: &MediaRef) -> Result<PathBuf, String> {
         match r {
             MediaRef::Item(id) => self.local.lock().unwrap().get(id).cloned().ok_or_else(|| format!("'{id}' is not preloaded (yet)")),
@@ -285,7 +291,7 @@ pub(crate) mod tests {
     fn media(root: &Path, token: Box<dyn Token>) -> Media {
         Media {
             cache: root.join("cache"),
-            resolve: Box::new(LocalSets { rooms: root.join("rooms"), sets: root.join("sets"), quality: "low".into() }),
+            resolve: Box::new(LocalSets { sets: root.join("sets"), quality: "low".into(), synced: false }),
             fetch: Box::new(FolderFetch { root: root.join("cdn"), secret: Some("T".into()), calls: Mutex::new(vec![]) }),
             token,
             local: Mutex::new(HashMap::new()),
@@ -295,7 +301,7 @@ pub(crate) mod tests {
     #[test]
     fn preload_fetches_with_the_token_caches_and_answers_ready() {
         let root = temp_dir("preload");
-        for (p, b) in [("cdn/live/choir.webm", "choir"), ("rooms/cathedral.low.glb", "glb"), ("sets/cathedral/pulpit.still.png", "png")] {
+        for (p, b) in [("cdn/live/choir.webm", "choir"), ("sets/cathedral/cathedral.low.glb", "glb"), ("sets/cathedral/pulpit.still.png", "png")] {
             std::fs::create_dir_all(root.join(p).parent().unwrap()).unwrap();
             std::fs::write(root.join(p), b).unwrap();
         }
@@ -316,7 +322,7 @@ pub(crate) mod tests {
         let choir = m.file_of(&MediaRef::Item("choir".into())).unwrap();
         assert!(choir.starts_with(root.join("cache").join("live")) && choir.to_string_lossy().ends_with("-choir.webm"));
         assert_eq!(std::fs::read_to_string(&choir).unwrap(), "choir");
-        assert_eq!(m.file_of(&MediaRef::Item("nave".into())).unwrap(), root.join("rooms/cathedral.low.glb"));
+        assert_eq!(m.file_of(&MediaRef::Item("nave".into())).unwrap(), root.join("sets/cathedral/cathedral.low.glb"));
         assert!(m.file_of(&MediaRef::Item("organ".into())).unwrap_err().contains("not preloaded"));
 
         // the organ arrives on the CDN: the next round (a retry) fetches only what is missing

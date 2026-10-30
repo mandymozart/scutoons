@@ -15,11 +15,12 @@ pub struct Frame {
     pub exit_ms: u32,
 }
 
-/// What the scene's space node should show for a cell with a 3D set (#193: set + spot): its room file (None = keep
-/// the room it has) and the spot the camera and the being go to.
+/// What the scene's space node should show for a cell with a 3D set (#193: set + spot): its 3D file (None = keep
+/// the set it has) and the spot the camera and the being go to.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SpaceTarget {
-    pub room: Option<PathBuf>,
+    /// the set's 3D file (None: the space node keeps its set)
+    pub set: Option<PathBuf>,
     pub spot: Option<String>,
 }
 

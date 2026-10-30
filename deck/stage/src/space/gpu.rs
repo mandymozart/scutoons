@@ -10,7 +10,7 @@
 //! ghost sphere and the bubbles behind the face sit right. A sprite is a texture per portrait slot, uploaded when its
 //! loader has it.
 use super::being::{Sphere, TubeVertex};
-use super::glb::{Image, Room, RoomVertex};
+use super::glb::{Image, Model, RoomVertex};
 use super::Space;
 use glam::Vec3;
 
@@ -299,7 +299,7 @@ impl SpaceGpu {
     /// Before a frame: the room once it arrived, the sprites the loader finished, and buffers sized anew when beings
     /// came or went (a join – not a frame's work).
     pub fn sync(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, space: &mut Space) {
-        if let Some(room) = space.take_room() {
+        if let Some(room) = space.take_set() {
             let t = std::time::Instant::now();
             self.upload_room(device, queue, &room);
             tracing::info!("room on the GPU in {:.0} ms", t.elapsed().as_secs_f32() * 1000.0);
@@ -381,7 +381,7 @@ impl SpaceGpu {
 
     /// The room on the GPU: one vertex / index buffer, a texture per image (sRGB, mipmapped on the CPU), a white one
     /// for the untextured draws.
-    pub fn upload_room(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, room: &Room) {
+    pub fn upload_room(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, room: &Model) {
         let vb = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("room vertices"),
             size: (room.vertices.len() * std::mem::size_of::<RoomVertex>()) as u64,

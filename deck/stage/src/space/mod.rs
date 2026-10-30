@@ -1,4 +1,5 @@
-//! The 3D space (#188 "Cathedral of decks"): a `space` node draws a glTF room (glb.rs, meshopt.rs) and the deck's
+//! The 3D space (#188 "Cathedral of decks"): a `space` node draws a set's 3D – its glTF (glb.rs, meshopt.rs; DECISIONS
+//! 2026-10-30: place → set → assets, a set by id) – and the deck's
 //! being (being.rs – its running graph as a floating body, its head the character's portrait – portrait.rs) through an
 //! orbit camera (camera.rs) into its texture, with a depth buffer (gpu.rs, shaders/space.wgsl). The pointer picks the
 //! being's 3D buttons by ray cast; a drag turns one like a MIDI CC (`Controls::set`), elsewhere it turns the camera.
@@ -62,7 +63,7 @@ fn aim(b: &Being) -> Vec3 {
     b.anchor + Vec3::Y * b.look.size * 0.45
 }
 
-/// where the being floats when the room has no such spot (or there is no room)
+/// where the being floats when the set has no such spot (or there is no set)
 const FALLBACK_ANCHOR: Vec3 = Vec3::new(0.0, 1.4, 0.0);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -79,23 +80,25 @@ pub struct Space {
     pub node: usize,
     pub being: Being,
     pub camera: Orbit,
-    /// the room, from its loader until the renderer takes it
-    room_rx: Option<mpsc::Receiver<Result<glb::Room>>>,
-    room: Option<glb::Room>,
-    /// the room file shown (or loading) and its spots (kept after the renderer took the room – a Live cell moves the
+    /// the set's 3D, from its loader until the renderer takes it
+    set_rx: Option<mpsc::Receiver<Result<glb::Model>>>,
+    model: Option<glb::Model>,
+    /// the set's 3D file shown (or loading) and its spots (kept after the renderer took it – a Live cell moves the
     /// camera to one, #186)
-    room_path: Option<PathBuf>,
+    set_path: Option<PathBuf>,
     spots: Vec<(String, Vec3)>,
     max_texture: u32,
-    /// the room's nodes left out (the space node's `hide`: their meshes – e.g. the cathedral's incense burner)
+    /// the set's glTF nodes left out (the space node's `hide`: their meshes)
     hide: Vec<String>,
-    /// what the HUD says about the room ("cathedral.low.glb 114788 tris", "loading …", the error)
-    pub room_status: String,
+    /// waits for the sync before a set's file is read (sync.rs; None = read what is there)
+    gate: Option<Gate>,
+    /// what the HUD says about the set ("SET 96K TRIS", "LOADING …", the error)
+    pub set_status: String,
     spot: String,
     lift: f32,
-    /// an explicit place in the room (metres) instead of spot + lift
+    /// an explicit place in the set (metres) instead of spot + lift
     at: Option<Vec3>,
-    /// the room's light (the space node's `light`) this frame
+    /// the set's light (the space node's `light`) this frame
     pub light: f32,
     pointer: Option<(f32, f32)>,
     view: (f32, f32),
@@ -125,30 +128,43 @@ pub struct Space {
     places: Vec<Vec3>,
 }
 
-/// the room file a space node names: `room` with an extension = a path (relative to `rooms`), else
-/// `<rooms>/<room>.<quality>.glb` (quality low · medium · high, default low – the X1's UHD 620)
-pub fn room_path(graph: &Graph, node: usize, rooms: &Path) -> Option<PathBuf> {
+/// Called on the loader thread with a set's file before it is read: the sync (sync.rs) returns once that file is
+/// settled – downloaded, already cached, or offline. Never on the frame.
+pub type Gate = std::sync::Arc<dyn Fn(&Path) + Send + Sync>;
+
+/// the 3D file of the set a space node names: `set` with an extension = a path (relative to `sets`), else the set's id
+/// at `quality` (low · medium · high, default low – the X1's UHD 620): `cache::set_file`
+pub fn set_path(graph: &Graph, node: usize, sets: &Path) -> Option<PathBuf> {
     let n = &graph.nodes[node];
-    let room = n.str("room")?;
-    let p = Path::new(room);
-    Some(if p.extension().is_some() {
-        rooms.join(p)
-    } else {
-        rooms.join(format!("{room}.{}.glb", n.str("quality").unwrap_or("low")))
-    })
+    let set = n.str("set")?;
+    let p = Path::new(set);
+    Some(if p.extension().is_some() { sets.join(p) } else { crate::cache::set_file(sets, set, &quality(graph, node)) })
 }
 
-/// a room file → its loader thread; the receiver and the HUD's "LOADING …"
-fn load_room(path: PathBuf, max: u32, hide: Vec<String>) -> (Option<mpsc::Receiver<Result<glb::Room>>>, String) {
+/// the space node's set id and quality (None: no set, or a path) – what the sync fetches
+pub fn set_need(graph: &Graph, node: usize) -> Option<(String, String)> {
+    let set = graph.nodes[node].str("set")?;
+    Path::new(set).extension().is_none().then(|| (set.to_string(), quality(graph, node)))
+}
+
+fn quality(graph: &Graph, node: usize) -> String {
+    graph.nodes[node].str("quality").unwrap_or("low").to_string()
+}
+
+/// a set's 3D file → its loader thread (after the gate); the receiver and the HUD's "LOADING …"
+fn load_set(path: PathBuf, max: u32, hide: Vec<String>, gate: Option<Gate>) -> (Option<mpsc::Receiver<Result<glb::Model>>>, String) {
     let (tx, rx) = mpsc::channel();
     let shown = path.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default();
     std::thread::Builder::new()
-        .name("room".into())
+        .name("set".into())
         .spawn(move || {
+            if let Some(gate) = gate {
+                gate(&path);
+            }
             let t = std::time::Instant::now();
             let r = glb::load(&path, max, &hide);
-            if let Ok(room) = &r {
-                tracing::info!("room {}: {} triangles, {} images, {:.0} ms", path.display(), room.triangles(), room.images.len(), t.elapsed().as_secs_f32() * 1000.0);
+            if let Ok(set) = &r {
+                tracing::info!("set {}: {} triangles, {} images, {:.0} ms", path.display(), set.triangles(), set.images.len(), t.elapsed().as_secs_f32() * 1000.0);
             }
             let _ = tx.send(r);
         })
@@ -157,9 +173,14 @@ fn load_room(path: PathBuf, max: u32, hide: Vec<String>) -> (Option<mpsc::Receiv
 }
 
 impl Space {
-    /// The space node `node` of `graph`: its being from the graph + `look`, its room loading on a thread of its own
-    /// (from `rooms`, the `--rooms` folder), its head's sprites from `portraits`.
-    pub fn new(graph: &Graph, node: usize, look: &Look, rooms: &Path, mut portraits: Portraits) -> Space {
+    /// The space node `node` of `graph`: its being from the graph + `look`, its set's 3D loading on a thread of its own
+    /// (from `sets`, the `--sets` folder), its head's sprites from `portraits`.
+    pub fn new(graph: &Graph, node: usize, look: &Look, sets: &Path, portraits: Portraits) -> Space {
+        Space::with_gate(graph, node, look, sets, portraits, None)
+    }
+
+    /// `new`, with the sync's gate before every set file is read (sync.rs)
+    pub fn with_gate(graph: &Graph, node: usize, look: &Look, sets: &Path, mut portraits: Portraits, gate: Option<Gate>) -> Space {
         let n = &graph.nodes[node];
         let mut being = Being::new(graph, look);
         being.head.sprites = portraits.request(&look.character, &being.moods);
@@ -177,23 +198,24 @@ impl Space {
         being.anchor = at.unwrap_or(FALLBACK_ANCHOR);
         let max_texture = n.f32("max_texture", 2048.0) as u32;
         let hide = n.strs("hide");
-        let path = room_path(graph, node, rooms);
-        let (room_rx, room_status) = match &path {
-            Some(path) => load_room(path.clone(), max_texture, hide.clone()),
-            None => (None, "NO ROOM".into()),
+        let path = set_path(graph, node, sets);
+        let (set_rx, set_status) = match &path {
+            Some(path) => load_set(path.clone(), max_texture, hide.clone(), gate.clone()),
+            None => (None, "NO SET".into()),
         };
         let camera = Orbit::new(aim(&being), n.f32("yaw", 20.0).to_radians(), n.f32("pitch", 8.0).to_radians(), n.f32("distance", 2.4));
         Space {
             node,
             being,
             camera,
-            room_rx,
-            room: None,
-            room_path: path,
+            set_rx,
+            model: None,
+            set_path: path,
             spots: Vec::new(),
             max_texture,
             hide,
-            room_status,
+            gate,
+            set_status,
             spot: n.str("spot").unwrap_or("spot_aisle").to_string(),
             lift: n.f32("lift", 1.5),
             at,
@@ -245,31 +267,31 @@ impl Space {
         }
     }
 
-    /// One frame: the room's arrival, the camera, the being (its feelings' nudges into `ctl`), what the pointer is
+    /// One frame: the set's arrival, the camera, the being (its feelings' nudges into `ctl`), what the pointer is
     /// over; a deck's stream, the conductor's congregation.
     pub fn update(&mut self, dt: f32, time: f32, ctl: &mut Controls, beat: &tempo::Now, meter: &dyn Fn(usize, usize) -> f32) {
-        if let Some(rx) = &self.room_rx {
+        if let Some(rx) = &self.set_rx {
             match rx.try_recv() {
-                Ok(Ok(room)) => {
-                    let spot = room.spot(&self.spot);
+                Ok(Ok(model)) => {
+                    let spot = model.spot(&self.spot);
                     if spot.is_none() && self.at.is_none() {
-                        tracing::warn!("room: no spot '{}' – the being floats over the room's centre", self.spot);
+                        tracing::warn!("set: no spot '{}' – the being floats over the set's centre", self.spot);
                     }
-                    let base = spot.unwrap_or_else(|| Vec3::new((room.min.x + room.max.x) * 0.5, room.min.y, (room.min.z + room.max.z) * 0.5));
+                    let base = spot.unwrap_or_else(|| Vec3::new((model.min.x + model.max.x) * 0.5, model.min.y, (model.min.z + model.max.z) * 0.5));
                     self.being.anchor = self.at.unwrap_or(base + Vec3::Y * self.lift);
                     self.camera.target = aim(&self.being);
-                    self.room_status = format!("ROOM {}K TRIS", room.triangles() / 1000);
-                    self.spots = room.spots.clone();
-                    self.room = Some(room);
-                    self.room_rx = None;
+                    self.set_status = format!("SET {}K TRIS", model.triangles() / 1000);
+                    self.spots = model.spots.clone();
+                    self.model = Some(model);
+                    self.set_rx = None;
                 }
                 Ok(Err(e)) => {
-                    tracing::error!("room: {e:#}");
-                    self.room_status = format!("ROOM ERROR {e}");
-                    self.room_rx = None;
+                    tracing::error!("set: {e:#}");
+                    self.set_status = format!("SET ERROR {e}");
+                    self.set_rx = None;
                 }
                 Err(mpsc::TryRecvError::Empty) => {}
-                Err(mpsc::TryRecvError::Disconnected) => self.room_rx = None,
+                Err(mpsc::TryRecvError::Disconnected) => self.set_rx = None,
             }
         }
         self.portraits.poll();
@@ -359,7 +381,7 @@ impl Space {
         self.generation += 1;
     }
 
-    /// the decks' places: a circle around this being's anchor (it moves with the room's spot), the first between two
+    /// the decks' places: a circle around this being's anchor (it moves with the set's spot), the first between two
     /// decks toward the camera's start – the view falls on the conductor between them
     fn layout(&mut self) {
         let n = self.others.len().min(self.places.len());
@@ -447,33 +469,33 @@ impl Space {
         out.iter().map(|l| l.replace(['–', '—'], "-").to_uppercase().chars().take(40).collect()).collect()
     }
 
-    /// A Live cell's 3D set (#186, #193: set + spot): another room file loads on its thread (the old one stays until
-    /// it is there), and the being and the camera go to `spot` (in the new room once it has arrived). A spot the room
-    /// lacks keeps the place – the room's status says so.
-    pub fn show(&mut self, room: Option<&Path>, spot: Option<&str>) {
+    /// A Live cell's 3D set (#186, #193: set + spot): another set's file loads on its thread (the old one stays until
+    /// it is there), and the being and the camera go to `spot` (in the new set once it has arrived). A spot the set
+    /// lacks keeps the place – the set's status says so.
+    pub fn show(&mut self, set: Option<&Path>, spot: Option<&str>) {
         if let Some(spot) = spot {
             self.spot = spot.to_owned();
             self.at = None;
         }
-        match room {
-            Some(p) if self.room_path.as_deref() != Some(p) => {
-                (self.room_rx, self.room_status) = load_room(p.to_path_buf(), self.max_texture, self.hide.clone());
-                self.room_path = Some(p.to_path_buf());
+        match set {
+            Some(p) if self.set_path.as_deref() != Some(p) => {
+                (self.set_rx, self.set_status) = load_set(p.to_path_buf(), self.max_texture, self.hide.clone(), self.gate.clone());
+                self.set_path = Some(p.to_path_buf());
             }
             _ => {
                 if let Some(pos) = self.spots.iter().find(|(n, _)| *n == self.spot).map(|(_, p)| *p) {
                     self.being.anchor = pos + Vec3::Y * self.lift;
                     self.camera.target = aim(&self.being);
-                } else if spot.is_some() && self.room_rx.is_none() {
-                    tracing::warn!("room: no spot '{}' – the being stays", self.spot);
+                } else if spot.is_some() && self.set_rx.is_none() {
+                    tracing::warn!("set: no spot '{}' – the being stays", self.spot);
                 }
             }
         }
     }
 
-    /// the room, once – the renderer uploads it
-    pub fn take_room(&mut self) -> Option<glb::Room> {
-        self.room.take()
+    /// the set's 3D, once – the renderer uploads it
+    pub fn take_set(&mut self) -> Option<glb::Model> {
+        self.model.take()
     }
 
     /// the window's size in pixels (the pointer's frame)
@@ -524,7 +546,7 @@ impl Space {
     }
 
     /// The HUD's line: the hovered button (its node, name, value, range – or where its hose comes from), the hovered
-    /// node, else the room's state. ≤ 40 characters.
+    /// node, else the set's state. ≤ 40 characters.
     pub fn hud_line(&self, graph: &Graph) -> String {
         let line = match self.being.hover {
             Some(Hit::Button(i)) => {
@@ -543,7 +565,7 @@ impl Space {
                 let n = &graph.nodes[self.being.points[i].node];
                 format!("NODE {} ({:?})", n.id, n.kind)
             }
-            None => self.room_status.clone(),
+            None => self.set_status.clone(),
         };
         line.to_uppercase().chars().take(40).collect()
     }
@@ -564,13 +586,15 @@ mod tests {
     use crate::scene::{Scene, CATHEDRAL_SCENE};
 
     #[test]
-    fn room_paths_follow_the_quality() {
-        let g = Graph::build(&Scene::parse("[[node]]\nid=\"s\"\nkind=\"space\"\nroom=\"cathedral\"\nquality=\"medium\"\n").unwrap()).unwrap();
-        assert_eq!(room_path(&g, 0, Path::new("/r")), Some(Path::new("/r").join("cathedral.medium.glb")));
-        let g = Graph::build(&Scene::parse("[[node]]\nid=\"s\"\nkind=\"space\"\nroom=\"x/plain.glb\"\n").unwrap()).unwrap();
-        assert_eq!(room_path(&g, 0, Path::new("/r")), Some(Path::new("/r").join("x/plain.glb")));
+    fn set_paths_follow_the_quality() {
+        let g = Graph::build(&Scene::parse("[[node]]\nid=\"s\"\nkind=\"space\"\nset=\"cathedral\"\nquality=\"medium\"\n").unwrap()).unwrap();
+        assert_eq!(set_path(&g, 0, Path::new("/r")), Some(Path::new("/r").join("cathedral").join("cathedral.medium.glb")));
+        assert_eq!(set_need(&g, 0), Some(("cathedral".into(), "medium".into())));
+        let g = Graph::build(&Scene::parse("[[node]]\nid=\"s\"\nkind=\"space\"\nset=\"x/plain.glb\"\n").unwrap()).unwrap();
+        assert_eq!(set_path(&g, 0, Path::new("/r")), Some(Path::new("/r").join("x/plain.glb")));
+        assert_eq!(set_need(&g, 0), None, "a path is not synced");
         let g = Graph::build(&Scene::parse("[[node]]\nid=\"s\"\nkind=\"space\"\n").unwrap()).unwrap();
-        assert_eq!(room_path(&g, 0, Path::new("/r")), None);
+        assert_eq!(set_path(&g, 0, Path::new("/r")), None);
     }
 
     /// the owner (2026-10-30): the whole mood set, every mood reachable – each has a rule and a nudge in both bundled
@@ -631,6 +655,6 @@ mod tests {
         space.pointer_moved(105.0, 5.0, &mut ctl);
         assert!(space.camera.yaw != yaw);
         space.release();
-        assert!(space.hud_line(&g).starts_with("ROOM ERROR") || space.hud_line(&g).starts_with("LOADING"));
+        assert!(space.hud_line(&g).starts_with("SET ERROR") || space.hud_line(&g).starts_with("LOADING"));
     }
 }

@@ -9,7 +9,7 @@ use std::path::Path;
 
 /// The scene the stage plays when none is given: catpope 1's music + a synth, the FFT drives the test pattern.
 pub const DEFAULT_SCENE: &str = include_str!("../scenes/default.toml");
-/// The Cathedral of decks (#188): the room from Cat Pope chapter 2 and this deck's being in it.
+/// The Cathedral of decks (#188): the set `cathedral` from Cat Pope chapter 2 and this deck's being in it.
 pub const CATHEDRAL_SCENE: &str = include_str!("../scenes/cathedral.toml");
 /// Its conductor (#188 phase 4): the bigger being in the middle of the nave, PLF's portrait as its head, the decks' beings
 /// around it over the relay.
