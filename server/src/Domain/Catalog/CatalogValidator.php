@@ -287,7 +287,8 @@ final class CatalogValidator
     }
 
     /**
-     * A home scene (homes.ts HomeScene): { id, name, image: { src, variants? }, video?: { src: .mp4 / .webm, variants? } }
+     * A home scene (homes.ts HomeScene): { id, name, image: { src, variants? }, video?: { src: .mp4 / .webm, variants? },
+     * model?: { src: .glb, variants?: { low?, high? } } } – the model = the set's 3D room per quality (#193, #195)
      *
      * @param array<string, mixed> $scene
      * @return list<string>
@@ -301,6 +302,11 @@ final class CatalogValidator
         if (!$media($scene['image'] ?? null)) $p[] = "$id: image must be { src, variants? } (src may be empty until the picture is there)";
         $video = $scene['video'] ?? null;
         if ($video !== null && !($media($video) && preg_match('/\.(mp4|webm)$/i', $video['src']))) $p[] = "$id: video must be { src: an .mp4 / .webm path, variants? }";
+        $model = $scene['model'] ?? null;
+        $glb = fn(mixed $f) => is_string($f) && preg_match('/\.glb$/i', $f) === 1;
+        if ($model !== null && !($media($model) && $glb($model['src']) && array_filter((array) ($model['variants'] ?? []), fn($f) => !$glb($f)) === [])) {
+            $p[] = "$id: model must be { src: a .glb path, variants?: { <level>: a .glb path } }";
+        }
         return $p;
     }
 

@@ -78,7 +78,7 @@ final class CatalogDocsTest extends TestCase
     {
         $writer = $this->creator('writer@example.com');
         $list = self::json($this->request('GET', '/api/catalog/docs/home-scenes', $this->bearer($writer)));
-        self::assertSame(['cave', 'tatami_room'], array_column($list['entries'], 'id'), 'the two scenes of the migration');
+        self::assertSame(['cave', 'tatami_room', 'cathedral'], array_column($list['entries'], 'id'), 'the scenes of the migrations (homes, the cathedral set)');
         $scene = ['id' => 'garden_shed', 'name' => ['de' => 'Gartenhütte', 'en' => 'Garden shed'], 'image' => ['src' => 'scutoons/homes/garden_shed.1080p.webp', 'variants' => ['high' => 'scutoons/homes/garden_shed.4k.webp']], 'video' => ['src' => 'scutoons/homes/garden_shed.1080p.mp4']];
         self::assertSame(200, $this->put($writer, 'home-scene:garden_shed', $scene)->getStatusCode());
         self::assertFalse($this->inCatalog('home-scenes', 'garden_shed'));

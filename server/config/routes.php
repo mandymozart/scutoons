@@ -337,6 +337,7 @@ return static function (App $app): void {
     $app->get('/api/library/toons/{toon}/credits', [LibraryController::class, 'credits']);
     $app->get('/api/library/characters', [LibraryController::class, 'characters']);
     $app->get('/api/library/map', [LibraryController::class, 'map']);
+    $app->get('/api/library/scene-content', [LibraryController::class, 'sceneContent']);
     $app->get('/api/events', [LibraryController::class, 'events']);
 
     // PUBLIC URLS (printed): legacy validation for old viewer builds, public key of the certificate signatures

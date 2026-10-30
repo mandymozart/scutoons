@@ -228,6 +228,9 @@ The folders ARE the toon hierarchy; videos and audio belong to their season / ch
 - **Music loops** (owner 2026-10-16): a short, seamless section of a track is `<name>-loop.<rate>.mp3` (96 / 128 /
   320, `variants` low / medium / high) – the reader decodes it and loops it sample-exactly (research/LOADING.md);
   cut on whole bars for a beat track, the seam crossfaded.
+- **Sets** (a place's stagings, DECISIONS 2026-10-30, #193) live with the toon's map: `<toon>/map/sets/<set>[.<spot>].<level>.v<n>.<ext>`
+  (the extension is the mode: `.glb` 3D, `.webp` still, `.mp4` video; e.g. `catpope/map/sets/cathedral.low.v1.glb`); a
+  new build = the next `v<n>`.
 - **Variants are suffixes, never folders**: `.480p` `.720p` `.1080p`, `.1280w`, `.poster`, density `.2x` `.3x` (1x = no
   suffix; the owner OKed density). The scanner already groups exactly these (see "Grouping").
 - A locale segment (`/de/`) is a smell (DATA.md "Language-independent media"); the plan keeps it where it exists, flagged.

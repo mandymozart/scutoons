@@ -111,8 +111,8 @@ test('the catalog checks home scenes, furniture and workshop recipes', () => {
 	const catalog = {
 		slots: [],
 		home_scenes: [
-			{ id: 'cave', name: { en: 'Cave' }, image: { src: 'scutoons/homes/cave.1080p.webp', variants: { high: 'scutoons/homes/cave.4k.webp' } }, video: { src: 'scutoons/homes/cave.1080p.mp4' } },
-			{ id: 'cave', name: { en: 'Again' }, image: { src: '' }, video: { src: 'cave.gif' } }
+			{ id: 'cave', name: { en: 'Cave' }, image: { src: 'scutoons/homes/cave.1080p.webp', variants: { high: 'scutoons/homes/cave.4k.webp' } }, video: { src: 'scutoons/homes/cave.1080p.mp4' }, model: { src: 'scutoons/rooms/cave.medium.v1.glb', variants: { low: 'scutoons/rooms/cave.low.v1.glb' } } },
+			{ id: 'cave', name: { en: 'Again' }, image: { src: '' }, video: { src: 'cave.gif' }, model: { src: 'cave.glb', variants: { high: 'cave.gltf' } } }
 		],
 		items: [
 			def('workbench', { category: 'furniture', furniture: { size: 35, image: 'scutoons/furniture/workbench.webp', workshop: true } }),
@@ -132,6 +132,7 @@ test('the catalog checks home scenes, furniture and workshop recipes', () => {
 	assert.ok(problems.includes('error home_scenes.1.id'), 'duplicate scene');
 	assert.ok(problems.includes('warning home_scenes.1.image'), 'scene without a picture');
 	assert.ok(problems.includes('error home_scenes.1.video'), 'a video is an .mp4 / .webm');
+	assert.ok(problems.includes('error home_scenes.1.model'), 'a model is a .glb at every level');
 	assert.ok(!problems.some((p) => p.includes('home_scenes.0')), 'the first scene is fine');
 	assert.ok(problems.includes('warning items.1.furniture.image'), 'furniture without a home image');
 	assert.ok(problems.includes('error items.2.furniture'), 'size out of range');

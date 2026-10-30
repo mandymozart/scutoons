@@ -26,6 +26,11 @@ export interface HomeScene {
 	 * a short muted loop (.mp4 / .webm) over the still; reduced motion or a failed load shows the still
 	 */
 	video?: HomeSceneMedia | null;
+	/**
+	 * The set's 3D room (#193 home scenes become sets; agents/research/LOCATION-SCENES.md §5): a `.glb` per quality level
+	 * (`src` = medium, `variants.low` / `.high`); decks fetch it through /api/library/scene-content (#195)
+	 */
+	model?: HomeSceneMedia | null;
 }
 
 /**
@@ -211,6 +216,9 @@ export function validateHomes(catalog: { items: any[]; recipes?: any[]; home_sce
 		if (!isObj(s.name) || !Object.values(s.name).some(isStr)) add('error', [...path, 'name'], `${s.id}: a home scene needs a name`);
 		if (!isObj(s.image) || !isStr(s.image.src)) add('warning', [...path, 'image'], `${s.id}: no background image yet`);
 		if (s.video != null && !(isObj(s.video) && isStr(s.video.src) && /\.(mp4|webm)$/i.test(s.video.src))) add('error', [...path, 'video'], `${s.id}: the video must be { src: an .mp4 / .webm path, variants? }`);
+		const glb = (f: unknown) => isStr(f) && /\.glb$/i.test(f);
+		if (s.model != null && !(isObj(s.model) && glb(s.model.src) && Object.values(isObj(s.model.variants) ? s.model.variants : {}).every(glb)))
+			add('error', [...path, 'model'], `${s.id}: the model must be { src: a .glb path, variants?: { <level>: a .glb path } }`);
 	});
 	let workshops = 0;
 	catalog.items.forEach((item: any, i: number) => {

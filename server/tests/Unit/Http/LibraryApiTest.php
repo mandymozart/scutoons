@@ -147,7 +147,7 @@ final class LibraryApiTest extends TestCase
         $body = self::json($r);
         self::assertSame(['t', 1, 'de', true], [$body['toon'], $body['chapter'], $body['locale'], $body['gated']]);
         $files = [];
-        foreach ($body['files'] as $f) $files[$f['path']] = [$f['kind'], $f['levels'] ?? 'all', $f['size']];
+        foreach ($body['files'] as $f) $files[$f['path']] = [$f['kind'], $f['model'] ?? 'all', $f['size']];
         $groups = [];
         foreach ($body['files'] as $f) if (isset($f['group'])) $groups[$f['group']][] = $f['path'];
         self::assertSame([['t/s1/a.320.mp3', 't/s1/a.96.mp3'], ['t/s1/one.webp', 't/s1/one@2x.webp', 't/s1/one@3x.webp'], ['t/s1/v.480p.mp4', 't/s1/v.720p.mp4']],
@@ -180,5 +180,39 @@ final class LibraryApiTest extends TestCase
         $this->publish('t', 'de', 'season1.json', ['sequence' => [['number' => 1, 'status' => 'published'], ['number' => 2, 'status' => 'coming-soon'], ['number' => 3, 'status' => 'published']]]);
         self::assertSame([403, 'coming_soon'], [($c = $this->request('/api/library/toons/t/chapters/2/files'))->getStatusCode(), self::json($c)['error']]);
         self::assertFalse(self::json($this->request('/api/library/toons/t/chapters/3/files'))['gated'], 'a free preview chapter');
+    }
+    /** #195: what a deck's scene needs – the cathedral set of the migration, a character's portraits, sizes from the registry */
+    public function testSceneContentForDecks(): void
+    {
+        $this->publish('scutoons', '_', 'characters.json', ['characters' => [
+            ['id' => 'catpope', 'personas' => [['id' => 'regular', 'looks' => [['id' => 'default', 'default' => true, 'images' => [
+                'neutral' => ['avatar' => 'characters/catpope/catpope_avatar-neutral.webp', 'portrait' => 'characters/catpope/catpope_portrait-neutral.webp'],
+                'happy' => ['portrait' => 'characters/catpope/catpope_portrait-happy.webp'],
+            ]]]]]],
+        ]]);
+        $registry = $this->get(AssetRegistry::class);
+        $asset = $registry->create('catpope/map/sets/cathedral.low.v1', 'model');
+        $version = $registry->addVersion($asset, new StoredFile('catpope/map/sets/cathedral.low.v1.glb', 2045700), 'local');
+        $registry->addRendition($asset, $version, '1x', 'low', new StoredFile('catpope/map/sets/cathedral.low.v1.glb', 2045700));
+
+        $r = $this->request('/api/library/scene-content?sets=cathedral,nowhere&characters=plf,ghost', ['Authorization' => 'Bearer scd_not-checked-for-public-content']);
+        self::assertSame([200, 'public, max-age=60', '*'], [$r->getStatusCode(), $r->getHeaderLine('Cache-Control'), $r->getHeaderLine('Access-Control-Allow-Origin')]);
+        $body = self::json($r);
+        self::assertSame([
+            'low' => ['path' => 'catpope/map/sets/cathedral.low.v1.glb', 'size' => 2045700],
+            'medium' => ['path' => 'catpope/map/sets/cathedral.medium.v1.glb', 'size' => null],
+            'high' => ['path' => 'catpope/map/sets/cathedral.high.v1.glb', 'size' => null],
+        ], $body['sets']['cathedral']['model'], 'the set of the migration 2026-10-30-cathedral-set');
+        self::assertSame(['character' => 'catpope', 'persona' => 'regular', 'look' => 'default', 'portraits' => [
+            'happy' => ['path' => 'characters/catpope/catpope_portrait-happy.webp', 'size' => null],
+            'neutral' => ['path' => 'characters/catpope/catpope_portrait-neutral.webp', 'size' => null],
+        ]], $body['characters']['plf'], 'an old VN id → catpope');
+        self::assertSame(['sets' => ['nowhere'], 'characters' => ['ghost']], $body['missing']);
+        $again = $this->request('/api/library/scene-content?sets=cathedral,nowhere&characters=plf,ghost', ['If-None-Match' => $r->getHeaderLine('ETag')]);
+        self::assertSame(304, $again->getStatusCode());
+
+        self::assertSame('{"sets":{},"characters":{},"missing":{"sets":[],"characters":[]}}', (string) $this->request('/api/library/scene-content')->getBody(), 'maps stay objects');
+        self::assertSame([400, 'invalid_ids'], [($bad = $this->request('/api/library/scene-content?sets=../x'))->getStatusCode(), self::json($bad)['error']]);
+        self::assertSame(400, $this->request('/api/library/scene-content?characters=' . implode(',', array_map(fn($i) => "c$i", range(1, 33))))->getStatusCode());
     }
 }

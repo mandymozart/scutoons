@@ -847,6 +847,7 @@ is the format of every answer). Implementation: `Domain\Library\Library` + `Libr
 | `/library/toons/<toon>/cast[?chapter=<n>]` | `{ registry, cast }`: `characters` reduced to the toon's cast (or the characters the chapter references; legacy ids mapped) + `cast:<toon>`; `null` where missing. Resolve with `resolveCast()` |
 | `/library/toons/<toon>/credits` | `{ credits, people, roles }`: `credits:<toon>`, the referenced people (+ `merged_into` targets), the roles · 404 without credits |
 | `/library/characters` | the whole character registry (entity `characters`), e.g. the avatar bodies |
+| `/library/scene-content?sets=<id,…>&characters=<id,…>` | what a deck's scene needs (#195, `Domain\Library\SceneContent`): `{ sets: { <id>: { name, model: { low, medium, high } } }, characters: { <id>: { character, persona, look, portraits: { <mood>: … } } }, missing: { sets, characters } }`, each file `{ path, size }` (CDN root, `size` from the asset registry or null). Sets = the catalog's home scenes (their `model`: `src` = medium, a level without a variant gets `src`; none = `model: {}`); a character = a registry id, an old VN id (`plf`) or `<character>-<persona>` → that persona's default look. ≤ 32 ids each, `400 invalid_ids`. Public; a deck token (#180) passes (DeckTokenScope) and changes nothing yet |
 | `/events/` | the entity `events` |
 
 - **Locale** `?locale=xx` (default: the toon's `sourceLanguage`): per document the asked locale, else the source

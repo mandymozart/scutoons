@@ -9,6 +9,7 @@ use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Library\Answer;
 use Scutoons\Domain\Library\ChapterFiles;
 use Scutoons\Domain\Library\Library;
+use Scutoons\Domain\Library\SceneContent;
 use Scutoons\Domain\Roles\Roles;
 use Scutoons\Http\CurrentSession;
 use Scutoons\Http\Middleware\Cors;
@@ -25,6 +26,8 @@ use Scutoons\Http\Middleware\Cors;
  *   GET /api/library/toons/{toon}/credits                { credits, people, roles }
  *   GET /api/library/characters                          CharacterRegistry (the whole registry)
  *   GET /api/library/map?locale=&toon=                  the world map for this reader (agents/MAP.md)
+ *   GET /api/library/scene-content?sets=&characters=    what a deck's scene needs: set models per level, portraits per
+ *                                                        mood (SceneContent, #195)
  *   GET /api/events                                      Event[]
  * `?draft=1` (role creator): the newest versions, no status gates, not cached. Public answers: `Cache-Control: public,
  * max-age=60`, ETag (304 on If-None-Match), `Content-Language` / `X-Content-Fallback` for localized answers, any
@@ -39,6 +42,7 @@ final class LibraryController
         private readonly Roles $roles,
         private readonly Cors $cors,
         private readonly ChapterFiles $files,
+        private readonly SceneContent $scenes,
     ) {
     }
 
@@ -106,6 +110,24 @@ final class LibraryController
         $toon = $request->getQueryParams()['toon'] ?? null;
         if ($toon !== null && !is_string($toon)) throw new ApiError(400, 'invalid_toon', 'Invalid toon id.');
         return $this->send($request, $response, $this->library->map($this->locale($request), $toon === '' ? null : $toon, $this->draft($request)));
+    }
+
+    /** GET /api/library/scene-content?sets=a,b&characters=c,d (SceneContent; ids ≤ 32 each) */
+    public function sceneContent(Request $request, Response $response): Response
+    {
+        $ids = function (string $name) use ($request): array {
+            $raw = $request->getQueryParams()[$name] ?? '';
+            if (!is_string($raw)) throw new ApiError(400, 'invalid_ids', "$name must be a comma-separated list of ids.");
+            $list = array_values(array_unique(array_filter(array_map('trim', explode(',', $raw)), fn(string $s) => $s !== '')));
+            foreach ($list as $id) {
+                if (!preg_match(SceneContent::ID, $id)) throw new ApiError(400, 'invalid_ids', "$name: '$id' is not an id.");
+            }
+            if (count($list) > SceneContent::MAX_IDS) throw new ApiError(400, 'invalid_ids', "$name: at most " . SceneContent::MAX_IDS . ' ids.');
+            return $list;
+        };
+        $content = $this->scenes->of($ids('sets'), $ids('characters'));
+        $body = (string) json_encode(['sets' => (object) $content['sets'], 'characters' => (object) $content['characters'], 'missing' => $content['missing']], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        return $this->send($request, $response, new Answer($body, '"s' . substr(sha1($body), 0, 24) . '"', false, null));
     }
 
     public function events(Request $request, Response $response): Response

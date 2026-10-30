@@ -1567,6 +1567,17 @@
 						}
 					],
 					"description": "An animated background (owner 2026-10-14: \"Die Cave-Hintergründe können auch Videos sein. Animierte kurze Clips\"): a short muted loop (.mp4 / .webm) over the still; reduced motion or a failed load shows the still"
+				},
+				"model": {
+					"anyOf": [
+						{
+							"$ref": "#/definitions/HomeSceneMedia"
+						},
+						{
+							"type": "null"
+						}
+					],
+					"description": "The set's 3D room (#193 home scenes become sets; agents/research/LOCATION-SCENES.md §5): a `.glb` per quality level (`src` = medium, `variants.low` / `.high`); decks fetch it through /api/library/scene-content (#195)"
 				}
 			},
 			"required": [
