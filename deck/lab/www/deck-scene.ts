@@ -34,10 +34,21 @@ export const PARAMS: Record<string, Spec> = {
 };
 
 /** the choir's line (cathedral.toml `seq`): MIDI notes, 0 = rest; 84 bpm, two steps a beat, gate 0.6 */
-export const SEQ = { bpm: 84, division: 2, gate: 0.6, steps: [50, 0, 57, 55, 53, 0, 52, 50] };
-/** the voice held as a plain drone – the default (owner 2026-10-31: "the sequence is a little annoying for testing");
- *  `?seq=1` plays the choir line instead */
-export const HELD_NOTE = 50;
+/**
+ * The voice's melody (owner 2026-10-31: "random, one parameter turns it into a drone and back to more range … stay out
+ * of the 12 tone system … sliding scale"): random pitches on a continuous scale around BASE_HZ, gliding into each other.
+ * `spread` 0 = a held drone, 1 = ±2 octaves; `rate` = steps per second; `glide` = how much of a step the slide takes.
+ * Page-only controls for now – not on the wire (a native random source + its buttons on the being come later).
+ */
+export const MELODY: Record<string, Spec> = {
+	'melody.spread': { min: 0, max: 1, value: 0, label: 'spread' },
+	'melody.rate': { min: 0.3, max: 8, value: 2, log: true, label: 'steps / s' },
+	'melody.glide': { min: 0, max: 1, value: 0.5, label: 'glide' }
+};
+/** the drone's pitch when the spread is 0 (≈ D3, but a frequency, not a note) */
+export const BASE_HZ = 147;
+/** octaves either side at spread 1 */
+export const SPREAD_OCTAVES = 2;
 
 export const midiHz = (n: number) => 440 * 2 ** ((n - 69) / 12);
 

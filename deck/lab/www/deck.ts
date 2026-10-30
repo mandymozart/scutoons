@@ -4,7 +4,7 @@
 // being's exposed parameters; the head wears the character's mood sprite (the API's scene-content, #195).
 import { LiveCore, type Analysis } from '../../../shared/live-core/src/index.ts';
 import { DeckLink, ValueStream } from './deck-client.ts';
-import { deckGraph, ENGINE_TOML, HELD_NOTE, ladderFor, midiHz, Moods, PARAMS, SEQ, STREAMED, toPos, toValue } from './deck-scene.ts';
+import { BASE_HZ, deckGraph, ENGINE_TOML, ladderFor, MELODY, Moods, PARAMS, SPREAD_OCTAVES, STREAMED, toPos, toValue } from './deck-scene.ts';
 
 const API = 'https://api.scutoons.com/api';
 const CDN = 'https://cdn.scutoons.com/';
@@ -17,7 +17,7 @@ const store = {
 };
 
 // ── state: the parameter values, the sequencer, the LFO, what the analysis said ──
-const value: Record<string, number> = Object.fromEntries(Object.entries(PARAMS).map(([k, s]) => [k, s.value]));
+const value: Record<string, number> = Object.fromEntries(Object.entries({ ...PARAMS, ...MELODY }).map(([k, s]) => [k, s.value]));
 let character = q.get('character') ?? store.get('deck.character') ?? 'yellowmouse';
 let portraits: Record<string, { path: string }> = {};
 const moods = new Moods(['neutral']);
@@ -26,7 +26,6 @@ let bands: Analysis = { level: 0, bass: 0, mid: 0, high: 0, spectrum: new Float3
 let core: LiveCore | null = null;
 let noise: { filter: BiquadFilterNode; gain: GainNode } | null = null;
 let gate = 0;
-let note = 0;
 let swayPhase = 0;
 let sway = 0;
 let touch = 0;
@@ -93,7 +92,7 @@ function setParam(path: string, v: number) {
 function buildSliders() {
 	const box = $('#sliders');
 	const onPads = new Set([...document.querySelectorAll<HTMLElement>('.pad')].flatMap((p) => [p.dataset.x!, p.dataset.y!]));
-	for (const [path, s] of Object.entries(PARAMS)) {
+	for (const [path, s] of Object.entries({ ...MELODY, ...PARAMS })) {
 		if (onPads.has(path)) continue;
 		const label = Object.assign(document.createElement('label'), { textContent: s.label, htmlFor: path });
 		const input = Object.assign(document.createElement('input'), { type: 'range', id: path, min: '0', max: '1', step: '0.001' });
@@ -152,7 +151,8 @@ function drawBands() {
 const audioPeak = (x: number) => Math.min(1, Math.max(0, x));
 const read = (p: string): number => {
 	switch (p) {
-		case 'seq.cv': return gate ? note / 127 : 0;
+		// the pitch as the choir line's cv: log-scaled into 0–1 across the spread's whole range
+		case 'seq.cv': return gate ? 0.5 + Math.log2(pitch / BASE_HZ) / (2 * SPREAD_OCTAVES) : 0;
 		case 'voice.out': return audioPeak(gate * value['voice.gain'] * 4);
 		case 'drone.out': return audioPeak(value['drone.gain'] * 3);
 		case 'incense.out': return audioPeak(value['incense.gain'] * 5 * (0.4 + 0.6 * toPos(PARAMS['incense.cutoff'], cutoff())));
@@ -166,8 +166,11 @@ const read = (p: string): number => {
 };
 const cutoff = () => Math.min(12000, value['incense.cutoff'] * 2 ** (sway * 1.5));
 
-const SEQ_ON = new URLSearchParams(location.search).get('seq') === '1';
 let lastStep = -1;
+let pitch = BASE_HZ;
+let target = BASE_HZ;
+let glideFrom = BASE_HZ;
+let glideAt = 0;
 let last = performance.now() / 1000;
 function frame() {
 	try {
@@ -183,27 +186,25 @@ function tick() {
 	last = now;
 	swayPhase = (swayPhase + value['sway.rate'] * dt) % 1;
 	sway = Math.sin(swayPhase * 2 * Math.PI) * value['sway.depth'];
-	if (core && !SEQ_ON) {
-		if (!gate) {
-			note = HELD_NOTE;
-			core.set('voice.freq', [midiHz(note)]);
-			gate = 1;
-			core.set('env', [1]);
-		}
-		noise?.filter.frequency.setTargetAtTime(cutoff(), core.context.currentTime, 0.03);
-	} else if (core) {
-		const stepDur = 60 / SEQ.bpm / SEQ.division;
+	if (core) {
+		// the melody: a random pitch on a continuous scale each step, the voice gliding there (no 12-tone grid);
+		// spread 0 = the held drone at BASE_HZ
+		const spread = value['melody.spread'];
+		const stepDur = 1 / value['melody.rate'];
 		const t = core.context.currentTime;
 		const step = Math.floor(t / stepDur);
 		if (step !== lastStep) {
 			lastStep = step;
-			note = SEQ.steps[step % SEQ.steps.length];
-			if (note > 0) core.set('voice.freq', [midiHz(note)]);
-			gate = note > 0 ? 1 : 0;
-			core.set('env', [gate]);
-		} else if (gate && t - step * stepDur > stepDur * SEQ.gate) {
-			gate = 0;
-			core.set('env', [0]);
+			target = BASE_HZ * 2 ** ((Math.random() * 2 - 1) * spread * SPREAD_OCTAVES);
+			glideFrom = pitch;
+			glideAt = t;
+		}
+		const g = Math.max(0.001, value['melody.glide'] * stepDur);
+		pitch = glideFrom * (target / glideFrom) ** Math.min(1, (t - glideAt) / g);
+		core.set('voice.freq', [pitch]);
+		if (!gate) {
+			gate = 1;
+			core.set('env', [1]);
 		}
 		noise?.filter.frequency.setTargetAtTime(cutoff(), core.context.currentTime, 0.03);
 	}
