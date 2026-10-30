@@ -324,4 +324,16 @@ mod tests {
         odd.nodes[0].kind = "teleporter".into();
         assert!(from_wire(&odd).unwrap_err().to_string().contains("teleporter"));
     }
+
+    /// #197: the browser deck's being (deck/lab/www/deck-scene.ts, its fixture kept equal by deck-client.test.ts)
+    /// builds on the conductor like a native deck's, its exposed parameters as buttons
+    #[test]
+    fn the_browser_decks_being_builds() {
+        let Message::DeckGraph(g) = serde_json::from_str(include_str!("../../../lab/fixtures/deck-graph.json")).unwrap() else { panic!() };
+        let (graph, look) = from_wire(&g).unwrap();
+        assert_eq!((graph.nodes.len(), graph.links.len()), (g.nodes.len(), g.links.len()));
+        assert_eq!(look.character, "yellowmouse");
+        let being = super::super::being::Being::new(&graph, &look);
+        assert_eq!(being.buttons.len(), g.expose.as_ref().unwrap().len(), "one button per exposed parameter");
+    }
 }
