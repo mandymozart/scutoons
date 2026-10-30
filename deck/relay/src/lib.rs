@@ -34,6 +34,10 @@ pub use session::{targets, After, Client, Session};
 pub const MAX_CLIENTS: usize = 1000;
 /// A client that sends no `hello` within this time is dropped.
 pub const HELLO_TIMEOUT: Duration = Duration::from_secs(5);
+/// the relay's WebSocket ping to every client
+pub const PING_EVERY: Duration = Duration::from_secs(5);
+/// no frame at all (not even the pong) for this long = the client is gone
+pub const IDLE_TIMEOUT: Duration = Duration::from_secs(15);
 /// B.6: the vote tally goes to the conductor every 250 ms.
 pub const TALLY_EVERY: Duration = Duration::from_millis(250);
 
@@ -293,20 +297,40 @@ async fn connection(mut stream: TcpStream, relay: Arc<Relay>) -> anyhow::Result<
     };
     tracing::info!(code, client = id, role = hello.role.as_str(), resume = hello.resume.is_some(), "joined");
 
+    // a WebSocket ping every PING_EVERY: browsers and tungstenite answer it themselves, so a client that stays silent
+    // past IDLE_TIMEOUT is gone even when its TCP side never closed (a phone reloading behind `adb reverse` left a
+    // ghost deck at the conductor, 2026-10-31)
     let writer = tokio::spawn(async move {
-        while let Some(text) = rx.recv().await {
-            if sink.send(Ws::Text(text)).await.is_err() {
+        let mut ping = tokio::time::interval_at(tokio::time::Instant::now() + PING_EVERY, PING_EVERY);
+        ping.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        loop {
+            let sent = tokio::select! {
+                text = rx.recv() => match text {
+                    Some(text) => sink.send(Ws::Text(text)).await,
+                    None => break,
+                },
+                _ = ping.tick() => sink.send(Ws::Ping(Default::default())).await,
+            };
+            if sent.is_err() {
                 break;
             }
         }
         sink.close().await.ok();
     });
 
-    while let Some(frame) = source.next().await {
+    loop {
+        let frame = match tokio::time::timeout(IDLE_TIMEOUT, source.next()).await {
+            Ok(Some(frame)) => frame,
+            Ok(None) => break,
+            Err(_) => {
+                tracing::info!(code, client = id, "silent for {IDLE_TIMEOUT:?} – dropped");
+                break;
+            }
+        };
         let text = match frame {
             Ok(Ws::Text(t)) => t,
             Ok(Ws::Close(_)) | Err(_) => break,
-            Ok(_) => continue, // binary / ping / pong frames: nothing in B.6
+            Ok(_) => continue, // binary / ping / pong frames: nothing in B.6 (a pong only proves the client is there)
         };
         let lead = relay.config.lead_ms;
         let after = relay.with_session(&code, |s| match serde_json::from_str::<Envelope>(&text) {

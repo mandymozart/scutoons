@@ -24,6 +24,9 @@ async fn start() -> u16 {
 async fn recv(ws: &mut Socket) -> Envelope {
     loop {
         let frame = tokio::time::timeout(Duration::from_secs(3), ws.next()).await.expect("a message").unwrap().unwrap();
+        if matches!(frame, Ws::Ping(_) | Ws::Pong(_)) {
+            continue; // the relay's keep-alive
+        }
         let Ws::Text(text) = frame else { panic!("text expected, got {frame:?}") };
         let e: Envelope = serde_json::from_str(&text).unwrap();
         if !matches!(e.message, Message::Presence(_)) {
@@ -36,6 +39,9 @@ async fn recv(ws: &mut Socket) -> Envelope {
 async fn nothing(ws: &mut Socket) {
     let deadline = tokio::time::Instant::now() + Duration::from_millis(300);
     while let Ok(frame) = tokio::time::timeout_at(deadline, ws.next()).await {
+        if matches!(frame, Some(Ok(Ws::Ping(_) | Ws::Pong(_)))) {
+            continue;
+        }
         let Some(Ok(Ws::Text(text))) = frame else { return };
         let e: Envelope = serde_json::from_str(&text).unwrap();
         assert!(matches!(e.message, Message::Presence(_)), "no message expected, got {e:?}");
