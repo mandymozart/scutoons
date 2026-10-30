@@ -41,6 +41,7 @@ export type Message =
 	| { kind: 'assign'; p: Assign }
 	| { kind: 'panic'; p: Panic }
 	| { kind: 'media.preload'; p: MediaPreload }
+	| { kind: 'media.ready'; p: MediaReady }
 	| { kind: 'snapshot'; p: Snapshot }
 	| { kind: 'cell'; p: CellChange }
 	| { kind: 'say'; p: Loose }
@@ -56,7 +57,7 @@ export type Message =
 	| { kind: 'devices'; p: Devices }
 	| { kind: 'error'; p: Error };
 
-/** A payload whose shape B.6 names but this skeleton does not fix yet (votes, snapshot, cells, say / line / fx / colour). */
+/** A payload whose shape B.6 names but this skeleton does not fix yet (say / line / fx / colour, cue actions). */
 export type Loose = Record<string, unknown>;
 
 /** B.11 (3): majority = most votes; groups = each group's majority is one vote; first = the first option to reach `n`. */
@@ -103,16 +104,18 @@ export interface VoteResult {
 	how: VoteHow;
 }
 
-/** conductor → relay → the outlet's clients on a row change: the outlet's new cell (B.5.2 `Cell`, loose until the show schema lands). */
+/** conductor → relay → the outlet's clients on a row change: the outlet's new cell (B.5.2 `Cell`, resolved by the conductor – a deck renders it natively, #186). */
 export interface CellChange {
 	outlet: string;
-	cell: Loose;
+	cell: Cell;
 }
 
 /** What a client shows when it joins / reconnects / is moved (B.6): the last state, the current cell per outlet it sees, the open vote, the last instruction (say) per group it sees. The conductor sees every outlet and group. */
 export interface Snapshot {
 	state?: State;
-	cells?: Record<string, Loose>;
+	cells?: Record<string, Cell>;
+	/** the last `media.preload` per outlet it sees – a reconnecting output resolves its cell's media ids with it */
+	media?: Record<string, MediaPreload>;
 	vote?: VoteOpen;
 	say?: Record<string, Loose>;
 	/** the session's seq when the snapshot was taken */
@@ -185,9 +188,147 @@ export interface Panic {
 	stop?: boolean;
 }
 
+/** conductor → relay → the outlet's clients before doors (LIVE.md B.5.6, #186): fetch and cache these, then answer `media.ready`. The relay keeps the last one per outlet for the snapshot. */
 export interface MediaPreload {
 	outlet: string;
-	urls: string[];
+	items: MediaItem[];
+}
+
+/** #193: a set's spot carries rendered variants – a still, a rendered video, a 3D model; the Live view picks one. */
+export type SpotMode = 'still' | 'video' | 'model3d';
+
+/** One medium of a preload: `id` (what layers name as `media`) and either a `url` (show media under live/<toon>/ on the CDN, fetched with the deck token) or a set reference `set` + `spot` + `mode` (#193 – the deck resolves it: the API by id once the set model exists, today a local path / URL fallback). */
+export interface MediaItem {
+	id: string;
+	url?: string;
+	/** a set id (#193: one staging of a place, e.g. `cathedral`) */
+	set?: string;
+	/** a named spot of the set (missing = the set's default view) */
+	spot?: string;
+	mode?: SpotMode;
+	/** the size, if known */
+	bytes?: number;
+}
+
+/** an outlet's client → relay → conductor: what of the outlet's preload is cached (`ready`) and what is not (`missing`, the reason per id in `why`) – the conductor's ready light. Sent after each preload and again while it retries. */
+export interface MediaReady {
+	outlet: string;
+	ready: string[];
+	missing: string[];
+	why?: Record<string, string>;
+}
+
+/** B.5.2: own = the cell's layers; mirror = what outlet `of` shows; black = black (a device outlet: all off). */
+export type CellMode = 'own' | 'mirror' | 'black';
+
+/** B.5.2 `Cell` on the wire: what one outlet shows for the current row, resolved by the conductor (toon picks as toon + chapter + slice index, live media by preload id, sets by set + spot + mode). `layers` back → front. */
+export interface Cell {
+	mode: CellMode;
+	layers?: Layer[];
+	/** mirror: the outlet whose cell this one shows */
+	of?: string;
+	/** a device outlet: the messages on row enter */
+	send?: DeviceMsg[];
+}
+
+/** B.5.2 `Layer`: a source in a box of the outlet. `enter` / `exit` fade it in / out when the cell changes (missing = the outlet's default crossfade); a layer with the same id and source in both cells stays. */
+export interface Layer {
+	id: string;
+	src: LayerSrc;
+	box?: LayerBox;
+	fit?: Fit;
+	/** 0–1 (default 1) */
+	opacity?: number;
+	loop?: boolean;
+	enter?: Transition;
+	exit?: Transition;
+}
+
+/** A box in % of the outlet (a panel's crop: of the slice); x, y = the top left corner. A layer without one fills the outlet. */
+export interface LayerBox {
+	x: number;
+	y: number;
+	w: number;
+	h: number;
+}
+
+export type Fit = 'cover' | 'contain';
+
+/** A layer's fade when the cell changes, `ms` long (0 = a cut). */
+export interface Transition {
+	ms: number;
+}
+
+/** What a layer shows (B.5.2 ToonSrc / LiveSrc, resolved). From the toon (the public library): scroll, slice, panel, surtitles. Live: video / image / model3d (a preloaded medium by id), set (a set's spot in a mode, #193), text, colour, camera. */
+export type LayerSrc =
+	| { kind: 'scroll'; p: ToonChapter }
+	| { kind: 'slice'; p: ToonSlice }
+	| { kind: 'panel'; p: ToonPanel }
+	| { kind: 'surtitles'; p: Surtitles }
+	| { kind: 'video'; p: MediaSrc }
+	| { kind: 'image'; p: MediaSrc }
+	| { kind: 'model3d'; p: MediaSrc }
+	| { kind: 'set'; p: SetSrc }
+	| { kind: 'text'; p: TextSrc }
+	| { kind: 'colour'; p: ColourSrc }
+	| { kind: 'camera'; p: CameraSrc };
+
+/** scroll: the chapter's slices running one after the other. */
+export interface ToonChapter {
+	toon: string;
+	chapter: number;
+}
+
+/** slice: one slice; `slice` = its index in the chapter's reading order (the slices with an image, 0-based – the conductor resolves the show's pick to it). */
+export interface ToonSlice {
+	toon: string;
+	chapter: number;
+	slice: number;
+}
+
+/** panel: a crop of one slice (`crop` in % of the slice). */
+export interface ToonPanel {
+	toon: string;
+	chapter: number;
+	slice: number;
+	crop: LayerBox;
+}
+
+/** surtitles: the dialog of the slice the show is on (`state.slice`, an index like ToonSlice's) in `locale`; `of` = one character's lines only. */
+export interface Surtitles {
+	toon: string;
+	chapter: number;
+	locale: string;
+	of?: string;
+}
+
+/** a medium of the outlet's preload, by its id */
+export interface MediaSrc {
+	media: string;
+}
+
+/** #193: a set's spot in a mode – a use names set + spot, never a file. still / video = the spot's rendered variant as a picture; model3d = the set as the deck's 3D space, the camera at the spot. */
+export interface SetSrc {
+	set: string;
+	spot?: string;
+	mode: SpotMode;
+}
+
+/** text: a locale map (the deck shows its locale, else the first); `size` = the line height in % of the outlet height (default 6). */
+export interface TextSrc {
+	text: Record<string, string>;
+	size?: number;
+	colour?: string;
+}
+
+export interface ColourSrc {
+	/** #rrggbb or #rrggbbaa */
+	colour: string;
+}
+
+/** camera: a video input on the output machine, by name (the deck's video-in – not built yet). */
+export interface CameraSrc {
+	input: string;
 }
 
 /** relay → conductor. */

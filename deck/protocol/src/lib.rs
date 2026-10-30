@@ -70,6 +70,29 @@ mod tests {
         assert_eq!(device.to.as_ref().unwrap().role, Some(Role::Bridge));
     }
 
+    /// #186: the preload names urls and set references, a cell's layers are typed sources (the sermon's cell)
+    #[test]
+    fn typed_cells_and_media() {
+        let raw: Vec<Envelope> = serde_json::from_str(FIXTURE).unwrap();
+        let preload = raw.iter().find_map(|e| if let Message::MediaPreload(m) = &e.message { Some(m) } else { None }).unwrap();
+        assert_eq!(preload.items[1].set.as_deref(), Some("cathedral"));
+        assert_eq!(preload.items[1].mode, Some(SpotMode::Model3d));
+        let cell = raw
+            .iter()
+            .find_map(|e| match &e.message {
+                Message::Cell(c) if c.cell.mode == CellMode::Own && c.outlet == "left" => Some(&c.cell),
+                _ => None,
+            })
+            .unwrap();
+        let layers = cell.layers.as_ref().unwrap();
+        assert!(matches!(&layers[0].src, LayerSrc::Set(s) if s.spot.as_deref() == Some("nave-centre")));
+        assert_eq!(layers[0].enter.as_ref().map(|t| t.ms), Some(1200));
+        assert!(matches!(&layers[2].src, LayerSrc::Panel(p) if p.slice == 41 && p.crop.h == 40.0));
+        assert_eq!(layers[1].r#box.as_ref().map(|b| b.y), Some(75.0));
+        let ready = raw.iter().find_map(|e| if let Message::MediaReady(r) = &e.message { Some(r) } else { None }).unwrap();
+        assert_eq!(ready.missing, ["choir"]);
+    }
+
     #[test]
     fn unknown_kind_is_an_error() {
         let bad = r#"{"v":1,"seq":0,"from":"x","kind":"teleport","p":{}}"#;

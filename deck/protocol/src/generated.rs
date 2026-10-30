@@ -101,6 +101,8 @@ pub enum Message {
 	Panic(Panic),
 	#[serde(rename = "media.preload")]
 	MediaPreload(MediaPreload),
+	#[serde(rename = "media.ready")]
+	MediaReady(MediaReady),
 	#[serde(rename = "snapshot")]
 	Snapshot(Snapshot),
 	#[serde(rename = "cell")]
@@ -149,6 +151,7 @@ impl Message {
 			Message::Assign(_) => "assign",
 			Message::Panic(_) => "panic",
 			Message::MediaPreload(_) => "media.preload",
+			Message::MediaReady(_) => "media.ready",
 			Message::Snapshot(_) => "snapshot",
 			Message::Cell(_) => "cell",
 			Message::Say(_) => "say",
@@ -256,11 +259,11 @@ pub struct VoteResult {
 	pub how: VoteHow,
 }
 
-/// conductor → relay → the outlet's clients on a row change: the outlet's new cell (B.5.2 `Cell`, loose until the show schema lands).
+/// conductor → relay → the outlet's clients on a row change: the outlet's new cell (B.5.2 `Cell`, resolved by the conductor – a deck renders it natively, #186).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CellChange {
 	pub outlet: String,
-	pub cell: Loose,
+	pub cell: Cell,
 }
 
 /// What a client shows when it joins / reconnects / is moved (B.6): the last state, the current cell per outlet it sees, the open vote, the last instruction (say) per group it sees. The conductor sees every outlet and group.
@@ -269,7 +272,10 @@ pub struct Snapshot {
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub state: Option<State>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
-	pub cells: Option<std::collections::HashMap<String, Loose>>,
+	pub cells: Option<std::collections::HashMap<String, Cell>>,
+	/// the last `media.preload` per outlet it sees – a reconnecting output resolves its cell's media ids with it
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub media: Option<std::collections::HashMap<String, MediaPreload>>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub vote: Option<VoteOpen>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
@@ -364,10 +370,266 @@ pub struct Panic {
 	pub stop: Option<bool>,
 }
 
+/// conductor → relay → the outlet's clients before doors (LIVE.md B.5.6, #186): fetch and cache these, then answer `media.ready`. The relay keeps the last one per outlet for the snapshot.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MediaPreload {
 	pub outlet: String,
-	pub urls: Vec<String>,
+	pub items: Vec<MediaItem>,
+}
+
+/// #193: a set's spot carries rendered variants – a still, a rendered video, a 3D model; the Live view picks one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum SpotMode {
+	#[serde(rename = "still")]
+	Still,
+	#[serde(rename = "video")]
+	Video,
+	#[serde(rename = "model3d")]
+	Model3d,
+}
+
+impl SpotMode {
+	pub fn as_str(self) -> &'static str {
+		match self {
+			SpotMode::Still => "still",
+			SpotMode::Video => "video",
+			SpotMode::Model3d => "model3d",
+		}
+	}
+}
+
+/// One medium of a preload: `id` (what layers name as `media`) and either a `url` (show media under live/<toon>/ on the CDN, fetched with the deck token) or a set reference `set` + `spot` + `mode` (#193 – the deck resolves it: the API by id once the set model exists, today a local path / URL fallback).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MediaItem {
+	pub id: String,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub url: Option<String>,
+	/// a set id (#193: one staging of a place, e.g. `cathedral`)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub set: Option<String>,
+	/// a named spot of the set (missing = the set's default view)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub spot: Option<String>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub mode: Option<SpotMode>,
+	/// the size, if known
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub bytes: Option<u64>,
+}
+
+/// an outlet's client → relay → conductor: what of the outlet's preload is cached (`ready`) and what is not (`missing`, the reason per id in `why`) – the conductor's ready light. Sent after each preload and again while it retries.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MediaReady {
+	pub outlet: String,
+	pub ready: Vec<String>,
+	pub missing: Vec<String>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub why: Option<std::collections::HashMap<String, String>>,
+}
+
+/// B.5.2: own = the cell's layers; mirror = what outlet `of` shows; black = black (a device outlet: all off).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum CellMode {
+	#[serde(rename = "own")]
+	Own,
+	#[serde(rename = "mirror")]
+	Mirror,
+	#[serde(rename = "black")]
+	Black,
+}
+
+impl CellMode {
+	pub fn as_str(self) -> &'static str {
+		match self {
+			CellMode::Own => "own",
+			CellMode::Mirror => "mirror",
+			CellMode::Black => "black",
+		}
+	}
+}
+
+/// B.5.2 `Cell` on the wire: what one outlet shows for the current row, resolved by the conductor (toon picks as toon + chapter + slice index, live media by preload id, sets by set + spot + mode). `layers` back → front.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Cell {
+	pub mode: CellMode,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub layers: Option<Vec<Layer>>,
+	/// mirror: the outlet whose cell this one shows
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub of: Option<String>,
+	/// a device outlet: the messages on row enter
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub send: Option<Vec<DeviceMsg>>,
+}
+
+/// B.5.2 `Layer`: a source in a box of the outlet. `enter` / `exit` fade it in / out when the cell changes (missing = the outlet's default crossfade); a layer with the same id and source in both cells stays.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Layer {
+	pub id: String,
+	pub src: LayerSrc,
+	#[serde(rename = "box", default, skip_serializing_if = "Option::is_none")]
+	pub r#box: Option<LayerBox>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub fit: Option<Fit>,
+	/// 0–1 (default 1)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub opacity: Option<f64>,
+	#[serde(rename = "loop", default, skip_serializing_if = "Option::is_none")]
+	pub r#loop: Option<bool>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub enter: Option<Transition>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub exit: Option<Transition>,
+}
+
+/// A box in % of the outlet (a panel's crop: of the slice); x, y = the top left corner. A layer without one fills the outlet.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LayerBox {
+	pub x: f64,
+	pub y: f64,
+	pub w: f64,
+	pub h: f64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Fit {
+	#[serde(rename = "cover")]
+	Cover,
+	#[serde(rename = "contain")]
+	Contain,
+}
+
+impl Fit {
+	pub fn as_str(self) -> &'static str {
+		match self {
+			Fit::Cover => "cover",
+			Fit::Contain => "contain",
+		}
+	}
+}
+
+/// A layer's fade when the cell changes, `ms` long (0 = a cut).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Transition {
+	pub ms: u64,
+}
+
+/// What a layer shows (B.5.2 ToonSrc / LiveSrc, resolved). From the toon (the public library): scroll, slice, panel, surtitles. Live: video / image / model3d (a preloaded medium by id), set (a set's spot in a mode, #193), text, colour, camera.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", content = "p")]
+pub enum LayerSrc {
+	#[serde(rename = "scroll")]
+	Scroll(ToonChapter),
+	#[serde(rename = "slice")]
+	Slice(ToonSlice),
+	#[serde(rename = "panel")]
+	Panel(ToonPanel),
+	#[serde(rename = "surtitles")]
+	Surtitles(Surtitles),
+	#[serde(rename = "video")]
+	Video(MediaSrc),
+	#[serde(rename = "image")]
+	Image(MediaSrc),
+	#[serde(rename = "model3d")]
+	Model3d(MediaSrc),
+	#[serde(rename = "set")]
+	Set(SetSrc),
+	#[serde(rename = "text")]
+	Text(TextSrc),
+	#[serde(rename = "colour")]
+	Colour(ColourSrc),
+	#[serde(rename = "camera")]
+	Camera(CameraSrc),
+}
+
+impl LayerSrc {
+	/// The `kind` string on the wire.
+	pub fn kind(&self) -> &'static str {
+		match self {
+			LayerSrc::Scroll(_) => "scroll",
+			LayerSrc::Slice(_) => "slice",
+			LayerSrc::Panel(_) => "panel",
+			LayerSrc::Surtitles(_) => "surtitles",
+			LayerSrc::Video(_) => "video",
+			LayerSrc::Image(_) => "image",
+			LayerSrc::Model3d(_) => "model3d",
+			LayerSrc::Set(_) => "set",
+			LayerSrc::Text(_) => "text",
+			LayerSrc::Colour(_) => "colour",
+			LayerSrc::Camera(_) => "camera",
+		}
+	}
+}
+
+/// scroll: the chapter's slices running one after the other.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ToonChapter {
+	pub toon: String,
+	pub chapter: u64,
+}
+
+/// slice: one slice; `slice` = its index in the chapter's reading order (the slices with an image, 0-based – the conductor resolves the show's pick to it).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ToonSlice {
+	pub toon: String,
+	pub chapter: u64,
+	pub slice: u64,
+}
+
+/// panel: a crop of one slice (`crop` in % of the slice).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ToonPanel {
+	pub toon: String,
+	pub chapter: u64,
+	pub slice: u64,
+	pub crop: LayerBox,
+}
+
+/// surtitles: the dialog of the slice the show is on (`state.slice`, an index like ToonSlice's) in `locale`; `of` = one character's lines only.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Surtitles {
+	pub toon: String,
+	pub chapter: u64,
+	pub locale: String,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub of: Option<String>,
+}
+
+/// a medium of the outlet's preload, by its id
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MediaSrc {
+	pub media: String,
+}
+
+/// #193: a set's spot in a mode – a use names set + spot, never a file. still / video = the spot's rendered variant as a picture; model3d = the set as the deck's 3D space, the camera at the spot.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SetSrc {
+	pub set: String,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub spot: Option<String>,
+	pub mode: SpotMode,
+}
+
+/// text: a locale map (the deck shows its locale, else the first); `size` = the line height in % of the outlet height (default 6).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TextSrc {
+	pub text: std::collections::HashMap<String, String>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub size: Option<f64>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub colour: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ColourSrc {
+	/// #rrggbb or #rrggbbaa
+	pub colour: String,
+}
+
+/// camera: a video input on the output machine, by name (the deck's video-in – not built yet).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CameraSrc {
+	pub input: String,
 }
 
 /// relay → conductor.

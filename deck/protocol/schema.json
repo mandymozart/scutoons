@@ -54,6 +54,7 @@
         { "type": "object", "properties": { "kind": { "const": "assign" }, "p": { "$ref": "#/definitions/Assign" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "panic" }, "p": { "$ref": "#/definitions/Panic" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "media.preload" }, "p": { "$ref": "#/definitions/MediaPreload" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "media.ready" }, "p": { "$ref": "#/definitions/MediaReady" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "snapshot" }, "p": { "$ref": "#/definitions/Snapshot" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "cell" }, "p": { "$ref": "#/definitions/CellChange" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "say" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] },
@@ -71,7 +72,7 @@
       ]
     },
     "Loose": {
-      "description": "A payload whose shape B.6 names but this skeleton does not fix yet (votes, snapshot, cells, say / line / fx / colour).",
+      "description": "A payload whose shape B.6 names but this skeleton does not fix yet (say / line / fx / colour, cue actions).",
       "type": "object",
       "additionalProperties": true
     },
@@ -129,9 +130,9 @@
       "additionalProperties": false
     },
     "CellChange": {
-      "description": "conductor → relay → the outlet's clients on a row change: the outlet's new cell (B.5.2 `Cell`, loose until the show schema lands).",
+      "description": "conductor → relay → the outlet's clients on a row change: the outlet's new cell (B.5.2 `Cell`, resolved by the conductor – a deck renders it natively, #186).",
       "type": "object",
-      "properties": { "outlet": { "type": "string" }, "cell": { "$ref": "#/definitions/Loose" } },
+      "properties": { "outlet": { "type": "string" }, "cell": { "$ref": "#/definitions/Cell" } },
       "required": ["outlet", "cell"],
       "additionalProperties": false
     },
@@ -140,7 +141,8 @@
       "type": "object",
       "properties": {
         "state": { "$ref": "#/definitions/State" },
-        "cells": { "type": "object", "additionalProperties": { "$ref": "#/definitions/Loose" } },
+        "cells": { "type": "object", "additionalProperties": { "$ref": "#/definitions/Cell" } },
+        "media": { "type": "object", "additionalProperties": { "$ref": "#/definitions/MediaPreload" }, "description": "the last `media.preload` per outlet it sees – a reconnecting output resolves its cell's media ids with it" },
         "vote": { "$ref": "#/definitions/VoteOpen" },
         "say": { "type": "object", "additionalProperties": { "$ref": "#/definitions/Loose" } },
         "seq": { "type": "integer", "description": "the session's seq when the snapshot was taken" }
@@ -222,9 +224,181 @@
       "additionalProperties": false
     },
     "MediaPreload": {
+      "description": "conductor → relay → the outlet's clients before doors (LIVE.md B.5.6, #186): fetch and cache these, then answer `media.ready`. The relay keeps the last one per outlet for the snapshot.",
       "type": "object",
-      "properties": { "outlet": { "type": "string" }, "urls": { "type": "array", "items": { "type": "string" } } },
-      "required": ["outlet", "urls"],
+      "properties": { "outlet": { "type": "string" }, "items": { "type": "array", "items": { "$ref": "#/definitions/MediaItem" } } },
+      "required": ["outlet", "items"],
+      "additionalProperties": false
+    },
+    "SpotMode": {
+      "description": "#193: a set's spot carries rendered variants – a still, a rendered video, a 3D model; the Live view picks one.",
+      "type": "string",
+      "enum": ["still", "video", "model3d"]
+    },
+    "MediaItem": {
+      "description": "One medium of a preload: `id` (what layers name as `media`) and either a `url` (show media under live/<toon>/ on the CDN, fetched with the deck token) or a set reference `set` + `spot` + `mode` (#193 – the deck resolves it: the API by id once the set model exists, today a local path / URL fallback).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "url": { "type": "string" },
+        "set": { "type": "string", "description": "a set id (#193: one staging of a place, e.g. `cathedral`)" },
+        "spot": { "type": "string", "description": "a named spot of the set (missing = the set's default view)" },
+        "mode": { "$ref": "#/definitions/SpotMode" },
+        "bytes": { "type": "integer", "minimum": 0, "description": "the size, if known" }
+      },
+      "required": ["id"],
+      "additionalProperties": false
+    },
+    "MediaReady": {
+      "description": "an outlet's client → relay → conductor: what of the outlet's preload is cached (`ready`) and what is not (`missing`, the reason per id in `why`) – the conductor's ready light. Sent after each preload and again while it retries.",
+      "type": "object",
+      "properties": {
+        "outlet": { "type": "string" },
+        "ready": { "type": "array", "items": { "type": "string" } },
+        "missing": { "type": "array", "items": { "type": "string" } },
+        "why": { "type": "object", "additionalProperties": { "type": "string" } }
+      },
+      "required": ["outlet", "ready", "missing"],
+      "additionalProperties": false
+    },
+    "CellMode": {
+      "description": "B.5.2: own = the cell's layers; mirror = what outlet `of` shows; black = black (a device outlet: all off).",
+      "type": "string",
+      "enum": ["own", "mirror", "black"]
+    },
+    "Cell": {
+      "description": "B.5.2 `Cell` on the wire: what one outlet shows for the current row, resolved by the conductor (toon picks as toon + chapter + slice index, live media by preload id, sets by set + spot + mode). `layers` back → front.",
+      "type": "object",
+      "properties": {
+        "mode": { "$ref": "#/definitions/CellMode" },
+        "layers": { "type": "array", "items": { "$ref": "#/definitions/Layer" } },
+        "of": { "type": "string", "description": "mirror: the outlet whose cell this one shows" },
+        "send": { "type": "array", "items": { "$ref": "#/definitions/DeviceMsg" }, "description": "a device outlet: the messages on row enter" }
+      },
+      "required": ["mode"],
+      "additionalProperties": false
+    },
+    "Layer": {
+      "description": "B.5.2 `Layer`: a source in a box of the outlet. `enter` / `exit` fade it in / out when the cell changes (missing = the outlet's default crossfade); a layer with the same id and source in both cells stays.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "src": { "$ref": "#/definitions/LayerSrc" },
+        "box": { "$ref": "#/definitions/LayerBox" },
+        "fit": { "$ref": "#/definitions/Fit" },
+        "opacity": { "type": "number", "description": "0–1 (default 1)" },
+        "loop": { "type": "boolean" },
+        "enter": { "$ref": "#/definitions/Transition" },
+        "exit": { "$ref": "#/definitions/Transition" }
+      },
+      "required": ["id", "src"],
+      "additionalProperties": false
+    },
+    "LayerBox": {
+      "description": "A box in % of the outlet (a panel's crop: of the slice); x, y = the top left corner. A layer without one fills the outlet.",
+      "type": "object",
+      "properties": { "x": { "type": "number" }, "y": { "type": "number" }, "w": { "type": "number" }, "h": { "type": "number" } },
+      "required": ["x", "y", "w", "h"],
+      "additionalProperties": false
+    },
+    "Fit": { "type": "string", "enum": ["cover", "contain"] },
+    "Transition": {
+      "description": "A layer's fade when the cell changes, `ms` long (0 = a cut).",
+      "type": "object",
+      "properties": { "ms": { "type": "integer", "minimum": 0 } },
+      "required": ["ms"],
+      "additionalProperties": false
+    },
+    "LayerSrc": {
+      "description": "What a layer shows (B.5.2 ToonSrc / LiveSrc, resolved). From the toon (the public library): scroll, slice, panel, surtitles. Live: video / image / model3d (a preloaded medium by id), set (a set's spot in a mode, #193), text, colour, camera.",
+      "oneOf": [
+        { "type": "object", "properties": { "kind": { "const": "scroll" }, "p": { "$ref": "#/definitions/ToonChapter" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "slice" }, "p": { "$ref": "#/definitions/ToonSlice" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "panel" }, "p": { "$ref": "#/definitions/ToonPanel" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "surtitles" }, "p": { "$ref": "#/definitions/Surtitles" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "video" }, "p": { "$ref": "#/definitions/MediaSrc" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "image" }, "p": { "$ref": "#/definitions/MediaSrc" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "model3d" }, "p": { "$ref": "#/definitions/MediaSrc" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "set" }, "p": { "$ref": "#/definitions/SetSrc" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "text" }, "p": { "$ref": "#/definitions/TextSrc" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "colour" }, "p": { "$ref": "#/definitions/ColourSrc" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "camera" }, "p": { "$ref": "#/definitions/CameraSrc" } }, "required": ["kind", "p"] }
+      ]
+    },
+    "ToonChapter": {
+      "description": "scroll: the chapter's slices running one after the other.",
+      "type": "object",
+      "properties": { "toon": { "type": "string" }, "chapter": { "type": "integer", "minimum": 0 } },
+      "required": ["toon", "chapter"],
+      "additionalProperties": false
+    },
+    "ToonSlice": {
+      "description": "slice: one slice; `slice` = its index in the chapter's reading order (the slices with an image, 0-based – the conductor resolves the show's pick to it).",
+      "type": "object",
+      "properties": { "toon": { "type": "string" }, "chapter": { "type": "integer", "minimum": 0 }, "slice": { "type": "integer", "minimum": 0 } },
+      "required": ["toon", "chapter", "slice"],
+      "additionalProperties": false
+    },
+    "ToonPanel": {
+      "description": "panel: a crop of one slice (`crop` in % of the slice).",
+      "type": "object",
+      "properties": {
+        "toon": { "type": "string" },
+        "chapter": { "type": "integer", "minimum": 0 },
+        "slice": { "type": "integer", "minimum": 0 },
+        "crop": { "$ref": "#/definitions/LayerBox" }
+      },
+      "required": ["toon", "chapter", "slice", "crop"],
+      "additionalProperties": false
+    },
+    "Surtitles": {
+      "description": "surtitles: the dialog of the slice the show is on (`state.slice`, an index like ToonSlice's) in `locale`; `of` = one character's lines only.",
+      "type": "object",
+      "properties": {
+        "toon": { "type": "string" },
+        "chapter": { "type": "integer", "minimum": 0 },
+        "locale": { "type": "string" },
+        "of": { "type": "string" }
+      },
+      "required": ["toon", "chapter", "locale"],
+      "additionalProperties": false
+    },
+    "MediaSrc": {
+      "description": "a medium of the outlet's preload, by its id",
+      "type": "object",
+      "properties": { "media": { "type": "string" } },
+      "required": ["media"],
+      "additionalProperties": false
+    },
+    "SetSrc": {
+      "description": "#193: a set's spot in a mode – a use names set + spot, never a file. still / video = the spot's rendered variant as a picture; model3d = the set as the deck's 3D space, the camera at the spot.",
+      "type": "object",
+      "properties": { "set": { "type": "string" }, "spot": { "type": "string" }, "mode": { "$ref": "#/definitions/SpotMode" } },
+      "required": ["set", "mode"],
+      "additionalProperties": false
+    },
+    "TextSrc": {
+      "description": "text: a locale map (the deck shows its locale, else the first); `size` = the line height in % of the outlet height (default 6).",
+      "type": "object",
+      "properties": {
+        "text": { "type": "object", "additionalProperties": { "type": "string" } },
+        "size": { "type": "number" },
+        "colour": { "type": "string" }
+      },
+      "required": ["text"],
+      "additionalProperties": false
+    },
+    "ColourSrc": {
+      "type": "object",
+      "properties": { "colour": { "type": "string", "description": "#rrggbb or #rrggbbaa" } },
+      "required": ["colour"],
+      "additionalProperties": false
+    },
+    "CameraSrc": {
+      "description": "camera: a video input on the output machine, by name (the deck's video-in – not built yet).",
+      "type": "object",
+      "properties": { "input": { "type": "string" } },
+      "required": ["input"],
       "additionalProperties": false
     },
     "Presence": {

@@ -1,11 +1,11 @@
 //! One Live session (LIVE.md B.6): its clients, the replay log, the snapshot state (the last `state`, the current cell
-//! per outlet, the last instruction per group, the open vote), presence. Synchronous and clock-free – the caller passes
+//! and the last media preload per outlet, the last instruction per group, the open vote), presence. Synchronous and clock-free – the caller passes
 //! `now` (relay time, ms) – so every rule here is a unit test; lib.rs owns the sockets and the timers.
 use std::collections::{HashMap, VecDeque};
 
 use protocol::{
-    Assign, Cue, Envelope, Error as ProtocolError, Loose, Message, Presence, Resume, Role, Snapshot, State, To,
-    VoteTally,
+    Assign, Cell, CellMode, Cue, Envelope, Error as ProtocolError, Loose, MediaPreload, Message, Presence, Resume, Role,
+    Snapshot, State, To, VoteTally,
 };
 use serde_json::Value;
 use tokio::sync::mpsc::UnboundedSender;
@@ -160,7 +160,9 @@ pub struct Session {
     trimmed: u64,
     departed: HashMap<String, Departed>,
     state: Option<State>,
-    cells: HashMap<String, Loose>,
+    cells: HashMap<String, Cell>,
+    /// the last `media.preload` per outlet (#186: a reconnecting output resolves its cell's media ids with it)
+    media: HashMap<String, MediaPreload>,
     say: HashMap<String, Loose>,
     pub vote: Option<OpenVote>,
     /// relay time when the last client left (the session is kept for a resume, then pruned)
@@ -285,20 +287,21 @@ impl Session {
             }
             s
         });
-        let pick = |m: &HashMap<String, Loose>| -> Option<HashMap<String, Loose>> {
-            let picked: HashMap<String, Loose> = m
+        fn pick<T: Clone>(m: &HashMap<String, T>, all: bool, group: Option<&str>) -> Option<HashMap<String, T>> {
+            let picked: HashMap<String, T> = m
                 .iter()
                 .filter(|(outlet, _)| all || group == Some(outlet.as_str()))
                 .map(|(k, v)| (k.clone(), v.clone()))
                 .collect();
             (!picked.is_empty()).then_some(picked)
-        };
+        }
         let bridge = role == Role::Bridge;
         Snapshot {
             state,
-            cells: if bridge { None } else { pick(&self.cells) },
+            cells: if bridge { None } else { pick(&self.cells, all, group) },
+            media: if bridge { None } else { pick(&self.media, all, group) },
             vote: if all || self.is_voter(role, group) { self.vote.as_ref().map(|v| v.open.clone()) } else { None },
-            say: if bridge { None } else { pick(&self.say) },
+            say: if bridge { None } else { pick(&self.say, all, group) },
             seq: Some(self.seq as i64),
         }
     }
@@ -402,6 +405,7 @@ impl Session {
                 self.publish(id, e, now);
             }
             Message::MediaPreload(m) => {
+                self.media.insert(m.outlet.clone(), m.clone());
                 if e.to.is_none() {
                     e.to = Some(To::group(m.outlet.clone()));
                 }
@@ -413,9 +417,8 @@ impl Session {
             }
             Message::Panic(p) => {
                 if p.black == Some(true) {
-                    let black: Loose = serde_json::from_str(r#"{"mode":"black"}"#).expect("literal");
                     for cell in self.cells.values_mut() {
-                        *cell = black.clone();
+                        *cell = Cell { mode: CellMode::Black, layers: None, of: None, send: None };
                     }
                     self.say.clear();
                 }
@@ -480,6 +483,19 @@ impl Session {
                 if let Some(c) = self.clients.get_mut(id) {
                     c.ready = true;
                 }
+                self.tell_presence();
+            }
+            Message::MediaReady(m) => {
+                // #186: an output's preload answer – ready (for presence) once nothing is missing; the details to the
+                // conductor (its ready light per outlet)
+                let complete = m.missing.is_empty();
+                if let Some(c) = self.clients.get_mut(id) {
+                    c.ready = complete;
+                }
+                if e.to.is_none() {
+                    e.to = Some(To::role(Role::Conductor));
+                }
+                self.publish(id, e, now);
                 self.tell_presence();
             }
             Message::React(_) | Message::Pickup(_) | Message::Devices(_) | Message::DeviceIn(_) => {
@@ -577,7 +593,7 @@ impl Session {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use protocol::{CellChange, Panic, VoteCast, VoteClose, VoteHow, VoteOpen, VoteRule};
+    use protocol::{CellChange, MediaItem, MediaReady, Panic, VoteCast, VoteClose, VoteHow, VoteOpen, VoteRule};
     use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 
     struct Room {
@@ -631,6 +647,10 @@ mod tests {
         r.add("a3", Role::Audience, Some("right"));
         r.add("bridge", Role::Bridge, None);
         r
+    }
+
+    fn cell(json: &str) -> Cell {
+        serde_json::from_str(json).unwrap()
     }
 
     fn loose(json: &str) -> Loose {
@@ -687,7 +707,7 @@ mod tests {
     #[test]
     fn timed_kinds_get_the_lead() {
         let mut r = room();
-        r.send("cond", Message::Cell(CellChange { outlet: "left".into(), cell: loose(r#"{"mode":"black"}"#) }), 1_000);
+        r.send("cond", Message::Cell(CellChange { outlet: "left".into(), cell: cell(r#"{"mode":"black"}"#) }), 1_000);
         let e = r.inbox("outL");
         assert_eq!(e[0].at, Some(1_050));
         assert!(r.inbox("outR").is_empty(), "a cell goes to its outlet only");
@@ -726,8 +746,8 @@ mod tests {
         let mut vars = HashMap::new();
         vars.insert("mood".to_owned(), 2.0);
         r.send("cond", Message::State(State { row: 3, slice: 12, vars, inventory: Some(vec!["lp".into()]) }), 0);
-        r.send("cond", Message::Cell(CellChange { outlet: "left".into(), cell: loose(r#"{"mode":"own"}"#) }), 0);
-        r.send("cond", Message::Cell(CellChange { outlet: "right".into(), cell: loose(r#"{"mode":"black"}"#) }), 0);
+        r.send("cond", Message::Cell(CellChange { outlet: "left".into(), cell: cell(r#"{"mode":"own"}"#) }), 0);
+        r.send("cond", Message::Cell(CellChange { outlet: "right".into(), cell: cell(r#"{"mode":"black"}"#) }), 0);
         let c = r.s.snapshot_for(Role::Conductor, None);
         assert_eq!(c.cells.as_ref().unwrap().len(), 2);
         assert_eq!(c.state.as_ref().unwrap().vars["mood"], 2.0);
@@ -739,7 +759,39 @@ mod tests {
         // panic black turns every known cell black
         r.send("cond", Message::Panic(Panic { black: Some(true), stop: None }), 0);
         let o = r.s.snapshot_for(Role::Output, Some("left"));
-        assert_eq!(o.cells.unwrap()["left"]["mode"], "black");
+        assert_eq!(o.cells.unwrap()["left"].mode, CellMode::Black);
+    }
+
+    /// #186: the outlet's preload stays for its snapshot (a deck that reconnects resolves its cell's media ids); the
+    /// output's `media.ready` reaches the conductor, and the output counts as ready once nothing is missing
+    #[test]
+    fn media_preload_and_ready() {
+        let mut r = room();
+        let item = |id: &str| MediaItem { id: id.into(), url: Some(format!("https://cdn/{id}.webm")), set: None, spot: None, mode: None, bytes: None };
+        let preload = protocol::MediaPreload { outlet: "left".into(), items: vec![item("choir"), item("organ")] };
+        r.send("cond", Message::MediaPreload(preload.clone()), 0);
+        assert_eq!(r.kinds("outL"), ["media.preload"]);
+        assert!(r.kinds("outR").is_empty(), "another outlet's preload");
+        assert_eq!(r.s.snapshot_for(Role::Output, Some("left")).media.unwrap()["left"], preload);
+        assert!(r.s.snapshot_for(Role::Output, Some("right")).media.is_none());
+        r.drain();
+
+        let ready = |missing: &[&str]| MediaReady {
+            outlet: "left".into(),
+            ready: vec!["organ".into()],
+            missing: missing.iter().map(|m| m.to_string()).collect(),
+            why: None,
+        };
+        r.send("outL", Message::MediaReady(ready(&["choir"])), 0);
+        let inbox = r.inbox("cond");
+        assert!(inbox.iter().any(|e| matches!(&e.message, Message::MediaReady(m) if m.missing == ["choir"])));
+        assert!(r.s.presence().ready.is_empty(), "something is missing");
+        assert!(r.kinds("outR").is_empty(), "the answer goes to the conductor only");
+        r.send("outL", Message::MediaReady(ready(&[])), 0);
+        assert_eq!(r.s.presence().ready, ["outL"]);
+        // an audience phone may not preload for others
+        assert_eq!(r.send("a1", Message::MediaPreload(preload), 0), After::Nothing);
+        assert!(r.kinds("a1").contains(&"error"));
     }
 
     #[test]

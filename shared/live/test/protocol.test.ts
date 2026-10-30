@@ -43,6 +43,6 @@ test('fixture: the narrowed payloads', () => {
 
 test('fixture covers each kind of the schema at least once, except the loose ones not routed yet', () => {
 	const kinds = new Set(messages.map((m) => m.kind));
-	for (const k of ['hello', 'welcome', 'ping', 'pong', 'state', 'cue', 'device', 'device.in', 'devices', 'error'])
+	for (const k of ['hello', 'welcome', 'ping', 'pong', 'state', 'cue', 'cell', 'media.preload', 'media.ready', 'device', 'device.in', 'devices', 'error'])
 		assert.ok(kinds.has(k as Message['kind']), k);
 });
