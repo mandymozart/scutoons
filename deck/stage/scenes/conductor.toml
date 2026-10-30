@@ -37,7 +37,7 @@ feel = [
   { mood = "confused", when = "fm.ratio", above = 2.6, weight = 3 },
   { mood = "crying", when = "fft.level", falling = 0.15, weight = 3 },
   { mood = "laughing", when = "bpm", above = 104, weight = 2 },
-  { mood = "happy", when = "fft.mid", above = 0.3, for = 0.5, weight = 2, chance = 0.7 },
+  { mood = "happy", when = "fft.mid", above = 0.3, for = 1, weight = 2, chance = 0.5, cooldown = 12 },
   { mood = "disgusted", when = "lfo.out", below = 0.05, weight = 2 },
   { mood = "denial", when = "phrase", above = 7, weight = 2 },
   { mood = "bargaining", when = "phrase", above = 3, below = 3.5, weight = 2, chance = 0.6 },

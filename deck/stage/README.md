@@ -132,19 +132,50 @@ The HUD's last line names the hovered button (`VOICE.INDEX 2.00 [0.00-10.0]`, `S
 body drifts, sways and breathes on the tempo clock (a swell on each beat, a wave over the bar; `pulse` kicks it); `hue`
 / `glow` colour it, `light` dims the room. The scene's `[being]` table is its shape: `size` (body radius, 0.5 m),
 `drift` (0.06 m), `breath` (0.035), `wobble` (0.025), `hose` / `bubbles` (thickness / rate factors), `expose` (the
-buttons: `"node"` or `"node.port"`, empty = all), `character` + `moods` (the head) – with the graph that is what a
-being preset saves (#191).
+buttons: `"node"` or `"node.port"`, empty = all), `character` + `moods` (the head), `feel` + `react` (its feelings,
+below) – with the graph that is what a being preset saves (#191).
 
 **The head** (phase 5; owner 2026-10-30: the portrait *is* the head, organic on synthetic, Ghost in the Shell): the
 character's portrait mood sprite (`<character>_portrait-<mood>.png|webp`) on a curved face plate turned to the eye,
 over a dark machine layer behind it (circuit lines lit by the energy – the parallax of a layered head), inside a
 translucent synthetic skin (a ghost sphere with scan lines); below the chin the sprite dissolves into the neck, where
-cables from the core and the body's highest points plug into sockets, their bands rising into the head. The **mood
-follows the energy** (0.8 × the FFT level + 0.2 × the tempo): `moods` calm → wild (default neutral · thinking · happy ·
-laughing · surprised), a new mood must hold 1.2 s, then cross-fades in 0.5 s; a missing sprite shows the nearest mood
-there is (toward calm), a character without sprites a faceless visor. Sprites: `space/portrait.rs` – a `Source`, today
+cables from the core and the body's highest points plug into sockets, their bands rising into the head. Without a
+feeling firing the **mood follows the energy** (0.8 × the FFT level + 0.2 × the tempo): `moods` calm → wild (default
+neutral · thinking · happy · laughing · surprised), a new mood must hold 1.2 s, then cross-fades in 0.5 s. The mood set
+(production 2026-10-30): acceptance · angry · bargaining · confused · crying · denial · disgusted · embarrassed · furious
+· happy · laughing · neutral · sad · scared · smug · surprised · thinking in every full set, + dizzy (the cat popes,
+the helmet mouse), dying (billthefrog), tripping (yellowmouse); a missing sprite shows its nearest moods
+(`portrait::NEAR`: dizzy → confused, tripping …), then toward calm; a character without sprites a faceless visor. Sprites: `space/portrait.rs` – a `Source`, today
 `LocalDir` (`--portraits`: `<dir>/<char>/<char>_portrait-<mood>.*`, the media/characters layout, or flat), loaded and
 mipmapped on their own thread; **#180's deck-token fetch** becomes a second `Source` caching into that folder.
+
+**Feelings** (`space/feel.rs`; owner 2026-10-30: "a few mappings for certain emotions … the main thing is that we get a
+change. It has to become more exploratory again" – arbitrary on purpose, the whole mood set). Two lists in `[being]`,
+one inline table per line:
+- `feel = [{ mood, when, <test>, for, hold, weight, chance, cooldown }]` – feedback → emotion. `when` = `node.port` (the
+  node by id, else the first of that kind: `fft.bass`, `fm.index`, `lfo.shape`, an audio output = its peak) · `bpm` ·
+  `touch` (1 while a hand turns a button, fading 0.8 s) · `energy` · `phrase` (0..8 through an 8-bar phrase). The test:
+  `above` / `below` (both = between), `rising` / `falling` (that far above / below its last half second), `steady = s`
+  (moved less than `by`, 0.03, for s seconds). True for `for` s (0), it fires with `chance` (1) and its mood shows at
+  once, for at least `hold` s (1.5). The heaviest `weight` (1) wins once the shown one has had 0.6 s; a mood shown 6 s,
+  or one that stops, rests `cooldown` s (4). None firing = the energy.
+- `react = [{ mood, set, by | to, attack, release }]` – emotion → sound: when the head turns to `mood`, the unlinked
+  control input `set` is kicked `by` an amount or `to` a value over `attack` s (0.1) and eases back over `release` s (2)
+  through `Controls::set`; a hand on it meanwhile becomes its new rest, kicks on one input add up, its range bounds them.
+- The defaults (cathedral.toml, conductor.toml): every mood has a rule and a nudge – touch → smug, letting go →
+  embarrassed, an LFO's waveform switched → dizzy, a bass jump → surprised, a level jump → scared, a jump in the highs →
+  angry, silence → dying, a fast LFO → tripping, a high FM index → furious, a high FM ratio → confused, the level falling
+  → crying, a fast clock → laughing, loud mids → happy, the incense's cutoff low (the conductor: the swell's trough) →
+  disgusted, the phrase's last bar → denial, its fourth → bargaining, no bass → sad, a level standing still → thinking,
+  the energy standing still → acceptance, a phrase's start → neutral. Back into the sound: furious / angry / sad /
+  disgusted / embarrassed paint the hue (red · rust · blue · bile · blush), surprised flashes the glow and blips the
+  drone's pitch, laughing doubles the choir (`seq.rate`) and speeds the LFO, thinking drops the FM index, denial ducks
+  the music, dying darkens the room and sinks the drone … – several chain (surprised → furious, laughing → tripping,
+  smug / disgusted → confused). `--dev` reloads them with the scene.
+- The HUD's mood line: `MOOD FURIOUS < VOICE.INDEX +3` (the rule, the nudges at work), `MOOD HAPPY < ENERGY 0.62`, or `<
+  STREAM`. The conductor runs its own `feel` rules on every deck's mirrored values (by kind, so they resolve on any
+  graph; a deck's nudges stay with the deck), the deck's streamed mood their fallback; `deck.graph` carries the whole
+  palette.
 
 **The session** (phase 4) – the space node's `join` with a relay set (deck.toml `relay` or `--relay`):
 - `join = "deck"` (`scenes/cathedral.toml`): joins as `musician` of the group `decks`, sends `deck.graph` (its graph,
