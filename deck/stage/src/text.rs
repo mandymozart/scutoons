@@ -31,12 +31,24 @@ pub struct Dialog {
     pub align: Option<String>,
     pub valign: Option<String>,
     pub size: Option<f32>,
+    /// a colour, or a gradient `{ type, angle, stops: [{ at, color }] }` – drawn in its first stop's colour
+    #[serde(deserialize_with = "paint")]
     pub color: Option<String>,
     pub stroke: Option<String>,
     pub stroke_width: Option<f32>,
     pub uppercase: Option<bool>,
     pub frame: Option<bool>,
     pub rotation: Option<f32>,
+}
+
+/// a colour string, or a gradient's first stop (gradients are not drawn; chapter 2's "laut" has one, #188)
+fn paint<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<String>, D::Error> {
+    let v = Option::<serde_json::Value>::deserialize(d)?;
+    Ok(match v {
+        Some(serde_json::Value::String(s)) => Some(s),
+        Some(g) => g.get("stops").and_then(|s| s.get(0)).and_then(|s| s.get("color")).and_then(|c| c.as_str()).map(str::to_string),
+        None => None,
+    })
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Default)]
@@ -386,6 +398,8 @@ mod tests {
             "font":"mono","valign":"middle"},
             {"rect":{"x":10,"y":60,"width":70},"text":"Leugnen","variant":"bubble","font":"lettering","size":14,
             "color":"#ffffff","stroke":"#000000","strokeWidth":0.1,"rotation":-7}]"##;
+        let gradient: Vec<Dialog> = serde_json::from_str(r##"[{"text":"laut","color":{"type":"linear","angle":180,"stops":[{"at":0,"color":"#ffc531"},{"at":100,"color":"#00ff94"}]}}]"##).unwrap();
+        assert_eq!(gradient[0].color.as_deref(), Some("#ffc531"), "a gradient: its first stop");
         let d: Vec<Dialog> = serde_json::from_str(json).unwrap();
         let mut img = RgbaImage::from_pixel(390, 624, Rgba([40, 80, 120, 255]));
         bake_dialog(&mut img, &d);
