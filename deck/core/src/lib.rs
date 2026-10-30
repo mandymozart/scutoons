@@ -11,6 +11,7 @@
 
 pub mod batch;
 pub mod graph;
+pub mod lanes;
 pub mod math;
 pub mod module;
 

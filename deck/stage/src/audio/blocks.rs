@@ -344,9 +344,12 @@ impl Block for Mixer {
         for (k, g) in self.gains.iter().enumerate() {
             let Some(src) = ins[k] else { continue };
             let g = g.get();
-            for i in 0..n {
-                out.l[i] += src.l[i] * g;
-                out.r[i] += src.r[i] * g;
+            // over slices, not indices: no bounds check per sample, so the loops vectorise
+            for (o, x) in out.l[..n].iter_mut().zip(&src.l[..n]) {
+                *o += x * g;
+            }
+            for (o, x) in out.r[..n].iter_mut().zip(&src.r[..n]) {
+                *o += x * g;
             }
         }
     }
@@ -381,9 +384,11 @@ impl Block for Out {
             return;
         };
         let v = self.volume.get();
-        for i in 0..n {
-            out.l[i] = src.l[i] * v;
-            out.r[i] = src.r[i] * v;
+        for (o, x) in out.l[..n].iter_mut().zip(&src.l[..n]) {
+            *o = x * v;
+        }
+        for (o, x) in out.r[..n].iter_mut().zip(&src.r[..n]) {
+            *o = x * v;
         }
     }
 }

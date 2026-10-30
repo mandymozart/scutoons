@@ -4,7 +4,7 @@
 use std::f32::consts::TAU;
 
 /// 1.5 · 2²³: adding and subtracting it rounds an f32 to the nearest integer (ties to even) in the FPU itself.
-const MAGIC: f32 = 12_582_912.0;
+pub(crate) const MAGIC: f32 = 12_582_912.0;
 
 /// `x` rounded to the nearest integer (ties to even), for |x| < 2²² – two float adds: no libm, no int cast (Rust's
 /// saturating `as` costs compares on x86), no branch, so loops over it vectorise.

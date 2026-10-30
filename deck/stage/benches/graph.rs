@@ -106,9 +106,17 @@ fn control(name: &str, text: &str) {
 fn main() {
     println!("| workload, µs | patcher | batch | batch AVX2 |\n|---|---|---|---|");
     audio("the default scene", DEFAULT_SCENE);
+    audio("1 FM voice", &voices("fm", 1, false));
+    audio("1 FM voice on a sequencer", &voices("fm", 1, true));
     audio("16 FM voices", &voices("fm", 16, false));
     audio("16 FM voices on a sequencer", &voices("fm", 16, true));
     audio("16 sine oscillators", &voices("osc", 16, false));
+    let alone = (0..64).map(|i| format!("[[node]]
+id=\"v{i}\"
+kind=\"fm\"
+freq={}
+", 100 + i)).collect::<String>();
+    audio("64 FM voices (no mixer)", &alone);
     control("300 LFOs wide (3 levels × 100)", &lfos(3, 100));
     control("300 LFOs deep (300 levels)", &lfos(300, 1));
 }
