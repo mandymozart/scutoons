@@ -59,6 +59,12 @@ export function isReadable(item: { status?: string } | null | undefined): boolea
 	return isItemPublic(item, showDrafts()) || (on && item?.status === Status.COMING_SOON);
 }
 
+/**
+ * saved to the device: published only, also in the draft preview – the server's file list refuses drafts and coming
+ * soon (403 not_public), and one refused list failed the whole season as "the server didn't deliver a file" (#194)
+ */
+export const isSavable = (item: { status?: string } | null | undefined): boolean => isItemPublic(item);
+
 /** listed in the chapter list (coming soon always, drafts with showDrafts()) */
 export const isListed = (item: { status?: string } | null | undefined): boolean =>
 	isItemListed(item, showDrafts());

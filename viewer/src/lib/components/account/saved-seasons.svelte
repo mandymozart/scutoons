@@ -9,7 +9,7 @@
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { fetchToon } from '$lib/api.ts';
-	import { isListed, isReadable } from '$lib/draft-preview.svelte.ts';
+	import { isListed, isSavable } from '$lib/draft-preview.svelte.ts';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { savedChapters } from '$lib/offline/saved-chapters.svelte.ts';
@@ -46,7 +46,7 @@
 					number: c.number,
 					title: c.title ?? '',
 					label: chapterName(c.number, seasons),
-					readable: isReadable(c) && (!!c.isPreview || membership.isValid)
+					readable: isSavable(c) && (!!c.isPreview || membership.isValid)
 				}));
 				const saved = (n: number) => !!savedChapters.get(toon, n);
 				const readable = chapters.filter((c) => c.readable);

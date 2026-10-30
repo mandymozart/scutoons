@@ -189,4 +189,19 @@
 	.cancel {
 		margin-right: auto;
 	}
+	/* a phone: the two share the row in equal halves, a long label wraps – wrapped, the primary sat alone on a second
+	   row, offset to the right (#194) */
+	@media (max-width: 479px) {
+		.buttons {
+			flex-wrap: nowrap;
+		}
+		.buttons > button {
+			flex: 1 1 0;
+			min-width: 0;
+			white-space: normal;
+		}
+		.cancel {
+			margin-right: 0;
+		}
+	}
 </style>

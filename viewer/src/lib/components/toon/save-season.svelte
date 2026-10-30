@@ -13,7 +13,7 @@
 	import { page } from '$app/state';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
-	import { isReadable } from '$lib/draft-preview.svelte.ts';
+	import { isSavable } from '$lib/draft-preview.svelte.ts';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { savedChapters } from '$lib/offline/saved-chapters.svelte.ts';
@@ -33,7 +33,7 @@
 			number: c.number,
 			title: c.title ?? '',
 			label: chapterName(c.number),
-			readable: isReadable(c) && (!!c.isPreview || membership.isValid)
+			readable: isSavable(c) && (!!c.isPreview || membership.isValid)
 		}))
 	);
 	// the season's ✓ only when every readable chapter is here whole (its videos too – owner 2026-10-17)
