@@ -25,7 +25,8 @@ export const PARAMS: Record<string, Spec> = {
 	'drone.freq': { min: 30, max: 220, value: 55, log: true, label: 'drone pitch' },
 	'drone.gain': { min: 0, max: 0.3, value: 0.1, label: 'drone' },
 	'incense.cutoff': { min: 150, max: 8000, value: 1800, log: true, label: 'cutoff' },
-	'incense.gain': { min: 0, max: 0.15, value: 0.03, label: 'incense' },
+	// silent until the slider is raised: the X1's cathedral already hisses its own incense (owner 2026-10-31: two noises)
+	'incense.gain': { min: 0, max: 0.15, value: 0, label: 'incense' },
 	'sway.rate': { min: 0.02, max: 3, value: 0.07, log: true, label: 'LFO rate' },
 	'sway.depth': { min: 0, max: 1, value: 0.6, label: 'LFO depth' },
 	'space.hue': { min: 0, max: 1, value: 0.52, label: 'hue' },
