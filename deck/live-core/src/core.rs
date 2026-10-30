@@ -1,7 +1,7 @@
 //! The engine one worker runs (#184): a scene on deck-core's batch graph (#183), its audio rendered block by block,
 //! the rendered audio analysed (deck-core's FFT `Analyzer`, looking back by the output lead), and sent values applied
 //! from wire records. Safe Rust; lib.rs puts it behind the raw wasm exports.
-use crate::wire::{self, FRAME};
+use crate::wire::{self, Mode, FRAME};
 use deck_core::analysis::{Analyzer, SPECTRUM};
 use deck_core::batch::BatchGraph;
 use deck_core::SceneDef;
@@ -49,21 +49,26 @@ impl Core {
         format!("{{\"nodes\":[{}]}}", nodes.join(","))
     }
 
-    /// Applies the records of `bytes`; a vector's components land on consecutive inputs from the record's port, the
-    /// ones past the node's last input are dropped (the node maps what it has, #189). Returns how many records.
+    /// Applies the records of `bytes` (`send` each); returns how many.
     pub fn apply(&mut self, bytes: &[u8]) -> Result<usize, String> {
         let mut n = 0;
         for r in wire::records(bytes) {
             let r = r.map_err(|e| e.to_string())?;
-            let node = r.node as usize;
-            let ports = self.graph.ports(node).map(<[_]>::len).ok_or_else(|| format!("wire: no node {node}"))?;
-            let amount = r.mode.amount(r.amount);
-            for (k, v) in r.values().enumerate().take(ports.saturating_sub(r.port as usize)) {
-                self.graph.send(node, r.port as usize + k, v, amount);
-            }
+            self.send(r.mode, r.node as usize, r.port as usize, r.amount, r.values())?;
             n += 1;
         }
         Ok(n)
+    }
+
+    /// A float vector onto node `node`'s inputs: the components land on consecutive inputs from `port`, the ones past
+    /// the node's last input are dropped (the node maps what it has, #189).
+    pub fn send(&mut self, mode: Mode, node: usize, port: usize, amount: f32, values: impl Iterator<Item = f32>) -> Result<(), String> {
+        let ports = self.graph.ports(node).map(<[_]>::len).ok_or_else(|| format!("wire: no node {node}"))?;
+        let amount = mode.amount(amount);
+        for (k, v) in values.enumerate().take(ports.saturating_sub(port)) {
+            self.graph.send(node, port + k, v, amount);
+        }
+        Ok(())
     }
 
     /// One frame of the control domain.
@@ -94,7 +99,7 @@ impl Core {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::wire::{encode_send, Mode};
+    use crate::wire::encode_send;
 
     pub const SCENE: &str = "[[node]]\nid = \"wob\"\nkind = \"lfo\"\nrate = 0.0\ndepth = 1.0\nphase = 0.25\n\
         [[node]]\nid = \"voice\"\nkind = \"fm\"\nfreq = 110.0\nratio = 2.0\nindex = 0.0\ngain = 0.0\n";
