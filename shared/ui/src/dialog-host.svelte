@@ -198,6 +198,7 @@
 		.buttons > button {
 			flex: 1 1 0;
 			min-width: 0;
+			padding-inline: 0.5rem;
 			white-space: normal;
 		}
 		.cancel {
