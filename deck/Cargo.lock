@@ -743,6 +743,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "deck-scene-features"
+version = "0.1.0"
+dependencies = [
+ "deck-core",
+]
+
+[[package]]
 name = "deck-stage"
 version = "0.1.0"
 dependencies = [

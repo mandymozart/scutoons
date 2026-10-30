@@ -1,0 +1,12 @@
+# deck-scene-features – the cargo features a set of scenes needs (#185): `cargo run -p deck-scene-features -- scenes/*.toml`.
+# deck-core without its modules: only the scene format and the stage's module table (core/src/stage.rs), no FFT.
+[package]
+name = "deck-scene-features"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+deck-core.workspace = true

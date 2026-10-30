@@ -5,8 +5,9 @@
 //! - **Modules** (cargo features): `control` (LFOs, math), `synth` (audio blocks), `analysis` (the FFT: bands, the
 //!   stage's analyzer), `tempo` (the tempo map, quantize, tap – #181 / #185). The stage's
 //!   GPU nodes (shader, chapter, overlay, 3D, text) stay in deck/stage – they need wgpu – but register the same way.
-//! - **Scene-driven builds**: every kind names its module; `features_for(scene)` lists the features a scene needs, so a
-//!   deck build (or a browser worker's wasm) carries exactly those (`deck-scene-features <scene.toml>`).
+//! - **Scene-driven builds**: every kind names its module; `stage::features` lists the deck-stage features a scene needs
+//!   (#185 – the stage's own modules: space, chapter, midi, osc, link, pipewire), `features_for` this crate's modules for
+//!   a browser worker's wasm; `deck-scene-features <scene.toml>…` prints them.
 //!
 //! Platform-free on purpose: the same code runs in deck/stage (native) and in a Web Worker (wasm32, deck/lab).
 
@@ -15,6 +16,7 @@ pub mod graph;
 pub mod lanes;
 pub mod math;
 pub mod module;
+pub mod stage;
 
 #[cfg(feature = "analysis")]
 pub mod analysis;
