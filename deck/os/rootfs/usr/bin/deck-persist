@@ -1,6 +1,7 @@
 #!/bin/bash
 # Persistence on the live stick (CYBERDECKS.md §3): a second partition DECKDATA after the ISO, created on first boot
-# when the stick has free space, mounted at /var/lib/deck (venue patch, pairing, machine.toml, the pacman cache).
+# when the stick has free space, mounted at /var/lib/deck (venue patch, pairing, machine.toml, the pacman cache, the
+# known Wi-Fi networks).
 # Exit 0 = /var/lib/deck is persistent (or this is an installed system); 1 = tmpfs this boot, the reason printed.
 # archiso 91 writes an MBR (the ISO partition, the EFI partition) with the isohybrid boot code: sfdisk appends a third
 # partition and leaves the boot code alone; a GPT image gets sgdisk. `partx -a` tells the kernel about the new
@@ -18,6 +19,8 @@ if [ ! -d /run/archiso ]; then
 fi
 # the stick: archiso 91 copies the image to RAM and unmounts it, so find the disk by the ISO's label (SCUTOONSDECK)
 boot=$(lsblk -rpno NAME,FSTYPE,LABEL,TYPE | awk '$2 == "iso9660" && $3 == "SCUTOONSDECK" {print $1; exit}')
+# lsblk reads udev's database, which can lag behind a partition table just changed: ask blkid itself then
+[ -n "$boot" ] || boot=$(blkid -p -l -o device -t LABEL=SCUTOONSDECK 2>/dev/null || blkid -l -o device -t LABEL=SCUTOONSDECK 2>/dev/null)
 if [ -z "$boot" ]; then
   echo "no disk with the SCUTOONSDECK image label – booted from the network or an unknown medium"
   exit 1
@@ -31,6 +34,17 @@ mount_part() {
   install -d -o root -g root "$STATE/pacman-cache"
   install -d "/var/cache/pacman/pkg"
   findmnt /var/cache/pacman/pkg >/dev/null 2>&1 || mount --bind "$STATE/pacman-cache" /var/cache/pacman/pkg
+  # the Wi-Fi a deck joined once stays known (owner 2026-10-30: the password was asked on every boot): NetworkManager's
+  # profiles and iwd's network files live on DECKDATA; the image's own profiles (the hotspot) are copied in, never over
+  local dir src
+  for pair in "network/nm:/etc/NetworkManager/system-connections" "network/iwd:/var/lib/iwd"; do
+    dir="$STATE/${pair%%:*}" src="${pair#*:}"
+    install -d -m 700 "$dir" "$src"
+    findmnt "$src" >/dev/null 2>&1 && continue
+    cp -an "$src/." "$dir/" 2>/dev/null || true
+    mount --bind "$dir" "$src"
+  done
+  nmcli connection reload >/dev/null 2>&1 || true
   echo "persistent: $1 at $STATE"
 }
 
@@ -46,6 +60,18 @@ case "$disk" in
   /dev/sr*|/dev/loop*) echo "booted from $disk (optical / loop) – no partition to write"; exit 1 ;;
 esac
 if [ "$(blockdev --getro "$disk" 2>/dev/null)" = 1 ]; then echo "$disk is read-only"; exit 1; fi
+# no discard: on a USB stick mkfs's default discard of the whole partition took minutes on the first boot (X1, s5,
+# 2026-10-30); the inode tables are initialised lazily in the background after the mount
+format() { mkfs.ext4 -q -F -E nodiscard,lazy_itable_init=1,lazy_journal_init=1 -L "$LABEL" "$1"; }
+# a boot cut off while formatting left a third partition without a filesystem (nothing free after it any more):
+# format that one instead of giving up
+last=$(lsblk -rpno NAME,TYPE "$disk" | awk '$2 == "part" {p = $1} END {print p}')
+num=${last##*[!0-9]}
+if [ -n "$last" ] && [ "${num:-0}" -ge 3 ] && [ -z "$(blkid -p -s TYPE -o value "$last" 2>/dev/null)" ]; then
+  echo "$last has no filesystem (a cut-off first boot) – formatting it as $LABEL"
+  format "$last" || { echo "mkfs on $last failed"; exit 1; }
+  mount_part "$last"; exit $?
+fi
 
 # free space after the image: sfdisk reports it for both label types (archiso 91 writes an MBR: ISO + EFI partitions)
 free_b=$(sfdisk -F "$disk" 2>/dev/null | awk '/^Unpartitioned space/ {for (i = 2; i <= NF; i++) if ($i ~ /^bytes/) {print $(i - 1); exit}}')
@@ -74,5 +100,5 @@ partx -a "$disk" >/dev/null 2>&1 || partprobe "$disk" >/dev/null 2>&1 || true
 sleep 1
 new=$(lsblk -rpno NAME,TYPE "$disk" | awk '$2 == "part" {p = $1} END {print p}')
 if [ -z "$new" ]; then echo "the new partition did not appear – a reboot will mount it"; exit 1; fi
-mkfs.ext4 -q -L "$LABEL" "$new" || { echo "mkfs on $new failed"; exit 1; }
+format "$new" || { echo "mkfs on $new failed"; exit 1; }
 mount_part "$new"
