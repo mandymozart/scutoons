@@ -191,13 +191,15 @@ struct ImageDef {
 /// the extensions a room may require
 const SUPPORTED: &[&str] = &["EXT_meshopt_compression", "KHR_mesh_quantization", "EXT_texture_webp", "KHR_materials_unlit"];
 
-/// Load a room; `max_texture` caps the images' longer side (a bigger one is halved until it fits – the X1's memory).
-pub fn load(path: &Path, max_texture: u32) -> Result<Room> {
+/// Load a room; `max_texture` caps the images' longer side (a bigger one is halved until it fits – the X1's memory);
+/// `hide` = node names whose mesh is left out (the scene's `hide`, owner 2026-10-30: the cathedral without its incense
+/// burner – the export stays as it is; the node's children and spots stay).
+pub fn load(path: &Path, max_texture: u32, hide: &[String]) -> Result<Room> {
     let bytes = std::fs::read(path).with_context(|| format!("reading the room {}", path.display()))?;
-    parse(&bytes, max_texture).with_context(|| format!("in the room {}", path.display()))
+    parse(&bytes, max_texture, hide).with_context(|| format!("in the room {}", path.display()))
 }
 
-pub fn parse(bytes: &[u8], max_texture: u32) -> Result<Room> {
+pub fn parse(bytes: &[u8], max_texture: u32, hide: &[String]) -> Result<Room> {
     let (doc, bin) = split_glb(bytes)?;
     let doc: Doc = serde_json::from_slice(doc).context("the glTF JSON")?;
     for e in &doc.extensions_required {
@@ -221,6 +223,9 @@ pub fn parse(bytes: &[u8], max_texture: u32) -> Result<Room> {
             }
             continue;
         };
+        if node.name.as_ref().is_some_and(|n| hide.contains(n)) {
+            continue;
+        }
         let mesh = doc.meshes.get(mesh).with_context(|| format!("no mesh {mesh}"))?;
         for prim in &mesh.primitives {
             if prim.mode.unwrap_or(4) != 4 {
@@ -492,11 +497,8 @@ pub fn half(w: u32, h: u32, px: &[u8]) -> (u32, u32, Vec<u8>) {
 mod tests {
     use super::*;
 
-    /// a .glb of one triangle (float positions, a node without a mesh as a spot), built by hand
-    fn tiny() -> Vec<u8> {
-        let mut bin: Vec<u8> = [[0.0f32, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]].iter().flatten().flat_map(|f| f.to_le_bytes()).collect();
-        bin.extend([0u16, 1, 2, 0].iter().flat_map(|i| i.to_le_bytes()));
-        let json = r#"{"asset":{"version":"2.0"},"scene":0,"scenes":[{"nodes":[0,1]}],
+    /// the tiny room's glTF JSON: one triangle (float positions) on a node, a node without a mesh as a spot
+    const TINY: &str = r#"{"asset":{"version":"2.0"},"scene":0,"scenes":[{"nodes":[0,1]}],
             "nodes":[{"mesh":0,"translation":[10,0,0],"scale":[2,2,2]},{"name":"spot_a","translation":[1,2,3]}],
             "meshes":[{"primitives":[{"attributes":{"POSITION":0},"indices":1,"material":0}]}],
             "materials":[{"pbrMetallicRoughness":{"baseColorFactor":[1,0.5,0.25,1]}}],
@@ -504,6 +506,15 @@ mod tests {
                          {"bufferView":1,"componentType":5123,"count":3,"type":"SCALAR"}],
             "bufferViews":[{"buffer":0,"byteOffset":0,"byteLength":36},{"buffer":0,"byteOffset":36,"byteLength":6}],
             "buffers":[{"byteLength":44}]}"#;
+
+    /// a .glb of the tiny room, built by hand
+    fn tiny() -> Vec<u8> {
+        pack(TINY)
+    }
+
+    fn pack(json: &str) -> Vec<u8> {
+        let mut bin: Vec<u8> = [[0.0f32, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]].iter().flatten().flat_map(|f| f.to_le_bytes()).collect();
+        bin.extend([0u16, 1, 2, 0].iter().flat_map(|i| i.to_le_bytes()));
         let mut j = json.as_bytes().to_vec();
         while j.len() % 4 != 0 {
             j.push(b' ');
@@ -533,13 +544,24 @@ mod tests {
 
     #[test]
     fn a_tiny_room_flattens_into_world_space() {
-        let r = parse(&tiny(), 2048).unwrap();
+        let r = parse(&tiny(), 2048, &[]).unwrap();
         assert_eq!(r.triangles(), 1);
         assert_eq!(r.vertices[1].pos, [12.0, 0.0, 0.0], "translation · scale");
         assert_eq!(r.vertices[0].color, [255, 128, 64, 255], "white × the base colour factor");
         assert_eq!(r.spot("spot_a"), Some(Vec3::new(1.0, 2.0, 3.0)));
         assert_eq!(r.draws, vec![Draw { first: 0, count: 3, image: None }]);
         assert_eq!((r.min, r.max), (Vec3::new(10.0, 0.0, 0.0), Vec3::new(12.0, 2.0, 0.0)));
+    }
+
+    #[test]
+    fn a_hidden_node_drops_its_mesh_and_keeps_the_spots() {
+        // a second node with the same mesh, named
+        let json = TINY.replace(r#""nodes":[0,1]"#, r#""nodes":[0,1,2]"#).replace(r#"{"name":"spot_a","translation":[1,2,3]}]"#, r#"{"name":"spot_a","translation":[1,2,3]},{"name":"burner","mesh":0}]"#);
+        let glb = pack(&json);
+        assert_eq!(parse(&glb, 2048, &[]).unwrap().triangles(), 2);
+        let r = parse(&glb, 2048, &["burner".to_string()]).unwrap();
+        assert_eq!(r.triangles(), 1);
+        assert_eq!(r.spot("spot_a"), Some(Vec3::new(1.0, 2.0, 3.0)));
     }
 
     #[test]
@@ -552,7 +574,7 @@ mod tests {
         glb.extend((json.len() as u32).to_le_bytes());
         glb.extend(0x4E4F534Au32.to_le_bytes());
         glb.extend(json.as_bytes());
-        let e = parse(&glb, 2048).err().unwrap();
+        let e = parse(&glb, 2048, &[]).err().unwrap();
         assert!(format!("{e:#}").contains("KHR_draco_mesh_compression"), "{e:#}");
     }
 
@@ -565,9 +587,13 @@ mod tests {
             eprintln!("skipped: {} is not here", path.display());
             return;
         }
-        let r = load(&path, 1024).unwrap();
+        let r = load(&path, 1024, &[]).unwrap();
         assert_eq!(r.triangles(), 114_788, "the report's count");
         assert_eq!(r.draws.len(), 5, "4 textures + the untextured incense burner and roses");
+        // the scenes leave the incense burner out (owner 2026-10-30): fewer triangles, the spots all there
+        let hidden = load(&path, 1024, &["SM_Weihrauch".to_string()]).unwrap();
+        assert!(hidden.triangles() < r.triangles(), "{} → {}", r.triangles(), hidden.triangles());
+        assert_eq!(hidden.spots, r.spots);
         assert!(r.images.len() == 4 && r.images.iter().all(|i| i.size().0 <= 1024 && i.levels.last().unwrap().0 == 1));
         assert!(r.spot("spot_aisle").is_some() && r.spot("view").is_some());
         let size = r.max - r.min;

@@ -87,6 +87,8 @@ pub struct Space {
     room_path: Option<PathBuf>,
     spots: Vec<(String, Vec3)>,
     max_texture: u32,
+    /// the room's nodes left out (the space node's `hide`: their meshes – e.g. the cathedral's incense burner)
+    hide: Vec<String>,
     /// what the HUD says about the room ("cathedral.low.glb 114788 tris", "loading …", the error)
     pub room_status: String,
     spot: String,
@@ -137,14 +139,14 @@ pub fn room_path(graph: &Graph, node: usize, rooms: &Path) -> Option<PathBuf> {
 }
 
 /// a room file → its loader thread; the receiver and the HUD's "LOADING …"
-fn load_room(path: PathBuf, max: u32) -> (Option<mpsc::Receiver<Result<glb::Room>>>, String) {
+fn load_room(path: PathBuf, max: u32, hide: Vec<String>) -> (Option<mpsc::Receiver<Result<glb::Room>>>, String) {
     let (tx, rx) = mpsc::channel();
     let shown = path.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default();
     std::thread::Builder::new()
         .name("room".into())
         .spawn(move || {
             let t = std::time::Instant::now();
-            let r = glb::load(&path, max);
+            let r = glb::load(&path, max, &hide);
             if let Ok(room) = &r {
                 tracing::info!("room {}: {} triangles, {} images, {:.0} ms", path.display(), room.triangles(), room.images.len(), t.elapsed().as_secs_f32() * 1000.0);
             }
@@ -174,9 +176,10 @@ impl Space {
         };
         being.anchor = at.unwrap_or(FALLBACK_ANCHOR);
         let max_texture = n.f32("max_texture", 2048.0) as u32;
+        let hide = n.strs("hide");
         let path = room_path(graph, node, rooms);
         let (room_rx, room_status) = match &path {
-            Some(path) => load_room(path.clone(), max_texture),
+            Some(path) => load_room(path.clone(), max_texture, hide.clone()),
             None => (None, "NO ROOM".into()),
         };
         let camera = Orbit::new(aim(&being), n.f32("yaw", 20.0).to_radians(), n.f32("pitch", 8.0).to_radians(), n.f32("distance", 2.4));
@@ -189,6 +192,7 @@ impl Space {
             room_path: path,
             spots: Vec::new(),
             max_texture,
+            hide,
             room_status,
             spot: n.str("spot").unwrap_or("spot_aisle").to_string(),
             lift: n.f32("lift", 1.5),
@@ -453,7 +457,7 @@ impl Space {
         }
         match room {
             Some(p) if self.room_path.as_deref() != Some(p) => {
-                (self.room_rx, self.room_status) = load_room(p.to_path_buf(), self.max_texture);
+                (self.room_rx, self.room_status) = load_room(p.to_path_buf(), self.max_texture, self.hide.clone());
                 self.room_path = Some(p.to_path_buf());
             }
             _ => {

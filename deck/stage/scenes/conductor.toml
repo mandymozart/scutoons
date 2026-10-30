@@ -150,6 +150,9 @@ id = "space"
 kind = "space"
 room = "cathedral"
 quality = "low"
+# the room's nodes left out: the incense burner over the nave (owner 2026-10-30: "the architecture is good, but the
+# incense burner does nothing for the whole thing")
+hide = ["SM_Weihrauch"]
 at = [5.2, -0.2, 0.5]
 yaw = 180
 pitch = 12

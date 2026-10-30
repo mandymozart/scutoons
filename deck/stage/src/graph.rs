@@ -204,6 +204,12 @@ impl Node {
         self.params.get(key).and_then(|v| v.as_bool()).unwrap_or(default)
     }
 
+    /// a list of strings (`hide = ["SM_Weihrauch"]`); anything else = empty
+    pub fn strs(&self, key: &str) -> Vec<String> {
+        let Some(toml::Value::Array(a)) = self.params.get(key) else { return Vec::new() };
+        a.iter().filter_map(|v| v.as_str().map(str::to_owned)).collect()
+    }
+
     pub fn f32s(&self, key: &str) -> Vec<f32> {
         let Some(toml::Value::Array(a)) = self.params.get(key) else { return Vec::new() };
         a.iter()
