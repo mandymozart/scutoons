@@ -2,7 +2,7 @@
 // being's 3D buttons, the streamed paths, the character switch, the image sniffing for the set's textures.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Deck, portraitsOf } from '../src/deck.ts';
+import { Deck, defaultLead, portraitsOf } from '../src/deck.ts';
 import { sniff } from '../src/space.ts';
 import { LADDER, PARAMS, STREAMED } from '../src/scene.ts';
 
@@ -75,4 +75,19 @@ test("the set's images: PNG, JPEG, else WebP", () => {
 	assert.equal(sniff(new Uint8Array([0x89, 0x50, 0x4e, 0x47])), 'image/png');
 	assert.equal(sniff(new Uint8Array([0xff, 0xd8, 0xff])), 'image/jpeg');
 	assert.equal(sniff(new Uint8Array([0x52, 0x49, 0x46, 0x46])), 'image/webp');
+});
+
+test('#188: the being turns the cutoff as its base – the LFO keeps swaying on top', () => {
+	const d = new Deck({ character: 'yellowmouse', nick: 'guest', api: API });
+	d.setParam('sway.rate', 1);
+	d.setParam('sway.depth', 1);
+	for (let k = 0; k <= 5; k++) d.tick(10 + k * 0.05);
+	d.setParam('incense.cutoff', 600, 'being');
+	assert.equal(d.value['incense.cutoff'], 600, 'the knob: the base');
+	assert.ok(Math.abs(d.read('incense.cutoff') - 600 * 2 ** 1.5) < 1e-6, 'the sway on top of it');
+});
+
+test('#188: a phone keeps more sound ahead of the speaker', () => {
+	assert.equal(defaultLead(true), 3072);
+	assert.equal(defaultLead(false), 2048);
 });

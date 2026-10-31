@@ -909,6 +909,8 @@
 		"pad_incense": "Incense: cutoff → · ↑ LFO rate",
 		"no_3d": "No 3D here: {reason}",
 		"home": "Camera home",
-		"guest": "Guest deck"
+		"guest": "Guest deck",
+		"dropouts": "{n} dropouts / min",
+		"more": "More controls"
 	}
 }

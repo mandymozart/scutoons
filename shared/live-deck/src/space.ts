@@ -8,6 +8,7 @@
 // page says the 3D is missing.
 import type { Deck } from './deck.ts';
 import { BPM } from './deck.ts';
+import { PARAMS } from './scene.ts';
 
 /** the wasm-bindgen API of deck/space-web (its `SpaceView`) */
 export interface SpaceView {
@@ -16,6 +17,8 @@ export interface SpaceView {
 	resize(w: number, h: number): void;
 	set_being(deckGraph: string, values: string): void;
 	set(path: string, value: number): boolean;
+	set_base(path: string, value: number): boolean;
+	set_strain(reductionDb: number, dt: number): void;
 	set_mood(mood: string): void;
 	set_beat(bpm: number, beat: number, perBar: number, running: boolean): void;
 	changes(): string;
@@ -220,6 +223,10 @@ export class SpaceStage {
 			const v = deck.read(p);
 			if (Number.isFinite(v)) this.view.set(p, v);
 		}
+		// #188: a linked knob (the incense cutoff the LFO sways) turns its base – the page's own value under the sway
+		for (const p of Object.keys(PARAMS)) this.view.set_base(p, deck.value[p]);
+		// the output limiter's gain reduction: the head's red flush
+		this.view.set_strain(deck.bands.reduction ?? 0, dt);
 		this.view.set_mood(deck.mood);
 		const t = deck.time;
 		this.view.set_beat(BPM, (t * BPM) / 60, 4, true);

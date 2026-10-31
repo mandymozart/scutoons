@@ -36,6 +36,8 @@
 	let syncStatus = $state('');
 	let spaceStatus = $state('');
 	let hud = $state('');
+	// #188: the sound's dropouts (the worklet's underruns) over the last minute, once it plays
+	let audioStatus = $state('');
 	let threeD = $state(true);
 	let deck: Deck | null = null;
 	let space: SpaceStage | null = null;
@@ -57,7 +59,7 @@
 		}
 	};
 
-	const status = $derived([relayStatus, syncStatus, spaceStatus, hud].filter(Boolean).join(' · '));
+	const status = $derived([relayStatus, syncStatus, spaceStatus, audioStatus, hud].filter(Boolean).join(' · '));
 
 	function showFace() {
 		const p = deck?.portraits[mood] ?? deck?.portraits.neutral ?? Object.values(deck?.portraits ?? {})[0];
@@ -72,6 +74,10 @@
 	onMount(() => {
 		let alive = true;
 		let raf = 0;
+		const stats = setInterval(() => {
+			const s = deck?.core?.stats();
+			if (s) audioStatus = m['live_deck.dropouts']({ n: s.underrunsPerMinute });
+		}, 1000);
 		void (async () => {
 			await settled();
 			if (!alive || !mayJoin(session.me)) return;
@@ -116,6 +122,7 @@
 		})();
 		return () => {
 			alive = false;
+			clearInterval(stats);
 			cancelAnimationFrame(raf);
 			space?.stop();
 			deck?.close();

@@ -55,7 +55,7 @@ export class Deck {
 	portraits: Portraits = {};
 	readonly moods = new Moods(['neutral'], 1.5, BPM);
 	mood = 'neutral';
-	bands: Analysis = { level: 0, bass: 0, mid: 0, high: 0, spectrum: new Float32Array(0) };
+	bands: Analysis = { level: 0, bass: 0, mid: 0, high: 0, spectrum: new Float32Array(0), reduction: 0 };
 	/** a finger on a pad (0 / 1): lifts the energy a little */
 	touch = 0;
 	readonly link: DeckLink | null;
@@ -207,7 +207,7 @@ export class Deck {
 
 	/** Start the sound (needs a user gesture): live-core with the trimmed cathedral, and the incense noise. */
 	async start(files: EngineFiles): Promise<void> {
-		const c = await LiveCore.start({ worker: files.worker, wasm: files.wasm, worklet: files.worklet, transport: files.transport ?? 'auto', lead: files.lead ?? 2048 });
+		const c = await LiveCore.start({ worker: files.worker, wasm: files.wasm, worklet: files.worklet, transport: files.transport ?? 'auto', lead: files.lead ?? defaultLead() });
 		await c.load(ENGINE_TOML);
 		c.onAnalysis((a) => (this.bands = a));
 		const ctx = c.context;
@@ -238,6 +238,12 @@ export class Deck {
 	close() {
 		this.link?.close();
 	}
+}
+
+/** Frames the sound keeps ahead of the speaker (#188): 3072 (64 ms) on a phone – a touch screen, where the worklet
+ * ran dry under load –, else 2048. */
+export function defaultLead(coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches): number {
+	return coarse ? 3072 : 2048;
 }
 
 /** scene-content's portraits of `id` (none offline) */
