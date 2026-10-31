@@ -20,7 +20,7 @@ Owner 2026-10-29: Rust first, no Node + Electron for anything native.
 | `stage` | bin + lib | `deck-stage`, the AV app the deck boots into (CYBERDECKS.md §8, #179): winit + wgpu, a node graph from a TOML scene, an audio graph on PipeWire / cpal with synths + an FFT, chapter music from the library API with a disk cache; modules = cargo features (#185) – stage/README.md |
 | `live-core` | lib + wasm | deck-core for the browser Live mode (#184): the batch graph, render and FFT behind raw `lc_*` wasm exports, the boundary's wire records (`wire.rs` = shared/live-core `wire.ts`); hosted by `@scutoons/live-core` |
 | `scene-features` | bin | `deck-scene-features scenes/*.toml`: the deck-stage features a set of scenes needs (a scene-driven build, #185) |
-| `link` | bin + lib | `deck-link`, the deck's identity and access (CYBERDECKS.md §9, #180): an Ed25519 key made at first boot in `/var/lib/deck/identity`, the request with the code for the splash, polling until a member approves it on scutoons.com/account/decks, ~1 h tokens from a signed challenge, renewed by itself; `deck-link id` / `deck-link pair` for the boot flow and tests. Server side: server/docs/API.md "Decks" |
+| `link` | bin + lib | `deck-link`, the deck's identity and access (CYBERDECKS.md §9, #180): an Ed25519 key made at first boot in `/var/lib/deck/identity`, the request with the code for the splash, polling until a member approves it on scutoons.com/account/decks, ~1 h tokens from a signed challenge, renewed by itself; on a deck one daemon (`deck-link run`, deck-link.service) keeps the code + the token in `/run/deck-link` for the stage and `deck-tls` (`pairing`, no dependencies – the stage uses it without the `net` feature); `deck-link id` / `once` / `status` / `pair` for the boot flow and tests. Server side: server/docs/API.md "Decks" |
 | `bridge` | bin | loads a TOML venue patch (B.5.4), builds + starts the adapters, joins the relay as `bridge`, measures the clock offset (median of 5 pings), sends `devices { ports }`, queues `device` messages until their `at`, `panic` = queue cleared + every adapter silenced (MIDI CC 120 / 123, DMX black), forwards device input as `device.in`. Not yet: the status window, `dmx-artnet` / `dmx-sacn` |
 
 `dmx-artnet`, `dmx-sacn`, `gpio`, `audio`, `video-in`, `display`, `laser` (CYBERDECKS.md §4, #178) do not exist yet – the bridge names them
@@ -61,7 +61,7 @@ A client joins at `ws://127.0.0.1:7700/live/<code>?role=output&group=left` and s
 wss (#201 – a venue's relay that phones on https pages may join): `relay 0.0.0.0:7700 --tls-cert fullchain.pem --tls-key
 privkey.pem` (or `RELAY_TLS_CERT` / `RELAY_TLS_KEY`). The port takes `ws://` and `wss://` alike (a TLS ClientHello starts
 with 0x16, an HTTP request with a letter), so the LAN decks keep `ws://<ip>:7700` while phones open
-`wss://<deck>.lan.scutoons.com:7700/live/<code>`. Every handshake checks the two files' time and size: a renewed pair is
+`wss://<lan-ip-with-dashes>.lan.scutoons.com:7700/live/<code>` (bunny DNS answers those names). Every handshake checks the two files' time and size: a renewed pair is
 used from the next connection on, a half-written one (the key not yet the cert's) keeps the old certificate. A broken pair
 at start stops the relay. On the deck image: `deck-tls` (deck/os/README.md "wss in the venue").
 
@@ -117,7 +117,7 @@ deck/
   adapters/osc/       rosc over UDP, in + out
   relay/              the relay binary + tests/routing.rs (a real server, three roles, two groups) · tests/tls.rs (wss)
   bridge/             the bridge binary + venue.example.toml
-  link/               deck-link: src/ (identity, link, http) · tests/link.rs (a fake server)
+  link/               deck-link: src/ (identity, link, http, pairing) · tests/link.rs (a fake server) · tests/boot_flow.rs (deck/os)
   core/               deck-core: the platform-free core (also wasm32) · src/stage.rs (the stage's modules)
   live-core/          deck-core as the browser's wasm (#184) · src/wire.rs (the boundary's records)
   scene-features/     deck-scene-features: scenes → cargo features

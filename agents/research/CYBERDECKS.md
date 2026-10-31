@@ -202,7 +202,12 @@ account) – a device gets exactly its owner's rights, so pairing sits on the vi
 the QR on the splash). Open: pairing a gadget without a screen (a code printed on it, or the phone over the local
 network). Every deck is a row of its own (build, last seen, mapping), even when all map to one user. Before approval the stage
 plays built-in scenes only. **Code:** server `Domain\Decks\Decks` (server/docs/API.md "Decks", migration `2026-10-29-decks`), the
-account page's "Decks" (`/account/decks?deck=<code>` = the splash's QR), the deck's `deck/link` (`deck-link`). Master-quality media (stems, high-res video) are not part of this: they are show media,
+account page's "Decks" (`/account/decks?deck=<code>` = the splash's QR), the deck's `deck/link` (`deck-link`). **On the
+deck** (deck/os/README.md "Pairing"): one daemon pairs – `deck-link run` (deck-link.service, root; the key in
+`/var/lib/deck/identity`, made by the boot flow at first boot) – and keeps the code and the token in `/run/deck-link`
+(root:deck, the token 0640); the stage shows the code + QR in its corner while it waits and sends the token to the API,
+`deck-tls` fetches the venue certificate with it (#201, `GET /api/decks/lan-cert` – owner 2026-10-31: no admin tokens on
+decks). Master-quality media (stems, high-res video) are not part of this: they are show media,
 assigned to outlets in the Live conductor (LIVE.md B.5.6) – the concept: research/LIVE-LENSES.md (#186); the deck
 fetches what its outlet is given at `media.preload`, with its access token (deck/stage/README.md "Live outlet").
 
