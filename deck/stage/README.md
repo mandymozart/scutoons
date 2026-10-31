@@ -23,6 +23,7 @@ of the heads' sprites instead of the synced `<cache>/portraits`, `DECK_PORTRAITS
 `DECK_TOKEN` (a fixed deck token for the API and show media – a dev deck; a deck reads deck-link's, #180) · `--token T`
 (the conductor's session token, `LIVE_TOKEN`) · `--audio auto|pipewire|cpal|null` (auto =
 PipeWire → cpal → null; null runs the engine on a timer, no device – the clock, the music and the FFT still move) ·
+`--audio-host` · `--audio-device` · `--audio-buffer N` · `--audio-thread on|off` · `--audio-list` ("Audio – live-safe" below) ·
 `--volume 0–1` · `--cache DIR` (default `/var/lib/deck/cache` on a deck, `DECK_CACHE`, else the user cache folder) ·
 `--api` / `--cdn` (or `DECK_API` / `DECK_CDN`) · `--windowed` · `--frames N` (quit after N frames and print the numbers –
 a check run) · `--screenshot FILE` (the last frame of a `--frames` run as a PNG) · `--pointer X,Y` (the pointer at a
@@ -89,6 +90,45 @@ the running show and says why), then the show is rebuilt: audio device, tempo so
 
 The PipeWire backend is the cargo feature `pipewire` (Linux; needs libpipewire + clang at build time) – the ISO and
 the PKGBUILD build with it. Without it the stage plays through cpal (ALSA on Linux, so PipeWire's ALSA plugin still works).
+
+## Audio – live-safe (#208)
+
+A live tool may not crackle unnoticed, and should not crackle at all:
+- **The glitch indicator** (`src/audio/glitch.rs`): every device callback is measured – the interval since the last
+  one against its deadline, the time spent in it against its budget. A glitch is an **underrun** (the device ran dry:
+  the ring was short, a gap in the heard stamps, or – WASAPI – a callback that finds the whole buffer free), a **long
+  render** (over the budget) or **late** (later than the deadline + half of it + 2 ms; the deadline is a period, or
+  WASAPI's whole buffer – its callbacks jitter 10 / 20 ms by design). Counts in atomics, each glitch's numbers through
+  a preallocated ring to the frame thread, which logs them (`audio glitch: underrun – 480 frames, interval …`). The HUD
+  flashes **`AUDIO! UNDERRUN - n IN 10 MIN`** red under the title for 5 s; its audio lines: `AUDIO WASAPI 48K BUF 1056
+  22MS LEAD 5MS` (the host, the buffer the device really runs = its largest callback, the ring's lead) and `OUT 44MS DSP
+  3% GLITCH 0/10M LIM 0` (rendered ahead of the ear, the peak callback / block load, glitches in 10 minutes, the
+  limiter). A `--frames` run's summary: `glitches=N (late a long b underrun c) buffer=… lead=…`.
+- **The render thread** (`src/audio/ring.rs`, `--audio-thread on` = the default; `off` renders in the callback): the
+  graph runs in blocks of 256 frames on a thread of its own into a lock-free SPSC ring (rtrb), the callback only
+  copies. The ring holds the device's buffer + the **lead**: one block (5 ms) at first, a block more per glitch up to
+  16 (85 ms), a block less per calm minute. The time base stays exact (the callback's (frames taken, heard at) through
+  a seqlock; each block is stamped with it + the frames between). `tests/no_alloc.rs` runs both halves: no allocation.
+- **Priority** (`src/audio/priority.rs`): the render thread – or the callback's thread when it renders (WASAPI, ALSA;
+  not ASIO's, that is the driver's) – at Windows MMCSS "Pro Audio" (high), Linux SCHED_FIFO 70 (the deck's user is in
+  `realtime`; PipeWire's own threads at 88 through rtkit).
+- **The buffer** (`--audio-buffer N` · deck.toml `audio_buffer` · the scene's `[stage] audio_buffer`, in that order):
+  cpal's `BufferSize::Fixed(N)` clamped to the device's range (a log line says so), a refused one falls back to the
+  default; PipeWire's latency request (default 128). **WASAPI shared can only grow it**: on the RME the engine runs a
+  1056-frame (22 ms) buffer whatever is asked below that – a smaller buffer needs ASIO.
+- **Host and device**: `--audio-host default|wasapi|asio` (deck.toml `audio_host`), `--audio-device NAME` (a part of
+  the name, any case; deck.toml `audio_device`), `--audio-list` prints the hosts, devices, formats and buffer ranges.
+  **WASAPI exclusive** is not possible: cpal (0.15 and 0.16) opens WASAPI in shared mode only.
+- **ASIO** (the RME Fireface's reference driver on Windows) is the cargo feature `asio` (cpal's asio host; output in
+  f32, i16 or i32 – RME's driver talks i32). Its `asio-sys` builds bindings to Steinberg's ASIO SDK at build time:
+  1. get the ASIO SDK from steinberg.net (a free download after accepting Steinberg's licence) and unpack it, e.g. to
+     `C:\SDK\asiosdk` (the folder holding `common\`, `host\`);
+  2. LLVM for bindgen (`winget install LLVM.LLVM`; `LIBCLANG_PATH=C:\Program Files\LLVM\bin`) and the MSVC build tools;
+  3. `set CPAL_ASIO_DIR=C:\SDK\asiosdk` (without it, or with a folder that doesn't exist, asio-sys downloads the SDK
+     itself into %TEMP% – set it), then `cargo build --release -p deck-stage --features asio`;
+  4. run `deck-stage --audio cpal --audio-host asio --audio-device fireface --audio-buffer 128` (the RME's driver is
+     `ASIO Fireface USB`; the buffer is also the driver's setting in RME's Settings dialog – cpal asks the driver for it).
+  ASIO hands one client the interface's driver (RME's is multi-client); the HUD then says `AUDIO ASIO …`.
 
 ## Scenes
 
@@ -316,8 +356,10 @@ with the token, ready, the cell, resume, the snapshot after a restart). Not yet:
 
 ## How it is built
 
-- **Threads:** the event loop (winit) renders per frame at vsync (Fifo – no busy loop); the audio callback (PipeWire's
-  realtime data thread, or cpal's) runs the audio nodes per block; one loader thread per `chapter_music` node.
+- **Threads:** the event loop (winit) renders per frame at vsync (Fifo – no busy loop); the render thread (`audio-render`,
+  MMCSS / SCHED_FIFO) runs the audio nodes per block into the ring the audio callback (PipeWire's realtime data thread,
+  or cpal's) copies from – or, `--audio-thread off`, the callback runs them itself ("Audio – live-safe"); one loader
+  thread per `chapter_music` node.
 - **The graph runs on the batch model** (#183 – the engine model of ECS systems, TouchDesigner's channels, gen~, over
   the patcher's one object per node): compiled at load into dependency levels × kinds, struct-of-arrays loops.
   **Control** (`src/control.rs`): one value slot per control output, every control input a column (deck-core's `Col`:
@@ -334,9 +376,9 @@ with the token, ready, the cell, resume, the snapshot after a restart). Not yet:
   block – deck-core's `smooth::Ramp`, a one-pole per block spread linearly per sample (gains, frequencies 25 ms, the
   rest 12 ms), the same in the voices, the blocks and the browser's batch. **The soft limiter** (deck-core's
   `limiter.rs`, also live-core's) instead of a hard clamp, last before the device: 64 frames look-ahead (the stamp
-  accounts for it), held to −1 dBFS, a tanh bend above 0.95 – never 1; its gain reduction and the device's underruns
-  (a block heard later than the last one's end, `Engine::mark`) go to the HUD: `AUDIO PIPEWIRE 48K 21MS XRUN 0/M LIM
-  3`. `examples/render-wav.rs` renders 10 s of the cathedral with a hand on the knobs into a WAV and prints the
+  accounts for it), held to −1 dBFS, a tanh bend above 0.95 – never 1; its gain reduction goes to the HUD (`LIM 3`), the device's
+  underruns (a block heard later than the last one's end, `Engine::mark`) into the glitch indicator ("Audio –
+  live-safe"). `examples/render-wav.rs` renders 10 s of the cathedral with a hand on the knobs into a WAV and prints the
   largest sample step (2026-10-31: 0.142 → 0.060, second difference 0.145 → 0.015). `tests/no_alloc.rs` counts
   allocations around 2000 callbacks of the default scene (the click on, the tempo changing), AVX2 and baseline: zero.
   Each block is stamped with the moment it is heard – the time base (`src/clock.rs`).
