@@ -18,6 +18,8 @@ class LiveCoreProcessor extends AudioWorkletProcessor {
 	private consumed = 0;
 	private started = false;
 	private underruns = 0;
+	/** the count last posted to the page */
+	private reported = 0;
 	private played = 0;
 	private sinceReport = 0;
 
@@ -54,7 +56,9 @@ class LiveCoreProcessor extends AudioWorkletProcessor {
 			}
 		}
 		this.sinceReport += first.length;
-		if (this.sinceReport >= 48_000) {
+		// once a second, and (#208) a new dropout at once (at most every 100 ms at 48 kHz) – the page's warning flashes
+		if (this.sinceReport >= 48_000 || (this.underruns !== this.reported && this.sinceReport >= 4_800)) {
+			this.reported = this.underruns;
 			this.sinceReport = 0;
 			this.port.postMessage({ underruns: this.underruns, played: this.played } satisfies FromWorklet);
 		}

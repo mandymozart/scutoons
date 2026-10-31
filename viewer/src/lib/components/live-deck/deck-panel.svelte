@@ -14,6 +14,7 @@
 		started,
 		starting,
 		status,
+		alert = '',
 		onstart,
 		onset,
 		ontouch
@@ -21,8 +22,10 @@
 		values: Record<string, number>;
 		started: boolean;
 		starting: boolean;
-		/** the status line: relay, 3D, the sound's dropouts, the hovered button */
+		/** the status line: relay, 3D, the sound's dropouts and load, the hovered button */
 		status: string;
+		/** #208: the sound's dropout warning – flashes red over the status for a few seconds after a dropout */
+		alert?: string;
 		onstart: () => void;
 		onset: (path: string, value: number) => void;
 		ontouch: (on: 0 | 1) => void;
@@ -98,6 +101,7 @@
 			<Icon name={open ? 'chevrons-down' : 'chevrons-up'} />
 		</button>
 	</div>
+	{#if alert}<p class="alert" role="alert" data-testid="deck-alert">{alert}</p>{/if}
 	<p class="status" data-testid="deck-status" title={status}>{status}</p>
 </section>
 
@@ -207,5 +211,25 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		text-shadow: 0 0 0.25rem var(--ink);
+	}
+	/* #208: a live tool may not crackle unnoticed – the warning flashes */
+	.alert {
+		margin: 0;
+		padding: 0 var(--space-05);
+		font-size: 0.75rem;
+		color: var(--paper);
+		background: var(--state-error);
+		animation: flash 0.5s steps(2, jump-none) infinite;
+	}
+	@keyframes flash {
+		50% {
+			background: transparent;
+			color: var(--state-error);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.alert {
+			animation: none;
+		}
 	}
 </style>

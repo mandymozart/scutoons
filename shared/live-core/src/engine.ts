@@ -119,6 +119,8 @@ export class Engine {
 	private blocks = 0;
 	private records = 0;
 	private renderMs = 0;
+	/** #208: the longest block since the last `stats()` (ms) */
+	private peakMs = 0;
 
 	constructor(core: WasmCore, o: EngineOptions) {
 		this.core = core;
@@ -152,7 +154,9 @@ export class Engine {
 		const t = performance.now();
 		this.core.step(BLOCK / this.core.rate);
 		sink(this.core.render(BLOCK));
-		this.renderMs += performance.now() - t;
+		const ms = performance.now() - t;
+		this.renderMs += ms;
+		if (ms > this.peakMs) this.peakMs = ms;
 		this.blocks++;
 		this.sinceAnalysis += BLOCK;
 		if (this.sinceAnalysis >= this.every) {
@@ -173,9 +177,16 @@ export class Engine {
 		return n;
 	}
 
-	stats(): { blocks: number; records: number; renderUs: number } {
-		const s = { blocks: this.blocks, records: this.records, renderUs: this.blocks ? (this.renderMs * 1000) / this.blocks : 0 };
-		this.blocks = this.records = this.renderMs = 0;
+	/** since the last call: blocks, records, the average and (#208) the longest block's render against a block's budget */
+	stats(): { blocks: number; records: number; renderUs: number; renderPeakUs: number; budgetUs: number } {
+		const s = {
+			blocks: this.blocks,
+			records: this.records,
+			renderUs: this.blocks ? (this.renderMs * 1000) / this.blocks : 0,
+			renderPeakUs: this.peakMs * 1000,
+			budgetUs: (BLOCK / this.core.rate) * 1e6
+		};
+		this.blocks = this.records = this.renderMs = this.peakMs = 0;
 		return s;
 	}
 }

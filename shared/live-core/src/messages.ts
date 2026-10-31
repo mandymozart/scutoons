@@ -25,6 +25,9 @@ export interface WorkerStats {
 	records: number;
 	/** µs per 128-frame block: a control step + the render + the copy out */
 	renderUs: number;
+	/** #208: the longest block of the last second (µs) and a block's budget – its duration (2667 µs at 48 kHz) */
+	renderPeakUs: number;
+	budgetUs: number;
 }
 
 /** worker → page */

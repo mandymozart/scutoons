@@ -36,8 +36,10 @@
 	let syncStatus = $state('');
 	let spaceStatus = $state('');
 	let hud = $state('');
-	// #188: the sound's dropouts (the worklet's underruns) over the last minute, once it plays
+	// #188: the sound's dropouts (the worklet's underruns) over the last minute, once it plays; #208: the worker's peak
+	// render load, and the warning a few seconds after a dropout
 	let audioStatus = $state('');
+	let audioAlert = $state('');
 	let threeD = $state(true);
 	let deck: Deck | null = null;
 	let space: SpaceStage | null = null;
@@ -75,9 +77,13 @@
 		let alive = true;
 		let raf = 0;
 		const stats = setInterval(() => {
-			const s = deck?.core?.stats();
-			if (s) audioStatus = m['live_deck.dropouts']({ n: s.underrunsPerMinute });
-		}, 1000);
+			const core = deck?.core;
+			if (!core) return;
+			const s = core.stats();
+			const load = Math.round((100 * s.renderPeakUs) / Math.max(1, s.budgetUs));
+			audioStatus = m['live_deck.dropouts']({ n: s.underrunsPerMinute, load });
+			audioAlert = core.glitching() ? m['live_deck.dropout_alert']() : '';
+		}, 250);
 		void (async () => {
 			await settled();
 			if (!alive || !mayJoin(session.me)) return;
@@ -173,6 +179,7 @@
 			{started}
 			{starting}
 			{status}
+			alert={audioAlert}
 			onstart={start}
 			onset={(p, v) => deck?.setParam(p, v)}
 			ontouch={(on) => deck && (deck.touch = on)}

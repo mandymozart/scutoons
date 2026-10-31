@@ -910,7 +910,8 @@
 		"no_3d": "No 3D here: {reason}",
 		"home": "Camera home",
 		"guest": "Guest deck",
-		"dropouts": "{n} dropouts / min",
+		"dropouts": "{n} dropouts / min · DSP {load}%",
+		"dropout_alert": "AUDIO DROPOUT – the sound stuttered",
 		"more": "More controls"
 	}
 }

@@ -1,7 +1,14 @@
 // The browser status's underruns per minute (#188): the worklet's running count, sampled once a second.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { perMinute } from '../src/index.ts';
+import { dropoutAlert, perMinute } from '../src/index.ts';
+
+test('#208: the dropout warning holds five seconds', () => {
+	assert.equal(dropoutAlert(-Infinity, 0), false, 'no dropout yet');
+	assert.equal(dropoutAlert(1_000, 1_000), true);
+	assert.equal(dropoutAlert(1_000, 5_999), true);
+	assert.equal(dropoutAlert(1_000, 6_000), false);
+});
 
 test('underruns per minute: the count over the last 60 s', () => {
 	const runs = [{ t: 0, n: 0 }];

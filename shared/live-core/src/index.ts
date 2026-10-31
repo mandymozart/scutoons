@@ -59,6 +59,16 @@ export interface Stats extends WorkerStats {
 	underrunsPerMinute: number;
 	/** sends dropped because the control ring was full (shared transport) */
 	dropped: number;
+	/** #208: when the newest dropout reached the page (performance.now ms; -Infinity = none yet) */
+	lastDropoutMs: number;
+}
+
+/** #208: how long the page's warning stays after a dropout (ms) */
+export const ALERT_MS = 5000;
+
+/** #208: a dropout within the last `hold` ms – the page shows its warning */
+export function dropoutAlert(lastDropoutMs: number, now: number, hold = ALERT_MS): boolean {
+	return now - lastDropoutMs < hold;
 }
 
 const CONTROL_BYTES = 1 << 16;
@@ -90,7 +100,18 @@ export class LiveCore {
 		this.transport = o.transport;
 		this.control = o.shared ? Ring.bytes(o.shared.control) : null;
 		this.latest = o.shared ? new Latest(o.shared.analysis) : null;
-		this.stats_ = { transport: o.transport, underruns: 0, underrunsPerMinute: 0, dropped: 0, blocks: 0, records: 0, renderUs: 0 };
+		this.stats_ = {
+			transport: o.transport,
+			underruns: 0,
+			underrunsPerMinute: 0,
+			dropped: 0,
+			blocks: 0,
+			records: 0,
+			renderUs: 0,
+			renderPeakUs: 0,
+			budgetUs: 0,
+			lastDropoutMs: -Infinity
+		};
 		this.runs.push({ t: globalThis.performance?.now() ?? 0, n: 0 });
 	}
 
@@ -231,8 +252,14 @@ export class LiveCore {
 		return { ...this.stats_ };
 	}
 
+	/** #208: a dropout in the last few seconds – the page's warning (a live tool may not crackle unnoticed) */
+	glitching(now = performance.now()): boolean {
+		return dropoutAlert(this.stats_.lastDropoutMs, now);
+	}
+
 	/** the worklet's running count `n` at `t` ms → the total and the last minute's */
 	underran(n: number, t: number): void {
+		if (n > this.stats_.underruns) this.stats_.lastDropoutMs = t;
 		this.stats_.underruns = n;
 		this.stats_.underrunsPerMinute = perMinute(this.runs, n, t);
 	}
