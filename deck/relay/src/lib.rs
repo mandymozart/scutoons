@@ -214,6 +214,9 @@ pub async fn serve(listener: TcpListener, relay: Arc<Relay>) -> anyhow::Result<(
 pub async fn serve_with(listener: TcpListener, relay: Arc<Relay>, tls: Option<TlsAcceptor>) -> anyhow::Result<()> {
     loop {
         let (stream, peer) = listener.accept().await?;
+        if let Err(e) = tune(&stream) {
+            tracing::debug!(%peer, "socket options: {e}");
+        }
         let relay = relay.clone();
         let tls = tls.clone();
         tokio::spawn(async move {
@@ -226,6 +229,12 @@ pub async fn serve_with(listener: TcpListener, relay: Arc<Relay>, tls: Option<Tl
             }
         });
     }
+}
+
+/// #223: an accepted socket sends each frame at once – no Nagle (a value would wait for the ACK of the one before, tens
+/// of ms on Wi-Fi). Applies to ws and wss alike (TLS wraps this socket).
+pub fn tune(stream: &TcpStream) -> io::Result<()> {
+    stream.set_nodelay(true)
 }
 
 /// TLS record type "handshake": the first byte of every ClientHello (an HTTP request starts with a letter)
@@ -487,6 +496,18 @@ mod tests {
         );
         assert_eq!(parse_join("/live/A7K2"), Join { code: Some("A7K2".into()), role: None, group: None });
         assert_eq!(parse_join("/?role=teleporter"), Join::default());
+    }
+
+    /// #223: an accepted socket has Nagle off (the ws and the wss path both go through `serve_with`'s `tune`)
+    #[tokio::test]
+    async fn accepted_sockets_have_nodelay() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let _client = TcpStream::connect(addr).await.unwrap();
+        let (accepted, _) = listener.accept().await.unwrap();
+        assert!(!accepted.nodelay().unwrap(), "the OS default is Nagle on");
+        tune(&accepted).unwrap();
+        assert!(accepted.nodelay().unwrap());
     }
 
     #[test]
