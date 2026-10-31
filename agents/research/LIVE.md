@@ -257,6 +257,14 @@ client for the conductor's snapshot `decks`) · `deck.values { values: { "node.p
 changed, ≤ 30 / s – the relay drops more; folded, never replayed; to the conductor, and to `to` too) · presence adds
 `decks` and `routes` (who sent values to whom). The deck side: deck/stage/README.md "space".
 
+**Scene sync** (#195): `scene.sync { scene, sets?, characters?, beings? (#191, reserved), decks? }` (conductor only →
+the group `decks`, or one copy per listed client id; logged, the last one kept: a deck that joins later finds it in its
+welcome snapshot `sync`) · a deck fetches it into its cache and answers `deck.synced { scene, state: syncing | ready |
+missing | offline, done?, total?, bytes?, ready, missing, why? }` (items `set:<id>` / `character:<id>`; progress, then
+the final state) → the conductor; kept per deck for the conductor's snapshot `synced`, a ready deck is ready in
+presence, a new push forgets the old answers. The deck side: deck/stage/README.md "Sync"; the browser deck:
+`@scutoons/live-deck` sync.ts.
+
 **Clients → relay**: `vote.cast { vote, option }` (one per client, changeable until close) · `ready` · `pickup { item,
 placement }` (the relay asks the API, like the reader does) · `react { kind }` (applause, a sound pad – rate-limited).
 
