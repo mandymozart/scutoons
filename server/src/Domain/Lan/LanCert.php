@@ -8,9 +8,11 @@ use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Config\Settings;
 
 /**
- * The venue certificate (#201): the wildcard `*.lan.scutoons.com` from Let's Encrypt (DNS-01 at all-inkl), issued and
- * renewed by the workflow lan-cert.yml, which hands it to the API (`PUT /api/deploy/lan-cert`, the deploy key); decks
- * fetch it with an admin's token (`GET /api/admin/lan-cert`, `deck-tls`), the deck token with #180.
+ * The venue certificate (#201): the wildcard `*.lan.scutoons.com` from Let's Encrypt (DNS-01 at bunny DNS, where the
+ * zone lan.scutoons.com lives), issued and renewed by the workflow lan-cert.yml, which hands it to the API
+ * (`PUT /api/deploy/lan-cert`, the deploy key); an approved deck fetches it with its own token (`GET /api/decks/lan-cert`,
+ * `deck-tls`, #180). The names need no registration: bunny's script answers `192-168-1-116.lan.scutoons.com` with
+ * 192.168.1.116 (deploy/bunny/lan-dns.js) – the API never touches DNS.
  *
  * Kept as files in `LAN_CERT_PATH` (storage/lan-cert – outside the docroot, never deployed over): fullchain.pem,
  * privkey.pem (0600), meta.json (names, expiry, when stored). Why files and not the database: it is one pair the
@@ -18,6 +20,9 @@ use Scutoons\Infrastructure\Config\Settings;
  */
 final class LanCert
 {
+    /** the venue names' zone (bunny DNS, delegated from all-inkl by an NS record) */
+    public const DOMAIN = 'lan.scutoons.com';
+
     public function __construct(private readonly Settings $settings, private readonly Clock $clock)
     {
     }
@@ -39,7 +44,7 @@ final class LanCert
             $info = @openssl_x509_parse($fullchain);
             if (!is_array($info)) throw new ApiError(422, 'invalid_certificate', 'fullchain does not parse as a certificate.');
             $names = self::names($info);
-            $wildcard = '*.' . LanNames::domain();
+            $wildcard = '*.' . self::DOMAIN;
             if (!in_array($wildcard, $names, true)) throw new ApiError(422, 'wrong_certificate', "The certificate is not for $wildcard (it names " . implode(', ', $names) . ').');
             $until = (int) ($info['validTo_time_t'] ?? 0);
             if ($until <= $this->clock->time()) throw new ApiError(422, 'expired_certificate', 'The certificate has expired.');
@@ -64,7 +69,7 @@ final class LanCert
         $dir = $this->dir();
         $fullchain = is_file("$dir/fullchain.pem") ? (string) file_get_contents("$dir/fullchain.pem") : '';
         $privkey = is_file("$dir/privkey.pem") ? (string) file_get_contents("$dir/privkey.pem") : '';
-        if ($fullchain === '' || $privkey === '') throw new ApiError(404, 'no_certificate', 'No LAN certificate yet – run the workflow lan-cert (server/docs/API.md "LAN names").');
+        if ($fullchain === '' || $privkey === '') throw new ApiError(404, 'no_certificate', 'No LAN certificate yet – run the workflow lan-cert (server/docs/API.md "The venue certificate").');
         $meta = is_file("$dir/meta.json") ? json_decode((string) file_get_contents("$dir/meta.json"), true) : null;
         $meta = is_array($meta) ? $meta : [];
         $names = array_values(array_filter(is_array($meta['names'] ?? null) ? $meta['names'] : [], 'is_string'));

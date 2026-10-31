@@ -20,6 +20,7 @@ use Scutoons\Domain\Settings\RuntimeSettings;
 use Scutoons\Http\Controllers\AccessController;
 use Scutoons\Http\Controllers\ApiTokensController;
 use Scutoons\Http\Controllers\DecksController;
+use Scutoons\Http\Controllers\LanController;
 use Scutoons\Http\Controllers\ReviewsController;
 use Scutoons\Http\Controllers\StoryboardController;
 use Scutoons\Http\Controllers\StoryboardPairingsController;
@@ -37,7 +38,6 @@ use Scutoons\Http\Controllers\Admin\PushController as AdminPushController;
 use Scutoons\Http\Controllers\Admin\FeaturedController;
 use Scutoons\Http\Controllers\Admin\ContentController as AdminContentController;
 use Scutoons\Http\Controllers\Admin\SettingsController;
-use Scutoons\Http\Controllers\Admin\LanController;
 use Scutoons\Http\Controllers\Admin\ServerLogController;
 use Scutoons\Http\Controllers\Admin\SystemController;
 use Scutoons\Http\Controllers\Admin\ReadingController;
@@ -227,6 +227,8 @@ return static function (App $app): void {
     $app->post('/api/me/decks/approve', [DecksController::class, 'approve']);
     $app->post('/api/me/decks/{id:[0-9a-f-]{36}}/renew', [DecksController::class, 'renew']);
     $app->delete('/api/me/decks/{id:[0-9a-f-]{36}}', [DecksController::class, 'revoke']);
+    // the venue certificate *.lan.scutoons.com for an approved deck's own token (#201, deck-tls; LanController)
+    $app->get('/api/decks/lan-cert', [LanController::class, 'deckCert']);
 
     $app->map(['GET', 'POST'], '/api/access', [AccessController::class, 'access'])->add($lookupLimit);
     $app->get('/api/code', [AccessController::class, 'code'])->add($codeLimit);
@@ -414,10 +416,6 @@ return static function (App $app): void {
         $admin->post('/push/team-test', [AdminPushController::class, 'teamTest']);
         $admin->get('/settings', [SettingsController::class, 'get']);
         $admin->put('/settings', [SettingsController::class, 'put']);
-        // the venue relay's names + certificate (#201, Domain\Lan): <name>.lan.scutoons.com via all-inkl's KAS API
-        $admin->get('/lan-names', [LanController::class, 'names']);
-        $admin->put('/lan-names/{name}', [LanController::class, 'setName']);
-        $admin->get('/lan-cert', [LanController::class, 'cert']);
         // the email module (Domain\Mail): templates + previews, the sent-mail log, the admin notification recipients
         $admin->get('/emails/templates', [EmailsController::class, 'templates']);
         $admin->get('/emails/templates/{id}/preview', [EmailsController::class, 'preview']);

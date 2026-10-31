@@ -60,6 +60,7 @@ Locally `http://localhost:9000/api` (`VITE_API_URL`; the qr app on :9001). Publi
 | GET/POST/DELETE | `/me/tokens`, `/me/tokens/{id}` | session (members) | the member's AI connections (personal tokens `sct_…`) – see "AI connections" |
 | POST | `/decks/request`, `/decks/challenge`, `/decks/token` | none (the deck's key) | a cyberdeck's handshake – see "Decks" |
 | GET/POST/DELETE | `/me/decks`, `/me/decks/pending`, `/me/decks/approve`, `/me/decks/{id}` | session (every member) | the member's paired decks – see "Decks" |
+| GET | `/decks/lan-cert` | a deck token | the venue certificate for `deck-tls` – see "The venue certificate" |
 | GET/POST | `/validate/` | – | PUBLIC URL (printed): legacy, backwards compatible – success for any existing, unexpired, unrevoked code (claimed or not); CORS `*` |
 | GET | `/keys/keys.php` | – | PUBLIC URL (printed): the public key of the certificate signatures |
 | * | `/admin/*` | admin | the admin API – see "Admin API" |
@@ -760,32 +761,29 @@ Handshake, then approval, then data (agents/research/CYBERDECKS.md §9). Code: `
 | POST | `/me/decks/{id}/renew` | → `{ status, item }` |
 | DELETE | `/me/decks/{id}` | → `{ status }` – revoked |
 
-## LAN names and the venue certificate (2026-10-31, #201 – agents/research/LIVE.md B.4)
+## The venue certificate (2026-10-31, #201 – agents/research/LIVE.md B.4)
 
 A phone on https://scutoons.com may not open `ws://192.168.…`, so a deck's relay answers as
-`wss://<name>.lan.scutoons.com:7700` (deck/relay `tls.rs`). Code: `Domain\Lan\LanNames`, `Domain\Lan\LanCert`,
-`Admin\LanController`, `Infrastructure\Kas\SoapKasApi`.
+`wss://<ip-with-dashes>.lan.scutoons.com:7700` (deck/relay `tls.rs`). Code: `Domain\Lan\LanCert`, `LanController`.
 
-- **Names:** `<name>.lan.scutoons.com` = an A record at all-inkl, set through the **KAS API** (SOAP: `KasAuth` with
-  `KAS_LOGIN` + `KAS_AUTH_DATA` → a session token, then `get_dns_settings` / `add_dns_settings` / `update_dns_settings`
-  on the zone `scutoons.com.`, `record_name` = `<name>.lan`; the next call waits out the answer's `KasFloodDelay`).
-  `name` = `[a-z0-9-]{1,32}`, no dash at either end; the address only RFC 1918 (10/8, 172.16/12, 192.168/16) – the
-  names never point to the internet. Without the credentials `503 not_configured`; a KAS refusal `502 kas_error` (its
-  fault string in the message). Many home routers drop DNS answers with private addresses (DNS rebind protection): the
+- **Names – none to register, the API never touches DNS** (owner 2026-10-31: no KAS access in the app): the zone
+  `lan.scutoons.com` lives at bunny DNS (one NS delegation at all-inkl), and its wildcard is a script
+  (`deploy/bunny/lan-dns.js`) that answers `192-168-1-116.lan.scutoons.com` with `192.168.1.116` – only RFC 1918
+  addresses (10/8, 172.16/12, 192.168/16), nothing for any other name. A deck's name follows from its LAN IP
+  (`deck-tls --status`). Many home routers drop DNS answers with private addresses (DNS rebind protection): the
   FritzBox needs `lan.scutoons.com` as an exception (Heimnetz → Netzwerk → Netzwerkeinstellungen → DNS-Rebind-Schutz).
-- **Certificate:** the wildcard `*.lan.scutoons.com` (Let's Encrypt, DNS-01 at all-inkl) – `.github/workflows/lan-cert.yml`
-  issues / renews it monthly with acme.sh (`dns_kas`) and hands it over with the deploy key; stored as files in
-  `LAN_CERT_PATH` (`storage/lan-cert`: fullchain.pem, privkey.pem 0600, meta.json – never in the DB, so no dump carries
-  the key). On upload (ext-openssl) it must name `*.lan.scutoons.com`, not be expired, and the key must be its key.
-- **Who:** the admin role (session or the admin's AI connection for the GETs – `deck-tls` on a deck uses one); setting a
-  name is an admin write, so an AI connection gets `403 not_for_ai` (ApiTokenScope) – a signed-in admin or by hand in
-  KAS. The deck token takes over both with #180 (Phase B).
+- **Certificate:** the wildcard `*.lan.scutoons.com` (Let's Encrypt, DNS-01 at bunny) – `.github/workflows/lan-cert.yml`
+  issues / renews it monthly with acme.sh (`dns_bunny`; the bunny API key is a GitHub secret only) and hands it over
+  with the deploy key; stored as files in `LAN_CERT_PATH` (`storage/lan-cert`: fullchain.pem, privkey.pem 0600,
+  meta.json – never in the DB, so no dump carries the key). On upload (ext-openssl) it must name `*.lan.scutoons.com`,
+  not be expired, and the key must be its key.
+- **Who reads it:** an approved deck with its own token (`Bearer scd_…`, "Decks" above; `deck-tls`) – nothing else
+  (owner 2026-10-31: no admin tokens on decks). A session or an AI connection, an admin's too, gets `403 deck_only`; no
+  token, a pending, revoked or expired deck `401`. A laptop that runs a venue relay pairs with `deck-link` like a deck.
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| GET | `/admin/lan-names` | `{ status, domain: "lan.scutoons.com", items: [{ name, host, ip, record_id }] }` · `503 not_configured` · `502 kas_error` |
-| PUT | `/admin/lan-names/{name}` | `{ ip }` → `{ status, item: { name, host, ip, change: added \| updated \| unchanged } }` · `422 invalid_name / invalid_ip` · `502` · `503` |
-| GET | `/admin/lan-cert` | `{ status, domain, names, expires, stored_at, fullchain, privkey }` (`no-store`) · `?format=pem` → the chain, then the key, as one `application/x-pem-file` text (`deck-tls`) · `404 no_certificate` |
+| GET | `/decks/lan-cert` | a deck token: `{ status, domain: "lan.scutoons.com", names, expires, stored_at, fullchain, privkey }` (`no-store`) · `?format=pem` → the chain, then the key, as one `application/x-pem-file` text (`deck-tls`) · `404 no_certificate` · `401` · `403 deck_only` |
 | PUT | `/deploy/lan-cert` | no session: `X-Migrate-Key: <MIGRATE_KEY>` (the workflow), `{ fullchain, privkey }` → `{ status, names, expires, stored_at }` · `422 invalid_body / invalid_certificate / invalid_key / wrong_certificate / expired_certificate / key_mismatch` · `403` wrong key · `404` when `MIGRATE_KEY` is empty |
 
 ## Developer API (`/api/dev/*`, role `developer` – BACKLOG 10.61)

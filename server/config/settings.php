@@ -189,10 +189,6 @@ return [
     // POST /api/deploy/migrate with the header `X-Migrate-Key: <this>` runs the pending migrations (the deploy calls it
     // right after the API upload – GitHub secret MIGRATE_KEY, >= 32 random chars). Empty = switched off (404).
     'MIGRATE_KEY' => '',
-    // The venue relay (#201, Domain\Lan): all-inkl's KAS API sets <name>.lan.scutoons.com (KAS login w0… + its
-    // password, GitHub secrets KAS_LOGIN / KAS_AUTH_DATA); empty = /api/admin/lan-names answers 503 not_configured.
-    'KAS_LOGIN' => '',
-    'KAS_AUTH_DATA' => '',
     // The *.lan.scutoons.com certificate the workflow lan-cert.yml stores (PUT /api/deploy/lan-cert) – private
     'LAN_CERT_PATH' => 'storage/lan-cert',
     // 1 = toons / chapters with the status `draft` are readable through the public library endpoints (local

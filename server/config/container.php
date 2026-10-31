@@ -17,10 +17,7 @@ use Scutoons\Infrastructure\Cache\NullCache;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Clock\SystemClock;
 use Scutoons\Infrastructure\Config\Settings;
-use Scutoons\Infrastructure\AssetStorage\CurlHttpClient;
 use Scutoons\Infrastructure\Database\Database;
-use Scutoons\Infrastructure\Kas\KasApi;
-use Scutoons\Infrastructure\Kas\SoapKasApi;
 use Scutoons\Infrastructure\Mail\Imap;
 use Scutoons\Infrastructure\Mail\Mailbox;
 use Scutoons\Infrastructure\Signing\KeyStore;
@@ -48,11 +45,6 @@ return [
     FileStore::class => static fn(ContainerInterface $c): FileStore => new FileStore($c->get(Settings::class)->path('FILES_PATH')),
     // the Embassy's shared mailbox (inbox sync, copies of sent mails): IMAP over a TLS socket; tests set a fake
     Mailbox::class => DI\get(Imap::class),
-    // all-inkl's KAS API (#201, Domain\Lan\LanNames – the decks' LAN names); tests set a fake
-    KasApi::class => static function (ContainerInterface $c): KasApi {
-        $settings = $c->get(Settings::class);
-        return new SoapKasApi(trim($settings->get('KAS_LOGIN')), trim($settings->get('KAS_AUTH_DATA')), new CurlHttpClient(30));
-    },
 
     // Composed library answers (agents/DATA.md §3): APCu when the host has it, else files in CACHE_PATH
     Cache::class => static function (ContainerInterface $c): Cache {
