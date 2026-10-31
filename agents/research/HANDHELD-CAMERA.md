@@ -1,4 +1,4 @@
-Status 2026-10-19: research + built in the storyboard studio (worktree branch, not merged) – the owner's S22 test is open (§7).
+Status: built and in the creator (4003fa79, the phone at /h/<code>, WebRTC pairing via storyboard_pairings); the owner tested it on the S22 and it works very well (2026-10-31). Reused for the deck camera (#213).
 
 # HANDHELD-CAMERA — the phone as a handheld camera for storyboard shots (research, 2026-10-19)
 
