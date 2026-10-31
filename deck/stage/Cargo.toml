@@ -39,6 +39,10 @@ midi = ["dep:midir"]
 osc = ["dep:rosc"]
 # the PipeWire backend (Linux, needs libpipewire + clang at build time); without it the stage plays through cpal
 pipewire = ["dep:pipewire"]
+# ASIO on Windows (#208: `--audio-host asio`, RME's driver for the Fireface): cpal's asio host. Its asio-sys builds
+# bindings to Steinberg's ASIO SDK – set CPAL_ASIO_DIR to the unpacked SDK and have LLVM (libclang) installed;
+# deck/stage/README.md "Audio". Not in the default: a plain build needs no SDK
+asio = ["cpal/asio"]
 # Ableton Link as a tempo source (tempo/link.rs; rusty_link builds Ableton's abl_link C++ library – needs cmake, a C++
 # compiler and libclang at build time). On Windows a debug build links only with an optimised rusty_link:
 # `--config 'profile.dev.package.rusty_link.opt-level=1'` (its cmake Debug build wants the debug CRT) – deck/stage/README.md

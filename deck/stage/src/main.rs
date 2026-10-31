@@ -45,6 +45,7 @@ enum Event {
 }
 
 const HELP: &str = "deck-stage [--scene FILE|cathedral|conductor|outlet] [--audio auto|pipewire|cpal|null] [--volume 0-1] [--cache DIR]
+           [--audio-host default|wasapi|asio] [--audio-device NAME] [--audio-buffer FRAMES] [--audio-list]
            [--sets DIR] [--portraits DIR] [--token T] [--api URL] [--cdn URL] [--windowed] [--frames N]
            [--screenshot FILE] [--pointer X,Y|NODE.PORT] [--drag NODE.PORT[,DN]] [--no-hud] [--dev] [--modules]
            [--relay ws[s]://HOST[:PORT]/live/CODE] [--sync set:ID,character:ID]
@@ -59,6 +60,11 @@ const HELP: &str = "deck-stage [--scene FILE|cathedral|conductor|outlet] [--audi
                wss://live.scutoons.com/live/CATH – when a scene joins or an outlet is set); --outlet this deck's outlet
                (deck.toml's `outlet`); --locale the language of its text layers (deck.toml's `locale`, else de)
   --audio      the backend; auto = PipeWire → cpal → null (no device: the clock and the FFT still run)
+  --audio-host  cpal's host (#208): default (WASAPI shared on Windows) · wasapi · asio (a build with the asio feature);
+               --audio-device a part of the output device's name (default: the host's default); --audio-buffer the
+               device's buffer in frames (128 / 256 / 512 / 1024; clamped to what the device takes). Over deck.toml's
+               audio_host / audio_device / audio_buffer, over the scene's [stage] audio_buffer. --audio-list prints the
+               hosts and devices, then quits
   --cache      the library cache (default /var/lib/deck/cache on a deck, DECK_CACHE, else the user cache folder)
   --sets       a local folder of sets instead of the sync's: <id>/<id>.<quality>.glb or <id>.<quality>.glb (DECK_SETS;
                default <cache>/sets, synced from the API)
@@ -79,6 +85,10 @@ const HELP: &str = "deck-stage [--scene FILE|cathedral|conductor|outlet] [--audi
 struct Args {
     scene: Option<PathBuf>,
     audio: Choice,
+    /// #208: cpal's host, the device, the buffer (over deck.toml's, over the scene's)
+    audio_host: Option<backend::Host>,
+    audio_device: Option<String>,
+    audio_buffer: Option<u32>,
     volume: f32,
     cache: Option<PathBuf>,
     api: String,
@@ -115,6 +125,9 @@ fn args() -> Result<Args> {
     let mut a = Args {
         scene: None,
         audio: Choice::Auto,
+        audio_host: None,
+        audio_device: None,
+        audio_buffer: None,
         volume: 1.0,
         cache: None,
         api: std::env::var("DECK_API").unwrap_or_else(|_| cache::API.into()),
@@ -142,6 +155,16 @@ fn args() -> Result<Args> {
             "--audio" => {
                 let v = val()?;
                 a.audio = Choice::parse(&v).with_context(|| format!("--audio {v}: auto, pipewire, cpal or null"))?
+            }
+            "--audio-host" => {
+                let v = val()?;
+                a.audio_host = Some(backend::Host::parse(&v).with_context(|| format!("--audio-host {v}: default, wasapi or asio"))?)
+            }
+            "--audio-device" => a.audio_device = Some(val()?),
+            "--audio-buffer" => a.audio_buffer = Some(val()?.parse().context("--audio-buffer: frames, e.g. 256")?),
+            "--audio-list" => {
+                print!("{}", backend::list());
+                std::process::exit(0);
             }
             "--volume" => a.volume = val()?.parse::<f32>()?.clamp(0.0, 1.0),
             "--cache" => a.cache = Some(val()?.into()),
@@ -303,6 +326,24 @@ fn scene_id(file: Option<&std::path::Path>, name: &str) -> String {
     slug.split('-').filter(|w| !w.is_empty()).collect::<Vec<_>>().join("-")
 }
 
+/// #208: how the audio plays – the flags over deck.toml's audio keys (the machine's) over the scene's buffer
+fn audio_options(args: &Args, scene: &scene::Scene) -> backend::Options {
+    let deck = backend::DeckAudio::read();
+    let host = args.audio_host.or_else(|| {
+        let h = deck.audio_host.as_deref()?;
+        backend::Host::parse(h).or_else(|| {
+            tracing::warn!("deck.toml: audio_host = \"{h}\" – default, wasapi or asio; the default instead");
+            None
+        })
+    });
+    backend::Options {
+        choice: args.audio,
+        host: host.unwrap_or_default(),
+        device: args.audio_device.clone().or(deck.audio_device),
+        buffer: args.audio_buffer.or(deck.audio_buffer).or(scene.stage.audio_buffer),
+    }
+}
+
 /// the scene the arguments name: a file, `cathedral` / `outlet` (built in), the outlet when one is set, or the default
 fn read_scene(args: &Args) -> Result<scene::Scene> {
     match &args.scene {
@@ -333,7 +374,7 @@ impl Show {
                 handles = Some(h);
                 Ok(engine)
             };
-            match backend::start(args.audio, &mut factory) {
+            match backend::start(&audio_options(args, scene), &mut factory) {
                 Ok(r) => Some(r),
                 Err(e) => {
                     tracing::warn!("audio off: {e:#}");

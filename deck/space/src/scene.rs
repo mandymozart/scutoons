@@ -44,11 +44,14 @@ pub struct StageSettings {
     pub name: String,
     /// the render size relative to the window (0.25–1); a software adapter halves it by itself
     pub render_scale: f32,
+    /// the audio device's buffer in frames (#208, deck-stage's audio/backend.rs): a heavy scene may ask for more;
+    /// `--audio-buffer` and deck.toml's `audio_buffer` (the machine's) win over it. None = the device's default
+    pub audio_buffer: Option<u32>,
 }
 
 impl Default for StageSettings {
     fn default() -> Self {
-        Self { name: "untitled".into(), render_scale: 1.0 }
+        Self { name: "untitled".into(), render_scale: 1.0, audio_buffer: None }
     }
 }
 
