@@ -21,3 +21,5 @@ node_modules
 __pycache__/
 *.pyc
 deck/os/out/
+# the LAN dev certificate (scripts/dev/lan.mjs)
+.dev-certs/

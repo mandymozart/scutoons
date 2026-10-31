@@ -2,22 +2,12 @@
 # TypeScript twin (shared/live, generated from the same schema). Build + test on every platform the bridge ships for
 # (CYBERDECKS.md §2: Linux x86_64 + aarch64 decks, macOS, Windows). Nothing here deploys; the per-app deploy jobs are
 # untouched (deploy.yml, issue 73 / DECISIONS 2026-10-20).
+#
+# By hand only (owner 2026-10-31, #216: "the Rust runner definitely local now … for later, when we don't iterate so
+# often, on GitHub"): macOS counts 10×, Windows 2× of the Actions minutes. Before every push the same steps run on this
+# machine – `npm run deck:ci` (scripts/deck-ci.mjs), called by the pre-push hook (`npm run hooks` installs it). To run
+# here again on push, put back the `push` / `pull_request` triggers with the deck paths (git history: before #216).
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'deck/**'
-      - 'shared/live/**'
-      - 'shared/live-core/**'
-      - 'shared/live-deck/**'
-      - '.github/workflows/deck.yml'
-  pull_request:
-    paths:
-      - 'deck/**'
-      - 'shared/live/**'
-      - 'shared/live-core/**'
-      - 'shared/live-deck/**'
-      - '.github/workflows/deck.yml'
   workflow_dispatch:
 
 name: 🦀 Deck (relay, bridge, adapters)
