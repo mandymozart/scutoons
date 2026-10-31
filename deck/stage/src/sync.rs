@@ -21,7 +21,14 @@
 //!   today; deck-link's paired token once the stage pairs – the content is public, so nothing waits for it). Never to
 //!   the CDN.
 //!
-//! The HUD shows `DeckSync::line` (progress, offline, the last error).
+//! - **The conductor's push (#195):** a `scene.sync` (link.rs hands it in: `push`) is an extra need – its sets at this
+//!   deck's quality (`Config::quality`), its characters with every portrait the API lists – through the same request,
+//!   cache and skipping. The worker keeps the answer, `deck.synced` (`synced`: ready / missing per item `set:<id>` /
+//!   `character:<id>`, files done / total, bytes), new after every settled file; the link sends it to the conductor.
+//!   Honest: an item is ready only when its files are in the cache (offline too).
+//!
+//! The HUD shows `DeckSync::line` (progress, offline, the last error) and `push_line` (the push's state).
+use protocol::{DeckSynced, SceneSync, SyncState};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::io::Read;
@@ -50,6 +57,8 @@ pub struct Config {
     pub portraits: Option<PathBuf>,
     /// the deck token for the API (#180); None = public content only
     pub token: Option<String>,
+    /// #195: the quality a pushed set's 3D is fetched at (the scene's space node's, else `low`)
+    pub quality: String,
 }
 
 /// one file the stage wants
@@ -155,6 +164,14 @@ impl Board {
 enum Msg {
     Prepare(Needs),
     Want(Want, Sender<()>),
+    Push(SceneSync),
+}
+
+/// #195: the answer to the conductor's last push, numbered (the link sends each new one)
+#[derive(Default)]
+struct Answer {
+    n: u64,
+    last: Option<DeckSynced>,
 }
 
 /// The handle (clone it freely; the worker ends with the last one).
@@ -162,6 +179,7 @@ enum Msg {
 pub struct DeckSync {
     tx: Sender<Msg>,
     pub board: Arc<Mutex<Board>>,
+    answer: Arc<Mutex<Answer>>,
     sets: Option<PathBuf>,
     #[cfg_attr(not(feature = "space"), allow(dead_code))]
     portraits: Option<PathBuf>,
@@ -172,13 +190,18 @@ impl DeckSync {
     pub fn start(cfg: Config) -> DeckSync {
         let (tx, rx) = mpsc::channel();
         let board = Arc::new(Mutex::new(Board::default()));
-        let handle = DeckSync { tx, board: board.clone(), sets: cfg.sets.clone(), portraits: cfg.portraits.clone() };
+        let answer = Arc::new(Mutex::new(Answer::default()));
+        let handle = DeckSync { tx, board: board.clone(), answer: answer.clone(), sets: cfg.sets.clone(), portraits: cfg.portraits.clone() };
         let index = Index::load(&cfg.cache);
         let agent = ureq::AgentBuilder::new().timeout_connect(Duration::from_secs(5)).timeout_read(Duration::from_secs(30)).build();
         let worker = Worker {
             cfg,
             agent,
             board,
+            answer,
+            push: None,
+            failed: HashMap::new(),
+            pushed_bytes: 0,
             content: Content::default(),
             known: HashSet::new(),
             retry_at: None,
@@ -196,6 +219,30 @@ impl DeckSync {
         if !needs.is_empty() {
             let _ = self.tx.send(Msg::Prepare(needs));
         }
+    }
+
+    /// #195: the conductor's push – fetch what it names (skipping what is cached) and keep the answer
+    pub fn push(&self, sync: SceneSync) {
+        let _ = self.tx.send(Msg::Push(sync));
+    }
+
+    /// #195: the answer to the last push, if there is one newer than `seen` (its number, the answer)
+    pub fn synced(&self, seen: u64) -> Option<(u64, DeckSynced)> {
+        let a = self.answer.lock().ok()?;
+        a.last.clone().filter(|_| a.n > seen).map(|l| (a.n, l))
+    }
+
+    /// #195: the HUD's line about the push (None: nothing pushed)
+    pub fn push_line(&self) -> Option<String> {
+        let a = self.answer.lock().ok()?;
+        let r = a.last.as_ref()?;
+        let state = match r.state {
+            SyncState::Syncing => format!("{}/{}", r.done.unwrap_or(0), r.total.unwrap_or(0)),
+            SyncState::Ready => "READY".into(),
+            SyncState::Missing => format!("MISSING {}", r.missing.len()),
+            SyncState::Offline => "OFFLINE".into(),
+        };
+        Some(format!("PUSH {} {state}", r.scene).to_uppercase().chars().take(40).collect())
     }
 
     /// Block this (worker) thread until `want` is settled, at most `timeout`; false = it wasn't (or no sync runs).
@@ -236,6 +283,18 @@ impl DeckSync {
     #[cfg(feature = "space")]
     pub fn portraits(&self) -> Option<Portraits> {
         Some(Portraits { local: crate::space::portrait::LocalDir(self.portraits.clone()?), sync: self.clone() })
+    }
+}
+
+/// the link's side of the sync (#195): a deck's link hands it the conductor's pushes and sends its answers
+#[cfg(all(feature = "live", feature = "space"))]
+impl crate::space::link::Syncs for DeckSync {
+    fn push(&self, sync: SceneSync) {
+        DeckSync::push(self, sync);
+    }
+
+    fn synced(&self, seen: u64) -> Option<(u64, DeckSynced)> {
+        DeckSync::synced(self, seen)
     }
 }
 
@@ -294,10 +353,24 @@ impl Index {
     }
 }
 
+/// #195: the conductor's push being worked on: its items (`set:<id>`, `character:<id>`) and the files each needs, and
+/// why an item can't be had at all (unknown to the API, offline without a cached copy)
+struct Push {
+    scene: String,
+    items: Vec<(String, Vec<Want>)>,
+    why: HashMap<String, String>,
+}
+
 struct Worker {
     cfg: Config,
     agent: ureq::Agent,
     board: Arc<Mutex<Board>>,
+    answer: Arc<Mutex<Answer>>,
+    push: Option<Push>,
+    /// why a file failed (until it is wanted again)
+    failed: HashMap<Want, String>,
+    /// bytes downloaded since the last push
+    pushed_bytes: u64,
     content: Content,
     /// set / character ids the API has answered (or named missing) since the last prepare
     known: HashSet<(bool, String)>,
@@ -325,9 +398,15 @@ impl Worker {
             }
             if let Some(w) = self.queue.pop_front() {
                 self.publish(|b| b.busy = true);
-                if let Err(e) = self.fetch(&w) {
-                    tracing::warn!("sync: {e}");
-                    self.publish(|b| b.error = Some(e));
+                match self.fetch(&w) {
+                    Ok(()) => {
+                        self.failed.remove(&w);
+                    }
+                    Err(e) => {
+                        tracing::warn!("sync: {e}");
+                        self.failed.insert(w.clone(), e.clone());
+                        self.publish(|b| b.error = Some(e));
+                    }
                 }
                 self.settled.insert(w.clone());
                 for s in self.waiters.remove(&w).unwrap_or_default() {
@@ -339,8 +418,144 @@ impl Worker {
                     b.queued = queued;
                     b.busy = queued > 0;
                 });
+                self.answer(false);
             }
         }
+    }
+
+    /// #195: the push's answer now – kept (numbered) when it changed, or always (`fresh`: a new push wants an answer
+    /// even when it is the old one)
+    fn answer(&self, fresh: bool) {
+        let Some(p) = &self.push else { return };
+        let (mut ready, mut missing, mut why) = (Vec::new(), Vec::new(), HashMap::new());
+        let mut pending = false;
+        let (mut total, mut done) = (0u64, 0u64);
+        for (item, wants) in &p.items {
+            total += wants.len() as u64;
+            done += wants.iter().filter(|w| self.settled.contains(w)).count() as u64;
+            let failed = wants.iter().find_map(|w| self.failed.get(w));
+            if let Some(reason) = p.why.get(item).or(failed) {
+                missing.push(item.clone());
+                why.insert(item.clone(), reason.clone());
+            } else if !wants.iter().all(|w| self.settled.contains(w)) {
+                pending = true;
+            } else if wants.iter().all(|w| self.present(w)) {
+                ready.push(item.clone());
+            } else {
+                missing.push(item.clone());
+                why.insert(item.clone(), "not in the cache".into());
+            }
+        }
+        let offline = self.board.lock().map(|b| b.offline).unwrap_or(false);
+        let state = match () {
+            _ if pending => SyncState::Syncing,
+            _ if missing.is_empty() => SyncState::Ready,
+            _ if offline => SyncState::Offline,
+            _ => SyncState::Missing,
+        };
+        let r = DeckSynced {
+            scene: p.scene.clone(),
+            state,
+            done: Some(done),
+            total: Some(total),
+            bytes: Some(self.pushed_bytes),
+            ready,
+            missing,
+            why: (!why.is_empty()).then_some(why),
+        };
+        if let Ok(mut a) = self.answer.lock() {
+            if fresh || a.last.as_ref() != Some(&r) {
+                a.n += 1;
+                a.last = Some(r);
+            }
+        }
+    }
+
+    /// is a settled file there to play (a kind that isn't synced – a local folder – always is)?
+    fn present(&self, w: &Want) -> bool {
+        match w {
+            Want::Set { id, quality } => self.cfg.sets.as_ref().map_or(true, |d| d.join(id).join(format!("{id}.{quality}.glb")).is_file()),
+            Want::Portrait { character, mood } => self.cfg.portraits.as_ref().map_or(true, |d| {
+                let stem = d.join(character).join(format!("{character}_portrait-{mood}"));
+                ["webp", "png"].iter().any(|ext| stem.with_extension(ext).is_file())
+            }),
+        }
+    }
+
+    /// the moods of `character` the cache holds (offline: what a push can still count on)
+    fn cached_moods(&self, character: &str) -> Vec<String> {
+        let Some(dir) = &self.cfg.portraits else { return Vec::new() };
+        let prefix = format!("{character}_portrait-");
+        let mut moods: Vec<String> = std::fs::read_dir(dir.join(character))
+            .into_iter()
+            .flatten()
+            .flatten()
+            .filter_map(|e| {
+                let name = e.file_name().into_string().ok()?;
+                let (stem, ext) = name.rsplit_once('.')?;
+                matches!(ext, "webp" | "png").then(|| stem.strip_prefix(&prefix).map(str::to_owned)).flatten()
+            })
+            .collect();
+        moods.sort();
+        moods.dedup();
+        moods
+    }
+
+    /// #195: a push becomes wants – asked for afresh (a changed file is noticed), each file checked again
+    fn take_push(&mut self, sync: SceneSync) {
+        let sets = sync.sets.unwrap_or_default();
+        let chars = sync.characters.unwrap_or_default();
+        tracing::info!("sync: the conductor pushes '{}' – sets {sets:?}, characters {chars:?}", sync.scene);
+        for id in &sets {
+            self.known.remove(&(true, id.clone()));
+        }
+        for id in &chars {
+            self.known.remove(&(false, id.clone()));
+        }
+        self.retry_at = None;
+        self.pushed_bytes = 0;
+        if self.queue.is_empty() {
+            self.publish(|b| *b = Board { busy: true, ..Board::default() });
+        }
+        let s: Vec<&str> = sets.iter().map(String::as_str).collect();
+        let c: Vec<&str> = chars.iter().map(String::as_str).collect();
+        self.ask(&s, &c);
+        let mut push = Push { scene: sync.scene, items: Vec::new(), why: HashMap::new() };
+        for id in sets {
+            push.items.push((format!("set:{id}"), vec![Want::Set { id, quality: self.cfg.quality.clone() }]));
+        }
+        for c in chars {
+            let item = format!("character:{c}");
+            let moods: Vec<String> = match self.content.characters.get(&c) {
+                Some(cc) => {
+                    let mut m: Vec<String> = cc.portraits.keys().cloned().collect();
+                    m.sort();
+                    m
+                }
+                None if self.content.missing.characters.contains(&c) => {
+                    push.why.insert(item.clone(), format!("character {c} is unknown to the API"));
+                    Vec::new()
+                }
+                None => {
+                    // offline (or the API failed): what the cache has of it
+                    let m = self.cached_moods(&c);
+                    if m.is_empty() {
+                        push.why.insert(item.clone(), "offline - not in the cache".into());
+                    }
+                    m
+                }
+            };
+            push.items.push((item, moods.into_iter().map(|mood| Want::Portrait { character: c.clone(), mood }).collect()));
+        }
+        for w in push.items.iter().flat_map(|(_, ws)| ws.iter()) {
+            self.settled.remove(w);
+            self.failed.remove(w);
+            if !self.queue.contains(w) {
+                self.queue.push_back(w.clone());
+            }
+        }
+        self.push = Some(push);
+        self.answer(true);
     }
 
     fn publish(&self, f: impl FnOnce(&mut Board)) {
@@ -366,6 +581,7 @@ impl Worker {
                     }
                 }
             }
+            Msg::Push(sync) => self.take_push(sync),
             Msg::Want(w, reply) => {
                 if self.settled.contains(&w) {
                     let _ = reply.send(());
@@ -497,6 +713,7 @@ impl Worker {
         self.index.save()?;
         let n = bytes.len() as u64;
         tracing::info!("sync: {} → {} ({n} bytes)", file.path, local.display());
+        self.pushed_bytes += n;
         self.publish(|b| {
             b.fetched += 1;
             b.bytes += n;
@@ -567,7 +784,7 @@ mod tests {
     #[test]
     fn only_the_sync_s_own_set_files_are_gated() {
         let (tx, _rx) = mpsc::channel();
-        let s = DeckSync { tx, board: Default::default(), sets: Some(PathBuf::from("/c/sets")), portraits: None };
+        let s = DeckSync { tx, board: Default::default(), answer: Default::default(), sets: Some(PathBuf::from("/c/sets")), portraits: None };
         let p = Path::new("/c/sets").join("cathedral").join("cathedral.low.glb");
         assert_eq!(s.set_want(&p), Some(Want::Set { id: "cathedral".into(), quality: "low".into() }));
         assert_eq!(s.set_want(&Path::new("/c/sets").join("cathedral.low.glb")), None, "a flat build output");

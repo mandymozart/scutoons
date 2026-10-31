@@ -244,8 +244,21 @@ Owner 2026-10-30: "Baked into the image is not what I want … The API should de
 - **HUD** (while it fetches, is offline or failed): `SYNC 2/7 3.1 MB` · `SYNC OFFLINE - FROM THE CACHE` · `SYNC ERR …`.
 - **Token:** `DECK_TOKEN` goes to the API as `Bearer` (never to the CDN); deck-link's paired token plugs in there once
   the stage pairs (#180) – the content is public, nothing waits for it.
+- **The conductor's push** (owner 2026-10-30: "conductor sync. start yes"): the conductor sends `scene.sync` (LIVE.md
+  B.6) – once at its start, again on **S**; `--sync set:cathedral,character:catpope` names what, else the scene's set
+  and the characters on stage (its own + every deck's). A deck's link hands the push (a `scene.sync`, or the welcome
+  snapshot's when it joins later) to its sync as an extra need: the same request, cache and skipping; a pushed set at
+  the space node's `quality`, a pushed character with every portrait the API lists. It answers `deck.synced` (items
+  `set:<id>` / `character:<id>` ready / missing + why, files done / total, bytes; progress ≤ 5 / s, then the final
+  state) – an item is ready only when its files are in the cache. The deck's HUD: `PUSH CATHEDRAL 3/7` ·
+  `PUSH CATHEDRAL READY` · `… MISSING 1` · `… OFFLINE`. The conductor's HUD: `SYNC CATHEDRAL 2/3 READY` (+ `n NOT`),
+  and over each deck's being `SYNC 3/7` · `READY` · `MISSING 1` · `OFFLINE` · `SYNC WAITING`; `Space::decks_ready()` is
+  the cue's wait (every deck the push is for is ready).
 - Tests: `tests/sync.rs` against a stub API + CDN on 127.0.0.1 (needs → one request, into the cache, cached skipped, a
-  changed path fetched again, a broken file refused, offline from the cache, a later character, the space loaders).
+  changed path fetched again, a broken file refused, offline from the cache, a later character, the space loaders);
+  `tests/scene_sync.rs` with the real relay too (a push → every deck fetches → ready at the conductor, a late deck syncs
+  from its welcome, a push again skips the cache, missing / offline answers, a deck's own push refused). The stub:
+  `tests/common/`.
 
 ## Live outlet (#186)
 

@@ -6,7 +6,8 @@
 //! F2 starts that command on top of the running stage – cage shows the newest window – and the stage pauses and mutes
 //! behind it until it closes; without it F2 quits with exit code 10 (deck-session's older loop opens the browser).
 //! A scene with a `space` node (#188): the mouse (or a finger) turns the camera or pulls the being's 3D buttons along
-//! their tethers (a double click: back to the scene's value), the wheel / ↑ ↓ zoom, ← → turn, R resets the camera.
+//! their tethers (a double click: back to the scene's value), the wheel / ↑ ↓ zoom, ← → turn, R resets the camera; the
+//! conductor's S pushes the scene's sync to the decks (#195 – also once at the start; `--sync` names what).
 //! A scene that can't be played (a module this build lacks – #185 –, a broken file) never stops the stage: it shows the
 //! test pattern with the reason in the HUD. `--dev` reloads the scene file and its WGSL files when they change.
 //! A scene with an `outlet` node (#186, the `live` module) joins the relay as `output` of this deck's outlet
@@ -42,12 +43,14 @@ enum Event {
 const HELP: &str = "deck-stage [--scene FILE|cathedral|conductor|outlet] [--audio auto|pipewire|cpal|null] [--volume 0-1] [--cache DIR]
            [--sets DIR] [--portraits DIR] [--token T] [--api URL] [--cdn URL] [--windowed] [--frames N]
            [--screenshot FILE] [--pointer X,Y|NODE.PORT] [--drag NODE.PORT[,DN]] [--no-hud] [--dev] [--modules]
-           [--relay ws://HOST:PORT/live/CODE]
+           [--relay ws://HOST:PORT/live/CODE] [--sync set:ID,character:ID]
            [--outlet ID] [--locale de]
   --scene      a scene TOML (default: the built-in scene, deck/stage/scenes/default.toml); `cathedral` = the built-in
                Cathedral of decks (scenes/cathedral.toml – a deck's being), `conductor` = its conductor in the middle
                (scenes/conductor.toml), `outlet` = the built-in Live outlet (scenes/outlet.toml – the default when a
                relay and an outlet are set)
+  --sync       the conductor's push (#195): what the decks fetch into their cache – sent at the start and on S
+               (default: the scene's set and the characters on stage)
   --relay      the Live relay with the session code (default: deck.toml's `relay`); --outlet this deck's outlet
                (deck.toml's `outlet`); --locale the language of its text layers (deck.toml's `locale`, else de)
   --audio      the backend; auto = PipeWire → cpal → null (no device: the clock and the FFT still run)
@@ -90,6 +93,8 @@ struct Args {
     relay: Option<String>,
     outlet: Option<String>,
     locale: Option<String>,
+    /// #195: the conductor's push (`set:<id>,character:<id>`)
+    sync: Option<String>,
 }
 
 /// a check run's pointer: a pixel, or on a button of the being (it follows the button)
@@ -120,6 +125,7 @@ fn args() -> Result<Args> {
         relay: None,
         outlet: None,
         locale: None,
+        sync: None,
     };
     let mut it = std::env::args().skip(1);
     while let Some(arg) = it.next() {
@@ -158,6 +164,7 @@ fn args() -> Result<Args> {
             "--relay" => a.relay = Some(val()?),
             "--outlet" => a.outlet = Some(val()?),
             "--locale" => a.locale = Some(val()?),
+            "--sync" => a.sync = Some(val()?),
             "--modules" => {
                 for m in modules::registry() {
                     let what: Vec<&str> = m.kinds.iter().chain(m.sources).copied().collect();
@@ -239,6 +246,26 @@ fn outlet_configured(args: &Args) -> bool {
     }
 }
 
+/// the quality a pushed set is fetched at (#195): the space node's, else low
+#[cfg(feature = "sync")]
+fn set_quality(graph: &graph::Graph) -> String {
+    #[cfg(feature = "space")]
+    if let Some((_, q)) = graph.first(graph::Kind::Space).and_then(|n| deck_stage::space::set_need(graph, n)) {
+        return q;
+    }
+    let _ = graph;
+    "low".into()
+}
+
+/// the conductor's push (#195): `--sync`, else the scene's set and the characters on stage
+#[cfg(all(feature = "live", feature = "space"))]
+fn push_for(args: &Args, scene: &str, space: &deck_stage::space::Space) -> Result<protocol::SceneSync, String> {
+    match &args.sync {
+        Some(spec) => deck_stage::space::link::parse_push(scene, spec),
+        None => Ok(space.scene_push(scene)),
+    }
+}
+
 /// the scene the arguments name: a file, `cathedral` / `outlet` (built in), the outlet when one is set, or the default
 fn read_scene(args: &Args) -> Result<scene::Scene> {
     match &args.scene {
@@ -295,6 +322,8 @@ impl Show {
                 portraits: args.portraits.is_none().then(|| cache.join("portraits")),
                 // #180: the paired deck's token goes here once the stage pairs (deck-link); the content is public
                 token: std::env::var("DECK_TOKEN").ok().filter(|t| !t.is_empty()),
+                // #195: a pushed set at the space node's quality
+                quality: set_quality(&graph),
             })
         });
         // the Live outlet (#186): its threads start with the scene; the renderer takes its planes
@@ -367,7 +396,21 @@ impl Show {
             {
                 let relay = outlet_settings(args).relay.or_else(|| deck_stage::live::config::Settings::read(std::path::Path::new(deck_stage::live::config::DECK_TOML)).relay);
                 use deck_stage::space::Connect;
-                s.connect(relay.as_deref(), args.token.clone(), Some(scene.stage.name.clone()));
+                // #195: a deck answers the conductor's pushes through its sync
+                #[cfg(feature = "sync")]
+                let hook = sync.clone().map(|y| Box::new(y) as Box<dyn deck_stage::space::link::Syncs>);
+                #[cfg(not(feature = "sync"))]
+                let hook = None;
+                s.connect(relay.as_deref(), args.token.clone(), Some(scene.stage.name.clone()), hook);
+                // the conductor pushes the scene's sync once joined (decks that come later find it in their snapshot)
+                if s.join == deck_stage::space::Join::Conductor {
+                    match push_for(args, &scene.stage.name, &s) {
+                        Ok(p) => {
+                            s.push_sync(p);
+                        }
+                        Err(e) => tracing::warn!("{e}"),
+                    }
+                }
             }
             s
         });
@@ -797,6 +840,11 @@ impl App {
         if let Some(line) = self.show.sync.as_ref().map(|y| y.line()).filter(|l| !l.starts_with("SYNC OK")) {
             lines.push(line);
         }
+        // the conductor's push, as this deck answers it (#195)
+        #[cfg(feature = "sync")]
+        if let Some(line) = self.show.sync.as_ref().and_then(|y| y.push_line()) {
+            lines.push(line);
+        }
         #[cfg(feature = "space")]
         if let Some(s) = &self.show.space {
             // the mood and why (#188's feelings) first: the HUD shows 11 lines
@@ -925,6 +973,14 @@ impl App {
             WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && !event.repeat => {
                 match event.logical_key.as_ref() {
                     Key::Character("r") => s.camera.reset(),
+                    // #195: the conductor pushes the scene's sync again (decks that joined since get the characters)
+                    #[cfg(feature = "live")]
+                    Key::Character("s") if s.join == deck_stage::space::Join::Conductor => match push_for(&self.args, &self.show.scene_name, s) {
+                        Ok(p) => {
+                            s.push_sync(p);
+                        }
+                        Err(e) => tracing::warn!("{e}"),
+                    },
                     Key::Named(NamedKey::ArrowLeft) => s.camera.turn(-0.12),
                     Key::Named(NamedKey::ArrowRight) => s.camera.turn(0.12),
                     Key::Named(NamedKey::ArrowUp) | Key::Named(NamedKey::PageUp) => s.camera.zoom(1.0),

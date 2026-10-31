@@ -51,7 +51,7 @@ impl Stage {
         let node = graph.first(Kind::Space).unwrap();
         let nowhere = Path::new("/nowhere");
         let mut space = Space::new(&graph, node, &scene.being, nowhere, Portraits::local(nowhere));
-        space.connect(Some(relay), Some("dev".into()), None);
+        space.connect(Some(relay), Some("dev".into()), None, None);
         let ctl = Controls::new(&graph, None);
         Stage { graph, ctl, space }
     }

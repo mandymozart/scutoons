@@ -9,7 +9,8 @@
 //! Phase 4 – the session (the space node's `join`, with a relay set): a **deck** streams its being to the relay
 //! (stream.rs, link.rs); the **conductor**'s deck draws every deck's being in a circle around its own, bigger one in
 //! the middle of the nave, and the hoses between them along the session's routes (decks.rs). Each deck shows only its
-//! own being. This module holds the CPU side; the renderer draws what it says.
+//! own being. This module holds the CPU side; the renderer draws what it says. The conductor pushes the scene's sync
+//! (#195, `push_sync`) and shows each deck's answer over its being and in the HUD (sync.rs).
 //!
 //! deck-space (#198): the same code on the deck (deck-stage) and in the browser (deck/space-web). What is native stays
 //! behind the feature `native` (the set's loader thread and file, the portraits') or in deck-stage (the relay link, a
@@ -25,6 +26,7 @@ pub mod label;
 pub mod meshopt;
 pub mod portrait;
 pub mod stream;
+pub mod sync;
 pub mod values;
 pub mod wire;
 
@@ -168,6 +170,8 @@ pub struct Space {
     /// bumped when beings or routes come or go (the renderer sizes its buffers anew)
     pub generation: u64,
     places: Vec<Vec3>,
+    /// #195: the conductor's push and the decks' answers
+    pub sync: sync::Board,
 }
 
 /// Called on the loader thread with a set's file before it is read: the sync (sync.rs) returns once that file is
@@ -290,6 +294,7 @@ impl Space {
             ring: n.f32("ring", RING),
             generation: 0,
             places: Vec::new(),
+            sync: sync::Board::default(),
         }
     }
 
@@ -417,7 +422,10 @@ impl Space {
                         r.apply(&values, mood.as_deref());
                     }
                 }
+                In::Pushed(s) => self.sync.pushed(s),
+                In::Synced { client, synced } => self.sync.answer(client, synced),
                 In::Presence { decks, routes } => {
+                    self.sync.synced.retain(|c, _| decks.contains(c));
                     let before = self.others.len();
                     self.others.retain(|r| decks.contains(&r.client));
                     if self.others.len() != before || routes != self.route_ids {
@@ -430,6 +438,33 @@ impl Space {
         if let Some(l) = &self.link {
             self.note = l.status();
         }
+    }
+
+    /// #195: the conductor pushes a scene sync to the decks (the link sends it once joined); false = this space is no
+    /// conductor or has no link (the HUD says why)
+    pub fn push_sync(&mut self, sync: protocol::SceneSync) -> bool {
+        let Some(link) = self.link.as_ref().filter(|_| self.join == Join::Conductor) else { return false };
+        tracing::info!("cathedral: pushing the sync of '{}'", sync.scene);
+        link.push(sync.clone());
+        self.sync.pushed(sync);
+        true
+    }
+
+    /// #195: what the scene needs, as a push: its set and the characters on stage – this being's and every deck's
+    pub fn scene_push(&self, scene: &str) -> protocol::SceneSync {
+        let sets: Vec<String> = set_need(&self.graph, self.node).map(|(id, _)| id).into_iter().collect();
+        let mut characters: Vec<String> = Vec::new();
+        for c in self.beings().map(|b| &b.look.character).filter(|c| !c.is_empty()) {
+            if !characters.contains(c) {
+                characters.push(c.clone());
+            }
+        }
+        protocol::SceneSync { scene: scene.into(), sets: Some(sets), characters: Some(characters), beings: None, decks: None }
+    }
+
+    /// #195, the cue's wait: every deck the push is for is ready (at least one is there)
+    pub fn decks_ready(&self) -> bool {
+        self.sync.all_ready(self.others.iter().map(|r| r.client.as_str()))
     }
 
     /// a deck's being joins (or replaces its old one), placed where it will float so it doesn't fly across the nave
@@ -496,6 +531,18 @@ impl Space {
     /// beings – at most label::LABELS (`out` cleared first; its capacity from the renderer – no allocation).
     pub fn write_labels(&self, out: &mut Vec<Label>) {
         out.clear();
+        // #195: the conductor's word over each deck's being – its sync for the push (first: the decks' state matters)
+        for r in &self.others {
+            let Some(view) = self.sync.view(&r.client) else { continue };
+            if out.len() >= label::LABELS {
+                break;
+            }
+            let mut text = label::Text::default();
+            let _ = view.write(&mut text);
+            let c = being::hsv(view.hue(), 0.55, 1.0);
+            let head = &r.being.head;
+            out.push(Label { pos: (head.pos + Vec3::Y * head.radius * 1.4).into(), offset: head.radius, text, color: [c[0], c[1], c[2], 0.9], scale: 0.85, line: 0.0 });
+        }
         for b in self.beings() {
             b.write_labels(out);
         }
@@ -587,6 +634,9 @@ impl Space {
             Join::Conductor => format!("{first} {} DECKS {} ROUTES", self.others.len(), self.routes.len()),
             _ => first,
         });
+        if let Some(line) = self.sync.line(self.others.iter().map(|r| r.client.as_str())) {
+            out.push(line);
+        }
         out.push(format!("FACE {}", self.portraits.status(&self.being.look.character)));
         out.iter().map(|l| l.replace(['–', '—'], "-").to_uppercase().chars().take(40).collect()).collect()
     }

@@ -25,7 +25,8 @@ default = ["space", "sync", "chapter", "live", "midi", "osc"]
 space = ["deck-space/being", "deck-space/gpu", "deck-space/native", "dep:serde_json", "dep:ab_glyph", "image/webp"]
 # the deck's sync (#195): what the scene needs – its sets' 3D, its beings' portraits – from the API (scene-content) into
 # the cache, only what is missing or changed, offline from the cache (sync.rs)
-sync = ["dep:ureq", "dep:serde_json"]
+# and the conductor's pushes (`scene.sync` → `deck.synced`, #195)
+sync = ["dep:ureq", "dep:serde_json", "dep:protocol"]
 # a chapter from scutoons.com (library API + disk cache): `chapter` (its slices, the dialog set in the reader's fonts)
 # and `chapter_music` (its music, decoded with symphonia)
 chapter = ["dep:ureq", "dep:serde_json", "dep:symphonia", "dep:ab_glyph", "image/webp"]

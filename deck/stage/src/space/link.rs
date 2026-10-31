@@ -7,7 +7,11 @@
 //! - **The conductor's deck** joins as `conductor` (a session token; any non-empty one on a dev relay) and hands the
 //!   frame thread the decks' beings: the snapshot's `decks` at the welcome, then each `deck.graph`, `deck.values` and
 //!   `presence` (who is there, who sends to whom). It never resumes – a fresh join brings the whole snapshot.
-use protocol::{DeckGraph, DeckValues, Envelope, Hello, Message, Ping, Role};
+//! - **The scene sync (#195):** the conductor pushes `scene.sync` (`Wire::push` – sent once joined, and again at a
+//!   welcome whose snapshot lacks it: the relay restarted) and hands the frame each deck's `deck.synced`. A deck hands
+//!   a push – the welcome snapshot's `sync`, or a `scene.sync` – to its sync (`Syncs`, sync.rs) and sends its answer
+//!   back whenever it is new (progress at most every 200 ms; the final state at once).
+use protocol::{DeckGraph, DeckSynced, DeckValues, Envelope, Hello, Message, Ping, Role, SceneSync, SyncState};
 use std::collections::HashMap;
 use std::io::ErrorKind;
 use std::net::{TcpStream, ToSocketAddrs};
@@ -24,13 +28,43 @@ use deck_space::space::Join;
 const PING_EVERY: Duration = Duration::from_secs(20);
 const POLL: Duration = Duration::from_millis(20);
 const BACKOFF: [u64; 5] = [1, 2, 4, 8, 10];
+/// a deck's sync progress at most this often (the final state goes at once)
+const PROGRESS: Duration = Duration::from_millis(200);
 /// the decks' group
 pub const GROUP: &str = "decks";
+
+/// #195: a deck's sync as the link sees it (sync.rs's DeckSync): the conductor's push in, the answer out
+pub trait Syncs: Send {
+    fn push(&self, sync: SceneSync);
+    /// the answer, if one newer than `seen` is there: its number and the answer
+    fn synced(&self, seen: u64) -> Option<(u64, DeckSynced)>;
+}
+
+/// what the frame hands the link
+enum Out {
+    Values(DeckValues),
+    Push(SceneSync),
+}
+
+/// `--sync set:cathedral,character:catpope` (#195): the conductor's push for `scene`; `being:<id>` names a lent being
+/// (#191, reserved)
+pub fn parse_push(scene: &str, spec: &str) -> Result<SceneSync, String> {
+    let (mut sets, mut characters, mut beings) = (Vec::new(), Vec::new(), Vec::new());
+    for part in spec.split(',').map(str::trim).filter(|p| !p.is_empty()) {
+        match part.split_once(':') {
+            Some(("set", id)) if !id.is_empty() => sets.push(id.to_string()),
+            Some(("character", id)) if !id.is_empty() => characters.push(id.to_string()),
+            Some(("being", id)) if !id.is_empty() => beings.push(id.to_string()),
+            _ => return Err(format!("--sync {part}: set:<id>, character:<id> or being:<id>")),
+        }
+    }
+    Ok(SceneSync { scene: scene.into(), sets: Some(sets), characters: Some(characters), beings: (!beings.is_empty()).then_some(beings), decks: None })
+}
 
 /// the running client: its events, its outbox, its HUD line; stops when dropped
 pub struct Link {
     pub rx: Receiver<In>,
-    tx: Sender<DeckValues>,
+    tx: Sender<Out>,
     pub status: Arc<Mutex<String>>,
     stop: Arc<AtomicBool>,
 }
@@ -42,14 +76,32 @@ impl Drop for Link {
 }
 
 impl Link {
-    /// Join `relay` (`ws://host:port/live/<code>`) as `join`; a deck announces `graph`.
-    pub fn start(relay: &str, join: Join, token: Option<String>, nick: Option<String>, graph: Option<DeckGraph>) -> Result<Link, String> {
+    /// Join `relay` (`ws://host:port/live/<code>`) as `join`; a deck announces `graph` and hands pushes to `sync`.
+    pub fn start(relay: &str, join: Join, token: Option<String>, nick: Option<String>, graph: Option<DeckGraph>, sync: Option<Box<dyn Syncs>>) -> Result<Link, String> {
         let cfg = crate::live::config::Config::new(relay, GROUP, "de").map_err(|e| e.to_string())?;
         let (tx_in, rx) = mpsc::channel();
         let (tx, outbox) = mpsc::channel();
         let status = Arc::new(Mutex::new(format!("JOINING {}", cfg.code)));
         let stop = Arc::new(AtomicBool::new(false));
-        let client = Client { base: cfg.base, code: cfg.code, join, token, nick, graph, events: tx_in, outbox, status: status.clone(), stop: stop.clone(), sent: HashMap::new(), mood: None };
+        let client = Client {
+            base: cfg.base,
+            code: cfg.code,
+            join,
+            token,
+            nick,
+            graph,
+            events: tx_in,
+            outbox,
+            status: status.clone(),
+            stop: stop.clone(),
+            sent: HashMap::new(),
+            mood: None,
+            push: None,
+            push_due: false,
+            sync,
+            seen: 0,
+            answered: None,
+        };
         std::thread::Builder::new().name("cathedral".into()).spawn(move || client.run()).map_err(|e| e.to_string())?;
         Ok(Link { rx, tx, status, stop })
     }
@@ -57,7 +109,11 @@ impl Link {
 
 impl Wire for Link {
     fn send(&self, values: DeckValues) {
-        let _ = self.tx.send(values);
+        let _ = self.tx.send(Out::Values(values));
+    }
+
+    fn push(&self, sync: SceneSync) {
+        let _ = self.tx.send(Out::Push(sync));
     }
 
     fn recv(&self) -> Option<In> {
@@ -77,12 +133,19 @@ struct Client {
     nick: Option<String>,
     graph: Option<DeckGraph>,
     events: Sender<In>,
-    outbox: Receiver<DeckValues>,
+    outbox: Receiver<Out>,
     status: Arc<Mutex<String>>,
     stop: Arc<AtomicBool>,
     /// everything the deck sent (the keyframe after a reconnect)
     sent: HashMap<String, Vec<f64>>,
     mood: Option<String>,
+    /// the conductor: its push, and whether it still has to go out
+    push: Option<SceneSync>,
+    push_due: bool,
+    /// a deck: its sync, the last answer's number it sent, and when it sent the last one
+    sync: Option<Box<dyn Syncs>>,
+    seen: u64,
+    answered: Option<Instant>,
 }
 
 type Socket = WebSocket<MaybeTlsStream<TcpStream>>;
@@ -144,10 +207,18 @@ impl Client {
         ws.send(Ws::Text(text)).map_err(|e| e.to_string())
     }
 
-    /// the outbox into `sent` (offline: nothing goes out, the latest values wait)
+    /// the outbox into `sent` (offline: nothing goes out, the latest values wait); a push waits until joined
     fn fold(&mut self) -> Vec<DeckValues> {
         let mut out = Vec::new();
-        while let Ok(v) = self.outbox.try_recv() {
+        while let Ok(o) = self.outbox.try_recv() {
+            let v = match o {
+                Out::Values(v) => v,
+                Out::Push(s) => {
+                    self.push = Some(s);
+                    self.push_due = true;
+                    continue;
+                }
+            };
             for (k, x) in &v.values {
                 self.sent.insert(k.clone(), x.clone());
             }
@@ -157,6 +228,17 @@ impl Client {
             out.push(v);
         }
         out
+    }
+
+    /// a deck: its sync's answer when it is new – progress at most every PROGRESS, a final state at once
+    fn answer(&mut self, ws: &mut Socket) -> Result<(), String> {
+        let Some((n, synced)) = self.sync.as_ref().and_then(|y| y.synced(self.seen)) else { return Ok(()) };
+        if synced.state == SyncState::Syncing && self.answered.is_some_and(|t| t.elapsed() < PROGRESS) {
+            return Ok(());
+        }
+        self.seen = n;
+        self.answered = Some(Instant::now());
+        Self::send(ws, Message::DeckSynced(synced))
     }
 
     fn serve(&mut self, ws: &mut Socket) -> String {
@@ -187,6 +269,20 @@ impl Client {
                     }
                 }
             }
+            if joined && self.push_due {
+                if let Some(s) = self.push.clone() {
+                    tracing::info!("cathedral: the sync of '{}' to the decks", s.scene);
+                    if let Err(e) = Self::send(ws, Message::SceneSync(s)) {
+                        return e;
+                    }
+                }
+                self.push_due = false;
+            }
+            if joined {
+                if let Err(e) = self.answer(ws) {
+                    return e;
+                }
+            }
             if pinged.elapsed() >= PING_EVERY {
                 pinged = Instant::now();
                 if let Err(e) = Self::send(ws, Message::Ping(Ping { t0: 0 })) {
@@ -210,6 +306,20 @@ impl Client {
                     for (client, d) in w.snapshot.decks.unwrap_or_default() {
                         let _ = self.events.send(In::Deck { client, graph: d.graph, values: d.values, mood: d.mood });
                     }
+                    if conductor {
+                        // the session's sync and the decks' answers; this conductor's push again if the relay lacks it
+                        if let Some(s) = &w.snapshot.sync {
+                            let _ = self.events.send(In::Pushed(s.clone()));
+                        }
+                        for (client, synced) in w.snapshot.synced.unwrap_or_default() {
+                            let _ = self.events.send(In::Synced { client, synced });
+                        }
+                        self.push_due = self.push.is_some() && w.snapshot.sync != self.push;
+                    } else if let (Some(y), Some(s)) = (&self.sync, w.snapshot.sync) {
+                        y.push(s);
+                        // the answer goes out again (the relay forgot it when this deck left)
+                        self.seen = 0;
+                    }
                     if let Some(g) = self.graph.clone() {
                         // the being, then every value it showed so far (a keyframe)
                         if let Err(e) = Self::send(ws, Message::DeckGraph(g)) {
@@ -230,6 +340,16 @@ impl Client {
                 Message::DeckValues(v) => {
                     let _ = self.events.send(In::Values { client: from, values: v.values, mood: v.mood });
                 }
+                Message::SceneSync(s) => {
+                    if conductor {
+                        let _ = self.events.send(In::Pushed(s));
+                    } else if let Some(y) = &self.sync {
+                        y.push(s);
+                    }
+                }
+                Message::DeckSynced(synced) if conductor => {
+                    let _ = self.events.send(In::Synced { client: from, synced });
+                }
                 Message::Presence(p) => {
                     let routes = p.routes.unwrap_or_default().into_iter().map(|r| (r.from, r.to)).collect();
                     let _ = self.events.send(In::Presence { decks: p.decks.unwrap_or_default(), routes });
@@ -244,5 +364,20 @@ impl Client {
                 _ => {}
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_push_from_the_command_line() {
+        let p = parse_push("conductor", "set:cathedral, character:catpope,character:yellowmouse").unwrap();
+        assert_eq!((p.scene.as_str(), p.sets.unwrap(), p.characters.unwrap()), ("conductor", vec!["cathedral".to_string()], vec!["catpope".to_string(), "yellowmouse".to_string()]));
+        assert!(p.beings.is_none() && p.decks.is_none());
+        assert_eq!(parse_push("x", "being:ghost").unwrap().beings.unwrap(), ["ghost"]);
+        assert!(parse_push("x", "room:cathedral").unwrap_err().contains("set:<id>"));
+        assert!(parse_push("x", "set:").is_err());
     }
 }
