@@ -28,11 +28,12 @@ PipeWire → cpal → null; null runs the engine on a timer, no device – the c
 `--api` / `--cdn` (or `DECK_API` / `DECK_CDN`) · `--windowed` · `--frames N` (quit after N frames and print the numbers –
 a check run) · `--screenshot FILE` (the last frame of a `--frames` run as a PNG) · `--pointer X,Y` (the pointer at a
 window pixel for a check run – a hovered button shows in the HUD; or `--pointer voice.index`: on that button) ·
-`--drag voice.index,0.3` (a check run's drag: pressed after 60 frames, pulled 0.3 of its range out over 30, held) · `--no-hud` · `--dev` (hot reload, below) ·
+`--drag voice.index,0.3` (a check run's drag: pressed after 60 frames, pulled 0.3 of its range out over 30, held) · `--no-hud` · `--hud-bar` (start with the collapsed stats bar) · `--dev` (hot reload, below) ·
 `--modules` (what this build carries). Logs: `RUST_LOG`. `DECK_SIMD=baseline` – the audio batches without AVX2 (to compare).
 The graph's workloads: `cargo bench -p deck-stage` (patcher | batch | batch AVX2, µs per block).
 
-Keys: **F1** the HUD · **F2** the browser · **Ctrl+Q** quit (on the deck the stage starts again) · **Ctrl+Alt+Del** power off (`systemctl
+Keys: **F1** the HUD → the collapsed stats bar (#209: one line across the whole top edge – FPS, CPU / frame, the audio's
+glitches / DSP load / limiter, the relay, the GPU backend; red when out of the green) → nothing · **F2** the browser · **Ctrl+Q** quit (on the deck the stage starts again) · **Ctrl+Alt+Del** power off (`systemctl
 poweroff`, the logo stays up; not in a `--windowed` stage) · Esc quits a `--windowed` stage · the tempo clock: **T** tap ·
 **+ / −** BPM · **Space** start / stop · **F3** the next source (internal → MIDI → Link → OSC → relay) · **K** the click. In a scene with a `space` node: a **mouse drag** turns the camera around the being (or, on a 3D
 button, pulls it along its tether – out = more; a double click: back to the scene's value; a finger the same), the **wheel** / **↑ ↓** zoom, **← →** turn, **R** the camera's home; the pointer stays
@@ -191,7 +192,11 @@ knob turns as its base** (#188): a linked input is `source · scale + base`, the
 `Controls::set` / deck-core's `BatchGraph::set_base` / live-core's wire mode `base`) and the modulation adds on top –
 its ring shows the base lit, the swing the modulation covered lately as a band and the value now as a white tick; a
 double click eases it back to the link's offset. Only a mirrored deck's linked knob (the stream carries no base) is
-locked: pale, a dashed ring, it shakes when grabbed. **Feedback:** hover swells a button with a thin ring (the pointer a
+locked: pale, a dashed ring, it shakes when grabbed. **The knobs face the camera** (#209, owner 2026-10-31: "always in sight of the camera … never hidden behind the body or the head"): the core's
+spokes fan as a crown around the view axis toward the eye, a chain leans to the eye's side (one turned away rounds the body along its point's way
+out), and every knob is moved sideways out of the core's and the head's shadow – eased as the camera orbits (`being.rs` `crown` / `lean` / `clear_of`).
+**A tap selects** a knob or the being (a white ring; empty space deselects – `Space::take_tap`): what the browser's corner sticks drive
+(deck-space `controls.rs`: the selection → the sticks' pairs, MIDI learn, the mappings as text for a preset). **Feedback:** hover swells a button with a thin ring (the pointer a
 hand); a drag pulls it along its tether like a MIDI CC (`Controls::set`); a double click eases it back to the scene's
 value (0.5 s). **Level and overload:** a node point glows with its audio level; the head flushes red with the output
 limiter's gain reduction (`Being::strain`, full at 9 dB) and the feelings' `strain` makes it dizzy. **The camera

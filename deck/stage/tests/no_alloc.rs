@@ -134,7 +134,8 @@ fn the_ring_and_its_render_thread_do_not_allocate() {
 /// preallocated buffers; and a deck's being at the conductor on its stream's values (#188 phase 4, `Mirror`); the
 /// scene's feelings – every rule tested, moods turning, their nudges pushed into the control domain (feel.rs); the
 /// buttons' feedback (#188, owner 2026-10-31): their tethers, hover, a hand on one, a linked one shaking, a double
-/// click's ease back; #188: the value rings, a linked knob turned as its base, the points' levels, the head's strain.
+/// click's ease back; #188: the value rings, a linked knob turned as its base, the points' levels, the head's strain;
+/// #209: the knobs facing an orbiting camera, the selection's rings.
 #[cfg(feature = "space")]
 #[test]
 fn the_being_steps_without_allocating() {
@@ -156,7 +157,7 @@ fn the_being_steps_without_allocating() {
     let (mut rs, mut rt) = { let (a, b) = remote.capacity(); (Vec::with_capacity(a), Vec::with_capacity(b)) };
     let (ns, nv) = being.capacity();
     let (mut spheres, mut tubes) = (Vec::with_capacity(ns), Vec::with_capacity(nv));
-    let cam = Orbit::new(being.anchor, 0.3, 0.1, 2.0);
+    let mut cam = Orbit::new(being.anchor, 0.3, 0.1, 2.0);
     let knob = being.buttons.iter().find(|b| !b.linked).map(|b| (b.node, b.port)).unwrap();
     let hand = being.buttons.iter().position(|b| !b.linked && (b.node, b.port) != knob).unwrap();
     let linked = being.buttons.iter().position(|b| b.linked).unwrap();
@@ -191,6 +192,16 @@ fn the_being_steps_without_allocating() {
             ctl.set(b.node, b.port, b.spec.value((f - 300) as f32 / 30.0));
         }
         being.strain(1.0 / 60.0, if (100..140).contains(&f) { 9.0 } else { 0.0 });
+        // #209: the camera orbits – the knobs re-fan toward it and keep out of the core's and the head's shadow; the
+        // selection's ring (a knob, then the whole being)
+        cam.yaw = 0.3 + f as f32 * 0.02;
+        being.eye = Some(cam.eye());
+        remote.eye = being.eye;
+        being.selected = match f {
+            0..200 => Some(Hit::Button(hand)),
+            200..400 => Some(Hit::Point(0)),
+            _ => None,
+        };
         being.update(1.0 / 60.0, f as f32 / 60.0, &Local { ctl: &ctl, meter: &meter }, &beat);
         being.push(&mut ctl);
         // the deck's sound swells and drops: its rules see jumps, quiet and noise

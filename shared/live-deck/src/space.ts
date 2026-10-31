@@ -6,6 +6,7 @@
 // The wasm and its glue are files the host serves (`base`: space_web.js + space_web_bg.wasm, written by
 // `npm run build:wasm -w shared/live-deck`) and imports at run time – a build without them still runs the deck, the
 // page says the 3D is missing.
+import type { DeckControlsView } from './controls.ts';
 import type { Deck } from './deck.ts';
 import { BPM } from './deck.ts';
 import { PARAMS } from './scene.ts';
@@ -37,6 +38,10 @@ export interface SpaceView {
 	cursor(): string;
 	hud_line(): string;
 	mood(): string;
+	/** #209: the selection a tap made since the last call ("" deselected, "being", "knob:node.port"), else undefined */
+	take_tap(): string | undefined;
+	/** #209: select by name – the being rings it */
+	select(name: string): void;
 	free(): void;
 }
 
@@ -46,6 +51,30 @@ interface SpaceModule {
 		create(canvas: HTMLCanvasElement, deckGraph: string, values: string, prefer: string): Promise<SpaceView>;
 		encoded_images(glb: Uint8Array): unknown[];
 	};
+	DeckControls: new (paths: string[]) => DeckControlsView;
+}
+
+const modules = new Map<string, Promise<SpaceModule>>();
+
+/** the wasm and its glue from `base`, loaded once per page */
+function spaceModule(base: string): Promise<SpaceModule> {
+	let m = modules.get(base);
+	if (!m) {
+		m = (async () => {
+			const mod = (await import(/* @vite-ignore */ `${base}space_web.js`)) as SpaceModule;
+			await mod.default({ module_or_path: `${base}space_web_bg.wasm` });
+			return mod;
+		})();
+		modules.set(base, m);
+		m.catch(() => modules.delete(base));
+	}
+	return m;
+}
+
+/** #209: the deck's controls (deck-space's, as wasm – no GPU needed: they work when the 3D can't) over `paths` */
+export async function loadControls(base: string, paths: string[]): Promise<DeckControlsView> {
+	const mod = await spaceModule(base);
+	return new mod.DeckControls(paths);
 }
 
 export interface SpaceOptions {
@@ -110,8 +139,7 @@ export class SpaceStage {
 	static async start(o: SpaceOptions): Promise<SpaceStage> {
 		const say = (s: string) => o.onStatus?.(s);
 		say('3D: loading');
-		const mod = (await import(/* @vite-ignore */ `${o.base}space_web.js`)) as SpaceModule;
-		await mod.default({ module_or_path: `${o.base}space_web_bg.wasm` });
+		const mod = await spaceModule(o.base);
 		const graph = JSON.stringify(o.deck.graph());
 		const values = JSON.stringify(o.deck.value);
 		let canvas = SpaceStage.canvas(o);

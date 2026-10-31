@@ -8,10 +8,13 @@
 	// joins under their name with their avatar's character; a guest under the guest name. The relay (#199): the hosted
 	// one, wss://live.scutoons.com/live/<code> (VITE_LIVE_URL), the code from the path `/live/deck/<code>` or `?code=`
 	// (default CATH); `?relay=ws://…/live/CODE` joins a local relay instead. The conductor's scene sync (#195): the deck
-	// fetches what it names from the CDN and answers; the status line shows it.
+	// fetches what it names from the CDN and answers; the status line shows it. The controls (#209): the knobs (the
+	// panel's dials, the being's – they face the camera), two corner sticks over the 3D, MIDI learn; what the sticks
+	// drive is the selection's (the last tapped knob / the being / nothing = the master section) – the logic is
+	// deck-space's (Hands → DeckControls, wasm), this page only bridges the DOM, Web MIDI and the pointer to it.
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { Deck, MELODY, PARAMS, SpaceStage, charactersOf, pushLine, type Hand } from '@scutoons/live-deck';
+	import { Deck, FrameStats, Hands, MELODY, PARAMS, SpaceStage, charactersOf, loadControls, pushLine, type Hand } from '@scutoons/live-deck';
 	import LiveWorker from '@scutoons/live-core/worker?worker';
 	import workletUrl from '@scutoons/live-core/worklet?worker&url';
 	import { API_URL, CDN_SERVER, LIVE_URL } from '$lib/config.ts';
@@ -20,6 +23,9 @@
 	import { CHARACTER_KEY, WASM_BASE, characterOf, mayJoin, nickOf, preferOf, relayOf } from '$lib/live-deck.ts';
 	import CharacterChip from '$lib/components/live-deck/character-chip.svelte';
 	import DeckPanel from '$lib/components/live-deck/deck-panel.svelte';
+	import DeckSticks from '$lib/components/live-deck/deck-sticks.svelte';
+	import type { Stats } from '$lib/components/live-deck/deck-stats.svelte';
+	import { DeckControlsState } from '$lib/live-deck-controls.svelte.ts';
 
 	const session = getSessionContext();
 	const cdn = `${CDN_SERVER}/`;
@@ -36,10 +42,15 @@
 	let syncStatus = $state('');
 	let spaceStatus = $state('');
 	let hud = $state('');
-	// #188: the sound's dropouts (the worklet's underruns) over the last minute, once it plays; #208: the worker's peak
-	// render load, and the warning a few seconds after a dropout
-	let audioStatus = $state('');
+	// #208: the warning a few seconds after a dropout; #209: the collapsed bar's statistics (#188: the dropouts over the
+	// last minute, the worker's peak render load)
 	let audioAlert = $state('');
+	let stats = $state<Stats>({ fps: 0, cpu: 0, peak: 0, dropouts: null, load: 0, lead: 0, relay: '', backend: '' });
+	const frames = new FrameStats();
+	// #209: the controls – the selection the sticks follow, MIDI learn, the mappings per deck
+	const specs = { ...PARAMS, ...MELODY };
+	const ctl = new DeckControlsState(specs);
+	ctl.onSelect = (name) => space?.view.select(name);
 	let threeD = $state(true);
 	let deck: Deck | null = null;
 	let space: SpaceStage | null = null;
@@ -61,7 +72,7 @@
 		}
 	};
 
-	const status = $derived([relayStatus, syncStatus, spaceStatus, audioStatus, hud].filter(Boolean).join(' · '));
+	const status = $derived([syncStatus, spaceStatus, hud].filter(Boolean).join(' · '));
 
 	function showFace() {
 		const p = deck?.portraits[mood] ?? deck?.portraits.neutral ?? Object.values(deck?.portraits ?? {})[0];
@@ -76,15 +87,22 @@
 	onMount(() => {
 		let alive = true;
 		let raf = 0;
-		const stats = setInterval(() => {
+		const audio = setInterval(() => {
 			const core = deck?.core;
 			if (!core) return;
 			const s = core.stats();
-			const load = Math.round((100 * s.renderPeakUs) / Math.max(1, s.budgetUs));
-			const lead = Math.round((1000 * s.lead) / core.context.sampleRate);
-			audioStatus = m['live_deck.dropouts']({ n: s.underrunsPerMinute, load, lead });
+			stats.dropouts = s.underrunsPerMinute;
+			stats.load = Math.round((100 * s.renderPeakUs) / Math.max(1, s.budgetUs));
+			stats.lead = Math.round((1000 * s.lead) / core.context.sampleRate);
 			audioAlert = core.glitching() ? m['live_deck.dropout_alert']() : '';
 		}, 250);
+		const bar = setInterval(() => {
+			stats.fps = frames.fps;
+			stats.cpu = frames.cpu;
+			stats.peak = frames.peak;
+			stats.relay = relayStatus;
+			stats.backend = space ? space.backend : spaceStatus;
+		}, 500);
 		void (async () => {
 			await settled();
 			if (!alive || !mayJoin(session.me)) return;
@@ -100,6 +118,13 @@
 				mood = md;
 				showFace();
 			};
+			try {
+				ctl.hands = new Hands(await loadControls(WASM_BASE, Object.keys(specs)), deck, specs);
+				ctl.load(character);
+				ctl.choose('', false);
+			} catch (e) {
+				console.warn('live deck: no controls (the wasm is missing)', e);
+			}
 			await deck.pickCharacter(character);
 			showFace();
 			charactersOf(API_URL, character).then((list) => (characters = list));
@@ -112,25 +137,32 @@
 			}
 			const frame = () => {
 				if (!alive || !deck) return;
-				const now = performance.now() / 1000;
+				const t0 = performance.now();
+				const now = t0 / 1000;
 				deck.tick(now);
 				try {
 					space?.frame(now);
 					hud = space?.view.hud_line() ?? '';
+					// #209: a tap on the being selects (a knob, the being, empty space = the master section)
+					const tap = space?.view.take_tap();
+					if (tap !== undefined) ctl.choose(tap, false);
 				} catch (e) {
 					spaceStatus = m['live_deck.no_3d']({ reason: (e as Error).message });
 					space?.stop();
 					space = null;
 					threeD = false;
 				}
+				frames.push(t0, performance.now() - t0);
 				raf = requestAnimationFrame(frame);
 			};
 			raf = requestAnimationFrame(frame);
 		})();
 		return () => {
 			alive = false;
-			clearInterval(stats);
+			clearInterval(audio);
+			clearInterval(bar);
 			cancelAnimationFrame(raf);
+			ctl.close();
 			space?.stop();
 			deck?.close();
 			void deck?.core?.stop?.();
@@ -143,6 +175,8 @@
 		store.set(id);
 		await deck.pickCharacter(id);
 		space?.setBeing();
+		ctl.load(id);
+		ctl.choose('', true);
 		showFace();
 	}
 
@@ -174,15 +208,25 @@
 			<CharacterChip current={character} {characters} {face} {mood} onpick={pick} />
 		{/if}
 	</div>
+	<DeckSticks labels={ctl.labels} ondown={(s) => ctl.hands?.stickDown(s)} onmove={(s, x, y) => ctl.hands?.stickMove(s, x, y)} onup={(s) => ctl.hands?.stickUp(s)} />
 	<div class="bottom">
 		<DeckPanel
 			{values}
 			{started}
 			{starting}
+			{stats}
 			{status}
 			alert={audioAlert}
+			sticks={ctl.line}
+			selected={ctl.knob}
+			learn={ctl.learn}
+			learning={ctl.learning}
+			midi={ctl.midiStatus}
+			mapped={ctl.mapped}
 			onstart={start}
 			onset={(p, v) => deck?.setParam(p, v)}
+			onpick={ctl.pick}
+			onlearn={ctl.toggleLearn}
 			ontouch={(on) => deck && (deck.touch = on)}
 		/>
 	</div>

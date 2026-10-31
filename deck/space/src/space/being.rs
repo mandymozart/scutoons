@@ -68,6 +68,13 @@ const SWING: f32 = 3.0;
 /// how long a new mood must hold before the head shows it (s), and the cross-fade (s)
 const MOOD_HOLD: f32 = 1.2;
 const MOOD_FADE: f32 = 0.5;
+/// #209 – the knobs face the camera: how quickly the layout follows the eye as it orbits (s), the core's spokes'
+/// angle off the view axis (a crown around the core, toward the eye), a chain's least lean toward the eye (cos), and
+/// the margin a knob keeps clear of the core and the head in the view (× its radius)
+const FACE_S: f32 = 0.35;
+const CROWN: f32 = 1.05;
+const LEAN: f32 = 0.35;
+const CLEAR: f32 = 1.25;
 const TAU: f32 = std::f32::consts::TAU;
 
 /// The scene's `[being]` table – the body's shape (the colours are the space node's inputs).
@@ -398,6 +405,16 @@ pub struct Being {
     pub pulse: f32,
     /// the hovered / dragged part (the renderer lights it)
     pub hover: Option<Hit>,
+    /// #209: the selection the sticks drive (the last tapped): a button, or `Hit::Point` – the whole being (any of its
+    /// points or its head); the renderer rings it until something else is tapped
+    pub selected: Option<Hit>,
+    /// #209: where the camera's eye is (world; the space sets it every frame) – the knobs turn toward it; None = the
+    /// fixed layout (no camera: the tests, a headless check)
+    pub eye: Option<Vec3>,
+    /// the way to the eye from the centre, eased (FACE_S) – what the knobs' layout follows
+    pub face: Vec3,
+    /// `face` has been set once (the first frame with an eye takes it at once)
+    faced: bool,
     pub dragging: bool,
     pub head: Head,
     /// the points whose cables run up into the neck (the core first, then the highest points)
@@ -584,6 +601,10 @@ impl Being {
             glow: params::default(Kind::Space, "glow"),
             pulse: 0.0,
             hover: None,
+            selected: None,
+            eye: None,
+            face: Vec3::Z,
+            faced: false,
             dragging: false,
             head: Head {
                 pos: Vec3::ZERO,
@@ -748,6 +769,17 @@ impl Being {
         for p in &mut self.points {
             p.flash = (p.flash - dt * 2.5).max(0.0);
         }
+        // #209: the knobs face the camera – the way to the eye, eased, so the layout re-fans as the camera orbits (the
+        // first frame takes it at once); what the knobs keep clear of in the view: the core and the head
+        let eye = self.eye;
+        let facing = eye.and_then(|e| (e - center).try_normalize()).map(|want| {
+            let k = if self.faced && dt > 0.0 { (dt / FACE_S).min(1.0) } else { 1.0 };
+            (self.face + (want - self.face) * k).try_normalize().unwrap_or(want)
+        });
+        if let Some(f) = facing {
+            (self.face, self.faced) = (f, true);
+        }
+        let shadows = [(center, self.core_radius * self.swell), (self.head(), self.head.radius)];
         for i in 0..self.buttons.len() {
             let prev = self.buttons[i].prev.map(|j| self.buttons[j].pos);
             let b = &mut self.buttons[i];
@@ -786,15 +818,20 @@ impl Being {
             // the tether: the core's spokes around its equator, any other node's chain curling out of its point
             let core = Some(b.point) == self.core_point;
             let out = (p.pos - center).try_normalize().unwrap_or(Vec3::Y);
+            // (#209: the core's spokes as a crown around the view axis, a chain leaning toward the eye)
             let (dir, root, end) = if core {
                 let a = TAU * b.rank as f32 / b.count.max(1) as f32;
-                let dir = Vec3::new(a.cos(), 0.12, a.sin()).normalize();
+                let dir = match facing {
+                    Some(f) => crown(f, a),
+                    None => Vec3::new(a.cos(), 0.12, a.sin()).normalize(),
+                };
                 (dir, p.pos + dir * self.core_radius * self.swell, p.pos)
             } else {
                 let u = out.cross(Vec3::Y).try_normalize().unwrap_or(Vec3::X);
                 let v = out.cross(u);
                 let a = p.phase + b.rank as f32 * 1.1;
                 let dir = (out + (u * a.cos() + v * a.sin()) * 0.65).normalize();
+                let dir = facing.map_or(dir, |f| lean(dir, out, f));
                 match prev {
                     Some(q) => (dir, q, q),
                     None => (dir, p.pos + dir * p.radius, p.pos),
@@ -811,6 +848,15 @@ impl Being {
             b.dir = dir;
             b.root = root;
             b.pos = root + dir * len + shake;
+            // #209: never hidden behind the core or the head – out of their shadow, sideways in the view
+            // (a few rounds: a knob pushed out of the head's shadow may land in the core's, seen from high above)
+            if let Some(e) = eye {
+                for _ in 0..3 {
+                    for (c, r) in shadows {
+                        b.pos = clear_of(b.pos, e, c, r, b.radius);
+                    }
+                }
+            }
             let sag = Vec3::Y * (-0.18 * (end - b.pos).length());
             b.tether = [b.pos, b.pos + (end - b.pos) / 3.0 + sag, b.pos + (end - b.pos) * (2.0 / 3.0) + sag, end];
             // bubbles toward the node while it moves
@@ -960,8 +1006,8 @@ impl Being {
 
     /// how many spheres / tube vertices `write` produces at most (the GPU buffers' sizes)
     pub fn capacity(&self) -> (usize, usize) {
-        // a button: itself, its ring, its gauge, its tether's bubbles
-        let spheres = 2 + 2 * self.points.len() + self.buttons.len() * (3 + TETHER_BUBBLES) + self.hoses.len() * BUBBLES + self.neck.len();
+        // a button: itself, its ring, its gauge, its tether's bubbles; the core's selection ring (#209)
+        let spheres = 3 + 2 * self.points.len() + self.buttons.len() * (3 + TETHER_BUBBLES) + self.hoses.len() * BUBBLES + self.neck.len();
         (spheres, self.tubes() * (SEGMENTS + 1) * SIDES)
     }
 
@@ -1037,6 +1083,10 @@ impl Being {
         let rgb = |tint: f32, sat: f32, val: f32| hsv(self.hue + tint, sat, val);
         let c = rgb(0.0, 0.5, 1.0);
         spheres.push(Sphere { pos: self.center.into(), radius: self.core_radius * self.swell, color: [c[0], c[1], c[2], 0.5], extra: [kind::CORE, self.glow, 0.0, 0.0] });
+        // #209: the whole being selected (the sticks drive its main pairs) – a white ring around the core
+        if matches!(self.selected, Some(Hit::Point(_))) {
+            spheres.push(Sphere { pos: self.center.into(), radius: self.core_radius * self.swell * 1.35, color: [1.0, 1.0, 1.0, 0.8], extra: [kind::RING, self.glow, 1.0, 0.0] });
+        }
         for p in self.points.iter().filter(|p| p.rest != Vec3::ZERO) {
             let c = self.point_rgb(p, 0.6);
             spheres.push(Sphere { pos: p.pos.into(), radius: p.radius, color: [c[0], c[1], c[2], 0.45], extra: [kind::SHELL, self.glow, p.flash.max(p.level * 0.5), 0.0] });
@@ -1045,8 +1095,12 @@ impl Being {
         for (i, b) in self.buttons.iter().enumerate() {
             let c = hsv(colour_of(b), 0.6, 1.0);
             let r = b.radius * (1.0 + 0.35 * b.hot + 0.15 * b.grip);
-            // the thin ring: hover's, or the dashed lock of one that can't be turned (always)
-            if !b.turnable || b.hot > 0.02 {
+            // the thin ring: hover's, the selection's (#209: the sticks drive it – always, white), or the dashed lock
+            // of one that can't be turned (always)
+            let chosen = self.selected == Some(Hit::Button(i));
+            if chosen {
+                spheres.push(Sphere { pos: b.pos.into(), radius: r * 1.55, color: [1.0, 1.0, 1.0, 0.9], extra: [kind::RING, self.glow, 1.0, 0.0] });
+            } else if !b.turnable || b.hot > 0.02 {
                 let a = if b.turnable { b.hot } else { 0.55 + 0.45 * b.hot };
                 spheres.push(Sphere { pos: b.pos.into(), radius: r * 1.4, color: [c[0], c[1], c[2], a], extra: [kind::RING, self.glow, b.hot, if b.turnable { 0.0 } else { 1.0 }] });
             }
@@ -1122,6 +1176,63 @@ impl Being {
         let s = self.look.size;
         (b.root + b.dir * tether_len(s, core, 0.0), b.root + b.dir * tether_len(s, core, 1.0))
     }
+}
+
+/// #209: an orthonormal pair across the view axis `f` – `u` level (the fan stays upright as the camera orbits), `v` up
+fn across(f: Vec3) -> (Vec3, Vec3) {
+    let u = f.cross(Vec3::Y).try_normalize().unwrap_or(Vec3::X);
+    (u, u.cross(f))
+}
+
+/// #209: the core's spoke at angle `a` around the fan, on a crown around the view axis `f` (CROWN off it): every spoke
+/// toward the eye's side of the core, spread evenly around it on the screen.
+pub fn crown(f: Vec3, a: f32) -> Vec3 {
+    let (u, v) = across(f);
+    (f * CROWN.cos() + (u * a.cos() + v * a.sin()) * CROWN.sin()).normalize()
+}
+
+/// #209: a chain's direction `d` leaning toward the eye (`f`): one that faces it enough (cos ≥ LEAN) stays; one turned
+/// away swings over to the eye's side, keeping its way around the view axis – and the further its point sits behind
+/// the body, the more it heads out along that point's own way (`out`, from the centre) in the view: it rounds the body
+/// instead of passing behind it. Continuous in `d` and `f` (the eased face moves it smoothly).
+pub fn lean(d: Vec3, out: Vec3, f: Vec3) -> Vec3 {
+    let k = d.dot(f);
+    if k >= LEAN {
+        return d;
+    }
+    let side = (out - f * out.dot(f)).try_normalize();
+    let t0 = (d - f * k).try_normalize().or(side).unwrap_or_else(|| across(f).0);
+    let w = ((LEAN - k) / (LEAN + 1.0)).clamp(0.0, 1.0) * (-out.dot(f)).clamp(0.0, 1.0);
+    let t = side.and_then(|s| (t0 * (1.0 - w) + s * w).try_normalize()).unwrap_or(t0);
+    (t * (1.0 - LEAN * LEAN).sqrt() + f * LEAN).normalize()
+}
+
+/// #209: `pos` (a knob of radius `kr`) moved out of the shadow the sphere (`c`, `r`) casts seen from `eye`: sideways in
+/// the view until it clears the sphere's silhouette by CLEAR × `kr`. Weighted by its depth – nothing in front of the
+/// sphere, fully from its centre back – so the push grows smoothly as the camera orbits.
+pub fn clear_of(pos: Vec3, eye: Vec3, c: Vec3, r: f32, kr: f32) -> Vec3 {
+    let to_c = c - eye;
+    let dist = to_c.length();
+    if dist <= r * 1.01 {
+        return pos;
+    }
+    let d = to_c / dist;
+    let q = pos - c;
+    let depth = q.dot(d);
+    let w = ((depth + r) / r.max(1e-6)).clamp(0.0, 1.0);
+    if w <= 0.0 {
+        return pos;
+    }
+    // the silhouette's cone, widened at the knob's depth (perspective), and the knob's own size
+    let tan = r / (dist * dist - r * r).sqrt();
+    let need = (dist + depth.max(0.0)) * tan + kr * CLEAR;
+    let perp = q - d * depth;
+    let off = perp.length();
+    if off >= need {
+        return pos;
+    }
+    let side = if off > 1e-5 { perp / off } else { across(d).0 };
+    pos + side * (need - off) * w
 }
 
 /// the triangle list of `count` tubes (fixed: only their vertices move)
@@ -1249,7 +1360,7 @@ mod tests {
         let (spheres, verts) = b.capacity();
         assert_eq!(b.tubes(), 3 + 4 + 5 + 12, "hoses + a tendril per non-core point + the neck's cables + the tethers");
         assert_eq!(verts, 24 * (SEGMENTS + 1) * SIDES);
-        assert_eq!(spheres, 1 + 10 + 12 * (3 + TETHER_BUBBLES) + 3 * BUBBLES + 5 + 1, "core, nuclei + shells, buttons (+ ring, gauge, bubbles), bubbles, sockets, skin");
+        assert_eq!(spheres, 2 + 10 + 12 * (3 + TETHER_BUBBLES) + 3 * BUBBLES + 5 + 1, "core (+ its selection ring), nuclei + shells, buttons (+ ring, gauge, bubbles), bubbles, sockets, skin");
         assert_eq!(b.tube_indices().len(), 24 * SEGMENTS * SIDES * 6);
         assert!(b.tube_indices().iter().all(|&i| (i as usize) < verts));
     }
@@ -1686,6 +1797,93 @@ mod tests {
         assert!(seen.iter().any(|v| *v > 3.0 && *v < 5.5), "eased, not a jump: {seen:?}");
     }
 
+
+    /// the cathedral's being (the phone's and the deck's), its values, at a camera orbiting it
+    fn cathedral() -> (Being, Table) {
+        let scene = Scene::parse(crate::scene::CATHEDRAL_SCENE).unwrap();
+        let g = Graph::build(&scene).unwrap();
+        let mut b = Being::new(&g, &scene.being);
+        b.anchor = Vec3::new(0.0, 1.4, 0.0);
+        (b, Table::new(&g))
+    }
+
+    fn orbit_eye(b: &Being, yaw: f32, pitch: f32, dist: f32) -> Vec3 {
+        b.anchor + Vec3::Y * b.look.size * 0.45 + dist * Vec3::new(pitch.cos() * yaw.sin(), pitch.sin(), pitch.cos() * yaw.cos())
+    }
+
+    /// #209 (owner 2026-10-31: "the control nodes align themselves so they're always in sight of the camera … never
+    /// hidden behind the body or the head"): from all around and from above and below, once the layout has followed the
+    /// eye, no knob sits in the core's or the head's shadow, and the core's spokes all point to the eye's side
+    #[test]
+    fn the_knobs_face_the_camera_and_never_hide_behind_the_core_or_the_head() {
+        let (mut b, t) = cathedral();
+        for pitch in [-1.1f32, -0.35, 0.1, 0.6, 1.1, 1.35] {
+            for k in 0..12 {
+                let yaw = TAU * k as f32 / 12.0;
+                let eye = orbit_eye(&b, yaw, pitch, 2.2);
+                b.eye = Some(eye);
+                step(&mut b, &t, 90);
+                let to_eye = (eye - b.center).normalize();
+                assert!(b.face.dot(to_eye) > 0.999, "the layout has followed the eye");
+                for (i, x) in b.buttons.iter().enumerate() {
+                    let ray = Ray { origin: eye, dir: (x.pos - eye).normalize() };
+                    let far = (x.pos - eye).length() - x.radius;
+                    for (what, c, r) in [("core", b.center, b.core_radius * b.swell), ("head", b.head.pos, b.head.radius)] {
+                        let hidden = ray.sphere(c, r).is_some_and(|hit| hit < far);
+                        assert!(!hidden, "button {i} ({}) hidden behind the {what} at yaw {yaw:.2} pitch {pitch}", x.name);
+                    }
+                    if Some(x.point) == b.core_point {
+                        assert!(x.dir.dot(to_eye) > 0.3, "the core's spoke {i} toward the eye: {}", x.dir.dot(to_eye));
+                    }
+                }
+            }
+        }
+    }
+
+    /// #209: the layout re-fans eased as the camera orbits, not jumping – the eye flipped to the far side moves the face
+    /// a little each frame and arrives within a second or two
+    #[test]
+    fn the_layout_follows_the_eye_eased() {
+        let (mut b, t) = cathedral();
+        b.eye = Some(orbit_eye(&b, 0.0, 0.1, 2.2));
+        step(&mut b, &t, 1);
+        let front = b.face;
+        let spoke = b.buttons.iter().position(|x| Some(x.point) == b.core_point).unwrap();
+        let before = b.buttons[spoke].pos;
+        b.eye = Some(orbit_eye(&b, 2.6, 0.1, 2.2));
+        step(&mut b, &t, 1);
+        let moved = b.face.angle_between(front);
+        assert!(moved > 0.0 && moved < 0.25, "one frame turns the face a little: {moved}");
+        assert!(b.buttons[spoke].pos.distance(before) < b.look.size * 0.2, "a spoke glides, it doesn't jump");
+        step(&mut b, &t, 120);
+        let want = (orbit_eye(&b, 2.6, 0.1, 2.2) - b.center).normalize();
+        assert!(b.face.angle_between(want) < 0.02, "arrived: {}", b.face.angle_between(want));
+    }
+
+    /// #209: without a camera (no eye) the layout is the fixed one; the lean leaves a chain that faces the eye alone
+    /// and is continuous where it starts to bend
+    #[test]
+    fn lean_and_crown_keep_their_shape() {
+        let f = Vec3::Z;
+        let d = Vec3::new(0.6, 0.0, 0.8);
+        assert_eq!(lean(d, Vec3::X, f), d, "facing enough: unchanged");
+        let edge = Vec3::new((1.0 - LEAN * LEAN).sqrt(), 0.0, LEAN);
+        let below = Vec3::new((1.0 - (LEAN - 1e-3).powi(2)).sqrt(), 0.0, LEAN - 1e-3);
+        assert!(lean(below, -Vec3::Z, f).distance(edge) < 1e-2, "continuous at the edge");
+        let back = lean(-Vec3::Z, Vec3::new(0.3, 0.0, -1.0).normalize(), f);
+        assert!((back.dot(f) - LEAN).abs() < 1e-4 && back.x > 0.5, "straight back: over to the eye's side, out its point's way: {back}");
+        for k in 0..6 {
+            let c = crown(f, TAU * k as f32 / 6.0);
+            assert!((c.dot(f) - CROWN.cos()).abs() < 1e-5 && (c.length() - 1.0).abs() < 1e-5);
+        }
+        // the shadow: a point straight behind a sphere moves out of it, one beside it stays
+        let eye = Vec3::new(0.0, 0.0, 5.0);
+        let out = clear_of(Vec3::new(0.05, 0.0, -0.5), eye, Vec3::ZERO, 0.3, 0.02);
+        let ray = Ray { origin: eye, dir: (out - eye).normalize() };
+        assert!(ray.sphere(Vec3::ZERO, 0.3).is_none(), "out of the shadow: {out}");
+        let beside = Vec3::new(1.0, 0.0, -0.5);
+        assert_eq!(clear_of(beside, eye, Vec3::ZERO, 0.3, 0.02), beside);
+    }
 
     #[test]
     fn hsv_primaries() {

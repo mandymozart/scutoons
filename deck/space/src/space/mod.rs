@@ -91,6 +91,8 @@ pub const MAX_LIGHTS: usize = 8;
 const DOUBLE_CLICK: f32 = 0.4;
 /// how much easier a finger hits a button than the mouse
 const TOUCH_REACH: f32 = 2.0;
+/// #209: a press that moved less than this (× the view's height) before it let go is a tap – it selects
+const TAP: f32 = 0.02;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Drag {
@@ -163,6 +165,9 @@ pub struct Space {
     last_press: Option<(usize, f32)>,
     /// the finger that drives the pointer on a touch screen
     finger: Option<u64>,
+    /// #209: the last press – where, and what it hit (a tap selects that) – and the taps not yet asked for (`take_tap`)
+    pressed: Option<((f32, f32), Option<Hit>)>,
+    tapped: Option<Option<Hit>>,
     /// the show's time at the last update
     clock: f32,
     /// a word for the HUD until a time (a linked button grabbed: what drives it)
@@ -305,6 +310,8 @@ impl Space {
             drag: Drag::None,
             last_press: None,
             finger: None,
+            pressed: None,
+            tapped: None,
             clock: 0.0,
             notice: None,
             graph: graph.clone(),
@@ -368,6 +375,8 @@ impl Space {
         let (body, head) = self.being.focus();
         let s = self.being.look.size;
         self.camera.target = camera::focus_target(body, head, self.camera.distance, s * FOCUS_NEAR, s * FOCUS_FAR);
+        // #209: the knobs face the camera
+        self.being.eye = Some(self.camera.eye());
         self.being.update(dt, time, &Local { ctl, meter }, beat);
         self.being.push(ctl);
         let local = Local { ctl, meter };
@@ -416,6 +425,7 @@ impl Space {
         }
         self.drag = Drag::None;
         self.last_press = None;
+        self.pressed = None;
         self.generation += 1;
     }
 
@@ -542,7 +552,9 @@ impl Space {
             return;
         }
         self.layout();
+        let eye = self.camera.eye();
         for r in &mut self.others {
+            r.being.eye = Some(eye);
             r.step(dt, time, beat);
         }
         let center = |i: Option<usize>| i.map_or(self.being.center, |i| self.others[i].being.center);
@@ -780,8 +792,17 @@ impl Space {
 
     fn press_reach(&mut self, reach: f32) {
         let Some((x, y)) = self.pointer else { return };
-        let hit = self.being.pick_reach(&self.camera.ray(x, y, self.view.0, self.view.1), reach);
+        let ray = self.camera.ray(x, y, self.view.0, self.view.1);
+        let hit = self.being.pick_reach(&ray, reach);
         self.being.hover = hit;
+        // #209: what a tap here selects – a button, the being (a point, the head), or nothing (the master section); a
+        // hand on a button selects it at once (the last touched knob owns the sticks)
+        let head = self.being.core_point.filter(|_| ray.sphere(self.being.head.pos, self.being.head.radius).is_some()).map(Hit::Point);
+        let chosen = hit.or(head);
+        self.pressed = Some(((x, y), chosen));
+        if let Some(Hit::Button(i)) = chosen {
+            self.select(Some(Hit::Button(i)));
+        }
         self.drag = match hit {
             Some(Hit::Button(i)) if !self.being.buttons[i].turnable => {
                 self.being.shake(i);
@@ -812,7 +833,55 @@ impl Space {
 
     pub fn release(&mut self) {
         if self.finger.is_none() {
-            self.drag = Drag::None;
+            self.let_go();
+        }
+    }
+
+    /// the hand lifts: a press that barely moved is a tap (#209) – it selects what it hit (nothing: deselect)
+    fn let_go(&mut self) {
+        if let (Some(((x0, y0), chosen)), Some((x, y))) = (self.pressed.take(), self.pointer) {
+            if (x - x0).hypot(y - y0) < TAP * self.view.1 {
+                self.select(chosen);
+                self.tapped = Some(self.being.selected);
+            }
+        }
+        self.drag = Drag::None;
+    }
+
+    /// #209: select a button, the being (`Hit::Point` – any), or nothing (None: the master section) – the renderer rings
+    /// it; the page asks for taps with `take_tap`
+    pub fn select(&mut self, what: Option<Hit>) {
+        self.being.selected = match what {
+            Some(Hit::Point(_)) => Some(Hit::Point(self.being.core_point.unwrap_or(0))),
+            Some(Hit::Button(i)) if i < self.being.buttons.len() => Some(Hit::Button(i)),
+            _ => None,
+        };
+    }
+
+    /// #209: the selection a tap made since the last call (Some(None) = a tap on empty space: deselected)
+    pub fn take_tap(&mut self) -> Option<Option<Hit>> {
+        self.tapped.take()
+    }
+
+    /// #209: a selection by name – `""` nothing, `"being"`, `"knob:node.port"` (`node.shape`) – what the page's
+    /// controls (crate::controls) speak; an unknown knob deselects
+    pub fn select_named(&mut self, name: &str) {
+        let what = match name {
+            "being" => Some(Hit::Point(0)),
+            _ => name.strip_prefix("knob:").and_then(|p| self.button(&self.graph, p)).map(Hit::Button),
+        };
+        self.select(what);
+    }
+
+    /// #209: the selection's name (`select_named` backwards)
+    pub fn selection_name(&self) -> String {
+        match self.being.selected {
+            Some(Hit::Point(_)) => "being".into(),
+            Some(Hit::Button(i)) => {
+                let b = &self.being.buttons[i];
+                format!("knob:{}.{}", self.graph_id(b.node), b.name)
+            }
+            None => String::new(),
         }
     }
 
@@ -829,7 +898,7 @@ impl Space {
             Touch::Ended if self.finger == Some(id) => {
                 self.pointer_moved(x, y, ctl);
                 self.finger = None;
-                self.drag = Drag::None;
+                self.let_go();
                 self.pointer_left();
             }
             _ => {}
@@ -1166,5 +1235,46 @@ mod tests {
         let b = Being::new(&g, &look);
         let names: Vec<&str> = b.buttons.iter().filter(|b| b.node == space.node).map(|b| b.name).collect();
         assert_eq!(names, ["hue", "glow", "light", "pulse", "bloom"]);
+    }
+
+    /// #209 (owner 2026-10-31: "the last clicked / tapped thing controls the x / y sticks … tapping empty space
+    /// deselects"): a tap on a knob selects it, one on the head the being, one on empty space nothing; a drag that
+    /// orbits changes nothing; the page reads the taps by name
+    #[test]
+    fn a_tap_selects_and_empty_space_deselects() {
+        let (g, mut space, mut ctl) = cathedral();
+        let i = space.button(&g, "voice.index").unwrap();
+        let (x, y) = space.to_pixel(space.being.buttons[i].pos).unwrap();
+        space.pointer_moved(x, y, &mut ctl);
+        space.press();
+        space.release();
+        assert_eq!(space.being.selected, Some(Hit::Button(i)));
+        assert_eq!(space.take_tap(), Some(Some(Hit::Button(i))));
+        assert_eq!(space.take_tap(), None, "a tap is told once");
+        assert_eq!(space.selection_name(), "knob:voice.index");
+        // the head: the whole being
+        let (hx, hy) = space.to_pixel(space.being.head.pos + Vec3::Y * space.being.head.radius * 0.5).unwrap();
+        space.pointer_moved(hx, hy, &mut ctl);
+        space.press();
+        space.release();
+        assert_eq!(space.selection_name(), "being");
+        // an orbit from empty space keeps it; a tap there deselects
+        space.pointer_moved(5.0, 5.0, &mut ctl);
+        space.press();
+        space.pointer_moved(200.0, 40.0, &mut ctl);
+        space.release();
+        assert_eq!(space.selection_name(), "being", "a drag is no tap");
+        space.pointer_moved(5.0, 5.0, &mut ctl);
+        space.press();
+        space.release();
+        assert_eq!((space.selection_name(), space.take_tap()), (String::new(), Some(None)));
+        space.select_named("knob:incense.cutoff");
+        assert_eq!(space.selection_name(), "knob:incense.cutoff");
+        frame(&mut space, &mut ctl, 1.0);
+        let mut spheres = Vec::with_capacity(space.capacity().0);
+        let mut tubes = Vec::with_capacity(space.capacity().1);
+        space.write(&mut spheres, &mut tubes);
+        assert!(spheres.iter().any(|s| s.extra[0] == being::kind::RING && s.color == [1.0, 1.0, 1.0, 0.9]), "the selection's white ring");
+        assert!(spheres.len() <= space.capacity().0);
     }
 }

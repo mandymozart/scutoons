@@ -48,7 +48,7 @@ const HELP: &str = "deck-stage [--scene FILE|cathedral|conductor|outlet] [--audi
            [--audio-host default|wasapi|asio] [--audio-device NAME] [--audio-buffer FRAMES] [--audio-thread on|off]
            [--audio-list]
            [--sets DIR] [--portraits DIR] [--token T] [--api URL] [--cdn URL] [--windowed] [--frames N]
-           [--screenshot FILE] [--pointer X,Y|NODE.PORT] [--drag NODE.PORT[,DN]] [--no-hud] [--dev] [--modules]
+           [--screenshot FILE] [--pointer X,Y|NODE.PORT] [--drag NODE.PORT[,DN]] [--no-hud] [--hud-bar] [--dev] [--modules]
            [--relay ws[s]://HOST[:PORT]/live/CODE] [--sync set:ID,character:ID]
            [--outlet ID] [--locale de]
   --scene      a scene TOML (default: the built-in scene, deck/stage/scenes/default.toml); `cathedral` = the built-in
@@ -99,6 +99,8 @@ struct Args {
     windowed: bool,
     frames: Option<u64>,
     hud: bool,
+    /// #209: start with the collapsed stats bar instead of the full HUD (F1 cycles)
+    hud_bar: bool,
     /// a local folder of sets (#195: else <cache>/sets, synced)
     sets: Option<PathBuf>,
     /// the heads' sprites (#188 phase 5) and the conductor's session token (phase 4)
@@ -139,6 +141,7 @@ fn args() -> Result<Args> {
         windowed: false,
         frames: None,
         hud: true,
+        hud_bar: false,
         sets: std::env::var_os("DECK_SETS").map(PathBuf::from),
         portraits: std::env::var_os("DECK_PORTRAITS").map(PathBuf::from),
         token: std::env::var("LIVE_TOKEN").ok().filter(|t| !t.is_empty()),
@@ -202,6 +205,7 @@ fn args() -> Result<Args> {
             }
             "--windowed" => a.windowed = true,
             "--no-hud" => a.hud = false,
+            "--hud-bar" => a.hud_bar = true,
             "--dev" => a.dev = true,
             "--relay" => a.relay = Some(val()?),
             "--outlet" => a.outlet = Some(val()?),
@@ -909,12 +913,16 @@ impl App {
             let lit = (self.started.elapsed().as_secs_f32() * 4.0) as u32 % 2 == 0;
             self.hud.set_alert(alert.map(|row| hud::Alert { row, lit }));
             self.hud.set_lines(lines);
+            self.hud.set_items(self.bar_items());
         }
         if self.error.is_some() {
-            self.hud.visible = true;
+            self.hud.mode = hud::Mode::Full;
         }
-        if self.hud.visible {
-            self.hud.raster();
+        match self.hud.mode {
+            hud::Mode::Full => self.hud.raster(),
+            // #209: the collapsed bar at the screen's width
+            hud::Mode::Bar => self.hud.raster_bar(self.renderer.as_ref().map_or(hud::W, |r| r.bar_width())),
+            hud::Mode::Off => {}
         }
         let cover = self.loading() || self.browser.is_some();
         self.splash.step(cover, dt);
@@ -930,7 +938,7 @@ impl App {
                 self.pairing = card;
             }
         }
-        let shown = (hud_on && self.hud.visible).then_some(&self.hud);
+        let shown = (hud_on && self.hud.visible()).then_some(&self.hud);
         if self.args.frames.is_some_and(|n| self.stats.frames + 1 >= n) {
             r.capture = self.args.screenshot.clone();
         }
@@ -981,6 +989,42 @@ impl App {
             self.stats.dsp = g.take_load();
             self.stats.glitch_rate = self.stats.glitches.get_or_insert_with(|| hud::PerMinute::over(600.0)).push(wall, n);
         }
+    }
+
+    /// #209: the collapsed bar's items – FPS, the frame's CPU, the audio (glitches in 10 minutes, the DSP load, the
+    /// limiter), the relay, the GPU backend; red where a number is out of the green
+    fn bar_items(&self) -> Vec<hud::Item> {
+        let item = |text: String, bad: bool| hud::Item { text, bad };
+        let cpu = self.stats.work.iter().rev().take(60).sum::<f32>() / self.stats.work.len().clamp(1, 60) as f32;
+        let warm = self.stats.frames > 120;
+        let mut out = vec![
+            item(format!("FPS {:.0}", self.stats.fps), warm && self.stats.fps < 50.0),
+            item(format!("CPU {cpu:.1}MS"), cpu > 14.0),
+        ];
+        out.push(match self.show.audio {
+            Some(_) => item(
+                format!("AUDIO GLITCH {}/10M DSP {:.0}% LIM {:.0}", self.stats.glitch_rate, self.stats.dsp * 100.0, self.stats.limit),
+                self.stats.glitch_rate > 0 || self.stats.dsp > 0.8,
+            ),
+            None => item("AUDIO OFF".into(), false),
+        });
+        // the relay: the space's session (a deck, the conductor), else the Live outlet's
+        let mut relay = String::new();
+        #[cfg(feature = "space")]
+        if let Some(s) = self.show.space.as_ref().filter(|s| s.join != deck_stage::space::Join::Alone) {
+            relay = s.session_lines().into_iter().next().unwrap_or_default();
+        }
+        #[cfg(feature = "live")]
+        if relay.is_empty() {
+            if let Some(l) = &self.show.live {
+                relay = l.hud_lines().into_iter().next().unwrap_or_default();
+            }
+        }
+        out.push(item(format!("RELAY {}", if relay.is_empty() { "-".into() } else { relay.replace(['–', '—'], "-").to_uppercase() }), false));
+        let gpu = self.renderer.as_ref().map(|r| format!("{:?}", r.adapter.backend).to_uppercase()).unwrap_or_default();
+        out.push(item(format!("GPU {gpu}"), false));
+        out.push(item("F1".into(), false));
+        out
     }
 
     fn hud_lines(&self) -> Vec<String> {
@@ -1288,7 +1332,8 @@ impl ApplicationHandler<Event> for App {
             WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && !event.repeat => {
                 let tempo = &self.show.tempo;
                 match event.logical_key.as_ref() {
-                    Key::Named(NamedKey::F1) => self.hud.visible = !self.hud.visible,
+                    // #209: the full HUD → the collapsed stats bar → nothing
+                    Key::Named(NamedKey::F1) => self.hud.mode = self.hud.mode.next(),
                     Key::Named(NamedKey::F2) => self.open_browser(el),
                     Key::Named(NamedKey::Escape) if self.args.windowed => el.exit(),
                     Key::Named(NamedKey::Delete) if self.mods.control_key() && self.mods.alt_key() => self.power_off(),
@@ -1331,7 +1376,7 @@ fn run() -> Result<i32> {
     let event_loop = EventLoop::<Event>::with_user_event().build().context("no event loop (no display?)")?;
     let proxy = event_loop.create_proxy();
     let mut app = App {
-        hud: hud::Hud::default(),
+        hud: hud::Hud::with_mode(if args.hud_bar { hud::Mode::Bar } else { hud::Mode::Full }),
         args,
         started,
         show,
