@@ -19,8 +19,10 @@ use protocol::{
     Presence, Resume, Role, Route, SceneSync, Snapshot, State, SyncState, To, VoteTally,
 };
 use serde_json::Value;
-use tokio::sync::mpsc::UnboundedSender;
+use std::sync::Arc;
+use std::time::Instant;
 
+use crate::outbox::{Frame, Outbox};
 use crate::vote::OpenVote;
 
 /// B.6: `resume` within the last 500 messages / 5 minutes replays; older gets the snapshot.
@@ -43,17 +45,18 @@ pub struct Client {
     pub group: Option<String>,
     pub nick: Option<String>,
     pub ready: bool,
-    tx: UnboundedSender<String>,
+    /// #223: its send queue (outbox.rs) – the latest value wins, ordered messages stay in order
+    pub outbox: Arc<Outbox>,
     bucket: Bucket,
     /// #188: the deck's values stream
     values: Bucket,
 }
 
 impl Client {
-    pub fn new(role: Role, group: Option<String>, nick: Option<String>, tx: UnboundedSender<String>, now: i64) -> Self {
+    pub fn new(role: Role, group: Option<String>, nick: Option<String>, outbox: Arc<Outbox>, now: i64) -> Self {
         let bucket = Bucket { tokens: AUDIENCE_RATE, at: now, rate: AUDIENCE_RATE, burst: AUDIENCE_RATE };
         let values = Bucket { tokens: VALUES_BURST, at: now, rate: VALUES_RATE, burst: VALUES_BURST };
-        Client { role, group, nick, ready: false, tx, bucket, values }
+        Client { role, group, nick, ready: false, outbox, bucket, values }
     }
 }
 
@@ -80,14 +83,14 @@ impl Bucket {
     }
 }
 
-/// A routed message kept for `resume`: who sent it to whom, and its text.
+/// A routed message kept for `resume`: who sent it to whom, and the message as it went out.
 #[derive(Debug)]
 struct Logged {
     seq: u64,
     t: i64,
     from: String,
     to: Option<To>,
-    text: String,
+    frame: Arc<Frame>,
 }
 
 /// A client that left – its id can be taken again by a `resume` (its vote stays counted).
@@ -213,14 +216,16 @@ impl Session {
     pub fn publish(&mut self, from: &str, mut envelope: Envelope, now: i64) -> usize {
         envelope.seq = self.next_seq();
         envelope.from = from.to_owned();
-        let text = serde_json::to_string(&envelope).expect("envelope serializes");
+        let (seq, to) = (envelope.seq, envelope.to.clone());
+        let frame = Frame::of(envelope);
+        let t = Instant::now();
         let mut delivered = 0;
         for (id, c) in &self.clients {
-            if reaches(id, c.role, c.group.as_deref(), from, envelope.to.as_ref()) && c.tx.send(text.clone()).is_ok() {
+            if reaches(id, c.role, c.group.as_deref(), from, to.as_ref()) && c.outbox.push(frame.clone(), t) {
                 delivered += 1;
             }
         }
-        self.log.push_back(Logged { seq: envelope.seq, t: now, from: from.to_owned(), to: envelope.to, text });
+        self.log.push_back(Logged { seq, t: now, from: from.to_owned(), to, frame });
         while self.log.len() > REPLAY_MESSAGES || self.log.front().is_some_and(|l| l.t < now - REPLAY_MS) {
             let dropped = self.log.pop_front().expect("non-empty");
             self.trimmed = dropped.seq;
@@ -240,7 +245,7 @@ impl Session {
         let seq = self.next_seq();
         let envelope = Envelope { seq, ..Envelope::new("relay", message).to(To::client(id)) };
         if let Some(c) = self.clients.get(id) {
-            let _ = c.tx.send(serde_json::to_string(&envelope).expect("envelope serializes"));
+            c.outbox.push(Frame::of(envelope), Instant::now());
         }
     }
 
@@ -291,17 +296,16 @@ impl Session {
         self.log
             .iter()
             .filter(|l| l.seq > after && reaches(id, c.role, c.group.as_deref(), &l.from, l.to.as_ref()))
-            .map(|l| l.text.clone())
+            .map(|l| l.frame.text.clone())
             .collect()
     }
 
     /// Replay `missed` to the client (after its welcome).
     pub fn replay(&mut self, id: &str, after: u64) {
-        let texts = self.missed(id, after);
-        if let Some(c) = self.clients.get(id) {
-            for t in texts {
-                let _ = c.tx.send(t);
-            }
+        let Some(c) = self.clients.get(id) else { return };
+        let t = Instant::now();
+        for l in self.log.iter().filter(|l| l.seq > after && reaches(id, c.role, c.group.as_deref(), &l.from, l.to.as_ref())) {
+            c.outbox.push(l.frame.clone(), t);
         }
     }
 
@@ -623,11 +627,13 @@ impl Session {
         }
         e.seq = self.next_seq();
         e.from = id.to_owned();
-        let text = serde_json::to_string(&e).expect("envelope serializes");
+        let to = e.to.clone();
+        let frame = Frame::of(e);
+        let t = Instant::now();
         let mut new_route = false;
         for (cid, c) in &self.clients {
-            let addressed = e.to.is_some() && reaches(cid, c.role, c.group.as_deref(), id, e.to.as_ref());
-            if (addressed || (c.role == Role::Conductor && cid != id)) && c.tx.send(text.clone()).is_ok() {
+            let addressed = to.is_some() && reaches(cid, c.role, c.group.as_deref(), id, to.as_ref());
+            if (addressed || (c.role == Role::Conductor && cid != id)) && c.outbox.push(frame.clone(), t) {
                 new_route |= self.routes.insert((id.to_owned(), cid.clone()));
             }
         }
@@ -756,11 +762,10 @@ impl Session {
 mod tests {
     use super::*;
     use protocol::{CellChange, MediaItem, MediaReady, Panic, VoteCast, VoteClose, VoteHow, VoteOpen, VoteRule};
-    use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 
     struct Room {
         s: Session,
-        rx: HashMap<String, UnboundedReceiver<String>>,
+        rx: HashMap<String, Arc<Outbox>>,
     }
 
     impl Room {
@@ -769,18 +774,13 @@ mod tests {
         }
 
         fn add(&mut self, id: &str, role: Role, group: Option<&str>) {
-            let (tx, rx) = unbounded_channel();
-            self.s.join(id.into(), Client::new(role, group.map(str::to_owned), None, tx, 0));
-            self.rx.insert(id.into(), rx);
+            let outbox = Outbox::new();
+            self.s.join(id.into(), Client::new(role, group.map(str::to_owned), None, outbox.clone(), 0));
+            self.rx.insert(id.into(), outbox);
         }
 
         fn inbox(&mut self, id: &str) -> Vec<Envelope> {
-            let rx = self.rx.get_mut(id).unwrap();
-            let mut out = vec![];
-            while let Ok(t) = rx.try_recv() {
-                out.push(serde_json::from_str(&t).unwrap());
-            }
-            out
+            self.rx[id].drain().iter().map(|t| serde_json::from_str(t).unwrap()).collect()
         }
 
         fn kinds(&mut self, id: &str) -> Vec<&'static str> {
@@ -1098,11 +1098,15 @@ mod tests {
         assert!(routes.contains(&Route { from: "d2".into(), to: "d1".into() }));
         // the rate: a burst of 15, then 30 / s
         r.drain();
+        let skipped = r.rx["cond"].skipped();
         for i in 0..40 {
             r.send("d1", values(&[("space.hue", i as f64 / 40.0)], None), 1_000);
         }
-        assert_eq!(r.inbox("cond").len(), 15);
         assert_eq!(r.s.dropped, 25);
+        // #223: the 15 that passed wait in the conductor's outbox as one – the newest (14 / 40) wins
+        let got = r.inbox("cond");
+        assert!(matches!(&got[..], [e] if matches!(&e.message, Message::DeckValues(v) if v.values["space.hue"] == [14.0 / 40.0])), "{got:?}");
+        assert_eq!(r.rx["cond"].skipped() - skipped, 14);
         r.send("d1", values(&[("space.hue", 0.9)], None), 1_100);
         assert_eq!(r.inbox("cond").len(), 1, "100 ms later: three tokens back");
         // audience phones and the bridge don't stream beings
@@ -1161,7 +1165,7 @@ mod tests {
         for other in ["outL", "a1", "bridge"] {
             assert!(r.kinds(other).is_empty(), "{other}");
         }
-        assert_eq!(r.s.log.back().map(|l| l.text.contains("scene.sync")), Some(true), "logged for a resume");
+        assert_eq!(r.s.log.back().map(|l| l.frame.text.contains("scene.sync")), Some(true), "logged for a resume");
         // a deck that joins later: in its snapshot; an outlet's screen and the audience: not
         assert_eq!(r.s.snapshot_for(Role::Musician, Some(DECKS)).sync, Some(push(None)));
         assert!(r.s.snapshot_for(Role::Output, Some("left")).sync.is_none());
