@@ -50,6 +50,27 @@ jobs:
         if: steps.setup.outputs.npm == 'true'
         run: npm ci
 
+      # the browser deck's wasm (#198: deck-space → space_web + live_core into viewer/static/live/, git-ignored) – built
+      # here, not committed (owner 2026-10-31: "build is cleaner"); wasm-bindgen's CLI must match the crate (deck/Cargo.lock)
+      - name: 🦀 Rust + wasm32 (the browser deck's wasm)
+        if: steps.setup.outputs.wasm == 'true'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: 🦀 Cargo cache
+        if: steps.setup.outputs.wasm == 'true'
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: deck
+      - name: 🦀 wasm-bindgen CLI 0.2.129
+        if: steps.setup.outputs.wasm == 'true'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@0.2.129
+      - name: 🧊 Build the wasm (npm run build:wasm -w shared/live-deck)
+        if: steps.setup.outputs.wasm == 'true'
+        run: npm run build:wasm -w shared/live-deck
+
       - name: 🐘 PHP 8.3 + Composer
         if: steps.setup.outputs.php == 'true'
         uses: shivammathur/setup-php@v2

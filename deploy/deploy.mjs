@@ -35,10 +35,10 @@ if (!requested || (requested !== 'all' && !config.targets[requested])) {
 	process.exit(2);
 }
 
-// --setup: what the CI job must install before building this target (npm=true|false, php=true|false)
+// --setup: what the CI job must install before building this target (npm=true|false, php=true|false, wasm=true|false)
 if (flag('setup')) {
 	const setup = config.targets[requested]?.setup ?? [];
-	console.log(`npm=${setup.includes('npm')}\nphp=${setup.includes('php')}`);
+	console.log(`npm=${setup.includes('npm')}\nphp=${setup.includes('php')}\nwasm=${setup.includes('wasm')}`);
 	process.exit(0);
 }
 
