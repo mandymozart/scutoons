@@ -28,7 +28,9 @@
 # its wasm) and the bundled workers – live-core's audio ring shares memory with its worker. `credentialless`, so the
 # page's own pictures keep loading; only there: COOP cuts window.opener, COEP blocks frames without it.
 <IfModule mod_headers.c>
-	<If "%{REQUEST_URI} =~ m#^/((de|en)/)?live/# || %{REQUEST_URI} =~ m#^/_app/immutable/workers/#">
+	# THE_REQUEST (the original request line), not REQUEST_URI: the SPA fallback above rewrites /live/… to /index.html
+	# internally, and REQUEST_URI then says /index.html – the headers never came (production, 2026-10-31)
+	<If "%{THE_REQUEST} =~ m#^\S+ /((de|en)/)?live/# || %{THE_REQUEST} =~ m#^\S+ /_app/immutable/workers/#">
 		Header set Cross-Origin-Opener-Policy "same-origin"
 		Header set Cross-Origin-Embedder-Policy "credentialless"
 	</If>
