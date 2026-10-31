@@ -6,10 +6,11 @@
 	// controls. Sound: live-core. The relay stream: as the lab's deck (deck.graph / deck.values). Unlisted (no link in
 	// the navigation); everyone may open it (lib/live-deck.ts `mayJoin` – the one place a gate goes later). A member
 	// joins under their name with their avatar's character; a guest under the guest name. The relay comes from the
-	// address (`?relay=ws://…/live/CODE`) – there is no production relay yet.
+	// address (`?relay=ws://…/live/CODE`) – there is no production relay yet. The conductor's scene sync (#195): the deck
+	// fetches what it names from the CDN and answers; the status line shows it.
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { Deck, MELODY, PARAMS, SpaceStage, charactersOf, type Hand } from '@scutoons/live-deck';
+	import { Deck, MELODY, PARAMS, SpaceStage, charactersOf, pushLine, type Hand } from '@scutoons/live-deck';
 	import LiveWorker from '@scutoons/live-core/worker?worker';
 	import workletUrl from '@scutoons/live-core/worklet?worker&url';
 	import { API_URL, CDN_SERVER } from '$lib/config.ts';
@@ -31,6 +32,7 @@
 	let started = $state(false);
 	let starting = $state(false);
 	let relayStatus = $state('');
+	let syncStatus = $state('');
 	let spaceStatus = $state('');
 	let hud = $state('');
 	let threeD = $state(true);
@@ -54,7 +56,7 @@
 		}
 	};
 
-	const status = $derived([relayStatus, spaceStatus, hud].filter(Boolean).join(' · '));
+	const status = $derived([relayStatus, syncStatus, spaceStatus, hud].filter(Boolean).join(' · '));
 
 	function showFace() {
 		const p = deck?.portraits[mood] ?? deck?.portraits.neutral ?? Object.values(deck?.portraits ?? {})[0];
@@ -76,7 +78,7 @@
 			const relay = relayOf(q);
 			character = characterOf(q, session.me, store.get());
 			if (!relay) relayStatus = m['live_deck.alone']();
-			deck = new Deck({ relay, character, nick: nickOf(session.me, m['live_deck.guest']()), api: API_URL, onStatus: (s) => (relayStatus = s) });
+			deck = new Deck({ relay, character, nick: nickOf(session.me, m['live_deck.guest']()), api: API_URL, cdn, onStatus: (s) => (relayStatus = s), onSynced: (r) => (syncStatus = pushLine(r)) });
 			values = { ...deck.value };
 			deck.onValue = (p: string, v: number, hand: Hand) => {
 				if (hand === 'being' || values[p] !== v) values[p] = v;

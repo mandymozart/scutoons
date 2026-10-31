@@ -4,8 +4,10 @@
 // - on `welcome` sends its being (`deck.graph`), then a keyframe of every value sent so far, then only changes;
 // - `ValueStream.sample` = stream.rs: at most RATE samples a second, a value only when it moved more than its epsilon,
 //   the mood when it changed;
-// - a reconnect (backoff 1 2 4 8 10 s) sends the graph and the keyframe again (the relay dropped the being).
-import type { DeckGraph, DeckValues, Envelope, Message, Welcome } from '@scutoons/live';
+// - a reconnect (backoff 1 2 4 8 10 s) sends the graph and the keyframe again (the relay dropped the being);
+// - #195: the conductor's push – the welcome snapshot's `sync` or a `scene.sync` – goes to `onSync` (sync.ts works on
+//   it); `synced` sends the answer back as `deck.synced`.
+import type { DeckGraph, DeckSynced, DeckValues, Envelope, Message, SceneSync, Welcome } from '@scutoons/live';
 
 /** at most this many `deck.values` a second (the relay drops more than 30 / s) */
 export const RATE = 30;
@@ -96,6 +98,8 @@ export interface LinkOptions {
 	onStatus?: (s: string) => void;
 	/** every envelope the relay sends (tests, the HUD) */
 	onMessage?: (e: Envelope) => void;
+	/** #195: the conductor's push (at the welcome when the session has one, then each new one) */
+	onSync?: (s: SceneSync) => void;
 }
 
 /** link.rs's deck side: join, being, keyframe, changes; reconnects until `close()`. */
@@ -108,7 +112,7 @@ export class DeckLink {
 	readonly sent: Record<string, number[]> = {};
 	mood: string | undefined;
 	/** messages sent since the start (tests, the HUD) */
-	count = { graph: 0, values: 0 };
+	count = { graph: 0, values: 0, synced: 0 };
 	private graph: DeckGraph;
 	private ws: WebSocketLike | null = null;
 	private tries = 0;
@@ -172,6 +176,10 @@ export class DeckLink {
 				this.count.values++;
 			}
 			this.joined = true;
+			const sync = (e.p as Welcome).snapshot.sync;
+			if (sync) this.o.onSync?.(sync);
+		} else if (e.kind === 'scene.sync') {
+			this.o.onSync?.(e.p);
 		} else if (e.kind === 'error') {
 			this.status(`RELAY ${e.p.code}: ${e.p.message}`);
 		}
@@ -188,6 +196,11 @@ export class DeckLink {
 		Object.assign(this.sent, v.values);
 		if (v.mood !== undefined) this.mood = v.mood;
 		if (this.joined && this.raw({ kind: 'deck.values', p: v })) this.count.values++;
+	}
+
+	/** #195: the answer to the conductor's push (progress and final); dropped while not joined – a rejoin re-runs the push */
+	synced(r: DeckSynced) {
+		if (this.joined && this.raw({ kind: 'deck.synced', p: r })) this.count.synced++;
 	}
 
 	/** the being changed (another character): the relay keeps the last graph per client */

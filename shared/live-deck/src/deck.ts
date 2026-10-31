@@ -1,10 +1,13 @@
 // deck.ts (#197, #198): the browser deck's state – one for the lab page and the viewer's /live/deck. The parameter
 // values (the pads, the sliders, the being's 3D buttons all turn these), the melody, the LFO, the incense noise, the
 // mood ladder, the relay link and its values stream, and the sound (live-core + a Web Audio noise). No DOM: the page
-// draws it; `tick` runs it once per animation frame.
+// draws it; `tick` runs it once per animation frame. With a CDN given it answers the conductor's scene sync (#195,
+// sync.ts).
 import type { DeckGraph } from '@scutoons/live';
 import { LiveCore, type Analysis } from '@scutoons/live-core';
+import type { DeckSynced } from '@scutoons/live';
 import { DeckLink, ValueStream, type WebSocketLike } from './client.ts';
+import { BrowserSync } from './sync.ts';
 import { BASE_HZ, deckGraph, ENGINE_TOML, ladderFor, MELODY, Moods, PARAMS, SPREAD_OCTAVES, STREAMED, toPos } from './scene.ts';
 
 /** the tempo the deck's ladder and the being's breath read (cathedral.toml's) */
@@ -23,6 +26,10 @@ export interface DeckOptions {
 	token?: string;
 	/** the library API (scene-content) */
 	api: string;
+	/** the CDN root (ends with /): with it the deck answers the conductor's scene sync (#195) */
+	cdn?: string;
+	/** #195: each answer to the conductor's push (the page's status) */
+	onSynced?: (r: DeckSynced) => void;
 	onStatus?: (s: string) => void;
 	socket?: new (url: string) => WebSocketLike;
 }
@@ -52,6 +59,8 @@ export class Deck {
 	/** a finger on a pad (0 / 1): lifts the energy a little */
 	touch = 0;
 	readonly link: DeckLink | null;
+	/** #195: the answers to the conductor's pushes (null without a CDN) */
+	readonly sync: BrowserSync | null;
 	readonly stream = new ValueStream(STREAMED);
 	core: LiveCore | null = null;
 	/** every value change, with whose hand (the page's controls follow the being's) */
@@ -72,7 +81,18 @@ export class Deck {
 
 	constructor(private readonly o: DeckOptions) {
 		this.character = o.character;
-		this.link = o.relay ? new DeckLink({ relay: o.relay, graph: this.graph(), nick: o.nick.slice(0, 24), token: o.token, onStatus: o.onStatus, socket: o.socket }) : null;
+		this.sync = o.cdn
+			? new BrowserSync({
+					api: o.api,
+					cdn: o.cdn,
+					report: (r) => {
+						this.link?.synced(r);
+						o.onSynced?.(r);
+					}
+				})
+			: null;
+		const onSync = this.sync ? (s: Parameters<BrowserSync['push']>[0]) => void this.sync!.push(s) : undefined;
+		this.link = o.relay ? new DeckLink({ relay: o.relay, graph: this.graph(), nick: o.nick.slice(0, 24), token: o.token, onStatus: o.onStatus, socket: o.socket, onSync }) : null;
 	}
 
 	/** the being on the wire now: the character, its ladder first, then every mood it has */
