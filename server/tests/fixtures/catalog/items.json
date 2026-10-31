@@ -661,7 +661,7 @@
   "home_scenes": [
     { "id": "cave", "name": { "de": "Höhle", "en": "Cave" }, "image": { "src": "" } },
     { "id": "tatami_room", "name": { "de": "Tatami-Zimmer", "en": "Tatami room" }, "image": { "src": "" } },
-    { "id": "cathedral", "name": { "de": "Kathedrale", "en": "Cathedral" }, "image": { "src": "" }, "model": { "src": "catpope/map/sets/cathedral.medium.v1.glb", "variants": { "low": "catpope/map/sets/cathedral.low.v1.glb", "high": "catpope/map/sets/cathedral.high.v1.glb" } } }
+    { "id": "cathedral", "name": { "de": "Kathedrale", "en": "Cathedral" }, "image": { "src": "" }, "model": { "src": "catpope/map/sets/cathedral.medium.v2.glb", "variants": { "low": "catpope/map/sets/cathedral.low.v2.glb", "high": "catpope/map/sets/cathedral.high.v2.glb" } } }
   ],
   "airlift_carriers": []
 }

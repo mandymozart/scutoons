@@ -191,18 +191,18 @@ final class LibraryApiTest extends TestCase
             ]]]]]],
         ]]);
         $registry = $this->get(AssetRegistry::class);
-        $asset = $registry->create('catpope/map/sets/cathedral.low.v1', 'model');
-        $version = $registry->addVersion($asset, new StoredFile('catpope/map/sets/cathedral.low.v1.glb', 2045700), 'local');
-        $registry->addRendition($asset, $version, '1x', 'low', new StoredFile('catpope/map/sets/cathedral.low.v1.glb', 2045700));
+        $asset = $registry->create('catpope/map/sets/cathedral.low.v2', 'model');
+        $version = $registry->addVersion($asset, new StoredFile('catpope/map/sets/cathedral.low.v2.glb', 516928), 'local');
+        $registry->addRendition($asset, $version, '1x', 'low', new StoredFile('catpope/map/sets/cathedral.low.v2.glb', 516928));
 
         $r = $this->request('/api/library/scene-content?sets=cathedral,nowhere&characters=plf,ghost', ['Authorization' => 'Bearer scd_not-checked-for-public-content']);
         self::assertSame([200, 'public, max-age=60', '*'], [$r->getStatusCode(), $r->getHeaderLine('Cache-Control'), $r->getHeaderLine('Access-Control-Allow-Origin')]);
         $body = self::json($r);
         self::assertSame([
-            'low' => ['path' => 'catpope/map/sets/cathedral.low.v1.glb', 'size' => 2045700],
-            'medium' => ['path' => 'catpope/map/sets/cathedral.medium.v1.glb', 'size' => null],
-            'high' => ['path' => 'catpope/map/sets/cathedral.high.v1.glb', 'size' => null],
-        ], $body['sets']['cathedral']['model'], 'the set of the migration 2026-10-30-cathedral-set');
+            'low' => ['path' => 'catpope/map/sets/cathedral.low.v2.glb', 'size' => 516928],
+            'medium' => ['path' => 'catpope/map/sets/cathedral.medium.v2.glb', 'size' => null],
+            'high' => ['path' => 'catpope/map/sets/cathedral.high.v2.glb', 'size' => null],
+        ], $body['sets']['cathedral']['model'], 'the set of the migrations 2026-10-30-cathedral-set + 2026-10-31-cathedral-set-v2');
         self::assertSame(['character' => 'catpope', 'persona' => 'regular', 'look' => 'default', 'portraits' => [
             'happy' => ['path' => 'characters/catpope/catpope_portrait-happy.webp', 'size' => null],
             'neutral' => ['path' => 'characters/catpope/catpope_portrait-neutral.webp', 'size' => null],
