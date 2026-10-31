@@ -4,7 +4,7 @@
 resolver = "2"
 # deck/lab is its own workspace: the #182 experiments (wasm, wasmtime, plugins, benchmarks) stay out of CI and the deck builds
 exclude = ["lab"]
-members = ["core", "live-core", "scene-features", "protocol", "adapters/core", "adapters/midi", "adapters/osc", "adapters/dmx-usbpro", "relay", "bridge", "os/check", "space", "stage", "link"]
+members = ["core", "live-core", "scene-features", "protocol", "adapters/core", "adapters/midi", "adapters/osc", "adapters/dmx-usbpro", "relay", "bridge", "os/check", "space", "space-web", "stage", "link"]
 
 [workspace.package]
 version = "0.1.0"
@@ -57,3 +57,9 @@ opt-level = 2
 # the being's frames in the stage's tests (no_alloc) and its own
 [profile.dev.package.deck-space]
 opt-level = 2
+
+# the browser's 3D (#198, deck/space-web): built for size – wgpu, naga (WGSL → GLSL for WebGL2) and the space in one
+# wasm the phone downloads (`npm run build:wasm -w shared/live-deck`)
+[profile.wasm-web]
+inherits = "release"
+opt-level = "s"

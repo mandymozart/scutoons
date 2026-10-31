@@ -1,0 +1,29 @@
+# space-web – deck-space in the browser (#198): the being and its set drawn with wgpu into a canvas – WebGPU where the
+# browser has an adapter, else WebGL2 (the owner's S22: navigator.gpu is there, its adapter is null) – behind a small
+# wasm-bindgen API the page drives (its values in, the being's buttons out: one state). Build: `npm run build:wasm -w
+# shared/space-web` (cargo for wasm32 + wasm-bindgen --target web). Natively the crate is empty (the workspace's
+# builds and tests stay as they were).
+[package]
+name = "space-web"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+deck-space = { path = "../space", default-features = false, features = ["gpu"] }
+protocol = { workspace = true }
+anyhow.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+image = { version = "0.25", default-features = false }
+wgpu = { version = "25", default-features = false, features = ["webgpu", "webgl", "wgsl"] }
+# the CLI that writes the JS glue must be the same version (wasm-bindgen-cli 0.2.129)
+wasm-bindgen = "=0.2.129"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = ["HtmlCanvasElement", "console"] }
