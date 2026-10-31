@@ -282,12 +282,14 @@ mod tests {
         r.fill(0);
         let before = r.queued();
         let mut out = vec![0.0f32; 480 * 2];
-        let at = 2_000_000_000;
+        // the real clock: play measures its callback with now_ns (on Linux the uptime, so a made-up moment like 2 s
+        // would lie before it and never be late – CI run on c03cc929)
+        let at = crate::clock::now_ns();
         feed.play(&mut out, 2, at, |x| x);
         // a callback after a 40 ms stall: late
         feed.mon.measure(at + 50_000_000, at + 50_100_000, 480, false);
         assert_eq!(feed.glitches().count(), 1);
-        r.fill(3_000_000_000);
+        r.fill(at + 1_000_000_000);
         assert_eq!(feed.glitches().lead(), LEAD_MIN + BLOCK as u32);
         assert!(r.queued() >= before - 480 + BLOCK, "more ahead: {} (was {before})", r.queued());
     }

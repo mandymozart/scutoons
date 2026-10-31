@@ -129,8 +129,9 @@ async fn dmx_plays_at_at_and_blacks_out_on_panic() {
     ws.send(send(Message::Device(Device { outlet: "lights".into(), msgs, at: Some(t0 + 300) }))).await.unwrap();
 
     let lit = frame(&widget, Duration::from_secs(2), |f| f[..3] == [255, 0, 128]).await.expect("the look");
+    // `at` is in whole ms of the relay clock (t0 read just before `sent`): up to a ms early against `sent` is on time
     let late = (lit - sent).as_millis() as i64 - 300;
-    assert!((0..60).contains(&late), "lit {late} ms after `at`");
+    assert!((-2..60).contains(&late), "lit {late} ms after `at`");
 
     // the fade on channel 10: on its way after ~200 ms (neither a jump nor done – how far depends on the runner's
     // load: macOS CI saw 27, run 41128816256), 200 at the end
