@@ -20,8 +20,8 @@ path = "src/main.rs"
 # platform's (pipewire) and link (it needs cmake): a plain `cargo build` plays every bundled scene.
 [features]
 default = ["space", "sync", "chapter", "live", "midi", "osc"]
-# the 3D space and the deck's being (#188): glTF rooms (meshopt, WebP), the orbit camera, the 3D buttons
-space = ["dep:glam", "dep:serde_json", "image/webp"]
+# the 3D space and the deck's being (#188): glTF rooms (meshopt, WebP), the orbit camera, the 3D buttons and their labels
+space = ["dep:glam", "dep:serde_json", "dep:ab_glyph", "image/webp"]
 # the deck's sync (#195): what the scene needs – its sets' 3D, its beings' portraits – from the API (scene-content) into
 # the cache, only what is missing or changed, offline from the cache (sync.rs)
 sync = ["dep:ureq", "dep:serde_json"]

@@ -20,7 +20,7 @@ pub mod watch;
 
 #[cfg(feature = "chapter")]
 pub mod library;
-#[cfg(feature = "chapter")]
+#[cfg(any(feature = "chapter", feature = "space"))]
 pub mod text;
 #[cfg(feature = "space")]
 pub mod space;

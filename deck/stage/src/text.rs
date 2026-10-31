@@ -19,6 +19,11 @@ fn font(name: &str) -> &'static FontRef<'static> {
     if name == "lettering" { lettering } else { mono }
 }
 
+/// IBM Plex Mono Bold (the space's button labels, #188 – space/label.rs)
+pub fn mono() -> &'static FontRef<'static> {
+    font("mono")
+}
+
 /// One `Slice.dialog` entry (shared/content `Dialog`) – the fields the stage draws.
 #[derive(Debug, Clone, Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]
