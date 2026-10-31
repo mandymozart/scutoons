@@ -126,10 +126,10 @@ fn a_push_reaches_every_deck_and_ready_comes_back() {
     assert_eq!((stub.hits("/api/").len(), stub.hits("/cdn/").len()), (2, 6));
     assert!(stub.hits("/api/").iter().all(|h| h.contains("sets=cathedral&characters=catpope")));
     let lines = cond.space.session_lines();
-    assert!(lines.iter().any(|l| l == "SYNC CATHEDRAL 2/2 READY"), "{lines:?}");
+    assert!(lines.iter().any(|l| l == "SYNC 2/2 READY CATHEDRAL"), "{lines:?}");
     let answer = a.sync.as_ref().unwrap().synced(0).unwrap().1;
     assert_eq!((answer.ready.clone(), answer.done, answer.total), (vec!["set:cathedral".to_string(), "character:catpope".to_string()], Some(3), Some(3)));
-    assert_eq!(a.sync.as_ref().unwrap().push_line().unwrap(), "PUSH CATHEDRAL READY");
+    assert_eq!(a.sync.as_ref().unwrap().push_line().unwrap(), "PUSH READY CATHEDRAL");
     // the word over each deck's being
     let mut labels = Vec::new();
     cond.space.write_labels(&mut labels);
@@ -179,7 +179,7 @@ fn missing_items_come_back_missing_and_no_api_is_offline() {
     assert_eq!(offline.missing, ["set:cathedral", "character:ghost"], "honest: nothing is in its cache");
     assert!(!cond.space.decks_ready());
     let lines = cond.space.session_lines();
-    assert!(lines.iter().any(|l| l == "SYNC CATHEDRAL 0/2 READY 2 NOT"), "{lines:?}");
+    assert!(lines.iter().any(|l| l == "SYNC 0/2 READY 2 NOT CATHEDRAL"), "{lines:?}");
 }
 
 /// a deck (not the conductor) that sends `scene.sync` itself is refused, and no deck gets it

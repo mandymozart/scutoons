@@ -1,6 +1,6 @@
 //! The conductor's view of the decks' sync (#195): what it pushed (`scene.sync`) and each deck's last answer
 //! (`deck.synced`) – the word over each deck's being (`READY`, `SYNC 3/7`, `MISSING 1`, `OFFLINE`, `WAITING`), the HUD's
-//! line (`SYNC CATHEDRAL 2/3 READY`) and the cue's question: are all decks ready (`all_ready`)?
+//! line (`SYNC 2/3 READY CATHEDRAL`) and the cue's question: are all decks ready (`all_ready`)?
 use protocol::{DeckSynced, SceneSync, SyncState};
 use std::collections::HashMap;
 use std::fmt::Write;
@@ -100,15 +100,17 @@ impl Board {
         of > 0 && ready == of
     }
 
-    /// the HUD's line: `SYNC CATHEDRAL 2/3 READY` (+ how many miss something / are offline); None = nothing pushed
+    /// the HUD's line: `SYNC 2/3 READY CATHEDRAL` (+ how many miss something / are offline; the scene last – the HUD
+    /// cuts at 40 characters); None = nothing pushed
     pub fn line<'a>(&self, decks: impl IntoIterator<Item = &'a str> + Clone) -> Option<String> {
         let p = self.pushed.as_ref()?;
         let (ready, of) = self.count(decks.clone());
         let bad = decks.into_iter().filter(|d| matches!(self.view(d), Some(View::Missing(_) | View::Offline))).count();
-        let mut line = format!("SYNC {} {ready}/{of} READY", p.scene);
+        let mut line = format!("SYNC {ready}/{of} READY");
         if bad > 0 {
             let _ = write!(line, " {bad} NOT");
         }
+        let _ = write!(line, " {}", p.scene);
         Some(line.to_uppercase().chars().take(40).collect())
     }
 }
@@ -158,7 +160,7 @@ mod tests {
         assert_eq!(word(b.view("d1").unwrap()), "SYNC 1/4");
         assert_eq!(word(b.view("d2").unwrap()), "READY");
         assert_eq!(word(b.view("d3").unwrap()), "MISSING 2");
-        assert_eq!(b.line(["d1", "d2", "d3"]).unwrap(), "SYNC CATHEDRAL 1/3 READY 1 NOT");
+        assert_eq!(b.line(["d1", "d2", "d3"]).unwrap(), "SYNC 1/3 READY 1 NOT CATHEDRAL");
         assert!(!b.all_ready(["d1", "d2", "d3"]));
         b.answer("d1".into(), answer("cathedral", SyncState::Ready, 4, 0));
         b.gone("d3");
@@ -179,6 +181,6 @@ mod tests {
         assert_eq!(b.view("d2"), None, "not for it");
         b.answer("d1".into(), answer("cathedral", SyncState::Ready, 4, 0));
         assert!(b.all_ready(["d1", "d2"]), "only the listed decks count");
-        assert_eq!(b.line(["d1", "d2"]).unwrap(), "SYNC CATHEDRAL 1/1 READY");
+        assert_eq!(b.line(["d1", "d2"]).unwrap(), "SYNC 1/1 READY CATHEDRAL");
     }
 }

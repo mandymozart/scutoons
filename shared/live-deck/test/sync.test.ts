@@ -52,8 +52,8 @@ test('a push: one request, every file fetched whole, progress after each, then r
 		['syncing 0/3', 'syncing 1/3', 'syncing 2/3', 'syncing 3/3', 'ready 3/3']
 	);
 	assert.deepEqual(sync.last, final);
-	assert.equal(pushLine(final), 'PUSH CATHEDRAL READY');
-	assert.equal(pushLine(reports[1]), 'PUSH CATHEDRAL 1/3');
+	assert.equal(pushLine(final), 'PUSH READY CATHEDRAL');
+	assert.equal(pushLine(reports[1]), 'PUSH 1/3 CATHEDRAL');
 });
 
 test('missing: unknown to the API, a short file; offline: the network is gone', async () => {
@@ -66,7 +66,7 @@ test('missing: unknown to the API, a short file; offline: the network is gone', 
 	assert.deepEqual(r.missing, ['set:cathedral', 'character:ghost']);
 	assert.match(r.why!['set:cathedral'], /3 bytes, the API said 4/);
 	assert.match(r.why!['character:ghost'], /unknown to the API/);
-	assert.equal(pushLine(r), 'PUSH CATHEDRAL MISSING 2');
+	assert.equal(pushLine(r), 'PUSH MISSING 2 CATHEDRAL');
 	const high = await new BrowserSync({ api: API, cdn: CDN, quality: 'high', fetch: f, report: () => {} }).push(push([]));
 	assert.match(high.why!['set:cathedral'], /HTTP 404/, 'the deck’s own quality');
 

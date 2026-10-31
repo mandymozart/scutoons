@@ -242,7 +242,8 @@ impl DeckSync {
             SyncState::Missing => format!("MISSING {}", r.missing.len()),
             SyncState::Offline => "OFFLINE".into(),
         };
-        Some(format!("PUSH {} {state}", r.scene).to_uppercase().chars().take(40).collect())
+        // the scene last: the HUD cuts at 40 characters
+        Some(format!("PUSH {state} {}", r.scene).to_uppercase().chars().take(40).collect())
     }
 
     /// Block this (worker) thread until `want` is settled, at most `timeout`; false = it wasn't (or no sync runs).

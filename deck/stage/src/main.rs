@@ -257,13 +257,26 @@ fn set_quality(graph: &graph::Graph) -> String {
     "low".into()
 }
 
-/// the conductor's push (#195): `--sync`, else the scene's set and the characters on stage
+/// the conductor's push (#195): `--sync`, else the scene's set and the characters on stage; its `scene` = the scene
+/// file's name (`conductor`, `cathedral` …), else the stage's name as a slug
 #[cfg(all(feature = "live", feature = "space"))]
-fn push_for(args: &Args, scene: &str, space: &deck_stage::space::Space) -> Result<protocol::SceneSync, String> {
+fn push_for(args: &Args, name: &str, space: &deck_stage::space::Space) -> Result<protocol::SceneSync, String> {
+    let scene = scene_id(args.scene.as_deref(), name);
+    let scene = scene.as_str();
     match &args.sync {
         Some(spec) => deck_stage::space::link::parse_push(scene, spec),
         None => Ok(space.scene_push(scene)),
     }
+}
+
+/// a scene's id for the push (#195): the file's stem (or the built-in's name), else the stage's name as a slug
+#[cfg_attr(not(all(feature = "live", feature = "space")), allow(dead_code))]
+fn scene_id(file: Option<&std::path::Path>, name: &str) -> String {
+    if let Some(stem) = file.and_then(|p| p.file_stem()).and_then(|s| s.to_str()) {
+        return stem.to_string();
+    }
+    let slug: String = name.to_lowercase().chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '-' }).collect();
+    slug.split('-').filter(|w| !w.is_empty()).collect::<Vec<_>>().join("-")
 }
 
 /// the scene the arguments name: a file, `cathedral` / `outlet` (built in), the outlet when one is set, or the default
@@ -1145,4 +1158,15 @@ fn run() -> Result<i32> {
     println!("{summary}");
     // a check run (--frames) that couldn't play its scene fails; the kiosk never exits for it
     Ok(if app.exit == 0 && app.error.is_some() && app.args.frames.is_some() { 2 } else { app.exit })
+}
+
+#[cfg(test)]
+mod tests {
+    /// #195: the push names the scene by its file, else by the stage's name as a slug
+    #[test]
+    fn a_scene_s_id_for_the_push() {
+        assert_eq!(super::scene_id(Some(std::path::Path::new("conductor")), "x"), "conductor");
+        assert_eq!(super::scene_id(Some(std::path::Path::new("/s/scenes/sermon.toml")), "x"), "sermon");
+        assert_eq!(super::scene_id(None, "Cathedral of decks - conductor"), "cathedral-of-decks-conductor");
+    }
 }

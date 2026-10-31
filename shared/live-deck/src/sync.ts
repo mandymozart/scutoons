@@ -32,10 +32,10 @@ export interface SyncOptions {
 /** the items a push names, in its order: `set:<id>`, then `character:<id>` */
 export const itemsOf = (s: SceneSync): string[] => [...(s.sets ?? []).map((id) => `set:${id}`), ...(s.characters ?? []).map((id) => `character:${id}`)];
 
-/** the status line (as the native HUD's): PUSH CATHEDRAL 2/5 · PUSH CATHEDRAL READY · … MISSING 1 · … OFFLINE */
+/** the status line (as the native HUD's): PUSH 2/5 CATHEDRAL · PUSH READY CATHEDRAL · PUSH MISSING 1 … · PUSH OFFLINE … */
 export function pushLine(r: DeckSynced): string {
 	const state = r.state === 'syncing' ? `${r.done ?? 0}/${r.total ?? 0}` : r.state === 'missing' ? `MISSING ${r.missing.length}` : r.state.toUpperCase();
-	return `PUSH ${r.scene} ${state}`.toUpperCase();
+	return `PUSH ${state} ${r.scene}`.toUpperCase();
 }
 
 /** The deck's answers to the conductor's pushes. */
