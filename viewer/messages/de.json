@@ -897,5 +897,19 @@
 		"failure_quota": "Der Speicher, den dein Browser SCUTOONS gibt, ist voll. Entferne gespeicherte Kapitel (Mein Konto → Offline-Inhalte) oder mach auf dem Gerät Platz.",
 		"failure_server": "Der Server hat eine Datei nicht geliefert. Versuch es gleich nochmal.",
 		"failure_storage": "Dein Browser lässt SCUTOONS hier nichts speichern – zum Beispiel in einem privaten Fenster oder wenn Website-Daten blockiert sind."
+	},
+	"live_deck": {
+		"title": "Deck",
+		"character": "Figur",
+		"choose_character": "Figur wählen",
+		"start": "Sound starten",
+		"starting": "Startet …",
+		"controls": "Regler",
+		"pad_voice": "Stimme: Ratio → · ↑ Index",
+		"pad_incense": "Weihrauch: Filter → · ↑ LFO-Tempo",
+		"alone": "Kein Relay – das Deck spielt allein (?relay=ws://…/live/CODE)",
+		"no_3d": "Kein 3D hier: {reason}",
+		"home": "Kamera zurück",
+		"guest": "Gast-Deck"
 	}
 }

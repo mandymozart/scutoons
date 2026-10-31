@@ -24,6 +24,16 @@
 	Header always set Content-Security-Policy "frame-ancestors 'self' https://creator.scutoons.com"
 </IfModule>
 
+# The Live pages cross-origin isolated (#198, shared/live-core README "Production headers"): /live/… (the browser deck,
+# its wasm) and the bundled workers – live-core's audio ring shares memory with its worker. `credentialless`, so the
+# page's own pictures keep loading; only there: COOP cuts window.opener, COEP blocks frames without it.
+<IfModule mod_headers.c>
+	<If "%{REQUEST_URI} =~ m#^/((de|en)/)?live/# || %{REQUEST_URI} =~ m#^/_app/immutable/workers/#">
+		Header set Cross-Origin-Opener-Policy "same-origin"
+		Header set Cross-Origin-Embedder-Policy "credentialless"
+	</If>
+</IfModule>
+
 # The web app manifest's type (agents/research/PWA.md)
 AddType application/manifest+json .webmanifest
 

@@ -30,3 +30,6 @@ src/lib/paraglide
 .claude
 # old local copies of the MCP bundle (built into the viewer until 2026-10-20; now server/mcp – issue 76)
 /static/ai/
+
+# the browser deck's wasm (npm run build:wasm -w shared/live-deck, #198) – built, never committed
+/static/live/

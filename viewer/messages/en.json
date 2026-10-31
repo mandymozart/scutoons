@@ -897,5 +897,19 @@
 		"failure_quota": "The storage your browser gives SCUTOONS is full. Remove saved chapters (My account → Offline content) or free up space on the device.",
 		"failure_server": "The server didn’t deliver a file. Try again in a moment.",
 		"failure_storage": "Your browser doesn’t let SCUTOONS store anything here – for example in a private window or when site data is blocked."
+	},
+	"live_deck": {
+		"title": "Deck",
+		"character": "Character",
+		"choose_character": "Choose a character",
+		"start": "Start the sound",
+		"starting": "Starting …",
+		"controls": "Controls",
+		"pad_voice": "Voice: ratio → · ↑ index",
+		"pad_incense": "Incense: cutoff → · ↑ LFO rate",
+		"alone": "No relay – the deck plays alone (?relay=ws://…/live/CODE)",
+		"no_3d": "No 3D here: {reason}",
+		"home": "Camera home",
+		"guest": "Guest deck"
 	}
 }
