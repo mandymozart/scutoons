@@ -57,20 +57,41 @@ client-side filtering, a raw cache of 100 messages) is not taken over. New, in t
   `ws`, TypeScript): `live/relay` (sessions, roles, groups routed on the server,
   snapshot + replay, vote tally, clock), `live/devices` (MIDI / DMX / OSC drivers), `live/app` (the Electron shell, B.7),
   `shared/live` (`@scutoons/live`: the protocol types + the client used by viewer and creator, the show schema helpers).
-- **Hosted: its own bunny Magic Containers app `scutoons-live`** (since 2026-10-29 running the Rust `deck/relay` binary, not Node) (`live.scutoons.com`; owner 2026-10-07) – the
-  pattern the Ask service used until 2026-10-09 (a Dockerfile → ghcr.io → an image workflow →
-  `BunnyWay/actions/container-update-image`; Ask's own files are deleted, see git history `ask-image.yml`) as
-  `live-image.yml`. The app can be stopped between shows.
-  **Exactly one instance in one region** (state in memory). Deploy freeze while a session is live: the relay exposes
-  `GET /status` (`{ sessions, live }`) and the workflow refuses to update while `live > 0` unless forced.
+- **Hosted: its own bunny Magic Containers app `scutoons-live`** at **`wss://live.scutoons.com/live/<code>`** (owner
+  2026-10-07; the Rust `deck/relay` since 2026-10-29; #199). **Exactly one instance in one region** (state in memory);
+  it can be stopped between shows. Built (#199):
+  - **The image:** `deck/relay/Dockerfile` – build context `deck/` (`deck/.dockerignore`), a static musl binary on
+    `scratch` (~3 MB), user nobody, `RELAY_ADDR=0.0.0.0:7700`, `RELAY_LEAD_MS=150`, plain log lines, SIGTERM stops it.
+    TLS ends at bunny; the container speaks ws on 7700.
+  - **The workflow** `.github/workflows/live-image.yml` (its own, like Ask's `ask-image.yml` in git history): build →
+    `ghcr.io/mandymozart/scutoons-live:latest` + `:<sha>` → `BunnyWay/actions/container-update-image`. Runs on a push
+    to main touching `deck/relay/**` / `deck/protocol/**`, and by hand ("Run workflow", input `force`). Settings in
+    the environment `production`: variables `BUNNY_LIVE_APP_ID`, `BUNNY_LIVE_CONTAINER`, secret `BUNNY_API_KEY`;
+    until all three are set a push skips with a notice (green) and "Run workflow" only builds and pushes the image.
+    **Deploy freeze:** it asks `https://live.scutoons.com/status` (`{ sessions, live }`) first and refuses while
+    `live > 0` (a session with a conductor) unless `force`; no answer = not live.
+  - **The defaults** (nobody types an address): /live/deck joins `<VITE_LIVE_URL>/live/<code>` (default
+    `wss://live.scutoons.com`; the code from `/live/deck/<code>`, `?code=`, else `CATH`; `?relay=` overrides with a
+    local relay). deck-stage joins `wss://live.scutoons.com/live/CATH` when deck.toml's `relay` / `--relay` is empty and
+    a scene joins (space `join` = deck / conductor) or an outlet is set; its clients speak wss (rustls + webpki roots).
+    Unreachable = the status line's `NO RELAY … AGAIN IN n S`, retried with backoff (1 2 4 8 10 s).
+  - **The owner's setup in bunny** (once): 1. "Run workflow" once, so the image is on ghcr.io; make the package
+    `scutoons-live` public (GitHub → Packages → settings) or give bunny a ghcr pull token. 2. Magic Containers → new app
+    `scutoons-live`, image `ghcr.io/mandymozart/scutoons-live:latest`, one region (Frankfurt), autoscaling min = max = 1.
+    3. Endpoint: CDN / HTTP on container port 7700 (WebSockets on; the relay pings every 5 s, so idle timeouts don't cut
+    it). 4. Env `LIVE_TOKEN_SECRET` (the API's, once #180 / #186 mint tokens – until then unset = dev mode, any
+    conductor token passes) and `RUST_LOG=info`. 5. Custom hostname `live.scutoons.com` with bunny's free TLS; DNS at
+    all-inkl: a CNAME `live` → the endpoint's hostname (today the wildcard sends it to the all-inkl host). 6. In GitHub
+    (environment `production`): `BUNNY_LIVE_APP_ID`, `BUNNY_LIVE_CONTAINER`, `BUNNY_API_KEY`. Check: `curl
+    https://live.scutoons.com/status` → `{"sessions":0,"live":0}`.
 - **Local: the same relay inside the Scutoons Live app** on the conductor laptop (venue LAN; outputs, performers and
   the bridge connect to `ws://<laptop>.local:7700` or the IP shown in the app).
 - **Linked mode** (the normal show): the local relay is the session's primary – conductor, outputs, devices, performers
   on the LAN – and keeps an **uplink** to the hosted relay for the audience (who use mobile data / venue Wi-Fi). Audience
   messages are mirrored up / down by the uplink. Internet gone: the stage keeps running, the audience freezes on its
   last state and resyncs on reconnect. A show without a laptop on site (a reading at a café) runs hosted only.
-- To verify first (spike, B.10 week 1): WebSocket upgrade through bunny's endpoint + its idle timeout (ping every 20 s),
-  the one-instance setting, a rolling update's effect on open sockets.
+- To verify once bunny runs it (#199): the WebSocket through bunny's endpoint for several minutes (the relay pings
+  every 5 s, drops a client silent for 15 s), the one-instance setting, a rolling update with a session open (refused).
 
 ## B.5 The Show document (data model)
 
