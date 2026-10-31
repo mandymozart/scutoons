@@ -3,21 +3,22 @@
 // both sides' tests encode and decode every one of them.
 //
 // A record, little-endian, 4-byte aligned (the values can be read as a Float32Array in place):
-//   0 u8 op (1 = send) · 1 u8 mode (0 force, 1 blend, 2 release) · 2 u16 n · 4 u16 node · 6 u16 port · 8 f32 amount
+//   0 u8 op (1 = send) · 1 u8 mode (0 force, 1 blend, 2 release, 3 base – #188: the input's base, a link on top) · 2 u16 n · 4 u16 node · 6 u16 port · 8 f32 amount
 //   12 f32 × n – the values (#189's float vectors); v[0] → port, v[1] → port + 1 …
 // Node and port are indices from the load table (names are resolved once, at load – JSON stays at the edge).
-// The analysis frame going out is a fixed block of FRAME f32: level, bass, mid, high, then SPECTRUM bins.
+// The analysis frame going out is a fixed block of FRAME f32: level, bass, mid, high, then SPECTRUM bins, then the
+// limiter's gain reduction (dB, the deepest since the last frame – #188).
 
 export const HEADER = 12;
 export const OP_SEND = 1;
 /** deck-core's analysis::SPECTRUM – bin k = k · rate / 1024 Hz */
 export const SPECTRUM = 512;
-export const FRAME = 4 + SPECTRUM;
+export const FRAME = 4 + SPECTRUM + 1;
 /** the most values one record carries (u16 n) */
 export const MAX_VALUES = 0xffff;
 
-export type Mode = 'force' | 'blend' | 'release';
-export const MODES: readonly Mode[] = ['force', 'blend', 'release'];
+export type Mode = 'force' | 'blend' | 'release' | 'base';
+export const MODES: readonly Mode[] = ['force', 'blend', 'release', 'base'];
 
 export interface SendRecord {
 	mode: Mode;
@@ -118,6 +119,8 @@ export interface Analysis {
 	mid: number;
 	high: number;
 	spectrum: Float32Array;
+	/** the output limiter's gain reduction (dB, 0 = untouched) – the being's red face (#188) */
+	reduction: number;
 }
 
 export const analysisOf = (frame: Float32Array): Analysis => ({
@@ -125,5 +128,6 @@ export const analysisOf = (frame: Float32Array): Analysis => ({
 	bass: frame[1],
 	mid: frame[2],
 	high: frame[3],
-	spectrum: frame.subarray(4, FRAME)
+	spectrum: frame.subarray(4, 4 + SPECTRUM),
+	reduction: frame[4 + SPECTRUM] ?? 0
 });

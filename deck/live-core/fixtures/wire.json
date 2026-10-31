@@ -69,5 +69,18 @@
 			]
 		},
 		"hex": "01010300ffff0102cdcccc3d0000a0bf95bfd6339ec97f7f"
+	},
+	{
+		"name": "a linked knob: the input's base (a cutoff the LFO sways around)",
+		"record": {
+			"mode": "base",
+			"node": 4,
+			"port": 2,
+			"amount": 0,
+			"v": [
+				1800
+			]
+		},
+		"hex": "0103010004000200000000000000e144"
 	}
 ]

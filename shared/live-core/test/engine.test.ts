@@ -74,8 +74,10 @@ test('a blend mixes, a release returns the input as built', { skip }, async () =
 	const c = await core();
 	c.load(SCENE);
 	const e = new Engine(c, { lead: 512, onAnalysis: () => {} });
+	// the inputs glide (#188): settle 80 blocks (8.5 time constants), then the peak of 8
 	const peak = () => {
 		let m = 0;
+		for (let i = 0; i < 80; i++) e.block(0, () => {});
 		for (let i = 0; i < 8; i++) e.block(0, (a) => (m = Math.max(m, ...a.map(Math.abs))));
 		return m;
 	};
@@ -88,5 +90,5 @@ test('a blend mixes, a release returns the input as built', { skip }, async () =
 	send('blend', 0.5, [0.4]);
 	assert.ok(Math.abs(peak() - 0.2) < 0.01, 'half of 0.4 over the built 0');
 	send('release', 0, [0]);
-	assert.equal(peak(), 0);
+	assert.ok(peak() < 1e-3);
 });

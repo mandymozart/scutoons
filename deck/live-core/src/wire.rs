@@ -7,7 +7,7 @@
 //! | offset | type | field |
 //! |---|---|---|
 //! | 0 | u8 | op – 1 = `send` |
-//! | 1 | u8 | mode – 0 force, 1 blend, 2 release |
+//! | 1 | u8 | mode – 0 force, 1 blend, 2 release, 3 base (#188: a knob turns the input's base, a link flows on top) |
 //! | 2 | u16 | n – the number of values |
 //! | 4 | u16 | node – its index in the load table (names are resolved once, at load – JSON stays at the edge) |
 //! | 6 | u16 | port – the first input the vector lands on (v[0] → port, v[1] → port + 1 …) |
@@ -15,20 +15,22 @@
 //! | 12 | f32 × n | the values (#189's float vectors) |
 //!
 //! Records follow each other without padding (each is a multiple of 4 bytes). The analysis frame going out is not a
-//! record but a fixed block of `FRAME` f32: level, bass, mid, high, then the `SPECTRUM` bins.
+//! record but a fixed block of `FRAME` f32: level, bass, mid, high, then the `SPECTRUM` bins, then the limiter's gain reduction (dB, the deepest since the last frame – #188).
 
 use deck_core::analysis::SPECTRUM;
 
 pub const HEADER: usize = 12;
 pub const OP_SEND: u8 = 1;
-/// the analysis frame: 4 bands + the spectrum
-pub const FRAME: usize = 4 + SPECTRUM;
+/// the analysis frame: 4 bands + the spectrum + the limiter's gain reduction (dB)
+pub const FRAME: usize = 4 + SPECTRUM + 1;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
     Force = 0,
     Blend = 1,
     Release = 2,
+    /// the values become the inputs' bases (`BatchGraph::set_base`): a linked input keeps its link on top
+    Base = 3,
 }
 
 impl Mode {
@@ -37,6 +39,7 @@ impl Mode {
             0 => Mode::Force,
             1 => Mode::Blend,
             2 => Mode::Release,
+            3 => Mode::Base,
             _ => return None,
         })
     }
@@ -46,7 +49,7 @@ impl Mode {
         match self {
             Mode::Force => 1.0,
             Mode::Blend => amount,
-            Mode::Release => 0.0,
+            Mode::Release | Mode::Base => 0.0,
         }
     }
 }
@@ -166,6 +169,7 @@ mod tests {
             "force" => Mode::Force,
             "blend" => Mode::Blend,
             "release" => Mode::Release,
+            "base" => Mode::Base,
             _ => panic!("mode {s}"),
         }
     }

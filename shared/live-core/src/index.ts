@@ -46,7 +46,8 @@ export interface Param {
 }
 
 export interface SetOptions {
-	/** force (default): the value replaces the input · blend: mixed in by `amount` · release: the input as built */
+	/** force (default): the value replaces the input · blend: mixed in by `amount` · release: the input as built · base:
+	 * the input's base – a linked input keeps its link on top (#188: a knob on a modulated input) */
 	mode?: Mode;
 	amount?: number;
 }
@@ -54,6 +55,8 @@ export interface SetOptions {
 export interface Stats extends WorkerStats {
 	transport: Transport;
 	underruns: number;
+	/** underruns over the last minute (#188: the browser status shows it) */
+	underrunsPerMinute: number;
 	/** sends dropped because the control ring was full (shared transport) */
 	dropped: number;
 }
@@ -77,6 +80,8 @@ export class LiveCore {
 	private seen = 0;
 	private frame: Float32Array = new Float32Array(FRAME);
 	private stats_: Stats;
+	/** the worklet's underrun count over the last minute: (ms, total) once a second */
+	private readonly runs: { t: number; n: number }[] = [];
 
 	private constructor(o: { context: AudioContext; node: AudioWorkletNode; worker: Worker; transport: Transport; shared: SharedSetup | null }) {
 		this.context = o.context;
@@ -85,7 +90,8 @@ export class LiveCore {
 		this.transport = o.transport;
 		this.control = o.shared ? Ring.bytes(o.shared.control) : null;
 		this.latest = o.shared ? new Latest(o.shared.analysis) : null;
-		this.stats_ = { transport: o.transport, underruns: 0, dropped: 0, blocks: 0, records: 0, renderUs: 0 };
+		this.stats_ = { transport: o.transport, underruns: 0, underrunsPerMinute: 0, dropped: 0, blocks: 0, records: 0, renderUs: 0 };
+		this.runs.push({ t: globalThis.performance?.now() ?? 0, n: 0 });
 	}
 
 	/** Starts the worker (wasm compiled there), the worklet and the rings. Call it from a user gesture. */
@@ -110,7 +116,7 @@ export class LiveCore {
 			node.port.postMessage({ feed: ch.port2 }, [ch.port2]);
 			audioPort = ch.port1;
 		}
-		node.port.onmessage = (ev: MessageEvent<FromWorklet>) => (core.stats_.underruns = ev.data.underruns);
+		node.port.onmessage = (ev: MessageEvent<FromWorklet>) => core.underran(ev.data.underruns, performance.now());
 		const ready = new Promise<void>((resolve, reject) => {
 			o.worker.onmessage = (ev: MessageEvent<FromWorker>) => (ev.data.type === 'ready' ? resolve() : core.receive(ev.data));
 			o.worker.onerror = (e) => reject(new Error(`live-core worker: ${e.message}`));
@@ -225,6 +231,12 @@ export class LiveCore {
 		return { ...this.stats_ };
 	}
 
+	/** the worklet's running count `n` at `t` ms → the total and the last minute's */
+	underran(n: number, t: number): void {
+		this.stats_.underruns = n;
+		this.stats_.underrunsPerMinute = perMinute(this.runs, n, t);
+	}
+
 	async stop(): Promise<void> {
 		if (this.raf) cancelAnimationFrame(this.raf);
 		this.raf = 0;
@@ -233,4 +245,11 @@ export class LiveCore {
 		this.worker.terminate();
 		await this.context.close();
 	}
+}
+
+/** Underruns over the last minute from a running count sampled about once a second (`runs` keeps the window). */
+export function perMinute(runs: { t: number; n: number }[], n: number, t: number): number {
+	runs.push({ t, n });
+	while (runs.length > 1 && t - runs[0].t > 60_000) runs.shift();
+	return Math.max(0, n - runs[0].n);
 }

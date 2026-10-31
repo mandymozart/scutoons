@@ -4,11 +4,14 @@
 use crate::wire::{self, Mode, FRAME};
 use deck_core::analysis::{Analyzer, SPECTRUM};
 use deck_core::batch::BatchGraph;
+use deck_core::limiter::Limiter;
 use deck_core::SceneDef;
 
 pub struct Core {
     graph: BatchGraph,
     analyzer: Analyzer,
+    /// the output's soft cap (#188), last before the worklet
+    limiter: Limiter,
     audio: Vec<f32>,
     frame: Vec<f32>,
 }
@@ -18,7 +21,7 @@ impl Core {
     pub fn load(scene_toml: &str, rate: f32) -> Result<Core, String> {
         let scene = SceneDef::parse(scene_toml)?;
         let graph = BatchGraph::build(&scene, rate)?;
-        Ok(Core { graph, analyzer: Analyzer::new(rate, 0.25), audio: Vec::new(), frame: vec![0.0; FRAME] })
+        Ok(Core { graph, analyzer: Analyzer::new(rate, 0.25), limiter: Limiter::new(rate), audio: Vec::new(), frame: vec![0.0; FRAME] })
     }
 
     /// The load table, the one JSON that leaves the core: `{"nodes":[{"id","kind","ports":[…]}]}` – the host resolves
@@ -66,7 +69,11 @@ impl Core {
         let ports = self.graph.ports(node).map(<[_]>::len).ok_or_else(|| format!("wire: no node {node}"))?;
         let amount = mode.amount(amount);
         for (k, v) in values.enumerate().take(ports.saturating_sub(port)) {
-            self.graph.send(node, port + k, v, amount);
+            if mode == Mode::Base {
+                self.graph.set_base(node, port + k, v);
+            } else {
+                self.graph.send(node, port + k, v, amount);
+            }
         }
         Ok(())
     }
@@ -76,22 +83,26 @@ impl Core {
         self.graph.step(dt);
     }
 
-    /// `frames` samples of the scene's audio (mono); every sample also goes to the analyzer.
+    /// `frames` samples of the scene's audio (mono) through the soft limiter (#188 – never over 1, no hard clip); every
+    /// sample also goes to the analyzer.
     pub fn render(&mut self, frames: usize) -> &[f32] {
         self.audio.resize(frames, 0.0);
         self.graph.render(&mut self.audio);
+        self.limiter.process_mono(&mut self.audio);
         for &x in &self.audio {
             self.analyzer.push(x);
         }
         &self.audio
     }
 
-    /// The analysis frame (wire.rs: level, bass, mid, high, the spectrum) of the window that ends `lead` samples before
-    /// the newest rendered one – what the speaker plays now when `lead` is the ring's fill.
+    /// The analysis frame (wire.rs: level, bass, mid, high, the spectrum, the limiter's gain reduction in dB since the
+    /// last frame) of the window that ends `lead` samples before the newest rendered one – what the speaker plays now
+    /// when `lead` is the ring's fill.
     pub fn analyse(&mut self, dt: f32, lead: usize) -> &[f32] {
         let bands = self.analyzer.update(dt, lead);
         self.frame[..4].copy_from_slice(&bands);
         self.analyzer.spectrum(&mut self.frame[4..4 + SPECTRUM]);
+        self.frame[4 + SPECTRUM] = self.limiter.take_reduction();
         &self.frame
     }
 }
@@ -127,7 +138,8 @@ mod tests {
         let mut b = vec![];
         encode_send(&mut b, Mode::Force, 1, 0, 1.0, &[1500.0, 1.0, 0.0, 0.5, 9.0]);
         assert_eq!(c.apply(&b), Ok(1));
-        for _ in 0..8 {
+        // the inputs glide in (#188): 40 blocks = 4 time constants
+        for _ in 0..40 {
             c.render(128);
         }
         for _ in 0..8 {
@@ -143,7 +155,56 @@ mod tests {
         b.clear();
         encode_send(&mut b, Mode::Release, 1, 3, 0.0, &[0.0]);
         c.apply(&b).unwrap();
-        assert!(c.render(128).iter().all(|x| *x == 0.0));
+        assert!(c.render(128).iter().any(|x| x.abs() > 0.05), "it fades, no click");
+        for _ in 0..200 {
+            c.render(128);
+        }
+        assert!(c.render(128).iter().all(|x| x.abs() < 1e-4), "then silence");
+    }
+
+    /// #188: the output is limited (never over 1, the gain reduction in the analysis frame); a base record turns a
+    /// linked input under its link
+    #[test]
+    fn overload_is_limited_and_bases_turn() {
+        let scene = "[[node]]
+id = \"a\"
+kind = \"osc\"
+freq = 110.0
+gain = 1.0
+[[node]]
+id = \"b\"
+kind = \"osc\"
+freq = 165.0
+gain = 1.0
+\n            [[node]]
+id = \"l\"
+kind = \"lfo\"
+rate = 0.0
+depth = 1.0
+phase = 0.25
+[[node]]
+id = \"m\"
+kind = \"mul\"
+b = 1.0
+\n            [[link]]
+from = \"l\"
+to = \"m.a\"
+scale = 2.0
+";
+        let mut c = Core::load(scene, 48_000.0).unwrap();
+        let mut worst = 0.0f32;
+        for _ in 0..100 {
+            c.step(128.0 / 48_000.0);
+            worst = c.render(128).iter().fold(worst, |w, x| w.max(x.abs()));
+        }
+        assert!(worst < 1.0 && worst > 0.8, "two sines at full gain, held under 1: {worst}");
+        let f = c.analyse(1.0 / 60.0, 0);
+        assert!(f[FRAME - 1] > 3.0, "the gain reduction in dB: {}", f[FRAME - 1]);
+        let mut b = vec![];
+        encode_send(&mut b, Mode::Base, 3, 0, 0.0, &[0.5]);
+        assert_eq!(c.apply(&b), Ok(1));
+        c.step(0.0);
+        assert!((c.graph.value("m").unwrap() - 2.5).abs() < 1e-5, "the LFO's 1 · 2 on top of the base 0.5");
     }
 
     #[test]

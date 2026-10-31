@@ -163,7 +163,10 @@ mod tests {
         encode_send(&mut b, Mode::Blend, 0, 0, 0.5, &[880.0]);
         h.inbox(b.len())[..b.len()].copy_from_slice(&b);
         assert_eq!(h.apply(b.len()), 2);
-        assert!(h.core().unwrap().render(256).iter().any(|x| x.abs() > 0.3));
+        for _ in 0..40 {
+            h.core().unwrap().render(128);
+        }
+        assert!(h.core().unwrap().render(256).iter().any(|x| x.abs() > 0.3), "after the glide (#188)");
         // a broken scene keeps the running one
         h.inbox(4)[..4].copy_from_slice(b"[[no");
         assert!(h.load(4) < 0);
