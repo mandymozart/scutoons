@@ -1,6 +1,7 @@
-//! The orbit camera (#188): it turns around the being by default – slowly by itself once nobody has touched it for a
-//! few seconds – a mouse drag turns it, the wheel / keys move it in and out, R resets it. Right-handed, Y up, wgpu's
-//! depth range 0..1 (glam's `perspective_rh`). `ray` turns a pixel into a world ray for picking.
+//! The orbit camera (#188): it orbits the being – a mouse drag turns it, the wheel / keys move it in and out, R resets it. Right-handed, Y up, wgpu's
+//! depth range 0..1 (glam's `perspective_rh`). `ray` turns a pixel into a world ray for picking. It stands still
+//! unless touched (owner 2026-10-31: "The turning camera isn't needed. It's enough that I can orbit."); a scene may
+//! turn it slowly by itself once idle (`auto`, the space node's `auto_turn = true`).
 use glam::{Mat4, Vec3, Vec4Swizzles};
 
 /// seconds without input before the auto-orbit starts (it eases in over the next two)
@@ -45,6 +46,8 @@ pub struct Orbit {
     pub fov_y: f32,
     /// seconds since the last input
     pub idle: f32,
+    /// turn slowly by itself once idle (the space node's `auto_turn`; off by default)
+    pub auto: bool,
     home: (f32, f32, f32),
 }
 
@@ -59,6 +62,7 @@ impl Orbit {
             max_distance: 14.0,
             fov_y: 55f32.to_radians(),
             idle: IDLE_S,
+            auto: false,
             home: (yaw, pitch, distance),
         }
     }
@@ -86,9 +90,12 @@ impl Orbit {
         self.proj(aspect) * self.view()
     }
 
-    /// the auto-orbit once idle (eased in), else nothing
+    /// the auto-orbit once idle (eased in) when `auto`, else nothing
     pub fn step(&mut self, dt: f32) {
         self.idle += dt;
+        if !self.auto {
+            return;
+        }
         let ease = ((self.idle - IDLE_S) / 2.0).clamp(0.0, 1.0);
         self.yaw = wrap_angle(self.yaw + AUTO_RAD_S * ease * dt);
     }
@@ -187,8 +194,14 @@ mod tests {
     }
 
     #[test]
-    fn it_orbits_by_itself_only_when_idle() {
+    fn it_stands_still_unless_a_scene_asks_it_to_turn() {
         let mut c = Orbit::new(Vec3::ZERO, 0.0, 0.0, 2.0);
+        for _ in 0..600 {
+            c.step(1.0 / 60.0);
+        }
+        assert_eq!(c.yaw, 0.0, "by default it never turns by itself");
+        // auto_turn: only when idle, eased in
+        c.auto = true;
         c.drag(1.0, 0.0);
         let yaw = c.yaw;
         c.step(1.0);
