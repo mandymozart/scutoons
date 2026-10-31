@@ -13,6 +13,7 @@ file_permissions+=(
   ["/usr/bin/deck-firstboot"]="0:0:755"
   ["/usr/bin/deck-wifi"]="0:0:755"
   ["/usr/bin/deck-persist"]="0:0:755"
+  ["/usr/bin/deck-set"]="0:0:755"
   ["/usr/bin/deck-session"]="0:0:755"
   ["/usr/bin/deck-install"]="0:0:755"
   ["/usr/bin/deck-check"]="0:0:755"

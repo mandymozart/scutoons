@@ -1,0 +1,31 @@
+#!/bin/bash
+# deck-set – one setting of /var/lib/deck/deck.toml, replaced in place (owner 2026-10-31: appending a second
+# `scene = …` line did nothing – deck-session reads the first one – and nano was the way out).
+#   deck-set                        the settings now
+#   deck-set scene cathedral        replace (or add) `scene = "cathedral"`
+#   deck-set relay ws://192.168.1.116:7070/live/CATH
+#   deck-set scene ""               empty = the default again
+# then `systemctl restart deck-kiosk` (or --restart) so the kiosk plays it.
+set -eu
+FILE=/var/lib/deck/deck.toml
+restart=0
+[ "${1:-}" = --restart ] && { restart=1; shift; }
+if [ $# -eq 0 ]; then
+  grep -E '^[a-z_]+ *=' "$FILE" 2>/dev/null || echo "no settings yet ($FILE)"
+  exit 0
+fi
+key=$1; value=${2-}
+case "$key" in *[!a-z_]*|'') echo "a key is lower case letters and _ (kiosk, scene, relay, outlet, locale, conductor, wifi_wait)"; exit 2 ;; esac
+case "$value" in *'"'*) echo "a value cannot hold a double quote"; exit 2 ;; esac
+install -d "$(dirname "$FILE")"; touch "$FILE"
+# numbers stay bare (wifi_wait = 8), everything else in double quotes
+if [[ "$value" =~ ^[0-9]+$ ]]; then line="$key = $value"; else line="$key = \"$value\""; fi
+tmp=$(mktemp)
+# every earlier line for the key goes (a duplicate was the trap); the new one takes the first one's place
+awk -v k="$key" -v l="$line" '
+  $0 ~ "^" k " *=" { if (!done) { print l; done = 1 } ; next }
+  { print }
+  END { if (!done) print l }' "$FILE" >"$tmp"
+cat "$tmp" >"$FILE"; rm -f "$tmp"
+echo "$line"
+if [ "$restart" = 1 ]; then systemctl restart deck-kiosk; else echo "(systemctl restart deck-kiosk – or deck-set --restart … – to play it)"; fi

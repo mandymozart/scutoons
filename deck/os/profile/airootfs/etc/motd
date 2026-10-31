@@ -1,4 +1,6 @@
-SCUTOONS deck live (class A, deck/os). Not the kiosk? The kiosk runs on tty1 (Ctrl+Alt+F1); this is a rescue shell.
+SCUTOONS deck live (class A, deck/os). The kiosk runs on tty1 (Ctrl+Alt+F1); this is the deck's shell.
+  deck-set              the settings (deck.toml): deck-set scene cathedral · deck-set relay ws://<host>:7070/live/<code>
+                        · deck-set --restart … plays it at once
   deck-check            re-run the hardware check (report + /var/lib/deck/machine.toml)
   deck-install          install this image to a partition (guided; never the whole disk unasked)
   nmtui                 networks · journalctl -u deck-firstboot -u deck-kiosk -u deck-bridge   the logs
