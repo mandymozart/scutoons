@@ -1,0 +1,9 @@
+# Build context of deck/relay/Dockerfile (the deck/ workspace, #199): the sources and manifests only – no target
+# folders (several GB), no deck/lab (its own workspace), no ISOs or image trees under os/ (os/check is a member).
+target
+target-*
+lab
+os/*
+!os/check
+**/node_modules
+venue.toml

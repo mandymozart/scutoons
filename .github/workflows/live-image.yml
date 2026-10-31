@@ -1,0 +1,120 @@
+# The hosted Live relay's image (LIVE.md B.4, #199): deck/relay/Dockerfile → ghcr.io/mandymozart/scutoons-live
+# (`:latest` + `:<commit sha>`) → bunny.net Magic Containers, app `scutoons-live` (wss://live.scutoons.com), switched to
+# the new image by bunny's own action (a rolling update – the open sockets drop, so never during a show).
+# Its own workflow (per-app deploy jobs stay separate – DECISIONS 2026-10-20).
+#
+# Settings, all in the GitHub environment `production` (Settings → Environments → production):
+#   variable BUNNY_LIVE_APP_ID     the app's id (bunny dashboard → Magic Containers → scutoons-live)
+#   variable BUNNY_LIVE_CONTAINER  the container's name inside that app
+#   secret   BUNNY_API_KEY         the bunny account's API key (the one Ask used)
+# Until all three are set, a push skips the whole run with a notice (green) and "Run workflow" builds and pushes the
+# image only – that is how the first image gets to ghcr.io before the bunny app exists.
+#
+# Deploy freeze: before building the workflow asks https://live.scutoons.com/status (`{ sessions, live }`) and
+# refuses while `live > 0` (a session with a conductor). "Run workflow" with `force` updates anyway. A relay that
+# doesn't answer (the app stopped between shows, DNS not on bunny yet) counts as not live.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - deck/relay/**
+      - deck/protocol/**
+      - .github/workflows/live-image.yml
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Update even while a show is live (the open sockets drop)
+        type: boolean
+        default: false
+
+name: 📡 Live relay image
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: live-image
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/mandymozart/scutoons-live
+  STATUS_URL: https://live.scutoons.com/status
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: What runs (the bunny settings)
+        id: gate
+        env:
+          APP_ID: ${{ vars.BUNNY_LIVE_APP_ID }}
+          CONTAINER: ${{ vars.BUNNY_LIVE_CONTAINER }}
+          HAS_KEY: ${{ secrets.BUNNY_API_KEY != '' }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ -n "$APP_ID" ] && [ -n "$CONTAINER" ] && [ "$HAS_KEY" = true ]; then
+            bunny=true
+          else
+            bunny=false
+          fi
+          if [ "$bunny" = true ] || [ "$EVENT" = workflow_dispatch ]; then build=true; else build=false; fi
+          if [ "$bunny" = false ]; then
+            echo "::notice title=Live relay::bunny is not set up yet (BUNNY_LIVE_APP_ID, BUNNY_LIVE_CONTAINER, BUNNY_API_KEY in the environment production) – $( [ "$build" = true ] && echo 'the image is built and pushed, bunny is not updated' || echo 'nothing to do' )"
+          fi
+          echo "bunny=$bunny" >> "$GITHUB_OUTPUT"
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy freeze (no update while a show is live)
+        if: steps.gate.outputs.bunny == 'true'
+        env:
+          FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force }}
+        run: |
+          body=$(curl -fsS -m 10 "$STATUS_URL" 2>/dev/null || true)
+          live=$(printf '%s' "$body" | jq -r '.live // empty' 2>/dev/null || true)
+          if ! [[ "$live" =~ ^[0-9]+$ ]]; then
+            echo "::warning title=Live relay::$STATUS_URL did not answer with a status – counted as not live"
+            exit 0
+          fi
+          echo "status: $body"
+          if [ "$live" -gt 0 ]; then
+            if [ "$FORCE" = true ]; then
+              echo "::warning title=Live relay::$live live session(s) – updating anyway (force)"
+            else
+              echo "::error title=Live relay::$live live session(s) – not updating during a show. Run the workflow again after it, or with force."
+              exit 1
+            fi
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.build == 'true'
+      - uses: docker/setup-buildx-action@v3
+        if: steps.gate.outputs.build == 'true'
+      - uses: docker/login-action@v3
+        if: steps.gate.outputs.build == 'true'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        if: steps.gate.outputs.build == 'true'
+        with:
+          context: deck
+          file: deck/relay/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ github.sha }}
+          cache-from: type=gha,scope=live-image
+          cache-to: type=gha,scope=live-image,mode=max
+
+      - name: Update the bunny.net app
+        if: steps.gate.outputs.bunny == 'true'
+        uses: BunnyWay/actions/container-update-image@main
+        with:
+          app_id: ${{ vars.BUNNY_LIVE_APP_ID }}
+          api_key: ${{ secrets.BUNNY_API_KEY }}
+          container: ${{ vars.BUNNY_LIVE_CONTAINER }}
+          image_tag: ${{ github.sha }}
