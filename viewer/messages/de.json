@@ -1,6 +1,7 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
 	"events": "Veranstaltungen",
+	"about": "Über SCUTOONS",
 	"attributions": "Quellenangaben",
 	"slogan": "Töne für deinen Bildschirm",
 	"next_release": "NÄCHSTE VERÖFFENTLICHUNG",
@@ -913,5 +914,13 @@
 		"dropouts": "{n} Aussetzer / Min · DSP {load} %",
 		"dropout_alert": "AUDIO-AUSSETZER – der Ton hat gestockt",
 		"more": "Mehr Regler"
+	},
+	"about_page": {
+		"origin_title": "Wie SCUTOONS entstanden ist",
+		"origin_1": "SCUTOONS ist aus einer Neurodiversität entstanden: Beim Hören von Musik entstehen in unseren Köpfen ganz von selbst Geschichten und Bilder. Diese Eigenschaft ist sehr selten – nur ungefähr einer von 5.000 Menschen hat sie.",
+		"origin_2": "Als wir das erkannt hatten, haben wir begonnen, den Liedern und der Musik genau die Bilder und Geschichten zuzuordnen, die unser Gehirn mit ihnen verbindet. So ist SCUTOONS zum Leben erwacht.",
+		"origin_3": "Unsere Figuren teilen diese Eigenschaft. Darum singen oder musizieren sie alle irgendwann – oder leben ihre Geschichten aus.",
+		"name_title": "Der Name",
+		"name_1": "Der Name kommt von Kiki Hitomi und steht in den Credits auf dem Klappentext der Schallplatte. Er setzt sich zusammen aus SCU – der japanischen Silbe スク für „Screen“ – und TOON: geschrieben T-O-O-N, gehört wie Tunes, wie bei den Looney Tunes. Die Toons sind unsere Figürchen, die Tunes die Musikstücke, die sie antreiben. Zugleich ist es eine Anlehnung an Graphic Novels und den unendlichen Scroll der Webtoons."
 	}
 }
