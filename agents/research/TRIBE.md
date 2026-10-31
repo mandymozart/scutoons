@@ -1,4 +1,4 @@
-Status: research 2026-10-31, issue #202 – the license (CC BY-NC) is open for the owner; no spike run yet.
+Status: proposal (owner 2026-10-31: "the concept is good, but let's keep it under proposals for now") – direction: our own model on our content, TRIBE tested briefly on an A100 as an analysis tool in the story → webtoon tool chain; issue #202.
 
 # TRIBE v2 → the reader's avatar mood (the Doom face)
 
@@ -68,3 +68,10 @@ against the story (the sermon's crescendo should peak) → the moods → shown i
 [Film-evoked emotion, insula + auditory – Sci Rep 2024](https://doaj.org/article/1dab6a61fd60425db3868633599c33ee) ·
 [Phan et al. meta-analysis of emotion activation studies](https://pubmed.ncbi.nlm.nih.gov/15048050) ·
 [YourStory on TRIBE v2](https://yourstory.com/ai-story/meta-tribe-v2-ai-model-human-thinking)
+
+## Owner's direction (2026-10-31)
+**A proposal for now, not a product feature.** The direction: **an analysis tool in our story → webtoon tool chain** –
+our own model on our content (the language-model reading of the slices, option 1 above), and **TRIBE tested briefly on
+a rented A100** to see what its arousal curve tells us about a chapter (where the tension rises, where it sags) next to
+the storyboard / slice editor. Internal analysis, not shipped to readers; the avatar HUD in the reader waits until the
+analysis proves useful. The license (CC BY-NC) still applies to anything that leaves the tool chain.
