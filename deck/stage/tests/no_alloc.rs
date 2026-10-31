@@ -213,6 +213,54 @@ fn the_being_steps_without_allocating() {
     assert!(shown >= 600 * being.buttons.len(), "every knob wears its value ring every frame: {shown}");
 }
 
+/// #204: the post stack's frame (its knobs read from the controls, the plan of the passes that run) and the glow's
+/// lights (the beings' cores chosen strongest first) never allocate – the conductor with ten decks' beings.
+#[cfg(feature = "space")]
+#[test]
+fn the_post_plan_and_the_lights_do_not_allocate() {
+    let _turn = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    use deck_stage::control::Controls;
+    use deck_stage::graph::Kind;
+    use deck_stage::scene::CONDUCTOR_SCENE;
+    use deck_stage::space::decks::Remote;
+    use deck_stage::space::portrait::Portraits;
+    use deck_stage::space::post::Knobs;
+    use deck_stage::space::{Space, MAX_LIGHTS};
+    use deck_stage::tempo;
+    let scene = deck_stage::modules::carried_part(&Scene::parse(CONDUCTOR_SCENE).unwrap());
+    let graph = Graph::build(&scene).unwrap();
+    let node = graph.first(deck_stage::graph::Kind::Space).unwrap();
+    let mut ctl = Controls::new(&graph, None);
+    let mut space = Space::new(&graph, node, &scene.being, std::path::Path::new("/nowhere"), Portraits::manual());
+    for k in 0..10 {
+        let mut r = Remote::new(format!("deck{k}"), graph.clone(), &scene.being);
+        r.being.center.x = k as f32;
+        space.others.push(r);
+    }
+    assert_eq!(space.post.effects().count(), 4, "the conductor lists the four passes");
+    let mut lights = [[0.0f32; 8]; MAX_LIGHTS];
+    let (mut ran, mut lit) = (0, 0);
+    measure(true);
+    let before = CALLS.load(Ordering::SeqCst);
+    for f in 0..600 {
+        let beat = tempo::Now { bpm: 84.0, pos: tempo::position(f as f64 * 0.023, 4), per_bar: 4, running: true };
+        ctl.update(1.0 / 60.0, 0, &beat);
+        // a knob through the passes: bloom off and on, the pixels coarser
+        ctl.set(node, Kind::Space.input("bloom").unwrap(), (f % 120) as f32 / 60.0);
+        ctl.set(node, Kind::Space.input("pixel").unwrap(), 1.0 + (f % 7) as f32);
+        let k = Knobs::read(&ctl, node);
+        ran += space.post.plan(&k).passes().len();
+        space.being.glow = (f % 50) as f32 * 0.04;
+        let mut eye = space.camera.eye();
+        eye.x = (f % 13) as f32;
+        lit += space.write_lights(eye, &mut lights);
+    }
+    measure(false);
+    assert_eq!(CALLS.load(Ordering::SeqCst) - before, 0, "allocations / frees in the post plan and the lights");
+    assert!(ran > 600, "passes ran: {ran}");
+    assert_eq!(lit, 600 * MAX_LIGHTS, "eight lights every frame");
+}
+
 /// The outlet's frame (#186) never allocates: the crossfade's numbers per frame and the empty polls of the composer's
 /// channels (a new plane is an upload, like a chapter's cut – not every frame).
 #[test]
