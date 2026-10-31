@@ -1,0 +1,38 @@
+# deck-space – the 3D space and the being (#188, #198), lifted out of deck-stage so the same code draws on the deck
+# (deck-stage, native) and in the browser (deck/space-web, wasm32). The core – the scene model (graph, params, scene) and
+# the tempo's `Now` – is always there; the space itself is the feature `being`, its GPU passes `gpu`, the loaders on
+# threads and from files (set, portraits, image decoding in Rust) `native`. Everything but `native` builds for
+# wasm32-unknown-unknown (deck.yml checks it).
+[package]
+name = "deck-space"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+# everything by default (`cargo test -p deck-space` covers it all); deck-stage and space-web pick theirs
+default = ["being", "gpu", "native"]
+# the space: the set's glTF (meshopt), the being (tethered buttons, hoses, bubbles, the head, labels), the camera,
+# picking and drag, the feelings, the conductor's mirrored beings, the deck stream's wire forms
+being = ["dep:glam", "dep:serde_json", "dep:ab_glyph", "dep:image", "dep:bytemuck", "dep:protocol"]
+# the space's GPU passes (wgpu)
+gpu = ["being", "dep:wgpu"]
+# loaders on threads and from files: a set's .glb, the portraits from a folder, images decoded in Rust (WebP, PNG)
+native = ["being", "image/png", "image/webp"]
+
+[dependencies]
+deck-core = { workspace = true, features = ["tempo"] }
+anyhow.workspace = true
+serde.workspace = true
+toml.workspace = true
+tracing.workspace = true
+serde_json = { workspace = true, optional = true }
+protocol = { workspace = true, optional = true }
+glam = { version = "0.28", optional = true }
+ab_glyph = { version = "0.2", optional = true }
+bytemuck = { version = "1", features = ["derive"], optional = true }
+# resizing and mip levels; decoding only with `native` (the browser decodes the web's images)
+image = { version = "0.25", default-features = false, optional = true }
+wgpu = { version = "25", optional = true }

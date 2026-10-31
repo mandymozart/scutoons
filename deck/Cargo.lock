@@ -764,6 +764,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "deck-space"
+version = "0.1.0"
+dependencies = [
+ "ab_glyph",
+ "anyhow",
+ "bytemuck",
+ "deck-core",
+ "glam",
+ "image",
+ "protocol",
+ "serde",
+ "serde_json",
+ "toml 0.8.23",
+ "tracing",
+ "wgpu",
+]
+
+[[package]]
 name = "deck-stage"
 version = "0.1.0"
 dependencies = [
@@ -773,9 +791,9 @@ dependencies = [
  "cpal",
  "deck-core",
  "deck-link",
+ "deck-space",
  "font8x8",
  "fundsp",
- "glam",
  "image",
  "libc",
  "midir",

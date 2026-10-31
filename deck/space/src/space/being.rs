@@ -32,7 +32,7 @@ use crate::space::camera::Ray;
 use crate::space::feel::{self, Feel, Senses};
 use crate::space::label::{write_num, Label, Text, LABELS};
 use std::fmt::Write;
-use crate::space::values::{Path, Values};
+use crate::space::values::{Knobs, Path, Values};
 use crate::params::{self, Spec};
 use crate::tempo;
 use glam::Vec3;
@@ -201,7 +201,7 @@ pub struct Button {
     pub spec: Spec,
     /// driven by a hose (read-only)
     pub linked: bool,
-    /// the LFO's waveform (`port` is meaningless then; the value is an index into control::LFO_SHAPES)
+    /// the LFO's waveform (`port` is meaningless then; the value is an index into params::LFO_SHAPES)
     pub shape: bool,
     pub pos: Vec3,
     pub radius: f32,
@@ -451,7 +451,7 @@ impl Being {
             let core = Some(p.node) == core_node;
             for (rank, &k) in ports.iter().enumerate() {
                 let (name, spec, linked, scene) = if k == usize::MAX {
-                    let names = crate::control::LFO_SHAPES;
+                    let names = crate::params::LFO_SHAPES;
                     let scene = node.str("shape").and_then(|n| names.iter().position(|x| *x == n)).unwrap_or(0) as f32;
                     ("shape", Spec { min: 0.0, max: (names.len() - 1) as f32, default: 0.0, curve: params::Curve::Lin }, false, scene)
                 } else {
@@ -750,7 +750,7 @@ impl Being {
 
     /// The feelings' nudges into this deck's graph (after `update`; a mirrored being has none of its own). Never
     /// allocates.
-    pub fn push(&mut self, ctl: &mut crate::control::Controls) {
+    pub fn push(&mut self, ctl: &mut dyn Knobs) {
         self.feel.push(ctl);
         // a double click's ease back (smoothstep: it leaves gently and lands gently); a waveform jumps at once
         if let Some(r) = self.reset.as_mut() {
@@ -992,7 +992,7 @@ impl Being {
     pub fn label(&self, i: usize, out: &mut Text) -> std::fmt::Result {
         let b = &self.buttons[i];
         if b.shape {
-            let names = crate::control::LFO_SHAPES;
+            let names = crate::params::LFO_SHAPES;
             return write!(out, "shape {}", names[(b.value.max(0.0) as usize).min(names.len() - 1)]);
         }
         write!(out, "{} ", b.name)?;
@@ -1095,9 +1095,8 @@ fn exposed(list: &[String], node: &str, port: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::control::Controls;
-    use crate::scene::Scene;
-    use crate::space::values::Local;
+        use crate::scene::Scene;
+    use crate::space::values::{Local, Table};
 
     const SCENE: &str = "[[node]]\nid=\"space\"\nkind=\"space\"\n[[node]]\nid=\"screen\"\nkind=\"screen\"\n\
         [[node]]\nid=\"lfo\"\nkind=\"lfo\"\nrate=2\n[[node]]\nid=\"fm\"\nkind=\"fm\"\n[[node]]\nid=\"out\"\nkind=\"audio_out\"\n\
@@ -1151,11 +1150,11 @@ mod tests {
     fn bubbles_flow_from_the_source_to_the_target_when_the_value_changes() {
         let g = graph(SCENE);
         let mut b = Being::new(&g, &Look::default());
-        let mut c = Controls::new(&g, None);
+        let mut c = Table::new(&g);
         let lfo_hose = b.hoses.iter().position(|h| h.ty == PortType::Control).unwrap();
         let silent = |_: usize, _: usize| 0.0;
         for f in 0..120 {
-            c.update(1.0 / 60.0, 0, &now(f as f64 / 30.0));
+            c.step(1.0 / 60.0);
             b.update(1.0 / 60.0, f as f32 / 60.0, &Local { ctl: &c, meter: &silent }, &now(f as f64 / 30.0));
         }
         let h = &b.hoses[lfo_hose];
@@ -1164,7 +1163,7 @@ mod tests {
         assert_eq!((b.points[h.from].node, b.points[h.to].node), (2, 3));
         assert_eq!((h.ctrl[0], h.ctrl[3]), (b.points[h.from].pos, b.points[h.to].pos));
         let before = h.bubbles;
-        c.update(1.0 / 60.0, 0, &now(4.0));
+        c.step(1.0 / 60.0);
         b.update(1.0 / 60.0, 2.0, &Local { ctl: &c, meter: &silent }, &now(4.0));
         let h = &b.hoses[lfo_hose];
         let mut moved = 0;
@@ -1189,9 +1188,9 @@ mod tests {
     fn a_steady_value_makes_no_bubbles() {
         let g = graph("[[node]]\nid=\"l\"\nkind=\"lfo\"\nrate=0\n[[node]]\nid=\"p\"\nkind=\"test_pattern\"\n[[link]]\nfrom=\"l\"\nto=\"p.hue\"\n");
         let mut b = Being::new(&g, &Look::default());
-        let mut c = Controls::new(&g, None);
+        let mut c = Table::new(&g);
         for f in 0..300 {
-            c.update(1.0 / 60.0, 0, &now(0.0));
+            c.step(1.0 / 60.0);
             b.update(1.0 / 60.0, f as f32 / 60.0, &Local { ctl: &c, meter: &|_, _| 0.0 }, &now(0.0));
         }
         assert!(b.hoses[0].bubbles.iter().all(|x| x.size == 0.0));
@@ -1202,7 +1201,7 @@ mod tests {
     fn picking_finds_the_nearest_button() {
         let g = graph(SCENE);
         let mut b = Being::new(&g, &Look::default());
-        let c = Controls::new(&g, None);
+        let c = Table::new(&g);
         b.update(0.0, 0.0, &Local { ctl: &c, meter: &|_, _| 0.0 }, &now(0.0));
         let target = b.buttons[3].pos;
         let origin = target + Vec3::new(0.0, 0.0, 5.0);
@@ -1218,11 +1217,11 @@ mod tests {
     fn write_fills_the_buffers_within_capacity() {
         let g = graph(SCENE);
         let mut b = Being::new(&g, &Look::default());
-        let mut c = Controls::new(&g, None);
+        let mut c = Table::new(&g);
         let (ns, nv) = b.capacity();
         let (mut s, mut v) = (Vec::with_capacity(ns), Vec::with_capacity(nv));
         for f in 0..200 {
-            c.update(1.0 / 60.0, 0, &now(f as f64 / 20.0));
+            c.step(1.0 / 60.0);
             b.update(1.0 / 60.0, f as f32 / 60.0, &Local { ctl: &c, meter: &|_, _| 1.0 }, &now(f as f64 / 20.0));
             let solid = b.write(&mut s, &mut v);
             assert_eq!(solid, 5 + 12 + 5, "nuclei + buttons + sockets");
@@ -1236,7 +1235,7 @@ mod tests {
     fn it_breathes_on_the_beat() {
         let g = graph(SCENE);
         let mut b = Being::new(&g, &Look::default());
-        let c = Controls::new(&g, None);
+        let c = Table::new(&g);
         b.update(0.0, 0.0, &Local { ctl: &c, meter: &|_, _| 0.0 }, &now(8.0));
         let on = b.swell;
         b.update(0.0, 0.0, &Local { ctl: &c, meter: &|_, _| 0.0 }, &now(8.9));
@@ -1277,7 +1276,7 @@ mod tests {
         assert!(h.pos.y > b.center.y + b.look.size && (0..5).all(|i| h.socket(i, 5).y < h.pos.y));
     }
 
-    fn step(b: &mut Being, c: &Controls, frames: usize) {
+    fn step(b: &mut Being, c: &Table, frames: usize) {
         for f in 0..frames {
             b.update(1.0 / 60.0, f as f32 / 60.0, &Local { ctl: c, meter: &|_, _| 0.0 }, &now(0.0));
         }
@@ -1295,7 +1294,7 @@ mod tests {
         }
         let g = graph(SCENE);
         let mut b = Being::new(&g, &Look::default());
-        let mut c = Controls::new(&g, None);
+        let mut c = Table::new(&g);
         let fm = g.nodes.iter().position(|n| n.id == "fm").unwrap();
         let ratio = b.buttons.iter().position(|x| x.node == fm && x.name == "ratio").unwrap();
         let gain = b.buttons.iter().position(|x| x.node == fm && x.name == "gain").unwrap();
@@ -1350,7 +1349,7 @@ mod tests {
     fn hover_and_grip_show_on_the_button() {
         let g = graph(SCENE);
         let mut b = Being::new(&g, &Look::default());
-        let c = Controls::new(&g, None);
+        let c = Table::new(&g);
         let (ns, nv) = b.capacity();
         let (mut s, mut v) = (Vec::with_capacity(ns), Vec::with_capacity(nv));
         let glow = b.buttons.iter().position(|x| x.name == "glow").unwrap();
@@ -1388,7 +1387,7 @@ mod tests {
     fn labels_name_the_button_and_its_value() {
         let g = graph(SCENE);
         let mut b = Being::new(&g, &Look::default());
-        let c = Controls::new(&g, None);
+        let c = Table::new(&g);
         step(&mut b, &c, 2);
         let text = |b: &Being, i: usize| {
             let mut t = Text::default();
@@ -1420,7 +1419,7 @@ mod tests {
     fn a_reset_eases_back_to_the_scene() {
         let g = graph(&SCENE.replace("kind=\"fm\"\n", "kind=\"fm\"\nratio=2.5\n"));
         let mut b = Being::new(&g, &Look::default());
-        let mut c = Controls::new(&g, None);
+        let mut c = Table::new(&g);
         let i = b.buttons.iter().position(|x| x.name == "ratio").unwrap();
         assert_eq!(b.buttons[i].scene, 2.5);
         let (node, port) = (b.buttons[i].node, b.buttons[i].port);

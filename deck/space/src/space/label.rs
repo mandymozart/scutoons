@@ -1,9 +1,19 @@
 //! The buttons' 3D labels (#188, owner 2026-10-31: "the buttons give very poor visual feedback"): `glow 0.60` next to
 //! the hovered / turned button, `index 3.20 < sway` on a linked one, the range under a gripped one – always facing the
 //! camera, a fixed size on the screen. The text is set without allocating (a fixed byte buffer, `fmt::Write`); the GPU
-//! draws it as one quad per character from a glyph atlas made once at the start (IBM Plex Mono Bold, text.rs) – no
+//! draws it as one quad per character from a glyph atlas made once at the start (IBM Plex Mono Bold, `mono`) – no
 //! texture work per frame (gpu.rs).
 use std::fmt::{self, Write};
+use std::sync::OnceLock;
+
+/// IBM Plex Mono Bold (SIL OFL, deck/stage/assets – the reader's mono font; deck-stage's text.rs sets the chapters with it)
+static MONO: &[u8] = include_bytes!("../../../stage/assets/IBMPlexMono-Bold-latin.ttf");
+
+/// the labels' font, parsed once
+pub fn mono() -> &'static ab_glyph::FontRef<'static> {
+    static F: OnceLock<ab_glyph::FontRef<'static>> = OnceLock::new();
+    F.get_or_init(|| ab_glyph::FontRef::try_from_slice(MONO).expect("IBM Plex Mono"))
+}
 
 /// labels per frame at most (all beings), and characters per label
 pub const LABELS: usize = 8;
@@ -81,7 +91,7 @@ impl Atlas {
     /// `px` = the font's size in pixels (the glyphs are drawn smaller or larger on the screen)
     pub fn new(px: f32) -> Atlas {
         use ab_glyph::{point, Font, PxScale, ScaleFont};
-        let font = crate::text::mono();
+        let font = mono();
         let sf = font.as_scaled(PxScale::from(px));
         let cw = sf.h_advance(font.glyph_id('0')).ceil() as u32 + 2;
         let ch = (sf.ascent() - sf.descent()).ceil() as u32 + 2;

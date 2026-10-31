@@ -7,23 +7,31 @@
 //! `<cache>/portraits`), either `DIR/<char>/<char>_portrait-<mood>.<ext>` (the layout of media/characters/) or flat in
 //! `DIR`. **#180:** the deck-token fetch from the CDN (cached on DECKDATA) becomes a second `Source` that downloads into
 //! that same folder and then reads it – the heads don't change.
+//!
+//! Without threads (the browser, #198) the Portraits are `manual`: the host takes the requests (`requests`), fetches
+//! and decodes the sprites itself and hands them in (`deliver`).
 use super::glb::{half, Image};
+#[cfg(feature = "native")]
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, Sender};
 
 /// a sprite's longest side on the GPU (a head is at most a third of the screen)
 pub const MAX: u32 = 512;
+#[cfg(feature = "native")]
 const EXTENSIONS: [&str; 2] = ["png", "webp"];
 
 /// where a character's portrait sprites come from
+#[cfg(feature = "native")]
 pub trait Source: Send + 'static {
     /// the sprite of `character` in `mood` – its file, decoded (RGBA8); Err = why there is none
     fn load(&self, character: &str, mood: &str) -> Result<image::RgbaImage, String>;
 }
 
 /// a local folder: `<dir>/<char>/<char>_portrait-<mood>.<png|webp>`, else `<dir>/<char>_portrait-<mood>.<…>`
+#[cfg(feature = "native")]
 pub struct LocalDir(pub PathBuf);
 
+#[cfg(feature = "native")]
 impl LocalDir {
     /// the first file that exists for this character and mood
     pub fn find(&self, character: &str, mood: &str) -> Option<PathBuf> {
@@ -35,6 +43,7 @@ impl LocalDir {
     }
 }
 
+#[cfg(feature = "native")]
 impl Source for LocalDir {
     fn load(&self, character: &str, mood: &str) -> Result<image::RgbaImage, String> {
         let Some(path) = self.find(character, mood) else {
@@ -62,17 +71,22 @@ pub struct Slot {
 /// The sprites every head asked for, by slot (the renderer keeps a texture per ready slot).
 pub struct Portraits {
     pub slots: Vec<Slot>,
-    ask: Sender<(usize, String, String)>,
+    /// the loader thread's inbox; None = manual (the host asks: `requests`)
+    ask: Option<Sender<(usize, String, String)>>,
+    asked: Vec<(usize, String, String)>,
     got: Receiver<(usize, Result<Image, String>)>,
+    tell: Sender<(usize, Result<Image, String>)>,
     /// decoded, not yet on the GPU
     fresh: Vec<(usize, Image)>,
 }
 
 impl Portraits {
     /// the loader thread over `source` (it ends with the Portraits)
+    #[cfg(feature = "native")]
     pub fn new(source: Box<dyn Source>) -> Portraits {
         let (ask, asked) = mpsc::channel::<(usize, String, String)>();
         let (tell, got) = mpsc::channel();
+        let teller = tell.clone();
         std::thread::Builder::new()
             .name("portraits".into())
             .spawn(move || {
@@ -81,18 +95,35 @@ impl Portraits {
                     if let Err(e) = &r {
                         tracing::debug!("portrait: {e}");
                     }
-                    if tell.send((slot, r)).is_err() {
+                    if teller.send((slot, r)).is_err() {
                         break;
                     }
                 }
             })
             .expect("a thread");
-        Portraits { slots: Vec::new(), ask, got, fresh: Vec::new() }
+        Portraits { slots: Vec::new(), ask: Some(ask), asked: Vec::new(), got, tell, fresh: Vec::new() }
     }
 
     /// from a folder (`--portraits`)
+    #[cfg(feature = "native")]
     pub fn local(dir: &Path) -> Portraits {
         Portraits::new(Box::new(LocalDir(dir.to_path_buf())))
+    }
+
+    /// no loader: the host takes the requests and delivers the sprites (the browser)
+    pub fn manual() -> Portraits {
+        let (tell, got) = mpsc::channel();
+        Portraits { slots: Vec::new(), ask: None, asked: Vec::new(), got, tell, fresh: Vec::new() }
+    }
+
+    /// the sprites asked for since the last call (slot, character, mood) – manual Portraits only
+    pub fn requests(&mut self) -> Vec<(usize, String, String)> {
+        std::mem::take(&mut self.asked)
+    }
+
+    /// a requested sprite, decoded by the host (RGBA8), or why there is none – it shows from the next `poll`
+    pub fn deliver(&mut self, slot: usize, sprite: Result<image::RgbaImage, String>) {
+        let _ = self.tell.send((slot, sprite.map(prepare)));
     }
 
     /// A slot per mood of `character` (the same character and mood share one).
@@ -107,7 +138,12 @@ impl Portraits {
                 None => {
                     let i = self.slots.len();
                     self.slots.push(Slot { character: character.into(), mood: mood.clone(), state: State::Loading });
-                    let _ = self.ask.send((i, character.into(), mood.clone()));
+                    match &self.ask {
+                        Some(ask) => {
+                            let _ = ask.send((i, character.into(), mood.clone()));
+                        }
+                        None => self.asked.push((i, character.into(), mood.clone())),
+                    }
                     i
                 }
             })
@@ -213,7 +249,7 @@ fn prepare(img: image::RgbaImage) -> Image {
     Image { levels }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
     use std::time::{Duration, Instant};

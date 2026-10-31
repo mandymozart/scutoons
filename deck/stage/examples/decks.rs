@@ -9,7 +9,7 @@ use deck_stage::control::Controls;
 use deck_stage::graph::{Graph, Kind};
 use deck_stage::scene::{Scene, CATHEDRAL_SCENE};
 use deck_stage::space::portrait::Portraits;
-use deck_stage::space::Space;
+use deck_stage::space::{Connect, Space};
 use deck_stage::tempo;
 use std::path::Path;
 use std::time::{Duration, Instant};

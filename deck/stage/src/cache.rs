@@ -23,22 +23,8 @@ pub fn default_dir() -> PathBuf {
     base.join("scutoons").join("deck-cache")
 }
 
-/// A set's 3D file at `quality` under `sets` (`--sets`, default `<cache>/sets`): `<sets>/<id>/<id>.<quality>.glb` (the
-/// sync's layout), else `<sets>/<id>.<quality>.glb` (tools/rooms' build output, e.g. media/scutoons/rooms) – the first
-/// that exists, else the first (where the sync puts it).
-pub fn set_file(sets: &Path, id: &str, quality: &str) -> PathBuf {
-    let name = format!("{id}.{quality}.glb");
-    let canonical = sets.join(id).join(&name);
-    if canonical.is_file() {
-        return canonical;
-    }
-    let flat = sets.join(&name);
-    if flat.is_file() {
-        flat
-    } else {
-        canonical
-    }
-}
+/// A set's 3D file at `quality` under `sets` (deck-space's scene.rs – the space node reads it too).
+pub use deck_space::scene::set_file;
 
 #[cfg(test)]
 mod tests {

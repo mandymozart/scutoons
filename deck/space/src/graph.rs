@@ -237,7 +237,8 @@ pub struct Graph {
 }
 
 impl Graph {
-    /// The scene's graph – refused when it needs a module this build does not carry (modules.rs names the feature).
+    /// The scene's graph, checked as a graph. Whether a build carries the modules its kinds need is deck-stage's check
+    /// (its modules.rs, before it builds a scene); the space draws any kind.
     pub fn build(scene: &Scene) -> Result<Graph> {
         let mut nodes = Vec::new();
         let mut by_id = HashMap::new();
@@ -248,7 +249,6 @@ impl Graph {
             }
             nodes.push(Node { id: n.id.clone(), kind, params: n.params.clone() });
         }
-        crate::modules::check(scene)?;
         for sink in [Kind::Screen, Kind::AudioOut, Kind::Tempo, Kind::Space, Kind::Outlet] {
             if nodes.iter().filter(|n| n.kind == sink).count() > 1 {
                 bail!("a scene has at most one {sink:?} node");
@@ -329,7 +329,7 @@ mod tests {
 
     #[test]
     fn the_default_scene_builds_in_order() {
-        let g = Graph::build(&crate::modules::carried_part(&Scene::parse(crate::scene::DEFAULT_SCENE).unwrap())).unwrap();
+        let g = Graph::build(&Scene::parse(crate::scene::DEFAULT_SCENE).unwrap()).unwrap();
         assert!(g.links.iter().any(|l| !l.orders(&g.nodes)), "the scene's FFT feedback");
         for l in g.links.iter().filter(|l| l.orders(&g.nodes)) {
             let pos = |i| g.order.iter().position(|&x| x == i).unwrap();

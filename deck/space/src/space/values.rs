@@ -5,9 +5,26 @@
 //! A value's path on the wire is `node.port` – a control input (a button), a control output or an audio output (its
 //! block peak; what a hose's bubbles follow) – or `node.shape` for an LFO's waveform (an index into LFO_SHAPES). No
 //! kind has an input and an output of the same name, so a path is never ambiguous (graph.rs, tested below).
-use crate::control::Controls;
+//!
+//! `Knobs` (#198) is what the space reads and turns of a graph's control domain: deck-stage's `Controls` on the deck, a
+//! the page's `Mirror` in the browser (deck/space-web), a `Table` in tests.
 use crate::graph::{Graph, Kind, PortType};
 use crate::params;
+
+/// A graph's control domain as the space sees it: what an input reads, a node's outputs this frame, an LFO's shape –
+/// and the hand that turns an unlinked input (a button's drag, a feeling's nudge, a double click's ease back).
+pub trait Knobs {
+    /// `node`'s control input `port`: the linked output mapped by the link, else the node's own param, else `default`
+    fn input(&self, node: usize, port: &str, default: f32) -> f32;
+    /// `node`'s control outputs this frame (its port order)
+    fn outputs(&self, node: usize) -> &[f32];
+    /// an LFO's shape (an index into LFO_SHAPES); None for other nodes
+    fn lfo_shape(&self, node: usize) -> Option<usize>;
+    /// `node`'s unlinked control input `port` to `value`; false = linked (or no such port), nothing changes
+    fn set(&mut self, node: usize, port: usize, value: f32) -> bool;
+    /// an LFO's shape from outside; false for other nodes
+    fn set_lfo_shape(&mut self, node: usize, shape: usize) -> bool;
+}
 
 pub trait Values {
     /// `node`'s control input `port` (linked or not), else `default`
@@ -22,7 +39,7 @@ pub trait Values {
 
 /// this deck's own graph: the control domain + the audio meters (node, port → peak)
 pub struct Local<'a> {
-    pub ctl: &'a Controls,
+    pub ctl: &'a dyn Knobs,
     pub meter: &'a dyn Fn(usize, usize) -> f32,
 }
 
@@ -106,7 +123,7 @@ impl Mirror {
         match resolve(graph, path) {
             Some(Path::Input(n, p)) => self.inputs[n][p] = x,
             Some(Path::Output(n, p)) => self.outputs[n][p] = x,
-            Some(Path::Shape(n)) => self.shapes[n] = Some((x.max(0.0) as usize).min(crate::control::LFO_SHAPES.len() - 1)),
+            Some(Path::Shape(n)) => self.shapes[n] = Some((x.max(0.0) as usize).min(crate::params::LFO_SHAPES.len() - 1)),
             None => return false,
         }
         true
@@ -131,6 +148,156 @@ impl Values for Mirror {
     }
     fn lfo_shape(&self, node: usize) -> Option<usize> {
         self.shapes[node]
+    }
+}
+
+/// The page's hand in the browser (#198, deck/space-web): a button or a feeling turns the mirror's values, the page
+/// reads them back – one state, not two.
+impl Mirror {
+    /// `node`'s input `port` as last written (NaN = never)
+    pub fn raw_input(&self, node: usize, port: usize) -> f32 {
+        self.inputs[node][port]
+    }
+
+    /// `node`'s input `port` to `value` (false: no such port)
+    pub fn set_input(&mut self, node: usize, port: usize, value: f32) -> bool {
+        match self.inputs.get_mut(node).and_then(|i| i.get_mut(port)) {
+            Some(v) => {
+                *v = value;
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// `node`'s outputs as last written
+    pub fn outputs_of(&self, node: usize) -> &[f32] {
+        &self.outputs[node]
+    }
+
+    /// an LFO's shape (false for other nodes)
+    pub fn set_shape(&mut self, node: usize, shape: usize) -> bool {
+        match self.shapes.get_mut(node) {
+            Some(Some(s)) => {
+                *s = shape.min(params::LFO_SHAPES.len() - 1);
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// `node`'s output `port` (a control value, an audio output's peak)
+    pub fn set_output(&mut self, node: usize, port: usize, value: f32) {
+        if let Some(v) = self.outputs.get_mut(node).and_then(|o| o.get_mut(port)) {
+            *v = value;
+        }
+    }
+}
+
+/// a linked input's source: (node, output port, scale, offset)
+type Linked = (usize, usize, f32, f32);
+
+/// A graph's control domain without the running stage (tests, tools): inputs from the node's params and its links (the
+/// linked output × scale + offset), outputs written by hand or by `step`'s LFOs – deck-stage's `Controls` without the
+/// audio, the FFT and the tempo node.
+#[derive(Debug, Clone)]
+pub struct Table {
+    kinds: Vec<Kind>,
+    /// per node, per input: the linked output, else the value set (NaN = the default)
+    inputs: Vec<Vec<(Option<Linked>, f32)>>,
+    outputs: Vec<Vec<f32>>,
+    shapes: Vec<Option<usize>>,
+    phases: Vec<f32>,
+    order: Vec<usize>,
+}
+
+impl Table {
+    pub fn new(graph: &Graph) -> Table {
+        let inputs = graph
+            .nodes
+            .iter()
+            .enumerate()
+            .map(|(i, n)| {
+                n.kind
+                    .inputs()
+                    .iter()
+                    .enumerate()
+                    .map(|(k, port)| match graph.link_into(i, k) {
+                        Some(l) if l.ty == PortType::Control => (Some((l.from.0, l.from.1, l.scale, l.offset)), f32::NAN),
+                        _ if n.params.contains_key(port.name) => (None, n.f32(port.name, 0.0)),
+                        _ => (None, f32::NAN),
+                    })
+                    .collect()
+            })
+            .collect();
+        let shape = |s: &str| params::LFO_SHAPES.iter().position(|x| *x == s).unwrap_or(0);
+        Table {
+            kinds: graph.nodes.iter().map(|n| n.kind).collect(),
+            inputs,
+            outputs: graph.nodes.iter().map(|n| vec![0.0; n.kind.outputs().len()]).collect(),
+            shapes: graph.nodes.iter().map(|n| (n.kind == Kind::Lfo).then(|| shape(n.str("shape").unwrap_or("sine")))).collect(),
+            phases: vec![0.0; graph.nodes.len()],
+            order: graph.order.clone(),
+        }
+    }
+
+    /// `node`'s output `port` this frame
+    pub fn set_output(&mut self, node: usize, port: usize, value: f32) {
+        self.outputs[node][port] = value;
+    }
+
+    /// one frame of the LFOs in the graph's order, like the stage's control domain: (0.5 + 0.5 × wave) × depth
+    pub fn step(&mut self, dt: f32) {
+        for k in 0..self.order.len() {
+            let n = self.order[k];
+            let Some(shape) = self.shapes[n] else { continue };
+            let rate = self.input(n, "rate", 0.25);
+            let depth = self.input(n, "depth", 1.0);
+            let ph = (self.phases[n] + rate * dt).rem_euclid(1.0);
+            self.phases[n] = ph;
+            let wave = match shape {
+                0 => (std::f32::consts::TAU * ph).sin(),
+                1 => ph * 2.0 - 1.0,
+                _ if ph < 0.5 => 1.0,
+                _ => -1.0,
+            };
+            self.outputs[n][0] = (0.5 + 0.5 * wave) * depth;
+        }
+    }
+}
+
+impl Knobs for Table {
+    fn input(&self, node: usize, port: &str, default: f32) -> f32 {
+        let Some(k) = self.kinds[node].input(port) else { return default };
+        match self.inputs[node][k] {
+            (Some((n, p, scale, offset)), _) => self.outputs[n][p] * scale + offset,
+            (None, v) if v.is_nan() => default,
+            (None, v) => v,
+        }
+    }
+    fn outputs(&self, node: usize) -> &[f32] {
+        &self.outputs[node]
+    }
+    fn lfo_shape(&self, node: usize) -> Option<usize> {
+        self.shapes[node]
+    }
+    fn set(&mut self, node: usize, port: usize, value: f32) -> bool {
+        match self.inputs.get_mut(node).and_then(|i| i.get_mut(port)) {
+            Some((None, v)) => {
+                *v = value;
+                true
+            }
+            _ => false,
+        }
+    }
+    fn set_lfo_shape(&mut self, node: usize, shape: usize) -> bool {
+        match self.shapes.get_mut(node) {
+            Some(Some(s)) => {
+                *s = shape.min(params::LFO_SHAPES.len() - 1);
+                true
+            }
+            _ => false,
+        }
     }
 }
 
@@ -165,7 +332,7 @@ mod tests {
 
     #[test]
     fn paths_resolve_and_a_mirror_reads_what_came() {
-        let scene = crate::modules::carried_part(&Scene::parse(CATHEDRAL_SCENE).unwrap());
+        let scene = Scene::parse(CATHEDRAL_SCENE).unwrap();
         let g = Graph::build(&scene).unwrap();
         let fft = g.nodes.iter().position(|n| n.id == "fft").unwrap();
         assert_eq!(resolve(&g, "fft.level"), Some(Path::Output(fft, 0)));

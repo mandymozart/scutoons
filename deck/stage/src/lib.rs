@@ -1,22 +1,23 @@
 //! deck-stage as a library: the binary (main.rs) is the window + event loop around these; the integration tests
 //! (tests/) drive the audio engine directly. Modules are cargo features (#185, modules.rs): the core is always here,
-//! `space`, `sync`, `chapter`, `midi`, `osc`, `link`, `pipewire` only when the build asks for them.
+//! `space`, `sync`, `chapter`, `midi`, `osc`, `link`, `pipewire` only when the build asks for them. The space and the
+//! scene model live in deck-space (deck/space, #198).
 pub mod audio;
 pub mod cache;
 pub mod chapter;
 pub mod clock;
 pub mod control;
 pub mod fft;
-pub mod graph;
 pub mod hud;
 pub mod live;
 pub mod modules;
-pub mod params;
 pub mod render;
-pub mod scene;
 pub mod splash;
 pub mod tempo;
 pub mod watch;
+
+// the scene model is deck-space's (#198: the space builds its being from it, in the browser too)
+pub use deck_space::{graph, params, scene};
 
 #[cfg(feature = "chapter")]
 pub mod library;

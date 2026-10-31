@@ -14,18 +14,8 @@ use std::sync::{Arc, Mutex};
 /// how many samples the FFT ring holds (≈ 170 ms at 48 kHz; the frame thread drains it every frame)
 const TAP_RING: usize = 8192;
 
-/// a control input's value when neither the node nor a link sets it
-pub fn default_for(kind: Kind, port: &str) -> f32 {
-    match (kind, port) {
-        (_, "gain" | "gain1" | "gain2" | "gain3" | "gain4" | "rate") => 1.0,
-        (Kind::AudioOut, "volume") => 0.8,
-        (_, "freq") => 220.0,
-        (Kind::Noise, "cutoff") => 4000.0,
-        (Kind::Fm, "ratio") => 2.0,
-        (Kind::Fm, "index") => 1.0,
-        _ => 0.0,
-    }
-}
+/// the engine's default of an audio node's control input (deck-space's params.rs – the being's buttons read it too)
+pub use crate::params::default_for;
 
 pub fn make(node: &Node, index: usize, rate: f32, params: &[Param], h: &mut Handles) -> Result<Box<dyn Block>> {
     let p = |name: &str| params[node.kind.input(name).expect("a port of this kind")].clone();

@@ -130,7 +130,7 @@ point per graph node (sources low, sinks high: data rises toward the head), a ho
 tube; audio thick, video middle, control thin) and thin tendrils from the core to every point. **Bubbles** run along a
 hose from its source to its target when its value changes – control links: the change against the value's recent
 range, more and bigger the more it moves (a steady value: none); audio links: the source buffer's block peak; video
-links: a steady trickle. Every point carries its node's control inputs as **3D buttons** (`space/params.rs` ranges) and an LFO also its
+links: a steady trickle. Every point carries its node's control inputs as **3D buttons** (deck-space `params.rs` ranges) and an LFO also its
 waveform (sine · saw · square), each on a **tether** (owner 2026-10-31): the core's as spokes, any other node's as a
 chain, each button hanging from the one before it; its value is its distance from that point (low = close, high = far,
 clamped – `tether_len`), so a deck turned up wide sprawls and a quiet one stays compact, on the conductor's mirrored
@@ -324,7 +324,9 @@ with the token, ready, the cell, resume, the snapshot after a restart). Not yet:
   surface, the HUD (`src/hud.rs`, font8x8 into a small texture, integer scale by the screen height) on top. No hardware
   adapter → the software one (llvmpipe / lavapipe / WARP) at half the render size; a shader that does not compile →
   `pass` with the error in the log.
-- **Space** (`src/space/`, #188): `glb.rs` reads a set's 3D (.glb, tools/rooms' build) – meshes with POSITION, COLOR_0 (the rooms' build
+- **Space** (#188; the crate **deck-space**, `deck/space/src/space/` – lifted out in #198 so the browser draws the same
+  being, deck/space-web; the scene model `graph.rs` / `params.rs` / `scene.rs` lives there too, deck-stage re-exports it
+  and keeps `src/space/link.rs`, the relay link, and `modules::check` before a scene's graph is built): `glb.rs` reads a set's 3D (.glb, tools/rooms' build) – meshes with POSITION, COLOR_0 (the rooms' build
   bakes Unreal's lights into the vertex colours), TEXCOORD_0, unlit base-colour materials, WebP / PNG images
   (`EXT_texture_webp`), quantized attributes (`KHR_mesh_quantization`), **`EXT_meshopt_compression`** (decoded by
   `meshopt.rs` in plain Rust – the vertex codec v0 and the index codec v0 / v1 of the extension's bitstream spec; the

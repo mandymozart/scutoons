@@ -1,23 +1,23 @@
-//! The scene document: a TOML node graph (CYBERDECKS.md §8 – "a scene is a graph document, TOML now, later an entity on
+//! The scene document (deck-space, #198 – deck-stage plays it, the space builds its being from it): a TOML node graph (CYBERDECKS.md §8 – "a scene is a graph document, TOML now, later an entity on
 //! scutoons.com"). `[[node]]` = id + kind + the kind's params, `[[link]]` = `from = "node.port"` → `to = "node.port"`
 //! (a bare node id means its port `out`); control links map the value with `scale` and `offset`. `[being]` = the
 //! being's look when the scene has a `space` node (space/being.rs, #188 – with the graph it is what a being preset
 //! saves, #191).
 use anyhow::{Context, Result};
 use serde::Deserialize;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// The scene the stage plays when none is given: catpope 1's music + a synth, the FFT drives the test pattern.
-pub const DEFAULT_SCENE: &str = include_str!("../scenes/default.toml");
+pub const DEFAULT_SCENE: &str = include_str!("../../stage/scenes/default.toml");
 /// The Cathedral of decks (#188): the set `cathedral` from Cat Pope chapter 2 and this deck's being in it.
-pub const CATHEDRAL_SCENE: &str = include_str!("../scenes/cathedral.toml");
+pub const CATHEDRAL_SCENE: &str = include_str!("../../stage/scenes/cathedral.toml");
 /// Its conductor (#188 phase 4): the bigger being in the middle of the nave, PLF's portrait as its head, the decks' beings
 /// around it over the relay.
-pub const CONDUCTOR_SCENE: &str = include_str!("../scenes/conductor.toml");
+pub const CONDUCTOR_SCENE: &str = include_str!("../../stage/scenes/conductor.toml");
 /// A Live outlet (#186): the relay's cells for this deck's outlet over the space (the `live` and `space` modules).
-pub const OUTLET_SCENE: &str = include_str!("../scenes/outlet.toml");
+pub const OUTLET_SCENE: &str = include_str!("../../stage/scenes/outlet.toml");
 /// The core alone (#185): an LFO, the test pattern, the screen – what a stage shows when a scene can't be played.
-pub const TEST_PATTERN_SCENE: &str = include_str!("../scenes/test-pattern.toml");
+pub const TEST_PATTERN_SCENE: &str = include_str!("../../stage/scenes/test-pattern.toml");
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -28,11 +28,12 @@ pub struct Scene {
     pub nodes: Vec<NodeDef>,
     #[serde(default, rename = "link")]
     pub links: Vec<LinkDef>,
-    #[cfg(feature = "space")]
+    #[cfg(feature = "being")]
     #[serde(default)]
     pub being: crate::space::being::Look,
-    /// without the `space` module the being's look is kept as it is (the scene still parses; its space node is refused)
-    #[cfg(not(feature = "space"))]
+    /// without the space (deck-space's `being`, deck-stage's `space` module) the being's look is kept as it is (the
+    /// scene still parses; deck-stage refuses its space node)
+    #[cfg(not(feature = "being"))]
     #[serde(default)]
     pub being: toml::Table,
 }
@@ -91,6 +92,23 @@ pub fn split_ref(r: &str) -> (&str, &str) {
     match r.split_once('.') {
         Some((n, p)) => (n, p),
         None => (r, "out"),
+    }
+}
+
+/// A set's 3D file at `quality` under `sets` (`--sets`, default `<cache>/sets`): `<sets>/<id>/<id>.<quality>.glb` (the
+/// sync's layout), else `<sets>/<id>.<quality>.glb` (tools/rooms' build output, e.g. media/scutoons/rooms) – the first
+/// that exists, else the first (where the sync puts it).
+pub fn set_file(sets: &Path, id: &str, quality: &str) -> PathBuf {
+    let name = format!("{id}.{quality}.glb");
+    let canonical = sets.join(id).join(&name);
+    if canonical.is_file() {
+        return canonical;
+    }
+    let flat = sets.join(&name);
+    if flat.is_file() {
+        flat
+    } else {
+        canonical
     }
 }
 

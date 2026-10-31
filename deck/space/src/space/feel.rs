@@ -15,8 +15,7 @@
 //!
 //! The conductor's mirrored beings (decks.rs) run the conductor's `feel` rules on what their decks stream (their
 //! nudges stay with their decks); a rule whose source a graph lacks stays quiet. `step` and `push` never allocate.
-use super::values::{self, Path, Values};
-use crate::control::Controls;
+use super::values::{self, Knobs, Path, Values};
 use crate::graph::{Graph, PortType};
 use crate::params::{self, Spec};
 use crate::tempo;
@@ -412,7 +411,7 @@ impl Feel {
 
     /// The nudges into the graph: every kicked input at its resting value + the kicks, bounded by its range; an input
     /// whose kicks are over gets its resting value back once and is left alone.
-    pub fn push(&mut self, ctl: &mut Controls) {
+    pub fn push(&mut self, ctl: &mut dyn Knobs) {
         let t = self.t;
         for (i, tg) in self.targets.iter_mut().enumerate() {
             let now = ctl.input(tg.node, tg.name, tg.spec.default);
@@ -478,7 +477,7 @@ fn read(src: Source, vals: &dyn Values, s: &Senses, touch: f32) -> f32 {
 mod tests {
     use super::*;
     use crate::scene::Scene;
-    use crate::space::values::{Local, Mirror};
+    use crate::space::values::{Local, Mirror, Table};
 
     const SCENE: &str = "[[node]]\nid=\"space\"\nkind=\"space\"\n[[node]]\nid=\"voice\"\nkind=\"fm\"\nindex=2\n\
         [[node]]\nid=\"sway\"\nkind=\"lfo\"\nrate=0.5\n[[node]]\nid=\"fft\"\nkind=\"fft\"\n[[node]]\nid=\"out\"\nkind=\"audio_out\"\n\
@@ -599,10 +598,10 @@ mod tests {
         let mut moods = vec!["neutral".to_string(), "happy".to_string()];
         let mut f = Feel::new(&g, &[], &nudges, &mut moods, 3);
         assert_eq!(moods, ["neutral", "happy", "furious"]);
-        let mut ctl = Controls::new(&g, None);
+        let mut ctl = Table::new(&g);
         let beat = still();
         let s = Senses { energy: 0.0, touching: false, beat: &beat };
-        let frames = |f: &mut Feel, ctl: &mut Controls, n: usize| {
+        let frames = |f: &mut Feel, ctl: &mut Table, n: usize| {
             for _ in 0..n {
                 let v = Local { ctl, meter: &|_, _| 0.0 };
                 f.step(1.0 / 60.0, &v, &s);

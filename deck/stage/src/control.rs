@@ -30,8 +30,8 @@ enum Shape {
     Square,
 }
 
-/// an LFO's shapes by name (its `shape` param), in the order `lfo_shape` counts them
-pub const LFO_SHAPES: [&str; 3] = ["sine", "saw", "square"];
+/// an LFO's shapes by name (its `shape` param), in the order `lfo_shape` counts them (deck-space's params.rs)
+pub use crate::params::LFO_SHAPES;
 
 impl Shape {
     fn parse(s: &str) -> Shape {
@@ -311,6 +311,26 @@ impl Controls {
     /// (levels, batches) of the LFOs – the shape the build found
     pub fn shape(&self) -> (usize, usize) {
         (self.lfos.len(), self.lfos.iter().map(Vec::len).sum())
+    }
+}
+
+/// the space's view of the control domain (deck-space's `Knobs`, #198: the browser's is the page's mirror)
+#[cfg(feature = "space")]
+impl deck_space::space::values::Knobs for Controls {
+    fn input(&self, node: usize, port: &str, default: f32) -> f32 {
+        Controls::input(self, node, port, default)
+    }
+    fn outputs(&self, node: usize) -> &[f32] {
+        Controls::outputs(self, node)
+    }
+    fn lfo_shape(&self, node: usize) -> Option<usize> {
+        Controls::lfo_shape(self, node)
+    }
+    fn set(&mut self, node: usize, port: usize, value: f32) -> bool {
+        Controls::set(self, node, port, value)
+    }
+    fn set_lfo_shape(&mut self, node: usize, shape: usize) -> bool {
+        Controls::set_lfo_shape(self, node, shape)
     }
 }
 

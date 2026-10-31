@@ -1,7 +1,11 @@
 //! The control inputs as parameters (#188 phase 3): each kind's ports with a range, a curve and the default the stage
 //! uses when neither a link nor a param sets them – one table for the renderer's passes, the being's 3D buttons and
-//! (later) MIDI / OSC learn and #189's float-vector mapping. Audio kinds' defaults are the engine's (`audio::default_for`).
+//! (later) MIDI / OSC learn and #189's float-vector mapping. Audio kinds' defaults are the engine's (`default_for`).
 use crate::graph::{Domain, Kind};
+
+/// an LFO's shapes by name (its `shape` param), in the order its shape index counts them (deck-stage's control.rs,
+/// the being's waveform button)
+pub const LFO_SHAPES: [&str; 3] = ["sine", "saw", "square"];
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Curve {
@@ -55,10 +59,23 @@ pub fn default(kind: Kind, port: &str) -> f32 {
     spec(kind, port).default
 }
 
+/// a control input's value when neither the node nor a link sets it
+pub fn default_for(kind: Kind, port: &str) -> f32 {
+    match (kind, port) {
+        (_, "gain" | "gain1" | "gain2" | "gain3" | "gain4" | "rate") => 1.0,
+        (Kind::AudioOut, "volume") => 0.8,
+        (_, "freq") => 220.0,
+        (Kind::Noise, "cutoff") => 4000.0,
+        (Kind::Fm, "ratio") => 2.0,
+        (Kind::Fm, "index") => 1.0,
+        _ => 0.0,
+    }
+}
+
 /// `kind`'s control input `port` as a parameter
 pub fn spec(kind: Kind, port: &str) -> Spec {
     use Kind::*;
-    let audio = |s: Spec| Spec { default: crate::audio::default_for(kind, port), ..s };
+    let audio = |s: Spec| Spec { default: default_for(kind, port), ..s };
     match (kind, port) {
         (TestPattern, "speed") => lin(0.0, 4.0, 1.0),
         (TestPattern | Chapter, "zoom") => log(0.25, 4.0, 1.0),

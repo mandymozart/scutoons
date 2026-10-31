@@ -254,6 +254,7 @@ fn read_scene(args: &Args) -> Result<scene::Scene> {
 impl Show {
     /// Build the scene's graph (refused when it needs a module this build lacks – modules.rs) and start what plays it.
     fn load(args: &Args, scene: &scene::Scene) -> Result<Show> {
+        modules::check(scene)?;
         let graph = graph::Graph::build(scene)?;
         tracing::info!("scene '{}': {} nodes, {} links (modules: {})", scene.stage.name, graph.nodes.len(), graph.links.len(), modules::summary());
         let tempo_cfg = tempo::Config::from_graph(&graph)?;
@@ -365,6 +366,7 @@ impl Show {
             #[cfg(feature = "live")]
             {
                 let relay = outlet_settings(args).relay.or_else(|| deck_stage::live::config::Settings::read(std::path::Path::new(deck_stage::live::config::DECK_TOML)).relay);
+                use deck_stage::space::Connect;
                 s.connect(relay.as_deref(), args.token.clone(), Some(scene.stage.name.clone()));
             }
             s
@@ -538,7 +540,7 @@ impl App {
     /// then the old show stops (its audio device, its sources' ports, its renderer's surface) and the new one starts.
     fn reload(&mut self) {
         self.hud_at = -1.0;
-        let scene = match read_scene(&self.args).and_then(|s| graph::Graph::build(&s).map(|_| s)) {
+        let scene = match read_scene(&self.args).and_then(|s| modules::check(&s).and_then(|_| graph::Graph::build(&s)).map(|_| s)) {
             Ok(s) => s,
             Err(e) => {
                 tracing::error!("reload: {e:#} – the running scene stays");

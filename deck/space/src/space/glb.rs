@@ -10,6 +10,7 @@ use anyhow::{bail, ensure, Context, Result};
 use glam::{Mat4, Quat, Vec3};
 use serde::Deserialize;
 use std::collections::HashMap;
+#[cfg(feature = "native")]
 use std::path::Path;
 
 /// One vertex of the room, world space (24 bytes).
@@ -195,12 +196,35 @@ const SUPPORTED: &[&str] = &["EXT_meshopt_compression", "KHR_mesh_quantization",
 /// Load a room; `max_texture` caps the images' longer side (a bigger one is halved until it fits – the X1's memory);
 /// `hide` = node names whose mesh is left out (the scene's `hide`, owner 2026-10-30: the cathedral without its incense
 /// burner – the export stays as it is; the node's children and spots stay).
+#[cfg(feature = "native")]
 pub fn load(path: &Path, max_texture: u32, hide: &[String]) -> Result<Model> {
     let bytes = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
     parse(&bytes, max_texture, hide).with_context(|| format!("in {}", path.display()))
 }
 
+/// `load` from the file's bytes, its images decoded here (WebP, PNG)
+#[cfg(feature = "native")]
 pub fn parse(bytes: &[u8], max_texture: u32, hide: &[String]) -> Result<Model> {
+    parse_with(bytes, max_texture, hide, &mut |_, b| Ok(image::load_from_memory(b)?.to_rgba8()))
+}
+
+/// The .glb's images still encoded (WebP, PNG), by their glTF index – a browser decodes them itself (#198, space-web)
+/// and hands them to `parse_with`.
+pub fn encoded_images(bytes: &[u8]) -> Result<Vec<(usize, Vec<u8>)>> {
+    let (doc, bin) = split_glb(bytes)?;
+    let doc: Doc = serde_json::from_slice(doc).context("the glTF JSON")?;
+    let mut out = Vec::new();
+    for (i, def) in doc.images.iter().enumerate() {
+        if let Some(bv) = def.buffer_view {
+            let mut none = HashMap::new();
+            out.push((i, view(&doc, bin, &mut none, bv)?.0.to_vec()));
+        }
+    }
+    Ok(out)
+}
+
+/// `parse` with the images' decoder given: (the glTF image index, its encoded bytes) → RGBA8
+pub fn parse_with(bytes: &[u8], max_texture: u32, hide: &[String], decode: &mut dyn FnMut(usize, &[u8]) -> Result<image::RgbaImage>) -> Result<Model> {
     let (doc, bin) = split_glb(bytes)?;
     let doc: Doc = serde_json::from_slice(doc).context("the glTF JSON")?;
     for e in &doc.extensions_required {
@@ -268,7 +292,7 @@ pub fn parse(bytes: &[u8], max_texture: u32, hide: &[String]) -> Result<Model> {
                         Some(s) => Some(match image_of.get(&s) {
                             Some(&i) => i,
                             None => {
-                                room.images.push(read_image(&doc, bin, s, max_texture)?);
+                                room.images.push(read_image(&doc, bin, s, max_texture, decode)?);
                                 image_of.insert(s, room.images.len() - 1);
                                 room.images.len() - 1
                             }
@@ -453,13 +477,19 @@ fn check_bounds(acc: &Accessor, v: &[[f32; 4]]) -> Result<()> {
 }
 
 /// an image: its bytes (a buffer view, the only way in a .glb), decoded to RGBA8 (WebP, PNG), halved until it fits
-fn read_image(doc: &Doc, bin: &[u8], i: usize, max_texture: u32) -> Result<Image> {
+fn read_image(doc: &Doc, bin: &[u8], i: usize, max_texture: u32, decode: &mut dyn FnMut(usize, &[u8]) -> Result<image::RgbaImage>) -> Result<Image> {
     let def = doc.images.get(i).with_context(|| format!("no image {i}"))?;
     let Some(bv) = def.buffer_view else { bail!("image {i} is not inside the .glb ({:?})", def.uri) };
     let mut none = HashMap::new();
     let (bytes, _) = view(doc, bin, &mut none, bv)?;
-    let mut img = image::load_from_memory(bytes).with_context(|| format!("decoding image {i}"))?.to_rgba8();
-    while img.width().max(img.height()) > max_texture.max(1) {
+    let img = decode(i, bytes).with_context(|| format!("decoding image {i}"))?;
+    Ok(mipmapped(img, max_texture))
+}
+
+/// an RGBA8 image halved until its longer side fits `max`, with its mip chain
+pub fn mipmapped(img: image::RgbaImage, max: u32) -> Image {
+    let mut img = img;
+    while img.width().max(img.height()) > max.max(1) {
         img = image::imageops::resize(&img, (img.width() / 2).max(1), (img.height() / 2).max(1), image::imageops::FilterType::Triangle);
     }
     let mut levels = vec![(img.width(), img.height(), img.into_raw())];
@@ -467,13 +497,14 @@ fn read_image(doc: &Doc, bin: &[u8], i: usize, max_texture: u32) -> Result<Image
         let next = half(w, h, px);
         levels.push(next);
     }
-    Ok(Image { levels })
+    Image { levels }
 }
 
 /// one mip level down: each texel the mean of its 2 × 2 (colour in linear light, alpha as is)
 pub fn half(w: u32, h: u32, px: &[u8]) -> (u32, u32, Vec<u8>) {
     let (nw, nh) = ((w / 2).max(1), (h / 2).max(1));
-    let lin = |b: u8| (b as f32 / 255.0).powf(2.2);
+    let table = linear();
+    let lin = |b: u8| table[b as usize];
     let mut out = vec![0u8; (nw * nh * 4) as usize];
     for y in 0..nh {
         for x in 0..nw {
@@ -485,7 +516,7 @@ pub fn half(w: u32, h: u32, px: &[u8]) -> (u32, u32, Vec<u8>) {
                     sum += if c == 3 { b as f32 / 255.0 } else { lin(b) };
                 }
                 let v = sum / 4.0;
-                let v = if c == 3 { v } else { v.powf(1.0 / 2.2) };
+                let v = if c == 3 { v } else { encode(v) };
                 out[((y * nw + x) * 4 + c) as usize] = (v * 255.0 + 0.5) as u8;
             }
         }
@@ -494,7 +525,18 @@ pub fn half(w: u32, h: u32, px: &[u8]) -> (u32, u32, Vec<u8>) {
 }
 
 
-#[cfg(test)]
+/// sRGB byte → linear light (a table: the same powf per byte, once – `half` reads it per texel)
+fn linear() -> &'static [f32; 256] {
+    static T: std::sync::OnceLock<[f32; 256]> = std::sync::OnceLock::new();
+    T.get_or_init(|| std::array::from_fn(|b| (b as f32 / 255.0).powf(2.2)))
+}
+
+/// linear light → sRGB-ish (the inverse of `linear`'s curve)
+fn encode(v: f32) -> f32 {
+    v.powf(1.0 / 2.2)
+}
+
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
 

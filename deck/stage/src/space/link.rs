@@ -7,7 +7,7 @@
 //! - **The conductor's deck** joins as `conductor` (a session token; any non-empty one on a dev relay) and hands the
 //!   frame thread the decks' beings: the snapshot's `decks` at the welcome, then each `deck.graph`, `deck.values` and
 //!   `presence` (who is there, who sends to whom). It never resumes – a fresh join brings the whole snapshot.
-use protocol::{DeckGraph, DeckLink, DeckNode, DeckValues, Envelope, Hello, Message, Ping, Role};
+use protocol::{DeckGraph, DeckValues, Envelope, Hello, Message, Ping, Role};
 use std::collections::HashMap;
 use std::io::ErrorKind;
 use std::net::{TcpStream, ToSocketAddrs};
@@ -18,27 +18,14 @@ use std::time::{Duration, Instant};
 use tungstenite::stream::MaybeTlsStream;
 use tungstenite::{Message as Ws, WebSocket};
 
-use super::being::Look;
-use super::Join;
-use crate::graph::Graph;
+use deck_space::space::wire::{In, Wire};
+use deck_space::space::Join;
 
 const PING_EVERY: Duration = Duration::from_secs(20);
 const POLL: Duration = Duration::from_millis(20);
 const BACKOFF: [u64; 5] = [1, 2, 4, 8, 10];
 /// the decks' group
 pub const GROUP: &str = "decks";
-
-/// what the conductor's frame thread learns
-#[derive(Debug, Clone, PartialEq)]
-pub enum In {
-    /// this stage's client id
-    Me(String),
-    /// a deck's being (joined, or its scene changed); its values and mood so far
-    Deck { client: String, graph: DeckGraph, values: HashMap<String, Vec<f64>>, mood: Option<String> },
-    Values { client: String, values: HashMap<String, Vec<f64>>, mood: Option<String> },
-    /// the decks there are and who sends to whom
-    Presence { decks: Vec<String>, routes: Vec<(String, String)> },
-}
 
 /// the running client: its events, its outbox, its HUD line; stops when dropped
 pub struct Link {
@@ -66,60 +53,20 @@ impl Link {
         std::thread::Builder::new().name("cathedral".into()).spawn(move || client.run()).map_err(|e| e.to_string())?;
         Ok(Link { rx, tx, status, stop })
     }
+}
 
-    /// a deck's changes (the client folds them, sends them in order)
-    pub fn send(&self, values: DeckValues) {
+impl Wire for Link {
+    fn send(&self, values: DeckValues) {
         let _ = self.tx.send(values);
     }
 
-    pub fn status(&self) -> String {
+    fn recv(&self) -> Option<In> {
+        self.rx.try_recv().ok()
+    }
+
+    fn status(&self) -> String {
         self.status.lock().map(|s| s.clone()).unwrap_or_default()
     }
-}
-
-/// a deck's being for the wire: its graph's nodes and links and the look's head – `moods` = the head's whole palette
-/// (the energy's ladder + the feelings' moods), so the conductor knows every mood the deck may stream
-pub fn deck_graph(graph: &Graph, look: &Look, moods: &[String]) -> DeckGraph {
-    let port = |(n, p): (usize, usize), out: bool| {
-        let node = &graph.nodes[n];
-        let name = if out { node.kind.outputs()[p].name } else { node.kind.inputs()[p].name };
-        format!("{}.{name}", node.id)
-    };
-    DeckGraph {
-        nodes: graph.nodes.iter().map(|n| DeckNode { id: n.id.clone(), kind: n.kind.name().into() }).collect(),
-        links: graph
-            .links
-            .iter()
-            .map(|l| DeckLink {
-                from: port(l.from, true),
-                to: port(l.to, false),
-                scale: (l.scale != 1.0).then_some(l.scale as f64),
-                offset: (l.offset != 0.0).then_some(l.offset as f64),
-            })
-            .collect(),
-        character: (!look.character.is_empty()).then(|| look.character.clone()),
-        size: Some(look.size as f64),
-        moods: Some(moods.to_vec()),
-        expose: (!look.expose.is_empty()).then(|| look.expose.clone()),
-    }
-}
-
-/// a deck's being from the wire: its graph (refused when this build lacks one of its kinds) and its look
-pub fn from_wire(g: &DeckGraph) -> anyhow::Result<(Graph, Look)> {
-    use crate::scene::{LinkDef, NodeDef, Scene};
-    let mut scene = Scene::parse("")?;
-    scene.nodes = g.nodes.iter().map(|n| NodeDef { id: n.id.clone(), kind: n.kind.clone(), params: toml::Table::new() }).collect();
-    scene.links = g
-        .links
-        .iter()
-        .map(|l| LinkDef { from: l.from.clone(), to: l.to.clone(), scale: l.scale.unwrap_or(1.0) as f32, offset: l.offset.unwrap_or(0.0) as f32 })
-        .collect();
-    let mut look = Look { size: g.size.unwrap_or(0.5).clamp(0.1, 2.0) as f32, character: g.character.clone().unwrap_or_default(), ..Look::default() };
-    if let Some(m) = g.moods.as_ref().filter(|m| !m.is_empty()) {
-        look.moods = m.clone();
-    }
-    look.expose = g.expose.clone().unwrap_or_default();
-    Ok((Graph::build(&scene)?, look))
 }
 
 struct Client {
@@ -297,43 +244,5 @@ impl Client {
                 _ => {}
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::scene::{Scene, CATHEDRAL_SCENE};
-
-    #[test]
-    fn a_being_survives_the_wire() {
-        let scene = crate::modules::carried_part(&Scene::parse(CATHEDRAL_SCENE).unwrap());
-        let g = Graph::build(&scene).unwrap();
-        let wire = deck_graph(&g, &scene.being, &scene.being.moods);
-        let json = serde_json::to_string(&Message::DeckGraph(wire.clone())).unwrap();
-        let Message::DeckGraph(back) = serde_json::from_str(&json).unwrap() else { panic!() };
-        let (g2, look) = from_wire(&back).unwrap();
-        assert_eq!(g2.nodes.iter().map(|n| (&n.id, n.kind)).collect::<Vec<_>>(), g.nodes.iter().map(|n| (&n.id, n.kind)).collect::<Vec<_>>());
-        assert_eq!(g2.links.len(), g.links.len());
-        for (a, b) in g.links.iter().zip(&g2.links) {
-            assert_eq!((a.from, a.to, a.scale, a.offset), (b.from, b.to, b.scale, b.offset));
-        }
-        assert_eq!((look.character.as_str(), look.size, &look.moods), (scene.being.character.as_str(), scene.being.size, &scene.being.moods));
-        // a kind this stage doesn't know: refused with its name
-        let mut odd = wire;
-        odd.nodes[0].kind = "teleporter".into();
-        assert!(from_wire(&odd).unwrap_err().to_string().contains("teleporter"));
-    }
-
-    /// #197: the browser deck's being (deck/lab/www/deck-scene.ts, its fixture kept equal by deck-client.test.ts)
-    /// builds on the conductor like a native deck's, its exposed parameters as buttons
-    #[test]
-    fn the_browser_decks_being_builds() {
-        let Message::DeckGraph(g) = serde_json::from_str(include_str!("../../../lab/fixtures/deck-graph.json")).unwrap() else { panic!() };
-        let (graph, look) = from_wire(&g).unwrap();
-        assert_eq!((graph.nodes.len(), graph.links.len()), (g.nodes.len(), g.links.len()));
-        assert_eq!(look.character, "yellowmouse");
-        let being = super::super::being::Being::new(&graph, &look);
-        assert_eq!(being.buttons.len(), g.expose.as_ref().unwrap().len(), "one button per exposed parameter");
     }
 }

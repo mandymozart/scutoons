@@ -95,17 +95,16 @@ impl Stream {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::control::Controls;
     use crate::scene::{Scene, CATHEDRAL_SCENE};
-    use crate::space::values::{Local, Mirror};
+    use crate::space::values::{Knobs, Local, Mirror, Table};
     use crate::tempo;
 
     /// a deck's stream, applied to a mirror of the same graph, makes the same being: what each button and hose shows
     #[test]
     fn a_mirror_fed_by_the_stream_shows_what_the_deck_shows() {
-        let scene = crate::modules::carried_part(&Scene::parse(CATHEDRAL_SCENE).unwrap());
+        let scene = Scene::parse(CATHEDRAL_SCENE).unwrap();
         let g = Graph::build(&scene).unwrap();
-        let mut ctl = Controls::new(&g, None);
+        let mut ctl = Table::new(&g);
         let mut deck = Being::new(&g, &scene.being);
         let mut far = Being::new(&g, &scene.being);
         let mut mirror = Mirror::new(&g);
@@ -117,7 +116,7 @@ mod tests {
         for f in 0..120 {
             let t = f as f32 / 60.0;
             let beat = tempo::Now { bpm: 84.0, pos: tempo::position(t as f64 * 1.4, 4), per_bar: 4, running: true };
-            ctl.update(1.0 / 60.0, 0, &beat);
+            ctl.step(1.0 / 60.0);
             ctl.set(knob.0, knob.1, 0.1 + f as f32 * 0.001);
             let local = Local { ctl: &ctl, meter: &meter };
             deck.update(1.0 / 60.0, t, &local, &beat);

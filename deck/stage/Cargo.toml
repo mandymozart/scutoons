@@ -20,8 +20,9 @@ path = "src/main.rs"
 # platform's (pipewire) and link (it needs cmake): a plain `cargo build` plays every bundled scene.
 [features]
 default = ["space", "sync", "chapter", "live", "midi", "osc"]
-# the 3D space and the deck's being (#188): glTF rooms (meshopt, WebP), the orbit camera, the 3D buttons and their labels
-space = ["dep:glam", "dep:serde_json", "dep:ab_glyph", "image/webp"]
+# the 3D space and the deck's being (#188): glTF rooms (meshopt, WebP), the orbit camera, the 3D buttons and their labels –
+# deck-space's (deck/space, #198), with its GPU passes and its loaders on threads
+space = ["deck-space/being", "deck-space/gpu", "deck-space/native", "dep:serde_json", "dep:ab_glyph", "image/webp"]
 # the deck's sync (#195): what the scene needs – its sets' 3D, its beings' portraits – from the API (scene-content) into
 # the cache, only what is missing or changed, offline from the cache (sync.rs)
 sync = ["dep:ureq", "dep:serde_json"]
@@ -46,6 +47,8 @@ link = ["dep:rusty_link"]
 # the batch evaluator's pieces (#183): `math` (sine, rounding without libm), `batch` (input columns, dependency levels);
 # the FFT analyzer and the tempo map (#185)
 deck-core = { workspace = true, features = ["analysis", "tempo"] }
+# the scene model (graph, params, scene) and – with `space` – the 3D space itself (#198: shared with the browser)
+deck-space = { path = "../space", default-features = false }
 anyhow.workspace = true
 serde.workspace = true
 serde_json = { workspace = true, optional = true }
@@ -66,8 +69,6 @@ ureq = { version = "2", optional = true }
 image = { version = "0.25", default-features = false, features = ["png"] }
 ab_glyph = { version = "0.2", optional = true }
 resvg = { version = "0.45", default-features = false }
-# the space node (#188): vectors and matrices for the camera, the room, the being
-glam = { version = "0.28", optional = true }
 # the tempo clock's external sources (#181): MIDI clock in / out, OSC
 midir = { workspace = true, optional = true }
 rosc = { workspace = true, optional = true }

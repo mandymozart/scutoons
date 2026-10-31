@@ -141,14 +141,8 @@ impl Config {
     }
 }
 
-/// The clock at this frame's heard moment.
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
-pub struct Now {
-    pub bpm: f64,
-    pub pos: Position,
-    pub per_bar: u32,
-    pub running: bool,
-}
+/// The clock at this frame's heard moment (deck-space's: the space reads it too).
+pub use deck_space::tempo::Now;
 
 /// The sources' I/O, opened when a source is first chosen (MIDI out: at the start, it doesn't depend on the master).
 #[derive(Default)]
@@ -449,8 +443,8 @@ mod tests {
         .unwrap();
         let c = Config::from_graph(&g).unwrap();
         assert_eq!((c.bpm, c.per_bar, c.source, c.click, c.osc.as_str()), (60.0, 3, Source::Osc, true, "0.0.0.0:9100"));
-        // an unknown source: the graph is refused already (the module check, #185)
-        let bad = Graph::build(&Scene::parse("[[node]]\nid=\"t\"\nkind=\"tempo\"\nsource=\"vinyl\"\n").unwrap());
+        // an unknown source: the scene is refused before its graph is built (the module check, #185)
+        let bad = crate::modules::check(&Scene::parse("[[node]]\nid=\"t\"\nkind=\"tempo\"\nsource=\"vinyl\"\n").unwrap());
         assert!(bad.unwrap_err().to_string().contains("unknown source 'vinyl'"));
         assert_eq!(Config::from_graph(&Graph::build(&Scene::parse("").unwrap()).unwrap()).unwrap(), Config::default());
     }

@@ -404,8 +404,10 @@ impl SpaceGpu {
     /// came or went (a join – not a frame's work).
     pub fn sync(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, space: &mut Space) {
         if let Some(room) = space.take_set() {
+            #[cfg(not(target_arch = "wasm32"))]
             let t = std::time::Instant::now();
             self.upload_room(device, queue, &room);
+            #[cfg(not(target_arch = "wasm32"))]
             tracing::info!("room on the GPU in {:.0} ms", t.elapsed().as_secs_f32() * 1000.0);
         }
         for (slot, img) in space.portraits.take() {
