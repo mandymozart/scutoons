@@ -409,15 +409,27 @@
       "additionalProperties": false
     },
     "Presence": {
-      "description": "relay → conductor: clients per group, who is ready; the decks that stream a being (#188 – a deck that left is gone from `decks`) and who sends values to whom (`routes`).",
+      "description": "relay → conductor: clients per group, who is ready; the decks that stream a being (#188 – a deck that left is gone from `decks`) and who sends values to whom (`routes`); each client's link (`links`, #223 – sent again when a client's rate changes).",
       "type": "object",
       "properties": {
         "groups": { "type": "object", "additionalProperties": { "type": "integer" } },
         "ready": { "type": "array", "items": { "type": "string" } },
         "decks": { "type": "array", "items": { "type": "string" }, "description": "client ids with a `deck.graph`, sorted" },
-        "routes": { "type": "array", "items": { "$ref": "#/definitions/Route" }, "description": "every sender → receiver pair `deck.values` went along, sorted" }
+        "routes": { "type": "array", "items": { "$ref": "#/definitions/Route" }, "description": "every sender → receiver pair `deck.values` went along, sorted" },
+        "links": { "type": "object", "additionalProperties": { "$ref": "#/definitions/LinkQuality" }, "description": "#223: each client's link as the relay measures it, by client id (audience phones left out)" }
       },
       "required": ["groups", "ready"],
+      "additionalProperties": false
+    },
+    "LinkQuality": {
+      "description": "#223: one client's link: the smoothed WebSocket ping round trip, the rate the relay sends it state-like messages at (`deck.values`, `presence`, `vote.tally`, `state` – 30 = as fast as they come, down to 5 on a link that can't carry more), and how many of them it replaced before they went out (a stalled client gets the newest, not a backlog).",
+      "type": "object",
+      "properties": {
+        "rtt": { "type": "integer", "minimum": 0, "description": "ms; missing before the first pong" },
+        "hz": { "type": "integer", "minimum": 1 },
+        "skipped": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["hz"],
       "additionalProperties": false
     },
     "Route": {

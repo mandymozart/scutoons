@@ -11,6 +11,7 @@
 // tungstenite's handshake callback must return its (large) `ErrorResponse` – not ours to shrink.
 #![allow(clippy::result_large_err)]
 
+pub mod link;
 pub mod outbox;
 pub mod session;
 pub mod tls;
@@ -41,8 +42,8 @@ pub use session::{targets, After, Client, Session};
 pub const MAX_CLIENTS: usize = 1000;
 /// A client that sends no `hello` within this time is dropped.
 pub const HELLO_TIMEOUT: Duration = Duration::from_secs(5);
-/// the relay's WebSocket ping to every client
-pub const PING_EVERY: Duration = Duration::from_secs(5);
+/// the relay's WebSocket ping to every client – the keep-alive, and its pong the link's round trip (#223)
+pub const PING_EVERY: Duration = Duration::from_secs(1);
 /// no frame at all (not even the pong) for this long = the client is gone
 pub const IDLE_TIMEOUT: Duration = Duration::from_secs(15);
 /// B.6: the vote tally goes to the conductor every 250 ms.
@@ -212,6 +213,15 @@ pub async fn serve(listener: TcpListener, relay: Arc<Relay>) -> anyhow::Result<(
     serve_with(listener, relay, None).await
 }
 
+/// One client on any byte stream – what an accepted socket gets, for an in-process client (the bench's lossy links,
+/// examples/bench.rs). Ends when the client leaves.
+pub async fn serve_stream<S>(stream: S, relay: Arc<Relay>) -> anyhow::Result<()>
+where
+    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+{
+    connection(stream, relay).await
+}
+
 /// Accept connections until the listener fails; with a TLS acceptor (tls.rs, #201) the same port speaks ws and wss.
 pub async fn serve_with(listener: TcpListener, relay: Arc<Relay>, tls: Option<TlsAcceptor>) -> anyhow::Result<()> {
     loop {
@@ -249,8 +259,8 @@ pub fn tune(stream: &TcpStream) -> io::Result<()> {
     Ok(())
 }
 
-/// #223: the unsent bytes the kernel may hold per client (≈ 100 frames of values)
-pub const UNSENT: usize = 16 * 1024;
+/// #223: the unsent bytes the kernel may hold per client (≈ 25 frames of values)
+pub const UNSENT: usize = 4 * 1024;
 
 /// TLS record type "handshake": the first byte of every ClientHello (an HTTP request starts with a letter)
 const TLS_HANDSHAKE: u8 = 0x16;
@@ -394,7 +404,7 @@ where
         }
     };
     tracing::info!(code, client = id, role = hello.role.as_str(), resume = hello.resume.is_some(), "joined");
-    let writer = tokio::spawn(write(sink, outbox.clone()));
+    let writer = tokio::spawn(write(sink, outbox.clone(), relay.clone(), code.clone()));
 
     loop {
         let next = tokio::select! {
@@ -412,7 +422,14 @@ where
         let text = match frame {
             Ok(Ws::Text(t)) => t,
             Ok(Ws::Close(_)) | Err(_) => break,
-            Ok(_) => continue, // binary / ping / pong frames: nothing in B.6 (a pong only proves the client is there)
+            // a pong proves the client is there and measures its link (#223)
+            Ok(Ws::Pong(payload)) => {
+                if outbox.pong(&payload, std::time::Instant::now()) {
+                    relay.with_session(&code, |s| s.tell_presence());
+                }
+                continue;
+            }
+            Ok(_) => continue, // binary / ping frames: nothing in B.6
         };
         let lead = relay.config.lead_ms;
         let after = relay.with_session(&code, |s| match serde_json::from_str::<Envelope>(&text) {
@@ -434,27 +451,32 @@ where
     Ok(())
 }
 
-/// One client's writer: everything its outbox holds goes out as one batch (fed, then one flush – one write for many
-/// small frames), and a WebSocket ping every PING_EVERY: browsers and tungstenite answer it themselves, so a client that
-/// stays silent past IDLE_TIMEOUT is gone even when its TCP side never closed (a phone reloading behind `adb reverse`
-/// left a ghost deck at the conductor, 2026-10-31).
-async fn write<S>(mut sink: S, outbox: Arc<Outbox>)
+/// One client's writer: what its outbox lets go goes out as one batch (fed, then one flush – one write for many small
+/// frames), timed for the link's rate (outbox.rs, link.rs); a WebSocket ping every PING_EVERY, numbered, so its pong
+/// measures the round trip. Browsers and tungstenite answer pings themselves, so a client that stays silent past
+/// IDLE_TIMEOUT is gone even when its TCP side never closed (a phone reloading behind `adb reverse` left a ghost deck at
+/// the conductor, 2026-10-31). A changed rate tells the conductor (presence).
+async fn write<S>(mut sink: S, outbox: Arc<Outbox>, relay: Arc<Relay>, code: String)
 where
     S: futures_util::Sink<Ws> + Unpin,
 {
     let mut batch: Vec<String> = Vec::with_capacity(64);
     let mut next_ping = tokio::time::Instant::now() + PING_EVERY;
+    let mut pings = 0u64;
     'out: loop {
         let now = tokio::time::Instant::now();
         let mut fed = false;
         if now >= next_ping {
             next_ping = now + PING_EVERY;
-            if sink.feed(Ws::Ping(Vec::new())).await.is_err() {
+            pings += 1;
+            outbox.pinged(pings, now.into_std());
+            if sink.feed(Ws::Ping(pings.to_be_bytes().to_vec())).await.is_err() {
                 break;
             }
             fed = true;
         }
-        outbox.take(now.into_std(), &mut batch);
+        let took = outbox.take(now.into_std(), &mut batch);
+        let texts = !batch.is_empty();
         for text in batch.drain(..) {
             if sink.feed(Ws::Text(text)).await.is_err() {
                 break 'out;
@@ -465,11 +487,16 @@ where
             if sink.flush().await.is_err() {
                 break;
             }
+            let done = tokio::time::Instant::now();
+            if texts && outbox.sent(done.into_std(), done - now, took.waited) {
+                relay.with_session(&code, |s| s.tell_presence());
+            }
             continue;
         }
+        let wake = took.until.map_or(next_ping, |t| next_ping.min(t.into()));
         tokio::select! {
             _ = outbox.pushed() => {}
-            _ = tokio::time::sleep_until(next_ping) => {}
+            _ = tokio::time::sleep_until(wake) => {}
         }
     }
     outbox.close();

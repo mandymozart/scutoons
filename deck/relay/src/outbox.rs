@@ -18,8 +18,10 @@ use std::fmt;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
-use protocol::{Envelope, Message};
+use protocol::{Envelope, LinkQuality, Message};
 use tokio::sync::Notify;
+
+use crate::link::Link;
 
 /// ordered messages waiting for one client before it is dropped (a resume's replay is ≤ 500, session.rs)
 pub const MAX_QUEUED: usize = 2048;
@@ -72,6 +74,8 @@ impl Frame {
 #[derive(Debug)]
 struct Slot {
     key: Latest,
+    /// when the first message of this slot was queued
+    since: Instant,
     frame: Arc<Frame>,
     merged: Option<Box<Envelope>>,
 }
@@ -130,13 +134,21 @@ struct Queue {
     closed: bool,
     /// state-like messages replaced before they went out
     skipped: u64,
+    /// #223: the link's quality and the rate state-like messages go out at (link.rs)
+    link: Link,
+    /// paced: state-like messages may go again from then on
+    next_paced: Option<Instant>,
+    /// the last WebSocket ping: its number and when it went out
+    ping: Option<(u64, Instant)>,
 }
 
 /// What a writer's `take` found.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct Took {
-    /// how long the oldest ordered message taken had waited
+    /// how long the oldest message taken had waited (a state-like one: beyond its pacing)
     pub waited: Duration,
+    /// paced state-like messages are waiting: take again then
+    pub until: Option<Instant>,
 }
 
 /// One client's send queue; the session pushes, the writer takes.
@@ -202,7 +214,7 @@ impl Outbox {
                     }
                     None => {
                         let abs = q.taken + q.entries.len() as u64;
-                        q.entries.push_back(Entry::Latest(Slot { key: key.clone(), frame, merged: None }));
+                        q.entries.push_back(Entry::Latest(Slot { key: key.clone(), since: now, frame, merged: None }));
                         q.open.insert(key, abs);
                     }
                 }
@@ -213,11 +225,21 @@ impl Outbox {
         true
     }
 
-    /// Move everything waiting into `out` (texts, in order) at `now`.
+    /// Move what may go now into `out` (texts, in order) at `now`: everything – except, while the link is paced (link.rs),
+    /// state-like messages before their next turn; they keep merging meanwhile. An ordered message behind them takes them
+    /// along (nothing is reordered).
     pub fn take(&self, now: Instant, out: &mut Vec<String>) -> Took {
         let mut q = self.lock();
         let mut took = Took::default();
-        while let Some(entry) = q.entries.pop_front() {
+        let paced = q.link.interval().and(q.next_paced).filter(|t| *t > now);
+        let released = q.next_paced;
+        let mut latest = false;
+        while let Some(front) = q.entries.front() {
+            if matches!(front, Entry::Latest(_)) && paced.is_some() && q.ordered == 0 {
+                took.until = paced;
+                break;
+            }
+            let entry = q.entries.pop_front().expect("a front");
             let abs = q.taken;
             q.taken += 1;
             match entry {
@@ -231,11 +253,47 @@ impl Outbox {
                     if q.open.get(&slot.key) == Some(&abs) {
                         q.open.remove(&slot.key);
                     }
+                    let from = released.map_or(slot.since, |r| r.max(slot.since));
+                    took.waited = took.waited.max(now.saturating_duration_since(from));
+                    latest = true;
                     out.push(slot.text());
                 }
             }
         }
+        if latest {
+            q.next_paced = q.link.interval().map(|i| now + i);
+        }
         took
+    }
+
+    /// The writer sent a batch: the socket took `flush`, its oldest message had waited `waited`. True when the rate
+    /// changed (presence tells the conductor).
+    pub fn sent(&self, now: Instant, flush: Duration, waited: Duration) -> bool {
+        self.lock().link.batch(now, flush, waited)
+    }
+
+    /// The writer sent WebSocket ping number `n`.
+    pub fn pinged(&self, n: u64, now: Instant) {
+        self.lock().ping = Some((n, now));
+    }
+
+    /// A pong with `payload` came back. True when the rate changed.
+    pub fn pong(&self, payload: &[u8], now: Instant) -> bool {
+        let mut q = self.lock();
+        let n = <[u8; 8]>::try_from(payload).map(u64::from_be_bytes).ok();
+        match q.ping {
+            Some((sent, at)) if Some(sent) == n => {
+                q.ping = None;
+                q.link.rtt(now, now.saturating_duration_since(at))
+            }
+            _ => false,
+        }
+    }
+
+    /// The link as presence shows it to the conductor.
+    pub fn quality(&self) -> LinkQuality {
+        let q = self.lock();
+        LinkQuality { rtt: q.link.rtt_ms().map(|r| r.round() as u64), hz: q.link.hz() as u64, skipped: Some(q.skipped) }
     }
 
     /// Wait until something is pushed (or was, since the last wait).
@@ -314,7 +372,7 @@ mod tests {
             ob.push(values("d1", 200 + i, &[("lfo.rate", i as f64)], None), t);
             ob.push(cue(&format!("c{i}")), t);
             ob.push(values("d1", 300 + i, &[("lfo.rate", 10.0 + i as f64)], None), t);
-            ob.push(Frame::of(Envelope::new("relay", Message::Presence(Presence { groups: HashMap::new(), ready: vec![], decks: None, routes: None }))), t);
+            ob.push(Frame::of(Envelope::new("relay", Message::Presence(Presence { groups: HashMap::new(), ready: vec![], decks: None, routes: None, links: None }))), t);
         }
         let got = parse(ob.drain());
         let kinds: Vec<&str> = got.iter().map(|e| e.message.kind()).collect();
@@ -364,6 +422,54 @@ mod tests {
             assert!(ob.push(values("d1", i, &[("x", 1.0)], None), t + Duration::from_secs(60)));
         }
         assert_eq!(ob.drain().len(), 1);
+    }
+
+    /// #223: a strained link gets its values at its rate (merged meanwhile); an ordered message takes them along; calm
+    /// brings the full rate back
+    #[test]
+    fn a_paced_link_gets_values_at_its_rate() {
+        let ob = Outbox::new();
+        let t = Instant::now();
+        let ms = |n: u64| t + Duration::from_millis(n);
+        let slow = Duration::from_millis(100);
+        assert!(!ob.sent(ms(0), slow, Duration::ZERO));
+        assert!(ob.sent(ms(500), slow, Duration::ZERO), "behind for 500 ms: a step down");
+        assert_eq!(ob.quality().hz, 15);
+        let mut out = vec![];
+        ob.push(values("d1", 1, &[("x", 1.0)], None), ms(1000));
+        assert_eq!(ob.take(ms(1000), &mut out).until, None);
+        assert_eq!(out.len(), 1, "the first goes at once");
+        out.clear();
+        ob.push(values("d1", 2, &[("x", 2.0)], None), ms(1010));
+        let took = ob.take(ms(1010), &mut out);
+        assert!(out.is_empty(), "too soon after the last");
+        let next = ms(1000) + Duration::from_secs_f64(1.0 / 15.0);
+        assert_eq!(took.until, Some(next));
+        ob.push(values("d1", 3, &[("y", 3.0)], None), ms(1030));
+        assert_eq!(ob.take(next, &mut out), Took { waited: Duration::ZERO, until: None });
+        let got = parse(std::mem::take(&mut out));
+        assert!(matches!(&got[..], [e] if e.seq == 3 && matches!(&e.message, Message::DeckValues(v) if v.values.len() == 2)), "merged: {got:?}");
+        // an ordered message behind paced values takes them along
+        ob.push(values("d1", 4, &[("x", 4.0)], None), next + Duration::from_millis(5));
+        ob.push(cue("c1"), next + Duration::from_millis(6));
+        ob.take(next + Duration::from_millis(6), &mut out);
+        assert_eq!(parse(out).iter().map(|e| e.message.kind()).collect::<Vec<_>>(), ["deck.values", "cue"]);
+        // 5 s calm after the last strain: the full rate again
+        assert!(ob.sent(ms(5600), Duration::ZERO, Duration::ZERO));
+        assert_eq!(ob.quality().hz, 30);
+    }
+
+    #[test]
+    fn a_pong_measures_the_round_trip() {
+        let ob = Outbox::new();
+        let t = Instant::now();
+        assert_eq!(ob.quality().rtt, None);
+        ob.pinged(7, t);
+        assert!(!ob.pong(&8u64.to_be_bytes(), t + Duration::from_millis(1)), "another ping's pong");
+        assert!(!ob.pong(b"", t + Duration::from_millis(1)), "an empty pong");
+        assert_eq!(ob.quality().rtt, None);
+        ob.pong(&7u64.to_be_bytes(), t + Duration::from_millis(3));
+        assert_eq!(ob.quality(), LinkQuality { rtt: Some(3), hz: 30, skipped: Some(0) });
     }
 
     #[tokio::test]

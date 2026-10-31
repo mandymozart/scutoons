@@ -653,7 +653,7 @@ pub struct CameraSrc {
 	pub input: String,
 }
 
-/// relay → conductor: clients per group, who is ready; the decks that stream a being (#188 – a deck that left is gone from `decks`) and who sends values to whom (`routes`).
+/// relay → conductor: clients per group, who is ready; the decks that stream a being (#188 – a deck that left is gone from `decks`) and who sends values to whom (`routes`); each client's link (`links`, #223 – sent again when a client's rate changes).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Presence {
 	pub groups: std::collections::HashMap<String, i64>,
@@ -664,6 +664,20 @@ pub struct Presence {
 	/// every sender → receiver pair `deck.values` went along, sorted
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub routes: Option<Vec<Route>>,
+	/// #223: each client's link as the relay measures it, by client id (audience phones left out)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub links: Option<std::collections::HashMap<String, LinkQuality>>,
+}
+
+/// #223: one client's link: the smoothed WebSocket ping round trip, the rate the relay sends it state-like messages at (`deck.values`, `presence`, `vote.tally`, `state` – 30 = as fast as they come, down to 5 on a link that can't carry more), and how many of them it replaced before they went out (a stalled client gets the newest, not a backlog).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LinkQuality {
+	/// ms; missing before the first pong
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub rtt: Option<u64>,
+	pub hz: u64,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub skipped: Option<u64>,
 }
 
 /// #188: a deck's values flow from client `from` to client `to` (the conductor's scene draws a hose between their beings).

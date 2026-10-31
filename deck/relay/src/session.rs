@@ -363,13 +363,19 @@ impl Session {
         reaches.then(|| sync.clone())
     }
 
-    /// B.6 presence to the conductor(s): clients per group (phones and outputs; `-` = no group) and who is ready.
+    /// B.6 presence to the conductor(s): clients per group (phones and outputs; `-` = no group) and who is ready; each
+    /// link but the audience's (#223 – outbox.rs: round trip, rate, values replaced).
     pub fn presence(&self) -> Presence {
         let mut groups: HashMap<String, i64> = HashMap::new();
         let mut ready = vec![];
+        let mut links = HashMap::new();
         for (id, c) in &self.clients {
             if !matches!(c.role, Role::Conductor | Role::Bridge | Role::Uplink) {
                 *groups.entry(c.group.clone().unwrap_or_else(|| "-".into())).or_default() += 1;
+            }
+            // #223: every link but the audience phones' (hundreds of them; they get cues, not streams)
+            if c.role != Role::Audience {
+                links.insert(id.clone(), c.outbox.quality());
             }
             if c.ready {
                 ready.push(id.clone());
@@ -379,7 +385,7 @@ impl Session {
         let mut decks: Vec<String> = self.decks.keys().cloned().collect();
         decks.sort();
         let routes = self.routes.iter().map(|(from, to)| Route { from: from.clone(), to: to.clone() }).collect();
-        Presence { groups, ready, decks: Some(decks), routes: Some(routes) }
+        Presence { groups, ready, decks: Some(decks), routes: Some(routes), links: Some(links) }
     }
 
     pub fn tell_presence(&mut self) {

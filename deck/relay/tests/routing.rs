@@ -288,3 +288,32 @@ async fn a_client_too_far_behind_is_dropped() {
     }
     assert_ne!(last, Some(format!("c{}", n - 1)), "dropped before the end");
 }
+
+/// #223: presence shows the conductor each link (not the audience's): its rate, and – once a ping came back – its round
+/// trip
+#[tokio::test]
+async fn the_conductor_sees_each_link() {
+    let port = start().await;
+    let (mut cond, _) = join(port, "L1", Role::Conductor, None, Some("t")).await;
+    let (mut out, out_id) = join(port, "L1", Role::Output, Some("a"), None).await;
+    let (_phone, phone_id) = join(port, "L1", Role::Audience, Some("a"), None).await;
+    // the relay pings every PING_EVERY; tungstenite answers when the socket is read – keep the output's read side busy
+    let reader = tokio::spawn(async move { while let Some(Ok(_)) = out.next().await {} });
+    tokio::time::sleep(relay::PING_EVERY + Duration::from_millis(500)).await;
+    let (_late, _) = join(port, "L1", Role::Output, Some("b"), None).await;
+    let presence = loop {
+        let frame = tokio::time::timeout(Duration::from_secs(3), cond.next()).await.expect("presence").unwrap().unwrap();
+        let Ws::Text(text) = frame else { continue };
+        let e: Envelope = serde_json::from_str(&text).unwrap();
+        if let Message::Presence(p) = e.message {
+            if p.links.as_ref().is_some_and(|l| l.len() == 3) {
+                break p;
+            }
+        }
+    };
+    let links = presence.links.unwrap();
+    assert_eq!(links[&out_id].hz, 30, "a good link: the full rate");
+    assert!(links[&out_id].rtt.is_some(), "a pong came back: {links:?}");
+    assert!(!links.contains_key(&phone_id), "no audience phones");
+    reader.abort();
+}

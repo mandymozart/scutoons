@@ -14,11 +14,11 @@ subscribe to SQL queries and get row diffs pushed; BitCraft runs on it.
 - **State:** a snapshot per role (last `state`, cell, `deck.graph`, `scene.sync`, `deck.synced`, folded `deck.values`),
   replay on `resume` (500 messages / 5 min), votes with a 250 ms tally, the clock's lead (`at` + 50 ms LAN / 150 hosted).
 - **Streams:** `deck.values` ≤ 30 / s per deck, only what changed, folded into the snapshot and never replayed.
-- **Wire:** JSON text frames (envelope `v, seq, from, kind, p`), ping 5 s, idle 15 s.
+- **Wire:** JSON text frames (envelope `v, seq, from, kind, p`), ping 1 s (its pong: the round trip, #223), idle 15 s.
 - **Not yet:** the uplink LAN ↔ hosted (linked mode), several conductors (#221).
-- **Found while reading:** the relay never sets `TCP_NODELAY` on accepted sockets (the stage's client does,
-  `stage/src/live/config.rs`); each client's writer is an unbounded queue of strings – under Wi-Fi loss, stale values
-  pile up behind the stall instead of being replaced.
+- **Found while reading, fixed by #223:** the relay set no `TCP_NODELAY` on accepted sockets, and each client's writer
+  was an unbounded queue of strings (under Wi-Fi loss stale values piled up behind the stall) – now NODELAY, an outbox
+  where the latest value wins, an adaptive rate per client (deck/relay/README.md, with the bench).
 
 ## The market
 | System | State model | Transport / latency | Offline LAN show | Self-host (deck / bunny) | Rust | License / cost | Fit for #221 |
