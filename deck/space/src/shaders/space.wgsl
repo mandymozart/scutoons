@@ -11,8 +11,10 @@ struct Frame {
     look: vec4<f32>,
     // rgb = the fog's colour, a = its density per metre
     fog: vec4<f32>,
-    // the target's size in pixels
+    // the target's size in pixels, z = how many lights
     screen: vec4<f32>,
+    // the beings' cores as point lights (#204): per light (x, y, z, range), (r, g, b, 0) – colour × intensity
+    lights: array<vec4<f32>, 16>,
 };
 
 @group(0) @binding(0) var<uniform> frame: Frame;
@@ -52,10 +54,35 @@ fn vs_room(@location(0) pos: vec3<f32>, @location(1) color: vec4<f32>, @location
     return o;
 }
 
+// The beings' glow on the room (#204): each core a point light – inverse-square (+1, no singularity at the core),
+// windowed to zero at its range, on the face's normal. The rooms carry no normals: the face's from the world
+// position's screen derivatives, turned toward the eye (the scans' winding isn't reliable).
+fn glow_light(world: vec3<f32>, face: vec3<f32>) -> vec3<f32> {
+    var sum = vec3<f32>(0.0);
+    let count = i32(frame.screen.z);
+    for (var k = 0; k < 8; k++) {
+        if k >= count {
+            break;
+        }
+        let at = frame.lights[2 * k];
+        let rgb = frame.lights[2 * k + 1].rgb;
+        let d = at.xyz - world;
+        let d2 = dot(d, d);
+        let r2 = at.w * at.w;
+        let window = clamp(1.0 - (d2 * d2) / (r2 * r2), 0.0, 1.0);
+        let ndl = max(dot(face, d * inverseSqrt(max(d2, 1e-6))), 0.0);
+        sum += rgb * (ndl * window * window / (d2 + 1.0));
+    }
+    return sum;
+}
+
 @fragment
 fn fs_room(i: RoomOut) -> @location(0) vec4<f32> {
     let tex = textureSample(room_tex, room_smp, i.uv);
-    let lit = tex.rgb * i.color.rgb * frame.look.y;
+    let c = cross(dpdx(i.world), dpdy(i.world));
+    let n = c * inverseSqrt(max(dot(c, c), 1e-20));
+    let face = select(-n, n, dot(n, frame.eye.xyz - i.world) >= 0.0);
+    let lit = tex.rgb * (i.color.rgb * frame.look.y + glow_light(i.world, face));
     return vec4<f32>(to_srgb(fogged(lit, i.world)), 1.0);
 }
 

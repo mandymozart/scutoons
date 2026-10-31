@@ -87,6 +87,15 @@ pub fn spec(kind: Kind, port: &str) -> Spec {
         (Lfo, "depth") => lin(0.0, 2.0, 1.0),
         (Space, "glow") => lin(0.0, 2.0, 0.6),
         (Space, "light") => lin(0.0, 1.5, 0.85),
+        // the post stack (#204, space/post.rs): bloom's amount and threshold, curves' lift / gamma / gain, the
+        // pixelation's block size (render pixels) and quantise levels per channel (< 2 = off)
+        (Space, "bloom") => lin(0.0, 2.0, 0.6),
+        (Space, "threshold") => lin(0.0, 1.0, 0.6),
+        (Space, "lift") => lin(-0.2, 0.3, 0.0),
+        (Space, "gamma") => log(0.4, 2.5, 1.0),
+        (Space, "gain") => lin(0.5, 2.0, 1.0),
+        (Space, "pixel") => log(1.0, 64.0, 1.0),
+        (Space, "levels") => lin(0.0, 16.0, 0.0),
         (Osc | Fm, "freq") => audio(log(20.0, 4000.0, 0.0)),
         (Fm, "ratio") => audio(log(0.25, 8.0, 0.0)),
         (Fm, "index") => audio(lin(0.0, 10.0, 0.0)),

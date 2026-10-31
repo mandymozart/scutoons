@@ -394,6 +394,8 @@ pub struct Being {
     /// the being's colours this frame (the space node's hue / glow)
     pub hue: f32,
     pub glow: f32,
+    /// the space node's `pulse` this frame (the level's kick – the core's light swells with it, #204)
+    pub pulse: f32,
     /// the hovered / dragged part (the renderer lights it)
     pub hover: Option<Hit>,
     pub dragging: bool,
@@ -491,6 +493,8 @@ impl Being {
                 .iter()
                 .enumerate()
                 .filter(|(_, port)| port.ty == PortType::Control && exposed(&look.expose, &node.id, port.name))
+                // the post stack's knobs (#204) are no buttons on the core unless `expose` names them
+                .filter(|(_, port)| !(node.kind == Kind::Space && super::post::is_port(port.name)) || named(&look.expose, &node.id, port.name))
                 .map(|(k, _)| k)
                 .collect();
             // the waveform: an LFO's shape (an audio oscillator's `wave` can't change while it plays yet)
@@ -578,6 +582,7 @@ impl Being {
             core_radius: s * 0.3,
             hue: params::default(Kind::Space, "hue"),
             glow: params::default(Kind::Space, "glow"),
+            pulse: 0.0,
             hover: None,
             dragging: false,
             head: Head {
@@ -626,6 +631,16 @@ impl Being {
         ((lo + hi) * 0.5, head)
     }
 
+    /// the core's light this frame (#204): the glow and the level's kick on it
+    pub fn light_power(&self) -> f32 {
+        (self.glow + self.pulse).max(0.0)
+    }
+
+    /// the core's light colour: its hue, a little more saturated than the core looks (linear 0..1)
+    pub fn light_rgb(&self) -> [f32; 3] {
+        hsv(self.hue, 0.7, 1.0)
+    }
+
     /// where the head floats: above the body's top
     pub fn head(&self) -> Vec3 {
         self.center + Vec3::Y * self.look.size * 1.3 * self.swell
@@ -649,6 +664,7 @@ impl Being {
             0.5 - 0.5 * (TAU * 0.2 * time).cos()
         };
         let pulse = self.core_point.map_or(0.0, |c| vals.input(self.points[c].node, "pulse", 0.0));
+        self.pulse = pulse;
         self.swell = 1.0 + look.breath * (b + 0.5 * pulse);
         let d = look.drift;
         self.center = self.anchor + Vec3::new(d * (0.13 * time).sin(), 0.6 * d * (0.21 * time + 1.0).sin(), d * (0.17 * time + 2.0).sin());
@@ -1185,7 +1201,12 @@ fn hash(s: &str) -> f32 {
 }
 
 fn exposed(list: &[String], node: &str, port: &str) -> bool {
-    list.is_empty() || list.iter().any(|e| e == node || e.split_once('.') == Some((node, port)))
+    list.is_empty() || list.iter().any(|e| e == node) || named(list, node, port)
+}
+
+/// `expose` names this port itself ("space.bloom")
+fn named(list: &[String], node: &str, port: &str) -> bool {
+    list.iter().any(|e| e.split_once('.') == Some((node, port)))
 }
 
 #[cfg(test)]
