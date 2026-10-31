@@ -561,6 +561,22 @@ impl Show {
         let g = &self.graph;
         (0..g.nodes.len()).filter(|&i| g.nodes[i].kind == graph::Kind::Shader).filter_map(|i| Some((i, g.nodes[i].str("wgsl")?.into()))).collect()
     }
+
+    /// the post stack's WGSL files in this checkout (#204: the space node's `post` passes and their prelude; a deck
+    /// without the sources watches nothing)
+    #[cfg(feature = "space")]
+    fn post_files(&self) -> Vec<(Watched, PathBuf)> {
+        use deck_stage::space::post::{self, Chain};
+        let Some(n) = self.graph.first(graph::Kind::Space) else { return Vec::new() };
+        let (chain, _) = Chain::of(&self.graph.nodes[n]);
+        if chain.is_empty() {
+            return Vec::new();
+        }
+        let mut out: Vec<(Watched, PathBuf)> = chain.effects().map(|e| (Watched::Post(Some(e)), post::source_path(e.file()))).collect();
+        out.push((Watched::Post(None), post::source_path("common.wgsl")));
+        out.retain(|(_, p)| p.exists());
+        out
+    }
 }
 
 /// what `--dev` watches: the scene file, a shader node's WGSL file
@@ -568,6 +584,9 @@ impl Show {
 enum Watched {
     Scene,
     Shader(usize),
+    /// a post pass's WGSL (#204), None = their prelude (every pass reloads)
+    #[cfg(feature = "space")]
+    Post(Option<deck_stage::space::post::Effect>),
 }
 
 struct App {
@@ -658,6 +677,11 @@ impl App {
             files.push(path);
             what.push(Watched::Shader(node));
         }
+        #[cfg(feature = "space")]
+        for (w, path) in self.show.post_files() {
+            files.push(path);
+            what.push(w);
+        }
         let w = watch::Watch::new(files);
         tracing::info!("dev: watching {}", w.paths().map(|p| p.display().to_string()).collect::<Vec<_>>().join(", "));
         Some((w, what))
@@ -676,6 +700,22 @@ impl App {
             let errors = r.reload_shaders(&self.show.graph, &nodes);
             self.error = (!errors.is_empty()).then(|| errors.join("; "));
             self.hud_at = -1.0;
+        }
+        #[cfg(feature = "space")]
+        {
+            use deck_stage::space::post::Effect;
+            // the prelude changed: every listed pass; else the passes whose file changed
+            let all = what.iter().filter_map(|w| if let Watched::Post(Some(e)) = w { Some(*e) } else { None });
+            let effects: Vec<Effect> = if changed.contains(&Watched::Post(None)) {
+                all.collect()
+            } else {
+                changed.iter().filter_map(|w| if let Watched::Post(Some(e)) = w { Some(*e) } else { None }).collect()
+            };
+            if let (false, Some(r)) = (effects.is_empty(), self.renderer.as_mut()) {
+                let errors = r.reload_post(&effects);
+                self.error = (!errors.is_empty()).then(|| errors.join("; "));
+                self.hud_at = -1.0;
+            }
         }
     }
 

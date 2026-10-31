@@ -155,7 +155,7 @@ An input takes one link; an output feeds any number. Every control input can als
 | `fft` | in (audio) | level, bass, mid, high (control, 0–1) | `release` (s) |
 | `audio_out` | in (audio), volume | – | the device (one per scene) |
 | `outlet` | in (video: the backdrop), opacity | out (video) | – (one per scene; the relay and the outlet from deck.toml / the CLI – "Live outlet") |
-| `space` | hue, glow, light, pulse (control) | out (video) | `set` (a set id → its 3D at `quality`, `<sets>/<id>/<id>.<quality>.glb`, synced; or a path with its extension, relative to `--sets`), `quality` = low · medium · high (low, the X1's), `at` = [x, y, z] (where the being floats, the set's metres) or `spot` (a node of the set's glTF, `spot_aisle`) + `lift` (1.5 m), `yaw` / `pitch` (°) / `distance` (m) – the camera's start, `auto_turn` (false – the camera turns only by hand; true: slowly by itself after 4 s idle), `max_texture` (2048), `hide` (glTF nodes whose mesh is left out, by name), `join` = deck · conductor · alone (a session with a relay set), `ring` (3.2 m, the decks' circle around a conductor) – one per scene |
+| `space` | hue, glow, light, pulse; the post knobs bloom, threshold, lift, gamma, gain, pixel, levels (control) | out (video) | `post` = the post stack's passes in order (bloom · curves · pixelate · fxaa, #204 – below), `palette` (pixelate's colours, ≤ 16 "#rrggbb"), `glow_range` (7 m) / `glow_light` (1, 0 = off) – the core's light in the room, `set` (a set id → its 3D at `quality`, `<sets>/<id>/<id>.<quality>.glb`, synced; or a path with its extension, relative to `--sets`), `quality` = low · medium · high (low, the X1's), `at` = [x, y, z] (where the being floats, the set's metres) or `spot` (a node of the set's glTF, `spot_aisle`) + `lift` (1.5 m), `yaw` / `pitch` (°) / `distance` (m) – the camera's start, `auto_turn` (false – the camera turns only by hand; true: slowly by itself after 4 s idle), `max_texture` (2048), `hide` (glTF nodes whose mesh is left out, by name), `join` = deck · conductor · alone (a session with a relay set), `ring` (3.2 m, the decks' circle around a conductor) – one per scene |
 
 **chapter** shows the chapter's slices one after the other in reading order (looping), the slice fitted to the height
 over `in` (darkened; without an input a dark stretched copy of the slice), a slow push-in over the hold, a kick by
@@ -424,6 +424,23 @@ with the token, ready, the cell, resume, the snapshot after a restart). Not yet:
   `Being::update` / `write` never allocate (tests/no_alloc.rs, a deck's being on a `Mirror` too). The values come
   through `values.rs`: this deck's control slots and audio meters (`audio::Meters`: every output buffer's block peak,
   only built for a scene with a space node), or a deck's stream (`Mirror`).
+- **Post stack + the glow's light** (#204; deck-space `space/post.rs` – the data – and `space/post_gpu.rs`, the WGSL in
+  `deck/space/src/shaders/post/`, so the browser runs the same passes): the space node's `post` list picks and orders
+  hard-coded fragment passes after the space is drawn – **bloom** (soft-knee threshold into half size, the dual filter
+  down to a quarter and an eighth and back up, each level added onto the one above, laid over the picture as a screen
+  blend: six small draws), **curves** (lift / gamma / gain, one draw), **pixelate** (blocks of `pixel` render pixels by
+  `textureLoad`, optionally `levels` per channel or the nearest `palette` colour, one draw), **fxaa** (the console
+  variant, nine taps, one draw). Their knobs are the space node's control inputs (links, the feelings' `react`, the
+  conductor's sends), no buttons on the core unless `expose` names them (`"space.bloom"`). Two Rgba8 textures at the
+  render size take turns, the last pass writes the node's target (no copy); bloom adds three at ½, ¼, ⅛. A pass not
+  listed has no pipeline and no texture, a listed one at neutral (bloom 0, curves 0 / 1 / 1, pixel 1 without levels or
+  palette) is skipped that frame (`Chain::plan`), and with nothing to run the space draws straight into its target.
+  `--dev` watches the passes' files (and their prelude `common.wgsl`) in the checkout: a changed one recompiles only
+  that pass, one that doesn't compile keeps the running pipeline (the error in the HUD). **The glow lights the room:**
+  every being's core is a point light in the room shader – its hue, `glow` + its level `pulse` × `glow_light`,
+  inverse-square (+1) windowed to zero at `glow_range`, on the face's normal from the world position's screen
+  derivatives (the rooms carry no normals) – added to the baked light; at most 8, the strongest at the eye first
+  (`Space::write_lights`). The plan and the lights never allocate (tests/no_alloc.rs).
 - **Library** (`src/library.rs`): `GET {api}/library/toons/<toon>/chapters/<n>` → `<cache>/api/…json` (the cached copy
   when offline), CDN files `{cdn}/<toon>/<path>` → `<cache>/cdn/<toon>/<path>` once (CDN paths are immutable), decoded
   whole with symphonia (mp3, wav).

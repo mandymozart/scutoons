@@ -391,6 +391,41 @@ impl Renderer {
         errors
     }
 
+    /// The dev mode's hot reload of the post stack (#204): the passes `effects` from their WGSL files (deck-space
+    /// shaders/post/, with the prelude common.wgsl from there too). A pass that doesn't read or compile keeps the
+    /// running one; the errors come back for the HUD. Before the space's first frame there is nothing to reload.
+    #[cfg(feature = "space")]
+    pub fn reload_post(&mut self, effects: &[crate::space::post::Effect]) -> Vec<String> {
+        use crate::space::post;
+        let mut errors = Vec::new();
+        let Some(gpu) = self.space.as_mut() else { return errors };
+        let read = |file: &str| std::fs::read_to_string(post::source_path(file)).with_context(|| format!("post: reading {file}"));
+        for &e in effects {
+            let src = match read("common.wgsl").and_then(|c| Ok((c, read(e.file())?))) {
+                Ok(s) => s,
+                Err(err) => {
+                    errors.push(format!("{err:#}"));
+                    continue;
+                }
+            };
+            self.device.push_error_scope(wgpu::ErrorFilter::Validation);
+            let pipes = gpu.compile_post(&self.device, e, &src.0, &src.1);
+            match pollster::block_on(self.device.pop_error_scope()) {
+                Some(err) => {
+                    tracing::error!("post '{}': the shader does not compile – the last one runs on\n{err}", e.name());
+                    errors.push(format!("post '{}': {err}", e.name()));
+                }
+                None => {
+                    if let Some(p) = pipes {
+                        gpu.install_post(e, p);
+                        tracing::info!("post '{}': reloaded", e.name());
+                    }
+                }
+            }
+        }
+        errors
+    }
+
     fn render_size(&self) -> (u32, u32) {
         let s = self.render_scale;
         (((self.config.width as f32 * s) as u32).max(1), ((self.config.height as f32 * s) as u32).max(1))

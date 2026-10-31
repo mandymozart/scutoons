@@ -25,6 +25,9 @@ pub mod gpu;
 pub mod label;
 pub mod meshopt;
 pub mod portrait;
+pub mod post;
+#[cfg(feature = "gpu")]
+pub mod post_gpu;
 pub mod stream;
 pub mod sync;
 pub mod values;
@@ -79,6 +82,10 @@ const FOCUS_NEAR: f32 = 2.2;
 
 /// where the being floats when the set has no such spot (or there is no set)
 const FALLBACK_ANCHOR: Vec3 = Vec3::new(0.0, 1.4, 0.0);
+/// the glow's light in the room (#204): reach (m) and strength by default, and how many beings light it at most
+pub const GLOW_RANGE: f32 = 7.0;
+pub const GLOW_LIGHT: f32 = 1.0;
+pub const MAX_LIGHTS: usize = 8;
 
 /// two presses on one button within this long (s) = a double click: back to the scene's value
 const DOUBLE_CLICK: f32 = 0.4;
@@ -142,6 +149,13 @@ pub struct Space {
     at: Option<Vec3>,
     /// the set's light (the space node's `light`) this frame
     pub light: f32,
+    /// the post stack the scene picked (#204, post.rs) and its knobs this frame
+    pub post: post::Chain,
+    pub post_knobs: post::Knobs,
+    /// the glow as light in the room (#204): how far a being's light reaches (m) and how strong it is (0 = off) – the
+    /// space node's `glow_range` / `glow_light`
+    pub glow_range: f32,
+    pub glow_light: f32,
     pointer: Option<(f32, f32)>,
     view: (f32, f32),
     drag: Drag,
@@ -260,6 +274,10 @@ impl Space {
             Some(path) => load_set(path.clone(), max_texture, hide.clone(), gate.clone()),
             None => (None, "NO SET".into()),
         };
+        let (post, problems) = post::Chain::of(n);
+        for p in &problems {
+            tracing::warn!("space: {p} – left out");
+        }
         let mut camera = Orbit::new(aim(&being), n.f32("yaw", 20.0).to_radians(), n.f32("pitch", 8.0).to_radians(), n.f32("distance", 2.4));
         camera.auto = n.bool("auto_turn", false);
         Space {
@@ -278,6 +296,10 @@ impl Space {
             lift: n.f32("lift", 1.5),
             at,
             light: 1.0,
+            post,
+            post_knobs: post::Knobs::default(),
+            glow_range: n.f32("glow_range", GLOW_RANGE).max(0.1),
+            glow_light: n.f32("glow_light", GLOW_LIGHT).max(0.0),
             pointer: None,
             view: (1.0, 1.0),
             drag: Drag::None,
@@ -340,6 +362,7 @@ impl Space {
         self.portraits.poll();
         self.clock = time;
         self.light = ctl.input(self.node, "light", params::default(crate::graph::Kind::Space, "light"));
+        self.post_knobs = post::Knobs::read(&*ctl, self.node);
         self.camera.step(dt);
         // the focus follows the zoom: the whole being far out, its head close up (owner 2026-10-31)
         let (body, head) = self.being.focus();
@@ -528,6 +551,44 @@ impl Space {
             let rate = self.routes[k].from.map_or(0.0, |i| self.others[i].rate);
             self.routes[k].step(dt, a, b, rate);
         }
+    }
+
+    /// The beings' cores as point lights in the room (#204): at most `out.len()`, the strongest at the eye first –
+    /// a being's light (`glow` + its level pulse, × `glow_light`) over 1 + its squared distance to the eye. Each light
+    /// = [x, y, z, range, r, g, b, 0] (colour × intensity, linear). Returns how many; never allocates.
+    pub fn write_lights(&self, eye: Vec3, out: &mut [[f32; 8]]) -> usize {
+        let cap = out.len();
+        if cap == 0 || self.glow_light <= 0.0 {
+            return 0;
+        }
+        // (score, the light) kept sorted strongest first in `out`'s own slots
+        let mut scores = [0f32; MAX_LIGHTS];
+        let cap = cap.min(MAX_LIGHTS);
+        let mut n = 0;
+        for b in self.beings() {
+            let power = b.light_power() * self.glow_light;
+            if power <= 1e-4 {
+                continue;
+            }
+            let score = power / (1.0 + (b.center - eye).length_squared());
+            let mut at = n;
+            while at > 0 && scores[at - 1] < score {
+                at -= 1;
+            }
+            if at >= cap {
+                continue;
+            }
+            let last = n.min(cap - 1);
+            for k in (at..last).rev() {
+                scores[k + 1] = scores[k];
+                out[k + 1] = out[k];
+            }
+            let c = b.light_rgb();
+            scores[at] = score;
+            out[at] = [b.center.x, b.center.y, b.center.z, self.glow_range, c[0] * power, c[1] * power, c[2] * power, 0.0];
+            n = (n + 1).min(cap);
+        }
+        n
     }
 
     /// every being: this deck's own first, then the decks'
@@ -1055,5 +1116,55 @@ mod tests {
         assert!(ctl.input(node, "index", -1.0) > before);
         space.touch(7, Touch::Ended, x, y, &mut ctl);
         assert_eq!((space.cursor(), space.being.hover), (Cursor::Default, None));
+    }
+
+    /// #204: every being's core lights the room – the strongest at the eye first, at most as many as there are slots,
+    /// coloured by its hue, stronger with its glow and its level's pulse; `glow_light = 0` turns it off
+    #[test]
+    fn the_glow_lights_the_room() {
+        let (g, mut space, _) = cathedral();
+        let eye = space.being.center + Vec3::new(0.0, 0.0, 3.0);
+        let mut out = [[0.0; 8]; MAX_LIGHTS];
+        assert_eq!(space.write_lights(eye, &mut out), 1);
+        let power = space.being.glow * space.glow_light;
+        let c = space.being.light_rgb();
+        assert!((out[0][4] - c[0] * power).abs() < 1e-5 && out[0][3] == space.glow_range);
+        // a congregation: ten decks' beings, near and far, bright and dim
+        let scene = Scene::parse(CATHEDRAL_SCENE).unwrap();
+        for k in 0..10 {
+            let mut r = decks::Remote::new(format!("deck{k}"), g.clone(), &scene.being);
+            r.being.center = eye + Vec3::new(k as f32, 0.0, 0.0);
+            r.being.glow = if k == 9 { 50.0 } else { 0.5 };
+            space.others.push(r);
+        }
+        let n = space.write_lights(eye, &mut out);
+        assert_eq!(n, MAX_LIGHTS, "capped");
+        let score = |l: &[f32; 8]| (l[4] + l[5] + l[6]) / (1.0 + (Vec3::new(l[0], l[1], l[2]) - eye).length_squared());
+        assert!(out.windows(2).all(|w| score(&w[0]) >= score(&w[1]) - 1e-6), "strongest first");
+        assert!(out.iter().any(|l| (l[0] - (eye.x + 9.0)).abs() < 1e-4), "the far but bright one is in");
+        assert!(!out.iter().any(|l| (l[0] - (eye.x + 8.0)).abs() < 1e-4), "the far dim one is out");
+        let mut few = [[0.0; 8]; 2];
+        assert_eq!(space.write_lights(eye, &mut few), 2);
+        assert_eq!(few[0], out[0]);
+        // the pulse swells it
+        let before = space.being.light_power();
+        space.being.pulse = 0.5;
+        assert!(space.being.light_power() > before);
+        space.glow_light = 0.0;
+        assert_eq!(space.write_lights(eye, &mut out), 0);
+    }
+
+    /// #204: the post knobs are the space node's control inputs, but no buttons on the core unless `expose` names them
+    #[test]
+    fn the_post_knobs_are_no_buttons_unless_exposed() {
+        let (g, space, _) = cathedral();
+        assert!(space.post.contains(post::Effect::Bloom), "the cathedral lists bloom");
+        let names: Vec<&str> = space.being.buttons.iter().filter(|b| b.node == space.node).map(|b| b.name).collect();
+        assert_eq!(names, ["hue", "glow", "light", "pulse"]);
+        let scene = Scene::parse(CATHEDRAL_SCENE).unwrap();
+        let look = being::Look { expose: vec!["space".into(), "space.bloom".into()], ..scene.being };
+        let b = Being::new(&g, &look);
+        let names: Vec<&str> = b.buttons.iter().filter(|b| b.node == space.node).map(|b| b.name).collect();
+        assert_eq!(names, ["hue", "glow", "light", "pulse", "bloom"]);
     }
 }

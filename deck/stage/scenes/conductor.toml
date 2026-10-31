@@ -161,6 +161,17 @@ hue = 0.08
 glow = 0.75
 light = 0.8
 join = "conductor"
+# the post stack (#204, deck-space post.rs): passes in this order after the space is drawn – bloom, curves (lift /
+# gamma / gain), pixelate (block size in render pixels, `levels` per channel, or `palette` = ["#rrggbb", …]), FXAA. Their
+# knobs are the space node's control inputs (link them, nudge them from `react`); one at neutral costs nothing (curves at
+# 0 / 1 / 1, pixel 1 without levels or palette), a pass not listed doesn't exist
+post = ["bloom", "curves", "pixelate", "fxaa"]
+bloom = 0.6
+threshold = 0.55
+# the being's core lights the room (#204): `glow_range` (m) how far, `glow_light` how strong (0 = off) – its colour the
+# hue, its strength glow + the level's pulse
+glow_range = 7.0
+glow_light = 1.0
 
 [[node]]
 id = "screen"
