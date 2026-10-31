@@ -1,4 +1,4 @@
-Status: draft for the owner to confirm (2026-10-31) – the About text for the website's About in the right-hand tab; nothing is live. Open: the exact wording of the name's origin (the record's sleeve notes / credits), which tab "rechter Reiter" means.
+Status: draft for the owner to confirm (2026-10-31) – the About text for the website's About in the right-hand tab; nothing is live. The name confirmed (SCU + TOON, heard as tunes); to confirm: the text as a whole.
 
 # About SCUTOONS – draft
 
@@ -17,7 +17,7 @@ Geschichten aus.
 **Der Name**
 
 Der Name kommt von Kiki Hitomi und steht in den Credits auf dem Klappentext der Schallplatte. Er setzt sich zusammen
-aus [SCU – Bedeutung wörtlich aus den Credits übernehmen] und *Tunes* – Lieder, Klänge – und ist eine Anlehnung an
+aus **SCU** – der japanischen Silbe スク für „Screen“ – und **TOON**, das wie *Tunes* klingt: Lieder, Klänge. Zugleich ist es eine Anlehnung an Graphic Novels und den unendlichen Scroll der
 Webtoons.
 
 ## English
@@ -34,13 +34,13 @@ stories.
 
 **The name**
 
-The name comes from Kiki Hitomi and appears in the credits on the record's sleeve notes. It joins [SCU – the meaning,
-word for word from the credits] and *Tunes* – songs, sounds – and is a nod to webtoons.
+The name comes from Kiki Hitomi and appears in the credits on the record's sleeve notes. It joins **SCU** – the Japanese syllable スク for "screen" – and **TOON**,
+which sounds like *tunes*: songs, sounds. It is also a nod to graphic novels and the endless scroll of webtoons.
 
 ## Notes for the build (after the owner confirms)
 - The text is the owner's (via the OSCT orchestration, 2026-10-31); the 1-in-5,000 figure is the owner's. Nothing added.
-- **Open:** "SK, japanisch für SK, Screen" came garbled through speech-to-text – the wording comes from the credits /
-  sleeve notes, not guessed (not found in the repo or the content DB on 2026-10-31).
-- **Where:** an About entry in the website's right-hand tab ("rechter Reiter") – to confirm which panel; the viewer
-  already has `(about)` routes (app, attributions, contact) – the About can be a page there, linked from that tab.
+- **The name** from the album's front OBI strip (the shop photo awakening_vinyl_0046915732.jpg): SCU = スク "screen", TOON;
+  the owner 2026-10-31: "it is always Tunes, T-U-O-N" – written TOON, heard as tunes (the double meaning).
+- **Where:** with the other info pages ("rechter Reiter" was speech-to-text, unclear to the owner too); the viewer
+  has `(about)` routes (app, attributions, contact) – the About becomes a page there, linked where they are.
 - de + en through the viewer's messages; the toon-agnostic platform text.
