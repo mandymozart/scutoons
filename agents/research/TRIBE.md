@@ -15,8 +15,8 @@ reading time.
   weights (the repo trains a subcortical variant, not released as weights). An emotion has to be derived.
 - **Compute: 28–32 GB VRAM** (LLaMA ~7 GB + V-JEPA 2 giant ~14 GB + w2v-BERT ~1 GB + TRIBE) – an A100 40 GB; a T4 (16 GB)
   runs out, our RTX 2070 (8 GB) is far off. Offline it is a rented GPU (RunPod / Colab A100) for minutes per chapter.
-- **License: CC BY-NC 4.0 – non-commercial.** SCUTOONS sells memberships and merch, so using TRIBE's outputs in the
-  product is a legal question (owner / a lawyer) before anything ships. LLaMA 3.2 is gated with its own license.
+- **License: CC BY-NC 4.0 – non-commercial** (LLaMA 3.2 is gated with its own license). Noted, not a blocker: the owner
+  decided we use AI models without the big companies' license restrictions (RULES.md "Product rules", 2026-10-31).
 
 ## From cortex to a mood
 What the literature supports, roughly: **arousal is decodable** from cortical activity during films and generalises
@@ -74,4 +74,4 @@ against the story (the sermon's crescendo should peak) → the moods → shown i
 our own model on our content (the language-model reading of the slices, option 1 above), and **TRIBE tested briefly on
 a rented A100** to see what its arousal curve tells us about a chapter (where the tension rises, where it sags) next to
 the storyboard / slice editor. Internal analysis, not shipped to readers; the avatar HUD in the reader waits until the
-analysis proves useful. The license (CC BY-NC) still applies to anything that leaves the tool chain.
+analysis proves useful.
