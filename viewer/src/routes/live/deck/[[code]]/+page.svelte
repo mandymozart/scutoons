@@ -81,7 +81,8 @@
 			if (!core) return;
 			const s = core.stats();
 			const load = Math.round((100 * s.renderPeakUs) / Math.max(1, s.budgetUs));
-			audioStatus = m['live_deck.dropouts']({ n: s.underrunsPerMinute, load });
+			const lead = Math.round((1000 * s.lead) / core.context.sampleRate);
+			audioStatus = m['live_deck.dropouts']({ n: s.underrunsPerMinute, load, lead });
 			audioAlert = core.glitching() ? m['live_deck.dropout_alert']() : '';
 		}, 250);
 		void (async () => {

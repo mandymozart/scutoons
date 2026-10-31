@@ -31,6 +31,7 @@ export class WasmCore {
 	private inboxPtr = 0;
 	private inboxView = new Uint8Array(0);
 	private buffer: ArrayBuffer | null = null;
+	private renderView: Float32Array | null = null;
 	loaded = false;
 
 	constructor(exports: Exports, rate: number) {
@@ -87,9 +88,13 @@ export class WasmCore {
 		this.x.lc_step(dt);
 	}
 
-	/** `frames` rendered samples – a view, valid until the next call into the core. */
+	/** `frames` rendered samples – a view, valid until the next call into the core. The view is kept while the core
+	 * renders into the same place (#208: no garbage per block in the worker – a GC pause there is a dropout). */
 	render(frames: number): Float32Array {
-		return new Float32Array(this.x.memory.buffer, this.x.lc_render(frames), frames);
+		const ptr = this.x.lc_render(frames);
+		const v = this.renderView;
+		if (v && v.buffer === this.x.memory.buffer && v.byteOffset === ptr && v.length === frames) return v;
+		return (this.renderView = new Float32Array(this.x.memory.buffer, ptr, frames));
 	}
 
 	/** The analysis frame (wire.ts FRAME) of what the speaker plays now (`lead` = frames queued ahead) – a view. */
@@ -111,7 +116,8 @@ export interface EngineOptions {
 /** The pump: control records in, audio blocks out (control stepped once per block), an analysis frame now and then. */
 export class Engine {
 	readonly core: WasmCore;
-	readonly lead: number;
+	/** frames kept ahead of the speaker – the worker adapts it (#208, lead.ts) */
+	lead: number;
 	private readonly every: number;
 	private readonly onAnalysis: (frame: Float32Array) => void;
 	private sinceAnalysis = 0;
@@ -170,8 +176,9 @@ export class Engine {
 	fill(audio: Ring<Float32Array>): number {
 		if (!this.core.loaded) return 0;
 		let n = 0;
+		const sink = (b: Float32Array) => audio.write(b); // one closure per fill, not per block
 		while (audio.available() + BLOCK <= this.lead && audio.space() >= BLOCK) {
-			this.block(audio.available(), (b) => audio.write(b));
+			this.block(audio.available(), sink);
 			n++;
 		}
 		return n;

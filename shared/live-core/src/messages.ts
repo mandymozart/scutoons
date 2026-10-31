@@ -11,6 +11,8 @@ export interface SharedSetup {
 	control: RingBuffers;
 	audio: RingBuffers;
 	analysis: RingBuffers;
+	/** #208: Int32 [the worklet's dropouts] – the worker grows its lead on them */
+	status: SharedArrayBuffer;
 }
 
 /** page → worker */
@@ -28,6 +30,10 @@ export interface WorkerStats {
 	/** #208: the longest block of the last second (µs) and a block's budget – its duration (2667 µs at 48 kHz) */
 	renderPeakUs: number;
 	budgetUs: number;
+	/** #208: the adaptive lead now (frames) and the longest pause between the worker's pumps in the last second (ms) –
+	 * a pause past the lead's time is a dropout the main thread or a GC caused */
+	lead: number;
+	gapMs: number;
 }
 
 /** worker → page */
@@ -40,7 +46,7 @@ export type FromWorker =
 	| { type: 'error'; error: string };
 
 /** worker ↔ worklet over a MessagePort, transfer transport only */
-export type AudioFeed = { chunk: Float32Array } | { consumed: number };
+export type AudioFeed = { chunk: Float32Array } | { consumed: number; underruns: number };
 
 /** worklet → page */
 export type FromWorklet = { underruns: number; played: number };
@@ -50,4 +56,6 @@ export interface WorkletOptions {
 	audio: RingBuffers | null;
 	/** the local ring's size in frames (transfer transport) */
 	capacity: number;
+	/** #208: SharedSetup.status (shared transport) */
+	status: SharedArrayBuffer | null;
 }

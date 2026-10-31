@@ -18,6 +18,8 @@ class LiveCoreProcessor extends AudioWorkletProcessor {
 	private consumed = 0;
 	private started = false;
 	private underruns = 0;
+	/** #208: [dropouts] shared with the worker (its adaptive lead); null in the transfer transport */
+	private readonly status: Int32Array | null;
 	/** the count last posted to the page */
 	private reported = 0;
 	private played = 0;
@@ -28,6 +30,7 @@ class LiveCoreProcessor extends AudioWorkletProcessor {
 		const o = options.processorOptions;
 		this.shared = o.audio !== null;
 		this.ring = Ring.floats(o.audio ?? ringBuffers(o.capacity, 4, false));
+		this.status = o.status ? new Int32Array(o.status) : null;
 		this.port.onmessage = (ev: MessageEvent<{ feed?: MessagePort }>) => {
 			if (!ev.data.feed) return;
 			this.feed = ev.data.feed;
@@ -44,14 +47,17 @@ class LiveCoreProcessor extends AudioWorkletProcessor {
 		if (n > 0) this.started = true;
 		if (n < first.length) {
 			first.fill(0, n);
-			if (this.started) this.underruns++;
+			if (this.started) {
+				this.underruns++;
+				if (this.status) Atomics.store(this.status, 0, this.underruns);
+			}
 		}
 		for (let c = 1; c < out.length; c++) out[c].set(first);
 		this.played += n;
 		if (!this.shared && n > 0) {
 			this.consumed += n;
 			if (this.consumed >= REPORT && this.feed) {
-				this.feed.postMessage({ consumed: this.consumed } satisfies AudioFeed);
+				this.feed.postMessage({ consumed: this.consumed, underruns: this.underruns } satisfies AudioFeed);
 				this.consumed = 0;
 			}
 		}

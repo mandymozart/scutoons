@@ -33,7 +33,8 @@ export interface StartOptions {
 	output?: AudioNode;
 	/** 'auto' (default): shared when cross-origin isolated, else transfer */
 	transport?: 'auto' | Transport;
-	/** frames the worker keeps ahead of the speaker (default 1024 ≈ 21 ms at 48 kHz) – audio latency vs safety */
+	/** frames the worker keeps ahead of the speaker (default 1024 ≈ 21 ms at 48 kHz) – audio latency vs safety; the
+	 * start of the adaptive lead (#208): a dropout grows it 512 frames up to 6144, a calm minute shrinks it back */
 	lead?: number;
 }
 
@@ -110,6 +111,8 @@ export class LiveCore {
 			renderUs: 0,
 			renderPeakUs: 0,
 			budgetUs: 0,
+			lead: 0,
+			gapMs: 0,
 			lastDropoutMs: -Infinity
 		};
 		this.runs.push({ t: globalThis.performance?.now() ?? 0, n: 0 });
@@ -124,10 +127,15 @@ export class LiveCore {
 		const lead = o.lead ?? 1024;
 		const shared: SharedSetup | null =
 			transport === 'shared'
-				? { control: ringBuffers(CONTROL_BYTES, 1, true), audio: ringBuffers(AUDIO_FRAMES, 4, true), analysis: Latest.buffers(FRAME, true) }
+				? {
+						control: ringBuffers(CONTROL_BYTES, 1, true),
+						audio: ringBuffers(AUDIO_FRAMES, 4, true),
+						analysis: Latest.buffers(FRAME, true),
+						status: new SharedArrayBuffer(16)
+					}
 				: null;
 		await context.audioWorklet.addModule(String(o.worklet));
-		const options: WorkletOptions = { audio: shared?.audio ?? null, capacity: AUDIO_FRAMES };
+		const options: WorkletOptions = { audio: shared?.audio ?? null, capacity: AUDIO_FRAMES, status: shared?.status ?? null };
 		const node = new AudioWorkletNode(context, 'live-core', { numberOfInputs: 0, outputChannelCount: [2], processorOptions: options });
 		node.connect(o.output ?? context.destination);
 		const core = new LiveCore({ context, node, worker: o.worker, transport, shared });

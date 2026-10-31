@@ -911,7 +911,7 @@
 		"no_3d": "Kein 3D hier: {reason}",
 		"home": "Kamera zurück",
 		"guest": "Gast-Deck",
-		"dropouts": "{n} Aussetzer / Min · DSP {load} %",
+		"dropouts": "{n} Aussetzer / Min · DSP {load} % · Vorlauf {lead} ms",
 		"dropout_alert": "AUDIO-AUSSETZER – der Ton hat gestockt",
 		"more": "Mehr Regler"
 	},
