@@ -35,3 +35,7 @@ socket2 = { version = "0.6", features = ["all"] }
 [dev-dependencies]
 # a self-signed certificate for the wss tests (tests/tls.rs)
 rcgen = "0.13"
+
+# the bench's thread CPU time (examples/bench.rs; Windows calls kernel32 directly)
+[target.'cfg(unix)'.dev-dependencies]
+libc = "0.2"
