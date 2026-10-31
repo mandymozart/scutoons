@@ -9,12 +9,14 @@ on:
       - 'deck/**'
       - 'shared/live/**'
       - 'shared/live-core/**'
+      - 'shared/live-deck/**'
       - '.github/workflows/deck.yml'
   pull_request:
     paths:
       - 'deck/**'
       - 'shared/live/**'
       - 'shared/live-core/**'
+      - 'shared/live-deck/**'
       - '.github/workflows/deck.yml'
   workflow_dispatch:
 
@@ -46,9 +48,10 @@ jobs:
         working-directory: .
 
   # The browser Live engine (#184): deck/live-core built for wasm32, then shared/live-core's check runs its tests
-  # against it (the wire fixture TS ↔ Rust, the rings, the engine with the real wasm).
+  # against it (the wire fixture TS ↔ Rust, the rings, the engine with the real wasm). The browser deck's 3D (#198):
+  # deck-space for wasm32 (deck/space-web, wgpu: WebGPU + WebGL2) and shared/live-deck's check.
   live-core:
-    name: 🕸 live-core (wasm32 + shared/live-core)
+    name: 🕸 live-core + space-web (wasm32 + shared/live-core, shared/live-deck)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -68,6 +71,10 @@ jobs:
       - run: npm run build:wasm -w shared/live-core
         working-directory: .
       - run: npm run check -w shared/live-core
+        working-directory: .
+      - name: 🧊 space-web (deck-space as wasm32, the browser's 3D)
+        run: cargo build --profile wasm-web --target wasm32-unknown-unknown -p space-web
+      - run: npm run check -w shared/live-deck
         working-directory: .
 
   native:
