@@ -10,6 +10,9 @@ pub const IDLE_S: f32 = 4.0;
 pub const AUTO_RAD_S: f32 = 0.05;
 const PITCH_MIN: f32 = -1.2;
 const PITCH_MAX: f32 = 1.4;
+/// the zoom glides to where the wheel / pinch sent it (owner 2026-10-31: "a bit of damping … it should ease in and
+/// smooth out. Flowing", #224): the time constant of the distance's ease, s – ~95 % there after 3 of them
+pub const ZOOM_EASE_S: f32 = 0.12;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Ray {
@@ -40,6 +43,8 @@ pub struct Orbit {
     pub yaw: f32,
     pub pitch: f32,
     pub distance: f32,
+    /// where the zoom glides to (`distance` follows it in `step`)
+    pub want: f32,
     pub min_distance: f32,
     pub max_distance: f32,
     /// vertical field of view (rad)
@@ -58,6 +63,7 @@ impl Orbit {
             yaw,
             pitch,
             distance,
+            want: distance,
             min_distance: 0.4,
             max_distance: 14.0,
             fov_y: 55f32.to_radians(),
@@ -90,8 +96,12 @@ impl Orbit {
         self.proj(aspect) * self.view()
     }
 
-    /// the auto-orbit once idle (eased in) when `auto`, else nothing
+    /// the zoom's glide, and the auto-orbit once idle (eased in) when `auto`
     pub fn step(&mut self, dt: f32) {
+        // in the log of the distance, so a step in is as smooth close up as far out
+        let k = 1.0 - (-dt.max(0.0) / ZOOM_EASE_S).exp();
+        let d = (self.distance.ln() + (self.want.ln() - self.distance.ln()) * k).exp();
+        self.distance = if (d / self.want - 1.0).abs() < 1e-4 { self.want } else { d };
         self.idle += dt;
         if !self.auto {
             return;
@@ -107,9 +117,9 @@ impl Orbit {
         self.idle = 0.0;
     }
 
-    /// `steps` > 0 moves in (a wheel notch = 1, 12 % each)
+    /// `steps` > 0 moves in (a wheel notch = 1, 12 % each); the camera glides there in `step`
     pub fn zoom(&mut self, steps: f32) {
-        self.distance = (self.distance * 0.88f32.powf(steps)).clamp(self.min_distance, self.max_distance);
+        self.want = (self.want * 0.88f32.powf(steps)).clamp(self.min_distance, self.max_distance);
         self.idle = 0.0;
     }
 
@@ -121,6 +131,7 @@ impl Orbit {
 
     pub fn reset(&mut self) {
         (self.yaw, self.pitch, self.distance) = self.home;
+        self.want = self.distance;
         self.idle = 0.0;
     }
 
@@ -193,13 +204,35 @@ mod tests {
     fn zoom_and_pitch_are_clamped_and_reset_returns_home() {
         let mut c = Orbit::new(Vec3::ZERO, 0.2, 0.1, 2.0);
         c.zoom(100.0);
+        assert_eq!(c.want, c.min_distance);
+        c.step(2.0);
         assert_eq!(c.distance, c.min_distance);
         c.zoom(-100.0);
+        c.step(2.0);
         assert_eq!(c.distance, c.max_distance);
         c.drag(0.0, 10_000.0);
         assert_eq!(c.pitch, PITCH_MAX);
         c.reset();
-        assert_eq!((c.yaw, c.pitch, c.distance), (0.2, 0.1, 2.0));
+        assert_eq!((c.yaw, c.pitch, c.distance, c.want), (0.2, 0.1, 2.0, 2.0));
+    }
+
+    /// #224: a wheel notch doesn't jump – the distance glides there, a bit at each frame, and arrives
+    #[test]
+    fn the_zoom_glides() {
+        let mut c = Orbit::new(Vec3::ZERO, 0.0, 0.0, 4.0);
+        c.zoom(3.0);
+        let goal = c.want;
+        assert_eq!(c.distance, 4.0, "no jump at the notch");
+        let mut last = c.distance;
+        let mut frames = 0;
+        while c.distance != goal {
+            c.step(1.0 / 60.0);
+            assert!(c.distance < last && c.distance >= goal, "in, never past: {} → {}", last, c.distance);
+            last = c.distance;
+            frames += 1;
+            assert!(frames < 120, "it arrives within two seconds");
+        }
+        assert!(frames > 6, "eased, not instant: {frames} frames");
     }
 
     #[test]

@@ -1115,9 +1115,11 @@ mod tests {
         let (body, head) = space.being.focus();
         assert!(head.y > body.y + 0.2, "the head above the body's centre");
         space.camera.zoom(100.0);
+        space.camera.step(2.0); // the glide (#224)
         frame(&mut space, &mut ctl, 0.1);
         assert!(space.camera.target.distance(head) < 1e-4, "close up: a portrait");
         space.camera.zoom(-100.0);
+        space.camera.step(2.0);
         frame(&mut space, &mut ctl, 0.2);
         assert!(space.camera.target.distance(body) < 1e-4, "far out: the whole being");
         space.camera.reset();
