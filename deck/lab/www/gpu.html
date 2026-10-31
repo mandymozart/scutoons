@@ -1,0 +1,48 @@
+<!doctype html>
+<!-- #198 step 0: what this browser's GPU APIs offer (WebGPU adapter, WebGL2) – for choosing the space page's backend. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GPU check</title>
+<style>
+	body { background: #111; color: #eee; font: 1rem/1.4 monospace; margin: 1rem; }
+	b { color: #7f7; } i { color: #f77; font-style: normal; }
+	pre { white-space: pre-wrap; word-break: break-all; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<h1 style="font-size:1.4rem">GPU check</h1>
+<pre id="out">…</pre>
+<script type="module">
+const out = document.getElementById('out');
+const lines = [];
+const say = (s) => { lines.push(s); out.innerHTML = lines.join('\n'); };
+say('UA: ' + navigator.userAgent);
+say('secure context: ' + isSecureContext);
+if (!('gpu' in navigator)) say('<i>WebGPU: navigator.gpu missing</i>');
+else {
+	try {
+		const a = await navigator.gpu.requestAdapter();
+		if (!a) say('<i>WebGPU: requestAdapter() = null</i>');
+		else {
+			const info = a.info ?? (a.requestAdapterInfo ? await a.requestAdapterInfo() : {});
+			say('<b>WebGPU: adapter OK</b>');
+			say('  vendor=' + info.vendor + ' arch=' + info.architecture + ' device=' + info.device + ' desc=' + info.description);
+			say('  fallback=' + a.isFallbackAdapter + ' features=' + [...a.features].join(','));
+			say('  maxTex2D=' + a.limits.maxTextureDimension2D + ' maxBuf=' + a.limits.maxBufferSize);
+			try { const d = await a.requestDevice(); say('<b>  device OK</b>'); d.destroy(); } catch (e) { say('<i>  device failed: ' + e + '</i>'); }
+		}
+	} catch (e) { say('<i>WebGPU error: ' + e + '</i>'); }
+}
+const gl = document.createElement('canvas').getContext('webgl2');
+if (!gl) say('<i>WebGL2: no</i>');
+else {
+	const ext = gl.getExtension('WEBGL_debug_renderer_info');
+	say('<b>WebGL2: yes</b> ' + (ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)));
+	say('  version=' + gl.getParameter(gl.VERSION) + ' maxTex=' + gl.getParameter(gl.MAX_TEXTURE_SIZE));
+}
+say('DONE');
+</script>
+</body>
+</html>

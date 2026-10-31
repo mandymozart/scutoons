@@ -1,0 +1,29 @@
+{
+	"name": "@scutoons/live-deck",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "SCUTOONS Live: the browser deck (#197, #198) – relay client, the trimmed cathedral, the deck's state and sound (live-core), the being in 3D (deck/space-web wasm); used by the viewer's /live/deck and deck/lab",
+	"sideEffects": false,
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"default": "./src/index.ts"
+		}
+	},
+	"files": [
+		"src"
+	],
+	"scripts": {
+		"build:wasm": "node --experimental-transform-types --no-warnings scripts/build-wasm.ts",
+		"check": "tsc --noEmit -p tsconfig.json && npm run test",
+		"test": "node --experimental-transform-types --no-warnings --test test/client.test.ts test/deck.test.ts"
+	},
+	"dependencies": {
+		"@scutoons/live": "*",
+		"@scutoons/live-core": "*"
+	},
+	"devDependencies": {
+		"typescript": "^5.9.3"
+	}
+}

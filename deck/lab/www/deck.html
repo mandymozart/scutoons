@@ -22,6 +22,9 @@
 			#start { min-height: 4.5rem; font-size: 1.5rem; background: var(--primary-cyan); color: var(--ink); border: 0; }
 			#start[hidden] { display: none; }
 			canvas { width: 100%; height: 5rem; display: block; background: #111; }
+			#space { height: 60vh; background: #000; }
+			#space[hidden] { display: none; }
+			#space canvas { height: 100%; }
 			.pads { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-1); }
 			.pad { position: relative; aspect-ratio: 1; background: #111; border: 0.125rem solid #444; touch-action: none; user-select: none; }
 			.pad.on { border-color: var(--primary-cyan); }
@@ -43,6 +46,7 @@
 					<div id="mood">–</div>
 				</div>
 			</div>
+			<div id="space" hidden></div>
 			<button id="start">Start</button>
 			<div id="status">loading</div>
 			<canvas id="bands"></canvas>

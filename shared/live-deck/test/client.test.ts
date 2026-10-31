@@ -1,4 +1,4 @@
-// `node --experimental-transform-types --no-warnings --test deck/lab/ts/deck-client.test.ts` (#197): the browser deck's
+// `npm test -w shared/live-deck` (#197): the browser deck's
 // client logic – the graph message, the values stream (only what moved, ≤ 30 / s, the mood), and in process against a
 // real relay (deck/target/debug/relay.exe on LAB_RELAY_PORT, default 7072; skipped, saying so, when it isn't built):
 // a conductor sees the deck's `deck.graph` first, then its `deck.values`.
@@ -7,9 +7,9 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { DeckLink, envelope, epsilon, parseRelay, RATE, ValueStream } from '../www/deck-client.ts';
-import { deckGraph, ladderFor, LADDER, Moods, PARAMS, STREAMED, toPos, toValue } from '../www/deck-scene.ts';
-import type { Envelope } from '../../../shared/live/src/protocol.ts';
+import { DeckLink, envelope, epsilon, parseRelay, RATE, ValueStream } from '../src/client.ts';
+import { deckGraph, ladderFor, LADDER, Moods, PARAMS, STREAMED, toPos, toValue } from '../src/scene.ts';
+import type { Envelope } from '@scutoons/live';
 
 test('the relay URL and the envelope', () => {
 	assert.deepEqual(parseRelay('ws://localhost:7070/live/CATH'), { base: 'ws://localhost:7070', code: 'CATH' });
@@ -27,7 +27,7 @@ test('deck.graph: deck-stage kinds, links between known ports, the character, it
 	assert.deepEqual(g.expose, Object.keys(PARAMS));
 	for (const e of g.expose!) assert.ok(ids.has(e.split('.')[0]), e);
 	// deck-stage's link.rs test builds this fixture as the conductor would: keep it equal
-	const fixture = JSON.parse(readFileSync(new URL('../fixtures/deck-graph.json', import.meta.url), 'utf8'));
+	const fixture = JSON.parse(readFileSync(new URL('../../../deck/lab/fixtures/deck-graph.json', import.meta.url), 'utf8'));
 	assert.deepEqual(fixture, { kind: 'deck.graph', p: deckGraph('yellowmouse', LADDER) });
 });
 
@@ -95,7 +95,7 @@ const until = async (what: () => boolean, ms = 5000) => {
 	}
 };
 
-const relayExe = fileURLToPath(new URL('../../target/debug/relay.exe', import.meta.url));
+const relayExe = fileURLToPath(new URL('../../../deck/target/debug/relay.exe', import.meta.url));
 test('in process: a relay, a conductor, the deck – graph first, values rate-limited, again after a reconnect', { skip: !existsSync(relayExe) && 'deck/target/debug/relay.exe not built (cargo build -p relay)' }, async () => {
 	const port = Number(process.env.LAB_RELAY_PORT ?? 7072);
 	const env = { ...process.env };

@@ -1,0 +1,7 @@
+// @scutoons/live-deck (#197, #198): the browser deck – a phone joins the Cathedral of decks as a being. One module for
+// the viewer's /live/deck and deck/lab's harness: the relay client (client.ts), the trimmed cathedral (scene.ts), the
+// deck's state and sound (deck.ts), the being in 3D (space.ts – deck/space-web's wasm).
+export * from './client.ts';
+export * from './scene.ts';
+export * from './deck.ts';
+export * from './space.ts';

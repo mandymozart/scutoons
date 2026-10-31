@@ -12,7 +12,7 @@ Results and what they mean: agents/research/LIVE-NIGHT-2026-10-29.md §4; the wa
 | `www/` | the worker page: `main.ts` (postMessage round trips), `worker.ts` (the suite in a worker) |
 | `core-wasm/src/formats.rs`, `ts/formats.ts` | #184: the exchange formats (JSON, postcard, live-core's wire records copied / in place) into and out of wasm; `ts/bench-formats.ts` runs them in Node |
 | `www/formats.html` | #184: the same in a worker + page → worker (postMessage vs the SAB ring) |
-| `www/deck.html` | #197: a phone joins the Cathedral of decks as a being – `deck-client.ts` (relay link + values stream, = stage link.rs / stream.rs), `deck-scene.ts` (the trimmed cathedral deck: wire graph, engine TOML, exposed params, mood ladder); tests `ts/deck-client.test.ts` |
+| `www/deck.html` | #197: a phone joins the Cathedral of decks as a being – since #198 the dev harness of `@scutoons/live-deck` (shared/live-deck: the relay client, the trimmed cathedral, the deck's state and sound, the being in 3D); the real page is the reader's `/live/deck`. `?space=1` draws the being with deck/space-web's wasm |
 | `www/demo.html` | #184: `@scutoons/live-core` playing a scene, the FFT bands, a float vector sent live; `?transport=transfer` / `?coi=0` = the fallback |
 | `ts/run-browser.ts` | formats.html + demo.html in a headless Edge / Chrome over plain CDP (own profile, port `LAB_DEBUG_PORT`, default 9531) → `results/formats-chromium.*`, screenshots |
 
@@ -64,6 +64,19 @@ adb -s <device> shell am start -a android.intent.action.VIEW -d "'http://localho
 ```
 
 It joins at once (`?relay=`, default `ws://<host>:7070/live/CATH`; `?character=<id>`, default yellowmouse or the last
-pick); Start plays it. Tests: `node --experimental-transform-types --no-warnings --test ts/deck-client.test.ts` (the last
-one starts `deck/target/debug/relay.exe` on `LAB_RELAY_PORT`, default 7072); the conductor's side:
-`cargo test -p deck-stage the_browser_decks_being` (`fixtures/deck-graph.json`).
+pick); Start plays it; `?space=1` adds the 3D (`npm run build:wasm -w shared/live-deck` first – ts/build.ts copies it;
+`?gl=1` = WebGL2 only). `LAB_DIST=<dir>` builds elsewhere (a check while www/dist is being served). Tests:
+`npm run check -w shared/live-deck` (the relay test starts `deck/target/debug/relay.exe` on `LAB_RELAY_PORT`, default
+7072); the conductor's side: `cargo test -p deck-space the_browser_decks_being` (`fixtures/deck-graph.json`).
+
+### #198: the being in 3D on a phone – the reader's `/live/deck`
+
+```bash
+npm run build:wasm -w shared/live-deck        # space-web (+ live-core) → viewer/static/live/ (git-ignored)
+cd viewer && npx vite dev --port 4143 --host 127.0.0.1   # VITE_API_URL / VITE_CDN_URL = production for the set + portraits
+adb -s <device> reverse tcp:4143 tcp:4143 && adb -s <device> reverse tcp:7070 tcp:7070
+adb -s <device> shell am start -a android.intent.action.VIEW -d "'http://localhost:4143/live/deck?relay=ws://localhost:7070/live/CATH'"
+```
+
+WebGPU where the browser has an adapter, else WebGL2 (the S22's Chrome: `navigator.gpu` without an adapter → WebGL2);
+the status line at the bottom names the backend. `www/gpu.html` prints what a browser offers (WebGPU adapter, WebGL2).

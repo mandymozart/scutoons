@@ -1,7 +1,7 @@
 // `node --experimental-transform-types deck/lab/ts/build.ts` – builds the lab pages into www/dist:
 // - the #182 page: its TypeScript type-stripped file by file (typescript's transpileModule, no bundler), wasm-bindgen's
 //   www/pkg and www/pkg-simd copied next to it;
-// - the #184 / #197 pages (formats.html, demo.html, deck.html): bundled with rolldown (vite 8's bundler, from the repo's node_modules) –
+// - the #184 / #197 pages (formats.html, demo.html, deck.html – over @scutoons/live-deck since #198): bundled with rolldown (vite 8's bundler, from the repo's node_modules) –
 //   they import shared/live-core; the worker and the worklet are their own entries, live_core.wasm is copied from
 //   deck/target (`npm run build:wasm -w shared/live-core`).
 import { readFileSync, writeFileSync, mkdirSync, cpSync, existsSync } from 'node:fs';
@@ -12,7 +12,8 @@ const lab = fileURLToPath(new URL('..', import.meta.url));
 const require = createRequire(import.meta.url);
 const ts = require('typescript') as typeof import('typescript');
 
-const dist = `${lab}/www/dist`;
+// LAB_DIST: another folder (a check build while the served www/dist stays as it is)
+const dist = process.env.LAB_DIST ?? `${lab}/www/dist`;
 mkdirSync(dist, { recursive: true });
 for (const [src, name] of [
 	['ts/suite.ts', 'suite.js'],
@@ -43,6 +44,12 @@ await bundle.write({ dir: dist, format: 'esm', entryFileNames: '[name].js', chun
 const wasm = `${lab}/../target/wasm32-unknown-unknown/release/live_core.wasm`;
 if (existsSync(wasm)) cpSync(wasm, `${dist}/live_core.wasm`);
 else console.warn('live_core.wasm is not built – npm run build:wasm -w shared/live-core');
+// deck.html's `?space=1` (#198): the being in 3D – deck/space-web's wasm (`npm run build:wasm -w shared/live-deck`)
+const spaceWeb = `${lab}/../../shared/live-deck/wasm`;
+if (existsSync(`${spaceWeb}/space_web_bg.wasm`)) {
+	mkdirSync(`${dist}/space-web`, { recursive: true });
+	for (const f of ['space_web.js', 'space_web_bg.wasm']) cpSync(`${spaceWeb}/${f}`, `${dist}/space-web/${f}`);
+} else console.warn('space-web is not built – npm run build:wasm -w shared/live-deck');
 // deck.html (#197) wears the shared tokens
 cpSync(`${lab}/../../shared/tokens/tokens.css`, `${dist}/tokens.css`);
 console.log(`built ${dist}`);

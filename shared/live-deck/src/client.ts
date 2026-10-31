@@ -1,11 +1,11 @@
-// deck-client.ts (#197): the browser deck's relay logic, platform-free (a WebSocket constructor is injected) so Node
-// tests it against a real relay. The same contract as a native deck (deck/stage/src/space/link.rs + stream.rs):
+// client.ts (#197, @scutoons/live-deck since #198): the browser deck's relay logic, platform-free (a WebSocket constructor is injected) so Node
+// tests it against a real relay. The same contract as a native deck (deck/stage/src/space/link.rs + deck/space's stream.rs):
 // - joins `ws://host:port/live/<code>?role=musician&group=decks` and says `hello` first;
 // - on `welcome` sends its being (`deck.graph`), then a keyframe of every value sent so far, then only changes;
 // - `ValueStream.sample` = stream.rs: at most RATE samples a second, a value only when it moved more than its epsilon,
 //   the mood when it changed;
 // - a reconnect (backoff 1 2 4 8 10 s) sends the graph and the keyframe again (the relay dropped the being).
-import type { DeckGraph, DeckValues, Envelope, Message, Welcome } from '../../../shared/live/src/protocol.ts';
+import type { DeckGraph, DeckValues, Envelope, Message, Welcome } from '@scutoons/live';
 
 /** at most this many `deck.values` a second (the relay drops more than 30 / s) */
 export const RATE = 30;
@@ -85,6 +85,11 @@ export interface LinkOptions {
 	relay: string;
 	graph: DeckGraph;
 	nick?: string;
+	/**
+	 * The relay session token, once there is one (#180 / #186: the member's API session → a relay token). A dev relay
+	 * and today's decks join without; `hello` carries it when given.
+	 */
+	token?: string;
 	/** default: the global WebSocket */
 	socket?: new (url: string) => WebSocketLike;
 	/** the status line (JOINING · DECK c3 @ CATH · OFFLINE … · NO RELAY …) */
@@ -130,7 +135,7 @@ export class DeckLink {
 		this.ws = ws;
 		ws.onopen = () => {
 			this.tries = 0;
-			ws.send(envelope({ kind: 'hello', p: { code: this.code, role: 'musician', group: GROUP, ...(this.o.nick ? { nick: this.o.nick } : {}) } }));
+			ws.send(envelope({ kind: 'hello', p: { code: this.code, role: 'musician', group: GROUP, ...(this.o.nick ? { nick: this.o.nick } : {}), ...(this.o.token ? { token: this.o.token } : {}) } }));
 			this.ping = setInterval(() => this.raw({ kind: 'ping', p: { t0: 0 } }), PING_MS);
 		};
 		ws.onmessage = (ev) => this.receive(String(ev.data));
