@@ -118,12 +118,21 @@ fn authority(url: &str) -> std::result::Result<String, String> {
 }
 
 /// Open the WebSocket at `url` – `ws://`, or `wss://` with TLS (rustls + the webpki roots, no OpenSSL – #199): the
-/// address, a TCP connect within 3 s, no Nagle, the handshake (at most 10 s per read on a host that stays silent), then
-/// a read timeout of `poll` on the socket under it, so the client's loop gets its turns.
+/// name's addresses in turn (a TCP connect within 3 s each; #201: `wss://<deck>.lan.scutoons.com:7700`), no Nagle, the
+/// handshake (at most 10 s per read on a host that stays silent), then a read timeout of `poll` on the socket under it,
+/// so the client's loop gets its turns.
 pub fn dial(url: &str, poll: Duration) -> std::result::Result<WebSocket<MaybeTlsStream<TcpStream>>, String> {
     let host = authority(url)?;
-    let addr = host.to_socket_addrs().map_err(|e| format!("{host}: {e}"))?.next().ok_or_else(|| format!("{host}: no address"))?;
-    let tcp = TcpStream::connect_timeout(&addr, Duration::from_secs(3)).map_err(|e| format!("{host}: {e}"))?;
+    // every address the name has, in the resolver's order (a name with AAAA + A, `localhost` = ::1 and 127.0.0.1)
+    let addrs: Vec<_> = host.to_socket_addrs().map_err(|e| format!("{host}: {e}"))?.collect();
+    let mut tcp = Err(format!("{host}: no address"));
+    for addr in &addrs {
+        tcp = TcpStream::connect_timeout(addr, Duration::from_secs(3)).map_err(|e| format!("{host}: {e}"));
+        if tcp.is_ok() {
+            break;
+        }
+    }
+    let tcp = tcp?;
     tcp.set_nodelay(true).ok();
     tcp.set_read_timeout(Some(Duration::from_secs(10))).ok();
     let (ws, _) = tungstenite::client_tls(url, tcp).map_err(|e| format!("handshake: {e}"))?;
@@ -178,19 +187,47 @@ mod tests {
 
     /// what a client sends first: a stand-in server on 127.0.0.1 keeps the first bytes and closes
     fn first_bytes(scheme: &str) -> (Vec<u8>, String) {
-        let server = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        first_bytes_at(scheme, "127.0.0.1")
+    }
+
+    /// the same for a host name: the stand-in listens on the address the name resolves to first (`dial` resolves it)
+    fn first_bytes_at(scheme: &str, host: &str) -> (Vec<u8>, String) {
+        let addr = (host, 0).to_socket_addrs().unwrap().next().expect("the name resolves");
+        let server = std::net::TcpListener::bind(addr).unwrap();
         let port = server.local_addr().unwrap().port();
         let seen = std::thread::spawn(move || {
             use std::io::Read;
             let (mut s, _) = server.accept().unwrap();
             s.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
-            let mut buf = vec![0u8; 512];
-            let n = s.read(&mut buf).unwrap();
+            let mut buf = vec![0u8; 4096];
+            let mut n = s.read(&mut buf).unwrap();
+            // the rest of a ClientHello that came in more than one segment
+            s.set_read_timeout(Some(Duration::from_millis(200))).unwrap();
+            while n < buf.len() {
+                match s.read(&mut buf[n..]) {
+                    Ok(0) | Err(_) => break,
+                    Ok(m) => n += m,
+                }
+            }
             buf.truncate(n);
             buf
         });
-        let Err(err) = dial(&format!("{scheme}://127.0.0.1:{port}/live/CATH"), Duration::from_millis(50)) else { panic!("the stand-in closes") };
+        let Err(err) = dial(&format!("{scheme}://{host}:{port}/live/CATH"), Duration::from_millis(50)) else { panic!("the stand-in closes") };
         (seen.join().unwrap(), err)
+    }
+
+    #[test]
+    fn a_relay_by_name_resolves_connects_and_names_itself() {
+        // #201: a venue's relay is `wss://<deck>.lan.scutoons.com:7700` – the name resolved, the TLS hello carries it
+        // (SNI), so the relay's certificate is checked against that name; `localhost` stands in for the LAN name
+        let (tls, err) = first_bytes_at("wss", "localhost");
+        assert!(tls.first() == Some(&0x16), "a TLS ClientHello");
+        assert!(tls.windows(9).any(|w| w == b"localhost"), "the name in the hello (SNI)");
+        assert!(err.starts_with("handshake"), "{err}");
+        let (plain, _) = first_bytes_at("ws", "localhost");
+        let head = String::from_utf8_lossy(&plain);
+        assert!(head.starts_with("GET /live/CATH HTTP/1.1") && head.to_ascii_lowercase().contains("host: localhost:"), "{head}");
+        assert!(dial("wss://no-such-deck.invalid:7700/live/CATH", Duration::from_millis(50)).unwrap_err().contains("no-such-deck.invalid"));
     }
 
     #[test]
