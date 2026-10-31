@@ -106,7 +106,7 @@ fn renders_without_allocating(graph: &Graph, build: Build) {
 /// preallocated buffers; and a deck's being at the conductor on its stream's values (#188 phase 4, `Mirror`); the
 /// scene's feelings – every rule tested, moods turning, their nudges pushed into the control domain (feel.rs); the
 /// buttons' feedback (#188, owner 2026-10-31): their tethers, hover, a hand on one, a linked one shaking, a double
-/// click's ease back and the labels – this deck's and the mirrored being's.
+/// click's ease back; #188: the value rings, a linked knob turned as its base, the points' levels, the head's strain.
 #[cfg(feature = "space")]
 #[test]
 fn the_being_steps_without_allocating() {
@@ -114,7 +114,6 @@ fn the_being_steps_without_allocating() {
     use deck_stage::control::Controls;
     use deck_stage::scene::CATHEDRAL_SCENE;
     use deck_stage::space::being::{Being, Hit};
-    use deck_stage::space::label::{Label, LABELS};
     use deck_stage::space::camera::Orbit;
     use deck_stage::space::values::Local;
     use deck_stage::tempo;
@@ -133,7 +132,6 @@ fn the_being_steps_without_allocating() {
     let knob = being.buttons.iter().find(|b| !b.linked).map(|b| (b.node, b.port)).unwrap();
     let hand = being.buttons.iter().position(|b| !b.linked && (b.node, b.port) != knob).unwrap();
     let linked = being.buttons.iter().position(|b| b.linked).unwrap();
-    let mut labels: Vec<Label> = Vec::with_capacity(LABELS);
     let mut shown = 0;
     let meter = |n: usize, p: usize| ((n * 7 + p) % 5) as f32 * 0.2;
     let (rules, nudges) = being.feel.counts();
@@ -159,6 +157,12 @@ fn the_being_steps_without_allocating() {
         if f == 400 {
             being.reset(hand);
         }
+        if (300..330).contains(&f) {
+            // #188: the linked knob turns as its base
+            let b = &being.buttons[linked];
+            ctl.set(b.node, b.port, b.spec.value((f - 300) as f32 / 30.0));
+        }
+        being.strain(1.0 / 60.0, if (100..140).contains(&f) { 9.0 } else { 0.0 });
         being.update(1.0 / 60.0, f as f32 / 60.0, &Local { ctl: &ctl, meter: &meter }, &beat);
         being.push(&mut ctl);
         // the deck's sound swells and drops: its rules see jumps, quiet and noise
@@ -168,20 +172,17 @@ fn the_being_steps_without_allocating() {
         turns += usize::from(being.head.mood != before.0) + usize::from(remote.head.mood != before.1);
         let _ = being.pick(&cam.ray(640.0 + f as f32, 360.0, 1280.0, 720.0));
         being.write(&mut spheres, &mut tubes);
-        // the deck's knob jumps on the stream: the mirrored being moves it, its label speaks
+        // the deck's knob jumps on the stream: the mirrored being moves it
         mirror.apply(&graph, "voice.index", &[if (f / 60) % 2 == 0 { 1.0 } else { 7.0 }]);
         remote.update(1.0 / 60.0, f as f32 / 60.0, &mirror, &beat);
         remote.write(&mut rs, &mut rt);
-        labels.clear();
-        being.write_labels(&mut labels);
-        remote.write_labels(&mut labels);
-        shown += labels.len();
+        shown += spheres.iter().filter(|s| s.extra[0] >= deck_stage::space::being::kind::GAUGE).count();
     }
     measure(false);
     assert_eq!(CALLS.load(Ordering::SeqCst) - before, 0, "allocations / frees in the being's frame");
     assert!(being.hoses.iter().any(|h| h.bubbles.iter().any(|b| b.size > 0.0)), "it bubbles");
     assert!(turns >= 3, "the feelings turn the mood: {turns}");
-    assert!(shown > 60 && labels.capacity() == LABELS, "labels spoke: {shown}");
+    assert!(shown >= 600 * being.buttons.len(), "every knob wears its value ring every frame: {shown}");
 }
 
 /// The outlet's frame (#186) never allocates: the crossfade's numbers per frame and the empty polls of the composer's

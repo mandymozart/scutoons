@@ -768,6 +768,7 @@ impl App {
         #[cfg(feature = "space")]
         if let Some(s) = self.show.space.as_mut() {
             let meters = self.show.meters.as_deref();
+            s.being.strain(dt, reduction);
             s.update(dt, time, &mut self.show.controls, &beat, &|n, p| meters.map_or(0.0, |m| m.level(n, p)));
             // the pointer's look: a hand over a button, a closed one on it, "no" over a linked one
             let c = s.cursor();

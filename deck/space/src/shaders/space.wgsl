@@ -140,17 +140,23 @@ fn fs_ghost(i: SphereOut) -> @location(0) vec4<f32> {
         let ang = atan2(dot(n, up), dot(n, right));
         let pi = 3.14159265;
         if i.extra.x > 6.5 {
-            // the gauge: 270° from the lower left clockwise over the top to the lower right, lit up to the value,
-            // the range's ends as ticks
+            // the value ring (#188, always on): 270° from the lower left clockwise over the top to the lower right, lit
+            // up to the knob's value (extra.w); a linked knob's swing band (extra.y..z) brighter, the value now a white
+            // tick ((extra.x − 7) / 0.9). No range ends, no numbers. Thin and quiet at rest (alpha 0.5), wide and bright
+            // under the hand (alpha → 1).
+            let hand = clamp((i.color.a - 0.5) * 2.0, 0.0, 1.0);
             let u = fract((1.25 * pi - ang) / (2.0 * pi)) * 4.0 / 3.0;
             let on_arc = step(u, 1.0);
-            let band = smoothstep(0.8, 0.86, rp);
+            let inner = mix(0.83, 0.76, hand);
+            let band = smoothstep(inner, inner + 0.04, rp);
             let lit = step(u, i.extra.w);
-            let tick = (1.0 - smoothstep(0.0, 0.02, abs(u))) + (1.0 - smoothstep(0.0, 0.02, abs(u - 1.0)));
+            let swing = step(i.extra.y, u) * step(u, i.extra.z) * step(0.004, i.extra.z - i.extra.y);
+            let live = clamp((i.extra.x - 7.0) / 0.9, 0.0, 1.0);
+            let now = (1.0 - smoothstep(0.0, 0.03, abs(u - live))) * step(0.004, i.extra.z - i.extra.y);
             let head = 1.0 - smoothstep(0.0, 0.025, abs(u - i.extra.w));
-            // the track dim, the value bright in the parameter's colour, a white mark where it stands
-            a = i.color.a * (band * on_arc * (0.1 + 1.1 * lit + 1.5 * head) + smoothstep(0.62, 0.72, rp) * tick * 1.5);
-            let c = to_srgb(mix(i.color.rgb * (0.4 + 0.8 * lit), vec3<f32>(1.0), 0.15 * lit + 0.8 * head)) * a;
+            // the track dim, the value bright in the parameter's colour, the swing between, a white mark where it stands
+            a = i.color.a * band * on_arc * (0.3 + 1.0 * lit + 0.55 * swing + 1.2 * head + 1.4 * now);
+            let c = to_srgb(mix(i.color.rgb * (0.45 + 0.8 * lit + 0.3 * swing), vec3<f32>(1.0), 0.1 * lit + 0.5 * head + 0.7 * now)) * a;
             return vec4<f32>(c, a);
         }
         // the ring: thin; a linked button's dashed (a lock), turning slowly
@@ -252,6 +258,8 @@ struct HeadOut {
     @location(3) look: vec4<f32>,
     // energy, has a face, the plate's (u, v)
     @location(4) more: vec4<f32>,
+    // the strain (the output limiter's red flush, #188)
+    @location(5) strain: f32,
 };
 
 @vertex
@@ -262,6 +270,7 @@ fn vs_head(
     @location(3) up_alpha: vec4<f32>,
     @location(4) fwd_layer: vec4<f32>,
     @location(5) extra: vec4<f32>,
+    @location(6) more: vec4<f32>,
 ) -> HeadOut {
     var o: HeadOut;
     let machine = fwd_layer.w < 0.5;
@@ -281,6 +290,7 @@ fn vs_head(
     o.uv = vec2<f32>(grid.x * 0.5 + 0.5, 0.5 - grid.y * 0.5);
     o.look = vec4<f32>(up_alpha.w, fwd_layer.w, extra.x, extra.y);
     o.more = vec4<f32>(extra.z, extra.w, grid.x, grid.y);
+    o.strain = more.x;
     return o;
 }
 
@@ -331,6 +341,10 @@ fn fs_head(i: HeadOut) -> @location(0) vec4<f32> {
         c = (c * scan * (0.85 + 0.3 * energy)) + sheen * pow(f, 2.0) * 0.45 * glow;
         a = a * edge * i.look.x * (0.97 - 0.4 * f);
     }
+    // overload (#188, owner 2026-10-31: "the head and avatar turn red-faced"): a red flush over the face and the machine
+    // alike, strongest in the cheeks (the plate's middle), pulsing a little as it strains
+    let flush = i.strain * (0.75 + 0.25 * sin(frame.look.x * 9.0)) * (1.0 - 0.4 * r);
+    c = mix(c, c * vec3<f32>(1.25, 0.45, 0.4) + vec3<f32>(0.35, 0.02, 0.0), clamp(flush, 0.0, 1.0));
     if a < 0.04 {
         discard;
     }

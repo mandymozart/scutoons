@@ -144,14 +144,20 @@ chain, each button hanging from the one before it; its value is its distance fro
 clamped – `tether_len`), so a deck turned up wide sprawls and a quiet one stays compact, on the conductor's mirrored
 beings too. The tether is a thin hose in the parameter's own colour (`param_hue`: freq red, glow amber, index blue …),
 thicker and brighter with the value; while the value moves, bubbles run along it to the node, the node flashes and its
-hoses glow (what the button reaches). A linked button rides its source by itself, pale with a dark bolt and a dashed lock
-ring. **Feedback:** hover swells a button with a thin ring (the pointer a hand); a drag pulls it along its tether like a
-MIDI CC (`Controls::set`) – lit fully inside a 270° value gauge with the range's ends; a 3D label beside it, always
-facing the camera (`glow 0.60`, the range under it; `cutoff 2812 < sway` on a linked one; up to 3 moving buttons of a
-being speak too – `space/label.rs`: a glyph atlas made once, a quad per character, nothing allocated per frame); a drag
-on a linked button shakes it and the HUD says `INCENSE.CUTOFF IS LINKED < SWAY`; a double click eases it back to the
-scene's value (0.5 s). A finger on a touch screen (winit's touch events) does the same with twice the reach. No click
-sound: the audio graph has no cheap one-shot path from the frame thread (the click node only ticks the tempo map). The HUD's last line names the hovered button (`VOICE.INDEX 2.00 [0.00-10.0]`, `SPACE.PULSE 0.58 < FFT`) or node. The
+hoses glow (what the button reaches). A colour control (a hue) wears the colour it is set to – knob, tether, ring and
+its node point. **No numbers** (owner 2026-10-31): no labels, no range ends; instead **every knob always wears a thin
+270° ring lit up to its value** (`kind::GAUGE` – the value at rest), wider and brighter under the hand. **A linked
+knob turns as its base** (#188): a linked input is `source · scale + base`, the knob sets the base (the link's offset;
+`Controls::set` / deck-core's `BatchGraph::set_base` / live-core's wire mode `base`) and the modulation adds on top –
+its ring shows the base lit, the swing the modulation covered lately as a band and the value now as a white tick; a
+double click eases it back to the link's offset. Only a mirrored deck's linked knob (the stream carries no base) is
+locked: pale, a dashed ring, it shakes when grabbed. **Feedback:** hover swells a button with a thin ring (the pointer a
+hand); a drag pulls it along its tether like a MIDI CC (`Controls::set`); a double click eases it back to the scene's
+value (0.5 s). **Level and overload:** a node point glows with its audio level; the head flushes red with the output
+limiter's gain reduction (`Being::strain`, full at 9 dB) and the feelings' `strain` makes it dizzy. **The camera
+focuses like a photographer** (`camera::focus_target`): far out (7 sizes) at the whole being's centre, close up (2.2
+sizes) at its head, smoothly between. Bubbles stay well inside their tubes (`BUBBLE_FILL` 0.6 of the radius). A finger on a touch screen (winit's touch events) does the same with twice the reach. No click
+sound: the audio graph has no cheap one-shot path from the frame thread (the click node only ticks the tempo map). The HUD's last line names the hovered button (`VOICE.INDEX 2.00`, `INCENSE.CUTOFF 600.0 < SWAY` – a linked one's base) or node. The
 body drifts, sways and breathes on the tempo clock (a swell on each beat, a wave over the bar; `pulse` kicks it); `hue`
 / `glow` colour it, `light` dims the set. The scene's `[being]` table is its shape: `size` (body radius, 0.5 m),
 `drift` (0.06 m), `breath` (0.035), `wobble` (0.025), `hose` / `bubbles` (thickness / rate factors), `expose` (the

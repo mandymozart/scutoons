@@ -94,9 +94,10 @@ pub struct Controls {
     lfos: Vec<Vec<Lfos>>,
     tempo_node: Option<usize>,
     analyzers: Vec<(usize, Analyzer)>,
-    /// the audio nodes' linked control inputs: one column, one Param each
+    /// the audio nodes' linked control inputs: one column, one Param each, and whose input each is (node, port)
     param_in: Col,
     params: Vec<Param>,
+    param_at: Vec<(usize, usize)>,
     /// the audio nodes' unlinked control inputs (node, port, param) – `set` writes them
     knobs: Vec<(usize, usize, Param)>,
     /// per node: where an LFO sits in the batches (level, batch, index)
@@ -143,6 +144,7 @@ impl Controls {
             analyzers: Vec::new(),
             param_in: Col::default(),
             params: Vec::new(),
+            param_at: Vec::new(),
             knobs: Vec::new(),
             lfo_at: vec![None; graph.nodes.len()],
             lfo_order: Vec::new(),
@@ -167,30 +169,50 @@ impl Controls {
                 c.column(&mut col, node, port, p.get());
                 c.param_in = col;
                 c.params.push(p);
+                c.param_at.push((node, port));
             }
             c.knobs = std::mem::take(&mut h.knobs);
         }
         c
     }
 
-    /// Set `node`'s unlinked control input `port` to `value` (a MIDI CC, a 3D button): what `input` reads, the LFO's
-    /// column, the audio node's Param. A linked input is its link's – false, nothing changes.
+    /// Set `node`'s control input `port` to `value` (a MIDI CC, a 3D button): what `input` reads, the LFO's column, the
+    /// audio node's Param. A linked input is `source · scale + base` (#188, owner 2026-10-31: a linked knob "turnable
+    /// as the base"): `value` becomes its base – the link's offset – and the modulation keeps flowing on top. False: no
+    /// such input.
     pub fn set(&mut self, node: usize, port: usize, value: f32) -> bool {
-        match self.inputs.get(node).and_then(|i| i.get(port)) {
-            None | Some(Src::Link(..)) => return false,
-            Some(_) => self.inputs[node][port] = Src::Param(value),
-        }
+        let src = match self.inputs.get(node).and_then(|i| i.get(port)) {
+            None => return false,
+            Some(Src::Link(slot, scale, _)) => Src::Link(*slot, *scale, value),
+            Some(_) => Src::Param(value),
+        };
+        self.inputs[node][port] = src;
+        let (slot, scale) = match src {
+            Src::Link(slot, scale, _) => (slot, scale),
+            _ => (0, 0.0),
+        };
         if let Some((l, b, k)) = self.lfo_at[node] {
             let batch = &mut self.lfos[l][b];
             match port {
-                0 => batch.rate.set_constant(k, value),
-                _ => batch.depth.set_constant(k, value),
+                0 => batch.rate.set(k, slot, scale, value),
+                _ => batch.depth.set(k, slot, scale, value),
             }
         }
         for (_, _, p) in self.knobs.iter().filter(|(n, k, _)| (*n, *k) == (node, port)) {
             p.set(value);
         }
+        if let Some(i) = self.param_at.iter().position(|&at| at == (node, port)) {
+            self.param_in.set(i, slot, scale, value);
+        }
         true
+    }
+
+    /// a linked input's base (its link's offset – what its knob turns); None for an unlinked one (its value is `input`)
+    pub fn base(&self, node: usize, port: usize) -> Option<f32> {
+        match self.inputs.get(node).and_then(|i| i.get(port)) {
+            Some(Src::Link(_, _, base)) => Some(*base),
+            _ => None,
+        }
     }
 
     /// node `node`'s input `port` appended to `col` (a link, else the param, else `default` – as a constant)
@@ -329,6 +351,9 @@ impl deck_space::space::values::Knobs for Controls {
     fn set(&mut self, node: usize, port: usize, value: f32) -> bool {
         Controls::set(self, node, port, value)
     }
+    fn base(&self, node: usize, port: usize) -> Option<f32> {
+        Controls::base(self, node, port)
+    }
     fn set_lfo_shape(&mut self, node: usize, shape: usize) -> bool {
         Controls::set_lfo_shape(self, node, shape)
     }
@@ -387,16 +412,47 @@ to=\"p.speed\"
         let mut c = Controls::new(&g, Some(&mut h));
         assert!(c.set(1, 2, 0.7), "p.hue: unlinked");
         assert_eq!(c.input(1, "hue", 0.0), 0.7);
-        assert!(!c.set(1, 0, 3.0), "p.speed belongs to its link");
+        // #188: a linked input's knob turns its base; the link flows on top (the square LFO at 1 here once stepped)
+        assert_eq!(c.base(1, 0), Some(0.0), "the link's offset");
+        assert!(c.set(1, 0, 3.0), "p.speed: its base");
+        assert_eq!((c.base(1, 0), c.base(1, 2)), (Some(3.0), None));
         assert!(c.set(2, 3, 4.5));
         assert_eq!(index.get(), 4.5, "the audio thread's Param");
         // the LFO's depth through its batch column: a square at phase 0 = depth
         assert!(c.set(0, 1, 0.25));
         c.update(0.01, 0, &tempo::Now::default());
-        assert_eq!(c.input(1, "speed", 0.0), 0.25);
+        assert_eq!(c.input(1, "speed", 0.0), 3.25, "the depth 0.25 on top of the base 3");
         assert!(c.set(0, 0, 50.0), "the rate");
         c.update(0.011, 0, &tempo::Now::default()); // phase 0.55 → the low half
-        assert_eq!(c.input(1, "speed", 1.0), 0.0);
+        assert_eq!(c.input(1, "speed", 1.0), 3.0);
+    }
+
+    /// #188: a knob on a linked audio input turns its base – the audio thread's Param gets the link on top of it
+    #[test]
+    fn a_linked_audio_input_turns_as_its_base() {
+        let g = graph("[[node]]
+id=\"l\"
+kind=\"lfo\"
+rate=0
+shape=\"square\"
+[[node]]
+id=\"o\"
+kind=\"osc\"
+[[link]]
+from=\"l\"
+to=\"o.freq\"
+scale=100
+offset=40
+");
+        let (_, mut h) = Engine::build(&g, 48_000.0, 1.0).unwrap();
+        let freq = h.params[0].2.clone();
+        let mut c = Controls::new(&g, Some(&mut h));
+        c.update(0.01, 0, &tempo::Now::default());
+        assert_eq!(freq.get(), 140.0, "the square high: 1 · 100 + 40");
+        let port = Kind::Osc.input("freq").unwrap();
+        assert!(c.set(1, port, 300.0));
+        c.update(0.01, 0, &tempo::Now::default());
+        assert_eq!((freq.get(), c.input(1, "freq", 0.0), c.base(1, port)), (400.0, 400.0, Some(300.0)));
     }
 
     #[test]

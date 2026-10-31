@@ -132,7 +132,8 @@ mod tests {
         assert!((59..=61).contains(&samples), "30 a second: {samples}");
         assert!(sent < samples * stream.len(), "only what changed: {sent}");
         for (a, b) in deck.buttons.iter().zip(&far.buttons) {
-            assert!((a.value - b.value).abs() <= values::epsilon(&g, if a.shape { Path::Shape(a.node) } else { Path::Input(a.node, a.port) }) * 2.0 + 1e-6, "{} {} vs {}", a.name, a.value, b.value);
+            // the input as streamed (a linked knob's base stays with its deck – #188)
+            assert!((a.live - b.live).abs() <= values::epsilon(&g, if a.shape { Path::Shape(a.node) } else { Path::Input(a.node, a.port) }) * 2.0 + 1e-6, "{} {} vs {}", a.name, a.live, b.live);
         }
         // what moved after the last sample goes out with the next; then a graph that stands still sends nothing
         let local = Local { ctl: &ctl, meter: &meter };

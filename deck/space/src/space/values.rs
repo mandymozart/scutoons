@@ -20,8 +20,13 @@ pub trait Knobs {
     fn outputs(&self, node: usize) -> &[f32];
     /// an LFO's shape (an index into LFO_SHAPES); None for other nodes
     fn lfo_shape(&self, node: usize) -> Option<usize>;
-    /// `node`'s unlinked control input `port` to `value`; false = linked (or no such port), nothing changes
+    /// `node`'s control input `port` to `value` – a linked input's base (#188: the link's modulation flows on top);
+    /// false = no such port (or a linked input whose base this view can't turn), nothing changes
     fn set(&mut self, node: usize, port: usize, value: f32) -> bool;
+    /// a linked input's base (what its knob turns – #188); None for an unlinked one, or where the base is unknown
+    fn base(&self, _node: usize, _port: usize) -> Option<f32> {
+        None
+    }
     /// an LFO's shape from outside; false for other nodes
     fn set_lfo_shape(&mut self, node: usize, shape: usize) -> bool;
 }
@@ -35,6 +40,10 @@ pub trait Values {
     fn meter(&self, node: usize, port: usize) -> f32;
     /// an LFO's waveform (None for other nodes)
     fn lfo_shape(&self, node: usize) -> Option<usize>;
+    /// a linked input's base (#188: its knob; the input is the base + the link's modulation); None = unlinked or unknown
+    fn base(&self, _node: usize, _port: usize) -> Option<f32> {
+        None
+    }
 }
 
 /// this deck's own graph: the control domain + the audio meters (node, port → peak)
@@ -55,6 +64,9 @@ impl Values for Local<'_> {
     }
     fn lfo_shape(&self, node: usize) -> Option<usize> {
         self.ctl.lfo_shape(node)
+    }
+    fn base(&self, node: usize, port: usize) -> Option<f32> {
+        self.ctl.base(node, port)
     }
 }
 
@@ -103,6 +115,8 @@ pub fn path_name(graph: &Graph, p: Path) -> String {
 pub struct Mirror {
     kinds: Vec<Kind>,
     inputs: Vec<Vec<f32>>,
+    /// per linked input: its base as the page wrote it (#188; NaN = unknown); None = unlinked
+    bases: Vec<Vec<Option<f32>>>,
     outputs: Vec<Vec<f32>>,
     shapes: Vec<Option<usize>>,
 }
@@ -112,6 +126,9 @@ impl Mirror {
         Mirror {
             kinds: graph.nodes.iter().map(|n| n.kind).collect(),
             inputs: graph.nodes.iter().map(|n| vec![f32::NAN; n.kind.inputs().len()]).collect(),
+            bases: (0..graph.nodes.len())
+                .map(|i| (0..graph.nodes[i].kind.inputs().len()).map(|k| graph.link_into(i, k).map(|_| f32::NAN)).collect())
+                .collect(),
             outputs: graph.nodes.iter().map(|n| vec![0.0; n.kind.outputs().len()]).collect(),
             shapes: graph.nodes.iter().map(|n| (n.kind == Kind::Lfo).then_some(0)).collect(),
         }
@@ -149,6 +166,9 @@ impl Values for Mirror {
     fn lfo_shape(&self, node: usize) -> Option<usize> {
         self.shapes[node]
     }
+    fn base(&self, node: usize, port: usize) -> Option<f32> {
+        Mirror::base(self, node, port)
+    }
 }
 
 /// The page's hand in the browser (#198, deck/space-web): a button or a feeling turns the mirror's values, the page
@@ -168,6 +188,27 @@ impl Mirror {
             }
             None => false,
         }
+    }
+
+    /// a linked input's base as last written (None: unlinked, or never written)
+    pub fn base(&self, node: usize, port: usize) -> Option<f32> {
+        self.bases.get(node).and_then(|b| b.get(port)).copied().flatten().filter(|v| !v.is_nan())
+    }
+
+    /// a linked input's base (#188: the page's value under the modulation); false: no such input or not linked
+    pub fn set_base(&mut self, node: usize, port: usize, value: f32) -> bool {
+        match self.bases.get_mut(node).and_then(|b| b.get_mut(port)) {
+            Some(Some(b)) => {
+                *b = value;
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// whether `node`'s input `port` is linked
+    pub fn linked(&self, node: usize, port: usize) -> bool {
+        matches!(self.bases.get(node).and_then(|b| b.get(port)), Some(Some(_)))
     }
 
     /// `node`'s outputs as last written
@@ -287,7 +328,18 @@ impl Knobs for Table {
                 *v = value;
                 true
             }
-            _ => false,
+            // a linked input: its base (the link's offset), the link on top (#188)
+            Some((Some(link), _)) => {
+                link.3 = value;
+                true
+            }
+            None => false,
+        }
+    }
+    fn base(&self, node: usize, port: usize) -> Option<f32> {
+        match self.inputs.get(node).and_then(|i| i.get(port)) {
+            Some((Some(link), _)) => Some(link.3),
+            _ => None,
         }
     }
     fn set_lfo_shape(&mut self, node: usize, shape: usize) -> bool {

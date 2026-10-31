@@ -52,11 +52,15 @@ impl Knobs for Page {
         Values::lfo_shape(&self.mirror, node)
     }
     fn set(&mut self, node: usize, port: usize, value: f32) -> bool {
-        let ok = self.mirror.set_input(node, port, value);
+        // a linked input's knob turns its base (#188): the page sways it on top (its LFO on the cutoff)
+        let ok = if self.mirror.linked(node, port) { self.mirror.set_base(node, port, value) } else { self.mirror.set_input(node, port, value) };
         if ok {
             self.touched(ValuePath::Input(node, port));
         }
         ok
+    }
+    fn base(&self, node: usize, port: usize) -> Option<f32> {
+        self.mirror.base(node, port)
     }
     fn set_lfo_shape(&mut self, node: usize, shape: usize) -> bool {
         let ok = self.mirror.set_shape(node, shape);
@@ -74,7 +78,7 @@ fn err(e: impl std::fmt::Display) -> JsValue {
 /// The deck's being from its wire graph, in the cathedral: the space node takes the cathedral's (where the being
 /// floats, the camera, the set – not its `join`, the page streams), the look the cathedral's (its drift, breath …)
 /// with the wire's character, moods, size and exposed parameters; the page's starting values become the nodes' params
-/// (what a double click eases back to). No feelings: the page's mood is the head's.
+/// (what a double click eases back to) – a linked input's its link's offset, its base (#188). No feelings: the page's mood is the head's.
 fn being_of(deck_graph: &str, values_json: &str) -> anyhow::Result<(Graph, Look)> {
     let g: protocol::DeckGraph = serde_json::from_str(deck_graph)?;
     let (mut graph, wired) = wire::from_wire(&g)?;
@@ -87,6 +91,12 @@ fn being_of(deck_graph: &str, values_json: &str) -> anyhow::Result<(Graph, Look)
     let start: HashMap<String, f64> = if values_json.is_empty() { HashMap::new() } else { serde_json::from_str(values_json)? };
     for (path, v) in start {
         if let Some(ValuePath::Input(n, k)) = values::resolve(&graph, &path) {
+            // a linked input's start value is its base: the link's offset (#188 – what its knob turns, a double click
+            // eases back to)
+            if let Some(l) = graph.links.iter_mut().find(|l| l.to == (n, k)) {
+                l.offset = v as f32;
+                continue;
+            }
             let name = graph.nodes[n].kind.inputs()[k].name;
             graph.nodes[n].params.insert(name.into(), toml::Value::Float(v));
         }
@@ -104,6 +114,10 @@ fn mirror_of(graph: &Graph) -> Mirror {
                 m.set_input(n, k, node.f32(port.name, 0.0));
             }
         }
+    }
+    // a linked input's base until the page writes its own: the link's offset
+    for l in &graph.links {
+        m.set_base(l.to.0, l.to.1, l.offset);
     }
     m
 }
@@ -245,6 +259,21 @@ impl SpaceView {
         }
     }
 
+    /// A linked input's base – the page's own value under its modulation (#188: the knob turns it, `changes` hands it
+    /// back); false = the being has no such linked input.
+    pub fn set_base(&mut self, path: &str, value: f32) -> bool {
+        match values::resolve(&self.graph, path) {
+            Some(ValuePath::Input(n, k)) => self.page.mirror.set_base(n, k, value),
+            _ => false,
+        }
+    }
+
+    /// The output limiter's gain reduction (dB, the deepest since the last call – live-core's analysis frame): the
+    /// head's red flush (#188). Call it once a frame before `frame`.
+    pub fn set_strain(&mut self, reduction_db: f32, dt: f32) {
+        self.space.being.strain(dt.clamp(0.0, 0.1), reduction_db);
+    }
+
     /// The head's mood (the page's – its energy ladder); an unknown one leaves the head as it is.
     pub fn set_mood(&mut self, mood: &str) {
         if let Some(i) = self.space.being.moods.iter().position(|m| m == mood) {
@@ -266,7 +295,7 @@ impl SpaceView {
         let mut out = serde_json::Map::new();
         for p in std::mem::take(&mut self.page.turned) {
             let v = match p {
-                ValuePath::Input(n, k) => self.page.mirror.raw_input(n, k),
+                ValuePath::Input(n, k) => self.page.mirror.base(n, k).unwrap_or_else(|| self.page.mirror.raw_input(n, k)),
                 ValuePath::Shape(n) => Values::lfo_shape(&self.page.mirror, n).unwrap_or(0) as f32,
                 ValuePath::Output(..) => continue,
             };
@@ -406,7 +435,7 @@ impl SpaceView {
         .into()
     }
 
-    /// the stage HUD's line: the hovered button (its value, range or source), else the set's state
+    /// the stage HUD's line: the hovered button (its value – a linked one's base – and source), else the set's state
     pub fn hud_line(&self) -> String {
         self.space.hud_line(&self.graph)
     }

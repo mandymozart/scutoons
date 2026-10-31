@@ -24,8 +24,9 @@ const PLATE: u32 = 16;
 /// how far the face plate bulges toward the eye (a fraction of its half width)
 const BULGE: f32 = 0.32;
 
-/// one face-plate layer for the GPU (80 bytes): centre + half width, right + bulge, up + alpha, forward + layer
-/// (0 = the machine behind, 1 = the portrait), extra = (glow, hue, energy, has a face)
+/// one face-plate layer for the GPU (96 bytes): centre + half width, right + bulge, up + alpha, forward + layer
+/// (0 = the machine behind, 1 = the portrait), extra = (glow, hue, energy, has a face), more = (strain – the red
+/// flush of an overloaded output, #188 –, 0, 0, 0)
 #[repr(C)]
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 struct HeadLayer {
@@ -38,6 +39,7 @@ struct HeadLayer {
     fwd: [f32; 3],
     layer: f32,
     extra: [f32; 4],
+    more: [f32; 4],
 }
 
 const SHADER: &str = include_str!("../shaders/space.wgsl");
@@ -224,7 +226,7 @@ impl SpaceGpu {
         let tube_pipe = pipe("space tube", &being_layout, "vs_tube", "fs_tube", &tube_vbl, Some(additive), false, None);
         // the heads: premultiplied alpha over, depth written; LessEqual – the mood fading in lies on the old one
         let plate_attrs = wgpu::vertex_attr_array![0 => Float32x2];
-        let layer_attrs = wgpu::vertex_attr_array![1 => Float32x4, 2 => Float32x4, 3 => Float32x4, 4 => Float32x4, 5 => Float32x4];
+        let layer_attrs = wgpu::vertex_attr_array![1 => Float32x4, 2 => Float32x4, 3 => Float32x4, 4 => Float32x4, 5 => Float32x4, 6 => Float32x4];
         let head_vbl = [
             wgpu::VertexBufferLayout { array_stride: 8, step_mode: wgpu::VertexStepMode::Vertex, attributes: &plate_attrs },
             wgpu::VertexBufferLayout { array_stride: std::mem::size_of::<HeadLayer>() as u64, step_mode: wgpu::VertexStepMode::Instance, attributes: &layer_attrs },
@@ -467,6 +469,7 @@ impl SpaceGpu {
                 fwd: fwd.into(),
                 layer,
                 extra: [b.glow, b.hue, h.energy, if face { 1.0 } else { 0.0 }],
+                more: [b.strain, 0.0, 0.0, 0.0],
             };
             // the machine behind (the silhouette of the face it carries), then the portrait: the old mood under the new
             self.layers.push(layer(1.0, 0.0, now.is_some()));

@@ -73,6 +73,10 @@ fn aim(b: &Being) -> Vec3 {
     b.anchor + Vec3::Y * b.look.size * 0.45
 }
 
+/// the photographer's focus: from this many sizes away the camera aims at the whole being, from this near at its head
+const FOCUS_FAR: f32 = 7.0;
+const FOCUS_NEAR: f32 = 2.2;
+
 /// where the being floats when the set has no such spot (or there is no set)
 const FALLBACK_ANCHOR: Vec3 = Vec3::new(0.0, 1.4, 0.0);
 
@@ -337,6 +341,10 @@ impl Space {
         self.clock = time;
         self.light = ctl.input(self.node, "light", params::default(crate::graph::Kind::Space, "light"));
         self.camera.step(dt);
+        // the focus follows the zoom: the whole being far out, its head close up (owner 2026-10-31)
+        let (body, head) = self.being.focus();
+        let s = self.being.look.size;
+        self.camera.target = camera::focus_target(body, head, self.camera.distance, s * FOCUS_NEAR, s * FOCUS_FAR);
         self.being.update(dt, time, &Local { ctl, meter }, beat);
         self.being.push(ctl);
         let local = Local { ctl, meter };
@@ -527,8 +535,8 @@ impl Space {
         std::iter::once(&self.being).chain(self.others.iter().map(|r| &r.being))
     }
 
-    /// This frame's labels (label.rs): this deck's hovered / turned button first, then what hands move on the decks'
-    /// beings – at most label::LABELS (`out` cleared first; its capacity from the renderer – no allocation).
+    /// This frame's labels (label.rs): the conductor's word over each deck's being (the buttons carry no numbers – owner
+    /// 2026-10-31) – at most label::LABELS (`out` cleared first; its capacity from the renderer – no allocation).
     pub fn write_labels(&self, out: &mut Vec<Label>) {
         out.clear();
         // #195: the conductor's word over each deck's being – its sync for the push (first: the decks' state matters)
@@ -543,9 +551,6 @@ impl Space {
             let head = &r.being.head;
             out.push(Label { pos: (head.pos + Vec3::Y * head.radius * 1.4).into(), offset: head.radius, text, color: [c[0], c[1], c[2], 0.9], scale: 0.85, line: 0.0 });
         }
-        for b in self.beings() {
-            b.write_labels(out);
-        }
     }
 
     /// what the pointer should look like now
@@ -553,7 +558,7 @@ impl Space {
         match (self.drag, self.being.hover) {
             (Drag::Knob { .. }, _) => Cursor::Grabbing,
             (Drag::Hold, _) => Cursor::Locked,
-            (Drag::None, Some(Hit::Button(i))) if self.being.buttons[i].linked => Cursor::Locked,
+            (Drag::None, Some(Hit::Button(i))) if !self.being.buttons[i].turnable => Cursor::Locked,
             (Drag::None, Some(Hit::Button(_))) => Cursor::Grab,
             _ => Cursor::Default,
         }
@@ -717,7 +722,7 @@ impl Space {
         let hit = self.being.pick_reach(&self.camera.ray(x, y, self.view.0, self.view.1), reach);
         self.being.hover = hit;
         self.drag = match hit {
-            Some(Hit::Button(i)) if self.being.buttons[i].linked => {
+            Some(Hit::Button(i)) if !self.being.buttons[i].turnable => {
                 self.being.shake(i);
                 let b = &self.being.buttons[i];
                 let id = &self.graph_id(b.node);
@@ -775,7 +780,8 @@ impl Space {
         self.graph.nodes.get(node).map_or_else(String::new, |n| n.id.clone())
     }
 
-    /// The HUD's line: the hovered button (its node, name, value, range – or where its hose comes from), the hovered
+    /// The HUD's line: the hovered button (its node, name, value – a linked one's base and where its hose comes from;
+    /// no range – owner 2026-10-31), the hovered
     /// node, else the set's state. ≤ 40 characters.
     pub fn hud_line(&self, graph: &Graph) -> String {
         if let Some((word, until)) = &self.notice {
@@ -792,8 +798,8 @@ impl Space {
                     return format!("{id}.shape {} [{}]", names[(b.value as usize).min(names.len() - 1)], names.join(" ")).to_uppercase().chars().take(40).collect();
                 }
                 match graph.link_into(b.node, b.port) {
-                    Some(l) => format!("{id}.{} {} < {}", b.name, num(b.value), graph.nodes[l.from.0].id),
-                    None => format!("{id}.{} {} [{}-{}]{}", b.name, num(b.value), num(b.spec.min), num(b.spec.max), if self.being.dragging { " *" } else { "" }),
+                    Some(l) => format!("{id}.{} {} < {}{}", b.name, num(b.value), graph.nodes[l.from.0].id, if self.being.dragging { " *" } else { "" }),
+                    None => format!("{id}.{} {}{}", b.name, num(b.value), if self.being.dragging { " *" } else { "" }),
                 }
             }
             Some(Hit::Point(i)) => {
@@ -853,6 +859,31 @@ mod tests {
         let look = being::Look { feel: conductor.being.feel.clone(), ..cathedral.being.clone() };
         let mirrored = Being::new(&deck, &look);
         assert!(mirrored.feel.problems.is_empty(), "the conductor's rules on a deck's graph: {:?}", mirrored.feel.problems);
+    }
+
+    /// #188 (owner 2026-10-31: the nudges sounded like dropouts): in both bundled scenes no nudge ducks a gain deeper than
+    /// 6 dB below where it rests, and every nudge on the sound takes ≥ 0.15 s to arrive
+    #[test]
+    fn the_nudges_are_gentle_on_the_sound() {
+        use crate::scene::CONDUCTOR_SCENE;
+        for text in [CATHEDRAL_SCENE, CONDUCTOR_SCENE] {
+            let scene = Scene::parse(text).unwrap();
+            let g = Graph::build(&scene).unwrap();
+            for n in &scene.being.react {
+                let Some(values::Path::Input(node, port)) = values::resolve_loose(&g, &n.set) else { panic!("{}", n.set) };
+                let kind = g.nodes[node].kind;
+                if kind.domain() != crate::graph::Domain::Audio {
+                    continue;
+                }
+                let name = kind.inputs()[port].name;
+                assert!(n.attack >= 0.15, "{}: {} {} attacks in {} s", scene.stage.name, n.mood, n.set, n.attack);
+                if name.starts_with("gain") || name == "volume" {
+                    let rest = g.nodes[node].f32(name, params::default(kind, name));
+                    let to = n.to.unwrap_or(rest + n.by.unwrap_or(0.0));
+                    assert!(to >= rest * 0.5 - 1e-6, "{}: {} ducks {} from {rest} to {to}", scene.stage.name, n.mood, n.set);
+                }
+            }
+        }
     }
 
     fn cathedral() -> (Graph, Space, Table) {
@@ -947,25 +978,55 @@ mod tests {
         assert!(space.being.reset.is_none());
     }
 
-    /// a linked button grabbed: it shakes, the HUD says what drives it, nothing turns – not its value, not the camera
+    /// owner 2026-10-31: the focus follows the zoom – far out the whole being, close up its head; R home still works
     #[test]
-    fn a_linked_button_shakes_and_says_why() {
+    fn the_camera_focuses_by_the_zoom() {
+        let (_, mut space, mut ctl) = cathedral();
+        let (body, head) = space.being.focus();
+        assert!(head.y > body.y + 0.2, "the head above the body's centre");
+        space.camera.zoom(100.0);
+        frame(&mut space, &mut ctl, 0.1);
+        assert!(space.camera.target.distance(head) < 1e-4, "close up: a portrait");
+        space.camera.zoom(-100.0);
+        frame(&mut space, &mut ctl, 0.2);
+        assert!(space.camera.target.distance(body) < 1e-4, "far out: the whole being");
+        space.camera.reset();
+        frame(&mut space, &mut ctl, 0.3);
+        let t = space.camera.target;
+        assert!(t.y > body.y && t.y < head.y, "home: between, nearer the body ({} {} {})", body.y, t.y, head.y);
+        assert_eq!(space.camera.distance, space.camera.home().2);
+    }
+
+    /// #188: a linked knob grabbed turns its base – the HUD names its base and what drives it, the camera stays
+    #[test]
+    fn a_linked_knob_drags_its_base() {
         let (g, mut space, mut ctl) = cathedral();
         let i = space.button(&g, "incense.cutoff").unwrap();
         assert!(space.being.buttons[i].linked);
+        let (node, port) = (space.being.buttons[i].node, space.being.buttons[i].port);
+        frame(&mut space, &mut ctl, 0.4);
         let (x, y) = space.to_pixel(space.being.buttons[i].pos).unwrap();
         space.pointer_moved(x, y, &mut ctl);
         frame(&mut space, &mut ctl, 0.5);
-        assert_eq!(space.cursor(), Cursor::Locked);
-        let (yaw, before) = (space.camera.yaw, ctl.input(space.being.buttons[i].node, "cutoff", -1.0));
+        assert_eq!(space.cursor(), Cursor::Grab, "it turns");
+        assert!(space.hud_line(&g).starts_with("INCENSE.CUTOFF 600.0 < SWAY"), "{}", space.hud_line(&g));
+        let yaw = space.camera.yaw;
         space.press();
-        assert!(space.being.buttons[i].shake > 0.0);
-        assert_eq!(space.hud_line(&g), "INCENSE.CUTOFF IS LINKED < SWAY");
-        space.pointer_moved(x + 50.0, y - 80.0, &mut ctl);
-        assert_eq!((space.camera.yaw, ctl.input(space.being.buttons[i].node, "cutoff", -1.0)), (yaw, before));
+        assert_eq!(space.cursor(), Cursor::Grabbing);
+        let (_, axis) = space.drag_axis(i);
+        space.pointer_moved(x + axis.0 * 0.3, y + axis.1 * 0.3, &mut ctl);
+        let base = ctl.base(node, port).unwrap();
+        assert!(base > 600.0, "the base went up: {base}");
+        assert_eq!(space.camera.yaw, yaw);
         space.release();
-        frame(&mut space, &mut ctl, 3.5);
-        assert!(!space.hud_line(&g).contains("LINKED"), "the word goes after a while");
+        // the modulation still on top of the new base
+        ctl.step(1.0);
+        assert!(ctl.input(node, "cutoff", -1.0) >= base);
+        // a mirrored deck's linked knob (no base on the stream) can't be turned: it shakes and says why
+        let mirror = values::Mirror::new(&g);
+        let mut m = Being::new(&g, &space.being.look);
+        m.update(0.016, 0.0, &mirror, &tempo::Now::default());
+        assert!(!m.buttons[i].turnable);
     }
 
     /// a finger reaches a button the mouse would miss; it drags like the mouse; the screen's mouse emulation is ignored

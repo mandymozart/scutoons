@@ -6,7 +6,7 @@
 //! routes (presence: who sends values to whom), sagging between their cores; bubbles run along while values come.
 //!
 //! Joining / leaving allocates (a new being, new GPU buffers – `Space::generation`); a frame does not.
-use super::being::{bezier, hsv, kind, tube, Being, Bubble, Look, Sphere, TubeVertex, BUBBLES};
+use super::being::{bezier, hsv, kind, tube, Being, Bubble, Look, Sphere, TubeVertex, BUBBLES, BUBBLE_FILL};
 use super::values::Mirror;
 use crate::graph::Graph;
 use crate::tempo;
@@ -114,7 +114,7 @@ impl Route {
         for x in self.bubbles.iter().filter(|x| x.size > 0.0) {
             let pos = bezier(&self.ctrl, x.t);
             let fade = (x.t * 10.0).min(1.0) * ((1.0 - x.t) * 10.0).min(1.0);
-            spheres.push(Sphere { pos: pos.into(), radius: r * 1.4 * fade.max(0.2), color: [c[0], c[1], c[2], 0.9], extra: [kind::BUBBLE, glow, 0.0, x.size] });
+            spheres.push(Sphere { pos: pos.into(), radius: r * BUBBLE_FILL * (0.5 + 0.5 * x.size) * fade.max(0.2), color: [c[0], c[1], c[2], 0.9], extra: [kind::BUBBLE, glow, 0.0, x.size] });
         }
     }
 

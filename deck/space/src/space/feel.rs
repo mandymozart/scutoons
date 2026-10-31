@@ -3,7 +3,8 @@
 //! reachable). Two lists in the scene's `[being]` table, so a being preset (#191) carries them:
 //!
 //! - `[[being.feel]]` – feedback → emotion: a rule reads a source (`node.port`, a node named by its id or else by its
-//!   kind – `fft.bass`, `fm.index`, `lfo.shape` –, or `bpm` · `touch` · `energy` · `phrase`) and tests it (`above` /
+//!   kind – `fft.bass`, `fm.index`, `lfo.shape` –, or `bpm` · `touch` · `energy` · `phrase` · `strain` = the output
+//!   limiter working, 0..1) and tests it (`above` /
 //!   `below` – both = between –, `rising` / `falling` = the value jumps that far over its last half second, `steady` =
 //!   it moved less than `by` for that many seconds); true for `for` seconds, it fires (with `chance`) and its mood shows
 //!   at once, for at least `hold` s. The heaviest `weight` among the firing rules wins (once the shown one has had
@@ -75,7 +76,7 @@ pub struct Nudge {
 
 impl Default for Nudge {
     fn default() -> Self {
-        Nudge { mood: String::new(), set: String::new(), by: None, to: None, attack: 0.1, release: 2.0 }
+        Nudge { mood: String::new(), set: String::new(), by: None, to: None, attack: 0.25, release: 2.0 }
     }
 }
 
@@ -96,6 +97,8 @@ pub enum Source {
     Energy,
     /// where in an 8-bar phrase the clock is: 0..8 (0 while it stands)
     Phrase,
+    /// 0..1: the output limiter's strain (#188: overload → a mood)
+    Strain,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -114,6 +117,7 @@ pub fn source(graph: &Graph, when: &str) -> Result<Source, String> {
         "touch" => Source::Touch,
         "energy" => Source::Energy,
         "phrase" => Source::Phrase,
+        "strain" => Source::Strain,
         _ => match values::resolve_loose(graph, when).ok_or_else(|| format!("no '{when}' in this graph"))? {
             Path::Input(n, k) => {
                 let kind = graph.nodes[n].kind;
@@ -207,6 +211,8 @@ pub struct Senses<'a> {
     pub energy: f32,
     pub touching: bool,
     pub beat: &'a tempo::Now,
+    /// 0..1: how hard the output's limiter works (being.rs `strain`, #188)
+    pub strain: f32,
 }
 
 /// A being's compiled rules and nudges with their state.
@@ -463,6 +469,7 @@ fn read(src: Source, vals: &dyn Values, s: &Senses, touch: f32) -> f32 {
         }
         Source::Touch => touch,
         Source::Energy => s.energy,
+        Source::Strain => s.strain,
         Source::Phrase => {
             if beat.running {
                 beat.pos.bar.rem_euclid(8) as f32 + beat.pos.bar_phase as f32
@@ -543,7 +550,7 @@ mod tests {
         assert_eq!(moods, ["surprised", "furious", "thinking"]);
         let mut m = Mirror::new(&g);
         let beat = still();
-        let s = Senses { energy: 0.0, touching: false, beat: &beat };
+        let s = Senses { energy: 0.0, touching: false, beat: &beat, strain: 0.0 };
         let run = |f: &mut Feel, m: &Mirror, secs: f32| {
             let mut last = None;
             for _ in 0..(secs * 60.0) as usize {
@@ -571,7 +578,7 @@ mod tests {
         let (mut on, mut off) = (Mirror::new(&g), Mirror::new(&g));
         on.apply(&g, "fft.level", &[1.0]);
         let beat = still();
-        let s = Senses { energy: 0.0, touching: false, beat: &beat };
+        let s = Senses { energy: 0.0, touching: false, beat: &beat, strain: 0.0 };
         let mut fired = 0;
         for _ in 0..200 {
             if f.step(1.0 / 60.0, &on, &s).is_some() {
@@ -600,7 +607,7 @@ mod tests {
         assert_eq!(moods, ["neutral", "happy", "furious"]);
         let mut ctl = Table::new(&g);
         let beat = still();
-        let s = Senses { energy: 0.0, touching: false, beat: &beat };
+        let s = Senses { energy: 0.0, touching: false, beat: &beat, strain: 0.0 };
         let frames = |f: &mut Feel, ctl: &mut Table, n: usize| {
             for _ in 0..n {
                 let v = Local { ctl, meter: &|_, _| 0.0 };
@@ -642,14 +649,14 @@ mod tests {
         let m = Mirror::new(&g);
         let fast = tempo::Now { bpm: 140.0, pos: tempo::position(1.0, 4), per_bar: 4, running: true };
         let last_bar = tempo::Now { bpm: 90.0, pos: tempo::position(7.5 * 4.0, 4), per_bar: 4, running: true };
-        assert_eq!(f.step(0.016, &m, &Senses { energy: 0.0, touching: true, beat: &fast }), Some(0), "a hand on a button");
+        assert_eq!(f.step(0.016, &m, &Senses { energy: 0.0, touching: true, beat: &fast, strain: 0.0 }), Some(0), "a hand on a button");
         // the hand lets go: the touch fades, the clock's rule comes through
         let mut last = None;
         for _ in 0..90 {
-            last = f.step(0.016, &m, &Senses { energy: 0.0, touching: false, beat: &fast });
+            last = f.step(0.016, &m, &Senses { energy: 0.0, touching: false, beat: &fast, strain: 0.0 });
         }
         assert_eq!(last, Some(1));
         let mut f = Feel::new(&g, &rules, &[], &mut moods, 5);
-        assert_eq!(f.step(0.016, &m, &Senses { energy: 0.0, touching: false, beat: &last_bar }), Some(2), "the phrase's last bar");
+        assert_eq!(f.step(0.016, &m, &Senses { energy: 0.0, touching: false, beat: &last_bar, strain: 0.0 }), Some(2), "the phrase's last bar");
     }
 }

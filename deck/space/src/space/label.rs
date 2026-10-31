@@ -1,6 +1,6 @@
-//! The buttons' 3D labels (#188, owner 2026-10-31: "the buttons give very poor visual feedback"): `glow 0.60` next to
-//! the hovered / turned button, `index 3.20 < sway` on a linked one, the range under a gripped one – always facing the
-//! camera, a fixed size on the screen. The text is set without allocating (a fixed byte buffer, `fmt::Write`); the GPU
+//! The space's 3D labels: the conductor's word over each deck's being (#195: `SYNC 3/7`, `READY` …) – always facing the
+//! camera, a fixed size on the screen. (The buttons carried labels until the owner's 2026-10-31 "no numbers": their
+//! value rings show the value now, being.rs.) The text is set without allocating (a fixed byte buffer, `fmt::Write`); the GPU
 //! draws it as one quad per character from a glyph atlas made once at the start (IBM Plex Mono Bold, `mono`) – no
 //! texture work per frame (gpu.rs).
 use std::fmt::{self, Write};

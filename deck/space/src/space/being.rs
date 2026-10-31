@@ -16,12 +16,20 @@
 //! kind of hose in the colour could connect them"): a button hangs on a tether from its node point – the core's as
 //! spokes, every other node's as a chain, each button from the one before it – and its value is its distance from
 //! that point (`tether_len`: low = close, high = far, clamped), so a deck turned up wide sprawls and a quiet one stays
-//! compact. The tether is a thin hose in the parameter's own colour (`param_hue`), thicker and brighter with the
-//! value; while the value moves bubbles run along it toward the node, the node flashes and its hoses glow (what the
-//! button reaches). A linked button rides its source's value by itself. Feedback (owner: "very poor visual
-//! feedback"): hover swells it with a thin ring, a grip lights it fully inside a value gauge with the range's ends, a
-//! label names it (label.rs), a linked one wears a dashed lock ring and shakes when grabbed, a double click eases it
+//! compact. The tether is a thin hose in the parameter's own colour (`param_hue`; a colour control – a hue – wears
+//! the colour it is set to, its node point too), thicker and brighter with the value; while the value moves bubbles
+//! run along it toward the node, the node flashes and its hoses glow (what the button reaches). Feedback (owner:
+//! "very poor visual feedback"): hover swells it with a thin ring, a grip lights it fully, a double click eases it
 //! back to the scene's value (`reset`).
+//!
+//! Owner 2026-10-31 after trying /live/deck: **no numbers** (no labels, no range ends – the knob, its tether and the
+//! ring are enough), **longer tethers** (easier to reach, on a phone above all), **the value at rest**: every knob
+//! always wears a thin 270° ring lit up to its value (`kind::GAUGE`, brighter and wider under the hand). **A linked
+//! knob turns as its base** (graph semantics: a linked input is `source · scale + base`, the knob sets the base – the
+//! link's offset – and the modulation adds on top, as synths do): its ring shows the base lit, the swing the
+//! modulation covers lately as a band and the value now as a tick; a mirrored being's linked knob (its base not
+//! streamed) can't be turned – it wears the dashed lock and shakes. **Level and overload**: a node point glows with its
+//! audio level, the head flushes red with the output limiter's gain reduction (`strain`).
 //!
 //! Data-driven so a being can later be saved as a preset (#191): the body is the graph + the scene's `[being]` look;
 //! the colours are the space node's inputs (hue, glow). Values come through `Values` (values.rs): this deck's control
@@ -30,8 +38,6 @@
 use crate::graph::{Domain, Graph, Kind, PortType};
 use crate::space::camera::Ray;
 use crate::space::feel::{self, Feel, Senses};
-use crate::space::label::{write_num, Label, Text, LABELS};
-use std::fmt::Write;
 use crate::space::values::{Knobs, Path, Values};
 use crate::params::{self, Spec};
 use crate::tempo;
@@ -52,9 +58,13 @@ pub const TETHER_BUBBLES: usize = 4;
 /// a linked button's shake (s) and a double click's ease back to the scene's value (s)
 pub const SHAKE_S: f32 = 0.4;
 pub const RESET_S: f32 = 0.5;
-/// how much a button moves (0..1) before its label shows, and how many moving buttons of a being show theirs
-const MOVING: f32 = 0.3;
-const MOVING_LABELS: usize = 3;
+/// the at-rest ring around a knob (× its radius), and under the hand
+pub const RING_REST: f32 = 1.8;
+pub const RING_GRIP: f32 = 2.5;
+/// a bubble's radius at most, against its tube's (never touching the walls)
+pub const BUBBLE_FILL: f32 = 0.6;
+/// how long a linked knob's swing band remembers the modulation's reach (s)
+const SWING: f32 = 3.0;
 /// how long a new mood must hold before the head shows it (s), and the cross-fade (s)
 const MOOD_HOLD: f32 = 1.2;
 const MOOD_FADE: f32 = 0.5;
@@ -169,6 +179,10 @@ pub struct Point {
     phase: f32,
     /// 0..1: one of its buttons moves (the node flashes – what the button reaches)
     pub flash: f32,
+    /// 0..1: its audio level (its outputs' and incoming audio hoses' block peaks, eased) – it glows with it
+    pub level: f32,
+    /// a colour control on this node (a hue button): the point wears the colour it is set to
+    pub colour: Option<usize>,
 }
 
 #[derive(Debug, Clone)]
@@ -199,13 +213,22 @@ pub struct Button {
     pub port: usize,
     pub name: &'static str,
     pub spec: Spec,
-    /// driven by a hose (read-only)
+    /// driven by a hose: the knob is its base, the hose's modulation on top (#188)
     pub linked: bool,
+    /// a hand can turn it (an unlinked one, or a linked one whose base this being's values know – a mirrored deck's
+    /// linked knob doesn't: it shakes)
+    pub turnable: bool,
+    /// the input's value now (a linked one: the base + the modulation) and its 0..1; the swing the modulation covers
+    /// lately (0..1, lo ≤ hi – an unlinked knob's is its value)
+    pub live: f32,
+    pub live_norm: f32,
+    pub lo: f32,
+    pub hi: f32,
     /// the LFO's waveform (`port` is meaningless then; the value is an index into params::LFO_SHAPES)
     pub shape: bool,
     pub pos: Vec3,
     pub radius: f32,
-    /// this frame's value and its 0..1
+    /// this frame's value (the knob's: a linked one's base) and its 0..1
     pub value: f32,
     pub norm: f32,
     /// its place among its node's buttons, and how many the node has
@@ -227,11 +250,11 @@ pub struct Button {
     /// eased 0..1: the pointer over it, a hand on it
     pub hot: f32,
     pub grip: f32,
-    /// a linked button grabbed: seconds of shaking left
+    /// a button that can't be turned grabbed: seconds of shaking left
     pub shake: f32,
-    /// the scene's value (a double click eases back to it)
+    /// the scene's value (a linked one's: the link's offset) – a double click eases back to it
     pub scene: f32,
-    /// a linked input's source node (its id: `index 3.20 < sway`)
+    /// a linked input's source node (its id – the HUD's `INCENSE.CUTOFF 600 < SWAY`)
     pub source: String,
     pub bubbles: [Bubble; TETHER_BUBBLES],
     acc: f32,
@@ -270,17 +293,41 @@ pub fn param_hue(name: &str) -> f32 {
     }
 }
 
+/// a colour control (owner 2026-10-31: "controls that are colours … show their value as that colour"): a hue
+pub fn is_colour(name: &str) -> bool {
+    name == "hue" || name.ends_with("_hue")
+}
+
+/// a button's colour now: a colour control's value, else the parameter's own (`param_hue`)
+pub fn colour_of(b: &Button) -> f32 {
+    if is_colour(b.name) {
+        b.value
+    } else {
+        b.hue
+    }
+}
+
+/// a tether's (minimum, span) × the being's size: the core's spokes, a chain's links (owner 2026-10-31: "longer
+/// tethers … easier to reach, on a phone above all" – ~1.5× the first version's, the silhouette still reads)
+const CORE_TETHER: (f32, f32) = (0.14, 0.48);
+const CHAIN_TETHER: (f32, f32) = (0.10, 0.32);
+
 /// A tether's length (m) at 0..1 for a being of `size`: low = close, high = far – clamped, so a body turned up wide
 /// still reads. The core's spokes reach a little further than a chain's links.
 pub fn tether_len(size: f32, core: bool, n: f32) -> f32 {
-    let n = n.clamp(0.0, 1.0);
-    size * if core { 0.08 + 0.34 * n } else { 0.06 + 0.22 * n }
+    let (min, span) = if core { CORE_TETHER } else { CHAIN_TETHER };
+    size * (min + span * n.clamp(0.0, 1.0))
 }
 
 /// the 0..1 a tether of length `len` shows (`tether_len` backwards, clamped)
 pub fn tether_norm(size: f32, core: bool, len: f32) -> f32 {
-    let (min, span) = if core { (0.08, 0.34) } else { (0.06, 0.22) };
+    let (min, span) = if core { CORE_TETHER } else { CHAIN_TETHER };
     ((len / size.max(1e-6) - min) / span).clamp(0.0, 1.0)
+}
+
+/// a tether's tube radius at the value 0..1 shown (m)
+pub fn tether_radius(size: f32, hose: f32, shown: f32) -> f32 {
+    size * (0.005 + 0.011 * shown) * hose.max(0.2)
 }
 
 /// what the pointer is over
@@ -309,9 +356,11 @@ pub mod kind {
     pub const CORE: f32 = 4.0;
     /// the head's translucent synthetic skin
     pub const SKIN: f32 = 5.0;
-    /// a thin ring around a button, facing the eye: extra.w 0 = hover, 1 = dashed (linked – locked)
+    /// a thin ring around a button, facing the eye: extra.w 0 = hover, 1 = dashed (it can't be turned – locked)
     pub const RING: f32 = 6.0;
-    /// a gripped button's value gauge: a 270° arc facing the eye, lit up to extra.w, the range's ends marked
+    /// every button's value ring (#188, always on – the value at rest): a 270° arc facing the eye lit up to extra.w
+    /// (the knob's 0..1), the swing band extra.y..extra.z (a linked knob's modulation lately), the value now as a tick
+    /// at (extra.x − 7) / 0.9; colour alpha 0.5 at rest → 1 under the hand (thin → wide)
     pub const GAUGE: f32 = 7.0;
 }
 
@@ -359,6 +408,8 @@ pub struct Being {
     pub feel: Feel,
     /// a double click's ease back to the scene's value, pushed into the graph by `push`
     pub reset: Option<Reset>,
+    /// 0..1: how hard the output's limiter works (its gain reduction, eased – `strain`): the head's red flush (#188)
+    pub strain: f32,
     /// the last frame's step (s) – `push` eases with it
     dt: f32,
 }
@@ -401,7 +452,7 @@ impl Being {
                 Domain::Video => 0.0,
                 Domain::Control => -0.18,
             };
-            points.push(Point { node: i, rest, pos: rest, radius, tint, phase: h * TAU, flash: 0.0 });
+            points.push(Point { node: i, rest, pos: rest, radius, tint, phase: h * TAU, flash: 0.0, level: 0.0, colour: None });
         }
         let point_of = |node: usize| points.iter().position(|p| p.node == node).expect("a point per node");
         let hoses = graph
@@ -457,9 +508,14 @@ impl Being {
                 } else {
                     let name = node.kind.inputs()[k].name;
                     let spec = params::spec(node.kind, name);
-                    (name, spec, graph.link_into(p.node, k).is_some(), node.f32(name, spec.default))
+                    // a linked knob's scene value is its base: the link's offset
+                    match graph.link_into(p.node, k) {
+                        Some(l) => (name, spec, true, l.offset),
+                        None => (name, spec, false, node.f32(name, spec.default)),
+                    }
                 };
                 let source = graph.link_into(p.node, k).map(|l| graph.nodes[l.from.0].id.clone()).unwrap_or_default();
+                let n0 = spec.norm(scene);
                 buttons.push(Button {
                     point: pi,
                     node: p.node,
@@ -467,11 +523,16 @@ impl Being {
                     name,
                     spec,
                     linked,
+                    turnable: !linked,
+                    live: scene,
+                    live_norm: n0,
+                    lo: n0,
+                    hi: n0,
                     shape: k == usize::MAX,
                     pos: p.rest,
-                    radius: s * 0.05,
+                    radius: s * 0.058,
                     value: scene,
-                    norm: spec.norm(scene),
+                    norm: n0,
                     rank,
                     count,
                     hue: param_hue(name),
@@ -493,6 +554,12 @@ impl Being {
             }
         }
         let core_point = core_node.map(point_of);
+        // a colour control's node point wears the colour it is set to
+        for (i, b) in buttons.iter().enumerate() {
+            if is_colour(b.name) && points[b.point].colour.is_none() {
+                points[b.point].colour = Some(i);
+            }
+        }
         // the neck: the core's spine, then the points nearest the head (the sinks – where the data has risen to)
         let mut by_height: Vec<usize> = (0..points.len()).filter(|&i| Some(i) != core_point).collect();
         by_height.sort_by(|&a, &b| points[b].rest.y.total_cmp(&points[a].rest.y));
@@ -531,8 +598,32 @@ impl Being {
             moods,
             feel,
             reset: None,
+            strain: 0.0,
             dt: 0.0,
         }
+    }
+
+    /// The output limiter's gain reduction this frame (dB, the deepest since the last frame): `strain` rises at once
+    /// (full at 9 dB) and eases off over a second – the head's red flush, the feelings' `strain` (#188, owner
+    /// 2026-10-31: "when the output distorts … the head and avatar turn red-faced").
+    pub fn strain(&mut self, dt: f32, reduction_db: f32) {
+        let target = (reduction_db / 9.0).clamp(0.0, 1.0);
+        let tau = if target > self.strain { 0.05 } else { 0.8 };
+        self.strain += (target - self.strain) * (dt / tau).min(1.0);
+    }
+
+    /// Where the camera aims (camera::focus_target, owner 2026-10-31: "like a photographer"): the whole body's centre –
+    /// the bounds of its node points' rest places and its head, around the anchor (not the drift, not the knobs: the view
+    /// holds still while a hand turns them) – and the head's.
+    pub fn focus(&self) -> (Vec3, Vec3) {
+        let head = self.anchor + Vec3::Y * self.look.size * 1.3;
+        let r = Vec3::splat(self.head.radius);
+        let (mut lo, mut hi) = (head - r, head + r);
+        for p in &self.points {
+            let q = self.anchor + p.rest;
+            (lo, hi) = (lo.min(q - Vec3::splat(p.radius)), hi.max(q + Vec3::splat(p.radius)));
+        }
+        ((lo + hi) * 0.5, head)
     }
 
     /// where the head floats: above the body's top
@@ -568,6 +659,11 @@ impl Being {
             p.pos = self.center + p.rest * self.swell + if p.rest == Vec3::ZERO { Vec3::ZERO } else { sway };
         }
         let center = self.center;
+        // the points' audio level: up at once with an audio hose's peak at either end, down over ~0.3 s
+        let fall = (-dt / 0.3).exp();
+        for p in &mut self.points {
+            p.level *= fall;
+        }
         for h in &mut self.hoses {
             let (a, b) = (self.points[h.from].pos, self.points[h.to].pos);
             let out = |p: Vec3| (p - center).try_normalize().unwrap_or(Vec3::Y);
@@ -591,6 +687,10 @@ impl Being {
                 }
                 Flow::Audio(n, p) => {
                     let level = vals.meter(n, p).clamp(0.0, 1.0);
+                    for at in [h.from, h.to] {
+                        let pt = &mut self.points[at];
+                        pt.level = pt.level.max(level.sqrt());
+                    }
                     (level.sqrt() * 9.0, 0.3 + 0.7 * level.sqrt())
                 }
                 Flow::Video => (1.5, 0.35),
@@ -636,10 +736,23 @@ impl Being {
             let prev = self.buttons[i].prev.map(|j| self.buttons[j].pos);
             let b = &mut self.buttons[i];
             let p = &self.points[b.point];
-            b.value = if b.shape { vals.lfo_shape(b.node).unwrap_or(0) as f32 } else { vals.input(b.node, b.name, b.spec.default) };
+            // the knob: an unlinked input's value, a linked one's base (the modulation rides on top – `live`)
+            b.live = if b.shape { vals.lfo_shape(b.node).unwrap_or(0) as f32 } else { vals.input(b.node, b.name, b.spec.default) };
+            let base = if b.linked { vals.base(b.node, b.port) } else { None };
+            b.turnable = !b.linked || base.is_some();
+            b.value = base.unwrap_or(b.live);
             b.norm = b.spec.norm(b.value);
-            // a hand on it – a linked one doesn't turn: it only shakes
-            let gripped = self.dragging && hovered == Some(i) && !b.linked;
+            b.live_norm = b.spec.norm(b.live);
+            // the swing band: where the modulation reached lately (its edges ease back over SWING s)
+            if b.linked {
+                let k = (dt / SWING).min(1.0);
+                b.lo = (b.lo + (b.live_norm - b.lo) * k).min(b.live_norm).min(b.norm);
+                b.hi = (b.hi + (b.live_norm - b.hi) * k).max(b.live_norm).max(b.norm);
+            } else {
+                (b.lo, b.hi) = (b.norm, b.norm);
+            }
+            // a hand on it – one that can't be turned only shakes
+            let gripped = self.dragging && hovered == Some(i) && b.turnable;
             ease(&mut b.hot, if hovered == Some(i) { 1.0 } else { 0.0 }, 0.08);
             ease(&mut b.grip, if gripped { 1.0 } else { 0.0 }, 0.06);
             // shown follows the value: at once under the hand, eased otherwise (a stream's steps, a reset's glide)
@@ -698,24 +811,25 @@ impl Being {
                     *free = Bubble { t: 0.0, speed: 1.6, size: 0.4 + 0.6 * b.motion };
                 }
             }
-            // what a hand (or a feeling's nudge, a reset) moves flashes its node; a linked input riding its hose doesn't
-            // – the hose's bubbles show that already
-            let flash = if b.linked { 0.0 } else { b.motion.max(b.grip * 0.5) };
+            // what a hand (or a feeling's nudge, a reset) moves flashes its node – a linked knob's base too; the
+            // modulation riding its hose doesn't (the hose's bubbles show that already)
+            let flash = b.motion.max(b.grip * 0.5);
             let pt = &mut self.points[b.point];
             pt.flash = pt.flash.max(flash);
         }
     }
 
-    /// A linked button grabbed: it shakes (it can't be turned – its hose drives it).
+    /// A button that can't be turned grabbed (a mirrored deck's linked knob): it shakes.
     pub fn shake(&mut self, i: usize) {
         if let Some(b) = self.buttons.get_mut(i) {
             b.shake = SHAKE_S;
         }
     }
 
-    /// A double click: button `i` eases back to the scene's value over RESET_S (`push` sets it); a linked one can't.
+    /// A double click: button `i` eases back to the scene's value over RESET_S (`push` sets it) – a linked knob to the
+    /// link's offset; one that can't be turned doesn't.
     pub fn reset(&mut self, i: usize) {
-        let Some(b) = self.buttons.get(i).filter(|b| !b.linked) else { return };
+        let Some(b) = self.buttons.get(i).filter(|b| b.turnable) else { return };
         self.reset = Some(Reset { button: i, from: b.norm, to: b.spec.norm(b.scene), t: 0.0 });
     }
 
@@ -725,7 +839,7 @@ impl Being {
     /// and kicks the new mood's nudges.
     fn step_head(&mut self, dt: f32, vals: &dyn Values, beat: &tempo::Now) {
         let pos = self.head();
-        let felt = self.feel.step(dt, vals, &Senses { energy: self.head.energy, touching: self.dragging, beat });
+        let felt = self.feel.step(dt, vals, &Senses { energy: self.head.energy, touching: self.dragging, beat, strain: self.strain });
         let h = &mut self.head;
         h.pos = pos;
         let level = self.fft.map_or(0.0, |n| vals.output(n, 0)).clamp(0.0, 1.0);
@@ -858,21 +972,30 @@ impl Being {
         solid
     }
 
-    /// the solid spheres: nuclei, buttons, the neck's sockets
+    /// a point's colour: a colour control's value on its node (the hue it is set to), else the being's hue + its tint
+    fn point_rgb(&self, p: &Point, sat: f32) -> [f32; 3] {
+        match p.colour {
+            Some(b) => hsv(colour_of(&self.buttons[b]), sat, 1.0),
+            None => hsv(self.hue + p.tint, sat, 1.0),
+        }
+    }
+
+    /// the solid spheres: nuclei (they glow with their audio level), buttons, the neck's sockets
     pub fn write_solid(&self, spheres: &mut Vec<Sphere>) {
         let rgb = |tint: f32, sat: f32, val: f32| hsv(self.hue + tint, sat, val);
         for (i, p) in self.points.iter().enumerate() {
-            let c = rgb(p.tint, 0.55, 1.0);
-            // hovered: lit; one of its buttons moving: it flashes (what the button reaches)
+            let c = self.point_rgb(p, 0.55);
+            // hovered: lit; one of its buttons moving: it flashes (what the button reaches); its sound: it glows
             let lit: f32 = if self.hover == Some(Hit::Point(i)) { 1.0 } else { 0.0 };
-            spheres.push(Sphere { pos: p.pos.into(), radius: p.radius * 0.45 * (1.0 + 0.3 * p.flash), color: [c[0], c[1], c[2], 1.0], extra: [kind::NUCLEUS, self.glow, lit.max(p.flash * 0.8), 0.0] });
+            let r = p.radius * 0.45 * (1.0 + 0.3 * p.flash + 0.35 * p.level);
+            spheres.push(Sphere { pos: p.pos.into(), radius: r, color: [c[0], c[1], c[2], 1.0], extra: [kind::NUCLEUS, self.glow, lit.max(p.flash * 0.8).max(p.level * 0.9), 0.0] });
         }
         for b in &self.buttons {
             let c = button_rgb(b);
-            let link = if b.linked { 1.0 } else { 0.0 };
+            let locked = if b.turnable { 0.0 } else { 1.0 };
             // hover swells it, a grip a little more; extra.z: 0..1 hover, 1..2 the hand on it
             let r = b.radius * (1.0 + 0.35 * b.hot + 0.15 * b.grip);
-            spheres.push(Sphere { pos: b.pos.into(), radius: r, color: [c[0], c[1], c[2], link], extra: [kind::BUTTON, self.glow, b.hot + b.grip, b.shown] });
+            spheres.push(Sphere { pos: b.pos.into(), radius: r, color: [c[0], c[1], c[2], locked], extra: [kind::BUTTON, self.glow, b.hot + b.grip, b.shown] });
         }
         // the sockets: dark metal where the cables plug into the neck, lit up by the energy
         let c = rgb(0.0, 0.3, 0.3 + 0.7 * self.head.energy);
@@ -882,31 +1005,46 @@ impl Being {
         }
     }
 
-    /// the translucent spheres: core, shells, bubbles, the head's synthetic skin
+    /// Button `i`'s value ring (always on – the value at rest, #188): (radius, colour with its alpha, extra) – the
+    /// knob's 0..1 lit, the swing band lo..hi, the value now as a tick; thin and quiet at rest, wide and bright under
+    /// the hand.
+    pub fn ring(&self, i: usize) -> (f32, [f32; 4], [f32; 4]) {
+        let b = &self.buttons[i];
+        let c = hsv(colour_of(b), 0.6, 1.0);
+        let r = b.radius * (1.0 + 0.35 * b.hot + 0.15 * b.grip) * (RING_REST + (RING_GRIP - RING_REST) * b.grip);
+        let a = (0.5 + 0.2 * b.hot + 0.5 * b.grip).min(1.0);
+        (r, [c[0], c[1], c[2], a], [kind::GAUGE + 0.9 * b.live_norm, b.lo, b.hi, b.shown])
+    }
+
+    /// the translucent spheres: core, shells, the buttons' rings, bubbles, the head's synthetic skin
     pub fn write_ghosts(&self, spheres: &mut Vec<Sphere>) {
         let rgb = |tint: f32, sat: f32, val: f32| hsv(self.hue + tint, sat, val);
         let c = rgb(0.0, 0.5, 1.0);
         spheres.push(Sphere { pos: self.center.into(), radius: self.core_radius * self.swell, color: [c[0], c[1], c[2], 0.5], extra: [kind::CORE, self.glow, 0.0, 0.0] });
         for p in self.points.iter().filter(|p| p.rest != Vec3::ZERO) {
-            let c = rgb(p.tint, 0.6, 1.0);
-            spheres.push(Sphere { pos: p.pos.into(), radius: p.radius, color: [c[0], c[1], c[2], 0.45], extra: [kind::SHELL, self.glow, p.flash, 0.0] });
+            let c = self.point_rgb(p, 0.6);
+            spheres.push(Sphere { pos: p.pos.into(), radius: p.radius, color: [c[0], c[1], c[2], 0.45], extra: [kind::SHELL, self.glow, p.flash.max(p.level * 0.5), 0.0] });
         }
-        for b in &self.buttons {
-            let c = hsv(b.hue, 0.6, 1.0);
+        let hose = self.look.hose;
+        for (i, b) in self.buttons.iter().enumerate() {
+            let c = hsv(colour_of(b), 0.6, 1.0);
             let r = b.radius * (1.0 + 0.35 * b.hot + 0.15 * b.grip);
-            // the ring: hover's thin one, or a linked button's dashed lock (always)
-            if b.linked || b.hot > 0.02 {
-                let a = if b.linked { 0.55 + 0.45 * b.hot } else { b.hot };
-                spheres.push(Sphere { pos: b.pos.into(), radius: r * 1.55, color: [c[0], c[1], c[2], a], extra: [kind::RING, self.glow, b.hot, if b.linked { 1.0 } else { 0.0 }] });
+            // the thin ring: hover's, or the dashed lock of one that can't be turned (always)
+            if !b.turnable || b.hot > 0.02 {
+                let a = if b.turnable { b.hot } else { 0.55 + 0.45 * b.hot };
+                spheres.push(Sphere { pos: b.pos.into(), radius: r * 1.4, color: [c[0], c[1], c[2], a], extra: [kind::RING, self.glow, b.hot, if b.turnable { 0.0 } else { 1.0 }] });
             }
-            if b.grip > 0.02 {
-                spheres.push(Sphere { pos: b.pos.into(), radius: r * 2.6, color: [c[0], c[1], c[2], b.grip], extra: [kind::GAUGE, self.glow, b.grip, b.shown] });
-            }
-            let bc = hsv(b.hue, 0.3, 1.0);
+            let (radius, color, extra) = self.ring(i);
+            spheres.push(Sphere { pos: b.pos.into(), radius, color, extra });
+            // the tether's bubbles: well inside its tube (BUBBLE_FILL of its radius at most)
+            let bc = hsv(colour_of(b), 0.3, 1.0);
+            let tube_r = tether_radius(self.look.size, hose, b.shown);
             for x in b.bubbles.iter().filter(|x| x.size > 0.0) {
-                let pos = bezier(&b.tether, x.t);
-                let fade = (x.t * 6.0).min(1.0) * ((1.0 - x.t) * 6.0).min(1.0);
-                let r = self.look.size * 0.011 * (0.5 + 0.8 * x.size) * fade.max(0.25);
+                let t = x.t;
+                let pos = bezier(&b.tether, t);
+                let fade = (t * 6.0).min(1.0) * ((1.0 - t) * 6.0).min(1.0);
+                // the tether narrows to 0.7 of its radius toward its end (write_tubes)
+                let r = tube_r * (1.0 - 0.3 * t) * BUBBLE_FILL * (0.5 + 0.5 * x.size) * fade.max(0.25);
                 spheres.push(Sphere { pos: pos.into(), radius: r, color: [bc[0], bc[1], bc[2], 0.9], extra: [kind::BUBBLE, self.glow, 0.0, x.size] });
             }
         }
@@ -916,11 +1054,15 @@ impl Being {
             for b in h.bubbles.iter().filter(|b| b.size > 0.0) {
                 let pos = bezier(&h.ctrl, b.t);
                 let fade = (b.t * 8.0).min(1.0) * ((1.0 - b.t) * 8.0).min(1.0);
-                spheres.push(Sphere { pos: pos.into(), radius: h.radius * (0.6 + 0.9 * b.size) * fade.max(0.2), color: [c[0], c[1], c[2], 0.9], extra: [kind::BUBBLE, self.glow, 0.0, b.size] });
+                let r = h.radius * BUBBLE_FILL * (0.45 + 0.55 * b.size) * fade.max(0.2);
+                spheres.push(Sphere { pos: pos.into(), radius: r, color: [c[0], c[1], c[2], 0.9], extra: [kind::BUBBLE, self.glow, 0.0, b.size] });
             }
         }
-        let c = rgb(-0.05, 0.35, 1.0);
-        spheres.push(Sphere { pos: self.head.pos.into(), radius: self.head.radius, color: [c[0], c[1], c[2], 0.5], extra: [kind::SKIN, self.glow, 0.0, self.head.energy] });
+        // the skin: redder and denser as the limiter strains (the face plate flushes too – gpu.rs)
+        let k = self.strain * 0.85;
+        let s = rgb(-0.05, 0.35, 1.0);
+        let c = [s[0] + (1.0 - s[0]) * k, s[1] + (0.2 - s[1]) * k, s[2] + (0.15 - s[2]) * k];
+        spheres.push(Sphere { pos: self.head.pos.into(), radius: self.head.radius, color: [c[0], c[1], c[2], 0.5 + 0.3 * self.strain], extra: [kind::SKIN, self.glow, 0.0, self.head.energy.max(self.strain)] });
     }
 
     /// the tubes: the hoses, the tendrils, the neck's cables
@@ -948,59 +1090,13 @@ impl Being {
             let r = self.look.size * if Some(pi) == self.core_point { 0.05 } else { 0.028 };
             tube(tubes, &ctrl, r, r * 0.8, 0.25 + 0.75 * self.head.energy, self.points[pi].tint, 2.0);
         }
-        // the tethers: thin hoses in the parameter's colour, thicker and brighter with the value, pulsing while it moves
+        // the tethers: thin hoses in the parameter's colour (a colour control's: its value), thicker and brighter with
+        // the value, pulsing while it moves
         for b in &self.buttons {
-            let r = self.look.size * (0.005 + 0.011 * b.shown) * self.look.hose.max(0.2);
-            let hue = if b.name == "hue" { b.value } else { b.hue };
+            let r = tether_radius(self.look.size, self.look.hose, b.shown);
             let flow = (0.25 + 0.75 * b.shown) * (1.0 + 0.8 * b.hot);
-            tube(tubes, &b.tether, r, r * 0.7, flow, hue, 4.0 + 0.9 * b.motion.max(b.grip * 0.6).min(1.0));
+            tube(tubes, &b.tether, r, r * 0.7, flow, colour_of(b), 4.0 + 0.9 * b.motion.max(b.grip * 0.6).min(1.0));
         }
-    }
-
-    /// This being's labels (label.rs) into `out`, up to LABELS in all: the hovered / gripped button (the range under
-    /// a gripped one), then every unlinked button a hand moves (on a deck's mirrored being too: someone turns it
-    /// there). Never allocates.
-    pub fn write_labels(&self, out: &mut Vec<Label>) {
-        let mut moving = 0;
-        for (i, b) in self.buttons.iter().enumerate() {
-            let by_hand = if b.linked || b.hot > 0.03 { 0.0 } else { ((b.motion - MOVING) * 3.0).clamp(0.0, 1.0) };
-            let shown = b.hot.max(by_hand);
-            // at most MOVING_LABELS of a being's moving buttons say what moves (a hover always shows)
-            if shown < 0.03 || out.len() >= LABELS || (b.hot <= 0.03 && moving >= MOVING_LABELS) {
-                continue;
-            }
-            // a moving button's label where another one already speaks (the same chain): left out
-            let near = |l: &Label| Vec3::from(l.pos).distance(b.pos) < b.radius * 8.0;
-            if b.hot <= 0.03 && out.iter().any(near) {
-                continue;
-            }
-            moving += usize::from(b.hot <= 0.03);
-            let c = hsv(if b.name == "hue" { b.value } else { b.hue }, 0.25, 1.0);
-            let offset = b.radius * (2.6 + 1.2 * b.grip);
-            let mut text = Text::default();
-            let _ = self.label(i, &mut text);
-            out.push(Label { pos: b.pos.into(), offset, text, color: [c[0], c[1], c[2], shown], scale: 1.0, line: 0.0 });
-            if b.grip > 0.03 && !b.shape && out.len() < LABELS {
-                let mut range = Text::default();
-                let _ = write_num(&mut range, b.spec.min).and_then(|_| range.write_str(" - ")).and_then(|_| write_num(&mut range, b.spec.max));
-                out.push(Label { pos: b.pos.into(), offset, text: range, color: [c[0], c[1], c[2], 0.75 * b.grip], scale: 0.75, line: 1.0 });
-            }
-        }
-    }
-
-    /// Button `i`'s label: `glow 0.60`, `index 3.20 < sway` (linked: what drives it), `shape saw`.
-    pub fn label(&self, i: usize, out: &mut Text) -> std::fmt::Result {
-        let b = &self.buttons[i];
-        if b.shape {
-            let names = crate::params::LFO_SHAPES;
-            return write!(out, "shape {}", names[(b.value.max(0.0) as usize).min(names.len() - 1)]);
-        }
-        write!(out, "{} ", b.name)?;
-        write_num(out, b.value)?;
-        if b.linked {
-            write!(out, " < {}", b.source)?;
-        }
-        Ok(())
     }
 
     /// Where button `i`'s value 0 and 1 sit on its tether this frame (a drag pulls it along the line between).
@@ -1058,11 +1154,11 @@ fn bezier_tangent(c: &[Vec3; 4], t: f32) -> Vec3 {
     (c[1] - c[0]) * (3.0 * u * u) + (c[2] - c[1]) * (6.0 * u * t) + (c[3] - c[2]) * (3.0 * t * t)
 }
 
-/// a button's colour: the parameter's own (the hue button: its value), brighter with the value; a linked one a pale
-/// metal – it can't be turned
+/// a button's colour: the parameter's own (a colour control: its value), brighter with the value; one that can't be
+/// turned a pale metal
 fn button_rgb(b: &Button) -> [f32; 3] {
-    let hue = if b.name == "hue" { b.value } else { b.hue };
-    if b.linked {
+    let hue = colour_of(b);
+    if !b.turnable {
         hsv(hue, 0.18, 0.5 + 0.4 * b.shown)
     } else {
         hsv(hue, 0.75, 0.4 + 0.6 * b.shown)
@@ -1344,7 +1440,8 @@ mod tests {
         assert!(b.buttons[i].motion < 0.05, "and rests again: {}", b.buttons[i].motion);
     }
 
-    /// hover swells a button and rings it; a hand on it lights it inside its gauge; a linked one only shakes
+    /// hover swells a button and rings it; a hand on it lights it and widens its ring; one that can't be turned (a
+    /// mirrored deck's linked knob) only shakes
     #[test]
     fn hover_and_grip_show_on_the_button() {
         let g = graph(SCENE);
@@ -1357,61 +1454,192 @@ mod tests {
         step(&mut b, &c, 10);
         b.write(&mut s, &mut v);
         let rest = b.buttons[glow].radius;
-        assert_eq!(kinds(&s, kind::GAUGE), 0);
-        let linked = b.buttons.iter().filter(|x| x.linked).count();
-        assert_eq!(kinds(&s, kind::RING), linked, "only the linked ones wear their lock ring");
+        assert_eq!(kinds(&s, kind::RING), 0, "this deck's knobs all turn (a linked one as its base): no lock rings");
         b.hover = Some(Hit::Button(glow));
         step(&mut b, &c, 30);
         b.write(&mut s, &mut v);
         let me = s.iter().find(|x| x.extra[0] == kind::BUTTON && Vec3::from(x.pos) == b.buttons[glow].pos).unwrap();
         assert!(me.radius > rest * 1.3 && me.extra[2] > 0.95 && me.extra[2] < 1.05, "swollen, lit: {me:?}");
-        assert_eq!(kinds(&s, kind::RING), linked + 1, "the hover ring");
+        assert_eq!(kinds(&s, kind::RING), 1, "the hover ring");
+        let before = b.ring(glow);
         b.dragging = true;
         step(&mut b, &c, 30);
-        b.write(&mut s, &mut v);
-        let gauge = s.iter().find(|x| x.extra[0] == kind::GAUGE).expect("the gauge");
-        assert!((gauge.extra[3] - b.buttons[glow].shown).abs() < 1e-6 && b.buttons[glow].grip > 0.95);
-        // a linked one: grabbed, it shakes but never lights up as turned
-        let index = b.buttons.iter().position(|x| x.linked).unwrap();
-        b.hover = Some(Hit::Button(index));
-        b.shake(index);
-        step(&mut b, &c, 3);
-        let x = &b.buttons[index];
-        let still = x.root + x.dir * tether_len(b.look.size, false, x.shown);
+        let gripped = b.ring(glow);
+        assert!(gripped.0 > before.0 * 1.2 && gripped.1[3] > 0.95 && b.buttons[glow].grip > 0.95, "wider and brighter under the hand");
+        // a mirrored being (the stream carries no base): its linked knob can't be turned – grabbed, it shakes
+        use crate::space::values::Mirror;
+        let mut m = Being::new(&g, &Look::default());
+        let mirror = Mirror::new(&g);
+        let index = m.buttons.iter().position(|x| x.linked).unwrap();
+        m.update(1.0 / 60.0, 0.0, &mirror, &now(0.0));
+        assert!(!m.buttons[index].turnable);
+        m.hover = Some(Hit::Button(index));
+        m.dragging = true;
+        m.shake(index);
+        for _ in 0..3 {
+            m.update(1.0 / 60.0, 0.0, &mirror, &now(0.0));
+        }
+        let x = &m.buttons[index];
+        let still = x.root + x.dir * tether_len(m.look.size, false, x.shown);
         assert!(x.shake > 0.0 && x.pos.distance(still) > 1e-4, "it shakes");
-        step(&mut b, &c, 40);
-        assert_eq!((b.buttons[index].shake, b.buttons[index].grip < 0.01), (0.0, true), "still now, never gripped");
+        m.write(&mut s, &mut v);
+        assert!(s.iter().any(|q| q.extra[0] == kind::RING && q.extra[3] == 1.0), "the dashed lock");
+        for _ in 0..40 {
+            m.update(1.0 / 60.0, 0.0, &mirror, &now(0.0));
+        }
+        assert_eq!((m.buttons[index].shake, m.buttons[index].grip < 0.01), (0.0, true), "still now, never gripped");
     }
 
+    /// owner 2026-10-31: no numbers, the value at rest – every knob always wears its ring, centred on it, a little
+    /// wider than the knob, lit up to its value; no labels at all
     #[test]
-    fn labels_name_the_button_and_its_value() {
+    fn every_knob_wears_its_value_ring_at_rest() {
+        let g = graph(&SCENE.replace("kind=\"fm\"\n", "kind=\"fm\"\nratio=4\n"));
+        let mut b = Being::new(&g, &Look::default());
+        let c = Table::new(&g);
+        let (ns, nv) = b.capacity();
+        let (mut s, mut v) = (Vec::with_capacity(ns), Vec::with_capacity(nv));
+        step(&mut b, &c, 30);
+        b.write(&mut s, &mut v);
+        let rings: Vec<&Sphere> = s.iter().filter(|x| x.extra[0] >= kind::GAUGE && x.extra[0] < kind::GAUGE + 1.0).collect();
+        assert_eq!(rings.len(), b.buttons.len(), "one each, nobody touching");
+        for (x, r) in b.buttons.iter().zip(&rings) {
+            assert_eq!(Vec3::from(r.pos), x.pos, "centred on its knob");
+            assert!((r.radius / x.radius - RING_REST).abs() < 1e-4, "{}: {}", x.name, r.radius / x.radius);
+            assert_eq!(r.extra[3], x.shown, "lit up to the value");
+            assert!((r.color[3] - 0.5).abs() < 1e-4, "quiet at rest");
+        }
+        let ratio = b.buttons.iter().position(|x| x.name == "ratio").unwrap();
+        let spec = b.buttons[ratio].spec;
+        assert!((b.ring(ratio).2[3] - spec.norm(4.0)).abs() < 1e-3, "ratio 4 lights {} of the arc", spec.norm(4.0));
+        // an unlinked knob has no swing: lo = hi = its value, the tick on it
+        let (_, _, e) = b.ring(ratio);
+        assert!(e[1] == e[2] && e[1] == e[3] && ((e[0] - kind::GAUGE) / 0.9 - e[3]).abs() < 1e-5, "{e:?}");
+    }
+
+    /// owner 2026-10-31: a linked knob turns as its base – the knob sets where the modulation sways around (graph
+    /// semantics: source · scale + base), its ring shows the base, the modulation's swing and the value now
+    #[test]
+    fn a_linked_knob_turns_as_its_base_and_shows_its_swing() {
+        let g = graph(SCENE);
+        let mut b = Being::new(&g, &Look::default());
+        let mut c = Table::new(&g);
+        let index = b.buttons.iter().position(|x| x.name == "index").unwrap();
+        let (node, port) = (b.buttons[index].node, b.buttons[index].port);
+        assert_eq!(b.buttons[index].scene, 0.0, "its scene value: the link's offset");
+        assert!(c.set(node, port, 3.0), "the knob: its base");
+        let mut seen = (f32::MAX, f32::MIN);
+        for f in 0..240 {
+            c.step(1.0 / 60.0);
+            b.update(1.0 / 60.0, f as f32 / 60.0, &Local { ctl: &c, meter: &|_, _| 0.0 }, &now(0.0));
+            let x = &b.buttons[index];
+            seen = (seen.0.min(x.live), seen.1.max(x.live));
+            assert!(x.turnable && x.value == 3.0, "the knob stays at its base: {}", x.value);
+        }
+        // the LFO (0..1 × 4) rides on top: 3 .. 7
+        assert!(seen.0 < 3.2 && seen.1 > 6.8, "{seen:?}");
+        let x = &b.buttons[index];
+        assert!(x.lo <= x.norm && x.hi >= x.spec.norm(6.5) && x.lo <= x.live_norm && x.live_norm <= x.hi, "the swing band holds the modulation: {} {} {}", x.lo, x.hi, x.live_norm);
+        // its tether is as long as its base, not the swaying value
+        let d = x.pos.distance(x.root);
+        assert!((tether_norm(b.look.size, false, d) - x.spec.norm(3.0)).abs() < 0.02);
+        // a double click: back to the link's offset
+        b.reset(index);
+        for _ in 0..40 {
+            step(&mut b, &c, 1);
+            b.push(&mut c);
+        }
+        assert_eq!(c.base(node, port), Some(0.0));
+    }
+
+    /// owner 2026-10-31: the bubbles never touch the hose walls – each well inside its tube, scaled with its radius
+    #[test]
+    fn bubbles_stay_inside_their_tubes() {
+        let g = graph(SCENE);
+        let mut b = Being::new(&g, &Look::default());
+        let mut c = Table::new(&g);
+        let (ns, nv) = b.capacity();
+        let (mut s, mut v) = (Vec::with_capacity(ns), Vec::with_capacity(nv));
+        let knob = b.buttons.iter().position(|x| x.name == "ratio").unwrap();
+        let mut checked = 0;
+        for f in 0..300 {
+            c.step(1.0 / 60.0);
+            c.set(b.buttons[knob].node, b.buttons[knob].port, 0.3 + (f % 60) as f32 * 0.1);
+            b.update(1.0 / 60.0, f as f32 / 60.0, &Local { ctl: &c, meter: &|_, _| 0.9 }, &now(f as f64 / 30.0));
+            b.write(&mut s, &mut v);
+            // each bubble against its tube where it is: a hose's radius, a tether's narrowing from the knob (t 0) to 0.7
+            let radius_at = |pos: Vec3| s.iter().find(|q| q.extra[0] == kind::BUBBLE && Vec3::from(q.pos) == pos).map(|q| q.radius);
+            for h in &b.hoses {
+                for x in h.bubbles.iter().filter(|x| x.size > 0.0) {
+                    let r = radius_at(bezier(&h.ctrl, x.t)).expect("drawn");
+                    assert!(r <= h.radius * BUBBLE_FILL + 1e-6, "a bubble of {r} in a hose of {}", h.radius);
+                    checked += 1;
+                }
+            }
+            for k in &b.buttons {
+                let tube_r = tether_radius(b.look.size, b.look.hose, k.shown);
+                for x in k.bubbles.iter().filter(|x| x.size > 0.0) {
+                    let r = radius_at(bezier(&k.tether, x.t)).expect("drawn");
+                    assert!(r <= tube_r * (1.0 - 0.3 * x.t) * BUBBLE_FILL + 1e-6, "a bubble of {r} in a tether of {tube_r}");
+                    checked += 1;
+                }
+            }
+        }
+        assert!(checked > 50, "bubbles ran: {checked}");
+    }
+
+    /// owner 2026-10-31: a colour control shows its value as that colour – its knob, tether, ring and node point; the
+    /// others keep their own
+    #[test]
+    fn a_colour_control_wears_its_colour() {
+        let g = graph(&SCENE.replace("[[node]]\nid=\"screen\"", "[[node]]\nid=\"p\"\nkind=\"test_pattern\"\nhue=0.3\n[[node]]\nid=\"screen\""));
+        let mut b = Being::new(&g, &Look::default());
+        let mut c = Table::new(&g);
+        let p = g.nodes.iter().position(|n| n.id == "p").unwrap();
+        let hue = b.buttons.iter().position(|x| x.node == p && x.name == "hue").unwrap();
+        let pt = b.buttons[hue].point;
+        assert_eq!(b.points[pt].colour, Some(hue));
+        for v in [0.3f32, 0.8] {
+            c.set(p, b.buttons[hue].port, v);
+            step(&mut b, &c, 2);
+            assert!((colour_of(&b.buttons[hue]) - v).abs() < 1e-6);
+            assert_eq!(b.point_rgb(&b.points[pt], 0.55), hsv(v, 0.55, 1.0), "the node point too");
+            assert_eq!(b.ring(hue).1[..3], hsv(v, 0.6, 1.0), "the ring");
+        }
+        let speed = b.buttons.iter().position(|x| x.node == p && x.name == "speed").unwrap();
+        assert_eq!(colour_of(&b.buttons[speed]), param_hue("speed"), "the others keep their identity colour");
+    }
+
+    /// owner 2026-10-31: level and overload on the being – a node point glows with its sound, the head flushes red with
+    /// the limiter's gain reduction
+    #[test]
+    fn points_glow_with_their_level_and_the_head_strains() {
         let g = graph(SCENE);
         let mut b = Being::new(&g, &Look::default());
         let c = Table::new(&g);
-        step(&mut b, &c, 2);
-        let text = |b: &Being, i: usize| {
-            let mut t = Text::default();
-            b.label(i, &mut t).unwrap();
-            t.as_str().to_string()
-        };
-        let at = |b: &Being, name: &str| b.buttons.iter().position(|x| x.name == name).unwrap();
-        assert_eq!(text(&b, at(&b, "glow")), "glow 0.60");
-        assert_eq!(text(&b, at(&b, "shape")), "shape sine");
-        let index = text(&b, at(&b, "index"));
-        assert!(index.starts_with("index ") && index.ends_with(" < lfo"), "{index}");
-        // nothing hovered, nothing moved by a hand: no labels; hovered: its label; gripped: the range under it
-        let mut out = Vec::with_capacity(LABELS);
-        b.write_labels(&mut out);
-        assert!(out.is_empty(), "{out:?}");
-        b.hover = Some(Hit::Button(at(&b, "glow")));
-        b.dragging = true;
-        step(&mut b, &c, 30);
-        out.clear();
-        b.write_labels(&mut out);
-        let words: Vec<_> = out.iter().map(|l| l.text.as_str()).collect();
-        assert_eq!(words, ["glow 0.60", "0.00 - 2.00"]);
-        assert!(out[0].color[3] > 0.95 && out[1].line == 1.0);
-        assert_eq!(out.capacity(), LABELS, "no growth");
+        let fm = b.points.iter().position(|p| g.nodes[p.node].id == "fm").unwrap();
+        b.update(1.0 / 60.0, 0.0, &Local { ctl: &c, meter: &|_, _| 0.0 }, &now(0.0));
+        assert_eq!(b.points[fm].level, 0.0, "silent");
+        b.update(1.0 / 60.0, 0.0, &Local { ctl: &c, meter: &|_, _| 0.64 }, &now(0.0));
+        assert!((b.points[fm].level - 0.8).abs() < 1e-5, "up at once: √0.64");
+        for _ in 0..60 {
+            b.update(1.0 / 60.0, 0.0, &Local { ctl: &c, meter: &|_, _| 0.0 }, &now(0.0));
+        }
+        assert!(b.points[fm].level < 0.05, "and down again");
+        assert_eq!(b.strain, 0.0);
+        for _ in 0..20 {
+            b.strain(1.0 / 60.0, 12.0);
+        }
+        assert!(b.strain > 0.95, "12 dB of gain reduction: full flush {}", b.strain);
+        let (ns, nv) = b.capacity();
+        let (mut s, mut v) = (Vec::with_capacity(ns), Vec::with_capacity(nv));
+        b.write(&mut s, &mut v);
+        let skin = s.iter().find(|x| x.extra[0] == kind::SKIN).unwrap();
+        assert!(skin.color[0] > 0.9 && skin.color[1] < 0.4, "a red skin: {:?}", skin.color);
+        for _ in 0..120 {
+            b.strain(1.0 / 60.0, 0.0);
+        }
+        assert!(b.strain < 0.1, "it calms down: {}", b.strain);
     }
 
     /// a double click eases the button back to the scene's value – gently, through the values between
@@ -1435,11 +1663,8 @@ mod tests {
         assert!((seen[39] - 2.5).abs() < 1e-3 && b.reset.is_none(), "{seen:?}");
         assert!(seen.windows(2).all(|w| w[1] <= w[0] + 1e-4), "one way down");
         assert!(seen.iter().any(|v| *v > 3.0 && *v < 5.5), "eased, not a jump: {seen:?}");
-        // a linked button has no scene value to go back to
-        let linked = b.buttons.iter().position(|x| x.linked).unwrap();
-        b.reset(linked);
-        assert!(b.reset.is_none());
     }
+
 
     #[test]
     fn hsv_primaries() {

@@ -135,6 +135,15 @@ impl Orbit {
     }
 }
 
+/// The photographer's focus (owner 2026-10-31: "the focus point depends on the zoom"): from `far` out the camera aims at
+/// the whole being's centre (`body`), from `near` in at its head's, between them it wanders up smoothly – a smoothstep
+/// over the distance's log, so each zoom step moves it alike.
+pub fn focus_target(body: Vec3, head: Vec3, distance: f32, near: f32, far: f32) -> Vec3 {
+    let span = (far.max(near * 1.001) / near.max(1e-3)).ln();
+    let t = ((far.max(1e-3) / distance.max(1e-3)).ln() / span).clamp(0.0, 1.0);
+    body.lerp(head, t * t * (3.0 - 2.0 * t))
+}
+
 fn wrap_angle(a: f32) -> f32 {
     let tau = std::f32::consts::TAU;
     a - tau * (a / tau).floor()
