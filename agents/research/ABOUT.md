@@ -17,7 +17,7 @@ Geschichten aus.
 **Der Name**
 
 Der Name kommt von Kiki Hitomi und steht in den Credits auf dem Klappentext der Schallplatte. Er setzt sich zusammen
-aus **SCU** – der japanischen Silbe スク für „Screen“ – und **TOON** – geschrieben T-O-O-N, gehört wie *Tunes*, wie bei den Looney Tunes. Die **Toons** sind unsere Figürchen, die **Tunes** die Musikstücke, die sie [anstimmen?]. Zugleich ist es eine Anlehnung an Graphic Novels und den unendlichen Scroll der
+aus **SCU** – der japanischen Silbe スク für „Screen“ – und **TOON** – geschrieben T-O-O-N, gehört wie *Tunes*, wie bei den Looney Tunes. Die **Toons** sind unsere Figürchen, die **Tunes** die Musikstücke, die sie antreiben. Zugleich ist es eine Anlehnung an Graphic Novels und den unendlichen Scroll der
 Webtoons.
 
 ## English
@@ -35,7 +35,7 @@ stories.
 **The name**
 
 The name comes from Kiki Hitomi and appears in the credits on the record's sleeve notes. It joins **SCU** – the Japanese syllable スク for "screen" – and **TOON**,
-written T-O-O-N, heard as *tunes*, as in Looney Tunes. The **toons** are our little characters, the **tunes** the pieces of music they [strike up?]. It is also a nod to graphic novels and the endless scroll of webtoons.
+written T-O-O-N, heard as *tunes*, as in Looney Tunes. The **toons** are our little characters, the **tunes** the music that drives them. It is also a nod to graphic novels and the endless scroll of webtoons.
 
 ## Notes for the build (after the owner confirms)
 - The text is the owner's (via the OSCT orchestration, 2026-10-31); the 1-in-5,000 figure is the owner's. Nothing added.
