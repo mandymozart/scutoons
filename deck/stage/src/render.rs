@@ -129,6 +129,10 @@ pub struct Renderer {
     screen: Option<Pass>,
     hud_pass: Pass,
     hud_tex: wgpu::Texture,
+    /// #209: the collapsed stats bar – its texture as wide as the screen in HUD pixels (`hud::bar_width`)
+    bar_pass: Pass,
+    bar_tex: wgpu::Texture,
+    bar_w: u32,
     /// the pairing card (#180, pairing.rs): its texture, shown while `pairing` is set
     pair_pass: Pass,
     pair_tex: wgpu::Texture,
@@ -232,6 +236,8 @@ impl Renderer {
         let dummy = texture(&device, 1, 1, OFFSCREEN, wgpu::TextureUsages::TEXTURE_BINDING)
             .create_view(&Default::default());
         let hud_tex = texture(&device, hud::W, hud::H, OFFSCREEN, wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST);
+        let bar_w = hud::bar_width(config.width as f32, config.height as f32);
+        let bar_tex = bar_texture(&device, bar_w);
         let pair_tex = texture(&device, crate::pairing::W, crate::pairing::H, OFFSCREEN, wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST);
         // the splash first – one frame of it at once, the scene's shaders compile behind it
         let (lw, lh, px) = crate::splash::logo((config.width / 2).clamp(64, 2048))?;
@@ -249,10 +255,14 @@ impl Renderer {
         };
         let splash = overlay_pass("splash", builtin("splash").unwrap())?;
         let hud_pass = overlay_pass("hud", builtin("pass").unwrap())?;
+        let bar_pass = overlay_pass("hud bar", builtin("pass").unwrap())?;
         let pair_pass = overlay_pass("pairing", builtin("pass").unwrap())?;
 
         let mut r = Renderer {
             hud_pass,
+            bar_pass,
+            bar_tex,
+            bar_w,
             pair_pass,
             pair_tex,
             pairing: false,
@@ -403,6 +413,11 @@ impl Renderer {
         self.config.width = w;
         self.config.height = h;
         self.surface.configure(&self.device, &self.config);
+        let bar_w = hud::bar_width(w as f32, h as f32);
+        if bar_w != self.bar_w {
+            self.bar_w = bar_w;
+            self.bar_tex = bar_texture(&self.device, bar_w);
+        }
         self.rebuild();
     }
 
@@ -461,6 +476,8 @@ impl Renderer {
         let screen_bind = self.screen.as_ref().map(|s| bind(s, s.inputs.map(find), &self.linear));
         let hud_view = self.hud_tex.create_view(&Default::default());
         let hud_bind = bind(&self.hud_pass, [&hud_view, &self.dummy, &self.dummy], &self.nearest);
+        let bar_view = self.bar_tex.create_view(&Default::default());
+        let bar_bind = bind(&self.bar_pass, [&bar_view, &self.dummy, &self.dummy], &self.nearest);
         let pair_view = self.pair_tex.create_view(&Default::default());
         let pair_bind = bind(&self.pair_pass, [&pair_view, &self.dummy, &self.dummy], &self.nearest);
         let splash_bind = bind(&self.splash, [&self.logo.view, &self.dummy, &self.dummy], &self.linear);
@@ -471,8 +488,14 @@ impl Renderer {
             s.bind = screen_bind;
         }
         self.hud_pass.bind = Some(hud_bind);
+        self.bar_pass.bind = Some(bar_bind);
         self.pair_pass.bind = Some(pair_bind);
         self.splash.bind = Some(splash_bind);
+    }
+
+    /// #209: the stats bar's width in HUD pixels (what main rasters it at)
+    pub fn bar_width(&self) -> u32 {
+        self.bar_w
     }
 
     /// The pairing card (#180): Some = its pixels (pairing::W × pairing::H, from `pairing::Card::raster`), shown in the
@@ -650,7 +673,21 @@ impl Renderer {
                 rp.set_bind_group(0, s.bind.as_ref(), &[]);
                 rp.draw(0..3, 0..1);
             }
-            if let Some(hud) = hud.filter(|h| h.visible) {
+            // #209: the collapsed bar across the top edge, at the HUD's scale (its raster is as wide as the screen)
+            if let Some(hud) = hud.filter(|h| h.mode == hud::Mode::Bar && h.bar_w == self.bar_w && !h.bar.is_empty()) {
+                self.queue.write_texture(
+                    wgpu::TexelCopyTextureInfo { texture: &self.bar_tex, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
+                    &hud.bar,
+                    wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(self.bar_w * 4), rows_per_image: None },
+                    wgpu::Extent3d { width: self.bar_w, height: hud::BAR_H, depth_or_array_layers: 1 },
+                );
+                let s = hud::scale(sh);
+                rp.set_viewport(0.0, 0.0, (self.bar_w as f32 * s).min(sw), (hud::BAR_H as f32 * s).min(sh), 0.0, 1.0);
+                rp.set_pipeline(self.bar_pass.pipeline.as_ref().expect("the bar's pipeline"));
+                rp.set_bind_group(0, self.bar_pass.bind.as_ref(), &[]);
+                rp.draw(0..3, 0..1);
+            }
+            if let Some(hud) = hud.filter(|h| h.mode == hud::Mode::Full) {
                 self.queue.write_texture(
                     wgpu::TexelCopyTextureInfo {
                         texture: &self.hud_tex,
@@ -663,7 +700,7 @@ impl Renderer {
                     wgpu::Extent3d { width: hud::W, height: hud::H, depth_or_array_layers: 1 },
                 );
                 // rem-like: an integer scale by the screen height (2 at 1080p), a 1rem margin at that scale
-                let s = (sh / 540.0).round().max(1.0);
+                let s = hud::scale(sh);
                 let (hw, hh) = ((hud::W as f32 * s).min(sw), (hud::H as f32 * s).min(sh));
                 let m = (16.0 * s).min(sw - hw).max(0.0);
                 rp.set_viewport(m, m.min(sh - hh).max(0.0), hw, hh, 0.0, 1.0);
@@ -861,6 +898,11 @@ fn texture(device: &wgpu::Device, w: u32, h: u32, format: wgpu::TextureFormat, u
         usage,
         view_formats: &[],
     })
+}
+
+/// #209: the stats bar's texture, `w` HUD pixels wide
+fn bar_texture(device: &wgpu::Device, w: u32) -> wgpu::Texture {
+    texture(device, w, hud::BAR_H, OFFSCREEN, wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST)
 }
 
 fn uniform_buffer(device: &wgpu::Device) -> wgpu::Buffer {
