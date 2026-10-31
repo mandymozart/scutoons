@@ -57,6 +57,7 @@ No JSON across the boundary. A value is a **wire record** (`src/wire.ts` = `deck
 | `src/engine.ts` | `WasmCore` (the exports behind views on wasm memory), `Engine` (the pump: drain, step + render per block, analysis) |
 | `src/worker.ts` | the worker entry: init (wasm compiled there), load, the shared pump / the transfer feed |
 | `src/worklet.ts` | the `live-core` AudioWorkletProcessor: plays the ring, silence + an underrun when empty |
+| `src/lead.ts` | `AdaptiveLead` (#208): grow on a dropout, shrink after a calm minute |
 | `src/index.ts` | `LiveCore`: start, load, param, set, onAnalysis, stats, stop |
 
 ## Production headers (for the `/live/…` pages when they exist – not set anywhere yet)

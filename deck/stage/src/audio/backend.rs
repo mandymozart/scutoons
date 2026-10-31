@@ -583,6 +583,9 @@ mod tests {
         let d = DeckAudio::parse("kiosk = \"stage\"\nrelay = \"\"\naudio_buffer = 256\naudio_host = \"asio\"\naudio_device = \"Fireface\"\n");
         assert_eq!(d, DeckAudio { audio_buffer: Some(256), audio_host: Some("asio".into()), audio_device: Some("Fireface".into()), audio_thread: None });
         assert_eq!(DeckAudio::parse("audio_thread = false\n").audio_thread, Some(false));
+        // the file a deck starts with: the device's default buffer, the render thread on
+        let shipped = DeckAudio::parse(include_str!("../../../os/rootfs/usr/share/deck/deck.default.toml"));
+        assert_eq!((shipped.audio_buffer, shipped.audio_thread), (None, Some(true)));
         let empty = DeckAudio::parse("audio_host = \"\"\naudio_device = \" \"\naudio_buffer = 0\n");
         assert_eq!(empty, DeckAudio::default(), "empty = unset");
         assert_eq!(DeckAudio::parse("this is = not toml ["), DeckAudio::default());
