@@ -118,7 +118,7 @@ fn authority(url: &str) -> std::result::Result<String, String> {
 }
 
 /// Open the WebSocket at `url` – `ws://`, or `wss://` with TLS (rustls + the webpki roots, no OpenSSL – #199): the
-/// name's addresses in turn (a TCP connect within 3 s each; #201: `wss://<deck>.lan.scutoons.com:7700`), no Nagle, the
+/// name's addresses in turn (a TCP connect within 3 s each; #201: `wss://<lan-ip-with-dashes>.lan.scutoons.com:7700`), no Nagle, the
 /// handshake (at most 10 s per read on a host that stays silent), then a read timeout of `poll` on the socket under it,
 /// so the client's loop gets its turns.
 pub fn dial(url: &str, poll: Duration) -> std::result::Result<WebSocket<MaybeTlsStream<TcpStream>>, String> {
@@ -172,6 +172,10 @@ mod tests {
         assert!(Config::new("ws://x:7700/", "left", "de").unwrap_err().to_string().contains("session code"));
         assert!(Config::new("ws://x:7700/live/A", "le ft", "de").is_err());
         assert_eq!(Config::new("ws://x:7700/live/A7K2/?role=x", "l", "en").unwrap().code, "A7K2");
+        // #201: a venue's relay by its name – the deck's LAN IP with dashes, answered by bunny DNS
+        let venue = Config::new("wss://192-168-1-116.lan.scutoons.com:7700/live/CATH", "left", "de").unwrap();
+        assert_eq!((venue.base.as_str(), venue.code.as_str()), ("wss://192-168-1-116.lan.scutoons.com:7700", "CATH"));
+        assert_eq!(authority(&venue.join_url()).unwrap(), "192-168-1-116.lan.scutoons.com:7700");
     }
 
     #[test]
@@ -218,7 +222,7 @@ mod tests {
 
     #[test]
     fn a_relay_by_name_resolves_connects_and_names_itself() {
-        // #201: a venue's relay is `wss://<deck>.lan.scutoons.com:7700` – the name resolved, the TLS hello carries it
+        // #201: a venue's relay is `wss://<lan-ip-with-dashes>.lan.scutoons.com:7700` – the name resolved, the TLS hello carries it
         // (SNI), so the relay's certificate is checked against that name; `localhost` stands in for the LAN name
         let (tls, err) = first_bytes_at("wss", "localhost");
         assert!(tls.first() == Some(&0x16), "a TLS ClientHello");

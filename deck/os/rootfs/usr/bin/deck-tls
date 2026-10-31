@@ -1,17 +1,29 @@
 #!/bin/bash
 # deck-tls – the venue certificate for the deck's relay (#201, deck/os/README.md "wss in the venue"): the wildcard
-# *.lan.scutoons.com from the API into /var/lib/deck/tls (fullchain.pem + privkey.pem), then deck-relay restarts and
-# speaks wss on 7700 next to ws. Phase A, by hand: run it once, and again after a renewal (the workflow lan-cert renews
-# monthly; a certificate lives 90 days).
-#   deck-tls            fetch + install + restart deck-relay
-#   deck-tls --status   what is installed (names, expiry)
-# The token: deck.toml's `tls_token` (`deck-set tls_token <token>`) – an admin's AI connection for now (scutoons.com →
-# account → AI connections; it may only read the admin API); the deck token replaces it with #180.
+# *.lan.scutoons.com from the API into /var/lib/deck/tls (fullchain.pem + privkey.pem); deck-relay then speaks wss on
+# 7700 next to ws, as wss://<its LAN IP with dashes>.lan.scutoons.com:7700 (bunny DNS answers those names – no
+# registration). Runs by itself (deck-tls.timer: after boot, then every 6 h); a renewed pair is picked up by the relay
+# without a restart – it restarts only when it had no certificate yet.
+#   deck-tls            fetch + install (as root)
+#   deck-tls --status   what is installed (names, expiry) and the deck's wss addresses
+#   deck-tls --names    only the wss addresses, one per line (the start page)
+# The token: the deck's own (#180) – deck-link's /run/deck-link/token, there once a member approved the deck
+# (`deck-link status` shows the code to pair with). No admin token on a deck (owner 2026-10-31).
 # DECK_API overrides the API (default https://api.scutoons.com).
 set -eu
-FILE=/var/lib/deck/deck.toml
 DIR=/var/lib/deck/tls
+LINK=${DECK_LINK_DIR:-/run/deck-link}
 API=${DECK_API:-https://api.scutoons.com}
+PORT=7700
+
+# the deck's private IPv4 addresses (RFC 1918 – the only ones bunny's script answers) → its wss addresses
+names() {
+  ip -4 -o addr show scope global 2>/dev/null | awk '{ sub(/\/.*/, "", $4); print $4 }' | while read -r a; do
+    case "$a" in
+      10.*|192.168.*|172.1[6-9].*|172.2[0-9].*|172.3[01].*) echo "wss://${a//./-}.lan.scutoons.com:$PORT" ;;
+    esac
+  done
+}
 
 status() {
   if [ -r "$DIR/fullchain.pem" ]; then
@@ -19,19 +31,28 @@ status() {
   else
     echo "no certificate in $DIR – the relay speaks ws only"
   fi
+  local n; n=$(names)
+  if [ -n "$n" ]; then echo "$n"; else echo "no private LAN address – no wss name"; fi
 }
-[ "${1:-}" = --status ] && { status; exit 0; }
-[ "$(id -u)" = 0 ] || { echo "deck-tls writes $DIR and restarts deck-relay: run it as root (tty2)"; exit 2; }
+case "${1:-}" in
+  --status) status; exit 0 ;;
+  --names) names; exit 0 ;;
+esac
+[ "$(id -u)" = 0 ] || { echo "deck-tls writes $DIR: run it as root (tty2)"; exit 2; }
 
-token=$(sed -n 's/^tls_token *= *"\(.*\)" *$/\1/p' "$FILE" 2>/dev/null | head -n 1)
-[ -n "$token" ] || { echo "no tls_token in $FILE – deck-set tls_token <an admin's AI connection token>"; exit 2; }
+token=$(cat "$LINK/token" 2>/dev/null || true)
+if [ -z "$token" ]; then
+  echo "the deck is not paired yet – $(deck-link status 2>/dev/null || echo 'deck-link is not running')"
+  exit 3   # deck-tls.service: a success (SuccessExitStatus), the timer tries again
+fi
 
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
-# one request: the chain and the key as one PEM text (GET /api/admin/lan-cert?format=pem, server/docs/API.md)
-code=$(curl -sS -m 30 -o "$tmp/both.pem" -w '%{http_code}' -H "Authorization: Bearer $token" "$API/api/admin/lan-cert?format=pem") || code=000
+# one request: the chain and the key as one PEM text (GET /api/decks/lan-cert?format=pem, server/docs/API.md)
+code=$(curl -sS -m 30 -o "$tmp/both.pem" -w '%{http_code}' -H "Authorization: Bearer $token" "$API/api/decks/lan-cert?format=pem") || code=000
 if [ "$code" != 200 ]; then
   echo "the API answered $code:"; head -c 400 "$tmp/both.pem" 2>/dev/null; echo
+  [ "$code" = 401 ] && echo "(the deck's token was refused – revoked or expired; deck-link asks again: deck-link status)"
   exit 1
 fi
 # the key's block (BEGIN … PRIVATE KEY … END) → privkey.pem, the certificates → fullchain.pem
@@ -42,6 +63,10 @@ awk -v key="$tmp/privkey.pem" -v chain="$tmp/fullchain.pem" '
 [ -s "$tmp/fullchain.pem" ] && [ -s "$tmp/privkey.pem" ] || { echo "the answer holds no certificate + key"; exit 1; }
 openssl x509 -in "$tmp/fullchain.pem" -noout -checkend 0 >/dev/null || { echo "the certificate has expired – run the lan-cert workflow"; exit 1; }
 
+if cmp -s "$tmp/fullchain.pem" "$DIR/fullchain.pem" 2>/dev/null && cmp -s "$tmp/privkey.pem" "$DIR/privkey.pem" 2>/dev/null; then
+  echo "the certificate is current"; status; exit 0
+fi
+had=0; [ -r "$DIR/fullchain.pem" ] && [ -r "$DIR/privkey.pem" ] && had=1
 # root owns them, the relay (user deck) reads them; the key never world-readable
 install -d -m 750 -o root -g deck "$DIR"
 install -m 644 -o root -g deck "$tmp/fullchain.pem" "$DIR/fullchain.pem.new"
@@ -49,5 +74,9 @@ install -m 640 -o root -g deck "$tmp/privkey.pem" "$DIR/privkey.pem.new"
 mv -f "$DIR/fullchain.pem.new" "$DIR/fullchain.pem"
 mv -f "$DIR/privkey.pem.new" "$DIR/privkey.pem"
 status
-systemctl restart deck-relay
-echo "deck-relay restarted: ws + wss on 7700 (journalctl -u deck-relay)"
+if [ "$had" = 0 ]; then
+  systemctl restart deck-relay
+  echo "deck-relay restarted: ws + wss on $PORT (journalctl -u deck-relay)"
+else
+  echo "renewed – the relay uses it from the next connection on (no restart)"
+fi

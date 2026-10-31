@@ -23,11 +23,15 @@ setting() { sed -n "s/^$1 *= *\"\([^\"]*\)\".*/\1/p" "$STATE/deck.toml" 2>/dev/n
 browser() {
   local url; url=$(setting conductor)
   if [ -z "$url" ]; then
-    local page="$XDG_RUNTIME_DIR/deck-start.html" relay report nets
+    local page="$XDG_RUNTIME_DIR/deck-start.html" relay report nets pairing wss
     relay=$(curl -s -m 2 http://127.0.0.1:7700/status 2>/dev/null || echo '(not running)')
     report=$(sed 's/&/\&amp;/g; s/</\&lt;/g' "$STATE/machine.toml" 2>/dev/null || echo '(no machine.toml)')
     nets=$(nmcli -t -f DEVICE,STATE,CONNECTION device 2>/dev/null | grep ':connected:' | tr '\n' ' ')
+    # #180 / #201: the code to pair with (deck-link) and the relay's wss names (deck-tls) – no | or & in either
+    pairing=$(deck-link status 2>/dev/null | tr -d '|&<' || true)
+    wss=$(deck-tls --names 2>/dev/null | tr '\n' ' ' | tr -d '|&<' || true)
     sed -e "s|@HOST@|$(uname -n)|g" -e "s|@RELAY@|$relay|g" -e "s|@NETS@|${nets:-offline}|g" \
+        -e "s|@PAIRING@|${pairing:-deck-link is not running}|g" -e "s|@WSS@|${wss:-no certificate yet (deck-tls)}|g" \
         -e "/@REPORT@/{r /dev/stdin
 d}" /usr/share/deck/start.html <<<"$report" >"$page"
     url="file://$page"

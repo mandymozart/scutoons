@@ -17,9 +17,9 @@
 //!   that file (fetched, cached, failed, or offline), then reads the local file.
 //! - **Offline:** the request fails → the board says so, every file settles at once and the stage plays from the cache;
 //!   the API is asked again after 30 s when something new is wanted, and at the next scene load.
-//! - **The deck token (#180):** `token` is sent to the API as `Authorization: Bearer` when there is one (DECK_TOKEN
-//!   today; deck-link's paired token once the stage pairs – the content is public, so nothing waits for it). Never to
-//!   the CDN.
+//! - **The deck token (#180):** `token` is sent to the API as `Authorization: Bearer` when there is one (deck-link's
+//!   daemon keeps it in /run/deck-link once a member approved the deck; DECK_TOKEN on a dev deck) – the content is
+//!   public, so nothing waits for it. Never to the CDN.
 //!
 //! - **The conductor's push (#195):** a `scene.sync` (link.rs hands it in: `push`) is an extra need – its sets at this
 //!   deck's quality (`Config::quality`), its characters with every portrait the API lists – through the same request,
@@ -55,8 +55,9 @@ pub struct Config {
     pub sets: Option<PathBuf>,
     /// where portraits land (None: `--portraits` names a local folder – not synced)
     pub portraits: Option<PathBuf>,
-    /// the deck token for the API (#180); None = public content only
-    pub token: Option<String>,
+    /// the deck token for the API (#180): deck-link's run directory (or DECK_TOKEN), read at each request; public
+    /// content without one
+    pub token: deck_link::TokenSource,
     /// #195: the quality a pushed set's 3D is fetched at (the scene's space node's, else `low`)
     pub quality: String,
 }
@@ -608,7 +609,7 @@ impl Worker {
         }
         let url = format!("{}/library/scene-content?sets={}&characters={}", self.cfg.api.trim_end_matches('/'), sets.join(","), characters.join(","));
         let mut req = self.agent.get(&url);
-        if let Some(t) = &self.cfg.token {
+        if let Some(t) = self.cfg.token.get() {
             req = req.set("Authorization", &format!("Bearer {t}"));
         }
         let answer = match req.call() {

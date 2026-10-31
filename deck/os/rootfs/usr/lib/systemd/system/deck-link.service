@@ -1,0 +1,18 @@
+# The deck's identity and pairing (#180, CYBERDECKS.md §9; deck/os/README.md "Pairing"): `deck-link run` asks
+# scutoons.com for access with the deck's own key (/var/lib/deck/identity, made at first boot – deck-firstboot), keeps the
+# code to pair with and, once a member approved the deck on the account page, its ~1 h token in /run/deck-link (2750
+# root:deck, tmpfiles.d): the stage's splash shows the code + QR, the stage and deck-tls send the token. Revoked or
+# expired → a new code, by itself. Root, so the private key stays 0600 root; the user deck only reads the run directory.
+[Unit]
+Description=SCUTOONS deck link (identity, pairing, the deck token)
+After=deck-firstboot.service network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/deck-link run
+Restart=always
+RestartSec=5
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

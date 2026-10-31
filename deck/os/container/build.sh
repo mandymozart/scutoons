@@ -20,11 +20,11 @@ pacman -Syu --noconfirm --needed archiso rust base-devel alsa-lib git pipewire c
 echo "   archiso $(pacman -Q archiso | cut -d' ' -f2), rust $(rustc --version | cut -d' ' -f2), kernel package: $KERNEL"
 pacman -Si "$KERNEL" >/dev/null 2>&1 || { echo "no package '$KERNEL' in the repos – set DECK_KERNEL=linux"; exit 1; }
 
-echo "== the deck binaries (relay, bridge, deck-check, deck-stage with PipeWire) – release, Linux x86_64"
+echo "== the deck binaries (relay, bridge, deck-check, deck-stage with PipeWire, deck-link) – release, Linux x86_64"
 if [ "${DECK_SKIP_CARGO:-0}" != 1 ]; then
-  (cd "$SRC" && CARGO_TARGET_DIR=$WORK/target CARGO_HOME=$WORK/cargo-home cargo build --release --locked     -p relay -p bridge -p deck-check -p deck-stage --features deck-stage/pipewire 2>&1 | tail -3)
+  (cd "$SRC" && CARGO_TARGET_DIR=$WORK/target CARGO_HOME=$WORK/cargo-home cargo build --release --locked     -p relay -p bridge -p deck-check -p deck-stage -p deck-link --features deck-stage/pipewire 2>&1 | tail -3)
 fi
-for b in relay bridge deck-check deck-stage; do [ -x "$WORK/target/release/$b" ] || { echo "missing $WORK/target/release/$b"; exit 1; }; done
+for b in relay bridge deck-check deck-stage deck-link; do [ -x "$WORK/target/release/$b" ] || { echo "missing $WORK/target/release/$b"; exit 1; }; done
 
 echo "== the profile: releng + deck/os/profile + deck/os/rootfs"
 rm -rf "$PROFILE"; cp -r "$RELENG" "$PROFILE"
@@ -58,12 +58,16 @@ install -Dm755 "$WORK/target/release/relay" "$PROFILE/airootfs/usr/bin/deck-rela
 install -Dm755 "$WORK/target/release/bridge" "$PROFILE/airootfs/usr/bin/deck-bridge"
 install -Dm755 "$WORK/target/release/deck-check" "$PROFILE/airootfs/usr/bin/deck-check"
 install -Dm755 "$WORK/target/release/deck-stage" "$PROFILE/airootfs/usr/bin/deck-stage"
+install -Dm755 "$WORK/target/release/deck-link" "$PROFILE/airootfs/usr/bin/deck-link"
 install -Dm644 -t "$PROFILE/airootfs/usr/share/deck/scenes" "$SRC"/stage/scenes/*.toml
 chmod 755 "$PROFILE/airootfs/usr/bin/"deck-*
 wants="$PROFILE/airootfs/etc/systemd/system/multi-user.target.wants"; mkdir -p "$wants"
-for u in NetworkManager iwd avahi-daemon sshd deck-firstboot deck-kiosk deck-relay deck-bridge; do
+for u in NetworkManager iwd avahi-daemon sshd deck-firstboot deck-kiosk deck-relay deck-bridge deck-link; do
   ln -sf "/usr/lib/systemd/system/$u.service" "$wants/$u.service"
 done
+# the venue certificate now and then (#201)
+mkdir -p "$PROFILE/airootfs/etc/systemd/system/timers.target.wants"
+ln -sf /usr/lib/systemd/system/deck-tls.timer "$PROFILE/airootfs/etc/systemd/system/timers.target.wants/deck-tls.timer"
 # releng's pacman-init (the live keyring) lives in /etc – keep it while releng ships it
 [ -e "$PROFILE/airootfs/etc/systemd/system/pacman-init.service" ] && ln -sf /etc/systemd/system/pacman-init.service "$wants/pacman-init.service"
 # releng's file_permissions name a file we removed

@@ -1,0 +1,11 @@
+# The venue certificate (#201): deck-tls fetches *.lan.scutoons.com with the deck's own token (deck-link) into
+# /var/lib/deck/tls for deck-relay's wss. Exit 3 = not paired yet (a success; the timer tries again).
+[Unit]
+Description=SCUTOONS deck venue certificate (wss for the relay)
+After=deck-link.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/deck-tls
+SuccessExitStatus=3

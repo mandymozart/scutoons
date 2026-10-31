@@ -20,7 +20,7 @@ cd deck && cargo run --release -p deck-stage -- --windowed
 built-in `scenes/cathedral.toml` / `conductor.toml`) · `--sets DIR` (a local folder of sets instead of the synced
 `<cache>/sets`, `DECK_SETS` – e.g. `../media/scutoons/rooms`, tools/rooms' output) · `--portraits DIR` (a local folder
 of the heads' sprites instead of the synced `<cache>/portraits`, `DECK_PORTRAITS` – e.g. `../media/characters`) ·
-`DECK_TOKEN` (the deck token for the API and show media, #180) · `--token T`
+`DECK_TOKEN` (a fixed deck token for the API and show media – a dev deck; a deck reads deck-link's, #180) · `--token T`
 (the conductor's session token, `LIVE_TOKEN`) · `--audio auto|pipewire|cpal|null` (auto =
 PipeWire → cpal → null; null runs the engine on a timer, no device – the clock, the music and the FFT still move) ·
 `--volume 0–1` · `--cache DIR` (default `/var/lib/deck/cache` on a deck, `DECK_CACHE`, else the user cache folder) ·
@@ -45,6 +45,14 @@ with a white fill – `assets/SCUTOONS-logo-white.svg`, rendered with resvg) at 
 the top. The window's first frame is the splash (before the scene's shaders compile); it fades once every chapter
 node shows a slice and every music track is loaded (or failed), at the latest after 30 s.
 
+**Pairing** (#180, CYBERDECKS.md §9): while deck-link's daemon says the deck waits for a member
+(`/run/deck-link/state` = `pending <code>`, read every 2 s – `DECK_LINK_DIR` elsewhere), a card in the lower right
+corner – over the splash and the scene – shows the code (`K7Q-42M`) and the QR of
+`https://scutoons.com/account/decks?deck=<code>` (`DECK_APP` for another viewer); paired, offline or no daemon = no
+card (`pairing.rs`, rastered like the HUD, integer scale). Built-in scenes play before approval; once approved the
+deck token (`/run/deck-link/token`, renewed by the daemon) goes to the API – the library's chapters, the sync's
+scene-content, the outlet's show media.
+
 ## Modules (#185)
 
 Modules are cargo features (DECISIONS 2026-10-30: compiled in, scene-driven builds; wasm generators later, no dylib
@@ -57,7 +65,7 @@ the basic audio nodes (`osc`, `noise`, `fm`, `seq`, `click`, `mixer`, `fft`, `au
 | `space` | the `space` kind (a set's 3D + the being, #188) | glam, image/webp, serde_json |
 | `sync` | the scene's sets and portraits from the API into the cache (#195 – below); no node kind | ureq, serde_json |
 | `chapter` | `chapter`, `chapter_music` (the library API + cache) | ureq, symphonia, ab_glyph, image/webp |
-| `live` | `outlet` (a Live outlet, #186 – below) | `chapter`, protocol, tungstenite, deck-link |
+| `live` | `outlet` (a Live outlet, #186 – below) | `chapter`, protocol, tungstenite |
 | `midi` | the tempo source `midi`, `midi_out` (MIDI clock in / out) | midir |
 | `osc` | the tempo source `osc` (`/tempo/*`) | rosc |
 | `link` | the tempo source `link` (Ableton Link) | rusty_link (cmake, libclang) |
@@ -243,8 +251,8 @@ Owner 2026-10-30: "Baked into the image is not what I want … The API should de
 - **Offline:** the request fails → `SYNC OFFLINE - FROM THE CACHE`, everything settles at once, the cache plays; asked
   again after 30 s for new wants and at the next scene load.
 - **HUD** (while it fetches, is offline or failed): `SYNC 2/7 3.1 MB` · `SYNC OFFLINE - FROM THE CACHE` · `SYNC ERR …`.
-- **Token:** `DECK_TOKEN` goes to the API as `Bearer` (never to the CDN); deck-link's paired token plugs in there once
-  the stage pairs (#180) – the content is public, nothing waits for it.
+- **Token:** the deck token (deck-link's run directory, read at each request; `DECK_TOKEN` on a dev deck) goes to the
+  API as `Bearer` (never to the CDN) once the deck is paired (#180) – the content is public, nothing waits for it.
 - **The conductor's push** (owner 2026-10-30: "conductor sync. start yes"): the conductor sends `scene.sync` (LIVE.md
   B.6) – once at its start, again on **S**; `--sync set:cathedral,character:catpope` names what, else the scene's set
   and the characters on stage (its own + every deck's); the push's `scene` is the scene file's name (`conductor`). A deck's link hands the push (a `scene.sync`, or the welcome
@@ -273,8 +281,8 @@ wss:// (`config::dial` – tungstenite with rustls + the webpki roots, no OpenSS
 - **client.rs** – tungstenite on its own thread: `hello { role: output, group: <outlet> }`; the outlet's `cell`,
   `media.preload`, `state.slice`, `panic` in; `media.ready` out; a ping every 20 s; a lost connection joins again with
   `resume` (the relay replays what it missed) or gets the snapshot (the outlet's cell and last preload) – shown at once.
-- **media.rs** – the preload: each item fetched with the deck token (`DECK_TOKEN`, else deck-link's pairing on a deck,
-  #180; not paired = the code as the reason) into `<cache>/live/<hash>-<name>` (immutable URLs: once), then
+- **media.rs** – the preload: each item fetched with the deck token (`DECK_TOKEN`, else deck-link's run directory on a
+  deck, #180; not paired = the code as the reason) into `<cache>/live/<hash>-<name>` (immutable URLs: once), then
   `media.ready { ready, missing, why }`; what is missing is tried again after 2, 5, 10, 20, then every 30 s. Sets
   (#193: set + spot + mode, never a file) resolve through the `Resolve` trait – today `LocalSets`: the set's 3D
   (`cache::set_file`, low; with the sync on, where the sync puts it – the space node's gate fetches it),

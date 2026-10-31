@@ -13,8 +13,8 @@ import type { Envelope } from '@scutoons/live';
 
 test('the relay URL and the envelope', () => {
 	assert.deepEqual(parseRelay('ws://localhost:7070/live/CATH'), { base: 'ws://localhost:7070', code: 'CATH' });
-	// a venue's relay under our name, wss with the wildcard certificate (#201)
-	assert.deepEqual(parseRelay('wss://x1.lan.scutoons.com:7700/live/CATH'), { base: 'wss://x1.lan.scutoons.com:7700', code: 'CATH' });
+	// a venue's relay under our name – the deck's LAN IP with dashes (bunny DNS answers it) –, wss with the wildcard certificate (#201)
+	assert.deepEqual(parseRelay('wss://192-168-1-116.lan.scutoons.com:7700/live/CATH'), { base: 'wss://192-168-1-116.lan.scutoons.com:7700', code: 'CATH' });
 	assert.deepEqual(parseRelay('wss://live.scutoons.com/live/A7K2/'), { base: 'wss://live.scutoons.com', code: 'A7K2' });
 	assert.throws(() => parseRelay('http://x/live/CATH'));
 	assert.equal(envelope({ kind: 'ping', p: { t0: 0 } }), '{"v":1,"seq":0,"from":"","kind":"ping","p":{"t0":0}}');

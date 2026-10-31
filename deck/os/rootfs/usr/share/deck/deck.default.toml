@@ -18,6 +18,3 @@ wifi_wait = 8
 relay = ""
 outlet = ""
 locale = ""
-# wss in the venue (#201): the token `deck-tls` fetches the *.lan.scutoons.com certificate with (an admin's AI
-# connection for now, the deck token with #180) – deck/os/README.md "wss in the venue".
-tls_token = ""

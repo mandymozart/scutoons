@@ -87,36 +87,22 @@ mod running {
     use std::time::{Duration, Instant};
 
     /// The outlet of a scene with an `outlet` node: deck.toml under the CLI's settings → the relay and outlet; the media
-    /// with the deck's resolver (`sets`; `synced` = the sync fetches a set's 3D), HTTP and the token (`DECK_TOKEN`, else the paired deck's on a
-    /// deck – deck-link, #180 –, else none); then the threads. Err = why the outlet doesn't play (the HUD says it).
+    /// with the deck's resolver (`sets`; `synced` = the sync fetches a set's 3D), HTTP and the token (`DECK_TOKEN`, else what
+    /// deck-link's daemon keeps in /run/deck-link – #180 –, else none); then the threads. Err = why the outlet doesn't
+    /// play (the HUD says it).
     pub fn start_outlet(cli: super::config::Settings, lib: Library, sets: std::path::PathBuf, synced: bool, size: (u32, u32)) -> Result<Live, String> {
         use super::config::{Settings, DECK_TOML};
-        use super::media::{Fixed, HttpFetch, LocalSets, NoToken, Paired, Token};
+        use super::media::{HttpFetch, Linked, LocalSets};
         let settings = Settings::read(std::path::Path::new(DECK_TOML)).merged(cli);
         let cfg = settings
             .config()
             .ok_or("no outlet: set relay + outlet in /var/lib/deck/deck.toml (or --relay / --outlet)")?
             .map_err(|e| format!("{e:#}"))?;
-        let identity = std::path::Path::new(deck_link::DEFAULT_DIR);
-        let token: Box<dyn Token> = match std::env::var("DECK_TOKEN") {
-            Ok(t) if !t.is_empty() => Box::new(Fixed(t)),
-            _ if identity.parent().is_some_and(|p| p.is_dir()) => match deck_link::Identity::load_or_create(identity) {
-                Ok(id) => {
-                    let info = deck_link::DeckInfo { build: env!("CARGO_PKG_VERSION").into(), class: String::new(), hostname: hostname().unwrap_or_default() };
-                    Box::new(Paired(Mutex::new(deck_link::Link::new(deck_link::HttpTransport::new(&lib.api), id, info))))
-                }
-                Err(e) => {
-                    tracing::warn!("live: no deck identity ({e:#}) – show media without a token");
-                    Box::new(NoToken)
-                }
-            },
-            _ => Box::new(NoToken),
-        };
         let media = Media {
             cache: lib.cache.clone(),
             resolve: Box::new(LocalSets { sets, quality: "low".into(), synced }),
             fetch: Box::new(HttpFetch::default()),
-            token,
+            token: Box::new(Linked(deck_link::TokenSource::from_env())),
             local: Mutex::new(Default::default()),
         };
         tracing::info!("live: outlet '{}' of session {} via {}", cfg.outlet, cfg.code, cfg.base);

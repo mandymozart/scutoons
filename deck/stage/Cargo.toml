@@ -32,7 +32,7 @@ sync = ["dep:ureq", "dep:serde_json", "dep:protocol"]
 chapter = ["dep:ureq", "dep:serde_json", "dep:symphonia", "dep:ab_glyph", "image/webp"]
 # a Live outlet (#186): the `outlet` node joins the relay as `output` of this deck's outlet, preloads the show media with
 # the deck token (deck-link) and renders the outlet's cells natively (live/); slices and text come from `chapter`
-live = ["chapter", "dep:protocol", "dep:tungstenite", "dep:rustls", "dep:deck-link"]
+live = ["chapter", "dep:protocol", "dep:tungstenite", "dep:rustls"]
 # MIDI clock in and out (the tempo clock's `midi` source, the tempo node's `midi_out`)
 midi = ["dep:midir"]
 # the OSC remote for the tempo clock (`/tempo/bpm` …, the `osc` source)
@@ -75,13 +75,17 @@ midir = { workspace = true, optional = true }
 rosc = { workspace = true, optional = true }
 rusty_link = { version = "0.4.9", optional = true }
 # the Live outlet (#186): the relay protocol (one schema → TS + Rust), a blocking WebSocket client on its own thread (the
-# version tokio-tungstenite already pulls), the deck's identity and token (#180)
+# version tokio-tungstenite already pulls)
 protocol = { workspace = true, optional = true }
 # wss:// (#199 – the hosted relay wss://live.scutoons.com): rustls with the webpki roots, no OpenSSL; rustls (ring) is
 # the one ureq already links, named here so `live` has its crypto provider on its own
 tungstenite = { version = "0.24", optional = true, features = ["rustls-tls-webpki-roots"] }
 rustls = { version = "0.23", optional = true, default-features = false, features = ["ring", "std", "tls12"] }
-deck-link = { path = "../link", optional = true }
+# the deck's pairing (#180): the code for the splash, the token from deck-link's run directory (no crypto, no HTTP – its
+# `net` feature off; the daemon `deck-link run` pairs)
+deck-link = { path = "../link", default-features = false }
+# the pairing card on the splash (#180): the QR of the pairing link – Nayuki's encoder, no dependencies
+qrcodegen = "1.8"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 pipewire = { version = "0.10", optional = true, features = ["v0_3_50"] }

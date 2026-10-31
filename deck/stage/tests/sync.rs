@@ -103,7 +103,7 @@ fn offline_the_stage_plays_from_the_cache() {
         cache: cache.clone(),
         sets: Some(cache.join("sets")),
         portraits: Some(cache.join("portraits")),
-        token: None,
+        token: deck_link::TokenSource::None,
         quality: "low".into(),
     };
     let sync = DeckSync::start(cfg);

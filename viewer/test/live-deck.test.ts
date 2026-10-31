@@ -27,11 +27,11 @@ test('the relay: the hosted one by default; ?relay= a whole session URL or a hos
 	assert.equal(relayOf(q('relay=ws://localhost:7070'), LIVE), 'ws://localhost:7070/live/CATH');
 	assert.equal(relayOf(q('relay=http://localhost:7070/live/CATH'), LIVE), 'wss://live.scutoons.com/live/CATH', 'not ws: ignored');
 	assert.equal(relayOf(q(''), 'ws://127.0.0.1:7071'), 'ws://127.0.0.1:7071/live/CATH', 'VITE_LIVE_URL');
-	// a venue's relay under our name with the wildcard certificate (#201): wss on the deck's port
-	const venue = 'wss://x1.lan.scutoons.com:7700/live/CATH';
+	// a venue's relay under our name – the deck's LAN IP with dashes (bunny DNS answers it) – with the wildcard certificate (#201): wss on the deck's port
+	const venue = 'wss://192-168-1-116.lan.scutoons.com:7700/live/CATH';
 	assert.equal(relayOf(q(`relay=${encodeURIComponent(venue)}`), LIVE, 'X'), venue, 'the QR code / link of #201');
 	assert.equal(relayOf(q(`relay=${venue}`), LIVE), venue, 'unencoded too');
-	assert.equal(relayOf(q('relay=wss://x1.lan.scutoons.com:7700'), LIVE, 'A7K2'), 'wss://x1.lan.scutoons.com:7700/live/A7K2', 'the name + the path code');
+	assert.equal(relayOf(q('relay=wss://192-168-1-116.lan.scutoons.com:7700'), LIVE, 'A7K2'), 'wss://192-168-1-116.lan.scutoons.com:7700/live/A7K2', 'the name + the path code');
 });
 
 test("the character: the address, the member's avatar, the device, the default", () => {

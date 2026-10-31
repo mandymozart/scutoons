@@ -8,7 +8,7 @@ use std::time::Duration;
 /// The production API (server/docs/API.md "Hosts")
 pub const DEFAULT_API: &str = "https://api.scutoons.com/api";
 /// The viewer, where the member pairs (`pairing_url`)
-pub const DEFAULT_APP: &str = "https://scutoons.com";
+pub use crate::pairing::DEFAULT_APP;
 
 pub struct HttpTransport {
     base: String,

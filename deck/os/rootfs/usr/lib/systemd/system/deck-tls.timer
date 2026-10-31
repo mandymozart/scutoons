@@ -1,0 +1,12 @@
+# deck-tls after boot (deck-link has paired by then, or the next run catches it) and every 6 h – the workflow lan-cert
+# renews monthly, a certificate lives 90 days.
+[Unit]
+Description=SCUTOONS deck venue certificate, now and then
+
+[Timer]
+OnBootSec=90s
+OnUnitActiveSec=6h
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

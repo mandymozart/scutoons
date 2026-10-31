@@ -1,5 +1,5 @@
 //! wss for the relay in the venue (#201, LIVE.md B.4): a phone on https://scutoons.com/live/deck may not open
-//! `ws://192.168.…`, so a deck's relay answers under a name of ours (`<deck>.lan.scutoons.com`) with the wildcard
+//! `ws://192.168.…`, so a deck's relay answers under a name of ours (`<lan-ip-with-dashes>.lan.scutoons.com`, bunny DNS) with the wildcard
 //! certificate. rustls (ring), no OpenSSL. The hosted relay on bunny never gets a certificate: bunny's edge ends TLS.
 //!
 //! - `relay [addr] --tls-cert FILE --tls-key FILE` (or `RELAY_TLS_CERT`, `RELAY_TLS_KEY`): PEM files, the full chain and

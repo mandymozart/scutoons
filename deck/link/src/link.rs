@@ -33,6 +33,18 @@ pub struct DeckInfo {
     pub hostname: String,
 }
 
+impl DeckInfo {
+    /// The class from deck-check's machine.toml (`class = "A"`, deck/os/check) – empty when there is none
+    pub fn class_of_machine(toml: &str) -> String {
+        toml.lines()
+            .filter_map(|l| l.trim().strip_prefix("class"))
+            .filter_map(|rest| rest.trim_start().strip_prefix('='))
+            .map(|v| v.trim().trim_matches('"').to_string())
+            .next()
+            .unwrap_or_default()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum State {
     /// waiting for a member: show the code (`format_code`) and the QR of `pairing_url`
@@ -202,19 +214,15 @@ fn text(value: &Value, what: &str) -> Result<String> {
         .ok_or_else(|| anyhow!("the answer has no {what}"))
 }
 
-/// The code as the splash shows it: K7Q42M → K7Q-42M
-pub fn format_code(code: &str) -> String {
-    if code.len() == 6 && code.is_ascii() {
-        format!("{}-{}", &code[..3], &code[3..])
-    } else {
-        code.to_string()
-    }
-}
 
-/// What the splash's QR code opens: the pairing page of the viewer's account page with the code prefilled
-pub fn pairing_url(app_url: &str, code: &str) -> String {
-    format!(
-        "{}/account/decks?deck={code}",
-        app_url.trim_end_matches('/')
-    )
+#[cfg(test)]
+mod tests {
+    use super::DeckInfo;
+
+    #[test]
+    fn the_class_comes_from_machine_toml() {
+        let toml = "# written by deck-check\nhostname = \"x1\"\nclassic = \"no\"\nclass = \"A\"\n[features]\nclass = \"B\"\n";
+        assert_eq!(DeckInfo::class_of_machine(toml), "A");
+        assert_eq!(DeckInfo::class_of_machine("hostname = \"x1\"\n"), "");
+    }
 }

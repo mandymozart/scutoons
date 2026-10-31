@@ -50,7 +50,7 @@ impl Stub {
             cache: cache.into(),
             sets: Some(cache.join("sets")),
             portraits: Some(cache.join("portraits")),
-            token: Some("T".into()),
+            token: deck_link::TokenSource::Fixed("T".into()),
             quality: "low".into(),
         }
     }

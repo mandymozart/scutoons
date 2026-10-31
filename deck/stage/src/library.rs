@@ -115,7 +115,12 @@ impl Library {
     pub fn chapter(&self, toon: &str, n: u32) -> Result<(Chapter, &'static str)> {
         let cached = self.chapter_cache_path(toon, n)?;
         let url = format!("{}/library/toons/{toon}/chapters/{n}", self.api.trim_end_matches('/'));
-        match Self::agent().get(&url).call() {
+        let mut req = Self::agent().get(&url);
+        // the deck token once a member approved the deck (#180, deck-link's run directory) – public chapters load without
+        if let Some(t) = deck_link::TokenSource::from_env().get() {
+            req = req.set("Authorization", &format!("Bearer {t}"));
+        }
+        match req.call() {
             Ok(r) => {
                 let text = r.into_string()?;
                 let ch: Chapter = serde_json::from_str(&text).with_context(|| format!("{url}: not a chapter"))?;

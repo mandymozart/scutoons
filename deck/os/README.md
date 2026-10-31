@@ -18,10 +18,10 @@ cache between builds (`scutoons-deck-work`, `scutoons-deck-pkg`; `docker volume 
 run downloads ~1 GB of packages. `DECK_KERNEL=linux` builds on the stock kernel when `linux-rt` is not in the repos.
 
 What `container/build.sh` does: installs archiso + rust (+ pipewire, clang for the stage) → `cargo build --release` for
-`relay`, `bridge`, `deck-check`, `deck-stage` (feature `pipewire`) → copies archiso's **releng** profile, removes its live-only bits (root autologin, reflector, the mirror chooser,
+`relay`, `bridge`, `deck-check`, `deck-stage` (feature `pipewire`), `deck-link` → copies archiso's **releng** profile, removes its live-only bits (root autologin, reflector, the mirror chooser,
 networkd), overlays `profile/` (packages, pacman.conf, identity, airootfs) and `rootfs/` (the deck's units, scripts
 and config – the same tree the PKGBUILD installs), drops the binaries in as `deck-relay`, `deck-bridge`,
-`deck-check`, `deck-stage` (+ its scenes in `/usr/share/deck/scenes`), renders the logo (deck/stage/assets, the
+`deck-check`, `deck-stage`, `deck-link` (+ its scenes in `/usr/share/deck/scenes`), renders the logo (deck/stage/assets, the
 official SVG in white) into plymouth's `logo.png` and the BIOS menu's `splash.png` (librsvg + imagemagick), renames the
 kernel in the boot entries to `linux-rt`, adds a serial console → `mkarchiso`.
 
@@ -80,6 +80,7 @@ browser's window is there.
    stick; `deck.recheck` on the kernel line or `deck-check` in a shell re-runs it. Everything degrades with a warning
    (no Vulkan, software Vulkan, no audio device = the feature off, the kiosk still starts); only a machine without any
    display device leaves a root shell instead of the kiosk.
+   Then the deck's key and its code to pair with ("Pairing" below); `deck-link.service` keeps it paired.
 4. `deck-kiosk.service` – `cage` runs `deck-session` as the user `deck`, which plays `kiosk` from
    `/var/lib/deck/deck.toml`: **`stage`** (the default) = `deck-stage` (deck/stage/README.md) with `scene` (empty = the
    built-in "AV madness": catpope 1's slices, captions and music + synths, the FFT drives the picture; its cache in
@@ -99,24 +100,38 @@ the kernel and initramfs stay in the ISO (an installed deck gets the stock hook 
 (uid 1000) is in audio, video, input, realtime, uucp; PipeWire runs at 48 kHz / quantum 128 with rtkit
 (`rootfs/etc/pipewire/pipewire.conf.d/10-deck-rt.conf`) under `user@1000` (linger) so the check can read it.
 
+## Pairing (#180)
+
+A deck touches SCUTOONS data only once a member approved it (CYBERDECKS.md §9). `deck-link` (deck/link) does it:
+
+1. **Identity:** `deck-firstboot` runs `deck-link id` – the deck's Ed25519 key in `/var/lib/deck/identity` (0600 root,
+   on DECKDATA; an installed deck: the root fs). A stick without persistence makes a new key each boot and asks again.
+2. **The code:** `deck-link once` asks scutoons.com and puts `pair this deck: code K7Q-42M · https://scutoons.com/account/decks?deck=K7Q42M`
+   under the boot logo; the stage shows the code + a QR in its corner while the deck waits (scan it with the phone,
+   signed in, approve), the start page (F2) and `deck-link status` on tty2 say it too.
+3. **The daemon:** `deck-link.service` (`deck-link run`, root) keeps asking, then holds the deck's ~1 h token in
+   `/run/deck-link/token` (2750 root:deck from tmpfiles.d, the token 0640 – root and the user `deck` read it), renews
+   it, and after a revoke / expiry goes back to a new code by itself. The stage sends it to the API (scene-content, the
+   library, show media); built-in scenes play before approval.
+
 ## wss in the venue (#201)
 
 A phone on https://scutoons.com/live/deck may not open `ws://192.168.…`, so the deck's relay also speaks **wss on the
-same port 7700** once it has the venue certificate (`*.lan.scutoons.com`, Let's Encrypt; the API hands it to admins).
-The deck's name is an A record `<deck>.lan.scutoons.com` → its LAN IP (the API's `PUT /api/admin/lan-names/<deck>`, or
-by hand at all-inkl). Phase A is by hand, on tty2 as root:
+same port 7700** once it has the venue certificate (`*.lan.scutoons.com`, Let's Encrypt). Its name needs no
+registration: bunny DNS answers `<LAN IP with dashes>.lan.scutoons.com` with that address (deploy/bunny/lan-dns.js,
+private addresses only), so the X1 at 192.168.1.116 is `wss://192-168-1-116.lan.scutoons.com:7700`.
 
-1. `deck-set tls_token <token>` – an admin's AI connection (scutoons.com → account → AI connections; it can only read
-   the admin API). The deck token replaces it with #180.
-2. `deck-tls` – fetches `GET /api/admin/lan-cert?format=pem` into `/var/lib/deck/tls/{fullchain.pem,privkey.pem}`
-   (root:deck, the key 0640), restarts `deck-relay`; `deck-tls --status` shows the names and the expiry.
-3. `journalctl -u deck-relay` says `relay listening (ws + wss)`; from a laptop on the LAN:
-   `curl https://<deck>.lan.scutoons.com:7700/status`.
+- `deck-tls` (deck-tls.timer: 90 s after boot, then every 6 h; or by hand on tty2 as root) fetches the pair with the
+  deck's own token (`GET /api/decks/lan-cert?format=pem` – no admin token on a deck) into
+  `/var/lib/deck/tls/{fullchain.pem,privkey.pem}` (root:deck, the key 0640). Not paired yet → it says so and the timer
+  tries again. The first pair restarts `deck-relay`; a renewed one is used from the next connection on (no restart).
+- `deck-tls --status`: the certificate's names + expiry and the deck's wss addresses; `deck-tls --names` only those.
+- `journalctl -u deck-relay` says `relay listening (ws + wss)`; from a laptop on the LAN:
+  `curl https://192-168-1-116.lan.scutoons.com:7700/status`.
 
 `deck-relay.service` starts with the certificate when both files are readable, else plain ws; a wss relay that fails
-(a broken pair) is followed by a plain one. A renewed pair in the folder is used from the next connection on (no
-restart) – but fetching it is still `deck-tls` by hand (Phase B: the deck fetches it itself with its token, #180). The
-owner's whole path (secrets, the workflow, the name, the router's DNS-rebind exception): research/LIVE.md B.4.
+(a broken pair) is followed by a plain one. The owner's whole path (bunny zone, the workflow, the router's DNS-rebind
+exception): research/LIVE.md B.4.
 
 ## Install to a partition
 
@@ -144,7 +159,7 @@ deck/HARDWARE.md                  the matrix of §1 with what deck-check measure
 
 ## Open (#173)
 
-Pairing by QR / code with the API's device id · the pacman repository (`pkg.scutoons.com`, the PKGBUILD built by
+the pacman repository (`pkg.scutoons.com`, the PKGBUILD built by
 CI) · the ARM images (phase 3, #174) · `deck-install` on real hardware · the persistence partition on a real stick
 (the MBR append was verified by hand in the VM, not yet as a full first boot + reboot) · the ThinkPad X1 row in
 HARDWARE.md (owner).

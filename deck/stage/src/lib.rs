@@ -12,6 +12,7 @@ pub mod hud;
 pub mod live;
 pub mod modules;
 pub mod render;
+pub mod pairing;
 pub mod splash;
 pub mod tempo;
 pub mod watch;

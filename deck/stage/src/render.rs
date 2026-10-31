@@ -129,6 +129,10 @@ pub struct Renderer {
     screen: Option<Pass>,
     hud_pass: Pass,
     hud_tex: wgpu::Texture,
+    /// the pairing card (#180, pairing.rs): its texture, shown while `pairing` is set
+    pair_pass: Pass,
+    pair_tex: wgpu::Texture,
+    pairing: bool,
     render_scale: f32,
     slides: Vec<Slides>,
     /// the outlet node's planes (#186)
@@ -228,6 +232,7 @@ impl Renderer {
         let dummy = texture(&device, 1, 1, OFFSCREEN, wgpu::TextureUsages::TEXTURE_BINDING)
             .create_view(&Default::default());
         let hud_tex = texture(&device, hud::W, hud::H, OFFSCREEN, wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST);
+        let pair_tex = texture(&device, crate::pairing::W, crate::pairing::H, OFFSCREEN, wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST);
         // the splash first – one frame of it at once, the scene's shaders compile behind it
         let (lw, lh, px) = crate::splash::logo((config.width / 2).clamp(64, 2048))?;
         let logo = upload(&device, &queue, lw, lh, &px);
@@ -244,9 +249,13 @@ impl Renderer {
         };
         let splash = overlay_pass("splash", builtin("splash").unwrap())?;
         let hud_pass = overlay_pass("hud", builtin("pass").unwrap())?;
+        let pair_pass = overlay_pass("pairing", builtin("pass").unwrap())?;
 
         let mut r = Renderer {
             hud_pass,
+            pair_pass,
+            pair_tex,
+            pairing: false,
             splash,
             logo,
             surface,
@@ -452,6 +461,8 @@ impl Renderer {
         let screen_bind = self.screen.as_ref().map(|s| bind(s, s.inputs.map(find), &self.linear));
         let hud_view = self.hud_tex.create_view(&Default::default());
         let hud_bind = bind(&self.hud_pass, [&hud_view, &self.dummy, &self.dummy], &self.nearest);
+        let pair_view = self.pair_tex.create_view(&Default::default());
+        let pair_bind = bind(&self.pair_pass, [&pair_view, &self.dummy, &self.dummy], &self.nearest);
         let splash_bind = bind(&self.splash, [&self.logo.view, &self.dummy, &self.dummy], &self.linear);
         for (p, b) in self.passes.iter_mut().zip(binds) {
             p.bind = Some(b);
@@ -460,7 +471,22 @@ impl Renderer {
             s.bind = screen_bind;
         }
         self.hud_pass.bind = Some(hud_bind);
+        self.pair_pass.bind = Some(pair_bind);
         self.splash.bind = Some(splash_bind);
+    }
+
+    /// The pairing card (#180): Some = its pixels (pairing::W × pairing::H, from `pairing::Card::raster`), shown in the
+    /// lower right corner over everything; None = gone. Called when it changes, not every frame.
+    pub fn set_pairing(&mut self, card: Option<&[u8]>) {
+        if let Some(px) = card {
+            self.queue.write_texture(
+                wgpu::TexelCopyTextureInfo { texture: &self.pair_tex, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
+                px,
+                wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(crate::pairing::W * 4), rows_per_image: None },
+                wgpu::Extent3d { width: crate::pairing::W, height: crate::pairing::H, depth_or_array_layers: 1 },
+            );
+        }
+        self.pairing = card.is_some();
     }
 
     /// one frame of the splash alone (the window's first, before the scene's passes exist)
@@ -649,6 +675,16 @@ impl Renderer {
                 rp.set_viewport(0.0, 0.0, sw, sh, 0.0, 1.0);
                 rp.set_pipeline(self.splash.pipeline.as_ref().expect("the splash's pipeline"));
                 rp.set_bind_group(0, self.splash.bind.as_ref(), &[]);
+                rp.draw(0..3, 0..1);
+            }
+            if self.pairing {
+                // the HUD's scale (2 at 1080p), its 1rem margin, in the lower right corner
+                let s = (sh / 540.0).round().max(1.0);
+                let (cw, ch) = ((crate::pairing::W as f32 * s).min(sw), (crate::pairing::H as f32 * s).min(sh));
+                let m = 16.0 * s;
+                rp.set_viewport((sw - cw - m).max(0.0), (sh - ch - m).max(0.0), cw, ch, 0.0, 1.0);
+                rp.set_pipeline(self.pair_pass.pipeline.as_ref().expect("the pairing card's pipeline"));
+                rp.set_bind_group(0, self.pair_pass.bind.as_ref(), &[]);
                 rp.draw(0..3, 0..1);
             }
         }

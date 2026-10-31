@@ -2,6 +2,8 @@
 # first boot on the persistence partition (/var/lib/deck/identity), the request with the code for the splash, polling
 # until a member approves it, and the ~1 h tokens from a signed challenge, renewed by itself. The protocol logic runs
 # over a `Transport` trait (tests use a fake server); `HttpTransport` is ureq. Server side: server/docs/API.md "Decks".
+# One daemon per deck (`deck-link run`, deck-link.service) leaves the code and the token in /run/deck-link (`pairing`);
+# the stage and deck-tls read those files – the stage depends on this crate without `net` (no crypto, no HTTP).
 [package]
 name = "deck-link"
 version.workspace = true
@@ -16,11 +18,23 @@ path = "src/lib.rs"
 [[bin]]
 name = "deck-link"
 path = "src/main.rs"
+required-features = ["net"]
+
+[[test]]
+name = "link"
+required-features = ["net"]
+
+[[test]]
+name = "boot_flow"
+
+[features]
+default = ["net"]
+# the handshake itself: the identity, the Link, HTTP (the daemon and the CLI)
+net = ["dep:anyhow", "dep:serde_json", "dep:ed25519-dalek", "dep:getrandom", "dep:ureq"]
 
 [dependencies]
-anyhow.workspace = true
-serde.workspace = true
-serde_json.workspace = true
-ed25519-dalek = "2"
-getrandom = "0.2"
-ureq = "2"
+anyhow = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+ed25519-dalek = { version = "2", optional = true }
+getrandom = { version = "0.2", optional = true }
+ureq = { version = "2", optional = true }

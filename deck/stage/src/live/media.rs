@@ -8,7 +8,7 @@
 //! - **Fetching** (`Fetch`): `HttpFetch` (ureq, `Authorization: Bearer <deck token>`, streamed into a `.part` file,
 //!   then renamed); tests use the file system or a local server. CDN paths are immutable (a changed file gets a new
 //!   name), so a cached URL is never fetched again.
-//! - **The token** (`Token`): `Paired` = deck-link's `Link` (#180: approved → a ~1 h token, renewed by itself; pending
+//! - **The token** (`Token`): `Linked` = what deck-link's daemon keeps in /run/deck-link (#180: approved → a ~1 h token, renewed; pending
 //!   → the code, which the HUD shows as the reason a medium is missing).
 use super::plan::MediaRef;
 use protocol::{MediaItem, MediaReady, SpotMode};
@@ -92,16 +92,16 @@ impl Token for Fixed {
     }
 }
 
-/// The paired deck (deck-link): Ready → its token; Pending → the code to pair with, as the reason.
-pub struct Paired(pub Mutex<deck_link::Link<deck_link::HttpTransport>>);
+/// The deck's token as deck-link's daemon keeps it (`/run/deck-link`, #180) or `DECK_TOKEN`: paired → its token; waiting
+/// for a member → the code to pair with, as the reason; no daemon → no token.
+pub struct Linked(pub deck_link::TokenSource);
 
-impl Token for Paired {
+impl Token for Linked {
     fn bearer(&self) -> Result<Option<String>, String> {
-        let mut link = self.0.lock().map_err(|_| "the link's lock".to_string())?;
-        match link.step(std::time::Instant::now()) {
-            Ok(deck_link::State::Ready { token, .. }) => Ok(Some(token)),
-            Ok(deck_link::State::Pending { code }) => Err(format!("the deck is not paired – code {}", deck_link::format_code(&code))),
-            Err(e) => Err(format!("no token: {e:#}")),
+        match (self.0.get(), self.0.pending_code()) {
+            (Some(t), _) => Ok(Some(t)),
+            (None, Some(code)) => Err(format!("the deck is not paired – code {}", deck_link::format_code(&code))),
+            (None, None) => Ok(None),
         }
     }
 }
@@ -270,13 +270,6 @@ pub(crate) mod tests {
         d
     }
 
-    struct Unpaired;
-    impl Token for Unpaired {
-        fn bearer(&self) -> Result<Option<String>, String> {
-            Err("the deck is not paired – code K7Q-42M".into())
-        }
-    }
-
     fn item(id: &str, url: Option<&str>, set: Option<(&str, &str, SpotMode)>) -> MediaItem {
         MediaItem {
             id: id.into(),
@@ -339,9 +332,16 @@ pub(crate) mod tests {
         let root = temp_dir("unpaired");
         std::fs::create_dir_all(root.join("cdn")).unwrap();
         std::fs::write(root.join("cdn/x.webm"), "x").unwrap();
-        let m = media(&root, Box::new(Unpaired));
+        // deck-link's daemon waits for a member (#180): its run directory holds the code, no token
+        let run = root.join("run");
+        deck_link::pairing::write(&run, &deck_link::Shown::Pending { code: "K7Q42M".into() }, None).unwrap();
+        let m = media(&root, Box::new(Linked(deck_link::TokenSource::Link(run.clone()))));
         let r = m.preload("left", &[item("x", Some("mock://x.webm"), None)]);
         assert_eq!(r.why.unwrap()["x"], "HTTP 401 – the deck is not paired – code K7Q-42M");
+        // approved: the token from the run directory
+        deck_link::pairing::write(&run, &deck_link::Shown::Ready { name: "X1".into() }, Some("T")).unwrap();
+        let m = media(&root, Box::new(Linked(deck_link::TokenSource::Link(run))));
+        assert_eq!(m.preload("left", &[item("x", Some("mock://x.webm"), None)]).missing, Vec::<String>::new());
     }
 
     #[test]

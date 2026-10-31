@@ -1,6 +1,6 @@
 # Maintainer: SCUTOONS <https://scutoons.com>
 # scutoons-deck – the deck suite as one Arch package (CYBERDECKS.md §3: the decks update with `pacman -Syu` from our
-# own repository; #173). Builds relay, bridge, deck-check and deck-stage (the AV app the kiosk plays, #179; with its
+# own repository; #173). Builds relay, bridge, deck-check, deck-link (pairing, #180) and deck-stage (the AV app the kiosk plays, #179; with its
 # PipeWire backend) from this repository's deck/ workspace and installs the boot flow (deck/os/rootfs: units, scripts, PipeWire / NetworkManager config, the kiosk user).
 # Build (in the repo, on Arch): `cd deck/pkg/scutoons-deck && makepkg -sf` (as a user, never root). The live ISO
 # (deck/os) still copies the binaries + rootfs directly; once the repository exists it installs this package instead.
@@ -34,12 +34,12 @@ pkgver() {
 
 build() {
   cd "$_deck"
-  CARGO_TARGET_DIR="$srcdir/target" cargo build --release --locked -p relay -p bridge -p deck-check -p deck-stage --features deck-stage/pipewire
+  CARGO_TARGET_DIR="$srcdir/target" cargo build --release --locked -p relay -p bridge -p deck-check -p deck-stage -p deck-link --features deck-stage/pipewire
 }
 
 check() {
   cd "$_deck"
-  CARGO_TARGET_DIR="$srcdir/target" cargo test --release --locked -p deck-check -p bridge -p relay -p deck-stage
+  CARGO_TARGET_DIR="$srcdir/target" cargo test --release --locked -p deck-check -p bridge -p relay -p deck-stage -p deck-link
 }
 
 package() {
@@ -47,6 +47,7 @@ package() {
   install -Dm755 "$srcdir/target/release/bridge" "$pkgdir/usr/bin/deck-bridge"
   install -Dm755 "$srcdir/target/release/deck-check" "$pkgdir/usr/bin/deck-check"
   install -Dm755 "$srcdir/target/release/deck-stage" "$pkgdir/usr/bin/deck-stage"
+  install -Dm755 "$srcdir/target/release/deck-link" "$pkgdir/usr/bin/deck-link"
   install -Dm644 -t "$pkgdir/usr/share/deck/scenes" "$_deck"/stage/scenes/*.toml
   # the boot flow: everything under deck/os/rootfs lands as it is laid out there
   cp -r "$_deck/os/rootfs/." "$pkgdir/"

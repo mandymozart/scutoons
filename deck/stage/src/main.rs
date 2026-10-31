@@ -63,6 +63,8 @@ const HELP: &str = "deck-stage [--scene FILE|cathedral|conductor|outlet] [--audi
                (DECK_PORTRAITS; default <cache>/portraits, synced from the API)
   --token      the conductor's session token for a space node with join = conductor (default LIVE_TOKEN; a dev relay
                takes any)
+  pairing      (#180) while deck-link's run directory says the deck waits for a member, the code + QR in the corner;
+               its token goes to the API once approved (DECK_LINK_DIR, default /run/deck-link; DECK_APP; DECK_TOKEN)
   --frames     quit after N frames and print the measured numbers (a check run)
   --screenshot save the last frame of a --frames run as a PNG
   --pointer    put the pointer at window pixel X,Y, or on the being's button NODE.PORT (a check run's hover)
@@ -335,8 +337,8 @@ impl Show {
                 cache: cache.clone(),
                 sets: args.sets.is_none().then(|| cache.join("sets")),
                 portraits: args.portraits.is_none().then(|| cache.join("portraits")),
-                // #180: the paired deck's token goes here once the stage pairs (deck-link); the content is public
-                token: std::env::var("DECK_TOKEN").ok().filter(|t| !t.is_empty()),
+                // #180: the deck token from deck-link's run directory (DECK_TOKEN on a dev deck); the content is public
+                token: deck_link::TokenSource::from_env(),
                 // #195: a pushed set at the space node's quality
                 quality: set_quality(&graph),
             })
@@ -509,6 +511,9 @@ struct App {
     mods: ModifiersState,
     exit: i32,
     splash: splash::Fade,
+    /// the pairing card (#180): deck-link's state, read every 2 s (`pairing_at`, the frame time); `None` = no card
+    pairing: Option<deck_stage::pairing::Card>,
+    pairing_at: f32,
     /// the browser on top: since when; `paused` once it has the focus (the stage stops drawing)
     browser: Option<Instant>,
     paused: bool,
@@ -785,6 +790,16 @@ impl App {
         self.splash.step(cover, dt);
         let splash = (self.splash.alpha, cover);
         let Some(r) = self.renderer.as_mut() else { return };
+        // #180: while the deck waits for a member, the code + QR in the corner (deck-link's run directory, a small file)
+        if time - self.pairing_at >= 2.0 || time < self.pairing_at {
+            self.pairing_at = time;
+            let state = deck_link::pairing::read_state(&deck_link::pairing::run_dir());
+            let card = deck_stage::pairing::Card::of(state.as_ref(), &deck_link::pairing::app_url());
+            if card != self.pairing {
+                r.set_pairing(card.as_ref().map(|c| c.raster()).as_deref());
+                self.pairing = card;
+            }
+        }
         let shown = (hud_on && self.hud.visible).then_some(&self.hud);
         if self.args.frames.is_some_and(|n| self.stats.frames + 1 >= n) {
             r.capture = self.args.screenshot.clone();
@@ -1145,6 +1160,8 @@ fn run() -> Result<i32> {
         mods: ModifiersState::empty(),
         exit: 0,
         splash: splash::Fade { alpha: 1.0 },
+        pairing: None,
+        pairing_at: -10.0,
         browser: None,
         paused: false,
         proxy,
