@@ -10,10 +10,14 @@
 //! - **Assets:** the page fetches the set's .glb and the portraits (scene-content + the CDN) and lets the browser
 //!   decode the images (`encoded_images` → `give_set`, `portrait_requests` → `give_portrait`); the glb is parsed here.
 //! - **Input:** pointer and touch events go to the stage's own picking, drag and double click (`Space`).
+//! - **Controls (#209):** a tap selects a knob / the being / nothing (`take_tap`, `select` – a white ring), the knobs
+//!   face the camera (deck-space). `DeckControls` – deck-space's `controls` without a GPU (it works when the 3D can't):
+//!   what the selection gives the two corner sticks, the sticks' relative moves, MIDI learn and the mappings' text.
 //! - **GPU:** WebGPU when the browser has an adapter (wgpu's detection asks for one – a `navigator.gpu` without an
 //!   adapter, like the S22's Chrome, counts as none), else WebGL2; `prefer` = "webgl2" skips WebGPU.
 #![cfg(target_arch = "wasm32")]
 
+use deck_space::controls::{Controls, Midi, Selection};
 use deck_space::graph::{Graph, Kind};
 use deck_space::scene::{Scene, CATHEDRAL_SCENE};
 use deck_space::space::being::Look;
@@ -443,5 +447,122 @@ impl SpaceView {
     /// the head's mood now
     pub fn mood(&self) -> String {
         self.space.being.moods.get(self.space.being.head.mood).cloned().unwrap_or_default()
+    }
+
+    /// #209: the selection a tap made since the last call – `""` (empty space: deselected), `being`, `knob:node.port` –
+    /// or undefined (no tap)
+    pub fn take_tap(&mut self) -> Option<String> {
+        self.space.take_tap().map(|_| self.space.selection_name())
+    }
+
+    /// #209: select by name (`""`, `being`, `knob:node.port` – the page's knob tapped): the being rings it
+    pub fn select(&mut self, name: &str) {
+        self.space.select_named(name);
+    }
+}
+
+/// #209: the deck's controls – what the hands drive (deck-space `controls`: the selection → the two sticks, MIDI learn,
+/// the mappings as text for a preset). No GPU: the page has it even when the 3D can't start. Paths and 0..1 – the page
+/// turns them into values with its own ranges.
+#[wasm_bindgen]
+pub struct DeckControls {
+    c: Controls,
+    /// the last MIDI message's 0..1 and whether it learned
+    value: f32,
+    learned: bool,
+}
+
+#[wasm_bindgen]
+impl DeckControls {
+    /// the deck's knobs, by path (the page's order)
+    #[wasm_bindgen(constructor)]
+    pub fn new(paths: Vec<String>) -> DeckControls {
+        DeckControls { c: Controls::new(&paths), value: 0.0, learned: false }
+    }
+
+    /// `""` (the master section), `being`, `knob:<path>`, `object:<id>`
+    pub fn select(&mut self, name: &str) {
+        self.c.select(Selection::parse(name));
+    }
+
+    pub fn selection(&self) -> String {
+        self.c.selection().name()
+    }
+
+    /// stick `side` (0 left, 1 right): its [x, y] paths now ("" = none)
+    pub fn stick_paths(&self, side: usize) -> Vec<String> {
+        self.c.stick_paths(side).map(String::from).to_vec()
+    }
+
+    /// a thumb lands on stick `side`; `x`, `y` = its paths' 0..1 now
+    pub fn stick_down(&mut self, side: usize, x: f32, y: f32) {
+        self.c.stick_down(side, x, y);
+    }
+
+    /// the thumb's deflection (−1..1, y up) → [x, y] 0..1 for `stick_driving`'s paths
+    pub fn stick_move(&self, side: usize, dx: f32, dy: f32) -> Vec<f32> {
+        self.c.stick_move(side, dx, dy).to_vec()
+    }
+
+    /// the [x, y] paths the stick drives while the thumb is down
+    pub fn stick_driving(&self, side: usize) -> Vec<String> {
+        self.c.stick_driving(side).map(String::from).to_vec()
+    }
+
+    pub fn stick_up(&mut self, side: usize) {
+        self.c.stick_up(side);
+    }
+
+    /// assign stick `side`'s axis (0 x, 1 y) to `path` for the being ("" = its default)
+    pub fn assign(&mut self, side: usize, axis: usize, path: &str) {
+        self.c.assign(side, axis, path);
+    }
+
+    /// arm MIDI learn for `path` ("" disarms)
+    pub fn learn(&mut self, path: &str) {
+        self.c.learn(path);
+    }
+
+    /// the path MIDI learn waits for ("" none)
+    pub fn learning(&self) -> String {
+        self.c.learning().unwrap_or_default().to_string()
+    }
+
+    /// One MIDI message: the path it moved or learned ("" = ignored); then `value` (its 0..1) and `learned`.
+    pub fn midi(&mut self, msg: &[u8]) -> String {
+        let (path, value, learned) = match self.c.midi(msg) {
+            Midi::Ignored => (String::new(), 0.0, false),
+            Midi::Learned(p) => (p.to_string(), 0.0, true),
+            Midi::Set(p, v) => (p.to_string(), v, false),
+        };
+        (self.value, self.learned) = (value, learned);
+        path
+    }
+
+    pub fn value(&self) -> f32 {
+        self.value
+    }
+
+    pub fn learned(&self) -> bool {
+        self.learned
+    }
+
+    /// what drives `path` ("CC 7 · 1", "" none)
+    pub fn mapped(&self, path: &str) -> String {
+        self.c.mapped(path).unwrap_or_default()
+    }
+
+    pub fn unmap(&mut self, path: &str) {
+        self.c.unmap(path);
+    }
+
+    /// the mappings as text (a preset's – #191; the page keeps it per deck in localStorage)
+    pub fn to_text(&self) -> String {
+        self.c.to_text()
+    }
+
+    /// load `to_text`'s lines; the lines it couldn't use come back (the page says so)
+    pub fn load_text(&mut self, text: &str) -> Vec<String> {
+        self.c.load_text(text)
     }
 }
