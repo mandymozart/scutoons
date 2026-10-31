@@ -1,7 +1,7 @@
 // The browser deck's route helpers (#198, src/lib/live-deck.ts): the relay from the address, the character, the nick.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { characterOf, codeOf, DEFAULT_CHARACTER, DEFAULT_CODE, mayJoin, nickOf, preferOf, relayOf } from '../src/lib/live-deck.ts';
+import { characterOf, codeOf, DEFAULT_CHARACTER, DEFAULT_CODE, mayJoin, nickOf, preferOf, relayOf, sticksLine } from '../src/lib/live-deck.ts';
 import type { Me } from '@scutoons/content';
 
 const q = (s: string) => new URLSearchParams(s);
@@ -52,4 +52,13 @@ test('WebGL2 on request; everyone may join for now', () => {
 	assert.equal(preferOf(q('gl=1')), 'webgl2');
 	assert.equal(preferOf(q('')), 'auto');
 	assert.equal(mayJoin(null), true);
+});
+
+test('#209: the sticks line names the selection and what each stick drives', () => {
+	const labels: Record<string, string> = { 'voice.ratio': 'FM ratio', 'voice.index': 'FM index', 'space.hue': 'hue' };
+	const words = { being: 'Being', master: 'Master' };
+	const of = (p: string) => labels[p];
+	assert.equal(sticksLine('being', of, ['voice.ratio', 'voice.index'], ['x.y', ''], words), 'Being · L FM ratio / FM index · R x.y / –');
+	assert.equal(sticksLine('knob:voice.index', of, ['voice.ratio', 'voice.index'], [], words), 'FM index · L FM ratio / FM index · R –');
+	assert.equal(sticksLine('', of, ['space.hue', ''], [], words), 'Master · L hue / – · R –');
 });

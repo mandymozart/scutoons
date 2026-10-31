@@ -55,3 +55,14 @@ export function mayJoin(me: Me | null): boolean {
 	void me;
 	return true;
 }
+
+/**
+ * #209: what the sticks drive, in one line for the panel – the selection (a knob's label, the being, else the master
+ * section) and each stick's x / y labels: `FM index · L FM ratio / FM index · R cutoff / LFO rate`.
+ */
+export function sticksLine(selection: string, labelOf: (path: string) => string | undefined, left: string[], right: string[], words: { being: string; master: string }): string {
+	const knob = selection.startsWith('knob:') ? selection.slice(5) : '';
+	const what = selection === 'being' ? words.being : knob ? (labelOf(knob) ?? knob) : words.master;
+	const pair = (paths: string[]) => paths.map((p) => (p ? (labelOf(p) ?? p) : '–')).join(' / ') || '–';
+	return `${what} · L ${pair(left)} · R ${pair(right)}`;
+}
