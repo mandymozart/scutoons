@@ -121,7 +121,7 @@ agents/DECISIONS.md. A change to how agents work changes this file in the same c
 - **Every character makes music:** SCUTOONS came out of a neurodiversity in which hearing music automatically suggests
   stories and pictures (the owner: about 1 in 5,000 people have it); the collaborators began giving songs the pictures
   and stories their brains associate with them – that is how SCUTOONS came to life. All characters share this trait,
-  so **every character at some point sings or makes music** (DECISIONS 2026-10-31).
+  so **every character at some point sings or makes music – or rather lives out stories** (DECISIONS 2026-10-31).
 - **AI models: we use them without the big AI companies' license restrictions** (owner 2026-10-31: "Meta is stealing
   from everyone, so are all big AI companies … the entire system is broken"): a model's non-commercial clause (e.g. TRIBE
   v2's CC BY-NC) is not a reason not to use it in our tool chain. Our focus stays on **small creators** – an ecosystem that
