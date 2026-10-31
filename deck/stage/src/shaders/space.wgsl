@@ -1,6 +1,7 @@
 // The space node (#188): the room unlit (its texture × the baked vertex light), the being's spheres (solid nuclei and
-// buttons, translucent core / shells / bubbles) and its tubes (hoses, tendrils). Linear maths, sRGB out (the offscreen
-// target is plain Rgba8: display values, like every other pass).
+// buttons, translucent core / shells / bubbles, the buttons' rings and gauges) and its tubes (hoses, tendrils, the
+// buttons' tethers), the heads, the buttons' labels. Linear maths, sRGB out (the offscreen target is plain Rgba8:
+// display values, like every other pass).
 
 struct Frame {
     view_proj: mat4x4<f32>,
@@ -10,6 +11,8 @@ struct Frame {
     look: vec4<f32>,
     // rgb = the fog's colour, a = its density per metre
     fog: vec4<f32>,
+    // the target's size in pixels
+    screen: vec4<f32>,
 };
 
 @group(0) @binding(0) var<uniform> frame: Frame;
@@ -66,6 +69,7 @@ struct SphereOut {
     // kind, glow, hover, value
     @location(3) extra: vec4<f32>,
     @location(4) local: vec3<f32>,
+    @location(5) center: vec3<f32>,
 };
 
 @vertex
@@ -84,6 +88,7 @@ fn vs_sphere(
     o.color = color;
     o.extra = extra;
     o.local = unit;
+    o.center = center;
     return o;
 }
 
@@ -104,13 +109,17 @@ fn fs_solid(i: SphereOut) -> @location(0) vec4<f32> {
         // (alpha 1) with a dark collar – it can't be turned
         let level = step(i.local.y * 0.5 + 0.5, i.extra.w);
         c = c * (0.35 + 0.9 * level);
-        if i.color.a > 0.5 && abs(i.local.y) < 0.18 {
-            c = c * 0.3;
+        if i.color.a > 0.5 && (abs(i.local.y) < 0.2 || abs(abs(i.local.y) - 0.55) < 0.07) {
+            // linked: a dark collar and two thin bands – a locked bolt
+            c = c * 0.22;
         }
     }
     c = c + i.color.rgb * rim * (0.4 + 0.6 * i.extra.y);
-    // hover: lit up with a white rim, dragging: brighter still
-    c = mix(c, vec3<f32>(1.0), 0.25 * i.extra.z) + vec3<f32>(1.0) * rim * i.extra.z * 0.9;
+    // hover (extra.z 0..1): brighter with a white rim; a hand on it (1..2): lit fully in its own colour
+    let hot = clamp(i.extra.z, 0.0, 1.0);
+    let grip = clamp(i.extra.z - 1.0, 0.0, 1.0);
+    c = c * (1.0 + 0.7 * hot) + vec3<f32>(1.0) * rim * hot * 0.9;
+    c = mix(c, i.color.rgb * 1.8 + vec3<f32>(0.35), grip);
     return vec4<f32>(to_srgb(fogged(c, i.world)), 1.0);
 }
 
@@ -120,7 +129,39 @@ fn fs_ghost(i: SphereOut) -> @location(0) vec4<f32> {
     let f = fresnel(i.normal, i.world);
     let glow = 0.35 + 0.65 * i.extra.y;
     var a = i.color.a * (0.12 + 0.88 * f) * glow;
-    if i.extra.x > 4.5 {
+    if i.extra.x > 5.5 {
+        // a button's ring or gauge, facing the eye: where on its outline (0 = the eye's right, counter-clockwise) and
+        // how near the outline (0 centre, 1 rim)
+        let d = normalize(i.center - frame.eye.xyz);
+        let right = normalize(cross(d, vec3<f32>(0.0, 1.0, 0.0)));
+        let up = cross(right, d);
+        let n = normalize(i.local);
+        let rp = sqrt(max(1.0 - dot(n, -d) * dot(n, -d), 0.0));
+        let ang = atan2(dot(n, up), dot(n, right));
+        let pi = 3.14159265;
+        if i.extra.x > 6.5 {
+            // the gauge: 270° from the lower left clockwise over the top to the lower right, lit up to the value,
+            // the range's ends as ticks
+            let u = fract((1.25 * pi - ang) / (2.0 * pi)) * 4.0 / 3.0;
+            let on_arc = step(u, 1.0);
+            let band = smoothstep(0.8, 0.86, rp);
+            let lit = step(u, i.extra.w);
+            let tick = (1.0 - smoothstep(0.0, 0.02, abs(u))) + (1.0 - smoothstep(0.0, 0.02, abs(u - 1.0)));
+            let head = 1.0 - smoothstep(0.0, 0.025, abs(u - i.extra.w));
+            // the track dim, the value bright in the parameter's colour, a white mark where it stands
+            a = i.color.a * (band * on_arc * (0.1 + 1.1 * lit + 1.5 * head) + smoothstep(0.62, 0.72, rp) * tick * 1.5);
+            let c = to_srgb(mix(i.color.rgb * (0.4 + 0.8 * lit), vec3<f32>(1.0), 0.15 * lit + 0.8 * head)) * a;
+            return vec4<f32>(c, a);
+        }
+        // the ring: thin; a linked button's dashed (a lock), turning slowly
+        var dash = 1.0;
+        if i.extra.w > 0.5 {
+            dash = step(0.45, fract(ang * 12.0 / (2.0 * pi) + frame.look.x * 0.15));
+        }
+        a = i.color.a * smoothstep(0.9, 0.95, rp) * dash * 1.3;
+        let c = to_srgb(mix(i.color.rgb, vec3<f32>(1.0), 0.3)) * a;
+        return vec4<f32>(c, a);
+    } else if i.extra.x > 4.5 {
         // the head's synthetic skin: clear in the middle, a cool rim, fine scan lines drifting down it; the energy
         // brightens it
         let scan = step(0.82, fract(i.world.y * 60.0 + frame.look.x * 0.4));
@@ -132,6 +173,9 @@ fn fs_ghost(i: SphereOut) -> @location(0) vec4<f32> {
         // a bubble: water – a bright rim, a highlight
         let spec = pow(max(dot(normalize(i.normal), normalize(vec3<f32>(0.4, 0.8, 0.45))), 0.0), 24.0);
         a = i.color.a * (0.25 + 0.75 * f) * glow + spec;
+    } else if i.extra.x > 1.5 {
+        // a shell: it flashes while one of its buttons moves (what the button reaches)
+        a = a * (1.0 + 2.5 * i.extra.z);
     }
     let c = to_srgb(i.color.rgb) * a;
     let fade = exp(-distance(i.world, frame.eye.xyz) * frame.fog.a);
@@ -162,8 +206,19 @@ fn vs_tube(@location(0) pos: vec3<f32>, @location(1) normal: vec3<f32>, @locatio
 fn fs_tube(i: TubeOut) -> @location(0) vec4<f32> {
     let f = fresnel(i.normal, i.world);
     let glow = 0.35 + 0.65 * frame.look.z;
-    // kinds: 0 a hose, 1 a tendril, 2 a neck cable (into the head), 3 a hose between beings
+    // kinds: 0 a hose, 1 a tendril, 2 a neck cable (into the head), 3 a hose between beings, 4 + 0.9 × motion a
+    // button's tether
     let k = i.data.w;
+    let fade = exp(-distance(i.world, frame.eye.xyz) * frame.fog.a);
+    if k > 3.5 {
+        // the tether: the parameter's own hue (absolute), its value bright and steady; while it moves bands run from
+        // the button (t 0) to the node
+        let motion = clamp((k - 4.0) / 0.9, 0.0, 1.0);
+        let base = hsv(i.data.z, 0.7, 1.0);
+        let bands = 0.5 + 0.5 * sin((i.data.x * 6.0 - frame.look.x * 5.0) * 6.2831853);
+        let ta = (0.45 + 0.55 * f) * (0.4 + 0.6 * glow) * (0.5 + 1.0 * i.data.y) * (1.0 + motion * (0.8 + 1.6 * bands));
+        return vec4<f32>(to_srgb(base) * ta * fade, ta);
+    }
     let tendril = k > 0.5 && k < 1.5;
     let neck = k > 1.5 && k < 2.5;
     var sat = 0.45;
@@ -183,7 +238,6 @@ fn fs_tube(i: TubeOut) -> @location(0) vec4<f32> {
     let bands = 0.5 + 0.5 * sin((i.data.x * 14.0 - frame.look.x * 3.0) * 6.2831853);
     var a = (0.1 + 0.9 * f) * body * glow;
     a = a * (1.0 + i.data.y * (0.6 + 1.4 * bands));
-    let fade = exp(-distance(i.world, frame.eye.xyz) * frame.fog.a);
     return vec4<f32>(to_srgb(base) * a * fade, a);
 }
 
@@ -282,4 +336,44 @@ fn fs_head(i: HeadOut) -> @location(0) vec4<f32> {
     }
     let shown = to_srgb(fogged(c, i.world));
     return vec4<f32>(shown * a, a);
+}
+
+// ---- the buttons' labels: a quad per character, a fixed size on the screen, always on top ----
+
+struct LabelOut {
+    @builtin(position) clip: vec4<f32>,
+    @location(0) uv: vec2<f32>,
+    @location(1) color: vec4<f32>,
+};
+
+@vertex
+fn vs_label(
+    @builtin(vertex_index) v: u32,
+    @location(0) anchor: vec4<f32>,
+    @location(1) rect: vec4<f32>,
+    @location(2) uv: vec4<f32>,
+    @location(3) color: vec4<f32>,
+) -> LabelOut {
+    var o: LabelOut;
+    // two triangles: (0,0) (1,0) (0,1) · (1,0) (1,1) (0,1)
+    var cx = array<f32, 6>(0.0, 1.0, 0.0, 1.0, 1.0, 0.0);
+    var cy = array<f32, 6>(0.0, 0.0, 1.0, 0.0, 1.0, 1.0);
+    let k = vec2<f32>(cx[v], cy[v]);
+    let px = vec2<f32>(mix(rect.x, rect.z, k.x), mix(rect.y, rect.w, k.y));
+    var clip = frame.view_proj * vec4<f32>(anchor.xyz, 1.0);
+    // behind the eye: out of the picture
+    if clip.w < 1e-3 {
+        clip = vec4<f32>(2.0, 2.0, 2.0, 1.0);
+    }
+    clip = vec4<f32>(clip.xy + px * 2.0 / frame.screen.xy * clip.w, clip.z, clip.w);
+    o.clip = clip;
+    o.uv = vec2<f32>(mix(uv.x, uv.z, k.x), mix(uv.w, uv.y, k.y));
+    o.color = color;
+    return o;
+}
+
+@fragment
+fn fs_label(i: LabelOut) -> @location(0) vec4<f32> {
+    let a = textureSample(room_tex, room_smp, i.uv).a * i.color.a;
+    return vec4<f32>(to_srgb(i.color.rgb) * a, a);
 }

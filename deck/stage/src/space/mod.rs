@@ -2,7 +2,9 @@
 //! 2026-10-30: place → set → assets, a set by id) – and the deck's
 //! being (being.rs – its running graph as a floating body, its head the character's portrait – portrait.rs) through an
 //! orbit camera (camera.rs) into its texture, with a depth buffer (gpu.rs, shaders/space.wgsl). The pointer picks the
-//! being's 3D buttons by ray cast; a drag turns one like a MIDI CC (`Controls::set`), elsewhere it turns the camera.
+//! being's 3D buttons by ray cast; a drag pulls one along its tether like a MIDI CC (`Controls::set`), elsewhere it
+//! turns the camera; a double click eases a button back to the scene's value; a finger on a touch screen does the
+//! same with a bigger reach (`touch`).
 //!
 //! Phase 4 – the session (the space node's `join`, with a relay set): a **deck** streams its being to the relay
 //! (stream.rs, link.rs); the **conductor**'s deck draws every deck's being in a circle around its own, bigger one in
@@ -14,6 +16,7 @@ pub mod decks;
 pub mod feel;
 pub mod glb;
 pub mod gpu;
+pub mod label;
 #[cfg(feature = "live")]
 pub mod link;
 pub mod meshopt;
@@ -27,6 +30,7 @@ use crate::params;
 use crate::tempo;
 use anyhow::Result;
 use being::{Being, Hit, Look, Sphere, TubeVertex};
+use label::Label;
 use camera::Orbit;
 use decks::{Remote, Route};
 use glam::Vec3;
@@ -66,13 +70,41 @@ fn aim(b: &Being) -> Vec3 {
 /// where the being floats when the set has no such spot (or there is no set)
 const FALLBACK_ANCHOR: Vec3 = Vec3::new(0.0, 1.4, 0.0);
 
+/// two presses on one button within this long (s) = a double click: back to the scene's value
+const DOUBLE_CLICK: f32 = 0.4;
+/// how much easier a finger hits a button than the mouse
+const TOUCH_REACH: f32 = 2.0;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Drag {
     None,
     /// turning the camera from the last pointer position
     Orbit(f32, f32),
-    /// turning button `i`: its 0..1 and the pointer's y when it started
-    Knob { button: usize, norm: f32, y: f32 },
+    /// pulling button `button` along its tether: its 0..1 and the pointer when it started, the tether's 0 → 1 on the
+    /// screen (pixels)
+    Knob { button: usize, norm: f32, at: (f32, f32), axis: (f32, f32) },
+    /// a hand on a button that doesn't turn (linked, or the double click that just reset it)
+    Hold,
+}
+
+/// what the pointer should look like (main.rs sets the window's cursor)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Cursor {
+    Default,
+    /// over a button that turns
+    Grab,
+    /// a hand on it
+    Grabbing,
+    /// over a linked button (it can't be turned)
+    Locked,
+}
+
+/// a touch's phase (winit's, without winit)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Touch {
+    Started,
+    Moved,
+    Ended,
 }
 
 pub struct Space {
@@ -103,8 +135,15 @@ pub struct Space {
     pointer: Option<(f32, f32)>,
     view: (f32, f32),
     drag: Drag,
+    /// the last press on a button (which, when – the show's time) for the double click
+    last_press: Option<(usize, f32)>,
+    /// the finger that drives the pointer on a touch screen
+    finger: Option<u64>,
+    /// the show's time at the last update
+    clock: f32,
+    /// a word for the HUD until a time (a linked button grabbed: what drives it)
+    notice: Option<(String, f32)>,
     /// this deck's graph (the stream reads it; a remote's comes from the wire)
-    #[cfg_attr(not(feature = "live"), allow(dead_code))]
     graph: Graph,
     /// the heads' sprites
     pub portraits: Portraits,
@@ -203,7 +242,8 @@ impl Space {
             Some(path) => load_set(path.clone(), max_texture, hide.clone(), gate.clone()),
             None => (None, "NO SET".into()),
         };
-        let camera = Orbit::new(aim(&being), n.f32("yaw", 20.0).to_radians(), n.f32("pitch", 8.0).to_radians(), n.f32("distance", 2.4));
+        let mut camera = Orbit::new(aim(&being), n.f32("yaw", 20.0).to_radians(), n.f32("pitch", 8.0).to_radians(), n.f32("distance", 2.4));
+        camera.auto = n.bool("auto_turn", false);
         Space {
             node,
             being,
@@ -223,6 +263,10 @@ impl Space {
             pointer: None,
             view: (1.0, 1.0),
             drag: Drag::None,
+            last_press: None,
+            finger: None,
+            clock: 0.0,
+            notice: None,
             graph: graph.clone(),
             portraits,
             join,
@@ -295,15 +339,17 @@ impl Space {
             }
         }
         self.portraits.poll();
+        self.clock = time;
         self.light = ctl.input(self.node, "light", params::default(crate::graph::Kind::Space, "light"));
         self.camera.step(dt);
         self.being.update(dt, time, &Local { ctl, meter }, beat);
         self.being.push(ctl);
         let local = Local { ctl, meter };
         if self.drag == Drag::None {
-            self.being.hover = self.pointer.and_then(|(x, y)| self.being.pick(&self.camera.ray(x, y, self.view.0, self.view.1)));
+            let reach = if self.finger.is_some() { TOUCH_REACH } else { 1.0 };
+            self.being.hover = self.pointer.and_then(|(x, y)| self.being.pick_reach(&self.camera.ray(x, y, self.view.0, self.view.1), reach));
         }
-        self.being.dragging = matches!(self.drag, Drag::Knob { .. });
+        self.being.dragging = matches!(self.drag, Drag::Knob { .. } | Drag::Hold);
         #[cfg(feature = "live")]
         self.session(time, &local);
         self.congregation(dt, time, beat);
@@ -414,6 +460,50 @@ impl Space {
         std::iter::once(&self.being).chain(self.others.iter().map(|r| &r.being))
     }
 
+    /// This frame's labels (label.rs): this deck's hovered / turned button first, then what hands move on the decks'
+    /// beings – at most label::LABELS (`out` cleared first; its capacity from the renderer – no allocation).
+    pub fn write_labels(&self, out: &mut Vec<Label>) {
+        out.clear();
+        for b in self.beings() {
+            b.write_labels(out);
+        }
+    }
+
+    /// what the pointer should look like now
+    pub fn cursor(&self) -> Cursor {
+        match (self.drag, self.being.hover) {
+            (Drag::Knob { .. }, _) => Cursor::Grabbing,
+            (Drag::Hold, _) => Cursor::Locked,
+            (Drag::None, Some(Hit::Button(i))) if self.being.buttons[i].linked => Cursor::Locked,
+            (Drag::None, Some(Hit::Button(_))) => Cursor::Grab,
+            _ => Cursor::Default,
+        }
+    }
+
+    /// a world point in window pixels (None behind the eye)
+    pub fn to_pixel(&self, p: Vec3) -> Option<(f32, f32)> {
+        let clip = self.camera.view_proj(self.view.0 / self.view.1) * p.extend(1.0);
+        (clip.w > 1e-4).then(|| ((clip.x / clip.w + 1.0) * 0.5 * self.view.0, (1.0 - clip.y / clip.w) * 0.5 * self.view.1))
+    }
+
+    /// this deck's button `node.port` (or `node.shape`), by name – a check run's `--pointer` / `--drag`
+    pub fn button(&self, graph: &Graph, name: &str) -> Option<usize> {
+        let (id, port) = name.split_once('.')?;
+        self.being.buttons.iter().position(|b| graph.nodes[b.node].id == id && b.name == port)
+    }
+
+    /// button `i`'s tether on the screen: where its 0 sits and the way to its 1 (pixels); a tether that points at the
+    /// eye (shorter than a tenth of the window) turns into a plain upward drag over 40 % of the window's height
+    pub fn drag_axis(&self, i: usize) -> ((f32, f32), (f32, f32)) {
+        let (lo, hi) = self.being.span(i);
+        let up = (0.0, -0.4 * self.view.1);
+        match (self.to_pixel(lo), self.to_pixel(hi)) {
+            (Some(a), Some(b)) if ((b.0 - a.0).powi(2) + (b.1 - a.1).powi(2)).sqrt() > 0.1 * self.view.1 => (a, (b.0 - a.0, b.1 - a.1)),
+            (Some(a), _) => (a, up),
+            _ => ((0.0, 0.0), up),
+        }
+    }
+
     /// how many spheres / tube vertices `write` produces at most
     pub fn capacity(&self) -> (usize, usize) {
         let (mut s, mut v) = (0, 0);
@@ -509,10 +599,11 @@ impl Space {
                 self.camera.drag(x - lx, y - ly);
                 self.drag = Drag::Orbit(x, y);
             }
-            Drag::Knob { button, norm, y: y0 } => {
+            Drag::Knob { button, norm, at, axis } => {
                 let b = &self.being.buttons[button];
-                // the window's height ≈ 2.5 full turns: fine enough, quick enough
-                let n = (norm + (y0 - y) / (self.view.1 * 0.4)).clamp(0.0, 1.0);
+                // the pointer's way along the tether's screen line: out = up, in = down, the button under the hand
+                let along = ((x - at.0) * axis.0 + (y - at.1) * axis.1) / (axis.0 * axis.0 + axis.1 * axis.1).max(1.0);
+                let n = (norm + along).clamp(0.0, 1.0);
                 if b.shape {
                     ctl.set_lfo_shape(b.node, b.spec.value(n).round() as usize);
                 } else {
@@ -520,7 +611,7 @@ impl Space {
                 }
                 self.camera.idle = 0.0;
             }
-            Drag::None => {}
+            Drag::Hold | Drag::None => {}
         }
         self.pointer = Some((x, y));
     }
@@ -530,24 +621,86 @@ impl Space {
         self.being.hover = None;
     }
 
-    /// the primary button down: over an unlinked button = turn it, else turn the camera
+    /// the primary button down: over an unlinked button = pull it (twice quickly: back to the scene's value), over a
+    /// linked one = it shakes and the HUD says what drives it, else turn the camera
     pub fn press(&mut self) {
+        // a touch screen's own mouse emulation: the finger already pressed
+        if self.finger.is_none() {
+            self.press_reach(1.0);
+        }
+    }
+
+    fn press_reach(&mut self, reach: f32) {
         let Some((x, y)) = self.pointer else { return };
-        let hit = self.being.pick(&self.camera.ray(x, y, self.view.0, self.view.1));
+        let hit = self.being.pick_reach(&self.camera.ray(x, y, self.view.0, self.view.1), reach);
         self.being.hover = hit;
         self.drag = match hit {
-            Some(Hit::Button(i)) if !self.being.buttons[i].linked => Drag::Knob { button: i, norm: self.being.buttons[i].norm, y },
+            Some(Hit::Button(i)) if self.being.buttons[i].linked => {
+                self.being.shake(i);
+                let b = &self.being.buttons[i];
+                let id = &self.graph_id(b.node);
+                self.notice = Some((format!("{id}.{} IS LINKED < {}", b.name, b.source), self.clock + 2.5));
+                Drag::Hold
+            }
+            Some(Hit::Button(i)) => {
+                let double = self.last_press.is_some_and(|(j, t)| j == i && self.clock - t < DOUBLE_CLICK);
+                if double {
+                    self.last_press = None;
+                    self.being.reset(i);
+                    Drag::Hold
+                } else {
+                    self.last_press = Some((i, self.clock));
+                    self.being.reset = None;
+                    // the hand starts where the value sits on the tether (not where it hit the sphere)
+                    let (lo, axis) = self.drag_axis(i);
+                    let n = self.being.buttons[i].norm;
+                    let at = (x - (lo.0 + axis.0 * n) + lo.0, y - (lo.1 + axis.1 * n) + lo.1);
+                    Drag::Knob { button: i, norm: 0.0, at, axis }
+                }
+            }
             _ => Drag::Orbit(x, y),
         };
     }
 
     pub fn release(&mut self) {
-        self.drag = Drag::None;
+        if self.finger.is_none() {
+            self.drag = Drag::None;
+        }
+    }
+
+    /// A finger on a touch screen (winit's `Touch`): the first one drives the pointer – down = a press with a bigger
+    /// reach, up = a release; any other finger meanwhile is ignored.
+    pub fn touch(&mut self, id: u64, phase: Touch, x: f32, y: f32, ctl: &mut Controls) {
+        match phase {
+            Touch::Started if self.finger.is_none() => {
+                self.pointer_moved(x, y, ctl);
+                self.finger = Some(id);
+                self.press_reach(TOUCH_REACH);
+            }
+            Touch::Moved if self.finger == Some(id) => self.pointer_moved(x, y, ctl),
+            Touch::Ended if self.finger == Some(id) => {
+                self.pointer_moved(x, y, ctl);
+                self.finger = None;
+                self.drag = Drag::None;
+                self.pointer_left();
+            }
+            _ => {}
+        }
+    }
+
+    /// a node's id in this deck's graph (the HUD)
+    fn graph_id(&self, node: usize) -> String {
+        self.graph.nodes.get(node).map_or_else(String::new, |n| n.id.clone())
     }
 
     /// The HUD's line: the hovered button (its node, name, value, range – or where its hose comes from), the hovered
     /// node, else the set's state. ≤ 40 characters.
     pub fn hud_line(&self, graph: &Graph) -> String {
+        if let Some((word, until)) = &self.notice {
+            if self.clock < *until {
+                return word.replace(['–', '—'], "-").to_uppercase().chars().take(40).collect();
+            }
+        }
         let line = match self.being.hover {
             Some(Hit::Button(i)) => {
                 let b = &self.being.buttons[i];
@@ -573,11 +726,9 @@ impl Space {
 
 /// a value in ≤ 6 characters
 fn num(v: f32) -> String {
-    match v.abs() {
-        a if a >= 1000.0 => format!("{v:.0}"),
-        a if a >= 10.0 => format!("{v:.1}"),
-        _ => format!("{v:.2}"),
-    }
+    let mut s = String::new();
+    let _ = label::write_num(&mut s, v);
+    s
 }
 
 #[cfg(test)]
@@ -621,40 +772,144 @@ mod tests {
         assert!(mirrored.feel.problems.is_empty(), "the conductor's rules on a deck's graph: {:?}", mirrored.feel.problems);
     }
 
-    #[test]
-    fn a_drag_on_a_button_sets_its_input_and_elsewhere_turns_the_camera() {
+    fn cathedral() -> (Graph, Space, Controls) {
         let scene = crate::modules::carried_part(&Scene::parse(CATHEDRAL_SCENE).unwrap());
         let g = Graph::build(&scene).unwrap();
         let node = g.first(crate::graph::Kind::Space).unwrap();
         let mut space = Space::new(&g, node, &scene.being, Path::new("/nowhere"), Portraits::local(Path::new("/nowhere")));
         let mut ctl = Controls::new(&g, None);
         space.set_view(1280.0, 720.0);
-        let beat = tempo::Now::default();
-        space.update(0.016, 0.0, &mut ctl, &beat, &|_, _| 0.0);
-        // aim at an unlinked button: project its centre into the window
-        let (i, b) = space.being.buttons.iter().enumerate().find(|(_, b)| !b.linked).unwrap();
-        let clip = space.camera.view_proj(1280.0 / 720.0) * b.pos.extend(1.0);
-        let (x, y) = ((clip.x / clip.w + 1.0) * 640.0, (1.0 - clip.y / clip.w) * 360.0);
+        space.update(0.016, 0.0, &mut ctl, &tempo::Now::default(), &|_, _| 0.0);
+        (g, space, ctl)
+    }
+
+    /// a frame at the show's time `t` (the double click reads it)
+    fn frame(space: &mut Space, ctl: &mut Controls, t: f32) {
+        space.update(1.0 / 60.0, t, ctl, &tempo::Now::default(), &|_, _| 0.0);
+    }
+
+    #[test]
+    fn a_drag_pulls_a_button_along_its_tether_and_elsewhere_turns_the_camera() {
+        let (g, mut space, mut ctl) = cathedral();
+        let i = space.button(&g, "voice.index").expect("the FM voice's index");
+        assert!(!space.being.buttons[i].linked);
+        let (x, y) = space.to_pixel(space.being.buttons[i].pos).unwrap();
         space.pointer_moved(x, y, &mut ctl);
-        space.update(0.0, 0.0, &mut ctl, &beat, &|_, _| 0.0);
-        let Some(Hit::Button(hit)) = space.being.hover else { panic!("the button under the pointer: {:?}", space.being.hover) };
-        let (node, port, before) = (space.being.buttons[hit].node, space.being.buttons[hit].port, space.being.buttons[hit].norm);
-        let _ = i;
+        frame(&mut space, &mut ctl, 0.0);
+        assert_eq!(space.being.hover, Some(Hit::Button(i)), "the button under the pointer");
+        assert_eq!(space.cursor(), Cursor::Grab);
+        let (node, port, before) = (space.being.buttons[i].node, space.being.buttons[i].port, space.being.buttons[i].norm);
+        let (_, axis) = space.drag_axis(i);
+        assert!((axis.0 * axis.0 + axis.1 * axis.1).sqrt() > 72.0, "the tether reads on the screen: {axis:?}");
         space.press();
-        space.pointer_moved(x, y - 72.0, &mut ctl); // up a tenth of the window = +0.25
-        let name = g.nodes[node].kind.inputs()[port].name;
-        let spec = params::spec(g.nodes[node].kind, name);
+        assert_eq!(space.cursor(), Cursor::Grabbing);
+        // a quarter of the tether's way out on the screen = a quarter of the range up
+        space.pointer_moved(x + axis.0 * 0.25, y + axis.1 * 0.25, &mut ctl);
+        let spec = params::spec(g.nodes[node].kind, "index");
         let want = spec.value((before + 0.25).min(1.0));
-        assert!((ctl.input(node, name, -1.0) - want).abs() < 1e-3 * want.abs().max(1.0), "{name}");
-        assert!(space.hud_line(&g).contains(&name.to_uppercase()));
+        assert!((ctl.input(node, "index", -1.0) - want).abs() < 1e-3 * want.abs().max(1.0));
+        // the other way, past its end: clamped at the range's floor
+        space.pointer_moved(x - axis.0 * 3.0, y - axis.1 * 3.0, &mut ctl);
+        assert_eq!(ctl.input(node, "index", -1.0), spec.min);
+        let _ = port;
+        frame(&mut space, &mut ctl, 0.1);
+        assert!(space.hud_line(&g).starts_with("VOICE.INDEX"));
         space.release();
         // an empty spot: the camera turns
         let yaw = space.camera.yaw;
         space.pointer_moved(5.0, 5.0, &mut ctl);
+        frame(&mut space, &mut ctl, 0.2);
         space.press();
         space.pointer_moved(105.0, 5.0, &mut ctl);
         assert!(space.camera.yaw != yaw);
         space.release();
         assert!(space.hud_line(&g).starts_with("SET ERROR") || space.hud_line(&g).starts_with("LOADING"));
+    }
+
+    /// two presses on a button within DOUBLE_CLICK: it eases back to the scene's value (cathedral: voice.index = 2)
+    #[test]
+    fn a_double_click_resets_a_button_to_the_scene() {
+        let (g, mut space, mut ctl) = cathedral();
+        let i = space.button(&g, "voice.index").unwrap();
+        let (node, port, scene) = (space.being.buttons[i].node, space.being.buttons[i].port, space.being.buttons[i].scene);
+        assert_eq!(scene, g.nodes[node].f32("index", -1.0));
+        ctl.set(node, port, 8.0);
+        frame(&mut space, &mut ctl, 1.0);
+        let at = |space: &Space| space.to_pixel(space.being.buttons[i].pos).unwrap();
+        let (x, y) = at(&space);
+        space.pointer_moved(x, y, &mut ctl);
+        space.press();
+        space.release();
+        frame(&mut space, &mut ctl, 1.1);
+        assert!(space.being.reset.is_none(), "one click is a grab");
+        let (x, y) = at(&space);
+        space.pointer_moved(x, y, &mut ctl);
+        space.press();
+        assert!(space.being.reset.is_some(), "the second, quickly: back to the scene");
+        space.release();
+        for f in 0..40 {
+            frame(&mut space, &mut ctl, 1.2 + f as f32 / 60.0);
+        }
+        assert!((ctl.input(node, "index", -1.0) - scene).abs() < 1e-3);
+        // two clicks far apart: no reset
+        ctl.set(node, port, 8.0);
+        frame(&mut space, &mut ctl, 5.0);
+        let (x, y) = at(&space);
+        space.pointer_moved(x, y, &mut ctl);
+        space.press();
+        space.release();
+        frame(&mut space, &mut ctl, 6.0);
+        space.press();
+        space.release();
+        assert!(space.being.reset.is_none());
+    }
+
+    /// a linked button grabbed: it shakes, the HUD says what drives it, nothing turns – not its value, not the camera
+    #[test]
+    fn a_linked_button_shakes_and_says_why() {
+        let (g, mut space, mut ctl) = cathedral();
+        let i = space.button(&g, "incense.cutoff").unwrap();
+        assert!(space.being.buttons[i].linked);
+        let (x, y) = space.to_pixel(space.being.buttons[i].pos).unwrap();
+        space.pointer_moved(x, y, &mut ctl);
+        frame(&mut space, &mut ctl, 0.5);
+        assert_eq!(space.cursor(), Cursor::Locked);
+        let (yaw, before) = (space.camera.yaw, ctl.input(space.being.buttons[i].node, "cutoff", -1.0));
+        space.press();
+        assert!(space.being.buttons[i].shake > 0.0);
+        assert_eq!(space.hud_line(&g), "INCENSE.CUTOFF IS LINKED < SWAY");
+        space.pointer_moved(x + 50.0, y - 80.0, &mut ctl);
+        assert_eq!((space.camera.yaw, ctl.input(space.being.buttons[i].node, "cutoff", -1.0)), (yaw, before));
+        space.release();
+        frame(&mut space, &mut ctl, 3.5);
+        assert!(!space.hud_line(&g).contains("LINKED"), "the word goes after a while");
+    }
+
+    /// a finger reaches a button the mouse would miss; it drags like the mouse; the screen's mouse emulation is ignored
+    #[test]
+    fn a_finger_has_a_bigger_reach() {
+        let (g, mut space, mut ctl) = cathedral();
+        let i = space.button(&g, "voice.index").unwrap();
+        let b = &space.being.buttons[i];
+        // beside the button, across its chain on the side away from its neighbours: outside the mouse's reach (1.5
+        // radii), inside a finger's (3)
+        let across = (b.pos - space.camera.eye()).cross(b.dir).normalize();
+        let clear = |p: Vec3| space.being.buttons.iter().enumerate().filter(|(k, _)| *k != i).map(|(_, q)| q.pos.distance(p)).fold(f32::MAX, f32::min);
+        let side = [across, -across].into_iter().max_by(|a, c| clear(b.pos + *a * b.radius * 2.3).total_cmp(&clear(b.pos + *c * b.radius * 2.3))).unwrap();
+        let (x, y) = space.to_pixel(b.pos + side * b.radius * 2.3).unwrap();
+        space.pointer_moved(x, y, &mut ctl);
+        assert_ne!(space.being.pick(&space.camera.ray(x, y, 1280.0, 720.0)), Some(Hit::Button(i)), "the mouse misses it");
+        space.touch(7, Touch::Started, x, y, &mut ctl);
+        assert_eq!(space.being.hover, Some(Hit::Button(i)), "the finger got it");
+        assert_eq!(space.cursor(), Cursor::Grabbing);
+        space.press(); // the emulated mouse press: ignored
+        let (node, before) = (space.being.buttons[i].node, ctl.input(space.being.buttons[i].node, "index", -1.0));
+        let (_, axis) = space.drag_axis(i);
+        space.touch(8, Touch::Moved, x + axis.0, y + axis.1, &mut ctl); // another finger: ignored
+        assert_eq!(ctl.input(node, "index", -1.0), before);
+        space.touch(7, Touch::Moved, x + axis.0 * 0.5, y + axis.1 * 0.5, &mut ctl);
+        assert!(ctl.input(node, "index", -1.0) > before);
+        space.touch(7, Touch::Ended, x, y, &mut ctl);
+        assert_eq!((space.cursor(), space.being.hover), (Cursor::Default, None));
     }
 }

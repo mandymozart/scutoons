@@ -5,8 +5,8 @@
 //! chapter's first slice and the music are there, and the browser's start: with DECK_BROWSER set (deck-session does)
 //! F2 starts that command on top of the running stage – cage shows the newest window – and the stage pauses and mutes
 //! behind it until it closes; without it F2 quits with exit code 10 (deck-session's older loop opens the browser).
-//! A scene with a `space` node (#188): the mouse turns the camera or the being's 3D buttons, the wheel / ↑ ↓ zoom,
-//! ← → turn, R resets the camera.
+//! A scene with a `space` node (#188): the mouse (or a finger) turns the camera or pulls the being's 3D buttons along
+//! their tethers (a double click: back to the scene's value), the wheel / ↑ ↓ zoom, ← → turn, R resets the camera.
 //! A scene that can't be played (a module this build lacks – #185 –, a broken file) never stops the stage: it shows the
 //! test pattern with the reason in the HUD. `--dev` reloads the scene file and its WGSL files when they change.
 //! A scene with an `outlet` node (#186, the `live` module) joins the relay as `output` of this deck's outlet
@@ -22,7 +22,7 @@ use std::time::Instant;
 use winit::application::ApplicationHandler;
 use winit::event::{ElementState, WindowEvent};
 #[cfg(feature = "space")]
-use winit::event::{MouseButton, MouseScrollDelta};
+use winit::event::{MouseButton, MouseScrollDelta, TouchPhase};
 use winit::event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy};
 use winit::keyboard::{Key, ModifiersState, NamedKey};
 use winit::window::{Fullscreen, Window, WindowId};
@@ -41,7 +41,8 @@ enum Event {
 
 const HELP: &str = "deck-stage [--scene FILE|cathedral|conductor|outlet] [--audio auto|pipewire|cpal|null] [--volume 0-1] [--cache DIR]
            [--sets DIR] [--portraits DIR] [--token T] [--api URL] [--cdn URL] [--windowed] [--frames N]
-           [--screenshot FILE] [--pointer X,Y] [--no-hud] [--dev] [--modules] [--relay ws://HOST:PORT/live/CODE]
+           [--screenshot FILE] [--pointer X,Y|NODE.PORT] [--drag NODE.PORT[,DN]] [--no-hud] [--dev] [--modules]
+           [--relay ws://HOST:PORT/live/CODE]
            [--outlet ID] [--locale de]
   --scene      a scene TOML (default: the built-in scene, deck/stage/scenes/default.toml); `cathedral` = the built-in
                Cathedral of decks (scenes/cathedral.toml – a deck's being), `conductor` = its conductor in the middle
@@ -59,7 +60,9 @@ const HELP: &str = "deck-stage [--scene FILE|cathedral|conductor|outlet] [--audi
                takes any)
   --frames     quit after N frames and print the measured numbers (a check run)
   --screenshot save the last frame of a --frames run as a PNG
-  --pointer    put the pointer at window pixel X,Y (a check run's hover)
+  --pointer    put the pointer at window pixel X,Y, or on the being's button NODE.PORT (a check run's hover)
+  --drag       a check run's drag: after a second press the button NODE.PORT and pull it DN (0.3) of its range out
+               along its tether over half a second, then hold it
   --dev        reload the scene file and its shaders' WGSL files when they change
   --modules    print the modules (cargo features) this build carries and their kinds, then quit";
 
@@ -79,12 +82,21 @@ struct Args {
     portraits: Option<PathBuf>,
     token: Option<String>,
     screenshot: Option<PathBuf>,
-    pointer: Option<(f32, f32)>,
+    pointer: Option<Aim>,
+    /// a check run's drag on a button: its name, how far (0..1 of its range)
+    drag: Option<(String, f32)>,
     dev: bool,
     /// the Live outlet (#186): --relay, --outlet, --locale over deck.toml's keys
     relay: Option<String>,
     outlet: Option<String>,
     locale: Option<String>,
+}
+
+/// a check run's pointer: a pixel, or on a button of the being (it follows the button)
+#[derive(Debug, Clone, PartialEq)]
+enum Aim {
+    At(f32, f32),
+    Button(String),
 }
 
 fn args() -> Result<Args> {
@@ -103,6 +115,7 @@ fn args() -> Result<Args> {
         token: std::env::var("LIVE_TOKEN").ok().filter(|t| !t.is_empty()),
         screenshot: None,
         pointer: None,
+        drag: None,
         dev: false,
         relay: None,
         outlet: None,
@@ -128,8 +141,16 @@ fn args() -> Result<Args> {
             "--screenshot" => a.screenshot = Some(val()?.into()),
             "--pointer" => {
                 let v = val()?;
-                let (x, y) = v.split_once(',').with_context(|| format!("--pointer {v}: X,Y"))?;
-                a.pointer = Some((x.trim().parse()?, y.trim().parse()?));
+                a.pointer = Some(match v.split_once(',') {
+                    Some((x, y)) => Aim::At(x.trim().parse()?, y.trim().parse()?),
+                    None if v.contains('.') => Aim::Button(v),
+                    None => bail!("--pointer {v}: X,Y or NODE.PORT"),
+                });
+            }
+            "--drag" => {
+                let v = val()?;
+                let (name, dn) = v.split_once(',').unwrap_or((v.as_str(), "0.3"));
+                a.drag = Some((name.to_string(), dn.trim().parse().with_context(|| format!("--drag {v}: NODE.PORT[,DN]"))?));
             }
             "--windowed" => a.windowed = true,
             "--no-hud" => a.hud = false,
@@ -432,6 +453,12 @@ struct App {
     browser: Option<Instant>,
     paused: bool,
     proxy: EventLoopProxy<Event>,
+    /// the pointer's look shown (#188: a hand over a button)
+    #[cfg(feature = "space")]
+    cursor: deck_stage::space::Cursor,
+    /// a check run's --drag: where the press was and the tether's way on the screen
+    #[cfg(feature = "space")]
+    drag_from: Option<((f32, f32), (f32, f32))>,
 }
 
 impl App {
@@ -549,7 +576,7 @@ impl App {
         if let Some(s) = self.show.space.as_mut() {
             let size = window.inner_size();
             s.set_view(size.width as f32, size.height as f32);
-            if let Some((x, y)) = self.args.pointer {
+            if let Some(Aim::At(x, y)) = self.args.pointer {
                 s.pointer_moved(x, y, &mut self.show.controls);
             }
         }
@@ -651,9 +678,26 @@ impl App {
             }
         }
         #[cfg(feature = "space")]
+        self.check_hand();
+        #[cfg(feature = "space")]
         if let Some(s) = self.show.space.as_mut() {
             let meters = self.show.meters.as_deref();
             s.update(dt, time, &mut self.show.controls, &beat, &|n, p| meters.map_or(0.0, |m| m.level(n, p)));
+            // the pointer's look: a hand over a button, a closed one on it, "no" over a linked one
+            let c = s.cursor();
+            if c != self.cursor {
+                self.cursor = c;
+                if let Some(w) = &self.window {
+                    use deck_stage::space::Cursor;
+                    use winit::window::CursorIcon;
+                    w.set_cursor(match c {
+                        Cursor::Default => CursorIcon::Default,
+                        Cursor::Grab => CursorIcon::Grab,
+                        Cursor::Grabbing => CursorIcon::Grabbing,
+                        Cursor::Locked => CursorIcon::NotAllowed,
+                    });
+                }
+            }
         }
         self.stats.window.0 += 1;
         self.stats.window.1 += dt;
@@ -812,14 +856,60 @@ impl App {
         )
     }
 
+    /// A check run's hand on the being (`--pointer NODE.PORT`, `--drag`): the pointer on the named button each frame;
+    /// a drag presses it after 60 frames and pulls it along its tether over the next 30, then holds.
+    #[cfg(feature = "space")]
+    fn check_hand(&mut self) {
+        let Some(s) = self.show.space.as_mut() else { return };
+        let f = self.stats.frames;
+        let ctl = &mut self.show.controls;
+        if let Some((name, dn)) = &self.args.drag {
+            let Some(i) = s.button(&self.show.graph, name) else { return };
+            match (f, self.drag_from) {
+                (..60, _) => {
+                    if let Some((x, y)) = s.to_pixel(s.being.buttons[i].pos) {
+                        s.pointer_moved(x, y, ctl);
+                    }
+                }
+                (60.., None) => {
+                    s.press();
+                    let (_, axis) = s.drag_axis(i);
+                    if let Some(at) = s.to_pixel(s.being.buttons[i].pos) {
+                        self.drag_from = Some((at, axis));
+                    }
+                }
+                (61.., Some((at, axis))) => {
+                    let k = ((f - 60) as f32 / 30.0).min(1.0) * dn;
+                    s.pointer_moved(at.0 + axis.0 * k, at.1 + axis.1 * k, ctl);
+                }
+                _ => {}
+            }
+        } else if let Some(Aim::Button(name)) = &self.args.pointer {
+            if let Some((x, y)) = s.button(&self.show.graph, name).and_then(|i| s.to_pixel(s.being.buttons[i].pos)) {
+                s.pointer_moved(x, y, ctl);
+            }
+        }
+    }
+
     /// the space node's pointer, wheel and keys (#188); false = not the space's event
     #[cfg(feature = "space")]
     fn space_event(&mut self, event: &WindowEvent) -> bool {
         let Some(s) = self.show.space.as_mut() else { return false };
         match event {
             WindowEvent::Resized(size) => s.set_view(size.width as f32, size.height as f32),
-            // a check run's --pointer stays where it was put
-            WindowEvent::CursorMoved { .. } | WindowEvent::CursorLeft { .. } if self.args.pointer.is_some() => {}
+            // a check run's --pointer / --drag stays where it was put
+            WindowEvent::CursorMoved { .. } | WindowEvent::CursorLeft { .. } | WindowEvent::MouseInput { .. } | WindowEvent::Touch(_)
+                if self.args.pointer.is_some() || self.args.drag.is_some() => {}
+            // a finger: like the mouse, with a bigger reach (winit's touch events – Windows, Wayland, X11 with XInput2)
+            WindowEvent::Touch(t) => {
+                use deck_stage::space::Touch;
+                let phase = match t.phase {
+                    TouchPhase::Started => Touch::Started,
+                    TouchPhase::Moved => Touch::Moved,
+                    TouchPhase::Ended | TouchPhase::Cancelled => Touch::Ended,
+                };
+                s.touch(t.id, phase, t.location.x as f32, t.location.y as f32, &mut self.show.controls);
+            }
             WindowEvent::CursorMoved { position, .. } => s.pointer_moved(position.x as f32, position.y as f32, &mut self.show.controls),
             WindowEvent::CursorLeft { .. } => s.pointer_left(),
             WindowEvent::MouseInput { state, button: MouseButton::Left, .. } => match state {
@@ -985,6 +1075,10 @@ fn run() -> Result<i32> {
         browser: None,
         paused: false,
         proxy,
+        #[cfg(feature = "space")]
+        cursor: deck_stage::space::Cursor::Default,
+        #[cfg(feature = "space")]
+        drag_from: None,
     };
     app.watch = app.watch_files();
     event_loop.run_app(&mut app)?;

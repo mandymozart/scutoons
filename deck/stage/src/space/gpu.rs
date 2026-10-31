@@ -9,7 +9,12 @@
 //! portrait (the previous mood fading out under the new one) – alpha-blended, depth-tested and written, so the skin's
 //! ghost sphere and the bubbles behind the face sit right. A sprite is a texture per portrait slot, uploaded when its
 //! loader has it.
+//!
+//! Last, the buttons' labels (label.rs): one quad per character from a glyph atlas made once, a fixed size on the
+//! screen beside its button, at its button's depth (premultiplied alpha, depth-tested, not written) – their instances rewritten per frame from
+//! preallocated vectors.
 use super::being::{Sphere, TubeVertex};
+use super::label::{self, Atlas, Label, LABELS};
 use super::glb::{Image, Model, RoomVertex};
 use super::Space;
 use glam::Vec3;
@@ -47,7 +52,26 @@ struct FrameUniform {
     eye: [f32; 4],
     look: [f32; 4],
     fog: [f32; 4],
+    /// the target's size in pixels (the labels' fixed screen size)
+    screen: [f32; 4],
 }
+
+/// one label quad for the GPU (64 bytes): where its label hangs (world), its box in pixels around that point (x0, y0,
+/// x1, y1; y up), the atlas cell (u0, v0, u1, v1), its colour (premultiplied in the shader)
+#[repr(C)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+struct Glyph {
+    anchor: [f32; 3],
+    _pad: f32,
+    rect: [f32; 4],
+    uv: [f32; 4],
+    color: [f32; 4],
+}
+
+/// the atlas' font size (px) – drawn a little smaller on the screen
+const ATLAS_PX: f32 = 30.0;
+/// glyph quads per frame at most: every label's characters + its backing
+const GLYPHS: usize = LABELS * (label::CHARS + 1);
 
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
@@ -98,6 +122,12 @@ pub struct SpaceGpu {
     layers: Vec<HeadLayer>,
     layer_tex: Vec<Option<usize>>,
     order: Vec<(f32, usize)>,
+    label_pipe: wgpu::RenderPipeline,
+    label_buf: wgpu::Buffer,
+    atlas_bind: wgpu::BindGroup,
+    atlas: Atlas,
+    labels: Vec<Label>,
+    glyphs: Vec<Glyph>,
 }
 
 impl SpaceGpu {
@@ -222,6 +252,37 @@ impl SpaceGpu {
             cache: None,
         });
 
+        // the labels: a quad per character (six vertices from the vertex index) at its button's depth – a pillar in
+        // front hides it, the being's own tubes and ghosts don't (they write no depth)
+        let glyph_attrs = wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32x4, 2 => Float32x4, 3 => Float32x4];
+        let label_pipe = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("space label"),
+            layout: Some(&room_layout),
+            vertex: wgpu::VertexState {
+                module: &module,
+                entry_point: Some("vs_label"),
+                compilation_options: Default::default(),
+                buffers: &[wgpu::VertexBufferLayout { array_stride: std::mem::size_of::<Glyph>() as u64, step_mode: wgpu::VertexStepMode::Instance, attributes: &glyph_attrs }],
+            },
+            primitive: Default::default(),
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: DEPTH,
+                depth_write_enabled: false,
+                depth_compare: wgpu::CompareFunction::LessEqual,
+                stencil: Default::default(),
+                bias: Default::default(),
+            }),
+            multisample: Default::default(),
+            fragment: Some(wgpu::FragmentState {
+                module: &module,
+                entry_point: Some("fs_label"),
+                compilation_options: Default::default(),
+                targets: &[Some(wgpu::ColorTargetState { format: color, blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING), write_mask: wgpu::ColorWrites::COLOR })],
+            }),
+            multiview: None,
+            cache: None,
+        });
+
         let (unit_v, unit_i) = unit_sphere(14, 9);
         let buffer = |label: &str, size: usize, usage: wgpu::BufferUsages| {
             device.create_buffer(&wgpu::BufferDescriptor { label: Some(label), size: size.max(16) as u64, usage: usage | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false })
@@ -247,6 +308,10 @@ impl SpaceGpu {
             mipmap_filter: wgpu::FilterMode::Linear,
             ..Default::default()
         });
+        let atlas = Atlas::new(ATLAS_PX);
+        let atlas_view = texture(device, queue, &Image { levels: vec![(atlas.w, atlas.h, atlas.pixels.clone())] });
+        let atlas_bind = tex_bind(device, &tex_layout, &atlas_view, &head_sampler);
+        let label_buf = buffer("space labels", GLYPHS * std::mem::size_of::<Glyph>(), wgpu::BufferUsages::VERTEX);
         let blank_view = texture(device, queue, &Image { levels: vec![(1, 1, vec![255; 4])] });
         let blank = tex_bind(device, &tex_layout, &blank_view, &head_sampler);
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
@@ -293,6 +358,45 @@ impl SpaceGpu {
             layers: Vec::with_capacity(heads * 3),
             layer_tex: Vec::with_capacity(heads * 3),
             order: Vec::with_capacity(heads),
+            label_pipe,
+            label_buf,
+            atlas_bind,
+            atlas,
+            labels: Vec::with_capacity(LABELS),
+            glyphs: Vec::with_capacity(GLYPHS),
+        }
+    }
+
+    /// The labels' quads this frame (into the preallocated vectors – no allocation): each label beside its button
+    /// toward the camera's right, a backing behind its text, the characters a fixed size on the screen (2.6 % of its
+    /// height, at least 14 px).
+    fn label_glyphs(&mut self, space: &Space, eye: Vec3, height: f32) {
+        space.write_labels(&mut self.labels);
+        self.glyphs.clear();
+        let (cw, ch) = (self.atlas.cell.0 as f32, self.atlas.cell.1 as f32);
+        let solid = self.atlas.uv(label::SOLID);
+        for l in &self.labels {
+            let pos = Vec3::from(l.pos);
+            let right = (pos - eye).cross(Vec3::Y).try_normalize().unwrap_or(Vec3::X);
+            // beside the button, a little toward the eye: its own chain's beads don't cut into it
+            let toward = (eye - pos).try_normalize().unwrap_or(Vec3::Z);
+            let anchor: [f32; 3] = (pos + right * l.offset + toward * l.offset * 1.5).into();
+            let h = (height * 0.026).max(14.0) * l.scale;
+            let w = h * cw / ch;
+            let y = -l.line * h * 1.05;
+            let n = l.text.len as f32;
+            let a = l.color[3];
+            if self.glyphs.len() + l.text.len + 1 > GLYPHS {
+                break;
+            }
+            self.glyphs.push(Glyph { anchor, _pad: 0.0, rect: [-0.3 * w, y - 0.5 * h, (n + 0.3) * w, y + 0.5 * h], uv: solid, color: [0.01, 0.012, 0.03, 0.6 * a] });
+            for (k, &b) in l.text.bytes[..l.text.len].iter().enumerate() {
+                if b == b' ' {
+                    continue;
+                }
+                let x = k as f32 * w;
+                self.glyphs.push(Glyph { anchor, _pad: 0.0, rect: [x, y - 0.5 * h, x + w, y + 0.5 * h], uv: self.atlas.uv(label::glyph(b)), color: l.color });
+            }
         }
     }
 
@@ -414,11 +518,14 @@ impl SpaceGpu {
         let eye: Vec3 = cam.eye();
         self.heads(space, eye);
         queue.write_buffer(&self.head_buf, 0, bytemuck::cast_slice(&self.layers));
+        self.label_glyphs(space, eye, size.1 as f32);
+        queue.write_buffer(&self.label_buf, 0, bytemuck::cast_slice(&self.glyphs));
         let u = FrameUniform {
             view_proj: cam.view_proj(size.0 as f32 / size.1.max(1) as f32).to_cols_array_2d(),
             eye: [eye.x, eye.y, eye.z, 1.0],
             look: [time, space.light, space.being.glow, space.being.hue],
             fog: FOG,
+            screen: [size.0 as f32, size.1 as f32, 0.0, 0.0],
         };
         queue.write_buffer(&self.frame_buf, 0, bytemuck::bytes_of(&u));
         let srgb = |c: f32| (c as f64).powf(1.0 / 2.2);
@@ -473,6 +580,12 @@ impl SpaceGpu {
         rp.set_vertex_buffer(1, self.inst_buf.slice(..));
         rp.set_index_buffer(self.unit_ib.slice(..), wgpu::IndexFormat::Uint32);
         rp.draw_indexed(0..self.unit_count, 0, solid..all);
+        if !self.glyphs.is_empty() {
+            rp.set_pipeline(&self.label_pipe);
+            rp.set_bind_group(1, &self.atlas_bind, &[]);
+            rp.set_vertex_buffer(0, self.label_buf.slice(..));
+            rp.draw(0..6, 0..self.glyphs.len() as u32);
+        }
     }
 }
 
