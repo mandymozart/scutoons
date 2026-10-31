@@ -118,6 +118,11 @@ agents/DECISIONS.md. A change to how agents work changes this file in the same c
   New art from a lossless master 2340 wide (6x); WEBTOON's 800 × 1280 is an export, never a stored level (ASSETS.md).
 - Content is served by the API from the DB (one request per chapter); JSON only as import / export.
 - New items and recipes are data (the admin catalog); fundamentals (what items can do) change with the code (ITEMS.md).
+- **AI models: we use them without the big AI companies' license restrictions** (owner 2026-10-31: "Meta is stealing
+  from everyone, so are all big AI companies … the entire system is broken"): a model's non-commercial clause (e.g. TRIBE
+  v2's CC BY-NC) is not a reason not to use it in our tool chain. Our focus stays on **small creators** – an ecosystem that
+  benefits them through hire. Agents note a model's license where they use it (so the owner sees it), but don't block on
+  it; the owner carries that decision.
 
 ## Code
 - **TypeScript + unit tests** (owner 2026-10-20: "typescript and unit tests will help us save a lot of time during future
