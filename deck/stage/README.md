@@ -130,6 +130,22 @@ A live tool may not crackle unnoticed, and should not crackle at all:
   4. run `deck-stage --audio cpal --audio-host asio --audio-device fireface --audio-buffer 128` (the RME's driver is
      `ASIO Fireface USB`; the buffer is also the driver's setting in RME's Settings dialog – cpal asks the driver for it).
   ASIO hands one client the interface's driver (RME's is multi-client); the HUD then says `AUDIO ASIO …`.
+- **Measured** (2026-10-31, Windows 10, RME Fireface UCX II on WASAPI shared, the cathedral at volume 0 – silent, real
+  device timing –, release build, 2 min per setting; "load" = 12 busy threads on the 12 logical cores):
+
+  | buffer asked → run | render | no load | load |
+  |---|---|---|---|
+  | 128 / 256 / 512 → 1056 (22 ms) | in the callback (raised to MMCSS) | 0 · 0 · 0 | 0 · 0 · 0, and 0 in 8 min |
+  | 128 / 256 / 512 → 1056 | render thread, callback not raised | 0 · 0 · 0 | 1 · 0 · 1, and 3 in 8 min |
+  | 128 / 256 / 512 → 1056 | render thread, callback raised (now) | – | 0 in 8 min |
+  | 2048 → 2048 (43 ms) | callback / render thread | 0 / 0 | 0 / 0 |
+
+  Every glitch was the same: cpal's WASAPI thread (its own TIME_CRITICAL priority) woke 32–38 ms after the last
+  callback and found the 22 ms buffer drained – the ring can't help a late device thread, MMCSS for that thread does;
+  so the callback's thread is raised in both modes. The DSP load stays at ~3 % of a block, so the render itself never
+  came near its budget. What this can't see: a glitch inside Windows' audio engine (audiodg) or the USB driver (DPC
+  latency) after our buffer – crackles heard while the indicator stays at 0 point there (LatencyMon; ASIO bypasses
+  audiodg).
 
 ## Scenes
 
