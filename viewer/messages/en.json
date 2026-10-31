@@ -917,6 +917,8 @@
 		"stick_left": "Left stick",
 		"stick_right": "Right stick",
 		"midi_learn": "MIDI learn",
+		"sticks": "Sticks",
+		"sticks_hint": "The thumb sticks in the corners (to perform) – off frees the knobs under them (to fine-tune)",
 		"midi_learn_hint": "Tap a knob, then move a controller",
 		"midi_waiting": "{knob}: move a controller …",
 		"midi_inputs": "MIDI: {inputs}",

@@ -28,7 +28,9 @@
 		onset,
 		onpick,
 		onlearn,
-		ontouch
+		ontouch,
+		sticksOn = true,
+		onsticks
 	}: {
 		values: Record<string, number>;
 		started: boolean;
@@ -55,6 +57,9 @@
 		onpick: (path: string) => void;
 		onlearn: () => void;
 		ontouch: (on: 0 | 1) => void;
+		/** #225: the corner sticks are shown (off frees the knobs under them) */
+		sticksOn?: boolean;
+		onsticks: () => void;
 	} = $props();
 
 	// folded at first: the being fills the screen; the fold opens the knobs
@@ -69,6 +74,9 @@
 				<span class="sel" data-testid="deck-selection"><b>{m['live_deck.selected']()}</b> {sticks}</span>
 				<button type="button" class="learn" class:on={learn} aria-pressed={learn} title={m['live_deck.midi_learn_hint']()} onclick={onlearn} data-testid="deck-midi-learn">
 					{m['live_deck.midi_learn']()}
+				</button>
+				<button type="button" class="learn" class:on={sticksOn} aria-pressed={sticksOn} title={m['live_deck.sticks_hint']()} onclick={onsticks} data-testid="deck-sticks-toggle">
+					{m['live_deck.sticks']()}
 				</button>
 			</div>
 			{#if learn || midi}<p class="line">{learning ? m['live_deck.midi_waiting']({ knob: (PARAMS[learning] ?? MELODY[learning])?.label ?? learning }) : midi || m['live_deck.midi_learn_hint']()}</p>{/if}

@@ -51,6 +51,17 @@
 	const specs = { ...PARAMS, ...MELODY };
 	const ctl = new DeckControlsState(specs);
 	ctl.onSelect = (name) => space?.view.select(name);
+	// #225: the corner sticks can be switched off in the panel (they free the knobs under them), remembered per device
+	const STICKS_KEY = 'scutoons.deck.sticks';
+	let sticksOn = $state(true);
+	function toggleSticks() {
+		sticksOn = !sticksOn;
+		try {
+			localStorage.setItem(STICKS_KEY, sticksOn ? '1' : '0');
+		} catch {
+			/* private mode */
+		}
+	}
 	let threeD = $state(true);
 	let deck: Deck | null = null;
 	let space: SpaceStage | null = null;
@@ -85,6 +96,11 @@
 	}
 
 	onMount(() => {
+		try {
+			sticksOn = localStorage.getItem(STICKS_KEY) !== '0';
+		} catch {
+			/* private mode: on */
+		}
 		let alive = true;
 		let raf = 0;
 		const audio = setInterval(() => {
@@ -208,7 +224,9 @@
 			<CharacterChip current={character} {characters} {face} {mood} onpick={pick} />
 		{/if}
 	</div>
-	<DeckSticks labels={ctl.labels} ondown={(s) => ctl.hands?.stickDown(s)} onmove={(s, x, y) => ctl.hands?.stickMove(s, x, y)} onup={(s) => ctl.hands?.stickUp(s)} />
+	{#if sticksOn}
+		<DeckSticks labels={ctl.labels} ondown={(s) => ctl.hands?.stickDown(s)} onmove={(s, x, y) => ctl.hands?.stickMove(s, x, y)} onup={(s) => ctl.hands?.stickUp(s)} />
+	{/if}
 	<div class="bottom">
 		<DeckPanel
 			{values}
@@ -227,6 +245,8 @@
 			onset={(p, v) => deck?.setParam(p, v)}
 			onpick={ctl.pick}
 			onlearn={ctl.toggleLearn}
+			{sticksOn}
+			onsticks={toggleSticks}
 			ontouch={(on) => deck && (deck.touch = on)}
 		/>
 	</div>
