@@ -34,6 +34,17 @@ every test or show adds a row there, and the table follows what we learn.
 | Choir singer / performer | **the singer's phone** (browser, /live/deck) → maybe a small clip-on device | its voice part, cues, haptics, its being on the conductor (#190) | nothing installed; a browser cache of a few MB | a phone (WebGL2) | headphones, the session's QR code |
 | Audience | their phone (browser) | votes, the show's view | nothing | a phone | the session link |
 
+**Tiers, like a phone's storage** (owner: "like phones and their disks"): one deck image, sized by the role.
+
+| Tier | Storage | RAM | For |
+|---|---|---|---|
+| S | 8 GB | 2–4 GB | light / device bridge, musician without samples |
+| M | 32 GB | 8 GB | AV deck, musician with samples, conductor of a small session |
+| L | 128 GB | 16 GB | conductor of a show, live video for one show |
+| XL | 512 GB+ | 16–32 GB | live video across shows / a touring outlet |
+
+The X1 install (#200) is an M today (20 GB); a phone in the browser needs no tier.
+
 ### Log – use cases and what we learned
 | Date | Who / where | Roles used | Machines | What we learned |
 |---|---|---|---|---|
