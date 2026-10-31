@@ -152,7 +152,12 @@ impl Relay {
         s.join(id.clone(), Client::new(hello.role, group.clone(), nick, tx, now));
         let snapshot = match resumed {
             Some((_, true)) => Snapshot { seq: Some(s.seq as i64), ..Default::default() },
-            _ => s.snapshot_for(hello.role, group.as_deref()),
+            _ => {
+                let mut snap = s.snapshot_for(hello.role, group.as_deref());
+                // #195: a scene.sync for listed decks reaches a client by its id (a resume past the replay buffer)
+                snap.sync = snap.sync.or_else(|| s.sync_for(Some(&id), hello.role, group.as_deref()));
+                snap
+            }
         };
         s.send_to(&id, Message::Welcome(Welcome { client: id.clone(), group, snapshot, now }));
         if let Some((r, true)) = resumed {

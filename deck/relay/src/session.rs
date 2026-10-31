@@ -7,11 +7,16 @@
 //! `deck.values` (only what changed, ≤ 30 / s per deck – more is dropped; folded into the deck's state and never
 //! logged – a stream would push the cues out of the replay buffer; to the conductor, and to `to` as well when a deck
 //! sets one). Presence names the decks and every sender → receiver route their values took.
+//!
+//! The scene sync (#195): `scene.sync` (conductor only) goes to the group `decks` – or only the client ids in its
+//! `decks` – is logged and kept, so a deck that joins later finds it in its snapshot; a new one forgets the decks'
+//! answers to the old one. `deck.synced` (a deck's progress and result) goes to the conductor, is kept per deck for the
+//! conductor's snapshot (`synced`), and a deck whose state is ready counts as ready in presence.
 use std::collections::{BTreeSet, HashMap, VecDeque};
 
 use protocol::{
-    Assign, Cell, CellMode, Cue, DeckState, Envelope, Error as ProtocolError, Loose, MediaPreload, Message, Presence,
-    Resume, Role, Route, Snapshot, State, To, VoteTally,
+    Assign, Cell, CellMode, Cue, DeckState, DeckSynced, Envelope, Error as ProtocolError, Loose, MediaPreload, Message,
+    Presence, Resume, Role, Route, SceneSync, Snapshot, State, SyncState, To, VoteTally,
 };
 use serde_json::Value;
 use tokio::sync::mpsc::UnboundedSender;
@@ -28,6 +33,8 @@ pub const NICK_MAX: usize = 24;
 /// #188: a deck's `deck.values` at most 30 / s (a bucket of 15 – a frame's jitter is no reason to drop one).
 pub const VALUES_RATE: f64 = 30.0;
 const VALUES_BURST: f64 = 15.0;
+/// the decks' group (deck-stage's space/link.rs, @scutoons/live-deck's client.ts): where a `scene.sync` goes
+pub const DECKS: &str = "decks";
 
 /// What the relay knows about one connected client.
 #[derive(Debug, Clone)]
@@ -128,6 +135,7 @@ fn conductor_only(m: &Message) -> bool {
             | Message::Fx(_)
             | Message::Colour(_)
             | Message::Device(_)
+            | Message::SceneSync(_)
     )
 }
 
@@ -189,6 +197,10 @@ pub struct Session {
     routes: BTreeSet<(String, String)>,
     /// `deck.values` dropped over the rate
     pub dropped: u64,
+    /// #195: the last `scene.sync` (a deck that joins later gets it in its snapshot)
+    sync: Option<SceneSync>,
+    /// #195: each deck's last `deck.synced` for it, by client id
+    synced: HashMap<String, DeckSynced>,
 }
 
 impl Session {
@@ -248,6 +260,7 @@ impl Session {
         }
         // a deck that left takes its being and its routes along (it sends its graph again when it comes back)
         self.decks.remove(id);
+        self.synced.remove(id);
         self.routes.retain(|(a, b)| a != id && b != id);
         self.departed.retain(|_, d| d.at >= now - REPLAY_MS);
         if self.clients.is_empty() {
@@ -328,8 +341,22 @@ impl Session {
             vote: if all || self.is_voter(role, group) { self.vote.as_ref().map(|v| v.open.clone()) } else { None },
             say: if bridge { None } else { pick(&self.say, all, group) },
             decks: if all && !self.decks.is_empty() { Some(self.decks.clone()) } else { None },
+            sync: self.sync_for(None, role, group),
+            synced: if all && !self.synced.is_empty() { Some(self.synced.clone()) } else { None },
             seq: Some(self.seq as i64),
         }
+    }
+
+    /// #195: the last `scene.sync`, if it reaches this client – the conductor (and the uplink) always, a deck of the
+    /// group `decks` when it went to every deck, a listed client by its id (`id`: known at the welcome).
+    pub fn sync_for(&self, id: Option<&str>, role: Role, group: Option<&str>) -> Option<SceneSync> {
+        let sync = self.sync.as_ref()?;
+        let reaches = match &sync.decks {
+            _ if matches!(role, Role::Conductor | Role::Uplink) => true,
+            None => group == Some(DECKS) && matches!(role, Role::Musician | Role::Performer | Role::Output),
+            Some(list) => id.is_some_and(|id| list.iter().any(|d| d == id)),
+        };
+        reaches.then(|| sync.clone())
     }
 
     /// B.6 presence to the conductor(s): clients per group (phones and outputs; `-` = no group) and who is ready.
@@ -386,7 +413,7 @@ impl Session {
             self.error(id, "authority", "only the bridge sends device input");
             return After::Nothing;
         }
-        if matches!(e.message, Message::DeckGraph(_) | Message::DeckValues(_)) && matches!(role, Role::Audience | Role::Bridge) {
+        if matches!(e.message, Message::DeckGraph(_) | Message::DeckValues(_) | Message::DeckSynced(_)) && matches!(role, Role::Audience | Role::Bridge) {
             self.error(id, "authority", "only a deck streams a being");
             return After::Nothing;
         }
@@ -540,6 +567,26 @@ impl Session {
                 self.tell_presence();
             }
             Message::DeckValues(_) => self.deck_values(id, e, now),
+            Message::SceneSync(sync) => {
+                let sync = sync.clone();
+                self.scene_sync(id, e, sync, now);
+            }
+            Message::DeckSynced(d) => {
+                // #195: a deck's answer – kept for the conductor's snapshot (when it answers the sync the relay keeps),
+                // ready in presence once everything is there; to the conductor
+                let ready = d.state == SyncState::Ready;
+                if self.sync.as_ref().map_or(true, |s| s.scene == d.scene) {
+                    self.synced.insert(id.to_owned(), d.clone());
+                }
+                if e.to.is_none() {
+                    e.to = Some(To::role(Role::Conductor));
+                }
+                self.publish(id, e, now);
+                let changed = self.clients.get_mut(id).is_some_and(|c| std::mem::replace(&mut c.ready, ready) != ready);
+                if changed {
+                    self.tell_presence();
+                }
+            }
             Message::React(_) | Message::Pickup(_) | Message::Devices(_) | Message::DeviceIn(_) => {
                 // to the conductor (B.6: pickups are checked against the API there, like the reader does – TODO with
                 // the session API; reacts feed its meter; device input is mapped to actions there)
@@ -585,6 +632,45 @@ impl Session {
             }
         }
         if new_route {
+            self.tell_presence();
+        }
+    }
+
+    /// #195: the conductor's push – logged and kept (the snapshot of a deck that joins later), the decks' answers to the
+    /// one before forgotten; to the group `decks`, or one copy per listed client id. An explicit `to` is kept as it is.
+    fn scene_sync(&mut self, from: &str, mut e: Envelope, sync: SceneSync, now: i64) {
+        let list = |v: &Option<Vec<String>>, none: &str| v.as_ref().map_or_else(|| none.to_string(), |v| v.join(","));
+        tracing::info!(
+            scene = sync.scene.as_str(),
+            sets = list(&sync.sets, "").as_str(),
+            characters = list(&sync.characters, "").as_str(),
+            decks = list(&sync.decks, "all").as_str(),
+            "scene.sync from {from}"
+        );
+        for id in self.synced.keys() {
+            if let Some(c) = self.clients.get_mut(id) {
+                c.ready = false;
+            }
+        }
+        let had = !self.synced.is_empty();
+        self.synced.clear();
+        self.sync = Some(sync.clone());
+        match (&e.to, &sync.decks) {
+            (None, Some(ids)) => {
+                for id in ids {
+                    let mut part = Envelope::new(from, Message::SceneSync(sync.clone()));
+                    part.to = Some(To::client(id.clone()));
+                    self.publish(from, part, now);
+                }
+            }
+            _ => {
+                if e.to.is_none() {
+                    e.to = Some(To::group(DECKS));
+                }
+                self.publish(from, e, now);
+            }
+        }
+        if had {
             self.tell_presence();
         }
     }
@@ -1028,6 +1114,112 @@ mod tests {
         assert_eq!(p.decks.unwrap(), ["d2"]);
         assert!(p.routes.unwrap().iter().all(|x| x.from != "d1" && x.to != "d1"));
         assert!(!r.s.snapshot_for(Role::Conductor, None).decks.unwrap().contains_key("d1"));
+    }
+
+    fn push(decks: Option<Vec<&str>>) -> SceneSync {
+        SceneSync {
+            scene: "cathedral".into(),
+            sets: Some(vec!["cathedral".into()]),
+            characters: Some(vec!["catpope".into()]),
+            beings: None,
+            decks: decks.map(|d| d.into_iter().map(str::to_owned).collect()),
+        }
+    }
+
+    fn synced(state: SyncState, missing: &[&str]) -> DeckSynced {
+        DeckSynced {
+            scene: "cathedral".into(),
+            state,
+            done: Some(2),
+            total: Some(2),
+            bytes: Some(10),
+            ready: vec!["set:cathedral".into()],
+            missing: missing.iter().map(|m| m.to_string()).collect(),
+            why: None,
+        }
+    }
+
+    /// #195: only the conductor pushes; the push reaches every deck (the group `decks`), not the outlets or the
+    /// audience; it is kept for the snapshot of a deck that joins later, and for the conductor's
+    #[test]
+    fn scene_sync_reaches_the_decks_and_later_ones() {
+        let mut r = room();
+        r.add("d1", Role::Musician, Some(DECKS));
+        r.add("d2", Role::Musician, Some(DECKS));
+        r.drain();
+        r.send("d1", Message::SceneSync(push(None)), 0);
+        assert!(matches!(&r.inbox("d1")[0].message, Message::Error(x) if x.code == "authority"), "a deck may not push");
+        assert!(r.inbox("d2").is_empty());
+        assert!(r.s.snapshot_for(Role::Musician, Some(DECKS)).sync.is_none(), "a refused push is not kept");
+
+        r.send("cond", Message::SceneSync(push(None)), 0);
+        for d in ["d1", "d2"] {
+            let e = r.inbox(d);
+            assert!(matches!(&e[0].message, Message::SceneSync(s) if s.scene == "cathedral"), "{d}: {e:?}");
+            assert_eq!(e[0].from, "cond");
+        }
+        for other in ["outL", "a1", "bridge"] {
+            assert!(r.kinds(other).is_empty(), "{other}");
+        }
+        assert_eq!(r.s.log.back().map(|l| l.text.contains("scene.sync")), Some(true), "logged for a resume");
+        // a deck that joins later: in its snapshot; an outlet's screen and the audience: not
+        assert_eq!(r.s.snapshot_for(Role::Musician, Some(DECKS)).sync, Some(push(None)));
+        assert!(r.s.snapshot_for(Role::Output, Some("left")).sync.is_none());
+        assert!(r.s.snapshot_for(Role::Audience, Some(DECKS)).sync.is_none());
+        assert_eq!(r.s.snapshot_for(Role::Conductor, None).sync, Some(push(None)));
+    }
+
+    /// #195: a push to a `decks` list reaches only those decks (one copy each); a later deck isn't listed
+    #[test]
+    fn scene_sync_to_a_list() {
+        let mut r = room();
+        for d in ["d1", "d2", "d3"] {
+            r.add(d, Role::Musician, Some(DECKS));
+        }
+        r.drain();
+        r.send("cond", Message::SceneSync(push(Some(vec!["d1", "d3"]))), 0);
+        assert_eq!(r.kinds("d1"), ["scene.sync"]);
+        assert!(r.kinds("d2").is_empty());
+        assert_eq!(r.kinds("d3"), ["scene.sync"]);
+        assert!(r.s.snapshot_for(Role::Musician, Some(DECKS)).sync.is_none(), "a new client id is not on the list");
+        assert!(r.s.sync_for(Some("d3"), Role::Musician, Some(DECKS)).is_some(), "a listed one by its id");
+    }
+
+    /// #195: a deck's answers go to the conductor, the last one is kept for its snapshot, ready shows in presence; a
+    /// new push forgets the answers to the old one; a deck that leaves takes its answer along
+    #[test]
+    fn deck_synced_folds_for_the_conductor() {
+        let mut r = room();
+        r.add("d1", Role::Musician, Some(DECKS));
+        r.add("d2", Role::Musician, Some(DECKS));
+        r.send("cond", Message::SceneSync(push(None)), 0);
+        r.drain();
+        r.send("d1", Message::DeckSynced(synced(SyncState::Syncing, &[])), 0);
+        let got = r.inbox("cond");
+        assert!(got.iter().any(|e| matches!(&e.message, Message::DeckSynced(d) if d.state == SyncState::Syncing) && e.from == "d1"));
+        assert!(r.kinds("d2").is_empty(), "to the conductor only");
+        assert!(r.s.presence().ready.is_empty());
+        r.send("d1", Message::DeckSynced(synced(SyncState::Ready, &[])), 0);
+        r.send("d2", Message::DeckSynced(synced(SyncState::Missing, &["character:catpope"])), 0);
+        assert_eq!(r.s.presence().ready, ["d1"]);
+        let snap = r.s.snapshot_for(Role::Conductor, None).synced.unwrap();
+        assert_eq!((snap["d1"].state, snap["d2"].missing.clone()), (SyncState::Ready, vec!["character:catpope".to_string()]));
+        assert!(r.s.snapshot_for(Role::Musician, Some(DECKS)).synced.is_none(), "the conductor's view only");
+        // the audience can't answer
+        r.send("a1", Message::DeckSynced(synced(SyncState::Ready, &[])), 0);
+        assert!(r.kinds("a1").contains(&"error"));
+        // a deck leaves: its answer goes
+        r.s.leave("d2", 1);
+        assert!(!r.s.snapshot_for(Role::Conductor, None).synced.unwrap().contains_key("d2"));
+        // a new push: the old answers are forgotten, nobody is ready for it yet
+        r.send("cond", Message::SceneSync(SceneSync { scene: "sermon".into(), ..push(None) }), 2);
+        assert!(r.s.snapshot_for(Role::Conductor, None).synced.is_none());
+        assert!(r.s.presence().ready.is_empty());
+        // a late answer to the old scene still reaches the conductor but isn't kept
+        r.drain();
+        r.send("d1", Message::DeckSynced(synced(SyncState::Ready, &[])), 3);
+        assert_eq!(r.kinds("cond").first(), Some(&"deck.synced"));
+        assert!(r.s.snapshot_for(Role::Conductor, None).synced.is_none());
     }
 
     #[test]

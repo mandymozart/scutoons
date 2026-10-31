@@ -133,6 +133,10 @@ pub enum Message {
 	DeckGraph(DeckGraph),
 	#[serde(rename = "deck.values")]
 	DeckValues(DeckValues),
+	#[serde(rename = "scene.sync")]
+	SceneSync(SceneSync),
+	#[serde(rename = "deck.synced")]
+	DeckSynced(DeckSynced),
 	#[serde(rename = "error")]
 	Error(Error),
 }
@@ -171,6 +175,8 @@ impl Message {
 			Message::Devices(_) => "devices",
 			Message::DeckGraph(_) => "deck.graph",
 			Message::DeckValues(_) => "deck.values",
+			Message::SceneSync(_) => "scene.sync",
+			Message::DeckSynced(_) => "deck.synced",
 			Message::Error(_) => "error",
 		}
 	}
@@ -289,6 +295,12 @@ pub struct Snapshot {
 	/// #188: every deck's being by client id (the conductor's snapshot)
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub decks: Option<std::collections::HashMap<String, DeckState>>,
+	/// #195: the last `scene.sync`, if it is addressed to this client (a deck joining later syncs too; the conductor always sees it)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub sync: Option<SceneSync>,
+	/// #195: each deck's last `deck.synced` for that sync, by client id (the conductor's snapshot)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub synced: Option<std::collections::HashMap<String, DeckSynced>>,
 	/// the session's seq when the snapshot was taken
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub seq: Option<i64>,
@@ -701,6 +713,70 @@ pub struct DeckValues {
 	pub values: std::collections::HashMap<String, Vec<f64>>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub mood: Option<String>,
+}
+
+/// #195: conductor → relay → the decks (the group `decks`, or only the client ids in `decks`): fetch what this scene needs into the cache – the same scene-content request (`GET /api/library/scene-content`) and cache as a deck's own scene, skipping what is there – and answer `deck.synced`. Only the conductor sends it; the relay logs it and keeps the last one for the snapshot, so a deck that joins later syncs too.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SceneSync {
+	/// the scene / show id the sync is for (`deck.synced` names it back)
+	pub scene: String,
+	/// set ids – each deck fetches the set's 3D at its own quality
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub sets: Option<Vec<String>>,
+	/// character ids – every portrait the API lists
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub characters: Option<Vec<String>>,
+	/// #191: lent beings – reserved, no deck reads it yet
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub beings: Option<Vec<String>>,
+	/// only these client ids (missing = every deck)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub decks: Option<Vec<String>>,
+}
+
+/// #195: syncing = files still to settle; ready = every item is in the cache; missing = settled, but some item is not there (`why`); offline = the API can't be reached and some item is not in the cache.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum SyncState {
+	#[serde(rename = "syncing")]
+	Syncing,
+	#[serde(rename = "ready")]
+	Ready,
+	#[serde(rename = "missing")]
+	Missing,
+	#[serde(rename = "offline")]
+	Offline,
+}
+
+impl SyncState {
+	pub fn as_str(self) -> &'static str {
+		match self {
+			SyncState::Syncing => "syncing",
+			SyncState::Ready => "ready",
+			SyncState::Missing => "missing",
+			SyncState::Offline => "offline",
+		}
+	}
+}
+
+/// #195: a deck → relay → the conductor, while it works on a `scene.sync` (progress) and when it is done – like `media.ready`. Items are `set:<id>` and `character:<id>`; one in neither list is still syncing. The relay keeps each deck's last one for the conductor's snapshot (`synced`) and marks a deck ready in presence once its state is ready.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DeckSynced {
+	pub scene: String,
+	pub state: SyncState,
+	/// files settled (fetched, cached or failed)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub done: Option<u64>,
+	/// files the items need
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub total: Option<u64>,
+	/// bytes downloaded for this sync
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub bytes: Option<u64>,
+	pub ready: Vec<String>,
+	pub missing: Vec<String>,
+	/// the reason per missing item
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub why: Option<std::collections::HashMap<String, String>>,
 }
 
 /// A deck's being in the conductor's snapshot: its graph and its latest values (all of them, folded).

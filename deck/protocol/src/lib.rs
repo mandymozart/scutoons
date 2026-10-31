@@ -93,6 +93,26 @@ mod tests {
         assert_eq!(ready.missing, ["choir"]);
     }
 
+    /// #195: the conductor's push and a deck's answer, typed; a late joiner's welcome carries the push
+    #[test]
+    fn typed_scene_sync() {
+        let raw: Vec<Envelope> = serde_json::from_str(FIXTURE).unwrap();
+        let push = raw.iter().find_map(|e| if let Message::SceneSync(s) = &e.message { Some(s) } else { None }).unwrap();
+        assert_eq!((push.scene.as_str(), push.decks.as_ref()), ("cathedral", None));
+        let answer = raw.iter().find_map(|e| match &e.message {
+            Message::DeckSynced(d) if d.state == SyncState::Missing => Some(d),
+            _ => None,
+        });
+        let answer = answer.unwrap();
+        assert_eq!(answer.missing, ["character:yellowmouse"]);
+        assert!(answer.why.as_ref().unwrap()["character:yellowmouse"].contains("unknown"));
+        let late = raw.iter().find_map(|e| match &e.message {
+            Message::Welcome(w) if w.group.as_deref() == Some("decks") => w.snapshot.sync.clone(),
+            _ => None,
+        });
+        assert_eq!(late.unwrap().characters.unwrap(), ["catpope"]);
+    }
+
     #[test]
     fn unknown_kind_is_an_error() {
         let bad = r#"{"v":1,"seq":0,"from":"x","kind":"teleport","p":{}}"#;

@@ -57,6 +57,8 @@ export type Message =
 	| { kind: 'devices'; p: Devices }
 	| { kind: 'deck.graph'; p: DeckGraph }
 	| { kind: 'deck.values'; p: DeckValues }
+	| { kind: 'scene.sync'; p: SceneSync }
+	| { kind: 'deck.synced'; p: DeckSynced }
 	| { kind: 'error'; p: Error };
 
 /** A payload whose shape B.6 names but this skeleton does not fix yet (say / line / fx / colour, cue actions). */
@@ -122,6 +124,10 @@ export interface Snapshot {
 	say?: Record<string, Loose>;
 	/** #188: every deck's being by client id (the conductor's snapshot) */
 	decks?: Record<string, DeckState>;
+	/** #195: the last `scene.sync`, if it is addressed to this client (a deck joining later syncs too; the conductor always sees it) */
+	sync?: SceneSync;
+	/** #195: each deck's last `deck.synced` for that sync, by client id (the conductor's snapshot) */
+	synced?: Record<string, DeckSynced>;
 	/** the session's seq when the snapshot was taken */
 	seq?: number;
 }
@@ -380,6 +386,39 @@ export interface DeckGraph {
 export interface DeckValues {
 	values: Record<string, number[]>;
 	mood?: string;
+}
+
+/** #195: conductor → relay → the decks (the group `decks`, or only the client ids in `decks`): fetch what this scene needs into the cache – the same scene-content request (`GET /api/library/scene-content`) and cache as a deck's own scene, skipping what is there – and answer `deck.synced`. Only the conductor sends it; the relay logs it and keeps the last one for the snapshot, so a deck that joins later syncs too. */
+export interface SceneSync {
+	/** the scene / show id the sync is for (`deck.synced` names it back) */
+	scene: string;
+	/** set ids – each deck fetches the set's 3D at its own quality */
+	sets?: string[];
+	/** character ids – every portrait the API lists */
+	characters?: string[];
+	/** #191: lent beings – reserved, no deck reads it yet */
+	beings?: string[];
+	/** only these client ids (missing = every deck) */
+	decks?: string[];
+}
+
+/** #195: syncing = files still to settle; ready = every item is in the cache; missing = settled, but some item is not there (`why`); offline = the API can't be reached and some item is not in the cache. */
+export type SyncState = 'syncing' | 'ready' | 'missing' | 'offline';
+
+/** #195: a deck → relay → the conductor, while it works on a `scene.sync` (progress) and when it is done – like `media.ready`. Items are `set:<id>` and `character:<id>`; one in neither list is still syncing. The relay keeps each deck's last one for the conductor's snapshot (`synced`) and marks a deck ready in presence once its state is ready. */
+export interface DeckSynced {
+	scene: string;
+	state: SyncState;
+	/** files settled (fetched, cached or failed) */
+	done?: number;
+	/** files the items need */
+	total?: number;
+	/** bytes downloaded for this sync */
+	bytes?: number;
+	ready: string[];
+	missing: string[];
+	/** the reason per missing item */
+	why?: Record<string, string>;
 }
 
 /** A deck's being in the conductor's snapshot: its graph and its latest values (all of them, folded). */
