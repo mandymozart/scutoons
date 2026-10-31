@@ -1,11 +1,16 @@
 # The deck's own relay (deck/relay, LIVE.md B.4 local mode): the venue's LAN when there is none, the bridge's default.
+# wss (#201): with the venue certificate in /var/lib/deck/tls (fullchain.pem + privkey.pem, fetched by `deck-tls`) the
+# same port 7700 speaks ws AND wss – the LAN decks keep ws://<ip>:7700, phones on https pages open
+# wss://<deck>.lan.scutoons.com:7700. A wss relay that exits with an error (a pair that does not load) is followed by a
+# plain one until the next restart (logged), so a broken certificate never leaves the venue without a relay; a renewed
+# pair is picked up without a restart (deck/relay tls.rs). `deck-tls` restarts the unit after an install.
 [Unit]
 Description=SCUTOONS Live relay (local)
 After=network.target
 
 [Service]
 User=deck
-ExecStart=/usr/bin/deck-relay 0.0.0.0:7700
+ExecStart=/bin/sh -c 'tls=/var/lib/deck/tls; if [ -r "$$tls/fullchain.pem" ] && [ -r "$$tls/privkey.pem" ]; then /usr/bin/deck-relay 0.0.0.0:7700 --tls-cert "$$tls/fullchain.pem" --tls-key "$$tls/privkey.pem" || { echo "deck-relay: wss did not start - plain ws" >&2; exec /usr/bin/deck-relay 0.0.0.0:7700; }; else exec /usr/bin/deck-relay 0.0.0.0:7700; fi'
 Restart=always
 RestartSec=1
 

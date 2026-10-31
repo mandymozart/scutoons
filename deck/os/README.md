@@ -99,6 +99,25 @@ the kernel and initramfs stay in the ISO (an installed deck gets the stock hook 
 (uid 1000) is in audio, video, input, realtime, uucp; PipeWire runs at 48 kHz / quantum 128 with rtkit
 (`rootfs/etc/pipewire/pipewire.conf.d/10-deck-rt.conf`) under `user@1000` (linger) so the check can read it.
 
+## wss in the venue (#201)
+
+A phone on https://scutoons.com/live/deck may not open `ws://192.168.…`, so the deck's relay also speaks **wss on the
+same port 7700** once it has the venue certificate (`*.lan.scutoons.com`, Let's Encrypt; the API hands it to admins).
+The deck's name is an A record `<deck>.lan.scutoons.com` → its LAN IP (the API's `PUT /api/admin/lan-names/<deck>`, or
+by hand at all-inkl). Phase A is by hand, on tty2 as root:
+
+1. `deck-set tls_token <token>` – an admin's AI connection (scutoons.com → account → AI connections; it can only read
+   the admin API). The deck token replaces it with #180.
+2. `deck-tls` – fetches `GET /api/admin/lan-cert?format=pem` into `/var/lib/deck/tls/{fullchain.pem,privkey.pem}`
+   (root:deck, the key 0640), restarts `deck-relay`; `deck-tls --status` shows the names and the expiry.
+3. `journalctl -u deck-relay` says `relay listening (ws + wss)`; from a laptop on the LAN:
+   `curl https://<deck>.lan.scutoons.com:7700/status`.
+
+`deck-relay.service` starts with the certificate when both files are readable, else plain ws; a wss relay that fails
+(a broken pair) is followed by a plain one. A renewed pair in the folder is used from the next connection on (no
+restart) – but fetching it is still `deck-tls` by hand (Phase B: the deck fetches it itself with its token, #180). The
+owner's whole path (secrets, the workflow, the name, the router's DNS-rebind exception): research/LIVE.md B.4.
+
 ## Install to a partition
 
 `sudo deck-install` on the stick (a shell on tty2 or the serial console). It lists the machine's partitions (the
