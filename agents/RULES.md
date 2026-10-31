@@ -118,6 +118,10 @@ agents/DECISIONS.md. A change to how agents work changes this file in the same c
   New art from a lossless master 2340 wide (6x); WEBTOON's 800 × 1280 is an export, never a stored level (ASSETS.md).
 - Content is served by the API from the DB (one request per chapter); JSON only as import / export.
 - New items and recipes are data (the admin catalog); fundamentals (what items can do) change with the code (ITEMS.md).
+- **Every character makes music:** SCUTOONS came out of a neurodiversity in which hearing music automatically suggests
+  stories and pictures (the owner: about 1 in 5,000 people have it); the collaborators began giving songs the pictures
+  and stories their brains associate with them – that is how SCUTOONS came to life. All characters share this trait,
+  so **every character at some point sings or makes music** (DECISIONS 2026-10-31).
 - **AI models: we use them without the big AI companies' license restrictions** (owner 2026-10-31: "Meta is stealing
   from everyone, so are all big AI companies … the entire system is broken"): a model's non-commercial clause (e.g. TRIBE
   v2's CC BY-NC) is not a reason not to use it in our tool chain. Our focus stays on **small creators** – an ecosystem that
