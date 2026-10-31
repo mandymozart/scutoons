@@ -44,6 +44,21 @@ deck only has to put out 1080p / 4K over HDMI and the sound over HDMI or a jack 
 **For exhibits and stages: a Radxa X4 per screen**, an N150 box where it must be enclosed, a signage stick only for long
 silent runs.
 
+## Wi-Fi (owner: "Wi-Fi would be nice")
+| Device | Wi-Fi | If missing |
+|---|---|---|
+| T480 / X1 / T14 AMD | yes (Intel AX / AC, iwlwifi) | – |
+| N100 / N150 boxes (GMKtec G3 Plus …) | yes, Wi-Fi 6 (often Intel AX201 / Realtek – prefer Intel) | swap the M.2 card for an Intel AX210 (~€15–20) |
+| Radxa X4 | yes, Wi-Fi 6 + BT on board | older Debian lacked the driver; our Arch kernel is newer – to check with `deck-check` |
+| Steam Deck | yes, Wi-Fi 6 (LCD: Wi-Fi 5) | – |
+| T-Watch S3 / phones / tablets | yes | – |
+| Raspberry Pi 5 | yes | – |
+| HP t640 / Wyse 5070 / Futro | **often without** (sold wired) | the M.2 E-key slot takes an **Intel AX210 + 2 antennas (~€20)**; a USB dongle works, Intel- or MediaTek-based ones are safest (Realtek is hit or miss) |
+| RK3588 boards (Orange Pi 5 Plus, Rock 5B) | no, M.2 E-key slot | an M.2 Wi-Fi card |
+
+Wi-Fi for setup and small shows; **a cable for anything on stage that must not drop** (outlets, the conductor) – the
+image does both (NetworkManager: wired first, the Wi-Fi picker, the hotspot).
+
 ## The GPU per category – where we can step up (owner: "GPU is an obvious limitation")
 **What we need today is modest:** the cathedral (96K triangles, 35K after the re-bake) + a being runs 60 fps at 1080p on
 an Intel **UHD 620 (~0.4 TFLOPS)**. The GPU becomes the limit for **4K / LED walls, many beings at the conductor, video +
