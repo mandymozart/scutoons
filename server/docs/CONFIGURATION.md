@@ -81,6 +81,8 @@ storyboard generations, default `GENERATION_BUDGET`; 0 = no budget = paid jobs r
 | `CACHE_DRIVER`, `CACHE_PATH` | `auto`, `storage/cache` | server cache of the library answers (docs/API.md "Library"): `auto` = APCu when enabled, else files below `CACHE_PATH`; `apcu`, `file`, `none` |
 | `MIGRATION_BACKUP_PATH` | `storage/migration-backups` | the developer's migration runs (`/api/dev`, BACKLOG 10.61) back up the rows each UPDATE / DELETE changes here first – JSON lines, one file per run; private |
 | `MIGRATE_KEY` | – | `POST /api/deploy/migrate` with `X-Migrate-Key: <this>` runs the pending migrations (the deploy, GitHub secret `MIGRATE_KEY`, ≥ 32 random characters); empty = 404 |
+| `KAS_LOGIN`, `KAS_AUTH_DATA` | –, – | all-inkl's KAS API (#201, docs/API.md "LAN names"): the KAS login (w0…) and its password – the api sets `<deck>.lan.scutoons.com` A records with them (GitHub secrets of the same names, also read by the workflow lan-cert.yml for the DNS-01 challenge); empty = `/api/admin/lan-names` answers 503 |
+| `LAN_CERT_PATH` | `storage/lan-cert` | the `*.lan.scutoons.com` certificate the workflow lan-cert.yml stores (`PUT /api/deploy/lan-cert`): fullchain.pem, privkey.pem (0600), meta.json; private, never deployed over |
 | `MIGRATIONS_PATH` | `migrations` | the migration files the developer's runs plan and apply (`<path>/mysql/*.mysql.sql`; tests point it elsewhere) |
 | `CONTENT_SHOW_DRAFTS` | `0` | `1` = the library endpoints show `draft` toons/chapters (local development, like the dev viewer); production `0` |
 | `FILES_PATH` | `storage/files` | batch manifests, QR SVGs, certificates, signatures, ZIPs (was `generate/files/`) |

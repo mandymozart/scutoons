@@ -37,6 +37,7 @@ use Scutoons\Http\Controllers\Admin\PushController as AdminPushController;
 use Scutoons\Http\Controllers\Admin\FeaturedController;
 use Scutoons\Http\Controllers\Admin\ContentController as AdminContentController;
 use Scutoons\Http\Controllers\Admin\SettingsController;
+use Scutoons\Http\Controllers\Admin\LanController;
 use Scutoons\Http\Controllers\Admin\ServerLogController;
 use Scutoons\Http\Controllers\Admin\SystemController;
 use Scutoons\Http\Controllers\Admin\ReadingController;
@@ -413,6 +414,10 @@ return static function (App $app): void {
         $admin->post('/push/team-test', [AdminPushController::class, 'teamTest']);
         $admin->get('/settings', [SettingsController::class, 'get']);
         $admin->put('/settings', [SettingsController::class, 'put']);
+        // the venue relay's names + certificate (#201, Domain\Lan): <name>.lan.scutoons.com via all-inkl's KAS API
+        $admin->get('/lan-names', [LanController::class, 'names']);
+        $admin->put('/lan-names/{name}', [LanController::class, 'setName']);
+        $admin->get('/lan-cert', [LanController::class, 'cert']);
         // the email module (Domain\Mail): templates + previews, the sent-mail log, the admin notification recipients
         $admin->get('/emails/templates', [EmailsController::class, 'templates']);
         $admin->get('/emails/templates/{id}/preview', [EmailsController::class, 'preview']);
@@ -546,6 +551,8 @@ return static function (App $app): void {
         $dev->post('/migrations/runs/{id:[0-9a-f-]{36}}/apply', [DevController::class, 'apply']);
     })->add(new RequireRole($c->get(Roles::class), Roles::DEVELOPER));
     $app->post('/api/deploy/migrate', [DevController::class, 'deploy']);
+    // the workflow lan-cert.yml hands over the renewed *.lan.scutoons.com certificate (#201) – the same deploy key
+    $app->put('/api/deploy/lan-cert', [LanController::class, 'storeCert']);
 
     // Everything else below /api/ is unknown (ErrorHandler → 404 not_found "Unknown endpoint.")
     $app->any('/api[/{rest:.*}]', NotFoundController::class);
