@@ -45,16 +45,22 @@ State 2026-10-12. How agents work: agents/RULES.md. Open work: GitHub issues + t
   The sketch → 3D experiment is removed; its learnings: research/CHARACTERS3D.md.
 
 ## Last run
-2026-10-30 night, coordinated with the OSCT orchestration (agents/ORCHESTRATION.md); one agent at a time on `main`,
-nothing pushed after 7afaa558 (#182 merged + pushed on the owner's word).
-- **Built, deck:** #181 tempo clock (BPM / click / MIDI clock in+out / OSC / Link feature) · #183 batch graph in the
-  stage (16 FM voices 38 → 10 µs, AVX2 by runtime dispatch) · #188 phases 1–3 cathedral scene (`--scene cathedral`:
-  glTF room, orbit camera, the being from the graph, 3D buttons) · #185 modules as cargo features + `--dev` hot reload ·
-  #187 `dmx-usbpro` adapter · #186 the `live` module (a deck plays its outlet's cells; research/LIVE-LENSES.md) ·
-  #184 `@scutoons/live-core` (deck-core wasm in a worker + AudioWorklet; fixed wire records, not JSON).
-- **Built, web:** #194 season save in the draft preview (published chapters only) + the dialog buttons on a phone.
-- **ISO:** deck/os/out/s4 (08:14) – everything above except #186 / #184 and Link; not on a stick, not on the X1.
-- **New issues from the owner:** #188–#193 (cathedral, conductor, sermon rehearsal, beings, carrier bag, sets).
-- **Look at / owner:** the X1 test of s4 (cathedral needs `cathedral.low.glb` in the cache's `rooms/`); buy the
-  Enttec DMX USB Pro (#187); #186's four questions; #192's timing vs Chapter 3; push when ready.
-- **Green:** deck workspace 250 tests + clippy -D warnings; viewer check 0 errors / 150 tests; live-core 15.
+2026-10-30 evening → 31 night, coordinated with the OSCT orchestration; one agent at a time on `main`. Pushed on the
+owner's word up to 80e26c22 (API scene-content + the cathedral set live); **29 commits since are not pushed**.
+- **The 3-device test (evening, owner):** the conductor on the PC + the X1 on stick s5 + the S22 in Chrome
+  (`deck/lab` page over `adb reverse`) in one session `CATH` over the LAN relay – beings in the circle, values, moods.
+- **Built, deck:** #188 moods (20, feedback ↔ sound), the set without the incense burner, tethered buttons + feedback
+  (hover, gauge, labels, lock, reset, touch), no auto-turning camera · #195 sync from the API into the cache + the
+  conductor pushes a scene sync (`scene.sync` / `deck.synced`) · relay keep-alive (ghost decks gone) · deck-persist
+  (fast first boot, cut-off recovery, Wi-Fi kept) · `deck-set`, tty2 without a login · #74 the cathedral re-baked in
+  Blender (low 35K tris, 0.5 MB; v2 on the CDN + migration 2026-10-31-cathedral-set-v2, not deployed).
+- **Built, web:** #197 the browser deck (deck/lab) → #198 `deck-space` crate as wasm (WebGL2 on the S22, no WebGPU
+  there) under `/live/deck` in the viewer (unlisted, open to all; Svelte overlay; `@scutoons/live-deck`).
+- **ISO:** deck/os/out/s6 (02:57) – all of the above except #195's push (built after). s5 is on the stick.
+- **Look at / owner:** push (deploys the v2 migration + `/live/deck` + .htaccess COOP/COEP on `/live/…`); s6 on the
+  stick; `/live/deck` on the S22 (fps, touch, the head – it was locked at night); the wasm files are git-ignored, so
+  production's `/live/deck` has no 3D / sound until the deploy builds them or they are committed; a hosted relay (wss);
+  #181 sync / tap / off per deck; who may turn other decks' buttons; clean up the `scutoons/rooms/` and `.3d` set copies
+  under Admin → Assets → Unused.
+- **Green:** deck workspace 303 tests + clippy -D warnings (also wasm32); viewer 154 tests / svelte-check 0 errors;
+  live-deck 15, live-core 15; server 490 (MariaDB) at #195's API. `check:tools-css` red before this run (creator / ui).
