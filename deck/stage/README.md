@@ -324,7 +324,14 @@ with the token, ready, the cell, resume, the snapshot after a restart). Not yet:
   as a block (the stage before #183) – the reference the tests compare with: two seconds of the same scene agree
   within 2e-7 (sines), 1e-5 (the default scene), 2e-4 (16 FM voices at index 4.5 – FM multiplies deck-core's sine
   error by the modulation). Control values reach the callback as atomics (`Param`), tracks through a lock-free ring
-  (rtrb), the FFT's samples leave through another; a hard limit before the device. `tests/no_alloc.rs` counts
+  (rtrb), the FFT's samples leave through another. **No zipper** (#188): every control input glides across its
+  block – deck-core's `smooth::Ramp`, a one-pole per block spread linearly per sample (gains, frequencies 25 ms, the
+  rest 12 ms), the same in the voices, the blocks and the browser's batch. **The soft limiter** (deck-core's
+  `limiter.rs`, also live-core's) instead of a hard clamp, last before the device: 64 frames look-ahead (the stamp
+  accounts for it), held to −1 dBFS, a tanh bend above 0.95 – never 1; its gain reduction and the device's underruns
+  (a block heard later than the last one's end, `Engine::mark`) go to the HUD: `AUDIO PIPEWIRE 48K 21MS XRUN 0/M LIM
+  3`. `examples/render-wav.rs` renders 10 s of the cathedral with a hand on the knobs into a WAV and prints the
+  largest sample step (2026-10-31: 0.142 → 0.060, second difference 0.145 → 0.015). `tests/no_alloc.rs` counts
   allocations around 2000 callbacks of the default scene (the click on, the tempo changing), AVX2 and baseline: zero.
   Each block is stamped with the moment it is heard – the time base (`src/clock.rs`).
 - **x86-64-v3** (owner 2026-10-30): one baseline x86-64 binary; the voice batches' loops are compiled twice (once with

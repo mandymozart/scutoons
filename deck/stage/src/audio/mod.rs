@@ -18,6 +18,7 @@ use crate::tempo;
 use crate::graph::{Domain, Graph, Kind, PortType};
 use anyhow::Result;
 use deck_core::batch::levels;
+use deck_core::limiter::{self, Limiter};
 use voices::{VoiceKind, Voices};
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -158,6 +159,16 @@ pub struct Engine {
     frames: Arc<AtomicU64>,
     stamp: Arc<Stamp>,
     meters: Option<Arc<Meters>>,
+    /// the output's soft cap (#188, deck-core's limiter.rs) – last before the device, instead of a hard clamp – and
+    /// its block buffer
+    limiter: Limiter,
+    mix: Stereo,
+    /// the deepest gain reduction (dB, f32 bits) since the frame thread last took it
+    reduction: Arc<AtomicU32>,
+    /// late blocks (`mark`): the count, and the last mark (frames rendered, heard at)
+    underruns: Arc<AtomicU64>,
+    last_mark: Option<(u64, u64)>,
+    rate: f32,
 }
 
 /// What the frame thread keeps of a built engine.
@@ -178,6 +189,17 @@ pub struct Handles {
     pub tempo: Arc<tempo::Shared>,
     /// how the engine was built (the HUD shows it)
     pub build: Build,
+    /// the limiter's deepest gain reduction since the last `take_reduction` (#188: the HUD, the being's red face)
+    pub reduction: Arc<AtomicU32>,
+    /// blocks the device played late (an underrun: `Engine::mark` saw a gap) – the HUD's XRUN per minute
+    pub underruns: Arc<AtomicU64>,
+}
+
+impl Handles {
+    /// the limiter's deepest gain reduction (dB) since the last call
+    pub fn take_reduction(&self) -> f32 {
+        f32::from_bits(self.reduction.swap(0, Ordering::Relaxed))
+    }
 }
 
 pub struct MusicFeed {
@@ -205,6 +227,8 @@ impl Engine {
             master: Param::new(volume),
             tempo: Arc::new(tempo::Shared::default()),
             build,
+            reduction: Arc::new(AtomicU32::new(0)),
+            underruns: Arc::new(AtomicU64::new(0)),
         };
         // the scene's tempo until the frame thread takes over
         let cfg = tempo::Config::from_graph(graph)?;
@@ -275,6 +299,12 @@ impl Engine {
             gain: volume,
             frames: handles.clock.frames.clone(),
             stamp: handles.clock.stamp.clone(),
+            limiter: Limiter::new(rate),
+            mix: Stereo::new(),
+            reduction: handles.reduction.clone(),
+            underruns: handles.underruns.clone(),
+            last_mark: None,
+            rate,
         };
         Ok((engine, handles))
     }
@@ -287,8 +317,20 @@ impl Engine {
 
     /// The block about to be rendered is heard at `heard_ns` (clock::now_ns's clock) – the backends call this right
     /// before `render`. Never allocates, never waits.
-    pub fn mark(&self, heard_ns: u64) {
-        self.stamp.write([self.frames.load(Ordering::Relaxed), heard_ns]);
+    /// The limiter's look-ahead delays the sound by `limiter::LOOK` frames: the stamp says when the block's first frame
+    /// really comes out. A block heard later than the last one's end (by more than half a block + 2 ms of jitter) means
+    /// the device ran dry in between – an underrun, counted for the HUD (#188).
+    pub fn mark(&mut self, heard_ns: u64) {
+        let frames = self.frames.load(Ordering::Relaxed);
+        let ns = |n: u64| (n as f64 * 1e9 / self.rate as f64) as u64;
+        if let Some((f0, h0)) = self.last_mark {
+            let n = frames.saturating_sub(f0);
+            if n > 0 && heard_ns > h0 + ns(n) + ns(n) / 2 + 2_000_000 {
+                self.underruns.fetch_add(1, Ordering::Relaxed);
+            }
+        }
+        self.last_mark = Some((frames, heard_ns));
+        self.stamp.write([frames, heard_ns + ns(limiter::LOOK as u64)]);
     }
 
     /// Fill an interleaved device buffer (`channels` per frame; L, R, the rest silent). Never allocates.
@@ -310,9 +352,16 @@ impl Engine {
             let frames = &mut out[done * channels..(done + n) * channels];
             match self.out_buf.map(|b| &self.bufs[b]) {
                 Some(o) => {
-                    for (f, frame) in frames.chunks_exact_mut(channels).enumerate() {
+                    // the master's ramp, then the soft limiter (never over 1, NaN = silence – no hard clamp, #188)
+                    let mix = &mut self.mix;
+                    for f in 0..n {
                         let master = from + (to - from) * (f + 1) as f32 / n as f32;
-                        let (l, r) = (safe(o.l[f] * master), safe(o.r[f] * master));
+                        (mix.l[f], mix.r[f]) = (o.l[f] * master, o.r[f] * master);
+                    }
+                    self.limiter.process(&mut mix.l[..n], &mut mix.r[..n]);
+                    self.reduction.fetch_max(self.limiter.take_reduction().to_bits(), Ordering::Relaxed);
+                    for (f, frame) in frames.chunks_exact_mut(channels).enumerate() {
+                        let (l, r) = (mix.l[f], mix.r[f]);
                         if channels == 1 {
                             frame[0] = conv(0.5 * (l + r));
                             continue;
@@ -379,15 +428,6 @@ fn audio_in(graph: &Graph, buf_of: &[Option<usize>], node: usize, k: usize) -> O
     }
 }
 
-/// a hard limit before the device (a broken patch must never blast the speakers) and no NaN / inf
-fn safe(x: f32) -> f32 {
-    if x.is_finite() {
-        x.clamp(-1.0, 1.0)
-    } else {
-        0.0
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -417,9 +457,52 @@ mod tests {
         h.master.set(0.0);
         let mut buf = vec![1.0f32; 512 * 4];
         e.render(&mut buf, 4, |x| x); // the ramp down
-        assert_eq!(buf[511 * 4], 0.0, "the ramp ends at the new gain");
+        assert!(buf.chunks(4).all(|f| f[2] == 0.0 && f[3] == 0.0), "the extra channels are silent");
+        e.render(&mut buf, 4, |x| x);
+        // the ramp's end comes out after the limiter's look-ahead (#188): silence from there
+        assert!(buf[deck_core::limiter::LOOK * 4..].iter().all(|x| *x == 0.0), "the ramp ends at the new gain");
         e.render(&mut buf, 4, |x| x);
         assert!(buf.iter().all(|x| *x == 0.0));
+    }
+
+    /// #188: four loud voices summed far over 1 never reach the device's 1 (the soft limiter, no hard clip), and the
+    /// gain reduction reaches the frame thread
+    #[test]
+    fn overload_is_limited_and_its_reduction_reported() {
+        let mut s = String::new();
+        for i in 0..4 {
+            s += &format!("[[node]]\nid=\"o{i}\"\nkind=\"osc\"\nfreq={}\ngain=0.9\n[[link]]\nfrom=\"o{i}\"\nto=\"m.in{}\"\n", 110 + 55 * i, i + 1);
+        }
+        s += "[[node]]\nid=\"m\"\nkind=\"mixer\"\n[[node]]\nid=\"out\"\nkind=\"audio_out\"\nvolume=1\n[[link]]\nfrom=\"m\"\nto=\"out.in\"\n";
+        for build in [Build::detect(), Build::patcher()] {
+            let g = Graph::build(&Scene::parse(&s).unwrap()).unwrap();
+            let (mut e, h) = Engine::build_with(&g, 48_000.0, 1.0, build).unwrap();
+            let mut buf = vec![0.0f32; 48_000 * 2];
+            e.render(&mut buf, 2, |x| x);
+            let peak = buf.iter().fold(0.0f32, |m, x| m.max(x.abs()));
+            assert!(peak < 1.0 && peak > 0.85, "{}: peak {peak}", build.label());
+            assert!(h.take_reduction() > 6.0, "3.6 summed down to the ceiling");
+            assert_eq!(h.take_reduction(), 0.0, "taken");
+        }
+    }
+
+    /// #188: a block the device plays later than the last one's end is an underrun; on time (a little jitter) is not
+    #[test]
+    fn late_blocks_count_as_underruns() {
+        let (mut e, h) = engine(OSC_OUT);
+        let mut buf = vec![0.0f32; 128 * 2];
+        let block = 128 * 1_000_000_000 / 48_000; // 2.67 ms
+        let mut at = 1_000_000_000u64;
+        for k in 0..20u64 {
+            // a millisecond of jitter either way, and one gap of 30 ms after block 10
+            at += block + if k % 2 == 0 { 1_000_000 } else { 0 } - if k % 2 == 1 { 1_000_000 } else { 0 };
+            if k == 10 {
+                at += 30_000_000;
+            }
+            e.mark(at);
+            e.render(&mut buf, 2, |x| x);
+        }
+        assert_eq!(h.underruns.load(Ordering::Relaxed), 1);
     }
 
     #[test]

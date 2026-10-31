@@ -37,6 +37,27 @@ impl Default for Hud {
     }
 }
 
+/// A running count's increase over the last minute, from samples taken now and then (#188: the device's underruns per
+/// minute on the AUDIO line).
+#[derive(Default)]
+pub struct PerMinute {
+    samples: VecDeque<(f32, u64)>,
+}
+
+impl PerMinute {
+    /// the count `n` at `t` s → its increase over the last 60 s (counted from 0 at the first sample's moment)
+    pub fn push(&mut self, t: f32, n: u64) -> u64 {
+        if self.samples.is_empty() {
+            self.samples.push_back((t, 0));
+        }
+        self.samples.push_back((t, n));
+        while self.samples.len() > 1 && t - self.samples[0].0 > 60.0 {
+            self.samples.pop_front();
+        }
+        n.saturating_sub(self.samples[0].1)
+    }
+}
+
 /// `text` broken into HUD lines at spaces (a word longer than a line is cut)
 pub fn wrap(text: &str, cols: usize) -> Vec<String> {
     let mut out: Vec<String> = Vec::new();
@@ -138,6 +159,18 @@ impl Hud {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn per_minute_counts_the_last_minute() {
+        let mut p = PerMinute::default();
+        assert_eq!(p.push(0.0, 0), 0);
+        assert_eq!(p.push(1.0, 2), 2, "two underruns in the first second");
+        for s in 2..=61 {
+            p.push(s as f32, 2);
+        }
+        assert_eq!(p.push(62.0, 3), 1, "the first two are older than a minute");
+        assert!(p.samples.len() <= 62);
+    }
 
     #[test]
     fn text_and_graph_land_in_the_image() {

@@ -195,6 +195,11 @@ struct Stats {
     first_frame_ms: Option<f32>,
     window: (u32, f32),
     fps: f32,
+    /// the limiter's gain reduction the HUD shows (dB, held a moment), the underruns per minute and when last counted
+    limit: f32,
+    xruns: hud::PerMinute,
+    xrun_rate: u64,
+    xrun_at: f32,
 }
 
 /// A loaded scene and everything that plays it: the graph, the audio engine on its device, the control domain, the
@@ -217,6 +222,9 @@ struct Show {
     feeds: Vec<chapter::ChapterFeed>,
     /// the master gain (the browser mutes it; it returns to --volume)
     master: Option<audio::Param>,
+    /// the limiter's gain reduction (dB, f32 bits – taken each frame) and the device's underruns (#188)
+    reduction: Option<Arc<std::sync::atomic::AtomicU32>>,
+    underruns: Option<Arc<std::sync::atomic::AtomicU64>>,
     /// the scene's space node (#188): the camera, the being, the pointer
     space: Option<render::Space>,
     /// the Live outlet (#186): its threads, the space targets for the space node; or why it doesn't play
@@ -387,6 +395,8 @@ impl Show {
         #[cfg(not(feature = "chapter"))]
         let feeds = Vec::new();
         let master = handles.as_ref().map(|h| h.master.clone());
+        let reduction = handles.as_ref().map(|h| h.reduction.clone());
+        let underruns = handles.as_ref().map(|h| h.underruns.clone());
         let meters = handles.as_ref().and_then(|h| h.meters.clone());
         #[cfg(feature = "space")]
         let space = graph.first(graph::Kind::Space).map(|n| {
@@ -454,6 +464,8 @@ impl Show {
             tempo,
             feeds,
             master,
+            reduction,
+            underruns,
             space,
             #[cfg(feature = "live")]
             live,
@@ -744,6 +756,15 @@ impl App {
         }
         #[cfg(feature = "space")]
         self.check_hand();
+        // #188: the limiter's gain reduction since the last frame (the HUD holds it a moment; the being's red face), the
+        // device's underruns per minute (counted once a second)
+        let reduction = self.show.reduction.as_ref().map_or(0.0, |r| f32::from_bits(r.swap(0, std::sync::atomic::Ordering::Relaxed)));
+        self.stats.limit = reduction.max(self.stats.limit - dt * 6.0);
+        if time - self.stats.xrun_at >= 1.0 || time < self.stats.xrun_at {
+            self.stats.xrun_at = time;
+            let n = self.show.underruns.as_ref().map_or(0, |u| u.load(std::sync::atomic::Ordering::Relaxed));
+            self.stats.xrun_rate = self.stats.xruns.push(time, n);
+        }
         #[cfg(feature = "space")]
         if let Some(s) = self.show.space.as_mut() {
             let meters = self.show.meters.as_deref();
@@ -833,8 +854,10 @@ impl App {
     fn hud_lines(&self) -> Vec<String> {
         let last = |v: &[f32]| v.iter().rev().take(60).sum::<f32>() / v.len().clamp(1, 60) as f32;
         let gpu = self.renderer.as_ref().map(|r| format!("{} {:?}", r.adapter.name, r.adapter.backend)).unwrap_or_default();
+        // #188: how far ahead the audio is rendered, underruns in the last minute, the limiter's gain reduction (dB)
+        let ahead = self.lead() as f32 * 1000.0 / self.show.clock.as_ref().map_or(48_000.0, |c| c.rate);
         let audio = match &self.show.audio {
-            Some(a) => format!("{} {} HZ", a.name, a.rate),
+            Some(a) => format!("{} {}K {ahead:.0}MS XRUN {}/M LIM {:.0}", a.name, a.rate / 1000, self.stats.xrun_rate, self.stats.limit),
             None => "off".into(),
         };
         let mut lines = Vec::new();
@@ -861,7 +884,7 @@ impl App {
             "T TAP +/- BPM SPACE RUN F3 SRC K CLICK".into(),
             format!("FPS {:.1}  FRAME {:.1} MS  CPU {:.2} MS", self.stats.fps, last(&self.stats.intervals), last(&self.stats.work)),
             format!("GPU {gpu}"),
-            format!("AUDIO {audio}  T {:.1} S  AHEAD {:.0} MS", self.time(), self.lead() as f32 * 1000.0 / self.show.clock.as_ref().map_or(48_000.0, |c| c.rate)),
+            format!("AUDIO {audio}"),
             self.tempo_line(),
             self.source_line(),
         ]);

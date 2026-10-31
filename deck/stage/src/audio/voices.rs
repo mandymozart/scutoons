@@ -11,6 +11,7 @@
 use super::{Param, Stereo, MAX_BLOCK};
 use crate::graph::{Kind, Node};
 use deck_core::lanes::{self as v, F8, LANES};
+use deck_core::smooth::{Ramp, GLIDE, QUICK};
 
 type Lanes = [f32; LANES];
 
@@ -59,16 +60,22 @@ struct Group {
     env: Lanes,
     att: Lanes,
     rel: Lanes,
-    /// freq, gain, ratio, index – read once per block
+    /// freq, gain, ratio, index – read once per block: the first value and the step per frame (#188: each glides
+    /// across the block, deck-core's smooth.rs)
     p: [Lanes; 4],
+    d: [Lanes; 4],
 }
 
 pub(super) struct Voices {
     kind: VoiceKind,
     /// the first output buffer: voice i writes buffer `out + i`
     pub out: usize,
-    /// per voice: freq, gain, ratio, index (ratio and index: FM only)
+    /// per voice: freq, gain, ratio, index (ratio and index: FM only) and their smoothers
     params: Vec<[Param; 4]>,
+    ramps: Vec<[Ramp; 4]>,
+    /// the smoothers start where the first block's params are
+    fresh: bool,
+    rate: f32,
     /// per voice: the buffer its `cv` input reads (pitch left, gate right)
     cv: Vec<Option<usize>>,
     /// seconds per sample, as fundsp steps its phases
@@ -87,6 +94,9 @@ impl Voices {
             kind,
             out,
             params: vec![],
+            ramps: vec![],
+            fresh: true,
+            rate,
             cv: vec![],
             sd: (1.0 / rate as f64) as f32,
             avx2: avx2 && avx2_available(),
@@ -107,6 +117,7 @@ impl Voices {
         (group.c[l], group.m[l]) = (start_phase(), start_phase());
         (group.att[l], group.rel[l]) = (att, rel);
         self.params.push(params);
+        self.ramps.push([GLIDE, GLIDE, QUICK, QUICK].map(|t| Ramp::new(0.0, t, self.rate)));
         self.cv.push(cv);
     }
 
@@ -133,11 +144,16 @@ impl Voices {
     /// One block: `before` = every buffer of the earlier steps (the cv sources), `outs` = this batch's voices.
     /// Never allocates.
     pub(super) fn process(&mut self, before: &[Stereo], outs: &mut [Stereo], frames: usize) {
-        for (i, (params, cv)) in self.params.iter().zip(&self.cv).enumerate() {
+        let fresh = std::mem::take(&mut self.fresh);
+        for (i, ((params, cv), ramps)) in self.params.iter().zip(&self.cv).zip(&mut self.ramps).enumerate() {
             let (g, l) = (i / LANES, i % LANES);
             let group = &mut self.groups[g];
-            for (p, param) in group.p.iter_mut().zip(params) {
-                p[l] = param.get();
+            for (k, (param, ramp)) in params.iter().zip(ramps.iter_mut()).enumerate() {
+                let x = param.get();
+                if fresh {
+                    ramp.jump(x);
+                }
+                (group.p[k][l], group.d[k][l]) = ramp.block(x, frames);
             }
             let (f, gate) = (&mut self.f[g * MAX_BLOCK..][..frames], &mut self.gate[g * MAX_BLOCK..][..frames]);
             match *cv {
@@ -148,8 +164,9 @@ impl Voices {
                     }
                 }
                 None => {
-                    for (f, gate) in f.iter_mut().zip(gate) {
-                        f[l] = group.p[0][l];
+                    let (f0, df) = (group.p[0][l], group.d[0][l]);
+                    for (s, (f, gate)) in f.iter_mut().zip(gate).enumerate() {
+                        f[l] = f0 + df * s as f32;
                         gate[l] = 1.0;
                     }
                 }
@@ -195,31 +212,35 @@ impl Voices {
 fn run(kind: VoiceKind, group: &mut Group, f: &[Lanes], gate: &[Lanes], y: &mut [Lanes], sd: f32) {
     let (mut c, mut m, mut env) = (F8(group.c), F8(group.m), F8(group.env));
     let (att, rel) = (F8(group.att), F8(group.rel));
-    let [_, gain, ratio, index] = group.p.map(F8);
+    // gain, ratio, index at frame s: first + step · s (they glide across the block – blocks.rs's arithmetic)
+    let [_, g0, r0, k0] = group.p.map(F8);
+    let [_, dg, dr, dk] = group.d.map(F8);
     let (sd, half, one, zero) = (F8::splat(sd), F8::splat(0.5), F8::splat(1.0), F8::splat(0.0));
     let mut envelope = |gate: &Lanes| {
         let target = half.lt_select(F8(*gate), one, zero);
         env = env + (target - env) * env.lt_select(target, att, rel);
         env
     };
-    let frames = f.iter().zip(gate).zip(y);
+    let frames = f.iter().zip(gate).zip(y).enumerate();
     match kind {
         VoiceKind::Sine => {
-            for ((f, gate), y) in frames {
+            for (s, ((f, gate), y)) in frames {
+                let s = F8::splat(s as f32);
                 let o = v::sin_turns(c);
                 c = v::wrap01(c + F8(*f) * sd);
-                *y = (o * envelope(gate) * gain).0;
+                *y = (o * envelope(gate) * (g0 + dg * s)).0;
             }
         }
         VoiceKind::Fm => {
-            for ((f, gate), y) in frames {
+            for (s, ((f, gate), y)) in frames {
+                let s = F8::splat(s as f32);
                 let f = F8(*f);
-                let fm = f * ratio;
+                let fm = f * (r0 + dr * s);
                 let mo = v::sin_turns(m);
                 m = v::wrap01(m + fm * sd);
                 let o = v::sin_turns(c);
-                c = v::wrap01(c + (f + mo * index * fm).abs() * sd);
-                *y = (o * envelope(gate) * gain).0;
+                c = v::wrap01(c + (f + mo * (k0 + dk * s) * fm).abs() * sd);
+                *y = (o * envelope(gate) * (g0 + dg * s)).0;
             }
         }
     }

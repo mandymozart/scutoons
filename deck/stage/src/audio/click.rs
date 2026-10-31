@@ -125,10 +125,12 @@ mod tests {
         let (mut e, _) = Engine::build(&Graph::build(&Scene::parse(SCENE).unwrap()).unwrap(), 48_000.0, 1.0).unwrap();
         let v = render(&mut e, 48_000 * 5 / 2);
         // 120 BPM at 48 kHz: a beat every 24 000 frames; the sine starts at 0, so its first non-zero sample is the next
-        let at: Vec<usize> = onsets(&v).iter().map(|&i| i - 1).collect();
+        // (the output comes the limiter's look-ahead later – deck-core limiter.rs, #188)
+        let at: Vec<usize> = onsets(&v).iter().map(|&i| i - 1 - deck_core::limiter::LOOK).collect();
         assert_eq!(at, vec![0, 24_000, 48_000, 72_000, 96_000]);
-        assert!(crossings(&v, 0) > 26 && crossings(&v, 96_000) > 26, "the bar's first beat is the accent");
-        assert!(crossings(&v, 24_000) < 23);
+        let l = deck_core::limiter::LOOK;
+        assert!(crossings(&v, l) > 26 && crossings(&v, 96_000 + l) > 26, "the bar's first beat is the accent");
+        assert!(crossings(&v, 24_000 + l) < 23);
     }
 
     #[test]
@@ -140,7 +142,7 @@ mod tests {
         let (m, click) = h.tempo.map().unwrap();
         h.tempo.publish(&m.with_bpm(48_000.0, 60.0), click);
         let v = render(&mut e, 96_000);
-        let at: Vec<usize> = onsets(&v).iter().map(|&i| i - 1 + 48_000).collect();
+        let at: Vec<usize> = onsets(&v).iter().map(|&i| i - 1 - deck_core::limiter::LOOK + 48_000).collect();
         assert_eq!(at, vec![48_000, 96_000]);
         // stopped at frame 144 000: silence; the click off: silence
         let (m, _) = h.tempo.map().unwrap();

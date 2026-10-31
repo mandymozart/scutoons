@@ -8,6 +8,7 @@ use super::{Block, Handles, MusicFeed, Param, Stereo, Track};
 use crate::graph::{Kind, Node};
 use crate::tempo::BeatReader;
 use anyhow::{bail, Result};
+use deck_core::smooth::{Ramp, GLIDE, QUICK};
 use fundsp::hacker32::{lowpass, noise, pink, saw, sine, square, triangle, AudioUnit};
 use std::sync::{Arc, Mutex};
 
@@ -19,6 +20,9 @@ pub use crate::params::default_for;
 
 pub fn make(node: &Node, index: usize, rate: f32, params: &[Param], h: &mut Handles) -> Result<Box<dyn Block>> {
     let p = |name: &str| params[node.kind.input(name).expect("a port of this kind")].clone();
+    // a param read once per block, gliding across it (#188, deck-core's smooth.rs): gains and frequencies longer
+    let glide = |name: &str| Glide::new(p(name), GLIDE, rate);
+    let quick = |name: &str| Glide::new(p(name), QUICK, rate);
     Ok(match node.kind {
         Kind::Osc => {
             let unit: Box<dyn AudioUnit> = match node.str("wave").unwrap_or("sine") {
@@ -28,7 +32,7 @@ pub fn make(node: &Node, index: usize, rate: f32, params: &[Param], h: &mut Hand
                 "triangle" => Box::new(triangle()),
                 w => bail!("node '{}': unknown wave '{w}' (sine, saw, square, triangle)", node.id),
             };
-            Box::new(Osc { unit: warm(unit, rate, 1), freq: p("freq"), gain: p("gain"), env: Env::new(rate, node) })
+            Box::new(Osc { unit: warm(unit, rate, 1), freq: glide("freq"), gain: glide("gain"), env: Env::new(rate, node) })
         }
         Kind::Noise => {
             let src: Box<dyn AudioUnit> = match node.str("color").unwrap_or("white") {
@@ -39,18 +43,18 @@ pub fn make(node: &Node, index: usize, rate: f32, params: &[Param], h: &mut Hand
             Box::new(Noise {
                 src: warm(src, rate, 0),
                 filter: warm(Box::new(lowpass()), rate, 3),
-                cutoff: p("cutoff"),
+                cutoff: quick("cutoff"),
                 q: node.f32("q", 0.7),
-                gain: p("gain"),
+                gain: glide("gain"),
             })
         }
         Kind::Fm => Box::new(Fm {
             carrier: warm(Box::new(sine()), rate, 1),
             modulator: warm(Box::new(sine()), rate, 1),
-            freq: p("freq"),
-            ratio: p("ratio"),
-            index: p("index"),
-            gain: p("gain"),
+            freq: glide("freq"),
+            ratio: quick("ratio"),
+            index: quick("index"),
+            gain: glide("gain"),
             env: Env::new(rate, node),
         }),
         Kind::Seq => {
@@ -70,17 +74,17 @@ pub fn make(node: &Node, index: usize, rate: f32, params: &[Param], h: &mut Hand
                 track: None,
                 pos: 0.0,
                 rate,
-                gain: p("gain"),
+                gain: glide("gain"),
                 looped: node.bool("loop", true),
             })
         }
-        Kind::Mixer => Box::new(Mixer { gains: [p("gain1"), p("gain2"), p("gain3"), p("gain4")] }),
+        Kind::Mixer => Box::new(Mixer { gains: [glide("gain1"), glide("gain2"), glide("gain3"), glide("gain4")] }),
         Kind::Fft => {
             let (tx, rx) = rtrb::RingBuffer::new(TAP_RING);
             h.taps.push((index, rx));
             Box::new(FftTap { ring: tx })
         }
-        Kind::AudioOut => Box::new(Out { volume: p("volume") }),
+        Kind::AudioOut => Box::new(Out { volume: glide("volume") }),
         k => bail!("{k:?} is not an audio kind"),
     })
 }
@@ -131,29 +135,60 @@ impl Env {
     }
 }
 
-/// (pitch Hz, gate) for frame i: from the cv input (a seq) or the freq param with the gate open
-fn pitch(cv: Option<&Stereo>, freq: f32, i: usize) -> (f32, f32) {
+/// A control input read once per block that glides across it (#188, owner 2026-10-31: "no crackling"): deck-core's
+/// Ramp from where the last block left it toward the Param's new value – sample i is `first + step · i` (`at`), the
+/// arithmetic the batched voices use (voices.rs). Starts where the first block's value is.
+pub(super) struct Glide {
+    param: Param,
+    ramp: Ramp,
+    fresh: bool,
+}
+
+impl Glide {
+    pub(super) fn new(param: Param, tau: f32, rate: f32) -> Glide {
+        Glide { param, ramp: Ramp::new(0.0, tau, rate), fresh: true }
+    }
+
+    /// this block's (first value, step per sample)
+    #[inline]
+    pub(super) fn block(&mut self, n: usize) -> (f32, f32) {
+        let x = self.param.get();
+        if std::mem::take(&mut self.fresh) {
+            self.ramp.jump(x);
+        }
+        self.ramp.block(x, n)
+    }
+}
+
+/// a gliding input at sample `i`
+#[inline(always)]
+fn at((first, step): (f32, f32), i: usize) -> f32 {
+    first + step * i as f32
+}
+
+/// (pitch Hz, gate) for frame i: from the cv input (a seq) or the (gliding) freq param with the gate open
+fn pitch(cv: Option<&Stereo>, freq: (f32, f32), i: usize) -> (f32, f32) {
     match cv {
         Some(c) => (c.l[i], c.r[i]),
-        None => (freq, 1.0),
+        None => (at(freq, i), 1.0),
     }
 }
 
 struct Osc {
     unit: Box<dyn AudioUnit>,
-    freq: Param,
-    gain: Param,
+    freq: Glide,
+    gain: Glide,
     env: Env,
 }
 
 impl Block for Osc {
     fn process(&mut self, ins: &[Option<&Stereo>], outs: &mut [Stereo], n: usize) {
-        let (freq, gain) = (self.freq.get(), self.gain.get());
+        let (freq, gain) = (self.freq.block(n), self.gain.block(n));
         let mut o = [0.0];
         for i in 0..n {
             let (f, gate) = pitch(ins[0], freq, i);
             self.unit.tick(&[f], &mut o);
-            write(&mut outs[0], i, o[0] * self.env.next(gate) * gain);
+            write(&mut outs[0], i, o[0] * self.env.next(gate) * at(gain, i));
         }
     }
 }
@@ -161,19 +196,19 @@ impl Block for Osc {
 struct Noise {
     src: Box<dyn AudioUnit>,
     filter: Box<dyn AudioUnit>,
-    cutoff: Param,
+    cutoff: Glide,
     q: f32,
-    gain: Param,
+    gain: Glide,
 }
 
 impl Block for Noise {
     fn process(&mut self, _: &[Option<&Stereo>], outs: &mut [Stereo], n: usize) {
-        let (cutoff, gain) = (self.cutoff.get().clamp(20.0, 20_000.0), self.gain.get());
+        let (cutoff, gain) = (self.cutoff.block(n), self.gain.block(n));
         let (mut x, mut y) = ([0.0], [0.0]);
         for i in 0..n {
             self.src.tick(&[], &mut x);
-            self.filter.tick(&[x[0], cutoff, self.q], &mut y);
-            write(&mut outs[0], i, y[0] * gain);
+            self.filter.tick(&[x[0], at(cutoff, i).clamp(20.0, 20_000.0), self.q], &mut y);
+            write(&mut outs[0], i, y[0] * at(gain, i));
         }
     }
 }
@@ -181,23 +216,23 @@ impl Block for Noise {
 struct Fm {
     carrier: Box<dyn AudioUnit>,
     modulator: Box<dyn AudioUnit>,
-    freq: Param,
-    ratio: Param,
-    index: Param,
-    gain: Param,
+    freq: Glide,
+    ratio: Glide,
+    index: Glide,
+    gain: Glide,
     env: Env,
 }
 
 impl Block for Fm {
     fn process(&mut self, ins: &[Option<&Stereo>], outs: &mut [Stereo], n: usize) {
-        let (freq, ratio, index, gain) = (self.freq.get(), self.ratio.get(), self.index.get(), self.gain.get());
+        let (freq, ratio, index, gain) = (self.freq.block(n), self.ratio.block(n), self.index.block(n), self.gain.block(n));
         let (mut m, mut c) = ([0.0], [0.0]);
         for i in 0..n {
             let (f, gate) = pitch(ins[0], freq, i);
-            let fm = f * ratio;
+            let fm = f * at(ratio, i);
             self.modulator.tick(&[fm], &mut m);
-            self.carrier.tick(&[(f + m[0] * index * fm).abs()], &mut c);
-            write(&mut outs[0], i, c[0] * self.env.next(gate) * gain);
+            self.carrier.tick(&[(f + m[0] * at(index, i) * fm).abs()], &mut c);
+            write(&mut outs[0], i, c[0] * self.env.next(gate) * at(gain, i));
         }
     }
 }
@@ -283,7 +318,7 @@ struct Music {
     track: Option<Arc<Track>>,
     pos: f64,
     rate: f32,
-    gain: Param,
+    gain: Glide,
     looped: bool,
 }
 
@@ -301,7 +336,7 @@ impl Block for Music {
             out.r[..n].fill(0.0);
             return;
         };
-        let (len, step, gain) = (t.l.len(), t.rate as f64 / self.rate as f64, self.gain.get());
+        let (len, step, gain) = (t.l.len(), t.rate as f64 / self.rate as f64, self.gain.block(n));
         for i in 0..n {
             let at = self.pos as usize;
             if at + 1 >= len {
@@ -315,15 +350,16 @@ impl Block for Music {
             }
             let at = self.pos as usize;
             let frac = (self.pos - at as f64) as f32;
-            out.l[i] = (t.l[at] + (t.l[at + 1] - t.l[at]) * frac) * gain;
-            out.r[i] = (t.r[at] + (t.r[at + 1] - t.r[at]) * frac) * gain;
+            let g = gain.0 + gain.1 * i as f32;
+            out.l[i] = (t.l[at] + (t.l[at + 1] - t.l[at]) * frac) * g;
+            out.r[i] = (t.r[at] + (t.r[at + 1] - t.r[at]) * frac) * g;
             self.pos += step;
         }
     }
 }
 
 struct Mixer {
-    gains: [Param; 4],
+    gains: [Glide; 4],
 }
 
 impl Block for Mixer {
@@ -331,15 +367,15 @@ impl Block for Mixer {
         let out = &mut outs[0];
         out.l[..n].fill(0.0);
         out.r[..n].fill(0.0);
-        for (k, g) in self.gains.iter().enumerate() {
+        for (k, g) in self.gains.iter_mut().enumerate() {
             let Some(src) = ins[k] else { continue };
-            let g = g.get();
+            let (g, dg) = g.block(n);
             // over slices, not indices: no bounds check per sample, so the loops vectorise
-            for (o, x) in out.l[..n].iter_mut().zip(&src.l[..n]) {
-                *o += x * g;
+            for (i, (o, x)) in out.l[..n].iter_mut().zip(&src.l[..n]).enumerate() {
+                *o += x * (g + dg * i as f32);
             }
-            for (o, x) in out.r[..n].iter_mut().zip(&src.r[..n]) {
-                *o += x * g;
+            for (i, (o, x)) in out.r[..n].iter_mut().zip(&src.r[..n]).enumerate() {
+                *o += x * (g + dg * i as f32);
             }
         }
     }
@@ -362,7 +398,7 @@ impl Block for FftTap {
 }
 
 struct Out {
-    volume: Param,
+    volume: Glide,
 }
 
 impl Block for Out {
@@ -373,12 +409,12 @@ impl Block for Out {
             out.r[..n].fill(0.0);
             return;
         };
-        let v = self.volume.get();
-        for (o, x) in out.l[..n].iter_mut().zip(&src.l[..n]) {
-            *o = x * v;
+        let (v, dv) = self.volume.block(n);
+        for (i, (o, x)) in out.l[..n].iter_mut().zip(&src.l[..n]).enumerate() {
+            *o = x * (v + dv * i as f32);
         }
-        for (o, x) in out.r[..n].iter_mut().zip(&src.r[..n]) {
-            *o = x * v;
+        for (i, (o, x)) in out.r[..n].iter_mut().zip(&src.r[..n]).enumerate() {
+            *o = x * (v + dv * i as f32);
         }
     }
 }
@@ -464,7 +500,9 @@ steps=[69, 81]
         let t = Track { rate: 48_000.0, l: vec![0.25; 64], r: vec![-0.25; 64] };
         h.music[0].tracks.push(Arc::new(t)).ok().unwrap();
         e.render(&mut buf, 2, |x| x);
-        assert_eq!((buf[0], buf[1]), (0.25, -0.25));
+        // out after the limiter's look-ahead (#188)
+        let l = deck_core::limiter::LOOK;
+        assert_eq!((buf[2 * l - 2], buf[2 * l], buf[2 * l + 1]), (0.0, 0.25, -0.25));
         assert_eq!((buf[198], buf[199]), (0.25, -0.25), "looped past the 64-frame track");
     }
 
