@@ -1,0 +1,114 @@
+# The venue certificate (#201, agents/research/LIVE.md B.4): the wildcard *.lan.scutoons.com from Let's Encrypt over
+# the DNS-01 challenge at all-inkl (acme.sh with its `dns_kas` plugin – it sets and removes the TXT record
+# _acme-challenge.lan.scutoons.com through the KAS API), then handed to the API (PUT /api/deploy/lan-cert with the deploy
+# key), which keeps it in storage/lan-cert for the decks (GET /api/admin/lan-cert, `deck-tls` on a deck). A deck's relay
+# then answers wss://<deck>.lan.scutoons.com:7700, so phones on https://scutoons.com/live/deck can join it.
+#
+# Monthly (the 1st, 03:17 UTC) – a certificate lives 90 days, so a missed month or two is no harm – and by hand
+# (Actions → 🔐 LAN certificate → Run workflow; `staging` = Let's Encrypt's test CA: issued and shown, never stored).
+# Every run issues a fresh certificate (the runner keeps no acme.sh state): 12 a year, far under Let's Encrypt's limits.
+# The decks pick a new one up with `deck-tls` (Phase A, by hand; the deck fetches it itself with #180).
+#
+# Settings, all in the GitHub environment `production`:
+#   secret KAS_LOGIN       the KAS login (w0…)               – the same pair the api reads for the LAN names
+#   secret KAS_AUTH_DATA   the KAS password of that login
+#   secret MIGRATE_KEY     the deploy key (already there: the API's DB migrations)
+# Until KAS_LOGIN, KAS_AUTH_DATA and MIGRATE_KEY are set, a run ends green with a notice and issues nothing.
+# The API must already know PUT /api/deploy/lan-cert (deployed after 2026-10-31).
+on:
+  schedule:
+    - cron: '17 3 1 * *'
+  workflow_dispatch:
+    inputs:
+      staging:
+        description: Let's Encrypt's staging CA (a test certificate – shown, not stored)
+        type: boolean
+        default: false
+
+name: 🔐 LAN certificate
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lan-cert
+  cancel-in-progress: false
+
+env:
+  DOMAIN: '*.lan.scutoons.com'
+  API: https://api.scutoons.com/api
+  # acme.sh, pinned (github.com/acmesh-official/acme.sh tags)
+  ACME_SH: '3.1.6'
+
+jobs:
+  cert:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 20
+    steps:
+      - name: What runs (the KAS secrets)
+        id: gate
+        env:
+          HAS_KAS: ${{ secrets.KAS_LOGIN != '' && secrets.KAS_AUTH_DATA != '' }}
+          HAS_KEY: ${{ secrets.MIGRATE_KEY != '' }}
+        run: |
+          if [ "$HAS_KAS" = true ] && [ "$HAS_KEY" = true ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice title=LAN certificate::not set up yet – KAS_LOGIN, KAS_AUTH_DATA and MIGRATE_KEY in the environment production (kas: $HAS_KAS, deploy key: $HAS_KEY); nothing issued"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: acme.sh ${{ env.ACME_SH }}
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          git clone --quiet --depth 1 --branch "$ACME_SH" https://github.com/acmesh-official/acme.sh.git "$RUNNER_TEMP/acme.sh-src"
+          cd "$RUNNER_TEMP/acme.sh-src"
+          ./acme.sh --install --home "$RUNNER_TEMP/acme" --nocron --noprofile > /dev/null
+          "$RUNNER_TEMP/acme/acme.sh" --version
+
+      - name: Issue ${{ env.DOMAIN }} (Let's Encrypt, DNS-01 at all-inkl)
+        if: steps.gate.outputs.run == 'true'
+        env:
+          # the names dns_kas reads (acme.sh dnsapi/dns_kas.sh)
+          KAS_Login: ${{ secrets.KAS_LOGIN }}
+          KAS_Authtype: plain
+          KAS_Authdata: ${{ secrets.KAS_AUTH_DATA }}
+          STAGING: ${{ github.event_name == 'workflow_dispatch' && inputs.staging }}
+        run: |
+          server=letsencrypt
+          if [ "$STAGING" = true ]; then server=letsencrypt_test; fi
+          install -d -m 700 "$RUNNER_TEMP/cert"
+          acme="$RUNNER_TEMP/acme/acme.sh --home $RUNNER_TEMP/acme"
+          $acme --issue --server "$server" --dns dns_kas -d "$DOMAIN" --keylength ec-256 --force
+          $acme --install-cert -d "$DOMAIN" --ecc \
+            --fullchain-file "$RUNNER_TEMP/cert/fullchain.pem" --key-file "$RUNNER_TEMP/cert/privkey.pem"
+          chmod 600 "$RUNNER_TEMP/cert/privkey.pem"
+          {
+            echo "### LAN certificate ($server)"
+            echo '```'
+            openssl x509 -in "$RUNNER_TEMP/cert/fullchain.pem" -noout -subject -issuer -enddate -ext subjectAltName
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Hand it to the API (PUT /api/deploy/lan-cert)
+        if: steps.gate.outputs.run == 'true' && !(github.event_name == 'workflow_dispatch' && inputs.staging)
+        env:
+          MIGRATE_KEY: ${{ secrets.MIGRATE_KEY }}
+        run: |
+          jq -n --rawfile fullchain "$RUNNER_TEMP/cert/fullchain.pem" --rawfile privkey "$RUNNER_TEMP/cert/privkey.pem" \
+            '{ fullchain: $fullchain, privkey: $privkey }' > "$RUNNER_TEMP/cert/body.json"
+          status=$(curl -sS -o "$RUNNER_TEMP/answer.json" -w '%{http_code}' -X PUT "$API/deploy/lan-cert" \
+            -H 'Content-Type: application/json' -H "X-Migrate-Key: $MIGRATE_KEY" --data-binary "@$RUNNER_TEMP/cert/body.json")
+          rm -f "$RUNNER_TEMP/cert/body.json"
+          if [ "$status" != 200 ]; then
+            echo "::error title=LAN certificate::the API answered HTTP $status"
+            jq -r '.error // empty, .message // empty' "$RUNNER_TEMP/answer.json" 2>/dev/null || true
+            exit 1
+          fi
+          echo "Stored: $(jq -c '{ names, expires }' "$RUNNER_TEMP/answer.json")" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "Decks pick it up with \`deck-tls\` (deck/os/README.md \"wss in the venue\")." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove the key from the runner
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/cert" "$RUNNER_TEMP/acme"
