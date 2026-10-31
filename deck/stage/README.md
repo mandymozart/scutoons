@@ -26,14 +26,15 @@ PipeWire → cpal → null; null runs the engine on a timer, no device – the c
 `--volume 0–1` · `--cache DIR` (default `/var/lib/deck/cache` on a deck, `DECK_CACHE`, else the user cache folder) ·
 `--api` / `--cdn` (or `DECK_API` / `DECK_CDN`) · `--windowed` · `--frames N` (quit after N frames and print the numbers –
 a check run) · `--screenshot FILE` (the last frame of a `--frames` run as a PNG) · `--pointer X,Y` (the pointer at a
-window pixel for a check run – a hovered button shows in the HUD) · `--no-hud` · `--dev` (hot reload, below) ·
+window pixel for a check run – a hovered button shows in the HUD; or `--pointer voice.index`: on that button) ·
+`--drag voice.index,0.3` (a check run's drag: pressed after 60 frames, pulled 0.3 of its range out over 30, held) · `--no-hud` · `--dev` (hot reload, below) ·
 `--modules` (what this build carries). Logs: `RUST_LOG`. `DECK_SIMD=baseline` – the audio batches without AVX2 (to compare).
 The graph's workloads: `cargo bench -p deck-stage` (patcher | batch | batch AVX2, µs per block).
 
 Keys: **F1** the HUD · **F2** the browser · **Ctrl+Q** quit (on the deck the stage starts again) · **Ctrl+Alt+Del** power off (`systemctl
 poweroff`, the logo stays up; not in a `--windowed` stage) · Esc quits a `--windowed` stage · the tempo clock: **T** tap ·
 **+ / −** BPM · **Space** start / stop · **F3** the next source (internal → MIDI → Link → OSC → relay) · **K** the click. In a scene with a `space` node: a **mouse drag** turns the camera around the being (or, on a 3D
-button, its value – up = more), the **wheel** / **↑ ↓** zoom, **← →** turn, **R** the camera's home; the pointer stays
+button, pulls it along its tether – out = more; a double click: back to the scene's value; a finger the same), the **wheel** / **↑ ↓** zoom, **← →** turn, **R** the camera's home; the pointer stays
 visible in the kiosk then. The HUD names the keys. F2 with `DECK_BROWSER` set (deck-session sets it to `deck-session browser`) starts that command on
 top of the running stage: the logo comes up until the browser's window takes the focus (cage shows the newest window),
 then the stage stops drawing and mutes; when the command exits the stage is back at once. Without `DECK_BROWSER` F2
@@ -106,7 +107,7 @@ An input takes one link; an output feeds any number. Every control input can als
 | `fft` | in (audio) | level, bass, mid, high (control, 0–1) | `release` (s) |
 | `audio_out` | in (audio), volume | – | the device (one per scene) |
 | `outlet` | in (video: the backdrop), opacity | out (video) | – (one per scene; the relay and the outlet from deck.toml / the CLI – "Live outlet") |
-| `space` | hue, glow, light, pulse (control) | out (video) | `set` (a set id → its 3D at `quality`, `<sets>/<id>/<id>.<quality>.glb`, synced; or a path with its extension, relative to `--sets`), `quality` = low · medium · high (low, the X1's), `at` = [x, y, z] (where the being floats, the set's metres) or `spot` (a node of the set's glTF, `spot_aisle`) + `lift` (1.5 m), `yaw` / `pitch` (°) / `distance` (m) – the camera's start, `max_texture` (2048), `hide` (glTF nodes whose mesh is left out, by name), `join` = deck · conductor · alone (a session with a relay set), `ring` (3.2 m, the decks' circle around a conductor) – one per scene |
+| `space` | hue, glow, light, pulse (control) | out (video) | `set` (a set id → its 3D at `quality`, `<sets>/<id>/<id>.<quality>.glb`, synced; or a path with its extension, relative to `--sets`), `quality` = low · medium · high (low, the X1's), `at` = [x, y, z] (where the being floats, the set's metres) or `spot` (a node of the set's glTF, `spot_aisle`) + `lift` (1.5 m), `yaw` / `pitch` (°) / `distance` (m) – the camera's start, `auto_turn` (false – the camera turns only by hand; true: slowly by itself after 4 s idle), `max_texture` (2048), `hide` (glTF nodes whose mesh is left out, by name), `join` = deck · conductor · alone (a session with a relay set), `ring` (3.2 m, the decks' circle around a conductor) – one per scene |
 
 **chapter** shows the chapter's slices one after the other in reading order (looping), the slice fitted to the height
 over `in` (darkened; without an input a dark stretched copy of the slice), a slow push-in over the hold, a kick by
@@ -129,10 +130,20 @@ point per graph node (sources low, sinks high: data rises toward the head), a ho
 tube; audio thick, video middle, control thin) and thin tendrils from the core to every point. **Bubbles** run along a
 hose from its source to its target when its value changes – control links: the change against the value's recent
 range, more and bigger the more it moves (a steady value: none); audio links: the source buffer's block peak; video
-links: a steady trickle. Every point carries its node's control inputs as **3D buttons** (a lit band shows the value
-in its range, `space/params.rs`) and an LFO also its waveform (sine · saw · square); dragging one sets the input like
-a MIDI CC (`Controls::set`), a button on a linked input has a dark collar, shows the hose's value and does not turn.
-The HUD's last line names the hovered button (`VOICE.INDEX 2.00 [0.00-10.0]`, `SPACE.PULSE 0.58 < FFT`) or node. The
+links: a steady trickle. Every point carries its node's control inputs as **3D buttons** (`space/params.rs` ranges) and an LFO also its
+waveform (sine · saw · square), each on a **tether** (owner 2026-10-31): the core's as spokes, any other node's as a
+chain, each button hanging from the one before it; its value is its distance from that point (low = close, high = far,
+clamped – `tether_len`), so a deck turned up wide sprawls and a quiet one stays compact, on the conductor's mirrored
+beings too. The tether is a thin hose in the parameter's own colour (`param_hue`: freq red, glow amber, index blue …),
+thicker and brighter with the value; while the value moves, bubbles run along it to the node, the node flashes and its
+hoses glow (what the button reaches). A linked button rides its source by itself, pale with a dark bolt and a dashed lock
+ring. **Feedback:** hover swells a button with a thin ring (the pointer a hand); a drag pulls it along its tether like a
+MIDI CC (`Controls::set`) – lit fully inside a 270° value gauge with the range's ends; a 3D label beside it, always
+facing the camera (`glow 0.60`, the range under it; `cutoff 2812 < sway` on a linked one; up to 3 moving buttons of a
+being speak too – `space/label.rs`: a glyph atlas made once, a quad per character, nothing allocated per frame); a drag
+on a linked button shakes it and the HUD says `INCENSE.CUTOFF IS LINKED < SWAY`; a double click eases it back to the
+scene's value (0.5 s). A finger on a touch screen (winit's touch events) does the same with twice the reach. No click
+sound: the audio graph has no cheap one-shot path from the frame thread (the click node only ticks the tempo map). The HUD's last line names the hovered button (`VOICE.INDEX 2.00 [0.00-10.0]`, `SPACE.PULSE 0.58 < FFT`) or node. The
 body drifts, sways and breathes on the tempo clock (a swell on each beat, a wave over the bar; `pulse` kicks it); `hue`
 / `glow` colour it, `light` dims the set. The scene's `[being]` table is its shape: `size` (body radius, 0.5 m),
 `drift` (0.06 m), `breath` (0.035), `wobble` (0.025), `hose` / `bubbles` (thickness / rate factors), `expose` (the
@@ -322,7 +333,7 @@ with the token, ready, the cell, resume, the snapshot after a restart). Not yet:
   made on the loader's thread (the frame that uploads only copies). Not read: the INDICES mode, meshopt filters, Draco,
   KTX2 / Basis, external buffers – a file with those is refused with the extension's name (the rooms' build encodes
   with meshopt's FILTER method, which filters only normals / rotations – the rooms carry none); a plain variant: the
-  rooms' build (tools/rooms/pipeline/build.mjs §5) without its `EXTMeshoptCompression`. `camera.rs` the orbit camera (glam; it turns by itself after 4 s without input, eased in; the ray through a
+  rooms' build (tools/rooms/pipeline/build.mjs §5) without its `EXTMeshoptCompression`. `camera.rs` the orbit camera (glam; it stands still unless touched – the space node's `auto_turn = true` turns it slowly after 4 s without input; the ray through a
   pixel for picking), `being.rs` the body (layout from the graph, the hoses' Béziers, the bubble pools – 12 per hose –,
   the buttons, picking by ray / sphere), `gpu.rs` + `shaders/space.wgsl` the passes into the node's texture with its
   own Depth32 buffer: the set unlit (texture × vertex light × `light`, fog), the solid spheres (nuclei, buttons,
@@ -354,5 +365,6 @@ wgpu-hal's DX12 build on Windows). A bump is its own step.
 | ThinkPad X1 Carbon Gen 7, UHD 620 (anv) | default | open – the owner's stick (deck/HARDWARE.md) |
 | Windows 10, RTX 2070 SUPER, Vulkan, release, 1280 × 720 window (2026-10-30, #188) | cathedral (null audio) – set low / medium / high | 60.4 / 60.4 / 60.3 fps (vsync), CPU per frame 0.37 / 0.39 / 0.40 ms (the default scene: 0.31), first frame 719 / 802 / 827 ms; the set loads on its thread in 174 / 449 / 1574 ms (114,788 / 116,163 / 129,205 triangles, 4 WebP + their mips), its upload 2 / 4 / 9 ms; p99 ~50 ms in every scene = the start |
 | Windows 10, RTX 2070 SUPER, Vulkan, release, 1280 × 720 window (2026-10-30, #188 phases 4–5) | cathedral with its head · conductor + 5 stand-in decks (`--example decks`, same PC) | 60.8 fps, CPU per frame 0.42 ms (0.37 without the head) · 60.2 fps, 1.12 ms (0.39 alone) |
+| Windows 10, RTX 2070 SUPER, Vulkan, release, 1280 × 720 window (2026-10-31, #188 tethered buttons, labels) | cathedral · conductor alone · conductor + 5 stand-in decks (30 s each, null audio) | 60.1 fps each, CPU per frame 0.51 · 0.49 · 1.54 ms (before the tethers: 0.42 · 0.39 · 1.12) |
 | ThinkPad X1 Carbon Gen 7, UHD 620 (anv) | cathedral, conductor | open – the owner's stick |
 | Windows 10, Ryzen 5 3600X, `cargo bench -p deck-stage` (2026-10-30, #183) | the graph, µs per 128-frame block: before #183 → patcher → batch → batch AVX2 | default scene 11.0 → 9.9 → 11.1 → 10.0 (whole v3 binary 7.5) · 1 FM voice – → 2.2 → 3.5 → 2.2 · 16 FM voices 37.8 → 34.1 → 10.2 → 7.7 · 16 sines 20.1 → 15.4 → 7.3 → 5.3 · 64 FM voices – → 125 → 41 → 27 · control step, 300 LFOs: 58.4 → 2.1 (3 levels × 100), 69.6 → 5.5 (300 levels) |
