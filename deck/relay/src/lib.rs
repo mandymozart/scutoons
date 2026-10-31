@@ -1,7 +1,7 @@
 //! The Live relay (agents/research/LIVE.md B.4, protocol B.6): sessions by code, clients with a role and a group,
 //! messages routed by their `to`. The rules of a session – authority, rate limits, snapshot, replay, votes, the clock's
-//! lead, presence – live in `session.rs` (synchronous, unit-tested); this file owns the sockets, the session tokens
-//! (`token.rs`) and the vote timer. Not here: the uplink to the hosted relay (B.4 linked mode) and pickups checked
+//! lead, presence – live in `session.rs` (synchronous, unit-tested); this file owns the sockets (ws, and wss on the same
+//! port when a deck has a certificate – `tls.rs`, #201), the session tokens (`token.rs`) and the vote timer. Not here: the uplink to the hosted relay (B.4 linked mode) and pickups checked
 //! against the API (both need the session API, `POST /api/live/sessions`).
 //!
 //! Dogma (CYBERDECKS.md §2): one task per connection waiting on its socket, one writer task per client fed by a
@@ -11,19 +11,24 @@
 #![allow(clippy::result_large_err)]
 
 pub mod session;
+pub mod tls;
 pub mod token;
 pub mod vote;
 
 use std::collections::HashMap;
+use std::io;
+use std::pin::Pin;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::task::{Context, Poll};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use futures_util::{SinkExt, StreamExt};
 use protocol::{Envelope, Error as ProtocolError, Message, Role, Snapshot, Welcome};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf};
 use tokio::net::{TcpListener, TcpStream};
+use tokio_rustls::TlsAcceptor;
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::handshake::server::{ErrorResponse, Request, Response};
 use tokio_tungstenite::tungstenite::Message as Ws;
@@ -200,32 +205,87 @@ pub fn parse_join(uri: &str) -> Join {
     join
 }
 
-/// Accept connections until the listener fails.
+/// Accept connections until the listener fails – plain ws (the hosted relay: bunny's edge ends TLS).
 pub async fn serve(listener: TcpListener, relay: Arc<Relay>) -> anyhow::Result<()> {
+    serve_with(listener, relay, None).await
+}
+
+/// Accept connections until the listener fails; with a TLS acceptor (tls.rs, #201) the same port speaks ws and wss.
+pub async fn serve_with(listener: TcpListener, relay: Arc<Relay>, tls: Option<TlsAcceptor>) -> anyhow::Result<()> {
     loop {
         let (stream, peer) = listener.accept().await?;
         let relay = relay.clone();
+        let tls = tls.clone();
         tokio::spawn(async move {
-            if let Err(e) = connection(stream, relay).await {
+            let ended = match tls {
+                Some(tls) => plain_or_tls(stream, relay, tls).await,
+                None => connection(stream, relay).await,
+            };
+            if let Err(e) = ended {
                 tracing::debug!(%peer, "connection ended: {e}");
             }
         });
     }
 }
 
-/// Read one HTTP request head (up to and including the blank line) and discard it; bounded to 8 KiB.
-async fn drain_http_request(stream: &mut TcpStream) -> anyhow::Result<()> {
-    let mut buf = Vec::with_capacity(512);
+/// TLS record type "handshake": the first byte of every ClientHello (an HTTP request starts with a letter)
+const TLS_HANDSHAKE: u8 = 0x16;
+
+/// One port, both schemes: a TLS handshake gets TLS, anything else the plain path. Both steps within HELLO_TIMEOUT.
+async fn plain_or_tls(stream: TcpStream, relay: Arc<Relay>, tls: TlsAcceptor) -> anyhow::Result<()> {
+    let mut first = [0u8; 1];
+    let n = tokio::time::timeout(HELLO_TIMEOUT, stream.peek(&mut first)).await??;
+    if n == 1 && first[0] == TLS_HANDSHAKE {
+        let stream = tokio::time::timeout(HELLO_TIMEOUT, tls.accept(stream)).await??;
+        connection(stream, relay).await
+    } else {
+        connection(stream, relay).await
+    }
+}
+
+/// Read into `buf` until `done(buf)` or the peer stops sending.
+async fn read_until<S: AsyncRead + Unpin>(stream: &mut S, buf: &mut Vec<u8>, done: impl Fn(&[u8]) -> bool) -> io::Result<()> {
     let mut chunk = [0u8; 512];
-    loop {
+    while !done(buf) {
         let n = stream.read(&mut chunk).await?;
         if n == 0 {
-            return Ok(());
+            break;
         }
         buf.extend_from_slice(&chunk[..n]);
-        if buf.windows(4).any(|w| w == b"\r\n\r\n") || buf.len() > 8192 {
-            return Ok(());
+    }
+    Ok(())
+}
+
+/// A stream that first gives back the bytes already read from it (the request line the status check looked at), then
+/// reads on – what `peek` was on a bare TCP socket, for a TLS stream too.
+struct Prefixed<S> {
+    head: Vec<u8>,
+    at: usize,
+    inner: S,
+}
+
+impl<S: AsyncRead + Unpin> AsyncRead for Prefixed<S> {
+    fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
+        let this = &mut *self;
+        if this.at < this.head.len() {
+            let n = (this.head.len() - this.at).min(buf.remaining());
+            buf.put_slice(&this.head[this.at..this.at + n]);
+            this.at += n;
+            return Poll::Ready(Ok(()));
         }
+        Pin::new(&mut this.inner).poll_read(cx, buf)
+    }
+}
+
+impl<S: AsyncWrite + Unpin> AsyncWrite for Prefixed<S> {
+    fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+        Pin::new(&mut self.inner).poll_write(cx, buf)
+    }
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.inner).poll_flush(cx)
+    }
+    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.inner).poll_shutdown(cx)
     }
 }
 
@@ -243,15 +303,23 @@ fn spawn_vote_timer(relay: Arc<Relay>, code: String) {
     });
 }
 
-async fn connection(mut stream: TcpStream, relay: Arc<Relay>) -> anyhow::Result<()> {
+const STATUS: &[u8] = b"GET /status ";
+
+async fn connection<S>(mut stream: S, relay: Arc<Relay>) -> anyhow::Result<()>
+where
+    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+{
     // `GET /status` is plain HTTP (B.4 deploy freeze): tungstenite refuses a request without the upgrade headers
-    // before any callback runs, so peek at the request line first and answer it ourselves.
-    let mut head = [0u8; 512];
-    let n = stream.peek(&mut head).await?;
-    if head[..n].starts_with(b"GET /status ") {
+    // before any callback runs, so read the start of the request line first and answer it ourselves; anything else
+    // goes to tungstenite with those bytes put back in front (`Prefixed`). Silent past HELLO_TIMEOUT = dropped.
+    let mut head = Vec::with_capacity(512);
+    let first_line = |b: &[u8]| b.len() >= STATUS.len() || b.contains(&b'\n');
+    tokio::time::timeout(HELLO_TIMEOUT, read_until(&mut stream, &mut head, first_line)).await??;
+    if head.starts_with(STATUS) {
         // Consume the request before answering: a socket closed with unread bytes in its receive buffer is reset
         // (RST, not FIN) on macOS / BSD, and the client's read then fails with ConnectionReset (CI 2026-10-29).
-        drain_http_request(&mut stream).await?;
+        let whole = |b: &[u8]| b.windows(4).any(|w| w == b"\r\n\r\n") || b.len() > 8192;
+        tokio::time::timeout(HELLO_TIMEOUT, read_until(&mut stream, &mut head, whole)).await??;
         let (sessions, live) = relay.status();
         let body = format!(r#"{{"sessions":{sessions},"live":{live}}}"#);
         let response = format!(
@@ -264,6 +332,7 @@ async fn connection(mut stream: TcpStream, relay: Arc<Relay>) -> anyhow::Result<
     }
 
     let mut uri = String::new();
+    let stream = Prefixed { head, at: 0, inner: stream };
     let ws = tokio_tungstenite::accept_hdr_async(stream, |req: &Request, res: Response| {
         uri = req.uri().to_string();
         Ok::<_, ErrorResponse>(res)

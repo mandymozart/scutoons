@@ -1,8 +1,10 @@
-//! `relay` – the Live relay binary (agents/research/LIVE.md B.4). `relay [addr]`, default `0.0.0.0:7700`
-//! (`RELAY_ADDR` env). Clients connect to `ws://<host>:7700/live/<code>?role=<role>&group=<group>` and send `hello`.
+//! `relay` – the Live relay binary (agents/research/LIVE.md B.4). `relay [addr] [--tls-cert FILE --tls-key FILE]`,
+//! default `0.0.0.0:7700` (`RELAY_ADDR` env). Clients connect to `ws://<host>:7700/live/<code>?role=<role>&group=<group>`
+//! and send `hello`; with a certificate (`RELAY_TLS_CERT` / `RELAY_TLS_KEY` too) the same port also takes
+//! `wss://<name>:7700/…` (tls.rs, #201 – a venue's relay for phones on https pages; reloaded when the files change).
 //! Env: `LIVE_TOKEN_SECRET` (the HMAC secret shared with the API), `RELAY_LEAD_MS` (50 LAN, 150 hosted),
 //! `RELAY_BLOCKLIST` (nickname words, comma-separated). `GET /status` → `{ "sessions": n, "live": n }` (the deploy
-//! freeze check of B.4).
+//! freeze check of B.4), over http and https.
 
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -18,13 +20,17 @@ async fn main() -> anyhow::Result<()> {
         .with_ansi(std::io::IsTerminal::is_terminal(&std::io::stdout()))
         .init();
 
-    let addr: SocketAddr = std::env::args()
-        .nth(1)
-        .or_else(|| std::env::var("RELAY_ADDR").ok())
-        .unwrap_or_else(|| "0.0.0.0:7700".to_owned())
-        .parse()?;
+    let listen = relay::tls::Listen::parse(std::env::args().skip(1), |k| std::env::var(k).ok()).map_err(anyhow::Error::msg)?;
+    let addr: SocketAddr = listen.addr.parse()?;
+    let tls = match &listen.tls {
+        Some(files) => Some(relay::tls::acceptor(files.clone()).map_err(anyhow::Error::msg)?),
+        None => None,
+    };
     let listener = TcpListener::bind(addr).await?;
-    tracing::info!(%addr, "relay listening");
+    match &listen.tls {
+        Some(files) => tracing::info!(%addr, cert = %files.cert.display(), "relay listening (ws + wss)"),
+        None => tracing::info!(%addr, "relay listening (ws)"),
+    }
 
     let config = relay::Config::from_env();
     if config.token_secret.is_none() {
@@ -33,7 +39,7 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!(lead_ms = config.lead_ms, "clock lead");
     let relay = Arc::new(relay::Relay::with_config(config));
     tokio::select! {
-        r = relay::serve(listener, relay) => r,
+        r = relay::serve_with(listener, relay, tls) => r,
         _ = stop_signal() => {
             tracing::info!("relay stopping");
             Ok(())
