@@ -5,15 +5,16 @@
 	// the native stage's own code as wasm (@scutoons/live-deck's SpaceStage); over it the character chip and the
 	// controls. Sound: live-core. The relay stream: as the lab's deck (deck.graph / deck.values). Unlisted (no link in
 	// the navigation); everyone may open it (lib/live-deck.ts `mayJoin` – the one place a gate goes later). A member
-	// joins under their name with their avatar's character; a guest under the guest name. The relay comes from the
-	// address (`?relay=ws://…/live/CODE`) – there is no production relay yet. The conductor's scene sync (#195): the deck
+	// joins under their name with their avatar's character; a guest under the guest name. The relay (#199): the hosted
+	// one, wss://live.scutoons.com/live/<code> (VITE_LIVE_URL), the code from the path `/live/deck/<code>` or `?code=`
+	// (default CATH); `?relay=ws://…/live/CODE` joins a local relay instead. The conductor's scene sync (#195): the deck
 	// fetches what it names from the CDN and answers; the status line shows it.
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { Deck, MELODY, PARAMS, SpaceStage, charactersOf, pushLine, type Hand } from '@scutoons/live-deck';
 	import LiveWorker from '@scutoons/live-core/worker?worker';
 	import workletUrl from '@scutoons/live-core/worklet?worker&url';
-	import { API_URL, CDN_SERVER } from '$lib/config.ts';
+	import { API_URL, CDN_SERVER, LIVE_URL } from '$lib/config.ts';
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { CHARACTER_KEY, WASM_BASE, characterOf, mayJoin, nickOf, preferOf, relayOf } from '$lib/live-deck.ts';
@@ -75,9 +76,8 @@
 			await settled();
 			if (!alive || !mayJoin(session.me)) return;
 			const q = page.url.searchParams;
-			const relay = relayOf(q);
+			const relay = relayOf(q, LIVE_URL, page.params.code);
 			character = characterOf(q, session.me, store.get());
-			if (!relay) relayStatus = m['live_deck.alone']();
 			deck = new Deck({ relay, character, nick: nickOf(session.me, m['live_deck.guest']()), api: API_URL, cdn, onStatus: (s) => (relayStatus = s), onSynced: (r) => (syncStatus = pushLine(r)) });
 			values = { ...deck.value };
 			deck.onValue = (p: string, v: number, hand: Hand) => {

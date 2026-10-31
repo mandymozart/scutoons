@@ -907,7 +907,6 @@
 		"controls": "Regler",
 		"pad_voice": "Stimme: Ratio → · ↑ Index",
 		"pad_incense": "Weihrauch: Filter → · ↑ LFO-Tempo",
-		"alone": "Kein Relay – das Deck spielt allein (?relay=ws://…/live/CODE)",
 		"no_3d": "Kein 3D hier: {reason}",
 		"home": "Kamera zurück",
 		"guest": "Gast-Deck"

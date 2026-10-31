@@ -19,6 +19,12 @@ export const API_URL: string = (
 	'https://api.scutoons.com/api'
 ).replace(/\/+$/, '');
 
+/**
+ * The hosted Live relay (#199, LIVE.md B.4: bunny Magic Containers `scutoons-live`), no trailing slash: /live/deck joins
+ * `<LIVE_URL>/live/<code>` unless `?relay=` names another. `VITE_LIVE_URL` – the same in dev (a local relay: `?relay=`).
+ */
+export const LIVE_URL: string = (import.meta.env.VITE_LIVE_URL || 'wss://live.scutoons.com').replace(/\/+$/, '');
+
 /** Hosts whose QR codes carry SCUTOONS items (`https://qr.scutoons.com/?c=CODE`). */
 export const QR_HOSTS = ['qr.scutoons.com', `localhost:${ports.api}`, `127.0.0.1:${ports.api}`];
 

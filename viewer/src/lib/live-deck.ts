@@ -9,16 +9,29 @@ export const CHARACTER_KEY = 'scutoons.deck.character';
 /** where the browser deck's wasm lives (viewer/static/live/, `npm run build:wasm -w shared/live-deck`) */
 export const WASM_BASE = '/live/';
 
+/** the session a deck joins when the address names none (#199: the Cathedral's for now) */
+export const DEFAULT_CODE = 'CATH';
+
 /**
- * The relay from the address (no production relay yet – owner question #198): `?relay=ws://host:port/live/CODE`, or
- * `?relay=ws://host:port` + `?code=CODE`. Anything else: none (the deck plays alone).
+ * The session code (#199): the path's `/live/deck/<code>`, else `?code=`, else DEFAULT_CODE.
  */
-export function relayOf(search: URLSearchParams): string | undefined {
+export function codeOf(search: URLSearchParams, pathCode?: string): string {
+	return pathCode?.trim() || search.get('code')?.trim() || DEFAULT_CODE;
+}
+
+/**
+ * The relay the deck joins (#199, owner 2026-10-31: "the relay needs a fixed, pre-built socket address"): the hosted
+ * one, `<live>/live/<code>` – `live` = LIVE_URL (`VITE_LIVE_URL`, default wss://live.scutoons.com). `?relay=` overrides
+ * it (a local relay): a whole session URL `?relay=ws://host:port/live/CODE`, or a host and the code as above. A
+ * `?relay=` that is no ws:// / wss:// URL is ignored.
+ */
+export function relayOf(search: URLSearchParams, live: string, pathCode?: string): string {
+	const code = encodeURIComponent(codeOf(search, pathCode));
 	const relay = search.get('relay')?.trim();
-	if (!relay || !/^wss?:\/\//.test(relay)) return undefined;
-	if (/\/live\/[^/?#]+\/?$/.test(relay)) return relay;
-	const code = search.get('code')?.trim();
-	return code ? `${relay.replace(/\/+$/, '')}/live/${encodeURIComponent(code)}` : undefined;
+	if (relay && /^wss?:\/\/[^/]/.test(relay)) {
+		return /\/live\/[^/?#]+\/?$/.test(relay) ? relay : `${relay.replace(/\/+$/, '')}/live/${code}`;
+	}
+	return `${live.replace(/\/+$/, '')}/live/${code}`;
 }
 
 /** The deck's character: `?character=`, else the member's avatar body, else the device's last one, else the default. */
