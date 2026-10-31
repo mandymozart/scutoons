@@ -4,7 +4,7 @@
 //! being's look when the scene has a `space` node (space/being.rs, #188 – with the graph it is what a being preset
 //! saves, #191).
 use anyhow::{Context, Result};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 /// The scene the stage plays when none is given: catpope 1's music + a synth, the FFT drives the test pattern.
@@ -55,7 +55,7 @@ impl Default for StageSettings {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct NodeDef {
     pub id: String,
     pub kind: String,
@@ -64,7 +64,7 @@ pub struct NodeDef {
     pub params: toml::Table,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LinkDef {
     pub from: String,

@@ -36,3 +36,7 @@ bytemuck = { version = "1", features = ["derive"], optional = true }
 # resizing and mip levels; decoding only with `native` (the browser decodes the web's images)
 image = { version = "0.25", default-features = false, optional = true }
 wgpu = { version = "25", optional = true }
+
+[dev-dependencies]
+# the rig's documents round-trip as JSON in its tests (rig/tests.rs) – also without `being`
+serde_json.workspace = true
