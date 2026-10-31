@@ -45,7 +45,8 @@ enum Event {
 }
 
 const HELP: &str = "deck-stage [--scene FILE|cathedral|conductor|outlet] [--audio auto|pipewire|cpal|null] [--volume 0-1] [--cache DIR]
-           [--audio-host default|wasapi|asio] [--audio-device NAME] [--audio-buffer FRAMES] [--audio-list]
+           [--audio-host default|wasapi|asio] [--audio-device NAME] [--audio-buffer FRAMES] [--audio-thread on|off]
+           [--audio-list]
            [--sets DIR] [--portraits DIR] [--token T] [--api URL] [--cdn URL] [--windowed] [--frames N]
            [--screenshot FILE] [--pointer X,Y|NODE.PORT] [--drag NODE.PORT[,DN]] [--no-hud] [--dev] [--modules]
            [--relay ws[s]://HOST[:PORT]/live/CODE] [--sync set:ID,character:ID]
@@ -64,7 +65,8 @@ const HELP: &str = "deck-stage [--scene FILE|cathedral|conductor|outlet] [--audi
                --audio-device a part of the output device's name (default: the host's default); --audio-buffer the
                device's buffer in frames (128 / 256 / 512 / 1024; clamped to what the device takes). Over deck.toml's
                audio_host / audio_device / audio_buffer, over the scene's [stage] audio_buffer. --audio-list prints the
-               hosts and devices, then quits
+               hosts and devices, then quits. --audio-thread on (default) renders on a thread of its own into a ring
+               ahead of the device, with an adaptive lead; off renders in the device callback (deck.toml audio_thread)
   --cache      the library cache (default /var/lib/deck/cache on a deck, DECK_CACHE, else the user cache folder)
   --sets       a local folder of sets instead of the sync's: <id>/<id>.<quality>.glb or <id>.<quality>.glb (DECK_SETS;
                default <cache>/sets, synced from the API)
@@ -89,6 +91,7 @@ struct Args {
     audio_host: Option<backend::Host>,
     audio_device: Option<String>,
     audio_buffer: Option<u32>,
+    audio_thread: Option<bool>,
     volume: f32,
     cache: Option<PathBuf>,
     api: String,
@@ -128,6 +131,7 @@ fn args() -> Result<Args> {
         audio_host: None,
         audio_device: None,
         audio_buffer: None,
+        audio_thread: None,
         volume: 1.0,
         cache: None,
         api: std::env::var("DECK_API").unwrap_or_else(|_| cache::API.into()),
@@ -161,6 +165,14 @@ fn args() -> Result<Args> {
                 a.audio_host = Some(backend::Host::parse(&v).with_context(|| format!("--audio-host {v}: default, wasapi or asio"))?)
             }
             "--audio-device" => a.audio_device = Some(val()?),
+            "--audio-thread" => {
+                let v = val()?;
+                a.audio_thread = Some(match v.as_str() {
+                    "on" | "true" | "1" => true,
+                    "off" | "false" | "0" => false,
+                    _ => bail!("--audio-thread {v}: on or off"),
+                })
+            }
             "--audio-buffer" => a.audio_buffer = Some(val()?.parse().context("--audio-buffer: frames, e.g. 256")?),
             "--audio-list" => {
                 print!("{}", backend::list());
@@ -341,6 +353,7 @@ fn audio_options(args: &Args, scene: &scene::Scene) -> backend::Options {
         host: host.unwrap_or_default(),
         device: args.audio_device.clone().or(deck.audio_device),
         buffer: args.audio_buffer.or(deck.audio_buffer).or(scene.stage.audio_buffer),
+        thread: args.audio_thread.or(deck.audio_thread).unwrap_or(true),
     }
 }
 

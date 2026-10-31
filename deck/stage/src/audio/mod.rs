@@ -13,6 +13,8 @@ mod blocks;
 mod click;
 pub mod glitch;
 pub mod lead;
+pub mod priority;
+pub mod ring;
 mod voices;
 
 use crate::clock::Stamp;

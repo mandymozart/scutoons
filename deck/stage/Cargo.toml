@@ -91,6 +91,10 @@ deck-link = { path = "../link", default-features = false }
 # the pairing card on the splash (#180): the QR of the pairing link – Nayuki's encoder, no dependencies
 qrcodegen = "1.8"
 
+[target.'cfg(windows)'.dependencies]
+# the audio threads in MMCSS "Pro Audio" (#208, audio/priority.rs) – the version cpal and wgpu already pull
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_System_Threading"] }
+
 [target.'cfg(target_os = "linux")'.dependencies]
 pipewire = { version = "0.10", optional = true, features = ["v0_3_50"] }
 # CLOCK_MONOTONIC for the time base (clock.rs – the clock PipeWire stamps its cycles with)

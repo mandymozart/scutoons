@@ -101,6 +101,34 @@ fn renders_without_allocating(graph: &Graph, build: Build) {
     assert!(bufs[0].iter().any(|x| *x != 0.0), "the scene makes sound");
 }
 
+/// #208: the render thread's fill (blocks into the ring, the adaptive lead) and the device callback's copy out of it
+/// never allocate either – 2000 callbacks of device-sized blocks through the ring, the click on.
+#[test]
+fn the_ring_and_its_render_thread_do_not_allocate() {
+    let _turn = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let scene = deck_stage::modules::carried_part(&Scene::parse(DEFAULT_SCENE).unwrap());
+    let graph = Graph::build(&scene).unwrap();
+    let (engine, mut handles) = Engine::build_with(&graph, 48_000.0, 1.0, Build::detect()).unwrap();
+    if let Some(m) = handles.music.first_mut() {
+        m.tracks.push(Arc::new(Track { rate: 44_100.0, l: vec![0.1; 44_100], r: vec![-0.1; 44_100] })).ok().unwrap();
+    }
+    let (mut feed, mut renderer) = deck_stage::audio::ring::pair(engine, Some(480));
+    let mut bufs: Vec<Vec<f32>> = [480usize, 128, 1056, 37].iter().map(|n| vec![0.0; n * 2]).collect();
+    let (map, _) = handles.tempo.map().unwrap();
+    handles.tempo.publish(&map, true);
+    measure(true);
+    let before = CALLS.load(Ordering::SeqCst);
+    for i in 0..2000u64 {
+        renderer.fill(1_000_000_000 + i * 10_000_000);
+        let b = &mut bufs[i as usize % 4];
+        feed.play(b, 2, 1_000_000_000 + i * 10_000_000, |x| x);
+        while handles.taps[0].1.pop().is_ok() {}
+    }
+    measure(false);
+    assert_eq!(CALLS.load(Ordering::SeqCst) - before, 0, "allocations / frees in the ring's two halves");
+    assert!(bufs[0].iter().any(|x| *x != 0.0), "the scene makes sound through the ring");
+}
+
 /// The being's frame (#188) never allocates either: the control step, the body's pose, the hoses' bubbles, the buttons'
 /// values, the head's energy and mood, picking, a button turned like a CC and the geometry written into the renderer's
 /// preallocated buffers; and a deck's being at the conductor on its stream's values (#188 phase 4, `Mirror`); the

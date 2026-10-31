@@ -194,6 +194,8 @@ pub struct Monitor {
     last_frames: usize,
     /// the first callback's start + SETTLE_NS
     settle_until: Option<u64>,
+    /// how long after the first callback nothing counts (SETTLE_NS; the tests set 0)
+    pub settle: u64,
     /// false for a timer (the null backend's sleep is no device deadline)
     pub check_late: bool,
     pub deadline: Deadline,
@@ -206,7 +208,7 @@ impl Monitor {
     pub fn new(rate: f32) -> (Monitor, Arc<Glitches>, rtrb::Consumer<Event>) {
         let shared = Arc::new(Glitches::default());
         let (log, rx) = rtrb::RingBuffer::new(LOG);
-        let m = Monitor { shared: shared.clone(), log, rate: rate as f64, last_start: None, last_frames: 0, settle_until: None, check_late: true, deadline: Deadline::Period };
+        let m = Monitor { shared: shared.clone(), log, rate: rate as f64, last_start: None, last_frames: 0, settle_until: None, settle: SETTLE_NS, check_late: true, deadline: Deadline::Period };
         (m, shared, rx)
     }
 
@@ -244,7 +246,7 @@ impl Monitor {
         self.last_frames = frames;
         self.shared.note_device_frames(frames as u32);
         self.shared.note_load(t.render, t.budget);
-        let settled = start >= *self.settle_until.get_or_insert(start + SETTLE_NS);
+        let settled = start >= *self.settle_until.get_or_insert(start + self.settle);
         let cause = classify(&t).filter(|c| settled && (self.check_late || *c != Cause::Late))?;
         self.shared.report(cause, start);
         let _ = self.log.push(Event { at_ns: start, cause, timing: t, frames: frames as u32 });

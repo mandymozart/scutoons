@@ -48,13 +48,15 @@ pub struct Direct {
     underruns: Arc<std::sync::atomic::AtomicU64>,
     /// a gap in the heard stamps counts as an underrun (false where the stamps jitter: WASAPI's)
     gaps: bool,
+    /// raise the callback's thread to audio priority on its first call (priority.rs; cpal's WASAPI / ALSA threads)
+    raise: bool,
 }
 
 impl Direct {
     pub fn new(mut engine: Engine) -> Direct {
         let mon = engine.take_monitor();
         let underruns = engine.underruns();
-        Direct { engine, mon, underruns, gaps: true }
+        Direct { engine, mon, underruns, gaps: true, raise: false }
     }
 
     /// a host whose callbacks top up one buffer (WASAPI shared): the deadline is the buffer, the stamps' gaps are
@@ -68,6 +70,13 @@ impl Direct {
     /// One device callback: `out` (interleaved, `channels` per frame) whose first frame is heard at `heard_ns`.
     /// Never allocates.
     pub fn play<T: Copy>(&mut self, out: &mut [T], channels: usize, heard_ns: u64, conv: impl Fn(f32) -> T) {
+        if std::mem::take(&mut self.raise) {
+            // once, in the settling half second (the log line allocates – never again in this thread)
+            match super::priority::raise() {
+                Ok(how) => tracing::info!("audio: the device callback runs at {how}"),
+                Err(e) => tracing::warn!("audio: the device callback at its own priority ({e})"),
+            }
+        }
         let start = self.mon.begin();
         let before = self.underruns.load(Ordering::Relaxed);
         self.engine.mark(heard_ns);
@@ -78,6 +87,49 @@ impl Direct {
 
     pub fn glitches(&self) -> &super::glitch::Glitches {
         &self.mon.shared
+    }
+}
+
+/// How a device callback plays (#208): the graph rendered in the callback (`Direct`), or copied from the render
+/// thread's ring (ring.rs – the default, `--audio-thread off` renders in the callback).
+pub enum Feed {
+    Direct(Box<Direct>),
+    Ring(super::ring::Feed),
+}
+
+impl Feed {
+    /// a ring with its render thread (`thread`), else the callback renders; `buffer` = the device's buffer if known
+    /// (the ring's first fill). Err only when the OS has no thread to give.
+    pub fn new(engine: Engine, thread: bool, buffer: Option<u32>) -> Result<Feed> {
+        Ok(match thread {
+            true => Feed::Ring(super::ring::spawn(engine, buffer)?),
+            false => Feed::Direct(Box::new(Direct::new(engine))),
+        })
+    }
+
+    /// a host whose callbacks top up one buffer (WASAPI shared – glitch.rs `Deadline::Buffer`)
+    fn buffered(self) -> Feed {
+        match self {
+            Feed::Direct(d) => Feed::Direct(Box::new(d.buffered())),
+            Feed::Ring(mut r) => {
+                r.mon.deadline = super::glitch::Deadline::Buffer;
+                Feed::Ring(r)
+            }
+        }
+    }
+
+    pub fn play<T: Copy>(&mut self, out: &mut [T], channels: usize, heard_ns: u64, conv: impl Fn(f32) -> T) {
+        match self {
+            Feed::Direct(d) => d.play(out, channels, heard_ns, conv),
+            Feed::Ring(r) => r.play(out, channels, heard_ns, conv),
+        }
+    }
+
+    pub fn glitches(&self) -> &super::glitch::Glitches {
+        match self {
+            Feed::Direct(d) => d.glitches(),
+            Feed::Ring(r) => r.glitches(),
+        }
     }
 }
 
@@ -110,11 +162,13 @@ pub struct Options {
     pub device: Option<String>,
     /// frames; None = the device's default
     pub buffer: Option<u32>,
+    /// render on a thread of its own into a ring ahead of the device (ring.rs); false = in the device callback
+    pub thread: bool,
 }
 
 impl Default for Options {
     fn default() -> Self {
-        Options { choice: Choice::Auto, host: Host::Default, device: None, buffer: None }
+        Options { choice: Choice::Auto, host: Host::Default, device: None, buffer: None, thread: true }
     }
 }
 
@@ -128,6 +182,8 @@ pub struct DeckAudio {
     pub audio_host: Option<String>,
     #[serde(default)]
     pub audio_device: Option<String>,
+    #[serde(default)]
+    pub audio_thread: Option<bool>,
 }
 
 impl DeckAudio {
@@ -140,6 +196,7 @@ impl DeckAudio {
         d.audio_host = d.audio_host.filter(|s| !s.trim().is_empty());
         d.audio_device = d.audio_device.filter(|s| !s.trim().is_empty());
         d.audio_buffer = d.audio_buffer.filter(|&n| n > 0);
+        // audio_thread stays as written (true / false; unset = the default)
         d
     }
 
@@ -283,7 +340,7 @@ pub fn list() -> String {
 
 /// One cpal callback's player: the heard stamp for the host, then the feed.
 struct CpalPlayer {
-    direct: Direct,
+    feed: Feed,
     channels: usize,
     rate: u32,
     /// WASAPI shared: cpal 0.15's playback instant there is callback + the frames asked for – but the new frames play
@@ -294,7 +351,7 @@ struct CpalPlayer {
 impl CpalPlayer {
     fn fill<T: Copy>(&mut self, out: &mut [T], info: &cpal::OutputCallbackInfo, conv: impl Fn(f32) -> T) {
         let frames = out.len() / self.channels.max(1);
-        let g = self.direct.glitches();
+        let g = self.feed.glitches();
         let latency = if self.wasapi {
             let queued = (g.device_frames() as usize).saturating_sub(frames);
             (queued as f64 * 1e9 / self.rate as f64) as u64
@@ -304,7 +361,7 @@ impl CpalPlayer {
             ts.playback.duration_since(&ts.callback).map(|d| d.as_nanos() as u64).unwrap_or(0)
         };
         g.set_latency_us((latency / 1000) as u32);
-        self.direct.play(out, self.channels, now_ns() + latency, conv);
+        self.feed.play(out, self.channels, now_ns() + latency, conv);
     }
 }
 
@@ -329,11 +386,18 @@ fn cpal(o: &Options, factory: &mut Factory) -> Result<Running> {
         }
         sc.buffer_size = cpal::BufferSize::Fixed(frames);
     }
-    let mut direct = Direct::new(factory(rate as f32)?);
-    if wasapi {
-        direct = direct.buffered();
-    }
-    let player = CpalPlayer { direct, channels, rate, wasapi };
+    let asio = hostname == "ASIO";
+    let player = |factory: &mut Factory| -> Result<CpalPlayer> {
+        let mut feed = Feed::new(factory(rate as f32)?, o.thread, o.buffer)?;
+        if wasapi {
+            feed = feed.buffered();
+        }
+        // a callback that renders: its thread at audio priority (ASIO's thread is the driver's – left alone)
+        if let Feed::Direct(d) = &mut feed {
+            d.raise = !asio;
+        }
+        Ok(CpalPlayer { feed, channels, rate, wasapi })
+    };
     let build = |sc: &cpal::StreamConfig, mut p: CpalPlayer| -> Result<cpal::Stream, cpal::BuildStreamError> {
         let err = |e| tracing::error!("audio stream: {e}");
         match cfg.sample_format() {
@@ -347,26 +411,23 @@ fn cpal(o: &Options, factory: &mut Factory) -> Result<Running> {
     if !matches!(cfg.sample_format(), SampleFormat::F32 | SampleFormat::I16 | SampleFormat::I32) {
         bail!("output sample format {:?} (f32, i16 and i32 are supported)", cfg.sample_format());
     }
-    let stream = match build(&sc, player) {
+    let stream = match build(&sc, player(factory)?) {
         Ok(s) => s,
         Err(e) if o.buffer.is_some() => {
             // the host refused the fixed buffer: its default (the player went into the failed build – a fresh one)
             tracing::warn!("audio: {hostname} refused a {:?} buffer ({e}) – its default instead", sc.buffer_size);
             sc.buffer_size = cpal::BufferSize::Default;
-            let mut direct = Direct::new(factory(rate as f32)?);
-            if wasapi {
-                direct = direct.buffered();
-            }
-            build(&sc, CpalPlayer { direct, channels, rate, wasapi })?
+            build(&sc, player(factory)?)?
         }
         Err(e) => return Err(e.into()),
     };
     stream.play()?;
     tracing::info!(
-        "audio: cpal {hostname} on '{}', {rate} Hz, {channels} ch, {:?}, buffer {:?}",
+        "audio: cpal {hostname} on '{}', {rate} Hz, {channels} ch, {:?}, buffer {:?}, {}",
         device.name().unwrap_or_default(),
         cfg.sample_format(),
-        sc.buffer_size
+        sc.buffer_size,
+        if o.thread { "a render thread + ring" } else { "rendered in the callback" }
     );
     let name = match hostname {
         "WASAPI" => "wasapi",
@@ -396,7 +457,8 @@ fn pipewire(o: &Options, factory: &mut Factory) -> Result<Running> {
     let quantum = o.buffer.unwrap_or(128);
     let latency = format!("{quantum}/{RATE}");
     let shown = latency.clone();
-    let mut direct = Direct::new(factory(RATE as f32)?);
+    // the ring + render thread (#208) also here when on: the X1's quantum of 128 leaves the callback 2.7 ms
+    let mut direct = Feed::new(factory(RATE as f32)?, o.thread, Some(quantum))?;
     let (ready_tx, ready_rx) = std::sync::mpsc::channel::<Result<(), String>>();
     std::thread::Builder::new().name("pipewire".into()).spawn(move || {
         let run = || -> Result<(), pw::Error> {
@@ -519,7 +581,8 @@ mod tests {
     #[test]
     fn deck_toml_names_the_machines_audio() {
         let d = DeckAudio::parse("kiosk = \"stage\"\nrelay = \"\"\naudio_buffer = 256\naudio_host = \"asio\"\naudio_device = \"Fireface\"\n");
-        assert_eq!(d, DeckAudio { audio_buffer: Some(256), audio_host: Some("asio".into()), audio_device: Some("Fireface".into()) });
+        assert_eq!(d, DeckAudio { audio_buffer: Some(256), audio_host: Some("asio".into()), audio_device: Some("Fireface".into()), audio_thread: None });
+        assert_eq!(DeckAudio::parse("audio_thread = false\n").audio_thread, Some(false));
         let empty = DeckAudio::parse("audio_host = \"\"\naudio_device = \" \"\naudio_buffer = 0\n");
         assert_eq!(empty, DeckAudio::default(), "empty = unset");
         assert_eq!(DeckAudio::parse("this is = not toml ["), DeckAudio::default());
