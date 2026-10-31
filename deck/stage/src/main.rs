@@ -11,8 +11,9 @@
 //! A scene that can't be played (a module this build lacks – #185 –, a broken file) never stops the stage: it shows the
 //! test pattern with the reason in the HUD. `--dev` reloads the scene file and its WGSL files when they change.
 //! A scene with an `outlet` node (#186, the `live` module) joins the relay as `output` of this deck's outlet
-//! (deck.toml's `relay` + `outlet`, or `--relay` / `--outlet`) and shows its cells; with both set and no `--scene`
-//! the stage plays the built-in `scenes/outlet.toml`.
+//! (deck.toml's `relay` + `outlet`, or `--relay` / `--outlet`; no relay = the hosted wss://live.scutoons.com/live/CATH,
+//! #199) and shows its cells; with an outlet set and no `--scene` the stage plays the built-in `scenes/outlet.toml`.
+//! A space node that joins (deck / conductor) without a relay joins the hosted one too.
 use deck_stage::{audio, cache, chapter, clock, control, graph, hud, modules, render, scene, splash, tempo, watch};
 
 use anyhow::{bail, Context, Result};
@@ -43,15 +44,16 @@ enum Event {
 const HELP: &str = "deck-stage [--scene FILE|cathedral|conductor|outlet] [--audio auto|pipewire|cpal|null] [--volume 0-1] [--cache DIR]
            [--sets DIR] [--portraits DIR] [--token T] [--api URL] [--cdn URL] [--windowed] [--frames N]
            [--screenshot FILE] [--pointer X,Y|NODE.PORT] [--drag NODE.PORT[,DN]] [--no-hud] [--dev] [--modules]
-           [--relay ws://HOST:PORT/live/CODE] [--sync set:ID,character:ID]
+           [--relay ws[s]://HOST[:PORT]/live/CODE] [--sync set:ID,character:ID]
            [--outlet ID] [--locale de]
   --scene      a scene TOML (default: the built-in scene, deck/stage/scenes/default.toml); `cathedral` = the built-in
                Cathedral of decks (scenes/cathedral.toml – a deck's being), `conductor` = its conductor in the middle
-               (scenes/conductor.toml), `outlet` = the built-in Live outlet (scenes/outlet.toml – the default when a
-               relay and an outlet are set)
+               (scenes/conductor.toml), `outlet` = the built-in Live outlet (scenes/outlet.toml – the default when an
+               outlet is set)
   --sync       the conductor's push (#195): what the decks fetch into their cache – sent at the start and on S
                (default: the scene's set and the characters on stage)
-  --relay      the Live relay with the session code (default: deck.toml's `relay`); --outlet this deck's outlet
+  --relay      the Live relay with the session code (default: deck.toml's `relay`, else the hosted
+               wss://live.scutoons.com/live/CATH – when a scene joins or an outlet is set); --outlet this deck's outlet
                (deck.toml's `outlet`); --locale the language of its text layers (deck.toml's `locale`, else de)
   --audio      the backend; auto = PipeWire → cpal → null (no device: the clock and the FFT still run)
   --cache      the library cache (default /var/lib/deck/cache on a deck, DECK_CACHE, else the user cache folder)

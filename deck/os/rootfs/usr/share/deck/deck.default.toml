@@ -10,9 +10,11 @@ scene = ""
 conductor = ""
 # Seconds deck-wifi waits on an already online deck before it goes on without asking.
 wifi_wait = 8
-# A Live outlet (#186, deck/stage/README.md "Live outlet"): the relay with the session code and this deck's outlet –
-# with both set the stage plays the outlet (scenes/outlet.toml) unless `scene` names another. `locale` = the language
-# of its text layers (empty = de).
+# The Live relay with the session code. Empty = the hosted relay wss://live.scutoons.com/live/CATH (#199) – joined only
+# when the scene joins a session (the Cathedral's `join` = deck / conductor) or an outlet is set; a venue's own relay:
+# `deck-set relay ws://<host>:7700/live/<code>`.
+# A Live outlet (#186, deck/stage/README.md "Live outlet"): this deck's outlet – set, the stage plays the outlet
+# (scenes/outlet.toml) unless `scene` names another. `locale` = the language of its text layers (empty = de).
 relay = ""
 outlet = ""
 locale = ""

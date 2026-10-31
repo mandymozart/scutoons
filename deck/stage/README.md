@@ -192,7 +192,8 @@ one inline table per line:
   graph; a deck's nudges stay with the deck), the deck's streamed mood their fallback; `deck.graph` carries the whole
   palette.
 
-**The session** (phase 4) – the space node's `join` with a relay set (deck.toml `relay` or `--relay`):
+**The session** (phase 4) – the space node's `join` with the relay of deck.toml `relay` or `--relay`, else the hosted
+`wss://live.scutoons.com/live/CATH` (#199):
 - `join = "deck"` (`scenes/cathedral.toml`): joins as `musician` of the group `decks`, sends `deck.graph` (its graph,
   character, size, moods, exposed parameters), then `deck.values` – every value its body shows (the buttons' inputs, the
   hoses' sources; paths `node.port` / `node.shape` → float vectors, `values.rs`) that moved past its epsilon, at most
@@ -265,8 +266,9 @@ Owner 2026-10-30: "Baked into the image is not what I want … The API should de
 A deck is a screen outlet of a Live show (research/LIVE-LENSES.md, DECISIONS 2026-10-30): the scene's `outlet` node
 joins the relay as `output` of this deck's outlet and draws the cells the conductor sends – no browser. Settings:
 `relay = "ws://<host>:7700/live/<code>"`, `outlet = "left"`, `locale` in `/var/lib/deck/deck.toml`, or `--relay`,
-`--outlet`, `--locale`; with both set and no `--scene` the stage plays `scenes/outlet.toml` (a space node → the outlet →
-the screen). ws:// only (the venue's local relay; the client has no TLS). `src/live/`:
+`--outlet`, `--locale`; with an outlet set and no `--scene` the stage plays `scenes/outlet.toml` (a space node → the
+outlet → the screen). No relay set = the hosted `wss://live.scutoons.com/live/CATH` (#199); both clients speak ws:// and
+wss:// (`config::dial` – tungstenite with rustls + the webpki roots, no OpenSSL). `src/live/`:
 
 - **client.rs** – tungstenite on its own thread: `hello { role: output, group: <outlet> }`; the outlet's `cell`,
   `media.preload`, `state.slice`, `panic` in; `media.ready` out; a ping every 20 s; a lost connection joins again with

@@ -7,7 +7,7 @@ use super::config::Config;
 use super::{Input, Status};
 use protocol::{Envelope, Hello, Message, MediaPreload, Ping, Resume, Role, Snapshot};
 use std::io::ErrorKind;
-use std::net::{TcpStream, ToSocketAddrs};
+use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
@@ -82,15 +82,7 @@ impl Client {
     }
 
     fn connect(&self) -> Result<WebSocket<MaybeTlsStream<TcpStream>>, String> {
-        let host = self.cfg.base.trim_start_matches("ws://");
-        let addr = host.to_socket_addrs().map_err(|e| format!("{host}: {e}"))?.next().ok_or_else(|| format!("{host}: no address"))?;
-        let tcp = TcpStream::connect_timeout(&addr, Duration::from_secs(3)).map_err(|e| format!("{host}: {e}"))?;
-        tcp.set_nodelay(true).ok();
-        let (ws, _) = tungstenite::client(self.cfg.join_url(), MaybeTlsStream::Plain(tcp)).map_err(|e| format!("handshake: {e}"))?;
-        if let MaybeTlsStream::Plain(s) = ws.get_ref() {
-            s.set_read_timeout(Some(POLL)).map_err(|e| e.to_string())?;
-        }
-        Ok(ws)
+        super::config::dial(&self.cfg.join_url(), POLL)
     }
 
     fn send(ws: &mut WebSocket<MaybeTlsStream<TcpStream>>, m: Message) -> Result<(), String> {

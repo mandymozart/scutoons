@@ -3,7 +3,7 @@
 # `scene = …` line did nothing – deck-session reads the first one – and nano was the way out).
 #   deck-set                        the settings now
 #   deck-set scene cathedral        replace (or add) `scene = "cathedral"`
-#   deck-set relay ws://192.168.1.116:7070/live/CATH
+#   deck-set relay ws://192.168.1.116:7070/live/CATH   a venue's relay (empty = the hosted wss://live.scutoons.com/live/CATH)
 #   deck-set scene ""               empty = the default again
 # then `systemctl restart deck-kiosk` (or --restart) so the kiosk plays it.
 set -eu

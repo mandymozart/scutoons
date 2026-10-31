@@ -14,7 +14,7 @@
 use protocol::{DeckGraph, DeckSynced, DeckValues, Envelope, Hello, Message, Ping, Role, SceneSync, SyncState};
 use std::collections::HashMap;
 use std::io::ErrorKind;
-use std::net::{TcpStream, ToSocketAddrs};
+use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
@@ -76,7 +76,8 @@ impl Drop for Link {
 }
 
 impl Link {
-    /// Join `relay` (`ws://host:port/live/<code>`) as `join`; a deck announces `graph` and hands pushes to `sync`.
+    /// Join `relay` (`ws://host:port/live/<code>`, or `wss://` – the hosted relay, #199) as `join`; a deck announces
+    /// `graph` and hands pushes to `sync`.
     pub fn start(relay: &str, join: Join, token: Option<String>, nick: Option<String>, graph: Option<DeckGraph>, sync: Option<Box<dyn Syncs>>) -> Result<Link, String> {
         let cfg = crate::live::config::Config::new(relay, GROUP, "de").map_err(|e| e.to_string())?;
         let (tx_in, rx) = mpsc::channel();
@@ -189,17 +190,8 @@ impl Client {
     }
 
     fn connect(&self) -> Result<Socket, String> {
-        let host = self.base.trim_start_matches("ws://");
-        let addr = host.to_socket_addrs().map_err(|e| format!("{host}: {e}"))?.next().ok_or_else(|| format!("{host}: no address"))?;
-        let tcp = TcpStream::connect_timeout(&addr, Duration::from_secs(3)).map_err(|e| format!("{host}: {e}"))?;
-        tcp.set_nodelay(true).ok();
         let role = if self.join == Join::Conductor { "conductor" } else { "musician" };
-        let url = format!("{}/live/{}?role={role}&group={GROUP}", self.base, self.code);
-        let (ws, _) = tungstenite::client(url, MaybeTlsStream::Plain(tcp)).map_err(|e| format!("handshake: {e}"))?;
-        if let MaybeTlsStream::Plain(s) = ws.get_ref() {
-            s.set_read_timeout(Some(POLL)).map_err(|e| e.to_string())?;
-        }
-        Ok(ws)
+        crate::live::config::dial(&format!("{}/live/{}?role={role}&group={GROUP}", self.base, self.code), POLL)
     }
 
     fn send(ws: &mut Socket, m: Message) -> Result<(), String> {

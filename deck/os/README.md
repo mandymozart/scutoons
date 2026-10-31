@@ -88,6 +88,9 @@ browser's window is there.
    Chromium's window covers it, then pauses and mutes; closing Chromium (Ctrl+Shift+W) shows the stage at once. A
    stage that fails opens Chromium alone.
    `kiosk = "browser"` = Chromium only. `deck-bridge.service` joins the local relay with `/var/lib/deck/venue.toml`.
+   The stage's relay: deck.toml's `relay`, empty = the hosted `wss://live.scutoons.com/live/CATH` (#199) – joined only
+   when the scene joins a session (`deck-set --restart scene cathedral`) or an outlet is set, so a deck needs no typed
+   address; `deck-set relay ws://<host>:7700/live/<code>` joins a venue's relay instead.
 
 tty2 is a root shell without a login (Ctrl+Alt+F2 – getty@tty2 autologin; cage runs with `-s`, VT switching on; Ctrl+Alt+F1 back); `deck-set key value` replaces a deck.toml setting (`deck-set --restart scene cathedral` plays it at once), the stage powers off on
 Ctrl+Alt+Del and logind on a short press of the power button, so is the serial port; ssh is key-only (no passwords on the image). `pacman -S` works
