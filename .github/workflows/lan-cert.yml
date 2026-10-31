@@ -1,19 +1,21 @@
 # The venue certificate (#201, agents/research/LIVE.md B.4): the wildcard *.lan.scutoons.com from Let's Encrypt over
-# the DNS-01 challenge at all-inkl (acme.sh with its `dns_kas` plugin – it sets and removes the TXT record
-# _acme-challenge.lan.scutoons.com through the KAS API), then handed to the API (PUT /api/deploy/lan-cert with the deploy
-# key), which keeps it in storage/lan-cert for the decks (GET /api/admin/lan-cert, `deck-tls` on a deck). A deck's relay
-# then answers wss://<deck>.lan.scutoons.com:7700, so phones on https://scutoons.com/live/deck can join it.
+# the DNS-01 challenge at bunny DNS, where the zone lan.scutoons.com lives (acme.sh with its `dns_bunny` plugin – it
+# sets and removes the TXT record _acme-challenge.lan.scutoons.com through bunny's API), then handed to the API
+# (PUT /api/deploy/lan-cert with the deploy key), which keeps it in storage/lan-cert for the decks (an approved deck's
+# own token: GET /api/decks/lan-cert, `deck-tls`). A deck's relay then answers
+# wss://<ip-with-dashes>.lan.scutoons.com:7700 (the zone's script, deploy/bunny/lan-dns.js), so phones on
+# https://scutoons.com/live/deck can join it. The API holds no DNS credentials (owner 2026-10-31).
 #
 # Monthly (the 1st, 03:17 UTC) – a certificate lives 90 days, so a missed month or two is no harm – and by hand
 # (Actions → 🔐 LAN certificate → Run workflow; `staging` = Let's Encrypt's test CA: issued and shown, never stored).
 # Every run issues a fresh certificate (the runner keeps no acme.sh state): 12 a year, far under Let's Encrypt's limits.
-# The decks pick a new one up with `deck-tls` (Phase A, by hand; the deck fetches it itself with #180).
+# The decks pick a new one up with `deck-tls` (it runs at boot and once a day).
 #
 # Settings, all in the GitHub environment `production`:
-#   secret KAS_LOGIN       the KAS login (w0…)               – the same pair the api reads for the LAN names
-#   secret KAS_AUTH_DATA   the KAS password of that login
+#   secret BUNNY_API_KEY   the bunny account's API key (bunny dashboard → Account settings → API key) – only here,
+#                          never on the server or a deck
 #   secret MIGRATE_KEY     the deploy key (already there: the API's DB migrations)
-# Until KAS_LOGIN, KAS_AUTH_DATA and MIGRATE_KEY are set, a run ends green with a notice and issues nothing.
+# Until BUNNY_API_KEY and MIGRATE_KEY are set, a run ends green with a notice and issues nothing.
 # The API must already know PUT /api/deploy/lan-cert (deployed after 2026-10-31).
 on:
   schedule:
@@ -46,16 +48,16 @@ jobs:
     environment: production
     timeout-minutes: 20
     steps:
-      - name: What runs (the KAS secrets)
+      - name: What runs (the bunny + deploy secrets)
         id: gate
         env:
-          HAS_KAS: ${{ secrets.KAS_LOGIN != '' && secrets.KAS_AUTH_DATA != '' }}
+          HAS_BUNNY: ${{ secrets.BUNNY_API_KEY != '' }}
           HAS_KEY: ${{ secrets.MIGRATE_KEY != '' }}
         run: |
-          if [ "$HAS_KAS" = true ] && [ "$HAS_KEY" = true ]; then
+          if [ "$HAS_BUNNY" = true ] && [ "$HAS_KEY" = true ]; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::notice title=LAN certificate::not set up yet – KAS_LOGIN, KAS_AUTH_DATA and MIGRATE_KEY in the environment production (kas: $HAS_KAS, deploy key: $HAS_KEY); nothing issued"
+            echo "::notice title=LAN certificate::not set up yet – BUNNY_API_KEY and MIGRATE_KEY in the environment production (bunny: $HAS_BUNNY, deploy key: $HAS_KEY); nothing issued"
             echo "run=false" >> "$GITHUB_OUTPUT"
           fi
 
@@ -67,20 +69,18 @@ jobs:
           ./acme.sh --install --home "$RUNNER_TEMP/acme" --nocron --noprofile > /dev/null
           "$RUNNER_TEMP/acme/acme.sh" --version
 
-      - name: Issue ${{ env.DOMAIN }} (Let's Encrypt, DNS-01 at all-inkl)
+      - name: Issue ${{ env.DOMAIN }} (Let's Encrypt, DNS-01 at bunny DNS)
         if: steps.gate.outputs.run == 'true'
         env:
-          # the names dns_kas reads (acme.sh dnsapi/dns_kas.sh)
-          KAS_Login: ${{ secrets.KAS_LOGIN }}
-          KAS_Authtype: plain
-          KAS_Authdata: ${{ secrets.KAS_AUTH_DATA }}
+          # the name dns_bunny reads (acme.sh dnsapi/dns_bunny.sh)
+          BUNNY_API_KEY: ${{ secrets.BUNNY_API_KEY }}
           STAGING: ${{ github.event_name == 'workflow_dispatch' && inputs.staging }}
         run: |
           server=letsencrypt
           if [ "$STAGING" = true ]; then server=letsencrypt_test; fi
           install -d -m 700 "$RUNNER_TEMP/cert"
           acme="$RUNNER_TEMP/acme/acme.sh --home $RUNNER_TEMP/acme"
-          $acme --issue --server "$server" --dns dns_kas -d "$DOMAIN" --keylength ec-256 --force
+          $acme --issue --server "$server" --dns dns_bunny -d "$DOMAIN" --keylength ec-256 --force
           $acme --install-cert -d "$DOMAIN" --ecc \
             --fullchain-file "$RUNNER_TEMP/cert/fullchain.pem" --key-file "$RUNNER_TEMP/cert/privkey.pem"
           chmod 600 "$RUNNER_TEMP/cert/privkey.pem"
@@ -107,7 +107,7 @@ jobs:
             exit 1
           fi
           echo "Stored: $(jq -c '{ names, expires }' "$RUNNER_TEMP/answer.json")" | tee -a "$GITHUB_STEP_SUMMARY"
-          echo "Decks pick it up with \`deck-tls\` (deck/os/README.md \"wss in the venue\")." >> "$GITHUB_STEP_SUMMARY"
+          echo "Decks pick it up with \`deck-tls\` at boot and once a day (deck/os/README.md \"wss in the venue\")." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Remove the key from the runner
         if: always()
