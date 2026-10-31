@@ -84,8 +84,33 @@ client-side filtering, a raw cache of 100 messages) is not taken over. New, in t
     all-inkl: a CNAME `live` → the endpoint's hostname (today the wildcard sends it to the all-inkl host). 6. In GitHub
     (environment `production`): `BUNNY_LIVE_APP_ID`, `BUNNY_LIVE_CONTAINER`, `BUNNY_API_KEY`. Check: `curl
     https://live.scutoons.com/status` → `{"sessions":0,"live":0}`.
-- **Local: the same relay inside the Scutoons Live app** on the conductor laptop (venue LAN; outputs, performers and
-  the bridge connect to `ws://<laptop>.local:7700` or the IP shown in the app).
+- **Local: the same relay on a deck in the venue** (or the conductor laptop; owner 2026-10-31: definitely, next to
+  bunny – DECISIONS). Decks, outputs and the bridge join `ws://<ip>:7700`. **Phones on https pages need wss** (a
+  browser may not open `ws://192.168.…` from https://scutoons.com), so since #201 (Phase A):
+  - **The relay speaks wss** with a certificate (`--tls-cert` / `--tls-key`, `RELAY_TLS_CERT` / `_KEY`; rustls) on the
+    same port as ws (the first byte decides); a renewed pair is used from the next handshake. deck-relay.service uses
+    `/var/lib/deck/tls/{fullchain,privkey}.pem` when present (deck/os/README.md "wss in the venue").
+  - **The name:** `<deck>.lan.scutoons.com` = an A record → the deck's LAN IP at all-inkl, by hand in KAS or
+    `PUT /api/admin/lan-names/<deck>` (a signed-in admin; the API calls the KAS API – server/docs/API.md "LAN names").
+  - **The certificate:** the wildcard `*.lan.scutoons.com` (Let's Encrypt, DNS-01 at all-inkl with acme.sh `dns_kas`)
+    from `.github/workflows/lan-cert.yml`, monthly; the API keeps it (`PUT /api/deploy/lan-cert`), decks fetch it
+    with `deck-tls` (`GET /api/admin/lan-cert`, an admin's AI connection in deck.toml `tls_token`).
+  - **The link:** `https://scutoons.com/live/deck?relay=wss://<deck>.lan.scutoons.com:7700/live/<code>`.
+  - **Routers:** DNS rebind protection drops answers with private addresses – a FritzBox needs `lan.scutoons.com` under
+    Heimnetz → Netzwerk → Netzwerkeinstellungen → DNS-Rebind-Schutz (Hostnamen-Ausnahmen); a venue router the same.
+    Chrome may ask the phone once to allow access to the local network.
+  - **The owner's path to X1 + S22 at home:** 1. GitHub → environment `production`: secrets `KAS_LOGIN` (w0…) and
+    `KAS_AUTH_DATA` (its KAS password); then push, so the api deploy writes them into config.php and knows the new
+    endpoints. 2. Actions → 🔐 LAN certificate → Run workflow (`staging` first if you like: shown, not stored); the
+    summary shows `*.lan.scutoons.com` and the expiry. 3. The X1's name: its IP (tty2: `ip -4 addr`), then KAS → DNS
+    of scutoons.com → a new A record `x1.lan` → that IP (or the API as a signed-in admin); `nslookup
+    x1.lan.scutoons.com` answers the IP. 4. The FritzBox exception above. 5. An ISO with this (deck-tls, the new
+    relay) on the X1's stick; on tty2: `deck-set tls_token <an admin AI connection token>`, `deck-tls`,
+    `journalctl -u deck-relay -n 3` says `ws + wss`; `deck-set --restart relay ws://127.0.0.1:7700/live/CATH` lets the
+    X1's own stage join it. 6. On the S22 (home Wi-Fi): `https://x1.lan.scutoons.com:7700/status` shows the JSON, then
+    `https://scutoons.com/live/deck?relay=wss://x1.lan.scutoons.com:7700/live/CATH`.
+  - **Phase B:** the deck sets its name and fetches the certificate itself with the deck token (#180), mDNS discovery,
+    the uplink to bunny (below).
 - **Linked mode** (the normal show): the local relay is the session's primary – conductor, outputs, devices, performers
   on the LAN – and keeps an **uplink** to the hosted relay for the audience (who use mobile data / venue Wi-Fi). Audience
   messages are mirrored up / down by the uplink. Internet gone: the stage keeps running, the audience freezes on its
