@@ -33,6 +33,9 @@ use winit::window::{Fullscreen, Window, WindowId};
 const EXIT_BROWSER: i32 = 10;
 /// the splash waits this long at most for the chapter and the music (offline without a cache: the scene anyway)
 const SPLASH_MAX_S: f32 = 30.0;
+/// #208: the audio glitch warning – its HUD text's start and how long it flashes after a glitch (s)
+const ALERT: &str = "AUDIO!";
+const ALERT_S: f32 = 5.0;
 
 /// what other threads tell the event loop
 #[derive(Debug)]
@@ -195,11 +198,18 @@ struct Stats {
     first_frame_ms: Option<f32>,
     window: (u32, f32),
     fps: f32,
-    /// the limiter's gain reduction the HUD shows (dB, held a moment), the underruns per minute and when last counted
+    /// the limiter's gain reduction the HUD shows (dB, held a moment)
     limit: f32,
-    xruns: hud::PerMinute,
-    xrun_rate: u64,
-    xrun_at: f32,
+    /// #208: the audio glitches over the last 10 minutes (counted once a second), the peak callback load of that
+    /// second, the count last seen and until when (wall s) the warning flashes, and its text
+    glitches: Option<hud::PerMinute>,
+    glitch_rate: u64,
+    glitch_at: f32,
+    dsp: f32,
+    glitch_seen: u64,
+    alert_until: f32,
+    /// the newest glitch's cause, upper case
+    alert: String,
 }
 
 /// A loaded scene and everything that plays it: the graph, the audio engine on its device, the control domain, the
@@ -222,9 +232,11 @@ struct Show {
     feeds: Vec<chapter::ChapterFeed>,
     /// the master gain (the browser mutes it; it returns to --volume)
     master: Option<audio::Param>,
-    /// the limiter's gain reduction (dB, f32 bits – taken each frame) and the device's underruns (#188)
+    /// the limiter's gain reduction (dB, f32 bits – taken each frame, #188)
     reduction: Option<Arc<std::sync::atomic::AtomicU32>>,
-    underruns: Option<Arc<std::sync::atomic::AtomicU64>>,
+    /// the glitch indicator (#208) and its log (drained by the frame thread)
+    glitches: Option<Arc<audio::glitch::Glitches>>,
+    glitch_log: Option<rtrb::Consumer<audio::glitch::Event>>,
     /// the scene's space node (#188): the camera, the being, the pointer
     space: Option<render::Space>,
     /// the Live outlet (#186): its threads, the space targets for the space node; or why it doesn't play
@@ -396,7 +408,8 @@ impl Show {
         let feeds = Vec::new();
         let master = handles.as_ref().map(|h| h.master.clone());
         let reduction = handles.as_ref().map(|h| h.reduction.clone());
-        let underruns = handles.as_ref().map(|h| h.underruns.clone());
+        let glitches = handles.as_ref().map(|h| h.glitches.clone());
+        let glitch_log = handles.as_mut().and_then(|h| h.glitch_log.take());
         let meters = handles.as_ref().and_then(|h| h.meters.clone());
         #[cfg(feature = "space")]
         let space = graph.first(graph::Kind::Space).map(|n| {
@@ -465,7 +478,8 @@ impl Show {
             feeds,
             master,
             reduction,
-            underruns,
+            glitches,
+            glitch_log,
             space,
             #[cfg(feature = "live")]
             live,
@@ -756,15 +770,11 @@ impl App {
         }
         #[cfg(feature = "space")]
         self.check_hand();
-        // #188: the limiter's gain reduction since the last frame (the HUD holds it a moment; the being's red face), the
-        // device's underruns per minute (counted once a second)
+        // #188: the limiter's gain reduction since the last frame (the HUD holds it a moment; the being's red face); #208:
+        // the audio glitches (logged, counted, the warning)
         let reduction = self.show.reduction.as_ref().map_or(0.0, |r| f32::from_bits(r.swap(0, std::sync::atomic::Ordering::Relaxed)));
         self.stats.limit = reduction.max(self.stats.limit - dt * 6.0);
-        if time - self.stats.xrun_at >= 1.0 || time < self.stats.xrun_at {
-            self.stats.xrun_at = time;
-            let n = self.show.underruns.as_ref().map_or(0, |u| u.load(std::sync::atomic::Ordering::Relaxed));
-            self.stats.xrun_rate = self.stats.xruns.push(time, n);
-        }
+        self.watch_glitches();
         #[cfg(feature = "space")]
         if let Some(s) = self.show.space.as_mut() {
             let meters = self.show.meters.as_deref();
@@ -800,6 +810,10 @@ impl App {
             let t = self.show.tempo.now();
             let row = lines.iter().position(|l| l.starts_with("BPM"));
             self.hud.set_beat(row.map(|row| hud::Beat { row, beat: t.pos.beat_in_bar, per_bar: t.per_bar, running: t.running }));
+            // #208: the glitch warning flashes at 2 Hz (the lines refresh every 0.25 s)
+            let alert = lines.iter().position(|l| l.starts_with(ALERT));
+            let lit = (self.started.elapsed().as_secs_f32() * 4.0) as u32 % 2 == 0;
+            self.hud.set_alert(alert.map(|row| hud::Alert { row, lit }));
             self.hud.set_lines(lines);
         }
         if self.error.is_some() {
@@ -852,14 +866,56 @@ impl App {
         }
     }
 
+    /// #208: the audio glitches – each one logged (its numbers from the monitor's ring), the warning armed for
+    /// ALERT_S, once a second the count over 10 minutes and the peak callback load
+    fn watch_glitches(&mut self) {
+        let Some(g) = self.show.glitches.clone() else { return };
+        let wall = self.started.elapsed().as_secs_f32();
+        if let Some(log) = self.show.glitch_log.as_mut() {
+            while let Ok(e) = log.pop() {
+                tracing::warn!("{} (at {:.3} s)", e.describe(), e.at_ns.saturating_sub(self.t0_ns) as f64 / 1e9);
+            }
+        }
+        let n = g.count();
+        if n != self.stats.glitch_seen {
+            self.stats.glitch_seen = n;
+            self.stats.alert_until = wall + ALERT_S;
+            self.stats.alert = g.last().map_or("glitch", |(c, _)| c.name()).to_uppercase();
+        }
+        if wall - self.stats.glitch_at >= 1.0 || self.stats.glitches.is_none() {
+            self.stats.glitch_at = wall;
+            self.stats.dsp = g.take_load();
+            self.stats.glitch_rate = self.stats.glitches.get_or_insert_with(|| hud::PerMinute::over(600.0)).push(wall, n);
+        }
+    }
+
     fn hud_lines(&self) -> Vec<String> {
         let last = |v: &[f32]| v.iter().rev().take(60).sum::<f32>() / v.len().clamp(1, 60) as f32;
         let gpu = self.renderer.as_ref().map(|r| format!("{} {:?}", r.adapter.name, r.adapter.backend)).unwrap_or_default();
-        // #188: how far ahead the audio is rendered, underruns in the last minute, the limiter's gain reduction (dB)
-        let ahead = self.lead() as f32 * 1000.0 / self.show.clock.as_ref().map_or(48_000.0, |c| c.rate);
-        let audio = match &self.show.audio {
-            Some(a) => format!("{} {}K {ahead:.0}MS XRUN {}/M LIM {:.0}", a.name, a.rate / 1000, self.stats.xrun_rate, self.stats.limit),
-            None => "off".into(),
+        // #208: the device's buffer (its largest callback) and what it costs, the render thread's lead; then how far
+        // ahead of the ear the audio is rendered (#188), the peak callback load, the glitches in 10 minutes, the
+        // limiter's gain reduction (dB)
+        let rate = self.show.clock.as_ref().map_or(48_000.0, |c| c.rate);
+        let ms = |frames: f32| frames * 1000.0 / rate;
+        let audio = match (&self.show.audio, &self.show.glitches) {
+            (Some(a), Some(g)) => {
+                let buf = g.device_frames();
+                let lead = match g.lead() {
+                    0 => String::new(),
+                    l => format!(" LEAD {:.0}MS", ms(l as f32)),
+                };
+                [
+                    format!("AUDIO {} {}K BUF {buf} {:.0}MS{lead}", a.name.to_uppercase(), a.rate / 1000, ms(buf as f32)),
+                    format!(
+                        "OUT {:.0}MS DSP {:.0}% GLITCH {}/10M LIM {:.0}",
+                        ms(self.lead() as f32),
+                        self.stats.dsp * 100.0,
+                        self.stats.glitch_rate,
+                        self.stats.limit
+                    ),
+                ]
+            }
+            _ => ["AUDIO OFF".into(), String::new()],
         };
         let mut lines = Vec::new();
         if let Some(e) = &self.error {
@@ -879,16 +935,19 @@ impl App {
         }
         let live = live.iter().flat_map(|l| hud::wrap(l, hud::COLS));
         lines.push(format!("SCUTOONSDECK STAGE  {}", self.show.scene_name));
+        // #208: a glitch flashes the warning right under the title for a few seconds (the frame sets its row red)
+        if self.started.elapsed().as_secs_f32() < self.stats.alert_until {
+            lines.push(format!("{ALERT} {} - {} IN 10 MIN", self.stats.alert, self.stats.glitch_rate.max(1)));
+        }
         lines.extend(live);
         lines.extend([
             "F2 WEB  CTRL+ALT+ F2 SHELL / DEL OFF".into(),
             "T TAP +/- BPM SPACE RUN F3 SRC K CLICK".into(),
             format!("FPS {:.1}  FRAME {:.1} MS  CPU {:.2} MS", self.stats.fps, last(&self.stats.intervals), last(&self.stats.work)),
             format!("GPU {gpu}"),
-            format!("AUDIO {audio}"),
-            self.tempo_line(),
-            self.source_line(),
         ]);
+        lines.extend(audio.into_iter().filter(|l| !l.is_empty()));
+        lines.extend([self.tempo_line(), self.source_line()]);
         // the sync (#195) while it fetches, is offline or failed
         #[cfg(feature = "sync")]
         if let Some(line) = self.show.sync.as_ref().map(|y| y.line()).filter(|l| !l.starts_with("SYNC OK")) {
@@ -947,8 +1006,18 @@ impl App {
         let p99 = iv.get(((iv.len() as f32) * 0.99) as usize).or(iv.last()).copied().unwrap_or(0.0);
         let adapter = self.renderer.as_ref().map(|r| format!("{} ({:?})", r.adapter.name, r.adapter.backend)).unwrap_or_default();
         let error = self.error.as_ref().map(|e| format!(" scene_error=\"{e}\"")).unwrap_or_default();
+        // #208: the glitches by cause, the device's buffer, the render lead at the end
+        let glitches = self
+            .show
+            .glitches
+            .as_ref()
+            .map(|g| {
+                let [late, long, under] = g.counts();
+                format!(" glitches={} (late {late} long {long} underrun {under}) buffer={} lead={}", g.count(), g.device_frames(), g.lead())
+            })
+            .unwrap_or_default();
         format!(
-            "deck-stage: frames={} avg_fps={:.1} frame_ms avg={:.2} p99={:.2} cpu_ms avg={:.2} first_frame_ms={:.0} adapter={adapter} audio={} modules={}{error}",
+            "deck-stage: frames={} avg_fps={:.1} frame_ms avg={:.2} p99={:.2} cpu_ms avg={:.2} first_frame_ms={:.0} adapter={adapter} audio={}{glitches} modules={}{error}",
             self.stats.frames,
             1000.0 / avg(&iv).max(1e-3),
             avg(&iv),

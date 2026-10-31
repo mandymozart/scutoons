@@ -11,6 +11,8 @@
 pub mod backend;
 mod blocks;
 mod click;
+pub mod glitch;
+pub mod lead;
 mod voices;
 
 use crate::clock::Stamp;
@@ -169,6 +171,8 @@ pub struct Engine {
     underruns: Arc<AtomicU64>,
     last_mark: Option<(u64, u64)>,
     rate: f32,
+    /// the glitch indicator's callback half (#208) – the backend takes it into the thread that runs the device callback
+    monitor: Option<glitch::Monitor>,
 }
 
 /// What the frame thread keeps of a built engine.
@@ -191,8 +195,12 @@ pub struct Handles {
     pub build: Build,
     /// the limiter's deepest gain reduction since the last `take_reduction` (#188: the HUD, the being's red face)
     pub reduction: Arc<AtomicU32>,
-    /// blocks the device played late (an underrun: `Engine::mark` saw a gap) – the HUD's XRUN per minute
+    /// blocks the device played late (an underrun: `Engine::mark` saw a gap) – one of the glitch causes
     pub underruns: Arc<AtomicU64>,
+    /// the glitch indicator (#208): counts per cause, the newest, the load, the device's buffer, the render lead
+    pub glitches: Arc<glitch::Glitches>,
+    /// each glitch's numbers for the log – the frame thread drains it (never the audio thread)
+    pub glitch_log: Option<rtrb::Consumer<glitch::Event>>,
 }
 
 impl Handles {
@@ -217,6 +225,7 @@ impl Engine {
     }
 
     pub fn build_with(graph: &Graph, rate: f32, volume: f32, build: Build) -> Result<(Engine, Handles)> {
+        let (monitor, glitches, glitch_log) = glitch::Monitor::new(rate);
         let mut handles = Handles {
             params: Vec::new(),
             knobs: Vec::new(),
@@ -229,6 +238,8 @@ impl Engine {
             build,
             reduction: Arc::new(AtomicU32::new(0)),
             underruns: Arc::new(AtomicU64::new(0)),
+            glitches,
+            glitch_log: Some(glitch_log),
         };
         // the scene's tempo until the frame thread takes over
         let cfg = tempo::Config::from_graph(graph)?;
@@ -305,8 +316,24 @@ impl Engine {
             underruns: handles.underruns.clone(),
             last_mark: None,
             rate,
+            monitor: Some(monitor),
         };
         Ok((engine, handles))
+    }
+
+    /// The glitch monitor for the thread that runs the device callback (#208) – once; a second call gets a fresh one
+    /// whose counts nobody reads.
+    pub fn take_monitor(&mut self) -> glitch::Monitor {
+        self.monitor.take().unwrap_or_else(|| glitch::Monitor::new(self.rate).0)
+    }
+
+    /// the count `mark` raises on a gap in the heard stamps (a backend compares it around a callback)
+    pub fn underruns(&self) -> Arc<AtomicU64> {
+        self.underruns.clone()
+    }
+
+    pub fn rate(&self) -> f32 {
+        self.rate
     }
 
     /// (steps, batches, the batches' loops: "avx2" / "baseline" / "-") – the shape the build found

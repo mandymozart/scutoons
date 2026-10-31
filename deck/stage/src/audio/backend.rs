@@ -41,6 +41,46 @@ pub struct Running {
 /// Builds an engine for a sample rate; called once per backend tried.
 pub type Factory<'a> = dyn FnMut(f32) -> Result<Engine> + 'a;
 
+/// A callback that renders the graph itself, in the device's thread, measured by the glitch monitor (#208).
+pub struct Direct {
+    engine: Engine,
+    mon: super::glitch::Monitor,
+    underruns: Arc<std::sync::atomic::AtomicU64>,
+    /// a gap in the heard stamps counts as an underrun (false where the stamps jitter: WASAPI's)
+    gaps: bool,
+}
+
+impl Direct {
+    pub fn new(mut engine: Engine) -> Direct {
+        let mon = engine.take_monitor();
+        let underruns = engine.underruns();
+        Direct { engine, mon, underruns, gaps: true }
+    }
+
+    /// a host whose callbacks top up one buffer (WASAPI shared): the deadline is the buffer, the stamps' gaps are
+    /// jitter (glitch.rs `Deadline::Buffer`)
+    fn buffered(mut self) -> Direct {
+        self.mon.deadline = super::glitch::Deadline::Buffer;
+        self.gaps = false;
+        self
+    }
+
+    /// One device callback: `out` (interleaved, `channels` per frame) whose first frame is heard at `heard_ns`.
+    /// Never allocates.
+    pub fn play<T: Copy>(&mut self, out: &mut [T], channels: usize, heard_ns: u64, conv: impl Fn(f32) -> T) {
+        let start = self.mon.begin();
+        let before = self.underruns.load(Ordering::Relaxed);
+        self.engine.mark(heard_ns);
+        self.engine.render(out, channels, conv);
+        let gap = self.gaps && self.underruns.load(Ordering::Relaxed) != before;
+        self.mon.end(start, out.len() / channels.max(1), gap);
+    }
+
+    pub fn glitches(&self) -> &super::glitch::Glitches {
+        &self.mon.shared
+    }
+}
+
 pub fn start(choice: Choice, factory: &mut Factory) -> Result<Running> {
     let order: &[Choice] = match choice {
         Choice::Auto => &[Choice::PipeWire, Choice::Cpal, Choice::Null],
@@ -71,7 +111,9 @@ const NULL_BLOCK: usize = 512;
 
 /// no device: the engine runs on a timer thread so the clock, the music and the FFT still move
 fn null(factory: &mut Factory) -> Result<Running> {
-    let mut engine = factory(NULL_RATE as f32)?;
+    let mut direct = Direct::new(factory(NULL_RATE as f32)?);
+    // a timer's sleep is no device deadline: only long renders count
+    direct.mon.check_late = false;
     let stop = Arc::new(AtomicBool::new(false));
     let flag = stop.clone();
     std::thread::Builder::new().name("audio-null".into()).spawn(move || {
@@ -81,9 +123,9 @@ fn null(factory: &mut Factory) -> Result<Running> {
         // block k is "heard" on its schedule (no device, no latency)
         let (t0, mut k) = (now_ns(), 0u64);
         while !flag.load(Ordering::Relaxed) {
-            engine.mark(t0 + k * NULL_BLOCK as u64 * 1_000_000_000 / NULL_RATE as u64);
+            let heard = t0 + k * NULL_BLOCK as u64 * 1_000_000_000 / NULL_RATE as u64;
             k += 1;
-            engine.render(&mut buf, 2, |x| x);
+            direct.play(&mut buf, 2, heard, |x| x);
             next += period;
             if let Some(wait) = next.checked_duration_since(std::time::Instant::now()) {
                 std::thread::sleep(wait);
@@ -106,20 +148,33 @@ fn cpal(factory: &mut Factory) -> Result<Running> {
     let Some(device) = host.default_output_device() else { bail!("no default output device") };
     let cfg = device.default_output_config()?;
     let (rate, channels) = (cfg.sample_rate().0, cfg.channels() as usize);
-    let mut engine = factory(rate as f32)?;
+    let wasapi = host.id().name() == "WASAPI";
+    let mut direct = Direct::new(factory(rate as f32)?);
+    if wasapi {
+        direct = direct.buffered();
+    }
     let sc: cpal::StreamConfig = cfg.config();
     let err = |e| tracing::error!("audio stream: {e}");
-    // the block is heard at its playback instant: now + (playback − callback), the output latency cpal reports
-    let heard = |info: &cpal::OutputCallbackInfo| {
-        let ts = info.timestamp();
-        now_ns() + ts.playback.duration_since(&ts.callback).map(|d| d.as_nanos() as u64).unwrap_or(0)
+    let heard = move |info: &cpal::OutputCallbackInfo, frames: usize, g: &super::glitch::Glitches| {
+        let latency = if wasapi {
+            // cpal 0.15's WASAPI playback instant is callback + the frames asked for – but the new frames play after
+            // what is still queued: the buffer minus what this callback fills (#208: the stamps jittered by a period)
+            let queued = (g.device_frames() as usize).saturating_sub(frames);
+            (queued as f64 * 1e9 / rate as f64) as u64
+        } else {
+            // the block is heard at its playback instant: now + (playback − callback), the output latency cpal reports
+            let ts = info.timestamp();
+            ts.playback.duration_since(&ts.callback).map(|d| d.as_nanos() as u64).unwrap_or(0)
+        };
+        g.set_latency_us((latency / 1000) as u32);
+        now_ns() + latency
     };
     let stream = match cfg.sample_format() {
         SampleFormat::F32 => device.build_output_stream(
             &sc,
             move |d: &mut [f32], info| {
-                engine.mark(heard(info));
-                engine.render(d, channels, |x| x)
+                let h = heard(info, d.len() / channels, direct.glitches());
+                direct.play(d, channels, h, |x| x)
             },
             err,
             None,
@@ -127,8 +182,8 @@ fn cpal(factory: &mut Factory) -> Result<Running> {
         SampleFormat::I16 => device.build_output_stream(
             &sc,
             move |d: &mut [i16], info| {
-                engine.mark(heard(info));
-                engine.render(d, channels, |x| (x * i16::MAX as f32) as i16)
+                let h = heard(info, d.len() / channels, direct.glitches());
+                direct.play(d, channels, h, |x| (x * i16::MAX as f32) as i16)
             },
             err,
             None,
@@ -153,7 +208,7 @@ fn pipewire(factory: &mut Factory) -> Result<Running> {
     use pw::spa;
     const RATE: u32 = 48_000;
     const CHANNELS: usize = 2;
-    let mut engine = factory(RATE as f32)?;
+    let mut direct = Direct::new(factory(RATE as f32)?);
     let (ready_tx, ready_rx) = std::sync::mpsc::channel::<Result<(), String>>();
     std::thread::Builder::new().name("pipewire".into()).spawn(move || {
         let run = || -> Result<(), pw::Error> {
@@ -191,13 +246,12 @@ fn pipewire(factory: &mut Factory) -> Result<Running> {
                         }
                         _ => now_ns() + 128 * 1_000_000_000 / RATE as u64,
                     };
-                    engine.mark(heard);
                     let stride = std::mem::size_of::<f32>() * CHANNELS;
                     let frames = match data.data() {
                         Some(bytes) => match bytemuck::try_cast_slice_mut::<u8, f32>(bytes) {
                             Ok(samples) => {
                                 let n = samples.len() / CHANNELS;
-                                engine.render(&mut samples[..n * CHANNELS], CHANNELS, |x| x);
+                                direct.play(&mut samples[..n * CHANNELS], CHANNELS, heard, |x| x);
                                 n
                             }
                             Err(_) => 0,

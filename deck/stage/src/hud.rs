@@ -5,14 +5,17 @@ use font8x8::UnicodeFonts;
 use std::collections::VecDeque;
 
 pub const W: u32 = 320;
-/// text lines the HUD has room for (above the frame-time graph)
-pub const LINES: usize = 11;
+/// text lines the HUD has room for (above the frame-time graph; #208: two audio lines + the glitch warning)
+pub const LINES: usize = 13;
 /// characters a line has room for (8 px each, a 4 px margin)
 pub const COLS: usize = 39;
 pub const H: u32 = 4 + LINES as u32 * 10 + GRAPH_H + 4;
 const GRAPH_H: u32 = 20;
 /// the graph's full height in ms (two 60 Hz frames)
 const GRAPH_MS: f32 = 33.3;
+const TEXT: [u8; 4] = [235, 235, 235, 255];
+/// the audio glitch warning's red (#208)
+const ALERT: [u8; 4] = [230, 40, 40, 255];
 
 pub struct Hud {
     pub pixels: Vec<u8>,
@@ -20,6 +23,15 @@ pub struct Hud {
     lines: Vec<String>,
     times: VecDeque<f32>,
     beat: Option<Beat>,
+    /// #208: the glitch warning's row, drawn in red; `lit` = the flash's bright half (a red bar behind the text)
+    alert: Option<Alert>,
+}
+
+/// the audio glitch warning (#208): text line `row` in red, on a red bar while `lit`
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Alert {
+    pub row: usize,
+    pub lit: bool,
 }
 
 /// the beat lights: on text line `row`, `per_bar` lights (at most 8 drawn), `beat` (0-based) lit
@@ -33,25 +45,36 @@ pub struct Beat {
 
 impl Default for Hud {
     fn default() -> Self {
-        Hud { pixels: vec![0; (W * H * 4) as usize], visible: true, lines: Vec::new(), times: VecDeque::new(), beat: None }
+        Hud { pixels: vec![0; (W * H * 4) as usize], visible: true, lines: Vec::new(), times: VecDeque::new(), beat: None, alert: None }
     }
 }
 
-/// A running count's increase over the last minute, from samples taken now and then (#188: the device's underruns per
-/// minute on the AUDIO line).
-#[derive(Default)]
+/// A running count's increase over a window (a minute by default), from samples taken now and then (#188: the
+/// device's underruns per minute; #208: the audio glitches per 10 minutes).
 pub struct PerMinute {
     samples: VecDeque<(f32, u64)>,
+    window: f32,
+}
+
+impl Default for PerMinute {
+    fn default() -> Self {
+        PerMinute::over(60.0)
+    }
 }
 
 impl PerMinute {
-    /// the count `n` at `t` s → its increase over the last 60 s (counted from 0 at the first sample's moment)
+    /// over the last `window` seconds
+    pub fn over(window: f32) -> PerMinute {
+        PerMinute { samples: VecDeque::new(), window }
+    }
+
+    /// the count `n` at `t` s → its increase over the window (counted from 0 at the first sample's moment)
     pub fn push(&mut self, t: f32, n: u64) -> u64 {
         if self.samples.is_empty() {
             self.samples.push_back((t, 0));
         }
         self.samples.push_back((t, n));
-        while self.samples.len() > 1 && t - self.samples[0].0 > 60.0 {
+        while self.samples.len() > 1 && t - self.samples[0].0 > self.window {
             self.samples.pop_front();
         }
         n.saturating_sub(self.samples[0].1)
@@ -87,6 +110,10 @@ impl Hud {
         self.beat = beat;
     }
 
+    pub fn set_alert(&mut self, alert: Option<Alert>) {
+        self.alert = alert;
+    }
+
     pub fn push_frame(&mut self, ms: f32) {
         if self.times.len() == (W / 2) as usize {
             self.times.pop_front();
@@ -100,7 +127,20 @@ impl Hud {
         }
         let lines = std::mem::take(&mut self.lines);
         for (row, line) in lines.iter().enumerate() {
-            self.text(4, 4 + row as u32 * 10, line);
+            let y = 4 + row as u32 * 10;
+            match self.alert.filter(|a| a.row == row) {
+                // #208: the glitch warning – white on a red bar, then red on black: it flashes
+                Some(Alert { lit: true, .. }) => {
+                    for yy in y - 1..y + 9 {
+                        for x in 0..W {
+                            self.put(x, yy, ALERT);
+                        }
+                    }
+                    self.text_in(4, y, line, TEXT);
+                }
+                Some(_) => self.text_in(4, y, line, ALERT),
+                None => self.text_in(4, y, line, TEXT),
+            }
         }
         self.lines = lines;
         if let Some(b) = self.beat {
@@ -135,13 +175,13 @@ impl Hud {
         }
     }
 
-    fn text(&mut self, x: u32, y: u32, s: &str) {
+    fn text_in(&mut self, x: u32, y: u32, s: &str, color: [u8; 4]) {
         for (i, ch) in s.chars().take((W / 8) as usize).enumerate() {
             let glyph = font8x8::BASIC_FONTS.get(ch).or_else(|| font8x8::BASIC_FONTS.get('?')).unwrap_or([0; 8]);
             for (gy, bits) in glyph.iter().enumerate() {
                 for gx in 0..8 {
                     if bits & (1 << gx) != 0 {
-                        self.put(x + i as u32 * 8 + gx, y + gy as u32, [235, 235, 235, 255]);
+                        self.put(x + i as u32 * 8 + gx, y + gy as u32, color);
                     }
                 }
             }
@@ -182,6 +222,32 @@ mod tests {
         assert!(lit > 20, "text pixels: {lit}");
         let green = h.pixels.chunks_exact(4).filter(|p| p[1] == 220).count();
         assert!(green > 0);
+    }
+
+    #[test]
+    fn the_window_is_ten_minutes_for_glitches() {
+        let mut p = PerMinute::over(600.0);
+        p.push(0.0, 0);
+        assert_eq!(p.push(30.0, 1), 1);
+        assert_eq!(p.push(500.0, 1), 1, "still within 10 minutes");
+        assert_eq!(p.push(640.0, 1), 0, "older than 10 minutes");
+    }
+
+    /// #208: the warning row flashes – a red bar with white text, then red text on the HUD's black
+    #[test]
+    fn the_glitch_warning_flashes_red() {
+        let mut h = Hud::default();
+        h.set_lines(vec!["TITLE".into(), "AUDIO GLITCH".into()]);
+        let red = |h: &Hud| h.pixels.chunks_exact(4).filter(|p| p == &ALERT).count();
+        h.raster();
+        assert_eq!(red(&h), 0);
+        h.set_alert(Some(Alert { row: 1, lit: true }));
+        h.raster();
+        assert!(red(&h) > W as usize * 8, "a red bar across the HUD");
+        h.set_alert(Some(Alert { row: 1, lit: false }));
+        h.raster();
+        let text = red(&h);
+        assert!(text > 20 && text < 12 * 64, "red letters only: {text}");
     }
 
     #[test]
