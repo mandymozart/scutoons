@@ -18,3 +18,23 @@ How the class is decided (deck-check `classify`): x86_64 → **A**; ARM with har
 decode profile (never on C), `video_encode` = an encode profile, `audio` = an ALSA card, `midi` = an ALSA sequencer
 client, `editing` = A + hardware Vulkan + ≥ 8 GB. The one must-have (exit 1, no kiosk): a display device (a DRM driver);
 everything else is a warning and a feature off (§1, "hijack any hardware around").
+
+## Roles – who runs a deck where (owner 2026-10-31)
+What a deck needs follows what it does in a show: a live-video deck is big, a choir singer's is small. We will build
+hardware one day, so the numbers stay as low as each role allows. **First guesses, to be corrected by the log below** –
+every test or show adds a row there, and the table follows what we learn.
+
+| Role | Runs on (today → own hardware later) | Does | Storage (system + cache) | Compute | Must have |
+|---|---|---|---|---|---|
+| Live video / outlet | laptop (X1) → class A box | plays the show's cells: 1080p+ video, slices, the 3D set (#186) | 6 GB + **the show's videos: 20–100+ GB** | hardware video decode, a real GPU | HDMI out, wired network |
+| Conductor | laptop / the PC | the session, every deck's being, pushes syncs (#195), cues | 6 GB + sets + portraits of all decks: ~10–20 GB | GPU for many beings (5 decks = 1.5 ms CPU / frame today) | screen, keyboard |
+| AV deck (a being: 3D + synths) | laptop (X1) → class A / B | the cathedral being, its sound, a performer's knobs | 6 GB + sets + portraits: ~10 GB | GPU for 3D (UHD 620 holds 60 fps), audio | screen, audio out |
+| Musician / synth deck | a small box → class B | sound only (deck-core), MIDI in / out, the tempo clock | ~8 GB | CPU for audio (16 FM voices = 10 µs) | audio interface, MIDI / USB |
+| Light / device bridge | a tiny board → class C | DMX (USB Pro, Art-Net), OSC, MIDI to the hall's devices (#187) | ~4–8 GB | almost none | USB, network |
+| Choir singer / performer | **the singer's phone** (browser, /live/deck) → maybe a small clip-on device | its voice part, cues, haptics, its being on the conductor (#190) | nothing installed; a browser cache of a few MB | a phone (WebGL2) | headphones, the session's QR code |
+| Audience | their phone (browser) | votes, the show's view | nothing | a phone | the session link |
+
+### Log – use cases and what we learned
+| Date | Who / where | Roles used | Machines | What we learned |
+|---|---|---|---|---|
+| 2026-10-30/31 | owner, at home (3-device test, session CATH) | conductor · AV deck · phone deck | PC (RTX 2070), X1 on stick s5, S22 (Chrome) | X1 runs the cathedral at 60 fps; the stick's first boot hung on mkfs discard (fixed s6); Wi-Fi had to be retyped (fixed s6); typing the relay address is annoying (→ #199); the S22 has no WebGPU (→ WebGL2, #198); a phone reload left ghost decks (relay keep-alive); 20 GB plan for the X1 install, video makes the outlet role big (#200) |
