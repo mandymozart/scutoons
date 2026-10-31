@@ -20,7 +20,7 @@ client, `editing` = A + hardware Vulkan + ≥ 8 GB. The one must-have (exit 1, n
 everything else is a warning and a feature off (§1, "hijack any hardware around").
 
 ## Roles – who runs a deck where (owner 2026-10-31)
-What a deck needs follows what it does in a show: a live-video deck is big, a choir singer's is small. We will build
+What a deck needs follows what it does in a show: a live-video deck is big, a choir singer's is small (cheap machines to buy per role: agents/research/DECK-STARTERS.md). We will build
 hardware one day, so the numbers stay as low as each role allows. **First guesses, to be corrected by the log below** –
 every test or show adds a row there, and the table follows what we learn.
 
