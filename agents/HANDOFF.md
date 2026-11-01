@@ -46,7 +46,9 @@ orchestrator ≈ $445 list over 2026-10-29 … 11-01, `agents/costs.json`), so s
   `python C:\Developmentgents\costseport.py`.
 
 ## State (2026-11-01, ~10:45)
-- `main` pushed at 809d3ad2; **9 commits since are not pushed** (`git log origin/main..main`):
+- `main` pushed to 62cf64a2 on 2026-11-01 (the owner's word): the viewer deploy (`deploy-app.yml`, the wasm built there)
+  is green and `scutoons.com/version.json` reports 62cf64a. The commits below went out with it.
+- The list below is what this push carried (kept for the record):
   - #220 quality governor: 55df2990 · 8db51ef3 · d0b1165c · 3f10be0f (the local worker, done, its comment on the issue).
   - #224 navigation: PR #226 merged as 31c6e414 (clean).
   - #211 outputs (MIDI / DMX / strobe): PR #227 merged as 5a1e583e + be72c665 (the merge's two fixes: the stage link's
@@ -67,9 +69,8 @@ orchestrator ≈ $445 list over 2026-10-29 … 11-01, `agents/costs.json`), so s
   Backlog (owner's order): #208, #223, #225, #213. Proposals: #221, #216.
 
 ## Next
-1. **The push** – only on the owner's word (bundled: 9 commits deploy the viewer's /live/deck with #220 + #224, the
-   v2 cathedral migration). After it: GitHub deck CI by hand if wanted (`deck.yml` workflow_dispatch), the deploy's
-   health, `/live/deck` on the S22 (the portrait's knobs, the glides, the quality row), the strobe on the Enttec.
+1. **Check on the S22 and the Enttec** (the push is done): `/live/deck` on the phone (the portrait's knobs, the glides,
+   the quality row), the strobe on the Enttec (PR #227's steps). GitHub deck CI by hand if wanted (`deck.yml`).
    Then close the three issues' open rests: #224 (the fold at the portrait if hidden on the S22 too), #211 (mapping UI,
    Art-Net, conductor routing), #220 (X1 checks).
 2. **#213** camera moves (+ the conductor's shots #189): now unblocked (#224 is in); reuse the eased `goal` / `want`.
