@@ -79,6 +79,8 @@ fn aim(b: &Being) -> Vec3 {
 /// the photographer's focus: from this many sizes away the camera aims at the whole being, from this near at its head
 const FOCUS_FAR: f32 = 7.0;
 const FOCUS_NEAR: f32 = 2.2;
+/// #224: a deselect frames the whole being this far (a share of the view's half) off the edges
+const FRAME_MARGIN: f32 = 0.08;
 
 /// where the being floats when the set has no such spot (or there is no set)
 const FALLBACK_ANCHOR: Vec3 = Vec3::new(0.0, 1.4, 0.0);
@@ -370,13 +372,13 @@ impl Space {
         self.clock = time;
         self.light = ctl.input(self.node, "light", params::default(crate::graph::Kind::Space, "light"));
         self.post_knobs = post::Knobs::read(&*ctl, self.node);
+        // the focus follows the zoom: the whole being far out, its head close up (owner 2026-10-31) – or, with a knob
+        // selected, that knob (#224: "zooming then brings you closer to that point"); the camera glides there
+        self.camera.goal = self.focus_goal(self.camera.distance);
         self.camera.step(dt);
-        // the focus follows the zoom: the whole being far out, its head close up (owner 2026-10-31)
-        let (body, head) = self.being.focus();
-        let s = self.being.look.size;
-        self.camera.target = camera::focus_target(body, head, self.camera.distance, s * FOCUS_NEAR, s * FOCUS_FAR);
-        // #209: the knobs face the camera
+        // #209: the knobs face the camera; #224: and fold into its view close up
         self.being.eye = Some(self.camera.eye());
+        self.being.frame = Some(self.camera.frame(self.view.0 / self.view.1));
         self.being.update(dt, time, &Local { ctl, meter }, beat);
         self.being.push(ctl);
         let local = Local { ctl, meter };
@@ -387,6 +389,57 @@ impl Space {
         self.being.dragging = matches!(self.drag, Drag::Knob { .. } | Drag::Hold);
         self.session(time, &local);
         self.congregation(dt, time, beat);
+    }
+
+    /// Where the camera's focus goes at `distance` (camera::focus_target): from the whole being's centre far out to its
+    /// head close up – to the selected knob instead of the head while one is (#224; where it sits unfolded, so the
+    /// knob comes to the middle of the picture as the camera nears it).
+    fn focus_goal(&self, distance: f32) -> Vec3 {
+        let (body, head) = self.being.focus();
+        let near = match self.being.selected {
+            Some(Hit::Button(i)) => self.being.buttons[i].free,
+            _ => head,
+        };
+        let s = self.being.look.size;
+        camera::focus_target(body, near, distance, s * FOCUS_NEAR, s * FOCUS_FAR)
+    }
+
+    /// #224 (owner 2026-10-31: "when it's deselected again, the whole figure is framed at the zoom level that
+    /// allows"): the closest distance at which the whole being – its points, its head, its knobs where they sit
+    /// unfolded – fits the view, aiming where the focus rule aims there (a bisection: the fit only grows with the
+    /// distance); the farthest the camera goes if even that is too close
+    pub fn frame_distance(&self) -> f32 {
+        let b = &self.being;
+        let spheres = || {
+            let points = b.points.iter().map(|p| (p.pos, p.radius));
+            let knobs = b.buttons.iter().map(|k| (k.free, k.radius * being::RING_REST));
+            points.chain(knobs).chain(std::iter::once((b.head.pos, b.head.radius)))
+        };
+        let aspect = self.view.0 / self.view.1;
+        let fits = |d: f32| {
+            let mut c = self.camera;
+            c.distance = d;
+            let (body, head) = b.focus();
+            let s = b.look.size;
+            c.target = camera::focus_target(body, head, d, s * FOCUS_NEAR, s * FOCUS_FAR);
+            c.fits(aspect, spheres(), FRAME_MARGIN)
+        };
+        let (mut lo, mut hi) = (self.camera.min_distance, self.camera.max_distance);
+        if fits(lo) {
+            return lo;
+        }
+        if !fits(hi) {
+            return hi;
+        }
+        for _ in 0..24 {
+            let mid = (lo * hi).sqrt();
+            if fits(mid) {
+                hi = mid;
+            } else {
+                lo = mid;
+            }
+        }
+        hi
     }
 
     /// The set's 3D has arrived (its loader thread on the deck, the page's fetch in the browser): the being moves to
@@ -400,7 +453,7 @@ impl Space {
                 }
                 let base = spot.unwrap_or_else(|| Vec3::new((model.min.x + model.max.x) * 0.5, model.min.y, (model.min.z + model.max.z) * 0.5));
                 self.being.anchor = self.at.unwrap_or(base + Vec3::Y * self.lift);
-                self.camera.target = aim(&self.being);
+                self.camera.look_at(aim(&self.being));
                 self.set_status = format!("SET {}K TRIS", model.triangles() / 1000);
                 self.spots = model.spots.clone();
                 self.model = Some(model);
@@ -735,7 +788,7 @@ impl Space {
             _ => {
                 if let Some(pos) = self.spots.iter().find(|(n, _)| *n == self.spot).map(|(_, p)| *p) {
                     self.being.anchor = pos + Vec3::Y * self.lift;
-                    self.camera.target = aim(&self.being);
+                    self.camera.look_at(aim(&self.being));
                 } else if spot.is_some() && self.set_rx.is_none() {
                     tracing::warn!("set: no spot '{}' – the being stays", self.spot);
                 }
@@ -850,12 +903,19 @@ impl Space {
 
     /// #209: select a button, the being (`Hit::Point` – any), or nothing (None: the master section) – the renderer rings
     /// it; the page asks for taps with `take_tap`
+    /// #224: a knob let go (the being or nothing selected now) frames the whole being – the camera glides out (or in)
+    /// to `frame_distance`, the focus back to the being
     pub fn select(&mut self, what: Option<Hit>) {
+        let was_knob = matches!(self.being.selected, Some(Hit::Button(_)));
         self.being.selected = match what {
             Some(Hit::Point(_)) => Some(Hit::Point(self.being.core_point.unwrap_or(0))),
             Some(Hit::Button(i)) if i < self.being.buttons.len() => Some(Hit::Button(i)),
             _ => None,
         };
+        if was_knob && !matches!(self.being.selected, Some(Hit::Button(_))) {
+            self.camera.want = self.frame_distance();
+            self.camera.idle = 0.0;
+        }
     }
 
     /// #209: the selection a tap made since the last call (Some(None) = a tap on empty space: deselected)
@@ -1032,6 +1092,129 @@ mod tests {
         space.update(1.0 / 60.0, t, ctl, &tempo::Now::default(), &|_, _| 0.0);
     }
 
+    /// #224: three seconds of frames from the show's time `t` – the glides arrive
+    fn settle(space: &mut Space, ctl: &mut Table, t: f32) {
+        for k in 0..180 {
+            frame(space, ctl, t + k as f32 / 60.0);
+        }
+    }
+
+    /// #224 (owner 2026-10-31: "when you tap one, that node is selected, and zooming then brings you closer to that
+    /// point. When it's deselected again, the whole figure is framed"): a selected knob draws the focus as the camera
+    /// zooms in and holds it there steadily; a deselect glides back – the focus to the being, the distance out to the
+    /// closest one where the whole being fits – without overshooting
+    #[test]
+    fn the_focus_follows_a_selected_knob_and_a_deselect_frames_the_whole_being() {
+        let (g, mut space, mut ctl) = cathedral();
+        let i = space.button(&g, "voice.index").unwrap();
+        space.select(Some(Hit::Button(i)));
+        let before = space.camera.target;
+        frame(&mut space, &mut ctl, 0.0);
+        assert!(space.camera.target.distance(before) < 0.05, "no jump at the tap: {}", space.camera.target.distance(before));
+        space.camera.zoom(100.0);
+        settle(&mut space, &mut ctl, 0.1);
+        let knob = space.being.buttons[i].free;
+        let s = space.being.look.size;
+        assert!(space.camera.target.distance(knob) < 0.02 * s, "close up: the knob ({})", space.camera.target.distance(knob));
+        let (x, y) = space.to_pixel(space.being.buttons[i].pos).unwrap();
+        assert!((x - 640.0).abs() < 64.0 && (y - 360.0).abs() < 36.0, "in the middle of the picture: {x} {y}");
+        // it holds there: no hunting between the camera and the knob's camera-facing layout
+        let mut last = space.camera.target;
+        for k in 0..60 {
+            frame(&mut space, &mut ctl, 3.2 + k as f32 / 60.0);
+            assert!(space.camera.target.distance(last) < 0.004 * s, "steady: {}", space.camera.target.distance(last));
+            last = space.camera.target;
+        }
+        // deselect (a tap on empty space): framed – the closest distance where everything fits
+        let close = space.camera.distance;
+        space.select(None);
+        let want = space.camera.want;
+        assert!(want > close * 1.5 && want < space.camera.max_distance, "out to the frame: {close} → {want}");
+        assert_eq!(want, space.frame_distance());
+        let mut d = space.camera.distance;
+        for k in 0..240 {
+            frame(&mut space, &mut ctl, 5.0 + k as f32 / 60.0);
+            assert!(space.camera.distance >= d && space.camera.distance <= want, "out, never past: {d} → {}", space.camera.distance);
+            d = space.camera.distance;
+        }
+        assert_eq!(space.camera.distance, want);
+        let (body, head) = space.being.focus();
+        let goal = camera::focus_target(body, head, want, s * FOCUS_NEAR, s * FOCUS_FAR);
+        assert!(space.camera.target.distance(goal) < 0.01 * s, "the focus back on the being");
+        let b = &space.being;
+        let all = b.points.iter().map(|p| (p.pos, p.radius)).chain(b.buttons.iter().map(|k| (k.free, k.radius))).chain([(b.head.pos, b.head.radius)]);
+        assert!(space.camera.fits(16.0 / 9.0, all, 0.0), "the whole being in the picture");
+        // and no further than needed: a step closer something leaves the frame
+        let mut c = space.camera;
+        c.distance = want * 0.9;
+        c.target = camera::focus_target(body, head, c.distance, s * FOCUS_NEAR, s * FOCUS_FAR);
+        let all = b.points.iter().map(|p| (p.pos, p.radius)).chain(b.buttons.iter().map(|k| (k.free, k.radius * being::RING_REST))).chain([(b.head.pos, b.head.radius)]);
+        assert!(!c.fits(16.0 / 9.0, all, FRAME_MARGIN), "the closest such distance");
+        // selecting the being after a knob frames it too; the being after the being changes nothing
+        space.select(Some(Hit::Button(i)));
+        space.camera.zoom(100.0);
+        space.select(Some(Hit::Point(0)));
+        assert_eq!(space.camera.want, space.frame_distance());
+        space.camera.zoom(3.0);
+        let w = space.camera.want;
+        space.select(None);
+        assert_eq!(space.camera.want, w, "no knob was let go");
+    }
+
+    /// #224 (owner 2026-10-31: "When we zoom in on the character, to the portrait, we can't reach some parameters any
+    /// more"): at the portrait every knob is on the screen – the ones that would sit outside fold in toward the edge,
+    /// off it by a thumb's room – on a wide window and on a phone held upright; and each can still be tapped
+    #[test]
+    fn at_the_portrait_every_knob_is_on_the_screen() {
+        for (w, h) in [(1280.0, 720.0), (390.0, 845.0)] {
+            let (_, mut space, mut ctl) = cathedral();
+            space.set_view(w, h);
+            space.camera.zoom(100.0);
+            settle(&mut space, &mut ctl, 0.1);
+            let mut folded = 0;
+            let bs = &space.being.buttons;
+            for (i, a) in bs.iter().enumerate() {
+                // (only where one of them folded – the spread's job; the free layout is #209's)
+                for b in bs[i + 1..].iter().filter(|b| a.pos != a.free || b.pos != b.free) {
+                    let (p, q) = (space.to_pixel(a.pos).unwrap(), space.to_pixel(b.pos).unwrap());
+                    let gap = ((p.0 - q.0).powi(2) + (p.1 - q.1).powi(2)).sqrt();
+                    let r = |k: &being::Button| space.to_pixel(k.pos + space.camera.frame(1.0).up * k.radius).map_or(0.0, |t| (t.1 - space.to_pixel(k.pos).unwrap().1).abs());
+                    assert!(gap > (r(a) + r(b)) * 0.9, "{w}×{h}: {} and {} overlap ({gap:.0} px)", a.name, b.name);
+                }
+            }
+            for (i, b) in space.being.buttons.iter().enumerate() {
+                let (x, y) = space.to_pixel(b.pos).expect("in front of the eye");
+                let inside = |x: f32, y: f32, m: f32| x > w * m && x < w * (1.0 - m) && y > h * m && y < h * (1.0 - m);
+                assert!(inside(x, y, 0.04), "{w}×{h}: knob {i} ({}) at {x:.0} {y:.0}", b.name);
+                if !space.to_pixel(b.free).is_some_and(|(x, y)| inside(x, y, 0.0)) {
+                    folded += 1;
+                }
+            }
+            assert!(folded > 0, "{w}×{h}: some knobs would be off the screen unfolded");
+            // every one is tapped where it is shown
+            for i in 0..space.being.buttons.len() {
+                let (x, y) = space.to_pixel(space.being.buttons[i].pos).unwrap();
+                space.pointer_moved(x, y, &mut ctl);
+                space.press();
+                space.release();
+                assert_eq!(space.being.selected, Some(Hit::Button(i)), "{w}×{h}: knob {i} ({}) is tapped", space.being.buttons[i].name);
+                space.select(None);
+                space.camera.zoom(100.0);
+                settle(&mut space, &mut ctl, 4.0 + i as f32 * 3.0);
+            }
+        }
+        // at the start view #209's layout stays: most knobs untouched, those near the edge nudged a little, none shrunk
+        let (_, space, _) = cathedral();
+        let mut still = 0;
+        for b in &space.being.buttons {
+            let (p, q) = (space.to_pixel(b.pos).unwrap(), space.to_pixel(b.free).unwrap());
+            let moved = ((p.0 - q.0).powi(2) + (p.1 - q.1).powi(2)).sqrt();
+            assert!(moved < 0.05 * 720.0 && b.radius == b.base, "{} moved {moved:.0} px at home", b.name);
+            still += (moved < 0.5) as usize;
+        }
+        assert!(still * 2 > space.being.buttons.len(), "most stay where #209 put them: {still}");
+    }
+
     #[test]
     fn a_drag_pulls_a_button_along_its_tether_and_elsewhere_turns_the_camera() {
         let (g, mut space, mut ctl) = cathedral();
@@ -1115,15 +1298,15 @@ mod tests {
         let (body, head) = space.being.focus();
         assert!(head.y > body.y + 0.2, "the head above the body's centre");
         space.camera.zoom(100.0);
-        space.camera.step(2.0); // the glide (#224)
-        frame(&mut space, &mut ctl, 0.1);
-        assert!(space.camera.target.distance(head) < 1e-4, "close up: a portrait");
+        settle(&mut space, &mut ctl, 0.1); // the zoom's and the focus' glides (#224)
+        let (_, head) = space.being.focus();
+        assert!(space.camera.target.distance(head) < 1e-3, "close up: a portrait");
         space.camera.zoom(-100.0);
-        space.camera.step(2.0);
-        frame(&mut space, &mut ctl, 0.2);
-        assert!(space.camera.target.distance(body) < 1e-4, "far out: the whole being");
+        settle(&mut space, &mut ctl, 3.0);
+        let (body, _) = space.being.focus();
+        assert!(space.camera.target.distance(body) < 1e-3, "far out: the whole being");
         space.camera.reset();
-        frame(&mut space, &mut ctl, 0.3);
+        settle(&mut space, &mut ctl, 6.0);
         let t = space.camera.target;
         assert!(t.y > body.y && t.y < head.y, "home: between, nearer the body ({} {} {})", body.y, t.y, head.y);
         assert_eq!(space.camera.distance, space.camera.home().2);
