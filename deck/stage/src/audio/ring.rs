@@ -284,8 +284,11 @@ mod tests {
         let mut out = vec![0.0f32; 480 * 2];
         let at = 2_000_000_000;
         feed.play(&mut out, 2, at, |x| x);
-        // a callback after a 40 ms stall: late
-        feed.mon.measure(at + 50_000_000, at + 50_100_000, 480, false);
+        // a callback after a 40 ms stall: late. `play` timed itself on the real clock (now_ns: CLOCK_MONOTONIC since
+        // boot on Linux, process-relative elsewhere), so the stall is measured from it – a synthetic time would come
+        // before it on a machine up longer than that and count as no interval at all (#230)
+        let t = crate::clock::now_ns();
+        feed.mon.measure(t + 50_000_000, t + 50_100_000, 480, false);
         assert_eq!(feed.glitches().count(), 1);
         r.fill(3_000_000_000);
         assert_eq!(feed.glitches().lead(), LEAD_MIN + BLOCK as u32);
