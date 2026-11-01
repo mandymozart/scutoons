@@ -36,7 +36,7 @@ Keys: **F1** the HUD → the collapsed stats bar (#209: one line across the whol
 glitches / DSP load / limiter, the relay, the GPU backend; red when out of the green) → nothing · **F2** the browser · **Ctrl+Q** quit (on the deck the stage starts again) · **Ctrl+Alt+Del** power off (`systemctl
 poweroff`, the logo stays up; not in a `--windowed` stage) · Esc quits a `--windowed` stage · the tempo clock: **T** tap ·
 **+ / −** BPM · **Space** start / stop · **F3** the next source (internal → MIDI → Link → OSC → relay) · **K** the click · **F4** the
-render quality's level, **Shift+F4** its governor on / off ("Quality" below). In a scene with a `space` node: a **mouse drag** turns the camera around the being (or, on a 3D
+quality settings page, **Shift+F4** the governor on / off ("Quality" below). In a scene with a `space` node: a **mouse drag** turns the camera around the being (or, on a 3D
 button, pulls it along its tether – out = more; a double click: back to the scene's value; a finger the same), the **wheel** / **↑ ↓** zoom, **← →** turn, **R** the camera's home; the pointer stays
 visible in the kiosk then. The HUD names the keys. F2 with `DECK_BROWSER` set (deck-session sets it to `deck-session browser`) starts that command on
 top of the running stage: the logo comes up until the browser's window takes the focus (cage shows the newest window),
@@ -298,19 +298,31 @@ chapter's slices (cut on a bass hit snapped to the beat, every 6 s at the latest
 screen. `scenes/test-pattern.toml` – the picture alone (no sound, no network). Both land in
 `/usr/share/deck/scenes` on the deck; `scene = "…"` in `/var/lib/deck/deck.toml` picks one.
 
-**Quality** (#220, deck-space `quality.rs` – the browser deck runs the same): one ladder of seven rungs, cheapest first –
-the render scale 0.5 · 0.6 (low) · 0.7 · 0.8 (medium) · 0.9 · 1.0 (high) · 1.25 (ultra, supersampled), FXAA from the second
-rung, bloom and four lights from medium, all eight lights from high; curves and pixelate always run (the scene's look). The
-**level** is the ceiling: `--quality low|medium|high|ultra` (`DECK_QUALITY`), else by the GPU – software low, integrated
-(the X1's UHD 620) high, discrete ultra (the browser: WebGL2 medium, WebGPU high). The **governor** (on unless `,fixed`)
-works like the audio lead and the relay's link rate: the frame interval in 0.5 s windows; over budget (< 50 fps, or an
-audio glitch) for 1 s steps a rung down (one window under 25 fps), at most one step a second; 8 s calm (≤ 18 ms) probes a
-rung up, and a probe that runs over within 6 s steps back and doubles that rung's wait (up to 2 min) – no flicker. Stalls
-over 250 ms and the first 2 s are no load. A step only resizes the offscreen targets; the HUD stays native. The HUD bar
-shows `Q <level> <scale>` (red below the level chosen), a deck sends `deck.quality` to the session (at once on a change,
-else ≤ every 2 s) and the conductor shows each deck's quality and link under its being (`HIGH 0.90 17MS` / `LINK 3MS
-30HZ`, amber while held lower or paced, red over 40 ms). Not yet scaled: the set's 3D level, shadows, cloth, the beings'
-detail, bloom's resolution.
+**Quality** (#220, deck-space `quality.rs` – the browser deck runs the same; the stage's `src/quality.rs`): four
+**presets** – low · medium · high · ultra – each with its knobs: on / off (an off preset is skipped and can't be chosen),
+two render sizes (`min` = the step under load, `max` = its own; a scale of the display ≤ 4, or a height in pixels ≥ 100 –
+a 4K screen can render the 3D at 1080 to save power), FXAA, bloom, the lights (0–8) and a frame rate cap (`fps` – 30 draws
+half the frames; an early frame waits, the loop sleeps). Defaults: 0.5 / 0.6 (low, no FXAA / bloom, 2 lights) · 0.7 / 0.8
+(medium, 4) · 0.9 / 1.0 (high, 8) · 1.25 (ultra, supersampled), 60 fps; curves and pixelate always run (the scene's look).
+The enabled presets make the governor's **ladder**. The **preset file** (`/var/lib/deck/quality.toml` on a deck,
+`--quality-file`, `DECK_QUALITY_FILE`; TOML, only what changes is needed – the defaults fill the rest) also holds the
+**level** (the ceiling; missing = by the GPU: software low, integrated – the X1's UHD 620 – high, discrete ultra; the
+browser: WebGL2 medium, WebGPU high), `auto` and the **display** mode (`"3840x2160"` – exclusive fullscreen at that size;
+missing or one the monitor lacks = the desktop's; under cage, Wayland, winit has no exclusive mode); `--quality
+low|medium|high|ultra[,fixed]` (`DECK_QUALITY`) wins over it. The stage reloads the file when it changes (every 2 s).
+**F4** opens the settings page in the HUD: the level, Auto, the display mode (its modes from the monitor, the largest as
+the hardware's MAX) and the presets' table – arrows move, + / − change, Enter / Space flip, **P** turns a size into a
+height in pixels and back, **R** resets the presets; each change applies at once and is saved. **Shift+F4** the
+governor. The **governor** (on unless `,fixed` / `auto = false`) works like the audio lead and the relay's link rate: the
+drawn frames' interval in 0.5 s windows; over budget (the cap's interval × 1.2 – 20 ms at 60 fps – or an audio glitch) for
+1 s steps a rung down (one window twice over), at most one step a second; 8 s calm (≤ × 1.08) probes a rung up, and a
+probe that runs over within 6 s steps back and doubles that rung's wait (up to 2 min) – no flicker. Stalls over 250 ms and
+the first 2 s are no load. A step only resizes the offscreen targets; the HUD stays native. The HUD bar shows `Q <level>
+<scale>` (red below the level chosen), a deck sends `deck.quality` to the session (at once on a change, else ≤ every 2 s)
+and the conductor shows each deck's quality and link under its being (`HIGH 0.90 17MS` / `LINK 3MS 30HZ`, amber while
+held lower, under 50 fps or paced, red under 25 fps). `--settings` starts with the page open (a check run's screenshot).
+The browser deck's sheet (/live/deck → Settings) edits the same presets (+ its pixel ratio cap) and copies them as this
+file's text. Not yet scaled: the set's 3D level, shadows, cloth, the beings' detail, bloom's resolution.
 
 ## Sync (#195)
 

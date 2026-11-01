@@ -295,7 +295,7 @@ mod tests {
         assert_eq!(c.plan_quality(&k, true, true).passes(), [Effect::Bloom, Effect::Curves, Effect::Fxaa]);
         assert_eq!(c.plan_quality(&k, false, true).passes(), [Effect::Curves, Effect::Fxaa]);
         assert_eq!(c.plan_quality(&k, false, false).passes(), [Effect::Curves]);
-        let lowest = crate::quality::LADDER[0];
+        let lowest = crate::quality::Presets::default().ladder()[0];
         assert!(c.plan_quality(&Knobs::default(), lowest.bloom, lowest.fxaa).is_empty(), "the lowest rung: the space straight into its target");
     }
 
