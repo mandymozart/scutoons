@@ -54,6 +54,8 @@ pub struct Stats {
     pub capped: u64,
     /// past MAX_HOPS
     pub hops: u64,
+    /// refused at the edge: a compound event or a payload where a reference belongs (route.rs)
+    pub refused: u64,
 }
 
 #[derive(Default)]
@@ -138,13 +140,25 @@ impl EventGraph {
 
     /// an external event (an adapter's) for `node`'s input in the next run
     pub fn inject(&mut self, node: usize, port: &str, e: Event) -> Result<(), GraphError> {
-        let p = self.port(node, port, true)?;
-        if self.injected.len() < INJECT_CAP {
-            self.injected.push((node, p, e));
+        let p = self.input(node, port)?;
+        self.inject_at(node, p, e);
+        Ok(())
+    }
+
+    /// `node`'s input `name` as an index – looked up once at load, then `inject_at` per event
+    pub fn input(&self, node: usize, name: &str) -> Result<usize, GraphError> {
+        self.port(node, name, true)
+    }
+
+    /// `inject` by index (from `input`): no string compare on the hot path; past INJECT_CAP (or to a port that doesn't
+    /// exist) the event is counted and dropped. Never allocates (the queue is reserved); an event with children would free them when dropped – the
+    /// dispatcher refuses those (route.rs).
+    pub fn inject_at(&mut self, node: usize, port: usize, e: Event) {
+        if self.injected.len() < INJECT_CAP && self.inboxes.get(node).is_some_and(|i| port < i.len()) {
+            self.injected.push((node, port, e));
         } else {
             self.stats.capped += 1;
         }
-        Ok(())
     }
 
     /// One window: deliver the delayed and injected events, ask every generator in order, pass its events on.

@@ -10,6 +10,7 @@
 //! edge = [{ from = "walk.notes", to = "arp.notes" }]   # `delayed = true` for a loop
 //! out = "arp.notes"                                     # the notes the host plays
 //! knobs = ["walk.spread", "arp.rate"]                   # the host's inputs a, b, c, d, in order
+//! listen = [{ to = "arp.notes", name = "midi.note" }]   # routed in (route.rs): a `name` or a whole `domain`
 //! ```
 //! Kinds: `random_walk` (seed, base, spread, octaves, rate, length, glide), `pulse` (every, offset), `arp` (ratios,
 //! octaves, mode up · down · updown, rate, length). Notes are `music.note` with `pitch` (and `glide`).
@@ -17,6 +18,7 @@ use crate::generator::Generator;
 use crate::generators::{Arp, ArpMode, Pulse, RandomWalk};
 use crate::graph::EventGraph;
 use crate::names::{Names, Sym};
+use crate::route::Match;
 use serde::Deserialize;
 
 /// the host's knob inputs (a patch maps at most this many)
@@ -33,6 +35,28 @@ pub struct Patch {
     /// `generator.param` per host input a, b, c, d
     #[serde(default)]
     pub knobs: Vec<String>,
+    /// external events into generator inputs: the dispatcher routes them here (route.rs)
+    #[serde(default)]
+    pub listen: Vec<ListenDef>,
+}
+
+/// `to` = `generator.input`; exactly one of `name` (`midi.note`) or `domain` (`story`)
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ListenDef {
+    pub to: String,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub domain: Option<String>,
+}
+
+/// a built `listen`: the generator, its input (an index for `EventGraph::inject_at`), what it hears
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Listen {
+    pub node: usize,
+    pub port: usize,
+    pub on: Match,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -75,6 +99,7 @@ pub struct Built {
     pub graph: EventGraph,
     pub out: (usize, String),
     pub knobs: Vec<(usize, usize)>,
+    pub listen: Vec<Listen>,
 }
 
 fn num(t: &toml::Table, k: &str) -> Option<f64> {
@@ -172,7 +197,21 @@ impl Patch {
                 Ok((g, graph.param(g, param).map_err(|e| e.to_string())?))
             })
             .collect::<Result<Vec<_>, String>>()?;
-        Ok(Built { graph, out: (o, op.to_string()), knobs })
+        let listen = self
+            .listen
+            .iter()
+            .map(|l| {
+                let (g, port) = split(&ids, &l.to)?;
+                let port = graph.input(g, port).map_err(|e| e.to_string())?;
+                let on = match (&l.name, &l.domain) {
+                    (Some(n), None) => Match::Name(names.event(n).map_err(|e| format!("listen {}: {e}", l.to))?),
+                    (None, Some(d)) => Match::Domain(names.key(d).map_err(|e| format!("listen {}: domain {e}", l.to))?),
+                    _ => return Err(format!("listen {}: a `name` or a `domain`, one of them", l.to)),
+                };
+                Ok(Listen { node: g, port, on })
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+        Ok(Built { graph, out: (o, op.to_string()), knobs, listen })
     }
 }
 
@@ -226,5 +265,20 @@ seed_of_the_node = 1
                      edge = [{ from = \"a.notes\", to = \"b.notes\" }, { from = \"b.notes\", to = \"a.notes\" }]\nout = \"b.notes\"";
         assert!(err(loop_).contains("delayed"), "a loop needs a delayed edge");
         assert!(build(&loop_.replace("to = \"a.notes\" }", "to = \"a.notes\", delayed = true }")).is_ok());
+        let arp = "generator = [{ id = \"g\", kind = \"arp\" }]\nout = \"g.notes\"\n";
+        assert!(err(&format!("{arp}listen = [{{ to = \"g.notes\" }}]")).contains("one of them"));
+        assert!(err(&format!("{arp}listen = [{{ to = \"g.nope\", name = \"midi.note\" }}]")).contains("no input 'nope'"));
+        assert!(err(&format!("{arp}listen = [{{ to = \"g.notes\", name = \"note\" }}]")).contains("no domain"));
+    }
+
+    #[test]
+    fn listen_names_an_input_and_what_it_hears() {
+        let mut names = Names::new();
+        let n = NoteNames::new(&mut names);
+        let text = "generator = [{ id = \"g\", kind = \"arp\" }]\nout = \"g.notes\"\n\
+                    listen = [{ to = \"g.notes\", name = \"midi.note\" }, { to = \"g.notes\", domain = \"story\" }]";
+        let b = Patch::from_table(&toml::from_str(text).unwrap()).unwrap().build(n, &mut names).unwrap();
+        let (note, story) = (names.get("midi.note").unwrap(), names.get("story").unwrap());
+        assert_eq!(b.listen, [Listen { node: 0, port: 0, on: Match::Name(note) }, Listen { node: 0, port: 0, on: Match::Domain(story) }]);
     }
 }
