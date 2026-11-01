@@ -6,65 +6,31 @@
 	import { onMount } from 'svelte';
 	import type { VoteOpen, VoteRule } from '@scutoons/live';
 	import { FakeVoteRelay, type CrowdGroup } from '$lib/live-vote-sim.ts';
-	import ConductorVotePanel from './conductor-vote-panel.svelte';
-	import AudienceVote, { type Group, type Words } from './audience-vote.svelte';
+	import { deviceLocale } from '$lib/live-vote.ts';
+	import ConductorVote from '$lib/components/live-vote/conductor-vote.svelte';
+	import AudienceVote, { type Group } from '$lib/components/live-vote/audience-vote.svelte';
 
 	const isDev = import.meta.env.DEV;
 	const query = typeof location === 'undefined' ? new URLSearchParams() : new URLSearchParams(location.search);
 
-	/** the phone follows the device's language (owner 2026-11-01); `?lang=en|de` overrides it. The question, the options
-	 *  and the group instructions come from the show in that language – here a small dictionary stands in. */
-	const LANG: 'de' | 'en' = (query.get('lang') ?? (typeof navigator === 'undefined' ? 'en' : navigator.language)).startsWith('de') ? 'de' : 'en';
+	/** the phone follows the device's language (owner 2026-11-01); `?lang=en|de` overrides it. The question and the labels
+	 *  come with the vote as locale maps (VoteOpen.question / labels). */
+	const LOCALE = query.get('lang') ?? deviceLocale(typeof navigator === 'undefined' ? undefined : navigator.languages);
 	const GROUPS: Group[] = [
-		{ id: 'balkon', name: LANG === 'de' ? 'Balkon' : 'Balcony', colour: 'var(--badge-published)', text: 'var(--ink)' },
-		{ id: 'parkett', name: LANG === 'de' ? 'Parkett' : 'Stalls', colour: 'var(--badge-warning)', text: 'var(--ink)' },
-		{ id: 'rang', name: LANG === 'de' ? 'Rang' : 'Circle', colour: 'var(--badge-soon)', text: 'var(--paper)' }
+		{ id: 'balkon', name: LOCALE === 'de' ? 'Balkon' : 'Balcony', colour: 'var(--badge-published)', text: 'var(--ink)' },
+		{ id: 'parkett', name: LOCALE === 'de' ? 'Parkett' : 'Stalls', colour: 'var(--badge-warning)', text: 'var(--ink)' },
+		{ id: 'rang', name: LOCALE === 'de' ? 'Rang' : 'Circle', colour: 'var(--badge-soon)', text: 'var(--paper)' }
 	];
-	const TEXT = {
-		de: {
-			question: 'Tauscht die Katze das Löschblatt?',
-			options: ['Ja', 'Nein'],
-			instruction: { balkon: 'Steht auf und haltet eure Handys hoch.', parkett: 'Flüstert der Katze eure Wahl zu.', rang: 'Klatscht zweimal, dann wählt.' },
-			words: {
-				vote: 'Abstimmung',
-				left: (s: number) => `noch ${s} s`,
-				pick: 'Tipp auf deine Wahl.',
-				change: 'Du kannst bis zum Schluss wechseln.',
-				result: 'Ergebnis',
-				yours: 'Deine Stimme',
-				rule: { majority: 'Die meisten Stimmen.', groups: 'Die meisten Gruppen.', first: 'Zuerst genug Stimmen.' },
-				fallback: 'Niemand hat abgestimmt – es bleibt dabei.',
-				override: 'Die Regie hat entschieden.',
-				closed: 'Abstimmung beendet'
-			} satisfies Words
-		},
-		en: {
-			question: 'Does the cat trade the blotter?',
-			options: ['Yes', 'No'],
-			instruction: { balkon: 'Stand up and hold your phones high.', parkett: 'Whisper your choice to the cat.', rang: 'Clap twice, then vote.' },
-			words: {
-				vote: 'Vote',
-				left: (s: number) => `${s} s left`,
-				pick: 'Tap your choice.',
-				change: 'You can change it until the end.',
-				result: 'Result',
-				yours: 'Your vote',
-				rule: { majority: 'Most votes.', groups: 'Most groups.', first: 'First to enough votes.' },
-				fallback: 'Nobody voted – it stays as it was.',
-				override: 'The conductor decided.',
-				closed: 'Vote closed'
-			} satisfies Words
-		}
-	}[LANG];
+	const INSTRUCTION: Record<string, Record<string, string>> = {
+		de: { balkon: 'Steht auf und haltet eure Handys hoch.', parkett: 'Flüstert der Katze eure Wahl zu.', rang: 'Klatscht zweimal, dann wählt.' },
+		en: { balkon: 'Stand up and hold your phones high.', parkett: 'Whisper your choice to the cat.', rang: 'Clap twice, then vote.' }
+	};
 	const GROUP_NAMES = Object.fromEntries(GROUPS.map((g) => [g.id, g.name]));
 	const CROWD: CrowdGroup[] = [
 		{ group: 'balkon', size: 18, lean: [3, 1] },
 		{ group: 'parkett', size: 26, lean: [1, 2] },
 		{ group: 'rang', size: 14, lean: [2, 1] }
 	];
-	/** the conductor's screen is English (the tool); its question is the chapter's choice event, not in vote.open */
-	const QUESTION = { conductor: 'Trade the blotter?' };
-	const OPTIONS = { conductor: ['Yes', 'No'], audience: TEXT.options };
 
 	type View = 'both' | 'conductor' | 'audience';
 	let view = $state<View>((query.get('view') as View) || 'both');
@@ -86,13 +52,15 @@
 		run++;
 		const p: VoteOpen = {
 			vote: `blotter-${run}`,
-			options: OPTIONS.conductor,
+			options: ['Yes', 'No'],
+			question: { en: 'Trade the blotter?', de: 'Tauscht die Katze das Löschblatt?' },
+			labels: { en: ['Yes', 'No'], de: ['Ja', 'Nein'] },
 			rule,
 			n: rule === 'first' ? 20 : undefined,
 			seconds,
 			fallback: 0,
 			groups: onlyBalkon ? ['balkon'] : undefined,
-			// the phones get the tally, but show it only after the voter has voted
+			// the phones get the tally, but a voter sees it only after voting
 			show: true
 		};
 		r.open(p);
@@ -101,20 +69,6 @@
 		start();
 		return () => relay?.dispose();
 	});
-
-	/** the phone sees German labels: the same relay, the options mapped by index */
-	const phoneRelay = $derived(relay ? translate(relay) : null);
-	function translate(r: FakeVoteRelay): FakeVoteRelay {
-		return new Proxy(r, {
-			get(target, key) {
-				if (key === 'on')
-					return (role: 'conductor' | 'audience', fn: Parameters<FakeVoteRelay['on']>[1], g?: string) =>
-						target.on(role, (e) => fn(e.kind === 'vote.open' ? { ...e, p: { ...e.p, options: OPTIONS.audience } } : e), g);
-				const v = Reflect.get(target, key);
-				return typeof v === 'function' ? v.bind(target) : v;
-			}
-		});
-	}
 
 	const VIEWS: [View, string][] = [['both', 'Both'], ['conductor', 'Conductor'], ['audience', 'Audience']];
 	const RULES: [VoteRule, string][] = [['majority', 'Majority'], ['groups', 'Per group'], ['first', 'First to 20']];
@@ -145,19 +99,19 @@
 			<button type="button" class="restart" onclick={start}>Open a new vote</button>
 		</details>
 
-		{#if relay && phoneRelay}
+		{#if relay}
 			<div class="screens">
 				{#if view !== 'audience'}
 					<div class="screen conductor-screen">
 						<span class="tag">Conductor</span>
-						{#key relay}<ConductorVotePanel {relay} question={QUESTION.conductor} groupNames={GROUP_NAMES} />{/key}
+						{#key relay}<ConductorVote source={relay} groupNames={GROUP_NAMES} />{/key}
 					</div>
 				{/if}
 				{#if view !== 'conductor'}
 					<div class="screen phone-screen">
 						<span class="tag">Audience phone</span>
 						<div class="device">
-							{#key phoneRelay}{#key group.id}<AudienceVote relay={phoneRelay} {group} question={TEXT.question} instruction={TEXT.instruction[group.id as 'balkon']} t={TEXT.words} />{/key}{/key}
+							{#key relay}{#key group.id}<AudienceVote source={relay} {group} locale={LOCALE} instruction={(INSTRUCTION[LOCALE] ?? INSTRUCTION.en)[group.id]} />{/key}{/key}
 						</div>
 					</div>
 				{/if}

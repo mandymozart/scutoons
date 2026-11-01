@@ -129,6 +129,7 @@ fn conductor_only(m: &Message) -> bool {
             | Message::Cue(_)
             | Message::VoteOpen(_)
             | Message::VoteClose(_)
+            | Message::VoteHold(_)
             | Message::Assign(_)
             | Message::Panic(_)
             | Message::MediaPreload(_)
@@ -327,6 +328,19 @@ impl Session {
         }
     }
 
+    /// The connected clients that may vote in the open vote.
+    fn voter_ids(&self) -> Vec<String> {
+        self.clients.iter().filter(|(_, c)| self.is_voter(c.role, c.group.as_deref())).map(|(id, _)| id.clone()).collect()
+    }
+
+    /// Has every connected voter cast (and is the countdown running – a held vote waits)? Then the vote closes
+    /// (owner 2026-11-01: "voting closed either every connected device voted or the timer is up").
+    fn all_voted(&self) -> bool {
+        let Some(v) = self.vote.as_ref().filter(|v| v.held_at.is_none()) else { return false };
+        let ids = self.voter_ids();
+        !ids.is_empty() && ids.iter().all(|id| v.casts.contains_key(id))
+    }
+
     /// What a client shows now (B.6 snapshot): the conductor (and the uplink) everything; an output / phone its own
     /// outlet's cell and its group's last instruction; the audience the position without the story variables (no
     /// spoilers); the open vote to its voters.
@@ -519,6 +533,8 @@ impl Session {
                 let v = v.clone();
                 let groups = v.groups.clone();
                 self.vote = Some(OpenVote::new(v.clone(), now));
+                // the conductor(s) see the vote open too (a second screen, a reload: the panel follows the relay)
+                self.relay_publish(Message::VoteOpen(v.clone()), Some(To::role(Role::Conductor)), now);
                 match groups {
                     Some(gs) => {
                         for g in gs {
@@ -543,8 +559,15 @@ impl Session {
                     return After::Nothing;
                 }
                 vote.casts.insert(id.to_owned(), (c.option as usize, group));
-                if vote.reached().is_some() {
+                if vote.reached().is_some() || self.all_voted() {
                     self.close_vote(None, now);
+                }
+            }
+            Message::VoteHold(h) => {
+                if let Some(v) = self.vote.as_mut().filter(|v| v.open.vote == h.vote) {
+                    v.hold(h.hold, now);
+                } else {
+                    self.error(id, "vote", "no such vote open");
                 }
             }
             Message::VoteClose(c) => {
@@ -757,32 +780,35 @@ impl Session {
         self.tell_presence();
     }
 
-    /// Every 250 ms while a vote is open: the tally to the conductor (and the voters when the vote shows it); closes the
-    /// vote at its deadline. Returns whether a vote is still open.
+    /// Every 250 ms while a vote is open: the tally to the conductor (with the counts per group and how many devices
+    /// are expected) and – when the vote shows it – to each voter who has voted, never before (owner 2026-11-01); closes
+    /// the vote when its countdown ran out or every connected voter has cast. Returns whether a vote is still open.
     pub fn tick(&mut self, now: i64) -> bool {
         let Some(v) = &self.vote else { return false };
-        if now >= v.deadline {
+        if v.expired(now) || self.all_voted() {
             self.close_vote(None, now);
             return false;
         }
+        let voters = self.voter_ids();
         let tally = VoteTally {
             vote: v.open.vote.clone(),
             counts: v.counts(),
             voters: v.casts.len() as i64,
-            left: v.deadline - now,
+            left: v.left(now),
+            paused: v.held_at.is_some().then_some(true),
+            groups: None,
+            expected: None,
         };
-        let show = v.open.show == Some(true);
-        let mut ids = self.ids_with_role(Role::Conductor);
-        if show {
-            let voters: Vec<String> = self
-                .clients
-                .iter()
-                .filter(|(_, c)| self.is_voter(c.role, c.group.as_deref()))
-                .map(|(id, _)| id.clone())
-                .collect();
-            ids.extend(voters);
+        let conductor = VoteTally { groups: Some(v.group_counts()), expected: Some(voters.len() as i64), ..tally.clone() };
+        let to_voters: Vec<String> = if v.open.show == Some(true) {
+            voters.into_iter().filter(|id| v.casts.contains_key(id)).collect()
+        } else {
+            Vec::new()
+        };
+        for id in self.ids_with_role(Role::Conductor) {
+            self.send_to(&id, Message::VoteTally(conductor.clone()));
         }
-        for id in ids {
+        for id in to_voters {
             self.send_to(&id, Message::VoteTally(tally.clone()));
         }
         true
@@ -792,7 +818,7 @@ impl Session {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use protocol::{CellChange, MediaItem, MediaReady, Panic, VoteCast, VoteClose, VoteHow, VoteOpen, VoteRule};
+    use protocol::{CellChange, MediaItem, MediaReady, Panic, VoteCast, VoteClose, VoteHold, VoteHow, VoteOpen, VoteRule};
 
     struct Room {
         s: Session,
@@ -860,6 +886,8 @@ mod tests {
             fallback: None,
             groups: groups.map(|g| g.into_iter().map(str::to_owned).collect()),
             show: None,
+            question: None,
+            labels: None,
         }
     }
 
@@ -995,19 +1023,70 @@ mod tests {
         assert!(r.inbox("outL").is_empty(), "outputs do not vote");
         r.send("a1", Message::VoteCast(VoteCast { vote: "v1".into(), option: 1 }), 2_000);
         r.send("a2", Message::VoteCast(VoteCast { vote: "v1".into(), option: 1 }), 2_000);
-        r.send("a3", Message::VoteCast(VoteCast { vote: "v1".into(), option: 0 }), 2_000);
         r.send("outL", Message::VoteCast(VoteCast { vote: "v1".into(), option: 0 }), 2_000);
         assert_eq!(r.kinds("outL"), ["error"], "an output is no voter");
-        assert!(r.s.tick(2_250));
+        assert_eq!(r.kinds("cond"), ["vote.open"], "the conductor sees the vote open too");
+        assert!(r.s.tick(2_250), "a3 has not voted yet");
         let t = r.inbox("cond");
         let Message::VoteTally(t) = &t[0].message else { panic!("{t:?}") };
-        assert_eq!((t.counts.clone(), t.voters, t.left), (vec![1, 2], 3, 8_750));
+        assert_eq!((t.counts.clone(), t.voters, t.left, t.expected), (vec![0, 2], 2, 8_750, Some(3)));
+        assert!(t.groups.is_some() && t.paused.is_none());
         assert!(r.inbox("a1").is_empty(), "the tally is hidden from the audience by default");
         assert!(!r.s.tick(11_000));
         let res = r.inbox("outL");
         let Message::VoteResult(v) = &res[0].message else { panic!("{res:?}") };
         assert_eq!((v.option, v.how), (1, VoteHow::Rule));
         assert!(r.s.vote.is_none());
+    }
+
+    #[test]
+    fn vote_closes_when_every_connected_voter_has_voted() {
+        let mut r = room();
+        r.send("cond", Message::VoteOpen(vote(VoteRule::Majority, None)), 0);
+        r.drain();
+        for id in ["a1", "a2"] {
+            r.send(id, Message::VoteCast(VoteCast { vote: "v1".into(), option: 0 }), 10);
+        }
+        assert!(r.s.vote.is_some(), "a3 is still to vote");
+        r.send("a3", Message::VoteCast(VoteCast { vote: "v1".into(), option: 1 }), 20);
+        assert!(r.s.vote.is_none(), "all three cast: closed before the timer");
+        let res = r.inbox("cond");
+        let Message::VoteResult(v) = &res[0].message else { panic!("{res:?}") };
+        assert_eq!((v.option, v.how), (0, VoteHow::Rule));
+    }
+
+    #[test]
+    fn hold_stops_the_clock_and_a_held_vote_waits_for_the_conductor() {
+        let mut r = room();
+        r.send("cond", Message::VoteOpen(vote(VoteRule::Majority, None)), 0);
+        r.drain();
+        r.send("cond", Message::VoteHold(VoteHold { vote: "v1".into(), hold: true }), 1_000);
+        assert!(r.s.tick(60_000), "held: no deadline");
+        let t = r.inbox("cond");
+        let Message::VoteTally(t) = &t[0].message else { panic!("{t:?}") };
+        assert_eq!((t.paused, t.left), (Some(true), 9_000));
+        for id in ["a1", "a2", "a3"] {
+            r.send(id, Message::VoteCast(VoteCast { vote: "v1".into(), option: 1 }), 61_000);
+        }
+        assert!(r.s.vote.is_some(), "everyone voted, but the conductor holds");
+        r.send("cond", Message::VoteHold(VoteHold { vote: "v1".into(), hold: false }), 62_000);
+        assert!(!r.s.tick(62_250), "run on: all voted → closed");
+        assert_eq!(r.send("a1", Message::VoteHold(VoteHold { vote: "v1".into(), hold: true }), 63_000), After::Nothing);
+    }
+
+    #[test]
+    fn a_voter_sees_the_tally_only_after_voting_and_only_when_the_vote_shows_it() {
+        let mut r = room();
+        let mut open = vote(VoteRule::Majority, None);
+        open.show = Some(true);
+        r.send("cond", Message::VoteOpen(open), 0);
+        r.drain();
+        r.send("a1", Message::VoteCast(VoteCast { vote: "v1".into(), option: 0 }), 10);
+        assert!(r.s.tick(260));
+        let t = r.inbox("a1");
+        let Message::VoteTally(t) = &t[0].message else { panic!("{t:?}") };
+        assert!(t.groups.is_none() && t.expected.is_none(), "a voter gets the totals only");
+        assert!(r.inbox("a2").is_empty(), "a2 has not voted: no results");
     }
 
     #[test]

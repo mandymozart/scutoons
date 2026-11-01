@@ -1,7 +1,7 @@
 // #231: the fake relay behind the vote drafts (src/lib/live-vote-sim.ts) – the same outcomes as deck/relay/src/vote.rs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { Envelope, VoteOpen } from '@scutoons/live';
+import type { Envelope, VoteOpen, VoteTally } from '@scutoons/live';
 import { decide, FakeVoteRelay, TALLY_MS, type Clock } from '../src/lib/live-vote-sim.ts';
 
 const open = (rule: VoteOpen['rule'], more: Partial<VoteOpen> = {}): VoteOpen => ({
@@ -68,7 +68,7 @@ test('tally every 250 ms to the conductor, with what is left; closes itself at t
 	clock.advance(TALLY_MS);
 	const tally = seen.find((e) => e.kind === 'vote.tally');
 	assert.ok(tally && tally.kind === 'vote.tally');
-	assert.deepEqual(tally.p, { vote: 'v1', counts: [0, 1, 0], voters: 1, left: 1750 });
+	assert.deepEqual(tally.p, { vote: 'v1', counts: [0, 1, 0], voters: 1, left: 1750, groups: { '-': [0, 1, 0] }, expected: 0 });
 	clock.advance(2000);
 	const result = seen.at(-1)!;
 	assert.equal(result.kind, 'vote.result');
@@ -87,13 +87,13 @@ test('first to n closes when an option reaches n', () => {
 	assert.deepEqual([result.p.option, result.p.how], [0, 'rule']);
 });
 
-test('a vote can change until the close; the audience gets the tally only when the vote shows it', () => {
+test('a vote can change until the close; only voters of the vote hear of it', () => {
 	const clock = new ManualClock();
 	const relay = new FakeVoteRelay(clock);
 	const phone: string[] = [];
 	const other: string[] = [];
-	relay.on('audience', (e) => phone.push(e.kind), 'balcony');
-	relay.on('audience', (e) => other.push(e.kind), 'stalls');
+	relay.on('audience', (e) => phone.push(e.kind), 'balcony', 'me');
+	relay.on('audience', (e) => other.push(e.kind), 'stalls', 'x');
 	relay.open(open('majority', { groups: ['balcony'] }));
 	relay.cast('me', 0, 'balcony');
 	relay.cast('me', 1, 'balcony');
@@ -103,9 +103,45 @@ test('a vote can change until the close; the audience gets the tally only when t
 	relay.close();
 	assert.deepEqual(phone, ['vote.open', 'vote.result']);
 	assert.deepEqual(other, ['vote.result']);
-	relay.open(open('majority', { show: true }));
+});
+
+test('a voter gets the tally only after voting, and only when the vote shows it', () => {
+	const clock = new ManualClock();
+	const relay = new FakeVoteRelay(clock);
+	const kinds = (show: boolean) => {
+		const got: string[] = [];
+		const off = relay.on('audience', (e) => got.push(e.kind), 'g', 'me');
+		relay.open(open('majority', { show }));
+		clock.advance(TALLY_MS);
+		const before = got.filter((k) => k === 'vote.tally').length;
+		relay.cast('me', 0, 'g');
+		clock.advance(TALLY_MS);
+		off();
+		return [before, got.filter((k) => k === 'vote.tally').length];
+	};
+	assert.deepEqual(kinds(true), [0, 1], 'nothing before the vote, then the totals');
+	assert.deepEqual(kinds(false), [0, 0], 'a vote that does not show it never sends it');
+});
+
+test('hold stops the countdown; a held vote waits even when everyone voted; run on closes it', () => {
+	const clock = new ManualClock();
+	const relay = new FakeVoteRelay(clock, [], 7, 1);
+	const tallies: VoteTally[] = [];
+	const results: Envelope[] = [];
+	relay.on('conductor', (e) => (e.kind === 'vote.tally' ? tallies.push(e.p) : e.kind === 'vote.result' && results.push(e)));
+	relay.open(open('majority', { seconds: 10 }));
+	clock.advance(2000);
+	relay.hold(true);
+	clock.advance(30_000);
+	assert.equal(relay.isOpen, true, 'held: no deadline');
+	const last = tallies.at(-1)!;
+	assert.deepEqual([last.paused, last.left], [true, 8000]);
+	relay.cast('a', 1, 'g'); // the only device voted
+	assert.equal(relay.isOpen, true, 'held');
+	relay.hold(false);
 	clock.advance(TALLY_MS);
-	assert.equal(phone.at(-1), 'vote.tally');
+	assert.equal(relay.isOpen, false);
+	assert.equal(results.length, 1);
 });
 
 test('the crowd casts by its lean (seeded, repeatable)', () => {
@@ -147,11 +183,12 @@ test('the vote closes when every connected device has voted', () => {
 	assert.equal(relay.isOpen, false);
 });
 
-test('groupCounts: the draft-only breakdown per group', () => {
-	const relay = new FakeVoteRelay(new ManualClock());
-	relay.open(open('groups'));
-	relay.cast('a', 0, 'left');
-	relay.cast('b', 1, 'left');
-	relay.cast('c', 1, 'right');
-	assert.deepEqual(relay.groupCounts(), { left: [1, 1, 0], right: [0, 1, 0] });
+test('the result carries the counts per group', () => {
+	const r = decide(open('groups'), [
+		{ option: 0, group: 'left' },
+		{ option: 1, group: 'left' },
+		{ option: 1, group: 'right' }
+	]);
+	assert.deepEqual(r.groups, { left: [1, 1, 0], right: [0, 1, 0] });
+	assert.equal(decide(open('majority'), []).groups, undefined);
 });

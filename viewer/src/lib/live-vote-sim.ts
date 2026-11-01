@@ -1,8 +1,11 @@
 // #231 draft only: a fake relay for the vote screens' drafts (/account/lab/vote). It speaks the real protocol types
 // (`@scutoons/live`, generated from deck/protocol/schema.json) and mirrors the Rust relay's vote (deck/relay/src/vote.rs
 // `decide`, session.rs `tick` / `close_vote`): vote.open → vote.tally every 250 ms (conductor; voters too when `show`) →
-// vote.result (by the deadline, when a `first` option reaches n, or by Close now / Override). A simulated crowd casts.
+// vote.result (by the deadline, when a `first` option reaches n, when every connected device has voted, or by Close now /
+// Override); vote.hold stops the countdown. A voter gets the tally only after voting (when the vote shows it). A
+// simulated crowd casts. Same contract as the real relay (live-vote-link.ts) – both are a `VoteSource`.
 import type { Envelope, VoteOpen, VoteResult, VoteTally } from '@scutoons/live';
+import type { VoteSource } from './live-vote.ts';
 
 export const TALLY_MS = 250;
 
@@ -25,6 +28,13 @@ export function count(n: number, options: Iterable<number>): number[] {
 	return counts;
 }
 
+/** the counts per group (a cast without a group counts under `-`) */
+export function groupCounts(n: number, casts: Iterable<Cast>): Record<string, number[]> {
+	const out: Record<string, number[]> = {};
+	for (const c of casts) (out[c.group ?? '-'] ??= new Array<number>(n).fill(0))[c.option]++;
+	return out;
+}
+
 export function fallbackOf(open: VoteOpen): number {
 	const f = Math.max(0, open.fallback ?? 0);
 	return f < open.options.length ? f : 0;
@@ -44,7 +54,8 @@ export function decide(open: VoteOpen, casts: Iterable<Cast>, override?: number)
 	const n = open.options.length;
 	const counts = count(n, list.map((c) => c.option));
 	const fallback = fallbackOf(open);
-	const base = { vote: open.vote, counts };
+	const groups = groupCounts(n, list);
+	const base = { vote: open.vote, counts, ...(Object.keys(groups).length ? { groups } : {}) };
 	if (override !== undefined && override >= 0 && override < n) return { ...base, option: override, how: 'override' };
 	if (list.length === 0) return { ...base, option: fallback, how: 'fallback' };
 	let option: number;
@@ -84,6 +95,7 @@ type Listener = (e: Envelope) => void;
 interface Sub {
 	role: 'conductor' | 'audience';
 	group?: string;
+	client?: string;
 	fn: Listener;
 }
 
@@ -99,10 +111,10 @@ export function seeded(seed: number): () => number {
 	};
 }
 
-export class FakeVoteRelay {
+export class FakeVoteRelay implements VoteSource {
 	private subs: Sub[] = [];
 	private seq = 0;
-	private vote: { open: VoteOpen; deadline: number; casts: Map<string, Cast> } | null = null;
+	private vote: { open: VoteOpen; deadline: number; casts: Map<string, Cast>; heldAt: number | null } | null = null;
 	private stop: (() => void) | null = null;
 	private random: () => number;
 
@@ -119,8 +131,8 @@ export class FakeVoteRelay {
 
 	/** a screen listens as the conductor (everything) or as an audience phone in `group`; an open vote reaches it at
 	 *  once, like the snapshot's `vote` on join */
-	on(role: Sub['role'], fn: Listener, group?: string): () => void {
-		const sub: Sub = { role, group, fn };
+	on(role: Sub['role'], fn: Listener, group?: string, client?: string): () => void {
+		const sub: Sub = { role, group, client, fn };
 		this.subs.push(sub);
 		const v = this.vote;
 		if (v && (role === 'conductor' || this.isVoter(group))) fn({ v: 1, seq: this.seq, from: 'relay', at: this.clock.now(), kind: 'vote.open', p: v.open });
@@ -134,7 +146,7 @@ export class FakeVoteRelay {
 	/** conductor → relay: vote.open (a new one replaces an open one, like the relay) */
 	open(p: VoteOpen): void {
 		this.halt();
-		this.vote = { open: p, deadline: this.clock.now() + Math.max(1, p.seconds) * 1000, casts: new Map() };
+		this.vote = { open: p, deadline: this.clock.now() + Math.max(1, p.seconds) * 1000, casts: new Map(), heldAt: null };
 		this.emit({ kind: 'vote.open', p }, (s) => s.role === 'conductor' || this.isVoter(s.group));
 		this.stop = this.clock.every(TALLY_MS, () => this.tick());
 	}
@@ -144,7 +156,7 @@ export class FakeVoteRelay {
 		const v = this.vote;
 		if (!v || !this.isVoter(group) || option < 0 || option >= v.open.options.length) return;
 		v.casts.set(client, { option, group });
-		if (reached(v.open, this.counts()) !== undefined || (this.expected > 0 && v.casts.size >= this.expected)) this.close();
+		if (reached(v.open, this.counts()) !== undefined || this.allVoted()) this.close();
 	}
 
 	/** conductor → relay: vote.close – Close now, or Override with the conductor's option */
@@ -156,14 +168,20 @@ export class FakeVoteRelay {
 		this.emit({ kind: 'vote.result', p: result }, () => true);
 	}
 
-	/** DRAFT ONLY, not in the protocol: the counts per group (vote.tally has totals only – #231 decision 2) */
-	groupCounts(): Record<string, number[]> {
+	/** conductor → relay: vote.hold – the countdown stops where it is (votes still count), `false` runs it on */
+	hold(hold: boolean): void {
 		const v = this.vote;
-		const out: Record<string, number[]> = {};
-		if (!v) return out;
-		const n = v.open.options.length;
-		for (const c of v.casts.values()) (out[c.group ?? '–'] ??= new Array<number>(n).fill(0))[c.option]++;
-		return out;
+		if (!v) return;
+		if (hold && v.heldAt === null) v.heldAt = this.clock.now();
+		else if (!hold && v.heldAt !== null) {
+			v.deadline += this.clock.now() - v.heldAt;
+			v.heldAt = null;
+		}
+	}
+
+	private allVoted(): boolean {
+		const v = this.vote;
+		return !!v && v.heldAt === null && this.expected > 0 && v.casts.size >= this.expected;
 	}
 
 	/** what one client cast (the phone's own mark after a reconnect would come from here) */
@@ -192,17 +210,21 @@ export class FakeVoteRelay {
 		return !groups || (group !== undefined && groups.includes(group));
 	}
 
-	/** session.rs `tick`: the crowd casts, the vote closes at its deadline, else the tally goes out */
+	/** session.rs `tick`: the crowd casts, the vote closes at its deadline (never while held) or when all voted, else the
+	 *  tally goes out – to the conductor with the counts per group, to a voter only after they voted */
 	private tick(): void {
 		const v = this.vote;
 		if (!v) return;
 		const now = this.clock.now();
-		if (now >= v.deadline) return this.close();
+		if (v.heldAt === null && now >= v.deadline) return this.close();
 		this.crowdCasts(1 - (v.deadline - now) / (v.open.seconds * 1000));
-		if (!this.vote) return; // a `first` option reached n
-		const tally: VoteTally = { vote: v.open.vote, counts: this.counts(), voters: v.casts.size, left: v.deadline - now };
+		if (!this.vote || this.allVoted()) return this.close();
+		const left = Math.max(0, v.deadline - (v.heldAt ?? now));
+		const tally: VoteTally = { vote: v.open.vote, counts: this.counts(), voters: v.casts.size, left, ...(v.heldAt !== null ? { paused: true } : {}) };
+		const conductor: VoteTally = { ...tally, groups: groupCounts(v.open.options.length, v.casts.values()), expected: this.expected };
 		const show = v.open.show === true;
-		this.emit({ kind: 'vote.tally', p: tally }, (s) => s.role === 'conductor' || (show && this.isVoter(s.group)));
+		this.emit({ kind: 'vote.tally', p: conductor }, (s) => s.role === 'conductor');
+		this.emit({ kind: 'vote.tally', p: tally }, (s) => s.role === 'audience' && show && this.isVoter(s.group) && s.client !== undefined && v.casts.has(s.client));
 	}
 
 	/** most phones vote early, a few change their mind */
@@ -226,7 +248,9 @@ export class FakeVoteRelay {
 	}
 
 	private emit(m: Pick<Envelope, 'kind' | 'p'>, to: (s: Sub) => boolean): void {
+		const reach = this.subs.filter(to);
+		if (!reach.length) return; // the relay stamps only what it delivers
 		const e = { v: 1, seq: ++this.seq, from: 'relay', at: this.clock.now(), ...m } as Envelope;
-		for (const s of [...this.subs]) if (to(s)) s.fn(e);
+		for (const s of reach) s.fn(e);
 	}
 }

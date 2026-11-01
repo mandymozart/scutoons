@@ -6,49 +6,32 @@
 		/** ink or paper – whichever reads on the colour */
 		text: string;
 	}
-	/** the phone's words, in the device's language (owner 2026-11-01); the question, the options and the group's
-	 *  instruction come from the show / choice event in that language */
-	export interface Words {
-		vote: string;
-		left: (s: number) => string;
-		pick: string;
-		change: string;
-		result: string;
-		yours: string;
-		rule: { majority: string; groups: string; first: string };
-		fallback: string;
-		override: string;
-		closed: string;
-	}
 </script>
 
 <script lang="ts">
-	// #231 draft: the audience phone's vote – in the group's colour, under the group's current instruction (the last
-	// `say` per group, B.6 snapshot); the options as buttons, the chosen one inverted and changeable until the close
-	// (`vote.cast` again). The live counts show only AFTER the phone has voted (owner 2026-11-01) – that needs
-	// `show` in vote.open, the relay sends the tally to the voters then. The countdown runs on the phone's clock from
-	// `seconds` and only while the vote is active. Fed by the fake relay (src/lib/live-vote-sim.ts).
+	// The audience phone's vote (#231, research/LIVE.md B.9): in the group's colour, under the group's current instruction
+	// (the last `say`), the question and the options in the device's language, the chosen option inverted and changeable
+	// until the close, then the result. The live counts show only AFTER this phone has voted (owner 2026-11-01) – the relay
+	// sends the tally to a voter only then, and only when the vote shows it. The countdown shows only while the vote is
+	// open (it runs on the phone's clock from `seconds`, with the relay's `left` once the tally comes). The source is the
+	// real relay (live-vote-link.ts) or the draft's fake (live-vote-sim.ts).
 	import type { VoteOpen, VoteResult, VoteTally } from '@scutoons/live';
-	import type { FakeVoteRelay } from '$lib/live-vote-sim.ts';
+	import { howKey, percent, pickLabels, pickText, type VoteSource } from '$lib/live-vote.ts';
+	import { wordsFor } from '$lib/live-vote-words.ts';
 
-	let {
-		relay,
-		group,
-		question,
-		instruction,
-		t,
-		client = 'me'
-	}: { relay: FakeVoteRelay; group: Group; question: string; instruction: string; t: Words; client?: string } = $props();
+	let { source, group, locale, client = 'me', instruction = '' }: { source: VoteSource; group: Group; locale: string; client?: string; instruction?: string } = $props();
 
 	let open = $state<VoteOpen | null>(null);
 	let tally = $state<VoteTally | null>(null);
 	let result = $state<VoteResult | null>(null);
 	let mine = $state<number | null>(null);
+	let say = $state('');
 	let endsAt = $state(0);
 	let now = $state(Date.now());
+	const t = $derived(wordsFor(locale));
 
 	$effect(() =>
-		relay.on(
+		source.on(
 			'audience',
 			(e) => {
 				if (e.kind === 'vote.open') {
@@ -56,8 +39,13 @@
 					endsAt = Date.now() + e.p.seconds * 1000;
 				} else if (e.kind === 'vote.tally') tally = e.p;
 				else if (e.kind === 'vote.result') result = e.p;
+				else if (e.kind === 'say') {
+					const text = (e.p as { text?: string | Record<string, string> }).text;
+					say = typeof text === 'string' ? text : pickText(text, locale);
+				}
 			},
-			group.id
+			group.id,
+			client
 		)
 	);
 	$effect(() => {
@@ -65,51 +53,52 @@
 		return () => clearInterval(id);
 	});
 
+	const labels = $derived(open ? pickLabels(open, locale) : []);
+	const question = $derived(open ? pickText(open.question, locale) : '');
 	const left = $derived(Math.max(0, Math.ceil((tally ? tally.left : endsAt - now) / 1000)));
-	const total = $derived(tally ? tally.counts.reduce((a, b) => a + b, 0) : 0);
-	const pct = (c: number) => (total ? Math.round((c / total) * 100) : 0);
-	/** results only after the voter has voted */
+	/** counts only after this phone voted */
 	const seesCounts = $derived(mine !== null && tally !== null);
 
 	function choose(i: number) {
 		if (!open || result) return;
 		mine = i;
-		relay.cast(client, i, group.id);
+		source.cast(client, i, group.id);
 	}
-	const howText = $derived(!result || !open ? '' : result.how === 'rule' ? t.rule[open.rule] : result.how === 'fallback' ? t.fallback : t.override);
 </script>
 
-<section class="phone" style:--group={group.colour} style:--on-group={group.text} aria-label="Vote (audience phone)">
+<section class="phone" style:--group={group.colour} style:--on-group={group.text} aria-label="Vote">
 	<header>
 		<span class="group">{group.name}</span>
-		{#if open && !result}<span class="left">{t.left(left)}</span>{/if}
+		{#if open && !result}<span class="left">{tally?.paused ? t.paused : t.left(left)}</span>{/if}
 	</header>
-	<p class="instruction">{instruction}</p>
+	{#if say || instruction}<p class="instruction">{say || instruction}</p>{/if}
 
 	{#if result && open}
 		<div class="card">
 			<span class="label">{t.result}</span>
-			<span class="winner">{open.options[result.option]}</span>
-			<span class="how">{howText}</span>
+			<span class="winner">{labels[result.option]}</span>
+			<span class="how">{t.how[howKey(open, result)]}</span>
 			{#if mine !== null}
-				<span class="mine">{t.yours}: {open.options[mine]}{mine === result.option ? ' ✓' : ''}</span>
+				<span class="mine">{t.yours}: {labels[mine]}{mine === result.option ? ' ✓' : ''}</span>
 			{/if}
 		</div>
 	{:else if open}
 		<div class="card">
 			<span class="label">{t.vote}</span>
-			<h2 class="question">{question}</h2>
-			<div class="options" role="group" aria-label={question}>
-				{#each open.options as option, i (i)}
+			{#if question}<h2 class="question">{question}</h2>{/if}
+			<div class="options" role="group" aria-label={question || t.vote}>
+				{#each labels as option, i (i)}
 					<button type="button" class="option" class:chosen={mine === i} aria-pressed={mine === i} onclick={() => choose(i)}>
 						<span>{option}</span>
-						{#if seesCounts && tally}<span class="n">{pct(tally.counts[i])}%</span>{/if}
-						{#if seesCounts && tally}<span class="share" style:width="{pct(tally.counts[i])}%"></span>{/if}
+						{#if seesCounts && tally}<span class="n">{percent(tally.counts[i], tally.counts)}%</span>{/if}
+						{#if seesCounts && tally}<span class="share" style:width="{percent(tally.counts[i], tally.counts)}%"></span>{/if}
 					</button>
 				{/each}
 			</div>
 			<p class="hint">{mine === null ? t.pick : t.change}</p>
 		</div>
+	{:else}
+		<p class="hint waiting">{t.waiting}</p>
 	{/if}
 </section>
 
@@ -120,6 +109,7 @@
 		gap: var(--space-15);
 		box-sizing: border-box;
 		flex: 1;
+		min-height: 100%;
 		align-items: center;
 		padding: var(--space-15) var(--space-1);
 		background: var(--group);
@@ -211,6 +201,9 @@
 		margin: 0;
 		font-size: var(--type-caption-size);
 		color: var(--text-muted);
+	}
+	.waiting {
+		color: inherit;
 	}
 	.winner {
 		font-size: var(--type-title-size);
