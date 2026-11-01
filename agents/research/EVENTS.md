@@ -174,3 +174,23 @@ sync, `p` → props, `cue.actions` → children); the state kinds stay messages.
 (note on + off → one note with a duration). **Signals** are not events – bridges (threshold → event, event → value).
 The real differences are time (none · absolute ms · frames / beats) and names (camelCase · dotted · paths) – both
 settled by the event's `Time` and a name registry.
+
+## 13. One timeline for every medium (owner 2026-11-01: "timekeys … for sequences, video, audio, midi, scores, animations")
+An event is a time key: a start, a duration, a name, props, children. Every medium places itself on the same timeline;
+the medium's data (samples, frames, curves) stays an asset or a signal, the event says when and how it plays.
+| medium | as events |
+|---|---|
+| MIDI | `note { pitch, vel }`; CC → a `curve` (below); General MIDI's program map → an instrument id |
+| scores (#235) | compound: piece → movement → measure → note (MusicXML maps 1:1) |
+| audio clips | `clip { asset, offset, gain, warp }` – the audio stays the file, the event places it (an Ableton arrangement clip) |
+| video | `video { asset, in, out, rate }` (the relay's media cells already do this per outlet) |
+| animation | `curve { target, keys: [time, value, ease] }` – a bridge turns it into a control signal; a mood sprite change = an event |
+| story (VN) | a chain = a compound event whose children have an order but no clock times yet (below) |
+**Three time bases**, resolved at the edge: **beats** (music, on the tempo map), **seconds** (clips, video, cues),
+**steps** (the story: "after the previous one is done", or a scroll position – an intersect trigger is a place in the
+strip). A step gets its clock time when the story runner fires it (a reader's tap), or when the conductor walks the
+flow's rows in a show – then it carries the relay's `at` like any cue.
+Compared with MIDI: an open vocabulary (a registry) instead of a fixed one, f32 instead of 7-bit, beats / seconds / steps
+instead of ticks, nesting, routing by name and receivers instead of 16 channels, and every medium instead of notes only.
+MIDI, MusicXML, Ableton and OpenTimelineIO (video / audio edits: clips, tracks, stacks – the closest timeline model)
+stay import / export adapters.
