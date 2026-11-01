@@ -49,6 +49,7 @@ pub struct WidgetInfo {
 
 enum Cmd {
     Set(DmxMessage),
+    Now(DmxMessage),
     Panic,
     Stop,
 }
@@ -170,6 +171,11 @@ fn run(outlet: String, mut opener: Opener, rx: std_mpsc::Receiver<Cmd>) {
                     tracing::warn!(outlet, "dmx-usbpro: {e}");
                 }
             }
+            Ok(Cmd::Now(msg)) => {
+                if let Err(e) = universe.apply_now(&msg, Instant::now()) {
+                    tracing::warn!(outlet, "dmx-usbpro: {e}");
+                }
+            }
             Ok(Cmd::Panic) => {
                 universe.blackout();
                 let frame = universe.force(Instant::now());
@@ -226,6 +232,13 @@ impl Adapter for DmxUsbProAdapter {
         let DeviceMsg::Dmx(m) = msg else { return Err(anyhow!("dmx-usbpro got a non-dmx message")) };
         universe::check(m)?;
         self.command(Cmd::Set(m.clone()))
+    }
+
+    /// A change in its own frame at once (≥ 4 ms after the last – a strobe's flash, #211), not on the 40 Hz grid.
+    fn send_now(&mut self, msg: &DeviceMsg) -> anyhow::Result<()> {
+        let DeviceMsg::Dmx(m) = msg else { return Err(anyhow!("dmx-usbpro got a non-dmx message")) };
+        universe::check(m)?;
+        self.command(Cmd::Now(m.clone()))
     }
 
     fn panic(&mut self) -> anyhow::Result<()> {
