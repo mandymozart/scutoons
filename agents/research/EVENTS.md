@@ -316,11 +316,9 @@ horizons, and preload"):
   are already reference lists, and their arrays are ordered – a conductor can send its horizon nearest first in them; decks
   answer `deck.synced` / `media.ready` as now. Old decks read the same messages (printed / public things never change).
   A rolling horizon is then just a new `scene.sync` per step.
-- **Open – for the owner:**
-  1. The default bounds per scope: a show's rolling horizon (next n cue rows? t seconds?), a chapter's choice depth.
-  2. A per-deck byte budget, and what a deck does past it (load on the trigger = late, or refuse the cue as not ready).
-  3. Whether `scene.sync` grows a `horizon` field (references with distances, for a deck that orders its own loads)
-     or stays ordered lists – recommended: ordered lists until a deck needs the distances.
-  4. Does the payload guard log-and-drop, or answer the sender with an `error` (the relay's envelope)? Recommended: an
-     `error` back, so a creator sees "send a reference".
-  5. Pre-build scope on the deck: only moods, or also the next scene's whole stage graph (memory on a phone deck).
+- **Decided (owner 2026-11-01, "i would go with recommendations for now"):** `scene.sync` stays ordered reference lists
+  (a `horizon` field with distances only when a deck needs them); a refused payload answers the sender with an `error`
+  ("send a reference"), never a silent drop.
+- **Open – decided after real-show tests (owner 2026-11-01):** the default bounds per scope (a show's rolling horizon
+  in cue rows / seconds, a chapter's choice depth); a per-deck byte budget and what a deck does past it (load late, or
+  refuse the cue as not ready); what a deck pre-builds (only moods, or the next scene's whole stage graph).
