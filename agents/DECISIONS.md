@@ -6,6 +6,7 @@ stays and gets "(superseded YYYY-MM-DD → …)" appended. Rules for agents: age
 to mark them superseded.
 
 ## 2026-11
+- 2026-11-01 · platform · **Scene switches crossfade, stops black out:** a switch between scenes hands lights and sound over by a parametric crossfade (each output value moves to the new scene's over one transition time; unused channels fade to 0) – no blackout on a switch; dark only on a real stop. Lights are hardware: no hard jumps, flashes and darkness only on purpose · "we should handle transitions between scenes carefully. Since black outs might not be wanted there … lights are actual hardware … Parametric Crossfade is i guess the easiest for now" · → #264, #263
 - 2026-11-01 · platform · **The stage's debug overlay is a key, off in a release:** F1 cycles it (full → bar → off) now; from the release that counts – 2027-02-05 – the stage starts with it off and F1 is the way in · "this short cut is the one that turns on the debug once we are ready for a release that counts … That would be february 5th" · → deck/stage/README.md, #249
 - 2026-11-01 · platform · **Decks update remotely, without a stick:** in dev from the dev PC on the LAN, else from the server; the deck installs the new version and restarts – a signed bundle (`deck-update`), never during a show; pacman stays for the base system later · "the deck should be updateable remotely for us to develop … in dev from localnetwork or from the server … update the deck software and restart" · → deck/os/README.md "Updates", #237
 
