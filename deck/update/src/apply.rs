@@ -2,7 +2,7 @@
 //! its old inode, a power cut leaves the old file or the new one) – keeping what it replaced for a rollback; and the
 //! systemd side (reload, restart, the health check) behind a trait.
 
-use crate::manifest::{sha256_hex, Actions, Manifest};
+use crate::manifest::{allowed, sha256_hex, Actions, Manifest};
 use anyhow::{bail, Context, Result};
 use std::fs;
 use std::io::{Read, Write};
@@ -13,14 +13,18 @@ use std::time::{Duration, Instant};
 /// What an install changed, so it can be undone
 #[derive(Debug, Default)]
 pub struct Installed {
-    /// paths whose content (or mode) changed
+    /// paths whose content (or mode) changed, and the `removed` ones
     pub changed: Vec<String>,
+    /// files the previous bundle had and this one dropped – taken off the root (their old copy is in `previous`)
+    pub removed: Vec<String>,
     /// the old files of `changed`, under their paths (a path not there was new)
     pub previous: PathBuf,
 }
 
-/// Copies every manifest file from `unpacked` into `root` when it differs; the replaced files go to `previous`
-pub fn install(root: &Path, unpacked: &Path, manifest: &Manifest, previous: &Path) -> Result<Installed> {
+/// Copies every manifest file from `unpacked` into `root` when it differs; the replaced files go to `previous`.
+/// `old` is the manifest of the bundle applied before (none on a deck's first update): the files it lists and
+/// `manifest` does not are removed from `root`, only under the paths `allowed` accepts.
+pub fn install(root: &Path, unpacked: &Path, manifest: &Manifest, previous: &Path, old: Option<&Manifest>) -> Result<Installed> {
     let _ = fs::remove_dir_all(previous);
     fs::create_dir_all(previous)?;
     let mut changed = Vec::new();
@@ -36,18 +40,43 @@ pub fn install(root: &Path, unpacked: &Path, manifest: &Manifest, previous: &Pat
             bail!("{} changed after unpacking", f.path);
         }
         if let Some(old) = &current {
-            let keep = previous.join(&f.path);
-            fs::create_dir_all(keep.parent().unwrap_or(previous))?;
-            fs::write(&keep, old)?;
-            set_mode(&keep, mode_of(&target).unwrap_or(0o644))?;
+            keep_old(previous, &f.path, &target, old)?;
         }
         place(&target, &bytes, f.mode)?;
         changed.push(f.path.clone());
     }
-    Ok(Installed { changed, previous: previous.to_path_buf() })
+    let mut removed = Vec::new();
+    for path in old.map(|o| dropped(manifest, o)).unwrap_or_default() {
+        let target = root.join(&path);
+        // a path that is not a file on the root (already gone, or a directory) has nothing to take off
+        let Ok(current) = fs::read(&target) else { continue };
+        keep_old(previous, &path, &target, &current)?;
+        fs::remove_file(&target).with_context(|| path.clone())?;
+        changed.push(path.clone());
+        removed.push(path);
+    }
+    Ok(Installed { changed, removed, previous: previous.to_path_buf() })
 }
 
-/// Puts back what `install` replaced and removes what it added
+/// The paths `old` lists, `new` does not, and an update may write – nothing else is ever removed
+fn dropped(new: &Manifest, old: &Manifest) -> Vec<String> {
+    old.files
+        .iter()
+        .filter(|f| allowed(&f.path) && !new.files.iter().any(|n| n.path == f.path))
+        .map(|f| f.path.clone())
+        .collect()
+}
+
+/// Keeps a copy of the file at `target` (its content and mode) under `previous/<path>` for a rollback
+fn keep_old(previous: &Path, path: &str, target: &Path, old: &[u8]) -> Result<()> {
+    let keep = previous.join(path);
+    fs::create_dir_all(keep.parent().unwrap_or(previous))?;
+    fs::write(&keep, old)?;
+    set_mode(&keep, mode_of(target).unwrap_or(0o644))?;
+    Ok(())
+}
+
+/// Puts back what `install` replaced or removed and removes what it added
 pub fn rollback(root: &Path, installed: &Installed) -> Result<()> {
     for path in &installed.changed {
         let target = root.join(path);
@@ -323,7 +352,7 @@ pub(crate) mod tests {
         set_mode(&root.join("usr/bin/deck-relay"), 0o755).unwrap();
 
         let m = manifest_for(&[("usr/bin/deck-stage", b"new stage"), ("usr/bin/deck-relay", b"relay"), ("usr/bin/deck-new", b"n")]);
-        let done = install(&root, &unpacked, &m, &dir.path().join("previous")).unwrap();
+        let done = install(&root, &unpacked, &m, &dir.path().join("previous"), None).unwrap();
         assert_eq!(done.changed, vec!["usr/bin/deck-stage", "usr/bin/deck-new"], "the relay is the same");
         assert_eq!(fs::read(root.join("usr/bin/deck-stage")).unwrap(), b"new stage");
         assert!(!root.join("usr/bin/deck-stage.deck-new").exists());
@@ -331,6 +360,44 @@ pub(crate) mod tests {
         rollback(&root, &done).unwrap();
         assert_eq!(fs::read(root.join("usr/bin/deck-stage")).unwrap(), b"old stage");
         assert!(!root.join("usr/bin/deck-new").exists());
+    }
+
+    #[test]
+    fn install_removes_what_the_new_manifest_drops() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("root");
+        let unpacked = dir.path().join("unpacked");
+        fs::create_dir_all(unpacked.join("usr/bin")).unwrap();
+        fs::write(unpacked.join("usr/bin/deck-stage"), b"stage").unwrap();
+        fs::create_dir_all(root.join("usr/bin")).unwrap();
+        fs::create_dir_all(root.join("usr/share/deck/scenes")).unwrap();
+        fs::create_dir_all(root.join("etc")).unwrap();
+        fs::write(root.join("usr/bin/deck-stage"), b"stage").unwrap();
+        fs::write(root.join("usr/share/deck/scenes/default.toml"), b"old scene").unwrap();
+        fs::write(root.join("etc/keep.conf"), b"keep").unwrap();
+        let new = manifest_for(&[("usr/bin/deck-stage", b"stage")]);
+        // an old manifest naming a path outside the allowed ones must not take it off the root either
+        let old = manifest_for(&[
+            ("usr/bin/deck-stage", b"stage"),
+            ("usr/share/deck/scenes/default.toml", b"old scene"),
+            ("etc/keep.conf", b"keep"),
+        ]);
+        let previous = dir.path().join("previous");
+
+        // a first update (no previous manifest) removes nothing
+        let first = install(&root, &unpacked, &new, &previous, None).unwrap();
+        assert!(first.removed.is_empty());
+        assert!(root.join("usr/share/deck/scenes/default.toml").exists());
+
+        let done = install(&root, &unpacked, &new, &previous, Some(&old)).unwrap();
+        assert_eq!(done.removed, vec!["usr/share/deck/scenes/default.toml"]);
+        assert!(done.changed.contains(&"usr/share/deck/scenes/default.toml".to_string()));
+        assert!(!root.join("usr/share/deck/scenes/default.toml").exists());
+        assert!(root.join("etc/keep.conf").exists(), "outside the allowed paths: never removed");
+        assert_eq!(fs::read(previous.join("usr/share/deck/scenes/default.toml")).unwrap(), b"old scene");
+
+        rollback(&root, &done).unwrap();
+        assert_eq!(fs::read(root.join("usr/share/deck/scenes/default.toml")).unwrap(), b"old scene");
     }
 
     #[test]

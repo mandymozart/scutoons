@@ -13,6 +13,14 @@ use std::path::Path;
 /// The largest bundle a deck downloads
 const MAX_BUNDLE: u64 = 512 << 20;
 
+/// In `current/`: the manifest of the bundle applied before the staged one (what a boot from an older root removes)
+const PREVIOUS: &str = "previous-manifest.json";
+
+/// The manifest of the bundle last applied (`current/`), if there is one
+fn last_applied(current: &Path) -> Option<Manifest> {
+    serde_json::from_slice(&fs::read(current.join(MANIFEST)).ok()?).ok()
+}
+
 #[derive(Debug, PartialEq)]
 pub enum Outcome {
     Off,
@@ -175,10 +183,11 @@ impl Updater<'_> {
         let _ = fs::remove_dir_all(&work);
         bundle::unpack(tarball, m, &work)?;
         let old_stamp = fs::read(self.paths.stamp()).ok();
-        let installed = apply::install(&self.paths.root, &work, m, &dir.join("previous"))?;
+        let old = last_applied(&self.paths.current());
+        let installed = apply::install(&self.paths.root, &work, m, &dir.join("previous"), old.as_ref())?;
         let _ = fs::remove_dir_all(&work);
         write_stamp(&self.paths, m)?;
-        let acts = actions(&installed.changed, m.reboot);
+        let acts = actions(&installed.changed, &installed.removed, m.reboot);
         if acts.reboot {
             if acts.daemon_reload {
                 self.system.daemon_reload()?;
@@ -241,10 +250,13 @@ impl Updater<'_> {
         let work = self.paths.dir().join("work");
         let _ = fs::remove_dir_all(&work);
         bundle::unpack(&current.join(&m.bundle), &m, &work)?;
-        let installed = apply::install(&self.paths.root, &work, &m, &self.paths.dir().join("previous"))?;
+        // the root is older than the staged bundle (a live stick): what the bundle before it listed and this one does
+        // not comes off the root as well
+        let before: Option<Manifest> = fs::read(current.join(PREVIOUS)).ok().and_then(|b| serde_json::from_slice(&b).ok());
+        let installed = apply::install(&self.paths.root, &work, &m, &self.paths.dir().join("previous"), before.as_ref())?;
         let _ = fs::remove_dir_all(&work);
         write_stamp(&self.paths, &m)?;
-        if actions(&installed.changed, false).daemon_reload {
+        if actions(&installed.changed, &installed.removed, false).daemon_reload {
             self.system.daemon_reload()?;
         }
         Ok(Outcome::Reapplied { version: label(&m.version, m.build) })
@@ -264,6 +276,9 @@ fn stage(current: &Path, raw: &[u8], signature: &str, tarball: &Path, name: &str
     fs::copy(tarball, next.join(name))?;
     fs::write(next.join(SIGNATURE), signature)?;
     fs::write(next.join(MANIFEST), raw)?;
+    if let Some(before) = last_applied(current) {
+        fs::write(next.join(PREVIOUS), serde_json::to_vec(&before)?)?;
+    }
     let _ = fs::remove_dir_all(current);
     fs::rename(&next, current)?;
     Ok(())
@@ -443,5 +458,71 @@ mod tests {
         fs::write(d.paths.stamp(), br#"{"version":"v1","build":100}"#).unwrap();
         assert_eq!(u.boot().unwrap(), Outcome::Reapplied { version: "v200".into() });
         assert_eq!(fs::read(d.paths.root.join("usr/bin/deck-stage")).unwrap(), b"stage v2");
+    }
+
+    /// 200 installs a scene; 300 is built without it
+    fn drop_the_scene(d: &Deck, fetch: &FakeFetch) {
+        fs::remove_file(d.src.join("scenes/fireflies.toml")).unwrap();
+        d.release(fetch, PC, 300);
+    }
+
+    #[test]
+    fn a_file_the_bundle_dropped_is_removed() {
+        let d = deck();
+        let fetch = FakeFetch::default();
+        let sys = FakeSystem::default();
+        let lan = || vec![PC.to_string()];
+        d.release(&fetch, PC, 200);
+        let u = d.updater(&fetch, &sys, &lan);
+        u.run(&Options::default(), 1000).unwrap();
+        let scene = d.paths.root.join("usr/share/deck/scenes/fireflies.toml");
+        assert!(scene.exists());
+
+        drop_the_scene(&d, &fetch);
+        let out = u.run(&Options::default(), 1100).unwrap();
+        let Outcome::Updated { changed, restarted, .. } = &out else { panic!("{out:?}") };
+        assert_eq!(changed, &vec!["usr/share/deck/scenes/fireflies.toml"]);
+        assert_eq!(restarted, &vec!["deck-kiosk.service"], "a removed scene restarts the kiosk");
+        assert!(!scene.exists());
+        assert_eq!(Stamp::read(&d.paths).build, 300);
+    }
+
+    #[test]
+    fn a_removal_that_does_not_come_up_is_rolled_back() {
+        let d = deck();
+        let fetch = FakeFetch::default();
+        let lan = || vec![PC.to_string()];
+        d.release(&fetch, PC, 200);
+        d.updater(&fetch, &FakeSystem::default(), &lan).run(&Options::default(), 1000).unwrap();
+        let scene = d.paths.root.join("usr/share/deck/scenes/fireflies.toml");
+
+        drop_the_scene(&d, &fetch);
+        let down = FakeSystem { down: vec!["deck-kiosk.service".into()], ..FakeSystem::default() };
+        let out = d.updater(&fetch, &down, &lan).run(&Options::default(), 1100).unwrap();
+        assert!(matches!(out, Outcome::RolledBack { .. }), "{out:?}");
+        assert_eq!(fs::read(&scene).unwrap(), b"name = \"fireflies\"\n", "the rollback puts the scene back");
+        assert_eq!(Stamp::read(&d.paths).build, 200);
+    }
+
+    #[test]
+    fn the_boot_removes_what_the_bundle_before_dropped() {
+        let d = deck();
+        let fetch = FakeFetch::default();
+        let sys = FakeSystem::default();
+        let lan = || vec![PC.to_string()];
+        d.release(&fetch, PC, 200);
+        let u = d.updater(&fetch, &sys, &lan);
+        u.run(&Options::default(), 1000).unwrap();
+        drop_the_scene(&d, &fetch);
+        u.run(&Options::default(), 1100).unwrap();
+        let scene = d.paths.root.join("usr/share/deck/scenes/fireflies.toml");
+        assert!(!scene.exists());
+
+        // a live stick rebooted: the root is the older one again, with the scene in it
+        fs::create_dir_all(scene.parent().unwrap()).unwrap();
+        fs::write(&scene, b"name = \"fireflies\"\n").unwrap();
+        fs::write(d.paths.stamp(), br#"{"version":"v200","build":200}"#).unwrap();
+        assert_eq!(u.boot().unwrap(), Outcome::Reapplied { version: "v300".into() });
+        assert!(!scene.exists(), "the bundle before dropped it, so the boot removes it");
     }
 }

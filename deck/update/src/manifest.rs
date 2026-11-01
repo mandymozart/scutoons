@@ -119,7 +119,9 @@ pub struct Actions {
     pub reboot: bool,
 }
 
-pub fn actions(changed: &[String], reboot: bool) -> Actions {
+/// `changed` are the paths an install touched (`removed` ones among them): a removed unit has no file left to start,
+/// so it only gets a daemon-reload
+pub fn actions(changed: &[String], removed: &[String], reboot: bool) -> Actions {
     let mut daemon_reload = false;
     let mut restart: Vec<String> = Vec::new();
     let mut want = |unit: &str| {
@@ -128,6 +130,7 @@ pub fn actions(changed: &[String], reboot: bool) -> Actions {
         }
     };
     for p in changed {
+        let gone = removed.contains(p);
         match p.as_str() {
             "usr/bin/deck-link" => want("deck-link.service"),
             "usr/bin/deck-relay" => want("deck-relay.service"),
@@ -138,7 +141,8 @@ pub fn actions(changed: &[String], reboot: bool) -> Actions {
                 daemon_reload = true;
                 let unit = p.rsplit('/').next().unwrap_or("");
                 // the update units run us (a restart would cut this run off); the boot steps run once per boot
-                let skip = unit.starts_with("deck-update")
+                let skip = gone
+                    || unit.starts_with("deck-update")
                     || unit == "deck-firstboot.service"
                     || unit == "deck-tls.service";
                 if unit.ends_with(".service") && !skip {
@@ -234,7 +238,7 @@ pub(crate) mod tests {
 
     #[test]
     fn changed_files_restart_what_runs_them() {
-        let a = actions(&["usr/bin/deck-stage".into(), "usr/share/deck/scenes/a.toml".into()], false);
+        let a = actions(&["usr/bin/deck-stage".into(), "usr/share/deck/scenes/a.toml".into()], &[], false);
         assert_eq!(a.restart, vec!["deck-kiosk.service"]);
         assert!(!a.daemon_reload);
 
@@ -248,12 +252,19 @@ pub(crate) mod tests {
                 "usr/bin/deck-update".into(),
                 "usr/bin/deck-tls".into(),
             ],
+            &[],
             true,
         );
         assert!(a.daemon_reload && a.reboot);
         assert_eq!(a.restart, vec!["deck-link.service", "deck-relay.service", "deck-bridge.service", "deck-kiosk.service"]);
 
-        let a = actions(&["usr/bin/deck-check".into(), "usr/bin/deck-firstboot".into()], false);
+        let a = actions(&["usr/bin/deck-check".into(), "usr/bin/deck-firstboot".into()], &[], false);
         assert_eq!(a, Actions::default());
+
+        // a removed unit: daemon-reload, no restart; a removed scene restarts the kiosk
+        let gone: Vec<String> = vec!["usr/lib/systemd/system/deck-old.service".into(), "usr/share/deck/scenes/default.toml".into()];
+        let a = actions(&gone, &gone, false);
+        assert!(a.daemon_reload);
+        assert_eq!(a.restart, vec!["deck-kiosk.service"]);
     }
 }

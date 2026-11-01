@@ -164,6 +164,8 @@ tty1 is switched to the front first – cage only takes the screen there); a res
 minutes, or not for 15 s without systemd restarting it, rolls the files back, and the timer never tries that build again. **Never during a
 show:** a conductor on the deck's relay (`/status` `live`) holds the update back. A live stick keeps the applied bundle
 in `/var/lib/deck/update/current` (DECKDATA) and `deck-firstboot` puts it back after each boot.
+A file the previous bundle listed and the new one drops is removed from the deck (only under the allowed paths; its old
+copy goes to `previous/` for the rollback; a removed unit gets a `daemon-reload` only).
 
 On tty2 / ssh (root): `deck-update status` · `check` · `now` (at once; `--force` also during a show or a rolled-back
 build; `--url http://<pc>:7790` for this run) · `trust <hex>` (another key). A deck from an image before #237 has no
