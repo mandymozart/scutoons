@@ -131,3 +131,27 @@ test('a screen that subscribes while a vote is open gets it at once (the snapsho
 	relay.on('audience', (e) => got.push(`other:${e.kind}`), 'stalls');
 	assert.deepEqual(got, ['vote.open']);
 });
+
+test('the vote closes when every connected device has voted', () => {
+	const relay = new FakeVoteRelay(new ManualClock(), [], 7, 2);
+	const results: Envelope[] = [];
+	relay.on('conductor', (e) => e.kind === 'vote.result' && results.push(e));
+	relay.open(open('majority'));
+	relay.cast('a', 0, 'g');
+	assert.equal(results.length, 0);
+	relay.cast('a', 1, 'g'); // a change is not a second device
+	assert.equal(results.length, 0);
+	relay.cast('b', 1, 'g');
+	const r = results[0];
+	assert.ok(r && r.kind === 'vote.result' && r.p.option === 1);
+	assert.equal(relay.isOpen, false);
+});
+
+test('groupCounts: the draft-only breakdown per group', () => {
+	const relay = new FakeVoteRelay(new ManualClock());
+	relay.open(open('groups'));
+	relay.cast('a', 0, 'left');
+	relay.cast('b', 1, 'left');
+	relay.cast('c', 1, 'right');
+	assert.deepEqual(relay.groupCounts(), { left: [1, 1, 0], right: [0, 1, 0] });
+});

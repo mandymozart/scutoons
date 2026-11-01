@@ -1,10 +1,11 @@
 <script lang="ts">
-	// #231 draft: the conductor's vote panel – question, rule, fallback, the countdown (`vote.tally.left`), live bars,
-	// Close now / Override, then the result and how it was decided (`vote.result.how`). Dark like the 2026-10-07 draft
-	// (a conductor sits in a dark room). Fed by the fake relay (src/lib/live-vote-sim.ts); nothing here is the protocol.
+	// #231 draft: the conductor's vote panel – question (the chapter's choice event), rule, fallback, the countdown
+	// (`vote.tally.left`), live bars with counts and percentages, for the "per group" rule each group's own result,
+	// Close now / Override, then the result and how it was decided (`vote.result.how`). Ink on paper (owner 2026-11-01);
+	// a dark mode for the whole Live section comes later. Fed by the fake relay (src/lib/live-vote-sim.ts).
 	import { Button } from '@scutoons/ui';
 	import type { VoteOpen, VoteResult, VoteTally } from '@scutoons/live';
-	import type { FakeVoteRelay } from '$lib/live-vote-sim.ts';
+	import { winner, type FakeVoteRelay } from '$lib/live-vote-sim.ts';
 
 	let { relay, question, groupNames }: { relay: FakeVoteRelay; question: string; groupNames: Record<string, string> } = $props();
 
@@ -12,37 +13,43 @@
 	let tally = $state<VoteTally | null>(null);
 	let result = $state<VoteResult | null>(null);
 	let overriding = $state(false);
+	/** DRAFT ONLY: per group counts, read next to each tally – vote.tally has totals only */
+	let byGroup = $state<Record<string, number[]>>({});
 
 	$effect(() =>
 		relay.on('conductor', (e) => {
-			if (e.kind === 'vote.open') [open, tally, result, overriding] = [e.p, null, null, false];
-			else if (e.kind === 'vote.tally') tally = e.p;
+			if (e.kind === 'vote.open') [open, tally, result, overriding, byGroup] = [e.p, null, null, false, {}];
+			else if (e.kind === 'vote.tally') [tally, byGroup] = [e.p, relay.groupCounts()];
 			else if (e.kind === 'vote.result') [result, overriding] = [e.p, false];
 		})
 	);
 
 	const counts = $derived(result?.counts ?? tally?.counts ?? open?.options.map(() => 0) ?? []);
-	const voters = $derived(result ? result.counts.reduce((a, b) => a + b, 0) : (tally?.voters ?? 0));
+	const voters = $derived(counts.reduce((a, b) => a + b, 0));
 	const leftMs = $derived(result ? 0 : (tally?.left ?? (open ? open.seconds * 1000 : 0)));
 	const leading = $derived(result ? result.option : counts.indexOf(Math.max(...counts)));
-	/** a bar's scale: share of the voters; first to n: the way to n */
+	/** first to n: the bar is the way to n, else the share of the voters */
 	const scale = $derived(open?.rule === 'first' ? Math.max(open.n ?? 1, ...counts) : Math.max(1, voters));
+	const pct = (c: number) => (voters ? Math.round((c / voters) * 100) : 0);
 	const RULES = { majority: 'majority', groups: 'per group', first: 'first to n' } as const;
-	const ruleText = $derived(
-		!open
-			? ''
-			: open.rule === 'first'
-				? `first to ${open.n ?? 1}`
-				: open.rule === 'groups'
-					? `per group – each group's majority is one vote`
-					: 'majority – most votes'
-	);
+	const RULE_HELP = {
+		majority: 'The option with the most votes wins.',
+		groups: "Each group's own majority counts as one vote; the option with the most groups wins.",
+		first: 'The first option to reach n votes wins at once.'
+	} as const;
 	const groupsText = $derived(open?.groups ? open.groups.map((g) => groupNames[g] ?? g).join(', ') : 'all audience');
 	const fallbackLabel = $derived(open ? open.options[open.fallback ?? 0] : '');
 	const HOW = { rule: 'by the rule', fallback: 'by the fallback – nobody voted', override: 'by override – the conductor chose' } as const;
+	/** per group: the group's own pick (its majority; a tie with the fallback goes to the fallback) and the groups' tally */
+	const groupRows = $derived(
+		open?.rule === 'groups'
+			? Object.entries(byGroup).map(([g, c]) => ({ g, c, total: c.reduce((a, b) => a + b, 0), pick: winner(c, open!.fallback ?? 0) }))
+			: []
+	);
+	const groupVotes = $derived(open ? open.options.map((_, i) => groupRows.filter((r) => r.pick === i).length) : []);
 </script>
 
-<section class="conductor" aria-label="Vote (conductor)">
+<section class="conductor sc-frame" aria-label="Vote (conductor)">
 	{#if open}
 		<header>
 			<span class="label">Vote · {open.vote}</span>
@@ -50,14 +57,14 @@
 		</header>
 		<h2 class="question">{question}</h2>
 		<dl class="meta">
-			<div><dt>Rule</dt><dd title={ruleText}>{RULES[open.rule]}{open.rule === 'first' ? ` · n ${open.n ?? 1}` : ''}</dd></div>
+			<div><dt>Rule</dt><dd title={RULE_HELP[open.rule]}>{RULES[open.rule]}{open.rule === 'first' ? ` · n ${open.n ?? 1}` : ''}</dd></div>
 			<div><dt>Fallback</dt><dd>{fallbackLabel}</dd></div>
 			<div><dt>Voting</dt><dd>{groupsText}</dd></div>
-			<div><dt>Audience sees tally</dt><dd>{open.show ? 'yes' : 'no'}</dd></div>
 		</dl>
+		<p class="caption">{RULE_HELP[open.rule]} Closes when the timer is up or every connected device has voted.</p>
 
 		{#if !result}
-			<div class="countdown" aria-live="off">
+			<div class="countdown">
 				<span class="seconds">{Math.ceil(leftMs / 1000)}<small>s</small></span>
 				<span class="track"><span class="fill" style:width="{(leftMs / (open.seconds * 1000)) * 100}%"></span></span>
 			</div>
@@ -69,21 +76,42 @@
 			</div>
 		{/if}
 
+		<h3 class="label">{open.rule === 'groups' ? 'All votes' : 'Votes'} · {voters}</h3>
 		<ul class="bars">
 			{#each open.options as option, i (i)}
-				<li class:lead={i === leading && (voters > 0 || result)}>
+				<li class:lead={i === leading && voters > 0}>
 					<span class="name">{option}</span>
 					<span class="bar">
 						<span class="fill" style:width="{(counts[i] / scale) * 100}%"></span>
 						{#if open.rule === 'first'}<span class="goal" title="n = {open.n}"></span>{/if}
 					</span>
-					<span class="n">{counts[i]}</span>
+					<span class="n">{counts[i]}<small>{pct(counts[i])}%</small></span>
 				</li>
 			{/each}
 		</ul>
-		<p class="caption">
-			{voters} voted{open.rule === 'groups' ? ' · the tally has totals only, not per group' : ''}
-		</p>
+
+		{#if open.rule === 'groups'}
+			<h3 class="label">Per group · {groupRows.length} groups, one vote each</h3>
+			<ul class="groups">
+				{#each groupRows as r (r.g)}
+					<li>
+						<span class="name">{groupNames[r.g] ?? r.g}</span>
+						<span class="pair">
+							{#each open.options as option, i (i)}
+								<span class="cell" class:pick={r.pick === i}>{option} {r.total ? Math.round((r.c[i] / r.total) * 100) : 0}%<small>{r.c[i]}</small></span>
+							{/each}
+						</span>
+					</li>
+				{/each}
+				<li class="sum">
+					<span class="name">Group votes</span>
+					<span class="pair">
+						{#each open.options as option, i (i)}<span class="cell">{option} {groupVotes[i]}</span>{/each}
+					</span>
+				</li>
+			</ul>
+			<p class="caption">The per-group counts are not in vote.tally yet (totals only) – drafted from the fake relay.</p>
+		{/if}
 
 		{#if !result}
 			<div class="actions">
@@ -107,16 +135,13 @@
 
 <style>
 	.conductor {
-		--fg: var(--paper);
-		--muted: #a0a0a0;
-		--rule: #6b6b6b;
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-1);
 		box-sizing: border-box;
 		padding: var(--space-15);
-		background: var(--ink);
-		color: var(--fg);
+		background: var(--paper);
+		color: var(--ink);
 		font-family: var(--font-mono);
 		border: var(--border-width-regular) solid var(--ink);
 	}
@@ -128,28 +153,29 @@
 	}
 	.label,
 	dt {
-		font-size: var(--type-caption-size, 0.75rem);
+		margin: 0;
+		font-size: var(--type-caption-size);
+		font-weight: var(--font-weight-regular);
 		text-transform: uppercase;
-		letter-spacing: var(--tracking-label, 0.08em);
-		color: var(--muted);
+		letter-spacing: var(--tracking-label);
 	}
 	.state {
-		font-size: var(--type-caption-size, 0.75rem);
+		font-size: var(--type-caption-size);
 		text-transform: uppercase;
-		letter-spacing: var(--tracking-label, 0.08em);
+		letter-spacing: var(--tracking-label);
 		padding: var(--space-025) var(--space-05);
 		background: var(--badge-published);
 		color: var(--badge-published-text);
 	}
 	.state.closed {
-		background: var(--paper);
-		color: var(--ink);
+		background: var(--ink);
+		color: var(--paper);
 	}
 	.question {
 		margin: 0;
-		font-size: var(--type-title-size, 1.5rem);
+		font-size: var(--type-title-size);
 		font-weight: var(--font-weight-regular);
-		line-height: 1.2;
+		line-height: var(--type-title-line);
 	}
 	.meta {
 		display: grid;
@@ -160,32 +186,42 @@
 	dd {
 		margin: 0;
 	}
+	.caption {
+		margin: 0;
+		font-size: var(--type-caption-size);
+		color: var(--text-muted);
+	}
+	.note {
+		border-left: 0.5rem solid var(--badge-warning);
+		padding-left: var(--space-05);
+	}
 	.countdown {
 		display: flex;
 		align-items: center;
 		gap: var(--space-1);
 	}
 	.seconds {
-		font-size: var(--type-title-size, 1.5rem);
+		font-size: var(--type-title-size);
 		min-width: 3.5rem;
 	}
 	.seconds small {
 		margin-left: var(--space-025);
 		font-size: 1rem;
-		color: var(--muted);
+		color: var(--text-muted);
 	}
 	.track,
 	.bar {
 		position: relative;
 		flex: 1;
 		height: 0.5rem;
-		background: #262626;
+		border: var(--border-width-hairline) solid var(--ink);
+		box-sizing: content-box;
 	}
 	.track .fill,
 	.bar .fill {
 		position: absolute;
 		inset: 0 auto 0 0;
-		background: var(--fg);
+		background: var(--ink);
 		transition: width 0.25s linear;
 	}
 	.result {
@@ -197,12 +233,13 @@
 		border-left: 0.5rem solid var(--badge-published);
 	}
 	.winner {
-		font-size: var(--type-title-size, 1.5rem);
+		font-size: var(--type-title-size);
 	}
 	.how {
-		color: var(--muted);
+		color: var(--text-muted);
 	}
-	.bars {
+	.bars,
+	.groups {
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-075);
@@ -212,22 +249,22 @@
 	}
 	.bars li {
 		display: grid;
-		grid-template-columns: minmax(4rem, 8rem) 1fr 3rem;
+		grid-template-columns: minmax(4rem, 8rem) 1fr 6rem;
 		align-items: center;
 		gap: var(--space-1);
-		color: var(--muted);
+		color: var(--text-muted);
 	}
 	.bars li .bar {
 		height: 1.5rem;
 	}
 	.bars li .fill {
-		background: var(--rule);
+		background: var(--border-muted);
 	}
 	.bars li.lead {
-		color: var(--fg);
+		color: var(--ink);
 	}
 	.bars li.lead .fill {
-		background: var(--fg);
+		background: var(--ink);
 	}
 	.goal {
 		position: absolute;
@@ -237,14 +274,44 @@
 	.n {
 		text-align: right;
 	}
-	.caption {
-		margin: 0;
-		font-size: var(--type-caption-size, 0.75rem);
-		color: var(--muted);
+	.n small {
+		margin-left: var(--space-05);
+		font-size: var(--type-caption-size);
+		color: var(--text-muted);
 	}
-	.note {
-		border-left: 0.5rem solid var(--badge-warning);
-		padding-left: var(--space-05);
+	.groups li {
+		display: grid;
+		grid-template-columns: minmax(4rem, 8rem) 1fr;
+		align-items: center;
+		gap: var(--space-1);
+	}
+	.pair {
+		display: flex;
+		gap: var(--space-05);
+	}
+	.cell {
+		flex: 1;
+		padding: var(--space-025) var(--space-05);
+		border: var(--border-width-hairline) solid var(--border-muted);
+		color: var(--text-muted);
+	}
+	.cell.pick {
+		border: var(--border-width-regular) solid var(--ink);
+		background: var(--ink);
+		color: var(--paper);
+	}
+	.cell small {
+		margin-left: var(--space-05);
+		font-size: var(--type-caption-size);
+		opacity: 0.7;
+	}
+	.sum {
+		padding-top: var(--space-05);
+		border-top: var(--border-width-hairline) solid var(--ink);
+	}
+	.sum .cell {
+		border-color: transparent;
+		color: var(--ink);
 	}
 	.actions {
 		display: flex;
@@ -252,22 +319,5 @@
 		justify-content: flex-end;
 		align-items: center;
 		gap: var(--space-05);
-	}
-	/* the ui Button on ink: primary = paper, secondary = an ink field with a grey frame → paper on hover */
-	.actions :global(.sc-button.primary) {
-		background: var(--paper);
-		color: var(--ink);
-		border-color: var(--paper);
-	}
-	.actions :global(.sc-button.secondary) {
-		background: var(--ink);
-		color: var(--paper);
-		border-color: var(--rule);
-	}
-	.actions :global(.sc-button.secondary:hover) {
-		border-color: var(--paper);
-	}
-	.actions :global(.sc-button.clear) {
-		color: var(--paper);
 	}
 </style>

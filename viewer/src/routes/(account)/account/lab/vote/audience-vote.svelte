@@ -5,21 +5,40 @@
 		colour: string;
 		/** ink or paper – whichever reads on the colour */
 		text: string;
-		/** the group's current instruction (its last `say`) */
-		instruction: string;
+	}
+	/** the phone's words, in the device's language (owner 2026-11-01); the question, the options and the group's
+	 *  instruction come from the show / choice event in that language */
+	export interface Words {
+		vote: string;
+		left: (s: number) => string;
+		pick: string;
+		change: string;
+		result: string;
+		yours: string;
+		rule: { majority: string; groups: string; first: string };
+		fallback: string;
+		override: string;
+		closed: string;
 	}
 </script>
 
 <script lang="ts">
 	// #231 draft: the audience phone's vote – in the group's colour, under the group's current instruction (the last
 	// `say` per group, B.6 snapshot); the options as buttons, the chosen one inverted and changeable until the close
-	// (`vote.cast` again), then the result. A phone gets `vote.tally` only when the vote shows it (`show`), so without it
-	// the countdown runs locally from `vote.open.seconds`. Fed by the fake relay (src/lib/live-vote-sim.ts).
+	// (`vote.cast` again). The live counts show only AFTER the phone has voted (owner 2026-11-01) – that needs
+	// `show` in vote.open, the relay sends the tally to the voters then. The countdown runs on the phone's clock from
+	// `seconds` and only while the vote is active. Fed by the fake relay (src/lib/live-vote-sim.ts).
 	import type { VoteOpen, VoteResult, VoteTally } from '@scutoons/live';
 	import type { FakeVoteRelay } from '$lib/live-vote-sim.ts';
 
-	let { relay, group, question, client = 'me' }: { relay: FakeVoteRelay; group: Group; question: string; client?: string } =
-		$props();
+	let {
+		relay,
+		group,
+		question,
+		instruction,
+		t,
+		client = 'me'
+	}: { relay: FakeVoteRelay; group: Group; question: string; instruction: string; t: Words; client?: string } = $props();
 
 	let open = $state<VoteOpen | null>(null);
 	let tally = $state<VoteTally | null>(null);
@@ -47,54 +66,49 @@
 	});
 
 	const left = $derived(Math.max(0, Math.ceil((tally ? tally.left : endsAt - now) / 1000)));
-	const total = $derived(tally ? Math.max(1, tally.voters) : 1);
+	const total = $derived(tally ? tally.counts.reduce((a, b) => a + b, 0) : 0);
+	const pct = (c: number) => (total ? Math.round((c / total) * 100) : 0);
+	/** results only after the voter has voted */
+	const seesCounts = $derived(mine !== null && tally !== null);
 
 	function choose(i: number) {
 		if (!open || result) return;
 		mine = i;
 		relay.cast(client, i, group.id);
 	}
-
-	const HOW = {
-		rule: { majority: 'Die meisten Stimmen.', groups: 'Die meisten Gruppen.', first: 'Zuerst genug Stimmen.' },
-		fallback: 'Niemand hat abgestimmt – es bleibt dabei.',
-		override: 'Die Regie hat entschieden.'
-	} as const;
-	const howText = $derived(!result || !open ? '' : result.how === 'rule' ? HOW.rule[open.rule] : HOW[result.how]);
+	const howText = $derived(!result || !open ? '' : result.how === 'rule' ? t.rule[open.rule] : result.how === 'fallback' ? t.fallback : t.override);
 </script>
 
 <section class="phone" style:--group={group.colour} style:--on-group={group.text} aria-label="Vote (audience phone)">
 	<header>
 		<span class="group">{group.name}</span>
-		{#if open && !result}<span class="left">noch {left} s</span>{/if}
+		{#if open && !result}<span class="left">{t.left(left)}</span>{/if}
 	</header>
-	<p class="instruction">{group.instruction}</p>
+	<p class="instruction">{instruction}</p>
 
 	{#if result && open}
 		<div class="card">
-			<span class="label">Ergebnis</span>
+			<span class="label">{t.result}</span>
 			<span class="winner">{open.options[result.option]}</span>
 			<span class="how">{howText}</span>
 			{#if mine !== null}
-				<span class="mine">Deine Stimme: {open.options[mine]}{mine === result.option ? ' ✓' : ''}</span>
+				<span class="mine">{t.yours}: {open.options[mine]}{mine === result.option ? ' ✓' : ''}</span>
 			{/if}
 		</div>
 	{:else if open}
 		<div class="card">
-			<span class="label">Abstimmung</span>
+			<span class="label">{t.vote}</span>
 			<h2 class="question">{question}</h2>
 			<div class="options" role="group" aria-label={question}>
 				{#each open.options as option, i (i)}
 					<button type="button" class="option" class:chosen={mine === i} aria-pressed={mine === i} onclick={() => choose(i)}>
 						<span>{option}</span>
-						{#if tally}<span class="n">{tally.counts[i]}</span>{/if}
-						{#if tally}<span class="share" style:width="{(tally.counts[i] / total) * 100}%"></span>{/if}
+						{#if seesCounts && tally}<span class="n">{pct(tally.counts[i])}%</span>{/if}
+						{#if seesCounts && tally}<span class="share" style:width="{pct(tally.counts[i])}%"></span>{/if}
 					</button>
 				{/each}
 			</div>
-			<p class="hint">
-				{mine === null ? 'Tipp auf deine Wahl.' : 'Du kannst bis zum Schluss wechseln.'}
-			</p>
+			<p class="hint">{mine === null ? t.pick : t.change}</p>
 		</div>
 	{/if}
 </section>

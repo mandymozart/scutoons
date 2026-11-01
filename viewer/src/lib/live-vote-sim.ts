@@ -109,7 +109,10 @@ export class FakeVoteRelay {
 	constructor(
 		private clock: Clock = realClock,
 		private crowd: CrowdGroup[] = [],
-		seed = 7
+		seed = 7,
+		/** the connected voting devices: the vote closes when every one has voted (owner 2026-11-01; the Rust relay
+		 *  closes only at the deadline / `first` / conductor today – a relay change) */
+		private expected = 0
 	) {
 		this.random = seeded(seed);
 	}
@@ -141,7 +144,7 @@ export class FakeVoteRelay {
 		const v = this.vote;
 		if (!v || !this.isVoter(group) || option < 0 || option >= v.open.options.length) return;
 		v.casts.set(client, { option, group });
-		if (reached(v.open, this.counts()) !== undefined) this.close();
+		if (reached(v.open, this.counts()) !== undefined || (this.expected > 0 && v.casts.size >= this.expected)) this.close();
 	}
 
 	/** conductor → relay: vote.close – Close now, or Override with the conductor's option */
@@ -151,6 +154,16 @@ export class FakeVoteRelay {
 		const result = decide(v.open, v.casts.values(), override);
 		this.halt();
 		this.emit({ kind: 'vote.result', p: result }, () => true);
+	}
+
+	/** DRAFT ONLY, not in the protocol: the counts per group (vote.tally has totals only – #231 decision 2) */
+	groupCounts(): Record<string, number[]> {
+		const v = this.vote;
+		const out: Record<string, number[]> = {};
+		if (!v) return out;
+		const n = v.open.options.length;
+		for (const c of v.casts.values()) (out[c.group ?? '–'] ??= new Array<number>(n).fill(0))[c.option]++;
+		return out;
 	}
 
 	/** what one client cast (the phone's own mark after a reconnect would come from here) */

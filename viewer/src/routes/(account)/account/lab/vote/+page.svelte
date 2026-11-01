@@ -2,37 +2,74 @@
 	// Dev-only drafts of the Live vote screens (#231, research/LIVE.md B.2 / B.6 / B.9): the conductor's vote panel and
 	// an audience phone, both on one fake relay (src/lib/live-vote-sim.ts – the protocol's vote.open / vote.tally every
 	// 250 ms / vote.result, the Rust relay's rules). The phone's taps count in the conductor's tally. Nothing is sent.
-	// Query: ?view=both|conductor|audience · rule=majority|groups|first · group=balkon|parkett|rang · show=1 (tally on
-	// phones) · voting=balkon (only one group votes) · crowd=0 (nobody else votes → the fallback) · seconds=N.
+	// Query: ?view=both|conductor|audience · rule=majority|groups|first · group=balkon|parkett|rang · lang=de|en · voting=balkon (only one group votes) · crowd=0 (nobody else votes → the fallback) · seconds=N.
 	import { onMount } from 'svelte';
 	import type { VoteOpen, VoteRule } from '@scutoons/live';
 	import { FakeVoteRelay, type CrowdGroup } from '$lib/live-vote-sim.ts';
 	import ConductorVotePanel from './conductor-vote-panel.svelte';
-	import AudienceVote, { type Group } from './audience-vote.svelte';
+	import AudienceVote, { type Group, type Words } from './audience-vote.svelte';
 
 	const isDev = import.meta.env.DEV;
 	const query = typeof location === 'undefined' ? new URLSearchParams() : new URLSearchParams(location.search);
 
+	/** the phone follows the device's language (owner 2026-11-01); `?lang=en|de` overrides it. The question, the options
+	 *  and the group instructions come from the show in that language – here a small dictionary stands in. */
+	const LANG: 'de' | 'en' = (query.get('lang') ?? (typeof navigator === 'undefined' ? 'en' : navigator.language)).startsWith('de') ? 'de' : 'en';
 	const GROUPS: Group[] = [
-		{ id: 'balkon', name: 'Balkon', colour: 'var(--badge-published)', text: 'var(--ink)', instruction: 'Steht auf und haltet eure Handys hoch.' },
-		{ id: 'parkett', name: 'Parkett', colour: 'var(--badge-warning)', text: 'var(--ink)', instruction: 'Flüstert der Katze eure Wahl zu.' },
-		{ id: 'rang', name: 'Rang', colour: 'var(--badge-soon)', text: 'var(--paper)', instruction: 'Klatscht zweimal, dann wählt.' }
+		{ id: 'balkon', name: LANG === 'de' ? 'Balkon' : 'Balcony', colour: 'var(--badge-published)', text: 'var(--ink)' },
+		{ id: 'parkett', name: LANG === 'de' ? 'Parkett' : 'Stalls', colour: 'var(--badge-warning)', text: 'var(--ink)' },
+		{ id: 'rang', name: LANG === 'de' ? 'Rang' : 'Circle', colour: 'var(--badge-soon)', text: 'var(--paper)' }
 	];
+	const TEXT = {
+		de: {
+			question: 'Tauscht die Katze das Löschblatt?',
+			options: ['Ja', 'Nein'],
+			instruction: { balkon: 'Steht auf und haltet eure Handys hoch.', parkett: 'Flüstert der Katze eure Wahl zu.', rang: 'Klatscht zweimal, dann wählt.' },
+			words: {
+				vote: 'Abstimmung',
+				left: (s: number) => `noch ${s} s`,
+				pick: 'Tipp auf deine Wahl.',
+				change: 'Du kannst bis zum Schluss wechseln.',
+				result: 'Ergebnis',
+				yours: 'Deine Stimme',
+				rule: { majority: 'Die meisten Stimmen.', groups: 'Die meisten Gruppen.', first: 'Zuerst genug Stimmen.' },
+				fallback: 'Niemand hat abgestimmt – es bleibt dabei.',
+				override: 'Die Regie hat entschieden.',
+				closed: 'Abstimmung beendet'
+			} satisfies Words
+		},
+		en: {
+			question: 'Does the cat trade the blotter?',
+			options: ['Yes', 'No'],
+			instruction: { balkon: 'Stand up and hold your phones high.', parkett: 'Whisper your choice to the cat.', rang: 'Clap twice, then vote.' },
+			words: {
+				vote: 'Vote',
+				left: (s: number) => `${s} s left`,
+				pick: 'Tap your choice.',
+				change: 'You can change it until the end.',
+				result: 'Result',
+				yours: 'Your vote',
+				rule: { majority: 'Most votes.', groups: 'Most groups.', first: 'First to enough votes.' },
+				fallback: 'Nobody voted – it stays as it was.',
+				override: 'The conductor decided.',
+				closed: 'Vote closed'
+			} satisfies Words
+		}
+	}[LANG];
 	const GROUP_NAMES = Object.fromEntries(GROUPS.map((g) => [g.id, g.name]));
 	const CROWD: CrowdGroup[] = [
 		{ group: 'balkon', size: 18, lean: [3, 1] },
 		{ group: 'parkett', size: 26, lean: [1, 2] },
 		{ group: 'rang', size: 14, lean: [2, 1] }
 	];
-	/** the conductor's question is the chapter's choice event (not in vote.open); the phone's is the same, in German */
-	const QUESTION = { conductor: 'Trade the blotter?', audience: 'Tauscht die Katze das Löschblatt?' };
-	const OPTIONS = { conductor: ['Yes', 'No'], audience: ['Ja', 'Nein'] };
+	/** the conductor's screen is English (the tool); its question is the chapter's choice event, not in vote.open */
+	const QUESTION = { conductor: 'Trade the blotter?' };
+	const OPTIONS = { conductor: ['Yes', 'No'], audience: TEXT.options };
 
 	type View = 'both' | 'conductor' | 'audience';
 	let view = $state<View>((query.get('view') as View) || 'both');
 	let rule = $state<VoteRule>((query.get('rule') as VoteRule) || 'groups');
 	let groupId = $state(query.get('group') ?? 'balkon');
-	let show = $state(query.get('show') === '1');
 	let onlyBalkon = $state(query.get('voting') === 'balkon');
 	let crowd = $state(query.get('crowd') !== '0');
 	const seconds = Number(query.get('seconds')) || 30;
@@ -43,7 +80,8 @@
 	let run = 0;
 	function start() {
 		relay?.dispose();
-		const r = new FakeVoteRelay(undefined, crowd ? CROWD : []);
+		const expected = (crowd ? CROWD.filter((c) => !onlyBalkon || c.group === 'balkon').reduce((n, c) => n + c.size, 0) : 0) + (view !== 'conductor' && (!onlyBalkon || groupId === 'balkon') ? 1 : 0);
+		const r = new FakeVoteRelay(undefined, crowd ? CROWD : [], 7, expected);
 		relay = r;
 		run++;
 		const p: VoteOpen = {
@@ -54,7 +92,8 @@
 			seconds,
 			fallback: 0,
 			groups: onlyBalkon ? ['balkon'] : undefined,
-			show
+			// the phones get the tally, but show it only after the voter has voted
+			show: true
 		};
 		r.open(p);
 	}
@@ -101,7 +140,6 @@
 					<button type="button" aria-pressed={groupId === g.id} onclick={() => (groupId = g.id)}>{g.name}</button>
 				{/each}
 			</div>
-			<label><input type="checkbox" bind:checked={show} onchange={start} /> Tally on phones</label>
 			<label><input type="checkbox" bind:checked={onlyBalkon} onchange={start} /> Only Balkon votes</label>
 			<label><input type="checkbox" bind:checked={crowd} onchange={start} /> Crowd votes</label>
 			<button type="button" class="restart" onclick={start}>Open a new vote</button>
@@ -119,7 +157,7 @@
 					<div class="screen phone-screen">
 						<span class="tag">Audience phone</span>
 						<div class="device">
-							{#key phoneRelay}{#key group.id}<AudienceVote relay={phoneRelay} {group} question={QUESTION.audience} />{/key}{/key}
+							{#key phoneRelay}{#key group.id}<AudienceVote relay={phoneRelay} {group} question={TEXT.question} instruction={TEXT.instruction[group.id as 'balkon']} t={TEXT.words} />{/key}{/key}
 						</div>
 					</div>
 				{/if}
