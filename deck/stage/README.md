@@ -85,7 +85,7 @@ the basic audio nodes (`osc`, `noise`, `fm`, `seq`, `click`, `mixer`, `fft`, `au
 | `osc` | the tempo source `osc` (`/tempo/*`) | rosc |
 | `link` | the tempo source `link` (Ableton Link) | rusty_link (cmake, libclang) |
 | `pipewire` | the PipeWire backend (Linux) | pipewire (clang) |
-| `gamepad` | a gamepad on the space's sticks (#228 – below) | gilrs (libudev at build time on Linux) |
+| `gamepad` | a gamepad on the space's sticks (#228 – below) | gilrs (libudev at build time on Linux; the deck image build carries it) |
 
 Default = `space`, `sync`, `chapter`, `live`, `midi`, `osc`, `outputs`, `events` – a plain build plays every bundled scene. The table lives in deck-core
 (`core/src/stage.rs`, data only); `src/modules.rs` says which modules this build carries. A scene that needs a module
