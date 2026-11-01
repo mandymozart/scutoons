@@ -48,6 +48,7 @@ export type Message =
 	| { kind: 'line'; p: Loose }
 	| { kind: 'fx'; p: Loose }
 	| { kind: 'colour'; p: Loose }
+	| { kind: 'story'; p: Loose }
 	| { kind: 'presence'; p: Presence }
 	| { kind: 'ready'; p: Empty }
 	| { kind: 'pickup'; p: Pickup }

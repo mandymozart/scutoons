@@ -179,3 +179,20 @@ fn midi_retrigger_release_cc_and_the_rest() {
     }
     assert_eq!(out.len(), 1);
 }
+
+#[test]
+fn a_story_event_reaches_another_deck_through_the_relay_and_is_adapted_there() {
+    let mut n = Names::new();
+    // the sending side puts the story event on the wire as a `story` message (protocol: Loose payload)
+    let story = chapter_event();
+    let env = json!({"v": 1, "seq": 7, "at": 12_000, "from": "c1", "kind": "story", "p": story});
+    let e = relay::from_json(&mut n, &env, CLOCK).unwrap().unwrap();
+    assert_eq!((n.name(e.name), e.start, e.source.as_deref()), ("relay.story", Time::Seconds(2.0), Some("relay:c1")));
+    // the receiving deck adapts the carried story event itself – the same event the sender's own deck made
+    let carried = from_story(&mut n, &story, Some("relay:c1")).unwrap().unwrap();
+    assert_eq!(n.name(carried.name), "story.showMessage");
+    assert_eq!(carried.data.as_ref().unwrap()["mood"], "happy");
+    // and the relay's message typed: it is a Story(Loose)
+    let typed: protocol::Envelope = serde_json::from_value(env).unwrap();
+    assert!(matches!(typed.message, protocol::Message::Story(_)));
+}

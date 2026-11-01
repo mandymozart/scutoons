@@ -104,7 +104,7 @@ pub fn to_json(names: &Names, e: &Event) -> Value {
 
 /// an f32 as the f64 JSON (and JS) shows it: 0.3f32 is `0.3`, not `0.30000001192…`
 fn f32_json(v: f32) -> Value {
-    v.to_string().parse::<f64>().ok().and_then(|x| serde_json::Number::from_f64(x)).map_or(Value::Null, Value::Number)
+    v.to_string().parse::<f64>().ok().and_then(serde_json::Number::from_f64).map_or(Value::Null, Value::Number)
 }
 
 fn time_json(t: Time) -> Value {

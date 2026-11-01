@@ -1,4 +1,4 @@
-//! The relay adapter (EVENTS.md §12): the relay's **moments** – `cue`, `fx`, `say`, `line`, `colour`, `react`, `pickup`,
+//! The relay adapter (EVENTS.md §12): the relay's **moments** – `cue`, `fx`, `say`, `line`, `colour`, `story`, `react`, `pickup`,
 //! `panic` – become `relay.<kind>` events; the state kinds (`deck.graph`, `snapshot`, `welcome`, `presence` …) stay
 //! messages (`Ok(None)`). `at` (relay ms, clock-synced) → `Time::Seconds` on the deck's timeline through `RelayClock`
 //! (no `at` = a trigger); `p` → props / data; a cue's `id` → the event's id and its `actions` → children
@@ -11,7 +11,7 @@ use protocol::Envelope;
 use serde_json::Value;
 
 /// the kinds that happen (the rest is state)
-pub const MOMENTS: &[&str] = &["cue", "fx", "say", "line", "colour", "react", "pickup", "panic"];
+pub const MOMENTS: &[&str] = &["cue", "fx", "say", "line", "colour", "story", "react", "pickup", "panic"];
 
 /// relay time → the deck's timeline: `zero_ms` is the relay time at the timeline's second 0
 #[derive(Debug, Clone, Copy, PartialEq)]
