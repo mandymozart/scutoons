@@ -10,6 +10,7 @@
 //! - **Assets:** the page fetches the set's .glb and the portraits (scene-content + the CDN) and lets the browser
 //!   decode the images (`encoded_images` → `give_set`, `portrait_requests` → `give_portrait`); the glb is parsed here.
 //! - **Input:** pointer and touch events go to the stage's own picking, drag and double click (`Space`).
+//! - **Rigs** (#191): `rig_play` – a character's rig played for a persona and a mood, as the page's scene and knobs.
 //! - **Controls (#209):** a tap selects a knob / the being / nothing (`take_tap`, `select` – a white ring), the knobs
 //!   face the camera (deck-space). `DeckControls` – deck-space's `controls` without a GPU (it works when the 3D can't):
 //!   what the selection gives the two corner sticks, the sticks' relative moves, MIDI learn and the mappings' text.
@@ -139,6 +140,22 @@ fn frame_for(space: &mut Space, w: u32, h: u32) {
     let aspect = w as f32 / h.max(1) as f32;
     let native = 55f32.to_radians();
     space.camera.fov_y = if aspect >= 1.0 { native } else { (2.0 * ((native * 0.5).tan() / aspect).atan()).min(75f32.to_radians()) };
+}
+
+/// A character's rig played for a persona and a mood (#191, deck-space `rig::Bundle`): `bundle` = the rig with its
+/// instruments and presets as JSON (scene-content's answer), `persona` / `mood` empty = none. Returns JSON: the
+/// flattened scene (`scene` TOML, `nodes`, `links`), `character`, `knobs` (path, label, min, max, value, log) and
+/// `tracks` (which preset each plays). The page calls it again on a mood change and applies what differs.
+#[wasm_bindgen]
+pub fn rig_play(bundle: &str, persona: &str, mood: &str) -> Result<String, JsValue> {
+    deck_space::rig::Bundle::play_json(bundle, persona, mood).map_err(|e| JsValue::from_str(&format!("{e:#}")))
+}
+
+/// The core rig of `subject` (`character.<id>` / `item.<id>`) the deck carries without an account (#191): the bundle as
+/// JSON for `rig_play`, empty when there is none.
+#[wasm_bindgen]
+pub fn core_rig(subject: &str) -> Result<String, JsValue> {
+    deck_space::rig::Bundle::core_json(subject).map_err(|e| JsValue::from_str(&format!("{e:#}")))
 }
 
 #[wasm_bindgen]
@@ -609,6 +626,14 @@ impl DeckControls {
     #[wasm_bindgen(constructor)]
     pub fn new(paths: Vec<String>) -> DeckControls {
         DeckControls { c: Controls::new(&paths), value: 0.0, learned: false }
+    }
+
+    /// Another deck's knobs (a rig's, or the fixed patch's again) and the being's stick pairs on them (#191): `sticks`
+    /// = x, y of the left stick then x, y of the right ("" = no axis); fewer than four = the defaults.
+    pub fn set_deck(&mut self, paths: Vec<String>, sticks: Vec<String>) {
+        let s = |i: usize| sticks.get(i).map_or("", String::as_str);
+        let pairs = (sticks.len() >= 4).then(|| [[s(0), s(1)], [s(2), s(3)]]);
+        self.c.set_deck(&paths, pairs);
     }
 
     /// `""` (the master section), `being`, `knob:<path>`, `object:<id>`

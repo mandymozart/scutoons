@@ -9,7 +9,6 @@
 import type { DeckControlsView } from './controls.ts';
 import type { Deck } from './deck.ts';
 import { BPM } from './deck.ts';
-import { PARAMS } from './scene.ts';
 import type { DeckQuality, QualityLevel } from '@scutoons/live';
 export type { QualityLevel };
 
@@ -64,6 +63,45 @@ export interface SpaceView {
 	free(): void;
 }
 
+/** a knob of a played rig (deck-space `rig::Knob`): an exposed parameter of the flattened scene */
+export interface RigKnob {
+	/** `<track>_<node>.<port>` */
+	path: string;
+	label?: Record<string, string>;
+	min: number;
+	max: number;
+	value: number;
+	log?: boolean;
+}
+
+/** a character's rig played for a persona and a mood (deck-space `rig::Played`, #191) */
+export interface RigPlayed {
+	/** a stage scene in TOML (its space node bare) */
+	scene: string;
+	nodes: { id: string; kind: string; [param: string]: unknown }[];
+	links: { from: string; to: string; scale: number; offset: number }[];
+	/** the head's character; empty for an item's rig */
+	character: string;
+	knobs: RigKnob[];
+	tracks: { track: string; preset?: string }[];
+	/** the corner sticks' knob paths, (x, y) left then right ("" = none) */
+	sticks: [[string, string], [string, string]];
+	/** the scene lowered for live-core (deck-space rig/engine.rs) */
+	engine: RigEngine;
+}
+
+/** what live-core plays of a rig, and what the page plays itself */
+export interface RigEngine {
+	/** live-core's scene (batch kinds only) */
+	scene: string;
+	/** a knob's path → the engine path to set instead (a strip-gained gain) */
+	aliases: Record<string, string>;
+	/** nodes the page plays (noise …), at `gain` × their own gain */
+	page: { id: string; kind: string; gain: number; [param: string]: unknown }[];
+	/** links the engine doesn't carry (audio links, the being's routes) */
+	dropped: { from: string; to: string; scale: number; offset: number }[];
+}
+
 /** #220: the render quality now (deck-space quality.rs) */
 export interface SpaceQuality {
 	level: QualityLevel;
@@ -112,6 +150,10 @@ export interface QualityPresets {
 
 interface SpaceModule {
 	default: (o: { module_or_path: string | URL }) => Promise<unknown>;
+	/** deck/space-web `rig_play`: the bundle as JSON (rig + instruments + presets), persona / mood '' = none; throws on a bad rig */
+	rig_play(bundle: string, persona: string, mood: string): string;
+	/** deck/space-web `core_rig`: the core rig of `character.<id>` / `item.<id>` as a bundle, '' when the deck has none */
+	core_rig(subject: string): string;
 	SpaceView: {
 		create(canvas: HTMLCanvasElement, deckGraph: string, values: string, prefer: string): Promise<SpaceView>;
 		encoded_images(glb: Uint8Array): unknown[];
@@ -366,7 +408,7 @@ export class SpaceStage {
 			if (Number.isFinite(v)) this.view.set(p, v);
 		}
 		// #188: a linked knob (the incense cutoff the LFO sways) turns its base – the page's own value under the sway
-		for (const p of Object.keys(PARAMS)) this.view.set_base(p, deck.value[p]);
+		for (const p of Object.keys(deck.params)) this.view.set_base(p, deck.value[p]);
 		// the output limiter's gain reduction: the head's red flush
 		this.view.set_strain(deck.bands.reduction ?? 0, dt);
 		this.view.set_mood(deck.mood);
@@ -453,6 +495,16 @@ export class SpaceStage {
 		);
 		on('dblclick', (e) => e.preventDefault());
 		on('contextmenu', (e) => e.preventDefault());
+	}
+
+	/** A character's rig played for `persona` and `mood` (#191, research/INSTRUMENTS.md §7): the same Rust as the deck's. */
+	playRig(bundle: string, persona = '', mood = ''): RigPlayed {
+		return JSON.parse(this.mod.rig_play(bundle, persona, mood)) as RigPlayed;
+	}
+
+	/** the core rig of `subject` as a bundle (JSON), null when the deck carries none */
+	coreRig(subject: string): string | null {
+		return this.mod.core_rig(subject) || null;
 	}
 
 	stop() {

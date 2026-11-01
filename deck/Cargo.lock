@@ -772,6 +772,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "deck-events"
+version = "0.1.0"
+dependencies = [
+ "deck-core",
+ "protocol",
+ "serde",
+ "serde_json",
+ "toml 0.8.23",
+]
+
+[[package]]
 name = "deck-link"
 version = "0.1.0"
 dependencies = [
@@ -812,6 +823,7 @@ dependencies = [
  "anyhow",
  "bytemuck",
  "deck-core",
+ "deck-events",
  "glam",
  "image",
  "protocol",
@@ -835,6 +847,7 @@ dependencies = [
  "cpal",
  "ctrlc",
  "deck-core",
+ "deck-events",
  "deck-link",
  "deck-outputs",
  "deck-space",
@@ -1847,7 +1860,11 @@ name = "live-core"
 version = "0.1.0"
 dependencies = [
  "deck-core",
+ "deck-events",
+ "deck-space",
+ "serde",
  "serde_json",
+ "toml 0.8.23",
 ]
 
 [[package]]

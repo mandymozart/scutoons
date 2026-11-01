@@ -163,6 +163,10 @@ const LINES = {
 		{ de: 'Schöne Begegnung. Weiter!', en: 'Nice meeting. Onward!' }
 	] as Text[],
 	goodbyeHost: { de: 'Was für ein Spaziergang! Danke euch allen – tschüss!', en: 'What a walk! Thanks, everyone – bye!' } as Text,
+	/** the sandbox's vote (#231): the choice event the Live vote screens' demo plays (scripts/dev/live-vote-demo.ts) */
+	blotter: { de: 'Tauscht die Katze das Löschblatt?', en: 'Does the cat trade the blotter?' } as Text,
+	blotterYes: { de: 'Ja', en: 'Yes' } as Text,
+	blotterNo: { de: 'Nein', en: 'No' } as Text,
 	goodbyeAll: { de: 'Tschüss!', en: 'Bye!' } as Text,
 	end: { de: 'Ende des Spaziergangs.', en: 'The end of the walk.' } as Text,
 	cucumber: { de: 'Eine Gurke!', en: 'A cucumber!' } as Text,
@@ -389,7 +393,10 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 		if (isLast) {
 			// goodbye: Cat Pope says bye, everyone met comes back onto the stage (waves of up to 4, one by one) and says bye,
 			// back to the toon page
-			const events: Draft[] = [join(hostAs('happy')), say(HOST_REF, LINES.goodbyeHost)];
+			const events: Draft[] = [join(hostAs('happy')), say(HOST_REF, LINES.blotter)];
+			// a choice event (#231): the question and the labels a Live vote opens with – the reader just chooses
+			events.push({ type: 'addChoice', params: { label: LINES.blotterYes } }, { type: 'addChoice', params: { label: LINES.blotterNo } }, { type: 'showChoices' });
+			events.push(say(HOST_REF, LINES.goodbyeHost));
 			for (let w = 0; w < met.length; w += STAGE_WAVE) {
 				const wave = met.slice(w, w + STAGE_WAVE);
 				for (const m of wave) events.push(join(m), say({ character: m.character, persona: m.persona }, LINES.goodbyeAll));

@@ -89,6 +89,8 @@ pub enum Message {
 	VoteOpen(VoteOpen),
 	#[serde(rename = "vote.close")]
 	VoteClose(VoteClose),
+	#[serde(rename = "vote.hold")]
+	VoteHold(VoteHold),
 	#[serde(rename = "vote.cast")]
 	VoteCast(VoteCast),
 	#[serde(rename = "vote.tally")]
@@ -115,6 +117,8 @@ pub enum Message {
 	Fx(Loose),
 	#[serde(rename = "colour")]
 	Colour(Loose),
+	#[serde(rename = "story")]
+	Story(Loose),
 	#[serde(rename = "presence")]
 	Presence(Presence),
 	#[serde(rename = "ready")]
@@ -157,6 +161,7 @@ impl Message {
 			Message::Cue(_) => "cue",
 			Message::VoteOpen(_) => "vote.open",
 			Message::VoteClose(_) => "vote.close",
+			Message::VoteHold(_) => "vote.hold",
 			Message::VoteCast(_) => "vote.cast",
 			Message::VoteTally(_) => "vote.tally",
 			Message::VoteResult(_) => "vote.result",
@@ -170,6 +175,7 @@ impl Message {
 			Message::Line(_) => "line",
 			Message::Fx(_) => "fx",
 			Message::Colour(_) => "colour",
+			Message::Story(_) => "story",
 			Message::Presence(_) => "presence",
 			Message::Ready(_) => "ready",
 			Message::Pickup(_) => "pickup",
@@ -225,9 +231,15 @@ pub struct VoteOpen {
 	/// which groups vote (default: all audience)
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub groups: Option<Vec<String>>,
-	/// the audience sees the tally too
+	/// a voter sees the tally once they have voted (never before)
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub show: Option<bool>,
+	/// the choice event's question by locale (a phone shows its device's language, else the first); texts are locale maps
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub question: Option<std::collections::HashMap<String, String>>,
+	/// `options` by locale, same order; `options` is the default
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub labels: Option<std::collections::HashMap<String, Vec<String>>>,
 }
 
 /// conductor → relay: close now; `override` = the conductor's option instead of the rule's.
@@ -238,14 +250,30 @@ pub struct VoteClose {
 	pub r#override: Option<i64>,
 }
 
+/// conductor → relay: hold the vote – the countdown stops where it is, votes are still accepted; `hold: false` runs it on. The tally says `paused`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct VoteHold {
+	pub vote: String,
+	pub hold: bool,
+}
+
 /// relay → conductor every 250 ms while a vote is open (→ the audience too when the vote shows it).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VoteTally {
 	pub vote: String,
 	pub counts: Vec<i64>,
 	pub voters: i64,
-	/// ms until the vote closes by itself
+	/// ms until the vote closes by itself (stands still while held)
 	pub left: i64,
+	/// the conductor holds the countdown
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub paused: Option<bool>,
+	/// the counts per group (conductor only)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub groups: Option<std::collections::HashMap<String, Vec<i64>>>,
+	/// the connected voting devices; the vote closes when all have voted
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub expected: Option<i64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -275,6 +303,9 @@ pub struct VoteResult {
 	pub option: i64,
 	pub counts: Vec<i64>,
 	pub how: VoteHow,
+	/// the counts per group
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub groups: Option<std::collections::HashMap<String, Vec<i64>>>,
 }
 
 /// conductor → relay → the outlet's clients on a row change: the outlet's new cell (B.5.2 `Cell`, resolved by the conductor – a deck renders it natively, #186).

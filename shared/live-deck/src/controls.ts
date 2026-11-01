@@ -8,6 +8,8 @@ import { toPos, toValue, type Spec } from './scene.ts';
 
 /** the wasm-bindgen API of deck/space-web's `DeckControls` */
 export interface DeckControlsView {
+	/** another deck's knobs and the being's stick pairs (x, y left, x, y right; fewer than four = the defaults) */
+	set_deck(paths: string[], sticks: string[]): void;
 	select(name: string): void;
 	selection(): string;
 	stick_paths(side: number): string[];
@@ -87,7 +89,7 @@ export class Hands {
 	constructor(
 		readonly c: DeckControlsView,
 		private readonly deck: Pick<Deck, 'value' | 'setParam' | 'touch'>,
-		private readonly specs: Record<string, Spec>,
+		private specs: Record<string, Spec>,
 		private readonly store: Store = localStore,
 		private key = ''
 	) {}
@@ -110,6 +112,14 @@ export class Hands {
 	set(path: string, norm: number) {
 		const s = this.specs[path];
 		if (s) this.deck.setParam(path, toValue(s, Math.min(1, Math.max(0, norm))));
+	}
+
+	/** The deck's knobs changed (a rig's, or the fixed patch's again, #191): the controls follow, with the being's
+	 *  stick pairs (null = the fixed patch's defaults). The selection goes back to the master section. */
+	useParams(specs: Record<string, Spec>, sticks: [string, string][] | null) {
+		this.specs = specs;
+		this.c.set_deck(Object.keys(specs), sticks ? sticks.flat() : []);
+		this.selection = this.c.selection();
 	}
 
 	/** `""` master · `being` · `knob:<path>` */

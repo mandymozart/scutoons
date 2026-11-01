@@ -57,6 +57,12 @@ impl K {
     }
 }
 
+/// A batch kind's input ports and whether it renders audio (`None` = not a batch kind): what a scene may hold to run on
+/// this evaluator – live-core (#184) and deck-space's rig lowering for the browser (#191) ask here.
+pub fn kind_ports(kind: &str) -> Option<(&'static [&'static str], bool)> {
+    K::parse(kind).map(|(k, ports)| (ports, k.audio()))
+}
+
 /// One input port of a batch, a column per node: `values[src] * scale + offset`. A constant is a link to a slot that
 /// stays 0 (slot 0 by convention) with scale 0 and the constant as the offset – no branch on the input's kind. Shared
 /// with deck-stage's control and audio batches (#183).

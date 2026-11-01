@@ -167,12 +167,15 @@ async fn a_vote_closes_by_itself() {
         fallback: None,
         groups: None,
         show: None,
+        question: None,
+        labels: None,
     };
     send(&mut cond, Message::VoteOpen(open), None).await;
     assert!(matches!(recv(&mut a1).await.message, Message::VoteOpen(_)));
     assert!(matches!(recv(&mut a2).await.message, Message::VoteOpen(_)));
     send(&mut a1, Message::VoteCast(VoteCast { vote: "v1".into(), option: 1 }), None).await;
-    // the conductor gets tallies every 250 ms, then the result after ~1 s
+    // the conductor sees the vote open too, then gets tallies every 250 ms, then the result after ~1 s
+    assert!(matches!(recv(&mut cond).await.message, Message::VoteOpen(_)));
     let first = recv(&mut cond).await;
     let Message::VoteTally(t) = first.message else { panic!("tally expected: {first:?}") };
     assert!(t.left <= 1000);
