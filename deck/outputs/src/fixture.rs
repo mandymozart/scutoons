@@ -1,7 +1,7 @@
 //! Fixture profiles (#211): a small TOML per device – its channel names → numbers (1-based from the fixture's start
 //! address, 8 bit or a coarse / fine pair for 16 bit) and, for a strobe, which channel flashes and what the others
 //! rest at. A scene places a profile at an address; mappings then name channels (`strobe.dimmer`), never numbers.
-//! The generic strobe (`fixtures/strobe.toml`) is built in.
+//! The generic strobe (`fixtures/strobe.toml`) and the Cameo Thunder Wash 600 RGBW (7CH_1) are built in.
 
 use std::collections::BTreeMap;
 
@@ -10,10 +10,14 @@ use serde::Deserialize;
 /// The built-in generic strobe: dimmer 1, rate 2, duration 3.
 pub const STROBE: &str = include_str!("../fixtures/strobe.toml");
 
+/// The Cameo Thunder Wash 600 RGBW in DMX mode 7CH_1: dimmer 1, strobe 2, red 3, green 4, blue 5, white 6, sound 7.
+pub const THUNDERWASH_600_RGBW: &str = include_str!("../fixtures/thunderwash-600-rgbw.toml");
+
 /// The built-in profiles by name.
 pub fn builtin(name: &str) -> Option<&'static str> {
     match name {
         "strobe" => Some(STROBE),
+        "thunderwash-600-rgbw" => Some(THUNDERWASH_600_RGBW),
         _ => None,
     }
 }
@@ -156,6 +160,19 @@ mod tests {
         assert_eq!((s.flash.as_str(), s.level, s.max_hz), ("dimmer", 255, None), "no cap by default");
         assert_eq!(s.rest["rate"], 0);
         assert!(builtin("strobe").is_some() && builtin("moving-head").is_none());
+    }
+
+    #[test]
+    fn the_thunderwash_in_7ch_1() {
+        let p = Profile::parse(THUNDERWASH_600_RGBW).unwrap();
+        let at = |n: &str| p.channels[n].coarse;
+        assert_eq!([at("dimmer"), at("strobe"), at("red"), at("green"), at("blue"), at("white"), at("sound")], [1, 2, 3, 4, 5, 6, 7]);
+        assert_eq!(p.footprint(), 7);
+        let s = p.strobe.unwrap();
+        assert_eq!(s.flash, "dimmer");
+        // the lamp's own strobe (CH2) and its microphone (CH7) stay at 0 while the deck drives the flashes
+        assert_eq!((s.rest["strobe"], s.rest["sound"], s.rest.len()), (0, 0, 2));
+        assert!(builtin("thunderwash-600-rgbw").is_some());
     }
 
     #[test]

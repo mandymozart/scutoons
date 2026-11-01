@@ -539,3 +539,16 @@ click on, an LFO sweeping the divisions):
 cd deck/stage && cargo run --release -p deck-stage -- --scene scenes/strobe.toml --windowed
 ```
 
+**The USB-DMX widget:** the adapter (adapters/dmx-usbpro) speaks the Enttec DMX USB Pro protocol and opens the port at
+**250000 baud**: the Eurolite USB-DMX512-PRO MK2 (FTDI FT232R, a clone) puts nothing on the line at 115200; an original
+Enttec and the CDC widgets ignore the baud. The MK2 never answers the device check – one info line, frames go out anyway.
+
+**Fixture profiles** are built in by name (`profile = "strobe"`, `"thunderwash-600-rgbw"`) or a file next to the scene.
+`thunderwash-600-rgbw` = the Cameo Thunder Wash 600 RGBW in DMX mode **7CH_1** (menu: DMX Mode 7CH_1, confirm with ENTER;
+manual table): CH1 master dimmer, CH2 strobe (0–5 open, 6–10 closed, 11–127 random effects, 128–250 1–30 Hz), CH3–6
+red / green / blue / white, CH7 sound control. The deck flashes the **dimmer** on the clock and parks CH2 and CH7 at 0.
+A colour from a **hue parameter** (0–1 = a turn of the colour wheel): one map target per channel with `hue = "red"` /
+`"green"` / `"blue"` (applied before the curve; `max` caps the brightness). The scene `strobe-thunderwash` (built in; the
+file `scenes/strobe-thunderwash.toml`): the tempo's flashes in a slowly turning colour, the colour channels capped at
+15 % (`max = 0.15`) – raise the three together for a show.
+

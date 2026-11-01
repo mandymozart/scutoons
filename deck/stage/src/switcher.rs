@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 pub const SCENES_DIR: &str = "/usr/share/deck/scenes";
 
 /// the built-in scenes in the list's order (the first is the stage's default)
-pub const BUILTIN: [&str; 7] = ["idle", "madness", "cathedral", "conductor", "outlet", "strobe", "test-pattern"];
+pub const BUILTIN: [&str; 8] = ["idle", "madness", "cathedral", "conductor", "outlet", "strobe", "strobe-thunderwash", "test-pattern"];
 
 /// the source of a built-in scene by name
 pub fn builtin(name: &str) -> Option<&'static str> {
@@ -19,6 +19,7 @@ pub fn builtin(name: &str) -> Option<&'static str> {
         "conductor" => scene::CONDUCTOR_SCENE,
         "outlet" => scene::OUTLET_SCENE,
         "strobe" => include_str!("../scenes/strobe.toml"),
+        "strobe-thunderwash" => include_str!("../scenes/strobe-thunderwash.toml"),
         "test-pattern" => scene::TEST_PATTERN_SCENE,
         _ => return None,
     })
@@ -176,11 +177,11 @@ mod tests {
         }
         let l = entries(&dir);
         let labels: Vec<&str> = l.iter().map(|e| e.label.as_str()).collect();
-        assert_eq!(&labels[..7], BUILTIN);
-        assert_eq!(&labels[7..], ["alpha", "zeta"]);
-        assert!(l[7].value.ends_with("alpha.toml"));
+        assert_eq!(&labels[..BUILTIN.len()], BUILTIN);
+        assert_eq!(&labels[BUILTIN.len()..], ["alpha", "zeta"]);
+        assert!(l[BUILTIN.len()].value.ends_with("alpha.toml"));
         // no folder: the built-ins alone
-        assert_eq!(entries(&dir.join("none")).len(), 7);
+        assert_eq!(entries(&dir.join("none")).len(), BUILTIN.len());
         let _ = std::fs::remove_dir_all(&dir);
     }
 

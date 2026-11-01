@@ -221,6 +221,16 @@ mod tests {
         assert_eq!(o.slots.len(), 2);
     }
 
+    /// the Thunder Wash scene (#261): its hue maps colour three channels, the strobe flashes the dimmer
+    #[test]
+    fn the_thunderwash_scene_starts() {
+        let scene = Scene::parse(include_str!("../scenes/strobe-thunderwash.toml")).unwrap();
+        let g = Graph::build(&scene).unwrap();
+        let o = Outputs::start(scene.outputs.as_ref().unwrap(), None, &g, Arc::default()).unwrap().expect("a strobe");
+        assert_eq!(o.summary, "3 targets · 1 strobe · DMX auto · lead 20 ms");
+        assert_eq!(o.slots.len(), 3, "rate, level, hue");
+    }
+
     #[test]
     fn the_clock_follows_the_tempo_map() {
         use crate::clock::Line;

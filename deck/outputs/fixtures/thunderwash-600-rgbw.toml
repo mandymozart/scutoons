@@ -1,0 +1,24 @@
+# Cameo Thunder Wash 600 RGBW (CLTW600RGBW), DMX mode 7CH_1 (#261). Source: Cameo's user manual (REV 04, "DMX CONTROL",
+# 7-CH Mode_1; cameolight.com / adamhall.com), the same table as the Open Fixture Library's "7-channel 1" mode.
+#   CH1 Master Dimmer 0-255 · CH2 Strobe: 0-5 open, 6-10 closed, 11-127 random / break effects, 128-250 1-30 Hz,
+#   251-255 open · CH3 Red · CH4 Green · CH5 Blue · CH6 White (each 0-255) · CH7 Sound control: 0-5 off, 6-255 on (the
+#   lamp's microphone; only with the strobe channel at 0).
+# Set the lamp to DMX Mode 7CH_1 and confirm with ENTER, its DMX address in the same menu (a scene places this profile
+# at that address). Mind CH2: any value from 6 up closes or flashes the shutter on its own – the deck drives the
+# flashes itself (the master dimmer) and parks CH2 and CH7 at 0, so never start a scene from a high CH2 value.
+name = "thunderwash-600-rgbw"
+
+[channels]
+dimmer = 1     # master dimmer – what a flash opens
+strobe = 2     # the lamp's own strobe oscillator: parked at 0 (shutter open), the deck fires the flashes on the clock
+red = 3
+green = 4
+blue = 5
+white = 6
+sound = 7      # microphone control: parked at 0 (off)
+
+[strobe]
+flash = "dimmer"
+level = 255
+rest = { strobe = 0, sound = 0 }
+# max_hz = 30   # an optional cap per fixture (the lamp's own oscillator tops out at 30 Hz)

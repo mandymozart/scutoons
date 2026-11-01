@@ -33,6 +33,12 @@ pub const RETRY: Duration = Duration::from_secs(2);
 /// How long the device check waits for the widget's answers.
 pub const CHECK_TIMEOUT: Duration = Duration::from_millis(500);
 
+/// The serial baud rate. DMX itself is 250 kbit/s, and the Eurolite USB-DMX512-PRO MK2 (an FTDI part that speaks the
+/// Enttec Pro protocol) really uses the port's baud: at 115200 it puts nothing on the line, at 250000 it works
+/// (owner's PC + Cameo Thunderwash, 2026-11-01, #261). An original Enttec DMX USB Pro (FT245, a parallel FIFO behind
+/// the USB) and the CDC widgets ignore the baud, so 250000 costs them nothing.
+pub const BAUD: u32 = 250_000;
+
 /// A serial port as the adapter needs it (`serialport`'s ports, a mock in the tests).
 pub trait Port: Read + Write + Send {}
 impl<T: Read + Write + Send + ?Sized> Port for T {}
@@ -93,8 +99,8 @@ fn serial_opener(configured: Option<String>) -> Opener {
                 found.name.clone()
             }
         };
-        // The widget's FTDI / CDC link ignores the baud rate; 115200 like OLA's usbpro plugin.
-        let port = serialport::new(&name, 115_200).timeout(Duration::from_millis(50)).open().with_context(|| format!("open {name}"))?;
+        // 250000 like the DMX line itself, see `BAUD` (OLA's 115200 only works where the baud is ignored).
+        let port = serialport::new(&name, BAUD).timeout(Duration::from_millis(50)).open().with_context(|| format!("open {name}"))?;
         Ok((name, Box::new(port) as Box<dyn Port>))
     })
 }
@@ -140,7 +146,8 @@ fn run(outlet: String, mut opener: Opener, rx: std_mpsc::Receiver<Cmd>) {
                 Ok((name, mut p)) => match check_widget(p.as_mut(), CHECK_TIMEOUT) {
                     Ok(info) => {
                         match (&info.params, &info.serial) {
-                            (None, None) => tracing::warn!(outlet, name, "dmx-usbpro: no answer to the device check – not a widget? sending anyway"),
+                            // Clones (the Eurolite USB-DMX512-PRO MK2) take frames but never answer label 3 / 10: not a failure.
+                            (None, None) => tracing::info!(outlet, name, "dmx-usbpro: the widget does not answer the device check (clones don't) – sending frames anyway"),
                             (params, serial) => tracing::info!(
                                 outlet, name, firmware = params.map(|p| format!("{}.{}", p.firmware >> 8, p.firmware & 0xFF)), serial,
                                 rate = params.map(|p| p.rate), "dmx-usbpro: widget ready"

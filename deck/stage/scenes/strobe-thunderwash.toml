@@ -1,0 +1,99 @@
+# The strobe test on the Cameo Thunder Wash 600 RGBW (#261): the same flashes on the tempo clock with the click on, now
+# coloured – a slow hue turn (a full turn of the colour wheel in 33 s, red first) is mapped to the lamp's red / green /
+# blue, a second LFO breathes the flash's intensity between half and full. The deck fires every flash itself (the
+# master dimmer, CH1 of the profile's 7CH_1 mode); the lamp's own strobe (CH2) and sound control (CH7) stay at 0.
+# The tempo's keys move it all: + / − BPM, T tap, Space stop / start (the lamp goes dark while stopped), K the click.
+# The lamp: DMX Mode 7CH_1 confirmed with ENTER, address 001; the widget (Eurolite USB-DMX512-PRO MK2 …) is found by
+# itself, or name its port below. Run it:
+#   cargo run --release -p deck-stage -- --scene scenes/strobe-thunderwash.toml --windowed
+# BRIGHTNESS: the colour channels are capped at 15 % (`max = 0.15` below – a flash is then calm, ~40 of 255); raise
+# the three `max` together for the show (1 = the lamp's full output, blinding at close range).
+[stage]
+name = "strobe test – Thunder Wash 600 RGBW (#261)"
+
+[[node]]
+id = "tempo"
+kind = "tempo"
+bpm = 120
+beats = 4
+source = "internal"
+click = true
+
+[[node]]
+id = "click"
+kind = "click"
+gain = 0.5
+
+[[node]]
+id = "out"
+kind = "audio_out"
+volume = 0.8
+
+[[link]]
+from = "click"
+to = "out.in"
+
+# the rate parameter: 0 = 1/1 … 0.5 = 1/4 … 1 = 1/16T
+[[node]]
+id = "rate"
+kind = "lfo"
+rate = 0.025
+
+# the flash's intensity: its 0 … 1 → half … full (level_in below)
+[[node]]
+id = "level"
+kind = "lfo"
+rate = 0.1
+
+# the hue: 0 → 1 is a full turn of the colour wheel (a saw wraps from blue-red back to red, no jump in colour)
+[[node]]
+id = "hue"
+kind = "lfo"
+rate = 0.03
+shape = "saw"
+
+[[node]]
+id = "pattern"
+kind = "test_pattern"
+speed = 0.5
+
+[[node]]
+id = "screen"
+kind = "screen"
+
+[[link]]
+from = "tempo.pulse"
+to = "pattern.pulse"
+
+[[link]]
+from = "hue.out"
+to = "pattern.hue"
+
+[[link]]
+from = "pattern"
+to = "screen.in"
+
+[outputs]
+lead = 20          # ms the frame leaves before its beat is heard: the widget + the fixture (raise it if flashes lag)
+dmx = "auto"       # the first USB-DMX widget found; or its port: "COM3" (Windows), "/dev/ttyUSB0" (Linux)
+
+[[outputs.fixture]]
+id = "lamp"
+profile = "thunderwash-600-rgbw"   # built in: dimmer 1, strobe 2, red 3, green 4, blue 5, white 6, sound 7 (7CH_1)
+address = 1        # the lamp's DMX address (its display: 001)
+
+[[outputs.map]]
+from = "hue.out"
+to = [
+  { dmx = "lamp.red", hue = "red", max = 0.15 },
+  { dmx = "lamp.green", hue = "green", max = 0.15 },
+  { dmx = "lamp.blue", hue = "blue", max = 0.15 },
+]
+
+[[outputs.strobe]]
+fixture = "lamp"
+rate = "rate.out"
+neutral = "1/4"
+level = "level.out"
+level_in = [-1, 1]    # the LFO's 0 … 1 lands on 0.5 … 1 of the flash's level
+duration = 30         # ms

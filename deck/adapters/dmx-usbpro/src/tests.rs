@@ -125,6 +125,12 @@ fn a_silent_clone_still_gets_frames() {
 }
 
 #[test]
+fn the_port_opens_at_the_dmx_baud() {
+    // the Eurolite USB-DMX512-PRO MK2 is silent at 115200 (#261)
+    assert_eq!(BAUD, 250_000);
+}
+
+#[test]
 fn check_reads_params_and_serial() {
     let widget = Widget::default();
     let (_, mut port) = widget.opener()().unwrap();

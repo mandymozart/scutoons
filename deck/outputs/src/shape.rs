@@ -38,6 +38,40 @@ impl Curve {
     }
 }
 
+/// A colour wheel's channel: the parameter is a hue (0..1 = a full turn at full saturation), the target one of its
+/// R / G / B – three targets of one hue parameter colour an RGB fixture (#261). Red at 0, green at 1/3, blue at 2/3.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Wheel {
+    Red,
+    Green,
+    Blue,
+}
+
+impl Wheel {
+    pub const NAMES: &'static str = "red, green, blue";
+
+    pub fn parse(s: &str) -> Option<Wheel> {
+        Some(match s {
+            "red" | "r" => Wheel::Red,
+            "green" | "g" => Wheel::Green,
+            "blue" | "b" => Wheel::Blue,
+            _ => return None,
+        })
+    }
+
+    /// `hue` in 0..1 → this channel of the full-saturation, full-value colour wheel (0..1)
+    pub fn apply(self, hue: f32) -> f32 {
+        let offset = match self {
+            Wheel::Red => 0.0,
+            Wheel::Green => 1.0 / 3.0,
+            Wheel::Blue => 2.0 / 3.0,
+        };
+        // distance from this channel's peak in sixths of a turn (0…3): 1 within one sixth, 0 from two sixths on
+        let h = (hue - offset).rem_euclid(1.0) * 6.0;
+        (2.0 - h.min(6.0 - h)).clamp(0.0, 1.0)
+    }
+}
+
 /// A target's shape: the input range (raw values; default 0..1), the curve, invert, the output range (0..1 of the
 /// target's full scale – a DMX channel's 0..255, a CC's 0..127).
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -46,11 +80,13 @@ pub struct Shape {
     pub curve: Curve,
     pub invert: bool,
     pub output: (f32, f32),
+    /// the input is a hue: the target is this channel of the colour wheel (applied before the curve)
+    pub wheel: Option<Wheel>,
 }
 
 impl Default for Shape {
     fn default() -> Self {
-        Shape { input: (0.0, 1.0), curve: Curve::Linear, invert: false, output: (0.0, 1.0) }
+        Shape { input: (0.0, 1.0), curve: Curve::Linear, invert: false, output: (0.0, 1.0), wheel: None }
     }
 }
 
@@ -60,6 +96,10 @@ impl Shape {
         let (lo, hi) = self.input;
         let x = if hi == lo { 0.0 } else { (raw - lo) / (hi - lo) };
         let x = if x.is_finite() { x.clamp(0.0, 1.0) } else { 0.0 };
+        let x = match self.wheel {
+            Some(w) => w.apply(x),
+            None => x,
+        };
         let y = self.curve.apply(x);
         let y = if self.invert { 1.0 - y } else { y };
         let (a, b) = self.output;
@@ -139,6 +179,22 @@ mod tests {
 
     fn close(a: f32, b: f32) -> bool {
         (a - b).abs() < 1e-5
+    }
+
+    #[test]
+    fn the_wheel_gives_the_hue_its_rgb() {
+        let rgb = |h: f32| [Wheel::Red, Wheel::Green, Wheel::Blue].map(|w| w.apply(h));
+        let is = |got: [f32; 3], want: [f32; 3]| got.iter().zip(want).all(|(a, b)| close(*a, b));
+        assert!(is(rgb(0.0), [1.0, 0.0, 0.0]), "red {:?}", rgb(0.0));
+        assert!(is(rgb(1.0 / 6.0), [1.0, 1.0, 0.0]), "yellow {:?}", rgb(1.0 / 6.0));
+        assert!(is(rgb(1.0 / 3.0), [0.0, 1.0, 0.0]), "green");
+        assert!(is(rgb(0.5), [0.0, 1.0, 1.0]), "cyan");
+        assert!(is(rgb(2.0 / 3.0), [0.0, 0.0, 1.0]), "blue");
+        assert!(is(rgb(5.0 / 6.0), [1.0, 0.0, 1.0]), "magenta");
+        assert!(is(rgb(1.0), [1.0, 0.0, 0.0]), "a full turn is red again");
+        // through a shape: the output range caps the brightness, the input range the turn
+        let s = Shape { wheel: Some(Wheel::Green), output: (0.0, 0.2), ..Shape::default() };
+        assert!(close(s.map(1.0 / 3.0), 0.2) && close(s.map(0.0), 0.0));
     }
 
     #[test]

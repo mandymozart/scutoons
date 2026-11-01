@@ -18,6 +18,8 @@
 //! from = "space.glow"
 //! smooth = 0.05            # s, for its targets (each may set its own)
 //! to = [{ dmx = "wash.dimmer", curve = "exp" }, { cc = 74, channel = 1 }, { cc = 20, port = "conductor" }]
+//! # a hue parameter (0..1 = a turn of the colour wheel) colours an RGB fixture, one target per channel; `max` caps it:
+//! # to = [{ dmx = "wash.red", hue = "red", max = 0.2 }, { dmx = "wash.green", hue = "green", max = 0.2 }, { dmx = "wash.blue", hue = "blue", max = 0.2 }]
 //!
 //! [[outputs.strobe]]
 //! fixture = "strobe"
@@ -32,7 +34,7 @@ use std::collections::BTreeMap;
 use serde::Deserialize;
 
 use crate::fixture::{self, Profile};
-use crate::shape::{Curve, Shape};
+use crate::shape::{Curve, Shape, Wheel};
 use crate::strobe::{self, Mode, Rate};
 
 /// Where a MIDI target goes.
@@ -165,6 +167,8 @@ struct RawShape {
     invert: bool,
     min: Option<f32>,
     max: Option<f32>,
+    /// the parameter is a hue (0..1 = a turn of the colour wheel); this target is its "red" / "green" / "blue"
+    hue: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -496,7 +500,11 @@ fn shape(s: &RawShape, at: &str) -> Result<Shape, String> {
             return Err(format!("{at}: {n} {v} – the output range is 0…1 of the target's scale"));
         }
     }
-    Ok(Shape { input, curve, invert: s.invert, output: (min, max) })
+    let wheel = match s.hue.as_deref() {
+        None => None,
+        Some(w) => Some(Wheel::parse(w).ok_or_else(|| format!("{at}: hue '{w}' ({})", Wheel::NAMES))?),
+    };
+    Ok(Shape { input, curve, invert: s.invert, output: (min, max), wheel })
 }
 
 #[cfg(test)]
@@ -556,6 +564,45 @@ duration = 40
             "head.toml" => Ok("name = \"head\"\n[channels]\ndimmer = 1\npan = { coarse = 2, fine = 3 }\n".into()),
             _ => no_files(name),
         }
+    }
+
+    #[test]
+    fn a_hue_colours_the_thunderwash() {
+        let text = r#"
+[outputs]
+dmx = "auto"
+
+[[outputs.fixture]]
+id = "lamp"
+profile = "thunderwash-600-rgbw"
+address = 1
+
+[[outputs.map]]
+from = "colour.out"
+to = [
+  { dmx = "lamp.red", hue = "red", max = 0.15 },
+  { dmx = "lamp.green", hue = "green", max = 0.15 },
+  { dmx = "lamp.blue", hue = "blue", max = 0.15 },
+]
+
+[[outputs.strobe]]
+fixture = "lamp"
+"#;
+        let plan = parse(&table(text), None, &no_files).unwrap();
+        let wires: Vec<Wire> = plan.targets.iter().map(|t| t.wire).collect();
+        assert_eq!(wires, [Wire::Dmx { ch: 3, fine: None }, Wire::Dmx { ch: 4, fine: None }, Wire::Dmx { ch: 5, fine: None }]);
+        // red at hue 0 (capped at 15 % of 255), nothing of green / blue there
+        let at = |i: usize, hue: f32| plan.targets[i].shape.map(hue);
+        assert!((at(0, 0.0) - 0.15).abs() < 1e-5 && at(1, 0.0) < 1e-5 && at(2, 0.0) < 1e-5);
+        // the strobe flashes the master dimmer (CH1) and parks the lamp's own strobe (CH2) and sound (CH7) at 0
+        let strobe = &plan.strobes[0];
+        assert_eq!(strobe.flash, 1);
+        let mut rest = strobe.rest.clone();
+        rest.sort();
+        assert_eq!(rest, [(2, 0), (7, 0)]);
+        let err = parse(&table(&text.replace("hue = \"blue\"", "hue = \"teal\"")), None, &no_files).unwrap_err().join("
+");
+        assert!(err.contains("hue 'teal'"), "{err}");
     }
 
     #[test]
