@@ -8,7 +8,7 @@ use super::{Instrument, Library, Preset, Rig, Text};
 use crate::graph::Kind;
 use crate::params::{self, Curve};
 use crate::scene::{split_ref, LinkDef, NodeDef};
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
 /// The core rigs a deck carries without an account (#191 "core"): subject → the bundle's TOML (deck/stage/rigs/).
@@ -59,6 +59,9 @@ pub struct Played {
     pub character: String,
     pub knobs: Vec<Knob>,
     pub tracks: Vec<TrackPlays>,
+    /// the corner sticks' pairs, `[[x, y], [x, y]]` (left, right) as knob paths: the rig's `sticks`, else its first four
+    /// knobs in order ("" = no knob for that axis)
+    pub sticks: [[String; 2]; 2],
     /// the same scene for the browser's sound engine (live-core) and what the page plays itself (engine.rs)
     pub engine: super::engine::Engine,
 }
@@ -146,6 +149,20 @@ impl Bundle {
                 });
             }
         }
+        let sticks = match &self.rig.sticks {
+            Some(pairs) => {
+                for p in pairs.iter().flatten() {
+                    if !p.is_empty() && !knobs.iter().any(|k| &k.path == p) {
+                        bail!("rig '{}': stick '{p}' is not one of its knobs", self.rig.subject);
+                    }
+                }
+                pairs.clone()
+            }
+            None => {
+                let mut it = knobs.iter().map(|k| k.path.clone());
+                [[it.next().unwrap_or_default(), it.next().unwrap_or_default()], [it.next().unwrap_or_default(), it.next().unwrap_or_default()]]
+            }
+        };
         let doc = SceneDoc {
             stage: StageDoc { name: &self.rig.subject },
             node: &scene.nodes,
@@ -154,7 +171,7 @@ impl Bundle {
         };
         let text = toml::to_string(&doc).context("writing the flattened scene")?;
         let engine = super::engine::lower(&scene)?;
-        Ok(Played { scene: text, nodes: scene.nodes, links: scene.links, character, knobs, tracks, engine })
+        Ok(Played { scene: text, nodes: scene.nodes, links: scene.links, character, knobs, tracks, sticks, engine })
     }
 
     /// `play` as JSON – the wasm boundary's form (`persona` / `mood` empty = none)

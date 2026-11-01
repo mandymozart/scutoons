@@ -98,6 +98,10 @@ pub struct Rig {
     pub moods: BTreeMap<String, Variant>,
     #[serde(default)]
     pub rights: Rights,
+    /// the two corner sticks of the phone deck, `[[x, y], [x, y]]` (left, right) as knob paths
+    /// (`<track>_<node>.<port>`); none = the first four knobs (#191)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sticks: Option<[[String; 2]; 2]>,
 }
 
 /// One track: an instrument, its default preset, its mixer strip.

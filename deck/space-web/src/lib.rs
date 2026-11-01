@@ -628,6 +628,14 @@ impl DeckControls {
         DeckControls { c: Controls::new(&paths), value: 0.0, learned: false }
     }
 
+    /// Another deck's knobs (a rig's, or the fixed patch's again) and the being's stick pairs on them (#191): `sticks`
+    /// = x, y of the left stick then x, y of the right ("" = no axis); fewer than four = the defaults.
+    pub fn set_deck(&mut self, paths: Vec<String>, sticks: Vec<String>) {
+        let s = |i: usize| sticks.get(i).map_or("", String::as_str);
+        let pairs = (sticks.len() >= 4).then(|| [[s(0), s(1)], [s(2), s(3)]]);
+        self.c.set_deck(&paths, pairs);
+    }
+
     /// `""` (the master section), `being`, `knob:<path>`, `object:<id>`
     pub fn select(&mut self, name: &str) {
         self.c.select(Selection::parse(name));
