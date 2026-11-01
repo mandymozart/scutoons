@@ -15,10 +15,15 @@
 //!   what the selection gives the two corner sticks, the sticks' relative moves, MIDI learn and the mappings' text.
 //! - **GPU:** WebGPU when the browser has an adapter (wgpu's detection asks for one – a `navigator.gpu` without an
 //!   adapter, like the S22's Chrome, counts as none), else WebGL2; `prefer` = "webgl2" skips WebGPU.
+//! - **Quality (#220, deck-space quality.rs):** the page gives the display size (`resize`) and every frame's interval
+//!   (`govern`); the governor steps the rung, and the view sets the canvas' own size to the rung's render size – the
+//!   browser stretches it, the page's UI stays sharp, pointer positions are read in canvas pixels. `quality` for the
+//!   panel, `quality_report` = the `deck.quality` the page sends, `set_quality` the panel's choice.
 #![cfg(target_arch = "wasm32")]
 
 use deck_space::controls::{Controls, Midi, Selection};
 use deck_space::graph::{Graph, Kind};
+use deck_space::quality::{self, Governor, Gpu, Level};
 use deck_space::scene::{Scene, CATHEDRAL_SCENE};
 use deck_space::space::being::Look;
 use deck_space::space::glb;
@@ -149,6 +154,10 @@ pub struct SpaceView {
     gpu: Option<SpaceGpu>,
     backend: String,
     adapter: String,
+    /// #220: the canvas (its size = the render size), the display size the page gives, the governor
+    canvas: web_sys::HtmlCanvasElement,
+    display: (u32, u32),
+    governor: Governor,
 }
 
 #[wasm_bindgen]
@@ -160,7 +169,8 @@ impl SpaceView {
     pub async fn create(canvas: web_sys::HtmlCanvasElement, deck_graph: String, values: String, prefer: String) -> Result<SpaceView, JsValue> {
         let backends = if prefer == "webgl2" { wgpu::Backends::GL } else { wgpu::Backends::BROWSER_WEBGPU | wgpu::Backends::GL };
         let instance = wgpu::util::new_instance_with_webgpu_detection(&wgpu::InstanceDescriptor { backends, ..Default::default() }).await;
-        let (w, h) = (canvas.width().max(1), canvas.height().max(1));
+        let display = (canvas.width().max(1), canvas.height().max(1));
+        let element = canvas.clone();
         let surface = instance.create_surface(wgpu::SurfaceTarget::Canvas(canvas)).map_err(err)?;
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
@@ -176,6 +186,10 @@ impl SpaceView {
             wgpu::Backend::Gl => "webgl2",
             _ => "other",
         };
+        let governor = Governor::new(Level::default_for(if backend == "webgpu" { Gpu::WebGpu } else { Gpu::WebGl2 }), true);
+        let (w, h) = quality::render_size(display, governor.rung().scale);
+        element.set_width(w);
+        element.set_height(h);
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
                 label: Some("space-web"),
@@ -210,7 +224,7 @@ impl SpaceView {
         let meters = graph.nodes.iter().map(|n| vec![0.0; n.kind.outputs().len()]).collect();
         // a browser's WebGPU adapter often has no name (privacy): the backend alone then
         let adapter = if info.name.is_empty() { backend.to_string() } else { format!("{} ({backend})", info.name) };
-        Ok(SpaceView { space, graph, page, meters, beat: tempo::Now::default(), surface, device, queue, config, gpu: None, backend: backend.into(), adapter })
+        Ok(SpaceView { space, graph, page, meters, beat: tempo::Now::default(), surface, device, queue, config, gpu: None, backend: backend.into(), adapter, canvas: element, display, governor })
     }
 
     /// "webgpu" or "webgl2"
@@ -223,12 +237,24 @@ impl SpaceView {
         self.adapter.clone()
     }
 
-    /// the canvas' new size in device pixels
+    /// the display's new size in device pixels (the canvas' box × the page's pixel ratio); the canvas itself gets the
+    /// quality rung's render size
     pub fn resize(&mut self, w: u32, h: u32) {
-        let (w, h) = (w.max(1), h.max(1));
+        self.display = (w.max(1), h.max(1));
+        self.fit();
+    }
+
+    /// the canvas, the surface, the camera and the GPU's targets at the render size (only when it changed)
+    fn fit(&mut self) {
+        let (w, h) = quality::render_size(self.display, self.governor.rung().scale);
+        if let Some(g) = self.gpu.as_mut() {
+            g.set_quality(*self.governor.rung());
+        }
         if (w, h) == (self.config.width, self.config.height) {
             return;
         }
+        self.canvas.set_width(w);
+        self.canvas.set_height(h);
         self.config.width = w;
         self.config.height = h;
         self.surface.configure(&self.device, &self.config);
@@ -314,7 +340,12 @@ impl SpaceView {
         let meter = |n: usize, p: usize| meters.get(n).and_then(|m| m.get(p)).copied().unwrap_or(0.0);
         self.space.update(dt.clamp(0.0, 0.1), time, &mut self.page, &self.beat, &meter);
         let size = (self.config.width, self.config.height);
-        let gpu = self.gpu.get_or_insert_with(|| SpaceGpu::new(&self.device, &self.queue, &self.space, self.config.format, size));
+        let rung = *self.governor.rung();
+        let gpu = self.gpu.get_or_insert_with(|| {
+            let mut g = SpaceGpu::new(&self.device, &self.queue, &self.space, self.config.format, size);
+            g.set_quality(rung);
+            g
+        });
         gpu.sync(&self.device, &self.queue, &mut self.space);
         let frame = match self.surface.get_current_texture() {
             Ok(f) => f,
@@ -330,6 +361,51 @@ impl SpaceView {
         self.queue.submit([enc.finish()]);
         frame.present();
         Ok(())
+    }
+
+    /// #220: one frame's interval for the governor – `now` the page's monotonic clock (s), `dt_ms` since the last
+    /// frame (unclamped: a long stall is a hitch, not load), `glitches` the audio's running dropout count. A step
+    /// resizes the canvas; returns whether the quality changed.
+    pub fn govern(&mut self, now: f64, dt_ms: f32, glitches: u32) -> bool {
+        let changed = self.governor.frame(now, dt_ms, glitches as u64);
+        if changed {
+            self.fit();
+        }
+        changed
+    }
+
+    /// #220: the quality now, for the panel – JSON { level, ceiling, auto, scale, frame, width, height }
+    pub fn quality(&self) -> String {
+        let r = self.governor.report();
+        serde_json::json!({
+            "level": r.level.name(),
+            "ceiling": r.ceiling.name(),
+            "auto": r.auto,
+            "scale": r.scale,
+            "frame": (r.frame_ms * 10.0).round() / 10.0,
+            "width": self.config.width,
+            "height": self.config.height,
+        })
+        .to_string()
+    }
+
+    /// #220: the `deck.quality` to send now (JSON), or "" – at once on a change, else at most every 2 s
+    pub fn quality_report(&mut self, now: f64) -> String {
+        self.governor.report_due(now).map(|r| serde_json::to_string(&r.wire()).unwrap_or_default()).unwrap_or_default()
+    }
+
+    /// #220: the panel's choice – a level ("low" … "ultra"; another word keeps the level) and whether the governor
+    /// steps below it
+    pub fn set_quality(&mut self, level: &str, auto: bool) {
+        if let Some(l) = Level::parse(level) {
+            if l != self.governor.ceiling() {
+                self.governor.set_level(l);
+            }
+        }
+        if auto != self.governor.auto() {
+            self.governor.set_auto(auto);
+        }
+        self.fit();
     }
 
     /// The set's .glb images still encoded, for the browser to decode: [index, bytes, index, bytes …]

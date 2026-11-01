@@ -10,6 +10,8 @@ import type { DeckControlsView } from './controls.ts';
 import type { Deck } from './deck.ts';
 import { BPM } from './deck.ts';
 import { PARAMS } from './scene.ts';
+import type { DeckQuality, QualityLevel } from '@scutoons/live';
+export type { QualityLevel };
 
 /** the wasm-bindgen API of deck/space-web (its `SpaceView`) */
 export interface SpaceView {
@@ -42,7 +44,29 @@ export interface SpaceView {
 	take_tap(): string | undefined;
 	/** #209: select by name – the being rings it */
 	select(name: string): void;
+	/** #220: one frame's interval for the governor (now s, dt ms unclamped, the audio's dropouts so far); true = it stepped */
+	govern(now: number, dtMs: number, glitches: number): boolean;
+	/** #220: JSON – see `SpaceQuality` */
+	quality(): string;
+	/** #220: the `deck.quality` to send now (JSON) or "" */
+	quality_report(now: number): string;
+	/** #220: the panel's level ("low" … "ultra") and whether the governor steps below it */
+	set_quality(level: string, auto: boolean): void;
 	free(): void;
+}
+
+/** #220: the render quality now (deck-space quality.rs) */
+export interface SpaceQuality {
+	level: QualityLevel;
+	/** the level chosen: the governor steps at most up to it */
+	ceiling: QualityLevel;
+	auto: boolean;
+	/** the 3D's render size × the display's */
+	scale: number;
+	/** ms, the mean frame interval of the last half second */
+	frame: number;
+	width: number;
+	height: number;
 }
 
 interface SpaceModule {
@@ -113,7 +137,7 @@ export async function decodeImage(bytes: Uint8Array | Blob, type = 'image/webp')
 /** the image type of a file's first bytes (the .glb's images: WebP or PNG) */
 export const sniff = (b: Uint8Array) => (b[0] === 0x89 && b[1] === 0x50 ? 'image/png' : b[0] === 0xff && b[1] === 0xd8 ? 'image/jpeg' : 'image/webp');
 
-/** a pointer's position in the canvas' device pixels */
+/** a pointer's position in the canvas' pixels (the render size – the view reads them so) */
 function at(canvas: HTMLCanvasElement, e: { clientX: number; clientY: number }): [number, number] {
 	const r = canvas.getBoundingClientRect();
 	return [((e.clientX - r.left) * canvas.width) / Math.max(1, r.width), ((e.clientY - r.top) * canvas.height) / Math.max(1, r.height)];
@@ -123,6 +147,8 @@ export class SpaceStage {
 	private canvas!: HTMLCanvasElement;
 	private stopped = false;
 	private last = -1;
+	/** #220: the display size given to the view (the canvas' own size is the view's render size) */
+	private display: [number, number] = [0, 0];
 	private readonly fingers = new Map<number, [number, number]>();
 	/** two fingers: their distance when the pinch started (device px) */
 	private pinch = 0;
@@ -156,6 +182,7 @@ export class SpaceStage {
 		}
 		const s = new SpaceStage(o, mod, view);
 		s.canvas = canvas;
+		s.display = [canvas.width, canvas.height];
 		s.bind();
 		say(`3D ${view.backend()}`);
 		void s.loadSet().catch((e) => say(`3D: the set failed – ${(e as Error).message}`));
@@ -239,9 +266,23 @@ export class SpaceStage {
 		this.view.set_being(JSON.stringify(this.o.deck.graph()), JSON.stringify(this.o.deck.value));
 	}
 
+	/** #220: the render quality now */
+	get quality(): SpaceQuality {
+		return JSON.parse(this.view.quality()) as SpaceQuality;
+	}
+
+	/** #220: the panel's choice – the level (the ceiling) and the governor on / off */
+	setQuality(level: QualityLevel, auto: boolean) {
+		this.view.set_quality(level, auto);
+	}
+
 	/** One frame (after `deck.tick`): the being's turns into the deck, the deck's values into the being, draw. */
 	frame(now: number) {
 		if (this.stopped) return;
+		// #220: the governor sees the real interval (a stall is a hitch to it, not load) and the audio's dropouts
+		if (this.last >= 0) this.view.govern(now, (now - this.last) * 1000, this.o.deck.core?.stats().underruns ?? 0);
+		const report = this.view.quality_report(now);
+		if (report) this.o.deck.link?.quality(JSON.parse(report) as DeckQuality);
 		const dt = this.last < 0 ? 1 / 60 : Math.min(0.1, now - this.last);
 		this.last = now;
 		const deck = this.o.deck;
@@ -262,9 +303,8 @@ export class SpaceStage {
 		const scale = Math.min(devicePixelRatio || 1, this.o.maxScale ?? 2);
 		const w = Math.max(1, Math.round(c.clientWidth * scale));
 		const h = Math.max(1, Math.round(c.clientHeight * scale));
-		if (w !== c.width || h !== c.height) {
-			c.width = w;
-			c.height = h;
+		if (w !== this.display[0] || h !== this.display[1]) {
+			this.display = [w, h];
 			this.view.resize(w, h);
 		}
 		this.view.frame(dt, t);

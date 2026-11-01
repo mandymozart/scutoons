@@ -6,8 +6,9 @@
 	// the shared tokens – OSCT's debug overlay as #209 describes it. Every control turns the deck's one state; the
 	// being's 3D buttons, the sticks and MIDI turn the same values, so the dials follow them.
 	import { Button, Icon } from '@scutoons/ui';
-	import { MELODY, PARAMS, type Spec } from '@scutoons/live-deck';
+	import { MELODY, PARAMS, type QualityLevel, type SpaceQuality, type Spec } from '@scutoons/live-deck';
 	import DeckKnob from './deck-knob.svelte';
+	import DeckQuality from './deck-quality.svelte';
 	import DeckStats, { type Stats } from './deck-stats.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 
@@ -30,7 +31,9 @@
 		onlearn,
 		ontouch,
 		sticksOn = true,
-		onsticks
+		onsticks,
+		quality = null,
+		onquality
 	}: {
 		values: Record<string, number>;
 		started: boolean;
@@ -60,6 +63,9 @@
 		/** #225: the corner sticks are shown (off frees the knobs under them) */
 		sticksOn?: boolean;
 		onsticks: () => void;
+		/** #220: the 3D's render quality (null = no 3D) and the choice of its level / Auto */
+		quality?: SpaceQuality | null;
+		onquality: (level: QualityLevel, auto: boolean) => void;
 	} = $props();
 
 	// folded at first: the being fills the screen; the fold opens the knobs
@@ -79,6 +85,7 @@
 					{m['live_deck.sticks']()}
 				</button>
 			</div>
+			{#if quality}<DeckQuality {quality} {onquality} />{/if}
 			{#if learn || midi}<p class="line">{learning ? m['live_deck.midi_waiting']({ knob: (PARAMS[learning] ?? MELODY[learning])?.label ?? learning }) : midi || m['live_deck.midi_learn_hint']()}</p>{/if}
 			<div class="knobs">
 				{#each all as [path, spec] (path)}

@@ -12,13 +12,16 @@
 		relay: string;
 		/** "webgpu" / "webgl2" (+ the adapter), or why there is no 3D */
 		backend: string;
+		/** #220: the 3D's level now and its render scale ("" = no 3D); `down` = the governor stepped below the level chosen */
+		quality: string;
+		down: boolean;
 	}
 </script>
 
 <script lang="ts">
 	// The collapsed panel's statistics (#209, owner 2026-10-31: "very basic statistics (fps, CPU / frame, audio glitches
 	// / dropouts, the relay, the backend), using the entire width, like OSCT's collapsed bar"): one dense mono line –
-	// FPS, the frame's own work, the sound's dropouts per minute and its DSP load, the relay, the 3D backend. A number
+	// FPS, the 3D's quality level and render scale (#220; amber while the governor holds it below the level chosen), the frame's own work, the sound's dropouts per minute and its DSP load, the relay, the 3D backend. A number
 	// out of the green turns amber / red. The abbreviations are the stage HUD's (language-neutral, like a meter's).
 	let { stats }: { stats: Stats } = $props();
 	const fpsLevel = $derived(stats.fps === 0 ? '' : stats.fps < 30 ? 'bad' : stats.fps < 50 ? 'warn' : '');
@@ -28,6 +31,7 @@
 
 <p class="stats" data-testid="deck-stats" title="{stats.relay} · {stats.backend}">
 	<span class={fpsLevel}><b>FPS</b> {stats.fps ? stats.fps.toFixed(0) : '–'}</span>
+	{#if stats.quality}<span class:warn={stats.down} data-testid="deck-stats-quality"><b>Q</b> {stats.quality}</span>{/if}
 	<span class={cpuLevel}><b>CPU</b> {stats.cpu.toFixed(1)}/{stats.peak.toFixed(1)}MS</span>
 	<span class={audioLevel}><b>AUDIO</b> {stats.dropouts === null ? 'OFF' : `${stats.dropouts}/MIN ${stats.load}% +${stats.lead}MS`}</span>
 	<span class="relay"><b>RELAY</b> {stats.relay || '–'}</span>

@@ -144,6 +144,8 @@ pub fn render_size((w, h): (u32, u32), scale: f32) -> (u32, u32) {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Report {
     pub level: Level,
+    /// the level chosen (the governor's ceiling)
+    pub ceiling: Level,
     pub scale: f32,
     pub auto: bool,
     /// the mean frame interval of the last window (ms)
@@ -341,7 +343,7 @@ impl Governor {
     }
 
     pub fn report(&self) -> Report {
-        Report { level: self.level(), scale: self.rung().scale, auto: self.auto, frame_ms: self.frame_ms }
+        Report { level: self.level(), ceiling: self.ceiling(), scale: self.rung().scale, auto: self.auto, frame_ms: self.frame_ms }
     }
 
     /// What to send at `now`, if anything: at once when the level, scale or auto changed; else at most every
@@ -350,12 +352,39 @@ impl Governor {
         let r = self.report();
         let due = match &self.reported {
             None => true,
-            Some((last, at)) => (last.level, last.scale, last.auto) != (r.level, r.scale, r.auto) || (now - at >= REPORT_S && (last.frame_ms - r.frame_ms).abs() >= REPORT_MS),
+            Some((last, at)) => (last.level, last.ceiling, last.scale, last.auto) != (r.level, r.ceiling, r.scale, r.auto) || (now - at >= REPORT_S && (last.frame_ms - r.frame_ms).abs() >= REPORT_MS),
         };
         if due {
             self.reported = Some((r, now));
         }
         due.then_some(r)
+    }
+}
+
+impl Level {
+    /// the protocol's level (`deck.quality`)
+    #[cfg(feature = "being")]
+    pub fn wire(self) -> protocol::QualityLevel {
+        match self {
+            Level::Low => protocol::QualityLevel::Low,
+            Level::Medium => protocol::QualityLevel::Medium,
+            Level::High => protocol::QualityLevel::High,
+            Level::Ultra => protocol::QualityLevel::Ultra,
+        }
+    }
+}
+
+#[cfg(feature = "being")]
+impl Report {
+    /// `deck.quality` for the relay (the frame time to 0.1 ms)
+    pub fn wire(&self) -> protocol::DeckQuality {
+        protocol::DeckQuality {
+            level: self.level.wire(),
+            scale: (self.scale as f64 * 100.0).round() / 100.0,
+            auto: self.auto,
+            frame: (self.frame_ms as f64 * 10.0).round() / 10.0,
+            ceiling: Some(self.ceiling.wire()),
+        }
     }
 }
 
@@ -523,5 +552,7 @@ mod tests {
         assert_eq!((r.level, r.scale, r.auto), (Level::High, 0.9, true));
         g.set_auto(false);
         assert!(g.report_due(t).is_some_and(|r| !r.auto), "auto changed: at once");
+        let w = g.report().wire();
+        assert_eq!((w.level, w.ceiling, w.auto, w.scale), (protocol::QualityLevel::High, Some(protocol::QualityLevel::High), false, 1.0));
     }
 }

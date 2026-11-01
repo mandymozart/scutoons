@@ -146,3 +146,34 @@ test('in process: a relay, a conductor, the deck – graph first, values rate-li
 		relay.kill();
 	}
 });
+
+test('#220: the render quality goes out once joined and again after a rejoin', () => {
+	const sockets: FakeSocket[] = [];
+	class FakeSocket {
+		readyState = 1;
+		sent: { kind: string; p: unknown }[] = [];
+		onopen: ((ev: unknown) => void) | null = null;
+		onmessage: ((ev: { data: unknown }) => void) | null = null;
+		onclose: ((ev: unknown) => void) | null = null;
+		onerror: ((ev: unknown) => void) | null = null;
+		constructor() {
+			sockets.push(this);
+		}
+		send(data: string) {
+			this.sent.push(JSON.parse(data));
+		}
+		close() {}
+	}
+	const link = new DeckLink({ relay: 'ws://localhost:1/live/CATH', graph: deckGraph('', LADDER), socket: FakeSocket });
+	const ws = sockets[0];
+	const q = { level: 'medium' as const, scale: 0.8, auto: true, frame: 17.1, ceiling: 'medium' as const };
+	link.quality(q);
+	assert.equal(link.count.quality, 0, 'not joined: kept');
+	const welcome = { kind: 'welcome', p: { client: 'c5', snapshot: { seq: 0 }, now: 0 } };
+	ws.onmessage!({ data: JSON.stringify(welcome) });
+	assert.deepEqual(ws.sent.map((m) => m.kind), ['deck.graph', 'deck.quality']);
+	link.quality({ ...q, level: 'low', scale: 0.6 });
+	assert.deepEqual(ws.sent.at(-1), { v: 1, seq: 0, from: '', kind: 'deck.quality', p: { ...q, level: 'low', scale: 0.6 } });
+	assert.equal(link.count.quality, 2);
+	link.close();
+});

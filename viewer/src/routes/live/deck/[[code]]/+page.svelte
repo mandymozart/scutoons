@@ -14,7 +14,7 @@
 	// deck-space's (Hands → DeckControls, wasm), this page only bridges the DOM, Web MIDI and the pointer to it.
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { Deck, FrameStats, Hands, MELODY, PARAMS, SpaceStage, charactersOf, loadControls, pushLine, type Hand } from '@scutoons/live-deck';
+	import { Deck, FrameStats, Hands, MELODY, PARAMS, SpaceStage, charactersOf, loadControls, pushLine, type Hand, type QualityLevel, type SpaceQuality } from '@scutoons/live-deck';
 	import LiveWorker from '@scutoons/live-core/worker?worker';
 	import workletUrl from '@scutoons/live-core/worklet?worker&url';
 	import { API_URL, CDN_SERVER, LIVE_URL } from '$lib/config.ts';
@@ -45,7 +45,7 @@
 	// #208: the warning a few seconds after a dropout; #209: the collapsed bar's statistics (#188: the dropouts over the
 	// last minute, the worker's peak render load)
 	let audioAlert = $state('');
-	let stats = $state<Stats>({ fps: 0, cpu: 0, peak: 0, dropouts: null, load: 0, lead: 0, relay: '', backend: '' });
+	let stats = $state<Stats>({ fps: 0, cpu: 0, peak: 0, dropouts: null, load: 0, lead: 0, relay: '', backend: '', quality: '', down: false });
 	const frames = new FrameStats();
 	// #209: the controls – the selection the sticks follow, MIDI learn, the mappings per deck
 	const specs = { ...PARAMS, ...MELODY };
@@ -60,6 +60,27 @@
 			localStorage.setItem(STICKS_KEY, sticksOn ? '1' : '0');
 		} catch {
 			/* private mode */
+		}
+	}
+	// #220: the 3D's render quality – the governor's (deck-space); the level chosen and Auto remembered per device
+	const QUALITY_KEY = 'scutoons.deck.quality';
+	let quality = $state<SpaceQuality | null>(null);
+	function setQuality(level: QualityLevel, auto: boolean) {
+		if (!space) return;
+		space.setQuality(level, auto);
+		quality = space.quality;
+		try {
+			localStorage.setItem(QUALITY_KEY, JSON.stringify({ level, auto }));
+		} catch {
+			/* private mode */
+		}
+	}
+	function savedQuality(): { level: QualityLevel; auto: boolean } | null {
+		try {
+			const q = JSON.parse(localStorage.getItem(QUALITY_KEY) ?? 'null') as { level?: QualityLevel; auto?: boolean } | null;
+			return q?.level ? { level: q.level, auto: q.auto !== false } : null;
+		} catch {
+			return null;
 		}
 	}
 	let threeD = $state(true);
@@ -118,6 +139,9 @@
 			stats.peak = frames.peak;
 			stats.relay = relayStatus;
 			stats.backend = space ? space.backend : spaceStatus;
+			quality = space?.quality ?? null;
+			stats.quality = quality ? `${quality.level} ${quality.scale.toFixed(2)}×${quality.auto ? '' : ' FIX'}` : '';
+			stats.down = !!quality && quality.level !== quality.ceiling;
 		}, 500);
 		void (async () => {
 			await settled();
@@ -147,6 +171,9 @@
 			if (!alive || !host) return;
 			try {
 				space = await SpaceStage.start({ host, base: WASM_BASE, deck, api: API_URL, cdn, prefer: preferOf(q), onStatus: (s) => (spaceStatus = s) });
+				const saved = savedQuality();
+				if (saved) space.setQuality(saved.level, saved.auto);
+				quality = space.quality;
 			} catch (e) {
 				threeD = false;
 				spaceStatus = m['live_deck.no_3d']({ reason: (e as Error).message ?? String(e) });
@@ -247,6 +274,8 @@
 			onlearn={ctl.toggleLearn}
 			{sticksOn}
 			onsticks={toggleSticks}
+			{quality}
+			onquality={setQuality}
 			ontouch={(on) => deck && (deck.touch = on)}
 		/>
 	</div>
