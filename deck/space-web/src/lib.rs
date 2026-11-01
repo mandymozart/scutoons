@@ -140,6 +140,13 @@ pub fn rig_play(bundle: &str, persona: &str, mood: &str) -> Result<String, JsVal
     deck_space::rig::Bundle::play_json(bundle, persona, mood).map_err(|e| JsValue::from_str(&format!("{e:#}")))
 }
 
+/// The core rig of `subject` (`character.<id>` / `item.<id>`) the deck carries without an account (#191): the bundle as
+/// JSON for `rig_play`, empty when there is none.
+#[wasm_bindgen]
+pub fn core_rig(subject: &str) -> Result<String, JsValue> {
+    deck_space::rig::Bundle::core_json(subject).map_err(|e| JsValue::from_str(&format!("{e:#}")))
+}
+
 #[wasm_bindgen]
 pub struct SpaceView {
     space: Space,

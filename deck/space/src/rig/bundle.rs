@@ -1,15 +1,21 @@
 //! What a page or a deck gets for one character (research/INSTRUMENTS.md §6, §7 step 2): the rig with every instrument
-//! and preset it names (ancestors included) – scene-content's answer, or a core set's TOML – and what playing it hands
-//! the page: the flattened scene (TOML, a stage scene; nodes and links for the wire graph), the being's character, the
-//! knobs (each exposed parameter with its range, curve, label and current value – shared/live-deck's `Spec`) and which
-//! preset each track plays. deck/space-web's `rig_play` is this behind wasm-bindgen; the page calls it again on a mood
-//! change and applies what differs.
+//! and preset it names (ancestors included) – scene-content's answer, or a core set's TOML (`CORE`) – and what playing
+//! it hands the page: the flattened scene (TOML, a stage scene; nodes and links for the wire graph), the being's
+//! character, the knobs (each exposed parameter with its range, curve, label and current value – shared/live-deck's
+//! `Spec`), which preset each track plays, and the scene lowered for the browser's engine (engine.rs). deck/space-web's
+//! `rig_play` is this behind wasm-bindgen; the page calls it again on a mood change and applies what differs.
 use super::{Instrument, Library, Preset, Rig, Text};
 use crate::graph::Kind;
 use crate::params::{self, Curve};
 use crate::scene::{split_ref, LinkDef, NodeDef};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+
+/// The core rigs a deck carries without an account (#191 "core"): subject → the bundle's TOML (deck/stage/rigs/).
+pub const CORE: [(&str, &str); 2] = [
+    ("character.catpope", include_str!("../../../stage/rigs/catpope.toml")),
+    ("item.incense_burner", include_str!("../../../stage/rigs/incense_burner.toml")),
+];
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -53,6 +59,8 @@ pub struct Played {
     pub character: String,
     pub knobs: Vec<Knob>,
     pub tracks: Vec<TrackPlays>,
+    /// the same scene for the browser's sound engine (live-core) and what the page plays itself (engine.rs)
+    pub engine: super::engine::Engine,
 }
 
 /// the scene document as TOML (scene.rs's form, so deck-stage and live-core read it)
@@ -77,6 +85,20 @@ struct BeingDoc<'a> {
 }
 
 impl Bundle {
+    /// the core rig of `subject` (`character.<id>` / `item.<id>`), if the deck carries one
+    pub fn core(subject: &str) -> Option<Result<Bundle>> {
+        let (_, text) = CORE.iter().find(|(s, _)| *s == subject)?;
+        Some(toml::from_str(text).with_context(|| format!("the core rig {subject}")))
+    }
+
+    /// `core` as JSON – the wasm boundary's form; empty when the deck carries none
+    pub fn core_json(subject: &str) -> Result<String> {
+        match Bundle::core(subject) {
+            Some(b) => Ok(serde_json::to_string(&b?)?),
+            None => Ok(String::new()),
+        }
+    }
+
     pub fn parse_json(text: &str) -> Result<Bundle> {
         serde_json::from_str(text).context("the rig bundle is not valid JSON for a bundle")
     }
@@ -131,7 +153,8 @@ impl Bundle {
             being: BeingDoc { character: &character, expose: knobs.iter().map(|k| k.path.as_str()).collect() },
         };
         let text = toml::to_string(&doc).context("writing the flattened scene")?;
-        Ok(Played { scene: text, nodes: scene.nodes, links: scene.links, character, knobs, tracks })
+        let engine = super::engine::lower(&scene)?;
+        Ok(Played { scene: text, nodes: scene.nodes, links: scene.links, character, knobs, tracks, engine })
     }
 
     /// `play` as JSON – the wasm boundary's form (`persona` / `mood` empty = none)

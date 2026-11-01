@@ -61,12 +61,28 @@ export interface RigPlayed {
 	character: string;
 	knobs: RigKnob[];
 	tracks: { track: string; preset?: string }[];
+	/** the scene lowered for live-core (deck-space rig/engine.rs) */
+	engine: RigEngine;
+}
+
+/** what live-core plays of a rig, and what the page plays itself */
+export interface RigEngine {
+	/** live-core's scene (batch kinds only) */
+	scene: string;
+	/** a knob's path → the engine path to set instead (a strip-gained gain) */
+	aliases: Record<string, string>;
+	/** nodes the page plays (noise …), at `gain` × their own gain */
+	page: { id: string; kind: string; gain: number; [param: string]: unknown }[];
+	/** links the engine doesn't carry (audio links, the being's routes) */
+	dropped: { from: string; to: string; scale: number; offset: number }[];
 }
 
 interface SpaceModule {
 	default: (o: { module_or_path: string | URL }) => Promise<unknown>;
 	/** deck/space-web `rig_play`: the bundle as JSON (rig + instruments + presets), persona / mood '' = none; throws on a bad rig */
 	rig_play(bundle: string, persona: string, mood: string): string;
+	/** deck/space-web `core_rig`: the core rig of `character.<id>` / `item.<id>` as a bundle, '' when the deck has none */
+	core_rig(subject: string): string;
 	SpaceView: {
 		create(canvas: HTMLCanvasElement, deckGraph: string, values: string, prefer: string): Promise<SpaceView>;
 		encoded_images(glb: Uint8Array): unknown[];
@@ -342,6 +358,11 @@ export class SpaceStage {
 	/** A character's rig played for `persona` and `mood` (#191, research/INSTRUMENTS.md §7): the same Rust as the deck's. */
 	playRig(bundle: string, persona = '', mood = ''): RigPlayed {
 		return JSON.parse(this.mod.rig_play(bundle, persona, mood)) as RigPlayed;
+	}
+
+	/** the core rig of `subject` as a bundle (JSON), null when the deck carries none */
+	coreRig(subject: string): string | null {
+		return this.mod.core_rig(subject) || null;
 	}
 
 	stop() {

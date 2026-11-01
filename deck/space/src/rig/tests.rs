@@ -1,5 +1,6 @@
 use super::*;
 use crate::graph::Graph;
+use deck_core::batch::BatchGraph;
 
 /// A test set in TOML – how the core set would ship in the image: the cathedral's choir voice (seq → fm, an LFO on its
 /// index), and the incense (#210's object sound).
@@ -364,4 +365,76 @@ fn the_wasm_boundary_speaks_json() {
     assert!(out["knobs"][1].get("log").is_none(), "a linear knob says nothing");
     assert!(Bundle::play_json("{}", "", "").is_err());
     assert!(Bundle::play_json(&json, "", "dizzy").is_ok(), "an unknown mood plays the defaults");
+}
+
+#[test]
+fn the_core_rigs_play_in_every_mood() {
+    for (subject, _) in bundle::CORE {
+        let b = Bundle::core(subject).unwrap().unwrap();
+        assert_eq!(b.rig.subject, subject);
+        b.rig.check(&b.library()).unwrap();
+        for mood in [None, Some("neutral"), Some("thinking"), Some("happy"), Some("laughing"), Some("surprised"), Some("sad")] {
+            b.play(None, mood).unwrap_or_else(|e| panic!("{subject} {mood:?}: {e:#}"));
+        }
+    }
+    assert!(Bundle::core("character.nobody").is_none());
+    assert_eq!(Bundle::core_json("character.nobody").unwrap(), "");
+    let json = Bundle::core_json("character.catpope").unwrap();
+    assert_eq!(Bundle::parse_json(&json).unwrap().rig.tracks.len(), 2);
+}
+
+#[test]
+fn catpope_keeps_the_phone_patchs_values() {
+    let p = Bundle::core("character.catpope").unwrap().unwrap().play(None, None).unwrap();
+    let v = |path: &str| p.knobs.iter().find(|k| k.path == path).unwrap().value;
+    assert_eq!((v("voice_voice.ratio"), v("voice_voice.index"), v("voice_voice.gain")), (1.5, 2.0, 0.16));
+    assert_eq!((v("drone_drone.freq"), v("drone_drone.gain")), (55.0, 0.1));
+    let happy = Bundle::core("character.catpope").unwrap().unwrap().play(None, Some("laughing")).unwrap();
+    let hv = |path: &str| happy.knobs.iter().find(|k| k.path == path).unwrap().value;
+    assert_eq!((hv("voice_voice.ratio"), hv("voice_voice.index")), (3.0, 4.0), "the preset and the mood's value");
+}
+
+#[test]
+fn the_browser_engine_plays_what_it_can_and_hands_the_rest_to_the_page() {
+    // the test set: the choir (seq → fm, an LFO on the index) + the incense at strip gain 0.5
+    let e = bundle().play(None, None).unwrap().engine;
+    let def = deck_core::SceneDef::parse(&e.scene).unwrap();
+    let ids: Vec<&str> = def.nodes.iter().map(|n| n.id.as_str()).collect();
+    assert_eq!(ids, ["voice_voice", "voice_sway"], "fm + lfo; seq, noise and the plumbing are gone");
+    assert!(def.links.iter().any(|l| l.from == "voice_sway.out" && l.to == "voice_voice.index" && l.scale == 2.0));
+    let pages: Vec<(&str, f32)> = e.page.iter().map(|p| (p.node.id.as_str(), p.gain)).collect();
+    assert_eq!(pages, [("voice_seq", 1.0), ("air_hiss", 0.5)]);
+    assert!(e.dropped.iter().any(|l| l.from == "voice_seq.cv" && l.to == "voice_voice.cv"), "an audio link the engine can't carry");
+    assert!(e.dropped.iter().any(|l| l.to == "space.glow"), "the being's route: the page's");
+    assert!(e.aliases.is_empty(), "the voice's strip is unity");
+    // it sounds: deck-core's batch evaluator renders catpope's core rig (the test set's voice has no pitch of its own –
+    // its seq drives it, and the seq is the page's)
+    let core = Bundle::core("character.catpope").unwrap().unwrap().play(None, None).unwrap().engine;
+    let mut g = BatchGraph::build(&deck_core::SceneDef::parse(&core.scene).unwrap(), 48_000.0).unwrap();
+    g.step(0.01);
+    let mut out = vec![0.0f32; 480];
+    g.render(&mut out);
+    g.render(&mut out);
+    assert!(out.iter().any(|x| x.abs() > 0.01), "the voice and the drone are heard");
+}
+
+#[test]
+fn a_strip_gain_becomes_a_mul_the_knob_turns() {
+    let (_, mut rig) = set();
+    let mut b = bundle();
+    rig.tracks[0].gain = 0.5;
+    b.rig = rig;
+    let e = b.play(None, None).unwrap().engine;
+    assert_eq!(e.aliases["voice_voice.gain"], "voice_voice_strip.a");
+    let def = deck_core::SceneDef::parse(&e.scene).unwrap();
+    let strip = def.nodes.iter().find(|n| n.id == "voice_voice_strip").unwrap();
+    let f = |k: &str| strip.params[k].as_float().unwrap() as f32;
+    assert_eq!((strip.kind.as_str(), f("a"), f("b")), ("mul", 0.16, 0.5), "the knob's value × the strip");
+    assert!(def.links.iter().any(|l| l.from == "voice_voice_strip" && l.to == "voice_voice.gain"));
+    // the core drone: its two oscillators through the instrument's own mixer, unity strips – both played, no alias
+    let core = Bundle::core("character.catpope").unwrap().unwrap().play(None, None).unwrap().engine;
+    let def = deck_core::SceneDef::parse(&core.scene).unwrap();
+    let ids: Vec<&str> = def.nodes.iter().map(|n| n.id.as_str()).collect();
+    assert_eq!(ids, ["voice_voice", "drone_drone", "drone_fifth"]);
+    assert!(core.page.is_empty() && core.aliases.is_empty());
 }
