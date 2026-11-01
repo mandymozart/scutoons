@@ -52,6 +52,15 @@ export interface SpaceView {
 	quality_report(now: number): string;
 	/** #220: the panel's level ("low" … "ultra") and whether the governor steps below it */
 	set_quality(level: string, auto: boolean): void;
+	/** #220: the preset's frame rate cap: draw now, this many ms after the last drawn frame? */
+	due(sinceMs: number): boolean;
+	/** #220: the presets – the stage's quality file (TOML) and the sheet's JSON; setters answer "" or why not */
+	presets_text(): string;
+	presets_json(): string;
+	set_presets(text: string): string;
+	set_presets_json(json: string): string;
+	/** #220: the presets' pixel ratio cap (0 = none) */
+	pixel_ratio(): number;
 	free(): void;
 }
 
@@ -65,8 +74,40 @@ export interface SpaceQuality {
 	scale: number;
 	/** ms, the mean frame interval of the last half second */
 	frame: number;
+	/** the rung's frame rate cap */
+	fps: number;
 	width: number;
 	height: number;
+}
+
+/** #220: a render size – a scale of the display (≤ 4) or a height in pixels (≥ 100) */
+export type RenderSize = number;
+
+/** #220: one preset's knobs (deck-space quality.rs `Preset`) */
+export interface QualityPreset {
+	on: boolean;
+	/** the render size under load and its own */
+	min: RenderSize;
+	max: RenderSize;
+	fxaa: boolean;
+	bloom: boolean;
+	/** how many beings light the room (0–8) */
+	lights: number;
+	/** the frame rate cap */
+	fps: number;
+}
+
+/** #220: the deck's quality settings – the same as the stage's quality file */
+export interface QualityPresets {
+	level?: QualityLevel;
+	auto: boolean;
+	display?: string;
+	/** device pixels per CSS pixel at most */
+	pixel_ratio?: number;
+	low: QualityPreset;
+	medium: QualityPreset;
+	high: QualityPreset;
+	ultra: QualityPreset;
 }
 
 interface SpaceModule {
@@ -276,10 +317,42 @@ export class SpaceStage {
 		this.view.set_quality(level, auto);
 	}
 
+	/** #220: the presets (the settings sheet) */
+	get presets(): QualityPresets {
+		return JSON.parse(this.view.presets_json()) as QualityPresets;
+	}
+
+	/** #220: new presets – "" or why not */
+	setPresets(p: QualityPresets): string {
+		return this.view.set_presets_json(JSON.stringify(p));
+	}
+
+	/** #220: the presets as the stage's quality file */
+	get presetsText(): string {
+		return this.view.presets_text();
+	}
+
+	setPresetsText(text: string): string {
+		return this.view.set_presets(text);
+	}
+
+	/** #220: the device pixels per CSS pixel the 3D's display has: the presets' cap, else the page's (`maxScale`) */
+	private pixelRatio(): number {
+		return Math.min(devicePixelRatio || 1, this.view.pixel_ratio() || this.o.maxScale || 2);
+	}
+
+	/** #220: the most this screen can show – its physical pixels – and the display the 3D scales from now */
+	get screen(): { max: [number, number]; display: [number, number] } {
+		const r = devicePixelRatio || 1;
+		return { max: [Math.round(screen.width * r), Math.round(screen.height * r)], display: [...this.display] };
+	}
+
 	/** One frame (after `deck.tick`): the being's turns into the deck, the deck's values into the being, draw. */
 	frame(now: number) {
 		if (this.stopped) return;
-		// #220: the governor sees the real interval (a stall is a hitch to it, not load) and the audio's dropouts
+		// #220: the preset's frame rate cap – an early frame is skipped (no draw: the power the cap saves); the governor
+		// sees the real interval between drawn frames (a stall is a hitch to it, not load) and the audio's dropouts
+		if (this.last >= 0 && !this.view.due((now - this.last) * 1000)) return;
 		if (this.last >= 0) this.view.govern(now, (now - this.last) * 1000, this.o.deck.core?.stats().underruns ?? 0);
 		const report = this.view.quality_report(now);
 		if (report) this.o.deck.link?.quality(JSON.parse(report) as DeckQuality);
@@ -300,7 +373,7 @@ export class SpaceStage {
 		const t = deck.time;
 		this.view.set_beat(BPM, (t * BPM) / 60, 4, true);
 		const c = this.canvas;
-		const scale = Math.min(devicePixelRatio || 1, this.o.maxScale ?? 2);
+		const scale = this.pixelRatio();
 		const w = Math.max(1, Math.round(c.clientWidth * scale));
 		const h = Math.max(1, Math.round(c.clientHeight * scale));
 		if (w !== this.display[0] || h !== this.display[1]) {

@@ -14,7 +14,7 @@
 	// deck-space's (Hands → DeckControls, wasm), this page only bridges the DOM, Web MIDI and the pointer to it.
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { Deck, FrameStats, Hands, MELODY, PARAMS, SpaceStage, charactersOf, loadControls, pushLine, type Hand, type QualityLevel, type SpaceQuality } from '@scutoons/live-deck';
+	import { Deck, FrameStats, Hands, MELODY, PARAMS, SpaceStage, charactersOf, loadControls, pushLine, type Hand, type QualityLevel, type QualityPresets, type SpaceQuality } from '@scutoons/live-deck';
 	import LiveWorker from '@scutoons/live-core/worker?worker';
 	import workletUrl from '@scutoons/live-core/worklet?worker&url';
 	import { API_URL, CDN_SERVER, LIVE_URL } from '$lib/config.ts';
@@ -23,6 +23,7 @@
 	import { CHARACTER_KEY, WASM_BASE, characterOf, mayJoin, nickOf, preferOf, relayOf } from '$lib/live-deck.ts';
 	import CharacterChip from '$lib/components/live-deck/character-chip.svelte';
 	import DeckPanel from '$lib/components/live-deck/deck-panel.svelte';
+	import DeckQualitySheet from '$lib/components/live-deck/deck-quality-sheet.svelte';
 	import DeckSticks from '$lib/components/live-deck/deck-sticks.svelte';
 	import type { Stats } from '$lib/components/live-deck/deck-stats.svelte';
 	import { DeckControlsState } from '$lib/live-deck-controls.svelte.ts';
@@ -62,26 +63,67 @@
 			/* private mode */
 		}
 	}
-	// #220: the 3D's render quality – the governor's (deck-space); the level chosen and Auto remembered per device
+	// #220: the 3D's render quality – the governor's (deck-space); the presets (the settings sheet, the same text as the
+	// X1's quality file) remembered per device. The night's first build kept only { level, auto } under QUALITY_KEY: read
+	// once into the presets, then gone.
+	const PRESETS_KEY = 'scutoons.deck.presets';
 	const QUALITY_KEY = 'scutoons.deck.quality';
 	let quality = $state<SpaceQuality | null>(null);
-	function setQuality(level: QualityLevel, auto: boolean) {
-		if (!space) return;
-		space.setQuality(level, auto);
-		quality = space.quality;
+	let presets = $state<QualityPresets | null>(null);
+	let presetsText = $state('');
+	let sheetOpen = $state(false);
+	let screenInfo = $state<{ max: [number, number]; display: [number, number] }>({ max: [0, 0], display: [0, 0] });
+	function stored(key: string): string | null {
 		try {
-			localStorage.setItem(QUALITY_KEY, JSON.stringify({ level, auto }));
+			return localStorage.getItem(key);
+		} catch {
+			return null;
+		}
+	}
+	/** after a change: the sheet's view, the bar's, and the text kept for this device */
+	function keepPresets() {
+		if (!space) return;
+		quality = space.quality;
+		presets = space.presets;
+		presetsText = space.presetsText;
+		screenInfo = space.screen;
+		try {
+			localStorage.setItem(PRESETS_KEY, presetsText);
+			localStorage.removeItem(QUALITY_KEY);
 		} catch {
 			/* private mode */
 		}
 	}
-	function savedQuality(): { level: QualityLevel; auto: boolean } | null {
-		try {
-			const q = JSON.parse(localStorage.getItem(QUALITY_KEY) ?? 'null') as { level?: QualityLevel; auto?: boolean } | null;
-			return q?.level ? { level: q.level, auto: q.auto !== false } : null;
-		} catch {
-			return null;
+	function loadPresets() {
+		if (!space) return;
+		const text = stored(PRESETS_KEY);
+		const old = stored(QUALITY_KEY);
+		if (text) {
+			const e = space.setPresetsText(text);
+			if (e) console.warn('live deck: the stored quality presets', e);
+		} else if (old) {
+			try {
+				const q = JSON.parse(old) as { level?: QualityLevel; auto?: boolean };
+				if (q.level) space.setQuality(q.level, q.auto !== false);
+			} catch {
+				/* a broken entry: the defaults */
+			}
 		}
+		keepPresets();
+	}
+	function setQuality(level: QualityLevel, auto: boolean) {
+		space?.setQuality(level, auto);
+		keepPresets();
+	}
+	function setPresets(p: QualityPresets): string {
+		const e = space?.setPresets(p) ?? '';
+		if (!e) keepPresets();
+		return e;
+	}
+	function setPresetsText(text: string): string {
+		const e = space?.setPresetsText(text) ?? '';
+		if (!e) keepPresets();
+		return e;
 	}
 	let threeD = $state(true);
 	let deck: Deck | null = null;
@@ -140,6 +182,7 @@
 			stats.relay = relayStatus;
 			stats.backend = space ? space.backend : spaceStatus;
 			quality = space?.quality ?? null;
+			if (space && sheetOpen) screenInfo = space.screen;
 			stats.quality = quality ? `${quality.level} ${quality.scale.toFixed(2)}×${quality.auto ? '' : ' FIX'}` : '';
 			stats.down = !!quality && quality.level !== quality.ceiling;
 		}, 500);
@@ -171,9 +214,7 @@
 			if (!alive || !host) return;
 			try {
 				space = await SpaceStage.start({ host, base: WASM_BASE, deck, api: API_URL, cdn, prefer: preferOf(q), onStatus: (s) => (spaceStatus = s) });
-				const saved = savedQuality();
-				if (saved) space.setQuality(saved.level, saved.auto);
-				quality = space.quality;
+				loadPresets();
 			} catch (e) {
 				threeD = false;
 				spaceStatus = m['live_deck.no_3d']({ reason: (e as Error).message ?? String(e) });
@@ -183,6 +224,7 @@
 				const t0 = performance.now();
 				const now = t0 / 1000;
 				deck.tick(now);
+				ctl.poll();
 				try {
 					space?.frame(now);
 					hud = space?.view.hud_line() ?? '';
@@ -276,9 +318,16 @@
 			onsticks={toggleSticks}
 			{quality}
 			onquality={setQuality}
+			onsettings={() => {
+				keepPresets();
+				sheetOpen = true;
+			}}
 			ontouch={(on) => deck && (deck.touch = on)}
 		/>
 	</div>
+	{#if presets && quality}
+		<DeckQualitySheet bind:open={sheetOpen} {presets} {quality} screen={screenInfo} text={presetsText} onchange={setPresets} ontext={setPresetsText} />
+	{/if}
 </div>
 
 <style>

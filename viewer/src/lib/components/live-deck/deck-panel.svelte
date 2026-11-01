@@ -33,7 +33,8 @@
 		sticksOn = true,
 		onsticks,
 		quality = null,
-		onquality
+		onquality,
+		onsettings
 	}: {
 		values: Record<string, number>;
 		started: boolean;
@@ -66,6 +67,8 @@
 		/** #220: the 3D's render quality (null = no 3D) and the choice of its level / Auto */
 		quality?: SpaceQuality | null;
 		onquality: (level: QualityLevel, auto: boolean) => void;
+		/** #220: open the presets' settings sheet */
+		onsettings: () => void;
 	} = $props();
 
 	// folded at first: the being fills the screen; the fold opens the knobs
@@ -85,7 +88,7 @@
 					{m['live_deck.sticks']()}
 				</button>
 			</div>
-			{#if quality}<DeckQuality {quality} {onquality} />{/if}
+			{#if quality}<DeckQuality {quality} {onquality} {onsettings} />{/if}
 			{#if learn || midi}<p class="line">{learning ? m['live_deck.midi_waiting']({ knob: (PARAMS[learning] ?? MELODY[learning])?.label ?? learning }) : midi || m['live_deck.midi_learn_hint']()}</p>{/if}
 			<div class="knobs">
 				{#each all as [path, spec] (path)}
