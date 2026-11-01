@@ -36,7 +36,7 @@ Keys: **F1** the HUD → the collapsed stats bar (#209: one line across the whol
 glitches / DSP load / limiter, the relay, the GPU backend; red when out of the green) → nothing · **F2** the browser · **Ctrl+Q** quit (on the deck the stage starts again) · **Ctrl+Alt+Del** power off (`systemctl
 poweroff`, the logo stays up; not in a `--windowed` stage) · Esc quits a `--windowed` stage · the tempo clock: **T** tap ·
 **+ / −** BPM · **Space** start / stop · **F3** the next source (internal → MIDI → Link → OSC → relay) · **K** the click · **F4** the
-quality settings page, **Shift+F4** the governor on / off ("Quality" below). In a scene with a `space` node: a **mouse drag** turns the camera around the being (or, on a 3D
+quality settings page, **Shift+F4** the governor on / off ("Quality" below) · **F5** the scene list ("Scenes" below). In a scene with a `space` node: a **mouse drag** turns the camera around the being (or, on a 3D
 button, pulls it along its tether – out = more; a double click: back to the scene's value; a finger the same), the **wheel** / **↑ ↓** zoom, **← →** turn, **R** the camera's home; the pointer stays
 visible in the kiosk then. The HUD names the keys. F2 with `DECK_BROWSER` set (deck-session sets it to `deck-session browser`) starts that command on
 top of the running stage: the logo comes up until the browser's window takes the focus (cage shows the newest window),
@@ -297,6 +297,15 @@ the beat + pink noise + the click (off until K) → mixer → FFT; test pattern 
 chapter's slices (cut on a bass hit snapped to the beat, every 6 s at the latest) → RGB shift → the caption overlay →
 screen. `scenes/test-pattern.toml` – the picture alone (no sound, no network). Both land in
 `/usr/share/deck/scenes` on the deck; `scene = "…"` in `/var/lib/deck/deck.toml` picks one.
+
+**The scene switcher (#250, `switcher.rs`):** **F5** lists the built-in scenes (`idle`, `madness`, `cathedral`, `conductor`,
+`outlet`, `strobe`, `test-pattern`) and every `*.toml` of the scenes folder (`--scenes DIR`, default
+`/usr/share/deck/scenes`; a file named like a built-in is skipped); ↑ ↓ move, **Enter** loads the scene in place – the same
+path as a `--dev` reload, no process restart: the old show stops (audio graph dropped), the new one is built, the window
+stays (about 0.6 s on a PC) – **Esc** / F5 closes; the playing one is starred. A scene that doesn't build (a module this build lacks,
+a broken file) keeps the old one playing and the list says why. A scene that loads is written into deck.toml as one
+`scene = "<name or path>"` line (`DECK_TOML` names another file; replaced like `deck-set` does, never a second line), so
+the next boot plays it. Check runs: `--switcher` starts with the list open, `--switch NAME` loads that scene after 30 frames.
 
 **Quality** (#220, deck-space `quality.rs` – the browser deck runs the same; the stage's `src/quality.rs`): four
 **presets** – low · medium · high · ultra – each with its knobs: on / off (an off preset is skipped and can't be chosen),

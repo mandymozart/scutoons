@@ -15,6 +15,7 @@ pub mod render;
 pub mod pairing;
 pub mod quality;
 pub mod splash;
+pub mod switcher;
 pub mod tempo;
 pub mod watch;
 

@@ -19,7 +19,7 @@
 //! lights and the frame rate cap below it under load and back up with headroom; F4 opens the settings page (every
 //! preset's knobs, the display mode – saved, reloaded when the file changes), Shift+F4 switches the governor; a deck
 //! reports its quality to the session (the conductor shows it).
-use deck_stage::{audio, cache, chapter, clock, control, graph, hud, modules, render, scene, splash, tempo, watch};
+use deck_stage::{audio, cache, chapter, clock, control, graph, hud, modules, render, scene, splash, switcher, tempo, watch};
 use deck_space::quality::{self, Governor, Presets};
 use deck_stage::quality as settings;
 
@@ -59,6 +59,7 @@ const HELP: &str = "deck-stage [--scene FILE|cathedral|conductor|outlet] [--audi
            [--screenshot FILE] [--pointer X,Y|NODE.PORT] [--drag NODE.PORT[,DN]] [--no-hud] [--hud-bar] [--dev] [--modules]
            [--relay ws[s]://HOST[:PORT]/live/CODE] [--sync set:ID,character:ID]
            [--outlet ID] [--locale de] [--quality auto|low|medium|high|ultra[,fixed]] [--quality-file FILE] [--settings]
+           [--scenes DIR] [--switcher] [--switch NAME]
   --scene      a scene TOML (default: the built-in idle scene – fireflies on black, no sound, scenes/idle.toml, #252;
                `madness` = AV madness, scenes/madness.toml); `cathedral` = the built-in
                Cathedral of decks (scenes/cathedral.toml – a deck's being), `conductor` = its conductor in the middle
@@ -90,6 +91,9 @@ const HELP: &str = "deck-stage [--scene FILE|cathedral|conductor|outlet] [--audi
   --quality-file  the presets (deck/stage/README.md, Quality; default /var/lib/deck/quality.toml on a deck,
                DECK_QUALITY_FILE): F4 edits them on the HUD's settings page, Shift+F4 the governor; --settings
                starts with the page open (a check run's screenshot)
+  --scenes     the scene switcher's folder of *.toml (#250; default /usr/share/deck/scenes): F5 lists the built-in scenes
+               and these, arrows + Enter load one in place and write it into deck.toml's `scene`; --switcher starts with
+               the list open, --switch NAME loads that scene after 30 frames (a check run)
   --frames     quit after N frames and print the measured numbers (a check run)
   --screenshot save the last frame of a --frames run as a PNG
   --pointer    put the pointer at window pixel X,Y, or on the being's button NODE.PORT (a check run's hover)
@@ -135,6 +139,10 @@ struct Args {
     quality: quality::Choice,
     quality_file: Option<PathBuf>,
     settings: bool,
+    /// #250: the scene switcher's folder, open at the start, and a check run's switch after 30 frames
+    scenes: PathBuf,
+    switcher: bool,
+    switch_to: Option<String>,
 }
 
 /// a check run's pointer: a pixel, or on a button of the being (it follows the button)
@@ -174,6 +182,9 @@ fn args() -> Result<Args> {
         quality: std::env::var("DECK_QUALITY").ok().and_then(|q| quality::Choice::parse(&q)).unwrap_or_default(),
         quality_file: None,
         settings: false,
+        scenes: switcher::SCENES_DIR.into(),
+        switcher: false,
+        switch_to: None,
     };
     let mut it = std::env::args().skip(1);
     while let Some(arg) = it.next() {
@@ -234,6 +245,9 @@ fn args() -> Result<Args> {
             "--sync" => a.sync = Some(val()?),
             "--quality-file" => a.quality_file = Some(val()?.into()),
             "--settings" => a.settings = true,
+            "--scenes" => a.scenes = val()?.into(),
+            "--switcher" => a.switcher = true,
+            "--switch" => a.switch_to = Some(val()?),
             "--quality" => {
                 let v = val()?;
                 a.quality = quality::Choice::parse(&v).with_context(|| format!("--quality {v}: auto, low, medium, high or ultra (,fixed)"))?
@@ -396,11 +410,7 @@ fn audio_options(args: &Args, scene: &scene::Scene) -> backend::Options {
 /// when one is set, or the idle scene (#252)
 fn read_scene(args: &Args) -> Result<scene::Scene> {
     match &args.scene {
-        Some(p) if p.as_os_str() == "cathedral" && !p.exists() => scene::Scene::parse(scene::CATHEDRAL_SCENE),
-        Some(p) if p.as_os_str() == "conductor" && !p.exists() => scene::Scene::parse(scene::CONDUCTOR_SCENE),
-        Some(p) if p.as_os_str() == "outlet" && !p.exists() => scene::Scene::parse(scene::OUTLET_SCENE),
-        Some(p) if p.as_os_str() == "madness" && !p.exists() => scene::Scene::parse(scene::MADNESS_SCENE),
-        Some(p) if p.as_os_str() == "idle" && !p.exists() => scene::Scene::parse(scene::IDLE_SCENE),
+        Some(p) if !p.exists() && p.to_str().and_then(switcher::builtin).is_some() => scene::Scene::parse(p.to_str().and_then(switcher::builtin).unwrap_or_default()),
         Some(p) => scene::Scene::load(p),
         None if outlet_configured(args) => scene::Scene::parse(scene::OUTLET_SCENE),
         None => scene::Scene::parse(scene::IDLE_SCENE),
@@ -691,6 +701,8 @@ struct App {
     qfile: settings::QualityFile,
     presets: Presets,
     page: settings::Page,
+    /// #250: the scene switcher (F5)
+    switcher: switcher::Switcher,
     quality_note: String,
     modes: Vec<(u32, u32)>,
     /// #211: the outputs' MIDI for the conductor this frame (reused)
@@ -826,6 +838,39 @@ impl App {
             self.start_renderer(&w);
         }
         tracing::info!("reloaded '{}'", self.show.scene_name);
+    }
+
+    /// the playing scene as the switcher names it (`--scene`'s value; none = the default)
+    fn current_scene(&self) -> Option<&str> {
+        self.args.scene.as_deref().and_then(|p| p.to_str())
+    }
+
+    /// #250: F5 – the list on the scenes folder, the cursor on the playing scene (the settings page makes room)
+    fn open_switcher(&mut self) {
+        self.page.open = false;
+        let current = self.current_scene().map(str::to_owned);
+        self.switcher.open(&self.args.scenes, current.as_deref());
+        self.switcher.status.clear();
+    }
+
+    /// #250: Enter on a scene – loaded in place like a `--dev` reload (the window and the Live link's process stay; a
+    /// scene that doesn't build keeps the old one and the list says why), then written into deck.toml for the next boot
+    fn switch(&mut self, value: &str) {
+        let (old_scene, old_error) = (self.args.scene.clone(), self.error.take());
+        let started = Instant::now();
+        self.args.scene = Some(value.into());
+        self.reload();
+        if let Some(e) = self.error.take() {
+            self.args.scene = old_scene;
+            self.error = old_error;
+            self.switcher.status = format!("NOT LOADED: {e}");
+            return;
+        }
+        self.switcher.status = match switcher::remember(&switcher::deck_toml(), value) {
+            Ok(()) => format!("LOADED {} IN {:.1}S", value.rsplit(['/', '\\']).next().unwrap_or(value), started.elapsed().as_secs_f32()),
+            Err(e) => format!("LOADED, NOT SAVED: {e}"),
+        };
+        tracing::info!("switcher: {value} ({})", self.switcher.status);
     }
 
     /// #220: the governor's rung into the renderer (a resize only when the scale changed); a deck tells the session
@@ -998,6 +1043,12 @@ impl App {
             return; // the browser has the screen; the next frame comes when it closes
         }
         self.poll_watch();
+        if self.stats.frames >= 30 {
+            if let Some(name) = self.args.switch_to.take() {
+                self.switch(&name);
+                return;
+            }
+        }
         if self.exit != 0 {
             el.exit();
             return;
@@ -1086,11 +1137,14 @@ impl App {
             self.stats.window = (0, 0.0);
         }
         // a scene that can't be played is explained even without the HUD
-        let hud_on = self.args.hud || self.error.is_some() || self.page.open;
+        let hud_on = self.args.hud || self.error.is_some() || self.page.open || self.switcher.open;
         if hud_on && time - self.hud_at >= 0.25 || self.stats.frames == 0 || self.hud_at < 0.0 {
             self.hud_at = time;
             // #220: the settings page instead of the HUD's lines, its cursor's line lit
-            let (lines, cursor) = if self.page.open {
+            let (lines, cursor) = if self.switcher.open {
+                let (l, c) = self.switcher.lines(self.current_scene());
+                (l, Some(c))
+            } else if self.page.open {
                 let now = self.governor.as_ref().map_or(String::new(), |g| format!("{} {:.2} {:.0}MS", g.level().name().to_uppercase(), g.scale(), g.frame_ms()));
                 let (l, c) = self.page.lines(&self.presets, &now, &self.modes, &self.quality_note);
                 (l, Some(c))
@@ -1110,7 +1164,7 @@ impl App {
             self.hud.set_lines(lines);
             self.hud.set_items(self.bar_items());
         }
-        if self.error.is_some() || self.page.open {
+        if self.error.is_some() || self.page.open || self.switcher.open {
             self.hud.mode = hud::Mode::Full;
         }
         match self.hud.mode {
@@ -1534,6 +1588,26 @@ impl ApplicationHandler<Event> for App {
     }
 
     fn window_event(&mut self, el: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
+        // #250: the open scene list takes the keys
+        if let WindowEvent::KeyboardInput { event: k, .. } = &event {
+            if self.switcher.open && k.state == ElementState::Pressed && !matches!(k.logical_key.as_ref(), Key::Named(NamedKey::F1 | NamedKey::F2 | NamedKey::F4 | NamedKey::F5)) {
+                let key = match k.logical_key.as_ref() {
+                    Key::Named(NamedKey::ArrowUp) => Some(switcher::Key::Up),
+                    Key::Named(NamedKey::ArrowDown) => Some(switcher::Key::Down),
+                    Key::Named(NamedKey::Enter) => Some(switcher::Key::Enter),
+                    Key::Named(NamedKey::Escape) => {
+                        self.switcher.open = false;
+                        None
+                    }
+                    _ => None,
+                };
+                self.hud_at = -1.0;
+                if let Some(entry) = key.and_then(|key| self.switcher.key(key)) {
+                    self.switch(&entry.value);
+                }
+                return;
+            }
+        }
         // #220: the open settings page takes the keys (the arrows, + / −, Space would turn the camera and the tempo)
         if let WindowEvent::KeyboardInput { event: k, .. } = &event {
             if self.page.open && k.state == ElementState::Pressed && !matches!(k.logical_key.as_ref(), Key::Named(NamedKey::F1 | NamedKey::F2 | NamedKey::F4)) {
@@ -1602,7 +1676,16 @@ impl ApplicationHandler<Event> for App {
                         let _ = self.qfile.save(&self.presets);
                         self.apply_quality();
                     }
+                    Key::Named(NamedKey::F5) => {
+                        if self.switcher.open {
+                            self.switcher.open = false;
+                        } else {
+                            self.open_switcher();
+                        }
+                        self.hud_at = -1.0;
+                    }
                     Key::Named(NamedKey::F4) => {
+                        self.switcher.open = false;
                         self.page.open = !self.page.open;
                         self.hud_at = -1.0;
                     }
@@ -1681,12 +1764,16 @@ fn run() -> Result<i32> {
         qfile,
         presets,
         page: { let mut p = settings::Page::default(); p.open = args_settings; p },
+        switcher: switcher::Switcher::default(),
         quality_note,
         modes: Vec::new(),
         #[cfg(feature = "outputs")]
         conductor_midi: Vec::new(),
     };
     app.watch = app.watch_files();
+    if app.args.switcher {
+        app.open_switcher();
+    }
     event_loop.run_app(&mut app)?;
     let summary = app.summary();
     tracing::info!("{summary}");
