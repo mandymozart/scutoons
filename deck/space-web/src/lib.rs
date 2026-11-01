@@ -10,20 +10,23 @@
 //! - **Assets:** the page fetches the set's .glb and the portraits (scene-content + the CDN) and lets the browser
 //!   decode the images (`encoded_images` → `give_set`, `portrait_requests` → `give_portrait`); the glb is parsed here.
 //! - **Input:** pointer and touch events go to the stage's own picking, drag and double click (`Space`).
+//! - **Rigs** (#191): `rig_play` – a character's rig played for a persona and a mood, as the page's scene and knobs.
 //! - **Controls (#209):** a tap selects a knob / the being / nothing (`take_tap`, `select` – a white ring), the knobs
 //!   face the camera (deck-space). `DeckControls` – deck-space's `controls` without a GPU (it works when the 3D can't):
 //!   what the selection gives the two corner sticks, the sticks' relative moves, MIDI learn and the mappings' text.
 //! - **GPU:** WebGPU when the browser has an adapter (wgpu's detection asks for one – a `navigator.gpu` without an
 //!   adapter, like the S22's Chrome, counts as none), else WebGL2; `prefer` = "webgl2" skips WebGPU.
-//! - **Quality (#220, deck-space quality.rs):** the page gives the display size (`resize`) and every frame's interval
-//!   (`govern`); the governor steps the rung, and the view sets the canvas' own size to the rung's render size – the
-//!   browser stretches it, the page's UI stays sharp, pointer positions are read in canvas pixels. `quality` for the
-//!   panel, `quality_report` = the `deck.quality` the page sends, `set_quality` the panel's choice.
+//! - **Quality (#220, deck-space quality.rs):** the page gives the display size (`resize`) and every drawn frame's
+//!   interval (`govern`; `due` = the preset's frame rate cap – an early frame is skipped); the governor steps the rung,
+//!   and the view sets the canvas' own size to the rung's render size – the browser stretches it, the page's UI stays
+//!   sharp, pointer positions are read in canvas pixels. `quality` for the panel, `quality_report` = the
+//!   `deck.quality` the page sends, `set_quality` the panel's level / Auto, `presets` / `set_presets` the settings
+//!   sheet's table (the same presets as the stage's quality file – TOML or JSON), `pixel_ratio` their pixel cap.
 #![cfg(target_arch = "wasm32")]
 
 use deck_space::controls::{Controls, Midi, Selection};
 use deck_space::graph::{Graph, Kind};
-use deck_space::quality::{self, Governor, Gpu, Level};
+use deck_space::quality::{Governor, Gpu, Level, Presets};
 use deck_space::scene::{Scene, CATHEDRAL_SCENE};
 use deck_space::space::being::Look;
 use deck_space::space::glb;
@@ -139,6 +142,22 @@ fn frame_for(space: &mut Space, w: u32, h: u32) {
     space.camera.fov_y = if aspect >= 1.0 { native } else { (2.0 * ((native * 0.5).tan() / aspect).atan()).min(75f32.to_radians()) };
 }
 
+/// A character's rig played for a persona and a mood (#191, deck-space `rig::Bundle`): `bundle` = the rig with its
+/// instruments and presets as JSON (scene-content's answer), `persona` / `mood` empty = none. Returns JSON: the
+/// flattened scene (`scene` TOML, `nodes`, `links`), `character`, `knobs` (path, label, min, max, value, log) and
+/// `tracks` (which preset each plays). The page calls it again on a mood change and applies what differs.
+#[wasm_bindgen]
+pub fn rig_play(bundle: &str, persona: &str, mood: &str) -> Result<String, JsValue> {
+    deck_space::rig::Bundle::play_json(bundle, persona, mood).map_err(|e| JsValue::from_str(&format!("{e:#}")))
+}
+
+/// The core rig of `subject` (`character.<id>` / `item.<id>`) the deck carries without an account (#191): the bundle as
+/// JSON for `rig_play`, empty when there is none.
+#[wasm_bindgen]
+pub fn core_rig(subject: &str) -> Result<String, JsValue> {
+    deck_space::rig::Bundle::core_json(subject).map_err(|e| JsValue::from_str(&format!("{e:#}")))
+}
+
 #[wasm_bindgen]
 pub struct SpaceView {
     space: Space,
@@ -158,6 +177,8 @@ pub struct SpaceView {
     canvas: web_sys::HtmlCanvasElement,
     display: (u32, u32),
     governor: Governor,
+    presets: Presets,
+    gpu_class: Gpu,
 }
 
 #[wasm_bindgen]
@@ -186,8 +207,11 @@ impl SpaceView {
             wgpu::Backend::Gl => "webgl2",
             _ => "other",
         };
-        let governor = Governor::new(Level::default_for(if backend == "webgpu" { Gpu::WebGpu } else { Gpu::WebGl2 }), true);
-        let (w, h) = quality::render_size(display, governor.rung().scale);
+        let gpu = if backend == "webgpu" { Gpu::WebGpu } else { Gpu::WebGl2 };
+        let presets = Presets::default();
+        let mut governor = Governor::with(&presets, gpu);
+        governor.set_display(display.0, display.1);
+        let (w, h) = governor.render_size();
         element.set_width(w);
         element.set_height(h);
         let (device, queue) = adapter
@@ -224,7 +248,7 @@ impl SpaceView {
         let meters = graph.nodes.iter().map(|n| vec![0.0; n.kind.outputs().len()]).collect();
         // a browser's WebGPU adapter often has no name (privacy): the backend alone then
         let adapter = if info.name.is_empty() { backend.to_string() } else { format!("{} ({backend})", info.name) };
-        Ok(SpaceView { space, graph, page, meters, beat: tempo::Now::default(), surface, device, queue, config, gpu: None, backend: backend.into(), adapter, canvas: element, display, governor })
+        Ok(SpaceView { space, graph, page, meters, beat: tempo::Now::default(), surface, device, queue, config, gpu: None, backend: backend.into(), adapter, canvas: element, display, governor, presets, gpu_class: gpu })
     }
 
     /// "webgpu" or "webgl2"
@@ -246,7 +270,8 @@ impl SpaceView {
 
     /// the canvas, the surface, the camera and the GPU's targets at the render size (only when it changed)
     fn fit(&mut self) {
-        let (w, h) = quality::render_size(self.display, self.governor.rung().scale);
+        self.governor.set_display(self.display.0, self.display.1);
+        let (w, h) = self.governor.render_size();
         if let Some(g) = self.gpu.as_mut() {
             g.set_quality(*self.governor.rung());
         }
@@ -374,7 +399,7 @@ impl SpaceView {
         changed
     }
 
-    /// #220: the quality now, for the panel – JSON { level, ceiling, auto, scale, frame, width, height }
+    /// #220: the quality now, for the panel – JSON { level, ceiling, auto, scale, frame, fps, width, height }
     pub fn quality(&self) -> String {
         let r = self.governor.report();
         serde_json::json!({
@@ -383,10 +408,55 @@ impl SpaceView {
             "auto": r.auto,
             "scale": r.scale,
             "frame": (r.frame_ms * 10.0).round() / 10.0,
+            "fps": self.governor.rung().fps,
             "width": self.config.width,
             "height": self.config.height,
         })
         .to_string()
+    }
+
+    /// #220: the preset's frame rate cap – draw now, `since_ms` after the last drawn frame? (false: skip this one)
+    pub fn due(&self, since_ms: f32) -> bool {
+        self.governor.due(since_ms)
+    }
+
+    /// #220: the presets as the stage's quality file (TOML) – the sheet's "Copy as text"
+    pub fn presets_text(&self) -> String {
+        self.presets.to_text()
+    }
+
+    /// #220: the presets as JSON (the settings sheet's table)
+    pub fn presets_json(&self) -> String {
+        serde_json::to_string(&self.presets).unwrap_or_default()
+    }
+
+    /// #220: presets from TOML (the stage's file, or only what it changes) – "" or why not (they stay as they were)
+    pub fn set_presets(&mut self, text: &str) -> String {
+        match Presets::parse(text) {
+            Ok(p) => self.use_presets(p),
+            Err(e) => e,
+        }
+    }
+
+    /// #220: presets from the sheet's JSON – "" or why not
+    pub fn set_presets_json(&mut self, json: &str) -> String {
+        match serde_json::from_str::<Presets>(json) {
+            // through the text: the same clamping as the file
+            Ok(p) => self.set_presets(&p.to_text()),
+            Err(e) => e.to_string(),
+        }
+    }
+
+    fn use_presets(&mut self, p: Presets) -> String {
+        self.presets = p;
+        self.governor.set_presets(&self.presets, self.gpu_class);
+        self.fit();
+        String::new()
+    }
+
+    /// #220: the presets' device pixels per CSS pixel at most (0 = none: the page's own cap)
+    pub fn pixel_ratio(&self) -> f32 {
+        self.presets.pixel_ratio.unwrap_or(0.0)
     }
 
     /// #220: the `deck.quality` to send now (JSON), or "" – at once on a change, else at most every 2 s
@@ -398,10 +468,12 @@ impl SpaceView {
     /// steps below it
     pub fn set_quality(&mut self, level: &str, auto: bool) {
         if let Some(l) = Level::parse(level) {
+            self.presets.level = Some(l);
             if l != self.governor.ceiling() {
                 self.governor.set_level(l);
             }
         }
+        self.presets.auto = auto;
         if auto != self.governor.auto() {
             self.governor.set_auto(auto);
         }
@@ -554,6 +626,14 @@ impl DeckControls {
     #[wasm_bindgen(constructor)]
     pub fn new(paths: Vec<String>) -> DeckControls {
         DeckControls { c: Controls::new(&paths), value: 0.0, learned: false }
+    }
+
+    /// Another deck's knobs (a rig's, or the fixed patch's again) and the being's stick pairs on them (#191): `sticks`
+    /// = x, y of the left stick then x, y of the right ("" = no axis); fewer than four = the defaults.
+    pub fn set_deck(&mut self, paths: Vec<String>, sticks: Vec<String>) {
+        let s = |i: usize| sticks.get(i).map_or("", String::as_str);
+        let pairs = (sticks.len() >= 4).then(|| [[s(0), s(1)], [s(2), s(3)]]);
+        self.c.set_deck(&paths, pairs);
     }
 
     /// `""` (the master section), `being`, `knob:<path>`, `object:<id>`

@@ -3,7 +3,7 @@
 use deck_stage::audio::{Build, Engine, Track};
 use deck_stage::control::Controls;
 use deck_stage::graph::Graph;
-use deck_stage::scene::{Scene, DEFAULT_SCENE};
+use deck_stage::scene::{Scene, MADNESS_SCENE};
 use deck_stage::tempo;
 use std::sync::Arc;
 use std::time::Instant;
@@ -105,7 +105,7 @@ fn control(name: &str, text: &str) {
 
 fn main() {
     println!("| workload, µs | patcher | batch | batch AVX2 |\n|---|---|---|---|");
-    audio("the default scene", DEFAULT_SCENE);
+    audio("the default scene", MADNESS_SCENE);
     audio("1 FM voice", &voices("fm", 1, false));
     audio("1 FM voice on a sequencer", &voices("fm", 1, true));
     audio("16 FM voices", &voices("fm", 16, false));

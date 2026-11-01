@@ -5,8 +5,8 @@
 # expired → a new code, by itself. Root, so the private key stays 0600 root; the user deck only reads the run directory.
 [Unit]
 Description=SCUTOONS deck link (identity, pairing, the deck token)
-After=deck-firstboot.service network-online.target
-Wants=network-online.target
+# not After=network-online.target: it retries by itself offline, and the boot's network comes later (#251)
+After=deck-firstboot.service
 
 [Service]
 ExecStart=/usr/bin/deck-link run

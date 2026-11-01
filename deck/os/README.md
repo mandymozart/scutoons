@@ -42,6 +42,7 @@ npm run deck:vm -- --docker   # no QEMU on the host: QEMU inside a container, sc
 `vm/run.sh` copies the ISO to `out/vm/stick.img` with 4 GiB free (so persistence can be seen on the second boot) and
 boots it as a USB stick with audio (intel-hda), a wired NIC, USB keyboard + tablet, 4 GB RAM. The serial console
 (`ttyS0`) is the terminal: a root shell for `journalctl -u deck-firstboot -u deck-kiosk`, `deck-check`, `deck-install`.
+The image does not enable `serial-getty@ttyS0`; the generator starts it only with `console=ttyS0` on the kernel line (the live entries, not an installed deck – #262).
 Without a terminal (an agent) the Docker mode logs the serial console to `out/vm/serial.log` and keeps it reachable
 with `docker exec <vm container> socat - UNIX-CONNECT:/tmp/deck-serial`; screenshots land in `out/vm/shot-*.png`.
 Without KVM (Docker Desktop on Windows has none) QEMU emulates the CPU: ~5 min to the kiosk, Chromium's first paint
@@ -72,18 +73,20 @@ browser's window is there.
 
 1. `deck-firstboot.service` – persistence (`deck-persist`), the defaults into `/var/lib/deck` (`venue.toml`,
    `deck.toml`), the local relay starts.
-2. `deck-wifi` – online already (wired, a remembered Wi-Fi) → 8 s countdown (under the splash: a message, any key
-   opens the menu); else **W** nmtui's picker, **H** the deck's
-   own hotspot (`deck-hotspot.nmconnection`: SSID `scutoons-deck`, key `scutoons-deck`, the deck is 10.42.0.1),
-   **N** no network, **S** a shell.
+2. The network (#251): a deck that **remembers** a network (a saved Wi-Fi or wired profile) goes straight on –
+   NetworkManager connects in the background while the stage starts; changing it later = `nmtui` on tty2. Only a
+   deck that knows none runs `deck-wifi`: online within 6 s (a cable) → on; else the menu – **W** nmtui's picker,
+   **H** the deck's own hotspot (`deck-hotspot.nmconnection`: SSID `scutoons-deck`, key `scutoons-deck`, the deck is
+   10.42.0.1), **N** no network, **S** a shell.
 3. `deck-check` – the report on screen, `/var/lib/deck/machine.toml` (class + features; CYBERDECKS.md §1). Once per
    stick; `deck.recheck` on the kernel line or `deck-check` in a shell re-runs it. Everything degrades with a warning
    (no Vulkan, software Vulkan, no audio device = the feature off, the kiosk still starts); only a machine without any
    display device leaves a root shell instead of the kiosk.
-   Then the deck's key and its code to pair with ("Pairing" below); `deck-link.service` keeps it paired.
+   Then the deck's key and – on its first boot only – its code to pair with ("Pairing" below); after that
+   `deck-link.service` pairs and keeps it paired in the background (the boot never waits for the handshake).
 4. `deck-kiosk.service` – `cage` runs `deck-session` as the user `deck`, which plays `kiosk` from
    `/var/lib/deck/deck.toml`: **`stage`** (the default) = `deck-stage` (deck/stage/README.md) with `scene` (empty = the
-   built-in "AV madness": catpope 1's slices, captions and music + synths, the FFT drives the picture; its cache in
+   built-in idle scene – fireflies on black, no sound (#252); `scene = "madness"` = "AV madness": catpope 1's slices, captions and music + synths, the FFT drives the picture; its cache in
    `/var/lib/deck/cache`); **F2** opens Chromium on the page `conductor` names (empty = the deck's own start page: the
    machine report, the relay's `/status`, the link to the conductor) on top of the stage, which shows the logo until
    Chromium's window covers it, then pauses and mutes; closing Chromium (Ctrl+Shift+W) shows the stage at once. A
@@ -133,19 +136,71 @@ private addresses only), so the X1 at 192.168.1.116 is `wss://192-168-1-116.lan.
 (a broken pair) is followed by a plain one. The owner's whole path (bunny zone, the workflow, the router's DNS-rebind
 exception): research/LIVE.md B.4.
 
+## Updates (#237)
+
+A deck updates over the network – no stick. `deck-update` (deck/update) takes a **signed bundle**: `manifest.json`
+(version, build = unix seconds, channel, every file's SHA-256 + mode), `manifest.json.sig` (Ed25519 over the manifest)
+and `bundle-<build>.tar.gz`. It writes only the deck's own paths (`usr/bin/deck-*`, `usr/lib/systemd/system/deck-*`,
+the deck's sysusers / tmpfiles, `usr/share/deck/`) – never `etc/`, never the base system (kernel, packages: an ISO or,
+later, pacman).
+
+**From the dev PC:** `npm run deck:update` (deck/os/update.sh) builds the Linux binaries in the ISO build's container
+(`DECK_BINARIES_ONLY=1`), bundles them with this folder's `rootfs/` and the stage's scenes, signs with the dev key
+(`~/.scutoons/deck-update.key`, made on first use – never in git; its public half is `rootfs/usr/share/deck/update-keys`)
+into `out/update/`, and serves that folder on port 7790 (`-- --serve` only serves, `-- --no-build` re-bundles,
+`-- --reboot` makes the decks reboot). While developing: one terminal keeps `-- --serve` running, the other publishes
+each change with `-- --no-serve` (the server reads the folder on every request). Windows' firewall needs an inbound
+rule for TCP 7790 on private networks once (an admin PowerShell: `New-NetFirewallRule -DisplayName "SCUTOONS
+deck-update" -Direction Inbound -Protocol TCP -LocalPort 7790 -Action Allow -Profile Private`).
+
+**On the deck:** `deck-update.timer` runs `deck-update auto` every 2 minutes. Channel `dev` (deck.toml
+`update_channel`, the default until a stable release exists) asks deck.toml's `update_url`, the dev PC that answered
+last, the deck's LAN (every host of its private /24s on port 7790; the timer scans at most every 5 minutes, `now` at once)
+and `https://cdn.scutoons.com/deck/update/dev`; `stable` only the server, every 6 h; `off` nothing. The newest build
+whose signature matches a trusted key (`/usr/share/deck/update-keys`, `/var/lib/deck/update-keys`) and whose channel
+matches wins, when it is newer than `/usr/share/deck/build.json` (the image build writes it). Then: download, hash
+check, every tar entry checked against the manifest, files replaced by rename, `daemon-reload` when units changed,
+the services of the changed files restarted (link → relay → bridge → kiosk = the stage with its scene; the kiosk's
+tty1 is switched to the front first – cage only takes the screen there); a restarted unit that is not up within 2
+minutes, or not for 15 s without systemd restarting it, rolls the files back, and the timer never tries that build again. **Never during a
+show:** a conductor on the deck's relay (`/status` `live`) holds the update back. A live stick keeps the applied bundle
+in `/var/lib/deck/update/current` (DECKDATA) and `deck-firstboot` puts it back after each boot.
+A file the previous bundle listed and the new one drops is removed from the deck (only under the allowed paths; its old
+copy goes to `previous/` for the rollback; a removed unit gets a `daemon-reload` only).
+
+On tty2 / ssh (root): `deck-update status` · `check` · `now` (at once; `--force` also during a show or a rolled-back
+build; `--url http://<pc>:7790` for this run) · `trust <hex>` (another key). A deck from an image before #237 has no
+deck-update yet – once, on tty2, the commands `npm run deck:update` prints (curl the binary from the PC, `deck-update
+trust <the dev key>`, `deck-update now --url …`); the first bundle brings the timer.
+
 ## Install to a partition
 
-`sudo deck-install` on the stick (a shell on tty2 or the serial console). It lists the machine's partitions (the
-stick excluded), the user picks one by number and confirms by typing its name, optionally picks an EFI system
-partition; then mkfs.ext4 → unsquashfs the live root → the live-only bits removed → fstab → mkinitcpio → a
-systemd-boot entry on the ESP. It never creates or resizes partitions: make the partition first (cfdisk). The
-installed deck boots the same flow (the check runs once, then the kiosk). Not yet tested on real hardware.
+`sudo deck-install` on the stick (a shell on tty2 or the serial console). It lists the machine's partitions with their
+type, file system and label (the stick excluded), the user picks one by number and confirms by typing its name (an ESP
+or a Windows / BitLocker partition is refused), optionally picks an EFI system partition – each shown with its free
+space and whether it holds Windows' boot manager; an empty one is formatted as FAT32 `DECKESP` on request, Windows' own
+needs a `yes`, one with less than 150 MB free is refused. Every question comes before the first write. Then mkfs.ext4 →
+unsquashfs the live root → the live-only bits removed → the kernel from `/usr/lib/modules/*/vmlinuz` to
+`/boot/vmlinuz-<pkgbase>` (mkarchiso empties the root's /boot – without it mkinitcpio has no kernel) → fstab →
+mkinitcpio → a systemd-boot entry on the ESP, and the boot-order advice. It never creates or resizes partitions: make
+them first (cfdisk). The installed deck boots the same flow (the check runs once, then the kiosk).
+
+Next to Windows (the X1, #200): an ESP of its own (256M, type EFI System – 100 MB is the real floor, the installer refuses
+< 150 MB free) next to Windows' – Windows' ESP stays untouched; Windows then starts with F12 → Windows Boot Manager. The
+firmware entry is written by `bootctl` run on the live system, not in the chroot (only there it reaches the EFI
+variables). **Run on the owner's X1 on 2026-11-01** (s7 stick, 16.4 GB root + the 256M ESP in the space freed from C:):
+it installed, the deck booted from the NVMe, the Wi-Fi was remembered. Findings of that run, all fixed here: with
+`copytoram` (archiso's default at 16 GB RAM) the root image is in `/run/archiso/copytoram/`, not on the stick; the first
+run had no boot entry in the firmware (bootctl in the chroot) – from the shell `mount /dev/nvme0n1p4 /mnt/esp && bootctl
+--esp-path=/mnt/esp install` registers it. A restart of `deck-kiosk` from the boot menu's own shell hangs (the kiosk
+requires deck-firstboot, which still waits on that shell) – `exit` it instead.
 
 ## Layout
 
 ```
 deck/os/
   build.sh             the host wrapper (npm run deck:iso) – Docker, volumes, paths
+  update.sh            a remote update for the LAN's decks (npm run deck:update) – binaries, bundle, serve (#237)
   container/build.sh   inside the container: packages → cargo → releng + overlays → mkarchiso
   profile/             what differs from releng: packages.x86_64, pacman.conf, profiledef.deck.sh, airootfs/ (live only)
   rootfs/              the deck as installed on any system (ISO and PKGBUILD): usr/bin/deck-*, systemd units,

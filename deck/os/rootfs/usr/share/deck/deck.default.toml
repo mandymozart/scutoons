@@ -3,13 +3,12 @@
 # What the kiosk plays: "stage" = deck-stage, the native AV app (F2 opens the browser, closing it returns); "browser" =
 # Chromium only, on the conductor page.
 kiosk = "stage"
-# The stage's scene: a scene TOML (e.g. /usr/share/deck/scenes/test-pattern.toml). Empty = the built-in "AV madness".
+# The stage's scene: a scene TOML (e.g. /usr/share/deck/scenes/test-pattern.toml) or a built-in name (cathedral, madness,
+# idle …). Empty = the built-in idle scene: fireflies on black, no sound (#252).
 scene = ""
 # The page the browser opens. Empty = the deck's own start page (the machine report + relay status + a link to the
 # conductor). A session's conductor is https://scutoons.com/live/<code>/conduct (LIVE.md B.7).
 conductor = ""
-# Seconds deck-wifi waits on an already online deck before it goes on without asking.
-wifi_wait = 8
 # The Live relay with the session code. Empty = the hosted relay wss://live.scutoons.com/live/CATH (#199) – joined only
 # when the scene joins a session (the Cathedral's `join` = deck / conductor) or an outlet is set; a venue's own relay:
 # `deck-set relay ws://<host>:7700/live/<code>`.
@@ -23,3 +22,8 @@ locale = ""
 # lead; false = in the device callback). `--audio-buffer` / `--audio-thread` win over these.
 audio_buffer = 0
 audio_thread = true
+# Remote updates (#237, deck/os/README.md "Updates"): "dev" = the dev PC on the LAN (`npm run deck:update`, found by a
+# scan for port 7790; the server's dev folder too), "stable" = the server only, "off". `update_url` = a fixed source,
+# asked first (e.g. "http://192.168.1.50:7790"). Never during a show; `deck-update now` on tty2 at once.
+update_channel = "dev"
+update_url = ""

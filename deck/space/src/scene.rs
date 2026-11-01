@@ -4,11 +4,13 @@
 //! being's look when the scene has a `space` node (space/being.rs, #188 – with the graph it is what a being preset
 //! saves, #191).
 use anyhow::{Context, Result};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-/// The scene the stage plays when none is given: catpope 1's music + a synth, the FFT drives the test pattern.
-pub const DEFAULT_SCENE: &str = include_str!("../../stage/scenes/default.toml");
+/// The scene the stage plays when none is given (#252): fireflies on black, no sound, no network – the deck idles.
+pub const IDLE_SCENE: &str = include_str!("../../stage/scenes/idle.toml");
+/// "AV madness" (`--scene madness`; the default until #252): catpope 1's music + a synth, the FFT drives the test pattern.
+pub const MADNESS_SCENE: &str = include_str!("../../stage/scenes/madness.toml");
 /// The Cathedral of decks (#188): the set `cathedral` from Cat Pope chapter 2 and this deck's being in it.
 pub const CATHEDRAL_SCENE: &str = include_str!("../../stage/scenes/cathedral.toml");
 /// Its conductor (#188 phase 4): the bigger being in the middle of the nave, PLF's portrait as its head, the decks' beings
@@ -59,7 +61,7 @@ impl Default for StageSettings {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct NodeDef {
     pub id: String,
     pub kind: String,
@@ -68,7 +70,7 @@ pub struct NodeDef {
     pub params: toml::Table,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LinkDef {
     pub from: String,
@@ -125,7 +127,7 @@ mod tests {
 
     #[test]
     fn the_default_scene_parses() {
-        let s = Scene::parse(DEFAULT_SCENE).unwrap();
+        let s = Scene::parse(MADNESS_SCENE).unwrap();
         assert!(s.nodes.iter().any(|n| n.kind == "chapter_music"));
         assert!(s.nodes.iter().any(|n| n.kind == "screen"));
     }

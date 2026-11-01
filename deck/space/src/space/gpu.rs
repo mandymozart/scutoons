@@ -18,7 +18,7 @@ use super::label::{self, Atlas, Label, LABELS};
 use super::glb::{Image, Model, RoomVertex};
 use super::post::Effect;
 use super::post_gpu::{Pipes, PostGpu};
-use crate::quality::{Rung, LADDER};
+use crate::quality::Rung;
 use super::{Space, MAX_LIGHTS};
 use glam::Vec3;
 
@@ -380,7 +380,7 @@ impl SpaceGpu {
                 p.resize(device, size);
                 p
             }),
-            quality: LADDER[LADDER.len() - 1],
+            quality: Rung::default(),
         }
     }
 

@@ -51,11 +51,12 @@ mod tests {
     #[test]
     fn the_bundled_scenes() {
         let one = |n: &str| features([&scene(n)], false).unwrap();
-        assert_eq!(one("default"), ["chapter"]);
+        assert_eq!(one("madness"), ["chapter"]);
+        assert!(one("idle").is_empty(), "#252: the idle scene is the core alone");
         assert_eq!(one("cathedral"), ["chapter", "space"]);
         assert!(one("test-pattern").is_empty(), "the core alone");
         assert_eq!(one("strobe"), ["outputs"], "#211: the [outputs] table");
-        let all: Vec<String> = ["default", "cathedral", "test-pattern"].map(scene).into();
+        let all: Vec<String> = ["madness", "cathedral", "test-pattern"].map(scene).into();
         assert_eq!(features(&all, false).unwrap(), ["chapter", "space"]);
     }
 

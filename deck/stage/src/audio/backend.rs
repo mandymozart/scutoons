@@ -445,6 +445,68 @@ fn pipewire(_: &Options, _: &mut Factory) -> Result<Running> {
     bail!("built without the pipewire feature")
 }
 
+/// the length of a stream's fade in and out (#250: a scene switch no longer leaves the old scene's sound playing)
+#[cfg(all(target_os = "linux", feature = "pipewire"))]
+const FADE_SECS: f32 = 0.25;
+
+/// A gain ramp on the device's cycles: up from silence while open, down to silence once closing.
+pub struct Fade {
+    gain: f32,
+    step: f32,
+}
+
+impl Fade {
+    pub fn new(rate: f32, secs: f32) -> Fade {
+        Fade { gain: 0.0, step: 1.0 / (rate * secs).max(1.0) }
+    }
+
+    /// Scales `out` (interleaved, `channels` per frame) by the ramp; true once closing and fully silent.
+    pub fn apply(&mut self, out: &mut [f32], channels: usize, closing: bool) -> bool {
+        for frame in out.chunks_exact_mut(channels.max(1)) {
+            self.gain = if closing { (self.gain - self.step).max(0.0) } else { (self.gain + self.step).min(1.0) };
+            for x in frame {
+                *x *= self.gain;
+            }
+        }
+        closing && self.gain == 0.0
+    }
+}
+
+/// Dropping the PipeWire backend fades the stream out (≈ 0.25 s), ends its loop and joins the thread – bounded: a loop
+/// that doesn't answer is logged and left behind, the frame thread waits ~0.5 s at most.
+#[cfg(all(target_os = "linux", feature = "pipewire"))]
+struct PipewireStop {
+    closing: Arc<AtomicBool>,
+    silent: Arc<AtomicBool>,
+    quit: pipewire::channel::Sender<()>,
+    thread: Option<std::thread::JoinHandle<()>>,
+}
+
+#[cfg(all(target_os = "linux", feature = "pipewire"))]
+impl Drop for PipewireStop {
+    fn drop(&mut self) {
+        let wait = |ok: &dyn Fn() -> bool, ms: u64| {
+            let end = std::time::Instant::now() + Duration::from_millis(ms);
+            while !ok() && std::time::Instant::now() < end {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            ok()
+        };
+        self.closing.store(true, Ordering::Relaxed);
+        if !wait(&|| self.silent.load(Ordering::Relaxed), 400) {
+            tracing::warn!("audio: the PipeWire stream did not fade out in time");
+        }
+        let _ = self.quit.send(());
+        if let Some(t) = self.thread.take() {
+            if wait(&|| t.is_finished(), 150) {
+                let _ = t.join();
+            } else {
+                tracing::warn!("audio: the PipeWire loop did not end – left behind");
+            }
+        }
+    }
+}
+
 /// PipeWire: an output stream at 48 kHz / f32 / stereo with a latency request of the buffer setting (default 128
 /// frames, the deck's quantum, rootfs/etc/pipewire), processed on PipeWire's realtime data thread (RT_PROCESS).
 #[cfg(all(target_os = "linux", feature = "pipewire"))]
@@ -458,8 +520,13 @@ fn pipewire(o: &Options, factory: &mut Factory) -> Result<Running> {
     let shown = latency.clone();
     // the ring + render thread (#208) also here when on: the X1's quantum of 128 leaves the callback 2.7 ms
     let mut direct = Feed::new(factory(RATE as f32)?, o.thread, Some(quantum))?;
-    let (ready_tx, ready_rx) = std::sync::mpsc::channel::<Result<(), String>>();
-    std::thread::Builder::new().name("pipewire".into()).spawn(move || {
+    let (ready_tx, ready_rx) = std::sync::mpsc::channel::<Result<pw::channel::Sender<()>, String>>();
+    // the stream fades in on its first cycles and out when the Running is dropped (#250): `closing` asks, `silent` answers
+    let closing = Arc::new(AtomicBool::new(false));
+    let silent = Arc::new(AtomicBool::new(false));
+    let (closing_cb, silent_cb) = (closing.clone(), silent.clone());
+    let mut fade = Fade::new(RATE as f32, FADE_SECS);
+    let thread = std::thread::Builder::new().name("pipewire".into()).spawn(move || {
         let run = || -> Result<(), pw::Error> {
             pw::init();
             let mainloop = pw::main_loop::MainLoopRc::new(None)?;
@@ -505,6 +572,9 @@ fn pipewire(o: &Options, factory: &mut Factory) -> Result<Running> {
                                 let all = samples.len() / CHANNELS;
                                 let n = if requested > 0 { requested.min(all) } else { all };
                                 direct.play(&mut samples[..n * CHANNELS], CHANNELS, heard, |x| x);
+                                if fade.apply(&mut samples[..n * CHANNELS], CHANNELS, closing_cb.load(Ordering::Relaxed)) {
+                                    silent_cb.store(true, Ordering::Relaxed);
+                                }
                                 n
                             }
                             Err(_) => 0,
@@ -543,7 +613,15 @@ fn pipewire(o: &Options, factory: &mut Factory) -> Result<Running> {
                 pw::stream::StreamFlags::AUTOCONNECT | pw::stream::StreamFlags::MAP_BUFFERS | pw::stream::StreamFlags::RT_PROCESS,
                 &mut params,
             )?;
-            let _ = ready_tx.send(Ok(()));
+            // the drop's quit: a message into the loop's thread ends `run`
+            let (quit_tx, quit_rx) = pw::channel::channel::<()>();
+            let weak = mainloop.downgrade();
+            let _quit = quit_rx.attach(mainloop.loop_(), move |_| {
+                if let Some(m) = weak.upgrade() {
+                    m.quit();
+                }
+            });
+            let _ = ready_tx.send(Ok(quit_tx));
             mainloop.run();
             Ok(())
         };
@@ -552,9 +630,9 @@ fn pipewire(o: &Options, factory: &mut Factory) -> Result<Running> {
         }
     })?;
     match ready_rx.recv_timeout(Duration::from_secs(3)) {
-        Ok(Ok(())) => {
+        Ok(Ok(quit)) => {
             tracing::info!("audio: PipeWire stream 'deck-stage', {RATE} Hz, latency {shown}");
-            Ok(Running { name: "pipewire", rate: RATE, _keep: Box::new(()) })
+            Ok(Running { name: "pipewire", rate: RATE, _keep: Box::new(PipewireStop { closing, silent, quit, thread: Some(thread) }) })
         }
         Ok(Err(e)) => bail!("{e}"),
         Err(_) => bail!("no answer from PipeWire within 3 s"),
@@ -566,6 +644,23 @@ mod tests {
     use super::*;
 
     /// #208: a buffer outside the device's range is clamped to its nearest end, with a reason for the log
+    #[test]
+    fn a_fade_ramps_up_then_down_to_silence() {
+        let mut f = Fade::new(1000.0, 0.1);
+        let mut a = [1.0f32; 400];
+        assert!(!f.apply(&mut a, 2, false));
+        assert!(a[0] < 0.02 && a[1] < 0.02, "starts from silence");
+        assert!((a[399] - 1.0).abs() < 1e-6, "full after the ramp: {}", a[399]);
+        let mut b = [1.0f32; 400];
+        assert!(f.apply(&mut b, 2, true));
+        assert!(b[0] > 0.9 && b[399] == 0.0, "down to silence");
+        // closing from the middle of the ramp-up never goes negative
+        let mut g = Fade::new(1000.0, 0.1);
+        g.apply(&mut [1.0f32; 40], 2, false);
+        let mut c = [1.0f32; 400];
+        assert!(g.apply(&mut c, 2, true) && c.iter().all(|x| *x >= 0.0));
+    }
+
     #[test]
     fn the_buffer_is_clamped_to_the_supported_range() {
         assert_eq!(pick_buffer(256, Some((64, 2048))), (256, None));

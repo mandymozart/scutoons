@@ -1,0 +1,14 @@
+# Cameo Thunder Wash 600 RGBW (CLTW600RGBW), DMX mode 4CH_1 (#261): four channels, no strobe channel, so nothing the deck
+# sends can start the lamp's own strobe. Source: Cameo's user manual (REV 04, "DMX CONTROL", 4-CH Mode_1), confirmed on
+# the owner's lamp 2026-11-01 (ch 1 = 25, the others 0: a steady dim red).
+#   CH1 Red · CH2 Green · CH3 Blue · CH4 White – each 0-255 = 0-100 %.
+# On the lamp: menu DMX Mode 4CH_1, confirmed with ENTER, DMX address 001 (a scene places this profile at its address).
+# The other modes are not profiled: the owner's 7CH_1 does not follow the manual (it strobed with CH1 above 0), so the
+# dimmer / strobe modes stay unused. A flash on this fixture is a pulse of the colour channels (outputs.map `gain`).
+name = "thunderwash-600-rgbw"
+
+[channels]
+red = 1
+green = 2
+blue = 3
+white = 4

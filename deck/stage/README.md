@@ -16,7 +16,7 @@ below). Open: S4–S6 (#179), #188's body parts and the browser scene.
 cd deck && cargo run --release -p deck-stage -- --windowed
 ```
 
-`--scene FILE` (default: the built-in `scenes/default.toml`, "AV madness"; `--scene cathedral` / `conductor` = the
+`--scene FILE` (default: the built-in `scenes/idle.toml` – fireflies on black, no sound, no network (#252); `--scene madness` = "AV madness"; `--scene cathedral` / `conductor` = the
 built-in `scenes/cathedral.toml` / `conductor.toml`) · `--sets DIR` (a local folder of sets instead of the synced
 `<cache>/sets`, `DECK_SETS` – e.g. `../media/scutoons/rooms`, tools/rooms' output) · `--portraits DIR` (a local folder
 of the heads' sprites instead of the synced `<cache>/portraits`, `DECK_PORTRAITS` – e.g. `../media/characters`) ·
@@ -33,15 +33,17 @@ window pixel for a check run – a hovered button shows in the HUD; or `--pointe
 The graph's workloads: `cargo bench -p deck-stage` (patcher | batch | batch AVX2, µs per block).
 
 Keys: **F1** the HUD → the collapsed stats bar (#209: one line across the whole top edge – FPS, CPU / frame, the audio's
-glitches / DSP load / limiter, the relay, the GPU backend; red when out of the green) → nothing · **F2** the browser · **Ctrl+Q** quit (on the deck the stage starts again) · **Ctrl+Alt+Del** power off (`systemctl
+glitches / DSP load / limiter, the relay, the GPU backend; red when out of the green) → nothing · **F2** the browser · **Ctrl+Q** quit (on the deck the stage starts again; a stop signal – SIGTERM, Ctrl+C – ends the same way, outputs dark, #263) · **Ctrl+Alt+Del** power off (`systemctl
 poweroff`, the logo stays up; not in a `--windowed` stage) · Esc quits a `--windowed` stage · the tempo clock: **T** tap ·
 **+ / −** BPM · **Space** start / stop · **F3** the next source (internal → MIDI → Link → OSC → relay) · **K** the click · **F4** the
-render quality's level, **Shift+F4** its governor on / off ("Quality" below). In a scene with a `space` node: a **mouse drag** turns the camera around the being (or, on a 3D
+quality settings page, **Shift+F4** the governor on / off ("Quality" below) · **F5** the scene list ("Scenes" below). **Volume up / down / mute** (the hardware keys, `volume.rs`, #253): the PipeWire default sink's volume in 5 % steps up to 100 % (`wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+ -l 1.0`, `set-mute … toggle`) – so Chromium (F2) follows too – and `VOL ######.... 60%` / `VOL MUTED 60%` for about a second on the HUD, also with the HUD off (the bar appears for that second); WirePlumber keeps the level across reboots. `--show-volume` keeps the overlay on (a check run's screenshot). In a scene with a `space` node: a **mouse drag** turns the camera around the being (or, on a 3D
 button, pulls it along its tether – out = more; a double click: back to the scene's value; a finger the same), the **wheel** / **↑ ↓** zoom, **← →** turn, **R** the camera's home; the pointer stays
 visible in the kiosk then. The HUD names the keys. F2 with `DECK_BROWSER` set (deck-session sets it to `deck-session browser`) starts that command on
 top of the running stage: the logo comes up until the browser's window takes the focus (cage shows the newest window),
 then the stage stops drawing and mutes; when the command exits the stage is back at once. Without `DECK_BROWSER` F2
-quits with exit code 10.
+quits with exit code 10. If the display connection dies (cage went away) the stage logs "display lost" and exits with
+code **75** at once; `deck-session` ends on it with a non-zero exit, so deck-kiosk (Restart=on-failure) brings the
+kiosk back – no browser on a dead display (#257).
 
 **Gamepad** (#228: the feature `gamepad`, `cargo run --release -p deck-stage --features gamepad -- --windowed`; gilrs – a
 pad system that can't start is logged and the stage plays without one): the left stick drives the left stick of the
@@ -74,6 +76,7 @@ the basic audio nodes (`osc`, `noise`, `fm`, `seq`, `click`, `mixer`, `fft`, `au
 | Feature | Adds | Dependencies |
 |---|---|---|
 | `space` | the `space` kind (a set's 3D + the being, #188) | glam, image/webp, serde_json |
+| `events` | the `walk` and `events` kinds – generators that talk in events, their sequencer and dispatcher threads (#236, research/EVENTS.md) | deck-events |
 | `sync` | the scene's sets and portraits from the API into the cache (#195 – below); no node kind | ureq, serde_json |
 | `chapter` | `chapter`, `chapter_music` (the library API + cache) | ureq, symphonia, ab_glyph, image/webp |
 | `live` | `outlet` (a Live outlet, #186 – below) | `chapter`, protocol, tungstenite |
@@ -84,7 +87,7 @@ the basic audio nodes (`osc`, `noise`, `fm`, `seq`, `click`, `mixer`, `fft`, `au
 | `pipewire` | the PipeWire backend (Linux) | pipewire (clang) |
 | `gamepad` | a gamepad on the space's sticks (#228 – below) | gilrs (libudev at build time on Linux) |
 
-Default = `space`, `sync`, `chapter`, `live`, `midi`, `osc`, `outputs` – a plain build plays every bundled scene. The table lives in deck-core
+Default = `space`, `sync`, `chapter`, `live`, `midi`, `osc`, `outputs`, `events` – a plain build plays every bundled scene. The table lives in deck-core
 (`core/src/stage.rs`, data only); `src/modules.rs` says which modules this build carries. A scene that needs a module
 the build lacks is refused at load with the feature's name (`this build of the stage does not carry the module 'space'
 (node space) – build deck-stage with --features space`): the stage plays the test pattern and shows that in the HUD –
@@ -124,6 +127,19 @@ A live tool may not crackle unnoticed, and should not crackle at all:
 - **Priority** (`src/audio/priority.rs`): the render thread – or the callback's thread when it renders (WASAPI, ALSA;
   not ASIO's, that is the driver's) – at Windows MMCSS "Pro Audio" (high), Linux SCHED_FIFO 70 (the deck's user is in
   `realtime`; PipeWire's own threads at 88 through rtkit).
+- **Events** (#236, `src/audio/sequencer.rs`, `dispatch.rs`; research/EVENTS.md §16): no generator code on the
+  render thread. The `walk` / `events` hosts' patches run on the **sequencer** thread (`events-seq`) in windows of 256
+  frames, ahead of the render by the device's buffer + the lead + a block; each host's notes go into its own SPSC ring
+  (rtrb) at absolute frames (the engine's frame counter – one timebase), and the host's block only takes the events of
+  the frames it renders and writes the cv. A window the render already passed is dropped (counted late); a full ring
+  makes the sequencer wait. The **dispatcher** thread (`events-dispatch`) owns the routing table (deck-events
+  route.rs): adapters push into a bounded MPSC queue (`Inlet::send`, never blocks), it fans each event out by name or
+  domain to the patches' `listen = [{ to = "arp.notes", name = "music.note" }]` inputs (one SPSC ring each); a patch
+  change swaps the immutable table through the same queue – no lock on any hot path. Both threads at high, not audio,
+  priority (Windows THREAD_PRIORITY_HIGHEST, Linux nice −10). Drops (capped, hops, refused compound events, late): the
+  HUD's `EVENTS IN n DROP m`, a `--frames` run's `events_dropped=`. `DECK_EVENTS=block` runs the patches inside the
+  block instead (the fallback; `Engine::build_with` in tests) – the same samples (tests/walk.rs), both allocation-free
+  (tests/no_alloc.rs). Measured: send → receiver's ring ≈ 1.4 µs median, 41 µs p99 (dispatch.rs test).
 - **The buffer** (`--audio-buffer N` · deck.toml `audio_buffer` · the scene's `[stage] audio_buffer`, in that order):
   cpal's `BufferSize::Fixed(N)` clamped to the device's range (a log line says so), a refused one falls back to the
   default; PipeWire's latency request (default 128). **WASAPI shared can only grow it**: on the RME the engine runs a
@@ -167,7 +183,7 @@ An input takes one link; an output feeds any number. Every control input can als
 | Kind | Inputs | Outputs | Params |
 |---|---|---|---|
 | `test_pattern` | speed, zoom, hue, pulse (control) | out (video) | – |
-| `shader` | in (video), a, b, c, d (control) | out (video) | `effect` = `kaleido` · `rgb_shift` · `invert` · `pass`, or `wgsl` = a file defining `fn effect(uv: vec2<f32>) -> vec4<f32>` (bindings: shaders/common.wgsl) |
+| `shader` | in (video), a, b, c, d (control) | out (video) | `effect` = `kaleido` · `rgb_shift` · `invert` · `pass` · `fireflies` (draws on its own – a brightness, b drift speed, c size, d how many; the idle scene, #252), or `wgsl` = a file defining `fn effect(uv: vec2<f32>) -> vec4<f32>` (bindings: shaders/common.wgsl) |
 | `chapter` | in (video), next, hold, zoom, pulse (control) | out (video), text (video) | `toon`, `chapter`, `quality` = low · medium · high, `dialog` (true: set the dialog in), `start` (slice index), `threshold` (0.6), `min_hold` (1.5 s), `quantize` = off · beat · bar (a due cut waits for the tempo clock's next beat / bar); `hold` default 6 s |
 | `overlay` | in, top (video), opacity, pulse, shake (control) | out (video) | – |
 | `screen` | in (video) | – | the window (one per scene) |
@@ -178,6 +194,7 @@ An input takes one link; an output feeds any number. Every control input can als
 | `noise` | cutoff, gain | out | `color` = white · pink, `q` |
 | `fm` | cv, freq, ratio, index, gain | out | `attack`, `release` |
 | `seq` | rate | cv (audio: pitch Hz left, gate 0 / 1 right) | `steps` = MIDI notes (0 = rest), `division` (steps per beat), `gate`, `transpose`; on the tempo clock (step k from beat k / division, `rate` scales the division) unless it has a `bpm` of its own |
+| `walk` | spread, rate, glide | cv (audio: pitch Hz left, gate 0 / 1 right – seq's) | module `events` (#236, deck-events): a seeded random walk on a continuous pitch scale on the tempo clock – `seed` (the same seed, the same melody on every deck), `base` (Hz, 147), `octaves` (2), `length` (of a step, 1 = legato); `spread` 0 = the base held, 1 = ±`octaves`; `rate` = steps a beat (2); `glide` rides along |
 | `chapter_music` | gain | out | `toon`, `chapter`, `track` (default: the chapter's default track), `quality` = low · medium · high, `loop` |
 | `mixer` | in1–in4 (audio), gain1–gain4 | out | – |
 | `fft` | in (audio) | level, bass, mid, high (control, 0–1) | `release` (s) |
@@ -301,25 +318,46 @@ the bass), pink-noise incense swayed by an LFO → mixer → FFT (its level kick
 bass, a voice swelling with a slow LFO. An audio oscillator's `wave` can't change while it plays yet (an engine
 rebuild); MIDI / OSC learn onto the same `Controls::set` is S6.
 
-`scenes/default.toml` ("AV madness (S3)") – the tempo clock at 96 BPM; catpope 1's music + an FM voice sequenced on
+`scenes/madness.toml` ("AV madness (S3)", `--scene madness`) – the tempo clock at 96 BPM; catpope 1's music + an FM voice sequenced on
 the beat + pink noise + the click (off until K) → mixer → FFT; test pattern (pulsing on the beat) → kaleidoscope → the
 chapter's slices (cut on a bass hit snapped to the beat, every 6 s at the latest) → RGB shift → the caption overlay →
 screen. `scenes/test-pattern.toml` – the picture alone (no sound, no network). Both land in
 `/usr/share/deck/scenes` on the deck; `scene = "…"` in `/var/lib/deck/deck.toml` picks one.
 
-**Quality** (#220, deck-space `quality.rs` – the browser deck runs the same): one ladder of seven rungs, cheapest first –
-the render scale 0.5 · 0.6 (low) · 0.7 · 0.8 (medium) · 0.9 · 1.0 (high) · 1.25 (ultra, supersampled), FXAA from the second
-rung, bloom and four lights from medium, all eight lights from high; curves and pixelate always run (the scene's look). The
-**level** is the ceiling: `--quality low|medium|high|ultra` (`DECK_QUALITY`), else by the GPU – software low, integrated
-(the X1's UHD 620) high, discrete ultra (the browser: WebGL2 medium, WebGPU high). The **governor** (on unless `,fixed`)
-works like the audio lead and the relay's link rate: the frame interval in 0.5 s windows; over budget (< 50 fps, or an
-audio glitch) for 1 s steps a rung down (one window under 25 fps), at most one step a second; 8 s calm (≤ 18 ms) probes a
-rung up, and a probe that runs over within 6 s steps back and doubles that rung's wait (up to 2 min) – no flicker. Stalls
-over 250 ms and the first 2 s are no load. A step only resizes the offscreen targets; the HUD stays native. The HUD bar
-shows `Q <level> <scale>` (red below the level chosen), a deck sends `deck.quality` to the session (at once on a change,
-else ≤ every 2 s) and the conductor shows each deck's quality and link under its being (`HIGH 0.90 17MS` / `LINK 3MS
-30HZ`, amber while held lower or paced, red over 40 ms). Not yet scaled: the set's 3D level, shadows, cloth, the beings'
-detail, bloom's resolution.
+**The scene switcher (#250, `switcher.rs`):** **F5** lists the built-in scenes (`idle`, `madness`, `cathedral`, `conductor`,
+`outlet`, `strobe`, `test-pattern`) and every `*.toml` of the scenes folder (`--scenes DIR`, default
+`/usr/share/deck/scenes`; a file named like a built-in is skipped); ↑ ↓ move, **Enter** loads the scene in place – the same
+path as a `--dev` reload, no process restart: the old show stops (audio graph dropped), the new one is built, the window
+stays (about 0.6 s on a PC) – **Esc** / F5 closes; the playing one is starred. A scene that doesn't build (a module this build lacks,
+a broken file) keeps the old one playing and the list says why. A scene that loads is written into deck.toml as one
+`scene = "<name or path>"` line (`DECK_TOML` names another file; replaced like `deck-set` does, never a second line), so
+the next boot plays it. Check runs: `--switcher` starts with the list open, `--switch NAME` loads that scene after 30 frames.
+
+**Quality** (#220, deck-space `quality.rs` – the browser deck runs the same; the stage's `src/quality.rs`): four
+**presets** – low · medium · high · ultra – each with its knobs: on / off (an off preset is skipped and can't be chosen),
+two render sizes (`min` = the step under load, `max` = its own; a scale of the display ≤ 4, or a height in pixels ≥ 100 –
+a 4K screen can render the 3D at 1080 to save power), FXAA, bloom, the lights (0–8) and a frame rate cap (`fps` – 30 draws
+half the frames; an early frame waits, the loop sleeps). Defaults: 0.5 / 0.6 (low, no FXAA / bloom, 2 lights) · 0.7 / 0.8
+(medium, 4) · 0.9 / 1.0 (high, 8) · 1.25 (ultra, supersampled), 60 fps; curves and pixelate always run (the scene's look).
+The enabled presets make the governor's **ladder**. The **preset file** (`/var/lib/deck/quality.toml` on a deck,
+`--quality-file`, `DECK_QUALITY_FILE`; TOML, only what changes is needed – the defaults fill the rest) also holds the
+**level** (the ceiling; missing = by the GPU: software low, integrated – the X1's UHD 620 – high, discrete ultra; the
+browser: WebGL2 medium, WebGPU high), `auto` and the **display** mode (`"3840x2160"` – exclusive fullscreen at that size;
+missing or one the monitor lacks = the desktop's; under cage, Wayland, winit has no exclusive mode); `--quality
+low|medium|high|ultra[,fixed]` (`DECK_QUALITY`) wins over it. The stage reloads the file when it changes (every 2 s).
+**F4** opens the settings page in the HUD: the level, Auto, the display mode (its modes from the monitor, the largest as
+the hardware's MAX) and the presets' table – arrows move, + / − change, Enter / Space flip, **P** turns a size into a
+height in pixels and back, **R** resets the presets; each change applies at once and is saved. **Shift+F4** the
+governor. The **governor** (on unless `,fixed` / `auto = false`) works like the audio lead and the relay's link rate: the
+drawn frames' interval in 0.5 s windows; over budget (the cap's interval × 1.2 – 20 ms at 60 fps – or an audio glitch) for
+1 s steps a rung down (one window twice over), at most one step a second; 8 s calm (≤ × 1.08) probes a rung up, and a
+probe that runs over within 6 s steps back and doubles that rung's wait (up to 2 min) – no flicker. Stalls over 250 ms and
+the first 2 s are no load. A step only resizes the offscreen targets; the HUD stays native. The HUD bar shows `Q <level>
+<scale>` (red below the level chosen), a deck sends `deck.quality` to the session (at once on a change, else ≤ every 2 s)
+and the conductor shows each deck's quality and link under its being (`HIGH 0.90 17MS` / `LINK 3MS 30HZ`, amber while
+held lower, under 50 fps or paced, red under 25 fps). `--settings` starts with the page open (a check run's screenshot).
+The browser deck's sheet (/live/deck → Settings) edits the same presets (+ its pixel ratio cap) and copies them as this
+file's text. Not yet scaled: the set's 3D level, shadows, cloth, the beings' detail, bloom's resolution.
 
 ## Sync (#195)
 
@@ -526,4 +564,24 @@ click on, an LFO sweeping the divisions):
 ```bash
 cd deck/stage && cargo run --release -p deck-stage -- --scene scenes/strobe.toml --windowed
 ```
+
+**The USB-DMX widget:** the adapter (adapters/dmx-usbpro) speaks the Enttec DMX USB Pro protocol and opens the port at
+**250000 baud**: the Eurolite USB-DMX512-PRO MK2 (FTDI FT232R, a clone) puts nothing on the line at 115200; an original
+Enttec and the CDC widgets ignore the baud. The MK2 never answers the device check – one info line, frames go out anyway.
+
+**Fixture profiles** are built in by name (`profile = "strobe"`, `"thunderwash-600-rgbw"`) or a file next to the scene.
+`thunderwash-600-rgbw` = the Cameo Thunder Wash 600 RGBW in DMX mode **4CH_1** (lamp menu: DMX Mode 4CH_1, confirm with
+ENTER, address 001): CH1–4 = red, green, blue, white – no strobe channel, so nothing the deck sends can start the lamp's
+own strobe (confirmed on the lamp 2026-11-01; its 7CH_1 does not follow the manual and is not profiled). A colour from a
+**hue parameter** (0–1 = a turn of the colour wheel): one map target per channel with `hue = "red"` / `"green"` /
+`"blue"` (applied before the curve; `max` caps the brightness). A **gain** on a map multiplies its shaped value by more
+parameters – `gain = ["tempo.pulse", { from = "level.out", in = [-1, 1] }]`, `gain_floor = 0.1` (what stays between
+pulses), `smooth` for a soft attack – so colour channels pulse on the beat without a flash channel. The scene
+`pulse-thunderwash` (built in; the file `scenes/pulse-thunderwash.toml`): a slowly turning colour that pulses on the
+tempo's beat, every channel capped at 15 % (`max = 0.15` – raise the three together for a show). A scene that ends
+in the stage – the F5 switch, **Ctrl+Q**, or a **stop signal** (SIGTERM / SIGHUP / SIGINT, Ctrl+C on Windows: `deck-set
+--restart`, `systemctl restart deck-kiosk`, an update's restart, #263; `src/stop.rs`) – blacks its DMX out (the widget
+repeats its last frame for ever otherwise) and fades the audio out, then the stage exits 0, within the kiosk's 5 s stop
+(a watchdog leaves after 3.5 s if the loop hangs). Only a SIGKILL leaves the lamp lit. The built-in scene `lamps-off`
+(the Thunder Wash's channels held at 0) stays for switching a lit lamp off by hand.
 

@@ -61,12 +61,13 @@ pub const LEFT: usize = 0;
 pub const RIGHT: usize = 1;
 
 /// The being's main pairs, (x, y) per stick (owner 2026-10-31: "left = voice ratio / index, right = cutoff / LFO
-/// rate") – the cathedral's; a deck without them takes its first paths two by two.
+/// rate") – the cathedral's; a deck without them takes its first paths two by two. A rig names its own (`set_deck`,
+/// #191: the rig's `sticks`, else its first four knobs).
 pub const BEING_PAIRS: [[&str; 2]; 2] = [["voice.ratio", "voice.index"], ["incense.cutoff", "sway.rate"]];
 
 /// The master section's slots, (x, y) per stick: each a list – the first path the deck has wins. `master.*` = the
 /// master FX chain to come (filter, drive, delay, reverb – #209's plan); until the engine exposes it, the look and the
-/// mix.
+/// mix. A slot whose paths the deck has none of drives nothing (a rig has no `voice.gain`).
 pub const MASTER: [[&[&str]; 2]; 2] =
     [[&["master.cutoff", "space.hue"], &["master.drive", "space.glow"]], [&["master.delay", "voice.gain"], &["master.reverb", "drone.gain"]]];
 
@@ -126,15 +127,38 @@ impl Controls {
     /// the deck's paths (its knobs)
     pub fn new<S: AsRef<str>>(paths: &[S]) -> Controls {
         let paths: Vec<String> = paths.iter().map(|p| p.as_ref().to_string()).collect();
+        let being = Self::default_pairs(&paths);
+        Controls { paths, selection: Selection::Master, being, assigned: [[None; 2]; 2], sticks: Default::default(), bindings: Vec::new(), learning: None }
+    }
+
+    /// BEING_PAIRS when the deck has them all, else its first paths two by two
+    fn default_pairs(paths: &[String]) -> [[Option<usize>; 2]; 2] {
         let at = |p: &str| paths.iter().position(|q| q == p);
         let preferred = BEING_PAIRS.map(|pair| pair.map(at));
-        let being = if preferred.iter().flatten().all(Option::is_some) {
+        if preferred.iter().flatten().all(Option::is_some) {
             preferred
         } else {
             let mut it = (0..paths.len()).map(Some).chain(std::iter::repeat(None));
             [[it.next().flatten(), it.next().flatten()], [it.next().flatten(), it.next().flatten()]]
+        }
+    }
+
+    /// Another deck's paths (a rig's knobs, or the fixed patch's again) and the being's pairs on them (#191: `None` =
+    /// the defaults; a path the deck lacks, or "", is no axis). The selection goes back to the master section; the
+    /// MIDI bindings and hand-assigned axes the new paths still have stay, the rest go; the thumbs let go.
+    pub fn set_deck<S: AsRef<str>>(&mut self, paths: &[S], pairs: Option<[[&str; 2]; 2]>) {
+        let new: Vec<String> = paths.iter().map(|p| p.as_ref().to_string()).collect();
+        let assigned = self.assigned.map(|axes| axes.map(|a| a.map(|i| self.paths[i].clone())));
+        self.bindings.retain(|b| new.contains(&b.path));
+        self.paths = new;
+        self.being = match pairs {
+            Some(p) => p.map(|pair| pair.map(|x| self.index(x))),
+            None => Self::default_pairs(&self.paths),
         };
-        Controls { paths, selection: Selection::Master, being, assigned: [[None; 2]; 2], sticks: Default::default(), bindings: Vec::new(), learning: None }
+        self.assigned = assigned.map(|axes| axes.map(|a| a.and_then(|p| self.index(&p))));
+        self.selection = Selection::Master;
+        self.sticks = Default::default();
+        self.learning = None;
     }
 
     pub fn paths(&self) -> &[String] {
@@ -505,5 +529,50 @@ mod tests {
         let bad = d.load_text("cc 1 1 voice.index\ncc 17 1 voice.gain\nstick up x voice.gain\ncc 1 2 nowhere.x\n");
         assert_eq!(bad, ["cc 17 1 voice.gain", "stick up x voice.gain", "cc 1 2 nowhere.x"]);
         assert_eq!(d.bindings().len(), 1);
+    }
+
+    /// #191: in a rig the knobs are `<track>_<node>.<port>` – the sticks follow the rig's pairs, the master section
+    /// skips the slots the rig lacks, and the fixed patch comes back with its defaults
+    #[test]
+    fn a_rig_names_the_sticks() {
+        let rig = ["voice_voice.ratio", "voice_voice.index", "voice_melody.spread", "drone_drone.freq", "voice_voice.gain"];
+        let mut c = Controls::new(&PHONE);
+        c.set_deck(&rig, Some([["voice_voice.ratio", "voice_voice.index"], ["voice_melody.spread", "drone_drone.freq"]]));
+        c.select(Selection::Being);
+        assert_eq!(c.stick_paths(LEFT), ["voice_voice.ratio", "voice_voice.index"]);
+        assert_eq!(c.stick_paths(RIGHT), ["voice_melody.spread", "drone_drone.freq"]);
+        // the master section: nothing of the fixed patch is there, so its slots drive nothing
+        c.select(Selection::Master);
+        assert_eq!((c.stick_paths(LEFT), c.stick_paths(RIGHT)), (["", ""], ["", ""]));
+        // a pair naming a path the rig lacks has no axis there
+        c.set_deck(&rig, Some([["voice_voice.ratio", "nowhere.x"], ["", "drone_drone.freq"]]));
+        c.select(Selection::Being);
+        assert_eq!((c.stick_paths(LEFT), c.stick_paths(RIGHT)), (["voice_voice.ratio", ""], ["", "drone_drone.freq"]));
+        // no pairs: the defaults for these paths – the first knobs, two by two
+        c.set_deck(&rig, None);
+        c.select(Selection::Being);
+        assert_eq!(c.stick_paths(LEFT), ["voice_voice.ratio", "voice_voice.index"]);
+        assert_eq!(c.stick_paths(RIGHT), ["voice_melody.spread", "drone_drone.freq"]);
+        // back to the fixed patch: its pairs and master
+        c.set_deck(&PHONE, None);
+        c.select(Selection::Being);
+        assert_eq!(c.stick_paths(LEFT), ["voice.ratio", "voice.index"]);
+        c.select(Selection::Master);
+        assert_eq!(c.stick_paths(LEFT), ["space.hue", "space.glow"]);
+    }
+
+    /// a new deck keeps the mappings its paths still have and drops the rest
+    #[test]
+    fn a_new_deck_keeps_the_mappings_it_still_has() {
+        let mut c = Controls::new(&PHONE);
+        c.learn("voice.index");
+        c.midi(&[0xB0, 1, 0]);
+        c.learn("sway.rate");
+        c.midi(&[0xB0, 2, 0]);
+        c.assign(LEFT, 0, "sway.rate");
+        c.set_deck(&["voice.index", "x.y"], None);
+        assert_eq!(c.bindings().len(), 1);
+        assert_eq!(c.mapped("voice.index").as_deref(), Some("CC 1 · 1"));
+        assert_eq!(c.to_text(), "cc 1 1 voice.index\n");
     }
 }

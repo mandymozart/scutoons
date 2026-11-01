@@ -21,5 +21,7 @@ file_permissions+=(
   ["/usr/bin/deck-relay"]="0:0:755"
   ["/usr/bin/deck-bridge"]="0:0:755"
   ["/usr/bin/deck-stage"]="0:0:755"
+  ["/usr/bin/deck-link"]="0:0:755"
+  ["/usr/bin/deck-update"]="0:0:755"
   ["/etc/NetworkManager/system-connections/deck-hotspot.nmconnection"]="0:0:600"
 )

@@ -27,6 +27,15 @@ orchestrator ≈ $445 list over 2026-10-29 … 11-01, `agents/costs.json`), so s
   (ORCHESTRATION §10). Local sessions: `python C:\Development\tools\costs\transcript_cost.py <transcript.jsonl>`.
   Transcripts are never deleted.
 - **No Claude attribution** in commits or PRs.
+- **Over Remote Control no session can be started:** the worker is then a background agent of the orchestrator
+  (`Agent`, `model: sonnet` / `haiku`, same brief), one at a time. Sessions can still be messaged.
+- **The deck is developed remotely now** (#237): `npm run deck:update -- --no-serve` (Linux binaries in Docker, ~3 min,
+  `CARGO_BUILD_JOBS=4` – the PC crashed 2026-11-01 under a full-parallel build), serve
+  `deck/target/release/deck-update.exe serve deck/os/out/update` (port 7790, firewall rule set), then
+  `ssh root@192.168.1.166 'deck-update now'` (the PC's key is on the X1). Stop the server afterwards. Killing cage on the
+  X1 needs the owner's OK each time.
+- **Usage report** at the end of every session: `python C:\Developmentgents\costseport_usage.py --issues <N>`
+  (orchestrator: `--role orchestrator --per-day`), ORCHESTRATION §10 / §11.9.
 
 ## Tools outside the repository
 - `C:\Development\tools\costs\transcript_cost.py`: the cost of a local session.
@@ -43,54 +52,38 @@ orchestrator ≈ $445 list over 2026-10-29 … 11-01, `agents/costs.json`), so s
   <model>`) – read it before every brief. Guides in
   `C:\Developmentgents\guides\`; cost booking `python C:\Developmentgents\costsdd_entry.py <ledger>
   <transcript.jsonl> --issues N --role worker` (`--role orchestrator --per-day` for yourself); the report
-  `python C:\Developmentgents\costseport.py`.
+  `python C:\Developmentgents\costs
+eport.py`.
 
-## State (2026-11-01, ~10:45)
-- `main` pushed to 62cf64a2 on 2026-11-01 (the owner's word): the viewer deploy (`deploy-app.yml`, the wasm built there)
-  is green and `scutoons.com/version.json` reports 62cf64a. The commits below went out with it.
-- The list below is what this push carried (kept for the record):
-  - #220 quality governor: 55df2990 · 8db51ef3 · d0b1165c · 3f10be0f (the local worker, done, its comment on the issue).
-  - #224 navigation: PR #226 merged as 31c6e414 (clean).
-  - #211 outputs (MIDI / DMX / strobe): PR #227 merged as 5a1e583e + be72c665 (the merge's two fixes: the stage link's
-    `Out::Quality` arm's `continue`, clippy 1.99 `manual_slice_fill` in deck-outputs).
-  - cbd8373b HANDOFF + costs; this session's HANDOFF / costs commit.
-- Green on the whole: `npm run deck:ci` (release build, 424+ tests, clippy, wasm32), `npm run check -w viewer` (156 tests),
-  the wasm rebuilt into `viewer/static/live/` (git-ignored – production builds it on deploy).
-- Seen in the in-app browser (viewer-prodapi, WebGL2): the quality bar + panel row, the governor stepping down under
-  a throttled tab; tap → zoom toward the knob, tap empty → the being framed. **At the portrait only the core's six
-  knobs showed** – the folded knobs may sit inside the head mesh (#224 comment: the S22 check).
-- The three PRs' branches (`wip/brave-maxwell-rn7qch`, `wip/keen-hypatia-6pd4ph`) stay on origin until the push;
-  PR #217 (#191 design) still waits for the owner. The cloud sessions #224 / #211 are idle (ListAgents).
-- Costs: the three workers are in `agents/costs.json` (#220 ≈ $12.02 local; #224 / #211 cloud: no estimate in their
-  reports – read from claude.ai → Usage); this orchestrator session's entry is per day (`add_entry.py --per-day`).
-- No servers running (viewer-prodapi stopped; ports 4100–4199, 7000–7099, 8000, 9000 free). OSCT's orchestrator today:
-  "#243 Orchestrator: Toggle switch merge" (`local_6ae84e2b-…`), idle, no local workers; cloud credit 50/50.
-- **Board:** Review on staging: #220, #224, #211 (+ the older ones). In progress: nothing of this shift.
-  Backlog (owner's order): #208, #223, #225, #213. Proposals: #221, #216.
+## State (2026-11-01, ~20:00 – the deck session: remote updates, then orchestrating workers)
+- `origin/main` = 522dd70e (pushed by the owner earlier); **18 commits on `main` not pushed**, all deck/: 112853e1 …
+  2353bd99 (#237, #251, #252, #250, #253, #256, #257, #261, #262, #263, DECISIONS). Each issue has its comment.
+- **The X1** (installed, 192.168.1.166, `ssh root@`): updates itself over the LAN (deck-update, timer 2 min); runs
+  r2430+ (`deck-update status`), `scene = "idle"` (fireflies). A Eurolite USB-DMX512-PRO MK2 on `/dev/ttyUSB0` drives a
+  Cameo Thunder Wash 600 RGBW in **4CH_1** (address 001) – the owner confirmed `pulse-thunderwash` ("went perfect").
+  The gamepad (Xbox 360 pad) is plugged in; the RME Fireface is unplugged (needs class-compliant mode).
+- Built today (all on the X1): remote updates incl. removal of dropped files (#237), boot to stage 31 → 21.5 s (#251),
+  idle default scene (#252), F5 scene switcher + PipeWire stream that really stops / crossfades (#250), volume keys
+  (#253), kiosk stop 0.3 s (#256), no segfault + exit 75 on a lost display (#257), DMX at 250000 baud + 4CH_1 profile +
+  pulse scene + blackout on scene end (#261), blackout on a stop signal (#263), no serial-getty loop (#262).
+- Decisions today (DECISIONS.md): remote updates; F1 = the debug overlay, off by default from the 2027-02-05 release;
+  scene switches **crossfade** (parametric), stops black out, lights are hardware (#264).
+- Tickets created today, all without board status (owner's inbox): #241–#255 (3D scene system / editor, deck next
+  steps), #256, #257, #261–#264. Workers' sessions #250 / #253 / #257 are idle (their usage reported; #250's failed –
+  agents.porschuetz.de timed out).
+- No servers running (7790 stopped). Docker Desktop was restarted after the crash; scutoons-mariadb-1 healthy.
 
 ## Next
-1. **Check on the S22 and the Enttec** (the push is done): `/live/deck` on the phone (the portrait's knobs, the glides,
-   the quality row), the strobe on the Enttec (PR #227's steps). GitHub deck CI by hand if wanted (`deck.yml`).
-   Then close the three issues' open rests: #224 (the fold at the portrait if hidden on the S22 too), #211 (mapping UI,
-   Art-Net, conductor routing), #220 (X1 checks).
-2. **#213** camera moves (+ the conductor's shots #189): now unblocked (#224 is in); reuse the eased `goal` / `want`.
-   complexity:L (a new area in `camera.rs` + the overlay) → a cloud session the owner starts; tier and ceiling from §11 /
-   `models.json` at that time.
-3. **#223:** a real `tc netem` run on Linux (X1 or WSL with a slot). If the tail stays, the WebTransport datagram side
-   channel.
-4. **#225:** which parameters fit which stick axis; hue and glow off the sticks; the rule for the selection's stick.
-5. Later queue: #203 patch editor · #210 scene objects · #212 input sources · #205 audience · #206 security · #207 cloth ·
-   #215 shadows · #191 instruments (PR #217 waits for the owner).
-6. Every new brief: complexity + tier + ceiling (§11, `models.json`), `#N` in the session title, `add_entry.py` at the merge.
+1. **#264** parametric crossfade on a scene switch (outputs + audio share one transition time) – complexity M, Sonnet.
+   The owner's words and the hardware rules (slew limits, flash cap ~3/s, grand master, panic) are on the issue.
+2. **Owner checks on the X1:** F5 + the switch time, the volume keys (Fn Lock), the madness → cathedral audio switch.
+3. **#228** gamepad in the native stage (gilrs; the X1 has the pad) · **#249** the 2D layer · **#250**'s browser half
+   (/live/deck switcher) · **#252**'s fireflies in /live/deck (space-web has no shader nodes).
+4. #241 concept and its slices (#242–#248) when the owner sorts them into Backlog; #255 / #245 are `decide`.
+5. #201 the LAN relay scan; #254 external screen (needs a monitor at the X1).
 
 ## Waiting for the owner
-- **The push** of the 9 commits (above), then the S22 / Enttec checks.
-- **PR #217** (instruments / presets design, #191): its 8 open questions; merge only with the owner.
-- **#208:** should the glitch warning also flash with the HUD off?
-- **A shift issue** for the orchestrator (§11.3 wants `#N` in every session title and ledger entry) – or keep listing the
-  merged issues per session, as this entry does. This session ran on Fable 5.1 (started before §11); the next one is
-  Sonnet 5.5 medium per §11.
-- **Owner steps:** bunny zone `lan.scutoons.com` + script + NS in KAS + BUNNY_API_KEY + run lan-cert workflow →
-  pair the X1. The X1 partition install (#200). Clean up the stray CDN copies (Admin → Assets → Unused).
-- **#216:** the self-hosted Linux runner, yes or no; a look at the Deploy minutes.
-- The cloud workers' real cost for #224 / #211 (claude.ai → Settings → Usage) into `costs.json` (`billed`).
+- **The push** of the 18 deck commits (deploys only the viewer side unchanged – deck/ is not deployed, but the push is
+  the owner's call).
+- **#245** (where the 3D editor lives) and **#255** (sign-in + group on the relay): `decide`.
+- The Fireface UCX II in class-compliant mode; a monitor at the X1 for #254; sorting #241–#264 into the board.

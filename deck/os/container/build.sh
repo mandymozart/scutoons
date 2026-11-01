@@ -3,7 +3,8 @@
 #   /src   = deck/ (read-only)        /work = a named volume (cargo target, the profile, mkarchiso's work dir)
 #   /out   = deck/os/out on the host  /var/cache/pacman/pkg = a named volume (the package cache between builds)
 # Steps: packages → the deck binaries (cargo, release; the stage with PipeWire) → releng + deck/os/profile + deck/os/rootfs → mkarchiso → /out.
-# Env: DECK_KERNEL (linux-rt; `linux` when the rt kernel is unavailable), DECK_SKIP_CARGO=1 (reuse /work/target).
+# Env: DECK_KERNEL (linux-rt; `linux` when the rt kernel is unavailable), DECK_SKIP_CARGO=1 (reuse /work/target),
+# DECK_BINARIES_ONLY=1 (stop after cargo: the binaries into /out/bin – `npm run deck:update`, deck/os/update.sh).
 set -euo pipefail
 [ "${DECK_TRACE:-0}" = 1 ] && set -x
 
@@ -20,11 +21,17 @@ pacman -Syu --noconfirm --needed archiso rust base-devel alsa-lib git pipewire c
 echo "   archiso $(pacman -Q archiso | cut -d' ' -f2), rust $(rustc --version | cut -d' ' -f2), kernel package: $KERNEL"
 pacman -Si "$KERNEL" >/dev/null 2>&1 || { echo "no package '$KERNEL' in the repos – set DECK_KERNEL=linux"; exit 1; }
 
-echo "== the deck binaries (relay, bridge, deck-check, deck-stage with PipeWire, deck-link) – release, Linux x86_64"
+echo "== the deck binaries (relay, bridge, deck-check, deck-stage with PipeWire, deck-link, deck-update) – release, Linux x86_64"
 if [ "${DECK_SKIP_CARGO:-0}" != 1 ]; then
-  (cd "$SRC" && CARGO_TARGET_DIR=$WORK/target CARGO_HOME=$WORK/cargo-home cargo build --release --locked     -p relay -p bridge -p deck-check -p deck-stage -p deck-link --features deck-stage/pipewire 2>&1 | tail -3)
+  (cd "$SRC" && CARGO_TARGET_DIR=$WORK/target CARGO_HOME=$WORK/cargo-home cargo build --release --locked     -p relay -p bridge -p deck-check -p deck-stage -p deck-link -p deck-update --features deck-stage/pipewire 2>&1 | tail -3)
 fi
-for b in relay bridge deck-check deck-stage deck-link; do [ -x "$WORK/target/release/$b" ] || { echo "missing $WORK/target/release/$b"; exit 1; }; done
+for b in relay bridge deck-check deck-stage deck-link deck-update; do [ -x "$WORK/target/release/$b" ] || { echo "missing $WORK/target/release/$b"; exit 1; }; done
+if [ "${DECK_BINARIES_ONLY:-0}" = 1 ]; then
+  # a remote update's binaries (#237): deck/os/update.sh bundles them with deck/os/rootfs on the host
+  rm -rf "$OUT/bin"; mkdir -p "$OUT/bin"
+  for b in relay bridge deck-check deck-stage deck-link deck-update; do install -m755 "$WORK/target/release/$b" "$OUT/bin/$b"; done
+  echo "== done: $OUT/bin"; exit 0
+fi
 
 echo "== the profile: releng + deck/os/profile + deck/os/rootfs"
 rm -rf "$PROFILE"; cp -r "$RELENG" "$PROFILE"
@@ -59,6 +66,7 @@ install -Dm755 "$WORK/target/release/bridge" "$PROFILE/airootfs/usr/bin/deck-bri
 install -Dm755 "$WORK/target/release/deck-check" "$PROFILE/airootfs/usr/bin/deck-check"
 install -Dm755 "$WORK/target/release/deck-stage" "$PROFILE/airootfs/usr/bin/deck-stage"
 install -Dm755 "$WORK/target/release/deck-link" "$PROFILE/airootfs/usr/bin/deck-link"
+install -Dm755 "$WORK/target/release/deck-update" "$PROFILE/airootfs/usr/bin/deck-update"
 install -Dm644 -t "$PROFILE/airootfs/usr/share/deck/scenes" "$SRC"/stage/scenes/*.toml
 chmod 755 "$PROFILE/airootfs/usr/bin/"deck-*
 wants="$PROFILE/airootfs/etc/systemd/system/multi-user.target.wants"; mkdir -p "$wants"
@@ -68,14 +76,22 @@ done
 # the venue certificate now and then (#201)
 mkdir -p "$PROFILE/airootfs/etc/systemd/system/timers.target.wants"
 ln -sf /usr/lib/systemd/system/deck-tls.timer "$PROFILE/airootfs/etc/systemd/system/timers.target.wants/deck-tls.timer"
+# the deck's network is NetworkManager: Arch's presets enable systemd-networkd + its wait-online, which waits for links
+# networkd never manages and held network-online.target for 2 min each boot (the X1, 2026-11-01, #251) – masked
+ln -sf /dev/null "$PROFILE/airootfs/etc/systemd/system/systemd-networkd.service"
+ln -sf /dev/null "$PROFILE/airootfs/etc/systemd/system/systemd-networkd-wait-online.service"
+# remote updates (#237)
+ln -sf /usr/lib/systemd/system/deck-update.timer "$PROFILE/airootfs/etc/systemd/system/timers.target.wants/deck-update.timer"
 # releng's pacman-init (the live keyring) lives in /etc – keep it while releng ships it
 [ -e "$PROFILE/airootfs/etc/systemd/system/pacman-init.service" ] && ln -sf /etc/systemd/system/pacman-init.service "$wants/pacman-init.service"
 # releng's file_permissions name a file we removed
 sed -i '/automated_script/d' "$PROFILE/profiledef.sh"
-# a serial console on ttyS0 (the VM test, a cable on a real deck); no password = key-only ssh, root on serial only
-mkdir -p "$PROFILE/airootfs/etc/systemd/system/getty.target.wants"
-ln -sf /usr/lib/systemd/system/serial-getty@.service "$PROFILE/airootfs/etc/systemd/system/getty.target.wants/serial-getty@ttyS0.service"
+# the serial console on ttyS0 (the VM test, a cable on a real deck) is NOT enabled here: systemd's serial-getty generator
+# starts it only where console=ttyS0 is on the kernel line (the live entries, profiledef). An installed deck without a
+# serial port then never runs it – a hard enable restarted it forever on the X1 (672 times, #262)
 date -u +%Y.%m.%d >"$PROFILE/airootfs/etc/deck-release"
+# what the root holds – a remote update is newer when its build is higher (#237, deck-update)
+printf '{"version":"image %s","build":%s}\n' "$(date -u +%Y.%m.%d)" "$(date -u +%s)" >"$PROFILE/airootfs/usr/share/deck/build.json"
 : >"$PROFILE/airootfs/etc/deck-live"
 # the kernel: releng names linux everywhere (boot entries, the mkinitcpio preset) – rename to $KERNEL
 if [ "$KERNEL" != linux ]; then

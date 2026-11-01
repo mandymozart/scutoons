@@ -48,6 +48,7 @@ function fakeControls() {
 	let last = { value: 0, learned: false };
 	let start = [0, 0];
 	const c: DeckControlsView = {
+		set_deck: (paths, sticks) => calls.push(`deck ${paths.join(',')} | ${sticks.join(',')}`),
 		select: (n) => calls.push(`select ${n}`),
 		selection: () => 'being',
 		stick_paths: () => ['voice.ratio', 'voice.index'],
@@ -132,4 +133,19 @@ test('Web MIDI: every input\'s messages, inputs plugged in later, closed cleanly
 	link.close();
 	assert.equal(inputs[0].onmidimessage, null);
 	lists = [];
+});
+
+test('Hands: a rig gives the controls its knobs and sticks, null the fixed patch\'s defaults', () => {
+	const { c, calls } = fakeControls();
+	const h = new Hands(c, fakeDeck(), { ...PARAMS, ...MELODY });
+	const rig = { 'a_x.p': { min: 0, max: 1, value: 0, label: 'p' }, 'a_x.q': { min: 0, max: 1, value: 0, label: 'q' } };
+	h.useParams(rig, [
+		['a_x.p', 'a_x.q'],
+		['', 'a_x.p']
+	]);
+	assert.equal(calls.at(-1), 'deck a_x.p,a_x.q | a_x.p,a_x.q,,a_x.p');
+	assert.equal(h.norm('voice.ratio'), 0, 'the fixed patch\'s knobs are not the deck\'s now');
+	h.useParams({ ...PARAMS, ...MELODY }, null);
+	assert.ok(String(calls.at(-1)).endsWith(' | '), 'no pairs: the defaults');
+	assert.ok(h.norm('voice.ratio') >= 0);
 });

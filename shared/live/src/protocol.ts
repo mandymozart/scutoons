@@ -35,6 +35,7 @@ export type Message =
 	| { kind: 'cue'; p: Cue }
 	| { kind: 'vote.open'; p: VoteOpen }
 	| { kind: 'vote.close'; p: VoteClose }
+	| { kind: 'vote.hold'; p: VoteHold }
 	| { kind: 'vote.cast'; p: VoteCast }
 	| { kind: 'vote.tally'; p: VoteTally }
 	| { kind: 'vote.result'; p: VoteResult }
@@ -48,6 +49,7 @@ export type Message =
 	| { kind: 'line'; p: Loose }
 	| { kind: 'fx'; p: Loose }
 	| { kind: 'colour'; p: Loose }
+	| { kind: 'story'; p: Loose }
 	| { kind: 'presence'; p: Presence }
 	| { kind: 'ready'; p: Empty }
 	| { kind: 'pickup'; p: Pickup }
@@ -81,8 +83,12 @@ export interface VoteOpen {
 	fallback?: number;
 	/** which groups vote (default: all audience) */
 	groups?: string[];
-	/** the audience sees the tally too */
+	/** a voter sees the tally once they have voted (never before) */
 	show?: boolean;
+	/** the choice event's question by locale (a phone shows its device's language, else the first); texts are locale maps */
+	question?: Record<string, string>;
+	/** `options` by locale, same order; `options` is the default */
+	labels?: Record<string, string[]>;
 }
 
 /** conductor → relay: close now; `override` = the conductor's option instead of the rule's. */
@@ -91,13 +97,25 @@ export interface VoteClose {
 	override?: number;
 }
 
+/** conductor → relay: hold the vote – the countdown stops where it is, votes are still accepted; `hold: false` runs it on. The tally says `paused`. */
+export interface VoteHold {
+	vote: string;
+	hold: boolean;
+}
+
 /** relay → conductor every 250 ms while a vote is open (→ the audience too when the vote shows it). */
 export interface VoteTally {
 	vote: string;
 	counts: number[];
 	voters: number;
-	/** ms until the vote closes by itself */
+	/** ms until the vote closes by itself (stands still while held) */
 	left: number;
+	/** the conductor holds the countdown */
+	paused?: boolean;
+	/** the counts per group (conductor only) */
+	groups?: Record<string, number[]>;
+	/** the connected voting devices; the vote closes when all have voted */
+	expected?: number;
 }
 
 export type VoteHow = 'rule' | 'fallback' | 'override';
@@ -108,6 +126,8 @@ export interface VoteResult {
 	option: number;
 	counts: number[];
 	how: VoteHow;
+	/** the counts per group */
+	groups?: Record<string, number[]>;
 }
 
 /** conductor → relay → the outlet's clients on a row change: the outlet's new cell (B.5.2 `Cell`, resolved by the conductor – a deck renders it natively, #186). */

@@ -73,6 +73,14 @@ pub enum Kind {
     Fm,
     /// a step sequencer: `cv` = pitch in Hz on the left channel, gate 0 / 1 on the right (modular CV in an audio port)
     Seq,
+    /// a generated melody (#236, deck-events): a seeded random walk on a continuous pitch scale, on the tempo clock,
+    /// written as seq's cv (pitch left, gate right) – `spread` 0 = the base held, 1 = ±`octaves`; `rate` = steps a
+    /// beat; `glide` rides along for the voice. The same seed plays the same melody on every deck.
+    Walk,
+    /// generators rigged together (#236, deck-events' patch): its params hold the patch (`generator`, `edge`, `out`,
+    /// `knobs`) – an arp on a walk, a pulse … –, its inputs a–d are the patch's knobs (unset = the patch's own values),
+    /// its notes are written as seq's cv
+    Events,
     /// a chapter's music track from the library API (cached, decoded with symphonia)
     ChapterMusic,
     /// four stereo inputs, a gain each
@@ -85,7 +93,7 @@ pub enum Kind {
 
 impl Kind {
     /// every kind with its name in a scene
-    const NAMES: [(&'static str, Kind); 18] = [
+    const NAMES: [(&'static str, Kind); 20] = [
         ("test_pattern", Kind::TestPattern),
         ("shader", Kind::Shader),
         ("screen", Kind::Screen),
@@ -100,15 +108,17 @@ impl Kind {
         ("noise", Kind::Noise),
         ("fm", Kind::Fm),
         ("seq", Kind::Seq),
+        ("walk", Kind::Walk),
+        ("events", Kind::Events),
         ("chapter_music", Kind::ChapterMusic),
         ("mixer", Kind::Mixer),
         ("fft", Kind::Fft),
         ("audio_out", Kind::AudioOut),
     ];
-    pub const ALL: [Kind; 18] = {
-        let mut all = [Kind::Screen; 18];
+    pub const ALL: [Kind; 20] = {
+        let mut all = [Kind::Screen; 20];
         let mut i = 0;
-        while i < 18 {
+        while i < 20 {
             all[i] = Kind::NAMES[i].1;
             i += 1;
         }
@@ -161,6 +171,8 @@ impl Kind {
             Kind::Noise => &[p!("cutoff", C), p!("gain", C)],
             Kind::Fm => &[p!("cv", A), p!("freq", C), p!("ratio", C), p!("index", C), p!("gain", C)],
             Kind::Seq => &[p!("rate", C)],
+            Kind::Walk => &[p!("spread", C), p!("rate", C), p!("glide", C)],
+            Kind::Events => &[p!("a", C), p!("b", C), p!("c", C), p!("d", C)],
             Kind::ChapterMusic => &[p!("gain", C)],
             Kind::Mixer => &[
                 p!("in1", A), p!("in2", A), p!("in3", A), p!("in4", A),
@@ -178,7 +190,7 @@ impl Kind {
             Kind::Screen | Kind::AudioOut => &[],
             Kind::Lfo => &[p!("out", C)],
             Kind::Tempo => &[p!("bpm", C), p!("beat", C), p!("bar", C), p!("phase", C), p!("bar_phase", C), p!("pulse", C)],
-            Kind::Seq => &[p!("cv", A)],
+            Kind::Seq | Kind::Walk | Kind::Events => &[p!("cv", A)],
             Kind::Fft => &[p!("level", C), p!("bass", C), p!("mid", C), p!("high", C)],
             _ => &[p!("out", A)],
         }
@@ -340,9 +352,17 @@ mod tests {
         Graph::build(&Scene::parse(text)?)
     }
 
+    /// #252: the default scene idles – a picture, no sound
     #[test]
-    fn the_default_scene_builds_in_order() {
-        let g = Graph::build(&Scene::parse(crate::scene::DEFAULT_SCENE).unwrap()).unwrap();
+    fn the_idle_scene_has_no_audio() {
+        let g = Graph::build(&Scene::parse(crate::scene::IDLE_SCENE).unwrap()).unwrap();
+        assert!(g.nodes.iter().all(|n| n.kind.domain() != Domain::Audio));
+        assert!(g.nodes.iter().any(|n| n.str("effect") == Some("fireflies")));
+    }
+
+    #[test]
+    fn the_madness_scene_builds_in_order() {
+        let g = Graph::build(&Scene::parse(crate::scene::MADNESS_SCENE).unwrap()).unwrap();
         assert!(g.links.iter().any(|l| !l.orders(&g.nodes)), "the scene's FFT feedback");
         for l in g.links.iter().filter(|l| l.orders(&g.nodes)) {
             let pos = |i| g.order.iter().position(|&x| x == i).unwrap();

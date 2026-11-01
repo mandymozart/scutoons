@@ -1,0 +1,12 @@
+# Remote updates (#237, deck/os/README.md "Updates"): `deck-update auto` asks the dev PC on the LAN (dev channel; found
+# by a scan of the deck's /24 for port 7790) or the server (cdn.scutoons.com/deck/update/<channel>) for a newer signed
+# bundle, installs it, restarts what changed and rolls back when a restarted unit does not come up. Never during a show
+# (a conductor on the relay). deck-update.timer runs it; `deck-update now` on tty2 / ssh at once.
+[Unit]
+Description=SCUTOONS deck update check
+After=deck-firstboot.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/deck-update auto
+Nice=10

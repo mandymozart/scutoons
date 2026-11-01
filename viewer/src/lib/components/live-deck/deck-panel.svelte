@@ -7,6 +7,7 @@
 	// being's 3D buttons, the sticks and MIDI turn the same values, so the dials follow them.
 	import { Button, Icon } from '@scutoons/ui';
 	import { MELODY, PARAMS, type QualityLevel, type SpaceQuality, type Spec } from '@scutoons/live-deck';
+	import { panelKnobs } from '$lib/live-deck.ts';
 	import DeckKnob from './deck-knob.svelte';
 	import DeckQuality from './deck-quality.svelte';
 	import DeckStats, { type Stats } from './deck-stats.svelte';
@@ -14,6 +15,7 @@
 
 	let {
 		values,
+		params = PARAMS,
 		started,
 		starting,
 		stats,
@@ -33,9 +35,12 @@
 		sticksOn = true,
 		onsticks,
 		quality = null,
-		onquality
+		onquality,
+		onsettings
 	}: {
 		values: Record<string, number>;
+		/** the sliders: the fixed patch's PARAMS or the character's rig's knobs (#191) */
+		params?: Record<string, Spec>;
 		started: boolean;
 		starting: boolean;
 		stats: Stats;
@@ -66,11 +71,14 @@
 		/** #220: the 3D's render quality (null = no 3D) and the choice of its level / Auto */
 		quality?: SpaceQuality | null;
 		onquality: (level: QualityLevel, auto: boolean) => void;
+		/** #220: open the presets' settings sheet */
+		onsettings: () => void;
 	} = $props();
 
 	// folded at first: the being fills the screen; the fold opens the knobs
 	let open = $state(false);
-	const all: [string, Spec][] = Object.entries({ ...PARAMS, ...MELODY });
+	// the fixed patch's knobs + its page melody, or the rig's knobs (#191, #236)
+	const all = $derived(panelKnobs(params, MELODY));
 </script>
 
 <section class="panel" aria-label={m['live_deck.controls']()}>
@@ -85,8 +93,8 @@
 					{m['live_deck.sticks']()}
 				</button>
 			</div>
-			{#if quality}<DeckQuality {quality} {onquality} />{/if}
-			{#if learn || midi}<p class="line">{learning ? m['live_deck.midi_waiting']({ knob: (PARAMS[learning] ?? MELODY[learning])?.label ?? learning }) : midi || m['live_deck.midi_learn_hint']()}</p>{/if}
+			{#if quality}<DeckQuality {quality} {onquality} {onsettings} />{/if}
+			{#if learn || midi}<p class="line">{learning ? m['live_deck.midi_waiting']({ knob: (all.find(([p]) => p === learning)?.[1].label ?? learning) }) : midi || m['live_deck.midi_learn_hint']()}</p>{/if}
 			<div class="knobs">
 				{#each all as [path, spec] (path)}
 					<DeckKnob {path} {spec} value={values[path]} mapped={mapped(path)} selected={selected === path} learning={learning === path} {onset} {onpick} {ontouch} />

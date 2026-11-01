@@ -20,6 +20,13 @@ ExecStartPre=+-/usr/bin/plymouth quit --retain-splash
 ExecStart=/usr/bin/deck-session
 Restart=on-failure
 RestartSec=2
+# The stop (#256): PAMName moves cage, deck-session and the stage into the logind session's scope, so systemd's SIGTERM
+# reaches cage alone – the stage lost its display, deck-session took that for a crash and started the browser, cage
+# waited for it until SIGKILL (90 s; X1 2026-11-01). The whole process group (cage's PID; its children share it) gets
+# SIGTERM; deck-session then ends instead of looping. 5 s, then the kill – a kiosk may be killed. `${MAINPID}` braced
+# (systemd leaves `-$MAINPID` unexpanded); `+` = as root, outside the PAM session (else logind refuses a second tty1).
+ExecStop=+/bin/kill -TERM -- -${MAINPID}
+TimeoutStopSec=5
 
 [Install]
 WantedBy=multi-user.target

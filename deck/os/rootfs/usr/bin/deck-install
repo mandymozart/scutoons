@@ -1,53 +1,110 @@
 #!/bin/bash
 # deck-install – the guided install of the live image to a partition (CYBERDECKS.md §3: optional, "never the whole
 # disk unasked"). The user picks the root partition from a list (the boot stick is excluded), confirms by typing its
-# name, optionally picks an EFI system partition for systemd-boot. The partition itself is made before (cfdisk /
-# gparted on another machine, or `cfdisk /dev/sdX` here): this script never changes a partition table.
+# name, optionally picks an EFI system partition for systemd-boot – best the deck's own next to Windows' (#200); an
+# empty one is formatted here on request. The partitions themselves are made before (cfdisk): this script never changes
+# a partition table. Every question and check comes before the first write.
 # What it does: mkfs.ext4 on the chosen partition → unsquashfs the live root there → drop the live-only parts
-# (archiso hooks, the live mkinitcpio config, the persistence step stays harmless) → fstab → mkinitcpio → systemd-boot
-# entry (when an ESP was picked). The installed deck boots the same flow: Wi-Fi → check (once) → kiosk.
+# (archiso hooks, the live mkinitcpio config, the persistence step stays harmless) → the kernel to /boot (the live
+# root has none: mkarchiso empties /boot, the ISO keeps it) → fstab → mkinitcpio → systemd-boot entry (when an ESP was
+# picked). The installed deck boots the same flow: Wi-Fi → check (once) → kiosk.
 set -u
 
 RED=$'\e[31m'; CYAN=$'\e[36m'; DIM=$'\e[2m'; OFF=$'\e[0m'
 die() { printf '%sdeck-install: %s%s\n' "$RED" "$*" "$OFF" >&2; exit 1; }
 [ "$(id -u)" = 0 ] || die "run as root (sudo deck-install)"
 [ -d /run/archiso ] || die "run this from the live stick, not an installed system"
+# booted with copytoram (archiso's default on a machine with enough RAM – the X1's 16 GB): the sfs lives in RAM and the
+# stick is no longer mounted
 SFS=/run/archiso/bootmnt/arch/x86_64/airootfs.sfs
-[ -f "$SFS" ] || die "$SFS not found (copytoram? then /run/archiso/copytoram/airootfs.sfs)"
+[ -f "$SFS" ] || SFS=/run/archiso/copytoram/airootfs.sfs
+[ -f "$SFS" ] || die "the live root image is neither in /run/archiso/bootmnt/arch/x86_64 nor in /run/archiso/copytoram"
+ESP_TYPE=c12a7328-f81f-11d2-ba4b-00a0c93ec93b
+ESP_MIN_MB=150 # the kernel (~17 MB) + one autodetect initramfs + systemd-boot, with room for an update's old + new
+
+# one column of one partition ('' when empty) – lsblk -r leaves empty columns as runs of spaces that `read` would merge
+field() { lsblk -dno "$1" "$2" 2>/dev/null | head -1 | sed 's/[[:space:]]*$//'; }
+mounted() { findmnt -rno TARGET -S "$1" 2>/dev/null | head -1; }
+# a vfat partition mounted read-only for a look: ESP_WIN=1 when it holds Windows' boot manager, ESP_FREE in MB
+probe_esp() {
+  ESP_WIN=0; ESP_FREE=""
+  local d; d=$(mktemp -d)
+  mount -o ro "$1" "$d" 2>/dev/null || { rmdir "$d"; return 1; }
+  [ -d "$d/EFI/Microsoft" ] && ESP_WIN=1
+  ESP_FREE=$(df -BM --output=avail "$d" | tail -1 | tr -dc 0-9)
+  umount "$d"; rmdir "$d"
+}
 
 boot=$(findmnt -no SOURCE /run/archiso/bootmnt 2>/dev/null)
-bootdisk=$(lsblk -no PKNAME "$boot" 2>/dev/null | head -1); bootdisk=${bootdisk:-${boot#/dev/}}
+[ -n "$boot" ] || boot=$(blkid -L SCUTOONSDECK 2>/dev/null | head -1) # copytoram: the stick is not mounted any more
+bootdisk=$(lsblk -npo PKNAME "$boot" 2>/dev/null | head -1); bootdisk=${bootdisk:-$boot}
 
 printf '\n%sSCUTOONS deck install%s – partitions on this machine (the stick %s is left out):\n\n' "$CYAN" "$OFF" "$bootdisk"
-mapfile -t parts < <(lsblk -rpno NAME,PKNAME,SIZE,FSTYPE,LABEL,MOUNTPOINT,TYPE | awk -v b="$bootdisk" '$NF == "part" && $2 != b {print}')
-[ ${#parts[@]} -gt 0 ] || die "no partitions – make one first (cfdisk /dev/sdX), then run deck-install again"
+mapfile -t parts < <(lsblk -rpno NAME,PKNAME,TYPE | awk -v b="$bootdisk" '$3 == "part" && $2 != b {print $1}')
+[ ${#parts[@]} -gt 0 ] || die "no partitions – make one first (cfdisk /dev/nvme0n1 or /dev/sdX), then run deck-install again"
 i=0
 for p in "${parts[@]}"; do
-  i=$((i + 1)); read -r name pk size fs label mnt _ <<<"$p"
-  printf '  %s%2d%s  %-14s %8s  %-8s %-12s %s\n' "$CYAN" "$i" "$OFF" "$name" "$size" "${fs:--}" "${label:--}" "${mnt:+mounted at $mnt}"
+  i=$((i + 1)); mnt=$(mounted "$p")
+  printf '  %s%2d%s  %-16s %8s  %-24s %-6s %-12s %s\n' "$CYAN" "$i" "$OFF" "$p" "$(field SIZE "$p")" \
+    "$(field PARTTYPENAME "$p")" "$(field FSTYPE "$p" | sed 's/^$/-/')" "$(field LABEL "$p" | sed 's/^$/-/')" "${mnt:+mounted at $mnt}"
 done
 echo
 read -r -p "root partition number (Enter = abort): " n
 [[ "$n" =~ ^[0-9]+$ ]] && [ "$n" -ge 1 ] && [ "$n" -le ${#parts[@]} ] || die "aborted"
-read -r root _ size fs label mnt _ <<<"${parts[$((n - 1))]}"
-[ -z "$mnt" ] || die "$root is mounted at $mnt – not touching it"
-printf '\n%sEVERYTHING on %s (%s, %s %s) is erased.%s Type the partition name to confirm: ' "$RED" "$root" "$size" "${fs:-no fs}" "${label:-}" "$OFF"
+root=${parts[$((n - 1))]}
+mnt=$(mounted "$root"); [ -z "$mnt" ] || die "$root is mounted at $mnt – not touching it"
+[ "$(field PARTTYPE "$root")" != "$ESP_TYPE" ] || die "$root is an EFI system partition – pick the Linux one for the root"
+fs=$(field FSTYPE "$root")
+case "$fs" in ntfs|BitLocker|bitlocker) die "$root holds $fs – that is Windows, not touching it" ;; esac
+printf '\n%sEVERYTHING on %s (%s, %s %s) is erased.%s Type the partition name to confirm: ' "$RED" "$root" \
+  "$(field SIZE "$root")" "${fs:-no fs}" "$(field LABEL "$root")" "$OFF"
 read -r confirm; [ "$confirm" = "$root" ] || die "aborted (typed '$confirm')"
 
-esp=""
-mapfile -t esps < <(lsblk -rpno NAME,PKNAME,PARTTYPE,FSTYPE "$(lsblk -no PKNAME "$root" | head -1 | sed 's|^|/dev/|')" 2>/dev/null \
-  | awk '$3 == "c12a7328-f81f-11d2-ba4b-00a0c93ec93b" || $4 == "vfat" {print $1}')
+esp=""; esp_format=0; windows=0
+disk=$(lsblk -npo PKNAME "$root" | head -1)
+mapfile -t esps < <(lsblk -rpno NAME,TYPE "$disk" | awk '$2 == "part" {print $1}' | while read -r p; do
+  [ "$p" != "$root" ] && { [ "$(field PARTTYPE "$p")" = "$ESP_TYPE" ] || [ "$(field FSTYPE "$p")" = vfat ]; } && echo "$p"
+done)
 if [ ${#esps[@]} -gt 0 ]; then
   printf '\nEFI system partition for the boot entry (systemd-boot; Enter = none, you add the entry yourself):\n'
-  i=0; for e in "${esps[@]}"; do i=$((i + 1)); printf '  %s%d%s  %s\n' "$CYAN" "$i" "$OFF" "$e"; done
+  i=0
+  for e in "${esps[@]}"; do
+    i=$((i + 1)); note=""
+    if [ -z "$(field FSTYPE "$e")" ]; then note="empty – formatted as FAT32 DECKESP if picked"
+    elif probe_esp "$e"; then
+      note="${ESP_FREE} MB free"; [ "$ESP_WIN" = 1 ] && { note="$note, ${RED}Windows' boot manager${OFF}"; windows=1; }
+    fi
+    printf '  %s%d%s  %-16s %8s  %-10s %s\n' "$CYAN" "$i" "$OFF" "$e" "$(field SIZE "$e")" "$(field LABEL "$e" | sed 's/^$/-/')" "$note"
+  done
   read -r -p "> " en
   [[ "$en" =~ ^[0-9]+$ ]] && [ "$en" -ge 1 ] && [ "$en" -le ${#esps[@]} ] && esp="${esps[$((en - 1))]}"
+fi
+if [ -n "$esp" ]; then
+  if [ -z "$(field FSTYPE "$esp")" ]; then
+    read -r -p "$esp has no file system – format it as FAT32 (DECKESP)? type yes: " a
+    [ "$a" = yes ] || die "aborted (format the ESP first: mkfs.fat -F32 -n DECKESP $esp)"
+    esp_format=1
+  else
+    probe_esp "$esp" || die "$esp does not mount as FAT – format it first (mkfs.fat -F32 -n DECKESP $esp) or pick another"
+    if [ "$ESP_WIN" = 1 ]; then
+      printf '%s%s is Windows'\'' ESP.%s A partition of its own for the deck (512M, type EFI System) keeps Windows'\'' boot untouched.\n' \
+        "$RED" "$esp" "$OFF"
+      read -r -p "use Windows' ESP anyway? type yes: " a; [ "$a" = yes ] || die "aborted"
+    fi
+    [ "${ESP_FREE:-0}" -ge "$ESP_MIN_MB" ] || die "$esp has ${ESP_FREE:-0} MB free, the deck needs $ESP_MIN_MB MB – make an ESP of its own (512M)"
+  fi
+fi
+if [ "$windows" = 1 ]; then
+  printf '\n%sWindows is on this disk.%s If BitLocker protects it, a changed boot order can make it ask for its recovery key\n' "$CYAN" "$OFF"
+  printf 'at the next Windows start: have the key, or suspend BitLocker in Windows first (manage-bde -protectors -disable C:).\n'
+  read -r -p "Enter = go on, anything else = abort: " a; [ -z "$a" ] || die "aborted"
 fi
 
 set -e
 M=/mnt/deck-install
 printf '\n%s1/5%s mkfs.ext4 %s\n' "$CYAN" "$OFF" "$root"
 mkfs.ext4 -q -F -L DECKROOT "$root"
+[ "$esp_format" = 0 ] || mkfs.fat -F32 -n DECKESP "$esp" >/dev/null
 mkdir -p "$M"; mount "$root" "$M"
 if [ -n "$esp" ]; then mkdir -p "$M/boot"; mount "$esp" "$M/boot"; fi
 
@@ -60,15 +117,22 @@ rm -rf "$M/etc/systemd/system/getty@tty1.service.d" "$M/root/.automated_script.s
 [ -d "$M/var/lib/deck" ] || install -d -o 1000 -g 1000 "$M/var/lib/deck"
 genfstab -U "$M" >"$M/etc/fstab"
 printf '%s\n' "scutoonsdeck" >"$M/etc/hostname"
-# HOOKS without archiso: the stock mkinitcpio.conf of the package already is that; the live one came from conf.d
-kernel=$(ls "$M/boot" 2>/dev/null | sed -n 's/^vmlinuz-//p' | head -1)
-[ -n "$kernel" ] || kernel=$(ls "$M/usr/lib/modules" | head -1 | xargs -I{} cat "$M/usr/lib/modules/{}/pkgbase")
+# HOOKS without archiso: the stock mkinitcpio.conf of the package already is that; the live one came from conf.d.
+# The kernel goes where the preset looks (/boot/vmlinuz-<pkgbase>) – what mkinitcpio's pacman hook does on an install.
+moddir=""; for d in "$M"/usr/lib/modules/*/; do [ -f "$d/pkgbase" ] && [ -f "$d/vmlinuz" ] && { moddir=$d; break; }; done
+[ -n "$moddir" ] || die "no kernel under $M/usr/lib/modules"
+kernel=$(cat "$moddir/pkgbase")
+install -Dm644 "$moddir/vmlinuz" "$M/boot/vmlinuz-$kernel"
 printf '%s4/5%s initramfs for %s\n' "$CYAN" "$OFF" "$kernel"
 arch-chroot "$M" mkinitcpio -P >/dev/null
 
 if [ -n "$esp" ]; then
   printf '%s5/5%s systemd-boot on %s\n' "$CYAN" "$OFF" "$esp"
-  arch-chroot "$M" bootctl --esp-path=/boot install >/dev/null
+  # from the live system, not the chroot: only here bootctl reaches the firmware's variables (the boot entry – the X1,
+  # 2026-11-01: from the chroot only the files landed, the firmware's menu had no entry and F12 started Windows)
+  fwentry=0
+  if [ -d /sys/firmware/efi/efivars ] && bootctl --esp-path="$M/boot" install >/dev/null 2>&1; then fwentry=1
+  else bootctl --esp-path="$M/boot" --no-variables install >/dev/null; fi
   uuid=$(blkid -s PARTUUID -o value "$root")
   ucode=""; for u in intel-ucode amd-ucode; do [ -f "$M/boot/$u.img" ] && ucode="$ucode"$'\n'"initrd  /$u.img"; done
   mkdir -p "$M/boot/loader/entries"
@@ -82,3 +146,11 @@ fi
 
 [ -n "$esp" ] && umount "$M/boot"; umount "$M"
 printf '\n%sdone.%s %s holds the deck; reboot and pick it in the firmware boot menu.\n' "$CYAN" "$OFF" "$root"
+if [ -n "$esp" ]; then
+  if [ "$fwentry" = 1 ]; then
+    printf '%s"Linux Boot Manager" is registered in the firmware, first in the boot order: the machine starts the deck.%s\n' "$DIM" "$OFF"
+  else
+    printf '%sThe firmware took no boot entry (no EFI variables?): the deck is on the ESP, pick it in F12 – or boot this stick on a UEFI start and run: mount %s /mnt && bootctl --esp-path=/mnt install%s\n' "$DIM" "$esp" "$OFF"
+  fi
+  [ "$windows" = 0 ] || printf '%sWindows: F12 at power-on → Windows Boot Manager – or put it first in the firmware setup (Lenovo: F1 → Startup → Boot) and start the deck with F12.%s\n' "$DIM" "$OFF"
+fi

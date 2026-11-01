@@ -1,0 +1,23 @@
+# The idle scene (#252, owner 2026-11-01: "an empty start scene with some simple fireflies floating on black background
+# without sound. idle"): what a deck plays when nothing else is chosen – the stage's default. One procedural pass
+# (shaders/fireflies.wgsl), no assets, no network, no audio graph; cheap enough to idle on the low preset.
+[stage]
+name = "idle"
+render_scale = 0.5
+
+[[node]]
+id = "fireflies"
+kind = "shader"
+effect = "fireflies"
+a = 1.0
+b = 1.0
+c = 1.0
+d = 0.6
+
+[[node]]
+id = "screen"
+kind = "screen"
+
+[[link]]
+from = "fireflies"
+to = "screen.in"

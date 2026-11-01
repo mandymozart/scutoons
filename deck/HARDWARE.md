@@ -43,9 +43,13 @@ every test or show adds a row there, and the table follows what we learn.
 | L | 128 GB | 16 GB | conductor of a show, live video for one show |
 | XL | 512 GB+ | 16–32 GB | live video across shows / a touring outlet |
 
-The X1 install (#200) is an M today (20 GB); a phone in the browser needs no tier.
+The X1 install (#200) is an S–M today (16.4 GB root + a 256 MB ESP of its own next to Windows, 2026-11-01); a phone in the browser needs no tier.
 
 ### Log – use cases and what we learned
 | Date | Who / where | Roles used | Machines | What we learned |
 |---|---|---|---|---|
 | 2026-10-30/31 | owner, at home (3-device test, session CATH) | conductor · AV deck · phone deck | PC (RTX 2070), X1 on stick s5, S22 (Chrome) | X1 runs the cathedral at 60 fps; the stick's first boot hung on mkfs discard (fixed s6); Wi-Fi had to be retyped (fixed s6); typing the relay address is annoying (→ #199); the S22 has no WebGPU (→ WebGL2, #198); a phone reload left ghost decks (relay keep-alive); 20 GB plan for the X1 install, video makes the outlet role big (#200) |
+| 2026-11-01 | owner, at home | the X1's install next to Windows (#200) | the X1 (NVMe 1 TB, Windows + BitLocker without protection), s7 stick | `cfdisk`: 256M EFI System + 16.4G Linux in the 16.6 GB freed from C: (the refurbished machine's 9.5 GB recovery partition removed, WinRE off – it will not enable on an encrypted volume); `deck-install` ran through (1st real run) – on the stick the root image was in RAM (copytoram), the first run needed a patched copy (fixed: both paths); the boot entry was not in the firmware (bootctl inside the chroot cannot write it) → `bootctl --esp-path=/mnt/esp install` from the live shell, then the deck booted from the NVMe; Wi-Fi remembered; Windows stays on F12 → Windows Boot Manager (fixed in deck-install) |
+| 2026-11-01 | owner + agent (ssh), at home | AV deck, remote updates (#237) | the installed X1, the PC serving `npm run deck:update` | updates over Wi-Fi work (the timer took a new build 2 min after a re-bundle); power-on → kiosk **31 s → 21.5 s** (#251: firmware 8.1 · loader 2.5 · kernel + initrd 3.2 · userspace 7.6 – no Wi-Fi countdown, no handshake in the boot flow); networkd's wait-online held network-online 2 min per boot (masked); the kiosk's stop 90 s → 0.3 s (#256); the s7 image's deck-link had no execute bit (fixed); F1 on the X1 is mute unless Fn+F1 / Fn Lock |
+| 2026-11-01 | owner + agents, at home | light / device bridge (#261) | PC then the X1, Eurolite USB-DMX512-PRO MK2 (FTDI 0403:6001 / FT232R) → Cameo Thunder Wash 600 RGBW | the MK2 speaks the Enttec Pro protocol **only at 250000 baud** (nothing at 115200, never answers the device check, no RTS/DTR needed); the lamp must be put into a DMX mode (7CH_1, confirmed with ENTER) first. The lamp runs in **4CH_1** (R, G, B, W – no strobe channel, as the manual says); its 7CH_1 did not follow the manual (it strobed with CH1 > 0), so the pulse scene stays on 4CH_1 |
+

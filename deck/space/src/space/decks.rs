@@ -10,10 +10,13 @@ use super::being::{bezier, hsv, kind, tube, Being, Bubble, Look, Sphere, TubeVer
 use super::values::Mirror;
 use crate::graph::Graph;
 use crate::tempo;
-use crate::quality::{BUDGET_MS, SEVERE_MS};
 use glam::Vec3;
 use protocol::{DeckQuality, LinkQuality, QualityLevel};
 use std::fmt::Write;
+
+/// a deck's frame time that shows amber (under 50 fps) and red (under 25 fps) at the conductor
+const SLOW_MS: f64 = 20.0;
+const SEVERE_MS: f64 = 40.0;
 
 pub struct Remote {
     pub client: String,
@@ -49,9 +52,9 @@ impl Remote {
         };
         let _ = write!(out, "{level} {:.2} {:.0}MS{}", q.scale, q.frame, if q.auto { "" } else { " FIX" });
         let down = q.ceiling.is_some_and(|c| c != q.level);
-        Some(if q.frame > SEVERE_MS as f64 {
+        Some(if q.frame > SEVERE_MS {
             0.0
-        } else if down || q.frame > BUDGET_MS as f64 {
+        } else if down || q.frame > SLOW_MS {
             0.12
         } else {
             0.33

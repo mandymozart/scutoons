@@ -34,11 +34,28 @@ deck-persist || say "no persistence – this boot keeps nothing (${DIM}deck-pers
 install -d -o deck -g deck "$STATE" "$STATE/home" "$STATE/cache"
 [ -f "$STATE/venue.toml" ] || install -o deck -g deck -m 644 /usr/share/deck/venue.default.toml "$STATE/venue.toml"
 [ -f "$STATE/deck.toml" ] || install -o deck -g deck -m 644 /usr/share/deck/deck.default.toml "$STATE/deck.toml"
+# the last remote update again (#237, deck-update): a live stick's root is the ISO's after every boot (an installed deck
+# has it already – nothing to do). The kiosk, bridge and link start after this script; the relay may run already.
+if command -v deck-update >/dev/null; then
+  upd=$(deck-update boot 2>&1)
+  case "$upd" in
+    re-applied*) say "$upd"; systemctl try-restart --no-block deck-relay.service ;;
+    nothing*) ;;
+    *) say "$upd" ;;
+  esac
+fi
 
-# 2. network (deck-wifi hides the splash for its menu and says so; the logo comes back after it)
-say "network"
-deck-wifi
-splash && plymouth show-splash 2>/dev/null
+# 2. network (#251): a deck that remembers a network goes straight on – NetworkManager connects in the background while
+# the stage starts (the relay, the pairing and the certificate catch up); only a deck that knows none gets the menu
+# (deck-wifi quits the splash for it; the logo comes back after it). Changing the network later: nmtui on tty2.
+known=$(nmcli -t -f NAME,TYPE connection show 2>/dev/null | grep -v '^deck-hotspot:' | grep -E ':(802-11-wireless|802-3-ethernet)$' | head -1)
+if [ -n "$known" ]; then
+  say "network: ${known%:*} – connecting in the background"
+else
+  say "network"
+  deck-wifi
+  splash && plymouth show-splash 2>/dev/null
+fi
 
 # 3. hardware check (once; `deck-check` on a shell re-runs it; RECHECK=1 on the kernel line forces it)
 if [ -s "$STATE/machine.toml" ] && ! grep -qw 'deck.recheck' /proc/cmdline; then
@@ -56,10 +73,15 @@ fi
 # a stick without persistence makes a new one each boot and simply asks again), then one step of the handshake – the
 # code to pair with goes under the logo and into /run/deck-link (the stage's splash shows it with a QR, deck-session's
 # start page too); deck-link.service keeps going from there (renewal, revoke → a new code).
+# A deck that had its key already does not wait for the handshake here (up to 20 s offline, #251) – deck-link.service
+# runs it in the background, the stage shows the code.
+had_key=0; [ -s "$STATE/identity/ed25519.key" ] && had_key=1
 if id=$(deck-link id 2>&1); then
   say "identity ${id:0:8}…"
-  pairing=$(timeout 20 deck-link once 2>&1 | tail -n 1) || true
-  say "${pairing:-pairing: no answer yet – the stage shows the code once the deck is online}"
+  if [ "$had_key" = 0 ]; then
+    pairing=$(timeout 20 deck-link once 2>&1 | tail -n 1) || true
+    say "${pairing:-pairing: no answer yet – the stage shows the code once the deck is online}"
+  fi
 else
   say "no identity: $id"
 fi

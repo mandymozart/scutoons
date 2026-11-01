@@ -19,7 +19,7 @@ use crate::space::gpu::SpaceGpu;
 #[cfg(feature = "space")]
 pub use crate::space::Space;
 use crate::tempo::Quantize;
-use deck_space::quality::{Level, Rung, LADDER};
+use deck_space::quality::{Rung, MAX_SIDE};
 use anyhow::{bail, Context, Result};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -38,6 +38,7 @@ fn builtin(name: &str) -> Option<&'static str> {
         "rgb_shift" => include_str!("shaders/rgb_shift.wgsl"),
         "invert" => include_str!("shaders/invert.wgsl"),
         "pass" => include_str!("shaders/pass.wgsl"),
+        "fireflies" => include_str!("shaders/fireflies.wgsl"),
         "chapter" => include_str!("shaders/chapter.wgsl"),
         "overlay" => include_str!("shaders/overlay.wgsl"),
         "outlet" => include_str!("shaders/outlet.wgsl"),
@@ -139,8 +140,10 @@ pub struct Renderer {
     pair_tex: wgpu::Texture,
     pairing: bool,
     render_scale: f32,
-    /// #220: the quality rung's knobs (deck-space quality.rs – the governor in main.rs sets them)
+    /// #220: the quality rung's knobs (deck-space quality.rs – the governor in main.rs sets them) and the scene's
+    /// render_scale under them
     quality: Rung,
+    scene_scale: f32,
     slides: Vec<Slides>,
     /// the outlet node's planes (#186)
     outlet: Option<OutletPlanes>,
@@ -154,22 +157,48 @@ pub struct Renderer {
     can_capture: bool,
 }
 
+/// #257: the backends the first instance gets – `WGPU_BACKEND` if set, else Vulkan alone on Linux (all elsewhere)
+fn backends_first() -> wgpu::Backends {
+    wgpu::Backends::from_env().unwrap_or_else(|| default_backends(cfg!(target_os = "linux")))
+}
+
+fn default_backends(linux: bool) -> wgpu::Backends {
+    if linux { wgpu::Backends::VULKAN } else { wgpu::Backends::all() }
+}
+
+/// where to go when `tried` had no adapter: GL, only after Vulkan alone found nothing (None = nothing left)
+fn backends_fallback(tried: wgpu::Backends) -> Option<wgpu::Backends> {
+    (tried == wgpu::Backends::VULKAN).then_some(wgpu::Backends::all())
+}
+
 impl Renderer {
     pub fn new(window: Arc<Window>, graph: &Graph, render_scale: f32, feeds: Vec<ChapterFeed>) -> Result<Renderer> {
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::from_env_or_default());
-        let surface = instance.create_surface(window.clone()).context("creating the window surface")?;
-        let ask = |fallback| {
-            pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::HighPerformance,
-                force_fallback_adapter: fallback,
-                compatible_surface: Some(&surface),
-            }))
-        };
-        let adapter = match ask(false) {
-            Ok(a) => a,
-            Err(e) => {
-                tracing::warn!("render: no hardware adapter ({e}) – the software fallback");
-                ask(true).context("no GPU adapter at all, not even a software one")?
+        // #257: on Linux the instance starts with Vulkan alone – a GL backend in the instance opens its own EGL
+        // display on the Wayland connection, and when the compositor dies that one segfaults (libEGL_mesa)
+        let mut backends = backends_first();
+        let (surface, adapter) = loop {
+            let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor { backends, ..wgpu::InstanceDescriptor::from_env_or_default() });
+            let surface = instance.create_surface(window.clone()).context("creating the window surface")?;
+            let ask = |fallback| {
+                pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+                    power_preference: wgpu::PowerPreference::HighPerformance,
+                    force_fallback_adapter: fallback,
+                    compatible_surface: Some(&surface),
+                }))
+            };
+            match ask(false) {
+                Ok(a) => break (surface, a),
+                Err(e) => match backends_fallback(backends) {
+                    Some(next) => {
+                        tracing::warn!("render: no adapter on {backends:?} ({e}) – trying {next:?}");
+                        backends = next;
+                    }
+                    None => {
+                        tracing::warn!("render: no hardware adapter ({e}) – the software fallback");
+                        let a = ask(true).context("no GPU adapter at all, not even a software one")?;
+                        break (surface, a);
+                    }
+                },
             }
         };
         let info = adapter.get_info();
@@ -284,7 +313,8 @@ impl Renderer {
             screen: None,
             hud_tex,
             render_scale: if software { render_scale.min(0.5) } else { render_scale }.clamp(0.25, 1.0),
-            quality: LADDER[Level::High.top()],
+            quality: Rung::default(),
+            scene_scale: render_scale.clamp(0.25, 1.0),
             slides: Vec::new(),
             outlet: None,
             #[cfg(feature = "space")]
@@ -440,20 +470,26 @@ impl Renderer {
         errors
     }
 
-    /// #220: a quality rung – the 3D's render size (the scene's `render_scale` × the rung's; the HUD stays native) and
-    /// the space's lights and post passes. The offscreen targets are made anew only when the size changes (a step of
-    /// the governor, never per frame).
+    /// #220: a quality rung – the 3D's render size (the scene's `render_scale` × the rung's size: a scale of the window,
+    /// or a height in pixels; the HUD stays native) and the space's lights and post passes. The offscreen targets are
+    /// made anew only when the size changes (a step of the governor, never per frame).
     pub fn set_quality(&mut self, rung: Rung, scene_scale: f32) {
         self.quality = rung;
+        self.scene_scale = scene_scale;
         #[cfg(feature = "space")]
         if let Some(g) = self.space.as_mut() {
             g.set_quality(rung);
         }
-        let s = (scene_scale * rung.scale).clamp(0.25, 1.5);
+        let s = self.quality_scale();
         if (s - self.render_scale).abs() > 1e-3 {
             self.render_scale = s;
             self.rebuild();
         }
+    }
+
+    /// the scene's render_scale × the rung's size on this window
+    fn quality_scale(&self) -> f32 {
+        (self.scene_scale * self.quality.size.scale_for(self.config.height)).clamp(0.1, 4.0)
     }
 
     /// the render size × the screen's
@@ -463,7 +499,8 @@ impl Renderer {
 
     fn render_size(&self) -> (u32, u32) {
         let s = self.render_scale;
-        (((self.config.width as f32 * s) as u32).max(1), ((self.config.height as f32 * s) as u32).max(1))
+        let side = |v: u32| ((v as f32 * s) as u32).clamp(1, MAX_SIDE);
+        (side(self.config.width), side(self.config.height))
     }
 
     pub fn resize(&mut self, w: u32, h: u32) {
@@ -478,6 +515,8 @@ impl Renderer {
             self.bar_w = bar_w;
             self.bar_tex = bar_texture(&self.device, bar_w);
         }
+        // a rung with a height in pixels: its scale follows the window
+        self.render_scale = self.quality_scale();
         self.rebuild();
     }
 
@@ -885,7 +924,7 @@ fn shader_body(node: &crate::graph::Node) -> Result<String> {
     }
     let name = node.str("effect").unwrap_or("pass");
     builtin(name).map(str::to_string).with_context(|| {
-        format!("node '{}': unknown effect '{name}' (kaleido, rgb_shift, invert, pass – or wgsl = a file)", node.id)
+        format!("node '{}': unknown effect '{name}' (kaleido, rgb_shift, invert, pass, fireflies – or wgsl = a file)", node.id)
     })
 }
 
@@ -977,4 +1016,17 @@ fn uniform_buffer(device: &wgpu::Device) -> wgpu::Buffer {
         usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     })
+}
+
+#[cfg(test)]
+mod backend_tests {
+    use super::*;
+
+    #[test]
+    fn linux_starts_on_vulkan_alone_and_falls_back_once() {
+        assert_eq!(default_backends(true), wgpu::Backends::VULKAN);
+        assert_eq!(default_backends(false), wgpu::Backends::all());
+        assert_eq!(backends_fallback(wgpu::Backends::VULKAN), Some(wgpu::Backends::all()));
+        assert_eq!(backends_fallback(wgpu::Backends::all()), None);
+    }
 }

@@ -34,7 +34,9 @@ message until its `at`, as for every adapter.
   at the earliest 4 ms after the last one, instead of on the 40 Hz grid. The widget puts the newest packet on the
   line with its next DMX frame (512 channels ≈ 23 ms per frame at 250 kbit/s).
 - Device check on open: label 3 (parameters: firmware, break, MAB, rate) and label 10 (serial number), logged; a
-  device that answers neither still gets frames (a warning names it).
+  device that answers neither (the Eurolite USB-DMX512-PRO MK2 and other clones) still gets frames – one info line.
+- The port opens at 250000 baud (`BAUD`): the Eurolite MK2 puts nothing on the line at 115200; an original Enttec (FT245)
+  and the CDC widgets ignore the baud.
 - A widget missing at start or pulled out is looked for again every 2 s; the universe survives and is sent at once
   when it is back. Stopping the bridge leaves the last look standing (the widget repeats it) – a restart never
   flashes black; `panic` is the blackout.
