@@ -740,6 +740,8 @@ struct App {
     page: settings::Page,
     /// #250: the scene switcher (F5)
     switcher: switcher::Switcher,
+    /// #250: the fade through black while a picked scene loads
+    trans: Option<switcher::Transition>,
     /// #253: the hardware volume keys (wpctl on the default sink) and their overlay; `vol_forced` = the HUD is off and
     /// the bar is borrowed to show it
     volume: volume::Volume,
@@ -898,6 +900,27 @@ impl App {
     /// #250: Enter on a scene – loaded in place like a `--dev` reload (the window and the Live link's process stay; a
     /// scene that doesn't build keeps the old one and the list says why), then written into deck.toml for the next boot
     fn switch(&mut self, value: &str) {
+        if self.trans.is_some() {
+            return;
+        }
+        // checked first: a scene that doesn't build keeps the old one playing, nothing fades
+        let old_scene = self.args.scene.replace(value.into());
+        let checked = read_scene(&self.args).and_then(|s| modules::check(&s).and_then(|_| graph::Graph::build(&s)).map(|_| ()));
+        self.args.scene = old_scene;
+        if let Err(e) = checked {
+            self.switcher.status = format!("NOT LOADED: {e:#}");
+            return;
+        }
+        // the picture fades to black and the sound out as long (PipeWire), then `load_switch`
+        if let Some(a) = &self.show.audio {
+            a.fade_out();
+        }
+        self.trans = Some(switcher::Transition::new(value));
+        self.switcher.status = format!("FADING TO {}", value.rsplit(['/', '\\']).next().unwrap_or(value).to_uppercase());
+    }
+
+    /// #250: the black is full – the old show stops, the new one is built, deck.toml remembers it
+    fn load_switch(&mut self, value: &str) {
         let (old_scene, old_error) = (self.args.scene.clone(), self.error.take());
         let started = Instant::now();
         self.args.scene = Some(value.into());
@@ -999,7 +1022,7 @@ impl App {
         // the kiosk hides the pointer – unless the scene has a space to point into
         window.set_cursor_visible(self.args.windowed || self.show.space.is_some());
         let feeds = std::mem::take(&mut self.show.feeds);
-        match render::Renderer::new(window.clone(), &self.show.graph, self.show.render_scale, feeds) {
+        match render::Renderer::new(window.clone(), &self.show.graph, self.show.render_scale, feeds, self.trans.is_some()) {
             #[allow(unused_mut)]
             Ok(mut r) => {
                 #[cfg(feature = "live")]
@@ -1088,6 +1111,9 @@ impl App {
         if self.stats.frames >= 30 {
             if let Some(name) = self.args.switch_to.take() {
                 self.switch(&name);
+                if let Some(w) = &self.window {
+                    w.request_redraw();
+                }
                 return;
             }
         }
@@ -1240,8 +1266,26 @@ impl App {
         }
         let cover = self.loading() || self.browser.is_some();
         self.splash.step(cover, dt);
-        let splash = (self.splash.alpha, cover);
+        // #250: a scene change fades through a black veil (no logo): out, the load behind it, in
+        let mut splash = (self.splash.alpha, cover);
+        let ready = !self.loading();
+        if let Some(t) = self.trans.as_mut() {
+            let (step, done) = t.step(dt, ready);
+            splash = (t.veil, false);
+            if done {
+                self.trans = None;
+            } else if step == switcher::Step::Load {
+                let to = t.to.clone();
+                self.load_switch(&to);
+                if let Some(w) = &self.window {
+                    w.request_redraw();
+                }
+                return;
+            }
+        }
+        let veil = self.trans.is_some();
         let Some(r) = self.renderer.as_mut() else { return };
+        r.veil_only = veil;
         // #180: while the deck waits for a member, the code + QR in the corner (deck-link's run directory, a small file)
         if time - self.pairing_at >= 2.0 || time < self.pairing_at {
             self.pairing_at = time;
@@ -1677,7 +1721,7 @@ impl ApplicationHandler<Event> for App {
     fn window_event(&mut self, el: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
         // #250: the open scene list takes the keys
         if let WindowEvent::KeyboardInput { event: k, .. } = &event {
-            if self.switcher.open && k.state == ElementState::Pressed && !matches!(k.logical_key.as_ref(), Key::Named(NamedKey::F1 | NamedKey::F2 | NamedKey::F4 | NamedKey::F5 | NamedKey::AudioVolumeUp | NamedKey::AudioVolumeDown | NamedKey::AudioVolumeMute)) {
+            if self.switcher.open && k.state == ElementState::Pressed && !matches!(k.logical_key.as_ref(), Key::Named(NamedKey::F1 | NamedKey::F12 | NamedKey::F4 | NamedKey::F5 | NamedKey::AudioVolumeUp | NamedKey::AudioVolumeDown | NamedKey::AudioVolumeMute)) {
                 let key = match k.logical_key.as_ref() {
                     Key::Named(NamedKey::ArrowUp) => Some(switcher::Key::Up),
                     Key::Named(NamedKey::ArrowDown) => Some(switcher::Key::Down),
@@ -1893,6 +1937,7 @@ fn run() -> Result<i32> {
         presets,
         page: { let mut p = settings::Page::default(); p.open = args_settings; p },
         switcher: switcher::Switcher::default(),
+        trans: None,
         quality_note,
         modes: Vec::new(),
         #[cfg(feature = "outputs")]

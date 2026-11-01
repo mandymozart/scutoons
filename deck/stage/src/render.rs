@@ -148,6 +148,8 @@ pub struct Renderer {
     /// the outlet node's planes (#186)
     outlet: Option<OutletPlanes>,
     splash: Pass,
+    /// the splash is a black veil without the logo (#250)
+    pub veil_only: bool,
     logo: Image,
     /// the space node's GPU side, made at its first frame
     #[cfg(feature = "space")]
@@ -172,7 +174,8 @@ fn backends_fallback(tried: wgpu::Backends) -> Option<wgpu::Backends> {
 }
 
 impl Renderer {
-    pub fn new(window: Arc<Window>, graph: &Graph, render_scale: f32, feeds: Vec<ChapterFeed>) -> Result<Renderer> {
+    /// `veil` = the splash's first frame is black without the logo (#250: a scene switch fades through black)
+    pub fn new(window: Arc<Window>, graph: &Graph, render_scale: f32, feeds: Vec<ChapterFeed>, veil: bool) -> Result<Renderer> {
         // #257: on Linux the instance starts with Vulkan alone – a GL backend in the instance opens its own EGL
         // display on the Wayland connection, and when the compositor dies that one segfaults (libEGL_mesa)
         let mut backends = backends_first();
@@ -299,6 +302,7 @@ impl Renderer {
             pair_tex,
             pairing: false,
             splash,
+            veil_only: veil,
             logo,
             surface,
             device,
@@ -615,7 +619,7 @@ impl Renderer {
     fn show_splash(&mut self) {
         let Ok(frame) = self.surface.get_current_texture() else { return };
         let res = [self.config.width as f32, self.config.height as f32];
-        let u = Uniforms { time: 0.0, dt: 0.0, res, p: [1.0, self.logo.aspect, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0] };
+        let u = Uniforms { time: 0.0, dt: 0.0, res, p: [1.0, self.logo.aspect, 1.0, if self.veil_only { 1.0 } else { 0.0 }, 0.0, 0.0, 0.0, 0.0] };
         self.queue.write_buffer(&self.splash.ubuf, 0, bytemuck::bytes_of(&u));
         let mut enc = self.device.create_command_encoder(&Default::default());
         {
@@ -750,7 +754,7 @@ impl Renderer {
         }
         let (sw, sh) = (self.config.width as f32, self.config.height as f32);
         if splash.0 > 0.0 {
-            let p = [splash.0, self.logo.aspect, if splash.1 { 1.0 } else { 0.0 }, 0.0, 0.0, 0.0, 0.0, 0.0];
+            let p = [splash.0, self.logo.aspect, if splash.1 { 1.0 } else { 0.0 }, if self.veil_only { 1.0 } else { 0.0 }, 0.0, 0.0, 0.0, 0.0];
             let u = Uniforms { time, dt, res: [sw, sh], p };
             self.queue.write_buffer(&self.splash.ubuf, 0, bytemuck::bytes_of(&u));
         }

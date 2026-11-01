@@ -35,7 +35,18 @@ impl Choice {
 pub struct Running {
     pub name: &'static str,
     pub rate: u32,
+    /// asks the stream to fade out ahead of the drop (PipeWire; #250 – the picture fades as long)
+    closing: Option<Arc<AtomicBool>>,
     _keep: Box<dyn Any>,
+}
+
+impl Running {
+    /// Starts the fade-out without waiting; dropping it later finds the stream already silent.
+    pub fn fade_out(&self) {
+        if let Some(c) = &self.closing {
+            c.store(true, Ordering::Relaxed);
+        }
+    }
 }
 
 /// Builds an engine for a sample rate; called once per backend tried.
@@ -255,7 +266,7 @@ fn null(factory: &mut Factory) -> Result<Running> {
             self.0.store(true, Ordering::Relaxed);
         }
     }
-    Ok(Running { name: "null", rate: NULL_RATE, _keep: Box::new(Stop(stop)) })
+    Ok(Running { name: "null", rate: NULL_RATE, closing: None, _keep: Box::new(Stop(stop)) })
 }
 
 /// The buffer a device gets for `want` frames (#208): `want` within the device's supported range, else the nearest end
@@ -436,7 +447,7 @@ fn cpal(o: &Options, factory: &mut Factory) -> Result<Running> {
         "JACK" => "jack",
         _ => "cpal",
     };
-    Ok(Running { name, rate, _keep: Box::new(stream) })
+    Ok(Running { name, rate, closing: None, _keep: Box::new(stream) })
 }
 
 
@@ -632,7 +643,8 @@ fn pipewire(o: &Options, factory: &mut Factory) -> Result<Running> {
     match ready_rx.recv_timeout(Duration::from_secs(3)) {
         Ok(Ok(quit)) => {
             tracing::info!("audio: PipeWire stream 'deck-stage', {RATE} Hz, latency {shown}");
-            Ok(Running { name: "pipewire", rate: RATE, _keep: Box::new(PipewireStop { closing, silent, quit, thread: Some(thread) }) })
+            let flag = closing.clone();
+            Ok(Running { name: "pipewire", rate: RATE, closing: Some(flag), _keep: Box::new(PipewireStop { closing, silent, quit, thread: Some(thread) }) })
         }
         Ok(Err(e)) => bail!("{e}"),
         Err(_) => bail!("no answer from PipeWire within 3 s"),

@@ -322,7 +322,7 @@ path as a `--dev` reload, no process restart: the old show stops (audio graph dr
 stays (about 0.6 s on a PC) – **Esc** / F5 closes; the playing one is starred. A scene that doesn't build (a module this build lacks,
 a broken file) keeps the old one playing and the list says why. A scene that loads is written into deck.toml as one
 `scene = "<name or path>"` line (`DECK_TOML` names another file; replaced like `deck-set` does, never a second line), so
-the next boot plays it. Check runs: `--switcher` starts with the list open, `--switch NAME` loads that scene after 30 frames.
+the next boot plays it. The change goes through black, no logo: the picture and the PipeWire stream fade out (0.25 s), the new show loads behind the black, then the picture fades in (0.4 s; `switcher.rs` `Transition`, the splash shader's veil mode). Check runs: `--switcher` starts with the list open, `--switch NAME` loads that scene after 30 frames.
 
 **Quality** (#220, deck-space `quality.rs` – the browser deck runs the same; the stage's `src/quality.rs`): four
 **presets** – low · medium · high · ultra – each with its knobs: on / off (an off preset is skipped and can't be chosen),
