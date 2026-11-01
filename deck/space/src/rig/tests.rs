@@ -575,34 +575,19 @@ fn node_kinds_for_the_server_are_current() {
 #[test]
 fn the_servers_scene_content_reads_as_bundles() {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/rigs/scene-content.json");
-    let answer: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
-    let mut rigs = Vec::new();
-    for group in ["characters", "items"] {
-        for (name, entry) in answer[group].as_object().unwrap() {
-            if !entry["rig"].is_null() {
-                rigs.push((name.clone(), entry["rig"].clone()));
-            }
-        }
-    }
+    let answer = content::SceneRigs::parse_json(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let rigs: Vec<_> = answer.rigs().collect();
     assert!(rigs.len() >= 2, "the fixture names the core rigs");
+    assert!(answer.characters.values().any(|h| h.rig.is_none()), "a character without a rig is in the fixture");
     let mut core_seen = 0;
-    for (name, r) in rigs {
-        let pick = |map: &str, list: &str| -> Vec<serde_json::Value> {
-            r[list]
-                .as_array()
-                .unwrap()
-                .iter()
-                .map(|id| {
-                    let e = &answer[map][id.as_str().unwrap()];
-                    assert_eq!(e["id"], *id, "{map}: an entry carries its id");
-                    assert!(e["version"].as_str().is_some_and(|v| !v.is_empty()), "{map} {id}: a version for the cache");
-                    e["data"].clone()
-                })
-                .collect()
-        };
-        let json = serde_json::json!({ "rig": r["data"], "instrument": pick("instruments", "instruments"), "preset": pick("presets", "presets") });
-        let mut b = Bundle::parse_json(&json.to_string()).unwrap_or_else(|e| panic!("{name}: {e:#}"));
-        assert_eq!(r["id"].as_str(), Some(b.rig.subject.as_str()), "{name}: the rig's id is its subject");
+    for (_, name, r) in rigs {
+        for id in r.instruments.iter().chain(&r.presets) {
+            let e = answer.instruments.get(id).or(answer.presets.get(id)).unwrap();
+            assert!(e.version.len() == 16 && e.version.chars().all(|c| c.is_ascii_hexdigit()), "{id}: a version for the cache");
+            assert!(content::safe_id(id), "{id}: a cache's file name");
+        }
+        assert!(content::safe_id(&r.id) && r.version.len() == 16);
+        let mut b = answer.bundle(r).unwrap_or_else(|e| panic!("{name}: {e:#}"));
         let lib = b.library();
         for i in &b.instruments {
             i.check().unwrap();
@@ -650,4 +635,35 @@ fn rig_schema_for_the_creator_is_current() {
     }
     let on_disk = std::fs::read_to_string(path).unwrap_or_default().replace('\r', "");
     assert!(on_disk == text, "{path} is stale: UPDATE_FIXTURES=1 cargo test -p deck-space rig_schema");
+}
+
+/// #271: one holder's bundle from scene-content, as the wasm boundary hands it; what is missing or misfiled is named,
+/// a holder without a rig is empty, an unknown group refused – and an id a cache can't use as a file name is spotted.
+#[test]
+fn scene_content_gives_one_holder_s_bundle_and_names_what_is_wrong() {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/rigs/scene-content.json");
+    let text = std::fs::read_to_string(path).unwrap();
+    let json = content::scene_rig_json(&text, "characters", "catpope").unwrap();
+    let b = Bundle::parse_json(&json).unwrap();
+    assert_eq!(b.rig.subject, "character.catpope");
+    assert_eq!(Bundle::play_json(&json, "", "").unwrap(), Bundle::core("character.catpope").unwrap().unwrap().play(None, None).map(|p| serde_json::to_string(&p).unwrap()).unwrap());
+    assert_eq!(content::scene_rig_json(&text, "items", "incense_burner").map(|j| Bundle::parse_json(&j).unwrap().rig.subject).unwrap(), "item.incense_burner");
+    assert_eq!(content::scene_rig_json(&text, "characters", "boy").unwrap(), "", "no rig: empty");
+    assert_eq!(content::scene_rig_json(&text, "characters", "nobody").unwrap(), "");
+    assert!(content::scene_rig_json(&text, "sets", "cathedral").is_err());
+
+    let mut rigs = content::SceneRigs::parse_json(&text).unwrap();
+    let entry = rigs.character("catpope").unwrap().clone();
+    rigs.presets.remove("cathedral_voice.low");
+    assert!(format!("{:#}", rigs.bundle(&entry).unwrap_err()).contains("names the preset 'cathedral_voice.low'"));
+    rigs.instruments.insert("cathedral_voice".into(), rigs.instruments["drone"].clone());
+    assert!(format!("{:#}", rigs.bundle(&entry).unwrap_err()).contains("instrument 'cathedral_voice' is filed as 'drone'"));
+    let rigs = content::SceneRigs::parse_json(&text).unwrap();
+    let mut wrong = entry.clone();
+    wrong.id = "character.boy".into();
+    assert!(format!("{:#}", rigs.bundle(&wrong).unwrap_err()).contains("carries the subject 'character.catpope'"));
+    for bad in ["", ".hidden", "a/b", "..", "a b", "x\\y"] {
+        assert!(!content::safe_id(bad), "{bad:?}");
+    }
+    assert!(content::safe_id("cathedral_voice.base") && content::safe_id("character.catpope"));
 }

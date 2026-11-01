@@ -2,6 +2,7 @@
 //! - instrument.rs – a patch of the node graph with its exposed parameters and a kind (drum, lead, pad, voice …)
 //! - preset.rs – values + routing changes + mappings for one instrument, with a parent (derivatives, lineage)
 //! - bundle.rs – a rig with what it names (scene-content's answer) → the played scene + the page's knobs
+//! - content.rs – scene-content's answer (its rigs, instruments, presets with their versions) → a bundle per holder
 //! - engine.rs – a flattened rig lowered for live-core (the browser's batch engine) + what the page plays itself
 //! - horizon.rs – the mood horizon: the moods reachable next, played ahead (deck-events' horizon), swapped on the trigger
 //! - flatten.rs – a rig as one playable scene (the tracks summed into audio_out, the routes as links)
@@ -10,6 +11,7 @@
 //!
 //! JSON (the platform's entity documents) and TOML (the core set in the deck image) read the same serde forms.
 pub mod bundle;
+pub mod content;
 pub mod engine;
 mod flatten;
 pub mod horizon;
