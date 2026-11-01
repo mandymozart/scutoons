@@ -285,7 +285,7 @@ return static function (App $app): void {
     $app->post('/api/entities/{key:[A-Za-z0-9:._-]+}/{action:publish|unpublish|restore}', [EntitiesController::class, 'action']);
     // where a catalog item is placed in every toon (item limits, BACKLOG 10.39) – role creator
     $app->get('/api/catalog/items/{id:[A-Za-z0-9_.-]{1,100}}/placements', [EntitiesController::class, 'itemPlacements']);
-    $app->get('/api/catalog/docs/{kind:items|recipes|albums|products|editions|home-scenes|airlift-carriers}', [EntitiesController::class, 'catalogDocs']);
+    $app->get('/api/catalog/docs/{kind:items|recipes|albums|products|editions|home-scenes|airlift-carriers|instruments|presets|rigs}', [EntitiesController::class, 'catalogDocs']);
     // the creator's SCUTOONS-wide flow: every toon's ways out of its chapters + dead things (docs/API.md "Flow index", role creator)
     $app->get('/api/creator/flow-index', [FlowController::class, 'index']);
     // Review before publish (docs/API.md "Reviews", role creator; the review rules per toon decide the rest)
@@ -397,7 +397,7 @@ return static function (App $app): void {
         $admin->get('/catalog', [SystemController::class, 'catalog']);
         // when picked-up placed items reappear, per item (an update of the item's `respawn` in catalog_items)
         // the catalog tables (agents/CATALOG.md): per kind list / get / put / delete / reorder, history + undo
-        $kind = '{kind:items|recipes|albums|products|editions|featured|permissions|code-types|toons|meta|home-scenes|airlift-carriers}';
+        $kind = '{kind:items|recipes|albums|products|editions|featured|permissions|code-types|toons|meta|home-scenes|airlift-carriers|instruments|presets|rigs}';
         $entry = '{id:[A-Za-z0-9][A-Za-z0-9_:.-]{0,190}}';
         $admin->get('/catalog/history', [CatalogAdminController::class, 'history']);
         $admin->post('/catalog/history/{id:[0-9]{1,18}}/undo', [CatalogAdminController::class, 'undo']);

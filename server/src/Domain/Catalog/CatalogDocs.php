@@ -48,10 +48,11 @@ final class CatalogDocs
     public function guardSave(EntityKey $key, mixed $content): void
     {
         $kind = (string) $key->catalogKind();
-        $data = json_decode((string) json_encode($content), true);
+        $json = (string) json_encode($content);
+        $data = json_decode($json, true);
         // a tombstone is the entry's last document as it was – not checked again
         if (self::isTombstone($data)) return;
-        $problems = array_values(array_filter($this->validator->problems($kind, (string) $key->id, $data), fn(string $p) => !$this->draftReference($p)));
+        $problems = array_values(array_filter($this->validator->problems($kind, (string) $key->id, $data, json_decode($json)), fn(string $p) => !$this->draftReference($p)));
         if ($problems) {
             throw new ApiError(422, 'invalid_catalog', implode('; ', $problems), ['problems' => $problems, 'kind' => $kind, 'id' => $key->id]);
         }
@@ -76,7 +77,7 @@ final class CatalogDocs
 
     private function draftReference(string $problem): bool
     {
-        if (!preg_match('/unknown (item|edition|product|album) "([^"]+)"/', $problem, $m)) return false;
+        if (!preg_match('/unknown (item|edition|product|album|instrument|preset) "([^"]+)"/', $problem, $m)) return false;
         return $this->entities->latest("$m[1]:$m[2]") !== null;
     }
 

@@ -103,7 +103,7 @@ final class CatalogAdmin
     {
         $kind = CatalogStore::kind($kind);
         $json = CatalogStore::encode($data);
-        $problems = $this->validator->problems($kind, $id, json_decode($json, true));
+        $problems = $this->validator->problems($kind, $id, json_decode($json, true), json_decode($json));
         if ($problems) throw new ApiError(422, 'invalid_catalog', implode('; ', $problems), ['problems' => $problems, 'kind' => $kind, 'id' => $id]);
         $before = $this->store->row($kind, $id);
         if ($before !== null && $before['data'] === $json && ($position === null || $position === $before['position'])) {
@@ -183,7 +183,7 @@ final class CatalogAdmin
             foreach (array_values($entries) as $position => $entry) {
                 $id = $this->entryId($kind, $entry);
                 $json = CatalogStore::encode($entry);
-                $problems = $this->validator->problems($kind, $id, json_decode($json, true));
+                $problems = $this->validator->problems($kind, $id, json_decode($json, true), json_decode($json));
                 if ($problems) throw new ApiError(422, 'invalid_catalog', implode('; ', $problems), ['problems' => $problems, 'kind' => $kind, 'id' => $id, 'index' => $position]);
                 $this->store->save($kind, $id, json_decode($json), $by, $position);
             }

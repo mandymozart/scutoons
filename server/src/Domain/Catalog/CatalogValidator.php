@@ -6,7 +6,9 @@ namespace Scutoons\Domain\Catalog;
 use Scutoons\Domain\Avatar\AvatarSlots;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Reader\ReaderStats;
+use Scutoons\Domain\Rigs\RigValidator;
 use Scutoons\Infrastructure\Database\Database;
+use stdClass;
 use Throwable;
 
 /**
@@ -14,7 +16,8 @@ use Throwable;
  * `validateAlbums` (wardrobe.ts, albums.ts) on the server, per entry against the rest of the catalog:
  *   ids (pattern, `data.id` = the entry id), required fields and their types, slots / stats (code), item ↔ product ↔
  *   edition references, recipe items, scan_object grants, respawn rules, album ↔ format, featured products / variants,
- *   code type grants ↔ permissions, toons (id = a content toon id, name, redirectUrl).
+ *   code type grants ↔ permissions, toons (id = a content toon id, name, redirectUrl), instruments / presets / rigs
+ *   (RigValidator: what deck-space would refuse) and instrument items (`category: "instrument"` + `instrument`).
  * The client-side extras (wear overlays against the character registry, "no player plays …" warnings) stay in the
  * creator / admin (validateCatalog), they need the content registry.
  * `uses()` lists what still refers to an entry (a delete is refused while there is any).
@@ -48,10 +51,12 @@ final class CatalogValidator
     }
 
     /**
-     * Problems of writing $data as entry $id of $kind (none = valid)
+     * Problems of writing $data as entry $id of $kind (none = valid). $raw = the same data decoded with objects
+     * (stdClass – `{}` and `[]` stay apart, which deck-space's serde forms need: instruments, presets, rigs); left out,
+     * it is rebuilt from $data.
      * @return list<string>
      */
-    public function problems(string $kind, string $id, mixed $data): array
+    public function problems(string $kind, string $id, mixed $data, mixed $raw = null): array
     {
         $p = [];
         $pattern = match ($kind) {
@@ -60,6 +65,9 @@ final class CatalogValidator
             'permissions' => self::PERMISSION_ID_PATTERN,
             'albums' => self::ALBUM_ID_PATTERN,
             'featured' => '#^[A-Za-z0-9][A-Za-z0-9_:-]{0,190}$#',
+            'instruments' => RigValidator::INSTRUMENT_ID,
+            'presets' => RigValidator::PRESET_ID,
+            'rigs' => RigValidator::SUBJECT,
             default => self::ID_PATTERN,
         };
         if (!preg_match($pattern, $id)) $p[] = "id \"$id\" is not a valid $kind id";
@@ -88,9 +96,44 @@ final class CatalogValidator
             'code-types' => $this->codeType($data),
             'toons' => self::toon($data),
             'meta' => self::meta($id, $data),
+            'instruments', 'presets', 'rigs' => $this->rigKind($kind, $id, self::rigData($raw ?? json_decode((string) json_encode($data)))),
             default => [],
         };
         return [...$p, ...$add];
+    }
+
+    /**
+     * An instrument / preset / rig against the catalog (this entry counts with its new data): RigValidator, deck-space's
+     * rules
+     * @return list<string>
+     */
+    private function rigKind(string $kind, string $id, mixed $data): array
+    {
+        $instruments = fn(string $i) => $kind === 'instruments' && $i === $id ? ($data instanceof stdClass ? $data : null) : $this->rigEntry('instruments', $i);
+        $presets = fn(string $i) => $kind === 'presets' && $i === $id ? ($data instanceof stdClass ? $data : null) : $this->rigEntry('presets', $i);
+        return match ($kind) {
+            'instruments' => RigValidator::instrument($data),
+            'presets' => RigValidator::preset($data, $instruments, $presets),
+            default => RigValidator::rig($data, $id, $instruments, $presets),
+        };
+    }
+
+    /** an instrument / preset of the catalog decoded with objects (as deck-space reads it), null when there is none */
+    public function rigEntry(string $kind, string $id): ?stdClass
+    {
+        $row = $this->store->row($kind, $id);
+        $data = $row !== null ? CatalogStore::reader($row['data'], false) : null;
+        return $data instanceof stdClass ? $data : null;
+    }
+
+    /** the data without the admin's accepted warnings (never served; deck-space would refuse the unknown field) */
+    private static function rigData(mixed $raw): mixed
+    {
+        if ($raw instanceof stdClass) {
+            $raw = clone $raw;
+            unset($raw->{CatalogStore::ACCEPTED_WARNINGS});
+        }
+        return $raw;
     }
 
     /**
@@ -154,6 +197,30 @@ final class CatalogValidator
                 break;
             case 'meta':
                 $uses[] = 'the meta entries cannot be deleted';
+                break;
+            case 'instruments':
+                foreach ($this->store->map('presets') as $pid => $preset) {
+                    if (is_array($preset) && ($preset['instrument'] ?? null) === $id) $uses[] = "preset $pid";
+                }
+                foreach ($this->store->map('rigs') as $rid => $rig) {
+                    if (in_array($id, array_column(self::tracks($rig), 'instrument'), true)) $uses[] = "rig $rid";
+                }
+                foreach ($this->store->map('items') as $iid => $item) {
+                    if (is_array($item) && ($item['instrument'] ?? null) === $id) $uses[] = "item $iid";
+                }
+                $uses = [...$uses, ...$this->count('SELECT COUNT(*) FROM member_presets WHERE instrument = ?', [$id], "members' presets")];
+                break;
+            case 'presets':
+                foreach ($this->store->map('presets') as $pid => $preset) {
+                    if (is_array($preset) && ($preset['parent'] ?? null) === $id) $uses[] = "preset $pid (derives from it)";
+                }
+                foreach ($this->store->map('rigs') as $rid => $rig) {
+                    if (in_array($id, self::rigPresets($rig), true)) $uses[] = "rig $rid";
+                }
+                $uses = [...$uses, ...$this->count('SELECT COUNT(*) FROM member_presets WHERE parent = ?', [$id], "members' presets derive from it")];
+                break;
+            case 'rigs':
+                $uses = $this->count('SELECT COUNT(*) FROM member_rigs WHERE subject = ?', [$id], "members' variants of it");
                 break;
         }
         return $uses;
@@ -242,7 +309,50 @@ final class CatalogValidator
         if ($hasFormat && !in_array($item['format'], self::MEDIA_FORMATS, true)) $p[] = "$id: format must be one of " . implode(', ', self::MEDIA_FORMATS);
         if ($hasAlbum && !is_array($this->store->get('albums', (string) self::show($item['album'])))) $p[] = "$id: unknown album \"" . self::show($item['album']) . '"';
         if ($hasAlbum !== $hasFormat) $p[] = "$id: a media item needs both album and format";
-        return [...$p, ...self::container($id, $item, $items), ...self::furniture($id, $item)];
+        return [...$p, ...self::container($id, $item, $items), ...self::furniture($id, $item), ...$this->instrumentItem($id, $item)];
+    }
+
+    /**
+     * An instrument as an item (owner 2026-11-01, research/INSTRUMENTS.md §5): `category: "instrument"` with
+     * `instrument: "<catalog_instruments id>"` – the item brings the picture, the name, grants, editions; the instrument
+     * row brings the graph. Several items may grant one instrument.
+     *
+     * @param array<string, mixed> $item
+     * @return list<string>
+     */
+    private function instrumentItem(string $id, array $item): array
+    {
+        $instrument = $item['instrument'] ?? null;
+        if ($instrument === null) return ($item['category'] ?? null) === 'instrument' ? ["$id: the category \"instrument\" needs instrument: \"<instrument id>\""] : [];
+        $p = [];
+        if (!is_string($instrument) || $this->store->row('instruments', $instrument) === null) $p[] = "$id: unknown instrument \"" . self::show($instrument) . '"';
+        if (($item['category'] ?? null) !== 'instrument') $p[] = "$id: instrument is only for the category \"instrument\"";
+        return $p;
+    }
+
+    /**
+     * a rig's tracks (decoded as arrays)
+     * @return list<array<string, mixed>>
+     */
+    private static function tracks(mixed $rig): array
+    {
+        $tracks = is_array($rig) ? ($rig['track'] ?? []) : [];
+        return is_array($tracks) ? array_values(array_filter($tracks, 'is_array')) : [];
+    }
+
+    /**
+     * every preset a rig names: its tracks' and its personas' / moods' (decoded as arrays)
+     * @return list<string>
+     */
+    public static function rigPresets(mixed $rig): array
+    {
+        $ids = array_column(self::tracks($rig), 'preset');
+        foreach (['personas', 'moods'] as $field) {
+            foreach (is_array($rig) && is_array($rig[$field] ?? null) ? $rig[$field] : [] as $variant) {
+                foreach (is_array($variant) && is_array($variant['presets'] ?? null) ? $variant['presets'] : [] as $preset) $ids[] = $preset;
+            }
+        }
+        return array_values(array_unique(array_filter($ids, 'is_string')));
     }
 
     /**

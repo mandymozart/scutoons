@@ -29,6 +29,11 @@ final class CatalogStore
         'home-scenes' => ['table' => 'catalog_home_scenes', 'columns' => [], 'label' => 'home-scene', 'data_id' => true],
         // the creature airlift's carriers (research/CAVE.md D8, migration 2026-10-14-homes_airlift_carriers)
         'airlift-carriers' => ['table' => 'catalog_airlift_carriers', 'columns' => [], 'label' => 'airlift-carrier', 'data_id' => true],
+        // instruments, presets, rigs (#258, agents/research/INSTRUMENTS.md §5, migration 2026-11-01-rigs): deck-space's
+        // serde forms; a rig's id is its subject (`character.catpope`), its data has no `id`
+        'instruments' => ['table' => 'catalog_instruments', 'columns' => [], 'label' => 'instrument', 'data_id' => true],
+        'presets' => ['table' => 'catalog_presets', 'columns' => ['instrument' => 'instrument', 'parent' => 'parent'], 'label' => 'preset', 'data_id' => true],
+        'rigs' => ['table' => 'catalog_rigs', 'columns' => [], 'label' => 'rig', 'data_id' => false],
         'products' => ['table' => 'catalog_products', 'columns' => ['toon' => 'toon', 'item_id' => 'item_id', 'edition_id' => 'edition_id'], 'label' => 'product', 'data_id' => true],
         'editions' => ['table' => 'catalog_editions', 'columns' => ['toon' => 'toon'], 'label' => 'edition', 'data_id' => true],
         'featured' => ['table' => 'catalog_featured', 'columns' => ['product_id' => 'product', 'variant_id' => 'variant'], 'label' => 'featured', 'data_id' => false],
