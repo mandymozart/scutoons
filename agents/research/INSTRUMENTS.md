@@ -15,6 +15,10 @@ the default range is params.rs's) + `kind` (drum · bass · lead · pad · voice
 - Never holds scene-only kinds (screen, audio_out, tempo, space, outlet): the rig / scene adds them once.
 - `Instrument::check` builds it as a graph (graph.rs's rules: types, one link per input, no cycles).
 - Audiovisual: its control outputs (an LFO, an envelope, the FFT later) are routed by the rig to the being's look (§3).
+- Generators and inputs are instruments too (owner 2026-11-01): an arpeggiator / sequence generator is an instrument
+  whose output drives another track (instruments rigged together); face tracking and phone motion are input
+  instruments (#212). Sequences are mostly not in presets: they come from a scene, a character, the relay or MIDI
+  (#234); patterns and audio clips are imported with the original kept (#235).
 
 ## 2. Preset and derivatives
 `{ id, instrument, parent?, name, tags, values, unlink, link, mapping, rights }` – it holds **only what it changes**

@@ -6,6 +6,7 @@ stays and gets "(superseded YYYY-MM-DD → …)" appended. Rules for agents: age
 to mark them superseded.
 
 ## 2026-11
+- 2026-11-01 · deck · **Sequences:** mostly not part of a preset – arpeggiators / sequence generators are instruments rigged together; a sequence comes from a scene, a character, the relay or external MIDI; face tracking and phone motion are (input) instruments; the tempo clock is universal, not a source; patterns are derivatives, imported from scores / Ableton projects / MIDI files with the original kept and runtime versions made – the same for audio clips · "sequences are mostly not part of a preset … same concept we will have to apply to audio clips" · → #234, #235, research/INSTRUMENTS.md §1
 - 2026-11-01 · deck · **Instruments, presets, rigs: two layers, instruments are items:** factory instruments / presets / rigs are catalog tables (`catalog_instruments`, `catalog_presets`, `catalog_rigs`, like `catalog_items`), members' modifications are member rows on top (derivatives with lineage); an instrument is also a `category: "instrument"` item with a picture, found or gained into the carrier bag like any item · "we have factory presets and rigs and we have modification by individual users … instruments can be found or gained in the carrier bag" · → research/INSTRUMENTS.md §5, #191
 
 ## 2026-10
