@@ -59,6 +59,7 @@ export type Message =
 	| { kind: 'deck.values'; p: DeckValues }
 	| { kind: 'scene.sync'; p: SceneSync }
 	| { kind: 'deck.synced'; p: DeckSynced }
+	| { kind: 'deck.quality'; p: DeckQuality }
 	| { kind: 'error'; p: Error };
 
 /** A payload whose shape B.6 names but this skeleton does not fix yet (say / line / fx / colour, cue actions). */
@@ -341,7 +342,7 @@ export interface CameraSrc {
 	input: string;
 }
 
-/** relay → conductor: clients per group, who is ready; the decks that stream a being (#188 – a deck that left is gone from `decks`) and who sends values to whom (`routes`); each client's link (`links`, #223 – sent again when a client's rate changes). */
+/** relay → conductor: clients per group, who is ready; the decks that stream a being (#188 – a deck that left is gone from `decks`) and who sends values to whom (`routes`); each client's link (`links`, #223 – sent again when a client's rate changes); each deck's render quality (`quality`, #220 – sent again when a deck reports a change). */
 export interface Presence {
 	groups: Record<string, number>;
 	ready: string[];
@@ -351,6 +352,8 @@ export interface Presence {
 	routes?: Route[];
 	/** #223: each client's link as the relay measures it, by client id (audience phones left out) */
 	links?: Record<string, LinkQuality>;
+	/** #220: each deck's last `deck.quality`, by client id (a client that left is gone) */
+	quality?: Record<string, DeckQuality>;
 }
 
 /** #223: one client's link: the smoothed WebSocket ping round trip, the rate the relay sends it state-like messages at (`deck.values`, `presence`, `vote.tally`, `state` – 30 = as fast as they come, down to 5 on a link that can't carry more), and how many of them it replaced before they went out (a stalled client gets the newest, not a backlog). */
@@ -414,6 +417,20 @@ export interface SceneSync {
 
 /** #195: syncing = files still to settle; ready = every item is in the cache; missing = settled, but some item is not there (`why`); offline = the API can't be reached and some item is not in the cache. */
 export type SyncState = 'syncing' | 'ready' | 'missing' | 'offline';
+
+/** #220: a deck's render quality level, cheapest first – the hardware tiers S / M / L / XL (deck/HARDWARE.md). */
+export type QualityLevel = 'low' | 'medium' | 'high' | 'ultra';
+
+/** #220: a deck → relay, when its quality changes (at once) and its frame time moved (at most every 2 s): the level it renders at now, the render scale (× the screen; > 1 supersamples), whether the governor steps it (`auto`) and the mean frame interval (ms). The relay keeps the last one per client and hands it to the conductor in presence (`quality`), next to the link. */
+export interface DeckQuality {
+	level: QualityLevel;
+	scale: number;
+	auto: boolean;
+	/** ms, the mean of the last half second */
+	frame: number;
+	/** the level chosen (the governor steps at most up to it); missing = `level` */
+	ceiling?: QualityLevel;
+}
 
 /** #195: a deck → relay → the conductor, while it works on a `scene.sync` (progress) and when it is done – like `media.ready`. Items are `set:<id>` and `character:<id>`; one in neither list is still syncing. The relay keeps each deck's last one for the conductor's snapshot (`synced`) and marks a deck ready in presence once its state is ready. */
 export interface DeckSynced {

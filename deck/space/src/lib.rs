@@ -5,6 +5,7 @@
 pub mod controls;
 pub mod graph;
 pub mod params;
+pub mod quality;
 pub mod scene;
 pub mod tempo;
 

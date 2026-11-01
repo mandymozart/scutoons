@@ -72,6 +72,7 @@
         { "type": "object", "properties": { "kind": { "const": "deck.values" }, "p": { "$ref": "#/definitions/DeckValues" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "scene.sync" }, "p": { "$ref": "#/definitions/SceneSync" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "deck.synced" }, "p": { "$ref": "#/definitions/DeckSynced" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "deck.quality" }, "p": { "$ref": "#/definitions/DeckQuality" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "error" }, "p": { "$ref": "#/definitions/Error" } }, "required": ["kind", "p"] }
       ]
     },
@@ -409,14 +410,15 @@
       "additionalProperties": false
     },
     "Presence": {
-      "description": "relay → conductor: clients per group, who is ready; the decks that stream a being (#188 – a deck that left is gone from `decks`) and who sends values to whom (`routes`); each client's link (`links`, #223 – sent again when a client's rate changes).",
+      "description": "relay → conductor: clients per group, who is ready; the decks that stream a being (#188 – a deck that left is gone from `decks`) and who sends values to whom (`routes`); each client's link (`links`, #223 – sent again when a client's rate changes); each deck's render quality (`quality`, #220 – sent again when a deck reports a change).",
       "type": "object",
       "properties": {
         "groups": { "type": "object", "additionalProperties": { "type": "integer" } },
         "ready": { "type": "array", "items": { "type": "string" } },
         "decks": { "type": "array", "items": { "type": "string" }, "description": "client ids with a `deck.graph`, sorted" },
         "routes": { "type": "array", "items": { "$ref": "#/definitions/Route" }, "description": "every sender → receiver pair `deck.values` went along, sorted" },
-        "links": { "type": "object", "additionalProperties": { "$ref": "#/definitions/LinkQuality" }, "description": "#223: each client's link as the relay measures it, by client id (audience phones left out)" }
+        "links": { "type": "object", "additionalProperties": { "$ref": "#/definitions/LinkQuality" }, "description": "#223: each client's link as the relay measures it, by client id (audience phones left out)" },
+        "quality": { "type": "object", "additionalProperties": { "$ref": "#/definitions/DeckQuality" }, "description": "#220: each deck's last `deck.quality`, by client id (a client that left is gone)" }
       },
       "required": ["groups", "ready"],
       "additionalProperties": false
@@ -497,6 +499,24 @@
       "description": "#195: syncing = files still to settle; ready = every item is in the cache; missing = settled, but some item is not there (`why`); offline = the API can't be reached and some item is not in the cache.",
       "type": "string",
       "enum": ["syncing", "ready", "missing", "offline"]
+    },
+    "QualityLevel": {
+      "description": "#220: a deck's render quality level, cheapest first – the hardware tiers S / M / L / XL (deck/HARDWARE.md).",
+      "type": "string",
+      "enum": ["low", "medium", "high", "ultra"]
+    },
+    "DeckQuality": {
+      "description": "#220: a deck → relay, when its quality changes (at once) and its frame time moved (at most every 2 s): the level it renders at now, the render scale (× the screen; > 1 supersamples), whether the governor steps it (`auto`) and the mean frame interval (ms). The relay keeps the last one per client and hands it to the conductor in presence (`quality`), next to the link.",
+      "type": "object",
+      "properties": {
+        "level": { "$ref": "#/definitions/QualityLevel" },
+        "scale": { "type": "number", "exclusiveMinimum": 0 },
+        "auto": { "type": "boolean" },
+        "frame": { "type": "number", "minimum": 0, "description": "ms, the mean of the last half second" },
+        "ceiling": { "$ref": "#/definitions/QualityLevel", "description": "the level chosen (the governor steps at most up to it); missing = `level`" }
+      },
+      "required": ["level", "scale", "auto", "frame"],
+      "additionalProperties": false
     },
     "DeckSynced": {
       "description": "#195: a deck → relay → the conductor, while it works on a `scene.sync` (progress) and when it is done – like `media.ready`. Items are `set:<id>` and `character:<id>`; one in neither list is still syncing. The relay keeps each deck's last one for the conductor's snapshot (`synced`) and marks a deck ready in presence once its state is ready.",

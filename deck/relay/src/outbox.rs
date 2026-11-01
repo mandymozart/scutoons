@@ -372,7 +372,7 @@ mod tests {
             ob.push(values("d1", 200 + i, &[("lfo.rate", i as f64)], None), t);
             ob.push(cue(&format!("c{i}")), t);
             ob.push(values("d1", 300 + i, &[("lfo.rate", 10.0 + i as f64)], None), t);
-            ob.push(Frame::of(Envelope::new("relay", Message::Presence(Presence { groups: HashMap::new(), ready: vec![], decks: None, routes: None, links: None }))), t);
+            ob.push(Frame::of(Envelope::new("relay", Message::Presence(Presence { groups: HashMap::new(), ready: vec![], decks: None, routes: None, links: None, quality: None }))), t);
         }
         let got = parse(ob.drain());
         let kinds: Vec<&str> = got.iter().map(|e| e.message.kind()).collect();

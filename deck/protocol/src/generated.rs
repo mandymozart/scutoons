@@ -137,6 +137,8 @@ pub enum Message {
 	SceneSync(SceneSync),
 	#[serde(rename = "deck.synced")]
 	DeckSynced(DeckSynced),
+	#[serde(rename = "deck.quality")]
+	DeckQuality(DeckQuality),
 	#[serde(rename = "error")]
 	Error(Error),
 }
@@ -177,6 +179,7 @@ impl Message {
 			Message::DeckValues(_) => "deck.values",
 			Message::SceneSync(_) => "scene.sync",
 			Message::DeckSynced(_) => "deck.synced",
+			Message::DeckQuality(_) => "deck.quality",
 			Message::Error(_) => "error",
 		}
 	}
@@ -653,7 +656,7 @@ pub struct CameraSrc {
 	pub input: String,
 }
 
-/// relay → conductor: clients per group, who is ready; the decks that stream a being (#188 – a deck that left is gone from `decks`) and who sends values to whom (`routes`); each client's link (`links`, #223 – sent again when a client's rate changes).
+/// relay → conductor: clients per group, who is ready; the decks that stream a being (#188 – a deck that left is gone from `decks`) and who sends values to whom (`routes`); each client's link (`links`, #223 – sent again when a client's rate changes); each deck's render quality (`quality`, #220 – sent again when a deck reports a change).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Presence {
 	pub groups: std::collections::HashMap<String, i64>,
@@ -667,6 +670,9 @@ pub struct Presence {
 	/// #223: each client's link as the relay measures it, by client id (audience phones left out)
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub links: Option<std::collections::HashMap<String, LinkQuality>>,
+	/// #220: each deck's last `deck.quality`, by client id (a client that left is gone)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub quality: Option<std::collections::HashMap<String, DeckQuality>>,
 }
 
 /// #223: one client's link: the smoothed WebSocket ping round trip, the rate the relay sends it state-like messages at (`deck.values`, `presence`, `vote.tally`, `state` – 30 = as fast as they come, down to 5 on a link that can't carry more), and how many of them it replaced before they went out (a stalled client gets the newest, not a backlog).
@@ -770,6 +776,43 @@ impl SyncState {
 			SyncState::Offline => "offline",
 		}
 	}
+}
+
+/// #220: a deck's render quality level, cheapest first – the hardware tiers S / M / L / XL (deck/HARDWARE.md).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum QualityLevel {
+	#[serde(rename = "low")]
+	Low,
+	#[serde(rename = "medium")]
+	Medium,
+	#[serde(rename = "high")]
+	High,
+	#[serde(rename = "ultra")]
+	Ultra,
+}
+
+impl QualityLevel {
+	pub fn as_str(self) -> &'static str {
+		match self {
+			QualityLevel::Low => "low",
+			QualityLevel::Medium => "medium",
+			QualityLevel::High => "high",
+			QualityLevel::Ultra => "ultra",
+		}
+	}
+}
+
+/// #220: a deck → relay, when its quality changes (at once) and its frame time moved (at most every 2 s): the level it renders at now, the render scale (× the screen; > 1 supersamples), whether the governor steps it (`auto`) and the mean frame interval (ms). The relay keeps the last one per client and hands it to the conductor in presence (`quality`), next to the link.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DeckQuality {
+	pub level: QualityLevel,
+	pub scale: f64,
+	pub auto: bool,
+	/// ms, the mean of the last half second
+	pub frame: f64,
+	/// the level chosen (the governor steps at most up to it); missing = `level`
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub ceiling: Option<QualityLevel>,
 }
 
 /// #195: a deck → relay → the conductor, while it works on a `scene.sync` (progress) and when it is done – like `media.ready`. Items are `set:<id>` and `character:<id>`; one in neither list is still syncing. The relay keeps each deck's last one for the conductor's snapshot (`synced`) and marks a deck ready in presence once its state is ready.

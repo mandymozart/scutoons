@@ -15,7 +15,7 @@
 use std::collections::{BTreeSet, HashMap, VecDeque};
 
 use protocol::{
-    Assign, Cell, CellMode, Cue, DeckState, DeckSynced, Envelope, Error as ProtocolError, Loose, MediaPreload, Message,
+    Assign, Cell, CellMode, Cue, DeckQuality, DeckState, DeckSynced, Envelope, Error as ProtocolError, Loose, MediaPreload, Message,
     Presence, Resume, Role, Route, SceneSync, Snapshot, State, SyncState, To, VoteTally,
 };
 use serde_json::Value;
@@ -204,6 +204,8 @@ pub struct Session {
     sync: Option<SceneSync>,
     /// #195: each deck's last `deck.synced` for it, by client id
     synced: HashMap<String, DeckSynced>,
+    /// #220: each deck's last `deck.quality` (its render level, scale, frame time), by client id – in presence
+    quality: HashMap<String, DeckQuality>,
 }
 
 impl Session {
@@ -266,6 +268,7 @@ impl Session {
         // a deck that left takes its being and its routes along (it sends its graph again when it comes back)
         self.decks.remove(id);
         self.synced.remove(id);
+        self.quality.remove(id);
         self.routes.retain(|(a, b)| a != id && b != id);
         self.departed.retain(|_, d| d.at >= now - REPLAY_MS);
         if self.clients.is_empty() {
@@ -364,7 +367,7 @@ impl Session {
     }
 
     /// B.6 presence to the conductor(s): clients per group (phones and outputs; `-` = no group) and who is ready; each
-    /// link but the audience's (#223 – outbox.rs: round trip, rate, values replaced).
+    /// link but the audience's (#223 – outbox.rs: round trip, rate, values replaced); each deck's render quality (#220).
     pub fn presence(&self) -> Presence {
         let mut groups: HashMap<String, i64> = HashMap::new();
         let mut ready = vec![];
@@ -385,7 +388,7 @@ impl Session {
         let mut decks: Vec<String> = self.decks.keys().cloned().collect();
         decks.sort();
         let routes = self.routes.iter().map(|(from, to)| Route { from: from.clone(), to: to.clone() }).collect();
-        Presence { groups, ready, decks: Some(decks), routes: Some(routes), links: Some(links) }
+        Presence { groups, ready, decks: Some(decks), routes: Some(routes), links: Some(links), quality: Some(self.quality.clone()) }
     }
 
     pub fn tell_presence(&mut self) {
@@ -423,7 +426,7 @@ impl Session {
             self.error(id, "authority", "only the bridge sends device input");
             return After::Nothing;
         }
-        if matches!(e.message, Message::DeckGraph(_) | Message::DeckValues(_) | Message::DeckSynced(_)) && matches!(role, Role::Audience | Role::Bridge) {
+        if matches!(e.message, Message::DeckGraph(_) | Message::DeckValues(_) | Message::DeckSynced(_) | Message::DeckQuality(_)) && matches!(role, Role::Audience | Role::Bridge) {
             self.error(id, "authority", "only a deck streams a being");
             return After::Nothing;
         }
@@ -594,6 +597,14 @@ impl Session {
                 self.publish(id, e, now);
                 let changed = self.clients.get_mut(id).is_some_and(|c| std::mem::replace(&mut c.ready, ready) != ready);
                 if changed {
+                    self.tell_presence();
+                }
+            }
+            Message::DeckQuality(q) => {
+                // #220: kept, not logged or forwarded – the conductor sees it in presence (sent again when it changed;
+                // a deck reports at most every 2 s unless its level changes)
+                if self.quality.get(id) != Some(q) {
+                    self.quality.insert(id.to_owned(), q.clone());
                     self.tell_presence();
                 }
             }
@@ -1230,6 +1241,31 @@ mod tests {
         r.send("d1", Message::DeckSynced(synced(SyncState::Ready, &[])), 3);
         assert_eq!(r.kinds("cond").first(), Some(&"deck.synced"));
         assert!(r.s.snapshot_for(Role::Conductor, None).synced.is_none());
+    }
+
+    /// #220: a deck's quality is kept and reaches the conductor in presence – again only when it changed; it goes when
+    /// the deck leaves; the audience can't send one
+    #[test]
+    fn deck_quality_shows_in_presence() {
+        let mut r = room();
+        r.add("d1", Role::Musician, Some(DECKS));
+        r.drain();
+        let q = |level, frame| DeckQuality { level, scale: 0.9, auto: true, frame, ceiling: Some(protocol::QualityLevel::High) };
+        r.send("d1", Message::DeckQuality(q(protocol::QualityLevel::High, 16.7)), 0);
+        let got = r.inbox("cond");
+        let Some(Message::Presence(p)) = got.iter().map(|e| &e.message).find(|m| matches!(m, Message::Presence(_))) else { panic!("{got:?}") };
+        assert_eq!(p.quality.as_ref().unwrap()["d1"].level, protocol::QualityLevel::High);
+        assert!(!r.kinds("cond").contains(&"deck.quality"), "not forwarded itself");
+        r.send("d1", Message::DeckQuality(q(protocol::QualityLevel::High, 16.7)), 1);
+        assert!(r.kinds("cond").is_empty(), "the same report: no presence");
+        r.send("d1", Message::DeckQuality(q(protocol::QualityLevel::Medium, 24.0)), 2);
+        assert_eq!(r.kinds("cond"), ["presence"]);
+        assert_eq!(r.s.presence().quality.unwrap()["d1"].frame, 24.0);
+        r.send("a1", Message::DeckQuality(q(protocol::QualityLevel::Low, 50.0)), 3);
+        assert!(r.kinds("a1").contains(&"error"));
+        assert!(!r.s.presence().quality.unwrap().contains_key("a1"));
+        r.s.leave("d1", 4);
+        assert!(r.s.presence().quality.unwrap().is_empty());
     }
 
     #[test]

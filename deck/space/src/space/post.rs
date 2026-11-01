@@ -191,9 +191,20 @@ impl Chain {
 
     /// This frame's passes: the listed ones whose knobs aren't neutral, in order (no allocation).
     pub fn plan(&self, k: &Knobs) -> Plan {
+        self.plan_quality(k, true, true)
+    }
+
+    /// `plan` at a quality rung (#220, quality.rs): bloom and FXAA only where the rung allows them – curves and pixelate
+    /// are the scene's look and cost one cheap pass, they always run.
+    pub fn plan_quality(&self, k: &Knobs, bloom: bool, fxaa: bool) -> Plan {
         let mut p = Plan::default();
         for e in self.effects() {
-            if !k.neutral(e, self.palette_len > 0) {
+            let allowed = match e {
+                Effect::Bloom => bloom,
+                Effect::Fxaa => fxaa,
+                Effect::Curves | Effect::Pixelate => true,
+            };
+            if allowed && !k.neutral(e, self.palette_len > 0) {
                 p.run[p.len] = e;
                 p.len += 1;
             }
@@ -275,6 +286,17 @@ mod tests {
         pal.palette_len = 1;
         assert_eq!(pal.plan(&k).passes(), [Effect::Pixelate]);
         assert!(Chain::default().plan(&k).is_empty());
+    }
+
+    #[test]
+    fn a_low_rung_drops_bloom_and_fxaa_but_keeps_the_look() {
+        let c = Chain::new(&Effect::ALL);
+        let k = Knobs { gamma: 1.2, ..Knobs::default() };
+        assert_eq!(c.plan_quality(&k, true, true).passes(), [Effect::Bloom, Effect::Curves, Effect::Fxaa]);
+        assert_eq!(c.plan_quality(&k, false, true).passes(), [Effect::Curves, Effect::Fxaa]);
+        assert_eq!(c.plan_quality(&k, false, false).passes(), [Effect::Curves]);
+        let lowest = crate::quality::LADDER[0];
+        assert!(c.plan_quality(&Knobs::default(), lowest.bloom, lowest.fxaa).is_empty(), "the lowest rung: the space straight into its target");
     }
 
     #[test]

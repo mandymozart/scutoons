@@ -18,6 +18,7 @@ use super::label::{self, Atlas, Label, LABELS};
 use super::glb::{Image, Model, RoomVertex};
 use super::post::Effect;
 use super::post_gpu::{Pipes, PostGpu};
+use crate::quality::{Rung, LADDER};
 use super::{Space, MAX_LIGHTS};
 use glam::Vec3;
 
@@ -136,6 +137,8 @@ pub struct SpaceGpu {
     glyphs: Vec<Glyph>,
     /// the post stack (#204, post_gpu.rs) – None when the scene lists no pass
     post: Option<PostGpu>,
+    /// #220: the quality rung's knobs this deck renders with (quality.rs – the governor sets them)
+    quality: Rung,
 }
 
 impl SpaceGpu {
@@ -377,6 +380,7 @@ impl SpaceGpu {
                 p.resize(device, size);
                 p
             }),
+            quality: LADDER[LADDER.len() - 1],
         }
     }
 
@@ -507,6 +511,11 @@ impl SpaceGpu {
         }
     }
 
+    /// #220: the knobs of a quality rung from the next frame on (the render size is the caller's: `resize`)
+    pub fn set_quality(&mut self, rung: Rung) {
+        self.quality = rung;
+    }
+
     /// the depth buffer follows the render size
     pub fn resize(&mut self, device: &wgpu::Device, size: (u32, u32)) {
         self.depth = depth_view(device, size);
@@ -553,7 +562,7 @@ impl SpaceGpu {
         self.label_glyphs(space, eye, size.1 as f32);
         queue.write_buffer(&self.label_buf, 0, bytemuck::cast_slice(&self.glyphs));
         let mut lights = [[0.0; 8]; MAX_LIGHTS];
-        let lit = space.write_lights(eye, &mut lights);
+        let lit = space.write_lights(eye, &mut lights[..self.quality.lights.min(MAX_LIGHTS)]);
         let u = FrameUniform {
             view_proj: cam.view_proj(size.0 as f32 / size.1.max(1) as f32).to_cols_array_2d(),
             eye: [eye.x, eye.y, eye.z, 1.0],
@@ -564,7 +573,7 @@ impl SpaceGpu {
         };
         queue.write_buffer(&self.frame_buf, 0, bytemuck::bytes_of(&u));
         // the post stack (#204): the space into its first texture when a pass runs this frame, else into the target
-        let plan = space.post.plan(&space.post_knobs);
+        let plan = space.post.plan_quality(&space.post_knobs, self.quality.bloom, self.quality.fxaa);
         let post = self.post.as_ref().filter(|_| !plan.is_empty()).and_then(|p| p.scene().map(|s| (p, s)));
         let final_target = target;
         let target = post.map_or(target, |(_, s)| s);
