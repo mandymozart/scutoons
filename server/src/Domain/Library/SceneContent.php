@@ -6,6 +6,8 @@ namespace Scutoons\Domain\Library;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Assets\AssetRegistry;
 use Scutoons\Domain\Catalog\CatalogStore;
+use Scutoons\Domain\Catalog\CatalogValidator;
+use stdClass;
 
 /**
  * What a deck's scene needs (#195 "sync as a deck feature", #193 sets by id): `GET /api/library/scene-content?sets=&characters=`
@@ -18,13 +20,22 @@ use Scutoons\Domain\Catalog\CatalogStore;
  *   without its own variant gets `src`), answered as `model: { low, medium, high }`; a set without one answers `model: {}`.
  * - **Characters**: a registry id (`catpope`), an old VN id (`plf` → Library::LEGACY_CHARACTER_IDS) or `<character>-<persona>`
  *   (`catpope-biker`, the deck's stand-ins) – that persona's (else `regular`'s) default look, its `portrait` per mood.
+ * - **Rigs** (#258, agents/research/INSTRUMENTS.md §6): each character's `rig` – the persona's own
+ *   (`character.<id>.<persona>`), else the character's (`character.<id>`, persona variants inside), else null – and per
+ *   `items=` id its rig (`item.<id>`, a scene object's sound, #210). A rig is `{ id, version, data, instruments, presets }`:
+ *   `data` = deck-space's `Rig`, `instruments` / `presets` = the ids it needs, presets **with their ancestors** (a lineage
+ *   resolves offline). The top-level `instruments` / `presets` maps hold each one once as `{ id, version, data }`;
+ *   `version` = a hash of the stored data, so a deck's cache skips what it has. `{ rig: data, instrument: […], preset: […] }`
+ *   is a deck-space `rig::Bundle` (its the_servers_scene_content_reads_as_bundles test reads this answer).
  * - Public like the catalog and the registry; a deck token (#180, DeckTokenScope lets GETs through) changes nothing yet –
- *   member-only sets would read the token's member here.
+ *   member-only sets (and a member's own presets / rigs, `member_presets` / `member_rigs`) would read the token's member here.
  */
 final class SceneContent
 {
     public const MAX_IDS = 32;
     public const ID = '#^[a-z0-9][a-z0-9_-]{0,63}$#';
+    /** the rig kinds as scene-content names them → their catalog kinds */
+    private const RIG_KINDS = ['instruments' => 'instruments', 'presets' => 'presets', 'rigs' => 'rigs'];
 
     public function __construct(
         private readonly Library $library,
@@ -36,9 +47,10 @@ final class SceneContent
     /**
      * @param list<string> $sets
      * @param list<string> $characters
-     * @return array{sets: array<string, mixed>, characters: array<string, mixed>, missing: array{sets: list<string>, characters: list<string>}}
+     * @param list<string> $items
+     * @return array<string, mixed> { sets, characters, items, instruments, presets, missing: { sets, characters, items } }
      */
-    public function of(array $sets, array $characters): array
+    public function of(array $sets, array $characters, array $items = []): array
     {
         $registry = [];
         if ($characters !== []) {
@@ -50,7 +62,115 @@ final class SceneContent
         }
         $answer = self::compose($sets, fn(string $id) => $this->catalog->get('home-scenes', $id), $characters, is_array($registry) ? $registry : []);
         $sizes = $this->registry->available() ? $this->registry->sizesOf(self::paths($answer)) : [];
-        return self::withSizes($answer, $sizes);
+        return self::withRigs(self::withSizes($answer, $sizes), $items, $this->stored(...));
+    }
+
+    /** a rig kind's stored data (the catalog row's JSON), null when there is none – or no table yet (before the migration) */
+    private function stored(string $kind, string $id): ?string
+    {
+        try {
+            $row = $this->catalog->row(self::RIG_KINDS[$kind], $id);
+        } catch (\Throwable) {
+            return null;
+        }
+        return $row['data'] ?? null;
+    }
+
+    /**
+     * The answer with the rigs (pure – SceneContentRigsTest): `characters.<id>.rig`, `items`, `instruments`, `presets`,
+     * `missing.items`.
+     *
+     * @param array{sets: array<string, mixed>, characters: array<string, mixed>, missing: array{sets: list<string>, characters: list<string>}} $answer
+     * @param list<string> $items
+     * @param callable(string, string): ?string $stored (kind instruments | presets | rigs, id) → the stored JSON
+     * @return array<string, mixed>
+     */
+    public static function withRigs(array $answer, array $items, callable $stored): array
+    {
+        $out = ['instruments' => [], 'presets' => []];
+        $rig = function (string $subject) use ($stored, &$out): ?array {
+            $json = $stored('rigs', $subject);
+            $data = $json !== null ? CatalogStore::reader($json, false) : null;
+            if (!$data instanceof stdClass) return null;
+            $instruments = [];
+            $presets = [];
+            $tracks = is_array($data->track ?? null) ? $data->track : [];
+            foreach ($tracks as $t) {
+                if ($t instanceof stdClass && is_string($t->instrument ?? null)) $instruments[] = $t->instrument;
+            }
+            foreach (CatalogValidator::rigPresets(json_decode((string) $json, true)) as $id) {
+                // the preset and its ancestors, root first (a loop or a missing parent stops the walk – the catalog refuses both)
+                $chain = [];
+                for ($p = $id; is_string($p) && !in_array($p, $chain, true); $p = $parent) {
+                    $chain[] = $p;
+                    $preset = self::entry($stored, 'presets', $p, $out);
+                    $parent = $preset->parent ?? null;
+                    if ($preset !== null && is_string($preset->instrument ?? null)) $instruments[] = $preset->instrument;
+                }
+                $presets = [...$presets, ...array_reverse($chain)];
+            }
+            $instruments = array_values(array_unique($instruments));
+            foreach ($instruments as $i) self::entry($stored, 'instruments', $i, $out);
+            $have = fn(string $kind) => fn(string $id) => isset($out[$kind][$id]);
+            return [
+                'id' => $subject,
+                'version' => self::version((string) $json),
+                'data' => $data,
+                'instruments' => array_values(array_filter($instruments, $have('instruments'))),
+                'presets' => array_values(array_filter(array_values(array_unique($presets)), $have('presets'))),
+            ];
+        };
+        foreach ($answer['characters'] as $id => $c) {
+            $persona = is_string($c['persona'] ?? null) ? $c['persona'] : 'regular';
+            $answer['characters'][$id]['rig'] = $rig("character.{$c['character']}.$persona") ?? $rig("character.{$c['character']}");
+        }
+        $answer['items'] = [];
+        $answer['missing']['items'] = [];
+        foreach (array_values(array_unique($items)) as $id) {
+            $found = $rig("item.$id");
+            if ($found === null) $answer['missing']['items'][] = $id;
+            else $answer['items'][$id] = ['rig' => $found];
+        }
+        ksort($out['instruments']);
+        ksort($out['presets']);
+        return [...$answer, ...$out];
+    }
+
+    /**
+     * an instrument / preset of the answer (added to $out once), decoded with objects
+     * @param callable(string, string): ?string $stored
+     * @param array<string, array<string, mixed>> $out
+     */
+    private static function entry(callable $stored, string $kind, string $id, array &$out): ?stdClass
+    {
+        if (isset($out[$kind][$id])) return $out[$kind][$id]['data'];
+        $json = $stored($kind, $id);
+        $data = $json !== null ? CatalogStore::reader($json, false) : null;
+        if (!$data instanceof stdClass) return null;
+        $out[$kind][$id] = ['id' => $id, 'version' => self::version($json), 'data' => $data];
+        return $data;
+    }
+
+    /**
+     * The answer as JSON: maps as objects (an empty one too), 1.0 stays 1.0 (deck-space's node params keep floats floats)
+     * @param array<string, mixed> $content of()
+     */
+    public static function json(array $content): string
+    {
+        return (string) json_encode([
+            'sets' => (object) $content['sets'],
+            'characters' => (object) $content['characters'],
+            'items' => (object) ($content['items'] ?? []),
+            'instruments' => (object) ($content['instruments'] ?? []),
+            'presets' => (object) ($content['presets'] ?? []),
+            'missing' => $content['missing'],
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
+    }
+
+    /** a stored entry's version for the decks' cache: its data's hash (any change = a new version) */
+    public static function version(string $json): string
+    {
+        return substr(hash('sha256', $json), 0, 16);
     }
 
     /**

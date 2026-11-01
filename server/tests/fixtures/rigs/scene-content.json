@@ -1,0 +1,582 @@
+{
+    "sets": {},
+    "characters": {
+        "catpope": {
+            "character": "catpope",
+            "persona": "regular",
+            "look": "default",
+            "portraits": {
+                "neutral": {
+                    "path": "characters/catpope/catpope_portrait-neutral.webp",
+                    "size": null
+                }
+            },
+            "rig": {
+                "id": "character.catpope",
+                "version": "fcdd2c97cd53767b",
+                "data": {
+                    "subject": "character.catpope",
+                    "track": [
+                        {
+                            "id": "voice",
+                            "instrument": "cathedral_voice",
+                            "preset": "cathedral_voice.base",
+                            "gain": 1.0,
+                            "pan": 0.0,
+                            "mute": false
+                        },
+                        {
+                            "id": "drone",
+                            "instrument": "drone",
+                            "preset": "drone.base",
+                            "gain": 1.0,
+                            "pan": 0.0,
+                            "mute": false
+                        }
+                    ],
+                    "moods": {
+                        "happy": {
+                            "presets": {
+                                "voice": "cathedral_voice.bright"
+                            }
+                        },
+                        "laughing": {
+                            "presets": {
+                                "voice": "cathedral_voice.bright"
+                            },
+                            "values": {
+                                "voice:voice.index": 4.0
+                            }
+                        },
+                        "sad": {
+                            "presets": {
+                                "voice": "cathedral_voice.low"
+                            },
+                            "values": {
+                                "drone:drone.gain": 0.14
+                            }
+                        },
+                        "surprised": {
+                            "presets": {
+                                "voice": "cathedral_voice.bright"
+                            },
+                            "values": {
+                                "drone:drone.gain": 0.05,
+                                "voice:voice.index": 6.0
+                            }
+                        },
+                        "thinking": {
+                            "presets": {
+                                "voice": "cathedral_voice.low"
+                            }
+                        }
+                    },
+                    "rights": {
+                        "lent": [
+                            "play",
+                            "tweak"
+                        ],
+                        "owned": [
+                            "play",
+                            "tweak",
+                            "derive",
+                            "copy"
+                        ],
+                        "core": [
+                            "play",
+                            "tweak",
+                            "derive"
+                        ]
+                    }
+                },
+                "instruments": [
+                    "cathedral_voice",
+                    "drone"
+                ],
+                "presets": [
+                    "cathedral_voice.base",
+                    "drone.base",
+                    "cathedral_voice.bright",
+                    "cathedral_voice.low"
+                ]
+            }
+        },
+        "boy": {
+            "character": "boy",
+            "persona": "regular",
+            "look": "default",
+            "portraits": {},
+            "rig": null
+        }
+    },
+    "items": {
+        "incense_burner": {
+            "rig": {
+                "id": "item.incense_burner",
+                "version": "dd298d294fabdd6a",
+                "data": {
+                    "subject": "item.incense_burner",
+                    "track": [
+                        {
+                            "id": "air",
+                            "instrument": "incense",
+                            "preset": "incense.base",
+                            "gain": 1.0,
+                            "pan": 0.0,
+                            "mute": false
+                        }
+                    ],
+                    "rights": {
+                        "lent": [
+                            "play",
+                            "tweak"
+                        ],
+                        "owned": [
+                            "play",
+                            "tweak",
+                            "derive",
+                            "copy"
+                        ],
+                        "core": [
+                            "play",
+                            "tweak",
+                            "derive"
+                        ]
+                    }
+                },
+                "instruments": [
+                    "incense"
+                ],
+                "presets": [
+                    "incense.base"
+                ]
+            }
+        }
+    },
+    "instruments": {
+        "cathedral_voice": {
+            "id": "cathedral_voice",
+            "version": "9c29f6db0ed5471b",
+            "data": {
+                "id": "cathedral_voice",
+                "kind": "voice",
+                "name": {
+                    "de": "Kathedralenstimme",
+                    "en": "Cathedral voice"
+                },
+                "node": [
+                    {
+                        "id": "voice",
+                        "kind": "fm",
+                        "freq": 147.0,
+                        "gain": 0.16,
+                        "index": 2.0,
+                        "ratio": 1.5
+                    },
+                    {
+                        "id": "melody",
+                        "kind": "walk",
+                        "base": 147.0,
+                        "bpm": 84.0,
+                        "glide": 0.5,
+                        "octaves": 2.0,
+                        "rate": 2.0,
+                        "seed": 84,
+                        "spread": 0.0
+                    }
+                ],
+                "link": [
+                    {
+                        "from": "melody.cv",
+                        "to": "voice.cv",
+                        "scale": 1.0,
+                        "offset": 0.0
+                    }
+                ],
+                "out": "voice",
+                "expose": [
+                    {
+                        "path": "voice.ratio",
+                        "label": {
+                            "de": "FM-Verhältnis",
+                            "en": "FM ratio"
+                        },
+                        "range": [
+                            0.5,
+                            4.0
+                        ]
+                    },
+                    {
+                        "path": "voice.index",
+                        "label": {
+                            "de": "FM-Index",
+                            "en": "FM index"
+                        },
+                        "range": [
+                            0.0,
+                            8.0
+                        ]
+                    },
+                    {
+                        "path": "voice.gain",
+                        "label": {
+                            "de": "Stimme",
+                            "en": "voice"
+                        },
+                        "range": [
+                            0.0,
+                            0.3
+                        ]
+                    },
+                    {
+                        "path": "melody.spread",
+                        "label": {
+                            "de": "Weite",
+                            "en": "spread"
+                        }
+                    },
+                    {
+                        "path": "melody.rate",
+                        "label": {
+                            "de": "Schritte / Schlag",
+                            "en": "steps / beat"
+                        }
+                    },
+                    {
+                        "path": "melody.glide",
+                        "label": {
+                            "de": "Gleiten",
+                            "en": "glide"
+                        }
+                    }
+                ],
+                "rights": {
+                    "lent": [
+                        "play",
+                        "tweak"
+                    ],
+                    "owned": [
+                        "play",
+                        "tweak",
+                        "derive",
+                        "copy"
+                    ],
+                    "core": [
+                        "play",
+                        "tweak",
+                        "derive"
+                    ]
+                }
+            }
+        },
+        "drone": {
+            "id": "drone",
+            "version": "fbfdff1387e37e43",
+            "data": {
+                "id": "drone",
+                "kind": "pad",
+                "name": {
+                    "de": "Bordun",
+                    "en": "Drone"
+                },
+                "node": [
+                    {
+                        "id": "drone",
+                        "kind": "osc",
+                        "freq": 55.0,
+                        "gain": 0.1
+                    },
+                    {
+                        "id": "fifth",
+                        "kind": "osc",
+                        "freq": 82.5,
+                        "gain": 0.03
+                    },
+                    {
+                        "id": "mix",
+                        "kind": "mixer"
+                    }
+                ],
+                "link": [
+                    {
+                        "from": "drone",
+                        "to": "mix.in1",
+                        "scale": 1.0,
+                        "offset": 0.0
+                    },
+                    {
+                        "from": "fifth",
+                        "to": "mix.in2",
+                        "scale": 1.0,
+                        "offset": 0.0
+                    }
+                ],
+                "out": "mix",
+                "expose": [
+                    {
+                        "path": "drone.freq",
+                        "label": {
+                            "de": "Bordun-Tonhöhe",
+                            "en": "drone pitch"
+                        },
+                        "range": [
+                            30.0,
+                            220.0
+                        ]
+                    },
+                    {
+                        "path": "drone.gain",
+                        "label": {
+                            "de": "Bordun",
+                            "en": "drone"
+                        },
+                        "range": [
+                            0.0,
+                            0.3
+                        ]
+                    }
+                ],
+                "rights": {
+                    "lent": [
+                        "play",
+                        "tweak"
+                    ],
+                    "owned": [
+                        "play",
+                        "tweak",
+                        "derive",
+                        "copy"
+                    ],
+                    "core": [
+                        "play",
+                        "tweak",
+                        "derive"
+                    ]
+                }
+            }
+        },
+        "incense": {
+            "id": "incense",
+            "version": "9311b4ba0b09c7b3",
+            "data": {
+                "id": "incense",
+                "kind": "texture",
+                "name": {
+                    "de": "Weihrauch",
+                    "en": "Incense"
+                },
+                "node": [
+                    {
+                        "id": "hiss",
+                        "kind": "noise",
+                        "color": "pink",
+                        "cutoff": 1800.0,
+                        "gain": 0.0
+                    }
+                ],
+                "out": "hiss",
+                "expose": [
+                    {
+                        "path": "hiss.cutoff",
+                        "label": {
+                            "de": "Filter",
+                            "en": "cutoff"
+                        },
+                        "range": [
+                            150.0,
+                            8000.0
+                        ]
+                    },
+                    {
+                        "path": "hiss.gain",
+                        "label": {
+                            "de": "Weihrauch",
+                            "en": "incense"
+                        },
+                        "range": [
+                            0.0,
+                            0.15
+                        ]
+                    }
+                ],
+                "rights": {
+                    "lent": [
+                        "play",
+                        "tweak"
+                    ],
+                    "owned": [
+                        "play",
+                        "tweak",
+                        "derive",
+                        "copy"
+                    ],
+                    "core": [
+                        "play",
+                        "tweak",
+                        "derive"
+                    ]
+                }
+            }
+        }
+    },
+    "presets": {
+        "cathedral_voice.base": {
+            "id": "cathedral_voice.base",
+            "version": "44af7a07553307a7",
+            "data": {
+                "id": "cathedral_voice.base",
+                "instrument": "cathedral_voice",
+                "tags": [
+                    "cathedral"
+                ],
+                "rights": {
+                    "lent": [
+                        "play",
+                        "tweak"
+                    ],
+                    "owned": [
+                        "play",
+                        "tweak",
+                        "derive",
+                        "copy"
+                    ],
+                    "core": [
+                        "play",
+                        "tweak",
+                        "derive"
+                    ]
+                }
+            }
+        },
+        "cathedral_voice.bright": {
+            "id": "cathedral_voice.bright",
+            "version": "d714b9b9352be5a8",
+            "data": {
+                "id": "cathedral_voice.bright",
+                "instrument": "cathedral_voice",
+                "parent": "cathedral_voice.base",
+                "tags": [
+                    "cathedral",
+                    "happy"
+                ],
+                "values": {
+                    "voice.ratio": 3.0
+                },
+                "rights": {
+                    "lent": [
+                        "play",
+                        "tweak"
+                    ],
+                    "owned": [
+                        "play",
+                        "tweak",
+                        "derive",
+                        "copy"
+                    ],
+                    "core": [
+                        "play",
+                        "tweak",
+                        "derive"
+                    ]
+                }
+            }
+        },
+        "cathedral_voice.low": {
+            "id": "cathedral_voice.low",
+            "version": "ea67534e61c8afb8",
+            "data": {
+                "id": "cathedral_voice.low",
+                "instrument": "cathedral_voice",
+                "parent": "cathedral_voice.base",
+                "tags": [
+                    "cathedral",
+                    "sad"
+                ],
+                "values": {
+                    "voice.index": 1.0,
+                    "voice.ratio": 0.5
+                },
+                "rights": {
+                    "lent": [
+                        "play",
+                        "tweak"
+                    ],
+                    "owned": [
+                        "play",
+                        "tweak",
+                        "derive",
+                        "copy"
+                    ],
+                    "core": [
+                        "play",
+                        "tweak",
+                        "derive"
+                    ]
+                }
+            }
+        },
+        "drone.base": {
+            "id": "drone.base",
+            "version": "97193afdd1818be9",
+            "data": {
+                "id": "drone.base",
+                "instrument": "drone",
+                "tags": [
+                    "cathedral"
+                ],
+                "rights": {
+                    "lent": [
+                        "play",
+                        "tweak"
+                    ],
+                    "owned": [
+                        "play",
+                        "tweak",
+                        "derive",
+                        "copy"
+                    ],
+                    "core": [
+                        "play",
+                        "tweak",
+                        "derive"
+                    ]
+                }
+            }
+        },
+        "incense.base": {
+            "id": "incense.base",
+            "version": "c2f8c67c7a1aa1d2",
+            "data": {
+                "id": "incense.base",
+                "instrument": "incense",
+                "tags": [
+                    "cathedral"
+                ],
+                "rights": {
+                    "lent": [
+                        "play",
+                        "tweak"
+                    ],
+                    "owned": [
+                        "play",
+                        "tweak",
+                        "derive",
+                        "copy"
+                    ],
+                    "core": [
+                        "play",
+                        "tweak",
+                        "derive"
+                    ]
+                }
+            }
+        }
+    },
+    "missing": {
+        "sets": [],
+        "characters": [],
+        "items": [
+            "ghost"
+        ]
+    }
+}
