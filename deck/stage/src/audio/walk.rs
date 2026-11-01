@@ -59,7 +59,7 @@ impl Walk {
             graph,
             walk,
             knobs,
-            cv: GateCv::new(note, pitch, base),
+            cv: GateCv::new(note, pitch, glide_key, base),
             rt: Vec::with_capacity(EDGE_CAP),
             beats,
             own: TempoMap::new(120.0, 4, f64::from(rate)),

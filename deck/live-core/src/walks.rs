@@ -3,12 +3,14 @@
 //! writes each walk with the input it plays (`[[walk]] id, target = "voice.freq", seed, base, octaves, length, spread,
 //! rate, glide, bpm`) and live-core sets that input at each note's sample – the render is split there. A walk's knobs
 //! (spread, rate, glide) are rows of the load table after the batch nodes, so the page sets them like any input.
+//! A note's `glide` (the fraction of its length) glides the freq into its pitch (deck-events' `Glide`, exponential –
+//! the stage's `GateCv` does the same per sample); live-core sets the glide's value at the start of each sub-block.
 //! Its clock is its own `bpm` (the page has no tempo clock; the stage's walk follows the stage's).
 use deck_core::batch::BatchGraph;
 use deck_core::tempo::TempoMap;
 use deck_events::generators::RandomWalk;
 use deck_events::rt::{resolve, RtEvent};
-use deck_events::{EventGraph, Names, Span, Sym, EDGE_CAP};
+use deck_events::{EventGraph, Glide, Names, Span, Sym, EDGE_CAP};
 use serde::Deserialize;
 
 /// a walk as the lowered scene writes it
@@ -75,6 +77,12 @@ pub struct Walk {
     /// the batch node and input it plays
     target: (usize, usize),
     pitch: Sym,
+    glide_key: Sym,
+    /// the freq now: a glide from the last pitch, `elapsed` frames in
+    glide: Glide,
+    elapsed: u32,
+    /// the target has to be sent: a note began, or a glide moved on
+    dirty: bool,
     tempo: TempoMap,
     frame: f64,
     rt: Vec<RtEvent>,
@@ -109,7 +117,7 @@ impl Walk {
         g.build().map_err(|e| e.to_string())?;
         let idx = |n: &str| g.param(walk, n).map_err(|e| e.to_string());
         let params = [idx(PORTS[0])?, idx(PORTS[1])?, idx(PORTS[2])?];
-        Ok(Walk { id: d.id, graph: g, node: walk, params, target: (ni, pi), pitch, tempo: TempoMap::new(d.bpm, 4, f64::from(rate)), frame: 0.0, rt: Vec::with_capacity(EDGE_CAP) })
+        Ok(Walk { id: d.id, graph: g, node: walk, params, target: (ni, pi), pitch, glide_key: glide, glide: Glide::hold(d.base), elapsed: 0, dirty: false, tempo: TempoMap::new(d.bpm, 4, f64::from(rate)), frame: 0.0, rt: Vec::with_capacity(EDGE_CAP) })
     }
 
     /// a knob: port `port` of PORTS
@@ -119,9 +127,9 @@ impl Walk {
         }
     }
 
-    /// The next `frames`: the notes starting in them as (frame offset, pitch), sorted – the caller splits its render
-    /// there and sets `target` to the pitch.
-    pub fn notes(&mut self, frames: usize, out: &mut Vec<(usize, f32)>) {
+    /// The next `frames`: the notes starting in them as (frame offset, pitch, glide frames), sorted – the caller splits
+    /// its render there and calls `begin`. The glide is the note's `glide` prop × its length.
+    pub fn notes(&mut self, frames: usize, out: &mut Vec<(usize, f32, u32)>) {
         let span = Span::frames(&self.tempo, self.frame, self.frame + frames as f64);
         self.frame += frames as f64;
         self.rt.clear();
@@ -130,7 +138,37 @@ impl Walk {
                 resolve(n, &span, &mut self.rt);
             }
         }
-        out.extend(self.rt.iter().filter_map(|e| e.props.get(self.pitch).map(|p| (e.frame as usize, p))));
+        let glide = self.glide_key;
+        out.extend(self.rt.iter().filter_map(|e| {
+            let g = e.props.get(glide).unwrap_or(0.0).clamp(0.0, 1.0);
+            e.props.get(self.pitch).map(|p| (e.frame as usize, p, (g * e.len as f32).round() as u32))
+        }));
+    }
+
+    /// A note starts: glide from the freq now to `pitch` over `frames` (0 = a jump).
+    pub fn begin(&mut self, pitch: f32, frames: u32) {
+        let now = self.glide.at(self.elapsed);
+        self.glide.start(now, pitch, frames);
+        self.elapsed = 0;
+        self.dirty = true;
+    }
+
+    /// `frames` of the render went by.
+    pub fn advance(&mut self, frames: usize) {
+        if self.glide.running(self.elapsed) {
+            self.elapsed = self.elapsed.saturating_add(frames as u32);
+            self.dirty = true;
+        }
+    }
+
+    /// Whether a glide runs (the render is cut into sub-blocks while one does).
+    pub fn gliding(&self) -> bool {
+        self.glide.running(self.elapsed)
+    }
+
+    /// The freq to send now, if it changed since the last call.
+    pub fn take(&mut self) -> Option<f32> {
+        std::mem::take(&mut self.dirty).then(|| self.glide.at(self.elapsed))
     }
 
     pub fn target(&self) -> (usize, usize) {

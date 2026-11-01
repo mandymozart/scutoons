@@ -44,7 +44,7 @@ fn deck(seed: u64) -> Deck {
         root: None,
     });
     graph.connect((walk, "notes"), (arp, "notes"), false).unwrap();
-    Deck { graph, arp, cv: GateCv::new(note, pitch, 147.0), tempo: TempoMap::new(96.0, 4, RATE), note, pitch }
+    Deck { graph, arp, cv: GateCv::new(note, pitch, glide, 147.0), tempo: TempoMap::new(96.0, 4, RATE), note, pitch }
 }
 
 /// play `frames` in windows of `block` frames; the cv's left and right channels

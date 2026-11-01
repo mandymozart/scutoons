@@ -8,13 +8,16 @@ use deck_core::limiter::Limiter;
 use deck_core::SceneDef;
 use crate::walks::{self, Walk};
 
+/// the longest sub-block (frames) the render runs while a walk glides
+const GLIDE_BLOCK: usize = 64;
+
 pub struct Core {
     graph: BatchGraph,
     /// the scene's walks (#236): their knobs are the load table's rows after the batch nodes
     walks: Vec<Walk>,
-    /// this render's notes (frame offset, pitch, the walk), reused
-    notes: Vec<(usize, f32, usize)>,
-    scratch: Vec<(usize, f32)>,
+    /// this render's notes (frame offset, pitch, glide frames, the walk), reused
+    notes: Vec<(usize, f32, u32, usize)>,
+    scratch: Vec<(usize, f32, u32)>,
     analyzer: Analyzer,
     /// the output's soft cap (#188), last before the worklet
     limiter: Limiter,
@@ -115,26 +118,41 @@ impl Core {
     /// sample also goes to the analyzer.
     pub fn render(&mut self, frames: usize) -> &[f32] {
         self.audio.resize(frames, 0.0);
-        // the walks' notes in these frames: the render is split at each, its target set to the note's pitch
+        // the walks' notes in these frames: the render is split at each, its target glided to the note's pitch – while
+        // a glide runs also every GLIDE_BLOCK frames, the target set at the start of each sub-block (the batch graph
+        // ramps within a block)
         self.notes.clear();
         for (wi, w) in self.walks.iter_mut().enumerate() {
             self.scratch.clear();
             w.notes(frames, &mut self.scratch);
-            self.notes.extend(self.scratch.iter().map(|&(f, p)| (f, p, wi)));
+            self.notes.extend(self.scratch.iter().map(|&(f, p, g)| (f, p, g, wi)));
         }
         self.notes.sort_unstable_by_key(|n| n.0);
-        let mut at = 0;
-        for &(f, pitch, wi) in &self.notes {
-            let f = f.min(frames);
-            if f > at {
-                self.graph.render(&mut self.audio[at..f]);
-                at = f;
+        let (mut at, mut next) = (0, 0);
+        loop {
+            while next < self.notes.len() && self.notes[next].0.min(frames) <= at {
+                let (_, pitch, glide, wi) = self.notes[next];
+                self.walks[wi].begin(pitch, glide);
+                next += 1;
             }
-            let (node, port) = self.walks[wi].target();
-            self.graph.send(node, port, pitch, 1.0);
-        }
-        if at < frames {
-            self.graph.render(&mut self.audio[at..]);
+            for w in &mut self.walks {
+                if let Some(freq) = w.take() {
+                    let (node, port) = w.target();
+                    self.graph.send(node, port, freq, 1.0);
+                }
+            }
+            if at >= frames {
+                break;
+            }
+            let mut end = self.notes.get(next).map_or(frames, |n| n.0.min(frames));
+            if self.walks.iter().any(Walk::gliding) {
+                end = end.min(at + GLIDE_BLOCK);
+            }
+            self.graph.render(&mut self.audio[at..end]);
+            for w in &mut self.walks {
+                w.advance(end - at);
+            }
+            at = end;
         }
         self.limiter.process_mono(&mut self.audio);
         for &x in &self.audio {
@@ -298,4 +316,16 @@ scale = 2.0
         assert!(Core::load(&WALK.replace("voice.freq", "voice.nope"), 48_000.0).is_err(), "a target must be an input");
     }
 
+    /// #236: a note's glide shapes the sound (glide 0 jumps, 1 glides the whole note) and the same settings, the same
+    /// samples
+    #[test]
+    fn a_glide_changes_the_sound_and_the_same_settings_sound_the_same() {
+        let scene = |glide: f32| format!("{WALK}glide = {glide}\n");
+        let with = |glide: f32| play(&mut Core::load(&scene(glide), 48_000.0).unwrap(), 750);
+        let (jump, slide) = (with(0.0), with(1.0));
+        assert!(jump.iter().any(|x| x.abs() > 0.01) && slide.iter().any(|x| x.abs() > 0.01));
+        assert_ne!(jump, slide, "a glide is another sound than a jump");
+        assert_eq!(slide, with(1.0), "two cores, the same settings, the same samples");
+        assert_eq!(jump, with(0.0));
+    }
 }

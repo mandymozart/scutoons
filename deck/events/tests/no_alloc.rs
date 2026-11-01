@@ -52,7 +52,7 @@ fn a_built_graph_runs_resolves_and_bridges_without_allocating() {
     g.connect((walk, "notes"), (arp, "notes"), false).unwrap();
     g.build().unwrap();
     let spread = g.param(walk, "spread").unwrap();
-    let mut cv = GateCv::new(note, pitch, 147.0);
+    let mut cv = GateCv::new(note, pitch, glide, 147.0);
     let mut rt: Vec<RtEvent> = Vec::with_capacity(EDGE_CAP);
     let (mut l, mut r) = (vec![0.0f32; 480], vec![0.0f32; 480]);
     let trigger = Event::now(note).with(pitch, 300.0);
