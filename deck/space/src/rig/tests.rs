@@ -1,6 +1,5 @@
 use super::*;
 use crate::graph::Graph;
-use serde::Deserialize;
 
 /// A test set in TOML – how the core set would ship in the image: the cathedral's choir voice (seq → fm, an LFO on its
 /// index), and the incense (#210's object sound).
@@ -73,16 +72,13 @@ values = { "air:hiss.cutoff" = 400.0 }
 presets = { voice = "choir.bright" }
 "#;
 
-#[derive(Deserialize)]
-struct Set {
-    instrument: Vec<Instrument>,
-    preset: Vec<Preset>,
-    rig: Rig,
+fn bundle() -> Bundle {
+    toml::from_str(SET).unwrap()
 }
 
 fn set() -> (Library, Rig) {
-    let s: Set = toml::from_str(SET).unwrap();
-    (Library::new(s.instrument, s.preset), s.rig)
+    let b = bundle();
+    (b.library(), b.rig)
 }
 
 fn node<'g>(g: &'g Graph, id: &str) -> &'g crate::graph::Node {
@@ -329,4 +325,43 @@ fn routes_go_between_tracks_or_to_the_being_only() {
     rig.routes[0] = Route { from: "voice:sway.out".into(), to: "air:hiss.cutoff".into(), scale: 2000.0, offset: 900.0 };
     let s = rig.flatten(&lib, None, None).unwrap();
     assert!(has_link(&s, "voice_sway.out", "air_hiss.cutoff"), "a modulation across tracks");
+}
+
+#[test]
+fn a_bundle_plays_into_a_scene_and_knobs() {
+    let p = bundle().play(None, None).unwrap();
+    assert_eq!(p.character, "catpope");
+    let paths: Vec<&str> = p.knobs.iter().map(|k| k.path.as_str()).collect();
+    assert_eq!(paths, ["voice_voice.ratio", "voice_voice.gain", "voice_sway.rate"]);
+    let ratio = &p.knobs[0];
+    assert_eq!((ratio.min, ratio.max, ratio.value, ratio.log), (0.25, 8.0, 1.5, true), "params.rs's range, the preset's value");
+    assert_eq!(ratio.label["en"], "FM ratio");
+    assert_eq!(p.tracks[0].preset.as_deref(), Some("choir.base"));
+    // the scene text is a stage scene that builds the same graph
+    let scene = crate::scene::Scene::parse(&p.scene).unwrap();
+    assert_eq!(scene.nodes, p.nodes);
+    assert_eq!(scene.links.len(), p.links.len());
+    Graph::build(&scene).unwrap();
+    #[cfg(feature = "being")]
+    assert_eq!(scene.being.expose, paths);
+}
+
+#[test]
+fn a_mood_changes_what_the_page_gets() {
+    let b = bundle();
+    let sad = b.play(None, Some("sad")).unwrap();
+    assert_eq!(sad.knobs[0].value, 0.5);
+    assert_eq!(sad.knobs[2].value, 0.02, "sway.rate from choir.sad");
+    assert_eq!(sad.tracks[0].preset.as_deref(), Some("choir.sad"));
+}
+
+#[test]
+fn the_wasm_boundary_speaks_json() {
+    let json = serde_json::to_string(&bundle()).unwrap();
+    let out: serde_json::Value = serde_json::from_str(&Bundle::play_json(&json, "", "happy").unwrap()).unwrap();
+    assert_eq!(out["tracks"][0]["preset"], "choir.bright");
+    assert_eq!(out["knobs"][0]["value"], 3.0);
+    assert!(out["knobs"][1].get("log").is_none(), "a linear knob says nothing");
+    assert!(Bundle::play_json("{}", "", "").is_err());
+    assert!(Bundle::play_json(&json, "", "dizzy").is_ok(), "an unknown mood plays the defaults");
 }

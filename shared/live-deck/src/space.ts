@@ -40,8 +40,33 @@ export interface SpaceView {
 	free(): void;
 }
 
+/** a knob of a played rig (deck-space `rig::Knob`): an exposed parameter of the flattened scene */
+export interface RigKnob {
+	/** `<track>_<node>.<port>` */
+	path: string;
+	label?: Record<string, string>;
+	min: number;
+	max: number;
+	value: number;
+	log?: boolean;
+}
+
+/** a character's rig played for a persona and a mood (deck-space `rig::Played`, #191) */
+export interface RigPlayed {
+	/** a stage scene in TOML (its space node bare) */
+	scene: string;
+	nodes: { id: string; kind: string; [param: string]: unknown }[];
+	links: { from: string; to: string; scale: number; offset: number }[];
+	/** the head's character; empty for an item's rig */
+	character: string;
+	knobs: RigKnob[];
+	tracks: { track: string; preset?: string }[];
+}
+
 interface SpaceModule {
 	default: (o: { module_or_path: string | URL }) => Promise<unknown>;
+	/** deck/space-web `rig_play`: the bundle as JSON (rig + instruments + presets), persona / mood '' = none; throws on a bad rig */
+	rig_play(bundle: string, persona: string, mood: string): string;
 	SpaceView: {
 		create(canvas: HTMLCanvasElement, deckGraph: string, values: string, prefer: string): Promise<SpaceView>;
 		encoded_images(glb: Uint8Array): unknown[];
@@ -312,6 +337,11 @@ export class SpaceStage {
 		);
 		on('dblclick', (e) => e.preventDefault());
 		on('contextmenu', (e) => e.preventDefault());
+	}
+
+	/** A character's rig played for `persona` and `mood` (#191, research/INSTRUMENTS.md §7): the same Rust as the deck's. */
+	playRig(bundle: string, persona = '', mood = ''): RigPlayed {
+		return JSON.parse(this.mod.rig_play(bundle, persona, mood)) as RigPlayed;
 	}
 
 	stop() {

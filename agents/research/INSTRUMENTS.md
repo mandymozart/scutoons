@@ -1,4 +1,4 @@
-Status 2026-11-01: design + first slices (#191) – the Rust types (`deck/space/src/rig/`) and `Rig::flatten` are built and tested; storage, API, deck loading and UI are proposals waiting on the owner's answers in §8.
+Status 2026-11-01: design + first slices (#191) – the Rust types (`deck/space/src/rig/`), `Rig::flatten` and the wasm `rig_play` are built and tested; storage, API, deck loading and UI are proposals waiting on the owner's answers in §8.
 
 # INSTRUMENTS — characters' instruments, presets, derivatives
 
@@ -81,8 +81,11 @@ incense in Web Audio). Replaced in steps:
    `<track>_<node>`, four-input mixers chained (`mix1` → `mix2.in1` …, a track's `gain` = its mixer gain) → `out`
    (audio_out) + `fft`, the routes as links (a muted track's are off), a bare `space` node for `being:*` routes (the
    caller sets its set / spot), the being's `character` from the subject and `expose` from the instruments. No pan yet
-   (the mixer has none).
-2. **wasm:** deck/space-web exports `rig_play(json, persona, mood) → scene` (the same code as the native stage).
+   (the mixer has none, #232); one stereo output (#233).
+2. **wasm (built):** deck-space `rig::Bundle` = `{ rig, instrument[], preset[] }` (scene-content's answer, or a core
+   set's TOML); `play(persona, mood)` → `{ scene (TOML), nodes, links, character, knobs, tracks }` – a knob = an exposed
+   parameter with params.rs's range (or the instrument's), curve, label and current value (scene.ts's `Spec`).
+   deck/space-web exports it as `rig_play(bundle, persona, mood)`, shared/live-deck's `SpaceStage.playRig`.
 3. **Page:** picks the character (it already does for the head), takes the rig from scene-content, builds the wire
    graph (`deck.graph`) and live-core's scene from the flattened scene, the sliders / knobs / 3D buttons from the
    instruments' `expose`; a mood change applies the value diff. The incense leaves the voice and becomes the incense
