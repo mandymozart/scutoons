@@ -134,3 +134,27 @@ fig: the new grows around the old; nothing has to move, each piece can move late
 - **What is new code:** the `deck/events` crate (the contract + the scheduler + the first generators), the host node,
   and one adapter per boundary as it is needed. The contract is the only thing the rest of the system ever learns.
 
+## 11. What it buys the project now
+Concrete gains for the open work, without waiting for a rewrite (§10):
+- **The rig's silent melody** (#191 `?rig=1`: the voice holds its pitch): `random_walk` in the host node gives it its
+  notes on the deck and in the browser from one Rust source; the page's JS melody goes (DECISIONS 2026-10-31: "as
+  much as possible in the Rust engine").
+- **Multi-deck sync** (the CATH 3-device test, values streamed at ≤ 30 / s): seeded generators play the same notes on
+  every deck from a seed + the tempo map; the relay carries seeds, params and cues, not notes; a late joiner gets the
+  seed and the bar and is in step.
+- **The Live kickoff (2026-11-16) and Top Toy (2027-02-17):** the conductor's cues, cell changes (#186) and the show's
+  rows become events on the same timeline as the music – a cue lands on the bar.
+- **#234 sequences**: the scene's, the character's, the relay's and MIDI's sequences are four sources of one kind;
+  **#235**: scores, MIDI files and Ableton clips become stored compound events with one player.
+- **#212 / #211 – everything audiovisual**: shake → flash, smile → a mood, a gamepad button → a mood are events; one
+  event drives the sound and the image (the strobe's rate cap is a transformer).
+- **#209 MIDI learn, Link**: MIDI in is a source generator, MIDI out a sink – no extra path.
+- **#188 feelings**: the rules are bridges (signal → mood events), the rig's mood switch (`moodRig`) answers them –
+  the same thing, now named and testable.
+- **#210 scene objects**: a bell ringing on the beat = `pulse` → the bell's instrument.
+- **#208 dropouts**: events are scheduled per block inside the render lead – no per-sample work, nothing new on the
+  audio callback.
+- **Tests** (RULES "TypeScript + unit tests"): a generator's contract is a unit test – given X, it emits Y.
+- **Items**: an arpeggiator or a generator can be an item in the carrier bag like an instrument (DECISIONS
+  2026-11-01), its patterns derivatives with lineage.
+
