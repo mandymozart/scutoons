@@ -170,3 +170,18 @@ test('a character switch while the sound loads: no throw out of tick or setParam
 	assert.ok(!core.sets.some((p) => p.startsWith('voice_')), "the overtaken rig's values never went out");
 	d.close();
 });
+
+test('#274: the first start – a frame and a knob turn before the scene landed throw nothing; it plays once it has', async () => {
+	const d = new Deck({ character: 'catpope', nick: 'guest', api: API });
+	const core = fakeCore();
+	// as Deck.start does: the core is there before its scene is (the page's frame loop died on this once)
+	d.core = core as never;
+	d.useRig(null);
+	assert.doesNotThrow(() => d.tick(0.5));
+	assert.doesNotThrow(() => d.setParam('voice.ratio', 2));
+	assert.equal(core.sets.length, 0, 'nothing reaches an engine without a scene');
+	core.land();
+	await Promise.resolve();
+	d.tick(1);
+	assert.ok(core.sets.includes('voice.freq'), 'the fixed patch plays once its scene landed');
+});
