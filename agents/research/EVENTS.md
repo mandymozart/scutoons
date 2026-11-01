@@ -188,10 +188,10 @@ the medium's data (samples, frames, curves) stays an asset or a signal, the even
 | animation | `curve { target, keys: [time, value, ease] }` – a bridge turns it into a control signal; a mood sprite change = an event |
 | story (VN) | a chain = a compound event whose children have an order but no clock times yet (below) |
 
-**Three time bases**, resolved at the edge: **beats** (music, on the tempo map), **seconds** (clips, video, cues),
-**steps** (the story: "after the previous one is done", or a scroll position – an intersect trigger is a place in the
-strip). A step gets its clock time when the story runner fires it (a reader's tap), or when the conductor walks the
-flow's rows in a show – then it carries the relay's `at` like any cue.
+**Two kinds of time** (owner 2026-11-01: "vn events mostly are there to trigger things … the timeline is there for
+timeline sensitive stuff like videos, and audio"): a **trigger** happens now (a story event, a tap, a cue without a
+time); a **timed** event sits on the timeline in **beats** (music, on the tempo map) or **seconds** (clips, video). The
+story's chains stay the story runner's; what reaches a deck is a trigger. (The `step` time of §14 goes.)
 
 Compared with MIDI: an open vocabulary (a registry) instead of a fixed one, f32 instead of 7-bit, beats / seconds / steps
 instead of ticks, nesting, routing by name and receivers instead of 16 channels, and every medium instead of notes only.
@@ -200,7 +200,7 @@ stay import / export adapters.
 
 ## 14. The proposed types (TypeScript + Rust)
 ```ts
-type Time = { beats: number } | { seconds: number } | { step: number };   // music · clips / video / cues · the story
+type Time = 'now' | { beats: number } | { seconds: number };   // a trigger · music · clips / video
 interface Event {
   start: Time;
   dur?: Time;                        // none = a moment
@@ -213,7 +213,7 @@ interface Event {
 }
 ```
 ```rust
-pub enum Time { Beats(f64), Seconds(f64), Step(u32) }
+pub enum Time { Now, Beats(f64), Seconds(f64) }
 pub struct Event {
     pub start: Time,
     pub dur: Option<Time>,
@@ -229,3 +229,38 @@ pub struct RtEvent { pub frame: u32, pub name: Sym, pub props: [(Sym, f32); 6], 
 ```
 The story's `VNEvent`, the relay's `Envelope` (shared/live protocol.ts, generated) and a deck's wire records stay as
 they are; adapters map them in (§12).
+
+## 15. Names, cost, latency, loops
+**Names: a dictionary with domains** (owner 2026-11-01: "makes it really easy to know where things go and what they
+will trigger"): `story.fx`, `story.showMessage`, `relay.cue`, `midi.note`, `deck.mood`, `media.video` … – the domain
+says where it comes from, a receiver subscribes to names or whole domains.
+
+**Cost.** A name is an interned integer, a receiver list an array: dispatching one event is a few hundred nanoseconds.
+A block is 256 frames = 5.3 ms at 48 kHz (deck-stage audio/ring.rs); 1,000 events in a block cost well under 1 % of it
+– one FM voice costs more. The audio thread gets `RtEvent`s (fixed size, no allocation); loose `data` stays off it.
+
+**Latency** (events add nothing to today's paths):
+| path | latency |
+|---|---|
+| a generator → an instrument on the same deck | 0 – scheduled ahead, sample-accurate |
+| a live input (tap, MIDI key, story trigger) → sound | the render lead: 5.3–85 ms native (adaptive, #208), 43–64 ms in the browser (live-core's lead) – the same as a knob today |
+| → the image | the next frame: ≤ 16.7 ms at 60 fps |
+| a story trigger → a deck on the same phone page | ≤ one animation frame + the lead |
+| → other decks over the relay | the network (LAN ≈ 1–10 ms) + the lead; a cue with `at` fires on every deck together, at the time chosen |
+
+**Where it can get slow:**
+- an **event storm**: a generator emitting thousands per block (a curve sent as events instead of one `curve`)
+- an **expensive receiver**: an event that reloads a preset's shape or a scene (milliseconds, off the audio thread)
+- **huge compound events** (a whole score): expanded lazily, window by window, on the control thread
+- **fan-out** across many decks: the relay's rate cap (30 / s for values today)
+
+**Loops – yes, accidentally possible, and bounded by design:**
+- a loop without a delay is refused when the graph loads (as graph.rs refuses cycles); a loop needs a delayed edge,
+  so it runs at most once per block (≈ 188 / s) – it can't spin faster than the audio
+- a loop that multiplies (each pass emits two) hits the **per-edge queue cap** (e.g. 256 a window): the rest is
+  dropped, counted and shown in the HUD like a dropout
+- every event carries a **hop count** (like IP's TTL): past a limit it is dropped – this also stops loops across decks
+  through the relay (deck A → B → A), which are slow but endless otherwise
+- **heavy receivers are rate-limited** (a mood already has to hold 1.2 s before the head shows it, being.rs `MOOD_HOLD`)
+- the patch editor (#203) shows cycles, delayed edges and fan-out before they play
+
