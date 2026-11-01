@@ -6,4 +6,5 @@ export * from './client.ts';
 export * from './scene.ts';
 export * from './deck.ts';
 export * from './space.ts';
+export * from './rig.ts';
 export * from './sync.ts';

@@ -6,11 +6,13 @@
 	// state; the being's 3D buttons turn the same values, so the sliders and dots follow them.
 	import { Button, Icon } from '@scutoons/ui';
 	import { MELODY, PARAMS, toPos, toValue, type Spec } from '@scutoons/live-deck';
+	import { panelLayout } from '$lib/live-deck.ts';
 	import DeckPad from './deck-pad.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 
 	let {
 		values,
+		params = PARAMS,
 		started,
 		starting,
 		status,
@@ -20,6 +22,8 @@
 		ontouch
 	}: {
 		values: Record<string, number>;
+		/** the sliders: the fixed patch's PARAMS or the character's rig's knobs (#191) */
+		params?: Record<string, Spec>;
 		started: boolean;
 		starting: boolean;
 		/** the status line: relay, 3D, the sound's dropouts and load, the hovered button */
@@ -33,26 +37,26 @@
 
 	// folded at first: the being fills the screen; the fold opens the rest
 	let open = $state(false);
-	const all: Record<string, Spec> = { ...MELODY, ...PARAMS };
-	/** the bar's quick row: the voice, the drone, the melody's spread */
-	const QUICK = ['voice.gain', 'drone.gain', 'melody.spread'];
-	const pads = [
-		{ x: 'voice.ratio', y: 'voice.index', label: () => m['live_deck.pad_voice']() },
-		{ x: 'incense.cutoff', y: 'sway.rate', label: () => m['live_deck.pad_incense']() }
-	];
-	const onPads = new Set(pads.flatMap((p) => [p.x, p.y]));
-	const sliders = Object.entries(all).filter(([p]) => !onPads.has(p) && !QUICK.includes(p));
+	// the fixed patch: the voice, the drone, the melody's spread in the bar + two pads; a rig: its gains + the fold
+	const layout = $derived(panelLayout(params, MELODY));
+	const all = $derived(layout.all);
+	const QUICK = $derived(layout.quick);
+	const pads = $derived(layout.pads);
+	const sliders = $derived(layout.sliders);
+	const padLabel = (k: 'voice' | 'incense') => (k === 'voice' ? m['live_deck.pad_voice']() : m['live_deck.pad_incense']());
 	const shown = (v: number) => v.toFixed(v >= 10 ? 0 : 2);
 </script>
 
 <section class="panel" aria-label={m['live_deck.controls']()}>
 	{#if open}
 		<div id="deck-controls" class="body">
-			<div class="pads">
-				{#each pads as p (p.x)}
-					<DeckPad x={p.x} y={p.y} label={p.label()} {values} {onset} {ontouch} />
-				{/each}
-			</div>
+			{#if pads.length}
+				<div class="pads">
+					{#each pads as p (p.x)}
+						<DeckPad x={p.x} y={p.y} label={padLabel(p.label)} {values} {onset} {ontouch} />
+					{/each}
+				</div>
+			{/if}
 			<fieldset>
 				{#each sliders as [path, spec] (path)}
 					<label for="deck-{path}">{spec.label}</label>

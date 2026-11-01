@@ -11,13 +11,13 @@
 	// fetches what it names from the CDN and answers; the status line shows it.
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { Deck, MELODY, PARAMS, SpaceStage, charactersOf, pushLine, type Hand } from '@scutoons/live-deck';
+	import { Deck, MELODY, PARAMS, SpaceStage, charactersOf, pushLine, type Hand, type Spec } from '@scutoons/live-deck';
 	import LiveWorker from '@scutoons/live-core/worker?worker';
 	import workletUrl from '@scutoons/live-core/worklet?worker&url';
 	import { API_URL, CDN_SERVER, LIVE_URL } from '$lib/config.ts';
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import { CHARACTER_KEY, WASM_BASE, characterOf, mayJoin, nickOf, preferOf, relayOf } from '$lib/live-deck.ts';
+	import { CHARACTER_KEY, WASM_BASE, characterOf, mayJoin, nickOf, preferOf, relayOf, rigOf } from '$lib/live-deck.ts';
 	import CharacterChip from '$lib/components/live-deck/character-chip.svelte';
 	import DeckPanel from '$lib/components/live-deck/deck-panel.svelte';
 
@@ -26,6 +26,8 @@
 	let host: HTMLDivElement | undefined = $state();
 	// the controls show the scene's values until the deck is there
 	let values = $state<Record<string, number>>(Object.fromEntries(Object.entries({ ...PARAMS, ...MELODY }).map(([k, s]) => [k, s.value])));
+	// the sliders: the fixed patch's, or the character's rig's knobs (#191, `?rig=1`)
+	let params = $state<Record<string, Spec>>(PARAMS);
 	let character = $state('');
 	let characters = $state<{ id: string; name?: Record<string, string> }[]>([]);
 	let mood = $state('neutral');
@@ -43,6 +45,9 @@
 	let threeD = $state(true);
 	let deck: Deck | null = null;
 	let space: SpaceStage | null = null;
+	/** #191: play the character's rig (`?rig=1`), and its bundle while it has one (deck-space's core rigs for now) */
+	let useRigs = false;
+	let rigBundle: string | null = null;
 
 	const store = {
 		get: () => {
@@ -68,6 +73,23 @@
 		face = p ? cdn + p.path : '';
 	}
 
+	/** #191: the character's rig, played in Rust (space-web), replaces the fixed patch – or the patch comes back when the
+	 *  character has none, rigs are off, or the 3D (its wasm) didn't start */
+	function applyRig() {
+		if (!deck || !useRigs) return;
+		rigBundle = null;
+		try {
+			rigBundle = space ? space.coreRig(`character.${character}`) : null;
+			deck.useRig(rigBundle && space ? space.playRig(rigBundle, '', mood) : null);
+		} catch (e) {
+			rigBundle = null;
+			deck.useRig(null);
+			spaceStatus = (e as Error).message ?? String(e);
+		}
+		params = deck.params;
+		values = { ...deck.value };
+	}
+
 	/** the session's first answer (a member's name and avatar), at most a moment */
 	async function settled() {
 		for (let i = 0; i < 40 && !session.ready; i++) await new Promise((r) => setTimeout(r, 50));
@@ -88,6 +110,7 @@
 			await settled();
 			if (!alive || !mayJoin(session.me)) return;
 			const q = page.url.searchParams;
+			useRigs = rigOf(q);
 			const relay = relayOf(q, LIVE_URL, page.params.code);
 			character = characterOf(q, session.me, store.get());
 			deck = new Deck({ relay, character, nick: nickOf(session.me, m['live_deck.guest']()), api: API_URL, cdn, onStatus: (s) => (relayStatus = s), onSynced: (r) => (syncStatus = pushLine(r)) });
@@ -98,6 +121,14 @@
 			deck.onMood = (md) => {
 				mood = md;
 				showFace();
+				// #191: the mood's variant of the rig (its presets, its values) – the sliders follow by the mood's hand
+				if (rigBundle && space && deck) {
+					try {
+						deck.moodRig(space.playRig(rigBundle, '', md));
+					} catch (e) {
+						spaceStatus = (e as Error).message ?? String(e);
+					}
+				}
 			};
 			await deck.pickCharacter(character);
 			showFace();
@@ -105,6 +136,10 @@
 			if (!alive || !host) return;
 			try {
 				space = await SpaceStage.start({ host, base: WASM_BASE, deck, api: API_URL, cdn, prefer: preferOf(q), onStatus: (s) => (spaceStatus = s) });
+				if (useRigs) {
+					applyRig();
+					space.setBeing();
+				}
 			} catch (e) {
 				threeD = false;
 				spaceStatus = m['live_deck.no_3d']({ reason: (e as Error).message ?? String(e) });
@@ -141,6 +176,7 @@
 		character = id;
 		store.set(id);
 		await deck.pickCharacter(id);
+		applyRig();
 		space?.setBeing();
 		showFace();
 	}
@@ -176,6 +212,7 @@
 	<div class="bottom">
 		<DeckPanel
 			{values}
+			{params}
 			{started}
 			{starting}
 			{status}

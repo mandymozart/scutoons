@@ -1,4 +1,4 @@
-Status 2026-11-01: design + first slices (#191) – the Rust types (`deck/space/src/rig/`), `Rig::flatten` and the wasm `rig_play` are built and tested; storage, API, deck loading and UI are proposals waiting on the owner's answers in §8.
+Status 2026-11-01: design + first slices (#191) – the Rust types (`deck/space/src/rig/`), `Rig::flatten`, the browser engine's lowering, the core rigs and the phone page's rig mode (`?rig=1`) are built and tested; storage, the API, the native deck loading rigs and the creator UI are proposals waiting on the owner's answers in §8.
 
 # INSTRUMENTS — characters' instruments, presets, derivatives
 
@@ -79,21 +79,28 @@ Today `shared/live-deck/src/scene.ts` hard-codes the trimmed cathedral (PARAMS, 
 incense in Web Audio). Replaced in steps:
 1. **Rust (built):** `Rig::flatten(lib, persona, mood)` – the played tracks' patches in one scene: node ids
    `<track>_<node>`, four-input mixers chained (`mix1` → `mix2.in1` …, a track's `gain` = its mixer gain) → `out`
-   (audio_out) + `fft`, the routes as links (a muted track's are off), a bare `space` node for `being:*` routes (the
-   caller sets its set / spot), the being's `character` from the subject and `expose` from the instruments. No pan yet
+   (audio_out) + `fft`, the routes as links (a muted track's are off), always a bare `space` node (the caller sets its
+   set / spot) breathing on `fft.level → space.pulse` unless a route drives `being:pulse`, the being's `character` from the subject and `expose` from the instruments. No pan yet
    (the mixer has none, #232); one stereo output (#233).
 2. **wasm (built):** deck-space `rig::Bundle` = `{ rig, instrument[], preset[] }` (scene-content's answer, or a core
    set's TOML); `play(persona, mood)` → `{ scene (TOML), nodes, links, character, knobs, tracks }` – a knob = an exposed
    parameter with params.rs's range (or the instrument's), curve, label and current value (scene.ts's `Spec`).
    deck/space-web exports it as `rig_play(bundle, persona, mood)`, shared/live-deck's `SpaceStage.playRig`.
-3. **Page:** picks the character (it already does for the head), takes the rig from scene-content, builds the wire
-   graph (`deck.graph`) and live-core's scene from the flattened scene, the sliders / knobs / 3D buttons from the
-   instruments' `expose`; a mood change applies the value diff. The incense leaves the voice and becomes the incense
-   burner item's rig (#210).
-- Constraint: live-core plays lfo · smooth · mul · add · osc · fm only (the page runs seq and noise in JS) – a rig with
-  other kinds needs them in live-core first (or the browser plays deck-core's kinds, #182).
-- TS types: today only the relay protocol is generated (deck/protocol/schema.json → shared/live). Rigs travel over
-  HTTP, not the relay, so this slice has no TS; when scene-content serves them, the forms go into a JSON schema with a
+3. **Engine + page (built, opt-in `?rig=1`):** deck-space `rig/engine.rs` lowers the flattened scene for live-core
+   (the batch kinds stay; a strip gain becomes a `mul` before the gain, the knob aliased to it; mixer / audio_out /
+   fft / space go; noise, seq … are the page's, with their strip gain). Core rigs ship in `deck/stage/rigs/`
+   (`rig::bundle::CORE`): catpope = the phone patch as data (the voice + the drone, presets base / bright / low, mood
+   variants), the incense burner = the incense out of the voice (#210). space-web `core_rig` → `rig_play`;
+   shared/live-deck `rig.ts` (sliders, wire graph, streamed paths, the mood diff – values only or a reload) and
+   `Deck.useRig` / `moodRig`; the viewer's /live/deck plays the character's core rig with `?rig=1` (the panel: its
+   gains in the bar, the rest in the fold, no pads). shared/live-deck's tests run on `test/fixtures/rigs.json`, written
+   by deck-space (`UPDATE_FIXTURES=1 cargo test -p deck-space rig_fixture`; a stale file fails the Rust test).
+- Open: the phone check on the S22, then the default (no `?rig`); seq in the page (the voice holds its pitch, the
+  melody is the fixed patch's); routes into page nodes (an LFO on the incense) are dropped; rigs from scene-content.
+- Constraint: live-core plays lfo · smooth · mul · add · osc · fm only – other kinds are the page's or need live-core
+  first (#182).
+- TS types: only the relay protocol is generated (deck/protocol/schema.json → shared/live). Rigs travel over HTTP, so
+  shared/live-deck's `RigPlayed` is hand-written next to the wasm API it types (space.ts) and tested on the fixture; when scene-content serves them, the forms go into a JSON schema with a
   generator like deck/protocol's (Rust stays the source of truth: the schema must round-trip `rig/tests.rs`' set).
 
 ## 8. Open – for the owner

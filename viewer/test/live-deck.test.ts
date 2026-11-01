@@ -1,7 +1,8 @@
 // The browser deck's route helpers (#198, src/lib/live-deck.ts): the relay from the address, the character, the nick.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { characterOf, codeOf, DEFAULT_CHARACTER, DEFAULT_CODE, mayJoin, nickOf, preferOf, relayOf } from '../src/lib/live-deck.ts';
+import { characterOf, codeOf, DEFAULT_CHARACTER, DEFAULT_CODE, mayJoin, nickOf, panelLayout, preferOf, relayOf, rigOf } from '../src/lib/live-deck.ts';
+import { MELODY, PARAMS } from '../../shared/live-deck/src/scene.ts';
 import type { Me } from '@scutoons/content';
 
 const q = (s: string) => new URLSearchParams(s);
@@ -52,4 +53,24 @@ test('WebGL2 on request; everyone may join for now', () => {
 	assert.equal(preferOf(q('gl=1')), 'webgl2');
 	assert.equal(preferOf(q('')), 'auto');
 	assert.equal(mayJoin(null), true);
+});
+
+test('the rig is opt-in while the phone check is open (#191)', () => {
+	assert.equal(rigOf(new URLSearchParams('rig=1')), true);
+	assert.equal(rigOf(new URLSearchParams('')), false);
+	assert.equal(rigOf(new URLSearchParams('rig=0')), false);
+});
+
+test("the panel: the fixed patch keeps its pads; a rig's gains go in the bar, the rest in the fold", () => {
+	const fixed = panelLayout(PARAMS, MELODY);
+	assert.deepEqual(fixed.quick, ['voice.gain', 'drone.gain', 'melody.spread']);
+	assert.equal(fixed.pads.length, 2);
+	assert.ok(!fixed.sliders.some(([p]) => p === 'voice.ratio' || fixed.quick.includes(p)));
+	assert.ok('melody.rate' in fixed.all);
+	const s = (label: string) => ({ min: 0, max: 1, value: 0.5, label });
+	const rig = panelLayout({ 'voice_voice.ratio': s('ratio'), 'voice_voice.gain': s('voice'), 'drone_drone.gain': s('drone') }, MELODY);
+	assert.deepEqual(rig.quick, ['voice_voice.gain', 'drone_drone.gain']);
+	assert.deepEqual(rig.pads, []);
+	assert.deepEqual(rig.sliders.map(([p]) => p), ['voice_voice.ratio']);
+	assert.ok(!('melody.rate' in rig.all), 'no melody with a rig');
 });
