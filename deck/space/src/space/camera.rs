@@ -39,6 +39,19 @@ impl Ray {
     }
 }
 
+/// #224: the camera's view as the knobs need it to stay reachable close up (being.rs `fold`): the eye, its axes, the
+/// half-view's tangents (w / h), and the least depth a knob keeps in front of the eye
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Frame {
+    pub eye: Vec3,
+    pub fwd: Vec3,
+    pub right: Vec3,
+    pub up: Vec3,
+    pub tan_x: f32,
+    pub tan_y: f32,
+    pub min_depth: f32,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Orbit {
     pub target: Vec3,
@@ -147,6 +160,15 @@ impl Orbit {
         (self.yaw, self.pitch, self.distance) = self.home;
         self.want = self.distance;
         self.idle = 0.0;
+    }
+
+    /// #224: this view's frame for a w / h of `aspect`
+    pub fn frame(&self, aspect: f32) -> Frame {
+        let eye = self.eye();
+        let fwd = (self.target - eye).try_normalize().unwrap_or(Vec3::NEG_Z);
+        let right = fwd.cross(Vec3::Y).try_normalize().unwrap_or(Vec3::X);
+        let tan_y = (self.fov_y * 0.5).tan();
+        Frame { eye, fwd, right, up: right.cross(fwd), tan_x: tan_y * aspect.max(1e-3), tan_y, min_depth: self.distance * 0.6 }
     }
 
     /// #224: every sphere (centre, radius) inside the view of `aspect` (w / h), kept `margin` (a share of the half
