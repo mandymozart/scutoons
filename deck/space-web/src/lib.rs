@@ -10,7 +10,8 @@
 //! - **Assets:** the page fetches the set's .glb and the portraits (scene-content + the CDN) and lets the browser
 //!   decode the images (`encoded_images` → `give_set`, `portrait_requests` → `give_portrait`); the glb is parsed here.
 //! - **Input:** pointer and touch events go to the stage's own picking, drag and double click (`Space`).
-//! - **Rigs** (#191): `rig_play` – a character's rig played for a persona and a mood, as the page's scene and knobs.
+//! - **Rigs** (#191): `rig_play` – a character's rig played for a persona and a mood, as the page's scene and knobs;
+//!   `core_rig` (the image's) and `scene_rig` (scene-content's, #271) hand it the bundle.
 //! - **Controls (#209):** a tap selects a knob / the being / nothing (`take_tap`, `select` – a white ring), the knobs
 //!   face the camera (deck-space). `DeckControls` – deck-space's `controls` without a GPU (it works when the 3D can't):
 //!   what the selection gives the two corner sticks, the sticks' relative moves, MIDI learn and the mappings' text.
@@ -156,6 +157,13 @@ pub fn rig_play(bundle: &str, persona: &str, mood: &str) -> Result<String, JsVal
 #[wasm_bindgen]
 pub fn core_rig(subject: &str) -> Result<String, JsValue> {
     deck_space::rig::Bundle::core_json(subject).map_err(|e| JsValue::from_str(&format!("{e:#}")))
+}
+
+/// The catalog's rig of one holder from scene-content's answer (#271): `answer` = the answer's JSON, `group` =
+/// `characters` / `items`, `id` = the id as asked – the bundle as JSON for `rig_play`, empty when it has no rig.
+#[wasm_bindgen]
+pub fn scene_rig(answer: &str, group: &str, id: &str) -> Result<String, JsValue> {
+    deck_space::rig::content::scene_rig_json(answer, group, id).map_err(|e| JsValue::from_str(&format!("{e:#}")))
 }
 
 #[wasm_bindgen]
