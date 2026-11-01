@@ -12,12 +12,47 @@ pub struct OpenVote {
     pub deadline: i64,
     /// client → (option, the client's group when it cast)
     pub casts: HashMap<String, (usize, Option<String>)>,
+    /// the conductor holds the countdown since this relay time (ms): the deadline moves on by the held time
+    pub held_at: Option<i64>,
 }
 
 impl OpenVote {
     pub fn new(open: VoteOpen, now: i64) -> Self {
         let deadline = now + open.seconds.max(1) * 1000;
-        OpenVote { open, deadline, casts: HashMap::new() }
+        OpenVote { open, deadline, casts: HashMap::new(), held_at: None }
+    }
+
+    /// vote.hold: stop the countdown where it is (votes are still accepted) / run it on – the held time is added to
+    /// the deadline. Holding twice or running on a running vote changes nothing.
+    pub fn hold(&mut self, hold: bool, now: i64) {
+        match (hold, self.held_at) {
+            (true, None) => self.held_at = Some(now),
+            (false, Some(at)) => {
+                self.deadline += (now - at).max(0);
+                self.held_at = None;
+            }
+            _ => {}
+        }
+    }
+
+    /// ms until the vote closes by itself (stands still while held)
+    pub fn left(&self, now: i64) -> i64 {
+        (self.deadline - self.held_at.unwrap_or(now)).max(0)
+    }
+
+    /// Has the countdown run out? Never while held.
+    pub fn expired(&self, now: i64) -> bool {
+        self.held_at.is_none() && now >= self.deadline
+    }
+
+    /// The counts per group (a client without a group is `-`).
+    pub fn group_counts(&self) -> HashMap<String, Vec<i64>> {
+        let n = self.open.options.len();
+        let mut by: HashMap<String, Vec<i64>> = HashMap::new();
+        for (o, g) in self.casts.values() {
+            by.entry(g.clone().unwrap_or_else(|| "-".into())).or_insert_with(|| vec![0; n])[*o] += 1;
+        }
+        by
     }
 
     /// May a client in `group` vote here? `groups` missing = every audience client (the session checks the role).
@@ -66,7 +101,8 @@ impl OpenVote {
             };
             (option, VoteHow::Rule)
         };
-        VoteResult { vote: self.open.vote.clone(), option: option as i64, counts, how }
+        let groups = self.group_counts();
+        VoteResult { vote: self.open.vote.clone(), option: option as i64, counts, how, groups: (!groups.is_empty()).then_some(groups) }
     }
 
     fn fallback(&self) -> usize {
@@ -108,12 +144,40 @@ mod tests {
             fallback: Some(2),
             groups: None,
             show: None,
+            question: None,
+            labels: None,
         };
         OpenVote::new(v, 1_000)
     }
 
     fn cast(v: &mut OpenVote, client: &str, option: usize, group: &str) {
         v.casts.insert(client.into(), (option, Some(group.into())));
+    }
+
+    #[test]
+    fn hold_stops_the_countdown_and_run_on_gives_the_time_back() {
+        let mut v = open(VoteRule::Majority, None);
+        assert_eq!(v.left(6_000), 15_000);
+        v.hold(true, 6_000);
+        assert_eq!(v.left(16_000), 15_000, "held: it stands still");
+        assert!(!v.expired(99_000), "never expires while held");
+        v.hold(true, 7_000); // twice changes nothing
+        v.hold(false, 16_000); // 10 s held
+        assert_eq!(v.deadline, 31_000);
+        assert_eq!(v.left(16_000), 15_000);
+        assert!(v.expired(31_000));
+    }
+
+    #[test]
+    fn counts_per_group_and_in_the_result() {
+        let mut v = open(VoteRule::Groups, None);
+        cast(&mut v, "a", 0, "left");
+        cast(&mut v, "b", 1, "left");
+        cast(&mut v, "c", 1, "right");
+        let g = v.group_counts();
+        assert_eq!((g["left"].clone(), g["right"].clone()), (vec![1, 1, 0], vec![0, 1, 0]));
+        assert_eq!(v.decide(None).groups, Some(g));
+        assert_eq!(open(VoteRule::Majority, None).decide(None).groups, None);
     }
 
     #[test]

@@ -173,6 +173,8 @@
 		}
 		params = deck.params;
 		values = { ...deck.value };
+		// the corner sticks follow the rig's knobs (or the fixed patch's again)
+		ctl.useParams(deck.controlSpecs, deck.sticks);
 	}
 
 	/** the session's first answer (a member's name and avatar), at most a moment */

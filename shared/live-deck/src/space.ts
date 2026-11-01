@@ -84,6 +84,8 @@ export interface RigPlayed {
 	character: string;
 	knobs: RigKnob[];
 	tracks: { track: string; preset?: string }[];
+	/** the corner sticks' knob paths, (x, y) left then right ("" = none) */
+	sticks: [[string, string], [string, string]];
 	/** the scene lowered for live-core (deck-space rig/engine.rs) */
 	engine: RigEngine;
 }

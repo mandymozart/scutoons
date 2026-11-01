@@ -9,6 +9,9 @@ track = [
   { id = "voice", instrument = "cathedral_voice", preset = "cathedral_voice.base" },
   { id = "drone", instrument = "drone", preset = "drone.base" },
 ]
+# the phone deck's corner sticks (#191), (x, y) per stick: left = the voice's FM ratio / index, right = the melody's
+# spread / the drone's pitch
+sticks = [["voice_voice.ratio", "voice_voice.index"], ["voice_melody.spread", "drone_drone.freq"]]
 # the moods the energy ladder walks (being.rs MOODS) and sad from the feelings
 [rig.moods.thinking]
 presets = { voice = "cathedral_voice.low" }

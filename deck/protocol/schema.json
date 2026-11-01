@@ -48,6 +48,7 @@
         { "type": "object", "properties": { "kind": { "const": "cue" }, "p": { "$ref": "#/definitions/Cue" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "vote.open" }, "p": { "$ref": "#/definitions/VoteOpen" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "vote.close" }, "p": { "$ref": "#/definitions/VoteClose" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "vote.hold" }, "p": { "$ref": "#/definitions/VoteHold" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "vote.cast" }, "p": { "$ref": "#/definitions/VoteCast" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "vote.tally" }, "p": { "$ref": "#/definitions/VoteTally" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "vote.result" }, "p": { "$ref": "#/definitions/VoteResult" } }, "required": ["kind", "p"] },
@@ -99,7 +100,9 @@
         "seconds": { "type": "integer" },
         "fallback": { "type": "integer", "description": "the option when nobody voted (default 0)" },
         "groups": { "type": "array", "items": { "type": "string" }, "description": "which groups vote (default: all audience)" },
-        "show": { "type": "boolean", "description": "the audience sees the tally too" }
+        "show": { "type": "boolean", "description": "a voter sees the tally once they have voted (never before)" },
+        "question": { "type": "object", "additionalProperties": { "type": "string" }, "description": "the choice event's question by locale (a phone shows its device's language, else the first); texts are locale maps" },
+        "labels": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } }, "description": "`options` by locale, same order; `options` is the default" }
       },
       "required": ["vote", "options", "rule", "seconds"],
       "additionalProperties": false
@@ -111,6 +114,13 @@
       "required": ["vote"],
       "additionalProperties": false
     },
+    "VoteHold": {
+      "description": "conductor → relay: hold the vote – the countdown stops where it is, votes are still accepted; `hold: false` runs it on. The tally says `paused`.",
+      "type": "object",
+      "properties": { "vote": { "type": "string" }, "hold": { "type": "boolean" } },
+      "required": ["vote", "hold"],
+      "additionalProperties": false
+    },
     "VoteTally": {
       "description": "relay → conductor every 250 ms while a vote is open (→ the audience too when the vote shows it).",
       "type": "object",
@@ -118,7 +128,10 @@
         "vote": { "type": "string" },
         "counts": { "type": "array", "items": { "type": "integer" } },
         "voters": { "type": "integer" },
-        "left": { "type": "integer", "description": "ms until the vote closes by itself" }
+        "left": { "type": "integer", "description": "ms until the vote closes by itself (stands still while held)" },
+        "paused": { "type": "boolean", "description": "the conductor holds the countdown" },
+        "groups": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "integer" } }, "description": "the counts per group (conductor only)" },
+        "expected": { "type": "integer", "description": "the connected voting devices; the vote closes when all have voted" }
       },
       "required": ["vote", "counts", "voters", "left"],
       "additionalProperties": false
@@ -131,7 +144,8 @@
         "vote": { "type": "string" },
         "option": { "type": "integer" },
         "counts": { "type": "array", "items": { "type": "integer" } },
-        "how": { "$ref": "#/definitions/VoteHow" }
+        "how": { "$ref": "#/definitions/VoteHow" },
+        "groups": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "integer" } }, "description": "the counts per group" }
       },
       "required": ["vote", "option", "counts", "how"],
       "additionalProperties": false
