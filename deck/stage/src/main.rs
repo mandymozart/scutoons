@@ -95,6 +95,7 @@ const HELP: &str = "deck-stage [--scene FILE|cathedral|conductor|outlet] [--audi
                and these, arrows + Enter load one in place and write it into deck.toml's `scene`; --switcher starts with
                the list open, --switch NAME loads that scene after 30 frames (a check run)
   --show-volume  the volume overlay (#253: the volume keys' feedback) stays on, at 60 % (a check run's screenshot)
+  exit codes   0 quit (Ctrl+Q) · 10 F2 without DECK_BROWSER · 75 the display was lost (the compositor went away) · 1 failed
   --frames     quit after N frames and print the measured numbers (a check run)
   --screenshot save the last frame of a --frames run as a PNG
   --pointer    put the pointer at window pixel X,Y, or on the being's button NODE.PORT (a check run's hover)
@@ -1762,6 +1763,10 @@ fn volume_key(k: &Key) -> Option<volume::Key> {
     }
 }
 
+/// #257: the exit code of a stage whose display connection died (the compositor went away) – deck-session ends on it
+/// (the kiosk restarts) instead of opening a browser on the dead display
+const EXIT_DISPLAY_LOST: i32 = 75;
+
 fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info,wgpu_core=warn,wgpu_hal=error,naga=warn".into()))
@@ -1840,7 +1845,7 @@ fn run() -> Result<i32> {
     // the window / surface / EGL objects talk to a dead socket and segfault
     if let Err(e) = event_loop.run_app(&mut app) {
         tracing::error!("display lost: {e}");
-        std::process::exit(1);
+        std::process::exit(EXIT_DISPLAY_LOST);
     }
     let summary = app.summary();
     tracing::info!("{summary}");

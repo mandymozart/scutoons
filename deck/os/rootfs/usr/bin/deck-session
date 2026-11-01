@@ -64,6 +64,8 @@ while :; do
   rc=$?
   case $rc in
     0) continue ;;                       # Ctrl+Q: the stage starts again
+    75) echo "deck-stage lost its display (cage went away) – the session ends, the kiosk restarts" >&2
+        exit 75 ;;                       # not the browser: its display is dead too (#257)
     10) browser ;;                       # F2 of a stage without DECK_BROWSER: the conductor page, then back
     *) echo "deck-stage exited with $rc – the browser instead (journalctl -u deck-kiosk)" >&2
        sleep 1; browser ;;

@@ -41,7 +41,9 @@ button, pulls it along its tether – out = more; a double click: back to the sc
 visible in the kiosk then. The HUD names the keys. F2 with `DECK_BROWSER` set (deck-session sets it to `deck-session browser`) starts that command on
 top of the running stage: the logo comes up until the browser's window takes the focus (cage shows the newest window),
 then the stage stops drawing and mutes; when the command exits the stage is back at once. Without `DECK_BROWSER` F2
-quits with exit code 10.
+quits with exit code 10. If the display connection dies (cage went away) the stage logs "display lost" and exits with
+code **75** at once; `deck-session` ends on it with a non-zero exit, so deck-kiosk (Restart=on-failure) brings the
+kiosk back – no browser on a dead display (#257).
 
 **The splash** (owner 2026-10-29: "das scutoons logo gross in weiss"): the official logo (viewer/static/SCUTOONS-logo.svg
 with a white fill – `assets/SCUTOONS-logo-white.svg`, rendered with resvg) at half the width on black, a loading line at
