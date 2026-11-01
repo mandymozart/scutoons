@@ -176,10 +176,15 @@ unsquashfs the live root → the live-only bits removed → the kernel from `/us
 mkinitcpio → a systemd-boot entry on the ESP, and the boot-order advice. It never creates or resizes partitions: make
 them first (cfdisk). The installed deck boots the same flow (the check runs once, then the kiosk).
 
-Next to Windows (the X1, #200): an ESP of its own (512M, type EFI System) next to Windows' – bootctl leaves Windows'
-untouched; Windows then starts with F12 → Windows Boot Manager. Tested 2026-11-01 in a privileged container on a loop
-disk laid out like the X1's (Windows ESP, MSR, basic data, an empty 512M ESP, the Linux partition) with the s6 root:
-32 MB on the ESP, 3.3 GB on the root, Windows' ESP unchanged. Not yet booted on real hardware.
+Next to Windows (the X1, #200): an ESP of its own (256M, type EFI System – 100 MB is the real floor, the installer refuses
+< 150 MB free) next to Windows' – Windows' ESP stays untouched; Windows then starts with F12 → Windows Boot Manager. The
+firmware entry is written by `bootctl` run on the live system, not in the chroot (only there it reaches the EFI
+variables). **Run on the owner's X1 on 2026-11-01** (s7 stick, 16.4 GB root + the 256M ESP in the space freed from C:):
+it installed, the deck booted from the NVMe, the Wi-Fi was remembered. Findings of that run, all fixed here: with
+`copytoram` (archiso's default at 16 GB RAM) the root image is in `/run/archiso/copytoram/`, not on the stick; the first
+run had no boot entry in the firmware (bootctl in the chroot) – from the shell `mount /dev/nvme0n1p4 /mnt/esp && bootctl
+--esp-path=/mnt/esp install` registers it. A restart of `deck-kiosk` from the boot menu's own shell hangs (the kiosk
+requires deck-firstboot, which still waits on that shell) – `exit` it instead.
 
 ## Layout
 
