@@ -74,8 +74,8 @@ Two layers (owner 2026-11-01: "factory presets and rigs and … modification by 
   the graph. Several items may grant one instrument (variants, editions). Holding the item in the carrier bag =
   **owned**; a factory rig may use any instrument, a member's rig only the ones they hold (owned / core / lent).
 - **Creator** (#269): the factory kinds' library pages – list, fields, rights, drafts / publish / review, the TS validator
-  (agents/CATALOG.md "Instruments, presets, rigs"). Making an instrument (patching, wiring, tuning by ear) is the deck's:
-  deck stage / browser deck, saved from there (owner 2026-11-01, DECISIONS) – #203 moves there.
+  (agents/CATALOG.md "Instruments, presets, rigs"). Creating and tuning sounds is the deck's (deck stage / browser deck, saved from
+  there); the creator wires and keeps them – the concept goes back to the drawing table first (owner 2026-11-01, DECISIONS; §8.0).
 - **Core**: the rigs + their instruments / presets a deck image ships, as TOML in `deck/stage/rigs/` – exported from the
   catalog when the ISO is built (the same documents, so `Rig::play` doesn't care where they came from).
 - **Samples** (the sampler kind): assets per ASSETS.md, `<toon>/sounds/<instrument>/<name>.v<n>.<ext>`, referenced
@@ -126,6 +126,9 @@ incense in Web Audio). Replaced in steps:
   generator like deck/protocol's (Rust stays the source of truth: the schema must round-trip `rig/tests.rs`' set).
 
 ## 8. Open – for the owner
+0. **The editing concept (owner 2026-11-01, #269):** creation and tuning happen on the deck stage / the browser deck, the creator
+   wires and keeps things – but the concept is incomplete: a design round before more UI (what is made where, what the
+   creator's pages show, how a deck's save and the creator's drafts meet). The built pages are a draft PR until then.
 1. ~~Storage~~ – decided 2026-11-01 (§5): factory catalog tables + member rows; instruments are items.
 2. **Persona:** one rig per character with persona variants (recommended), or a rig per persona? (both fit `subject`)
 3. **Persona × mood:** is "persona, then mood" enough, or do personas need their own mood overrides?

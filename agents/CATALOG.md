@@ -265,7 +265,8 @@ fine" stores `accepted_warnings` in the entry's `data` (a list-wide warning in m
   rigs, `instruments` / `presets` with ancestors, each `{ id, version }`. The contract: SceneContentRigsTest writes
   `server/tests/fixtures/rigs/scene-content.json` (`UPDATE_FIXTURES=1`), deck-space's
   `the_servers_scene_content_reads_as_bundles` parses it as `rig::Bundle`s and compares them with the TOML core rigs.
-- **Creator** (#269; owner 2026-11-01: sounds are made on the deck, the creator only keeps them – DECISIONS): tabs
+- **Creator** (#269 – a draft on branch `feature/269-rig-editor`, not merged: the concept goes back to the drawing table
+  first, owner 2026-11-01 – DECISIONS; sounds are made on the deck, the creator wires and keeps them): tabs
   Instruments · Presets · Rigs on `/catalog/<kind>`, the items page's pattern (list, drafts, Publish, history; publish order
   instrument → preset → … → rig). Forms in `@scutoons/catalog`: rig (subject = the id, tracks with instrument / default
   preset / gain / pan / mute, persona and mood variants, routes, sticks, rights), preset (instrument, parent – the presets of
