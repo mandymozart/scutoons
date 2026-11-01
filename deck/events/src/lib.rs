@@ -7,9 +7,11 @@
 //! - rt.rs – events resolved to frame offsets for the audio thread (`RtEvent`)
 //! - glide.rs – `Glide`: an exponential pitch glide, the same on the stage and in the browser
 //! - patch.rs – generators rigged together as data (TOML / JSON): what a rig's `events` node holds
+//! - adapters/ – today's three formats in: the story's events, the relay's moments, MIDI (EVENTS.md §12)
 //! - generators/ – `random_walk`, `pulse`, `arp`; bridge.rs – `gate_cv` (events → seq's cv: pitch left, gate right)
 //!
 //! Encapsulated (EVENTS.md §10): the stage's `walk` / `events` nodes and live-core's walks / events host it.
+pub mod adapters;
 pub mod bridge;
 pub mod event;
 pub mod generator;
@@ -20,7 +22,7 @@ pub mod names;
 pub mod patch;
 pub mod rt;
 
-pub use event::{Event, Props, Time, MAX_PROPS};
+pub use event::{Event, Props, Time, MAX_DATA, MAX_PROPS};
 pub use generator::{Generator, Inbox, Outbox, Ports, Span};
 pub use glide::Glide;
 pub use graph::{EventGraph, GraphError, Stats, EDGE_CAP, MAX_HOPS};

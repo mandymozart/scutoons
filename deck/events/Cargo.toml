@@ -15,3 +15,6 @@ deck-core = { workspace = true, features = ["tempo"] }
 # patch.rs: a patch (generators, edges, the output, the knobs) read from a node's TOML / a rig's JSON
 serde = { workspace = true }
 toml = { workspace = true }
+# adapters/: JSON in (the story's events, the relay's moments), the event's JSON out; protocol – the relay's envelope
+serde_json = { workspace = true }
+protocol = { workspace = true }
