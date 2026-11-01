@@ -61,6 +61,7 @@
 		"check": "npm run check:ports && npm run check:tools-css && npm run check:boot && npm run check --workspaces --if-present",
 		"boot:sync": "node scripts/boot-sync.mjs",
 		"check:boot": "node scripts/boot-sync.mjs --check",
+		"live:vote-demo": "node --experimental-transform-types --no-warnings scripts/dev/live-vote-demo.ts",
 		"check:ports": "node scripts/dev/check-ports.mjs",
 		"check:tools-css": "node scripts/check-tools-ui.mjs --static",
 		"check:tools-ui": "node scripts/check-tools-ui.mjs",

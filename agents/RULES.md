@@ -44,8 +44,7 @@ agents/DECISIONS.md. A change to how agents work changes this file in the same c
   Other sessions work in the same checkout: never `git add -A`, never commit, reset, stash or reformat their files.
   Bare `git stash` / `stash pop` never.
 - **Never push** – a push to `main` deploys. The owner pushes, or asks you to. Never a Claude attribution line.
-- **Push bundled** (issue 73, Actions minutes): the git operator pushes at the end of a round / when a stage is done,
-  never after every commit; doc-only commits ride along with the next code push.
+- **Push when a step is done** (owner 2026-11-01: the repo is public, so Actions minutes cost nothing – the old "push bundled" of issue 73 is void): the git operator may push after each commit; a push to `main` still deploys, so only on the owner's word.
 - Agents run one after another (or at most two lanes on separate files); only one session runs git operations at a time.
 - Unattended (night / day) runs: commit on `main` in small steps, never push, the dev DB may be changed freely, stop at
   owner decisions instead of guessing; the result goes into HANDOVER "Last run" (replacing the previous one) and, per

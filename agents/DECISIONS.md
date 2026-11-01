@@ -6,6 +6,7 @@ stays and gets "(superseded YYYY-MM-DD → …)" appended. Rules for agents: age
 to mark them superseded.
 
 ## 2026-11
+- 2026-11-01 · platform · **The GitHub repo is public – Actions minutes / credits no longer matter:** the "push bundled" rule (issue 73) is void; commits may be pushed one by one (a push to `main` still deploys, on the owner's word) · "the github repo is public now. so credits dont play a role anymore" → RULES.md "Git, sessions, checkout"
 - 2026-11-01 · live · **Vote screens (#231):** the question comes from the choice event (a locale map in `vote.open`); a voter sees results only after voting; the vote closes when the timer is up or every connected device has voted; the conductor shows each group's own result and percentages in the bars; **Hold = the countdown pauses, votes still count** (a recommendation the owner accepted); the conductor is ink on paper for now, a dark mode for the whole Live section later; the phone follows the device language · "the reader only sees the results after they voted" · "voting closed either every connected device voted or the timer is up" · "language of the device" → research/LIVE.md B.6, viewer `/live/vote`, `/live/conductor`
 
 ## 2026-10
