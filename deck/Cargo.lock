@@ -772,6 +772,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "deck-outputs"
+version = "0.1.0"
+dependencies = [
+ "adapters-core",
+ "adapters-dmx-usbpro",
+ "anyhow",
+ "protocol",
+ "serde",
+ "tokio",
+ "toml 0.8.23",
+ "tracing",
+]
+
+[[package]]
 name = "deck-scene-features"
 version = "0.1.0"
 dependencies = [
