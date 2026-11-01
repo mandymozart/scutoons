@@ -56,6 +56,9 @@ fi
 
 scene=$(setting scene)
 export DECK_BROWSER="$0 browser"
+# the kiosk stops (deck-kiosk.service's ExecStop signals the whole group, #256): end here – the stage exits too, and
+# its exit code must not read as a crash that starts the browser
+trap 'exit 0' TERM HUP INT
 while :; do
   deck-stage --cache "$STATE/cache" ${scene:+--scene "$scene"}
   rc=$?

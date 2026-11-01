@@ -6,6 +6,8 @@
 #      → deck/os/out/update (manifest.json, manifest.json.sig, bundle-<build>.tar.gz)
 #   3. `deck-update serve` on port 7790 – decks on the dev channel find it by their scan and update within ~2 minutes
 #      (`deck-update now` on the deck at once). Ctrl+C stops it.
+# The loop while developing: one terminal keeps `npm run deck:update -- --serve` running (it reads the folder on every
+# request), the other publishes each change with `npm run deck:update -- --no-serve`.
 # Flags: --no-build (bundle the binaries already in out/bin) · --serve (only serve the last bundle) · --no-serve ·
 #        --reboot (the decks reboot instead of restarting services) · --notes "text". Details: deck/os/README.md "Updates".
 set -euo pipefail

@@ -145,7 +145,10 @@ later, pacman).
 (`DECK_BINARIES_ONLY=1`), bundles them with this folder's `rootfs/` and the stage's scenes, signs with the dev key
 (`~/.scutoons/deck-update.key`, made on first use – never in git; its public half is `rootfs/usr/share/deck/update-keys`)
 into `out/update/`, and serves that folder on port 7790 (`-- --serve` only serves, `-- --no-build` re-bundles,
-`-- --reboot` makes the decks reboot). Windows asks once to let the port through its firewall.
+`-- --reboot` makes the decks reboot). While developing: one terminal keeps `-- --serve` running, the other publishes
+each change with `-- --no-serve` (the server reads the folder on every request). Windows' firewall needs an inbound
+rule for TCP 7790 on private networks once (an admin PowerShell: `New-NetFirewallRule -DisplayName "SCUTOONS
+deck-update" -Direction Inbound -Protocol TCP -LocalPort 7790 -Action Allow -Profile Private`).
 
 **On the deck:** `deck-update.timer` runs `deck-update auto` every 2 minutes. Channel `dev` (deck.toml
 `update_channel`, the default until a stable release exists) asks deck.toml's `update_url`, the dev PC that answered
