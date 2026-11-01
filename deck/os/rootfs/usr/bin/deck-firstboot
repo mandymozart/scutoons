@@ -34,6 +34,16 @@ deck-persist || say "no persistence – this boot keeps nothing (${DIM}deck-pers
 install -d -o deck -g deck "$STATE" "$STATE/home" "$STATE/cache"
 [ -f "$STATE/venue.toml" ] || install -o deck -g deck -m 644 /usr/share/deck/venue.default.toml "$STATE/venue.toml"
 [ -f "$STATE/deck.toml" ] || install -o deck -g deck -m 644 /usr/share/deck/deck.default.toml "$STATE/deck.toml"
+# the last remote update again (#237, deck-update): a live stick's root is the ISO's after every boot (an installed deck
+# has it already – nothing to do). The kiosk, bridge and link start after this script; the relay may run already.
+if command -v deck-update >/dev/null; then
+  upd=$(deck-update boot 2>&1)
+  case "$upd" in
+    re-applied*) say "$upd"; systemctl try-restart --no-block deck-relay.service ;;
+    nothing*) ;;
+    *) say "$upd" ;;
+  esac
+fi
 
 # 2. network (deck-wifi hides the splash for its menu and says so; the logo comes back after it)
 say "network"

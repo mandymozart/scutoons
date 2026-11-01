@@ -5,6 +5,9 @@ How to use: grep this file before changing how something works. One line per dec
 stays and gets "(superseded YYYY-MM-DD → …)" appended. Rules for agents: agents/RULES.md. Never edit old lines except
 to mark them superseded.
 
+## 2026-11
+- 2026-11-01 · platform · **Decks update remotely, without a stick:** in dev from the dev PC on the LAN, else from the server; the deck installs the new version and restarts – a signed bundle (`deck-update`), never during a show; pacman stays for the base system later · "the deck should be updateable remotely for us to develop … in dev from localnetwork or from the server … update the deck software and restart" · → deck/os/README.md "Updates", #237
+
 ## 2026-10
 - 2026-10-31 · platform · **The deck CI runs locally, GitHub's only by hand:** `.github/workflows/deck.yml` is `workflow_dispatch` only (the GitHub variant for later, when we iterate less); before every push `npm run deck:ci` (scripts/deck-ci.mjs) runs the same steps on this machine, called by the pre-push hook when deck/ or shared/live* changed (`npm run hooks` installs it). **Phones test over the LAN, not by pushing:** `npm run dev:lan` (HTTPS on the LAN address, the API and the local relay proxied) · "Der Rust Runner soll definitiv lokal jetzt … vor jedem Push bilden und dann pushen" · "im Local LAN den Port freischalten, dann kann ich sie am Handy testen, ohne dass es gepusht werden muss" · → #216, scripts/deck-ci.mjs, scripts/dev/lan.mjs
 - 2026-10-31 · platform · **Performance and stability is everything** in the live system: the relay, the audio and the rendering adapt to each link and device (the latest value wins, rates and quality follow the measured link / load, never a backlog) – sized by benches, not guesses · "Wichtig dass wir es auf dem Schirm haben adaptiv zu lösen … performance und Stabilität is everything" · → #223, #208, #220, #222

@@ -1,0 +1,33 @@
+# deck-update – remote updates for an installed deck (#237, deck/os/README.md "Updates"): a signed bundle (manifest.json +
+# Ed25519 signature + one tar.gz) from the dev PC on the LAN or from the server; verified, installed atomically, the
+# changed services restarted, rolled back when one does not come up. The same binary builds, signs and serves the bundle
+# on the dev PC (`bundle`, `serve`, `keygen`).
+[package]
+name = "deck-update"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "deck-update"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+toml = { workspace = true }
+ed25519-dalek = "2"
+getrandom = "0.2"
+ureq = "2"
+sha2 = "0.10"
+flate2 = "1"
+tar = "0.4"
+
+[dev-dependencies]
+tempfile = "3"
