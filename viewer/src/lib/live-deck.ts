@@ -75,8 +75,9 @@ export interface PanelLayout {
 
 /**
  * The panel for the deck's sliders: the fixed patch keeps its layout (the voice, the drone, the melody's spread in
- * the bar; the voice and incense pads); a rig's knobs put its first three gains in the bar and the rest in the fold –
- * no pads (which pair a rig's knobs make is the mapping's job, #209) and no melody (the page doesn't play it there).
+ * the bar; the voice and incense pads); a rig's knobs put two gains and its melody's spread (or three gains) in the bar,
+ * the rest in the fold –
+ * no pads (which pair a rig's knobs make is the mapping's job, #209) and no page melody (the rig's walk plays it, #236).
  */
 export function panelLayout(params: Record<string, Spec>, melody: Record<string, Spec>): PanelLayout {
 	if ('voice.ratio' in params && 'incense.cutoff' in params) {
@@ -89,6 +90,9 @@ export function panelLayout(params: Record<string, Spec>, melody: Record<string,
 		const onPads = new Set(pads.flatMap((p) => [p.x, p.y]));
 		return { all, quick, pads, sliders: Object.entries(all).filter(([p]) => !onPads.has(p) && !quick.includes(p)) };
 	}
-	const quick = Object.keys(params).filter((p) => p.endsWith('.gain')).slice(0, 3);
+	// like the fixed patch's bar: two levels and the melody's spread (#236's walk), when the rig has one
+	const gains = Object.keys(params).filter((p) => p.endsWith('.gain'));
+	const spread = Object.keys(params).find((p) => p.endsWith('.spread'));
+	const quick = spread ? [...gains.slice(0, 2), spread] : gains.slice(0, 3);
 	return { all: params, quick, pads: [], sliders: Object.entries(params).filter(([p]) => !quick.includes(p)) };
 }

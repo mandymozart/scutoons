@@ -107,8 +107,11 @@ incense in Web Audio). Replaced in steps:
    `Deck.useRig` / `moodRig`; the viewer's /live/deck plays the character's core rig with `?rig=1` (the panel: its
    gains in the bar, the rest in the fold, no pads). shared/live-deck's tests run on `test/fixtures/rigs.json`, written
    by deck-space (`UPDATE_FIXTURES=1 cargo test -p deck-space rig_fixture`; a stale file fails the Rust test).
-- Open: the phone check on the S22, then the default (no `?rig`); sequences, #234 (the voice holds its pitch, the
-  melody is the fixed patch's); routes into page nodes (an LFO on the incense) are dropped; rigs from scene-content.
+- The melody (#236): catpope's voice has a `walk` (deck-events' seeded random walk) – on the stage it writes the
+  voice's cv on the tempo clock, in the browser the lowering makes it a `[[walk]]` that plays the voice's freq in
+  live-core (its knobs spread / rate / glide are live-core table rows); live-core's tests/rigs.rs loads every core rig.
+- Open: the phone check on the S22, then the default (no `?rig`); other sequence sources, #234; routes into page nodes
+  (an LFO on the incense) are dropped; rigs from scene-content.
 - Constraint: live-core plays lfo · smooth · mul · add · osc · fm only – other kinds are the page's or need live-core
   first (#182).
 - TS types: only the relay protocol is generated (deck/protocol/schema.json → shared/live). Rigs travel over HTTP, so

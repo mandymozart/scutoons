@@ -1,4 +1,4 @@
-Status 2026-11-01: the first slice is built (#236, `deck/events`: the contract, the graph, rt events, random_walk / pulse / arp, gate_cv); encapsulated, not a rewrite (§10); next: the host node, threads, adapters, horizons. Owner handoff "Generator/Event Architecture"; extends #191 (rigs) and #234 (sequences), #235 (patterns / clips).
+Status 2026-11-01: built (#236): `deck/events` (the contract, the graph, rt events, random_walk / pulse / arp, gate_cv; allocation-free in a run), the stage's `walk` node and live-core's walks – a rig's melody plays on the deck and in the browser; encapsulated (§10); next: the generic host node, threads, adapters, horizons. Owner handoff "Generator/Event Architecture"; extends #191 (rigs) and #234 (sequences), #235 (patterns / clips).
 
 # EVENTS — generators that talk in events
 

@@ -72,5 +72,10 @@ test("the panel: the fixed patch keeps its pads; a rig's gains go in the bar, th
 	assert.deepEqual(rig.quick, ['voice_voice.gain', 'drone_drone.gain']);
 	assert.deepEqual(rig.pads, []);
 	assert.deepEqual(rig.sliders.map(([p]) => p), ['voice_voice.ratio']);
-	assert.ok(!('melody.rate' in rig.all), 'no melody with a rig');
+	assert.ok(!('melody.rate' in rig.all), "no page melody with a rig");
+	const walk = panelLayout(
+		{ 'voice_voice.gain': s('voice'), 'drone_drone.gain': s('drone'), 'air_hiss.gain': s('air'), 'voice_melody.spread': s('spread') },
+		MELODY
+	);
+	assert.deepEqual(walk.quick, ['voice_voice.gain', 'drone_drone.gain', 'voice_melody.spread'], "a rig's walk: its spread in the bar");
 });
