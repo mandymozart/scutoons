@@ -36,7 +36,7 @@
 //! domain and audio meters, or another deck's stream (phase 4) – no per-node copies; `update` and `write` never
 //! allocate (tests/no_alloc.rs).
 use crate::graph::{Domain, Graph, Kind, PortType};
-use crate::space::camera::Ray;
+use crate::space::camera::{Frame, Ray};
 use crate::space::feel::{self, Feel, Senses};
 use crate::space::values::{Knobs, Path, Values};
 use crate::params::{self, Spec};
@@ -75,6 +75,15 @@ const FACE_S: f32 = 0.35;
 const CROWN: f32 = 1.05;
 const LEAN: f32 = 0.35;
 const CLEAR: f32 = 1.25;
+/// #224 – every knob stays reachable close up: knobs further out than KNEE of the view's half fold in toward its edge
+/// (softly, keeping their order), and stay EDGE of the half off it (the corner sticks, a thumb's room)
+const KNEE: f32 = 0.7;
+const EDGE: f32 = 0.12;
+/// #224: folded knobs' centres keep this many × the sum of their radii apart on the screen (a little air between them)
+const SPREAD: f32 = 1.3;
+/// #224: a knob near the eye shows at most this share of the view's narrower half as its radius (the portrait puts
+/// the eye a hand from the face – the knobs in front of it would fill the picture; a phone held upright is narrow)
+const MAX_SCREEN: f32 = 0.09;
 const TAU: f32 = std::f32::consts::TAU;
 
 /// The scene's `[being]` table – the body's shape (the colours are the space node's inputs).
@@ -234,7 +243,9 @@ pub struct Button {
     /// the LFO's waveform (`port` is meaningless then; the value is an index into params::LFO_SHAPES)
     pub shape: bool,
     pub pos: Vec3,
+    /// its radius this frame: `base`, capped close to the eye (MAX_SCREEN, #224) – what is drawn and picked
     pub radius: f32,
+    pub base: f32,
     /// this frame's value (the knob's: a linked one's base) and its 0..1
     pub value: f32,
     pub norm: f32,
@@ -250,6 +261,9 @@ pub struct Button {
     pub dir: Vec3,
     pub root: Vec3,
     pub tether: [Vec3; 4],
+    /// #224: where the knob sits before it folds into the view (`pos` is where it is shown and picked): the next knob of
+    /// its chain grows from here, the camera's focus goes here when it is selected
+    pub free: Vec3,
     /// the 0..1 shown – eased toward `norm`, so a 30 / s stream moves it smoothly
     pub shown: f32,
     /// how fast it moves lately (0..1): the tether pulses, bubbles run, the node flashes, the label shows
@@ -411,6 +425,8 @@ pub struct Being {
     /// #209: where the camera's eye is (world; the space sets it every frame) – the knobs turn toward it; None = the
     /// fixed layout (no camera: the tests, a headless check)
     pub eye: Option<Vec3>,
+    /// #224: the camera's view (the space sets it every frame) – the knobs fold into it close up; None = no folding
+    pub frame: Option<Frame>,
     /// the way to the eye from the centre, eased (FACE_S) – what the knobs' layout follows
     pub face: Vec3,
     /// `face` has been set once (the first frame with an eye takes it at once)
@@ -552,6 +568,7 @@ impl Being {
                     shape: k == usize::MAX,
                     pos: p.rest,
                     radius: s * 0.058,
+                    base: s * 0.058,
                     value: scene,
                     norm: n0,
                     rank,
@@ -562,6 +579,7 @@ impl Being {
                     dir: Vec3::Y,
                     root: p.rest,
                     tether: [p.rest; 4],
+                    free: p.rest,
                     shown: spec.norm(scene),
                     motion: 0.0,
                     hot: 0.0,
@@ -603,6 +621,7 @@ impl Being {
             hover: None,
             selected: None,
             eye: None,
+            frame: None,
             face: Vec3::Z,
             faced: false,
             dragging: false,
@@ -780,8 +799,10 @@ impl Being {
             (self.face, self.faced) = (f, true);
         }
         let shadows = [(center, self.core_radius * self.swell), (self.head(), self.head.radius)];
+        let frame = self.frame;
         for i in 0..self.buttons.len() {
-            let prev = self.buttons[i].prev.map(|j| self.buttons[j].pos);
+            // the chain's knob before: where it grows from (unfolded), where it is shown (the tether's end)
+            let prev = self.buttons[i].prev.map(|j| (self.buttons[j].free, self.buttons[j].pos));
             let b = &mut self.buttons[i];
             let p = &self.points[b.point];
             // the knob: an unlinked input's value, a linked one's base (the modulation rides on top – `live`)
@@ -833,7 +854,7 @@ impl Being {
                 let dir = (out + (u * a.cos() + v * a.sin()) * 0.65).normalize();
                 let dir = facing.map_or(dir, |f| lean(dir, out, f));
                 match prev {
-                    Some(q) => (dir, q, q),
+                    Some((from, shown)) => (dir, from, shown),
                     None => (dir, p.pos + dir * p.radius, p.pos),
                 }
             };
@@ -841,7 +862,7 @@ impl Being {
             // a linked button grabbed shakes across its tether
             let shake = if b.shake > 0.0 {
                 let k = b.shake / SHAKE_S;
-                dir.cross(Vec3::Y).try_normalize().unwrap_or(Vec3::X) * (b.shake * 75.0).sin() * k * b.radius * 0.9
+                dir.cross(Vec3::Y).try_normalize().unwrap_or(Vec3::X) * (b.shake * 75.0).sin() * k * b.base * 0.9
             } else {
                 Vec3::ZERO
             };
@@ -853,12 +874,18 @@ impl Being {
             if let Some(e) = eye {
                 for _ in 0..3 {
                     for (c, r) in shadows {
-                        b.pos = clear_of(b.pos, e, c, r, b.radius);
+                        b.pos = clear_of(b.pos, e, c, r, b.base);
                     }
                 }
             }
-            let sag = Vec3::Y * (-0.18 * (end - b.pos).length());
-            b.tether = [b.pos, b.pos + (end - b.pos) / 3.0 + sag, b.pos + (end - b.pos) * (2.0 / 3.0) + sag, end];
+            // #224: close up, the knobs out of the picture fold in toward its edge – the tether runs out to its node
+            b.free = b.pos;
+            b.radius = b.base;
+            if let Some(f) = &frame {
+                b.pos = fold(b.pos, f, b.base);
+                b.radius = b.base.min((b.pos - f.eye).dot(f.fwd) * f.tan_x.min(f.tan_y) * MAX_SCREEN);
+            }
+            b.tether = tether(b.pos, end);
             // bubbles toward the node while it moves
             for x in b.bubbles.iter_mut().filter(|x| x.size > 0.0) {
                 x.t += x.speed * dt;
@@ -878,6 +905,54 @@ impl Being {
             let flash = b.motion.max(b.grip * 0.5);
             let pt = &mut self.points[b.point];
             pt.flash = pt.flash.max(flash);
+        }
+        if let Some(f) = &frame {
+            self.spread(f);
+        }
+    }
+
+    /// #224: the knobs folded into the view crowd its edge – a few rounds pushing apart those that overlap on the screen
+    /// (in the view's tangents, SPREAD × the sum of their radii apart, each of a folded pair half the way), kept inside the fold's
+    /// frame; then the tethers to where they are now. Only folded knobs move; fixed rounds, so it is smooth frame to
+    /// frame. Never allocates.
+    fn spread(&mut self, f: &Frame) {
+        let n = self.buttons.len();
+        let at = |b: &Button| {
+            let q = b.pos - f.eye;
+            let z = q.dot(f.fwd).max(1e-4);
+            (q.dot(f.right) / z, q.dot(f.up) / z, z, b.radius / z)
+        };
+        for _ in 0..12 {
+            for i in 0..n {
+                if self.buttons[i].pos == self.buttons[i].free {
+                    continue;
+                }
+                for j in 0..n {
+                    if i == j {
+                        continue;
+                    }
+                    let (xi, yi, zi, ri) = at(&self.buttons[i]);
+                    let (xj, yj, _, rj) = at(&self.buttons[j]);
+                    let (dx, dy) = (xi - xj, yi - yj);
+                    let d = (dx * dx + dy * dy).sqrt();
+                    let need = (ri + rj) * SPREAD;
+                    if d >= need {
+                        continue;
+                    }
+                    // apart along their line (a fixed way when they coincide); the whole step if j stays where it is
+                    let (ux, uy) = if d > 1e-6 { (dx / d, dy / d) } else if i < j { (0.0, 1.0) } else { (0.0, -1.0) };
+                    let share = if self.buttons[j].pos == self.buttons[j].free { 1.0 } else { 0.5 };
+                    let (x, y) = inside(xi + ux * (need - d) * share, yi + uy * (need - d) * share, f, self.buttons[i].radius / zi * CLEAR);
+                    self.buttons[i].pos = f.eye + (f.fwd + f.right * x + f.up * y) * zi;
+                }
+            }
+        }
+        for i in 0..n {
+            let end = match self.buttons[i].prev {
+                Some(j) => self.buttons[j].pos,
+                None => self.points[self.buttons[i].point].pos,
+            };
+            self.buttons[i].tether = tether(self.buttons[i].pos, end);
         }
     }
 
@@ -1174,7 +1249,12 @@ impl Being {
         let b = &self.buttons[i];
         let core = Some(b.point) == self.core_point;
         let s = self.look.size;
-        (b.root + b.dir * tether_len(s, core, 0.0), b.root + b.dir * tether_len(s, core, 1.0))
+        let (lo, hi) = (b.root + b.dir * tether_len(s, core, 0.0), b.root + b.dir * tether_len(s, core, 1.0));
+        // #224: as it is shown – folded into the view like the knob
+        match &self.frame {
+            Some(f) => (fold(lo, f, b.base), fold(hi, f, b.base)),
+            None => (lo, hi),
+        }
     }
 }
 
@@ -1205,6 +1285,54 @@ pub fn lean(d: Vec3, out: Vec3, f: Vec3) -> Vec3 {
     let w = ((LEAN - k) / (LEAN + 1.0)).clamp(0.0, 1.0) * (-out.dot(f)).clamp(0.0, 1.0);
     let t = side.and_then(|s| (t0 * (1.0 - w) + s * w).try_normalize()).unwrap_or(t0);
     (t * (1.0 - LEAN * LEAN).sqrt() + f * LEAN).normalize()
+}
+
+/// a tether from the knob at `pos` to `end` (its node point, or the chain's knob before), sagging a little
+fn tether(pos: Vec3, end: Vec3) -> [Vec3; 4] {
+    let sag = Vec3::Y * (-0.18 * (end - pos).length());
+    [pos, pos + (end - pos) / 3.0 + sag, pos + (end - pos) * (2.0 / 3.0) + sag, end]
+}
+
+/// #224: the fold's frame at a depth, in the view's tangents: the half view less EDGE and a knob's margin `m` (tangent)
+fn limits(f: &Frame, m: f32) -> (f32, f32) {
+    ((f.tan_x * (1.0 - EDGE) - m).max(f.tan_x * 0.05), (f.tan_y * (1.0 - EDGE) - m).max(f.tan_y * 0.05))
+}
+
+/// #224: tangents (x, y) kept inside the fold's frame
+fn inside(x: f32, y: f32, f: &Frame, m: f32) -> (f32, f32) {
+    let (lx, ly) = limits(f, m);
+    (x.clamp(-lx, lx), y.clamp(-ly, ly))
+}
+
+/// #224: `pos` (a knob of radius `kr`) folded into the view `f`. In the view's tangents scaled to the frame (the half
+/// view less EDGE and the knob's size), a knob inside KNEE of it stays; one further out moves in along its own way
+/// from the middle, softly toward the frame's edge without reaching it – so the knobs keep their order around the
+/// picture. One behind the eye (or nearer than `f.min_depth`) comes in front at that depth and counts as further
+/// out the more behind it is: it lands on the edge on its own side. Continuous; the same as `pos` for any knob well
+/// inside the picture.
+pub fn fold(pos: Vec3, f: &Frame, kr: f32) -> Vec3 {
+    let q = pos - f.eye;
+    let raw = q.dot(f.fwd);
+    let z = raw.max(f.min_depth);
+    let (lx, ly) = limits(f, kr * CLEAR / z);
+    let (mut u, mut v) = (q.dot(f.right) / z / lx, q.dot(f.up) / z / ly);
+    let mut r = u.abs().max(v.abs());
+    if raw < f.min_depth {
+        // behind: outward by how far behind (straight down when it sits right on the axis)
+        if r < 1e-4 {
+            (u, v, r) = (0.0, -1e-4, 1e-4);
+        }
+        let out = r + 2.0 * (f.min_depth - raw) / f.min_depth;
+        (u, v, r) = (u * out / r, v * out / r, out);
+    }
+    if r > KNEE {
+        // t / (1 + t): smooth at the knee (slope 1), and far out still in order (an exp would round off in f32)
+        let room = 1.0 - KNEE;
+        let t = (r - KNEE) / room;
+        let k = (KNEE + room * t / (1.0 + t)) / r;
+        (u, v) = (u * k, v * k);
+    }
+    f.eye + (f.fwd + f.right * (u * lx) + f.up * (v * ly)) * z
 }
 
 /// #209: `pos` (a knob of radius `kr`) moved out of the shadow the sphere (`c`, `r`) casts seen from `eye`: sideways in
@@ -1890,5 +2018,40 @@ mod tests {
         assert_eq!(hsv(0.0, 1.0, 1.0), [1.0, 0.0, 0.0]);
         assert_eq!(hsv(1.0 / 3.0, 1.0, 1.0).map(|x| (x * 1e4).round() / 1e4), [0.0, 1.0, 0.0]);
         assert_eq!(hsv(0.5, 0.0, 0.5), [0.5, 0.5, 0.5]);
+    }
+
+    /// #224: the fold leaves a knob inside the picture alone, brings any other in – never out to the edge, keeping the
+    /// knobs' order across the picture and changing smoothly – and puts one behind the eye on the edge on its own side
+    #[test]
+    fn the_fold_brings_every_knob_into_the_picture_in_order() {
+        use crate::space::camera::Orbit;
+        let cam = Orbit::new(Vec3::ZERO, 0.0, 0.0, 1.0);
+        let f = cam.frame(9.0 / 19.5);
+        let kr = 0.03;
+        let tan = |p: Vec3| {
+            let q = p - f.eye;
+            let z = q.dot(f.fwd);
+            (q.dot(f.right) / z / f.tan_x, q.dot(f.up) / z / f.tan_y, z)
+        };
+        // the middle: untouched
+        let mid = Vec3::new(0.05, -0.1, 0.0);
+        assert_eq!(fold(mid, &f, kr), mid);
+        // a row running out to the right, far past the edge: in the picture, in order, nearer the edge the further out
+        let mut last = f32::MIN;
+        let mut prev = fold(Vec3::new(0.0, -0.2, 0.0), &f, kr);
+        for k in 0..400 {
+            let p = Vec3::new(k as f32 * 0.01, -0.2, 0.0);
+            let q = fold(p, &f, kr);
+            let (x, y, _) = tan(q);
+            assert!(x.abs() < 1.0 - EDGE && y.abs() < 1.0 - EDGE, "{k}: inside the frame: {x} {y}");
+            assert!(x > last, "{k}: in order: {last} → {x}");
+            assert!(q.distance(prev) < 0.02, "{k}: smooth – no jump");
+            (last, prev) = (x, q);
+        }
+        // behind the eye, down and left: in front, on the lower left edge – the way it lies
+        let q = fold(Vec3::new(-0.2, -0.3, 1.6), &f, kr);
+        let (x, y, z) = tan(q);
+        assert!(z >= f.min_depth - 1e-5, "in front of the eye: {z}");
+        assert!(x < 0.0 && y < 0.0 && x.abs().max(y.abs()) > 0.5 && x.abs().max(y.abs()) < 1.0 - EDGE, "toward its edge: {x} {y}");
     }
 }
