@@ -812,6 +812,7 @@ dependencies = [
  "bytemuck",
  "cpal",
  "deck-core",
+ "deck-events",
  "deck-link",
  "deck-space",
  "font8x8",

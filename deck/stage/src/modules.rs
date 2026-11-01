@@ -13,6 +13,7 @@ pub fn built(feature: &str) -> Option<bool> {
     Some(match feature {
         "core" => true,
         "space" => cfg!(feature = "space"),
+        "events" => cfg!(feature = "events"),
         "chapter" => cfg!(feature = "chapter"),
         "live" => cfg!(feature = "live"),
         "sync" => cfg!(feature = "sync"),

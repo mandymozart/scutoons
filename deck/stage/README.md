@@ -64,6 +64,7 @@ the basic audio nodes (`osc`, `noise`, `fm`, `seq`, `click`, `mixer`, `fft`, `au
 | Feature | Adds | Dependencies |
 |---|---|---|
 | `space` | the `space` kind (a set's 3D + the being, #188) | glam, image/webp, serde_json |
+| `events` | the `walk` kind – generators that talk in events (#236, research/EVENTS.md) | deck-events |
 | `sync` | the scene's sets and portraits from the API into the cache (#195 – below); no node kind | ureq, serde_json |
 | `chapter` | `chapter`, `chapter_music` (the library API + cache) | ureq, symphonia, ab_glyph, image/webp |
 | `live` | `outlet` (a Live outlet, #186 – below) | `chapter`, protocol, tungstenite |
@@ -72,7 +73,7 @@ the basic audio nodes (`osc`, `noise`, `fm`, `seq`, `click`, `mixer`, `fft`, `au
 | `link` | the tempo source `link` (Ableton Link) | rusty_link (cmake, libclang) |
 | `pipewire` | the PipeWire backend (Linux) | pipewire (clang) |
 
-Default = `space`, `sync`, `chapter`, `live`, `midi`, `osc` – a plain build plays every bundled scene. The table lives in deck-core
+Default = `space`, `sync`, `chapter`, `live`, `midi`, `osc`, `events` – a plain build plays every bundled scene. The table lives in deck-core
 (`core/src/stage.rs`, data only); `src/modules.rs` says which modules this build carries. A scene that needs a module
 the build lacks is refused at load with the feature's name (`this build of the stage does not carry the module 'space'
 (node space) – build deck-stage with --features space`): the stage plays the test pattern and shows that in the HUD –
@@ -150,6 +151,7 @@ An input takes one link; an output feeds any number. Every control input can als
 | `noise` | cutoff, gain | out | `color` = white · pink, `q` |
 | `fm` | cv, freq, ratio, index, gain | out | `attack`, `release` |
 | `seq` | rate | cv (audio: pitch Hz left, gate 0 / 1 right) | `steps` = MIDI notes (0 = rest), `division` (steps per beat), `gate`, `transpose`; on the tempo clock (step k from beat k / division, `rate` scales the division) unless it has a `bpm` of its own |
+| `walk` | spread, rate, glide | cv (audio: pitch Hz left, gate 0 / 1 right – seq's) | module `events` (#236, deck-events): a seeded random walk on a continuous pitch scale on the tempo clock – `seed` (the same seed, the same melody on every deck), `base` (Hz, 147), `octaves` (2), `length` (of a step, 1 = legato); `spread` 0 = the base held, 1 = ±`octaves`; `rate` = steps a beat (2); `glide` rides along |
 | `chapter_music` | gain | out | `toon`, `chapter`, `track` (default: the chapter's default track), `quality` = low · medium · high, `loop` |
 | `mixer` | in1–in4 (audio), gain1–gain4 | out | – |
 | `fft` | in (audio) | level, bass, mid, high (control, 0–1) | `release` (s) |

@@ -16,6 +16,8 @@ pub mod lead;
 pub mod priority;
 pub mod ring;
 mod voices;
+#[cfg(feature = "events")]
+mod walk;
 
 use crate::clock::Stamp;
 use crate::tempo;

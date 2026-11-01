@@ -67,6 +67,24 @@ fn the_default_scene_renders_without_allocating() {
     }
 }
 
+/// #236: the `walk` node – deck-events' graph, its real-time events and the gate_cv bridge inside the callback –
+/// doesn't allocate either
+#[cfg(feature = "events")]
+#[test]
+fn a_walk_into_an_fm_voice_renders_without_allocating() {
+    let _turn = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let scene = Scene::parse(
+        "[[node]]\nid = \"tempo\"\nkind = \"tempo\"\n[[node]]\nid = \"melody\"\nkind = \"walk\"\nseed = 3\nspread = 1.0\nrate = 4.0\n\
+         [[node]]\nid = \"voice\"\nkind = \"fm\"\ngain = 0.2\n[[node]]\nid = \"fft\"\nkind = \"fft\"\n[[node]]\nid = \"out\"\nkind = \"audio_out\"\n\
+         [[link]]\nfrom = \"melody.cv\"\nto = \"voice.cv\"\n[[link]]\nfrom = \"voice\"\nto = \"fft.in\"\n[[link]]\nfrom = \"voice\"\nto = \"out.in\"\n",
+    )
+    .unwrap();
+    let graph = Graph::build(&scene).unwrap();
+    for build in [Build::detect(), Build { batch: true, avx2: false }] {
+        renders_without_allocating(&graph, build);
+    }
+}
+
 fn renders_without_allocating(graph: &Graph, build: Build) {
     let (mut engine, mut handles) = Engine::build_with(graph, 48_000.0, 1.0, build).unwrap();
     assert!(engine.shape().1 > 0, "the FM voice runs as a batch");

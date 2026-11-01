@@ -73,6 +73,10 @@ pub enum Kind {
     Fm,
     /// a step sequencer: `cv` = pitch in Hz on the left channel, gate 0 / 1 on the right (modular CV in an audio port)
     Seq,
+    /// a generated melody (#236, deck-events): a seeded random walk on a continuous pitch scale, on the tempo clock,
+    /// written as seq's cv (pitch left, gate right) – `spread` 0 = the base held, 1 = ±`octaves`; `rate` = steps a
+    /// beat; `glide` rides along for the voice. The same seed plays the same melody on every deck.
+    Walk,
     /// a chapter's music track from the library API (cached, decoded with symphonia)
     ChapterMusic,
     /// four stereo inputs, a gain each
@@ -85,7 +89,7 @@ pub enum Kind {
 
 impl Kind {
     /// every kind with its name in a scene
-    const NAMES: [(&'static str, Kind); 18] = [
+    const NAMES: [(&'static str, Kind); 19] = [
         ("test_pattern", Kind::TestPattern),
         ("shader", Kind::Shader),
         ("screen", Kind::Screen),
@@ -100,15 +104,16 @@ impl Kind {
         ("noise", Kind::Noise),
         ("fm", Kind::Fm),
         ("seq", Kind::Seq),
+        ("walk", Kind::Walk),
         ("chapter_music", Kind::ChapterMusic),
         ("mixer", Kind::Mixer),
         ("fft", Kind::Fft),
         ("audio_out", Kind::AudioOut),
     ];
-    pub const ALL: [Kind; 18] = {
-        let mut all = [Kind::Screen; 18];
+    pub const ALL: [Kind; 19] = {
+        let mut all = [Kind::Screen; 19];
         let mut i = 0;
-        while i < 18 {
+        while i < 19 {
             all[i] = Kind::NAMES[i].1;
             i += 1;
         }
@@ -148,6 +153,7 @@ impl Kind {
             Kind::Noise => &[p!("cutoff", C), p!("gain", C)],
             Kind::Fm => &[p!("cv", A), p!("freq", C), p!("ratio", C), p!("index", C), p!("gain", C)],
             Kind::Seq => &[p!("rate", C)],
+            Kind::Walk => &[p!("spread", C), p!("rate", C), p!("glide", C)],
             Kind::ChapterMusic => &[p!("gain", C)],
             Kind::Mixer => &[
                 p!("in1", A), p!("in2", A), p!("in3", A), p!("in4", A),
@@ -165,7 +171,7 @@ impl Kind {
             Kind::Screen | Kind::AudioOut => &[],
             Kind::Lfo => &[p!("out", C)],
             Kind::Tempo => &[p!("bpm", C), p!("beat", C), p!("bar", C), p!("phase", C), p!("bar_phase", C), p!("pulse", C)],
-            Kind::Seq => &[p!("cv", A)],
+            Kind::Seq | Kind::Walk => &[p!("cv", A)],
             Kind::Fft => &[p!("level", C), p!("bass", C), p!("mid", C), p!("high", C)],
             _ => &[p!("out", A)],
         }

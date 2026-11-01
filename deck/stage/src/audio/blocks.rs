@@ -63,6 +63,8 @@ pub fn make(node: &Node, index: usize, rate: f32, params: &[Param], h: &mut Hand
             Box::new(Seq::new(node, rate, p("rate"), beats))
         }
         Kind::Click => Box::new(Click::new(node, rate, p("gain"), beats(h))),
+        #[cfg(feature = "events")]
+        Kind::Walk => Box::new(super::walk::Walk::new(node, rate, p("spread"), p("rate"), p("glide"), beats(h))?),
         Kind::ChapterMusic => {
             let (tx, rx) = rtrb::RingBuffer::new(2);
             let (trash_tx, trash_rx) = rtrb::RingBuffer::new(2);

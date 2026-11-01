@@ -19,7 +19,7 @@ path = "src/main.rs"
 # `cargo run -p deck-scene-features -- scenes/*.toml` lists what a set of scenes needs. The default = everything but the
 # platform's (pipewire) and link (it needs cmake): a plain `cargo build` plays every bundled scene.
 [features]
-default = ["space", "sync", "chapter", "live", "midi", "osc"]
+default = ["space", "sync", "chapter", "live", "midi", "osc", "events"]
 # the 3D space and the deck's being (#188): glTF rooms (meshopt, WebP), the orbit camera, the 3D buttons and their labels –
 # deck-space's (deck/space, #198), with its GPU passes and its loaders on threads
 space = ["deck-space/being", "deck-space/gpu", "deck-space/native", "dep:serde_json", "dep:ab_glyph", "image/webp"]
@@ -33,6 +33,8 @@ chapter = ["dep:ureq", "dep:serde_json", "dep:symphonia", "dep:ab_glyph", "image
 # a Live outlet (#186): the `outlet` node joins the relay as `output` of this deck's outlet, preloads the show media with
 # the deck token (deck-link) and renders the outlet's cells natively (live/); slices and text come from `chapter`
 live = ["chapter", "dep:protocol", "dep:tungstenite", "dep:rustls"]
+# generators that talk in events (#236, deck-events): the `walk` node – a seeded melody as seq's cv
+events = ["dep:deck-events"]
 # MIDI clock in and out (the tempo clock's `midi` source, the tempo node's `midi_out`)
 midi = ["dep:midir"]
 # the OSC remote for the tempo clock (`/tempo/bpm` …, the `osc` source)
@@ -54,6 +56,7 @@ link = ["dep:rusty_link"]
 deck-core = { workspace = true, features = ["analysis", "tempo"] }
 # the scene model (graph, params, scene) and – with `space` – the 3D space itself (#198: shared with the browser)
 deck-space = { path = "../space", default-features = false }
+deck-events = { path = "../events", optional = true }
 anyhow.workspace = true
 serde.workspace = true
 serde_json = { workspace = true, optional = true }
