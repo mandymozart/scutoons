@@ -35,8 +35,12 @@ orchestrator ≈ $445 list over 2026-10-29 … 11-01, `agents/costs.json`), so s
   certificate, and `viewer` needs the local API + MariaDB; its script lives in a session scratchpad, so after
   `npm run dev:launch-json` add it again: `node <script>` that spawns `npm run dev -w viewer -- --port 4101` with
   `VITE_API_URL=https://api.scutoons.com/api`, `VITE_CDN_URL=https://cdn.scutoons.com`). Add `viewer-lan` again too.
-- The workspace rules moved to `C:\Developmentgents\ORCHESTRATION.md` (2026-11-01, + §11 "Usage": sizes S/M/L with
-  ceilings, a $150 shift budget, the orchestrator's own 200 turns / $100, every title `#N`); guides in
+- The workspace rules moved to `C:\Developmentgents\ORCHESTRATION.md` (2026-11-01, + §11 "Usage": tickets carry
+  `complexity:S/M/L`, each with a model tier and a ceiling in turns / list USD, a shift budget, the orchestrator's own cap
+  per session, every title `#N`). **Read §11's numbers there, they changed twice on 2026-11-01** (at the last word: the
+  orchestrator on Sonnet 5.5 medium, 80 turns / $20 per session, $80 a shift; workers S Haiku, M Sonnet, L Sonnet high).
+  The model per kind of task: `C:\Developmentgents\models.json` (`python C:\Developmentgents\models.py set <kind>
+  <model>`) – read it before every brief. Guides in
   `C:\Developmentgents\guides\`; cost booking `python C:\Developmentgents\costsdd_entry.py <ledger>
   <transcript.jsonl> --issues N --role worker` (`--role orchestrator --per-day` for yourself); the report
   `python C:\Developmentgents\costseport.py`.
@@ -69,20 +73,22 @@ orchestrator ≈ $445 list over 2026-10-29 … 11-01, `agents/costs.json`), so s
    Then close the three issues' open rests: #224 (the fold at the portrait if hidden on the S22 too), #211 (mapping UI,
    Art-Net, conductor routing), #220 (X1 checks).
 2. **#213** camera moves (+ the conductor's shots #189): now unblocked (#224 is in); reuse the eased `goal` / `want`.
-   Size L (a new area in `camera.rs` + the overlay) → a cloud session the owner starts, Opus high, ceiling 300 turns / $60.
+   complexity:L (a new area in `camera.rs` + the overlay) → a cloud session the owner starts; tier and ceiling from §11 /
+   `models.json` at that time.
 3. **#223:** a real `tc netem` run on Linux (X1 or WSL with a slot). If the tail stays, the WebTransport datagram side
    channel.
 4. **#225:** which parameters fit which stick axis; hue and glow off the sticks; the rule for the selection's stick.
 5. Later queue: #203 patch editor · #210 scene objects · #212 input sources · #205 audience · #206 security · #207 cloth ·
    #215 shadows · #191 instruments (PR #217 waits for the owner).
-6. Every new brief: size + tier + ceiling (§11), the issue number in the session title, `add_entry.py` at the merge.
+6. Every new brief: complexity + tier + ceiling (§11, `models.json`), `#N` in the session title, `add_entry.py` at the merge.
 
 ## Waiting for the owner
 - **The push** of the 9 commits (above), then the S22 / Enttec checks.
 - **PR #217** (instruments / presets design, #191): its 8 open questions; merge only with the owner.
 - **#208:** should the glitch warning also flash with the HUD off?
 - **A shift issue** for the orchestrator (§11.3 wants `#N` in every session title and ledger entry) – or keep listing the
-  merged issues per session, as this entry does.
+  merged issues per session, as this entry does. This session ran on Fable 5.1 (started before §11); the next one is
+  Sonnet 5.5 medium per §11.
 - **Owner steps:** bunny zone `lan.scutoons.com` + script + NS in KAS + BUNNY_API_KEY + run lan-cert workflow →
   pair the X1. The X1 partition install (#200). Clean up the stray CDN copies (Admin → Assets → Unused).
 - **#216:** the self-hosted Linux runner, yes or no; a look at the Deploy minutes.
