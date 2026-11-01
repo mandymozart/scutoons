@@ -310,7 +310,8 @@ instruction per group) · `cell { outlet, cell }` (row change) · `cue`, `say`, 
 client for the conductor's snapshot `decks`) · `deck.values { values: { "node.port": number[] }, mood? }` (only what
 changed, ≤ 30 / s – the relay drops more; folded, never replayed; to the conductor, and to `to` too) · presence adds
 `decks`, `routes` (who sent values to whom) and `links` (#223: each client's round trip, value rate, values replaced –
-not the audience's). The deck side: deck/stage/README.md "space". **Send path** (#223): per client the latest
+not the audience's) and `quality` (#220: each deck's last `deck.quality { level, scale, auto, frame, ceiling? }` – its
+render quality, sent at once on a change, else ≤ every 2 s; kept, not forwarded). The deck side: deck/stage/README.md "space", "Quality". **Send path** (#223): per client the latest
 state-like message wins (`deck.values` per deck, merged; `presence`, `vote.tally`, `state`), ordered ones stay complete
 and in order, a client too far behind is dropped (it resyncs from its snapshot), a link that stays behind gets values at
 15 / 10 / 5 per s – deck/relay/README.md.

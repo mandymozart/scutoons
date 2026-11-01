@@ -307,8 +307,12 @@ impl Governor {
             // the very first frame: the start is a stall (shaders compile, the set loads)
             self.hold_until = now + HOLD_S;
         }
-        if now < self.hold_until || !(0.0..=HITCH_MS).contains(&dt_ms) {
+        if now < self.hold_until {
             self.reset_window();
+            return false;
+        }
+        // a hitch is no sample (it doesn't end the window either: frequent hitches would starve the governor)
+        if !(0.0..=HITCH_MS).contains(&dt_ms) {
             return false;
         }
         let start = *self.win_start.get_or_insert(now);
@@ -505,6 +509,14 @@ mod tests {
         assert!(!g.frame(t, 400.0, 0));
         assert_eq!(run(&mut g, &mut t, 1.0, 16.7), 0);
         assert_eq!(g.index(), r);
+        // a load with a hitch every 15 frames still steps down: the hitches are skipped, the windows close
+        let mut n = 0;
+        for f in 0..90 {
+            let ms = if f % 15 == 14 { 300.0 } else { 25.0 };
+            t += ms as f64 / 1000.0;
+            n += g.frame(t, ms, 0) as usize;
+        }
+        assert!(n >= 1, "{}", g.frame_ms());
     }
 
     #[test]
