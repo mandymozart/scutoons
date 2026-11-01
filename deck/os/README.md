@@ -42,6 +42,7 @@ npm run deck:vm -- --docker   # no QEMU on the host: QEMU inside a container, sc
 `vm/run.sh` copies the ISO to `out/vm/stick.img` with 4 GiB free (so persistence can be seen on the second boot) and
 boots it as a USB stick with audio (intel-hda), a wired NIC, USB keyboard + tablet, 4 GB RAM. The serial console
 (`ttyS0`) is the terminal: a root shell for `journalctl -u deck-firstboot -u deck-kiosk`, `deck-check`, `deck-install`.
+The image does not enable `serial-getty@ttyS0`; the generator starts it only with `console=ttyS0` on the kernel line (the live entries, not an installed deck – #262).
 Without a terminal (an agent) the Docker mode logs the serial console to `out/vm/serial.log` and keeps it reachable
 with `docker exec <vm container> socat - UNIX-CONNECT:/tmp/deck-serial`; screenshots land in `out/vm/shot-*.png`.
 Without KVM (Docker Desktop on Windows has none) QEMU emulates the CPU: ~5 min to the kiosk, Chromium's first paint

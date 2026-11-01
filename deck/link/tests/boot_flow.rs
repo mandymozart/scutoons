@@ -109,6 +109,19 @@ fn a_known_deck_boots_straight_to_the_stage() {
     }
 }
 
+/// #262: the image does not hard-enable serial-getty@ttyS0 (a deck without a serial port restarted it 672 times on the X1).
+/// The generator starts it only with console=ttyS0 on the kernel line, which the live entries carry (profiledef's
+/// KERNEL_PARAMS) and the installed deck's does not – the safe entry keeps console=tty1 only.
+#[test]
+fn the_serial_console_is_not_hard_enabled() {
+    let build = read("container/build.sh");
+    assert!(!build.contains("getty.target.wants/serial-getty@ttyS0"), "no hard enable of ttyS0");
+    assert!(build.contains("serial-getty generator"), "the reason stays next to the build step");
+    assert!(read("profile/profiledef.deck.sh").contains("console=ttyS0,115200"), "the live kernel line has the serial console");
+    let live = read("profile/efiboot/loader/entries/01-scutoonsdeck.conf");
+    assert!(live.contains("%KERNEL_PARAMS%"), "the live entry takes the kernel parameters");
+}
+
 /// mkarchiso sets modes from profiledef's file_permissions – a program missing there shipped without its execute bit
 /// (deck-link on the X1's s7 image, 2026-11-01: deck-link.service "Permission denied" from boot on, #237)
 #[test]

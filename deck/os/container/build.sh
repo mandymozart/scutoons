@@ -86,9 +86,9 @@ ln -sf /usr/lib/systemd/system/deck-update.timer "$PROFILE/airootfs/etc/systemd/
 [ -e "$PROFILE/airootfs/etc/systemd/system/pacman-init.service" ] && ln -sf /etc/systemd/system/pacman-init.service "$wants/pacman-init.service"
 # releng's file_permissions name a file we removed
 sed -i '/automated_script/d' "$PROFILE/profiledef.sh"
-# a serial console on ttyS0 (the VM test, a cable on a real deck); no password = key-only ssh, root on serial only
-mkdir -p "$PROFILE/airootfs/etc/systemd/system/getty.target.wants"
-ln -sf /usr/lib/systemd/system/serial-getty@.service "$PROFILE/airootfs/etc/systemd/system/getty.target.wants/serial-getty@ttyS0.service"
+# the serial console on ttyS0 (the VM test, a cable on a real deck) is NOT enabled here: systemd's serial-getty generator
+# starts it only where console=ttyS0 is on the kernel line (the live entries, profiledef). An installed deck without a
+# serial port then never runs it – a hard enable restarted it forever on the X1 (672 times, #262)
 date -u +%Y.%m.%d >"$PROFILE/airootfs/etc/deck-release"
 # what the root holds – a remote update is newer when its build is higher (#237, deck-update)
 printf '{"version":"image %s","build":%s}\n' "$(date -u +%Y.%m.%d)" "$(date -u +%s)" >"$PROFILE/airootfs/usr/share/deck/build.json"
