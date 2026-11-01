@@ -1,7 +1,7 @@
 // The browser deck's controls as page state (#209): the selection (the sticks follow it), MIDI learn and Web MIDI, the
 // mappings per deck – a thin layer over @scutoons/live-deck's Hands (which bridges deck-space's controls, wasm). The
 // route (/live/deck) and its panel read these runes; the logic stays in Rust (DECISIONS 2026-10-31).
-import { Hands, connectMidi, midiSupported, type MidiLink, type Spec } from '@scutoons/live-deck';
+import { Hands, PadSticks, connectMidi, midiSupported, nextSelection, selectionNames, type MidiLink, type Spec } from '@scutoons/live-deck';
 import { m } from '$lib/paraglide/messages.js';
 import { sticksLine } from '$lib/live-deck.ts';
 
@@ -16,8 +16,25 @@ export class DeckControlsState {
 	/** bumped when the mappings change: the knobs re-read their labels */
 	private tick = $state(0);
 	private midi: MidiLink | null = null;
+	/** #228: a Gamepad API pad on the two sticks and the selection (A cycles it) */
+	private pad: PadSticks;
 
-	constructor(private readonly specs: Record<string, Spec>) {}
+	constructor(private readonly specs: Record<string, Spec>) {
+		this.pad = new PadSticks(
+			{
+				stickDown: (side) => this.hands?.stickDown(side),
+				stickMove: (side, dx, dy) => this.hands?.stickMove(side, dx, dy),
+				stickUp: (side) => this.hands?.stickUp(side)
+			},
+			() => this.choose(nextSelection(this.selection, selectionNames(Object.keys(this.specs))), true)
+		);
+	}
+
+	/** #228: once a frame (the page's loop) – the connected pad's sticks and A; nothing without controls */
+	poll() {
+		if (!this.hands) return;
+		this.pad.poll(typeof navigator !== 'undefined' && navigator.getGamepads ? navigator.getGamepads() : []);
+	}
 
 	/** the panel's line: what the sticks drive now */
 	readonly line = $derived.by(() => {
@@ -94,6 +111,7 @@ export class DeckControlsState {
 	}
 
 	close() {
+		this.pad.reset();
 		this.midi?.close();
 		this.hands?.c.free?.();
 	}

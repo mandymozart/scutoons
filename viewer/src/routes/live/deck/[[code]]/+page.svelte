@@ -183,6 +183,7 @@
 				const t0 = performance.now();
 				const now = t0 / 1000;
 				deck.tick(now);
+				ctl.poll();
 				try {
 					space?.frame(now);
 					hud = space?.view.hud_line() ?? '';
