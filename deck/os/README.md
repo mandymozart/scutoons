@@ -135,11 +135,20 @@ exception): research/LIVE.md B.4.
 
 ## Install to a partition
 
-`sudo deck-install` on the stick (a shell on tty2 or the serial console). It lists the machine's partitions (the
-stick excluded), the user picks one by number and confirms by typing its name, optionally picks an EFI system
-partition; then mkfs.ext4 → unsquashfs the live root → the live-only bits removed → fstab → mkinitcpio → a
-systemd-boot entry on the ESP. It never creates or resizes partitions: make the partition first (cfdisk). The
-installed deck boots the same flow (the check runs once, then the kiosk). Not yet tested on real hardware.
+`sudo deck-install` on the stick (a shell on tty2 or the serial console). It lists the machine's partitions with their
+type, file system and label (the stick excluded), the user picks one by number and confirms by typing its name (an ESP
+or a Windows / BitLocker partition is refused), optionally picks an EFI system partition – each shown with its free
+space and whether it holds Windows' boot manager; an empty one is formatted as FAT32 `DECKESP` on request, Windows' own
+needs a `yes`, one with less than 150 MB free is refused. Every question comes before the first write. Then mkfs.ext4 →
+unsquashfs the live root → the live-only bits removed → the kernel from `/usr/lib/modules/*/vmlinuz` to
+`/boot/vmlinuz-<pkgbase>` (mkarchiso empties the root's /boot – without it mkinitcpio has no kernel) → fstab →
+mkinitcpio → a systemd-boot entry on the ESP, and the boot-order advice. It never creates or resizes partitions: make
+them first (cfdisk). The installed deck boots the same flow (the check runs once, then the kiosk).
+
+Next to Windows (the X1, #200): an ESP of its own (512M, type EFI System) next to Windows' – bootctl leaves Windows'
+untouched; Windows then starts with F12 → Windows Boot Manager. Tested 2026-11-01 in a privileged container on a loop
+disk laid out like the X1's (Windows ESP, MSR, basic data, an empty 512M ESP, the Linux partition) with the s6 root:
+32 MB on the ESP, 3.3 GB on the root, Windows' ESP unchanged. Not yet booted on real hardware.
 
 ## Layout
 
