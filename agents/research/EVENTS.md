@@ -1,4 +1,4 @@
-Status 2026-11-01: built (#236, PR #217): `deck/events` (the contract, the graph, rt events, random_walk / pulse / arp, gate_cv, glide, patch.rs; allocation-free in a run), the stage's `walk` / `events` nodes (one Host block) and live-core's `[[walk]]` / `[[events]]` – a rig's melody and a rigged arp play on the deck and in the browser; encapsulated (§10); the stage's sequencer + dispatcher threads and the routing table (§16, PR #240); horizons + preload (the walker, the rig's mood prebuild) and the references guard (§16, PR #238). In progress in its own session and branch with a PR into `wip/quirky-pascal-qmago4`: adapters story / relay / MIDI (§12, `wip/events-adapters` – acceptance: a chapter's showMessage mood switches catpope's preset). Owner handoff "Generator/Event Architecture"; extends #191 (rigs), #234 (sequences), #235 (patterns / clips).
+Status 2026-11-01: built (#236, PR #217): `deck/events` (the contract, the graph, rt events, random_walk / pulse / arp, gate_cv, glide, patch.rs; allocation-free in a run), the stage's `walk` / `events` nodes (one Host block) and live-core's `[[walk]]` / `[[events]]` – a rig's melody and a rigged arp play on the deck and in the browser; encapsulated (§10); the stage's sequencer + dispatcher threads and the routing table (§16, PR #240); horizons + preload (the walker, the rig's mood prebuild) and the references guard (§16, PR #238); the adapters story / relay / MIDI (§12, §17, PR #239 – a chapter's showMessage mood switches catpope's preset). Next: the story adapter wired into the reader / relay at runtime, the rigs' catalog tables (INSTRUMENTS.md §5), the creator's rig editor. Owner handoff "Generator/Event Architecture"; extends #191 (rigs), #234 (sequences), #235 (patterns / clips).
 
 # EVENTS — generators that talk in events
 
@@ -334,3 +334,19 @@ horizons, and preload"):
   deep (`Bound::chapter`); a deck loads at most 256 MB ahead, and past it loads on the trigger (late – the show never
   stops), it does not refuse the cue; a deck pre-builds moods only (the next scene's whole stage graph later, if real
   shows need it). Constants: deck-events `horizon.rs` (`SHOW_ROWS`, `SHOW_SECS`, `CHOICE_DEPTH`, `DECK_BYTES`).
+
+## 17. The adapters – built (#236)
+Rust `deck/events/src/adapters/` (+ `to_json`, the shared JSON form of §14); an `Event` now has `data` / `id` / `source`;
+names allow camelCase after the domain (`story.showMessage`); `MAX_DATA` = the boundary's `PAYLOAD_LIMIT` (1 KB, one limit), a bigger `data` is refused ("send a reference").
+- **story** (`story.rs`, TS twin `shared/live-deck/src/events.ts` `fromStory`): `story.<type>`, a **trigger** (`Time::Now`);
+  numbers → props (keys sorted, first 6, overflow → data), the rest → `data`, `duration` ms → `dur`, `id` kept, `wait` dropped.
+  The runner keeps `showChoices` · `addChoice` · `label` · `divert` · `jumpTo` · `setVariable` · `askText` (→ none); `if` is the caller's.
+  `shared/live-deck/test/fixtures/events.json` (written by `cargo test -p deck-events`, stale = fails) keeps TS = Rust.
+- **relay** (`relay.rs`): the moments `cue fx say line colour story react pickup panic` → `relay.<kind>` (`at` → seconds through
+  `RelayClock`, no `at` = trigger; a cue's `id` + `actions` → children `relay.<verb>`); state kinds → none, they stay messages.
+  New protocol kind **`story`** (Loose `{ type, params, id? }`): a story trigger for the other decks; the receiver runs `from_story` itself.
+- **midi** (`midi.rs`): note on + off → one `midi.note` (start, duration, `pitch` Hz, `vel` 0–1, `note`, `ch`), born when it ends;
+  `midi.cc { cc, value, ch }`; `release_all` ends held notes. The rest is ignored (`feed` → false).
+- **Acceptance** (`deck/space/tests/story_to_rig.rs`): the real chapter slice event → `story.showMessage` → a receiver maps
+  `data.mood` to `Rig::play` → catpope's `voice_voice.ratio` 1.5 → 3.0 (`cathedral_voice.bright`); TS test on the same fixture.
+- Open: the adapters don't feed the stage's dispatcher yet (built in §16, its `Inlet` is where they go); the browser has no relay / MIDI adapter (TS twin: story only).

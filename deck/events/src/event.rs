@@ -5,6 +5,7 @@
 //! deck-core's tempo map) or `Seconds` (clips, video – the audio timebase: frame = seconds × rate). Big data never
 //! rides on an event (§16): a prop is a number; a reference is an id the receiver resolves itself.
 use crate::names::Sym;
+use serde_json::Value;
 use deck_core::tempo::TempoMap;
 
 /// fast props per event (real-time safe: no allocation)
@@ -74,11 +75,21 @@ pub struct Event {
     pub children: Vec<Event>,
     /// edges crossed so far (graph.rs drops an event past MAX_HOPS)
     pub hops: u8,
+    /// loose side table (text, ids, references – never on the audio thread; the adapters refuse > `MAX_DATA` bytes)
+    pub data: Option<Box<Value>>,
+    /// a stable id (the story's `id`, lineage)
+    pub id: Option<String>,
+    /// where it came from: `story:catpope/2`, `relay:c7`, `midi:keys`
+    pub source: Option<String>,
 }
+
+/// bytes of serialised `data` an adapter lets through (§16: "send a reference") – the references guard's one limit
+/// (boundary.rs), so the adapters and the boundary can't drift apart
+pub const MAX_DATA: usize = crate::boundary::PAYLOAD_LIMIT;
 
 impl Event {
     pub fn new(name: Sym, start: Time) -> Event {
-        Event { start, dur: None, name, props: Props::default(), children: Vec::new(), hops: 0 }
+        Event { start, dur: None, name, props: Props::default(), children: Vec::new(), hops: 0, data: None, id: None, source: None }
     }
 
     /// a trigger

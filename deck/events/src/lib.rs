@@ -10,9 +10,11 @@
 //! - patch.rs – generators rigged together as data (TOML / JSON): what a rig's `events` node holds
 //! - horizon.rs – event horizons: a scope's reachable references, nearest first, bounded – what to preload (§16)
 //! - boundary.rs – the references guard: an inbound event's loose payload over 1 KB is refused ("send a reference")
+//! - adapters/ – today's three formats in: the story's events, the relay's moments, MIDI (EVENTS.md §12)
 //! - generators/ – `random_walk`, `pulse`, `arp`; bridge.rs – `gate_cv` (events → seq's cv: pitch left, gate right)
 //!
 //! Encapsulated (EVENTS.md §10): the stage's `walk` / `events` nodes and live-core's walks / events host it.
+pub mod adapters;
 pub mod boundary;
 pub mod bridge;
 pub mod event;
@@ -26,7 +28,7 @@ pub mod patch;
 pub mod route;
 pub mod rt;
 
-pub use event::{Event, Props, Time, MAX_PROPS};
+pub use event::{Event, Props, Time, MAX_DATA, MAX_PROPS};
 pub use generator::{Generator, Inbox, Outbox, Ports, Span};
 pub use glide::Glide;
 pub use graph::{EventGraph, GraphError, Stats, EDGE_CAP, MAX_HOPS};

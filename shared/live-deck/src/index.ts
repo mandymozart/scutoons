@@ -8,3 +8,4 @@ export * from './deck.ts';
 export * from './space.ts';
 export * from './rig.ts';
 export * from './sync.ts';
+export * from './events.ts';

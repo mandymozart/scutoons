@@ -13,7 +13,7 @@ pub struct Sym(pub u32);
 pub enum NameError {
     /// an event name needs a domain: `<domain>.<name>`
     NoDomain(String),
-    /// lower-case letters, digits, `_`, and `.` between the parts
+    /// letters, digits, `_`, and `.` between the parts; the domain and a key in lower case
     BadChars(String),
 }
 
@@ -21,7 +21,7 @@ impl fmt::Display for NameError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             NameError::NoDomain(n) => write!(f, "event name '{n}' has no domain (write <domain>.<name>, e.g. story.fx)"),
-            NameError::BadChars(n) => write!(f, "'{n}': only a–z, 0–9 and _ in its parts, '.' between them"),
+            NameError::BadChars(n) => write!(f, "'{n}': only letters, 0–9 and _ in its parts (the domain in lower case), '.' between them"),
         }
     }
 }
@@ -34,8 +34,14 @@ pub struct Names {
     names: Vec<String>,
 }
 
+/// a lower-case word: a domain, a prop key
 fn word_ok(w: &str) -> bool {
     !w.is_empty() && w.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+}
+
+/// a name part after the domain: also camelCase (`story.showMessage` – the story's own type names, owner 2026-11-01)
+fn part_ok(w: &str) -> bool {
+    w.bytes().next().is_some_and(|b| b.is_ascii_lowercase()) && w.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
 }
 
 impl Names {
@@ -53,13 +59,13 @@ impl Names {
         sym
     }
 
-    /// an event name: `<domain>.<name>` (more dots allowed: `media.video.seek`)
+    /// an event name: `<domain>.<name>` (more dots allowed: `media.video.seek`; camelCase after the domain)
     pub fn event(&mut self, name: &str) -> Result<Sym, NameError> {
         let parts: Vec<&str> = name.split('.').collect();
         if parts.len() < 2 {
             return Err(NameError::NoDomain(name.into()));
         }
-        if !parts.iter().all(|p| word_ok(p)) {
+        if !(word_ok(parts[0]) && parts[1..].iter().all(|p| part_ok(p))) {
             return Err(NameError::BadChars(name.into()));
         }
         Ok(self.intern(name))
@@ -116,7 +122,10 @@ mod tests {
         assert_eq!(n.domain(seek), Some("media"));
         assert_eq!(n.name(seek), "media.video.seek");
         assert_eq!(n.event("fx"), Err(NameError::NoDomain("fx".into())));
-        assert!(matches!(n.event("Story.FX"), Err(NameError::BadChars(_))));
+        assert!(matches!(n.event("Story.FX"), Err(NameError::BadChars(_))), "the domain is lower case");
+        let show = n.event("story.showMessage").unwrap();
+        assert_eq!(n.name(show), "story.showMessage", "camelCase after the domain");
+        assert!(matches!(n.event("story.Show"), Err(NameError::BadChars(_))));
         assert!(matches!(n.event("story..fx"), Err(NameError::BadChars(_))));
         let pitch = n.key("pitch").unwrap();
         assert_eq!(n.domain(pitch), None);
