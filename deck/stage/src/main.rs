@@ -1836,12 +1836,20 @@ fn run() -> Result<i32> {
     if app.args.switcher {
         app.open_switcher();
     }
-    event_loop.run_app(&mut app)?;
+    // #257: the display connection died under us (the compositor went away): leave at once, and drop nothing –
+    // the window / surface / EGL objects talk to a dead socket and segfault
+    if let Err(e) = event_loop.run_app(&mut app) {
+        tracing::error!("display lost: {e}");
+        std::process::exit(1);
+    }
     let summary = app.summary();
     tracing::info!("{summary}");
     println!("{summary}");
     // a check run (--frames) that couldn't play its scene fails; the kiosk never exits for it
-    Ok(if app.exit == 0 && app.error.is_some() && app.args.frames.is_some() { 2 } else { app.exit })
+    let code = if app.exit == 0 && app.error.is_some() && app.args.frames.is_some() { 2 } else { app.exit };
+    // no teardown of the window / GPU objects: the process ends right after (main calls exit)
+    std::mem::forget(app);
+    Ok(code)
 }
 
 #[cfg(test)]

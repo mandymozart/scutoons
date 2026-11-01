@@ -157,22 +157,48 @@ pub struct Renderer {
     can_capture: bool,
 }
 
+/// #257: the backends the first instance gets – `WGPU_BACKEND` if set, else Vulkan alone on Linux (all elsewhere)
+fn backends_first() -> wgpu::Backends {
+    wgpu::Backends::from_env().unwrap_or_else(|| default_backends(cfg!(target_os = "linux")))
+}
+
+fn default_backends(linux: bool) -> wgpu::Backends {
+    if linux { wgpu::Backends::VULKAN } else { wgpu::Backends::all() }
+}
+
+/// where to go when `tried` had no adapter: GL, only after Vulkan alone found nothing (None = nothing left)
+fn backends_fallback(tried: wgpu::Backends) -> Option<wgpu::Backends> {
+    (tried == wgpu::Backends::VULKAN).then_some(wgpu::Backends::all())
+}
+
 impl Renderer {
     pub fn new(window: Arc<Window>, graph: &Graph, render_scale: f32, feeds: Vec<ChapterFeed>) -> Result<Renderer> {
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::from_env_or_default());
-        let surface = instance.create_surface(window.clone()).context("creating the window surface")?;
-        let ask = |fallback| {
-            pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::HighPerformance,
-                force_fallback_adapter: fallback,
-                compatible_surface: Some(&surface),
-            }))
-        };
-        let adapter = match ask(false) {
-            Ok(a) => a,
-            Err(e) => {
-                tracing::warn!("render: no hardware adapter ({e}) – the software fallback");
-                ask(true).context("no GPU adapter at all, not even a software one")?
+        // #257: on Linux the instance starts with Vulkan alone – a GL backend in the instance opens its own EGL
+        // display on the Wayland connection, and when the compositor dies that one segfaults (libEGL_mesa)
+        let mut backends = backends_first();
+        let (surface, adapter) = loop {
+            let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor { backends, ..wgpu::InstanceDescriptor::from_env_or_default() });
+            let surface = instance.create_surface(window.clone()).context("creating the window surface")?;
+            let ask = |fallback| {
+                pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+                    power_preference: wgpu::PowerPreference::HighPerformance,
+                    force_fallback_adapter: fallback,
+                    compatible_surface: Some(&surface),
+                }))
+            };
+            match ask(false) {
+                Ok(a) => break (surface, a),
+                Err(e) => match backends_fallback(backends) {
+                    Some(next) => {
+                        tracing::warn!("render: no adapter on {backends:?} ({e}) – trying {next:?}");
+                        backends = next;
+                    }
+                    None => {
+                        tracing::warn!("render: no hardware adapter ({e}) – the software fallback");
+                        let a = ask(true).context("no GPU adapter at all, not even a software one")?;
+                        break (surface, a);
+                    }
+                },
             }
         };
         let info = adapter.get_info();
@@ -990,4 +1016,17 @@ fn uniform_buffer(device: &wgpu::Device) -> wgpu::Buffer {
         usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     })
+}
+
+#[cfg(test)]
+mod backend_tests {
+    use super::*;
+
+    #[test]
+    fn linux_starts_on_vulkan_alone_and_falls_back_once() {
+        assert_eq!(default_backends(true), wgpu::Backends::VULKAN);
+        assert_eq!(default_backends(false), wgpu::Backends::all());
+        assert_eq!(backends_fallback(wgpu::Backends::VULKAN), Some(wgpu::Backends::all()));
+        assert_eq!(backends_fallback(wgpu::Backends::all()), None);
+    }
 }
