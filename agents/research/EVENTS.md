@@ -264,3 +264,45 @@ A block is 256 frames = 5.3 ms at 48 kHz (deck-stage audio/ring.rs); 1,000 event
 - **heavy receivers are rate-limited** (a mood already has to hold 1.2 s before the head shows it, being.rs `MOOD_HOLD`)
 - the patch editor (#203) shows cycles, delayed edges and fan-out before they play
 
+## 16. Transports, references, priorities, threads, horizons (owner 2026-11-01)
+**Timelines are transports** ("time lines can be also async if they get triggered from somewhere"): a timeline (a
+clip, a video, a pattern) is a generator with its own clock – `start` · `stop` · `seek { pos }` · `rate` · `loop` –
+driven by trigger events from anywhere; it runs free or locked to the tempo map, and a start may be quantized to the
+next beat / bar (Ableton's clip launch).
+
+**References, not payloads** ("sending references to the entries or sequences … in the database, … the receiver can
+load data and handle caching themselves"): an event carries ids and immutable paths (`pattern:m:01H…`,
+`catpope/map/sets/cathedral.low.v2.glb`, `chapter:catpope:2`), never the data. A guard refuses big payloads at the
+adapter (e.g. > 1 KB of `data`: "send a reference"); the receiver resolves through its cache (the deck's #195 cache, the
+reader's), versioned paths keep the caches correct.
+
+**Events first, playback second** ("the execution of event effects does not slow down our event flow at all"): routing
+never waits for an effect. Receivers get events through queues and act on their own threads; an effect whose data
+isn't ready by its time follows a policy (late / skip / placeholder) and the dispatcher never blocks. Values may
+coalesce (latest wins); events are never reordered.
+
+**Threads** (deck-stage; the building blocks exist – `rtrb` rings, named threads):
+| thread | does | talks through |
+|---|---|---|
+| **dispatcher** (high priority, not the audio thread) | owns the routing table, fans events out | MPSC in from adapters, one SPSC ring (`rtrb`) per consumer out |
+| **sequencer** | runs the generators one window ahead of the render thread | writes `RtEvent`s into the render thread's ring |
+| **audio-render** (exists, #208, MMCSS Pro Audio / SCHED_FIFO) | only consumes `RtEvent`s at their frame, renders | its SPSC ring – no locks, no allocation, no user generator code |
+| **frame** (exists) | visual events per frame (the being, the light) | its SPSC ring |
+| **loaders** (a small pool, like today's `set` / `portraits` / `sync`) | resolve references, decode, fill the cache | answer with `ready` events |
+| **network** (tokio) | the relay adapter in / out | MPSC to the dispatcher |
+- The routing table is immutable and swapped atomically on a patch change (`arc-swap`): no lock on the hot path.
+- One timebase across threads: audio frames (deck-stage clock.rs) – events carry it, threads convert at their edge.
+- Names are interned at load, never per event.
+- Browser: the main thread (UI, the story adapter) → a SharedArrayBuffer ring (live-core's shared transport, COOP /
+  COEP on `/live/…`) → the worker (dispatcher + sequencer + engine) → the AudioWorklet copies; fetches in a loader
+  worker; space-web draws on the main thread from the deck's state.
+
+**Event horizons – preparing before the trigger** ("anticipate potential events by running through scoped event
+horizons, and preload"): every scope lists the events it can reach – a show's cue rows, a chapter's triggers and
+choice branches, a rig's mood variants, a set's objects. A **horizon** = what is reachable from the current position
+within a bound (n rows, t seconds, choice depth d, a byte budget), nearest first. A preloader walks it and resolves the
+references; it can also **pre-build engine state** (the lowered scene of the next mood, a video decoder rolled to its
+first frame) and swap it in on the trigger. Before a show: the whole show's horizon, every deck answers ready; during
+it: a rolling horizon. The protocol already has the beginnings: `scene.sync` / `deck.synced` (#195) and `media.preload`
+/ `media.ready` (#186); the reader already preloads the next scenes' portraits.
+
