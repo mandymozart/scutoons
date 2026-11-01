@@ -1,4 +1,4 @@
-Status 2026-11-01: design + first slices (#191) – the Rust types (`deck/space/src/rig/`), `Rig::flatten`, the browser engine's lowering, the core rigs and the phone page's rig mode (`?rig=1`) are built and tested; storage is built (#258: the catalog kinds, members' rows, instrument items, scene-content's rigs – §5–6); the native deck loading rigs from scene-content, saving from a deck and the creator UI are next, the rest of §8 open.
+Status 2026-11-01: design + first slices (#191) – the Rust types (`deck/space/src/rig/`), `Rig::flatten`, the browser engine's lowering, the core rigs and the phone page's rig mode (`?rig=1`) are built and tested; storage is built (#258: the catalog kinds, members' rows, instrument items, scene-content's rigs – §5–6); saving from a deck is built (#270: the member API, the deck's `rigs` scope, "save as preset" on /live/deck, the stage's outbox – §2, §4, §6); the native deck loading rigs from scene-content, making sounds on the deck and the creator UI are next, the rest of §8 open.
 
 # INSTRUMENTS — characters' instruments, presets, derivatives
 
@@ -32,6 +32,10 @@ against its parent (a root: against the instrument as patched). That *is* the li
 - `PresetBook::lineage` = root first; refused: an unknown parent, a loop, a parent of another instrument.
   `resolve` folds the chain root → leaf; `derive(parent, id, held, edits)` writes a child with only the edits that
   differ from the parent's folded values, and needs the parent's `derive` right for how it is held.
+- **Saving from a deck** (#270, built): the deck sends only the knobs the performer moved away from their played values
+  (a mood's variant stays the mood's), the server folds them through `derive`'s rule again and gives the id `m:<ulid>` –
+  `POST /api/rigs/presets { parent, values, name?, tags?, mapping? }` (server docs/API.md "Rigs"; shared/live-deck
+  `preset.ts`, deck-stage `save.rs`). The derivative carries its parent's tags (unless given) and rights.
 - **tags** carry the traits we collect variations across (`cathedral`, `sad`, `vespers`, a genre …) – search, not logic.
 
 ## 3. Rig (a character's tracks)
@@ -56,6 +60,10 @@ How a deck **holds** a definition is `Hold` – lent (a conductor's grant for on
 carrier bag, #192) · core (the deck image). What it may do is the definition's `Rights` per hold: `play` · `tweak` (live,
 unsaved) · `derive` (save a child) · `copy` (a copy without lineage). Default: lent = play + tweak, core = + derive,
 owned = all. Saving into a carrier bag = the definition's right + the deck's grant (owner 2026-10-30), not a token scope.
+- **How the API holds** (#270, built – `MemberRigs::holdOf`): an own `m:` preset = owned; a factory preset = owned while
+  an instrument item of its instrument is in the member's carrier bag, else core (the catalog is the deck image's core
+  set); lent stays the relay's. The deck's grant = the `rigs` scope its member gives it at pairing (docs/API.md
+  "Decks"): it opens `/api/rigs/*` for that deck's token, nothing else. Refused: `403 not_derivable { hold }`.
 
 ## 5. Where it lives (owner 2026-11-01: two layers; instruments are items – built #258, agents/CATALOG.md "Instruments, presets, rigs")
 Two layers (owner 2026-11-01: "factory presets and rigs and … modification by individual users"):
@@ -85,7 +93,9 @@ Two layers (owner 2026-11-01: "factory presets and rigs and … modification by 
   referenced one **with its ancestors** (a lineage resolves offline), each `{ id, version, data }` – `version` = the
   stored data's hash, so the sync skips what's cached (server docs/API.md "Library").
 - Next: the decks read it (deck/stage sync.rs, shared/live-deck sync.ts / space.ts – today they fetch portraits and sets).
-- Owned derivatives: `&presets=<ids>` with the paired deck token (#180) – read scope, the member's own rows only (not built).
+- Owned derivatives (built, #270): `&presets=<ids>` adds presets with their ancestors to the `presets` map – factory
+  ids for anyone, the member's own `m:` ids with their session or deck token (read scope; the answer is then private),
+  unknown or another member's ids in `missing.presets`. A member's rig variant: `GET /api/rigs/<subject>`.
 - Lent: the conductor's `scene.sync` names them in its reserved `beings` field (renamed `presets`/`rigs` when built);
   the deck fetches them like the rest and drops them when the scene ends.
 - The deck caches them on DECKDATA next to sets and portraits (`<cache>/rigs/…`), plays offline from the cache.
@@ -126,7 +136,8 @@ incense in Web Audio). Replaced in steps:
 1. ~~Storage~~ – decided 2026-11-01 (§5): factory catalog tables + member rows; instruments are items.
 2. **Persona:** one rig per character with persona variants (recommended), or a rig per persona? (both fit `subject`)
 3. **Persona × mood:** is "persona, then mood" enough, or do personas need their own mood overrides?
-4. **Default rights** per hold (§4) – right? May members share / give / sell derivatives (second-hand market)?
+4. **Default rights** per hold (§4) – right? May members share / give / sell derivatives (second-hand market)? – asked
+   with a recommendation in #270 (keep the defaults; no sharing yet, gifts like items later); built with the defaults.
 5. **Discrete settings** (LFO shape, a sequence's notes, a sample) in presets: now only f32 control inputs.
 6. **Mappings:** saved with the preset (as asked), but a performer's own controller differs per deck – also a per-deck
    mapping layer on top?
