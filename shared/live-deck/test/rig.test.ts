@@ -86,3 +86,21 @@ test('the deck plays a rig and back: sliders, stream and wire follow; a mood mov
 	assert.deepEqual(d.paths.sort(), Object.keys(STREAMED).sort());
 	d.close();
 });
+
+test("the rig's corner sticks reach the deck; no rig restores the fixed patch's", () => {
+	const d = new Deck({ character: 'catpope', nick: 'guest', api: API });
+	assert.equal(d.sticks, null);
+	assert.ok('voice.ratio' in d.controlSpecs && 'melody.spread' in d.controlSpecs, 'the fixed patch: sliders + melody');
+	d.useRig(catpope);
+	assert.deepEqual(d.sticks, [
+		['voice_voice.ratio', 'voice_voice.index'],
+		['voice_melody.spread', 'drone_drone.freq']
+	]);
+	assert.deepEqual(d.controlSpecs, d.params, "a rig's controls are its knobs alone");
+	d.moodRig(RIGS.catpope_laughing);
+	assert.equal(d.sticks?.[0][0], 'voice_voice.ratio', 'a mood keeps them');
+	d.useRig(null);
+	assert.equal(d.sticks, null);
+	assert.ok('voice.ratio' in d.controlSpecs);
+	d.close();
+});

@@ -353,6 +353,37 @@ fn a_bundle_plays_into_a_scene_and_knobs() {
     assert_eq!(scene.being.expose, paths);
 }
 
+/// #191: the phone deck's corner sticks – the rig's own pairs, else its first four knobs in order
+#[test]
+fn a_rig_names_its_sticks_or_they_come_from_its_first_knobs() {
+    let mut b = bundle();
+    // three knobs: left (x, y), right x; no fourth
+    let p = b.play(None, None).unwrap();
+    assert_eq!(p.sticks, [["voice_voice.ratio", "voice_voice.gain"], ["voice_sway.rate", ""]]);
+    // named
+    b.rig.sticks = Some([["voice_sway.rate".into(), "voice_voice.ratio".into()], ["".into(), "voice_voice.gain".into()]]);
+    let p = b.play(None, None).unwrap();
+    assert_eq!(p.sticks, [["voice_sway.rate", "voice_voice.ratio"], ["", "voice_voice.gain"]]);
+    // a stick that is no knob of the rig is an error, not a silent dead stick
+    b.rig.sticks = Some([["voice_voice.nope".into(), "".into()], ["".into(), "".into()]]);
+    assert!(b.play(None, None).unwrap_err().to_string().contains("voice_voice.nope"));
+    // the answer carries them to the page; a rig without `sticks` stays out of its document
+    b.rig.sticks = None;
+    let json = serde_json::to_string(&b).unwrap();
+    assert!(!json.contains("\"sticks\""));
+    let out: serde_json::Value = serde_json::from_str(&Bundle::play_json(&json, "", "").unwrap()).unwrap();
+    assert_eq!(out["sticks"][0][0], "voice_voice.ratio");
+}
+
+/// catpope's core rig: left = the voice's ratio / index, right = the melody's spread / the drone's pitch
+#[test]
+fn catpopes_core_rig_has_sensible_sticks() {
+    let p = Bundle::core("character.catpope").unwrap().unwrap().play(None, None).unwrap();
+    assert_eq!(p.sticks, [["voice_voice.ratio", "voice_voice.index"], ["voice_melody.spread", "drone_drone.freq"]]);
+    let burner = Bundle::core("item.incense_burner").unwrap().unwrap().play(None, None).unwrap();
+    assert!(burner.sticks[0][0].starts_with(|c: char| c.is_alphabetic()), "derived from its knobs: {:?}", burner.sticks);
+}
+
 #[test]
 fn a_mood_changes_what_the_page_gets() {
     let b = bundle();

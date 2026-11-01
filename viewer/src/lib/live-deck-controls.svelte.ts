@@ -19,7 +19,7 @@ export class DeckControlsState {
 	/** #228: a Gamepad API pad on the two sticks and the selection (A cycles it) */
 	private pad: PadSticks;
 
-	constructor(private readonly specs: Record<string, Spec>) {
+	constructor(private specs: Record<string, Spec>) {
 		this.pad = new PadSticks(
 			{
 				stickDown: (side) => this.hands?.stickDown(side),
@@ -34,6 +34,14 @@ export class DeckControlsState {
 	poll() {
 		if (!this.hands) return;
 		this.pad.poll(typeof navigator !== 'undefined' && navigator.getGamepads ? navigator.getGamepads() : []);
+	}
+
+	/** #191: the deck's knobs changed (a rig's, or the fixed patch's again) – the sticks and the selection follow */
+	useParams(specs: Record<string, Spec>, sticks: [string, string][] | null) {
+		this.specs = specs;
+		this.hands?.useParams(specs, sticks);
+		this.selection = this.hands?.selection ?? '';
+		this.tick++;
 	}
 
 	/** the panel's line: what the sticks drive now */
