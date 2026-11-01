@@ -297,13 +297,13 @@ up to 300 ms late it plays at once, later it applies the state but skips the fla
 
 **Conductor → relay** (state is authoritative, the relay only routes, tallies and remembers):
 `state { row, slice, vars, inventory? }` (on every change; folded into the snapshot) · `cue { id, actions }` (the relay
-splits actions per outlet → `to`) · `vote.open { vote, options, rule, seconds, groups }` · `vote.close { vote,
+splits actions per outlet → `to`) · `vote.open { vote, options, rule, n?, seconds, fallback?, groups?, show?, question?, labels? }` (`question` / `labels` = locale maps: a phone shows its device's language; the conductor sees the vote open too) · `vote.hold { vote, hold }` (#231: the countdown stops, votes still count; a held vote does not close when all have voted) · `vote.close { vote,
 result?, override? }` · `assign { client, group }` · `panic { black?, stop? }` · `media.preload { outlet, items: [{ id,
 url | set + spot + mode }] }` (#186; an output answers `media.ready { outlet, ready, missing, why? }` → the conductor).
 
 **Relay → clients**: `snapshot` (on join / reconnect: row, the current cell per outlet for this client, open vote, last
 instruction per group) · `cell { outlet, cell }` (row change) · `cue`, `say`, `line`, `fx`, `colour` · `vote.open`,
-`vote.tally { counts }` (to the conductor every 250 ms; to the audience only if the vote shows it) · `vote.result` ·
+`vote.tally { counts, voters, left, paused?, groups?, expected? }` (to the conductor every 250 ms with the counts per group and the connected voting devices; to a voter only if the vote shows it AND only after that voter has voted) · `vote.result { …, groups? }` (a vote closes at its time, when every connected voter has voted, when a `first` option reaches n, or by the conductor) ·
 `presence { groups: { id: n }, ready: [...] }` (to the conductor).
 
 **Decks → relay** (#188): `deck.graph { nodes, links, character?, size?, moods?, expose? }` (a deck's being; kept per
