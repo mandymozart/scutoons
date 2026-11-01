@@ -1,0 +1,20 @@
+# deck-events (#236, research/EVENTS.md): generators that talk in events – the contract (Event, Time, the name
+# dictionary with domains, the Generator trait), the event graph (no zero-delay cycles, delayed edges, per-edge caps, a
+# hop limit), real-time events at frame offsets on deck-core's tempo map, the first generators and the gate_cv bridge.
+# Platform-free (native + wasm32); encapsulated – the stage, the rigs and the being don't depend on it yet (§10).
+[package]
+name = "deck-events"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+deck-core = { workspace = true, features = ["tempo"] }
+# patch.rs: a patch (generators, edges, the output, the knobs) read from a node's TOML / a rig's JSON
+serde = { workspace = true }
+toml = { workspace = true }
+# adapters/: JSON in (the story's events, the relay's moments), the event's JSON out; protocol – the relay's envelope
+serde_json = { workspace = true }
+protocol = { workspace = true }

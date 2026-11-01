@@ -137,6 +137,7 @@ fn conductor_only(m: &Message) -> bool {
             | Message::Line(_)
             | Message::Fx(_)
             | Message::Colour(_)
+            | Message::Story(_)
             | Message::Device(_)
             | Message::SceneSync(_)
     )
@@ -447,6 +448,7 @@ impl Session {
                 | Message::Line(_)
                 | Message::Fx(_)
                 | Message::Colour(_)
+                | Message::Story(_)
                 | Message::Panic(_)
                 | Message::Device(_)
         );
@@ -474,7 +476,7 @@ impl Session {
                 }
                 self.publish(id, e, now);
             }
-            Message::Say(p) | Message::Line(p) | Message::Fx(p) | Message::Colour(p) => {
+            Message::Say(p) | Message::Line(p) | Message::Fx(p) | Message::Colour(p) | Message::Story(p) => {
                 let outlet = outlet_of(p);
                 if let (Message::Say(p), Some(o)) = (&e.message, &outlet) {
                     self.say.insert(o.clone(), p.clone());

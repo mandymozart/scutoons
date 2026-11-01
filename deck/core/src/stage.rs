@@ -29,6 +29,7 @@ pub const STAGE_MODULES: &[StageModule] = &[
         &["internal", "relay"],
     ),
     module("space", "the 3D space: a set's glTF and the deck's being (#188)", &["space"], &[]),
+    module("events", "generators that talk in events (#236, deck-events): `walk` – a seeded melody, `events` – a patch of generators, as seq's cv", &["walk", "events"], &[]),
     module("sync", "the scenes' sets (3D) and portraits from the API into the deck's cache, offline from it (#195)", &[], &[]),
     module("chapter", "a chapter from scutoons.com: its slices and its music, cached (library API)", &["chapter", "chapter_music"], &[]),
     module("live", "a Live outlet: the relay's cells for this deck's outlet, drawn natively; show media preloaded with the deck token (#186)", &["outlet"], &[]),

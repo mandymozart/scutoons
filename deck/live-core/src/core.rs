@@ -6,9 +6,18 @@ use deck_core::analysis::{Analyzer, SPECTRUM};
 use deck_core::batch::BatchGraph;
 use deck_core::limiter::Limiter;
 use deck_core::SceneDef;
+use crate::walks::{self, Walk};
+
+/// the longest sub-block (frames) the render runs while a walk glides
+const GLIDE_BLOCK: usize = 64;
 
 pub struct Core {
     graph: BatchGraph,
+    /// the scene's walks (#236): their knobs are the load table's rows after the batch nodes
+    walks: Vec<Walk>,
+    /// this render's notes (frame offset, pitch, glide frames, the walk), reused
+    notes: Vec<(usize, f32, u32, usize)>,
+    scratch: Vec<(usize, f32, u32)>,
     analyzer: Analyzer,
     /// the output's soft cap (#188), last before the worklet
     limiter: Limiter,
@@ -17,11 +26,22 @@ pub struct Core {
 }
 
 impl Core {
-    /// A scene in deck/stage's TOML format (the edge: text, once). Only the batch kinds (lfo, smooth, mul, add, osc, fm).
+    /// A scene in deck/stage's TOML format (the edge: text, once). Only the batch kinds (lfo, smooth, mul, add, osc, fm),
+    /// plus `[[walk]]`s that play a batch input (walks.rs).
     pub fn load(scene_toml: &str, rate: f32) -> Result<Core, String> {
         let scene = SceneDef::parse(scene_toml)?;
         let graph = BatchGraph::build(&scene, rate)?;
-        Ok(Core { graph, analyzer: Analyzer::new(rate, 0.25), limiter: Limiter::new(rate), audio: Vec::new(), frame: vec![0.0; FRAME] })
+        let walks = walks::parse(scene_toml, &graph, rate)?;
+        Ok(Core {
+            graph,
+            walks,
+            notes: Vec::with_capacity(256),
+            scratch: Vec::with_capacity(256),
+            analyzer: Analyzer::new(rate, 0.25),
+            limiter: Limiter::new(rate),
+            audio: Vec::new(),
+            frame: vec![0.0; FRAME],
+        })
     }
 
     /// The load table, the one JSON that leaves the core: `{"nodes":[{"id","kind","ports":[…]}]}` – the host resolves
@@ -41,13 +61,15 @@ impl Core {
             o.push('"');
             o
         };
+        let row = |id: &str, kind: &str, ports: &[&str]| {
+            let ports: Vec<String> = ports.iter().map(|p| q(p)).collect();
+            format!("{{\"id\":{},\"kind\":{},\"ports\":[{}]}}", q(id), q(kind), ports.join(","))
+        };
         let nodes: Vec<String> = self
             .graph
             .nodes()
-            .map(|(id, kind, ports)| {
-                let ports: Vec<String> = ports.iter().map(|p| q(p)).collect();
-                format!("{{\"id\":{},\"kind\":{},\"ports\":[{}]}}", q(id), q(kind), ports.join(","))
-            })
+            .map(|(id, kind, ports)| row(id, kind, ports))
+            .chain(self.walks.iter().map(|w| row(&w.id, w.kind, w.ports)))
             .collect();
         format!("{{\"nodes\":[{}]}}", nodes.join(","))
     }
@@ -66,6 +88,15 @@ impl Core {
     /// A float vector onto node `node`'s inputs: the components land on consecutive inputs from `port`, the ones past
     /// the node's last input are dropped (the node maps what it has, #189).
     pub fn send(&mut self, mode: Mode, node: usize, port: usize, amount: f32, values: impl Iterator<Item = f32>) -> Result<(), String> {
+        let batch = self.graph.nodes().count();
+        if node >= batch {
+            // a walk's knob (its params are set, not blended)
+            let w = self.walks.get_mut(node - batch).ok_or_else(|| format!("wire: no node {node}"))?;
+            for (k, v) in values.enumerate().take(w.ports.len().saturating_sub(port)) {
+                w.set(port + k, v);
+            }
+            return Ok(());
+        }
         let ports = self.graph.ports(node).map(<[_]>::len).ok_or_else(|| format!("wire: no node {node}"))?;
         let amount = mode.amount(amount);
         for (k, v) in values.enumerate().take(ports.saturating_sub(port)) {
@@ -87,7 +118,42 @@ impl Core {
     /// sample also goes to the analyzer.
     pub fn render(&mut self, frames: usize) -> &[f32] {
         self.audio.resize(frames, 0.0);
-        self.graph.render(&mut self.audio);
+        // the walks' notes in these frames: the render is split at each, its target glided to the note's pitch – while
+        // a glide runs also every GLIDE_BLOCK frames, the target set at the start of each sub-block (the batch graph
+        // ramps within a block)
+        self.notes.clear();
+        for (wi, w) in self.walks.iter_mut().enumerate() {
+            self.scratch.clear();
+            w.notes(frames, &mut self.scratch);
+            self.notes.extend(self.scratch.iter().map(|&(f, p, g)| (f, p, g, wi)));
+        }
+        self.notes.sort_unstable_by_key(|n| n.0);
+        let (mut at, mut next) = (0, 0);
+        loop {
+            while next < self.notes.len() && self.notes[next].0.min(frames) <= at {
+                let (_, pitch, glide, wi) = self.notes[next];
+                self.walks[wi].begin(pitch, glide);
+                next += 1;
+            }
+            for w in &mut self.walks {
+                if let Some(freq) = w.take() {
+                    let (node, port) = w.target();
+                    self.graph.send(node, port, freq, 1.0);
+                }
+            }
+            if at >= frames {
+                break;
+            }
+            let mut end = self.notes.get(next).map_or(frames, |n| n.0.min(frames));
+            if self.walks.iter().any(Walk::gliding) {
+                end = end.min(at + GLIDE_BLOCK);
+            }
+            self.graph.render(&mut self.audio[at..end]);
+            for w in &mut self.walks {
+                w.advance(end - at);
+            }
+            at = end;
+        }
         self.limiter.process_mono(&mut self.audio);
         for &x in &self.audio {
             self.analyzer.push(x);
@@ -216,4 +282,81 @@ scale = 2.0
         assert_eq!(c.apply(&[1, 0, 0]), Err("wire: a truncated header at byte 0".into()));
         assert!(Core::load("[[node]]\nid = \"f\"\nkind = \"fft\"\n", 48_000.0).err().unwrap().contains("does not batch"));
     }
+
+    /// #236: a walk plays the voice's freq – the same seed, the same samples; its knobs are table rows
+    const WALK: &str = "[[node]]\nid = \"voice\"\nkind = \"fm\"\nfreq = 147.0\nratio = 1.5\nindex = 2.0\ngain = 0.2\n\
+        [[walk]]\nid = \"melody\"\ntarget = \"voice.freq\"\nseed = 42\nspread = 1.0\nrate = 4.0\nbpm = 120.0\n";
+
+    fn play(c: &mut Core, blocks: usize) -> Vec<f32> {
+        let mut all = Vec::new();
+        for _ in 0..blocks {
+            c.step(128.0 / 48_000.0);
+            all.extend_from_slice(c.render(128));
+        }
+        all
+    }
+
+    #[test]
+    fn a_walk_plays_its_voice_and_its_knobs_are_table_rows() {
+        let mut a = Core::load(WALK, 48_000.0).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&a.table_json()).unwrap();
+        assert_eq!(v["nodes"][1]["id"], "melody");
+        assert_eq!(v["nodes"][1]["kind"], "walk");
+        assert_eq!(v["nodes"][1]["ports"], serde_json::json!(["spread", "rate", "glide"]));
+        let one = play(&mut a, 750);
+        assert!(one.iter().any(|x| x.abs() > 0.01), "it sounds");
+        let two = play(&mut Core::load(WALK, 48_000.0).unwrap(), 750);
+        assert_eq!(one, two, "one seed, the same samples");
+        // the spread to 0 through a wire record (node 1 = the walk, port 0 = spread): the base held, another sound
+        let mut held = Core::load(WALK, 48_000.0).unwrap();
+        let mut b = vec![];
+        encode_send(&mut b, Mode::Force, 1, 0, 1.0, &[0.0]);
+        assert_eq!(held.apply(&b), Ok(1));
+        assert_ne!(play(&mut held, 750), one, "spread 0 holds the base");
+        assert!(Core::load(&WALK.replace("voice.freq", "voice.nope"), 48_000.0).is_err(), "a target must be an input");
+    }
+
+    /// #236: a note's glide shapes the sound (glide 0 jumps, 1 glides the whole note) and the same settings, the same
+    /// samples
+    #[test]
+    fn a_glide_changes_the_sound_and_the_same_settings_sound_the_same() {
+        let scene = |glide: f32| format!("{WALK}glide = {glide}\n");
+        let with = |glide: f32| play(&mut Core::load(&scene(glide), 48_000.0).unwrap(), 750);
+        let (jump, slide) = (with(0.0), with(1.0));
+        assert!(jump.iter().any(|x| x.abs() > 0.01) && slide.iter().any(|x| x.abs() > 0.01));
+        assert_ne!(jump, slide, "a glide is another sound than a jump");
+        assert_eq!(slide, with(1.0), "two cores, the same settings, the same samples");
+        assert_eq!(jump, with(0.0));
+    }
+
+    /// #236: an `[[events]]` host – an arp on a walk – plays its voice; its knobs a–d are table rows
+    const EVENTS: &str = "[[node]]\nid = \"voice\"\nkind = \"fm\"\nfreq = 147.0\nratio = 2.0\nindex = 1.0\ngain = 0.2\n\
+        [[events]]\nid = \"arp\"\ntarget = \"voice.freq\"\nbpm = 120.0\nout = \"arp.notes\"\nknobs = [\"walk.spread\", \"arp.rate\"]\n\
+        generator = [{ id = \"walk\", kind = \"random_walk\", seed = 5, rate = 0.5, spread = 0.6 }, \
+        { id = \"arp\", kind = \"arp\", ratios = [1.0, 1.2, 1.5], octaves = 2, mode = \"updown\", rate = 4.0 }]\n\
+        edge = [{ from = \"walk.notes\", to = \"arp.notes\" }]\n";
+
+    #[test]
+    fn an_events_host_plays_its_patch_and_its_knobs_are_table_rows() {
+        let mut a = Core::load(EVENTS, 48_000.0).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&a.table_json()).unwrap();
+        assert_eq!((v["nodes"][1]["id"].as_str(), v["nodes"][1]["kind"].as_str()), (Some("arp"), Some("events")));
+        assert_eq!(v["nodes"][1]["ports"], serde_json::json!(["a", "b", "c", "d"]));
+        let one = play(&mut a, 750);
+        assert!(one.iter().any(|x| x.abs() > 0.01), "it sounds");
+        assert_eq!(one, play(&mut Core::load(EVENTS, 48_000.0).unwrap(), 750), "one seed, the same samples");
+        // knob b (the arp's rate) through a record; NaN on a (unset) leaves the patch's spread
+        let mut fast = Core::load(EVENTS, 48_000.0).unwrap();
+        let mut b = vec![];
+        encode_send(&mut b, Mode::Force, 1, 0, 1.0, &[f32::NAN, 8.0]);
+        assert_eq!(fast.apply(&b), Ok(1));
+        assert_ne!(play(&mut fast, 750), one, "knob b: eight steps a beat");
+        // a starting value in the entry: the same as the record
+        let started = EVENTS.replace("bpm = 120.0\n", "bpm = 120.0\nb = 8.0\n");
+        let mut by_record = Core::load(EVENTS, 48_000.0).unwrap();
+        by_record.apply(&b).unwrap();
+        assert_eq!(play(&mut Core::load(&started, 48_000.0).unwrap(), 750), play(&mut by_record, 750));
+        assert!(Core::load(&EVENTS.replace("updown", "sideways"), 48_000.0).err().is_some_and(|e| e.contains("unknown mode")));
+    }
+
 }

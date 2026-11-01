@@ -1,0 +1,145 @@
+[
+  {
+    "event": {
+      "data": {
+        "character": "catpope",
+        "mood": "happy",
+        "text": "Hallo"
+      },
+      "name": "story.showMessage",
+      "source": "story:neutral/1",
+      "start": "now"
+    },
+    "label": "the chapter's slice event: a trigger, text and mood in data",
+    "source": "story:neutral/1",
+    "story": {
+      "params": {
+        "character": "catpope",
+        "mood": "happy",
+        "text": "Hallo"
+      },
+      "trigger": {
+        "type": "intersect"
+      },
+      "type": "showMessage"
+    }
+  },
+  {
+    "event": {
+      "data": {
+        "character": "catpope",
+        "text": {
+          "de": "Hallo",
+          "en": "Hello"
+        }
+      },
+      "id": "m1",
+      "name": "story.showMessage",
+      "start": "now"
+    },
+    "label": "a plain message with a locale map; wait is the runner's",
+    "source": null,
+    "story": {
+      "id": "m1",
+      "params": {
+        "character": "catpope",
+        "text": {
+          "de": "Hallo",
+          "en": "Hello"
+        },
+        "wait": true
+      },
+      "type": "showMessage"
+    }
+  },
+  {
+    "event": {
+      "data": {
+        "effect": "flash"
+      },
+      "dur": {
+        "seconds": 1.5
+      },
+      "name": "story.fx",
+      "props": {
+        "delay": 200.0,
+        "intensity": 0.5
+      },
+      "start": "now"
+    },
+    "label": "numbers are props, the duration is the event's length",
+    "source": null,
+    "story": {
+      "params": {
+        "delay": 200,
+        "duration": 1500,
+        "effect": "flash",
+        "intensity": 0.5
+      },
+      "type": "fx"
+    }
+  },
+  {
+    "event": {
+      "name": "story.hideMessage",
+      "start": "now"
+    },
+    "label": "a type without params",
+    "source": null,
+    "story": {
+      "type": "hideMessage"
+    }
+  },
+  {
+    "event": null,
+    "label": "the runner keeps choices",
+    "source": null,
+    "story": {
+      "type": "showChoices"
+    }
+  },
+  {
+    "event": null,
+    "label": "the runner keeps control flow",
+    "source": null,
+    "story": {
+      "params": {
+        "target": "x"
+      },
+      "type": "jumpTo"
+    }
+  },
+  {
+    "event": {
+      "data": {
+        "effect": "x",
+        "g": 7
+      },
+      "name": "story.fx",
+      "props": {
+        "a": 1.0,
+        "b": 2.0,
+        "c": 3.0,
+        "d": 4.0,
+        "e": 5.0,
+        "f": 6.0
+      },
+      "start": "now"
+    },
+    "label": "more numbers than slots: the rest goes to data",
+    "source": null,
+    "story": {
+      "params": {
+        "a": 1,
+        "b": 2,
+        "c": 3,
+        "d": 4,
+        "e": 5,
+        "effect": "x",
+        "f": 6,
+        "g": 7
+      },
+      "type": "fx"
+    }
+  }
+]

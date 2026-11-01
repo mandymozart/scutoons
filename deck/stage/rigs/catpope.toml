@@ -1,0 +1,86 @@
+# catpope's core rig (#191, research/INSTRUMENTS.md §5 "Core"): the phone deck's test patch as data – the cathedral
+# voice (FM, its melody a seeded walk, #236) and the drone with its fifth. The incense left
+# the voice: it is the incense burner's own rig (incense_burner.toml, #210). A rig bundle (deck-space rig/bundle.rs):
+# `[rig]` + `[[instrument]]` + `[[preset]]`; deck-space includes it (`rig::bundle::CORE`).
+
+[rig]
+subject = "character.catpope"
+track = [
+  { id = "voice", instrument = "cathedral_voice", preset = "cathedral_voice.base" },
+  { id = "drone", instrument = "drone", preset = "drone.base" },
+]
+# the moods the energy ladder walks (being.rs MOODS) and sad from the feelings
+[rig.moods.thinking]
+presets = { voice = "cathedral_voice.low" }
+[rig.moods.sad]
+presets = { voice = "cathedral_voice.low" }
+values = { "drone:drone.gain" = 0.14 }
+[rig.moods.happy]
+presets = { voice = "cathedral_voice.bright" }
+[rig.moods.laughing]
+presets = { voice = "cathedral_voice.bright" }
+values = { "voice:voice.index" = 4.0 }
+[rig.moods.surprised]
+presets = { voice = "cathedral_voice.bright" }
+values = { "voice:voice.index" = 6.0, "drone:drone.gain" = 0.05 }
+
+[[instrument]]
+id = "cathedral_voice"
+kind = "voice"
+name = { en = "Cathedral voice", de = "Kathedralenstimme" }
+out = "voice"
+# the melody (#236): a seeded walk on a continuous scale around the voice's base pitch – spread 0 = the held drone
+# (the phone patch's default), more = wider; on the stage it follows the tempo clock, in the browser its own 84 bpm
+node = [
+  { id = "voice", kind = "fm", freq = 147.0, ratio = 1.5, index = 2.0, gain = 0.16 },
+  { id = "melody", kind = "walk", seed = 84, base = 147.0, octaves = 2.0, bpm = 84.0, spread = 0.0, rate = 2.0, glide = 0.5 },
+]
+link = [{ from = "melody.cv", to = "voice.cv" }]
+expose = [
+  { path = "voice.ratio", label = { en = "FM ratio", de = "FM-Verhältnis" }, range = [0.5, 4.0] },
+  { path = "voice.index", label = { en = "FM index", de = "FM-Index" }, range = [0.0, 8.0] },
+  { path = "voice.gain", label = { en = "voice", de = "Stimme" }, range = [0.0, 0.3] },
+  { path = "melody.spread", label = { en = "spread", de = "Weite" } },
+  { path = "melody.rate", label = { en = "steps / beat", de = "Schritte / Schlag" } },
+  { path = "melody.glide", label = { en = "glide", de = "Gleiten" } },
+]
+
+[[instrument]]
+id = "drone"
+kind = "pad"
+name = { en = "Drone", de = "Bordun" }
+out = "mix"
+node = [
+  { id = "drone", kind = "osc", freq = 55.0, gain = 0.1 },
+  { id = "fifth", kind = "osc", freq = 82.5, gain = 0.03 },
+  { id = "mix", kind = "mixer" },
+]
+link = [{ from = "drone", to = "mix.in1" }, { from = "fifth", to = "mix.in2" }]
+expose = [
+  { path = "drone.freq", label = { en = "drone pitch", de = "Bordun-Tonhöhe" }, range = [30.0, 220.0] },
+  { path = "drone.gain", label = { en = "drone", de = "Bordun" }, range = [0.0, 0.3] },
+]
+
+[[preset]]
+id = "cathedral_voice.base"
+instrument = "cathedral_voice"
+tags = ["cathedral"]
+
+[[preset]]
+id = "cathedral_voice.bright"
+instrument = "cathedral_voice"
+parent = "cathedral_voice.base"
+tags = ["cathedral", "happy"]
+values = { "voice.ratio" = 3.0 }
+
+[[preset]]
+id = "cathedral_voice.low"
+instrument = "cathedral_voice"
+parent = "cathedral_voice.base"
+tags = ["cathedral", "sad"]
+values = { "voice.ratio" = 0.5, "voice.index" = 1.0 }
+
+[[preset]]
+id = "drone.base"
+instrument = "drone"
+tags = ["cathedral"]

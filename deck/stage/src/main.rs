@@ -302,6 +302,9 @@ struct Show {
     /// the glitch indicator (#208) and its log (drained by the frame thread)
     glitches: Option<Arc<audio::glitch::Glitches>>,
     glitch_log: Option<rtrb::Consumer<audio::glitch::Event>>,
+    /// #236: the hosts' sequencer and dispatcher threads (a scene with a `walk` / `events` node), their drop counters
+    #[cfg(feature = "events")]
+    events: Option<audio::dispatch::Running>,
     /// the scene's space node (#188): the camera, the being, the pointer
     space: Option<render::Space>,
     /// the Live outlet (#186): its threads, the space targets for the space node; or why it doesn't play
@@ -498,6 +501,15 @@ impl Show {
         let reduction = handles.as_ref().map(|h| h.reduction.clone());
         let glitches = handles.as_ref().map(|h| h.glitches.clone());
         let glitch_log = handles.as_mut().and_then(|h| h.glitch_log.take());
+        // #236: the hosts' generators on the sequencer thread, the dispatcher – before the first callback needs them
+        #[cfg(feature = "events")]
+        let events = match handles.as_mut().map(|h| h.events.start()).transpose() {
+            Ok(r) => r.flatten(),
+            Err(e) => {
+                tracing::warn!("events: no thread ({e}) – the generators stay silent");
+                None
+            }
+        };
         let meters = handles.as_ref().and_then(|h| h.meters.clone());
         #[cfg(feature = "space")]
         let space = graph.first(graph::Kind::Space).map(|n| {
@@ -588,6 +600,8 @@ impl Show {
             reduction,
             glitches,
             glitch_log,
+            #[cfg(feature = "events")]
+            events,
             space,
             #[cfg(feature = "live")]
             live,
@@ -1182,6 +1196,14 @@ impl App {
         }
     }
 
+    /// #236: events dropped on the way since the scene started (a scene with hosts)
+    fn events_dropped(&self) -> Option<u64> {
+        #[cfg(feature = "events")]
+        return self.show.events.as_ref().map(|e| e.counters.dropped());
+        #[cfg(not(feature = "events"))]
+        None
+    }
+
     /// #209: the collapsed bar's items – FPS, the frame's CPU, the audio (glitches in 10 minutes, the DSP load, the
     /// limiter), the relay, the GPU backend; red where a number is out of the green
     fn bar_items(&self) -> Vec<hud::Item> {
@@ -1285,6 +1307,11 @@ impl App {
             lines.push(format!("Q {} {render:.2}X OF {} {} F4 SET", g.level().name(), g.ceiling().name(), if g.auto() { "AUTO" } else { "FIXED" }).to_uppercase());
         }
         lines.extend(audio.into_iter().filter(|l| !l.is_empty()));
+        // #236: the hosts' events – delivered by the dispatcher, lost on the way (capped, hops, refused, late)
+        #[cfg(feature = "events")]
+        if let Some(c) = self.show.events.as_ref().map(|e| &e.counters) {
+            lines.push(format!("EVENTS IN {} DROP {}", c.routed.load(std::sync::atomic::Ordering::Relaxed), c.dropped()));
+        }
         lines.extend([self.tempo_line(), self.source_line()]);
         // #211: what the outputs drive, or why they are off
         #[cfg(feature = "outputs")]
@@ -1362,6 +1389,11 @@ impl App {
                 format!(" glitches={} (late {late} long {long} underrun {under}) buffer={} lead={}", g.count(), g.device_frames(), g.lead())
             })
             .unwrap_or_default();
+        // #236: events lost on the way (capped, hops, refused, late)
+        let glitches = match self.events_dropped() {
+            Some(n) => format!("{glitches} events_dropped={n}"),
+            None => glitches,
+        };
         format!(
             "deck-stage: frames={} avg_fps={:.1} frame_ms avg={:.2} p99={:.2} cpu_ms avg={:.2} first_frame_ms={:.0} adapter={adapter} quality={} audio={}{glitches} modules={}{error}",
             self.stats.frames,

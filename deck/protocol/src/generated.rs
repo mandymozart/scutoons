@@ -115,6 +115,8 @@ pub enum Message {
 	Fx(Loose),
 	#[serde(rename = "colour")]
 	Colour(Loose),
+	#[serde(rename = "story")]
+	Story(Loose),
 	#[serde(rename = "presence")]
 	Presence(Presence),
 	#[serde(rename = "ready")]
@@ -170,6 +172,7 @@ impl Message {
 			Message::Line(_) => "line",
 			Message::Fx(_) => "fx",
 			Message::Colour(_) => "colour",
+			Message::Story(_) => "story",
 			Message::Presence(_) => "presence",
 			Message::Ready(_) => "ready",
 			Message::Pickup(_) => "pickup",

@@ -1,0 +1,22 @@
+# The incense burner's core rig (#210, #191): the pink-noise incense that was part of the phone deck's patch, now the
+# object's own sound. Silent until its gain is raised (owner 2026-10-31: the X1's cathedral already hisses its own).
+
+[rig]
+subject = "item.incense_burner"
+track = [{ id = "air", instrument = "incense", preset = "incense.base" }]
+
+[[instrument]]
+id = "incense"
+kind = "texture"
+name = { en = "Incense", de = "Weihrauch" }
+out = "hiss"
+node = [{ id = "hiss", kind = "noise", cutoff = 1800.0, gain = 0.0, color = "pink" }]
+expose = [
+  { path = "hiss.cutoff", label = { en = "cutoff", de = "Filter" }, range = [150.0, 8000.0] },
+  { path = "hiss.gain", label = { en = "incense", de = "Weihrauch" }, range = [0.0, 0.15] },
+]
+
+[[preset]]
+id = "incense.base"
+instrument = "incense"
+tags = ["cathedral"]
