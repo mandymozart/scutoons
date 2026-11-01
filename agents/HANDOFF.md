@@ -30,57 +30,60 @@ orchestrator ≈ $445 list over 2026-10-29 … 11-01, `agents/costs.json`), so s
 
 ## Tools outside the repository
 - `C:\Development\tools\costs\transcript_cost.py`: the cost of a local session.
-- `.claude/launch.json` (gitignored): `viewer-lan`, `viewer` (8000, local API), `api`, `cdn`. After
-  `npm run dev:launch-json`, add `viewer-lan` again (`node scripts/dev/lan.mjs`, port 4100).
+- `.claude/launch.json` (gitignored): `viewer-lan`, `viewer` (8000, local API), `api`, `cdn`, and `viewer-prodapi`
+  (4101: the viewer over plain http against the production API – the in-app browser refuses the LAN mode's self-signed
+  certificate, and `viewer` needs the local API + MariaDB; its script lives in a session scratchpad, so after
+  `npm run dev:launch-json` add it again: `node <script>` that spawns `npm run dev -w viewer -- --port 4101` with
+  `VITE_API_URL=https://api.scutoons.com/api`, `VITE_CDN_URL=https://cdn.scutoons.com`). Add `viewer-lan` again too.
+- The workspace rules moved to `C:\Developmentgents\ORCHESTRATION.md` (2026-11-01, + §11 "Usage": sizes S/M/L with
+  ceilings, a $150 shift budget, the orchestrator's own 200 turns / $100, every title `#N`); guides in
+  `C:\Developmentgents\guides\`; cost booking `python C:\Developmentgents\costsdd_entry.py <ledger>
+  <transcript.jsonl> --issues N --role worker` (`--role orchestrator --per-day` for yourself); the report
+  `python C:\Developmentgents\costseport.py`.
 
-## State (2026-11-01, ~01:00)
-- `main` pushed at 809d3ad2. This includes:
-  - the relay rework (#223)
-  - the sticks (#225)
-  - the zoom glide (#224 part 1)
-  - #208 audio
-  - the local CI, the LAN mode
-  - the REALTIME-STATE research
-- Live at /live/deck: #218 post stack, #219 controls UI, #208 lead.
-- **Running tonight:**
-  - **#220** quality governor: local session "q220-governor" (`local_02e5ae3e-3349-43ef-8b9d-d16c78a2206d`, Opus medium), committing on `main`, no push. Its first commit, 55df2990 (`quality.rs`, `deck.quality` in the protocol), is in; it was still working at 01:00.
-  - **#224** navigation around the character: cloud, branch `cloud/224-navigation` → PR.
-  - **#211** MIDI / DMX out, the clock-synced strobe: cloud, branch `cloud/211-outputs` → PR.
-- Cloud tasks: #224 = `task_4df3a1b7`, #211 = `task_a6fa1dd7`. They send no note when they end, so check their PRs.
-- The previous orchestrator session ("Arch Linux cyberdecks audio/video suite", `ffc3b156-…`) was archived on the
-  owner's word (its context was too big). Its transcript stays; never delete transcripts.
-- **Board:**
-  - Deployed: #204, #209
-  - Done: #222
-  - In progress: #220, #224, #211
-  - Backlog: #208 (X1 / ASIO / browser checks open), #223 (netem run open), #225 (stick assignment list), #213
-  - Proposals: #221 several conductors, #216 (local runner partly done)
+## State (2026-11-01, ~10:45)
+- `main` pushed at 809d3ad2; **9 commits since are not pushed** (`git log origin/main..main`):
+  - #220 quality governor: 55df2990 · 8db51ef3 · d0b1165c · 3f10be0f (the local worker, done, its comment on the issue).
+  - #224 navigation: PR #226 merged as 31c6e414 (clean).
+  - #211 outputs (MIDI / DMX / strobe): PR #227 merged as 5a1e583e + be72c665 (the merge's two fixes: the stage link's
+    `Out::Quality` arm's `continue`, clippy 1.99 `manual_slice_fill` in deck-outputs).
+  - cbd8373b HANDOFF + costs; this session's HANDOFF / costs commit.
+- Green on the whole: `npm run deck:ci` (release build, 424+ tests, clippy, wasm32), `npm run check -w viewer` (156 tests),
+  the wasm rebuilt into `viewer/static/live/` (git-ignored – production builds it on deploy).
+- Seen in the in-app browser (viewer-prodapi, WebGL2): the quality bar + panel row, the governor stepping down under
+  a throttled tab; tap → zoom toward the knob, tap empty → the being framed. **At the portrait only the core's six
+  knobs showed** – the folded knobs may sit inside the head mesh (#224 comment: the S22 check).
+- The three PRs' branches (`wip/brave-maxwell-rn7qch`, `wip/keen-hypatia-6pd4ph`) stay on origin until the push;
+  PR #217 (#191 design) still waits for the owner. The cloud sessions #224 / #211 are idle (ListAgents).
+- Costs: the three workers are in `agents/costs.json` (#220 ≈ $12.02 local; #224 / #211 cloud: no estimate in their
+  reports – read from claude.ai → Usage); this orchestrator session's entry is per day (`add_entry.py --per-day`).
+- No servers running (viewer-prodapi stopped; ports 4100–4199, 7000–7099, 8000, 9000 free). OSCT's orchestrator today:
+  "#243 Orchestrator: Toggle switch merge" (`local_6ae84e2b-…`), idle, no local workers; cloud credit 50/50.
+- **Board:** Review on staging: #220, #224, #211 (+ the older ones). In progress: nothing of this shift.
+  Backlog (owner's order): #208, #223, #225, #213. Proposals: #221, #216.
 
 ## Next
-1. **Morning review (Opus):**
-   - #220: the local commits.
-   - #224 and #211: the cloud PRs. For each, `npm run deck:ci` and the viewer check, then merge with `--no-ff` locally.
-   - Add the cost entries.
-   - Screenshots of `/live/deck` (run `npm run dev:lan` or the browser preview on 41xx).
-   - Comment on each issue with a cost line, then set the board.
-2. **#213** camera moves (and the conductor's shots, #189): only after #224, because both touch `camera.rs`.
-3. **#223:** a real `tc netem` run on Linux (X1 or WSL with a slot). If the tail stays, plan the WebTransport
-   datagram side channel.
-4. **#225:** the list of which parameters fit which stick axis; hue and glow come off the sticks. The rule for which
-   stick a selection goes to.
-5. Later queue:
-   - #203 patch editor
-   - #210 scene objects
-   - #212 input sources
-   - #205 audience
-   - #206 security
-   - #207 cloth
-   - #215 shadows
-   - #191 instruments (PR #217 waits for the owner)
+1. **The push** – only on the owner's word (bundled: 9 commits deploy the viewer's /live/deck with #220 + #224, the
+   v2 cathedral migration). After it: GitHub deck CI by hand if wanted (`deck.yml` workflow_dispatch), the deploy's
+   health, `/live/deck` on the S22 (the portrait's knobs, the glides, the quality row), the strobe on the Enttec.
+   Then close the three issues' open rests: #224 (the fold at the portrait if hidden on the S22 too), #211 (mapping UI,
+   Art-Net, conductor routing), #220 (X1 checks).
+2. **#213** camera moves (+ the conductor's shots #189): now unblocked (#224 is in); reuse the eased `goal` / `want`.
+   Size L (a new area in `camera.rs` + the overlay) → a cloud session the owner starts, Opus high, ceiling 300 turns / $60.
+3. **#223:** a real `tc netem` run on Linux (X1 or WSL with a slot). If the tail stays, the WebTransport datagram side
+   channel.
+4. **#225:** which parameters fit which stick axis; hue and glow off the sticks; the rule for the selection's stick.
+5. Later queue: #203 patch editor · #210 scene objects · #212 input sources · #205 audience · #206 security · #207 cloth ·
+   #215 shadows · #191 instruments (PR #217 waits for the owner).
+6. Every new brief: size + tier + ceiling (§11), the issue number in the session title, `add_entry.py` at the merge.
 
 ## Waiting for the owner
+- **The push** of the 9 commits (above), then the S22 / Enttec checks.
 - **PR #217** (instruments / presets design, #191): its 8 open questions; merge only with the owner.
 - **#208:** should the glitch warning also flash with the HUD off?
+- **A shift issue** for the orchestrator (§11.3 wants `#N` in every session title and ledger entry) – or keep listing the
+  merged issues per session, as this entry does.
 - **Owner steps:** bunny zone `lan.scutoons.com` + script + NS in KAS + BUNNY_API_KEY + run lan-cert workflow →
   pair the X1. The X1 partition install (#200). Clean up the stray CDN copies (Admin → Assets → Unused).
 - **#216:** the self-hosted Linux runner, yes or no; a look at the Deploy minutes.
+- The cloud workers' real cost for #224 / #211 (claude.ai → Settings → Usage) into `costs.json` (`billed`).
