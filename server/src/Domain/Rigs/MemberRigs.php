@@ -19,10 +19,19 @@ use stdClass;
  * - `member_rigs`: a member's variant of a factory rig (same subject) – other presets per track (the member's own too),
  *   more tracks, but only with instruments they hold: the factory rig's own (core) and those of the instrument items in
  *   their carrier bag (owned; `category: "instrument"` items, CatalogValidator).
- * The loaders and writes only – no HTTP route yet (saving settings from a deck is #258's Open).
+ * - Deriving (#270, preset.rs `PresetBook::derive`): needs the parent's `derive` right for how the member holds it
+ *   (`holds`); the child stores only the values that differ from the parent's folded ones and carries the parent's
+ *   rights and (unless given) tags. The routes: RigsController (session or the paired deck token, DeckTokenScope).
  */
 final class MemberRigs
 {
+    /** mod.rs `Rights::default`: lent = play + tweak, core = + derive, owned = all (owner decision open: #270, §8.4) */
+    public const DEFAULT_RIGHTS = [
+        'lent' => ['play', 'tweak'],
+        'owned' => ['play', 'tweak', 'derive', 'copy'],
+        'core' => ['play', 'tweak', 'derive'],
+    ];
+
     public function __construct(
         private readonly Database $db,
         private readonly CatalogStore $catalog,
@@ -35,7 +44,10 @@ final class MemberRigs
 
     /**
      * Stores a derivative: $data is a Preset without `id` (or with any – a new `m:<ulid>` is given), `parent` required,
-     * `instrument` = the parent's (filled in when left out). 422 invalid_preset { problems }. Returns the stored preset.
+     * `instrument` = the parent's (filled in when left out). Mirrors `PresetBook::derive`: 403 no_derive_right unless the
+     * parent's rights allow `derive` for a way the member holds it; `values` keeps only what differs from the parent's
+     * folded values (keys canonical); `rights` = the parent's (a derivative can't widen them – §8.4), `tags` the parent's
+     * unless given. 422 invalid_preset { problems }. Returns the stored preset.
      */
     public function savePreset(string $userId, stdClass $data): stdClass
     {
@@ -43,9 +55,18 @@ final class MemberRigs
         if (!is_string($parent) || $parent === '') throw self::invalid('invalid_preset', ['a member\'s preset derives from a parent (a preset id)']);
         $from = $this->preset($userId, $parent);
         if ($from === null) throw self::invalid('invalid_preset', ["unknown preset \"$parent\""]);
+        $holds = $this->holds($userId, $parent, $from);
+        if (array_filter($holds, fn(string $h) => self::allows($from->rights ?? null, $h, 'derive')) === []) {
+            $how = $holds === [] ? 'not held' : 'held ' . implode(' / ', $holds);
+            throw new ApiError(403, 'no_derive_right', "Preset $parent ($how) may not be derived from.", ['holds' => $holds]);
+        }
         $preset = clone $data;
         $preset->id = self::newId($this->clock);
         $preset->instrument ??= $from->instrument ?? null;
+        unset($preset->rights);
+        if (isset($from->rights)) $preset->rights = $from->rights;
+        if (!isset($preset->tags) && isset($from->tags)) $preset->tags = $from->tags;
+        if (isset($preset->values) && $preset->values instanceof stdClass) $preset->values = $this->changed($userId, $parent, $preset->values);
         $problems = RigValidator::preset(
             $preset,
             fn(string $i) => $this->validator->rigEntry('instruments', $i),
@@ -58,6 +79,51 @@ final class MemberRigs
         return $preset;
     }
 
+    /**
+     * How the member holds a preset (research/INSTRUMENTS.md §4) – what the server can know: **owned** = one of their own
+     * (`m:…`) or a preset of an instrument they hold as an item; **core** = a preset of an instrument a factory rig plays
+     * (what deck images ship). **lent** (a conductor's grant for one scene) never reaches the server.
+     * @return list<string> `owned`, `core`
+     */
+    public function holds(string $userId, string $id, stdClass $preset): array
+    {
+        $instrument = is_string($preset->instrument ?? null) ? $preset->instrument : '';
+        $holds = [];
+        if (str_starts_with($id, 'm:') || in_array($instrument, $this->ownedInstruments($userId), true)) $holds[] = 'owned';
+        foreach ($this->catalog->map('rigs') as $rig) {
+            $tracks = is_array($rig) && is_array($rig['track'] ?? null) ? $rig['track'] : [];
+            if (in_array($instrument, array_column(array_filter($tracks, 'is_array'), 'instrument'), true)) {
+                $holds[] = 'core';
+                break;
+            }
+        }
+        return $holds;
+    }
+
+    /** mod.rs `Rights::allows` – a missing rights block or hold list = deck-space's defaults (serde `default`) */
+    public static function allows(mixed $rights, string $hold, string $right): bool
+    {
+        $list = $rights instanceof stdClass && isset($rights->$hold) && is_array($rights->$hold) ? $rights->$hold : self::DEFAULT_RIGHTS[$hold] ?? [];
+        return in_array($right, $list, true);
+    }
+
+    /** `values` without the ones equal to the parent's folded values (preset.rs `derive`), keys canonical */
+    private function changed(string $userId, string $parent, stdClass $values): stdClass
+    {
+        $problems = [];
+        $base = [];
+        foreach (RigValidator::lineage($parent, fn(string $p) => $this->preset($userId, $p), $problems) ?? [] as $p) {
+            foreach (get_object_vars($p->values ?? new stdClass()) as $k => $v) $base[RigValidator::canonical((string) $k)] = $v;
+        }
+        $out = new stdClass();
+        foreach (get_object_vars($values) as $k => $v) {
+            $k = RigValidator::canonical((string) $k);
+            $same = array_key_exists($k, $base) && (is_int($v) || is_float($v)) && (is_int($base[$k]) || is_float($base[$k])) && (float) $v === (float) $base[$k];
+            if (!$same) $out->$k = $v;
+        }
+        return $out;
+    }
+
     /** A preset as this member sees it: a factory one, or one of their own (`m:…`) */
     public function preset(string $userId, string $id): ?stdClass
     {
@@ -65,6 +131,13 @@ final class MemberRigs
         $json = $this->db->value('SELECT data FROM member_presets WHERE id = ? AND user_id = ?', [$id, $userId]);
         $data = is_string($json) ? json_decode($json) : null;
         return $data instanceof stdClass ? $data : null;
+    }
+
+    /** An own preset's stored JSON (scene-content's version hashes it), null when it isn't theirs */
+    public function presetJson(string $userId, string $id): ?string
+    {
+        $json = $this->db->value('SELECT data FROM member_presets WHERE id = ? AND user_id = ?', [$id, $userId]);
+        return is_string($json) ? $json : null;
     }
 
     /**
@@ -130,12 +203,22 @@ final class MemberRigs
     public function held(string $userId, array $factory): array
     {
         $ids = array_column(array_filter(is_array($factory['track'] ?? null) ? $factory['track'] : [], 'is_array'), 'instrument');
+        return array_values(array_unique(array_filter([...$ids, ...$this->ownedInstruments($userId)], 'is_string')));
+    }
+
+    /**
+     * The instruments of the instrument items in the member's carrier bag (owned)
+     * @return list<string>
+     */
+    private function ownedInstruments(string $userId): array
+    {
+        $ids = [];
         $items = $this->catalog->map('items');
         foreach ($this->db->all('SELECT DISTINCT item_id FROM inventory WHERE user_id = ? AND qty > 0', [$userId]) as $row) {
             $item = $items[(string) $row['item_id']] ?? null;
             if (is_array($item) && ($item['category'] ?? null) === 'instrument' && is_string($item['instrument'] ?? null)) $ids[] = $item['instrument'];
         }
-        return array_values(array_unique(array_filter($ids, 'is_string')));
+        return $ids;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────────────────────────────────

@@ -11,6 +11,7 @@ use Scutoons\Domain\Library\Answer;
 use Scutoons\Domain\Library\ChapterFiles;
 use Scutoons\Domain\Library\Library;
 use Scutoons\Domain\Library\SceneContent;
+use Scutoons\Domain\Rigs\RigValidator;
 use Scutoons\Domain\Roles\Roles;
 use Scutoons\Http\CurrentSession;
 use Scutoons\Http\Middleware\Cors;
@@ -28,7 +29,8 @@ use Scutoons\Http\Middleware\Cors;
  *   GET /api/library/characters                          CharacterRegistry (the whole registry)
  *   GET /api/library/map?locale=&toon=                  the world map for this reader (agents/MAP.md)
  *   GET /api/library/scene-content?sets=&characters=&items=  what a deck's scene needs: set models per level, portraits per
- *                                                        mood, rigs with their instruments / presets (SceneContent, #195, #258)
+ *                                                        mood, rigs with their instruments / presets (SceneContent, #195, #258);
+ *                                                        `&presets=<m:…>` the member's own (signed in, private – #270)
  *   GET /api/events                                      Event[]
  * `?draft=1` (role creator): the newest versions, no status gates, not cached. Public answers: `Cache-Control: public,
  * max-age=60`, ETag (304 on If-None-Match), `Content-Language` / `X-Content-Fallback` for localized answers, any
@@ -126,9 +128,12 @@ final class LibraryController
             if (count($list) > SceneContent::MAX_IDS) throw new ApiError(400, 'invalid_ids', "$name: at most " . SceneContent::MAX_IDS . ' ids.');
             return $list;
         };
-        $content = $this->scenes->of($ids('sets'), $ids('characters'), $ids('items', CatalogValidator::ID_PATTERN));
+        // #270: a member's own presets – their session or paired deck's token; the answer is theirs (private, not cached)
+        $presets = $ids('presets', RigValidator::MEMBER_PRESET_ID);
+        $user = $presets === [] ? null : (string) CurrentSession::of($request)->requireUser()['id'];
+        $content = $this->scenes->of($ids('sets'), $ids('characters'), $ids('items', CatalogValidator::ID_PATTERN), $presets, $user);
         $body = SceneContent::json($content);
-        return $this->send($request, $response, new Answer($body, '"s' . substr(sha1($body), 0, 24) . '"', false, null));
+        return $this->send($request, $response, new Answer($body, '"s' . substr(sha1($body), 0, 24) . '"', $user !== null, null));
     }
 
     public function events(Request $request, Response $response): Response
