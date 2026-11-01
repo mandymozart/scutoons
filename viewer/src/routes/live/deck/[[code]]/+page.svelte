@@ -275,12 +275,21 @@
 				threeD = false;
 				spaceStatus = m['live_deck.no_3d']({ reason: (e as Error).message ?? String(e) });
 			}
+			// #274: a throw out of the deck's tick (or the pad's poll) must not end the frame loop – the 3D and the pointer
+			// die with it (the sound's scene still loading threw once; deck.ts guards that now, this keeps the page alive
+			// for the next one). Reported once, in the console.
+			let tickThrew = false;
 			const frame = () => {
 				if (!alive || !deck) return;
 				const t0 = performance.now();
 				const now = t0 / 1000;
-				deck.tick(now);
-				ctl.poll();
+				try {
+					deck.tick(now);
+					ctl.poll();
+				} catch (e) {
+					if (!tickThrew) console.warn('live deck: a frame threw', e);
+					tickThrew = true;
+				}
 				try {
 					space?.frame(now);
 					hud = space?.view.hud_line() ?? '';
