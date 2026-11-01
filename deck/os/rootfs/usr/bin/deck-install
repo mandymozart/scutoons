@@ -128,7 +128,11 @@ arch-chroot "$M" mkinitcpio -P >/dev/null
 
 if [ -n "$esp" ]; then
   printf '%s5/5%s systemd-boot on %s\n' "$CYAN" "$OFF" "$esp"
-  arch-chroot "$M" bootctl --esp-path=/boot install >/dev/null
+  # from the live system, not the chroot: only here bootctl reaches the firmware's variables (the boot entry – the X1,
+  # 2026-11-01: from the chroot only the files landed, the firmware's menu had no entry and F12 started Windows)
+  fwentry=0
+  if [ -d /sys/firmware/efi/efivars ] && bootctl --esp-path="$M/boot" install >/dev/null 2>&1; then fwentry=1
+  else bootctl --esp-path="$M/boot" --no-variables install >/dev/null; fi
   uuid=$(blkid -s PARTUUID -o value "$root")
   ucode=""; for u in intel-ucode amd-ucode; do [ -f "$M/boot/$u.img" ] && ucode="$ucode"$'\n'"initrd  /$u.img"; done
   mkdir -p "$M/boot/loader/entries"
@@ -143,6 +147,10 @@ fi
 [ -n "$esp" ] && umount "$M/boot"; umount "$M"
 printf '\n%sdone.%s %s holds the deck; reboot and pick it in the firmware boot menu.\n' "$CYAN" "$OFF" "$root"
 if [ -n "$esp" ]; then
-  printf '%sbootctl made "Linux Boot Manager" the first boot entry: the machine starts the deck.%s\n' "$DIM" "$OFF"
+  if [ "$fwentry" = 1 ]; then
+    printf '%s"Linux Boot Manager" is registered in the firmware, first in the boot order: the machine starts the deck.%s\n' "$DIM" "$OFF"
+  else
+    printf '%sThe firmware took no boot entry (no EFI variables?): the deck is on the ESP, pick it in F12 – or boot this stick on a UEFI start and run: mount %s /mnt && bootctl --esp-path=/mnt install%s\n' "$DIM" "$esp" "$OFF"
+  fi
   [ "$windows" = 0 ] || printf '%sWindows: F12 at power-on → Windows Boot Manager – or put it first in the firmware setup (Lenovo: F1 → Startup → Boot) and start the deck with F12.%s\n' "$DIM" "$OFF"
 fi

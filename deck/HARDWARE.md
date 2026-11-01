@@ -43,9 +43,10 @@ every test or show adds a row there, and the table follows what we learn.
 | L | 128 GB | 16 GB | conductor of a show, live video for one show |
 | XL | 512 GB+ | 16–32 GB | live video across shows / a touring outlet |
 
-The X1 install (#200) is an M today (20 GB); a phone in the browser needs no tier.
+The X1 install (#200) is an S–M today (16.4 GB root + a 256 MB ESP of its own next to Windows, 2026-11-01); a phone in the browser needs no tier.
 
 ### Log – use cases and what we learned
 | Date | Who / where | Roles used | Machines | What we learned |
 |---|---|---|---|---|
 | 2026-10-30/31 | owner, at home (3-device test, session CATH) | conductor · AV deck · phone deck | PC (RTX 2070), X1 on stick s5, S22 (Chrome) | X1 runs the cathedral at 60 fps; the stick's first boot hung on mkfs discard (fixed s6); Wi-Fi had to be retyped (fixed s6); typing the relay address is annoying (→ #199); the S22 has no WebGPU (→ WebGL2, #198); a phone reload left ghost decks (relay keep-alive); 20 GB plan for the X1 install, video makes the outlet role big (#200) |
+| 2026-11-01 | owner, at home | the X1's install next to Windows (#200) | the X1 (NVMe 1 TB, Windows + BitLocker without protection), s7 stick | `cfdisk`: 256M EFI System + 16.4G Linux in the 16.6 GB freed from C: (the refurbished machine's 9.5 GB recovery partition removed, WinRE off – it will not enable on an encrypted volume); `deck-install` ran through (1st real run) – on the stick the root image was in RAM (copytoram), the first run needed a patched copy (fixed: both paths); the boot entry was not in the firmware (bootctl inside the chroot cannot write it) → `bootctl --esp-path=/mnt/esp install` from the live shell, then the deck booted from the NVMe; Wi-Fi remembered; Windows stays on F12 → Windows Boot Manager (fixed in deck-install) |
