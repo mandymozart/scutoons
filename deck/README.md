@@ -17,6 +17,7 @@ Owner 2026-10-29: Rust first, no Node + Electron for anything native.
 | `core` | lib | `deck-core`, the platform-free core (#182, #185): maths, `F8` lanes, batch columns, the patcher graph, its modules as features (control, synth, analysis = the stage's FFT, tempo = the tempo map), the stage's module table (`stage.rs`); builds for wasm32 too |
 | `space` | lib (+ wasm) | `deck-space` (#198): the 3D space and the being lifted out of the stage – the set loader (glb, meshopt), the being (tethered buttons, hoses, bubbles, the head, labels), the camera, picking and drag, the feelings, the conductor's mirrored beings, the GPU passes (wgpu) – and the scene model it reads (graph, params, scene); features `being` · `gpu` · `native` (loaders on threads, images decoded in Rust); all but `native` build for wasm32 |
 | `space-web` | wasm | deck-space in the browser (#198): the being and its set drawn with wgpu into a canvas – WebGPU where there is an adapter, else WebGL2 – behind a wasm-bindgen `SpaceView` the page drives (its values in, the being's buttons out: one state; the set and portraits fetched and decoded by the browser); `npm run build:wasm -w shared/live-deck` (profile `wasm-web`, ≈ 1 MB gzip); natively empty |
+| `events` | lib (+ wasm) | `deck-events` (#236, research/EVENTS.md): generators that talk in events – `Event` (start, dur, name, props, children, hops) and `Time` (now · beats · seconds), the name dictionary with domains, the `Generator` trait (`query(span)`), the event graph (zero-delay loops refused, delayed edges, per-edge caps, a hop limit), `RtEvent`s at frame offsets on deck-core's tempo map, `random_walk` / `pulse` / `arp` and the `gate_cv` bridge (seq's cv); nothing depends on it yet |
 | `stage` | bin + lib | `deck-stage`, the AV app the deck boots into (CYBERDECKS.md §8, #179): winit + wgpu, a node graph from a TOML scene, an audio graph on PipeWire / cpal with synths + an FFT, chapter music from the library API with a disk cache; modules = cargo features (#185) – stage/README.md |
 | `live-core` | lib + wasm | deck-core for the browser Live mode (#184): the batch graph, render and FFT behind raw `lc_*` wasm exports, the boundary's wire records (`wire.rs` = shared/live-core `wire.ts`); hosted by `@scutoons/live-core` |
 | `scene-features` | bin | `deck-scene-features scenes/*.toml`: the deck-stage features a set of scenes needs (a scene-driven build, #185) |
@@ -123,6 +124,7 @@ deck/
   scene-features/     deck-scene-features: scenes → cargo features
   space/              deck-space: src/ (graph, params, scene) · src/space/ (being, set, camera, GPU) · src/shaders/space.wgsl
   space-web/          deck-space as wasm for the browser (the reader's /live/deck, shared/live-deck)
+  events/             deck-events: src/ (names, event, generator, graph, rt, bridge, generators/) · tests/flow.rs (blocks = one window)
   stage/              deck-stage: src/ (modules, audio, render, library, space/link.rs) · scenes/ · tests/no_alloc.rs
 shared/live/          @scutoons/live: src/protocol.ts (generated), test/ (fixture + generator tests)
 ```

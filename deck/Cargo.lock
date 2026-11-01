@@ -761,6 +761,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "deck-events"
+version = "0.1.0"
+dependencies = [
+ "deck-core",
+]
+
+[[package]]
 name = "deck-link"
 version = "0.1.0"
 dependencies = [

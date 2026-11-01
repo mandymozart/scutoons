@@ -74,6 +74,8 @@ jobs:
         working-directory: .
       - name: 🧊 space-web (deck-space as wasm32, the browser's 3D)
         run: cargo build --profile wasm-web --target wasm32-unknown-unknown -p space-web
+      - name: ⏱ deck-events as wasm32 (#236, the event layer – the browser runs it too)
+        run: cargo check --target wasm32-unknown-unknown -p deck-events
       - run: npm run check -w shared/live-deck
         working-directory: .
 
