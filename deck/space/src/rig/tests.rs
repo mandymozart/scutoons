@@ -281,6 +281,11 @@ fn a_rig_flattens_into_one_scene() {
     assert!(has_link(&s, "mix1.out", "out.in") && has_link(&s, "mix1.out", "fft.in"));
     let glow = s.links.iter().find(|l| l.to == "space.glow").unwrap();
     assert_eq!((glow.from.as_str(), glow.scale), ("voice_sway.out", 0.5), "being:glow → the space node");
+    assert!(has_link(&s, "fft.level", "space.pulse"), "the being breathes with the sum");
+    let mut own = rig.clone();
+    own.routes[0].to = "being:pulse".into();
+    let s2 = own.flatten(&lib, None, None).unwrap();
+    assert!(!has_link(&s2, "fft.level", "space.pulse") && has_link(&s2, "voice_sway.out", "space.pulse"), "a route's pulse wins");
     assert_eq!(param(&s, "voice_voice.ratio"), Some(1.5));
     #[cfg(feature = "being")]
     {
@@ -310,7 +315,8 @@ fn muted_tracks_and_their_routes_stay_out() {
     let (lib, mut rig) = set();
     rig.tracks[0].mute = true;
     let s = rig.flatten(&lib, None, None).unwrap();
-    assert!(!s.nodes.iter().any(|n| n.id.starts_with("voice_") || n.id == "space"), "no voice, no glow route");
+    assert!(!s.nodes.iter().any(|n| n.id.starts_with("voice_")), "no voice");
+    assert!(!s.links.iter().any(|l| l.to == "space.glow"), "no glow route");
     assert!(has_link(&s, "air_hiss.out", "mix1.in1"));
     rig.tracks[1].mute = true;
     assert!(rig.flatten(&lib, None, None).unwrap_err().to_string().contains("muted"));
@@ -437,4 +443,26 @@ fn a_strip_gain_becomes_a_mul_the_knob_turns() {
     let ids: Vec<&str> = def.nodes.iter().map(|n| n.id.as_str()).collect();
     assert_eq!(ids, ["voice_voice", "drone_drone", "drone_fifth"]);
     assert!(core.page.is_empty() && core.aliases.is_empty());
+}
+
+/// shared/live-deck's tests play the core rigs' answers from this file; `UPDATE_FIXTURES=1 cargo test -p deck-space
+/// rig_fixture` writes it, a plain run fails when it is stale (like deck/protocol's `--check`)
+#[test]
+fn rig_fixture_for_the_browser_deck_is_current() {
+    let play = |subject: &str, mood: &str| {
+        let json = serde_json::to_string(&Bundle::core(subject).unwrap().unwrap()).unwrap();
+        serde_json::from_str::<serde_json::Value>(&Bundle::play_json(&json, "", mood).unwrap()).unwrap()
+    };
+    let fixture = serde_json::json!({
+        "catpope": play("character.catpope", ""),
+        "catpope_laughing": play("character.catpope", "laughing"),
+        "incense_burner": play("item.incense_burner", ""),
+    });
+    let text = serde_json::to_string_pretty(&fixture).unwrap() + "\n";
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../shared/live-deck/test/fixtures/rigs.json");
+    if std::env::var_os("UPDATE_FIXTURES").is_some() {
+        std::fs::write(path, &text).unwrap();
+    }
+    let on_disk = std::fs::read_to_string(path).unwrap_or_default();
+    assert!(on_disk == text, "{path} is stale: UPDATE_FIXTURES=1 cargo test -p deck-space rig_fixture");
 }

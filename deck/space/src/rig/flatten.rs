@@ -1,7 +1,8 @@
 //! A rig as one playable scene (#191, research/INSTRUMENTS.md §7 step 1): every played track's patch with its node ids
 //! prefixed `<track>_<node>`, the tracks summed by a chain of four-input mixers (a track's `gain` = its mixer gain) into
 //! the scene's `audio_out`, an `fft` on the sum (the being's energy and feelings read it), the rig's routes as links,
-//! and – when a route goes to `being:<input>` – a bare `space` node the caller completes (its set, spot, camera).
+//! and a bare `space` node the caller completes (its set, spot, camera) – the being, breathing with the sum's level
+//! (`fft.level` → `space.pulse`, as the phone deck's patch did) unless a route drives `being:pulse` itself.
 //! The being's `character` (from the subject) and `expose` (the instruments' shown parameters) come along.
 use super::{scoped, Library, Rig, TrackPatch};
 use crate::scene::{split_ref, LinkDef, NodeDef, Scene};
@@ -48,7 +49,7 @@ impl Rig {
         }
         self.mix(&played, &mut scene);
         let playing = |t: &str| played.iter().any(|p| p.track == t);
-        let mut space = false;
+        let mut pulse = false;
         for r in &self.routes {
             let (Some((ft, from)), Some((tt, to))) = (scoped(&r.from), scoped(&r.to)) else { continue };
             // a route from or to a muted track is off with it
@@ -56,15 +57,16 @@ impl Rig {
                 continue;
             }
             let to = if tt == "being" {
-                space = true;
+                pulse |= to == "pulse";
                 format!("space.{to}")
             } else {
                 prefixed(tt, to)
             };
             scene.links.push(link(prefixed(ft, from), to, r.scale, r.offset));
         }
-        if space {
-            scene.nodes.push(node("space", "space", &[]));
+        scene.nodes.push(node("space", "space", &[]));
+        if !pulse {
+            scene.links.push(link("fft.level".into(), "space.pulse".into(), 0.6, 0.0));
         }
         #[cfg(feature = "being")]
         {
