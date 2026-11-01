@@ -373,8 +373,11 @@ impl Space {
         self.light = ctl.input(self.node, "light", params::default(crate::graph::Kind::Space, "light"));
         self.post_knobs = post::Knobs::read(&*ctl, self.node);
         // the focus follows the zoom: the whole being far out, its head close up (owner 2026-10-31) – or, with a knob
-        // selected, that knob (#224: "zooming then brings you closer to that point"); the camera glides there
-        self.camera.goal = self.focus_goal(self.camera.distance);
+        // selected, that knob (#224: "zooming then brings you closer to that point"); the camera glides there – held
+        // still while a hand is on a knob (a press selects it: the knob would slide away under the finger)
+        if !matches!(self.drag, Drag::Knob { .. } | Drag::Hold) {
+            self.camera.goal = self.focus_goal(self.camera.distance);
+        }
         self.camera.step(dt);
         // #209: the knobs face the camera; #224: and fold into its view close up
         self.being.eye = Some(self.camera.eye());
@@ -1230,6 +1233,10 @@ mod tests {
         assert!((axis.0 * axis.0 + axis.1 * axis.1).sqrt() > 72.0, "the tether reads on the screen: {axis:?}");
         space.press();
         assert_eq!(space.cursor(), Cursor::Grabbing);
+        // #224: the press selected it, but the focus holds still under the hand
+        let goal = space.camera.goal;
+        frame(&mut space, &mut ctl, 0.05);
+        assert_eq!(space.camera.goal, goal, "the focus holds while the knob is held");
         // a quarter of the tether's way out on the screen = a quarter of the range up
         space.pointer_moved(x + axis.0 * 0.25, y + axis.1 * 0.25, &mut ctl);
         let spec = params::spec(g.nodes[node].kind, "index");
@@ -1328,6 +1335,10 @@ mod tests {
         let yaw = space.camera.yaw;
         space.press();
         assert_eq!(space.cursor(), Cursor::Grabbing);
+        // #224: the press selected it, but the focus holds still under the hand
+        let goal = space.camera.goal;
+        frame(&mut space, &mut ctl, 0.05);
+        assert_eq!(space.camera.goal, goal, "the focus holds while the knob is held");
         let (_, axis) = space.drag_axis(i);
         space.pointer_moved(x + axis.0 * 0.3, y + axis.1 * 0.3, &mut ctl);
         let base = ctl.base(node, port).unwrap();
