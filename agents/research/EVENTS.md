@@ -197,3 +197,35 @@ Compared with MIDI: an open vocabulary (a registry) instead of a fixed one, f32 
 instead of ticks, nesting, routing by name and receivers instead of 16 channels, and every medium instead of notes only.
 MIDI, MusicXML, Ableton and OpenTimelineIO (video / audio edits: clips, tracks, stacks – the closest timeline model)
 stay import / export adapters.
+
+## 14. The proposed types (TypeScript + Rust)
+```ts
+type Time = { beats: number } | { seconds: number } | { step: number };   // music · clips / video / cues · the story
+interface Event {
+  start: Time;
+  dur?: Time;                        // none = a moment
+  name: string;                      // from the registry: 'note', 'fx.flash', 'story.showMessage'
+  props?: Record<string, number>;    // fast: pitch, vel, gain … (real-time safe)
+  data?: Record<string, unknown>;    // loose: text, ids, refs – never on the audio thread
+  children?: Event[];                // relative to `start`
+  id?: string;                       // stable id (the story's save game, lineage)
+  source?: string;                   // 'story:catpope/2' · 'relay:c7' · 'midi:keys'
+}
+```
+```rust
+pub enum Time { Beats(f64), Seconds(f64), Step(u32) }
+pub struct Event {
+    pub start: Time,
+    pub dur: Option<Time>,
+    pub name: Sym,                          // interned registry name
+    pub props: SmallVec<[(Sym, f32); 6]>,   // fast, real-time safe
+    pub data: Option<Box<serde_json::Value>>,
+    pub children: Vec<Event>,
+    pub id: Option<Sym>,
+    pub source: Sym,
+}
+/// what the audio thread sees: flat, resolved to a frame, no allocation
+pub struct RtEvent { pub frame: u32, pub name: Sym, pub props: [(Sym, f32); 6], pub len: u8 }
+```
+The story's `VNEvent`, the relay's `Envelope` (shared/live protocol.ts, generated) and a deck's wire records stay as
+they are; adapters map them in (§12).
