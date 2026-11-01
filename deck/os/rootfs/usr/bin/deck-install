@@ -14,8 +14,11 @@ RED=$'\e[31m'; CYAN=$'\e[36m'; DIM=$'\e[2m'; OFF=$'\e[0m'
 die() { printf '%sdeck-install: %s%s\n' "$RED" "$*" "$OFF" >&2; exit 1; }
 [ "$(id -u)" = 0 ] || die "run as root (sudo deck-install)"
 [ -d /run/archiso ] || die "run this from the live stick, not an installed system"
+# booted with copytoram (archiso's default on a machine with enough RAM – the X1's 16 GB): the sfs lives in RAM and the
+# stick is no longer mounted
 SFS=/run/archiso/bootmnt/arch/x86_64/airootfs.sfs
-[ -f "$SFS" ] || die "$SFS not found (copytoram? then /run/archiso/copytoram/airootfs.sfs)"
+[ -f "$SFS" ] || SFS=/run/archiso/copytoram/airootfs.sfs
+[ -f "$SFS" ] || die "the live root image is neither in /run/archiso/bootmnt/arch/x86_64 nor in /run/archiso/copytoram"
 ESP_TYPE=c12a7328-f81f-11d2-ba4b-00a0c93ec93b
 ESP_MIN_MB=150 # the kernel (~17 MB) + one autodetect initramfs + systemd-boot, with room for an update's old + new
 
@@ -33,6 +36,7 @@ probe_esp() {
 }
 
 boot=$(findmnt -no SOURCE /run/archiso/bootmnt 2>/dev/null)
+[ -n "$boot" ] || boot=$(blkid -L SCUTOONSDECK 2>/dev/null | head -1) # copytoram: the stick is not mounted any more
 bootdisk=$(lsblk -npo PKNAME "$boot" 2>/dev/null | head -1); bootdisk=${bootdisk:-$boot}
 
 printf '\n%sSCUTOONS deck install%s – partitions on this machine (the stick %s is left out):\n\n' "$CYAN" "$OFF" "$bootdisk"
