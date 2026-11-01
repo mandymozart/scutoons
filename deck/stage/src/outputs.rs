@@ -221,14 +221,14 @@ mod tests {
         assert_eq!(o.slots.len(), 2);
     }
 
-    /// the Thunder Wash scene (#261): its hue maps colour three channels, the strobe flashes the dimmer
+    /// the Thunder Wash scene (#261): its hue colours the three channels, the beat's pulse is a gain on them
     #[test]
-    fn the_thunderwash_scene_starts() {
-        let scene = Scene::parse(include_str!("../scenes/strobe-thunderwash.toml")).unwrap();
+    fn the_pulse_thunderwash_scene_starts() {
+        let scene = Scene::parse(include_str!("../scenes/pulse-thunderwash.toml")).unwrap();
         let g = Graph::build(&scene).unwrap();
-        let o = Outputs::start(scene.outputs.as_ref().unwrap(), None, &g, Arc::default()).unwrap().expect("a strobe");
-        assert_eq!(o.summary, "3 targets · 1 strobe · DMX auto · lead 20 ms");
-        assert_eq!(o.slots.len(), 3, "rate, level, hue");
+        let o = Outputs::start(scene.outputs.as_ref().unwrap(), None, &g, Arc::default()).unwrap().expect("targets");
+        assert_eq!(o.summary, "3 targets · DMX auto · lead 20 ms");
+        assert_eq!(o.slots.len(), 3, "hue, the beat's pulse, the breathing");
     }
 
     #[test]

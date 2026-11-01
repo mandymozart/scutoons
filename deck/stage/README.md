@@ -546,12 +546,13 @@ cd deck/stage && cargo run --release -p deck-stage -- --scene scenes/strobe.toml
 Enttec and the CDC widgets ignore the baud. The MK2 never answers the device check – one info line, frames go out anyway.
 
 **Fixture profiles** are built in by name (`profile = "strobe"`, `"thunderwash-600-rgbw"`) or a file next to the scene.
-`thunderwash-600-rgbw` = the Cameo Thunder Wash 600 RGBW in DMX mode **7CH_1** (menu: DMX Mode 7CH_1, confirm with ENTER;
-manual table): CH1 master dimmer, CH2 strobe (0–5 open, 6–10 closed, 11–127 random effects, 128–250 1–30 Hz), CH3–6
-red / green / blue / white, CH7 sound control. The deck flashes the **dimmer** on the clock and parks CH2 and CH7 at 0.
-A colour from a **hue parameter** (0–1 = a turn of the colour wheel): one map target per channel with `hue = "red"` /
-`"green"` / `"blue"` (applied before the curve; `max` caps the brightness). **Not yet confirmed on the real lamp** (#261: the owner's lamp strobed whenever CH1 was above 0, which the manual's order –
-CH1 dimmer – does not explain). The scene `strobe-thunderwash` (built in; the
-file `scenes/strobe-thunderwash.toml`): the tempo's flashes in a slowly turning colour, the colour channels capped at
-15 % (`max = 0.15`) – raise the three together for a show.
+`thunderwash-600-rgbw` = the Cameo Thunder Wash 600 RGBW in DMX mode **4CH_1** (lamp menu: DMX Mode 4CH_1, confirm with
+ENTER, address 001): CH1–4 = red, green, blue, white – no strobe channel, so nothing the deck sends can start the lamp's
+own strobe (confirmed on the lamp 2026-11-01; its 7CH_1 does not follow the manual and is not profiled). A colour from a
+**hue parameter** (0–1 = a turn of the colour wheel): one map target per channel with `hue = "red"` / `"green"` /
+`"blue"` (applied before the curve; `max` caps the brightness). A **gain** on a map multiplies its shaped value by more
+parameters – `gain = ["tempo.pulse", { from = "level.out", in = [-1, 1] }]`, `gain_floor = 0.1` (what stays between
+pulses), `smooth` for a soft attack – so colour channels pulse on the beat without a flash channel. The scene
+`pulse-thunderwash` (built in; the file `scenes/pulse-thunderwash.toml`): a slowly turning colour that pulses on the
+tempo's beat, every channel capped at 15 % (`max = 0.15` – raise the three together for a show).
 

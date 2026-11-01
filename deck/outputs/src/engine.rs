@@ -107,7 +107,12 @@ impl Engine {
     fn frame(&mut self, at: f64, values: &[f32], out: &mut Vec<Timed>) {
         for (k, t) in self.plan.targets.iter().enumerate() {
             let raw = values.get(t.source).copied().unwrap_or(0.0);
-            let y = self.smooth[k].step(t.shape.map(raw), FRAME_S as f32);
+            let mut x = t.shape.map(raw);
+            for g in &t.gains {
+                let g = values.get(g.source).map_or(0.0, |&v| g.shape.map(v));
+                x *= t.gain_floor + (1.0 - t.gain_floor) * g;
+            }
+            let y = self.smooth[k].step(x, FRAME_S as f32);
             let prev = self.sent[k];
             match t.wire {
                 Wire::Dmx { ch, fine: None } => {
@@ -268,6 +273,26 @@ mod tests {
         // 9 frames (2.25 tau): 89 %, 5 tau: 99 %
         assert!((222..=234).contains(&at(1.2).unwrap()), "{:?}", at(1.2));
         assert!(at(1.5).unwrap() >= 252);
+    }
+
+    #[test]
+    fn a_gain_pulses_the_colour_and_leaves_its_floor() {
+        // a.b = the hue-shaped colour (always 1 here), g.p = a pulse: 1 for 0.1 s from t = 0.5, else 0
+        let mut e = Engine::new(plan("[outputs]
+dmx = \"auto\"
+[[outputs.map]]
+from = \"a.b\"
+gain = [\"g.p\"]
+gain_floor = 0.2
+to = [{ dmx = 1, max = 0.5 }]
+"));
+        let out = run(&mut e, 0.0, 1.0, None, |t| vec![1.0, if (0.5..0.6).contains(&t) { 1.0 } else { 0.0 }]);
+        let at = |t: f64| out.iter().filter(|m| m.at <= t + 1e-9).filter_map(|m| match m.out { Out::Dmx { ch: 1, value, .. } => Some(value), _ => None }).next_back();
+        // the cap is 50 % (128), the floor a fifth of it (26), the pulse the whole cap – never above it
+        assert_eq!(at(0.3), Some(26), "floor");
+        assert_eq!(at(0.55), Some(128), "pulse");
+        assert_eq!(at(0.9), Some(26), "back to the floor");
+        assert!(out.iter().all(|m| !matches!(m.out, Out::Dmx { ch: 1, value, .. } if value > 128)));
     }
 
     #[test]

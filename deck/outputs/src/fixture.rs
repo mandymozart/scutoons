@@ -10,7 +10,7 @@ use serde::Deserialize;
 /// The built-in generic strobe: dimmer 1, rate 2, duration 3.
 pub const STROBE: &str = include_str!("../fixtures/strobe.toml");
 
-/// The Cameo Thunder Wash 600 RGBW in DMX mode 7CH_1: dimmer 1, strobe 2, red 3, green 4, blue 5, white 6, sound 7.
+/// The Cameo Thunder Wash 600 RGBW in DMX mode 4CH_1: red 1, green 2, blue 3, white 4 (no strobe channel).
 pub const THUNDERWASH_600_RGBW: &str = include_str!("../fixtures/thunderwash-600-rgbw.toml");
 
 /// The built-in profiles by name.
@@ -163,15 +163,12 @@ mod tests {
     }
 
     #[test]
-    fn the_thunderwash_in_7ch_1() {
+    fn the_thunderwash_in_4ch_1() {
         let p = Profile::parse(THUNDERWASH_600_RGBW).unwrap();
         let at = |n: &str| p.channels[n].coarse;
-        assert_eq!([at("dimmer"), at("strobe"), at("red"), at("green"), at("blue"), at("white"), at("sound")], [1, 2, 3, 4, 5, 6, 7]);
-        assert_eq!(p.footprint(), 7);
-        let s = p.strobe.unwrap();
-        assert_eq!(s.flash, "dimmer");
-        // the lamp's own strobe (CH2) and its microphone (CH7) stay at 0 while the deck drives the flashes
-        assert_eq!((s.rest["strobe"], s.rest["sound"], s.rest.len()), (0, 0, 2));
+        assert_eq!([at("red"), at("green"), at("blue"), at("white")], [1, 2, 3, 4]);
+        assert_eq!(p.footprint(), 4, "four channels, none of them a strobe or a mode channel");
+        assert!(p.strobe.is_none());
         assert!(builtin("thunderwash-600-rgbw").is_some());
     }
 

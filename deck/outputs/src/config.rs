@@ -21,6 +21,9 @@
 //! # a hue parameter (0..1 = a turn of the colour wheel) colours an RGB fixture, one target per channel; `max` caps it:
 //! # to = [{ dmx = "wash.red", hue = "red", max = 0.2 }, { dmx = "wash.green", hue = "green", max = 0.2 }, { dmx = "wash.blue", hue = "blue", max = 0.2 }]
 //!
+//! # `gain` multiplies the map's shaped value by more parameters (each 0..1; `{ from, in = [lo, hi] }` ranges one), so a
+//! # colour can pulse on the beat: gain = ["tempo.pulse"], gain_floor = 0.1 (never below a tenth). `smooth` makes it soft.
+//!
 //! [[outputs.strobe]]
 //! fixture = "strobe"
 //! rate = "sway.rate"       # optional: steps the divisions (0.5 = neutral)
@@ -70,6 +73,10 @@ pub struct Target {
     pub shape: Shape,
     pub smooth: f32,
     pub wire: Wire,
+    /// the map's `gain` sources: the shaped value is multiplied by each of them (a soft pulse on the beat, a breath)
+    pub gains: Vec<Input>,
+    /// the lowest the gains take the value down to (0 = to nothing, 0.2 = a fifth of it stays)
+    pub gain_floor: f32,
 }
 
 /// A parameter path read as 0..1 through a shape (the strobe's rate and level).
@@ -154,7 +161,24 @@ struct RawMap {
     from: String,
     #[serde(default)]
     smooth: Option<f32>,
+    /// sources multiplied into every target of the map, after the shape: a parameter path (0..1) or
+    /// `{ from = "path", in = [lo, hi] }` (a pulse on the beat: "tempo.pulse"; an LFO that breathes: in = [-1, 1])
+    #[serde(default)]
+    gain: Vec<RawGain>,
+    /// 0…1: the gains never take the value below this fraction of it (default 0)
+    gain_floor: Option<f32>,
     to: Vec<RawTarget>,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum RawGain {
+    Path(String),
+    Ranged {
+        from: String,
+        #[serde(rename = "in")]
+        input: Option<[f32; 2]>,
+    },
 }
 
 #[derive(Deserialize, Default)]
@@ -370,6 +394,22 @@ pub fn parse(table: &toml::Table, known: Option<&[String]>, load: Loader<'_>) ->
         if m.to.is_empty() {
             errors.push(format!("{at}: no targets (to = [...])"));
         }
+        let gain_floor = m.gain_floor.unwrap_or(0.0);
+        if !(0.0..=1.0).contains(&gain_floor) {
+            errors.push(format!("{at}: gain_floor {gain_floor} is a fraction 0…1"));
+        }
+        let mut gains = Vec::new();
+        for g in &m.gain {
+            let (path, range) = match g {
+                RawGain::Path(p) => (p.as_str(), None),
+                RawGain::Ranged { from, input } => (from.as_str(), *input),
+            };
+            let input = range.map_or((0.0, 1.0), |[a, b]| (a, b));
+            if input.0 == input.1 || !input.0.is_finite() || !input.1.is_finite() {
+                errors.push(format!("{at}: gain '{path}' in [{}, {}] is empty", input.0, input.1));
+            }
+            gains.push(Input { source: source(path, &format!("{at} gain"), &mut errors), shape: Shape { input, ..Shape::default() } });
+        }
         for (j, t) in m.to.iter().enumerate() {
             let at = format!("{at} to[{j}]");
             match target(t, &at, &fixtures, &flash_channels, &plan) {
@@ -378,7 +418,7 @@ pub fn parse(table: &toml::Table, known: Option<&[String]>, load: Loader<'_>) ->
                     if !(smooth.is_finite() && smooth >= 0.0) {
                         errors.push(format!("{at}: smooth {smooth} s must be 0 or more"));
                     }
-                    plan.targets.push(Target { source: src, shape, smooth: smooth.max(0.0), wire });
+                    plan.targets.push(Target { source: src, shape, smooth: smooth.max(0.0), wire, gains: gains.clone(), gain_floor: gain_floor.clamp(0.0, 1.0) });
                 }
                 Err(e) => errors.push(e),
             }
@@ -567,7 +607,7 @@ duration = 40
     }
 
     #[test]
-    fn a_hue_colours_the_thunderwash() {
+    fn a_hue_pulses_the_thunderwash() {
         let text = r#"
 [outputs]
 dmx = "auto"
@@ -579,30 +619,32 @@ address = 1
 
 [[outputs.map]]
 from = "colour.out"
+smooth = 0.04
+gain = ["tempo.pulse", { from = "level.out", in = [-1, 1] }]
+gain_floor = 0.1
 to = [
   { dmx = "lamp.red", hue = "red", max = 0.15 },
   { dmx = "lamp.green", hue = "green", max = 0.15 },
   { dmx = "lamp.blue", hue = "blue", max = 0.15 },
 ]
-
-[[outputs.strobe]]
-fixture = "lamp"
 "#;
         let plan = parse(&table(text), None, &no_files).unwrap();
         let wires: Vec<Wire> = plan.targets.iter().map(|t| t.wire).collect();
-        assert_eq!(wires, [Wire::Dmx { ch: 3, fine: None }, Wire::Dmx { ch: 4, fine: None }, Wire::Dmx { ch: 5, fine: None }]);
+        assert_eq!(wires, [Wire::Dmx { ch: 1, fine: None }, Wire::Dmx { ch: 2, fine: None }, Wire::Dmx { ch: 3, fine: None }]);
         // red at hue 0 (capped at 15 % of 255), nothing of green / blue there
         let at = |i: usize, hue: f32| plan.targets[i].shape.map(hue);
         assert!((at(0, 0.0) - 0.15).abs() < 1e-5 && at(1, 0.0) < 1e-5 && at(2, 0.0) < 1e-5);
-        // the strobe flashes the master dimmer (CH1) and parks the lamp's own strobe (CH2) and sound (CH7) at 0
-        let strobe = &plan.strobes[0];
-        assert_eq!(strobe.flash, 1);
-        let mut rest = strobe.rest.clone();
-        rest.sort();
-        assert_eq!(rest, [(2, 0), (7, 0)]);
+        // every colour target carries the two gains (the beat's pulse, the breathing) and the floor
+        assert!(plan.targets.iter().all(|t| t.gains.len() == 2 && (t.gain_floor - 0.1).abs() < 1e-6));
+        assert_eq!(plan.paths, ["colour.out", "tempo.pulse", "level.out"]);
+        assert_eq!(plan.targets[0].gains[1].shape.input, (-1.0, 1.0));
+        assert!(plan.strobes.is_empty(), "no strobe channel: the pulse is a gain");
         let err = parse(&table(&text.replace("hue = \"blue\"", "hue = \"teal\"")), None, &no_files).unwrap_err().join("
 ");
         assert!(err.contains("hue 'teal'"), "{err}");
+        let err = parse(&table(&text.replace("gain_floor = 0.1", "gain_floor = 2")), None, &no_files).unwrap_err().join("
+");
+        assert!(err.contains("gain_floor 2"), "{err}");
     }
 
     #[test]

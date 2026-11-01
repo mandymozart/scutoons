@@ -1,0 +1,87 @@
+# The Cameo Thunder Wash 600 RGBW in DMX mode 4CH_1 (#261): a calm pulse of colour on the tempo clock, with the click on.
+# The lamp has no strobe channel in this mode – a "flash" is the colour channels pulsed together: the hue turns slowly
+# (a full turn of the colour wheel in 33 s, red first), the tempo's pulse (sharp on the beat, decaying) multiplies it
+# and a short smoothing makes the attack soft; between beats a tenth of the colour stays (`gain_floor`). A second LFO
+# breathes the intensity between half and full. Every colour channel is capped at 15 % (`max = 0.15`; raise the three
+# together for a show). The tempo's keys move it all: + / - BPM, T tap, Space stop / start (the pulse stops, the
+# colour stays at its floor), K the click.
+# The lamp: DMX Mode 4CH_1 confirmed with ENTER, address 001; the widget (Eurolite USB-DMX512-PRO MK2 ...) is found by
+# itself, or name its port below. Run it:
+#   cargo run --release -p deck-stage -- --scene scenes/pulse-thunderwash.toml --windowed
+[stage]
+name = "pulse – Thunder Wash 600 RGBW (#261)"
+
+[[node]]
+id = "tempo"
+kind = "tempo"
+bpm = 120
+beats = 4
+source = "internal"
+click = true
+
+[[node]]
+id = "click"
+kind = "click"
+gain = 0.5
+
+[[node]]
+id = "out"
+kind = "audio_out"
+volume = 0.8
+
+[[link]]
+from = "click"
+to = "out.in"
+
+# the intensity: its 0 … 1 → half … full (the gain's `in` below)
+[[node]]
+id = "level"
+kind = "lfo"
+rate = 0.1
+
+# the hue: 0 → 1 is a full turn of the colour wheel (a saw wraps from blue-red back to red, no jump in colour)
+[[node]]
+id = "hue"
+kind = "lfo"
+rate = 0.03
+shape = "saw"
+
+[[node]]
+id = "pattern"
+kind = "test_pattern"
+speed = 0.5
+
+[[node]]
+id = "screen"
+kind = "screen"
+
+[[link]]
+from = "tempo.pulse"
+to = "pattern.pulse"
+
+[[link]]
+from = "hue.out"
+to = "pattern.hue"
+
+[[link]]
+from = "pattern"
+to = "screen.in"
+
+[outputs]
+dmx = "auto"       # the first USB-DMX widget found; or its port: "COM3" (Windows), "/dev/ttyUSB0" (Linux)
+
+[[outputs.fixture]]
+id = "lamp"
+profile = "thunderwash-600-rgbw"   # built in: red 1, green 2, blue 3, white 4 (4CH_1)
+address = 1        # the lamp's DMX address (its display: 001)
+
+[[outputs.map]]
+from = "hue.out"
+smooth = 0.04      # s – the soft attack of each pulse
+gain = ["tempo.pulse", { from = "level.out", in = [-1, 1] }]   # the beat's pulse, the breathing (0 ... 1 -> 0.5 ... 1)
+gain_floor = 0.1
+to = [
+  { dmx = "lamp.red", hue = "red", max = 0.15 },
+  { dmx = "lamp.green", hue = "green", max = 0.15 },
+  { dmx = "lamp.blue", hue = "blue", max = 0.15 },
+]
