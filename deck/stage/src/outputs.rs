@@ -73,6 +73,14 @@ pub struct Outputs {
     pub summary: String,
 }
 
+impl Drop for Outputs {
+    /// A scene that ends (switched, or the stage closing normally) leaves its lamps dark: a USB-DMX widget repeats the
+    /// last frame for ever (#261). A killed process can't: the next scene with outputs starts from its own look.
+    fn drop(&mut self) {
+        self.runner.stop_dark();
+    }
+}
+
 impl Outputs {
     /// The scene's `[outputs]` → the running outputs. `dir`: the scene file's folder (profile files are relative to it).
     /// A wrong table is an error that lists every problem; a missing device is a warning (the runner drops its
@@ -229,6 +237,15 @@ mod tests {
         let o = Outputs::start(scene.outputs.as_ref().unwrap(), None, &g, Arc::default()).unwrap().expect("targets");
         assert_eq!(o.summary, "3 targets · DMX auto · lead 20 ms");
         assert_eq!(o.slots.len(), 3, "hue, the beat's pulse, the breathing");
+    }
+
+    /// the lamps-off scene (#261) holds the four channels at 0
+    #[test]
+    fn the_lamps_off_scene_starts() {
+        let scene = Scene::parse(include_str!("../scenes/lamps-off.toml")).unwrap();
+        let g = Graph::build(&scene).unwrap();
+        let o = Outputs::start(scene.outputs.as_ref().unwrap(), None, &g, Arc::default()).unwrap().expect("targets");
+        assert_eq!(o.summary, "4 targets · DMX auto · lead 20 ms");
     }
 
     #[test]

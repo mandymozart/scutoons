@@ -554,5 +554,7 @@ own strobe (confirmed on the lamp 2026-11-01; its 7CH_1 does not follow the manu
 parameters – `gain = ["tempo.pulse", { from = "level.out", in = [-1, 1] }]`, `gain_floor = 0.1` (what stays between
 pulses), `smooth` for a soft attack – so colour channels pulse on the beat without a flash channel. The scene
 `pulse-thunderwash` (built in; the file `scenes/pulse-thunderwash.toml`): a slowly turning colour that pulses on the
-tempo's beat, every channel capped at 15 % (`max = 0.15` – raise the three together for a show).
+tempo's beat, every channel capped at 15 % (`max = 0.15` – raise the three together for a show). A scene that ends
+in the stage (the F5 switch, a normal exit) blacks its DMX out; a stage killed by `deck-set --restart` can't, and the
+widget repeats its last frame – the built-in scene `lamps-off` holds the Thunder Wash's channels at 0.
 

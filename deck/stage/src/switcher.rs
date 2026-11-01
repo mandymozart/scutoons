@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 pub const SCENES_DIR: &str = "/usr/share/deck/scenes";
 
 /// the built-in scenes in the list's order (the first is the stage's default)
-pub const BUILTIN: [&str; 8] = ["idle", "madness", "cathedral", "conductor", "outlet", "strobe", "pulse-thunderwash", "test-pattern"];
+pub const BUILTIN: [&str; 9] = ["idle", "madness", "cathedral", "conductor", "outlet", "strobe", "pulse-thunderwash", "lamps-off", "test-pattern"];
 
 /// the source of a built-in scene by name
 pub fn builtin(name: &str) -> Option<&'static str> {
@@ -20,6 +20,7 @@ pub fn builtin(name: &str) -> Option<&'static str> {
         "outlet" => scene::OUTLET_SCENE,
         "strobe" => include_str!("../scenes/strobe.toml"),
         "pulse-thunderwash" => include_str!("../scenes/pulse-thunderwash.toml"),
+        "lamps-off" => include_str!("../scenes/lamps-off.toml"),
         "test-pattern" => scene::TEST_PATTERN_SCENE,
         _ => return None,
     })

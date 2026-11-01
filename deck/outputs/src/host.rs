@@ -117,6 +117,8 @@ impl Ports {
 pub struct Runner {
     stop: Arc<AtomicBool>,
     panic: Arc<AtomicBool>,
+    /// stop with a blackout (the stage's scene ends: the lamp must not stay lit on the widget's last frame)
+    dark: Arc<AtomicBool>,
     thread: Option<JoinHandle<()>>,
 }
 
@@ -124,6 +126,12 @@ impl Runner {
     /// B.6 `panic`: the flashes end, the devices go dark / silent.
     pub fn panic(&self) {
         self.panic.store(true, Ordering::Relaxed);
+    }
+
+    /// Stop, and black out the devices on the way (the widget would repeat the last look for ever).
+    pub fn stop_dark(&mut self) {
+        self.dark.store(true, Ordering::Relaxed);
+        self.stop();
     }
 
     pub fn stop(&mut self) {
@@ -148,12 +156,13 @@ pub fn spawn(plan: Plan, mut ports: Ports, values: Values, clock: Box<dyn ClockS
     }
     let stop = Arc::new(AtomicBool::new(false));
     let panic = Arc::new(AtomicBool::new(false));
-    let (s, p) = (stop.clone(), panic.clone());
-    let thread = std::thread::Builder::new().name("deck-outputs".into()).spawn(move || run(plan, ports, values, clock, &s, &p))?;
-    Ok(Runner { stop, panic, thread: Some(thread) })
+    let dark = Arc::new(AtomicBool::new(false));
+    let (s, p, d) = (stop.clone(), panic.clone(), dark.clone());
+    let thread = std::thread::Builder::new().name("deck-outputs".into()).spawn(move || run(plan, ports, values, clock, &s, &p, &d))?;
+    Ok(Runner { stop, panic, dark, thread: Some(thread) })
 }
 
-fn run(plan: Plan, mut ports: Ports, values: Values, clock: Box<dyn ClockSource>, stop: &AtomicBool, panic: &AtomicBool) {
+fn run(plan: Plan, mut ports: Ports, values: Values, clock: Box<dyn ClockSource>, stop: &AtomicBool, panic: &AtomicBool, dark: &AtomicBool) {
     let mut engine = Engine::new(plan);
     let mut vals = vec![0.0f32; values.len()];
     let mut out: Vec<Timed> = Vec::with_capacity(64);
@@ -184,6 +193,9 @@ fn run(plan: Plan, mut ports: Ports, values: Values, clock: Box<dyn ClockSource>
                 std::hint::spin_loop();
             }
         }
+    }
+    if dark.load(Ordering::Relaxed) {
+        ports.panic();
     }
     ports.stop();
 }
@@ -311,5 +323,32 @@ mod tests {
         // and each one ends: dark again within 30 ms + slack
         let downs = frames.windows(2).filter(|w| w[0].1[0] == 255 && w[1].1[0] == 0).count();
         assert!(downs + 1 >= ups.len(), "{downs} ends for {} flashes", ups.len());
+    }
+
+    /// a scene that ends leaves the lamp dark (the widget would repeat the last frame), a plain stop leaves the look
+    #[test]
+    fn stop_dark_blacks_the_widget_out() {
+        use adapters_dmx_usbpro::{mock::Widget, DmxUsbProAdapter};
+        for dark in [true, false] {
+            let widget = Widget::default();
+            let dmx = DmxUsbProAdapter::with_opener("lamp", None, widget.opener());
+            let p = plan("[outputs]
+dmx = \"auto\"
+[[outputs.map]]
+from = \"r.x\"
+to = [{ dmx = 1 }]
+");
+            let values = Values::new(p.paths.len());
+            values.set(0, 1.0);
+            let mut r = spawn(p, Ports { dmx: Some(Box::new(dmx)), ..Ports::default() }, values, Box::new(Fixed { epoch: Instant::now(), tempo: Clock::new(0.1, 0.0, 120.0, 4) })).unwrap();
+            std::thread::sleep(Duration::from_millis(300));
+            if dark {
+                r.stop_dark();
+            } else {
+                r.stop();
+            }
+            let last = widget.frames().last().unwrap().1;
+            assert_eq!(last[0], if dark { 0 } else { 255 }, "dark = {dark}");
+        }
     }
 }
