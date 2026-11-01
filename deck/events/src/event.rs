@@ -83,8 +83,9 @@ pub struct Event {
     pub source: Option<String>,
 }
 
-/// bytes of serialised `data` an adapter lets through (§16: "send a reference")
-pub const MAX_DATA: usize = 1024;
+/// bytes of serialised `data` an adapter lets through (§16: "send a reference") – the references guard's one limit
+/// (boundary.rs), so the adapters and the boundary can't drift apart
+pub const MAX_DATA: usize = crate::boundary::PAYLOAD_LIMIT;
 
 impl Event {
     pub fn new(name: Sym, start: Time) -> Event {

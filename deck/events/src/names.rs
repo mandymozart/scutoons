@@ -93,6 +93,15 @@ impl Names {
         self.name(sym).split_once('.').map(|(d, _)| d)
     }
 
+    /// names and keys interned so far (every `Sym` is below this)
+    pub fn len(&self) -> usize {
+        self.names.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.names.is_empty()
+    }
+
     pub fn in_domain(&self, sym: Sym, domain: &str) -> bool {
         self.domain(sym) == Some(domain)
     }

@@ -3,6 +3,7 @@
 //! - preset.rs – values + routing changes + mappings for one instrument, with a parent (derivatives, lineage)
 //! - bundle.rs – a rig with what it names (scene-content's answer) → the played scene + the page's knobs
 //! - engine.rs – a flattened rig lowered for live-core (the browser's batch engine) + what the page plays itself
+//! - horizon.rs – the mood horizon: the moods reachable next, played ahead (deck-events' horizon), swapped on the trigger
 //! - flatten.rs – a rig as one playable scene (the tracks summed into audio_out, the routes as links)
 //! - here – a rig: a character's (or a scene object's, #210) tracks, each an instrument + its default preset, routes
 //!   between tracks and to the being's look, and per-persona / per-mood variants; `Rig::play` resolves it.
@@ -11,10 +12,12 @@
 pub mod bundle;
 pub mod engine;
 mod flatten;
+pub mod horizon;
 pub mod instrument;
 pub mod preset;
 
 pub use bundle::{Bundle, Knob, Played};
+pub use horizon::Prebuilt;
 pub use instrument::{Expose, Instrument, InstrumentKind, Patch};
 pub use preset::{Mapping, Preset, PresetBook, Resolved};
 

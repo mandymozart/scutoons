@@ -1,4 +1,4 @@
-Status 2026-11-01: built (#236, PR #217): `deck/events` (the contract, the graph, rt events, random_walk / pulse / arp, gate_cv, glide, patch.rs; allocation-free in a run), the stage's `walk` / `events` nodes (one Host block) and live-core's `[[walk]]` / `[[events]]` – a rig's melody and a rigged arp play on the deck and in the browser; encapsulated (§10). In progress, each in its own session and branch with a PR into `wip/quirky-pascal-qmago4`: threads (§16, `wip/events-threads`), adapters story / relay / MIDI – built, PR #239 (§17), horizons + preload + the references guard (§16, `wip/events-horizons`). Owner handoff "Generator/Event Architecture"; extends #191 (rigs), #234 (sequences), #235 (patterns / clips).
+Status 2026-11-01: built (#236, PR #217): `deck/events` (the contract, the graph, rt events, random_walk / pulse / arp, gate_cv, glide, patch.rs; allocation-free in a run), the stage's `walk` / `events` nodes (one Host block) and live-core's `[[walk]]` / `[[events]]` – a rig's melody and a rigged arp play on the deck and in the browser; encapsulated (§10); the stage's sequencer + dispatcher threads and the routing table (§16, PR #240); horizons + preload (the walker, the rig's mood prebuild) and the references guard (§16, PR #238); the adapters story / relay / MIDI (§12, §17, PR #239 – a chapter's showMessage mood switches catpope's preset). Next: the story adapter wired into the reader / relay at runtime, the rigs' catalog tables (INSTRUMENTS.md §5), the creator's rig editor. Owner handoff "Generator/Event Architecture"; extends #191 (rigs), #234 (sequences), #235 (patterns / clips).
 
 # EVENTS — generators that talk in events
 
@@ -243,7 +243,7 @@ A block is 256 frames = 5.3 ms at 48 kHz (deck-stage audio/ring.rs); 1,000 event
 | path | latency |
 |---|---|
 | a generator → an instrument on the same deck | 0 – scheduled ahead, sample-accurate |
-| a live input (tap, MIDI key, story trigger) → sound | the render lead: 5.3–85 ms native (adaptive, #208), 43–64 ms in the browser (live-core's lead) – the same as a knob today |
+| a live input (tap, MIDI key, story trigger) → sound | native: the sequencer's horizon (device buffer + lead + a block) + the render lead (5.3–85 ms adaptive, #208); 43–64 ms in the browser (live-core's lead) |
 | → the image | the next frame: ≤ 16.7 ms at 60 fps |
 | a story trigger → a deck on the same phone page | ≤ one animation frame + the lead |
 | → other decks over the relay | the network (LAN ≈ 1–10 ms) + the lead; a cue with `at` fires on every deck together, at the time chosen |
@@ -295,20 +295,49 @@ coalesce (latest wins); events are never reordered.
 - Names are interned at load, never per event.
 - Browser: the main thread (UI, the story adapter) → a SharedArrayBuffer ring (live-core's shared transport, COOP /
   COEP on `/live/…`) → the worker (dispatcher + sequencer + engine) → the AudioWorklet copies; fetches in a loader
-  worker; space-web draws on the main thread from the deck's state.
+  worker; space-web draws on the main thread from the deck's state. The worker is already the browser's "sequencer":
+  live-core's walks run the patches there (the in-block path), never in the AudioWorklet; the dispatcher there = an
+  adapter ring (shared/live-core ring.ts, one writer, one reader) from the page into the worker, drained before each
+  render into deck-events' `Table` (route.rs, platform-free) – not built yet.
+
+**Built in deck-stage (#236):** `audio/sequencer.rs` (the hosts' patches one window of 256 frames ahead, a ring of
+`Timed` events per host, late windows dropped and counted, a full ring = wait), `audio/dispatch.rs` (a bounded MPSC
+`Inlet` → the dispatcher thread → `Table::route` → one SPSC ring per `listen` input; the table swapped through the
+queue, so no `arc-swap` dependency; `Counters` in the HUD), `listen` in patches (patch.rs), `inject_at` (graph.rs).
+`DECK_EVENTS=block` keeps the patches in the block; the same samples (deck/stage/tests/walk.rs), both allocation-free
+(tests/no_alloc.rs). Routing costs ≈ 1.4 µs median from `send` to the receiver's ring. deck/stage/README.md "Audio".
 
 **Event horizons – preparing before the trigger** ("anticipate potential events by running through scoped event
-horizons, and preload"): every scope lists the events it can reach – a show's cue rows, a chapter's triggers and
-choice branches, a rig's mood variants, a set's objects. A **horizon** = what is reachable from the current position
-within a bound (n rows, t seconds, choice depth d, a byte budget), nearest first. A preloader walks it and resolves the
-references; it can also **pre-build engine state** (the lowered scene of the next mood, a video decoder rolled to its
-first frame) and swap it in on the trigger. Before a show: the whole show's horizon, every deck answers ready; during
-it: a rolling horizon. The protocol already has the beginnings: `scene.sync` / `deck.synced` (#195) and `media.preload`
-/ `media.ready` (#186); the reader already preloads the next scenes' portraits.
+horizons, and preload"):
+- **Scope** = what lists its reachable items: a show's cue rows, a rig's mood variants, a set's objects, a chapter's
+  triggers and choice branches. Each item is a **reference** (an id, an immutable path, a mood) with a distance – rows
+  ahead, seconds ahead, choice depth – and a cost in bytes (0 = cached or free to build).
+- **Horizon** = the reachable items within a **bound** (n rows, t seconds, choice depth d, n items, a byte budget),
+  **nearest first** (seconds, then rows, then depth; ties in the scope's order), each reference once at its nearest. The
+  budget fills as a **prefix**: the first item that doesn't fit ends it, so a preloaded horizon has no holes.
+- **Preload or pre-build:** a loader resolves the references into its cache; an engine can also **pre-build state** (the
+  next mood's lowered scene, a video decoder rolled to its first frame) and swap it in on the trigger. Before a show: the
+  whole horizon, every deck answers ready; during it: a rolling horizon from the current row.
+- **Built (deck-events `horizon.rs`, deck-space `rig/horizon.rs`):** the platform-free walker (`walk(reach, bound)`) and
+  the rig case – the energy ladder's moods by rungs, the rig's off-ladder moods (sad) one branch away, a mood the rig
+  doesn't name shares the defaults' entry; `Bundle::prebuild` plays each reachable mood ahead (equal to a fresh `play`).
+  The guard: deck-events `boundary.rs` (`admit`, a loose payload over 1 KB → "send a reference").
+- **The protocol needs nothing new yet:** `scene.sync` (#195: `sets`, `characters`) and `media.preload` (#186: `items`)
+  are already reference lists, and their arrays are ordered – a conductor can send its horizon nearest first in them; decks
+  answer `deck.synced` / `media.ready` as now. Old decks read the same messages (printed / public things never change).
+  A rolling horizon is then just a new `scene.sync` per step.
+- **Decided (owner 2026-11-01, "i would go with recommendations for now"):** `scene.sync` stays ordered reference lists
+  (a `horizon` field with distances only when a deck needs them); a refused payload answers the sender with an `error`
+  ("send a reference"), never a silent drop.
+- **Defaults – provisional, tuned after real-show tests (owner 2026-11-01):** a show's rolling horizon = the next 8 cue
+  rows or 60 s, whichever ends first (`Bound::show`; before doors the whole show, `Bound::all`); a chapter = 2 choices
+  deep (`Bound::chapter`); a deck loads at most 256 MB ahead, and past it loads on the trigger (late – the show never
+  stops), it does not refuse the cue; a deck pre-builds moods only (the next scene's whole stage graph later, if real
+  shows need it). Constants: deck-events `horizon.rs` (`SHOW_ROWS`, `SHOW_SECS`, `CHOICE_DEPTH`, `DECK_BYTES`).
 
 ## 17. The adapters – built (#236)
 Rust `deck/events/src/adapters/` (+ `to_json`, the shared JSON form of §14); an `Event` now has `data` / `id` / `source`;
-names allow camelCase after the domain (`story.showMessage`); `MAX_DATA` = 1 KB, a bigger `data` is refused ("send a reference").
+names allow camelCase after the domain (`story.showMessage`); `MAX_DATA` = the boundary's `PAYLOAD_LIMIT` (1 KB, one limit), a bigger `data` is refused ("send a reference").
 - **story** (`story.rs`, TS twin `shared/live-deck/src/events.ts` `fromStory`): `story.<type>`, a **trigger** (`Time::Now`);
   numbers → props (keys sorted, first 6, overflow → data), the rest → `data`, `duration` ms → `dur`, `id` kept, `wait` dropped.
   The runner keeps `showChoices` · `addChoice` · `label` · `divert` · `jumpTo` · `setVariable` · `askText` (→ none); `if` is the caller's.
@@ -320,4 +349,4 @@ names allow camelCase after the domain (`story.showMessage`); `MAX_DATA` = 1 KB,
   `midi.cc { cc, value, ch }`; `release_all` ends held notes. The rest is ignored (`feed` → false).
 - **Acceptance** (`deck/space/tests/story_to_rig.rs`): the real chapter slice event → `story.showMessage` → a receiver maps
   `data.mood` to `Rig::play` → catpope's `voice_voice.ratio` 1.5 → 3.0 (`cathedral_voice.bright`); TS test on the same fixture.
-- Open: nothing routes adapter events into a running deck yet (the dispatcher, §16); the browser has no relay / MIDI adapter (TS twin: story only).
+- Open: the adapters don't feed the stage's dispatcher yet (built in §16, its `Inlet` is where they go); the browser has no relay / MIDI adapter (TS twin: story only).

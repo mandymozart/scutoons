@@ -463,7 +463,8 @@ fn rig_fixture_for_the_browser_deck_is_current() {
     if std::env::var_os("UPDATE_FIXTURES").is_some() {
         std::fs::write(path, &text).unwrap();
     }
-    let on_disk = std::fs::read_to_string(path).unwrap_or_default();
+    // a Windows checkout may turn the file's LF into CRLF (no .gitattributes): compare without the CRs
+    let on_disk = std::fs::read_to_string(path).unwrap_or_default().replace('\r', "");
     assert!(on_disk == text, "{path} is stale: UPDATE_FIXTURES=1 cargo test -p deck-space rig_fixture");
 }
 
