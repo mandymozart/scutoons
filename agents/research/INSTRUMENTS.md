@@ -1,4 +1,4 @@
-Status 2026-11-01: design + first slices (#191) – the Rust types (`deck/space/src/rig/`), `Rig::flatten`, the browser engine's lowering, the core rigs and the phone page's rig mode (`?rig=1`) are built and tested; storage is built (#258: the catalog kinds, members' rows, instrument items, scene-content's rigs – §5–6); the native deck loading rigs from scene-content, saving from a deck and the creator UI are next, the rest of §8 open.
+Status 2026-11-01: design + first slices (#191) – the Rust types (`deck/space/src/rig/`), `Rig::flatten`, the browser engine's lowering, the core rigs and the phone page's rig mode (`?rig=1`) are built and tested; storage is built (#258: the catalog kinds, members' rows, instrument items, scene-content's rigs – §5–6); the creator's library pages (#269: list, forms, rights, the TS validator over a schema generated from the Rust types) are built; the native deck loading rigs from scene-content and **making / saving sounds on the deck** (owner 2026-11-01: creation happens on the deck stage / browser deck, the creator only keeps them) are next, the rest of §8 open.
 
 # INSTRUMENTS — characters' instruments, presets, derivatives
 
@@ -73,6 +73,9 @@ Two layers (owner 2026-11-01: "factory presets and rigs and … modification by 
   name, grantable by story / scan, editions, a physical card or figure – the Tonie idea); the instrument row brings
   the graph. Several items may grant one instrument (variants, editions). Holding the item in the carrier bag =
   **owned**; a factory rig may use any instrument, a member's rig only the ones they hold (owned / core / lent).
+- **Creator** (#269): the factory kinds' library pages – list, fields, rights, drafts / publish / review, the TS validator
+  (agents/CATALOG.md "Instruments, presets, rigs"). Making an instrument (patching, wiring, tuning by ear) is the deck's:
+  deck stage / browser deck, saved from there (owner 2026-11-01, DECISIONS) – #203 moves there.
 - **Core**: the rigs + their instruments / presets a deck image ships, as TOML in `deck/stage/rigs/` – exported from the
   catalog when the ISO is built (the same documents, so `Rig::play` doesn't care where they came from).
 - **Samples** (the sampler kind): assets per ASSETS.md, `<toon>/sounds/<instrument>/<name>.v<n>.<ext>`, referenced

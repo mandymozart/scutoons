@@ -265,3 +265,13 @@ fine" stores `accepted_warnings` in the entry's `data` (a list-wide warning in m
   rigs, `instruments` / `presets` with ancestors, each `{ id, version }`. The contract: SceneContentRigsTest writes
   `server/tests/fixtures/rigs/scene-content.json` (`UPDATE_FIXTURES=1`), deck-space's
   `the_servers_scene_content_reads_as_bundles` parses it as `rig::Bundle`s and compares them with the TOML core rigs.
+- **Creator** (#269; owner 2026-11-01: sounds are made on the deck, the creator only keeps them – DECISIONS): tabs
+  Instruments · Presets · Rigs on `/catalog/<kind>`, the items page's pattern (list, drafts, Publish, history; publish order
+  instrument → preset → … → rig). Forms in `@scutoons/catalog`: rig (subject = the id, tracks with instrument / default
+  preset / gain / pan / mute, persona and mood variants, routes, sticks, rights), preset (instrument, parent – the presets of
+  that instrument minus its own descendants –, tags, values against the parent's folded ones as placeholders, unlink / link,
+  mappings, rights), instrument v1 (kind, name, out, expose, rights; `node` / `link` as the "More fields" JSON – the graph
+  editor belongs to the deck). **Validation before Publish** = `shared/catalog/src/rigs/`: the structure against
+  `schema.json` (schemars from deck-space's Rust types, `UPDATE_FIXTURES=1 cargo test -p deck-space rig_schema` – a stale
+  file fails the test), the rest mirrors `RigValidator` rule by rule with the same words, shown at the fields and in the
+  Problems panel; tests on the scene-content contract fixture (`npm test -w @scutoons/catalog`).
