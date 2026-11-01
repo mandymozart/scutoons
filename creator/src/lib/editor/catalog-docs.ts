@@ -17,7 +17,10 @@ export const CATALOG_LABELS: Record<CatalogDocKind, () => string> = {
 	products: () => m['creator.catalog_products'](),
 	editions: () => m['creator.catalog_editions'](),
 	'home-scenes': () => m['creator.catalog_home_scenes'](),
-	'airlift-carriers': () => m['creator.catalog_airlift_carriers']()
+	'airlift-carriers': () => m['creator.catalog_airlift_carriers'](),
+	instruments: () => m['creator.catalog_instruments'](),
+	presets: () => m['creator.catalog_presets'](),
+	rigs: () => m['creator.catalog_rigs']()
 };
 
 export const isCatalogPageKind = (kind: string | undefined): kind is CatalogDocKind => !!kind && (CATALOG_PAGE_KINDS as string[]).includes(kind);

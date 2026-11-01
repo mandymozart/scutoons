@@ -4,11 +4,12 @@
 import type { CatalogEntry, CatalogKind } from '@scutoons/api';
 import { catalogLocale as getLocale } from './setup.ts';
 import { m } from './messages.ts';
+import { INSTRUMENT_ID, PRESET_ID, SUBJECT } from './rigs/validate.ts';
 
 export type Data = Record<string, any>;
 
 /** the kinds with a tab, in the tab order (featured stays on the Homepage page – one place for it) */
-export const EDITED_KINDS = ['items', 'recipes', 'albums', 'products', 'editions', 'toons', 'permissions', 'code-types', 'meta', 'home-scenes', 'airlift-carriers'] as const;
+export const EDITED_KINDS = ['items', 'recipes', 'albums', 'products', 'editions', 'toons', 'permissions', 'code-types', 'meta', 'home-scenes', 'airlift-carriers', 'instruments', 'presets', 'rigs'] as const;
 export type EditedKind = (typeof EDITED_KINDS)[number];
 
 /** the lists of every kind, read by the forms for their selects (items, editions, products …) */
@@ -44,8 +45,8 @@ export interface KindDef {
 	columns: ListColumn[];
 	/** the entry's title in the detail */
 	title: (data: any, id: string) => string;
-	/** a new entry's data (the id is set on save) */
-	blank: () => Data;
+	/** a new entry's data (the id is set on save; a rig's subject is its id) */
+	blank: (id?: string) => Data;
 	/** the keys the form shows; the other keys are edited as JSON ("Advanced"); null = no Advanced */
 	formKeys: string[] | null;
 	/** the data as the form edits it (an object) and back (permissions: the data is the description string) */
@@ -55,6 +56,8 @@ export interface KindDef {
 	dataId: boolean;
 	/** the id rule of a new entry (the server's pattern) */
 	idPattern: RegExp;
+	/** an example id for the New dialog */
+	idPlaceholder?: string;
 	creatable: boolean;
 	deletable: boolean;
 	reorderable: boolean;
@@ -319,6 +322,67 @@ export const KINDS: Record<EditedKind, KindDef> = {
 		deletable: true,
 		reorderable: true,
 		confirmSave: true
+	},
+	// instruments, presets, rigs (#258 / #269, agents/CATALOG.md "Instruments, presets, rigs"): deck-space's serde forms
+	instruments: {
+		kind: 'instruments',
+		label: () => m['catalog.instruments'](),
+		singular: () => m['catalog.instrument'](),
+		columns: [
+			{ id: 'id', label: () => 'id', text: (_d, _l, e) => e.id },
+			{ id: 'name', label: () => m['catalog.name'](), text: (d) => dash(d.name) },
+			{ id: 'kind', label: () => m['catalog.instrument_kind'](), text: (d) => dash(d.kind) },
+			{ id: 'nodes', label: () => m['catalog.instrument_nodes'](), secondary: true, text: (d) => String((d.node ?? []).length) }
+		],
+		title: (d, id) => text(d.name) || id,
+		blank: () => ({ kind: 'lead', name: { de: '', en: '' }, node: [], link: [], out: '', expose: [] }),
+		formKeys: ['id', 'kind', 'name', 'out', 'expose', 'rights'],
+		dataId: true,
+		idPattern: INSTRUMENT_ID,
+		idPlaceholder: 'e.g. cathedral_voice',
+		creatable: true,
+		deletable: true,
+		reorderable: true
+	},
+	presets: {
+		kind: 'presets',
+		label: () => m['catalog.presets'](),
+		singular: () => m['catalog.preset'](),
+		columns: [
+			{ id: 'id', label: () => 'id', text: (_d, _l, e) => e.id },
+			{ id: 'instrument', label: () => m['catalog.instrument'](), text: (d) => dash(d.instrument) },
+			{ id: 'parent', label: () => m['catalog.preset_parent'](), secondary: true, text: (d) => dash(d.parent) },
+			{ id: 'tags', label: () => m['catalog.preset_tags'](), secondary: true, text: (d) => listText(d.tags) || '—' }
+		],
+		title: (d, id) => text(d.name) || id,
+		blank: () => ({ instrument: '', tags: [], values: {} }),
+		formKeys: null,
+		dataId: true,
+		idPattern: PRESET_ID,
+		idPlaceholder: 'e.g. cathedral_voice.bright',
+		creatable: true,
+		deletable: true,
+		reorderable: true
+	},
+	rigs: {
+		kind: 'rigs',
+		label: () => m['catalog.rigs'](),
+		singular: () => m['catalog.rig'](),
+		columns: [
+			{ id: 'id', label: () => m['catalog.rig_subject'](), text: (_d, _l, e) => e.id },
+			{ id: 'tracks', label: () => m['catalog.rig_tracks'](), text: (d) => (d.track ?? []).map((t: Data) => t.id).join(', ') || '—' },
+			{ id: 'moods', label: () => m['catalog.rig_moods'](), secondary: true, text: (d) => Object.keys(d.moods ?? {}).join(', ') || '—' }
+		],
+		title: (_d, id) => id,
+		// the subject is the id (RigValidator::SUBJECT; the row's data carries no id)
+		blank: (id = '') => ({ subject: id, track: [] }),
+		formKeys: null,
+		dataId: false,
+		idPattern: SUBJECT,
+		idPlaceholder: 'character.catpope · item.incense_burner',
+		creatable: true,
+		deletable: true,
+		reorderable: true
 	},
 	meta: {
 		kind: 'meta',

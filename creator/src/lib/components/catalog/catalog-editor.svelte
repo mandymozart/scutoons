@@ -9,12 +9,17 @@
 		HomeSceneForm,
 		AirliftCarrierForm,
 		EditionForm,
+		InstrumentForm,
 		ItemForm,
 		JsonField,
 		KINDS,
+		PresetForm,
 		ProductForm,
 		RecipeForm,
+		RigForm,
 		catalogProblems,
+		isRigKind,
+		rigEntryProblems,
 		importItemImages,
 		importRecipeImages,
 		type CatalogWrite,
@@ -55,7 +60,10 @@
 		'home-scenes': HomeSceneForm,
 		'airlift-carriers': AirliftCarrierForm,
 		products: ProductForm,
-		editions: EditionForm
+		editions: EditionForm,
+		instruments: InstrumentForm,
+		presets: PresetForm,
+		rigs: RigForm
 	};
 	const N = NEUTRAL_LOCALE;
 	// svelte-ignore state_referenced_locally
@@ -145,10 +153,13 @@
 	const advanced = $derived(data && def.formKeys ? restOf(data, def.formKeys) : null);
 	const lists = $derived(catalogLists(docs, toonList, selected && data ? { kind, id: selected, data } : undefined));
 	const entry = $derived(entries.find((e) => e.id === selected) ?? null);
+	/** an instrument / preset / rig: the validator's problems as the form stands (#269, the server's words) */
+	const rigProblems = $derived<string[]>(isRigKind(kind) && selected && data ? rigEntryProblems(lists, kind, selected) : []);
 
-	/** the open entry's problems (validateCatalog over the lists as they stand – items, recipes, albums) */
+	/** the open entry's problems (validateCatalog over the lists as they stand – items, recipes, albums; a rig kind: the rig validator's) */
 	function validate(): Problem[] {
 		if (!doc || !selected) return [];
+		if (isRigKind(kind)) return rigProblems.map((message) => ({ level: 'error' as const, file: doc!.entity, locale: null, path: [], message }));
 		return catalogProblems(lists)
 			.filter((p) => p.place?.kind === kind && p.place.id === selected)
 			// keyed inside the entry (the admin's accepted_warnings keep working): the Problems panel's "Looks fine" stores it there
@@ -226,7 +237,7 @@
 			title: m['creator.catalog_new']({ what: def.singular() }),
 			message: m['creator.catalog_new_hint'](),
 			label: 'id',
-			placeholder: 'e.g. golden_spoon',
+			placeholder: def.idPlaceholder ?? 'e.g. golden_spoon',
 			confirmLabel: m['creator.catalog_create']()
 		});
 		const clean = id?.trim();
@@ -237,7 +248,7 @@
 		loadError = null;
 		selected = clean;
 		const next = neutralDoc(catalogKey(kind, clean));
-		next.create(() => ({ ...(def.dataId ? { id: clean } : {}), ...def.blank() }));
+		next.create(() => ({ ...(def.dataId ? { id: clean } : {}), ...def.blank(clean) }));
 		doc = next;
 		void goto(`?id=${encodeURIComponent(clean)}`, { keepFocus: true, noScroll: true });
 	}
@@ -318,7 +329,7 @@
 							<p class="note" data-testid="catalog-removed-note"><Icon name="trash-2" /> {m['creator.catalog_removed_note']()}</p>
 						{/if}
 						{#key selected}
-							<Form bind:data={formData.get, formData.set} creating={!entry?.live} id={selected ?? ''} {lists} problems={serverProblems} />
+							<Form bind:data={formData.get, formData.set} creating={!entry?.live} id={selected ?? ''} {lists} problems={[...serverProblems, ...rigProblems]} />
 							{#if advanced}
 								<details class="advanced">
 									<summary>{m['creator.catalog_advanced']()}</summary>

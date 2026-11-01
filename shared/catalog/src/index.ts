@@ -6,6 +6,11 @@ export { m as catalogMessages, catalogMessage, CATALOG_MESSAGES, type CatalogMes
 export * from './kinds.ts';
 export * from './problems.ts';
 export * from './import.ts';
+export * from './rigs/index.ts';
+export { default as InstrumentForm } from './components/instrument-form.svelte';
+export { default as PresetForm } from './components/preset-form.svelte';
+export { default as RigForm } from './components/rig-form.svelte';
+export { default as RightsField } from './components/rights-field.svelte';
 export { default as AlbumForm } from './components/album-form.svelte';
 export { default as HomeSceneForm } from './components/home-scene-form.svelte';
 export { default as AirliftCarrierForm } from './components/airlift-carrier-form.svelte';
