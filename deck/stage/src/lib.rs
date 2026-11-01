@@ -32,6 +32,9 @@ pub mod text;
 pub mod space;
 #[cfg(feature = "sync")]
 pub mod sync;
+/// "save as preset" from the knobs into the member's account, queued offline (#270)
+#[cfg(feature = "sync")]
+pub mod save;
 #[cfg(feature = "outputs")]
 pub mod outputs;
 #[cfg(feature = "gamepad")]
