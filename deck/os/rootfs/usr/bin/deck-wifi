@@ -1,38 +1,25 @@
 #!/bin/bash
-# The Wi-Fi picker of the boot flow (deck-firstboot step 2). Online already (wired, or a Wi-Fi NetworkManager remembers
-# on the persistence partition) → a countdown, Enter changes the network. Otherwise a menu: nmtui's network picker,
-# the deck's own hotspot (deck-hotspot.nmconnection), or no network (the local relay works without one).
-# Under the boot splash (plymouth, #179) the countdown is a message under the logo and any key opens the menu; the
-# splash quits for the menu (a hidden one still eats the keys); the rest of that boot is text.
+# The Wi-Fi picker of the boot flow (deck-firstboot step 2) – only for a deck that knows no network yet (a fresh stick;
+# a deck with a remembered network skips this step and connects in the background, #251). Online after a few seconds
+# (a cable) → on without asking. Otherwise a menu: nmtui's network picker, the deck's own hotspot
+# (deck-hotspot.nmconnection), or no network (the local relay works without one). Later changes: nmtui on tty2.
+# The splash (plymouth, #179) quits for the menu (a hidden one still eats the keys); the rest of that boot is text.
 set -u
 
 CYAN=$'\e[36m'; DIM=$'\e[2m'; OFF=$'\e[0m'
-wait_s=$(sed -n 's/^wifi_wait *= *\([0-9]*\).*/\1/p' /var/lib/deck/deck.toml 2>/dev/null | head -1)
-wait_s=${wait_s:-8}
 
 online() {
   # connectivity needs a check URL round trip; "connected" with an address is what the relay + the browser need
   nmcli -t -f STATE general 2>/dev/null | grep -q '^connected' || return 1
   ip -o -4 addr show scope global 2>/dev/null | grep -q inet
 }
-status() {
-  local dev
-  dev=$(nmcli -t -f DEVICE,TYPE,STATE,CONNECTION device 2>/dev/null | grep ':connected:' | head -1)
-  printf '%s' "${dev##*:} (${dev%%:*}: $(ip -o -4 addr show scope global 2>/dev/null | awk '{print $4; exit}'))"
-}
 
 splash() { command -v plymouth >/dev/null && plymouth --ping 2>/dev/null; }
 
-# NetworkManager needs a moment after boot before a wired link or a remembered Wi-Fi is up
-for _ in 1 2 3 4 5 6; do online && break; sleep 1; done
+# NetworkManager needs a moment after boot before a wired link is up
+for _ in 1 2 3 4 5 6; do online && exit 0; sleep 1; done
 
-asked=0   # a key under the splash asked for the menu already: no second countdown
 if splash; then
-  if online; then
-    plymouth display-message --text="online: $(status) – a key changes the network (${wait_s} s)"
-    timeout "$wait_s" plymouth watch-keystroke >/dev/null 2>&1 || exit 0
-    asked=1
-  fi
   # quit, not hide-splash: a hidden plymouthd keeps reading tty1's keyboard, so nmtui got no Enter / Activate
   # (the X1, 2026-10-29); after the menu the boot goes on in text until the kiosk
   plymouth quit 2>/dev/null
@@ -40,13 +27,8 @@ if splash; then
 fi
 
 while true; do
-  if online && [ "$asked" = 0 ]; then
-    printf '%sonline:%s %s – Enter to change the network, going on in %ss ' "$CYAN" "$OFF" "$(status)" "$wait_s"
-    if read -r -t "$wait_s" -n 1; then echo; else echo; exit 0; fi
-  elif ! online; then
-    printf '%snot online.%s\n' "$CYAN" "$OFF"
-  fi
-  asked=0
+  online && exit 0
+  printf '%snot online.%s\n' "$CYAN" "$OFF"
   printf '  %sW%s  pick a Wi-Fi (nmtui)\n' "$CYAN" "$OFF"
   printf '  %sH%s  start the deck'"'"'s own hotspot (scutoons-deck / scutoons-deck)\n' "$CYAN" "$OFF"
   printf '  %sN%s  no network – go on (the local relay works; the conductor page needs one later)\n' "$CYAN" "$OFF"

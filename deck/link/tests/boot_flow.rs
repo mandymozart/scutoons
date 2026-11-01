@@ -91,6 +91,24 @@ fn the_image_builds_and_enables_deck_link() {
     assert!(pkg.contains("-p deck-link") && pkg.contains("usr/bin/deck-link\""));
 }
 
+/// #251: a deck that knows a network and its key boots straight to the stage – no Wi-Fi countdown, no handshake in the
+/// boot flow, nothing of the deck waiting for network-online.target (networkd's wait-online held it 2 min on the X1)
+#[test]
+fn a_known_deck_boots_straight_to_the_stage() {
+    let firstboot = read("rootfs/usr/bin/deck-firstboot");
+    assert!(firstboot.contains("connection show") && firstboot.contains("connecting in the background"));
+    assert!(firstboot.contains("had_key") && firstboot.contains("\"$had_key\" = 0"), "the handshake only on the first key");
+    assert!(!read("rootfs/usr/bin/deck-wifi").contains("wifi_wait"), "no countdown");
+    for unit in ["deck-link.service", "deck-update.service", "deck-kiosk.service"] {
+        let text = read(&format!("rootfs/usr/lib/systemd/system/{unit}"));
+        assert!(!text.lines().any(|l| l.starts_with("After=") && l.contains("network-online")), "{unit}");
+    }
+    let build = read("container/build.sh");
+    for masked in ["systemd-networkd.service", "systemd-networkd-wait-online.service"] {
+        assert!(build.contains(&format!("ln -sf /dev/null \"$PROFILE/airootfs/etc/systemd/system/{masked}\"")), "{masked}");
+    }
+}
+
 /// mkarchiso sets modes from profiledef's file_permissions – a program missing there shipped without its execute bit
 /// (deck-link on the X1's s7 image, 2026-11-01: deck-link.service "Permission denied" from boot on, #237)
 #[test]

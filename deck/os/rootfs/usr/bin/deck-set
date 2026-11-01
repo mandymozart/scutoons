@@ -15,10 +15,10 @@ if [ $# -eq 0 ]; then
   exit 0
 fi
 key=$1; value=${2-}
-case "$key" in *[!a-z_]*|'') echo "a key is lower case letters and _ (kiosk, scene, relay, outlet, locale, conductor, wifi_wait)"; exit 2 ;; esac
+case "$key" in *[!a-z_]*|'') echo "a key is lower case letters and _ (kiosk, scene, relay, outlet, locale, conductor, update_channel, update_url)"; exit 2 ;; esac
 case "$value" in *'"'*) echo "a value cannot hold a double quote"; exit 2 ;; esac
 install -d "$(dirname "$FILE")"; touch "$FILE"
-# numbers stay bare (wifi_wait = 8), everything else in double quotes
+# numbers stay bare (audio_buffer = 0), everything else in double quotes
 if [[ "$value" =~ ^[0-9]+$ ]]; then line="$key = $value"; else line="$key = \"$value\""; fi
 tmp=$(mktemp)
 # every earlier line for the key goes (a duplicate was the trap); the new one takes the first one's place

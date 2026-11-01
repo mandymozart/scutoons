@@ -6,6 +6,7 @@ stays and gets "(superseded YYYY-MM-DD → …)" appended. Rules for agents: age
 to mark them superseded.
 
 ## 2026-11
+- 2026-11-01 · platform · **The stage's debug overlay is a key, off in a release:** F1 cycles it (full → bar → off) now; from the release that counts – 2027-02-05 – the stage starts with it off and F1 is the way in · "this short cut is the one that turns on the debug once we are ready for a release that counts … That would be february 5th" · → deck/stage/README.md, #249
 - 2026-11-01 · platform · **Decks update remotely, without a stick:** in dev from the dev PC on the LAN, else from the server; the deck installs the new version and restarts – a signed bundle (`deck-update`), never during a show; pacman stays for the base system later · "the deck should be updateable remotely for us to develop … in dev from localnetwork or from the server … update the deck software and restart" · → deck/os/README.md "Updates", #237
 
 ## 2026-10

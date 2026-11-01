@@ -76,6 +76,10 @@ done
 # the venue certificate now and then (#201)
 mkdir -p "$PROFILE/airootfs/etc/systemd/system/timers.target.wants"
 ln -sf /usr/lib/systemd/system/deck-tls.timer "$PROFILE/airootfs/etc/systemd/system/timers.target.wants/deck-tls.timer"
+# the deck's network is NetworkManager: Arch's presets enable systemd-networkd + its wait-online, which waits for links
+# networkd never manages and held network-online.target for 2 min each boot (the X1, 2026-11-01, #251) – masked
+ln -sf /dev/null "$PROFILE/airootfs/etc/systemd/system/systemd-networkd.service"
+ln -sf /dev/null "$PROFILE/airootfs/etc/systemd/system/systemd-networkd-wait-online.service"
 # remote updates (#237)
 ln -sf /usr/lib/systemd/system/deck-update.timer "$PROFILE/airootfs/etc/systemd/system/timers.target.wants/deck-update.timer"
 # releng's pacman-init (the live keyring) lives in /etc – keep it while releng ships it

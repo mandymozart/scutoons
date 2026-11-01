@@ -4,8 +4,7 @@
 # (a conductor on the relay). deck-update.timer runs it; `deck-update now` on tty2 / ssh at once.
 [Unit]
 Description=SCUTOONS deck update check
-After=network-online.target deck-firstboot.service
-Wants=network-online.target
+After=deck-firstboot.service
 
 [Service]
 Type=oneshot

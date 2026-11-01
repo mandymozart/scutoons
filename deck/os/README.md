@@ -72,15 +72,17 @@ browser's window is there.
 
 1. `deck-firstboot.service` – persistence (`deck-persist`), the defaults into `/var/lib/deck` (`venue.toml`,
    `deck.toml`), the local relay starts.
-2. `deck-wifi` – online already (wired, a remembered Wi-Fi) → 8 s countdown (under the splash: a message, any key
-   opens the menu); else **W** nmtui's picker, **H** the deck's
-   own hotspot (`deck-hotspot.nmconnection`: SSID `scutoons-deck`, key `scutoons-deck`, the deck is 10.42.0.1),
-   **N** no network, **S** a shell.
+2. The network (#251): a deck that **remembers** a network (a saved Wi-Fi or wired profile) goes straight on –
+   NetworkManager connects in the background while the stage starts; changing it later = `nmtui` on tty2. Only a
+   deck that knows none runs `deck-wifi`: online within 6 s (a cable) → on; else the menu – **W** nmtui's picker,
+   **H** the deck's own hotspot (`deck-hotspot.nmconnection`: SSID `scutoons-deck`, key `scutoons-deck`, the deck is
+   10.42.0.1), **N** no network, **S** a shell.
 3. `deck-check` – the report on screen, `/var/lib/deck/machine.toml` (class + features; CYBERDECKS.md §1). Once per
    stick; `deck.recheck` on the kernel line or `deck-check` in a shell re-runs it. Everything degrades with a warning
    (no Vulkan, software Vulkan, no audio device = the feature off, the kiosk still starts); only a machine without any
    display device leaves a root shell instead of the kiosk.
-   Then the deck's key and its code to pair with ("Pairing" below); `deck-link.service` keeps it paired.
+   Then the deck's key and – on its first boot only – its code to pair with ("Pairing" below); after that
+   `deck-link.service` pairs and keeps it paired in the background (the boot never waits for the handshake).
 4. `deck-kiosk.service` – `cage` runs `deck-session` as the user `deck`, which plays `kiosk` from
    `/var/lib/deck/deck.toml`: **`stage`** (the default) = `deck-stage` (deck/stage/README.md) with `scene` (empty = the
    built-in "AV madness": catpope 1's slices, captions and music + synths, the FFT drives the picture; its cache in
