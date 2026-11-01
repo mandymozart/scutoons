@@ -43,6 +43,14 @@ top of the running stage: the logo comes up until the browser's window takes the
 then the stage stops drawing and mutes; when the command exits the stage is back at once. Without `DECK_BROWSER` F2
 quits with exit code 10.
 
+**Gamepad** (#228: the feature `gamepad`, `cargo run --release -p deck-stage --features gamepad -- --windowed`; gilrs – a
+pad system that can't start is logged and the stage plays without one): the left stick drives the left stick of the
+selection, the right stick the right one – the same pairs as a tap (the being: voice ratio / index on the left, cutoff /
+LFO rate on the right; a knob: its pair) – and a stick is down while it is deflected past the dead zone, its values
+moving from where they were. **A** (south) selects the next – the master section → the being → each knob → … – **Y**
+(north) the previous; the space rings what is selected, as for a tap. Logic: `src/pad.rs` over deck-space's `controls`; the layout is gilrs's standard one (its stick up =
+positive – not yet checked on a pad).
+
 **The splash** (owner 2026-10-29: "das scutoons logo gross in weiss"): the official logo (viewer/static/SCUTOONS-logo.svg
 with a white fill – `assets/SCUTOONS-logo-white.svg`, rendered with resvg) at half the width on black, a loading line at
 the top. The window's first frame is the splash (before the scene's shaders compile); it fades once every chapter
@@ -74,6 +82,7 @@ the basic audio nodes (`osc`, `noise`, `fm`, `seq`, `click`, `mixer`, `fft`, `au
 | `osc` | the tempo source `osc` (`/tempo/*`) | rosc |
 | `link` | the tempo source `link` (Ableton Link) | rusty_link (cmake, libclang) |
 | `pipewire` | the PipeWire backend (Linux) | pipewire (clang) |
+| `gamepad` | a gamepad on the space's sticks (#228 – below) | gilrs (libudev at build time on Linux) |
 
 Default = `space`, `sync`, `chapter`, `live`, `midi`, `osc`, `outputs` – a plain build plays every bundled scene. The table lives in deck-core
 (`core/src/stage.rs`, data only); `src/modules.rs` says which modules this build carries. A scene that needs a module

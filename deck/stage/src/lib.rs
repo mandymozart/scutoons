@@ -30,3 +30,5 @@ pub mod space;
 pub mod sync;
 #[cfg(feature = "outputs")]
 pub mod outputs;
+#[cfg(feature = "gamepad")]
+pub mod pad;

@@ -305,6 +305,9 @@ struct Show {
     #[cfg(feature = "outputs")]
     outputs: Option<deck_stage::outputs::Outputs>,
     outputs_note: Option<String>,
+    /// a gamepad's sticks and buttons over the space (#228; the feature `gamepad`, over a scene with a space)
+    #[cfg(feature = "gamepad")]
+    pad: Option<deck_stage::pad::Pad>,
 }
 
 /// the Live outlet's settings from the CLI (deck.toml's under them – live/config.rs)
@@ -559,6 +562,9 @@ impl Show {
             tracing::warn!("this build of the stage does not carry the module 'outputs' – the scene's [outputs] is off");
             "this build does not carry the module 'outputs' (--features outputs)".to_owned()
         });
+        // #228: a gamepad drives the being's sticks, over the scene's space (a pad system that can't start only says so)
+        #[cfg(feature = "gamepad")]
+        let pad = space.as_ref().map(|s| deck_stage::pad::Pad::new(&graph, s));
         Ok(Show {
             scene_name: scene.stage.name.clone(),
             render_scale: scene.stage.render_scale,
@@ -585,6 +591,8 @@ impl Show {
             #[cfg(feature = "outputs")]
             outputs,
             outputs_note,
+            #[cfg(feature = "gamepad")]
+            pad,
         })
     }
 
@@ -1037,6 +1045,11 @@ impl App {
         let shown = (hud_on && self.hud.visible()).then_some(&self.hud);
         if self.args.frames.is_some_and(|n| self.stats.frames + 1 >= n) {
             r.capture = self.args.screenshot.clone();
+        }
+        // #228: the pad's sticks and buttons, read once per frame (no pad: nothing)
+        #[cfg(feature = "gamepad")]
+        if let (Some(pad), Some(space)) = (self.show.pad.as_mut(), self.show.space.as_mut()) {
+            pad.poll(space, &mut self.show.controls);
         }
         let before = (now.elapsed().as_secs_f32()) * 1000.0;
         match r.frame(&self.show.graph, &self.show.controls, time, dt, shown, splash, self.show.space.as_mut()) {
