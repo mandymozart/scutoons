@@ -10,6 +10,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 pub struct Preset {
     pub id: String,
     pub instrument: String,
@@ -42,6 +43,7 @@ pub struct Preset {
 /// lands on `target` across `range` (default: the parameter's range, params.rs).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 pub struct Mapping {
     pub source: String,
     pub target: String,

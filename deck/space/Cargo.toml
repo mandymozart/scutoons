@@ -43,3 +43,5 @@ wgpu = { version = "25", optional = true }
 # the acceptance test of the events adapters (tests/story_to_rig.rs): a chapter event routed to a core rig
 [dev-dependencies]
 deck-events = { path = "../events" }
+# the rig forms' JSON schema for the creator (rig/tests.rs `rig_schema`): derived under cfg(test) only, never shipped
+schemars = "1"

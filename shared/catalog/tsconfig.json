@@ -10,7 +10,8 @@
 		"strict": true,
 		"skipLibCheck": true,
 		"isolatedModules": true,
+		"resolveJsonModule": true,
 		"types": []
 	},
-	"include": ["src/**/*.ts", "src/**/*.svelte"]
+	"include": ["src/**/*.ts", "src/**/*.svelte", "test/**/*.ts"]
 }

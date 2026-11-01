@@ -21,7 +21,8 @@
 		"src"
 	],
 	"scripts": {
-		"check": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings"
+		"check": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings && npm run test",
+		"test": "node --experimental-transform-types --no-warnings --test test/rigs.test.ts"
 	},
 	"dependencies": {
 		"@scutoons/api": "*",

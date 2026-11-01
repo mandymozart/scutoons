@@ -41,6 +41,7 @@ pub enum Hold {
 /// What a holder may do (owner 2026-10-30: "the definition says who may save, copy or change it").
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 pub enum Right {
     /// load and hear it
     Play,
@@ -55,6 +56,7 @@ pub enum Right {
 /// Rights per way of holding, carried by every definition. Default: lent = play + tweak, core = + derive, owned = all.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, default)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 pub struct Rights {
     pub lent: Vec<Right>,
     pub owned: Vec<Right>,
@@ -82,6 +84,7 @@ impl Rights {
 /// A character's (or object's) set of tracks.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 pub struct Rig {
     /// whose rig: `character.<id>` (`character.<id>.<persona>` for a persona's own) or `item.<id>` – KANON's subjects
     pub subject: String,
@@ -107,6 +110,7 @@ pub struct Rig {
 /// One track: an instrument, its default preset, its mixer strip.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 pub struct Track {
     pub id: String,
     pub instrument: String,
@@ -130,6 +134,7 @@ fn one() -> f32 {
 /// (an fx track; `scale` = its level), a control route a modulation.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 pub struct Route {
     pub from: String,
     pub to: String,
@@ -142,6 +147,7 @@ pub struct Route {
 /// A persona's or a mood's overrides: another preset per track, and single values (`<track>:<node>.<port>`).
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, default)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 pub struct Variant {
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub presets: BTreeMap<String, String>,
