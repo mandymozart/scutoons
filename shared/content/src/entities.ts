@@ -62,10 +62,13 @@ export type EntityKind =
  * The catalog entries as versioned documents, `<kind>:<id>` (server CatalogDocs, agents/CATALOG-IN-CREATOR.md): no toon
  * segment (the toon is the entry's `toon` field – an entry may move), language-neutral; publishing writes the catalog.
  */
-export const CATALOG_ENTITY_KINDS = ['item', 'recipe', 'album', 'product', 'edition', 'home-scene', 'airlift-carrier'] as const;
+export const CATALOG_ENTITY_KINDS = ['item', 'recipe', 'album', 'product', 'edition', 'home-scene', 'airlift-carrier', 'instrument', 'preset', 'rig'] as const;
 export type CatalogEntityKind = (typeof CATALOG_ENTITY_KINDS)[number];
-/** a catalog document's id (the server's widest catalog id rule; ids may hold upper case) */
-const CATALOG_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$/;
+/**
+ * a catalog document's id (the server's widest catalog id rule, EntityKey::CATALOG_ID_PATTERN; ids may hold upper case;
+ * dots for presets `cathedral_voice.bright` and rigs `rig:character.catpope` – #258)
+ */
+const CATALOG_ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$/;
 const isCatalogKind = (kind: string): kind is CatalogEntityKind => (CATALOG_ENTITY_KINDS as readonly string[]).includes(kind);
 
 /** kind → [has toon, has number, localized] (the catalog kinds: an id instead – parseEntityKey) */

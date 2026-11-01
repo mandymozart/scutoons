@@ -171,6 +171,15 @@ unlocked places (`walkPath` / `walkPoints`, ≈ 1.2 s a stretch); the place card
   `GET /api/homes`, `POST /api/homes/place`, `POST /api/homes/move-in` { character, home_id, mover? } (the mover:
   50 cucumbers, takes the old home's furniture along), `POST|DELETE /api/homes/visits`, `GET /api/homes/visit/{token}`.
 
+### Instrument items (#258, owner 2026-11-01 – research/INSTRUMENTS.md §5)
+
+- `category: "instrument"` + `instrument: "<catalog_instruments id>"` – the pattern of furniture: the item brings what
+  every item has (picture, 3D model, name, grants, editions, a physical card), the instrument row brings the graph.
+  Several items may grant one instrument. `CatalogValidator`: the instrument must exist, the field only on that category,
+  the category needs the field; deleting an instrument an item names is `409 in_use`.
+- Holding the item (inventory, `qty > 0`) = the instrument is **owned**: a member's rig variant may use it
+  (`Domain\Rigs\MemberRigs::held` – plus the factory rig's own instruments).
+
 ### 3D item models (owner 2026-10-16: "We will turn all items into 3d assets" – FEATURES 10.102)
 
 An item's 3D model is a `.glb` asset next to its icon: `<toon>/items/<item-id>.model.glb` (own slug – a plain

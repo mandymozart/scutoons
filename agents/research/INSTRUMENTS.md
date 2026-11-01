@@ -1,4 +1,4 @@
-Status 2026-11-01: design + first slices (#191) – the Rust types (`deck/space/src/rig/`), `Rig::flatten`, the browser engine's lowering, the core rigs and the phone page's rig mode (`?rig=1`) are built and tested; storage is decided (§5, 2026-11-01); the tables, the API, the native deck loading rigs and the creator UI are next, the rest of §8 open.
+Status 2026-11-01: design + first slices (#191) – the Rust types (`deck/space/src/rig/`), `Rig::flatten`, the browser engine's lowering, the core rigs and the phone page's rig mode (`?rig=1`) are built and tested; storage is built (#258: the catalog kinds, members' rows, instrument items, scene-content's rigs – §5–6); the native deck loading rigs from scene-content, saving from a deck and the creator UI are next, the rest of §8 open.
 
 # INSTRUMENTS — characters' instruments, presets, derivatives
 
@@ -57,11 +57,12 @@ carrier bag, #192) · core (the deck image). What it may do is the definition's 
 unsaved) · `derive` (save a child) · `copy` (a copy without lineage). Default: lent = play + tweak, core = + derive,
 owned = all. Saving into a carrier bag = the definition's right + the deck's grant (owner 2026-10-30), not a token scope.
 
-## 5. Where it lives (owner 2026-11-01: two layers; instruments are items)
+## 5. Where it lives (owner 2026-11-01: two layers; instruments are items – built #258, agents/CATALOG.md "Instruments, presets, rigs")
 Two layers (owner 2026-11-01: "factory presets and rigs and … modification by individual users"):
 - **Factory** = catalog kinds (agents/CATALOG.md: one row per entry, `id, toon, position, data` JSON, `catalog_history`
   + undo, edited in the creator like items): `catalog_instruments`, `catalog_presets`, `catalog_rigs` (id = the
-  subject). `data` is the serde form of `deck/space/src/rig` – PHP + TS validators mirror it.
+  subject). `data` is the serde form of `deck/space/src/rig` – the PHP validator (`Domain\Rigs\RigValidator`) mirrors it;
+  a TS one comes with the creator's rig editor.
 - **Members' modifications** = member rows on top of the factory: `member_presets (id, user_id, parent, instrument,
   data, created_at)` – a derivative, its `parent` a factory or an own preset – and `member_rigs (user_id, subject,
   data)` – a member's variant of a factory rig (other presets per track, more tracks with instruments they hold).
@@ -78,10 +79,13 @@ Two layers (owner 2026-11-01: "factory presets and rigs and … modification by 
   from node params; the asset registry indexes catalog rows as uses already.
 
 ## 6. How decks fetch it (#195)
-- `GET /api/library/scene-content?…&characters=plf&items=incense_burner` gains per character `rig` (its rig, persona
-  variant included) and per item its rig, plus top-level `instruments` and `presets` maps holding every referenced one
-  **with its ancestors** (a lineage must resolve offline). Each `{ id, version }` so the sync skips what's cached.
-- Owned derivatives: `&presets=<ids>` with the paired deck token (#180) – read scope, the member's own rows only.
+- Built (#258): `GET /api/library/scene-content?…&characters=plf&items=incense_burner` answers per character `rig` (the
+  persona's own `character.<id>.<persona>`, else `character.<id>` with its persona variants, else null) and per item its
+  rig, each `{ id, version, data, instruments, presets }`, plus top-level `instruments` and `presets` maps holding every
+  referenced one **with its ancestors** (a lineage resolves offline), each `{ id, version, data }` – `version` = the
+  stored data's hash, so the sync skips what's cached (server docs/API.md "Library").
+- Next: the decks read it (deck/stage sync.rs, shared/live-deck sync.ts / space.ts – today they fetch portraits and sets).
+- Owned derivatives: `&presets=<ids>` with the paired deck token (#180) – read scope, the member's own rows only (not built).
 - Lent: the conductor's `scene.sync` names them in its reserved `beings` field (renamed `presets`/`rigs` when built);
   the deck fetches them like the rest and drops them when the scene ends.
 - The deck caches them on DECKDATA next to sets and portraits (`<cache>/rigs/…`), plays offline from the cache.

@@ -512,3 +512,117 @@ fn a_walk_into_a_voice_becomes_a_walk_that_plays_its_freq() {
     let spread = p.knobs.iter().find(|k| k.path == "voice_melody.spread").unwrap();
     assert_eq!((spread.min, spread.max, spread.value), (0.0, 1.0, 0.0), "the held drone by default");
 }
+
+#[test]
+fn an_events_node_must_hold_a_patch_that_builds() {
+    let inst = |knobs: &str| -> Instrument {
+        let text = format!(
+            "id = \"arp\"\nkind = \"lead\"\nout = \"voice\"\nnode = [\n  {{ id = \"gen\", kind = \"events\", generator = [{{ id = \"w\", kind = \"random_walk\" }}], out = \"w.notes\", knobs = [{knobs}] }},\n  {{ id = \"voice\", kind = \"fm\" }},\n]\nlink = [{{ from = \"gen.cv\", to = \"voice.cv\" }}]\n"
+        );
+        toml::from_str(&text).unwrap()
+    };
+    inst("\"w.spread\"").check().unwrap();
+    let five = inst(&["\"w.spread\""; 5].join(", ")).check().unwrap_err().to_string();
+    assert!(five.contains("at most 4"), "{five}");
+    let unknown = inst("\"w.loudness\"").check().unwrap_err().to_string();
+    assert!(unknown.contains("events node 'gen'"), "{unknown}");
+}
+
+/// The server's rig validator (server/src/Domain/Rigs/NodeKinds.php) checks instruments against graph.rs's kinds and
+/// ports: `UPDATE_FIXTURES=1 cargo test -p deck-space node_kinds` writes that PHP file, a plain run fails when it is stale.
+#[test]
+fn node_kinds_for_the_server_are_current() {
+    use crate::graph::{Domain, Kind, PortType};
+    let ty = |t: PortType| match t {
+        PortType::Audio => "audio",
+        PortType::Control => "control",
+        PortType::Video => "video",
+    };
+    let ports = |ps: &[crate::graph::Port]| {
+        ps.iter().map(|p| format!("'{}' => '{}'", p.name, ty(p.ty))).collect::<Vec<_>>().join(", ")
+    };
+    let mut kinds = String::new();
+    for k in Kind::ALL {
+        let domain = match k.domain() {
+            Domain::Audio => "audio",
+            Domain::Control => "control",
+            Domain::Video => "video",
+        };
+        kinds += &format!(
+            "        '{}' => ['domain' => '{domain}', 'inputs' => [{}], 'outputs' => [{}]],\n",
+            k.name(),
+            ports(k.inputs()),
+            ports(k.outputs())
+        );
+    }
+    let scene_only =
+        super::instrument::SCENE_ONLY.iter().map(|k| format!("'{}'", k.name())).collect::<Vec<_>>().join(", ");
+    let text = format!(
+        "<?php\ndeclare(strict_types=1);\n\nnamespace Scutoons\\Domain\\Rigs;\n\n/**\n * GENERATED from deck/space/src/graph.rs – do not edit: `UPDATE_FIXTURES=1 cargo test -p deck-space node_kinds` writes it,\n * a plain run fails when it is stale. The node kinds an instrument's graph may use (RigValidator mirrors graph.rs's\n * checks with them): kind → its domain (audio · control · video – a control link into or out of an audio node does not\n * order, graph.rs `Link::orders`) and its input / output ports with their types.\n */\nfinal class NodeKinds\n{{\n    public const KINDS = [\n{kinds}    ];\n    /** kinds a scene owns once (instrument.rs SCENE_ONLY): never inside an instrument */\n    public const SCENE_ONLY = [{scene_only}];\n}}\n"
+    );
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/src/Domain/Rigs/NodeKinds.php");
+    if std::env::var_os("UPDATE_FIXTURES").is_some() {
+        std::fs::write(path, &text).unwrap();
+    }
+    let on_disk = std::fs::read_to_string(path).unwrap_or_default().replace('\r', "");
+    assert!(on_disk == text, "{path} is stale: UPDATE_FIXTURES=1 cargo test -p deck-space node_kinds");
+}
+
+/// The contract with the server (#258): `GET /api/library/scene-content`'s rigs, as the server answers them from its
+/// catalog (server/tests/fixtures/rigs/scene-content.json, written by its SceneContentRigsTest from the migrated core
+/// rigs), read as `Bundle`s – serde's forms (unknown fields refused), checked, played in every mood – and equal to the
+/// core rigs the deck image carries (deck/stage/rigs/*.toml), so the server's form and the Rust form cannot drift.
+#[test]
+fn the_servers_scene_content_reads_as_bundles() {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/rigs/scene-content.json");
+    let answer: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let mut rigs = Vec::new();
+    for group in ["characters", "items"] {
+        for (name, entry) in answer[group].as_object().unwrap() {
+            if !entry["rig"].is_null() {
+                rigs.push((name.clone(), entry["rig"].clone()));
+            }
+        }
+    }
+    assert!(rigs.len() >= 2, "the fixture names the core rigs");
+    let mut core_seen = 0;
+    for (name, r) in rigs {
+        let pick = |map: &str, list: &str| -> Vec<serde_json::Value> {
+            r[list]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|id| {
+                    let e = &answer[map][id.as_str().unwrap()];
+                    assert_eq!(e["id"], *id, "{map}: an entry carries its id");
+                    assert!(e["version"].as_str().is_some_and(|v| !v.is_empty()), "{map} {id}: a version for the cache");
+                    e["data"].clone()
+                })
+                .collect()
+        };
+        let json = serde_json::json!({ "rig": r["data"], "instrument": pick("instruments", "instruments"), "preset": pick("presets", "presets") });
+        let mut b = Bundle::parse_json(&json.to_string()).unwrap_or_else(|e| panic!("{name}: {e:#}"));
+        assert_eq!(r["id"].as_str(), Some(b.rig.subject.as_str()), "{name}: the rig's id is its subject");
+        let lib = b.library();
+        for i in &b.instruments {
+            i.check().unwrap();
+        }
+        for p in &b.presets {
+            lib.instrument(&p.instrument).unwrap().patch(&lib.presets.resolve(&p.id).unwrap()).unwrap();
+        }
+        b.rig.check(&lib).unwrap();
+        for mood in std::iter::once(None).chain(b.rig.moods.keys().map(|m| Some(m.as_str()))) {
+            b.play(None, mood).unwrap_or_else(|e| panic!("{name} {mood:?}: {e:#}"));
+        }
+        if let Some(core) = Bundle::core(&b.rig.subject) {
+            let mut core = core.unwrap();
+            for x in [&mut core, &mut b] {
+                x.instruments.sort_by(|a, b| a.id.cmp(&b.id));
+                x.presets.sort_by(|a, b| a.id.cmp(&b.id));
+            }
+            assert_eq!(b, core, "{name}: the server's rig = the deck image's core rig");
+            core_seen += 1;
+        }
+    }
+    assert_eq!(core_seen, bundle::CORE.len(), "every core rig is in the server's catalog");
+}

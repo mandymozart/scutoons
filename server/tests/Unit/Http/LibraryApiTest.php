@@ -195,7 +195,7 @@ final class LibraryApiTest extends TestCase
         $version = $registry->addVersion($asset, new StoredFile('catpope/map/sets/cathedral.low.v2.glb', 516928), 'local');
         $registry->addRendition($asset, $version, '1x', 'low', new StoredFile('catpope/map/sets/cathedral.low.v2.glb', 516928));
 
-        $r = $this->request('/api/library/scene-content?sets=cathedral,nowhere&characters=plf,ghost', ['Authorization' => 'Bearer scd_not-checked-for-public-content']);
+        $r = $this->request('/api/library/scene-content?sets=cathedral,nowhere&characters=plf,ghost&items=incense_burner,Ghost', ['Authorization' => 'Bearer scd_not-checked-for-public-content']);
         self::assertSame([200, 'public, max-age=60', '*'], [$r->getStatusCode(), $r->getHeaderLine('Cache-Control'), $r->getHeaderLine('Access-Control-Allow-Origin')]);
         $body = self::json($r);
         self::assertSame([
@@ -206,12 +206,17 @@ final class LibraryApiTest extends TestCase
         self::assertSame(['character' => 'catpope', 'persona' => 'regular', 'look' => 'default', 'portraits' => [
             'happy' => ['path' => 'characters/catpope/catpope_portrait-happy.webp', 'size' => null],
             'neutral' => ['path' => 'characters/catpope/catpope_portrait-neutral.webp', 'size' => null],
-        ]], $body['characters']['plf'], 'an old VN id → catpope');
-        self::assertSame(['sets' => ['nowhere'], 'characters' => ['ghost']], $body['missing']);
-        $again = $this->request('/api/library/scene-content?sets=cathedral,nowhere&characters=plf,ghost', ['If-None-Match' => $r->getHeaderLine('ETag')]);
+        ]], array_diff_key($body['characters']['plf'], ['rig' => 1]), 'an old VN id → catpope');
+        // the rigs (#258): catpope's core rig of the migration 2026-11-01-rigs_core, the incense burner's (an item)
+        self::assertSame(['character.catpope', ['cathedral_voice', 'drone']], [$body['characters']['plf']['rig']['id'], $body['characters']['plf']['rig']['instruments']]);
+        self::assertSame(['incense'], $body['items']['incense_burner']['rig']['instruments']);
+        self::assertSame(['cathedral_voice', 'drone', 'incense'], array_keys($body['instruments']));
+        self::assertSame(['sets' => ['nowhere'], 'characters' => ['ghost'], 'items' => ['Ghost']], $body['missing']);
+        $again = $this->request('/api/library/scene-content?sets=cathedral,nowhere&characters=plf,ghost&items=incense_burner,Ghost', ['If-None-Match' => $r->getHeaderLine('ETag')]);
         self::assertSame(304, $again->getStatusCode());
 
-        self::assertSame('{"sets":{},"characters":{},"missing":{"sets":[],"characters":[]}}', (string) $this->request('/api/library/scene-content')->getBody(), 'maps stay objects');
+        self::assertSame('{"sets":{},"characters":{},"items":{},"instruments":{},"presets":{},"missing":{"sets":[],"characters":[],"items":[]}}', (string) $this->request('/api/library/scene-content')->getBody(), 'maps stay objects');
+        self::assertSame(400, $this->request('/api/library/scene-content?items=../x')->getStatusCode());
         self::assertSame([400, 'invalid_ids'], [($bad = $this->request('/api/library/scene-content?sets=../x'))->getStatusCode(), self::json($bad)['error']]);
         self::assertSame(400, $this->request('/api/library/scene-content?characters=' . implode(',', array_map(fn($i) => "c$i", range(1, 33))))->getStatusCode());
     }

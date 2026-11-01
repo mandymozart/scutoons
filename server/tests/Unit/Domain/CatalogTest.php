@@ -82,8 +82,10 @@ final class CatalogTest extends TestCase
         self::assertSame(27, $counts['items']);
         $this->get(CatalogStore::class)->forget();
         $this->assertServesTheSeedFiles('seeded from the fixture');
-        // the airlift carriers start empty (the owner adds them – research/CAVE.md D8): nothing to leave alone
-        self::assertSame(array_merge(array_fill_keys(array_keys(CatalogStore::KINDS), null), ['airlift-carriers' => 0]), self::fixture()->seed($this->db), 'filled tables are left alone');
+        // the airlift carriers start empty (the owner adds them – research/CAVE.md D8): nothing to leave alone; the fixture
+        // files have no instruments / presets / rigs (the core rigs come from the migration 2026-11-01-rigs_core), so the
+        // replacing seed above emptied them
+        self::assertSame(array_merge(array_fill_keys(array_keys(CatalogStore::KINDS), null), ['airlift-carriers' => 0, 'instruments' => 0, 'presets' => 0, 'rigs' => 0]), self::fixture()->seed($this->db), 'filled tables are left alone');
     }
 
     public function testTheMigrationFoldsTheRetiredSettings(): void

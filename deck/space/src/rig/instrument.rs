@@ -67,7 +67,7 @@ pub struct Patch {
 }
 
 /// Kinds a scene owns once (graph.rs's sinks + the clock): never inside an instrument – the rig / scene adds them.
-const SCENE_ONLY: [Kind; 5] = [Kind::Screen, Kind::AudioOut, Kind::Tempo, Kind::Space, Kind::Outlet];
+pub(crate) const SCENE_ONLY: [Kind; 5] = [Kind::Screen, Kind::AudioOut, Kind::Tempo, Kind::Space, Kind::Outlet];
 
 impl Patch {
     pub fn graph(&self) -> Result<Graph> {
@@ -105,6 +105,14 @@ impl Instrument {
         }
         for e in &self.expose {
             self.control_input(&e.path)?;
+        }
+        // an events node holds a patch (deck-events): it must build – known generators, edges, `out`, at most 4 knobs
+        for n in graph.nodes.iter().filter(|n| n.kind == Kind::Events) {
+            let mut names = deck_events::Names::new();
+            let notes = deck_events::patch::NoteNames::new(&mut names);
+            deck_events::patch::Patch::from_table(&n.params)
+                .and_then(|p| p.build(notes, &mut names).map(|_| ()))
+                .map_err(|e| anyhow::anyhow!("instrument '{}': events node '{}': {e}", self.id, n.id))?;
         }
         Ok(graph)
     }

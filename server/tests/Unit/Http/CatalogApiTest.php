@@ -174,6 +174,18 @@ final class CatalogApiTest extends TestCase
         self::assertArrayNotHasKey('accepted_warnings', self::json($this->request('GET', '/api/admin/catalog/items/camera', $auth))['entry']['data']);
     }
 
+    /** #258: the rig kinds through the admin routes – ids with dots (presets) and a subject (rigs); written in the creator */
+    public function testAdminsReadInstrumentsPresetsAndRigs(): void
+    {
+        $auth = $this->admin();
+        self::assertSame(['cathedral_voice', 'drone', 'incense'], array_column(self::json($this->request('GET', '/api/admin/catalog/instruments', $auth))['items'], 'id'));
+        self::assertSame('character.catpope', self::json($this->request('GET', '/api/admin/catalog/rigs/character.catpope', $auth))['entry']['data']['subject']);
+        self::assertSame('cathedral_voice.base', self::json($this->request('GET', '/api/admin/catalog/presets/cathedral_voice.bright', $auth))['entry']['data']['parent']);
+        $r = $this->request('PUT', '/api/admin/catalog/presets/drone.dark', $auth, '{"data":{"id":"drone.dark","instrument":"drone","parent":"drone.base"}}');
+        self::assertSame([409, 'edited_in_creator'], [$r->getStatusCode(), self::json($r)['error'] ?? null], 'catalog documents (preset:<id>), like items');
+        self::assertSame(200, $this->request('GET', '/api/admin/catalog/history?kind=rigs', $auth)->getStatusCode());
+    }
+
     public function testAdminsCreateToons(): void
     {
         $auth = $this->admin();

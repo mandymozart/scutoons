@@ -88,6 +88,29 @@ final class CatalogDocsTest extends TestCase
         self::assertSame([422, 'invalid_catalog'], [$bad->getStatusCode(), self::json($bad)['error'] ?? null]);
     }
 
+    /** #258: instruments, presets and rigs are documents too – `preset:<a.b>`, `rig:<subject>` (ids with dots) */
+    public function testRigKindsAreDocumentsToo(): void
+    {
+        $writer = $this->creator('writer@example.com');
+        $rigs = self::json($this->request('GET', '/api/catalog/docs/rigs', $this->bearer($writer)));
+        self::assertSame(['character.catpope', 'item.incense_burner'], array_column($rigs['entries'], 'id'), 'the migrated core rigs (table data, no document yet)');
+        // a derivative whose parent is only a draft so far: saved, and published after its parent
+        self::assertSame(200, $this->put($writer, 'preset:drone.dark', ['id' => 'drone.dark', 'instrument' => 'drone', 'parent' => 'drone.base', 'values' => ['drone.freq' => 41.0]])->getStatusCode());
+        self::assertSame(200, $this->put($writer, 'preset:drone.dark.deep', ['id' => 'drone.dark.deep', 'instrument' => 'drone', 'parent' => 'drone.dark', 'values' => ['drone.freq' => 30.0]])->getStatusCode());
+        $early = $this->request('POST', '/api/entities/preset:drone.dark.deep/publish', $this->bearer($writer), '{}');
+        self::assertSame([422, 'invalid_catalog'], [$early->getStatusCode(), self::json($early)['error'] ?? null]);
+        self::assertSame(200, $this->request('POST', '/api/entities/preset:drone.dark/publish', $this->bearer($writer), '{}')->getStatusCode());
+        self::assertSame(200, $this->request('POST', '/api/entities/preset:drone.dark.deep/publish', $this->bearer($writer), '{}')->getStatusCode());
+        $rig = ['subject' => 'character.boy', 'track' => [['id' => 'pad', 'instrument' => 'drone', 'preset' => 'drone.dark.deep']], 'moods' => ['sad' => (object) []]];
+        self::assertSame(200, $this->put($writer, 'rig:character.boy', $rig)->getStatusCode());
+        self::assertSame(200, $this->request('POST', '/api/entities/rig:character.boy/publish', $this->bearer($writer), '{}')->getStatusCode());
+        self::assertStringContainsString('"moods":{"sad":{}}', (string) $this->db->value("SELECT data FROM catalog_rigs WHERE id = 'character.boy'"), '{} stays {} (serde\'s Variant)');
+        // refused as a draft: what deck-space would refuse
+        $bad = $this->put($writer, 'preset:drone.bad', ['id' => 'drone.bad', 'instrument' => 'drone', 'values' => ['drone.cv' => 1.0]]);
+        self::assertSame([422, 'invalid_catalog'], [$bad->getStatusCode(), self::json($bad)['error'] ?? null]);
+        self::assertSame(422, $this->put($writer, 'rig:character.girl', ['subject' => 'character.boy', 'track' => []])->getStatusCode(), 'subject = the id');
+    }
+
     public function testAnAdminWriteBecomesThePublishedVersion(): void
     {
         $admin = $this->get(CatalogAdmin::class);

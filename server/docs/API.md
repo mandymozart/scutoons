@@ -186,7 +186,12 @@ field (edited with `PUT /catalog/items/<id>`).
 `<kind>` = `items` · `recipes` · `albums` · `products` · `editions` · `featured` (`{ product, variant? }`, id
 `<product>[:<variant>]`) · `permissions` (data = the description string) · `code-types` (`{ claimable, signup,
 grants }`; id `default` = types not listed) · `toons` (`{ id, name, redirectUrl }`) · `meta` (`items` `{ version }`,
-`products` `{ version, currency, checked_at, source }`, `permissions` `{ version }`).
+`products` `{ version, currency, checked_at, source }`, `permissions` `{ version }`) · `home-scenes` · `airlift-carriers` ·
+`instruments` · `presets` (id `<a>.<b>` with dots) · `rigs` (id = the subject `character.<id>[.<persona>]` / `item.<id>`,
+data without `id`) – the last three are deck-space's serde forms (#258, `Domain\Rigs\RigValidator`: what
+`deck_space::rig` refuses is a `422`; agents/research/INSTRUMENTS.md §5). Kinds that are catalog documents (items, recipes,
+albums, products, editions, home scenes, airlift carriers, instruments, presets, rigs) are written in the creator:
+here `PUT` / `DELETE` / undo → `409 edited_in_creator`.
 
 | Method | Path | What |
 |---|---|---|
@@ -838,13 +843,14 @@ Admin (`/api/admin`): `GET /review-rules` → `{ items: [{ toon, rule, user: { i
 ### Catalog documents and the `physical` rule (2026-10-12 draft, migration `2026-10-12-catalog-docs` – agents/CATALOG-IN-CREATOR.md)
 
 Every item, recipe, album, product and edition is also a versioned entity: `item:<id>`, `recipe:<id>`, `album:<id>`,
-`product:<id>`, `edition:<id>` (no toon segment; ids as in the catalog, upper case allowed). `/entities` works on them like
+`product:<id>`, `edition:<id>` (no toon segment; ids as in the catalog, upper case allowed) – so are home scenes,
+airlift carriers and (#258) `instrument:<id>`, `preset:<id>` (dots allowed), `rig:<subject>` (`rig:character.catpope`). `/entities` works on them like
 on content: `PUT` stores a draft (checked as a catalog entry: `422 invalid_catalog { problems }`; a reference to an entry
 that is only a draft passes), `publish` makes the version the published one AND writes it into the catalog table
 (`catalog_history` note `published v<n>`; `422 invalid_catalog` rolls back), `restore` as usual, **`unpublish` →
 `422 not_supported`**. Removing (D5): never published → `POST /entities/batch { deletes: [key] }` (409 `published`
 when it is in the catalog); published → a version = the document + `removed: true` (not validated again), publishing
-it deletes the table entry (`409 in_use` while anything uses it); `entries[].removed` marks it. `GET /catalog/docs/<kind>` (kind = items | recipes | albums | products | editions, role creator)
+it deletes the table entry (`409 in_use` while anything uses it); `entries[].removed` marks it. `GET /catalog/docs/<kind>` (kind = items | recipes | albums | products | editions | home-scenes | airlift-carriers | instruments | presets | rigs, role creator)
 → `{ kind, entries: [{ id, key, latest, published, live, draft, versions, latest_at, latest_author, latest_message,
 physical, toons, content }] }`. An admin write to the table (`/admin/catalog/…`, undo, relink) becomes the entry's
 published version; a delete leaves it unpublished.
@@ -873,7 +879,7 @@ is the format of every answer). Implementation: `Domain\Library\Library` + `Libr
 | `/library/toons/<toon>/cast[?chapter=<n>]` | `{ registry, cast }`: `characters` reduced to the toon's cast (or the characters the chapter references; legacy ids mapped) + `cast:<toon>`; `null` where missing. Resolve with `resolveCast()` |
 | `/library/toons/<toon>/credits` | `{ credits, people, roles }`: `credits:<toon>`, the referenced people (+ `merged_into` targets), the roles · 404 without credits |
 | `/library/characters` | the whole character registry (entity `characters`), e.g. the avatar bodies |
-| `/library/scene-content?sets=<id,…>&characters=<id,…>` | what a deck's scene needs (#195, `Domain\Library\SceneContent`): `{ sets: { <id>: { name, model: { low, medium, high } } }, characters: { <id>: { character, persona, look, portraits: { <mood>: … } } }, missing: { sets, characters } }`, each file `{ path, size }` (CDN root, `size` from the asset registry or null). Sets = the catalog's home scenes (their `model`: `src` = medium, a level without a variant gets `src`; none = `model: {}`); a character = a registry id, an old VN id (`plf`) or `<character>-<persona>` → that persona's default look. ≤ 32 ids each, `400 invalid_ids`. Public; a deck token (#180) passes (DeckTokenScope) and changes nothing yet |
+| `/library/scene-content?sets=<id,…>&characters=<id,…>&items=<id,…>` | what a deck's scene needs (#195, #258, `Domain\Library\SceneContent`): `{ sets: { <id>: { name, model: { low, medium, high } } }, characters: { <id>: { character, persona, look, portraits: { <mood>: … }, rig } }, items: { <id>: { rig } }, instruments: { <id>: { id, version, data } }, presets: { <id>: { id, version, data } }, missing: { sets, characters, items } }`, each file `{ path, size }` (CDN root, `size` from the asset registry or null). Sets = the catalog's home scenes (their `model`: `src` = medium, a level without a variant gets `src`; none = `model: {}`); a character = a registry id, an old VN id (`plf`) or `<character>-<persona>` → that persona's default look. **Rigs:** a character's `rig` = the catalog's `character.<id>.<persona>`, else `character.<id>`, else `null`; an item's = `item.<id>` (none = `missing.items`). A rig is `{ id, version, data, instruments: [ids], presets: [ids] }` – `data` = deck-space's `Rig`, the presets every one it names **with their ancestors** (root first); each instrument / preset once in the top-level maps, `data` = its `Instrument` / `Preset`. `version` = 16 hex of the stored data's SHA-256 (a deck's cache skips what it has). `{ rig: data, instrument: [...], preset: [...] }` is a `deck_space::rig::Bundle` (deck-space's `the_servers_scene_content_reads_as_bundles` reads `tests/fixtures/rigs/scene-content.json`, written by SceneContentRigsTest). Maps stay objects, `1.0` stays `1.0`. ≤ 32 ids each, `400 invalid_ids`. Public; a deck token (#180) passes (DeckTokenScope) and changes nothing yet |
 | `/events/` | the entity `events` |
 
 - **Locale** `?locale=xx` (default: the toon's `sourceLanguage`): per document the asked locale, else the source
