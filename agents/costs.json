@@ -1,0 +1,11 @@
+{
+  "format": 1,
+  "project": "scutoons",
+  "about": "Cost per issue, one entry per session (or charge). Format: C:/Development/ORCHESTRATION.md section 10. est_usd is always a list-price estimate, billed/currency only real charges. Written by the orchestrator only.",
+  "entries": [
+    {"date":"2026-10-29","project":"scutoons","issues":[],"role":"orchestrator","service":"claude-local","session":"ffc3b156-5e08-470f-85d6-e7d5380b2659","title":"Arch Linux cyberdecks audio/video suite (deck orchestrator)","model":"claude-opus-5-5, claude-fable-5-1, claude-haiku-5-5","est_usd":42.81,"paid_from":null,"billed":null,"currency":null,"source":"transcript (tools/costs/transcript_cost.py)","note":null},
+    {"date":"2026-10-30","project":"scutoons","issues":[],"role":"orchestrator","service":"claude-local","session":"ffc3b156-5e08-470f-85d6-e7d5380b2659","title":"Arch Linux cyberdecks audio/video suite (deck orchestrator)","model":"claude-opus-5-5, claude-fable-5-1, claude-haiku-5-5","est_usd":165.22,"paid_from":null,"billed":null,"currency":null,"source":"transcript (tools/costs/transcript_cost.py)","note":null},
+    {"date":"2026-10-31","project":"scutoons","issues":[],"role":"orchestrator","service":"claude-local","session":"ffc3b156-5e08-470f-85d6-e7d5380b2659","title":"Arch Linux cyberdecks audio/video suite (deck orchestrator)","model":"claude-opus-5-5, claude-fable-5-1, claude-haiku-5-5","est_usd":231.92,"paid_from":null,"billed":null,"currency":null,"source":"transcript (tools/costs/transcript_cost.py)","note":null},
+    {"date":"2026-11-01","project":"scutoons","issues":[],"role":"orchestrator","service":"claude-local","session":"ffc3b156-5e08-470f-85d6-e7d5380b2659","title":"Arch Linux cyberdecks audio/video suite (deck orchestrator)","model":"claude-opus-5-5, claude-fable-5-1, claude-haiku-5-5","est_usd":4.83,"paid_from":null,"billed":null,"currency":null,"source":"transcript (tools/costs/transcript_cost.py)","note":"partial day – the shift is still running"}
+  ]
+}
