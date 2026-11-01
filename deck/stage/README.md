@@ -166,6 +166,9 @@ A live tool may not crackle unnoticed, and should not crackle at all:
   | 128 / 256 / 512 → 1056 | render thread, callback not raised | 0 · 0 · 0 | 1 · 0 · 1, and 3 in 8 min |
   | 128 / 256 / 512 → 1056 | render thread, callback raised (now) | – | 0 in 8 min |
   | 2048 → 2048 (43 ms) | callback / render thread | 0 / 0 | 0 / 0 |
+  | **ASIO** 128 → 128 (2.7 ms), 10 min | render thread, lead 256 (5 ms) | 0 | – |
+  | ASIO 128, 2 min | in ASIO's callback (`--audio-thread off`) | 0 | – |
+  | ASIO 64 asked → 128 (RME's Settings at 128) | render thread | 0 | – |
 
   Every glitch was the same: cpal's WASAPI thread (its own TIME_CRITICAL priority) woke 32–38 ms after the last
   callback and found the 22 ms buffer drained – the ring can't help a late device thread, MMCSS for that thread does;
@@ -173,6 +176,10 @@ A live tool may not crackle unnoticed, and should not crackle at all:
   came near its budget. What this can't see: a glitch inside Windows' audio engine (audiodg) or the USB driver (DPC
   latency) after our buffer – crackles heard while the indicator stays at 0 point there (LatencyMon; ASIO bypasses
   audiodg).
+  **ASIO** (2026-11-01, #230, the same PC, `ASIO Fireface USB` 48 kHz i32 20 ch): the HUD `AUDIO ASIO 48K BUF 128 3MS
+  LEAD 5MS`, OUT 31 ms; the lead stays at one block. The driver offers exactly the buffer set in RME's Settings dialog
+  (`--audio-list`: `buffer 128–128`); another `--audio-buffer` is clamped to it with a WARN line – a smaller buffer is
+  set in RME's dialog first. The walk scene's sequencer runs at THREAD_PRIORITY_HIGHEST, `events_dropped=0`.
 
 ## Scenes
 
