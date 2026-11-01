@@ -9,7 +9,6 @@ use crate::state::{write_atomic, Channel, Config, Paths, Stamp, State, STABLE_EV
 use anyhow::{bail, Context, Result};
 use std::fs;
 use std::path::Path;
-use std::time::Duration;
 
 /// The largest bundle a deck downloads
 const MAX_BUNDLE: u64 = 512 << 20;
@@ -76,8 +75,8 @@ pub struct Updater<'a> {
     pub fetch: &'a dyn Fetch,
     pub system: &'a dyn System,
     pub lan: &'a dyn Fn() -> Vec<String>,
-    /// how long restarted units must stay up
-    pub settle: Duration,
+    /// how long restarted units get to come up and stay up
+    pub wait: apply::Wait,
 }
 
 fn label(version: &str, build: u64) -> String {
@@ -193,7 +192,7 @@ impl Updater<'_> {
                 reboot: true,
             });
         }
-        match apply::activate(self.system, &acts, &installed.changed, self.settle) {
+        match apply::activate(self.system, &acts, &installed.changed, self.wait) {
             Ok(()) => Ok(Outcome::Updated {
                 from: from.into(),
                 to: to.into(),
@@ -212,9 +211,7 @@ impl Updater<'_> {
                 if acts.daemon_reload {
                     self.system.daemon_reload()?;
                 }
-                for unit in &acts.restart {
-                    let _ = self.system.restart(unit);
-                }
+                let _ = apply::restart_all(self.system, &acts.restart);
                 if !state.bad_builds.contains(&m.build) {
                     state.bad_builds.push(m.build);
                 }
@@ -319,7 +316,7 @@ mod tests {
         }
 
         fn updater<'a>(&self, fetch: &'a FakeFetch, sys: &'a FakeSystem, lan: &'a dyn Fn() -> Vec<String>) -> Updater<'a> {
-            Updater { paths: self.paths.clone(), fetch, system: sys, lan, settle: Duration::ZERO }
+            Updater { paths: self.paths.clone(), fetch, system: sys, lan, wait: apply::Wait::NONE }
         }
     }
 

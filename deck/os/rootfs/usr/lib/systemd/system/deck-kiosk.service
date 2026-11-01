@@ -20,6 +20,9 @@ ExecStartPre=+-/usr/bin/plymouth quit --retain-splash
 ExecStart=/usr/bin/deck-session
 Restart=on-failure
 RestartSec=2
+# the stage ignored SIGTERM on the X1 (2026-11-01, #237: a stop took systemd's 90 s, then SIGKILL) – a kiosk may be
+# killed; 5 s keeps a restart (deck-set --restart, an update) quick
+TimeoutStopSec=5
 
 [Install]
 WantedBy=multi-user.target

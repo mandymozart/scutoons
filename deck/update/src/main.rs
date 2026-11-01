@@ -13,7 +13,7 @@
 //!   deck-update serve D [--port 7790]  serve the bundle folder to the decks on the LAN
 
 use anyhow::{bail, Context, Result};
-use deck_update::apply::Systemd;
+use deck_update::apply::{Systemd, Wait};
 use deck_update::bundle::{self, PackOptions};
 use deck_update::manifest::MANIFEST;
 use deck_update::sign;
@@ -22,7 +22,6 @@ use deck_update::state::{now, Paths, Stamp, State, DEV_PORT};
 use deck_update::update::{Options, Outcome, Updater};
 use std::net::{TcpListener, UdpSocket};
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -54,7 +53,7 @@ fn run(args: &[String]) -> Result<()> {
     let http = Http::new();
     let system = Systemd;
     let lan = source::lan;
-    let updater = Updater { paths: paths.clone(), fetch: &http, system: &system, lan: &lan, settle: Duration::from_secs(10) };
+    let updater = Updater { paths: paths.clone(), fetch: &http, system: &system, lan: &lan, wait: Wait::DECK };
     match cmd {
         "status" => status(&updater),
         "check" | "now" | "auto" => {

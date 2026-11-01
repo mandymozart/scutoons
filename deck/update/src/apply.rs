@@ -109,6 +109,11 @@ pub trait System {
     fn restart(&self, unit: &str) -> Result<()>;
     fn enable(&self, unit: &str) -> Result<()>;
     fn is_active(&self, unit: &str) -> bool;
+    /// systemd's automatic restarts of the unit (`NRestarts`) – a unit that crashes and comes back is not "up"
+    fn restarts(&self, unit: &str) -> u64;
+    /// the kiosk's console (tty1) to the front: cage only takes the screen there (seen on the X1 2026-11-01 – started
+    /// while tty2 was in front, it exited every 10 s)
+    fn show_kiosk(&self);
     fn reboot(&self) -> Result<()>;
     /// a show runs: a conductor is on the deck's relay (LIVE.md B.4's freeze)
     fn busy(&self) -> bool;
@@ -139,12 +144,38 @@ impl System for Systemd {
     fn is_active(&self, unit: &str) -> bool {
         Self::systemctl(&["is-active", "--quiet", unit]).is_ok()
     }
+    fn restarts(&self, unit: &str) -> u64 {
+        std::process::Command::new("systemctl")
+            .args(["show", "--value", "-p", "NRestarts", unit])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse().ok())
+            .unwrap_or(0)
+    }
+    fn show_kiosk(&self) {
+        let _ = std::process::Command::new("chvt").arg("1").status();
+    }
     fn reboot(&self) -> Result<()> {
         Self::systemctl(&["reboot"])
     }
     fn busy(&self) -> bool {
         relay_live("127.0.0.1:7700") > 0
     }
+}
+
+/// How long `activate` waits for restarted units
+#[derive(Debug, Clone, Copy)]
+pub struct Wait {
+    /// the restart must be done by then (a stage that ignores SIGTERM holds its stop up to the unit's TimeoutStopSec)
+    pub deadline: Duration,
+    /// then every unit up this long without an automatic restart (a stage that dies at start is back after 2 s)
+    pub stable: Duration,
+}
+
+impl Wait {
+    pub const DECK: Wait = Wait { deadline: Duration::from_secs(120), stable: Duration::from_secs(15) };
+    /// tests: one look
+    pub const NONE: Wait = Wait { deadline: Duration::ZERO, stable: Duration::ZERO };
 }
 
 /// `live` of the relay's `GET /status` (`{ "sessions": n, "live": n }`); 0 when it does not answer
@@ -166,8 +197,20 @@ pub fn relay_live(addr: &str) -> u64 {
 /// The update timer keeps itself enabled (a deck that got deck-update by hand gets its timer with the first bundle)
 pub const OWN_UNITS: &[&str] = &["deck-update.timer"];
 
-/// Reload, restart, then wait `settle` and check every restarted unit is running; the first one that is not → Err
-pub fn activate(sys: &dyn System, actions: &Actions, changed: &[String], settle: Duration) -> Result<()> {
+/// Restarts the units (the kiosk with its console in front)
+pub fn restart_all(sys: &dyn System, units: &[String]) -> Result<()> {
+    if units.iter().any(|u| u == "deck-kiosk.service") {
+        sys.show_kiosk();
+    }
+    for unit in units {
+        sys.restart(unit)?;
+    }
+    Ok(())
+}
+
+/// Reload, restart, then wait until every restarted unit is active and stays so for `wait.stable` without an
+/// automatic restart; not by `wait.deadline` → Err naming the unit
+pub fn activate(sys: &dyn System, actions: &Actions, changed: &[String], wait: Wait) -> Result<()> {
     if actions.daemon_reload {
         sys.daemon_reload()?;
     }
@@ -176,23 +219,32 @@ pub fn activate(sys: &dyn System, actions: &Actions, changed: &[String], settle:
             sys.enable(unit)?;
         }
     }
-    for unit in &actions.restart {
-        sys.restart(unit)?;
-    }
+    restart_all(sys, &actions.restart)?;
     if actions.restart.is_empty() {
         return Ok(());
     }
-    // a unit that dies at start is "activating (auto-restart)" or "failed" after a few seconds, not "active"
-    let until = Instant::now() + settle;
+    let start = Instant::now();
+    // since when all are up, and their restart counts then
+    let mut up: Option<(Instant, Vec<u64>)> = None;
     loop {
-        let down: Vec<&String> = actions.restart.iter().filter(|u| !sys.is_active(u)).collect();
-        if Instant::now() >= until {
-            if let Some(u) = down.first() {
-                bail!("{u} did not come up after the update");
-            }
-            return Ok(());
+        let down = actions.restart.iter().find(|u| !sys.is_active(u));
+        let counts: Vec<u64> = actions.restart.iter().map(|u| sys.restarts(u)).collect();
+        match (&down, &up) {
+            (Some(_), _) => up = None,
+            (None, Some((_, before))) if *before != counts => up = Some((Instant::now(), counts)),
+            (None, None) => up = Some((Instant::now(), counts)),
+            (None, Some(_)) => {}
         }
-        std::thread::sleep(Duration::from_millis(500).min(settle));
+        if let Some((since, _)) = &up {
+            if since.elapsed() >= wait.stable {
+                return Ok(());
+            }
+        }
+        if start.elapsed() >= wait.deadline + wait.stable {
+            let unit = down.unwrap_or(&actions.restart[0]);
+            bail!("{unit} did not come up after the update (or kept restarting)");
+        }
+        std::thread::sleep(Duration::from_millis(500));
     }
 }
 
@@ -202,12 +254,14 @@ pub(crate) mod tests {
     use crate::manifest::FileEntry;
     use std::cell::RefCell;
 
-    /// Records calls; `down` units never come up
+    /// Records calls; `down` units never come up, `flapping` ones keep being restarted by systemd
     #[derive(Default)]
     pub struct FakeSystem {
         pub calls: RefCell<Vec<String>>,
         pub down: Vec<String>,
+        pub flapping: Vec<String>,
         pub busy: bool,
+        pub polls: std::cell::Cell<u64>,
     }
 
     impl System for FakeSystem {
@@ -225,6 +279,15 @@ pub(crate) mod tests {
         }
         fn is_active(&self, unit: &str) -> bool {
             !self.down.iter().any(|d| d == unit)
+        }
+        fn restarts(&self, unit: &str) -> u64 {
+            if self.flapping.iter().any(|f| f == unit) {
+                self.polls.set(self.polls.get() + 1);
+            }
+            self.polls.get()
+        }
+        fn show_kiosk(&self) {
+            self.calls.borrow_mut().push("chvt 1".into());
         }
         fn reboot(&self) -> Result<()> {
             self.calls.borrow_mut().push("reboot".into());
@@ -275,13 +338,20 @@ pub(crate) mod tests {
         let actions = Actions { daemon_reload: true, restart: vec!["deck-kiosk.service".into()], reboot: false };
         let changed = vec!["usr/lib/systemd/system/deck-update.timer".to_string()];
         let sys = FakeSystem::default();
-        activate(&sys, &actions, &changed, Duration::ZERO).unwrap();
+        activate(&sys, &actions, &changed, Wait::NONE).unwrap();
         assert_eq!(
             *sys.calls.borrow(),
-            vec!["daemon-reload", "enable deck-update.timer", "restart deck-kiosk.service"]
+            vec!["daemon-reload", "enable deck-update.timer", "chvt 1", "restart deck-kiosk.service"]
         );
         let sys = FakeSystem { down: vec!["deck-kiosk.service".into()], ..FakeSystem::default() };
-        assert!(activate(&sys, &actions, &changed, Duration::ZERO).is_err());
+        assert!(activate(&sys, &actions, &changed, Wait::NONE).is_err());
+
+        // up the whole window: fine; up but restarted by systemd in between: not
+        let wait = Wait { deadline: Duration::ZERO, stable: Duration::from_millis(600) };
+        assert!(activate(&FakeSystem::default(), &actions, &changed, wait).is_ok());
+        let flapping = FakeSystem { flapping: vec!["deck-kiosk.service".into()], ..FakeSystem::default() };
+        let err = activate(&flapping, &actions, &changed, wait).unwrap_err().to_string();
+        assert!(err.contains("deck-kiosk.service"), "{err}");
     }
 
     #[test]

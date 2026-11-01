@@ -91,6 +91,28 @@ fn the_image_builds_and_enables_deck_link() {
     assert!(pkg.contains("-p deck-link") && pkg.contains("usr/bin/deck-link\""));
 }
 
+/// mkarchiso sets modes from profiledef's file_permissions – a program missing there shipped without its execute bit
+/// (deck-link on the X1's s7 image, 2026-11-01: deck-link.service "Permission denied" from boot on, #237)
+#[test]
+fn every_program_the_image_installs_is_executable() {
+    let build = read("container/build.sh");
+    let profile = read("profile/profiledef.deck.sh");
+    let mut programs: Vec<String> = build
+        .lines()
+        .filter_map(|l| l.split("airootfs/usr/bin/").nth(1))
+        .map(|rest| rest.trim_end_matches('"').to_string())
+        .filter(|p| p.starts_with("deck-") && !p.contains('*') && !p.contains('"'))
+        .collect();
+    // the scripts of rootfs/usr/bin land there too
+    for entry in std::fs::read_dir(os().join("rootfs/usr/bin")).unwrap() {
+        programs.push(entry.unwrap().file_name().to_string_lossy().to_string());
+    }
+    assert!(programs.iter().any(|p| p == "deck-link") && programs.iter().any(|p| p == "deck-update"), "{programs:?}");
+    for p in programs {
+        assert!(profile.contains(&format!("[\"/usr/bin/{p}\"]=\"0:0:755\"")), "{p} is not 755 in profiledef.deck.sh");
+    }
+}
+
 #[test]
 fn no_admin_token_on_a_deck() {
     for rel in [

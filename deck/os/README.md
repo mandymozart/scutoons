@@ -154,8 +154,9 @@ and `https://cdn.scutoons.com/deck/update/dev`; `stable` only the server, every 
 whose signature matches a trusted key (`/usr/share/deck/update-keys`, `/var/lib/deck/update-keys`) and whose channel
 matches wins, when it is newer than `/usr/share/deck/build.json` (the image build writes it). Then: download, hash
 check, every tar entry checked against the manifest, files replaced by rename, `daemon-reload` when units changed,
-the services of the changed files restarted (link → relay → bridge → kiosk = the stage with its scene); a restarted
-unit that is not up after 10 s rolls the files back, and the timer never tries that build again. **Never during a
+the services of the changed files restarted (link → relay → bridge → kiosk = the stage with its scene; the kiosk's
+tty1 is switched to the front first – cage only takes the screen there); a restarted unit that is not up within 2
+minutes, or not for 15 s without systemd restarting it, rolls the files back, and the timer never tries that build again. **Never during a
 show:** a conductor on the deck's relay (`/status` `live`) holds the update back. A live stick keeps the applied bundle
 in `/var/lib/deck/update/current` (DECKDATA) and `deck-firstboot` puts it back after each boot.
 
