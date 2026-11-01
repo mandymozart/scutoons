@@ -14,7 +14,11 @@
 //! (deck.toml's `relay` + `outlet`, or `--relay` / `--outlet`; no relay = the hosted wss://live.scutoons.com/live/CATH,
 //! #199) and shows its cells; with an outlet set and no `--scene` the stage plays the built-in `scenes/outlet.toml`.
 //! A space node that joins (deck / conductor) without a relay joins the hosted one too.
+//! The render quality (#220, deck-space quality.rs): a level (`--quality`, else by the GPU) is the ceiling, the governor
+//! steps the render scale, bloom, FXAA and the lights below it under load and back up with headroom; F4 cycles the
+//! level, Shift+F4 switches the governor; a deck reports its quality to the session (the conductor shows it).
 use deck_stage::{audio, cache, chapter, clock, control, graph, hud, modules, render, scene, splash, tempo, watch};
+use deck_space::quality::{self, Governor};
 
 use anyhow::{bail, Context, Result};
 use audio::backend::{self, Choice};
@@ -50,7 +54,7 @@ const HELP: &str = "deck-stage [--scene FILE|cathedral|conductor|outlet] [--audi
            [--sets DIR] [--portraits DIR] [--token T] [--api URL] [--cdn URL] [--windowed] [--frames N]
            [--screenshot FILE] [--pointer X,Y|NODE.PORT] [--drag NODE.PORT[,DN]] [--no-hud] [--hud-bar] [--dev] [--modules]
            [--relay ws[s]://HOST[:PORT]/live/CODE] [--sync set:ID,character:ID]
-           [--outlet ID] [--locale de]
+           [--outlet ID] [--locale de] [--quality auto|low|medium|high|ultra[,fixed]]
   --scene      a scene TOML (default: the built-in scene, deck/stage/scenes/default.toml); `cathedral` = the built-in
                Cathedral of decks (scenes/cathedral.toml – a deck's being), `conductor` = its conductor in the middle
                (scenes/conductor.toml), `outlet` = the built-in Live outlet (scenes/outlet.toml – the default when an
@@ -76,6 +80,8 @@ const HELP: &str = "deck-stage [--scene FILE|cathedral|conductor|outlet] [--audi
                takes any)
   pairing      (#180) while deck-link's run directory says the deck waits for a member, the code + QR in the corner;
                its token goes to the API once approved (DECK_LINK_DIR, default /run/deck-link; DECK_APP; DECK_TOKEN)
+  --quality    the render quality's level – the highest the governor steps up to (default auto: by the GPU – software
+               low, integrated high, discrete ultra; DECK_QUALITY); ,fixed = no governor. F4 cycles, Shift+F4 the governor
   --frames     quit after N frames and print the measured numbers (a check run)
   --screenshot save the last frame of a --frames run as a PNG
   --pointer    put the pointer at window pixel X,Y, or on the being's button NODE.PORT (a check run's hover)
@@ -117,6 +123,8 @@ struct Args {
     locale: Option<String>,
     /// #195: the conductor's push (`set:<id>,character:<id>`)
     sync: Option<String>,
+    /// #220: the render quality's level and the governor
+    quality: quality::Choice,
 }
 
 /// a check run's pointer: a pixel, or on a button of the being (it follows the button)
@@ -153,6 +161,7 @@ fn args() -> Result<Args> {
         outlet: None,
         locale: None,
         sync: None,
+        quality: std::env::var("DECK_QUALITY").ok().and_then(|q| quality::Choice::parse(&q)).unwrap_or_default(),
     };
     let mut it = std::env::args().skip(1);
     while let Some(arg) = it.next() {
@@ -211,6 +220,10 @@ fn args() -> Result<Args> {
             "--outlet" => a.outlet = Some(val()?),
             "--locale" => a.locale = Some(val()?),
             "--sync" => a.sync = Some(val()?),
+            "--quality" => {
+                let v = val()?;
+                a.quality = quality::Choice::parse(&v).with_context(|| format!("--quality {v}: auto, low, medium, high or ultra (,fixed)"))?
+            }
             "--modules" => {
                 for m in modules::registry() {
                     let what: Vec<&str> = m.kinds.iter().chain(m.sources).copied().collect();
@@ -627,6 +640,8 @@ struct App {
     /// a check run's --drag: where the press was and the tether's way on the screen
     #[cfg(feature = "space")]
     drag_from: Option<((f32, f32), (f32, f32))>,
+    /// #220: the render quality's governor (made with the first renderer – its default comes from the GPU)
+    governor: Option<Governor>,
 }
 
 impl App {
@@ -759,6 +774,26 @@ impl App {
         tracing::info!("reloaded '{}'", self.show.scene_name);
     }
 
+    /// #220: the governor's rung into the renderer (a resize only when the scale changed); a deck tells the session
+    fn apply_quality(&mut self) {
+        let Some(g) = &self.governor else { return };
+        if let Some(r) = self.renderer.as_mut() {
+            r.set_quality(*g.rung(), self.show.render_scale);
+        }
+        tracing::info!("quality: {} {:.2} (frames {:.1} ms, the level {})", g.level().name(), g.rung().scale, g.frame_ms(), g.ceiling().name());
+    }
+
+    /// #220: F4 – the next level (the ceiling), Shift+F4 – the governor on / off
+    fn quality_key(&mut self, shift: bool) {
+        let Some(g) = self.governor.as_mut() else { return };
+        if shift {
+            g.set_auto(!g.auto());
+        } else {
+            g.set_level(g.ceiling().next());
+        }
+        self.apply_quality();
+    }
+
     /// the renderer for the current show on `window` (the space's view and the pointer with it)
     fn start_renderer(&mut self, window: &Arc<Window>) {
         #[cfg(feature = "space")]
@@ -784,6 +819,17 @@ impl App {
                     let k = self.show.render_scale.clamp(0.25, 1.0);
                     l.resize((size.width as f32 * k) as u32, (size.height as f32 * k) as u32);
                 }
+                // #220: the level by the GPU (unless chosen), kept over a reload; the renderer at its rung
+                let gpu = match r.adapter.device_type {
+                    wgpu::DeviceType::Cpu => quality::Gpu::Software,
+                    wgpu::DeviceType::IntegratedGpu => quality::Gpu::Integrated,
+                    wgpu::DeviceType::DiscreteGpu => quality::Gpu::Discrete,
+                    _ => quality::Gpu::Other,
+                };
+                let choice = self.args.quality;
+                let g = self.governor.get_or_insert_with(|| Governor::new(choice.level_on(gpu), choice.auto));
+                tracing::info!("quality: {} ({}, the governor {})", g.ceiling().name(), if choice.level.is_some() { "chosen" } else { "by the GPU" }, if g.auto() { "on" } else { "off" });
+                r.set_quality(*g.rung(), self.show.render_scale);
                 self.renderer = Some(r)
             }
             Err(e) => {
@@ -853,6 +899,11 @@ impl App {
             let ms = (now - l).as_secs_f32() * 1000.0;
             push_capped(&mut self.stats.intervals, ms);
             self.hud.push_frame(ms);
+            // #220: the governor sees every interval (a stall over 250 ms is a hitch to it) and the audio's glitches
+            let wall = self.started.elapsed().as_secs_f64();
+            if self.governor.as_mut().is_some_and(|g| g.frame(wall, ms, self.stats.glitch_seen)) {
+                self.apply_quality();
+            }
         }
         self.last = Some(now);
         self.advance_time();
@@ -878,6 +929,10 @@ impl App {
             let meters = self.show.meters.as_deref();
             s.being.strain(dt, reduction);
             s.update(dt, time, &mut self.show.controls, &beat, &|n, p| meters.map_or(0.0, |m| m.level(n, p)));
+            // #220: a deck reports its quality to the session (at once on a change, else at most every 2 s)
+            if let Some(q) = self.governor.as_mut().and_then(|g| g.report_due(self.started.elapsed().as_secs_f64())) {
+                s.report_quality(q.wire());
+            }
             // the pointer's look: a hand over a button, a closed one on it, "no" over a linked one
             let c = s.cursor();
             if c != self.cursor {
@@ -1001,6 +1056,10 @@ impl App {
             item(format!("FPS {:.0}", self.stats.fps), warm && self.stats.fps < 50.0),
             item(format!("CPU {cpu:.1}MS"), cpu > 14.0),
         ];
+        // #220: the level now and the render scale – red while the governor holds it below the level chosen
+        if let Some(g) = &self.governor {
+            out.push(item(format!("Q {} {:.2}{}", g.level().name().to_uppercase(), g.rung().scale, if g.auto() { "" } else { " FIX" }), g.level() != g.ceiling()));
+        }
         out.push(match self.show.audio {
             Some(_) => item(
                 format!("AUDIO GLITCH {}/10M DSP {:.0}% LIM {:.0}", self.stats.glitch_rate, self.stats.dsp * 100.0, self.stats.limit),
@@ -1084,6 +1143,11 @@ impl App {
             format!("FPS {:.1}  FRAME {:.1} MS  CPU {:.2} MS", self.stats.fps, last(&self.stats.intervals), last(&self.stats.work)),
             format!("GPU {gpu}"),
         ]);
+        // #220: the quality now, the level chosen, the governor; the keys
+        if let Some(g) = &self.governor {
+            let render = self.renderer.as_ref().map_or(1.0, |r| r.render_scale());
+            lines.push(format!("Q {} {render:.2}X OF {} {} F4 / SHIFT", g.level().name(), g.ceiling().name(), if g.auto() { "AUTO" } else { "FIXED" }).to_uppercase());
+        }
         lines.extend(audio.into_iter().filter(|l| !l.is_empty()));
         lines.extend([self.tempo_line(), self.source_line()]);
         // the sync (#195) while it fetches, is offline or failed
@@ -1155,13 +1219,14 @@ impl App {
             })
             .unwrap_or_default();
         format!(
-            "deck-stage: frames={} avg_fps={:.1} frame_ms avg={:.2} p99={:.2} cpu_ms avg={:.2} first_frame_ms={:.0} adapter={adapter} audio={}{glitches} modules={}{error}",
+            "deck-stage: frames={} avg_fps={:.1} frame_ms avg={:.2} p99={:.2} cpu_ms avg={:.2} first_frame_ms={:.0} adapter={adapter} quality={} audio={}{glitches} modules={}{error}",
             self.stats.frames,
             1000.0 / avg(&iv).max(1e-3),
             avg(&iv),
             p99,
             avg(&self.stats.work),
             self.stats.first_frame_ms.unwrap_or(0.0),
+            self.governor.as_ref().map_or("-".into(), |g| format!("{} {:.2} of {}{}", g.level().name(), g.rung().scale, g.ceiling().name(), if g.auto() { "" } else { " fixed" })),
             self.show.audio.as_ref().map(|a| format!("{} {} Hz ({})", a.name, a.rate, self.show.audio_build)).unwrap_or_else(|| "off".into()),
             modules::summary(),
         )
@@ -1339,6 +1404,10 @@ impl ApplicationHandler<Event> for App {
                     Key::Named(NamedKey::Delete) if self.mods.control_key() && self.mods.alt_key() => self.power_off(),
                     Key::Character("q") if self.mods.control_key() => el.exit(),
                     Key::Named(NamedKey::F3) => tempo.key(tempo::Key::NextSource),
+                    Key::Named(NamedKey::F4) => {
+                        let shift = self.mods.shift_key();
+                        self.quality_key(shift);
+                    }
                     Key::Named(NamedKey::Space) => tempo.key(tempo::Key::StartStop),
                     Key::Character("t") => tempo.key(tempo::Key::Tap),
                     Key::Character("+" | "=") => tempo.key(tempo::Key::Faster),
@@ -1401,6 +1470,7 @@ fn run() -> Result<i32> {
         cursor: deck_stage::space::Cursor::Default,
         #[cfg(feature = "space")]
         drag_from: None,
+        governor: None,
     };
     app.watch = app.watch_files();
     event_loop.run_app(&mut app)?;

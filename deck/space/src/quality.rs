@@ -92,6 +92,39 @@ impl Level {
     }
 }
 
+/// The deck's choice (deck-stage `--quality` / `DECK_QUALITY`): a level or `auto` (= the GPU's default), and `,fixed`
+/// for no governor – `high`, `low,fixed`, `auto`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Choice {
+    pub level: Option<Level>,
+    pub auto: bool,
+}
+
+impl Default for Choice {
+    fn default() -> Self {
+        Choice { level: None, auto: true }
+    }
+}
+
+impl Choice {
+    pub fn parse(s: &str) -> Option<Choice> {
+        let mut c = Choice::default();
+        for part in s.split(',').map(str::trim).filter(|p| !p.is_empty()) {
+            match part.to_ascii_lowercase().as_str() {
+                "auto" => {}
+                "fixed" => c.auto = false,
+                other => c.level = Some(Level::parse(other)?),
+            }
+        }
+        Some(c)
+    }
+
+    /// the level for a deck on `gpu`
+    pub fn level_on(&self, gpu: Gpu) -> Level {
+        self.level.unwrap_or(Level::default_for(gpu))
+    }
+}
+
 /// what the deck renders on (the native stage's wgpu adapter type, the browser's backend)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Gpu {
@@ -428,6 +461,11 @@ mod tests {
         assert_eq!(Level::default_for(Gpu::Integrated), Level::High, "the X1's UHD 620");
         assert_eq!(Level::default_for(Gpu::WebGpu), Level::High);
         assert_eq!(Level::default_for(Gpu::Discrete), Level::Ultra);
+        assert_eq!(Choice::parse("auto"), Some(Choice::default()));
+        assert_eq!(Choice::parse("high"), Some(Choice { level: Some(Level::High), auto: true }));
+        assert_eq!(Choice::parse("Low, fixed"), Some(Choice { level: Some(Level::Low), auto: false }));
+        assert_eq!(Choice::parse("fast"), None);
+        assert_eq!(Choice::parse("fixed").unwrap().level_on(Gpu::Integrated), Level::High);
     }
 
     #[test]

@@ -1,4 +1,5 @@
-//! The space's 3D labels: the conductor's word over each deck's being (#195: `SYNC 3/7`, `READY` …) – always facing the
+//! The space's 3D labels: the conductor's word over each deck's being (#195: `SYNC 3/7`, `READY` …; #220: its render
+//! quality and its link – decks.rs) – always facing the
 //! camera, a fixed size on the screen. (The buttons carried labels until the owner's 2026-10-31 "no numbers": their
 //! value rings show the value now, being.rs.) The text is set without allocating (a fixed byte buffer, `fmt::Write`); the GPU
 //! draws it as one quad per character from a glyph atlas made once at the start (IBM Plex Mono Bold, `mono`) – no
@@ -15,8 +16,8 @@ pub fn mono() -> &'static ab_glyph::FontRef<'static> {
     F.get_or_init(|| ab_glyph::FontRef::try_from_slice(MONO).expect("IBM Plex Mono"))
 }
 
-/// labels per frame at most (all beings), and characters per label
-pub const LABELS: usize = 8;
+/// labels per frame at most (all beings: the sync, the quality and the link of 8 decks), and characters per label
+pub const LABELS: usize = 24;
 pub const CHARS: usize = 24;
 /// the atlas: printable ASCII from ' ' (95 glyphs), then one solid cell (the labels' backing); 16 cells a row
 pub const FIRST: u8 = b' ';

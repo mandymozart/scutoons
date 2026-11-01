@@ -19,6 +19,7 @@ use crate::space::gpu::SpaceGpu;
 #[cfg(feature = "space")]
 pub use crate::space::Space;
 use crate::tempo::Quantize;
+use deck_space::quality::{Level, Rung, LADDER};
 use anyhow::{bail, Context, Result};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -138,6 +139,8 @@ pub struct Renderer {
     pair_tex: wgpu::Texture,
     pairing: bool,
     render_scale: f32,
+    /// #220: the quality rung's knobs (deck-space quality.rs – the governor in main.rs sets them)
+    quality: Rung,
     slides: Vec<Slides>,
     /// the outlet node's planes (#186)
     outlet: Option<OutletPlanes>,
@@ -281,6 +284,7 @@ impl Renderer {
             screen: None,
             hud_tex,
             render_scale: if software { render_scale.min(0.5) } else { render_scale }.clamp(0.25, 1.0),
+            quality: LADDER[Level::High.top()],
             slides: Vec::new(),
             outlet: None,
             #[cfg(feature = "space")]
@@ -434,6 +438,27 @@ impl Renderer {
             }
         }
         errors
+    }
+
+    /// #220: a quality rung – the 3D's render size (the scene's `render_scale` × the rung's; the HUD stays native) and
+    /// the space's lights and post passes. The offscreen targets are made anew only when the size changes (a step of
+    /// the governor, never per frame).
+    pub fn set_quality(&mut self, rung: Rung, scene_scale: f32) {
+        self.quality = rung;
+        #[cfg(feature = "space")]
+        if let Some(g) = self.space.as_mut() {
+            g.set_quality(rung);
+        }
+        let s = (scene_scale * rung.scale).clamp(0.25, 1.5);
+        if (s - self.render_scale).abs() > 1e-3 {
+            self.render_scale = s;
+            self.rebuild();
+        }
+    }
+
+    /// the render size × the screen's
+    pub fn render_scale(&self) -> f32 {
+        self.render_scale
     }
 
     fn render_size(&self) -> (u32, u32) {
@@ -667,7 +692,12 @@ impl Renderer {
         #[cfg(feature = "space")]
         let space: Option<&Space> = match space {
             Some(s) => {
-                let gpu = self.space.get_or_insert_with(|| SpaceGpu::new(&self.device, &self.queue, s, OFFSCREEN, (w, h)));
+                let quality = self.quality;
+                let gpu = self.space.get_or_insert_with(|| {
+                    let mut g = SpaceGpu::new(&self.device, &self.queue, s, OFFSCREEN, (w, h));
+                    g.set_quality(quality);
+                    g
+                });
                 gpu.sync(&self.device, &self.queue, s);
                 Some(&*s)
             }

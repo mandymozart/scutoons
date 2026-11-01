@@ -465,8 +465,12 @@ impl Space {
                 }
                 In::Pushed(s) => self.sync.pushed(s),
                 In::Synced { client, synced } => self.sync.answer(client, synced),
-                In::Presence { decks, routes } => {
+                In::Presence { decks, routes, links, quality } => {
                     self.sync.synced.retain(|c, _| decks.contains(c));
+                    for r in &mut self.others {
+                        r.link = links.get(&r.client).cloned();
+                        r.quality = quality.get(&r.client).cloned();
+                    }
                     let before = self.others.len();
                     self.others.retain(|r| decks.contains(&r.client));
                     if self.others.len() != before || routes != self.route_ids {
@@ -478,6 +482,13 @@ impl Space {
         }
         if let Some(l) = &self.link {
             self.note = l.status();
+        }
+    }
+
+    /// #220: this deck's render quality to the session (a deck's link sends it; the conductor sees it next to the link)
+    pub fn report_quality(&self, quality: protocol::DeckQuality) {
+        if let Some(l) = self.link.as_ref().filter(|_| self.join == Join::Deck) {
+            l.quality(quality);
         }
     }
 
@@ -612,17 +623,31 @@ impl Space {
     /// 2026-10-31) – at most label::LABELS (`out` cleared first; its capacity from the renderer – no allocation).
     pub fn write_labels(&self, out: &mut Vec<Label>) {
         out.clear();
-        // #195: the conductor's word over each deck's being – its sync for the push (first: the decks' state matters)
+        // #195: the conductor's word over each deck's being – its sync for the push (first: the decks' state matters), then
+        // its render quality (#220) and its link (#223), a line each
         for r in &self.others {
-            let Some(view) = self.sync.view(&r.client) else { continue };
-            if out.len() >= label::LABELS {
-                break;
+            let head = &r.being.head;
+            let mut line = 0.0;
+            let mut put = |out: &mut Vec<Label>, text: label::Text, hue: f32| {
+                if out.len() < label::LABELS {
+                    let c = being::hsv(hue, 0.55, 1.0);
+                    out.push(Label { pos: (head.pos + Vec3::Y * head.radius * 1.4).into(), offset: head.radius, text, color: [c[0], c[1], c[2], 0.9], scale: 0.85, line });
+                }
+                line += 1.0;
+            };
+            if let Some(view) = self.sync.view(&r.client) {
+                let mut text = label::Text::default();
+                let _ = view.write(&mut text);
+                put(out, text, view.hue());
             }
             let mut text = label::Text::default();
-            let _ = view.write(&mut text);
-            let c = being::hsv(view.hue(), 0.55, 1.0);
-            let head = &r.being.head;
-            out.push(Label { pos: (head.pos + Vec3::Y * head.radius * 1.4).into(), offset: head.radius, text, color: [c[0], c[1], c[2], 0.9], scale: 0.85, line: 0.0 });
+            if let Some(hue) = r.write_quality(&mut text) {
+                put(out, text, hue);
+            }
+            let mut text = label::Text::default();
+            if let Some(hue) = r.write_link(&mut text) {
+                put(out, text, hue);
+            }
         }
     }
 

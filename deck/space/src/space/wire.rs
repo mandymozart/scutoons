@@ -2,7 +2,7 @@
 //! back (`from_wire`) – the conductor builds every deck's body from it, the browser deck (#198) its own; what a
 //! session's link hands the frame (`In`) and the link itself as the space sees it (`Wire` – deck-stage's link.rs is
 //! the relay client on a thread; the browser's is TypeScript and stays outside).
-use protocol::{DeckGraph, DeckLink, DeckNode, DeckSynced, DeckValues, SceneSync};
+use protocol::{DeckGraph, DeckLink, DeckNode, DeckQuality, DeckSynced, DeckValues, LinkQuality, SceneSync};
 use std::collections::HashMap;
 
 use super::being::Look;
@@ -16,8 +16,8 @@ pub enum In {
     /// a deck's being (joined, or its scene changed); its values and mood so far
     Deck { client: String, graph: DeckGraph, values: HashMap<String, Vec<f64>>, mood: Option<String> },
     Values { client: String, values: HashMap<String, Vec<f64>>, mood: Option<String> },
-    /// the decks there are and who sends to whom
-    Presence { decks: Vec<String>, routes: Vec<(String, String)> },
+    /// the decks there are and who sends to whom; each client's link (#223) and each deck's render quality (#220)
+    Presence { decks: Vec<String>, routes: Vec<(String, String)>, links: HashMap<String, LinkQuality>, quality: HashMap<String, DeckQuality> },
     /// #195: the session's scene sync (the relay's snapshot, another conductor's push)
     Pushed(SceneSync),
     /// #195: a deck's answer to it
@@ -30,6 +30,8 @@ pub trait Wire: Send {
     fn send(&self, values: DeckValues);
     /// #195: the conductor pushes a scene sync (the link sends it once joined, and again when the relay forgot it)
     fn push(&self, sync: SceneSync);
+    /// #220: this deck's render quality (the link keeps the last one and sends it again after a rejoin)
+    fn quality(&self, _quality: DeckQuality) {}
     /// the next event, if any (never blocks)
     fn recv(&self) -> Option<In>;
     /// the link's state in a word (the HUD)

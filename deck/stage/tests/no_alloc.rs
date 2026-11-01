@@ -272,6 +272,56 @@ fn the_post_plan_and_the_lights_do_not_allocate() {
     assert_eq!(lit, 600 * MAX_LIGHTS, "eight lights every frame");
 }
 
+/// #220: the quality governor's frame, its reports, the post plan at a rung and the conductor's labels (each deck's sync,
+/// quality and link) never allocate – a load that steps it down and back up over ten minutes of frames.
+#[cfg(feature = "space")]
+#[test]
+fn the_quality_governor_and_the_conductors_labels_do_not_allocate() {
+    let _turn = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    use deck_space::quality::{Governor, Level};
+    use deck_stage::scene::CONDUCTOR_SCENE;
+    use deck_stage::space::decks::Remote;
+    use deck_stage::space::label::{Label, LABELS};
+    use deck_stage::space::portrait::Portraits;
+    use deck_stage::space::post::Knobs;
+    use deck_stage::space::Space;
+    let scene = deck_stage::modules::carried_part(&Scene::parse(CONDUCTOR_SCENE).unwrap());
+    let graph = Graph::build(&scene).unwrap();
+    let node = graph.first(deck_stage::graph::Kind::Space).unwrap();
+    let mut space = Space::new(&graph, node, &scene.being, std::path::Path::new("/nowhere"), Portraits::manual());
+    for k in 0..8 {
+        let mut r = Remote::new(format!("deck{k}"), graph.clone(), &scene.being);
+        r.quality = Some(protocol::DeckQuality { level: protocol::QualityLevel::Medium, scale: 0.8, auto: true, frame: 17.0 + k as f64 * 4.0, ceiling: Some(protocol::QualityLevel::High) });
+        r.link = Some(protocol::LinkQuality { rtt: Some(3 + k * 20), hz: 30, skipped: Some(0) });
+        space.others.push(r);
+    }
+    let mut g = Governor::new(Level::High, true);
+    let mut labels: Vec<Label> = Vec::with_capacity(LABELS);
+    let k = Knobs { gamma: 1.1, ..Knobs::default() };
+    let (mut steps, mut reports, mut ran) = (0, 0, 0);
+    let mut t = 0.0f64;
+    measure(true);
+    let before = CALLS.load(Ordering::SeqCst);
+    for f in 0..36_000u32 {
+        // 60 fps, with a minute at 40 fps in the middle
+        let ms = if (12_000..15_600).contains(&f) { 25.0 } else { 16.7 };
+        t += ms as f64 / 1000.0;
+        steps += g.frame(t, ms, 0) as usize;
+        reports += g.report_due(t).is_some() as usize;
+        let r = g.rung();
+        ran += space.post.plan_quality(&k, r.bloom, r.fxaa).passes().len();
+        if f % 60 == 0 {
+            space.write_labels(&mut labels);
+        }
+    }
+    measure(false);
+    assert_eq!(CALLS.load(Ordering::SeqCst) - before, 0, "allocations / frees in the governor, its reports, the plan, the labels");
+    assert!(steps >= 2, "it stepped down and back up: {steps}");
+    assert_eq!(g.level(), Level::High, "back at the level after the calm");
+    assert!(reports >= steps && ran > 0);
+    assert_eq!(labels.len(), 16, "each deck's quality and link");
+}
+
 /// The outlet's frame (#186) never allocates: the crossfade's numbers per frame and the empty polls of the composer's
 /// channels (a new plane is an upload, like a chapter's cut – not every frame).
 #[test]
