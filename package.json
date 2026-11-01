@@ -49,6 +49,9 @@
 		"build:mcp": "node tools/mcp/scripts/build.mjs",
 		"check:creator-cover": "node --experimental-transform-types --no-warnings scripts/dev/creator-cover-check.mjs",
 		"dev:viewer": "npm run dev -w viewer",
+		"dev:lan": "node scripts/dev/lan.mjs",
+		"deck:ci": "node scripts/deck-ci.mjs",
+		"hooks": "node scripts/install-hooks.mjs",
 		"dev:creator": "npm run dev -w creator",
 		"dev:admin": "npm run dev -w admin",
 		"dev:shop": "npm run dev -w shop",
@@ -74,6 +77,7 @@
 		"deploy:changed": "node deploy/changed.mjs",
 		"backlog": "node scripts/backlog.mjs",
 		"deck:iso": "bash deck/os/build.sh",
+		"deck:update": "bash deck/os/update.sh",
 		"deck:vm": "bash deck/os/vm/run.sh"
 	},
 	"devDependencies": {

@@ -1,7 +1,7 @@
 // The browser deck's route helpers (#198, src/lib/live-deck.ts): the relay from the address, the character, the nick.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { characterOf, codeOf, DEFAULT_CHARACTER, DEFAULT_CODE, mayJoin, nickOf, panelLayout, preferOf, relayOf, rigOf } from '../src/lib/live-deck.ts';
+import { characterOf, codeOf, DEFAULT_CHARACTER, DEFAULT_CODE, mayJoin, nickOf, preferOf, relayOf, rigOf, sticksLine, panelKnobs } from '../src/lib/live-deck.ts';
 import { MELODY, PARAMS } from '../../shared/live-deck/src/scene.ts';
 import type { Me } from '@scutoons/content';
 
@@ -61,21 +61,19 @@ test('the rig is opt-in while the phone check is open (#191)', () => {
 	assert.equal(rigOf(new URLSearchParams('rig=0')), false);
 });
 
-test("the panel: the fixed patch keeps its pads; a rig's gains go in the bar, the rest in the fold", () => {
-	const fixed = panelLayout(PARAMS, MELODY);
-	assert.deepEqual(fixed.quick, ['voice.gain', 'drone.gain', 'melody.spread']);
-	assert.equal(fixed.pads.length, 2);
-	assert.ok(!fixed.sliders.some(([p]) => p === 'voice.ratio' || fixed.quick.includes(p)));
-	assert.ok('melody.rate' in fixed.all);
+test("the panel's knobs: the fixed patch with its melody, a rig's knobs alone", () => {
+	const fixed = panelKnobs(PARAMS, MELODY).map(([p]) => p);
+	assert.ok(fixed.includes('voice.ratio') && fixed.includes('melody.spread'));
 	const s = (label: string) => ({ min: 0, max: 1, value: 0.5, label });
-	const rig = panelLayout({ 'voice_voice.ratio': s('ratio'), 'voice_voice.gain': s('voice'), 'drone_drone.gain': s('drone') }, MELODY);
-	assert.deepEqual(rig.quick, ['voice_voice.gain', 'drone_drone.gain']);
-	assert.deepEqual(rig.pads, []);
-	assert.deepEqual(rig.sliders.map(([p]) => p), ['voice_voice.ratio']);
-	assert.ok(!('melody.rate' in rig.all), "no page melody with a rig");
-	const walk = panelLayout(
-		{ 'voice_voice.gain': s('voice'), 'drone_drone.gain': s('drone'), 'air_hiss.gain': s('air'), 'voice_melody.spread': s('spread') },
-		MELODY
-	);
-	assert.deepEqual(walk.quick, ['voice_voice.gain', 'drone_drone.gain', 'voice_melody.spread'], "a rig's walk: its spread in the bar");
+	const rig = panelKnobs({ 'voice_voice.gain': s('voice'), 'voice_melody.spread': s('spread') }, MELODY).map(([p]) => p);
+	assert.deepEqual(rig, ['voice_voice.gain', 'voice_melody.spread'], "a rig: its knobs, no page melody");
+});
+
+test('#209: the sticks line names the selection and what each stick drives', () => {
+	const labels: Record<string, string> = { 'voice.ratio': 'FM ratio', 'voice.index': 'FM index', 'space.hue': 'hue' };
+	const words = { being: 'Being', master: 'Master' };
+	const of = (p: string) => labels[p];
+	assert.equal(sticksLine('being', of, ['voice.ratio', 'voice.index'], ['x.y', ''], words), 'Being · L FM ratio / FM index · R x.y / –');
+	assert.equal(sticksLine('knob:voice.index', of, ['voice.ratio', 'voice.index'], [], words), 'FM index · L FM ratio / FM index · R –');
+	assert.equal(sticksLine('', of, ['space.hue', ''], [], words), 'Master · L hue / – · R –');
 });

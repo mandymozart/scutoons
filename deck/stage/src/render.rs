@@ -19,6 +19,7 @@ use crate::space::gpu::SpaceGpu;
 #[cfg(feature = "space")]
 pub use crate::space::Space;
 use crate::tempo::Quantize;
+use deck_space::quality::{Rung, MAX_SIDE};
 use anyhow::{bail, Context, Result};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -129,11 +130,19 @@ pub struct Renderer {
     screen: Option<Pass>,
     hud_pass: Pass,
     hud_tex: wgpu::Texture,
+    /// #209: the collapsed stats bar – its texture as wide as the screen in HUD pixels (`hud::bar_width`)
+    bar_pass: Pass,
+    bar_tex: wgpu::Texture,
+    bar_w: u32,
     /// the pairing card (#180, pairing.rs): its texture, shown while `pairing` is set
     pair_pass: Pass,
     pair_tex: wgpu::Texture,
     pairing: bool,
     render_scale: f32,
+    /// #220: the quality rung's knobs (deck-space quality.rs – the governor in main.rs sets them) and the scene's
+    /// render_scale under them
+    quality: Rung,
+    scene_scale: f32,
     slides: Vec<Slides>,
     /// the outlet node's planes (#186)
     outlet: Option<OutletPlanes>,
@@ -232,6 +241,8 @@ impl Renderer {
         let dummy = texture(&device, 1, 1, OFFSCREEN, wgpu::TextureUsages::TEXTURE_BINDING)
             .create_view(&Default::default());
         let hud_tex = texture(&device, hud::W, hud::H, OFFSCREEN, wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST);
+        let bar_w = hud::bar_width(config.width as f32, config.height as f32);
+        let bar_tex = bar_texture(&device, bar_w);
         let pair_tex = texture(&device, crate::pairing::W, crate::pairing::H, OFFSCREEN, wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST);
         // the splash first – one frame of it at once, the scene's shaders compile behind it
         let (lw, lh, px) = crate::splash::logo((config.width / 2).clamp(64, 2048))?;
@@ -249,10 +260,14 @@ impl Renderer {
         };
         let splash = overlay_pass("splash", builtin("splash").unwrap())?;
         let hud_pass = overlay_pass("hud", builtin("pass").unwrap())?;
+        let bar_pass = overlay_pass("hud bar", builtin("pass").unwrap())?;
         let pair_pass = overlay_pass("pairing", builtin("pass").unwrap())?;
 
         let mut r = Renderer {
             hud_pass,
+            bar_pass,
+            bar_tex,
+            bar_w,
             pair_pass,
             pair_tex,
             pairing: false,
@@ -271,6 +286,8 @@ impl Renderer {
             screen: None,
             hud_tex,
             render_scale: if software { render_scale.min(0.5) } else { render_scale }.clamp(0.25, 1.0),
+            quality: Rung::default(),
+            scene_scale: render_scale.clamp(0.25, 1.0),
             slides: Vec::new(),
             outlet: None,
             #[cfg(feature = "space")]
@@ -391,9 +408,72 @@ impl Renderer {
         errors
     }
 
+    /// The dev mode's hot reload of the post stack (#204): the passes `effects` from their WGSL files (deck-space
+    /// shaders/post/, with the prelude common.wgsl from there too). A pass that doesn't read or compile keeps the
+    /// running one; the errors come back for the HUD. Before the space's first frame there is nothing to reload.
+    #[cfg(feature = "space")]
+    pub fn reload_post(&mut self, effects: &[crate::space::post::Effect]) -> Vec<String> {
+        use crate::space::post;
+        let mut errors = Vec::new();
+        let Some(gpu) = self.space.as_mut() else { return errors };
+        let read = |file: &str| std::fs::read_to_string(post::source_path(file)).with_context(|| format!("post: reading {file}"));
+        for &e in effects {
+            let src = match read("common.wgsl").and_then(|c| Ok((c, read(e.file())?))) {
+                Ok(s) => s,
+                Err(err) => {
+                    errors.push(format!("{err:#}"));
+                    continue;
+                }
+            };
+            self.device.push_error_scope(wgpu::ErrorFilter::Validation);
+            let pipes = gpu.compile_post(&self.device, e, &src.0, &src.1);
+            match pollster::block_on(self.device.pop_error_scope()) {
+                Some(err) => {
+                    tracing::error!("post '{}': the shader does not compile – the last one runs on\n{err}", e.name());
+                    errors.push(format!("post '{}': {err}", e.name()));
+                }
+                None => {
+                    if let Some(p) = pipes {
+                        gpu.install_post(e, p);
+                        tracing::info!("post '{}': reloaded", e.name());
+                    }
+                }
+            }
+        }
+        errors
+    }
+
+    /// #220: a quality rung – the 3D's render size (the scene's `render_scale` × the rung's size: a scale of the window,
+    /// or a height in pixels; the HUD stays native) and the space's lights and post passes. The offscreen targets are
+    /// made anew only when the size changes (a step of the governor, never per frame).
+    pub fn set_quality(&mut self, rung: Rung, scene_scale: f32) {
+        self.quality = rung;
+        self.scene_scale = scene_scale;
+        #[cfg(feature = "space")]
+        if let Some(g) = self.space.as_mut() {
+            g.set_quality(rung);
+        }
+        let s = self.quality_scale();
+        if (s - self.render_scale).abs() > 1e-3 {
+            self.render_scale = s;
+            self.rebuild();
+        }
+    }
+
+    /// the scene's render_scale × the rung's size on this window
+    fn quality_scale(&self) -> f32 {
+        (self.scene_scale * self.quality.size.scale_for(self.config.height)).clamp(0.1, 4.0)
+    }
+
+    /// the render size × the screen's
+    pub fn render_scale(&self) -> f32 {
+        self.render_scale
+    }
+
     fn render_size(&self) -> (u32, u32) {
         let s = self.render_scale;
-        (((self.config.width as f32 * s) as u32).max(1), ((self.config.height as f32 * s) as u32).max(1))
+        let side = |v: u32| ((v as f32 * s) as u32).clamp(1, MAX_SIDE);
+        (side(self.config.width), side(self.config.height))
     }
 
     pub fn resize(&mut self, w: u32, h: u32) {
@@ -403,6 +483,13 @@ impl Renderer {
         self.config.width = w;
         self.config.height = h;
         self.surface.configure(&self.device, &self.config);
+        let bar_w = hud::bar_width(w as f32, h as f32);
+        if bar_w != self.bar_w {
+            self.bar_w = bar_w;
+            self.bar_tex = bar_texture(&self.device, bar_w);
+        }
+        // a rung with a height in pixels: its scale follows the window
+        self.render_scale = self.quality_scale();
         self.rebuild();
     }
 
@@ -461,6 +548,8 @@ impl Renderer {
         let screen_bind = self.screen.as_ref().map(|s| bind(s, s.inputs.map(find), &self.linear));
         let hud_view = self.hud_tex.create_view(&Default::default());
         let hud_bind = bind(&self.hud_pass, [&hud_view, &self.dummy, &self.dummy], &self.nearest);
+        let bar_view = self.bar_tex.create_view(&Default::default());
+        let bar_bind = bind(&self.bar_pass, [&bar_view, &self.dummy, &self.dummy], &self.nearest);
         let pair_view = self.pair_tex.create_view(&Default::default());
         let pair_bind = bind(&self.pair_pass, [&pair_view, &self.dummy, &self.dummy], &self.nearest);
         let splash_bind = bind(&self.splash, [&self.logo.view, &self.dummy, &self.dummy], &self.linear);
@@ -471,8 +560,14 @@ impl Renderer {
             s.bind = screen_bind;
         }
         self.hud_pass.bind = Some(hud_bind);
+        self.bar_pass.bind = Some(bar_bind);
         self.pair_pass.bind = Some(pair_bind);
         self.splash.bind = Some(splash_bind);
+    }
+
+    /// #209: the stats bar's width in HUD pixels (what main rasters it at)
+    pub fn bar_width(&self) -> u32 {
+        self.bar_w
     }
 
     /// The pairing card (#180): Some = its pixels (pairing::W × pairing::H, from `pairing::Card::raster`), shown in the
@@ -609,7 +704,12 @@ impl Renderer {
         #[cfg(feature = "space")]
         let space: Option<&Space> = match space {
             Some(s) => {
-                let gpu = self.space.get_or_insert_with(|| SpaceGpu::new(&self.device, &self.queue, s, OFFSCREEN, (w, h)));
+                let quality = self.quality;
+                let gpu = self.space.get_or_insert_with(|| {
+                    let mut g = SpaceGpu::new(&self.device, &self.queue, s, OFFSCREEN, (w, h));
+                    g.set_quality(quality);
+                    g
+                });
                 gpu.sync(&self.device, &self.queue, s);
                 Some(&*s)
             }
@@ -650,7 +750,21 @@ impl Renderer {
                 rp.set_bind_group(0, s.bind.as_ref(), &[]);
                 rp.draw(0..3, 0..1);
             }
-            if let Some(hud) = hud.filter(|h| h.visible) {
+            // #209: the collapsed bar across the top edge, at the HUD's scale (its raster is as wide as the screen)
+            if let Some(hud) = hud.filter(|h| h.mode == hud::Mode::Bar && h.bar_w == self.bar_w && !h.bar.is_empty()) {
+                self.queue.write_texture(
+                    wgpu::TexelCopyTextureInfo { texture: &self.bar_tex, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
+                    &hud.bar,
+                    wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(self.bar_w * 4), rows_per_image: None },
+                    wgpu::Extent3d { width: self.bar_w, height: hud::BAR_H, depth_or_array_layers: 1 },
+                );
+                let s = hud::scale(sh);
+                rp.set_viewport(0.0, 0.0, (self.bar_w as f32 * s).min(sw), (hud::BAR_H as f32 * s).min(sh), 0.0, 1.0);
+                rp.set_pipeline(self.bar_pass.pipeline.as_ref().expect("the bar's pipeline"));
+                rp.set_bind_group(0, self.bar_pass.bind.as_ref(), &[]);
+                rp.draw(0..3, 0..1);
+            }
+            if let Some(hud) = hud.filter(|h| h.mode == hud::Mode::Full) {
                 self.queue.write_texture(
                     wgpu::TexelCopyTextureInfo {
                         texture: &self.hud_tex,
@@ -663,7 +777,7 @@ impl Renderer {
                     wgpu::Extent3d { width: hud::W, height: hud::H, depth_or_array_layers: 1 },
                 );
                 // rem-like: an integer scale by the screen height (2 at 1080p), a 1rem margin at that scale
-                let s = (sh / 540.0).round().max(1.0);
+                let s = hud::scale(sh);
                 let (hw, hh) = ((hud::W as f32 * s).min(sw), (hud::H as f32 * s).min(sh));
                 let m = (16.0 * s).min(sw - hw).max(0.0);
                 rp.set_viewport(m, m.min(sh - hh).max(0.0), hw, hh, 0.0, 1.0);
@@ -861,6 +975,11 @@ fn texture(device: &wgpu::Device, w: u32, h: u32, format: wgpu::TextureFormat, u
         usage,
         view_formats: &[],
     })
+}
+
+/// #209: the stats bar's texture, `w` HUD pixels wide
+fn bar_texture(device: &wgpu::Device, w: u32) -> wgpu::Texture {
+    texture(device, w, hud::BAR_H, OFFSCREEN, wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST)
 }
 
 fn uniform_buffer(device: &wgpu::Device) -> wgpu::Buffer {

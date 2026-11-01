@@ -4,12 +4,15 @@
 //! port when a deck has a certificate – `tls.rs`, #201), the session tokens (`token.rs`) and the vote timer. Not here: the uplink to the hosted relay (B.4 linked mode) and pickups checked
 //! against the API (both need the session API, `POST /api/live/sessions`).
 //!
-//! Dogma (CYBERDECKS.md §2): one task per connection waiting on its socket, one writer task per client fed by a
-//! channel, one timer task per open vote – no polling anywhere.
+//! Dogma (CYBERDECKS.md §2): one task per connection waiting on its socket, one writer task per client woken by
+//! its outbox (outbox.rs, #223: the latest value wins, ordered messages stay in order, a client too far behind is
+//! dropped), one timer task per open vote – no polling anywhere.
 
 // tungstenite's handshake callback must return its (large) `ErrorResponse` – not ours to shrink.
 #![allow(clippy::result_large_err)]
 
+pub mod link;
+pub mod outbox;
 pub mod session;
 pub mod tls;
 pub mod token;
@@ -29,18 +32,18 @@ use protocol::{Envelope, Error as ProtocolError, Message, Role, Snapshot, Welcom
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf};
 use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::TlsAcceptor;
-use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::handshake::server::{ErrorResponse, Request, Response};
 use tokio_tungstenite::tungstenite::Message as Ws;
 
+pub use outbox::Outbox;
 pub use session::{targets, After, Client, Session};
 
 /// B.6: at most 1000 clients per session.
 pub const MAX_CLIENTS: usize = 1000;
 /// A client that sends no `hello` within this time is dropped.
 pub const HELLO_TIMEOUT: Duration = Duration::from_secs(5);
-/// the relay's WebSocket ping to every client
-pub const PING_EVERY: Duration = Duration::from_secs(5);
+/// the relay's WebSocket ping to every client – the keep-alive, and its pong the link's round trip (#223)
+pub const PING_EVERY: Duration = Duration::from_secs(1);
 /// no frame at all (not even the pong) for this long = the client is gone
 pub const IDLE_TIMEOUT: Duration = Duration::from_secs(15);
 /// B.6: the vote tally goes to the conductor every 250 ms.
@@ -138,7 +141,7 @@ impl Relay {
 
     /// Join (or resume) and send the welcome: the snapshot, or – on a resume inside the replay buffer – an empty
     /// snapshot followed by the missed messages.
-    fn join(&self, hello: &protocol::Hello, url_group: Option<String>, tx: mpsc::UnboundedSender<String>) -> Result<String, &'static str> {
+    fn join(&self, hello: &protocol::Hello, url_group: Option<String>, outbox: Arc<Outbox>) -> Result<String, &'static str> {
         let now = now_ms();
         let mut sessions = self.sessions.lock().unwrap();
         // empty sessions are kept for a resume (the conductor's laptop restarts), then dropped
@@ -154,7 +157,7 @@ impl Relay {
         };
         let group = hello.group.clone().or(url_group).or_else(|| resumed.and_then(|_| s.departed_group(&id)));
         let nick = session::clean_nick(hello.nick.as_deref(), &self.config.blocklist);
-        s.join(id.clone(), Client::new(hello.role, group.clone(), nick, tx, now));
+        s.join(id.clone(), Client::new(hello.role, group.clone(), nick, outbox, now));
         let snapshot = match resumed {
             Some((_, true)) => Snapshot { seq: Some(s.seq as i64), ..Default::default() },
             _ => {
@@ -210,10 +213,22 @@ pub async fn serve(listener: TcpListener, relay: Arc<Relay>) -> anyhow::Result<(
     serve_with(listener, relay, None).await
 }
 
+/// One client on any byte stream – what an accepted socket gets, for an in-process client (the bench's lossy links,
+/// examples/bench.rs). Ends when the client leaves.
+pub async fn serve_stream<S>(stream: S, relay: Arc<Relay>) -> anyhow::Result<()>
+where
+    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+{
+    connection(stream, relay).await
+}
+
 /// Accept connections until the listener fails; with a TLS acceptor (tls.rs, #201) the same port speaks ws and wss.
 pub async fn serve_with(listener: TcpListener, relay: Arc<Relay>, tls: Option<TlsAcceptor>) -> anyhow::Result<()> {
     loop {
         let (stream, peer) = listener.accept().await?;
+        if let Err(e) = tune(&stream) {
+            tracing::debug!(%peer, "socket options: {e}");
+        }
         let relay = relay.clone();
         let tls = tls.clone();
         tokio::spawn(async move {
@@ -227,6 +242,25 @@ pub async fn serve_with(listener: TcpListener, relay: Arc<Relay>, tls: Option<Tl
         });
     }
 }
+
+/// #223: an accepted socket sends each frame at once – no Nagle (a value would wait for the ACK of the one before, tens
+/// of ms on Wi-Fi). Applies to ws and wss alike (TLS wraps this socket).
+///
+/// And the kernel keeps little unsent data (Linux: `TCP_NOTSENT_LOWAT`, which leaves the bytes in flight alone; elsewhere
+/// a small send buffer), so a stalled client's backlog waits in its outbox – where the latest value wins (outbox.rs) –
+/// instead of in the kernel, where stale values can no longer be replaced.
+pub fn tune(stream: &TcpStream) -> io::Result<()> {
+    stream.set_nodelay(true)?;
+    let socket = socket2::SockRef::from(stream);
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    socket.set_tcp_notsent_lowat(UNSENT as u32)?;
+    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    socket.set_send_buffer_size(2 * UNSENT)?;
+    Ok(())
+}
+
+/// #223: the unsent bytes the kernel may hold per client (≈ 25 frames of values)
+pub const UNSENT: usize = 4 * 1024;
 
 /// TLS record type "handshake": the first byte of every ClientHello (an HTTP request starts with a letter)
 const TLS_HANDSHAKE: u8 = 0x16;
@@ -361,8 +395,8 @@ where
     }
 
     let code = hello.code.clone();
-    let (tx, mut rx) = mpsc::unbounded_channel::<String>();
-    let id = match relay.join(&hello, join.group, tx) {
+    let outbox = Outbox::new();
+    let id = match relay.join(&hello, join.group, outbox.clone()) {
         Ok(id) => id,
         Err(why) => {
             sink.send(Ws::Text(refusal("full", why))).await.ok();
@@ -370,30 +404,14 @@ where
         }
     };
     tracing::info!(code, client = id, role = hello.role.as_str(), resume = hello.resume.is_some(), "joined");
-
-    // a WebSocket ping every PING_EVERY: browsers and tungstenite answer it themselves, so a client that stays silent
-    // past IDLE_TIMEOUT is gone even when its TCP side never closed (a phone reloading behind `adb reverse` left a
-    // ghost deck at the conductor, 2026-10-31)
-    let writer = tokio::spawn(async move {
-        let mut ping = tokio::time::interval_at(tokio::time::Instant::now() + PING_EVERY, PING_EVERY);
-        ping.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-        loop {
-            let sent = tokio::select! {
-                text = rx.recv() => match text {
-                    Some(text) => sink.send(Ws::Text(text)).await,
-                    None => break,
-                },
-                _ = ping.tick() => sink.send(Ws::Ping(Default::default())).await,
-            };
-            if sent.is_err() {
-                break;
-            }
-        }
-        sink.close().await.ok();
-    });
+    let writer = tokio::spawn(write(sink, outbox.clone(), relay.clone(), code.clone()));
 
     loop {
-        let frame = match tokio::time::timeout(IDLE_TIMEOUT, source.next()).await {
+        let next = tokio::select! {
+            next = tokio::time::timeout(IDLE_TIMEOUT, source.next()) => next,
+            _ = outbox.dropped() => break, // too far behind (outbox.rs): it reconnects and resyncs from its snapshot
+        };
+        let frame = match next {
             Ok(Some(frame)) => frame,
             Ok(None) => break,
             Err(_) => {
@@ -404,7 +422,14 @@ where
         let text = match frame {
             Ok(Ws::Text(t)) => t,
             Ok(Ws::Close(_)) | Err(_) => break,
-            Ok(_) => continue, // binary / ping / pong frames: nothing in B.6 (a pong only proves the client is there)
+            // a pong proves the client is there and measures its link (#223)
+            Ok(Ws::Pong(payload)) => {
+                if outbox.pong(&payload, std::time::Instant::now()) {
+                    relay.with_session(&code, |s| s.tell_presence());
+                }
+                continue;
+            }
+            Ok(_) => continue, // binary / ping frames: nothing in B.6
         };
         let lead = relay.config.lead_ms;
         let after = relay.with_session(&code, |s| match serde_json::from_str::<Envelope>(&text) {
@@ -420,9 +445,62 @@ where
     }
 
     relay.leave(&code, &id);
+    outbox.close();
     writer.abort();
     tracing::info!(code, client = id, "left");
     Ok(())
+}
+
+/// One client's writer: what its outbox lets go goes out as one batch (fed, then one flush – one write for many small
+/// frames), timed for the link's rate (outbox.rs, link.rs); a WebSocket ping every PING_EVERY, numbered, so its pong
+/// measures the round trip. Browsers and tungstenite answer pings themselves, so a client that stays silent past
+/// IDLE_TIMEOUT is gone even when its TCP side never closed (a phone reloading behind `adb reverse` left a ghost deck at
+/// the conductor, 2026-10-31). A changed rate tells the conductor (presence).
+async fn write<S>(mut sink: S, outbox: Arc<Outbox>, relay: Arc<Relay>, code: String)
+where
+    S: futures_util::Sink<Ws> + Unpin,
+{
+    let mut batch: Vec<String> = Vec::with_capacity(64);
+    let mut next_ping = tokio::time::Instant::now() + PING_EVERY;
+    let mut pings = 0u64;
+    'out: loop {
+        let now = tokio::time::Instant::now();
+        let mut fed = false;
+        if now >= next_ping {
+            next_ping = now + PING_EVERY;
+            pings += 1;
+            outbox.pinged(pings, now.into_std());
+            if sink.feed(Ws::Ping(pings.to_be_bytes().to_vec())).await.is_err() {
+                break;
+            }
+            fed = true;
+        }
+        let took = outbox.take(now.into_std(), &mut batch);
+        let texts = !batch.is_empty();
+        for text in batch.drain(..) {
+            if sink.feed(Ws::Text(text)).await.is_err() {
+                break 'out;
+            }
+            fed = true;
+        }
+        if fed {
+            if sink.flush().await.is_err() {
+                break;
+            }
+            let done = tokio::time::Instant::now();
+            if texts && outbox.sent(done.into_std(), done - now, took.waited) {
+                relay.with_session(&code, |s| s.tell_presence());
+            }
+            continue;
+        }
+        let wake = took.until.map_or(next_ping, |t| next_ping.min(t.into()));
+        tokio::select! {
+            _ = outbox.pushed() => {}
+            _ = tokio::time::sleep_until(wake) => {}
+        }
+    }
+    outbox.close();
+    sink.close().await.ok();
 }
 
 fn refusal(code: &str, message: &str) -> String {
@@ -436,8 +514,7 @@ mod tests {
     use protocol::To;
 
     fn client(role: Role, group: Option<&str>) -> Client {
-        let (tx, _rx) = mpsc::unbounded_channel();
-        Client::new(role, group.map(str::to_owned), None, tx, 0)
+        Client::new(role, group.map(str::to_owned), None, Outbox::new(), 0)
     }
 
     fn room() -> HashMap<String, Client> {
@@ -487,6 +564,23 @@ mod tests {
         );
         assert_eq!(parse_join("/live/A7K2"), Join { code: Some("A7K2".into()), role: None, group: None });
         assert_eq!(parse_join("/?role=teleporter"), Join::default());
+    }
+
+    /// #223: an accepted socket has Nagle off (the ws and the wss path both go through `serve_with`'s `tune`)
+    #[tokio::test]
+    async fn accepted_sockets_have_nodelay() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let _client = TcpStream::connect(addr).await.unwrap();
+        let (accepted, _) = listener.accept().await.unwrap();
+        assert!(!accepted.nodelay().unwrap(), "the OS default is Nagle on");
+        tune(&accepted).unwrap();
+        assert!(accepted.nodelay().unwrap());
+        // and little unsent data in the kernel (the backlog waits in the outbox)
+        #[cfg(any(target_os = "linux", target_os = "android"))]
+        assert_eq!(socket2::SockRef::from(&accepted).tcp_notsent_lowat().unwrap(), UNSENT as u32);
+        #[cfg(windows)]
+        assert_eq!(socket2::SockRef::from(&accepted).send_buffer_size().unwrap(), 2 * UNSENT);
     }
 
     #[test]

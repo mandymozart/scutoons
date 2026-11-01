@@ -15,12 +15,14 @@
 use std::collections::{BTreeSet, HashMap, VecDeque};
 
 use protocol::{
-    Assign, Cell, CellMode, Cue, DeckState, DeckSynced, Envelope, Error as ProtocolError, Loose, MediaPreload, Message,
+    Assign, Cell, CellMode, Cue, DeckQuality, DeckState, DeckSynced, Envelope, Error as ProtocolError, Loose, MediaPreload, Message,
     Presence, Resume, Role, Route, SceneSync, Snapshot, State, SyncState, To, VoteTally,
 };
 use serde_json::Value;
-use tokio::sync::mpsc::UnboundedSender;
+use std::sync::Arc;
+use std::time::Instant;
 
+use crate::outbox::{Frame, Outbox};
 use crate::vote::OpenVote;
 
 /// B.6: `resume` within the last 500 messages / 5 minutes replays; older gets the snapshot.
@@ -43,17 +45,18 @@ pub struct Client {
     pub group: Option<String>,
     pub nick: Option<String>,
     pub ready: bool,
-    tx: UnboundedSender<String>,
+    /// #223: its send queue (outbox.rs) – the latest value wins, ordered messages stay in order
+    pub outbox: Arc<Outbox>,
     bucket: Bucket,
     /// #188: the deck's values stream
     values: Bucket,
 }
 
 impl Client {
-    pub fn new(role: Role, group: Option<String>, nick: Option<String>, tx: UnboundedSender<String>, now: i64) -> Self {
+    pub fn new(role: Role, group: Option<String>, nick: Option<String>, outbox: Arc<Outbox>, now: i64) -> Self {
         let bucket = Bucket { tokens: AUDIENCE_RATE, at: now, rate: AUDIENCE_RATE, burst: AUDIENCE_RATE };
         let values = Bucket { tokens: VALUES_BURST, at: now, rate: VALUES_RATE, burst: VALUES_BURST };
-        Client { role, group, nick, ready: false, tx, bucket, values }
+        Client { role, group, nick, ready: false, outbox, bucket, values }
     }
 }
 
@@ -80,14 +83,14 @@ impl Bucket {
     }
 }
 
-/// A routed message kept for `resume`: who sent it to whom, and its text.
+/// A routed message kept for `resume`: who sent it to whom, and the message as it went out.
 #[derive(Debug)]
 struct Logged {
     seq: u64,
     t: i64,
     from: String,
     to: Option<To>,
-    text: String,
+    frame: Arc<Frame>,
 }
 
 /// A client that left – its id can be taken again by a `resume` (its vote stays counted).
@@ -202,6 +205,8 @@ pub struct Session {
     sync: Option<SceneSync>,
     /// #195: each deck's last `deck.synced` for it, by client id
     synced: HashMap<String, DeckSynced>,
+    /// #220: each deck's last `deck.quality` (its render level, scale, frame time), by client id – in presence
+    quality: HashMap<String, DeckQuality>,
 }
 
 impl Session {
@@ -210,18 +215,27 @@ impl Session {
         self.seq
     }
 
-    /// Stamp `seq` + `from`, keep it for replay, deliver by `to`. Returns how many clients got it.
-    pub fn publish(&mut self, from: &str, mut envelope: Envelope, now: i64) -> usize {
+    /// Stamp `seq` + `from`, deliver by `to`, not kept (a stream: a deck's MIDI outputs, #211). Returns the frame and
+    /// how many clients got it.
+    fn deliver(&mut self, from: &str, mut envelope: Envelope) -> (u64, Option<To>, Arc<Frame>, usize) {
         envelope.seq = self.next_seq();
         envelope.from = from.to_owned();
-        let text = serde_json::to_string(&envelope).expect("envelope serializes");
+        let (seq, to) = (envelope.seq, envelope.to.clone());
+        let frame = Frame::of(envelope);
+        let t = Instant::now();
         let mut delivered = 0;
         for (id, c) in &self.clients {
-            if reaches(id, c.role, c.group.as_deref(), from, envelope.to.as_ref()) && c.tx.send(text.clone()).is_ok() {
+            if reaches(id, c.role, c.group.as_deref(), from, to.as_ref()) && c.outbox.push(frame.clone(), t) {
                 delivered += 1;
             }
         }
-        self.log.push_back(Logged { seq: envelope.seq, t: now, from: from.to_owned(), to: envelope.to, text });
+        (seq, to, frame, delivered)
+    }
+
+    /// Stamp `seq` + `from`, keep it for replay, deliver by `to`. Returns how many clients got it.
+    pub fn publish(&mut self, from: &str, envelope: Envelope, now: i64) -> usize {
+        let (seq, to, frame, delivered) = self.deliver(from, envelope);
+        self.log.push_back(Logged { seq, t: now, from: from.to_owned(), to, frame });
         while self.log.len() > REPLAY_MESSAGES || self.log.front().is_some_and(|l| l.t < now - REPLAY_MS) {
             let dropped = self.log.pop_front().expect("non-empty");
             self.trimmed = dropped.seq;
@@ -241,7 +255,7 @@ impl Session {
         let seq = self.next_seq();
         let envelope = Envelope { seq, ..Envelope::new("relay", message).to(To::client(id)) };
         if let Some(c) = self.clients.get(id) {
-            let _ = c.tx.send(serde_json::to_string(&envelope).expect("envelope serializes"));
+            c.outbox.push(Frame::of(envelope), Instant::now());
         }
     }
 
@@ -262,6 +276,7 @@ impl Session {
         // a deck that left takes its being and its routes along (it sends its graph again when it comes back)
         self.decks.remove(id);
         self.synced.remove(id);
+        self.quality.remove(id);
         self.routes.retain(|(a, b)| a != id && b != id);
         self.departed.retain(|_, d| d.at >= now - REPLAY_MS);
         if self.clients.is_empty() {
@@ -292,17 +307,16 @@ impl Session {
         self.log
             .iter()
             .filter(|l| l.seq > after && reaches(id, c.role, c.group.as_deref(), &l.from, l.to.as_ref()))
-            .map(|l| l.text.clone())
+            .map(|l| l.frame.text.clone())
             .collect()
     }
 
     /// Replay `missed` to the client (after its welcome).
     pub fn replay(&mut self, id: &str, after: u64) {
-        let texts = self.missed(id, after);
-        if let Some(c) = self.clients.get(id) {
-            for t in texts {
-                let _ = c.tx.send(t);
-            }
+        let Some(c) = self.clients.get(id) else { return };
+        let t = Instant::now();
+        for l in self.log.iter().filter(|l| l.seq > after && reaches(id, c.role, c.group.as_deref(), &l.from, l.to.as_ref())) {
+            c.outbox.push(l.frame.clone(), t);
         }
     }
 
@@ -360,13 +374,19 @@ impl Session {
         reaches.then(|| sync.clone())
     }
 
-    /// B.6 presence to the conductor(s): clients per group (phones and outputs; `-` = no group) and who is ready.
+    /// B.6 presence to the conductor(s): clients per group (phones and outputs; `-` = no group) and who is ready; each
+    /// link but the audience's (#223 – outbox.rs: round trip, rate, values replaced); each deck's render quality (#220).
     pub fn presence(&self) -> Presence {
         let mut groups: HashMap<String, i64> = HashMap::new();
         let mut ready = vec![];
+        let mut links = HashMap::new();
         for (id, c) in &self.clients {
             if !matches!(c.role, Role::Conductor | Role::Bridge | Role::Uplink) {
                 *groups.entry(c.group.clone().unwrap_or_else(|| "-".into())).or_default() += 1;
+            }
+            // #223: every link but the audience phones' (hundreds of them; they get cues, not streams)
+            if c.role != Role::Audience {
+                links.insert(id.clone(), c.outbox.quality());
             }
             if c.ready {
                 ready.push(id.clone());
@@ -376,7 +396,7 @@ impl Session {
         let mut decks: Vec<String> = self.decks.keys().cloned().collect();
         decks.sort();
         let routes = self.routes.iter().map(|(from, to)| Route { from: from.clone(), to: to.clone() }).collect();
-        Presence { groups, ready, decks: Some(decks), routes: Some(routes) }
+        Presence { groups, ready, decks: Some(decks), routes: Some(routes), links: Some(links), quality: Some(self.quality.clone()) }
     }
 
     pub fn tell_presence(&mut self) {
@@ -414,7 +434,7 @@ impl Session {
             self.error(id, "authority", "only the bridge sends device input");
             return After::Nothing;
         }
-        if matches!(e.message, Message::DeckGraph(_) | Message::DeckValues(_) | Message::DeckSynced(_)) && matches!(role, Role::Audience | Role::Bridge) {
+        if matches!(e.message, Message::DeckGraph(_) | Message::DeckValues(_) | Message::DeckSynced(_) | Message::DeckQuality(_) | Message::DeckMidi(_)) && matches!(role, Role::Audience | Role::Bridge) {
             self.error(id, "authority", "only a deck streams a being");
             return After::Nothing;
         }
@@ -589,6 +609,21 @@ impl Session {
                     self.tell_presence();
                 }
             }
+            Message::DeckQuality(q) => {
+                // #220: kept, not logged or forwarded – the conductor sees it in presence (sent again when it changed;
+                // a deck reports at most every 2 s unless its level changes)
+                if self.quality.get(id) != Some(q) {
+                    self.quality.insert(id.to_owned(), q.clone());
+                    self.tell_presence();
+                }
+            }
+            Message::DeckMidi(_) => {
+                // #211: a deck's parameters as MIDI – to the conductor (and `to`), in order, never replayed
+                if e.to.is_none() {
+                    e.to = Some(To::role(Role::Conductor));
+                }
+                self.deliver(id, e);
+            }
             Message::React(_) | Message::Pickup(_) | Message::Devices(_) | Message::DeviceIn(_) => {
                 // to the conductor (B.6: pickups are checked against the API there, like the reader does – TODO with
                 // the session API; reacts feed its meter; device input is mapped to actions there)
@@ -625,11 +660,13 @@ impl Session {
         }
         e.seq = self.next_seq();
         e.from = id.to_owned();
-        let text = serde_json::to_string(&e).expect("envelope serializes");
+        let to = e.to.clone();
+        let frame = Frame::of(e);
+        let t = Instant::now();
         let mut new_route = false;
         for (cid, c) in &self.clients {
-            let addressed = e.to.is_some() && reaches(cid, c.role, c.group.as_deref(), id, e.to.as_ref());
-            if (addressed || (c.role == Role::Conductor && cid != id)) && c.tx.send(text.clone()).is_ok() {
+            let addressed = to.is_some() && reaches(cid, c.role, c.group.as_deref(), id, to.as_ref());
+            if (addressed || (c.role == Role::Conductor && cid != id)) && c.outbox.push(frame.clone(), t) {
                 new_route |= self.routes.insert((id.to_owned(), cid.clone()));
             }
         }
@@ -758,11 +795,10 @@ impl Session {
 mod tests {
     use super::*;
     use protocol::{CellChange, MediaItem, MediaReady, Panic, VoteCast, VoteClose, VoteHow, VoteOpen, VoteRule};
-    use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 
     struct Room {
         s: Session,
-        rx: HashMap<String, UnboundedReceiver<String>>,
+        rx: HashMap<String, Arc<Outbox>>,
     }
 
     impl Room {
@@ -771,18 +807,13 @@ mod tests {
         }
 
         fn add(&mut self, id: &str, role: Role, group: Option<&str>) {
-            let (tx, rx) = unbounded_channel();
-            self.s.join(id.into(), Client::new(role, group.map(str::to_owned), None, tx, 0));
-            self.rx.insert(id.into(), rx);
+            let outbox = Outbox::new();
+            self.s.join(id.into(), Client::new(role, group.map(str::to_owned), None, outbox.clone(), 0));
+            self.rx.insert(id.into(), outbox);
         }
 
         fn inbox(&mut self, id: &str) -> Vec<Envelope> {
-            let rx = self.rx.get_mut(id).unwrap();
-            let mut out = vec![];
-            while let Ok(t) = rx.try_recv() {
-                out.push(serde_json::from_str(&t).unwrap());
-            }
-            out
+            self.rx[id].drain().iter().map(|t| serde_json::from_str(t).unwrap()).collect()
         }
 
         fn kinds(&mut self, id: &str) -> Vec<&'static str> {
@@ -1048,6 +1079,29 @@ mod tests {
         assert_eq!(r.s.presence().groups["right"], 3);
     }
 
+    /// #211: a deck's MIDI outputs reach the conductor in order, never the other decks, are not kept; the audience and
+    /// the bridge may not send them
+    #[test]
+    fn deck_midi_goes_to_the_conductor() {
+        let mut r = room();
+        r.add("d1", Role::Musician, Some("decks"));
+        r.add("d2", Role::Musician, Some("decks"));
+        r.drain();
+        let logged = r.s.log.len();
+        let midi = |b: [u8; 3]| Message::DeckMidi(protocol::DeckMidi { msgs: vec![protocol::MidiBytes { bytes: b.to_vec() }] });
+        r.send("d1", midi([0x90, 36, 100]), 0);
+        r.send("d1", midi([0x80, 36, 0]), 1);
+        let c = r.inbox("cond");
+        let got: Vec<Vec<u8>> = c.iter().filter_map(|e| if let Message::DeckMidi(m) = &e.message { Some(m.msgs[0].bytes.clone()) } else { None }).collect();
+        assert_eq!(got, vec![vec![0x90, 36, 100], vec![0x80, 36, 0]], "both, in order (not merged like values)");
+        assert_eq!(c[0].from, "d1");
+        assert!(r.inbox("d2").is_empty() && r.inbox("a1").is_empty());
+        assert_eq!(r.s.log.len(), logged, "not kept for replay");
+        r.send("a1", midi([0xB0, 1, 1]), 2);
+        assert!(matches!(&r.inbox("a1")[0].message, Message::Error(e) if e.code == "authority"));
+        assert!(r.inbox("cond").is_empty());
+    }
+
     fn graph() -> protocol::DeckGraph {
         serde_json::from_str(r#"{"nodes":[{"id":"space","kind":"space"},{"id":"lfo","kind":"lfo"}],"links":[{"from":"lfo.out","to":"space.hue"}],"character":"catpope"}"#).unwrap()
     }
@@ -1100,11 +1154,15 @@ mod tests {
         assert!(routes.contains(&Route { from: "d2".into(), to: "d1".into() }));
         // the rate: a burst of 15, then 30 / s
         r.drain();
+        let skipped = r.rx["cond"].skipped();
         for i in 0..40 {
             r.send("d1", values(&[("space.hue", i as f64 / 40.0)], None), 1_000);
         }
-        assert_eq!(r.inbox("cond").len(), 15);
         assert_eq!(r.s.dropped, 25);
+        // #223: the 15 that passed wait in the conductor's outbox as one – the newest (14 / 40) wins
+        let got = r.inbox("cond");
+        assert!(matches!(&got[..], [e] if matches!(&e.message, Message::DeckValues(v) if v.values["space.hue"] == [14.0 / 40.0])), "{got:?}");
+        assert_eq!(r.rx["cond"].skipped() - skipped, 14);
         r.send("d1", values(&[("space.hue", 0.9)], None), 1_100);
         assert_eq!(r.inbox("cond").len(), 1, "100 ms later: three tokens back");
         // audience phones and the bridge don't stream beings
@@ -1163,7 +1221,7 @@ mod tests {
         for other in ["outL", "a1", "bridge"] {
             assert!(r.kinds(other).is_empty(), "{other}");
         }
-        assert_eq!(r.s.log.back().map(|l| l.text.contains("scene.sync")), Some(true), "logged for a resume");
+        assert_eq!(r.s.log.back().map(|l| l.frame.text.contains("scene.sync")), Some(true), "logged for a resume");
         // a deck that joins later: in its snapshot; an outlet's screen and the audience: not
         assert_eq!(r.s.snapshot_for(Role::Musician, Some(DECKS)).sync, Some(push(None)));
         assert!(r.s.snapshot_for(Role::Output, Some("left")).sync.is_none());
@@ -1222,6 +1280,31 @@ mod tests {
         r.send("d1", Message::DeckSynced(synced(SyncState::Ready, &[])), 3);
         assert_eq!(r.kinds("cond").first(), Some(&"deck.synced"));
         assert!(r.s.snapshot_for(Role::Conductor, None).synced.is_none());
+    }
+
+    /// #220: a deck's quality is kept and reaches the conductor in presence – again only when it changed; it goes when
+    /// the deck leaves; the audience can't send one
+    #[test]
+    fn deck_quality_shows_in_presence() {
+        let mut r = room();
+        r.add("d1", Role::Musician, Some(DECKS));
+        r.drain();
+        let q = |level, frame| DeckQuality { level, scale: 0.9, auto: true, frame, ceiling: Some(protocol::QualityLevel::High) };
+        r.send("d1", Message::DeckQuality(q(protocol::QualityLevel::High, 16.7)), 0);
+        let got = r.inbox("cond");
+        let Some(Message::Presence(p)) = got.iter().map(|e| &e.message).find(|m| matches!(m, Message::Presence(_))) else { panic!("{got:?}") };
+        assert_eq!(p.quality.as_ref().unwrap()["d1"].level, protocol::QualityLevel::High);
+        assert!(!r.kinds("cond").contains(&"deck.quality"), "not forwarded itself");
+        r.send("d1", Message::DeckQuality(q(protocol::QualityLevel::High, 16.7)), 1);
+        assert!(r.kinds("cond").is_empty(), "the same report: no presence");
+        r.send("d1", Message::DeckQuality(q(protocol::QualityLevel::Medium, 24.0)), 2);
+        assert_eq!(r.kinds("cond"), ["presence"]);
+        assert_eq!(r.s.presence().quality.unwrap()["d1"].frame, 24.0);
+        r.send("a1", Message::DeckQuality(q(protocol::QualityLevel::Low, 50.0)), 3);
+        assert!(r.kinds("a1").contains(&"error"));
+        assert!(!r.s.presence().quality.unwrap().contains_key("a1"));
+        r.s.leave("d1", 4);
+        assert!(r.s.presence().quality.unwrap().is_empty());
     }
 
     #[test]

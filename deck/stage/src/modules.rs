@@ -19,6 +19,7 @@ pub fn built(feature: &str) -> Option<bool> {
         "sync" => cfg!(feature = "sync"),
         "midi" => cfg!(feature = "midi"),
         "osc" => cfg!(feature = "osc"),
+        "outputs" => cfg!(feature = "outputs"),
         "link" => cfg!(feature = "link"),
         "pipewire" => cfg!(all(target_os = "linux", feature = "pipewire")),
         _ => return None,

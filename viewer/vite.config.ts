@@ -1,6 +1,7 @@
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { cdnFonts } from '@scutoons/tokens/vite';
+import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vite';
 import paraglide from './paraglide.config.js';
 import ports from '../shared/dev-ports.json' with { type: 'json' };
@@ -24,6 +25,23 @@ const liveIsolation = {
 	}
 };
 
+/**
+ * LAN mode (`npm run dev:lan`, scripts/dev/lan.mjs; owner 2026-10-31: "test on the phone without pushing"): HTTPS with
+ * a self-signed certificate for the LAN address (a phone needs a secure context for the audio worklet, shared memory and
+ * WebGPU), on every interface, and the production API plus the local relay through this server, so the phone
+ * talks to one origin: /api → api.scutoons.com, /relay/… → the relay on this machine (wss from the page).
+ */
+const lan = process.env.SCUTOONS_LAN_CERT
+	? {
+			host: true,
+			https: { key: readFileSync(`${process.env.SCUTOONS_LAN_CERT}.key`), cert: readFileSync(`${process.env.SCUTOONS_LAN_CERT}.crt`) },
+			proxy: {
+				'/api': { target: 'https://api.scutoons.com', changeOrigin: true },
+				'/relay': { target: process.env.SCUTOONS_LAN_RELAY ?? 'ws://127.0.0.1:7070', ws: true, rewrite: (p: string) => p.replace(/^\/relay/, '') }
+			}
+		}
+	: {};
+
 // Dev: paraglide as one module per locale instead of one per message (the dev server would otherwise serve 200–380
 // message files one by one before the first render, agents/PERFORMANCE.md). Builds use the same layout (+2 KB gzip) so a
 // build never swaps the modules under a running dev server (it used to break the dev apps until a restart).
@@ -43,7 +61,8 @@ export default defineConfig(({ command }) => ({
 		port: ports.viewer,
 		strictPort: true,
 		// shared workspace packages (@scutoons/*) are linked source folders outside the app (fonts, svelte files)
-		fs: { allow: ['../shared'] }
+		fs: { allow: ['../shared'] },
+		...lan
 	},
 	preview: {
 		port: ports.viewer,

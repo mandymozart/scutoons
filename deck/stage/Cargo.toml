@@ -19,7 +19,7 @@ path = "src/main.rs"
 # `cargo run -p deck-scene-features -- scenes/*.toml` lists what a set of scenes needs. The default = everything but the
 # platform's (pipewire) and link (it needs cmake): a plain `cargo build` plays every bundled scene.
 [features]
-default = ["space", "sync", "chapter", "live", "midi", "osc", "events"]
+default = ["space", "sync", "chapter", "live", "midi", "osc", "outputs", "events"]
 # the 3D space and the deck's being (#188): glTF rooms (meshopt, WebP), the orbit camera, the 3D buttons and their labels –
 # deck-space's (deck/space, #198), with its GPU passes and its loaders on threads
 space = ["deck-space/being", "deck-space/gpu", "deck-space/native", "dep:serde_json", "dep:ab_glyph", "image/webp"]
@@ -37,6 +37,9 @@ live = ["chapter", "dep:protocol", "dep:tungstenite", "dep:rustls"]
 events = ["dep:deck-events"]
 # MIDI clock in and out (the tempo clock's `midi` source, the tempo node's `midi_out`)
 midi = ["dep:midir"]
+# the parameters as outputs (#211): the scene's [outputs] – MIDI out (a port, or the conductor over the relay), DMX
+# fixtures through a USB-DMX widget (the bridge's adapters in-process), the clock-synced strobe (deck-outputs)
+outputs = ["dep:deck-outputs", "dep:adapters-core", "dep:adapters-dmx-usbpro", "dep:adapters-midi", "dep:protocol", "dep:tokio"]
 # the OSC remote for the tempo clock (`/tempo/bpm` …, the `osc` source)
 osc = ["dep:rosc"]
 # the PipeWire backend (Linux, needs libpipewire + clang at build time); without it the stage plays through cpal
@@ -88,6 +91,12 @@ protocol = { workspace = true, optional = true }
 # the one ureq already links, named here so `live` has its crypto provider on its own
 tungstenite = { version = "0.24", optional = true, features = ["rustls-tls-webpki-roots"] }
 rustls = { version = "0.23", optional = true, default-features = false, features = ["ring", "std", "tls12"] }
+# #211: the outputs' engine + runner and the bridge's adapters (USB-DMX, MIDI out)
+deck-outputs = { workspace = true, optional = true }
+adapters-core = { workspace = true, optional = true }
+adapters-dmx-usbpro = { workspace = true, optional = true }
+adapters-midi = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }
 # the deck's pairing (#180): the code for the splash, the token from deck-link's run directory (no crypto, no HTTP – its
 # `net` feature off; the daemon `deck-link run` pairs)
 deck-link = { path = "../link", default-features = false }

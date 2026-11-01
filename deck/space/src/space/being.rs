@@ -36,7 +36,7 @@
 //! domain and audio meters, or another deck's stream (phase 4) – no per-node copies; `update` and `write` never
 //! allocate (tests/no_alloc.rs).
 use crate::graph::{Domain, Graph, Kind, PortType};
-use crate::space::camera::Ray;
+use crate::space::camera::{Frame, Ray};
 use crate::space::feel::{self, Feel, Senses};
 use crate::space::values::{Knobs, Path, Values};
 use crate::params::{self, Spec};
@@ -68,6 +68,22 @@ const SWING: f32 = 3.0;
 /// how long a new mood must hold before the head shows it (s), and the cross-fade (s)
 const MOOD_HOLD: f32 = 1.2;
 const MOOD_FADE: f32 = 0.5;
+/// #209 – the knobs face the camera: how quickly the layout follows the eye as it orbits (s), the core's spokes'
+/// angle off the view axis (a crown around the core, toward the eye), a chain's least lean toward the eye (cos), and
+/// the margin a knob keeps clear of the core and the head in the view (× its radius)
+const FACE_S: f32 = 0.35;
+const CROWN: f32 = 1.05;
+const LEAN: f32 = 0.35;
+const CLEAR: f32 = 1.25;
+/// #224 – every knob stays reachable close up: knobs further out than KNEE of the view's half fold in toward its edge
+/// (softly, keeping their order), and stay EDGE of the half off it (the corner sticks, a thumb's room)
+const KNEE: f32 = 0.7;
+const EDGE: f32 = 0.12;
+/// #224: folded knobs' centres keep this many × the sum of their radii apart on the screen (a little air between them)
+const SPREAD: f32 = 1.3;
+/// #224: a knob near the eye shows at most this share of the view's narrower half as its radius (the portrait puts
+/// the eye a hand from the face – the knobs in front of it would fill the picture; a phone held upright is narrow)
+const MAX_SCREEN: f32 = 0.09;
 const TAU: f32 = std::f32::consts::TAU;
 
 /// The scene's `[being]` table – the body's shape (the colours are the space node's inputs).
@@ -227,7 +243,9 @@ pub struct Button {
     /// the LFO's waveform (`port` is meaningless then; the value is an index into params::LFO_SHAPES)
     pub shape: bool,
     pub pos: Vec3,
+    /// its radius this frame: `base`, capped close to the eye (MAX_SCREEN, #224) – what is drawn and picked
     pub radius: f32,
+    pub base: f32,
     /// this frame's value (the knob's: a linked one's base) and its 0..1
     pub value: f32,
     pub norm: f32,
@@ -243,6 +261,9 @@ pub struct Button {
     pub dir: Vec3,
     pub root: Vec3,
     pub tether: [Vec3; 4],
+    /// #224: where the knob sits before it folds into the view (`pos` is where it is shown and picked): the next knob of
+    /// its chain grows from here, the camera's focus goes here when it is selected
+    pub free: Vec3,
     /// the 0..1 shown – eased toward `norm`, so a 30 / s stream moves it smoothly
     pub shown: f32,
     /// how fast it moves lately (0..1): the tether pulses, bubbles run, the node flashes, the label shows
@@ -394,8 +415,22 @@ pub struct Being {
     /// the being's colours this frame (the space node's hue / glow)
     pub hue: f32,
     pub glow: f32,
+    /// the space node's `pulse` this frame (the level's kick – the core's light swells with it, #204)
+    pub pulse: f32,
     /// the hovered / dragged part (the renderer lights it)
     pub hover: Option<Hit>,
+    /// #209: the selection the sticks drive (the last tapped): a button, or `Hit::Point` – the whole being (any of its
+    /// points or its head); the renderer rings it until something else is tapped
+    pub selected: Option<Hit>,
+    /// #209: where the camera's eye is (world; the space sets it every frame) – the knobs turn toward it; None = the
+    /// fixed layout (no camera: the tests, a headless check)
+    pub eye: Option<Vec3>,
+    /// #224: the camera's view (the space sets it every frame) – the knobs fold into it close up; None = no folding
+    pub frame: Option<Frame>,
+    /// the way to the eye from the centre, eased (FACE_S) – what the knobs' layout follows
+    pub face: Vec3,
+    /// `face` has been set once (the first frame with an eye takes it at once)
+    faced: bool,
     pub dragging: bool,
     pub head: Head,
     /// the points whose cables run up into the neck (the core first, then the highest points)
@@ -491,6 +526,8 @@ impl Being {
                 .iter()
                 .enumerate()
                 .filter(|(_, port)| port.ty == PortType::Control && exposed(&look.expose, &node.id, port.name))
+                // the post stack's knobs (#204) are no buttons on the core unless `expose` names them
+                .filter(|(_, port)| !(node.kind == Kind::Space && super::post::is_port(port.name)) || named(&look.expose, &node.id, port.name))
                 .map(|(k, _)| k)
                 .collect();
             // the waveform: an LFO's shape (an audio oscillator's `wave` can't change while it plays yet)
@@ -531,6 +568,7 @@ impl Being {
                     shape: k == usize::MAX,
                     pos: p.rest,
                     radius: s * 0.058,
+                    base: s * 0.058,
                     value: scene,
                     norm: n0,
                     rank,
@@ -541,6 +579,7 @@ impl Being {
                     dir: Vec3::Y,
                     root: p.rest,
                     tether: [p.rest; 4],
+                    free: p.rest,
                     shown: spec.norm(scene),
                     motion: 0.0,
                     hot: 0.0,
@@ -578,7 +617,13 @@ impl Being {
             core_radius: s * 0.3,
             hue: params::default(Kind::Space, "hue"),
             glow: params::default(Kind::Space, "glow"),
+            pulse: 0.0,
             hover: None,
+            selected: None,
+            eye: None,
+            frame: None,
+            face: Vec3::Z,
+            faced: false,
             dragging: false,
             head: Head {
                 pos: Vec3::ZERO,
@@ -626,6 +671,16 @@ impl Being {
         ((lo + hi) * 0.5, head)
     }
 
+    /// the core's light this frame (#204): the glow and the level's kick on it
+    pub fn light_power(&self) -> f32 {
+        (self.glow + self.pulse).max(0.0)
+    }
+
+    /// the core's light colour: its hue, a little more saturated than the core looks (linear 0..1)
+    pub fn light_rgb(&self) -> [f32; 3] {
+        hsv(self.hue, 0.7, 1.0)
+    }
+
     /// where the head floats: above the body's top
     pub fn head(&self) -> Vec3 {
         self.center + Vec3::Y * self.look.size * 1.3 * self.swell
@@ -649,6 +704,7 @@ impl Being {
             0.5 - 0.5 * (TAU * 0.2 * time).cos()
         };
         let pulse = self.core_point.map_or(0.0, |c| vals.input(self.points[c].node, "pulse", 0.0));
+        self.pulse = pulse;
         self.swell = 1.0 + look.breath * (b + 0.5 * pulse);
         let d = look.drift;
         self.center = self.anchor + Vec3::new(d * (0.13 * time).sin(), 0.6 * d * (0.21 * time + 1.0).sin(), d * (0.17 * time + 2.0).sin());
@@ -732,8 +788,21 @@ impl Being {
         for p in &mut self.points {
             p.flash = (p.flash - dt * 2.5).max(0.0);
         }
+        // #209: the knobs face the camera – the way to the eye, eased, so the layout re-fans as the camera orbits (the
+        // first frame takes it at once); what the knobs keep clear of in the view: the core and the head
+        let eye = self.eye;
+        let facing = eye.and_then(|e| (e - center).try_normalize()).map(|want| {
+            let k = if self.faced && dt > 0.0 { (dt / FACE_S).min(1.0) } else { 1.0 };
+            (self.face + (want - self.face) * k).try_normalize().unwrap_or(want)
+        });
+        if let Some(f) = facing {
+            (self.face, self.faced) = (f, true);
+        }
+        let shadows = [(center, self.core_radius * self.swell), (self.head(), self.head.radius)];
+        let frame = self.frame;
         for i in 0..self.buttons.len() {
-            let prev = self.buttons[i].prev.map(|j| self.buttons[j].pos);
+            // the chain's knob before: where it grows from (unfolded), where it is shown (the tether's end)
+            let prev = self.buttons[i].prev.map(|j| (self.buttons[j].free, self.buttons[j].pos));
             let b = &mut self.buttons[i];
             let p = &self.points[b.point];
             // the knob: an unlinked input's value, a linked one's base (the modulation rides on top – `live`)
@@ -770,17 +839,22 @@ impl Being {
             // the tether: the core's spokes around its equator, any other node's chain curling out of its point
             let core = Some(b.point) == self.core_point;
             let out = (p.pos - center).try_normalize().unwrap_or(Vec3::Y);
+            // (#209: the core's spokes as a crown around the view axis, a chain leaning toward the eye)
             let (dir, root, end) = if core {
                 let a = TAU * b.rank as f32 / b.count.max(1) as f32;
-                let dir = Vec3::new(a.cos(), 0.12, a.sin()).normalize();
+                let dir = match facing {
+                    Some(f) => crown(f, a),
+                    None => Vec3::new(a.cos(), 0.12, a.sin()).normalize(),
+                };
                 (dir, p.pos + dir * self.core_radius * self.swell, p.pos)
             } else {
                 let u = out.cross(Vec3::Y).try_normalize().unwrap_or(Vec3::X);
                 let v = out.cross(u);
                 let a = p.phase + b.rank as f32 * 1.1;
                 let dir = (out + (u * a.cos() + v * a.sin()) * 0.65).normalize();
+                let dir = facing.map_or(dir, |f| lean(dir, out, f));
                 match prev {
-                    Some(q) => (dir, q, q),
+                    Some((from, shown)) => (dir, from, shown),
                     None => (dir, p.pos + dir * p.radius, p.pos),
                 }
             };
@@ -788,15 +862,30 @@ impl Being {
             // a linked button grabbed shakes across its tether
             let shake = if b.shake > 0.0 {
                 let k = b.shake / SHAKE_S;
-                dir.cross(Vec3::Y).try_normalize().unwrap_or(Vec3::X) * (b.shake * 75.0).sin() * k * b.radius * 0.9
+                dir.cross(Vec3::Y).try_normalize().unwrap_or(Vec3::X) * (b.shake * 75.0).sin() * k * b.base * 0.9
             } else {
                 Vec3::ZERO
             };
             b.dir = dir;
             b.root = root;
             b.pos = root + dir * len + shake;
-            let sag = Vec3::Y * (-0.18 * (end - b.pos).length());
-            b.tether = [b.pos, b.pos + (end - b.pos) / 3.0 + sag, b.pos + (end - b.pos) * (2.0 / 3.0) + sag, end];
+            // #209: never hidden behind the core or the head – out of their shadow, sideways in the view
+            // (a few rounds: a knob pushed out of the head's shadow may land in the core's, seen from high above)
+            if let Some(e) = eye {
+                for _ in 0..3 {
+                    for (c, r) in shadows {
+                        b.pos = clear_of(b.pos, e, c, r, b.base);
+                    }
+                }
+            }
+            // #224: close up, the knobs out of the picture fold in toward its edge – the tether runs out to its node
+            b.free = b.pos;
+            b.radius = b.base;
+            if let Some(f) = &frame {
+                b.pos = fold(b.pos, f, b.base);
+                b.radius = b.base.min((b.pos - f.eye).dot(f.fwd) * f.tan_x.min(f.tan_y) * MAX_SCREEN);
+            }
+            b.tether = tether(b.pos, end);
             // bubbles toward the node while it moves
             for x in b.bubbles.iter_mut().filter(|x| x.size > 0.0) {
                 x.t += x.speed * dt;
@@ -816,6 +905,54 @@ impl Being {
             let flash = b.motion.max(b.grip * 0.5);
             let pt = &mut self.points[b.point];
             pt.flash = pt.flash.max(flash);
+        }
+        if let Some(f) = &frame {
+            self.spread(f);
+        }
+    }
+
+    /// #224: the knobs folded into the view crowd its edge – a few rounds pushing apart those that overlap on the screen
+    /// (in the view's tangents, SPREAD × the sum of their radii apart, each of a folded pair half the way), kept inside the fold's
+    /// frame; then the tethers to where they are now. Only folded knobs move; fixed rounds, so it is smooth frame to
+    /// frame. Never allocates.
+    fn spread(&mut self, f: &Frame) {
+        let n = self.buttons.len();
+        let at = |b: &Button| {
+            let q = b.pos - f.eye;
+            let z = q.dot(f.fwd).max(1e-4);
+            (q.dot(f.right) / z, q.dot(f.up) / z, z, b.radius / z)
+        };
+        for _ in 0..12 {
+            for i in 0..n {
+                if self.buttons[i].pos == self.buttons[i].free {
+                    continue;
+                }
+                for j in 0..n {
+                    if i == j {
+                        continue;
+                    }
+                    let (xi, yi, zi, ri) = at(&self.buttons[i]);
+                    let (xj, yj, _, rj) = at(&self.buttons[j]);
+                    let (dx, dy) = (xi - xj, yi - yj);
+                    let d = (dx * dx + dy * dy).sqrt();
+                    let need = (ri + rj) * SPREAD;
+                    if d >= need {
+                        continue;
+                    }
+                    // apart along their line (a fixed way when they coincide); the whole step if j stays where it is
+                    let (ux, uy) = if d > 1e-6 { (dx / d, dy / d) } else if i < j { (0.0, 1.0) } else { (0.0, -1.0) };
+                    let share = if self.buttons[j].pos == self.buttons[j].free { 1.0 } else { 0.5 };
+                    let (x, y) = inside(xi + ux * (need - d) * share, yi + uy * (need - d) * share, f, self.buttons[i].radius / zi * CLEAR);
+                    self.buttons[i].pos = f.eye + (f.fwd + f.right * x + f.up * y) * zi;
+                }
+            }
+        }
+        for i in 0..n {
+            let end = match self.buttons[i].prev {
+                Some(j) => self.buttons[j].pos,
+                None => self.points[self.buttons[i].point].pos,
+            };
+            self.buttons[i].tether = tether(self.buttons[i].pos, end);
         }
     }
 
@@ -944,8 +1081,8 @@ impl Being {
 
     /// how many spheres / tube vertices `write` produces at most (the GPU buffers' sizes)
     pub fn capacity(&self) -> (usize, usize) {
-        // a button: itself, its ring, its gauge, its tether's bubbles
-        let spheres = 2 + 2 * self.points.len() + self.buttons.len() * (3 + TETHER_BUBBLES) + self.hoses.len() * BUBBLES + self.neck.len();
+        // a button: itself, its ring, its gauge, its tether's bubbles; the core's selection ring (#209)
+        let spheres = 3 + 2 * self.points.len() + self.buttons.len() * (3 + TETHER_BUBBLES) + self.hoses.len() * BUBBLES + self.neck.len();
         (spheres, self.tubes() * (SEGMENTS + 1) * SIDES)
     }
 
@@ -1021,6 +1158,10 @@ impl Being {
         let rgb = |tint: f32, sat: f32, val: f32| hsv(self.hue + tint, sat, val);
         let c = rgb(0.0, 0.5, 1.0);
         spheres.push(Sphere { pos: self.center.into(), radius: self.core_radius * self.swell, color: [c[0], c[1], c[2], 0.5], extra: [kind::CORE, self.glow, 0.0, 0.0] });
+        // #209: the whole being selected (the sticks drive its main pairs) – a white ring around the core
+        if matches!(self.selected, Some(Hit::Point(_))) {
+            spheres.push(Sphere { pos: self.center.into(), radius: self.core_radius * self.swell * 1.35, color: [1.0, 1.0, 1.0, 0.8], extra: [kind::RING, self.glow, 1.0, 0.0] });
+        }
         for p in self.points.iter().filter(|p| p.rest != Vec3::ZERO) {
             let c = self.point_rgb(p, 0.6);
             spheres.push(Sphere { pos: p.pos.into(), radius: p.radius, color: [c[0], c[1], c[2], 0.45], extra: [kind::SHELL, self.glow, p.flash.max(p.level * 0.5), 0.0] });
@@ -1029,8 +1170,12 @@ impl Being {
         for (i, b) in self.buttons.iter().enumerate() {
             let c = hsv(colour_of(b), 0.6, 1.0);
             let r = b.radius * (1.0 + 0.35 * b.hot + 0.15 * b.grip);
-            // the thin ring: hover's, or the dashed lock of one that can't be turned (always)
-            if !b.turnable || b.hot > 0.02 {
+            // the thin ring: hover's, the selection's (#209: the sticks drive it – always, white), or the dashed lock
+            // of one that can't be turned (always)
+            let chosen = self.selected == Some(Hit::Button(i));
+            if chosen {
+                spheres.push(Sphere { pos: b.pos.into(), radius: r * 1.55, color: [1.0, 1.0, 1.0, 0.9], extra: [kind::RING, self.glow, 1.0, 0.0] });
+            } else if !b.turnable || b.hot > 0.02 {
                 let a = if b.turnable { b.hot } else { 0.55 + 0.45 * b.hot };
                 spheres.push(Sphere { pos: b.pos.into(), radius: r * 1.4, color: [c[0], c[1], c[2], a], extra: [kind::RING, self.glow, b.hot, if b.turnable { 0.0 } else { 1.0 }] });
             }
@@ -1104,8 +1249,118 @@ impl Being {
         let b = &self.buttons[i];
         let core = Some(b.point) == self.core_point;
         let s = self.look.size;
-        (b.root + b.dir * tether_len(s, core, 0.0), b.root + b.dir * tether_len(s, core, 1.0))
+        let (lo, hi) = (b.root + b.dir * tether_len(s, core, 0.0), b.root + b.dir * tether_len(s, core, 1.0));
+        // #224: as it is shown – folded into the view like the knob
+        match &self.frame {
+            Some(f) => (fold(lo, f, b.base), fold(hi, f, b.base)),
+            None => (lo, hi),
+        }
     }
+}
+
+/// #209: an orthonormal pair across the view axis `f` – `u` level (the fan stays upright as the camera orbits), `v` up
+fn across(f: Vec3) -> (Vec3, Vec3) {
+    let u = f.cross(Vec3::Y).try_normalize().unwrap_or(Vec3::X);
+    (u, u.cross(f))
+}
+
+/// #209: the core's spoke at angle `a` around the fan, on a crown around the view axis `f` (CROWN off it): every spoke
+/// toward the eye's side of the core, spread evenly around it on the screen.
+pub fn crown(f: Vec3, a: f32) -> Vec3 {
+    let (u, v) = across(f);
+    (f * CROWN.cos() + (u * a.cos() + v * a.sin()) * CROWN.sin()).normalize()
+}
+
+/// #209: a chain's direction `d` leaning toward the eye (`f`): one that faces it enough (cos ≥ LEAN) stays; one turned
+/// away swings over to the eye's side, keeping its way around the view axis – and the further its point sits behind
+/// the body, the more it heads out along that point's own way (`out`, from the centre) in the view: it rounds the body
+/// instead of passing behind it. Continuous in `d` and `f` (the eased face moves it smoothly).
+pub fn lean(d: Vec3, out: Vec3, f: Vec3) -> Vec3 {
+    let k = d.dot(f);
+    if k >= LEAN {
+        return d;
+    }
+    let side = (out - f * out.dot(f)).try_normalize();
+    let t0 = (d - f * k).try_normalize().or(side).unwrap_or_else(|| across(f).0);
+    let w = ((LEAN - k) / (LEAN + 1.0)).clamp(0.0, 1.0) * (-out.dot(f)).clamp(0.0, 1.0);
+    let t = side.and_then(|s| (t0 * (1.0 - w) + s * w).try_normalize()).unwrap_or(t0);
+    (t * (1.0 - LEAN * LEAN).sqrt() + f * LEAN).normalize()
+}
+
+/// a tether from the knob at `pos` to `end` (its node point, or the chain's knob before), sagging a little
+fn tether(pos: Vec3, end: Vec3) -> [Vec3; 4] {
+    let sag = Vec3::Y * (-0.18 * (end - pos).length());
+    [pos, pos + (end - pos) / 3.0 + sag, pos + (end - pos) * (2.0 / 3.0) + sag, end]
+}
+
+/// #224: the fold's frame at a depth, in the view's tangents: the half view less EDGE and a knob's margin `m` (tangent)
+fn limits(f: &Frame, m: f32) -> (f32, f32) {
+    ((f.tan_x * (1.0 - EDGE) - m).max(f.tan_x * 0.05), (f.tan_y * (1.0 - EDGE) - m).max(f.tan_y * 0.05))
+}
+
+/// #224: tangents (x, y) kept inside the fold's frame
+fn inside(x: f32, y: f32, f: &Frame, m: f32) -> (f32, f32) {
+    let (lx, ly) = limits(f, m);
+    (x.clamp(-lx, lx), y.clamp(-ly, ly))
+}
+
+/// #224: `pos` (a knob of radius `kr`) folded into the view `f`. In the view's tangents scaled to the frame (the half
+/// view less EDGE and the knob's size), a knob inside KNEE of it stays; one further out moves in along its own way
+/// from the middle, softly toward the frame's edge without reaching it – so the knobs keep their order around the
+/// picture. One behind the eye (or nearer than `f.min_depth`) comes in front at that depth and counts as further
+/// out the more behind it is: it lands on the edge on its own side. Continuous; the same as `pos` for any knob well
+/// inside the picture.
+pub fn fold(pos: Vec3, f: &Frame, kr: f32) -> Vec3 {
+    let q = pos - f.eye;
+    let raw = q.dot(f.fwd);
+    let z = raw.max(f.min_depth);
+    let (lx, ly) = limits(f, kr * CLEAR / z);
+    let (mut u, mut v) = (q.dot(f.right) / z / lx, q.dot(f.up) / z / ly);
+    let mut r = u.abs().max(v.abs());
+    if raw < f.min_depth {
+        // behind: outward by how far behind (straight down when it sits right on the axis)
+        if r < 1e-4 {
+            (u, v, r) = (0.0, -1e-4, 1e-4);
+        }
+        let out = r + 2.0 * (f.min_depth - raw) / f.min_depth;
+        (u, v, r) = (u * out / r, v * out / r, out);
+    }
+    if r > KNEE {
+        // t / (1 + t): smooth at the knee (slope 1), and far out still in order (an exp would round off in f32)
+        let room = 1.0 - KNEE;
+        let t = (r - KNEE) / room;
+        let k = (KNEE + room * t / (1.0 + t)) / r;
+        (u, v) = (u * k, v * k);
+    }
+    f.eye + (f.fwd + f.right * (u * lx) + f.up * (v * ly)) * z
+}
+
+/// #209: `pos` (a knob of radius `kr`) moved out of the shadow the sphere (`c`, `r`) casts seen from `eye`: sideways in
+/// the view until it clears the sphere's silhouette by CLEAR × `kr`. Weighted by its depth – nothing in front of the
+/// sphere, fully from its centre back – so the push grows smoothly as the camera orbits.
+pub fn clear_of(pos: Vec3, eye: Vec3, c: Vec3, r: f32, kr: f32) -> Vec3 {
+    let to_c = c - eye;
+    let dist = to_c.length();
+    if dist <= r * 1.01 {
+        return pos;
+    }
+    let d = to_c / dist;
+    let q = pos - c;
+    let depth = q.dot(d);
+    let w = ((depth + r) / r.max(1e-6)).clamp(0.0, 1.0);
+    if w <= 0.0 {
+        return pos;
+    }
+    // the silhouette's cone, widened at the knob's depth (perspective), and the knob's own size
+    let tan = r / (dist * dist - r * r).sqrt();
+    let need = (dist + depth.max(0.0)) * tan + kr * CLEAR;
+    let perp = q - d * depth;
+    let off = perp.length();
+    if off >= need {
+        return pos;
+    }
+    let side = if off > 1e-5 { perp / off } else { across(d).0 };
+    pos + side * (need - off) * w
 }
 
 /// the triangle list of `count` tubes (fixed: only their vertices move)
@@ -1185,7 +1440,12 @@ fn hash(s: &str) -> f32 {
 }
 
 fn exposed(list: &[String], node: &str, port: &str) -> bool {
-    list.is_empty() || list.iter().any(|e| e == node || e.split_once('.') == Some((node, port)))
+    list.is_empty() || list.iter().any(|e| e == node) || named(list, node, port)
+}
+
+/// `expose` names this port itself ("space.bloom")
+fn named(list: &[String], node: &str, port: &str) -> bool {
+    list.iter().any(|e| e.split_once('.') == Some((node, port)))
 }
 
 #[cfg(test)]
@@ -1228,7 +1488,7 @@ mod tests {
         let (spheres, verts) = b.capacity();
         assert_eq!(b.tubes(), 3 + 4 + 5 + 12, "hoses + a tendril per non-core point + the neck's cables + the tethers");
         assert_eq!(verts, 24 * (SEGMENTS + 1) * SIDES);
-        assert_eq!(spheres, 1 + 10 + 12 * (3 + TETHER_BUBBLES) + 3 * BUBBLES + 5 + 1, "core, nuclei + shells, buttons (+ ring, gauge, bubbles), bubbles, sockets, skin");
+        assert_eq!(spheres, 2 + 10 + 12 * (3 + TETHER_BUBBLES) + 3 * BUBBLES + 5 + 1, "core (+ its selection ring), nuclei + shells, buttons (+ ring, gauge, bubbles), bubbles, sockets, skin");
         assert_eq!(b.tube_indices().len(), 24 * SEGMENTS * SIDES * 6);
         assert!(b.tube_indices().iter().all(|&i| (i as usize) < verts));
     }
@@ -1666,10 +1926,132 @@ mod tests {
     }
 
 
+    /// the cathedral's being (the phone's and the deck's), its values, at a camera orbiting it
+    fn cathedral() -> (Being, Table) {
+        let scene = Scene::parse(crate::scene::CATHEDRAL_SCENE).unwrap();
+        let g = Graph::build(&scene).unwrap();
+        let mut b = Being::new(&g, &scene.being);
+        b.anchor = Vec3::new(0.0, 1.4, 0.0);
+        (b, Table::new(&g))
+    }
+
+    fn orbit_eye(b: &Being, yaw: f32, pitch: f32, dist: f32) -> Vec3 {
+        b.anchor + Vec3::Y * b.look.size * 0.45 + dist * Vec3::new(pitch.cos() * yaw.sin(), pitch.sin(), pitch.cos() * yaw.cos())
+    }
+
+    /// #209 (owner 2026-10-31: "the control nodes align themselves so they're always in sight of the camera … never
+    /// hidden behind the body or the head"): from all around and from above and below, once the layout has followed the
+    /// eye, no knob sits in the core's or the head's shadow, and the core's spokes all point to the eye's side
+    #[test]
+    fn the_knobs_face_the_camera_and_never_hide_behind_the_core_or_the_head() {
+        let (mut b, t) = cathedral();
+        for pitch in [-1.1f32, -0.35, 0.1, 0.6, 1.1, 1.35] {
+            for k in 0..12 {
+                let yaw = TAU * k as f32 / 12.0;
+                let eye = orbit_eye(&b, yaw, pitch, 2.2);
+                b.eye = Some(eye);
+                step(&mut b, &t, 90);
+                let to_eye = (eye - b.center).normalize();
+                assert!(b.face.dot(to_eye) > 0.999, "the layout has followed the eye");
+                for (i, x) in b.buttons.iter().enumerate() {
+                    let ray = Ray { origin: eye, dir: (x.pos - eye).normalize() };
+                    let far = (x.pos - eye).length() - x.radius;
+                    for (what, c, r) in [("core", b.center, b.core_radius * b.swell), ("head", b.head.pos, b.head.radius)] {
+                        let hidden = ray.sphere(c, r).is_some_and(|hit| hit < far);
+                        assert!(!hidden, "button {i} ({}) hidden behind the {what} at yaw {yaw:.2} pitch {pitch}", x.name);
+                    }
+                    if Some(x.point) == b.core_point {
+                        assert!(x.dir.dot(to_eye) > 0.3, "the core's spoke {i} toward the eye: {}", x.dir.dot(to_eye));
+                    }
+                }
+            }
+        }
+    }
+
+    /// #209: the layout re-fans eased as the camera orbits, not jumping – the eye flipped to the far side moves the face
+    /// a little each frame and arrives within a second or two
+    #[test]
+    fn the_layout_follows_the_eye_eased() {
+        let (mut b, t) = cathedral();
+        b.eye = Some(orbit_eye(&b, 0.0, 0.1, 2.2));
+        step(&mut b, &t, 1);
+        let front = b.face;
+        let spoke = b.buttons.iter().position(|x| Some(x.point) == b.core_point).unwrap();
+        let before = b.buttons[spoke].pos;
+        b.eye = Some(orbit_eye(&b, 2.6, 0.1, 2.2));
+        step(&mut b, &t, 1);
+        let moved = b.face.angle_between(front);
+        assert!(moved > 0.0 && moved < 0.25, "one frame turns the face a little: {moved}");
+        assert!(b.buttons[spoke].pos.distance(before) < b.look.size * 0.2, "a spoke glides, it doesn't jump");
+        step(&mut b, &t, 120);
+        let want = (orbit_eye(&b, 2.6, 0.1, 2.2) - b.center).normalize();
+        assert!(b.face.angle_between(want) < 0.02, "arrived: {}", b.face.angle_between(want));
+    }
+
+    /// #209: without a camera (no eye) the layout is the fixed one; the lean leaves a chain that faces the eye alone
+    /// and is continuous where it starts to bend
+    #[test]
+    fn lean_and_crown_keep_their_shape() {
+        let f = Vec3::Z;
+        let d = Vec3::new(0.6, 0.0, 0.8);
+        assert_eq!(lean(d, Vec3::X, f), d, "facing enough: unchanged");
+        let edge = Vec3::new((1.0 - LEAN * LEAN).sqrt(), 0.0, LEAN);
+        let below = Vec3::new((1.0 - (LEAN - 1e-3).powi(2)).sqrt(), 0.0, LEAN - 1e-3);
+        assert!(lean(below, -Vec3::Z, f).distance(edge) < 1e-2, "continuous at the edge");
+        let back = lean(-Vec3::Z, Vec3::new(0.3, 0.0, -1.0).normalize(), f);
+        assert!((back.dot(f) - LEAN).abs() < 1e-4 && back.x > 0.5, "straight back: over to the eye's side, out its point's way: {back}");
+        for k in 0..6 {
+            let c = crown(f, TAU * k as f32 / 6.0);
+            assert!((c.dot(f) - CROWN.cos()).abs() < 1e-5 && (c.length() - 1.0).abs() < 1e-5);
+        }
+        // the shadow: a point straight behind a sphere moves out of it, one beside it stays
+        let eye = Vec3::new(0.0, 0.0, 5.0);
+        let out = clear_of(Vec3::new(0.05, 0.0, -0.5), eye, Vec3::ZERO, 0.3, 0.02);
+        let ray = Ray { origin: eye, dir: (out - eye).normalize() };
+        assert!(ray.sphere(Vec3::ZERO, 0.3).is_none(), "out of the shadow: {out}");
+        let beside = Vec3::new(1.0, 0.0, -0.5);
+        assert_eq!(clear_of(beside, eye, Vec3::ZERO, 0.3, 0.02), beside);
+    }
+
     #[test]
     fn hsv_primaries() {
         assert_eq!(hsv(0.0, 1.0, 1.0), [1.0, 0.0, 0.0]);
         assert_eq!(hsv(1.0 / 3.0, 1.0, 1.0).map(|x| (x * 1e4).round() / 1e4), [0.0, 1.0, 0.0]);
         assert_eq!(hsv(0.5, 0.0, 0.5), [0.5, 0.5, 0.5]);
+    }
+
+    /// #224: the fold leaves a knob inside the picture alone, brings any other in – never out to the edge, keeping the
+    /// knobs' order across the picture and changing smoothly – and puts one behind the eye on the edge on its own side
+    #[test]
+    fn the_fold_brings_every_knob_into_the_picture_in_order() {
+        use crate::space::camera::Orbit;
+        let cam = Orbit::new(Vec3::ZERO, 0.0, 0.0, 1.0);
+        let f = cam.frame(9.0 / 19.5);
+        let kr = 0.03;
+        let tan = |p: Vec3| {
+            let q = p - f.eye;
+            let z = q.dot(f.fwd);
+            (q.dot(f.right) / z / f.tan_x, q.dot(f.up) / z / f.tan_y, z)
+        };
+        // the middle: untouched
+        let mid = Vec3::new(0.05, -0.1, 0.0);
+        assert_eq!(fold(mid, &f, kr), mid);
+        // a row running out to the right, far past the edge: in the picture, in order, nearer the edge the further out
+        let mut last = f32::MIN;
+        let mut prev = fold(Vec3::new(0.0, -0.2, 0.0), &f, kr);
+        for k in 0..400 {
+            let p = Vec3::new(k as f32 * 0.01, -0.2, 0.0);
+            let q = fold(p, &f, kr);
+            let (x, y, _) = tan(q);
+            assert!(x.abs() < 1.0 - EDGE && y.abs() < 1.0 - EDGE, "{k}: inside the frame: {x} {y}");
+            assert!(x > last, "{k}: in order: {last} → {x}");
+            assert!(q.distance(prev) < 0.02, "{k}: smooth – no jump");
+            (last, prev) = (x, q);
+        }
+        // behind the eye, down and left: in front, on the lower left edge – the way it lies
+        let q = fold(Vec3::new(-0.2, -0.3, 1.6), &f, kr);
+        let (x, y, z) = tan(q);
+        assert!(z >= f.min_depth - 1e-5, "in front of the eye: {z}");
+        assert!(x < 0.0 && y < 0.0 && x.abs().max(y.abs()) > 0.5 && x.abs().max(y.abs()) < 1.0 - EDGE, "toward its edge: {x} {y}");
     }
 }

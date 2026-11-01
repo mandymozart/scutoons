@@ -3,8 +3,10 @@
 //! parameters' ranges (params.rs), the scene document (scene.rs) – and the tempo's `Now`; the space itself
 //! (space/) is the feature `being`, its GPU passes `gpu`, the loaders on threads and from files `native`. rig/ = the
 //! instruments, presets and character rigs a being's sound is made of (#191, research/INSTRUMENTS.md).
+pub mod controls;
 pub mod graph;
 pub mod params;
+pub mod quality;
 pub mod rig;
 pub mod scene;
 pub mod tempo;

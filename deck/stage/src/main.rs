@@ -14,7 +14,14 @@
 //! (deck.toml's `relay` + `outlet`, or `--relay` / `--outlet`; no relay = the hosted wss://live.scutoons.com/live/CATH,
 //! #199) and shows its cells; with an outlet set and no `--scene` the stage plays the built-in `scenes/outlet.toml`.
 //! A space node that joins (deck / conductor) without a relay joins the hosted one too.
+//! The render quality (#220, deck-space quality.rs, the stage's quality.rs): the preset file (`--quality-file`) – a
+//! level (`--quality` over it, else by the GPU) is the ceiling, the governor steps the render size, bloom, FXAA, the
+//! lights and the frame rate cap below it under load and back up with headroom; F4 opens the settings page (every
+//! preset's knobs, the display mode – saved, reloaded when the file changes), Shift+F4 switches the governor; a deck
+//! reports its quality to the session (the conductor shows it).
 use deck_stage::{audio, cache, chapter, clock, control, graph, hud, modules, render, scene, splash, tempo, watch};
+use deck_space::quality::{self, Governor, Presets};
+use deck_stage::quality as settings;
 
 use anyhow::{bail, Context, Result};
 use audio::backend::{self, Choice};
@@ -25,7 +32,8 @@ use winit::application::ApplicationHandler;
 use winit::event::{ElementState, WindowEvent};
 #[cfg(feature = "space")]
 use winit::event::{MouseButton, MouseScrollDelta, TouchPhase};
-use winit::event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy};
+use winit::event::StartCause;
+use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy};
 use winit::keyboard::{Key, ModifiersState, NamedKey};
 use winit::window::{Fullscreen, Window, WindowId};
 
@@ -48,9 +56,9 @@ const HELP: &str = "deck-stage [--scene FILE|cathedral|conductor|outlet] [--audi
            [--audio-host default|wasapi|asio] [--audio-device NAME] [--audio-buffer FRAMES] [--audio-thread on|off]
            [--audio-list]
            [--sets DIR] [--portraits DIR] [--token T] [--api URL] [--cdn URL] [--windowed] [--frames N]
-           [--screenshot FILE] [--pointer X,Y|NODE.PORT] [--drag NODE.PORT[,DN]] [--no-hud] [--dev] [--modules]
+           [--screenshot FILE] [--pointer X,Y|NODE.PORT] [--drag NODE.PORT[,DN]] [--no-hud] [--hud-bar] [--dev] [--modules]
            [--relay ws[s]://HOST[:PORT]/live/CODE] [--sync set:ID,character:ID]
-           [--outlet ID] [--locale de]
+           [--outlet ID] [--locale de] [--quality auto|low|medium|high|ultra[,fixed]] [--quality-file FILE] [--settings]
   --scene      a scene TOML (default: the built-in scene, deck/stage/scenes/default.toml); `cathedral` = the built-in
                Cathedral of decks (scenes/cathedral.toml – a deck's being), `conductor` = its conductor in the middle
                (scenes/conductor.toml), `outlet` = the built-in Live outlet (scenes/outlet.toml – the default when an
@@ -76,6 +84,11 @@ const HELP: &str = "deck-stage [--scene FILE|cathedral|conductor|outlet] [--audi
                takes any)
   pairing      (#180) while deck-link's run directory says the deck waits for a member, the code + QR in the corner;
                its token goes to the API once approved (DECK_LINK_DIR, default /run/deck-link; DECK_APP; DECK_TOKEN)
+  --quality    the render quality's level – the highest the governor steps up to (default auto: by the GPU – software
+               low, integrated high, discrete ultra; DECK_QUALITY); ,fixed = no governor. Over the preset file
+  --quality-file  the presets (deck/stage/README.md, Quality; default /var/lib/deck/quality.toml on a deck,
+               DECK_QUALITY_FILE): F4 edits them on the HUD's settings page, Shift+F4 the governor; --settings
+               starts with the page open (a check run's screenshot)
   --frames     quit after N frames and print the measured numbers (a check run)
   --screenshot save the last frame of a --frames run as a PNG
   --pointer    put the pointer at window pixel X,Y, or on the being's button NODE.PORT (a check run's hover)
@@ -99,6 +112,8 @@ struct Args {
     windowed: bool,
     frames: Option<u64>,
     hud: bool,
+    /// #209: start with the collapsed stats bar instead of the full HUD (F1 cycles)
+    hud_bar: bool,
     /// a local folder of sets (#195: else <cache>/sets, synced)
     sets: Option<PathBuf>,
     /// the heads' sprites (#188 phase 5) and the conductor's session token (phase 4)
@@ -115,6 +130,10 @@ struct Args {
     locale: Option<String>,
     /// #195: the conductor's push (`set:<id>,character:<id>`)
     sync: Option<String>,
+    /// #220: the render quality's level and the governor, the preset file
+    quality: quality::Choice,
+    quality_file: Option<PathBuf>,
+    settings: bool,
 }
 
 /// a check run's pointer: a pixel, or on a button of the being (it follows the button)
@@ -139,6 +158,7 @@ fn args() -> Result<Args> {
         windowed: false,
         frames: None,
         hud: true,
+        hud_bar: false,
         sets: std::env::var_os("DECK_SETS").map(PathBuf::from),
         portraits: std::env::var_os("DECK_PORTRAITS").map(PathBuf::from),
         token: std::env::var("LIVE_TOKEN").ok().filter(|t| !t.is_empty()),
@@ -150,6 +170,9 @@ fn args() -> Result<Args> {
         outlet: None,
         locale: None,
         sync: None,
+        quality: std::env::var("DECK_QUALITY").ok().and_then(|q| quality::Choice::parse(&q)).unwrap_or_default(),
+        quality_file: None,
+        settings: false,
     };
     let mut it = std::env::args().skip(1);
     while let Some(arg) = it.next() {
@@ -202,11 +225,18 @@ fn args() -> Result<Args> {
             }
             "--windowed" => a.windowed = true,
             "--no-hud" => a.hud = false,
+            "--hud-bar" => a.hud_bar = true,
             "--dev" => a.dev = true,
             "--relay" => a.relay = Some(val()?),
             "--outlet" => a.outlet = Some(val()?),
             "--locale" => a.locale = Some(val()?),
             "--sync" => a.sync = Some(val()?),
+            "--quality-file" => a.quality_file = Some(val()?.into()),
+            "--settings" => a.settings = true,
+            "--quality" => {
+                let v = val()?;
+                a.quality = quality::Choice::parse(&v).with_context(|| format!("--quality {v}: auto, low, medium, high or ultra (,fixed)"))?
+            }
             "--modules" => {
                 for m in modules::registry() {
                     let what: Vec<&str> = m.kinds.iter().chain(m.sources).copied().collect();
@@ -287,6 +317,10 @@ struct Show {
     /// the audio outputs' peaks (the being's audio hoses)
     #[cfg_attr(not(feature = "space"), allow(dead_code))]
     meters: Option<Arc<audio::Meters>>,
+    /// the parameters as outputs (#211): MIDI out, DMX, the strobe – and why they don't run (the HUD)
+    #[cfg(feature = "outputs")]
+    outputs: Option<deck_stage::outputs::Outputs>,
+    outputs_note: Option<String>,
 }
 
 /// the Live outlet's settings from the CLI (deck.toml's under them – live/config.rs)
@@ -530,6 +564,26 @@ impl Show {
         let rate = clock.as_ref().map_or(48_000.0, |c| c.rate as f64);
         let shared = handles.as_ref().map(|h| h.tempo.clone()).unwrap_or_default();
         let tempo = tempo::Tempo::new(tempo_cfg, shared, rate);
+        // #211: the scene's [outputs] – a wrong table or a missing device never stops the scene: the HUD says why
+        #[cfg(feature = "outputs")]
+        let (outputs, outputs_note) = match &scene.outputs {
+            Some(table) => {
+                let dir = args.scene.as_deref().filter(|p| p.exists()).and_then(|p| p.parent());
+                match deck_stage::outputs::Outputs::start(table, dir, &graph, tempo.shared()) {
+                    Ok(o) => (o, None),
+                    Err(e) => {
+                        tracing::error!("outputs off: {e:#}");
+                        (None, Some(format!("{e:#}")))
+                    }
+                }
+            }
+            None => (None, None),
+        };
+        #[cfg(not(feature = "outputs"))]
+        let outputs_note = scene.outputs.as_ref().map(|_| {
+            tracing::warn!("this build of the stage does not carry the module 'outputs' – the scene's [outputs] is off");
+            "this build does not carry the module 'outputs' (--features outputs)".to_owned()
+        });
         Ok(Show {
             scene_name: scene.stage.name.clone(),
             render_scale: scene.stage.render_scale,
@@ -555,6 +609,9 @@ impl Show {
             #[cfg(feature = "sync")]
             sync,
             meters,
+            #[cfg(feature = "outputs")]
+            outputs,
+            outputs_note,
         })
     }
 
@@ -575,6 +632,22 @@ impl Show {
         let g = &self.graph;
         (0..g.nodes.len()).filter(|&i| g.nodes[i].kind == graph::Kind::Shader).filter_map(|i| Some((i, g.nodes[i].str("wgsl")?.into()))).collect()
     }
+
+    /// the post stack's WGSL files in this checkout (#204: the space node's `post` passes and their prelude; a deck
+    /// without the sources watches nothing)
+    #[cfg(feature = "space")]
+    fn post_files(&self) -> Vec<(Watched, PathBuf)> {
+        use deck_stage::space::post::{self, Chain};
+        let Some(n) = self.graph.first(graph::Kind::Space) else { return Vec::new() };
+        let (chain, _) = Chain::of(&self.graph.nodes[n]);
+        if chain.is_empty() {
+            return Vec::new();
+        }
+        let mut out: Vec<(Watched, PathBuf)> = chain.effects().map(|e| (Watched::Post(Some(e)), post::source_path(e.file()))).collect();
+        out.push((Watched::Post(None), post::source_path("common.wgsl")));
+        out.retain(|(_, p)| p.exists());
+        out
+    }
 }
 
 /// what `--dev` watches: the scene file, a shader node's WGSL file
@@ -582,6 +655,9 @@ impl Show {
 enum Watched {
     Scene,
     Shader(usize),
+    /// a post pass's WGSL (#204), None = their prelude (every pass reloads)
+    #[cfg(feature = "space")]
+    Post(Option<deck_stage::space::post::Effect>),
 }
 
 struct App {
@@ -618,6 +694,18 @@ struct App {
     /// a check run's --drag: where the press was and the tether's way on the screen
     #[cfg(feature = "space")]
     drag_from: Option<((f32, f32), (f32, f32))>,
+    /// #220: the render quality's governor (made with the first renderer – its default comes from the GPU), the GPU, the
+    /// preset file and its presets, the settings page (F4), its status line, the display's sizes (largest first)
+    governor: Option<Governor>,
+    gpu: quality::Gpu,
+    qfile: settings::QualityFile,
+    presets: Presets,
+    page: settings::Page,
+    quality_note: String,
+    modes: Vec<(u32, u32)>,
+    /// #211: the outputs' MIDI for the conductor this frame (reused)
+    #[cfg(feature = "outputs")]
+    conductor_midi: Vec<[u8; 3]>,
 }
 
 impl App {
@@ -672,6 +760,11 @@ impl App {
             files.push(path);
             what.push(Watched::Shader(node));
         }
+        #[cfg(feature = "space")]
+        for (w, path) in self.show.post_files() {
+            files.push(path);
+            what.push(w);
+        }
         let w = watch::Watch::new(files);
         tracing::info!("dev: watching {}", w.paths().map(|p| p.display().to_string()).collect::<Vec<_>>().join(", "));
         Some((w, what))
@@ -690,6 +783,22 @@ impl App {
             let errors = r.reload_shaders(&self.show.graph, &nodes);
             self.error = (!errors.is_empty()).then(|| errors.join("; "));
             self.hud_at = -1.0;
+        }
+        #[cfg(feature = "space")]
+        {
+            use deck_stage::space::post::Effect;
+            // the prelude changed: every listed pass; else the passes whose file changed
+            let all = what.iter().filter_map(|w| if let Watched::Post(Some(e)) = w { Some(*e) } else { None });
+            let effects: Vec<Effect> = if changed.contains(&Watched::Post(None)) {
+                all.collect()
+            } else {
+                changed.iter().filter_map(|w| if let Watched::Post(Some(e)) = w { Some(*e) } else { None }).collect()
+            };
+            if let (false, Some(r)) = (effects.is_empty(), self.renderer.as_mut()) {
+                let errors = r.reload_post(&effects);
+                self.error = (!errors.is_empty()).then(|| errors.join("; "));
+                self.hud_at = -1.0;
+            }
         }
     }
 
@@ -729,6 +838,77 @@ impl App {
         tracing::info!("reloaded '{}'", self.show.scene_name);
     }
 
+    /// #220: the governor's rung into the renderer (a resize only when the scale changed); a deck tells the session
+    fn apply_quality(&mut self) {
+        let Some(g) = &self.governor else { return };
+        if let Some(r) = self.renderer.as_mut() {
+            r.set_quality(*g.rung(), self.show.render_scale);
+        }
+        tracing::info!("quality: {} {:.2} (frames {:.1} ms, the level {}, cap {} fps)", g.level().name(), g.scale(), g.frame_ms(), g.ceiling().name(), g.rung().fps);
+    }
+
+    /// #220: the presets into the governor (the command line's level / ,fixed over the file's), the display mode
+    fn apply_presets(&mut self) {
+        let mut eff = self.presets.clone();
+        self.args.quality.over(&mut eff);
+        if let Some(g) = self.governor.as_mut() {
+            g.set_presets(&eff, self.gpu);
+        }
+        self.apply_quality();
+        self.apply_display();
+    }
+
+    /// #220: the display mode the presets name – exclusive fullscreen at that size (the highest refresh it has); none,
+    /// or one the monitor lacks: the desktop's (borderless). A windowed stage keeps its window. Under a Wayland
+    /// compositor (cage on the deck) winit has no exclusive mode: the desktop's then, said in the page's status.
+    fn apply_display(&mut self) {
+        let Some(w) = self.window.clone().filter(|_| !self.args.windowed) else { return };
+        let want = self.presets.display_mode();
+        let mode = want.and_then(|(mw, mh)| {
+            w.current_monitor()?.video_modes().filter(|m| (m.size().width, m.size().height) == (mw, mh)).max_by_key(|m| m.refresh_rate_millihertz())
+        });
+        let target = match &mode {
+            Some(m) => Fullscreen::Exclusive(m.clone()),
+            None => Fullscreen::Borderless(None),
+        };
+        if want.is_some() && mode.is_none() {
+            self.quality_note = format!("NO {} MODE: DESKTOP", self.presets.display.clone().unwrap_or_default().to_uppercase());
+        }
+        let same = match (w.fullscreen(), &target) {
+            (Some(Fullscreen::Exclusive(a)), Fullscreen::Exclusive(b)) => a == *b,
+            (Some(Fullscreen::Borderless(_)), Fullscreen::Borderless(_)) => true,
+            _ => false,
+        };
+        if !same {
+            tracing::info!("display: {}", mode.as_ref().map_or("the desktop's".into(), |m| format!("{}x{} @ {} Hz", m.size().width, m.size().height, m.refresh_rate_millihertz() / 1000)));
+            w.set_fullscreen(Some(target));
+        }
+    }
+
+    /// #220: a key on the open settings page – applied at once and saved
+    fn page_key(&mut self, k: settings::Key) {
+        let h = self.window.as_ref().map_or(1080, |w| w.inner_size().height);
+        if self.page.key(k, &mut self.presets, &self.modes, h) {
+            self.quality_note = match self.qfile.save(&self.presets) {
+                Ok(()) => format!("SAVED {}", self.qfile.path.file_name().map(|n| n.to_string_lossy().to_uppercase()).unwrap_or_default()),
+                Err(e) => format!("NOT SAVED: {e}"),
+            };
+            self.apply_presets();
+            self.hud_at = -1.0;
+        }
+    }
+
+    /// #220: the preset file changed from outside (an editor, deck-set): its presets now
+    fn watch_quality(&mut self) {
+        let now = self.started.elapsed().as_secs_f32();
+        if let Some((p, problem)) = self.qfile.changed(now) {
+            tracing::info!("quality: {} changed", self.qfile.path.display());
+            self.quality_note = problem.map_or_else(|| "RELOADED".into(), |e| e.to_uppercase());
+            self.presets = p;
+            self.apply_presets();
+        }
+    }
+
     /// the renderer for the current show on `window` (the space's view and the pointer with it)
     fn start_renderer(&mut self, window: &Arc<Window>) {
         #[cfg(feature = "space")]
@@ -754,6 +934,21 @@ impl App {
                     let k = self.show.render_scale.clamp(0.25, 1.0);
                     l.resize((size.width as f32 * k) as u32, (size.height as f32 * k) as u32);
                 }
+                // #220: the level by the GPU (unless chosen), kept over a reload; the renderer at its rung
+                let gpu = match r.adapter.device_type {
+                    wgpu::DeviceType::Cpu => quality::Gpu::Software,
+                    wgpu::DeviceType::IntegratedGpu => quality::Gpu::Integrated,
+                    wgpu::DeviceType::DiscreteGpu => quality::Gpu::Discrete,
+                    _ => quality::Gpu::Other,
+                };
+                self.gpu = gpu;
+                let mut eff = self.presets.clone();
+                self.args.quality.over(&mut eff);
+                let g = self.governor.get_or_insert_with(|| Governor::with(&eff, gpu));
+                let size = window.inner_size();
+                g.set_display(size.width, size.height);
+                tracing::info!("quality: {} ({}, the governor {})", g.ceiling().name(), if eff.level.is_some() { "chosen" } else { "by the GPU" }, if g.auto() { "on" } else { "off" });
+                r.set_quality(*g.rung(), self.show.render_scale);
                 self.renderer = Some(r)
             }
             Err(e) => {
@@ -817,17 +1012,43 @@ impl App {
             el.exit();
             return;
         }
+        // #220: the rung's frame rate cap – an early frame waits (no draw, no spin: the loop sleeps until it is due)
+        if let (Some(g), Some(l)) = (&self.governor, self.last) {
+            let since = l.elapsed().as_secs_f32() * 1000.0;
+            if !g.due(since) {
+                let wait = (g.rung().interval_ms() - since - 1.5).max(0.0);
+                el.set_control_flow(ControlFlow::WaitUntil(Instant::now() + std::time::Duration::from_secs_f32(wait / 1000.0)));
+                return;
+            }
+        }
+        self.watch_quality();
         let now = Instant::now();
         let dt = self.last.map(|l| (now - l).as_secs_f32()).unwrap_or(1.0 / 60.0).min(0.25);
         if let Some(l) = self.last {
             let ms = (now - l).as_secs_f32() * 1000.0;
             push_capped(&mut self.stats.intervals, ms);
             self.hud.push_frame(ms);
+            // #220: the governor sees every interval (a stall over 250 ms is a hitch to it) and the audio's glitches
+            let wall = self.started.elapsed().as_secs_f64();
+            if self.governor.as_mut().is_some_and(|g| g.frame(wall, ms, self.stats.glitch_seen)) {
+                self.apply_quality();
+            }
         }
         self.last = Some(now);
         self.advance_time();
         let beat = self.show.tempo.frame(&self.moment);
         self.show.controls.update(dt, self.lead(), &beat);
+        // #211: the values to the outputs' runner; its MIDI for the conductor to the relay link
+        #[cfg(feature = "outputs")]
+        if let Some(o) = &self.show.outputs {
+            o.update(&self.show.controls);
+            self.conductor_midi.clear();
+            o.conductor_midi(&mut self.conductor_midi);
+            #[cfg(feature = "space")]
+            if let Some(s) = &self.show.space {
+                s.send_midi(&self.conductor_midi);
+            }
+        }
         let time = self.time();
         // a Live cell's 3D set: the space node's set and spot (#186)
         #[cfg(all(feature = "live", feature = "space"))]
@@ -848,6 +1069,10 @@ impl App {
             let meters = self.show.meters.as_deref();
             s.being.strain(dt, reduction);
             s.update(dt, time, &mut self.show.controls, &beat, &|n, p| meters.map_or(0.0, |m| m.level(n, p)));
+            // #220: a deck reports its quality to the session (at once on a change, else at most every 2 s)
+            if let Some(q) = self.governor.as_mut().and_then(|g| g.report_due(self.started.elapsed().as_secs_f64())) {
+                s.report_quality(q.wire());
+            }
             // the pointer's look: a hand over a button, a closed one on it, "no" over a linked one
             let c = s.cursor();
             if c != self.cursor {
@@ -871,24 +1096,38 @@ impl App {
             self.stats.window = (0, 0.0);
         }
         // a scene that can't be played is explained even without the HUD
-        let hud_on = self.args.hud || self.error.is_some();
+        let hud_on = self.args.hud || self.error.is_some() || self.page.open;
         if hud_on && time - self.hud_at >= 0.25 || self.stats.frames == 0 || self.hud_at < 0.0 {
             self.hud_at = time;
-            let lines = self.hud_lines();
+            // #220: the settings page instead of the HUD's lines, its cursor's line lit
+            let (lines, cursor) = if self.page.open {
+                let now = self.governor.as_ref().map_or(String::new(), |g| format!("{} {:.2} {:.0}MS", g.level().name().to_uppercase(), g.scale(), g.frame_ms()));
+                let (l, c) = self.page.lines(&self.presets, &now, &self.modes, &self.quality_note);
+                (l, Some(c))
+            } else {
+                (self.hud_lines(), None)
+            };
             let t = self.show.tempo.now();
             let row = lines.iter().position(|l| l.starts_with("BPM"));
             self.hud.set_beat(row.map(|row| hud::Beat { row, beat: t.pos.beat_in_bar, per_bar: t.per_bar, running: t.running }));
             // #208: the glitch warning flashes at 2 Hz (the lines refresh every 0.25 s)
             let alert = lines.iter().position(|l| l.starts_with(ALERT));
             let lit = (self.started.elapsed().as_secs_f32() * 4.0) as u32 % 2 == 0;
-            self.hud.set_alert(alert.map(|row| hud::Alert { row, lit }));
+            self.hud.set_alert(match cursor {
+                Some(row) => Some(hud::Alert { row, lit: true }),
+                None => alert.map(|row| hud::Alert { row, lit }),
+            });
             self.hud.set_lines(lines);
+            self.hud.set_items(self.bar_items());
         }
-        if self.error.is_some() {
-            self.hud.visible = true;
+        if self.error.is_some() || self.page.open {
+            self.hud.mode = hud::Mode::Full;
         }
-        if self.hud.visible {
-            self.hud.raster();
+        match self.hud.mode {
+            hud::Mode::Full => self.hud.raster(),
+            // #209: the collapsed bar at the screen's width
+            hud::Mode::Bar => self.hud.raster_bar(self.renderer.as_ref().map_or(hud::W, |r| r.bar_width())),
+            hud::Mode::Off => {}
         }
         let cover = self.loading() || self.browser.is_some();
         self.splash.step(cover, dt);
@@ -904,7 +1143,7 @@ impl App {
                 self.pairing = card;
             }
         }
-        let shown = (hud_on && self.hud.visible).then_some(&self.hud);
+        let shown = (hud_on && self.hud.visible()).then_some(&self.hud);
         if self.args.frames.is_some_and(|n| self.stats.frames + 1 >= n) {
             r.capture = self.args.screenshot.clone();
         }
@@ -965,6 +1204,46 @@ impl App {
         None
     }
 
+    /// #209: the collapsed bar's items – FPS, the frame's CPU, the audio (glitches in 10 minutes, the DSP load, the
+    /// limiter), the relay, the GPU backend; red where a number is out of the green
+    fn bar_items(&self) -> Vec<hud::Item> {
+        let item = |text: String, bad: bool| hud::Item { text, bad };
+        let cpu = self.stats.work.iter().rev().take(60).sum::<f32>() / self.stats.work.len().clamp(1, 60) as f32;
+        let warm = self.stats.frames > 120;
+        let mut out = vec![
+            item(format!("FPS {:.0}", self.stats.fps), warm && self.stats.fps < 50.0),
+            item(format!("CPU {cpu:.1}MS"), cpu > 14.0),
+        ];
+        // #220: the level now and the render scale – red while the governor holds it below the level chosen
+        if let Some(g) = &self.governor {
+            out.push(item(format!("Q {} {:.2}{}", g.level().name().to_uppercase(), g.scale(), if g.auto() { "" } else { " FIX" }), g.level() != g.ceiling()));
+        }
+        out.push(match self.show.audio {
+            Some(_) => item(
+                format!("AUDIO GLITCH {}/10M DSP {:.0}% LIM {:.0}", self.stats.glitch_rate, self.stats.dsp * 100.0, self.stats.limit),
+                self.stats.glitch_rate > 0 || self.stats.dsp > 0.8,
+            ),
+            None => item("AUDIO OFF".into(), false),
+        });
+        // the relay: the space's session (a deck, the conductor), else the Live outlet's
+        let mut relay = String::new();
+        #[cfg(feature = "space")]
+        if let Some(s) = self.show.space.as_ref().filter(|s| s.join != deck_stage::space::Join::Alone) {
+            relay = s.session_lines().into_iter().next().unwrap_or_default();
+        }
+        #[cfg(feature = "live")]
+        if relay.is_empty() {
+            if let Some(l) = &self.show.live {
+                relay = l.hud_lines().into_iter().next().unwrap_or_default();
+            }
+        }
+        out.push(item(format!("RELAY {}", if relay.is_empty() { "-".into() } else { relay.replace(['–', '—'], "-").to_uppercase() }), false));
+        let gpu = self.renderer.as_ref().map(|r| format!("{:?}", r.adapter.backend).to_uppercase()).unwrap_or_default();
+        out.push(item(format!("GPU {gpu}"), false));
+        out.push(item("F1".into(), false));
+        out
+    }
+
     fn hud_lines(&self) -> Vec<String> {
         let last = |v: &[f32]| v.iter().rev().take(60).sum::<f32>() / v.len().clamp(1, 60) as f32;
         let gpu = self.renderer.as_ref().map(|r| format!("{} {:?}", r.adapter.name, r.adapter.backend)).unwrap_or_default();
@@ -1022,6 +1301,11 @@ impl App {
             format!("FPS {:.1}  FRAME {:.1} MS  CPU {:.2} MS", self.stats.fps, last(&self.stats.intervals), last(&self.stats.work)),
             format!("GPU {gpu}"),
         ]);
+        // #220: the quality now, the level chosen, the governor; the keys
+        if let Some(g) = &self.governor {
+            let render = self.renderer.as_ref().map_or(1.0, |r| r.render_scale());
+            lines.push(format!("Q {} {render:.2}X OF {} {} F4 SET", g.level().name(), g.ceiling().name(), if g.auto() { "AUTO" } else { "FIXED" }).to_uppercase());
+        }
         lines.extend(audio.into_iter().filter(|l| !l.is_empty()));
         // #236: the hosts' events – delivered by the dispatcher, lost on the way (capped, hops, refused, late)
         #[cfg(feature = "events")]
@@ -1029,6 +1313,14 @@ impl App {
             lines.push(format!("EVENTS IN {} DROP {}", c.routed.load(std::sync::atomic::Ordering::Relaxed), c.dropped()));
         }
         lines.extend([self.tempo_line(), self.source_line()]);
+        // #211: what the outputs drive, or why they are off
+        #[cfg(feature = "outputs")]
+        if let Some(o) = &self.show.outputs {
+            lines.push(format!("OUTPUTS {}", o.summary.to_uppercase()));
+        }
+        if let Some(n) = &self.show.outputs_note {
+            lines.extend(hud::wrap(&format!("OUTPUTS OFF: {}", n.replace(['–', '—', '…'], "-").to_uppercase()), hud::COLS).into_iter().take(3));
+        }
         // the sync (#195) while it fetches, is offline or failed
         #[cfg(feature = "sync")]
         if let Some(line) = self.show.sync.as_ref().map(|y| y.line()).filter(|l| !l.starts_with("SYNC OK")) {
@@ -1103,13 +1395,14 @@ impl App {
             None => glitches,
         };
         format!(
-            "deck-stage: frames={} avg_fps={:.1} frame_ms avg={:.2} p99={:.2} cpu_ms avg={:.2} first_frame_ms={:.0} adapter={adapter} audio={}{glitches} modules={}{error}",
+            "deck-stage: frames={} avg_fps={:.1} frame_ms avg={:.2} p99={:.2} cpu_ms avg={:.2} first_frame_ms={:.0} adapter={adapter} quality={} audio={}{glitches} modules={}{error}",
             self.stats.frames,
             1000.0 / avg(&iv).max(1e-3),
             avg(&iv),
             p99,
             avg(&self.stats.work),
             self.stats.first_frame_ms.unwrap_or(0.0),
+            self.governor.as_ref().map_or("-".into(), |g| format!("{} {:.2} of {}{}", g.level().name(), g.scale(), g.ceiling().name(), if g.auto() { "" } else { " fixed" })),
             self.show.audio.as_ref().map(|a| format!("{} {} Hz ({})", a.name, a.rate, self.show.audio_build)).unwrap_or_else(|| "off".into()),
             modules::summary(),
         )
@@ -1247,15 +1540,53 @@ impl ApplicationHandler<Event> for App {
                 return;
             }
         };
+        // #220: the display's sizes (the settings page; the largest is the hardware's maximum)
+        self.modes = window.current_monitor().map(|m| settings::sizes(m.video_modes().map(|v| (v.size().width, v.size().height)).collect())).unwrap_or_default();
         self.start_renderer(&window);
         if self.exit != 0 {
             el.exit();
             return;
         }
         self.window = Some(window);
+        self.apply_display();
+    }
+
+    /// #220: the frame rate cap's wait is over – the next frame
+    fn new_events(&mut self, el: &ActiveEventLoop, cause: StartCause) {
+        if let StartCause::ResumeTimeReached { .. } = cause {
+            el.set_control_flow(ControlFlow::Wait);
+            if let Some(w) = &self.window {
+                w.request_redraw();
+            }
+        }
     }
 
     fn window_event(&mut self, el: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
+        // #220: the open settings page takes the keys (the arrows, + / −, Space would turn the camera and the tempo)
+        if let WindowEvent::KeyboardInput { event: k, .. } = &event {
+            if self.page.open && k.state == ElementState::Pressed && !matches!(k.logical_key.as_ref(), Key::Named(NamedKey::F1 | NamedKey::F2 | NamedKey::F4)) {
+                let key = match k.logical_key.as_ref() {
+                    Key::Named(NamedKey::ArrowUp) => Some(settings::Key::Up),
+                    Key::Named(NamedKey::ArrowDown) => Some(settings::Key::Down),
+                    Key::Named(NamedKey::ArrowLeft) => Some(settings::Key::Left),
+                    Key::Named(NamedKey::ArrowRight) => Some(settings::Key::Right),
+                    Key::Named(NamedKey::Enter | NamedKey::Space) => Some(settings::Key::Toggle),
+                    Key::Character("+" | "=") => Some(settings::Key::More),
+                    Key::Character("-") => Some(settings::Key::Less),
+                    Key::Character("p" | "P") => Some(settings::Key::Pixels),
+                    Key::Character("r" | "R") => Some(settings::Key::Reset),
+                    Key::Named(NamedKey::Escape) => {
+                        self.page.open = false;
+                        None
+                    }
+                    _ => None,
+                };
+                if let Some(key) = key {
+                    self.page_key(key);
+                }
+                return;
+            }
+        }
         #[cfg(feature = "space")]
         if !matches!(event, WindowEvent::Resized(_)) && self.space_event(&event) {
             return;
@@ -1265,6 +1596,9 @@ impl ApplicationHandler<Event> for App {
             WindowEvent::Resized(s) => {
                 if let Some(r) = self.renderer.as_mut() {
                     r.resize(s.width, s.height);
+                }
+                if let Some(g) = self.governor.as_mut() {
+                    g.set_display(s.width, s.height);
                 }
                 #[cfg(feature = "live")]
                 if let Some(l) = &self.show.live {
@@ -1280,12 +1614,26 @@ impl ApplicationHandler<Event> for App {
             WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && !event.repeat => {
                 let tempo = &self.show.tempo;
                 match event.logical_key.as_ref() {
-                    Key::Named(NamedKey::F1) => self.hud.visible = !self.hud.visible,
+                    // #209: the full HUD → the collapsed stats bar → nothing
+                    Key::Named(NamedKey::F1) => self.hud.mode = self.hud.mode.next(),
                     Key::Named(NamedKey::F2) => self.open_browser(el),
                     Key::Named(NamedKey::Escape) if self.args.windowed => el.exit(),
                     Key::Named(NamedKey::Delete) if self.mods.control_key() && self.mods.alt_key() => self.power_off(),
                     Key::Character("q") if self.mods.control_key() => el.exit(),
                     Key::Named(NamedKey::F3) => tempo.key(tempo::Key::NextSource),
+                    // #220: F4 the settings page, Shift+F4 the governor
+                    Key::Named(NamedKey::F4) if self.mods.shift_key() => {
+                        if let Some(g) = self.governor.as_mut() {
+                            g.set_auto(!g.auto());
+                        }
+                        self.presets.auto = self.governor.as_ref().is_some_and(|g| g.auto());
+                        let _ = self.qfile.save(&self.presets);
+                        self.apply_quality();
+                    }
+                    Key::Named(NamedKey::F4) => {
+                        self.page.open = !self.page.open;
+                        self.hud_at = -1.0;
+                    }
                     Key::Named(NamedKey::Space) => tempo.key(tempo::Key::StartStop),
                     Key::Character("t") => tempo.key(tempo::Key::Tap),
                     Key::Character("+" | "=") => tempo.key(tempo::Key::Faster),
@@ -1322,8 +1670,16 @@ fn run() -> Result<i32> {
 
     let event_loop = EventLoop::<Event>::with_user_event().build().context("no event loop (no display?)")?;
     let proxy = event_loop.create_proxy();
+    // #220: the preset file
+    let args_settings = args.settings;
+    let mut qfile = settings::QualityFile::new(args.quality_file.clone().unwrap_or_else(settings::default_path));
+    let (presets, problem) = qfile.load();
+    if let Some(e) = &problem {
+        tracing::warn!("quality: {e} – the defaults");
+    }
+    let quality_note = problem.map_or_else(|| format!("FILE {}", qfile.path.file_name().map(|n| n.to_string_lossy().to_uppercase()).unwrap_or_default()), |e| e.to_uppercase());
     let mut app = App {
-        hud: hud::Hud::default(),
+        hud: hud::Hud::with_mode(if args.hud_bar { hud::Mode::Bar } else { hud::Mode::Full }),
         args,
         started,
         show,
@@ -1348,6 +1704,15 @@ fn run() -> Result<i32> {
         cursor: deck_stage::space::Cursor::Default,
         #[cfg(feature = "space")]
         drag_from: None,
+        governor: None,
+        gpu: quality::Gpu::Other,
+        qfile,
+        presets,
+        page: { let mut p = settings::Page::default(); p.open = args_settings; p },
+        quality_note,
+        modes: Vec::new(),
+        #[cfg(feature = "outputs")]
+        conductor_midi: Vec::new(),
     };
     app.watch = app.watch_files();
     event_loop.run_app(&mut app)?;

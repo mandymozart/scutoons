@@ -11,7 +11,7 @@
 //!   welcome whose snapshot lacks it: the relay restarted) and hands the frame each deck's `deck.synced`. A deck hands
 //!   a push – the welcome snapshot's `sync`, or a `scene.sync` – to its sync (`Syncs`, sync.rs) and sends its answer
 //!   back whenever it is new (progress at most every 200 ms; the final state at once).
-use protocol::{DeckGraph, DeckSynced, DeckValues, Envelope, Hello, Message, Ping, Role, SceneSync, SyncState};
+use protocol::{DeckGraph, DeckMidi, DeckQuality, DeckSynced, DeckValues, Envelope, Hello, Message, Ping, Role, SceneSync, SyncState};
 use std::collections::HashMap;
 use std::io::ErrorKind;
 use std::net::TcpStream;
@@ -44,6 +44,9 @@ pub trait Syncs: Send {
 enum Out {
     Values(DeckValues),
     Push(SceneSync),
+    Quality(DeckQuality),
+    /// #211: the deck's MIDI outputs for the conductor (only while joined – stale MIDI is dropped, not sent later)
+    Midi(DeckMidi),
 }
 
 /// `--sync set:cathedral,character:catpope` (#195): the conductor's push for `scene`; `being:<id>` names a lent being
@@ -102,6 +105,8 @@ impl Link {
             sync,
             seen: 0,
             answered: None,
+            quality: None,
+            quality_due: false,
         };
         std::thread::Builder::new().name("cathedral".into()).spawn(move || client.run()).map_err(|e| e.to_string())?;
         Ok(Link { rx, tx, status, stop })
@@ -115,6 +120,13 @@ impl Wire for Link {
 
     fn push(&self, sync: SceneSync) {
         let _ = self.tx.send(Out::Push(sync));
+    }
+
+    fn quality(&self, quality: DeckQuality) {
+        let _ = self.tx.send(Out::Quality(quality));
+    }
+    fn midi(&self, midi: DeckMidi) {
+        let _ = self.tx.send(Out::Midi(midi));
     }
 
     fn recv(&self) -> Option<In> {
@@ -147,6 +159,9 @@ struct Client {
     sync: Option<Box<dyn Syncs>>,
     seen: u64,
     answered: Option<Instant>,
+    /// #220: this deck's render quality, the newest; due = not sent yet
+    quality: Option<DeckQuality>,
+    quality_due: bool,
 }
 
 type Socket = WebSocket<MaybeTlsStream<TcpStream>>;
@@ -200,14 +215,24 @@ impl Client {
     }
 
     /// the outbox into `sent` (offline: nothing goes out, the latest values wait); a push waits until joined
-    fn fold(&mut self) -> Vec<DeckValues> {
+    fn fold(&mut self) -> (Vec<DeckValues>, Vec<DeckMidi>) {
         let mut out = Vec::new();
+        let mut midi = Vec::new();
         while let Ok(o) = self.outbox.try_recv() {
             let v = match o {
                 Out::Values(v) => v,
                 Out::Push(s) => {
                     self.push = Some(s);
                     self.push_due = true;
+                    continue;
+                }
+                Out::Quality(q) => {
+                    self.quality = Some(q);
+                    self.quality_due = true;
+                    continue;
+                }
+                Out::Midi(m) => {
+                    midi.push(m);
                     continue;
                 }
             };
@@ -219,7 +244,7 @@ impl Client {
             }
             out.push(v);
         }
-        out
+        (out, midi)
     }
 
     /// a deck: its sync's answer when it is new – progress at most every PROGRESS, a final state at once
@@ -253,10 +278,15 @@ impl Client {
                 return "stopping".into();
             }
             // a deck's values: only once welcomed (the graph goes first)
-            let out = self.fold();
+            let (out, midi) = self.fold();
             if joined {
                 for v in out {
                     if let Err(e) = Self::send(ws, Message::DeckValues(v)) {
+                        return e;
+                    }
+                }
+                for m in midi {
+                    if let Err(e) = Self::send(ws, Message::DeckMidi(m)) {
                         return e;
                     }
                 }
@@ -274,6 +304,15 @@ impl Client {
                 if let Err(e) = self.answer(ws) {
                     return e;
                 }
+            }
+            // #220: this deck's render quality – the newest only
+            if joined && self.quality_due {
+                if let Some(q) = self.quality.clone() {
+                    if let Err(e) = Self::send(ws, Message::DeckQuality(q)) {
+                        return e;
+                    }
+                }
+                self.quality_due = false;
             }
             if pinged.elapsed() >= PING_EVERY {
                 pinged = Instant::now();
@@ -324,6 +363,8 @@ impl Client {
                             }
                         }
                     }
+                    // the relay forgot this deck's quality when it left: again
+                    self.quality_due = self.quality.is_some();
                     joined = true;
                 }
                 Message::DeckGraph(graph) => {
@@ -344,7 +385,7 @@ impl Client {
                 }
                 Message::Presence(p) => {
                     let routes = p.routes.unwrap_or_default().into_iter().map(|r| (r.from, r.to)).collect();
-                    let _ = self.events.send(In::Presence { decks: p.decks.unwrap_or_default(), routes });
+                    let _ = self.events.send(In::Presence { decks: p.decks.unwrap_or_default(), routes, links: p.links.unwrap_or_default(), quality: p.quality.unwrap_or_default() });
                 }
                 Message::Error(err) => {
                     tracing::warn!("cathedral: the relay says {}: {}", err.code, err.message);

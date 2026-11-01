@@ -1,6 +1,11 @@
 //! The on-screen HUD (CYBERDECKS.md §8 "a small on-screen HUD"): a few text lines and a frame-time graph rastered on
 //! the CPU into a small RGBA image (font8x8, no font files), drawn over the screen by render.rs at an integer scale.
 //! The tempo line carries a light per beat of the bar (#181): the current one lit, the bar's first in amber.
+//!
+//! #209 (owner 2026-10-31: "the collapsed panel shows very basic statistics … using the entire width, like OSCT's
+//! collapsed bar"): F1 cycles the full HUD → **the bar** (one dense line across the screen's whole top edge: FPS, CPU /
+//! frame, the audio's glitches and load, the relay, the backend – a number out of the green in red) → nothing. The bar
+//! is rastered at the screen's width in HUD pixels (`bar_width`), so it spans the screen at the HUD's integer scale.
 use font8x8::UnicodeFonts;
 use std::collections::VecDeque;
 
@@ -17,9 +22,54 @@ const TEXT: [u8; 4] = [235, 235, 235, 255];
 /// the audio glitch warning's red (#208)
 const ALERT: [u8; 4] = [230, 40, 40, 255];
 
+/// #209: what the HUD shows (F1 cycles them)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Mode {
+    #[default]
+    Full,
+    /// the collapsed stats bar across the top
+    Bar,
+    Off,
+}
+
+impl Mode {
+    pub fn next(self) -> Mode {
+        match self {
+            Mode::Full => Mode::Bar,
+            Mode::Bar => Mode::Off,
+            Mode::Off => Mode::Full,
+        }
+    }
+}
+
+/// the bar's height (one text line and a pixel above / below, in HUD pixels) and its widest raster
+pub const BAR_H: u32 = 10;
+pub const BAR_MAX: u32 = 2048;
+
+/// the HUD's integer scale for a screen `sh` pixels high – rem-like: 2 at 1080p
+pub fn scale(sh: f32) -> f32 {
+    (sh / 540.0).round().max(1.0)
+}
+
+/// the bar's width in HUD pixels for a `sw` × `sh` screen: the whole width at the HUD's scale
+pub fn bar_width(sw: f32, sh: f32) -> u32 {
+    ((sw / scale(sh)) as u32).clamp(8, BAR_MAX)
+}
+
+/// one item of the bar: its text, and red when it is out of the green
+#[derive(Debug, Clone, PartialEq)]
+pub struct Item {
+    pub text: String,
+    pub bad: bool,
+}
+
 pub struct Hud {
     pub pixels: Vec<u8>,
-    pub visible: bool,
+    pub mode: Mode,
+    /// #209: the bar's pixels (bar_w × BAR_H RGBA) and its items
+    pub bar: Vec<u8>,
+    pub bar_w: u32,
+    items: Vec<Item>,
     lines: Vec<String>,
     times: VecDeque<f32>,
     beat: Option<Beat>,
@@ -45,7 +95,7 @@ pub struct Beat {
 
 impl Default for Hud {
     fn default() -> Self {
-        Hud { pixels: vec![0; (W * H * 4) as usize], visible: true, lines: Vec::new(), times: VecDeque::new(), beat: None, alert: None }
+        Hud { pixels: vec![0; (W * H * 4) as usize], mode: Mode::Full, bar: Vec::new(), bar_w: 0, items: Vec::new(), lines: Vec::new(), times: VecDeque::new(), beat: None, alert: None }
     }
 }
 
@@ -102,6 +152,53 @@ pub fn wrap(text: &str, cols: usize) -> Vec<String> {
 }
 
 impl Hud {
+    /// a HUD showing `mode` first
+    pub fn with_mode(mode: Mode) -> Hud {
+        Hud { mode, ..Hud::default() }
+    }
+
+    /// anything on screen (the full HUD or the bar)
+    pub fn visible(&self) -> bool {
+        self.mode != Mode::Off
+    }
+
+    /// #209: the bar's items (FPS, CPU …), left to right
+    pub fn set_items(&mut self, items: Vec<Item>) {
+        self.items = items;
+    }
+
+    /// #209: the bar rastered `width` HUD pixels wide (`bar_width`): the items two spaces apart, cut at the edge
+    pub fn raster_bar(&mut self, width: u32) {
+        let width = width.clamp(8, BAR_MAX);
+        if width != self.bar_w {
+            self.bar_w = width;
+            self.bar = vec![0; (width * BAR_H * 4) as usize];
+        }
+        for px in self.bar.chunks_exact_mut(4) {
+            px.copy_from_slice(&[0, 0, 0, 200]);
+        }
+        let cols = (width as usize).saturating_sub(8) / 8;
+        let items = std::mem::take(&mut self.items);
+        let mut col = 0usize;
+        for it in &items {
+            if col >= cols {
+                break;
+            }
+            let text: String = it.text.chars().take(cols - col).collect();
+            let n = text.chars().count();
+            let (bw, bh) = (self.bar_w, BAR_H);
+            let mut put = |x: u32, y: u32, c: [u8; 4]| {
+                if x < bw && y < bh {
+                    let i = ((y * bw + x) * 4) as usize;
+                    self.bar[i..i + 4].copy_from_slice(&c);
+                }
+            };
+            glyphs(&mut put, 4 + col as u32 * 8, 1, &text, if it.bad { ALERT } else { TEXT });
+            col += n + 2;
+        }
+        self.items = items;
+    }
+
     pub fn set_lines(&mut self, lines: Vec<String>) {
         self.lines = lines;
     }
@@ -176,22 +273,29 @@ impl Hud {
     }
 
     fn text_in(&mut self, x: u32, y: u32, s: &str, color: [u8; 4]) {
-        for (i, ch) in s.chars().take((W / 8) as usize).enumerate() {
-            let glyph = font8x8::BASIC_FONTS.get(ch).or_else(|| font8x8::BASIC_FONTS.get('?')).unwrap_or([0; 8]);
-            for (gy, bits) in glyph.iter().enumerate() {
-                for gx in 0..8 {
-                    if bits & (1 << gx) != 0 {
-                        self.put(x + i as u32 * 8 + gx, y + gy as u32, color);
-                    }
-                }
-            }
-        }
+        let s: String = s.chars().take((W / 8) as usize).collect();
+        let mut put = |x: u32, y: u32, c: [u8; 4]| self.put(x, y, c);
+        glyphs(&mut put, x, y, &s, color);
     }
 
     fn put(&mut self, x: u32, y: u32, c: [u8; 4]) {
         if x < W && y < H {
             let i = ((y * W + x) * 4) as usize;
             self.pixels[i..i + 4].copy_from_slice(&c);
+        }
+    }
+}
+
+/// `s` in font8x8 from (x, y), through `put`
+fn glyphs(put: &mut dyn FnMut(u32, u32, [u8; 4]), x: u32, y: u32, s: &str, color: [u8; 4]) {
+    for (i, ch) in s.chars().enumerate() {
+        let glyph = font8x8::BASIC_FONTS.get(ch).or_else(|| font8x8::BASIC_FONTS.get('?')).unwrap_or([0; 8]);
+        for (gy, bits) in glyph.iter().enumerate() {
+            for gx in 0..8 {
+                if bits & (1 << gx) != 0 {
+                    put(x + i as u32 * 8 + gx, y + gy as u32, color);
+                }
+            }
         }
     }
 }
@@ -260,6 +364,27 @@ mod tests {
         h.set_beat(Some(Beat { row: 2, beat: 1, per_bar: 4, running: true }));
         h.raster();
         assert_eq!(amber(&h), 0);
+    }
+
+    /// #209: F1 cycles full → bar → off; the bar spans the screen at the HUD's scale, an item out of the green in red,
+    /// the items cut at its edge
+    #[test]
+    fn the_bar_spans_the_width() {
+        assert_eq!([Mode::Full.next(), Mode::Bar.next(), Mode::Off.next()], [Mode::Bar, Mode::Off, Mode::Full]);
+        assert_eq!((bar_width(1920.0, 1080.0), bar_width(1280.0, 720.0), bar_width(9000.0, 540.0)), (960, 1280, BAR_MAX));
+        let mut h = Hud::default();
+        h.set_items(vec![Item { text: "FPS 60".into(), bad: false }, Item { text: "GLITCH 2/10M".into(), bad: true }]);
+        h.raster_bar(960);
+        assert_eq!(h.bar.len(), (960 * BAR_H * 4) as usize);
+        let count = |h: &Hud, c: [u8; 4]| h.bar.chunks_exact(4).filter(|p| *p == c).count();
+        assert!(count(&h, TEXT) > 20 && count(&h, ALERT) > 20, "white and red letters");
+        // the second item starts after the first and two spaces: column 8 = x 68
+        let red_x = h.bar.chunks_exact(4).enumerate().filter(|(_, p)| *p == ALERT).map(|(i, _)| i as u32 % 960).min().unwrap();
+        assert!((68..76).contains(&red_x), "{red_x}");
+        h.raster_bar(40);
+        assert!(count(&h, ALERT) == 0, "cut at the edge: four columns hold only FPS");
+        h.mode = Mode::Off;
+        assert!(!h.visible());
     }
 
     #[test]

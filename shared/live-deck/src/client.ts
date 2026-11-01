@@ -7,7 +7,7 @@
 // - a reconnect (backoff 1 2 4 8 10 s) sends the graph and the keyframe again (the relay dropped the being);
 // - #195: the conductor's push – the welcome snapshot's `sync` or a `scene.sync` – goes to `onSync` (sync.ts works on
 //   it); `synced` sends the answer back as `deck.synced`.
-import type { DeckGraph, DeckSynced, DeckValues, Envelope, Message, SceneSync, Welcome } from '@scutoons/live';
+import type { DeckGraph, DeckQuality, DeckSynced, DeckValues, Envelope, Message, SceneSync, Welcome } from '@scutoons/live';
 
 /** at most this many `deck.values` a second (the relay drops more than 30 / s) */
 export const RATE = 30;
@@ -112,7 +112,9 @@ export class DeckLink {
 	readonly sent: Record<string, number[]> = {};
 	mood: string | undefined;
 	/** messages sent since the start (tests, the HUD) */
-	count = { graph: 0, values: 0, synced: 0 };
+	count = { graph: 0, values: 0, synced: 0, quality: 0 };
+	/** #220: the last render quality (sent again after a rejoin – the relay forgets a deck that left) */
+	private q: DeckQuality | null = null;
 	private graph: DeckGraph;
 	private ws: WebSocketLike | null = null;
 	private tries = 0;
@@ -175,6 +177,10 @@ export class DeckLink {
 				this.raw({ kind: 'deck.values', p: { values: { ...this.sent }, ...(this.mood !== undefined ? { mood: this.mood } : {}) } });
 				this.count.values++;
 			}
+			if (this.q) {
+				this.raw({ kind: 'deck.quality', p: this.q });
+				this.count.quality++;
+			}
 			this.joined = true;
 			const sync = (e.p as Welcome).snapshot.sync;
 			if (sync) this.o.onSync?.(sync);
@@ -201,6 +207,12 @@ export class DeckLink {
 	/** #195: the answer to the conductor's push (progress and final); dropped while not joined – a rejoin re-runs the push */
 	synced(r: DeckSynced) {
 		if (this.joined && this.raw({ kind: 'deck.synced', p: r })) this.count.synced++;
+	}
+
+	/** #220: the render quality (the 3D's governor reports a change at once, the frame time at most every 2 s); kept for a rejoin */
+	quality(q: DeckQuality) {
+		this.q = q;
+		if (this.joined && this.raw({ kind: 'deck.quality', p: q })) this.count.quality++;
 	}
 
 	/** the being changed (another character): the relay keeps the last graph per client */

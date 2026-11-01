@@ -147,3 +147,22 @@ fn refuses_what_it_cannot_play() {
     a.stop().unwrap();
     assert!(a.send(&dmx(1, &[1], None)).is_err(), "stopped");
 }
+
+#[test]
+fn send_now_goes_out_in_its_own_frame() {
+    // #211: a strobe's flash right after a frame must not wait for the 40 Hz grid
+    let widget = Widget::default();
+    let mut a = started(&widget);
+    assert!(widget.wait_frame(SOON, |_| true).is_some());
+    a.send(&dmx(2, &[9], None)).unwrap();
+    let plain = widget.wait_frame(SOON, |f| f[1] == 9).unwrap();
+    let t = std::time::Instant::now();
+    a.send_now(&dmx(1, &[255], None)).unwrap();
+    let flash = widget.wait_frame(SOON, |f| f[0] == 255).expect("the flash");
+    // measured bounds: about URGENT_GAP after the plain frame or later (the mock stamps a frame after its write, the
+    // universe before it – a slow write of the plain frame shortens the stamped gap), and well before the 25 ms grid
+    assert!(flash - plain >= universe::URGENT_GAP - Duration::from_millis(3), "{:?}", flash - plain);
+    assert!(flash - t.max(plain + universe::URGENT_GAP) < Duration::from_millis(15), "the flash {:?} after send_now", flash - t);
+    assert!(a.send_now(&DeviceMsg::Midi(MidiBytes { bytes: vec![0x90, 1, 1] })).is_err());
+    a.stop().unwrap();
+}

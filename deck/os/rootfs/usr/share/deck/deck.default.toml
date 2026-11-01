@@ -23,3 +23,8 @@ locale = ""
 # lead; false = in the device callback). `--audio-buffer` / `--audio-thread` win over these.
 audio_buffer = 0
 audio_thread = true
+# Remote updates (#237, deck/os/README.md "Updates"): "dev" = the dev PC on the LAN (`npm run deck:update`, found by a
+# scan for port 7790; the server's dev folder too), "stable" = the server only, "off". `update_url` = a fixed source,
+# asked first (e.g. "http://192.168.1.50:7790"). Never during a show; `deck-update now` on tty2 at once.
+update_channel = "dev"
+update_url = ""

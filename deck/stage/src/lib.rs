@@ -13,6 +13,7 @@ pub mod live;
 pub mod modules;
 pub mod render;
 pub mod pairing;
+pub mod quality;
 pub mod splash;
 pub mod tempo;
 pub mod watch;
@@ -28,3 +29,5 @@ pub mod text;
 pub mod space;
 #[cfg(feature = "sync")]
 pub mod sync;
+#[cfg(feature = "outputs")]
+pub mod outputs;

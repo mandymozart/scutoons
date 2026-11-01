@@ -1,0 +1,11 @@
+# deck-update every 2 minutes – the dev channel asks the remembered dev PC (one small request; a LAN scan at most every
+# 5 minutes), the stable channel the server at most every 6 h.
+[Unit]
+Description=SCUTOONS deck update check, now and then
+
+[Timer]
+OnBootSec=60s
+OnUnitActiveSec=2min
+
+[Install]
+WantedBy=timers.target

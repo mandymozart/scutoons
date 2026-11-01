@@ -48,15 +48,13 @@ pub struct Direct {
     underruns: Arc<std::sync::atomic::AtomicU64>,
     /// a gap in the heard stamps counts as an underrun (false where the stamps jitter: WASAPI's)
     gaps: bool,
-    /// raise the callback's thread to audio priority on its first call (priority.rs; cpal's WASAPI / ALSA threads)
-    raise: bool,
 }
 
 impl Direct {
     pub fn new(mut engine: Engine) -> Direct {
         let mon = engine.take_monitor();
         let underruns = engine.underruns();
-        Direct { engine, mon, underruns, gaps: true, raise: false }
+        Direct { engine, mon, underruns, gaps: true }
     }
 
     /// a host whose callbacks top up one buffer (WASAPI shared): the deadline is the buffer, the stamps' gaps are
@@ -70,13 +68,6 @@ impl Direct {
     /// One device callback: `out` (interleaved, `channels` per frame) whose first frame is heard at `heard_ns`.
     /// Never allocates.
     pub fn play<T: Copy>(&mut self, out: &mut [T], channels: usize, heard_ns: u64, conv: impl Fn(f32) -> T) {
-        if std::mem::take(&mut self.raise) {
-            // once, in the settling half second (the log line allocates – never again in this thread)
-            match super::priority::raise() {
-                Ok(how) => tracing::info!("audio: the device callback runs at {how}"),
-                Err(e) => tracing::warn!("audio: the device callback at its own priority ({e})"),
-            }
-        }
         let start = self.mon.begin();
         let before = self.underruns.load(Ordering::Relaxed);
         self.engine.mark(heard_ns);
@@ -346,10 +337,22 @@ struct CpalPlayer {
     /// WASAPI shared: cpal 0.15's playback instant there is callback + the frames asked for – but the new frames play
     /// after what is still queued (the buffer minus what this callback fills; #208: the stamps jittered by a period)
     wasapi: bool,
+    /// raise the callback's thread to audio priority on its first call (priority.rs) – also when it only copies from
+    /// the ring: measured 2026-10-31 under a full CPU, cpal's WASAPI thread at its own TIME_CRITICAL came 32–38 ms late
+    /// three times in 8 min (the whole 22 ms buffer drained), raised to MMCSS never. ASIO's thread is the driver's – left
+    /// alone.
+    raise: bool,
 }
 
 impl CpalPlayer {
     fn fill<T: Copy>(&mut self, out: &mut [T], info: &cpal::OutputCallbackInfo, conv: impl Fn(f32) -> T) {
+        if std::mem::take(&mut self.raise) {
+            // once, in the settling half second (the log line allocates – never again in this thread)
+            match super::priority::raise() {
+                Ok(how) => tracing::info!("audio: the device callback runs at {how}"),
+                Err(e) => tracing::warn!("audio: the device callback at its own priority ({e})"),
+            }
+        }
         let frames = out.len() / self.channels.max(1);
         let g = self.feed.glitches();
         let latency = if self.wasapi {
@@ -392,11 +395,7 @@ fn cpal(o: &Options, factory: &mut Factory) -> Result<Running> {
         if wasapi {
             feed = feed.buffered();
         }
-        // a callback that renders: its thread at audio priority (ASIO's thread is the driver's – left alone)
-        if let Feed::Direct(d) = &mut feed {
-            d.raise = !asio;
-        }
-        Ok(CpalPlayer { feed, channels, rate, wasapi })
+        Ok(CpalPlayer { feed, channels, rate, wasapi, raise: !asio })
     };
     let build = |sc: &cpal::StreamConfig, mut p: CpalPlayer| -> Result<cpal::Stream, cpal::BuildStreamError> {
         let err = |e| tracing::error!("audio stream: {e}");
@@ -583,6 +582,9 @@ mod tests {
         let d = DeckAudio::parse("kiosk = \"stage\"\nrelay = \"\"\naudio_buffer = 256\naudio_host = \"asio\"\naudio_device = \"Fireface\"\n");
         assert_eq!(d, DeckAudio { audio_buffer: Some(256), audio_host: Some("asio".into()), audio_device: Some("Fireface".into()), audio_thread: None });
         assert_eq!(DeckAudio::parse("audio_thread = false\n").audio_thread, Some(false));
+        // the file a deck starts with: the device's default buffer, the render thread on
+        let shipped = DeckAudio::parse(include_str!("../../../os/rootfs/usr/share/deck/deck.default.toml"));
+        assert_eq!((shipped.audio_buffer, shipped.audio_thread), (None, Some(true)));
         let empty = DeckAudio::parse("audio_host = \"\"\naudio_device = \" \"\naudio_buffer = 0\n");
         assert_eq!(empty, DeckAudio::default(), "empty = unset");
         assert_eq!(DeckAudio::parse("this is = not toml ["), DeckAudio::default());

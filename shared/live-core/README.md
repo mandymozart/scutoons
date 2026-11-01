@@ -16,7 +16,7 @@ const table = await core.load(sceneToml);           // deck/stage's TOML, batch 
 const lead = core.param('lead');                    // resolve once (node + first input) …
 core.set(lead, new Float32Array([440, 2, 1, 0.1]), { mode: 'blend', amount: 0.5 }); // … send often (#189)
 const off = core.onAnalysis(({ level, bass, mid, high, spectrum }) => draw(level, bass, mid, high, spectrum));
-core.stats(); // transport, render µs per block, blocks/s, sends/s, underruns, dropped
+core.stats(); // transport, render µs per block (avg, peak, budget), blocks/s, sends/s, underruns, dropped, lead, gapMs
 await core.stop();
 ```
 
@@ -37,7 +37,16 @@ No JSON across the boundary. A value is a **wire record** (`src/wire.ts` = `deck
 - `transport: 'auto'` (default) picks shared when `crossOriginIsolated`, else transfer – it works without the headers,
   at one postMessage per send, per analysis frame and per 512 audio frames (≈ 6 µs each vs 0.5 µs in the ring).
 - `lead` (default 1024 frames ≈ 21 ms at 48 kHz) = how far the worker renders ahead; the analysis looks back by it,
-  so the bands are what is heard.
+  so the bands are what is heard. It **adapts** (#208, `src/lead.ts` – the rule of deck-stage's render thread): a
+  dropout grows it 512 frames up to 6144 (128 ms), a calm minute shrinks it 512 back towards the start. The worklet
+  counts dropouts into a shared status word (shared transport) or its feed messages (transfer); `stats()` carries
+  `lead`, `renderPeakUs` / `budgetUs` (the longest block of the second against a block's 2.67 ms) and `gapMs` (the
+  longest pause between the worker's pumps – a stalled worker shows there); `glitching()` is true for 5 s after a
+  dropout (the page's warning).
+- The main thread is not in the audio path: the worker is woken by the worklet (`Atomics.waitAsync`, shared) or by
+  its MessagePort (transfer), never by the page; the page only writes records into the control ring and reads the
+  analysis on animation frames. A busy main thread (the 3D) can only compete for CPU – the lead covers that – and the
+  worker renders without garbage per block (the render view is reused), so its GC does not pause it.
 
 ## Files
 
@@ -48,6 +57,7 @@ No JSON across the boundary. A value is a **wire record** (`src/wire.ts` = `deck
 | `src/engine.ts` | `WasmCore` (the exports behind views on wasm memory), `Engine` (the pump: drain, step + render per block, analysis) |
 | `src/worker.ts` | the worker entry: init (wasm compiled there), load, the shared pump / the transfer feed |
 | `src/worklet.ts` | the `live-core` AudioWorkletProcessor: plays the ring, silence + an underrun when empty |
+| `src/lead.ts` | `AdaptiveLead` (#208): grow on a dropout, shrink after a calm minute |
 | `src/index.ts` | `LiveCore`: start, load, param, set, onAnalysis, stats, stop |
 
 ## Production headers (for the `/live/…` pages when they exist – not set anywhere yet)

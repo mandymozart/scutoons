@@ -62,37 +62,25 @@ export function mayJoin(me: Me | null): boolean {
  */
 export const rigOf = (search: URLSearchParams): boolean => search.get('rig') === '1';
 
-/** a slider's range and label (@scutoons/live-deck's `Spec`) */
+/** a knob's range and label (@scutoons/live-deck's `Spec`) */
 type Spec = { min: number; max: number; value: number; log?: boolean; label: string };
 
-/** the controls panel's layout: the bar's quick sliders, the pads (x / y pairs + their label's key), the rest */
-export interface PanelLayout {
-	all: Record<string, Spec>;
-	quick: string[];
-	pads: { x: string; y: string; label: 'voice' | 'incense' }[];
-	sliders: [string, Spec][];
+/**
+ * The panel's knobs (#209's dense grid): the fixed patch's PARAMS + its page melody, or a rig's knobs alone – a rig's
+ * melody is its walk (#236), the page plays none.
+ */
+export function panelKnobs(params: Record<string, Spec>, melody: Record<string, Spec>): [string, Spec][] {
+	const fixed = 'voice.ratio' in params && 'incense.cutoff' in params;
+	return Object.entries(fixed ? { ...params, ...melody } : params);
 }
 
 /**
- * The panel for the deck's sliders: the fixed patch keeps its layout (the voice, the drone, the melody's spread in
- * the bar; the voice and incense pads); a rig's knobs put two gains and its melody's spread (or three gains) in the bar,
- * the rest in the fold –
- * no pads (which pair a rig's knobs make is the mapping's job, #209) and no page melody (the rig's walk plays it, #236).
+ * #209: what the sticks drive, in one line for the panel – the selection (a knob's label, the being, else the master
+ * section) and each stick's x / y labels: `FM index · L FM ratio / FM index · R cutoff / LFO rate`.
  */
-export function panelLayout(params: Record<string, Spec>, melody: Record<string, Spec>): PanelLayout {
-	if ('voice.ratio' in params && 'incense.cutoff' in params) {
-		const all = { ...melody, ...params };
-		const quick = ['voice.gain', 'drone.gain', 'melody.spread'];
-		const pads = [
-			{ x: 'voice.ratio', y: 'voice.index', label: 'voice' as const },
-			{ x: 'incense.cutoff', y: 'sway.rate', label: 'incense' as const }
-		];
-		const onPads = new Set(pads.flatMap((p) => [p.x, p.y]));
-		return { all, quick, pads, sliders: Object.entries(all).filter(([p]) => !onPads.has(p) && !quick.includes(p)) };
-	}
-	// like the fixed patch's bar: two levels and the melody's spread (#236's walk), when the rig has one
-	const gains = Object.keys(params).filter((p) => p.endsWith('.gain'));
-	const spread = Object.keys(params).find((p) => p.endsWith('.spread'));
-	const quick = spread ? [...gains.slice(0, 2), spread] : gains.slice(0, 3);
-	return { all: params, quick, pads: [], sliders: Object.entries(params).filter(([p]) => !quick.includes(p)) };
+export function sticksLine(selection: string, labelOf: (path: string) => string | undefined, left: string[], right: string[], words: { being: string; master: string }): string {
+	const knob = selection.startsWith('knob:') ? selection.slice(5) : '';
+	const what = selection === 'being' ? words.being : knob ? (labelOf(knob) ?? knob) : words.master;
+	const pair = (paths: string[]) => paths.map((p) => (p ? (labelOf(p) ?? p) : '–')).join(' / ') || '–';
+	return `${what} · L ${pair(left)} · R ${pair(right)}`;
 }

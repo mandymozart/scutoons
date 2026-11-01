@@ -210,3 +210,110 @@ async fn a_phone_resumes_without_losing_messages() {
     }
     nothing(&mut phone).await;
 }
+
+/// A values message of ~60 KB from deck `d1`: 4000 keys plus `n` = [i] – a few fill any socket buffer.
+fn big_values(i: usize) -> Message {
+    let mut values: std::collections::HashMap<String, Vec<f64>> = (0..4000).map(|k| (format!("k{k:04}"), vec![0.5])).collect();
+    values.insert("n".into(), vec![i as f64]);
+    Message::DeckValues(protocol::DeckValues { values, mood: None })
+}
+
+fn graph() -> Message {
+    Message::DeckGraph(serde_json::from_str(r#"{"nodes":[{"id":"lfo","kind":"lfo"}],"links":[]}"#).unwrap())
+}
+
+/// #223: a client that doesn't read (its socket full) gets the newest values when it drains – not a backlog – and every
+/// cue, in order
+#[tokio::test]
+async fn a_stalled_client_gets_the_newest_values_and_every_cue() {
+    let port = start().await;
+    let (mut cond, _) = join(port, "S1", Role::Conductor, None, Some("t")).await;
+    let (mut d1, _) = join(port, "S1", Role::Musician, Some("decks"), None).await;
+    let (mut d2, d2_id) = join(port, "S1", Role::Musician, Some("decks"), None).await;
+    send(&mut d1, graph(), None).await;
+    // 15 values (the relay's burst) to d2, which doesn't read: a few fill its socket, the rest wait in its outbox
+    for i in 0..15 {
+        send(&mut d1, big_values(i), Some(To::client(d2_id.clone()))).await;
+    }
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    for i in 0..20 {
+        send(&mut cond, Message::Cue(Cue { id: format!("c{i}"), actions: vec![] }), Some(To::client(d2_id.clone()))).await;
+    }
+    let (mut values, mut newest, mut cues) = (0, -1.0, vec![]);
+    while cues.len() < 20 {
+        let e = recv(&mut d2).await;
+        match e.message {
+            Message::DeckValues(v) => {
+                values += 1;
+                newest = v.values["n"][0];
+            }
+            Message::Cue(c) => cues.push(c.id),
+            _ => {}
+        }
+    }
+    assert_eq!(cues, (0..20).map(|i| format!("c{i}")).collect::<Vec<_>>(), "every cue, in order");
+    assert_eq!(newest, 14.0, "the newest values arrived (before the cues)");
+    assert!(values < 15, "the stale ones were replaced: {values} of 15 arrived");
+    nothing(&mut d2).await;
+}
+
+/// #223: a client whose ordered backlog grows past the bound is dropped (it reconnects and resyncs from its snapshot);
+/// the others go on
+#[tokio::test]
+async fn a_client_too_far_behind_is_dropped() {
+    let port = start().await;
+    let (mut cond, _) = join(port, "S2", Role::Conductor, None, Some("t")).await;
+    let (mut stalled, _) = join(port, "S2", Role::Output, Some("a"), None).await;
+    let (mut fine, _) = join(port, "S2", Role::Output, Some("b"), None).await;
+    // more cues than the outbox keeps for the stalled output, ~4 KB each (12 MB): its socket fills, the outbox overflows
+    let action: protocol::Loose = serde_json::from_str(&format!(r#"{{"say":{{"outlet":"a","text":"{}"}}}}"#, "x".repeat(4000))).unwrap();
+    let n = relay::outbox::MAX_QUEUED + 1000;
+    for i in 0..n {
+        send(&mut cond, Message::Cue(Cue { id: format!("c{i}"), actions: vec![action.clone()] }), Some(To::group("a"))).await;
+    }
+    send(&mut cond, Message::Panic(Panic { black: Some(true), stop: None }), Some(To::group("b"))).await;
+    assert!(matches!(recv(&mut fine).await.message, Message::Panic(_)), "the others go on");
+    // the stalled one reads what reached its socket, then the connection ends – short of the last cue
+    let mut last = None;
+    loop {
+        match tokio::time::timeout(Duration::from_secs(5), stalled.next()).await.expect("the relay closes it") {
+            Some(Ok(Ws::Text(text))) => {
+                if let Ok(Envelope { message: Message::Cue(c), .. }) = serde_json::from_str::<Envelope>(&text) {
+                    last = Some(c.id);
+                }
+            }
+            Some(Ok(Ws::Close(_))) | Some(Err(_)) | None => break,
+            Some(Ok(_)) => {}
+        }
+    }
+    assert_ne!(last, Some(format!("c{}", n - 1)), "dropped before the end");
+}
+
+/// #223: presence shows the conductor each link (not the audience's): its rate, and – once a ping came back – its round
+/// trip
+#[tokio::test]
+async fn the_conductor_sees_each_link() {
+    let port = start().await;
+    let (mut cond, _) = join(port, "L1", Role::Conductor, None, Some("t")).await;
+    let (mut out, out_id) = join(port, "L1", Role::Output, Some("a"), None).await;
+    let (_phone, phone_id) = join(port, "L1", Role::Audience, Some("a"), None).await;
+    // the relay pings every PING_EVERY; tungstenite answers when the socket is read – keep the output's read side busy
+    let reader = tokio::spawn(async move { while let Some(Ok(_)) = out.next().await {} });
+    tokio::time::sleep(relay::PING_EVERY + Duration::from_millis(500)).await;
+    let (_late, _) = join(port, "L1", Role::Output, Some("b"), None).await;
+    let presence = loop {
+        let frame = tokio::time::timeout(Duration::from_secs(3), cond.next()).await.expect("presence").unwrap().unwrap();
+        let Ws::Text(text) = frame else { continue };
+        let e: Envelope = serde_json::from_str(&text).unwrap();
+        if let Message::Presence(p) = e.message {
+            if p.links.as_ref().is_some_and(|l| l.len() == 3) {
+                break p;
+            }
+        }
+    };
+    let links = presence.links.unwrap();
+    assert_eq!(links[&out_id].hz, 30, "a good link: the full rate");
+    assert!(links[&out_id].rtt.is_some(), "a pong came back: {links:?}");
+    assert!(!links.contains_key(&phone_id), "no audience phones");
+    reader.abort();
+}

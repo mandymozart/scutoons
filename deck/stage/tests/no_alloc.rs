@@ -218,7 +218,8 @@ fn the_ring_and_its_render_thread_do_not_allocate() {
 /// preallocated buffers; and a deck's being at the conductor on its stream's values (#188 phase 4, `Mirror`); the
 /// scene's feelings – every rule tested, moods turning, their nudges pushed into the control domain (feel.rs); the
 /// buttons' feedback (#188, owner 2026-10-31): their tethers, hover, a hand on one, a linked one shaking, a double
-/// click's ease back; #188: the value rings, a linked knob turned as its base, the points' levels, the head's strain.
+/// click's ease back; #188: the value rings, a linked knob turned as its base, the points' levels, the head's strain;
+/// #209: the knobs facing an orbiting camera, the selection's rings.
 #[cfg(feature = "space")]
 #[test]
 fn the_being_steps_without_allocating() {
@@ -240,7 +241,7 @@ fn the_being_steps_without_allocating() {
     let (mut rs, mut rt) = { let (a, b) = remote.capacity(); (Vec::with_capacity(a), Vec::with_capacity(b)) };
     let (ns, nv) = being.capacity();
     let (mut spheres, mut tubes) = (Vec::with_capacity(ns), Vec::with_capacity(nv));
-    let cam = Orbit::new(being.anchor, 0.3, 0.1, 2.0);
+    let mut cam = Orbit::new(being.anchor, 0.3, 0.1, 2.0);
     let knob = being.buttons.iter().find(|b| !b.linked).map(|b| (b.node, b.port)).unwrap();
     let hand = being.buttons.iter().position(|b| !b.linked && (b.node, b.port) != knob).unwrap();
     let linked = being.buttons.iter().position(|b| b.linked).unwrap();
@@ -275,6 +276,16 @@ fn the_being_steps_without_allocating() {
             ctl.set(b.node, b.port, b.spec.value((f - 300) as f32 / 30.0));
         }
         being.strain(1.0 / 60.0, if (100..140).contains(&f) { 9.0 } else { 0.0 });
+        // #209: the camera orbits – the knobs re-fan toward it and keep out of the core's and the head's shadow; the
+        // selection's ring (a knob, then the whole being)
+        cam.yaw = 0.3 + f as f32 * 0.02;
+        being.eye = Some(cam.eye());
+        remote.eye = being.eye;
+        being.selected = match f {
+            0..200 => Some(Hit::Button(hand)),
+            200..400 => Some(Hit::Point(0)),
+            _ => None,
+        };
         being.update(1.0 / 60.0, f as f32 / 60.0, &Local { ctl: &ctl, meter: &meter }, &beat);
         being.push(&mut ctl);
         // the deck's sound swells and drops: its rules see jumps, quiet and noise
@@ -295,6 +306,104 @@ fn the_being_steps_without_allocating() {
     assert!(being.hoses.iter().any(|h| h.bubbles.iter().any(|b| b.size > 0.0)), "it bubbles");
     assert!(turns >= 3, "the feelings turn the mood: {turns}");
     assert!(shown >= 600 * being.buttons.len(), "every knob wears its value ring every frame: {shown}");
+}
+
+/// #204: the post stack's frame (its knobs read from the controls, the plan of the passes that run) and the glow's
+/// lights (the beings' cores chosen strongest first) never allocate – the conductor with ten decks' beings.
+#[cfg(feature = "space")]
+#[test]
+fn the_post_plan_and_the_lights_do_not_allocate() {
+    let _turn = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    use deck_stage::control::Controls;
+    use deck_stage::graph::Kind;
+    use deck_stage::scene::CONDUCTOR_SCENE;
+    use deck_stage::space::decks::Remote;
+    use deck_stage::space::portrait::Portraits;
+    use deck_stage::space::post::Knobs;
+    use deck_stage::space::{Space, MAX_LIGHTS};
+    use deck_stage::tempo;
+    let scene = deck_stage::modules::carried_part(&Scene::parse(CONDUCTOR_SCENE).unwrap());
+    let graph = Graph::build(&scene).unwrap();
+    let node = graph.first(deck_stage::graph::Kind::Space).unwrap();
+    let mut ctl = Controls::new(&graph, None);
+    let mut space = Space::new(&graph, node, &scene.being, std::path::Path::new("/nowhere"), Portraits::manual());
+    for k in 0..10 {
+        let mut r = Remote::new(format!("deck{k}"), graph.clone(), &scene.being);
+        r.being.center.x = k as f32;
+        space.others.push(r);
+    }
+    assert_eq!(space.post.effects().count(), 4, "the conductor lists the four passes");
+    let mut lights = [[0.0f32; 8]; MAX_LIGHTS];
+    let (mut ran, mut lit) = (0, 0);
+    measure(true);
+    let before = CALLS.load(Ordering::SeqCst);
+    for f in 0..600 {
+        let beat = tempo::Now { bpm: 84.0, pos: tempo::position(f as f64 * 0.023, 4), per_bar: 4, running: true };
+        ctl.update(1.0 / 60.0, 0, &beat);
+        // a knob through the passes: bloom off and on, the pixels coarser
+        ctl.set(node, Kind::Space.input("bloom").unwrap(), (f % 120) as f32 / 60.0);
+        ctl.set(node, Kind::Space.input("pixel").unwrap(), 1.0 + (f % 7) as f32);
+        let k = Knobs::read(&ctl, node);
+        ran += space.post.plan(&k).passes().len();
+        space.being.glow = (f % 50) as f32 * 0.04;
+        let mut eye = space.camera.eye();
+        eye.x = (f % 13) as f32;
+        lit += space.write_lights(eye, &mut lights);
+    }
+    measure(false);
+    assert_eq!(CALLS.load(Ordering::SeqCst) - before, 0, "allocations / frees in the post plan and the lights");
+    assert!(ran > 600, "passes ran: {ran}");
+    assert_eq!(lit, 600 * MAX_LIGHTS, "eight lights every frame");
+}
+
+/// #220: the quality governor's frame, its reports, the post plan at a rung and the conductor's labels (each deck's sync,
+/// quality and link) never allocate – a load that steps it down and back up over ten minutes of frames.
+#[cfg(feature = "space")]
+#[test]
+fn the_quality_governor_and_the_conductors_labels_do_not_allocate() {
+    let _turn = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    use deck_space::quality::{Governor, Level};
+    use deck_stage::scene::CONDUCTOR_SCENE;
+    use deck_stage::space::decks::Remote;
+    use deck_stage::space::label::{Label, LABELS};
+    use deck_stage::space::portrait::Portraits;
+    use deck_stage::space::post::Knobs;
+    use deck_stage::space::Space;
+    let scene = deck_stage::modules::carried_part(&Scene::parse(CONDUCTOR_SCENE).unwrap());
+    let graph = Graph::build(&scene).unwrap();
+    let node = graph.first(deck_stage::graph::Kind::Space).unwrap();
+    let mut space = Space::new(&graph, node, &scene.being, std::path::Path::new("/nowhere"), Portraits::manual());
+    for k in 0..8 {
+        let mut r = Remote::new(format!("deck{k}"), graph.clone(), &scene.being);
+        r.quality = Some(protocol::DeckQuality { level: protocol::QualityLevel::Medium, scale: 0.8, auto: true, frame: 17.0 + k as f64 * 4.0, ceiling: Some(protocol::QualityLevel::High) });
+        r.link = Some(protocol::LinkQuality { rtt: Some(3 + k * 20), hz: 30, skipped: Some(0) });
+        space.others.push(r);
+    }
+    let mut g = Governor::new(Level::High, true);
+    let mut labels: Vec<Label> = Vec::with_capacity(LABELS);
+    let k = Knobs { gamma: 1.1, ..Knobs::default() };
+    let (mut steps, mut reports, mut ran) = (0, 0, 0);
+    let mut t = 0.0f64;
+    measure(true);
+    let before = CALLS.load(Ordering::SeqCst);
+    for f in 0..36_000u32 {
+        // 60 fps, with a minute at 40 fps in the middle
+        let ms = if (12_000..15_600).contains(&f) { 25.0 } else { 16.7 };
+        t += ms as f64 / 1000.0;
+        steps += g.frame(t, ms, 0) as usize;
+        reports += g.report_due(t).is_some() as usize;
+        let r = g.rung();
+        ran += space.post.plan_quality(&k, r.bloom, r.fxaa).passes().len();
+        if f % 60 == 0 {
+            space.write_labels(&mut labels);
+        }
+    }
+    measure(false);
+    assert_eq!(CALLS.load(Ordering::SeqCst) - before, 0, "allocations / frees in the governor, its reports, the plan, the labels");
+    assert!(steps >= 2, "it stepped down and back up: {steps}");
+    assert_eq!(g.level(), Level::High, "back at the level after the calm");
+    assert!(reports >= steps && ran > 0);
+    assert_eq!(labels.len(), 16, "each deck's quality and link");
 }
 
 /// The outlet's frame (#186) never allocates: the crossfade's numbers per frame and the empty polls of the composer's

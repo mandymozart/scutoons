@@ -28,13 +28,15 @@ PipeWire → cpal → null; null runs the engine on a timer, no device – the c
 `--api` / `--cdn` (or `DECK_API` / `DECK_CDN`) · `--windowed` · `--frames N` (quit after N frames and print the numbers –
 a check run) · `--screenshot FILE` (the last frame of a `--frames` run as a PNG) · `--pointer X,Y` (the pointer at a
 window pixel for a check run – a hovered button shows in the HUD; or `--pointer voice.index`: on that button) ·
-`--drag voice.index,0.3` (a check run's drag: pressed after 60 frames, pulled 0.3 of its range out over 30, held) · `--no-hud` · `--dev` (hot reload, below) ·
+`--drag voice.index,0.3` (a check run's drag: pressed after 60 frames, pulled 0.3 of its range out over 30, held) · `--no-hud` · `--hud-bar` (start with the collapsed stats bar) · `--dev` (hot reload, below) ·
 `--modules` (what this build carries). Logs: `RUST_LOG`. `DECK_SIMD=baseline` – the audio batches without AVX2 (to compare).
 The graph's workloads: `cargo bench -p deck-stage` (patcher | batch | batch AVX2, µs per block).
 
-Keys: **F1** the HUD · **F2** the browser · **Ctrl+Q** quit (on the deck the stage starts again) · **Ctrl+Alt+Del** power off (`systemctl
+Keys: **F1** the HUD → the collapsed stats bar (#209: one line across the whole top edge – FPS, CPU / frame, the audio's
+glitches / DSP load / limiter, the relay, the GPU backend; red when out of the green) → nothing · **F2** the browser · **Ctrl+Q** quit (on the deck the stage starts again) · **Ctrl+Alt+Del** power off (`systemctl
 poweroff`, the logo stays up; not in a `--windowed` stage) · Esc quits a `--windowed` stage · the tempo clock: **T** tap ·
-**+ / −** BPM · **Space** start / stop · **F3** the next source (internal → MIDI → Link → OSC → relay) · **K** the click. In a scene with a `space` node: a **mouse drag** turns the camera around the being (or, on a 3D
+**+ / −** BPM · **Space** start / stop · **F3** the next source (internal → MIDI → Link → OSC → relay) · **K** the click · **F4** the
+quality settings page, **Shift+F4** the governor on / off ("Quality" below). In a scene with a `space` node: a **mouse drag** turns the camera around the being (or, on a 3D
 button, pulls it along its tether – out = more; a double click: back to the scene's value; a finger the same), the **wheel** / **↑ ↓** zoom, **← →** turn, **R** the camera's home; the pointer stays
 visible in the kiosk then. The HUD names the keys. F2 with `DECK_BROWSER` set (deck-session sets it to `deck-session browser`) starts that command on
 top of the running stage: the logo comes up until the browser's window takes the focus (cage shows the newest window),
@@ -69,11 +71,12 @@ the basic audio nodes (`osc`, `noise`, `fm`, `seq`, `click`, `mixer`, `fft`, `au
 | `chapter` | `chapter`, `chapter_music` (the library API + cache) | ureq, symphonia, ab_glyph, image/webp |
 | `live` | `outlet` (a Live outlet, #186 – below) | `chapter`, protocol, tungstenite |
 | `midi` | the tempo source `midi`, `midi_out` (MIDI clock in / out) | midir |
+| `outputs` | the scene's `[outputs]` (#211): parameters as outputs – MIDI out (a port, or the conductor as `deck.midi`), DMX fixtures through a USB-DMX widget, the clock-synced strobe; no node kind (below) | deck-outputs, adapters-dmx-usbpro, adapters-midi |
 | `osc` | the tempo source `osc` (`/tempo/*`) | rosc |
 | `link` | the tempo source `link` (Ableton Link) | rusty_link (cmake, libclang) |
 | `pipewire` | the PipeWire backend (Linux) | pipewire (clang) |
 
-Default = `space`, `sync`, `chapter`, `live`, `midi`, `osc`, `events` – a plain build plays every bundled scene. The table lives in deck-core
+Default = `space`, `sync`, `chapter`, `live`, `midi`, `osc`, `outputs`, `events` – a plain build plays every bundled scene. The table lives in deck-core
 (`core/src/stage.rs`, data only); `src/modules.rs` says which modules this build carries. A scene that needs a module
 the build lacks is refused at load with the feature's name (`this build of the stage does not carry the module 'space'
 (node space) – build deck-stage with --features space`): the stage plays the test pattern and shows that in the HUD –
@@ -143,10 +146,26 @@ A live tool may not crackle unnoticed, and should not crackle at all:
   4. run `deck-stage --audio cpal --audio-host asio --audio-device fireface --audio-buffer 128` (the RME's driver is
      `ASIO Fireface USB`; the buffer is also the driver's setting in RME's Settings dialog – cpal asks the driver for it).
   ASIO hands one client the interface's driver (RME's is multi-client); the HUD then says `AUDIO ASIO …`.
+- **Measured** (2026-10-31, Windows 10, RME Fireface UCX II on WASAPI shared, the cathedral at volume 0 – silent, real
+  device timing –, release build, 2 min per setting; "load" = 12 busy threads on the 12 logical cores):
+
+  | buffer asked → run | render | no load | load |
+  |---|---|---|---|
+  | 128 / 256 / 512 → 1056 (22 ms) | in the callback (raised to MMCSS) | 0 · 0 · 0 | 0 · 0 · 0, and 0 in 8 min |
+  | 128 / 256 / 512 → 1056 | render thread, callback not raised | 0 · 0 · 0 | 1 · 0 · 1, and 3 in 8 min |
+  | 128 / 256 / 512 → 1056 | render thread, callback raised (now) | – | 0 in 8 min |
+  | 2048 → 2048 (43 ms) | callback / render thread | 0 / 0 | 0 / 0 |
+
+  Every glitch was the same: cpal's WASAPI thread (its own TIME_CRITICAL priority) woke 32–38 ms after the last
+  callback and found the 22 ms buffer drained – the ring can't help a late device thread, MMCSS for that thread does;
+  so the callback's thread is raised in both modes. The DSP load stays at ~3 % of a block, so the render itself never
+  came near its budget. What this can't see: a glitch inside Windows' audio engine (audiodg) or the USB driver (DPC
+  latency) after our buffer – crackles heard while the indicator stays at 0 point there (LatencyMon; ASIO bypasses
+  audiodg).
 
 ## Scenes
 
-A scene is `[stage]` (`name`, `render_scale` 0.25–1) + `[[node]]` (`id`, `kind`, the kind's params) + `[[link]]`
+A scene is `[stage]` (`name`, `render_scale` 0.25–1 – times the quality rung's scale) + `[[node]]` (`id`, `kind`, the kind's params) + `[[link]]`
 (`from = "node.port"`, `to = "node.port"`; a bare id = its port `out`; control links map `value * scale + offset`).
 An input takes one link; an output feeds any number. Every control input can also be set as a param of the same name.
 
@@ -170,7 +189,7 @@ An input takes one link; an output feeds any number. Every control input can als
 | `fft` | in (audio) | level, bass, mid, high (control, 0–1) | `release` (s) |
 | `audio_out` | in (audio), volume | – | the device (one per scene) |
 | `outlet` | in (video: the backdrop), opacity | out (video) | – (one per scene; the relay and the outlet from deck.toml / the CLI – "Live outlet") |
-| `space` | hue, glow, light, pulse (control) | out (video) | `set` (a set id → its 3D at `quality`, `<sets>/<id>/<id>.<quality>.glb`, synced; or a path with its extension, relative to `--sets`), `quality` = low · medium · high (low, the X1's), `at` = [x, y, z] (where the being floats, the set's metres) or `spot` (a node of the set's glTF, `spot_aisle`) + `lift` (1.5 m), `yaw` / `pitch` (°) / `distance` (m) – the camera's start, `auto_turn` (false – the camera turns only by hand; true: slowly by itself after 4 s idle), `max_texture` (2048), `hide` (glTF nodes whose mesh is left out, by name), `join` = deck · conductor · alone (a session with a relay set), `ring` (3.2 m, the decks' circle around a conductor) – one per scene |
+| `space` | hue, glow, light, pulse; the post knobs bloom, threshold, lift, gamma, gain, pixel, levels (control) | out (video) | `post` = the post stack's passes in order (bloom · curves · pixelate · fxaa, #204 – below), `palette` (pixelate's colours, ≤ 16 "#rrggbb"), `glow_range` (7 m) / `glow_light` (1, 0 = off) – the core's light in the room, `set` (a set id → its 3D at `quality`, `<sets>/<id>/<id>.<quality>.glb`, synced; or a path with its extension, relative to `--sets`), `quality` = low · medium · high (low, the X1's), `at` = [x, y, z] (where the being floats, the set's metres) or `spot` (a node of the set's glTF, `spot_aisle`) + `lift` (1.5 m), `yaw` / `pitch` (°) / `distance` (m) – the camera's start, `auto_turn` (false – the camera turns only by hand; true: slowly by itself after 4 s idle), `max_texture` (2048), `hide` (glTF nodes whose mesh is left out, by name), `join` = deck · conductor · alone (a session with a relay set), `ring` (3.2 m, the decks' circle around a conductor) – one per scene |
 
 **chapter** shows the chapter's slices one after the other in reading order (looping), the slice fitted to the height
 over `in` (darkened; without an input a dark stretched copy of the slice), a slow push-in over the hold, a kick by
@@ -206,7 +225,11 @@ knob turns as its base** (#188): a linked input is `source · scale + base`, the
 `Controls::set` / deck-core's `BatchGraph::set_base` / live-core's wire mode `base`) and the modulation adds on top –
 its ring shows the base lit, the swing the modulation covered lately as a band and the value now as a white tick; a
 double click eases it back to the link's offset. Only a mirrored deck's linked knob (the stream carries no base) is
-locked: pale, a dashed ring, it shakes when grabbed. **Feedback:** hover swells a button with a thin ring (the pointer a
+locked: pale, a dashed ring, it shakes when grabbed. **The knobs face the camera** (#209, owner 2026-10-31: "always in sight of the camera … never hidden behind the body or the head"): the core's
+spokes fan as a crown around the view axis toward the eye, a chain leans to the eye's side (one turned away rounds the body along its point's way
+out), and every knob is moved sideways out of the core's and the head's shadow – eased as the camera orbits (`being.rs` `crown` / `lean` / `clear_of`).
+**A tap selects** a knob or the being (a white ring; empty space deselects – `Space::take_tap`): what the browser's corner sticks drive
+(deck-space `controls.rs`: the selection → the sticks' pairs, MIDI learn, the mappings as text for a preset). **Feedback:** hover swells a button with a thin ring (the pointer a
 hand); a drag pulls it along its tether like a MIDI CC (`Controls::set`); a double click eases it back to the scene's
 value (0.5 s). **Level and overload:** a node point glows with its audio level; the head flushes red with the output
 limiter's gain reduction (`Being::strain`, full at 9 dB) and the feelings' `strain` makes it dizzy. **The camera
@@ -289,6 +312,32 @@ the beat + pink noise + the click (off until K) → mixer → FFT; test pattern 
 chapter's slices (cut on a bass hit snapped to the beat, every 6 s at the latest) → RGB shift → the caption overlay →
 screen. `scenes/test-pattern.toml` – the picture alone (no sound, no network). Both land in
 `/usr/share/deck/scenes` on the deck; `scene = "…"` in `/var/lib/deck/deck.toml` picks one.
+
+**Quality** (#220, deck-space `quality.rs` – the browser deck runs the same; the stage's `src/quality.rs`): four
+**presets** – low · medium · high · ultra – each with its knobs: on / off (an off preset is skipped and can't be chosen),
+two render sizes (`min` = the step under load, `max` = its own; a scale of the display ≤ 4, or a height in pixels ≥ 100 –
+a 4K screen can render the 3D at 1080 to save power), FXAA, bloom, the lights (0–8) and a frame rate cap (`fps` – 30 draws
+half the frames; an early frame waits, the loop sleeps). Defaults: 0.5 / 0.6 (low, no FXAA / bloom, 2 lights) · 0.7 / 0.8
+(medium, 4) · 0.9 / 1.0 (high, 8) · 1.25 (ultra, supersampled), 60 fps; curves and pixelate always run (the scene's look).
+The enabled presets make the governor's **ladder**. The **preset file** (`/var/lib/deck/quality.toml` on a deck,
+`--quality-file`, `DECK_QUALITY_FILE`; TOML, only what changes is needed – the defaults fill the rest) also holds the
+**level** (the ceiling; missing = by the GPU: software low, integrated – the X1's UHD 620 – high, discrete ultra; the
+browser: WebGL2 medium, WebGPU high), `auto` and the **display** mode (`"3840x2160"` – exclusive fullscreen at that size;
+missing or one the monitor lacks = the desktop's; under cage, Wayland, winit has no exclusive mode); `--quality
+low|medium|high|ultra[,fixed]` (`DECK_QUALITY`) wins over it. The stage reloads the file when it changes (every 2 s).
+**F4** opens the settings page in the HUD: the level, Auto, the display mode (its modes from the monitor, the largest as
+the hardware's MAX) and the presets' table – arrows move, + / − change, Enter / Space flip, **P** turns a size into a
+height in pixels and back, **R** resets the presets; each change applies at once and is saved. **Shift+F4** the
+governor. The **governor** (on unless `,fixed` / `auto = false`) works like the audio lead and the relay's link rate: the
+drawn frames' interval in 0.5 s windows; over budget (the cap's interval × 1.2 – 20 ms at 60 fps – or an audio glitch) for
+1 s steps a rung down (one window twice over), at most one step a second; 8 s calm (≤ × 1.08) probes a rung up, and a
+probe that runs over within 6 s steps back and doubles that rung's wait (up to 2 min) – no flicker. Stalls over 250 ms and
+the first 2 s are no load. A step only resizes the offscreen targets; the HUD stays native. The HUD bar shows `Q <level>
+<scale>` (red below the level chosen), a deck sends `deck.quality` to the session (at once on a change, else ≤ every 2 s)
+and the conductor shows each deck's quality and link under its being (`HIGH 0.90 17MS` / `LINK 3MS 30HZ`, amber while
+held lower, under 50 fps or paced, red under 25 fps). `--settings` starts with the page open (a check run's screenshot).
+The browser deck's sheet (/live/deck → Settings) edits the same presets (+ its pixel ratio cap) and copies them as this
+file's text. Not yet scaled: the set's 3D level, shadows, cloth, the beings' detail, bloom's resolution.
 
 ## Sync (#195)
 
@@ -439,6 +488,23 @@ with the token, ready, the cell, resume, the snapshot after a restart). Not yet:
   `Being::update` / `write` never allocate (tests/no_alloc.rs, a deck's being on a `Mirror` too). The values come
   through `values.rs`: this deck's control slots and audio meters (`audio::Meters`: every output buffer's block peak,
   only built for a scene with a space node), or a deck's stream (`Mirror`).
+- **Post stack + the glow's light** (#204; deck-space `space/post.rs` – the data – and `space/post_gpu.rs`, the WGSL in
+  `deck/space/src/shaders/post/`, so the browser runs the same passes): the space node's `post` list picks and orders
+  hard-coded fragment passes after the space is drawn – **bloom** (soft-knee threshold into half size, the dual filter
+  down to a quarter and an eighth and back up, each level added onto the one above, laid over the picture as a screen
+  blend: six small draws), **curves** (lift / gamma / gain, one draw), **pixelate** (blocks of `pixel` render pixels by
+  `textureLoad`, optionally `levels` per channel or the nearest `palette` colour, one draw), **fxaa** (the console
+  variant, nine taps, one draw). Their knobs are the space node's control inputs (links, the feelings' `react`, the
+  conductor's sends), no buttons on the core unless `expose` names them (`"space.bloom"`). Two Rgba8 textures at the
+  render size take turns, the last pass writes the node's target (no copy); bloom adds three at ½, ¼, ⅛. A pass not
+  listed has no pipeline and no texture, a listed one at neutral (bloom 0, curves 0 / 1 / 1, pixel 1 without levels or
+  palette) is skipped that frame (`Chain::plan`), and with nothing to run the space draws straight into its target.
+  `--dev` watches the passes' files (and their prelude `common.wgsl`) in the checkout: a changed one recompiles only
+  that pass, one that doesn't compile keeps the running pipeline (the error in the HUD). **The glow lights the room:**
+  every being's core is a point light in the room shader – its hue, `glow` + its level `pulse` × `glow_light`,
+  inverse-square (+1) windowed to zero at `glow_range`, on the face's normal from the world position's screen
+  derivatives (the rooms carry no normals) – added to the baked light; at most 8, the strongest at the eye first
+  (`Space::write_lights`). The plan and the lights never allocate (tests/no_alloc.rs).
 - **Library** (`src/library.rs`): `GET {api}/library/toons/<toon>/chapters/<n>` → `<cache>/api/…json` (the cached copy
   when offline), CDN files `{cdn}/<toon>/<path>` → `<cache>/cdn/<toon>/<path>` once (CDN paths are immutable), decoded
   whole with symphonia (mp3, wav).
@@ -463,3 +529,19 @@ wgpu-hal's DX12 build on Windows). A bump is its own step.
 | Windows 10, RTX 2070 SUPER, Vulkan, release, 1280 × 720 window (2026-10-31, #188 tethered buttons, labels) | cathedral · conductor alone · conductor + 5 stand-in decks (30 s each, null audio) | 60.1 fps each, CPU per frame 0.51 · 0.49 · 1.54 ms (before the tethers: 0.42 · 0.39 · 1.12) |
 | ThinkPad X1 Carbon Gen 7, UHD 620 (anv) | cathedral, conductor | open – the owner's stick |
 | Windows 10, Ryzen 5 3600X, `cargo bench -p deck-stage` (2026-10-30, #183) | the graph, µs per 128-frame block: before #183 → patcher → batch → batch AVX2 | default scene 11.0 → 9.9 → 11.1 → 10.0 (whole v3 binary 7.5) · 1 FM voice – → 2.2 → 3.5 → 2.2 · 16 FM voices 37.8 → 34.1 → 10.2 → 7.7 · 16 sines 20.1 → 15.4 → 7.3 → 5.3 · 64 FM voices – → 125 → 41 → 27 · control step, 300 LFOs: 58.4 → 2.1 (3 levels × 100), 69.6 → 5.5 (300 levels) |
+
+## Outputs (#211)
+
+Every parameter (`node.port`, a control input or output) can drive MIDI and DMX: the scene's `[outputs]` table – its
+format and every check: deck/outputs/src/config.rs; the math, profiles and the strobe: deck/outputs. The stage opens the
+bridge's adapter crates in-process (the USB-DMX widget, a MIDI out port – no relay hop for the hardware) and runs
+deck-outputs' engine on its own thread: continuous targets smoothed on the universe's 40 Hz, the strobe's flashes on the
+tempo clock's grid, each sent `lead` ms before its beat is heard, in its own DMX frame (`send_now`). MIDI for the
+conductor goes over the relay link as `deck.midi`. A wrong table or a missing device never stops the scene – the HUD's
+`OUTPUTS` line says what runs or why not. The strobe test: `scenes/strobe.toml` (the generic strobe at address 1, the
+click on, an LFO sweeping the divisions):
+
+```bash
+cd deck/stage && cargo run --release -p deck-stage -- --scene scenes/strobe.toml --windowed
+```
+

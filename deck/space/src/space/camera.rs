@@ -10,6 +10,11 @@ pub const IDLE_S: f32 = 4.0;
 pub const AUTO_RAD_S: f32 = 0.05;
 const PITCH_MIN: f32 = -1.2;
 const PITCH_MAX: f32 = 1.4;
+/// the zoom glides to where the wheel / pinch sent it (owner 2026-10-31: "a bit of damping … it should ease in and
+/// smooth out. Flowing", #224): the time constant of the distance's ease, s – ~95 % there after 3 of them
+pub const ZOOM_EASE_S: f32 = 0.12;
+/// #224: the focus glides the same way – to a tapped knob, back to the being: the time constant of the target's ease, s
+pub const FOCUS_EASE_S: f32 = 0.2;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Ray {
@@ -34,12 +39,29 @@ impl Ray {
     }
 }
 
+/// #224: the camera's view as the knobs need it to stay reachable close up (being.rs `fold`): the eye, its axes, the
+/// half-view's tangents (w / h), and the least depth a knob keeps in front of the eye
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Frame {
+    pub eye: Vec3,
+    pub fwd: Vec3,
+    pub right: Vec3,
+    pub up: Vec3,
+    pub tan_x: f32,
+    pub tan_y: f32,
+    pub min_depth: f32,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Orbit {
     pub target: Vec3,
+    /// where the focus glides to (`target` follows it in `step`, #224)
+    pub goal: Vec3,
     pub yaw: f32,
     pub pitch: f32,
     pub distance: f32,
+    /// where the zoom glides to (`distance` follows it in `step`)
+    pub want: f32,
     pub min_distance: f32,
     pub max_distance: f32,
     /// vertical field of view (rad)
@@ -55,9 +77,11 @@ impl Orbit {
     pub fn new(target: Vec3, yaw: f32, pitch: f32, distance: f32) -> Orbit {
         Orbit {
             target,
+            goal: target,
             yaw,
             pitch,
             distance,
+            want: distance,
             min_distance: 0.4,
             max_distance: 14.0,
             fov_y: 55f32.to_radians(),
@@ -90,8 +114,21 @@ impl Orbit {
         self.proj(aspect) * self.view()
     }
 
-    /// the auto-orbit once idle (eased in) when `auto`, else nothing
+    /// aim at `p` at once (a new spot, a set's arrival – no glide across the room)
+    pub fn look_at(&mut self, p: Vec3) {
+        (self.target, self.goal) = (p, p);
+    }
+
+    /// the zoom's and the focus' glides, and the auto-orbit once idle (eased in) when `auto`
     pub fn step(&mut self, dt: f32) {
+        // in the log of the distance, so a step in is as smooth close up as far out
+        let k = 1.0 - (-dt.max(0.0) / ZOOM_EASE_S).exp();
+        let d = (self.distance.ln() + (self.want.ln() - self.distance.ln()) * k).exp();
+        self.distance = if (d / self.want - 1.0).abs() < 1e-4 { self.want } else { d };
+        // the focus: a straight glide toward the goal, a share of the way each frame – never past it (#224)
+        let k = 1.0 - (-dt.max(0.0) / FOCUS_EASE_S).exp();
+        let t = self.target + (self.goal - self.target) * k;
+        self.target = if t.distance(self.goal) < 1e-5 { self.goal } else { t };
         self.idle += dt;
         if !self.auto {
             return;
@@ -107,9 +144,9 @@ impl Orbit {
         self.idle = 0.0;
     }
 
-    /// `steps` > 0 moves in (a wheel notch = 1, 12 % each)
+    /// `steps` > 0 moves in (a wheel notch = 1, 12 % each); the camera glides there in `step`
     pub fn zoom(&mut self, steps: f32) {
-        self.distance = (self.distance * 0.88f32.powf(steps)).clamp(self.min_distance, self.max_distance);
+        self.want = (self.want * 0.88f32.powf(steps)).clamp(self.min_distance, self.max_distance);
         self.idle = 0.0;
     }
 
@@ -121,7 +158,31 @@ impl Orbit {
 
     pub fn reset(&mut self) {
         (self.yaw, self.pitch, self.distance) = self.home;
+        self.want = self.distance;
         self.idle = 0.0;
+    }
+
+    /// #224: this view's frame for a w / h of `aspect`
+    pub fn frame(&self, aspect: f32) -> Frame {
+        let eye = self.eye();
+        let fwd = (self.target - eye).try_normalize().unwrap_or(Vec3::NEG_Z);
+        let right = fwd.cross(Vec3::Y).try_normalize().unwrap_or(Vec3::X);
+        let tan_y = (self.fov_y * 0.5).tan();
+        Frame { eye, fwd, right, up: right.cross(fwd), tan_x: tan_y * aspect.max(1e-3), tan_y, min_depth: self.distance * 0.6 }
+    }
+
+    /// #224: every sphere (centre, radius) inside the view of `aspect` (w / h), kept `margin` (a share of the half
+    /// width / height) off the edges and in front of the near plane
+    pub fn fits(&self, aspect: f32, spheres: impl IntoIterator<Item = (Vec3, f32)>, margin: f32) -> bool {
+        let view = self.view();
+        let ty = (self.fov_y * 0.5).tan() * (1.0 - margin);
+        let tx = ty * aspect.max(1e-3);
+        spheres.into_iter().all(|(c, r)| {
+            let q = view.transform_point3(c);
+            let z = -q.z;
+            // the sphere's edge against each side plane, conservatively (r along the plane's normal ≤ r)
+            z > r + 0.05 && q.x.abs() + r * (1.0 + tx * tx).sqrt() <= z * tx && q.y.abs() + r * (1.0 + ty * ty).sqrt() <= z * ty
+        })
     }
 
     /// the world ray through pixel (x, y) of a w × h view (y down, like the window's cursor)
@@ -193,13 +254,76 @@ mod tests {
     fn zoom_and_pitch_are_clamped_and_reset_returns_home() {
         let mut c = Orbit::new(Vec3::ZERO, 0.2, 0.1, 2.0);
         c.zoom(100.0);
+        assert_eq!(c.want, c.min_distance);
+        c.step(2.0);
         assert_eq!(c.distance, c.min_distance);
         c.zoom(-100.0);
+        c.step(2.0);
         assert_eq!(c.distance, c.max_distance);
         c.drag(0.0, 10_000.0);
         assert_eq!(c.pitch, PITCH_MAX);
         c.reset();
-        assert_eq!((c.yaw, c.pitch, c.distance), (0.2, 0.1, 2.0));
+        assert_eq!((c.yaw, c.pitch, c.distance, c.want), (0.2, 0.1, 2.0, 2.0));
+    }
+
+    /// #224: a wheel notch doesn't jump – the distance glides there, a bit at each frame, and arrives
+    #[test]
+    fn the_zoom_glides() {
+        let mut c = Orbit::new(Vec3::ZERO, 0.0, 0.0, 4.0);
+        c.zoom(3.0);
+        let goal = c.want;
+        assert_eq!(c.distance, 4.0, "no jump at the notch");
+        let mut last = c.distance;
+        let mut frames = 0;
+        while c.distance != goal {
+            c.step(1.0 / 60.0);
+            assert!(c.distance < last && c.distance >= goal, "in, never past: {} → {}", last, c.distance);
+            last = c.distance;
+            frames += 1;
+            assert!(frames < 120, "it arrives within two seconds");
+        }
+        assert!(frames > 6, "eased, not instant: {frames} frames");
+    }
+
+    /// #224: the focus glides to a new goal along a straight line, nearer each frame, never past it, and arrives
+    #[test]
+    fn the_focus_glides_and_never_overshoots() {
+        let mut c = Orbit::new(Vec3::ZERO, 0.0, 0.0, 3.0);
+        c.goal = Vec3::new(0.6, -0.4, 0.2);
+        let mut last = c.target.distance(c.goal);
+        let mut frames = 0;
+        while c.target != c.goal {
+            c.step(1.0 / 60.0);
+            let d = c.target.distance(c.goal);
+            assert!(d < last, "nearer each frame: {last} → {d}");
+            // on the straight line from the start: never off to a side, never beyond
+            let along = c.target.dot(c.goal.normalize()) / c.goal.length();
+            assert!((0.0..=1.0).contains(&along) && c.target.cross(c.goal).length() < 1e-5, "on the way: {:?}", c.target);
+            last = d;
+            frames += 1;
+            assert!(frames < 180, "it arrives within three seconds");
+        }
+        assert!(frames > 8, "eased, not a jump: {frames} frames");
+        // a long frame (a stall) lands on the goal, not past it
+        c.goal = Vec3::new(-2.0, 0.0, 0.0);
+        c.step(10.0);
+        assert_eq!(c.target, c.goal);
+        c.look_at(Vec3::ONE);
+        assert_eq!((c.target, c.goal), (Vec3::ONE, Vec3::ONE), "a spot's change: at once");
+    }
+
+    #[test]
+    fn a_sphere_fits_until_it_meets_the_view_edge() {
+        let c = Orbit::new(Vec3::ZERO, 0.0, 0.0, 3.0);
+        assert!(c.fits(1.0, [(Vec3::ZERO, 0.5)], 0.0));
+        assert!(!c.fits(1.0, [(Vec3::ZERO, 2.0)], 0.0), "bigger than the view");
+        // the edge at depth 3: tan(27.5°) · 3 ≈ 1.56 – a small sphere just inside, then just outside
+        let edge = (c.fov_y * 0.5).tan() * 3.0;
+        assert!(c.fits(1.0, [(Vec3::new(0.0, edge - 0.15, 0.0), 0.1)], 0.0));
+        assert!(!c.fits(1.0, [(Vec3::new(0.0, edge - 0.05, 0.0), 0.1)], 0.0));
+        assert!(c.fits(2.0, [(Vec3::new(edge * 1.5, 0.0, 0.0), 0.1)], 0.0), "wider on a wide view");
+        assert!(!c.fits(1.0, [(Vec3::new(0.0, 0.0, 3.5), 0.1)], 0.0), "behind the eye");
+        assert!(!c.fits(1.0, [(Vec3::new(0.0, edge - 0.15, 0.0), 0.1)], 0.2), "the margin");
     }
 
     #[test]

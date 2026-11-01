@@ -11,6 +11,12 @@ use super::values::Mirror;
 use crate::graph::Graph;
 use crate::tempo;
 use glam::Vec3;
+use protocol::{DeckQuality, LinkQuality, QualityLevel};
+use std::fmt::Write;
+
+/// a deck's frame time that shows amber (under 50 fps) and red (under 25 fps) at the conductor
+const SLOW_MS: f64 = 20.0;
+const SEVERE_MS: f64 = 40.0;
 
 pub struct Remote {
     pub client: String,
@@ -22,13 +28,48 @@ pub struct Remote {
     /// values per second lately (the hoses out of it bubble with it)
     pub rate: f32,
     count: f32,
+    /// #220 / #223: its render quality and its link, from presence (the conductor's labels)
+    pub quality: Option<DeckQuality>,
+    pub link: Option<LinkQuality>,
 }
 
 impl Remote {
     pub fn new(client: String, graph: Graph, look: &Look) -> Remote {
         let being = Being::new(&graph, look);
         let mirror = Mirror::new(&graph);
-        Remote { client, graph, being, mirror, place: Vec3::ZERO, rate: 0.0, count: 0.0 }
+        Remote { client, graph, being, mirror, place: Vec3::ZERO, rate: 0.0, count: 0.0, quality: None, link: None }
+    }
+
+    /// #220: its quality as the conductor's label – `HIGH 0.90 17MS` – and the label's hue: green at the level chosen
+    /// and in budget, amber while its governor holds it lower or a frame takes > 20 ms, red over 40 ms
+    pub fn write_quality(&self, out: &mut impl Write) -> Option<f32> {
+        let q = self.quality.as_ref()?;
+        let level = match q.level {
+            QualityLevel::Low => "LOW",
+            QualityLevel::Medium => "MEDIUM",
+            QualityLevel::High => "HIGH",
+            QualityLevel::Ultra => "ULTRA",
+        };
+        let _ = write!(out, "{level} {:.2} {:.0}MS{}", q.scale, q.frame, if q.auto { "" } else { " FIX" });
+        let down = q.ceiling.is_some_and(|c| c != q.level);
+        Some(if q.frame > SEVERE_MS {
+            0.0
+        } else if down || q.frame > SLOW_MS {
+            0.12
+        } else {
+            0.33
+        })
+    }
+
+    /// #223: its link as the conductor's label – `LINK 3MS 30HZ` – amber when the relay paces it below 30 / s or its
+    /// round trip is over 80 ms
+    pub fn write_link(&self, out: &mut impl Write) -> Option<f32> {
+        let l = self.link.as_ref()?;
+        let _ = match l.rtt {
+            Some(rtt) => write!(out, "LINK {rtt}MS {}HZ", l.hz),
+            None => write!(out, "LINK {}HZ", l.hz),
+        };
+        Some(if l.hz < 30 || l.rtt.is_some_and(|r| r > 80) { 0.12 } else { 0.33 })
     }
 
     /// a `deck.values` message: its values into the mirror, its mood onto the head
@@ -151,5 +192,34 @@ mod tests {
             r.step(1.0 / 60.0, a, b, 0.0);
         }
         assert!(r.bubbles.iter().all(|x| x.size == 0.0) && r.activity < 0.01, "quiet when nothing comes");
+    }
+
+    /// #220 / #223: the conductor's lines under a deck's being – its quality and its link, green / amber / red
+    #[test]
+    fn a_decks_quality_and_link_as_label_lines() {
+        let scene = crate::scene::Scene::parse(crate::scene::CATHEDRAL_SCENE).unwrap();
+        let g = Graph::build(&scene).unwrap();
+        let mut r = Remote::new("c5".into(), g, &scene.being);
+        let mut t = super::super::label::Text::default();
+        assert_eq!((r.write_quality(&mut t), r.write_link(&mut t)), (None, None), "nothing before presence");
+        let q = |level, frame, auto| DeckQuality { level, scale: 0.8, auto, frame, ceiling: Some(QualityLevel::High) };
+        let line = |r: &Remote| {
+            let mut t = super::super::label::Text::default();
+            let hue = r.write_quality(&mut t);
+            (t.as_str().to_string(), hue)
+        };
+        r.quality = Some(q(QualityLevel::High, 16.7, true));
+        assert_eq!(line(&r), ("HIGH 0.80 17MS".to_string(), Some(0.33)));
+        r.quality = Some(q(QualityLevel::Medium, 16.7, false));
+        assert_eq!(line(&r), ("MEDIUM 0.80 17MS FIX".to_string(), Some(0.12)), "held below the level chosen");
+        r.quality = Some(q(QualityLevel::High, 45.0, true));
+        assert_eq!(line(&r).1, Some(0.0), "under 25 fps");
+        r.link = Some(LinkQuality { rtt: Some(140), hz: 10, skipped: Some(212) });
+        let mut t = super::super::label::Text::default();
+        assert_eq!(r.write_link(&mut t), Some(0.12));
+        assert_eq!(t.as_str(), "LINK 140MS 10HZ");
+        r.link = Some(LinkQuality { rtt: None, hz: 30, skipped: None });
+        let mut t = super::super::label::Text::default();
+        assert_eq!((r.write_link(&mut t), t.as_str()), (Some(0.33), "LINK 30HZ"));
     }
 }

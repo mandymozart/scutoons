@@ -29,7 +29,13 @@ base64 = "0.22"
 # files are read by rustls' own pki-types
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }
+# #223: the accepted sockets' send buffer / TCP_NOTSENT_LOWAT (the backlog stays in the outbox, where it can be coalesced)
+socket2 = { version = "0.6", features = ["all"] }
 
 [dev-dependencies]
 # a self-signed certificate for the wss tests (tests/tls.rs)
 rcgen = "0.13"
+
+# the bench's thread CPU time (examples/bench.rs; Windows calls kernel32 directly)
+[target.'cfg(unix)'.dev-dependencies]
+libc = "0.2"

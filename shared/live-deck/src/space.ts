@@ -6,8 +6,11 @@
 // The wasm and its glue are files the host serves (`base`: space_web.js + space_web_bg.wasm, written by
 // `npm run build:wasm -w shared/live-deck`) and imports at run time – a build without them still runs the deck, the
 // page says the 3D is missing.
+import type { DeckControlsView } from './controls.ts';
 import type { Deck } from './deck.ts';
 import { BPM } from './deck.ts';
+import type { DeckQuality, QualityLevel } from '@scutoons/live';
+export type { QualityLevel };
 
 /** the wasm-bindgen API of deck/space-web (its `SpaceView`) */
 export interface SpaceView {
@@ -36,6 +39,27 @@ export interface SpaceView {
 	cursor(): string;
 	hud_line(): string;
 	mood(): string;
+	/** #209: the selection a tap made since the last call ("" deselected, "being", "knob:node.port"), else undefined */
+	take_tap(): string | undefined;
+	/** #209: select by name – the being rings it */
+	select(name: string): void;
+	/** #220: one frame's interval for the governor (now s, dt ms unclamped, the audio's dropouts so far); true = it stepped */
+	govern(now: number, dtMs: number, glitches: number): boolean;
+	/** #220: JSON – see `SpaceQuality` */
+	quality(): string;
+	/** #220: the `deck.quality` to send now (JSON) or "" */
+	quality_report(now: number): string;
+	/** #220: the panel's level ("low" … "ultra") and whether the governor steps below it */
+	set_quality(level: string, auto: boolean): void;
+	/** #220: the preset's frame rate cap: draw now, this many ms after the last drawn frame? */
+	due(sinceMs: number): boolean;
+	/** #220: the presets – the stage's quality file (TOML) and the sheet's JSON; setters answer "" or why not */
+	presets_text(): string;
+	presets_json(): string;
+	set_presets(text: string): string;
+	set_presets_json(json: string): string;
+	/** #220: the presets' pixel ratio cap (0 = none) */
+	pixel_ratio(): number;
 	free(): void;
 }
 
@@ -76,6 +100,52 @@ export interface RigEngine {
 	dropped: { from: string; to: string; scale: number; offset: number }[];
 }
 
+/** #220: the render quality now (deck-space quality.rs) */
+export interface SpaceQuality {
+	level: QualityLevel;
+	/** the level chosen: the governor steps at most up to it */
+	ceiling: QualityLevel;
+	auto: boolean;
+	/** the 3D's render size × the display's */
+	scale: number;
+	/** ms, the mean frame interval of the last half second */
+	frame: number;
+	/** the rung's frame rate cap */
+	fps: number;
+	width: number;
+	height: number;
+}
+
+/** #220: a render size – a scale of the display (≤ 4) or a height in pixels (≥ 100) */
+export type RenderSize = number;
+
+/** #220: one preset's knobs (deck-space quality.rs `Preset`) */
+export interface QualityPreset {
+	on: boolean;
+	/** the render size under load and its own */
+	min: RenderSize;
+	max: RenderSize;
+	fxaa: boolean;
+	bloom: boolean;
+	/** how many beings light the room (0–8) */
+	lights: number;
+	/** the frame rate cap */
+	fps: number;
+}
+
+/** #220: the deck's quality settings – the same as the stage's quality file */
+export interface QualityPresets {
+	level?: QualityLevel;
+	auto: boolean;
+	display?: string;
+	/** device pixels per CSS pixel at most */
+	pixel_ratio?: number;
+	low: QualityPreset;
+	medium: QualityPreset;
+	high: QualityPreset;
+	ultra: QualityPreset;
+}
+
 interface SpaceModule {
 	default: (o: { module_or_path: string | URL }) => Promise<unknown>;
 	/** deck/space-web `rig_play`: the bundle as JSON (rig + instruments + presets), persona / mood '' = none; throws on a bad rig */
@@ -86,6 +156,30 @@ interface SpaceModule {
 		create(canvas: HTMLCanvasElement, deckGraph: string, values: string, prefer: string): Promise<SpaceView>;
 		encoded_images(glb: Uint8Array): unknown[];
 	};
+	DeckControls: new (paths: string[]) => DeckControlsView;
+}
+
+const modules = new Map<string, Promise<SpaceModule>>();
+
+/** the wasm and its glue from `base`, loaded once per page */
+function spaceModule(base: string): Promise<SpaceModule> {
+	let m = modules.get(base);
+	if (!m) {
+		m = (async () => {
+			const mod = (await import(/* @vite-ignore */ `${base}space_web.js`)) as SpaceModule;
+			await mod.default({ module_or_path: `${base}space_web_bg.wasm` });
+			return mod;
+		})();
+		modules.set(base, m);
+		m.catch(() => modules.delete(base));
+	}
+	return m;
+}
+
+/** #209: the deck's controls (deck-space's, as wasm – no GPU needed: they work when the 3D can't) over `paths` */
+export async function loadControls(base: string, paths: string[]): Promise<DeckControlsView> {
+	const mod = await spaceModule(base);
+	return new mod.DeckControls(paths);
 }
 
 export interface SpaceOptions {
@@ -124,7 +218,7 @@ export async function decodeImage(bytes: Uint8Array | Blob, type = 'image/webp')
 /** the image type of a file's first bytes (the .glb's images: WebP or PNG) */
 export const sniff = (b: Uint8Array) => (b[0] === 0x89 && b[1] === 0x50 ? 'image/png' : b[0] === 0xff && b[1] === 0xd8 ? 'image/jpeg' : 'image/webp');
 
-/** a pointer's position in the canvas' device pixels */
+/** a pointer's position in the canvas' pixels (the render size – the view reads them so) */
 function at(canvas: HTMLCanvasElement, e: { clientX: number; clientY: number }): [number, number] {
 	const r = canvas.getBoundingClientRect();
 	return [((e.clientX - r.left) * canvas.width) / Math.max(1, r.width), ((e.clientY - r.top) * canvas.height) / Math.max(1, r.height)];
@@ -134,6 +228,8 @@ export class SpaceStage {
 	private canvas!: HTMLCanvasElement;
 	private stopped = false;
 	private last = -1;
+	/** #220: the display size given to the view (the canvas' own size is the view's render size) */
+	private display: [number, number] = [0, 0];
 	private readonly fingers = new Map<number, [number, number]>();
 	/** two fingers: their distance when the pinch started (device px) */
 	private pinch = 0;
@@ -150,8 +246,7 @@ export class SpaceStage {
 	static async start(o: SpaceOptions): Promise<SpaceStage> {
 		const say = (s: string) => o.onStatus?.(s);
 		say('3D: loading');
-		const mod = (await import(/* @vite-ignore */ `${o.base}space_web.js`)) as SpaceModule;
-		await mod.default({ module_or_path: `${o.base}space_web_bg.wasm` });
+		const mod = await spaceModule(o.base);
 		const graph = JSON.stringify(o.deck.graph());
 		const values = JSON.stringify(o.deck.value);
 		let canvas = SpaceStage.canvas(o);
@@ -168,6 +263,7 @@ export class SpaceStage {
 		}
 		const s = new SpaceStage(o, mod, view);
 		s.canvas = canvas;
+		s.display = [canvas.width, canvas.height];
 		s.bind();
 		say(`3D ${view.backend()}`);
 		void s.loadSet().catch((e) => say(`3D: the set failed – ${(e as Error).message}`));
@@ -251,9 +347,55 @@ export class SpaceStage {
 		this.view.set_being(JSON.stringify(this.o.deck.graph()), JSON.stringify(this.o.deck.value));
 	}
 
+	/** #220: the render quality now */
+	get quality(): SpaceQuality {
+		return JSON.parse(this.view.quality()) as SpaceQuality;
+	}
+
+	/** #220: the panel's choice – the level (the ceiling) and the governor on / off */
+	setQuality(level: QualityLevel, auto: boolean) {
+		this.view.set_quality(level, auto);
+	}
+
+	/** #220: the presets (the settings sheet) */
+	get presets(): QualityPresets {
+		return JSON.parse(this.view.presets_json()) as QualityPresets;
+	}
+
+	/** #220: new presets – "" or why not */
+	setPresets(p: QualityPresets): string {
+		return this.view.set_presets_json(JSON.stringify(p));
+	}
+
+	/** #220: the presets as the stage's quality file */
+	get presetsText(): string {
+		return this.view.presets_text();
+	}
+
+	setPresetsText(text: string): string {
+		return this.view.set_presets(text);
+	}
+
+	/** #220: the device pixels per CSS pixel the 3D's display has: the presets' cap, else the page's (`maxScale`) */
+	private pixelRatio(): number {
+		return Math.min(devicePixelRatio || 1, this.view.pixel_ratio() || this.o.maxScale || 2);
+	}
+
+	/** #220: the most this screen can show – its physical pixels – and the display the 3D scales from now */
+	get screen(): { max: [number, number]; display: [number, number] } {
+		const r = devicePixelRatio || 1;
+		return { max: [Math.round(screen.width * r), Math.round(screen.height * r)], display: [...this.display] };
+	}
+
 	/** One frame (after `deck.tick`): the being's turns into the deck, the deck's values into the being, draw. */
 	frame(now: number) {
 		if (this.stopped) return;
+		// #220: the preset's frame rate cap – an early frame is skipped (no draw: the power the cap saves); the governor
+		// sees the real interval between drawn frames (a stall is a hitch to it, not load) and the audio's dropouts
+		if (this.last >= 0 && !this.view.due((now - this.last) * 1000)) return;
+		if (this.last >= 0) this.view.govern(now, (now - this.last) * 1000, this.o.deck.core?.stats().underruns ?? 0);
+		const report = this.view.quality_report(now);
+		if (report) this.o.deck.link?.quality(JSON.parse(report) as DeckQuality);
 		const dt = this.last < 0 ? 1 / 60 : Math.min(0.1, now - this.last);
 		this.last = now;
 		const deck = this.o.deck;
@@ -271,12 +413,11 @@ export class SpaceStage {
 		const t = deck.time;
 		this.view.set_beat(BPM, (t * BPM) / 60, 4, true);
 		const c = this.canvas;
-		const scale = Math.min(devicePixelRatio || 1, this.o.maxScale ?? 2);
+		const scale = this.pixelRatio();
 		const w = Math.max(1, Math.round(c.clientWidth * scale));
 		const h = Math.max(1, Math.round(c.clientHeight * scale));
-		if (w !== c.width || h !== c.height) {
-			c.width = w;
-			c.height = h;
+		if (w !== this.display[0] || h !== this.display[1]) {
+			this.display = [w, h];
 			this.view.resize(w, h);
 		}
 		this.view.frame(dt, t);

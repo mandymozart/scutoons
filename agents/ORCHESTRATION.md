@@ -20,6 +20,12 @@ over both. The git and backlog rules themselves stay in RULES.md ("Backlog", "Gi
 - Web apps: `npm run check` and the area's `check:*` script; no dev server unless the task needs a look.
 - Server: `npm run dev:db test` (MariaDB, ~15 min, 487 tests on 2026-10-29) – it uses Docker, so it needs a **slot**.
 
+- Never chain the merge commit behind a piped check (`npm run deck:ci | tail && git commit`): the pipe's exit code is
+  `tail`'s, so a failed CI still commits (2026-11-01, PR #227 – fixed in a follow-up commit). Run the check, read its
+  own exit code, then commit.
+- A cloud worker's clippy is its container's toolchain; this machine's may be newer (1.99 `manual_slice_fill`) –
+  `npm run deck:ci` here before every merge, as the rules say.
+
 ## Heavy work that needs a slot (workspace §3)
 - The deck ISO: `npm run deck:iso` (archiso in Docker, ~1.8 GB; `DECK_OUT` picks the folder under `deck/os/out/`).
 - The local MariaDB (`npm run dev:db`), the dev servers (vite starts at 8000) and any headless browser.

@@ -8,10 +8,13 @@
 	// joins under their name with their avatar's character; a guest under the guest name. The relay (#199): the hosted
 	// one, wss://live.scutoons.com/live/<code> (VITE_LIVE_URL), the code from the path `/live/deck/<code>` or `?code=`
 	// (default CATH); `?relay=ws://…/live/CODE` joins a local relay instead. The conductor's scene sync (#195): the deck
-	// fetches what it names from the CDN and answers; the status line shows it.
+	// fetches what it names from the CDN and answers; the status line shows it. The controls (#209): the knobs (the
+	// panel's dials, the being's – they face the camera), two corner sticks over the 3D, MIDI learn; what the sticks
+	// drive is the selection's (the last tapped knob / the being / nothing = the master section) – the logic is
+	// deck-space's (Hands → DeckControls, wasm), this page only bridges the DOM, Web MIDI and the pointer to it.
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { Deck, MELODY, PARAMS, SpaceStage, charactersOf, pushLine, type Hand, type Spec } from '@scutoons/live-deck';
+	import { Deck, FrameStats, Hands, MELODY, PARAMS, SpaceStage, charactersOf, loadControls, pushLine, type Hand, type QualityLevel, type QualityPresets, type SpaceQuality, type Spec } from '@scutoons/live-deck';
 	import LiveWorker from '@scutoons/live-core/worker?worker';
 	import workletUrl from '@scutoons/live-core/worklet?worker&url';
 	import { API_URL, CDN_SERVER, LIVE_URL } from '$lib/config.ts';
@@ -20,6 +23,10 @@
 	import { CHARACTER_KEY, WASM_BASE, characterOf, mayJoin, nickOf, preferOf, relayOf, rigOf } from '$lib/live-deck.ts';
 	import CharacterChip from '$lib/components/live-deck/character-chip.svelte';
 	import DeckPanel from '$lib/components/live-deck/deck-panel.svelte';
+	import DeckQualitySheet from '$lib/components/live-deck/deck-quality-sheet.svelte';
+	import DeckSticks from '$lib/components/live-deck/deck-sticks.svelte';
+	import type { Stats } from '$lib/components/live-deck/deck-stats.svelte';
+	import { DeckControlsState } from '$lib/live-deck-controls.svelte.ts';
 
 	const session = getSessionContext();
 	const cdn = `${CDN_SERVER}/`;
@@ -38,10 +45,88 @@
 	let syncStatus = $state('');
 	let spaceStatus = $state('');
 	let hud = $state('');
-	// #188: the sound's dropouts (the worklet's underruns) over the last minute, once it plays; #208: the worker's peak
-	// render load, and the warning a few seconds after a dropout
-	let audioStatus = $state('');
+	// #208: the warning a few seconds after a dropout; #209: the collapsed bar's statistics (#188: the dropouts over the
+	// last minute, the worker's peak render load)
 	let audioAlert = $state('');
+	let stats = $state<Stats>({ fps: 0, cpu: 0, peak: 0, dropouts: null, load: 0, lead: 0, relay: '', backend: '', quality: '', down: false });
+	const frames = new FrameStats();
+	// #209: the controls – the selection the sticks follow, MIDI learn, the mappings per deck
+	const specs = { ...PARAMS, ...MELODY };
+	const ctl = new DeckControlsState(specs);
+	ctl.onSelect = (name) => space?.view.select(name);
+	// #225: the corner sticks can be switched off in the panel (they free the knobs under them), remembered per device
+	const STICKS_KEY = 'scutoons.deck.sticks';
+	let sticksOn = $state(true);
+	function toggleSticks() {
+		sticksOn = !sticksOn;
+		try {
+			localStorage.setItem(STICKS_KEY, sticksOn ? '1' : '0');
+		} catch {
+			/* private mode */
+		}
+	}
+	// #220: the 3D's render quality – the governor's (deck-space); the presets (the settings sheet, the same text as the
+	// X1's quality file) remembered per device. The night's first build kept only { level, auto } under QUALITY_KEY: read
+	// once into the presets, then gone.
+	const PRESETS_KEY = 'scutoons.deck.presets';
+	const QUALITY_KEY = 'scutoons.deck.quality';
+	let quality = $state<SpaceQuality | null>(null);
+	let presets = $state<QualityPresets | null>(null);
+	let presetsText = $state('');
+	let sheetOpen = $state(false);
+	let screenInfo = $state<{ max: [number, number]; display: [number, number] }>({ max: [0, 0], display: [0, 0] });
+	function stored(key: string): string | null {
+		try {
+			return localStorage.getItem(key);
+		} catch {
+			return null;
+		}
+	}
+	/** after a change: the sheet's view, the bar's, and the text kept for this device */
+	function keepPresets() {
+		if (!space) return;
+		quality = space.quality;
+		presets = space.presets;
+		presetsText = space.presetsText;
+		screenInfo = space.screen;
+		try {
+			localStorage.setItem(PRESETS_KEY, presetsText);
+			localStorage.removeItem(QUALITY_KEY);
+		} catch {
+			/* private mode */
+		}
+	}
+	function loadPresets() {
+		if (!space) return;
+		const text = stored(PRESETS_KEY);
+		const old = stored(QUALITY_KEY);
+		if (text) {
+			const e = space.setPresetsText(text);
+			if (e) console.warn('live deck: the stored quality presets', e);
+		} else if (old) {
+			try {
+				const q = JSON.parse(old) as { level?: QualityLevel; auto?: boolean };
+				if (q.level) space.setQuality(q.level, q.auto !== false);
+			} catch {
+				/* a broken entry: the defaults */
+			}
+		}
+		keepPresets();
+	}
+	function setQuality(level: QualityLevel, auto: boolean) {
+		space?.setQuality(level, auto);
+		keepPresets();
+	}
+	function setPresets(p: QualityPresets): string {
+		const e = space?.setPresets(p) ?? '';
+		if (!e) keepPresets();
+		return e;
+	}
+	function setPresetsText(text: string): string {
+		const e = space?.setPresetsText(text) ?? '';
+		if (!e) keepPresets();
+		return e;
+	}
 	let threeD = $state(true);
 	let deck: Deck | null = null;
 	let space: SpaceStage | null = null;
@@ -66,7 +151,7 @@
 		}
 	};
 
-	const status = $derived([relayStatus, syncStatus, spaceStatus, audioStatus, hud].filter(Boolean).join(' · '));
+	const status = $derived([syncStatus, spaceStatus, hud].filter(Boolean).join(' · '));
 
 	function showFace() {
 		const p = deck?.portraits[mood] ?? deck?.portraits.neutral ?? Object.values(deck?.portraits ?? {})[0];
@@ -96,16 +181,33 @@
 	}
 
 	onMount(() => {
+		try {
+			sticksOn = localStorage.getItem(STICKS_KEY) !== '0';
+		} catch {
+			/* private mode: on */
+		}
 		let alive = true;
 		let raf = 0;
-		const stats = setInterval(() => {
+		const audio = setInterval(() => {
 			const core = deck?.core;
 			if (!core) return;
 			const s = core.stats();
-			const load = Math.round((100 * s.renderPeakUs) / Math.max(1, s.budgetUs));
-			audioStatus = m['live_deck.dropouts']({ n: s.underrunsPerMinute, load });
+			stats.dropouts = s.underrunsPerMinute;
+			stats.load = Math.round((100 * s.renderPeakUs) / Math.max(1, s.budgetUs));
+			stats.lead = Math.round((1000 * s.lead) / core.context.sampleRate);
 			audioAlert = core.glitching() ? m['live_deck.dropout_alert']() : '';
 		}, 250);
+		const bar = setInterval(() => {
+			stats.fps = frames.fps;
+			stats.cpu = frames.cpu;
+			stats.peak = frames.peak;
+			stats.relay = relayStatus;
+			stats.backend = space ? space.backend : spaceStatus;
+			quality = space?.quality ?? null;
+			if (space && sheetOpen) screenInfo = space.screen;
+			stats.quality = quality ? `${quality.level} ${quality.scale.toFixed(2)}×${quality.auto ? '' : ' FIX'}` : '';
+			stats.down = !!quality && quality.level !== quality.ceiling;
+		}, 500);
 		void (async () => {
 			await settled();
 			if (!alive || !mayJoin(session.me)) return;
@@ -130,12 +232,20 @@
 					}
 				}
 			};
+			try {
+				ctl.hands = new Hands(await loadControls(WASM_BASE, Object.keys(specs)), deck, specs);
+				ctl.load(character);
+				ctl.choose('', false);
+			} catch (e) {
+				console.warn('live deck: no controls (the wasm is missing)', e);
+			}
 			await deck.pickCharacter(character);
 			showFace();
 			charactersOf(API_URL, character).then((list) => (characters = list));
 			if (!alive || !host) return;
 			try {
 				space = await SpaceStage.start({ host, base: WASM_BASE, deck, api: API_URL, cdn, prefer: preferOf(q), onStatus: (s) => (spaceStatus = s) });
+				loadPresets();
 				if (useRigs) {
 					applyRig();
 					space.setBeing();
@@ -146,25 +256,33 @@
 			}
 			const frame = () => {
 				if (!alive || !deck) return;
-				const now = performance.now() / 1000;
+				const t0 = performance.now();
+				const now = t0 / 1000;
 				deck.tick(now);
+				ctl.poll();
 				try {
 					space?.frame(now);
 					hud = space?.view.hud_line() ?? '';
+					// #209: a tap on the being selects (a knob, the being, empty space = the master section)
+					const tap = space?.view.take_tap();
+					if (tap !== undefined) ctl.choose(tap, false);
 				} catch (e) {
 					spaceStatus = m['live_deck.no_3d']({ reason: (e as Error).message });
 					space?.stop();
 					space = null;
 					threeD = false;
 				}
+				frames.push(t0, performance.now() - t0);
 				raf = requestAnimationFrame(frame);
 			};
 			raf = requestAnimationFrame(frame);
 		})();
 		return () => {
 			alive = false;
-			clearInterval(stats);
+			clearInterval(audio);
+			clearInterval(bar);
 			cancelAnimationFrame(raf);
+			ctl.close();
 			space?.stop();
 			deck?.close();
 			void deck?.core?.stop?.();
@@ -178,6 +296,8 @@
 		await deck.pickCharacter(id);
 		applyRig();
 		space?.setBeing();
+		ctl.load(id);
+		ctl.choose('', true);
 		showFace();
 	}
 
@@ -209,19 +329,42 @@
 			<CharacterChip current={character} {characters} {face} {mood} onpick={pick} />
 		{/if}
 	</div>
+	{#if sticksOn}
+		<DeckSticks labels={ctl.labels} ondown={(s) => ctl.hands?.stickDown(s)} onmove={(s, x, y) => ctl.hands?.stickMove(s, x, y)} onup={(s) => ctl.hands?.stickUp(s)} />
+	{/if}
 	<div class="bottom">
 		<DeckPanel
 			{values}
 			{params}
 			{started}
 			{starting}
+			{stats}
 			{status}
 			alert={audioAlert}
+			sticks={ctl.line}
+			selected={ctl.knob}
+			learn={ctl.learn}
+			learning={ctl.learning}
+			midi={ctl.midiStatus}
+			mapped={ctl.mapped}
 			onstart={start}
 			onset={(p, v) => deck?.setParam(p, v)}
+			onpick={ctl.pick}
+			onlearn={ctl.toggleLearn}
+			{sticksOn}
+			onsticks={toggleSticks}
+			{quality}
+			onquality={setQuality}
+			onsettings={() => {
+				keepPresets();
+				sheetOpen = true;
+			}}
 			ontouch={(on) => deck && (deck.touch = on)}
 		/>
 	</div>
+	{#if presets && quality}
+		<DeckQualitySheet bind:open={sheetOpen} {presets} {quality} screen={screenInfo} text={presetsText} onchange={setPresets} ontext={setPresetsText} />
+	{/if}
 </div>
 
 <style>

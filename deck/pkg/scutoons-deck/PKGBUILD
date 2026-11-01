@@ -34,12 +34,12 @@ pkgver() {
 
 build() {
   cd "$_deck"
-  CARGO_TARGET_DIR="$srcdir/target" cargo build --release --locked -p relay -p bridge -p deck-check -p deck-stage -p deck-link --features deck-stage/pipewire
+  CARGO_TARGET_DIR="$srcdir/target" cargo build --release --locked -p relay -p bridge -p deck-check -p deck-stage -p deck-link -p deck-update --features deck-stage/pipewire
 }
 
 check() {
   cd "$_deck"
-  CARGO_TARGET_DIR="$srcdir/target" cargo test --release --locked -p deck-check -p bridge -p relay -p deck-stage -p deck-link
+  CARGO_TARGET_DIR="$srcdir/target" cargo test --release --locked -p deck-check -p bridge -p relay -p deck-stage -p deck-link -p deck-update
 }
 
 package() {
@@ -48,9 +48,12 @@ package() {
   install -Dm755 "$srcdir/target/release/deck-check" "$pkgdir/usr/bin/deck-check"
   install -Dm755 "$srcdir/target/release/deck-stage" "$pkgdir/usr/bin/deck-stage"
   install -Dm755 "$srcdir/target/release/deck-link" "$pkgdir/usr/bin/deck-link"
+  install -Dm755 "$srcdir/target/release/deck-update" "$pkgdir/usr/bin/deck-update"
   install -Dm644 -t "$pkgdir/usr/share/deck/scenes" "$_deck"/stage/scenes/*.toml
   # the boot flow: everything under deck/os/rootfs lands as it is laid out there
   cp -r "$_deck/os/rootfs/." "$pkgdir/"
+  # what the root holds – a remote update is newer when its build is higher (#237)
+  printf '{"version":"%s","build":%s}\n' "$pkgver" "$(date -u +%s)" >"$pkgdir/usr/share/deck/build.json"
   # the boot splash's logo (#179): the official SVG in white → plymouth's PNG
   rsvg-convert -w 1536 "$_deck/stage/assets/SCUTOONS-logo-white.svg" -o "$pkgdir/usr/share/plymouth/themes/scutoons/logo.png"
   chmod 755 "$pkgdir"/usr/bin/deck-*

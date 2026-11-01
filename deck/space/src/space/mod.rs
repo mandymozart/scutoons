@@ -25,6 +25,9 @@ pub mod gpu;
 pub mod label;
 pub mod meshopt;
 pub mod portrait;
+pub mod post;
+#[cfg(feature = "gpu")]
+pub mod post_gpu;
 pub mod stream;
 pub mod sync;
 pub mod values;
@@ -76,14 +79,22 @@ fn aim(b: &Being) -> Vec3 {
 /// the photographer's focus: from this many sizes away the camera aims at the whole being, from this near at its head
 const FOCUS_FAR: f32 = 7.0;
 const FOCUS_NEAR: f32 = 2.2;
+/// #224: a deselect frames the whole being this far (a share of the view's half) off the edges
+const FRAME_MARGIN: f32 = 0.08;
 
 /// where the being floats when the set has no such spot (or there is no set)
 const FALLBACK_ANCHOR: Vec3 = Vec3::new(0.0, 1.4, 0.0);
+/// the glow's light in the room (#204): reach (m) and strength by default, and how many beings light it at most
+pub const GLOW_RANGE: f32 = 7.0;
+pub const GLOW_LIGHT: f32 = 1.0;
+pub const MAX_LIGHTS: usize = 8;
 
 /// two presses on one button within this long (s) = a double click: back to the scene's value
 const DOUBLE_CLICK: f32 = 0.4;
 /// how much easier a finger hits a button than the mouse
 const TOUCH_REACH: f32 = 2.0;
+/// #209: a press that moved less than this (× the view's height) before it let go is a tap – it selects
+const TAP: f32 = 0.02;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Drag {
@@ -142,6 +153,13 @@ pub struct Space {
     at: Option<Vec3>,
     /// the set's light (the space node's `light`) this frame
     pub light: f32,
+    /// the post stack the scene picked (#204, post.rs) and its knobs this frame
+    pub post: post::Chain,
+    pub post_knobs: post::Knobs,
+    /// the glow as light in the room (#204): how far a being's light reaches (m) and how strong it is (0 = off) – the
+    /// space node's `glow_range` / `glow_light`
+    pub glow_range: f32,
+    pub glow_light: f32,
     pointer: Option<(f32, f32)>,
     view: (f32, f32),
     drag: Drag,
@@ -149,6 +167,9 @@ pub struct Space {
     last_press: Option<(usize, f32)>,
     /// the finger that drives the pointer on a touch screen
     finger: Option<u64>,
+    /// #209: the last press – where, and what it hit (a tap selects that) – and the taps not yet asked for (`take_tap`)
+    pressed: Option<((f32, f32), Option<Hit>)>,
+    tapped: Option<Option<Hit>>,
     /// the show's time at the last update
     clock: f32,
     /// a word for the HUD until a time (a linked button grabbed: what drives it)
@@ -260,6 +281,10 @@ impl Space {
             Some(path) => load_set(path.clone(), max_texture, hide.clone(), gate.clone()),
             None => (None, "NO SET".into()),
         };
+        let (post, problems) = post::Chain::of(n);
+        for p in &problems {
+            tracing::warn!("space: {p} – left out");
+        }
         let mut camera = Orbit::new(aim(&being), n.f32("yaw", 20.0).to_radians(), n.f32("pitch", 8.0).to_radians(), n.f32("distance", 2.4));
         camera.auto = n.bool("auto_turn", false);
         Space {
@@ -278,11 +303,17 @@ impl Space {
             lift: n.f32("lift", 1.5),
             at,
             light: 1.0,
+            post,
+            post_knobs: post::Knobs::default(),
+            glow_range: n.f32("glow_range", GLOW_RANGE).max(0.1),
+            glow_light: n.f32("glow_light", GLOW_LIGHT).max(0.0),
             pointer: None,
             view: (1.0, 1.0),
             drag: Drag::None,
             last_press: None,
             finger: None,
+            pressed: None,
+            tapped: None,
             clock: 0.0,
             notice: None,
             graph: graph.clone(),
@@ -340,11 +371,17 @@ impl Space {
         self.portraits.poll();
         self.clock = time;
         self.light = ctl.input(self.node, "light", params::default(crate::graph::Kind::Space, "light"));
+        self.post_knobs = post::Knobs::read(&*ctl, self.node);
+        // the focus follows the zoom: the whole being far out, its head close up (owner 2026-10-31) – or, with a knob
+        // selected, that knob (#224: "zooming then brings you closer to that point"); the camera glides there – held
+        // still while a hand is on a knob (a press selects it: the knob would slide away under the finger)
+        if !matches!(self.drag, Drag::Knob { .. } | Drag::Hold) {
+            self.camera.goal = self.focus_goal(self.camera.distance);
+        }
         self.camera.step(dt);
-        // the focus follows the zoom: the whole being far out, its head close up (owner 2026-10-31)
-        let (body, head) = self.being.focus();
-        let s = self.being.look.size;
-        self.camera.target = camera::focus_target(body, head, self.camera.distance, s * FOCUS_NEAR, s * FOCUS_FAR);
+        // #209: the knobs face the camera; #224: and fold into its view close up
+        self.being.eye = Some(self.camera.eye());
+        self.being.frame = Some(self.camera.frame(self.view.0 / self.view.1));
         self.being.update(dt, time, &Local { ctl, meter }, beat);
         self.being.push(ctl);
         let local = Local { ctl, meter };
@@ -355,6 +392,57 @@ impl Space {
         self.being.dragging = matches!(self.drag, Drag::Knob { .. } | Drag::Hold);
         self.session(time, &local);
         self.congregation(dt, time, beat);
+    }
+
+    /// Where the camera's focus goes at `distance` (camera::focus_target): from the whole being's centre far out to its
+    /// head close up – to the selected knob instead of the head while one is (#224; where it sits unfolded, so the
+    /// knob comes to the middle of the picture as the camera nears it).
+    fn focus_goal(&self, distance: f32) -> Vec3 {
+        let (body, head) = self.being.focus();
+        let near = match self.being.selected {
+            Some(Hit::Button(i)) => self.being.buttons[i].free,
+            _ => head,
+        };
+        let s = self.being.look.size;
+        camera::focus_target(body, near, distance, s * FOCUS_NEAR, s * FOCUS_FAR)
+    }
+
+    /// #224 (owner 2026-10-31: "when it's deselected again, the whole figure is framed at the zoom level that
+    /// allows"): the closest distance at which the whole being – its points, its head, its knobs where they sit
+    /// unfolded – fits the view, aiming where the focus rule aims there (a bisection: the fit only grows with the
+    /// distance); the farthest the camera goes if even that is too close
+    pub fn frame_distance(&self) -> f32 {
+        let b = &self.being;
+        let spheres = || {
+            let points = b.points.iter().map(|p| (p.pos, p.radius));
+            let knobs = b.buttons.iter().map(|k| (k.free, k.radius * being::RING_REST));
+            points.chain(knobs).chain(std::iter::once((b.head.pos, b.head.radius)))
+        };
+        let aspect = self.view.0 / self.view.1;
+        let fits = |d: f32| {
+            let mut c = self.camera;
+            c.distance = d;
+            let (body, head) = b.focus();
+            let s = b.look.size;
+            c.target = camera::focus_target(body, head, d, s * FOCUS_NEAR, s * FOCUS_FAR);
+            c.fits(aspect, spheres(), FRAME_MARGIN)
+        };
+        let (mut lo, mut hi) = (self.camera.min_distance, self.camera.max_distance);
+        if fits(lo) {
+            return lo;
+        }
+        if !fits(hi) {
+            return hi;
+        }
+        for _ in 0..24 {
+            let mid = (lo * hi).sqrt();
+            if fits(mid) {
+                hi = mid;
+            } else {
+                lo = mid;
+            }
+        }
+        hi
     }
 
     /// The set's 3D has arrived (its loader thread on the deck, the page's fetch in the browser): the being moves to
@@ -368,7 +456,7 @@ impl Space {
                 }
                 let base = spot.unwrap_or_else(|| Vec3::new((model.min.x + model.max.x) * 0.5, model.min.y, (model.min.z + model.max.z) * 0.5));
                 self.being.anchor = self.at.unwrap_or(base + Vec3::Y * self.lift);
-                self.camera.target = aim(&self.being);
+                self.camera.look_at(aim(&self.being));
                 self.set_status = format!("SET {}K TRIS", model.triangles() / 1000);
                 self.spots = model.spots.clone();
                 self.model = Some(model);
@@ -393,6 +481,7 @@ impl Space {
         }
         self.drag = Drag::None;
         self.last_press = None;
+        self.pressed = None;
         self.generation += 1;
     }
 
@@ -432,8 +521,12 @@ impl Space {
                 }
                 In::Pushed(s) => self.sync.pushed(s),
                 In::Synced { client, synced } => self.sync.answer(client, synced),
-                In::Presence { decks, routes } => {
+                In::Presence { decks, routes, links, quality } => {
                     self.sync.synced.retain(|c, _| decks.contains(c));
+                    for r in &mut self.others {
+                        r.link = links.get(&r.client).cloned();
+                        r.quality = quality.get(&r.client).cloned();
+                    }
                     let before = self.others.len();
                     self.others.retain(|r| decks.contains(&r.client));
                     if self.others.len() != before || routes != self.route_ids {
@@ -445,6 +538,13 @@ impl Space {
         }
         if let Some(l) = &self.link {
             self.note = l.status();
+        }
+    }
+
+    /// #220: this deck's render quality to the session (a deck's link sends it; the conductor sees it next to the link)
+    pub fn report_quality(&self, quality: protocol::DeckQuality) {
+        if let Some(l) = self.link.as_ref().filter(|_| self.join == Join::Deck) {
+            l.quality(quality);
         }
     }
 
@@ -519,7 +619,9 @@ impl Space {
             return;
         }
         self.layout();
+        let eye = self.camera.eye();
         for r in &mut self.others {
+            r.being.eye = Some(eye);
             r.step(dt, time, beat);
         }
         let center = |i: Option<usize>| i.map_or(self.being.center, |i| self.others[i].being.center);
@@ -528,6 +630,44 @@ impl Space {
             let rate = self.routes[k].from.map_or(0.0, |i| self.others[i].rate);
             self.routes[k].step(dt, a, b, rate);
         }
+    }
+
+    /// The beings' cores as point lights in the room (#204): at most `out.len()`, the strongest at the eye first –
+    /// a being's light (`glow` + its level pulse, × `glow_light`) over 1 + its squared distance to the eye. Each light
+    /// = [x, y, z, range, r, g, b, 0] (colour × intensity, linear). Returns how many; never allocates.
+    pub fn write_lights(&self, eye: Vec3, out: &mut [[f32; 8]]) -> usize {
+        let cap = out.len();
+        if cap == 0 || self.glow_light <= 0.0 {
+            return 0;
+        }
+        // (score, the light) kept sorted strongest first in `out`'s own slots
+        let mut scores = [0f32; MAX_LIGHTS];
+        let cap = cap.min(MAX_LIGHTS);
+        let mut n = 0;
+        for b in self.beings() {
+            let power = b.light_power() * self.glow_light;
+            if power <= 1e-4 {
+                continue;
+            }
+            let score = power / (1.0 + (b.center - eye).length_squared());
+            let mut at = n;
+            while at > 0 && scores[at - 1] < score {
+                at -= 1;
+            }
+            if at >= cap {
+                continue;
+            }
+            let last = n.min(cap - 1);
+            for k in (at..last).rev() {
+                scores[k + 1] = scores[k];
+                out[k + 1] = out[k];
+            }
+            let c = b.light_rgb();
+            scores[at] = score;
+            out[at] = [b.center.x, b.center.y, b.center.z, self.glow_range, c[0] * power, c[1] * power, c[2] * power, 0.0];
+            n = (n + 1).min(cap);
+        }
+        n
     }
 
     /// every being: this deck's own first, then the decks'
@@ -539,17 +679,31 @@ impl Space {
     /// 2026-10-31) – at most label::LABELS (`out` cleared first; its capacity from the renderer – no allocation).
     pub fn write_labels(&self, out: &mut Vec<Label>) {
         out.clear();
-        // #195: the conductor's word over each deck's being – its sync for the push (first: the decks' state matters)
+        // #195: the conductor's word over each deck's being – its sync for the push (first: the decks' state matters), then
+        // its render quality (#220) and its link (#223), a line each
         for r in &self.others {
-            let Some(view) = self.sync.view(&r.client) else { continue };
-            if out.len() >= label::LABELS {
-                break;
+            let head = &r.being.head;
+            let mut line = 0.0;
+            let mut put = |out: &mut Vec<Label>, text: label::Text, hue: f32| {
+                if out.len() < label::LABELS {
+                    let c = being::hsv(hue, 0.55, 1.0);
+                    out.push(Label { pos: (head.pos + Vec3::Y * head.radius * 1.4).into(), offset: head.radius, text, color: [c[0], c[1], c[2], 0.9], scale: 0.85, line });
+                }
+                line += 1.0;
+            };
+            if let Some(view) = self.sync.view(&r.client) {
+                let mut text = label::Text::default();
+                let _ = view.write(&mut text);
+                put(out, text, view.hue());
             }
             let mut text = label::Text::default();
-            let _ = view.write(&mut text);
-            let c = being::hsv(view.hue(), 0.55, 1.0);
-            let head = &r.being.head;
-            out.push(Label { pos: (head.pos + Vec3::Y * head.radius * 1.4).into(), offset: head.radius, text, color: [c[0], c[1], c[2], 0.9], scale: 0.85, line: 0.0 });
+            if let Some(hue) = r.write_quality(&mut text) {
+                put(out, text, hue);
+            }
+            let mut text = label::Text::default();
+            if let Some(hue) = r.write_link(&mut text) {
+                put(out, text, hue);
+            }
         }
     }
 
@@ -625,6 +779,16 @@ impl Space {
         solid
     }
 
+    /// #211: MIDI from the deck's outputs for the conductor (`deck.midi` over the relay) – a deck with a link only
+    pub fn send_midi(&self, msgs: &[[u8; 3]]) {
+        if msgs.is_empty() || self.join == Join::Conductor {
+            return;
+        }
+        if let Some(l) = &self.link {
+            l.midi(protocol::DeckMidi { msgs: msgs.iter().map(|b| protocol::MidiBytes { bytes: b.to_vec() }).collect() });
+        }
+    }
+
     /// the HUD's lines about the session: who this deck is to it, the decks, the faces
     pub fn session_lines(&self) -> Vec<String> {
         let mut out = Vec::new();
@@ -662,7 +826,7 @@ impl Space {
             _ => {
                 if let Some(pos) = self.spots.iter().find(|(n, _)| *n == self.spot).map(|(_, p)| *p) {
                     self.being.anchor = pos + Vec3::Y * self.lift;
-                    self.camera.target = aim(&self.being);
+                    self.camera.look_at(aim(&self.being));
                 } else if spot.is_some() && self.set_rx.is_none() {
                     tracing::warn!("set: no spot '{}' – the being stays", self.spot);
                 }
@@ -719,8 +883,17 @@ impl Space {
 
     fn press_reach(&mut self, reach: f32) {
         let Some((x, y)) = self.pointer else { return };
-        let hit = self.being.pick_reach(&self.camera.ray(x, y, self.view.0, self.view.1), reach);
+        let ray = self.camera.ray(x, y, self.view.0, self.view.1);
+        let hit = self.being.pick_reach(&ray, reach);
         self.being.hover = hit;
+        // #209: what a tap here selects – a button, the being (a point, the head), or nothing (the master section); a
+        // hand on a button selects it at once (the last touched knob owns the sticks)
+        let head = self.being.core_point.filter(|_| ray.sphere(self.being.head.pos, self.being.head.radius).is_some()).map(Hit::Point);
+        let chosen = hit.or(head);
+        self.pressed = Some(((x, y), chosen));
+        if let Some(Hit::Button(i)) = chosen {
+            self.select(Some(Hit::Button(i)));
+        }
         self.drag = match hit {
             Some(Hit::Button(i)) if !self.being.buttons[i].turnable => {
                 self.being.shake(i);
@@ -751,7 +924,62 @@ impl Space {
 
     pub fn release(&mut self) {
         if self.finger.is_none() {
-            self.drag = Drag::None;
+            self.let_go();
+        }
+    }
+
+    /// the hand lifts: a press that barely moved is a tap (#209) – it selects what it hit (nothing: deselect)
+    fn let_go(&mut self) {
+        if let (Some(((x0, y0), chosen)), Some((x, y))) = (self.pressed.take(), self.pointer) {
+            if (x - x0).hypot(y - y0) < TAP * self.view.1 {
+                self.select(chosen);
+                self.tapped = Some(self.being.selected);
+            }
+        }
+        self.drag = Drag::None;
+    }
+
+    /// #209: select a button, the being (`Hit::Point` – any), or nothing (None: the master section) – the renderer rings
+    /// it; the page asks for taps with `take_tap`
+    /// #224: a knob let go (the being or nothing selected now) frames the whole being – the camera glides out (or in)
+    /// to `frame_distance`, the focus back to the being
+    pub fn select(&mut self, what: Option<Hit>) {
+        let was_knob = matches!(self.being.selected, Some(Hit::Button(_)));
+        self.being.selected = match what {
+            Some(Hit::Point(_)) => Some(Hit::Point(self.being.core_point.unwrap_or(0))),
+            Some(Hit::Button(i)) if i < self.being.buttons.len() => Some(Hit::Button(i)),
+            _ => None,
+        };
+        if was_knob && !matches!(self.being.selected, Some(Hit::Button(_))) {
+            self.camera.want = self.frame_distance();
+            self.camera.idle = 0.0;
+        }
+    }
+
+    /// #209: the selection a tap made since the last call (Some(None) = a tap on empty space: deselected)
+    pub fn take_tap(&mut self) -> Option<Option<Hit>> {
+        self.tapped.take()
+    }
+
+    /// #209: a selection by name – `""` nothing, `"being"`, `"knob:node.port"` (`node.shape`) – what the page's
+    /// controls (crate::controls) speak; an unknown knob deselects
+    pub fn select_named(&mut self, name: &str) {
+        let what = match name {
+            "being" => Some(Hit::Point(0)),
+            _ => name.strip_prefix("knob:").and_then(|p| self.button(&self.graph, p)).map(Hit::Button),
+        };
+        self.select(what);
+    }
+
+    /// #209: the selection's name (`select_named` backwards)
+    pub fn selection_name(&self) -> String {
+        match self.being.selected {
+            Some(Hit::Point(_)) => "being".into(),
+            Some(Hit::Button(i)) => {
+                let b = &self.being.buttons[i];
+                format!("knob:{}.{}", self.graph_id(b.node), b.name)
+            }
+            None => String::new(),
         }
     }
 
@@ -768,7 +996,7 @@ impl Space {
             Touch::Ended if self.finger == Some(id) => {
                 self.pointer_moved(x, y, ctl);
                 self.finger = None;
-                self.drag = Drag::None;
+                self.let_go();
                 self.pointer_left();
             }
             _ => {}
@@ -902,6 +1130,129 @@ mod tests {
         space.update(1.0 / 60.0, t, ctl, &tempo::Now::default(), &|_, _| 0.0);
     }
 
+    /// #224: three seconds of frames from the show's time `t` – the glides arrive
+    fn settle(space: &mut Space, ctl: &mut Table, t: f32) {
+        for k in 0..180 {
+            frame(space, ctl, t + k as f32 / 60.0);
+        }
+    }
+
+    /// #224 (owner 2026-10-31: "when you tap one, that node is selected, and zooming then brings you closer to that
+    /// point. When it's deselected again, the whole figure is framed"): a selected knob draws the focus as the camera
+    /// zooms in and holds it there steadily; a deselect glides back – the focus to the being, the distance out to the
+    /// closest one where the whole being fits – without overshooting
+    #[test]
+    fn the_focus_follows_a_selected_knob_and_a_deselect_frames_the_whole_being() {
+        let (g, mut space, mut ctl) = cathedral();
+        let i = space.button(&g, "voice.index").unwrap();
+        space.select(Some(Hit::Button(i)));
+        let before = space.camera.target;
+        frame(&mut space, &mut ctl, 0.0);
+        assert!(space.camera.target.distance(before) < 0.05, "no jump at the tap: {}", space.camera.target.distance(before));
+        space.camera.zoom(100.0);
+        settle(&mut space, &mut ctl, 0.1);
+        let knob = space.being.buttons[i].free;
+        let s = space.being.look.size;
+        assert!(space.camera.target.distance(knob) < 0.02 * s, "close up: the knob ({})", space.camera.target.distance(knob));
+        let (x, y) = space.to_pixel(space.being.buttons[i].pos).unwrap();
+        assert!((x - 640.0).abs() < 64.0 && (y - 360.0).abs() < 36.0, "in the middle of the picture: {x} {y}");
+        // it holds there: no hunting between the camera and the knob's camera-facing layout
+        let mut last = space.camera.target;
+        for k in 0..60 {
+            frame(&mut space, &mut ctl, 3.2 + k as f32 / 60.0);
+            assert!(space.camera.target.distance(last) < 0.004 * s, "steady: {}", space.camera.target.distance(last));
+            last = space.camera.target;
+        }
+        // deselect (a tap on empty space): framed – the closest distance where everything fits
+        let close = space.camera.distance;
+        space.select(None);
+        let want = space.camera.want;
+        assert!(want > close * 1.5 && want < space.camera.max_distance, "out to the frame: {close} → {want}");
+        assert_eq!(want, space.frame_distance());
+        let mut d = space.camera.distance;
+        for k in 0..240 {
+            frame(&mut space, &mut ctl, 5.0 + k as f32 / 60.0);
+            assert!(space.camera.distance >= d && space.camera.distance <= want, "out, never past: {d} → {}", space.camera.distance);
+            d = space.camera.distance;
+        }
+        assert_eq!(space.camera.distance, want);
+        let (body, head) = space.being.focus();
+        let goal = camera::focus_target(body, head, want, s * FOCUS_NEAR, s * FOCUS_FAR);
+        assert!(space.camera.target.distance(goal) < 0.01 * s, "the focus back on the being");
+        let b = &space.being;
+        let all = b.points.iter().map(|p| (p.pos, p.radius)).chain(b.buttons.iter().map(|k| (k.free, k.radius))).chain([(b.head.pos, b.head.radius)]);
+        assert!(space.camera.fits(16.0 / 9.0, all, 0.0), "the whole being in the picture");
+        // and no further than needed: a step closer something leaves the frame
+        let mut c = space.camera;
+        c.distance = want * 0.9;
+        c.target = camera::focus_target(body, head, c.distance, s * FOCUS_NEAR, s * FOCUS_FAR);
+        let all = b.points.iter().map(|p| (p.pos, p.radius)).chain(b.buttons.iter().map(|k| (k.free, k.radius * being::RING_REST))).chain([(b.head.pos, b.head.radius)]);
+        assert!(!c.fits(16.0 / 9.0, all, FRAME_MARGIN), "the closest such distance");
+        // selecting the being after a knob frames it too; the being after the being changes nothing
+        space.select(Some(Hit::Button(i)));
+        space.camera.zoom(100.0);
+        space.select(Some(Hit::Point(0)));
+        assert_eq!(space.camera.want, space.frame_distance());
+        space.camera.zoom(3.0);
+        let w = space.camera.want;
+        space.select(None);
+        assert_eq!(space.camera.want, w, "no knob was let go");
+    }
+
+    /// #224 (owner 2026-10-31: "When we zoom in on the character, to the portrait, we can't reach some parameters any
+    /// more"): at the portrait every knob is on the screen – the ones that would sit outside fold in toward the edge,
+    /// off it by a thumb's room – on a wide window and on a phone held upright; and each can still be tapped
+    #[test]
+    fn at_the_portrait_every_knob_is_on_the_screen() {
+        for (w, h) in [(1280.0, 720.0), (390.0, 845.0)] {
+            let (_, mut space, mut ctl) = cathedral();
+            space.set_view(w, h);
+            space.camera.zoom(100.0);
+            settle(&mut space, &mut ctl, 0.1);
+            let mut folded = 0;
+            let bs = &space.being.buttons;
+            for (i, a) in bs.iter().enumerate() {
+                // (only where one of them folded – the spread's job; the free layout is #209's)
+                for b in bs[i + 1..].iter().filter(|b| a.pos != a.free || b.pos != b.free) {
+                    let (p, q) = (space.to_pixel(a.pos).unwrap(), space.to_pixel(b.pos).unwrap());
+                    let gap = ((p.0 - q.0).powi(2) + (p.1 - q.1).powi(2)).sqrt();
+                    let r = |k: &being::Button| space.to_pixel(k.pos + space.camera.frame(1.0).up * k.radius).map_or(0.0, |t| (t.1 - space.to_pixel(k.pos).unwrap().1).abs());
+                    assert!(gap > (r(a) + r(b)) * 0.9, "{w}×{h}: {} and {} overlap ({gap:.0} px)", a.name, b.name);
+                }
+            }
+            for (i, b) in space.being.buttons.iter().enumerate() {
+                let (x, y) = space.to_pixel(b.pos).expect("in front of the eye");
+                let inside = |x: f32, y: f32, m: f32| x > w * m && x < w * (1.0 - m) && y > h * m && y < h * (1.0 - m);
+                assert!(inside(x, y, 0.04), "{w}×{h}: knob {i} ({}) at {x:.0} {y:.0}", b.name);
+                if !space.to_pixel(b.free).is_some_and(|(x, y)| inside(x, y, 0.0)) {
+                    folded += 1;
+                }
+            }
+            assert!(folded > 0, "{w}×{h}: some knobs would be off the screen unfolded");
+            // every one is tapped where it is shown
+            for i in 0..space.being.buttons.len() {
+                let (x, y) = space.to_pixel(space.being.buttons[i].pos).unwrap();
+                space.pointer_moved(x, y, &mut ctl);
+                space.press();
+                space.release();
+                assert_eq!(space.being.selected, Some(Hit::Button(i)), "{w}×{h}: knob {i} ({}) is tapped", space.being.buttons[i].name);
+                space.select(None);
+                space.camera.zoom(100.0);
+                settle(&mut space, &mut ctl, 4.0 + i as f32 * 3.0);
+            }
+        }
+        // at the start view #209's layout stays: most knobs untouched, those near the edge nudged a little, none shrunk
+        let (_, space, _) = cathedral();
+        let mut still = 0;
+        for b in &space.being.buttons {
+            let (p, q) = (space.to_pixel(b.pos).unwrap(), space.to_pixel(b.free).unwrap());
+            let moved = ((p.0 - q.0).powi(2) + (p.1 - q.1).powi(2)).sqrt();
+            assert!(moved < 0.05 * 720.0 && b.radius == b.base, "{} moved {moved:.0} px at home", b.name);
+            still += (moved < 0.5) as usize;
+        }
+        assert!(still * 2 > space.being.buttons.len(), "most stay where #209 put them: {still}");
+    }
+
     #[test]
     fn a_drag_pulls_a_button_along_its_tether_and_elsewhere_turns_the_camera() {
         let (g, mut space, mut ctl) = cathedral();
@@ -917,6 +1268,10 @@ mod tests {
         assert!((axis.0 * axis.0 + axis.1 * axis.1).sqrt() > 72.0, "the tether reads on the screen: {axis:?}");
         space.press();
         assert_eq!(space.cursor(), Cursor::Grabbing);
+        // #224: the press selected it, but the focus holds still under the hand
+        let goal = space.camera.goal;
+        frame(&mut space, &mut ctl, 0.05);
+        assert_eq!(space.camera.goal, goal, "the focus holds while the knob is held");
         // a quarter of the tether's way out on the screen = a quarter of the range up
         space.pointer_moved(x + axis.0 * 0.25, y + axis.1 * 0.25, &mut ctl);
         let spec = params::spec(g.nodes[node].kind, "index");
@@ -985,13 +1340,15 @@ mod tests {
         let (body, head) = space.being.focus();
         assert!(head.y > body.y + 0.2, "the head above the body's centre");
         space.camera.zoom(100.0);
-        frame(&mut space, &mut ctl, 0.1);
-        assert!(space.camera.target.distance(head) < 1e-4, "close up: a portrait");
+        settle(&mut space, &mut ctl, 0.1); // the zoom's and the focus' glides (#224)
+        let (_, head) = space.being.focus();
+        assert!(space.camera.target.distance(head) < 1e-3, "close up: a portrait");
         space.camera.zoom(-100.0);
-        frame(&mut space, &mut ctl, 0.2);
-        assert!(space.camera.target.distance(body) < 1e-4, "far out: the whole being");
+        settle(&mut space, &mut ctl, 3.0);
+        let (body, _) = space.being.focus();
+        assert!(space.camera.target.distance(body) < 1e-3, "far out: the whole being");
         space.camera.reset();
-        frame(&mut space, &mut ctl, 0.3);
+        settle(&mut space, &mut ctl, 6.0);
         let t = space.camera.target;
         assert!(t.y > body.y && t.y < head.y, "home: between, nearer the body ({} {} {})", body.y, t.y, head.y);
         assert_eq!(space.camera.distance, space.camera.home().2);
@@ -1013,6 +1370,10 @@ mod tests {
         let yaw = space.camera.yaw;
         space.press();
         assert_eq!(space.cursor(), Cursor::Grabbing);
+        // #224: the press selected it, but the focus holds still under the hand
+        let goal = space.camera.goal;
+        frame(&mut space, &mut ctl, 0.05);
+        assert_eq!(space.camera.goal, goal, "the focus holds while the knob is held");
         let (_, axis) = space.drag_axis(i);
         space.pointer_moved(x + axis.0 * 0.3, y + axis.1 * 0.3, &mut ctl);
         let base = ctl.base(node, port).unwrap();
@@ -1055,5 +1416,96 @@ mod tests {
         assert!(ctl.input(node, "index", -1.0) > before);
         space.touch(7, Touch::Ended, x, y, &mut ctl);
         assert_eq!((space.cursor(), space.being.hover), (Cursor::Default, None));
+    }
+
+    /// #204: every being's core lights the room – the strongest at the eye first, at most as many as there are slots,
+    /// coloured by its hue, stronger with its glow and its level's pulse; `glow_light = 0` turns it off
+    #[test]
+    fn the_glow_lights_the_room() {
+        let (g, mut space, _) = cathedral();
+        let eye = space.being.center + Vec3::new(0.0, 0.0, 3.0);
+        let mut out = [[0.0; 8]; MAX_LIGHTS];
+        assert_eq!(space.write_lights(eye, &mut out), 1);
+        let power = space.being.glow * space.glow_light;
+        let c = space.being.light_rgb();
+        assert!((out[0][4] - c[0] * power).abs() < 1e-5 && out[0][3] == space.glow_range);
+        // a congregation: ten decks' beings, near and far, bright and dim
+        let scene = Scene::parse(CATHEDRAL_SCENE).unwrap();
+        for k in 0..10 {
+            let mut r = decks::Remote::new(format!("deck{k}"), g.clone(), &scene.being);
+            r.being.center = eye + Vec3::new(k as f32, 0.0, 0.0);
+            r.being.glow = if k == 9 { 50.0 } else { 0.5 };
+            space.others.push(r);
+        }
+        let n = space.write_lights(eye, &mut out);
+        assert_eq!(n, MAX_LIGHTS, "capped");
+        let score = |l: &[f32; 8]| (l[4] + l[5] + l[6]) / (1.0 + (Vec3::new(l[0], l[1], l[2]) - eye).length_squared());
+        assert!(out.windows(2).all(|w| score(&w[0]) >= score(&w[1]) - 1e-6), "strongest first");
+        assert!(out.iter().any(|l| (l[0] - (eye.x + 9.0)).abs() < 1e-4), "the far but bright one is in");
+        assert!(!out.iter().any(|l| (l[0] - (eye.x + 8.0)).abs() < 1e-4), "the far dim one is out");
+        let mut few = [[0.0; 8]; 2];
+        assert_eq!(space.write_lights(eye, &mut few), 2);
+        assert_eq!(few[0], out[0]);
+        // the pulse swells it
+        let before = space.being.light_power();
+        space.being.pulse = 0.5;
+        assert!(space.being.light_power() > before);
+        space.glow_light = 0.0;
+        assert_eq!(space.write_lights(eye, &mut out), 0);
+    }
+
+    /// #204: the post knobs are the space node's control inputs, but no buttons on the core unless `expose` names them
+    #[test]
+    fn the_post_knobs_are_no_buttons_unless_exposed() {
+        let (g, space, _) = cathedral();
+        assert!(space.post.contains(post::Effect::Bloom), "the cathedral lists bloom");
+        let names: Vec<&str> = space.being.buttons.iter().filter(|b| b.node == space.node).map(|b| b.name).collect();
+        assert_eq!(names, ["hue", "glow", "light", "pulse"]);
+        let scene = Scene::parse(CATHEDRAL_SCENE).unwrap();
+        let look = being::Look { expose: vec!["space".into(), "space.bloom".into()], ..scene.being };
+        let b = Being::new(&g, &look);
+        let names: Vec<&str> = b.buttons.iter().filter(|b| b.node == space.node).map(|b| b.name).collect();
+        assert_eq!(names, ["hue", "glow", "light", "pulse", "bloom"]);
+    }
+
+    /// #209 (owner 2026-10-31: "the last clicked / tapped thing controls the x / y sticks … tapping empty space
+    /// deselects"): a tap on a knob selects it, one on the head the being, one on empty space nothing; a drag that
+    /// orbits changes nothing; the page reads the taps by name
+    #[test]
+    fn a_tap_selects_and_empty_space_deselects() {
+        let (g, mut space, mut ctl) = cathedral();
+        let i = space.button(&g, "voice.index").unwrap();
+        let (x, y) = space.to_pixel(space.being.buttons[i].pos).unwrap();
+        space.pointer_moved(x, y, &mut ctl);
+        space.press();
+        space.release();
+        assert_eq!(space.being.selected, Some(Hit::Button(i)));
+        assert_eq!(space.take_tap(), Some(Some(Hit::Button(i))));
+        assert_eq!(space.take_tap(), None, "a tap is told once");
+        assert_eq!(space.selection_name(), "knob:voice.index");
+        // the head: the whole being
+        let (hx, hy) = space.to_pixel(space.being.head.pos + Vec3::Y * space.being.head.radius * 0.5).unwrap();
+        space.pointer_moved(hx, hy, &mut ctl);
+        space.press();
+        space.release();
+        assert_eq!(space.selection_name(), "being");
+        // an orbit from empty space keeps it; a tap there deselects
+        space.pointer_moved(5.0, 5.0, &mut ctl);
+        space.press();
+        space.pointer_moved(200.0, 40.0, &mut ctl);
+        space.release();
+        assert_eq!(space.selection_name(), "being", "a drag is no tap");
+        space.pointer_moved(5.0, 5.0, &mut ctl);
+        space.press();
+        space.release();
+        assert_eq!((space.selection_name(), space.take_tap()), (String::new(), Some(None)));
+        space.select_named("knob:incense.cutoff");
+        assert_eq!(space.selection_name(), "knob:incense.cutoff");
+        frame(&mut space, &mut ctl, 1.0);
+        let mut spheres = Vec::with_capacity(space.capacity().0);
+        let mut tubes = Vec::with_capacity(space.capacity().1);
+        space.write(&mut spheres, &mut tubes);
+        assert!(spheres.iter().any(|s| s.extra[0] == being::kind::RING && s.color == [1.0, 1.0, 1.0, 0.9]), "the selection's white ring");
+        assert!(spheres.len() <= space.capacity().0);
     }
 }
