@@ -1,0 +1,80 @@
+# The strobe test (#211): a strobe on DMX through a USB-DMX widget (the owner's Enttec DMX USB Pro), its flashes on the
+# tempo clock with the click on, so eye and ear can compare. The tempo's keys move it all: + / − BPM, T tap, Space
+# stop / start (the strobe goes dark while stopped), K the click. An LFO sweeps the rate parameter slowly through the
+# divisions (1/1 … 1/16T, a full sweep every 40 s; the neutral 1/4 in the middle), a second one breathes the flash's
+# intensity between half and full. Run it:
+#   cargo run --release -p deck-stage -- --scene scenes/strobe.toml --windowed
+# (from deck/stage; the widget is found by itself – `dmx = "COM3"` names a port on Windows, "/dev/ttyUSB0" on Linux)
+# Fixture: `profile = "strobe"` is the built-in generic strobe (dimmer 1, rate 2, duration 3 from `address`); a strobe
+# with another channel layout gets its own profile file (deck/outputs/fixtures/strobe.toml is the template).
+[stage]
+name = "strobe test (#211)"
+
+[[node]]
+id = "tempo"
+kind = "tempo"
+bpm = 120
+beats = 4
+source = "internal"
+click = true
+
+[[node]]
+id = "click"
+kind = "click"
+gain = 0.5
+
+[[node]]
+id = "out"
+kind = "audio_out"
+volume = 0.8
+
+[[link]]
+from = "click"
+to = "out.in"
+
+# the rate parameter: 0 = 1/1 … 0.5 = 1/4 … 1 = 1/16T
+[[node]]
+id = "rate"
+kind = "lfo"
+rate = 0.025
+
+# the flash's intensity: its 0 … 1 → half … full (level_in below)
+[[node]]
+id = "level"
+kind = "lfo"
+rate = 0.1
+
+[[node]]
+id = "pattern"
+kind = "test_pattern"
+speed = 0.5
+
+[[node]]
+id = "screen"
+kind = "screen"
+
+[[link]]
+from = "tempo.pulse"
+to = "pattern.pulse"
+
+[[link]]
+from = "pattern"
+to = "screen.in"
+
+[outputs]
+lead = 20          # ms the frame leaves before its beat is heard: the widget + the fixture (raise it if flashes lag)
+dmx = "auto"       # the first USB-DMX widget found; or its port: "COM3" (Windows), "/dev/ttyUSB0" (Linux)
+
+[[outputs.fixture]]
+id = "strobe"
+profile = "strobe"
+address = 1        # the strobe's DMX start address (its display / DIP switches)
+# max_hz = 3       # an optional cap (off – the owner, 2026-10-31: no limit)
+
+[[outputs.strobe]]
+fixture = "strobe"
+rate = "rate.out"
+neutral = "1/4"
+level = "level.out"
+level_in = [-1, 1]    # the LFO's 0 … 1 lands on 0.5 … 1 of the flash's level
+duration = 30         # ms

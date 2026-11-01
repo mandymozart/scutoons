@@ -698,6 +698,16 @@ impl Space {
         solid
     }
 
+    /// #211: MIDI from the deck's outputs for the conductor (`deck.midi` over the relay) – a deck with a link only
+    pub fn send_midi(&self, msgs: &[[u8; 3]]) {
+        if msgs.is_empty() || self.join == Join::Conductor {
+            return;
+        }
+        if let Some(l) = &self.link {
+            l.midi(protocol::DeckMidi { msgs: msgs.iter().map(|b| protocol::MidiBytes { bytes: b.to_vec() }).collect() });
+        }
+    }
+
     /// the HUD's lines about the session: who this deck is to it, the decks, the faces
     pub fn session_lines(&self) -> Vec<String> {
         let mut out = Vec::new();

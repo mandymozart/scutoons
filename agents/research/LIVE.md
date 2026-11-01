@@ -308,7 +308,9 @@ instruction per group) · `cell { outlet, cell }` (row change) · `cue`, `say`, 
 
 **Decks → relay** (#188): `deck.graph { nodes, links, character?, size?, moods?, expose? }` (a deck's being; kept per
 client for the conductor's snapshot `decks`) · `deck.values { values: { "node.port": number[] }, mood? }` (only what
-changed, ≤ 30 / s – the relay drops more; folded, never replayed; to the conductor, and to `to` too) · presence adds
+changed, ≤ 30 / s – the relay drops more; folded, never replayed; to the conductor, and to `to` too) · `deck.midi { msgs:
+[{ bytes }] }` (#211: a deck's parameters as MIDI outputs for the conductor to route on; ordered, never merged or
+replayed – deck/outputs) · presence adds
 `decks`, `routes` (who sent values to whom) and `links` (#223: each client's round trip, value rate, values replaced –
 not the audience's). The deck side: deck/stage/README.md "space". **Send path** (#223): per client the latest
 state-like message wins (`deck.values` per deck, merged; `presence`, `vote.tally`, `state`), ordered ones stay complete

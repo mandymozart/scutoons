@@ -227,6 +227,11 @@ impl Tempo {
         let _ = self.tx.send(Event { at_ns: now_ns(), what: What::Key(k) });
     }
 
+    /// the map and line the audio and MIDI clock out read (#211: the outputs' strobe too)
+    pub fn shared(&self) -> Arc<Shared> {
+        self.shared.clone()
+    }
+
     pub fn now(&self) -> Now {
         self.now
     }

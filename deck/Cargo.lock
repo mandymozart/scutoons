@@ -790,6 +790,7 @@ name = "deck-scene-features"
 version = "0.1.0"
 dependencies = [
  "deck-core",
+ "toml 0.8.23",
 ]
 
 [[package]]
@@ -815,11 +816,15 @@ name = "deck-stage"
 version = "0.1.0"
 dependencies = [
  "ab_glyph",
+ "adapters-core",
+ "adapters-dmx-usbpro",
+ "adapters-midi",
  "anyhow",
  "bytemuck",
  "cpal",
  "deck-core",
  "deck-link",
+ "deck-outputs",
  "deck-space",
  "font8x8",
  "fundsp",

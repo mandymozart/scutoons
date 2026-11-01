@@ -2,7 +2,7 @@
 //! back (`from_wire`) – the conductor builds every deck's body from it, the browser deck (#198) its own; what a
 //! session's link hands the frame (`In`) and the link itself as the space sees it (`Wire` – deck-stage's link.rs is
 //! the relay client on a thread; the browser's is TypeScript and stays outside).
-use protocol::{DeckGraph, DeckLink, DeckNode, DeckSynced, DeckValues, SceneSync};
+use protocol::{DeckGraph, DeckLink, DeckMidi, DeckNode, DeckSynced, DeckValues, SceneSync};
 use std::collections::HashMap;
 
 use super::being::Look;
@@ -30,6 +30,8 @@ pub trait Wire: Send {
     fn send(&self, values: DeckValues);
     /// #195: the conductor pushes a scene sync (the link sends it once joined, and again when the relay forgot it)
     fn push(&self, sync: SceneSync);
+    /// #211: the deck's MIDI outputs for the conductor (`deck.midi`); a wire without the relay drops them
+    fn midi(&self, _midi: DeckMidi) {}
     /// the next event, if any (never blocks)
     fn recv(&self) -> Option<In>;
     /// the link's state in a word (the HUD)

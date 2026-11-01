@@ -11,7 +11,7 @@
 //!   welcome whose snapshot lacks it: the relay restarted) and hands the frame each deck's `deck.synced`. A deck hands
 //!   a push – the welcome snapshot's `sync`, or a `scene.sync` – to its sync (`Syncs`, sync.rs) and sends its answer
 //!   back whenever it is new (progress at most every 200 ms; the final state at once).
-use protocol::{DeckGraph, DeckSynced, DeckValues, Envelope, Hello, Message, Ping, Role, SceneSync, SyncState};
+use protocol::{DeckGraph, DeckMidi, DeckSynced, DeckValues, Envelope, Hello, Message, Ping, Role, SceneSync, SyncState};
 use std::collections::HashMap;
 use std::io::ErrorKind;
 use std::net::TcpStream;
@@ -44,6 +44,8 @@ pub trait Syncs: Send {
 enum Out {
     Values(DeckValues),
     Push(SceneSync),
+    /// #211: the deck's MIDI outputs for the conductor (only while joined – stale MIDI is dropped, not sent later)
+    Midi(DeckMidi),
 }
 
 /// `--sync set:cathedral,character:catpope` (#195): the conductor's push for `scene`; `being:<id>` names a lent being
@@ -115,6 +117,10 @@ impl Wire for Link {
 
     fn push(&self, sync: SceneSync) {
         let _ = self.tx.send(Out::Push(sync));
+    }
+
+    fn midi(&self, midi: DeckMidi) {
+        let _ = self.tx.send(Out::Midi(midi));
     }
 
     fn recv(&self) -> Option<In> {
@@ -200,14 +206,19 @@ impl Client {
     }
 
     /// the outbox into `sent` (offline: nothing goes out, the latest values wait); a push waits until joined
-    fn fold(&mut self) -> Vec<DeckValues> {
+    fn fold(&mut self) -> (Vec<DeckValues>, Vec<DeckMidi>) {
         let mut out = Vec::new();
+        let mut midi = Vec::new();
         while let Ok(o) = self.outbox.try_recv() {
             let v = match o {
                 Out::Values(v) => v,
                 Out::Push(s) => {
                     self.push = Some(s);
                     self.push_due = true;
+                    continue;
+                }
+                Out::Midi(m) => {
+                    midi.push(m);
                     continue;
                 }
             };
@@ -219,7 +230,7 @@ impl Client {
             }
             out.push(v);
         }
-        out
+        (out, midi)
     }
 
     /// a deck: its sync's answer when it is new – progress at most every PROGRESS, a final state at once
@@ -253,10 +264,15 @@ impl Client {
                 return "stopping".into();
             }
             // a deck's values: only once welcomed (the graph goes first)
-            let out = self.fold();
+            let (out, midi) = self.fold();
             if joined {
                 for v in out {
                     if let Err(e) = Self::send(ws, Message::DeckValues(v)) {
+                        return e;
+                    }
+                }
+                for m in midi {
+                    if let Err(e) = Self::send(ws, Message::DeckMidi(m)) {
                         return e;
                     }
                 }

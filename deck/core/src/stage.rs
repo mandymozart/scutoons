@@ -34,6 +34,7 @@ pub const STAGE_MODULES: &[StageModule] = &[
     module("live", "a Live outlet: the relay's cells for this deck's outlet, drawn natively; show media preloaded with the deck token (#186)", &["outlet"], &[]),
     module("midi", "MIDI clock in and out (the tempo clock's `midi` source, `midi_out`)", &[], &["midi"]),
     module("osc", "the OSC remote for the tempo clock (`/tempo/*`)", &[], &["osc"]),
+    module("outputs", "the parameters as outputs: MIDI out, DMX fixtures, the clock-synced strobe – the scene's [outputs] (#211)", &[], &[]),
     module("link", "Ableton Link as a tempo source (needs cmake + libclang to build)", &[], &["link"]),
     module("pipewire", "the PipeWire audio backend (Linux; without it: cpal)", &[], &[]),
 ];

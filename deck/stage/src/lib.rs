@@ -28,3 +28,5 @@ pub mod text;
 pub mod space;
 #[cfg(feature = "sync")]
 pub mod sync;
+#[cfg(feature = "outputs")]
+pub mod outputs;
