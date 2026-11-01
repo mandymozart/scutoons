@@ -1,0 +1,9 @@
+{
+  "DeveloperToolsAvailability": 2,
+  "PrintingEnabled": false,
+  "TranslateEnabled": false,
+  "PasswordManagerEnabled": false,
+  "BrowserSignin": 0,
+  "IncognitoModeAvailability": 1,
+  "DefaultBrowserSettingEnabled": false
+}

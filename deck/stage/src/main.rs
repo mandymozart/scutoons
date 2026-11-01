@@ -1,10 +1,10 @@
 //! deck-stage – the native AV app the deck boots into (CYBERDECKS.md §8, #179). One window (fullscreen; under cage on
 //! the deck), a node graph from a TOML scene: video passes on wgpu, an audio graph on PipeWire / cpal, control values
-//! per frame. Keys: F1 the HUD · F2 the browser · Ctrl+Q quit · Ctrl+Alt+Del power off (on a deck) · the tempo clock
+//! per frame. Keys: F1 the HUD · F12 the conductor page · Ctrl+Q quit · Ctrl+Alt+Del power off (on a deck) · the tempo clock
 //! (#181): T tap · + / − BPM · Space start / stop · F3 the next source · K the click. The splash (the logo) covers the start until the
 //! chapter's first slice and the music are there, and the browser's start: with DECK_BROWSER set (deck-session does)
-//! F2 starts that command on top of the running stage – cage shows the newest window – and the stage pauses and mutes
-//! behind it until it closes; without it F2 quits with exit code 10 (deck-session's older loop opens the browser).
+//! F12 starts that command on top of the running stage – cage shows the newest window – and the stage pauses and mutes
+//! behind it until it closes; without it F12 quits with exit code 10 (deck-session's older loop opens the browser).
 //! A scene with a `space` node (#188): the mouse (or a finger) turns the camera or pulls the being's 3D buttons along
 //! their tethers (a double click: back to the scene's value), the wheel / ↑ ↓ zoom, ← → turn, R resets the camera; the
 //! conductor's S pushes the scene's sync to the decks (#195 – also once at the start; `--sync` names what).
@@ -97,7 +97,7 @@ const HELP: &str = "deck-stage [--scene FILE|cathedral|conductor|outlet] [--audi
                and these, arrows + Enter load one in place and write it into deck.toml's `scene`; --switcher starts with
                the list open, --switch NAME loads that scene after 30 frames (a check run)
   --show-volume  the volume overlay (#253: the volume keys' feedback) stays on, at 60 % (a check run's screenshot)
-  exit codes   0 quit (Ctrl+Q) · 10 F2 without DECK_BROWSER · 75 the display was lost (the compositor went away) · 1 failed
+  exit codes   0 quit (Ctrl+Q) · 10 F12 without DECK_BROWSER · 75 the display was lost (the compositor went away) · 1 failed
   --frames     quit after N frames and print the measured numbers (a check run)
   --screenshot save the last frame of a --frames run as a PNG
   --pointer    put the pointer at window pixel X,Y, or on the being's button NODE.PORT (a check run's hover)
@@ -1059,7 +1059,7 @@ impl App {
         window.request_redraw();
     }
 
-    /// F2: the browser on top of the stage (DECK_BROWSER), else exit code 10 for deck-session
+    /// F12: the conductor page (a locked-down browser window) on top of the stage (DECK_BROWSER), else exit code 10 for deck-session
     fn open_browser(&mut self, el: &ActiveEventLoop) {
         if self.browser.is_some() {
             return;
@@ -1449,7 +1449,7 @@ impl App {
         }
         lines.extend(live);
         lines.extend([
-            "F2 WEB  CTRL+ALT+ F2 SHELL / DEL OFF".into(),
+            "F12 WEB CTRL+ALT+ F2 SHELL / DEL OFF".into(),
             "T TAP +/- BPM SPACE RUN F3 SRC K CLICK".into(),
             format!("FPS {:.1}  FRAME {:.1} MS  CPU {:.2} MS", self.stats.fps, last(&self.stats.intervals), last(&self.stats.work)),
             format!("GPU {gpu}"),
@@ -1741,7 +1741,7 @@ impl ApplicationHandler<Event> for App {
         }
         // #220: the open settings page takes the keys (the arrows, + / −, Space would turn the camera and the tempo)
         if let WindowEvent::KeyboardInput { event: k, .. } = &event {
-            if self.page.open && k.state == ElementState::Pressed && !matches!(k.logical_key.as_ref(), Key::Named(NamedKey::F1 | NamedKey::F2 | NamedKey::F4 | NamedKey::AudioVolumeUp | NamedKey::AudioVolumeDown | NamedKey::AudioVolumeMute)) {
+            if self.page.open && k.state == ElementState::Pressed && !matches!(k.logical_key.as_ref(), Key::Named(NamedKey::F1 | NamedKey::F12 | NamedKey::F4 | NamedKey::AudioVolumeUp | NamedKey::AudioVolumeDown | NamedKey::AudioVolumeMute)) {
                 let key = match k.logical_key.as_ref() {
                     Key::Named(NamedKey::ArrowUp) => Some(settings::Key::Up),
                     Key::Named(NamedKey::ArrowDown) => Some(settings::Key::Down),
@@ -1809,7 +1809,7 @@ impl ApplicationHandler<Event> for App {
                         self.vol_forced = false;
                         self.hud.mode = self.hud.mode.next();
                     }
-                    Key::Named(NamedKey::F2) => self.open_browser(el),
+                    Key::Named(NamedKey::F12) => self.open_browser(el),
                     Key::Named(NamedKey::Escape) if self.args.windowed => el.exit(),
                     Key::Named(NamedKey::Delete) if self.mods.control_key() && self.mods.alt_key() => self.power_off(),
                     Key::Character("q") if self.mods.control_key() => el.exit(),

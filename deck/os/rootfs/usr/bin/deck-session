@@ -1,7 +1,7 @@
 #!/bin/bash
 # The kiosk session (deck-kiosk.service, as the user deck): cage runs this script again inside the compositor
 # ("inside"), which plays the deck's app – `kiosk` in /var/lib/deck/deck.toml:
-#   "stage" (the default) – deck-stage, the native AV app (CYBERDECKS.md §8, #179); F2 in the stage starts the browser
+#   "stage" (the default) – deck-stage, the native AV app (CYBERDECKS.md §8, #179); F12 in the stage starts the browser
 #                           on the conductor page ON TOP of the stage (DECK_BROWSER = "deck-session browser"; cage
 #                           shows the newest window): the stage keeps the logo up until the browser's window maps,
 #                           then pauses and mutes; closing the browser (Ctrl+Shift+W) shows the stage at once. A stage
@@ -36,14 +36,14 @@ browser() {
 d}" /usr/share/deck/start.html <<<"$report" >"$page"
     url="file://$page"
   fi
-  chromium --kiosk --ozone-platform=wayland --no-first-run --password-store=basic \
+  chromium --kiosk --app="$url" --ozone-platform=wayland --no-first-run --password-store=basic \
     --disable-session-crashed-bubble --disable-infobars --noerrdialogs --autoplay-policy=no-user-gesture-required \
-    --user-data-dir="$XDG_CONFIG_HOME/chromium" "$url"
+    --user-data-dir="$XDG_CONFIG_HOME/chromium"
 }
 
 case "${1:-}" in
   inside) ;;
-  browser) browser; exit $? ;;              # the stage's F2 (DECK_BROWSER), inside cage already
+  browser) browser; exit $? ;;              # the stage's F12 (DECK_BROWSER), inside cage already
   # -s: VT switching stays on (Ctrl+Alt+F2 = the shell on tty2; cage blocks it without -s – X1, 2026-10-29)
   *) exec cage -s -- "$0" inside ;;
 esac
@@ -66,7 +66,7 @@ while :; do
     0) continue ;;                       # Ctrl+Q: the stage starts again
     75) echo "deck-stage lost its display (cage went away) – the session ends, the kiosk restarts" >&2
         exit 75 ;;                       # not the browser: its display is dead too (#257)
-    10) browser ;;                       # F2 of a stage without DECK_BROWSER: the conductor page, then back
+    10) browser ;;                       # F12 of a stage without DECK_BROWSER: the conductor page, then back
     *) echo "deck-stage exited with $rc – the browser instead (journalctl -u deck-kiosk)" >&2
        sleep 1; browser ;;
   esac

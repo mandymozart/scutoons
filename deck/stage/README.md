@@ -33,14 +33,14 @@ window pixel for a check run – a hovered button shows in the HUD; or `--pointe
 The graph's workloads: `cargo bench -p deck-stage` (patcher | batch | batch AVX2, µs per block).
 
 Keys: **F1** the HUD → the collapsed stats bar (#209: one line across the whole top edge – FPS, CPU / frame, the audio's
-glitches / DSP load / limiter, the relay, the GPU backend; red when out of the green) → nothing · **F2** the browser · **Ctrl+Q** quit (on the deck the stage starts again; a stop signal – SIGTERM, Ctrl+C – ends the same way, outputs dark, #263) · **Ctrl+Alt+Del** power off (`systemctl
+glitches / DSP load / limiter, the relay, the GPU backend; red when out of the green) → nothing · **F12** the conductor page (a locked-down browser window; #268) · **Ctrl+Q** quit (on the deck the stage starts again; a stop signal – SIGTERM, Ctrl+C – ends the same way, outputs dark, #263) · **Ctrl+Alt+Del** power off (`systemctl
 poweroff`, the logo stays up; not in a `--windowed` stage) · Esc quits a `--windowed` stage · the tempo clock: **T** tap ·
 **+ / −** BPM · **Space** start / stop · **F3** the next source (internal → MIDI → Link → OSC → relay) · **K** the click · **F4** the
 quality settings page, **Shift+F4** the governor on / off ("Quality" below) · **F5** the scene list ("Scenes" below). **Volume up / down / mute** (the hardware keys, `volume.rs`, #253): the PipeWire default sink's volume in 5 % steps up to 100 % (`wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+ -l 1.0`, `set-mute … toggle`) – so Chromium (F2) follows too – and `VOL ######.... 60%` / `VOL MUTED 60%` for about a second on the HUD, also with the HUD off (the bar appears for that second); WirePlumber keeps the level across reboots. `--show-volume` keeps the overlay on (a check run's screenshot). In a scene with a `space` node: a **mouse drag** turns the camera around the being (or, on a 3D
 button, pulls it along its tether – out = more; a double click: back to the scene's value; a finger the same), the **wheel** / **↑ ↓** zoom, **← →** turn, **R** the camera's home; the pointer stays
-visible in the kiosk then. The HUD names the keys. F2 with `DECK_BROWSER` set (deck-session sets it to `deck-session browser`) starts that command on
+visible in the kiosk then. The HUD names the keys. F12 with `DECK_BROWSER` set (deck-session sets it to `deck-session browser`) starts that command on
 top of the running stage: the logo comes up until the browser's window takes the focus (cage shows the newest window),
-then the stage stops drawing and mutes; when the command exits the stage is back at once. Without `DECK_BROWSER` F2
+then the stage stops drawing and mutes; when the command exits the stage is back at once. Without `DECK_BROWSER` F12
 quits with exit code 10. If the display connection dies (cage went away) the stage logs "display lost" and exits with
 code **75** at once; `deck-session` ends on it with a non-zero exit, so deck-kiosk (Restart=on-failure) brings the
 kiosk back – no browser on a dead display (#257).

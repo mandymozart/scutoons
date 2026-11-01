@@ -68,7 +68,7 @@ Under the logo (owner 2026-10-29, #179): the SCUTOONS logo in white on black fro
 `rootfs/usr/share/plymouth/themes/scutoons`, a quiet kernel line: `quiet splash loglevel=3 …`). deck-firstboot's
 steps show as messages under it; it steps aside only for a menu (the Wi-Fi menu when offline or asked for, a failing
 check's shell) and quits, keeping its last frame, right before cage starts (deck-kiosk.service); the stage's first
-frame is the logo again (deck/stage: until the chapter and the music are loaded), and F2 keeps it up until the
+frame is the logo again (deck/stage: until the chapter and the music are loaded), and F12 keeps it up until the
 browser's window is there.
 
 1. `deck-firstboot.service` – persistence (`deck-persist`), the defaults into `/var/lib/deck` (`venue.toml`,
@@ -87,7 +87,7 @@ browser's window is there.
 4. `deck-kiosk.service` – `cage` runs `deck-session` as the user `deck`, which plays `kiosk` from
    `/var/lib/deck/deck.toml`: **`stage`** (the default) = `deck-stage` (deck/stage/README.md) with `scene` (empty = the
    built-in idle scene – fireflies on black, no sound (#252); `scene = "madness"` = "AV madness": catpope 1's slices, captions and music + synths, the FFT drives the picture; its cache in
-   `/var/lib/deck/cache`); **F2** opens Chromium on the page `conductor` names (empty = the deck's own start page: the
+   `/var/lib/deck/cache`); **F12** opens Chromium (as an `--app` window, DevTools / printing off by a managed policy, #268) on the page `conductor` names (empty = the deck's own start page: the
    machine report, the relay's `/status`, the link to the conductor) on top of the stage, which shows the logo until
    Chromium's window covers it, then pauses and mutes; closing Chromium (Ctrl+Shift+W) shows the stage at once. A
    stage that fails opens Chromium alone.
@@ -111,7 +111,7 @@ A deck touches SCUTOONS data only once a member approved it (CYBERDECKS.md §9).
    on DECKDATA; an installed deck: the root fs). A stick without persistence makes a new key each boot and asks again.
 2. **The code:** `deck-link once` asks scutoons.com and puts `pair this deck: code K7Q-42M · https://scutoons.com/account/decks?deck=K7Q42M`
    under the boot logo; the stage shows the code + a QR in its corner while the deck waits (scan it with the phone,
-   signed in, approve), the start page (F2) and `deck-link status` on tty2 say it too.
+   signed in, approve), the start page (F12) and `deck-link status` on tty2 say it too.
 3. **The daemon:** `deck-link.service` (`deck-link run`, root) keeps asking, then holds the deck's ~1 h token in
    `/run/deck-link/token` (2750 root:deck from tmpfiles.d, the token 0640 – root and the user `deck` read it), renews
    it, and after a revoke / expiry goes back to a new code by itself. The stage sends it to the API (scene-content, the
