@@ -67,6 +67,90 @@ fn the_default_scene_renders_without_allocating() {
     }
 }
 
+/// #236: the `walk` node – deck-events' graph, its real-time events and the gate_cv bridge inside the callback –
+/// doesn't allocate either
+#[cfg(feature = "events")]
+#[test]
+fn a_walk_into_an_fm_voice_renders_without_allocating() {
+    let _turn = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let scene = Scene::parse(
+        "[[node]]\nid = \"tempo\"\nkind = \"tempo\"\n[[node]]\nid = \"melody\"\nkind = \"walk\"\nseed = 3\nspread = 1.0\nrate = 4.0\n\
+         [[node]]\nid = \"voice\"\nkind = \"fm\"\ngain = 0.2\n[[node]]\nid = \"fft\"\nkind = \"fft\"\n[[node]]\nid = \"out\"\nkind = \"audio_out\"\n\
+         [[link]]\nfrom = \"melody.cv\"\nto = \"voice.cv\"\n[[link]]\nfrom = \"voice\"\nto = \"fft.in\"\n[[link]]\nfrom = \"voice\"\nto = \"out.in\"\n",
+    )
+    .unwrap();
+    let graph = Graph::build(&scene).unwrap();
+    for build in [Build::detect(), Build { batch: true, avx2: false }] {
+        renders_without_allocating(&graph, build);
+    }
+}
+
+/// #236: an `events` node – an arp on a walk, a patch – doesn't allocate either
+#[cfg(feature = "events")]
+#[test]
+fn an_events_patch_into_an_fm_voice_renders_without_allocating() {
+    let _turn = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let scene = Scene::parse(
+        "[[node]]\nid = \"tempo\"\nkind = \"tempo\"\n[[node]]\nid = \"arp\"\nkind = \"events\"\nb = 8.0\n\
+         generator = [{ id = \"walk\", kind = \"random_walk\", seed = 3, rate = 1.0, spread = 1.0 }, \
+         { id = \"arp\", kind = \"arp\", octaves = 3, mode = \"updown\", rate = 8.0 }]\n\
+         edge = [{ from = \"walk.notes\", to = \"arp.notes\" }]\nout = \"arp.notes\"\nknobs = [\"walk.spread\", \"arp.rate\"]\n\
+         [[node]]\nid = \"voice\"\nkind = \"fm\"\ngain = 0.2\n[[node]]\nid = \"fft\"\nkind = \"fft\"\n[[node]]\nid = \"out\"\nkind = \"audio_out\"\n\
+         [[link]]\nfrom = \"arp.cv\"\nto = \"voice.cv\"\n[[link]]\nfrom = \"voice\"\nto = \"fft.in\"\n[[link]]\nfrom = \"voice\"\nto = \"out.in\"\n",
+    )
+    .unwrap();
+    let graph = Graph::build(&scene).unwrap();
+    for build in [Build::detect(), Build { batch: true, avx2: false }] {
+        renders_without_allocating(&graph, build);
+    }
+}
+
+/// #236: the sequencer path – the audio block taking its events from the ring, the sequencer's windows, the
+/// dispatcher routing an adapter's notes into the patch's `listen` input – allocates nowhere: 2000 blocks of 256
+/// frames, the sequencer filled a horizon ahead, a note routed in every 50 blocks, all measured on this thread.
+#[cfg(feature = "events")]
+#[test]
+fn the_sequencer_and_the_dispatcher_do_not_allocate() {
+    use deck_events::Event;
+    use deck_stage::audio::dispatch::Dispatcher;
+    use deck_stage::audio::Sequencing;
+    let _turn = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let scene = Scene::parse(
+        "[[node]]\nid = \"tempo\"\nkind = \"tempo\"\n[[node]]\nid = \"arp\"\nkind = \"events\"\nb = 8.0\n\
+         generator = [{ id = \"walk\", kind = \"random_walk\", seed = 3, rate = 1.0, spread = 1.0 }, \
+         { id = \"arp\", kind = \"arp\", octaves = 3, mode = \"updown\", rate = 8.0 }]\n\
+         edge = [{ from = \"walk.notes\", to = \"arp.notes\" }]\nout = \"arp.notes\"\nknobs = [\"walk.spread\", \"arp.rate\"]\n\
+         listen = [{ to = \"arp.notes\", name = \"music.note\" }]\n\
+         [[node]]\nid = \"voice\"\nkind = \"fm\"\ngain = 0.2\n[[node]]\nid = \"out\"\nkind = \"audio_out\"\n\
+         [[link]]\nfrom = \"arp.cv\"\nto = \"voice.cv\"\n[[link]]\nfrom = \"voice\"\nto = \"out.in\"\n",
+    )
+    .unwrap();
+    let graph = Graph::build(&scene).unwrap();
+    let (mut engine, mut h) = Engine::build_seq(&graph, 48_000.0, 1.0, Build::detect(), Sequencing::Thread).unwrap();
+    let mut seq = h.events.take_sequencer().expect("the host runs on the sequencer");
+    let (mut dispatcher, inlet) = Dispatcher::new(h.events.take_routing(), h.events.counters.clone());
+    let (note, pitch) = (h.events.names.get("music.note").unwrap(), h.events.names.get("pitch").unwrap());
+    let mut buf = vec![0.0f32; 256 * 2];
+    let ahead = seq.horizon();
+    measure(true);
+    let before = CALLS.load(Ordering::SeqCst);
+    for i in 0..2000u64 {
+        if i % 50 == 0 {
+            inlet.send(Event::now(note).with(pitch, 110.0 + i as f32 / 10.0));
+        }
+        dispatcher.drain();
+        seq.fill(ahead);
+        engine.mark(1_000_000_000 + i * 5_333_333);
+        engine.render(&mut buf, 2, |x| x);
+    }
+    measure(false);
+    assert_eq!(CALLS.load(Ordering::SeqCst) - before, 0, "allocations / frees on the sequencer path");
+    let c = &h.events.counters;
+    assert_eq!(c.routed.load(Ordering::Relaxed), 40, "every note routed");
+    assert_eq!(c.dropped(), 0, "nothing late or lost");
+    assert!(buf.iter().any(|x| *x != 0.0), "the patch plays through the ring");
+}
+
 fn renders_without_allocating(graph: &Graph, build: Build) {
     let (mut engine, mut handles) = Engine::build_with(graph, 48_000.0, 1.0, build).unwrap();
     assert!(engine.shape().1 > 0, "the FM voice runs as a batch");

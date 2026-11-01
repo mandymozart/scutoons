@@ -8,7 +8,10 @@ import { LiveCore, type Analysis } from '@scutoons/live-core';
 import type { DeckSynced } from '@scutoons/live';
 import { DeckLink, ValueStream, type WebSocketLike } from './client.ts';
 import { BrowserSync } from './sync.ts';
-import { BASE_HZ, deckGraph, ENGINE_TOML, ladderFor, MELODY, Moods, PARAMS, SPREAD_OCTAVES, STREAMED, toPos } from './scene.ts';
+import { BASE_HZ, deckGraph, ENGINE_TOML, ladderFor, MELODY, Moods, PARAMS, SPREAD_OCTAVES, STREAMED, toPos, type Spec } from './scene.ts';
+import { knobTarget, rigDiff, rigGraph, rigParams, rigStreamed } from './rig.ts';
+import type { RigPlayed } from './space.ts';
+import { pinkNoise, type PageNoise } from './noise.ts';
 
 /** the tempo the deck's ladder and the being's breath read (cathedral.toml's) */
 export const BPM = 84;
@@ -43,14 +46,19 @@ export interface EngineFiles {
 	lead?: number;
 }
 
-/** who turned a value: the page's controls or the being's 3D buttons (the page moves its sliders for the latter) */
-export type Hand = 'page' | 'being';
+/** who turned a value: the page's controls, the being's 3D buttons, or a mood's preset (the page moves its sliders
+ *  for the last two) */
+export type Hand = 'page' | 'being' | 'mood';
 
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 
 export class Deck {
-	/** every parameter's value (PARAMS + MELODY) */
+	/** every parameter's value (the sliders' – PARAMS or the rig's knobs – + MELODY) */
 	readonly value: Record<string, number> = Object.fromEntries(Object.entries({ ...PARAMS, ...MELODY }).map(([k, s]) => [k, s.value]));
+	/** the sliders: the fixed patch's PARAMS, or the rig's knobs (#191) */
+	params: Record<string, Spec> = PARAMS;
+	/** the character's rig as played for the current mood (deck-space via space-web `rig_play`); null = the fixed patch */
+	rig: RigPlayed | null = null;
 	character: string;
 	portraits: Portraits = {};
 	readonly moods = new Moods(['neutral'], 1.5, BPM);
@@ -61,12 +69,13 @@ export class Deck {
 	readonly link: DeckLink | null;
 	/** #195: the answers to the conductor's pushes (null without a CDN) */
 	readonly sync: BrowserSync | null;
-	readonly stream = new ValueStream(STREAMED);
+	stream = new ValueStream(STREAMED);
 	core: LiveCore | null = null;
 	/** every value change, with whose hand (the page's controls follow the being's) */
 	onValue: ((path: string, value: number, hand: Hand) => void) | null = null;
 	onMood: ((mood: string) => void) | null = null;
-	private noise: { filter: BiquadFilterNode; gain: GainNode } | null = null;
+	/** the fixed patch's incense, or a rig's noise nodes by id */
+	private noises = new Map<string, PageNoise>();
 	private gate = 0;
 	private swayPhase = 0;
 	private sway = 0;
@@ -98,7 +107,32 @@ export class Deck {
 	/** the being on the wire now: the character, its ladder first, then every mood it has */
 	graph(): DeckGraph {
 		const have = Object.keys(this.portraits);
-		return deckGraph(this.character, [...this.moods.moods, ...have.filter((m) => !this.moods.moods.includes(m))]);
+		const moods = [...this.moods.moods, ...have.filter((m) => !this.moods.moods.includes(m))];
+		return this.rig ? rigGraph(this.rig, moods) : deckGraph(this.character, moods);
+	}
+
+	/** Play a rig instead of the fixed patch (null = back to it): its knobs become the sliders, its graph the being on
+	 *  the wire, its lowered scene the sound (live-core reloads when it runs). */
+	useRig(p: RigPlayed | null): void {
+		this.rig = p;
+		this.params = p ? rigParams(p) : PARAMS;
+		for (const k of Object.keys(this.value)) if (!(k in MELODY)) delete this.value[k];
+		for (const [k, s] of Object.entries(this.params)) this.value[k] = s.value;
+		this.stream = new ValueStream(p ? rigStreamed(p) : STREAMED);
+		this.link?.setGraph(this.graph());
+		if (this.core) void this.loadEngine(this.core);
+	}
+
+	/** The rig played for the new mood: the values that moved go out (the sliders follow), a new shape reloads. */
+	moodRig(p: RigPlayed): void {
+		if (!this.rig) return this.useRig(p);
+		const d = rigDiff(this.rig, p);
+		if (d.reload) return this.useRig(p);
+		this.rig = p;
+		for (const [path, v] of d.values) {
+			if (path in this.value) this.setParam(path, v, 'mood');
+			else this.send(path, v);
+		}
 	}
 
 	/** the paths the deck streams (and the 3D being reads) */
@@ -119,6 +153,7 @@ export class Deck {
 		if (!(path in this.value) || !Number.isFinite(v)) return;
 		this.value[path] = v;
 		this.onValue?.(path, v, hand);
+		if (this.rig) return this.send(path, v);
 		const core = this.core;
 		if (!core) return;
 		if (path === 'voice.ratio' || path === 'voice.index') core.set(path, [v]);
@@ -126,7 +161,26 @@ export class Deck {
 		else if (path === 'drone.freq' || path === 'drone.gain') {
 			core.set('drone', [this.value['drone.freq'], this.value['drone.gain']]);
 			core.set('fifth', [this.value['drone.freq'] * 1.5, this.value['drone.gain'] * 0.3]);
-		} else if (path === 'incense.gain' && this.noise) this.noise.gain.gain.setTargetAtTime(v, this.noise.gain.context.currentTime, 0.05);
+		} else if (path === 'incense.gain') this.noiseGain('incense', v);
+	}
+
+	/** a rig's value to where it plays: live-core (through a strip's alias) or a noise the page plays */
+	private send(path: string, v: number): void {
+		const t = this.rig && knobTarget(this.rig, path);
+		if (!t) return;
+		if ('engine' in t) {
+			try {
+				this.core?.set(t.engine, [v]);
+			} catch {
+				/* a param live-core doesn't have (a kind it skips) */
+			}
+		} else if (t.port === 'gain') this.noiseGain(t.page, v);
+		else if (t.port === 'cutoff') this.noises.get(t.page)?.filter.frequency.setTargetAtTime(v, this.noises.get(t.page)!.filter.context.currentTime, 0.03);
+	}
+
+	private noiseGain(id: string, v: number): void {
+		const n = this.noises.get(id);
+		n?.gain.gain.setTargetAtTime(v * n.strip, n.gain.context.currentTime, 0.05);
 	}
 
 	/** the incense's cutoff now: its slider swayed by the LFO */
@@ -137,6 +191,11 @@ export class Deck {
 	/** a streamed path's value now (the hoses' sources are the page's own: its melody, its levels, its LFO) */
 	read(p: string): number {
 		const peak = clamp01;
+		if (this.rig) {
+			if (p === 'fft.level' || /^mix\d+\.out$/.test(p)) return this.bands.level;
+			if (p === 'fft.bass') return this.bands.bass;
+			return this.value[p] ?? NaN;
+		}
 		switch (p) {
 			// the pitch as the choir line's cv: log-scaled into 0–1 across the spread's whole range
 			case 'seq.cv':
@@ -175,7 +234,8 @@ export class Deck {
 		this.swayPhase = (this.swayPhase + this.value['sway.rate'] * dt) % 1;
 		this.sway = Math.sin(this.swayPhase * 2 * Math.PI) * this.value['sway.depth'];
 		const core = this.core;
-		if (core) {
+		// the fixed patch's melody and incense (a rig plays its own scene)
+		if (core && !this.rig) {
 			// the melody: a random pitch on a continuous scale each step, the voice gliding there (no 12-tone grid);
 			// spread 0 = the held drone at BASE_HZ
 			const stepDur = 1 / this.value['melody.rate'];
@@ -194,7 +254,7 @@ export class Deck {
 				this.gate = 1;
 				core.set('env', [1]);
 			}
-			this.noise?.filter.frequency.setTargetAtTime(this.cutoff(), t, 0.03);
+			this.noises.get('incense')?.filter.frequency.setTargetAtTime(this.cutoff(), t, 0.03);
 		}
 		const m = this.moods.update(now, dt, this.bands.level, this.touch);
 		if (m !== this.mood) {
@@ -205,34 +265,29 @@ export class Deck {
 		if (changes) this.link?.send(changes);
 	}
 
-	/** Start the sound (needs a user gesture): live-core with the trimmed cathedral, and the incense noise. */
+	/** Start the sound (needs a user gesture): live-core with the fixed patch or the rig, and the page's noises. */
 	async start(files: EngineFiles): Promise<void> {
 		const c = await LiveCore.start({ worker: files.worker, wasm: files.wasm, worklet: files.worklet, transport: files.transport ?? 'auto', lead: files.lead ?? defaultLead() });
-		await c.load(ENGINE_TOML);
 		c.onAnalysis((a) => (this.bands = a));
-		const ctx = c.context;
-		const buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
-		const d = buf.getChannelData(0);
-		let b0 = 0,
-			b1 = 0,
-			b2 = 0;
-		for (let i = 0; i < d.length; i++) {
-			// pink-ish: three leaky integrators of white noise (cathedral.toml's incense is pink)
-			const w = Math.random() * 2 - 1;
-			b0 = 0.99765 * b0 + w * 0.099;
-			b1 = 0.963 * b1 + w * 0.2965;
-			b2 = 0.57 * b2 + w * 1.0527;
-			d[i] = (b0 + b1 + b2 + w * 0.1848) * 0.2;
-		}
-		const src = Object.assign(ctx.createBufferSource(), { buffer: buf, loop: true });
-		const filter = Object.assign(ctx.createBiquadFilter(), { type: 'lowpass' as BiquadFilterType });
-		const gain = ctx.createGain();
-		gain.gain.value = this.value['incense.gain'];
-		src.connect(filter).connect(gain).connect(ctx.destination);
-		src.start();
-		this.noise = { filter, gain };
 		this.core = c;
-		for (const p of Object.keys(PARAMS)) this.setParam(p, this.value[p]);
+		await this.loadEngine(c);
+	}
+
+	/** (Re)load the sound: live-core's scene and the noises the page plays, then every slider's value. */
+	private async loadEngine(c: LiveCore): Promise<void> {
+		for (const n of this.noises.values()) n.src.stop();
+		this.noises.clear();
+		const rig = this.rig;
+		await c.load(rig ? rig.engine.scene : ENGINE_TOML);
+		if (rig) {
+			for (const n of rig.engine.page) {
+				// seq and other page kinds: not played yet (the voice holds its pitch)
+				if (n.kind !== 'noise') continue;
+				const num = (k: string, d: number) => (typeof n[k] === 'number' ? (n[k] as number) : d);
+				this.noises.set(n.id, pinkNoise(c.context, num('cutoff', 4000), num('gain', 0), n.gain));
+			}
+		} else this.noises.set('incense', pinkNoise(c.context, this.cutoff(), this.value['incense.gain'], 1));
+		for (const p of Object.keys(this.params)) this.setParam(p, this.value[p]);
 	}
 
 	close() {

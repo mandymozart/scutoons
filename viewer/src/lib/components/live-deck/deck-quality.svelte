@@ -1,13 +1,14 @@
 <script lang="ts">
 	// The deck's render quality (#220, owner 2026-10-31: "a resolution selection, so that we can turn screws depending
 	// on the deck's resources"): the level chosen – the highest this deck renders at – and Auto, the governor that steps
-	// below it under load and back up with headroom (deck-space quality.rs; this only shows and forwards). The line
+	// below it under load and back up with headroom (deck-space quality.rs; this only shows and forwards); Settings opens
+	// every preset's knobs (deck-quality-sheet). The line
 	// after the buttons is what the deck renders now: its level, the render scale, the frame time. The level names are
 	// the stage HUD's (language-neutral, like a meter's).
 	import type { QualityLevel, SpaceQuality } from '@scutoons/live-deck';
 	import { m } from '$lib/paraglide/messages.js';
 
-	let { quality, onquality }: { quality: SpaceQuality; onquality: (level: QualityLevel, auto: boolean) => void } = $props();
+	let { quality, onquality, onsettings }: { quality: SpaceQuality; onquality: (level: QualityLevel, auto: boolean) => void; onsettings: () => void } = $props();
 	const LEVELS: [QualityLevel, string][] = [
 		['low', 'LOW'],
 		['medium', 'MED'],
@@ -28,6 +29,7 @@
 			</button>
 		{/each}
 	</span>
+	<button type="button" class="toggle" onclick={onsettings} data-testid="deck-quality-settings">{m['live_deck.quality_settings']()}</button>
 	<span class="now" class:down={quality.level !== quality.ceiling}>{quality.level} {quality.scale.toFixed(2)}× {quality.frame ? `${quality.frame.toFixed(1)}MS` : ''}</span>
 </div>
 

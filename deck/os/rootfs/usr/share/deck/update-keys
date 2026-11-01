@@ -1,0 +1,4 @@
+# The keys a deck takes updates from (#237, deck-update): one Ed25519 public key (hex) per line. A deck adds its own with
+# `deck-update trust <hex>` (/var/lib/deck/update-keys). The private halves never enter the repository.
+# the dev PC's key (owner's workstation, ~/.scutoons/deck-update.key; 2026-11-01)
+6bcfba6dfcc835060300199811c9cd51810d321d95948d25c68991e716401a60

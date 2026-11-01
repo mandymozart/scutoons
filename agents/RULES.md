@@ -40,6 +40,8 @@ agents/DECISIONS.md. A change to how agents work changes this file in the same c
 - **One checkout** `C:\Development\scutoons`, **one branch `main`** (= production), **one dev DB `scutoons`**. No
   `git worktree`, no per-agent DBs, no `isolation: worktree` – only when the owner asks for one by name ("in its own
   worktree"); then its own DB `SCUTOONS_DB_NAME=scutoons_<x>`, and the owner merges it.
+- **Branch names** (any branch besides `main`: cloud sessions, worktrees, stacked PRs; owner 2026-11-01): `<kind>/<issue>-<short-title>`
+  – kind `feature` · `fix` · `chore` · `wip`, e.g. `feature/236-events-threads`. Never a generated name; a session that starts others names their branches so.
 - Commit guarded and only your own paths: `[ "$(git branch --show-current)" = main ] && git commit -m … -- <paths>`.
   Other sessions work in the same checkout: never `git add -A`, never commit, reset, stash or reformat their files.
   Bare `git stash` / `stash pop` never.

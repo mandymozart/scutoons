@@ -9,7 +9,6 @@
 import type { DeckControlsView } from './controls.ts';
 import type { Deck } from './deck.ts';
 import { BPM } from './deck.ts';
-import { PARAMS } from './scene.ts';
 import type { DeckQuality, QualityLevel } from '@scutoons/live';
 export type { QualityLevel };
 
@@ -52,7 +51,53 @@ export interface SpaceView {
 	quality_report(now: number): string;
 	/** #220: the panel's level ("low" … "ultra") and whether the governor steps below it */
 	set_quality(level: string, auto: boolean): void;
+	/** #220: the preset's frame rate cap: draw now, this many ms after the last drawn frame? */
+	due(sinceMs: number): boolean;
+	/** #220: the presets – the stage's quality file (TOML) and the sheet's JSON; setters answer "" or why not */
+	presets_text(): string;
+	presets_json(): string;
+	set_presets(text: string): string;
+	set_presets_json(json: string): string;
+	/** #220: the presets' pixel ratio cap (0 = none) */
+	pixel_ratio(): number;
 	free(): void;
+}
+
+/** a knob of a played rig (deck-space `rig::Knob`): an exposed parameter of the flattened scene */
+export interface RigKnob {
+	/** `<track>_<node>.<port>` */
+	path: string;
+	label?: Record<string, string>;
+	min: number;
+	max: number;
+	value: number;
+	log?: boolean;
+}
+
+/** a character's rig played for a persona and a mood (deck-space `rig::Played`, #191) */
+export interface RigPlayed {
+	/** a stage scene in TOML (its space node bare) */
+	scene: string;
+	nodes: { id: string; kind: string; [param: string]: unknown }[];
+	links: { from: string; to: string; scale: number; offset: number }[];
+	/** the head's character; empty for an item's rig */
+	character: string;
+	knobs: RigKnob[];
+	tracks: { track: string; preset?: string }[];
+	/** the scene lowered for live-core (deck-space rig/engine.rs) */
+	engine: RigEngine;
+}
+
+/** what live-core plays of a rig, and what the page plays itself */
+export interface RigEngine {
+	/** live-core's scene (batch kinds only) */
+	scene: string;
+	/** a knob's path → the engine path to set instead (a strip-gained gain) */
+	aliases: Record<string, string>;
+	/** nodes the page plays (noise …), at `gain` × their own gain */
+	page: { id: string; kind: string; gain: number; [param: string]: unknown }[];
+	/** links the engine doesn't carry (audio links, the being's routes) */
+	dropped: { from: string; to: string; scale: number; offset: number }[];
 }
 
 /** #220: the render quality now (deck-space quality.rs) */
@@ -65,12 +110,48 @@ export interface SpaceQuality {
 	scale: number;
 	/** ms, the mean frame interval of the last half second */
 	frame: number;
+	/** the rung's frame rate cap */
+	fps: number;
 	width: number;
 	height: number;
 }
 
+/** #220: a render size – a scale of the display (≤ 4) or a height in pixels (≥ 100) */
+export type RenderSize = number;
+
+/** #220: one preset's knobs (deck-space quality.rs `Preset`) */
+export interface QualityPreset {
+	on: boolean;
+	/** the render size under load and its own */
+	min: RenderSize;
+	max: RenderSize;
+	fxaa: boolean;
+	bloom: boolean;
+	/** how many beings light the room (0–8) */
+	lights: number;
+	/** the frame rate cap */
+	fps: number;
+}
+
+/** #220: the deck's quality settings – the same as the stage's quality file */
+export interface QualityPresets {
+	level?: QualityLevel;
+	auto: boolean;
+	display?: string;
+	/** device pixels per CSS pixel at most */
+	pixel_ratio?: number;
+	low: QualityPreset;
+	medium: QualityPreset;
+	high: QualityPreset;
+	ultra: QualityPreset;
+}
+
 interface SpaceModule {
 	default: (o: { module_or_path: string | URL }) => Promise<unknown>;
+	/** deck/space-web `rig_play`: the bundle as JSON (rig + instruments + presets), persona / mood '' = none; throws on a bad rig */
+	rig_play(bundle: string, persona: string, mood: string): string;
+	/** deck/space-web `core_rig`: the core rig of `character.<id>` / `item.<id>` as a bundle, '' when the deck has none */
+	core_rig(subject: string): string;
 	SpaceView: {
 		create(canvas: HTMLCanvasElement, deckGraph: string, values: string, prefer: string): Promise<SpaceView>;
 		encoded_images(glb: Uint8Array): unknown[];
@@ -276,10 +357,42 @@ export class SpaceStage {
 		this.view.set_quality(level, auto);
 	}
 
+	/** #220: the presets (the settings sheet) */
+	get presets(): QualityPresets {
+		return JSON.parse(this.view.presets_json()) as QualityPresets;
+	}
+
+	/** #220: new presets – "" or why not */
+	setPresets(p: QualityPresets): string {
+		return this.view.set_presets_json(JSON.stringify(p));
+	}
+
+	/** #220: the presets as the stage's quality file */
+	get presetsText(): string {
+		return this.view.presets_text();
+	}
+
+	setPresetsText(text: string): string {
+		return this.view.set_presets(text);
+	}
+
+	/** #220: the device pixels per CSS pixel the 3D's display has: the presets' cap, else the page's (`maxScale`) */
+	private pixelRatio(): number {
+		return Math.min(devicePixelRatio || 1, this.view.pixel_ratio() || this.o.maxScale || 2);
+	}
+
+	/** #220: the most this screen can show – its physical pixels – and the display the 3D scales from now */
+	get screen(): { max: [number, number]; display: [number, number] } {
+		const r = devicePixelRatio || 1;
+		return { max: [Math.round(screen.width * r), Math.round(screen.height * r)], display: [...this.display] };
+	}
+
 	/** One frame (after `deck.tick`): the being's turns into the deck, the deck's values into the being, draw. */
 	frame(now: number) {
 		if (this.stopped) return;
-		// #220: the governor sees the real interval (a stall is a hitch to it, not load) and the audio's dropouts
+		// #220: the preset's frame rate cap – an early frame is skipped (no draw: the power the cap saves); the governor
+		// sees the real interval between drawn frames (a stall is a hitch to it, not load) and the audio's dropouts
+		if (this.last >= 0 && !this.view.due((now - this.last) * 1000)) return;
 		if (this.last >= 0) this.view.govern(now, (now - this.last) * 1000, this.o.deck.core?.stats().underruns ?? 0);
 		const report = this.view.quality_report(now);
 		if (report) this.o.deck.link?.quality(JSON.parse(report) as DeckQuality);
@@ -293,14 +406,14 @@ export class SpaceStage {
 			if (Number.isFinite(v)) this.view.set(p, v);
 		}
 		// #188: a linked knob (the incense cutoff the LFO sways) turns its base – the page's own value under the sway
-		for (const p of Object.keys(PARAMS)) this.view.set_base(p, deck.value[p]);
+		for (const p of Object.keys(deck.params)) this.view.set_base(p, deck.value[p]);
 		// the output limiter's gain reduction: the head's red flush
 		this.view.set_strain(deck.bands.reduction ?? 0, dt);
 		this.view.set_mood(deck.mood);
 		const t = deck.time;
 		this.view.set_beat(BPM, (t * BPM) / 60, 4, true);
 		const c = this.canvas;
-		const scale = Math.min(devicePixelRatio || 1, this.o.maxScale ?? 2);
+		const scale = this.pixelRatio();
 		const w = Math.max(1, Math.round(c.clientWidth * scale));
 		const h = Math.max(1, Math.round(c.clientHeight * scale));
 		if (w !== this.display[0] || h !== this.display[1]) {
@@ -380,6 +493,16 @@ export class SpaceStage {
 		);
 		on('dblclick', (e) => e.preventDefault());
 		on('contextmenu', (e) => e.preventDefault());
+	}
+
+	/** A character's rig played for `persona` and `mood` (#191, research/INSTRUMENTS.md §7): the same Rust as the deck's. */
+	playRig(bundle: string, persona = '', mood = ''): RigPlayed {
+		return JSON.parse(this.mod.rig_play(bundle, persona, mood)) as RigPlayed;
+	}
+
+	/** the core rig of `subject` as a bundle (JSON), null when the deck carries none */
+	coreRig(subject: string): string | null {
+		return this.mod.core_rig(subject) || null;
 	}
 
 	stop() {

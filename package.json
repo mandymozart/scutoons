@@ -78,6 +78,7 @@
 		"deploy:changed": "node deploy/changed.mjs",
 		"backlog": "node scripts/backlog.mjs",
 		"deck:iso": "bash deck/os/build.sh",
+		"deck:update": "bash deck/os/update.sh",
 		"deck:vm": "bash deck/os/vm/run.sh"
 	},
 	"devDependencies": {

@@ -62,6 +62,7 @@
         { "type": "object", "properties": { "kind": { "const": "line" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "fx" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "colour" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "story" }, "p": { "$ref": "#/definitions/Loose" } }, "required": ["kind", "p"], "description": "#236: a story event (`{ type, params, id? }`, the VNEvent) for the other decks – a trigger the receiving deck adapts itself (deck-events adapters/story.rs); the story keeps its own runner." },
         { "type": "object", "properties": { "kind": { "const": "presence" }, "p": { "$ref": "#/definitions/Presence" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "ready" }, "p": { "$ref": "#/definitions/Empty" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "pickup" }, "p": { "$ref": "#/definitions/Pickup" } }, "required": ["kind", "p"] },

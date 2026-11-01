@@ -8,6 +8,12 @@ pub fn raise() -> Result<&'static str, String> {
     imp::raise()
 }
 
+/// High, but not audio (#236: the events' sequencer and dispatcher): ahead of the frame thread and the loaders, behind
+/// the render thread – Windows THREAD_PRIORITY_HIGHEST, Linux nice −10 (the deck's `realtime` group may).
+pub fn raise_high() -> Result<&'static str, String> {
+    imp::raise_high()
+}
+
 #[cfg(windows)]
 mod imp {
     use windows_sys::Win32::Foundation::GetLastError;
@@ -29,6 +35,16 @@ mod imp {
             return Ok("MMCSS Pro Audio");
         }
         Ok("MMCSS Pro Audio, high")
+    }
+
+    pub fn raise_high() -> Result<&'static str, String> {
+        use windows_sys::Win32::System::Threading::{GetCurrentThread, SetThreadPriority, THREAD_PRIORITY_HIGHEST};
+        // SAFETY: the pseudo handle of the calling thread, always valid
+        if unsafe { SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST) } == 0 {
+            // SAFETY: plain call
+            return Err(format!("SetThreadPriority failed ({})", unsafe { GetLastError() }));
+        }
+        Ok("THREAD_PRIORITY_HIGHEST")
     }
 
     #[cfg(test)]
@@ -53,11 +69,24 @@ mod imp {
             e => Err(format!("SCHED_FIFO refused ({e}: no rtprio limit – the user is not in `realtime`)")),
         }
     }
+
+    pub fn raise_high() -> Result<&'static str, String> {
+        // SAFETY: plain calls; a thread's nice value on Linux is per thread (its tid)
+        let r = unsafe { libc::setpriority(libc::PRIO_PROCESS, libc::gettid() as libc::id_t, -10) };
+        match r {
+            0 => Ok("nice -10"),
+            _ => Err("nice -10 refused (no nice limit – the user is not in `realtime`)".into()),
+        }
+    }
 }
 
 #[cfg(not(any(windows, target_os = "linux")))]
 mod imp {
     pub fn raise() -> Result<&'static str, String> {
         Err("no audio priority on this OS".into())
+    }
+
+    pub fn raise_high() -> Result<&'static str, String> {
+        Err("no thread priority on this OS".into())
     }
 }

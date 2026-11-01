@@ -133,19 +133,65 @@ private addresses only), so the X1 at 192.168.1.116 is `wss://192-168-1-116.lan.
 (a broken pair) is followed by a plain one. The owner's whole path (bunny zone, the workflow, the router's DNS-rebind
 exception): research/LIVE.md B.4.
 
+## Updates (#237)
+
+A deck updates over the network – no stick. `deck-update` (deck/update) takes a **signed bundle**: `manifest.json`
+(version, build = unix seconds, channel, every file's SHA-256 + mode), `manifest.json.sig` (Ed25519 over the manifest)
+and `bundle-<build>.tar.gz`. It writes only the deck's own paths (`usr/bin/deck-*`, `usr/lib/systemd/system/deck-*`,
+the deck's sysusers / tmpfiles, `usr/share/deck/`) – never `etc/`, never the base system (kernel, packages: an ISO or,
+later, pacman).
+
+**From the dev PC:** `npm run deck:update` (deck/os/update.sh) builds the Linux binaries in the ISO build's container
+(`DECK_BINARIES_ONLY=1`), bundles them with this folder's `rootfs/` and the stage's scenes, signs with the dev key
+(`~/.scutoons/deck-update.key`, made on first use – never in git; its public half is `rootfs/usr/share/deck/update-keys`)
+into `out/update/`, and serves that folder on port 7790 (`-- --serve` only serves, `-- --no-build` re-bundles,
+`-- --reboot` makes the decks reboot). Windows asks once to let the port through its firewall.
+
+**On the deck:** `deck-update.timer` runs `deck-update auto` every 2 minutes. Channel `dev` (deck.toml
+`update_channel`, the default until a stable release exists) asks deck.toml's `update_url`, the dev PC that answered
+last, the deck's LAN (every host of its private /24s on port 7790; the timer scans at most every 5 minutes, `now` at once)
+and `https://cdn.scutoons.com/deck/update/dev`; `stable` only the server, every 6 h; `off` nothing. The newest build
+whose signature matches a trusted key (`/usr/share/deck/update-keys`, `/var/lib/deck/update-keys`) and whose channel
+matches wins, when it is newer than `/usr/share/deck/build.json` (the image build writes it). Then: download, hash
+check, every tar entry checked against the manifest, files replaced by rename, `daemon-reload` when units changed,
+the services of the changed files restarted (link → relay → bridge → kiosk = the stage with its scene); a restarted
+unit that is not up after 10 s rolls the files back, and the timer never tries that build again. **Never during a
+show:** a conductor on the deck's relay (`/status` `live`) holds the update back. A live stick keeps the applied bundle
+in `/var/lib/deck/update/current` (DECKDATA) and `deck-firstboot` puts it back after each boot.
+
+On tty2 / ssh (root): `deck-update status` · `check` · `now` (at once; `--force` also during a show or a rolled-back
+build; `--url http://<pc>:7790` for this run) · `trust <hex>` (another key). A deck from an image before #237 has no
+deck-update yet – once, on tty2, the commands `npm run deck:update` prints (curl the binary from the PC, `deck-update
+trust <the dev key>`, `deck-update now --url …`); the first bundle brings the timer.
+
 ## Install to a partition
 
-`sudo deck-install` on the stick (a shell on tty2 or the serial console). It lists the machine's partitions (the
-stick excluded), the user picks one by number and confirms by typing its name, optionally picks an EFI system
-partition; then mkfs.ext4 → unsquashfs the live root → the live-only bits removed → fstab → mkinitcpio → a
-systemd-boot entry on the ESP. It never creates or resizes partitions: make the partition first (cfdisk). The
-installed deck boots the same flow (the check runs once, then the kiosk). Not yet tested on real hardware.
+`sudo deck-install` on the stick (a shell on tty2 or the serial console). It lists the machine's partitions with their
+type, file system and label (the stick excluded), the user picks one by number and confirms by typing its name (an ESP
+or a Windows / BitLocker partition is refused), optionally picks an EFI system partition – each shown with its free
+space and whether it holds Windows' boot manager; an empty one is formatted as FAT32 `DECKESP` on request, Windows' own
+needs a `yes`, one with less than 150 MB free is refused. Every question comes before the first write. Then mkfs.ext4 →
+unsquashfs the live root → the live-only bits removed → the kernel from `/usr/lib/modules/*/vmlinuz` to
+`/boot/vmlinuz-<pkgbase>` (mkarchiso empties the root's /boot – without it mkinitcpio has no kernel) → fstab →
+mkinitcpio → a systemd-boot entry on the ESP, and the boot-order advice. It never creates or resizes partitions: make
+them first (cfdisk). The installed deck boots the same flow (the check runs once, then the kiosk).
+
+Next to Windows (the X1, #200): an ESP of its own (256M, type EFI System – 100 MB is the real floor, the installer refuses
+< 150 MB free) next to Windows' – Windows' ESP stays untouched; Windows then starts with F12 → Windows Boot Manager. The
+firmware entry is written by `bootctl` run on the live system, not in the chroot (only there it reaches the EFI
+variables). **Run on the owner's X1 on 2026-11-01** (s7 stick, 16.4 GB root + the 256M ESP in the space freed from C:):
+it installed, the deck booted from the NVMe, the Wi-Fi was remembered. Findings of that run, all fixed here: with
+`copytoram` (archiso's default at 16 GB RAM) the root image is in `/run/archiso/copytoram/`, not on the stick; the first
+run had no boot entry in the firmware (bootctl in the chroot) – from the shell `mount /dev/nvme0n1p4 /mnt/esp && bootctl
+--esp-path=/mnt/esp install` registers it. A restart of `deck-kiosk` from the boot menu's own shell hangs (the kiosk
+requires deck-firstboot, which still waits on that shell) – `exit` it instead.
 
 ## Layout
 
 ```
 deck/os/
   build.sh             the host wrapper (npm run deck:iso) – Docker, volumes, paths
+  update.sh            a remote update for the LAN's decks (npm run deck:update) – binaries, bundle, serve (#237)
   container/build.sh   inside the container: packages → cargo → releng + overlays → mkarchiso
   profile/             what differs from releng: packages.x86_64, pacman.conf, profiledef.deck.sh, airootfs/ (live only)
   rootfs/              the deck as installed on any system (ISO and PKGBUILD): usr/bin/deck-*, systemd units,
