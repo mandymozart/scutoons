@@ -1,4 +1,4 @@
-Status 2026-11-01: built (#236): `deck/events` (the contract, the graph, rt events, random_walk / pulse / arp, gate_cv; allocation-free in a run), the stage's `walk` node and live-core's walks – a rig's melody plays on the deck and in the browser; encapsulated (§10); next: the generic host node, threads, adapters, horizons. Owner handoff "Generator/Event Architecture"; extends #191 (rigs) and #234 (sequences), #235 (patterns / clips).
+Status 2026-11-01: built (#236): `deck/events` (the contract, the graph, rt events, random_walk / pulse / arp, gate_cv; allocation-free in a run), the stage's `walk` / `events` hosts and live-core's walks – a rig's melody plays on the deck and in the browser; the stage's sequencer + dispatcher threads and the routing table (§16); encapsulated (§10); next: adapters, horizons. Owner handoff "Generator/Event Architecture"; extends #191 (rigs) and #234 (sequences), #235 (patterns / clips).
 
 # EVENTS — generators that talk in events
 
@@ -243,7 +243,7 @@ A block is 256 frames = 5.3 ms at 48 kHz (deck-stage audio/ring.rs); 1,000 event
 | path | latency |
 |---|---|
 | a generator → an instrument on the same deck | 0 – scheduled ahead, sample-accurate |
-| a live input (tap, MIDI key, story trigger) → sound | the render lead: 5.3–85 ms native (adaptive, #208), 43–64 ms in the browser (live-core's lead) – the same as a knob today |
+| a live input (tap, MIDI key, story trigger) → sound | native: the sequencer's horizon (device buffer + lead + a block) + the render lead (5.3–85 ms adaptive, #208); 43–64 ms in the browser (live-core's lead) |
 | → the image | the next frame: ≤ 16.7 ms at 60 fps |
 | a story trigger → a deck on the same phone page | ≤ one animation frame + the lead |
 | → other decks over the relay | the network (LAN ≈ 1–10 ms) + the lead; a cue with `at` fires on every deck together, at the time chosen |
@@ -295,7 +295,17 @@ coalesce (latest wins); events are never reordered.
 - Names are interned at load, never per event.
 - Browser: the main thread (UI, the story adapter) → a SharedArrayBuffer ring (live-core's shared transport, COOP /
   COEP on `/live/…`) → the worker (dispatcher + sequencer + engine) → the AudioWorklet copies; fetches in a loader
-  worker; space-web draws on the main thread from the deck's state.
+  worker; space-web draws on the main thread from the deck's state. The worker is already the browser's "sequencer":
+  live-core's walks run the patches there (the in-block path), never in the AudioWorklet; the dispatcher there = an
+  adapter ring (shared/live-core ring.ts, one writer, one reader) from the page into the worker, drained before each
+  render into deck-events' `Table` (route.rs, platform-free) – not built yet.
+
+**Built in deck-stage (#236):** `audio/sequencer.rs` (the hosts' patches one window of 256 frames ahead, a ring of
+`Timed` events per host, late windows dropped and counted, a full ring = wait), `audio/dispatch.rs` (a bounded MPSC
+`Inlet` → the dispatcher thread → `Table::route` → one SPSC ring per `listen` input; the table swapped through the
+queue, so no `arc-swap` dependency; `Counters` in the HUD), `listen` in patches (patch.rs), `inject_at` (graph.rs).
+`DECK_EVENTS=block` keeps the patches in the block; the same samples (deck/stage/tests/walk.rs), both allocation-free
+(tests/no_alloc.rs). Routing costs ≈ 1.4 µs median from `send` to the receiver's ring. deck/stage/README.md "Audio".
 
 **Event horizons – preparing before the trigger** ("anticipate potential events by running through scoped event
 horizons, and preload"): every scope lists the events it can reach – a show's cue rows, a chapter's triggers and

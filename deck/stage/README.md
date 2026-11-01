@@ -64,7 +64,7 @@ the basic audio nodes (`osc`, `noise`, `fm`, `seq`, `click`, `mixer`, `fft`, `au
 | Feature | Adds | Dependencies |
 |---|---|---|
 | `space` | the `space` kind (a set's 3D + the being, #188) | glam, image/webp, serde_json |
-| `events` | the `walk` kind – generators that talk in events (#236, research/EVENTS.md) | deck-events |
+| `events` | the `walk` and `events` kinds – generators that talk in events, their sequencer and dispatcher threads (#236, research/EVENTS.md) | deck-events |
 | `sync` | the scene's sets and portraits from the API into the cache (#195 – below); no node kind | ureq, serde_json |
 | `chapter` | `chapter`, `chapter_music` (the library API + cache) | ureq, symphonia, ab_glyph, image/webp |
 | `live` | `outlet` (a Live outlet, #186 – below) | `chapter`, protocol, tungstenite |
@@ -113,6 +113,19 @@ A live tool may not crackle unnoticed, and should not crackle at all:
 - **Priority** (`src/audio/priority.rs`): the render thread – or the callback's thread when it renders (WASAPI, ALSA;
   not ASIO's, that is the driver's) – at Windows MMCSS "Pro Audio" (high), Linux SCHED_FIFO 70 (the deck's user is in
   `realtime`; PipeWire's own threads at 88 through rtkit).
+- **Events** (#236, `src/audio/sequencer.rs`, `dispatch.rs`; research/EVENTS.md §16): no generator code on the
+  render thread. The `walk` / `events` hosts' patches run on the **sequencer** thread (`events-seq`) in windows of 256
+  frames, ahead of the render by the device's buffer + the lead + a block; each host's notes go into its own SPSC ring
+  (rtrb) at absolute frames (the engine's frame counter – one timebase), and the host's block only takes the events of
+  the frames it renders and writes the cv. A window the render already passed is dropped (counted late); a full ring
+  makes the sequencer wait. The **dispatcher** thread (`events-dispatch`) owns the routing table (deck-events
+  route.rs): adapters push into a bounded MPSC queue (`Inlet::send`, never blocks), it fans each event out by name or
+  domain to the patches' `listen = [{ to = "arp.notes", name = "music.note" }]` inputs (one SPSC ring each); a patch
+  change swaps the immutable table through the same queue – no lock on any hot path. Both threads at high, not audio,
+  priority (Windows THREAD_PRIORITY_HIGHEST, Linux nice −10). Drops (capped, hops, refused compound events, late): the
+  HUD's `EVENTS IN n DROP m`, a `--frames` run's `events_dropped=`. `DECK_EVENTS=block` runs the patches inside the
+  block instead (the fallback; `Engine::build_with` in tests) – the same samples (tests/walk.rs), both allocation-free
+  (tests/no_alloc.rs). Measured: send → receiver's ring ≈ 1.4 µs median, 41 µs p99 (dispatch.rs test).
 - **The buffer** (`--audio-buffer N` · deck.toml `audio_buffer` · the scene's `[stage] audio_buffer`, in that order):
   cpal's `BufferSize::Fixed(N)` clamped to the device's range (a log line says so), a refused one falls back to the
   default; PipeWire's latency request (default 128). **WASAPI shared can only grow it**: on the RME the engine runs a
