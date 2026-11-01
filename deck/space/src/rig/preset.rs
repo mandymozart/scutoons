@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Preset {
     pub id: String,
@@ -41,6 +42,7 @@ pub struct Preset {
 /// `motion:<axis>` (`motion:tilt.x`) · `pad:<control>` (`pad:left.x`) · `stick:<left|right>.<x|y>`; its 0..1 (or −1..1)
 /// lands on `target` across `range` (default: the parameter's range, params.rs).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Mapping {
     pub source: String,

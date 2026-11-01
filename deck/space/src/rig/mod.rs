@@ -40,6 +40,7 @@ pub enum Hold {
 
 /// What a holder may do (owner 2026-10-30: "the definition says who may save, copy or change it").
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum Right {
     /// load and hear it
@@ -54,6 +55,7 @@ pub enum Right {
 
 /// Rights per way of holding, carried by every definition. Default: lent = play + tweak, core = + derive, owned = all.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields, default)]
 pub struct Rights {
     pub lent: Vec<Right>,
@@ -81,6 +83,7 @@ impl Rights {
 
 /// A character's (or object's) set of tracks.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Rig {
     /// whose rig: `character.<id>` (`character.<id>.<persona>` for a persona's own) or `item.<id>` – KANON's subjects
@@ -106,6 +109,7 @@ pub struct Rig {
 
 /// One track: an instrument, its default preset, its mixer strip.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Track {
     pub id: String,
@@ -129,6 +133,7 @@ fn one() -> f32 {
 /// Every track reaches the master through its mixer strip; an audio route is a send into another track's audio input
 /// (an fx track; `scale` = its level), a control route a modulation.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Route {
     pub from: String,
@@ -141,6 +146,7 @@ pub struct Route {
 
 /// A persona's or a mood's overrides: another preset per track, and single values (`<track>:<node>.<port>`).
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields, default)]
 pub struct Variant {
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]

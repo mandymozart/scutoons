@@ -62,15 +62,18 @@ impl Default for StageSettings {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 pub struct NodeDef {
     pub id: String,
     pub kind: String,
     /// everything else on the node: the kind's params (graph.rs reads them by name)
     #[serde(flatten)]
+    #[cfg_attr(test, schemars(with = "std::collections::BTreeMap<String, serde_json::Value>"))]
     pub params: toml::Table,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct LinkDef {
     pub from: String,

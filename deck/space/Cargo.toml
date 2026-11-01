@@ -43,3 +43,4 @@ wgpu = { version = "25", optional = true }
 # the acceptance test of the events adapters (tests/story_to_rig.rs): a chapter event routed to a core rig
 [dev-dependencies]
 deck-events = { path = "../events" }
+schemars = "1"

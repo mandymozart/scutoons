@@ -11,6 +11,7 @@ use std::collections::BTreeMap;
 
 /// What an instrument is for – an Ableton track's role. A scene object's sound (#210) is an instrument too.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum InstrumentKind {
     Drum,
@@ -26,6 +27,7 @@ pub enum InstrumentKind {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Instrument {
     pub id: String,
@@ -47,6 +49,7 @@ pub struct Instrument {
 
 /// A shown parameter: a control input `node.port`, its label, and a narrower range than params.rs's (optional).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Expose {
     pub path: String,

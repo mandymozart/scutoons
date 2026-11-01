@@ -568,6 +568,52 @@ fn node_kinds_for_the_server_are_current() {
     assert!(on_disk == text, "{path} is stale: UPDATE_FIXTURES=1 cargo test -p deck-space node_kinds");
 }
 
+/// The creator's rig editor (#269, research/INSTRUMENTS.md §7 "TS types") checks instruments, presets and rigs against
+/// shared/catalog/src/rigs/schema.json: the JSON schema of these serde forms (schemars, so Rust stays the source of
+/// truth), graph.rs's node kinds and the events patch's limits. `UPDATE_FIXTURES=1 cargo test -p deck-space rig_schema`
+/// writes it, a plain run fails when it is stale.
+#[test]
+fn rig_schema_for_the_creator_is_current() {
+    use crate::graph::{Domain, Kind, PortType};
+    use serde_json::{json, Map, Value};
+    let ty = |t: PortType| match t {
+        PortType::Audio => "audio",
+        PortType::Control => "control",
+        PortType::Video => "video",
+    };
+    // [name, type] pairs: graph.rs's port order survives (serde_json's maps sort their keys)
+    let ports = |ps: &[crate::graph::Port]| -> Value { ps.iter().map(|p| json!([p.name, ty(p.ty)])).collect::<Vec<_>>().into() };
+    let nodes: Map<String, Value> = Kind::ALL
+        .iter()
+        .map(|k| {
+            let domain = match k.domain() {
+                Domain::Audio => "audio",
+                Domain::Control => "control",
+                Domain::Video => "video",
+            };
+            (k.name().to_string(), json!({ "domain": domain, "inputs": ports(k.inputs()), "outputs": ports(k.outputs()) }))
+        })
+        .collect();
+    let scene_only: Vec<&str> = super::instrument::SCENE_ONLY.iter().map(|k| k.name()).collect();
+    let doc = json!({
+        "$comment": "GENERATED from deck/space/src/rig (serde forms, schemars) and graph.rs – do not edit: `UPDATE_FIXTURES=1 cargo test -p deck-space rig_schema` writes it, a plain run fails when it is stale. The creator's rig validator (shared/catalog/src/rigs) checks documents against it.",
+        "instrument": schemars::schema_for!(Instrument),
+        "preset": schemars::schema_for!(Preset),
+        "rig": schemars::schema_for!(Rig),
+        "nodes": nodes,
+        "scene_only": scene_only,
+        "event_knobs": deck_events::patch::KNOBS,
+    });
+    let text = serde_json::to_string_pretty(&doc).unwrap() + "\n";
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../shared/catalog/src/rigs/schema.json");
+    if std::env::var_os("UPDATE_FIXTURES").is_some() {
+        std::fs::create_dir_all(std::path::Path::new(path).parent().unwrap()).unwrap();
+        std::fs::write(path, &text).unwrap();
+    }
+    let on_disk = std::fs::read_to_string(path).unwrap_or_default().replace('\r', "");
+    assert!(on_disk == text, "{path} is stale: UPDATE_FIXTURES=1 cargo test -p deck-space rig_schema");
+}
+
 /// The contract with the server (#258): `GET /api/library/scene-content`'s rigs, as the server answers them from its
 /// catalog (server/tests/fixtures/rigs/scene-content.json, written by its SceneContentRigsTest from the migrated core
 /// rigs), read as `Bundle`s – serde's forms (unknown fields refused), checked, played in every mood – and equal to the
