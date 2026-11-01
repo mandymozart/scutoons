@@ -73,6 +73,11 @@ export class Deck {
 	readonly sync: BrowserSync | null;
 	stream = new ValueStream(STREAMED);
 	core: LiveCore | null = null;
+	/** the scene live-core plays is the deck's current one: false while a load is in flight (a character switch, a mood's
+	 *  new shape) – no `core.set` then, its table is the old scene's and a path it lacks throws (the S22 crash on a switch) */
+	private engineReady = false;
+	/** each load's number: a load that another overtook is ignored when it lands */
+	private loadGen = 0;
 	/** every value change, with whose hand (the page's controls follow the being's) */
 	onValue: ((path: string, value: number, hand: Hand) => void) | null = null;
 	onMood: ((mood: string) => void) | null = null;
@@ -162,27 +167,31 @@ export class Deck {
 		this.value[path] = v;
 		this.onValue?.(path, v, hand);
 		if (this.rig) return this.send(path, v);
-		const core = this.core;
-		if (!core) return;
-		if (path === 'voice.ratio' || path === 'voice.index') core.set(path, [v]);
-		else if (path === 'voice.gain') core.set('vgain.b', [v]);
+		if (path === 'voice.ratio' || path === 'voice.index') this.engineSet(path, [v]);
+		else if (path === 'voice.gain') this.engineSet('vgain.b', [v]);
 		else if (path === 'drone.freq' || path === 'drone.gain') {
-			core.set('drone', [this.value['drone.freq'], this.value['drone.gain']]);
-			core.set('fifth', [this.value['drone.freq'] * 1.5, this.value['drone.gain'] * 0.3]);
+			this.engineSet('drone', [this.value['drone.freq'], this.value['drone.gain']]);
+			this.engineSet('fifth', [this.value['drone.freq'] * 1.5, this.value['drone.gain'] * 0.3]);
 		} else if (path === 'incense.gain') this.noiseGain('incense', v);
+	}
+
+	/** a value into live-core – only once its scene is the deck's, and never throwing out of the deck (a path the
+	 *  scene lacks, e.g. a kind live-core skips, is nothing) */
+	private engineSet(param: string, values: number[]): void {
+		if (!this.core || !this.engineReady) return;
+		try {
+			this.core.set(param, values);
+		} catch {
+			/* a param the engine's scene doesn't have */
+		}
 	}
 
 	/** a rig's value to where it plays: live-core (through a strip's alias) or a noise the page plays */
 	private send(path: string, v: number): void {
 		const t = this.rig && knobTarget(this.rig, path);
 		if (!t) return;
-		if ('engine' in t) {
-			try {
-				this.core?.set(t.engine, [v]);
-			} catch {
-				/* a param live-core doesn't have (a kind it skips) */
-			}
-		} else if (t.port === 'gain') this.noiseGain(t.page, v);
+		if ('engine' in t) this.engineSet(t.engine, [v]);
+		else if (t.port === 'gain') this.noiseGain(t.page, v);
 		else if (t.port === 'cutoff') this.noises.get(t.page)?.filter.frequency.setTargetAtTime(v, this.noises.get(t.page)!.filter.context.currentTime, 0.03);
 	}
 
@@ -242,8 +251,8 @@ export class Deck {
 		this.swayPhase = (this.swayPhase + this.value['sway.rate'] * dt) % 1;
 		this.sway = Math.sin(this.swayPhase * 2 * Math.PI) * this.value['sway.depth'];
 		const core = this.core;
-		// the fixed patch's melody and incense (a rig plays its own scene)
-		if (core && !this.rig) {
+		// the fixed patch's melody and incense (a rig plays its own scene); nothing while its scene still loads
+		if (core && this.engineReady && !this.rig) {
 			// the melody: a random pitch on a continuous scale each step, the voice gliding there (no 12-tone grid);
 			// spread 0 = the held drone at BASE_HZ
 			const stepDur = 1 / this.value['melody.rate'];
@@ -257,10 +266,10 @@ export class Deck {
 			}
 			const g = Math.max(0.001, this.value['melody.glide'] * stepDur);
 			this.pitch = this.glideFrom * (this.target / this.glideFrom) ** Math.min(1, (t - this.glideAt) / g);
-			core.set('voice.freq', [this.pitch]);
+			this.engineSet('voice.freq', [this.pitch]);
 			if (!this.gate) {
 				this.gate = 1;
-				core.set('env', [1]);
+				this.engineSet('env', [1]);
 			}
 			this.noises.get('incense')?.filter.frequency.setTargetAtTime(this.cutoff(), t, 0.03);
 		}
@@ -281,12 +290,23 @@ export class Deck {
 		await this.loadEngine(c);
 	}
 
-	/** (Re)load the sound: live-core's scene and the noises the page plays, then every slider's value. */
+	/** (Re)load the sound: live-core's scene and the noises the page plays, then every slider's value. The engine is
+	 *  quiet from here until the scene landed; a newer load (a second switch before this one landed) wins. */
 	private async loadEngine(c: LiveCore): Promise<void> {
+		const gen = ++this.loadGen;
+		this.engineReady = false;
 		for (const n of this.noises.values()) n.src.stop();
 		this.noises.clear();
 		const rig = this.rig;
-		await c.load(rig ? rig.engine.scene : ENGINE_TOML);
+		try {
+			await c.load(rig ? rig.engine.scene : ENGINE_TOML);
+		} catch (e) {
+			if (gen === this.loadGen) this.o.onStatus?.(`sound: ${(e as Error).message ?? e}`);
+			return;
+		}
+		if (gen !== this.loadGen) return;
+		this.engineReady = true;
+		this.gate = 0;
 		if (rig) {
 			for (const n of rig.engine.page) {
 				// seq and other page kinds: not played yet (the voice holds its pitch)

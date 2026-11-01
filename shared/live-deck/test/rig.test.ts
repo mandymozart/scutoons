@@ -104,3 +104,69 @@ test("the rig's corner sticks reach the deck; no rig restores the fixed patch's"
 	assert.ok('voice.ratio' in d.controlSpecs);
 	d.close();
 });
+
+/** live-core as the deck sees it: a scene that loads later (the worker's round trip), a `set` that throws for a path
+ *  the loaded scene lacks (the real one does), and enough Web Audio for the page's noise */
+function fakeCore() {
+	const context: Record<string, unknown> = { sampleRate: 48000, currentTime: 0 };
+	const chain = { context, connect: () => chain, start: () => {}, stop: () => {}, frequency: { setTargetAtTime: () => {} }, gain: { value: 0, setTargetAtTime: () => {} } };
+	Object.assign(context, {
+		destination: chain,
+		createBuffer: () => ({ getChannelData: () => new Float32Array(96000) }),
+		createBufferSource: () => ({ ...chain }),
+		createBiquadFilter: () => ({ ...chain }),
+		createGain: () => ({ ...chain })
+	});
+	let settle: (() => void)[] = [];
+	const sets: string[] = [];
+	const core = {
+		context,
+		scene: '',
+		loads: 0,
+		sets,
+		load(scene: string) {
+			this.loads++;
+			return new Promise<void>((ok) => settle.push(() => { this.scene = scene; ok(); }));
+		},
+		set(param: string, _v: number[]) {
+			const node = param.split('.')[0];
+			if (!this.scene.includes(`id = "${node}"`)) throw new Error(`live-core: no node '${node}'`);
+			sets.push(param);
+			return true;
+		},
+		/** the pending loads land, oldest first */
+		land() { const s = settle; settle = []; for (const f of s) f(); },
+		onAnalysis() { return () => {}; },
+		stats: () => ({ underruns: 0 })
+	};
+	return core;
+}
+
+test('a character switch while the sound loads: no throw out of tick or setParam, the newest scene wins (S22 crash)', async () => {
+	const d = new Deck({ character: 'catpope', nick: 'guest', api: API });
+	const core = fakeCore();
+	// the fixed patch playing (its scene landed)
+	d.core = core as never;
+	d.useRig(null);
+	core.land();
+	await Promise.resolve();
+	d.tick(1);
+	assert.ok(core.sets.includes('voice.freq'), 'the fixed patch plays its melody');
+	core.sets.length = 0;
+	// the switch: the rig's scene is loading – a frame and a knob turn meanwhile must not throw
+	d.useRig(catpope);
+	assert.doesNotThrow(() => d.tick(1.02));
+	assert.doesNotThrow(() => d.setParam('voice_voice.ratio', 2.5, 'being'));
+	assert.equal(core.sets.length, 0, 'nothing reaches the engine while its scene is the old one');
+	// a second switch before the first landed: the first is ignored when it lands, the second plays
+	d.useRig(null);
+	core.land();
+	await Promise.resolve();
+	await Promise.resolve();
+	assert.ok(core.scene.includes('id = "voice"') && !core.scene.includes('voice_voice'), 'the last scene asked for');
+	core.sets.length = 0;
+	d.tick(1.05);
+	assert.ok(core.sets.includes('voice.freq'), 'the fixed patch plays again');
+	assert.ok(!core.sets.some((p) => p.startsWith('voice_')), "the overtaken rig's values never went out");
+	d.close();
+});
