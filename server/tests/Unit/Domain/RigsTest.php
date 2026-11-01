@@ -215,6 +215,10 @@ final class RigsTest extends TestCase
         $refused(['moods' => ['sad' => ['values' => ['drone:drone.cv' => 1.0]]]], 'not a control input');
         $refused(['moods' => ['sad' => ['values' => ['drone.gain' => 1.0]]]], 'is not <track>:<node>.<port>');
         $refused(['personas' => ['biker' => ['preset' => []]]], 'unknown field "preset"');
+        self::assertSame([], $rig(['sticks' => [['voice_voice.ratio', ''], ['drone_drone.gain', 'voice_melody.spread']]]), 'sticks: knob paths or ""');
+        $refused(['sticks' => [['voice_voice.cv', ''], ['', '']]], "stick 'voice_voice.cv' is not one of its knobs");
+        $refused(['sticks' => [['', ''], ['drone_drone.gain', '']], 'track' => [['id' => 'voice', 'instrument' => 'cathedral_voice'], ['id' => 'drone', 'instrument' => 'drone', 'mute' => true]]], 'not one of its knobs');
+        $refused(['sticks' => [['voice_voice.ratio']]], 'sticks must be');
         self::assertContains('id "character.Boy" is not a valid rigs id', $this->problems('rigs', 'character.Boy', self::data(['subject' => 'character.Boy', 'track' => []])));
     }
 

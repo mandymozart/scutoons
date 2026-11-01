@@ -239,7 +239,7 @@ final class RigValidator
     {
         if (!$r instanceof stdClass) return ['a rig must be an object'];
         $who = "rig $id";
-        $p = self::fields($who, $r, ['subject', 'track', 'route', 'personas', 'moods', 'rights'], ['subject', 'track']);
+        $p = self::fields($who, $r, ['subject', 'track', 'route', 'personas', 'moods', 'rights', 'sticks'], ['subject', 'track']);
         if (!preg_match(self::SUBJECT, $id)) $p[] = "$who: the id is a subject – character.<id>[.<persona>] or item.<id>";
         if (($r->subject ?? null) !== $id) $p[] = "$who: subject must be \"$id\"";
         if (isset($r->rights)) $p = [...$p, ...self::rights($who, $r->rights)];
@@ -261,7 +261,7 @@ final class RigValidator
             $instrument = $instruments($t->instrument);
             if ($instrument === null) $p[] = "$who: unknown instrument \"{$t->instrument}\"";
             elseif ($allowed !== null && !in_array($t->instrument, $allowed, true)) $p[] = "$who: track {$t->id}: the instrument \"{$t->instrument}\" is not one held";
-            $tracks[$t->id] = ['instrument' => $t->instrument, 'def' => $instrument];
+            $tracks[$t->id] = ['instrument' => $t->instrument, 'def' => $instrument, 'mute' => ($t->mute ?? false) === true];
             if (is_string($t->preset ?? null)) $p = [...$p, ...self::fits($who, $t->id, $t->instrument, $t->preset, $presets)];
         }
         foreach (['personas' => 'persona', 'moods' => 'mood'] as $field => $label) {
@@ -301,6 +301,7 @@ final class RigValidator
                 }
             }
         }
+        if (isset($r->sticks)) $p = [...$p, ...self::sticks($who, $r->sticks, $tracks)];
         $routes = $r->route ?? [];
         if (!is_array($routes) || !array_is_list($routes)) $p[] = "$who: route must be a list";
         else foreach ($routes as $n => $route) {
@@ -317,6 +318,32 @@ final class RigValidator
                 if (count($parts) !== 2) $p[] = "$who: route end '$ref' has no scope";
                 elseif (!($parts[0] === 'being' && $end === 'to') && !isset($tracks[$parts[0]])) $p[] = "$who: no track '{$parts[0]}' (route $ref)";
             }
+        }
+        return $p;
+    }
+
+    /**
+     * mod.rs `sticks` + bundle.rs `play`: `[[x, y], [x, y]]` knob paths, each "" or a knob – an exposed parameter of an
+     * unmuted track, `<track>_<node>.<port>`
+     * @param array<string, array{instrument: string, def: ?stdClass, mute: bool}> $tracks
+     * @return list<string>
+     */
+    private static function sticks(string $who, mixed $sticks, array $tracks): array
+    {
+        $pair = fn(mixed $x) => is_array($x) && array_is_list($x) && count($x) === 2 && is_string($x[0]) && is_string($x[1]);
+        if (!(is_array($sticks) && array_is_list($sticks) && count($sticks) === 2 && $pair($sticks[0]) && $pair($sticks[1]))) {
+            return ["$who: sticks must be [[x, y], [x, y]] (knob paths, \"\" = none)"];
+        }
+        $knobs = [];
+        foreach ($tracks as $id => $t) {
+            if ($t['mute'] || $t['def'] === null) continue;
+            foreach ((array) ($t['def']->expose ?? []) as $e) {
+                if ($e instanceof stdClass && is_string($e->path ?? null)) $knobs[] = $id . '_' . self::canonical($e->path);
+            }
+        }
+        $p = [];
+        foreach ([...$sticks[0], ...$sticks[1]] as $path) {
+            if ($path !== '' && !in_array($path, $knobs, true)) $p[] = "$who: stick '$path' is not one of its knobs";
         }
         return $p;
     }

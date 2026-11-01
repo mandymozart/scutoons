@@ -13,7 +13,7 @@
             },
             "rig": {
                 "id": "character.catpope",
-                "version": "fcdd2c97cd53767b",
+                "version": "1f5ef4c129eea916",
                 "data": {
                     "subject": "character.catpope",
                     "track": [
@@ -87,7 +87,17 @@
                             "tweak",
                             "derive"
                         ]
-                    }
+                    },
+                    "sticks": [
+                        [
+                            "voice_voice.ratio",
+                            "voice_voice.index"
+                        ],
+                        [
+                            "voice_melody.spread",
+                            "drone_drone.freq"
+                        ]
+                    ]
                 },
                 "instruments": [
                     "cathedral_voice",
