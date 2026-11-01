@@ -28,6 +28,10 @@ pub struct Scene {
     pub nodes: Vec<NodeDef>,
     #[serde(default, rename = "link")]
     pub links: Vec<LinkDef>,
+    /// #211: the parameters as outputs – MIDI out, the conductor, DMX fixtures and the clock-synced strobe; parsed and
+    /// checked by deck-outputs (its config.rs documents the table), played by the host (deck-stage's outputs.rs)
+    #[serde(default)]
+    pub outputs: Option<toml::Table>,
     #[cfg(feature = "being")]
     #[serde(default)]
     pub being: crate::space::being::Look,

@@ -30,6 +30,9 @@ message until its `at`, as for every adapter.
   next frame is due – no polling.
 - Frames (label 6: start code 0 + 512 channels) only when something changed, at most every 25 ms (40 Hz), plus a
   keep-alive every second (the write also notices a pulled cable).
+- `send_now` (adapters-core, #211 – a strobe's flash from deck-outputs): the change goes out in its own frame at once,
+  at the earliest 4 ms after the last one, instead of on the 40 Hz grid. The widget puts the newest packet on the
+  line with its next DMX frame (512 channels ≈ 23 ms per frame at 250 kbit/s).
 - Device check on open: label 3 (parameters: firmware, break, MAB, rate) and label 10 (serial number), logged; a
   device that answers neither still gets frames (a warning names it).
 - A widget missing at start or pulled out is looked for again every 2 s; the universe survives and is sent at once

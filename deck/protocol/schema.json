@@ -70,6 +70,7 @@
         { "type": "object", "properties": { "kind": { "const": "devices" }, "p": { "$ref": "#/definitions/Devices" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "deck.graph" }, "p": { "$ref": "#/definitions/DeckGraph" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "deck.values" }, "p": { "$ref": "#/definitions/DeckValues" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "deck.midi" }, "p": { "$ref": "#/definitions/DeckMidi" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "scene.sync" }, "p": { "$ref": "#/definitions/SceneSync" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "deck.synced" }, "p": { "$ref": "#/definitions/DeckSynced" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "deck.quality" }, "p": { "$ref": "#/definitions/DeckQuality" } }, "required": ["kind", "p"] },
@@ -480,6 +481,13 @@
         "mood": { "type": "string" }
       },
       "required": ["values"],
+      "additionalProperties": false
+    },
+    "DeckMidi": {
+      "description": "#211: a deck → relay → the conductor (and `to`, if set): MIDI its parameters send as outputs (a mapping's target `port = \"conductor\"` – CC / note / pitch bend, status byte first), for the conductor to route on like device input. Only decks send it; not kept for replay (a value stream, not state).",
+      "type": "object",
+      "properties": { "msgs": { "type": "array", "items": { "$ref": "#/definitions/MidiBytes" } } },
+      "required": ["msgs"],
       "additionalProperties": false
     },
     "SceneSync": {

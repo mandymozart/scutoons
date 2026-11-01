@@ -1,0 +1,17 @@
+# A generic strobe (#211, the owner's first test fixture): three channels from the fixture's start address. Most simple
+# LED / xenon strobes have this layout or a superset – check the fixture's DMX chart and copy this file when it differs
+# (a scene names its own profile file: `profile = "fixtures/my-strobe.toml"`, relative to the scene).
+name = "strobe"
+
+[channels]
+dimmer = 1     # intensity – what a flash opens
+rate = 2       # the fixture's own strobe oscillator: parked at `rest` (0 = off), the deck fires the flashes on the clock
+duration = 3   # flash length on fixtures that have it
+
+# the clock-synced strobe (deck-outputs strobe.rs): a flash sets `flash` to `level` (× the strobe's level parameter)
+# for the flash's duration, then back to 0; `rest` holds the other channels while the deck drives the flashes
+[strobe]
+flash = "dimmer"
+level = 255
+rest = { rate = 0, duration = 0 }
+# max_hz = 3   # an optional cap per fixture (owner 2026-10-31: no limit by default) – a venue may require one

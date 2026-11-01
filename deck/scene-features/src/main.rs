@@ -30,6 +30,11 @@ fn features<'a>(files: impl IntoIterator<Item = &'a String>, core: bool) -> Resu
         } else {
             let nodes = scene.nodes.iter().map(|n| (n.id.as_str(), n.kind.as_str(), &n.params));
             out.extend(deck_core::stage::features(nodes).map_err(|e| format!("{path}: {e}"))?);
+            // #211: the scene's [outputs] table (not a node) needs the module too
+            let table: toml::Table = text.parse().map_err(|e| format!("{path}: {e}"))?;
+            if table.contains_key("outputs") {
+                out.insert("outputs");
+            }
         }
     }
     Ok(out.into_iter().collect())
@@ -49,6 +54,7 @@ mod tests {
         assert_eq!(one("default"), ["chapter"]);
         assert_eq!(one("cathedral"), ["chapter", "space"]);
         assert!(one("test-pattern").is_empty(), "the core alone");
+        assert_eq!(one("strobe"), ["outputs"], "#211: the [outputs] table");
         let all: Vec<String> = ["default", "cathedral", "test-pattern"].map(scene).into();
         assert_eq!(features(&all, false).unwrap(), ["chapter", "space"]);
     }

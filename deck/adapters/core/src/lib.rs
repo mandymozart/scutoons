@@ -63,6 +63,12 @@ pub trait Adapter: Send {
     /// Play one message now. Timing (`at`) is the bridge's job: it holds the message until `at − offset`.
     fn send(&mut self, msg: &DeviceMsg) -> anyhow::Result<()>;
 
+    /// Play one message now, ahead of any batching the device does (#211: a strobe's flash must not wait for the next
+    /// 40 Hz DMX frame). Default: `send`.
+    fn send_now(&mut self, msg: &DeviceMsg) -> anyhow::Result<()> {
+        self.send(msg)
+    }
+
     /// B.6 `panic`: silence the device now (MIDI all notes off, DMX black). Default: nothing to silence.
     fn panic(&mut self) -> anyhow::Result<()> {
         Ok(())

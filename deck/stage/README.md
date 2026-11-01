@@ -70,11 +70,12 @@ the basic audio nodes (`osc`, `noise`, `fm`, `seq`, `click`, `mixer`, `fft`, `au
 | `chapter` | `chapter`, `chapter_music` (the library API + cache) | ureq, symphonia, ab_glyph, image/webp |
 | `live` | `outlet` (a Live outlet, #186 – below) | `chapter`, protocol, tungstenite |
 | `midi` | the tempo source `midi`, `midi_out` (MIDI clock in / out) | midir |
+| `outputs` | the scene's `[outputs]` (#211): parameters as outputs – MIDI out (a port, or the conductor as `deck.midi`), DMX fixtures through a USB-DMX widget, the clock-synced strobe; no node kind (below) | deck-outputs, adapters-dmx-usbpro, adapters-midi |
 | `osc` | the tempo source `osc` (`/tempo/*`) | rosc |
 | `link` | the tempo source `link` (Ableton Link) | rusty_link (cmake, libclang) |
 | `pipewire` | the PipeWire backend (Linux) | pipewire (clang) |
 
-Default = `space`, `sync`, `chapter`, `live`, `midi`, `osc` – a plain build plays every bundled scene. The table lives in deck-core
+Default = `space`, `sync`, `chapter`, `live`, `midi`, `osc`, `outputs` – a plain build plays every bundled scene. The table lives in deck-core
 (`core/src/stage.rs`, data only); `src/modules.rs` says which modules this build carries. A scene that needs a module
 the build lacks is refused at load with the feature's name (`this build of the stage does not carry the module 'space'
 (node space) – build deck-stage with --features space`): the stage plays the test pattern and shows that in the HUD –
@@ -501,3 +502,19 @@ wgpu-hal's DX12 build on Windows). A bump is its own step.
 | Windows 10, RTX 2070 SUPER, Vulkan, release, 1280 × 720 window (2026-10-31, #188 tethered buttons, labels) | cathedral · conductor alone · conductor + 5 stand-in decks (30 s each, null audio) | 60.1 fps each, CPU per frame 0.51 · 0.49 · 1.54 ms (before the tethers: 0.42 · 0.39 · 1.12) |
 | ThinkPad X1 Carbon Gen 7, UHD 620 (anv) | cathedral, conductor | open – the owner's stick |
 | Windows 10, Ryzen 5 3600X, `cargo bench -p deck-stage` (2026-10-30, #183) | the graph, µs per 128-frame block: before #183 → patcher → batch → batch AVX2 | default scene 11.0 → 9.9 → 11.1 → 10.0 (whole v3 binary 7.5) · 1 FM voice – → 2.2 → 3.5 → 2.2 · 16 FM voices 37.8 → 34.1 → 10.2 → 7.7 · 16 sines 20.1 → 15.4 → 7.3 → 5.3 · 64 FM voices – → 125 → 41 → 27 · control step, 300 LFOs: 58.4 → 2.1 (3 levels × 100), 69.6 → 5.5 (300 levels) |
+
+## Outputs (#211)
+
+Every parameter (`node.port`, a control input or output) can drive MIDI and DMX: the scene's `[outputs]` table – its
+format and every check: deck/outputs/src/config.rs; the math, profiles and the strobe: deck/outputs. The stage opens the
+bridge's adapter crates in-process (the USB-DMX widget, a MIDI out port – no relay hop for the hardware) and runs
+deck-outputs' engine on its own thread: continuous targets smoothed on the universe's 40 Hz, the strobe's flashes on the
+tempo clock's grid, each sent `lead` ms before its beat is heard, in its own DMX frame (`send_now`). MIDI for the
+conductor goes over the relay link as `deck.midi`. A wrong table or a missing device never stops the scene – the HUD's
+`OUTPUTS` line says what runs or why not. The strobe test: `scenes/strobe.toml` (the generic strobe at address 1, the
+click on, an LFO sweeping the divisions):
+
+```bash
+cd deck/stage && cargo run --release -p deck-stage -- --scene scenes/strobe.toml --windowed
+```
+

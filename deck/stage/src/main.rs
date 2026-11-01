@@ -301,6 +301,10 @@ struct Show {
     /// the audio outputs' peaks (the being's audio hoses)
     #[cfg_attr(not(feature = "space"), allow(dead_code))]
     meters: Option<Arc<audio::Meters>>,
+    /// the parameters as outputs (#211): MIDI out, DMX, the strobe – and why they don't run (the HUD)
+    #[cfg(feature = "outputs")]
+    outputs: Option<deck_stage::outputs::Outputs>,
+    outputs_note: Option<String>,
 }
 
 /// the Live outlet's settings from the CLI (deck.toml's under them – live/config.rs)
@@ -535,6 +539,26 @@ impl Show {
         let rate = clock.as_ref().map_or(48_000.0, |c| c.rate as f64);
         let shared = handles.as_ref().map(|h| h.tempo.clone()).unwrap_or_default();
         let tempo = tempo::Tempo::new(tempo_cfg, shared, rate);
+        // #211: the scene's [outputs] – a wrong table or a missing device never stops the scene: the HUD says why
+        #[cfg(feature = "outputs")]
+        let (outputs, outputs_note) = match &scene.outputs {
+            Some(table) => {
+                let dir = args.scene.as_deref().filter(|p| p.exists()).and_then(|p| p.parent());
+                match deck_stage::outputs::Outputs::start(table, dir, &graph, tempo.shared()) {
+                    Ok(o) => (o, None),
+                    Err(e) => {
+                        tracing::error!("outputs off: {e:#}");
+                        (None, Some(format!("{e:#}")))
+                    }
+                }
+            }
+            None => (None, None),
+        };
+        #[cfg(not(feature = "outputs"))]
+        let outputs_note = scene.outputs.as_ref().map(|_| {
+            tracing::warn!("this build of the stage does not carry the module 'outputs' – the scene's [outputs] is off");
+            "this build does not carry the module 'outputs' (--features outputs)".to_owned()
+        });
         Ok(Show {
             scene_name: scene.stage.name.clone(),
             render_scale: scene.stage.render_scale,
@@ -558,6 +582,9 @@ impl Show {
             #[cfg(feature = "sync")]
             sync,
             meters,
+            #[cfg(feature = "outputs")]
+            outputs,
+            outputs_note,
         })
     }
 
@@ -642,6 +669,9 @@ struct App {
     drag_from: Option<((f32, f32), (f32, f32))>,
     /// #220: the render quality's governor (made with the first renderer – its default comes from the GPU)
     governor: Option<Governor>,
+    /// #211: the outputs' MIDI for the conductor this frame (reused)
+    #[cfg(feature = "outputs")]
+    conductor_midi: Vec<[u8; 3]>,
 }
 
 impl App {
@@ -909,6 +939,17 @@ impl App {
         self.advance_time();
         let beat = self.show.tempo.frame(&self.moment);
         self.show.controls.update(dt, self.lead(), &beat);
+        // #211: the values to the outputs' runner; its MIDI for the conductor to the relay link
+        #[cfg(feature = "outputs")]
+        if let Some(o) = &self.show.outputs {
+            o.update(&self.show.controls);
+            self.conductor_midi.clear();
+            o.conductor_midi(&mut self.conductor_midi);
+            #[cfg(feature = "space")]
+            if let Some(s) = &self.show.space {
+                s.send_midi(&self.conductor_midi);
+            }
+        }
         let time = self.time();
         // a Live cell's 3D set: the space node's set and spot (#186)
         #[cfg(all(feature = "live", feature = "space"))]
@@ -1150,6 +1191,14 @@ impl App {
         }
         lines.extend(audio.into_iter().filter(|l| !l.is_empty()));
         lines.extend([self.tempo_line(), self.source_line()]);
+        // #211: what the outputs drive, or why they are off
+        #[cfg(feature = "outputs")]
+        if let Some(o) = &self.show.outputs {
+            lines.push(format!("OUTPUTS {}", o.summary.to_uppercase()));
+        }
+        if let Some(n) = &self.show.outputs_note {
+            lines.extend(hud::wrap(&format!("OUTPUTS OFF: {}", n.replace(['–', '—', '…'], "-").to_uppercase()), hud::COLS).into_iter().take(3));
+        }
         // the sync (#195) while it fetches, is offline or failed
         #[cfg(feature = "sync")]
         if let Some(line) = self.show.sync.as_ref().map(|y| y.line()).filter(|l| !l.starts_with("SYNC OK")) {
@@ -1471,6 +1520,8 @@ fn run() -> Result<i32> {
         #[cfg(feature = "space")]
         drag_from: None,
         governor: None,
+        #[cfg(feature = "outputs")]
+        conductor_midi: Vec::new(),
     };
     app.watch = app.watch_files();
     event_loop.run_app(&mut app)?;
