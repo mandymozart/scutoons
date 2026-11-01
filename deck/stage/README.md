@@ -33,7 +33,7 @@ window pixel for a check run – a hovered button shows in the HUD; or `--pointe
 The graph's workloads: `cargo bench -p deck-stage` (patcher | batch | batch AVX2, µs per block).
 
 Keys: **F1** the HUD → the collapsed stats bar (#209: one line across the whole top edge – FPS, CPU / frame, the audio's
-glitches / DSP load / limiter, the relay, the GPU backend; red when out of the green) → nothing · **F2** the browser · **Ctrl+Q** quit (on the deck the stage starts again) · **Ctrl+Alt+Del** power off (`systemctl
+glitches / DSP load / limiter, the relay, the GPU backend; red when out of the green) → nothing · **F2** the browser · **Ctrl+Q** quit (on the deck the stage starts again; a stop signal – SIGTERM, Ctrl+C – ends the same way, outputs dark, #263) · **Ctrl+Alt+Del** power off (`systemctl
 poweroff`, the logo stays up; not in a `--windowed` stage) · Esc quits a `--windowed` stage · the tempo clock: **T** tap ·
 **+ / −** BPM · **Space** start / stop · **F3** the next source (internal → MIDI → Link → OSC → relay) · **K** the click · **F4** the
 quality settings page, **Shift+F4** the governor on / off ("Quality" below) · **F5** the scene list ("Scenes" below). **Volume up / down / mute** (the hardware keys, `volume.rs`, #253): the PipeWire default sink's volume in 5 % steps up to 100 % (`wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+ -l 1.0`, `set-mute … toggle`) – so Chromium (F2) follows too – and `VOL ######.... 60%` / `VOL MUTED 60%` for about a second on the HUD, also with the HUD off (the bar appears for that second); WirePlumber keeps the level across reboots. `--show-volume` keeps the overlay on (a check run's screenshot). In a scene with a `space` node: a **mouse drag** turns the camera around the being (or, on a 3D
@@ -555,6 +555,9 @@ parameters – `gain = ["tempo.pulse", { from = "level.out", in = [-1, 1] }]`, `
 pulses), `smooth` for a soft attack – so colour channels pulse on the beat without a flash channel. The scene
 `pulse-thunderwash` (built in; the file `scenes/pulse-thunderwash.toml`): a slowly turning colour that pulses on the
 tempo's beat, every channel capped at 15 % (`max = 0.15` – raise the three together for a show). A scene that ends
-in the stage (the F5 switch, a normal exit) blacks its DMX out; a stage killed by `deck-set --restart` can't, and the
-widget repeats its last frame – the built-in scene `lamps-off` holds the Thunder Wash's channels at 0.
+in the stage – the F5 switch, **Ctrl+Q**, or a **stop signal** (SIGTERM / SIGHUP / SIGINT, Ctrl+C on Windows: `deck-set
+--restart`, `systemctl restart deck-kiosk`, an update's restart, #263; `src/stop.rs`) – blacks its DMX out (the widget
+repeats its last frame for ever otherwise) and fades the audio out, then the stage exits 0, within the kiosk's 5 s stop
+(a watchdog leaves after 3.5 s if the loop hangs). Only a SIGKILL leaves the lamp lit. The built-in scene `lamps-off`
+(the Thunder Wash's channels held at 0) stays for switching a lit lamp off by hand.
 

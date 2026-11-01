@@ -94,6 +94,8 @@ adapters-core = { workspace = true, optional = true }
 adapters-dmx-usbpro = { workspace = true, optional = true }
 adapters-midi = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
+# a stop signal ends the show the normal way (#263, stop.rs): SIGTERM / SIGHUP / SIGINT, Ctrl+C on Windows
+ctrlc = { version = "3.4", features = ["termination"] }
 # the deck's pairing (#180): the code for the splash, the token from deck-link's run directory (no crypto, no HTTP – its
 # `net` feature off; the daemon `deck-link run` pairs)
 deck-link = { path = "../link", default-features = false }

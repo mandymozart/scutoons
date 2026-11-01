@@ -1,6 +1,7 @@
 # Lamps off (#261): holds the Thunder Wash's channels at 0 on the USB-DMX widget and shows a black screen. A USB-DMX
-# widget repeats the last frame for ever, and a stage killed by a restart can't black it out – run this scene (deck-set
-# --restart scene lamps-off), and the lamp stays dark after the next scene without outputs.
+# widget repeats the last frame for ever; a stage that ends (a scene switch, Ctrl+Q, a stop signal – #263) blacks it
+# out itself, so this is for a lamp left lit by a killed stage: deck-set --restart scene lamps-off, and the lamp stays
+# dark after the next scene without outputs.
 [stage]
 name = "lamps off (#261)"
 

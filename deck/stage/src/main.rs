@@ -50,6 +50,8 @@ const ALERT_S: f32 = 5.0;
 enum Event {
     /// the browser (DECK_BROWSER) exited
     BrowserClosed,
+    /// #263: a stop signal (SIGTERM / SIGHUP / SIGINT, Ctrl+C on Windows) – the show ends like Ctrl+Q
+    Stop,
 }
 
 const HELP: &str = "deck-stage [--scene FILE|cathedral|conductor|outlet] [--audio auto|pipewire|cpal|null] [--volume 0-1] [--cache DIR]
@@ -424,6 +426,21 @@ fn read_scene(args: &Args) -> Result<scene::Scene> {
 }
 
 impl Show {
+    /// #263: the end of the show: the outputs dark first (the lamps must not wait for the audio's fade), then the audio
+    /// stopped (the PipeWire backend's drop fades it out, #250). The rest goes with the process.
+    fn end(&mut self) {
+        self.outputs_dark();
+        self.audio = None;
+    }
+
+    /// the outputs stopped dark (`Outputs`' drop). Touches no window / GPU object, so it is safe on a lost display too.
+    fn outputs_dark(&mut self) {
+        #[cfg(feature = "outputs")]
+        {
+            self.outputs = None;
+        }
+    }
+
     /// Build the scene's graph (refused when it needs a module this build lacks – modules.rs) and start what plays it.
     fn load(args: &Args, scene: &scene::Scene) -> Result<Show> {
         modules::check(scene)?;
@@ -1565,7 +1582,7 @@ fn push_capped(v: &mut Vec<f32>, x: f32) {
 }
 
 impl ApplicationHandler<Event> for App {
-    fn user_event(&mut self, _: &ActiveEventLoop, event: Event) {
+    fn user_event(&mut self, el: &ActiveEventLoop, event: Event) {
         match event {
             Event::BrowserClosed => {
                 self.browser = None;
@@ -1577,6 +1594,10 @@ impl ApplicationHandler<Event> for App {
                 if let Some(w) = &self.window {
                     w.request_redraw();
                 }
+            }
+            Event::Stop => {
+                tracing::info!("stop signal – ending the show");
+                el.exit();
             }
         }
     }
@@ -1789,6 +1810,14 @@ fn run() -> Result<i32> {
 
     let event_loop = EventLoop::<Event>::with_user_event().build().context("no event loop (no display?)")?;
     let proxy = event_loop.create_proxy();
+    // #263: a stop signal (the kiosk's stop, `deck-set --restart`, Ctrl+C) ends the show the normal way: the outputs dark,
+    // the audio faded out. A handler that can't be installed never stops the show.
+    let stop_proxy = proxy.clone();
+    if let Err(e) = deck_stage::stop::install(move || {
+        let _ = stop_proxy.send_event(Event::Stop);
+    }) {
+        tracing::warn!("{e:#} – a stop signal ends the process as it is");
+    }
     // #220: the preset file
     let args_settings = args.settings;
     let mut qfile = settings::QualityFile::new(args.quality_file.clone().unwrap_or_else(settings::default_path));
@@ -1845,6 +1874,8 @@ fn run() -> Result<i32> {
     // the window / surface / EGL objects talk to a dead socket and segfault
     if let Err(e) = event_loop.run_app(&mut app) {
         tracing::error!("display lost: {e}");
+        // the compositor going away is the kiosk's stop (#256) as often as a crash: the lamps still go dark
+        app.show.outputs_dark();
         std::process::exit(EXIT_DISPLAY_LOST);
     }
     let summary = app.summary();
@@ -1852,7 +1883,10 @@ fn run() -> Result<i32> {
     println!("{summary}");
     // a check run (--frames) that couldn't play its scene fails; the kiosk never exits for it
     let code = if app.exit == 0 && app.error.is_some() && app.args.frames.is_some() { 2 } else { app.exit };
-    // no teardown of the window / GPU objects: the process ends right after (main calls exit)
+    // #263: the show ends the way a scene ends – its outputs dark (a USB-DMX widget repeats the last frame for ever), its
+    // audio faded out – whatever stopped it (Ctrl+Q, a stop signal, --frames). No teardown of the window / GPU objects:
+    // the process ends right after (main calls exit)
+    app.show.end();
     std::mem::forget(app);
     Ok(code)
 }

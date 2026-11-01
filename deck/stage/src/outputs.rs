@@ -74,10 +74,12 @@ pub struct Outputs {
 }
 
 impl Drop for Outputs {
-    /// A scene that ends (switched, or the stage closing normally) leaves its lamps dark: a USB-DMX widget repeats the
-    /// last frame for ever (#261). A killed process can't: the next scene with outputs starts from its own look.
+    /// A scene that ends (switched, or the stage ending – Ctrl+Q, a stop signal, #263) leaves its lamps dark: a USB-DMX
+    /// widget repeats the last frame for ever (#261). Only a SIGKILL can't: the next scene with outputs starts from its look.
     fn drop(&mut self) {
+        tracing::info!("outputs: stopping – the lamps go dark");
         self.runner.stop_dark();
+        tracing::info!("outputs: dark");
     }
 }
 
@@ -121,10 +123,15 @@ impl Outputs {
             }));
             rx
         });
-        let values = Values::new(plan.paths.len());
         tracing::info!("outputs: {summary}");
+        Self::launch(plan, ports, slots, conductor, summary, tempo).map(Some)
+    }
+
+    /// The runner on its thread with the ports as they are.
+    fn launch(plan: Plan, ports: Ports, slots: Vec<Slot>, conductor: Option<Receiver<[u8; 3]>>, summary: String, tempo: Arc<Shared>) -> Result<Outputs> {
+        let values = Values::new(plan.paths.len());
         let runner = host::spawn(plan, ports, values.clone(), Box::new(Tempo(tempo)))?;
-        Ok(Some(Outputs { runner, values, slots, conductor, summary }))
+        Ok(Outputs { runner, values, slots, conductor, summary })
     }
 
     /// Each frame: the deck's values to the runner.
@@ -246,6 +253,33 @@ mod tests {
         let g = Graph::build(&scene).unwrap();
         let o = Outputs::start(scene.outputs.as_ref().unwrap(), None, &g, Arc::default()).unwrap().expect("targets");
         assert_eq!(o.summary, "4 targets · DMX auto · lead 20 ms");
+    }
+
+    /// #263: the outputs ending (the stage's end on a stop signal, Ctrl+Q, a scene switch) = the widget's last frame is
+    /// all zeros, whatever the lamp showed before
+    #[test]
+    fn the_outputs_ending_black_the_widget_out() {
+        use adapters_dmx_usbpro::{mock::Widget, DmxUsbProAdapter};
+        let g = graph(SCENE);
+        let table: toml::Table = toml::from_str("[outputs]
+dmx = \"auto\"
+[[outputs.map]]
+from = \"sway.out\"
+to = [{ dmx = 1 }, { dmx = 2 }]
+").unwrap();
+        let known = paths(&g);
+        let plan = deck_outputs::parse(table["outputs"].as_table().unwrap(), Some(&known), &|_| Err("no files".into())).unwrap();
+        let slots = plan.paths.iter().map(|p| slot(&g, p).unwrap()).collect();
+        let widget = Widget::default();
+        let ports = Ports { dmx: Some(Box::new(DmxUsbProAdapter::with_opener("lamp", None, widget.opener()))), ..Ports::default() };
+        let o = Outputs::launch(plan, ports, slots, None, String::new(), Arc::default()).unwrap();
+        o.values.set(0, 1.0);
+        std::thread::sleep(std::time::Duration::from_millis(400));
+        let lit = widget.frames().last().expect("a frame while it plays").1;
+        assert_eq!((lit[0], lit[1]), (255, 255), "the lamp is lit before the end");
+        drop(o);
+        let last = widget.frames().last().unwrap().1;
+        assert_eq!((last[0], last[1]), (0, 0), "dark after the end");
     }
 
     #[test]
