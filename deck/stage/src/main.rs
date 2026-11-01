@@ -59,7 +59,8 @@ const HELP: &str = "deck-stage [--scene FILE|cathedral|conductor|outlet] [--audi
            [--screenshot FILE] [--pointer X,Y|NODE.PORT] [--drag NODE.PORT[,DN]] [--no-hud] [--hud-bar] [--dev] [--modules]
            [--relay ws[s]://HOST[:PORT]/live/CODE] [--sync set:ID,character:ID]
            [--outlet ID] [--locale de] [--quality auto|low|medium|high|ultra[,fixed]] [--quality-file FILE] [--settings]
-  --scene      a scene TOML (default: the built-in scene, deck/stage/scenes/default.toml); `cathedral` = the built-in
+  --scene      a scene TOML (default: the built-in idle scene – fireflies on black, no sound, scenes/idle.toml, #252;
+               `madness` = AV madness, scenes/madness.toml); `cathedral` = the built-in
                Cathedral of decks (scenes/cathedral.toml – a deck's being), `conductor` = its conductor in the middle
                (scenes/conductor.toml), `outlet` = the built-in Live outlet (scenes/outlet.toml – the default when an
                outlet is set)
@@ -391,15 +392,18 @@ fn audio_options(args: &Args, scene: &scene::Scene) -> backend::Options {
     }
 }
 
-/// the scene the arguments name: a file, `cathedral` / `outlet` (built in), the outlet when one is set, or the default
+/// the scene the arguments name: a file, `cathedral` / `conductor` / `outlet` / `madness` / `idle` (built in), the outlet
+/// when one is set, or the idle scene (#252)
 fn read_scene(args: &Args) -> Result<scene::Scene> {
     match &args.scene {
         Some(p) if p.as_os_str() == "cathedral" && !p.exists() => scene::Scene::parse(scene::CATHEDRAL_SCENE),
         Some(p) if p.as_os_str() == "conductor" && !p.exists() => scene::Scene::parse(scene::CONDUCTOR_SCENE),
         Some(p) if p.as_os_str() == "outlet" && !p.exists() => scene::Scene::parse(scene::OUTLET_SCENE),
+        Some(p) if p.as_os_str() == "madness" && !p.exists() => scene::Scene::parse(scene::MADNESS_SCENE),
+        Some(p) if p.as_os_str() == "idle" && !p.exists() => scene::Scene::parse(scene::IDLE_SCENE),
         Some(p) => scene::Scene::load(p),
         None if outlet_configured(args) => scene::Scene::parse(scene::OUTLET_SCENE),
-        None => scene::Scene::parse(scene::DEFAULT_SCENE),
+        None => scene::Scene::parse(scene::IDLE_SCENE),
     }
 }
 

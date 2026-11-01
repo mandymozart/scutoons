@@ -16,7 +16,7 @@ below). Open: S4–S6 (#179), #188's body parts and the browser scene.
 cd deck && cargo run --release -p deck-stage -- --windowed
 ```
 
-`--scene FILE` (default: the built-in `scenes/default.toml`, "AV madness"; `--scene cathedral` / `conductor` = the
+`--scene FILE` (default: the built-in `scenes/idle.toml` – fireflies on black, no sound, no network (#252); `--scene madness` = "AV madness"; `--scene cathedral` / `conductor` = the
 built-in `scenes/cathedral.toml` / `conductor.toml`) · `--sets DIR` (a local folder of sets instead of the synced
 `<cache>/sets`, `DECK_SETS` – e.g. `../media/scutoons/rooms`, tools/rooms' output) · `--portraits DIR` (a local folder
 of the heads' sprites instead of the synced `<cache>/portraits`, `DECK_PORTRAITS` – e.g. `../media/characters`) ·
@@ -158,7 +158,7 @@ An input takes one link; an output feeds any number. Every control input can als
 | Kind | Inputs | Outputs | Params |
 |---|---|---|---|
 | `test_pattern` | speed, zoom, hue, pulse (control) | out (video) | – |
-| `shader` | in (video), a, b, c, d (control) | out (video) | `effect` = `kaleido` · `rgb_shift` · `invert` · `pass`, or `wgsl` = a file defining `fn effect(uv: vec2<f32>) -> vec4<f32>` (bindings: shaders/common.wgsl) |
+| `shader` | in (video), a, b, c, d (control) | out (video) | `effect` = `kaleido` · `rgb_shift` · `invert` · `pass` · `fireflies` (draws on its own – a brightness, b drift speed, c size, d how many; the idle scene, #252), or `wgsl` = a file defining `fn effect(uv: vec2<f32>) -> vec4<f32>` (bindings: shaders/common.wgsl) |
 | `chapter` | in (video), next, hold, zoom, pulse (control) | out (video), text (video) | `toon`, `chapter`, `quality` = low · medium · high, `dialog` (true: set the dialog in), `start` (slice index), `threshold` (0.6), `min_hold` (1.5 s), `quantize` = off · beat · bar (a due cut waits for the tempo clock's next beat / bar); `hold` default 6 s |
 | `overlay` | in, top (video), opacity, pulse, shake (control) | out (video) | – |
 | `screen` | in (video) | – | the window (one per scene) |
@@ -292,7 +292,7 @@ the bass), pink-noise incense swayed by an LFO → mixer → FFT (its level kick
 bass, a voice swelling with a slow LFO. An audio oscillator's `wave` can't change while it plays yet (an engine
 rebuild); MIDI / OSC learn onto the same `Controls::set` is S6.
 
-`scenes/default.toml` ("AV madness (S3)") – the tempo clock at 96 BPM; catpope 1's music + an FM voice sequenced on
+`scenes/madness.toml` ("AV madness (S3)", `--scene madness`) – the tempo clock at 96 BPM; catpope 1's music + an FM voice sequenced on
 the beat + pink noise + the click (off until K) → mixer → FFT; test pattern (pulsing on the beat) → kaleidoscope → the
 chapter's slices (cut on a bass hit snapped to the beat, every 6 s at the latest) → RGB shift → the caption overlay →
 screen. `scenes/test-pattern.toml` – the picture alone (no sound, no network). Both land in

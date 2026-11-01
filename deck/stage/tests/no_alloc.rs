@@ -5,7 +5,7 @@
 //! batch runtime (#183) with its AVX2 loops (where the CPU has them) and its baseline loops.
 use deck_stage::audio::{Build, Engine, Track};
 use deck_stage::graph::Graph;
-use deck_stage::scene::{Scene, DEFAULT_SCENE};
+use deck_stage::scene::{Scene, MADNESS_SCENE};
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -60,7 +60,7 @@ static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
 fn the_default_scene_renders_without_allocating() {
     let _turn = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     // a build without a module plays the scene without that module's nodes (#185: Graph::build refuses them)
-    let scene = deck_stage::modules::carried_part(&Scene::parse(DEFAULT_SCENE).unwrap());
+    let scene = deck_stage::modules::carried_part(&Scene::parse(MADNESS_SCENE).unwrap());
     let graph = Graph::build(&scene).unwrap();
     for build in [Build::detect(), Build { batch: true, avx2: false }] {
         renders_without_allocating(&graph, build);
@@ -106,7 +106,7 @@ fn renders_without_allocating(graph: &Graph, build: Build) {
 #[test]
 fn the_ring_and_its_render_thread_do_not_allocate() {
     let _turn = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
-    let scene = deck_stage::modules::carried_part(&Scene::parse(DEFAULT_SCENE).unwrap());
+    let scene = deck_stage::modules::carried_part(&Scene::parse(MADNESS_SCENE).unwrap());
     let graph = Graph::build(&scene).unwrap();
     let (engine, mut handles) = Engine::build_with(&graph, 48_000.0, 1.0, Build::detect()).unwrap();
     if let Some(m) = handles.music.first_mut() {

@@ -340,9 +340,17 @@ mod tests {
         Graph::build(&Scene::parse(text)?)
     }
 
+    /// #252: the default scene idles – a picture, no sound
     #[test]
-    fn the_default_scene_builds_in_order() {
-        let g = Graph::build(&Scene::parse(crate::scene::DEFAULT_SCENE).unwrap()).unwrap();
+    fn the_idle_scene_has_no_audio() {
+        let g = Graph::build(&Scene::parse(crate::scene::IDLE_SCENE).unwrap()).unwrap();
+        assert!(g.nodes.iter().all(|n| n.kind.domain() != Domain::Audio));
+        assert!(g.nodes.iter().any(|n| n.str("effect") == Some("fireflies")));
+    }
+
+    #[test]
+    fn the_madness_scene_builds_in_order() {
+        let g = Graph::build(&Scene::parse(crate::scene::MADNESS_SCENE).unwrap()).unwrap();
         assert!(g.links.iter().any(|l| !l.orders(&g.nodes)), "the scene's FFT feedback");
         for l in g.links.iter().filter(|l| l.orders(&g.nodes)) {
             let pos = |i| g.order.iter().position(|&x| x == i).unwrap();

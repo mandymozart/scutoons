@@ -85,7 +85,7 @@ browser's window is there.
    `deck-link.service` pairs and keeps it paired in the background (the boot never waits for the handshake).
 4. `deck-kiosk.service` – `cage` runs `deck-session` as the user `deck`, which plays `kiosk` from
    `/var/lib/deck/deck.toml`: **`stage`** (the default) = `deck-stage` (deck/stage/README.md) with `scene` (empty = the
-   built-in "AV madness": catpope 1's slices, captions and music + synths, the FFT drives the picture; its cache in
+   built-in idle scene – fireflies on black, no sound (#252); `scene = "madness"` = "AV madness": catpope 1's slices, captions and music + synths, the FFT drives the picture; its cache in
    `/var/lib/deck/cache`); **F2** opens Chromium on the page `conductor` names (empty = the deck's own start page: the
    machine report, the relay's `/status`, the link to the conductor) on top of the stage, which shows the logo until
    Chromium's window covers it, then pauses and mutes; closing Chromium (Ctrl+Shift+W) shows the stage at once. A

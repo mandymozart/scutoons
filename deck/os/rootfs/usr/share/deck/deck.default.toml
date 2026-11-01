@@ -3,7 +3,8 @@
 # What the kiosk plays: "stage" = deck-stage, the native AV app (F2 opens the browser, closing it returns); "browser" =
 # Chromium only, on the conductor page.
 kiosk = "stage"
-# The stage's scene: a scene TOML (e.g. /usr/share/deck/scenes/test-pattern.toml). Empty = the built-in "AV madness".
+# The stage's scene: a scene TOML (e.g. /usr/share/deck/scenes/test-pattern.toml) or a built-in name (cathedral, madness,
+# idle …). Empty = the built-in idle scene: fireflies on black, no sound (#252).
 scene = ""
 # The page the browser opens. Empty = the deck's own start page (the machine report + relay status + a link to the
 # conductor). A session's conductor is https://scutoons.com/live/<code>/conduct (LIVE.md B.7).

@@ -38,6 +38,7 @@ fn builtin(name: &str) -> Option<&'static str> {
         "rgb_shift" => include_str!("shaders/rgb_shift.wgsl"),
         "invert" => include_str!("shaders/invert.wgsl"),
         "pass" => include_str!("shaders/pass.wgsl"),
+        "fireflies" => include_str!("shaders/fireflies.wgsl"),
         "chapter" => include_str!("shaders/chapter.wgsl"),
         "overlay" => include_str!("shaders/overlay.wgsl"),
         "outlet" => include_str!("shaders/outlet.wgsl"),
@@ -897,7 +898,7 @@ fn shader_body(node: &crate::graph::Node) -> Result<String> {
     }
     let name = node.str("effect").unwrap_or("pass");
     builtin(name).map(str::to_string).with_context(|| {
-        format!("node '{}': unknown effect '{name}' (kaleido, rgb_shift, invert, pass – or wgsl = a file)", node.id)
+        format!("node '{}': unknown effect '{name}' (kaleido, rgb_shift, invert, pass, fireflies – or wgsl = a file)", node.id)
     })
 }
 

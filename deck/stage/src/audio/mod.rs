@@ -648,7 +648,7 @@ to=\"sum.in4\"
 ";
         for (name, text, batches, tolerance) in [
             ("12 sines + a saw", voices("osc", 12, extra), 2, 1e-5),
-            ("the default scene", crate::scene::DEFAULT_SCENE.to_string(), 1, 1e-4),
+            ("the default scene", crate::scene::MADNESS_SCENE.to_string(), 1, 1e-4),
             ("16 FM voices, index up to 4.5", voices("fm", 16, ""), 2, 1e-3),
         ] {
             // the default scene has chapter nodes (#185: a build without the module refuses it)
