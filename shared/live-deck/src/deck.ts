@@ -59,6 +59,8 @@ export class Deck {
 	params: Record<string, Spec> = PARAMS;
 	/** the character's rig as played for the current mood (deck-space via space-web `rig_play`); null = the fixed patch */
 	rig: RigPlayed | null = null;
+	/** the corner sticks' (x, y) pairs, left then right: the rig's (#191), null = the fixed patch's defaults */
+	sticks: [string, string][] | null = null;
 	character: string;
 	portraits: Portraits = {};
 	readonly moods = new Moods(['neutral'], 1.5, BPM);
@@ -115,12 +117,18 @@ export class Deck {
 	 *  the wire, its lowered scene the sound (live-core reloads when it runs). */
 	useRig(p: RigPlayed | null): void {
 		this.rig = p;
+		this.sticks = p ? p.sticks.map(([x, y]) => [x, y] as [string, string]) : null;
 		this.params = p ? rigParams(p) : PARAMS;
 		for (const k of Object.keys(this.value)) if (!(k in MELODY)) delete this.value[k];
 		for (const [k, s] of Object.entries(this.params)) this.value[k] = s.value;
 		this.stream = new ValueStream(p ? rigStreamed(p) : STREAMED);
 		this.link?.setGraph(this.graph());
 		if (this.core) void this.loadEngine(this.core);
+	}
+
+	/** what the controls drive: a rig's knobs, or the fixed patch's sliders and its page melody */
+	get controlSpecs(): Record<string, Spec> {
+		return this.rig ? this.params : { ...PARAMS, ...MELODY };
 	}
 
 	/** The rig played for the new mood: the values that moved go out (the sliders follow), a new shape reloads. */
