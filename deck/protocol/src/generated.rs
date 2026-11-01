@@ -133,6 +133,8 @@ pub enum Message {
 	DeckGraph(DeckGraph),
 	#[serde(rename = "deck.values")]
 	DeckValues(DeckValues),
+	#[serde(rename = "deck.midi")]
+	DeckMidi(DeckMidi),
 	#[serde(rename = "scene.sync")]
 	SceneSync(SceneSync),
 	#[serde(rename = "deck.synced")]
@@ -175,6 +177,7 @@ impl Message {
 			Message::Devices(_) => "devices",
 			Message::DeckGraph(_) => "deck.graph",
 			Message::DeckValues(_) => "deck.values",
+			Message::DeckMidi(_) => "deck.midi",
 			Message::SceneSync(_) => "scene.sync",
 			Message::DeckSynced(_) => "deck.synced",
 			Message::Error(_) => "error",
@@ -727,6 +730,12 @@ pub struct DeckValues {
 	pub values: std::collections::HashMap<String, Vec<f64>>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub mood: Option<String>,
+}
+
+/// #211: a deck → relay → the conductor (and `to`, if set): MIDI its parameters send as outputs (a mapping's target `port = "conductor"` – CC / note / pitch bend, status byte first), for the conductor to route on like device input. Only decks send it; not kept for replay (a value stream, not state).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DeckMidi {
+	pub msgs: Vec<MidiBytes>,
 }
 
 /// #195: conductor → relay → the decks (the group `decks`, or only the client ids in `decks`): fetch what this scene needs into the cache – the same scene-content request (`GET /api/library/scene-content`) and cache as a deck's own scene, skipping what is there – and answer `deck.synced`. Only the conductor sends it; the relay logs it and keeps the last one for the snapshot, so a deck that joins later syncs too.

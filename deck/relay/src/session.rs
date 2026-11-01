@@ -212,8 +212,9 @@ impl Session {
         self.seq
     }
 
-    /// Stamp `seq` + `from`, keep it for replay, deliver by `to`. Returns how many clients got it.
-    pub fn publish(&mut self, from: &str, mut envelope: Envelope, now: i64) -> usize {
+    /// Stamp `seq` + `from`, deliver by `to`, not kept (a stream: a deck's MIDI outputs, #211). Returns the frame and
+    /// how many clients got it.
+    fn deliver(&mut self, from: &str, mut envelope: Envelope) -> (u64, Option<To>, Arc<Frame>, usize) {
         envelope.seq = self.next_seq();
         envelope.from = from.to_owned();
         let (seq, to) = (envelope.seq, envelope.to.clone());
@@ -225,6 +226,12 @@ impl Session {
                 delivered += 1;
             }
         }
+        (seq, to, frame, delivered)
+    }
+
+    /// Stamp `seq` + `from`, keep it for replay, deliver by `to`. Returns how many clients got it.
+    pub fn publish(&mut self, from: &str, envelope: Envelope, now: i64) -> usize {
+        let (seq, to, frame, delivered) = self.deliver(from, envelope);
         self.log.push_back(Logged { seq, t: now, from: from.to_owned(), to, frame });
         while self.log.len() > REPLAY_MESSAGES || self.log.front().is_some_and(|l| l.t < now - REPLAY_MS) {
             let dropped = self.log.pop_front().expect("non-empty");
@@ -423,7 +430,7 @@ impl Session {
             self.error(id, "authority", "only the bridge sends device input");
             return After::Nothing;
         }
-        if matches!(e.message, Message::DeckGraph(_) | Message::DeckValues(_) | Message::DeckSynced(_)) && matches!(role, Role::Audience | Role::Bridge) {
+        if matches!(e.message, Message::DeckGraph(_) | Message::DeckValues(_) | Message::DeckSynced(_) | Message::DeckMidi(_)) && matches!(role, Role::Audience | Role::Bridge) {
             self.error(id, "authority", "only a deck streams a being");
             return After::Nothing;
         }
@@ -596,6 +603,13 @@ impl Session {
                 if changed {
                     self.tell_presence();
                 }
+            }
+            Message::DeckMidi(_) => {
+                // #211: a deck's parameters as MIDI – to the conductor (and `to`), in order, never replayed
+                if e.to.is_none() {
+                    e.to = Some(To::role(Role::Conductor));
+                }
+                self.deliver(id, e);
             }
             Message::React(_) | Message::Pickup(_) | Message::Devices(_) | Message::DeviceIn(_) => {
                 // to the conductor (B.6: pickups are checked against the API there, like the reader does – TODO with
@@ -1050,6 +1064,29 @@ mod tests {
         r.send("cond", Message::Assign(Assign { client: "a2".into(), group: "right".into() }), 0);
         assert_eq!(r.kinds("a2"), ["assign", "snapshot"]);
         assert_eq!(r.s.presence().groups["right"], 3);
+    }
+
+    /// #211: a deck's MIDI outputs reach the conductor in order, never the other decks, are not kept; the audience and
+    /// the bridge may not send them
+    #[test]
+    fn deck_midi_goes_to_the_conductor() {
+        let mut r = room();
+        r.add("d1", Role::Musician, Some("decks"));
+        r.add("d2", Role::Musician, Some("decks"));
+        r.drain();
+        let logged = r.s.log.len();
+        let midi = |b: [u8; 3]| Message::DeckMidi(protocol::DeckMidi { msgs: vec![protocol::MidiBytes { bytes: b.to_vec() }] });
+        r.send("d1", midi([0x90, 36, 100]), 0);
+        r.send("d1", midi([0x80, 36, 0]), 1);
+        let c = r.inbox("cond");
+        let got: Vec<Vec<u8>> = c.iter().filter_map(|e| if let Message::DeckMidi(m) = &e.message { Some(m.msgs[0].bytes.clone()) } else { None }).collect();
+        assert_eq!(got, vec![vec![0x90, 36, 100], vec![0x80, 36, 0]], "both, in order (not merged like values)");
+        assert_eq!(c[0].from, "d1");
+        assert!(r.inbox("d2").is_empty() && r.inbox("a1").is_empty());
+        assert_eq!(r.s.log.len(), logged, "not kept for replay");
+        r.send("a1", midi([0xB0, 1, 1]), 2);
+        assert!(matches!(&r.inbox("a1")[0].message, Message::Error(e) if e.code == "authority"));
+        assert!(r.inbox("cond").is_empty());
     }
 
     fn graph() -> protocol::DeckGraph {

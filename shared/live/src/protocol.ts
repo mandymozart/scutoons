@@ -57,6 +57,7 @@ export type Message =
 	| { kind: 'devices'; p: Devices }
 	| { kind: 'deck.graph'; p: DeckGraph }
 	| { kind: 'deck.values'; p: DeckValues }
+	| { kind: 'deck.midi'; p: DeckMidi }
 	| { kind: 'scene.sync'; p: SceneSync }
 	| { kind: 'deck.synced'; p: DeckSynced }
 	| { kind: 'error'; p: Error };
@@ -396,6 +397,11 @@ export interface DeckGraph {
 export interface DeckValues {
 	values: Record<string, number[]>;
 	mood?: string;
+}
+
+/** #211: a deck → relay → the conductor (and `to`, if set): MIDI its parameters send as outputs (a mapping's target `port = "conductor"` – CC / note / pitch bend, status byte first), for the conductor to route on like device input. Only decks send it; not kept for replay (a value stream, not state). */
+export interface DeckMidi {
+	msgs: MidiBytes[];
 }
 
 /** #195: conductor → relay → the decks (the group `decks`, or only the client ids in `decks`): fetch what this scene needs into the cache – the same scene-content request (`GET /api/library/scene-content`) and cache as a deck's own scene, skipping what is there – and answer `deck.synced`. Only the conductor sends it; the relay logs it and keeps the last one for the snapshot, so a deck that joins later syncs too. */
