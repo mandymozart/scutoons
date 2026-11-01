@@ -36,7 +36,8 @@
 		onsticks,
 		quality = null,
 		onquality,
-		onsettings
+		onsettings,
+		onsave = null
 	}: {
 		values: Record<string, number>;
 		/** the sliders: the fixed patch's PARAMS or the character's rig's knobs (#191) */
@@ -73,6 +74,8 @@
 		onquality: (level: QualityLevel, auto: boolean) => void;
 		/** #220: open the presets' settings sheet */
 		onsettings: () => void;
+		/** #270: "save as preset" – a rig plays and a member is signed in; null hides the button */
+		onsave?: (() => void) | null;
 	} = $props();
 
 	// folded at first: the being fills the screen; the fold opens the knobs
@@ -92,6 +95,11 @@
 				<button type="button" class="learn" class:on={sticksOn} aria-pressed={sticksOn} title={m['live_deck.sticks_hint']()} onclick={onsticks} data-testid="deck-sticks-toggle">
 					{m['live_deck.sticks']()}
 				</button>
+				{#if onsave}
+					<button type="button" class="learn" title={m['live_deck.save_hint']()} onclick={onsave} data-testid="deck-save">
+						{m['live_deck.save']()}
+					</button>
+				{/if}
 			</div>
 			{#if quality}<DeckQuality {quality} {onquality} {onsettings} />{/if}
 			{#if learn || midi}<p class="line">{learning ? m['live_deck.midi_waiting']({ knob: (all.find(([p]) => p === learning)?.[1].label ?? learning) }) : midi || m['live_deck.midi_learn_hint']()}</p>{/if}
