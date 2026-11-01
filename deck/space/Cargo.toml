@@ -24,6 +24,8 @@ native = ["being", "image/png", "image/webp"]
 
 [dependencies]
 deck-core = { workspace = true, features = ["tempo"] }
+# the rig's mood horizon (rig/horizon.rs): deck-events' horizon walker (#236)
+deck-events = { path = "../events" }
 anyhow.workspace = true
 serde.workspace = true
 toml.workspace = true

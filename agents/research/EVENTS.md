@@ -1,4 +1,4 @@
-Status 2026-11-01: built (#236, PR #217): `deck/events` (the contract, the graph, rt events, random_walk / pulse / arp, gate_cv, glide, patch.rs; allocation-free in a run), the stage's `walk` / `events` nodes (one Host block) and live-core's `[[walk]]` / `[[events]]` – a rig's melody and a rigged arp play on the deck and in the browser; encapsulated (§10); the stage's sequencer + dispatcher threads and the routing table (§16, `wip/events-threads`). In progress, each in its own session and branch with a PR into `wip/quirky-pascal-qmago4`: adapters story / relay / MIDI (§12, `wip/events-adapters` – acceptance: a chapter's showMessage mood switches catpope's preset), horizons + preload + the references guard (§16, `wip/events-horizons`). Owner handoff "Generator/Event Architecture"; extends #191 (rigs), #234 (sequences), #235 (patterns / clips).
+Status 2026-11-01: built (#236, PR #217): `deck/events` (the contract, the graph, rt events, random_walk / pulse / arp, gate_cv, glide, patch.rs; allocation-free in a run), the stage's `walk` / `events` nodes (one Host block) and live-core's `[[walk]]` / `[[events]]` – a rig's melody and a rigged arp play on the deck and in the browser; encapsulated (§10); the stage's sequencer + dispatcher threads and the routing table (§16, PR #240); horizons + preload (the walker, the rig's mood prebuild) and the references guard (§16, PR #238). In progress in its own session and branch with a PR into `wip/quirky-pascal-qmago4`: adapters story / relay / MIDI (§12, `wip/events-adapters` – acceptance: a chapter's showMessage mood switches catpope's preset). Owner handoff "Generator/Event Architecture"; extends #191 (rigs), #234 (sequences), #235 (patterns / clips).
 
 # EVENTS — generators that talk in events
 
@@ -308,11 +308,29 @@ queue, so no `arc-swap` dependency; `Counters` in the HUD), `listen` in patches 
 (tests/no_alloc.rs). Routing costs ≈ 1.4 µs median from `send` to the receiver's ring. deck/stage/README.md "Audio".
 
 **Event horizons – preparing before the trigger** ("anticipate potential events by running through scoped event
-horizons, and preload"): every scope lists the events it can reach – a show's cue rows, a chapter's triggers and
-choice branches, a rig's mood variants, a set's objects. A **horizon** = what is reachable from the current position
-within a bound (n rows, t seconds, choice depth d, a byte budget), nearest first. A preloader walks it and resolves the
-references; it can also **pre-build engine state** (the lowered scene of the next mood, a video decoder rolled to its
-first frame) and swap it in on the trigger. Before a show: the whole show's horizon, every deck answers ready; during
-it: a rolling horizon. The protocol already has the beginnings: `scene.sync` / `deck.synced` (#195) and `media.preload`
-/ `media.ready` (#186); the reader already preloads the next scenes' portraits.
-
+horizons, and preload"):
+- **Scope** = what lists its reachable items: a show's cue rows, a rig's mood variants, a set's objects, a chapter's
+  triggers and choice branches. Each item is a **reference** (an id, an immutable path, a mood) with a distance – rows
+  ahead, seconds ahead, choice depth – and a cost in bytes (0 = cached or free to build).
+- **Horizon** = the reachable items within a **bound** (n rows, t seconds, choice depth d, n items, a byte budget),
+  **nearest first** (seconds, then rows, then depth; ties in the scope's order), each reference once at its nearest. The
+  budget fills as a **prefix**: the first item that doesn't fit ends it, so a preloaded horizon has no holes.
+- **Preload or pre-build:** a loader resolves the references into its cache; an engine can also **pre-build state** (the
+  next mood's lowered scene, a video decoder rolled to its first frame) and swap it in on the trigger. Before a show: the
+  whole horizon, every deck answers ready; during it: a rolling horizon from the current row.
+- **Built (deck-events `horizon.rs`, deck-space `rig/horizon.rs`):** the platform-free walker (`walk(reach, bound)`) and
+  the rig case – the energy ladder's moods by rungs, the rig's off-ladder moods (sad) one branch away, a mood the rig
+  doesn't name shares the defaults' entry; `Bundle::prebuild` plays each reachable mood ahead (equal to a fresh `play`).
+  The guard: deck-events `boundary.rs` (`admit`, a loose payload over 1 KB → "send a reference").
+- **The protocol needs nothing new yet:** `scene.sync` (#195: `sets`, `characters`) and `media.preload` (#186: `items`)
+  are already reference lists, and their arrays are ordered – a conductor can send its horizon nearest first in them; decks
+  answer `deck.synced` / `media.ready` as now. Old decks read the same messages (printed / public things never change).
+  A rolling horizon is then just a new `scene.sync` per step.
+- **Decided (owner 2026-11-01, "i would go with recommendations for now"):** `scene.sync` stays ordered reference lists
+  (a `horizon` field with distances only when a deck needs them); a refused payload answers the sender with an `error`
+  ("send a reference"), never a silent drop.
+- **Defaults – provisional, tuned after real-show tests (owner 2026-11-01):** a show's rolling horizon = the next 8 cue
+  rows or 60 s, whichever ends first (`Bound::show`; before doors the whole show, `Bound::all`); a chapter = 2 choices
+  deep (`Bound::chapter`); a deck loads at most 256 MB ahead, and past it loads on the trigger (late – the show never
+  stops), it does not refuse the cue; a deck pre-builds moods only (the next scene's whole stage graph later, if real
+  shows need it). Constants: deck-events `horizon.rs` (`SHOW_ROWS`, `SHOW_SECS`, `CHOICE_DEPTH`, `DECK_BYTES`).
