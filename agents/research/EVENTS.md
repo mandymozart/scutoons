@@ -1,4 +1,4 @@
-Status 2026-11-01: built (#236): `deck/events` (the contract, the graph, rt events, random_walk / pulse / arp, gate_cv; allocation-free in a run), the stage's `walk` node and live-core's walks – a rig's melody plays on the deck and in the browser; encapsulated (§10); next: the generic host node, threads, adapters, horizons. Owner handoff "Generator/Event Architecture"; extends #191 (rigs) and #234 (sequences), #235 (patterns / clips).
+Status 2026-11-01: built (#236): `deck/events` (the contract, the graph, rt events, random_walk / pulse / arp, gate_cv; allocation-free in a run), the stage's `walk` node and live-core's walks – a rig's melody plays on the deck and in the browser; the generic host node (patches); the adapters (§17); encapsulated (§10); next: threads, horizons. Owner handoff "Generator/Event Architecture"; extends #191 (rigs) and #234 (sequences), #235 (patterns / clips).
 
 # EVENTS — generators that talk in events
 
@@ -306,3 +306,18 @@ first frame) and swap it in on the trigger. Before a show: the whole show's hori
 it: a rolling horizon. The protocol already has the beginnings: `scene.sync` / `deck.synced` (#195) and `media.preload`
 / `media.ready` (#186); the reader already preloads the next scenes' portraits.
 
+## 17. The adapters – built (#236)
+Rust `deck/events/src/adapters/` (+ `to_json`, the shared JSON form of §14); an `Event` now has `data` / `id` / `source`;
+names allow camelCase after the domain (`story.showMessage`); `MAX_DATA` = 1 KB, a bigger `data` is refused ("send a reference").
+- **story** (`story.rs`, TS twin `shared/live-deck/src/events.ts` `fromStory`): `story.<type>`, a **trigger** (`Time::Now`);
+  numbers → props (keys sorted, first 6, overflow → data), the rest → `data`, `duration` ms → `dur`, `id` kept, `wait` dropped.
+  The runner keeps `showChoices` · `addChoice` · `label` · `divert` · `jumpTo` · `setVariable` · `askText` (→ none); `if` is the caller's.
+  `shared/live-deck/test/fixtures/events.json` (written by `cargo test -p deck-events`, stale = fails) keeps TS = Rust.
+- **relay** (`relay.rs`): the moments `cue fx say line colour story react pickup panic` → `relay.<kind>` (`at` → seconds through
+  `RelayClock`, no `at` = trigger; a cue's `id` + `actions` → children `relay.<verb>`); state kinds → none, they stay messages.
+  New protocol kind **`story`** (Loose `{ type, params, id? }`): a story trigger for the other decks; the receiver runs `from_story` itself.
+- **midi** (`midi.rs`): note on + off → one `midi.note` (start, duration, `pitch` Hz, `vel` 0–1, `note`, `ch`), born when it ends;
+  `midi.cc { cc, value, ch }`; `release_all` ends held notes. The rest is ignored (`feed` → false).
+- **Acceptance** (`deck/space/tests/story_to_rig.rs`): the real chapter slice event → `story.showMessage` → a receiver maps
+  `data.mood` to `Rig::play` → catpope's `voice_voice.ratio` 1.5 → 3.0 (`cathedral_voice.bright`); TS test on the same fixture.
+- Open: nothing routes adapter events into a running deck yet (the dispatcher, §16); the browser has no relay / MIDI adapter (TS twin: story only).
