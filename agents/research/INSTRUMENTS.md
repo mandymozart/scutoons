@@ -1,4 +1,4 @@
-Status 2026-10-31: design + first slice (#191) – the Rust types (`deck/space/src/rig/`) are built and tested; storage, API, deck loading and UI are proposals waiting on the owner's answers in §8.
+Status 2026-11-01: design + first slices (#191) – the Rust types (`deck/space/src/rig/`) and `Rig::flatten` are built and tested; storage, API, deck loading and UI are proposals waiting on the owner's answers in §8.
 
 # INSTRUMENTS — characters' instruments, presets, derivatives
 
@@ -35,8 +35,9 @@ against its parent (a root: against the instrument as patched). That *is* the li
 - `subject` = KANON's subject form: `character.<id>` (`character.<id>.<persona>` for a persona's own rig) or
   `item.<id>` for a scene object (#210: the incense burner = an item with a one-track rig).
 - **track** `{ id, instrument, preset?, gain, pan, mute }` – the Ableton track.
-- **route** `{ from, to, scale, offset }` with `<track>:<node>.<port>`; `to` may be `master:in` (a send: `scale` =
-  level) or `being:<input>` (the space node's hue · glow · light · pulse) – sound and image from one routing.
+- **route** `{ from, to, scale, offset }` with `<track>:<node>.<port>`; `to` may be `being:<input>` (the space node's
+  hue · glow · light · pulse) – sound and image from one routing. Every track reaches the master through its strip; an
+  audio route is a send into another track's audio input (an fx track), a control route a modulation.
 - **variants**: `personas.<p>` then `moods.<m>` (the `moods` registry's ids – the 20 portrait moods), each
   `{ presets: { track → preset }, values: { "<track>:<node>.<port>" → f32 } }`. `Rig::play(lib, persona, mood)`:
   per unmuted track the preset = mood's ‖ persona's ‖ the track's, folded through its lineage, then the persona's and
@@ -76,8 +77,11 @@ Following the codebase: authored definitions are **catalog kinds**, member-made 
 ## 7. The phone page's test patch → the selected character's rig
 Today `shared/live-deck/src/scene.ts` hard-codes the trimmed cathedral (PARAMS, ENGINE_TOML for live-core, the
 incense in Web Audio). Replaced in steps:
-1. **Rust:** `Rig::flatten` – the tracks' patches into one scene: node ids `<track>_<node>`, a mixer per 4 tracks →
-   audio_out, the routes as links, the space node + `being:*` routes. Tested like `rig/tests.rs`.
+1. **Rust (built):** `Rig::flatten(lib, persona, mood)` – the played tracks' patches in one scene: node ids
+   `<track>_<node>`, four-input mixers chained (`mix1` → `mix2.in1` …, a track's `gain` = its mixer gain) → `out`
+   (audio_out) + `fft`, the routes as links (a muted track's are off), a bare `space` node for `being:*` routes (the
+   caller sets its set / spot), the being's `character` from the subject and `expose` from the instruments. No pan yet
+   (the mixer has none).
 2. **wasm:** deck/space-web exports `rig_play(json, persona, mood) → scene` (the same code as the native stage).
 3. **Page:** picks the character (it already does for the head), takes the rig from scene-content, builds the wire
    graph (`deck.graph`) and live-core's scene from the flattened scene, the sliders / knobs / 3D buttons from the

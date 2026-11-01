@@ -63,7 +63,7 @@ track = [
   { id = "voice", instrument = "choir", preset = "choir.base" },
   { id = "air", instrument = "incense", preset = "incense.base", gain = 0.5 },
 ]
-route = [{ from = "voice:sway.out", to = "being:glow" }, { from = "air:hiss.out", to = "master:in", scale = 0.3 }]
+route = [{ from = "voice:sway.out", to = "being:glow", scale = 0.5 }]
 [rig.personas.vespers]
 values = { "air:hiss.gain" = 0.1 }
 [rig.moods.sad]
@@ -259,4 +259,74 @@ fn documents_round_trip_as_json() {
     assert_eq!(json["parent"], "choir.base");
     assert!(json.get("unlink").is_none(), "empty lists stay out of the document");
     assert_eq!(&serde_json::from_value::<Preset>(json).unwrap(), p);
+}
+
+fn param(s: &crate::scene::Scene, path: &str) -> Option<f64> {
+    let (n, p) = crate::scene::split_ref(path);
+    s.nodes.iter().find(|x| x.id == n)?.params.get(p)?.as_float()
+}
+
+fn has_link(s: &crate::scene::Scene, from: &str, to: &str) -> bool {
+    s.links.iter().any(|l| l.from == from && l.to == to)
+}
+
+#[test]
+fn a_rig_flattens_into_one_scene() {
+    let (lib, rig) = set();
+    let s = rig.flatten(&lib, None, None).unwrap();
+    let g = Graph::build(&s).unwrap();
+    for id in ["voice_seq", "voice_voice", "voice_sway", "air_hiss", "mix1", "out", "fft", "space"] {
+        assert!(g.nodes.iter().any(|n| n.id == id), "{id}");
+    }
+    assert!(has_link(&s, "voice_seq.cv", "voice_voice.cv"), "the track's own links, prefixed");
+    assert!(has_link(&s, "voice_voice.out", "mix1.in1") && has_link(&s, "air_hiss.out", "mix1.in2"));
+    assert_eq!(param(&s, "mix1.gain2"), Some(0.5), "the track's gain is its strip");
+    assert!(has_link(&s, "mix1.out", "out.in") && has_link(&s, "mix1.out", "fft.in"));
+    let glow = s.links.iter().find(|l| l.to == "space.glow").unwrap();
+    assert_eq!((glow.from.as_str(), glow.scale), ("voice_sway.out", 0.5), "being:glow → the space node");
+    assert_eq!(param(&s, "voice_voice.ratio"), Some(1.5));
+    #[cfg(feature = "being")]
+    {
+        assert_eq!(s.being.character, "catpope");
+        assert_eq!(s.being.expose, ["voice_voice.ratio", "voice_voice.gain", "voice_sway.rate"]);
+    }
+    let sad = rig.flatten(&lib, None, Some("sad")).unwrap();
+    assert_eq!(param(&sad, "voice_voice.ratio"), Some(0.5), "the mood's preset");
+    assert_eq!(param(&sad, "air_hiss.cutoff"), Some(400.0));
+}
+
+#[test]
+fn more_than_four_tracks_chain_the_mixers() {
+    let (lib, mut rig) = set();
+    for i in 0..4 {
+        rig.tracks.push(Track { id: format!("air{i}"), instrument: "incense".into(), preset: None, gain: 1.0, pan: 0.0, mute: false });
+    }
+    let s = rig.flatten(&lib, None, None).unwrap();
+    assert!(has_link(&s, "air1_hiss.out", "mix1.in4"), "the first four on mix1");
+    assert!(has_link(&s, "mix1.out", "mix2.in1"), "mix1 into the next");
+    assert!(has_link(&s, "air2_hiss.out", "mix2.in2") && has_link(&s, "air3_hiss.out", "mix2.in3"));
+    assert!(has_link(&s, "mix2.out", "out.in") && !has_link(&s, "mix1.out", "out.in"));
+}
+
+#[test]
+fn muted_tracks_and_their_routes_stay_out() {
+    let (lib, mut rig) = set();
+    rig.tracks[0].mute = true;
+    let s = rig.flatten(&lib, None, None).unwrap();
+    assert!(!s.nodes.iter().any(|n| n.id.starts_with("voice_") || n.id == "space"), "no voice, no glow route");
+    assert!(has_link(&s, "air_hiss.out", "mix1.in1"));
+    rig.tracks[1].mute = true;
+    assert!(rig.flatten(&lib, None, None).unwrap_err().to_string().contains("muted"));
+}
+
+#[test]
+fn routes_go_between_tracks_or_to_the_being_only() {
+    let (lib, mut rig) = set();
+    rig.routes[0].to = "master:in".into();
+    assert!(rig.check(&lib).is_err(), "every track reaches the master through its strip");
+    rig.routes[0] = Route { from: "being:glow".into(), to: "air:hiss.gain".into(), scale: 1.0, offset: 0.0 };
+    assert!(rig.check(&lib).is_err(), "the being is a target, not a source");
+    rig.routes[0] = Route { from: "voice:sway.out".into(), to: "air:hiss.cutoff".into(), scale: 2000.0, offset: 900.0 };
+    let s = rig.flatten(&lib, None, None).unwrap();
+    assert!(has_link(&s, "voice_sway.out", "air_hiss.cutoff"), "a modulation across tracks");
 }

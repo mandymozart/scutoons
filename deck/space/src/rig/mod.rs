@@ -1,10 +1,12 @@
 //! Instruments, presets and character rigs (#191, research/INSTRUMENTS.md): the data a being's sound is made of.
 //! - instrument.rs – a patch of the node graph with its exposed parameters and a kind (drum, lead, pad, voice …)
 //! - preset.rs – values + routing changes + mappings for one instrument, with a parent (derivatives, lineage)
+//! - flatten.rs – a rig as one playable scene (the tracks summed into audio_out, the routes as links)
 //! - here – a rig: a character's (or a scene object's, #210) tracks, each an instrument + its default preset, routes
 //!   between tracks and to the being's look, and per-persona / per-mood variants; `Rig::play` resolves it.
 //!
 //! JSON (the platform's entity documents) and TOML (the core set in the deck image) read the same serde forms.
+mod flatten;
 pub mod instrument;
 pub mod preset;
 
@@ -111,8 +113,9 @@ fn one() -> f32 {
     1.0
 }
 
-/// `from` / `to` are `<track>:<node>.<port>`; `to` may be `being:<input>` (the space node's hue, glow, light, pulse) or
-/// `master:in` (the master bus). An audio route is a send (`scale` = its level), a control route a modulation.
+/// `from` / `to` are `<track>:<node>.<port>`; `to` may be `being:<input>` (the space node's hue, glow, light, pulse).
+/// Every track reaches the master through its mixer strip; an audio route is a send into another track's audio input
+/// (an fx track; `scale` = its level), a control route a modulation.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Route {
@@ -201,7 +204,7 @@ impl Rig {
         for r in &self.routes {
             for end in [&r.from, &r.to] {
                 let Some((scope, _)) = scoped(end) else { bail!("rig '{}': route end '{end}' has no scope", self.subject) };
-                if scope != "being" && scope != "master" {
+                if !(scope == "being" && end == &r.to) {
                     self.track(scope)?;
                 }
             }
