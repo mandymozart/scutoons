@@ -7,6 +7,7 @@ use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Assets\AssetRegistry;
 use Scutoons\Domain\Catalog\CatalogStore;
 use Scutoons\Domain\Catalog\CatalogValidator;
+use Scutoons\Domain\Rigs\MemberRigs;
 use stdClass;
 
 /**
@@ -27,8 +28,10 @@ use stdClass;
  *   resolves offline). The top-level `instruments` / `presets` maps hold each one once as `{ id, version, data }`;
  *   `version` = a hash of the stored data, so a deck's cache skips what it has. `{ rig: data, instrument: […], preset: […] }`
  *   is a deck-space `rig::Bundle` (its the_servers_scene_content_reads_as_bundles test reads this answer).
- * - Public like the catalog and the registry; a deck token (#180, DeckTokenScope lets GETs through) changes nothing yet –
- *   member-only sets (and a member's own presets / rigs, `member_presets` / `member_rigs`) would read the token's member here.
+ * - **Owned derivatives** (#270, §6): `&presets=<ids>` adds presets to the top-level map with their ancestors – factory
+ *   ones for anyone, the member's own (`m:…`, `member_presets`) when the request carries their session or their paired
+ *   deck's token (#180; read scope – DeckTokenScope lets GETs through); an unknown or another member's id lands in
+ *   `missing.presets`. Everything else stays public like the catalog and the registry (a member's rig variants: GET /api/rigs/<subject>).
  */
 final class SceneContent
 {
@@ -41,6 +44,7 @@ final class SceneContent
         private readonly Library $library,
         private readonly CatalogStore $catalog,
         private readonly AssetRegistry $registry,
+        private readonly MemberRigs $members,
     ) {
     }
 
@@ -48,9 +52,11 @@ final class SceneContent
      * @param list<string> $sets
      * @param list<string> $characters
      * @param list<string> $items
-     * @return array<string, mixed> { sets, characters, items, instruments, presets, missing: { sets, characters, items } }
+     * @param list<string> $presets preset ids to add (with their ancestors): factory ones, or the member's own `m:…`
+     * @param ?string $userId the member behind the request (a session or a deck token) – whose `m:…` presets resolve
+     * @return array<string, mixed> { sets, characters, items, instruments, presets, missing: { sets, characters, items, presets } }
      */
-    public function of(array $sets, array $characters, array $items = []): array
+    public function of(array $sets, array $characters, array $items = [], array $presets = [], ?string $userId = null): array
     {
         $registry = [];
         if ($characters !== []) {
@@ -62,12 +68,22 @@ final class SceneContent
         }
         $answer = self::compose($sets, fn(string $id) => $this->catalog->get('home-scenes', $id), $characters, is_array($registry) ? $registry : []);
         $sizes = $this->registry->available() ? $this->registry->sizesOf(self::paths($answer)) : [];
-        return self::withRigs(self::withSizes($answer, $sizes), $items, $this->stored(...));
+        return self::withRigs(self::withSizes($answer, $sizes), $items, fn(string $kind, string $id) => $this->stored($kind, $id, $userId), $presets);
     }
 
-    /** a rig kind's stored data (the catalog row's JSON), null when there is none – or no table yet (before the migration) */
-    private function stored(string $kind, string $id): ?string
+    /**
+     * a rig kind's stored data (the catalog row's JSON; a member's own preset for `m:…` with their id), null when there is
+     * none – or no table yet (before the migration)
+     */
+    private function stored(string $kind, string $id, ?string $userId = null): ?string
     {
+        if ($kind === 'presets' && str_starts_with($id, 'm:')) {
+            try {
+                return $userId === null ? null : $this->members->presetJson($userId, $id);
+            } catch (\Throwable) {
+                return null;
+            }
+        }
         try {
             $row = $this->catalog->row(self::RIG_KINDS[$kind], $id);
         } catch (\Throwable) {
@@ -77,18 +93,32 @@ final class SceneContent
     }
 
     /**
-     * The answer with the rigs (pure – SceneContentRigsTest): `characters.<id>.rig`, `items`, `instruments`, `presets`,
-     * `missing.items`.
+     * The answer with the rigs (pure – SceneContentRigsTest): `characters.<id>.rig`, `items`, `instruments`, `presets`
+     * (+ the asked `$presets` with their ancestors, #270), `missing.items`, `missing.presets`.
      *
      * @param array{sets: array<string, mixed>, characters: array<string, mixed>, missing: array{sets: list<string>, characters: list<string>}} $answer
      * @param list<string> $items
      * @param callable(string, string): ?string $stored (kind instruments | presets | rigs, id) → the stored JSON
+     * @param list<string> $presets
      * @return array<string, mixed>
      */
-    public static function withRigs(array $answer, array $items, callable $stored): array
+    public static function withRigs(array $answer, array $items, callable $stored, array $presets = []): array
     {
         $out = ['instruments' => [], 'presets' => []];
-        $rig = function (string $subject) use ($stored, &$out): ?array {
+        // a preset and its ancestors, root first (a loop or a missing parent stops the walk – the catalog refuses both);
+        // their instruments come along. [] when the preset itself is unknown
+        $lineage = function (string $id, array &$instruments) use ($stored, &$out): array {
+            $chain = [];
+            for ($p = $id; is_string($p) && !in_array($p, $chain, true); $p = $parent) {
+                $preset = self::entry($stored, 'presets', $p, $out);
+                if ($preset === null) break;
+                $chain[] = $p;
+                $parent = $preset->parent ?? null;
+                if (is_string($preset->instrument ?? null)) $instruments[] = $preset->instrument;
+            }
+            return array_reverse($chain);
+        };
+        $rig = function (string $subject) use ($stored, &$out, $lineage): ?array {
             $json = $stored('rigs', $subject);
             $data = $json !== null ? CatalogStore::reader($json, false) : null;
             if (!$data instanceof stdClass) return null;
@@ -99,15 +129,7 @@ final class SceneContent
                 if ($t instanceof stdClass && is_string($t->instrument ?? null)) $instruments[] = $t->instrument;
             }
             foreach (CatalogValidator::rigPresets(json_decode((string) $json, true)) as $id) {
-                // the preset and its ancestors, root first (a loop or a missing parent stops the walk – the catalog refuses both)
-                $chain = [];
-                for ($p = $id; is_string($p) && !in_array($p, $chain, true); $p = $parent) {
-                    $chain[] = $p;
-                    $preset = self::entry($stored, 'presets', $p, $out);
-                    $parent = $preset->parent ?? null;
-                    if ($preset !== null && is_string($preset->instrument ?? null)) $instruments[] = $preset->instrument;
-                }
-                $presets = [...$presets, ...array_reverse($chain)];
+                $presets = [...$presets, ...$lineage($id, $instruments)];
             }
             $instruments = array_values(array_unique($instruments));
             foreach ($instruments as $i) self::entry($stored, 'instruments', $i, $out);
@@ -130,6 +152,13 @@ final class SceneContent
             $found = $rig("item.$id");
             if ($found === null) $answer['missing']['items'][] = $id;
             else $answer['items'][$id] = ['rig' => $found];
+        }
+        // #270: the asked presets (a member's own derivatives, or factory ones) with their ancestors
+        $answer['missing']['presets'] = [];
+        foreach (array_values(array_unique($presets)) as $id) {
+            $instruments = [];
+            if ($lineage($id, $instruments) === []) $answer['missing']['presets'][] = $id;
+            foreach (array_unique($instruments) as $i) self::entry($stored, 'instruments', $i, $out);
         }
         ksort($out['instruments']);
         ksort($out['presets']);

@@ -323,7 +323,7 @@ final class RigsTest extends TestCase
             $members->saveRig($me, 'character.nobody', $rig([]));
             self::fail('no factory rig');
         } catch (ApiError $e) {
-            self::assertSame('invalid_rig', $e->errorCode);
+            self::assertSame([404, 'not_found'], [$e->status, $e->errorCode]);
         }
         // deleting: a preset with a child is in use; the factory rig is in use by the member's variant
         try {

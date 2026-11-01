@@ -953,7 +953,21 @@
 		"midi_unmap": "Remove the MIDI mapping",
 		"midi_problems": "Mappings not loaded: {lines}",
 		"knob_hint": "{label}: drag up / down · Shift fine · double click resets",
-		"stats": "Statistics"
+		"stats": "Statistics",
+		"save": "Save preset",
+		"save_hint": "Keep the knobs as your own preset (a derivative of the one the track plays)",
+		"save_sheet": "Save as preset",
+		"save_close": "Close",
+		"save_track": "Track",
+		"save_name": "Name",
+		"save_name_placeholder": "Vespers, bright …",
+		"save_changes": "What changed",
+		"save_nothing": "Nothing changed on this track yet – it would be saved as it plays.",
+		"save_no_track": "No track plays a preset here – nothing to derive from.",
+		"save_signin": "Sign in to save presets to your account.",
+		"save_do": "Save",
+		"save_saving": "Saving …",
+		"save_failed": "Not saved: {reason}"
 	},
 	"about_page": {
 		"origin_title": "How SCUTOONS came to life",

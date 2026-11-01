@@ -11,6 +11,7 @@ use Scutoons\Domain\Library\Answer;
 use Scutoons\Domain\Library\ChapterFiles;
 use Scutoons\Domain\Library\Library;
 use Scutoons\Domain\Library\SceneContent;
+use Scutoons\Domain\Rigs\RigValidator;
 use Scutoons\Domain\Roles\Roles;
 use Scutoons\Http\CurrentSession;
 use Scutoons\Http\Middleware\Cors;
@@ -113,7 +114,10 @@ final class LibraryController
         return $this->send($request, $response, $this->library->map($this->locale($request), $toon === '' ? null : $toon, $this->draft($request)));
     }
 
-    /** GET /api/library/scene-content?sets=a,b&characters=c,d&items=e (SceneContent; ids ≤ 32 each) */
+    /**
+     * GET /api/library/scene-content?sets=a,b&characters=c,d&items=e&presets=f (SceneContent; ids ≤ 32 each). `presets`
+     * (#270): factory ids, or the member's own `m:…` with their session or deck token – then the answer is theirs (private)
+     */
     public function sceneContent(Request $request, Response $response): Response
     {
         $ids = function (string $name, string $pattern = SceneContent::ID) use ($request): array {
@@ -126,9 +130,12 @@ final class LibraryController
             if (count($list) > SceneContent::MAX_IDS) throw new ApiError(400, 'invalid_ids', "$name: at most " . SceneContent::MAX_IDS . ' ids.');
             return $list;
         };
-        $content = $this->scenes->of($ids('sets'), $ids('characters'), $ids('items', CatalogValidator::ID_PATTERN));
+        $presets = $ids('presets', '#^(?:' . substr(RigValidator::MEMBER_PRESET_ID, 2, -2) . '|' . substr(RigValidator::PRESET_ID, 2, -2) . ')$#');
+        $own = array_filter($presets, fn(string $id) => str_starts_with($id, 'm:')) !== [];
+        $user = $own ? CurrentSession::of($request)->user() : null;
+        $content = $this->scenes->of($ids('sets'), $ids('characters'), $ids('items', CatalogValidator::ID_PATTERN), $presets, $user !== null ? (string) $user['id'] : null);
         $body = SceneContent::json($content);
-        return $this->send($request, $response, new Answer($body, '"s' . substr(sha1($body), 0, 24) . '"', false, null));
+        return $this->send($request, $response, new Answer($body, '"s' . substr(sha1($body), 0, 24) . '"', $own, null));
     }
 
     public function events(Request $request, Response $response): Response
