@@ -92,18 +92,19 @@
 		gap: var(--space-025);
 		font-size: 0.75rem;
 	}
+	/* the sheet is paper (the page behind it ink): everything from currentColor */
 	label,
 	.what {
 		margin: var(--space-05) 0 0;
 		font-size: 0.625rem;
 		text-transform: uppercase;
-		color: color-mix(in srgb, var(--paper) 55%, transparent);
+		color: color-mix(in srgb, currentColor 60%, transparent);
 	}
 	select,
 	input {
 		height: var(--control-height);
 		padding: 0 var(--space-05);
-		border: var(--border-width-regular) solid color-mix(in srgb, var(--paper) 35%, transparent);
+		border: var(--border-width-regular) solid color-mix(in srgb, currentColor 40%, transparent);
 		border-radius: 0;
 		background: none;
 		color: inherit;
@@ -131,7 +132,7 @@
 	}
 	code,
 	.from {
-		color: color-mix(in srgb, var(--paper) 55%, transparent);
+		color: color-mix(in srgb, currentColor 60%, transparent);
 	}
 	b {
 		font-weight: var(--font-weight-regular);
