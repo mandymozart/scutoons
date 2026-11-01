@@ -15,6 +15,8 @@ use std::fmt;
 pub const EDGE_CAP: usize = 256;
 /// edges an event may cross
 pub const MAX_HOPS: u8 = 16;
+/// external events waiting for the next run at most (more are dropped and counted)
+pub const INJECT_CAP: usize = 64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Edge {
@@ -71,12 +73,13 @@ pub struct EventGraph {
 
 impl EventGraph {
     pub fn new() -> EventGraph {
-        EventGraph::default()
+        EventGraph { injected: Vec::with_capacity(INJECT_CAP), ..EventGraph::default() }
     }
 
     pub fn add(&mut self, g: impl Generator + 'static) -> usize {
         let p = g.ports();
-        self.inboxes.push(vec![Vec::new(); p.ins.len()]);
+        // every buffer at its cap up front: a run never allocates (the audio thread may run a graph)
+        self.inboxes.push((0..p.ins.len()).map(|_| Vec::with_capacity(EDGE_CAP)).collect());
         self.outboxes.push(Outbox::new(p.outs.len(), EDGE_CAP));
         self.nodes.push(Box::new(g));
         self.dirty = true;
@@ -87,7 +90,7 @@ impl EventGraph {
         let g = self.nodes.get(node).ok_or(GraphError::NoNode(node))?;
         let p = g.ports();
         let list = if input { p.ins } else { p.outs };
-        list.iter().position(|n| *n == name).ok_or(GraphError::NoPort { node, port: name.into(), input })
+        list.iter().position(|n| *n == name).ok_or_else(|| GraphError::NoPort { node, port: name.into(), input })
     }
 
     /// join `from`'s output to `to`'s input; `delayed` = delivered in the next window (a loop needs one)
@@ -95,8 +98,8 @@ impl EventGraph {
         let f = self.port(from.0, from.1, false)?;
         let t = self.port(to.0, to.1, true)?;
         self.edges.push(Edge { from: (from.0, f), to: (to.0, t), delayed });
-        self.pending.push(Vec::new());
-        self.next.push(Vec::new());
+        self.pending.push(Vec::with_capacity(EDGE_CAP));
+        self.next.push(Vec::with_capacity(EDGE_CAP));
         self.dirty = true;
         Ok(())
     }
@@ -131,7 +134,11 @@ impl EventGraph {
     /// an external event (an adapter's) for `node`'s input in the next run
     pub fn inject(&mut self, node: usize, port: &str, e: Event) -> Result<(), GraphError> {
         let p = self.port(node, port, true)?;
-        self.injected.push((node, p, e));
+        if self.injected.len() < INJECT_CAP {
+            self.injected.push((node, p, e));
+        } else {
+            self.stats.capped += 1;
+        }
         Ok(())
     }
 
@@ -147,15 +154,22 @@ impl EventGraph {
         }
         for (i, evs) in self.pending.iter_mut().enumerate() {
             let (n, p) = self.edges[i].to;
-            self.inboxes[n][p].append(evs);
+            let room = EDGE_CAP.saturating_sub(self.inboxes[n][p].len());
+            self.stats.capped += evs.len().saturating_sub(room) as u64;
+            self.inboxes[n][p].extend(evs.drain(..).take(room));
         }
         for (n, p, e) in self.injected.drain(..) {
-            self.inboxes[n][p].push(e);
+            if self.inboxes[n][p].len() < EDGE_CAP {
+                self.inboxes[n][p].push(e);
+            } else {
+                self.stats.capped += 1;
+            }
         }
         for k in 0..self.order.len() {
             let n = self.order[k];
             for p in &mut self.inboxes[n] {
-                p.sort_by(|a, b| a.frame(span.tempo, span.from_frame).total_cmp(&b.frame(span.tempo, span.from_frame)));
+                // unstable: no buffer (a stable sort allocates); equal starts keep a deterministic order all the same
+                p.sort_unstable_by(|a, b| a.frame(span.tempo, span.from_frame).total_cmp(&b.frame(span.tempo, span.from_frame)));
             }
             let out = &mut self.outboxes[n];
             out.clear();
@@ -172,19 +186,33 @@ impl EventGraph {
                         self.stats.capped += 1;
                         continue;
                     }
+                    let target = if e.delayed { &mut self.next[ei] } else { &mut self.inboxes[e.to.0][e.to.1] };
+                    if target.len() == EDGE_CAP {
+                        // several edges into one input: its buffer is full
+                        self.stats.capped += 1;
+                        continue;
+                    }
                     sent += 1;
                     let mut c = ev.clone();
                     c.hops += 1;
-                    if e.delayed {
-                        self.next[ei].push(c);
-                    } else {
-                        self.inboxes[e.to.0][e.to.1].push(c);
-                    }
+                    target.push(c);
                 }
             }
         }
         std::mem::swap(&mut self.pending, &mut self.next);
         Ok(())
+    }
+
+    /// set `node`'s param `name`'s index once (`param`), then `set` it as often as needed (a knob, per block)
+    pub fn param(&self, node: usize, name: &str) -> Result<usize, GraphError> {
+        let g = self.nodes.get(node).ok_or(GraphError::NoNode(node))?;
+        g.ports().params.iter().position(|n| *n == name).ok_or_else(|| GraphError::NoPort { node, port: name.into(), input: true })
+    }
+
+    pub fn set(&mut self, node: usize, param: usize, value: f32) {
+        if let Some(g) = self.nodes.get_mut(node) {
+            g.set(param, value);
+        }
     }
 
     /// what `node` emitted on `port` in the last run (a sink reads its consumer's view here)
@@ -211,7 +239,7 @@ mod tests {
     }
     impl Generator for Echo {
         fn ports(&self) -> Ports {
-            Ports { ins: &["in"], outs: &["out"] }
+            Ports { ins: &["in"], outs: &["out"], params: &[] }
         }
         fn query(&mut self, _: &Span, ins: &Inbox, out: &mut Outbox) {
             for e in ins.port(0) {
@@ -226,7 +254,7 @@ mod tests {
     struct Tick(Sym);
     impl Generator for Tick {
         fn ports(&self) -> Ports {
-            Ports { ins: &[], outs: &["out"] }
+            Ports { ins: &[], outs: &["out"], params: &[] }
         }
         fn query(&mut self, _: &Span, _: &Inbox, out: &mut Outbox) {
             out.push(0, Event::now(self.0));

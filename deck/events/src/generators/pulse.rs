@@ -16,7 +16,13 @@ pub struct Pulse {
 
 impl Generator for Pulse {
     fn ports(&self) -> Ports {
-        Ports { ins: &[], outs: &["out"] }
+        Ports { ins: &[], outs: &["out"], params: &["every"] }
+    }
+
+    fn set(&mut self, index: usize, value: f32) {
+        if index == 0 {
+            self.every = f64::from(value.max(0.0));
+        }
     }
 
     fn query(&mut self, span: &Span, _: &Inbox, out: &mut Outbox) {

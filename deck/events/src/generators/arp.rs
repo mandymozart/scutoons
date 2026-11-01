@@ -29,9 +29,15 @@ pub struct Arp {
 }
 
 impl Arp {
-    /// the ladder of pitches (ratio × octave), low to high
-    fn ladder(&self, root: f32) -> Vec<f32> {
-        (0..self.octaves.max(1)).flat_map(|o| self.ratios.iter().map(move |r| root * r * 2f32.powi(o as i32))).collect()
+    /// the ladder's length (ratios × octaves) and its rung `i`'s pitch, low to high – no list built (the audio
+    /// thread may run it)
+    fn rungs(&self) -> usize {
+        self.ratios.len() * self.octaves.max(1) as usize
+    }
+
+    fn rung(&self, root: f32, i: usize) -> f32 {
+        let n = self.ratios.len();
+        root * self.ratios[i % n] * 2f32.powi((i / n) as i32)
     }
 
     /// step k's index into a ladder of n
@@ -52,7 +58,13 @@ impl Arp {
 
 impl Generator for Arp {
     fn ports(&self) -> Ports {
-        Ports { ins: &["notes"], outs: &["notes"] }
+        Ports { ins: &["notes"], outs: &["notes"], params: &["rate"] }
+    }
+
+    fn set(&mut self, index: usize, value: f32) {
+        if index == 0 {
+            self.per_beat = f64::from(value.max(0.0));
+        }
     }
 
     fn query(&mut self, span: &Span, ins: &Inbox, out: &mut Outbox) {
@@ -74,8 +86,7 @@ impl Generator for Arp {
                 next += 1;
             }
             let Some(root) = self.root else { continue };
-            let ladder = self.ladder(root);
-            let pitch = ladder[self.index(k, ladder.len())];
+            let pitch = self.rung(root, self.index(k, self.rungs()));
             out.push(0, Event::new(self.note, Time::Beats(beat)).lasting(Time::Beats(dur)).with(self.pitch, pitch));
         }
         // notes after the last step still set the root for the next window

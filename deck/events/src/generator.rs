@@ -27,17 +27,23 @@ impl<'a> Span<'a> {
     }
 }
 
-/// a generator's port names (an edge names them; graph.rs checks them)
+/// a generator's port names (an edge names them; graph.rs checks them) and its params (what a knob, a mapping or a
+/// preset sets – `Generator::set` by index)
 #[derive(Debug, Clone, Copy)]
 pub struct Ports {
     pub ins: &'static [&'static str],
     pub outs: &'static [&'static str],
+    pub params: &'static [&'static str],
 }
 
 pub trait Generator: Send {
     fn ports(&self) -> Ports;
     /// the events starting in `span`, given what arrived on the inputs for it (sorted by start), into `out`
     fn query(&mut self, span: &Span, ins: &Inbox, out: &mut Outbox);
+    /// set param `index` (of `ports().params`) – a knob turned; the audio thread may call it (no allocation)
+    fn set(&mut self, index: usize, value: f32) {
+        let _ = (index, value);
+    }
 }
 
 /// what arrived for this span, per input port, sorted by start
@@ -60,7 +66,8 @@ pub struct Outbox {
 
 impl Outbox {
     pub fn new(outs: usize, cap: usize) -> Outbox {
-        Outbox { ports: (0..outs).map(|_| Vec::with_capacity(cap.min(64))).collect(), cap, dropped: 0 }
+        // the whole cap up front: pushing never allocates (the audio thread may run a graph)
+        Outbox { ports: (0..outs).map(|_| Vec::with_capacity(cap)).collect(), cap, dropped: 0 }
     }
 
     pub fn push(&mut self, port: usize, e: Event) {

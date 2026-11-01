@@ -34,7 +34,16 @@ impl RandomWalk {
 
 impl Generator for RandomWalk {
     fn ports(&self) -> Ports {
-        Ports { ins: &[], outs: &["notes"] }
+        Ports { ins: &[], outs: &["notes"], params: &["spread", "rate", "glide"] }
+    }
+
+    fn set(&mut self, index: usize, value: f32) {
+        match index {
+            0 => self.spread = value.clamp(0.0, 1.0),
+            1 => self.per_beat = f64::from(value.max(0.0)),
+            2 => self.glide = value.clamp(0.0, 1.0),
+            _ => {}
+        }
     }
 
     fn query(&mut self, span: &Span, _: &Inbox, out: &mut Outbox) {
