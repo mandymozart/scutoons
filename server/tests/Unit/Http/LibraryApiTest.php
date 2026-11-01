@@ -211,11 +211,11 @@ final class LibraryApiTest extends TestCase
         self::assertSame(['character.catpope', ['cathedral_voice', 'drone']], [$body['characters']['plf']['rig']['id'], $body['characters']['plf']['rig']['instruments']]);
         self::assertSame(['incense'], $body['items']['incense_burner']['rig']['instruments']);
         self::assertSame(['cathedral_voice', 'drone', 'incense'], array_keys($body['instruments']));
-        self::assertSame(['sets' => ['nowhere'], 'characters' => ['ghost'], 'items' => ['Ghost']], $body['missing']);
+        self::assertSame(['sets' => ['nowhere'], 'characters' => ['ghost'], 'items' => ['Ghost'], 'presets' => []], $body['missing']);
         $again = $this->request('/api/library/scene-content?sets=cathedral,nowhere&characters=plf,ghost&items=incense_burner,Ghost', ['If-None-Match' => $r->getHeaderLine('ETag')]);
         self::assertSame(304, $again->getStatusCode());
 
-        self::assertSame('{"sets":{},"characters":{},"items":{},"instruments":{},"presets":{},"missing":{"sets":[],"characters":[],"items":[]}}', (string) $this->request('/api/library/scene-content')->getBody(), 'maps stay objects');
+        self::assertSame('{"sets":{},"characters":{},"items":{},"instruments":{},"presets":{},"missing":{"sets":[],"characters":[],"items":[],"presets":[]}}', (string) $this->request('/api/library/scene-content')->getBody(), 'maps stay objects');
         self::assertSame(400, $this->request('/api/library/scene-content?items=../x')->getStatusCode());
         self::assertSame([400, 'invalid_ids'], [($bad = $this->request('/api/library/scene-content?sets=../x'))->getStatusCode(), self::json($bad)['error']]);
         self::assertSame(400, $this->request('/api/library/scene-content?characters=' . implode(',', array_map(fn($i) => "c$i", range(1, 33))))->getStatusCode());

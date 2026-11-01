@@ -88,6 +88,6 @@ final class SceneContentRigsTest extends TestCase
     public function testNoRigsAnswerEmptyMaps(): void
     {
         $a = SceneContent::json(SceneContent::withRigs(SceneContent::compose([], fn() => null, [], []), [], fn() => null));
-        self::assertSame('{"sets":{},"characters":{},"items":{},"instruments":{},"presets":{},"missing":{"sets":[],"characters":[],"items":[]}}', $a);
+        self::assertSame('{"sets":{},"characters":{},"items":{},"instruments":{},"presets":{},"missing":{"sets":[],"characters":[],"items":[],"presets":[]}}', $a);
     }
 }

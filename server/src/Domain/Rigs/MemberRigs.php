@@ -19,10 +19,17 @@ use stdClass;
  * - `member_rigs`: a member's variant of a factory rig (same subject) – other presets per track (the member's own too),
  *   more tracks, but only with instruments they hold: the factory rig's own (core) and those of the instrument items in
  *   their carrier bag (owned; `category: "instrument"` items, CatalogValidator).
- * The loaders and writes only – no HTTP route yet (saving settings from a deck is #258's Open).
+ * - **Deriving** (#270, §2 / §4 – preset.rs `PresetBook::derive`): `derive` writes a child of a parent the member may
+ *   derive from for how they hold it (`Hold`: an own `m:` preset = owned; a factory preset = owned while they hold an
+ *   instrument item of its instrument, else core – the catalog is the deck image's core set), keeping only the values
+ *   that differ from the parent's folded lineage. Routes: Http\Controllers\RigsController (a session or a deck token
+ *   with the `rigs` scope).
  */
 final class MemberRigs
 {
+    /** mod.rs `Rights::default()`: what a hold may do when a definition says nothing */
+    public const DEFAULT_RIGHTS = ['lent' => ['play', 'tweak'], 'owned' => ['play', 'tweak', 'derive', 'copy'], 'core' => ['play', 'tweak', 'derive']];
+
     public function __construct(
         private readonly Database $db,
         private readonly CatalogStore $catalog,
@@ -58,13 +65,95 @@ final class MemberRigs
         return $preset;
     }
 
+    /**
+     * "Save as preset" (#270): a derivative of `parent` holding only what differs from the parent's folded values –
+     * preset.rs `PresetBook::derive`. $edits: { parent, values?: { "node.port": number }, name?: { <locale>: text },
+     * tags?: [..] (default: the parent's), mapping?: [..] } – anything else is refused. Needs the parent's `derive`
+     * right for how the member holds it (`holdOf`): 403 not_derivable { hold }. 422 invalid_preset as savePreset.
+     */
+    public function derive(string $userId, stdClass $edits): stdClass
+    {
+        $unknown = array_diff(array_keys(get_object_vars($edits)), ['parent', 'values', 'name', 'tags', 'mapping']);
+        if ($unknown !== []) throw self::invalid('invalid_preset', ['a derivative takes parent, values, name, tags, mapping - not ' . implode(', ', $unknown)]);
+        $parent = $edits->parent ?? null;
+        if (!is_string($parent) || $parent === '') throw self::invalid('invalid_preset', ['a member\'s preset derives from a parent (a preset id)']);
+        $from = $this->preset($userId, $parent);
+        if ($from === null) throw self::invalid('invalid_preset', ["unknown preset \"$parent\""]);
+        $hold = $this->holdOf($userId, $from);
+        if (!self::allows($from, $hold, 'derive')) {
+            throw new ApiError(403, 'not_derivable', "Preset $parent, held $hold, may not be derived from.", ['hold' => $hold]);
+        }
+        $values = $edits->values ?? new stdClass();
+        if (!$values instanceof stdClass) throw self::invalid('invalid_preset', ['values must be { "node.port": number }']);
+        $base = $this->folded($userId, $parent);
+        $changed = new stdClass();
+        foreach (get_object_vars($values) as $path => $v) {
+            if (!is_int($v) && !is_float($v)) throw self::invalid('invalid_preset', ['values must be { "node.port": number }']);
+            $k = RigValidator::canonical((string) $path);
+            if (!array_key_exists($k, $base) || (float) $base[$k] !== (float) $v) $changed->$k = $v;
+        }
+        $preset = new stdClass();
+        $preset->instrument = $from->instrument ?? null;
+        $preset->parent = $parent;
+        if (isset($edits->name)) $preset->name = $edits->name;
+        $tags = $edits->tags ?? $from->tags ?? null;
+        if ($tags !== null && $tags !== []) $preset->tags = $tags;
+        $preset->values = $changed;
+        if (isset($edits->mapping) && $edits->mapping !== []) $preset->mapping = $edits->mapping;
+        if (isset($from->rights)) $preset->rights = $from->rights;
+        return $this->savePreset($userId, $preset);
+    }
+
+    /**
+     * How the member holds a preset (research/INSTRUMENTS.md §4): their own `m:` preset = `owned`; a factory preset =
+     * `owned` while they hold an instrument item of its instrument (the carrier bag), else `core` (the catalog is what
+     * the deck image ships). `lent` (a conductor's grant for one scene) is the relay's, never the API's.
+     */
+    public function holdOf(string $userId, stdClass $preset): string
+    {
+        if (str_starts_with((string) ($preset->id ?? ''), 'm:')) return 'owned';
+        return in_array($preset->instrument ?? '', $this->ownedInstruments($userId), true) ? 'owned' : 'core';
+    }
+
+    /** mod.rs `Rights::allows`: the definition's list for the hold, else the default */
+    public static function allows(stdClass $definition, string $hold, string $right): bool
+    {
+        $rights = $definition->rights ?? null;
+        $list = $rights instanceof stdClass && is_array($rights->$hold ?? null) ? $rights->$hold : (self::DEFAULT_RIGHTS[$hold] ?? []);
+        return in_array($right, $list, true);
+    }
+
+    /**
+     * The parent's lineage folded root → leaf: canonical `node.port` → value (preset.rs `Resolved::fold`, values only)
+     * @return array<string, int|float>
+     */
+    private function folded(string $userId, string $id): array
+    {
+        $problems = [];
+        $chain = RigValidator::lineage($id, fn(string $p) => $this->preset($userId, $p), $problems) ?? [];
+        $values = [];
+        foreach ($chain as $pr) {
+            foreach (get_object_vars($pr->values ?? new stdClass()) as $k => $v) {
+                if (is_int($v) || is_float($v)) $values[RigValidator::canonical((string) $k)] = $v;
+            }
+        }
+        return $values;
+    }
+
     /** A preset as this member sees it: a factory one, or one of their own (`m:…`) */
     public function preset(string $userId, string $id): ?stdClass
     {
         if (!str_starts_with($id, 'm:')) return $this->validator->rigEntry('presets', $id);
-        $json = $this->db->value('SELECT data FROM member_presets WHERE id = ? AND user_id = ?', [$id, $userId]);
-        $data = is_string($json) ? json_decode($json) : null;
+        $data = json_decode((string) $this->presetJson($userId, $id));
         return $data instanceof stdClass ? $data : null;
+    }
+
+    /** One of the member's own presets as stored (scene-content's `presets=m:…`, #270 – its hash is the version) */
+    public function presetJson(string $userId, string $id): ?string
+    {
+        if (!str_starts_with($id, 'm:')) return null;
+        $json = $this->db->value('SELECT data FROM member_presets WHERE id = ? AND user_id = ?', [$id, $userId]);
+        return is_string($json) ? $json : null;
     }
 
     /**
@@ -95,11 +184,11 @@ final class MemberRigs
 
     // ── Rigs ──────────────────────────────────────────────────────────────────────────────────────────────
 
-    /** Stores the member's variant of a factory rig (replaces theirs). 422 invalid_rig { problems } */
+    /** Stores the member's variant of a factory rig (replaces theirs). 404 not_found without a factory rig, 422 invalid_rig { problems } */
     public function saveRig(string $userId, string $subject, stdClass $data): void
     {
-        $factory = $this->catalog->get('rigs', $subject);
-        if (!is_array($factory)) throw self::invalid('invalid_rig', ["no rig \"$subject\" to vary"]);
+        $factory = $this->factoryRig($subject);
+        $data->subject ??= $subject;
         $problems = RigValidator::rig($data, $subject,
             fn(string $i) => $this->validator->rigEntry('instruments', $i),
             fn(string $p) => $this->preset($userId, $p),
@@ -107,6 +196,17 @@ final class MemberRigs
         if ($problems) throw self::invalid('invalid_rig', $problems);
         $this->db->run('INSERT INTO member_rigs (user_id, subject, data, updated_at) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE data = VALUES(data), updated_at = VALUES(updated_at)',
             [$userId, $subject, CatalogStore::encode($data), $this->clock->utc()]);
+    }
+
+    /**
+     * The factory rig a member varies (decoded as arrays) · 404 not_found
+     * @return array<string, mixed>
+     */
+    public function factoryRig(string $subject): array
+    {
+        $factory = $this->catalog->get('rigs', $subject);
+        if (!is_array($factory)) throw new ApiError(404, 'not_found', "No rig \"$subject\" to vary.");
+        return $factory;
     }
 
     /** The member's variant of a rig, null when they have none */
@@ -130,12 +230,22 @@ final class MemberRigs
     public function held(string $userId, array $factory): array
     {
         $ids = array_column(array_filter(is_array($factory['track'] ?? null) ? $factory['track'] : [], 'is_array'), 'instrument');
+        return array_values(array_unique(array_filter([...$ids, ...$this->ownedInstruments($userId)], 'is_string')));
+    }
+
+    /**
+     * The instruments the member owns: those of the instrument items in their carrier bag (inventory, qty > 0)
+     * @return list<string>
+     */
+    public function ownedInstruments(string $userId): array
+    {
+        $ids = [];
         $items = $this->catalog->map('items');
         foreach ($this->db->all('SELECT DISTINCT item_id FROM inventory WHERE user_id = ? AND qty > 0', [$userId]) as $row) {
             $item = $items[(string) $row['item_id']] ?? null;
             if (is_array($item) && ($item['category'] ?? null) === 'instrument' && is_string($item['instrument'] ?? null)) $ids[] = $item['instrument'];
         }
-        return array_values(array_unique(array_filter($ids, 'is_string')));
+        return array_values(array_unique($ids));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────────────────────────────────

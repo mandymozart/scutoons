@@ -29,6 +29,11 @@ use Throwable;
  * (one row per public key), the build never becomes useless.
  *
  * The signed message: SIGNED_PREFIX . challenge (hex) . ':' . public key (hex) – domain-separated, bound to the deck.
+ *
+ * Write scopes (#270, migration 2026-11-01-deck-scopes): a deck reads only, unless the member grants it a scope at
+ * approval the way they set its lifetime – `rigs` lets it save the member's own presets and rig variants (/api/rigs/*,
+ * "save as preset" from the deck's knobs; DeckTokenScope lets those writes through). Nothing else ever; readers' decks
+ * may have it too (their own rows).
  */
 final class Decks
 {
@@ -44,12 +49,16 @@ final class Decks
     public const MAX = 50;
     /** wrong codes a member may try per hour (code guessing) */
     public const CODE_TRIES = 20;
+    /** the write scopes a member may grant a deck at approval (#270): `rigs` = /api/rigs/* (its own presets and variants) */
+    public const SCOPES = ['rigs'];
     /** the code's alphabet: no 0 / O, 1 / I / L */
     private const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
     private const CODE_LENGTH = 6;
 
-    /** @var array<string, array<string, mixed>|null> */
+    /** @var array<string, array<string, mixed>|null> the member behind a token */
     private array $cache = [];
+    /** @var array<string, array<string, mixed>|null> the deck's row behind a token (the scopes) */
+    private array $rows = [];
 
     public function __construct(
         private readonly Database $db,
@@ -159,7 +168,7 @@ final class Decks
         $expires = $this->clock->utc(self::TOKEN_SECONDS);
         $this->db->run('UPDATE decks SET token_hash = ?, token_expires_at = ?, last_seen_at = ? WHERE id = ?',
             [hash('sha256', $token), $expires, $this->clock->utc(), $row['id']]);
-        $this->cache = [];
+        $this->cache = $this->rows = [];
         $this->remind($row);
         return [
             'token' => $token,
@@ -176,18 +185,41 @@ final class Decks
     public function user(string $token): ?array
     {
         if (array_key_exists($token, $this->cache)) return $this->cache[$token];
-        try {
-            $row = $this->db->one('SELECT * FROM decks WHERE token_hash = ?', [hash('sha256', $token)]);
-        } catch (Throwable) {
-            return $this->cache[$token] = null; // before the migration: no deck token works
-        }
-        if ($row === null || !$this->valid($row) || $row['token_expires_at'] < $this->clock->utc()) return $this->cache[$token] = null;
+        $row = $this->rowOf($token);
+        if ($row === null) return $this->cache[$token] = null;
         $user = $this->users->byId((string) $row['user_id']);
         if ($user === null) return $this->cache[$token] = null;
         if ($row['last_seen_at'] === null || $row['last_seen_at'] < $this->clock->utc(-60)) {
             $this->db->run('UPDATE decks SET last_seen_at = ? WHERE id = ?', [$this->clock->utc(), $row['id']]);
         }
         return $this->cache[$token] = $user;
+    }
+
+    /**
+     * The write scopes a deck token carries (#270): what its member granted at approval – `[]` for reads only, an
+     * unknown / expired token, or before the migration
+     * @return list<string>
+     */
+    public function scopes(string $token): array
+    {
+        $row = $this->rowOf($token);
+        return $row === null ? [] : self::scopesOf($row);
+    }
+
+    /**
+     * The approved, valid deck behind a live token (the row), null otherwise
+     * @return array<string, mixed>|null
+     */
+    private function rowOf(string $token): ?array
+    {
+        if (array_key_exists($token, $this->rows)) return $this->rows[$token];
+        try {
+            $row = $this->db->one('SELECT * FROM decks WHERE token_hash = ?', [hash('sha256', $token)]);
+        } catch (Throwable) {
+            return $this->rows[$token] = null; // before the migration: no deck token works
+        }
+        if ($row === null || !$this->valid($row) || $row['token_expires_at'] < $this->clock->utc()) return $this->rows[$token] = null;
+        return $this->rows[$token] = $row;
     }
 
     // ── the member's side (a real sign-in; DeckTokenScope / ApiTokenScope refuse tokens) ───────────────────────
@@ -208,9 +240,9 @@ final class Decks
 
     /**
      * The member approves the deck behind a code: it is theirs (mapping member) for `days` (1–182, default 182), optionally
-     * ending after `idle_days` without it → the item
+     * ending after `idle_days` without it, with the write `scopes` they grant (SCOPES; none = reads only) → the item
      * @param array<string, mixed> $user
-     * @param array<mixed> $body { code, days?, idle_days?, name? }
+     * @param array<mixed> $body { code, days?, idle_days?, name?, scopes? }
      * @return array<string, mixed>
      */
     public function approve(array $user, array $body): array
@@ -219,14 +251,15 @@ final class Decks
         $days = self::days($body['days'] ?? self::LIFETIME_DAYS, 'days');
         $idle = isset($body['idle_days']) ? self::days($body['idle_days'], 'idle_days') : null;
         $name = self::text($body['name'] ?? '', 100, 'name');
+        $scopes = self::scopesFrom($body['scopes'] ?? []);
         $row = $this->pendingByCode($user, $body['code'] ?? null);
         $count = (int) $this->db->value('SELECT COUNT(*) FROM decks WHERE user_id = ? AND status = ?', [(string) $user['id'], 'approved']);
         if ($count >= self::MAX) throw new ApiError(409, 'too_many', 'At most ' . self::MAX . ' decks – revoke one you no longer use.');
         $now = $this->clock->utc();
-        $this->db->run('UPDATE decks SET status = ?, code = NULL, user_id = ?, name = ?, mapping = ?, lifetime_days = ?, idle_days = ?, expires_at = ?,'
+        $this->db->run('UPDATE decks SET status = ?, code = NULL, user_id = ?, name = ?, mapping = ?, scopes = ?, lifetime_days = ?, idle_days = ?, expires_at = ?,'
             . ' reminded_at = NULL, approved_at = ?, last_seen_at = ? WHERE id = ? AND status = ?',
-            ['approved', (string) $user['id'], $name === '' ? null : $name, 'member', $days, $idle, $this->clock->utc($days * 86400), $now, $now, $row['id'], 'pending']);
-        $this->cache = [];
+            ['approved', (string) $user['id'], $name === '' ? null : $name, 'member', implode(',', $scopes), $days, $idle, $this->clock->utc($days * 86400), $now, $now, $row['id'], 'pending']);
+        $this->cache = $this->rows = [];
         return $this->item($this->db->one('SELECT * FROM decks WHERE id = ?', [$row['id']]) ?? []);
     }
 
@@ -253,7 +286,7 @@ final class Decks
         $row = $this->own($user, $id);
         $days = (int) ($row['lifetime_days'] ?? self::LIFETIME_DAYS);
         $this->db->run('UPDATE decks SET expires_at = ?, approved_at = ?, reminded_at = NULL WHERE id = ?', [$this->clock->utc($days * 86400), $this->clock->utc(), $row['id']]);
-        $this->cache = [];
+        $this->cache = $this->rows = [];
         return $this->item($this->db->one('SELECT * FROM decks WHERE id = ?', [$row['id']]) ?? []);
     }
 
@@ -267,7 +300,7 @@ final class Decks
         $row = $this->own($user, $id);
         $this->db->run('UPDATE decks SET status = ?, revoked_at = ?, token_hash = NULL, token_expires_at = NULL, challenge = NULL, challenge_expires_at = NULL WHERE id = ?',
             ['revoked', $this->clock->utc(), $row['id']]);
-        $this->cache = [];
+        $this->cache = $this->rows = [];
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────────────────────────────────
@@ -413,6 +446,7 @@ final class Decks
             'build' => (string) $r['build'],
             'class' => (string) $r['class'],
             'mapping' => (string) $r['mapping'],
+            'scopes' => self::scopesOf($r),
             'approved_at' => $r['approved_at'] !== null ? (string) $r['approved_at'] : null,
             'last_seen_at' => $r['last_seen_at'] !== null ? (string) $r['last_seen_at'] : null,
             'expires_at' => (string) $r['expires_at'],
@@ -436,6 +470,28 @@ final class Decks
         $value = trim((string) preg_replace('/[\x00-\x1F\x7F\s]+/u', ' ', $value));
         if (mb_strlen($value) > $max) throw new ApiError(400, 'invalid_' . $field, 'At most ' . $max . ' characters.', ['field' => $field]);
         return $value;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @return list<string>
+     */
+    private static function scopesOf(array $row): array
+    {
+        $raw = (string) ($row['scopes'] ?? '');
+        return $raw === '' ? [] : array_values(array_intersect(self::SCOPES, explode(',', $raw)));
+    }
+
+    /**
+     * the body's `scopes`: a list of SCOPES (each once) · 400 invalid_scopes
+     * @return list<string>
+     */
+    private static function scopesFrom(mixed $value): array
+    {
+        if (!is_array($value) || !array_is_list($value) || array_diff($value, self::SCOPES) !== []) {
+            throw new ApiError(400, 'invalid_scopes', 'scopes is a list of: ' . implode(', ', self::SCOPES) . '.', ['field' => 'scopes']);
+        }
+        return array_values(array_intersect(self::SCOPES, $value));
     }
 
     private static function days(mixed $value, string $field): int
