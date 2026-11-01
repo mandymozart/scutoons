@@ -11,10 +11,14 @@
 pub mod backend;
 mod blocks;
 mod click;
+#[cfg(feature = "events")]
+pub mod dispatch;
 pub mod glitch;
 pub mod lead;
 pub mod priority;
 pub mod ring;
+#[cfg(feature = "events")]
+pub mod sequencer;
 mod voices;
 #[cfg(feature = "events")]
 mod walk;
@@ -130,6 +134,25 @@ impl Build {
     }
 }
 
+/// Where the `walk` / `events` hosts run their generators (#236, walk.rs): on the sequencer thread, ahead of the
+/// render (the stage's default), or inside the audio block (the fallback – `DECK_EVENTS=block`, the tests'
+/// `build_with`). Both play the same samples.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Sequencing {
+    InBlock,
+    Thread,
+}
+
+impl Sequencing {
+    /// the thread, unless `DECK_EVENTS=block`
+    pub fn detect() -> Sequencing {
+        match std::env::var("DECK_EVENTS") {
+            Ok(v) if v == "block" => Sequencing::InBlock,
+            _ => Sequencing::Thread,
+        }
+    }
+}
+
 /// One step of a block, in level order.
 enum Step {
     /// one node (the patcher model): its block, the buffer each input port reads, its outputs from buffer `out` on
@@ -205,6 +228,9 @@ pub struct Handles {
     pub glitches: Arc<glitch::Glitches>,
     /// each glitch's numbers for the log – the frame thread drains it (never the audio thread)
     pub glitch_log: Option<rtrb::Consumer<glitch::Event>>,
+    /// the hosts' events (#236): names, the sequencer, the routing for the dispatcher – `events.start()` runs them
+    #[cfg(feature = "events")]
+    pub events: dispatch::Events,
 }
 
 impl Handles {
@@ -222,13 +248,21 @@ pub struct MusicFeed {
 }
 
 impl Engine {
-    /// Build the graph's audio nodes for `rate` on the batch runtime (`Build::detect`). `volume` is the master gain on
-    /// top of the audio_out node's own.
+    /// Build the graph's audio nodes for `rate` on the batch runtime (`Build::detect`), the hosts' generators on the
+    /// sequencer thread (`Sequencing::detect` – start it with `handles.events.start()`). `volume` is the master gain
+    /// on top of the audio_out node's own.
     pub fn build(graph: &Graph, rate: f32, volume: f32) -> Result<(Engine, Handles)> {
-        Engine::build_with(graph, rate, volume, Build::detect())
+        Engine::build_seq(graph, rate, volume, Build::detect(), Sequencing::detect())
     }
 
+    /// `build` with this `build`, the hosts' generators inside the block (no thread to start – the tests)
     pub fn build_with(graph: &Graph, rate: f32, volume: f32, build: Build) -> Result<(Engine, Handles)> {
+        Engine::build_seq(graph, rate, volume, build, Sequencing::InBlock)
+    }
+
+    pub fn build_seq(graph: &Graph, rate: f32, volume: f32, build: Build, seq: Sequencing) -> Result<(Engine, Handles)> {
+        #[cfg(not(feature = "events"))]
+        let _ = seq;
         let (monitor, glitches, glitch_log) = glitch::Monitor::new(rate);
         let mut handles = Handles {
             params: Vec::new(),
@@ -242,6 +276,8 @@ impl Engine {
             build,
             reduction: Arc::new(AtomicU32::new(0)),
             underruns: Arc::new(AtomicU64::new(0)),
+            #[cfg(feature = "events")]
+            events: dispatch::Events::new(seq, glitches.clone()),
             glitches,
             glitch_log: Some(glitch_log),
         };

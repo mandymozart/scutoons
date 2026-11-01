@@ -133,6 +133,7 @@ pub fn parse(scene_toml: &str, graph: &BatchGraph, rate: f32) -> Result<Vec<Walk
             edge: Vec::new(),
             out: "walk.notes".into(),
             knobs: PORTS.iter().map(|p| format!("walk.{p}")).collect(),
+            listen: Vec::new(),
         };
         Walk::new(d.id, "walk", &PORTS, &d.target, &patch, d.bpm, d.base, &[], graph, rate)
     });
