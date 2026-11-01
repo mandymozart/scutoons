@@ -25,3 +25,4 @@ toml = { workspace = true }
 serde_json = { workspace = true }
 # tests/rigs.rs: deck-space's lowered core rigs load here (the two sides agree)
 deck-space = { path = "../space", default-features = false }
+toml = { workspace = true }

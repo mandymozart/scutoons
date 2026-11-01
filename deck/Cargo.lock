@@ -765,6 +765,8 @@ name = "deck-events"
 version = "0.1.0"
 dependencies = [
  "deck-core",
+ "serde",
+ "toml 0.8.23",
 ]
 
 [[package]]

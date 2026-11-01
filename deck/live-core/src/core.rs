@@ -69,7 +69,7 @@ impl Core {
             .graph
             .nodes()
             .map(|(id, kind, ports)| row(id, kind, ports))
-            .chain(self.walks.iter().map(|w| row(&w.id, "walk", &walks::PORTS)))
+            .chain(self.walks.iter().map(|w| row(&w.id, w.kind, w.ports)))
             .collect();
         format!("{{\"nodes\":[{}]}}", nodes.join(","))
     }
@@ -92,7 +92,7 @@ impl Core {
         if node >= batch {
             // a walk's knob (its params are set, not blended)
             let w = self.walks.get_mut(node - batch).ok_or_else(|| format!("wire: no node {node}"))?;
-            for (k, v) in values.enumerate().take(walks::PORTS.len().saturating_sub(port)) {
+            for (k, v) in values.enumerate().take(w.ports.len().saturating_sub(port)) {
                 w.set(port + k, v);
             }
             return Ok(());
@@ -328,4 +328,35 @@ scale = 2.0
         assert_eq!(slide, with(1.0), "two cores, the same settings, the same samples");
         assert_eq!(jump, with(0.0));
     }
+
+    /// #236: an `[[events]]` host – an arp on a walk – plays its voice; its knobs a–d are table rows
+    const EVENTS: &str = "[[node]]\nid = \"voice\"\nkind = \"fm\"\nfreq = 147.0\nratio = 2.0\nindex = 1.0\ngain = 0.2\n\
+        [[events]]\nid = \"arp\"\ntarget = \"voice.freq\"\nbpm = 120.0\nout = \"arp.notes\"\nknobs = [\"walk.spread\", \"arp.rate\"]\n\
+        generator = [{ id = \"walk\", kind = \"random_walk\", seed = 5, rate = 0.5, spread = 0.6 }, \
+        { id = \"arp\", kind = \"arp\", ratios = [1.0, 1.2, 1.5], octaves = 2, mode = \"updown\", rate = 4.0 }]\n\
+        edge = [{ from = \"walk.notes\", to = \"arp.notes\" }]\n";
+
+    #[test]
+    fn an_events_host_plays_its_patch_and_its_knobs_are_table_rows() {
+        let mut a = Core::load(EVENTS, 48_000.0).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&a.table_json()).unwrap();
+        assert_eq!((v["nodes"][1]["id"].as_str(), v["nodes"][1]["kind"].as_str()), (Some("arp"), Some("events")));
+        assert_eq!(v["nodes"][1]["ports"], serde_json::json!(["a", "b", "c", "d"]));
+        let one = play(&mut a, 750);
+        assert!(one.iter().any(|x| x.abs() > 0.01), "it sounds");
+        assert_eq!(one, play(&mut Core::load(EVENTS, 48_000.0).unwrap(), 750), "one seed, the same samples");
+        // knob b (the arp's rate) through a record; NaN on a (unset) leaves the patch's spread
+        let mut fast = Core::load(EVENTS, 48_000.0).unwrap();
+        let mut b = vec![];
+        encode_send(&mut b, Mode::Force, 1, 0, 1.0, &[f32::NAN, 8.0]);
+        assert_eq!(fast.apply(&b), Ok(1));
+        assert_ne!(play(&mut fast, 750), one, "knob b: eight steps a beat");
+        // a starting value in the entry: the same as the record
+        let started = EVENTS.replace("bpm = 120.0\n", "bpm = 120.0\nb = 8.0\n");
+        let mut by_record = Core::load(EVENTS, 48_000.0).unwrap();
+        by_record.apply(&b).unwrap();
+        assert_eq!(play(&mut Core::load(&started, 48_000.0).unwrap(), 750), play(&mut by_record, 750));
+        assert!(Core::load(&EVENTS.replace("updown", "sideways"), 48_000.0).err().is_some_and(|e| e.contains("unknown mode")));
+    }
+
 }

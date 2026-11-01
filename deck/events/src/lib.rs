@@ -6,9 +6,10 @@
 //! - graph.rs – the event graph: zero-delay cycles refused, delayed edges, per-edge caps, a hop limit
 //! - rt.rs – events resolved to frame offsets for the audio thread (`RtEvent`)
 //! - glide.rs – `Glide`: an exponential pitch glide, the same on the stage and in the browser
+//! - patch.rs – generators rigged together as data (TOML / JSON): what a rig's `events` node holds
 //! - generators/ – `random_walk`, `pulse`, `arp`; bridge.rs – `gate_cv` (events → seq's cv: pitch left, gate right)
 //!
-//! Encapsulated (EVENTS.md §10): nothing else in deck/ depends on it yet; the stage's host node is the next slice.
+//! Encapsulated (EVENTS.md §10): the stage's `walk` / `events` nodes and live-core's walks / events host it.
 pub mod bridge;
 pub mod event;
 pub mod generator;
@@ -16,6 +17,7 @@ pub mod generators;
 pub mod glide;
 pub mod graph;
 pub mod names;
+pub mod patch;
 pub mod rt;
 
 pub use event::{Event, Props, Time, MAX_PROPS};

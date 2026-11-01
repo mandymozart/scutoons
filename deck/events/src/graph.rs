@@ -77,11 +77,16 @@ impl EventGraph {
     }
 
     pub fn add(&mut self, g: impl Generator + 'static) -> usize {
+        self.add_boxed(Box::new(g))
+    }
+
+    /// `add` for a generator built at run time (patch.rs)
+    pub fn add_boxed(&mut self, g: Box<dyn Generator>) -> usize {
         let p = g.ports();
         // every buffer at its cap up front: a run never allocates (the audio thread may run a graph)
         self.inboxes.push((0..p.ins.len()).map(|_| Vec::with_capacity(EDGE_CAP)).collect());
         self.outboxes.push(Outbox::new(p.outs.len(), EDGE_CAP));
-        self.nodes.push(Box::new(g));
+        self.nodes.push(g);
         self.dirty = true;
         self.nodes.len() - 1
     }

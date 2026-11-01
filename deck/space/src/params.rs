@@ -62,6 +62,8 @@ pub fn default(kind: Kind, port: &str) -> f32 {
 /// a control input's value when neither the node nor a link sets it
 pub fn default_for(kind: Kind, port: &str) -> f32 {
     match (kind, port) {
+        // an events node's knobs: not driven until a param or a link sets them (the patch's own values play)
+        (Kind::Events, "a" | "b" | "c" | "d") => f32::NAN,
         // a walk: held (spread 0), two steps a beat, half a step's glide
         (Kind::Walk, "rate") => 2.0,
         (Kind::Walk, "glide") => 0.5,
@@ -98,6 +100,8 @@ pub fn spec(kind: Kind, port: &str) -> Spec {
         (Walk, "spread") => audio(lin(0.0, 1.0, 0.0)),
         (Walk, "rate") => audio(log(0.25, 8.0, 0.0)),
         (Walk, "glide") => audio(lin(0.0, 1.0, 0.0)),
+        // raw values into the patch's params: the instrument's `expose.range` gives a knob its real range
+        (Events, "a" | "b" | "c" | "d") => audio(lin(0.0, 1.0, 0.0)),
         (Mixer, "gain1" | "gain2" | "gain3" | "gain4") => audio(lin(0.0, 1.5, 0.0)),
         (AudioOut, "volume") => audio(lin(0.0, 1.0, 0.0)),
         (_, "gain") => audio(lin(0.0, 1.0, 0.0)),

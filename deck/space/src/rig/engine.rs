@@ -5,7 +5,8 @@
 //! fft – live-core analyses its own output –, space) and hands the page the rest: the nodes it plays itself (noise …)
 //! with their strip gain, and the links the engine can't carry (audio links like seq → fm.cv, links to the page's
 //! nodes or the being). A `walk` (#236) linked into a voice's cv becomes a `[[walk]]` that plays the voice's freq
-//! (live-core's walks.rs). The result is checked by building it as a batch graph.
+//! (live-core's walks.rs), an `events` node (a patch) an `[[events]]`. The result is checked by building it as a batch
+//! graph.
 use crate::scene::{split_ref, LinkDef, NodeDef, Scene};
 use anyhow::{anyhow, Result};
 use deck_core::batch::{kind_ports, BatchGraph};
@@ -42,6 +43,17 @@ struct Doc<'a> {
     link: &'a [LinkDef],
     #[serde(skip_serializing_if = "<[WalkDoc]>::is_empty")]
     walk: &'a [WalkDoc],
+    #[serde(skip_serializing_if = "<[toml::Table]>::is_empty")]
+    events: &'a [toml::Table],
+}
+
+/// An `events` node (#236) for live-core (its walks.rs `EventsDef`): its params – the patch (`generator`, `edge`,
+/// `out`, `knobs`), the knobs' values a–d, `base`, `bpm` – as written, plus its id and the voice input it plays.
+fn events_doc(n: &NodeDef, target: String) -> toml::Table {
+    let mut t = n.params.clone();
+    t.insert("id".into(), toml::Value::String(n.id.clone()));
+    t.insert("target".into(), toml::Value::String(target));
+    t
 }
 
 /// A `walk` (#236) for live-core (its walks.rs `WalkDef`): the batch graph has no cv inputs, so a walk linked into a
@@ -116,16 +128,23 @@ pub fn lower(scene: &Scene) -> Result<Engine> {
     // walks linked into a batch voice's cv play its freq (live-core's walks); the link is theirs
     let mut walks = Vec::new();
     let mut walked = Vec::new();
-    for n in scene.nodes.iter().filter(|n| n.kind == "walk") {
+    let mut events = Vec::new();
+    let mut hosted = Vec::new();
+    for n in scene.nodes.iter().filter(|n| n.kind == "walk" || n.kind == "events") {
         let into = scene.links.iter().find(|l| split_ref(&l.from).0 == n.id && split_ref(&l.to).1 == "cv");
         let voice = into.map(|l| split_ref(&l.to).0).filter(|v| batch(v).is_some_and(|(ports, audio)| audio && ports.contains(&"freq")));
         if let (Some(l), Some(v)) = (into, voice) {
-            walks.push(walk_doc(n, format!("{v}.freq")));
+            if n.kind == "walk" {
+                walks.push(walk_doc(n, format!("{v}.freq")));
+            } else {
+                events.push(events_doc(n, format!("{v}.freq")));
+            }
             walked.push(l.clone());
+            hosted.push(n.id.clone());
         }
     }
     for n in &scene.nodes {
-        if PLUMBING.contains(&n.kind.as_str()) || walks.iter().any(|w| w.id == n.id) {
+        if PLUMBING.contains(&n.kind.as_str()) || hosted.contains(&n.id) {
             continue;
         }
         let Some((ports, audio)) = kind_ports(&n.kind) else {
@@ -168,7 +187,7 @@ pub fn lower(scene: &Scene) -> Result<Engine> {
             _ => dropped.push(l.clone()),
         }
     }
-    let text = toml::to_string(&Doc { node: &nodes, link: &links, walk: &walks })?;
+    let text = toml::to_string(&Doc { node: &nodes, link: &links, walk: &walks, events: &events })?;
     let def = deck_core::SceneDef::parse(&text).map_err(|e| anyhow!("the lowered scene: {e}"))?;
     BatchGraph::build(&def, 48_000.0).map_err(|e| anyhow!("the lowered scene doesn't build: {e}"))?;
     Ok(Engine { scene: text, aliases, page, dropped })
