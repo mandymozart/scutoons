@@ -22,6 +22,7 @@ use Scutoons\Http\Controllers\ApiTokensController;
 use Scutoons\Http\Controllers\DecksController;
 use Scutoons\Http\Controllers\LanController;
 use Scutoons\Http\Controllers\ReviewsController;
+use Scutoons\Http\Controllers\RigsController;
 use Scutoons\Http\Controllers\StoryboardController;
 use Scutoons\Http\Controllers\StoryboardPairingsController;
 use Scutoons\Http\Controllers\AssetsController;
@@ -227,6 +228,13 @@ return static function (App $app): void {
     $app->post('/api/me/decks/approve', [DecksController::class, 'approve']);
     $app->post('/api/me/decks/{id:[0-9a-f-]{36}}/renew', [DecksController::class, 'renew']);
     $app->delete('/api/me/decks/{id:[0-9a-f-]{36}}', [DecksController::class, 'revoke']);
+    // a member's presets and rig variants (#270, RigsController): a session or the paired deck's token (DeckTokenScope)
+    $app->get('/api/rigs/presets', [RigsController::class, 'presets']);
+    $app->post('/api/rigs/presets', [RigsController::class, 'savePreset']);
+    $app->delete('/api/rigs/presets/{id:m:[0-9A-HJKMNP-TV-Z]{26}}', [RigsController::class, 'deletePreset']);
+    $app->get('/api/rigs/{subject:(?:character|item)\.[A-Za-z0-9_.-]+}', [RigsController::class, 'rig']);
+    $app->put('/api/rigs/{subject:(?:character|item)\.[A-Za-z0-9_.-]+}', [RigsController::class, 'saveRig']);
+    $app->delete('/api/rigs/{subject:(?:character|item)\.[A-Za-z0-9_.-]+}', [RigsController::class, 'deleteRig']);
     // the venue certificate *.lan.scutoons.com for an approved deck's own token (#201, deck-tls; LanController)
     $app->get('/api/decks/lan-cert', [LanController::class, 'deckCert']);
 
