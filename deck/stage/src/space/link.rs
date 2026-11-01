@@ -229,6 +229,7 @@ impl Client {
                 Out::Quality(q) => {
                     self.quality = Some(q);
                     self.quality_due = true;
+                    continue;
                 }
                 Out::Midi(m) => {
                     midi.push(m);

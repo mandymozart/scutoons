@@ -198,9 +198,7 @@ impl Engine {
             f.off_at = None;
             f.strobe.reset();
         }
-        for s in &mut self.sent {
-            *s = None;
-        }
+        self.sent.fill(None);
         self.rested = false;
     }
 }
