@@ -1,4 +1,4 @@
-Status 2026-11-01: design + first slices (#191) – the Rust types (`deck/space/src/rig/`), `Rig::flatten`, the browser engine's lowering, the core rigs and the phone page's rig mode (`?rig=1`) are built and tested; storage, the API, the native deck loading rigs and the creator UI are proposals waiting on the owner's answers in §8.
+Status 2026-11-01: design + first slices (#191) – the Rust types (`deck/space/src/rig/`), `Rig::flatten`, the browser engine's lowering, the core rigs and the phone page's rig mode (`?rig=1`) are built and tested; storage is decided (§5, 2026-11-01); the tables, the API, the native deck loading rigs and the creator UI are next, the rest of §8 open.
 
 # INSTRUMENTS — characters' instruments, presets, derivatives
 
@@ -53,13 +53,21 @@ carrier bag, #192) · core (the deck image). What it may do is the definition's 
 unsaved) · `derive` (save a child) · `copy` (a copy without lineage). Default: lent = play + tweak, core = + derive,
 owned = all. Saving into a carrier bag = the definition's right + the deck's grant (owner 2026-10-30), not a token scope.
 
-## 5. Where it lives (proposal)
-Following the codebase: authored definitions are **catalog kinds**, member-made ones are **member rows**.
-- **Catalog** (agents/CATALOG.md pattern: one row per entry, `id, toon, position, data` JSON, `catalog_history` +
-  undo, edited in the creator like items): `catalog_instruments`, `catalog_presets`, `catalog_rigs` (id = the
-  subject). The `data` is exactly the serde form of `deck/space/src/rig` – PHP + TS validators mirror it (§7).
-- **Member derivatives**: `member_presets (id, user_id, parent, instrument, data, created_at)`, listed in the carrier
-  bag; ids namespaced so lineage can cross from the catalog into a member's (`choir.base` → `m:<ulid>`).
+## 5. Where it lives (owner 2026-11-01: two layers; instruments are items)
+Two layers (owner 2026-11-01: "factory presets and rigs and … modification by individual users"):
+- **Factory** = catalog kinds (agents/CATALOG.md: one row per entry, `id, toon, position, data` JSON, `catalog_history`
+  + undo, edited in the creator like items): `catalog_instruments`, `catalog_presets`, `catalog_rigs` (id = the
+  subject). `data` is the serde form of `deck/space/src/rig` – PHP + TS validators mirror it.
+- **Members' modifications** = member rows on top of the factory: `member_presets (id, user_id, parent, instrument,
+  data, created_at)` – a derivative, its `parent` a factory or an own preset – and `member_rigs (user_id, subject,
+  data)` – a member's variant of a factory rig (other presets per track, more tracks with instruments they hold).
+  Member ids are namespaced (`m:<ulid>`) so a lineage crosses from the factory into a member's.
+- **Instruments are items too** (owner 2026-11-01: "a image like any other item so instruments can be found or gained
+  in the carrier bag"): a `category: "instrument"` item with `instrument: "<catalog_instruments id>"` – the pattern of
+  `category: "furniture"` + its `furniture` block (ITEMS.md). The item brings what every item has (picture, 3D model,
+  name, grantable by story / scan, editions, a physical card or figure – the Tonie idea); the instrument row brings
+  the graph. Several items may grant one instrument (variants, editions). Holding the item in the carrier bag =
+  **owned**; a factory rig may use any instrument, a member's rig only the ones they hold (owned / core / lent).
 - **Core**: the rigs + their instruments / presets a deck image ships, as TOML in `deck/stage/rigs/` – exported from the
   catalog when the ISO is built (the same documents, so `Rig::play` doesn't care where they came from).
 - **Samples** (the sampler kind): assets per ASSETS.md, `<toon>/sounds/<instrument>/<name>.v<n>.<ext>`, referenced
@@ -104,8 +112,7 @@ incense in Web Audio). Replaced in steps:
   generator like deck/protocol's (Rust stays the source of truth: the schema must round-trip `rig/tests.rs`' set).
 
 ## 8. Open – for the owner
-1. **Storage:** catalog tables + member rows (§5, recommended) – or entity documents (`rig:<character>` in
-   `entity_versions`, like `characters`)?
+1. ~~Storage~~ – decided 2026-11-01 (§5): factory catalog tables + member rows; instruments are items.
 2. **Persona:** one rig per character with persona variants (recommended), or a rig per persona? (both fit `subject`)
 3. **Persona × mood:** is "persona, then mood" enough, or do personas need their own mood overrides?
 4. **Default rights** per hold (§4) – right? May members share / give / sell derivatives (second-hand market)?
