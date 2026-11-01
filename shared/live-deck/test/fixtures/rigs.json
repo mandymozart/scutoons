@@ -12,7 +12,7 @@
         }
       ],
       "page": [],
-      "scene": "link = []\n\n[[node]]\nid = \"voice_voice\"\nkind = \"fm\"\nfreq = 147.0\ngain = 0.16\nindex = 2.0\nratio = 1.5\n\n[[node]]\nid = \"drone_drone\"\nkind = \"osc\"\nfreq = 55.0\ngain = 0.1\n\n[[node]]\nid = \"drone_fifth\"\nkind = \"osc\"\nfreq = 82.5\ngain = 0.03\n"
+      "scene": "link = []\n\n[[node]]\nid = \"voice_voice\"\nkind = \"fm\"\nfreq = 147.0\ngain = 0.16\nindex = 2.0\nratio = 1.5\n\n[[node]]\nid = \"drone_drone\"\nkind = \"osc\"\nfreq = 55.0\ngain = 0.1\n\n[[node]]\nid = \"drone_fifth\"\nkind = \"osc\"\nfreq = 82.5\ngain = 0.03\n\n[[walk]]\nid = \"voice_melody\"\ntarget = \"voice_voice.freq\"\nseed = 84\nbase = 147.0\noctaves = 2.0\nlength = 1.0\nspread = 0.0\nrate = 2.0\nglide = 0.5\nbpm = 84.0\n"
     },
     "knobs": [
       {
@@ -48,6 +48,37 @@
       },
       {
         "label": {
+          "de": "Weite",
+          "en": "spread"
+        },
+        "max": 1.0,
+        "min": 0.0,
+        "path": "voice_melody.spread",
+        "value": 0.0
+      },
+      {
+        "label": {
+          "de": "Schritte / Schlag",
+          "en": "steps / beat"
+        },
+        "log": true,
+        "max": 8.0,
+        "min": 0.25,
+        "path": "voice_melody.rate",
+        "value": 2.0
+      },
+      {
+        "label": {
+          "de": "Gleiten",
+          "en": "glide"
+        },
+        "max": 1.0,
+        "min": 0.0,
+        "path": "voice_melody.glide",
+        "value": 0.5
+      },
+      {
+        "label": {
           "de": "Bordun-Tonhöhe",
           "en": "drone pitch"
         },
@@ -69,6 +100,12 @@
       }
     ],
     "links": [
+      {
+        "from": "voice_melody.cv",
+        "offset": 0.0,
+        "scale": 1.0,
+        "to": "voice_voice.cv"
+      },
       {
         "from": "drone_drone.out",
         "offset": 0.0,
@@ -122,6 +159,17 @@
         "ratio": 1.5
       },
       {
+        "base": 147.0,
+        "bpm": 84.0,
+        "glide": 0.5,
+        "id": "voice_melody",
+        "kind": "walk",
+        "octaves": 2.0,
+        "rate": 2.0,
+        "seed": 84,
+        "spread": 0.0
+      },
+      {
         "freq": 55.0,
         "gain": 0.1,
         "id": "drone_drone",
@@ -156,7 +204,7 @@
         "kind": "space"
       }
     ],
-    "scene": "[stage]\nname = \"character.catpope\"\n\n[[node]]\nid = \"voice_voice\"\nkind = \"fm\"\nfreq = 147.0\ngain = 0.16\nindex = 2.0\nratio = 1.5\n\n[[node]]\nid = \"drone_drone\"\nkind = \"osc\"\nfreq = 55.0\ngain = 0.1\n\n[[node]]\nid = \"drone_fifth\"\nkind = \"osc\"\nfreq = 82.5\ngain = 0.03\n\n[[node]]\nid = \"drone_mix\"\nkind = \"mixer\"\n\n[[node]]\nid = \"mix1\"\nkind = \"mixer\"\ngain1 = 1.0\ngain2 = 1.0\n\n[[node]]\nid = \"out\"\nkind = \"audio_out\"\n\n[[node]]\nid = \"fft\"\nkind = \"fft\"\n\n[[node]]\nid = \"space\"\nkind = \"space\"\n\n[[link]]\nfrom = \"drone_drone.out\"\nto = \"drone_mix.in1\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone_fifth.out\"\nto = \"drone_mix.in2\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"voice_voice.out\"\nto = \"mix1.in1\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone_mix.out\"\nto = \"mix1.in2\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"mix1.out\"\nto = \"out.in\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"mix1.out\"\nto = \"fft.in\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"fft.level\"\nto = \"space.pulse\"\nscale = 0.6000000238418579\noffset = 0.0\n\n[being]\ncharacter = \"catpope\"\nexpose = [\"voice_voice.ratio\", \"voice_voice.index\", \"voice_voice.gain\", \"drone_drone.freq\", \"drone_drone.gain\"]\n",
+    "scene": "[stage]\nname = \"character.catpope\"\n\n[[node]]\nid = \"voice_voice\"\nkind = \"fm\"\nfreq = 147.0\ngain = 0.16\nindex = 2.0\nratio = 1.5\n\n[[node]]\nid = \"voice_melody\"\nkind = \"walk\"\nbase = 147.0\nbpm = 84.0\nglide = 0.5\noctaves = 2.0\nrate = 2.0\nseed = 84\nspread = 0.0\n\n[[node]]\nid = \"drone_drone\"\nkind = \"osc\"\nfreq = 55.0\ngain = 0.1\n\n[[node]]\nid = \"drone_fifth\"\nkind = \"osc\"\nfreq = 82.5\ngain = 0.03\n\n[[node]]\nid = \"drone_mix\"\nkind = \"mixer\"\n\n[[node]]\nid = \"mix1\"\nkind = \"mixer\"\ngain1 = 1.0\ngain2 = 1.0\n\n[[node]]\nid = \"out\"\nkind = \"audio_out\"\n\n[[node]]\nid = \"fft\"\nkind = \"fft\"\n\n[[node]]\nid = \"space\"\nkind = \"space\"\n\n[[link]]\nfrom = \"voice_melody.cv\"\nto = \"voice_voice.cv\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone_drone.out\"\nto = \"drone_mix.in1\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone_fifth.out\"\nto = \"drone_mix.in2\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"voice_voice.out\"\nto = \"mix1.in1\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone_mix.out\"\nto = \"mix1.in2\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"mix1.out\"\nto = \"out.in\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"mix1.out\"\nto = \"fft.in\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"fft.level\"\nto = \"space.pulse\"\nscale = 0.6000000238418579\noffset = 0.0\n\n[being]\ncharacter = \"catpope\"\nexpose = [\"voice_voice.ratio\", \"voice_voice.index\", \"voice_voice.gain\", \"voice_melody.spread\", \"voice_melody.rate\", \"voice_melody.glide\", \"drone_drone.freq\", \"drone_drone.gain\"]\n",
     "tracks": [
       {
         "preset": "cathedral_voice.base",
@@ -181,7 +229,7 @@
         }
       ],
       "page": [],
-      "scene": "link = []\n\n[[node]]\nid = \"voice_voice\"\nkind = \"fm\"\nfreq = 147.0\ngain = 0.16\nindex = 4.0\nratio = 3.0\n\n[[node]]\nid = \"drone_drone\"\nkind = \"osc\"\nfreq = 55.0\ngain = 0.1\n\n[[node]]\nid = \"drone_fifth\"\nkind = \"osc\"\nfreq = 82.5\ngain = 0.03\n"
+      "scene": "link = []\n\n[[node]]\nid = \"voice_voice\"\nkind = \"fm\"\nfreq = 147.0\ngain = 0.16\nindex = 4.0\nratio = 3.0\n\n[[node]]\nid = \"drone_drone\"\nkind = \"osc\"\nfreq = 55.0\ngain = 0.1\n\n[[node]]\nid = \"drone_fifth\"\nkind = \"osc\"\nfreq = 82.5\ngain = 0.03\n\n[[walk]]\nid = \"voice_melody\"\ntarget = \"voice_voice.freq\"\nseed = 84\nbase = 147.0\noctaves = 2.0\nlength = 1.0\nspread = 0.0\nrate = 2.0\nglide = 0.5\nbpm = 84.0\n"
     },
     "knobs": [
       {
@@ -217,6 +265,37 @@
       },
       {
         "label": {
+          "de": "Weite",
+          "en": "spread"
+        },
+        "max": 1.0,
+        "min": 0.0,
+        "path": "voice_melody.spread",
+        "value": 0.0
+      },
+      {
+        "label": {
+          "de": "Schritte / Schlag",
+          "en": "steps / beat"
+        },
+        "log": true,
+        "max": 8.0,
+        "min": 0.25,
+        "path": "voice_melody.rate",
+        "value": 2.0
+      },
+      {
+        "label": {
+          "de": "Gleiten",
+          "en": "glide"
+        },
+        "max": 1.0,
+        "min": 0.0,
+        "path": "voice_melody.glide",
+        "value": 0.5
+      },
+      {
+        "label": {
           "de": "Bordun-Tonhöhe",
           "en": "drone pitch"
         },
@@ -238,6 +317,12 @@
       }
     ],
     "links": [
+      {
+        "from": "voice_melody.cv",
+        "offset": 0.0,
+        "scale": 1.0,
+        "to": "voice_voice.cv"
+      },
       {
         "from": "drone_drone.out",
         "offset": 0.0,
@@ -291,6 +376,17 @@
         "ratio": 3.0
       },
       {
+        "base": 147.0,
+        "bpm": 84.0,
+        "glide": 0.5,
+        "id": "voice_melody",
+        "kind": "walk",
+        "octaves": 2.0,
+        "rate": 2.0,
+        "seed": 84,
+        "spread": 0.0
+      },
+      {
         "freq": 55.0,
         "gain": 0.1,
         "id": "drone_drone",
@@ -325,7 +421,7 @@
         "kind": "space"
       }
     ],
-    "scene": "[stage]\nname = \"character.catpope\"\n\n[[node]]\nid = \"voice_voice\"\nkind = \"fm\"\nfreq = 147.0\ngain = 0.16\nindex = 4.0\nratio = 3.0\n\n[[node]]\nid = \"drone_drone\"\nkind = \"osc\"\nfreq = 55.0\ngain = 0.1\n\n[[node]]\nid = \"drone_fifth\"\nkind = \"osc\"\nfreq = 82.5\ngain = 0.03\n\n[[node]]\nid = \"drone_mix\"\nkind = \"mixer\"\n\n[[node]]\nid = \"mix1\"\nkind = \"mixer\"\ngain1 = 1.0\ngain2 = 1.0\n\n[[node]]\nid = \"out\"\nkind = \"audio_out\"\n\n[[node]]\nid = \"fft\"\nkind = \"fft\"\n\n[[node]]\nid = \"space\"\nkind = \"space\"\n\n[[link]]\nfrom = \"drone_drone.out\"\nto = \"drone_mix.in1\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone_fifth.out\"\nto = \"drone_mix.in2\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"voice_voice.out\"\nto = \"mix1.in1\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone_mix.out\"\nto = \"mix1.in2\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"mix1.out\"\nto = \"out.in\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"mix1.out\"\nto = \"fft.in\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"fft.level\"\nto = \"space.pulse\"\nscale = 0.6000000238418579\noffset = 0.0\n\n[being]\ncharacter = \"catpope\"\nexpose = [\"voice_voice.ratio\", \"voice_voice.index\", \"voice_voice.gain\", \"drone_drone.freq\", \"drone_drone.gain\"]\n",
+    "scene": "[stage]\nname = \"character.catpope\"\n\n[[node]]\nid = \"voice_voice\"\nkind = \"fm\"\nfreq = 147.0\ngain = 0.16\nindex = 4.0\nratio = 3.0\n\n[[node]]\nid = \"voice_melody\"\nkind = \"walk\"\nbase = 147.0\nbpm = 84.0\nglide = 0.5\noctaves = 2.0\nrate = 2.0\nseed = 84\nspread = 0.0\n\n[[node]]\nid = \"drone_drone\"\nkind = \"osc\"\nfreq = 55.0\ngain = 0.1\n\n[[node]]\nid = \"drone_fifth\"\nkind = \"osc\"\nfreq = 82.5\ngain = 0.03\n\n[[node]]\nid = \"drone_mix\"\nkind = \"mixer\"\n\n[[node]]\nid = \"mix1\"\nkind = \"mixer\"\ngain1 = 1.0\ngain2 = 1.0\n\n[[node]]\nid = \"out\"\nkind = \"audio_out\"\n\n[[node]]\nid = \"fft\"\nkind = \"fft\"\n\n[[node]]\nid = \"space\"\nkind = \"space\"\n\n[[link]]\nfrom = \"voice_melody.cv\"\nto = \"voice_voice.cv\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone_drone.out\"\nto = \"drone_mix.in1\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone_fifth.out\"\nto = \"drone_mix.in2\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"voice_voice.out\"\nto = \"mix1.in1\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone_mix.out\"\nto = \"mix1.in2\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"mix1.out\"\nto = \"out.in\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"mix1.out\"\nto = \"fft.in\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"fft.level\"\nto = \"space.pulse\"\nscale = 0.6000000238418579\noffset = 0.0\n\n[being]\ncharacter = \"catpope\"\nexpose = [\"voice_voice.ratio\", \"voice_voice.index\", \"voice_voice.gain\", \"voice_melody.spread\", \"voice_melody.rate\", \"voice_melody.glide\", \"drone_drone.freq\", \"drone_drone.gain\"]\n",
     "tracks": [
       {
         "preset": "cathedral_voice.bright",

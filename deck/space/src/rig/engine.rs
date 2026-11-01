@@ -4,7 +4,8 @@
 //! audio node's gain (the knob's path then turns that mul – `aliases`), drops the scene's plumbing (mixer, audio_out,
 //! fft – live-core analyses its own output –, space) and hands the page the rest: the nodes it plays itself (noise …)
 //! with their strip gain, and the links the engine can't carry (audio links like seq → fm.cv, links to the page's
-//! nodes or the being). The result is checked by building it as a batch graph.
+//! nodes or the being). A `walk` (#236) linked into a voice's cv becomes a `[[walk]]` that plays the voice's freq
+//! (live-core's walks.rs). The result is checked by building it as a batch graph.
 use crate::scene::{split_ref, LinkDef, NodeDef, Scene};
 use anyhow::{anyhow, Result};
 use deck_core::batch::{kind_ports, BatchGraph};
@@ -25,7 +26,7 @@ pub struct PageNode {
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Engine {
-    /// the batch scene live-core loads (`[[node]]` + `[[link]]`)
+    /// the batch scene live-core loads (`[[node]]` + `[[link]]` + `[[walk]]`)
     pub scene: String,
     /// knob path → the engine path to set instead (a strip-gained node's `gain` → its strip's `a`)
     pub aliases: BTreeMap<String, String>,
@@ -39,6 +40,42 @@ pub struct Engine {
 struct Doc<'a> {
     node: &'a [NodeDef],
     link: &'a [LinkDef],
+    #[serde(skip_serializing_if = "<[WalkDoc]>::is_empty")]
+    walk: &'a [WalkDoc],
+}
+
+/// A `walk` (#236) for live-core (its walks.rs `WalkDef`): the batch graph has no cv inputs, so a walk linked into a
+/// voice's `cv` plays that voice's `freq`. Its clock is its own `bpm` (the browser has no tempo clock).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct WalkDoc {
+    pub id: String,
+    pub target: String,
+    pub seed: u64,
+    pub base: f32,
+    pub octaves: f32,
+    pub length: f32,
+    pub spread: f32,
+    pub rate: f32,
+    pub glide: f32,
+    pub bpm: f64,
+}
+
+/// the walk `n` playing `target`, its params as written or the kind's defaults
+fn walk_doc(n: &NodeDef, target: String) -> WalkDoc {
+    let num = |k: &str| n.params.get(k).and_then(|v| v.as_float().or_else(|| v.as_integer().map(|i| i as f64)));
+    let knob = |k: &str| num(k).map_or_else(|| crate::params::default_for(crate::graph::Kind::Walk, k), |v| v as f32);
+    WalkDoc {
+        id: n.id.clone(),
+        target,
+        seed: num("seed").map_or(1, |v| v as u64),
+        base: num("base").map_or(147.0, |v| v as f32),
+        octaves: num("octaves").map_or(2.0, |v| v as f32),
+        length: num("length").map_or(1.0, |v| v as f32),
+        spread: knob("spread"),
+        rate: knob("rate"),
+        glide: knob("glide"),
+        bpm: num("bpm").unwrap_or(120.0),
+    }
 }
 
 /// the gain from `id`'s output to the end of the mixer chain (1 = not mixed, or unity)
@@ -76,8 +113,19 @@ pub fn lower(scene: &Scene) -> Result<Engine> {
     let mut links = Vec::new();
     let mut dropped = Vec::new();
     let batch = |id: &str| scene.nodes.iter().find(|n| n.id == id).and_then(|n| kind_ports(&n.kind));
+    // walks linked into a batch voice's cv play its freq (live-core's walks); the link is theirs
+    let mut walks = Vec::new();
+    let mut walked = Vec::new();
+    for n in scene.nodes.iter().filter(|n| n.kind == "walk") {
+        let into = scene.links.iter().find(|l| split_ref(&l.from).0 == n.id && split_ref(&l.to).1 == "cv");
+        let voice = into.map(|l| split_ref(&l.to).0).filter(|v| batch(v).is_some_and(|(ports, audio)| audio && ports.contains(&"freq")));
+        if let (Some(l), Some(v)) = (into, voice) {
+            walks.push(walk_doc(n, format!("{v}.freq")));
+            walked.push(l.clone());
+        }
+    }
     for n in &scene.nodes {
-        if PLUMBING.contains(&n.kind.as_str()) {
+        if PLUMBING.contains(&n.kind.as_str()) || walks.iter().any(|w| w.id == n.id) {
             continue;
         }
         let Some((ports, audio)) = kind_ports(&n.kind) else {
@@ -102,6 +150,9 @@ pub fn lower(scene: &Scene) -> Result<Engine> {
         nodes.push(node);
     }
     for l in &scene.links {
+        if walked.contains(l) {
+            continue;
+        }
         let (fnode, _) = split_ref(&l.from);
         let (tnode, tport) = split_ref(&l.to);
         let kind_of = |id: &str| scene.nodes.iter().find(|n| n.id == id).map(|n| n.kind.as_str());
@@ -117,7 +168,7 @@ pub fn lower(scene: &Scene) -> Result<Engine> {
             _ => dropped.push(l.clone()),
         }
     }
-    let text = toml::to_string(&Doc { node: &nodes, link: &links })?;
+    let text = toml::to_string(&Doc { node: &nodes, link: &links, walk: &walks })?;
     let def = deck_core::SceneDef::parse(&text).map_err(|e| anyhow!("the lowered scene: {e}"))?;
     BatchGraph::build(&def, 48_000.0).map_err(|e| anyhow!("the lowered scene doesn't build: {e}"))?;
     Ok(Engine { scene: text, aliases, page, dropped })

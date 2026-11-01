@@ -12,6 +12,7 @@
 //! `lc_load(len) -> ±len`, `lc_apply(len) -> count | -len`, `lc_step(dt)`, `lc_render(frames) -> ptr`,
 //! `lc_analyse(dt, lead) -> ptr`. A grown memory detaches the views – the host re-makes them (shared/live-core).
 pub mod core;
+pub mod walks;
 pub mod wire;
 
 use std::cell::RefCell;

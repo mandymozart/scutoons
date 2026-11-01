@@ -14,7 +14,18 @@ const API = 'https://api.example/api';
 
 test("a rig's knobs become the deck's sliders, in the page's locale", () => {
 	const p = rigParams(catpope);
-	assert.deepEqual(Object.keys(p), ['voice_voice.ratio', 'voice_voice.index', 'voice_voice.gain', 'drone_drone.freq', 'drone_drone.gain']);
+	assert.deepEqual(Object.keys(p), [
+		'voice_voice.ratio',
+		'voice_voice.index',
+		'voice_voice.gain',
+		'voice_melody.spread',
+		'voice_melody.rate',
+		'voice_melody.glide',
+		'drone_drone.freq',
+		'drone_drone.gain'
+	]);
+	assert.deepEqual(p['voice_melody.spread'], { min: 0, max: 1, value: 0, label: 'spread' }, 'the melody (#236): held by default');
+	assert.deepEqual(knobTarget(catpope, 'voice_melody.spread'), { engine: 'voice_melody.spread' }, "live-core's walk row");
 	assert.deepEqual(p['voice_voice.ratio'], { min: 0.5, max: 4, value: 1.5, label: 'FM ratio', log: true });
 	assert.equal(p['voice_voice.gain'].log, undefined);
 	assert.equal(rigParams(catpope, 'de')['drone_drone.gain'].label, 'Bordun');

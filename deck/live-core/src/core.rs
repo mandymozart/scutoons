@@ -6,9 +6,15 @@ use deck_core::analysis::{Analyzer, SPECTRUM};
 use deck_core::batch::BatchGraph;
 use deck_core::limiter::Limiter;
 use deck_core::SceneDef;
+use crate::walks::{self, Walk};
 
 pub struct Core {
     graph: BatchGraph,
+    /// the scene's walks (#236): their knobs are the load table's rows after the batch nodes
+    walks: Vec<Walk>,
+    /// this render's notes (frame offset, pitch, the walk), reused
+    notes: Vec<(usize, f32, usize)>,
+    scratch: Vec<(usize, f32)>,
     analyzer: Analyzer,
     /// the output's soft cap (#188), last before the worklet
     limiter: Limiter,
@@ -17,11 +23,22 @@ pub struct Core {
 }
 
 impl Core {
-    /// A scene in deck/stage's TOML format (the edge: text, once). Only the batch kinds (lfo, smooth, mul, add, osc, fm).
+    /// A scene in deck/stage's TOML format (the edge: text, once). Only the batch kinds (lfo, smooth, mul, add, osc, fm),
+    /// plus `[[walk]]`s that play a batch input (walks.rs).
     pub fn load(scene_toml: &str, rate: f32) -> Result<Core, String> {
         let scene = SceneDef::parse(scene_toml)?;
         let graph = BatchGraph::build(&scene, rate)?;
-        Ok(Core { graph, analyzer: Analyzer::new(rate, 0.25), limiter: Limiter::new(rate), audio: Vec::new(), frame: vec![0.0; FRAME] })
+        let walks = walks::parse(scene_toml, &graph, rate)?;
+        Ok(Core {
+            graph,
+            walks,
+            notes: Vec::with_capacity(256),
+            scratch: Vec::with_capacity(256),
+            analyzer: Analyzer::new(rate, 0.25),
+            limiter: Limiter::new(rate),
+            audio: Vec::new(),
+            frame: vec![0.0; FRAME],
+        })
     }
 
     /// The load table, the one JSON that leaves the core: `{"nodes":[{"id","kind","ports":[…]}]}` – the host resolves
@@ -41,13 +58,15 @@ impl Core {
             o.push('"');
             o
         };
+        let row = |id: &str, kind: &str, ports: &[&str]| {
+            let ports: Vec<String> = ports.iter().map(|p| q(p)).collect();
+            format!("{{\"id\":{},\"kind\":{},\"ports\":[{}]}}", q(id), q(kind), ports.join(","))
+        };
         let nodes: Vec<String> = self
             .graph
             .nodes()
-            .map(|(id, kind, ports)| {
-                let ports: Vec<String> = ports.iter().map(|p| q(p)).collect();
-                format!("{{\"id\":{},\"kind\":{},\"ports\":[{}]}}", q(id), q(kind), ports.join(","))
-            })
+            .map(|(id, kind, ports)| row(id, kind, ports))
+            .chain(self.walks.iter().map(|w| row(&w.id, "walk", &walks::PORTS)))
             .collect();
         format!("{{\"nodes\":[{}]}}", nodes.join(","))
     }
@@ -66,6 +85,15 @@ impl Core {
     /// A float vector onto node `node`'s inputs: the components land on consecutive inputs from `port`, the ones past
     /// the node's last input are dropped (the node maps what it has, #189).
     pub fn send(&mut self, mode: Mode, node: usize, port: usize, amount: f32, values: impl Iterator<Item = f32>) -> Result<(), String> {
+        let batch = self.graph.nodes().count();
+        if node >= batch {
+            // a walk's knob (its params are set, not blended)
+            let w = self.walks.get_mut(node - batch).ok_or_else(|| format!("wire: no node {node}"))?;
+            for (k, v) in values.enumerate().take(walks::PORTS.len().saturating_sub(port)) {
+                w.set(port + k, v);
+            }
+            return Ok(());
+        }
         let ports = self.graph.ports(node).map(<[_]>::len).ok_or_else(|| format!("wire: no node {node}"))?;
         let amount = mode.amount(amount);
         for (k, v) in values.enumerate().take(ports.saturating_sub(port)) {
@@ -87,7 +115,27 @@ impl Core {
     /// sample also goes to the analyzer.
     pub fn render(&mut self, frames: usize) -> &[f32] {
         self.audio.resize(frames, 0.0);
-        self.graph.render(&mut self.audio);
+        // the walks' notes in these frames: the render is split at each, its target set to the note's pitch
+        self.notes.clear();
+        for (wi, w) in self.walks.iter_mut().enumerate() {
+            self.scratch.clear();
+            w.notes(frames, &mut self.scratch);
+            self.notes.extend(self.scratch.iter().map(|&(f, p)| (f, p, wi)));
+        }
+        self.notes.sort_unstable_by_key(|n| n.0);
+        let mut at = 0;
+        for &(f, pitch, wi) in &self.notes {
+            let f = f.min(frames);
+            if f > at {
+                self.graph.render(&mut self.audio[at..f]);
+                at = f;
+            }
+            let (node, port) = self.walks[wi].target();
+            self.graph.send(node, port, pitch, 1.0);
+        }
+        if at < frames {
+            self.graph.render(&mut self.audio[at..]);
+        }
         self.limiter.process_mono(&mut self.audio);
         for &x in &self.audio {
             self.analyzer.push(x);
@@ -216,4 +264,38 @@ scale = 2.0
         assert_eq!(c.apply(&[1, 0, 0]), Err("wire: a truncated header at byte 0".into()));
         assert!(Core::load("[[node]]\nid = \"f\"\nkind = \"fft\"\n", 48_000.0).err().unwrap().contains("does not batch"));
     }
+
+    /// #236: a walk plays the voice's freq – the same seed, the same samples; its knobs are table rows
+    const WALK: &str = "[[node]]\nid = \"voice\"\nkind = \"fm\"\nfreq = 147.0\nratio = 1.5\nindex = 2.0\ngain = 0.2\n\
+        [[walk]]\nid = \"melody\"\ntarget = \"voice.freq\"\nseed = 42\nspread = 1.0\nrate = 4.0\nbpm = 120.0\n";
+
+    fn play(c: &mut Core, blocks: usize) -> Vec<f32> {
+        let mut all = Vec::new();
+        for _ in 0..blocks {
+            c.step(128.0 / 48_000.0);
+            all.extend_from_slice(c.render(128));
+        }
+        all
+    }
+
+    #[test]
+    fn a_walk_plays_its_voice_and_its_knobs_are_table_rows() {
+        let mut a = Core::load(WALK, 48_000.0).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&a.table_json()).unwrap();
+        assert_eq!(v["nodes"][1]["id"], "melody");
+        assert_eq!(v["nodes"][1]["kind"], "walk");
+        assert_eq!(v["nodes"][1]["ports"], serde_json::json!(["spread", "rate", "glide"]));
+        let one = play(&mut a, 750);
+        assert!(one.iter().any(|x| x.abs() > 0.01), "it sounds");
+        let two = play(&mut Core::load(WALK, 48_000.0).unwrap(), 750);
+        assert_eq!(one, two, "one seed, the same samples");
+        // the spread to 0 through a wire record (node 1 = the walk, port 0 = spread): the base held, another sound
+        let mut held = Core::load(WALK, 48_000.0).unwrap();
+        let mut b = vec![];
+        encode_send(&mut b, Mode::Force, 1, 0, 1.0, &[0.0]);
+        assert_eq!(held.apply(&b), Ok(1));
+        assert_ne!(play(&mut held, 750), one, "spread 0 holds the base");
+        assert!(Core::load(&WALK.replace("voice.freq", "voice.nope"), 48_000.0).is_err(), "a target must be an input");
+    }
+
 }

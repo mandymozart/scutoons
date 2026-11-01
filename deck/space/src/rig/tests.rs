@@ -466,3 +466,17 @@ fn rig_fixture_for_the_browser_deck_is_current() {
     let on_disk = std::fs::read_to_string(path).unwrap_or_default();
     assert!(on_disk == text, "{path} is stale: UPDATE_FIXTURES=1 cargo test -p deck-space rig_fixture");
 }
+
+#[test]
+fn a_walk_into_a_voice_becomes_a_walk_that_plays_its_freq() {
+    let p = Bundle::core("character.catpope").unwrap().unwrap().play(None, None).unwrap();
+    let e = &p.engine;
+    assert!(e.scene.contains("[[walk]]") && e.scene.contains("target = \"voice_voice.freq\""), "{}", e.scene);
+    assert!(e.scene.contains("bpm = 84.0") && e.scene.contains("seed = 84"));
+    assert!(!e.page.iter().any(|n| n.node.id == "voice_melody"), "the engine plays it, not the page");
+    assert!(!e.dropped.iter().any(|l| l.from == "voice_melody.cv"), "its link is the walk's");
+    let knobs: Vec<&str> = p.knobs.iter().map(|k| k.path.as_str()).collect();
+    assert!(knobs.contains(&"voice_melody.spread") && knobs.contains(&"voice_melody.rate"));
+    let spread = p.knobs.iter().find(|k| k.path == "voice_melody.spread").unwrap();
+    assert_eq!((spread.min, spread.max, spread.value), (0.0, 1.0, 0.0), "the held drone by default");
+}
