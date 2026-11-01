@@ -28,6 +28,13 @@ test('season and chapter scripts: per toon and number, per language', () => {
 	assert.ok(validateFile('chapter-script', { text: 3 }, 'de', { file: 'chapter-script:toptoy:1' } as never).some((p) => p.level === 'error'));
 });
 
+test('rig documents (#258): instruments, presets with dots, rigs by subject – one segment', () => {
+	assert.deepEqual(parseEntityKey('rig:character.catpope'), { kind: 'rig', id: 'character.catpope' });
+	assert.deepEqual(parseEntityKey('preset:cathedral_voice.bright'), { kind: 'preset', id: 'cathedral_voice.bright' });
+	assert.deepEqual(parseEntityKey('instrument:drone'), { kind: 'instrument', id: 'drone' });
+	assert.equal(parseEntityKey('rig:character:catpope'), null);
+});
+
 test('kanon keys: one subject segment, then the locale', () => {
 	assert.equal(isLocalizedEntity('kanon:character.catpope'), true);
 	assert.equal(entityKeyFor(entities.kanon('place.cathedral'), 'en'), 'kanon:place.cathedral:en');

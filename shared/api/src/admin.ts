@@ -756,7 +756,7 @@ const seg = encodeURIComponent;
 export type AdminApi = ReturnType<typeof createAdminApi>;
 
 /** The catalog kinds the admin edits (`/admin/catalog/<kind>`, server docs/API.md "Catalog", agents/CATALOG.md) */
-export const CATALOG_KINDS = ['items', 'recipes', 'albums', 'products', 'editions', 'featured', 'permissions', 'code-types', 'toons', 'meta', 'home-scenes', 'airlift-carriers'] as const;
+export const CATALOG_KINDS = ['items', 'recipes', 'albums', 'products', 'editions', 'featured', 'permissions', 'code-types', 'toons', 'meta', 'home-scenes', 'airlift-carriers', 'instruments', 'presets', 'rigs'] as const;
 export type CatalogKind = (typeof CATALOG_KINDS)[number];
 
 /** One stored catalog entry: its definition (`data`, the shape of the old config file's entry) and order */
