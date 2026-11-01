@@ -548,7 +548,8 @@ Enttec and the CDC widgets ignore the baud. The MK2 never answers the device che
 manual table): CH1 master dimmer, CH2 strobe (0–5 open, 6–10 closed, 11–127 random effects, 128–250 1–30 Hz), CH3–6
 red / green / blue / white, CH7 sound control. The deck flashes the **dimmer** on the clock and parks CH2 and CH7 at 0.
 A colour from a **hue parameter** (0–1 = a turn of the colour wheel): one map target per channel with `hue = "red"` /
-`"green"` / `"blue"` (applied before the curve; `max` caps the brightness). The scene `strobe-thunderwash` (built in; the
+`"green"` / `"blue"` (applied before the curve; `max` caps the brightness). **Not yet confirmed on the real lamp** (#261: the owner's lamp strobed whenever CH1 was above 0, which the manual's order –
+CH1 dimmer – does not explain). The scene `strobe-thunderwash` (built in; the
 file `scenes/strobe-thunderwash.toml`): the tempo's flashes in a slowly turning colour, the colour channels capped at
 15 % (`max = 0.15`) – raise the three together for a show.
 

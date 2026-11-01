@@ -3,6 +3,9 @@
 #   CH1 Master Dimmer 0-255 · CH2 Strobe: 0-5 open, 6-10 closed, 11-127 random / break effects, 128-250 1-30 Hz,
 #   251-255 open · CH3 Red · CH4 Green · CH5 Blue · CH6 White (each 0-255) · CH7 Sound control: 0-5 off, 6-255 on (the
 #   lamp's microphone; only with the strobe channel at 0).
+# UNCONFIRMED ON THE LAMP (2026-11-01): the owner's lamp in 7CH_1 strobed whenever CH1 was above 0 – that does not match
+# CH1 = master dimmer in this table (a different firmware's layout? a one-slot shift?). Do not run a scene with this
+# profile on the real lamp until a controller test (or Cameo's own DMX chart for this unit) settles the order (#261).
 # Set the lamp to DMX Mode 7CH_1 and confirm with ENTER, its DMX address in the same menu (a scene places this profile
 # at that address). Mind CH2: any value from 6 up closes or flashes the shutter on its own – the deck drives the
 # flashes itself (the master dimmer) and parks CH2 and CH7 at 0, so never start a scene from a high CH2 value.

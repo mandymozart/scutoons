@@ -6,6 +6,8 @@
 # The lamp: DMX Mode 7CH_1 confirmed with ENTER, address 001; the widget (Eurolite USB-DMX512-PRO MK2 …) is found by
 # itself, or name its port below. Run it:
 #   cargo run --release -p deck-stage -- --scene scenes/strobe-thunderwash.toml --windowed
+# NOT YET RUN ON THE LAMP: the profile's channel order is from the manual but did not match what the owner's lamp did in
+# 7CH_1 (it strobed with CH1 above 0) – see deck/outputs/fixtures/thunderwash-600-rgbw.toml (#261).
 # BRIGHTNESS: the colour channels are capped at 15 % (`max = 0.15` below – a flash is then calm, ~40 of 255); raise
 # the three `max` together for the show (1 = the lamp's full output, blinding at close range).
 [stage]
