@@ -17,6 +17,7 @@ pub mod quality;
 pub mod splash;
 pub mod switcher;
 pub mod tempo;
+pub mod volume;
 pub mod watch;
 
 // the scene model is deck-space's (#198: the space builds its being from it, in the browser too)

@@ -19,7 +19,7 @@
 //! lights and the frame rate cap below it under load and back up with headroom; F4 opens the settings page (every
 //! preset's knobs, the display mode – saved, reloaded when the file changes), Shift+F4 switches the governor; a deck
 //! reports its quality to the session (the conductor shows it).
-use deck_stage::{audio, cache, chapter, clock, control, graph, hud, modules, render, scene, splash, switcher, tempo, watch};
+use deck_stage::{audio, cache, chapter, clock, control, graph, hud, modules, render, scene, splash, switcher, tempo, volume, watch};
 use deck_space::quality::{self, Governor, Presets};
 use deck_stage::quality as settings;
 
@@ -94,6 +94,7 @@ const HELP: &str = "deck-stage [--scene FILE|cathedral|conductor|outlet] [--audi
   --scenes     the scene switcher's folder of *.toml (#250; default /usr/share/deck/scenes): F5 lists the built-in scenes
                and these, arrows + Enter load one in place and write it into deck.toml's `scene`; --switcher starts with
                the list open, --switch NAME loads that scene after 30 frames (a check run)
+  --show-volume  the volume overlay (#253: the volume keys' feedback) stays on, at 60 % (a check run's screenshot)
   --frames     quit after N frames and print the measured numbers (a check run)
   --screenshot save the last frame of a --frames run as a PNG
   --pointer    put the pointer at window pixel X,Y, or on the being's button NODE.PORT (a check run's hover)
@@ -143,6 +144,8 @@ struct Args {
     scenes: PathBuf,
     switcher: bool,
     switch_to: Option<String>,
+    /// #253: a check run's volume overlay, shown all the time
+    show_volume: bool,
 }
 
 /// a check run's pointer: a pixel, or on a button of the being (it follows the button)
@@ -185,6 +188,7 @@ fn args() -> Result<Args> {
         scenes: switcher::SCENES_DIR.into(),
         switcher: false,
         switch_to: None,
+        show_volume: false,
     };
     let mut it = std::env::args().skip(1);
     while let Some(arg) = it.next() {
@@ -247,6 +251,7 @@ fn args() -> Result<Args> {
             "--settings" => a.settings = true,
             "--scenes" => a.scenes = val()?.into(),
             "--switcher" => a.switcher = true,
+            "--show-volume" => a.show_volume = true,
             "--switch" => a.switch_to = Some(val()?),
             "--quality" => {
                 let v = val()?;
@@ -703,6 +708,11 @@ struct App {
     page: settings::Page,
     /// #250: the scene switcher (F5)
     switcher: switcher::Switcher,
+    /// #253: the hardware volume keys (wpctl on the default sink) and their overlay; `vol_forced` = the HUD is off and
+    /// the bar is borrowed to show it
+    volume: volume::Volume,
+    vol_overlay: volume::Overlay,
+    vol_forced: bool,
     quality_note: String,
     modes: Vec<(u32, u32)>,
     /// #211: the outputs' MIDI for the conductor this frame (reused)
@@ -1137,7 +1147,24 @@ impl App {
             self.stats.window = (0, 0.0);
         }
         // a scene that can't be played is explained even without the HUD
-        let hud_on = self.args.hud || self.error.is_some() || self.page.open || self.switcher.open;
+        if let Some(l) = self.volume.poll() {
+            self.vol_overlay.show(time, l);
+            self.hud_at = -1.0;
+        }
+        if self.args.show_volume {
+            self.vol_overlay.show(time, volume::Level { volume: 0.6, muted: false });
+        }
+        let vol = self.vol_overlay.text(time);
+        // #253: with the HUD off the bar carries the overlay for its second, then goes away again
+        if vol.is_some() && self.hud.mode == hud::Mode::Off {
+            self.hud.mode = hud::Mode::Bar;
+            self.vol_forced = true;
+        } else if vol.is_none() && self.vol_forced {
+            self.hud.mode = hud::Mode::Off;
+            self.vol_forced = false;
+            self.hud_at = -1.0;
+        }
+        let hud_on = self.args.hud || self.error.is_some() || self.page.open || self.switcher.open || vol.is_some();
         if hud_on && time - self.hud_at >= 0.25 || self.stats.frames == 0 || self.hud_at < 0.0 {
             self.hud_at = time;
             // #220: the settings page instead of the HUD's lines, its cursor's line lit
@@ -1161,8 +1188,14 @@ impl App {
                 Some(row) => Some(hud::Alert { row, lit: true }),
                 None => alert.map(|row| hud::Alert { row, lit }),
             });
+            let mut lines = lines;
+            let mut items = self.bar_items();
+            if let Some(v) = &vol {
+                lines.insert(0, v.clone());
+                items.insert(0, hud::Item { text: v.clone(), bad: false });
+            }
             self.hud.set_lines(lines);
-            self.hud.set_items(self.bar_items());
+            self.hud.set_items(items);
         }
         if self.error.is_some() || self.page.open || self.switcher.open {
             self.hud.mode = hud::Mode::Full;
@@ -1590,7 +1623,7 @@ impl ApplicationHandler<Event> for App {
     fn window_event(&mut self, el: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
         // #250: the open scene list takes the keys
         if let WindowEvent::KeyboardInput { event: k, .. } = &event {
-            if self.switcher.open && k.state == ElementState::Pressed && !matches!(k.logical_key.as_ref(), Key::Named(NamedKey::F1 | NamedKey::F2 | NamedKey::F4 | NamedKey::F5)) {
+            if self.switcher.open && k.state == ElementState::Pressed && !matches!(k.logical_key.as_ref(), Key::Named(NamedKey::F1 | NamedKey::F2 | NamedKey::F4 | NamedKey::F5 | NamedKey::AudioVolumeUp | NamedKey::AudioVolumeDown | NamedKey::AudioVolumeMute)) {
                 let key = match k.logical_key.as_ref() {
                     Key::Named(NamedKey::ArrowUp) => Some(switcher::Key::Up),
                     Key::Named(NamedKey::ArrowDown) => Some(switcher::Key::Down),
@@ -1610,7 +1643,7 @@ impl ApplicationHandler<Event> for App {
         }
         // #220: the open settings page takes the keys (the arrows, + / −, Space would turn the camera and the tempo)
         if let WindowEvent::KeyboardInput { event: k, .. } = &event {
-            if self.page.open && k.state == ElementState::Pressed && !matches!(k.logical_key.as_ref(), Key::Named(NamedKey::F1 | NamedKey::F2 | NamedKey::F4)) {
+            if self.page.open && k.state == ElementState::Pressed && !matches!(k.logical_key.as_ref(), Key::Named(NamedKey::F1 | NamedKey::F2 | NamedKey::F4 | NamedKey::AudioVolumeUp | NamedKey::AudioVolumeDown | NamedKey::AudioVolumeMute)) {
                 let key = match k.logical_key.as_ref() {
                     Key::Named(NamedKey::ArrowUp) => Some(settings::Key::Up),
                     Key::Named(NamedKey::ArrowDown) => Some(settings::Key::Down),
@@ -1657,11 +1690,27 @@ impl ApplicationHandler<Event> for App {
             WindowEvent::ModifiersChanged(m) => self.mods = m.state(),
             // the browser's window took the screen: stop drawing behind it (hidden, a frame could block on vsync)
             WindowEvent::Focused(false) if self.browser.is_some() => self.paused = true,
+            // #253: the hardware volume keys – the default sink's volume, wpctl off the frame thread; held keys repeat
+            WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && volume_key(&event.logical_key).is_some() => {
+                if let Some(k) = volume_key(&event.logical_key) {
+                    if !event.repeat {
+                        tracing::info!("volume key {k:?}");
+                    }
+                    self.volume.press(k);
+                }
+            }
+            // a key the keymap has no name for: logged once, so a deck's odd volume keys can be found
+            WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && !event.repeat && matches!(event.logical_key, Key::Unidentified(_)) => {
+                tracing::info!("unidentified key {:?}", event.physical_key);
+            }
             WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && !event.repeat => {
                 let tempo = &self.show.tempo;
                 match event.logical_key.as_ref() {
                     // #209: the full HUD → the collapsed stats bar → nothing
-                    Key::Named(NamedKey::F1) => self.hud.mode = self.hud.mode.next(),
+                    Key::Named(NamedKey::F1) => {
+                        self.vol_forced = false;
+                        self.hud.mode = self.hud.mode.next();
+                    }
                     Key::Named(NamedKey::F2) => self.open_browser(el),
                     Key::Named(NamedKey::Escape) if self.args.windowed => el.exit(),
                     Key::Named(NamedKey::Delete) if self.mods.control_key() && self.mods.alt_key() => self.power_off(),
@@ -1700,6 +1749,16 @@ impl ApplicationHandler<Event> for App {
             WindowEvent::RedrawRequested => self.redraw(el),
             _ => {}
         }
+    }
+}
+
+/// #253: the key as a volume key
+fn volume_key(k: &Key) -> Option<volume::Key> {
+    match k {
+        Key::Named(NamedKey::AudioVolumeUp) => Some(volume::Key::Up),
+        Key::Named(NamedKey::AudioVolumeDown) => Some(volume::Key::Down),
+        Key::Named(NamedKey::AudioVolumeMute) => Some(volume::Key::Mute),
+        _ => None,
     }
 }
 
@@ -1743,6 +1802,9 @@ fn run() -> Result<i32> {
         window: None,
         renderer: None,
         hud_at: -1.0,
+        volume: volume::Volume::default(),
+        vol_overlay: volume::Overlay::default(),
+        vol_forced: false,
         last: None,
         t0_ns: clock::now_ns(),
         moment: clock::Moment::wall(clock::now_ns(), clock::now_ns(), rate),
