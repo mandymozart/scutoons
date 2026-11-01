@@ -626,3 +626,28 @@ fn the_servers_scene_content_reads_as_bundles() {
     }
     assert_eq!(core_seen, bundle::CORE.len(), "every core rig is in the server's catalog");
 }
+
+/// The creator's rig editor (#269) validates instruments, presets and rigs before the server does: this writes their
+/// serde forms as a JSON schema (schemars, derived under cfg(test) only) to shared/catalog – Rust stays the source of
+/// truth. `UPDATE_FIXTURES=1 cargo test -p deck-space rig_schema` writes it, a plain run fails when it is stale.
+#[test]
+fn rig_schema_for_the_creator_is_current() {
+    let mut generator = schemars::generate::SchemaSettings::draft2020_12().into_generator();
+    generator.subschema_for::<Instrument>();
+    generator.subschema_for::<Preset>();
+    generator.subschema_for::<Rig>();
+    let defs = generator.take_definitions(true);
+    let schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$comment": "GENERATED from deck/space/src/rig (serde forms) – do not edit: `UPDATE_FIXTURES=1 cargo test -p deck-space rig_schema` writes it, a plain run fails when it is stale.",
+        "$defs": defs,
+    });
+    let text = serde_json::to_string_pretty(&schema).unwrap() + "\n";
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../shared/catalog/src/rigs/schema.json");
+    if std::env::var_os("UPDATE_FIXTURES").is_some() {
+        std::fs::create_dir_all(std::path::Path::new(path).parent().unwrap()).unwrap();
+        std::fs::write(path, &text).unwrap();
+    }
+    let on_disk = std::fs::read_to_string(path).unwrap_or_default().replace('\r', "");
+    assert!(on_disk == text, "{path} is stale: UPDATE_FIXTURES=1 cargo test -p deck-space rig_schema");
+}
