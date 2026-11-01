@@ -158,3 +158,19 @@ Concrete gains for the open work, without waiting for a rewrite (§10):
 - **Items**: an arpeggiator or a generator can be an item in the carrier bag like an instrument (DECISIONS
   2026-11-01), its patterns derivatives with lineage.
 
+## 12. The three formats today (adapter cost)
+| | story (`VNEvent`, shared/content visual-novel.ts) | relay (`Envelope`, deck/protocol) | inside a deck |
+|---|---|---|---|
+| shape | `{ type, params, id?, if? }` + on a slice `trigger { type: intersect·hover·click, repeat?, rect? }` | `{ v, seq, at?, from, to?, kind, p }` | control values `node.port → [f32…]` (live-core wire records `op, mode, node, port, amount, v[]`); MIDI bytes (`DeviceMsg`); the head's mood (a string) |
+| name | `type`, camelCase: `showMessage`, `fx`, `unlockLocation` … (18) | `kind`, dotted: `cue`, `fx`, `deck.values`, `scene.sync` … | a path `voice.ratio`; a MIDI status byte |
+| time | none – a sequence the reader drives; `delay` / `duration` in ms, `wait` blocks the script | `at` = relay ms (absolute, clock-synced) | audio frames; beats on the tempo map |
+| payload | typed params per type (strings, numbers, character refs) | per kind; `cue.actions` / `fx` / `say` loose | floats only |
+| semantics | commands that change the save game; ordered; conditions; choices block | messages; some are state (`deck.graph`, `snapshot`), some are moments (`cue`, `fx`, `say`) | signals (continuous), except MIDI notes and mood changes |
+
+Adapters: **story → event** easy (`type` → name, numeric params → props, strings → the loose table, `id` kept, `duration`
+→ dur; `if` is checked first and `wait` / choices stay the story runner's – a deck gets a copy, the story keeps its
+authority). **relay → event** easy for the moments (`kind` → name, `at` → start through the clock the decks already
+sync, `p` → props, `cue.actions` → children); the state kinds stay messages. **MIDI → event** a standard transformer
+(note on + off → one note with a duration). **Signals** are not events – bridges (threshold → event, event → value).
+The real differences are time (none · absolute ms · frames / beats) and names (camelCase · dotted · paths) – both
+settled by the event's `Time` and a name registry.
