@@ -10,3 +10,4 @@ export * from './space.ts';
 export * from './sync.ts';
 export * from './controls.ts';
 export * from './midi.ts';
+export * from './gamepad.ts';
