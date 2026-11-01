@@ -319,6 +319,8 @@ horizons, and preload"):
 - **Decided (owner 2026-11-01, "i would go with recommendations for now"):** `scene.sync` stays ordered reference lists
   (a `horizon` field with distances only when a deck needs them); a refused payload answers the sender with an `error`
   ("send a reference"), never a silent drop.
-- **Open – decided after real-show tests (owner 2026-11-01):** the default bounds per scope (a show's rolling horizon
-  in cue rows / seconds, a chapter's choice depth); a per-deck byte budget and what a deck does past it (load late, or
-  refuse the cue as not ready); what a deck pre-builds (only moods, or the next scene's whole stage graph).
+- **Defaults – provisional, tuned after real-show tests (owner 2026-11-01):** a show's rolling horizon = the next 8 cue
+  rows or 60 s, whichever ends first (`Bound::show`; before doors the whole show, `Bound::all`); a chapter = 2 choices
+  deep (`Bound::chapter`); a deck loads at most 256 MB ahead, and past it loads on the trigger (late – the show never
+  stops), it does not refuse the cue; a deck pre-builds moods only (the next scene's whole stage graph later, if real
+  shows need it). Constants: deck-events `horizon.rs` (`SHOW_ROWS`, `SHOW_SECS`, `CHOICE_DEPTH`, `DECK_BYTES`).

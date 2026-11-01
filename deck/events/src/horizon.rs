@@ -47,6 +47,14 @@ impl<R> Reach<R> {
     }
 }
 
+/// The defaults (owner 2026-11-01: provisional, tuned after real-show tests): a show's rolling horizon looks this many
+/// cue rows and seconds ahead (whichever ends first), a chapter this many choices deep, a deck loads at most this many
+/// bytes ahead. Past the budget a deck loads on the trigger (late – the show never stops), it does not refuse the cue.
+pub const SHOW_ROWS: u32 = 8;
+pub const SHOW_SECS: f64 = 60.0;
+pub const CHOICE_DEPTH: u32 = 2;
+pub const DECK_BYTES: u64 = 256 * 1024 * 1024;
+
 /// The horizon's limits; `None` = unbounded in that dimension.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Bound {
@@ -66,6 +74,16 @@ impl Bound {
     /// everything (a show's whole horizon before doors)
     pub fn all() -> Bound {
         Bound::default()
+    }
+
+    /// a show's rolling horizon during it (before doors: `all`, the whole show)
+    pub fn show() -> Bound {
+        Bound { rows: Some(SHOW_ROWS), secs: Some(SHOW_SECS), bytes: Some(DECK_BYTES), ..Bound::default() }
+    }
+
+    /// a chapter's triggers and choice branches
+    pub fn chapter() -> Bound {
+        Bound { depth: Some(CHOICE_DEPTH), bytes: Some(DECK_BYTES), ..Bound::default() }
     }
 
     fn within(&self, d: &Dist) -> bool {
@@ -188,6 +206,17 @@ mod tests {
         assert_eq!((names(&h), h.cut), (vec!["a", "b"], Some(Cut::Items)));
         let h = walk([r("a", 0, 1), r("b", 1, 1)], &Bound { items: Some(2), ..Bound::all() });
         assert_eq!(h.cut, None, "exactly full is not a cut");
+    }
+
+    #[test]
+    fn the_defaults_bound_a_show_and_a_chapter() {
+        let at = |item: &str, rows, secs, depth| Reach::new(item.to_string(), Dist { rows, secs, depth }, 0);
+        let show = [at("next", 1, 4.0, 0), at("row8", 8, 50.0, 0), at("row9", 9, 55.0, 0), at("late", 2, 61.0, 0)];
+        assert_eq!(names(&walk(show, &Bound::show())), ["next", "row8"], "8 rows or 60 s, whichever ends first");
+        let chapter = [at("choice", 1, 0.0, 1), at("two", 2, 0.0, 2), at("three", 3, 0.0, 3)];
+        assert_eq!(names(&walk(chapter, &Bound::chapter())), ["choice", "two"]);
+        let big = [r("set", 0, DECK_BYTES), r("more", 1, 1)];
+        assert_eq!(walk(big, &Bound::show()).cut, Some(Cut::Budget), "past the deck's budget: loaded on the trigger");
     }
 
     #[test]

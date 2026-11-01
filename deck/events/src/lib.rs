@@ -30,5 +30,5 @@ pub use glide::Glide;
 pub use graph::{EventGraph, GraphError, Stats, EDGE_CAP, MAX_HOPS};
 pub use names::{NameError, Names, Sym};
 pub use boundary::{admit, BoundaryError, PAYLOAD_LIMIT};
-pub use horizon::{Bound, Cut, Dist, Horizon, Reach};
+pub use horizon::{Bound, Cut, Dist, Horizon, Reach, CHOICE_DEPTH, DECK_BYTES, SHOW_ROWS, SHOW_SECS};
 pub use rt::RtEvent;
