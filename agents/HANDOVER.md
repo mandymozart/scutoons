@@ -45,22 +45,15 @@ State 2026-10-12. How agents work: agents/RULES.md. Open work: GitHub issues + t
   The sketch → 3D experiment is removed; its learnings: research/CHARACTERS3D.md.
 
 ## Last run
-2026-10-30 evening → 31 night, coordinated with the OSCT orchestration; one agent at a time on `main`. Pushed on the
-owner's word up to 80e26c22 (API scene-content + the cathedral set live); **29 commits since are not pushed**.
-- **The 3-device test (evening, owner):** the conductor on the PC + the X1 on stick s5 + the S22 in Chrome
-  (`deck/lab` page over `adb reverse`) in one session `CATH` over the LAN relay – beings in the circle, values, moods.
-- **Built, deck:** #188 moods (20, feedback ↔ sound), the set without the incense burner, tethered buttons + feedback
-  (hover, gauge, labels, lock, reset, touch), no auto-turning camera · #195 sync from the API into the cache + the
-  conductor pushes a scene sync (`scene.sync` / `deck.synced`) · relay keep-alive (ghost decks gone) · deck-persist
-  (fast first boot, cut-off recovery, Wi-Fi kept) · `deck-set`, tty2 without a login · #74 the cathedral re-baked in
-  Blender (low 35K tris, 0.5 MB; v2 on the CDN + migration 2026-10-31-cathedral-set-v2, not deployed).
-- **Built, web:** #197 the browser deck (deck/lab) → #198 `deck-space` crate as wasm (WebGL2 on the S22, no WebGPU
-  there) under `/live/deck` in the viewer (unlisted, open to all; Svelte overlay; `@scutoons/live-deck`).
-- **ISO:** deck/os/out/s6 (02:57) – all of the above except #195's push (built after). s5 is on the stick.
-- **Look at / owner:** push (deploys the v2 migration + `/live/deck` + .htaccess COOP/COEP on `/live/…`); s6 on the
-  stick; `/live/deck` on the S22 (fps, touch, the head – it was locked at night); the wasm files are git-ignored, so
-  production's `/live/deck` has no 3D / sound until the deploy builds them or they are committed; a hosted relay (wss);
-  #181 sync / tap / off per deck; who may turn other decks' buttons; clean up the `scutoons/rooms/` and `.3d` set copies
-  under Admin → Assets → Unused.
-- **Green:** deck workspace 303 tests + clippy -D warnings (also wasm32); viewer 154 tests / svelte-check 0 errors;
-  live-deck 15, live-core 15; server 490 (MariaDB) at #195's API. `check:tools-css` red before this run (creator / ui).
+2026-11-01 (day → evening), the deck session with the owner at the X1, then orchestrating one worker at a time
+(sessions, then background agents over Remote Control). **18 deck commits on `main` not pushed** (112853e1 … 2353bd99).
+- **Remote deck development works:** `deck-update` (signed bundles from the PC over the LAN, rollback, removal of dropped
+  files, #237) – the X1 takes a new build within 2 min; ssh into the X1 with the PC's key.
+- **Built and checked on the X1:** boot to stage 21.5 s (#251), idle fireflies scene as default (#252), F5 scene
+  switcher + a PipeWire stream that really stops (#250), volume keys (#253), kiosk stop 0.3 s (#256), no segfault on a
+  lost display (#257), no serial-getty loop (#262), blackout on stop (#263).
+- **DMX:** the Eurolite USB-DMX512-PRO MK2 speaks Enttec Pro at 250000 baud only; the Thunder Wash 600 RGBW in 4CH_1
+  pulses on the beat in colour (`pulse-thunderwash`, the owner: "went perfect", #261).
+- **Decided:** F1 = debug overlay (off from the 2027-02-05 release); scene switches crossfade, stops black out (#264).
+- **Next / waiting:** agents/HANDOFF.md. The PC crashed once during a full-parallel Docker build – builds now run with
+  `CARGO_BUILD_JOBS=4`.
