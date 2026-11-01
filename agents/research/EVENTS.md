@@ -1,4 +1,4 @@
-Status 2026-11-01: concept for the owner (§9 questions) – nothing built. Owner handoff "Generator/Event Architecture"; extends #191 (rigs) and #234 (sequences), #235 (patterns / clips).
+Status 2026-11-01: concept for the owner (§9 questions) – nothing built; encapsulated, not a rewrite (§10). Owner handoff "Generator/Event Architecture"; extends #191 (rigs) and #234 (sequences), #235 (patterns / clips).
 
 # EVENTS — generators that talk in events
 
@@ -94,16 +94,18 @@ pub trait Generator: Send {
 - The signal layer: Lazzarini 2017 (object-oriented UGens in Csound), OOPS (NIME 2017), Pedersini, Sarti & Tubaro 2000
   (objects in a dynamic interaction topology).
 
-## 8. A first spike (proposal)
-deck-core `event.rs`:
-- `Event`, `Time`, `Sym`, `Span`, the `Generator` trait
-- a scheduler: queries per block, sorted queues with frame offsets, topological order, the feedback delay
-- generators: `random_walk` (the page's melody: spread, rate, glide → notes with continuous pitch), `pulse` (the
-  tempo grid), `arp` (events → events)
-- a bridge `gate_cv` (events → pitch / gate for voices.rs)
-- tests: determinism by seed; window independence (querying [0, 2) = [0, 1) + [1, 2)); sample offsets; an arp's output
-
-Then the stage's `seq` becomes a generator, and live-core plays it.
+## 8. A first spike (proposal, encapsulated – §10)
+- A crate `deck/events`, depending only on deck-core's tempo map:
+  - `Event`, `Time`, `Sym`, `Span`, the `Generator` trait
+  - a scheduler: queries per block, sorted queues with frame offsets, topological order, the feedback delay
+  - generators: `random_walk` (the page's melody: spread, rate, glide → notes with continuous pitch), `pulse` (the
+    tempo grid), `arp` (events → events)
+  - tests: determinism by seed; window independence (querying [0, 2) = [0, 1) + [1, 2)); sample offsets; an arp's output
+- **One host node kind** in the stage graph, `generators`: it holds a generator sub-graph and speaks today's ports.
+  - Out: `cv` in seq's encoding (pitch left, gate right), so fm / osc / voices.rs play it unchanged; control outputs
+    for any event property (a `mood` event → a value, a `flash` → a pulse).
+  - In: control inputs as the generators' params (knobs, mappings, presets work as today).
+- The page's melody becomes `random_walk` in that node: the rig's voice gets its notes on the deck and in the browser.
 
 ## 9. Open – for the owner
 1. Stored time: beats by default, seconds for clips and cues?
@@ -111,3 +113,24 @@ Then the stage's `seq` becomes a generator, and live-core plays it.
 3. Event names: free, or a registry (like the moods)?
 4. Determinism across decks: a seed per scene / generator, the relay sending seeds instead of notes – right?
 5. One event format for the story, the decks and the relay – or the story keeps its own?
+
+## 10. Encapsulated – grow around, don't rewire (owner 2026-11-01)
+Owner: "is there a possibility to encapsulate this approach and not rewire our entire software? … a universal
+rhizomatic system design, where stages etc. are also generators". Yes – by **adapters at the boundaries** (the strangler
+fig: the new grows around the old; nothing has to move, each piece can move later):
+- **Inward – a generator inside today's graph:** the `generators` host node (§8) speaks the ports the graph has (audio
+  cv, control). Nothing in graph.rs, BatchGraph, the stage, the rigs or the being changes; a native `event` port type
+  can come later, or never.
+- **Outward – today's things as generators:** an adapter maps a thing's existing interface to events, and the thing
+  stays as it is:
+  - **a stage / deck** – its `deck.graph` + `deck.values` + mood out, `scene.sync` / cues / values in: to the
+    conductor, every deck is a generator already (#188's mirrored beings are that view)
+  - the relay: an envelope `{ kind, at, p }` is an event (`name`, `start`, props) – the bus between stages
+  - MIDI in / out, Link, OSC; the feelings (mood changes out); face / motion (#212)
+  - later the story's EventProcessor (chapter-scale generators), a score / clip player (#235)
+- **The rhizome:** every one of these is a generator through its adapter, and any generator can feed any other through
+  events at any time scale – a deck into the conductor, the conductor into a deck, a chapter into a show. No hierarchy
+  is built in; a "stage" is just a compound generator whose inside is a node graph.
+- **What is new code:** the `deck/events` crate (the contract + the scheduler + the first generators), the host node,
+  and one adapter per boundary as it is needed. The contract is the only thing the rest of the system ever learns.
+
