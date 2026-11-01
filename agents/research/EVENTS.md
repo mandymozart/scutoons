@@ -1,4 +1,4 @@
-Status 2026-11-01: built (#236): `deck/events` (the contract, the graph, rt events, random_walk / pulse / arp, gate_cv; allocation-free in a run), the stage's `walk` node and live-core's walks – a rig's melody plays on the deck and in the browser; encapsulated (§10); next: the generic host node, threads, adapters, horizons. Owner handoff "Generator/Event Architecture"; extends #191 (rigs) and #234 (sequences), #235 (patterns / clips).
+Status 2026-11-01: built (#236): `deck/events` (the contract, the graph, rt events, random_walk / pulse / arp, gate_cv; allocation-free in a run), the stage's `walk` node and live-core's walks – a rig's melody plays on the deck and in the browser; encapsulated (§10); horizons + preload (the walker, the rig's mood prebuild) and the references guard (§16); next: the generic host node, threads, adapters. Owner handoff "Generator/Event Architecture"; extends #191 (rigs) and #234 (sequences), #235 (patterns / clips).
 
 # EVENTS — generators that talk in events
 
@@ -298,11 +298,29 @@ coalesce (latest wins); events are never reordered.
   worker; space-web draws on the main thread from the deck's state.
 
 **Event horizons – preparing before the trigger** ("anticipate potential events by running through scoped event
-horizons, and preload"): every scope lists the events it can reach – a show's cue rows, a chapter's triggers and
-choice branches, a rig's mood variants, a set's objects. A **horizon** = what is reachable from the current position
-within a bound (n rows, t seconds, choice depth d, a byte budget), nearest first. A preloader walks it and resolves the
-references; it can also **pre-build engine state** (the lowered scene of the next mood, a video decoder rolled to its
-first frame) and swap it in on the trigger. Before a show: the whole show's horizon, every deck answers ready; during
-it: a rolling horizon. The protocol already has the beginnings: `scene.sync` / `deck.synced` (#195) and `media.preload`
-/ `media.ready` (#186); the reader already preloads the next scenes' portraits.
-
+horizons, and preload"):
+- **Scope** = what lists its reachable items: a show's cue rows, a rig's mood variants, a set's objects, a chapter's
+  triggers and choice branches. Each item is a **reference** (an id, an immutable path, a mood) with a distance – rows
+  ahead, seconds ahead, choice depth – and a cost in bytes (0 = cached or free to build).
+- **Horizon** = the reachable items within a **bound** (n rows, t seconds, choice depth d, n items, a byte budget),
+  **nearest first** (seconds, then rows, then depth; ties in the scope's order), each reference once at its nearest. The
+  budget fills as a **prefix**: the first item that doesn't fit ends it, so a preloaded horizon has no holes.
+- **Preload or pre-build:** a loader resolves the references into its cache; an engine can also **pre-build state** (the
+  next mood's lowered scene, a video decoder rolled to its first frame) and swap it in on the trigger. Before a show: the
+  whole horizon, every deck answers ready; during it: a rolling horizon from the current row.
+- **Built (deck-events `horizon.rs`, deck-space `rig/horizon.rs`):** the platform-free walker (`walk(reach, bound)`) and
+  the rig case – the energy ladder's moods by rungs, the rig's off-ladder moods (sad) one branch away, a mood the rig
+  doesn't name shares the defaults' entry; `Bundle::prebuild` plays each reachable mood ahead (equal to a fresh `play`).
+  The guard: deck-events `boundary.rs` (`admit`, a loose payload over 1 KB → "send a reference").
+- **The protocol needs nothing new yet:** `scene.sync` (#195: `sets`, `characters`) and `media.preload` (#186: `items`)
+  are already reference lists, and their arrays are ordered – a conductor can send its horizon nearest first in them; decks
+  answer `deck.synced` / `media.ready` as now. Old decks read the same messages (printed / public things never change).
+  A rolling horizon is then just a new `scene.sync` per step.
+- **Open – for the owner:**
+  1. The default bounds per scope: a show's rolling horizon (next n cue rows? t seconds?), a chapter's choice depth.
+  2. A per-deck byte budget, and what a deck does past it (load on the trigger = late, or refuse the cue as not ready).
+  3. Whether `scene.sync` grows a `horizon` field (references with distances, for a deck that orders its own loads)
+     or stays ordered lists – recommended: ordered lists until a deck needs the distances.
+  4. Does the payload guard log-and-drop, or answer the sender with an `error` (the relay's envelope)? Recommended: an
+     `error` back, so a creator sees "send a reference".
+  5. Pre-build scope on the deck: only moods, or also the next scene's whole stage graph (memory on a phone deck).
