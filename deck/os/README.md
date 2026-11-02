@@ -102,6 +102,12 @@ on the live stick (the cache lives on DECKDATA); the live image overrides mkinit
 the kernel and initramfs stay in the ISO (an installed deck gets the stock hook back). The user `deck`
 (uid 1000) is in audio, video, input, realtime, uucp; PipeWire runs at 48 kHz / quantum 128 with rtkit
 (`rootfs/etc/pipewire/pipewire.conf.d/10-deck-rt.conf`) under `user@1000` (linger) so the check can read it.
+**The RME Fireface UCX II** (#285) needs its **class-compliant mode** (SETUP/REV → Options → Hardware/Diagnosis → CC
+Mode – it switches only with the USB cable unplugged); in its driver mode Linux sees no sound card. WirePlumber's
+default profile for it is UCM "HiFi": one loopback sink per output and the AES out as the default – switch it to **Pro
+Audio** once (`wpctl set-profile <device> <index of pro-audio>`, then `wpctl set-default <the pro-output-0 sink>`, as the
+deck user with `XDG_RUNTIME_DIR=/run/user/1000`): one 20-channel sink, period 128, the stage's L/R on analog out 1/2;
+WirePlumber keeps both in the deck user's state. deck.toml's `audio_device = "Fireface"` makes the stage pick that sink.
 
 ## Pairing (#180)
 
