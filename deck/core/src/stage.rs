@@ -10,40 +10,47 @@ use std::collections::BTreeSet;
 pub struct StageModule {
     pub feature: &'static str,
     pub what: &'static str,
-    pub kinds: &'static [&'static str],
     pub sources: &'static [&'static str],
 }
 
 pub const CORE: &str = "core";
 
-const fn module(feature: &'static str, what: &'static str, kinds: &'static [&'static str], sources: &'static [&'static str]) -> StageModule {
-    StageModule { feature, what, kinds, sources }
+const fn module(feature: &'static str, what: &'static str, sources: &'static [&'static str]) -> StageModule {
+    StageModule { feature, what, sources }
 }
 
-/// Every module of the stage, built or not. A new kind = a line here + its variant in deck/stage's graph.rs.
+impl StageModule {
+    /// the node kinds this module carries: the catalog's kinds with this `feature` (deck-catalog, #315)
+    pub fn kinds(&self) -> impl Iterator<Item = &'static str> + '_ {
+        deck_catalog::builtin_kinds().iter().filter(move |d| d.feature == self.feature).map(|d| deck_catalog::static_str(&d.name))
+    }
+}
+
+/// Every module of the stage, built or not. A new kind = its entry in the catalog (deck-catalog, with this `feature`) + its
+/// variant in deck-space's graph.rs.
 pub const STAGE_MODULES: &[StageModule] = &[
     module(
         CORE,
         "the graph, control, the basic audio nodes, the render passes, the HUD, the internal tempo clock",
-        &["test_pattern", "shader", "screen", "overlay", "lfo", "tempo", "click", "osc", "noise", "fm", "seq", "mixer", "fft", "audio_out"],
         &["internal", "relay"],
     ),
-    module("space", "the 3D space: a set's glTF and the deck's being (#188)", &["space"], &[]),
-    module("events", "generators that talk in events (#236, deck-events): `walk` – a seeded melody, `events` – a patch of generators, as seq's cv", &["walk", "events"], &[]),
-    module("modules", "rig modules (#280, deck-module): compiled wasm instruments run in wasmtime – the scene's `module:<name>` kinds, whose ports come from the module's descriptor", &[], &[]),
-    module("sync", "the scenes' sets (3D) and portraits from the API into the deck's cache, offline from it (#195)", &[], &[]),
-    module("chapter", "a chapter from scutoons.com: its slices and its music, cached (library API)", &["chapter", "chapter_music"], &[]),
-    module("live", "a Live outlet: the relay's cells for this deck's outlet, drawn natively; show media preloaded with the deck token (#186)", &["outlet"], &[]),
-    module("midi", "MIDI clock in and out (the tempo clock's `midi` source, `midi_out`)", &[], &["midi"]),
-    module("osc", "the OSC remote for the tempo clock (`/tempo/*`)", &[], &["osc"]),
-    module("outputs", "the parameters as outputs: MIDI out, DMX fixtures, the clock-synced strobe – the scene's [outputs] (#211)", &[], &[]),
-    module("link", "Ableton Link as a tempo source (needs cmake + libclang to build)", &[], &["link"]),
-    module("pipewire", "the PipeWire audio backend (Linux; without it: cpal)", &[], &[]),
+    module("space", "the 3D space: a set's glTF and the deck's being (#188)", &[]),
+    module("events", "generators that talk in events (#236, deck-events): `walk` – a seeded melody, `events` – a patch of generators, as seq's cv", &[]),
+    module("modules", "rig modules (#280, deck-module): compiled wasm instruments run in wasmtime – the scene's `module:<name>` kinds, whose ports come from the module's descriptor", &[]),
+    module("sync", "the scenes' sets (3D) and portraits from the API into the deck's cache, offline from it (#195)", &[]),
+    module("chapter", "a chapter from scutoons.com: its slices and its music, cached (library API)", &[]),
+    module("live", "a Live outlet: the relay's cells for this deck's outlet, drawn natively; show media preloaded with the deck token (#186)", &[]),
+    module("midi", "MIDI clock in and out (the tempo clock's `midi` source, `midi_out`)", &["midi"]),
+    module("osc", "the OSC remote for the tempo clock (`/tempo/*`)", &["osc"]),
+    module("outputs", "the parameters as outputs: MIDI out, DMX fixtures, the clock-synced strobe – the scene's [outputs] (#211)", &[]),
+    module("link", "Ableton Link as a tempo source (needs cmake + libclang to build)", &["link"]),
+    module("pipewire", "the PipeWire audio backend (Linux; without it: cpal)", &[]),
 ];
 
 /// the module (feature) that carries `kind`; None = no stage kind
 pub fn module_of_kind(kind: &str) -> Option<&'static StageModule> {
-    STAGE_MODULES.iter().find(|m| m.kinds.contains(&kind))
+    let feature = &deck_catalog::builtin(kind).filter(|d| !d.feature.is_empty())?.feature;
+    STAGE_MODULES.iter().find(|m| m.feature == feature.as_ref())
 }
 
 /// What one node of a scene needs: the module of its kind, and for the `tempo` node the modules of its source and
@@ -91,7 +98,7 @@ mod tests {
 
     #[test]
     fn kinds_and_sources_are_unique() {
-        let kinds: Vec<&str> = STAGE_MODULES.iter().flat_map(|m| m.kinds.iter().copied()).collect();
+        let kinds: Vec<&str> = STAGE_MODULES.iter().flat_map(|m| m.kinds()).collect();
         assert_eq!(kinds.iter().collect::<BTreeSet<_>>().len(), kinds.len());
         let sources: Vec<&str> = STAGE_MODULES.iter().flat_map(|m| m.sources.iter().copied()).collect();
         assert_eq!(sources.iter().collect::<BTreeSet<_>>().len(), sources.len());

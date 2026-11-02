@@ -967,6 +967,7 @@ dependencies = [
 name = "deck-core"
 version = "0.1.0"
 dependencies = [
+ "deck-catalog",
  "rustfft",
  "serde",
  "toml 0.8.23",
@@ -1051,6 +1052,7 @@ dependencies = [
  "ab_glyph",
  "anyhow",
  "bytemuck",
+ "deck-catalog",
  "deck-core",
  "deck-events",
  "glam",

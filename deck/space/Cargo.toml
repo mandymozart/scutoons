@@ -24,6 +24,8 @@ native = ["being", "image/png", "image/webp"]
 
 [dependencies]
 deck-core = { workspace = true, features = ["tempo"] }
+# the node-kind catalog: ports, domains and parameter ranges of every kind (#315)
+deck-catalog = { path = "../catalog" }
 # the rig's mood horizon (rig/horizon.rs): deck-events' horizon walker (#236)
 deck-events = { path = "../events" }
 anyhow.workspace = true

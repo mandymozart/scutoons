@@ -64,60 +64,45 @@ pub trait Module: Send + Sync {
     fn build(&self, kind: &str, params: &Params, rate: f32) -> Option<Box<dyn Block>>;
 }
 
-/// Every kind the platform knows, compiled in or not (one table per module) – the scene check and `features_for` read it. A new kind = a line
-/// here + its block in its module. The `stage` kinds are deck/stage's (GPU, native only); `3d`, `text`, `video` are
-/// the planned modules of CYBERDECKS.md §8 (S4, S5) and the owner's list (#182).
-pub const CONTROL_KINDS: &[KindInfo] = &[
-    kind("lfo", "control", &[port("rate", PortType::Control), port("depth", PortType::Control)], &[port("out", PortType::Control)]),
-    kind("add", "control", &[port("a", PortType::Control), port("b", PortType::Control)], &[port("out", PortType::Control)]),
-    kind("mul", "control", &[port("a", PortType::Control), port("b", PortType::Control)], &[port("out", PortType::Control)]),
-    kind("smooth", "control", &[port("in", PortType::Control), port("time", PortType::Control)], &[port("out", PortType::Control)]),
-];
-pub const SYNTH_KINDS: &[KindInfo] = &[
-    kind("osc", "synth", &[port("freq", PortType::Control), port("gain", PortType::Control)], &[port("out", PortType::Audio)]),
-    kind(
-        "fm",
-        "synth",
-        &[port("freq", PortType::Control), port("ratio", PortType::Control), port("index", PortType::Control), port("gain", PortType::Control)],
-        &[port("out", PortType::Audio)],
-    ),
-];
-pub const ANALYSIS_KINDS: &[KindInfo] = &[
-    kind(
-        "fft",
-        "analysis",
-        &[port("in", PortType::Audio)],
-        &[port("level", PortType::Control), port("bass", PortType::Control), port("mid", PortType::Control), port("high", PortType::Control)],
-    ),
-];
-/// deck/stage's GPU kinds – listed so a scene check outside the stage can name them.
-pub const STAGE_KINDS: &[KindInfo] = &[
-    kind("screen", "stage", &[port("in", PortType::Video)], &[]),
-    kind("shader", "stage", &[port("in", PortType::Video)], &[port("out", PortType::Video)]),
-    kind("chapter", "stage", &[port("in", PortType::Video)], &[port("out", PortType::Video), port("text", PortType::Video)]),
-    kind("test_pattern", "stage", &[port("speed", PortType::Control)], &[port("out", PortType::Video)]),
-    kind("overlay", "stage", &[port("in", PortType::Video), port("top", PortType::Video)], &[port("out", PortType::Video)]),
-    kind("noise", "stage", &[port("cutoff", PortType::Control)], &[port("out", PortType::Audio)]),
-    kind("seq", "stage", &[port("rate", PortType::Control)], &[port("cv", PortType::Audio)]),
-    kind("chapter_music", "stage", &[port("gain", PortType::Control)], &[port("out", PortType::Audio)]),
-    kind("mixer", "stage", &[port("in1", PortType::Audio)], &[port("out", PortType::Audio)]),
-    kind("audio_out", "stage", &[port("in", PortType::Audio)], &[]),
-];
-pub const PLANNED_KINDS: &[KindInfo] = &[
-    kind("model3d", "3d", &[port("rot", PortType::Control)], &[port("out", PortType::Video)]),
-    kind("text", "text", &[port("in", PortType::Video)], &[port("out", PortType::Video)]),
-    kind("video", "video", &[port("speed", PortType::Control)], &[port("out", PortType::Video)]),
-];
-
-/// All kind tables, in module order.
-pub const KIND_TABLES: &[&[KindInfo]] = &[CONTROL_KINDS, SYNTH_KINDS, ANALYSIS_KINDS, STAGE_KINDS, PLANNED_KINDS];
-
-pub fn all_kinds() -> impl Iterator<Item = &'static KindInfo> {
-    KIND_TABLES.iter().flat_map(|t| t.iter())
+/// Every kind the platform knows, compiled in or not, grouped by module (control, synth, analysis, stage, the planned
+/// 3d / text / video) – derived from the catalog (deck-catalog, #315), the one table. Inside the engine modules
+/// (control, synth, analysis) a kind lists only the ports this control graph takes (`PortDesc::engine`); the stage's
+/// and the planned kinds list all of them. The scene check and `features_for` read it.
+fn table() -> &'static Vec<(&'static str, Vec<KindInfo>)> {
+    use deck_catalog::{static_str, PortType as T};
+    static TABLE: std::sync::OnceLock<Vec<(&'static str, Vec<KindInfo>)>> = std::sync::OnceLock::new();
+    TABLE.get_or_init(|| {
+        let ty = |t: T| match t {
+            T::Audio | T::Cv => PortType::Audio,
+            T::Control | T::Event => PortType::Control,
+            T::Video => PortType::Video,
+        };
+        let ports = |d: &'static deck_catalog::Descriptor, dir: deck_catalog::Dir| -> &'static [Port] {
+            let engine = matches!(d.module.as_ref(), "control" | "synth" | "analysis");
+            let list: Vec<Port> = d.ports.iter().filter(|p| p.dir == dir && (p.engine || !engine)).map(|p| Port { name: static_str(&p.name), ty: ty(p.ty) }).collect();
+            Box::leak(list.into_boxed_slice())
+        };
+        let mut groups: Vec<(&'static str, Vec<KindInfo>)> = Vec::new();
+        for d in deck_catalog::builtin_kinds().iter().filter(|d| !d.module.is_empty()) {
+            let module = static_str(&d.module);
+            let info = KindInfo { name: static_str(&d.name), module, inputs: ports(d, deck_catalog::Dir::In), outputs: ports(d, deck_catalog::Dir::Out) };
+            match groups.iter_mut().find(|(m, _)| *m == module) {
+                Some((_, v)) => v.push(info),
+                None => groups.push((module, vec![info])),
+            }
+        }
+        groups
+    })
 }
 
-const fn kind(name: &'static str, module: &'static str, inputs: &'static [Port], outputs: &'static [Port]) -> KindInfo {
-    KindInfo { name, module, inputs, outputs }
+/// the kinds of one module (control · synth · analysis · stage · 3d …), empty for an unknown one
+pub fn kinds_of_module(module: &str) -> &'static [KindInfo] {
+    table().iter().find(|(m, _)| *m == module).map_or(&[], |(_, v)| v.as_slice())
+}
+
+/// All kinds, in module order.
+pub fn all_kinds() -> impl Iterator<Item = &'static KindInfo> {
+    table().iter().flat_map(|(_, v)| v.iter())
 }
 
 pub fn kind_info(name: &str) -> Option<&'static KindInfo> {
