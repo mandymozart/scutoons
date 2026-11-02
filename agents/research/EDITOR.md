@@ -18,7 +18,7 @@ The stage (the deck's engine behind a typed protocol, sandboxed), an outliner / 
 
 ## 4. Routing and association – a proposal (not decided)
 - **Canonical address of anything editable:** `/edit/<kind>:<id>` with `?w=<workspace>` and `?sel=<path>` – e.g. `/edit/rig:character.catpope?w=sound&sel=voice`. One thing, one URL, whatever page you came from. (Today the creator already addresses documents by key: `/catalog/<kind>?id=`.)
-- **Context entries:** the pages that know where a thing lives link into it and hand over the breadcrumb (`from=`): the character page → its rig, an item page → `rig:item.<id>`, the catalog lists, and – later – the chapter: **`/<toon>/chapter/<n>/live`**, a lens of the chapter like the existing `/<toon>/chapter/<n>/storyboard` (#186), which opens the editor on the chapter's scenes in the Scene workspace. The context decides *what is offered and which breadcrumb is shown*, never the identity.
+- **Context entries:** the pages that know where a thing lives link into it and hand over the breadcrumb (`from=`): the character page → its rig, an item page → `rig:item.<id>`, the catalog lists, and – later – the chapter: **`/<toon>/chapter/<n>/scenes`**, a page of the chapter like the existing `/<toon>/chapter/<n>/storyboard`, which opens the editor on the chapter's scenes in the Scene workspace. (Not `/live`: that word is the stage builder's lens, §6.) The context decides *what is offered and which breadcrumb is shown*, never the identity.
 - **Why not only under the content tree:** instruments, items, furniture, sets and spots are platform-wide and reused by many chapters; under `/<toon>/chapter/2/…` one instrument would have twenty URLs.
 - **Association = "uses / used by"** (it exists in part: `RigValidator`'s uses – an instrument by presets, rigs and items –, the asset registry): the inspector lists them, a click opens `/edit/<key>`. Editing a shared thing from inside a scene says "used by N" first.
 - **Cut-down scenes:** a document that references parts; the Scene workspace opens it, picking an object on the stage selects the referenced part in the inspector, "Edit definition" opens that part in its own workspace.
@@ -26,3 +26,13 @@ The stage (the deck's engine behind a typed protocol, sandboxed), an outliner / 
 ## 5. Open
 1. Routing as in §4 (canonical `/edit/…` + context entries incl. `/<toon>/chapter/<n>/live`) – or only context routes? Recommended: §4.
 2. When the generic shell (outliner, generic inspector) starts: with the Scene workspace (#244 / #245), not before. Recommended.
+
+## 6. Not to be confused with – four different things (owner 2026-11-02: "this is separate from the row view, the conductor view … not to be confused with the conductor in the 3d visualisation")
+| | What it is | When / who | Where |
+|---|---|---|---|
+| **The editor** (this doc) | makes **things**: instruments, rigs, later scenes, sets, spots – in workspaces | before: a creator authors parts | creator app, `/edit/<kind>:<id>` |
+| **The row view = the stage builder, the "Live" lens** (LIVE.md B.5.5, LIVE-LENSES.md §1, §6; not built) | arranges **a show over the story**: the toon's one flow as rows (scene keys, story order, branches); per row what every outlet and device does (cells, layers, cues, looks) – it **picks** scenes, sets, media and rigs, never copies them | before: the show's author, next to the Storyboard and Slice-editor lenses of the same rows | creator, a lens tab in the header |
+| **The conductor view** (LIVE.md B.2; `/live/conductor`) | **runs** the show live: the position, the cue list go / next / hold, votes, panic, which decks are connected; sends the cells to the outputs | during the show: the conductor person | viewer |
+| **The conductor's being** (deck-space `CONDUCTOR_SCENE`, `stage/scenes/conductor.toml`, #188) | a **picture**: the bigger being in the middle of the nave (PLF's portrait as its head) that stands for the conductor in the 3D, the decks' beings around it | during the show: what the audience sees | inside a scene on a deck's screen |
+
+Make → arrange → run: the editor makes the parts, the row view arranges them along the story into a show, the conductor view runs that show, and the conductor's being is only how the conductor appears in the picture. In the docs "conductor" always means the person / role (B.2); the 3D one is called **the conductor's being**.
