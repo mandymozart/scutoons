@@ -242,6 +242,7 @@ return static function (App $app): void {
     $app->delete("/api/rigs/$subject", [RigsController::class, 'deleteRig']);
     // rig modules, Rust compiled to wasm (#281, agents/research/RIG-EDITING.md §4–7): a member's own sources (a session, reads also
     // a deck token), published factory modules by id; the compile is the creators' (the build service beside the relay)
+    $app->get('/api/kinds', [ModulesController::class, 'kinds']);
     $app->get('/api/modules', [ModulesController::class, 'list']);
     $app->post('/api/modules', [ModulesController::class, 'create']);
     $app->post('/api/modules/compile', [ModulesController::class, 'compile']);
