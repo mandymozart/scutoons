@@ -1,11 +1,15 @@
 <script lang="ts">
 	// The deck half of the Sound design workspace (#282): the engine host of #298 (`<EngineStage gate>`) playing the
-	// character's rig – the being, the knobs and the sound – with the mood select, the status line and the levels. The sound
-	// starts with the round Play button on the stage (or the first click on it; the browser holds the first sound back until a
-	// gesture). The compiled module plays here with #290 – until then the muted line says so.
-	import { EngineStage, emptySnapshot, meterPercent, statusLine, type EngineHost, type EngineSnapshot } from '@scutoons/engine-host';
+	// character's rig – the being, the knobs and the sound. The sound starts with the round Play button on the stage (or the
+	// first click on it; the browser holds the first sound back until a gesture). The character's properties sit on the stage
+	// as chips (the mood is the first; look, persona … follow); under it the signal strip (owner draft 2026-11-02). The
+	// compiled module plays here with #290 – until then the muted line says so.
+	import { EngineStage, emptySnapshot, type EngineHost, type EngineSnapshot } from '@scutoons/engine-host';
 	import { API_URL, CDN_SERVER } from '$lib/config.ts';
+	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
+	import { knobColumns, outputMeters, reductionBar, sameColumns, signalRows, stripStatus, type KnobColumn, type KnobLike } from '$lib/editor/signal-strip.ts';
+	import SignalStrip from '$lib/components/sound/signal-strip.svelte';
 
 	let { character }: { character: string } = $props();
 
@@ -16,12 +20,25 @@
 	let snap = $state<EngineSnapshot>(emptySnapshot());
 	let moods = $state<string[]>(['neutral']);
 	let mood = $state('auto');
-	let knobs = $state(0);
+	let rigKnobs: KnobLike[] = [];
+	let columns = $state<KnobColumn[]>([]);
+	let reduction = $state(0);
 
 	$effect(() => {
 		if (!host) return;
 		const h = host;
-		h.hooks = { rig: (played) => (knobs = played?.knobs.length ?? 0) };
+		h.hooks = {
+			rig: (played) => (rigKnobs = played?.knobs ?? []),
+			// once per animation frame: the knobs' live values (the being's buttons, a mood's preset) and the limiter
+			tick: () => {
+				const d = h.deck;
+				if (!d) return;
+				const next = knobColumns(rigKnobs, d.value, getLocale());
+				if (!sameColumns(next, columns)) columns = next;
+				const gr = reductionBar(d.bands.reduction);
+				if (Math.abs(gr - reduction) >= 0.01) reduction = gr;
+			}
+		};
 		return h.subscribe((s) => (snap = s));
 	});
 
@@ -30,39 +47,28 @@
 		host?.setMood(value === 'auto' ? null : value);
 	}
 
-	const meters = $derived([
-		['level', snap.level],
-		['bass', snap.bass],
-		['mid', snap.mid],
-		['high', snap.high]
-	] as const);
+	// the host reports the master only (level); per-output peaks and the device-message tap come with the engine's report
+	const peaks = $derived((snap as { outputs?: number[] }).outputs ?? [snap.level]);
+	const outputs = $derived(outputMeters(peaks));
+	const stats = $derived(stripStatus(snap));
+	const signals = $derived(signalRows({}, 0));
 </script>
 
 <div class="deck" data-testid="sound-deck">
-	<div class="stage"><EngineStage {options} gate bind:host onmounted={(h) => (moods = h.moods)} /></div>
-
-	<div class="bar">
-		<label class="mood">
-			<span class="muted">{m['creator.sound_mood']()}</span>
-			<select onchange={(e) => pickMood(e.currentTarget.value)} data-testid="sound-mood">
-				<option value="auto" selected={mood === 'auto'}>{m['creator.sound_mood_auto']()}</option>
-				{#each moods as md (md)}<option value={md} selected={md === mood}>{md}</option>{/each}
-			</select>
-		</label>
-		<p class="status" data-testid="sound-status">{statusLine(snap)}</p>
+	<div class="stage">
+		<EngineStage {options} gate bind:host onmounted={(h) => (moods = h.moods)} />
+		<div class="chips">
+			<label class="chip" title={m['creator.sound_mood']()}>
+				<span>{m['creator.sound_mood']()}</span>
+				<select onchange={(e) => pickMood(e.currentTarget.value)} data-testid="sound-mood" aria-label={m['creator.sound_mood']()}>
+					<option value="auto" selected={mood === 'auto'}>{m['creator.sound_mood_auto']()}</option>
+					{#each moods as md (md)}<option value={md} selected={md === mood}>{md}</option>{/each}
+				</select>
+			</label>
+		</div>
 	</div>
-
-	<div class="meters" data-testid="sound-levels">
-		{#each meters as [name, v] (name)}
-			<div class="meter" title={name}>
-				<span class="muted">{name}</span>
-				<div class="track"><div class="fill" style:width="{meterPercent(v)}%"></div></div>
-			</div>
-		{/each}
-		<p class="muted fps" data-testid="sound-fps">{snap.fps.toFixed(0)} fps · {knobs} {m['creator.sound_knobs']()}</p>
-	</div>
-
-	<p class="muted note">{m['creator.sound_play_note']()}</p>
+	<SignalStrip {outputs} {reduction} knobs={columns} {signals} state={stats.state} perf={stats.perf} />
+	<p class="note" title={m['creator.sound_play_note']()}>{m['creator.sound_play_note']()}</p>
 </div>
 
 <style>
@@ -75,64 +81,53 @@
 	}
 	.stage {
 		flex: 1;
-		min-height: 12rem;
+		min-height: 10rem;
+		position: relative;
 		background: var(--ink);
 	}
-	.bar,
-	.meters,
+	.chips {
+		position: absolute;
+		left: var(--space-05);
+		top: var(--space-05);
+		display: flex;
+		gap: 0.25rem;
+		z-index: 2;
+	}
+	.chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		padding: 0 0.375rem;
+		color: var(--paper);
+		background: color-mix(in srgb, var(--ink) 70%, transparent);
+		border: 1px solid color-mix(in srgb, var(--paper) 45%, transparent);
+		font-size: 0.75rem;
+	}
+	.chip span {
+		color: color-mix(in srgb, var(--paper) 60%, transparent);
+	}
+	.chip select {
+		all: unset;
+		cursor: pointer;
+		color: var(--paper);
+		max-width: 9rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.chip select option {
+		color: var(--ink);
+		background: var(--paper);
+	}
 	.note {
 		flex: none;
-		padding: var(--space-05) var(--space-1);
-		border-top: var(--border-width-regular) solid var(--ink);
-	}
-	.bar {
-		display: flex;
-		align-items: center;
-		gap: var(--space-1);
-		flex-wrap: wrap;
-	}
-	.mood {
-		display: flex;
-		align-items: center;
-		gap: var(--space-05);
-	}
-	.status {
 		margin: 0;
-		min-width: 0;
-		flex: 1 1 10rem;
-	}
-	.muted {
+		padding: 0.125rem var(--space-05);
+		border-top: 1px solid var(--border-muted);
+		font-size: 0.75rem;
 		color: var(--text-muted);
-	}
-	.meters {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		align-items: center;
-		gap: var(--space-025) var(--space-1);
-	}
-	.meter {
-		display: grid;
-		grid-template-columns: 2.5rem 1fr;
-		align-items: center;
-		gap: var(--space-05);
-	}
-	.track {
-		height: 0.5rem;
-		background: var(--surface-panel);
-	}
-	.fill {
-		height: 100%;
-		background: var(--ink);
-	}
-	.fps,
-	.note {
-		margin: 0;
-		font-variant-numeric: tabular-nums;
-	}
-	.fps {
-		grid-column: 1 / -1;
-	}
-	.note {
-		padding-top: var(--space-05);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 </style>

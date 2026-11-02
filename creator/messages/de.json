@@ -1705,7 +1705,7 @@
 		"sound_id_taken": "Ein Modul „{id}“ gibt es schon.",
 		"sound_pick_module": "Wähle oben ein Modul oder lege mit + ein neues an.",
 		"sound_mood": "Stimmung",
-		"sound_mood_auto": "automatisch (Energie-Leiter)",
+		"sound_mood_auto": "auto",
 		"sound_knobs": "Regler",
 		"sound_play_note": "Das Deck spielt das Rig der Figur. Das kompilierte Modul in der Engine zu spielen kommt als Nächstes.",
 		"sound_cant_edit": "Das lässt sich noch nicht bearbeiten",
@@ -1714,7 +1714,11 @@
 		"sound_publish": "Veröffentlichen",
 		"sound_publish_confirm": "module:{id} veröffentlichen? Leser bekommen die veröffentlichte Version.",
 		"sound_published": "module:{id} veröffentlicht",
-		"sound_publish_needs": "Veröffentlichen braucht einen gespeicherten Entwurf mit aktuellem Kompilat."
+		"sound_publish_needs": "Veröffentlichen braucht einen gespeicherten Entwurf mit aktuellem Kompilat.",
+		"sound_out": "Ausgänge",
+		"sound_signals": "Signale",
+		"sound_limiter": "Limiter-Absenkung",
+		"sound_signals_wait": "MIDI-, DMX- und OSC-Verkehr erscheint hier, sobald die Engine ihn meldet."
 	},
 	"palette": {
 		"search": "Suchen oder springen …",

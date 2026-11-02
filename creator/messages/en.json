@@ -1705,7 +1705,7 @@
 		"sound_id_taken": "There is a module \"{id}\" already.",
 		"sound_pick_module": "Pick a module above, or create a new one with +.",
 		"sound_mood": "Mood",
-		"sound_mood_auto": "auto (energy ladder)",
+		"sound_mood_auto": "auto",
 		"sound_knobs": "knobs",
 		"sound_play_note": "The deck plays the character's rig. Playing the compiled module in the engine comes next.",
 		"sound_cant_edit": "Can't edit this yet",
@@ -1714,7 +1714,11 @@
 		"sound_publish": "Publish",
 		"sound_publish_confirm": "Publish module:{id}? Readers get the published version.",
 		"sound_published": "module:{id} published",
-		"sound_publish_needs": "Publish needs a saved draft with a current compile."
+		"sound_publish_needs": "Publish needs a saved draft with a current compile.",
+		"sound_out": "out",
+		"sound_signals": "signals",
+		"sound_limiter": "Limiter gain reduction",
+		"sound_signals_wait": "MIDI, DMX and OSC traffic shows here once the engine reports it."
 	},
 	"palette": {
 		"search": "Search or jump to …",
