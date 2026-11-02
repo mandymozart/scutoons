@@ -2,7 +2,7 @@
 //! holder's rig as `{ id, version, data, instruments: [ids], presets: [ids] }` and holds every instrument / preset once
 //! in its top-level maps (`{ id, version, data }`, presets with their ancestors); `version` = 16 hex of the stored data's
 //! SHA-256, what a deck's cache compares. The data stays JSON here until a bundle is built, so one broken rig never
-//! hides the others, and a cache can store the entries as they came (deck/stage sync, shared/live-deck).
+//! hides the others, and a cache can store the entries as they came (deck/native sync, shared/live-deck).
 use super::Bundle;
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};

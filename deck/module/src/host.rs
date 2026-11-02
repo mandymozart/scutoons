@@ -1,5 +1,5 @@
 //! The loader's side of the ABI (feature `host`): the descriptor a module declares, found in the wasm without running
-//! it, validated; and where the fields of `Io` lie in the module's memory. Used by deck-stage's wasmtime host, the
+//! it, validated; and where the fields of `Io` lie in the module's memory. Used by deck-native's wasmtime host, the
 //! compile service (#281) and its tests. The browser reads the same JSON from `WebAssembly.Module.customSections`.
 use crate::abi::*;
 use core::mem::{offset_of, size_of};

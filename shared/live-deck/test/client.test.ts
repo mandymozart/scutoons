@@ -20,7 +20,7 @@ test('the relay URL and the envelope', () => {
 	assert.equal(envelope({ kind: 'ping', p: { t0: 0 } }), '{"v":1,"seq":0,"from":"","kind":"ping","p":{"t0":0}}');
 });
 
-test('deck.graph: deck-stage kinds, links between known ports, the character, its moods, the exposed params', () => {
+test('deck.graph: deck-native kinds, links between known ports, the character, its moods, the exposed params', () => {
 	const g = deckGraph('yellowmouse', ['neutral', 'happy']);
 	const ids = new Set(g.nodes.map((n) => n.id));
 	for (const l of g.links) for (const end of [l.from, l.to]) assert.ok(ids.has(end.split('.')[0]), end);
@@ -29,7 +29,7 @@ test('deck.graph: deck-stage kinds, links between known ports, the character, it
 	assert.deepEqual(g.moods, ['neutral', 'happy']);
 	assert.deepEqual(g.expose, Object.keys(PARAMS));
 	for (const e of g.expose!) assert.ok(ids.has(e.split('.')[0]), e);
-	// deck-stage's link.rs test builds this fixture as the conductor would: keep it equal
+	// deck-native's link.rs test builds this fixture as the conductor would: keep it equal
 	const fixture = JSON.parse(readFileSync(new URL('../../../deck/lab/fixtures/deck-graph.json', import.meta.url), 'utf8'));
 	assert.deepEqual(fixture, { kind: 'deck.graph', p: deckGraph('yellowmouse', LADDER) });
 });

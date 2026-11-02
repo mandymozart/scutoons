@@ -1,5 +1,5 @@
-# deck-space – the 3D space and the being (#188, #198), lifted out of deck-stage so the same code draws on the deck
-# (deck-stage, native) and in the browser (deck/space-web, wasm32). The core – the scene model (graph, params, scene) and
+# deck-space – the 3D space and the being (#188, #198), lifted out of deck-native so the same code draws on the deck
+# (deck-native, native) and in the browser (deck/space-web, wasm32). The core – the scene model (graph, params, scene) and
 # the tempo's `Now` – is always there; the space itself is the feature `being`, its GPU passes `gpu`, the loaders on
 # threads and from files (set, portraits, image decoding in Rust) `native`. Everything but `native` builds for
 # wasm32-unknown-unknown (deck.yml checks it).
@@ -12,7 +12,7 @@ license.workspace = true
 publish.workspace = true
 
 [features]
-# everything by default (`cargo test -p deck-space` covers it all); deck-stage and space-web pick theirs
+# everything by default (`cargo test -p deck-space` covers it all); deck-native and space-web pick theirs
 default = ["being", "gpu", "native"]
 # the space: the set's glTF (meshopt), the being (tethered buttons, hoses, bubbles, the head, labels), the camera,
 # picking and drag, the feelings, the conductor's mirrored beings, the deck stream's wire forms

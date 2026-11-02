@@ -30,13 +30,13 @@ const BINARIES: &[(&str, &str)] = &[
     ("relay", "usr/bin/deck-relay"),
     ("bridge", "usr/bin/deck-bridge"),
     ("deck-check", "usr/bin/deck-check"),
-    ("deck-stage", "usr/bin/deck-stage"),
+    ("deck", "usr/bin/deck"),
     ("deck-link", "usr/bin/deck-link"),
     ("deck-update", "usr/bin/deck-update"),
 ];
 
 /// What goes into a bundle: the binaries found in `bin` (cargo's release dir), every allowed path of `rootfs`
-/// (deck/os/rootfs), the scenes (`*.toml` of deck/stage/scenes). Sorted by path.
+/// (deck/os/rootfs), the scenes (`*.toml` of deck/native/scenes). Sorted by path.
 pub fn collect(bin: &Path, rootfs: &Path, scenes: &Path) -> Result<Vec<SourceFile>> {
     let mut files = Vec::new();
     for (name, path) in BINARIES {
@@ -46,7 +46,7 @@ pub fn collect(bin: &Path, rootfs: &Path, scenes: &Path) -> Result<Vec<SourceFil
         }
     }
     if files.is_empty() {
-        bail!("no deck binaries in {} (relay, deck-stage, …)", bin.display());
+        bail!("no deck binaries in {} (relay, deck, …)", bin.display());
     }
     walk(rootfs, rootfs, &mut files)?;
     for entry in fs::read_dir(scenes).with_context(|| scenes.display().to_string())? {
@@ -189,7 +189,7 @@ pub(crate) mod tests {
             fs::create_dir_all(d).unwrap();
         }
         fs::write(bin.join("relay"), b"relay v2").unwrap();
-        fs::write(bin.join("deck-stage"), b"stage v2").unwrap();
+        fs::write(bin.join("deck"), b"stage v2").unwrap();
         fs::write(bin.join("not-ours"), b"x").unwrap();
         fs::write(rootfs.join("usr/bin/deck-session"), b"#!/bin/sh\n").unwrap();
         fs::write(rootfs.join("usr/lib/systemd/system/deck-kiosk.service"), b"[Unit]\n").unwrap();
@@ -206,9 +206,9 @@ pub(crate) mod tests {
         assert_eq!(
             paths,
             vec![
+                ("usr/bin/deck".to_string(), 0o755),
                 ("usr/bin/deck-relay".to_string(), 0o755),
                 ("usr/bin/deck-session".to_string(), 0o755),
-                ("usr/bin/deck-stage".to_string(), 0o755),
                 ("usr/lib/systemd/system/deck-kiosk.service".to_string(), 0o644),
                 ("usr/share/deck/scenes/fireflies.toml".to_string(), 0o644),
             ]
@@ -232,7 +232,7 @@ pub(crate) mod tests {
 
         let dest = dir.path().join("dest");
         unpack(&out.join(&m.bundle), &m, &dest).unwrap();
-        assert_eq!(fs::read(dest.join("usr/bin/deck-stage")).unwrap(), b"stage v2");
+        assert_eq!(fs::read(dest.join("usr/bin/deck")).unwrap(), b"stage v2");
 
         // a manifest that promises other content
         let mut wrong = m.clone();

@@ -1,4 +1,4 @@
-//! The time types the tempo clock runs on (moved from deck/stage's clock.rs, #308): the seqlock that hands words from
+//! The time types the tempo clock runs on (moved from deck/native's clock.rs, #308): the seqlock that hands words from
 //! one writer to readers without a lock, the time base's line (frame ↔ seconds) and one video frame's `Moment`.
 //! Platform-free: nothing here reads a clock – the caller passes `now_ns`.
 use core::sync::atomic::{fence, AtomicU64, Ordering};

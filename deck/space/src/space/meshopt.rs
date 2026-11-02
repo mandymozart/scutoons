@@ -3,7 +3,7 @@
 //! The bitstreams follow the extension's specification (KhronosGroup/glTF, extensions/2.0/Vendor/EXT_meshopt_compression,
 //! "Appendix A: Bitstream"): mode ATTRIBUTES (vertex codec, version 0) and mode TRIANGLES (index codec, versions 0 and
 //! 1). Mode INDICES (index sequences) and the filters (OCTAHEDRAL, QUATERNION, EXPONENTIAL) are not used by the rooms'
-//! build and are refused with a clear error – a room exported with them can be re-exported without (deck/stage/README.md).
+//! build and are refused with a clear error – a room exported with them can be re-exported without (deck/native/README.md).
 use anyhow::{bail, ensure, Result};
 
 const VERTEX_HEADER: u8 = 0xa0;

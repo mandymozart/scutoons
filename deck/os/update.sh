@@ -40,7 +40,7 @@ if [ "$bundle" = 1 ]; then
   v=$(sed -n 's/^version = "\(.*\)"/\1/p' "$deck/Cargo.toml" | head -1)
   version="$v.r$(git -C "$deck" rev-list --count HEAD).g$(git -C "$deck" rev-parse --short HEAD)"
   [ -z "$(git -C "$deck" status --porcelain -- . 2>/dev/null)" ] || version="$version.dirty"
-  "$tool" bundle --bin "$out/bin" --rootfs "$here/rootfs" --scenes "$deck/stage/scenes" --out "$out/update" \
+  "$tool" bundle --bin "$out/bin" --rootfs "$here/rootfs" --scenes "$deck/native/scenes" --out "$out/update" \
     --version "$version" --channel dev ${extra[@]+"${extra[@]}"}
 fi
 

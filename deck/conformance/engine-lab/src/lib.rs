@@ -1,6 +1,6 @@
 //! The lab engine (P0 of the engine refactor, #309): the stage's audio engine lifted into a crate that builds for
 //! wasm32, on a **planar N-channel pool** (channel c of the pool = `data[c * MAX_BLOCK ..]`; the stage's `Stereo` is
-//! the 2-channel case). Pieces: voices (a copy of stage/src/audio/voices.rs: osc / fm in `F8` groups), mixer, out, the
+//! the 2-channel case). Pieces: voices (a copy of native/src/audio/voices.rs: osc / fm in `F8` groups), mixer, out, the
 //! master ramp and deck-core's limiter, the routing ops of plan §2.6 (send with a channel map, folder, `out` map,
 //! VBAP, 5.1 fold) and two saws (PolyBLEP, wavetable). Scenarios run the same on native and in the wasm exports.
 #![allow(clippy::needless_range_loop)]

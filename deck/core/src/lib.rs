@@ -5,12 +5,12 @@
 //! - **Always:** `smooth` (control values glide into audio – no zipper, #188) and `limiter` (the output's soft cap).
 //! - **Modules** (cargo features): `control` (LFOs, math), `synth` (audio blocks), `analysis` (the FFT: bands, the
 //!   stage's analyzer), `tempo` (the tempo map, quantize, tap – #181 / #185). The stage's
-//!   GPU nodes (shader, chapter, overlay, 3D, text) stay in deck/stage – they need wgpu – but register the same way.
-//! - **Scene-driven builds**: every kind names its module; `stage::features` lists the deck-stage features a scene needs
+//!   GPU nodes (shader, chapter, overlay, 3D, text) stay in deck/native – they need wgpu – but register the same way.
+//! - **Scene-driven builds**: every kind names its module; `stage::features` lists the deck-native features a scene needs
 //!   (#185 – the stage's own modules: space, chapter, midi, osc, link, pipewire), `features_for` this crate's modules for
 //!   a browser worker's wasm; `deck-scene-features <scene.toml>…` prints them.
 //!
-//! Platform-free on purpose: the same code runs in deck/stage (native) and in a Web Worker (wasm32, deck/lab).
+//! Platform-free on purpose: the same code runs in deck/native (native) and in a Web Worker (wasm32, deck/lab).
 
 pub mod batch;
 pub mod graph;

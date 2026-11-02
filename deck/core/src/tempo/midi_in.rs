@@ -1,7 +1,7 @@
 //! MIDI clock in (24 ticks per beat), the follower (#181, moved here with #308): every tick is stamped on arrival (the
 //! caller's seconds) and a least squares line through the last two beats of ticks gives the tempo and the phase – USB /
 //! ALSA jitter averages out, a tempo change is caught after three ticks off the line on the same side. Start / continue
-//! / stop / song position move the transport. Platform-free; the ports (midir) are deck/stage's.
+//! / stop / song position move the transport. Platform-free; the ports (midir) are deck/native's.
 use super::time::Line;
 use super::{fit, TempoMap};
 use std::collections::VecDeque;

@@ -1,6 +1,6 @@
 //! The output's soft limiter (#188, owner 2026-10-31: "a soft cap at the master … so overloaded parameters don't
 //! crackle", "with the gain reduction measured"). It replaces the hard `clamp(-1, 1)` in front of the device: several
-//! voices, a nudge "voice louder" and a high FM index summed over 1 used to clip – a crackle. Native (deck-stage's
+//! voices, a nudge "voice louder" and a high FM index summed over 1 used to clip – a crackle. Native (deck-native's
 //! Engine) and the browser (live-core) run the same one, last before the device.
 //!
 //! - **Look-ahead:** the signal is delayed by LOOK samples (1.3 ms at 48 kHz); a peak follower on the undelayed input

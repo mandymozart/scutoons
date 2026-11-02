@@ -6,7 +6,7 @@
 //! block peak; what a hose's bubbles follow) – or `node.shape` for an LFO's waveform (an index into LFO_SHAPES). No
 //! kind has an input and an output of the same name, so a path is never ambiguous (graph.rs, tested below).
 //!
-//! `Knobs` (#198) is what the space reads and turns of a graph's control domain: deck-stage's `Controls` on the deck, a
+//! `Knobs` (#198) is what the space reads and turns of a graph's control domain: deck-native's `Controls` on the deck, a
 //! the page's `Mirror` in the browser (deck/space-web), a `Table` in tests.
 use crate::graph::{Graph, Kind, PortType};
 use crate::params;
@@ -239,7 +239,7 @@ impl Mirror {
 type Linked = (usize, usize, f32, f32);
 
 /// A graph's control domain without the running stage (tests, tools): inputs from the node's params and its links (the
-/// linked output × scale + offset), outputs written by hand or by `step`'s LFOs – deck-stage's `Controls` without the
+/// linked output × scale + offset), outputs written by hand or by `step`'s LFOs – deck-native's `Controls` without the
 /// audio, the FFT and the tempo node.
 #[derive(Debug, Clone)]
 pub struct Table {

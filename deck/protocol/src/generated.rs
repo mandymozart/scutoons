@@ -730,7 +730,7 @@ pub struct Route {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DeckNode {
 	pub id: String,
-	/// a deck-stage node kind (`fm`, `lfo`, `space` …)
+	/// a deck-native node kind (`fm`, `lfo`, `space` …)
 	pub kind: String,
 }
 

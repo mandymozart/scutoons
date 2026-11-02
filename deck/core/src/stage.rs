@@ -1,5 +1,5 @@
-//! deck/stage's modules (#185): each cargo feature of deck-stage and what it registers – node kinds and tempo sources.
-//! The stage's registry (deck/stage/src/modules.rs) checks a scene against the features it was built with; the
+//! deck/native's modules (#185): each cargo feature of deck-native and what it registers – node kinds and tempo sources.
+//! The stage's registry (deck/native/src/modules.rs) checks a scene against the features it was built with; the
 //! `deck-scene-features` tool lists the features a set of scenes needs, so a deck build carries exactly those. Data
 //! only (no stage code here), so the tool builds without wgpu; the stage's tests keep this table and its kinds in step.
 use crate::module::Params;

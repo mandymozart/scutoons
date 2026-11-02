@@ -8,7 +8,7 @@
 //! level is the ceiling (chosen, or its default from the GPU); the governor steps below it under load and back up with
 //! headroom. The same code steers the native stage and the browser deck (space-web).
 //!
-//! The governor is the adaptive audio lead's rule (deck/stage/src/audio/lead.rs, #208) and the relay's link rate
+//! The governor is the adaptive audio lead's rule (deck/native/src/audio/lead.rs, #208) and the relay's link rate
 //! (deck/relay/src/link.rs, #223): take the margin at once, give it back slowly.
 //! - It looks at the drawn frames' interval in windows of `WINDOW_S`. A window whose mean is over the rung's budget
 //!   (its frame rate cap × `BUDGET`, 20 ms at 60 fps), or with a new audio glitch, is over budget. `OVER_WINDOWS` in a
@@ -21,7 +21,7 @@
 //!   `HOLD_S` (the start, a known stall).
 //! - A rung's frame rate cap saves power: `due` tells the caller to skip a frame that comes early.
 //!
-//! Pure and clock-free (the caller passes `now` in seconds); no allocation per frame (deck-stage tests/no_alloc.rs) –
+//! Pure and clock-free (the caller passes `now` in seconds); no allocation per frame (deck-native tests/no_alloc.rs) –
 //! only a new preset table builds a new ladder.
 use serde::{Deserialize, Serialize};
 
@@ -120,7 +120,7 @@ pub enum Gpu {
     Other,
 }
 
-/// The deck's choice on the command line (deck-stage `--quality` / `DECK_QUALITY`): a level or `auto` (= the preset
+/// The deck's choice on the command line (deck-native `--quality` / `DECK_QUALITY`): a level or `auto` (= the preset
 /// file's, else the GPU's default), and `,fixed` for no governor – `high`, `low,fixed`, `auto`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Choice {
@@ -266,7 +266,7 @@ impl Default for Presets {
 }
 
 /// the head of the file the stage writes
-const HEADER: &str = "# SCUTOONS deck quality (#220, deck/stage/README.md \"Quality\"): the level (low · medium · high · ultra; missing =\n# by the GPU), the governor (auto), the display mode (\"WxH\", native), the browser's pixel ratio cap, and per preset:\n# on, min / max = the render size under load / its own (a scale ≤ 4, or a height in px ≥ 100), fxaa, bloom, lights\n# (0–8), fps (the cap). The stage reloads this file when it changes.\n";
+const HEADER: &str = "# SCUTOONS deck quality (#220, deck/native/README.md \"Quality\"): the level (low · medium · high · ultra; missing =\n# by the GPU), the governor (auto), the display mode (\"WxH\", native), the browser's pixel ratio cap, and per preset:\n# on, min / max = the render size under load / its own (a scale ≤ 4, or a height in px ≥ 100), fxaa, bloom, lights\n# (0–8), fps (the cap). The stage reloads this file when it changes.\n";
 
 impl Presets {
     pub fn get(&self, l: Level) -> &Preset {

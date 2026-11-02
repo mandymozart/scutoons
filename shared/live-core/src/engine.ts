@@ -64,7 +64,7 @@ export class WasmCore {
 		return new TextDecoder().decode(new Uint8Array(this.x.memory.buffer, this.x.lc_outbox(), Math.abs(n)));
 	}
 
-	/** The scene (deck/stage's TOML) → the load table. A broken scene throws and keeps the running one. */
+	/** The scene (deck/native's TOML) → the load table. A broken scene throws and keeps the running one. */
 	load(scene: string): Table {
 		const bytes = new TextEncoder().encode(scene);
 		this.inbox(bytes.length).set(bytes);

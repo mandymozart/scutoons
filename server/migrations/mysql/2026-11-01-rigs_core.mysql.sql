@@ -1,5 +1,5 @@
 -- The core rigs as factory catalog rows (#258, agents/research/INSTRUMENTS.md §5): catpope (the cathedral voice + the
--- drone, mood variants) and the incense burner (#210) – deck/stage/rigs/*.toml in their JSON form (deck-space serde's
+-- drone, mood variants) and the incense burner (#210) – deck/native/rigs/*.toml in their JSON form (deck-space serde's
 -- own output: defaults written out, e.g. `gain`, `rights`). deck-space's the_servers_scene_content_reads_as_bundles
 -- test keeps the two equal (through the server's scene-content answer). Data only; INSERT IGNORE by id: rows the
 -- creator changed or added are left alone, a second run changes nothing. Needs 2026-11-01-rigs (the tables).

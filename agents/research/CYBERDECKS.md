@@ -123,7 +123,7 @@ generators and from some chapter some audio files and display an interactive sce
 we can play av madness" · "a concept called oss which uses modular architecture which we can run close to the hardware".
 Proven on the X1 first: Vulkan on the iGPU (anv), VA-API decode h264 / hevc / vp9, the SOF card (HARDWARE.md).
 
-- **What:** `deck/stage`, one Rust binary – the deck's kiosk app (cage runs it instead of Chromium; the browser stays
+- **What:** `deck/native`, one Rust binary – the deck's kiosk app (cage runs it instead of Chromium; the browser stays
   for the conductor page, on demand or on a second output). Changes §5's "Outputs" row: the deck renders natively.
 - **Modular (the owner's "oss" – read as ossia score, ossia.io, the open-source intermedia sequencer; to confirm):** a
   node graph with typed ports. Sources: chapter slices, chapter music / samples, slice videos, a camera, a glTF model,
@@ -138,7 +138,7 @@ Proven on the X1 first: Vulkan on the iGPU (anv), VA-API decode h264 / hevc / vp
 - **3D:** the `space` node (#188): rooms as .glb read by the stage itself (meshopt, quantization, WebP – no `gltf`
   crate: it refuses meshopt), drawn with a depth buffer through an orbit camera, and the deck's **being** (its graph as a
   floating body, its parameters as 3D buttons, its head the character's portrait; the decks' beings around the
-  conductor's over the relay – deck/stage/README.md). The artists' cast models (research/CHARACTERS3D.md) come later.
+  conductor's over the relay – deck/native/README.md). The artists' cast models (research/CHARACTERS3D.md) come later.
 - **Audio:** our own graph on PipeWire (`pipewire-rs`, `cpal` fallback), a realtime thread that never allocates; DSP
   blocks from `fundsp` (oscillators, noise, FM, filters; granular on chapter samples); chapter music decoded with
   `symphonia`; out through the default sink (the RME UCX II in Class Compliant mode, #174). The audio clock is the master
@@ -148,12 +148,12 @@ Proven on the X1 first: Vulkan on the iGPU (anv), VA-API decode h264 / hevc / vp
   **patcher** (one block per node) for one-off nodes. Control: every input a column, the LFOs batched per level and
   shape. Audio: a level's sine oscillators and FM voices as one batch in deck-core's 8-lane `F8`; sequencer, player,
   noise, mixer, FFT tap stay blocks. **x86-64-v3:** one baseline binary whose voice loops also exist in AVX2, picked at
-  start; a whole v3 binary is optional (the one-off nodes gain too). Numbers: deck/stage/README.md "Measured".
-- **Modules** (#185, DECISIONS 2026-10-30): cargo features of deck-stage – the core (graph, control, the basic audio
+  start; a whole v3 binary is optional (the one-off nodes gain too). Numbers: deck/native/README.md "Measured".
+- **Modules** (#185, DECISIONS 2026-10-30): cargo features of deck-native – the core (graph, control, the basic audio
   nodes, render, HUD) + `space`, `chapter`, `midi`, `osc`, `link`, `pipewire`. A deck build carries what its scenes
   need (`deck-scene-features scenes/*.toml`); a scene that needs a module the build lacks is refused with the feature's
   name, on screen. Visuals as data reload (`--dev`: WGSL, scenes). Later: sandboxed wasm generators (wasmtime – no GPU,
-  they may hand over WGSL as data); no dylib plugins. deck/stage/README.md "Modules".
+  they may hand over WGSL as data); no dylib plugins. deck/native/README.md "Modules".
 - **Two clocks** (#181, owner 2026-10-29: "ein richtiger Klick … 60 BPM … Oder eine Clock, die von extern kommt"): the
   **time base** (`clock.rs`) = the exact audio position – each audio block stamped with the monotonic moment it is heard
   (PipeWire's pw_time, cpal's playback instant), a DLL on the frame thread interpolates per video frame, never
@@ -164,11 +164,11 @@ Proven on the X1 first: Vulkan on the iGPU (anv), VA-API decode h264 / hevc / vp
   feature `link`), OSC (`/tempo/*`), the relay's show clock (a stub until the relay has one, #172). MIDI clock out runs
   from the audio clock (each tick when its beat is heard). The map, quantize and tap tempo are deck-core's `tempo`
   module (#185), like the FFT analyzer (`analysis`). Link on the ISO: `cmake` in os/container/build.sh and the PKGBUILD,
-  `--features deck-stage/link` on their cargo lines.
+  `--features deck-native/link` on their cargo lines.
 - **Live outlet** (#186, DECISIONS 2026-10-30, research/LIVE-LENSES.md): a deck is a screen outlet – the `live`
   module's `outlet` node joins the relay as `output` of the outlet set in deck.toml, preloads the show media with the
   deck token (`media.ready` = the conductor's ready light) and draws the cells natively (layers → stage nodes, a 3D set
-  through the space node, crossfades); a reconnect shows the snapshot's cell at once. deck/stage/README.md "Live outlet".
+  through the space node, crossfades); a reconnect shows the snapshot's cell at once. deck/native/README.md "Live outlet".
 - **scutoons.com:** the public library API read-only (`/api/library/toons/<toon>/chapters/<n>`: slices, slice videos,
   music paths; files from cdn.scutoons.com), cached on DECKDATA (`/var/lib/deck/cache`) so a venue runs offline; later
   the paired member's token for drafts. The relay bus (LIVE B.1: slice enter, VN events, FX cues) feeds node parameters.
@@ -209,7 +209,7 @@ deck** (deck/os/README.md "Pairing"): one daemon pairs – `deck-link run` (deck
 `deck-tls` fetches the venue certificate with it (#201, `GET /api/decks/lan-cert` – owner 2026-10-31: no admin tokens on
 decks). Master-quality media (stems, high-res video) are not part of this: they are show media,
 assigned to outlets in the Live conductor (LIVE.md B.5.6) – the concept: research/LIVE-LENSES.md (#186); the deck
-fetches what its outlet is given at `media.preload`, with its access token (deck/stage/README.md "Live outlet").
+fetches what its outlet is given at `media.preload`, with its access token (deck/native/README.md "Live outlet").
 
 ## 10. Open work
 Lives in the issues, not here: the phases #172–#176, the stage #179 (#171 holds the plan and the decisions, all taken 2026-10-29).

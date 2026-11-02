@@ -1,5 +1,5 @@
 //! MIDI clock out's schedule (#181, moved here with #308): which message is next and when, derived from the tempo
-//! map, the time base's line and the caller's time (s, any monotonic clock). The caller sends the bytes (deck/stage's
+//! map, the time base's line and the caller's time (s, any monotonic clock). The caller sends the bytes (deck/native's
 //! `tempo::midi` port thread). Platform-free.
 use super::time::Line;
 use super::{TempoMap, PPQN};

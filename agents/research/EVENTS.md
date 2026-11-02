@@ -236,7 +236,7 @@ will trigger"): `story.fx`, `story.showMessage`, `relay.cue`, `midi.note`, `deck
 says where it comes from, a receiver subscribes to names or whole domains.
 
 **Cost.** A name is an interned integer, a receiver list an array: dispatching one event is a few hundred nanoseconds.
-A block is 256 frames = 5.3 ms at 48 kHz (deck-stage audio/ring.rs); 1,000 events in a block cost well under 1 % of it
+A block is 256 frames = 5.3 ms at 48 kHz (deck-native audio/ring.rs); 1,000 events in a block cost well under 1 % of it
 – one FM voice costs more. The audio thread gets `RtEvent`s (fixed size, no allocation); loose `data` stays off it.
 
 **Latency** (events add nothing to today's paths):
@@ -281,7 +281,7 @@ never waits for an effect. Receivers get events through queues and act on their 
 isn't ready by its time follows a policy (late / skip / placeholder) and the dispatcher never blocks. Values may
 coalesce (latest wins); events are never reordered.
 
-**Threads** (deck-stage; the building blocks exist – `rtrb` rings, named threads):
+**Threads** (deck-native; the building blocks exist – `rtrb` rings, named threads):
 | thread | does | talks through |
 |---|---|---|
 | **dispatcher** (high priority, not the audio thread) | owns the routing table, fans events out | MPSC in from adapters, one SPSC ring (`rtrb`) per consumer out |
@@ -291,7 +291,7 @@ coalesce (latest wins); events are never reordered.
 | **loaders** (a small pool, like today's `set` / `portraits` / `sync`) | resolve references, decode, fill the cache | answer with `ready` events |
 | **network** (tokio) | the relay adapter in / out | MPSC to the dispatcher |
 - The routing table is immutable and swapped atomically on a patch change (`arc-swap`): no lock on the hot path.
-- One timebase across threads: audio frames (deck-stage clock.rs) – events carry it, threads convert at their edge.
+- One timebase across threads: audio frames (deck-native clock.rs) – events carry it, threads convert at their edge.
 - Names are interned at load, never per event.
 - Browser: the main thread (UI, the story adapter) → a SharedArrayBuffer ring (live-core's shared transport, COOP /
   COEP on `/live/…`) → the worker (dispatcher + sequencer + engine) → the AudioWorklet copies; fetches in a loader
@@ -300,12 +300,12 @@ coalesce (latest wins); events are never reordered.
   adapter ring (shared/live-core ring.ts, one writer, one reader) from the page into the worker, drained before each
   render into deck-events' `Table` (route.rs, platform-free) – not built yet.
 
-**Built in deck-stage (#236):** `audio/sequencer.rs` (the hosts' patches one window of 256 frames ahead, a ring of
+**Built in deck-native (#236):** `audio/sequencer.rs` (the hosts' patches one window of 256 frames ahead, a ring of
 `Timed` events per host, late windows dropped and counted, a full ring = wait), `audio/dispatch.rs` (a bounded MPSC
 `Inlet` → the dispatcher thread → `Table::route` → one SPSC ring per `listen` input; the table swapped through the
 queue, so no `arc-swap` dependency; `Counters` in the HUD), `listen` in patches (patch.rs), `inject_at` (graph.rs).
-`DECK_EVENTS=block` keeps the patches in the block; the same samples (deck/stage/tests/walk.rs), both allocation-free
-(tests/no_alloc.rs). Routing costs ≈ 1.4 µs median from `send` to the receiver's ring. deck/stage/README.md "Audio".
+`DECK_EVENTS=block` keeps the patches in the block; the same samples (deck/native/tests/walk.rs), both allocation-free
+(tests/no_alloc.rs). Routing costs ≈ 1.4 µs median from `send` to the receiver's ring. deck/native/README.md "Audio".
 
 **Event horizons – preparing before the trigger** ("anticipate potential events by running through scoped event
 horizons, and preload"):

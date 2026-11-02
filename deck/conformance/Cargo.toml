@@ -1,5 +1,5 @@
 # deck-conformance – dev only (#309, P0 of agents/research/ENGINE-REFACTOR-PLAN.md): EVIDENCE about how far the native deck's
-# audio engine (deck/stage/src/audio) and the browser's (live-core's BatchGraph behind deck-space's `lower()`) differ per
+# audio engine (deck/native/src/audio) and the browser's (live-core's BatchGraph behind deck-space's `lower()`) differ per
 # node kind, whether live-core is bit-exact native vs wasm, and whether the plan's engine base holds (engine-lab/). The
 # tests print the report tables; fixtures/ holds the native deck's renders as hashes (the guard of the engine move).
 [package]
@@ -13,7 +13,7 @@ publish.workspace = true
 [dependencies]
 
 [dev-dependencies]
-deck-stage = { path = "../stage" }
+deck-native = { path = "../native" }
 deck-space = { path = "../space", default-features = false }
 deck-core = { workspace = true, features = ["analysis"] }
 live-core = { path = "../live-core" }

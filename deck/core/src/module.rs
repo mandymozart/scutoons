@@ -56,7 +56,7 @@ pub trait Block: Send {
     fn audio(&mut self, _inputs: &[f32], _out: &mut [f32]) {}
 }
 
-/// A module: its kinds and how to build one. Implemented by the built-in modules (below), by deck/stage's GPU module,
+/// A module: its kinds and how to build one. Implemented by the built-in modules (below), by deck/native's GPU module,
 /// and – in the lab – by a WASM module loaded at runtime (deck/lab/wasm-host).
 pub trait Module: Send + Sync {
     fn name(&self) -> &'static str;

@@ -266,7 +266,7 @@ pub struct Graph {
 }
 
 impl Graph {
-    /// The scene's graph, checked as a graph. Whether a build carries the modules its kinds need is deck-stage's check
+    /// The scene's graph, checked as a graph. Whether a build carries the modules its kinds need is deck-native's check
     /// (its modules.rs, before it builds a scene); the space draws any kind.
     pub fn build(scene: &Scene) -> Result<Graph> {
         let mut nodes = Vec::new();

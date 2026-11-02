@@ -309,7 +309,7 @@ mod tests {
         fs::create_dir_all(root.join("usr/bin")).unwrap();
         fs::create_dir_all(root.join("usr/share/deck")).unwrap();
         fs::create_dir_all(root.join("var/lib/deck")).unwrap();
-        fs::write(root.join("usr/bin/deck-stage"), b"stage v1").unwrap();
+        fs::write(root.join("usr/bin/deck"), b"stage v1").unwrap();
         fs::write(root.join("usr/share/deck/update-keys"), sign::public_hex(&key)).unwrap();
         fs::write(paths.stamp(), br#"{"version":"v1","build":100}"#).unwrap();
         let src = dir.path().join("src");
@@ -351,9 +351,9 @@ mod tests {
 
         let out = u.run(&Options::default(), 1000).unwrap();
         let Outcome::Updated { changed, restarted, .. } = &out else { panic!("{out:?}") };
-        assert!(changed.contains(&"usr/bin/deck-stage".to_string()));
+        assert!(changed.contains(&"usr/bin/deck".to_string()));
         assert_eq!(restarted, &vec!["deck-relay.service", "deck-kiosk.service"]);
-        assert_eq!(fs::read(d.paths.root.join("usr/bin/deck-stage")).unwrap(), b"stage v2");
+        assert_eq!(fs::read(d.paths.root.join("usr/bin/deck")).unwrap(), b"stage v2");
         assert_eq!(Stamp::read(&d.paths).build, 200);
         assert!(d.paths.current().join(MANIFEST).exists(), "staged for the boot");
         assert_eq!(State::load(&d.paths).source.as_deref(), Some(PC));
@@ -374,7 +374,7 @@ mod tests {
         let lan = || vec![PC.to_string()];
         let u = d.updater(&fetch, &sys, &lan);
         assert_eq!(u.run(&Options::default(), 1000).unwrap(), Outcome::Busy { to: "v200".into() });
-        assert_eq!(fs::read(d.paths.root.join("usr/bin/deck-stage")).unwrap(), b"stage v1");
+        assert_eq!(fs::read(d.paths.root.join("usr/bin/deck")).unwrap(), b"stage v1");
         let forced = u.run(&Options { force: true, ..Options::default() }, 1000).unwrap();
         assert!(matches!(forced, Outcome::Updated { .. }), "{forced:?}");
     }
@@ -389,7 +389,7 @@ mod tests {
         let u = d.updater(&fetch, &sys, &lan);
         let out = u.run(&Options::default(), 1000).unwrap();
         assert!(matches!(out, Outcome::RolledBack { .. }), "{out:?}");
-        assert_eq!(fs::read(d.paths.root.join("usr/bin/deck-stage")).unwrap(), b"stage v1");
+        assert_eq!(fs::read(d.paths.root.join("usr/bin/deck")).unwrap(), b"stage v1");
         assert!(!d.paths.root.join("usr/bin/deck-relay").exists(), "a new file is removed again");
         assert_eq!(Stamp::read(&d.paths).build, 100);
         assert!(!d.paths.current().exists(), "nothing staged for the boot");
@@ -416,7 +416,7 @@ mod tests {
         let lan = || vec![PC.to_string()];
         let u = d.updater(&fetch, &sys, &lan);
         assert!(u.run(&Options::default(), 1000).is_err());
-        assert_eq!(fs::read(d.paths.root.join("usr/bin/deck-stage")).unwrap(), b"stage v1");
+        assert_eq!(fs::read(d.paths.root.join("usr/bin/deck")).unwrap(), b"stage v1");
         assert!(State::load(&d.paths).last.starts_with("failed"));
 
         // a stranger's key
@@ -454,10 +454,10 @@ mod tests {
         assert_eq!(u.boot().unwrap(), Outcome::Nothing, "the root has it");
 
         // a live stick rebooted: the root is the ISO's again
-        fs::write(d.paths.root.join("usr/bin/deck-stage"), b"stage v1").unwrap();
+        fs::write(d.paths.root.join("usr/bin/deck"), b"stage v1").unwrap();
         fs::write(d.paths.stamp(), br#"{"version":"v1","build":100}"#).unwrap();
         assert_eq!(u.boot().unwrap(), Outcome::Reapplied { version: "v200".into() });
-        assert_eq!(fs::read(d.paths.root.join("usr/bin/deck-stage")).unwrap(), b"stage v2");
+        assert_eq!(fs::read(d.paths.root.join("usr/bin/deck")).unwrap(), b"stage v2");
     }
 
     /// 200 installs a scene; 300 is built without it

@@ -549,7 +549,7 @@ fn the_catalog_and_the_kind_enum_agree() {
 /// The contract with the server (#258): `GET /api/library/scene-content`'s rigs, as the server answers them from its
 /// catalog (server/tests/fixtures/rigs/scene-content.json, written by its SceneContentRigsTest from the migrated core
 /// rigs), read as `Bundle`s – serde's forms (unknown fields refused), checked, played in every mood – and equal to the
-/// core rigs the deck image carries (deck/stage/rigs/*.toml), so the server's form and the Rust form cannot drift.
+/// core rigs the deck image carries (deck/native/rigs/*.toml), so the server's form and the Rust form cannot drift.
 #[test]
 fn the_servers_scene_content_reads_as_bundles() {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/rigs/scene-content.json");

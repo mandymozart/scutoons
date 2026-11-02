@@ -193,7 +193,7 @@ export class LiveCore {
 		}
 	}
 
-	/** A scene in deck/stage's TOML (the batch kinds: lfo, smooth, mul, add, osc, fm) → its node table. */
+	/** A scene in deck/native's TOML (the batch kinds: lfo, smooth, mul, add, osc, fm) → its node table. */
 	load(scene: string): Promise<Table> {
 		const id = this.nextId++;
 		return new Promise((ok, fail) => {

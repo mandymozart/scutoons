@@ -21,15 +21,15 @@ pacman -Syu --noconfirm --needed archiso rust base-devel alsa-lib git pipewire c
 echo "   archiso $(pacman -Q archiso | cut -d' ' -f2), rust $(rustc --version | cut -d' ' -f2), kernel package: $KERNEL"
 pacman -Si "$KERNEL" >/dev/null 2>&1 || { echo "no package '$KERNEL' in the repos – set DECK_KERNEL=linux"; exit 1; }
 
-echo "== the deck binaries (relay, bridge, deck-check, deck-stage with PipeWire and the gamepad, deck-link, deck-update) – release, Linux x86_64"
+echo "== the deck binaries (relay, bridge, deck-check, deck with PipeWire and the gamepad, deck-link, deck-update) – release, Linux x86_64"
 if [ "${DECK_SKIP_CARGO:-0}" != 1 ]; then
-  (cd "$SRC" && CARGO_TARGET_DIR=$WORK/target CARGO_HOME=$WORK/cargo-home cargo build --release --locked     -p relay -p bridge -p deck-check -p deck-stage -p deck-link -p deck-update --features deck-stage/pipewire,deck-stage/gamepad 2>&1 | tail -3)
+  (cd "$SRC" && CARGO_TARGET_DIR=$WORK/target CARGO_HOME=$WORK/cargo-home cargo build --release --locked     -p relay -p bridge -p deck-check -p deck-native -p deck-link -p deck-update --features deck-native/pipewire,deck-native/gamepad 2>&1 | tail -3)
 fi
-for b in relay bridge deck-check deck-stage deck-link deck-update; do [ -x "$WORK/target/release/$b" ] || { echo "missing $WORK/target/release/$b"; exit 1; }; done
+for b in relay bridge deck-check deck deck-link deck-update; do [ -x "$WORK/target/release/$b" ] || { echo "missing $WORK/target/release/$b"; exit 1; }; done
 if [ "${DECK_BINARIES_ONLY:-0}" = 1 ]; then
   # a remote update's binaries (#237): deck/os/update.sh bundles them with deck/os/rootfs on the host
   rm -rf "$OUT/bin"; mkdir -p "$OUT/bin"
-  for b in relay bridge deck-check deck-stage deck-link deck-update; do install -m755 "$WORK/target/release/$b" "$OUT/bin/$b"; done
+  for b in relay bridge deck-check deck deck-link deck-update; do install -m755 "$WORK/target/release/$b" "$OUT/bin/$b"; done
   echo "== done: $OUT/bin"; exit 0
 fi
 
@@ -56,18 +56,18 @@ cp -r "$SRC/os/rootfs/." "$PROFILE/airootfs/"
 if grep -nE '^[A-Za-z0-9_.-]+=$' "$PROFILE"/airootfs/etc/NetworkManager/system-connections/*.nmconnection; then
   echo "an empty value in a NetworkManager keyfile (above) – NetworkManager would drop the profile"; exit 1
 fi
-# the logo (#179) – the official SVG in white (deck/stage/assets) → plymouth's logo.png and the BIOS menu's background
-logo="$SRC/stage/assets/SCUTOONS-logo-white.svg"
+# the logo (#179) – the official SVG in white (deck/native/assets) → plymouth's logo.png and the BIOS menu's background
+logo="$SRC/native/assets/SCUTOONS-logo-white.svg"
 rsvg-convert -w 1536 "$logo" -o "$PROFILE/airootfs/usr/share/plymouth/themes/scutoons/logo.png"
 rsvg-convert -w 320 "$logo" -o "$WORK/logo-320.png"
 magick -size 640x480 xc:black "$WORK/logo-320.png" -gravity north -geometry +0+24 -composite PNG24:"$PROFILE/syslinux/splash.png"
 install -Dm755 "$WORK/target/release/relay" "$PROFILE/airootfs/usr/bin/deck-relay"
 install -Dm755 "$WORK/target/release/bridge" "$PROFILE/airootfs/usr/bin/deck-bridge"
 install -Dm755 "$WORK/target/release/deck-check" "$PROFILE/airootfs/usr/bin/deck-check"
-install -Dm755 "$WORK/target/release/deck-stage" "$PROFILE/airootfs/usr/bin/deck-stage"
+install -Dm755 "$WORK/target/release/deck" "$PROFILE/airootfs/usr/bin/deck"
 install -Dm755 "$WORK/target/release/deck-link" "$PROFILE/airootfs/usr/bin/deck-link"
 install -Dm755 "$WORK/target/release/deck-update" "$PROFILE/airootfs/usr/bin/deck-update"
-install -Dm644 -t "$PROFILE/airootfs/usr/share/deck/scenes" "$SRC"/stage/scenes/*.toml
+install -Dm644 -t "$PROFILE/airootfs/usr/share/deck/scenes" "$SRC"/native/scenes/*.toml
 chmod 755 "$PROFILE/airootfs/usr/bin/"deck-*
 wants="$PROFILE/airootfs/etc/systemd/system/multi-user.target.wants"; mkdir -p "$wants"
 for u in NetworkManager iwd avahi-daemon sshd deck-firstboot deck-kiosk deck-relay deck-bridge deck-link; do

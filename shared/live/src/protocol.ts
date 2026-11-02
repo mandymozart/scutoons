@@ -393,7 +393,7 @@ export interface Route {
 
 export interface DeckNode {
 	id: string;
-	/** a deck-stage node kind (`fm`, `lfo`, `space` …) */
+	/** a deck-native node kind (`fm`, `lfo`, `space` …) */
 	kind: string;
 }
 

@@ -3,7 +3,7 @@
 //! the block's edge (375 times a second at 128 frames) – a knob's drag, a feeling's nudge, an LFO's link all click.
 //! `Ramp` is a one-pole smoother stepped once per block whose output is spread linearly across the block: sample `i`
 //! of a block is `from + step · i`, and the next block starts where this one was heading – continuous at every block
-//! edge, a value written once per frame glides in over a few time constants. Native (deck-stage's voices and blocks)
+//! edge, a value written once per frame glides in over a few time constants. Native (deck-native's voices and blocks)
 //! and the browser (this crate's synth and batch, live-core) use the same one. Never allocates.
 
 /// how long a gain or a frequency glides (s): a step in either is what clicks loudest

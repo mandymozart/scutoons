@@ -4,7 +4,7 @@
 //! reported, nothing panics. How far the engines differ is the finding, not an assertion.
 mod common;
 use common::*;
-use deck_stage::audio::Build;
+use deck_native::audio::Build;
 use std::fmt::Write;
 
 #[test]

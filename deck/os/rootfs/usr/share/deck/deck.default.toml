@@ -1,6 +1,6 @@
 # The deck's settings (copied to /var/lib/deck/deck.toml on first boot; read by deck-session with sed – keep one key per
 # line, strings in double quotes).
-# What the kiosk plays: "stage" = deck-stage, the native AV app (F2 opens the browser, closing it returns); "browser" =
+# What the kiosk plays: "stage" = deck-native, the native AV app (F2 opens the browser, closing it returns); "browser" =
 # Chromium only, on the conductor page.
 kiosk = "stage"
 # The stage's scene: a scene TOML (e.g. /usr/share/deck/scenes/test-pattern.toml) or a built-in name (cathedral, madness,
@@ -12,12 +12,12 @@ conductor = ""
 # The Live relay with the session code. Empty = the hosted relay wss://live.scutoons.com/live/CATH (#199) – joined only
 # when the scene joins a session (the Cathedral's `join` = deck / conductor) or an outlet is set; a venue's own relay:
 # `deck-set relay ws://<host>:7700/live/<code>`.
-# A Live outlet (#186, deck/stage/README.md "Live outlet"): this deck's outlet – set, the stage plays the outlet
+# A Live outlet (#186, deck/native/README.md "Live outlet"): this deck's outlet – set, the stage plays the outlet
 # (scenes/outlet.toml) unless `scene` names another. `locale` = the language of its text layers (empty = de).
 relay = ""
 outlet = ""
 locale = ""
-# The audio (#208, deck/stage/README.md "Audio – live-safe"): the device's buffer in frames (0 = the default: PipeWire's
+# The audio (#208, deck/native/README.md "Audio – live-safe"): the device's buffer in frames (0 = the default: PipeWire's
 # 128 on the deck), and the render thread (true = the graph renders into a ring ahead of the device with an adaptive
 # lead; false = in the device callback). `--audio-buffer` / `--audio-thread` win over these.
 audio_buffer = 0

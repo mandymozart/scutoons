@@ -18,10 +18,10 @@ cache between builds (`scutoons-deck-work`, `scutoons-deck-pkg`; `docker volume 
 run downloads ~1 GB of packages. `DECK_KERNEL=linux` builds on the stock kernel when `linux-rt` is not in the repos.
 
 What `container/build.sh` does: installs archiso + rust (+ pipewire, clang for the stage) → `cargo build --release` for
-`relay`, `bridge`, `deck-check`, `deck-stage` (feature `pipewire`), `deck-link` → copies archiso's **releng** profile, removes its live-only bits (root autologin, reflector, the mirror chooser,
+`relay`, `bridge`, `deck-check`, `deck` (crate `deck-native`, feature `pipewire`), `deck-link` → copies archiso's **releng** profile, removes its live-only bits (root autologin, reflector, the mirror chooser,
 networkd), overlays `profile/` (packages, pacman.conf, identity, airootfs) and `rootfs/` (the deck's units, scripts
 and config – the same tree the PKGBUILD installs), drops the binaries in as `deck-relay`, `deck-bridge`,
-`deck-check`, `deck-stage`, `deck-link` (+ its scenes in `/usr/share/deck/scenes`), renders the logo (deck/stage/assets, the
+`deck-check`, `deck`, `deck-link` (+ its scenes in `/usr/share/deck/scenes`), renders the logo (deck/native/assets, the
 official SVG in white) into plymouth's `logo.png` and the BIOS menu's `splash.png` (librsvg + imagemagick), renames the
 kernel in the boot entries to `linux-rt`, adds a serial console → `mkarchiso`.
 
@@ -68,7 +68,7 @@ Under the logo (owner 2026-10-29, #179): the SCUTOONS logo in white on black fro
 `rootfs/usr/share/plymouth/themes/scutoons`, a quiet kernel line: `quiet splash loglevel=3 …`). deck-firstboot's
 steps show as messages under it; it steps aside only for a menu (the Wi-Fi menu when offline or asked for, a failing
 check's shell) and quits, keeping its last frame, right before cage starts (deck-kiosk.service); the stage's first
-frame is the logo again (deck/stage: until the chapter and the music are loaded), and F12 keeps it up until the
+frame is the logo again (deck/native: until the chapter and the music are loaded), and F12 keeps it up until the
 browser's window is there.
 
 1. `deck-firstboot.service` – persistence (`deck-persist`), the defaults into `/var/lib/deck` (`venue.toml`,
@@ -85,7 +85,7 @@ browser's window is there.
    Then the deck's key and – on its first boot only – its code to pair with ("Pairing" below); after that
    `deck-link.service` pairs and keeps it paired in the background (the boot never waits for the handshake).
 4. `deck-kiosk.service` – `cage` runs `deck-session` as the user `deck`, which plays `kiosk` from
-   `/var/lib/deck/deck.toml`: **`stage`** (the default) = `deck-stage` (deck/stage/README.md) with `scene` (empty = the
+   `/var/lib/deck/deck.toml`: **`stage`** (the default) = `deck-native` (deck/native/README.md) with `scene` (empty = the
    built-in idle scene – fireflies on black, no sound (#252); `scene = "madness"` = "AV madness": catpope 1's slices, captions and music + synths, the FFT drives the picture; its cache in
    `/var/lib/deck/cache`); **F12** opens Chromium (as an `--app` window, DevTools / printing off by a managed policy, #268) on the page `conductor` names (empty = the deck's own start page: the
    machine report, the relay's `/status`, the link to the conductor) on top of the stage, which shows the logo until
@@ -146,7 +146,7 @@ exception): research/LIVE.md B.4.
 
 A deck updates over the network – no stick. `deck-update` (deck/update) takes a **signed bundle**: `manifest.json`
 (version, build = unix seconds, channel, every file's SHA-256 + mode), `manifest.json.sig` (Ed25519 over the manifest)
-and `bundle-<build>.tar.gz`. It writes only the deck's own paths (`usr/bin/deck-*`, `usr/lib/systemd/system/deck-*`,
+and `bundle-<build>.tar.gz`. It writes only the deck's own paths (`usr/bin/deck` and `usr/bin/deck-*`, `usr/lib/systemd/system/deck-*`,
 the deck's sysusers / tmpfiles, `usr/share/deck/`) – never `etc/`, never the base system (kernel, packages: an ISO or,
 later, pacman).
 
@@ -178,6 +178,21 @@ On tty2 / ssh (root): `deck-update status` · `check` · `now` (at once; `--forc
 build; `--url http://<pc>:7790` for this run) · `trust <hex>` (another key). A deck from an image before #237 has no
 deck-update yet – once, on tty2, the commands `npm run deck:update` prints (curl the binary from the PC, `deck-update
 trust <the dev key>`, `deck-update now --url …`); the first bundle brings the timer.
+
+### Migration: `deck-stage` → `deck` (#316)
+
+The native app's binary is `deck` (crate `deck-native`, in `deck/native/`). An updater from before #316 writes only
+`usr/bin/deck-*`, so it refuses a bundle that carries `usr/bin/deck`. Such a deck takes two bundles (the X1 did on
+2026-11-02, no hands on the deck). The kiosk unit runs `/usr/bin/deck-session`, which starts `deck`; the unit stays.
+
+1. **The bridge:** `npm run deck:update -- --no-serve` (builds and bundles), then bundle `out/bin` without `deck` into a
+   folder of its own and serve that: `deck-update bundle --bin <out/bin minus deck> --rootfs deck/os/rootfs --scenes
+   deck/native/scenes --out out/update-bridge --version <v>.bridge --channel dev`, `deck-update serve out/update-bridge`.
+   The old updater installs the new `deck-update` and `deck-session`, drops `deck-stage`, and the kiosk shows the browser.
+2. **The full bundle:** `npm run deck:update -- --no-build` (a newer build, with `usr/bin/deck`). The new updater
+   installs `deck` and restarts the kiosk on the stage.
+
+`deck-update now --url http://<pc>:7790` on the deck runs a step at once. A failed step rolls back by itself.
 
 ## Install to a partition
 

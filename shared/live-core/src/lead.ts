@@ -1,7 +1,7 @@
 // The adaptive lead (#208): how far the worker renders ahead of the worklet. A dropout grows it a step (up to a cap) –
 // the next stall of the same length then fits; a calm minute shrinks it a step (down to the start), so one hiccup
-// doesn't cost latency for the rest of the show. deck-stage's render thread runs the same rule
-// (deck/stage/src/audio/lead.rs).
+// doesn't cost latency for the rest of the show. deck-native's render thread runs the same rule
+// (deck/native/src/audio/lead.rs).
 
 /** a lead shrinks a step after this long without a dropout (ms) */
 export const CALM_MS = 60_000;

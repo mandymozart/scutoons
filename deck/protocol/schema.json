@@ -459,7 +459,7 @@
     },
     "DeckNode": {
       "type": "object",
-      "properties": { "id": { "type": "string" }, "kind": { "type": "string", "description": "a deck-stage node kind (`fm`, `lfo`, `space` …)" } },
+      "properties": { "id": { "type": "string" }, "kind": { "type": "string", "description": "a deck-native node kind (`fm`, `lfo`, `space` …)" } },
       "required": ["id", "kind"],
       "additionalProperties": false
     },

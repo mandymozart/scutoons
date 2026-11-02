@@ -19,10 +19,10 @@ It reads the code itself and does not rely on the report. Where the code and the
 | Where | Code / tests | What it is | Who runs it |
 |---|---|---|---|
 | `deck/core` (deck-core) | 2,542 total | math, `F8` lanes, smooth `Ramp`, limiter, FFT `Analyzer`, `TempoMap` (210 + tests), **three evaluators**: `ControlGraph` (the #182 patcher reference), `BatchGraph` (418 / 143), `synth.rs` blocks; three kind tables (`module.rs` `KIND_TABLES`, `batch.rs` `K`, `stage.rs` `STAGE_MODULES`) | everything (foundations); `BatchGraph` only live-core and deck-space's `lower()` |
-| `deck/stage/src/audio` | 4,081 total: **engine ≈ 1,960** (mod 500, blocks 428, voices 248, dispatch 241, walk 194, sequencer 151, module 116, click 80) · **device + diagnostics ≈ 1,320** (backend 717, glitch 262, ring 196, priority 92, lead 49) · tests ≈ 800 | the native deck's own engine: level-ordered steps over a stereo buffer pool, audio-rate links, `F8` voice batches (AVX2 copy), fundsp blocks, envelopes, cv (pitch L / gate R) | native deck |
-| `deck/stage/src/control.rs` | 362 / 205 | **a third duplicate, not in the report:** the native deck's control domain (LFO sine / saw / square, the tempo node, FFT → control), stepped once per **video frame** on the frame thread, handed to audio through atomic `Param`s | native deck |
-| `deck/stage/src/tempo/` | mod 418 / 128, map 73, midi 477, osc 139, link 68 | the clock controller (sources, priority, tap, quantized start, seqlock) and the sources | native deck |
-| `deck/stage/src/module_host.rs` + `audio/module.rs` | 576 + 116 | wasmtime module host + the module node | native deck, feature `modules` only |
+| `deck/native/src/audio` | 4,081 total: **engine ≈ 1,960** (mod 500, blocks 428, voices 248, dispatch 241, walk 194, sequencer 151, module 116, click 80) · **device + diagnostics ≈ 1,320** (backend 717, glitch 262, ring 196, priority 92, lead 49) · tests ≈ 800 | the native deck's own engine: level-ordered steps over a stereo buffer pool, audio-rate links, `F8` voice batches (AVX2 copy), fundsp blocks, envelopes, cv (pitch L / gate R) | native deck |
+| `deck/native/src/control.rs` | 362 / 205 | **a third duplicate, not in the report:** the native deck's control domain (LFO sine / saw / square, the tempo node, FFT → control), stepped once per **video frame** on the frame thread, handed to audio through atomic `Param`s | native deck |
+| `deck/native/src/tempo/` | mod 418 / 128, map 73, midi 477, osc 139, link 68 | the clock controller (sources, priority, tap, quantized start, seqlock) and the sources | native deck |
+| `deck/native/src/module_host.rs` + `audio/module.rs` | 576 + 116 | wasmtime module host + the module node | native deck, feature `modules` only |
 | `deck/live-core` | 1,492 (core 575, walks 247, signals 238, wire 233) | the browser's engine: `BatchGraph` + walks driving a voice's `freq` + limiter + analyzer + outputs, raw wasm exports | browser worker |
 | `deck/space` (deck-space) | 12,900 (rig/ ≈ 1,400 code + 644 tests; graph 419, params 151, scene 198, modreg 124) | scene model, the `Kind` table, `Spec` ranges, rigs (`play`, `flatten`, `lower`, checks), the being | stage (model, being), space-web (rigs, being) |
 | `deck/events`, `deck/outputs` | 2,560, 2,474 | generators / patches / routing; the outputs engine | both (already one code base) |
@@ -110,7 +110,7 @@ It reads the code itself and does not rely on the report. Where the code and the
 Owner: "the native apps name is stupid, it is deck, and stage is a part of it."
 | Term | Means |
 |---|---|
-| **deck** | a device running the core: the **native deck** (the app – crate and binary `deck-stage` in `deck/stage/` today, renamed to `deck-native` / binary `deck` by a chore ticket before P4) or the **browser deck** (/live/deck: live-core + the page) |
+| **deck** | a device running the core: the **native deck** (the app – crate `deck-native`, binary `deck`, in `deck/native/`; renamed by #316 before P4) or the **browser deck** (/live/deck: live-core + the page) |
 | **stage** | the part of a deck that performs: the playing scenes, the stage environment, the picture |
 | **stage environment** | the named layer for the room a show plays in ("club", "open air", "school hall"), for every outlet kind – sound, screens, lights, MIDI, OSC; it outlasts scene switches (§2.6b) |
 | **outlet** | a logical output a scene writes to: an audio group ("main", "cue"), a screen, a light role, a MIDI part, an OSC address (LIVE.md B.5) |
@@ -141,7 +141,7 @@ wasm bit for bit (§3.4).
 | **deck-module-host** (new, #305) | descriptor / layout, `Io` staging, log limiter, budget, `ModuleStats`, `Backend` trait; backends: `wasmtime` (feature, native), `web` or `wasmi` (feature, wasm – #306 decides) | native, wasm32 |
 | **deck-engine** (new) | **the one engine**: graph build, control half (block rate), audio half (**N-channel planar buffers, multichannel links with channel maps**, `F8` batches, blocks), every kind, routing (nodes, buses, sends, `out` nodes – §2.6), the in-block event host, the module node, analysis, `send` / `set_base` / paths table | native (baseline, AVX2 copy), wasm32 (+simd128) |
 | **deck-media** (new) | assets and media (§2.9): the derivative choice by capability, load-ahead, demux (MP4 / MOV / WebM), audio decoding (symphonia), video decoding (real HAP; AV1 by rav1d), the `DecodeBackend` trait (software always, hardware decode-only adapters), the frame queue, the frame for the heard time | native, wasm32 – its own wasm, loaded on need in the media worker |
-| deck-native (today `deck-stage`) | adapter + app: device backends (cpal, PipeWire, ASIO), render thread + ring, priority, glitch monitor, time base (`clock.rs`), tempo sources (Link, MIDI, OSC), the sequencer thread as a scheduling wrapper, window / GPU, video graph (later leg), sync, files, the asset cache on disk, hardware decoders (VideoToolbox / MediaCodec / VA-API) | native |
+| deck-native (today `deck-native`) | adapter + app: device backends (cpal, PipeWire, ASIO), render thread + ring, priority, glitch monitor, time base (`clock.rs`), tempo sources (Link, MIDI, OSC), the sequencer thread as a scheduling wrapper, window / GPU, video graph (later leg), sync, files, the asset cache on disk, hardware decoders (VideoToolbox / MediaCodec / VA-API) | native |
 | live-core | adapter: the worker's raw exports (inbox / outbox, pointers), nothing else; its TS side: worker, rings, worklet, `fetch`, the WebCodecs `VideoDecoder` adapter in the media worker | wasm32 |
 | space-web | adapter: wasm-bindgen entry for the being and rig play | wasm32 |
 | scutoons-build | compile, **validate** (deck-space checks), later bake | native (server) |
@@ -638,7 +638,7 @@ Rollback: revert (no stored format changes). Demo: the catalog JSON in the creat
 and green; owner on the X1: click, tap, MIDI clock out as before. Rollback: revert. Demo: unchanged clock on the X1.
 ≈ $3.
 
-**P4 – The engine move (new, under #310, L).** `stage/src/audio/{mod (engine part), blocks, voices, click, walk core,
+**P4 – The engine move (new, under #310, L).** `native/src/audio/{mod (engine part), blocks, voices, click, walk core,
 module}` + `control.rs` + the FFT half → `deck-engine`; platform traits: module runtime (from P1), PCM feed for
 `chapter_music`, beat reader (from P3); the six fundsp units rewritten in deck-core (§3.2 – P7 folded in, fundsp leaves the
 workspace); the 128-frame quantum on the native deck's render thread. Behaviour: identical except the six units – still
@@ -703,9 +703,8 @@ review), Opus only if named. Then ABI v2 (§3.6) replacing v1, the stored module
 the engine); `deck/lab` pinned to the last commit that builds it (a note in its README, it is outside the workspace);
 `modules.ts` deleted once the browser backend passes its fixtures (P9b). ≈ $1.
 
-**P3b – Names (chore, S), before P4.** `deck/stage/` → `deck/native/`, crate `deck-native`, binary `deck` (§2.0); 83
-files mention `deck-stage` today, among them the deck-update bundle and the X1 kiosk scripts. Accept: deck:ci, the X1
-updates and starts. Run when no other deck session is open. ≈ $1–2.
+**P3b – Names (chore, S), before P4 – done (#316).** The native deck moved to `deck/native/`, crate `deck-native`, binary
+`deck` (§2.0); the deck-update bundle and the X1 kiosk scripts name the binary `deck` now.
 
 **P13 – Assets and media (owner: built right away, M each).** (a) The asset manifest with derivatives in the API's
 scene response, and the server media job (ffmpeg: HAP / HAP Alpha / HAP Q, the ASTC variant, AV1, H.264, audio); (b)
@@ -893,7 +892,7 @@ Plus orchestrator sessions (≈ 10, one per two or three merges, ≈ $5–10 eac
 5. *(folded into 2 – no backwards compatibility)*
 10. *Channels and routing: multichannel links with channel maps, bus / out / pan / downmix / feedback kinds, device
    channels from the deck configuration* – feature, L (P4b; owner 2026-11-02: Max's nodes, Reaper's buses).
-11. *Names: deck/stage → deck/native, crate deck-native, binary deck* – chore, S (P3b).
+11. *Names: deck/native → deck/native, crate deck-native, binary deck* – chore, S (P3b).
 12. *Asset manifest with derivatives and the server media job (HAP, ASTC variant, AV1, H.264, audio)* – feature, M
     (P13a; `area:api`).
 13. *deck-media: derivative choice, demux, symphonia, HAP, rav1d, DecodeBackend, sampler kind* – feature, M (P13b).

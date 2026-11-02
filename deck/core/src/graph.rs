@@ -1,6 +1,6 @@
 //! The control graph: a scene's nodes built through the registry, links checked once (types, one link per input, no
 //! cycles), then one `step` per frame runs the control blocks in topological order and `render` fills an audio block
-//! with the audio nodes' sum. The scene format is deck/stage's (`[[node]]` id + kind + params, `[[link]]` from → to with
+//! with the audio nodes' sum. The scene format is deck/native's (`[[node]]` id + kind + params, `[[link]]` from → to with
 //! scale / offset); an unlinked input reads the node's param of the same name.
 //!
 //! Values live in one flat `Vec<f32>` (a slot per output port) and links are resolved to slot indices at build – a
@@ -148,7 +148,7 @@ impl ControlGraph {
     }
 
     /// One audio block: the sum of every audio node, played with its current control inputs. (A prototype mix: audio
-    /// links between nodes are deck/stage's audio graph, not modelled here.)
+    /// links between nodes are deck/native's audio graph, not modelled here.)
     pub fn render(&mut self, out: &mut [f32]) {
         out.fill(0.0);
         if self.mix.len() < out.len() {

@@ -1,10 +1,10 @@
 //! Module `tempo` (#181, moved here with #185): the tempo map – beat = f(audio frame position), never a second clock. A
 //! map is a line through one anchor – frame `frame` is beat `beat`, from there on `bpm` – on the time base's frame axis
-//! (the one the audio thread counts; deck/stage's clock.rs maps it to the heard moment). A tempo change re-anchors where
+//! (the one the audio thread counts; deck/native's clock.rs maps it to the heard moment). A tempo change re-anchors where
 //! it happens, so the beat never jumps; a phase set (a tap, an external clock) moves the anchor's beat. Positions,
 //! quantize grids, the least squares fit (MIDI clock in, tap) and tap tempo. Platform-free: the tempo controller (`Controller`:
 //! sources, keys, tap, the followers of MIDI clock in / Link / OSC), the seqlock `Shared` / `BeatReader` and the time
-//! types are in here too (#308); deck/stage only opens the sources' ports and feeds events in.
+//! types are in here too (#308); deck/native only opens the sources' ports and feeds events in.
 
 mod clock_out;
 mod controller;
