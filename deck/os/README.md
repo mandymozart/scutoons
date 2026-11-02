@@ -179,38 +179,20 @@ build; `--url http://<pc>:7790` for this run) · `trust <hex>` (another key). A 
 deck-update yet – once, on tty2, the commands `npm run deck:update` prints (curl the binary from the PC, `deck-update
 trust <the dev key>`, `deck-update now --url …`); the first bundle brings the timer.
 
-### One-time migration: `deck-stage` → `deck` (#316)
+### Migration: `deck-stage` → `deck` (#316)
 
-The native app's binary is now `deck` (crate `deck-native`, in `deck/native/`). The updater installed on the X1 before
-this change only writes `usr/bin/deck-*`, so it refuses the first bundle that carries `usr/bin/deck`. Do this once, by
-hand, before the first update after #316 is merged. The kiosk unit (`deck-kiosk.service`) runs `/usr/bin/deck-session`,
-which starts `deck`, so the unit does not change.
+The native app's binary is `deck` (crate `deck-native`, in `deck/native/`). An updater from before #316 writes only
+`usr/bin/deck-*`, so it refuses a bundle that carries `usr/bin/deck`. Such a deck takes two bundles (the X1 did on
+2026-11-02, no hands on the deck). The kiosk unit runs `/usr/bin/deck-session`, which starts `deck`; the unit stays.
 
-1. On the dev PC: `npm run deck:update -- --no-serve` (builds and bundles). Extract `usr/bin/deck`, `usr/bin/deck-session`
-   and `usr/bin/deck-update` from `out/update/bundle-<build>.tar.gz`, check their SHA-256 against `manifest.json`, and copy
-   them to the X1 (scp, or a stick).
-2. On the X1, as root (tty2 or ssh). Stop the kiosk and the timer, and keep the old files for a rollback:
+1. **The bridge:** `npm run deck:update -- --no-serve` (builds and bundles), then bundle `out/bin` without `deck` into a
+   folder of its own and serve that: `deck-update bundle --bin <out/bin minus deck> --rootfs deck/os/rootfs --scenes
+   deck/native/scenes --out out/update-bridge --version <v>.bridge --channel dev`, `deck-update serve out/update-bridge`.
+   The old updater installs the new `deck-update` and `deck-session`, drops `deck-stage`, and the kiosk shows the browser.
+2. **The full bundle:** `npm run deck:update -- --no-build` (a newer build, with `usr/bin/deck`). The new updater
+   installs `deck` and restarts the kiosk on the stage.
 
-```bash
-systemctl stop deck-kiosk.service deck-update.timer
-cp -a /usr/bin/deck-stage /usr/bin/deck-session /usr/bin/deck-update /root/
-```
-
-3. Install the new files and start:
-
-```bash
-install -m755 deck /usr/bin/deck
-install -m755 deck-session /usr/bin/deck-session
-install -m755 deck-update /usr/bin/deck-update
-systemctl start deck-kiosk.service deck-update.timer
-journalctl -u deck-kiosk -n 40
-```
-
-4. When the stage plays: `rm /usr/bin/deck-stage` (the next update removes it too, as a dropped file).
-
-**Rollback:** `systemctl stop deck-kiosk.service deck-update.timer`, then
-`install -m755 /root/deck-stage /usr/bin/deck-stage`, `install -m755 /root/deck-session /usr/bin/deck-session`,
-`install -m755 /root/deck-update /usr/bin/deck-update`, then `systemctl start deck-kiosk.service deck-update.timer`.
+`deck-update now --url http://<pc>:7790` on the deck runs a step at once. A failed step rolls back by itself.
 
 ## Install to a partition
 
