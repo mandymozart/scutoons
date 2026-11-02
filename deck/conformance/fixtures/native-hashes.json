@@ -7,9 +7,9 @@
     "fft tap (osc -> fft, osc -> out)/128": "a0679ec388a1f9ea",
     "fm/1024": "d31136279682ec26",
     "fm/128": "d31136279682ec26",
-    "lfo saw -> osc.freq/1024": "477ccea3255a8730",
+    "lfo saw -> osc.freq/1024": "cbecdd242a9bea63",
     "lfo saw -> osc.freq/128": "cecc7b7b94bea18a",
-    "lfo sine -> osc.freq/1024": "2f84f64e48f71988",
+    "lfo sine -> osc.freq/1024": "636b44b9b0359d95",
     "lfo sine -> osc.freq/128": "95d7e1acfb9c4a18",
     "mixer (2 osc, gains .8 .5)/1024": "053d155e8a0e6b1c",
     "mixer (2 osc, gains .8 .5)/128": "053d155e8a0e6b1c",
@@ -32,6 +32,6 @@
     "walk -> fm.cv/1024": "e6f62096a032db0c",
     "walk -> fm.cv/128": "e6f62096a032db0c"
   },
-  "re_recorded": "#317 (the engine move): the move itself kept every hash; re-recorded were osc saw / square / triangle and noise white / pink (fundsp's six units became deck-core's dsp units), fm, walk -> fm.cv and the stereo scene (true FM, no abs() fold: index x ratio > 1), seq -> osc.cv, click and walk -> fm.cv (std powf / sin / exp became libm: native == wasm bit for bit). Unchanged since #309: osc sine, mixer, lfo sine / saw, fft tap.",
+  "re_recorded": "#317 (the engine move): the move itself kept every hash; re-recorded were osc saw / square / triangle and noise white / pink (fundsp's six units became deck-core's dsp units), fm, walk -> fm.cv and the stereo scene (true FM, no abs() fold: index x ratio > 1), seq -> osc.cv, click and walk -> fm.cv (std powf / sin / exp became libm: native == wasm bit for bit). lfo sine / saw at the 1024 pattern (the fixed 128-frame quantum: the ramp that glides a changed param spans 128 frames, not 1024; their 128 hashes are unchanged). Unchanged since #309: osc sine, mixer, fft tap and lfo at 128.",
   "recorded_on": "windows x86-64"
 }

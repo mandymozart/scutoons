@@ -31,7 +31,7 @@ fn the_native_deck_renders_what_the_fixture_says() {
     if std::env::var_os("UPDATE_GOLDENS").is_some() {
         let doc = serde_json::json!({
             "about": "FNV-1a 64 over the f32 bits of deck-engine's left channel (2 s, 48 kHz, master + limiter), per kind scene and block size. #309, deck/conformance/tests/goldens.rs",
-            "re_recorded": "#317 (the engine move): the move itself kept every hash; re-recorded were osc saw / square / triangle and noise white / pink (fundsp's six units became deck-core's dsp units), fm, walk -> fm.cv and the stereo scene (true FM, no abs() fold: index x ratio > 1), seq -> osc.cv, click and walk -> fm.cv (std powf / sin / exp became libm: native == wasm bit for bit). Unchanged since #309: osc sine, mixer, lfo sine / saw, fft tap.",
+            "re_recorded": "#317 (the engine move): the move itself kept every hash; re-recorded were osc saw / square / triangle and noise white / pink (fundsp's six units became deck-core's dsp units), fm, walk -> fm.cv and the stereo scene (true FM, no abs() fold: index x ratio > 1), seq -> osc.cv, click and walk -> fm.cv (std powf / sin / exp became libm: native == wasm bit for bit). lfo sine / saw at the 1024 pattern (the fixed 128-frame quantum: the ramp that glides a changed param spans 128 frames, not 1024; their 128 hashes are unchanged). Unchanged since #309: osc sine, mixer, fft tap and lfo at 128.",
             "recorded_on": "windows x86-64",
             "hashes": now,
         });
