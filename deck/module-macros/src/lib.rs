@@ -11,7 +11,7 @@ use quote::quote;
 use syn::spanned::Spanned;
 use syn::{parse_macro_input, Data, DeriveInput, Error, Expr, ExprLit, ExprRange, Fields, Lit, RangeLimits, UnOp};
 
-const MAX_PARAMS: usize = 32;
+const MAX_PARAMS: usize = 128;
 
 struct Param {
     ident: syn::Ident,

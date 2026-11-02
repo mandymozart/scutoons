@@ -15,7 +15,7 @@ pub const MAX_AUDIO_PORTS: usize = 4;
 pub const MAX_CONTROL_IN: usize = 8;
 pub const MAX_CONTROL_OUT: usize = 8;
 /// parameters (`#[param]` fields)
-pub const MAX_PARAMS: usize = 32;
+pub const MAX_PARAMS: usize = 128;
 /// scene and world variables (key → number) the host hands over
 pub const MAX_VARS: usize = 32;
 /// events a call can emit (the rest is counted in `Out::events_dropped`)

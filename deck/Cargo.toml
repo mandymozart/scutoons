@@ -4,7 +4,7 @@
 resolver = "2"
 # deck/lab is its own workspace: the #182 experiments (wasm, wasmtime, plugins, benchmarks) stay out of CI and the deck builds
 exclude = ["lab"]
-members = ["catalog", "module", "module-macros", "module-host", "modules/walk", "modules/fixture", "build", "core", "live-core", "scene-features", "protocol", "adapters/core", "adapters/midi", "adapters/osc", "adapters/dmx-usbpro", "outputs", "relay", "bridge", "os/check", "space", "space-web", "stage", "link", "update", "conformance", "conformance/engine-lab"]
+members = ["catalog", "module", "module-macros", "module-host", "modules/walk", "modules/fixture", "modules/analog", "build", "core", "live-core", "scene-features", "protocol", "adapters/core", "adapters/midi", "adapters/osc", "adapters/dmx-usbpro", "outputs", "relay", "bridge", "os/check", "space", "space-web", "stage", "link", "update", "conformance", "conformance/engine-lab"]
 
 [workspace.package]
 version = "0.1.0"
@@ -53,6 +53,10 @@ opt-level = "z"
 opt-level = 2
 
 [profile.dev.package.deck-core]
+opt-level = 2
+
+# the synth renders eight voices a sample; its tests render seconds of audio (#331)
+[profile.dev.package.analog-module]
 opt-level = 2
 
 # the conformance probes render seconds of audio per test (#309)

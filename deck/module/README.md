@@ -55,7 +55,7 @@ JSON, written by the derive: the module's name, version, ABI version, parameters
 **`deck.module`**: a host reads it without instantiating (`host::read_descriptor(&wasm)` in Rust,
 `WebAssembly.Module.customSections(module, "deck.module")` in JS) and `host::Descriptor::parse` validates it (ABI version,
 names, ranges, counts). Fallback for a host that instantiates anyway: `dm_descriptor_ptr()` / `dm_descriptor_len()`.
-Limits: 32 parameters, 4 audio ports (stereo) and 8 control ports per direction. `video` ports are declared for later
+Limits: 128 parameters, 4 audio ports (stereo) and 8 control ports per direction. `video` ports are declared for later
 (WGSL data, #185); a host that cannot run them refuses the module with a message.
 
 ## The ABI (v1, `wasm32-unknown-unknown`)
