@@ -939,12 +939,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "deck-conformance"
+version = "0.1.0"
+dependencies = [
+ "deck-core",
+ "deck-engine-lab",
+ "deck-space",
+ "deck-stage",
+ "fundsp",
+ "live-core",
+ "rustfft",
+ "serde_json",
+ "toml 0.8.23",
+ "wasmtime",
+]
+
+[[package]]
 name = "deck-core"
 version = "0.1.0"
 dependencies = [
  "rustfft",
  "serde",
  "toml 0.8.23",
+]
+
+[[package]]
+name = "deck-engine-lab"
+version = "0.1.0"
+dependencies = [
+ "deck-core",
+ "libm",
 ]
 
 [[package]]

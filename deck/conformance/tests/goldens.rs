@@ -1,0 +1,55 @@
+//! The native deck's current renders as hashes (`fixtures/native-hashes.json`) – the guard for the engine move (plan P4):
+//! when the stage's audio runs on the shared engine, every hash here must still be the same (or the change is a decision).
+//! One hash per kind scene and block pattern, over the left channel after master and limiter, 2 s at 48 kHz; the stereo
+//! lab scene too. `UPDATE_GOLDENS=1 cargo test -p deck-conformance --test goldens` rewrites the file.
+//!
+//! Recorded on Windows x86-64. The sine / fm batches use deck-core's libm-free maths; the fundsp blocks (saw, square,
+//! triangle, noise, filters) and the envelope coefficients use the platform's `exp` / `sin` and may differ by an ulp on
+//! another OS or CPU – a mismatch there is to be read before the fixture is re-recorded, not re-recorded blindly.
+mod common;
+use common::*;
+use deck_engine_lab::STEREO_TOML;
+use deck_stage::audio::Build;
+use std::collections::BTreeMap;
+
+fn current() -> BTreeMap<String, String> {
+    let mut map = BTreeMap::new();
+    let mut scenes: Vec<(&str, &str)> = CASES.iter().map(|c| (c.name, c.toml)).collect();
+    scenes.push(("stereo scene (lab)", STEREO_TOML));
+    for (name, toml) in scenes {
+        for &block in &[128usize, 1024] {
+            let detect = stage_render(toml, block, FRAMES, Build::detect());
+            let baseline = stage_render(toml, block, FRAMES, Build { batch: true, avx2: false });
+            assert_eq!(hash(&detect), hash(&baseline), "{name}/{block}: avx2 ≡ baseline");
+            map.insert(format!("{name}/{block}"), format!("{:016x}", hash(&detect)));
+        }
+    }
+    map
+}
+
+#[test]
+fn the_native_deck_renders_what_the_fixture_says() {
+    let now = current();
+    let path = fixture_path("native-hashes.json");
+    if std::env::var_os("UPDATE_GOLDENS").is_some() {
+        let doc = serde_json::json!({
+            "about": "FNV-1a 64 over the f32 bits of the stage Engine's left channel (2 s, 48 kHz, master + limiter), per kind scene and block size. #309, deck/conformance/tests/goldens.rs",
+            "recorded_on": "windows x86-64",
+            "hashes": now,
+        });
+        std::fs::write(&path, serde_json::to_string_pretty(&doc).unwrap() + "\n").unwrap();
+        println!("fixture rewritten: {}", path.display());
+        return;
+    }
+    let text = std::fs::read_to_string(&path).expect("fixtures/native-hashes.json (UPDATE_GOLDENS=1 writes it)");
+    let doc: serde_json::Value = serde_json::from_str(&text).unwrap();
+    let recorded = doc["hashes"].as_object().expect("hashes");
+    assert_eq!(recorded.len(), now.len(), "the same scenes as the fixture");
+    let mut wrong = Vec::new();
+    for (k, v) in &now {
+        if recorded.get(k).and_then(|x| x.as_str()) != Some(v.as_str()) {
+            wrong.push(format!("{k}: recorded {:?}, now {v}", recorded.get(k)));
+        }
+    }
+    assert!(wrong.is_empty(), "the native deck's renders changed:\n{}", wrong.join("\n"));
+}

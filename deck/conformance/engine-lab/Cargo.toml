@@ -1,0 +1,20 @@
+# deck-engine-lab – P0 probe of the engine refactor (agents/research/ENGINE-REFACTOR-PLAN.md §3.8, #309): the stage's
+# voice batches (stage/src/audio/voices.rs, mixer, out, master, limiter) lifted without fundsp / cpal / threads, on a
+# planar N-channel buffer pool, plus the routing ops of §2.6 and two saws. EVIDENCE, not production code: it builds
+# for native and wasm32 (+simd128) so deck-conformance can compare the two bit for bit and time them. Never a
+# dependency of the stage or the core.
+[package]
+name = "deck-engine-lab"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+deck-core = { workspace = true, features = ["synth"] }
+# the pure-Rust libm (plan §3.1: "the one dependency allowed"): coefficient maths with the same bits native and wasm
+libm = "0.2"
