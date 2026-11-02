@@ -66,10 +66,10 @@ Members write and submit, so the designer must be reachable by **members, not on
 6. ~~The SDK's first API~~ → **owner 2026-11-02: as proposed** – audio + control rate, params, ports, tempo, character, scene / world variables read-only, events out; more later.
 7. ~~Licence of submitted code~~ → **owner 2026-11-02: the code belongs to its creator; SCUTOONS has the right to use it** (ship it, build it natively, show it, credited). The submit dialog says so and the member confirms it.
 
-## 10. Order once §9 is answered (each an issue)
-1. The SDK crate + the descriptor + one built-in rewritten as a module (proves the ABI); wasmtime in deck-stage, the wasm path in live-core.
-2. The build service (sandbox, limits, errors as JSON) + the `module:<id>` document and `member_modules`.
-3. The designer page: Rust tab + Compile + Play + the console; then Parameters; then the read-only Nodes view.
-4. Assignment tab + the mapping overview (missing defaults, the fallback rig) + scene / world variables in ctx.
-5. Submit → review → promote; the native tier in the deck image.
-6. Node editing (#203), the stage overlay.
+## 10. Order (issues, created 2026-11-02 – no status yet, the owner orders them)
+1. #280 the SDK crate + the descriptor + one built-in as a module; wasmtime in deck-stage, the wasm path in live-core.
+2. #281 the compile service beside the relay + `module:<id>` documents and `member_modules`.
+3. #282 the designer page: Rust tab + Compile + Play + console; Parameters; the read-only Nodes view.
+4. #283 the Assignment tab + the mapping overview (missing defaults, the standard rigs per instrument kind) + scene / world variables in ctx.
+5. #284 submit → review → promote; the native tier per module by the owner's review.
+6. #203 node editing, then the stage overlay.
