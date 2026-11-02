@@ -575,8 +575,7 @@ with the token, ready, the cell, resume, the snapshot after a restart). Not yet:
   one (the next slice is always ready, at most two in memory); the renderer uploads it at the cut. A pass reads up to
   three textures (bindings 1, 3, 4: `in`, the current / previous slice or an overlay's `top`).
 
-Dependencies are pinned to the APIs this was written against (wgpu 25, winit 0.30, cpal 0.15, pipewire 0.10 (0.8's libspa no longer builds against Arch's PipeWire headers), fundsp
-0.20, symphonia 0.5, ureq 2, image 0.25, ab_glyph 0.2, resvg 0.45); `Cargo.lock` points gpu-allocator at windows 0.58 (cpal 0.15 pulls 0.54, which breaks
+Dependencies are pinned to the APIs this was written against (wgpu 25, winit 0.30, cpal 0.15, pipewire 0.10 (0.8's libspa no longer builds against Arch's PipeWire headers), symphonia 0.5, ureq 2, image 0.25, ab_glyph 0.2, resvg 0.45); `Cargo.lock` points gpu-allocator at windows 0.58 (cpal 0.15 pulls 0.54, which breaks
 wgpu-hal's DX12 build on Windows). A bump is its own step.
 
 ## Measured
