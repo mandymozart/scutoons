@@ -857,6 +857,8 @@ Plus orchestrator sessions (≈ 10, one per two or three merges, ≈ $5–10 eac
 17. **Open: derivatives pin their parent's version (§2.7)** – recommended (an update is an explicit step); the
     alternative is "current" like sets.
 
+18. **Decided (owner 2026-11-02): `fm` is true frequency modulation** – "i want true fm." The carrier's phase accumulates the instantaneous frequency `f + index · fm · sin(modulator)` (fm = f · ratio); a negative instantaneous frequency runs the phase backward, so the stage's `abs()` fold goes; no phase-modulation variant in the browser. One formula in `deck-engine`, both targets. P0 measured the two formulas 0.4 apart (§2a of ENGINE-ALIGNMENT.md); the engine move (#317) takes the native hashes for every kind except the six fundsp units **and `fm` at index × ratio > 1** (the fold's range), and the P0 fm fixtures are regenerated with the analytic Bessel-sideband test.
+
 ## 9. Ticket changes (for the owner to approve; agents do not set the board's order)
 **Re-scope**
 - **#309** – add (b) native ≡ wasm under wasmtime, (c) the lab spike (§3.8), (d) the 8-channel routing graph and the
