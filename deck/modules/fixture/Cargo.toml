@@ -1,0 +1,14 @@
+# fixture – a module that misbehaves on request, for the hosts' tests (#280): a panic, a loop, log spam
+[package]
+name = "fixture-module"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+deck-module = { path = "../../module" }

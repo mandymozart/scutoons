@@ -62,6 +62,8 @@ pub fn default(kind: Kind, port: &str) -> f32 {
 /// a control input's value when neither the node nor a link sets it
 pub fn default_for(kind: Kind, port: &str) -> f32 {
     match (kind, port) {
+        // a module's parameters: the defaults its descriptor declares (modreg.rs)
+        (Kind::Module(m), _) => m.default_for(port),
         // an events node's knobs: not driven until a param or a link sets them (the patch's own values play)
         (Kind::Events, "a" | "b" | "c" | "d") => f32::NAN,
         // a walk: held (spread 0), two steps a beat, half a step's glide

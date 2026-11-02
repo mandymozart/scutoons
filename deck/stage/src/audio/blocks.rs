@@ -89,6 +89,8 @@ pub fn make(node: &Node, index: usize, rate: f32, params: &[Param], h: &mut Hand
             Box::new(FftTap { ring: tx })
         }
         Kind::AudioOut => Box::new(Out { volume: glide("volume") }),
+        #[cfg(feature = "modules")]
+        Kind::Module(_) => Box::new(super::module::ModuleBlock::new(node, rate, params, beats(h))?),
         k => bail!("{k:?} is not an audio kind"),
     })
 }
