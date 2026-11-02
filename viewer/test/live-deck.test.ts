@@ -1,7 +1,7 @@
 // The browser deck's route helpers (#198, src/lib/live-deck.ts): the relay from the address, the character, the nick.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { characterOf, codeOf, DEFAULT_CHARACTER, DEFAULT_CODE, mayJoin, nickOf, preferOf, relayOf, rigOf, sticksLine, panelKnobs } from '../src/lib/live-deck.ts';
+import { characterOf, codeOf, DEFAULT_CHARACTER, DEFAULT_CODE, mayDesign, mayJoin, readEditPref, nickOf, preferOf, relayOf, rigOf, sticksLine, panelKnobs } from '../src/lib/live-deck.ts';
 import { MELODY, PARAMS } from '../../shared/live-deck/src/scene.ts';
 import type { Me } from '@scutoons/content';
 
@@ -76,4 +76,20 @@ test('#209: the sticks line names the selection and what each stick drives', () 
 	assert.equal(sticksLine('being', of, ['voice.ratio', 'voice.index'], ['x.y', ''], words), 'Being · L FM ratio / FM index · R x.y / –');
 	assert.equal(sticksLine('knob:voice.index', of, ['voice.ratio', 'voice.index'], [], words), 'FM index · L FM ratio / FM index · R –');
 	assert.equal(sticksLine('', of, ['space.hue', ''], [], words), 'Master · L hue / – · R –');
+});
+
+test('the designer is a creator feature (#282): members, guests and admins without the role see the page as before', () => {
+	assert.equal(mayDesign(['member', 'creator']), true);
+	assert.equal(mayDesign(['creator']), true);
+	assert.equal(mayDesign(['member']), false);
+	assert.equal(mayDesign(['admin']), false);
+	assert.equal(mayDesign([]), false, 'a guest');
+});
+
+test('edit mode is remembered per device: only an explicit 1 is on, a missing or throwing store is performance mode (#282)', () => {
+	assert.equal(readEditPref(() => '1'), true);
+	assert.equal(readEditPref(() => '0'), false);
+	assert.equal(readEditPref(() => null), false);
+	assert.equal(readEditPref(() => 'yes'), false);
+	assert.equal(readEditPref(() => { throw new Error('SecurityError'); }), false);
 });

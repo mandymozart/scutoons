@@ -57,6 +57,26 @@ export function mayJoin(me: Me | null): boolean {
 }
 
 /**
+ * Who gets the rig designer's tabs on /live/deck (#282, owner 2026-11-02): a signed-in creator – the API's compile is the
+ * creators' too (403 `creator_only` for everyone else). Everybody else sees the page as it was, with no tab row.
+ */
+export function mayDesign(roles: readonly string[]): boolean {
+	return roles.includes('creator');
+}
+
+/** where a creator's device remembers edit mode (#282) */
+export const EDIT_KEY = 'scutoons.deck.edit';
+
+/** The remembered mode: only an explicit '1' is on – empty, unknown or a throwing store is the performance mode */
+export function readEditPref(read: () => string | null): boolean {
+	try {
+		return read() === '1';
+	} catch {
+		return false;
+	}
+}
+
+/**
  * Play the character's rig instead of the fixed test patch (#191, research/INSTRUMENTS.md §7): `?rig=1`, while the
  * phone check is open – then it becomes the default for every character with a rig.
  */

@@ -1,7 +1,7 @@
 <script lang="ts">
 	// The deck's character, superimposed on the 3D (#198, owner 2026-10-31: "the character switcher could be
 	// superimposed"): a chip on top with the face and the name; a tap opens the list (a bottom sheet).
-	import { Sheet } from '@scutoons/ui';
+	import { Icon, Sheet } from '@scutoons/ui';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 
@@ -12,7 +12,10 @@
 		characters,
 		face,
 		mood,
-		onpick
+		onpick,
+		moods = [],
+		pinned = '',
+		onmood
 	}: {
 		current: string;
 		characters: Character[];
@@ -20,6 +23,11 @@
 		face: string;
 		mood: string;
 		onpick: (id: string) => void;
+		/** #282 (the creator's transport strip): the character's moods – the sheet lists them under the characters, so a
+		 *  phone's one chip switches a mood too ('' = let the ladder decide) */
+		moods?: string[];
+		pinned?: string;
+		onmood?: (mood: string) => void;
 	} = $props();
 
 	let open = $state(false);
@@ -36,6 +44,7 @@
 	{#if face}<img src={face} alt="" crossorigin="anonymous" />{/if}
 	<span class="name">{nameOf(shown)}</span>
 	<span class="mood">{mood}</span>
+	{#if onmood}<Icon name="chevron-down" size="1em" />{/if}
 </button>
 
 <Sheet bind:open side="bottom" title={m['live_deck.choose_character']()} closeLabel={m['common.close']()}>
@@ -46,6 +55,15 @@
 			</button>
 		{/each}
 	</div>
+	{#if onmood && moods.length}
+		<div class="list moods" role="listbox" aria-label={m['live_deck.mood']()}>
+			{#each moods as md (md)}
+				<button type="button" role="option" aria-selected={md === mood} onclick={() => { open = false; onmood(pinned === md ? '' : md); }}>
+					{md}{pinned === md ? ' ·' : ''}
+				</button>
+			{/each}
+		</div>
+	{/if}
 </Sheet>
 
 <style>
@@ -83,6 +101,9 @@
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
 		gap: var(--space-05);
+	}
+	.list.moods {
+		margin-top: var(--space-1);
 	}
 	.list button {
 		height: var(--control-height);

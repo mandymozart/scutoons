@@ -14,7 +14,7 @@
 	// deck-space's (Hands → DeckControls, wasm), this page only bridges the DOM, Web MIDI and the pointer to it.
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { Deck, FrameStats, Hands, MELODY, PARAMS, SpaceStage, charactersOf, loadControls, pushLine, savedLine, type DeriveBody, type Hand, type QualityLevel, type QualityPresets, type RigPlayed, type SavedPreset, type SpaceQuality, type Spec } from '@scutoons/live-deck';
+	import { BPM, Deck, FrameStats, Hands, MELODY, PARAMS, SpaceStage, charactersOf, loadControls, pushLine, savedLine, type DeriveBody, type Hand, type QualityLevel, type QualityPresets, type RigPlayed, type SavedPreset, type SpaceQuality, type Spec } from '@scutoons/live-deck';
 	import LiveWorker from '@scutoons/live-core/worker?worker';
 	import workletUrl from '@scutoons/live-core/worklet?worker&url';
 	import { API_URL, CDN_SERVER, LIVE_URL } from '$lib/config.ts';
@@ -22,8 +22,10 @@
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import { CHARACTER_KEY, WASM_BASE, characterOf, mayJoin, nickOf, preferOf, relayOf, rigOf } from '$lib/live-deck.ts';
+	import { CHARACTER_KEY, WASM_BASE, characterOf, mayDesign, mayJoin, nickOf, preferOf, relayOf, rigOf } from '$lib/live-deck.ts';
+	import { DeckEdit } from '$lib/live-deck-designer.svelte.ts';
 	import CharacterChip from '$lib/components/live-deck/character-chip.svelte';
+	import DeckTransport from '$lib/components/live-deck/deck-transport.svelte';
 	import DeckPanel from '$lib/components/live-deck/deck-panel.svelte';
 	import DeckQualitySheet from '$lib/components/live-deck/deck-quality-sheet.svelte';
 	import DeckSaveSheet from '$lib/components/live-deck/deck-save-sheet.svelte';
@@ -32,6 +34,38 @@
 	import { DeckControlsState } from '$lib/live-deck-controls.svelte.ts';
 
 	const session = getSessionContext();
+	// #282: a creator gets a transport strip with an Edit switch. Edit (rehearsal) mode is off by default and then costs the
+	// page nothing – no tab row, no designer code (it loads with a dynamic import() the first time Edit is switched on).
+	// On, the tabs Deck · Parameters · Nodes · Rust · Assignment HIDE the others (CSS), never unmount them: the deck below
+	// keeps its engine, relay and being whatever mode or tab is open. Everybody else sees the page as it was.
+	const tabsOn = $derived(mayDesign(session.roles));
+	const edit = new DeckEdit();
+	const editing = $derived(tabsOn && edit.on);
+	$effect(() => {
+		if (editing) void edit.ensure();
+	});
+	// the transport strip: the audio context running (false after Stop), the master level, the ladder's moods and the one held
+	let running = $state(false);
+	let level = $state(0);
+	let moodList = $state<string[]>([]);
+	let pinned = $state('');
+	function pinMood(mood: string) {
+		pinned = mood;
+		if (deck) deck.moods.pinned = mood || null;
+	}
+	/** Start the sound; once started: Stop (suspend the audio context) and Start again (resume) – the engine keeps its state */
+	async function play() {
+		if (!started) {
+			await start();
+			running = !!deck?.core;
+			return;
+		}
+		const ctx = deck?.core?.context;
+		if (!ctx) return;
+		if (ctx.state === 'running') await ctx.suspend();
+		else await ctx.resume();
+		running = ctx.state === 'running';
+	}
 	const cdn = `${CDN_SERVER}/`;
 	let host: HTMLDivElement | undefined = $state();
 	// the controls show the scene's values until the deck is there
@@ -201,6 +235,7 @@
 	}
 
 	onMount(() => {
+		edit.restore();
 		try {
 			sticksOn = localStorage.getItem(STICKS_KEY) !== '0';
 		} catch {
@@ -216,7 +251,11 @@
 			stats.load = Math.round((100 * s.renderPeakUs) / Math.max(1, s.budgetUs));
 			stats.lead = Math.round((1000 * s.lead) / core.context.sampleRate);
 			audioAlert = core.glitching() ? m['live_deck.dropout_alert']() : '';
+			running = core.context.state === 'running';
 		}, 250);
+		const meter = setInterval(() => {
+			if (tabsOn) level = deck?.bands.level ?? 0;
+		}, 80);
 		const bar = setInterval(() => {
 			stats.fps = frames.fps;
 			stats.cpu = frames.cpu;
@@ -242,6 +281,7 @@
 			};
 			deck.onMood = (md) => {
 				mood = md;
+				moodList = [...(deck?.moods.moods ?? [])];
 				showFace();
 				// #191: the mood's variant of the rig (its presets, its values) – the sliders follow by the mood's hand
 				if (rigBundle && space && deck) {
@@ -261,6 +301,7 @@
 				console.warn('live deck: no controls (the wasm is missing)', e);
 			}
 			await deck.pickCharacter(character);
+			moodList = [...deck.moods.moods];
 			showFace();
 			charactersOf(API_URL, character).then((list) => (characters = list));
 			if (!alive || !host) return;
@@ -310,6 +351,7 @@
 		return () => {
 			alive = false;
 			clearInterval(audio);
+			clearInterval(meter);
 			clearInterval(bar);
 			cancelAnimationFrame(raf);
 			ctl.close();
@@ -323,7 +365,9 @@
 		if (!deck) return;
 		character = id;
 		store.set(id);
+		pinMood('');
 		await deck.pickCharacter(id);
+		moodList = [...deck.moods.moods];
 		applyRig();
 		space?.setBeing();
 		ctl.load(id);
@@ -350,12 +394,44 @@
 	<meta name="robots" content="noindex" />
 </svelte:head>
 
-<div class="deck" data-testid="live-deck">
+<div class="page">
+	{#if tabsOn}
+		<div class="chrome" data-testid="deck-chrome">
+			<DeckTransport
+				{started}
+				{starting}
+				{running}
+				{level}
+				bpm={BPM}
+				{stats}
+				{character}
+				{characters}
+				{face}
+				{mood}
+				moods={moodList}
+				{pinned}
+				onplay={play}
+				onpick={pick}
+				onmood={pinMood}
+				{editing}
+				onedit={(on) => edit.set(on)}
+			/>
+			{#if editing}
+				{#if edit.mod}
+					<edit.mod.DesignerTabs value={edit.tab} onchange={(id) => edit.open(id)} />
+				{:else}
+					<p class="loading" role="status">{edit.failed ? m['live_deck.edit_failed']() : m['live_deck.edit_loading']()}</p>
+				{/if}
+			{/if}
+		</div>
+	{/if}
+	<div class="body">
+<div class="deck" class:away={editing && edit.tab !== 'deck'} data-testid="live-deck">
 	<div class="stage" bind:this={host}>
 		{#if !threeD && face}<img class="face" src={face} alt="" crossorigin="anonymous" />{/if}
 	</div>
 	<div class="top">
-		{#if character}
+		{#if character && !tabsOn}
 			<CharacterChip current={character} {characters} {face} {mood} onpick={pick} />
 		{/if}
 	</div>
@@ -400,14 +476,66 @@
 		<DeckSaveSheet bind:open={saveOpen} rig={playedRig} {values} locale={getLocale()} onsave={savePreset} />
 	{/if}
 </div>
+	{#if editing && edit.mod && edit.designer}
+		<div class="designer" class:away={edit.tab !== 'rust'} data-testid="designer-pane">
+			<edit.mod.RustTab designer={edit.designer} />
+		</div>
+	{/if}
+	</div>
+</div>
 
 <style>
-	.deck {
+	/* the page fills the screen: the creator's strip + tab row on top (#282), then the body – the deck and, over it, the
+	   designer. A tab not shown is hidden with visibility (it keeps its size and keeps running: the engine, the relay and
+	   the being are never unmounted). */
+	.page {
 		position: fixed;
+		inset: 0;
+		display: flex;
+		flex-direction: column;
+		background: var(--ink);
+		color: var(--paper);
+	}
+	/* the viewer's logo (3rem, top left) and its round menu toggle (top right) sit over the page's corners: the strip and the
+	   tab row start right of the logo, the strip ends left of the toggle */
+	.chrome {
+		flex: none;
+		z-index: 1;
+		padding: env(safe-area-inset-top) 0 0 calc(3rem + var(--space-05));
+		background: var(--ink);
+	}
+	.body {
+		position: relative;
+		flex: 1;
+		min-height: 0;
+	}
+	.deck {
+		position: absolute;
 		inset: 0;
 		background: var(--ink);
 		color: var(--paper);
 		overflow: hidden;
+	}
+	.designer {
+		position: absolute;
+		inset: 0;
+		z-index: 1;
+	}
+	.loading {
+		margin: 0;
+		padding: 0 var(--space-1);
+		min-height: var(--control-height);
+		display: flex;
+		align-items: center;
+		font-family: var(--font-mono);
+		font-size: 0.625rem;
+		text-transform: uppercase;
+		color: color-mix(in srgb, var(--paper) 60%, transparent);
+		border-top: 1px solid color-mix(in srgb, var(--paper) 15%, transparent);
+	}
+	.away {
+		visibility: hidden;
+		pointer-events: none;
 	}
 	.stage {
 		position: absolute;
