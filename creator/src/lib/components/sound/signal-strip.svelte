@@ -31,7 +31,7 @@
 	{#each list as o (name + o.channel)}
 		<div class="cell" class:dim={!o.active} title={o.source ? `${o.label} · ${o.source}` : undefined}>
 			<div class="bar bus" role="meter" aria-label={`${name} ${o.channel}`} aria-valuemin="0" aria-valuemax="1" aria-valuenow={o.position} style:background={zones}>
-				<b class="cover" style:height={pct(1 - o.position)}></b><i class="zero" style:bottom={pct(METER_MARKS.zero)}></i>
+				<span class="cover" style:height={pct(1 - o.position)}></span><i class="zero" style:bottom={pct(METER_MARKS.zero)}></i>
 			</div>
 			{#if o.source}<span class="lab">{o.label}</span>{:else}<span class="n">{o.channel}</span>{/if}
 		</div>
