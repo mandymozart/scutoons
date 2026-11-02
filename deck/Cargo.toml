@@ -55,6 +55,10 @@ opt-level = 2
 [profile.dev.package.deck-core]
 opt-level = 2
 
+# the synth renders eight voices a sample; its tests render seconds of audio (#331)
+[profile.dev.package.analog-module]
+opt-level = 2
+
 # the conformance probes render seconds of audio per test (#309)
 [profile.dev.package.deck-engine-lab]
 opt-level = 2

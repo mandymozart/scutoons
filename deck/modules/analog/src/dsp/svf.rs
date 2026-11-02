@@ -138,11 +138,11 @@ mod tests {
         let at = |m: Mode, f: f64| gain(m, 1000.0, 0.0, f);
         // low-pass: through below the cutoff, −3 dB at it (Q 0.707), 12 dB an octave above (2nd order)
         assert!((at(Mode::Lp, 50.0) - 1.0).abs() < 0.01);
-        assert!((at(Mode::Lp, 1000.0) - 0.7071).abs() < 0.01);
+        assert!((at(Mode::Lp, 1000.0) - core::f64::consts::FRAC_1_SQRT_2).abs() < 0.01);
         assert!(at(Mode::Lp, 8000.0) < 0.02);
         // high-pass: the mirror image
         assert!(at(Mode::Hp, 50.0) < 0.01);
-        assert!((at(Mode::Hp, 1000.0) - 0.7071).abs() < 0.01);
+        assert!((at(Mode::Hp, 1000.0) - core::f64::consts::FRAC_1_SQRT_2).abs() < 0.01);
         assert!((at(Mode::Hp, 15000.0) - 1.0).abs() < 0.05);
         // band-pass: peaks at the cutoff, with gain 1/k there, and falls away on both sides
         let k = damping(0.0);
