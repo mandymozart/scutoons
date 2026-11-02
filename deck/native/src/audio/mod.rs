@@ -21,7 +21,7 @@ pub mod ring;
 #[cfg(feature = "events")]
 pub mod sequencer;
 
-pub use deck_engine::{default_for, Block, Build, Clock, Meters, MusicFeed, Param, Sequencing, Stereo, Track, MAX_BLOCK};
+pub use deck_engine::{default_for, Block, Build, Clock, Meters, MusicFeed, Param, Sequencing, Stereo, Track, MAX_BLOCK, QUANTUM};
 
 use anyhow::Result;
 use deck_space::graph::Graph;

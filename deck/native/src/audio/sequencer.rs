@@ -11,6 +11,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
+// the sequencer's window is the render thread's block
+const _: () = assert!(BLOCK == super::ring::BLOCK);
+
 /// frames to stay ahead of the render: the device's buffer + the render lead + a block
 pub fn horizon(glitches: &Glitches) -> u64 {
     u64::from(glitches.device_frames().max(BLOCK as u32) + glitches.lead() + BLOCK as u32)

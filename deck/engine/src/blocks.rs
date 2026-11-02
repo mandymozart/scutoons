@@ -564,9 +564,10 @@ steps=[69, 81]
         let t = Track { rate: 48_000.0, l: vec![0.25; 64], r: vec![-0.25; 64] };
         h.music[0].tracks.push(Arc::new(t)).ok().unwrap();
         e.render(&mut buf, 2, |x| x);
-        // out after the limiter's look-ahead (#188)
-        let l = deck_core::limiter::LOOK;
-        assert_eq!((buf[2 * l - 2], buf[2 * l], buf[2 * l + 1]), (0.0, 0.25, -0.25));
+        // out after the limiter's look-ahead (#188); the first call took 100 frames of a 128-frame quantum, so the track
+        // (read at the next quantum) starts 28 frames into this one
+        let first = 28 + deck_core::limiter::LOOK;
+        assert_eq!((buf[2 * first - 2], buf[2 * first], buf[2 * first + 1]), (0.0, 0.25, -0.25));
         assert_eq!((buf[198], buf[199]), (0.25, -0.25), "looped past the 64-frame track");
     }
 

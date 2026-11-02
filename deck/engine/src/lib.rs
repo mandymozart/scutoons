@@ -45,6 +45,11 @@ pub type Stamp = SeqLock<2>;
 
 pub use blocks::default_for;
 
+/// The engine's quantum (plan 3.3, the browser's AudioWorklet quantum): it renders whole blocks of this many frames, one
+/// control read and one gain ramp per block, whatever size the platform asks for – the output is the same for a device
+/// buffer of 64, 480 or 1056 frames. `render` keeps the rest of a quantum for the next call.
+pub const QUANTUM: usize = 128;
+/// the largest block a `Block` may be asked for (the tests drive blocks directly with more than a quantum)
 pub const MAX_BLOCK: usize = 1024;
 /// the most input ports any audio kind has (the mixer: 4 audio + 4 gains)
 const MAX_PORTS: usize = 8;
@@ -96,15 +101,21 @@ impl Track {
     }
 }
 
-/// One stereo block buffer (MAX_BLOCK frames, a block uses the first `n`).
+/// One stereo block buffer (a block uses the first `n` frames).
 pub struct Stereo {
     pub l: Box<[f32]>,
     pub r: Box<[f32]>,
 }
 
 impl Stereo {
-    fn new() -> Stereo {
-        Stereo { l: vec![0.0; MAX_BLOCK].into(), r: vec![0.0; MAX_BLOCK].into() }
+    /// a buffer of `frames` frames
+    pub fn sized(frames: usize) -> Stereo {
+        Stereo { l: vec![0.0; frames].into(), r: vec![0.0; frames].into() }
+    }
+
+    /// a buffer of MAX_BLOCK frames (what the tests give a block they drive by hand)
+    pub fn new() -> Stereo {
+        Stereo::sized(MAX_BLOCK)
     }
 }
 
@@ -198,7 +209,9 @@ pub struct Engine {
     /// the output's soft cap (#188, deck-core's limiter.rs) – last before the device, instead of a hard clamp – and
     /// its block buffer
     limiter: Limiter,
+    /// the newest quantum after master and limiter, and how many of its last frames the platform has not taken yet
     mix: Stereo,
+    pending: usize,
     /// the deepest gain reduction (dB, f32 bits) since the frame thread last took it
     reduction: Arc<AtomicU32>,
     /// late blocks (`mark`): the count, and the last mark (frames rendered, heard at)
@@ -319,7 +332,7 @@ impl Engine {
                     let cv = node.kind.input("cv").and_then(|k| audio_in(graph, &buf_of, i, k));
                     batch.push([p("freq"), p("gain"), ratio, index], cv, blocks::env_coefs(rate, node));
                     buf_of[i] = Some(bufs.len());
-                    bufs.push(Stereo::new());
+                    bufs.push(Stereo::sized(QUANTUM));
                 }
                 batch.finish();
                 steps.push(Step::Voices(Box::new(batch)));
@@ -337,7 +350,7 @@ impl Engine {
                 let outs = if node.kind == Kind::AudioOut { 1 } else { node.kind.outputs().len() };
                 buf_of[i] = Some(bufs.len());
                 steps.push(Step::Node { block, inputs, out: bufs.len(), outs });
-                bufs.extend((0..outs).map(|_| Stereo::new()));
+                bufs.extend((0..outs).map(|_| Stereo::sized(QUANTUM)));
             }
         }
         let out_buf = graph.first(Kind::AudioOut).and_then(|i| buf_of[i]);
@@ -355,7 +368,8 @@ impl Engine {
             frames: handles.clock.frames.clone(),
             stamp: handles.clock.stamp.clone(),
             limiter: Limiter::new(rate),
-            mix: Stereo::new(),
+            mix: Stereo::sized(QUANTUM),
+            pending: 0,
             reduction: handles.reduction.clone(),
             underruns: handles.underruns.clone(),
             last_mark: None,
@@ -385,7 +399,8 @@ impl Engine {
     /// really comes out. A block heard later than the last one's end (by more than half a block + 2 ms of jitter) means
     /// the device ran dry in between – an underrun, counted for the HUD (#188).
     pub fn mark(&mut self, heard_ns: u64) {
-        let frames = self.frames.load(Ordering::Relaxed);
+        // the position of the next frame the platform takes: the rendered frontier less what is kept of a quantum
+        let frames = self.frames.load(Ordering::Relaxed) - self.pending as u64;
         let ns = |n: u64| (n as f64 * 1e9 / self.rate as f64) as u64;
         if let Some((f0, h0)) = self.last_mark {
             let n = frames.saturating_sub(f0);
@@ -397,51 +412,68 @@ impl Engine {
         self.stamp.write([frames, heard_ns + ns(limiter::LOOK as u64)]);
     }
 
-    /// Fill an interleaved device buffer (`channels` per frame; L, R, the rest silent). Never allocates.
+    /// Fill an interleaved device buffer (`channels` per frame; L, R, the rest silent) of any length. The engine renders
+    /// whole `QUANTUM`s (one control read and one master ramp each) and hands out their frames: what is left of the
+    /// last one waits for the next call. Never allocates.
     pub fn render<T: Copy>(&mut self, out: &mut [T], channels: usize, conv: impl Fn(f32) -> T) {
         let channels = channels.max(1);
         let total = out.len() / channels;
         let mut done = 0;
         while done < total {
-            let n = (total - done).min(MAX_BLOCK);
-            self.run(n);
-            if let Some(m) = &self.meters {
-                for (b, level) in self.bufs.iter().zip(m.levels.iter()) {
-                    let peak = b.l[..n].iter().chain(&b.r[..n]).fold(0.0f32, |p, x| p.max(x.abs()));
-                    level.store(peak.to_bits(), Ordering::Relaxed);
+            if self.pending == 0 {
+                self.quantum();
+            }
+            let from = QUANTUM - self.pending;
+            let take = (total - done).min(self.pending);
+            let frames = &mut out[done * channels..(done + take) * channels];
+            for (f, frame) in frames.chunks_exact_mut(channels).enumerate() {
+                let (l, r) = (self.mix.l[from + f], self.mix.r[from + f]);
+                if channels == 1 {
+                    frame[0] = conv(0.5 * (l + r));
+                    continue;
+                }
+                frame[0] = conv(l);
+                frame[1] = conv(r);
+                for x in &mut frame[2..] {
+                    *x = conv(0.0);
                 }
             }
-            let (from, to) = (self.gain, self.master.get());
-            self.gain = to;
-            let frames = &mut out[done * channels..(done + n) * channels];
-            match self.out_buf.map(|b| &self.bufs[b]) {
-                Some(o) => {
-                    // the master's ramp, then the soft limiter (never over 1, NaN = silence – no hard clamp, #188)
-                    let mix = &mut self.mix;
-                    for f in 0..n {
-                        let master = from + (to - from) * (f + 1) as f32 / n as f32;
-                        (mix.l[f], mix.r[f]) = (o.l[f] * master, o.r[f] * master);
-                    }
-                    self.limiter.process(&mut mix.l[..n], &mut mix.r[..n]);
-                    self.reduction.fetch_max(self.limiter.take_reduction().to_bits(), Ordering::Relaxed);
-                    for (f, frame) in frames.chunks_exact_mut(channels).enumerate() {
-                        let (l, r) = (mix.l[f], mix.r[f]);
-                        if channels == 1 {
-                            frame[0] = conv(0.5 * (l + r));
-                            continue;
-                        }
-                        frame[0] = conv(l);
-                        frame[1] = conv(r);
-                        for x in &mut frame[2..] {
-                            *x = conv(0.0);
-                        }
-                    }
-                }
-                None => frames.iter_mut().for_each(|x| *x = conv(0.0)),
-            }
-            done += n;
-            self.frames.fetch_add(n as u64, Ordering::Relaxed);
+            self.pending -= take;
+            done += take;
         }
+    }
+
+    /// One quantum: the steps, the meters, the master's ramp and the soft limiter into `mix` (silence without an
+    /// audio_out node), the frame counter on.
+    fn quantum(&mut self) {
+        let n = QUANTUM;
+        self.run(n);
+        if let Some(m) = &self.meters {
+            for (b, level) in self.bufs.iter().zip(m.levels.iter()) {
+                let peak = b.l[..n].iter().chain(&b.r[..n]).fold(0.0f32, |p, x| p.max(x.abs()));
+                level.store(peak.to_bits(), Ordering::Relaxed);
+            }
+        }
+        let (from, to) = (self.gain, self.master.get());
+        self.gain = to;
+        match self.out_buf.map(|b| &self.bufs[b]) {
+            Some(o) => {
+                // the master's ramp, then the soft limiter (never over 1, NaN = silence – no hard clamp, #188)
+                let mix = &mut self.mix;
+                for f in 0..n {
+                    let master = from + (to - from) * (f + 1) as f32 / n as f32;
+                    (mix.l[f], mix.r[f]) = (o.l[f] * master, o.r[f] * master);
+                }
+                self.limiter.process(&mut mix.l[..n], &mut mix.r[..n]);
+                self.reduction.fetch_max(self.limiter.take_reduction().to_bits(), Ordering::Relaxed);
+            }
+            None => {
+                self.mix.l[..n].fill(0.0);
+                self.mix.r[..n].fill(0.0);
+            }
+        }
+        self.pending = n;
+        self.frames.fetch_add(n as u64, Ordering::Relaxed);
     }
 
     fn run(&mut self, n: usize) {
@@ -512,7 +544,7 @@ mod tests {
         e.render(&mut buf, 2, |x| x);
         let peak = buf.iter().fold(0.0f32, |m, x| m.max(x.abs()));
         assert!(peak > 0.3 && peak <= 0.5 + 1e-3, "peak {peak}");
-        assert_eq!(h.clock.frames.load(Ordering::Relaxed), 4800);
+        assert_eq!(h.clock.frames.load(Ordering::Relaxed), 4864, "4800 frames = 37.5 quanta: the engine has rendered 38");
     }
 
     #[test]
@@ -706,6 +738,44 @@ to=\"sum.in4\"
         let avx2 = Build { batch: true, avx2: true };
         assert_eq!(compare(&voices("fm", 13, ""), BASELINE, avx2), 0.0);
         assert_eq!(compare(&voices("osc", 16, ""), BASELINE, avx2), 0.0);
+    }
+
+    /// The quantum makes the output independent of the platform's buffer size: the same scene (voices on a sequencer's
+    /// cv, a mixer, the limiter, a master ramp at the start) through callbacks of 37, 128, 480 and 1056 frames gives the
+    /// same bits, and `mark` reports the position of the next frame the callback takes (not the rendered frontier).
+    #[test]
+    fn the_output_does_not_depend_on_the_buffer_size() {
+        let g = Graph::build(&Scene::parse(&voices("fm", 8, "")).unwrap()).unwrap();
+        let render = |size: usize| {
+            let (mut e, h) = Engine::build_with(&g, 48_000.0, 1.0, Build::detect()).unwrap();
+            let mut all = Vec::new();
+            let mut buf = vec![0.0f32; size * 2];
+            h.master.set(0.5); // a ramp from 1 in the first quantum
+            while all.len() < 48_000 * 2 {
+                e.mark(0);
+                e.render(&mut buf, 2, |x| x);
+                all.extend_from_slice(&buf);
+            }
+            all.truncate(48_000 * 2);
+            all
+        };
+        let reference = render(128);
+        assert!(reference.iter().any(|x| x.abs() > 0.01), "the scene sounds");
+        for size in [37, 480, 1056] {
+            assert!(render(size) == reference, "callbacks of {size} frames change the sound");
+        }
+    }
+
+    #[test]
+    fn marks_say_where_the_next_frame_is() {
+        let (mut e, h) = engine(OSC_OUT);
+        let mut buf = vec![0.0f32; 100 * 2];
+        e.mark(1_000_000_000);
+        e.render(&mut buf, 2, |x| x);
+        assert_eq!(h.clock.rendered(), QUANTUM as u64, "a whole quantum is rendered");
+        e.mark(1_000_000_000 + 2_083_333);
+        let (_, [frames, _]) = h.clock.stamp.read().unwrap();
+        assert_eq!(frames, 100, "the next frame the callback takes is the hundredth");
     }
 
     #[test]

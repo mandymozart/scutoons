@@ -8,7 +8,7 @@
 //! Same sound as the blocks they replace (blocks.rs: the patcher build's scalar sine / FM + the same envelope): the
 //! phases start at `START_PHASE` and step by the same seconds-per-sample, the sine is deck-core's polynomial. lib.rs's
 //! tests compare the two paths.
-use super::{Param, Stereo, MAX_BLOCK};
+use super::{Param, Stereo, QUANTUM};
 use deck_space::graph::{Kind, Node};
 use deck_core::dsp::START_PHASE;
 use deck_core::lanes::{self as v, F8, LANES};
@@ -79,7 +79,7 @@ pub(super) struct Voices {
     sd: f32,
     avx2: bool,
     groups: Vec<Group>,
-    /// this block's pitch, gate and output per group and frame: group g, frame s at `g * MAX_BLOCK + s`
+    /// this block's pitch, gate and output per group and frame: group g, frame s at `g * QUANTUM + s`
     f: Vec<Lanes>,
     gate: Vec<Lanes>,
     y: Vec<Lanes>,
@@ -120,7 +120,7 @@ impl Voices {
 
     /// Allocate the per-block arrays – after the last `push`, before the callback runs.
     pub(super) fn finish(&mut self) {
-        let n = self.groups.len() * MAX_BLOCK;
+        let n = self.groups.len() * QUANTUM;
         for v in [&mut self.f, &mut self.gate, &mut self.y] {
             *v = vec![[0.0; LANES]; n];
         }
@@ -152,7 +152,7 @@ impl Voices {
                 }
                 (group.p[k][l], group.d[k][l]) = ramp.block(x, frames);
             }
-            let (f, gate) = (&mut self.f[g * MAX_BLOCK..][..frames], &mut self.gate[g * MAX_BLOCK..][..frames]);
+            let (f, gate) = (&mut self.f[g * QUANTUM..][..frames], &mut self.gate[g * QUANTUM..][..frames]);
             match *cv {
                 Some(b) => {
                     for (s, (f, gate)) in f.iter_mut().zip(gate).enumerate() {
@@ -180,7 +180,7 @@ impl Voices {
         self.kernel(frames);
         for (i, o) in outs.iter_mut().enumerate().take(self.len()) {
             let (g, l) = (i / LANES, i % LANES);
-            for (s, y) in self.y[g * MAX_BLOCK..][..frames].iter().enumerate() {
+            for (s, y) in self.y[g * QUANTUM..][..frames].iter().enumerate() {
                 (o.l[s], o.r[s]) = (y[l], y[l]);
             }
         }
@@ -197,7 +197,7 @@ impl Voices {
     #[inline(always)]
     fn kernel(&mut self, frames: usize) {
         for (g, group) in self.groups.iter_mut().enumerate() {
-            let r = g * MAX_BLOCK..g * MAX_BLOCK + frames;
+            let r = g * QUANTUM..g * QUANTUM + frames;
             run(self.kind, group, &self.f[r.clone()], &self.gate[r.clone()], &mut self.y[r], self.sd);
         }
     }
