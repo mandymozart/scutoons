@@ -537,25 +537,31 @@ fn pipewire(o: &Options, factory: &mut Factory) -> Result<Running> {
     let silent = Arc::new(AtomicBool::new(false));
     let (closing_cb, silent_cb) = (closing.clone(), silent.clone());
     let mut fade = Fade::new(RATE as f32, FADE_SECS);
+    let want = o.device.clone();
     let thread = std::thread::Builder::new().name("pipewire".into()).spawn(move || {
         let run = || -> Result<(), pw::Error> {
             pw::init();
             let mainloop = pw::main_loop::MainLoopRc::new(None)?;
             let context = pw::context::ContextRc::new(&mainloop, None)?;
             let core = context.connect_rc(None)?;
-            let stream = pw::stream::StreamBox::new(
-                &core,
-                "deck-stage",
-                pw::properties::properties! {
-                    *pw::keys::MEDIA_TYPE => "Audio",
-                    *pw::keys::MEDIA_ROLE => "Music",
-                    *pw::keys::MEDIA_CATEGORY => "Playback",
-                    *pw::keys::NODE_NAME => "deck-stage",
-                    *pw::keys::APP_NAME => "SCUTOONS deck stage",
-                    *pw::keys::NODE_LATENCY => latency.as_str(),
-                    *pw::keys::AUDIO_CHANNELS => "2",
-                },
-            )?;
+            // #285: a named device (`--audio-device`, deck.toml `audio_device`) picks the sink; none = the default sink
+            let target = match want.as_deref() {
+                Some(w) => find_sink(&mainloop, &core, w)?,
+                None => None,
+            };
+            let mut props = pw::properties::properties! {
+                *pw::keys::MEDIA_TYPE => "Audio",
+                *pw::keys::MEDIA_ROLE => "Music",
+                *pw::keys::MEDIA_CATEGORY => "Playback",
+                *pw::keys::NODE_NAME => "deck-stage",
+                *pw::keys::APP_NAME => "SCUTOONS deck stage",
+                *pw::keys::NODE_LATENCY => latency.as_str(),
+                *pw::keys::AUDIO_CHANNELS => "2",
+            };
+            if let Some(t) = &target {
+                props.insert(*pw::keys::TARGET_OBJECT, t.as_str());
+            }
+            let stream = pw::stream::StreamBox::new(&core, "deck-stage", props)?;
             let _listener = stream
                 .add_local_listener_with_user_data(())
                 .process(move |stream, _| {
@@ -648,6 +654,63 @@ fn pipewire(o: &Options, factory: &mut Factory) -> Result<Running> {
         }
         Ok(Err(e)) => bail!("{e}"),
         Err(_) => bail!("no answer from PipeWire within 3 s"),
+    }
+}
+
+/// #285: the PipeWire sink a device name picks – the first `Audio/Sink` node (not an internal one) whose `node.name`
+/// or `node.description` holds `want` (any case), from one registry round trip on the loop before the stream opens.
+/// On the deck the RME in the Pro Audio profile is `alsa_output.usb-RME_Fireface_UCX_II…pro-output-0`, so
+/// `audio_device = "Fireface"` finds it. No match: a WARN with the sinks there are, and the default sink plays.
+#[cfg(all(target_os = "linux", feature = "pipewire"))]
+fn find_sink(mainloop: &pipewire::main_loop::MainLoopRc, core: &pipewire::core::CoreRc, want: &str) -> Result<Option<String>, pipewire::Error> {
+    use pipewire as pw;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+    let registry = core.get_registry_rc()?;
+    let sinks: Rc<RefCell<Vec<(String, String)>>> = Rc::new(RefCell::new(Vec::new()));
+    let seen = sinks.clone();
+    let _globals = registry
+        .add_listener_local()
+        .global(move |g| {
+            if g.type_ != pw::types::ObjectType::Node {
+                return;
+            }
+            let Some(p) = g.props.as_ref() else { return };
+            if p.get("media.class") != Some("Audio/Sink") {
+                return;
+            }
+            let name = p.get("node.name").unwrap_or_default().to_string();
+            let description = p.get("node.description").unwrap_or_default().to_string();
+            seen.borrow_mut().push((name, description));
+        })
+        .register();
+    // the registry's globals arrive before the sync's done: run the loop until then
+    let pending = core.sync(0)?;
+    let weak = mainloop.downgrade();
+    let _done = core
+        .add_listener_local()
+        .done(move |id, seq| {
+            if id == pw::core::PW_ID_CORE && seq == pending {
+                if let Some(m) = weak.upgrade() {
+                    m.quit();
+                }
+            }
+        })
+        .register();
+    mainloop.run();
+    let sinks = sinks.borrow();
+    let w = want.to_lowercase();
+    let hit = sinks.iter().find(|(n, d)| n.to_lowercase().contains(&w) || d.to_lowercase().contains(&w));
+    match hit {
+        Some((name, description)) => {
+            tracing::info!("audio: PipeWire sink '{description}' ({name}) for '{want}'");
+            Ok(Some(name.clone()))
+        }
+        None => {
+            let names: Vec<&str> = sinks.iter().map(|(_, d)| d.as_str()).collect();
+            tracing::warn!("audio: no PipeWire sink matches '{want}' (there are: {}) – the default sink plays", names.join(", "));
+            Ok(None)
+        }
     }
 }
 
