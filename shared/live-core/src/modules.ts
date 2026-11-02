@@ -1,6 +1,6 @@
 // The browser's module host (#280): runs a rig module – wasm built against deck/module (the SDK, ABI v1:
 // deck/module/README.md) – natively in the browser's engine, the same `.wasm` the deck's wasmtime host runs
-// (deck/stage/src/module_host.rs). No wasm-bindgen: the descriptor comes out of the `deck.module` custom section
+// (deck/native/src/module_host.rs). No wasm-bindgen: the descriptor comes out of the `deck.module` custom section
 // without instantiating, `Io` is read and written through the generated offsets (module-abi.ts), one import
 // (`env.deck_log`, rate-limited). A trap silences the instance – never the page. Run it in the worker, off the main
 // thread: a browser has no epoch budget, a runaway loop is the worker's to terminate (the engine's watchdog).

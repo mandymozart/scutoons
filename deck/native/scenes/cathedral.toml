@@ -1,0 +1,254 @@
+# The Cathedral of decks (#188) – a deck: the set `cathedral` from Cat Pope chapter 2 – the sermon's cathedral (the owner's
+# Unreal export, agents/research/LOCATION-SCENES.md §7) – and this deck's being floating in the nave: its graph as a
+# body, node points with their parameters as 3D buttons, the links as hoses with bubbles, its head the character's
+# portrait (phase 5). With a relay set (deck.toml `relay` or --relay) it joins the session as a deck (`join` below) and
+# streams its being to the conductor (scenes/conductor.toml). Run it:
+#   cargo run --release -p deck-native -- --scene cathedral --windowed
+# (the sync fetches the set and the portraits into the cache; local copies instead: --sets ../media/scutoons/rooms
+#  --portraits ../media/characters)
+# Mouse: drag = turn the camera (or a button's value), wheel = zoom; ← → turn, ↑ ↓ zoom, R the camera's home.
+
+[stage]
+name = "Cathedral of decks"
+render_scale = 1.0
+
+# the being's shape (space/being.rs; the colours are the space node's hue / glow below) and its head: the character
+# whose portrait mood sprites it wears (<character>_portrait-<mood>.png under --portraits); `moods` = calm → wild, the
+# energy (the FFT level, the tempo) walks through them
+[being]
+character = "catpope"
+moods = ["neutral", "thinking", "happy", "laughing", "surprised"]
+size = 0.5
+drift = 0.06
+breath = 0.04
+wobble = 0.025
+
+# feedback → emotion (space/feel.rs): a rule reads `when` (node.port – the node by id, else by kind -, bpm, touch,
+# energy, phrase = 0..8 through an 8-bar phrase), tests it (above / below, rising / falling = a jump over the last half
+# second, steady = moved less than `by` for that many s) and shows its mood for at least `hold` s; the heaviest
+# `weight` wins, a mood shown 6 s rests `cooldown` s (4); none firing = the energy's ladder above. Arbitrary on purpose
+# (owner 2026-10-30: "the main thing is that we get a change") – every mood of the set has one.
+feel = [
+  { mood = "smug", when = "touch", above = 0.5, weight = 6 },
+  { mood = "embarrassed", when = "touch", falling = 0.3, weight = 6, hold = 2 },
+  { mood = "dizzy", when = "strain", above = 0.4, weight = 7, hold = 2 },
+  { mood = "dizzy", when = "sway.shape", rising = 0.5, weight = 6, hold = 3 },
+  { mood = "surprised", when = "fft.bass", rising = 0.12, weight = 5, hold = 1.2 },
+  { mood = "scared", when = "fft.level", rising = 0.2, weight = 5 },
+  { mood = "angry", when = "fft.high", rising = 0.08, weight = 4, hold = 1 },
+  { mood = "dying", when = "fft.level", below = 0.015, for = 1.5, weight = 4 },
+  { mood = "tripping", when = "sway.rate", above = 0.8, weight = 4 },
+  { mood = "furious", when = "voice.index", above = 4.5, weight = 3 },
+  { mood = "confused", when = "voice.ratio", above = 2.2, weight = 3 },
+  { mood = "crying", when = "fft.level", falling = 0.15, weight = 3 },
+  { mood = "laughing", when = "bpm", above = 104, weight = 2 },
+  { mood = "happy", when = "fft.mid", above = 0.3, for = 1, weight = 2, chance = 0.5, cooldown = 12 },
+  { mood = "disgusted", when = "incense.cutoff", below = 800, weight = 2 },
+  { mood = "denial", when = "phrase", above = 7, weight = 2 },
+  { mood = "bargaining", when = "phrase", above = 3, below = 3.5, weight = 2, chance = 0.6 },
+  { mood = "sad", when = "fft.bass", below = 0.04, for = 2 },
+  { mood = "thinking", when = "fft.level", steady = 3, by = 0.06 },
+  { mood = "acceptance", when = "energy", steady = 5, by = 0.08 },
+  { mood = "neutral", when = "phrase", below = 0.25 },
+]
+# emotion → sound: when the head turns to `mood`, `set` (an unlinked input) is kicked `by` / `to` over `attack` s
+# (0.25) and eases back over `release` s (2) – several chain into the rules above (surprised → furious, laughing →
+# tripping, smug → confused). Gentle on the sound (#188, owner 2026-10-31: the nudges sounded like dropouts): no gain
+# ducks deeper than 6 dB, the sound's attacks take ≥ 0.15 s, dying fades instead of falling silent; the output
+# limiter straining makes it dizzy (`strain`)
+react = [
+  { mood = "neutral", set = "space.light", by = 0.15, release = 3 },
+  { mood = "thinking", set = "voice.index", by = -1.2, attack = 0.5, release = 4 },
+  { mood = "thinking", set = "mix.gain4", by = -0.5, attack = 0.5, release = 4 },
+  { mood = "happy", set = "space.hue", by = 0.12, release = 3 },
+  { mood = "happy", set = "sway.depth", by = 0.5, release = 3 },
+  { mood = "laughing", set = "seq.rate", by = 1, attack = 0.3, release = 4 },
+  { mood = "laughing", set = "sway.rate", by = 0.9, release = 4 },
+  { mood = "smug", set = "voice.ratio", by = 0.8, release = 3 },
+  { mood = "smug", set = "space.glow", by = 0.3, release = 2 },
+  { mood = "surprised", set = "space.glow", by = 0.6, attack = 0.03, release = 0.8 },
+  { mood = "surprised", set = "drone.freq", by = 20, attack = 0.15, release = 0.8 },
+  { mood = "surprised", set = "voice.index", by = 3, release = 2 },
+  { mood = "scared", set = "space.light", by = -0.4, attack = 0.05, release = 1.5 },
+  { mood = "scared", set = "incense.gain", by = 0.05, attack = 0.3, release = 1.5 },
+  { mood = "furious", set = "space.hue", to = 0.0, attack = 0.2, release = 3 },
+  { mood = "furious", set = "space.glow", by = 0.5, release = 3 },
+  { mood = "furious", set = "voice.gain", by = 0.05, attack = 0.3, release = 2 },
+  { mood = "angry", set = "drone.freq", by = -10, attack = 0.3, release = 1.5 },
+  { mood = "angry", set = "space.hue", to = 0.03, release = 1.5 },
+  { mood = "disgusted", set = "space.hue", to = 0.22, release = 3 },
+  { mood = "disgusted", set = "voice.ratio", by = 1.27, release = 2.5 },
+  { mood = "embarrassed", set = "space.hue", to = 0.95, release = 2.5 },
+  { mood = "embarrassed", set = "voice.gain", by = -0.08, attack = 0.4, release = 2 },
+  { mood = "confused", set = "seq.rate", by = -0.5, release = 3 },
+  { mood = "confused", set = "sway.depth", by = -0.6, release = 3 },
+  { mood = "dizzy", set = "sway.rate", by = 1.5, release = 4 },
+  { mood = "dizzy", set = "space.light", by = -0.2, release = 2 },
+  { mood = "tripping", set = "space.hue", by = 0.5, attack = 1, release = 5 },
+  { mood = "tripping", set = "voice.ratio", by = 0.75, release = 4 },
+  { mood = "sad", set = "space.hue", to = 0.64, release = 4 },
+  { mood = "sad", set = "music.gain", by = -0.2, attack = 0.8, release = 4 },
+  { mood = "crying", set = "voice.index", by = -1.5, release = 3 },
+  { mood = "crying", set = "space.glow", by = -0.3, release = 3 },
+  { mood = "dying", set = "space.light", by = -0.5, attack = 1, release = 4 },
+  { mood = "dying", set = "drone.freq", by = -6, attack = 1.5, release = 4 },
+  { mood = "dying", set = "voice.gain", by = -0.06, attack = 1.5, release = 4 },
+  { mood = "denial", set = "mix.gain1", by = -0.5, attack = 0.4, release = 1.8 },
+  { mood = "bargaining", set = "voice.ratio", by = -0.5, release = 3 },
+  { mood = "bargaining", set = "seq.rate", by = 0.5, release = 3 },
+  { mood = "acceptance", set = "space.glow", by = -0.2, release = 5 },
+  { mood = "acceptance", set = "space.light", by = 0.1, release = 5 },
+]
+
+[[node]]
+id = "tempo"
+kind = "tempo"
+bpm = 84
+beats = 4
+source = "internal"
+
+# the sermon's chapter: its music under everything (cached; offline the rest still plays)
+[[node]]
+id = "music"
+kind = "chapter_music"
+toon = "catpope"
+chapter = 2
+quality = "low"
+gain = 0.55
+
+# the choir's line, on the beat
+[[node]]
+id = "seq"
+kind = "seq"
+division = 2
+gate = 0.6
+steps = [50, 0, 57, 55, 53, 0, 52, 50]
+
+[[node]]
+id = "voice"
+kind = "fm"
+ratio = 1.5
+index = 2.0
+gain = 0.16
+attack = 0.02
+release = 0.4
+
+[[node]]
+id = "drone"
+kind = "osc"
+freq = 55
+gain = 0.1
+
+[[node]]
+id = "incense"
+kind = "noise"
+color = "pink"
+cutoff = 1800
+gain = 0.03
+
+# the incense sways slowly
+[[node]]
+id = "sway"
+kind = "lfo"
+rate = 0.07
+
+[[node]]
+id = "mix"
+kind = "mixer"
+gain1 = 1.0
+gain2 = 1.0
+gain3 = 1.0
+gain4 = 1.0
+
+[[node]]
+id = "fft"
+kind = "fft"
+release = 0.35
+
+[[node]]
+id = "out"
+kind = "audio_out"
+volume = 0.8
+
+# the space: the set by id (its 3D at `quality`: <sets>/cathedral/cathedral.<quality>.glb, synced from the API), where
+# the being floats (`at` in the set's metres – in the nave, ahead of the reader's view; or `spot` = a spot of the set +
+# `lift`), the camera's start (yaw / pitch in degrees, distance in metres – yaw 279 looks the way the reader's view
+# does); hue / glow colour the being, light dims the set, pulse kicks its breath; `join` = how it takes part in a session with a relay set (deck · conductor ·
+# alone)
+[[node]]
+id = "space"
+kind = "space"
+set = "cathedral"
+quality = "low"
+at = [2.4, 0.2, 5.2]
+yaw = 279
+pitch = 6
+distance = 2.4
+hue = 0.52
+glow = 0.6
+light = 0.85
+join = "deck"
+# the post stack (#204, deck-space post.rs): passes in this order after the space is drawn – bloom, curves (lift /
+# gamma / gain), pixelate (block size in render pixels, `levels` per channel, or `palette` = ["#rrggbb", …]), FXAA. Their
+# knobs are the space node's control inputs (link them, nudge them from `react`); one at neutral costs nothing (curves at
+# 0 / 1 / 1, pixel 1 without levels or palette), a pass not listed doesn't exist
+post = ["bloom", "curves", "pixelate", "fxaa"]
+bloom = 0.6
+threshold = 0.55
+# the being's core lights the room (#204): `glow_range` (m) how far, `glow_light` how strong (0 = off) – its colour the
+# hue, its strength glow + the level's pulse
+glow_range = 7.0
+glow_light = 1.0
+
+[[node]]
+id = "screen"
+kind = "screen"
+
+[[link]]
+from = "seq.cv"
+to = "voice.cv"
+
+[[link]]
+from = "music"
+to = "mix.in1"
+
+[[link]]
+from = "voice"
+to = "mix.in2"
+
+[[link]]
+from = "drone"
+to = "mix.in3"
+
+[[link]]
+from = "incense"
+to = "mix.in4"
+
+[[link]]
+from = "mix"
+to = "fft.in"
+
+[[link]]
+from = "mix"
+to = "out.in"
+
+[[link]]
+from = "sway"
+to = "incense.cutoff"
+scale = 3000
+offset = 600
+
+[[link]]
+from = "fft.level"
+to = "space.pulse"
+scale = 0.6
+
+[[link]]
+from = "fft.bass"
+to = "drone.gain"
+scale = 0.25
+offset = 0.04
+
+[[link]]
+from = "space"
+to = "screen.in"

@@ -12,8 +12,8 @@
 //! own being. This module holds the CPU side; the renderer draws what it says. The conductor pushes the scene's sync
 //! (#195, `push_sync`) and shows each deck's answer over its being and in the HUD (sync.rs).
 //!
-//! deck-space (#198): the same code on the deck (deck-stage) and in the browser (deck/space-web). What is native stays
-//! behind the feature `native` (the set's loader thread and file, the portraits') or in deck-stage (the relay link, a
+//! deck-space (#198): the same code on the deck (deck-native) and in the browser (deck/space-web). What is native stays
+//! behind the feature `native` (the set's loader thread and file, the portraits') or in deck-native (the relay link, a
 //! `Wire`); a host without threads hands a set in with `set_arrived`.
 pub mod being;
 pub mod camera;
@@ -181,7 +181,7 @@ pub struct Space {
     pub join: Join,
     /// a deck: what it streams of its being
     stream: Option<stream::Stream>,
-    /// the session's relay link (deck-stage's link.rs)
+    /// the session's relay link (deck-native's link.rs)
     link: Option<Box<dyn Wire>>,
     /// the session's state in a word (the HUD): alone, no relay, the link's status
     note: String,
@@ -338,7 +338,7 @@ impl Space {
         (self.join == Join::Deck).then(|| wire::deck_graph(&self.graph, &self.being.look, &self.being.moods))
     }
 
-    /// The session's link (deck-stage's link.rs: the relay at `ws://host:port/live/<code>`, joined as the space node's
+    /// The session's link (deck-native's link.rs: the relay at `ws://host:port/live/<code>`, joined as the space node's
     /// `join` says – a deck streams its being, the conductor gathers the decks'), or why there is none (the HUD).
     pub fn attach(&mut self, link: Result<Box<dyn Wire>, String>) {
         match link {

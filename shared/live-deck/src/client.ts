@@ -1,5 +1,5 @@
 // client.ts (#197, @scutoons/live-deck since #198): the browser deck's relay logic, platform-free (a WebSocket constructor is injected) so Node
-// tests it against a real relay. The same contract as a native deck (deck/stage/src/space/link.rs + deck/space's stream.rs):
+// tests it against a real relay. The same contract as a native deck (deck/native/src/space/link.rs + deck/space's stream.rs):
 // - joins `ws://host:port/live/<code>?role=musician&group=decks` and says `hello` first;
 // - on `welcome` sends its being (`deck.graph`), then a keyframe of every value sent so far, then only changes;
 // - `ValueStream.sample` = stream.rs: at most RATE samples a second, a value only when it moved more than its epsilon,

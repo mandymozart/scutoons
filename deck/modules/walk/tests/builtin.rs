@@ -1,7 +1,7 @@
 //! The proof (#280): the `walk` module plays what the built-in `walk` node plays – the same notes at the same beats
 //! with the same pitches, and the same cv samples (pitch left, gate right) – for the same params, seed and tempo,
 //! however the timeline is cut into blocks. The module runs natively here through the SDK's `Rig` (the same `rt` code the
-//! wasm exports call); the stage's tests run the compiled .wasm against the same built-in (deck-stage, feature `modules`).
+//! wasm exports call); the stage's tests run the compiled .wasm against the same built-in (deck-native, feature `modules`).
 use deck_core::tempo::TempoMap;
 use deck_events::bridge::GateCv;
 use deck_events::generator::{Inbox, Outbox, Span};

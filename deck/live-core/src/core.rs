@@ -39,7 +39,7 @@ pub struct Core {
 }
 
 impl Core {
-    /// A scene in deck/stage's TOML format (the edge: text, once). Only the batch kinds (lfo, smooth, mul, add, osc, fm),
+    /// A scene in deck/native's TOML format (the edge: text, once). Only the batch kinds (lfo, smooth, mul, add, osc, fm),
     /// plus `[[walk]]`s that play a batch input (walks.rs).
     pub fn load(scene_toml: &str, rate: f32) -> Result<Core, String> {
         let scene = SceneDef::parse(scene_toml)?;

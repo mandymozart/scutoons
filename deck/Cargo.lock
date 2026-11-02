@@ -963,8 +963,8 @@ version = "0.1.0"
 dependencies = [
  "deck-core",
  "deck-engine-lab",
+ "deck-native",
  "deck-space",
- "deck-stage",
  "fundsp",
  "live-core",
  "rustfft",
@@ -1048,50 +1048,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "deck-outputs"
-version = "0.1.0"
-dependencies = [
- "adapters-core",
- "adapters-dmx-usbpro",
- "anyhow",
- "protocol",
- "serde",
- "tokio",
- "toml 0.8.23",
- "tracing",
-]
-
-[[package]]
-name = "deck-scene-features"
-version = "0.1.0"
-dependencies = [
- "deck-core",
- "toml 0.8.23",
-]
-
-[[package]]
-name = "deck-space"
-version = "0.1.0"
-dependencies = [
- "ab_glyph",
- "anyhow",
- "bytemuck",
- "deck-catalog",
- "deck-core",
- "deck-events",
- "glam",
- "image",
- "protocol",
- "schemars",
- "serde",
- "serde_json",
- "toml 0.8.23",
- "tracing",
- "wgpu",
-]
-
-[[package]]
-name = "deck-stage"
+name = "deck-native"
 version = "0.1.0"
 dependencies = [
  "ab_glyph",
@@ -1137,6 +1094,49 @@ dependencies = [
  "wgpu",
  "windows-sys 0.59.0",
  "winit",
+]
+
+[[package]]
+name = "deck-outputs"
+version = "0.1.0"
+dependencies = [
+ "adapters-core",
+ "adapters-dmx-usbpro",
+ "anyhow",
+ "protocol",
+ "serde",
+ "tokio",
+ "toml 0.8.23",
+ "tracing",
+]
+
+[[package]]
+name = "deck-scene-features"
+version = "0.1.0"
+dependencies = [
+ "deck-core",
+ "toml 0.8.23",
+]
+
+[[package]]
+name = "deck-space"
+version = "0.1.0"
+dependencies = [
+ "ab_glyph",
+ "anyhow",
+ "bytemuck",
+ "deck-catalog",
+ "deck-core",
+ "deck-events",
+ "glam",
+ "image",
+ "protocol",
+ "schemars",
+ "serde",
+ "serde_json",
+ "toml 0.8.23",
+ "tracing",
+ "wgpu",
 ]
 
 [[package]]

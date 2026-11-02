@@ -1,11 +1,11 @@
 //! Shared by the probes: the kinds' scenes, the two renderers (the native deck's engine, live-core after `lower()`),
 //! the comparison numbers and the hash. Everything renders 2 s at 48 kHz.
 #![allow(dead_code)]
-use deck_stage::audio::{Build, Engine};
-use deck_stage::control::Controls;
-use deck_stage::graph::Graph;
-use deck_stage::scene::Scene;
-use deck_stage::tempo::Now;
+use deck_native::audio::{Build, Engine};
+use deck_native::control::Controls;
+use deck_native::graph::Graph;
+use deck_native::scene::Scene;
+use deck_native::tempo::Now;
 
 pub const RATE: f32 = 48_000.0;
 pub const FRAMES: usize = 2 * 48_000;

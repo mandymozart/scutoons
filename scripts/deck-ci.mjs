@@ -53,9 +53,9 @@ const steps = [
 			]),
 	['🦀 tests', 'cargo', ['test', '--workspace'], `${root}/deck`],
 	// the stage's `modules` feature is not in its default, so the workspace run never builds it (#305)
-	['🧩 module tests', 'cargo', ['test', '-p', 'deck-stage', '--features', 'modules', '--test', 'modules'], `${root}/deck`],
+	['🧩 module tests', 'cargo', ['test', '-p', 'deck-native', '--features', 'modules', '--test', 'modules'], `${root}/deck`],
 	['🦀 clippy', 'cargo', ['clippy', '--workspace', '--all-targets', '--', '-D', 'warnings'], `${root}/deck`],
-	['🧩 module clippy', 'cargo', ['clippy', '-p', 'deck-stage', '--features', 'modules', '--all-targets', '--', '-D', 'warnings'], `${root}/deck`]
+	['🧩 module clippy', 'cargo', ['clippy', '-p', 'deck-native', '--features', 'modules', '--all-targets', '--', '-D', 'warnings'], `${root}/deck`]
 ];
 
 const started = Date.now();

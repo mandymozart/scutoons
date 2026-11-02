@@ -1,6 +1,6 @@
 # deck-core – the platform-free core of the stage (#182, research/LIVE-NIGHT-2026-10-29.md §4): the module registry, the
 # control graph and the DSP / analysis modules. No GPU, no audio device, no network – so the same crate builds for the
-# deck (native, deck/stage) and for the browser (wasm32, deck/lab/core-wasm in a Web Worker).
+# deck (native, deck/native) and for the browser (wasm32, deck/lab/core-wasm in a Web Worker).
 # A module is a cargo feature: a build carries only the modules its scenes need (deck/scene-features).
 [package]
 name = "deck-core"
@@ -18,7 +18,7 @@ control = []
 synth = []
 # sound → control values (an FFT: level, bass, mid, high)
 analysis = ["dep:rustfft"]
-# the tempo map (beat = f(audio frame)), quantize grids, tap tempo, the least squares fit – deck/stage's tempo clock
+# the tempo map (beat = f(audio frame)), quantize grids, tap tempo, the least squares fit – deck/native's tempo clock
 tempo = []
 
 [dependencies]

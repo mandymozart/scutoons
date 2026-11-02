@@ -1,6 +1,6 @@
 //! A deck's being on the wire (#188 phase 4, LIVE.md B.6): `deck.graph` from a graph and its look (`deck_graph`) and
 //! back (`from_wire`) – the conductor builds every deck's body from it, the browser deck (#198) its own; what a
-//! session's link hands the frame (`In`) and the link itself as the space sees it (`Wire` – deck-stage's link.rs is
+//! session's link hands the frame (`In`) and the link itself as the space sees it (`Wire` – deck-native's link.rs is
 //! the relay client on a thread; the browser's is TypeScript and stays outside).
 use protocol::{DeckGraph, DeckLink, DeckMidi, DeckNode, DeckQuality, DeckSynced, DeckValues, LinkQuality, SceneSync};
 use std::collections::HashMap;

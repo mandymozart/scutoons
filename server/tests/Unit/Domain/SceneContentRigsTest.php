@@ -11,7 +11,7 @@ use Scutoons\Tests\TestCase;
  * scene-content's rigs (#258, agents/research/INSTRUMENTS.md §6): a character's rig (the persona's own, else the
  * character's), item rigs, the instruments and presets with their ancestors, each with a version. The contract with the
  * decks: the answer for the migrated core rigs is server/tests/fixtures/rigs/scene-content.json, which deck-space's
- * the_servers_scene_content_reads_as_bundles test reads as `rig::Bundle`s and compares with deck/stage/rigs/*.toml –
+ * the_servers_scene_content_reads_as_bundles test reads as `rig::Bundle`s and compares with deck/native/rigs/*.toml –
  * `UPDATE_FIXTURES=1 npm run dev:db -- test --filter SceneContentRigs` writes it, a plain run fails when it is stale.
  */
 final class SceneContentRigsTest extends TestCase

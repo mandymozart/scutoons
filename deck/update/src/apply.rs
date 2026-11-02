@@ -341,24 +341,24 @@ pub(crate) mod tests {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path().join("root");
         let unpacked = dir.path().join("unpacked");
-        for (p, b) in [("usr/bin/deck-stage", &b"new stage"[..]), ("usr/bin/deck-relay", b"relay"), ("usr/bin/deck-new", b"n")] {
+        for (p, b) in [("usr/bin/deck", &b"new stage"[..]), ("usr/bin/deck-relay", b"relay"), ("usr/bin/deck-new", b"n")] {
             fs::create_dir_all(unpacked.join(p).parent().unwrap()).unwrap();
             fs::write(unpacked.join(p), b).unwrap();
         }
         fs::create_dir_all(root.join("usr/bin")).unwrap();
-        fs::write(root.join("usr/bin/deck-stage"), b"old stage").unwrap();
+        fs::write(root.join("usr/bin/deck"), b"old stage").unwrap();
         fs::write(root.join("usr/bin/deck-relay"), b"relay").unwrap();
         #[cfg(unix)]
         set_mode(&root.join("usr/bin/deck-relay"), 0o755).unwrap();
 
-        let m = manifest_for(&[("usr/bin/deck-stage", b"new stage"), ("usr/bin/deck-relay", b"relay"), ("usr/bin/deck-new", b"n")]);
+        let m = manifest_for(&[("usr/bin/deck", b"new stage"), ("usr/bin/deck-relay", b"relay"), ("usr/bin/deck-new", b"n")]);
         let done = install(&root, &unpacked, &m, &dir.path().join("previous"), None).unwrap();
-        assert_eq!(done.changed, vec!["usr/bin/deck-stage", "usr/bin/deck-new"], "the relay is the same");
-        assert_eq!(fs::read(root.join("usr/bin/deck-stage")).unwrap(), b"new stage");
-        assert!(!root.join("usr/bin/deck-stage.deck-new").exists());
+        assert_eq!(done.changed, vec!["usr/bin/deck", "usr/bin/deck-new"], "the relay is the same");
+        assert_eq!(fs::read(root.join("usr/bin/deck")).unwrap(), b"new stage");
+        assert!(!root.join("usr/bin/deck.deck-new").exists());
 
         rollback(&root, &done).unwrap();
-        assert_eq!(fs::read(root.join("usr/bin/deck-stage")).unwrap(), b"old stage");
+        assert_eq!(fs::read(root.join("usr/bin/deck")).unwrap(), b"old stage");
         assert!(!root.join("usr/bin/deck-new").exists());
     }
 
@@ -368,17 +368,17 @@ pub(crate) mod tests {
         let root = dir.path().join("root");
         let unpacked = dir.path().join("unpacked");
         fs::create_dir_all(unpacked.join("usr/bin")).unwrap();
-        fs::write(unpacked.join("usr/bin/deck-stage"), b"stage").unwrap();
+        fs::write(unpacked.join("usr/bin/deck"), b"stage").unwrap();
         fs::create_dir_all(root.join("usr/bin")).unwrap();
         fs::create_dir_all(root.join("usr/share/deck/scenes")).unwrap();
         fs::create_dir_all(root.join("etc")).unwrap();
-        fs::write(root.join("usr/bin/deck-stage"), b"stage").unwrap();
+        fs::write(root.join("usr/bin/deck"), b"stage").unwrap();
         fs::write(root.join("usr/share/deck/scenes/default.toml"), b"old scene").unwrap();
         fs::write(root.join("etc/keep.conf"), b"keep").unwrap();
-        let new = manifest_for(&[("usr/bin/deck-stage", b"stage")]);
+        let new = manifest_for(&[("usr/bin/deck", b"stage")]);
         // an old manifest naming a path outside the allowed ones must not take it off the root either
         let old = manifest_for(&[
-            ("usr/bin/deck-stage", b"stage"),
+            ("usr/bin/deck", b"stage"),
             ("usr/share/deck/scenes/default.toml", b"old scene"),
             ("etc/keep.conf", b"keep"),
         ]);

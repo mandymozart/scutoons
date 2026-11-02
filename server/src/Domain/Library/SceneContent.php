@@ -14,7 +14,7 @@ use stdClass;
  * What a deck's scene needs (#195 "sync as a deck feature", #193 sets by id): `GET /api/library/scene-content?sets=&characters=`
  * – each set's 3D variant per quality level and the portrait mood sprites of each character, CDN paths (immutable: a
  * changed file gets a new name, so the path is the version) with their sizes from the asset registry. The deck downloads
- * what its cache lacks (deck/stage sync.rs) and plays offline from the cache.
+ * what its cache lacks (deck/native sync.rs) and plays offline from the cache.
  *
  * - **Sets** (agents/DECISIONS.md 2026-10-30: place → set → assets) are the catalog's home scenes for now (home scenes
  *   become sets) – their `model: { src, variants? }` = the 3D variant, a `.glb` per quality (`src` = medium; a level

@@ -1,6 +1,6 @@
 //! `deck-scene-features [--core] <scene.toml>…` – the cargo features the scenes need, as one `--features` value, so a
 //! deck build carries only those modules (#185):
-//!   `cargo build -p deck-stage --no-default-features --features "pipewire,$(deck-scene-features scenes/*.toml)"`
+//!   `cargo build -p deck-native --no-default-features --features "pipewire,$(deck-scene-features scenes/*.toml)"`
 //! (the platform's features – pipewire on a deck – come from the build script, not from scenes). `--core` lists
 //! deck-core's own modules instead (control, synth, analysis – a browser worker's wasm, deck/lab). An unknown kind or
 //! tempo source is an error (exit 1), named with its file.
@@ -45,7 +45,7 @@ mod tests {
     use super::*;
 
     fn scene(name: &str) -> String {
-        format!("{}/../stage/scenes/{name}.toml", env!("CARGO_MANIFEST_DIR"))
+        format!("{}/../native/scenes/{name}.toml", env!("CARGO_MANIFEST_DIR"))
     }
 
     #[test]

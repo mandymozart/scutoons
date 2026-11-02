@@ -1,6 +1,6 @@
 //! #223: how good one client's link is, and the rate its state-like messages go out at. Strain steps the rate down one
 //! level (30 → 15 → 10 → 5 / s, at most one step per `STEP_GAP`); `CALM` without strain steps it up one level – the same
-//! rule as the adaptive audio lead (deck/stage/src/audio/lead.rs, #208): take the margin at once, give it back slowly.
+//! rule as the adaptive audio lead (deck/native/src/audio/lead.rs, #208): take the margin at once, give it back slowly.
 //!
 //! Strain is a link that cannot carry what it gets, not a one-off stall (a lost segment on Wi-Fi stalls TCP ~25 ms, a
 //! lost retransmit 200 ms – the outbox's coalescing absorbs that, and a paced rate would only add delay to every value):

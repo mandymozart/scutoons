@@ -10,7 +10,7 @@ pub const SIGNATURE: &str = "manifest.json.sig";
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FileEntry {
-    /// relative to the root, `/`-separated: `usr/bin/deck-stage`
+    /// relative to the root, `/`-separated: `usr/bin/deck`
     pub path: String,
     pub sha256: String,
     pub mode: u32,
@@ -69,7 +69,7 @@ pub fn allowed(path: &str) -> bool {
         return false;
     }
     let depth = path.matches('/').count();
-    (path.starts_with("usr/bin/deck-") && depth == 2)
+    ((path == "usr/bin/deck" || path.starts_with("usr/bin/deck-")) && depth == 2)
         || (path.starts_with("usr/lib/systemd/system/deck-") && depth == 4)
         || path == "usr/lib/sysusers.d/deck.conf"
         || path == "usr/lib/tmpfiles.d/deck.conf"
@@ -135,7 +135,7 @@ pub fn actions(changed: &[String], removed: &[String], reboot: bool) -> Actions 
             "usr/bin/deck-link" => want("deck-link.service"),
             "usr/bin/deck-relay" => want("deck-relay.service"),
             "usr/bin/deck-bridge" => want("deck-bridge.service"),
-            "usr/bin/deck-stage" | "usr/bin/deck-session" => want("deck-kiosk.service"),
+            "usr/bin/deck" | "usr/bin/deck-session" => want("deck-kiosk.service"),
             p if p.starts_with("usr/share/deck/") => want("deck-kiosk.service"),
             p if p.starts_with("usr/lib/systemd/system/") => {
                 daemon_reload = true;
@@ -170,7 +170,7 @@ pub(crate) mod tests {
     #[test]
     fn the_allowed_paths() {
         for ok in [
-            "usr/bin/deck-stage",
+            "usr/bin/deck",
             "usr/lib/systemd/system/deck-kiosk.service",
             "usr/share/deck/scenes/cathedral.toml",
             "usr/lib/tmpfiles.d/deck.conf",
@@ -179,15 +179,15 @@ pub(crate) mod tests {
         }
         for bad in [
             "",
-            "/usr/bin/deck-stage",
+            "/usr/bin/deck",
             "usr/bin/../../etc/passwd",
             "usr/bin/deck-x/../../sh",
             "usr/bin/sh",
             "usr/bin/deck-a/b",
             "etc/NetworkManager/system-connections/deck-hotspot.nmconnection",
             "usr/share/deck/../../etc/shadow",
-            "usr\\bin\\deck-stage",
-            "C:/usr/bin/deck-stage",
+            "usr\\bin\\deck",
+            "C:/usr/bin/deck",
             "usr/lib/systemd/system/sshd.service",
             "usr/lib/systemd/system/deck-x/y.service",
         ] {
@@ -210,7 +210,7 @@ pub(crate) mod tests {
             channel: "dev".into(),
             bundle: "bundle.tar.gz".into(),
             bundle_sha256: sha256_hex(b"x"),
-            files: vec![FileEntry { path: "usr/bin/deck-stage".into(), sha256: sha256_hex(b"y"), mode: 0o755 }],
+            files: vec![FileEntry { path: "usr/bin/deck".into(), sha256: sha256_hex(b"y"), mode: 0o755 }],
             reboot: false,
             notes: String::new(),
         }
@@ -238,13 +238,13 @@ pub(crate) mod tests {
 
     #[test]
     fn changed_files_restart_what_runs_them() {
-        let a = actions(&["usr/bin/deck-stage".into(), "usr/share/deck/scenes/a.toml".into()], &[], false);
+        let a = actions(&["usr/bin/deck".into(), "usr/share/deck/scenes/a.toml".into()], &[], false);
         assert_eq!(a.restart, vec!["deck-kiosk.service"]);
         assert!(!a.daemon_reload);
 
         let a = actions(
             &[
-                "usr/bin/deck-stage".into(),
+                "usr/bin/deck".into(),
                 "usr/bin/deck-relay".into(),
                 "usr/bin/deck-link".into(),
                 "usr/lib/systemd/system/deck-update.service".into(),

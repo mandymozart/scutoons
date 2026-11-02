@@ -1,4 +1,4 @@
-//! The scene document (deck-space, #198 – deck-stage plays it, the space builds its being from it): a TOML node graph (CYBERDECKS.md §8 – "a scene is a graph document, TOML now, later an entity on
+//! The scene document (deck-space, #198 – deck-native plays it, the space builds its being from it): a TOML node graph (CYBERDECKS.md §8 – "a scene is a graph document, TOML now, later an entity on
 //! scutoons.com"). `[[node]]` = id + kind + the kind's params, `[[link]]` = `from = "node.port"` → `to = "node.port"`
 //! (a bare node id means its port `out`); control links map the value with `scale` and `offset`. `[being]` = the
 //! being's look when the scene has a `space` node (space/being.rs, #188 – with the graph it is what a being preset
@@ -8,18 +8,18 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 /// The scene the stage plays when none is given (#252): fireflies on black, no sound, no network – the deck idles.
-pub const IDLE_SCENE: &str = include_str!("../../stage/scenes/idle.toml");
+pub const IDLE_SCENE: &str = include_str!("../../native/scenes/idle.toml");
 /// "AV madness" (`--scene madness`; the default until #252): catpope 1's music + a synth, the FFT drives the test pattern.
-pub const MADNESS_SCENE: &str = include_str!("../../stage/scenes/madness.toml");
+pub const MADNESS_SCENE: &str = include_str!("../../native/scenes/madness.toml");
 /// The Cathedral of decks (#188): the set `cathedral` from Cat Pope chapter 2 and this deck's being in it.
-pub const CATHEDRAL_SCENE: &str = include_str!("../../stage/scenes/cathedral.toml");
+pub const CATHEDRAL_SCENE: &str = include_str!("../../native/scenes/cathedral.toml");
 /// Its conductor (#188 phase 4): the bigger being in the middle of the nave, PLF's portrait as its head, the decks' beings
 /// around it over the relay.
-pub const CONDUCTOR_SCENE: &str = include_str!("../../stage/scenes/conductor.toml");
+pub const CONDUCTOR_SCENE: &str = include_str!("../../native/scenes/conductor.toml");
 /// A Live outlet (#186): the relay's cells for this deck's outlet over the space (the `live` and `space` modules).
-pub const OUTLET_SCENE: &str = include_str!("../../stage/scenes/outlet.toml");
+pub const OUTLET_SCENE: &str = include_str!("../../native/scenes/outlet.toml");
 /// The core alone (#185): an LFO, the test pattern, the screen – what a stage shows when a scene can't be played.
-pub const TEST_PATTERN_SCENE: &str = include_str!("../../stage/scenes/test-pattern.toml");
+pub const TEST_PATTERN_SCENE: &str = include_str!("../../native/scenes/test-pattern.toml");
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -31,14 +31,14 @@ pub struct Scene {
     #[serde(default, rename = "link")]
     pub links: Vec<LinkDef>,
     /// #211: the parameters as outputs – MIDI out, the conductor, DMX fixtures and the clock-synced strobe; parsed and
-    /// checked by deck-outputs (its config.rs documents the table), played by the host (deck-stage's outputs.rs)
+    /// checked by deck-outputs (its config.rs documents the table), played by the host (deck-native's outputs.rs)
     #[serde(default)]
     pub outputs: Option<toml::Table>,
     #[cfg(feature = "being")]
     #[serde(default)]
     pub being: crate::space::being::Look,
-    /// without the space (deck-space's `being`, deck-stage's `space` module) the being's look is kept as it is (the
-    /// scene still parses; deck-stage refuses its space node)
+    /// without the space (deck-space's `being`, deck-native's `space` module) the being's look is kept as it is (the
+    /// scene still parses; deck-native refuses its space node)
     #[cfg(not(feature = "being"))]
     #[serde(default)]
     pub being: toml::Table,
@@ -50,13 +50,13 @@ pub struct StageSettings {
     pub name: String,
     /// the render size relative to the window (0.25–1); a software adapter halves it by itself
     pub render_scale: f32,
-    /// the audio device's buffer in frames (#208, deck-stage's audio/backend.rs): a heavy scene may ask for more;
+    /// the audio device's buffer in frames (#208, deck-native's audio/backend.rs): a heavy scene may ask for more;
     /// `--audio-buffer` and deck.toml's `audio_buffer` (the machine's) win over it. None = the device's default
     pub audio_buffer: Option<u32>,
     /// #264: how the stage hands over TO this scene on a switch (F5): the DMX / MIDI outputs of the scene that was playing
     /// fade into this one's (`fade`, the default), snap (`cut`) or go dark first (`blackout`); a stop is always dark
     pub transition: SceneTransition,
-    /// the hand-over's length in s (`fade`); the same time base as the picture's fade in (deck-stage switcher.rs `FADE_IN`)
+    /// the hand-over's length in s (`fade`); the same time base as the picture's fade in (deck-native switcher.rs `FADE_IN`)
     pub transition_secs: f32,
 }
 

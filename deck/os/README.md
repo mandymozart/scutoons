@@ -18,10 +18,10 @@ cache between builds (`scutoons-deck-work`, `scutoons-deck-pkg`; `docker volume 
 run downloads ~1 GB of packages. `DECK_KERNEL=linux` builds on the stock kernel when `linux-rt` is not in the repos.
 
 What `container/build.sh` does: installs archiso + rust (+ pipewire, clang for the stage) → `cargo build --release` for
-`relay`, `bridge`, `deck-check`, `deck-stage` (feature `pipewire`), `deck-link` → copies archiso's **releng** profile, removes its live-only bits (root autologin, reflector, the mirror chooser,
+`relay`, `bridge`, `deck-check`, `deck` (crate `deck-native`, feature `pipewire`), `deck-link` → copies archiso's **releng** profile, removes its live-only bits (root autologin, reflector, the mirror chooser,
 networkd), overlays `profile/` (packages, pacman.conf, identity, airootfs) and `rootfs/` (the deck's units, scripts
 and config – the same tree the PKGBUILD installs), drops the binaries in as `deck-relay`, `deck-bridge`,
-`deck-check`, `deck-stage`, `deck-link` (+ its scenes in `/usr/share/deck/scenes`), renders the logo (deck/stage/assets, the
+`deck-check`, `deck`, `deck-link` (+ its scenes in `/usr/share/deck/scenes`), renders the logo (deck/native/assets, the
 official SVG in white) into plymouth's `logo.png` and the BIOS menu's `splash.png` (librsvg + imagemagick), renames the
 kernel in the boot entries to `linux-rt`, adds a serial console → `mkarchiso`.
 
@@ -68,7 +68,7 @@ Under the logo (owner 2026-10-29, #179): the SCUTOONS logo in white on black fro
 `rootfs/usr/share/plymouth/themes/scutoons`, a quiet kernel line: `quiet splash loglevel=3 …`). deck-firstboot's
 steps show as messages under it; it steps aside only for a menu (the Wi-Fi menu when offline or asked for, a failing
 check's shell) and quits, keeping its last frame, right before cage starts (deck-kiosk.service); the stage's first
-frame is the logo again (deck/stage: until the chapter and the music are loaded), and F12 keeps it up until the
+frame is the logo again (deck/native: until the chapter and the music are loaded), and F12 keeps it up until the
 browser's window is there.
 
 1. `deck-firstboot.service` – persistence (`deck-persist`), the defaults into `/var/lib/deck` (`venue.toml`,
@@ -85,7 +85,7 @@ browser's window is there.
    Then the deck's key and – on its first boot only – its code to pair with ("Pairing" below); after that
    `deck-link.service` pairs and keeps it paired in the background (the boot never waits for the handshake).
 4. `deck-kiosk.service` – `cage` runs `deck-session` as the user `deck`, which plays `kiosk` from
-   `/var/lib/deck/deck.toml`: **`stage`** (the default) = `deck-stage` (deck/stage/README.md) with `scene` (empty = the
+   `/var/lib/deck/deck.toml`: **`stage`** (the default) = `deck-native` (deck/native/README.md) with `scene` (empty = the
    built-in idle scene – fireflies on black, no sound (#252); `scene = "madness"` = "AV madness": catpope 1's slices, captions and music + synths, the FFT drives the picture; its cache in
    `/var/lib/deck/cache`); **F12** opens Chromium (as an `--app` window, DevTools / printing off by a managed policy, #268) on the page `conductor` names (empty = the deck's own start page: the
    machine report, the relay's `/status`, the link to the conductor) on top of the stage, which shows the logo until
@@ -146,7 +146,7 @@ exception): research/LIVE.md B.4.
 
 A deck updates over the network – no stick. `deck-update` (deck/update) takes a **signed bundle**: `manifest.json`
 (version, build = unix seconds, channel, every file's SHA-256 + mode), `manifest.json.sig` (Ed25519 over the manifest)
-and `bundle-<build>.tar.gz`. It writes only the deck's own paths (`usr/bin/deck-*`, `usr/lib/systemd/system/deck-*`,
+and `bundle-<build>.tar.gz`. It writes only the deck's own paths (`usr/bin/deck` and `usr/bin/deck-*`, `usr/lib/systemd/system/deck-*`,
 the deck's sysusers / tmpfiles, `usr/share/deck/`) – never `etc/`, never the base system (kernel, packages: an ISO or,
 later, pacman).
 
@@ -178,6 +178,39 @@ On tty2 / ssh (root): `deck-update status` · `check` · `now` (at once; `--forc
 build; `--url http://<pc>:7790` for this run) · `trust <hex>` (another key). A deck from an image before #237 has no
 deck-update yet – once, on tty2, the commands `npm run deck:update` prints (curl the binary from the PC, `deck-update
 trust <the dev key>`, `deck-update now --url …`); the first bundle brings the timer.
+
+### One-time migration: `deck-stage` → `deck` (#316)
+
+The native app's binary is now `deck` (crate `deck-native`, in `deck/native/`). The updater installed on the X1 before
+this change only writes `usr/bin/deck-*`, so it refuses the first bundle that carries `usr/bin/deck`. Do this once, by
+hand, before the first update after #316 is merged. The kiosk unit (`deck-kiosk.service`) runs `/usr/bin/deck-session`,
+which starts `deck`, so the unit does not change.
+
+1. On the dev PC: `npm run deck:update -- --no-serve` (builds and bundles). Extract `usr/bin/deck`, `usr/bin/deck-session`
+   and `usr/bin/deck-update` from `out/update/bundle-<build>.tar.gz`, check their SHA-256 against `manifest.json`, and copy
+   them to the X1 (scp, or a stick).
+2. On the X1, as root (tty2 or ssh). Stop the kiosk and the timer, and keep the old files for a rollback:
+
+```bash
+systemctl stop deck-kiosk.service deck-update.timer
+cp -a /usr/bin/deck-stage /usr/bin/deck-session /usr/bin/deck-update /root/
+```
+
+3. Install the new files and start:
+
+```bash
+install -m755 deck /usr/bin/deck
+install -m755 deck-session /usr/bin/deck-session
+install -m755 deck-update /usr/bin/deck-update
+systemctl start deck-kiosk.service deck-update.timer
+journalctl -u deck-kiosk -n 40
+```
+
+4. When the stage plays: `rm /usr/bin/deck-stage` (the next update removes it too, as a dropped file).
+
+**Rollback:** `systemctl stop deck-kiosk.service deck-update.timer`, then
+`install -m755 /root/deck-stage /usr/bin/deck-stage`, `install -m755 /root/deck-session /usr/bin/deck-session`,
+`install -m755 /root/deck-update /usr/bin/deck-update`, then `systemctl start deck-kiosk.service deck-update.timer`.
 
 ## Install to a partition
 

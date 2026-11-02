@@ -1,5 +1,5 @@
 //! Module `synth`: audio blocks (mono, f32). Kept free of fundsp so the module builds for wasm32 with nothing but std;
-//! the stage's richer fundsp units stay in deck/stage until they move here (#182 report §4).
+//! the stage's richer fundsp units stay in deck/native until they move here (#182 report §4).
 use crate::module::{Block, KindInfo, Module, Params, kinds_of_module};
 use crate::math::{sin_turns, wrap01};
 use crate::smooth::{Ramp, GLIDE, QUICK};

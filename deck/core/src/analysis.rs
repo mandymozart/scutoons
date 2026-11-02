@@ -1,4 +1,4 @@
-//! Module `analysis`: sound → control values – the stage's FFT (#185: deck/stage/src/fft.rs only drains its audio ring
+//! Module `analysis`: sound → control values – the stage's FFT (#185: deck/native/src/fft.rs only drains its audio ring
 //! into an `Analyzer`): level (RMS) + the peak magnitude of bass 20–250 Hz, mid 250–2000 Hz, high 2–8 kHz, each in 0–1
 //! (dB-scaled). `Analyzer` keeps a history and looks back by the output lead, so the values are what is heard now (a
 //! fast rise, a `release` in seconds); `FftBlock` is the patcher's `fft` kind (one window, no lead, no smoothing).

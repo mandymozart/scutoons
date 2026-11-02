@@ -1,4 +1,4 @@
-Status 2026-10-30: concept (#186, owner: option 1 – DECISIONS 2026-10-30). Built: the protocol (media.preload / media.ready / typed cells) and the deck's native outlet (deck/stage/README.md "Live outlet"). Not built: the stage builder (§6 is a design draft), the set data model (#193), the signed media route (§7).
+Status 2026-10-30: concept (#186, owner: option 1 – DECISIONS 2026-10-30). Built: the protocol (media.preload / media.ready / typed cells) and the deck's native outlet (deck/native/README.md "Live outlet"). Not built: the stage builder (§6 is a design draft), the set data model (#193), the signed media route (§7).
 
 # LIVE-LENSES — storyboard, slice editor and Live as one
 
@@ -47,7 +47,7 @@ there too (an output sees only its own outlet).
   deck token and answers `media.ready { ready, missing, why }` – the conductor's **ready light** per outlet (green = all,
   amber = some missing with the reason, red = offline). Then `cell` on every row change; a reconnecting deck gets the
   snapshot (the cell and the last preload) and shows the right cell at once.
-- The deck renders natively (deck-stage's `outlet` node): flat layers into one plane, a 3D set as the space node behind
+- The deck renders natively (deck-native's `outlet` node): flat layers into one plane, a 3D set as the space node behind
   it, crossfades by the layers' `enter` / `exit`. Not yet: video (S4, a set spot's still stands in), video-in, audio
   layers (the deck's audio graph – a later step).
 
@@ -69,7 +69,7 @@ storyboard frame  →  still (the rendered picture)  →  video (a rendered loop
 
 ## 5. Worked example: the sermon (Cat Pope s1c2)
 Outlets: `left` (a deck, class A, the projector over the nave), `phones` (audience group), `lights` (DMX). The rows are
-s1c2's scene keys. Runnable for the `left` outlet: `deck/stage/examples/sermon.json` with `live-cue` (README "Live
+s1c2's scene keys. Runnable for the `left` outlet: `deck/native/examples/sermon.json` with `live-cue` (README "Live
 outlet"); the slice numbers are reading-order indices of today's chapter.
 
 | # | Row (flow) | Storyboard lens | Slice editor lens | Stage builder lens: `left` cell |

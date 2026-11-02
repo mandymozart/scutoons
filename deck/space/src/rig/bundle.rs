@@ -11,10 +11,10 @@ use crate::scene::{split_ref, LinkDef, NodeDef};
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
-/// The core rigs a deck carries without an account (#191 "core"): subject → the bundle's TOML (deck/stage/rigs/).
+/// The core rigs a deck carries without an account (#191 "core"): subject → the bundle's TOML (deck/native/rigs/).
 pub const CORE: [(&str, &str); 2] = [
-    ("character.catpope", include_str!("../../../stage/rigs/catpope.toml")),
-    ("item.incense_burner", include_str!("../../../stage/rigs/incense_burner.toml")),
+    ("character.catpope", include_str!("../../../native/rigs/catpope.toml")),
+    ("item.incense_burner", include_str!("../../../native/rigs/incense_burner.toml")),
 ];
 
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
@@ -67,7 +67,7 @@ pub struct Played {
     pub engine: super::engine::Engine,
 }
 
-/// the scene document as TOML (scene.rs's form, so deck-stage and live-core read it)
+/// the scene document as TOML (scene.rs's form, so deck-native and live-core read it)
 #[derive(Serialize)]
 struct SceneDoc<'a> {
     stage: StageDoc<'a>,

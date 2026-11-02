@@ -1,4 +1,4 @@
-Status 2026-10-30: the morning report of the #182 night run (merged to main). #183 decided and built (the stage runs on the batch model: deck/stage/README.md); decisions waiting: #184–#187.
+Status 2026-10-30: the morning report of the #182 night run (merged to main). #183 decided and built (the stage runs on the batch model: deck/native/README.md); decisions waiting: #184–#187.
 
 # LIVE night run 2026-10-29 – the full picture, the Live stage on a deck, a modular core in Rust and wasm
 
@@ -40,7 +40,7 @@ The lab page: `deck/lab/README.md` (run it on the X1 too – these numbers are a
 | 2026-10-29 | Rust first: relay + bridge in `deck/`, no Node + Electron; decks on Arch (live stick first); beta = the workshop, public = a summer 2027 tour; lasers are a deck output; deck access = handshake → approval → data; two clocks (audio time base + tempo clock) | DECISIONS 2026-10-29, CYBERDECKS §1–§9 |
 
 ### 1.2 Built (before tonight and tonight)
-- Before: `deck/protocol` (one schema → TS + Rust), `relay` skeleton, `bridge` + `midi` + `osc` adapters, the class-A live ISO (#173), `deck/stage` S1–S3 (#179), deck identity (#180), and FX cues, score view, cave, Timeline in the web apps.
+- Before: `deck/protocol` (one schema → TS + Rust), `relay` skeleton, `bridge` + `midi` + `osc` adapters, the class-A live ISO (#173), `deck/native` S1–S3 (#179), deck identity (#180), and FX cues, score view, cave, Timeline in the web apps.
 - Tonight: §5.
 - **Not built anywhere:** the reader's event bus (LIVE B.1 – the foundation of everything Live), the show entity and its schema, the conductor, the session API (`POST /api/live/sessions`, which signs tokens), outputs, the stage builder.
 
@@ -70,13 +70,13 @@ The `live/` Node workspace, the Electron app "Scutoons Live" (RtMidi, serialport
 |---|---|---|---|
 | Relay | native `deck/relay` – the venue's primary (LIVE B.4 linked) | the same binary in bunny (`scutoons-live`) | one code, timing |
 | Bridge (MIDI, OSC, DMX, laser, GPIO) | native `deck/bridge` | the same binary on a mac / Windows laptop | hardware |
-| **Screen outlet** | **native `deck-stage`**: joins the relay as `output` of its outlet, plays that outlet's cells as a stage scene | a fullscreen browser output (`/live/<code>/out/<outlet>`) with wasm in a worker (#184) | throughput, offline, one surface per outlet |
-| Audio outlet / FX cues / chapter audio | `deck-stage`'s audio graph on PipeWire | Web Audio (+ AudioWorklet wasm) | latency, the clock master |
+| **Screen outlet** | **native `deck-native`**: joins the relay as `output` of its outlet, plays that outlet's cells as a stage scene | a fullscreen browser output (`/live/<code>/out/<outlet>`) with wasm in a worker (#184) | throughput, offline, one surface per outlet |
+| Audio outlet / FX cues / chapter audio | `deck-native`'s audio graph on PipeWire | Web Audio (+ AudioWorklet wasm) | latency, the clock master |
 | Conductor | web, in the deck's Chromium (F2) or on a laptop / tablet | web | always the deployed version |
 | Performer, musician, audience | – | web on their phones / tablets (unchanged) | joined by URL |
 | Light (DMX), lasers | bridge adapters | – | hardware, 40 Hz refresh |
 
-**One process or two on a deck?** Today stage and bridge are separate binaries. MIDI clock out and tempo-locked DMX need the audio time base (#181), so on a deck with a screen the bridge's adapters should load as a **module of deck-stage** (one process, one clock). The bridge binary stays for decks without a screen (class C) and for laptops. The adapters already share one trait (`adapters-core`), so this is a link-time choice, not a rewrite (#183).
+**One process or two on a deck?** Today stage and bridge are separate binaries. MIDI clock out and tempo-locked DMX need the audio time base (#181), so on a deck with a screen the bridge's adapters should load as a **module of deck-native** (one process, one clock). The bridge binary stays for decks without a screen (class C) and for laptops. The adapters already share one trait (`adapters-core`), so this is a link-time choice, not a rewrite (#183).
 
 ### 2.2 How show media reaches a deck's outlet (LIVE B.5.6, CYBERDECKS §9) – proposal #186
 1. The venue patch maps the outlet `left` to the deck `scutoons-k7.local` (a screen outlet with the deck's class).
@@ -109,7 +109,7 @@ Moving between lenses keeps the selected row. A storyboard frame or a slice is a
 | Ableton Live / Bitwig | tracks with device chains; sample-accurate automation; Link for tempo; Bitwig Grid compiles modular patches | the tempo clock + Link (#181); **devices as compiled modules** |
 | Game engines (Bevy, Unity DOTS, Unreal) | ECS: data in arrays per component, systems loop over them in parallel; a frame / render graph schedules GPU passes | **struct-of-arrays batches** (`batch.rs`); a render graph for the stage's passes |
 | vvvv gamma | visual patches compiled to .NET IL at edit time – the patch runs as compiled code | **compile the graph at load** (levels × kinds), never interpret per node |
-| SuperCollider | server (scsynth, C++ unit generators, blocks) separate from the language; synth defs compiled once | the **core / UI split**: a fast server process (deck-stage) driven by messages (relay / OSC) |
+| SuperCollider | server (scsynth, C++ unit generators, blocks) separate from the language; synth defs compiled once | the **core / UI split**: a fast server process (deck-native) driven by messages (relay / OSC) |
 | Faust | a DSP language compiled to C++ / wasm / LLVM | DSP as compiled code that also builds for the browser (= deck-core → wasm) |
 | ossia score | intervals, processes, a scenario over time; a graph of typed ports | the time model next to the graph (the show's rows / cues) |
 

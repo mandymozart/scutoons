@@ -12,7 +12,7 @@ const core = await LiveCore.start({                                        // fr
 	wasm: wasmUrl,                                                          // live_core.wasm, served same-origin
 	worklet: workletUrl
 });
-const table = await core.load(sceneToml);           // deck/stage's TOML, batch kinds: lfo smooth mul add osc fm
+const table = await core.load(sceneToml);           // deck/native's TOML, batch kinds: lfo smooth mul add osc fm
 const lead = core.param('lead');                    // resolve once (node + first input) …
 core.set(lead, new Float32Array([440, 2, 1, 0.1]), { mode: 'blend', amount: 0.5 }); // … send often (#189)
 const off = core.onAnalysis(({ level, bass, mid, high, spectrum }) => draw(level, bass, mid, high, spectrum));
@@ -37,7 +37,7 @@ No JSON across the boundary. A value is a **wire record** (`src/wire.ts` = `deck
 - `transport: 'auto'` (default) picks shared when `crossOriginIsolated`, else transfer – it works without the headers,
   at one postMessage per send, per analysis frame and per 512 audio frames (≈ 6 µs each vs 0.5 µs in the ring).
 - `lead` (default 1024 frames ≈ 21 ms at 48 kHz) = how far the worker renders ahead; the analysis looks back by it,
-  so the bands are what is heard. It **adapts** (#208, `src/lead.ts` – the rule of deck-stage's render thread): a
+  so the bands are what is heard. It **adapts** (#208, `src/lead.ts` – the rule of deck-native's render thread): a
   dropout grows it 512 frames up to 6144 (128 ms), a calm minute shrinks it 512 back towards the start. The worklet
   counts dropouts into a shared status word (shared transport) or its feed messages (transfer); `stats()` carries
   `lead`, `renderPeakUs` / `budgetUs` (the longest block of the second against a block's 2.67 ms) and `gapMs` (the

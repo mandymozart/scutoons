@@ -72,7 +72,7 @@ client-side filtering, a raw cache of 100 messages) is not taken over. New, in t
     `live > 0` (a session with a conductor) unless `force`; no answer = not live.
   - **The defaults** (nobody types an address): /live/deck joins `<VITE_LIVE_URL>/live/<code>` (default
     `wss://live.scutoons.com`; the code from `/live/deck/<code>`, `?code=`, else `CATH`; `?relay=` overrides with a
-    local relay). deck-stage joins `wss://live.scutoons.com/live/CATH` when deck.toml's `relay` / `--relay` is empty and
+    local relay). deck-native joins `wss://live.scutoons.com/live/CATH` when deck.toml's `relay` / `--relay` is empty and
     a scene joins (space `join` = deck / conductor) or an outlet is set; its clients speak wss (rustls + webpki roots).
     Unreachable = the status line's `NO RELAY … AGAIN IN n S`, retried with backoff (1 2 4 8 10 s).
   - **The owner's setup in bunny** (once): 1. "Run workflow" once, so the image is on ghcr.io; make the package
@@ -333,7 +333,7 @@ changed, ≤ 30 / s – the relay drops more; folded, never replayed; to the con
 replayed – deck/outputs) · presence adds
 `decks`, `routes` (who sent values to whom) and `links` (#223: each client's round trip, value rate, values replaced –
 not the audience's) and `quality` (#220: each deck's last `deck.quality { level, scale, auto, frame, ceiling? }` – its
-render quality, sent at once on a change, else ≤ every 2 s; kept, not forwarded). The deck side: deck/stage/README.md "space", "Quality". **Send path** (#223): per client the latest
+render quality, sent at once on a change, else ≤ every 2 s; kept, not forwarded). The deck side: deck/native/README.md "space", "Quality". **Send path** (#223): per client the latest
 state-like message wins (`deck.values` per deck, merged; `presence`, `vote.tally`, `state`), ordered ones stay complete
 and in order, a client too far behind is dropped (it resyncs from its snapshot), a link that stays behind gets values at
 15 / 10 / 5 per s – deck/relay/README.md.
@@ -343,7 +343,7 @@ the group `decks`, or one copy per listed client id; logged, the last one kept: 
 welcome snapshot `sync`) · a deck fetches it into its cache and answers `deck.synced { scene, state: syncing | ready |
 missing | offline, done?, total?, bytes?, ready, missing, why? }` (items `set:<id>` / `character:<id>`; progress, then
 the final state) → the conductor; kept per deck for the conductor's snapshot `synced`, a ready deck is ready in
-presence, a new push forgets the old answers. The deck side: deck/stage/README.md "Sync"; the browser deck:
+presence, a new push forgets the old answers. The deck side: deck/native/README.md "Sync"; the browser deck:
 `@scutoons/live-deck` sync.ts.
 
 **Clients → relay**: `vote.cast { vote, option }` (one per client, changeable until close) · `ready` · `pickup { item,

@@ -35,7 +35,7 @@ pub const NICK_MAX: usize = 24;
 /// #188: a deck's `deck.values` at most 30 / s (a bucket of 15 – a frame's jitter is no reason to drop one).
 pub const VALUES_RATE: f64 = 30.0;
 const VALUES_BURST: f64 = 15.0;
-/// the decks' group (deck-stage's space/link.rs, @scutoons/live-deck's client.ts): where a `scene.sync` goes
+/// the decks' group (deck-native's space/link.rs, @scutoons/live-deck's client.ts): where a `scene.sync` goes
 pub const DECKS: &str = "decks";
 
 /// What the relay knows about one connected client.

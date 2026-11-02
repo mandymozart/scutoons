@@ -1,11 +1,11 @@
-//! The tempo controller (CYBERDECKS.md §8 "Two clocks", #181; moved here from deck/stage with #308, plan §2.8): one
+//! The tempo controller (CYBERDECKS.md §8 "Two clocks", #181; moved here from deck/native with #308, plan §2.8): one
 //! source is the master at a time – internal (set, + / −, tap), MIDI clock in, Ableton Link, OSC, the relay's show
 //! clock (a stub). Each frame it takes the events pushed since the last (stamped by the caller with its `now_ns`),
 //! follows the master, re-anchors the map at the audio thread's frontier and publishes it.
 //!
 //! Platform-free: no thread, channel, clock or port in here. Time comes in as `Moment` / `Event::at_ns`, events by
 //! `push`, and what only a platform can do (open a source's port, ask Ableton Link) is the `Host` the caller passes
-//! to `frame`. deck/stage's `Tempo` is the native adapter (channels, midir, UDP, rusty_link); a browser page is
+//! to `frame`. deck/native's `Tempo` is the native adapter (channels, midir, UDP, rusty_link); a browser page is
 //! another.
 use super::midi_in::{ClockIn, WallLine};
 use super::shared::Shared;
@@ -102,7 +102,7 @@ impl Anchor {
 }
 
 /// The scene's `tempo` node (one per scene; none = 120 BPM in 4, internal, the click off). The scene side builds it
-/// (deck/stage's `tempo::config_from_graph`).
+/// (deck/native's `tempo::config_from_graph`).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Config {
     pub bpm: f64,

@@ -1,5 +1,5 @@
 //! Module kinds (#280, research/RIG-EDITING.md §3): node kinds that come from a library of compiled modules instead of
-//! graph.rs's table. A module registers its ports once (deck-stage's wasm host reads them from the module's descriptor);
+//! graph.rs's table. A module registers its ports once (deck-native's wasm host reads them from the module's descriptor);
 //! a scene then names it `module:<name>` and the graph checks its links like any kind's. The registry is process-wide
 //! and append-only: a kind is an index, so a `Kind` stays valid; registering the same name with other ports (a rebuilt
 //! module) adds a new kind and `lookup` finds the newest. Specs are leaked – a handful of tiny tables per module.

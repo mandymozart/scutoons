@@ -4,7 +4,7 @@
 mod common;
 use common::*;
 use deck_engine_lab::{route, run_route, run_stereo, saw_polyblep, Exp, RouteScene, SawTables, STEREO_TOML};
-use deck_stage::audio::Build;
+use deck_native::audio::Build;
 use rustfft::{num_complex::Complex, FftPlanner};
 use std::time::Instant;
 
@@ -15,7 +15,7 @@ fn start_phase() -> f32 {
 /// the stage's stereo output, both channels interleaved (the lab renders L R too)
 fn stage_stereo(block: usize, frames: usize, build: Build) -> Vec<f32> {
     let graph = stage_graph(STEREO_TOML);
-    let (mut engine, _h) = deck_stage::audio::Engine::build_with(&graph, RATE, 1.0, build).unwrap();
+    let (mut engine, _h) = deck_native::audio::Engine::build_with(&graph, RATE, 1.0, build).unwrap();
     let mut out = Vec::with_capacity(frames * 2);
     let mut buf = vec![0.0f32; block * 2];
     let mut done = 0;
@@ -60,7 +60,7 @@ fn the_pool_costs_the_stereo_scene_nothing() {
     let graph = stage_graph(STEREO_TOML);
     let sp = start_phase();
     let stage = best_of(9, || {
-        let (mut engine, _h) = deck_stage::audio::Engine::build_with(&graph, RATE, 1.0, Build::detect()).unwrap();
+        let (mut engine, _h) = deck_native::audio::Engine::build_with(&graph, RATE, 1.0, Build::detect()).unwrap();
         let mut buf = vec![0.0f32; 128 * 2];
         for _ in 0..frames / 128 {
             engine.render(&mut buf, 2, |x| x);

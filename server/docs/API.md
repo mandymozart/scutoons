@@ -781,7 +781,7 @@ too. Every row is the member's own: another member's `m:…` id is unknown (`422
 deck-space's serde forms (`deck/space/src/rig`: Preset, Rig – floats stay floats).
 
 - **Deriving** = `PresetBook::derive`'s rule, twice: the deck sends only what the performer changed against the played
-  knobs (shared/live-deck `preset.ts`, deck-stage `save.rs`); the server keeps only the values that differ from the
+  knobs (shared/live-deck `preset.ts`, deck-native `save.rs`); the server keeps only the values that differ from the
   parent's folded lineage (root → leaf, canonical `node.port`), fills in the parent's instrument, tags (unless given) and
   rights, and gives the new id `m:<ulid>`. A value on a linked input, an unknown parent, a loop: `422 invalid_preset`.
 - **Rights by hold** (§4): the parent's `derive` right for how the member holds it – an own `m:` preset = `owned`; a

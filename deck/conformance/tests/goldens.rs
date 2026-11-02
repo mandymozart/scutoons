@@ -9,7 +9,7 @@
 mod common;
 use common::*;
 use deck_engine_lab::STEREO_TOML;
-use deck_stage::audio::Build;
+use deck_native::audio::Build;
 use std::collections::BTreeMap;
 
 fn current() -> BTreeMap<String, String> {

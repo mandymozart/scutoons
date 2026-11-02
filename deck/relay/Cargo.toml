@@ -25,7 +25,7 @@ tracing-subscriber = { workspace = true }
 hmac = "0.12"
 sha2 = "0.10"
 base64 = "0.22"
-# wss in the venue (#201, src/tls.rs): rustls with ring (the provider deck-stage already links), no OpenSSL; the PEM
+# wss in the venue (#201, src/tls.rs): rustls with ring (the provider deck-native already links), no OpenSSL; the PEM
 # files are read by rustls' own pki-types
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }

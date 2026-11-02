@@ -1,7 +1,7 @@
-// scene.ts (#197, @scutoons/live-deck since #198): the phone deck's scene – a trimmed copy of the cathedral deck (deck/stage/scenes/cathedral.toml):
+// scene.ts (#197, @scutoons/live-deck since #198): the phone deck's scene – a trimmed copy of the cathedral deck (deck/native/scenes/cathedral.toml):
 // the choir's line (seq → fm), a drone, the incense (pink noise) swaying with an LFO, the mixer, the FFT and the space
 // node whose hue / glow colour the being. Two views of it:
-// - `deckGraph`: the being on the wire (`deck.graph`), in deck-stage's kinds and ports, so the conductor builds the
+// - `deckGraph`: the being on the wire (`deck.graph`), in deck-native's kinds and ports, so the conductor builds the
 //   same body as a native deck's (link.rs `from_wire`);
 // - `ENGINE_TOML`: what live-core plays (its batch kinds are lfo smooth mul add osc fm only): the voice and the drone
 //   in wasm; the page runs the sequencer, the LFO and the noise itself (deck.ts) and streams their values.

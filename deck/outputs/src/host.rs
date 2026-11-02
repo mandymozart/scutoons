@@ -3,7 +3,7 @@
 //! thread writes the deck's values into `Values` (atomics: no lock between the frame and the runner); the clock comes
 //! from a `ClockSource` (the stage: its tempo map through the time base, on the monotonic clock).
 //!
-//! Timing like MIDI clock out (deck-stage tempo/midi.rs): sleep towards the engine's next wake in steps of ≤ 5 ms (so
+//! Timing like MIDI clock out (deck-native tempo/midi.rs): sleep towards the engine's next wake in steps of ≤ 5 ms (so
 //! a turned rate is seen within 5 ms), wait out the last 2 ms exactly, play everything due, step again.
 
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};

@@ -1,5 +1,5 @@
 // sync.ts (#195): the browser deck's answer to the conductor's `scene.sync`. The same contract as the native deck's sync
-// (deck/stage/src/sync.rs), kept minimal and honest: the browser has no cache of its own to fill – it fetches the
+// (deck/native/src/sync.rs), kept minimal and honest: the browser has no cache of its own to fill – it fetches the
 // files from the CDN (immutable paths; the HTTP cache keeps them), so an item is "ready" once its files were fetched
 // whole (the size scene-content names, when it names one). One request to `GET /library/scene-content` for the push's
 // sets and characters; a set's 3D at the deck's quality (else `low`), a character's every portrait. Items are

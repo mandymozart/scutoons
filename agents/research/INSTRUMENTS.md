@@ -35,7 +35,7 @@ against its parent (a root: against the instrument as patched). That *is* the li
 - **Saving from a deck** (#270, built): the deck sends only the knobs the performer moved away from their played values
   (a mood's variant stays the mood's), the server folds them through `derive`'s rule again and gives the id `m:<ulid>` –
   `POST /api/rigs/presets { parent, values, name?, tags?, mapping? }` (server docs/API.md "Rigs"; shared/live-deck
-  `preset.ts`, deck-stage `save.rs`). The derivative carries its parent's tags (unless given) and rights.
+  `preset.ts`, deck-native `save.rs`). The derivative carries its parent's tags (unless given) and rights.
 - **tags** carry the traits we collect variations across (`cathedral`, `sad`, `vespers`, a genre …) – search, not logic.
 
 ## 3. Rig (a character's tracks)
@@ -81,7 +81,7 @@ Two layers (owner 2026-11-01: "factory presets and rigs and … modification by 
   name, grantable by story / scan, editions, a physical card or figure – the Tonie idea); the instrument row brings
   the graph. Several items may grant one instrument (variants, editions). Holding the item in the carrier bag =
   **owned**; a factory rig may use any instrument, a member's rig only the ones they hold (owned / core / lent).
-- **Core**: the rigs + their instruments / presets a deck image ships, as TOML in `deck/stage/rigs/` – exported from the
+- **Core**: the rigs + their instruments / presets a deck image ships, as TOML in `deck/native/rigs/` – exported from the
   catalog when the ISO is built (the same documents, so `Rig::play` doesn't care where they came from).
 - **Samples** (the sampler kind): assets per ASSETS.md, `<toon>/sounds/<instrument>/<name>.v<n>.<ext>`, referenced
   from node params; the asset registry indexes catalog rows as uses already.
@@ -92,7 +92,7 @@ Two layers (owner 2026-11-01: "factory presets and rigs and … modification by 
   rig, each `{ id, version, data, instruments, presets }`, plus top-level `instruments` and `presets` maps holding every
   referenced one **with its ancestors** (a lineage resolves offline), each `{ id, version, data }` – `version` = the
   stored data's hash, so the sync skips what's cached (server docs/API.md "Library").
-- Next: the decks read it (deck/stage sync.rs, shared/live-deck sync.ts / space.ts – today they fetch portraits and sets).
+- Next: the decks read it (deck/native sync.rs, shared/live-deck sync.ts / space.ts – today they fetch portraits and sets).
 - Owned derivatives (built, #270): `&presets=<ids>` adds presets with their ancestors to the `presets` map – factory
   ids for anyone, the member's own `m:` ids with their session or deck token (read scope; the answer is then private),
   unknown or another member's ids in `missing.presets`. A member's rig variant: `GET /api/rigs/<subject>`.
@@ -114,7 +114,7 @@ incense in Web Audio). Replaced in steps:
    deck/space-web exports it as `rig_play(bundle, persona, mood)`, shared/live-deck's `SpaceStage.playRig`.
 3. **Engine + page (built, opt-in `?rig=1`):** deck-space `rig/engine.rs` lowers the flattened scene for live-core
    (the batch kinds stay; a strip gain becomes a `mul` before the gain, the knob aliased to it; mixer / audio_out /
-   fft / space go; noise, seq … are the page's, with their strip gain). Core rigs ship in `deck/stage/rigs/`
+   fft / space go; noise, seq … are the page's, with their strip gain). Core rigs ship in `deck/native/rigs/`
    (`rig::bundle::CORE`): catpope = the phone patch as data (the voice + the drone, presets base / bright / low, mood
    variants), the incense burner = the incense out of the voice (#210). space-web `core_rig` → `rig_play`;
    shared/live-deck `rig.ts` (sliders, wire graph, streamed paths, the mood diff – values only or a reload) and

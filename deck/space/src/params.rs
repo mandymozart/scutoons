@@ -3,7 +3,7 @@
 //! (later) MIDI / OSC learn and #189's float-vector mapping. Audio kinds' defaults are the engine's (`default_for`).
 use crate::graph::Kind;
 
-/// an LFO's shapes by name (its `shape` param), in the order its shape index counts them (deck-stage's control.rs,
+/// an LFO's shapes by name (its `shape` param), in the order its shape index counts them (deck-native's control.rs,
 /// the being's waveform button)
 pub const LFO_SHAPES: [&str; 3] = ["sine", "saw", "square"];
 
