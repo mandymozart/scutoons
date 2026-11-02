@@ -1,4 +1,4 @@
-Status 2026-11-02: concept, partly decided – the creator's one editor, growing from the rig designer. Decided: the name "workspace" for a dock preset and "Sound design" for the first one; the scene editor joins the same editor with an inspector; the OSCT editor's logic is reused (#242); **first the sound engine, its wiring, compilation and storage are finished, scene elements come after.** The routing in §4 is a proposal waiting for the owner. Nothing here is built except the sound pipeline (#280, #281).
+Status 2026-11-02: concept, partly decided – the creator's one editor, growing from the rig designer. Decided: the name "workspace" for a dock preset and "Sound design" for the first one; the scene editor joins the same editor with an inspector; the OSCT editor's logic is reused (#242); **first the sound engine, its wiring, compilation and storage are finished, scene elements come after.** **The routing of §4 is decided (owner 2026-11-02: "routing plus context is fine for me").** Nothing here is built except the sound pipeline (#280, #281).
 
 # EDITOR – one editor for everything that has a stage or a sound
 
@@ -16,7 +16,7 @@ The stage (the deck's engine behind a typed protocol, sandboxed), an outliner / 
 - **Now (finish the sound pipeline):** #280 SDK ✔ · #281 compile service + storage ✔ · #298 engine host in the creator · #282 the Sound design workspace (Rust, Parameters, Nodes read-only, Play) · #283 assignment, missing defaults, standard rigs. Built as the **first workspace**, but the shell (generic tree, scene stage, generic inspector) is **not** built yet.
 - **Later:** adopt the model to scene elements (#241 / #244 / #245): the Scene workspace, picking an item on the stage into the inspector; the OSCT reuse survey (#242) is done first thing then.
 
-## 4. Routing and association – a proposal (not decided)
+## 4. Routing and association (decided 2026-11-02: canonical address plus context entries)
 - **Canonical address of anything editable:** `/edit/<kind>:<id>` with `?w=<workspace>` and `?sel=<path>` – e.g. `/edit/rig:character.catpope?w=sound&sel=voice`. One thing, one URL, whatever page you came from. (Today the creator already addresses documents by key: `/catalog/<kind>?id=`.)
 - **Context entries:** the pages that know where a thing lives link into it and hand over the breadcrumb (`from=`): the character page → its rig, an item page → `rig:item.<id>`, the catalog lists, and – later – the chapter: **`/<toon>/chapter/<n>/scenes`**, a page of the chapter like the existing `/<toon>/chapter/<n>/storyboard`, which opens the editor on the chapter's scenes in the Scene workspace. (Not `/live`: that word is the stage builder's lens, §6.) The context decides *what is offered and which breadcrumb is shown*, never the identity.
 - **Why not only under the content tree:** instruments, items, furniture, sets and spots are platform-wide and reused by many chapters; under `/<toon>/chapter/2/…` one instrument would have twenty URLs.
@@ -24,7 +24,7 @@ The stage (the deck's engine behind a typed protocol, sandboxed), an outliner / 
 - **Cut-down scenes:** a document that references parts; the Scene workspace opens it, picking an object on the stage selects the referenced part in the inspector, "Edit definition" opens that part in its own workspace.
 
 ## 5. Open
-1. Routing as in §4 (canonical `/edit/…` + context entries incl. `/<toon>/chapter/<n>/live`) – or only context routes? Recommended: §4.
+1. ~~Routing~~ → **owner 2026-11-02: the canonical `/edit/<kind>:<id>` plus context entries (§4)** – "routing plus context is fine for me".
 2. When the generic shell (outliner, generic inspector) starts: with the Scene workspace (#244 / #245), not before. Recommended.
 
 ## 6. Not to be confused with – four different things (owner 2026-11-02: "this is separate from the row view, the conductor view … not to be confused with the conductor in the 3d visualisation")
