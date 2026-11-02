@@ -1707,7 +1707,6 @@
 		"sound_mood": "Mood",
 		"sound_mood_auto": "auto",
 		"sound_knobs": "knobs",
-		"sound_play_note": "The deck plays the character's rig. Playing the compiled module in the engine comes next.",
 		"sound_cant_edit": "Can't edit this yet",
 		"sound_cant_edit_hint": "There is no editor for {key} yet. Character rigs (rig:character.<id>) and modules (module:<id>) open in Sound design.",
 		"characters_sound_design": "Sound design",
@@ -1716,9 +1715,8 @@
 		"sound_published": "module:{id} published",
 		"sound_publish_needs": "Publish needs a saved draft with a current compile.",
 		"sound_out": "out",
-		"sound_signals": "signals",
 		"sound_limiter": "Limiter gain reduction",
-		"sound_signals_wait": "MIDI, DMX and OSC traffic shows here once the engine reports it."
+		"sound_in": "in"
 	},
 	"palette": {
 		"search": "Search or jump to …",

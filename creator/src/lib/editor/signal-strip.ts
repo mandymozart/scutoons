@@ -44,19 +44,73 @@ export function sameColumns(a: readonly KnobColumn[], b: readonly KnobColumn[], 
 	return a.length === b.length && a.every((c, i) => c.path === b[i].path && c.label === b[i].label && Math.abs(c.position - b[i].position) < step);
 }
 
+/** a bus meter's scale: dBFS from `floor` to `top` (a little headroom above the 0.0 dB mark, so a clip shows) */
+export const METER_RANGE = { floor: -48, top: 3 } as const;
+/** the zones' edges in dB: below `ok` green, up to `hot` amber, above red (digital full scale is 0.0) */
+export const METER_ZONES = { ok: -12, hot: -3 } as const;
+
+/** a linear level (0..1, 1 = full scale) in dB, floored at the scale's bottom (silence = the floor) */
+export function levelDb(linear: number, range = METER_RANGE): number {
+	if (!(linear > 0) || !Number.isFinite(linear)) return range.floor;
+	return Math.max(range.floor, 20 * Math.log10(linear));
+}
+
+/** where a dB value sits on the meter, 0..1 from the bottom */
+export function dbPosition(db: number, range = METER_RANGE): number {
+	return clamp01((db - range.floor) / (range.top - range.floor));
+}
+
+export type MeterZone = 'ok' | 'hot' | 'clip';
+export const meterZone = (db: number): MeterZone => (db >= METER_ZONES.hot ? 'clip' : db >= METER_ZONES.ok ? 'hot' : 'ok');
+
+/** the scale's fixed marks as positions: the 0.0 dB line and the zone edges (the strip draws them on every bus meter) */
+export const METER_MARKS = {
+	zero: dbPosition(0),
+	ok: dbPosition(METER_ZONES.ok),
+	hot: dbPosition(METER_ZONES.hot)
+} as const;
+
 export interface OutputMeter {
 	/** 1-based, as a patch bay numbers outputs */
 	channel: number;
-	/** 0..1 */
+	/** linear 0..1 as the engine reports it */
 	level: number;
+	/** the same on the meter's dB scale, 0..1 from the bottom */
+	position: number;
+	zone: MeterZone;
 	/** the engine renders this output (a slot beyond the count is only drawn dim) */
 	active: boolean;
+}
+
+function meterOf(level: number, channel: number, active: boolean): OutputMeter {
+	const db = levelDb(level);
+	return { channel, level: clamp01(level), position: dbPosition(db), zone: meterZone(db), active };
 }
 
 /** the output meters: one per reported peak, padded with dim slots up to `slots` (a stereo pair at least) */
 export function outputMeters(peaks: readonly number[], slots = 2): OutputMeter[] {
 	const n = Math.max(peaks.length, slots);
-	return Array.from({ length: n }, (_, i) => ({ channel: i + 1, level: i < peaks.length ? clamp01(peaks[i]) : 0, active: i < peaks.length }));
+	return Array.from({ length: n }, (_, i) => meterOf(i < peaks.length ? peaks[i] : 0, i + 1, i < peaks.length));
+}
+
+/** an audio input the engine listens to; `source` names where it comes from (the source types: not decided yet – the engine reports none today) */
+export interface InputLike {
+	id: string;
+	source: string;
+	label?: string;
+	/** linear 0..1 */
+	level: number;
+}
+
+export interface InputMeter extends OutputMeter {
+	id: string;
+	source: string;
+	label: string;
+}
+
+/** the input meters – none when the engine reports no inputs (an empty group shows nothing) */
+export function inputMeters(inputs: readonly InputLike[]): InputMeter[] {
+	return inputs.map((x, i) => ({ ...meterOf(x.level, i + 1, true), id: x.id, source: x.source, label: x.label || x.id }));
 }
 
 /** the limiter's gain reduction (dB, 0 = untouched) as a 0..1 bar: full at `fullAt` dB */
@@ -97,9 +151,12 @@ export interface SignalRow {
 	active: boolean;
 }
 
-/** a row per protocol: its last message and whether it is lit now (`hold` = how long a dot stays on after traffic) */
-export function signalRows(last: Partial<Record<SignalKind, SignalSeen>>, now: number, hold = 250): SignalRow[] {
-	return SIGNAL_KINDS.map((kind) => {
+/**
+ * a row per protocol that is wired (the scene has outputs of that kind – `wired`) or has been seen, with its last message and
+ * whether it is lit now (`hold` = how long a dot stays on after traffic); a protocol nothing uses shows nothing
+ */
+export function signalRows(last: Partial<Record<SignalKind, SignalSeen>>, now: number, wired: readonly SignalKind[] = [], hold = 250): SignalRow[] {
+	return SIGNAL_KINDS.filter((kind) => wired.includes(kind) || last[kind]).map((kind) => {
 		const seen = last[kind];
 		return { kind, text: seen?.text ?? '', active: !!seen && now - seen.at >= 0 && now - seen.at < hold };
 	});

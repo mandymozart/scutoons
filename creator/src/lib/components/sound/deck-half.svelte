@@ -3,12 +3,12 @@
 	// character's rig – the being, the knobs and the sound. The sound starts with the round Play button on the stage (or the
 	// first click on it; the browser holds the first sound back until a gesture). The character's properties sit on the stage
 	// as chips (the mood is the first; look, persona … follow); under it the signal strip (owner draft 2026-11-02). The
-	// compiled module plays here with #290 – until then the muted line says so.
+	// compiled module plays here with #290 (what the deck plays today is the Info panel's to say once the editor has one).
 	import { EngineStage, emptySnapshot, type EngineHost, type EngineSnapshot } from '@scutoons/engine-host';
 	import { API_URL, CDN_SERVER } from '$lib/config.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
-	import { knobColumns, outputMeters, reductionBar, sameColumns, signalRows, stripStatus, type KnobColumn, type KnobLike } from '$lib/editor/signal-strip.ts';
+	import { inputMeters, knobColumns, outputMeters, reductionBar, sameColumns, signalRows, stripStatus, type KnobColumn, type KnobLike } from '$lib/editor/signal-strip.ts';
 	import SignalStrip from '$lib/components/sound/signal-strip.svelte';
 
 	let { character }: { character: string } = $props();
@@ -52,6 +52,8 @@
 	const outputs = $derived(outputMeters(peaks));
 	const stats = $derived(stripStatus(snap));
 	const signals = $derived(signalRows({}, 0));
+	// the engine reports no audio inputs yet (their sources are still to be decided); an empty group shows nothing
+	const inputs = inputMeters([]);
 </script>
 
 <div class="deck" data-testid="sound-deck">
@@ -67,8 +69,7 @@
 			</label>
 		</div>
 	</div>
-	<SignalStrip {outputs} {reduction} knobs={columns} {signals} state={stats.state} perf={stats.perf} />
-	<p class="note" title={m['creator.sound_play_note']()}>{m['creator.sound_play_note']()}</p>
+	<SignalStrip {inputs} {outputs} {reduction} knobs={columns} {signals} state={stats.state} perf={stats.perf} />
 </div>
 
 <style>
@@ -118,16 +119,5 @@
 	.chip select option {
 		color: var(--ink);
 		background: var(--paper);
-	}
-	.note {
-		flex: none;
-		margin: 0;
-		padding: 0.125rem var(--space-05);
-		border-top: 1px solid var(--border-muted);
-		font-size: 0.75rem;
-		color: var(--text-muted);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
 	}
 </style>

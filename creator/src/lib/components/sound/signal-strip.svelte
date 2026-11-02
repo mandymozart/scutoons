@@ -1,11 +1,14 @@
 <script lang="ts">
-	// The deck half's signal strip (#282, owner draft 2026-11-02): a fixed-height band under the stage – vertical meters, one
-	// per audio output (+ the limiter's gain reduction), a column per exposed knob, the MIDI / DMX / OSC monitor, one stats
-	// line. DOM for now; the later canvas element (own issue) draws the same model (lib/editor/signal-strip.ts).
-	import type { KnobColumn, OutputMeter, SignalRow } from '$lib/editor/signal-strip.ts';
+	// The deck half's signal strip (#282, owner draft 2026-11-02): a fixed-height band under the stage – vertical bus meters on
+	// a dB scale (green / amber / red zones, the 0.0 dB mark drawn on every meter), one per audio input (named by its source)
+	// and per audio output (+ the limiter's gain reduction), a column per exposed knob, one status line with the MIDI / DMX / OSC
+	// lamps (a detailed monitor is a ticket of its own). DOM for now; the later canvas element (own issue) draws the same model
+	// (lib/editor/signal-strip.ts).
+	import { METER_MARKS, type InputMeter, type KnobColumn, type OutputMeter, type SignalRow } from '$lib/editor/signal-strip.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
 	let {
+		inputs,
 		outputs,
 		reduction,
 		knobs,
@@ -13,6 +16,7 @@
 		state,
 		perf
 	}: {
+		inputs: InputMeter[];
 		outputs: OutputMeter[];
 		/** the limiter's gain reduction as 0..1 */
 		reduction: number;
@@ -22,22 +26,38 @@
 		perf: string;
 	} = $props();
 
-	const pct = (v: number) => `${Math.round(v * 100)}%`;
+	const pct = (v: number) => `${Math.round(v * 1000) / 10}%`;
+	/** the zones as hard colour stops on the bar; the part above the level is covered */
+	const zones = `linear-gradient(to top, var(--meter-ok) 0 ${pct(METER_MARKS.ok)}, var(--meter-hot) ${pct(METER_MARKS.ok)} ${pct(METER_MARKS.hot)}, var(--meter-clip) ${pct(METER_MARKS.hot)} 100%)`;
 </script>
+
+{#snippet bus(list: { channel: number; position: number; active: boolean; label?: string; source?: string }[], name: string)}
+	{#each list as o (name + o.channel)}
+		<div class="cell" class:dim={!o.active} title={o.source ? `${o.label} · ${o.source}` : undefined}>
+			<div class="bar bus" role="meter" aria-label={`${name} ${o.channel}`} aria-valuemin="0" aria-valuemax="1" aria-valuenow={o.position} style:background={zones}>
+				<b class="cover" style:height={pct(1 - o.position)}></b><i class="zero" style:bottom={pct(METER_MARKS.zero)}></i>
+			</div>
+			{#if o.source}<span class="lab">{o.label}</span>{:else}<span class="n">{o.channel}</span>{/if}
+		</div>
+	{/each}
+{/snippet}
 
 <div class="strip" data-testid="sound-strip">
 	<div class="cols">
-		<section class="col outs" aria-label={m['creator.sound_out']()}>
+		{#if inputs.length}
+			<section class="col" aria-label={m['creator.sound_in']()}>
+				<h3>{m['creator.sound_in']()}</h3>
+				<div class="bars">{@render bus(inputs, m['creator.sound_in']())}</div>
+			</section>
+		{/if}
+
+		<section class="col" aria-label={m['creator.sound_out']()}>
 			<h3>{m['creator.sound_out']()}</h3>
 			<div class="bars">
-				{#each outputs as o (o.channel)}
-					<div class="cell" class:dim={!o.active}>
-						<div class="bar" role="meter" aria-label={`${m['creator.sound_out']()} ${o.channel}`} aria-valuemin="0" aria-valuemax="1" aria-valuenow={o.level}><i style:height={pct(o.level)}></i></div>
-						<span class="n">{o.channel}</span>
-					</div>
-				{/each}
+				<div class="axis" aria-hidden="true"><span style:bottom={pct(METER_MARKS.zero)}>0</span><span style:bottom={pct(METER_MARKS.ok)}>-12</span></div>
+				{@render bus(outputs, m['creator.sound_out']())}
 				<div class="cell" title={m['creator.sound_limiter']()}>
-					<div class="bar red" role="meter" aria-label={m['creator.sound_limiter']()} aria-valuemin="0" aria-valuemax="1" aria-valuenow={reduction}><i style:height={pct(reduction)}></i></div>
+					<div class="bar" role="meter" aria-label={m['creator.sound_limiter']()} aria-valuemin="0" aria-valuemax="1" aria-valuenow={reduction}><i class="gr" style:height={pct(reduction)}></i></div>
 					<span class="n">gr</span>
 				</div>
 			</div>
@@ -56,22 +76,25 @@
 				{/each}
 			</div>
 		</section>
-
-		<section class="col sig" aria-label={m['creator.sound_signals']()} title={m['creator.sound_signals_wait']()}>
-			<h3>{m['creator.sound_signals']()}</h3>
-			{#each signals as r (r.kind)}
-				<div class="row" data-kind={r.kind}>
-					<span><span class="dot" class:on={r.active}></span>{r.kind}</span>
-					<span class="text">{r.text || '–'}</span>
-				</div>
-			{/each}
-		</section>
 	</div>
-	<p class="stats" data-testid="sound-status"><span>{state}</span><span data-testid="sound-fps">{perf}</span></p>
+	<p class="stats" data-testid="sound-status">
+		<span class="state">{state}</span>
+		{#if signals.length}
+			<span class="lamps" data-testid="sound-signals">
+				{#each signals as r (r.kind)}
+					<span class="lamp" title={r.text ? `${r.kind} · ${r.text}` : r.kind}><span class="dot" class:on={r.active}></span>{r.kind}</span>
+				{/each}
+			</span>
+		{/if}
+		<span data-testid="sound-fps">{perf}</span>
+	</p>
 </div>
 
 <style>
 	.strip {
+		--meter-ok: var(--acid-green);
+		--meter-hot: #ffd400;
+		--meter-clip: var(--acid-red);
 		flex: none;
 		height: 10rem;
 		display: flex;
@@ -82,8 +105,7 @@
 	.cols {
 		flex: 1;
 		min-height: 0;
-		display: grid;
-		grid-template-columns: auto minmax(0, 1fr) minmax(5.5rem, 8rem);
+		display: flex;
 	}
 	.col {
 		display: flex;
@@ -93,7 +115,8 @@
 		padding: var(--space-025) var(--space-05);
 		border-right: 1px solid var(--border-muted);
 	}
-	.col:last-child {
+	.col.knobs {
+		flex: 1;
 		border-right: 0;
 	}
 	h3 {
@@ -109,6 +132,7 @@
 		min-height: 0;
 		display: flex;
 		gap: 0.25rem;
+		position: relative;
 	}
 	.knobs .bars {
 		gap: 0.375rem;
@@ -121,34 +145,61 @@
 		min-height: 0;
 	}
 	.cell.dim {
-		opacity: 0.35;
+		opacity: 0.4;
 	}
 	.bar {
 		flex: 1;
 		width: 0.75rem;
 		min-height: 0;
-		display: flex;
-		align-items: flex-end;
 		position: relative;
+		overflow: hidden;
 		background: var(--surface-panel);
-		border: 1px solid var(--border-muted);
+		border: 1px solid var(--ink);
 	}
-	.bar i {
-		display: block;
-		width: 100%;
-		background: var(--ink);
+	/* the part above the level hides the zones; the 0.0 dB mark stays */
+	.cover {
+		position: absolute;
+		left: 0;
+		right: 0;
+		top: 0;
+		background: var(--paper);
 	}
-	.bar.red i {
+	.zero {
+		position: absolute;
+		left: 0;
+		right: 0;
+		height: 0;
+		border-top: 2px solid var(--ink);
+	}
+	.gr {
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 0;
 		background: var(--acid-red);
+	}
+	/* the dB marks beside the first output meter */
+	.axis {
+		position: relative;
+		width: 1.25rem;
+		margin-bottom: 1rem;
+		color: var(--text-muted);
+	}
+	.axis span {
+		position: absolute;
+		right: 0;
+		transform: translateY(50%);
+		line-height: 1;
 	}
 	.bar.knob {
 		width: 1rem;
 		background: transparent;
-		border-color: var(--ink);
 	}
 	.knob u {
-		display: block;
-		width: 100%;
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 0;
 		background: var(--surface-panel);
 		text-decoration: none;
 	}
@@ -173,39 +224,11 @@
 		text-overflow: ellipsis;
 		color: var(--text-muted);
 	}
-	.row {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		gap: var(--space-05);
-		padding: 0.125rem 0;
-		border-bottom: 1px solid var(--border-muted);
-	}
-	.row:last-child {
-		border-bottom: 0;
-	}
-	.text {
-		min-width: 0;
-		overflow: hidden;
-		white-space: nowrap;
-		text-overflow: ellipsis;
-		color: var(--text-muted);
-	}
-	.dot {
-		display: inline-block;
-		width: 0.5rem;
-		height: 0.5rem;
-		margin-right: 0.3125rem;
-		border: 1px solid var(--ink);
-		border-radius: 50%;
-	}
-	.dot.on {
-		background: var(--ink);
-	}
 	.stats {
 		flex: none;
 		display: flex;
 		justify-content: space-between;
+		align-items: center;
 		gap: var(--space-1);
 		margin: 0;
 		padding: 0.125rem var(--space-05);
@@ -213,9 +236,24 @@
 		color: var(--text-muted);
 		white-space: nowrap;
 	}
-	.stats span:first-child {
+	.state {
 		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+	.lamps {
+		display: inline-flex;
+		gap: var(--space-05);
+	}
+	.dot {
+		display: inline-block;
+		width: 0.5rem;
+		height: 0.5rem;
+		margin-right: 0.25rem;
+		border: 1px solid var(--ink);
+		border-radius: 50%;
+	}
+	.dot.on {
+		background: var(--ink);
 	}
 </style>
