@@ -232,7 +232,7 @@ everything else is exported from them.
 |---|---|---|
 | native deck, x86-64 baseline | all + wasmtime backend | AVX2 loops chosen at start (as today) |
 | native deck, x86-64-v3, aarch64 | same | aarch64 cross on GitHub by hand |
-| live-core, wasm32 + simd128 | deck-core, deck-space (no features), deck-events, deck-outputs, deck-module-host (web/wasmi), deck-engine | size gate ≤ 350 KB gz (249 today); no fundsp, no symphonia, no schemars |
+| live-core, wasm32 + simd128 | deck-core, deck-space (no features), deck-events, deck-outputs, deck-module-host (web/wasmi), deck-engine | size gate ≤ 500 KB gz (owner 2026-11-02; 355 measured in P0); no fundsp, no symphonia, no schemars |
 | space-web, wasm32 | deck-space (gpu) | unchanged |
 | scutoons-build | deck-module, deck-space | gains `/validate`, later `/bake` |
 | deck-media, wasm32 + simd128 (+ threads) | deck-media | its own wasm, loaded on need in the media worker; its gate is set by the media probe (§3.8) |
@@ -557,7 +557,7 @@ Today 249 KB gz for live-core. Expected growth: the engine's kinds + voices + ev
 if chosen, ≤ +150 KB gz (#306 gate). Kept out of live-core: fundsp, schemars, any audio library (§3.1); media decoding is
 deck-media, its own wasm loaded on need (§2.9). Wavetables are computed at load (≈ 1–3 ms, not in
 the binary). **simd128 on** (`-C target-feature=+simd128` for live-core; all target browsers have it; Safari since
-16.4 – older ones are ignored by the owner's rule). Gate per phase: ≤ 350 KB gz, compile + instantiate ≤ 10 ms on the
+16.4 – older ones are ignored by the owner's rule). Gate per phase: ≤ 500 KB gz, compile + instantiate ≤ 10 ms on the
 PC (5.4 ms today).
 
 ### 3.6 Module ABI: control outputs, groups, capabilities, channels
