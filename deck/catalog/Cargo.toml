@@ -1,0 +1,22 @@
+# deck-catalog – the node-kind catalog (#315, research/ENGINE-REFACTOR-PLAN.md §2.4): ONE `Descriptor` table for the
+# built-in kinds, in the same shape a module's descriptor deserializes into. deck-core's kind table, deck-space's
+# `Kind` ports / domain / parameter ranges and the stage module table read it; `kinds.json`, the JSON Schema, the TS
+# types and the server's NodeKinds.php are generated from it (deck-space's `deck-schema`, `--check` in deck:ci).
+# serde only – the schema derive (schemars) is the feature `schema`, never in a wasm build.
+[package]
+name = "deck-catalog"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+default = []
+# `JsonSchema` on the types (the generator only)
+schema = ["dep:schemars"]
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+schemars = { version = "1", optional = true }
