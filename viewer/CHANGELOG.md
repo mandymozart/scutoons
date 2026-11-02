@@ -4,6 +4,8 @@ Versions: `package.json` `version`; every build writes `version.json` (deploy/RE
 
 ## Unreleased
 
+- The deck page loses "Save preset" (#302; owner 2026-11-02: readers save nothing): the sheet, its button and the `live_deck.save_*` texts are gone; presets are the creator's.
+
 - "Where to buy" (2026-10-02, agents/EMBASSY.md "Stores"): new page `/stores` (`/en/stores`) – the Embassy's listed
   stores from `/api/stockists/`, independent shops first, then the others, grouped by country and city; filters product
   + country in the URL (`?product=`, `?country=`); empty states with "Buy online". "Läden vor Ort" / "Local stores" next

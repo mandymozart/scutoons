@@ -953,21 +953,7 @@
 		"midi_unmap": "MIDI-Zuordnung entfernen",
 		"midi_problems": "Nicht geladene Zuordnungen: {lines}",
 		"knob_hint": "{label}: hoch / runter ziehen · Shift fein · Doppelklick setzt zurück",
-		"stats": "Statistik",
-		"save": "Preset speichern",
-		"save_hint": "Die Regler als eigenes Preset behalten (eine Ableitung von dem, das die Spur spielt)",
-		"save_sheet": "Als Preset speichern",
-		"save_close": "Schließen",
-		"save_track": "Spur",
-		"save_name": "Name",
-		"save_name_placeholder": "Vesper, hell …",
-		"save_changes": "Was sich geändert hat",
-		"save_nothing": "Auf dieser Spur ist noch nichts verändert – es würde so gespeichert, wie es spielt.",
-		"save_no_track": "Keine Spur spielt hier ein Preset – nichts, wovon abgeleitet werden kann.",
-		"save_signin": "Melde dich an, um Presets in deinem Konto zu speichern.",
-		"save_do": "Speichern",
-		"save_saving": "Speichert …",
-		"save_failed": "Nicht gespeichert: {reason}"
+		"stats": "Statistik"
 	},
 	"about_page": {
 		"origin_title": "Wie SCUTOONS entstanden ist",
