@@ -34,8 +34,9 @@ permissions:
   contents: read
   packages: write
 
+# one group with build-image.yml: an update of either container restarts the pod
 concurrency:
-  group: live-image
+  group: bunny-live-app
   cancel-in-progress: false
 
 env:
