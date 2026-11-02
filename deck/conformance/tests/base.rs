@@ -9,7 +9,7 @@ use rustfft::{num_complex::Complex, FftPlanner};
 use std::time::Instant;
 
 fn start_phase() -> f32 {
-    fundsp::math::rnd1(0) as f32
+    deck_core::dsp::START_PHASE
 }
 
 /// the stage's stereo output, both channels interleaved (the lab renders L R too)

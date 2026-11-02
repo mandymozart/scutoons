@@ -117,7 +117,7 @@ fn live_core_native_vs_wasm() {
 #[test]
 fn lab_native_vs_wasm_simd() {
     use deck_engine_lab::{scenario_run, Exp};
-    let start = fundsp::math::rnd1(0) as f32;
+    let start = deck_core::dsp::START_PHASE;
     let simd = build_wasm("deck-engine-lab", "deck_engine_lab.wasm", true);
     let mut w = Wasm::load(&simd);
     let run = w.f::<(u32, u32, u32, f32, u32), u32>("lab_run");

@@ -5,11 +5,12 @@
 //! once, each voice's pitch and gate gathered into its lane (from its `cv` link, or its `freq` with the gate open), the
 //! loop, each lane copied out to its voice's output buffer. deck-core's sine and phase wrap – no libm.
 //!
-//! Same sound as the blocks they replace (blocks.rs: fundsp's `sine()` + our envelope): the phases start where fundsp's
-//! sine starts and step by the same seconds-per-sample; only the sine is deck-core's polynomial (< 2e-7).
-//! audio/mod.rs's tests compare the two paths.
+//! Same sound as the blocks they replace (blocks.rs: the patcher build's scalar sine / FM + the same envelope): the
+//! phases start at `START_PHASE` and step by the same seconds-per-sample, the sine is deck-core's polynomial. lib.rs's
+//! tests compare the two paths.
 use super::{Param, Stereo, MAX_BLOCK};
 use deck_space::graph::{Kind, Node};
+use deck_core::dsp::START_PHASE;
 use deck_core::lanes::{self as v, F8, LANES};
 use deck_core::smooth::{Ramp, GLIDE, QUICK};
 
@@ -19,7 +20,8 @@ type Lanes = [f32; LANES];
 pub(super) enum VoiceKind {
     /// `osc` with `wave = "sine"`
     Sine,
-    /// `fm`: a sine modulator at freq × ratio bending the carrier's frequency by index × that
+    /// `fm`: true frequency modulation – a sine modulator at freq × ratio bends the carrier's frequency by index × that
+    /// (negative frequency runs the phase backward, no fold)
     Fm,
 }
 
@@ -44,11 +46,6 @@ pub fn avx2_available() -> bool {
     {
         false
     }
-}
-
-/// Where fundsp's `sine()` starts its phase (its hash 0) – the batch starts there too.
-fn start_phase() -> f32 {
-    fundsp::math::rnd1(0) as f32
 }
 
 /// One group of eight voices: state, envelope coefficients and this block's params, a lane each.
@@ -78,7 +75,7 @@ pub(super) struct Voices {
     rate: f32,
     /// per voice: the buffer its `cv` input reads (pitch left, gate right)
     cv: Vec<Option<usize>>,
-    /// seconds per sample, as fundsp steps its phases
+    /// seconds per sample
     sd: f32,
     avx2: bool,
     groups: Vec<Group>,
@@ -114,7 +111,7 @@ impl Voices {
             self.groups.push(Group::default());
         }
         let group = &mut self.groups[g];
-        (group.c[l], group.m[l]) = (start_phase(), start_phase());
+        (group.c[l], group.m[l]) = (START_PHASE, START_PHASE);
         (group.att[l], group.rel[l]) = (att, rel);
         self.params.push(params);
         self.ramps.push([GLIDE, GLIDE, QUICK, QUICK].map(|t| Ramp::new(0.0, t, self.rate)));
@@ -239,7 +236,7 @@ fn run(kind: VoiceKind, group: &mut Group, f: &[Lanes], gate: &[Lanes], y: &mut 
                 let mo = v::sin_turns(m);
                 m = v::wrap01(m + fm * sd);
                 let o = v::sin_turns(c);
-                c = v::wrap01(c + (f + mo * (k0 + dk * s) * fm).abs() * sd);
+                c = v::wrap01(c + (f + mo * (k0 + dk * s) * fm) * sd);
                 *y = (o * envelope(gate) * (g0 + dg * s)).0;
             }
         }

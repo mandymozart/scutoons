@@ -114,7 +114,7 @@ pub trait Block: Send {
 }
 
 /// How an engine is built. A deck runs `Build::detect()`; the patcher build is the reference the tests and the bench
-/// compare with (every node a block, the sine oscillators and FM voices on fundsp – the stage before #183).
+/// compare with (every node a block, the sine oscillators and FM voices scalar – the engine before #183).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Build {
     /// sine oscillators and FM voices batched per level (else every node a block)
@@ -296,6 +296,7 @@ impl Engine {
         let depth = (0..graph.nodes.len()).filter(|&i| audio(i)).map(|i| level[i] + 1).max().unwrap_or(0);
         let mut bufs: Vec<Stereo> = Vec::new();
         let mut steps = Vec::new();
+        let mut tables = blocks::Tables::new(rate);
         let mut buf_of: Vec<Option<usize>> = vec![None; graph.nodes.len()];
         for l in 0..depth {
             let nodes: Vec<usize> = graph.order.iter().copied().filter(|&i| audio(i) && level[i] == l).collect();
@@ -331,7 +332,7 @@ impl Engine {
                 let node = &graph.nodes[i];
                 let params = node_params(graph, i, &mut handles);
                 let inputs = (0..node.kind.inputs().len()).map(|k| audio_in(graph, &buf_of, i, k)).collect();
-                let block = blocks::make(node, i, rate, &params, &mut handles, seams)?;
+                let block = blocks::make(node, i, rate, &params, &mut handles, seams, &mut tables)?;
                 // the audio_out sink has no output port but keeps its block in one buffer – render() reads it
                 let outs = if node.kind == Kind::AudioOut { 1 } else { node.kind.outputs().len() };
                 buf_of[i] = Some(bufs.len());
@@ -663,11 +664,11 @@ to=\"out.in\"
 
     const BASELINE: Build = Build { batch: true, avx2: false };
 
-    /// The same scenes through the patcher (every node a block, fundsp's sines – the stage before #183) and the batch
-    /// runtime, two seconds each: the same samples within a tolerance. Sines differ only by deck-core's sine (< 2e-7);
-    /// FM multiplies the modulator's tiny difference by index × its frequency into the carrier's phase, which walks –
-    /// at 4.5 × 1.8 kHz of deviation (the stress scene) by ~1e-4 of the voice's 0.06 after 2 s, the default scene's FM
-    /// (index ≤ 3.5) by ~1e-5. Measured 2026-10-30: 2.2e-7 · 6.4e-6 · 1.7e-4.
+    /// The same scenes through the patcher (every node a block, scalar sines and FM) and the batch runtime, two seconds
+    /// each, blocks of 128, 37 and 1024: the same samples, bit for bit. The patcher blocks are the reference the batches
+    /// are held to – two implementations of one arithmetic (deck-core's `sin_turns`, `START_PHASE`, the envelope, the
+    /// glide), no outside library (fundsp, the old oracle, left with #317). Before it the batches were compared with
+    /// fundsp's sines within 2e-7…1.7e-4; now the difference is exactly 0.
     #[test]
     fn the_batches_sound_like_the_patcher() {
         let extra = "[[node]]
@@ -680,10 +681,10 @@ gain=0.1
 from=\"saw\"
 to=\"sum.in4\"
 ";
-        for (name, text, batches, tolerance) in [
-            ("12 sines + a saw", voices("osc", 12, extra), 2, 1e-5),
-            ("the default scene", deck_space::scene::MADNESS_SCENE.to_string(), 1, 1e-4),
-            ("16 FM voices, index up to 4.5", voices("fm", 16, ""), 2, 1e-3),
+        for (name, text, batches) in [
+            ("12 sines + a saw", voices("osc", 12, extra), 2),
+            ("the default scene", deck_space::scene::MADNESS_SCENE.to_string(), 1),
+            ("16 FM voices, index up to 4.5", voices("fm", 16, ""), 2),
         ] {
             let g = Graph::build(&Scene::parse(&text).unwrap()).unwrap();
             let (e, _) = Engine::build_with(&g, 48_000.0, 1.0, BASELINE).unwrap();
@@ -691,7 +692,7 @@ to=\"sum.in4\"
             assert_eq!(e.shape().1, batches, "{name}: {:?}", e.shape());
             for b in [BASELINE, Build::detect()] {
                 let worst = compare(&text, Build::patcher(), b);
-                assert!(worst < tolerance, "{name} ({}): the largest difference {worst}", b.label());
+                assert_eq!(worst, 0.0, "{name} ({}): the largest difference", b.label());
             }
         }
     }

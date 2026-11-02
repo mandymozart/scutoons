@@ -85,7 +85,6 @@ pollster = "0.4"
 bytemuck = { version = "1", features = ["derive"] }
 font8x8 = { version = "0.3", default-features = false, features = ["unicode"] }
 cpal = "0.15"
-fundsp = { version = "0.20", default-features = false, features = ["std"] }
 rtrb = "0.3"
 symphonia = { version = "0.5", default-features = false, features = ["mp3", "wav", "pcm"], optional = true }
 ureq = { version = "2", optional = true }

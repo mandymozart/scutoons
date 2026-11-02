@@ -31,4 +31,3 @@ deck-module-host = { path = "../module-host", default-features = false, optional
 anyhow.workspace = true
 toml.workspace = true
 rtrb = "0.3"
-fundsp = { version = "0.20", default-features = false, features = ["std"] }

@@ -1,15 +1,16 @@
 //! The audio kinds' blocks – the patcher model: one block per node (#183). The batch runtime runs sine oscillators and
 //! FM voices as batches (voices.rs) and everything else as these blocks; a patcher build (`Build::patcher`, the tests'
-//! and the bench's reference) runs every node as a block. Oscillators, noise and the filter are fundsp units (built and
-//! warmed up here, outside the callback); the wiring, envelopes, sequencer, player, mixer and FFT tap are ours. Nothing
-//! in `process` allocates.
+//! and the bench's reference) runs every node as a block. The oscillators, the noise and the filter are deck-core's
+//! `dsp` units (wavetables built here, outside the callback); the wiring, envelopes, sequencer, player, mixer and FFT
+//! tap are ours. Nothing in `process` allocates.
 use super::click::Click;
 use super::{Block, Handles, MusicFeed, Param, Seams, Stereo, Track};
 use anyhow::{bail, Result};
 use deck_core::tempo::BeatReader;
 use deck_space::graph::{Kind, Node};
+use deck_core::dsp::{self, Pink, Svf, Wave, WaveTable, White};
+use deck_core::math::{round_fast, sin_turns};
 use deck_core::smooth::{Ramp, GLIDE, QUICK};
-use fundsp::hacker32::{lowpass, noise, pink, saw, sine, square, triangle, AudioUnit};
 use std::sync::{Arc, Mutex};
 
 /// how many samples the FFT ring holds (≈ 170 ms at 48 kHz; the frame thread drains it every frame)
@@ -19,39 +20,42 @@ const TAP_RING: usize = 8192;
 pub use deck_space::params::default_for;
 
 #[cfg_attr(not(feature = "modules"), allow(unused_variables))]
-pub fn make(node: &Node, index: usize, rate: f32, params: &[Param], h: &mut Handles, seams: &Seams) -> Result<Box<dyn Block>> {
+pub fn make(node: &Node, index: usize, rate: f32, params: &[Param], h: &mut Handles, seams: &Seams, tables: &mut Tables) -> Result<Box<dyn Block>> {
     let p = |name: &str| params[node.kind.input(name).expect("a port of this kind")].clone();
     // a param read once per block, gliding across it (#188, deck-core's smooth.rs): gains and frequencies longer
     let glide = |name: &str| Glide::new(p(name), GLIDE, rate);
     let quick = |name: &str| Glide::new(p(name), QUICK, rate);
     Ok(match node.kind {
         Kind::Osc => {
-            let unit: Box<dyn AudioUnit> = match node.str("wave").unwrap_or("sine") {
-                "sine" => Box::new(sine()),
-                "saw" => Box::new(saw()),
-                "square" => Box::new(square()),
-                "triangle" => Box::new(triangle()),
-                w => bail!("node '{}': unknown wave '{w}' (sine, saw, square, triangle)", node.id),
+            let shape = match node.str("wave").unwrap_or("sine") {
+                "sine" => Shape::Sine { phase: dsp::START_PHASE },
+                w => match Wave::parse(w) {
+                    Some(wave) => Shape::Table { table: tables.get(wave), osc: dsp::Osc::new() },
+                    None => bail!("node '{}': unknown wave '{w}' (sine, saw, square, triangle)", node.id),
+                },
             };
-            Box::new(Osc { unit: warm(unit, rate, 1), freq: glide("freq"), gain: glide("gain"), env: Env::new(rate, node) })
+            Box::new(Osc { shape, sd: 1.0 / rate, freq: glide("freq"), gain: glide("gain"), env: Env::new(rate, node) })
         }
         Kind::Noise => {
-            let src: Box<dyn AudioUnit> = match node.str("color").unwrap_or("white") {
-                "white" => Box::new(noise()),
-                "pink" => Box::new(pink()),
+            let seed = noise_seed(node, index);
+            let src = match node.str("color").unwrap_or("white") {
+                "white" => Source::White(White::new(seed)),
+                "pink" => Source::Pink(Pink::new(seed)),
                 c => bail!("node '{}': unknown color '{c}' (white, pink)", node.id),
             };
             Box::new(Noise {
-                src: warm(src, rate, 0),
-                filter: warm(Box::new(lowpass()), rate, 3),
+                src,
+                filter: Svf::new(),
+                pi_over_rate: std::f32::consts::PI / rate,
                 cutoff: quick("cutoff"),
                 q: node.f32("q", 0.7),
                 gain: glide("gain"),
             })
         }
         Kind::Fm => Box::new(Fm {
-            carrier: warm(Box::new(sine()), rate, 1),
-            modulator: warm(Box::new(sine()), rate, 1),
+            carrier: dsp::START_PHASE,
+            modulator: dsp::START_PHASE,
+            sd: 1.0 / rate,
             freq: glide("freq"),
             ratio: quick("ratio"),
             index: quick("index"),
@@ -103,15 +107,31 @@ fn beats(h: &Handles) -> BeatReader {
     BeatReader { shared: h.tempo.clone(), frames: h.clock.frames.clone() }
 }
 
-/// fundsp units set up outside the callback: sample rate, state reset, one tick so lazy tables exist before RT
-fn warm(mut unit: Box<dyn AudioUnit>, rate: f32, inputs: usize) -> Box<dyn AudioUnit> {
-    unit.set_sample_rate(rate as f64);
-    unit.reset();
-    let ins = [220.0, 1000.0, 0.7];
-    let mut out = [0.0; 2];
-    unit.tick(&ins[..inputs], &mut out[..unit.outputs()]);
-    unit.reset();
-    unit
+/// The wavetables a build needs, made once per wave (a few ms each) and shared by the nodes that use them.
+pub struct Tables {
+    rate: f32,
+    made: Vec<Arc<WaveTable>>,
+}
+
+impl Tables {
+    pub fn new(rate: f32) -> Tables {
+        Tables { rate, made: Vec::new() }
+    }
+
+    fn get(&mut self, wave: Wave) -> Arc<WaveTable> {
+        if let Some(t) = self.made.iter().find(|t| t.wave() == wave) {
+            return t.clone();
+        }
+        let t = Arc::new(WaveTable::new(wave, self.rate));
+        self.made.push(t.clone());
+        t
+    }
+}
+
+/// A noise node's seed: its `seed` param (default 1) and its place in the graph, so two noise nodes never play the same
+/// noise and a scene always plays the same (the seed rule, plan 3.4).
+fn noise_seed(node: &Node, index: usize) -> u64 {
+    (node.f32("seed", 1.0) as u64).wrapping_mul(0x0001_0000_0001).wrapping_add(index as u64)
 }
 
 fn write(out: &mut Stereo, i: usize, v: f32) {
@@ -184,28 +204,55 @@ fn pitch(cv: Option<&Stereo>, freq: (f32, f32), i: usize) -> (f32, f32) {
     }
 }
 
+/// an oscillator's wave: the sine (the batched voices' arithmetic, one lane) or a band-limited table
+enum Shape {
+    Sine { phase: f32 },
+    Table { table: Arc<WaveTable>, osc: dsp::Osc },
+}
+
 struct Osc {
-    unit: Box<dyn AudioUnit>,
+    shape: Shape,
+    /// seconds per sample
+    sd: f32,
     freq: Glide,
     gain: Glide,
     env: Env,
 }
 
+/// `wrap01` on one value – voices.rs's lanes do the same on eight
+#[inline(always)]
+fn wrap01(x: f32) -> f32 {
+    x - round_fast(x - 0.5)
+}
+
 impl Block for Osc {
     fn process(&mut self, ins: &[Option<&Stereo>], outs: &mut [Stereo], n: usize) {
         let (freq, gain) = (self.freq.block(n), self.gain.block(n));
-        let mut o = [0.0];
         for i in 0..n {
             let (f, gate) = pitch(ins[0], freq, i);
-            self.unit.tick(&[f], &mut o);
-            write(&mut outs[0], i, o[0] * self.env.next(gate) * at(gain, i));
+            let y = match &mut self.shape {
+                Shape::Sine { phase } => {
+                    let y = sin_turns(*phase);
+                    *phase = wrap01(*phase + f * self.sd);
+                    y
+                }
+                Shape::Table { table, osc } => osc.tick(table, f, self.sd),
+            };
+            write(&mut outs[0], i, y * self.env.next(gate) * at(gain, i));
         }
     }
 }
 
+/// the noise node's source: its colour
+enum Source {
+    White(White),
+    Pink(Pink),
+}
+
 struct Noise {
-    src: Box<dyn AudioUnit>,
-    filter: Box<dyn AudioUnit>,
+    src: Source,
+    filter: Svf,
+    pi_over_rate: f32,
     cutoff: Glide,
     q: f32,
     gain: Glide,
@@ -214,18 +261,25 @@ struct Noise {
 impl Block for Noise {
     fn process(&mut self, _: &[Option<&Stereo>], outs: &mut [Stereo], n: usize) {
         let (cutoff, gain) = (self.cutoff.block(n), self.gain.block(n));
-        let (mut x, mut y) = ([0.0], [0.0]);
         for i in 0..n {
-            self.src.tick(&[], &mut x);
-            self.filter.tick(&[x[0], at(cutoff, i).clamp(20.0, 20_000.0), self.q], &mut y);
-            write(&mut outs[0], i, y[0] * at(gain, i));
+            let x = match &mut self.src {
+                Source::White(w) => w.next(),
+                Source::Pink(p) => p.next(),
+            };
+            let y = self.filter.lowpass(x, at(cutoff, i).clamp(20.0, 20_000.0), self.q, self.pi_over_rate);
+            write(&mut outs[0], i, y * at(gain, i));
         }
     }
 }
 
+/// True frequency modulation (owner 2026-11-02, DECISIONS "fm is true frequency modulation"): the carrier's phase
+/// accumulates the instantaneous frequency f + index · fm · sin(modulator) with fm = f · ratio; a negative instantaneous
+/// frequency runs the phase backward (no `abs()` fold). voices.rs runs the same formula eight voices at a time.
 struct Fm {
-    carrier: Box<dyn AudioUnit>,
-    modulator: Box<dyn AudioUnit>,
+    carrier: f32,
+    modulator: f32,
+    /// seconds per sample
+    sd: f32,
     freq: Glide,
     ratio: Glide,
     index: Glide,
@@ -236,13 +290,14 @@ struct Fm {
 impl Block for Fm {
     fn process(&mut self, ins: &[Option<&Stereo>], outs: &mut [Stereo], n: usize) {
         let (freq, ratio, index, gain) = (self.freq.block(n), self.ratio.block(n), self.index.block(n), self.gain.block(n));
-        let (mut m, mut c) = ([0.0], [0.0]);
         for i in 0..n {
             let (f, gate) = pitch(ins[0], freq, i);
             let fm = f * at(ratio, i);
-            self.modulator.tick(&[fm], &mut m);
-            self.carrier.tick(&[(f + m[0] * at(index, i) * fm).abs()], &mut c);
-            write(&mut outs[0], i, c[0] * self.env.next(gate) * at(gain, i));
+            let mo = sin_turns(self.modulator);
+            self.modulator = wrap01(self.modulator + fm * self.sd);
+            let o = sin_turns(self.carrier);
+            self.carrier = wrap01(self.carrier + (f + mo * at(index, i) * fm) * self.sd);
+            write(&mut outs[0], i, o * self.env.next(gate) * at(gain, i));
         }
     }
 }
