@@ -3,8 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { canStart, canStop, emptySnapshot, leadMs, loadPercent, meterPercent, statusLine, transportNote } from '../src/status.ts';
 
-test('Start is live once the being is there and no sound runs; after an error it tries again', () => {
-	assert.deepEqual((['idle', 'mounting', 'ready', 'starting', 'running', 'stopped', 'error'] as const).filter(canStart), ['ready', 'stopped', 'error']);
+test('Start is live once the deck exists – the sound does not wait for the 3D – and no sound runs; after an error it tries again', () => {
+	assert.deepEqual((['idle', 'mounting', 'ready', 'starting', 'running', 'stopped', 'error'] as const).filter(canStart), ['mounting', 'ready', 'stopped', 'error']);
 	assert.deepEqual((['idle', 'mounting', 'ready', 'starting', 'running', 'stopped', 'error'] as const).filter(canStop), ['running']);
 });
 

@@ -18,6 +18,7 @@
 		"@scutoons/auth": "*",
 		"@scutoons/catalog": "*",
 		"@scutoons/content": "*",
+		"@scutoons/engine-host": "*",
 		"@scutoons/media": "*",
 		"@scutoons/pwa": "*",
 		"@scutoons/reader": "*",

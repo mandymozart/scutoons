@@ -143,7 +143,12 @@ export class EngineHost {
 			this.log.push('3d', `no 3D: ${messageOf(e)}`, 'error');
 			this.hooks.threeD?.(false, messageOf(e));
 		}
-		if (!this.alive) return;
+		if (!this.alive) {
+			// disposed while the 3D started: nobody stops it later
+			this.space?.stop();
+			this.space = null;
+			return;
+		}
 		this.raf = requestAnimationFrame(this.frame);
 		this.timer = setInterval(() => this.sample(), 250);
 		if (this.snap.phase === 'mounting') this.setPhase('ready');

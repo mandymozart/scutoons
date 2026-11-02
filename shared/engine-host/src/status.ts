@@ -5,9 +5,9 @@ import type { Transport } from '@scutoons/live-core';
  *  starting (the AudioContext, the worker) → running → stopped (the sound ended, the being stays) · error */
 export type EnginePhase = 'idle' | 'mounting' | 'ready' | 'starting' | 'running' | 'stopped' | 'error';
 
-/** Start needs a user gesture – the button is live once the being is there and no sound runs or starts (after an
- *  error it tries again) */
-export const canStart = (p: EnginePhase): boolean => p === 'ready' || p === 'stopped' || p === 'error';
+/** Start needs a user gesture – the button is live once the deck exists (the sound does not wait for the 3D) and no
+ *  sound runs or starts; after an error it tries again */
+export const canStart = (p: EnginePhase): boolean => p === 'mounting' || p === 'ready' || p === 'stopped' || p === 'error';
 export const canStop = (p: EnginePhase): boolean => p === 'running';
 
 /** what the engine reports about itself (the host's `snapshot()`) */
