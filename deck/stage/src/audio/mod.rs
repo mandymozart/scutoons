@@ -284,7 +284,7 @@ impl Engine {
             glitch_log: Some(glitch_log),
         };
         // the scene's tempo until the frame thread takes over
-        let cfg = tempo::Config::from_graph(graph)?;
+        let cfg = tempo::config_from_graph(graph)?;
         handles.tempo.publish(&cfg.map(rate as f64), cfg.click);
         let audio = |i: usize| graph.nodes[i].kind.domain() == Domain::Audio;
         // levels by the audio links (control links into or out of audio nodes cross threads and never order them)

@@ -5,15 +5,7 @@
 #[cfg(feature = "osc")]
 pub use io::{listen, parse, Listener};
 
-/// What the steerable clock is told: by OSC, by the deck's keys.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Cmd {
-    Bpm(f64),
-    Beat(f64),
-    Start,
-    Stop,
-    Tap,
-}
+pub use deck_core::tempo::Cmd;
 
 #[cfg(feature = "osc")]
 mod io {
