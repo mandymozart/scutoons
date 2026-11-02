@@ -32,10 +32,7 @@ against its parent (a root: against the instrument as patched). That *is* the li
 - `PresetBook::lineage` = root first; refused: an unknown parent, a loop, a parent of another instrument.
   `resolve` folds the chain root → leaf; `derive(parent, id, held, edits)` writes a child with only the edits that
   differ from the parent's folded values, and needs the parent's `derive` right for how it is held.
-- **Saving from a deck** (#270, built): the deck sends only the knobs the performer moved away from their played values
-  (a mood's variant stays the mood's), the server folds them through `derive`'s rule again and gives the id `m:<ulid>` –
-  `POST /api/rigs/presets { parent, values, name?, tags?, mapping? }` (server docs/API.md "Rigs"; shared/live-deck
-  `preset.ts`, deck-native `save.rs`). The derivative carries its parent's tags (unless given) and rights.
+- **Saving from a deck** was built (#270) and removed (#302, owner 2026-11-02: readers save nothing): presets are derived in the creator (RIG-EDITING.md §6).
 - **tags** carry the traits we collect variations across (`cathedral`, `sad`, `vespers`, a genre …) – search, not logic.
 
 ## 3. Rig (a character's tracks)
@@ -60,10 +57,7 @@ How a deck **holds** a definition is `Hold` – lent (a conductor's grant for on
 carrier bag, #192) · core (the deck image). What it may do is the definition's `Rights` per hold: `play` · `tweak` (live,
 unsaved) · `derive` (save a child) · `copy` (a copy without lineage). Default: lent = play + tweak, core = + derive,
 owned = all. Saving into a carrier bag = the definition's right + the deck's grant (owner 2026-10-30), not a token scope.
-- **How the API holds** (#270, built – `MemberRigs::holdOf`): an own `m:` preset = owned; a factory preset = owned while
-  an instrument item of its instrument is in the member's carrier bag, else core (the catalog is the deck image's core
-  set); lent stays the relay's. The deck's grant = the `rigs` scope its member gives it at pairing (docs/API.md
-  "Decks"): it opens `/api/rigs/*` for that deck's token, nothing else. Refused: `403 not_derivable { hold }`.
+- **Holds today:** the hold decides what a definition may do on a deck (lent / owned / core above). The API no longer saves anything for members (#302), so there is no `/api/rigs/*` grant and no deck token scope.
 
 ## 5. Where it lives (owner 2026-11-01: two layers; instruments are items – built #258, agents/CATALOG.md "Instruments, presets, rigs")
 Two layers (owner 2026-11-01: "factory presets and rigs and … modification by individual users"):
@@ -71,16 +65,13 @@ Two layers (owner 2026-11-01: "factory presets and rigs and … modification by 
   + undo, edited in the creator like items): `catalog_instruments`, `catalog_presets`, `catalog_rigs` (id = the
   subject). `data` is the serde form of `deck/space/src/rig` – the PHP validator (`Domain\Rigs\RigValidator`) mirrors it;
   a TS one comes with the creator's rig editor.
-- **Members' modifications** = member rows on top of the factory: `member_presets (id, user_id, parent, instrument,
-  data, created_at)` – a derivative, its `parent` a factory or an own preset – and `member_rigs (user_id, subject,
-  data)` – a member's variant of a factory rig (other presets per track, more tracks with instruments they hold).
-  Member ids are namespaced (`m:<ulid>`) so a lineage crosses from the factory into a member's.
+- **No member layer** (#302, owner 2026-11-02: readers save nothing): the `member_presets` / `member_rigs` rows #258 / #270 built are dropped (migration `2026-11-02-drop-member-layer`); presets, rigs and modules are the creator's drafts of catalog documents (RIG-EDITING.md §6).
 - **Instruments are items too** (owner 2026-11-01: "a image like any other item so instruments can be found or gained
   in the carrier bag"): a `category: "instrument"` item with `instrument: "<catalog_instruments id>"` – the pattern of
   `category: "furniture"` + its `furniture` block (ITEMS.md). The item brings what every item has (picture, 3D model,
   name, grantable by story / scan, editions, a physical card or figure – the Tonie idea); the instrument row brings
   the graph. Several items may grant one instrument (variants, editions). Holding the item in the carrier bag =
-  **owned**; a factory rig may use any instrument, a member's rig only the ones they hold (owned / core / lent).
+  **owned**; a factory rig may use any instrument.
 - **Core**: the rigs + their instruments / presets a deck image ships, as TOML in `deck/native/rigs/` – exported from the
   catalog when the ISO is built (the same documents, so `Rig::play` doesn't care where they came from).
 - **Samples** (the sampler kind): assets per ASSETS.md, `<toon>/sounds/<instrument>/<name>.v<n>.<ext>`, referenced
@@ -93,9 +84,7 @@ Two layers (owner 2026-11-01: "factory presets and rigs and … modification by 
   referenced one **with its ancestors** (a lineage resolves offline), each `{ id, version, data }` – `version` = the
   stored data's hash, so the sync skips what's cached (server docs/API.md "Library").
 - Next: the decks read it (deck/native sync.rs, shared/live-deck sync.ts / space.ts – today they fetch portraits and sets).
-- Owned derivatives (built, #270): `&presets=<ids>` adds presets with their ancestors to the `presets` map – factory
-  ids for anyone, the member's own `m:` ids with their session or deck token (read scope; the answer is then private),
-  unknown or another member's ids in `missing.presets`. A member's rig variant: `GET /api/rigs/<subject>`.
+- `&presets=<ids>` adds factory presets with their ancestors to the `presets` map (unknown ids in `missing.presets`); everything is public (the owned `m:` derivatives were removed, #302).
 - Lent: the conductor's `scene.sync` names them in its reserved `beings` field (renamed `presets`/`rigs` when built);
   the deck fetches them like the rest and drops them when the scene ends.
 - The deck caches them on DECKDATA next to sets and portraits (`<cache>/rigs/…`), plays offline from the cache.

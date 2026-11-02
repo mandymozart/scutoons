@@ -256,23 +256,16 @@ fine" stores `accepted_warnings` in the entry's `data` (a list-wide warning in m
   kinds, `out` audio, exposed paths control inputs, an `events` node's patch (generators, edges, ≤ 4 knobs, listen);
   presets: lineage (unknown parent, loop, another instrument's parent), the folded lineage patched (values only on
   unlinked control inputs); rigs: `Rig::check`. Data is validated decoded with objects (`{}` ≠ `[]`).
-  `uses`: an instrument by presets / rigs / items / members' presets, a preset by children / rigs / members' presets, a
-  rig by members' variants.
-- **Members** = `member_presets` (id `m:<ulid>`, parent = a factory or own preset) and `member_rigs` (user, subject):
-  `Domain\Rigs\MemberRigs` (save / list / delete, validated the same way; a variant uses only held instruments).
-  Routes (#270, server docs/API.md "Rigs"): `GET|POST /api/rigs/presets`, `DELETE /api/rigs/presets/<id>`,
-  `GET|PUT|DELETE /api/rigs/<subject>` – a session, or a paired deck's token with the `rigs` scope its member grants at
-  approval (`decks.scopes`, migration `2026-11-01-deck-scopes`). `derive` keeps only the values that differ from the
-  parent's folded lineage and needs the parent's `derive` right for how it is held (own = owned; factory = owned with an
-  instrument item in the carrier bag, else core). scene-content `&presets=<ids>` serves a member's own presets to their
-  session / deck token. The decks: /live/deck "Save preset" (shared/live-deck `preset.ts`), the stage's F6 + outbox (`save.rs`).
+  `uses`: an instrument by presets / rigs / items, a preset by children / rigs.
+- **Members save nothing** (owner 2026-11-02, #302): the member tables, `MemberRigs`, the `/api/rigs/*` routes, the deck token's
+  `rigs` scope (`decks.scopes`), the deck's "Save preset" sheet and the stage's F6 are gone (migration `2026-11-02-drop-member-layer`);
+  presets, rigs and modules are the creator's (research/RIG-EDITING.md §6). scene-content `&presets=<ids>` serves factory presets only.
 - **Decks** fetch them with `GET /api/library/scene-content` (server docs/API.md "Library"): a character's `rig`, `items=`
   rigs, `instruments` / `presets` with ancestors, each `{ id, version }`. The contract: SceneContentRigsTest writes
   `server/tests/fixtures/rigs/scene-content.json` (`UPDATE_FIXTURES=1`), deck-space's
   `the_servers_scene_content_reads_as_bundles` parses it as `rig::Bundle`s and compares them with the TOML core rigs.
 - **Modules** (#281, migration `2026-11-02-modules`, research/RIG-EDITING.md §4–7): the kind `modules` (`catalog_modules`,
   documents `module:<id>`, ids `[a-z0-9_-]{1,32}`) = the Rust sources (`files`: 1–32 × `[a-z0-9_]+.rs`, a `lib.rs`, ≤ 256 KB each /
-  512 KB) + what a compile wrote (`descriptor`, `wasm: { hash, bytes, toolchain }`); the same sources in a member's
-  `member_modules` (`m:<ulid>`). `Domain\Modules` (`ModuleSource` rules, `MemberModules`, `ModuleCompiler`): the compile is the
+  512 KB) + what a compile wrote (`descriptor`, `wasm: { hash, bytes, toolchain }`). `Domain\Modules` (`ModuleSource` rules, `ModuleCompiler`): the compile is the
   creators', forwards to the build service (deck/build) and stores the .wasm as `modules/<hash>.wasm` on the CDN (a platform
   folder outside the asset registry); routes: server docs/API.md "Modules".

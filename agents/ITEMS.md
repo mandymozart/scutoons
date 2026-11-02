@@ -177,8 +177,7 @@ unlocked places (`walkPath` / `walkPoints`, ≈ 1.2 s a stretch); the place card
   every item has (picture, 3D model, name, grants, editions, a physical card), the instrument row brings the graph.
   Several items may grant one instrument. `CatalogValidator`: the instrument must exist, the field only on that category,
   the category needs the field; deleting an instrument an item names is `409 in_use`.
-- Holding the item (inventory, `qty > 0`) = the instrument is **owned**: a member's rig variant may use it
-  (`Domain\Rigs\MemberRigs::held` – plus the factory rig's own instruments).
+- Holding the item (inventory, `qty > 0`) = the instrument is **owned** (agents/research/INSTRUMENTS.md §4); readers save nothing (#302), so it opens no saving.
 
 ### 3D item models (owner 2026-10-16: "We will turn all items into 3d assets" – FEATURES 10.102)
 
