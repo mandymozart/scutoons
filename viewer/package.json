@@ -67,6 +67,7 @@
 		"@scutoons/media": "*",
 		"@scutoons/pwa": "*",
 		"@scutoons/reader": "*",
+		"@scutoons/rig-designer": "*",
 		"@scutoons/tokens": "*",
 		"@tensorflow-models/mobilenet": "^2.1.1",
 		"@tensorflow/tfjs": "^4.22.0",
