@@ -74,3 +74,4 @@ From the old MEMORY.md (archive/MEMORY.md, 2026-09-28 … 10-04) and later sessi
   of a `node … tools/mcp/bin/scutoons-mcp.mjs`; `Stop-Process` that launcher + its `main.ts` child; the next MCP call
   starts it again with the new code. The session's tool LIST may stay the old one until a new session – a new tool can
   need a new session (2026-10-14: upload_score_file).
+- **Sound in a browser check:** Playwright's Chromium cannot load an AudioWorklet module on this PC (even a blob processor never resolves), so live-core's Start stalls in "starting" there – check the sound in the in-app browser; its pane gets no animation frames while off screen (fps / levels stay 0: replace `requestAnimationFrame` with a 16 ms timer in the page first). Git Bash rewrites `VITE_API_URL=/api` into a Windows path – prefix `MSYS_NO_PATHCONV=1`.

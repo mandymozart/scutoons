@@ -28,3 +28,5 @@ vite.config.ts.timestamp-*
 # Paraglide
 src/lib/paraglide
 .claude
+# the browser deck's wasm (npm run build:wasm -w shared/live-deck, #298)
+/static/live/

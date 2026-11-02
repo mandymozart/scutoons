@@ -2,8 +2,8 @@
 // - space-web (deck-space's being and set, wgpu): cargo for wasm32, then wasm-bindgen --target web (the CLI must be the
 //   crate's version, 0.2.129: `cargo install wasm-bindgen-cli --version 0.2.129`);
 // - live-core (the sound): cargo for wasm32 (no bindgen).
-// The files go to shared/live-deck/wasm/ (deck/lab's build copies them) and viewer/static/live/ (the viewer's /live/deck
-// loads them at run time); both are git-ignored. CARGO_TARGET_DIR is honoured (default deck/target).
+// The files go to shared/live-deck/wasm/ (deck/lab's build copies them), viewer/static/live/ (the viewer's /live/deck loads
+// them at run time) and creator/static/live/ (the engine host in the creator, #298); all git-ignored. CARGO_TARGET_DIR is honoured (default deck/target).
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
@@ -24,13 +24,15 @@ mkdirSync(out, { recursive: true });
 run('wasm-bindgen', ['--target', 'web', '--no-typescript', '--out-dir', out, `${web}/space_web.wasm`]);
 copyFileSync(`${release}/live_core.wasm`, `${out}live_core.wasm`);
 
-const viewer = here('../../../viewer/static/live/');
-mkdirSync(viewer, { recursive: true });
-for (const f of ['space_web.js', 'space_web_bg.wasm', 'live_core.wasm']) copyFileSync(`${out}${f}`, `${viewer}${f}`);
+const apps = ['viewer', 'creator'].map((app) => here(`../../../${app}/static/live/`));
+for (const dir of apps) {
+	mkdirSync(dir, { recursive: true });
+	for (const f of ['space_web.js', 'space_web_bg.wasm', 'live_core.wasm']) copyFileSync(`${out}${f}`, `${dir}${f}`);
+}
 
 const kb = (n: number) => `${(n / 1024).toFixed(0)} KB`;
 for (const f of ['space_web_bg.wasm', 'space_web.js', 'live_core.wasm']) {
 	const raw = statSync(`${out}${f}`).size;
 	console.log(`${f}: ${kb(raw)} raw, ${kb(gzipSync(readFileSync(`${out}${f}`), { level: 9 }).length)} gzip`);
 }
-console.log(`→ ${out} and ${viewer}`);
+console.log(`→ ${out} and ${apps.join(" and ")}`);

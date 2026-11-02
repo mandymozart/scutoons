@@ -30,7 +30,7 @@ the root [`.env.example`](../.env.example).
 | `watchIgnore` / `watchKeep` | for every target: changed paths that never ship (tests, `*.md`, seed / scripts) – unless `watchKeep` matches (markdown under `src/` is imported). `deploy/targets.json` itself counts for a target only when its own block or a top-level key changed. Tests: `node --test deploy/test/*.test.mjs` |
 | `protocols.<p>.credentials` | environment variable names of the host credentials (`ftp`: `FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD`) |
 | `targets.<app>.source` | the app folder in the repo |
-| `setup` | what CI installs first: `npm` (npm ci), `php` (PHP 8.3 + Composer), `wasm` (Rust + wasm32 + wasm-bindgen 0.2.129, then `npm run build:wasm -w shared/live-deck` – the viewer's browser deck, #198) |
+| `setup` | what CI installs first: `npm` (npm ci), `php` (PHP 8.3 + Composer), `wasm` (Rust + wasm32 + wasm-bindgen 0.2.129, then `npm run build:wasm -w shared/live-deck` – the browser deck's wasm for the viewer, #198, and the creator's engine host, #298) |
 | `protocol`, `remote` | where it goes: protocol + path below the host root (`viewer/dist/`, `api/`, …) |
 | `build` | build command (npm apps: at the repo root, result in `output`; `stageFirst` apps: inside the staging copy, e.g. `composer install --no-dev`) |
 | `buildEnv` | variables handed to the build (`NAME` or `NAME=${OTHER}` to rename) – unset ones are left out, the app's default applies |
