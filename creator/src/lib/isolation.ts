@@ -1,11 +1,11 @@
-// isolation.ts (#298): which creator pages are cross-origin isolated (COOP same-origin + COEP credentialless) – the engine's
+// isolation.ts (#298, #282): which creator pages are cross-origin isolated (COOP same-origin + COEP credentialless) – the engine's
 // (live-core's shared audio ring needs SharedArrayBuffer). Not the whole app: COEP blocks the Reader panel's viewer iframe
 // (it sends no COEP itself) – measured in #298. The same paths in vite.config.ts
 // (dev) and static/.htaccess (production); a document keeps its headers until a full load, so a client-side move into or out
 // of these pages is a full load (isolation.svelte.ts).
 
-/** the engine's routes: `/engine` (the proof page), `/edit/…` (the editor, #282 / #245) */
-export const ENGINE_PATH = /^\/(engine|edit)(\/|$)/;
+/** the engine's routes: `/edit/…` (the editor, #282 / #245; #298's temporary `/engine` page is gone) */
+export const ENGINE_PATH = /^\/edit(\/|$)/;
 
 export const needsIsolation = (path: string): boolean => ENGINE_PATH.test(path);
 

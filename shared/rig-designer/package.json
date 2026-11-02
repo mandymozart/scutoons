@@ -15,7 +15,8 @@
 			"types": "./src/index.ts",
 			"svelte": "./src/index.ts",
 			"default": "./src/index.ts"
-		}
+		},
+		"./store": "./src/store.ts"
 	},
 	"files": [
 		"src"

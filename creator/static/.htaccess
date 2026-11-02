@@ -18,7 +18,7 @@
 # sends no COEP itself) and COOP cuts window.opener, so the rest of the creator stays as it is. THE_REQUEST (the original
 # request line), not REQUEST_URI: the SPA fallback above rewrites to /index.html internally (the viewer's lesson, 2026-10-31).
 <IfModule mod_headers.c>
-	<If "%{THE_REQUEST} =~ m#^\S+ /(engine|edit)(/|\?| )# || %{THE_REQUEST} =~ m#^\S+ /_app/immutable/workers/#">
+	<If "%{THE_REQUEST} =~ m#^\S+ /edit(/|\?| )# || %{THE_REQUEST} =~ m#^\S+ /_app/immutable/workers/#">
 		Header set Cross-Origin-Opener-Policy "same-origin"
 		Header set Cross-Origin-Embedder-Policy "credentialless"
 	</If>
