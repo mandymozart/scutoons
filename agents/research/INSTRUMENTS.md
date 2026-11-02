@@ -133,8 +133,10 @@ incense in Web Audio). Replaced in steps:
   generator like deck/protocol's (Rust stays the source of truth: the schema must round-trip `rig/tests.rs`' set).
 
 ## 8. Open – for the owner
+0. **Editing** (owner 2026-11-01 / 11-02): the rig designer – Rust modules and node patching, compiled, assigned to characters;
+   where things are made, stored and promoted → research/RIG-EDITING.md (its §9 holds the open questions).
 1. ~~Storage~~ – decided 2026-11-01 (§5): factory catalog tables + member rows; instruments are items.
-2. **Persona:** one rig per character with persona variants (recommended), or a rig per persona? (both fit `subject`)
+2. ~~**Persona:**~~ → decided 2026-11-02: one rig per character with persona variants. (Was: or a rig per persona? (both fit `subject`)
 3. **Persona × mood:** is "persona, then mood" enough, or do personas need their own mood overrides?
 4. **Default rights** per hold (§4) – right? May members share / give / sell derivatives (second-hand market)? – asked
    with a recommendation in #270 (keep the defaults; no sharing yet, gifts like items later); built with the defaults.
