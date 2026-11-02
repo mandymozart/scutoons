@@ -187,6 +187,26 @@ A live tool may not crackle unnoticed, and should not crackle at all:
   set in RME's dialog first. The walk scene's sequencer runs at THREAD_PRIORITY_HIGHEST, `events_dropped=0`. At 64
   (1.3 ms periods) a "long" glitch is the callback's copy taking ~2 ms: the device's thread preempted, not compute (DSP
   3 %), the ring never dry – Windows' scheduling jitter against a 1.3 ms period; 128 is the safe setting under load.
+  **Linux, the X1** (2026-11-02, #285: deck/os r2548, kernel 7.2 PREEMPT_RT, PipeWire 1.6 at 48 kHz, the RME Fireface
+  UCX II in class-compliant mode on the Pro Audio profile – deck/os/README.md –, the cathedral at volume 0, release
+  build; the render thread at SCHED_FIFO 70, PipeWire's data thread in the stage at 83 through rtkit, the sequencer and
+  dispatcher at nice −10):
+
+  | setting | run | glitches | HUD |
+  |---|---|---|---|
+  | `--audio pipewire --audio-buffer 128`, 10 min | render thread, lead 256 | **0** | `AUDIO PIPEWIRE 48K BUF 128 3MS LEAD 5MS`, OUT 31 ms, DSP 6 % |
+  | pipewire 128, 2 min, audible (volume 0.2) | render thread | 0 | – |
+  | pipewire 64 (1.3 ms), 10 min | render thread, the lead stays 256 | 4 (late 4, underrun 0) | `BUF 64 1MS LEAD 5MS`, OUT 29 ms, DSP 2 % |
+  | pipewire 64, 2 min, audible | render thread | 6 (late 6, underrun 0) | – |
+  | the walk scene (tempo + walk + fm), pipewire 128, 2 min | sequencer thread | 0, `events_dropped=0` | `EVENTS IN 0 DROP 0`, DSP 2 % |
+  | `--audio cpal --audio-device II24322536` 128, 2 min | cpal ALSA `sysdefault:CARD=…` | 0 | `AUDIO ALSA 44K BUF 4704 107MS`, OUT 131 ms, DSP 4 % |
+
+  At 64 every glitch was a **late** callback – PipeWire's cycle came 4.5–9.4 ms after the last one instead of 1.3 ms,
+  in bursts of three within 10 ms (while a cable was plugged in, once at the start) – with the ring never dry (underrun
+  0) and the callback itself at 0.00 ms: the USB / graph scheduling at 1.3 ms periods, not compute (DSP 2 %). 128 ran 10
+  min + 2 min audible without one. **cpal on ALSA is no live path on the deck:** cpal enumerates only the card's
+  `sysdefault` (the plug + dmix layer: 44.1 kHz, a 170-frame minimum, `Fixed` refused → ALSA's default 4704 = 107 ms,
+  the callback thread at 35 % CPU for the conversion), never `hw:`; PipeWire on the Pro Audio profile is the way.
 
 ## Scenes
 
