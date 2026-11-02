@@ -1716,7 +1716,8 @@
 		"sound_publish_needs": "Publish needs a saved draft with a current compile.",
 		"sound_out": "out",
 		"sound_limiter": "Limiter gain reduction",
-		"sound_in": "in"
+		"sound_in": "in",
+		"sound_perf": "Engine: state, frame rate, work per frame, dropouts – the picture and the sound together"
 	},
 	"palette": {
 		"search": "Search or jump to …",

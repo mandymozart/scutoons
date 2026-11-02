@@ -9,6 +9,7 @@
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { inputMeters, knobColumns, outputMeters, reductionBar, sameColumns, signalRows, stripStatus, type KnobColumn, type KnobLike } from '$lib/editor/signal-strip.ts';
+	import MoodChip from '$lib/components/sound/mood-chip.svelte';
 	import SignalStrip from '$lib/components/sound/signal-strip.svelte';
 
 	let { character }: { character: string } = $props();
@@ -20,6 +21,7 @@
 	let snap = $state<EngineSnapshot>(emptySnapshot());
 	let moods = $state<string[]>(['neutral']);
 	let mood = $state('auto');
+	let portraits = $state<Record<string, { path: string }>>({});
 	let rigKnobs: KnobLike[] = [];
 	let columns = $state<KnobColumn[]>([]);
 	let reduction = $state(0);
@@ -47,29 +49,23 @@
 		host?.setMood(value === 'auto' ? null : value);
 	}
 
-	// the host reports the master only (level); per-output peaks and the device-message tap come with the engine's report
-	const peaks = $derived((snap as { outputs?: number[] }).outputs ?? [snap.level]);
-	const outputs = $derived(outputMeters(peaks));
+	// the engine host reports one peak per audio output (none while no sound runs: dim slots) and the scene's device messages
+	const outputs = $derived(outputMeters(snap.outputs));
 	const stats = $derived(stripStatus(snap));
-	const signals = $derived(signalRows({}, 0));
+	const signals = $derived(signalRows(snap.signals));
 	// the engine reports no audio inputs yet (their sources are still to be decided); an empty group shows nothing
 	const inputs = inputMeters([]);
 </script>
 
 <div class="deck" data-testid="sound-deck">
 	<div class="stage">
-		<EngineStage {options} gate bind:host onmounted={(h) => (moods = h.moods)} />
+		<EngineStage {options} gate bind:host onmounted={(h) => ((moods = h.moods), (portraits = h.deck?.portraits ?? {}))} />
 		<div class="chips">
-			<label class="chip" title={m['creator.sound_mood']()}>
-				<span>{m['creator.sound_mood']()}</span>
-				<select onchange={(e) => pickMood(e.currentTarget.value)} data-testid="sound-mood" aria-label={m['creator.sound_mood']()}>
-					<option value="auto" selected={mood === 'auto'}>{m['creator.sound_mood_auto']()}</option>
-					{#each moods as md (md)}<option value={md} selected={md === mood}>{md}</option>{/each}
-				</select>
-			</label>
+			<MoodChip {moods} {portraits} playing={snap.mood} value={mood} onpick={pickMood} />
 		</div>
+		<p class="perf" data-testid="sound-status" title={m['creator.sound_perf']()}>{stats.state} · <span data-testid="sound-fps">{stats.perf}</span></p>
 	</div>
-	<SignalStrip {inputs} {outputs} {reduction} knobs={columns} {signals} state={stats.state} perf={stats.perf} />
+	<SignalStrip {inputs} {outputs} {reduction} knobs={columns} {signals} />
 </div>
 
 <style>
@@ -94,30 +90,16 @@
 		gap: 0.25rem;
 		z-index: 2;
 	}
-	.chip {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.25rem;
-		padding: 0 0.375rem;
-		color: var(--paper);
-		background: color-mix(in srgb, var(--ink) 70%, transparent);
-		border: 1px solid color-mix(in srgb, var(--paper) 45%, transparent);
-		font-size: 0.75rem;
-	}
-	.chip span {
+	/* the performance, tiny, over the picture: it is the visual and the audio together that it measures */
+	.perf {
+		position: absolute;
+		right: var(--space-05);
+		top: var(--space-05);
+		margin: 0;
+		z-index: 2;
+		pointer-events: none;
+		font-size: 0.625rem;
 		color: color-mix(in srgb, var(--paper) 60%, transparent);
-	}
-	.chip select {
-		all: unset;
-		cursor: pointer;
-		color: var(--paper);
-		max-width: 9rem;
-		overflow: hidden;
-		text-overflow: ellipsis;
 		white-space: nowrap;
-	}
-	.chip select option {
-		color: var(--ink);
-		background: var(--paper);
 	}
 </style>

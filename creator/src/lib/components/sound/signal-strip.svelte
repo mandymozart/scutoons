@@ -1,8 +1,8 @@
 <script lang="ts">
 	// The deck half's signal strip (#282, owner draft 2026-11-02): a fixed-height band under the stage – vertical bus meters on
 	// a dB scale (green / amber / red zones, the 0.0 dB mark drawn on every meter), one per audio input (named by its source)
-	// and per audio output (+ the limiter's gain reduction), a column per exposed knob, one status line with the MIDI / DMX / OSC
-	// lamps (a detailed monitor is a ticket of its own). DOM for now; the later canvas element (own issue) draws the same model
+	// and per audio output (+ the limiter's gain reduction), a column per exposed knob, a lamp row for the MIDI / DMX / OSC
+	// that are wired (a detailed monitor is a ticket of its own; the performance numbers are the stage's overlay). DOM for now; the later canvas element (own issue) draws the same model
 	// (lib/editor/signal-strip.ts).
 	import { METER_MARKS, type InputMeter, type KnobColumn, type OutputMeter, type SignalRow } from '$lib/editor/signal-strip.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -12,9 +12,7 @@
 		outputs,
 		reduction,
 		knobs,
-		signals,
-		state,
-		perf
+		signals
 	}: {
 		inputs: InputMeter[];
 		outputs: OutputMeter[];
@@ -22,8 +20,6 @@
 		reduction: number;
 		knobs: KnobColumn[];
 		signals: SignalRow[];
-		state: string;
-		perf: string;
 	} = $props();
 
 	const pct = (v: number) => `${Math.round(v * 1000) / 10}%`;
@@ -77,17 +73,13 @@
 			</div>
 		</section>
 	</div>
-	<p class="stats" data-testid="sound-status">
-		<span class="state">{state}</span>
-		{#if signals.length}
-			<span class="lamps" data-testid="sound-signals">
-				{#each signals as r (r.kind)}
-					<span class="lamp" title={r.text ? `${r.kind} · ${r.text}` : r.kind}><span class="dot" class:on={r.active}></span>{r.kind}</span>
-				{/each}
-			</span>
-		{/if}
-		<span data-testid="sound-fps">{perf}</span>
-	</p>
+	{#if signals.length}
+		<p class="lamps" data-testid="sound-signals">
+			{#each signals as r (r.kind)}
+				<span class="lamp" title={r.text ? `${r.kind} · ${r.text}` : r.kind}><span class="dot" class:on={r.active}></span>{r.kind}</span>
+			{/each}
+		</p>
+	{/if}
 </div>
 
 <style>
@@ -224,26 +216,14 @@
 		text-overflow: ellipsis;
 		color: var(--text-muted);
 	}
-	.stats {
+	.lamps {
 		flex: none;
 		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		gap: var(--space-1);
+		gap: var(--space-05);
 		margin: 0;
 		padding: 0.125rem var(--space-05);
 		border-top: 1px solid var(--border-muted);
 		color: var(--text-muted);
-		white-space: nowrap;
-	}
-	.state {
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-	.lamps {
-		display: inline-flex;
-		gap: var(--space-05);
 	}
 	.dot {
 		display: inline-block;

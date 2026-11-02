@@ -1,7 +1,7 @@
 // `npm test -w scutoons-creator`: the deck half's signal strip model (lib/editor/signal-strip.ts, #282).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { METER_MARKS, dbPosition, inputMeters, knobColumns, knobName, knobPosition, levelDb, meterZone, midiText, outputMeters, reductionBar, sameColumns, signalRows, stripStatus } from '../src/lib/editor/signal-strip.ts';
+import { METER_MARKS, dbPosition, inputMeters, knobColumns, knobName, knobPosition, levelDb, meterZone, outputMeters, reductionBar, sameColumns, signalRows, stripStatus } from '../src/lib/editor/signal-strip.ts';
 
 test('a knob sits in its range, a log knob on its log scale, out of range is clamped', () => {
 	assert.equal(knobPosition(5, 0, 10), 0.5);
@@ -63,19 +63,10 @@ test('the stats line lists the frame rate once; drops only after the sound has r
 	assert.equal(stripStatus({ ...s, phase: 'error', error: 'no audio' }).state, 'error: no audio · shared · webgl2');
 });
 
-test('signal rows: only wired or seen protocols; a dot is lit for `hold` ms after traffic, the text stays', () => {
-	assert.deepEqual(signalRows({}, 0), [], 'nothing wired, nothing shown');
-	const rows = signalRows({ midi: { text: 'CC74 · 90', at: 1000 } }, 1100, ['dmx']);
-	assert.deepEqual(rows.map((r) => [r.kind, r.text, r.active]), [['midi', 'CC74 · 90', true], ['dmx', '', false]]);
-	assert.equal(signalRows({ midi: { text: 'x', at: 1000 } }, 1300)[0].active, false);
-	assert.equal(signalRows({ midi: { text: 'x', at: 1000 } }, 900)[0].active, false, 'a time before the message is not activity');
-});
-
-test('midi bytes read as short text', () => {
-	assert.equal(midiText([0xb0, 74, 90]), 'CC74 · 90');
-	assert.equal(midiText([0xb2, 1, 5]), 'CC1 · 5 · ch3');
-	assert.equal(midiText([0x90, 60, 100]), 'note on 60 · 100');
-	assert.equal(midiText([0x90, 60, 0]), 'note off 60 · 0');
-	assert.equal(midiText([0xe0, 0, 64]), 'bend 8192');
-	assert.equal(midiText([0xf8]), 'f8');
+test('signal rows: only protocols that carried a message; the lamp is lit while the activity is up', () => {
+	const none = { count: 0, activity: 0, text: '' };
+	assert.deepEqual(signalRows(null), []);
+	assert.deepEqual(signalRows({ midi: none, osc: none, dmx: none }), [], 'nothing wired, nothing shown');
+	const rows = signalRows({ midi: { count: 3, activity: 0.9, text: 'CC 74 = 127 · ch 1' }, osc: none, dmx: { count: 1, activity: 0.05, text: 'DMX 1 = 255' } });
+	assert.deepEqual(rows.map((r) => [r.kind, r.text, r.active]), [['midi', 'CC 74 = 127 · ch 1', true], ['dmx', 'DMX 1 = 255', false]]);
 });

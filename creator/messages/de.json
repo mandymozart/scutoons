@@ -1716,7 +1716,8 @@
 		"sound_publish_needs": "Veröffentlichen braucht einen gespeicherten Entwurf mit aktuellem Kompilat.",
 		"sound_out": "Ausgänge",
 		"sound_limiter": "Limiter-Absenkung",
-		"sound_in": "Eingänge"
+		"sound_in": "Eingänge",
+		"sound_perf": "Engine: Zustand, Bildrate, Arbeit pro Bild, Aussetzer – Bild und Ton zusammen"
 	},
 	"palette": {
 		"search": "Suchen oder springen …",

@@ -134,48 +134,28 @@ export function stripStatus(s: StatsLike): { state: string; perf: string } {
 	return { state, perf };
 }
 
-export type SignalKind = 'midi' | 'dmx' | 'osc';
-export const SIGNAL_KINDS: readonly SignalKind[] = ['midi', 'dmx', 'osc'];
+export type SignalKind = 'midi' | 'osc' | 'dmx';
+export const SIGNAL_KINDS: readonly SignalKind[] = ['midi', 'osc', 'dmx'];
 
-/** the last message of a kind, already as short text (`CC74 · 90`, `U1 · 12 ch`), and when it was seen (ms) */
-export interface SignalSeen {
+/** what the engine host's monitor keeps per kind (engine-host `SignalState`, structural) */
+export interface SignalView {
+	count: number;
+	/** 1 on a message, falling to 0 */
+	activity: number;
+	/** the last message in a short line, '' = none */
 	text: string;
-	at: number;
 }
 
 export interface SignalRow {
 	kind: SignalKind;
 	/** the last message, '' = none yet */
 	text: string;
-	/** traffic within the last `hold` ms – the dot is lit */
+	/** traffic just now – the lamp is lit */
 	active: boolean;
 }
 
-/**
- * a row per protocol that is wired (the scene has outputs of that kind – `wired`) or has been seen, with its last message and
- * whether it is lit now (`hold` = how long a dot stays on after traffic); a protocol nothing uses shows nothing
- */
-export function signalRows(last: Partial<Record<SignalKind, SignalSeen>>, now: number, wired: readonly SignalKind[] = [], hold = 250): SignalRow[] {
-	return SIGNAL_KINDS.filter((kind) => wired.includes(kind) || last[kind]).map((kind) => {
-		const seen = last[kind];
-		return { kind, text: seen?.text ?? '', active: !!seen && now - seen.at >= 0 && now - seen.at < hold };
-	});
-}
-
-/** MIDI bytes (status first) as short text: `CC74 · 90`, `note on 60 · 100`, `bend 8192` – anything else as hex */
-export function midiText(bytes: readonly number[]): string {
-	const [status = 0, a = 0, b = 0] = bytes;
-	const channel = (status & 0x0f) + 1;
-	switch (status & 0xf0) {
-		case 0xb0:
-			return `CC${a} · ${b}${channel > 1 ? ` · ch${channel}` : ''}`;
-		case 0x90:
-			return `${b === 0 ? 'note off' : 'note on'} ${a} · ${b}`;
-		case 0x80:
-			return `note off ${a}`;
-		case 0xe0:
-			return `bend ${a | (b << 7)}`;
-		default:
-			return bytes.map((x) => x.toString(16).padStart(2, '0')).join(' ');
-	}
+/** a row per protocol that has carried a message (a protocol nothing uses shows nothing); lit while its activity is up */
+export function signalRows(view: Readonly<Record<SignalKind, SignalView>> | null, lit = 0.25): SignalRow[] {
+	if (!view) return [];
+	return SIGNAL_KINDS.filter((kind) => view[kind].count > 0).map((kind) => ({ kind, text: view[kind].text, active: view[kind].activity >= lit }));
 }
