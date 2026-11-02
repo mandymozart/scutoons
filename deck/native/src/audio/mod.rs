@@ -7,6 +7,7 @@
 //! - `priority` – the audio threads' scheduling class
 //! - `sequencer` / `dispatch` – the threads the engine's event windows and routing run on (feature `events`)
 //! - `modules` – the wasmtime module library as the engine's `ModuleSource` (feature `modules`)
+//!
 //! `Engine` and `Handles` here are deck-engine's with the glitch monitor beside them: the device callback owns the
 //! monitor, the frame thread reads its counters (`Handles::glitches`). Everything else dereferences to the core's.
 pub mod backend;

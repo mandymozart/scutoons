@@ -994,6 +994,7 @@ dependencies = [
  "deck-space",
  "libm",
  "rtrb",
+ "rustfft",
  "toml 0.8.23",
 ]
 

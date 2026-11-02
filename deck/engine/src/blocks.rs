@@ -263,8 +263,8 @@ impl Block for Noise {
         let (cutoff, gain) = (self.cutoff.block(n), self.gain.block(n));
         for i in 0..n {
             let x = match &mut self.src {
-                Source::White(w) => w.next(),
-                Source::Pink(p) => p.next(),
+                Source::White(w) => w.sample(),
+                Source::Pink(p) => p.sample(),
             };
             let y = self.filter.lowpass(x, at(cutoff, i).clamp(20.0, 20_000.0), self.q, self.pi_over_rate);
             write(&mut outs[0], i, y * at(gain, i));
@@ -505,7 +505,7 @@ mod tests {
             Param::new(1.0),
             None,
         );
-        let mut out = [Stereo::new()];
+        let mut out = [Stereo::default()];
         s.process(&[], &mut out, 300);
         assert_eq!(out[0].l[10], 440.0); // step 0: A4, gate open in the first half
         assert_eq!(out[0].r[10], 1.0);
@@ -533,7 +533,7 @@ steps=[69, 81]
         // 60 BPM at 100 Hz: a beat = 100 frames, a step (division 2) = 50
         shared.publish(&TempoMap::new(60.0, 4, 100.0), false);
         let mut s = Seq::new(node, 100.0, Param::new(1.0), Some(BeatReader { shared: shared.clone(), frames: frames.clone() }));
-        let mut out = [Stereo::new()];
+        let mut out = [Stereo::default()];
         s.process(&[], &mut out, 200);
         assert_eq!((out[0].l[0], out[0].r[0]), (440.0, 1.0), "step 0 on beat 0");
         assert_eq!(out[0].r[24], 1.0);

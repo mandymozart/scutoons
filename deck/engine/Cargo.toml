@@ -33,3 +33,6 @@ toml.workspace = true
 rtrb = "0.3"
 # transcendentals on the engine's paths (plan 3.4): the same bits native and wasm
 libm = "0.2"
+
+[dev-dependencies]
+rustfft = { version = "6", default-features = false }

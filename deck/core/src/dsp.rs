@@ -32,7 +32,7 @@ pub fn wrap01(x: f32) -> f32 {
 /// tables per octave: a note loses at most 2^(1/4) of the spectrum under Nyquist (its highest harmonic is above 20 kHz)
 const PER_OCTAVE: usize = 4;
 /// the ratios of the quarter-octave steps inside an octave: 2^(1/4), 2^(2/4), 2^(3/4)
-const STEPS: [f32; 3] = [1.189_207_1, 1.414_213_6, 1.681_792_8];
+const STEPS: [f32; 3] = [1.189_207_1, core::f32::consts::SQRT_2, 1.681_792_8];
 
 /// The three non-sine waves.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -179,7 +179,7 @@ impl White {
     }
 
     #[inline(always)]
-    pub fn next(&mut self) -> f32 {
+    pub fn sample(&mut self) -> f32 {
         let mut x = self.0;
         x ^= x >> 12;
         x ^= x << 25;
@@ -208,12 +208,12 @@ impl Pink {
     }
 
     #[inline(always)]
-    pub fn next(&mut self) -> f32 {
-        let w = self.white.next();
+    pub fn sample(&mut self) -> f32 {
+        let w = self.white.sample();
         let b = &mut self.b;
         b[0] = 0.99886 * b[0] + w * 0.055_517_9;
         b[1] = 0.99332 * b[1] + w * 0.075_075_9;
-        b[2] = 0.96900 * b[2] + w * 0.153_852_0;
+        b[2] = 0.96900 * b[2] + w * 0.153_852;
         b[3] = 0.86650 * b[3] + w * 0.310_485_6;
         b[4] = 0.55000 * b[4] + w * 0.532_952_2;
         b[5] = -0.7616 * b[5] - w * 0.016_898_0;
@@ -375,9 +375,9 @@ mod tests {
         let mut a = White::new(7);
         let mut b = White::new(7);
         let mut c = White::new(8);
-        let x: Vec<f32> = (0..1 << 18).map(|_| a.next()).collect();
-        assert!(x.iter().zip((0..).map(|_| b.next())).all(|(p, q)| *p == q), "the same seed, the same noise");
-        assert!((0..64).any(|_| c.next() != a.next()), "another seed, other noise");
+        let x: Vec<f32> = (0..1 << 18).map(|_| a.sample()).collect();
+        assert!(x.iter().zip((0..).map(|_| b.sample())).all(|(p, q)| *p == q), "the same seed, the same noise");
+        assert!((0..64).any(|_| c.sample() != a.sample()), "another seed, other noise");
         assert!(x.iter().all(|v| v.abs() < 1.0));
         let mean = x.iter().map(|v| f64::from(*v)).sum::<f64>() / x.len() as f64;
         let rms = (x.iter().map(|v| f64::from(*v).powi(2)).sum::<f64>() / x.len() as f64).sqrt();
@@ -416,7 +416,7 @@ mod tests {
     #[test]
     fn pink_noise_falls_three_db_per_octave() {
         let mut p = Pink::new(3);
-        let x: Vec<f32> = (0..1 << 20).map(|_| p.next()).collect();
+        let x: Vec<f32> = (0..1 << 20).map(|_| p.sample()).collect();
         // power per hertz at the centres of octave bands 100 Hz … 12.8 kHz: −3 dB per octave ± 0.5
         const L: usize = 4096;
         let window: Vec<f64> = (0..L).map(|i| 0.5 - 0.5 * libm::cos(2.0 * PI * i as f64 / L as f64)).collect();
@@ -473,7 +473,7 @@ mod tests {
 
     #[test]
     fn the_lowpass_is_the_bilinear_second_order_response() {
-        for (fc, q) in [(1000.0f32, 0.707_106_8f32), (1000.0, 2.0), (4000.0, 0.7), (200.0, 1.0)] {
+        for (fc, q) in [(1000.0f32, core::f32::consts::FRAC_1_SQRT_2), (1000.0, 2.0), (4000.0, 0.7), (200.0, 1.0)] {
             for mult in [0.1f32, 0.5, 0.9, 1.0, 1.1, 2.0, 4.0] {
                 let f = fc * mult;
                 let (got, want) = (svf_gain(fc, q, f), ideal_lowpass(f64::from(fc), f64::from(q), f64::from(f)));
@@ -500,7 +500,7 @@ mod tests {
         let mut w = White::new(1);
         for i in 0..100_000 {
             let cutoff = if i % 2 == 0 { 20.0 } else { 40_000.0 };
-            let y = s.lowpass(w.next(), cutoff, 0.05 + (i % 7) as f32, pr);
+            let y = s.lowpass(w.sample(), cutoff, 0.05 + (i % 7) as f32, pr);
             assert!(y.is_finite() && y.abs() < 1e3, "sample {i}: {y}");
         }
     }

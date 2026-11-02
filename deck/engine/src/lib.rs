@@ -113,8 +113,11 @@ impl Stereo {
         Stereo { l: vec![0.0; frames].into(), r: vec![0.0; frames].into() }
     }
 
-    /// a buffer of MAX_BLOCK frames (what the tests give a block they drive by hand)
-    pub fn new() -> Stereo {
+}
+
+/// a buffer of MAX_BLOCK frames (what the tests give a block they drive by hand)
+impl Default for Stereo {
+    fn default() -> Stereo {
         Stereo::sized(MAX_BLOCK)
     }
 }
