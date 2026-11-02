@@ -978,6 +978,7 @@ name = "deck-core"
 version = "0.1.0"
 dependencies = [
  "deck-catalog",
+ "libm",
  "rustfft",
  "serde",
  "toml 0.8.23",

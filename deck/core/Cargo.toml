@@ -24,5 +24,7 @@ tempo = []
 [dependencies]
 deck-catalog = { path = "../catalog" }
 rustfft = { version = "6", optional = true, default-features = false }
+# the pure-Rust libm (plan §3.1/§3.4: the one dependency allowed): transcendentals with the same bits on every target
+libm = "0.2"
 toml = { workspace = true }
 serde = { workspace = true }
