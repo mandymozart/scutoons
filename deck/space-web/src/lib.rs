@@ -234,7 +234,8 @@ impl SpaceView {
             .map_err(err)?;
         let caps = surface.get_capabilities(&adapter);
         let first = *caps.formats.first().ok_or_else(|| err("the canvas offers no format"))?;
-        // the space's shaders write display values (the stage's offscreen target is Rgba8Unorm): a non-sRGB surface
+        // the space's shaders write display values (the stage's offscreen target is Rgba8Unorm): a non-sRGB surface –
+        // BGRA8Unorm on Chrome's WebGPU, RGBA8Unorm on WebGL2; the post stack's textures take the same format (#277)
         let format = caps.formats.iter().copied().find(|f| !f.is_srgb()).unwrap_or(first);
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,

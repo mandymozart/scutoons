@@ -12,8 +12,6 @@
 //! a pass that doesn't compile keeps the running one).
 use super::post::{Chain, Effect, Knobs, Plan, COMMON, MAX, PALETTE};
 
-/// the format of the textures between passes (display values, like the stage's offscreen targets)
-const INTER: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 /// bloom's levels below the picture: half, quarter, eighth
 const LEVELS: usize = 3;
 
@@ -26,11 +24,10 @@ struct Uniform {
     palette: [[f32; 4]; PALETTE],
 }
 
-/// one pass's pipelines: into the next texture (`mid`), into the space node's target (`last` – its format may differ:
-/// the browser's canvas), and bloom's own chain
+/// one pass's pipelines: into the next texture or the space node's target (one format, `PostGpu::target`), and bloom's
+/// own chain
 pub struct Pipes {
-    mid: wgpu::RenderPipeline,
-    last: wgpu::RenderPipeline,
+    pass: wgpu::RenderPipeline,
     bloom: Option<BloomPipes>,
 }
 
@@ -61,6 +58,8 @@ pub struct PostGpu {
     ubuf: wgpu::Buffer,
     sampler: wgpu::Sampler,
     dummy: wgpu::TextureView,
+    /// the target's format – also the textures' between passes (#277: the space draws into the first of them with the
+    /// pipelines it built for the target: the browser's canvas is BGRA8Unorm on WebGPU, the stage's offscreen Rgba8Unorm)
     target: wgpu::TextureFormat,
     /// per Effect (its index in Effect::ALL): None = not listed
     pipes: [Option<Pipes>; MAX],
@@ -104,7 +103,7 @@ impl PostGpu {
             min_filter: wgpu::FilterMode::Linear,
             ..Default::default()
         });
-        let dummy = make_texture(device, (1, 1), wgpu::TextureUsages::TEXTURE_BINDING);
+        let dummy = make_texture(device, (1, 1), target, wgpu::TextureUsages::TEXTURE_BINDING);
         let mut post = PostGpu { layout, pipe_layout, ubuf, sampler, dummy, target, pipes: [None, None, None, None], targets: None, bloom_used: chain.contains(Effect::Bloom) };
         for e in chain.effects() {
             let p = post.compile(device, e, COMMON, e.source());
@@ -144,10 +143,10 @@ impl PostGpu {
             })
         };
         let fs = if effect == Effect::Bloom { "fs_composite" } else { "fs" };
-        let mid = pipe(fs, INTER, None);
-        let last = if self.target == INTER { mid.clone() } else { pipe(fs, self.target, None) };
-        let bloom = (effect == Effect::Bloom).then(|| BloomPipes { prefilter: pipe("fs_prefilter", INTER, None), down: pipe("fs_down", INTER, None), up: pipe("fs_up", INTER, Some(additive)) });
-        Pipes { mid, last, bloom }
+        let t = self.target;
+        let pass = pipe(fs, t, None);
+        let bloom = (effect == Effect::Bloom).then(|| BloomPipes { prefilter: pipe("fs_prefilter", t, None), down: pipe("fs_down", t, None), up: pipe("fs_up", t, Some(additive)) });
+        Pipes { pass, bloom }
     }
 
     /// `effect`'s pipelines from now on (only for a listed pass – the textures were made for the listed ones)
@@ -162,10 +161,11 @@ impl PostGpu {
             return;
         }
         let usage = wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING;
-        let views = [make_texture(device, size, usage), make_texture(device, size, usage)];
+        let t = self.target;
+        let views = [make_texture(device, size, t, usage), make_texture(device, size, t, usage)];
         // bloom's levels: tiny placeholders when the stack has no bloom
         let level = |k: u32| if self.bloom_used { ((size.0 >> k).max(1), (size.1 >> k).max(1)) } else { (1, 1) };
-        let levels = [make_texture(device, level(1), usage), make_texture(device, level(2), usage), make_texture(device, level(3), usage)];
+        let levels = [make_texture(device, level(1), t, usage), make_texture(device, level(2), t, usage), make_texture(device, level(3), t, usage)];
         let bind = |a: &wgpu::TextureView, b: &wgpu::TextureView| {
             device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("post"),
@@ -208,7 +208,8 @@ impl PostGpu {
         for (i, &e) in passes.iter().enumerate() {
             let last = i + 1 == passes.len();
             let Some(p) = &self.pipes[index(e)] else { continue };
-            let (dst, pipe) = if last { (target, &p.last) } else { (&t.views[1 - cur], &p.mid) };
+            let dst = if last { target } else { &t.views[1 - cur] };
+            let pipe = &p.pass;
             if let Some(b) = &p.bloom {
                 // the bright part at half size, down to an eighth, back up – each level added onto the one above
                 draw(enc, &b.prefilter, &t.plain[cur], &t.levels[0], true);
@@ -241,7 +242,7 @@ fn draw(enc: &mut wgpu::CommandEncoder, pipe: &wgpu::RenderPipeline, bind: &wgpu
     rp.draw(0..3, 0..1);
 }
 
-fn make_texture(device: &wgpu::Device, (w, h): (u32, u32), usage: wgpu::TextureUsages) -> wgpu::TextureView {
+fn make_texture(device: &wgpu::Device, (w, h): (u32, u32), format: wgpu::TextureFormat, usage: wgpu::TextureUsages) -> wgpu::TextureView {
     device
         .create_texture(&wgpu::TextureDescriptor {
             label: Some("post"),
@@ -249,7 +250,7 @@ fn make_texture(device: &wgpu::Device, (w, h): (u32, u32), usage: wgpu::TextureU
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: INTER,
+            format,
             usage,
             view_formats: &[],
         })
