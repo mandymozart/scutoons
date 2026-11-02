@@ -18,3 +18,4 @@ deck-module = { path = "../../module" }
 deck-events = { path = "../../events" }
 deck-core = { workspace = true }
 deck-module = { path = "../../module", features = ["host"] }
+serde_json = { workspace = true }

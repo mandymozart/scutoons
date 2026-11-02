@@ -60,7 +60,7 @@ Limits: 32 parameters, 4 audio ports (stereo) and 8 control ports per direction.
 
 ## The ABI (v1, `wasm32-unknown-unknown`)
 
-The module owns one `Io` (deck-module `abi::Io`, `repr(C)`, numbers and byte arrays only, ~130 KB) in its linear memory.
+The module owns one `Io` (deck-module `abi::Io`, `repr(C)`, numbers and byte arrays only, ~72 KB) in its linear memory.
 The host writes `Io::inp`, calls an export, reads `Io::out`; field offsets from `dm_io()` come from the same type
 (`host::Offsets::get()`), so wasm32 and the host cannot drift (a test checks the layout).
 

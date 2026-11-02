@@ -136,3 +136,33 @@ fn the_descriptor_declares_the_params_and_ports() {
     assert_eq!((d.params[1].min, d.params[1].max, d.params[1].default), (0.0, 16.0, 2.0));
     assert_eq!(d.ports.len(), 2);
 }
+
+/// The fixture the browser host's test reads (shared/live-core/test/modules.test.ts runs the wasm in V8 and compares):
+/// the module's events and a few cv samples per block, made natively here. `UPDATE_FIXTURES=1 cargo test -p walk-module
+/// fixture` writes it, a plain run fails when it is stale.
+#[test]
+fn fixture_for_the_browser_host_is_current() {
+    const BLOCK: u32 = 1024;
+    let mut m = module(42, 1.0, 3.0, 0.5, 147.0, 84.0);
+    let (mut events, mut cv) = (Vec::new(), Vec::new());
+    for b in 0..200u32 {
+        m.process(f64::from(b) * f64::from(BLOCK), BLOCK);
+        for e in m.events() {
+            events.push(serde_json::json!({ "block": b, "name": e.name, "start": e.start, "len": e.len, "pitch": e.prop("pitch"), "glide": e.prop("glide") }));
+        }
+        let (l, r) = m.audio_out(0);
+        cv.push(serde_json::json!([l[0], l[l.len() - 1], r.iter().sum::<f32>()]));
+    }
+    let doc = serde_json::json!({
+        "what": "walk-module natively: seed 42, 84 bpm, spread 1, rate 3, glide 0.5, base 147 – 200 blocks of 1024 frames at 48 kHz; cv = [left first, left last, gate sum] per block",
+        "rate": RATE, "seed": 42, "bpm": 84, "params": { "spread": 1, "rate": 3, "glide": 0.5, "base": 147 },
+        "block": BLOCK, "blocks": 200, "descriptor": Walk::DESCRIPTOR, "events": events, "cv": cv,
+    });
+    let text = serde_json::to_string_pretty(&doc).unwrap() + "\n";
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/walk.json");
+    if std::env::var_os("UPDATE_FIXTURES").is_some() {
+        std::fs::write(&path, &text).unwrap();
+    }
+    assert_eq!(std::fs::read_to_string(&path).unwrap_or_default().replace("\r\n", "\n"), text, "fixtures/walk.json is stale – UPDATE_FIXTURES=1 cargo test -p walk-module fixture");
+    assert!(events.len() >= 15);
+}

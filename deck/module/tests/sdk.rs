@@ -217,3 +217,73 @@ fn the_descriptor_is_found_in_a_wasm_without_running_it() {
     assert_eq!(read_descriptor(&w[..20]), None, "cut short");
     assert_eq!(read_descriptor(b"not wasm"), None);
 }
+
+/// shared/live-core/src/module-abi.ts – the browser host's copy of the ABI's numbers, written from this very crate:
+/// `UPDATE_FIXTURES=1 cargo test -p deck-module module_abi_ts` writes it, a plain run fails when it is stale
+#[test]
+fn module_abi_ts_is_current() {
+    use std::mem::offset_of;
+    let o = Offsets::get();
+    let ts = format!(
+        "// GENERATED from deck/module/src/abi.rs – do not edit: `UPDATE_FIXTURES=1 cargo test -p deck-module module_abi_ts` writes it,\n\
+         // a plain run fails when it is stale. The module ABI's numbers (deck/module/README.md) for the browser host (modules.ts).\n\
+         export const ABI_VERSION = {ABI_VERSION};\n\
+         /** the wasm custom section holding the descriptor's JSON */\n\
+         export const SECTION = 'deck.module';\n\
+         export const MAX_BLOCK = {MAX_BLOCK};\n\
+         export const MAX_AUDIO_PORTS = {MAX_AUDIO_PORTS};\n\
+         export const MAX_CONTROL_IN = {MAX_CONTROL_IN};\n\
+         export const MAX_CONTROL_OUT = {MAX_CONTROL_OUT};\n\
+         export const MAX_PARAMS = {MAX_PARAMS};\n\
+         export const MAX_VARS = {MAX_VARS};\n\
+         export const MAX_EVENTS = {MAX_EVENTS};\n\
+         export const MAX_PROPS = {MAX_PROPS};\n\
+         export const STR_LEN = {STR_LEN};\n\
+         export const VAR_KEY_LEN = {VAR_KEY_LEN};\n\
+         export const EVENT_NAME_LEN = {EVENT_NAME_LEN};\n\
+         export const PROP_KEY_LEN = {PROP_KEY_LEN};\n\
+         /** byte offsets of `Io`'s fields from the address `dm_io()` returns */\n\
+         export const OFFSETS = {{\n\
+         \tsize: {},\n\tevent: {{ size: {}, start: {}, len: {}, port: {}, nprops: {}, name: {}, keys: {}, values: {} }},\n\
+         \ttempoFrame: {},\n\ttempoBeat: {},\n\tbpm: {},\n\trate: {},\n\tframe: {},\n\tseed: {},\n\tframes: {},\n\trunning: {},\n\tperBar: {},\n\
+         \tvarsLen: {},\n\tcontrolIn: {},\n\tcharacterId: {},\n\tcharacterPersona: {},\n\tcharacterMood: {},\n\tvarKeys: {},\n\tvarValues: {},\n\
+         \taudioIn: {},\n\taudioOut: {},\n\tcontrolOut: {},\n\teventsLen: {},\n\teventsDropped: {},\n\tevents: {},\n}} as const;\n",
+        o.size,
+        o.event_size,
+        offset_of!(EventRec, start),
+        offset_of!(EventRec, len),
+        offset_of!(EventRec, port),
+        offset_of!(EventRec, nprops),
+        offset_of!(EventRec, name),
+        offset_of!(EventRec, keys),
+        offset_of!(EventRec, values),
+        o.tempo_frame,
+        o.tempo_beat,
+        o.bpm,
+        o.rate,
+        o.frame,
+        o.seed,
+        o.frames,
+        o.running,
+        o.per_bar,
+        o.vars_len,
+        o.control_in,
+        o.character_id,
+        o.character_persona,
+        o.character_mood,
+        o.var_keys,
+        o.var_values,
+        o.audio_in,
+        o.audio_out,
+        o.control_out,
+        o.events_len,
+        o.events_dropped,
+        o.events,
+    );
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../shared/live-core/src/module-abi.ts");
+    if std::env::var_os("UPDATE_FIXTURES").is_some() {
+        std::fs::write(&path, &ts).unwrap();
+    }
+    let have = std::fs::read_to_string(&path).unwrap_or_default().replace("\r\n", "\n");
+    assert_eq!(have, ts, "module-abi.ts is stale – UPDATE_FIXTURES=1 cargo test -p deck-module module_abi_ts");
+}

@@ -98,7 +98,7 @@ impl Io {
     /// all zero (a static's initial state; the host sets `inp` before the first call)
     pub const ZERO: Io = unsafe { core::mem::zeroed() };
 
-    /// a zeroed `Io` on the heap (~130 KB: never through the stack)
+    /// a zeroed `Io` on the heap (~72 KB: never through the stack)
     pub fn boxed() -> Box<Io> {
         let layout = std::alloc::Layout::new::<Io>();
         unsafe {

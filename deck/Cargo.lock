@@ -4597,6 +4597,7 @@ dependencies = [
  "deck-core",
  "deck-events",
  "deck-module",
+ "serde_json",
 ]
 
 [[package]]
