@@ -60,6 +60,10 @@ export default defineConfig(({ command }) => ({
 		// local dev port: shared/dev-ports.json (the single source of truth)
 		port: ports.viewer,
 		strictPort: true,
+		// 127.0.0.1, not the default `localhost`: on Windows Node resolves that to ::1 alone, and Firefox then opens the
+		// page but not Vite's HMR socket (ws://localhost:…, which it tries on 127.0.0.1). Every browser reaches 127.0.0.1
+		// under the name localhost. The LAN mode below overrides this with every interface.
+		host: '127.0.0.1',
 		// shared workspace packages (@scutoons/*) are linked source folders outside the app (fonts, svelte files)
 		fs: { allow: ['../shared'] },
 		...lan

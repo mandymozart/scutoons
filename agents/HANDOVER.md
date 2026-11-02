@@ -30,6 +30,10 @@ State 2026-10-12. How agents work: agents/RULES.md. Open work: GitHub issues + t
 - Embassy live (embassy.scutoons.com, agents/EMBASSY.md); newsletter live (agents/NEWSLETTER.md).
 - `deck/` (2026-10-29, #172 / #173): the Rust workspace of research/CYBERDECKS.md – relay, bridge, adapters, protocol from
   `deck/protocol/schema.json` (+ shared/live); `deck/os` = the class-A live ISO (`npm run deck:iso` in Docker, `deck:vm`), deck/pkg, HARDWARE.md.
+- The hosted relay `wss://live.scutoons.com` is not reachable yet (2026-11-02): the DNS name still hits the all-inkl
+  wildcard, the bunny Magic Container + CNAME (research/LIVE.md "owner's setup") are planned for the week of 2026-11-02.
+  Until then every Live test runs against the local relay: `cargo run --release -p relay -- 127.0.0.1:7070` in deck/,
+  the deck at `/live/deck?relay=ws://localhost:7070` (or `VITE_LIVE_URL=ws://localhost:7070` in viewer/.env.development).
 - Live performance mode restarts 2026-11-16 for the Top Toy workshop (2027-02-17; research/LIVE.md, KANON.md §8);
   parked: the onion camera (checkout `C:\Development\scutoons-onion-camera`, branch `items/onion-camera`).
 - Other checkouts (`git worktree list`): owner-requested drafts and parked branches (newsletter, onion-camera,

@@ -14,6 +14,8 @@ export default defineConfig(({ command }) => ({
 		// local dev port: shared/dev-ports.json (the single source of truth)
 		port: ports.admin,
 		strictPort: true,
+		// 127.0.0.1, not the default `localhost` (= ::1 alone on Windows; Firefox then loses Vite's HMR socket – viewer/vite.config.ts)
+		host: '127.0.0.1',
 		// shared workspace packages (@scutoons/*) are linked source folders outside the app (fonts, svelte files)
 		fs: { allow: ['../shared'] }
 	},
