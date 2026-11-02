@@ -2,8 +2,19 @@
 //! map is a line through one anchor – frame `frame` is beat `beat`, from there on `bpm` – on the time base's frame axis
 //! (the one the audio thread counts; deck/stage's clock.rs maps it to the heard moment). A tempo change re-anchors where
 //! it happens, so the beat never jumps; a phase set (a tap, an external clock) moves the anchor's beat. Positions,
-//! quantize grids, the least squares fit (MIDI clock in, tap) and tap tempo. Platform-free: the stage hands the map
-//! across threads itself (tempo/map.rs `Shared`).
+//! quantize grids, the least squares fit (MIDI clock in, tap) and tap tempo. Platform-free: the tempo controller (`Controller`:
+//! sources, keys, tap, the followers of MIDI clock in / Link / OSC), the seqlock `Shared` / `BeatReader` and the time
+//! types are in here too (#308); deck/stage only opens the sources' ports and feeds events in.
+
+mod controller;
+mod midi_in;
+mod shared;
+mod time;
+
+pub use controller::{Cmd, Config, Controller, Event, Host, Key, NoHost, Now, Source, What};
+pub use midi_in::{ClockIn, WallLine, LOST_S, PPQN};
+pub use shared::{BeatReader, Shared};
+pub use time::{Line, Moment, SeqLock};
 
 pub const MIN_BPM: f64 = 20.0;
 pub const MAX_BPM: f64 = 300.0;

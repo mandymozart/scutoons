@@ -461,7 +461,7 @@ impl Show {
         modules::check(scene)?;
         let graph = graph::Graph::build(scene)?;
         tracing::info!("scene '{}': {} nodes, {} links (modules: {})", scene.stage.name, graph.nodes.len(), graph.links.len(), modules::summary());
-        let tempo_cfg = tempo::Config::from_graph(&graph)?;
+        let tempo_cfg = tempo::config_from_graph(&graph)?;
 
         // audio first: its clock is the master clock, its handles feed the control domain
         let has_audio = graph.nodes.iter().any(|n| n.kind.domain() == graph::Domain::Audio);
