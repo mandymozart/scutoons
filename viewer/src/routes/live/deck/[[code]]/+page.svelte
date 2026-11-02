@@ -25,7 +25,6 @@
 	import { CHARACTER_KEY, WASM_BASE, characterOf, mayDesign, mayJoin, nickOf, preferOf, relayOf, rigOf } from '$lib/live-deck.ts';
 	import { DeckEdit } from '$lib/live-deck-designer.svelte.ts';
 	import CharacterChip from '$lib/components/live-deck/character-chip.svelte';
-	import DeckTransport from '$lib/components/live-deck/deck-transport.svelte';
 	import DeckPanel from '$lib/components/live-deck/deck-panel.svelte';
 	import DeckQualitySheet from '$lib/components/live-deck/deck-quality-sheet.svelte';
 	import DeckSaveSheet from '$lib/components/live-deck/deck-save-sheet.svelte';
@@ -41,6 +40,9 @@
 	const tabsOn = $derived(mayDesign(session.roles));
 	const edit = new DeckEdit();
 	const editing = $derived(tabsOn && edit.on);
+	$effect(() => {
+		if (tabsOn) void edit.loadStrip();
+	});
 	$effect(() => {
 		if (editing) void edit.ensure();
 	});
@@ -395,9 +397,9 @@
 </svelte:head>
 
 <div class="page">
-	{#if tabsOn}
+	{#if tabsOn && edit.Strip}
 		<div class="chrome" data-testid="deck-chrome">
-			<DeckTransport
+			<edit.Strip
 				{started}
 				{starting}
 				{running}

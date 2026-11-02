@@ -58,8 +58,8 @@ Not a git repo per module (heavy, a second history beside the documents), not fi
 
 ## 8. Where the designer lives (owner 2026-11-02)
 Members write and submit, so the designer is in the viewer, not the creator. **It is a panel inside `/live/deck`, never a page of its own**, because the audio engine lives there (owner: "we will need to be running both in parallel … because this is where the audio engine sits"): live-core's AudioWorklet and space-web's being. A separate page would stop the sound while editing or start a second engine competing for the output.
-- **One page, one engine:** the deck stays as it is (the being, the sound, the knobs); the designer opens beside it as a docked page panel (DOCKING.md: page panels side by side in the right dock, maximize folds the rest). A compile hot-swaps the module in the running engine, so an edit is heard at once.
-- **Phone:** the panel takes the screen; the sound keeps running under it.
+- **One page, one engine:** the deck stays as it is (the being, the sound, the knobs); the designer is **tabs of the page itself** (owner 2026-11-02: no dock, no split): Deck · Parameters · Nodes · Rust · Assignment, a transport strip on top in every tab; the tabs hide each other and never unmount the deck. **Edit mode** (a switch in the strip, creators only, off by default, remembered per device): off = the page carries nothing of the designer – `@scutoons/rig-designer` and CodeMirror load by dynamic import when Edit is first switched on (viewer `lib/live-deck-designer.svelte.ts`). A compile hot-swaps the module in the running engine, so an edit is heard at once.
+- **Phone:** the same tabs in one scrolling row and a one-line strip (a button, a small meter, one "Name · mood" chip, Edit); Save / Compile in a bottom bar; the sound keeps running.
 - **No pop-out in v1** (owner 2026-11-02: "not sure if i need the pop up"): a second window driving the same engine (BroadcastChannel) is added only if a second screen is wanted later.
 - **A remote deck:** the native stage on the X1 has its own engine; the designer targets it over the relay ("play on deck …": the compiled module + values go to that deck, which plays them). Saving still goes through the DB (§6).
 - A shared package (`@scutoons/rig-designer`), so the creator mounts the same component read-only for review / promote; the creator also keeps the review queue, promote, the character → rig mapping overview with the missing defaults, and the catalog list (#269's pages trimmed to that). Editing code on a deck's own screen is not a goal.
@@ -76,7 +76,7 @@ Members write and submit, so the designer is in the viewer, not the creator. **I
 ## 10. Order (issues, created 2026-11-02 – no status yet, the owner orders them)
 1. #280 the SDK crate + the descriptor + one built-in as a module; wasmtime in deck-stage, the wasm path in live-core. **Built:** `deck/module` (SDK, ABI v1 – its README is the reference), `deck/modules/walk` (the built-in `walk`, proven equal), deck-stage feature `modules` (`module_host.rs`), `shared/live-core/src/modules.ts` (browser host). What it left open is in its own issues, linked on #280.
 2. #281 the compile service beside the relay + `module:<id>` documents and `member_modules`.
-3. #282 the designer page: Rust tab + Compile + Play + console; Parameters; the read-only Nodes view.
+3. #282 the designer tabs (phase 1 built: edit mode, transport strip, Rust tab + Compile; Parameters, Nodes, Play next): Rust tab + Compile + Play + console; Parameters; the read-only Nodes view.
 4. #283 the Assignment tab + the mapping overview (missing defaults, the standard rigs per instrument kind) + scene / world variables in ctx.
 5. #284 submit → review → promote; the native tier per module by the owner's review.
 6. #203 node editing, then the stage overlay.

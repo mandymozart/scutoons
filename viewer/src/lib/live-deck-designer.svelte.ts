@@ -2,7 +2,7 @@
 // nothing in performance mode"). Off (every load, unless this device left it on): no tab row, no designer code, no
 // CodeMirror, nothing fetched. On: @scutoons/rig-designer comes in with a dynamic import() – the first time only – and
 // the tab row appears (Deck · Parameters · Nodes · Rust · Assignment). The deck page imports NOTHING from the package
-// statically (types only, erased). Switching the mode or a tab hides, never unmounts, the deck: engine, relay and being run on.
+// statically (types only, erased), and the creator's transport strip is a dynamic import too – a member's page loads neither. Switching the mode or a tab hides, never unmounts, the deck: engine, relay and being run on.
 import type { DesignerTabId, RigDesigner } from '@scutoons/rig-designer';
 import { getSessionToken } from '@scutoons/api';
 import { API_URL } from '$lib/config.ts';
@@ -20,6 +20,18 @@ export class DeckEdit {
 	designer = $state.raw<RigDesigner | null>(null);
 	loading = $state(false);
 	failed = $state(false);
+
+	/** the creator's transport strip (a viewer component, loaded for creators only – everybody else's page never fetches it) */
+	Strip = $state.raw<typeof import('$lib/components/live-deck/deck-transport.svelte').default | null>(null);
+
+	async loadStrip(): Promise<void> {
+		if (this.Strip) return;
+		try {
+			this.Strip = (await import('$lib/components/live-deck/deck-transport.svelte')).default;
+		} catch (e) {
+			console.warn('live deck: the transport strip did not load', e);
+		}
+	}
 
 	/** the saved choice of this device (a throwing or empty localStorage is "off") */
 	restore(): void {
