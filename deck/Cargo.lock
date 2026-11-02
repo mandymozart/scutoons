@@ -3587,6 +3587,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "scutoons-build"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64",
+ "deck-module",
+ "libc",
+ "proc-macro2",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "semver"
 version = "1.0.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
