@@ -100,6 +100,11 @@ impl Glitches {
         std::array::from_fn(|i| self.by_cause[i].load(Ordering::Relaxed))
     }
 
+    /// the underruns alone: the one cause a render thread's lead can absorb (#230)
+    pub fn underruns(&self) -> u64 {
+        self.by_cause[2].load(Ordering::Relaxed)
+    }
+
     /// the newest glitch: its cause and moment (now_ns)
     pub fn last(&self) -> Option<(Cause, u64)> {
         let v = self.last.load(Ordering::Relaxed);

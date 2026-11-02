@@ -121,8 +121,9 @@ A live tool may not crackle unnoticed, and should not crackle at all:
   limiter). A `--frames` run's summary: `glitches=N (late a long b underrun c) buffer=… lead=…`.
 - **The render thread** (`src/audio/ring.rs`, `--audio-thread on` = the default; `off` renders in the callback): the
   graph runs in blocks of 256 frames on a thread of its own into a lock-free SPSC ring (rtrb), the callback only
-  copies. The ring holds the device's buffer + the **lead**: one block (5 ms) at first, a block more per glitch up to
-  16 (85 ms), a block less per calm minute. The time base stays exact (the callback's (frames taken, heard at) through
+  copies. The ring holds the device's buffer + the **lead**: one block (5 ms) at first, a block more per **underrun**
+  up to 16 (85 ms), a block less per calm minute – a late or long callback is the device's own thread stalling, which
+  no lead can help (at ASIO 64 they pushed the lead to its cap for nothing, #230). The time base stays exact (the callback's (frames taken, heard at) through
   a seqlock; each block is stamped with it + the frames between). `tests/no_alloc.rs` runs both halves: no allocation.
 - **Priority** (`src/audio/priority.rs`): the render thread – or the callback's thread when it renders (WASAPI, ALSA;
   not ASIO's, that is the driver's) – at Windows MMCSS "Pro Audio" (high), Linux SCHED_FIFO 70 (the deck's user is in
@@ -169,6 +170,8 @@ A live tool may not crackle unnoticed, and should not crackle at all:
   | **ASIO** 128 → 128 (2.7 ms), 10 min | render thread, lead 256 (5 ms) | 0 | – |
   | ASIO 128, 2 min | in ASIO's callback (`--audio-thread off`) | 0 | – |
   | ASIO 64 asked → 128 (RME's Settings at 128) | render thread | 0 | – |
+  | ASIO 64 → 64 (1.3 ms), 10 min, Live + a browser stage open, memory under pressure | render thread, the lead ran to its cap (85 ms) | 40 (long 39, late 1, underrun 0) | – |
+  | ASIO 64, 10 min, the lead on underruns only (the fix) | render thread, lead stays 256 | 3 (long 3) | – |
 
   Every glitch was the same: cpal's WASAPI thread (its own TIME_CRITICAL priority) woke 32–38 ms after the last
   callback and found the 22 ms buffer drained – the ring can't help a late device thread, MMCSS for that thread does;
@@ -179,7 +182,9 @@ A live tool may not crackle unnoticed, and should not crackle at all:
   **ASIO** (2026-11-01, #230, the same PC, `ASIO Fireface USB` 48 kHz i32 20 ch): the HUD `AUDIO ASIO 48K BUF 128 3MS
   LEAD 5MS`, OUT 31 ms; the lead stays at one block. The driver offers exactly the buffer set in RME's Settings dialog
   (`--audio-list`: `buffer 128–128`); another `--audio-buffer` is clamped to it with a WARN line – a smaller buffer is
-  set in RME's dialog first. The walk scene's sequencer runs at THREAD_PRIORITY_HIGHEST, `events_dropped=0`.
+  set in RME's dialog first. The walk scene's sequencer runs at THREAD_PRIORITY_HIGHEST, `events_dropped=0`. At 64
+  (1.3 ms periods) a "long" glitch is the callback's copy taking ~2 ms: the device's thread preempted, not compute (DSP
+  3 %), the ring never dry – Windows' scheduling jitter against a 1.3 ms period; 128 is the safe setting under load.
 
 ## Scenes
 
