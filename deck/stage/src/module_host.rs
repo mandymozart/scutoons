@@ -5,6 +5,7 @@
 //!   ports as the node kind `module:<name>` (deck-space's modreg.rs). `autoload` loads every `*.wasm` of `DECK_MODULES`
 //!   before the stage builds a scene.
 //! - `Instance` is one running module (the crate's, bound to the process's library).
+//!
 //! Member code is never run on the server – this runs on a deck, in the browser's engine, or in a test.
 use anyhow::Result;
 use deck_module_host::wasmtime_backend::{Wasmtime, WasmtimeEngine};
