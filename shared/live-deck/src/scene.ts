@@ -153,6 +153,8 @@ export const toPos = (s: Spec, v: number) => (s.log ? Math.log(v / s.min) / Math
  *  down; a finger on a pad lifts it a little; a new rung once the last held `hold` s. */
 export class Moods {
 	energy = 0;
+	/** #282: a mood the designer's chips hold – the ladder keeps its energy but answers this one (null = the ladder's own) */
+	pinned: string | null = null;
 	private rung = 0;
 	private since = -Infinity;
 
@@ -174,6 +176,6 @@ export class Moods {
 			this.since = time;
 		}
 		this.rung = Math.min(this.rung, n - 1);
-		return this.moods[this.rung];
+		return this.pinned !== null && this.moods.includes(this.pinned) ? this.pinned : this.moods[this.rung];
 	}
 }

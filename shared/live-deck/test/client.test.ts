@@ -74,6 +74,21 @@ test('moods: the ladder from what the character has; energy climbs it, a rung ho
 	assert.equal(mood, 'surprised', 'a finger on a pad lifts it to the top');
 });
 
+test('moods: a pinned mood (the designer chips) holds while the energy keeps climbing; unpinning follows the ladder', () => {
+	const m = new Moods(LADDER, 1);
+	m.pinned = 'surprised';
+	let t = 0;
+	let mood = '';
+	for (; t < 2; t += 0.05) mood = m.update(t, 0.05, 0, 0);
+	assert.equal(mood, 'surprised', 'silence, yet the pinned one');
+	m.pinned = 'not-on-the-ladder';
+	mood = m.update(t, 0.05, 0, 0);
+	assert.equal(mood, 'neutral', 'a pin the character does not have is ignored');
+	m.pinned = null;
+	for (; t < 12; t += 0.05) mood = m.update(t, 0.05, 1, 0);
+	assert.equal(mood, 'laughing');
+});
+
 /** a raw conductor on the relay: its messages */
 function conductor(url: string): Promise<{ msgs: Envelope[]; ws: WebSocket }> {
 	const { code } = parseRelay(url);
