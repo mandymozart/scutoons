@@ -15,7 +15,7 @@ pub mod osc;
 #[cfg(feature = "link")]
 pub mod link;
 
-pub use deck_core::tempo::{Cmd, Config, Controller, Event, Host, Key, Now, Source, What};
+pub use deck_core::tempo::{Anchor, Cmd, Config, Controller, Event, Host, Key, Now, Source, What};
 pub use map::{position, BeatReader, Position, Quantize, Shared, TempoMap};
 
 use crate::clock::{now_ns, Moment};
@@ -224,7 +224,8 @@ impl Tempo {
             // a source whose module isn't built (its error above says so)
             #[allow(unreachable_patterns)]
             Source::Link | Source::Osc => String::new(),
-            Source::Relay => RelayClock.status().into(),
+            Source::Relay if !self.ctl.has_anchor() => "NO SHOW CLOCK YET".into(),
+            Source::Relay => String::new(),
             Source::Internal => String::new(),
         }
     }
@@ -244,21 +245,6 @@ impl Tempo {
 /// why a source's module isn't there (the HUD upper-cases and cuts it)
 fn not_built(feature: &str) -> String {
     format!("not in this build (--features {feature})")
-}
-
-/// The relay's show clock (LIVE.md B.6) – a stub: the relay has only the ping / pong offset so far (#172). When it
-/// gets a show clock (BPM + the beat at a relay `at`), this turns it into a WallLine: relay ms → local ns by the
-/// bridge's offset (the median of 5 pings) → the time base's frames, like MIDI clock in.
-pub struct RelayClock;
-
-impl RelayClock {
-    pub fn line(&self) -> Option<midi::WallLine> {
-        None
-    }
-
-    pub fn status(&self) -> &'static str {
-        "NO SHOW CLOCK YET"
-    }
 }
 
 #[cfg(test)]
