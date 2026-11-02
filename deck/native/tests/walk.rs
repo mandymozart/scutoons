@@ -162,7 +162,7 @@ fn render_driven(text: &str, drive: Drive, mut send: impl FnMut(usize, &Names, &
     assert_eq!(sequencer.is_some(), seq == Sequencing::Thread, "a sequencer only on the thread");
     let (mut dispatcher, inlet) = Dispatcher::new(h.events.take_routing(), h.events.counters.clone());
     let (progress, _thread) = match (drive, sequencer.take()) {
-        (Drive::Thread, Some(s)) => (Some(s.progress()), Some(s.spawn().unwrap())),
+        (Drive::Thread, Some(s)) => (Some(s.progress()), Some(deck_native::audio::sequencer::spawn(s, h.glitches.clone()).unwrap())),
         (_, s) => {
             sequencer = s;
             (None, None)

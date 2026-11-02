@@ -3,8 +3,8 @@
 //! clock runs and the click is on (the tempo node's `click`, the K key). Params: `freq` (1000 Hz), `accent` (1500 Hz),
 //! `decay` (0.03 s); the `gain` input.
 use super::{Block, Param, Stereo};
-use crate::graph::Node;
-use crate::tempo::BeatReader;
+use deck_space::graph::Node;
+use deck_core::tempo::BeatReader;
 
 pub struct Click {
     beats: BeatReader,
@@ -79,9 +79,9 @@ impl Block for Click {
 
 #[cfg(test)]
 mod tests {
-    use crate::audio::Engine;
-    use crate::graph::Graph;
-    use crate::scene::Scene;
+    use crate::Engine;
+    use deck_space::graph::Graph;
+    use deck_space::scene::Scene;
 
     const SCENE: &str = "[[node]]\nid=\"t\"\nkind=\"tempo\"\nbpm=120\nbeats=4\nclick=true\n\
                          [[node]]\nid=\"c\"\nkind=\"click\"\ngain=0.5\n\

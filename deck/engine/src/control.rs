@@ -5,10 +5,10 @@
 //! the audio nodes' linked inputs into their Params. Video nodes read theirs with `input()` (a table lookup).
 //! `set` changes an unlinked input from outside, like a MIDI CC (the being's 3D buttons, #188): the input's constant, the
 //! LFO batch's column entry or the audio node's Param – a linked input belongs to its link.
-use crate::audio::{Handles, Param};
+use crate::{Handles, Param};
 use crate::fft::Analyzer;
-use crate::graph::{Graph, Kind, PortType};
-use crate::tempo;
+use deck_space::graph::{Graph, Kind, PortType};
+use deck_core::tempo;
 use deck_core::batch::{levels, Col};
 use deck_core::math::{fract_fast, sin_turns};
 
@@ -31,7 +31,7 @@ enum Shape {
 }
 
 /// an LFO's shapes by name (its `shape` param), in the order `lfo_shape` counts them (deck-space's params.rs)
-pub use crate::params::LFO_SHAPES;
+pub use deck_space::params::LFO_SHAPES;
 
 impl Shape {
     fn parse(s: &str) -> Shape {
@@ -362,8 +362,8 @@ impl deck_space::space::values::Knobs for Controls {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::audio::Engine;
-    use crate::scene::Scene;
+    use crate::Engine;
+    use deck_space::scene::Scene;
 
     fn graph(text: &str) -> Graph {
         Graph::build(&Scene::parse(text).unwrap()).unwrap()

@@ -4,10 +4,10 @@
 //! warmed up here, outside the callback); the wiring, envelopes, sequencer, player, mixer and FFT tap are ours. Nothing
 //! in `process` allocates.
 use super::click::Click;
-use super::{Block, Handles, MusicFeed, Param, Stereo, Track};
-use crate::graph::{Kind, Node};
-use crate::tempo::BeatReader;
+use super::{Block, Handles, MusicFeed, Param, Seams, Stereo, Track};
 use anyhow::{bail, Result};
+use deck_core::tempo::BeatReader;
+use deck_space::graph::{Kind, Node};
 use deck_core::smooth::{Ramp, GLIDE, QUICK};
 use fundsp::hacker32::{lowpass, noise, pink, saw, sine, square, triangle, AudioUnit};
 use std::sync::{Arc, Mutex};
@@ -16,9 +16,10 @@ use std::sync::{Arc, Mutex};
 const TAP_RING: usize = 8192;
 
 /// the engine's default of an audio node's control input (deck-space's params.rs – the being's buttons read it too)
-pub use crate::params::default_for;
+pub use deck_space::params::default_for;
 
-pub fn make(node: &Node, index: usize, rate: f32, params: &[Param], h: &mut Handles) -> Result<Box<dyn Block>> {
+#[cfg_attr(not(feature = "modules"), allow(unused_variables))]
+pub fn make(node: &Node, index: usize, rate: f32, params: &[Param], h: &mut Handles, seams: &Seams) -> Result<Box<dyn Block>> {
     let p = |name: &str| params[node.kind.input(name).expect("a port of this kind")].clone();
     // a param read once per block, gliding across it (#188, deck-core's smooth.rs): gains and frequencies longer
     let glide = |name: &str| Glide::new(p(name), GLIDE, rate);
@@ -90,7 +91,10 @@ pub fn make(node: &Node, index: usize, rate: f32, params: &[Param], h: &mut Hand
         }
         Kind::AudioOut => Box::new(Out { volume: glide("volume") }),
         #[cfg(feature = "modules")]
-        Kind::Module(_) => Box::new(super::module::ModuleBlock::new(node, rate, params, beats(h))?),
+        Kind::Module(_) => {
+            let source = seams.modules.as_ref().ok_or_else(|| anyhow::anyhow!("node '{}': this engine has no module runtime", node.id))?;
+            Box::new(super::module::ModuleBlock::new(node, rate, params, beats(h), source)?)
+        }
         k => bail!("{k:?} is not an audio kind"),
     })
 }
@@ -428,9 +432,9 @@ impl Block for Out {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::audio::Engine;
-    use crate::graph::Graph;
-    use crate::scene::Scene;
+    use crate::Engine;
+    use deck_space::graph::Graph;
+    use deck_space::scene::Scene;
 
     fn build(text: &str) -> (Engine, Handles) {
         Engine::build(&Graph::build(&Scene::parse(text).unwrap()).unwrap(), 48_000.0, 1.0).unwrap()
@@ -458,7 +462,7 @@ mod tests {
 
     #[test]
     fn the_sequencer_on_the_clock_snaps_to_the_beat() {
-        use crate::tempo::{Shared, TempoMap};
+        use deck_core::tempo::{Shared, TempoMap};
         use std::sync::atomic::{AtomicU64, Ordering};
         let node = &Graph::build(&Scene::parse("[[node]]
 id=\"s\"
@@ -493,7 +497,6 @@ steps=[69, 81]
         assert!(out[0].r[..100].iter().all(|g| *g == 0.0));
     }
 
-    #[cfg(feature = "chapter")]
     #[test]
     fn music_plays_a_sent_track_and_loops() {
         let (mut e, mut h) = build(

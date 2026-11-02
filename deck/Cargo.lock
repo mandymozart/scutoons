@@ -984,6 +984,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "deck-engine"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "deck-core",
+ "deck-events",
+ "deck-module-host",
+ "deck-space",
+ "fundsp",
+ "rtrb",
+ "toml 0.8.23",
+]
+
+[[package]]
 name = "deck-engine-lab"
 version = "0.1.0"
 dependencies = [
@@ -1060,6 +1074,7 @@ dependencies = [
  "cpal",
  "ctrlc",
  "deck-core",
+ "deck-engine",
  "deck-events",
  "deck-link",
  "deck-module",

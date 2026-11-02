@@ -131,7 +131,7 @@ fn the_sequencer_and_the_dispatcher_do_not_allocate() {
     let (mut dispatcher, inlet) = Dispatcher::new(h.events.take_routing(), h.events.counters.clone());
     let (note, pitch) = (h.events.names.get("music.note").unwrap(), h.events.names.get("pitch").unwrap());
     let mut buf = vec![0.0f32; 256 * 2];
-    let ahead = seq.horizon();
+    let ahead = deck_native::audio::sequencer::horizon(&h.glitches);
     measure(true);
     let before = CALLS.load(Ordering::SeqCst);
     for i in 0..2000u64 {

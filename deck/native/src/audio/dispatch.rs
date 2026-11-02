@@ -10,15 +10,11 @@
 //! one after it by the new – no lock anywhere on the hot path, no table mutated while in use. Names are interned at
 //! load (the engine's `Names`); a name interned later has no receivers.
 //!
-//! The drop counters (`Counters`: capped, past the hop limit, refused – compound events, send a reference –, late)
-//! are shared atomics; the HUD shows them next to the glitch counter.
+//! The tables, the rings and the counters are deck-engine's (dispatch.rs there); this file is the queue and the thread.
 use super::glitch::Glitches;
-use super::sequencer::{self, Sequencer};
-use super::Sequencing;
-use crate::tempo::BeatReader;
-use deck_core::tempo::TempoMap;
-use deck_events::{Event, Names, Route, Stats, Table};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use deck_engine::dispatch::{Counters, Events, Routing};
+use deck_events::{Event, Stats};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{sync_channel, Receiver, RecvTimeoutError, SyncSender, TrySendError};
 use std::sync::Arc;
 use std::time::Duration;
@@ -26,101 +22,15 @@ use std::time::Duration;
 /// events waiting for the dispatcher at most (more are dropped and counted)
 pub const QUEUE: usize = 1024;
 
-/// What happened to events on their way (since the start), for the HUD.
-#[derive(Debug, Default)]
-pub struct Counters {
-    /// copies delivered to a receiver
-    pub routed: AtomicU64,
-    /// over a queue's, a ring's or an edge's cap
-    pub capped: AtomicU64,
-    /// past the hop limit (deck-events MAX_HOPS)
-    pub hops: AtomicU64,
-    /// refused: compound events / payloads (send a reference)
-    pub refused: AtomicU64,
-    /// a window the render had already passed (sequencer.rs), or an event its block took late
-    pub late: AtomicU64,
-}
-
-impl Counters {
-    pub fn add(&self, s: Stats) {
-        for (c, n) in [(&self.capped, s.capped), (&self.hops, s.hops), (&self.refused, s.refused)] {
-            if n > 0 {
-                c.fetch_add(n, Ordering::Relaxed);
-            }
-        }
+/// Start the threads a scene with hosts needs: the sequencer (thread mode) and the dispatcher. None without hosts.
+pub fn start(events: &mut Events, glitches: Arc<Glitches>) -> std::io::Result<Option<Running>> {
+    let seq = events.take_sequencer();
+    if seq.is_none() && !events.has_routes() {
+        return Ok(None);
     }
-
-    /// every event lost on the way: capped + hops + refused + late
-    pub fn dropped(&self) -> u64 {
-        [&self.capped, &self.hops, &self.refused, &self.late].iter().map(|c| c.load(Ordering::Relaxed)).sum()
-    }
-}
-
-/// The events side of an engine's build (`Handles::events`): the name dictionary every host interned into, where the
-/// hosts' generators run, their `listen` inputs (routes + rings) and – on the thread – the sequencer holding them.
-pub struct Events {
-    pub names: Names,
-    pub(super) mode: Sequencing,
-    pub(super) routes: Vec<Route>,
-    pub(super) outlets: Vec<rtrb::Producer<Event>>,
-    sequencer: Option<Sequencer>,
-    pub counters: Arc<Counters>,
-    glitches: Arc<Glitches>,
-}
-
-impl Events {
-    pub(super) fn new(mode: Sequencing, glitches: Arc<Glitches>) -> Events {
-        Events {
-            names: Names::new(),
-            mode,
-            routes: Vec::new(),
-            outlets: Vec::new(),
-            sequencer: None,
-            counters: Arc::new(Counters::default()),
-            glitches,
-        }
-    }
-
-    pub fn mode(&self) -> Sequencing {
-        self.mode
-    }
-
-    /// the sequencer the thread-mode hosts join (made with the first)
-    pub(super) fn sequencer(&mut self, beats: &BeatReader, own: TempoMap) -> &mut Sequencer {
-        let (glitches, counters) = (&self.glitches, &self.counters);
-        self.sequencer.get_or_insert_with(|| {
-            let beats = BeatReader { shared: beats.shared.clone(), frames: beats.frames.clone() };
-            Sequencer::new(beats, own, glitches.clone(), counters.clone())
-        })
-    }
-
-    /// the hosts' sequencer (thread mode, a scene with a host) – to `spawn`, or to `fill` by hand (tests)
-    pub fn take_sequencer(&mut self) -> Option<Sequencer> {
-        self.sequencer.take()
-    }
-
-    /// the routing for a dispatcher: the table over every name interned so far, the hosts' input rings (taken)
-    pub fn take_routing(&mut self) -> Routing {
-        let outlets = std::mem::take(&mut self.outlets);
-        Routing { table: Arc::new(Table::new(&self.names, &self.routes, outlets.len())), outlets }
-    }
-
-    /// Start the threads a scene with hosts needs: the sequencer (thread mode) and the dispatcher. None without hosts.
-    pub fn start(&mut self) -> std::io::Result<Option<Running>> {
-        let seq = self.take_sequencer();
-        if seq.is_none() && self.routes.is_empty() {
-            return Ok(None);
-        }
-        let seq = seq.map(Sequencer::spawn).transpose()?;
-        let (d, inlet) = Dispatcher::new(self.take_routing(), self.counters.clone());
-        Ok(Some(Running { inlet, counters: self.counters.clone(), _dispatch: d.spawn()?, _seq: seq }))
-    }
-}
-
-/// a routing table and the receivers' rings it names (outlet i = `outlets[i]`)
-pub struct Routing {
-    pub table: Arc<Table>,
-    outlets: Vec<rtrb::Producer<Event>>,
+    let seq = seq.map(|s| super::sequencer::spawn(s, glitches)).transpose()?;
+    let (d, inlet) = Dispatcher::new(events.take_routing(), events.counters.clone());
+    Ok(Some(Running { inlet, counters: events.counters.clone(), _dispatch: d.spawn()?, _seq: seq }))
 }
 
 enum Msg {
@@ -235,13 +145,13 @@ pub struct Running {
     pub inlet: Inlet,
     pub counters: Arc<Counters>,
     _dispatch: Thread,
-    _seq: Option<sequencer::Thread>,
+    _seq: Option<super::sequencer::Thread>,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use deck_events::Match;
+    use deck_events::{Match, Names, Route, Table};
 
     /// a routing with `outlets` rings of 64 and their consumers
     fn routing(names: &Names, routes: &[Route], outlets: usize) -> (Routing, Vec<rtrb::Consumer<Event>>) {

@@ -19,34 +19,13 @@ pub use deck_core::tempo::{Anchor, Cmd, Config, Controller, Event, Host, Key, No
 pub use map::{position, BeatReader, Position, Quantize, Shared, TempoMap};
 
 use crate::clock::{now_ns, Moment};
-use crate::graph::{Graph, Kind};
-use anyhow::{bail, Result};
+use anyhow::Result;
 use std::ops::{Deref, DerefMut};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
 
-/// The scene's `tempo` node (none = the defaults: 120 BPM in 4, internal, the click off).
-pub fn config_from_graph(graph: &Graph) -> Result<Config> {
-    let mut c = Config::default();
-    let Some(i) = graph.first(Kind::Tempo) else { return Ok(c) };
-    let n = &graph.nodes[i];
-    c.bpm = map::clamp_bpm(n.f32("bpm", 120.0) as f64);
-    c.per_bar = n.f32("beats", 4.0).clamp(1.0, 32.0) as u32;
-    if let Some(s) = n.str("source") {
-        let Some(src) = Source::parse(s) else {
-            bail!("node '{}': unknown source '{s}' (internal, midi, link, osc, relay)", n.id)
-        };
-        c.source = src;
-    }
-    c.click = n.bool("click", c.click);
-    c.midi_in = n.str("midi_in").unwrap_or_default().into();
-    c.midi_out = n.str("midi_out").map(String::from);
-    c.midi_out_lead = n.f32("midi_out_lead", 0.0) as f64 / 1000.0;
-    if let Some(o) = n.params.get("osc_port").and_then(|v| v.as_integer()) {
-        c.osc = format!("0.0.0.0:{o}");
-    }
-    Ok(c)
-}
+/// The scene's `tempo` node as the controller's config (deck-engine's: the scene side of the clock)
+pub use deck_engine::tempo_config as config_from_graph;
 
 /// The sources' I/O, opened when a source is first chosen (MIDI out: at the start, it doesn't depend on the master).
 #[derive(Default)]
@@ -250,6 +229,7 @@ fn not_built(feature: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::graph::Graph;
     use crate::clock::Line;
     use crate::scene::Scene;
 

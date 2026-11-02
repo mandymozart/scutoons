@@ -144,6 +144,13 @@ impl Instance {
     }
 }
 
+impl Instance {
+    /// the host crate's instance itself (what deck-engine drives through `ModuleInstance`)
+    pub fn into_host(self) -> deck_module_host::Instance<Wasmtime> {
+        self.0
+    }
+}
+
 impl Deref for Instance {
     type Target = deck_module_host::Instance<Wasmtime>;
     fn deref(&self) -> &Self::Target {

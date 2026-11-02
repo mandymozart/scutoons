@@ -1,135 +1,38 @@
-//! The sequencer thread (#236, research/EVENTS.md §16 "Threads"): the hosts' patches (walk.rs `Core`) run here, one
-//! window of BLOCK frames at a time, ahead of the render – never on the audio thread. Each host's notes go into its
-//! own lock-free SPSC ring (rtrb) as `Timed` events at absolute frames (the one timebase: the engine's frame counter,
-//! clock.rs); the host's audio block takes only the events of the frames it renders.
+//! The sequencer's thread (#236, research/EVENTS.md §16 "Threads"): deck-engine's `Sequencer` (its windows, the rings
+//! it fills) runs here on a thread of its own, ahead of the render – never on the audio thread. This file is only the
+//! scheduling: how far ahead (`horizon`), the nap between fills, the priority.
 //!
-//! How far ahead (`horizon`): the device's buffer + the render lead + a block – the render thread renders in bursts of
-//! about a device buffer (ring.rs) and the lead grows after a glitch, so the window always covers the next burst. A
-//! live event (dispatch.rs) reaches the sound after this horizon + the render's own lead.
-//!
-//! Late: a window that ends before the render's frame has its events dropped and counted (`Counters::late`) – the
-//! patch still runs it, so its state stays continuous. Full: while a host's ring has no room for a window, the
-//! sequencer waits (no event is lost to it). Nothing here allocates per window (graph, resolve and rings are reserved).
-use super::dispatch::Counters;
+//! How far ahead: the device's buffer + the render lead + a block – the render thread renders in bursts of about a
+//! device buffer (ring.rs) and the lead grows after a glitch, so the window always covers the next burst. A live event
+//! (dispatch.rs) reaches the sound after this horizon + the render's own lead.
 use super::glitch::Glitches;
-use super::ring::BLOCK;
-use super::walk::Core;
-use crate::tempo::BeatReader;
-use deck_core::tempo::TempoMap;
-use deck_events::{Props, RtEvent, Sym, EDGE_CAP};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use deck_engine::sequencer::{Sequencer, BLOCK};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-/// a host's ring, in events: well over the horizon's worth at the usual few notes a window; full = the sequencer waits
-pub const SEQ_RING: usize = 4096;
-
-/// a note for the audio block: an `RtEvent` at an absolute frame
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Timed {
-    pub at: u64,
-    pub len: u32,
-    pub name: Sym,
-    pub props: Props,
+/// frames to stay ahead of the render: the device's buffer + the render lead + a block
+pub fn horizon(glitches: &Glitches) -> u64 {
+    u64::from(glitches.device_frames().max(BLOCK as u32) + glitches.lead() + BLOCK as u32)
 }
 
-struct SeqHost {
-    core: Core,
-    ring: rtrb::Producer<Timed>,
-}
-
-pub struct Sequencer {
-    hosts: Vec<SeqHost>,
-    beats: BeatReader,
-    /// without a tempo map: 120 bpm from frame 0
-    own: TempoMap,
-    /// the next window's first frame (None until the first fill: then the render's frame)
-    cursor: Option<u64>,
-    /// the cursor, for other threads (`progress`)
-    done: Arc<AtomicU64>,
-    rt: Vec<RtEvent>,
-    glitches: Arc<Glitches>,
-    counters: Arc<Counters>,
-}
-
-impl Sequencer {
-    pub(super) fn new(beats: BeatReader, own: TempoMap, glitches: Arc<Glitches>, counters: Arc<Counters>) -> Sequencer {
-        Sequencer { hosts: Vec::new(), beats, own, cursor: None, done: Arc::default(), rt: Vec::with_capacity(EDGE_CAP), glitches, counters }
-    }
-
-    pub(super) fn add(&mut self, core: Core, ring: rtrb::Producer<Timed>) {
-        self.hosts.push(SeqHost { core, ring });
-    }
-
-    pub fn hosts(&self) -> usize {
-        self.hosts.len()
-    }
-
-    /// the frame up to which every host's events are in its ring – readable from any thread
-    pub fn progress(&self) -> Arc<AtomicU64> {
-        self.done.clone()
-    }
-
-    /// frames to stay ahead of the render: the device's buffer + the render lead + a block
-    pub fn horizon(&self) -> u64 {
-        u64::from(self.glitches.device_frames().max(BLOCK as u32) + self.glitches.lead() + BLOCK as u32)
-    }
-
-    /// Windows until the cursor is `ahead` frames past what the engine has rendered (or a ring is too full for a
-    /// window). Returns the windows run. Never allocates.
-    pub fn fill(&mut self, ahead: u64) -> usize {
-        let rendered = self.beats.frames.load(Ordering::Relaxed);
-        let mut at = *self.cursor.get_or_insert(rendered);
-        let mut windows = 0;
-        let (mut late, mut capped) = (0, 0);
-        while at < rendered + ahead && self.hosts.iter().all(|h| h.ring.slots() >= EDGE_CAP) {
-            let map = self.beats.shared.map().map_or(self.own, |(m, _)| m);
-            let behind = at + BLOCK as u64 <= rendered;
-            for h in &mut self.hosts {
-                h.core.window(&map, at as f64, BLOCK, &mut self.rt);
-                if behind {
-                    late += self.rt.len() as u64;
-                    continue;
-                }
-                for e in &self.rt {
-                    // room checked above for EDGE_CAP (an output's cap); only a compound event's children go past it
-                    if h.ring.push(Timed { at: at + u64::from(e.frame), len: e.len, name: e.name, props: e.props }).is_err() {
-                        capped += 1;
-                    }
-                }
-            }
-            at += BLOCK as u64;
-            windows += 1;
+/// The sequencer on a thread of its own ("events-seq", high priority – below the render thread's): it fills to
+/// the horizon, then naps a millisecond (a quarter of a block). Dropping the handle stops it.
+pub fn spawn(mut seq: Sequencer, glitches: Arc<Glitches>) -> std::io::Result<Thread> {
+    let stop = Arc::new(AtomicBool::new(false));
+    let flag = stop.clone();
+    let handle = std::thread::Builder::new().name("events-seq".into()).spawn(move || {
+        match super::priority::raise_high() {
+            Ok(how) => tracing::info!("events: the sequencer runs at {how}"),
+            Err(e) => tracing::warn!("events: the sequencer at normal priority ({e})"),
         }
-        self.cursor = Some(at);
-        self.done.store(at, Ordering::Release);
-        if late > 0 {
-            self.counters.late.fetch_add(late, Ordering::Relaxed);
+        while !flag.load(Ordering::Relaxed) {
+            let ahead = horizon(&glitches);
+            seq.fill(ahead);
+            std::thread::park_timeout(Duration::from_millis(1));
         }
-        if capped > 0 {
-            self.counters.capped.fetch_add(capped, Ordering::Relaxed);
-        }
-        windows
-    }
-
-    /// The sequencer on a thread of its own ("events-seq", high priority – below the render thread's): it fills to
-    /// the horizon, then naps a millisecond (a quarter of a block). Dropping the handle stops it.
-    pub fn spawn(mut self) -> std::io::Result<Thread> {
-        let stop = Arc::new(AtomicBool::new(false));
-        let flag = stop.clone();
-        let handle = std::thread::Builder::new().name("events-seq".into()).spawn(move || {
-            match super::priority::raise_high() {
-                Ok(how) => tracing::info!("events: the sequencer runs at {how}"),
-                Err(e) => tracing::warn!("events: the sequencer at normal priority ({e})"),
-            }
-            while !flag.load(Ordering::Relaxed) {
-                let ahead = self.horizon();
-                self.fill(ahead);
-                std::thread::park_timeout(Duration::from_millis(1));
-            }
-        })?;
-        Ok(Thread { stop, handle: Some(handle) })
-    }
+    })?;
+    Ok(Thread { stop, handle: Some(handle) })
 }
 
 /// the running sequencer: dropping it stops the thread
@@ -145,48 +48,5 @@ impl Drop for Thread {
             h.thread().unpark();
             let _ = h.join();
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::audio::{Build, Engine, Sequencing};
-    use crate::graph::Graph;
-    use crate::scene::Scene;
-
-    const WALK: &str = "[[node]]\nid=\"tempo\"\nkind=\"tempo\"\nbpm=120\n[[node]]\nid=\"w\"\nkind=\"walk\"\nspread=1.0\nrate=48.0\n\
-                        [[node]]\nid=\"v\"\nkind=\"fm\"\n[[node]]\nid=\"out\"\nkind=\"audio_out\"\n\
-                        [[link]]\nfrom=\"w.cv\"\nto=\"v.cv\"\n[[link]]\nfrom=\"v\"\nto=\"out.in\"\n";
-
-    fn build() -> (Engine, crate::audio::Handles, Sequencer) {
-        let g = Graph::build(&Scene::parse(WALK).unwrap()).unwrap();
-        let (e, mut h) = Engine::build_seq(&g, 48_000.0, 1.0, Build::detect(), Sequencing::Thread).unwrap();
-        let s = h.events.take_sequencer().unwrap();
-        (e, h, s)
-    }
-
-    #[test]
-    fn windows_the_render_has_passed_are_dropped_and_counted() {
-        let (mut e, h, mut s) = build();
-        assert_eq!(s.fill(0), 0, "nothing ahead of the render asked");
-        let mut buf = vec![0.0f32; 4096 * 2];
-        e.render(&mut buf, 2, |x| x);
-        // the render is 16 blocks on, the sequencer still at 0: it runs those windows (its state stays continuous) but
-        // their notes are late
-        assert_eq!(s.fill(BLOCK as u64), 17);
-        assert!(h.events.counters.late.load(Ordering::Relaxed) > 0, "the passed windows' notes are counted late");
-        assert_eq!(s.progress().load(Ordering::Relaxed), 4096 + BLOCK as u64);
-    }
-
-    #[test]
-    fn a_full_ring_makes_the_sequencer_wait() {
-        let (_e, h, mut s) = build();
-        // the render never takes anything: the sequencer runs until a window might not fit, then stops
-        let windows = s.fill(u64::MAX / 2);
-        assert!(windows > 100, "{windows}");
-        assert!(s.hosts[0].ring.slots() < EDGE_CAP);
-        assert_eq!(s.fill(u64::MAX / 2), 0, "still full: it waits");
-        assert_eq!(h.events.counters.dropped(), 0, "waiting loses nothing");
     }
 }

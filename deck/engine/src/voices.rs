@@ -9,7 +9,7 @@
 //! sine starts and step by the same seconds-per-sample; only the sine is deck-core's polynomial (< 2e-7).
 //! audio/mod.rs's tests compare the two paths.
 use super::{Param, Stereo, MAX_BLOCK};
-use crate::graph::{Kind, Node};
+use deck_space::graph::{Kind, Node};
 use deck_core::lanes::{self as v, F8, LANES};
 use deck_core::smooth::{Ramp, GLIDE, QUICK};
 

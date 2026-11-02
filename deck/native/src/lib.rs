@@ -6,8 +6,6 @@ pub mod audio;
 pub mod cache;
 pub mod chapter;
 pub mod clock;
-pub mod control;
-pub mod fft;
 pub mod hud;
 pub mod live;
 pub mod modules;
@@ -22,6 +20,9 @@ pub mod switcher;
 pub mod tempo;
 pub mod volume;
 pub mod watch;
+
+// the engine's control domain and FFT half (#317: deck-engine, the universal core)
+pub use deck_engine::{control, fft};
 
 // the scene model is deck-space's (#198: the space builds its being from it, in the browser too)
 pub use deck_space::{graph, params, scene};
