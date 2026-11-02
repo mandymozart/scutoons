@@ -64,9 +64,9 @@ It reads the code itself and does not rely on the report. Where the code and the
 | `click` | sample-accurate tick on the tempo map | – (no clock) | missing |
 | `walk` · `events` | deck-events on the sequencer thread → cv (pitch, gate) + envelope | live-core `walks.rs` → `send` on the voice's `freq`, own bpm, no gate | differs (mechanism, clock) |
 | `chapter_music` | symphonia-decoded track, resampled | – | missing |
-| `mixer` | 4 stereo inputs, gains | folded into `mul`s, **mono** master | differs (stereo) |
-| `fft` | analyses its input (a tap), frame thread, heard window | analyses the limited master output | differs (where) |
-| `audio_out` + limiter | stereo, master ramp, deck-core limiter | mono, deck-core limiter | close for mono material |
+| `mixer` | 4 stereo inputs, gains | folded into `mul`s, **mono** main output | differs (stereo) |
+| `fft` | analyses its input (a tap), frame thread, heard window | analyses the limited main output | differs (where) |
+| `audio_out` + limiter | stereo, main gain ramp, deck-core limiter | mono, deck-core limiter | close for mono material |
 | `module:*` | wasmtime (feature `modules`) | pushed to page nodes, not played | missing |
 | `tempo` (control) | the clock's outputs | – | missing |
 
@@ -95,7 +95,7 @@ It reads the code itself and does not rely on the report. Where the code and the
    `modules.ts` types). No schema derive exists (no `schemars` in the workspace); the PHP file is written by a test
    (`UPDATE_FIXTURES=1 cargo test -p deck-space node_kinds`).
 10. **Everything is stereo or mono by construction.** The native deck's pool is `Stereo { l, r }` per port, the browser's
-    master is mono, the module ABI's audio ports are fixed `[[f32; 1024]; 2]`, the limiter is stereo-linked, the SAB ring
+    main output is mono, the module ABI's audio ports are fixed `[[f32; 1024]; 2]`, the limiter is stereo-linked, the SAB ring
     is interleaved stereo. The owner wants more than stereo ("the engine is supposed to be able to do even more than
     stereo"), so the stereo pool cannot be the shared engine's model (§2.6).
 11. **How fundsp is really used:** six units (saw, square, triangle, white noise, pink noise, the noise's lowpass)
@@ -111,11 +111,18 @@ Owner: "the native apps name is stupid, it is deck, and stage is a part of it."
 | Term | Means |
 |---|---|
 | **deck** | a device running the core: the **native deck** (the app – crate and binary `deck-stage` in `deck/stage/` today, renamed to `deck-native` / binary `deck` by a chore ticket before P4) or the **browser deck** (/live/deck: live-core + the page) |
-| **stage** | the part of a deck that performs: the playing scenes, the stage master, the picture |
-| **stage master** | the master layer on the stage that outlasts scene switches (§2.6b) |
-| **deck output** | the deck's hardware layer: per-speaker EQ, delay, safety limiter, device channels (§2.6b) |
+| **stage** | the part of a deck that performs: the playing scenes, the stage environment, the picture |
+| **stage environment** | the named layer for the room a show plays in ("club", "open air", "school hall"), for every outlet kind – sound, screens, lights, MIDI, OSC; it outlasts scene switches (§2.6b) |
+| **outlet** | a logical output a scene writes to: an audio group ("main", "cue"), a screen, a light role, a MIDI part, an OSC address (LIVE.md B.5) |
+| **deck configuration** | one deck's hardware binding, a saved document: channel map and fold, safety settings, quality, decoding, disk, controller map (§2.6b) |
+| **venue** | a room in one selection: its stage environment plus a deck configuration per deck (§2.6b) |
 | **deck settings** | performance and external hardware, per deck instance (older DECISIONS lines say "stage settings") |
 | **folder bus** | a bus that sums its children (§2.6) |
+| **main** | the sum of an output group (the `main` group, a main bus) |
+
+**No master / slave wording** (owner 2026-11-02: "can we call it main, generally or something that doesnt use master
+slave relation ships? in wording."): "main" for a sum, "stage environment" for the per-venue layer, "original" for an
+uploaded source file, "leader / follower" where a relation needs words.
 
 **No backwards compatibility** (owner: "we dont need backwards compatibility for the audio engine, as we have not
 released anything. all work is exploratory"): no A/B flags (`DECK_DSP`, `DECK_CONTROL` are gone from this plan); the
@@ -275,7 +282,7 @@ The stereo pool goes; a channel is a channel, stereo is two of them. Max and Rea
   by `pan` or a bus. The stereo case must reproduce today's hashes bit for bit (the guard of the change).
 - **Loops** only through an explicit `feedback` node (one block, 128 frames = 2.67 ms, like Max's `tapin~` /
   `tapout~`); any other cycle is an error (`levels()`).
-- **Safety and analysis:** there is no mandatory master bus. After all `out` nodes are summed per device channel, the
+- **Safety and analysis:** there is no mandatory main bus. After all `out` nodes are summed per device channel, the
   engine's limiter runs last (linked per named group). Meters per channel, the FFT on a mono sum of what it taps.
 - **What platforms give:** native – every device channel (cpal / PipeWire / ASIO: the Fireface's many, HDMI's 8, the
   X1's 2). Browser – the spec requires at least 32 channels for buffers; `destination.maxChannelCount` is the device's
@@ -299,24 +306,58 @@ The stereo pool goes; a channel is a channel, stereo is two of them. Max and Rea
 - **Control side effects** (a module's control outputs, events, a rig's code driving its tracks) land at the next
   block – the same on every target; a control loop is always one block late.
 
-### 2.6b Stage master and deck output – what outlasts a scene (owner 2026-11-02)
+### 2.6b Outlets, stage environment, deck configuration, venue – fitting a show to the room (owner 2026-11-02)
+Owner: "it can be assigned by the show runner, or by any conductor or by the invidual deck. so it can trickle down, be
+rejected or override under certain conditions." · "if i want to orchestrate many devices in a room without having to go
+to each one, assigning deck channel maps, and engines safety by selecting the saved configuration for that deck, can be
+of quite some help." · "this is audio specific, the stage environment. but it can also have video or midi or dmx or osc
+out put" · "good suggestions, this way we can fix our shows depending on the venue".
 ```
-scene graph ── out "main" ─┐
-scene graph ── out "cue" ──┤  during a switch the old and the new scene both feed in and crossfade
-                           ▼
- stage master   content, the creator's: a folder bus per group (EQ, glue compressor, reverb return …)
-                           ▼
- deck output    hardware, deck settings: per speaker room EQ, delay alignment, the safety limiter
-                           ▼
-                 device channels
+scene graph ── outlets: audio groups "main" / "cue", screens, light roles, MIDI parts, OSC addresses
+                 │   during a scene switch the old and the new scene both feed in and crossfade
+                 ▼
+stage environment   the room, a named document: audio – shaping, speaker layout, speaker EQ and delays; video – screen
+                    layout, projection mapping, colour; lights – fixture patch, dimmer curves; MIDI / OSC – remaps
+                 ▼
+deck configuration  this device, a named document: channel map and fold, displays, DMX interface and universes,
+                    MIDI / OSC ports, safety settings, quality, decoding, cache disk, controller map
+                 ▼
+engine safety       per kind, always on: audio limiter per channel; light strobe-rate cap, max intensity, moving-head
+                    speed; MIDI all-notes-off on panic, rate limits
+                 ▼
+devices
 ```
-- A scene's `out` writes to a **named group** ("main", "cue"); it says where its sound goes, not which hardware plays it.
-- The **stage master** is a graph document (like a rig) that stays loaded while scenes come and go: tails and
-  compressor state carry on through a switch; a scene may send it parameters (a bigger reverb in the cave), never
-  replace it. Who picks it – the show, or the conductor from a few the show offers – is open (§8 D16).
-- The **deck output** is per deck and hardware: the same for every show on that deck; its `out` nodes write the device
-  channels. A device with fewer channels than the patch: a `downmix` the creator inserts (artistic, e.g. a parallel
-  chain chosen by the device's channel count), else the deck's fold (§2.6).
+- **Scenes write to outlets, never to hardware.** The same show plays in any room; the room is fitted by the layers
+  below. A deck with fewer channels than a scene's audio: a `downmix` the creator inserts (artistic, e.g. a parallel
+  chain chosen by the channel count), else the fold of the deck configuration (§2.6).
+- **The stage environment** is the room, for every outlet kind. It stays loaded while scenes come and go (tails,
+  compressor state, fixture states carry on); a scene may send it parameters (a bigger reverb in the cave), never
+  replace it. Variants are derivatives (§2.7): "Club X – quiet" inherits Club X's speaker correction and fixture
+  patch and changes only what differs. It describes all of the room's devices; each deck renders only what its
+  configuration binds.
+- **The deck configuration** is one device's hardware binding, a saved document with a name ("Fireface rack 8 ch",
+  "X1 kiosk", "phone") – what DECISIONS 2026-11-02 calls the deck's one "configuration", now assignable remotely.
+- **Engine safety is not a layer anyone removes:** it is built into the engine and runs last per kind; a configuration
+  may set it tighter (a lower ceiling), never off or past the engine's hard limits.
+- **The venue** bundles a room: its stage environment plus a deck configuration per deck (by deck id or role). It is
+  its own document that shows reference (a room serves many shows; LIVE.md B.5's `venues` inside the show become
+  references). Picking a venue sets up sound, screens, lights and devices in one step.
+- **Assignment cascades down the relay tree:** the show runner (the show's default and optional allowed list) → any
+  conductor (for its subtree, a group or one deck; nested conductors again) → the deck itself (its own pick in deck
+  settings). A message `{ what: environment | configuration | venue, id, scope, from, lock?, at }` travels only to
+  subscribed decks; `at` is a show-time point (next bar, next cue), so a scope switches together, crossfaded.
+- **Each deck resolves it in its core, the same everywhere:** (1) it may always reject for capability (too few
+  channels, no DMX interface, over budget, a module it can't run) and keeps what it runs; (2) a lock from above beats
+  every level below it; (3) otherwise the nearest assignment wins (deck over conductor, a closer conductor over a
+  farther one, a conductor over the show); (4) nothing assigned anywhere → no stage environment, outlets go straight to
+  the deck configuration. A deck's own lock (a fixed installation) refuses remote changes.
+- **Every deck reports up** who it is (deck id, name), what it can do (channels, displays, GPU formats, decoders, DMX,
+  MIDI) and what it runs and why ("Club X, from conductor B" · "rejected Open air: 2 channels" · "own pick"); the
+  conductor view shows the whole room. Conditions (scope, group, role, lock, allowed list) are data, like the relay's
+  forwarding conditions.
+- **Scope of this plan:** the audio parts are built here (P4b, the stage environment's audio graph, the channel map,
+  the limiter); screens, lights, MIDI and OSC follow the same shape in the Live leg (LIVE.md, `deck-outputs`; §9 create
+  17).
 - Cost: during a crossfade two scene graphs run at once – a short CPU peak.
 
 ### 2.7 Library, derivatives, baking
@@ -366,7 +407,7 @@ separate for device independence" · "we use the real hap and of course we pre e
 - **Documents reference assets by id, never a URL.** With a scene the API delivers an **asset manifest**: every asset
   its graph needs, resolved for its context (character, mood, set), each with its **derivatives** (format, resolution,
   size, hash, CDN URL).
-- **All media is pre-encoded in the asset library:** the creator uploads one master (lossless / high bitrate); a media
+- **All media is pre-encoded in the asset library:** the creator uploads one original (lossless / high bitrate); a media
   job on the server makes the derivatives, like image resolutions: **real HAP** (HAP, HAP Alpha, HAP Q – ffmpeg encodes
   them; HAP R / BC7 support in ffmpeg unverified) for native decks, our one own variant **ASTC frames** for GPUs without
   BC (ARM boards, Android-based decks), **AV1 + H.264** for phones (chosen by the phone's decoder), FLAC / Vorbis / MP3
@@ -801,16 +842,18 @@ Plus orchestrator sessions (≈ 10, one per two or three merges, ≈ $5–10 eac
     by default, the device's channels from the deck configuration; ambisonics and binaural are panner / decoder kinds or
     modules on it, not engine types; sidechains (§2.6), `in` nodes, serial and parallel chains (selectors designed
     later with the modules).
-12. **Decided: the names of §2.0** – deck (native / browser), stage, stage master, deck output, deck settings, folder
-    bus; the rename is P3b.
+12. **Decided: the names of §2.0** – deck (native / browser), stage, stage environment, outlet, deck configuration, venue, deck
+    settings, folder bus, main; no master / slave wording; the rename is P3b.
 13. **Decided: no backwards compatibility for the engine (§2.0)** – no A/B flags, P7 folded into P4, ABI v2 replaces
     v1, stored documents migrated once or recreated.
 14. **Decided: latency compensation automatic with a `live` flag, built when a kind needs it (§2.6a).**
 15. **Decided: media (§2.9)** – own playback in the core on every deck; real HAP (+ our ASTC variant) for native
     decks, phone derivatives (AV1 + H.264), all pre-encoded in the asset library, the deck chooses by capability;
     hardware decoding as a decode-only adapter, built right away (P13); no deploy waits for P8 / P10.
-16. **Open: who picks the stage master (§2.6b)** – the show names it (recommended: the show lists one or a few, the
-    conductor may switch among those), or the conductor freely.
+16. **Decided: fitting a show to the room (§2.6b)** – outlets, the stage environment (the room, every outlet kind),
+    the deck configuration (a device's binding, saved, assignable remotely), engine safety per kind, the venue as its
+    own document that shows reference; assigned by the cascade show runner → conductors → deck: capability may
+    always reject, a lock from above wins, otherwise the nearest wins; every deck reports what it runs and why.
 17. **Open: derivatives pin their parent's version (§2.7)** – recommended (an update is an explicit step); the
     alternative is "current" like sets.
 
@@ -855,6 +898,9 @@ Plus orchestrator sessions (≈ 10, one per two or three merges, ≈ $5–10 eac
 14. *Hardware decode-only adapters: WebCodecs VideoDecoder, VideoToolbox, MediaCodec, VA-API* – feature, M (P13c).
 15. *The native deck's asset cache on a chosen disk, preload per show* – feature, M (P13d).
 16. *Video frames on the GPU: planes → wgpu, FSR 1 upscale, frame for the heard time* – feature, M (P13e, with #311).
+17. *Venues: stage environment and deck configuration for every outlet kind (audio, video, DMX, MIDI, OSC), the
+    cascade, the venue document referenced by shows* – design note first, then features (`area:live`; revises LIVE.md
+    B.5's venue patches).
 6. *Show clock over the relay: a tempo anchor message, the clock-offset filter in deck-core, the browser source* –
    feature, M/L (from #308 steps 2–4).
 7. *The native deck plays rigs (flatten → engine), the same path as the browser* – feature, M.
