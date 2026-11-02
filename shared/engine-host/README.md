@@ -39,6 +39,10 @@ plays on both channels of the speaker, so `[l, r]` with two equal values; `[]` w
 since the last analysis frame (≈ 60 a second, after the limiter) into the frame; `OutputMeters` (meters.ts) holds a peak and lets it fall
 (×1/e per 0.25 s) so the 250 ms snapshot sample does not miss the transients. A multi-channel engine only raises the count (≤ 8
 slots, `MAX_OUTPUTS`); the snapshot's array grows with it. The raw per-frame peaks are `Analysis.outputs` (`LiveCore.onAnalysis`).
+For a canvas drawn every animation frame, `host.peaks` is the same readings as **one `Float32Array` the host updates in place with every analysis
+frame** (no allocation per frame; its length is the output count, 0 without sound, and the object changes only when the count does – read the
+property each frame, don't keep it): `const p = host.peaks; for (let i = 0; i < p.length; i++) draw(p[i])`, no snapshot / subscribe in between.
+`host.monitor` is allocation-free per message too (`count(kind)`, `last(kind)`, `activity(kind, now)`; the wording `text(kind)` is made once per message, on request).
 
 **Device messages** – the scene's `[outputs]` (deck-outputs, #211: MIDI CC / note / bend, DMX fixtures, the strobe) run inside the engine
 on the audio clock, and what they send is *shown*, not played (the browser has no MIDI port or DMX widget):

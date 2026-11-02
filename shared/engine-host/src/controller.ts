@@ -50,6 +50,13 @@ export class EngineHost {
 	deck: Deck | null = null;
 	space: SpaceStage | null = null;
 	hooks: EngineHooks = {};
+	/** #282: the output peaks (0..1, held with a short fall) as ONE Float32Array the host updates in place with every
+	 *  analysis frame – no allocation per frame, read it from a requestAnimationFrame loop (a canvas meter) without the
+	 *  snapshot / subscribe path. Its length is the number of outputs (0 while no sound runs); the object changes only
+	 *  when that count does, so read the property each frame rather than keeping it. */
+	get peaks(): Float32Array {
+		return this.meters.peaks;
+	}
 	/** #282: the last device message per kind, counts and activity (monitor.ts) – also in `snapshot().signals` */
 	readonly monitor = new SignalMonitor();
 	/** the 3D's own line, refreshed every frame */

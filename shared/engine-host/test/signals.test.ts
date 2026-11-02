@@ -10,18 +10,38 @@ test('meters: a peak is held, falls, and a higher one takes over; the count foll
 	const m = new OutputMeters();
 	assert.deepEqual(m.read(), []);
 	m.push([0.8, 0.4], 1 / 60);
-	assert.deepEqual(m.read(), [0.8, 0.4]);
+	assert.deepEqual(m.read().map((x) => Math.fround(x)), [Math.fround(0.8), Math.fround(0.4)]);
 	m.push([0, 0], FALL_SECONDS);
 	const [a, b] = m.read();
-	assert.ok(Math.abs(a - 0.8 / Math.E) < 1e-9 && Math.abs(b - 0.4 / Math.E) < 1e-9, 'one time constant: ×1/e');
+	assert.ok(Math.abs(a - 0.8 / Math.E) < 1e-6 && Math.abs(b - 0.4 / Math.E) < 1e-6, 'one time constant: ×1/e');
 	m.push([0.9, 0], 1 / 60);
-	assert.equal(m.read()[0], 0.9);
+	assert.ok(Math.abs(m.read()[0] - 0.9) < 1e-6);
 	m.push([0.1, 0.1, 0.5], 0);
 	assert.equal(m.read().length, 3, 'a multi-channel engine grows the meter');
 	m.push([0.2], 0);
 	assert.equal(m.read().length, 1, 'and shrinks it');
 	m.reset();
 	assert.deepEqual(m.read(), []);
+});
+
+test('meters: peaks is one Float32Array updated in place, a new view only when the count changes', () => {
+	const m = new OutputMeters();
+	assert.equal(m.peaks.length, 0);
+	m.push([0.5, 0.25], 0);
+	const view = m.peaks;
+	assert.ok(view instanceof Float32Array);
+	assert.deepEqual([...view], [0.5, 0.25]);
+	m.push([0.75, 0.5], 1 / 60);
+	assert.equal(m.peaks, view, 'the same object');
+	assert.deepEqual([...view], [0.75, 0.5], 'updated in place');
+	m.push([0.1, 0.1, 0.1], 10);
+	assert.equal(m.peaks.length, 3);
+	m.push([0.1], 10);
+	assert.deepEqual([...m.peaks], [Math.fround(0.1)]);
+	m.push([0.1, 0.1], 10);
+	assert.ok(m.peaks[1] === Math.fround(0.1), 'a slot that came back starts from the new peak, not an old one');
+	m.reset();
+	assert.equal(m.peaks.length, 0);
 });
 
 test('meters: junk is silence, the reading stays within 0..1', () => {
@@ -42,6 +62,7 @@ test('the monitor keeps the last message per kind and counts', () => {
 	mon.push({ kind: 'dmx', ch: 20, values: [255, 255], flash: false, at: 30 }, 1020);
 	const v = mon.view(1020);
 	assert.equal(v.midi.count, 2);
+	assert.equal(mon.text('midi'), v.midi.text);
 	assert.equal(v.midi.text, 'note on 60 · vel 100 · ch 1 → conductor');
 	assert.equal(v.midi.at, 1010);
 	assert.equal(v.dmx.last?.kind, 'dmx');
@@ -49,6 +70,17 @@ test('the monitor keeps the last message per kind and counts', () => {
 	assert.equal(v.osc.last, null);
 	mon.reset();
 	assert.deepEqual(mon.view(5000), emptySignals());
+});
+
+test('the monitor makes a message wording only when asked', () => {
+	const mon = new SignalMonitor();
+	mon.push(cc, 1);
+	assert.equal(mon.count('midi'), 1);
+	assert.equal(mon.last('midi'), cc);
+	assert.equal(mon.last('osc'), null);
+	assert.equal(mon.text('osc'), '');
+	assert.equal(mon.text('midi'), 'CC 74 = 127 · ch 1');
+	assert.equal(mon.text('midi'), mon.view(1).midi.text);
 });
 
 test('activity: 1 at a message, decays with time, never before the first, per kind', () => {

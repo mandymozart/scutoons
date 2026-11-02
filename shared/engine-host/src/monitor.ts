@@ -55,16 +55,45 @@ export function describeSignal(s: DeviceSignal): string {
 
 const empty = (): SignalState => ({ count: 0, activity: 0, last: null, text: '', at: null });
 
-export class SignalMonitor {
-	private states: Record<SignalKind, SignalState> = { midi: empty(), osc: empty(), dmx: empty() };
+/** what `push` keeps per kind – the message and a count; the text is made when someone asks (`view`) */
+interface Kept {
+	count: number;
+	last: DeviceSignal | null;
+	at: number | null;
+	text: string;
+	textOf: DeviceSignal | null;
+}
+const kept = (): Kept => ({ count: 0, last: null, at: null, text: '', textOf: null });
 
-	/** A message that arrived at `now` (ms). */
+export class SignalMonitor {
+	private states: Record<SignalKind, Kept> = { midi: kept(), osc: kept(), dmx: kept() };
+
+	/** A message that arrived at `now` (ms). Allocation-free: the message is kept, its wording made only by `view` / `text`. */
 	push(s: DeviceSignal, now: number): void {
 		const st = this.states[s.kind];
 		st.count++;
 		st.last = s;
-		st.text = describeSignal(s);
 		st.at = now;
+	}
+
+	/** messages of `kind` so far (no allocation) */
+	count(kind: SignalKind): number {
+		return this.states[kind].count;
+	}
+
+	/** the last message of `kind`, null = none (no allocation) */
+	last(kind: SignalKind): DeviceSignal | null {
+		return this.states[kind].last;
+	}
+
+	/** the last message of `kind` in a line, '' = none – made once per message */
+	text(kind: SignalKind): string {
+		const st = this.states[kind];
+		if (st.textOf !== st.last) {
+			st.text = st.last ? describeSignal(st.last) : '';
+			st.textOf = st.last;
+		}
+		return st.text;
 	}
 
 	/** The activity of `kind` at `now` (ms): 1 at a message, then falling; 0 before the first. */
@@ -76,12 +105,12 @@ export class SignalMonitor {
 	/** every kind's state as of `now` (ms) – a copy */
 	view(now: number): SignalsView {
 		const out = {} as SignalsView;
-		for (const k of SIGNAL_KINDS) out[k] = { ...this.states[k], activity: this.activity(k, now) };
+		for (const k of SIGNAL_KINDS) out[k] = { count: this.states[k].count, last: this.states[k].last, at: this.states[k].at, text: this.text(k), activity: this.activity(k, now) };
 		return out;
 	}
 
 	reset(): void {
-		this.states = { midi: empty(), osc: empty(), dmx: empty() };
+		this.states = { midi: kept(), osc: kept(), dmx: kept() };
 	}
 }
 
