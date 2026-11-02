@@ -1,0 +1,28 @@
+# deck-module-host – the module host's logic, platform-free (#305, research/ENGINE-REFACTOR-PLAN.md P1): the descriptor
+# check and port layout, the `Io` staging (tempo, character, variables, params, audio, events), the log limiter and the
+# time-budget bookkeeping, all behind the small `Backend` trait. One backend ships now (`wasmtime`, what the native stage
+# runs); the browser's follows. Nothing here names a wasm engine, a clock or a file system except that backend.
+[package]
+name = "deck-module-host"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+default = ["wasmtime"]
+# the wasmtime backend: the engine, its 1 ms epoch ticker, the compile cache on disk
+wasmtime = ["dep:wasmtime"]
+
+[dependencies]
+deck-core = { workspace = true, features = ["tempo"] }
+deck-module = { path = "../module", features = ["host"] }
+anyhow.workspace = true
+bytemuck = "1"
+sha2 = "0.10"
+tracing.workspace = true
+wasmtime = { version = "38", default-features = false, features = ["cranelift", "runtime", "std"], optional = true }
+
+[dev-dependencies]
+wat = "1"
