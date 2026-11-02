@@ -34,6 +34,8 @@ final class CatalogStore
         'instruments' => ['table' => 'catalog_instruments', 'columns' => [], 'label' => 'instrument', 'data_id' => true],
         'presets' => ['table' => 'catalog_presets', 'columns' => ['instrument' => 'instrument', 'parent' => 'parent'], 'label' => 'preset', 'data_id' => true],
         'rigs' => ['table' => 'catalog_rigs', 'columns' => [], 'label' => 'rig', 'data_id' => false],
+        // rig modules (#281, migration 2026-11-02-modules): Rust sources + what the compile service made of them
+        'modules' => ['table' => 'catalog_modules', 'columns' => [], 'label' => 'module', 'data_id' => true],
         'products' => ['table' => 'catalog_products', 'columns' => ['toon' => 'toon', 'item_id' => 'item_id', 'edition_id' => 'edition_id'], 'label' => 'product', 'data_id' => true],
         'editions' => ['table' => 'catalog_editions', 'columns' => ['toon' => 'toon'], 'label' => 'edition', 'data_id' => true],
         'featured' => ['table' => 'catalog_featured', 'columns' => ['product_id' => 'product', 'variant_id' => 'variant'], 'label' => 'featured', 'data_id' => false],

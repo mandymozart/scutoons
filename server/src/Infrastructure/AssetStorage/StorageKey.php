@@ -37,6 +37,17 @@ final class StorageKey
         }
     }
 
+    /** Folders the platform itself writes (compiled rig modules `modules/<hash>.wasm`, #281): not assets – never imported or uploaded to */
+    public const SYSTEM_PREFIXES = ['modules/'];
+
+    public static function system(string $key): bool
+    {
+        foreach (self::SYSTEM_PREFIXES as $prefix) {
+            if (str_starts_with($key, $prefix)) return true;
+        }
+        return false;
+    }
+
     /** OS junk, dot files / dot folders and half-written uploads – never synced, never registered */
     public static function junk(string $key): bool
     {
@@ -81,6 +92,7 @@ final class StorageKey
             'zip' => 'application/zip',
             'pdf' => 'application/pdf',
             'glb' => 'model/gltf-binary',
+            'wasm' => 'application/wasm',
             'json' => 'application/json',
             'mscz' => 'application/octet-stream',
             default => 'application/octet-stream',
