@@ -121,8 +121,9 @@ A live tool may not crackle unnoticed, and should not crackle at all:
   limiter). A `--frames` run's summary: `glitches=N (late a long b underrun c) buffer=… lead=…`.
 - **The render thread** (`src/audio/ring.rs`, `--audio-thread on` = the default; `off` renders in the callback): the
   graph runs in blocks of 256 frames on a thread of its own into a lock-free SPSC ring (rtrb), the callback only
-  copies. The ring holds the device's buffer + the **lead**: one block (5 ms) at first, a block more per glitch up to
-  16 (85 ms), a block less per calm minute. The time base stays exact (the callback's (frames taken, heard at) through
+  copies. The ring holds the device's buffer + the **lead**: one block (5 ms) at first, a block more per **underrun**
+  up to 16 (85 ms), a block less per calm minute – a late or long callback is the device's own thread stalling, which
+  no lead can help (at ASIO 64 they pushed the lead to its cap for nothing, #230). The time base stays exact (the callback's (frames taken, heard at) through
   a seqlock; each block is stamped with it + the frames between). `tests/no_alloc.rs` runs both halves: no allocation.
 - **Priority** (`src/audio/priority.rs`): the render thread – or the callback's thread when it renders (WASAPI, ALSA;
   not ASIO's, that is the driver's) – at Windows MMCSS "Pro Audio" (high), Linux SCHED_FIFO 70 (the deck's user is in
@@ -146,6 +147,8 @@ A live tool may not crackle unnoticed, and should not crackle at all:
   1056-frame (22 ms) buffer whatever is asked below that – a smaller buffer needs ASIO.
 - **Host and device**: `--audio-host default|wasapi|asio` (deck.toml `audio_host`), `--audio-device NAME` (a part of
   the name, any case; deck.toml `audio_device`), `--audio-list` prints the hosts, devices, formats and buffer ranges.
+  A dev machine's deck.toml: the user variable `DECK_TOML` names it (the PC: `%LOCALAPPDATA%\scutoons\deck.toml` with
+  `audio_host = "asio"`, `audio_device = "Fireface"`, `audio_buffer = 128` – owner 2026-11-02, #230).
   **WASAPI exclusive** is not possible: cpal (0.15 and 0.16) opens WASAPI in shared mode only.
 - **ASIO** (the RME Fireface's reference driver on Windows) is the cargo feature `asio` (cpal's asio host; output in
   f32, i16 or i32 – RME's driver talks i32). Its `asio-sys` builds bindings to Steinberg's ASIO SDK at build time:
@@ -166,6 +169,11 @@ A live tool may not crackle unnoticed, and should not crackle at all:
   | 128 / 256 / 512 → 1056 | render thread, callback not raised | 0 · 0 · 0 | 1 · 0 · 1, and 3 in 8 min |
   | 128 / 256 / 512 → 1056 | render thread, callback raised (now) | – | 0 in 8 min |
   | 2048 → 2048 (43 ms) | callback / render thread | 0 / 0 | 0 / 0 |
+  | **ASIO** 128 → 128 (2.7 ms), 10 min | render thread, lead 256 (5 ms) | 0 | – |
+  | ASIO 128, 2 min | in ASIO's callback (`--audio-thread off`) | 0 | – |
+  | ASIO 64 asked → 128 (RME's Settings at 128) | render thread | 0 | – |
+  | ASIO 64 → 64 (1.3 ms), 10 min, Live + a browser stage open, memory under pressure | render thread, the lead ran to its cap (85 ms) | 40 (long 39, late 1, underrun 0) | – |
+  | ASIO 64, 10 min, the lead on underruns only (the fix) | render thread, lead stays 256 | 3 (long 3) | – |
 
   Every glitch was the same: cpal's WASAPI thread (its own TIME_CRITICAL priority) woke 32–38 ms after the last
   callback and found the 22 ms buffer drained – the ring can't help a late device thread, MMCSS for that thread does;
@@ -173,6 +181,32 @@ A live tool may not crackle unnoticed, and should not crackle at all:
   came near its budget. What this can't see: a glitch inside Windows' audio engine (audiodg) or the USB driver (DPC
   latency) after our buffer – crackles heard while the indicator stays at 0 point there (LatencyMon; ASIO bypasses
   audiodg).
+  **ASIO** (2026-11-01, #230, the same PC, `ASIO Fireface USB` 48 kHz i32 20 ch): the HUD `AUDIO ASIO 48K BUF 128 3MS
+  LEAD 5MS`, OUT 31 ms; the lead stays at one block. The driver offers exactly the buffer set in RME's Settings dialog
+  (`--audio-list`: `buffer 128–128`); another `--audio-buffer` is clamped to it with a WARN line – a smaller buffer is
+  set in RME's dialog first. The walk scene's sequencer runs at THREAD_PRIORITY_HIGHEST, `events_dropped=0`. At 64
+  (1.3 ms periods) a "long" glitch is the callback's copy taking ~2 ms: the device's thread preempted, not compute (DSP
+  3 %), the ring never dry – Windows' scheduling jitter against a 1.3 ms period; 128 is the safe setting under load.
+  **Linux, the X1** (2026-11-02, #285: deck/os r2548, kernel 7.2 PREEMPT_RT, PipeWire 1.6 at 48 kHz, the RME Fireface
+  UCX II in class-compliant mode on the Pro Audio profile – deck/os/README.md –, the cathedral at volume 0, release
+  build; the render thread at SCHED_FIFO 70, PipeWire's data thread in the stage at 83 through rtkit, the sequencer and
+  dispatcher at nice −10):
+
+  | setting | run | glitches | HUD |
+  |---|---|---|---|
+  | `--audio pipewire --audio-buffer 128`, 10 min | render thread, lead 256 | **0** | `AUDIO PIPEWIRE 48K BUF 128 3MS LEAD 5MS`, OUT 31 ms, DSP 6 % |
+  | pipewire 128, 2 min, audible (volume 0.2) | render thread | 0 | – |
+  | pipewire 64 (1.3 ms), 10 min | render thread, the lead stays 256 | 4 (late 4, underrun 0) | `BUF 64 1MS LEAD 5MS`, OUT 29 ms, DSP 2 % |
+  | pipewire 64, 2 min, audible | render thread | 6 (late 6, underrun 0) | – |
+  | the walk scene (tempo + walk + fm), pipewire 128, 2 min | sequencer thread | 0, `events_dropped=0` | `EVENTS IN 0 DROP 0`, DSP 2 % |
+  | `--audio cpal --audio-device II24322536` 128, 2 min | cpal ALSA `sysdefault:CARD=…` | 0 | `AUDIO ALSA 44K BUF 4704 107MS`, OUT 131 ms, DSP 4 % |
+
+  At 64 every glitch was a **late** callback – PipeWire's cycle came 4.5–9.4 ms after the last one instead of 1.3 ms,
+  in bursts of three within 10 ms (while a cable was plugged in, once at the start) – with the ring never dry (underrun
+  0) and the callback itself at 0.00 ms: the USB / graph scheduling at 1.3 ms periods, not compute (DSP 2 %). 128 ran 10
+  min + 2 min audible without one. **cpal on ALSA is no live path on the deck:** cpal enumerates only the card's
+  `sysdefault` (the plug + dmix layer: 44.1 kHz, a 170-frame minimum, `Fixed` refused → ALSA's default 4704 = 107 ms,
+  the callback thread at 35 % CPU for the conversion), never `hw:`; PipeWire on the Pro Audio profile is the way.
 
 ## Scenes
 
@@ -331,7 +365,7 @@ path as a `--dev` reload, no process restart: the old show stops (audio graph dr
 stays (about 0.6 s on a PC) – **Esc** / F5 closes; the playing one is starred. A scene that doesn't build (a module this build lacks,
 a broken file) keeps the old one playing and the list says why. A scene that loads is written into deck.toml as one
 `scene = "<name or path>"` line (`DECK_TOML` names another file; replaced like `deck-set` does, never a second line), so
-the next boot plays it. The change goes through black, no logo: the picture and the PipeWire stream fade out (0.25 s), the new show loads behind the black, then the picture fades in (0.4 s; `switcher.rs` `Transition`, the splash shader's veil mode). Check runs: `--switcher` starts with the list open, `--switch NAME` loads that scene after 30 frames.
+the next boot plays it. **Scene transitions (#264):** a switch is a transition, a stop is a stop. The incoming scene's `[stage]` says how the lamps (DMX / MIDI outputs) hand over: `transition = "fade"` (default) – the lamps hold the last look, then cross over to the new scene's values over `transition_secs` (default 0.4, the picture's fade-in); channels the new scene doesn't drive fade to 0 – a scene without outputs fades them out the same way (`idle` → `pulse-thunderwash` → `idle` never goes dark in between); `"cut"` – the new values at once, unused channels to 0; `"blackout"` – the old outputs end dark, the new start anew (a reset). Needs the same DMX widget / MIDI port in both scenes (the runner and the open port stay); a different device = blackout. The stop paths below stay dark. The change goes through black, no logo: the picture and the PipeWire stream fade out (0.25 s), the new show loads behind the black, then the picture fades in (0.4 s; `switcher.rs` `Transition`, the splash shader's veil mode). Check runs: `--switcher` starts with the list open, `--switch NAME` loads that scene after 30 frames.
 
 **Quality** (#220, deck-space `quality.rs` – the browser deck runs the same; the stage's `src/quality.rs`): four
 **presets** – low · medium · high · ultra – each with its knobs: on / off (an off preset is skipped and can't be chosen),
@@ -579,9 +613,9 @@ parameters – `gain = ["tempo.pulse", { from = "level.out", in = [-1, 1] }]`, `
 pulses), `smooth` for a soft attack – so colour channels pulse on the beat without a flash channel. The scene
 `pulse-thunderwash` (built in; the file `scenes/pulse-thunderwash.toml`): a slowly turning colour that pulses on the
 tempo's beat, every channel capped at 15 % (`max = 0.15` – raise the three together for a show). A scene that ends
-in the stage – the F5 switch, **Ctrl+Q**, or a **stop signal** (SIGTERM / SIGHUP / SIGINT, Ctrl+C on Windows: `deck-set
+in the stage – **Ctrl+Q**, or a **stop signal** (SIGTERM / SIGHUP / SIGINT, Ctrl+C on Windows: `deck-set
 --restart`, `systemctl restart deck-kiosk`, an update's restart, #263; `src/stop.rs`) – blacks its DMX out (the widget
-repeats its last frame for ever otherwise) and fades the audio out, then the stage exits 0, within the kiosk's 5 s stop
+repeats its last frame for ever otherwise) and fades the audio out (a scene *switch* hands the lamps over instead: "Scenes", #264), then the stage exits 0, within the kiosk's 5 s stop
 (a watchdog leaves after 3.5 s if the loop hangs). Only a SIGKILL leaves the lamp lit. The built-in scene `lamps-off`
 (the Thunder Wash's channels held at 0) stays for switching a lit lamp off by hand.
 
