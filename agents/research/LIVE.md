@@ -59,7 +59,7 @@ client-side filtering, a raw cache of 100 messages) is not taken over. New, in t
   `shared/live` (`@scutoons/live`: the protocol types + the client used by viewer and creator, the show schema helpers).
 - **Hosted: its own bunny Magic Containers app `scutoons-live`** at **`wss://live.scutoons.com/live/<code>`** (owner
   2026-10-07; the Rust `deck/relay` since 2026-10-29; #199). **Exactly one instance in one region** (state in memory);
-  it can be stopped between shows. Built (#199):
+  it could be stopped between shows (not any more once the build service runs beside it, below). Built (#199):
   - **The image:** `deck/relay/Dockerfile` – build context `deck/` (`deck/.dockerignore`), a static musl binary on
     `scratch` (~3 MB), user nobody, `RELAY_ADDR=0.0.0.0:7700`, `RELAY_LEAD_MS=150`, plain log lines, SIGTERM stops it.
     TLS ends at bunny; the container speaks ws on 7700.
@@ -84,6 +84,26 @@ client-side filtering, a raw cache of 100 messages) is not taken over. New, in t
     all-inkl: a CNAME `live` → the endpoint's hostname (today the wildcard sends it to the all-inkl host). 6. In GitHub
     (environment `production`): `BUNNY_LIVE_APP_ID`, `BUNNY_LIVE_CONTAINER`, `BUNNY_API_KEY`. Check: `curl
     https://live.scutoons.com/status` → `{"sessions":0,"live":0}`.
+- **The second container: the module build service (#281, RIG-EDITING.md §4)** – `deck/build` (binary `scutoons-build`, port
+  7710), the compiler for creators' rig modules (Rust → wasm), in the same bunny app (one pod: shared localhost, CPU, lifecycle).
+  The rules that come with the pod: **one compile at a time**, `CARGO_BUILD_JOBS=2`, `nice`, a 60 s / 4 GB / output limit with
+  the whole process tree killed, and **no compile while `127.0.0.1:7700/status` reports `live > 0`** (`503 live_show`; a show
+  starting mid-compile kills it). The pod stays up between shows now (members compile). The image
+  `deck/build/Dockerfile` (`rust:1.99.1-slim` + the wasm32 target + the SDK + the vendored closure of its dependencies, built
+  once at image build: every compile is `--offline`; user nobody) is built by `.github/workflows/build-image.yml` (own
+  workflow, same deploy freeze through the relay's `/status`, one concurrency group with live-image.yml: an update of either
+  restarts the pod). Reached **only through the API** (`POST /api/modules/compile`, server docs/API.md "Modules"), behind
+  the shared secret `X-Build-Token` = `MODULE_BUILD_TOKEN`; the container holds no other secret.
+  - **The owner's setup** (once; the code runs without it - the API answers `503 no_build_service`): 1. GitHub: Actions → 🛠
+    Module build image → Run workflow once (`ghcr.io/mandymozart/scutoons-build`), make the package public like the relay's.
+    2. bunny: the app `scutoons-live` → add a **second container** `scutoons-build`, image
+    `ghcr.io/mandymozart/scutoons-build:latest`, env `MODULE_BUILD_TOKEN` = a long random string (the same one in 4.), no
+    other env needed (it asks the relay at `127.0.0.1:7700`). 3. An endpoint for container port 7710 (HTTP, a hostname of
+    its own, e.g. `build.scutoons.com` or bunny's generated one - the API lives on all-inkl, outside the pod, so it is
+    public; the token is what guards it). Check: `curl https://<host>/health` → `{"ok":true,"waiting":0,"busy":false}`.
+    4. GitHub (environment `production`): secrets `MODULE_BUILD_URL` = `https://<host>` and `MODULE_BUILD_TOKEN` (they
+    become constants in the API's `config.php` with the next API deploy), variable `BUNNY_BUILD_CONTAINER` = the container's
+    name from 2. (`BUNNY_LIVE_APP_ID` and `BUNNY_API_KEY` are there already.)
 - **Local: the same relay on a deck in the venue** (or the conductor laptop; owner 2026-10-31: definitely, next to
   bunny – DECISIONS). Decks, outputs and the bridge join `ws://<ip>:7700`. **Phones on https pages need wss** (a
   browser may not open `ws://192.168.…` from https://scutoons.com), so since #201 (Phase A):

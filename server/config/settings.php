@@ -230,6 +230,12 @@ return [
     // A provider job's status is asked for at most once per this many seconds (GET /storyboard/generations[/{id}])
     'GENERATION_POLL_SECONDS' => '5',
 
+    // ── Rig modules (#281, agents/research/RIG-EDITING.md §4): the compile service (deck/build, a second container in the
+    // relay's bunny app). URL = its public endpoint (no trailing path), TOKEN = the shared secret it checks as X-Build-Token
+    // (secret). Either empty = POST /api/modules/compile answers 503 no_build_service.
+    'MODULE_BUILD_URL' => '',
+    'MODULE_BUILD_TOKEN' => '',
+
     // ── Media assets (agents/ASSETS.md): the asset registry + its storage drivers ─────────────────────────
     // Which storage the asset layer works on: auto (the local folder ASSET_LOCAL_ROOT when it exists – every dev
     // machine –, else bunny when configured) | local | bunny

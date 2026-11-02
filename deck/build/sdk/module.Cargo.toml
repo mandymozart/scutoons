@@ -1,0 +1,19 @@
+# deck-module outside the deck/ workspace: the manifest the build image bakes next to deck/module/src (#281). The real one
+# (deck/module/Cargo.toml) inherits its package fields and serde from the workspace, which a copy cannot; tests/sdk_manifests.rs
+# keeps the two in step (name, version, features, dependencies). Dev-dependencies are left out: the image builds no tests.
+[package]
+name = "deck-module"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+license = "UNLICENSED"
+publish = false
+
+[features]
+default = []
+host = ["dep:serde", "dep:serde_json"]
+
+[dependencies]
+deck-module-macros = { path = "../module-macros" }
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", optional = true }

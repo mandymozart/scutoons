@@ -1,0 +1,38 @@
+[package]
+name = "scutoons-build"
+description = "The rig module compile service (#281, agents/research/RIG-EDITING.md §4): Rust sources in, a wasm module and its descriptor out - a second container beside the Live relay"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "scutoons_build"
+path = "src/lib.rs"
+
+[[bin]]
+name = "scutoons-build"
+path = "src/main.rs"
+
+[dependencies]
+# the descriptor types and the wasm's `deck.module` section reader (the loader's side of the ABI)
+deck-module = { path = "../module", features = ["host"] }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+# the HTTP side is hand-rolled on tokio like the relay's /status; `process` + `io-util` for rustc's child process
+tokio = { workspace = true, features = ["io-util", "process"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+sha2 = "0.10"
+base64 = "0.22"
+# the source reject scan (src/scan.rs): rustc's own tokens with their lines
+proc-macro2 = { version = "1", features = ["span-locations"] }
+
+[target.'cfg(unix)'.dependencies]
+# kill the whole process group, nice, the page size
+libc = "0.2"
+
+[dev-dependencies]
+tempfile = "3"

@@ -32,6 +32,7 @@ test('rig documents (#258): instruments, presets with dots, rigs by subject – 
 	assert.deepEqual(parseEntityKey('rig:character.catpope'), { kind: 'rig', id: 'character.catpope' });
 	assert.deepEqual(parseEntityKey('preset:cathedral_voice.bright'), { kind: 'preset', id: 'cathedral_voice.bright' });
 	assert.deepEqual(parseEntityKey('instrument:drone'), { kind: 'instrument', id: 'drone' });
+	assert.deepEqual(parseEntityKey('module:walk'), { kind: 'module', id: 'walk' }); // #281
 	assert.equal(parseEntityKey('rig:character:catpope'), null);
 });
 

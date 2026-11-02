@@ -33,7 +33,7 @@ final class AssetImporter
     {
         $files = [];
         foreach ($storage->list($prefix) as $file) {
-            if (StorageKey::junk($file->key)) continue;
+            if (StorageKey::junk($file->key) || StorageKey::system($file->key)) continue;
             $files[$file->key] = $file;
         }
         $groups = AssetPaths::group(array_keys($files));

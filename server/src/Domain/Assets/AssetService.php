@@ -65,6 +65,7 @@ final class AssetService
             throw new ApiError(422, 'invalid_path', 'Invalid path.');
         }
         if (StorageKey::junk($key)) throw new ApiError(422, 'invalid_path', 'Hidden files and folders are not allowed.');
+        if (StorageKey::system($key)) throw new ApiError(422, 'invalid_path', 'This folder belongs to the platform itself.');
         if (!preg_match('#^[A-Za-z0-9_][A-Za-z0-9_./ -]*$#', $key) || str_contains($key, '//')) throw new ApiError(422, 'invalid_path', 'Use letters, digits, "-", "_", "." and "/" in paths.');
         if (!str_contains($key, '/')) throw new ApiError(422, 'invalid_path', 'Files go into a folder (e.g. catpope/images/…).');
         if (!in_array(AssetPaths::extension($key), self::UPLOAD_EXTENSIONS, true)) {

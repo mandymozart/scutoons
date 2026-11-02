@@ -270,3 +270,9 @@ fine" stores `accepted_warnings` in the entry's `data` (a list-wide warning in m
   rigs, `instruments` / `presets` with ancestors, each `{ id, version }`. The contract: SceneContentRigsTest writes
   `server/tests/fixtures/rigs/scene-content.json` (`UPDATE_FIXTURES=1`), deck-space's
   `the_servers_scene_content_reads_as_bundles` parses it as `rig::Bundle`s and compares them with the TOML core rigs.
+- **Modules** (#281, migration `2026-11-02-modules`, research/RIG-EDITING.md §4–7): the kind `modules` (`catalog_modules`,
+  documents `module:<id>`, ids `[a-z0-9_-]{1,32}`) = the Rust sources (`files`: 1–32 × `[a-z0-9_]+.rs`, a `lib.rs`, ≤ 256 KB each /
+  512 KB) + what a compile wrote (`descriptor`, `wasm: { hash, bytes, toolchain }`); the same sources in a member's
+  `member_modules` (`m:<ulid>`). `Domain\Modules` (`ModuleSource` rules, `MemberModules`, `ModuleCompiler`): the compile is the
+  creators', forwards to the build service (deck/build) and stores the .wasm as `modules/<hash>.wasm` on the CDN (a platform
+  folder outside the asset registry); routes: server docs/API.md "Modules".

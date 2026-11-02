@@ -5,6 +5,7 @@ namespace Scutoons\Domain\Catalog;
 
 use Scutoons\Domain\Avatar\AvatarSlots;
 use Scutoons\Domain\Content\EntityKey;
+use Scutoons\Domain\Modules\ModuleSource;
 use Scutoons\Domain\Reader\ReaderStats;
 use Scutoons\Domain\Rigs\RigValidator;
 use Scutoons\Infrastructure\Database\Database;
@@ -66,6 +67,7 @@ final class CatalogValidator
             'albums' => self::ALBUM_ID_PATTERN,
             'featured' => '#^[A-Za-z0-9][A-Za-z0-9_:-]{0,190}$#',
             'instruments' => RigValidator::INSTRUMENT_ID,
+            'modules' => ModuleSource::ID_PATTERN,
             'presets' => RigValidator::PRESET_ID,
             'rigs' => RigValidator::SUBJECT,
             default => self::ID_PATTERN,
@@ -96,10 +98,25 @@ final class CatalogValidator
             'code-types' => $this->codeType($data),
             'toons' => self::toon($data),
             'meta' => self::meta($id, $data),
+            'modules' => self::module($data),
             'instruments', 'presets', 'rigs' => $this->rigKind($kind, $id, self::rigData($raw ?? json_decode((string) json_encode($data)))),
             default => [],
         };
         return [...$p, ...$add];
+    }
+
+    /**
+     * A rig module (#281, ModuleSource): { id, name?, files, descriptor?, wasm? } – the sources, and what a compile wrote
+     * @param array<string, mixed> $module
+     * @return list<string>
+     */
+    private static function module(array $module): array
+    {
+        $p = [];
+        $extra = array_diff(array_keys($module), ['id', 'name', 'files', 'descriptor', 'wasm', CatalogStore::ACCEPTED_WARNINGS]);
+        if ($extra) $p[] = 'a module has no field ' . implode(', ', $extra);
+        if (array_key_exists('name', $module) && !self::text($module['name'])) $p[] = 'name must be a text or { <locale>: text }';
+        return [...$p, ...ModuleSource::filesProblems($module['files'] ?? null), ...ModuleSource::resultProblems($module)];
     }
 
     /**

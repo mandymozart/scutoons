@@ -98,12 +98,13 @@ storyboard generations, default `GENERATION_BUDGET`; 0 = no budget = paid jobs r
 | `BUNNY_PULLZONE_ID`, `BUNNY_API_KEY` | –, – | the NUMERIC pull zone id (not its name; anything else is reported as invalid) + the account API key: purge after a replace, statistics (bandwidth), request logs (per-file traffic). Empty = those are off (uploads still work). Also from the root `.env` |
 | `PROTECTED_CDN_URL`, `BUNNY_PROTECTED_CDN_KEY` | –, – | protected files (scores' MusicXML / PDF, agents/research/SCORES.md §5): the base URL of their own bunny.net pull zone (its own storage zone) + its token authentication key (secret); `GET /api/items/{id}/score/{file}` answers short-lived signed URLs. Empty key = the plain `CDN_URL` (dev) |
 | `BUNNY_PROTECTED_STORAGE_ZONE`, `BUNNY_PROTECTED_STORAGE_PASSWORD` | –, – | the protected storage zone + its read/write password: `PUT /api/assets/protected` writes scores' files there (the public zone's endpoint). Unset: the local media folder on a dev machine, 503 on production |
+| `MODULE_BUILD_URL`, `MODULE_BUILD_TOKEN` | –, – | the rig modules' compile service (#281, deck/build – a second container in the relay's bunny app): its public endpoint and the shared secret sent as `X-Build-Token` (GitHub secrets in `production`, generated into `config.php`). Either unset: `POST /api/modules/compile` answers `503 no_build_service` |
 | `BUNNY_WRITE_PREFIX` | – | only keys below it may be written / deleted on the zone (`_test/` while trying the driver against production); empty = all |
 | `ASSET_UPLOAD_MAX_BYTES` | 209715200 | largest upload through the API (also mind PHP's `upload_max_filesize` / `post_max_size` – uploads are a raw `PUT` body, which `post_max_size` doesn't limit); bigger files: `bin/console assets:upload` |
 | `FFMPEG_PATH`, `FFPROBE_PATH` | `ffmpeg`, `ffprobe` | the optimization jobs (`bin/console assets:jobs`: video renditions 480p / 720p / 1080p, posters) and probing (duration, size) |
 
 Production values come from the GitHub environment `production` (the full list with comments: root `.env.example`);
 `deploy/targets.json` → `api.generate["config.php"]` says which of them become constants in the generated `config.php`
-(`DB_*`, `AUTH_SECRET`, `QR_PROXY_SECRET`, `MAIL_*`, `SMTP_*`, `EMBASSY_*`, `BUNNY_*`, `CDN_PUBLIC_URL`, `ALLOWED_ORIGINS`; an unset value is left out); quotes and
+(`DB_*`, `AUTH_SECRET`, `QR_PROXY_SECRET`, `MAIL_*`, `SMTP_*`, `EMBASSY_*`, `BUNNY_*`, `MODULE_BUILD_*`, `CDN_PUBLIC_URL`, `ALLOWED_ORIGINS`; an unset value is left out); quotes and
 backslashes in values are escaped by the generator. The API's version: `composer.json` `version` + the
 deploy's `version.json` (git sha) → `GET /api/health/`.
