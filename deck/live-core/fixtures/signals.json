@@ -1,0 +1,109 @@
+[
+	{
+		"name": "a CC on the deck's MIDI out port",
+		"at": 1250,
+		"msg": {
+			"kind": "midi",
+			"port": "out",
+			"bytes": [
+				176,
+				74,
+				100
+			]
+		},
+		"hex": "0100030000000000e2040000b04a6400"
+	},
+	{
+		"name": "a note on to the conductor",
+		"at": 0,
+		"msg": {
+			"kind": "midi",
+			"port": "conductor",
+			"bytes": [
+				144,
+				60,
+				127
+			]
+		},
+		"hex": "010103000000000000000000903c7f00"
+	},
+	{
+		"name": "a pitch bend (the largest value)",
+		"at": 3075,
+		"msg": {
+			"kind": "midi",
+			"port": "out",
+			"bytes": [
+				224,
+				127,
+				127
+			]
+		},
+		"hex": "0100030000000000030c0000e07f7f00"
+	},
+	{
+		"name": "a DMX range: three channels from 1",
+		"at": 40,
+		"msg": {
+			"kind": "dmx",
+			"ch": 1,
+			"values": [
+				0,
+				128,
+				255
+			],
+			"flash": false
+		},
+		"hex": "0200030001000000280000000080ff00"
+	},
+	{
+		"name": "a DMX flash on channel 7 (sent at once)",
+		"at": 2000,
+		"msg": {
+			"kind": "dmx",
+			"ch": 7,
+			"values": [
+				255
+			],
+			"flash": true
+		},
+		"hex": "0201010007000000d0070000ff000000"
+	},
+	{
+		"name": "an OSC message with one argument of every type",
+		"at": 65,
+		"msg": {
+			"kind": "osc",
+			"address": "/fx/wash/level",
+			"args": [
+				{
+					"kind": "float",
+					"p": 0.5
+				},
+				{
+					"kind": "int",
+					"p": -3
+				},
+				{
+					"kind": "string",
+					"p": "hi"
+				},
+				{
+					"kind": "bool",
+					"p": true
+				}
+			]
+		},
+		"hex": "0300220000000000410000000e002f66782f776173682f6c6576656c04020000003f01fdffffff030200686904010000"
+	},
+	{
+		"name": "an OSC message without arguments",
+		"at": 4294967295,
+		"msg": {
+			"kind": "osc",
+			"address": "/go",
+			"args": []
+		},
+		"hex": "0300060000000000ffffffff03002f676f000000"
+	}
+]

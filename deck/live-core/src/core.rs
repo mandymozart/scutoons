@@ -1,17 +1,23 @@
 //! The engine one worker runs (#184): a scene on deck-core's batch graph (#183), its audio rendered block by block,
 //! the rendered audio analysed (deck-core's FFT `Analyzer`, looking back by the output lead), and sent values applied
 //! from wire records. Safe Rust; lib.rs puts it behind the raw wasm exports.
-use crate::wire::{self, Mode, FRAME};
+use crate::signals::{Outputs, Slot};
+use crate::walks::{self, Walk};
+use crate::wire::{self, Mode, FRAME, MAX_OUTPUTS, OUTPUT_COUNT, PEAKS, REDUCTION};
 use deck_core::analysis::{Analyzer, SPECTRUM};
 use deck_core::batch::BatchGraph;
 use deck_core::limiter::Limiter;
 use deck_core::SceneDef;
-use crate::walks::{self, Walk};
 
 /// the longest sub-block (frames) the render runs while a walk glides
 const GLIDE_BLOCK: usize = 64;
 
+/// The audio outputs the engine renders (#282): the master is mono today and plays on both channels of the speaker,
+/// so two equal peaks. A multi-channel engine raises this (≤ `MAX_OUTPUTS`) and feeds `meter` per channel.
+pub const OUTPUTS: usize = 2;
+
 pub struct Core {
+    rate: f32,
     graph: BatchGraph,
     /// the scene's walks (#236): their knobs are the load table's rows after the batch nodes
     walks: Vec<Walk>,
@@ -23,6 +29,13 @@ pub struct Core {
     limiter: Limiter,
     audio: Vec<f32>,
     frame: Vec<f32>,
+    /// each output's largest sample since the last analysis frame
+    peaks: [f32; MAX_OUTPUTS],
+    /// the scene's `[outputs]` (#211, signals.rs), if it has any
+    outputs: Option<Outputs>,
+    /// the device messages since the last `take_signals` (signal records) and the ones just handed out
+    signals: Vec<u8>,
+    signals_out: Vec<u8>,
 }
 
 impl Core {
@@ -32,7 +45,9 @@ impl Core {
         let scene = SceneDef::parse(scene_toml)?;
         let graph = BatchGraph::build(&scene, rate)?;
         let walks = walks::parse(scene_toml, &graph, rate)?;
+        let outputs = Self::outputs_of(scene_toml, &graph)?;
         Ok(Core {
+            rate,
             graph,
             walks,
             notes: Vec::with_capacity(256),
@@ -41,7 +56,72 @@ impl Core {
             limiter: Limiter::new(rate),
             audio: Vec::new(),
             frame: vec![0.0; FRAME],
+            peaks: [0.0; MAX_OUTPUTS],
+            outputs,
+            signals: Vec::new(),
+            signals_out: Vec::new(),
         })
+    }
+
+    /// The parameter paths a mapping may read: every node's `node.<input>` and its output (`node`, `node.out`).
+    fn paths(graph: &BatchGraph) -> Vec<(String, Slot)> {
+        let mut out = Vec::new();
+        for (i, (id, _, ports)) in graph.nodes().enumerate() {
+            for (p, name) in ports.iter().enumerate() {
+                out.push((format!("{id}.{name}"), Slot::In(i, p)));
+            }
+            out.push((id.to_owned(), Slot::Out(i)));
+            out.push((format!("{id}.out"), Slot::Out(i)));
+        }
+        out
+    }
+
+    /// The scene's `[outputs]` table checked against this graph's paths (profile files are not available in the
+    /// browser – the built-in ones are); a wrong table is an error that lists every problem, as on the stage.
+    fn outputs_of(scene_toml: &str, graph: &BatchGraph) -> Result<Option<Outputs>, String> {
+        let doc: toml::Table = toml::from_str(scene_toml).map_err(|e| format!("the scene: {e}"))?;
+        let Some(table) = doc.get("outputs").and_then(toml::Value::as_table) else {
+            return Ok(None);
+        };
+        let paths = Self::paths(graph);
+        let known: Vec<String> = paths.iter().map(|p| p.0.clone()).collect();
+        let load = |name: &str| -> Result<String, String> { Err(format!("{name}: the browser has no profile files")) };
+        let plan = deck_outputs::parse(table, Some(&known), &load).map_err(|errs| {
+            format!(
+                "the scene's [outputs]:
+  {}",
+                errs.join(
+                    "
+  "
+                )
+            )
+        })?;
+        let slots = plan
+            .paths
+            .iter()
+            .map(|p| paths.iter().find(|x| &x.0 == p).map(|x| x.1).ok_or_else(|| format!("outputs: no path '{p}'")))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Outputs::new(plan, slots))
+    }
+
+    /// The device messages the scene's `[outputs]` sent since the last call, as signal records (signals.rs) – valid
+    /// until the next call.
+    pub fn take_signals(&mut self) -> &[u8] {
+        self.signals_out.clear();
+        std::mem::swap(&mut self.signals, &mut self.signals_out);
+        &self.signals_out
+    }
+
+    /// Where the records `take_signals` just returned are.
+    pub fn signals_ptr(&self) -> *const u8 {
+        self.signals_out.as_ptr()
+    }
+
+    /// An output's peak so far: `block` is what channel `channel` played.
+    pub fn meter(&mut self, channel: usize, block: &[f32]) {
+        if let Some(p) = self.peaks.get_mut(channel) {
+            *p = block.iter().fold(*p, |m, x| m.max(x.abs()));
+        }
     }
 
     /// The load table, the one JSON that leaves the core: `{"nodes":[{"id","kind","ports":[…]}]}` – the host resolves
@@ -65,12 +145,8 @@ impl Core {
             let ports: Vec<String> = ports.iter().map(|p| q(p)).collect();
             format!("{{\"id\":{},\"kind\":{},\"ports\":[{}]}}", q(id), q(kind), ports.join(","))
         };
-        let nodes: Vec<String> = self
-            .graph
-            .nodes()
-            .map(|(id, kind, ports)| row(id, kind, ports))
-            .chain(self.walks.iter().map(|w| row(&w.id, w.kind, w.ports)))
-            .collect();
+        let nodes: Vec<String> =
+            self.graph.nodes().map(|(id, kind, ports)| row(id, kind, ports)).chain(self.walks.iter().map(|w| row(&w.id, w.kind, w.ports))).collect();
         format!("{{\"nodes\":[{}]}}", nodes.join(","))
     }
 
@@ -158,6 +234,21 @@ impl Core {
         for &x in &self.audio {
             self.analyzer.push(x);
         }
+        // the mono master plays on every output
+        let master = std::mem::take(&mut self.audio);
+        for ch in 0..OUTPUTS {
+            self.meter(ch, &master);
+        }
+        self.audio = master;
+        // the scene's outputs, on the audio clock: the control values as the last step left them
+        if let Some(o) = self.outputs.as_mut() {
+            let graph = &self.graph;
+            let read = |s: Slot| match s {
+                Slot::In(n, p) => graph.input(n, p).unwrap_or(0.0),
+                Slot::Out(n) => graph.node_value(n).unwrap_or(0.0),
+            };
+            o.advance(frames as f64 / f64::from(self.rate), read, &mut self.signals);
+        }
         &self.audio
     }
 
@@ -168,7 +259,10 @@ impl Core {
         let bands = self.analyzer.update(dt, lead);
         self.frame[..4].copy_from_slice(&bands);
         self.analyzer.spectrum(&mut self.frame[4..4 + SPECTRUM]);
-        self.frame[4 + SPECTRUM] = self.limiter.take_reduction();
+        self.frame[REDUCTION] = self.limiter.take_reduction();
+        self.frame[OUTPUT_COUNT] = OUTPUTS as f32;
+        self.frame[PEAKS..PEAKS + MAX_OUTPUTS].copy_from_slice(&self.peaks);
+        self.peaks = [0.0; MAX_OUTPUTS];
         &self.frame
     }
 }
@@ -215,7 +309,7 @@ mod tests {
         assert_eq!(f.len(), FRAME);
         assert!(f[0] > 0.5, "level {}", f[0]);
         assert!(f[2] > 0.8 && f[2] > f[1] + 0.3, "1500 Hz is mid: {f:?}");
-        let peak = (4..FRAME).max_by(|&i, &j| f[i].total_cmp(&f[j])).unwrap() - 4;
+        let peak = (4..4 + SPECTRUM).max_by(|&i, &j| f[i].total_cmp(&f[j])).unwrap() - 4;
         assert_eq!(peak, 32, "1500 Hz / 46.875 Hz per bin");
         // release: gain back to 0 → silence
         b.clear();
@@ -265,12 +359,132 @@ scale = 2.0
         }
         assert!(worst < 1.0 && worst > 0.8, "two sines at full gain, held under 1: {worst}");
         let f = c.analyse(1.0 / 60.0, 0);
-        assert!(f[FRAME - 1] > 3.0, "the gain reduction in dB: {}", f[FRAME - 1]);
+        assert!(f[REDUCTION] > 3.0, "the gain reduction in dB: {}", f[FRAME - 1]);
         let mut b = vec![];
         encode_send(&mut b, Mode::Base, 3, 0, 0.0, &[0.5]);
         assert_eq!(c.apply(&b), Ok(1));
         c.step(0.0);
         assert!((c.graph.value("m").unwrap() - 2.5).abs() < 1e-5, "the LFO's 1 · 2 on top of the base 0.5");
+    }
+
+    /// #282: the frame carries the output count and one peak per output (since the last frame, then reset)
+    #[test]
+    fn the_frame_reports_a_peak_per_output() {
+        let mut c = Core::load(SCENE, 48_000.0).unwrap();
+        c.step(1.0 / 60.0);
+        c.render(128);
+        let f = c.analyse(1.0 / 60.0, 0).to_vec();
+        assert_eq!(f[OUTPUT_COUNT], OUTPUTS as f32);
+        assert_eq!(&f[PEAKS..PEAKS + MAX_OUTPUTS], &[0.0; MAX_OUTPUTS], "silence: nothing on any output");
+        let mut b = vec![];
+        encode_send(&mut b, Mode::Force, 1, 0, 1.0, &[1500.0, 1.0, 0.0, 0.5]);
+        c.apply(&b).unwrap();
+        for _ in 0..40 {
+            c.render(128);
+        }
+        let f = c.analyse(1.0 / 60.0, 0).to_vec();
+        let peaks = &f[PEAKS..PEAKS + MAX_OUTPUTS];
+        assert!(peaks[0] > 0.3 && peaks[0] <= 1.0, "gain 0.5 on a sine: {peaks:?}");
+        assert_eq!(peaks[0], peaks[1], "the mono master plays on both");
+        assert!(peaks[OUTPUTS..].iter().all(|p| *p == 0.0), "no peaks past the count");
+        // "since the last frame": a frame right after, with no render between, starts over
+        let f = c.analyse(1.0 / 60.0, 0).to_vec();
+        assert!(f[PEAKS..PEAKS + MAX_OUTPUTS].iter().all(|p| *p == 0.0));
+        // a multi-channel engine meters its channels one by one
+        c.meter(1, &[0.0, -0.75, 0.25]);
+        let f = c.analyse(1.0 / 60.0, 0).to_vec();
+        assert_eq!((f[PEAKS], f[PEAKS + 1]), (0.0, 0.75));
+        assert_eq!(f.len(), FRAME);
+    }
+
+    /// #282: a scene's [outputs] run on the audio clock and their messages leave as signal records
+    const OUTPUTS_SCENE: &str = "[[node]]
+id = \"wob\"
+kind = \"lfo\"
+rate = 0.0
+depth = 1.0
+phase = 0.25
+        [[node]]
+id = \"knob\"
+kind = \"add\"
+a = 0.0
+b = 0.0
+        [outputs]
+dmx = \"auto\"
+midi = \"x\"
+        [[outputs.fixture]]
+id = \"strobe\"
+profile = \"strobe\"
+address = 1
+        [[outputs.map]]
+from = \"knob.a\"
+to = [{ dmx = 20 }, { dmx = 21 }, { cc = 74, channel = 1 }, { cc = 20, port = \"conductor\" }]
+";
+
+    /// the records of `bytes`: (kind, flags, ch, at, payload)
+    fn walk(bytes: &[u8]) -> Vec<(u8, u8, u16, u32, Vec<u8>)> {
+        let (mut at, mut out) = (0, vec![]);
+        while at < bytes.len() {
+            let n = u16::from_le_bytes([bytes[at + 2], bytes[at + 3]]) as usize;
+            let ch = u16::from_le_bytes([bytes[at + 4], bytes[at + 5]]);
+            let ms = u32::from_le_bytes(bytes[at + 8..at + 12].try_into().unwrap());
+            out.push((bytes[at], bytes[at + 1], ch, ms, bytes[at + 12..at + 12 + n].to_vec()));
+            at += 12 + n.div_ceil(4) * 4;
+        }
+        out
+    }
+
+    #[test]
+    fn a_scenes_outputs_leave_as_signal_records() {
+        let mut c = Core::load(OUTPUTS_SCENE, 48_000.0).unwrap();
+        // a knob forced to 1: node 1 = "knob", port 0 = "a"
+        let mut b = vec![];
+        encode_send(&mut b, Mode::Force, 1, 0, 1.0, &[1.0]);
+        c.apply(&b).unwrap();
+        let mut got = vec![];
+        for _ in 0..400 {
+            c.step(128.0 / 48_000.0);
+            c.render(128);
+            got.extend_from_slice(c.take_signals());
+        }
+        assert!(c.take_signals().is_empty(), "taken once");
+        let rec = walk(&got);
+        // the rest of the strobe fixture first (it has the DMX at 1…), the knob's two channels as one range
+        let range = rec.iter().rev().find(|r| r.0 == 2 && r.2 == 20).expect("DMX 20…21 as one range");
+        assert_eq!(range.4, vec![255, 255]);
+        let cc = |conductor: u8| rec.iter().rev().find(|r| r.0 == 1 && r.1 == conductor).map(|r| r.4.clone());
+        assert_eq!(cc(0), Some(vec![0xB0, 74, 127]), "the deck's MIDI out");
+        assert_eq!(cc(1), Some(vec![0xB0, 20, 127]), "the conductor");
+        // 400 blocks = 1.07 s: the stamps run on the audio clock, none past it
+        assert!(rec.iter().all(|r| r.3 <= 1070), "{:?}", rec.iter().map(|r| r.3).max());
+        assert!(rec.windows(2).all(|w| w[0].3 <= w[1].3), "in time order");
+        // it follows the knob: forced back to 0 → the values fall
+        let mut b = vec![];
+        encode_send(&mut b, Mode::Force, 1, 0, 1.0, &[0.0]);
+        c.apply(&b).unwrap();
+        let mut got = vec![];
+        for _ in 0..200 {
+            c.step(128.0 / 48_000.0);
+            c.render(128);
+            got.extend_from_slice(c.take_signals());
+        }
+        let rec = walk(&got);
+        assert_eq!(rec.iter().rev().find(|r| r.0 == 2 && r.2 == 20).unwrap().4, vec![0, 0]);
+        // a scene without [outputs] sends nothing
+        let mut quiet = Core::load(SCENE, 48_000.0).unwrap();
+        for _ in 0..50 {
+            quiet.render(128);
+        }
+        assert!(quiet.take_signals().is_empty());
+    }
+
+    #[test]
+    fn outputs_name_real_paths_or_the_load_fails_listing_them() {
+        let bad = OUTPUTS_SCENE.replace("knob.a", "knob.nope");
+        let e = Core::load(&bad, 48_000.0).err().unwrap();
+        assert!(e.starts_with("the scene's [outputs]:") && e.contains("knob.nope"), "{e}");
+        let profile = OUTPUTS_SCENE.replace("profile = \"strobe\"", "profile = \"fixtures/mine.toml\"");
+        assert!(Core::load(&profile, 48_000.0).err().unwrap().contains("no profile files"));
     }
 
     #[test]
@@ -358,5 +572,4 @@ scale = 2.0
         assert_eq!(play(&mut Core::load(&started, 48_000.0).unwrap(), 750), play(&mut by_record, 750));
         assert!(Core::load(&EVENTS.replace("updown", "sideways"), 48_000.0).err().is_some_and(|e| e.contains("unknown mode")));
     }
-
 }

@@ -15,14 +15,26 @@
 //! | 12 | f32 × n | the values (#189's float vectors) |
 //!
 //! Records follow each other without padding (each is a multiple of 4 bytes). The analysis frame going out is not a
-//! record but a fixed block of `FRAME` f32: level, bass, mid, high, then the `SPECTRUM` bins, then the limiter's gain reduction (dB, the deepest since the last frame – #188).
+//! record but a fixed block of `FRAME` f32: level, bass, mid, high, then the `SPECTRUM` bins, then the limiter's gain
+//! reduction (dB, the deepest since the last frame – #188), then (#282, additive – a reader of the older frame never
+//! looks past the reduction) the number of audio outputs and `MAX_OUTPUTS` peaks (0..1, each output's largest
+//! sample since the last frame; the slots past the count stay 0). Device messages leave in their own records
+//! (signals.rs).
 
 use deck_core::analysis::SPECTRUM;
 
 pub const HEADER: usize = 12;
 pub const OP_SEND: u8 = 1;
-/// the analysis frame: 4 bands + the spectrum + the limiter's gain reduction (dB)
-pub const FRAME: usize = 4 + SPECTRUM + 1;
+/// the analysis frame's slot of the limiter's gain reduction (dB)
+pub const REDUCTION: usize = 4 + SPECTRUM;
+/// … of the number of audio outputs the engine renders (#282)
+pub const OUTPUT_COUNT: usize = REDUCTION + 1;
+/// … of the first output's peak
+pub const PEAKS: usize = REDUCTION + 2;
+/// the most outputs a frame carries (a multi-channel engine fills as many as it renders)
+pub const MAX_OUTPUTS: usize = 8;
+/// the analysis frame: 4 bands + the spectrum + the limiter's gain reduction (dB) + the output count + the peaks
+pub const FRAME: usize = PEAKS + MAX_OUTPUTS;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {

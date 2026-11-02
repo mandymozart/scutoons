@@ -18,6 +18,8 @@ crate-type = ["cdylib", "rlib"]
 deck-core = { workspace = true, features = ["control", "synth", "analysis", "tempo"] }
 # the walk (#236): generated melodies, the same as the stage's walk node
 deck-events = { path = "../events" }
+# the scene's [outputs] (#211) in the browser: the platform-free engine (no ports, no threads), no `host` runner (#282)
+deck-outputs = { path = "../outputs", default-features = false }
 serde = { workspace = true }
 toml = { workspace = true }
 

@@ -4,6 +4,8 @@
 export { EngineHost, type EngineHooks } from './controller.ts';
 export { createEngineHost } from './host.ts';
 export { engineFiles } from './files.ts';
+export { FALL_SECONDS, OutputMeters } from './meters.ts';
+export { ACTIVITY_SECONDS, SIGNAL_KINDS, SignalMonitor, describeSignal, emptySignals, type SignalKind, type SignalState, type SignalsView } from './monitor.ts';
 export { EngineLog, formatLine, messageOf, type LogLevel, type LogLine } from './log.ts';
 export { deckOptions, folder, moodChoices, rigSubject, type EngineHostOptions } from './options.ts';
 export { canStart, canStop, emptySnapshot, leadMs, loadPercent, meterPercent, statusLine, transportNote, type EnginePhase, type EngineSnapshot } from './status.ts';

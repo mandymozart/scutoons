@@ -11,8 +11,11 @@
 //
 // The engine itself stays in Rust: live-deck's `Deck` (state, relay, sound) and `SpaceStage` (space-web's `rig_play`,
 // `core_rig`), live-core's worker and worklet. Nothing of the sound or the being is done in TS here.
+import type { DeviceSignal } from '@scutoons/live-core';
 import { Deck, FrameStats, SpaceStage, ladderFor, type EngineFiles, type Hand, type RigPlayed } from '@scutoons/live-deck';
 import { EngineLog, messageOf } from './log.ts';
+import { OutputMeters } from './meters.ts';
+import { SignalMonitor } from './monitor.ts';
 import { deckOptions, folder, rigSubject, moodChoices, type EngineHostOptions } from './options.ts';
 import { canStart, canStop, emptySnapshot, leadMs, loadPercent, type EnginePhase, type EngineSnapshot } from './status.ts';
 
@@ -34,6 +37,10 @@ export interface EngineHooks {
 	mood?: (mood: string) => void;
 	/** a parameter turned: the page's controls, the being's buttons, a mood's preset */
 	value?: (path: string, value: number, hand: Hand) => void;
+	/** #282: a device message the scene's `[outputs]` resolved to – MIDI bytes, an OSC address + typed args, DMX channel
+	 *  values (the protocol's `DeviceMsg` kinds) with the engine clock it was meant for. Shown, not played: the browser
+	 *  has no MIDI port or DMX widget. A few a second at most; `monitor` already keeps the last of each kind. */
+	signal?: (msg: DeviceSignal) => void;
 }
 
 export class EngineHost {
@@ -43,6 +50,8 @@ export class EngineHost {
 	deck: Deck | null = null;
 	space: SpaceStage | null = null;
 	hooks: EngineHooks = {};
+	/** #282: the last device message per kind, counts and activity (monitor.ts) – also in `snapshot().signals` */
+	readonly monitor = new SignalMonitor();
 	/** the 3D's own line, refreshed every frame */
 	hud = '';
 	/** play the character's core rig (instead of the fixed patch) whenever the character changes */
@@ -58,6 +67,10 @@ export class EngineHost {
 	private timer: ReturnType<typeof setInterval> | undefined;
 	private tickThrew = false;
 	private wasGlitching = false;
+	/** #282: the output peaks held between samples, fed from the analysis frames */
+	private readonly meters = new OutputMeters();
+	private lastBands: unknown = null;
+	private lastFrameAt = 0;
 
 	constructor(
 		private readonly o: EngineHostOptions,
@@ -101,6 +114,7 @@ export class EngineHost {
 		);
 		deck.onValue = (p, v, hand) => this.hooks.value?.(p, v, hand);
 		deck.onMood = (md) => this.moodChanged(md);
+		deck.onSignal = (s) => this.signalled(s);
 		this.deck = deck;
 		return deck;
 	}
@@ -165,6 +179,8 @@ export class EngineHost {
 			const core = deck.core;
 			this.log.push('sound', `running: ${core?.transport} transport, ${core?.context.sampleRate} Hz, crossOriginIsolated ${globalThis.crossOriginIsolated === true}`);
 			this.snap = { ...this.snap, error: '' };
+			this.monitor.reset();
+			this.meters.reset();
 			this.setPhase('running');
 			return true;
 		} catch (e) {
@@ -184,6 +200,7 @@ export class EngineHost {
 			this.log.push('sound', `stop: ${messageOf(e)}`, 'warn');
 		}
 		this.log.push('sound', 'stopped');
+		this.meters.reset();
 		this.setPhase('stopped');
 		this.sample();
 	}
@@ -255,6 +272,16 @@ export class EngineHost {
 		this.snap = { ...this.snap, phase: 'idle' };
 	}
 
+	/** a device message from the engine: the monitor, then the app (its throw is the app's, not the engine's) */
+	private signalled(s: DeviceSignal): void {
+		this.monitor.push(s, performance.now());
+		try {
+			this.hooks.signal?.(s);
+		} catch (e) {
+			this.log.push('host', `signal hook threw: ${messageOf(e)}`, 'error');
+		}
+	}
+
 	/** the deck's mood changed: the rig for it, then the app */
 	private moodChanged(md: string): void {
 		this.mood = md;
@@ -319,9 +346,19 @@ export class EngineHost {
 				this.hooks.threeD?.(false, messageOf(e));
 			}
 		}
+		this.meterFrame(deck, t0);
 		this.frames.push(t0, performance.now() - t0);
 		this.raf = requestAnimationFrame(this.frame);
 	};
+
+	/** each new analysis frame's output peaks into the meters (a frame is new when the deck's bands object is) */
+	private meterFrame(deck: Deck, t0: number): void {
+		const bands = deck.bands;
+		if (bands === this.lastBands) return;
+		this.lastBands = bands;
+		this.meters.push(bands.outputs, this.lastFrameAt ? (t0 - this.lastFrameAt) / 1000 : 0);
+		this.lastFrameAt = t0;
+	}
 
 	private setPhase(phase: EnginePhase): void {
 		if (phase !== this.snap.phase) this.log.push('host', phase);
@@ -354,6 +391,8 @@ export class EngineHost {
 			mid: deck?.bands.mid ?? 0,
 			high: deck?.bands.high ?? 0,
 			reduction: deck?.bands.reduction ?? 0,
+			outputs: this.meters.read(),
+			signals: this.monitor.view(performance.now()),
 			dropouts: s ? s.underrunsPerMinute : null,
 			load: s && core ? loadPercent(s.renderPeakUs, s.budgetUs) : 0,
 			lead: s && core ? leadMs(s.lead, core.context.sampleRate) : 0,

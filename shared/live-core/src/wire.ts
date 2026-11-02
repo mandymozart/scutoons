@@ -7,13 +7,23 @@
 //   12 f32 × n – the values (#189's float vectors); v[0] → port, v[1] → port + 1 …
 // Node and port are indices from the load table (names are resolved once, at load – JSON stays at the edge).
 // The analysis frame going out is a fixed block of FRAME f32: level, bass, mid, high, then SPECTRUM bins, then the
-// limiter's gain reduction (dB, the deepest since the last frame – #188).
+// limiter's gain reduction (dB, the deepest since the last frame – #188), then (#282, additive) the number of audio
+// outputs and MAX_OUTPUTS peaks (0..1, each output's largest sample since the last frame). Device messages come in
+// their own records (signals.ts).
 
 export const HEADER = 12;
 export const OP_SEND = 1;
 /** deck-core's analysis::SPECTRUM – bin k = k · rate / 1024 Hz */
 export const SPECTRUM = 512;
-export const FRAME = 4 + SPECTRUM + 1;
+/** the frame's slot of the limiter's gain reduction (dB) */
+export const REDUCTION = 4 + SPECTRUM;
+/** … of the number of audio outputs the engine renders (#282) */
+export const OUTPUT_COUNT = REDUCTION + 1;
+/** … of the first output's peak */
+export const PEAKS = REDUCTION + 2;
+/** the most outputs a frame carries – the Rust twin's MAX_OUTPUTS */
+export const MAX_OUTPUTS = 8;
+export const FRAME = PEAKS + MAX_OUTPUTS;
 /** the most values one record carries (u16 n) */
 export const MAX_VALUES = 0xffff;
 
@@ -121,6 +131,9 @@ export interface Analysis {
 	spectrum: Float32Array;
 	/** the output limiter's gain reduction (dB, 0 = untouched) – the being's red face (#188) */
 	reduction: number;
+	/** #282: one peak (0..1) per audio output the engine renders – the largest sample since the last frame; a view on
+	 * `frame`, as many as the engine reports (the stereo master = 2; [] from an engine that predates the slots) */
+	outputs: Float32Array;
 }
 
 export const analysisOf = (frame: Float32Array): Analysis => ({
@@ -129,5 +142,6 @@ export const analysisOf = (frame: Float32Array): Analysis => ({
 	mid: frame[2],
 	high: frame[3],
 	spectrum: frame.subarray(4, 4 + SPECTRUM),
-	reduction: frame[4 + SPECTRUM] ?? 0
+	reduction: frame[REDUCTION] ?? 0,
+	outputs: frame.subarray(PEAKS, PEAKS + Math.max(0, Math.min(MAX_OUTPUTS, Math.round(frame[OUTPUT_COUNT] || 0))))
 });

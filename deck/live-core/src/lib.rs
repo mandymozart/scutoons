@@ -10,8 +10,9 @@
 //!
 //! Exports (all `lc_*`, no imports): `lc_init(rate)`, `lc_inbox(len) -> ptr`, `lc_outbox() -> ptr`,
 //! `lc_load(len) -> ±len`, `lc_apply(len) -> count | -len`, `lc_step(dt)`, `lc_render(frames) -> ptr`,
-//! `lc_analyse(dt, lead) -> ptr`. A grown memory detaches the views – the host re-makes them (shared/live-core).
+//! `lc_analyse(dt, lead) -> ptr`, `lc_signals() -> len`, `lc_signals_at() -> ptr`. A grown memory detaches the views – the host re-makes them (shared/live-core).
 pub mod core;
+pub mod signals;
 pub mod walks;
 pub mod wire;
 
@@ -76,7 +77,9 @@ impl Host {
 
     /// The records in the inbox's first `len` bytes → how many were applied, or an error in the outbox (< 0).
     pub fn apply(&mut self, len: usize) -> i32 {
-        let Some(core) = self.core.as_mut() else { return self.answer(Err("no scene loaded".into())) };
+        let Some(core) = self.core.as_mut() else {
+            return self.answer(Err("no scene loaded".into()));
+        };
         match core.apply(&self.inbox[..len.min(self.inbox.len())]) {
             Ok(n) => n as i32,
             Err(e) => self.answer(Err(e)),
@@ -143,6 +146,19 @@ pub extern "C" fn lc_render(frames: usize) -> *const f32 {
 #[no_mangle]
 pub extern "C" fn lc_analyse(dt: f32, lead: usize) -> *const f32 {
     with(|h| h.core().map_or(std::ptr::null(), |c| c.analyse(dt, lead).as_ptr()))
+}
+
+/// The device messages the scene's `[outputs]` sent since the last call (#282): their length in bytes; the records
+/// (signals.rs) are at `lc_signals_at()` until the next call. 0 before a scene is loaded.
+#[no_mangle]
+pub extern "C" fn lc_signals() -> usize {
+    with(|h| h.core().map_or(0, |c| c.take_signals().len()))
+}
+
+/// The address of the records `lc_signals()` just handed out.
+#[no_mangle]
+pub extern "C" fn lc_signals_at() -> *const u8 {
+    with(|h| h.core().map_or(std::ptr::null(), |c| c.signals_ptr()))
 }
 
 #[cfg(test)]
