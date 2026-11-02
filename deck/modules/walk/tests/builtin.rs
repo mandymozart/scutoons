@@ -77,11 +77,18 @@ fn same(seed: u64, spread: f32, per_beat: f32, glide: f32, base: f32, bpm: f64, 
         for (e, (beat, pitch)) in events.iter().zip(&notes) {
             assert_eq!(e.name, "music.note");
             assert_eq!(e.start, *beat, "the beat of a step");
-            assert_eq!(e.prop("pitch"), Some(*pitch), "the pitch of a step");
+            let got = e.prop("pitch").expect("a pitch");
+            assert!((got - pitch).abs() <= 8.0 * f32::EPSILON * pitch.abs(), "the pitch of a step: module {got}, built-in {pitch} (powf: see the cv below)");
             assert_eq!(e.prop("glide"), Some(glide));
         }
         let (ml, mr) = m.audio_out(0);
-        assert_eq!(ml, &l[..], "cv pitch, block at {start}");
+        // the pitch glides with powf: the built-in's (deck-events) is libm's since #317 (the same bits on every target, which
+        // is also what std's powf gives in the module's wasm), this native build of the module uses the platform's – a few
+        // ulp apart. The wasm module is exact against the built-in: deck-native's tests/modules.rs.
+        assert_eq!(ml.len(), l.len());
+        for (i, (x, y)) in ml.iter().zip(&l).enumerate() {
+            assert!((x - y).abs() <= 8.0 * f32::EPSILON * y.abs(), "cv pitch, block at {start}, frame {i}: module {x}, built-in {y}");
+        }
         assert_eq!(mr, &r[..], "cv gate, block at {start}");
         notes_total += notes.len();
         start += n;
