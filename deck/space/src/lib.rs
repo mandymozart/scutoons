@@ -5,6 +5,7 @@
 //! instruments, presets and character rigs a being's sound is made of (#191, research/INSTRUMENTS.md).
 pub mod controls;
 pub mod graph;
+pub mod modreg;
 pub mod params;
 pub mod quality;
 pub mod rig;

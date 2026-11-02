@@ -30,6 +30,7 @@ pub const STAGE_MODULES: &[StageModule] = &[
     ),
     module("space", "the 3D space: a set's glTF and the deck's being (#188)", &["space"], &[]),
     module("events", "generators that talk in events (#236, deck-events): `walk` – a seeded melody, `events` – a patch of generators, as seq's cv", &["walk", "events"], &[]),
+    module("modules", "rig modules (#280, deck-module): compiled wasm instruments run in wasmtime – the scene's `module:<name>` kinds, whose ports come from the module's descriptor", &[], &[]),
     module("sync", "the scenes' sets (3D) and portraits from the API into the deck's cache, offline from it (#195)", &[], &[]),
     module("chapter", "a chapter from scutoons.com: its slices and its music, cached (library API)", &["chapter", "chapter_music"], &[]),
     module("live", "a Live outlet: the relay's cells for this deck's outlet, drawn natively; show media preloaded with the deck token (#186)", &["outlet"], &[]),
@@ -48,6 +49,10 @@ pub fn module_of_kind(kind: &str) -> Option<&'static StageModule> {
 /// What one node of a scene needs: the module of its kind, and for the `tempo` node the modules of its source and
 /// of the MIDI clock out. Err = an unknown kind or source.
 pub fn node_needs(id: &str, kind: &str, params: &Params) -> Result<Vec<&'static str>, String> {
+    // a rig module's kind is dynamic (graph.rs registry, modreg.rs): any `module:<name>` needs the host
+    if kind.starts_with("module:") {
+        return Ok(vec!["modules"]);
+    }
     let Some(m) = module_of_kind(kind) else { return Err(format!("node '{id}': unknown kind '{kind}'")) };
     let mut out = vec![m.feature];
     if kind == "tempo" {
@@ -98,6 +103,17 @@ mod tests {
         assert_eq!(needs("[[node]]\nid=\"s\"\nkind=\"space\"\n[[node]]\nid=\"m\"\nkind=\"chapter_music\"\n").unwrap(), ["chapter", "space"]);
         assert_eq!(needs("[[node]]\nid=\"t\"\nkind=\"tempo\"\nsource=\"Link\"\nmidi_out=\"UCX\"\n").unwrap(), ["link", "midi"]);
         assert_eq!(needs("[[node]]\nid=\"t\"\nkind=\"tempo\"\nsource=\"internal\"\n").unwrap(), Vec::<&str>::new());
+    }
+
+    #[test]
+    fn a_rig_module_needs_the_modules_feature() {
+        assert_eq!(needs("[[node]]
+id=\"w\"
+kind=\"module:walk\"
+[[node]]
+id=\"a\"
+kind=\"lfo\"
+").unwrap(), ["modules"]);
     }
 
     #[test]

@@ -74,7 +74,7 @@ Members write and submit, so the designer is in the viewer, not the creator. **I
 7. ~~Licence of submitted code~~ → **owner 2026-11-02: the code belongs to its creator; SCUTOONS has the right to use it** (ship it, build it natively, show it, credited). The submit dialog says so and the member confirms it.
 
 ## 10. Order (issues, created 2026-11-02 – no status yet, the owner orders them)
-1. #280 the SDK crate + the descriptor + one built-in as a module; wasmtime in deck-stage, the wasm path in live-core.
+1. #280 the SDK crate + the descriptor + one built-in as a module; wasmtime in deck-stage, the wasm path in live-core. **Built:** `deck/module` (SDK, ABI v1 – its README is the reference), `deck/modules/walk` (the built-in `walk`, proven equal), deck-stage feature `modules` (`module_host.rs`), `shared/live-core/src/modules.ts` (browser host). What it left open is in its own issues, linked on #280.
 2. #281 the compile service beside the relay + `module:<id>` documents and `member_modules`.
 3. #282 the designer page: Rust tab + Compile + Play + console; Parameters; the read-only Nodes view.
 4. #283 the Assignment tab + the mapping overview (missing defaults, the standard rigs per instrument kind) + scene / world variables in ctx.

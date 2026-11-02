@@ -14,6 +14,7 @@ pub fn built(feature: &str) -> Option<bool> {
         "core" => true,
         "space" => cfg!(feature = "space"),
         "events" => cfg!(feature = "events"),
+        "modules" => cfg!(feature = "modules"),
         "chapter" => cfg!(feature = "chapter"),
         "live" => cfg!(feature = "live"),
         "sync" => cfg!(feature = "sync"),
@@ -47,6 +48,9 @@ pub fn summary() -> String {
 
 /// A scene against this build: Err names each missing module's feature and the nodes that need it.
 pub fn check(scene: &Scene) -> Result<()> {
+    // the rig modules in DECK_MODULES register their kinds before the graph is built (module_host.rs)
+    #[cfg(feature = "modules")]
+    crate::module_host::autoload();
     check_with(scene, has)
 }
 

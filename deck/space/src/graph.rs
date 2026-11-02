@@ -3,6 +3,7 @@
 //! video nodes on the render thread per frame, audio nodes in the realtime callback per block, control nodes on the
 //! frame thread. Control links into audio nodes cross threads as atomics (audio::Param); the FFT is an audio node with
 //! control outputs (its samples cross through a lock-free ring).
+use crate::modreg::{self, ModuleKind};
 use crate::scene::{split_ref, Scene};
 use anyhow::{bail, Result};
 use std::collections::HashMap;
@@ -89,6 +90,9 @@ pub enum Kind {
     Fft,
     /// the device output – the audio sink
     AudioOut,
+    /// a compiled module from the library (#280, modreg.rs): its ports come from its descriptor, not from this table;
+    /// its scene name is `module:<name>`. Not in `ALL` – those are the kinds graph.rs defines.
+    Module(ModuleKind),
 }
 
 impl Kind {
@@ -126,11 +130,18 @@ impl Kind {
     };
 
     pub fn parse(s: &str) -> Option<Kind> {
-        Kind::NAMES.iter().find(|(n, _)| *n == s).map(|&(_, k)| k)
+        match Kind::NAMES.iter().find(|(n, _)| *n == s) {
+            Some(&(_, k)) => Some(k),
+            None if s.starts_with(modreg::PREFIX) => modreg::lookup(s).map(Kind::Module),
+            None => None,
+        }
     }
 
     /// the kind's name in a scene
     pub fn name(self) -> &'static str {
+        if let Kind::Module(m) = self {
+            return m.spec().kind;
+        }
         Kind::NAMES.iter().find(|&&(_, k)| k == self).map(|&(n, _)| n).expect("every kind has a name")
     }
 
@@ -144,6 +155,7 @@ impl Kind {
 
     pub fn inputs(self) -> &'static [Port] {
         match self {
+            Kind::Module(m) => m.spec().inputs,
             Kind::TestPattern => &[p!("speed", C), p!("zoom", C), p!("hue", C), p!("pulse", C)],
             Kind::Shader => &[p!("in", V), p!("a", C), p!("b", C), p!("c", C), p!("d", C)],
             Kind::Screen => &[p!("in", V)],
@@ -185,6 +197,7 @@ impl Kind {
 
     pub fn outputs(self) -> &'static [Port] {
         match self {
+            Kind::Module(m) => m.spec().outputs,
             Kind::TestPattern | Kind::Shader | Kind::Overlay | Kind::Space | Kind::Outlet => &[p!("out", V)],
             Kind::Chapter => &[p!("out", V), p!("text", V)],
             Kind::Screen | Kind::AudioOut => &[],

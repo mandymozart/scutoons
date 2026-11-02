@@ -11,6 +11,8 @@ pub mod fft;
 pub mod hud;
 pub mod live;
 pub mod modules;
+#[cfg(feature = "modules")]
+pub mod module_host;
 pub mod render;
 pub mod pairing;
 pub mod quality;

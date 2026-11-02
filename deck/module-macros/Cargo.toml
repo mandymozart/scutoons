@@ -1,0 +1,17 @@
+# deck-module-macros – the derive behind deck-module (#280): `#[derive(Module)]` with `#[param]` / `#[port]` writes the
+# descriptor and, on wasm32, the ABI's exports. Member code never defines a macro of its own (RIG-EDITING.md §4).
+[package]
+name = "deck-module-macros"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "2", default-features = false, features = ["derive", "parsing", "printing", "proc-macro", "full"] }
+quote = "1"
+proc-macro2 = "1"

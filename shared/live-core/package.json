@@ -12,15 +12,17 @@
 		},
 		"./worker": "./src/worker.ts",
 		"./worklet": "./src/worklet.ts",
-		"./engine": "./src/engine.ts"
+		"./engine": "./src/engine.ts",
+		"./modules": "./src/modules.ts"
 	},
 	"files": [
 		"src"
 	],
 	"scripts": {
 		"build:wasm": "cargo build --release --target wasm32-unknown-unknown --manifest-path ../../deck/Cargo.toml -p live-core",
+		"build:modules": "cargo build --release --target wasm32-unknown-unknown --manifest-path ../../deck/Cargo.toml -p walk-module -p fixture-module",
 		"check": "tsc --noEmit -p tsconfig.json && npm run test",
-		"test": "node --experimental-transform-types --no-warnings --test test/wire.test.ts test/ring.test.ts test/engine.test.ts test/stats.test.ts test/lead.test.ts"
+		"test": "node --experimental-transform-types --no-warnings --test test/wire.test.ts test/ring.test.ts test/engine.test.ts test/stats.test.ts test/lead.test.ts test/modules.test.ts"
 	},
 	"devDependencies": {
 		"typescript": "^5.9.3"

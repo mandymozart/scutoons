@@ -19,6 +19,8 @@ pub mod priority;
 pub mod ring;
 #[cfg(feature = "events")]
 pub mod sequencer;
+#[cfg(feature = "modules")]
+mod module;
 mod voices;
 #[cfg(feature = "events")]
 mod walk;
