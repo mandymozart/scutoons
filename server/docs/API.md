@@ -879,11 +879,39 @@ Admin (`/api/admin`): `GET /review-rules` → `{ items: [{ toon, rule, user: { i
 `PUT|DELETE /users/{id}/review-rules/{toon}/{rule}` → `{ changed, review_rules }` (`400 invalid_toon|invalid_rule`);
 `GET /users/{id}` includes `review_rules`. Mails name the toon (its catalog name) and link to the creator dashboard `CREATOR_URL/` ("To review" / "Your submissions").
 
+## Modules – rig modules, Rust compiled to wasm (2026-11-02, #281 – migration `2026-11-02-modules`)
+
+An instrument written as a Rust module against the SDK `deck/module` (agents/research/RIG-EDITING.md §4–7). Code:
+`Domain\Modules\{ModuleSource, MemberModules, ModuleCompiler}`, `ModulesController`. The sources are versioned documents
+(factory: `module:<id>`, the catalog kind `modules`, table `catalog_modules` – drafts, versions, review, publish like the
+instruments; the admin reads the kind and answers `409 edited_in_creator` to writes) or a member's own rows (`member_modules`,
+id `m:<ulid>`). A **document** is `{ id, name?, files, descriptor?, wasm? }`; `descriptor` + `wasm` come only from a compile.
+- **Sources**: `files` = `{ "lib.rs": "…", "osc.rs": "…" }` – 1–32 files named `[a-z0-9_]+.rs`, a `lib.rs`, each at most 256 KB,
+  together at most 512 KB. Factory ids `[a-z0-9][a-z0-9_-]{0,31}`. A member has at most 50 modules (`422 too_many_modules`).
+- **The wasm** is stored on the CDN as `modules/<sha256>.wasm` (content-addressed, so immutable; the platform's own folder
+  outside the asset registry: `StorageKey::SYSTEM_PREFIXES` – uploads refuse it, the importer skips it); `wasm.url` in the
+  answers is its public address. `descriptor` = the module's name, version, ABI, parameters and ports as the build service read them
+  from the wasm's `deck.module` section.
+- **Compile** = the creators' (`403 creator_only` for everyone else): the API forwards the sources to the build service
+  (`MODULE_BUILD_URL` + the secret `MODULE_BUILD_TOKEN` as `X-Build-Token`, docs/CONFIGURATION.md; either unset: `503 no_build_service`),
+  checks what comes back (a wasm of at most 4 MB, its hash, the descriptor's shape) and stores it. One compile at a time, none while a
+  show is live (the service refuses: `503 live_show`; `503 build_busy` when the queue is full or the wait too long).
+- Auth: the member's session; reads also with a paired deck's token. Every member row is the member's own (`404` otherwise).
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/modules` | `{ status, items: [{ id, name, descriptor?, wasm?, created_at, updated_at }] }` – the member's own, without sources |
+| GET | `/modules/{id}` | `{ status, module: { id, name?, files, descriptor?, wasm?: { hash, bytes, toolchain?, url } } }` – an own `m:<ulid>`, or a **published** factory module by its id · `404 not_found` |
+| POST | `/modules` | `{ name, files }` → `201 { status, module }` · `422 invalid_module { problems }` · `422 too_many_modules` |
+| PUT | `/modules/{m:id}` | `{ name?, files }` → `{ status, module }` – other sources drop the old `descriptor` / `wasm` |
+| DELETE | `/modules/{m:id}` | `{ status }` |
+| POST | `/modules/compile` | `{ files?, member?: "m:…", factory?: "<id>" }` – `member`: an own module (its sources unless `files` given, which replace them); `factory`: writes a new draft of `module:<id>` (sources of its newest version unless `files`; `404` without either; `400 invalid_target`). → `{ status, hash, descriptor, wasm: { hash, bytes, toolchain, url }, warnings, module?, version? }` · `422 compile_failed { errors: [{ file, line, column, level, message }] }` · `503 live_show \| build_busy \| no_build_service \| build_unavailable` · `502 build_failed` (the service answered with something that is no module) |
+
 ### Catalog documents and the `physical` rule (2026-10-12 draft, migration `2026-10-12-catalog-docs` – agents/CATALOG-IN-CREATOR.md)
 
 Every item, recipe, album, product and edition is also a versioned entity: `item:<id>`, `recipe:<id>`, `album:<id>`,
 `product:<id>`, `edition:<id>` (no toon segment; ids as in the catalog, upper case allowed) – so are home scenes,
-airlift carriers and (#258) `instrument:<id>`, `preset:<id>` (dots allowed), `rig:<subject>` (`rig:character.catpope`). `/entities` works on them like
+airlift carriers and (#258) `instrument:<id>`, `preset:<id>` (dots allowed), `rig:<subject>` (`rig:character.catpope`), (#281) `module:<id>` ("Modules"). `/entities` works on them like
 on content: `PUT` stores a draft (checked as a catalog entry: `422 invalid_catalog { problems }`; a reference to an entry
 that is only a draft passes), `publish` makes the version the published one AND writes it into the catalog table
 (`catalog_history` note `published v<n>`; `422 invalid_catalog` rolls back), `restore` as usual, **`unpublish` →

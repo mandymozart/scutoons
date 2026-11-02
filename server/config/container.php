@@ -10,6 +10,8 @@ use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Scutoons\Domain\RequestContext;
 use Scutoons\Infrastructure\AssetStorage\AssetStorages;
+use Scutoons\Infrastructure\AssetStorage\CurlHttpClient;
+use Scutoons\Infrastructure\AssetStorage\HttpClient;
 use Scutoons\Infrastructure\Cache\ApcuCache;
 use Scutoons\Infrastructure\Cache\Cache;
 use Scutoons\Infrastructure\Cache\FileCache;
@@ -42,6 +44,8 @@ return [
     KeyStore::class => static fn(ContainerInterface $c): KeyStore => new KeyStore($c->get(Settings::class)->path('KEYPAIR_PATH')),
     // media storages of the asset layer (agents/ASSETS.md): local CDN folder, bunny.net
     AssetStorages::class => static fn(ContainerInterface $c): AssetStorages => new AssetStorages($c->get(Settings::class)),
+    // the HTTP calls of the module compiler (#281): a compile takes seconds (the build service allows 60 s and queues)
+    HttpClient::class => static fn(): HttpClient => new CurlHttpClient(110),
     FileStore::class => static fn(ContainerInterface $c): FileStore => new FileStore($c->get(Settings::class)->path('FILES_PATH')),
     // the Embassy's shared mailbox (inbox sync, copies of sent mails): IMAP over a TLS socket; tests set a fake
     Mailbox::class => DI\get(Imap::class),

@@ -20,6 +20,7 @@ use Scutoons\Domain\Settings\RuntimeSettings;
 use Scutoons\Http\Controllers\AccessController;
 use Scutoons\Http\Controllers\ApiTokensController;
 use Scutoons\Http\Controllers\DecksController;
+use Scutoons\Http\Controllers\ModulesController;
 use Scutoons\Http\Controllers\RigsController;
 use Scutoons\Http\Controllers\LanController;
 use Scutoons\Http\Controllers\ReviewsController;
@@ -239,6 +240,14 @@ return static function (App $app): void {
     $app->get("/api/rigs/$subject", [RigsController::class, 'rig']);
     $app->put("/api/rigs/$subject", [RigsController::class, 'saveRig']);
     $app->delete("/api/rigs/$subject", [RigsController::class, 'deleteRig']);
+    // rig modules, Rust compiled to wasm (#281, agents/research/RIG-EDITING.md §4–7): a member's own sources (a session, reads also
+    // a deck token), published factory modules by id; the compile is the creators' (the build service beside the relay)
+    $app->get('/api/modules', [ModulesController::class, 'list']);
+    $app->post('/api/modules', [ModulesController::class, 'create']);
+    $app->post('/api/modules/compile', [ModulesController::class, 'compile']);
+    $app->get('/api/modules/{id:m:[0-9A-Z]{26}|[a-z0-9][a-z0-9_-]{0,31}}', [ModulesController::class, 'get']);
+    $app->put('/api/modules/{id:m:[0-9A-Z]{26}}', [ModulesController::class, 'save']);
+    $app->delete('/api/modules/{id:m:[0-9A-Z]{26}}', [ModulesController::class, 'delete']);
 
     $app->map(['GET', 'POST'], '/api/access', [AccessController::class, 'access'])->add($lookupLimit);
     $app->get('/api/code', [AccessController::class, 'code'])->add($codeLimit);
@@ -295,7 +304,7 @@ return static function (App $app): void {
     $app->post('/api/entities/{key:[A-Za-z0-9:._-]+}/{action:publish|unpublish|restore}', [EntitiesController::class, 'action']);
     // where a catalog item is placed in every toon (item limits, BACKLOG 10.39) – role creator
     $app->get('/api/catalog/items/{id:[A-Za-z0-9_.-]{1,100}}/placements', [EntitiesController::class, 'itemPlacements']);
-    $app->get('/api/catalog/docs/{kind:items|recipes|albums|products|editions|home-scenes|airlift-carriers|instruments|presets|rigs}', [EntitiesController::class, 'catalogDocs']);
+    $app->get('/api/catalog/docs/{kind:items|recipes|albums|products|editions|home-scenes|airlift-carriers|instruments|presets|rigs|modules}', [EntitiesController::class, 'catalogDocs']);
     // the creator's SCUTOONS-wide flow: every toon's ways out of its chapters + dead things (docs/API.md "Flow index", role creator)
     $app->get('/api/creator/flow-index', [FlowController::class, 'index']);
     // Review before publish (docs/API.md "Reviews", role creator; the review rules per toon decide the rest)
@@ -407,7 +416,7 @@ return static function (App $app): void {
         $admin->get('/catalog', [SystemController::class, 'catalog']);
         // when picked-up placed items reappear, per item (an update of the item's `respawn` in catalog_items)
         // the catalog tables (agents/CATALOG.md): per kind list / get / put / delete / reorder, history + undo
-        $kind = '{kind:items|recipes|albums|products|editions|featured|permissions|code-types|toons|meta|home-scenes|airlift-carriers|instruments|presets|rigs}';
+        $kind = '{kind:items|recipes|albums|products|editions|featured|permissions|code-types|toons|meta|home-scenes|airlift-carriers|instruments|presets|rigs|modules}';
         $entry = '{id:[A-Za-z0-9][A-Za-z0-9_:.-]{0,190}}';
         $admin->get('/catalog/history', [CatalogAdminController::class, 'history']);
         $admin->post('/catalog/history/{id:[0-9]{1,18}}/undo', [CatalogAdminController::class, 'undo']);

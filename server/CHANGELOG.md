@@ -4,6 +4,11 @@ Versions: `composer.json` `version`; `GET /api/health/` returns `version` + `git
 
 ## Unreleased
 
+- Rig modules (#281, docs/API.md "Modules"; migration `2026-11-02-modules`): the catalog kind `modules` (documents
+  `module:<id>`: Rust sources + the descriptor and the wasm's hash a compile wrote), the members' `member_modules`,
+  `GET|POST /api/modules`, `GET /api/modules/{id}`, `PUT|DELETE /api/modules/{m:id}` and `POST /api/modules/compile` (creators
+  only; forwards to the build service `MODULE_BUILD_URL` + `MODULE_BUILD_TOKEN`, stores the wasm on the CDN as
+  `modules/<hash>.wasm`, a platform folder outside the asset registry). Settings `MODULE_BUILD_URL`, `MODULE_BUILD_TOKEN`.
 - Storyboard provider jobs + the generation budget (#121, docs/API.md "Storyboard"): `Domain\Storyboard\Generators`
   (`luma-image` – Luma Agents API uni-1 / uni-1-max; `runway` – gen4_turbo / gen4.5 / aleph2; `gemini-image` listed,
   not startable), `GenerationJobs` (start inside the gate, poll on read, cancel, the result passed through),
