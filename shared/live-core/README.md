@@ -60,7 +60,7 @@ No JSON across the boundary. A value is a **wire record** (`src/wire.ts` = `deck
 | `src/lead.ts` | `AdaptiveLead` (#208): grow on a dropout, shrink after a calm minute |
 | `src/index.ts` | `LiveCore`: start, load, param, set, onAnalysis, stats, stop |
 
-## Production headers (for the `/live/…` pages when they exist – not set anywhere yet)
+## Production headers (set: the viewer's `/live/…` in static/.htaccess, the creator's `/engine` and `/edit/…` in its static/.htaccess)
 
 The shared transport needs the page cross-origin isolated:
 - the Live page documents: `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp`
