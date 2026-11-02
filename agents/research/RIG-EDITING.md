@@ -1,4 +1,4 @@
-Status 2026-11-02: the owner's design round (#269) – the rig designer (owner 2026-11-02, §2) replaces the first draft's "three places". Answered: one rig per character with persona variants (7), the Rigs list + a link from the character (6), testing a rig through the DB (5), the patch editor in the browser first, the graph read-only at the start (2), promote only after a member submits (1), the designer in the viewer as a shared package (§9.1), the compiler as a second container in the relay's bunny app (§9.2). Open for the owner: §9.3–9.7. Nothing of §2–8 is built; the #269 draft (catalog pages, the TS validator) is parked on branch `parked/269-rig-editor`.
+Status 2026-11-02: the owner's design round (#269) – the rig designer (owner 2026-11-02, §2) replaces the first draft's "three places". Answered: one rig per character with persona variants (7), the Rigs list + a link from the character (6), testing a rig through the DB (5), the patch editor in the browser first, the graph read-only at the start (2), promote only after a member submits (1), the designer in the viewer as a shared package (§9.1), the compiler as a second container in the relay's bunny app (§9.2), only creators compile, a fallback per instrument kind, native builds by the owner's review, the v1 module API, the code is its creator's with a right of use for SCUTOONS (§9.3–9.7). All decided; the build order is §10 (issues). Nothing of §2–8 is built; the #269 draft (catalog pages, the TS validator) is parked on branch `parked/269-rig-editor`.
 
 # RIG-EDITING — the rig designer: where instruments are written, patched, wired and kept
 
@@ -41,7 +41,7 @@ Beside the tabs, always: **Play** (the engine runs what is open, on this device)
 - **Save = the member's, everywhere** (owner, decision 5): a member's modules, instruments, presets and rigs are stored globally, bound to the user (member rows; today `member_presets` / `member_rigs`, #258 / #270, + `member_modules`). Their decks read them from the DB next to the factory and play them – **that is how a rig assignment is tested**, on any of their decks.
 - **Submit for consideration**: the member sends a module / instrument / preset / rig (with its sources) to review – a frozen copy, a note. Nothing else can be promoted.
 - **Promote**: a reviewer (creator role, the review rules) takes a submitted one into the factory: a factory draft with the sources, then Publish – from then on everyone has it; a promoted module may be marked for the native tier (built into the next deck image). The member's own copy stays theirs.
-- **Confirmed = wired to a character** (decision 5): a factory rig assigned to a character (published) plays for everyone. **This mapping is the important part.** The designer and the creator's character page show every character **without a default rig**; a deck never fails for lack of one – **the fallback is always a standard rig we provide** (§9.4).
+- **Confirmed = wired to a character** (decision 5): a factory rig assigned to a character (published) plays for everyone. **This mapping is the important part.** The designer and the creator's character page show every character **without a default rig**; a deck never fails for lack of one – **the fallback is always a standard rig we provide**, built from one standard instrument per **instrument kind** (drum, bass, lead, pad, voice, sampler, texture, fx – a kind list we extend in code, `InstrumentKind`), §9.4.
 
 ## 7. Where it is stored (the owner's question)
 | What | Where | Why |
@@ -60,11 +60,11 @@ Members write and submit, so the designer must be reachable by **members, not on
 ## 9. For the owner – open
 1. ~~Where the designer lives~~ → **owner 2026-11-02: the viewer next to the browser deck, a shared package the creator mounts for review** (§8).
 2. ~~The build service: where it runs~~ → **owner 2026-11-02: on the relay's server** – a second container in the bunny app `scutoons-live`, towards one pod for the whole platform later (§4: CPU, lifecycle and start-time rules).
-3. **Who may compile:** every signed-in member (limits per user and day) or only members who own an instrument item / were invited (recommended first: creators + invited members, then open)?
-4. **The standard fallback rig:** one platform rig every character falls back to, or one per instrument kind / per toon (recommended: one platform rig, a toon may set its own default)?
-5. **Native tier:** every promoted module goes native with the next deck image (recommended), or only on demand?
-6. **The SDK's first API** (§4): audio + control rate, params, ports, tempo, character, scene / world variables read-only, events out – enough for v1, or more (MIDI out, samples, the being's look directly)?
-7. **Licence of submitted code:** a member's submitted module becomes the platform's to ship (owner's terms, credited) – the same rule as other submissions?
+3. ~~Who may compile~~ → **owner 2026-11-02: only creators** (the creator role; the API checks it). Members use the designer without the Rust tab's Compile: parameters, presets, the nodes of existing modules, assignment, save and submit.
+4. ~~The standard fallback rig~~ → **owner 2026-11-02: one per instrument kind** – a standard instrument (+ preset) per kind; the kinds are ours and grow in code (`InstrumentKind`, the validators follow the schema). A character without a default rig plays the standard rig built from them.
+5. ~~Native tier~~ → **owner 2026-11-02: the owner decides per module later, by manual review** – a promoted module stays wasm until the owner marks it for the native build.
+6. ~~The SDK's first API~~ → **owner 2026-11-02: as proposed** – audio + control rate, params, ports, tempo, character, scene / world variables read-only, events out; more later.
+7. ~~Licence of submitted code~~ → **owner 2026-11-02: the code belongs to its creator; SCUTOONS has the right to use it** (ship it, build it natively, show it, credited). The submit dialog says so and the member confirms it.
 
 ## 10. Order once §9 is answered (each an issue)
 1. The SDK crate + the descriptor + one built-in rewritten as a module (proves the ABI); wasmtime in deck-stage, the wasm path in live-core.
