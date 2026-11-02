@@ -118,7 +118,7 @@ final class DecksApiTest extends TestCase
         $item = self::json($this->request('POST', '/api/me/decks/approve', $member, ['code' => $code, 'name' => 'Stage left']))['item'];
         self::assertSame(['Stage left', 'member', 182, null, $this->clock->utc(182 * 86400), false],
             [$item['name'], $item['mapping'], $item['lifetime_days'], $item['idle_days'], $item['expires_at'], $item['expired']]);
-        self::assertSame([], $item['scopes'], 'approved without a scope: the deck only reads (#270)');
+        self::assertArrayNotHasKey('scopes', $item);
         self::assertSame(404, $this->request('GET', '/api/me/decks/pending?code=' . $asked['code'], $member)->getStatusCode(), 'a code is used once');
 
         // the signed challenge → a short token, only its hash stored; the token is the member

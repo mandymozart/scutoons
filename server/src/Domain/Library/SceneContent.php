@@ -7,7 +7,6 @@ use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Assets\AssetRegistry;
 use Scutoons\Domain\Catalog\CatalogStore;
 use Scutoons\Domain\Catalog\CatalogValidator;
-use Scutoons\Domain\Rigs\MemberRigs;
 use stdClass;
 
 /**
@@ -28,10 +27,8 @@ use stdClass;
  *   resolves offline). The top-level `instruments` / `presets` maps hold each one once as `{ id, version, data }`;
  *   `version` = a hash of the stored data, so a deck's cache skips what it has. `{ rig: data, instrument: […], preset: […] }`
  *   is a deck-space `rig::Bundle` (its the_servers_scene_content_reads_as_bundles test reads this answer).
- * - **Owned derivatives** (#270, §6): `&presets=<ids>` adds presets to the top-level map with their ancestors – factory
- *   ones for anyone, the member's own (`m:…`, `member_presets`) when the request carries their session or their paired
- *   deck's token (#180; read scope – DeckTokenScope lets GETs through); an unknown or another member's id lands in
- *   `missing.presets`. Everything else stays public like the catalog and the registry (a member's rig variants: GET /api/rigs/<subject>).
+ * - `&presets=<ids>` adds factory presets to the top-level map with their ancestors; an unknown id lands in
+ *   `missing.presets`. Everything is public like the catalog and the registry (readers save nothing, #302).
  */
 final class SceneContent
 {
@@ -44,7 +41,6 @@ final class SceneContent
         private readonly Library $library,
         private readonly CatalogStore $catalog,
         private readonly AssetRegistry $registry,
-        private readonly MemberRigs $members,
     ) {
     }
 
@@ -52,11 +48,10 @@ final class SceneContent
      * @param list<string> $sets
      * @param list<string> $characters
      * @param list<string> $items
-     * @param list<string> $presets preset ids to add (with their ancestors): factory ones, or the member's own `m:…`
-     * @param ?string $userId the member behind the request (a session or a deck token) – whose `m:…` presets resolve
+     * @param list<string> $presets preset ids to add (with their ancestors)
      * @return array<string, mixed> { sets, characters, items, instruments, presets, missing: { sets, characters, items, presets } }
      */
-    public function of(array $sets, array $characters, array $items = [], array $presets = [], ?string $userId = null): array
+    public function of(array $sets, array $characters, array $items = [], array $presets = []): array
     {
         $registry = [];
         if ($characters !== []) {
@@ -68,22 +63,14 @@ final class SceneContent
         }
         $answer = self::compose($sets, fn(string $id) => $this->catalog->get('home-scenes', $id), $characters, is_array($registry) ? $registry : []);
         $sizes = $this->registry->available() ? $this->registry->sizesOf(self::paths($answer)) : [];
-        return self::withRigs(self::withSizes($answer, $sizes), $items, fn(string $kind, string $id) => $this->stored($kind, $id, $userId), $presets);
+        return self::withRigs(self::withSizes($answer, $sizes), $items, fn(string $kind, string $id) => $this->stored($kind, $id), $presets);
     }
 
     /**
-     * a rig kind's stored data (the catalog row's JSON; a member's own preset for `m:…` with their id), null when there is
-     * none – or no table yet (before the migration)
+     * a rig kind's stored data (the catalog row's JSON), null when there is none – or no table yet (before the migration)
      */
-    private function stored(string $kind, string $id, ?string $userId = null): ?string
+    private function stored(string $kind, string $id): ?string
     {
-        if ($kind === 'presets' && str_starts_with($id, 'm:')) {
-            try {
-                return $userId === null ? null : $this->members->presetJson($userId, $id);
-            } catch (\Throwable) {
-                return null;
-            }
-        }
         try {
             $row = $this->catalog->row(self::RIG_KINDS[$kind], $id);
         } catch (\Throwable) {

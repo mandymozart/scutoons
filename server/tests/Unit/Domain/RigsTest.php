@@ -8,7 +8,6 @@ use Scutoons\Domain\Catalog\CatalogAdmin;
 use Scutoons\Domain\Catalog\CatalogStore;
 use Scutoons\Domain\Catalog\CatalogValidator;
 use Scutoons\Domain\Content\EntityKey;
-use Scutoons\Domain\Rigs\MemberRigs;
 use Scutoons\Domain\Rigs\NodeKinds;
 use Scutoons\Domain\Rigs\RigValidator;
 use Scutoons\Support\Ids;
@@ -277,77 +276,5 @@ final class RigsTest extends TestCase
         } catch (ApiError $e) {
             self::assertContains('item harp', $e->extra['uses']);
         }
-    }
-
-    public function testMembersDeriveAndVaryWithinWhatTheyHold(): void
-    {
-        $members = $this->get(MemberRigs::class);
-        $me = (string) $this->user()['id'];
-        $other = (string) $this->user()['id'];
-        $mine = $members->savePreset($me, self::o('{"parent":"cathedral_voice.bright","values":{"voice.index":3.0}}'));
-        self::assertMatchesRegularExpression(RigValidator::MEMBER_PRESET_ID, $mine->id);
-        self::assertSame('cathedral_voice', $mine->instrument, 'the parent\'s instrument');
-        $child = $members->savePreset($me, self::o('{"parent":"' . $mine->id . '","values":{"voice.gain":0.2}}'));
-        self::assertSame($mine->id, $child->parent, 'a lineage: factory → mine → mine');
-        self::assertCount(2, $members->presets($me));
-        self::assertSame([], $members->presets($other));
-        foreach ([
-            [$other, '{"parent":"' . $mine->id . '"}', 'unknown preset'],
-            [$me, '{"values":{}}', 'derives from a parent'],
-            [$me, '{"parent":"drone.base","instrument":"cathedral_voice"}', 'of another instrument'],
-            [$me, '{"parent":"cathedral_voice.base","values":{"melody.cv":1.0}}', 'not a control input'],
-        ] as [$user, $json, $part]) {
-            try {
-                $members->savePreset($user, self::o($json));
-                self::fail($part);
-            } catch (ApiError $e) {
-                self::assertSame('invalid_preset', $e->errorCode);
-                self::assertStringContainsString($part, $e->getMessage());
-            }
-        }
-        // a variant of catpope's rig: its own instruments + its presets; an instrument it does not hold is refused
-        $rig = fn(array $tracks) => self::data(['subject' => 'character.catpope', 'track' => $tracks]);
-        $members->saveRig($me, 'character.catpope', $rig([['id' => 'voice', 'instrument' => 'cathedral_voice', 'preset' => $child->id]]));
-        self::assertSame($child->id, $members->rig($me, 'character.catpope')?->track[0]->preset);
-        try {
-            $members->saveRig($me, 'character.catpope', $rig([['id' => 'air', 'instrument' => 'incense']]));
-            self::fail('not held');
-        } catch (ApiError $e) {
-            self::assertStringContainsString('"incense" is not one held', $e->getMessage());
-        }
-        // holding an instrument item lets the rig use it
-        $this->put('items', 'incense_card', self::data(['id' => 'incense_card', 'name' => ['en' => 'Incense'], 'kind' => 'virtual', 'category' => 'instrument', 'instrument' => 'incense']));
-        $this->db->run("INSERT INTO inventory (id, user_id, item_id, qty, source, acquired_at, updated_at) VALUES (?, ?, 'incense_card', 1, 'story', ?, ?)", [Ids::uuid(), $me, $this->clock->utc(), $this->clock->utc()]);
-        $members->saveRig($me, 'character.catpope', $rig([['id' => 'voice', 'instrument' => 'cathedral_voice'], ['id' => 'air', 'instrument' => 'incense', 'preset' => 'incense.base']]));
-        try {
-            $members->saveRig($me, 'character.nobody', $rig([]));
-            self::fail('no factory rig');
-        } catch (ApiError $e) {
-            self::assertSame([404, 'not_found'], [$e->status, $e->errorCode]);
-        }
-        // deleting: a preset with a child is in use; the factory rig is in use by the member's variant
-        try {
-            $members->deletePreset($me, $mine->id);
-            self::fail('in use');
-        } catch (ApiError $e) {
-            self::assertSame(["preset {$child->id}"], $e->extra['uses']);
-        }
-        try {
-            $this->get(CatalogAdmin::class)->delete('rigs', 'character.catpope', self::BY);
-            self::fail('a member varies it');
-        } catch (ApiError $e) {
-            self::assertSame(["1 members' variants of it"], $e->extra['uses']);
-        }
-        try {
-            $this->get(CatalogAdmin::class)->delete('presets', 'cathedral_voice.bright', self::BY);
-            self::fail('a member derives from it');
-        } catch (ApiError $e) {
-            self::assertContains("1 members' presets derive from it", $e->extra['uses']);
-        }
-        $members->deletePreset($me, $child->id);
-        $members->deletePreset($me, $mine->id);
-        $members->deleteRig($me, 'character.catpope');
-        self::assertSame([], $members->presets($me));
-        self::assertNull($members->rig($me, 'character.catpope'));
     }
 }

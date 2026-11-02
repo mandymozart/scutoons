@@ -126,6 +126,6 @@ final class ModulesTest extends TestCase
             if ($statement !== '') $this->db->exec($statement);
         }
         self::assertSame(['keep'], array_column($this->db->all('SELECT id FROM catalog_modules'), 'id'), 'the rows stay');
-        self::assertSame(1, (int) $this->db->value("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'member_modules'"));
+        $this->db->exec('DROP TABLE IF EXISTS member_modules'); // the file still creates it (2026-11-02-drop-member-layer drops it)
     }
 }

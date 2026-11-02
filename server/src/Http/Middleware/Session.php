@@ -27,7 +27,7 @@ use Scutoons\Infrastructure\Config\Settings;
  *
  * A personal access token (`Bearer sct_…`, an AI connection) is refused on what only the member does in the app
  * (ApiTokenScope: publish, send, apply, manage tokens, admin changes) – 403 not_for_ai. A deck token (`Bearer scd_…`)
- * only reads (DeckTokenScope) – 403 not_for_deck – unless its member granted it a write scope at approval (#270).
+ * only reads (DeckTokenScope) – 403 not_for_deck.
  */
 final class Session implements MiddlewareInterface
 {
@@ -57,7 +57,7 @@ final class Session implements MiddlewareInterface
         }
         $session = new CurrentSession($this->sessions, $token, $via, $csrfBlocked, $this->apiTokens, $this->decks);
         if ($session->isApiToken()) ApiTokenScope::guard($request->getMethod(), $request->getUri()->getPath());
-        if ($session->isDeckToken()) DeckTokenScope::guard($request->getMethod(), $request->getUri()->getPath(), $this->decks->scopes((string) $token));
+        if ($session->isDeckToken()) DeckTokenScope::guard($request->getMethod(), $request->getUri()->getPath());
         return $handler->handle($request->withAttribute(CurrentSession::ATTRIBUTE, $session));
     }
 }

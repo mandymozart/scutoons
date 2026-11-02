@@ -60,8 +60,6 @@ Locally `http://localhost:9000/api` (`VITE_API_URL`; the qr app on :9001). Publi
 | GET/POST/DELETE | `/me/tokens`, `/me/tokens/{id}` | session (members) | the member's AI connections (personal tokens `sct_…`) – see "AI connections" |
 | POST | `/decks/request`, `/decks/challenge`, `/decks/token` | none (the deck's key) | a cyberdeck's handshake – see "Decks" |
 | GET/POST/DELETE | `/me/decks`, `/me/decks/pending`, `/me/decks/approve`, `/me/decks/{id}` | session (every member) | the member's paired decks – see "Decks" |
-| GET/POST/DELETE | `/rigs/presets`, `/rigs/presets/{id}` | session, or a deck token with the `rigs` scope | the member's own presets (derivatives saved from a deck's knobs) – see "Rigs" |
-| GET/PUT/DELETE | `/rigs/{subject}` | session, or a deck token with the `rigs` scope | the member's variant of a factory rig – see "Rigs" |
 | GET | `/decks/lan-cert` | a deck token | the venue certificate for `deck-tls` – see "The venue certificate" |
 | GET/POST | `/validate/` | – | PUBLIC URL (printed): legacy, backwards compatible – success for any existing, unexpired, unrevoked code (claimed or not); CORS `*` |
 | GET | `/keys/keys.php` | – | PUBLIC URL (printed): the public key of the certificate signatures |
@@ -750,10 +748,8 @@ Handshake, then approval, then data (agents/research/CYBERDECKS.md §9). Code: `
 - **Tokens:** within the approval the deck asks for a challenge (single use, 2 minutes) and signs
   `scutoons-deck-token:v1:<challenge hex>:<public key hex>` → a token `scd_…` for 1 hour (only its SHA-256 stored, one
   per deck). `Authorization: Bearer scd_…` = the member's account, **read-only** (`DeckTokenScope`, `403 not_for_deck`):
-  GET / HEAD only, never `/me/decks*`, `/me/tokens*`, `/auth/*` – plus the writes of the **scopes** the member granted at
-  approval (#270, migration `2026-11-01-deck-scopes`, column `decks.scopes`): `rigs` = POST / PUT / DELETE under
-  `/rigs` (the member's own presets and rig variants, "Rigs"). Nothing else; a deck approved without a scope only
-  reads. The handshake routes ignore the session.
+  GET / HEAD only, never `/me/decks*`, `/me/tokens*`, `/auth/*` (the write scope `rigs` and column `decks.scopes` are gone, #302).
+  The handshake routes ignore the session.
 - **Revoke / expiry:** the token stops at once (401); the next challenge answers `401 revoked | expired`, an unknown key
   `401 unknown_deck`, an expired request `401 request_expired` → the deck asks again (the same row goes back to pending,
   nothing of the old approval stays).
@@ -765,45 +761,11 @@ Handshake, then approval, then data (agents/research/CYBERDECKS.md §9). Code: `
 | POST | `/decks/request` | `{ public_key, build?, class?, hostname? }` → `201 { status, deck: { status: pending, id, code, expires_at } }`, or `200 { deck: { status: approved, id } }` while its approval holds · `400 invalid_public_key` · `429` |
 | POST | `/decks/challenge` | `{ public_key }` → `202 { deck: { status: pending, id, code, expires_at } }` · `200 { deck: { status: approved, challenge, expires_at } }` · `401 unknown_deck / request_expired / revoked / expired` |
 | POST | `/decks/token` | `{ public_key, challenge, signature }` (64 bytes hex) → `{ status, token, expires_at, approval_expires_at, deck: { id, name } }` · `401 bad_challenge / bad_signature / not_approved / revoked / expired` |
-| GET | `/me/decks` | `{ status, items: [{ id, name, hostname, build, class, mapping, scopes, approved_at, last_seen_at, expires_at, lifetime_days, idle_days, expired }] }` |
+| GET | `/me/decks` | `{ status, items: [{ id, name, hostname, build, class, mapping, approved_at, last_seen_at, expires_at, lifetime_days, idle_days, expired }] }` |
 | GET | `/me/decks/pending?code=` | `{ status, deck: { code, hostname, build, class, expires_at } }` – the pairing page shows it before approving · `404 unknown_code` |
-| POST | `/me/decks/approve` | `{ code, days?, idle_days?, name?, scopes? }` → `{ status, item }` (`item.scopes` = the granted list, `["rigs"]` or `[]`) · `400 invalid_days / invalid_idle_days / invalid_scopes` · `404 unknown_code` · `409 too_many` |
+| POST | `/me/decks/approve` | `{ code, days?, idle_days?, name? }` → `{ status, item }` · `400 invalid_days / invalid_idle_days` · `404 unknown_code` · `409 too_many` |
 | POST | `/me/decks/{id}/renew` | → `{ status, item }` |
 | DELETE | `/me/decks/{id}` | → `{ status }` – revoked |
-
-## Rigs – members' presets and rig variants (2026-11-01, #270 – migration `2026-11-01-deck-scopes`)
-
-A performer turns the knobs of a played rig on a deck and keeps the result as their own **derivative** of the preset the
-track plays (agents/research/INSTRUMENTS.md §2, §4–6; the rows: #258's `member_presets` / `member_rigs`,
-agents/CATALOG.md "Instruments, presets, rigs"). Code: `Domain\Rigs\MemberRigs`, `RigsController`. Auth: the member's
-session, or their paired deck's token (#180) with the `rigs` scope granted at approval (above) – an AI connection may
-too. Every row is the member's own: another member's `m:…` id is unknown (`422` / `404`). Bodies and answers are
-deck-space's serde forms (`deck/space/src/rig`: Preset, Rig – floats stay floats).
-
-- **Deriving** = `PresetBook::derive`'s rule, twice: the deck sends only what the performer changed against the played
-  knobs (shared/live-deck `preset.ts`, deck-native `save.rs`); the server keeps only the values that differ from the
-  parent's folded lineage (root → leaf, canonical `node.port`), fills in the parent's instrument, tags (unless given) and
-  rights, and gives the new id `m:<ulid>`. A value on a linked input, an unknown parent, a loop: `422 invalid_preset`.
-- **Rights by hold** (§4): the parent's `derive` right for how the member holds it – an own `m:` preset = `owned`; a
-  factory preset = `owned` while an instrument item (`category: "instrument"`) of its instrument is in their inventory,
-  else `core` (the catalog is the deck image's core set; `lent` is the relay's, never the API's). Defaults as mod.rs
-  `Rights::default()`: lent play + tweak · core + derive · owned + copy. Refused: `403 not_derivable { hold }`.
-- **Rig variants**: one per member and subject (`PUT` replaces); validated like a factory rig, with only the instruments
-  they hold (the factory rig's own + their instrument items; `MemberRigs::held`); the body's `subject` may be left out
-  (filled in) – another one is `400 subject_mismatch`. Without a factory rig of that subject: `404 not_found`.
-- **Reading them on a deck**: `GET /library/scene-content?…&presets=<ids>` ("Library") adds the member's own presets
-  with their ancestors to its `presets` map – with the session or the deck token (read scope). A variant: `GET /rigs/<subject>`.
-
-| Method | Path | Notes |
-| --- | --- | --- |
-| GET | `/rigs/presets` | `{ status, items: [Preset] }` – the member's derivatives, oldest first |
-| POST | `/rigs/presets` | `{ parent, values?: { "node.port": number }, name?: { <locale>: text }, tags?, mapping? }` → `201 { status, preset }` · `403 not_derivable { hold }` · `422 invalid_preset { problems }` (also an unknown field) |
-| DELETE | `/rigs/presets/{id}` | → `{ status }` · `404 not_found` · `409 in_use { uses }` (an own child derives from it, an own variant plays it) |
-| GET | `/rigs/{subject}` | `{ status, subject, rig }` – the member's variant, `null` without one · `404 not_found` (no factory rig) |
-| PUT | `/rigs/{subject}` | a `Rig` → `{ status, subject, rig }` · `400 subject_mismatch` · `404` · `422 invalid_rig { problems }` |
-| DELETE | `/rigs/{subject}` | → `{ status }` |
-
-`subject` = `character.<id>[.<persona>]` or `item.<id>` (dots in the path). A deck token without the scope: `403 not_for_deck` on every write.
 
 ## The venue certificate (2026-10-31, #201 – agents/research/LIVE.md B.4)
 
@@ -882,12 +844,11 @@ Admin (`/api/admin`): `GET /review-rules` → `{ items: [{ toon, rule, user: { i
 ## Modules – rig modules, Rust compiled to wasm (2026-11-02, #281 – migration `2026-11-02-modules`)
 
 An instrument written as a Rust module against the SDK `deck/module` (agents/research/RIG-EDITING.md §4–7). Code:
-`Domain\Modules\{ModuleSource, MemberModules, ModuleCompiler}`, `ModulesController`. The sources are versioned documents
+`Domain\Modules\{ModuleSource, ModuleCompiler}`, `ModulesController`. The sources are versioned documents
 (factory: `module:<id>`, the catalog kind `modules`, table `catalog_modules` – drafts, versions, review, publish like the
-instruments; the admin reads the kind and answers `409 edited_in_creator` to writes) or a member's own rows (`member_modules`,
-id `m:<ulid>`). A **document** is `{ id, name?, files, descriptor?, wasm? }`; `descriptor` + `wasm` come only from a compile.
+instruments; the admin reads the kind and answers `409 edited_in_creator` to writes). A **document** is `{ id, name?, files, descriptor?, wasm? }`; `descriptor` + `wasm` come only from a compile.
 - **Sources**: `files` = `{ "lib.rs": "…", "osc.rs": "…" }` – 1–32 files named `[a-z0-9_]+.rs`, a `lib.rs`, each at most 256 KB,
-  together at most 512 KB. Factory ids `[a-z0-9][a-z0-9_-]{0,31}`. A member has at most 50 modules (`422 too_many_modules`).
+  together at most 512 KB. Factory ids `[a-z0-9][a-z0-9_-]{0,31}`.
 - **The wasm** is stored on the CDN as `modules/<sha256>.wasm` (content-addressed, so immutable; the platform's own folder
   outside the asset registry: `StorageKey::SYSTEM_PREFIXES` – uploads refuse it, the importer skips it); `wasm.url` in the
   answers is its public address. `descriptor` = the module's name, version, ABI, parameters and ports as the build service read them
@@ -896,17 +857,13 @@ id `m:<ulid>`). A **document** is `{ id, name?, files, descriptor?, wasm? }`; `d
   (`MODULE_BUILD_URL` + the secret `MODULE_BUILD_TOKEN` as `X-Build-Token`, docs/CONFIGURATION.md; either unset: `503 no_build_service`),
   checks what comes back (a wasm of at most 4 MB, its hash, the descriptor's shape) and stores it. One compile at a time, none while a
   show is live (the service refuses: `503 live_show`; `503 build_busy` when the queue is full or the wait too long).
-- Auth: the member's session; reads also with a paired deck's token. Every member row is the member's own (`404` otherwise).
+- Auth: a session; reads also with a paired deck's token. Readers save no modules (#302): sources are the creators' documents.
 
 | Method | Path | Notes |
 | --- | --- | --- |
 | GET | `/kinds` | `{ status, catalog_version, kinds: [Descriptor] }` (#315) – the node-kind catalog: every built-in kind (generated `Domain\Rigs\kinds.json` from deck/catalog; the Rust types are the source – `deck/catalog/schema.json`, `shared/live/src/catalog.ts`) with its ports (type, direction, channels, doc) and parameters (range, curve, unit, default, choices, doc), plus the **published** modules as `module:<id>` (ABI v1 descriptors in the same shape). A session or a deck token |
-| GET | `/modules` | `{ status, items: [{ id, name, descriptor?, wasm?, created_at, updated_at }] }` – the member's own, without sources |
-| GET | `/modules/{id}` | `{ status, module: { id, name?, files, descriptor?, wasm?: { hash, bytes, toolchain?, url } } }` – an own `m:<ulid>`, or a **published** factory module by its id · `404 not_found` |
-| POST | `/modules` | `{ name, files }` → `201 { status, module }` · `422 invalid_module { problems }` · `422 too_many_modules` |
-| PUT | `/modules/{m:id}` | `{ name?, files }` → `{ status, module }` – other sources drop the old `descriptor` / `wasm` |
-| DELETE | `/modules/{m:id}` | `{ status }` |
-| POST | `/modules/compile` | `{ files?, member?: "m:…", factory?: "<id>" }` – `member`: an own module (its sources unless `files` given, which replace them); `factory`: writes a new draft of `module:<id>` (sources of its newest version unless `files`; `404` without either; `400 invalid_target`). → `{ status, hash, descriptor, wasm: { hash, bytes, toolchain, url }, warnings, module?, version? }` · `422 compile_failed { errors: [{ file, line, column, level, message }] }` · `503 live_show \| build_busy \| no_build_service \| build_unavailable` · `502 build_failed` (the service answered with something that is no module) |
+| GET | `/modules/{id}` | `{ status, module: { id, name?, files, descriptor?, wasm?: { hash, bytes, toolchain?, url } } }` – a **published** factory module by its id · `404 not_found` |
+| POST | `/modules/compile` | `{ files?, factory?: "<id>" }` – `factory`: writes a new draft of `module:<id>` (sources of its newest version unless `files`; `404` without either; `400 invalid_target`). → `{ status, hash, descriptor, wasm: { hash, bytes, toolchain, url }, warnings, module?, version? }` · `422 compile_failed { errors: [{ file, line, column, level, message }] }` · `503 live_show \| build_busy \| no_build_service \| build_unavailable` · `502 build_failed` (the service answered with something that is no module) |
 
 ### Catalog documents and the `physical` rule (2026-10-12 draft, migration `2026-10-12-catalog-docs` – agents/CATALOG-IN-CREATOR.md)
 
@@ -947,7 +904,7 @@ is the format of every answer). Implementation: `Domain\Library\Library` + `Libr
 | `/library/toons/<toon>/cast[?chapter=<n>]` | `{ registry, cast }`: `characters` reduced to the toon's cast (or the characters the chapter references; legacy ids mapped) + `cast:<toon>`; `null` where missing. Resolve with `resolveCast()` |
 | `/library/toons/<toon>/credits` | `{ credits, people, roles }`: `credits:<toon>`, the referenced people (+ `merged_into` targets), the roles · 404 without credits |
 | `/library/characters` | the whole character registry (entity `characters`), e.g. the avatar bodies |
-| `/library/scene-content?sets=<id,…>&characters=<id,…>&items=<id,…>&presets=<id,…>` | what a deck's scene needs (#195, #258, #270, `Domain\Library\SceneContent`): `{ sets: { <id>: { name, model: { low, medium, high } } }, characters: { <id>: { character, persona, look, portraits: { <mood>: … }, rig } }, items: { <id>: { rig } }, instruments: { <id>: { id, version, data } }, presets: { <id>: { id, version, data } }, missing: { sets, characters, items, presets } }`, each file `{ path, size }` (CDN root, `size` from the asset registry or null). Sets = the catalog's home scenes (their `model`: `src` = medium, a level without a variant gets `src`; none = `model: {}`); a character = a registry id, an old VN id (`plf`) or `<character>-<persona>` → that persona's default look. **Rigs:** a character's `rig` = the catalog's `character.<id>.<persona>`, else `character.<id>`, else `null`; an item's = `item.<id>` (none = `missing.items`). A rig is `{ id, version, data, instruments: [ids], presets: [ids] }` – `data` = deck-space's `Rig`, the presets every one it names **with their ancestors** (root first); each instrument / preset once in the top-level maps, `data` = its `Instrument` / `Preset`. `version` = 16 hex of the stored data's SHA-256 (a deck's cache skips what it has). `{ rig: data, instrument: [...], preset: [...] }` is a `deck_space::rig::Bundle` (deck-space's `the_servers_scene_content_reads_as_bundles` reads `tests/fixtures/rigs/scene-content.json`, written by SceneContentRigsTest). **`presets=`** (#270): more presets for the map, each with its ancestors (and their instruments) – factory ids for anyone; the member's own `m:<ulid>` ids with their session or their paired deck's token (#180; the answer is then `private, no-store`); an unknown id, or another member's, lands in `missing.presets`. Maps stay objects, `1.0` stays `1.0`. ≤ 32 ids each, `400 invalid_ids`. Public otherwise; a deck token passes (DeckTokenScope) |
+| `/library/scene-content?sets=<id,…>&characters=<id,…>&items=<id,…>&presets=<id,…>` | what a deck's scene needs (#195, #258, #270, `Domain\Library\SceneContent`): `{ sets: { <id>: { name, model: { low, medium, high } } }, characters: { <id>: { character, persona, look, portraits: { <mood>: … }, rig } }, items: { <id>: { rig } }, instruments: { <id>: { id, version, data } }, presets: { <id>: { id, version, data } }, missing: { sets, characters, items, presets } }`, each file `{ path, size }` (CDN root, `size` from the asset registry or null). Sets = the catalog's home scenes (their `model`: `src` = medium, a level without a variant gets `src`; none = `model: {}`); a character = a registry id, an old VN id (`plf`) or `<character>-<persona>` → that persona's default look. **Rigs:** a character's `rig` = the catalog's `character.<id>.<persona>`, else `character.<id>`, else `null`; an item's = `item.<id>` (none = `missing.items`). A rig is `{ id, version, data, instruments: [ids], presets: [ids] }` – `data` = deck-space's `Rig`, the presets every one it names **with their ancestors** (root first); each instrument / preset once in the top-level maps, `data` = its `Instrument` / `Preset`. `version` = 16 hex of the stored data's SHA-256 (a deck's cache skips what it has). `{ rig: data, instrument: [...], preset: [...] }` is a `deck_space::rig::Bundle` (deck-space's `the_servers_scene_content_reads_as_bundles` reads `tests/fixtures/rigs/scene-content.json`, written by SceneContentRigsTest). **`presets=`**: more factory presets for the map, each with its ancestors (and their instruments); an unknown id lands in `missing.presets`. Maps stay objects, `1.0` stays `1.0`. ≤ 32 ids each, `400 invalid_ids`. Public; a deck token passes (DeckTokenScope) |
 | `/events/` | the entity `events` |
 
 - **Locale** `?locale=xx` (default: the toon's `sourceLanguage`): per document the asked locale, else the source

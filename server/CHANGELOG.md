@@ -4,6 +4,10 @@ Versions: `composer.json` `version`; `GET /api/health/` returns `version` + `git
 
 ## Unreleased
 
+- The member save layer is removed (#302; owner 2026-11-02: readers save nothing). Migration `2026-11-02-drop-member-layer` drops
+  `member_presets`, `member_rigs`, `member_modules` and `decks.scopes` (it refuses to drop a table that holds rows). Gone: `MemberRigs`,
+  `MemberModules`, `/api/rigs/*`, the member routes of `/api/modules` (`GET|POST /modules`, `PUT|DELETE /modules/{m:id}`; the compile's
+  `member` target), member `&presets=` in scene-content, the deck token's `rigs` scope (`scopes` in `/me/decks`, `/me/decks/approve`).
 - The node-kind catalog (#315, docs/API.md "Modules"): `GET /api/kinds` serves `Domain\Rigs\kinds.json` (generated from deck/catalog: every built-in kind with ports, parameters and doc strings) merged with the published modules (`module:<id>`). `Domain\Rigs\NodeKinds` is generated from the same catalog (same kinds and ports as before).
 - Rig modules (#281, docs/API.md "Modules"; migration `2026-11-02-modules`): the catalog kind `modules` (documents
   `module:<id>`: Rust sources + the descriptor and the wasm's hash a compile wrote), the members' `member_modules`,
