@@ -1,8 +1,10 @@
 //! Rendering decoupled from the device (#208, owner 2026-10-31: "the dropouts keep existing – research methods to
 //! compensate"): a render thread runs the graph in blocks into a lock-free SPSC ring (rtrb, interleaved stereo) ahead of
 //! the device, and the device callback only copies out of it – a spike in a render (a page fault, the GPU driver, a busy
-//! CPU) is absorbed by the ring's lead instead of reaching the speaker. The lead adapts (lead.rs): a glitch grows it a
-//! block up to a cap, a calm minute shrinks it a block. live-core's worker does the same in the browser.
+//! CPU) is absorbed by the ring's lead instead of reaching the speaker. The lead adapts (lead.rs): an underrun grows it
+//! a block up to a cap, a calm minute shrinks it a block. Only an underrun – a late or long callback is the device's
+//! own thread stalling, which no lead can help, and at ASIO 64 (1.3 ms periods) such stalls pushed the lead to its cap
+//! for nothing (#230). live-core's worker does the same in the browser.
 //!
 //! The time base stays exact: the callback publishes (frames it has taken from the ring, the moment its first frame is
 //! heard) through a seqlock, and the render thread stamps each block it renders with that moment plus the frames between
@@ -107,11 +109,11 @@ impl Renderer {
         (CAPACITY * 2 - self.ring.slots()) / 2
     }
 
-    /// The lead's step for the glitches so far (at `now_ns`), then blocks into the ring until it holds the device's
+    /// The lead's step for the underruns so far (at `now_ns`), then blocks into the ring until it holds the device's
     /// buffer + the lead (or is full). Returns the blocks rendered. Never allocates.
     pub fn fill(&mut self, now: u64) -> usize {
         let g = &self.shared.glitches;
-        let lead = self.lead.update(now as f64 * 1e-9, g.count());
+        let lead = self.lead.update(now as f64 * 1e-9, g.underruns());
         g.set_lead(lead);
         let want = (g.device_frames().max(self.first_guess) + lead) as usize;
         let mut blocks = 0;
@@ -275,9 +277,10 @@ mod tests {
         assert!(f >= pushed && t.abs_diff(expect) < 1_000, "frame {f} at {t}, expected {expect}");
     }
 
-    /// a glitch grows the lead a block: the renderer keeps more in the ring
+    /// an underrun grows the lead a block: the renderer keeps more in the ring; a late callback doesn't – the ring was
+    /// full, the device's thread stalled (#230)
     #[test]
-    fn a_glitch_grows_the_lead() {
+    fn an_underrun_grows_the_lead_a_late_callback_does_not() {
         let (mut feed, mut r) = halves();
         r.fill(0);
         let before = r.queued();
@@ -290,10 +293,15 @@ mod tests {
         // boot on Linux, process-relative elsewhere), so the stall is measured from it – a synthetic time would come
         // before it on a machine up longer than that and count as no interval at all (#230)
         let t = crate::clock::now_ns();
-        feed.mon.measure(t + 50_000_000, t + 50_100_000, 480, false);
+        assert_eq!(feed.mon.measure(t + 50_000_000, t + 50_100_000, 480, false), Some(super::super::glitch::Cause::Late));
         assert_eq!(feed.glitches().count(), 1);
         r.fill(at + 1_000_000_000);
+        assert_eq!(feed.glitches().lead(), LEAD_MIN, "a late callback: the lead stays");
+        // the ring ran dry under a callback: an underrun
+        assert_eq!(feed.mon.measure(t + 60_000_000, t + 60_100_000, 480, true), Some(super::super::glitch::Cause::Underrun));
+        assert_eq!(feed.glitches().counts(), [1, 0, 1]);
+        r.fill(at + 2_000_000_000);
         assert_eq!(feed.glitches().lead(), LEAD_MIN + BLOCK as u32);
-        assert!(r.queued() >= before - 480 + BLOCK, "more ahead: {} (was {before})", r.queued());
+        assert!(r.queued() >= before - 480 * 2 + BLOCK, "more ahead: {} (was {before})", r.queued());
     }
 }
