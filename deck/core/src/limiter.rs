@@ -38,7 +38,7 @@ pub struct Limiter {
 
 impl Limiter {
     pub fn new(rate: f32) -> Limiter {
-        let coef = |samples: f32| 1.0 - (-1.0 / samples.max(1.0)).exp();
+        let coef = |samples: f32| 1.0 - libm::expf(-1.0 / samples.max(1.0));
         Limiter { ring: [[0.0; 2]; LOOK], at: 0, env: 0.0, gain: 1.0, down: coef(LOOK as f32 / 5.0), back: coef(RELEASE * rate), least: 1.0 }
     }
 
@@ -72,14 +72,14 @@ impl Limiter {
 
     /// The deepest gain reduction since the last call, in dB (0 = untouched); starts counting anew.
     pub fn take_reduction(&mut self) -> f32 {
-        let db = -20.0 * self.least.max(1e-6).log10();
+        let db = -20.0 * libm::log10f(self.least.max(1e-6));
         self.least = self.gain;
         db.max(0.0)
     }
 
     /// the gain reduction now, in dB
     pub fn reduction(&self) -> f32 {
-        (-20.0 * self.gain.max(1e-6).log10()).max(0.0)
+        (-20.0 * libm::log10f(self.gain.max(1e-6))).max(0.0)
     }
 }
 
@@ -98,7 +98,7 @@ pub fn soft(x: f32) -> f32 {
     if a <= KNEE {
         return x;
     }
-    let y = KNEE + (1.0 - KNEE) * ((a - KNEE) / (1.0 - KNEE)).tanh();
+    let y = KNEE + (1.0 - KNEE) * libm::tanhf((a - KNEE) / (1.0 - KNEE));
     y.min(0.999_999).copysign(x)
 }
 

@@ -962,11 +962,11 @@ name = "deck-conformance"
 version = "0.1.0"
 dependencies = [
  "deck-core",
- "deck-engine-lab",
+ "deck-engine",
+ "deck-engine-wasm",
  "deck-native",
  "deck-space",
  "live-core",
- "rustfft",
  "serde_json",
  "toml 0.8.23",
  "wasmtime",
@@ -992,16 +992,18 @@ dependencies = [
  "deck-events",
  "deck-module-host",
  "deck-space",
+ "libm",
  "rtrb",
  "toml 0.8.23",
 ]
 
 [[package]]
-name = "deck-engine-lab"
+name = "deck-engine-wasm"
 version = "0.1.0"
 dependencies = [
  "deck-core",
- "libm",
+ "deck-engine",
+ "deck-space",
 ]
 
 [[package]]
@@ -1009,6 +1011,7 @@ name = "deck-events"
 version = "0.1.0"
 dependencies = [
  "deck-core",
+ "libm",
  "protocol",
  "serde",
  "serde_json",

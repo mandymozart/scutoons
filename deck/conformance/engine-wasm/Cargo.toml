@@ -1,0 +1,19 @@
+# deck-engine-wasm – deck-engine as a wasm32 module with raw exports, for the conformance suite and the size gate (#317):
+# `ew_run` renders a scene exactly the way the native test harness does (control stepped before each block, the left
+# channel after master and limiter), so the suite can compare native and wasm32 (+simd128) bit for bit for every kind.
+# Dev only: live-core (P6) will link deck-engine itself; nothing depends on this crate.
+[package]
+name = "deck-engine-wasm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+deck-engine = { path = "../../engine", features = ["events"] }
+deck-space = { path = "../../space", default-features = false }
+deck-core = { workspace = true, features = ["analysis", "tempo"] }

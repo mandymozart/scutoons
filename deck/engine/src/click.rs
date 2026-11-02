@@ -22,7 +22,7 @@ pub struct Click {
 
 impl Click {
     pub fn new(node: &Node, rate: f32, gain: Param, beats: BeatReader) -> Click {
-        let decay = (-1.0 / (node.f32("decay", 0.03).max(1e-3) * rate)).exp();
+        let decay = libm::expf(-1.0 / (node.f32("decay", 0.03).max(1e-3) * rate));
         Click {
             beats,
             gain,
@@ -64,7 +64,7 @@ impl Block for Click {
                 self.last = Some(k); // the beat went back (a phase set): no tick, go on from here
             }
             let v = if self.level > 1e-4 {
-                let v = (self.phase * std::f32::consts::TAU).sin() * self.level * gain;
+                let v = libm::sinf(self.phase * std::f32::consts::TAU) * self.level * gain;
                 self.phase = (self.phase + self.inc).fract();
                 self.level *= self.decay;
                 v

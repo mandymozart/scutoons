@@ -148,7 +148,7 @@ struct Env {
 
 /// the envelope's per-sample coefficients (attack, release) – the batched voices (voices.rs) use them too
 pub(super) fn env_coefs(rate: f32, node: &Node) -> (f32, f32) {
-    let coef = |t: f32| 1.0 - (-1.0 / (t.max(1e-4) * rate)).exp();
+    let coef = |t: f32| 1.0 - libm::expf(-1.0 / (t.max(1e-4) * rate));
     (coef(node.f32("attack", 0.005)), coef(node.f32("release", 0.15)))
 }
 
@@ -323,7 +323,7 @@ impl Seq {
         let mut hz: Vec<f32> = node
             .f32s("steps")
             .iter()
-            .map(|&n| if n <= 0.0 { 0.0 } else { 440.0 * 2f32.powf((n + transpose - 69.0) / 12.0) })
+            .map(|&n| if n <= 0.0 { 0.0 } else { 440.0 * libm::powf(2.0, (n + transpose - 69.0) / 12.0) })
             .collect();
         if hz.is_empty() {
             hz.push(0.0);

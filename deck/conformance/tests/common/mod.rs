@@ -193,4 +193,60 @@ pub fn fixture_path(name: &str) -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures").join(name)
 }
 
+/// osc 220 · fm 330 (2, 1.5) · osc 440 · fm 110 (3, 2) → a mixer (unity gains) → audio_out → master → limiter: a stereo mix
+/// of four voices (the P0 base scene)
+pub const STEREO_TOML: &str = r#"
+[[node]]
+id = "a"
+kind = "osc"
+freq = 220.0
+gain = 0.2
+[[node]]
+id = "b"
+kind = "fm"
+freq = 330.0
+ratio = 2.0
+index = 1.5
+gain = 0.2
+[[node]]
+id = "c"
+kind = "osc"
+freq = 440.0
+gain = 0.15
+[[node]]
+id = "d"
+kind = "fm"
+freq = 110.0
+ratio = 3.0
+index = 2.0
+gain = 0.2
+[[node]]
+id = "mix"
+kind = "mixer"
+gain1 = 1.0
+gain2 = 1.0
+gain3 = 1.0
+gain4 = 1.0
+[[node]]
+id = "out"
+kind = "audio_out"
+volume = 1.0
+[[link]]
+from = "a"
+to = "mix.in1"
+[[link]]
+from = "b"
+to = "mix.in2"
+[[link]]
+from = "c"
+to = "mix.in3"
+[[link]]
+from = "d"
+to = "mix.in4"
+[[link]]
+from = "mix"
+to = "out.in"
+"#;
+
+
 pub const _OUT: &str = OUT;

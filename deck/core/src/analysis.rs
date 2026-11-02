@@ -40,7 +40,7 @@ pub struct Bands {
 
 impl Bands {
     pub fn new(rate: f32) -> Self {
-        let hann = (0..SIZE).map(|i| 0.5 - 0.5 * (std::f32::consts::TAU * i as f32 / SIZE as f32).cos()).collect();
+        let hann = (0..SIZE).map(|i| 0.5 - 0.5 * libm::cosf(std::f32::consts::TAU * i as f32 / SIZE as f32)).collect();
         Bands { fft: FftPlanner::new().plan_fft_forward(SIZE), hann, buf: vec![Complex::default(); SIZE], rate }
     }
 
@@ -94,7 +94,7 @@ impl Analyzer {
         let start = self.pos + HIST - SIZE - lead.min(MAX_LEAD);
         let window = &self.window;
         let raw = self.bands.analyse_by(|i| window[(start + i) % HIST]);
-        let fall = (-dt / self.release).exp();
+        let fall = libm::expf(-dt / self.release);
         for (v, r) in self.values.iter_mut().zip(raw) {
             *v = if r > *v { *v + (r - *v) * 0.6 } else { (*v * fall).max(r) };
         }
@@ -130,7 +130,7 @@ fn to_unit(amp: f32) -> f32 {
     if amp <= 0.0 {
         return 0.0;
     }
-    ((20.0 * amp.log10() - FLOOR_DB) / RANGE_DB).clamp(0.0, 1.0)
+    ((20.0 * libm::log10f(amp) - FLOOR_DB) / RANGE_DB).clamp(0.0, 1.0)
 }
 
 /// The `fft` kind as a block: `audio` takes the input block (the window slides), `control` puts out the four values.

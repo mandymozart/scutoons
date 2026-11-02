@@ -24,7 +24,7 @@ pub struct Midi {
 
 /// a key's pitch in Hz
 pub fn hz(note: u8) -> f32 {
-    440.0 * 2f32.powf((f32::from(note) - 69.0) / 12.0)
+    440.0 * libm::powf(2.0, (f32::from(note) - 69.0) / 12.0)
 }
 
 impl Midi {
