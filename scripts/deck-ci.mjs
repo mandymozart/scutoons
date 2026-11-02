@@ -8,7 +8,7 @@
 //   npm run deck:ci -- --if-changed <from> <to>   only when deck/ or shared/live* changed in that range (the pre-push hook)
 //
 // Steps: the protocol schema current (shared/live), live-core for wasm32 + its TS tests, space-web for wasm32 +
-// shared/live-deck's tests, cargo build --release, cargo test, cargo clippy -D warnings. The Linux aarch64 cross build
+// shared/live-deck's tests, cargo build --release, cargo test (+ the stage's module tests), cargo clippy -D warnings (+ with the module feature). The Linux aarch64 cross build
 // and the other platforms stay on GitHub (by hand) – this runs the host's native target.
 import { execFileSync, spawnSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
@@ -50,7 +50,10 @@ const steps = [
 				...(release ? [['🦀 release build', 'cargo', ['build', '--release'], `${root}/deck`]] : [])
 			]),
 	['🦀 tests', 'cargo', ['test', '--workspace'], `${root}/deck`],
-	['🦀 clippy', 'cargo', ['clippy', '--workspace', '--all-targets', '--', '-D', 'warnings'], `${root}/deck`]
+	// the stage's `modules` feature is not in its default, so the workspace run never builds it (#305)
+	['🧩 module tests', 'cargo', ['test', '-p', 'deck-stage', '--features', 'modules', '--test', 'modules'], `${root}/deck`],
+	['🦀 clippy', 'cargo', ['clippy', '--workspace', '--all-targets', '--', '-D', 'warnings'], `${root}/deck`],
+	['🧩 module clippy', 'cargo', ['clippy', '-p', 'deck-stage', '--features', 'modules', '--all-targets', '--', '-D', 'warnings'], `${root}/deck`]
 ];
 
 const started = Date.now();

@@ -1,9 +1,9 @@
 //! The module host (#280, feature `modules`): real wasm built with deck-module, run in wasmtime. The `walk` module is
 //! proven against the built-in `walk` node through the whole engine; the fixture module misbehaves on request to show that
-//! a panic or a runaway loop silences that node and nothing else. The wasm is built here with the wasm32 target
+//! a panic silences that node and nothing else. The host's own cases (the Io staging, a panic, a runaway loop, hostile
+//! imports, memory) are the conformance suite of deck-module-host, generic over its backend. The wasm is built here with the wasm32 target
 //! (`rustup target add wasm32-unknown-unknown`), into its own target dir.
 #![cfg(feature = "modules")]
-use deck_core::tempo::TempoMap;
 use deck_stage::audio::{Build, Engine};
 use deck_stage::graph::{Graph, Kind};
 use deck_stage::module_host::{Instance, Library};
@@ -145,75 +145,6 @@ impl WithSeed for Scene {
         }
         self
     }
-}
-
-fn fixture_instance(seed: u64) -> Instance {
-    let l = Library::global().load(&fixture()).unwrap();
-    Instance::new(&l, RATE, seed).unwrap()
-}
-
-#[test]
-fn audio_control_tempo_character_and_variables_cross_the_boundary() {
-    let mut i = fixture_instance(7);
-    // mode 0: 0.25 + bias on both channels, the first frame plus the input's sum
-    let ones = vec![1.0f32; 64];
-    i.set_audio_in(0, &ones, &ones);
-    assert!(i.process(0.0, 64));
-    let (mut l, mut r) = (vec![0.0; 64], vec![0.0; 64]);
-    i.read_audio_out(0, &mut l, &mut r);
-    assert_eq!((l[0], l[1], r[0], r[63]), (0.25 + 64.0, 0.25, 0.25 + 64.0, 0.25));
-    let ev = i.events();
-    assert_eq!(ev.len(), 1);
-    assert_eq!(deck_module::abi::get_str(&ev[0].name), "tick");
-    // a parameter: bias (index 1), clamped by the module to its range
-    i.set_param(1, 5.0);
-    i.process(64.0, 64);
-    i.read_audio_out(0, &mut l, &mut r);
-    assert_eq!(l[1], 1.25, "bias clamped to 1.0");
-    // mode 4 plays the tempo and a variable as numbers
-    i.set_param(0, 4.0);
-    i.set_tempo(&TempoMap::new(90.0, 4, RATE).with_beat(0.0, 2.0));
-    i.set_vars(&[("fx.level".into(), 0.5)]);
-    i.set_character("catpope", "dream", "calm");
-    assert_eq!(i.character_id(), "catpope");
-    i.process(24_000.0, 64);
-    i.read_audio_out(0, &mut l, &mut r);
-    let beat = TempoMap::new(90.0, 4, RATE).with_beat(0.0, 2.0).beat_at(24_000.0) as f32;
-    assert!((l[0] - (0.9 + 0.5)).abs() < 1e-6, "bpm / 100 + the variable: {}", l[0]);
-    assert!((r[0] - beat).abs() < 1e-5, "the beat: {} vs {beat}", r[0]);
-}
-
-#[test]
-fn a_panic_silences_that_instance_and_only_it() {
-    let mut a = fixture_instance(7);
-    let mut b = fixture_instance(7);
-    a.set_param(0, 1.0); // mode 1 panics
-    assert!(!a.process(0.0, 64));
-    let why = a.silenced().expect("silenced").to_owned();
-    assert!(why.contains("dm_process"), "{why}");
-    assert!(!a.process(64.0, 64), "and it stays silent");
-    assert!(b.process(0.0, 64), "another instance of the same module runs on");
-    assert!(b.silenced().is_none());
-}
-
-#[test]
-fn a_runaway_loop_is_stopped_by_the_time_budget() {
-    let mut i = fixture_instance(1);
-    i.set_param(0, 2.0); // mode 2 never returns
-    let t = Instant::now();
-    assert!(!i.process(0.0, 512));
-    assert!(t.elapsed() < Duration::from_millis(250), "stopped after {:?}", t.elapsed());
-    assert!(i.silenced().unwrap().contains("time budget"), "{:?}", i.silenced());
-}
-
-#[test]
-fn a_chatty_module_is_rate_limited_not_stopped() {
-    let mut i = fixture_instance(1);
-    i.set_param(0, 3.0); // mode 3: 50 log lines a block
-    for k in 0..4 {
-        assert!(i.process(k as f64 * 64.0, 64));
-    }
-    assert!(i.silenced().is_none());
 }
 
 /// through the engine: a module that panics is zeros, the rest of the scene plays on
