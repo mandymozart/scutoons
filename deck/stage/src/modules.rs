@@ -98,7 +98,7 @@ mod tests {
     fn the_table_and_the_stage_agree() {
         for m in STAGE_MODULES {
             assert!(built(m.feature).is_some(), "module '{}' is no feature of deck-stage", m.feature);
-            for k in m.kinds {
+            for k in m.kinds() {
                 assert!(Kind::parse(k).is_some(), "kind '{k}' of module '{}' is no stage kind", m.feature);
             }
             for s in m.sources {

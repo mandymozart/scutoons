@@ -141,6 +141,39 @@ final class ModulesApiTest extends TestCase
         self::assertSame([], self::json($this->request('GET', '/api/modules', $me))['items']);
     }
 
+    public function testTheKindCatalogListsTheBuiltInsAndThePublishedModules(): void
+    {
+        $me = $this->as('writer@scutoons.test');
+        self::assertSame(401, $this->request('GET', '/api/kinds')->getStatusCode(), 'signed in only');
+        $catalog = self::json($this->request('GET', '/api/kinds', $me));
+        self::assertSame(1, $catalog['catalog_version']);
+        $kinds = array_column($catalog['kinds'], null, 'name');
+        // every kind the validator knows is in the catalog with the same input ports
+        foreach (\Scutoons\Domain\Rigs\NodeKinds::KINDS as $name => $kind) {
+            self::assertArrayHasKey($name, $kinds, $name);
+            $in = array_column(array_filter($kinds[$name]['ports'], fn($p) => $p['dir'] === 'in'), 'type', 'name');
+            self::assertSame($kind['inputs'], $in, "$name inputs");
+        }
+        $fm = $kinds['fm'];
+        self::assertSame(['audio', 'synth', 'core'], [$fm['domain'], $fm['module'], $fm['feature']]);
+        $ratio = array_values(array_filter($fm['params'], fn($p) => $p['name'] === 'ratio'))[0];
+        self::assertSame(['log', 0.25, 8.0, 2.0, 'ratio'], [$ratio['curve'], $ratio['min'], $ratio['max'], $ratio['default'], $ratio['unit']]);
+        self::assertNotSame('', $ratio['doc']);
+        self::assertArrayNotHasKey('module:wobble', $kinds);
+
+        // a published module joins as module:<id>; one without a compile does not
+        $store = $this->get(\Scutoons\Domain\Catalog\CatalogStore::class);
+        $store->save('modules', 'wobble', ['id' => 'wobble', 'files' => self::SOURCE, 'descriptor' => self::DESCRIPTOR], 'test');
+        $store->save('modules', 'bare', ['id' => 'bare', 'files' => self::SOURCE], 'test');
+        $store->forget();
+        $kinds = array_column(self::json($this->request('GET', '/api/kinds', $me))['kinds'], null, 'name');
+        self::assertArrayHasKey('module:wobble', $kinds);
+        self::assertArrayNotHasKey('module:bare', $kinds);
+        self::assertSame([['cv', 'out', 'audio']], array_map(fn($p) => [$p['name'], $p['dir'], $p['type']], $kinds['module:wobble']['ports']));
+        self::assertSame(['spread', 0.0, 1.0], [$kinds['module:wobble']['params'][0]['name'], $kinds['module:wobble']['params'][0]['min'], $kinds['module:wobble']['params'][0]['max']]);
+        self::assertSame(1, $kinds['module:wobble']['abi']);
+    }
+
     public function testSourcesAreHeldToTheLimits(): void
     {
         $me = $this->as('writer@scutoons.test');

@@ -8,6 +8,7 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Catalog\CatalogStore;
 use Scutoons\Domain\Modules\MemberModules;
+use Scutoons\Domain\Rigs\KindCatalog;
 use Scutoons\Domain\Modules\ModuleCompiler;
 use Scutoons\Domain\Modules\ModuleSource;
 use Scutoons\Http\CurrentSession;
@@ -19,6 +20,8 @@ use Scutoons\Support\Json as JsonEncoding;
  * /api/modules – rig modules, Rust compiled to wasm (#281, Domain\Modules; agents/research/RIG-EDITING.md §4–7;
  * docs/API.md "Modules"). A session, or a paired deck's token for the reads (a deck loads the .wasm it plays). Every
  * member row is the member's own; the compile is the creators'.
+ *   GET    /kinds                → { status, catalog_version, kinds: [Descriptor] } – the node-kind catalog (deck/catalog, generated kinds.json: ports,
+ *                                  parameters, docs) plus the published modules as `module:<id>` · a session or a deck token
  *   GET    /modules              → { status, items: [{ id, name, descriptor?, wasm?, created_at, updated_at }] } – the member's own, no sources
  *   GET    /modules/{id}         → { status, module: { id, name?, files, descriptor?, wasm?: { hash, bytes, toolchain?, url } } } –
  *                                  the member's own (`m:<ulid>`) or a published factory module (`<id>`) · 404 not_found
@@ -37,6 +40,12 @@ final class ModulesController
         private readonly ModuleCompiler $compiler,
         private readonly CatalogStore $catalog,
     ) {
+    }
+
+    public function kinds(Request $request, Response $response): Response
+    {
+        CurrentSession::of($request)->requireUser();
+        return self::json($response, 200, ['status' => 'success'] + KindCatalog::merged($this->catalog->map('modules')));
     }
 
     public function list(Request $request, Response $response): Response

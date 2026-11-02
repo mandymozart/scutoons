@@ -1,0 +1,804 @@
+{
+  "$defs": {
+    "AnyChannels": {
+      "enum": [
+        "any"
+      ],
+      "type": "string"
+    },
+    "Bundle": {
+      "additionalProperties": false,
+      "properties": {
+        "instrument": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Instrument"
+          },
+          "type": "array"
+        },
+        "preset": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Preset"
+          },
+          "type": "array"
+        },
+        "rig": {
+          "$ref": "#/$defs/Rig"
+        }
+      },
+      "required": [
+        "rig"
+      ],
+      "type": "object"
+    },
+    "Catalog": {
+      "description": "The catalog as a document: `kinds.json`. The API merges the published modules' descriptors into `kinds`.",
+      "properties": {
+        "catalog_version": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "kinds": {
+          "items": {
+            "$ref": "#/$defs/Descriptor"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "catalog_version",
+        "kinds"
+      ],
+      "type": "object"
+    },
+    "Channels": {
+      "anyOf": [
+        {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "$ref": "#/$defs/AnyChannels"
+        }
+      ],
+      "description": "an audio port's channel count; `any` = whatever the cable carries (§2.6)"
+    },
+    "Curve": {
+      "oneOf": [
+        {
+          "enum": [
+            "lin"
+          ],
+          "type": "string"
+        },
+        {
+          "const": "log",
+          "description": "equal ratios per equal travel (frequencies, times, rates); min must be > 0",
+          "type": "string"
+        }
+      ]
+    },
+    "Descriptor": {
+      "description": "One node kind or module: what the engine, the validator, the editor and the agents all read.",
+      "properties": {
+        "abi": {
+          "description": "modules only: the ABI version they speak",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "batch": {
+          "description": "the batch evaluator (deck-core batch.rs, live-core, the browser) can run it",
+          "type": "boolean"
+        },
+        "doc": {
+          "type": "string"
+        },
+        "domain": {
+          "$ref": "#/$defs/Domain",
+          "default": "audio"
+        },
+        "feature": {
+          "description": "the stage's cargo feature that carries the kind (`core` = always); empty = none",
+          "type": "string"
+        },
+        "module": {
+          "description": "deck-core's module for the kind (control · synth · analysis · stage · 3d …); empty = none",
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "needs": {
+          "description": "capabilities the kind needs (#312) – reserved",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "params": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ParamDesc"
+          },
+          "type": "array"
+        },
+        "ports": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PortDesc"
+          },
+          "type": "array"
+        },
+        "scene_only": {
+          "description": "a scene owns it once: never inside an instrument",
+          "type": "boolean"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope",
+          "default": "graph"
+        },
+        "version": {
+          "default": "1",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "Dir": {
+      "enum": [
+        "in",
+        "out"
+      ],
+      "type": "string"
+    },
+    "Domain": {
+      "enum": [
+        "audio",
+        "control",
+        "video"
+      ],
+      "type": "string"
+    },
+    "Expose": {
+      "additionalProperties": false,
+      "description": "A shown parameter: a control input `node.port`, its label, and a narrower range than params.rs's (optional).",
+      "properties": {
+        "label": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "path": {
+          "type": "string"
+        },
+        "range": {
+          "items": {
+            "format": "float",
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": [
+            "array",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
+    "Instrument": {
+      "additionalProperties": false,
+      "properties": {
+        "expose": {
+          "description": "the parameters it shows; empty = every control input",
+          "items": {
+            "$ref": "#/$defs/Expose"
+          },
+          "type": "array"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/InstrumentKind"
+        },
+        "link": {
+          "items": {
+            "$ref": "#/$defs/LinkDef"
+          },
+          "type": "array"
+        },
+        "name": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "node": {
+          "items": {
+            "$ref": "#/$defs/NodeDef"
+          },
+          "type": "array"
+        },
+        "out": {
+          "description": "the track's output: an audio output `node.port` (a bare node = its `out`)",
+          "type": "string"
+        },
+        "rights": {
+          "$ref": "#/$defs/Rights",
+          "default": {
+            "core": [
+              "play",
+              "tweak",
+              "derive"
+            ],
+            "lent": [
+              "play",
+              "tweak"
+            ],
+            "owned": [
+              "play",
+              "tweak",
+              "derive",
+              "copy"
+            ]
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "node",
+        "out"
+      ],
+      "type": "object"
+    },
+    "InstrumentKind": {
+      "description": "What an instrument is for – an Ableton track's role. A scene object's sound (#210) is an instrument too.",
+      "oneOf": [
+        {
+          "enum": [
+            "drum",
+            "bass",
+            "lead",
+            "pad",
+            "voice",
+            "sampler"
+          ],
+          "type": "string"
+        },
+        {
+          "const": "texture",
+          "description": "noise, field recordings, an object's hiss (the incense)",
+          "type": "string"
+        },
+        {
+          "const": "fx",
+          "description": "an effect on a send / the master",
+          "type": "string"
+        }
+      ]
+    },
+    "LinkDef": {
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "type": "string"
+        },
+        "offset": {
+          "default": 0.0,
+          "format": "float",
+          "type": "number"
+        },
+        "scale": {
+          "default": 1.0,
+          "format": "float",
+          "type": "number"
+        },
+        "to": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "type": "object"
+    },
+    "Mapping": {
+      "additionalProperties": false,
+      "description": "A control source bound to a parameter. `source`: `midi:<channel>:cc:<n>` · `face:<blendshape>` (`face:jawOpen`) ·\n`motion:<axis>` (`motion:tilt.x`) · `pad:<control>` (`pad:left.x`) · `stick:<left|right>.<x|y>`; its 0..1 (or −1..1)\nlands on `target` across `range` (default: the parameter's range, params.rs).",
+      "properties": {
+        "range": {
+          "items": {
+            "format": "float",
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "source": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "target"
+      ],
+      "type": "object"
+    },
+    "NodeDef": {
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind"
+      ],
+      "type": "object"
+    },
+    "ParamDesc": {
+      "properties": {
+        "choices": {
+          "description": "a string parameter's values (`osc.wave`); min / max / default are then unused",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "curve": {
+          "$ref": "#/$defs/Curve",
+          "default": "lin"
+        },
+        "default": {
+          "default": null,
+          "description": "None = not driven until a param or a link sets it (an `events` node's knobs: the patch's own values play)",
+          "format": "float",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "doc": {
+          "type": "string"
+        },
+        "max": {
+          "default": 0.0,
+          "format": "float",
+          "type": "number"
+        },
+        "min": {
+          "default": 0.0,
+          "format": "float",
+          "type": "number"
+        },
+        "name": {
+          "type": "string"
+        },
+        "port": {
+          "description": "the value is also an input port of this name (a control input is both)",
+          "type": "boolean"
+        },
+        "unit": {
+          "description": "Hz, s, dB, ratio, px …",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "PortDesc": {
+      "properties": {
+        "channels": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Channels"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "audio ports: how many channels the port carries"
+        },
+        "dir": {
+          "$ref": "#/$defs/Dir"
+        },
+        "doc": {
+          "type": "string"
+        },
+        "engine": {
+          "description": "false = deck-core's control graph (its `KindInfo`) does not take this input, e.g. the `cv` of `osc`",
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/PortType",
+          "description": "ABI v1 module descriptors call it `kind`"
+        }
+      },
+      "required": [
+        "name",
+        "dir",
+        "type"
+      ],
+      "type": "object"
+    },
+    "PortType": {
+      "description": "a port's type; a link joins ports of one type (`cv` = pitch / gate carried in an audio port, see `seq`)",
+      "oneOf": [
+        {
+          "enum": [
+            "audio",
+            "control",
+            "cv",
+            "video"
+          ],
+          "type": "string"
+        },
+        {
+          "const": "event",
+          "description": "events out (deck-events' model): a module's notes and triggers, not a graph cable",
+          "type": "string"
+        }
+      ]
+    },
+    "Preset": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "instrument": {
+          "type": "string"
+        },
+        "link": {
+          "description": "links added; one into an input that already has a link replaces it",
+          "items": {
+            "$ref": "#/$defs/LinkDef"
+          },
+          "type": "array"
+        },
+        "mapping": {
+          "description": "control sources bound to parameters (#209, #212), saved with the preset",
+          "items": {
+            "$ref": "#/$defs/Mapping"
+          },
+          "type": "array"
+        },
+        "name": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "parent": {
+          "description": "the preset this one derives from (same instrument); none = a root",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rights": {
+          "$ref": "#/$defs/Rights",
+          "default": {
+            "core": [
+              "play",
+              "tweak",
+              "derive"
+            ],
+            "lent": [
+              "play",
+              "tweak"
+            ],
+            "owned": [
+              "play",
+              "tweak",
+              "derive",
+              "copy"
+            ]
+          }
+        },
+        "tags": {
+          "description": "free tags: a character's trait, a mood, a persona, a genre …",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "unlink": {
+          "description": "inputs whose link is removed (`node.port`)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "values": {
+          "additionalProperties": {
+            "format": "float",
+            "type": "number"
+          },
+          "description": "control input `node.port` → its value",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "instrument"
+      ],
+      "type": "object"
+    },
+    "Rig": {
+      "additionalProperties": false,
+      "description": "A character's (or object's) set of tracks.",
+      "properties": {
+        "moods": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Variant"
+          },
+          "description": "mood (the `moods` registry's ids) → overrides (applied after the persona's)",
+          "type": "object"
+        },
+        "personas": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Variant"
+          },
+          "description": "persona → overrides (applied first)",
+          "type": "object"
+        },
+        "rights": {
+          "$ref": "#/$defs/Rights",
+          "default": {
+            "core": [
+              "play",
+              "tweak",
+              "derive"
+            ],
+            "lent": [
+              "play",
+              "tweak"
+            ],
+            "owned": [
+              "play",
+              "tweak",
+              "derive",
+              "copy"
+            ]
+          }
+        },
+        "route": {
+          "description": "sends and modulation between tracks, and to the being's look (`being:hue`) – everything is audiovisual",
+          "items": {
+            "$ref": "#/$defs/Route"
+          },
+          "type": "array"
+        },
+        "sticks": {
+          "description": "the two corner sticks of the phone deck, `[[x, y], [x, y]]` (left, right) as knob paths\n(`<track>_<node>.<port>`); none = the first four knobs (#191)",
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "type": "array"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "subject": {
+          "description": "whose rig: `character.<id>` (`character.<id>.<persona>` for a persona's own) or `item.<id>` – KANON's subjects",
+          "type": "string"
+        },
+        "track": {
+          "items": {
+            "$ref": "#/$defs/Track"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "subject",
+        "track"
+      ],
+      "type": "object"
+    },
+    "Right": {
+      "description": "What a holder may do (owner 2026-10-30: \"the definition says who may save, copy or change it\").",
+      "oneOf": [
+        {
+          "const": "play",
+          "description": "load and hear it",
+          "type": "string"
+        },
+        {
+          "const": "tweak",
+          "description": "turn its knobs live (not saved)",
+          "type": "string"
+        },
+        {
+          "const": "derive",
+          "description": "save a derivative (a child preset) into one's carrier bag",
+          "type": "string"
+        },
+        {
+          "const": "copy",
+          "description": "save a copy without the lineage",
+          "type": "string"
+        }
+      ]
+    },
+    "Rights": {
+      "additionalProperties": false,
+      "description": "Rights per way of holding, carried by every definition. Default: lent = play + tweak, core = + derive, owned = all.",
+      "properties": {
+        "core": {
+          "default": [
+            "play",
+            "tweak",
+            "derive"
+          ],
+          "items": {
+            "$ref": "#/$defs/Right"
+          },
+          "type": "array"
+        },
+        "lent": {
+          "default": [
+            "play",
+            "tweak"
+          ],
+          "items": {
+            "$ref": "#/$defs/Right"
+          },
+          "type": "array"
+        },
+        "owned": {
+          "default": [
+            "play",
+            "tweak",
+            "derive",
+            "copy"
+          ],
+          "items": {
+            "$ref": "#/$defs/Right"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "Route": {
+      "additionalProperties": false,
+      "description": "`from` / `to` are `<track>:<node>.<port>`; `to` may be `being:<input>` (the space node's hue, glow, light, pulse).\nEvery track reaches the master through its mixer strip; an audio route is a send into another track's audio input\n(an fx track; `scale` = its level), a control route a modulation.",
+      "properties": {
+        "from": {
+          "type": "string"
+        },
+        "offset": {
+          "default": 0.0,
+          "format": "float",
+          "type": "number"
+        },
+        "scale": {
+          "default": 1.0,
+          "format": "float",
+          "type": "number"
+        },
+        "to": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "type": "object"
+    },
+    "Scope": {
+      "description": "where a kind stands: usable in a scene / instrument graph, a helper only the batch evaluator runs, or planned",
+      "enum": [
+        "graph",
+        "internal",
+        "planned"
+      ],
+      "type": "string"
+    },
+    "Track": {
+      "additionalProperties": false,
+      "description": "One track: an instrument, its default preset, its mixer strip.",
+      "properties": {
+        "gain": {
+          "default": 1.0,
+          "format": "float",
+          "type": "number"
+        },
+        "id": {
+          "type": "string"
+        },
+        "instrument": {
+          "type": "string"
+        },
+        "mute": {
+          "default": false,
+          "type": "boolean"
+        },
+        "pan": {
+          "default": 0.0,
+          "description": "−1 left … 1 right",
+          "format": "float",
+          "type": "number"
+        },
+        "preset": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "instrument"
+      ],
+      "type": "object"
+    },
+    "Variant": {
+      "additionalProperties": false,
+      "description": "A persona's or a mood's overrides: another preset per track, and single values (`<track>:<node>.<port>`).",
+      "properties": {
+        "presets": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "values": {
+          "additionalProperties": {
+            "format": "float",
+            "type": "number"
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "GENERATED by `cargo run -p deck-space --features schema --bin deck-schema` from deck/catalog (the kind catalog) – do not edit.",
+  "title": "deck catalog and documents"
+}

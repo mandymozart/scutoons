@@ -22,6 +22,7 @@ analysis = ["dep:rustfft"]
 tempo = []
 
 [dependencies]
+deck-catalog = { path = "../catalog" }
 rustfft = { version = "6", optional = true, default-features = false }
 toml = { workspace = true }
 serde = { workspace = true }

@@ -264,7 +264,7 @@ fn args() -> Result<Args> {
             }
             "--modules" => {
                 for m in modules::registry() {
-                    let what: Vec<&str> = m.kinds.iter().chain(m.sources).copied().collect();
+                    let what: Vec<&str> = m.kinds().chain(m.sources.iter().copied()).collect();
                     println!("{:<9} {} – {}", m.feature, what.join(" "), m.what);
                 }
                 std::process::exit(0);

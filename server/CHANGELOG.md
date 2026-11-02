@@ -4,6 +4,7 @@ Versions: `composer.json` `version`; `GET /api/health/` returns `version` + `git
 
 ## Unreleased
 
+- The node-kind catalog (#315, docs/API.md "Modules"): `GET /api/kinds` serves `Domain\Rigs\kinds.json` (generated from deck/catalog: every built-in kind with ports, parameters and doc strings) merged with the published modules (`module:<id>`). `Domain\Rigs\NodeKinds` is generated from the same catalog (same kinds and ports as before).
 - Rig modules (#281, docs/API.md "Modules"; migration `2026-11-02-modules`): the catalog kind `modules` (documents
   `module:<id>`: Rust sources + the descriptor and the wasm's hash a compile wrote), the members' `member_modules`,
   `GET|POST /api/modules`, `GET /api/modules/{id}`, `PUT|DELETE /api/modules/{m:id}` and `POST /api/modules/compile` (creators

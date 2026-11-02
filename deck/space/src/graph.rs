@@ -28,14 +28,6 @@ pub struct Port {
     pub ty: PortType,
 }
 
-/// a port literal (a struct literal, so the port tables below are promoted to statics)
-macro_rules! p {
-    ($name:literal, $ty:ident) => {
-        Port { name: $name, ty: $ty }
-    };
-}
-use PortType::{Audio as A, Control as C, Video as V};
-
 /// Every node kind the stage knows, built or not – a kind's implementation lives in its module (a cargo feature, #185:
 /// modules.rs, deck-core's stage.rs table). A new kind = a variant here + its name + its ports + its block
 /// (render.rs / audio / control.rs) + its line in that table.
@@ -145,67 +137,66 @@ impl Kind {
         Kind::NAMES.iter().find(|&&(_, k)| k == self).map(|&(n, _)| n).expect("every kind has a name")
     }
 
-    pub fn domain(self) -> Domain {
+    /// the kind's catalog entry (deck-catalog, #315): its domain, ports and parameters are the catalog's
+    pub fn descriptor(self) -> Option<&'static deck_catalog::Descriptor> {
         match self {
-            Kind::TestPattern | Kind::Shader | Kind::Screen | Kind::Chapter | Kind::Overlay | Kind::Space | Kind::Outlet => Domain::Video,
-            Kind::Lfo | Kind::Tempo => Domain::Control,
+            Kind::Module(_) => None,
+            _ => deck_catalog::builtin(self.name()),
+        }
+    }
+
+    pub fn domain(self) -> Domain {
+        match self.descriptor().map(|d| d.domain) {
+            Some(deck_catalog::Domain::Video) => Domain::Video,
+            Some(deck_catalog::Domain::Control) => Domain::Control,
             _ => Domain::Audio,
         }
+    }
+
+    /// both port lists of every kind, built once from the catalog (indexed like `NAMES`)
+    fn port_lists() -> &'static [(Vec<Port>, Vec<Port>)] {
+        static LISTS: std::sync::OnceLock<Vec<(Vec<Port>, Vec<Port>)>> = std::sync::OnceLock::new();
+        LISTS.get_or_init(|| {
+            use deck_catalog::{static_str, Dir, PortType as T};
+            let list = |d: &'static deck_catalog::Descriptor, dir: Dir| -> Vec<Port> {
+                d.ports
+                    .iter()
+                    .filter(|p| p.dir == dir)
+                    .map(|p| Port {
+                        name: static_str(&p.name),
+                        ty: match p.ty {
+                            T::Audio | T::Cv => PortType::Audio,
+                            T::Control | T::Event => PortType::Control,
+                            T::Video => PortType::Video,
+                        },
+                    })
+                    .collect()
+            };
+            Kind::NAMES
+                .iter()
+                .map(|(name, _)| {
+                    let d = deck_catalog::builtin(name).unwrap_or_else(|| panic!("kind '{name}' is not in the catalog (deck-catalog)"));
+                    (list(d, Dir::In), list(d, Dir::Out))
+                })
+                .collect()
+        })
+    }
+
+    fn index(self) -> usize {
+        Kind::NAMES.iter().position(|&(_, k)| k == self).expect("every built-in kind has a name")
     }
 
     pub fn inputs(self) -> &'static [Port] {
         match self {
             Kind::Module(m) => m.spec().inputs,
-            Kind::TestPattern => &[p!("speed", C), p!("zoom", C), p!("hue", C), p!("pulse", C)],
-            Kind::Shader => &[p!("in", V), p!("a", C), p!("b", C), p!("c", C), p!("d", C)],
-            Kind::Screen => &[p!("in", V)],
-            Kind::Chapter => &[p!("in", V), p!("next", C), p!("hold", C), p!("zoom", C), p!("pulse", C)],
-            Kind::Overlay => &[p!("in", V), p!("top", V), p!("opacity", C), p!("pulse", C), p!("shake", C)],
-            // hue / glow / light / pulse, then the post stack's knobs (#204, space/post.rs `PORTS`)
-            Kind::Space => &[
-                p!("hue", C),
-                p!("glow", C),
-                p!("light", C),
-                p!("pulse", C),
-                p!("bloom", C),
-                p!("threshold", C),
-                p!("lift", C),
-                p!("gamma", C),
-                p!("gain", C),
-                p!("pixel", C),
-                p!("levels", C),
-            ],
-            Kind::Outlet => &[p!("in", V), p!("opacity", C)],
-            Kind::Lfo => &[p!("rate", C), p!("depth", C)],
-            Kind::Tempo => &[],
-            Kind::Click => &[p!("gain", C)],
-            Kind::Osc => &[p!("cv", A), p!("freq", C), p!("gain", C)],
-            Kind::Noise => &[p!("cutoff", C), p!("gain", C)],
-            Kind::Fm => &[p!("cv", A), p!("freq", C), p!("ratio", C), p!("index", C), p!("gain", C)],
-            Kind::Seq => &[p!("rate", C)],
-            Kind::Walk => &[p!("spread", C), p!("rate", C), p!("glide", C)],
-            Kind::Events => &[p!("a", C), p!("b", C), p!("c", C), p!("d", C)],
-            Kind::ChapterMusic => &[p!("gain", C)],
-            Kind::Mixer => &[
-                p!("in1", A), p!("in2", A), p!("in3", A), p!("in4", A),
-                p!("gain1", C), p!("gain2", C), p!("gain3", C), p!("gain4", C),
-            ],
-            Kind::Fft => &[p!("in", A)],
-            Kind::AudioOut => &[p!("in", A), p!("volume", C)],
+            _ => &Kind::port_lists()[self.index()].0,
         }
     }
 
     pub fn outputs(self) -> &'static [Port] {
         match self {
             Kind::Module(m) => m.spec().outputs,
-            Kind::TestPattern | Kind::Shader | Kind::Overlay | Kind::Space | Kind::Outlet => &[p!("out", V)],
-            Kind::Chapter => &[p!("out", V), p!("text", V)],
-            Kind::Screen | Kind::AudioOut => &[],
-            Kind::Lfo => &[p!("out", C)],
-            Kind::Tempo => &[p!("bpm", C), p!("beat", C), p!("bar", C), p!("phase", C), p!("bar_phase", C), p!("pulse", C)],
-            Kind::Seq | Kind::Walk | Kind::Events => &[p!("cv", A)],
-            Kind::Fft => &[p!("level", C), p!("bass", C), p!("mid", C), p!("high", C)],
-            _ => &[p!("out", A)],
+            _ => &Kind::port_lists()[self.index()].1,
         }
     }
 

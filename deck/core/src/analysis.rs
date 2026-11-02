@@ -2,7 +2,7 @@
 //! into an `Analyzer`): level (RMS) + the peak magnitude of bass 20–250 Hz, mid 250–2000 Hz, high 2–8 kHz, each in 0–1
 //! (dB-scaled). `Analyzer` keeps a history and looks back by the output lead, so the values are what is heard now (a
 //! fast rise, a `release` in seconds); `FftBlock` is the patcher's `fft` kind (one window, no lead, no smoothing).
-use crate::module::{Block, KindInfo, Module, Params, ANALYSIS_KINDS};
+use crate::module::{Block, KindInfo, Module, Params, kinds_of_module};
 use rustfft::{num_complex::Complex, Fft, FftPlanner};
 use std::sync::Arc;
 
@@ -23,7 +23,7 @@ impl Module for AnalysisModule {
         "analysis"
     }
     fn kinds(&self) -> &'static [KindInfo] {
-        ANALYSIS_KINDS
+        kinds_of_module("analysis")
     }
     fn build(&self, kind: &str, _params: &Params, rate: f32) -> Option<Box<dyn Block>> {
         (kind == "fft").then(|| Box::new(FftBlock { bands: Bands::new(rate), window: vec![0.0; SIZE], values: [0.0; 4] }) as Box<dyn Block>)

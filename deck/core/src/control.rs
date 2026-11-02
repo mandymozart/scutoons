@@ -1,6 +1,6 @@
 //! Module `control`: the control domain's small blocks – one f32 per port per frame.
 use crate::math::{sin_turns, wrap01};
-use crate::module::{param, Block, KindInfo, Module, Params, CONTROL_KINDS};
+use crate::module::{param, Block, KindInfo, Module, Params, kinds_of_module};
 
 pub struct ControlModule;
 
@@ -9,7 +9,7 @@ impl Module for ControlModule {
         "control"
     }
     fn kinds(&self) -> &'static [KindInfo] {
-        CONTROL_KINDS
+        kinds_of_module("control")
     }
     fn build(&self, kind: &str, params: &Params, _rate: f32) -> Option<Box<dyn Block>> {
         Some(match kind {

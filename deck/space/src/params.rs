@@ -1,7 +1,7 @@
 //! The control inputs as parameters (#188 phase 3): each kind's ports with a range, a curve and the default the stage
 //! uses when neither a link nor a param sets them – one table for the renderer's passes, the being's 3D buttons and
 //! (later) MIDI / OSC learn and #189's float-vector mapping. Audio kinds' defaults are the engine's (`default_for`).
-use crate::graph::{Domain, Kind};
+use crate::graph::Kind;
 
 /// an LFO's shapes by name (its `shape` param), in the order its shape index counts them (deck-stage's control.rs,
 /// the being's waveform button)
@@ -46,79 +46,35 @@ impl Spec {
     }
 }
 
-const fn lin(min: f32, max: f32, default: f32) -> Spec {
-    Spec { min, max, default, curve: Curve::Lin }
-}
-
-const fn log(min: f32, max: f32, default: f32) -> Spec {
-    Spec { min, max, default, curve: Curve::Log }
-}
-
 /// the default of `kind`'s control input `port` (what an unlinked input without a param reads)
 pub fn default(kind: Kind, port: &str) -> f32 {
     spec(kind, port).default
 }
 
-/// a control input's value when neither the node nor a link sets it
+/// a control input's value when neither the node nor a link sets it: the catalog's default (deck-catalog, #315; NaN =
+/// not driven until a param or a link sets it, an events node's knobs), a module's own for `module:*`, else 0
 pub fn default_for(kind: Kind, port: &str) -> f32 {
-    match (kind, port) {
+    match kind {
         // a module's parameters: the defaults its descriptor declares (modreg.rs)
-        (Kind::Module(m), _) => m.default_for(port),
-        // an events node's knobs: not driven until a param or a link sets them (the patch's own values play)
-        (Kind::Events, "a" | "b" | "c" | "d") => f32::NAN,
-        // a walk: held (spread 0), two steps a beat, half a step's glide
-        (Kind::Walk, "rate") => 2.0,
-        (Kind::Walk, "glide") => 0.5,
-        (_, "gain" | "gain1" | "gain2" | "gain3" | "gain4" | "rate") => 1.0,
-        (Kind::AudioOut, "volume") => 0.8,
-        (_, "freq") => 220.0,
-        (Kind::Noise, "cutoff") => 4000.0,
-        (Kind::Fm, "ratio") => 2.0,
-        (Kind::Fm, "index") => 1.0,
-        _ => 0.0,
+        Kind::Module(m) => m.default_for(port),
+        _ => kind.descriptor().and_then(|d| d.param(port)).map_or(0.0, |p| p.default.unwrap_or(f32::NAN)),
     }
 }
 
-/// `kind`'s control input `port` as a parameter
+/// `kind`'s control input `port` as a parameter: its range, curve and default from the catalog; a module's ports and
+/// unknown ones read 0..1 linear
 pub fn spec(kind: Kind, port: &str) -> Spec {
-    use Kind::*;
-    let audio = |s: Spec| Spec { default: default_for(kind, port), ..s };
-    match (kind, port) {
-        (TestPattern, "speed") => lin(0.0, 4.0, 1.0),
-        (TestPattern | Chapter, "zoom") => log(0.25, 4.0, 1.0),
-        (TestPattern | Space, "hue") => lin(0.0, 1.0, if kind == Space { 0.52 } else { 0.0 }),
-        (Shader, "a" | "b" | "c") => lin(0.0, 1.0, 0.5),
-        (Chapter, "hold") => log(0.5, 30.0, 6.0),
-        (Overlay | Outlet, "opacity") => lin(0.0, 1.0, 1.0),
-        (Lfo, "rate") => log(0.01, 20.0, 0.25),
-        (Lfo, "depth") => lin(0.0, 2.0, 1.0),
-        (Space, "glow") => lin(0.0, 2.0, 0.6),
-        (Space, "light") => lin(0.0, 1.5, 0.85),
-        // the post stack (#204, space/post.rs): bloom's amount and threshold, curves' lift / gamma / gain, the
-        // pixelation's block size (render pixels) and quantise levels per channel (< 2 = off)
-        (Space, "bloom") => lin(0.0, 2.0, 0.6),
-        (Space, "threshold") => lin(0.0, 1.0, 0.6),
-        (Space, "lift") => lin(-0.2, 0.3, 0.0),
-        (Space, "gamma") => log(0.4, 2.5, 1.0),
-        (Space, "gain") => lin(0.5, 2.0, 1.0),
-        (Space, "pixel") => log(1.0, 64.0, 1.0),
-        (Space, "levels") => lin(0.0, 16.0, 0.0),
-        (Osc | Fm, "freq") => audio(log(20.0, 4000.0, 0.0)),
-        (Fm, "ratio") => audio(log(0.25, 8.0, 0.0)),
-        (Fm, "index") => audio(lin(0.0, 10.0, 0.0)),
-        (Noise, "cutoff") => audio(log(50.0, 16_000.0, 0.0)),
-        (Seq, "rate") => audio(log(0.25, 4.0, 0.0)),
-        (Walk, "spread") => audio(lin(0.0, 1.0, 0.0)),
-        (Walk, "rate") => audio(log(0.25, 8.0, 0.0)),
-        (Walk, "glide") => audio(lin(0.0, 1.0, 0.0)),
-        // raw values into the patch's params: the instrument's `expose.range` gives a knob its real range
-        (Events, "a" | "b" | "c" | "d") => audio(lin(0.0, 1.0, 0.0)),
-        (Mixer, "gain1" | "gain2" | "gain3" | "gain4") => audio(lin(0.0, 1.5, 0.0)),
-        (AudioOut, "volume") => audio(lin(0.0, 1.0, 0.0)),
-        (_, "gain") => audio(lin(0.0, 1.0, 0.0)),
-        _ if kind.domain() == Domain::Audio => audio(lin(0.0, 1.0, 0.0)),
-        // pulses, triggers, shakes, the shader's d …
-        _ => lin(0.0, 1.0, 0.0),
+    match kind.descriptor().and_then(|d| d.param(port)) {
+        Some(p) => Spec {
+            min: p.min,
+            max: p.max,
+            default: p.default.unwrap_or(f32::NAN),
+            curve: match p.curve {
+                deck_catalog::Curve::Lin => Curve::Lin,
+                deck_catalog::Curve::Log => Curve::Log,
+            },
+        },
+        None => Spec { min: 0.0, max: 1.0, default: default_for(kind, port), curve: Curve::Lin },
     }
 }
 

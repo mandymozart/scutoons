@@ -24,19 +24,30 @@ enum K {
 }
 
 impl K {
+    const ALL: [K; 6] = [K::Lfo, K::Smooth, K::Mul, K::Add, K::Osc, K::Fm];
+
+    /// the kind by its name; its control inputs come from the catalog (deck-catalog: the kinds flagged `batch`)
     fn parse(s: &str) -> Option<(K, &'static [&'static str])> {
-        Some(match s {
-            "lfo" => (K::Lfo, &["rate", "depth"]),
-            "smooth" => (K::Smooth, &["in", "time"]),
-            "mul" => (K::Mul, &["a", "b"]),
-            "add" => (K::Add, &["a", "b"]),
-            "osc" => (K::Osc, &["freq", "gain"]),
-            "fm" => (K::Fm, &["freq", "ratio", "index", "gain"]),
-            _ => return None,
-        })
+        let k = K::ALL.into_iter().find(|k| k.name() == s)?;
+        Some((k, k.ports()))
     }
+    /// the kind's control inputs in port order (the catalog's)
+    fn ports(self) -> &'static [&'static str] {
+        static PORTS: std::sync::OnceLock<Vec<Vec<&'static str>>> = std::sync::OnceLock::new();
+        let all = PORTS.get_or_init(|| {
+            K::ALL
+                .iter()
+                .map(|k| {
+                    let d = deck_catalog::builtin(k.name()).expect("a batch kind is in the catalog");
+                    d.inputs().filter(|p| p.ty == deck_catalog::PortType::Control).map(|p| deck_catalog::static_str(&p.name)).collect()
+                })
+                .collect()
+        });
+        &all[K::ALL.iter().position(|&x| x == self).expect("listed")]
+    }
+    /// renders audio (the catalog's domain)
     fn audio(self) -> bool {
-        matches!(self, K::Osc | K::Fm)
+        deck_catalog::builtin(self.name()).is_some_and(|d| d.domain == deck_catalog::Domain::Audio)
     }
     /// an audio kind's inputs' glide times (smooth.rs; synth.rs's blocks use the same)
     fn glides(self) -> [f32; 4] {
@@ -557,5 +568,21 @@ gain = 0.0
         c.constant(7.0);
         let v = [0.0, 3.0];
         assert_eq!((c.len(), c.get(&v, 0), c.get(&v, 1)), (2, 6.5, 7.0));
+    }
+}
+
+#[cfg(test)]
+mod catalog_tests {
+    use super::*;
+
+    #[test]
+    fn the_batch_kinds_are_the_catalogs() {
+        let mut cat: Vec<&str> = deck_catalog::builtin_kinds().iter().filter(|d| d.batch).map(|d| d.name.as_ref()).collect();
+        cat.sort_unstable();
+        let mut ours: Vec<&str> = K::ALL.iter().map(|k| k.name()).collect();
+        ours.sort_unstable();
+        assert_eq!(ours, cat, "a batch kind is flagged `batch` in deck-catalog's builtin.rs");
+        assert_eq!(kind_ports("fm"), Some((&["freq", "ratio", "index", "gain"][..], true)));
+        assert_eq!(kind_ports("lfo"), Some((&["rate", "depth"][..], false)));
     }
 }

@@ -900,6 +900,7 @@ id `m:<ulid>`). A **document** is `{ id, name?, files, descriptor?, wasm? }`; `d
 
 | Method | Path | Notes |
 | --- | --- | --- |
+| GET | `/kinds` | `{ status, catalog_version, kinds: [Descriptor] }` (#315) – the node-kind catalog: every built-in kind (generated `Domain\Rigs\kinds.json` from deck/catalog; the Rust types are the source – `deck/catalog/schema.json`, `shared/live/src/catalog.ts`) with its ports (type, direction, channels, doc) and parameters (range, curve, unit, default, choices, doc), plus the **published** modules as `module:<id>` (ABI v1 descriptors in the same shape). A session or a deck token |
 | GET | `/modules` | `{ status, items: [{ id, name, descriptor?, wasm?, created_at, updated_at }] }` – the member's own, without sources |
 | GET | `/modules/{id}` | `{ status, module: { id, name?, files, descriptor?, wasm?: { hash, bytes, toolchain?, url } } }` – an own `m:<ulid>`, or a **published** factory module by its id · `404 not_found` |
 | POST | `/modules` | `{ name, files }` → `201 { status, module }` · `422 invalid_module { problems }` · `422 too_many_modules` |

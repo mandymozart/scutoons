@@ -21,9 +21,14 @@ being = ["dep:glam", "dep:ab_glyph", "dep:image", "dep:bytemuck", "dep:protocol"
 gpu = ["being", "dep:wgpu"]
 # loaders on threads and from files: a set's .glb, the portraits from a folder, images decoded in Rust (WebP, PNG)
 native = ["being", "image/png", "image/webp"]
+# the generator (src/bin/deck-schema.rs): kinds.json, the JSON Schema, the TS types and NodeKinds.php from the catalog and
+# the documents' types (#315). Never in a wasm build.
+schema = ["dep:schemars", "deck-catalog/schema"]
 
 [dependencies]
 deck-core = { workspace = true, features = ["tempo"] }
+# the node-kind catalog: ports, domains and parameter ranges of every kind (#315)
+deck-catalog = { path = "../catalog" }
 # the rig's mood horizon (rig/horizon.rs): deck-events' horizon walker (#236)
 deck-events = { path = "../events" }
 anyhow.workspace = true
@@ -39,7 +44,13 @@ bytemuck = { version = "1", features = ["derive"], optional = true }
 # resizing and mip levels; decoding only with `native` (the browser decodes the web's images)
 image = { version = "0.25", default-features = false, optional = true }
 wgpu = { version = "25", optional = true }
+schemars = { version = "1", optional = true }
 
 # the acceptance test of the events adapters (tests/story_to_rig.rs): a chapter event routed to a core rig
 [dev-dependencies]
 deck-events = { path = "../events" }
+
+[[bin]]
+name = "deck-schema"
+path = "src/bin/deck-schema.rs"
+required-features = ["schema"]

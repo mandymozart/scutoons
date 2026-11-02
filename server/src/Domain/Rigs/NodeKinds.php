@@ -4,10 +4,11 @@ declare(strict_types=1);
 namespace Scutoons\Domain\Rigs;
 
 /**
- * GENERATED from deck/space/src/graph.rs – do not edit: `UPDATE_FIXTURES=1 cargo test -p deck-space node_kinds` writes it,
- * a plain run fails when it is stale. The node kinds an instrument's graph may use (RigValidator mirrors graph.rs's
- * checks with them): kind → its domain (audio · control · video – a control link into or out of an audio node does not
- * order, graph.rs `Link::orders`) and its input / output ports with their types.
+ * GENERATED from deck/catalog (the kind catalog) – do not edit: `cargo run -p deck-space --features schema --bin deck-schema`
+ * writes it (deck:ci fails when it is stale). The node kinds an instrument's graph may use (RigValidator mirrors
+ * graph.rs's checks with them): kind → its domain (audio · control · video – a control link into or out of an audio
+ * node does not order, graph.rs `Link::orders`) and its input / output ports with their types. kinds.json beside it
+ * is the full, explained catalog; until #313 retires the validator this file is its small projection.
  */
 final class NodeKinds
 {
@@ -33,6 +34,6 @@ final class NodeKinds
         'fft' => ['domain' => 'audio', 'inputs' => ['in' => 'audio'], 'outputs' => ['level' => 'control', 'bass' => 'control', 'mid' => 'control', 'high' => 'control']],
         'audio_out' => ['domain' => 'audio', 'inputs' => ['in' => 'audio', 'volume' => 'control'], 'outputs' => []],
     ];
-    /** kinds a scene owns once (instrument.rs SCENE_ONLY): never inside an instrument */
-    public const SCENE_ONLY = ['screen', 'audio_out', 'tempo', 'space', 'outlet'];
+    /** kinds a scene owns once (the catalog's `scene_only`): never inside an instrument */
+    public const SCENE_ONLY = ['screen', 'space', 'outlet', 'tempo', 'audio_out'];
 }

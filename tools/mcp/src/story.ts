@@ -26,6 +26,7 @@ import {
 	collectionDocsFromEntities,
 	composeWorldMap
 } from '@scutoons/content';
+import { pickKinds, type KindCatalog } from './kinds.ts';
 import type { Config } from './config.ts';
 import { apiMessage } from './server.ts';
 
@@ -192,6 +193,16 @@ export function registerStoryTools(server: McpServer, config: Config): void {
 			if (toon) return dead[toon] ? text({ toon, ...dead[toon] }) : fail(`no flow data for "${toon}" (list_toons)`);
 			return text(dead);
 		})
+	);
+
+	server.registerTool(
+		'read_kinds',
+		{
+			description: 'The node-kind catalog (GET /api/kinds): every built-in node kind of the deck engine and the published modules (`module:<id>`) with ports (type, direction, channels) and parameters (range, curve, unit, default, doc). No filter = a short index; `names` = the full descriptors of these kinds; `q` = words anywhere in a descriptor.',
+			inputSchema: z.object({ names: z.array(z.string()).max(30).optional(), q: z.string().optional() }),
+			annotations: read
+		},
+		guard(async ({ names, q }) => text(pickKinds(await client.get<KindCatalog>('/kinds'), names, q)))
 	);
 
 	server.registerTool(

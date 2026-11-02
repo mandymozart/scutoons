@@ -94,6 +94,19 @@ in the generated code. No build.rs, no proc-macro at compile time: the Rust outp
 The shared fixture `protocol/fixtures/messages.json` is parsed by both sides (`cargo test -p protocol`,
 `npm test -w shared/live`).
 
+## Kind catalog: one descriptor table (#315)
+
+`catalog/` (`deck-catalog`) holds ONE table of every node kind – ports (type, direction, channels, doc) and parameters
+(range, curve, unit, default, choices, doc) – in the shape a module's descriptor deserializes into (`Descriptor`, ABI v1
+JSON parses with serde defaults). deck-space's `Kind` (ports, domain, parameter specs), deck-core's kind table, the stage
+module table (`feature`) and the batch evaluator's kinds read it; a new kind = a variant in `Kind` + an entry in
+`catalog/src/builtin.rs` + its block (tests check both lists agree). Generated from it, checked in, `--check`ed in
+`npm run deck:ci`: `server/src/Domain/Rigs/kinds.json` (served by `GET /api/kinds` plus the published modules),
+`NodeKinds.php`, `deck/catalog/schema.json` (JSON Schema of the catalog and the rig bundle) and
+`shared/live/src/catalog.ts`. Regenerate: `cargo run -p deck-space --features schema --bin deck-schema` (the `schema`
+feature – schemars and the doc strings – stays out of every wasm build). `catalog_version` rises when a kind, port or
+parameter is renamed or removed (a stored-format change).
+
 ## Dogma (CYBERDECKS.md §2) – the release checklist
 
 Checked per release like the viewer's size checks; measured numbers go into `deck/HARDWARE.md` once it exists (§8).

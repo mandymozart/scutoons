@@ -32,6 +32,7 @@ pub type Text = BTreeMap<String, String>;
 
 /// How a deck holds a definition (#191, the carrier bag #192): lent by a conductor for one scene, owned in the member's
 /// carrier bag, or core – shipped in the deck image.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Hold {
@@ -41,6 +42,7 @@ pub enum Hold {
 }
 
 /// What a holder may do (owner 2026-10-30: "the definition says who may save, copy or change it").
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Right {
@@ -55,6 +57,7 @@ pub enum Right {
 }
 
 /// Rights per way of holding, carried by every definition. Default: lent = play + tweak, core = + derive, owned = all.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct Rights {
@@ -82,6 +85,7 @@ impl Rights {
 }
 
 /// A character's (or object's) set of tracks.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Rig {
@@ -107,6 +111,7 @@ pub struct Rig {
 }
 
 /// One track: an instrument, its default preset, its mixer strip.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Track {
@@ -130,6 +135,7 @@ fn one() -> f32 {
 /// `from` / `to` are `<track>:<node>.<port>`; `to` may be `being:<input>` (the space node's hue, glow, light, pulse).
 /// Every track reaches the master through its mixer strip; an audio route is a send into another track's audio input
 /// (an fx track; `scale` = its level), a control route a modulation.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Route {
@@ -142,6 +148,7 @@ pub struct Route {
 }
 
 /// A persona's or a mood's overrides: another preset per track, and single values (`<track>:<node>.<port>`).
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct Variant {

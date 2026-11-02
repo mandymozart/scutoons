@@ -528,44 +528,22 @@ fn an_events_node_must_hold_a_patch_that_builds() {
     assert!(unknown.contains("events node 'gen'"), "{unknown}");
 }
 
-/// The server's rig validator (server/src/Domain/Rigs/NodeKinds.php) checks instruments against graph.rs's kinds and
-/// ports: `UPDATE_FIXTURES=1 cargo test -p deck-space node_kinds` writes that PHP file, a plain run fails when it is stale.
+/// The catalog (deck-catalog) and `Kind` list the same kinds: every `graph` kind of the catalog is a `Kind` in the same order
+/// (the generated server file keeps it), and the scene-only ones are the ones instruments refuse. The server's
+/// NodeKinds.php and kinds.json are checked by `deck-schema --check` (deck:ci).
 #[test]
-fn node_kinds_for_the_server_are_current() {
-    use crate::graph::{Domain, Kind, PortType};
-    let ty = |t: PortType| match t {
-        PortType::Audio => "audio",
-        PortType::Control => "control",
-        PortType::Video => "video",
-    };
-    let ports = |ps: &[crate::graph::Port]| {
-        ps.iter().map(|p| format!("'{}' => '{}'", p.name, ty(p.ty))).collect::<Vec<_>>().join(", ")
-    };
-    let mut kinds = String::new();
+fn the_catalog_and_the_kind_enum_agree() {
+    use crate::graph::Kind;
+    use deck_catalog::Scope;
+    let catalog: Vec<&str> = deck_catalog::builtin_kinds().iter().filter(|d| d.scope == Scope::Graph).map(|d| d.name.as_ref()).collect();
+    let kinds: Vec<&str> = Kind::ALL.iter().map(|k| k.name()).collect();
+    assert_eq!(catalog, kinds, "a kind is added to Kind and to deck-catalog's builtin.rs together");
     for k in Kind::ALL {
-        let domain = match k.domain() {
-            Domain::Audio => "audio",
-            Domain::Control => "control",
-            Domain::Video => "video",
-        };
-        kinds += &format!(
-            "        '{}' => ['domain' => '{domain}', 'inputs' => [{}], 'outputs' => [{}]],\n",
-            k.name(),
-            ports(k.inputs()),
-            ports(k.outputs())
-        );
+        let d = k.descriptor().unwrap();
+        assert_eq!(k.inputs().len(), d.inputs().count(), "{k:?} inputs");
+        assert_eq!(k.outputs().len(), d.outputs().count(), "{k:?} outputs");
+        assert_eq!(super::instrument::SCENE_ONLY.contains(&k), d.scene_only, "{k:?}: scene_only");
     }
-    let scene_only =
-        super::instrument::SCENE_ONLY.iter().map(|k| format!("'{}'", k.name())).collect::<Vec<_>>().join(", ");
-    let text = format!(
-        "<?php\ndeclare(strict_types=1);\n\nnamespace Scutoons\\Domain\\Rigs;\n\n/**\n * GENERATED from deck/space/src/graph.rs – do not edit: `UPDATE_FIXTURES=1 cargo test -p deck-space node_kinds` writes it,\n * a plain run fails when it is stale. The node kinds an instrument's graph may use (RigValidator mirrors graph.rs's\n * checks with them): kind → its domain (audio · control · video – a control link into or out of an audio node does not\n * order, graph.rs `Link::orders`) and its input / output ports with their types.\n */\nfinal class NodeKinds\n{{\n    public const KINDS = [\n{kinds}    ];\n    /** kinds a scene owns once (instrument.rs SCENE_ONLY): never inside an instrument */\n    public const SCENE_ONLY = [{scene_only}];\n}}\n"
-    );
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/src/Domain/Rigs/NodeKinds.php");
-    if std::env::var_os("UPDATE_FIXTURES").is_some() {
-        std::fs::write(path, &text).unwrap();
-    }
-    let on_disk = std::fs::read_to_string(path).unwrap_or_default().replace('\r', "");
-    assert!(on_disk == text, "{path} is stale: UPDATE_FIXTURES=1 cargo test -p deck-space node_kinds");
 }
 
 /// The contract with the server (#258): `GET /api/library/scene-content`'s rigs, as the server answers them from its
