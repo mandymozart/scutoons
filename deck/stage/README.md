@@ -147,6 +147,8 @@ A live tool may not crackle unnoticed, and should not crackle at all:
   1056-frame (22 ms) buffer whatever is asked below that – a smaller buffer needs ASIO.
 - **Host and device**: `--audio-host default|wasapi|asio` (deck.toml `audio_host`), `--audio-device NAME` (a part of
   the name, any case; deck.toml `audio_device`), `--audio-list` prints the hosts, devices, formats and buffer ranges.
+  A dev machine's deck.toml: the user variable `DECK_TOML` names it (the PC: `%LOCALAPPDATA%\scutoons\deck.toml` with
+  `audio_host = "asio"`, `audio_device = "Fireface"`, `audio_buffer = 128` – owner 2026-11-02, #230).
   **WASAPI exclusive** is not possible: cpal (0.15 and 0.16) opens WASAPI in shared mode only.
 - **ASIO** (the RME Fireface's reference driver on Windows) is the cargo feature `asio` (cpal's asio host; output in
   f32, i16 or i32 – RME's driver talks i32). Its `asio-sys` builds bindings to Steinberg's ASIO SDK at build time:
