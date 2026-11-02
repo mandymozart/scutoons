@@ -468,7 +468,8 @@ impl RouteScene {
                 }
             }
         }
-        // the `out` nodes: folder → device 1/2, send bus channels 3/4 → device 3/4, VBAP → 5..8, the 5.1 fold added to 1/2
+        // the `out` nodes are outlet groups (plan §2.6b): "main" = the folder on device 1/2, "cue" = the send bus's channels 3/4 on
+        // device 3/4, the VBAP speakers on 5..8; the 5.1 fold is the deck configuration's channel map (added to 1/2)
         let d = &mut self.dev;
         for c in 0..DEVICE {
             d.clear(c, n);
