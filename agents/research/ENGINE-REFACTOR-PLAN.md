@@ -1,4 +1,4 @@
-Draft for owner review, 2026-11-02 – the plan for converging the deck onto one engine. Nothing in it is built; the phases need the owner's go (and the decisions of §8) before the first worker starts. Revised with the owner 2026-11-02: channels and routing (§2.6, decided), fundsp and the library survey (§3.1, §3.2).
+Draft for owner review, 2026-11-02 – the plan for converging the deck onto one engine. Nothing in it is built; the phases need the owner's go (and the decisions of §8) before the first worker starts. Revised with the owner 2026-11-02: channels and routing (§2.6, decided), fundsp and the library survey (§3.1, §3.2). **Built so far: P0–P3b, and P4 (#317, branch `feature/317-engine-move`, not merged) – §4 P4 says what moved where.**
 
 # ENGINE-REFACTOR-PLAN – one engine in the universal core
 
@@ -647,6 +647,18 @@ recorded native-deck hashes reproduce for every kind and block pattern except th
 patcher`, `avx2_and_baseline_are_bit_identical` green in deck-engine; deck:ci green; the X1 plays the default scenes
 (owner listens, deck-update bundle). Risk: the largest single change; seams around `Param` / seqlock / rtrb. Rollback:
 one revert commit (a move). Demo: the X1 sounds the same, saws and noise from the core. ≈ $10–15 (owner may name it for Opus: ≈ $18–28).
+**Built (#317):** `deck/engine` = crate `deck-engine`, features `events` · `modules` · `space`. Moved by `git mv`:
+`native/src/audio/mod.rs` (engine part) → `engine/src/lib.rs`; `audio/{blocks, voices, click, walk, module, sequencer,
+dispatch}.rs` → `engine/src/`; `control.rs`, `fft.rs` → `engine/src/`. Stays native (`deck-native`, `src/audio/`): backend,
+ring, lead, priority, glitch, the sequencer's and the dispatcher's **threads** (the windows, tables and counters are the engine's),
+`Engine` / `Handles` as thin wrappers (the core's + the glitch monitor), `modules.rs` (the wasmtime library as the engine's
+`ModuleSource`), `DECK_SIMD` / `DECK_EVENTS`. Seams: `Seams { modules }`, the PCM feed is the existing `MusicFeed` ring, the beat
+reader is deck-core's. New in deck-core: `dsp.rs` (wavetable saw / square / triangle – a table per quarter octave, 2048 points –,
+xorshift64* white, Kellet pink, Simper SVF). fundsp is gone from the workspace; the patcher oracle is the scalar blocks and the
+batches equal it exactly; `fm` is true FM (D18); transcendentals on libm; the engine renders fixed 128-frame quanta. Hashes: the
+move kept every one; re-recorded (own commits) the six units, fm, walk, the stereo scene, seq, click (libm) and the two LFO scenes at
+1024 (quantum). `deck:ci` builds `deck-engine-wasm` for wasm32 + simd128 (940 KB raw, 329 KB gz with the test harness, gate 500 KB gz);
+`wasm.rs::engine_native_vs_wasm` proves native ≡ wasm32 ≡ wasm32 + simd128 for every kind and block pattern. The P0 `engine-lab` is deleted.
 
 **P4b – Channels and routing (new, under #310, L).** §2.6: the `Stereo` pool becomes planar N-channel buffers;
 multichannel links (sum at inputs, `any` follows the widest input) with channel maps; the kinds `bus` (sends with
@@ -770,7 +782,7 @@ Plus orchestrator sessions (≈ 10, one per two or three merges, ≈ $5–10 eac
 | TS `noise.ts`, `deck.ts` melody / LFO / `Math.random`, `scene.ts` fixed patch and `Spec` twin | in use | P6 (+ P2 for `Spec`: read `kinds.json`) | removed after the browser plays every kind |
 | duplicate tempo code: `space.ts` fixed BPM, walks' own bpm | in use | P8 | the core's clock |
 | `lead.ts` (twin of `lead.rs`) | in use | after P8 (a #311 line) | the rule in deck-core, the worker passes underruns |
-| fundsp | runtime dep of the native deck | P4 | leaves the workspace (no oracle; the analytic tests of §3.2 replace it) |
+| fundsp | runtime dep of the native deck | P4 – **done** (#317) | left the workspace (no oracle; the analytic tests of §3.2 replace it) |
 | `feature/282-designer-panel`, `backup/270-with-269`, `wip/live-night-75b685`, `feature/269-rig-editor` | parked | after P6 | the owner deletes; agents never do |
 | the member save layer (#302) | dormant | before P10 | its own ticket |
 
