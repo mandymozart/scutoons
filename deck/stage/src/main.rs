@@ -433,6 +433,13 @@ fn read_scene(args: &Args) -> Result<scene::Scene> {
     }
 }
 
+/// #264: the outputs of the scene before, on their way into the next one (or out): `Show::load` takes them over when the
+/// new scene runs on the same devices, else they go dark first.
+#[cfg(feature = "outputs")]
+type Prev = Option<deck_stage::outputs::Outputs>;
+#[cfg(not(feature = "outputs"))]
+type Prev = ();
+
 impl Show {
     /// #263: the end of the show: the outputs dark first (the lamps must not wait for the audio's fade), then the audio
     /// stopped (the PipeWire backend's drop fades it out, #250). The rest goes with the process.
@@ -450,7 +457,7 @@ impl Show {
     }
 
     /// Build the scene's graph (refused when it needs a module this build lacks – modules.rs) and start what plays it.
-    fn load(args: &Args, scene: &scene::Scene) -> Result<Show> {
+    fn load(args: &Args, scene: &scene::Scene, #[allow(unused_variables)] prev: &mut Prev) -> Result<Show> {
         modules::check(scene)?;
         let graph = graph::Graph::build(scene)?;
         tracing::info!("scene '{}': {} nodes, {} links (modules: {})", scene.stage.name, graph.nodes.len(), graph.links.len(), modules::summary());
@@ -611,7 +618,8 @@ impl Show {
         let (outputs, outputs_note) = match &scene.outputs {
             Some(table) => {
                 let dir = args.scene.as_deref().filter(|p| p.exists()).and_then(|p| p.parent());
-                match deck_stage::outputs::Outputs::start(table, dir, &graph, tempo.shared()) {
+                let switch = deck_stage::outputs::Switch { transition: scene.stage.transition, secs: scene.stage.transition_secs };
+                match deck_stage::outputs::Outputs::start_after(table, dir, &graph, tempo.shared(), prev, switch) {
                     Ok(o) => (o, None),
                     Err(e) => {
                         tracing::error!("outputs off: {e:#}");
@@ -664,12 +672,12 @@ impl Show {
 
     /// The scene the arguments name, or – when it can't be played – the test pattern and the reason.
     fn load_or_explain(args: &Args) -> Result<(Show, Option<String>)> {
-        match read_scene(args).and_then(|s| Show::load(args, &s)) {
+        match read_scene(args).and_then(|s| Show::load(args, &s, &mut Prev::default())) {
             Ok(show) => Ok((show, None)),
             Err(e) => {
                 tracing::error!("the scene can't be played – the test pattern instead: {e:#}");
                 let fallback = scene::Scene::parse(scene::TEST_PATTERN_SCENE)?;
-                Ok((Show::load(args, &fallback)?, Some(format!("{e:#}"))))
+                Ok((Show::load(args, &fallback, &mut Prev::default())?, Some(format!("{e:#}"))))
             }
         }
     }
@@ -755,6 +763,9 @@ struct App {
     switcher: switcher::Switcher,
     /// #250: the fade through black while a picked scene loads
     trans: Option<switcher::Transition>,
+    /// #264: the lamps of a scene without outputs, fading to 0 – dropped (dark) when the time is up
+    #[cfg(feature = "outputs")]
+    dying: Option<(deck_stage::outputs::Outputs, Instant)>,
     /// #253: the hardware volume keys (wpctl on the default sink) and their overlay; `vol_forced` = the HUD is off and
     /// the bar is borrowed to show it
     volume: volume::Volume,
@@ -875,9 +886,14 @@ impl App {
         };
         self.renderer = None;
         self.show.audio = None;
-        let (show, error) = match Show::load(&self.args, &scene) {
+        // #264: the lamps of the scene before ride along into the new one (hand-over), or fade out with it
+        #[cfg(feature = "outputs")]
+        let mut prev: Prev = self.show.outputs.take();
+        #[cfg(not(feature = "outputs"))]
+        let mut prev: Prev = ();
+        let (show, error) = match Show::load(&self.args, &scene, &mut prev) {
             Ok(s) => (s, None),
-            Err(e) => match scene::Scene::parse(scene::TEST_PATTERN_SCENE).and_then(|s| Show::load(&self.args, &s)) {
+            Err(e) => match scene::Scene::parse(scene::TEST_PATTERN_SCENE).and_then(|s| Show::load(&self.args, &s, &mut prev)) {
                 Ok(s) => (s, Some(format!("{e:#}"))),
                 Err(e2) => {
                     tracing::error!("reload: {e:#}; the test pattern: {e2:#}");
@@ -888,6 +904,14 @@ impl App {
         };
         self.show = show;
         self.show.tempo.start();
+        #[cfg(feature = "outputs")]
+        if let Some(mut o) = prev {
+            // no outputs in the new scene: `fade` lets the lamps down over its time, `cut` / `blackout` end them now
+            if scene.stage.transition == scene::SceneTransition::Fade {
+                o.fade_out(scene.stage.transition_secs);
+                self.dying = Some((o, Instant::now() + std::time::Duration::from_secs_f32(scene.stage.transition_secs + 0.3)));
+            }
+        }
         self.error = error;
         self.watch = self.watch_files();
         self.last = None;
@@ -1176,6 +1200,10 @@ impl App {
         self.advance_time();
         let beat = self.show.tempo.frame(&self.moment);
         self.show.controls.update(dt, self.lead(), &beat);
+        #[cfg(feature = "outputs")]
+        if self.dying.as_ref().is_some_and(|(_, until)| Instant::now() >= *until) {
+            self.dying = None;
+        }
         // #211: the values to the outputs' runner; its MIDI for the conductor to the relay link
         #[cfg(feature = "outputs")]
         if let Some(o) = &self.show.outputs {
@@ -1985,6 +2013,8 @@ fn run() -> Result<i32> {
         page: { let mut p = settings::Page::default(); p.open = args_settings; p },
         switcher: switcher::Switcher::default(),
         trans: None,
+        #[cfg(feature = "outputs")]
+        dying: None,
         quality_note,
         modes: Vec::new(),
         #[cfg(feature = "outputs")]
@@ -1999,6 +2029,10 @@ fn run() -> Result<i32> {
     if let Err(e) = event_loop.run_app(&mut app) {
         tracing::error!("display lost: {e}");
         // the compositor going away is the kiosk's stop (#256) as often as a crash: the lamps still go dark
+        #[cfg(feature = "outputs")]
+        {
+            app.dying = None;
+        }
         app.show.outputs_dark();
         std::process::exit(EXIT_DISPLAY_LOST);
     }
@@ -2010,6 +2044,10 @@ fn run() -> Result<i32> {
     // #263: the show ends the way a scene ends – its outputs dark (a USB-DMX widget repeats the last frame for ever), its
     // audio faded out – whatever stopped it (Ctrl+Q, a stop signal, --frames). No teardown of the window / GPU objects:
     // the process ends right after (main calls exit)
+    #[cfg(feature = "outputs")]
+    {
+        app.dying = None; // #264: lamps still fading out go dark too
+    }
     app.show.end();
     std::mem::forget(app);
     Ok(code)

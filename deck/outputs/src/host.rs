@@ -7,7 +7,7 @@
 //! a turned rate is seen within 5 ms), wait out the last 2 ms exactly, play everything due, step again.
 
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
@@ -119,7 +119,17 @@ pub struct Runner {
     panic: Arc<AtomicBool>,
     /// stop with a blackout (the stage's scene ends: the lamp must not stay lit on the widget's last frame)
     dark: Arc<AtomicBool>,
+    /// #264: the next scene's plan, waiting for the thread to take it
+    swap: Arc<Mutex<Option<Swap>>>,
     thread: Option<JoinHandle<()>>,
+}
+
+/// A scene switch on the same devices: the thread keeps the adapters (no close / reopen, no dark frame) and plays the
+/// new plan from the look the old one left, fading over `secs`.
+struct Swap {
+    plan: Plan,
+    values: Values,
+    secs: f64,
 }
 
 impl Runner {
@@ -132,6 +142,12 @@ impl Runner {
     pub fn stop_dark(&mut self) {
         self.dark.store(true, Ordering::Relaxed);
         self.stop();
+    }
+
+    /// #264: the next scene's plan on the same devices (the same DMX widget and MIDI port – the caller checks), its
+    /// values in `values`; the lamps fade from the last look to the new one over `secs`, channels it doesn't drive to 0.
+    pub fn hand_over(&self, plan: Plan, values: Values, secs: f64) {
+        *self.swap.lock().unwrap_or_else(|e| e.into_inner()) = Some(Swap { plan, values, secs });
     }
 
     pub fn stop(&mut self) {
@@ -157,12 +173,14 @@ pub fn spawn(plan: Plan, mut ports: Ports, values: Values, clock: Box<dyn ClockS
     let stop = Arc::new(AtomicBool::new(false));
     let panic = Arc::new(AtomicBool::new(false));
     let dark = Arc::new(AtomicBool::new(false));
-    let (s, p, d) = (stop.clone(), panic.clone(), dark.clone());
-    let thread = std::thread::Builder::new().name("deck-outputs".into()).spawn(move || run(plan, ports, values, clock, &s, &p, &d))?;
-    Ok(Runner { stop, panic, dark, thread: Some(thread) })
+    let swap = Arc::new(Mutex::new(None));
+    let (s, p, d, w) = (stop.clone(), panic.clone(), dark.clone(), swap.clone());
+    let thread = std::thread::Builder::new().name("deck-outputs".into()).spawn(move || run(plan, ports, values, clock, &s, &p, &d, &w))?;
+    Ok(Runner { stop, panic, dark, swap, thread: Some(thread) })
 }
 
-fn run(plan: Plan, mut ports: Ports, values: Values, clock: Box<dyn ClockSource>, stop: &AtomicBool, panic: &AtomicBool, dark: &AtomicBool) {
+#[allow(clippy::too_many_arguments)]
+fn run(plan: Plan, mut ports: Ports, mut values: Values, clock: Box<dyn ClockSource>, stop: &AtomicBool, panic: &AtomicBool, dark: &AtomicBool, swap: &Mutex<Option<Swap>>) {
     let mut engine = Engine::new(plan);
     let mut vals = vec![0.0f32; values.len()];
     let mut out: Vec<Timed> = Vec::with_capacity(64);
@@ -170,6 +188,11 @@ fn run(plan: Plan, mut ports: Ports, values: Values, clock: Box<dyn ClockSource>
         if panic.swap(false, Ordering::Relaxed) {
             engine.panic();
             ports.panic();
+        }
+        if let Some(s) = swap.lock().unwrap_or_else(|e| e.into_inner()).take() {
+            engine = std::mem::replace(&mut engine, Engine::new(Plan::default())).hand_over(s.plan, s.secs);
+            values = s.values;
+            vals = vec![0.0f32; values.len()];
         }
         values.read_into(&mut vals);
         let tempo = clock.clock();

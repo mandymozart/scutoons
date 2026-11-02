@@ -345,7 +345,7 @@ path as a `--dev` reload, no process restart: the old show stops (audio graph dr
 stays (about 0.6 s on a PC) – **Esc** / F5 closes; the playing one is starred. A scene that doesn't build (a module this build lacks,
 a broken file) keeps the old one playing and the list says why. A scene that loads is written into deck.toml as one
 `scene = "<name or path>"` line (`DECK_TOML` names another file; replaced like `deck-set` does, never a second line), so
-the next boot plays it. The change goes through black, no logo: the picture and the PipeWire stream fade out (0.25 s), the new show loads behind the black, then the picture fades in (0.4 s; `switcher.rs` `Transition`, the splash shader's veil mode). Check runs: `--switcher` starts with the list open, `--switch NAME` loads that scene after 30 frames.
+the next boot plays it. **Scene transitions (#264):** a switch is a transition, a stop is a stop. The incoming scene's `[stage]` says how the lamps (DMX / MIDI outputs) hand over: `transition = "fade"` (default) – the lamps hold the last look, then cross over to the new scene's values over `transition_secs` (default 0.4, the picture's fade-in); channels the new scene doesn't drive fade to 0 – a scene without outputs fades them out the same way (`idle` → `pulse-thunderwash` → `idle` never goes dark in between); `"cut"` – the new values at once, unused channels to 0; `"blackout"` – the old outputs end dark, the new start anew (a reset). Needs the same DMX widget / MIDI port in both scenes (the runner and the open port stay); a different device = blackout. The stop paths below stay dark. The change goes through black, no logo: the picture and the PipeWire stream fade out (0.25 s), the new show loads behind the black, then the picture fades in (0.4 s; `switcher.rs` `Transition`, the splash shader's veil mode). Check runs: `--switcher` starts with the list open, `--switch NAME` loads that scene after 30 frames.
 
 **Quality** (#220, deck-space `quality.rs` – the browser deck runs the same; the stage's `src/quality.rs`): four
 **presets** – low · medium · high · ultra – each with its knobs: on / off (an off preset is skipped and can't be chosen),
@@ -593,9 +593,9 @@ parameters – `gain = ["tempo.pulse", { from = "level.out", in = [-1, 1] }]`, `
 pulses), `smooth` for a soft attack – so colour channels pulse on the beat without a flash channel. The scene
 `pulse-thunderwash` (built in; the file `scenes/pulse-thunderwash.toml`): a slowly turning colour that pulses on the
 tempo's beat, every channel capped at 15 % (`max = 0.15` – raise the three together for a show). A scene that ends
-in the stage – the F5 switch, **Ctrl+Q**, or a **stop signal** (SIGTERM / SIGHUP / SIGINT, Ctrl+C on Windows: `deck-set
+in the stage – **Ctrl+Q**, or a **stop signal** (SIGTERM / SIGHUP / SIGINT, Ctrl+C on Windows: `deck-set
 --restart`, `systemctl restart deck-kiosk`, an update's restart, #263; `src/stop.rs`) – blacks its DMX out (the widget
-repeats its last frame for ever otherwise) and fades the audio out, then the stage exits 0, within the kiosk's 5 s stop
+repeats its last frame for ever otherwise) and fades the audio out (a scene *switch* hands the lamps over instead: "Scenes", #264), then the stage exits 0, within the kiosk's 5 s stop
 (a watchdog leaves after 3.5 s if the loop hangs). Only a SIGKILL leaves the lamp lit. The built-in scene `lamps-off`
 (the Thunder Wash's channels held at 0) stays for switching a lit lamp off by hand.
 

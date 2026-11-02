@@ -64,8 +64,18 @@ impl ClockSource for Tempo {
     }
 }
 
+/// #264: how a scene switch treats the outputs of the scene before: hand over (fade / cut) or go dark first.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Switch {
+    pub transition: deck_space::scene::SceneTransition,
+    pub secs: f32,
+}
+
 pub struct Outputs {
     runner: Runner,
+    /// the devices this runs on (DMX widget, MIDI port, the conductor tap): a following scene may take the runner
+    /// over only when it wants the same
+    devices: (Option<String>, Option<String>, bool),
     values: Values,
     slots: Vec<Slot>,
     conductor: Option<Receiver<[u8; 3]>>,
@@ -88,6 +98,13 @@ impl Outputs {
     /// A wrong table is an error that lists every problem; a missing device is a warning (the runner drops its
     /// messages, a widget plugged in later is found by the adapter itself).
     pub fn start(table: &toml::Table, dir: Option<&Path>, graph: &Graph, tempo: Arc<Shared>) -> Result<Option<Outputs>> {
+        Self::start_after(table, dir, graph, tempo, &mut None, Switch { transition: deck_space::scene::SceneTransition::Blackout, secs: 0.0 })
+    }
+
+    /// `start` on a scene switch (#264): `before` = the outputs of the scene that was playing. A `fade` / `cut` onto the
+    /// same devices keeps their runner (no close and reopen – the lamps hold the last look) and crosses over to the new
+    /// plan; anything else ends `before` dark first (its port is free for the new one).
+    pub fn start_after(table: &toml::Table, dir: Option<&Path>, graph: &Graph, tempo: Arc<Shared>, before: &mut Option<Outputs>, switch: Switch) -> Result<Option<Outputs>> {
         let known = paths(graph);
         let load = |name: &str| -> Result<String, String> {
             let p = dir.map_or_else(|| Path::new(name).to_path_buf(), |d| d.join(name));
@@ -97,8 +114,22 @@ impl Outputs {
         if plan.is_empty() {
             return Ok(None);
         }
-        let slots = plan.paths.iter().map(|p| slot(graph, p).expect("checked against the graph's paths")).collect();
+        let slots: Vec<Slot> = plan.paths.iter().map(|p| slot(graph, p).expect("checked against the graph's paths")).collect();
         let summary = summary(&plan);
+        let devices = (plan.dmx.clone(), plan.midi.clone(), plan.uses_conductor());
+        if let Some(mut old) = before.take() {
+            if old.devices == devices && switch.transition != deck_space::scene::SceneTransition::Blackout {
+                tracing::info!("outputs: handing over to the next scene ({:?}, {} s)", switch.transition, switch.secs);
+                let secs = if switch.transition == deck_space::scene::SceneTransition::Cut { 0.0 } else { f64::from(switch.secs) };
+                let values = Values::new(plan.paths.len());
+                old.runner.hand_over(plan, values.clone(), secs);
+                old.values = values;
+                old.slots = slots;
+                old.summary = summary;
+                return Ok(Some(old));
+            }
+            drop(old); // dark, its devices free
+        }
         let mut ports = Ports::default();
         if let Some(port) = &plan.dmx {
             let port = (!port.is_empty()).then_some(port.as_str());
@@ -124,14 +155,14 @@ impl Outputs {
             rx
         });
         tracing::info!("outputs: {summary}");
-        Self::launch(plan, ports, slots, conductor, summary, tempo).map(Some)
+        Self::launch(plan, ports, slots, conductor, summary, tempo, devices).map(Some)
     }
 
     /// The runner on its thread with the ports as they are.
-    fn launch(plan: Plan, ports: Ports, slots: Vec<Slot>, conductor: Option<Receiver<[u8; 3]>>, summary: String, tempo: Arc<Shared>) -> Result<Outputs> {
+    fn launch(plan: Plan, ports: Ports, slots: Vec<Slot>, conductor: Option<Receiver<[u8; 3]>>, summary: String, tempo: Arc<Shared>, devices: (Option<String>, Option<String>, bool)) -> Result<Outputs> {
         let values = Values::new(plan.paths.len());
         let runner = host::spawn(plan, ports, values.clone(), Box::new(Tempo(tempo)))?;
-        Ok(Outputs { runner, values, slots, conductor, summary })
+        Ok(Outputs { runner, devices, values, slots, conductor, summary })
     }
 
     /// Each frame: the deck's values to the runner.
@@ -154,6 +185,14 @@ impl Outputs {
 
     pub fn panic(&self) {
         self.runner.panic();
+    }
+
+    /// #264: a scene without outputs follows one with: the lamps fade to 0 over `secs` and the caller drops this (dark)
+    /// once that time is over. The widget and port stay open meanwhile.
+    pub fn fade_out(&mut self, secs: f32) {
+        self.values = Values::new(0);
+        self.slots.clear();
+        self.runner.hand_over(Plan::default(), self.values.clone(), f64::from(secs));
     }
 }
 
@@ -272,7 +311,7 @@ to = [{ dmx = 1 }, { dmx = 2 }]
         let slots = plan.paths.iter().map(|p| slot(&g, p).unwrap()).collect();
         let widget = Widget::default();
         let ports = Ports { dmx: Some(Box::new(DmxUsbProAdapter::with_opener("lamp", None, widget.opener()))), ..Ports::default() };
-        let o = Outputs::launch(plan, ports, slots, None, String::new(), Arc::default()).unwrap();
+        let o = Outputs::launch(plan, ports, slots, None, String::new(), Arc::default(), (None, None, false)).unwrap();
         o.values.set(0, 1.0);
         std::thread::sleep(std::time::Duration::from_millis(400));
         let lit = widget.frames().last().expect("a frame while it plays").1;
@@ -280,6 +319,79 @@ to = [{ dmx = 1 }, { dmx = 2 }]
         drop(o);
         let last = widget.frames().last().unwrap().1;
         assert_eq!((last[0], last[1]), (0, 0), "dark after the end");
+    }
+
+    /// #264: a switch onto the same widget keeps the runner: the lamp holds its look, then crosses over (ch 1 only the
+    /// old scene drives → fades to 0, ch 2 only the new one → up), no dark frame in between
+    #[test]
+    fn a_switch_hands_the_lamp_over_without_a_dark_frame() {
+        use adapters_dmx_usbpro::{mock::Widget, DmxUsbProAdapter};
+        use deck_space::scene::SceneTransition;
+        let g = graph(SCENE);
+        let map = |ch: u8| format!("[outputs]
+dmx = \"auto\"
+[[outputs.map]]
+from = \"sway.out\"
+to = [{{ dmx = {ch} }}]
+");
+        let parse = |text: &str| -> toml::Table { toml::from_str(text).unwrap() };
+        let (a, b) = (parse(&map(1)), parse(&map(2)));
+        let known = paths(&g);
+        let plan = deck_outputs::parse(a["outputs"].as_table().unwrap(), Some(&known), &|_| Err("no files".into())).unwrap();
+        let slots = plan.paths.iter().map(|p| slot(&g, p).unwrap()).collect();
+        let widget = Widget::default();
+        let ports = Ports { dmx: Some(Box::new(DmxUsbProAdapter::with_opener("lamp", None, widget.opener()))), ..Ports::default() };
+        let devices = (plan.dmx.clone(), plan.midi.clone(), false);
+        let o = Outputs::launch(plan, ports, slots, None, String::new(), Arc::default(), devices).unwrap();
+        o.values.set(0, 1.0);
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        assert_eq!(widget.frames().last().unwrap().1[0], 255);
+        let at_switch = widget.frames().len();
+        let mut before = Some(o);
+        let switch = Switch { transition: SceneTransition::Fade, secs: 0.8 };
+        let o = Outputs::start_after(b["outputs"].as_table().unwrap(), None, &g, Arc::default(), &mut before, switch).unwrap().expect("handed over");
+        assert!(before.is_none());
+        o.values.set(0, 1.0);
+        std::thread::sleep(std::time::Duration::from_millis(400));
+        let mid = widget.frames().last().unwrap().1;
+        assert!(mid[0] > 0 && mid[0] < 255 && mid[1] > 0 && mid[1] < 255, "half way: {:?}", &mid[..2]);
+        std::thread::sleep(std::time::Duration::from_millis(800));
+        let end = widget.frames().last().unwrap().1;
+        assert_eq!((end[0], end[1]), (0, 255), "crossed over");
+        // never dark in between: every frame since the switch has one of the two channels well up
+        assert!(widget.frames()[at_switch..].iter().all(|(_, f)| f[0] >= 60 || f[1] >= 60), "a dark frame in between");
+        // a stop is still a stop
+        drop(o);
+        let last = widget.frames().last().unwrap().1;
+        assert_eq!((last[0], last[1]), (0, 0));
+    }
+
+    /// #264: `blackout` ends the scene before dark and starts the next one anew (its own widget)
+    #[test]
+    fn a_blackout_switch_ends_the_old_outputs_dark() {
+        use adapters_dmx_usbpro::{mock::Widget, DmxUsbProAdapter};
+        use deck_space::scene::SceneTransition;
+        let g = graph(SCENE);
+        let table: toml::Table = toml::from_str("[outputs]
+dmx = \"auto\"
+[[outputs.map]]
+from = \"sway.out\"
+to = [{ dmx = 1 }]
+").unwrap();
+        let known = paths(&g);
+        let plan = deck_outputs::parse(table["outputs"].as_table().unwrap(), Some(&known), &|_| Err("no files".into())).unwrap();
+        let slots = plan.paths.iter().map(|p| slot(&g, p).unwrap()).collect();
+        let widget = Widget::default();
+        let ports = Ports { dmx: Some(Box::new(DmxUsbProAdapter::with_opener("lamp", None, widget.opener()))), ..Ports::default() };
+        let devices = (plan.dmx.clone(), plan.midi.clone(), false);
+        let o = Outputs::launch(plan, ports, slots, None, String::new(), Arc::default(), devices).unwrap();
+        o.values.set(0, 1.0);
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        let mut before = Some(o);
+        let switch = Switch { transition: SceneTransition::Blackout, secs: 0.4 };
+        let _next = Outputs::start_after(table["outputs"].as_table().unwrap(), None, &g, Arc::default(), &mut before, switch).unwrap();
+        assert!(before.is_none());
+        assert_eq!(widget.frames().last().unwrap().1[0], 0, "dark");
     }
 
     #[test]

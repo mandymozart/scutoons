@@ -9,6 +9,8 @@
 //!
 //! `step` never allocates: `out` is the host's reused buffer.
 
+use std::collections::HashMap;
+
 use crate::config::{Input, MidiKind, MidiPort, Plan, StrobePlan, Wire};
 use crate::shape::{self, Smooth};
 use crate::strobe::{Clock, Strobe};
@@ -38,8 +40,23 @@ struct Flasher {
     off_at: Option<f64>,
 }
 
+/// A scene switch (#264): the DMX channels the scene before left at these levels (0..1, by channel) fade into this
+/// plan's over `secs`; the ones this plan doesn't drive fade to 0. The clock starts at the first frame.
+struct Fade {
+    from: HashMap<u16, f32>,
+    secs: f64,
+    start: Option<f64>,
+    /// the last 8 bit value sent per orphan channel
+    orphans: HashMap<u16, u8>,
+}
+
 pub struct Engine {
     plan: Plan,
+    /// DMX level (0..1) last computed per channel – what a following scene fades from
+    levels: HashMap<u16, f32>,
+    fade: Option<Fade>,
+    /// messages the hand-over owes (the old scene's lit flash ends) – played with the first step
+    pre: Vec<Out>,
     smooth: Vec<Smooth>,
     /// the last value sent per target (wire units), None = nothing yet
     sent: Vec<Option<u16>>,
@@ -57,7 +74,55 @@ impl Engine {
         let smooth = plan.targets.iter().map(|t| Smooth::new(t.smooth)).collect();
         let sent = vec![None; plan.targets.len()];
         let flashers = plan.strobes.iter().map(|s| Flasher { strobe: Strobe::new(s.rate), off_at: None }).collect();
-        Engine { plan, smooth, sent, next_frame: None, flashers, rested: false }
+        Engine { plan, levels: HashMap::new(), fade: None, pre: Vec::new(), smooth, sent, next_frame: None, flashers, rested: false }
+    }
+
+    /// #264: the engine of the next scene on the same devices. The lamps keep what this one showed and move to the
+    /// new plan's values over `secs` (0 = at once); channels the new plan doesn't drive fade to 0. MIDI isn't faded:
+    /// the new plan sends its values from its first frame.
+    pub fn hand_over(self, plan: Plan, secs: f64) -> Engine {
+        let mut e = Engine::new(plan);
+        e.fade = Some(Fade { from: self.levels, secs, start: None, orphans: HashMap::new() });
+        // a flash still lit ends now
+        for (s, f) in self.plan.strobes.iter().zip(self.flashers.iter()) {
+            if f.off_at.is_some() {
+                e.pre.push(Out::Dmx { ch: s.flash, value: 0, now: true });
+            }
+        }
+        e
+    }
+
+    /// the level a DMX channel shows now: the new value, mixed with where the last scene left it while a hand-over runs
+    fn faded(&mut self, ch: u16, y: f32, at: f64) -> f32 {
+        let y = match &mut self.fade {
+            Some(f) => {
+                let start = *f.start.get_or_insert(at);
+                let k = if f.secs <= 0.0 { 1.0 } else { ((at - start) / f.secs).clamp(0.0, 1.0) as f32 };
+                f.from.get(&ch).map_or(y * k, |&a| a * (1.0 - k) + y * k)
+            }
+            None => y,
+        };
+        self.levels.insert(ch, y);
+        y
+    }
+
+    /// while a hand-over runs: the channels only the last scene drove go down to 0; at its end the hand-over is done
+    fn fade_orphans(&mut self, at: f64, out: &mut Vec<Timed>) {
+        let Some(f) = &mut self.fade else { return };
+        let start = *f.start.get_or_insert(at);
+        let k = if f.secs <= 0.0 { 1.0 } else { ((at - start) / f.secs).clamp(0.0, 1.0) as f32 };
+        let mine = |ch: u16| self.plan.targets.iter().any(|t| matches!(t.wire, Wire::Dmx { ch: c, fine } if c == ch || fine == Some(ch))) || self.plan.strobes.iter().any(|s| s.flash == ch || s.rest.iter().any(|r| r.0 == ch));
+        let orphans: Vec<(u16, f32)> = f.from.iter().filter(|(&ch, _)| !mine(ch)).map(|(&ch, &a)| (ch, a)).collect();
+        for (ch, a) in orphans {
+            let v = shape::to_8bit(a * (1.0 - k));
+            if f.orphans.get(&ch) != Some(&v) {
+                f.orphans.insert(ch, v);
+                out.push(Timed { at, out: Out::Dmx { ch, value: v, now: false } });
+            }
+        }
+        if k >= 1.0 {
+            self.fade = None;
+        }
     }
 
     pub fn plan(&self) -> &Plan {
@@ -67,14 +132,19 @@ impl Engine {
     /// The messages due at `now` into `out` (appended); returns when to call again. `values[i]` is `plan.paths[i]`'s
     /// value (a missing one counts as 0); `clock` None = no tempo (strobes dark).
     pub fn step(&mut self, now: f64, values: &[f32], clock: Option<&Clock>, out: &mut Vec<Timed>) -> f64 {
+        for o in self.pre.drain(..) {
+            out.push(Timed { at: now, out: o });
+        }
         if !self.rested {
             // the strobes' other channels to rest, the flash channels dark
             self.rested = true;
             for s in &self.plan.strobes {
                 for &(ch, value) in &s.rest {
                     out.push(Timed { at: now, out: Out::Dmx { ch, value, now: false } });
+                    self.levels.insert(ch, f32::from(value) / 255.0);
                 }
                 out.push(Timed { at: now, out: Out::Dmx { ch: s.flash, value: 0, now: false } });
+                self.levels.insert(s.flash, 0.0);
             }
         }
         let frame = *self.next_frame.get_or_insert(now);
@@ -105,16 +175,21 @@ impl Engine {
     }
 
     fn frame(&mut self, at: f64, values: &[f32], out: &mut Vec<Timed>) {
-        for (k, t) in self.plan.targets.iter().enumerate() {
+        for k in 0..self.plan.targets.len() {
+            let t = &self.plan.targets[k];
             let raw = values.get(t.source).copied().unwrap_or(0.0);
             let mut x = t.shape.map(raw);
             for g in &t.gains {
                 let g = values.get(g.source).map_or(0.0, |&v| g.shape.map(v));
                 x *= t.gain_floor + (1.0 - t.gain_floor) * g;
             }
-            let y = self.smooth[k].step(x, FRAME_S as f32);
+            let wire = t.wire;
+            let mut y = self.smooth[k].step(x, FRAME_S as f32);
+            if let Wire::Dmx { ch, .. } = wire {
+                y = self.faded(ch, y, at);
+            }
             let prev = self.sent[k];
-            match t.wire {
+            match wire {
                 Wire::Dmx { ch, fine: None } => {
                     let v = shape::to_8bit(y);
                     if prev != Some(u16::from(v)) {
@@ -164,6 +239,7 @@ impl Engine {
                 },
             }
         }
+        self.fade_orphans(at, out);
     }
 
     fn strobe(s: &StrobePlan, f: &mut Flasher, now: f64, values: &[f32], clock: &Clock, lead: f64, out: &mut Vec<Timed>) -> f64 {
@@ -205,6 +281,8 @@ impl Engine {
         }
         self.sent.fill(None);
         self.rested = false;
+        self.levels.clear();
+        self.fade = None;
     }
 }
 
@@ -369,5 +447,74 @@ to = [{ dmx = 1, max = 0.5 }]
         out.clear();
         e.step(now, &[0.5, 1.0], Some(&clock), &mut out);
         assert!(out.iter().any(|m| m.out == Out::Dmx { ch: 2, value: 0, now: false }), "rests again");
+    }
+
+    fn dmx_at(out: &[Timed], ch: u16, upto: f64) -> Option<u8> {
+        out.iter().filter(|m| m.at <= upto + 1e-9).rev().find_map(|m| match m.out {
+            Out::Dmx { ch: c, value, .. } if c == ch => Some(value),
+            _ => None,
+        })
+    }
+
+    const A: &str = "[outputs]
+dmx = \"auto\"
+[[outputs.map]]
+from = \"a.x\"
+to = [{ dmx = 1 }, { dmx = 2 }]
+";
+    const B: &str = "[outputs]
+dmx = \"auto\"
+[[outputs.map]]
+from = \"b.y\"
+to = [{ dmx = 2 }, { dmx = 3 }]
+";
+
+    /// #264: a switch holds the last look and crosses over: shared channels mix old and new, channels only the old scene
+    /// drove go down to 0 (not at once), channels only the new one drives come up from 0
+    #[test]
+    fn a_hand_over_crosses_the_lamps_over_and_never_dips_dark() {
+        let mut old = Engine::new(plan(A));
+        run(&mut old, 10.0, 1.0, None, |_| vec![1.0]);
+        let mut e = old.hand_over(plan(B), 1.0);
+        let out = run(&mut e, 20.0, 1.5, None, |_| vec![1.0]);
+        // ch 1 (old only): 255 → 0, monotonic, still lit half way
+        assert_eq!(dmx_at(&out, 1, 20.0), Some(255));
+        let half = dmx_at(&out, 1, 20.5).unwrap();
+        assert!((100..=155).contains(&half), "{half}");
+        assert_eq!(dmx_at(&out, 1, 21.2), Some(0));
+        // ch 2 (both, 255 → 255): never below the old look
+        assert!(out.iter().filter_map(|m| match m.out { Out::Dmx { ch: 2, value, .. } => Some(value), _ => None }).all(|v| v >= 250));
+        // ch 3 (new only): from 0 up
+        let third = dmx_at(&out, 3, 20.5).unwrap();
+        assert!((100..=155).contains(&third), "{third}");
+        assert_eq!(dmx_at(&out, 3, 21.4), Some(255));
+        // after the hand-over nothing more goes out
+        let mut more = Vec::new();
+        e.step(22.0, &[1.0], None, &mut more);
+        e.step(22.025, &[1.0], None, &mut more);
+        assert!(more.is_empty(), "{more:?}");
+    }
+
+    /// #264: `cut` (0 s) – the new look at once, the old-only channel at 0 in the first frame
+    #[test]
+    fn a_zero_second_hand_over_is_a_cut() {
+        let mut old = Engine::new(plan(A));
+        run(&mut old, 10.0, 1.0, None, |_| vec![1.0]);
+        let mut e = old.hand_over(plan(B), 0.0);
+        let out = run(&mut e, 20.0, 0.1, None, |_| vec![1.0]);
+        assert_eq!(dmx_at(&out, 1, 20.0), Some(0));
+        assert!(dmx_at(&out, 3, 20.1).unwrap() >= 250);
+    }
+
+    /// #264: the old scene's pulse hands over from where it stood; a scene with no outputs left fades the lamps out
+    #[test]
+    fn a_hand_over_to_nothing_fades_everything_to_zero() {
+        let mut old = Engine::new(plan(A));
+        run(&mut old, 10.0, 1.0, None, |_| vec![1.0]);
+        let mut e = old.hand_over(Plan::default(), 1.0);
+        let out = run(&mut e, 20.0, 1.2, None, |_| vec![]);
+        let mid = dmx_at(&out, 1, 20.5).unwrap();
+        assert!(mid > 100 && mid < 155, "{mid}");
+        assert_eq!((dmx_at(&out, 1, 21.2), dmx_at(&out, 2, 21.2)), (Some(0), Some(0)));
     }
 }

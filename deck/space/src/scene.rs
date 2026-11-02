@@ -53,11 +53,32 @@ pub struct StageSettings {
     /// the audio device's buffer in frames (#208, deck-stage's audio/backend.rs): a heavy scene may ask for more;
     /// `--audio-buffer` and deck.toml's `audio_buffer` (the machine's) win over it. None = the device's default
     pub audio_buffer: Option<u32>,
+    /// #264: how the stage hands over TO this scene on a switch (F5): the DMX / MIDI outputs of the scene that was playing
+    /// fade into this one's (`fade`, the default), snap (`cut`) or go dark first (`blackout`); a stop is always dark
+    pub transition: SceneTransition,
+    /// the hand-over's length in s (`fade`); the same time base as the picture's fade in (deck-stage switcher.rs `FADE_IN`)
+    pub transition_secs: f32,
 }
+
+/// What a switch does to the outputs (the lamps) between two scenes (#264).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SceneTransition {
+    /// hold the last values, then crossfade to the new scene's over `transition_secs`; channels it doesn't drive fade to 0
+    #[default]
+    Fade,
+    /// the new scene takes over at once; channels it doesn't drive go to 0
+    Cut,
+    /// the lamps go dark first (the outputs stop and start again), like a stop
+    Blackout,
+}
+
+/// the default `transition_secs`
+pub const DEFAULT_TRANSITION_SECS: f32 = 0.4;
 
 impl Default for StageSettings {
     fn default() -> Self {
-        Self { name: "untitled".into(), render_scale: 1.0, audio_buffer: None }
+        Self { name: "untitled".into(), render_scale: 1.0, audio_buffer: None, transition: SceneTransition::Fade, transition_secs: DEFAULT_TRANSITION_SECS }
     }
 }
 
@@ -130,6 +151,24 @@ mod tests {
         let s = Scene::parse(MADNESS_SCENE).unwrap();
         assert!(s.nodes.iter().any(|n| n.kind == "chapter_music"));
         assert!(s.nodes.iter().any(|n| n.kind == "screen"));
+    }
+
+    #[test]
+    fn the_transition_is_a_fade_unless_the_scene_says_otherwise() {
+        let s = Scene::parse("").unwrap();
+        assert_eq!((s.stage.transition, s.stage.transition_secs), (SceneTransition::Fade, DEFAULT_TRANSITION_SECS));
+        let s = Scene::parse("[stage]
+transition = \"blackout\"
+").unwrap();
+        assert_eq!(s.stage.transition, SceneTransition::Blackout);
+        let s = Scene::parse("[stage]
+transition = \"fade\"
+transition_secs = 2.5
+").unwrap();
+        assert_eq!((s.stage.transition, s.stage.transition_secs), (SceneTransition::Fade, 2.5));
+        assert!(Scene::parse("[stage]
+transition = \"wipe\"
+").is_err());
     }
 
     #[test]
