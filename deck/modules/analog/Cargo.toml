@@ -1,0 +1,22 @@
+# analog – a classic two-oscillator, two-filter, two-amp subtractive synth as one universal module (#331): the first
+# instrument written against the module SDK in full. Build for the deck / browser:
+# `cargo build --release --target wasm32-unknown-unknown -p analog-module`
+[package]
+name = "analog-module"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+deck-module = { path = "../../module" }
+
+[dev-dependencies]
+deck-core = { workspace = true, features = ["tempo"] }
+deck-module = { path = "../../module", features = ["host"] }
+deck-module-host = { path = "../../module-host" }
+serde_json = { workspace = true }

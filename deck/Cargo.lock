@@ -132,6 +132,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "analog-module"
+version = "0.1.0"
+dependencies = [
+ "deck-core",
+ "deck-module",
+ "deck-module-host",
+ "serde_json",
+]
+
+[[package]]
 name = "android-activity"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
