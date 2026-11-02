@@ -96,7 +96,13 @@ fn is_empty_str(s: &Cow<'static, str>) -> bool {
 fn is_empty_slice<T: Clone>(s: &Cow<'static, [T]>) -> bool {
     s.is_empty()
 }
-fn empty<T: Clone>() -> Cow<'static, [T]> {
+fn empty_strs() -> Cow<'static, [Cow<'static, str>]> {
+    Cow::Borrowed(&[])
+}
+fn empty_ports() -> Cow<'static, [PortDesc]> {
+    Cow::Borrowed(&[])
+}
+fn empty_params() -> Cow<'static, [ParamDesc]> {
     Cow::Borrowed(&[])
 }
 fn empty_str() -> Cow<'static, str> {
@@ -144,7 +150,7 @@ pub struct ParamDesc {
     #[serde(default = "empty_str", skip_serializing_if = "is_empty_str")]
     pub unit: Cow<'static, str>,
     /// a string parameter's values (`osc.wave`); min / max / default are then unused
-    #[serde(default = "empty", skip_serializing_if = "is_empty_slice")]
+    #[serde(default = "empty_strs", skip_serializing_if = "is_empty_slice")]
     pub choices: Cow<'static, [Cow<'static, str>]>,
     /// the value is also an input port of this name (a control input is both)
     #[serde(default, skip_serializing_if = "is_false")]
@@ -179,14 +185,14 @@ pub struct Descriptor {
     #[serde(default, skip_serializing_if = "is_false")]
     pub batch: bool,
     /// capabilities the kind needs (#312) – reserved
-    #[serde(default = "empty", skip_serializing_if = "is_empty_slice")]
+    #[serde(default = "empty_strs", skip_serializing_if = "is_empty_slice")]
     pub needs: Cow<'static, [Cow<'static, str>]>,
     /// modules only: the ABI version they speak
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub abi: Option<u32>,
-    #[serde(default = "empty")]
+    #[serde(default = "empty_ports")]
     pub ports: Cow<'static, [PortDesc]>,
-    #[serde(default = "empty")]
+    #[serde(default = "empty_params")]
     pub params: Cow<'static, [ParamDesc]>,
 }
 

@@ -17,6 +17,7 @@ pub const CORE: [(&str, &str); 2] = [
     ("item.incense_burner", include_str!("../../../stage/rigs/incense_burner.toml")),
 ];
 
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Bundle {

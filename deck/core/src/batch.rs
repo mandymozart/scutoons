@@ -570,3 +570,19 @@ gain = 0.0
         assert_eq!((c.len(), c.get(&v, 0), c.get(&v, 1)), (2, 6.5, 7.0));
     }
 }
+
+#[cfg(test)]
+mod catalog_tests {
+    use super::*;
+
+    #[test]
+    fn the_batch_kinds_are_the_catalogs() {
+        let mut cat: Vec<&str> = deck_catalog::builtin_kinds().iter().filter(|d| d.batch).map(|d| d.name.as_ref()).collect();
+        cat.sort_unstable();
+        let mut ours: Vec<&str> = K::ALL.iter().map(|k| k.name()).collect();
+        ours.sort_unstable();
+        assert_eq!(ours, cat, "a batch kind is flagged `batch` in deck-catalog's builtin.rs");
+        assert_eq!(kind_ports("fm"), Some((&["freq", "ratio", "index", "gain"][..], true)));
+        assert_eq!(kind_ports("lfo"), Some((&["rate", "depth"][..], false)));
+    }
+}

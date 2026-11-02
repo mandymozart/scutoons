@@ -14,7 +14,9 @@ publish.workspace = true
 [features]
 default = []
 # `JsonSchema` on the types (the generator only)
-schema = ["dep:schemars"]
+schema = ["docs", "dep:schemars"]
+# the doc strings of the built-in table (off in the wasm builds: they carry the shape, not the text)
+docs = []
 
 [dependencies]
 serde.workspace = true

@@ -8,6 +8,7 @@ use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Preset {
@@ -40,6 +41,7 @@ pub struct Preset {
 /// A control source bound to a parameter. `source`: `midi:<channel>:cc:<n>` · `face:<blendshape>` (`face:jawOpen`) ·
 /// `motion:<axis>` (`motion:tilt.x`) · `pad:<control>` (`pad:left.x`) · `stick:<left|right>.<x|y>`; its 0..1 (or −1..1)
 /// lands on `target` across `range` (default: the parameter's range, params.rs).
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Mapping {

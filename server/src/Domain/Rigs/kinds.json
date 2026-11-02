@@ -1,0 +1,1612 @@
+{
+  "catalog_version": 1,
+  "kinds": [
+    {
+      "name": "test_pattern",
+      "version": "1",
+      "domain": "video",
+      "doc": "Procedural colour bars, rings and a grid – the first picture a deck draws.",
+      "feature": "core",
+      "module": "stage",
+      "scope": "graph",
+      "ports": [
+        {
+          "name": "speed",
+          "dir": "in",
+          "type": "control",
+          "doc": "animation speed"
+        },
+        {
+          "name": "zoom",
+          "dir": "in",
+          "type": "control",
+          "doc": "zoom of the pattern"
+        },
+        {
+          "name": "hue",
+          "dir": "in",
+          "type": "control",
+          "doc": "colour rotation"
+        },
+        {
+          "name": "pulse",
+          "dir": "in",
+          "type": "control",
+          "doc": "a kick that brightens the pattern"
+        },
+        {
+          "name": "out",
+          "dir": "out",
+          "type": "video",
+          "doc": "the picture"
+        }
+      ],
+      "params": [
+        {
+          "name": "speed",
+          "min": 0.0,
+          "max": 4.0,
+          "default": 1.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "animation speed"
+        },
+        {
+          "name": "zoom",
+          "min": 0.25,
+          "max": 4.0,
+          "default": 1.0,
+          "curve": "log",
+          "unit": "ratio",
+          "port": true,
+          "doc": "zoom of the pattern"
+        },
+        {
+          "name": "hue",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "colour rotation, 0..1 turns the wheel once"
+        },
+        {
+          "name": "pulse",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "a kick that brightens the pattern"
+        }
+      ]
+    },
+    {
+      "name": "shader",
+      "version": "1",
+      "domain": "video",
+      "doc": "A fragment shader over its input: a built-in effect or a WGSL file.",
+      "feature": "core",
+      "module": "stage",
+      "scope": "graph",
+      "ports": [
+        {
+          "name": "in",
+          "dir": "in",
+          "type": "video",
+          "doc": "the picture to process"
+        },
+        {
+          "name": "a",
+          "dir": "in",
+          "type": "control",
+          "doc": "shader knob a"
+        },
+        {
+          "name": "b",
+          "dir": "in",
+          "type": "control",
+          "doc": "shader knob b"
+        },
+        {
+          "name": "c",
+          "dir": "in",
+          "type": "control",
+          "doc": "shader knob c"
+        },
+        {
+          "name": "d",
+          "dir": "in",
+          "type": "control",
+          "doc": "shader knob d, a trigger by convention"
+        },
+        {
+          "name": "out",
+          "dir": "out",
+          "type": "video",
+          "doc": "the processed picture"
+        }
+      ],
+      "params": [
+        {
+          "name": "a",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.5,
+          "curve": "lin",
+          "port": true,
+          "doc": "shader knob a"
+        },
+        {
+          "name": "b",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.5,
+          "curve": "lin",
+          "port": true,
+          "doc": "shader knob b"
+        },
+        {
+          "name": "c",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.5,
+          "curve": "lin",
+          "port": true,
+          "doc": "shader knob c"
+        },
+        {
+          "name": "d",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "shader knob d, a trigger by convention"
+        }
+      ]
+    },
+    {
+      "name": "screen",
+      "version": "1",
+      "domain": "video",
+      "doc": "The window: the video sink. A scene has one.",
+      "feature": "core",
+      "module": "stage",
+      "scope": "graph",
+      "scene_only": true,
+      "ports": [
+        {
+          "name": "in",
+          "dir": "in",
+          "type": "video",
+          "doc": "the picture shown"
+        }
+      ],
+      "params": []
+    },
+    {
+      "name": "chapter",
+      "version": "1",
+      "domain": "video",
+      "doc": "A chapter's slices from the library API, one after the other with its dialog set in, over `in` (or a dark, stretched copy of the slice).",
+      "feature": "chapter",
+      "module": "stage",
+      "scope": "graph",
+      "ports": [
+        {
+          "name": "in",
+          "dir": "in",
+          "type": "video",
+          "doc": "backdrop"
+        },
+        {
+          "name": "next",
+          "dir": "in",
+          "type": "control",
+          "doc": "step to the next slice"
+        },
+        {
+          "name": "hold",
+          "dir": "in",
+          "type": "control",
+          "doc": "seconds a slice stays"
+        },
+        {
+          "name": "zoom",
+          "dir": "in",
+          "type": "control",
+          "doc": "slow zoom"
+        },
+        {
+          "name": "pulse",
+          "dir": "in",
+          "type": "control",
+          "doc": "a kick"
+        },
+        {
+          "name": "out",
+          "dir": "out",
+          "type": "video",
+          "doc": "slices with dialog"
+        },
+        {
+          "name": "text",
+          "dir": "out",
+          "type": "video",
+          "doc": "the current slice's caption on transparent, for an overlay"
+        }
+      ],
+      "params": [
+        {
+          "name": "next",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "a rising edge steps to the next slice"
+        },
+        {
+          "name": "hold",
+          "min": 0.5,
+          "max": 30.0,
+          "default": 6.0,
+          "curve": "log",
+          "unit": "s",
+          "port": true,
+          "doc": "seconds a slice stays"
+        },
+        {
+          "name": "zoom",
+          "min": 0.25,
+          "max": 4.0,
+          "default": 1.0,
+          "curve": "log",
+          "unit": "ratio",
+          "port": true,
+          "doc": "slow zoom"
+        },
+        {
+          "name": "pulse",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "a kick"
+        }
+      ]
+    },
+    {
+      "name": "overlay",
+      "version": "1",
+      "domain": "video",
+      "doc": "`top` over `in` (alpha), the top popping in when it changes, shaken by `shake`.",
+      "feature": "core",
+      "module": "stage",
+      "scope": "graph",
+      "ports": [
+        {
+          "name": "in",
+          "dir": "in",
+          "type": "video",
+          "doc": "the bottom picture"
+        },
+        {
+          "name": "top",
+          "dir": "in",
+          "type": "video",
+          "doc": "the picture laid over it"
+        },
+        {
+          "name": "opacity",
+          "dir": "in",
+          "type": "control",
+          "doc": "opacity of the top"
+        },
+        {
+          "name": "pulse",
+          "dir": "in",
+          "type": "control",
+          "doc": "a kick"
+        },
+        {
+          "name": "shake",
+          "dir": "in",
+          "type": "control",
+          "doc": "shakes the top"
+        },
+        {
+          "name": "out",
+          "dir": "out",
+          "type": "video",
+          "doc": "the composite"
+        }
+      ],
+      "params": [
+        {
+          "name": "opacity",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 1.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "opacity of the top"
+        },
+        {
+          "name": "pulse",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "a kick"
+        },
+        {
+          "name": "shake",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "shakes the top"
+        }
+      ]
+    },
+    {
+      "name": "space",
+      "version": "1",
+      "domain": "video",
+      "doc": "A 3D space: a set's glTF and the deck's being (the running graph as a floating body) seen by an orbit camera; its inputs colour the being, light the set, kick its breath and drive the post stack.",
+      "feature": "space",
+      "module": "stage",
+      "scope": "graph",
+      "scene_only": true,
+      "ports": [
+        {
+          "name": "hue",
+          "dir": "in",
+          "type": "control",
+          "doc": "being colour"
+        },
+        {
+          "name": "glow",
+          "dir": "in",
+          "type": "control",
+          "doc": "being glow"
+        },
+        {
+          "name": "light",
+          "dir": "in",
+          "type": "control",
+          "doc": "set light"
+        },
+        {
+          "name": "pulse",
+          "dir": "in",
+          "type": "control",
+          "doc": "kicks the breath"
+        },
+        {
+          "name": "bloom",
+          "dir": "in",
+          "type": "control",
+          "doc": "bloom amount"
+        },
+        {
+          "name": "threshold",
+          "dir": "in",
+          "type": "control",
+          "doc": "bloom threshold"
+        },
+        {
+          "name": "lift",
+          "dir": "in",
+          "type": "control",
+          "doc": "curves: lift"
+        },
+        {
+          "name": "gamma",
+          "dir": "in",
+          "type": "control",
+          "doc": "curves: gamma"
+        },
+        {
+          "name": "gain",
+          "dir": "in",
+          "type": "control",
+          "doc": "curves: gain"
+        },
+        {
+          "name": "pixel",
+          "dir": "in",
+          "type": "control",
+          "doc": "pixelation block size in render pixels"
+        },
+        {
+          "name": "levels",
+          "dir": "in",
+          "type": "control",
+          "doc": "quantise levels per channel (< 2 = off)"
+        },
+        {
+          "name": "out",
+          "dir": "out",
+          "type": "video",
+          "doc": "the rendered space"
+        }
+      ],
+      "params": [
+        {
+          "name": "hue",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.52,
+          "curve": "lin",
+          "port": true,
+          "doc": "being colour"
+        },
+        {
+          "name": "glow",
+          "min": 0.0,
+          "max": 2.0,
+          "default": 0.6,
+          "curve": "lin",
+          "port": true,
+          "doc": "being glow"
+        },
+        {
+          "name": "light",
+          "min": 0.0,
+          "max": 1.5,
+          "default": 0.85,
+          "curve": "lin",
+          "port": true,
+          "doc": "set light"
+        },
+        {
+          "name": "pulse",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "kicks the breath"
+        },
+        {
+          "name": "bloom",
+          "min": 0.0,
+          "max": 2.0,
+          "default": 0.6,
+          "curve": "lin",
+          "port": true,
+          "doc": "bloom amount"
+        },
+        {
+          "name": "threshold",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.6,
+          "curve": "lin",
+          "port": true,
+          "doc": "bloom threshold"
+        },
+        {
+          "name": "lift",
+          "min": -0.2,
+          "max": 0.3,
+          "default": 0.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "curves: lift"
+        },
+        {
+          "name": "gamma",
+          "min": 0.4,
+          "max": 2.5,
+          "default": 1.0,
+          "curve": "log",
+          "port": true,
+          "doc": "curves: gamma"
+        },
+        {
+          "name": "gain",
+          "min": 0.5,
+          "max": 2.0,
+          "default": 1.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "curves: gain"
+        },
+        {
+          "name": "pixel",
+          "min": 1.0,
+          "max": 64.0,
+          "default": 1.0,
+          "curve": "log",
+          "unit": "px",
+          "port": true,
+          "doc": "pixelation block size in render pixels"
+        },
+        {
+          "name": "levels",
+          "min": 0.0,
+          "max": 16.0,
+          "default": 0.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "quantise levels per channel (< 2 = off)"
+        }
+      ]
+    },
+    {
+      "name": "outlet",
+      "version": "1",
+      "domain": "video",
+      "doc": "A Live outlet: this deck's cells from the relay, drawn natively as one plane over `in` (the backdrop), cross-faded on each cell change.",
+      "feature": "live",
+      "module": "stage",
+      "scope": "graph",
+      "scene_only": true,
+      "ports": [
+        {
+          "name": "in",
+          "dir": "in",
+          "type": "video",
+          "doc": "the backdrop"
+        },
+        {
+          "name": "opacity",
+          "dir": "in",
+          "type": "control",
+          "doc": "dims the outlet"
+        },
+        {
+          "name": "out",
+          "dir": "out",
+          "type": "video",
+          "doc": "backdrop with the outlet's cells"
+        }
+      ],
+      "params": [
+        {
+          "name": "opacity",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 1.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "dims the outlet"
+        }
+      ]
+    },
+    {
+      "name": "lfo",
+      "version": "1",
+      "domain": "control",
+      "doc": "A low-frequency oscillator (control rate).",
+      "feature": "core",
+      "module": "control",
+      "scope": "graph",
+      "batch": true,
+      "ports": [
+        {
+          "name": "rate",
+          "dir": "in",
+          "type": "control",
+          "doc": "cycles per second"
+        },
+        {
+          "name": "depth",
+          "dir": "in",
+          "type": "control",
+          "doc": "amplitude"
+        },
+        {
+          "name": "out",
+          "dir": "out",
+          "type": "control",
+          "doc": "the wave, -depth..depth"
+        }
+      ],
+      "params": [
+        {
+          "name": "rate",
+          "min": 0.01,
+          "max": 20.0,
+          "default": 0.25,
+          "curve": "log",
+          "unit": "Hz",
+          "port": true,
+          "doc": "cycles per second"
+        },
+        {
+          "name": "depth",
+          "min": 0.0,
+          "max": 2.0,
+          "default": 1.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "amplitude"
+        },
+        {
+          "name": "shape",
+          "min": 0.0,
+          "max": 0.0,
+          "default": null,
+          "curve": "lin",
+          "choices": [
+            "sine",
+            "saw",
+            "square"
+          ],
+          "doc": "the wave (default sine)"
+        }
+      ]
+    },
+    {
+      "name": "tempo",
+      "version": "1",
+      "domain": "control",
+      "doc": "The tempo clock, one per scene: its params set the clock (bpm, beats per bar, the source, the click, MIDI / OSC ports).",
+      "feature": "core",
+      "module": "stage",
+      "scope": "graph",
+      "scene_only": true,
+      "ports": [
+        {
+          "name": "bpm",
+          "dir": "out",
+          "type": "control",
+          "doc": "beats per minute"
+        },
+        {
+          "name": "beat",
+          "dir": "out",
+          "type": "control",
+          "doc": "1 on the beat"
+        },
+        {
+          "name": "bar",
+          "dir": "out",
+          "type": "control",
+          "doc": "1 on the bar's first beat"
+        },
+        {
+          "name": "phase",
+          "dir": "out",
+          "type": "control",
+          "doc": "position in the beat, 0..1"
+        },
+        {
+          "name": "bar_phase",
+          "dir": "out",
+          "type": "control",
+          "doc": "position in the bar, 0..1"
+        },
+        {
+          "name": "pulse",
+          "dir": "out",
+          "type": "control",
+          "doc": "a decaying kick on each beat"
+        }
+      ],
+      "params": []
+    },
+    {
+      "name": "click",
+      "version": "1",
+      "domain": "audio",
+      "doc": "A metronome on the tempo clock: a short tick per beat, higher on the bar's first (while the click is on).",
+      "feature": "core",
+      "module": "stage",
+      "scope": "graph",
+      "ports": [
+        {
+          "name": "gain",
+          "dir": "in",
+          "type": "control",
+          "doc": "level"
+        },
+        {
+          "name": "out",
+          "dir": "out",
+          "type": "audio",
+          "channels": 2,
+          "doc": "the ticks"
+        }
+      ],
+      "params": [
+        {
+          "name": "gain",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 1.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "level"
+        }
+      ]
+    },
+    {
+      "name": "osc",
+      "version": "1",
+      "domain": "audio",
+      "doc": "A band-limited oscillator, pitched by its `cv` input or `freq`.",
+      "feature": "core",
+      "module": "synth",
+      "scope": "graph",
+      "batch": true,
+      "ports": [
+        {
+          "name": "cv",
+          "dir": "in",
+          "type": "audio",
+          "channels": 2,
+          "engine": false,
+          "doc": "pitch in Hz on the left channel (a seq / walk / events output); overrides `freq`"
+        },
+        {
+          "name": "freq",
+          "dir": "in",
+          "type": "control",
+          "doc": "pitch"
+        },
+        {
+          "name": "gain",
+          "dir": "in",
+          "type": "control",
+          "doc": "level"
+        },
+        {
+          "name": "out",
+          "dir": "out",
+          "type": "audio",
+          "channels": 2,
+          "doc": "the wave"
+        }
+      ],
+      "params": [
+        {
+          "name": "freq",
+          "min": 20.0,
+          "max": 4000.0,
+          "default": 220.0,
+          "curve": "log",
+          "unit": "Hz",
+          "port": true,
+          "doc": "pitch"
+        },
+        {
+          "name": "gain",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 1.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "level"
+        },
+        {
+          "name": "wave",
+          "min": 0.0,
+          "max": 0.0,
+          "default": null,
+          "curve": "lin",
+          "choices": [
+            "sine",
+            "saw",
+            "square",
+            "triangle"
+          ],
+          "doc": "the wave (default sine)"
+        }
+      ]
+    },
+    {
+      "name": "noise",
+      "version": "1",
+      "domain": "audio",
+      "doc": "White or pink noise through a lowpass.",
+      "feature": "core",
+      "module": "stage",
+      "scope": "graph",
+      "ports": [
+        {
+          "name": "cutoff",
+          "dir": "in",
+          "type": "control",
+          "doc": "lowpass cutoff"
+        },
+        {
+          "name": "gain",
+          "dir": "in",
+          "type": "control",
+          "doc": "level"
+        },
+        {
+          "name": "out",
+          "dir": "out",
+          "type": "audio",
+          "channels": 2,
+          "doc": "the noise"
+        }
+      ],
+      "params": [
+        {
+          "name": "cutoff",
+          "min": 50.0,
+          "max": 16000.0,
+          "default": 4000.0,
+          "curve": "log",
+          "unit": "Hz",
+          "port": true,
+          "doc": "lowpass cutoff"
+        },
+        {
+          "name": "gain",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 1.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "level"
+        },
+        {
+          "name": "color",
+          "min": 0.0,
+          "max": 0.0,
+          "default": null,
+          "curve": "lin",
+          "choices": [
+            "white",
+            "pink"
+          ],
+          "doc": "the noise colour (default white)"
+        }
+      ]
+    },
+    {
+      "name": "fm",
+      "version": "1",
+      "domain": "audio",
+      "doc": "Two-operator FM.",
+      "feature": "core",
+      "module": "synth",
+      "scope": "graph",
+      "batch": true,
+      "ports": [
+        {
+          "name": "cv",
+          "dir": "in",
+          "type": "audio",
+          "channels": 2,
+          "engine": false,
+          "doc": "pitch in Hz on the left channel (a seq / walk / events output); overrides `freq`"
+        },
+        {
+          "name": "freq",
+          "dir": "in",
+          "type": "control",
+          "doc": "carrier pitch"
+        },
+        {
+          "name": "ratio",
+          "dir": "in",
+          "type": "control",
+          "doc": "modulator frequency / carrier frequency"
+        },
+        {
+          "name": "index",
+          "dir": "in",
+          "type": "control",
+          "doc": "modulation depth"
+        },
+        {
+          "name": "gain",
+          "dir": "in",
+          "type": "control",
+          "doc": "level"
+        },
+        {
+          "name": "out",
+          "dir": "out",
+          "type": "audio",
+          "channels": 2,
+          "doc": "the wave"
+        }
+      ],
+      "params": [
+        {
+          "name": "freq",
+          "min": 20.0,
+          "max": 4000.0,
+          "default": 220.0,
+          "curve": "log",
+          "unit": "Hz",
+          "port": true,
+          "doc": "carrier pitch"
+        },
+        {
+          "name": "ratio",
+          "min": 0.25,
+          "max": 8.0,
+          "default": 2.0,
+          "curve": "log",
+          "unit": "ratio",
+          "port": true,
+          "doc": "modulator frequency / carrier frequency"
+        },
+        {
+          "name": "index",
+          "min": 0.0,
+          "max": 10.0,
+          "default": 1.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "modulation depth"
+        },
+        {
+          "name": "gain",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 1.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "level"
+        }
+      ]
+    },
+    {
+      "name": "seq",
+      "version": "1",
+      "domain": "audio",
+      "doc": "A step sequencer: `cv` = pitch in Hz on the left channel, gate 0 / 1 on the right (modular CV in an audio port).",
+      "feature": "core",
+      "module": "stage",
+      "scope": "graph",
+      "ports": [
+        {
+          "name": "rate",
+          "dir": "in",
+          "type": "control",
+          "doc": "speed multiplier"
+        },
+        {
+          "name": "cv",
+          "dir": "out",
+          "type": "audio",
+          "channels": 2,
+          "doc": "pitch (left) and gate (right)"
+        }
+      ],
+      "params": [
+        {
+          "name": "rate",
+          "min": 0.25,
+          "max": 4.0,
+          "default": 1.0,
+          "curve": "log",
+          "unit": "ratio",
+          "port": true,
+          "doc": "speed multiplier"
+        }
+      ]
+    },
+    {
+      "name": "walk",
+      "version": "1",
+      "domain": "audio",
+      "doc": "A generated melody (deck-events): a seeded random walk on a continuous pitch scale on the tempo clock, written as seq's cv. The same seed plays the same melody on every deck.",
+      "feature": "events",
+      "module": "stage",
+      "scope": "graph",
+      "ports": [
+        {
+          "name": "spread",
+          "dir": "in",
+          "type": "control",
+          "doc": "0 = the base held, 1 = ± `octaves`"
+        },
+        {
+          "name": "rate",
+          "dir": "in",
+          "type": "control",
+          "doc": "steps a beat"
+        },
+        {
+          "name": "glide",
+          "dir": "in",
+          "type": "control",
+          "doc": "glide into each step, rides along for the voice"
+        },
+        {
+          "name": "cv",
+          "dir": "out",
+          "type": "audio",
+          "channels": 2,
+          "doc": "pitch (left) and gate (right)"
+        }
+      ],
+      "params": [
+        {
+          "name": "spread",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "0 = the base held, 1 = ± `octaves`"
+        },
+        {
+          "name": "rate",
+          "min": 0.25,
+          "max": 8.0,
+          "default": 2.0,
+          "curve": "log",
+          "unit": "ratio",
+          "port": true,
+          "doc": "steps a beat"
+        },
+        {
+          "name": "glide",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.5,
+          "curve": "lin",
+          "port": true,
+          "doc": "glide into each step, rides along for the voice"
+        }
+      ]
+    },
+    {
+      "name": "events",
+      "version": "1",
+      "domain": "audio",
+      "doc": "Generators rigged together (deck-events' patch): its params hold the patch (`generator`, `edge`, `out`, `knobs`) – an arp on a walk, a pulse … –, inputs a–d are the patch's knobs (unset = the patch's own values); its notes are written as seq's cv.",
+      "feature": "events",
+      "module": "stage",
+      "scope": "graph",
+      "ports": [
+        {
+          "name": "a",
+          "dir": "in",
+          "type": "control",
+          "doc": "knob a"
+        },
+        {
+          "name": "b",
+          "dir": "in",
+          "type": "control",
+          "doc": "knob b"
+        },
+        {
+          "name": "c",
+          "dir": "in",
+          "type": "control",
+          "doc": "knob c"
+        },
+        {
+          "name": "d",
+          "dir": "in",
+          "type": "control",
+          "doc": "knob d"
+        },
+        {
+          "name": "cv",
+          "dir": "out",
+          "type": "audio",
+          "channels": 2,
+          "doc": "pitch (left) and gate (right)"
+        }
+      ],
+      "params": [
+        {
+          "name": "a",
+          "min": 0.0,
+          "max": 1.0,
+          "default": null,
+          "curve": "lin",
+          "port": true,
+          "doc": "raw value into the patch's knob a; the instrument's `expose.range` gives it a real range"
+        },
+        {
+          "name": "b",
+          "min": 0.0,
+          "max": 1.0,
+          "default": null,
+          "curve": "lin",
+          "port": true,
+          "doc": "raw value into the patch's knob b"
+        },
+        {
+          "name": "c",
+          "min": 0.0,
+          "max": 1.0,
+          "default": null,
+          "curve": "lin",
+          "port": true,
+          "doc": "raw value into the patch's knob c"
+        },
+        {
+          "name": "d",
+          "min": 0.0,
+          "max": 1.0,
+          "default": null,
+          "curve": "lin",
+          "port": true,
+          "doc": "raw value into the patch's knob d"
+        }
+      ]
+    },
+    {
+      "name": "chapter_music",
+      "version": "1",
+      "domain": "audio",
+      "doc": "A chapter's music track from the library API, cached and decoded.",
+      "feature": "chapter",
+      "module": "stage",
+      "scope": "graph",
+      "ports": [
+        {
+          "name": "gain",
+          "dir": "in",
+          "type": "control",
+          "doc": "level"
+        },
+        {
+          "name": "out",
+          "dir": "out",
+          "type": "audio",
+          "channels": 2,
+          "doc": "the track"
+        }
+      ],
+      "params": [
+        {
+          "name": "gain",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 1.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "level"
+        }
+      ]
+    },
+    {
+      "name": "mixer",
+      "version": "1",
+      "domain": "audio",
+      "doc": "Four stereo inputs, a gain each.",
+      "feature": "core",
+      "module": "stage",
+      "scope": "graph",
+      "ports": [
+        {
+          "name": "in1",
+          "dir": "in",
+          "type": "audio",
+          "channels": 2,
+          "doc": "input 1"
+        },
+        {
+          "name": "in2",
+          "dir": "in",
+          "type": "audio",
+          "channels": 2,
+          "doc": "input 2"
+        },
+        {
+          "name": "in3",
+          "dir": "in",
+          "type": "audio",
+          "channels": 2,
+          "doc": "input 3"
+        },
+        {
+          "name": "in4",
+          "dir": "in",
+          "type": "audio",
+          "channels": 2,
+          "doc": "input 4"
+        },
+        {
+          "name": "gain1",
+          "dir": "in",
+          "type": "control",
+          "doc": "gain of input 1"
+        },
+        {
+          "name": "gain2",
+          "dir": "in",
+          "type": "control",
+          "doc": "gain of input 2"
+        },
+        {
+          "name": "gain3",
+          "dir": "in",
+          "type": "control",
+          "doc": "gain of input 3"
+        },
+        {
+          "name": "gain4",
+          "dir": "in",
+          "type": "control",
+          "doc": "gain of input 4"
+        },
+        {
+          "name": "out",
+          "dir": "out",
+          "type": "audio",
+          "channels": 2,
+          "doc": "the sum"
+        }
+      ],
+      "params": [
+        {
+          "name": "gain1",
+          "min": 0.0,
+          "max": 1.5,
+          "default": 1.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "gain of input 1"
+        },
+        {
+          "name": "gain2",
+          "min": 0.0,
+          "max": 1.5,
+          "default": 1.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "gain of input 2"
+        },
+        {
+          "name": "gain3",
+          "min": 0.0,
+          "max": 1.5,
+          "default": 1.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "gain of input 3"
+        },
+        {
+          "name": "gain4",
+          "min": 0.0,
+          "max": 1.5,
+          "default": 1.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "gain of input 4"
+        }
+      ]
+    },
+    {
+      "name": "fft",
+      "version": "1",
+      "domain": "audio",
+      "doc": "Sound → control values: level, bass, mid, high (0–1).",
+      "feature": "core",
+      "module": "analysis",
+      "scope": "graph",
+      "ports": [
+        {
+          "name": "in",
+          "dir": "in",
+          "type": "audio",
+          "channels": 2,
+          "doc": "the sound analysed (a tap, it passes nothing on)"
+        },
+        {
+          "name": "level",
+          "dir": "out",
+          "type": "control",
+          "doc": "overall level"
+        },
+        {
+          "name": "bass",
+          "dir": "out",
+          "type": "control",
+          "doc": "low band"
+        },
+        {
+          "name": "mid",
+          "dir": "out",
+          "type": "control",
+          "doc": "mid band"
+        },
+        {
+          "name": "high",
+          "dir": "out",
+          "type": "control",
+          "doc": "high band"
+        }
+      ],
+      "params": [
+        {
+          "name": "release",
+          "min": 0.0,
+          "max": 5.0,
+          "default": 0.25,
+          "curve": "lin",
+          "unit": "s",
+          "doc": "how fast the values fall"
+        }
+      ]
+    },
+    {
+      "name": "audio_out",
+      "version": "1",
+      "domain": "audio",
+      "doc": "The device output: the audio sink. A scene has one.",
+      "feature": "core",
+      "module": "stage",
+      "scope": "graph",
+      "scene_only": true,
+      "ports": [
+        {
+          "name": "in",
+          "dir": "in",
+          "type": "audio",
+          "channels": 2,
+          "doc": "the sound played"
+        },
+        {
+          "name": "volume",
+          "dir": "in",
+          "type": "control",
+          "doc": "main volume"
+        }
+      ],
+      "params": [
+        {
+          "name": "volume",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.8,
+          "curve": "lin",
+          "port": true,
+          "doc": "main volume"
+        }
+      ]
+    },
+    {
+      "name": "smooth",
+      "version": "1",
+      "domain": "control",
+      "doc": "Smooths its input over `time` (a control helper).",
+      "module": "control",
+      "scope": "internal",
+      "batch": true,
+      "ports": [
+        {
+          "name": "in",
+          "dir": "in",
+          "type": "control",
+          "doc": "the value"
+        },
+        {
+          "name": "time",
+          "dir": "in",
+          "type": "control",
+          "doc": "glide time"
+        },
+        {
+          "name": "out",
+          "dir": "out",
+          "type": "control",
+          "doc": "the smoothed value"
+        }
+      ],
+      "params": [
+        {
+          "name": "in",
+          "min": -1000.0,
+          "max": 1000.0,
+          "default": 0.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "the value"
+        },
+        {
+          "name": "time",
+          "min": 0.001,
+          "max": 10.0,
+          "default": 0.1,
+          "curve": "log",
+          "unit": "s",
+          "port": true,
+          "doc": "glide time"
+        }
+      ]
+    },
+    {
+      "name": "mul",
+      "version": "1",
+      "domain": "control",
+      "doc": "Multiplies a and b (a control helper).",
+      "module": "control",
+      "scope": "internal",
+      "batch": true,
+      "ports": [
+        {
+          "name": "a",
+          "dir": "in",
+          "type": "control",
+          "doc": "factor a"
+        },
+        {
+          "name": "b",
+          "dir": "in",
+          "type": "control",
+          "doc": "factor b"
+        },
+        {
+          "name": "out",
+          "dir": "out",
+          "type": "control",
+          "doc": "a × b"
+        }
+      ],
+      "params": [
+        {
+          "name": "a",
+          "min": -1000.0,
+          "max": 1000.0,
+          "default": 0.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "factor a"
+        },
+        {
+          "name": "b",
+          "min": -1000.0,
+          "max": 1000.0,
+          "default": 0.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "factor b"
+        }
+      ]
+    },
+    {
+      "name": "add",
+      "version": "1",
+      "domain": "control",
+      "doc": "Adds a and b (a control helper).",
+      "module": "control",
+      "scope": "internal",
+      "batch": true,
+      "ports": [
+        {
+          "name": "a",
+          "dir": "in",
+          "type": "control",
+          "doc": "summand a"
+        },
+        {
+          "name": "b",
+          "dir": "in",
+          "type": "control",
+          "doc": "summand b"
+        },
+        {
+          "name": "out",
+          "dir": "out",
+          "type": "control",
+          "doc": "a + b"
+        }
+      ],
+      "params": [
+        {
+          "name": "a",
+          "min": -1000.0,
+          "max": 1000.0,
+          "default": 0.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "summand a"
+        },
+        {
+          "name": "b",
+          "min": -1000.0,
+          "max": 1000.0,
+          "default": 0.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "summand b"
+        }
+      ]
+    },
+    {
+      "name": "model3d",
+      "version": "1",
+      "domain": "video",
+      "doc": "Planned: a 3D model.",
+      "module": "3d",
+      "scope": "planned",
+      "ports": [
+        {
+          "name": "rot",
+          "dir": "in",
+          "type": "control",
+          "doc": "rotation"
+        },
+        {
+          "name": "out",
+          "dir": "out",
+          "type": "video",
+          "doc": "the picture"
+        }
+      ],
+      "params": [
+        {
+          "name": "rot",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "rotation"
+        }
+      ]
+    },
+    {
+      "name": "text",
+      "version": "1",
+      "domain": "video",
+      "doc": "Planned: text over a picture.",
+      "module": "text",
+      "scope": "planned",
+      "ports": [
+        {
+          "name": "in",
+          "dir": "in",
+          "type": "video",
+          "doc": "the picture"
+        },
+        {
+          "name": "out",
+          "dir": "out",
+          "type": "video",
+          "doc": "the picture with text"
+        }
+      ],
+      "params": []
+    },
+    {
+      "name": "video",
+      "version": "1",
+      "domain": "video",
+      "doc": "Planned: a video clip.",
+      "module": "video",
+      "scope": "planned",
+      "ports": [
+        {
+          "name": "speed",
+          "dir": "in",
+          "type": "control",
+          "doc": "playback speed"
+        },
+        {
+          "name": "out",
+          "dir": "out",
+          "type": "video",
+          "doc": "the picture"
+        }
+      ],
+      "params": [
+        {
+          "name": "speed",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "playback speed"
+        }
+      ]
+    }
+  ]
+}

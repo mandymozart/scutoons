@@ -7,7 +7,8 @@
 //   npm run deck:ci -- --no-release everything but the release build (fat LTO: minutes – the pre-push hook)
 //   npm run deck:ci -- --if-changed <from> <to>   only when deck/ or shared/live* changed in that range (the pre-push hook)
 //
-// Steps: the protocol schema current (shared/live), live-core for wasm32 + its TS tests, space-web for wasm32 +
+// Steps: the protocol schema current (shared/live), the kind catalog's generated files current (deck-space's deck-schema
+// --check: kinds.json, NodeKinds.php, the JSON Schema, shared/live/src/catalog.ts), live-core for wasm32 + its TS tests, space-web for wasm32 +
 // shared/live-deck's tests, cargo build --release, cargo test, cargo clippy -D warnings. The Linux aarch64 cross build
 // and the other platforms stay on GitHub (by hand) – this runs the host's native target.
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -43,6 +44,7 @@ const steps = [
 		? []
 		: [
 				['📐 protocol schema current', npm, ['run', 'check', '-w', 'shared/live'], root],
+				['📚 kind catalog current', 'cargo', ['run', '-q', '-p', 'deck-space', '--features', 'schema', '--bin', 'deck-schema', '--', '--check'], `${root}/deck`],
 				['🕸 live-core wasm32', npm, ['run', 'build:wasm', '-w', 'shared/live-core'], root],
 				['🕸 live-core tests', npm, ['run', 'check', '-w', 'shared/live-core'], root],
 				['🧊 space-web wasm32', 'cargo', ['build', '--profile', 'wasm-web', '--target', 'wasm32-unknown-unknown', '-p', 'space-web'], `${root}/deck`],

@@ -11,8 +11,19 @@ const A: PortType = PortType::Audio;
 const C: PortType = PortType::Control;
 const V: PortType = PortType::Video;
 
+/// doc strings are data for `kinds.json`, the editor and the agents: only the `docs` feature (the generator, native
+/// builds) carries them – a wasm build keeps the table's shape without the text
+#[inline(always)]
+fn d(doc: &'static str) -> &'static str {
+    if cfg!(feature = "docs") {
+        doc
+    } else {
+        ""
+    }
+}
+
 fn port(name: &'static str, dir: Dir, ty: PortType, channels: Option<Channels>, engine: bool, doc: &'static str) -> PortDesc {
-    PortDesc { name: Cow::Borrowed(name), dir, ty, channels, engine, doc: Cow::Borrowed(doc) }
+    PortDesc { name: Cow::Borrowed(name), dir, ty, channels, engine, doc: Cow::Borrowed(d(doc)) }
 }
 /// a control input (its parameter has the same name: `lin` / `log` / `driven`)
 fn ci(name: &'static str, doc: &'static str) -> PortDesc {
@@ -41,7 +52,7 @@ fn ai_graph(name: &'static str, doc: &'static str) -> PortDesc {
 }
 
 fn param(name: &'static str, curve: Curve, min: f32, max: f32, default: Option<f32>, unit: &'static str, doc: &'static str) -> ParamDesc {
-    ParamDesc { name: Cow::Borrowed(name), min, max, default, curve, unit: Cow::Borrowed(unit), choices: Cow::Borrowed(&[]), port: true, doc: Cow::Borrowed(doc) }
+    ParamDesc { name: Cow::Borrowed(name), min, max, default, curve, unit: Cow::Borrowed(unit), choices: Cow::Borrowed(&[]), port: true, doc: Cow::Borrowed(d(doc)) }
 }
 fn lin(name: &'static str, min: f32, max: f32, default: f32, unit: &'static str, doc: &'static str) -> ParamDesc {
     param(name, Curve::Lin, min, max, Some(default), unit, doc)
@@ -64,7 +75,7 @@ fn choice(name: &'static str, choices: &[Cow<'static, str>], doc: &'static str) 
         unit: Cow::Borrowed(""),
         choices: Cow::Owned(choices.to_vec()),
         port: false,
-        doc: Cow::Borrowed(doc),
+        doc: Cow::Borrowed(d(doc)),
     }
 }
 /// a number parameter without a port
@@ -97,7 +108,7 @@ fn kind(
         name: Cow::Borrowed(name),
         version: Cow::Borrowed("1"),
         domain,
-        doc: Cow::Borrowed(doc),
+        doc: Cow::Borrowed(d(doc)),
         feature: Cow::Borrowed(feature),
         module: Cow::Borrowed(module),
         scope: if flags & F_INTERNAL != 0 {
