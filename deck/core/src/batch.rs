@@ -351,6 +351,11 @@ impl BatchGraph {
         self.ids.iter().position(|x| x == id).map(|i| self.values[i + 1])
     }
 
+    /// The value of the node at `node` (scene order) after the last step.
+    pub fn node_value(&self, node: usize) -> Option<f32> {
+        self.values.get(node + 1).copied()
+    }
+
     /// A value sent from outside onto node `node`'s input `port` (#189 force / blend, #184): the input becomes
     /// `own · (1 − amount) + value · amount` – amount 1 = force (the value alone), 0 = the input as built again; a link
     /// keeps flowing in proportion. One affine change of the input's column, nothing per frame. `false` = no such input.
@@ -375,6 +380,14 @@ impl BatchGraph {
     /// node `node`'s input `port`'s base (`set_base`; a link's offset as built, else the constant)
     pub fn base(&self, node: usize, port: usize) -> Option<f32> {
         self.base.get(node).and_then(|b| b.get(port)).map(|b| b.2)
+    }
+
+    /// node `node`'s input `port` as of the last step: its link's source × scale + its base, blended with the last send
+    /// (what a parameter path `node.port` reads – deck-outputs' source in the browser, #282). `None` = no such input.
+    pub fn input(&self, node: usize, port: usize) -> Option<f32> {
+        let (list, batch, i) = *self.place.get(node)?;
+        let b = if list == AUDIO { self.audio.get(batch)? } else { self.levels.get(list)?.get(batch)? };
+        Some(b.cols.get(port)?.get(&self.values, i))
     }
 
     /// the input's column: its base and its link, blended with its last send

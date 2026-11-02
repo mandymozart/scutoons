@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { analysisOf, encodeSend, FRAME, HEADER, readRecords, recordSize, writeSend, WireError, type SendRecord } from '../src/wire.ts';
+import { analysisOf, encodeSend, FRAME, HEADER, MAX_OUTPUTS, OUTPUT_COUNT, PEAKS, REDUCTION, readRecords, recordSize, writeSend, WireError, type SendRecord } from '../src/wire.ts';
 
 type Row = { name: string; record: SendRecord & { v: number[] }; hex: string };
 const fixture = fileURLToPath(new URL('../../../deck/live-core/fixtures/wire.json', import.meta.url));
@@ -64,4 +64,24 @@ test('the analysis frame names its values and views the spectrum', () => {
 	assert.deepEqual([a.level, a.bass, a.mid, a.high, a.spectrum.length, a.spectrum[0]], [0, 1, 2, 3, 512, 4]);
 	f[4] = 99;
 	assert.equal(a.spectrum[0], 99, 'a view, not a copy');
+});
+
+test('the frame ends with the output count and the peaks (#282); an older frame has none', () => {
+	assert.equal(FRAME, 4 + 512 + 1 + 1 + MAX_OUTPUTS);
+	assert.deepEqual([REDUCTION, OUTPUT_COUNT, PEAKS], [516, 517, 518]);
+	const f = new Float32Array(FRAME);
+	f[REDUCTION] = 6;
+	f[OUTPUT_COUNT] = 2;
+	f.set([0.5, 0.25, 0.9], PEAKS);
+	const a = analysisOf(f);
+	assert.equal(a.reduction, 6);
+	assert.deepEqual([...a.outputs], [0.5, 0.25], 'as many as the count says, a view on the frame');
+	f[PEAKS] = 0.75;
+	assert.equal(a.outputs[0], 0.75);
+	f[OUTPUT_COUNT] = 99;
+	assert.equal(analysisOf(f).outputs.length, MAX_OUTPUTS, 'a count past the slots is cut');
+	// a frame from an engine that predates the slots: the old layout, nothing past the reduction
+	const old = analysisOf(new Float32Array(4 + 512 + 1));
+	assert.equal(old.outputs.length, 0);
+	assert.equal(old.reduction, 0);
 });

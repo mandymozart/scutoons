@@ -44,6 +44,8 @@ export class CreatorNav {
 	actions = $state<Snippet | null>(null);
 	/** phones: a page control at the right end of the crumb row (the map builder's toon filter, UI-CONCEPTS E.10) */
 	crumbEnd = $state<Snippet | null>(null);
+	/** the page asks for the menu as its rail (the editor's workspaces: the room is theirs); the menu's own fold button still opens it for the visit, the remembered fold is not touched */
+	rail = $state(false);
 	/** editors that scroll their own columns (AppShell mode "fill") */
 	fill = $state(false);
 	/** the page's bottom region (AppShell `bottom`, fill mode only – the storyboard's timeline, #126) */
@@ -118,7 +120,7 @@ export function getCreatorNav(): CreatorNav {
  * Registers a page's part of the navigation while the page is mounted (call during component init).
  * `extra` is a function so the crumbs follow the page's state.
  */
-export function usePageNav(options: { sidebar?: Snippet; actions?: Snippet; crumbEnd?: Snippet; extra?: () => Crumb[]; fill?: boolean; bottom?: () => PageBottom | null }) {
+export function usePageNav(options: { sidebar?: Snippet; actions?: Snippet; crumbEnd?: Snippet; extra?: () => Crumb[]; fill?: boolean; rail?: boolean; bottom?: () => PageBottom | null }) {
 	const nav = getCreatorNav();
 	const owner = ++nextOwner;
 	$effect(() => {
@@ -127,12 +129,14 @@ export function usePageNav(options: { sidebar?: Snippet; actions?: Snippet; crum
 		nav.actions = options.actions ?? null;
 		nav.crumbEnd = options.crumbEnd ?? null;
 		nav.fill = !!options.fill;
+		nav.rail = !!options.rail;
 		return () => {
 			if (nav.owner !== owner) return;
 			nav.sidebar = null;
 			nav.actions = null;
 			nav.crumbEnd = null;
 			nav.fill = false;
+			nav.rail = false;
 			nav.bottom = null;
 			nav.extra = [];
 		};

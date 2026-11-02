@@ -18,6 +18,9 @@ export interface Exports {
 	lc_step(dt: number): void;
 	lc_render(frames: number): number;
 	lc_analyse(dt: number, lead: number): number;
+	/** #282: the device messages since the last call – their length; the records are at `lc_signals_at()` */
+	lc_signals(): number;
+	lc_signals_at(): number;
 }
 
 /** The load table: the scene's nodes with their input ports, in the order the records' `node` index counts. */
@@ -101,7 +104,16 @@ export class WasmCore {
 	analyse(dt: number, lead: number): Float32Array {
 		return new Float32Array(this.x.memory.buffer, this.x.lc_analyse(dt, lead), FRAME);
 	}
+
+	/** #282: the scene's `[outputs]` messages since the last call, as signal records (signals.ts) – a view (empty when
+	 * there are none), valid until the next call into the core. */
+	signals(): Uint8Array {
+		const n = this.x.lc_signals();
+		return n === 0 ? EMPTY : new Uint8Array(this.x.memory.buffer, this.x.lc_signals_at(), n);
+	}
 }
+
+const EMPTY = new Uint8Array(0);
 
 export const BLOCK = 128;
 
@@ -111,6 +123,9 @@ export interface EngineOptions {
 	/** an analysis frame per this many rendered frames (default ≈ 60 per second) */
 	analysisEvery?: number;
 	onAnalysis(frame: Float32Array): void;
+	/** #282: the device messages since the last analysis frame, as signal records (a view – copy it); only called when
+	 * there are some */
+	onSignals?(records: Uint8Array): void;
 }
 
 /** The pump: control records in, audio blocks out (control stepped once per block), an analysis frame now and then. */
@@ -120,6 +135,7 @@ export class Engine {
 	lead: number;
 	private readonly every: number;
 	private readonly onAnalysis: (frame: Float32Array) => void;
+	private readonly onSignals: ((records: Uint8Array) => void) | undefined;
 	private sinceAnalysis = 0;
 	/** blocks rendered, records applied, µs spent rendering (since the last `stats()`) */
 	private blocks = 0;
@@ -133,6 +149,7 @@ export class Engine {
 		this.lead = o.lead;
 		this.every = o.analysisEvery ?? Math.round(core.rate / 60);
 		this.onAnalysis = o.onAnalysis;
+		this.onSignals = o.onSignals;
 	}
 
 	/** Moves every complete record of the control ring into the inbox and applies them; returns how many. */
@@ -169,6 +186,10 @@ export class Engine {
 			const frame = this.core.analyse(this.sinceAnalysis / this.core.rate, fill + BLOCK);
 			this.sinceAnalysis = 0;
 			this.onAnalysis(frame);
+			if (this.onSignals) {
+				const records = this.core.signals();
+				if (records.length) this.onSignals(records);
+			}
 		}
 	}
 

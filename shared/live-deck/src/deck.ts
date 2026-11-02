@@ -4,7 +4,7 @@
 // draws it; `tick` runs it once per animation frame. With a CDN given it answers the conductor's scene sync (#195,
 // sync.ts).
 import type { DeckGraph } from '@scutoons/live';
-import { LiveCore, type Analysis } from '@scutoons/live-core';
+import { LiveCore, type Analysis, type DeviceSignal } from '@scutoons/live-core';
 import type { DeckSynced } from '@scutoons/live';
 import { DeckLink, ValueStream, type WebSocketLike } from './client.ts';
 import { BrowserSync } from './sync.ts';
@@ -65,12 +65,14 @@ export class Deck {
 	portraits: Portraits = {};
 	readonly moods = new Moods(['neutral'], 1.5, BPM);
 	mood = 'neutral';
-	bands: Analysis = { level: 0, bass: 0, mid: 0, high: 0, spectrum: new Float32Array(0), reduction: 0 };
+	bands: Analysis = { level: 0, bass: 0, mid: 0, high: 0, spectrum: new Float32Array(0), reduction: 0, outputs: new Float32Array(0) };
 	/** a finger on a pad (0 / 1): lifts the energy a little */
 	touch = 0;
 	readonly link: DeckLink | null;
 	/** #195: the answers to the conductor's pushes (null without a CDN) */
 	readonly sync: BrowserSync | null;
+	/** #282: a device message the scene's `[outputs]` resolved to (MIDI / OSC / DMX – shown by the page, never played here) */
+	onSignal: ((s: DeviceSignal) => void) | null = null;
 	stream = new ValueStream(STREAMED);
 	core: LiveCore | null = null;
 	/** the scene live-core plays is the deck's current one: false while a load is in flight (a character switch, a mood's
@@ -286,6 +288,7 @@ export class Deck {
 	async start(files: EngineFiles): Promise<void> {
 		const c = await LiveCore.start({ worker: files.worker, wasm: files.wasm, worklet: files.worklet, transport: files.transport ?? 'auto', lead: files.lead ?? defaultLead() });
 		c.onAnalysis((a) => (this.bands = a));
+		c.onSignal((s) => this.onSignal?.(s));
 		this.core = c;
 		await this.loadEngine(c);
 	}
@@ -305,7 +308,7 @@ export class Deck {
 			}
 		}
 		this.noises.clear();
-		this.bands = { level: 0, bass: 0, mid: 0, high: 0, spectrum: new Float32Array(0), reduction: 0 };
+		this.bands = { level: 0, bass: 0, mid: 0, high: 0, spectrum: new Float32Array(0), reduction: 0, outputs: new Float32Array(0) };
 		await c?.stop();
 	}
 

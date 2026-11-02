@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { mustLeave, needsIsolation, shouldReload } from '../src/lib/isolation.ts';
 
 test('the engine routes are isolated, the rest of the creator is not', () => {
-	for (const p of ['/engine', '/engine/', '/edit', '/edit/rig:character.catpope']) assert.ok(needsIsolation(p), p);
-	for (const p of ['/', '/toons', '/toptoy/chapter/1', '/catalog/items', '/map', '/engines', '/editor', '/characters']) assert.ok(!needsIsolation(p), p);
+	for (const p of ['/edit', '/edit/', '/edit/rig:character.catpope', '/edit/module:walk']) assert.ok(needsIsolation(p), p);
+	for (const p of ['/', '/toons', '/toptoy/chapter/1', '/catalog/items', '/map', '/engine', '/engines', '/editor', '/characters']) assert.ok(!needsIsolation(p), p);
 });
 
 test('a page that arrived without its headers loads once afresh – never twice', () => {

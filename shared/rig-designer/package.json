@@ -1,0 +1,46 @@
+{
+	"name": "@scutoons/rig-designer",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "SCUTOONS rig designer (#282, agents/research/RIG-EDITING.md §8): the designer of the creator's Sound design workspace – Rust (files, CodeMirror editor, Save, Compile, problems, console) and Parameters (read-only), Nodes / Assignment later; the module is a document the app's ModuleStore loads and saves; de/en texts in the package, the app calls setupRigDesigner once; no app state, routing or paraglide inside",
+	"sideEffects": [
+		"**/*.css",
+		"**/*.svelte"
+	],
+	"svelte": "./src/index.ts",
+	"types": "./src/index.ts",
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"svelte": "./src/index.ts",
+			"default": "./src/index.ts"
+		},
+		"./store": "./src/store.ts"
+	},
+	"files": [
+		"src"
+	],
+	"scripts": {
+		"check": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings && npm run test",
+		"test": "node --experimental-transform-types --no-warnings --test test/files.test.ts test/diagnostics.test.ts test/console.test.ts test/descriptor.test.ts test/api.test.ts test/store.test.ts test/starter.test.ts"
+	},
+	"dependencies": {
+		"@codemirror/commands": "6.11.1",
+		"@codemirror/lang-rust": "6.0.2",
+		"@codemirror/language": "6.13.1",
+		"@codemirror/lint": "6.9.7",
+		"@codemirror/state": "6.7.6",
+		"@codemirror/view": "6.43.15",
+		"@scutoons/ui": "*"
+	},
+	"peerDependencies": {
+		"svelte": "^5.32.0"
+	},
+	"devDependencies": {
+		"@types/node": "^22",
+		"svelte": "^5.55.0",
+		"svelte-check": "^4.1.0",
+		"typescript": "^5.9.3"
+	}
+}

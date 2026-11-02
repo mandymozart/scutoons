@@ -96,7 +96,7 @@ test('#298: stop ends the sound and leaves the deck as it was – values kept, n
 	const d = new Deck({ character: 'yellowmouse', nick: 'guest', api: API });
 	let stopped = 0;
 	d.core = { stop: async () => void stopped++ } as unknown as NonNullable<Deck['core']>;
-	d.bands = { level: 0.7, bass: 0.5, mid: 0.2, high: 0.1, spectrum: new Float32Array(4), reduction: 3 };
+	d.bands = { level: 0.7, bass: 0.5, mid: 0.2, high: 0.1, spectrum: new Float32Array(4), reduction: 3, outputs: new Float32Array(2) };
 	d.setParam('voice.index', 4.5);
 	await d.stop();
 	assert.equal(stopped, 1);

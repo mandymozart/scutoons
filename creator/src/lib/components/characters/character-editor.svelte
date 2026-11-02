@@ -18,6 +18,7 @@
 		type ToonCast
 	} from '@scutoons/content';
 	import { confirmRemove } from '$lib/editor/ask.ts';
+	import { editHref } from '$lib/editor/edit-key.ts';
 	import { addLook, addPersona, characterLanguages, edit, editCharacter, isKnownMissing, registryOf, requestsOf, type ToonInfo } from '$lib/editor/characters.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { lookEdits } from '$lib/editor/look-edit.ts';
@@ -195,6 +196,7 @@
 					</span>
 				</div>
 				<CharacterImport {registry} {moodsDoc} {requestsDoc} {moods} {requests} {character} {languages} bind:bust compact />
+				<a class="sq" href={editHref(`rig:character.${character.id}`, { w: 'sound' })} title={m['creator.characters_sound_design']()} aria-label={m['creator.characters_sound_design']()} data-testid="character-sound-design"><Icon name="music" /></a>
 				<button type="button" class="sq desktop-only" onclick={remove} title={m['creator.characters_remove']()} aria-label={m['creator.characters_remove']()} data-testid="remove-character"><Icon name="trash-2" /></button>
 				<KanonSquare state={kanon.state(subjectOf('character'))} open={tab === 'kanon' && level === 'character'} label={m['creator.kanon']()} onclick={() => openKanon('character')} testid="kanon-character" />
 			</header>

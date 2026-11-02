@@ -7,7 +7,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { BLOCK, Engine, WasmCore } from '../src/engine.ts';
 import { Ring, ringBuffers } from '../src/ring.ts';
-import { FRAME, writeSend } from '../src/wire.ts';
+import { FRAME, SPECTRUM, writeSend } from '../src/wire.ts';
 
 const wasmPath = fileURLToPath(new URL('../../../deck/target/wasm32-unknown-unknown/release/live_core.wasm', import.meta.url));
 const skip = existsSync(wasmPath) ? false : 'live_core.wasm is not built – npm run build:wasm -w shared/live-core';
@@ -64,7 +64,7 @@ test('a vector through the control ring reaches the sound and the analysis', { s
 	const last = frames.at(-1)!;
 	assert.equal(last.length, FRAME);
 	assert.ok(last[2] > 0.8 && last[2] > last[1] + 0.3, `mid: ${[...last.subarray(0, 4)]}`);
-	const peak = last.subarray(4).reduce((best, v, i, s) => (v > s[best] ? i : best), 0);
+	const peak = last.subarray(4, 4 + SPECTRUM).reduce((best, v, i, s) => (v > s[best] ? i : best), 0);
 	assert.equal(peak, 32, '1500 Hz / 46.875 Hz per bin');
 	const s = e.stats();
 	assert.ok(s.blocks > 300 && s.records === 1 && s.renderUs > 0, JSON.stringify(s));
