@@ -22,7 +22,7 @@ export function summarize(d: Descriptor): DescriptorSummary {
 	};
 }
 
-const num = (n: number): string => String(Math.round(n * 1e4) / 1e4);
+export const num = (n: number): string => String(Math.round(n * 1e4) / 1e4);
 
 /** "walk 0.1.0 · ABI 1 · 3 params · 1 in · 2 out" */
 export function headline(d: Descriptor): string {

@@ -1,10 +1,10 @@
 <script lang="ts">
-	// The Rust tab (RIG-EDITING.md §2.3): the file tabs with Save and Compile at the right (Compile primary and last, one
-	// primary only), the editor filling the height, Problems and Console in a band under it. On a phone Save / Compile
+	// The Rust tab (RIG-EDITING.md §2.3): the file tabs with Save and Compile at the right (icon-only, round; Compile primary
+	// and last, one primary only), the editor filling the height, Problems and Console in a band under it. On a phone Save / Compile
 	// move to a bottom bar. Disabled actions say why (their title and the muted line): over a limit, compiling, or the
 	// user may not compile (the API's 403 `creator_only` is a sentence, not an error).
 	import { onMount } from 'svelte';
-	import { Button } from '@scutoons/ui';
+	import { Icon } from '@scutoons/ui';
 	import type { RigDesigner } from '../designer.svelte.ts';
 	import { m } from '../messages.ts';
 	import CodeEditor from './code-editor.svelte';
@@ -19,7 +19,6 @@
 		const sync = () => (phone = query.matches);
 		sync();
 		query.addEventListener('change', sync);
-		void designer.load();
 		return () => query.removeEventListener('change', sync);
 	});
 
@@ -33,12 +32,12 @@
 	<span class="state" data-testid="designer-state">
 		{#if reason && !designer.compiling}<span class="why" title={reason}>{reason}</span>{:else if designer.dirty}{m['designer.unsaved']()}{/if}
 	</span>
-	<Button variant="secondary" size="sm" disabled={!designer.canSave} title={m['designer.save_title']()} onclick={() => designer.save()} data-testid="designer-save">
-		{designer.saving ? m['designer.saving']() : m['designer.save']()}
-	</Button>
-	<Button size="sm" disabled={!designer.canCompile} title={reason || m['designer.compile_title']()} onclick={() => designer.compile()} data-testid="designer-compile">
-		{designer.compiling ? m['designer.compiling']() : m['designer.compile']()}
-	</Button>
+	<button type="button" class="sc-round" disabled={!designer.canSave} title={m['designer.save_title']()} aria-label={m['designer.save']()} onclick={() => designer.save()} data-testid="designer-save">
+		<Icon name="save" size="1rem" />
+	</button>
+	<button type="button" class="sc-round compile" disabled={!designer.canCompile} title={reason || m['designer.compile_title']()} aria-label={m['designer.compile']()} aria-busy={designer.compiling} onclick={() => designer.compile()} data-testid="designer-compile">
+		<Icon name="cpu" size="1rem" />
+	</button>
 {/snippet}
 
 <div class="rust" data-testid="designer-rust">
@@ -114,6 +113,14 @@
 	}
 	.actions .state {
 		max-width: 22rem;
+	}
+	/* Compile is the one primary (ink, paper icon): DESIGN "Round vs square" – a standalone icon-only button is round */
+	.compile {
+		background: var(--ink);
+		color: var(--paper);
+	}
+	.compile:disabled {
+		opacity: 0.5;
 	}
 	.notice {
 		flex: none;

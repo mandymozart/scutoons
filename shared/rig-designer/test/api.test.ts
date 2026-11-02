@@ -1,4 +1,4 @@
-// `npm test -w @scutoons/rig-designer`: the /api/modules client on a fake fetch – the answers of server/docs/API.md
+// `npm test -w @scutoons/rig-designer`: the /api/modules/compile client on a fake fetch – the answers of server/docs/API.md
 // "Modules" become values, never exceptions.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -22,24 +22,25 @@ const files = { 'lib.rs': 'fn main() {}' };
 const descriptor = { abi: 1, name: 'walk', version: '0.1.0', params: [], ports: [] };
 const wasm = { hash: 'a'.repeat(64), bytes: 1234, toolchain: 'rustc 1.90', url: 'https://cdn/modules/a.wasm' };
 
-test('compile: 200 gives the hash, descriptor, wasm and warnings; the request carries the files (+ the member)', async () => {
+test('compile: 200 gives the hash, descriptor, wasm and warnings; the request carries the files (+ the factory document)', async () => {
 	const calls: Call[] = [];
 	const api = createDesignerApi({
-		fetch: fake(200, { status: 'success', hash: wasm.hash, descriptor, wasm, warnings: [{ file: 'lib.rs', line: 2, column: 1, level: 'warning', message: 'unused' }], module: 'm:X' }, calls),
+		fetch: fake(200, { status: 'success', hash: wasm.hash, descriptor, wasm, warnings: [{ file: 'lib.rs', line: 2, column: 1, level: 'warning', message: 'unused' }], module: 'module:walk', version: 7 }, calls),
 		baseUrl: 'http://api.test/api/',
 		getToken: () => 'tok'
 	});
-	const r = await api.compile({ files, member: 'm:X' });
+	const r = await api.compile({ files, factory: 'walk' });
 	assert.ok(r.ok);
 	if (r.ok) {
 		assert.equal(r.hash, wasm.hash);
 		assert.equal(r.wasm.url, wasm.url);
-		assert.equal(r.module, 'm:X');
+		assert.equal(r.module, 'module:walk');
+		assert.equal(r.version, 7);
 		assert.equal(r.warnings[0].message, 'unused');
 	}
 	assert.equal(calls[0].url, 'http://api.test/api/modules/compile');
 	assert.equal(calls[0].method, 'POST');
-	assert.deepEqual(calls[0].body, { files, member: 'm:X' });
+	assert.deepEqual(calls[0].body, { files, factory: 'walk' });
 	assert.equal(calls[0].headers.Authorization, 'Bearer tok');
 	assert.equal((await createDesignerApi({ fetch: fake(200, {}, calls), baseUrl: 'x' }).compile({ files })).ok, false, 'an answer without a module is no success');
 });
@@ -71,32 +72,4 @@ test('a network failure is a value too', async () => {
 	}) as unknown as typeof fetch;
 	const r = await createDesignerApi({ fetch: down, baseUrl: 'x' }).compile({ files });
 	assert.deepEqual(r, { ok: false, reason: 'error', code: 'network', message: 'offline' });
-});
-
-test('save / load of the member module: POST creates, PUT replaces, GET reads the files', async () => {
-	const calls: Call[] = [];
-	const row = { id: 'm:01ABC', name: 'walk', files, descriptor, wasm };
-	const created = await createDesignerApi({ fetch: fake(201, { status: 'success', module: row }, calls), baseUrl: 'http://a/api' }).create('walk', files);
-	assert.ok(created.ok && created.module.id === 'm:01ABC' && created.module.wasm?.hash === wasm.hash);
-	assert.deepEqual([calls[0].method, calls[0].url, calls[0].body], ['POST', 'http://a/api/modules', { name: 'walk', files }]);
-
-	const saved = await createDesignerApi({ fetch: fake(200, { status: 'success', module: row }, calls), baseUrl: 'http://a/api' }).save('m:01ABC', 'walk', files);
-	assert.ok(saved.ok);
-	assert.deepEqual([calls[1].method, calls[1].url], ['PUT', 'http://a/api/modules/m%3A01ABC']);
-
-	const loaded = await createDesignerApi({ fetch: fake(200, { status: 'success', module: row }, calls), baseUrl: 'http://a/api' }).load('m:01ABC');
-	assert.ok(loaded.ok && loaded.module.files['lib.rs'] === files['lib.rs']);
-
-	const missing = await createDesignerApi({ fetch: fake(404, { error: 'not_found', message: 'No module.' }), baseUrl: 'x' }).load('m:NOPE');
-	assert.ok(!missing.ok && missing.code === 'not_found');
-
-	const bad = await createDesignerApi({ fetch: fake(422, { error: 'invalid_module', message: 'x', problems: ['files needs a lib.rs'] }), baseUrl: 'x' }).save('m:1', 'n', {});
-	assert.ok(!bad.ok && bad.reason === 'invalid' && bad.problems?.[0] === 'files needs a lib.rs');
-});
-
-test('list gives the own modules without sources; remove answers ok', async () => {
-	const list = await createDesignerApi({ fetch: fake(200, { status: 'success', items: [{ id: 'm:1', name: 'a', descriptor }, { id: 'm:2', name: 'b' }] }), baseUrl: 'x' }).list();
-	assert.ok(list.ok);
-	if (list.ok) assert.deepEqual(list.items.map((i) => i.id), ['m:1', 'm:2']);
-	assert.deepEqual(await createDesignerApi({ fetch: fake(200, { status: 'success' }), baseUrl: 'x' }).remove('m:1'), { ok: true });
 });

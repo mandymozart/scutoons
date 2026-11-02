@@ -1,18 +1,17 @@
 <script lang="ts" module>
-	export type DesignerTabId = 'deck' | 'parameters' | 'nodes' | 'rust' | 'assignment';
+	export type DesignerTabId = 'parameters' | 'nodes' | 'rust' | 'assignment';
 </script>
 
 <script lang="ts">
-	// The tab row of /live/deck for creators: Deck · Parameters · Nodes · Rust · Assignment (RIG-EDITING.md §2). Deck and
-	// Rust are live; the other three are labels with the title "coming next" (the structure the owner reviews). One
-	// horizontally scrolling row on a phone. A grouped row of text buttons: square (DESIGN "Round vs square").
+	// The designer's tab row in the creator's Sound design workspace: Parameters · Nodes · Rust · Assignment (RIG-EDITING.md
+	// §2). Parameters and Rust are live; Nodes and Assignment are labels with the title "coming next". One horizontally
+	// scrolling row on a phone. A grouped row of text buttons: square (DESIGN "Round vs square").
 	import { m } from '../messages.ts';
 
-	let { value = 'deck', onchange }: { value?: DesignerTabId; onchange: (id: DesignerTabId) => void } = $props();
+	let { value = 'rust', onchange }: { value?: DesignerTabId; onchange: (id: DesignerTabId) => void } = $props();
 
 	const tabs: { id: DesignerTabId; label: () => string; live: boolean }[] = [
-		{ id: 'deck', label: m['designer.tab_deck'], live: true },
-		{ id: 'parameters', label: m['designer.tab_parameters'], live: false },
+		{ id: 'parameters', label: m['designer.tab_parameters'], live: true },
 		{ id: 'nodes', label: m['designer.tab_nodes'], live: false },
 		{ id: 'rust', label: m['designer.tab_rust'], live: true },
 		{ id: 'assignment', label: m['designer.tab_assignment'], live: false }
