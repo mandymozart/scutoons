@@ -109,6 +109,12 @@
 	/** the desktop menu folded to its rail (by hand: its fold button, Ctrl + \; remembered) */
 	const FOLD_KEY = 'sc-creator-menu-folded';
 	let menuFolded = $state(false);
+	/** a page that asks for the rail (nav.rail): the menu was opened by hand for this visit */
+	let unfoldedHere = $state(false);
+	$effect(() => {
+		void nav.rail;
+		unfoldedHere = false;
+	});
 	onMount(() => {
 		try {
 			menuFolded = localStorage.getItem(FOLD_KEY) === '1';
@@ -133,6 +139,10 @@
 		} catch {
 			// the fold holds for this visit
 		}
+	}
+	function toggleMenu() {
+		if (nav.rail) unfoldedHere = !unfoldedHere;
+		else foldMenu(!menuFolded);
 	}
 	function foldMenu(folded: boolean) {
 		menuFolded = folded;
@@ -276,7 +286,7 @@
 		});
 	}
 	/** the desktop menu as its rail: folded by hand, or while a region is maximized (it gets everything right of it) */
-	const railed = $derived(menuFolded || !!shellDock.maximized);
+	const railed = $derived((nav.rail ? !unfoldedHere : menuFolded) || !!shellDock.maximized);
 	/** the page's own list beside the menu (the chapter tree, a season's chapters, the map's lists) – not while maximized */
 	const pageList = $derived(!!nav.sidebar && !shellDock.maximized);
 	const menuWidth = $derived(railed ? 'var(--sc-shell-rail-width)' : 'var(--creator-menu-width)');
@@ -290,7 +300,7 @@
 	function onFoldKey(event: KeyboardEvent) {
 		if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey || (event.key !== '\\' && event.code !== 'Backslash') || phone.current) return;
 		event.preventDefault();
-		foldMenu(!menuFolded);
+		toggleMenu();
 	}
 	/** what waits for this member: the submits to review (the dashboard's count in the menu) */
 	const waitingCount = $derived(new Set((reviews.overview?.to_review ?? []).map((r) => `${r.author?.id ?? ''}|${r.created_at}|${r.toon}`)).size);
@@ -486,7 +496,7 @@
 				{:else}
 					<div class="side" class:with-list={pageList && !!nav.sidebar}>
 						<div class="areas" class:railed>
-							<AreaMenu variant={railed ? 'rail' : 'menu'} toons={nav.toons} toon={toonId} account={session.user?.email ?? ''} badge={waitingCount} onfold={() => (shellDock.maximized ? shellDock.restore() : foldMenu(!menuFolded))} />
+							<AreaMenu variant={railed ? 'rail' : 'menu'} toons={nav.toons} toon={toonId} account={session.user?.email ?? ''} badge={waitingCount} onfold={() => (shellDock.maximized ? shellDock.restore() : toggleMenu())} />
 						</div>
 						{#if pageList && nav.sidebar && listFolded}
 							<div class="list-rail">

@@ -3,19 +3,13 @@
 	// `w` the workspace (Sound design for rigs and modules), `sel` the selection. Creators and admins only (the creator app is
 	// gated). A key that is no known kind is a plain page.
 	import { page } from '$app/state';
-	import { usePageNav } from '$lib/nav.svelte.ts';
-	import { editHref, parseEditKey, workspaceOf } from '$lib/editor/edit-key.ts';
+	import { parseEditKey, workspaceOf } from '$lib/editor/edit-key.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import SoundWorkspace from '$lib/components/sound/sound-workspace.svelte';
 
 	const key = $derived(page.params.key ?? '');
 	const target = $derived(parseEditKey(key));
 	const workspace = $derived(target ? workspaceOf(target, page.url.searchParams.get('w')) : null);
-
-	usePageNav({
-		fill: true,
-		extra: () => (target ? [{ href: editHref(target.key, { w: 'sound' }), label: `${m['creator.sound_title']()} · ${target.key}` }] : [])
-	});
 </script>
 
 {#if target && workspace === 'sound'}

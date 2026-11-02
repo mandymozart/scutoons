@@ -1710,7 +1710,11 @@
 		"sound_play_note": "Das Deck spielt das Rig der Figur. Das kompilierte Modul in der Engine zu spielen kommt als Nächstes.",
 		"sound_cant_edit": "Das lässt sich noch nicht bearbeiten",
 		"sound_cant_edit_hint": "Für {key} gibt es noch keinen Editor. Rigs von Figuren (rig:character.<id>) und Module (module:<id>) öffnen im Sounddesign.",
-		"characters_sound_design": "Sounddesign"
+		"characters_sound_design": "Sounddesign",
+		"sound_publish": "Veröffentlichen",
+		"sound_publish_confirm": "module:{id} veröffentlichen? Leser bekommen die veröffentlichte Version.",
+		"sound_published": "module:{id} veröffentlicht",
+		"sound_publish_needs": "Veröffentlichen braucht einen gespeicherten Entwurf mit aktuellem Kompilat."
 	},
 	"palette": {
 		"search": "Suchen oder springen …",

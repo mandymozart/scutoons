@@ -9,11 +9,13 @@
 	import { MediaQuery } from 'svelte/reactivity';
 	import { goto, beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
-	import { Divider, askDialog, panelWidth } from '@scutoons/ui';
+	import { Divider, Icon, askDialog, confirmDialog, panelWidth } from '@scutoons/ui';
 	import { createDesignerApi, isModuleId, moduleContent, RigDesigner, setupRigDesigner, STARTER_FILES } from '@scutoons/rig-designer';
 	import { getSessionToken } from '@scutoons/api';
 	import { API_URL } from '$lib/config.ts';
 	import { api, putDraft } from '$lib/api.ts';
+	import { usePageNav } from '$lib/nav.svelte.ts';
+	import { toast } from '$lib/toasts.ts';
 	import { leaveGuard } from '$lib/editor/ask.ts';
 	import { editHref, selectedModule, type EditTarget } from '$lib/editor/edit-key.ts';
 	import { createModuleStore, moduleKey } from '$lib/editor/module-store.ts';
@@ -29,10 +31,8 @@
 	isolateThisPage();
 	setupRigDesigner({ locale: getLocale });
 
-	const designer = new RigDesigner(
-		createDesignerApi({ fetch: (...args) => fetch(...args), baseUrl: API_URL, getToken: getSessionToken }),
-		createModuleStore()
-	);
+	const store = createModuleStore();
+	const designer = new RigDesigner(createDesignerApi({ fetch: (...args) => fetch(...args), baseUrl: API_URL, getToken: getSessionToken }), store);
 	beforeNavigate(leaveGuard(() => designer.dirty));
 
 	let modules = $state<string[]>([]);
@@ -87,11 +87,36 @@
 		else select(id);
 	}
 
+	// ── the top bar (owner 2026-11-02: the editor's actions move there step by step, as the map's did): Publish of the open
+	// module – needs a saved draft whose compile is current (a module without its descriptor cannot be played) ──
+	const canPublish = $derived(!!designer.moduleId && !designer.dirty && !!designer.outcome && !designer.stale && !designer.compiling && !designer.saving);
+	async function publish(): Promise<void> {
+		const id = designer.moduleId;
+		if (!id || !canPublish) return;
+		const ok = await confirmDialog({ title: m['creator.sound_publish'](), message: m['creator.sound_publish_confirm']({ id }), confirmLabel: m['creator.sound_publish']() });
+		if (!ok) return;
+		const r = await store.publish(id);
+		if (r.ok) toast(m['creator.sound_published']({ id }));
+		else toast(r.message, { type: 'error' });
+	}
+	usePageNav({
+		fill: true,
+		rail: true,
+		extra: () => [{ href: editHref(target.key, { w: 'sound' }), label: `${m['creator.sound_title']()} · ${target.key}` }],
+		actions: topBar
+	});
+
 	// ── the split: the deck on the right (remembered width, a Divider); below ~900 px they stack ──
 	const stacked = new MediaQuery('max-width: 56rem');
 	let splitEl = $state<HTMLElement>();
 	const deckSize = panelWidth('sc-panel-width:sound-deck', 26, () => splitEl?.getBoundingClientRect().right ?? window.innerWidth);
 </script>
+
+{#snippet topBar()}
+	<button type="button" class="sc-round" disabled={!canPublish} onclick={publish} title={canPublish ? m['creator.sound_publish']() : m['creator.sound_publish_needs']()} aria-label={m['creator.sound_publish']()} data-testid="sound-publish">
+		<Icon name="upload-cloud" size="1rem" />
+	</button>
+{/snippet}
 
 <div class="split" class:stacked={stacked.current} bind:this={splitEl} style:--deck-width={deckSize.css} data-testid="sound-workspace">
 	<section class="half designer-half" aria-label={m['creator.sound_designer']()}>
