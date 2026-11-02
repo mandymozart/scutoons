@@ -16,7 +16,9 @@ await host.stop();  host.dispose();
 ```
 
 `<EngineStage {options} bind:host onmounted>` draws the being's canvas (fills its parent) and hands the host out; Start / Stop and
-the readouts are the page's. No app state, routing or paraglide in here. The wasm (`space_web.js`, `space_web_bg.wasm`,
+the readouts are the page's. `gate` (opt-in, default off – the viewer keeps its own Start button): a round Play button centred over the canvas
+and the first user gesture on the element (pointerdown / touchend / keydown, observed in the capture phase, never swallowed) start the sound –
+the browser blocks the first sound without a gesture; gone once it runs (gate.ts: idle → starting → running | blocked). No app state, routing or paraglide in here. The wasm (`space_web.js`, `space_web_bg.wasm`,
 `live_core.wasm`) is served by the app from `wasmBase` (`npm run build:wasm -w shared/live-deck` writes viewer/ and creator/ `static/live/`).
 
 Pure parts (phases, status line, transport note, log buffer, options): `npm run check -w @scutoons/engine-host`.

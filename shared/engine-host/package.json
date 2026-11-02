@@ -21,7 +21,7 @@
 	],
 	"scripts": {
 		"check": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings && npm run test",
-		"test": "node --experimental-transform-types --no-warnings --test test/status.test.ts test/log.test.ts test/options.test.ts"
+		"test": "node --experimental-transform-types --no-warnings --test test/status.test.ts test/log.test.ts test/options.test.ts test/gate.test.ts"
 	},
 	"dependencies": {
 		"@scutoons/live": "*",

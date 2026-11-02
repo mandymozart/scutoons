@@ -57,12 +57,12 @@
 	<main class="engine" data-testid="engine-page">
 		<header>
 			<h1>Engine host</h1>
-			<p class="muted">Temporary proof page (#298): the deck's browser engine in the creator – {options.character}'s core rig. Start needs a click (the AudioContext).</p>
+			<p class="muted">Temporary proof page (#298): the deck's browser engine in the creator – {options.character}'s core rig. The sound starts with the Play button or the first click on the stage (the browser holds the first sound back until a gesture).</p>
 		</header>
 
 		<div class="grid">
 			<div class="stage">
-				<EngineStage {options} bind:host onmounted={(h) => (moods = h.moods)} />
+				<EngineStage {options} gate bind:host onmounted={(h) => (moods = h.moods)} />
 			</div>
 
 			<div class="side">

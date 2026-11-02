@@ -7,4 +7,5 @@ export { engineFiles } from './files.ts';
 export { EngineLog, formatLine, messageOf, type LogLevel, type LogLine } from './log.ts';
 export { deckOptions, folder, moodChoices, rigSubject, type EngineHostOptions } from './options.ts';
 export { canStart, canStop, emptySnapshot, leadMs, loadPercent, meterPercent, statusLine, transportNote, type EnginePhase, type EngineSnapshot } from './status.ts';
+export { GATE_EVENTS, StartGate, gateNext, gateOpen, listenForGesture, type GateEvent, type GateState } from './gate.ts';
 export { default as EngineStage } from './engine-stage.svelte';
