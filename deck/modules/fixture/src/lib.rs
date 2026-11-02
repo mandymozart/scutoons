@@ -1,6 +1,7 @@
 //! A fixture module for the hosts' tests (#280): behaves by its `mode` parameter – 0 plays a constant 0.25 on both
 //! channels, 1 panics, 2 never returns, 3 logs 50 lines a block, 4 reads the character / a variable / the tempo and
 //! plays them as numbers (left = bpm / 100 + variable `fx.level`, right = the beat). Not an instrument.
+#![allow(clippy::duplicated_attributes)]
 use deck_module::{log, Block, Ctx, Event, Module};
 
 #[derive(Module)]

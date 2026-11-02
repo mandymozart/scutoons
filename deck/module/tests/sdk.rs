@@ -1,4 +1,6 @@
 //! The SDK's contract (#280): what the derive declares, what `Ctx` reads, how the ABI's pieces behave.
+// clippy sees the repeated `#[port(…)]` of one struct as duplicates (a module crate allows it, README.md)
+#![allow(clippy::duplicated_attributes)]
 use deck_core::tempo::TempoMap;
 use deck_module::abi::*;
 use deck_module::host::{read_descriptor, Descriptor, Dir, Offsets, PortKind};

@@ -67,7 +67,7 @@ Members write and submit, so the designer must be reachable by **members, not on
 7. **Licence of submitted code:** a member's submitted module becomes the platform's to ship (owner's terms, credited) – the same rule as other submissions?
 
 ## 10. Order once §9 is answered (each an issue)
-1. The SDK crate + the descriptor + one built-in rewritten as a module (proves the ABI); wasmtime in deck-stage, the wasm path in live-core.
+1. The SDK crate + the descriptor + one built-in rewritten as a module (proves the ABI); wasmtime in deck-stage, the wasm path in live-core. **Built (#280, branch feature/280-module-sdk):** `deck/module` (SDK, ABI v1 – its README is the reference), `deck/modules/walk` (the built-in `walk`, proven equal), deck-stage feature `modules` (`module_host.rs`), `shared/live-core/src/modules.ts` (browser host). Open: module control outputs, events out into the graph, the browser host inside the worker's graph, a time budget in the browser.
 2. The build service (sandbox, limits, errors as JSON) + the `module:<id>` document and `member_modules`.
 3. The designer page: Rust tab + Compile + Play + the console; then Parameters; then the read-only Nodes view.
 4. Assignment tab + the mapping overview (missing defaults, the fallback rig) + scene / world variables in ctx.

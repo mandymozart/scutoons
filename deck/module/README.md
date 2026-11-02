@@ -91,3 +91,9 @@ natively). Prove a module against a built-in the way `modules/walk/tests/builtin
 
 `cargo build --release --target wasm32-unknown-unknown -p <module>` → `target/wasm32-unknown-unknown/release/<module>.wasm`.
 No `build.rs`, no proc-macro of your own, no dependency beyond this crate (the compile service writes `Cargo.toml` itself).
+Clippy takes the repeated `#[port(…)]` lines of one struct for duplicates: put `#![allow(clippy::duplicated_attributes)]` at the top of the module crate.
+
+## Hosts
+
+- **deck** (deck-stage, feature `modules`, `deck/stage/src/module_host.rs`): wasmtime. `DECK_MODULES=<folder of .wasm>` is loaded before a scene is built and each module becomes the node kind `module:<name>` (ports from the descriptor: audio / control inputs as declared, then every parameter as a control input; audio outputs). Compile cached in memory and, with `DECK_MODULE_CACHE=<dir>`, on disk by SHA-256. A trap or a time-budget overrun (≈ 0.75 × the block, 2–50 ms, wasmtime epoch interruption) silences that node and logs it; memory capped at 64 MiB; one import (`env.deck_log`, 10 lines burst, then 10 a second). Node params besides the module's own: `seed` (default 1), `character`, `persona`, `mood`, `vars` (table key → number). Not yet wired: control outputs and video ports (the host refuses such a module with the reason), events out (emitted, readable by `Instance::events`, nothing consumes them yet).
+- **browser** (`shared/live-core/src/modules.ts`): the same `.wasm` in the browser's engine, V8 in the tests; `module-abi.ts` is generated from this crate (`UPDATE_FIXTURES=1 cargo test -p deck-module module_abi_ts`). A browser has no epoch budget: a runaway loop is the worker's to terminate.

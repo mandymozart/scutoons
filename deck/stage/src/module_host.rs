@@ -340,8 +340,9 @@ impl Instance {
         }
         let io = instance.get_typed_func::<(), u32>(&mut store, "dm_io")?.call(&mut store, ())? as usize;
         let off = Offsets::get();
-        if io.checked_add(off.size).is_none_or(|end| end > memory.data_size(&store)) {
-            bail!("module '{}': its Io does not lie in its memory", loaded.desc.name);
+        match io.checked_add(off.size) {
+            Some(end) if end <= memory.data_size(&store) => {}
+            _ => bail!("module '{}': its Io does not lie in its memory", loaded.desc.name),
         }
         let mut me = Instance {
             f_set_param: instance.get_typed_func(&mut store, "dm_set_param")?,

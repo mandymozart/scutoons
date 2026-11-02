@@ -7,6 +7,8 @@
 //!
 //! Build: `cargo build --release --target wasm32-unknown-unknown -p walk-module` (the .wasm in
 //! `target/wasm32-unknown-unknown/release/walk_module.wasm`).
+// one `#[port(…)]` a port: clippy takes them for duplicates (deck/module/README.md)
+#![allow(clippy::duplicated_attributes)]
 use deck_module::cv::GateCv;
 use deck_module::{Block, Ctx, Event, Module};
 
