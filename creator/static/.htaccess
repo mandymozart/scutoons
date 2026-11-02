@@ -12,6 +12,18 @@
 	Header set X-Robots-Tag "noindex, nofollow"
 </IfModule>
 
+# The engine's pages cross-origin isolated (#298; creator/src/lib/isolation.ts – the same paths as the dev server): live-core's
+# audio ring shares memory with its worker through SharedArrayBuffer (without it the engine falls back to postMessage).
+# `credentialless`, so the pages' own pictures keep loading. Only there: COEP blocks the Reader panel's iframe (the viewer
+# sends no COEP itself) and COOP cuts window.opener, so the rest of the creator stays as it is. THE_REQUEST (the original
+# request line), not REQUEST_URI: the SPA fallback above rewrites to /index.html internally (the viewer's lesson, 2026-10-31).
+<IfModule mod_headers.c>
+	<If "%{THE_REQUEST} =~ m#^\S+ /(engine|edit)(/|\?| )# || %{THE_REQUEST} =~ m#^\S+ /_app/immutable/workers/#">
+		Header set Cross-Origin-Opener-Policy "same-origin"
+		Header set Cross-Origin-Embedder-Policy "credentialless"
+	</If>
+</IfModule>
+
 # installable web app (agents/research/PWA-APPS.md): the manifest's type; what names the build is always asked again (a 304
 # is cheap) so a deploy and the service worker's update reach every open tool; hashed app files never change
 AddType application/manifest+json .webmanifest

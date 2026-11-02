@@ -91,3 +91,20 @@ test('#188: a phone keeps more sound ahead of the speaker', () => {
 	assert.equal(defaultLead(true), 3072);
 	assert.equal(defaultLead(false), 2048);
 });
+
+test('#298: stop ends the sound and leaves the deck as it was – values kept, no core, quiet bands', async () => {
+	const d = new Deck({ character: 'yellowmouse', nick: 'guest', api: API });
+	let stopped = 0;
+	d.core = { stop: async () => void stopped++ } as unknown as NonNullable<Deck['core']>;
+	d.bands = { level: 0.7, bass: 0.5, mid: 0.2, high: 0.1, spectrum: new Float32Array(4), reduction: 3 };
+	d.setParam('voice.index', 4.5);
+	await d.stop();
+	assert.equal(stopped, 1);
+	assert.equal(d.core, null);
+	assert.equal(d.bands.level, 0);
+	assert.equal(d.value['voice.index'], 4.5);
+	await d.stop();
+	assert.equal(stopped, 1, 'a second stop is nothing');
+	d.setParam('voice.index', 5);
+	d.tick(1);
+});

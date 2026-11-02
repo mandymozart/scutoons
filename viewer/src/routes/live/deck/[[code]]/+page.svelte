@@ -14,9 +14,10 @@
 	// deck-space's (Hands → DeckControls, wasm), this page only bridges the DOM, Web MIDI and the pointer to it.
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { Deck, FrameStats, Hands, MELODY, PARAMS, SpaceStage, charactersOf, loadControls, pushLine, savedLine, type DeriveBody, type Hand, type QualityLevel, type QualityPresets, type RigPlayed, type SavedPreset, type SpaceQuality, type Spec } from '@scutoons/live-deck';
-	import LiveWorker from '@scutoons/live-core/worker?worker';
-	import workletUrl from '@scutoons/live-core/worklet?worker&url';
+	import { Hands, MELODY, PARAMS, charactersOf, loadControls, pushLine, savedLine, type DeriveBody, type QualityLevel, type QualityPresets, type RigPlayed, type SavedPreset, type SpaceQuality, type Spec } from '@scutoons/live-deck';
+	// #298: the engine's bring-up (the deck, the 3D, the sound, the frame loop, the rig for a mood, the statistics) is
+	// @scutoons/engine-host's; this page keeps the relay, the controls and its UI
+	import { createEngineHost, type EngineHost } from '@scutoons/engine-host';
 	import { API_URL, CDN_SERVER, LIVE_URL } from '$lib/config.ts';
 	import { api, ApiError } from '$lib/api.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
@@ -33,7 +34,7 @@
 
 	const session = getSessionContext();
 	const cdn = `${CDN_SERVER}/`;
-	let host: HTMLDivElement | undefined = $state();
+	let stage: HTMLDivElement | undefined = $state();
 	// the controls show the scene's values until the deck is there
 	let values = $state<Record<string, number>>(Object.fromEntries(Object.entries({ ...PARAMS, ...MELODY }).map(([k, s]) => [k, s.value])));
 	// the sliders: the fixed patch's, or the character's rig's knobs (#191, `?rig=1`)
@@ -52,11 +53,12 @@
 	// last minute, the worker's peak render load)
 	let audioAlert = $state('');
 	let stats = $state<Stats>({ fps: 0, cpu: 0, peak: 0, dropouts: null, load: 0, lead: 0, relay: '', backend: '', quality: '', down: false });
-	const frames = new FrameStats();
+	// #298: the engine host – null until the session answered (the deck is made then)
+	let engine: EngineHost | null = null;
 	// #209: the controls – the selection the sticks follow, MIDI learn, the mappings per deck
 	const specs = { ...PARAMS, ...MELODY };
 	const ctl = new DeckControlsState(specs);
-	ctl.onSelect = (name) => space?.view.select(name);
+	ctl.onSelect = (name) => engine?.space?.view.select(name);
 	// #225: the corner sticks can be switched off in the panel (they free the knobs under them), remembered per device
 	const STICKS_KEY = 'scutoons.deck.sticks';
 	let sticksOn = $state(true);
@@ -87,6 +89,7 @@
 	}
 	/** after a change: the sheet's view, the bar's, and the text kept for this device */
 	function keepPresets() {
+		const space = engine?.space;
 		if (!space) return;
 		quality = space.quality;
 		presets = space.presets;
@@ -100,6 +103,7 @@
 		}
 	}
 	function loadPresets() {
+		const space = engine?.space;
 		if (!space) return;
 		const text = stored(PRESETS_KEY);
 		const old = stored(QUALITY_KEY);
@@ -117,16 +121,16 @@
 		keepPresets();
 	}
 	function setQuality(level: QualityLevel, auto: boolean) {
-		space?.setQuality(level, auto);
+		engine?.space?.setQuality(level, auto);
 		keepPresets();
 	}
 	function setPresets(p: QualityPresets): string {
-		const e = space?.setPresets(p) ?? '';
+		const e = engine?.space?.setPresets(p) ?? '';
 		if (!e) keepPresets();
 		return e;
 	}
 	function setPresetsText(text: string): string {
-		const e = space?.setPresetsText(text) ?? '';
+		const e = engine?.space?.setPresetsText(text) ?? '';
 		if (!e) keepPresets();
 		return e;
 	}
@@ -145,11 +149,6 @@
 		}
 	}
 	let threeD = $state(true);
-	let deck: Deck | null = null;
-	let space: SpaceStage | null = null;
-	/** #191: play the character's rig (`?rig=1`), and its bundle while it has one (deck-space's core rigs for now) */
-	let useRigs = false;
-	let rigBundle: string | null = null;
 
 	const store = {
 		get: () => {
@@ -171,28 +170,9 @@
 	const status = $derived([syncStatus, spaceStatus, saveStatus, hud].filter(Boolean).join(' · '));
 
 	function showFace() {
+		const deck = engine?.deck;
 		const p = deck?.portraits[mood] ?? deck?.portraits.neutral ?? Object.values(deck?.portraits ?? {})[0];
 		face = p ? cdn + p.path : '';
-	}
-
-	/** #191: the character's rig, played in Rust (space-web), replaces the fixed patch – or the patch comes back when the
-	 *  character has none, rigs are off, or the 3D (its wasm) didn't start */
-	function applyRig() {
-		if (!deck || !useRigs) return;
-		rigBundle = null;
-		try {
-			rigBundle = space ? space.coreRig(`character.${character}`) : null;
-			deck.useRig(rigBundle && space ? space.playRig(rigBundle, '', mood) : null);
-		} catch (e) {
-			rigBundle = null;
-			deck.useRig(null);
-			spaceStatus = (e as Error).message ?? String(e);
-		}
-		params = deck.params;
-		values = { ...deck.value };
-		playedRig = deck.rig;
-		// the corner sticks follow the rig's knobs (or the fixed patch's again)
-		ctl.useParams(deck.controlSpecs, deck.sticks);
 	}
 
 	/** the session's first answer (a member's name and avatar), at most a moment */
@@ -207,20 +187,21 @@
 			/* private mode: on */
 		}
 		let alive = true;
-		let raf = 0;
+		// #208: the warning a few seconds after a dropout; #188: the dropouts over the last minute, the worker's peak
+		// render load – the host samples them (sound.stats), the bar shows them
 		const audio = setInterval(() => {
-			const core = deck?.core;
-			if (!core) return;
-			const s = core.stats();
-			stats.dropouts = s.underrunsPerMinute;
-			stats.load = Math.round((100 * s.renderPeakUs) / Math.max(1, s.budgetUs));
-			stats.lead = Math.round((1000 * s.lead) / core.context.sampleRate);
-			audioAlert = core.glitching() ? m['live_deck.dropout_alert']() : '';
+			const s = engine?.snapshot();
+			if (!s || s.dropouts === null) return;
+			stats.dropouts = s.dropouts;
+			stats.load = s.load;
+			stats.lead = s.lead;
+			audioAlert = s.glitching ? m['live_deck.dropout_alert']() : '';
 		}, 250);
 		const bar = setInterval(() => {
-			stats.fps = frames.fps;
-			stats.cpu = frames.cpu;
-			stats.peak = frames.peak;
+			const space = engine?.space;
+			stats.fps = engine?.frames.fps ?? 0;
+			stats.cpu = engine?.frames.cpu ?? 0;
+			stats.peak = engine?.frames.peak ?? 0;
 			stats.relay = relayStatus;
 			stats.backend = space ? space.backend : spaceStatus;
 			quality = space?.quality ?? null;
@@ -232,27 +213,56 @@
 			await settled();
 			if (!alive || !mayJoin(session.me)) return;
 			const q = page.url.searchParams;
-			useRigs = rigOf(q);
-			const relay = relayOf(q, LIVE_URL, page.params.code);
 			character = characterOf(q, session.me, store.get());
-			deck = new Deck({ relay, character, nick: nickOf(session.me, m['live_deck.guest']()), api: API_URL, cdn, onStatus: (s) => (relayStatus = s), onSynced: (r) => (syncStatus = pushLine(r)) });
-			values = { ...deck.value };
-			deck.onValue = (p: string, v: number, hand: Hand) => {
-				if (hand === 'being' || values[p] !== v) values[p] = v;
-			};
-			deck.onMood = (md) => {
-				mood = md;
-				showFace();
-				// #191: the mood's variant of the rig (its presets, its values) – the sliders follow by the mood's hand
-				if (rigBundle && space && deck) {
-					try {
-						deck.moodRig(space.playRig(rigBundle, '', md));
-						playedRig = deck.rig;
-					} catch (e) {
-						spaceStatus = (e as Error).message ?? String(e);
-					}
+			// #191: `?rig=1` plays the character's rig (and its bundle while it has one) instead of the fixed patch
+			const host = createEngineHost({
+				api: API_URL,
+				cdn,
+				wasmBase: WASM_BASE,
+				character,
+				nick: nickOf(session.me, m['live_deck.guest']()),
+				relay: relayOf(q, LIVE_URL, page.params.code),
+				prefer: preferOf(q),
+				rigs: rigOf(q),
+				onStatus: (s) => (relayStatus = s),
+				onSynced: (r) => (syncStatus = pushLine(r))
+			});
+			engine = host;
+			host.hooks = {
+				space: () => loadPresets(),
+				threeD: (ok, reason) => {
+					threeD = ok;
+					hud = '';
+					spaceStatus = m['live_deck.no_3d']({ reason });
+				},
+				spaceStatus: (s) => (spaceStatus = s),
+				tick: () => {
+					ctl.poll();
+					hud = host.space ? host.hud : '';
+				},
+				// #209: a tap on the being selects (a knob, the being, empty space = the master section)
+				tap: (name) => ctl.choose(name, false),
+				rig: (played, why) => {
+					const deck = host.deck;
+					if (!deck) return;
+					playedRig = played;
+					if (why === 'mood') return;
+					params = deck.params;
+					values = { ...deck.value };
+					// the corner sticks follow the rig's knobs (or the fixed patch's again)
+					ctl.useParams(deck.controlSpecs, deck.sticks);
+				},
+				// #191: the mood's variant of the rig (its presets, its values) is already played – the sliders follow by the mood's hand
+				mood: (md) => {
+					mood = md;
+					showFace();
+				},
+				value: (p, v, hand) => {
+					if (hand === 'being' || values[p] !== v) values[p] = v;
 				}
 			};
+			const deck = host.init();
+			values = { ...deck.value };
 			try {
 				ctl.hands = new Hands(await loadControls(WASM_BASE, Object.keys(specs)), deck, specs);
 				ctl.load(character);
@@ -263,85 +273,35 @@
 			await deck.pickCharacter(character);
 			showFace();
 			charactersOf(API_URL, character).then((list) => (characters = list));
-			if (!alive || !host) return;
-			try {
-				space = await SpaceStage.start({ host, base: WASM_BASE, deck, api: API_URL, cdn, prefer: preferOf(q), onStatus: (s) => (spaceStatus = s) });
-				loadPresets();
-				if (useRigs) {
-					applyRig();
-					space.setBeing();
-				}
-			} catch (e) {
-				threeD = false;
-				spaceStatus = m['live_deck.no_3d']({ reason: (e as Error).message ?? String(e) });
-			}
-			// #274: a throw out of the deck's tick (or the pad's poll) must not end the frame loop – the 3D and the pointer
-			// die with it (the sound's scene still loading threw once; deck.ts guards that now, this keeps the page alive
-			// for the next one). Reported once, in the console.
-			let tickThrew = false;
-			const frame = () => {
-				if (!alive || !deck) return;
-				const t0 = performance.now();
-				const now = t0 / 1000;
-				try {
-					deck.tick(now);
-					ctl.poll();
-				} catch (e) {
-					if (!tickThrew) console.warn('live deck: a frame threw', e);
-					tickThrew = true;
-				}
-				try {
-					space?.frame(now);
-					hud = space?.view.hud_line() ?? '';
-					// #209: a tap on the being selects (a knob, the being, empty space = the master section)
-					const tap = space?.view.take_tap();
-					if (tap !== undefined) ctl.choose(tap, false);
-				} catch (e) {
-					spaceStatus = m['live_deck.no_3d']({ reason: (e as Error).message });
-					space?.stop();
-					space = null;
-					threeD = false;
-				}
-				frames.push(t0, performance.now() - t0);
-				raf = requestAnimationFrame(frame);
-			};
-			raf = requestAnimationFrame(frame);
+			if (!alive || !stage) return;
+			await host.attach(stage);
 		})();
 		return () => {
 			alive = false;
 			clearInterval(audio);
 			clearInterval(bar);
-			cancelAnimationFrame(raf);
 			ctl.close();
-			space?.stop();
-			deck?.close();
-			void deck?.core?.stop?.();
+			engine?.dispose();
+			engine = null;
 		};
 	});
 
 	async function pick(id: string) {
-		if (!deck) return;
+		if (!engine) return;
 		character = id;
 		store.set(id);
-		await deck.pickCharacter(id);
-		applyRig();
-		space?.setBeing();
+		await engine.pickCharacter(id);
 		ctl.load(id);
 		ctl.choose('', true);
 		showFace();
 	}
 
 	async function start() {
-		if (!deck || starting) return;
+		if (!engine || starting) return;
 		starting = true;
-		try {
-			await deck.start({ worker: new LiveWorker(), wasm: new URL(`${WASM_BASE}live_core.wasm`, location.href), worklet: workletUrl });
-			started = true;
-		} catch (e) {
-			relayStatus = (e as Error).message;
-		} finally {
-			starting = false;
-		}
+		started = await engine.start();
+		if (!started) relayStatus = engine.snapshot().error;
+		starting = false;
 	}
 </script>
 
@@ -351,7 +311,7 @@
 </svelte:head>
 
 <div class="deck" data-testid="live-deck">
-	<div class="stage" bind:this={host}>
+	<div class="stage" bind:this={stage}>
 		{#if !threeD && face}<img class="face" src={face} alt="" crossorigin="anonymous" />{/if}
 	</div>
 	<div class="top">
@@ -378,7 +338,7 @@
 			midi={ctl.midiStatus}
 			mapped={ctl.mapped}
 			onstart={start}
-			onset={(p, v) => deck?.setParam(p, v)}
+			onset={(p, v) => engine?.deck?.setParam(p, v)}
 			onpick={ctl.pick}
 			onlearn={ctl.toggleLearn}
 			{sticksOn}
@@ -390,7 +350,7 @@
 				sheetOpen = true;
 			}}
 			onsave={playedRig && session.me ? () => (saveOpen = true) : null}
-			ontouch={(on) => deck && (deck.touch = on)}
+			ontouch={(on) => engine?.deck && (engine.deck.touch = on)}
 		/>
 	</div>
 	{#if presets && quality}

@@ -62,6 +62,7 @@
 		"@scutoons/api": "*",
 		"@scutoons/auth": "*",
 		"@scutoons/content": "*",
+		"@scutoons/engine-host": "*",
 		"@scutoons/live": "*",
 		"@scutoons/live-deck": "*",
 		"@scutoons/media": "*",
