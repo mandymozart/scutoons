@@ -90,9 +90,11 @@ fn is_yes(b: &bool) -> bool {
 fn is_false(b: &bool) -> bool {
     !*b
 }
+#[allow(clippy::ptr_arg)] // serde's skip_serializing_if passes &field
 fn is_empty_str(s: &Cow<'static, str>) -> bool {
     s.is_empty()
 }
+#[allow(clippy::ptr_arg)]
 fn is_empty_slice<T: Clone>(s: &Cow<'static, [T]>) -> bool {
     s.is_empty()
 }
@@ -250,6 +252,7 @@ pub fn catalog() -> Catalog {
 }
 
 /// a built-in's name or port name as a `'static str` (the table borrows them)
+#[allow(clippy::ptr_arg)] // the Cow itself must be 'static to hand out a 'static str
 pub fn static_str(s: &'static Cow<'static, str>) -> &'static str {
     match s {
         Cow::Borrowed(b) => b,

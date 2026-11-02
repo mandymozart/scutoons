@@ -94,6 +94,7 @@ const F_PLANNED: u8 = 8;
 
 /// a kind; `flags`: `F_SCENE` (a scene owns it once, never inside an instrument), `F_BATCH` (the batch evaluator runs
 /// it), `F_INTERNAL` / `F_PLANNED` (its scope; none = a `graph` kind)
+#[allow(clippy::too_many_arguments)]
 fn kind(
     flags: u8,
     name: &'static str,
