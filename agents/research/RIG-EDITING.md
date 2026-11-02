@@ -15,7 +15,8 @@ Owner 2026-11-02: "creator to wire is weird. we need a single place to wire, cho
 
 Beside the tabs, always: **Play** (the engine runs what is open, on this device), the preset bar (save as a draft, derive, the lineage). Publish and review are the creator's normal ones (§6).
 
-## 3. One model, two ways to write an instrument
+## 3. One model, two ways to write an instrument – and three layers (owner 2026-11-02: "rigs are module groups")
+The layers are **module → instrument → rig**: a rig is a *module group* – another layer after the instruments – and can itself be written as data or as Rust code with access to the globals and the character's parameters (research/ENGINE-ALIGNMENT.md §0, #314). What follows is the first two layers.
 - An **instrument** stays what it is (research/INSTRUMENTS.md §1): a graph of nodes + `out` + `expose` + rights.
 - A node is either a **built-in kind** (graph.rs: osc, fm, lfo, walk, events …) or a **module** = compiled code (new). A module declares ports and parameters; once compiled it is a node kind like the built-ins, usable in any graph.
 - So "code form" and "node patching" are not two systems: a code patch is a module (often with a one-node graph around it), a node patch wires modules and built-ins. Presets, lineage, rigs, `Rig::play`, the validator stay exactly as they are; modules add one thing to the node kinds: kinds that come from the library instead of graph.rs.
