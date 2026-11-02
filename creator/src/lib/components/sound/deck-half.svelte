@@ -44,9 +44,9 @@
 	<div class="bar">
 		<label class="mood">
 			<span class="muted">{m['creator.sound_mood']()}</span>
-			<select value={mood} onchange={(e) => pickMood(e.currentTarget.value)} data-testid="sound-mood">
-				<option value="auto">{m['creator.sound_mood_auto']()}</option>
-				{#each moods as md (md)}<option value={md}>{md}</option>{/each}
+			<select onchange={(e) => pickMood(e.currentTarget.value)} data-testid="sound-mood">
+				<option value="auto" selected={mood === 'auto'}>{m['creator.sound_mood_auto']()}</option>
+				{#each moods as md (md)}<option value={md} selected={md === mood}>{md}</option>{/each}
 			</select>
 		</label>
 		<p class="status" data-testid="sound-status">{statusLine(snap)}</p>
@@ -99,23 +99,20 @@
 	.status {
 		margin: 0;
 		min-width: 0;
-		flex: 1;
-		overflow: hidden;
-		white-space: nowrap;
-		text-overflow: ellipsis;
+		flex: 1 1 10rem;
 	}
 	.muted {
 		color: var(--text-muted);
 	}
 	.meters {
 		display: grid;
-		grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 		align-items: center;
-		gap: var(--space-1);
+		gap: var(--space-025) var(--space-1);
 	}
 	.meter {
 		display: grid;
-		grid-template-columns: auto 1fr;
+		grid-template-columns: 2.5rem 1fr;
 		align-items: center;
 		gap: var(--space-05);
 	}
@@ -132,12 +129,10 @@
 		margin: 0;
 		font-variant-numeric: tabular-nums;
 	}
+	.fps {
+		grid-column: 1 / -1;
+	}
 	.note {
 		padding-top: var(--space-05);
-	}
-	@media (max-width: 56rem) {
-		.meters {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-		}
 	}
 </style>

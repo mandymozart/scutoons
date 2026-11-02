@@ -25,6 +25,6 @@ Pure parts (phases, status line, transport note, log buffer, options): `npm run 
 
 **Transport:** with the page cross-origin isolated (COOP `same-origin` + COEP `credentialless`) live-core runs on SharedArrayBuffer
 rings; without it, on postMessage (`transfer`) – it works, slower; `snapshot().transport` / `transportNote()` say which. The
-viewer isolates `/live/…`; the creator only `/engine` and `/edit/…` (creator/src/lib/isolation.ts, vite.config.ts, static/.htaccess):
+viewer isolates `/live/…`; the creator only `/edit/…` (creator/src/lib/isolation.ts, vite.config.ts, static/.htaccess):
 app-wide COEP blocks the Reader panel's viewer iframe (measured, #298). A document keeps its headers until a full load, so
 `isolateThisPage()` (creator) loads the page afresh when it arrives without them and on the way out.

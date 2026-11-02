@@ -35,9 +35,9 @@
 		{#if fixed}
 			<span class="title" data-testid="sound-module-title">module:{fixed}</span>
 		{:else}
-			<select value={selected ?? ''} onchange={(e) => onselect(e.currentTarget.value || null)} aria-label={m['creator.sound_module']()} title={m['creator.sound_module']()} data-testid="sound-module">
-				<option value="">{m['creator.sound_module_none']()}</option>
-				{#each modules as id (id)}<option value={id}>module:{id}</option>{/each}
+			<select onchange={(e) => onselect(e.currentTarget.value || null)} aria-label={m['creator.sound_module']()} title={m['creator.sound_module']()} data-testid="sound-module">
+				<option value="" selected={!selected}>{m['creator.sound_module_none']()}</option>
+				{#each modules as id (id)}<option value={id} selected={id === selected}>module:{id}</option>{/each}
 			</select>
 		{/if}
 		<button type="button" class="sc-round" onclick={onnew} title={m['creator.sound_new_module']()} aria-label={m['creator.sound_new_module']()} data-testid="sound-new-module">

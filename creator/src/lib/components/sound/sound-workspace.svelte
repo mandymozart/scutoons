@@ -13,7 +13,7 @@
 	import { createDesignerApi, isModuleId, moduleContent, RigDesigner, setupRigDesigner, STARTER_FILES } from '@scutoons/rig-designer';
 	import { getSessionToken } from '@scutoons/api';
 	import { API_URL } from '$lib/config.ts';
-	import { contentApi, putDraft } from '$lib/api.ts';
+	import { api, putDraft } from '$lib/api.ts';
 	import { leaveGuard } from '$lib/editor/ask.ts';
 	import { editHref, selectedModule, type EditTarget } from '$lib/editor/edit-key.ts';
 	import { createModuleStore, moduleKey } from '$lib/editor/module-store.ts';
@@ -40,8 +40,9 @@
 	let notice = $state('');
 	async function loadModules(): Promise<void> {
 		try {
-			const r = await contentApi.withContent(['module']);
-			modules = r.entities.map((e) => e.key.slice('module:'.length)).filter(isModuleId).sort();
+			// the catalog kind `modules`: every `module:<id>` document, a removed one is gone (server CatalogDocs)
+			const r = await api.get<{ entries: { id: string; removed: boolean }[] }>('/catalog/docs/modules');
+			modules = r.entries.filter((e) => !e.removed && isModuleId(e.id)).map((e) => e.id).sort();
 		} catch {
 			modules = [];
 		}
@@ -89,7 +90,7 @@
 	// ── the split: the deck on the right (remembered width, a Divider); below ~900 px they stack ──
 	const stacked = new MediaQuery('max-width: 56rem');
 	let splitEl = $state<HTMLElement>();
-	const deckSize = panelWidth('sc-panel-width:sound-deck', 34, () => splitEl?.getBoundingClientRect().right ?? window.innerWidth);
+	const deckSize = panelWidth('sc-panel-width:sound-deck', 26, () => splitEl?.getBoundingClientRect().right ?? window.innerWidth);
 </script>
 
 <div class="split" class:stacked={stacked.current} bind:this={splitEl} style:--deck-width={deckSize.css} data-testid="sound-workspace">
@@ -110,7 +111,7 @@
 		{/key}
 	</section>
 	{#if !stacked.current}
-		<Divider size={deckSize} edge="left" at="var(--deck-width, 34rem)" label={m['creator.resize_panel']()} controls="sound-deck" />
+		<Divider size={deckSize} edge="left" at="var(--deck-width, 26rem)" label={m['creator.resize_panel']()} controls="sound-deck" />
 	{/if}
 </div>
 
@@ -118,7 +119,7 @@
 	.split {
 		position: relative;
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) var(--deck-width, 34rem);
+		grid-template-columns: minmax(0, 1fr) var(--deck-width, 26rem);
 		height: 100%;
 		min-height: 0;
 	}
@@ -131,9 +132,10 @@
 	}
 	.split.stacked {
 		grid-template-columns: minmax(0, 1fr);
-		grid-template-rows: minmax(24rem, 1fr) minmax(24rem, 1fr);
-		height: auto;
-		min-height: 100%;
+		grid-template-rows: minmax(0, 3fr) minmax(0, 2fr);
+	}
+	.stacked .deck-half {
+		overflow: auto;
 	}
 	.stacked .designer-half {
 		border-right: 0;
