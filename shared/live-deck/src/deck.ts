@@ -290,6 +290,25 @@ export class Deck {
 		await this.loadEngine(c);
 	}
 
+	/** Stop the sound (live-core and the page's noises; the AudioContext closes). The deck keeps its values and rig and
+	 *  can `start` again (#298). */
+	async stop(): Promise<void> {
+		const c = this.core;
+		this.core = null;
+		this.engineReady = false;
+		this.loadGen++;
+		for (const n of this.noises.values()) {
+			try {
+				n.src.stop();
+			} catch {
+				/* already stopped */
+			}
+		}
+		this.noises.clear();
+		this.bands = { level: 0, bass: 0, mid: 0, high: 0, spectrum: new Float32Array(0), reduction: 0 };
+		await c?.stop();
+	}
+
 	/** (Re)load the sound: live-core's scene and the noises the page plays, then every slider's value. The engine is
 	 *  quiet from here until the scene landed; a newer load (a second switch before this one landed) wins. */
 	private async loadEngine(c: LiveCore): Promise<void> {

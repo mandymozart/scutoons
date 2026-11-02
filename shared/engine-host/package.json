@@ -1,0 +1,40 @@
+{
+	"name": "@scutoons/engine-host",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "SCUTOONS engine host (#298): the deck's browser engine (live-deck's Deck + SpaceStage over live-core) as one controller and a Svelte component – the viewer's /live/deck and the creator's editor both bring the engine up through it",
+	"sideEffects": [
+		"**/*.svelte"
+	],
+	"svelte": "./src/index.ts",
+	"types": "./src/index.ts",
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"svelte": "./src/index.ts",
+			"default": "./src/index.ts"
+		}
+	},
+	"files": [
+		"src"
+	],
+	"scripts": {
+		"check": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings && npm run test",
+		"test": "node --experimental-transform-types --no-warnings --test test/status.test.ts test/log.test.ts test/options.test.ts"
+	},
+	"dependencies": {
+		"@scutoons/live": "*",
+		"@scutoons/live-core": "*",
+		"@scutoons/live-deck": "*"
+	},
+	"peerDependencies": {
+		"svelte": "^5.32.0"
+	},
+	"devDependencies": {
+		"@types/node": "^22",
+		"svelte": "^5.55.0",
+		"svelte-check": "^4.1.0",
+		"typescript": "^5.9.3"
+	}
+}
