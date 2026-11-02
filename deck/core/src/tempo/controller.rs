@@ -80,6 +80,25 @@ pub enum What {
     Midi([u8; 3]),
     Osc(Cmd),
     Key(Key),
+    /// the show clock's anchor (the relay, §3.7)
+    Anchor(Anchor),
+}
+
+/// The conductor's tempo anchor (plan §3.7): at `at_ns` – already on the deck's monotonic clock, the relay's ms mapped
+/// by the offset filter (#321) – the show was at `beat`, running at `bpm` (or stopped). Sent only on change.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Anchor {
+    pub bpm: f64,
+    pub per_bar: u32,
+    pub beat: f64,
+    pub at_ns: u64,
+    pub running: bool,
+}
+
+impl Anchor {
+    fn line(&self) -> WallLine {
+        WallLine { t: self.at_ns as f64 * 1e-9, beat: self.beat, bps: clamp_bpm(self.bpm) / 60.0, running: self.running }
+    }
 }
 
 /// The scene's `tempo` node (one per scene; none = 120 BPM in 4, internal, the click off). The scene side builds it
@@ -158,6 +177,8 @@ pub struct Controller {
     tap: Tap,
     midi: ClockIn,
     queue: VecDeque<Event>,
+    /// the newest anchor of the show clock (followed while the relay is the master)
+    anchor: Option<Anchor>,
     now: Now,
 }
 
@@ -174,6 +195,7 @@ impl Controller {
             tap: Tap::default(),
             midi: ClockIn::default(),
             queue: VecDeque::new(),
+            anchor: None,
             now: Now { bpm: map.bpm, pos: map.position(0.0), per_bar: map.per_bar, running: true },
         }
     }
@@ -181,6 +203,17 @@ impl Controller {
     /// a source's event (the platform adapters feed the clock through it)
     pub fn push(&mut self, e: Event) {
         self.queue.push_back(e);
+    }
+
+    /// the show clock's anchor, arrived at `at_ns` (the relay's transport adapter calls this; it is followed while
+    /// `Source::Relay` is the master)
+    pub fn push_anchor(&mut self, a: Anchor, at_ns: u64) {
+        self.push(Event { at_ns, what: What::Anchor(a) });
+    }
+
+    /// has the relay's show clock said anything yet
+    pub fn has_anchor(&self) -> bool {
+        self.anchor.is_some()
     }
 
     /// a key of the deck, at `now_ns`
@@ -208,6 +241,9 @@ impl Controller {
 
     pub fn set_source(&mut self, s: Source, host: &mut dyn Host) {
         self.source = s;
+        if s != Source::Relay {
+            self.anchor = None;
+        }
         host.source_chosen(s);
     }
 
@@ -225,18 +261,26 @@ impl Controller {
                     self.map = l.to_map(&m.line, m.rate, per_bar);
                 }
             }
+            // the show clock: the newest anchor is a line, followed like the MIDI clock's
+            Source::Relay => {
+                if let Some(a) = self.anchor {
+                    let mut map = a.line().to_map(&m.line, m.rate, a.per_bar.clamp(1, 32));
+                    map.bpm = clamp_bpm(map.bpm);
+                    self.map = map;
+                }
+            }
             // Link gives tempo and phase; start / stop stay the deck's own (stopped, the map stands where it stopped)
             Source::Link if self.map.running => {
                 if let Some(l) = host.link_line(m.now_ns, per_bar) {
                     self.map = l.to_map(&m.line, m.rate, per_bar);
                 }
             }
-            // internal, OSC (a remote for the internal clock), relay (no show clock yet), a lost MIDI clock: the map runs on
+            // internal, OSC (a remote for the internal clock), a lost MIDI clock, a relay without an anchor yet: the map runs on
             _ => {}
         }
         self.map = self.map.at(m.rendered.max(m.heard));
         self.shared.publish(&self.map, self.click);
-        self.now = Now { bpm: self.map.bpm, pos: self.map.position(m.heard), per_bar, running: self.map.running };
+        self.now = Now { bpm: self.map.bpm, pos: self.map.position(m.heard), per_bar: self.map.per_bar, running: self.map.running };
         self.now
     }
 
@@ -244,6 +288,7 @@ impl Controller {
         let f = m.frames_at(e.at_ns);
         match e.what {
             What::Midi(b) => self.midi.message(e.at_ns as f64 * 1e-9, &b),
+            What::Anchor(a) => self.anchor = Some(a),
             What::Osc(c) if self.source == Source::Osc => self.command(c, f, m, e.at_ns, host),
             What::Osc(_) => {}
             What::Key(Key::NextSource) => self.set_source(self.source.next(), host),
@@ -431,5 +476,29 @@ mod tests {
         t.frame(&moment(1.1, 0.0), &mut link);
         assert_eq!(link.bpm, 101.0);
         assert!((t.frame(&moment(1.2, 0.0), &mut link).bpm - 101.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn the_relays_anchor_is_followed_and_a_key_takes_over() {
+        let mut t = tempo(120.0);
+        t.set_source(Source::Relay, &mut NoHost);
+        assert!(!t.has_anchor());
+        assert_eq!(t.frame(&moment(1.0, 0.0), &mut NoHost).bpm, 120.0, "no anchor yet: the clock stays");
+        // at 2.0 s the show was at beat 16, 90 BPM, in 3
+        let a = Anchor { bpm: 90.0, per_bar: 3, beat: 16.0, at_ns: 2_000_000_000, running: true };
+        t.push_anchor(a, 2_100_000_000);
+        let n = t.frame(&moment(3.0, 0.0), &mut NoHost);
+        assert!(t.has_anchor());
+        assert!((n.bpm - 90.0).abs() < 1e-6 && n.per_bar == 3, "{} {}", n.bpm, n.per_bar);
+        assert!((n.pos.beat - (16.0 + 1.5)).abs() < 1e-6, "one second at 1.5 beats/s: {}", n.pos.beat);
+        // a stopped anchor stands
+        t.push_anchor(Anchor { running: false, beat: 20.0, ..a }, 3_100_000_000);
+        let n = t.frame(&moment(4.0, 0.0), &mut NoHost);
+        assert!(!n.running && (n.pos.beat - 20.0).abs() < 1e-6);
+        // a hand on the clock takes over from the relay
+        t.push(at(4.5, What::Key(Key::Faster)));
+        t.frame(&moment(4.5, 0.0), &mut NoHost);
+        assert_eq!(t.source, Source::Internal);
+        assert!(!t.has_anchor());
     }
 }

@@ -6,12 +6,14 @@
 //! sources, keys, tap, the followers of MIDI clock in / Link / OSC), the seqlock `Shared` / `BeatReader` and the time
 //! types are in here too (#308); deck/stage only opens the sources' ports and feeds events in.
 
+mod clock_out;
 mod controller;
 mod midi_in;
 mod shared;
 mod time;
 
-pub use controller::{Cmd, Config, Controller, Event, Host, Key, NoHost, Now, Source, What};
+pub use clock_out::{ClockOut, Out};
+pub use controller::{Anchor, Cmd, Config, Controller, Event, Host, Key, NoHost, Now, Source, What};
 pub use midi_in::{ClockIn, WallLine, LOST_S, PPQN};
 pub use shared::{BeatReader, Shared};
 pub use time::{Line, Moment, SeqLock};
