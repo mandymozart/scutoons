@@ -66,6 +66,12 @@ function tick(): void {
 	} else setTimeout(tick, 2);
 }
 
+/** #282: the scene's device messages go to the page as one copied message (both transports; a few a second at most) */
+function sendSignals(records: Uint8Array): void {
+	const bytes = records.slice().buffer;
+	post({ type: 'signals', bytes }, [bytes]);
+}
+
 /** Transfer transport: tops the worklet up to `lead` frames, in chunks of 4 blocks. */
 function topUp(): void {
 	if (!engine || !feed || !engine.core.loaded) return;
@@ -88,10 +94,10 @@ scope.onmessage = async (ev) => {
 					const latest = new Latest(m.shared.analysis);
 					control = Ring.bytes(m.shared.control);
 					audio = Ring.floats(m.shared.audio);
-					engine = new Engine(core, { lead: m.lead, onAnalysis: (f) => latest.publish(f) });
+					engine = new Engine(core, { lead: m.lead, onAnalysis: (f) => latest.publish(f), onSignals: sendSignals });
 				} else {
 					feed = m.audioPort;
-					engine = new Engine(core, { lead: m.lead, onAnalysis: (f) => {
+					engine = new Engine(core, { lead: m.lead, onSignals: sendSignals, onAnalysis: (f) => {
 							const frame = f.slice();
 							post({ type: 'analysis', frame }, [frame.buffer]);
 						}

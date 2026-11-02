@@ -1,5 +1,6 @@
 // status.ts (#298): the engine host's phases and how a page words them. Pure – no DOM, no wasm.
 import type { Transport } from '@scutoons/live-core';
+import { emptySignals, type SignalsView } from './monitor.ts';
 
 /** where the host is: idle (nothing yet) → mounting (wasm, deck, the 3D) → ready (the being is there, no sound) →
  *  starting (the AudioContext, the worker) → running → stopped (the sound ended, the being stays) · error */
@@ -37,6 +38,12 @@ export interface EngineSnapshot {
 	high: number;
 	/** the limiter's gain reduction (dB) */
 	reduction: number;
+	/** #282: one peak per audio output the engine renders (the stereo master = 2), 0..1, held with a short fall
+	 *  (meters.ts) – [] while no sound runs */
+	outputs: number[];
+	/** #282: the scene's `[outputs]` as a monitor reads them – per kind (midi, osc, dmx) the last message, the count
+	 *  and an activity 1 → 0 (monitor.ts) */
+	signals: SignalsView;
 	/** worklet dropouts over the last minute, null = no sound yet */
 	dropouts: number | null;
 	/** the worker's peak render load, % of its budget */
@@ -70,6 +77,8 @@ export const emptySnapshot = (): EngineSnapshot => ({
 	mid: 0,
 	high: 0,
 	reduction: 0,
+	outputs: [],
+	signals: emptySignals(),
 	dropouts: null,
 	load: 0,
 	lead: 0,

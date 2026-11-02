@@ -2185,6 +2185,7 @@ version = "0.1.0"
 dependencies = [
  "deck-core",
  "deck-events",
+ "deck-outputs",
  "deck-space",
  "serde",
  "serde_json",

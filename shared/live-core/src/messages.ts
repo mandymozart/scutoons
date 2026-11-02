@@ -42,6 +42,8 @@ export type FromWorker =
 	| { type: 'loaded'; id: number; table: Table }
 	| { type: 'failed'; id: number; error: string }
 	| { type: 'analysis'; frame: Float32Array }
+	/** #282: signal records (signals.ts) of the scene's `[outputs]`, a few per second at most */
+	| { type: 'signals'; bytes: ArrayBuffer }
 	| { type: 'stats'; stats: WorkerStats }
 	| { type: 'error'; error: string };
 

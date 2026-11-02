@@ -52,7 +52,8 @@ No JSON across the boundary. A value is a **wire record** (`src/wire.ts` = `deck
 
 | file | job |
 |---|---|
-| `src/wire.ts` | the records (`writeSend` in place, `readRecords`), the analysis frame (`analysisOf`) |
+| `src/wire.ts` | the records (`writeSend` in place, `readRecords`), the analysis frame (`analysisOf`: bands, spectrum, limiter reduction, the per-output peaks – #282) |
+| `src/signals.ts` | the scene's `[outputs]` as device messages (MIDI / DMX / OSC records, `readSignals`; `LiveCore.onSignal`) – #282 |
 | `src/ring.ts` | `Ring` (one writer, one reader, Atomics counters, SAB or plain buffer), `Latest` (sequence lock) |
 | `src/engine.ts` | `WasmCore` (the exports behind views on wasm memory), `Engine` (the pump: drain, step + render per block, analysis) |
 | `src/worker.ts` | the worker entry: init (wasm compiled there), load, the shared pump / the transfer feed |

@@ -12,10 +12,12 @@
 // it works, at one postMessage per send, per analysis frame and per 512 audio frames.
 import { BLOCK, type Table } from './engine.ts';
 import { Latest, Ring, ringBuffers, sharedAvailable } from './ring.ts';
+import { readSignals, type DeviceSignal } from './signals.ts';
 import { analysisOf, FRAME, recordSize, writeSend, type Analysis, type Mode } from './wire.ts';
 import type { FromWorker, FromWorklet, SharedSetup, ToWorker, Transport, WorkerStats, WorkletOptions } from './messages.ts';
 
 export * from './wire.ts';
+export * from './signals.ts';
 export { Ring, Latest, ringBuffers, sharedAvailable } from './ring.ts';
 export type { Table } from './engine.ts';
 export type { Transport, WorkerStats } from './messages.ts';
@@ -85,6 +87,7 @@ export class LiveCore {
 	private readonly latest: Latest | null;
 	private readonly scratch = new Uint8Array(recordSize(4096));
 	private readonly listeners = new Set<(a: Analysis) => void>();
+	private readonly signalListeners = new Set<(s: DeviceSignal) => void>();
 	private readonly pending = new Map<number, { ok: (t: Table) => void; fail: (e: Error) => void }>();
 	private nextId = 1;
 	private raf = 0;
@@ -178,6 +181,9 @@ export class LiveCore {
 				this.frame = m.frame;
 				this.emit();
 				break;
+			case 'signals':
+				for (const s of readSignals(new Uint8Array(m.bytes))) for (const cb of this.signalListeners) cb(s);
+				break;
 			case 'stats':
 				Object.assign(this.stats_, m.stats);
 				break;
@@ -240,6 +246,15 @@ export class LiveCore {
 				this.raf = 0;
 			}
 		};
+	}
+
+	/**
+	 * #282: every device message the scene's `[outputs]` resolves to (MIDI, DMX, OSC – shown, not played: the browser has
+	 * no port), a few a second at most, in engine time order. Returns the unsubscribe.
+	 */
+	onSignal(cb: (s: DeviceSignal) => void): () => void {
+		this.signalListeners.add(cb);
+		return () => this.signalListeners.delete(cb);
 	}
 
 	private poll = (): void => {
