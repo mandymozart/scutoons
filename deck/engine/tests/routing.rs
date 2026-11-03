@@ -423,6 +423,31 @@ fn a_missing_device_channel_is_dropped_not_closed_up() {
     exact(&got[1], &y, "3 → 2");
 }
 
+/// Owner 2026-11-03 ("copy to both"): a mono outlet the scene does not pin plays on both channels of its group's pair – the
+/// spec's mono → stereo up-mix, at the outlet only; pinned (`first`, `channels`) it stays on its one channel. It used to play
+/// on the left only.
+#[test]
+fn a_mono_outlet_plays_on_both_channels_of_a_pair() {
+    let mono = |out_params: &str| osc("x", 220.0, 0.2) + &node("b", "bus", "channels=1") + &node("o", "out", out_params) + &link("x", "b.in", "") + &link("b.out", "o.in", "");
+    let rx = alone(&osc("a", 220.0, 0.2));
+    let x: Vec<f32> = rx[0].iter().map(|v| 0.0 + v).collect();
+    let got = render(&mono(""), STEREO());
+    exact(&got[0], &x, "left");
+    exact(&got[1], &x, "right: the same");
+    // a cue pair from the deck configuration
+    let got = render(&mono("group=\"cue\""), DeckConfig::device(4).with_outlet("cue", &[3, 4]));
+    exact(&got[2], &x, "cue 3");
+    exact(&got[3], &x, "cue 4");
+    assert!(peak(&got[0]) == 0.0 && peak(&got[1]) == 0.0);
+    // pinned: one channel
+    let got = render(&mono("first=2"), DeckConfig::device(4));
+    exact(&got[1], &x, "pinned on 2");
+    assert!([0, 2, 3].iter().all(|&c| peak(&got[c]) == 0.0), "and nowhere else");
+    // a one-channel device: the one channel
+    let got = render(&mono(""), DeckConfig::device(1));
+    exact(&got[0], &x, "a mono device");
+}
+
 /// the limiter works per group: a loud cue is held under the ceiling, the main next to it does not move
 #[test]
 fn the_limiter_links_a_group_and_leaves_the_others_alone() {

@@ -893,7 +893,12 @@ fn plan_outlets(feeds: &[Feed], deck: &DeckConfig, rate: f32) -> Plan {
             continue;
         }
         let mut pairs: Vec<(usize, usize, f32)> = Vec::new();
-        if m == f.width {
+        // a mono outlet the scene does not pin plays on both channels of its group's pair – the spec's mono → stereo
+        // up-mix, at the outlet only (owner 2026-11-03: "copy to both"); pinned (`first`, `channels`) it keeps its one channel
+        let pair = deck.channels_of(&f.group, 2);
+        if f.width == 1 && f.list.is_empty() && f.first == 0 && pair.iter().all(Option::is_some) {
+            pairs.extend(pair.iter().flatten().map(|&t| (0, t, 1.0)));
+        } else if m == f.width {
             pairs.extend((0..f.width).map(|c| (c, targets[c], 1.0)));
         } else {
             let from = f.layout.clone().or_else(|| layout::name_for(f.width).map(str::to_string));

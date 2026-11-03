@@ -6,6 +6,8 @@ stays and gets "(superseded YYYY-MM-DD → …)" appended. Rules for agents: age
 to mark them superseded.
 
 ## 2026-11
+- 2026-11-03 · deck · **A mono outlet on a stereo pair plays on both channels:** an `out` with one channel that the scene does not pin (`first` / `channels`) plays on both channels of its group's pair (the spec's mono → stereo up-mix, at the outlet only – the graph stays discrete); pinned it keeps its one channel · "Copy to both" → research/ENGINE-REFACTOR-PLAN.md §4 P4b, #318
+- 2026-11-03 · deck · **A soloed folder keeps its children audible:** a bus whose `out` feeds a soloed bus (directly or further down) stays heard, next to Reaper's rule that buses downstream of a soloed one stay heard · "soloing sounds perfect" → research/ENGINE-REFACTOR-PLAN.md §4 P4b, #318
 - 2026-11-03 · deck · **The RME's mixer presets are set in TotalMix on Windows:** in class-compliant mode (the X1 on Linux) the Fireface plays the preset stored in the unit; routing is fixed in TotalMix on the PC in driver mode, then back to CC mode – no oscmix on the deck · "we stay total mix on windows" → deck/native/README.md "Host and device", #318
 - 2026-11-03 · deck · **The TypeScript module host is deleted, not ported to v2:** `modules.ts`, `module-abi.ts` and their test go in the same step that moves `walk` and `fixture` to ABI v2; the browser runs modules through the Rust host (#290), so there is one module host · "Delete it" · → research/ABI-V2.md §7, #343
 - 2026-11-03 · deck · **Module seeds start the same:** every node starts with seed 1 as today; the node's `seed` parameter changes it (two copies of a random module play in unison until one gets another seed); no derived per-node seeds · "starting with the same is fine" · → research/ABI-V2.md §3, #323
