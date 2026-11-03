@@ -78,6 +78,8 @@ const steps = [
 					() => gate(`${root}/deck/target/engine-wasm/wasm32-unknown-unknown/release/deck_engine_wasm.wasm`, ENGINE_GATE_KB)
 				],
 				['🧊 space-web wasm32', 'cargo', ['build', '--profile', 'wasm-web', '--target', 'wasm32-unknown-unknown', '-p', 'space-web'], `${root}/deck`],
+				// live-deck's in-process relay tests spawn deck/target/debug/relay.exe: a stale binary fails them after a relay change (the P8 merge)
+				['🧊 relay binary', 'cargo', ['build', '-p', 'relay'], `${root}/deck`],
 				['🧊 live-deck tests', npm, ['run', 'check', '-w', 'shared/live-deck'], root],
 				// #321: the show clock's LAN measurement (the owner's recording → the decks' offsets)
 				['⏱ clock measurement tool', npm, ['run', 'check', '-w', 'tools/clock-measure'], root],
