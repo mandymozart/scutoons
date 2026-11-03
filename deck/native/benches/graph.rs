@@ -88,9 +88,6 @@ fn audio_block(text: &str, build: Build) -> f64 {
     let mut buf = vec![0.0f32; FRAMES * 2];
     time(20_000, || {
         e.render(&mut buf, 2, |x| x);
-        for (_, tap) in h.taps.iter_mut() {
-            while tap.pop().is_ok() {}
-        }
     })
 }
 

@@ -1,25 +1,20 @@
 //! deck-engine behind raw wasm exports (no wasm-bindgen): the scene goes in through the inbox, `ew_run` renders it, the
 //! samples come out through `ew_out`. The same function runs natively (`run`) – the conformance suite compares both.
-use deck_core::tempo::Now;
-use deck_engine::control::Controls;
 use deck_engine::{Build, DeckConfig, Engine, Seams, Sequencing};
 use deck_space::graph::Graph;
 use deck_space::scene::Scene;
 use std::sync::Mutex;
 
-/// The scene (TOML) rendered at `rate` for `frames` frames in blocks of `block`, the control domain stepped before each
-/// block (the frame thread's `Controls::update`); the left channel after master and limiter. `Err` = the scene is refused.
+/// The scene (TOML) rendered at `rate` for `frames` frames in blocks of `block` (the control half steps inside the engine,
+/// once per 128-frame quantum – #319); the left channel after master and limiter. `Err` = the scene is refused.
 pub fn run(toml: &str, rate: f32, block: usize, frames: usize, build: Build) -> Result<Vec<f32>, String> {
     let graph = Graph::build(&Scene::parse(toml).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
-    let (mut engine, mut handles) = Engine::build_with(&graph, rate, 1.0, build).map_err(|e| format!("{e:#}"))?;
-    let mut controls = Controls::new(&graph, Some(&mut handles));
-    let now = Now::default();
+    let (mut engine, _handles) = Engine::build_with(&graph, rate, 1.0, build).map_err(|e| format!("{e:#}"))?;
     let mut out = Vec::with_capacity(frames);
     let mut buf = vec![0.0f32; block * 2];
     let mut done = 0;
     while done < frames {
         let n = (frames - done).min(block);
-        controls.update(n as f32 / rate, 0, &now);
         engine.render(&mut buf[..n * 2], 2, |x| x);
         out.extend(buf[..n * 2].chunks_exact(2).map(|f| f[0]));
         done += n;
@@ -31,17 +26,14 @@ pub fn run(toml: &str, rate: f32, block: usize, frames: usize, build: Build) -> 
 /// channel after master, environment and limiter, interleaved (`frames` × the configuration's channels).
 pub fn run_device(toml: &str, deck: &DeckConfig, rate: f32, block: usize, frames: usize, build: Build) -> Result<Vec<f32>, String> {
     let graph = Graph::build(&Scene::parse(toml).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
-    let (mut engine, mut handles) =
+    let (mut engine, _handles) =
         Engine::build_seams(&graph, rate, 1.0, build, Sequencing::InBlock, &Seams::with_deck(deck.clone())).map_err(|e| format!("{e:#}"))?;
-    let mut controls = Controls::new(&graph, Some(&mut handles));
-    let now = Now::default();
     let d = deck.channels;
     let mut out = Vec::with_capacity(frames * d);
     let mut buf = vec![0.0f32; block * d];
     let mut done = 0;
     while done < frames {
         let n = (frames - done).min(block);
-        controls.update(n as f32 / rate, 0, &now);
         engine.render(&mut buf[..n * d], d, |x| x);
         out.extend_from_slice(&buf[..n * d]);
         done += n;

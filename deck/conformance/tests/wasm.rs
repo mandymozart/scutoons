@@ -134,7 +134,7 @@ fn engine_native_vs_wasm() {
     let simd = build_wasm("deck-engine-wasm", "deck_engine_wasm.wasm", true);
     let (mut wp, mut ws) = (Wasm::load(&plain), Wasm::load(&simd));
     let mut md = String::from("| scene | block | native ≡ wasm32 | native ≡ wasm32 + simd128 | patcher ≡ batch in wasm32 + simd128 | first differing sample |\n|---|---|---|---|---|---|\n");
-    let mut scenes: Vec<(&str, &str)> = CASES.iter().map(|c| (c.name, c.toml)).collect();
+    let mut scenes: Vec<(&str, &str)> = CASES.iter().chain(CONTROL_CASES).map(|c| (c.name, c.toml)).collect();
     scenes.push(("stereo scene", STEREO_TOML));
     let mut wrong = Vec::new();
     for (name, toml) in scenes {

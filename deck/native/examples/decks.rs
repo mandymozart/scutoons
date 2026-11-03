@@ -48,7 +48,7 @@ fn main() {
             let sp = graph.first(Kind::Space).unwrap();
             let set = |ctl: &mut Controls, node: usize, port: &str, v: f32| {
                 if let Some(p) = graph.nodes[node].kind.input(port) {
-                    ctl.set(node, p, v);
+                    ctl.set_base(node, p, v);
                 }
             };
             ctl.update(1.0 / 60.0, 0, &beat);

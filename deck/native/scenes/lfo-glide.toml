@@ -1,0 +1,115 @@
+# #319 (P5) the control half at block rate: LFOs that zippered when the control domain stepped with the video frame (60
+# times a second) and glide now that it steps once per 128-frame engine block (375 times a second), each value spread
+# across its block sample by sample. Listen for: the filter sweep on the pink noise (a slow saw opening the lowpass from
+# 400 Hz to 8.4 kHz – before, a fine rasp of steps on top of the hiss), the saw's vibrato (6 Hz, ±12 Hz – before, a
+# grainy wobble), the high tone's tremolo (a 3 Hz sine on its gain). The picture follows the heard block (the snapshot
+# ring): the pattern's hue rides the sweep, its zoom the vibrato, its pulse the tremolo. Run it:
+#   cargo run --release -p deck-native -- --scene scenes/lfo-glide.toml --windowed
+[stage]
+name = "LFO glide - control at block rate (#319)"
+
+[[node]]
+id = "sweep"
+kind = "lfo"
+shape = "saw"
+rate = 0.125
+depth = 1.0
+
+[[node]]
+id = "hiss"
+kind = "noise"
+color = "pink"
+gain = 0.08
+
+[[link]]
+from = "sweep"
+to = "hiss.cutoff"
+scale = 8000
+offset = 400
+
+[[node]]
+id = "vibrato"
+kind = "lfo"
+rate = 6.0
+depth = 1.0
+
+[[node]]
+id = "low"
+kind = "osc"
+wave = "saw"
+gain = 0.12
+
+[[link]]
+from = "vibrato"
+to = "low.freq"
+scale = 24
+offset = 98
+
+[[node]]
+id = "tremolo"
+kind = "lfo"
+rate = 3.0
+depth = 0.1
+
+[[node]]
+id = "high"
+kind = "osc"
+freq = 880
+gain = 0.0
+
+[[link]]
+from = "tremolo"
+to = "high.gain"
+offset = 0.02
+
+[[node]]
+id = "mix"
+kind = "mixer"
+
+[[link]]
+from = "hiss"
+to = "mix.in1"
+
+[[link]]
+from = "low"
+to = "mix.in2"
+
+[[link]]
+from = "high"
+to = "mix.in3"
+
+[[node]]
+id = "out"
+kind = "audio_out"
+volume = 0.8
+
+[[link]]
+from = "mix"
+to = "out.in"
+
+[[node]]
+id = "pattern"
+kind = "test_pattern"
+
+[[node]]
+id = "screen"
+kind = "screen"
+
+[[link]]
+from = "pattern"
+to = "screen.in"
+
+[[link]]
+from = "sweep"
+to = "pattern.hue"
+
+[[link]]
+from = "vibrato"
+to = "pattern.zoom"
+scale = 0.5
+offset = 1.0
+
+[[link]]
+from = "tremolo"
+to = "pattern.pulse"
+scale = 10

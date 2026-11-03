@@ -32,9 +32,9 @@ fn main() -> anyhow::Result<()> {
         (n, graph.nodes[n].kind.input(port).expect("a port"))
     };
     let (index, gain, drone, mix2, sway, incense) = (at("voice.index"), at("voice.gain"), at("drone.freq"), at("mix.gain2"), at("sway.rate"), at("incense.gain"));
-    ctl.set(sway.0, sway.1, 2.0);
+    ctl.set_base(sway.0, sway.1, 2.0);
     if tonal {
-        ctl.set(incense.0, incense.1, 0.0);
+        ctl.set_base(incense.0, incense.1, 0.0);
     }
     let total = SECONDS * RATE as usize;
     let mut left = Vec::with_capacity(total);
@@ -46,10 +46,10 @@ fn main() -> anyhow::Result<()> {
             // a hand: slow sweeps (a drag's 60 steps a second) and, every 2.5 s, a hard jump
             let tri = |p: f32| 1.0 - (2.0 * (t / p).fract() - 1.0).abs();
             let jump = (t / 2.5) as usize % 2 == 1;
-            ctl.set(index.0, index.1, 8.0 * tri(3.0));
-            ctl.set(gain.0, gain.1, if jump { 0.3 } else { 0.05 + 0.2 * tri(1.7) });
-            ctl.set(drone.0, drone.1, 30.0 * (220.0f32 / 30.0).powf(tri(4.0)));
-            ctl.set(mix2.0, mix2.1, if (t * 3.0) as usize % 2 == 0 { 1.0 } else { 0.4 });
+            ctl.set_base(index.0, index.1, 8.0 * tri(3.0));
+            ctl.set_base(gain.0, gain.1, if jump { 0.3 } else { 0.05 + 0.2 * tri(1.7) });
+            ctl.set_base(drone.0, drone.1, 30.0 * (220.0f32 / 30.0).powf(tri(4.0)));
+            ctl.set_base(mix2.0, mix2.1, if (t * 3.0) as usize % 2 == 0 { 1.0 } else { 0.4 });
             let beat = tempo::Now { bpm: 84.0, pos: tempo::position(t as f64 * 1.4, 4), per_bar: 4, running: true };
             ctl.update(FRAME as f32 / RATE, 0, &beat);
         }

@@ -3,8 +3,11 @@
 //! noise, the click, mixer, FFT tap, output) – zero allocations and frees over 20 seconds of audio in device-sized blocks,
 //! each stamped for the time base (`Engine::mark`), with the click on and the tempo map changing under it (the frame
 //! thread's seqlock writes) – on the batch runtime (#183) with its AVX2 loops (where the CPU has them) and its baseline
-//! loops, the saw / square / triangle wavetables, the noise and its lowpass included. The ring, the sequencer's thread
-//! and the dispatcher are the native deck's: its tests/no_alloc.rs keeps those.
+//! loops, the saw / square / triangle wavetables, the noise and its lowpass included. The control half steps inside the
+//! render (#319): the FFT's analysis, the LFOs, the helpers, the snapshot ring and the frame thread's commands (bases,
+//! sends, an LFO's shape) cost no allocation either. The ring, the sequencer's thread and the dispatcher are the native
+//! deck's: its tests/no_alloc.rs keeps those.
+use deck_engine::control::Controls;
 use deck_engine::{Build, Engine, Track};
 use deck_space::graph::Graph;
 use deck_space::scene::{Scene, MADNESS_SCENE};
@@ -124,8 +127,106 @@ fn the_waves_and_the_noise_render_without_allocating() {
     }
 }
 
+/// #319: the control half at block rate – LFOs of every shape on two levels, the helpers, a smoother on an FFT, an LFO
+/// into an oscillator's pitch and gain – with the frame thread turning bases, sending values and switching LFO shapes
+/// between the blocks
+#[test]
+fn the_control_half_steps_without_allocating() {
+    let _turn = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let scene = Scene::parse(
+        "[[node]]
+id = \"t\"
+kind = \"tempo\"
+[[node]]
+id = \"a\"
+kind = \"lfo\"
+rate = 3.0
+[[node]]
+id = \"b\"
+kind = \"lfo\"
+shape = \"saw\"
+         [[node]]
+id = \"c\"
+kind = \"lfo\"
+shape = \"square\"
+[[node]]
+id = \"m\"
+kind = \"mul\"
+b = 200.0
+[[node]]
+id = \"s\"
+kind = \"smooth\"
+time = 0.2
+         [[node]]
+id = \"p\"
+kind = \"add\"
+b = 0.1
+[[node]]
+id = \"o\"
+kind = \"osc\"
+[[node]]
+id = \"fft\"
+kind = \"fft\"
+[[node]]
+id = \"out\"
+kind = \"audio_out\"
+         [[link]]
+from = \"a\"
+to = \"b.rate\"
+[[link]]
+from = \"t.phase\"
+to = \"c.depth\"
+[[link]]
+from = \"b\"
+to = \"m.a\"
+[[link]]
+from = \"m\"
+to = \"o.freq\"
+offset = 220.0
+         [[link]]
+from = \"fft.level\"
+to = \"s.in\"
+[[link]]
+from = \"s\"
+to = \"p.a\"
+[[link]]
+from = \"p\"
+to = \"o.gain\"
+         [[link]]
+from = \"o\"
+to = \"fft.in\"
+[[link]]
+from = \"o\"
+to = \"out.in\"
+",
+    )
+    .unwrap();
+    let graph = Graph::build(&scene).unwrap();
+    for build in [Build::detect(), Build { batch: true, avx2: false }] {
+        let (mut engine, mut handles) = Engine::build_with(&graph, 48_000.0, 1.0, build).unwrap();
+        let mut face = Controls::new(&graph, Some(&mut handles));
+        let mut buf = vec![0.0f32; 480 * 2];
+        // the face's first commands (their ring is made at build; a push never allocates)
+        measure(true);
+        for i in 0..1000 {
+            match i % 4 {
+                0 => face.set_base(7, 0, 200.0 + i as f32),
+                1 => face.send(4, 1, 100.0, (i % 7) as f32 / 7.0),
+                2 => face.set_lfo_shape(1 + i % 3, i / 4 % 3),
+                _ => face.set_base(5, 1, 0.05),
+            };
+            engine.render(&mut buf, 2, |x| x);
+        }
+        measure(false);
+        assert_eq!(CALLS.load(Ordering::SeqCst), 0, "allocations / frees in the control half ({})", build.label());
+        assert!(engine.control().outputs(8)[0] > 0.1, "the FFT hears the oscillator");
+        assert!(buf.iter().any(|x| *x != 0.0));
+    }
+}
+
 fn renders_without_allocating(graph: &Graph, build: Build) {
     let (mut engine, mut handles) = Engine::build_with(graph, 48_000.0, 1.0, build).unwrap();
+    let fft = graph.first(deck_space::graph::Kind::Fft).expect("an fft node");
     assert!(engine.shape().1 > 0, "the FM voice runs as a batch");
     let track = Track { rate: 44_100.0, l: vec![0.1; 44_100], r: vec![-0.1; 44_100] };
     if let Some(m) = handles.music.first_mut() {
@@ -133,7 +234,6 @@ fn renders_without_allocating(graph: &Graph, build: Build) {
     }
     // 128 frames like the deck's PipeWire quantum, plus odd sizes and one bigger than MAX_BLOCK
     let mut bufs: Vec<Vec<f32>> = [128usize, 37, 480, 3000].iter().map(|n| vec![0.0; n * 2]).collect();
-    let mut drained = 0usize;
     let (map, _) = handles.tempo.map().unwrap();
     handles.tempo.publish(&map, true); // the click on
     measure(true);
@@ -147,14 +247,10 @@ fn renders_without_allocating(graph: &Graph, build: Build) {
         let b = &mut bufs[i % 4];
         engine.mark(i as u64 * 1_000_000); // the block's stamp (the time base's seqlock)
         engine.render(b, 2, |x| x);
-        // the frame thread's side: the tap ring is drained (pop never allocates either)
-        while handles.taps[0].1.pop().is_ok() {
-            drained += 1;
-        }
     }
     measure(false);
     assert_eq!(CALLS.load(Ordering::SeqCst), 0, "allocations / frees in the audio path ({})", build.label());
-    assert!(drained > 0);
+    assert!(engine.control().outputs(fft)[0] > 0.0, "the control half's analyzer drained the FFT's ring");
     assert!(bufs[0].iter().any(|x| *x != 0.0), "the scene makes sound");
 }
 

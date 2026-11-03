@@ -35,13 +35,17 @@ pub struct Bands {
     fft: Arc<dyn Fft<f32>>,
     hann: Vec<f32>,
     buf: Vec<Complex<f32>>,
+    /// the transform's work space, made once: `Fft::process` would allocate it per call (the engine analyses per block, #319)
+    scratch: Vec<Complex<f32>>,
     rate: f32,
 }
 
 impl Bands {
     pub fn new(rate: f32) -> Self {
         let hann = (0..SIZE).map(|i| 0.5 - 0.5 * libm::cosf(std::f32::consts::TAU * i as f32 / SIZE as f32)).collect();
-        Bands { fft: FftPlanner::new().plan_fft_forward(SIZE), hann, buf: vec![Complex::default(); SIZE], rate }
+        let fft = FftPlanner::new().plan_fft_forward(SIZE);
+        let scratch = vec![Complex::default(); fft.get_inplace_scratch_len()];
+        Bands { fft, hann, buf: vec![Complex::default(); SIZE], scratch, rate }
     }
 
     /// The four values of the newest `SIZE` samples (`window` is in time order).
@@ -63,7 +67,7 @@ impl Bands {
         for (i, b) in self.buf.iter_mut().enumerate() {
             *b = Complex::new(sample(i) * self.hann[i], 0.0);
         }
-        bands(&mut self.buf, &*self.fft, self.rate)
+        bands(&mut self.buf, &mut self.scratch, &*self.fft, self.rate)
     }
 }
 
@@ -107,12 +111,13 @@ impl Analyzer {
     }
 }
 
-/// level (RMS of the window) + the peak magnitude of bass, mid, high, each in 0–1; `buf` holds the windowed samples
-pub fn bands(buf: &mut [Complex<f32>], fft: &dyn Fft<f32>, rate: f32) -> [f32; 4] {
+/// level (RMS of the window) + the peak magnitude of bass, mid, high, each in 0–1; `buf` holds the windowed samples,
+/// `scratch` the transform's work space (`get_inplace_scratch_len`)
+pub fn bands(buf: &mut [Complex<f32>], scratch: &mut [Complex<f32>], fft: &dyn Fft<f32>, rate: f32) -> [f32; 4] {
     let n = buf.len();
     // the Hann window halves the amplitude on average – the RMS is taken before the transform, corrected by 1/0.5
     let rms = (buf.iter().map(|c| c.re * c.re).sum::<f32>() / n as f32).sqrt() * 2.0;
-    fft.process(buf);
+    fft.process_with_scratch(buf, scratch);
     let bin_hz = rate / n as f32;
     let band = |lo: f32, hi: f32| {
         let (a, b) = (((lo / bin_hz) as usize).max(1), ((hi / bin_hz) as usize).min(n / 2));

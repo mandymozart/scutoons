@@ -585,7 +585,7 @@
       "name": "lfo",
       "version": "1",
       "domain": "control",
-      "doc": "A low-frequency oscillator (control rate).",
+      "doc": "A low-frequency oscillator (control rate: stepped once per 128-frame engine block).",
       "feature": "core",
       "module": "control",
       "scope": "graph",
@@ -607,7 +607,7 @@
           "name": "out",
           "dir": "out",
           "type": "control",
-          "doc": "the wave, -depth..depth"
+          "doc": "the wave, 0..depth"
         }
       ],
       "params": [
@@ -642,6 +642,14 @@
             "square"
           ],
           "doc": "the wave (default sine)"
+        },
+        {
+          "name": "phase",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.0,
+          "curve": "lin",
+          "doc": "where the wave starts (0..1 of a cycle)"
         }
       ]
     },
@@ -1752,6 +1760,7 @@
       "version": "1",
       "domain": "control",
       "doc": "Smooths its input over `time` (a control helper).",
+      "feature": "core",
       "module": "control",
       "scope": "internal",
       "batch": true,
@@ -1802,6 +1811,7 @@
       "version": "1",
       "domain": "control",
       "doc": "Multiplies a and b (a control helper).",
+      "feature": "core",
       "module": "control",
       "scope": "internal",
       "batch": true,
@@ -1851,6 +1861,7 @@
       "version": "1",
       "domain": "control",
       "doc": "Adds a and b (a control helper).",
+      "feature": "core",
       "module": "control",
       "scope": "internal",
       "batch": true,

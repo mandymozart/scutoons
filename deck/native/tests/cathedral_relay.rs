@@ -109,7 +109,7 @@ fn decks_gather_around_the_conductor() {
     // a button turned on the first deck shows on its being at the conductor
     let space_node = decks[0].graph.first(Kind::Space).unwrap();
     let glow = Kind::Space.input("glow").unwrap();
-    decks[0].ctl.set(space_node, glow, 1.7);
+    decks[0].ctl.set_base(space_node, glow, 1.7);
     let client = {
         // the deck that is catpope
         let r = cond.space.others.iter().find(|r| r.being.look.character == "catpope").unwrap();
