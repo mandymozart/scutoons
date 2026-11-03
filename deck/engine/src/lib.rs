@@ -532,7 +532,7 @@ impl Engine {
                         *w = 2;
                     }
                 }
-                let solos = route::Solos { all: all.clone(), upstream: upstream_solos(graph, i, &solo_of) };
+                let solos = route::Solos { all: all.clone(), upstream: upstream_solos(graph, i, &solo_of), downstream: downstream_solos(graph, i, &solo_of) };
                 let block = match route::make(node, rate, &params, &widths, deck, &solos)? {
                     Some(b) => b,
                     None => blocks::make(node, i, rate, &params, &mut handles, seams, &mut tables)?,
@@ -545,12 +545,23 @@ impl Engine {
                 bufs.extend(widths.iter().map(|&w| Buf::sized(w, QUANTUM)));
             }
         }
-        // the loops close: each feedback node's input, wired now that its source exists, is copied into its output last
-        for i in (0..graph.nodes.len()).filter(|&i| graph.nodes[i].kind == Kind::Feedback) {
-            if let Some(src) = resolve_inputs(graph, i, deck, &buf_of, &mut bufs, &mut steps)?[0] {
-                steps.push(Step::Capture { src, dst: buf_of[i].expect("allocated with its level") });
+        // the loops close: each feedback node's input, wired now that its source exists, is copied into its output last. All
+        // inputs are read before any output is overwritten: an input that is a feedback output itself (two in a row, a node
+        // fed by its own output) is copied aside first, so every feedback node is exactly one block late
+        let loops: Vec<usize> = (0..graph.nodes.len()).filter(|&i| graph.nodes[i].kind == Kind::Feedback).collect();
+        let outputs: Vec<usize> = loops.iter().map(|&i| buf_of[i].expect("allocated with its level")).collect();
+        let mut captures = Vec::new();
+        for (&i, &dst) in loops.iter().zip(&outputs) {
+            if let Some(mut src) = resolve_inputs(graph, i, deck, &buf_of, &mut bufs, &mut steps)?[0] {
+                if outputs.contains(&src) {
+                    steps.push(Step::Gather { dst: bufs.len(), taps: vec![Tap { src, gain: 1.0, pairs: Vec::new() }] });
+                    bufs.push(Buf::sized(bufs[src].channels(), QUANTUM));
+                    src = bufs.len() - 1;
+                }
+                captures.push(Step::Capture { src, dst });
             }
         }
+        steps.extend(captures);
         if graph.first(Kind::Space).is_some() {
             let mut at = Vec::with_capacity(bufs.len());
             let mut total = 0;
@@ -801,6 +812,23 @@ fn upstream_solos(graph: &Graph, node: usize, solo_of: &[Option<Param>]) -> Arc<
     found.into()
 }
 
+/// the solo params of the buses `node`'s post-fader `out` feeds, directly or further down (a folder it plays into, the
+/// folder's folder): soloing a folder keeps its children audible (Reaper's folder solo)
+fn downstream_solos(graph: &Graph, node: usize, solo_of: &[Option<Param>]) -> Arc<[Param]> {
+    let Some(out) = graph.nodes[node].kind.output("out") else { return Arc::new([]) };
+    let mut seen = vec![false; graph.nodes.len()];
+    let mut stack: Vec<usize> = graph.links.iter().filter(|l| l.ty == PortType::Audio && l.from == (node, out)).map(|l| l.to.0).collect();
+    let mut found = Vec::new();
+    while let Some(t) = stack.pop() {
+        if t == node || std::mem::replace(&mut seen[t], true) {
+            continue;
+        }
+        found.extend(solo_of[t].clone());
+        stack.extend(graph.links.iter().filter(|l| l.ty == PortType::Audio && l.from.0 == t).map(|l| l.to.0));
+    }
+    found.into()
+}
+
 /// An `out` node or the `audio_out` sink, as the outlet planning sees it.
 struct Feed {
     node: usize,
@@ -849,20 +877,23 @@ fn plan_outlets(feeds: &[Feed], deck: &DeckConfig, rate: f32) -> Plan {
     let mut claimed = vec![false; d];
     let mut groups: Vec<(String, Vec<usize>)> = Vec::new();
     for f in feeds {
-        let targets: Vec<usize> = if !f.list.is_empty() {
-            f.list.iter().filter(|&&c| c >= 1 && c <= d).map(|c| c - 1).collect()
+        // the device channel of each of the outlet's channels (None = the device lacks it), then the ones there are
+        let mut slots: Vec<Option<usize>> = if !f.list.is_empty() {
+            f.list.iter().map(|&c| (c >= 1 && c <= d).then(|| c - 1)).collect()
         } else if f.first > 0 {
-            (f.first..f.first + f.width).filter(|&c| c <= d).map(|c| c - 1).collect()
+            (f.first..f.first + f.width).map(|c| (c <= d).then(|| c - 1)).collect()
         } else {
             deck.channels_of(&f.group, f.width)
         };
+        slots.resize(f.width, None);
+        let targets: Vec<usize> = slots.iter().flatten().copied().collect();
         let m = targets.len();
         if m == 0 {
             notes.push(format!("outlet '{}' ({}): no device channel to play on ({} has {d}) – silent", f.group, f.id, deck.name));
             continue;
         }
         let mut pairs: Vec<(usize, usize, f32)> = Vec::new();
-        if m >= f.width {
+        if m == f.width {
             pairs.extend((0..f.width).map(|c| (c, targets[c], 1.0)));
         } else {
             let from = f.layout.clone().or_else(|| layout::name_for(f.width).map(str::to_string));
@@ -878,8 +909,8 @@ fn plan_outlets(feeds: &[Feed], deck: &DeckConfig, rate: f32) -> Plan {
                     }
                 }
                 _ => {
-                    notes.push(format!("outlet '{}' ({}): {} channels, {m} device channels to play on – the first {m} play", f.group, f.id, f.width));
-                    pairs.extend((0..m).map(|c| (c, targets[c], 1.0)));
+                    notes.push(format!("outlet '{}' ({}): {} channels, {m} of them have a device channel – the others are dropped", f.group, f.id, f.width));
+                    pairs.extend(slots.iter().enumerate().filter_map(|(c, &t)| t.map(|t| (c, t, 1.0))));
                 }
             }
         }

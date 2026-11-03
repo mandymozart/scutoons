@@ -195,6 +195,32 @@ fn mute_solo_and_the_fader() {
     exact(&half[0][128 * 8..], &ra[0][128 * 8..].iter().map(|a| a * 0.5).collect::<Vec<_>>(), "fader");
 }
 
+/// Soloing a folder bus plays the folder – its children stay audible into it (Reaper's folder solo); a bus outside it is
+/// silent. It used to gate the children, so the soloed folder was silence.
+#[test]
+fn a_soloed_folder_plays_its_children() {
+    let scene = osc("a", 220.0, 0.2) + &osc("b", 330.0, 0.15) + &osc("c", 110.0, 0.2)
+        + &node("ta", "bus", "")
+        + &node("tb", "bus", "")
+        + &node("tc", "bus", "")
+        + &node("folder", "bus", "solo=1")
+        + &node("main", "bus", "")
+        + &node("out", "audio_out", "volume=1")
+        + &link("a", "ta.in", "")
+        + &link("b", "tb.in", "")
+        + &link("c", "tc.in", "")
+        + &link("ta.out", "folder.in", "")
+        + &link("tb.out", "folder.in", "")
+        + &link("folder.out", "main.in", "")
+        + &link("tc.out", "main.in", "")
+        + &link("main.out", "out.in", "");
+    let got = render(&scene, STEREO());
+    let (ra, rb) = (alone(&osc("a", 220.0, 0.2)), alone(&osc("a", 330.0, 0.15)));
+    // main = folder + tc (gated to zero), folder = (0 + a) + b
+    let want: Vec<f32> = ra[0].iter().zip(&rb[0]).map(|(a, b)| ((0.0 + a) + b) + 0.0).collect();
+    exact(&got[0], &want, "the folder's children, and nothing of tc");
+}
+
 /// the loop closes only through `feedback`, which plays its input one block (128 frames) late
 #[test]
 fn feedback_is_one_block_late_and_other_cycles_are_errors() {
@@ -223,6 +249,30 @@ fn feedback_is_one_block_late_and_other_cycles_are_errors() {
     let cyc = node("p", "bus", "") + &node("q", "bus", "") + &link("p.out", "q.in", "") + &link("q.out", "p.in", "");
     let e = Graph::build(&Scene::parse(&cyc).unwrap()).unwrap_err().to_string();
     assert!(e.contains("cycle") && e.contains('p') && e.contains('q') && e.contains("feedback"), "{e}");
+}
+
+/// every `feedback` node is one block late, also when it reads another one: two in a row are two blocks; a node fed only by
+/// its own output is a loop of silence (it used to read and write its one buffer in the same step – a panic)
+#[test]
+fn feedback_nodes_in_a_row_each_add_a_block() {
+    let a = osc("a", 220.0, 0.2);
+    let r = alone(&a);
+    let toml = a.clone() + &node("f1", "feedback", "") + &node("f2", "feedback", "") + &node("out", "audio_out", "volume=1")
+        + &link("a", "f1.in", "")
+        + &link("f1.out", "f2.in", "")
+        + &link("f2.out", "out.in", "");
+    let got = render(&toml, STEREO());
+    assert!(got[0][..256].iter().all(|x| *x == 0.0), "nothing before two blocks");
+    exact(&got[0][256..], &r[0][..FRAMES - 256], "two feedback nodes = 256 frames");
+    // the same with the second one declared first (the closing order follows the node order)
+    let swapped = a + &node("f2", "feedback", "") + &node("f1", "feedback", "") + &node("out", "audio_out", "volume=1")
+        + &link("a", "f1.in", "")
+        + &link("f1.out", "f2.in", "")
+        + &link("f2.out", "out.in", "");
+    exact(&render(&swapped, STEREO())[0], &got[0], "the declaration order does not matter");
+    // a node that only hears itself
+    let own = osc("a", 220.0, 0.2) + &node("f", "feedback", "") + &node("out", "audio_out", "volume=1") + &link("f.out", "f.in", "") + &link("f.out", "out.in", "");
+    assert_eq!(peak(&render(&own, STEREO())[0]), 0.0);
 }
 
 /// 5.1 down-mixed to stereo by the spec's table, by a `downmix` node and by the deck's fold of an outlet onto two channels
@@ -341,6 +391,38 @@ fn outlets_follow_the_deck_configuration() {
     exact(&phone[0], &ra[0], "the main is the same on a phone");
 }
 
+/// A channel list naming a device channel that is missing drops that channel and keeps the others where the list puts them;
+/// it used to close the gap, so the next channel played where the missing one should have.
+#[test]
+fn a_missing_device_channel_is_dropped_not_closed_up() {
+    let two = |out_params: &str| {
+        osc("x", 220.0, 0.2) + &osc("y", 330.0, 0.15) + &node("b", "bus", "channels=2") + &node("o", "out", out_params)
+            + &link("x", "b.in", "map=[[1, 1]]")
+            + &link("y", "b.in", "map=[[1, 2]]")
+            + &link("b.out", "o.in", "")
+    };
+    let (rx, ry) = (alone(&osc("a", 220.0, 0.2)), alone(&osc("a", 330.0, 0.15)));
+    let (x, y): (Vec<f32>, Vec<f32>) = (rx[0].iter().map(|v| 0.0 + v).collect(), ry[0].iter().map(|v| 0.0 + v).collect());
+    let mut drop = DeckConfig::device(4);
+    drop.fold = deck_engine::Fold::Drop;
+    // L on channel 5 (missing), R on channel 2
+    let got = render(&two("channels=[5, 2]"), drop.clone());
+    exact(&got[1], &y, "R stays on 2");
+    assert!([0, 2, 3].iter().all(|&c| peak(&got[c]) == 0.0), "L has no channel: silent");
+    // the same through the deck configuration's group
+    let got = render(&two("group=\"cue\""), drop.with_outlet("cue", &[5, 2]));
+    exact(&got[1], &y, "the group's R stays on 2");
+    assert_eq!(peak(&got[0]), 0.0);
+    // three channels (no standard layout, so no table to fold by): the middle one's channel is missing
+    let three = osc("x", 220.0, 0.2) + &osc("y", 330.0, 0.15) + &node("b", "bus", "channels=3") + &node("o", "out", "channels=[1, 9, 2]")
+        + &link("x", "b.in", "map=[[1, 1]]")
+        + &link("y", "b.in", "map=[[1, 3]]")
+        + &link("b.out", "o.in", "");
+    let got = render(&three, STEREO());
+    exact(&got[0], &x, "1 → 1");
+    exact(&got[1], &y, "3 → 2");
+}
+
 /// the limiter works per group: a loud cue is held under the ceiling, the main next to it does not move
 #[test]
 fn the_limiter_links_a_group_and_leaves_the_others_alone() {
@@ -355,8 +437,18 @@ fn the_limiter_links_a_group_and_leaves_the_others_alone() {
     let r = alone(&osc("a", 220.0, 0.2));
     exact(&got[0], &r[0], "the quiet main is untouched");
     assert!(peak(&got[2]) < 1.0 && peak(&got[2]) > 0.8, "the cue is limited, peak {}", peak(&got[2]));
-    // linked: the right channel is lowered exactly as the left (same gain, same input → same output)
-    exact(&got[2], &got[3], "the pair keeps its image");
+    // linked: a loud left and a quiet right – the right, far under the ceiling alone, is lowered with the left (the
+    // pair keeps its balance); a limiter per channel would leave it at 0.2
+    let lr = osc("b", 330.0, 0.95) + &osc("c", 331.0, 0.95) + &osc("q", 220.0, 0.2) + &node("sum", "bus", "channels=2")
+        + &node("c1", "out", "group=\"cue\"")
+        + &link("b", "sum.in", "map=[[1, 1]]")
+        + &link("c", "sum.in", "map=[[1, 1]]")
+        + &link("q", "sum.in", "map=[[1, 2]]")
+        + &link("sum.out", "c1.in", "");
+    let got = render(&lr, DeckConfig::device(4).with_outlet("cue", &[3, 4]));
+    let (loud, quiet) = (peak(&got[2][FRAMES / 2..]), peak(&got[3][FRAMES / 2..]));
+    assert!(loud < 1.0 && quiet < 0.2 * 0.6, "the quiet right follows the loud left's gain: {loud} / {quiet}");
+    assert!(quiet > 0.2 * 0.3, "but it still plays: {quiet}");
 }
 
 /// the device meters follow the speakers: the peak of each device channel

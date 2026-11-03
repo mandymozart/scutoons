@@ -13,10 +13,10 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "lowercase")]
 pub enum Fold {
     /// mix down with the spec's table between the outlet's layout and the layout of the channels it has (5.1 on two
-    /// channels = BS.775); where the spec has no table, the first channels play
+    /// channels = BS.775); where the spec has no table, as `Drop`
     #[default]
     Speakers,
-    /// the first channels play, the rest is dropped
+    /// each channel plays on its device channel where the device has it; the others are dropped
     Drop,
 }
 
@@ -88,15 +88,16 @@ impl DeckConfig {
         self.layouts.iter().find(|l| l.name == name).cloned().or_else(|| layout::builtin(name))
     }
 
-    /// The device channels (counted from 0) a group of `width` channels plays on, cut to the channels the device has:
-    /// the configuration's entry, else for `main` channels 1..=width, else none.
-    pub fn channels_of(&self, group: &str, width: usize) -> Vec<usize> {
+    /// The device channel (counted from 0) each channel of a group of `width` channels plays on, in the group's order: the
+    /// configuration's entry, else for `main` channels 1..=width, else none. A channel the device lacks is None – it keeps its
+    /// place, the next one does not move up.
+    pub fn channels_of(&self, group: &str, width: usize) -> Vec<Option<usize>> {
         let listed: Vec<usize> = match self.outlets.iter().find(|o| o.group == group) {
             Some(o) => o.channels.clone(),
             None if group == "main" => (1..=width).collect(),
             None => Vec::new(),
         };
-        listed.into_iter().filter(|&c| c >= 1 && c <= self.channels).map(|c| c - 1).collect()
+        listed.into_iter().map(|c| (c >= 1 && c <= self.channels).then(|| c - 1)).collect()
     }
 }
 
@@ -121,15 +122,17 @@ mod tests {
 
     #[test]
     fn a_device_plays_main_on_its_first_channels_and_nothing_else() {
+        let on = |c: &[usize]| c.iter().map(|&c| Some(c)).collect::<Vec<_>>();
         let stereo = DeckConfig::stereo();
-        assert_eq!(stereo.channels_of("main", 2), [0, 1]);
-        assert_eq!(stereo.channels_of("main", 6), [0, 1], "a 5.1 main on two channels: the channels there are");
-        assert_eq!(stereo.channels_of("cue", 2), Vec::<usize>::new());
+        assert_eq!(stereo.channels_of("main", 2), on(&[0, 1]));
+        assert_eq!(stereo.channels_of("main", 6), [Some(0), Some(1), None, None, None, None], "a 5.1 main on two channels: the channels there are");
+        assert_eq!(stereo.channels_of("cue", 2), []);
         let six = DeckConfig::device(6);
-        assert_eq!(six.channels_of("main", 6), [0, 1, 2, 3, 4, 5]);
+        assert_eq!(six.channels_of("main", 6), on(&[0, 1, 2, 3, 4, 5]));
         let rack = DeckConfig::device(8).with_outlet("main", &[1, 2]).with_outlet("cue", &[3, 4]);
-        assert_eq!((rack.channels_of("main", 2), rack.channels_of("cue", 2)), (vec![0, 1], vec![2, 3]));
-        assert_eq!(DeckConfig::device(3).with_outlet("cue", &[3, 4]).channels_of("cue", 2), [2], "channel 4 does not exist");
+        assert_eq!((rack.channels_of("main", 2), rack.channels_of("cue", 2)), (on(&[0, 1]), on(&[2, 3])));
+        assert_eq!(DeckConfig::device(3).with_outlet("cue", &[3, 4]).channels_of("cue", 2), [Some(2), None], "channel 4 does not exist");
+        assert_eq!(DeckConfig::device(3).with_outlet("cue", &[4, 3]).channels_of("cue", 2), [None, Some(2)], "the second keeps its place");
     }
 
     #[test]
