@@ -519,19 +519,22 @@ impl Drop for PipewireStop {
     }
 }
 
-/// PipeWire: an output stream at 48 kHz / f32 / stereo with a latency request of the buffer setting (default 128
-/// frames, the deck's quantum, rootfs/etc/pipewire), processed on PipeWire's realtime data thread (RT_PROCESS).
+/// PipeWire: an output stream at 48 kHz / f32 with the sink's channels (#318: the count and positions the sink reports – the
+/// RME's Pro Audio sink has 20, AUX0…AUX19 – so PipeWire maps channel n to channel n, no remix; stereo when the sink says
+/// nothing) and a latency request of the buffer setting (default 128 frames, the deck's quantum, rootfs/etc/pipewire),
+/// processed on PipeWire's realtime data thread (RT_PROCESS). The engine is built for that channel count once the loop's
+/// thread has asked the sink.
 #[cfg(all(target_os = "linux", feature = "pipewire"))]
 fn pipewire(o: &Options, factory: &mut Factory) -> Result<Running> {
     use pipewire as pw;
     use pw::spa;
     const RATE: u32 = 48_000;
-    const CHANNELS: usize = 2;
     let quantum = o.buffer.unwrap_or(128);
     let latency = format!("{quantum}/{RATE}");
     let shown = latency.clone();
-    // the ring + render thread (#208) also here when on: the X1's quantum of 128 leaves the callback 2.7 ms
-    let mut direct = Feed::new(factory(RATE as f32, CHANNELS)?, o.thread, Some(quantum))?;
+    // the loop's thread asks the sink for its channels, this thread builds the engine for them and hands the feed over
+    let (sink_tx, sink_rx) = std::sync::mpsc::channel::<usize>();
+    let (feed_tx, feed_rx) = std::sync::mpsc::channel::<Feed>();
     let (ready_tx, ready_rx) = std::sync::mpsc::channel::<Result<pw::channel::Sender<()>, String>>();
     // the stream fades in on its first cycles and out when the Running is dropped (#250): `closing` asks, `silent` answers
     let closing = Arc::new(AtomicBool::new(false));
@@ -545,11 +548,15 @@ fn pipewire(o: &Options, factory: &mut Factory) -> Result<Running> {
             let mainloop = pw::main_loop::MainLoopRc::new(None)?;
             let context = pw::context::ContextRc::new(&mainloop, None)?;
             let core = context.connect_rc(None)?;
-            // #285: a named device (`--audio-device`, deck.toml `audio_device`) picks the sink; none = the default sink
-            let target = match want.as_deref() {
-                Some(w) => find_sink(&mainloop, &core, w)?,
-                None => None,
-            };
+            // #285: a named device (`--audio-device`, deck.toml `audio_device`) picks the sink; none = the default sink.
+            // #318: the sink's channel positions size the stream and the engine
+            let sink = find_sink(&mainloop, &core, want.as_deref())?;
+            let (target, position) = (sink.target, sink.position);
+            let chans = position.len();
+            sink_tx.send(chans).map_err(|_| pw::Error::CreationFailed)?;
+            // the ring + render thread (#208) also here when on: the X1's quantum of 128 leaves the callback 2.7 ms
+            let mut direct = feed_rx.recv_timeout(Duration::from_secs(10)).map_err(|_| pw::Error::CreationFailed)?;
+            let channels = chans.to_string();
             let mut props = pw::properties::properties! {
                 *pw::keys::MEDIA_TYPE => "Audio",
                 *pw::keys::MEDIA_ROLE => "Music",
@@ -557,7 +564,9 @@ fn pipewire(o: &Options, factory: &mut Factory) -> Result<Running> {
                 *pw::keys::NODE_NAME => "deck-native",
                 *pw::keys::APP_NAME => "SCUTOONS deck stage",
                 *pw::keys::NODE_LATENCY => latency.as_str(),
-                *pw::keys::AUDIO_CHANNELS => "2",
+                *pw::keys::AUDIO_CHANNELS => channels.as_str(),
+                // the positions are the sink's own: channel n is channel n, never up- or down-mixed (the engine folds)
+                *pw::keys::STREAM_DONT_REMIX => "true",
             };
             if let Some(t) = &target {
                 props.insert(*pw::keys::TARGET_OBJECT, t.as_str());
@@ -583,14 +592,14 @@ fn pipewire(o: &Options, factory: &mut Factory) -> Result<Running> {
                         }
                         _ => now_ns() + quantum as u64 * 1_000_000_000 / RATE as u64,
                     };
-                    let stride = std::mem::size_of::<f32>() * CHANNELS;
+                    let stride = std::mem::size_of::<f32>() * chans;
                     let frames = match data.data() {
                         Some(bytes) => match bytemuck::try_cast_slice_mut::<u8, f32>(bytes) {
                             Ok(samples) => {
-                                let all = samples.len() / CHANNELS;
+                                let all = samples.len() / chans;
                                 let n = if requested > 0 { requested.min(all) } else { all };
-                                direct.play(&mut samples[..n * CHANNELS], CHANNELS, heard, |x| x);
-                                if fade.apply(&mut samples[..n * CHANNELS], CHANNELS, closing_cb.load(Ordering::Relaxed)) {
+                                direct.play(&mut samples[..n * chans], chans, heard, |x| x);
+                                if fade.apply(&mut samples[..n * chans], chans, closing_cb.load(Ordering::Relaxed)) {
                                     silent_cb.store(true, Ordering::Relaxed);
                                 }
                                 n
@@ -608,11 +617,10 @@ fn pipewire(o: &Options, factory: &mut Factory) -> Result<Running> {
             let mut info = spa::param::audio::AudioInfoRaw::new();
             info.set_format(spa::param::audio::AudioFormat::F32LE);
             info.set_rate(RATE);
-            info.set_channels(CHANNELS as u32);
-            let mut position = [0; spa::param::audio::MAX_CHANNELS];
-            position[0] = spa::sys::SPA_AUDIO_CHANNEL_FL;
-            position[1] = spa::sys::SPA_AUDIO_CHANNEL_FR;
-            info.set_position(position);
+            info.set_channels(chans as u32);
+            let mut slots = [0; spa::param::audio::MAX_CHANNELS];
+            slots[..chans].copy_from_slice(&position);
+            info.set_position(slots);
             let values: Vec<u8> = spa::pod::serialize::PodSerializer::serialize(
                 std::io::Cursor::new(Vec::new()),
                 &spa::pod::Value::Object(spa::pod::Object {
@@ -647,9 +655,18 @@ fn pipewire(o: &Options, factory: &mut Factory) -> Result<Running> {
             let _ = ready_tx.send(Err(e.to_string()));
         }
     })?;
+    let chans = match sink_rx.recv_timeout(Duration::from_secs(3)) {
+        Ok(chans) => chans,
+        Err(_) => match ready_rx.try_recv() {
+            Ok(Err(e)) => bail!("{e}"),
+            _ => bail!("no answer from PipeWire within 3 s"),
+        },
+    };
+    // the engine for the sink's channels (an error here drops `feed_tx`: the loop's thread gives up too)
+    feed_tx.send(Feed::new(factory(RATE as f32, chans)?, o.thread, Some(quantum))?).map_err(|_| anyhow::anyhow!("the PipeWire thread ended"))?;
     match ready_rx.recv_timeout(Duration::from_secs(3)) {
         Ok(Ok(quit)) => {
-            tracing::info!("audio: PipeWire stream 'deck-native', {RATE} Hz, latency {shown}");
+            tracing::info!("audio: PipeWire stream 'deck-native', {RATE} Hz, {chans} channels, latency {shown}");
             let flag = closing.clone();
             Ok(Running { name: "pipewire", rate: RATE, closing: Some(flag), _keep: Box::new(PipewireStop { closing, silent, quit, thread: Some(thread) }) })
         }
@@ -658,40 +675,127 @@ fn pipewire(o: &Options, factory: &mut Factory) -> Result<Running> {
     }
 }
 
-/// #285: the PipeWire sink a device name picks – the first `Audio/Sink` node (not an internal one) whose `node.name`
-/// or `node.description` holds `want` (any case), from one registry round trip on the loop before the stream opens.
-/// On the deck the RME in the Pro Audio profile is `alsa_output.usb-RME_Fireface_UCX_II…pro-output-0`, so
-/// `audio_device = "Fireface"` finds it. No match: a WARN with the sinks there are, and the default sink plays.
+/// The sink a stream plays on: its node name when a device was named (`target.object`; None = the default sink) and its
+/// channel positions (SPA ids, one per channel, at most the engine's 32).
 #[cfg(all(target_os = "linux", feature = "pipewire"))]
-fn find_sink(mainloop: &pipewire::main_loop::MainLoopRc, core: &pipewire::core::CoreRc, want: &str) -> Result<Option<String>, pipewire::Error> {
+struct Sink {
+    target: Option<String>,
+    position: Vec<u32>,
+}
+
+/// #285: the PipeWire sink a device name picks – the first `Audio/Sink` node (not an internal one) whose `node.name`
+/// or `node.description` holds `want` (any case); no name = the default sink (the `default` metadata's
+/// `default.audio.sink`). On the deck the RME in the Pro Audio profile is `alsa_output.usb-RME_Fireface_UCX_II…pro-output-0`,
+/// so `audio_device = "Fireface"` finds it. No match: a WARN with the sinks there are, and the default sink plays.
+/// #318: every sink is bound for its info – `audio.position`, else `audio.channels` as AUX – in two round trips on the loop
+/// before the stream opens; a sink that says nothing (or none known) is stereo, FL FR.
+#[cfg(all(target_os = "linux", feature = "pipewire"))]
+fn find_sink(mainloop: &pipewire::main_loop::MainLoopRc, core: &pipewire::core::CoreRc, want: Option<&str>) -> Result<Sink, pipewire::Error> {
     use pipewire as pw;
     use std::cell::RefCell;
     use std::rc::Rc;
+    /// a sink as the registry and its info show it
+    #[derive(Default)]
+    struct Seen {
+        name: String,
+        description: String,
+        position: Option<String>,
+        channels: Option<usize>,
+    }
     let registry = core.get_registry_rc()?;
-    let sinks: Rc<RefCell<Vec<(String, String)>>> = Rc::new(RefCell::new(Vec::new()));
-    let seen = sinks.clone();
+    let sinks: Rc<RefCell<Vec<Seen>>> = Rc::new(RefCell::new(Vec::new()));
+    let default: Rc<RefCell<Option<String>>> = Rc::new(RefCell::new(None));
+    // the bound proxies and their listeners live until the second round trip is done
+    let keep: Rc<RefCell<Vec<Box<dyn std::any::Any>>>> = Rc::new(RefCell::new(Vec::new()));
+    let (seen, chosen, kept, weak_registry) = (sinks.clone(), default.clone(), keep.clone(), registry.downgrade());
     let _globals = registry
         .add_listener_local()
         .global(move |g| {
-            if g.type_ != pw::types::ObjectType::Node {
-                return;
-            }
             let Some(p) = g.props.as_ref() else { return };
-            if p.get("media.class") != Some("Audio/Sink") {
+            let Some(registry) = weak_registry.upgrade() else { return };
+            if g.type_ == pw::types::ObjectType::Metadata && p.get("metadata.name") == Some("default") {
+                let Ok(meta) = registry.bind::<pw::metadata::Metadata, _>(g) else { return };
+                let chosen = chosen.clone();
+                let listener = meta
+                    .add_listener_local()
+                    .property(move |_, key, _, value| {
+                        if key == Some("default.audio.sink") {
+                            *chosen.borrow_mut() = value.and_then(default_sink_name);
+                        }
+                        0
+                    })
+                    .register();
+                kept.borrow_mut().push(Box::new((meta, listener)));
                 return;
             }
-            let name = p.get("node.name").unwrap_or_default().to_string();
-            let description = p.get("node.description").unwrap_or_default().to_string();
-            seen.borrow_mut().push((name, description));
+            if g.type_ != pw::types::ObjectType::Node || p.get("media.class") != Some("Audio/Sink") {
+                return;
+            }
+            let at = seen.borrow().len();
+            let (name, description) = (p.get("node.name").unwrap_or_default().to_string(), p.get("node.description").unwrap_or_default().to_string());
+            seen.borrow_mut().push(Seen { name, description, ..Seen::default() });
+            let Ok(node) = registry.bind::<pw::node::Node, _>(g) else { return };
+            let seen = seen.clone();
+            let listener = node
+                .add_listener_local()
+                .info(move |info| {
+                    let Some(props) = info.props() else { return };
+                    let mut list = seen.borrow_mut();
+                    let s = &mut list[at];
+                    if let Some(p) = props.get("audio.position") {
+                        s.position = Some(p.to_string());
+                    }
+                    if let Some(n) = props.get("audio.channels").and_then(|c| c.trim().parse().ok()) {
+                        s.channels = Some(n);
+                    }
+                })
+                .register();
+            kept.borrow_mut().push(Box::new((node, listener)));
         })
         .register();
-    // the registry's globals arrive before the sync's done: run the loop until then
+    // the globals arrive before the first sync's done, the bound objects' info and properties before the second's
+    roundtrip(mainloop, core)?;
+    roundtrip(mainloop, core)?;
+    let sinks = sinks.borrow();
+    let named = want.and_then(|want| {
+        let w = want.to_lowercase();
+        let hit = sinks.iter().find(|s| s.name.to_lowercase().contains(&w) || s.description.to_lowercase().contains(&w));
+        match hit {
+            Some(s) => tracing::info!("audio: PipeWire sink '{}' ({}) for '{want}'", s.description, s.name),
+            None => {
+                let names: Vec<&str> = sinks.iter().map(|s| s.description.as_str()).collect();
+                tracing::warn!("audio: no PipeWire sink matches '{want}' (there are: {}) – the default sink plays", names.join(", "));
+            }
+        }
+        hit
+    });
+    let default = default.borrow().clone();
+    let sink = named.or_else(|| sinks.iter().find(|s| Some(&s.name) == default.as_ref()));
+    let names: Vec<String> = match sink.map(|s| (&s.position, s.channels)) {
+        Some((Some(p), _)) => position_names(p),
+        Some((None, Some(n))) => (0..n).map(|i| format!("AUX{i}")).collect(),
+        _ => Vec::new(),
+    };
+    let mut position: Vec<u32> = names.iter().take(deck_engine::config::MAX_DEVICE_CHANNELS).enumerate().map(|(i, n)| spa_channel(n, i)).collect();
+    if position.is_empty() {
+        position = vec![pw::spa::sys::SPA_AUDIO_CHANNEL_FL, pw::spa::sys::SPA_AUDIO_CHANNEL_FR];
+    }
+    match sink {
+        Some(s) => tracing::info!("audio: PipeWire sink '{}': {} channels ({})", s.description, position.len(), names.join(" ")),
+        None => tracing::info!("audio: the default PipeWire sink is not known – stereo"),
+    }
+    Ok(Sink { target: named.map(|s| s.name.clone()), position })
+}
+
+/// run the loop until the server has answered everything sent so far
+#[cfg(all(target_os = "linux", feature = "pipewire"))]
+fn roundtrip(mainloop: &pipewire::main_loop::MainLoopRc, core: &pipewire::core::CoreRc) -> Result<(), pipewire::Error> {
     let pending = core.sync(0)?;
     let weak = mainloop.downgrade();
     let _done = core
         .add_listener_local()
         .done(move |id, seq| {
-            if id == pw::core::PW_ID_CORE && seq == pending {
+            if id == pipewire::core::PW_ID_CORE && seq == pending {
                 if let Some(m) = weak.upgrade() {
                     m.quit();
                 }
@@ -699,20 +803,52 @@ fn find_sink(mainloop: &pipewire::main_loop::MainLoopRc, core: &pipewire::core::
         })
         .register();
     mainloop.run();
-    let sinks = sinks.borrow();
-    let w = want.to_lowercase();
-    let hit = sinks.iter().find(|(n, d)| n.to_lowercase().contains(&w) || d.to_lowercase().contains(&w));
-    match hit {
-        Some((name, description)) => {
-            tracing::info!("audio: PipeWire sink '{description}' ({name}) for '{want}'");
-            Ok(Some(name.clone()))
-        }
-        None => {
-            let names: Vec<&str> = sinks.iter().map(|(_, d)| d.as_str()).collect();
-            tracing::warn!("audio: no PipeWire sink matches '{want}' (there are: {}) – the default sink plays", names.join(", "));
-            Ok(None)
-        }
+    Ok(())
+}
+
+/// the SPA id of a channel position name (`FL`, `AUX3` …); a name it does not know is AUX by its place
+#[cfg(all(target_os = "linux", feature = "pipewire"))]
+fn spa_channel(name: &str, place: usize) -> u32 {
+    use pipewire::spa::sys as s;
+    if let Some(n) = name.strip_prefix("AUX").and_then(|n| n.parse::<u32>().ok()) {
+        return s::SPA_AUDIO_CHANNEL_AUX0 + n;
     }
+    match name {
+        "MONO" => s::SPA_AUDIO_CHANNEL_MONO,
+        "FL" => s::SPA_AUDIO_CHANNEL_FL,
+        "FR" => s::SPA_AUDIO_CHANNEL_FR,
+        "FC" => s::SPA_AUDIO_CHANNEL_FC,
+        "LFE" => s::SPA_AUDIO_CHANNEL_LFE,
+        "SL" => s::SPA_AUDIO_CHANNEL_SL,
+        "SR" => s::SPA_AUDIO_CHANNEL_SR,
+        "FLC" => s::SPA_AUDIO_CHANNEL_FLC,
+        "FRC" => s::SPA_AUDIO_CHANNEL_FRC,
+        "RC" => s::SPA_AUDIO_CHANNEL_RC,
+        "RL" => s::SPA_AUDIO_CHANNEL_RL,
+        "RR" => s::SPA_AUDIO_CHANNEL_RR,
+        "TC" => s::SPA_AUDIO_CHANNEL_TC,
+        "TFL" => s::SPA_AUDIO_CHANNEL_TFL,
+        "TFC" => s::SPA_AUDIO_CHANNEL_TFC,
+        "TFR" => s::SPA_AUDIO_CHANNEL_TFR,
+        "TRL" => s::SPA_AUDIO_CHANNEL_TRL,
+        "TRC" => s::SPA_AUDIO_CHANNEL_TRC,
+        "TRR" => s::SPA_AUDIO_CHANNEL_TRR,
+        _ => s::SPA_AUDIO_CHANNEL_AUX0 + place as u32,
+    }
+}
+
+/// a node's `audio.position` (`FL,FR` · `[ FL FR ]` · `AUX0,AUX1,…`) as its names
+#[cfg_attr(not(all(target_os = "linux", feature = "pipewire")), allow(dead_code))]
+fn position_names(s: &str) -> Vec<String> {
+    s.split(|c: char| c == ',' || c == '[' || c == ']' || c.is_whitespace()).filter(|t| !t.is_empty()).map(str::to_string).collect()
+}
+
+/// the sink name in the `default` metadata's `default.audio.sink` value (`{ "name": "alsa_output…" }`)
+#[cfg_attr(not(all(target_os = "linux", feature = "pipewire")), allow(dead_code))]
+fn default_sink_name(json: &str) -> Option<String> {
+    let rest = &json[json.find("\"name\"")? + 6..];
+    let rest = &rest[rest.find('"')? + 1..];
+    Some(rest[..rest.find('"')?].to_string())
 }
 
 #[cfg(test)]
@@ -720,6 +856,18 @@ mod tests {
     use super::*;
 
     /// #208: a buffer outside the device's range is clamped to its nearest end, with a reason for the log
+    /// #318: what PipeWire says about a sink – its positions in either spelling, the default sink in the metadata's JSON
+    #[test]
+    fn a_sinks_channels_and_the_default_sink_are_read() {
+        assert_eq!(position_names("FL,FR"), ["FL", "FR"]);
+        assert_eq!(position_names("[ FL FR FC LFE RL RR ]").len(), 6);
+        assert_eq!(position_names("AUX0,AUX1,AUX2")[2], "AUX2");
+        assert!(position_names("").is_empty());
+        assert_eq!(default_sink_name(r#"{ "name": "alsa_output.usb-RME_Fireface_UCX_II-00.pro-output-0" }"#).as_deref(), Some("alsa_output.usb-RME_Fireface_UCX_II-00.pro-output-0"));
+        assert_eq!(default_sink_name(r#"{"name":"x"}"#).as_deref(), Some("x"));
+        assert_eq!(default_sink_name("{}"), None);
+    }
+
     #[test]
     fn a_fade_ramps_up_then_down_to_silence() {
         let mut f = Fade::new(1000.0, 0.1);
