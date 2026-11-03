@@ -2,6 +2,8 @@
 
 Numbered rules, ONE or two lines each; `(date [key])` is the owner's decision: `grep -n '\[key\]' agents/DECISIONS.md` gives his
 words. A rule changes in the same commit as its DECISIONS line; `[rules-only]` = no recorded decision yet. Map of all docs: agents/README.md.
+Old section names in code comments (until 2026-11-03): "Backlog" = C · "Git, sessions, checkout" = B + D · "Dev setup and checks" = F · "Code" = A + J ·
+"Product rules" = I · "UI rules" = H · "Working with the owner" = G · "Migrations and stored data" = E · "Docs" = K.
 
 ## A · The one core (deck, live, engine) — the dogma agents keep working around
 - **A1** Deck logic is Rust in the ONE universal core (deck-core + its crates, native + wasm). A platform is only the compile target
