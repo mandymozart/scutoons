@@ -2,10 +2,8 @@
 //! the comparison numbers and the hash. Everything renders 2 s at 48 kHz.
 #![allow(dead_code)]
 use deck_native::audio::{Build, Engine};
-use deck_native::control::Controls;
 use deck_native::graph::Graph;
 use deck_native::scene::Scene;
-use deck_native::tempo::Now;
 
 pub const RATE: f32 = 48_000.0;
 pub const FRAMES: usize = 2 * 48_000;
@@ -64,23 +62,216 @@ pub const CASES: &[Case] = &[
     },
 ];
 
+/// #319: the control half at work – what moves at control rate into an audio input (the golden hashes, native ≡ wasm, the
+/// frame-vs-block diff)
+pub const CONTROL_CASES: &[Case] = &[
+    Case {
+        name: "lfo sine -> osc.gain (tremolo)",
+        toml: scene!("[[node]]
+id = \"l\"
+kind = \"lfo\"
+rate = 5.0
+depth = 0.2
+[[node]]
+id = \"o\"
+kind = \"osc\"
+freq = 1000.0
+[[link]]
+from = \"l\"
+to = \"o.gain\"
+offset = 0.05
+[[link]]
+from = \"o\"
+to = \"out.in\"
+"),
+    },
+    Case {
+        name: "lfo square -> osc.freq (trill)",
+        toml: scene!("[[node]]
+id = \"l\"
+kind = \"lfo\"
+shape = \"square\"
+rate = 4.0
+depth = 110.0
+[[node]]
+id = \"o\"
+kind = \"osc\"
+wave = \"saw\"
+gain = 0.2
+[[link]]
+from = \"l\"
+to = \"o.freq\"
+offset = 330.0
+[[link]]
+from = \"o\"
+to = \"out.in\"
+"),
+    },
+    Case {
+        name: "lfo -> lfo.rate -> fm.index (two levels)",
+        toml: scene!("[[node]]
+id = \"a\"
+kind = \"lfo\"
+rate = 0.3
+depth = 6.0
+[[node]]
+id = \"b\"
+kind = \"lfo\"
+shape = \"saw\"
+depth = 4.0
+[[node]]
+id = \"f\"
+kind = \"fm\"
+freq = 165.0
+ratio = 2.0
+gain = 0.2
+[[link]]
+from = \"a\"
+to = \"b.rate\"
+offset = 0.5
+[[link]]
+from = \"b\"
+to = \"f.index\"
+[[link]]
+from = \"f\"
+to = \"out.in\"
+"),
+    },
+    Case {
+        name: "lfo -> mul -> add -> smooth -> osc.freq (helpers)",
+        toml: scene!("[[node]]
+id = \"l\"
+kind = \"lfo\"
+shape = \"square\"
+rate = 2.0
+[[node]]
+id = \"m\"
+kind = \"mul\"
+b = 220.0
+[[node]]
+id = \"a\"
+kind = \"add\"
+b = 220.0
+[[node]]
+id = \"s\"
+kind = \"smooth\"
+time = 0.05
+[[node]]
+id = \"o\"
+kind = \"osc\"
+gain = 0.2
+[[link]]
+from = \"l\"
+to = \"m.a\"
+[[link]]
+from = \"m\"
+to = \"a.a\"
+[[link]]
+from = \"a\"
+to = \"s.in\"
+[[link]]
+from = \"s\"
+to = \"o.freq\"
+[[link]]
+from = \"o\"
+to = \"out.in\"
+"),
+    },
+    Case {
+        name: "tempo.pulse -> osc.gain (the beat)",
+        toml: scene!("[[node]]
+id = \"t\"
+kind = \"tempo\"
+bpm = 132.0
+[[node]]
+id = \"o\"
+kind = \"osc\"
+freq = 110.0
+[[link]]
+from = \"t.pulse\"
+to = \"o.gain\"
+scale = 0.3
+[[link]]
+from = \"o\"
+to = \"out.in\"
+"),
+    },
+    Case {
+        name: "fft.level -> smooth -> osc.gain (sound -> control -> sound)",
+        toml: scene!("[[node]]
+id = \"l\"
+kind = \"lfo\"
+shape = \"square\"
+rate = 1.5
+depth = 0.3
+[[node]]
+id = \"a\"
+kind = \"osc\"
+freq = 220.0
+[[node]]
+id = \"f\"
+kind = \"fft\"
+[[node]]
+id = \"s\"
+kind = \"smooth\"
+time = 0.1
+[[node]]
+id = \"b\"
+kind = \"osc\"
+freq = 660.0
+[[link]]
+from = \"l\"
+to = \"a.gain\"
+[[link]]
+from = \"a\"
+to = \"f.in\"
+[[link]]
+from = \"f.level\"
+to = \"s.in\"
+[[link]]
+from = \"s\"
+to = \"b.gain\"
+scale = 0.2
+[[node]]
+id = \"mix\"
+kind = \"mixer\"
+[[link]]
+from = \"a\"
+to = \"mix.in1\"
+[[link]]
+from = \"b\"
+to = \"mix.in2\"
+[[link]]
+from = \"mix\"
+to = \"out.in\"
+"),
+    },
+];
+
 pub fn stage_graph(toml: &str) -> Graph {
     Graph::build(&Scene::parse(toml).expect("scene parses")).expect("graph builds")
 }
 
-/// The native deck's engine: the scene rendered in `block`-frame blocks, the control domain stepped before each block
-/// (the frame thread's `Controls::update`), `frames` frames; the left channel after master and limiter.
+/// The native deck's engine: the scene rendered in `block`-frame blocks (the control half steps inside, once per 128-frame
+/// quantum – #319), `frames` frames; the left channel after master and limiter.
 pub fn stage_render(toml: &str, block: usize, frames: usize, build: Build) -> Vec<f32> {
-    let graph = stage_graph(toml);
-    let (mut engine, mut handles) = Engine::build_with(&graph, RATE, 1.0, build).expect("engine builds");
-    let mut controls = Controls::new(&graph, Some(&mut handles));
-    let now = Now::default();
+    stage_render_at(toml, block, frames, build, None)
+}
+
+/// `stage_render` with the control half stepped at `hz` instead (`Engine::control_at`: the native deck's video frame rate
+/// before #319 – the P5 golden diff's reference)
+pub fn stage_render_at(toml: &str, block: usize, frames: usize, build: Build, hz: Option<f32>) -> Vec<f32> {
+    let scene = deck_native::modules::carried_part(&Scene::parse(toml).expect("scene parses"));
+    let graph = Graph::build(&scene).expect("graph builds");
+    let (mut engine, _handles) = Engine::build_with(&graph, RATE, 1.0, build).expect("engine builds");
+    if let Some(hz) = hz {
+        engine.control_at(hz);
+    }
     let mut out = Vec::with_capacity(frames);
     let mut buf = vec![0.0f32; block * 2];
     let mut done = 0;
     while done < frames {
         let n = (frames - done).min(block);
-        controls.update(n as f32 / RATE, 0, &now);
         engine.render(&mut buf[..n * 2], 2, |x| x);
         out.extend(buf[..n * 2].chunks_exact(2).map(|f| f[0]));
         done += n;
