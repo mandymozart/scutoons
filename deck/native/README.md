@@ -150,6 +150,10 @@ A live tool may not crackle unnoticed, and should not crackle at all:
   On PipeWire the name picks the **sink** (`target.object`, #285): the first `Audio/Sink` node whose name or description
   holds it – the X1's RME in the Pro Audio profile is `…pro-output-0`, so `audio_device = "Fireface"` finds it; no match
   logs the sinks there are and the default sink plays.
+  The stream opens with the sink's channels (#318: `audio.position`, else `audio.channels` as AUX; at most 32) – the RME's
+  Pro Audio sink is 20 channels, AUX0…AUX19, analog 1/2 first; a sink that says nothing is stereo. In class-compliant mode
+  the RME plays the mixer preset stored in the unit: routing is fixed in TotalMix on Windows (driver mode), then back to CC
+  mode with the USB cable out (owner 2026-11-03). Check scenes: `scenes/channel-walk`, `surround-51`, `cue-34`.
   A dev machine's deck.toml: the user variable `DECK_TOML` names it (the PC: `%LOCALAPPDATA%\scutoons\deck.toml` with
   `audio_host = "asio"`, `audio_device = "Fireface"`, `audio_buffer = 128` – owner 2026-11-02, #230).
   **WASAPI exclusive** is not possible: cpal (0.15 and 0.16) opens WASAPI in shared mode only.
