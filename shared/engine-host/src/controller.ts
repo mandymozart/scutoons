@@ -428,7 +428,9 @@ export class EngineHost {
 			snapshot: this.snap,
 			channels: core?.channels ?? 0,
 			series: core?.series() ?? [],
-			log: this.log.lines.slice(-20).map(formatLine)
+			log: this.log.lines.slice(-20).map(formatLine),
+			clock: core?.clock ?? null,
+			clockWindow: core?.clockWindow.summary() ?? null
 		});
 	}
 }

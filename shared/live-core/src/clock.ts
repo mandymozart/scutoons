@@ -72,6 +72,46 @@ export function clockOf(s: ArrayLike<number>): ClockState {
 	};
 }
 
+/** the error's spread over the window (ms): its size's p50 / p95 / max, its signed mean, the frames counted */
+export interface ClockSummary {
+	n: number;
+	p50: number;
+	p95: number;
+	max: number;
+	mean: number;
+	seconds: number;
+}
+
+/** #321: how far off the show's line this deck played over the last minute (the HUD's SHOW ±x ms, kept) – the sound
+ *  report's measurement without a microphone. Counts the frames that follow an anchor (not a leader's own line). */
+export class ClockWindow {
+	private readonly at: number[] = [];
+	private readonly error: number[] = [];
+	private readonly spanMs: number;
+	constructor(spanMs = 60_000) {
+		this.spanMs = spanMs;
+	}
+
+	add(ms: number, c: ClockState): void {
+		if (!c.locked || !c.anchor || c.leading) return;
+		this.at.push(ms);
+		this.error.push(c.errorMs);
+		while (this.at.length && this.at[0] < ms - this.spanMs) {
+			this.at.shift();
+			this.error.shift();
+		}
+	}
+
+	summary(): ClockSummary | null {
+		const n = this.error.length;
+		if (!n) return null;
+		const size = this.error.map(Math.abs).sort((a, b) => a - b);
+		const at = (q: number) => size[Math.min(n - 1, Math.floor(q * n))];
+		const mean = this.error.reduce((s, e) => s + e, 0) / n;
+		return { n, p50: at(0.5), p95: at(0.95), max: size[n - 1], mean, seconds: (this.at[n - 1] - this.at[0]) / 1000 };
+	}
+}
+
 /** the beat the clock's line says at the page's `ms` (a drawing between two clock frames) */
 export const beatAt = (c: ClockState, ms: number): number => (c.running ? c.beat + ((ms - c.heardMs) / 60_000) * c.bpm : c.beat);
 

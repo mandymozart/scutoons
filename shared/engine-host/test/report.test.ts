@@ -1,8 +1,8 @@
 // #356: the copyable sound report – the device, the block times against the budget, the first seconds as a table.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { Second } from '@scutoons/live-core';
-import { deviceInfo, engineReport, playoutOf, seriesTable } from '../src/report.ts';
+import { clockOf, type Second } from '@scutoons/live-core';
+import { clockLine, deviceInfo, engineReport, playoutOf, seriesTable } from '../src/report.ts';
 import { emptySnapshot } from '../src/status.ts';
 
 const second = (t: number, over: Partial<Second> = {}): Second => ({
@@ -57,4 +57,12 @@ test("the browser's glitch count: Chrome's playbackStats in seconds, the spec's 
 	assert.deepEqual(chrome, { glitches: 3, glitchMs: 21.3, totalS: 60, averageLatencyMs: 41, maximumLatencyMs: 60 });
 	assert.deepEqual(spec, chrome);
 	assert.equal(playoutOf(), null);
+});
+
+test("#321: the clock line – the source, the state, the show's error now and over the last minute", () => {
+	const c = clockOf([0, 0, 84, 4, 1, 4, 1 | 2, 0, 3.2, -0.4, 0, 0, 0, 0, 0, 0]);
+	assert.equal(clockLine(null, null), 'clock not running');
+	assert.equal(clockLine(c, null), 'clock relay · 84.0 BPM · follows · show -0.4 ms now · rtt 3.2 ms · no minute of following yet');
+	assert.match(clockLine(c, { n: 2400, p50: 0.3, p95: 1.2, max: 4.8, mean: -0.1, seconds: 60 }), /last 60 s \|show\| p50 0\.3 · p95 1\.2 · max 4\.8 ms \(mean -0\.1, 2400 frames\)$/);
+	assert.match(clockLine(clockOf([0, 0, 84, 4, 1, 0, 1 | 4, 0, 0, 0, 0, 0, 0, 0, 0, 0]), null), /clock internal · 84\.0 BPM · LEADS/);
 });

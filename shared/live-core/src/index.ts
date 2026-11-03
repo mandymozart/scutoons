@@ -18,7 +18,7 @@ import { Latest, Ring, ringBuffers, sharedAvailable } from './ring.ts';
 import { readSignals, type DeviceSignal } from './signals.ts';
 import { analysisOf, FRAME, MAX_OUTPUTS, MAX_FRAME_VALUES, recordSize, writeSend, type Analysis, type Mode } from './wire.ts';
 import type { ClockOp, FromWorker, FromWorklet, SharedSetup, ToWorker, Transport, WorkerStats, WorkletOptions } from './messages.ts';
-import { clockOf, type ClockState } from './clock.ts';
+import { ClockWindow, clockOf, type ClockState } from './clock.ts';
 
 export * from './wire.ts';
 export * from './clock.ts';
@@ -146,6 +146,8 @@ export class LiveCore {
 	private readonly runs: { t: number; n: number }[] = [];
 	/** #321: the core's tempo clock as its last frame left it (null before the first) */
 	clock: ClockState | null = null;
+	/** #321: the show clock's error over the last minute (the sound report's line) */
+	readonly clockWindow = new ClockWindow();
 	private readonly clockListeners = new Set<(c: ClockState) => void>();
 	private stampTimer: ReturnType<typeof setInterval> | null = null;
 	/** #356: the first `SERIES` seconds, one entry per worker stats message */
@@ -269,6 +271,7 @@ export class LiveCore {
 			case 'clock': {
 				const c = clockOf(m.state);
 				this.clock = c;
+				this.clockWindow.add(performance.timeOrigin + performance.now(), c);
 				for (const cb of this.clockListeners) cb(c);
 				break;
 			}
