@@ -1,0 +1,36 @@
+# #318 a cue outlet: the main plays a low tone on device channels 1/2, a cue outlet a high one on 3/4 (`first = 3` pins it
+# there; the deck configuration's `cue` group will do the same once it is a document, #330). On a stereo device the cue has
+# no channel and is silent – the log says so. No picture. Run it:
+#   cargo run --release -p deck-native -- --scene scenes/cue-34.toml --windowed
+[stage]
+name = "main 1/2 + cue 3/4 (#318)"
+
+[[node]]
+id = "low"
+kind = "osc"
+freq = 220
+gain = 0.12
+
+[[node]]
+id = "high"
+kind = "osc"
+freq = 880
+gain = 0.08
+
+[[node]]
+id = "main"
+kind = "out"
+
+[[node]]
+id = "cue"
+kind = "out"
+group = "cue"
+first = 3
+
+[[link]]
+from = "low"
+to = "main.in"
+
+[[link]]
+from = "high"
+to = "cue.in"
