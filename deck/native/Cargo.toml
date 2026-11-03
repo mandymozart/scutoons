@@ -147,3 +147,7 @@ required-features = ["live"]
 [[example]]
 name = "decks"
 required-features = ["live", "space"]
+
+[[example]]
+name = "midi-clock"
+required-features = ["live", "midi"]
