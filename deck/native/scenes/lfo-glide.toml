@@ -6,7 +6,7 @@
 # ring): the pattern's hue rides the sweep, its zoom the vibrato, its pulse the tremolo. Run it:
 #   cargo run --release -p deck-native -- --scene scenes/lfo-glide.toml --windowed
 [stage]
-name = "LFO glide – control at block rate (#319)"
+name = "LFO glide - control at block rate (#319)"
 
 [[node]]
 id = "sweep"
