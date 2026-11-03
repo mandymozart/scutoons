@@ -157,3 +157,42 @@ fn renders_without_allocating(graph: &Graph, build: Build) {
     assert!(drained > 0);
     assert!(bufs[0].iter().any(|x| *x != 0.0), "the scene makes sound");
 }
+
+/// P4b (#318): 32 channels cost no allocation either – a panner over 32 speakers into a 32-wide bus, a send with a channel
+/// map, a 32-channel feedback loop, a gain matrix 32 → 2, outlets on a 32-channel device, the limiter groups, the meters
+#[test]
+fn thirty_two_channels_render_without_allocating() {
+    use deck_engine::{DeckConfig, Seams, Sequencing};
+    let _turn = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let az: Vec<String> = (0..32).map(|k| format!("{}", -180.0 + k as f32 * 360.0 / 32.0)).collect();
+    let matrix: Vec<String> = (0..64).map(|k| if k % 32 == k / 32 { "0.5".to_string() } else { "0.0".to_string() }).collect();
+    let text = format!(
+        "[[node]]\nid = \"a\"\nkind = \"osc\"\nfreq = 220.0\ngain = 0.05\n[[node]]\nid = \"b\"\nkind = \"fm\"\nfreq = 110.0\ngain = 0.05\n\
+         [[node]]\nid = \"pan\"\nkind = \"pan\"\nmode = \"vbap\"\nazimuth = 33.0\naz = [{az}]\n\
+         [[node]]\nid = \"bed\"\nkind = \"bus\"\nchannels = 32\n[[node]]\nid = \"loop\"\nkind = \"feedback\"\nchannels = 32\n\
+         [[node]]\nid = \"send\"\nkind = \"bus\"\n[[node]]\nid = \"dm\"\nkind = \"downmix\"\ninputs = 32\nmatrix = [{matrix}]\n\
+         [[node]]\nid = \"main\"\nkind = \"out\"\nfirst = 1\n[[node]]\nid = \"cue\"\nkind = \"out\"\ngroup = \"cue\"\nfirst = 1\n\
+         [[link]]\nfrom = \"a\"\nto = \"pan.in\"\n[[link]]\nfrom = \"pan.out\"\nto = \"bed.in\"\n[[link]]\nfrom = \"loop.out\"\nto = \"bed.in\"\nscale = 0.1\n\
+         [[link]]\nfrom = \"bed.out\"\nto = \"loop.in\"\n[[link]]\nfrom = \"b\"\nto = \"send.in\"\nmap = [[1, 30], [2, 31]]\n[[link]]\nfrom = \"send.out\"\nto = \"bed.in\"\n\
+         [[link]]\nfrom = \"bed.out\"\nto = \"main.in\"\n[[link]]\nfrom = \"bed.pre\"\nto = \"dm.in\"\n[[link]]\nfrom = \"dm.out\"\nto = \"cue.in\"\n",
+        az = az.join(", "),
+        matrix = matrix.join(", ")
+    );
+    let graph = Graph::build(&Scene::parse(&text).unwrap()).unwrap();
+    for build in [Build::detect(), Build { batch: true, avx2: false }] {
+        let seams = Seams::with_deck(DeckConfig::device(32));
+        let (mut engine, handles) = Engine::build_seams(&graph, 48_000.0, 1.0, build, Sequencing::InBlock, &seams).unwrap();
+        assert_eq!(engine.device_channels(), 32);
+        let mut bufs: Vec<Vec<f32>> = [128usize, 37, 480, 1000].iter().map(|n| vec![0.0; n * 32]).collect();
+        measure(true);
+        for i in 0..1000 {
+            let b = &mut bufs[i % 4];
+            engine.mark(i as u64 * 1_000_000);
+            engine.render(b, 32, |x| x);
+        }
+        measure(false);
+        assert_eq!(CALLS.load(Ordering::SeqCst), 0, "allocations / frees with 32 channels ({})", build.label());
+        let loud = (0..32).filter(|&c| handles.device.peak(c) > 1e-4).count();
+        assert!(loud >= 3, "the 32 speakers carry the panned source (and the send): {loud} channels are loud");
+    }
+}

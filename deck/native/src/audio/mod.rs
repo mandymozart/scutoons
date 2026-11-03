@@ -49,6 +49,7 @@ fn seams() -> deck_engine::Seams {
     deck_engine::Seams {
         #[cfg(feature = "modules")]
         modules: Some(Arc::new(modules::Global)),
+        ..Default::default()
     }
 }
 

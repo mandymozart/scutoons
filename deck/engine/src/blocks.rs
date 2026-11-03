@@ -94,6 +94,7 @@ pub fn make(node: &Node, index: usize, rate: f32, params: &[Param], h: &mut Hand
             Box::new(FftTap { ring: tx })
         }
         Kind::AudioOut => Box::new(Out { volume: glide("volume") }),
+        Kind::Out => Box::new(Out { volume: glide("gain") }),
         #[cfg(feature = "modules")]
         Kind::Module(_) => {
             let source = seams.modules.as_ref().ok_or_else(|| anyhow::anyhow!("node '{}': this engine has no module runtime", node.id))?;
