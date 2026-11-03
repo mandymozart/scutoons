@@ -6,6 +6,7 @@ stays and gets "(superseded YYYY-MM-DD → …)" appended. Rules for agents: age
 to mark them superseded.
 
 ## 2026-11
+- 2026-11-03 · live · **The hosted relay runs without `LIVE_TOKEN_SECRET` (dev mode) for now:** any conductor token passes on wss://live.scutoons.com until the API mints tokens (#180 / #186); then the secret goes into the bunny container · "so we keep the live token secret out" → research/LIVE.md B.4, #349
 - 2026-11-03 · platform · **For now the Live relay and the module compile service run on bunny Magic Containers:** one app `scutoons-live` with two containers (relay, compile service), updated by the existing workflows outside shows – not a Timme ScaleServer (that stays a separate question for the API / DB on all-inkl) · "okay. lets go bunny." · "for now." → #349, .github/workflows/build-image.yml
 - 2026-11-03 · deck · **A mono outlet on a stereo pair plays on both channels:** an `out` with one channel that the scene does not pin (`first` / `channels`) plays on both channels of its group's pair (the spec's mono → stereo up-mix, at the outlet only – the graph stays discrete); pinned it keeps its one channel · "Copy to both" → research/ENGINE-REFACTOR-PLAN.md §4 P4b, #318
 - 2026-11-03 · deck · **A soloed folder keeps its children audible:** a bus whose `out` feeds a soloed bus (directly or further down) stays heard, next to Reaper's rule that buses downstream of a soloed one stay heard · "soloing sounds perfect" → research/ENGINE-REFACTOR-PLAN.md §4 P4b, #318
