@@ -764,6 +764,19 @@ filter unit tests on synthetic jitter; relay tests; conformance: the same anchor
 targets; owner LAN measurement ≤ ±5 ms p95. Rollback: the conductor's source picker stays on internal. Demo: X1 + phone
 clicking together, strobe on the beat in the browser. ≈ $5–8.
 **MIDI in as the show's clock (owner 2026-11-03, P8-relevant):** a deck's clock source can be a MIDI clock input – the venue's table-top master (Top Toy: "we often have a master midi clock as a table top"). Native has it (`Source::Midi`, `deck_core::tempo::midi_in`); P8 makes it the *leader* case: the deck that follows the MIDI clock sends its `Anchor` through the relay (`tempo` message) so the other decks and phones follow the table top without their own MIDI port; the browser's own Web MIDI clock in is an adapter feeding the same `midi_in` core code. Accept additions: leader on MIDI in → follower beat positions within the P8 bound; MIDI lost (`LOST_S`) → the relay anchor keeps the last tempo, the picker shows it.
+Built (#321): deck-core `tempo::sync` – the filter (the window's shortest round trips, a mean, least-squares drift once
+the window spans 30 s, ±200 ppm), `Anchor` in relay ms (`of_map` / `local`), `Lead` (send on a start / stop / bar change
+or a line off > 5 ms at once, > 0.5 ms or a new tempo at most every 250 ms), `Pinger` (every 250 ms until 12 samples,
+then 2 s); the controller follows with a nudge (error / 1 s, ≤ 2 %; past 50 ms it snaps), leads when asked (`lead`, the
+picker) or on MIDI in, never on relay; the DLL `TimeBase` moved to core. Relay: `tempo` timed (now + lead when it has no
+`at`), kept for every snapshot but a bridge's, one leader (the conductor always; a deck while no other connected client
+leads). Native: `ShowLink` (link thread ↔ frame), a link for the clock alone when a scene has no being; HUD `SHOW ±x MS`,
+`NO CLOCK - HOLDS n`, `LEADS`. Browser: live-core hosts the clock (`lc_clock_*`), the worker steps it every 25 ms, the page
+stamps `getOutputTimestamp` ten times a second, the worklet its skew; the /live/deck panel picks SHOW · OWN · LEAD · MIDI,
+the click, a strobe. A scene without a `tempo` node follows the show clock (120 BPM until an anchor). Measured: core
+simulation MIDI leader → follower p95 1.1 ms (LAN), 8.2 ms (hosted); native over the loopback relay 0.6 ms; two browser
+tabs 2.1 ms. Native ≡ wasm32 ≡ simd128 for the clock's state and the click it plays. live_core.wasm 477 KB gz.
+Unverified: the owner's LAN measurement (X1 + S22, `npm run clock:measure`).
 
 **P9 – Rigs and modules everywhere (M each).** (a) The native deck plays rigs (`flatten` → engine, the same path as the
 browser; new ticket). (b) After #306's decision (owner bench): the browser backend of `deck-module-host`, `module:*`
