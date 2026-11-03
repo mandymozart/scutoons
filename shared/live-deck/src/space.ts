@@ -9,7 +9,9 @@
 import type { DeckControlsView } from './controls.ts';
 import type { Deck } from './deck.ts';
 import type { DeckQuality, QualityLevel } from '@scutoons/live';
+import type { MonitorView } from '@scutoons/live-core';
 export type { QualityLevel };
+export type { MonitorItem, MonitorReport, MonitorView } from '@scutoons/live-core';
 
 /** the wasm-bindgen API of deck/space-web (its `SpaceView`) */
 export interface SpaceView {
@@ -156,6 +158,7 @@ interface SpaceModule {
 		encoded_images(glb: Uint8Array): unknown[];
 	};
 	DeckControls: new (paths: string[]) => DeckControlsView;
+	DeckMonitor: new () => MonitorView;
 }
 
 const modules = new Map<string, Promise<SpaceModule>>();
@@ -179,6 +182,12 @@ function spaceModule(base: string): Promise<SpaceModule> {
 export async function loadControls(base: string, paths: string[]): Promise<DeckControlsView> {
 	const mod = await spaceModule(base);
 	return new mod.DeckControls(paths);
+}
+
+/** #364: deck-core's monitor (as wasm, no GPU: it works when the 3D can't, and before the sound) */
+export async function loadMonitor(base: string): Promise<MonitorView> {
+	const mod = await spaceModule(base);
+	return new mod.DeckMonitor();
 }
 
 export interface SpaceOptions {
@@ -387,12 +396,13 @@ export class SpaceStage {
 		return { max: [Math.round(screen.width * r), Math.round(screen.height * r)], display: [...this.display] };
 	}
 
-	/** One frame (after `deck.tick`): the being's turns into the deck, the deck's values into the being, draw. */
-	frame(now: number) {
-		if (this.stopped) return;
+	/** One frame (after `deck.tick`): the being's turns into the deck, the deck's values into the being, draw. Returns
+	 *  whether it drew (#364: the monitor counts drawn frames). */
+	frame(now: number): boolean {
+		if (this.stopped) return false;
 		// #220: the preset's frame rate cap – an early frame is skipped (no draw: the power the cap saves); the governor
 		// sees the real interval between drawn frames (a stall is a hitch to it, not load) and the audio's dropouts
-		if (this.last >= 0 && !this.view.due((now - this.last) * 1000)) return;
+		if (this.last >= 0 && !this.view.due((now - this.last) * 1000)) return false;
 		if (this.last >= 0) this.view.govern(now, (now - this.last) * 1000, this.o.deck.core?.stats().underruns ?? 0);
 		const report = this.view.quality_report(now);
 		if (report) this.o.deck.link?.quality(JSON.parse(report) as DeckQuality);
@@ -426,6 +436,7 @@ export class SpaceStage {
 		const cursor = this.view.cursor();
 		if (c.style.cursor !== cursor) c.style.cursor = cursor;
 		void this.portraits();
+		return true;
 	}
 
 	/** pointer, touch and wheel → the stage's picking, drag, double click, orbit and zoom */

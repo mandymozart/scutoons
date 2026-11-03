@@ -189,35 +189,3 @@ export class Hands {
 		return this.c.to_text();
 	}
 }
-
-/** The collapsed bar's frame numbers: frames per second and the frame's own work (ms, the page's tick + the 3D's frame),
- *  over the last second. */
-export class FrameStats {
-	fps = 0;
-	/** the average and the worst work per frame over the last second (ms) */
-	cpu = 0;
-	peak = 0;
-	private start = -1;
-	private frames = 0;
-	private work = 0;
-	private worst = 0;
-
-	/** a frame at `now` (ms) that took `ms` of work */
-	push(now: number, ms: number) {
-		if (this.start < 0) {
-			this.start = now;
-			return;
-		}
-		this.frames++;
-		this.work += ms;
-		this.worst = Math.max(this.worst, ms);
-		const span = now - this.start;
-		if (span >= 1000) {
-			this.fps = (this.frames * 1000) / span;
-			this.cpu = this.work / this.frames;
-			this.peak = this.worst;
-			this.start = now;
-			this.frames = this.work = this.worst = 0;
-		}
-	}
-}

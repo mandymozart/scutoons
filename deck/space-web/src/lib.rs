@@ -23,6 +23,10 @@
 //!   sharp, pointer positions are read in canvas pixels. `quality` for the panel, `quality_report` = the
 //!   `deck.quality` the page sends, `set_quality` the panel's level / Auto, `presets` / `set_presets` the settings
 //!   sheet's table (the same presets as the stage's quality file – TOML or JSON), `pixel_ratio` their pixel cap.
+//! - **Monitor (#364):** `DeckMonitor` – deck-core's `monitor` on the page's frame thread, beside the governor (no GPU:
+//!   it works when the 3D can't, and before the sound): the page feeds each animation frame (drawn or skipped), the
+//!   worker's audio window (its words) and the dropout count; `report` is the stats bar's and the sound report's numbers,
+//!   judgement and words.
 #![cfg(target_arch = "wasm32")]
 
 use deck_space::controls::{Controls, Midi, Selection};
@@ -729,5 +733,62 @@ impl DeckControls {
     /// load `to_text`'s lines; the lines it couldn't use come back (the page says so)
     pub fn load_text(&mut self, text: &str) -> Vec<String> {
         self.c.load_text(text)
+    }
+}
+
+/// #364: deck-core's monitor – samples in, the report out (JSON: deck-core `monitor::Report`). No GPU.
+#[wasm_bindgen]
+pub struct DeckMonitor {
+    m: deck_core::monitor::Monitor,
+}
+
+#[wasm_bindgen]
+impl DeckMonitor {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> DeckMonitor {
+        DeckMonitor { m: deck_core::monitor::Monitor::new() }
+    }
+
+    /// the frame target: the quality rung's fps cap (0 = none)
+    pub fn target(&mut self, fps: f32) {
+        self.m.target(fps);
+    }
+
+    /// an animation frame at `now_ms` with `work_ms` of the page's work; `drawn` = the 3D drew (not skipped by the cap)
+    pub fn frame(&mut self, now_ms: f64, work_ms: f32, drawn: bool) {
+        self.m.frame(now_ms, work_ms, drawn);
+    }
+
+    /// the worker's audio window (live-core `lc_monitor_take`'s words) at `now_ms`
+    pub fn audio(&mut self, now_ms: f64, words: &[f64]) {
+        if let Some(w) = deck_core::monitor::AudioWindow::from_words(words) {
+            self.m.audio(now_ms, w);
+        }
+    }
+
+    /// the worklet's dropouts so far (underruns – the browser sees no other cause)
+    pub fn underruns(&mut self, now_ms: f64, total: f64) {
+        self.m.glitches(now_ms, [0, 0, total as u64]);
+    }
+
+    /// the sound stopped
+    pub fn silent(&mut self) {
+        self.m.silent();
+    }
+
+    /// everything now, as JSON
+    pub fn report(&mut self, now_ms: f64) -> String {
+        serde_json::to_string(&self.m.report(now_ms)).unwrap_or_default()
+    }
+
+    /// the first seconds of the sound as the report's table, one line each
+    pub fn series(&self) -> Vec<String> {
+        self.m.series_table()
+    }
+}
+
+impl Default for DeckMonitor {
+    fn default() -> Self {
+        DeckMonitor::new()
     }
 }

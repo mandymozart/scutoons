@@ -2,14 +2,65 @@
 	"$comment": "check:deck-deps (#363 part B): the deck logic the native platform crate still holds (BRIDGE-AUDIT.md §1, the native layer) – recorded, not moved; the move tickets move it (#374 the HUD / bar / F4 / F5 model out of main.rs, #364 the stats, #365 the lead, #369 the pad rules, #371 the sync, #378 the Live outlet, #360 carried_part, #366 the relay join, #376 the gestures). The ratchet: main.rs may not grow (lines) or gain a function; each file below may not grow; a logic function that disappeared from main.rs is a move done – drop its line (`npm run check:deck-deps -- --shrink`). Growth needs the owner: Owner-approved-baseline in a commit message.",
 	"main": {
 		"file": "deck/native/src/main.rs",
-		"lines": 2066,
-		"functions": ["args", "outlet_settings", "outlet_configured", "set_quality", "push_for", "scene_id", "audio_options", "read_scene", "end", "outputs_dark", "load", "load_or_explain", "shader_files", "post_files", "time", "advance_time", "lead", "loading", "watch_files", "poll_watch", "reload", "current_scene", "open_switcher", "switch", "load_switch", "apply_quality", "apply_presets", "apply_display", "page_key", "watch_quality", "start_renderer", "open_browser", "power_off", "redraw", "watch_glitches", "events_dropped", "bar_items", "hud_lines", "tempo_line", "source_line", "summary", "check_hand", "space_event", "push_capped", "user_event", "resumed", "new_events", "window_event", "volume_key", "main", "run", "a_scene_s_id_for_the_push"],
+		"lines": 2009,
+		"functions": [
+			"args",
+			"outlet_settings",
+			"outlet_configured",
+			"set_quality",
+			"push_for",
+			"scene_id",
+			"audio_options",
+			"read_scene",
+			"end",
+			"outputs_dark",
+			"load",
+			"load_or_explain",
+			"shader_files",
+			"post_files",
+			"time",
+			"advance_time",
+			"lead",
+			"loading",
+			"watch_files",
+			"poll_watch",
+			"reload",
+			"current_scene",
+			"open_switcher",
+			"switch",
+			"load_switch",
+			"apply_quality",
+			"apply_presets",
+			"apply_display",
+			"page_key",
+			"watch_quality",
+			"start_renderer",
+			"open_browser",
+			"power_off",
+			"redraw",
+			"events_dropped",
+			"bar_items",
+			"hud_lines",
+			"tempo_line",
+			"source_line",
+			"summary",
+			"check_hand",
+			"space_event",
+			"push_capped",
+			"user_event",
+			"resumed",
+			"new_events",
+			"window_event",
+			"volume_key",
+			"main",
+			"run",
+			"a_scene_s_id_for_the_push"
+		],
 		"logic": {
 			"bar_items": "#374 #364 – the stats bar's items and judgement (FPS < 50 after 120 frames, CPU > 14 ms, DSP > 80 %, the quality's red)",
 			"hud_lines": "#374 – the HUD model: every line, its order and wording, the alert row",
 			"tempo_line": "#370 #374 – the tempo line's wording (BPM, BAR, BEAT, STOP, CLK)",
 			"source_line": "#370 #374 – the clock source line",
-			"watch_glitches": "#364 – the glitch alert window (ALERT_S 5 s) and the rate per 10 minutes",
 			"summary": "#364 – the exit summary's numbers (avg fps, p99 frame, cpu)",
 			"push_capped": "#364 – the stats history (5 min at 60 fps)",
 			"open_switcher": "#374 – the F5 scene switcher's model",
@@ -24,18 +75,65 @@
 		}
 	},
 	"files": {
-		"deck/native/src/hud.rs": { "lines": 397, "ticket": "#374 #364", "what": "the HUD's modes, the per-minute window (10 min), the bar's layout" },
-		"deck/native/src/quality.rs": { "lines": 390, "ticket": "#375 #374", "what": "the F4 settings page and its option tables" },
-		"deck/native/src/switcher.rs": { "lines": 314, "ticket": "#374", "what": "the F5 scene switcher's list model" },
-		"deck/native/src/audio/lead.rs": { "lines": 79, "ticket": "#365", "what": "the adaptive lead (256 → 4096, step 256) – the browser's has other numbers" },
-		"deck/native/src/pad.rs": { "lines": 258, "ticket": "#369", "what": "the gamepad's press / release and selection rules" },
-		"deck/native/src/sync.rs": { "lines": 817, "ticket": "#371", "what": "the scene sync's state machine (items, progress, the PUSH line) next to its fetch threads" },
-		"deck/native/src/space/link.rs": { "lines": 446, "ticket": "#366", "what": "the relay join state machine, backoff, ping" },
-		"deck/native/src/live/client.rs": { "lines": 184, "ticket": "#366", "what": "the Live outlet's relay client (join, resume)" },
-		"deck/native/src/live/plan.rs": { "lines": 354, "ticket": "#378", "what": "the Live outlet's plan (pure)" },
-		"deck/native/src/live/compose.rs": { "lines": 322, "ticket": "#378", "what": "the Live outlet's composer (pure)" },
-		"deck/native/src/live/frame.rs": { "lines": 86, "ticket": "#378", "what": "the Live outlet's crossfade (pure)" },
-		"deck/native/src/text.rs": { "lines": 452, "ticket": "#378", "what": "the dialog text layout (pure)" },
-		"deck/native/src/modules.rs": { "lines": 147, "ticket": "#360", "what": "carried_part – the scene filter by the build's modules (deck-core has node_needs)" }
+		"deck/native/src/hud.rs": {
+			"lines": 360,
+			"ticket": "#374 #364",
+			"what": "the HUD's modes, the per-minute window (10 min), the bar's layout"
+		},
+		"deck/native/src/quality.rs": {
+			"lines": 390,
+			"ticket": "#375 #374",
+			"what": "the F4 settings page and its option tables"
+		},
+		"deck/native/src/switcher.rs": {
+			"lines": 314,
+			"ticket": "#374",
+			"what": "the F5 scene switcher's list model"
+		},
+		"deck/native/src/pad.rs": {
+			"lines": 258,
+			"ticket": "#369",
+			"what": "the gamepad's press / release and selection rules"
+		},
+		"deck/native/src/sync.rs": {
+			"lines": 817,
+			"ticket": "#371",
+			"what": "the scene sync's state machine (items, progress, the PUSH line) next to its fetch threads"
+		},
+		"deck/native/src/space/link.rs": {
+			"lines": 446,
+			"ticket": "#366",
+			"what": "the relay join state machine, backoff, ping"
+		},
+		"deck/native/src/live/client.rs": {
+			"lines": 184,
+			"ticket": "#366",
+			"what": "the Live outlet's relay client (join, resume)"
+		},
+		"deck/native/src/live/plan.rs": {
+			"lines": 354,
+			"ticket": "#378",
+			"what": "the Live outlet's plan (pure)"
+		},
+		"deck/native/src/live/compose.rs": {
+			"lines": 322,
+			"ticket": "#378",
+			"what": "the Live outlet's composer (pure)"
+		},
+		"deck/native/src/live/frame.rs": {
+			"lines": 86,
+			"ticket": "#378",
+			"what": "the Live outlet's crossfade (pure)"
+		},
+		"deck/native/src/text.rs": {
+			"lines": 452,
+			"ticket": "#378",
+			"what": "the dialog text layout (pure)"
+		},
+		"deck/native/src/modules.rs": {
+			"lines": 147,
+			"ticket": "#360",
+			"what": "carried_part – the scene filter by the build's modules (deck-core has node_needs)"
+		}
 	}
 }

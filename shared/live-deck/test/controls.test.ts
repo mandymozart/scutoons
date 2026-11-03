@@ -1,9 +1,9 @@
 // `npm test -w shared/live-deck` (#209): the controls' bridge without a browser – the stick's deflection, the knob's
-// turn and arc, the frame stats, Hands on a stand-in for deck-space's DeckControls (the logic itself is tested in Rust:
+// turn and arc, Hands on a stand-in for deck-space's DeckControls (the logic itself is tested in Rust:
 // deck/space/src/controls.rs), Web MIDI's wiring.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { FrameStats, Hands, arcPoint, deflection, knobTurn, mappingKey, type DeckControlsView, type Store } from '../src/controls.ts';
+import { Hands, arcPoint, deflection, knobTurn, mappingKey, type DeckControlsView, type Store } from '../src/controls.ts';
 import { connectMidi, midiSupported, type MidiAccessLike, type MidiInputLike, type MidiOutputLike } from '../src/midi.ts';
 import { MELODY, PARAMS } from '../src/scene.ts';
 
@@ -30,14 +30,6 @@ test('a rotary knob: drag up turns it up, Shift is fine, it stops at its ends; t
 	near(y1, y0, 1e-6);
 	const [, top] = arcPoint(0.5, 10, 12);
 	near(top, 2, 1e-6);
-});
-
-test('frame stats: frames per second and the work per frame over a second', () => {
-	const s = new FrameStats();
-	for (let i = 0; i <= 60; i++) s.push(i * (1000 / 60), i === 30 ? 9 : 2);
-	near(s.fps, 60, 1e-6);
-	near(s.cpu, (59 * 2 + 9) / 60, 1e-9);
-	assert.equal(s.peak, 9);
 });
 
 /** a stand-in for deck-space's DeckControls: the being's left pair, MIDI learn of one CC */

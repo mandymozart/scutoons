@@ -2,7 +2,7 @@
 // being's 3D buttons, the streamed paths, the character switch, the image sniffing for the set's textures.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Deck, defaultLead, portraitsOf } from '../src/deck.ts';
+import { Deck, deviceKind, portraitsOf } from '../src/deck.ts';
 import { sniff } from '../src/space.ts';
 import { FIXED_SCENE, LADDER, MELODY, OUTPUTS, PARAMS, STREAMED } from '../src/scene.ts';
 
@@ -98,9 +98,9 @@ test('#188: the being turns the cutoff as its base – the engine’s LFO keeps 
 	assert.equal(d.read('incense.cutoff'), 1350, 'the sway on top of it, as the engine played it');
 });
 
-test('#188: a phone keeps more sound ahead of the speaker', () => {
-	assert.equal(defaultLead(true), 3072);
-	assert.equal(defaultLead(false), 2048);
+test('#365: a touch screen is a phone to the core’s lead', () => {
+	assert.equal(deviceKind(true), 'phone');
+	assert.equal(deviceKind(false), 'desktop');
 });
 
 test('#298: stop ends the sound and leaves the deck as it was – values kept, no core, quiet bands', async () => {

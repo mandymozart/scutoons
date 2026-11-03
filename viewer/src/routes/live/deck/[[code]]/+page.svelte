@@ -48,10 +48,10 @@
 	let syncStatus = $state('');
 	let spaceStatus = $state('');
 	let hud = $state('');
-	// #208: the warning a few seconds after a dropout; #209: the collapsed bar's statistics (#188: the dropouts over the
-	// last minute, the worker's peak render load)
+	// #208: the warning a few seconds after a dropout; #209: the collapsed bar's statistics (#364: deck-core's monitor –
+	// its items, words and judgement)
 	let audioAlert = $state('');
-	let stats = $state<Stats>({ fps: 0, cpu: 0, peak: 0, dropouts: null, p50: 0, p99: 0, load: 0, limit: 0, lead: 0, relay: '', backend: '', quality: '', down: false });
+	let stats = $state<Stats>({ items: [], relay: '', backend: '', quality: '', down: false });
 	// #298: the engine host – null until the session answered (the deck is made then)
 	let engine: EngineHost | null = null;
 	// #209: the controls – the selection the sticks follow, MIDI learn, the mappings per deck
@@ -216,24 +216,15 @@
 			/* private mode: on */
 		}
 		let alive = true;
-		// #208: the warning a few seconds after a dropout; #188: the dropouts over the last minute, the worker's peak
-		// render load – the host samples them (sound.stats), the bar shows them
+		// #208: the warning a few seconds after a dropout; #364: the monitor's report – the host samples it, the bar draws it
 		const audio = setInterval(() => {
-			const s = engine?.snapshot();
-			if (!s || s.dropouts === null) return;
-			stats.dropouts = s.dropouts;
-			stats.p50 = s.loadP50;
-			stats.p99 = s.loadP99;
-			stats.load = s.load;
-			stats.limit = s.limitPeakDb;
-			stats.lead = s.lead;
-			audioAlert = s.glitching ? m['live_deck.dropout_alert']() : '';
+			const s = engine?.snapshot().stats;
+			if (!s) return;
+			stats.items = s.bar;
+			audioAlert = s.alert ? m['live_deck.dropout_alert']() : '';
 		}, 250);
 		const bar = setInterval(() => {
 			const space = engine?.space;
-			stats.fps = engine?.frames.fps ?? 0;
-			stats.cpu = engine?.frames.cpu ?? 0;
-			stats.peak = engine?.frames.peak ?? 0;
 			stats.relay = relayStatus;
 			stats.backend = space ? space.backend : spaceStatus;
 			quality = space?.quality ?? null;

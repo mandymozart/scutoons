@@ -12,12 +12,12 @@
 // The engine itself stays in Rust: live-deck's `Deck` (state, relay, sound) and `SpaceStage` (space-web's `rig_play`,
 // `core_rig`), live-core's worker and worklet. Nothing of the sound or the being is done in TS here.
 import type { DeviceSignal } from '@scutoons/live-core';
-import { Deck, FrameStats, SpaceStage, ladderFor, type EngineFiles, type Hand, type RigPlayed } from '@scutoons/live-deck';
+import { Deck, SpaceStage, ladderFor, loadMonitor, type EngineFiles, type Hand, type MonitorReport, type MonitorView, type RigPlayed } from '@scutoons/live-deck';
 import { EngineLog, formatLine, messageOf } from './log.ts';
 import { OutputMeters } from './meters.ts';
 import { SignalMonitor } from './monitor.ts';
 import { deckOptions, folder, rigSubject, moodChoices, type EngineHostOptions } from './options.ts';
-import { canStart, canStop, emptySnapshot, leadMs, loadPercent, type EnginePhase, type EngineSnapshot } from './status.ts';
+import { canStart, canStop, emptySnapshot, type EnginePhase, type EngineSnapshot } from './status.ts';
 import { deviceInfo, engineReport } from './report.ts';
 
 /** How an app listens in. Every hook is optional; each runs inside the host's own try/catch. */
@@ -46,8 +46,9 @@ export interface EngineHooks {
 
 export class EngineHost {
 	readonly log = new EngineLog();
-	/** the frame statistics (fps, work per frame) */
-	readonly frames = new FrameStats();
+	/** #364: deck-core's monitor (space-web, no GPU) – fed each frame, the worker's audio window, the dropouts; its report
+	 *  is `snapshot().stats`. null until it loaded (or when the wasm is missing) */
+	perf: MonitorView | null = null;
 	deck: Deck | null = null;
 	space: SpaceStage | null = null;
 	hooks: EngineHooks = {};
@@ -141,6 +142,11 @@ export class EngineHost {
 		const deck = this.init();
 		const o = this.o;
 		try {
+			this.perf ??= await loadMonitor(folder(o.wasmBase));
+		} catch (e) {
+			this.log.push('host', `no monitor: ${messageOf(e)}`, 'warn');
+		}
+		try {
 			this.space = await SpaceStage.start({
 				host: el,
 				base: folder(o.wasmBase),
@@ -187,6 +193,7 @@ export class EngineHost {
 			const core = deck.core;
 			this.log.push('sound', `running: ${core?.transport} transport, ${core?.context.sampleRate} Hz, crossOriginIsolated ${globalThis.crossOriginIsolated === true}`);
 			this.snap = { ...this.snap, error: '' };
+			core?.audioTo(this.perf);
 			this.monitor.reset();
 			this.meters.reset();
 			this.setPhase('running');
@@ -208,6 +215,7 @@ export class EngineHost {
 			this.log.push('sound', `stop: ${messageOf(e)}`, 'warn');
 		}
 		this.log.push('sound', 'stopped');
+		this.perf?.silent();
 		this.meters.reset();
 		this.setPhase('stopped');
 		this.sample();
@@ -274,6 +282,7 @@ export class EngineHost {
 		this.timer = undefined;
 		this.space?.stop();
 		this.space = null;
+		this.deck?.core?.audioTo(null);
 		this.deck?.close();
 		void this.deck?.stop().catch(() => undefined);
 		this.listeners.clear();
@@ -341,9 +350,10 @@ export class EngineHost {
 			this.tickThrew = true;
 		}
 		const space = this.space;
+		let drawn = false;
 		if (space) {
 			try {
-				space.frame(now);
+				drawn = space.frame(now);
 				this.hud = space.view.hud_line();
 				const tap = space.view.take_tap();
 				if (tap !== undefined) this.hooks.tap?.(tap);
@@ -355,7 +365,7 @@ export class EngineHost {
 			}
 		}
 		this.meterFrame(deck, t0);
-		this.frames.push(t0, performance.now() - t0);
+		this.perf?.frame(t0, performance.now() - t0, drawn);
 		this.raf = requestAnimationFrame(this.frame);
 	};
 
@@ -374,15 +384,21 @@ export class EngineHost {
 		this.emit();
 	}
 
-	/** the numbers behind the snapshot, every 250 ms */
+	/** the numbers behind the snapshot, every 250 ms – the monitor's report (#364: deck-core judges and words them) */
 	private sample(): void {
 		const deck = this.deck;
 		const core = deck?.core ?? null;
-		const s = core?.stats();
 		const q = this.space?.quality;
-		const glitching = core?.glitching() ?? false;
-		if (glitching && !this.wasGlitching) this.log.push('sound', `dropout (${s?.underrunsPerMinute ?? 0} in the last minute)`, 'warn');
-		this.wasGlitching = glitching;
+		const now = performance.now();
+		const perf = this.perf;
+		let stats: MonitorReport | null = null;
+		if (perf) {
+			perf.target(q?.fps ?? 0);
+			if (core) perf.underruns(now, core.stats().underruns);
+			stats = JSON.parse(perf.report(now)) as MonitorReport;
+		}
+		if (stats?.alert && !this.wasGlitching) this.log.push('sound', stats.alert_line, 'warn');
+		this.wasGlitching = !!stats?.alert;
 		this.snap = {
 			...this.snap,
 			isolated: globalThis.crossOriginIsolated === true,
@@ -391,26 +407,14 @@ export class EngineHost {
 			clock: core?.context.currentTime ?? 0,
 			sampleRate: core?.context.sampleRate ?? 0,
 			backend: this.space?.backend ?? '',
-			fps: this.frames.fps,
-			cpu: this.frames.cpu,
-			peak: this.frames.peak,
 			level: deck?.bands.level ?? 0,
 			bass: deck?.bands.bass ?? 0,
 			mid: deck?.bands.mid ?? 0,
 			high: deck?.bands.high ?? 0,
 			reduction: deck?.bands.reduction ?? 0,
 			outputs: this.meters.read(),
-			signals: this.monitor.view(performance.now()),
-			dropouts: s ? s.underrunsPerMinute : null,
-			load: s && core ? loadPercent(s.renderPeakUs, s.budgetUs) : 0,
-			loadP50: s && core ? loadPercent(s.renderP50Us, s.budgetUs) : 0,
-			loadP99: s && core ? loadPercent(s.renderP99Us, s.budgetUs) : 0,
-			warmMs: s?.warmMs ?? 0,
-			limitPeakDb: s?.limitPeakDb ?? 0,
-			limitMeanDb: s?.limitMeanDb ?? 0,
-			limitingPct: s?.limitingPct ?? 0,
-			lead: s && core ? leadMs(s.lead, core.context.sampleRate) : 0,
-			glitching,
+			signals: this.monitor.view(now),
+			stats,
 			quality: q ? `${q.level} ${q.scale.toFixed(2)}×${q.auto ? '' : ' FIX'}` : '',
 			hud: this.hud
 		};
@@ -430,7 +434,7 @@ export class EngineHost {
 			...deviceInfo(core?.context),
 			snapshot: this.snap,
 			channels: core?.channels ?? 0,
-			series: core?.series() ?? [],
+			series: this.perf?.series() ?? [],
 			log: this.log.lines.slice(-20).map(formatLine),
 			clock: core?.clock ?? null,
 			clockWindow: core?.clockWindow.summary() ?? null

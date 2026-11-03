@@ -79,32 +79,10 @@
 				"ticket": "#367"
 			}
 		},
-		"shared/live-core/src/index.ts": {
-			"lead-shape": {
-				"count": 1,
-				"ticket": "#365"
-			}
-		},
-		"shared/live-core/src/lead.ts": {
-			"lead-rule": {
-				"count": 1,
-				"ticket": "#365"
-			}
-		},
 		"shared/live-core/src/modules.ts": {
 			"twin-const": {
 				"count": 1,
 				"ticket": "#343"
-			}
-		},
-		"shared/live-core/src/worker.ts": {
-			"lead-rule": {
-				"count": 3,
-				"ticket": "#365"
-			},
-			"lead-shape": {
-				"count": 2,
-				"ticket": "#365"
 			}
 		},
 		"shared/live-deck/src/client.ts": {
@@ -221,12 +199,6 @@
 				"ticket": "#375"
 			}
 		},
-		"viewer/src/lib/components/live-deck/deck-stats.svelte": {
-			"threshold": {
-				"count": 1,
-				"ticket": "#364"
-			}
-		},
 		"viewer/src/lib/live-vote-link.ts": {
 			"twin-const": {
 				"count": 1,
@@ -294,25 +266,11 @@
 			"why": "a MIDI status in the text (the same line #373 moves)"
 		},
 		{
-			"file": "shared/engine-host/src/status.ts",
-			"rule": "clamp",
-			"match": "export const meterPercent = (v: number): number => Math.round(100 * Math.min(1, Math.max(0",
-			"count": 1,
-			"why": "a display percentage of a value the core gave (#364 moves the meter numbers)"
-		},
-		{
 			"file": "shared/live-core/src/clock.ts",
 			"rule": "twin-const",
 			"match": "return { n, p50: at(0.5), p95: at(0.95), max: size[n - 1], mean, seconds: (this.at[n - 1] ",
 			"count": 1,
 			"why": "a percentile of the clock's own measurement"
-		},
-		{
-			"file": "shared/live-core/src/index.ts",
-			"rule": "twin-const",
-			"match": "export const SERIES = 120;",
-			"count": 1,
-			"why": "the length of a stats series kept for the page"
 		},
 		{
 			"file": "shared/live-core/src/index.ts",
@@ -587,7 +545,7 @@
 		"creator/src/lib/editor/signal-strip.ts": {
 			"lines": 162,
 			"functions": 20,
-			"math": 10,
+			"math": 9,
 			"escapes": 0
 		},
 		"shared/engine-host/src/controller.ts": {
@@ -651,15 +609,15 @@
 			"escapes": 0
 		},
 		"shared/engine-host/src/report.ts": {
-			"lines": 157,
-			"functions": 9,
-			"math": 6,
+			"lines": 137,
+			"functions": 7,
+			"math": 1,
 			"escapes": 0
 		},
 		"shared/engine-host/src/status.ts": {
-			"lines": 124,
-			"functions": 8,
-			"math": 8,
+			"lines": 84,
+			"functions": 4,
+			"math": 0,
 			"escapes": 0
 		},
 		"shared/live-core/src/clock.ts": {
@@ -669,25 +627,19 @@
 			"escapes": 1
 		},
 		"shared/live-core/src/engine.ts": {
-			"lines": 331,
+			"lines": 302,
 			"functions": 22,
 			"math": 3,
 			"escapes": 0
 		},
 		"shared/live-core/src/index.ts": {
-			"lines": 441,
-			"functions": 38,
-			"math": 10,
-			"escapes": 0
-		},
-		"shared/live-core/src/lead.ts": {
-			"lines": 48,
-			"functions": 3,
-			"math": 4,
+			"lines": 421,
+			"functions": 35,
+			"math": 8,
 			"escapes": 0
 		},
 		"shared/live-core/src/messages.ts": {
-			"lines": 90,
+			"lines": 82,
 			"functions": 0,
 			"math": 0,
 			"escapes": 0
@@ -710,12 +662,6 @@
 			"math": 0,
 			"escapes": 0
 		},
-		"shared/live-core/src/timing.ts": {
-			"lines": 53,
-			"functions": 4,
-			"math": 6,
-			"escapes": 0
-		},
 		"shared/live-core/src/wire.ts": {
 			"lines": 159,
 			"functions": 7,
@@ -723,9 +669,9 @@
 			"escapes": 0
 		},
 		"shared/live-core/src/worker.ts": {
-			"lines": 202,
+			"lines": 196,
 			"functions": 14,
-			"math": 5,
+			"math": 1,
 			"escapes": 0
 		},
 		"shared/live-core/src/worklet.ts": {
@@ -747,9 +693,9 @@
 			"escapes": 0
 		},
 		"shared/live-deck/src/controls.ts": {
-			"lines": 224,
-			"functions": 24,
-			"math": 16,
+			"lines": 192,
+			"functions": 23,
+			"math": 15,
 			"escapes": 1
 		},
 		"shared/live-deck/src/deck.ts": {
@@ -849,7 +795,7 @@
 			"escapes": 0
 		},
 		"viewer/src/lib/components/live-deck/deck-stats.svelte": {
-			"lines": 88,
+			"lines": 78,
 			"functions": 0,
 			"math": 0,
 			"escapes": 0
@@ -933,7 +879,7 @@
 			"escapes": 0
 		},
 		"viewer/src/routes/live/deck/[[code]]/+page.svelte": {
-			"lines": 464,
+			"lines": 456,
 			"functions": 41,
 			"math": 1,
 			"escapes": 0

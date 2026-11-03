@@ -7,12 +7,7 @@
 // played over a MessagePort, the worker answers with transferred chunks; records and analysis frames are messages.
 import { Engine, WasmCore, BLOCK } from './engine.ts';
 import { Latest, Ring } from './ring.ts';
-import { AdaptiveLead } from './lead.ts';
 import type { AudioFeed, FromWorker, ToWorker } from './messages.ts';
-
-/** #208: the adaptive lead's cap and step (frames) – 6144 ≈ 128 ms leaves room in the 8192-frame audio ring */
-const LEAD_CAP = 6144;
-const LEAD_STEP = 512;
 
 const scope = self as unknown as {
 	onmessage: ((ev: MessageEvent<ToWorker>) => void) | null;
@@ -29,13 +24,11 @@ let inFlight = 0;
 let stopped = false;
 let ticking = false;
 let statsTimer: ReturnType<typeof setInterval> | null = null;
-/** #208: the lead grows on the worklet's dropouts (shared: the status word; transfer: its feed messages) */
-let adaptive: AdaptiveLead | null = null;
+/** #365: the core's lead follows the worklet's dropouts (shared: the status word; transfer: its feed messages) */
 let status: Int32Array | null = null;
 let dropouts = 0;
-/** the last pump and the longest pause between two in this second (ms) – a stalled worker shows here */
+/** the last pump – the pause between two goes to the core's monitor (a stalled worker shows there) */
 let lastTick = 0;
-let gapMs = 0;
 /** #321: the worklet's skew (transfer transport: from its feed; shared: the status word) and the clock's frame timer */
 let skew = 0;
 let clockTimer: ReturnType<typeof setInterval> | null = null;
@@ -67,13 +60,17 @@ function clockFrame(): void {
 	if (line !== clockLine) post({ type: 'clockLine', line: (clockLine = line) });
 }
 
-/** #356: the warm-up before the first sound (ms; 0 = not yet) – the first scene is played silently by a twin first */
-let warmMs = 0;
+/** #356: the first scene is played silently by a twin first (the warm-up) – once */
+let warmed = false;
 
+/** the pause since the last pump to the core, the core's lead for the dropouts so far */
 function adapt(): void {
-	if (!engine || !adaptive) return;
+	if (!engine) return;
+	const now = performance.now();
+	if (lastTick) engine.core.x.lc_note_gap(now - lastTick);
+	lastTick = now;
 	if (status) dropouts = Atomics.load(status, 0);
-	engine.lead = adaptive.update(performance.now(), dropouts);
+	engine.lead = engine.core.x.lc_lead(now, dropouts);
 }
 
 type WaitAsync = (a: Int32Array, i: number, v: number, t?: number) => { async: boolean; value: Promise<string> | string };
@@ -81,9 +78,6 @@ const waitAsync = (Atomics as unknown as { waitAsync?: WaitAsync }).waitAsync;
 
 function tick(): void {
 	if (stopped || !engine || !audio || !control) return;
-	const now = performance.now();
-	if (lastTick) gapMs = Math.max(gapMs, now - lastTick);
-	lastTick = now;
 	adapt();
 	try {
 		engine.drain(control);
@@ -124,14 +118,16 @@ scope.onmessage = async (ev) => {
 			case 'init': {
 				const module = await WebAssembly.compileStreaming(fetch(m.wasm));
 				const core = await WasmCore.instantiate(module, m.rate, m.channels);
+				// #365: the core's lead for the page's device class
+				const lead = core.x.lc_lead_class(m.device);
 				if (m.shared) {
 					const latest = new Latest(m.shared.analysis);
 					control = Ring.bytes(m.shared.control);
 					audio = Ring.floats(m.shared.audio);
-					engine = new Engine(core, { lead: m.lead, onAnalysis: (f) => latest.publish(f), onSignals: sendSignals });
+					engine = new Engine(core, { lead, onAnalysis: (f) => latest.publish(f), onSignals: sendSignals });
 				} else {
 					feed = m.audioPort;
-					engine = new Engine(core, { lead: m.lead, onSignals: sendSignals, onAnalysis: (f) => {
+					engine = new Engine(core, { lead, onSignals: sendSignals, onAnalysis: (f) => {
 							const frame = f.slice();
 							post({ type: 'analysis', frame }, [frame.buffer]);
 						}
@@ -143,20 +139,17 @@ scope.onmessage = async (ev) => {
 								dropouts = e.data.underruns;
 								skew = e.data.skew;
 							}
-							const now = performance.now();
-							if (lastTick) gapMs = Math.max(gapMs, now - lastTick);
-							lastTick = now;
 							adapt();
 							topUp();
 						};
 					}
 				}
 				status = m.shared ? new Int32Array(m.shared.status) : null;
-				adaptive = new AdaptiveLead(m.lead, Math.max(LEAD_CAP, m.lead), LEAD_STEP);
+				// #364: the core's audio window once a second, as words for the page's monitor
 				statsTimer = setInterval(() => {
 					if (!engine) return;
-					post({ type: 'stats', stats: { ...engine.stats(), lead: engine.lead, gapMs, warmMs } });
-					gapMs = 0;
+					const words = engine.core.monitorTake();
+					post({ type: 'stats', words }, [words.buffer]);
 				}, 1000);
 				clockTimer = setInterval(clockFrame, CLOCK_MS);
 				post({ type: 'ready' });
@@ -166,10 +159,11 @@ scope.onmessage = async (ev) => {
 				if (!engine) throw new Error('load before init');
 				// #356: before the first sound the core warms the scene up (its code compiled and optimised by a silent twin –
 				// cold, the first blocks take several budgets on a phone); later loads play at once (the ring is running)
-				if (!warmMs) {
+				if (!warmed) {
 					const t = performance.now();
 					engine.core.warm(m.scene);
-					warmMs = Math.max(0.001, performance.now() - t);
+					engine.core.x.lc_note_warm(performance.now() - t);
+					warmed = true;
 				}
 				const table = engine.core.load(m.scene);
 				post({ type: 'loaded', id: m.id, table });

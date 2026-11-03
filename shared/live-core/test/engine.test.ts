@@ -135,8 +135,24 @@ test('a vector through the control ring reaches the sound, the analysis and the 
 	assert.equal(a.values[valueIndex(table, 'lead.freq')], 1500, 'the heard block’s input');
 	assert.ok(Math.abs(a.values[valueIndex(table, 'wob')] - 1) < 1e-5, 'the LFO’s output: unipolar, at its top');
 	assert.equal(a.values[valueIndex(table, 'lead.out')], 0, 'an audio output: no meter without a being (`space` node)');
-	const s = e.stats();
-	assert.ok(s.blocks > 300 && s.records === 1 && s.renderUs > 0, JSON.stringify(s));
+	const w = window(c);
+	assert.ok(w.blocks > 300 && w.max > 0, JSON.stringify(w));
+});
+
+/** #364: the core's audio window, read from its words (deck-core `AudioWindow::to_words`: the longest load, the sum,
+ *  analysis µs, gap ms, the limiter's deepest dB, its sum, frames, frames limiting, lead, rate, warm-up ms, the bins) */
+function window(c: WasmCore) {
+	const w = c.monitorTake();
+	return { max: w[0], limitDb: w[4], limitMean: w[6] ? w[5] / w[6] : 0, limitingShare: w[6] ? w[7] / w[6] : 0, lead: w[8], blocks: w.slice(11).reduce((a, b) => a + b, 0) };
+}
+
+test('#365: the core’s lead – a phone starts generous, a dropout grows it a step', { skip }, async () => {
+	const c = await core();
+	assert.equal(c.x.lc_lead_class(0), 4096, 'deck-core: a phone starts two steps over its floor of 3072');
+	assert.equal(c.x.lc_lead(0, 0), 4096);
+	assert.equal(c.x.lc_lead(1000, 1), 4608);
+	assert.equal(c.x.lc_lead_class(1), 3072, 'a desktop');
+	assert.equal(window(c).lead, 3072, 'the window carries the lead');
 });
 
 test('a blend mixes, a release returns the input as built', { skip }, async () => {
@@ -174,7 +190,7 @@ test('a six-channel device: the stereo main on the first two, the rest silent', 
 	assert.deepEqual(peaks.slice(2), [0, 0, 0, 0]);
 });
 
-test('#356: the warm-up plays a twin – the loaded scene sounds the same sample for sample; the stats carry p50 / p99', { skip }, async () => {
+test('#356: the warm-up plays a twin – the loaded scene sounds the same sample for sample; the core counted every block', { skip }, async () => {
 	const heard = async (warm: boolean) => {
 		const c = await core();
 		c.load(SCENE.replace('gain = 0.0', 'gain = 0.4'));
@@ -183,7 +199,7 @@ test('#356: the warm-up plays a twin – the loaded scene sounds the same sample
 		e.block(0, (a) => out.push(...a));
 		if (warm) c.warm(SCENE, 64);
 		for (let i = 0; i < 20; i++) e.block(0, (a) => out.push(...a));
-		return { out, stats: e.stats() };
+		return { out, stats: window(c) };
 	};
 	const cold = await heard(false);
 	const warmed = await heard(true);
@@ -191,7 +207,7 @@ test('#356: the warm-up plays a twin – the loaded scene sounds the same sample
 	assert.deepEqual(warmed.out, cold.out);
 	const s = warmed.stats;
 	assert.equal(s.blocks, 21);
-	assert.ok(s.renderP50Us > 0 && s.renderP50Us <= s.renderP99Us && s.renderP99Us <= s.renderPeakUs, JSON.stringify(s));
+	assert.ok(s.max > 0, JSON.stringify(s));
 	const c = await core();
 	assert.throws(() => c.warm('[[no'), /./);
 });
@@ -202,11 +218,11 @@ test('#356: the limiter in the stats – a loud voice is held down (peak, mean, 
 		c.load(SCENE.replace('gain = 0.0', `gain = ${gain.toFixed(1)}`));
 		const e = new Engine(c, { lead: 512, onAnalysis: () => {} });
 		for (let i = 0; i < 375; i++) e.block(0, () => {});
-		return e.stats();
+		return window(c);
 	};
 	const loud = await limiting(3);
-	assert.ok(loud.limitPeakDb > 3 && loud.limitMeanDb > 1 && loud.limitingPct > 50, JSON.stringify(loud));
-	assert.ok(loud.limitMeanDb <= loud.limitPeakDb);
+	assert.ok(loud.limitDb > 3 && loud.limitMean > 1 && loud.limitingShare > 0.5, JSON.stringify(loud));
+	assert.ok(loud.limitMean <= loud.limitDb);
 	const quiet = await limiting(0.1);
-	assert.deepEqual([quiet.limitPeakDb, quiet.limitMeanDb, quiet.limitingPct], [0, 0, 0]);
+	assert.deepEqual([quiet.limitDb, quiet.limitMean, quiet.limitingShare], [0, 0, 0]);
 });

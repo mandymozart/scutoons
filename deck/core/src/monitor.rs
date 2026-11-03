@@ -328,11 +328,23 @@ pub enum Level {
     Bad,
 }
 
-/// one item of the collapsed bar: its text and how it is judged
+/// one item of the collapsed bar: its label (FPS, CPU, AUDIO, LIM), its value and how it is judged
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Item {
-    pub text: String,
+    pub label: &'static str,
+    pub value: String,
     pub level: Level,
+}
+
+impl Item {
+    fn new(label: &'static str, value: String, level: Level) -> Item {
+        Item { label, value, level }
+    }
+
+    /// "LABEL value"
+    pub fn text(&self) -> String {
+        format!("{} {}", self.label, self.value)
+    }
 }
 
 /// the judgement per number
@@ -684,14 +696,14 @@ fn judge(r: &Report, judged: bool) -> Levels {
 fn bar(r: &Report) -> Vec<Item> {
     let l = &r.levels;
     let mut out = vec![
-        Item { text: if r.fps > 0.0 { format!("FPS {:.0}", r.fps) } else { "FPS -".into() }, level: l.fps },
-        Item { text: format!("CPU {:.1}/{:.1}MS", r.cpu_ms, r.cpu_peak_ms), level: l.cpu },
+        Item::new("FPS", if r.fps > 0.0 { format!("{:.0}", r.fps) } else { "-".into() }, l.fps),
+        Item::new("CPU", format!("{:.1}/{:.1}MS", r.cpu_ms, r.cpu_peak_ms), l.cpu),
     ];
     if r.sound {
-        out.push(Item { text: format!("AUDIO {}/10M {}/{}/{}% +{}MS", r.glitches, r.load_p50, r.load_p99, r.load_max, r.lead_ms), level: l.audio });
-        out.push(Item { text: format!("LIM {:.1}DB", r.limit_db), level: l.limit });
+        out.push(Item::new("AUDIO", format!("{}/10M {}/{}/{}% +{}MS", r.glitches, r.load_p50, r.load_p99, r.load_max, r.lead_ms), l.audio));
+        out.push(Item::new("LIM", format!("{:.1}DB", r.limit_db), l.limit));
     } else {
-        out.push(Item { text: "AUDIO OFF".into(), level: Level::Ok });
+        out.push(Item::new("AUDIO", "OFF".into(), Level::Ok));
     }
     out
 }
@@ -801,7 +813,7 @@ mod tests {
         }
         let r = m.report(t);
         assert_eq!((r.levels.fps, r.levels.cpu, r.levels.audio), (Level::Bad, Level::Bad, Level::Ok));
-        assert_eq!(r.bar[2].text, "AUDIO OFF");
+        assert_eq!(r.bar[2].text(), "AUDIO OFF");
         // a sound with a p99 past half the budget: a warning, no glitch
         let mut w = AudioWindow { lead: 2400, rate: 48_000.0, ..AudioWindow::default() };
         for _ in 0..100 {
@@ -812,8 +824,8 @@ mod tests {
         let r = m.report(t);
         assert_eq!((r.levels.audio, r.levels.limit), (Level::Warn, Level::Warn));
         assert_eq!(r.lead_ms, 50.0);
-        assert!(r.bar[2].text.starts_with("AUDIO 0/10M 6"), "{}", r.bar[2].text);
-        assert_eq!(r.bar[3].text, "LIM 7.0DB");
+        assert!(r.bar[2].text().starts_with("AUDIO 0/10M 6"), "{}", r.bar[2].text());
+        assert_eq!(r.bar[3].text(), "LIM 7.0DB");
         assert!(r.lines.iter().all(|l| l.chars().count() <= 39), "{:?}", r.lines);
     }
 

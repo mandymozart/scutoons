@@ -6,8 +6,7 @@
 // `lc_apply`), audio blocks (the device channels, interleaved) and analysis frames come out as Float32Array views on
 // wasm memory (one copy into the audio ring / the analysis slot). JSON only at the edge: the load table, once. The
 // engine's control half steps inside its render – the pump only renders.
-import { FRAME, REDUCTION, VALUE_COUNT } from './wire.ts';
-import { BlockTimes } from './timing.ts';
+import { FRAME, VALUE_COUNT } from './wire.ts';
 import type { Ring } from './ring.ts';
 import type { ClockOp } from './messages.ts';
 
@@ -40,6 +39,19 @@ export interface Exports {
 	lc_clock_out_on(on: number): void;
 	lc_clock_out(): number;
 	lc_clock_out_at(): number;
+	/** #365: the adaptive lead (deck-core `lead`): the page's device class (0 phone, 1 desktop) → its first lead; the
+	 *  worklet's dropouts so far at the page's ms → the lead (frames) */
+	lc_lead_class(device: number): number;
+	lc_lead(nowMs: number, dropouts: number): number;
+	/** #364: the audio side of the monitor (deck-core `monitor::AudioWindow`): the stopwatch's readings in, the window's
+	 *  words out (`AUDIO_WORDS` f64) */
+	lc_note_block(us: number): void;
+	lc_note_analysis(us: number): void;
+	lc_note_gap(ms: number): void;
+	lc_note_warm(ms: number): void;
+	lc_monitor_take(): number;
+	/** #364: how many words `lc_monitor_take` hands out */
+	lc_monitor_words(): number;
 }
 
 /** #321: the clock's state block, f64 (deck/live-core clock.rs `STATE`) */
@@ -151,6 +163,11 @@ export class WasmCore {
 		}
 	}
 
+	/** #364: the audio window since the last call as words (a copy) for the page's monitor; the window starts again */
+	monitorTake(): Float64Array {
+		return new Float64Array(this.x.memory.buffer, this.x.lc_monitor_take(), this.x.lc_monitor_words()).slice();
+	}
+
 	/** #356: the warm-up – `scene` rendered silently by a throwaway twin (the loaded core plays on untouched), so its
 	 * code is compiled and optimised before it is heard; `quanta` 0 = the core's `WARM_QUANTA`. Throws on a broken scene. */
 	warm(scene: string, quanta = 0): void {
@@ -216,52 +233,16 @@ export interface EngineOptions {
 	onSignals?(records: Uint8Array): void;
 }
 
-/** A second of the pump (`Engine.stats`): µs per 128-frame block against its budget. */
-export interface BlockStats {
-	blocks: number;
-	records: number;
-	/** the mean, the median, the 99th percentile and the longest block (µs): a control step + the render + the copy out */
-	renderUs: number;
-	renderP50Us: number;
-	renderP99Us: number;
-	renderPeakUs: number;
-	/** #356: the longest analysis frame + signals (µs) – between two blocks */
-	analysisPeakUs: number;
-	/** a block's duration (2667 µs at 48 kHz) */
-	budgetUs: number;
-	/** #356: the output limiter's gain reduction over the second's analysis frames: the deepest and the mean (dB), and
-	 *  the share of frames it held the sound down by more than `LIMITING_DB` (%) */
-	limitPeakDb: number;
-	limitMeanDb: number;
-	limitingPct: number;
-}
-
-/** #356: a gain reduction past this (dB) counts as limiting – below it the limiter only shaves peaks unheard */
-export const LIMITING_DB = 1;
-
 /** The pump: control records in, audio blocks out, an analysis frame now and then. Lead and fills count frames; the
  * audio ring holds samples (frames × channels). */
 export class Engine {
 	readonly core: WasmCore;
-	/** frames kept ahead of the speaker – the worker adapts it (#208, lead.ts) */
+	/** frames kept ahead of the speaker – the worker sets the core's lead (#365) */
 	lead: number;
 	private readonly every: number;
 	private readonly onAnalysis: (frame: Float32Array) => void;
 	private readonly onSignals: ((records: Uint8Array) => void) | undefined;
 	private sinceAnalysis = 0;
-	/** records applied since the last `stats()` */
-	private records = 0;
-	/** #356: each block's render time since the last `stats()` (p50 / p99 / the longest) */
-	private readonly times = new BlockTimes();
-	/** #356: the longest analysis frame (+ the signals) since the last `stats()` (ms) – between blocks, not in them */
-	private analysisPeakMs = 0;
-	/** #356: the output limiter's gain reduction per analysis frame since the last `stats()` (dB): the deepest, the sum,
-	 *  the frames, the frames it held the sound down by more than `LIMITING_DB` – pumping can sound like a dropout */
-	private limitPeakDb = 0;
-	private limitSumDb = 0;
-	private limitFrames = 0;
-	private limitingFrames = 0;
-
 	constructor(core: WasmCore, o: EngineOptions) {
 		this.core = core;
 		this.lead = o.lead;
@@ -275,16 +256,12 @@ export class Engine {
 		const n = control.available();
 		if (n === 0 || !this.core.loaded) return 0;
 		const got = control.read(this.core.inbox(n).subarray(0, n));
-		const applied = this.core.apply(got);
-		this.records += applied;
-		return applied;
+		return this.core.apply(got);
 	}
 
 	applyBytes(bytes: Uint8Array): number {
 		if (!this.core.loaded) return 0;
-		const applied = this.core.applyBytes(bytes);
-		this.records += applied;
-		return applied;
+		return this.core.applyBytes(bytes);
 	}
 
 	/**
@@ -295,23 +272,17 @@ export class Engine {
 		const t = performance.now();
 		sink(this.core.render(BLOCK));
 		const t1 = performance.now();
-		this.times.push((t1 - t) * 1000);
+		this.core.x.lc_note_block((t1 - t) * 1000);
 		this.sinceAnalysis += BLOCK;
 		if (this.sinceAnalysis >= this.every) {
 			const frame = this.core.analyse(this.sinceAnalysis / this.core.rate, fill + BLOCK);
 			this.sinceAnalysis = 0;
-			const db = frame[REDUCTION];
-			if (db > this.limitPeakDb) this.limitPeakDb = db;
-			this.limitSumDb += db;
-			this.limitFrames++;
-			if (db > LIMITING_DB) this.limitingFrames++;
 			this.onAnalysis(frame);
 			if (this.onSignals) {
 				const records = this.core.signals();
 				if (records.length) this.onSignals(records);
 			}
-			const ms = performance.now() - t1;
-			if (ms > this.analysisPeakMs) this.analysisPeakMs = ms;
+			this.core.x.lc_note_analysis((performance.now() - t1) * 1000);
 		}
 	}
 
@@ -326,28 +297,5 @@ export class Engine {
 			n++;
 		}
 		return n;
-	}
-
-	/** since the last call: blocks, records, the average, (#356) p50 / p99 and (#208) the longest block's render against a
-	 * block's budget, the longest analysis frame */
-	stats(): BlockStats {
-		const t = this.times;
-		const s = {
-			blocks: t.count,
-			records: this.records,
-			renderUs: t.mean,
-			renderP50Us: t.quantile(0.5),
-			renderP99Us: t.quantile(0.99),
-			renderPeakUs: t.max,
-			analysisPeakUs: this.analysisPeakMs * 1000,
-			budgetUs: (BLOCK / this.core.rate) * 1e6,
-			limitPeakDb: this.limitPeakDb,
-			limitMeanDb: this.limitFrames ? this.limitSumDb / this.limitFrames : 0,
-			limitingPct: this.limitFrames ? (100 * this.limitingFrames) / this.limitFrames : 0
-		};
-		t.reset();
-		this.records = this.analysisPeakMs = 0;
-		this.limitPeakDb = this.limitSumDb = this.limitFrames = this.limitingFrames = 0;
-		return s;
 	}
 }

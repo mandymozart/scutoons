@@ -16,6 +16,8 @@ crate-type = ["cdylib", "rlib"]
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 deck-space = { path = "../space", default-features = false, features = ["gpu"] }
+# #364: the monitor beside the governor (deck-core is platform-free; its monitor is always built)
+deck-core = { workspace = true }
 protocol = { workspace = true }
 anyhow.workspace = true
 serde_json.workspace = true

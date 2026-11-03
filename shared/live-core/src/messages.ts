@@ -2,7 +2,7 @@
 // transport: records, audio and analysis go through the rings; these set things up, carry the load (the edge: scene
 // text in, the table out) and once a second the stats. In the transfer transport (no SharedArrayBuffer) records,
 // audio chunks and analysis frames travel as transferred ArrayBuffers – the same bytes as in the rings.
-import type { BlockStats, Table } from './engine.ts';
+import type { Table } from './engine.ts';
 import type { RingBuffers } from './ring.ts';
 
 export type Transport = 'shared' | 'transfer';
@@ -11,29 +11,20 @@ export interface SharedSetup {
 	control: RingBuffers;
 	audio: RingBuffers;
 	analysis: RingBuffers;
-	/** #208: Int32 [the worklet's dropouts] – the worker grows its lead on them */
+	/** #208: Int32 [the worklet's dropouts] – the core's lead grows on them (#365) */
 	status: SharedArrayBuffer;
 }
 
 /** page → worker */
 export type ToWorker =
-	/** `channels`: the device channels (the destination's – 2 on a phone); the audio ring and the feed carry them interleaved */
-	| { type: 'init'; wasm: string; rate: number; channels: number; lead: number; shared: SharedSetup | null; audioPort: MessagePort | null }
+	/** `channels`: the device channels (the destination's – 2 on a phone); the audio ring and the feed carry them interleaved;
+	 *  `device`: the device class for the core's lead (#365, deck-core `DeviceClass`: 0 phone, 1 desktop) */
+	| { type: 'init'; wasm: string; rate: number; channels: number; device: number; shared: SharedSetup | null; audioPort: MessagePort | null }
 	| { type: 'load'; id: number; scene: string }
 	| { type: 'records'; bytes: ArrayBuffer }
 	/** #321: something for the core's tempo clock (clock.ts) */
 	| { type: 'clock'; op: ClockOp }
 	| { type: 'stop' };
-
-/** once a second: the last second's blocks (engine.ts `BlockStats`) and the pump's state */
-export interface WorkerStats extends BlockStats {
-	/** #356: how long the warm-up before the first sound took (ms; 0 = none yet) */
-	warmMs: number;
-	/** #208: the adaptive lead now (frames) and the longest pause between the worker's pumps in the last second (ms) –
-	 * a pause past the lead's time is a dropout the main thread or a GC caused */
-	lead: number;
-	gapMs: number;
-}
 
 /** worker → page */
 export type FromWorker =
@@ -43,7 +34,8 @@ export type FromWorker =
 	| { type: 'analysis'; frame: Float32Array }
 	/** #282: signal records (signals.ts) of the scene's `[outputs]`, a few per second at most */
 	| { type: 'signals'; bytes: ArrayBuffer }
-	| { type: 'stats'; stats: WorkerStats }
+	/** #364: once a second, the core's audio window as words (deck-core `AudioWindow::to_words`) for the page's monitor */
+	| { type: 'stats'; words: Float64Array }
 	/** #321: the clock's state block (`clock.ts` STATE) after each clock frame */
 	| { type: 'clock'; state: Float64Array }
 	/** #321: the clock's line when it changed (at most every `CLOCK_LINE_EVERY` frames) */

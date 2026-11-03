@@ -122,15 +122,15 @@ export interface StatsLike {
 	error?: string | null;
 	transport: string | null;
 	backend: string;
-	fps: number;
-	cpu: number;
-	dropouts: number | null;
+	/** #364: deck-core's monitor report (engine-host snapshot `stats`), null = none yet */
+	stats: { bar: { label: string; value: string }[] } | null;
 }
 
-/** the state words and the performance, once each (the frame rate is listed ONCE): `running · shared · webgl2` / `60 fps · 4.2 ms · 0 drops` */
+/** the state words and the performance, once each: `running · shared · webgl2` / the monitor's bar items as deck-core
+ *  words them (#364: `FPS 60 · CPU 4.2/6.0MS · AUDIO 0/10M 2/5/9% +43MS · LIM 0.0DB`) */
 export function stripStatus(s: StatsLike): { state: string; perf: string } {
 	const state = [s.phase === 'error' && s.error ? `error: ${s.error}` : s.phase, ...(s.transport ? [s.transport] : []), ...(s.backend ? [s.backend] : [])].join(' · ');
-	const perf = [`${Math.round(s.fps)} fps`, `${s.cpu.toFixed(1)} ms`, ...(s.dropouts === null ? [] : [`${s.dropouts} drops`])].join(' · ');
+	const perf = (s.stats?.bar ?? []).map((i) => `${i.label} ${i.value}`).join(' · ');
 	return { state, perf };
 }
 

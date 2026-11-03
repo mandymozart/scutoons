@@ -283,15 +283,8 @@ struct Stats {
     intervals: Vec<f32>,
     work: Vec<f32>,
     first_frame_ms: Option<f32>,
-    /// #364: the HUD's numbers – deck-core's monitor, fed here (frames, the glitch counts, a window of the audio side
-    /// once a second); its last report, refreshed with the HUD; the audio side's window the frame thread fills (the
-    /// limiter), when it was last handed over (wall ms)
-    monitor: deck_core::monitor::Monitor,
-    report: deck_core::monitor::Report,
-    audio: deck_core::monitor::AudioWindow,
-    audio_at: f64,
-    /// #220: the glitch count the governor sees
-    glitch_seen: u64,
+    /// #364: the HUD's numbers – deck-core's monitor (fed each frame, its report refreshed with the HUD)
+    feed: audio::glitch::MonitorFeed,
 }
 
 /// A loaded scene and everything that plays it: the graph, the audio engine on its device, the control domain, the
@@ -1197,7 +1190,7 @@ impl App {
             self.hud.push_frame(ms);
             // #220: the governor sees every interval (a stall over 250 ms is a hitch to it) and the audio's glitches
             let wall = self.started.elapsed().as_secs_f64();
-            if self.governor.as_mut().is_some_and(|g| g.frame(wall, ms, self.stats.glitch_seen)) {
+            if self.governor.as_mut().is_some_and(|g| g.frame(wall, ms, self.stats.feed.seen)) {
                 self.apply_quality();
             }
         }
@@ -1237,7 +1230,14 @@ impl App {
         // #188: the limiter's gain reduction since the last frame (the HUD holds it a moment; the being's red face); #208:
         // the audio glitches (logged, counted, the warning)
         let reduction = self.show.reduction.as_ref().map_or(0.0, |r| f32::from_bits(r.swap(0, std::sync::atomic::Ordering::Relaxed)));
-        self.watch_audio(wall_ms, reduction);
+        // #208: each glitch logged (its numbers from the callback's ring); #364: the monitor fed
+        if let Some(log) = self.show.glitch_log.as_mut() {
+            while let Ok(e) = log.pop() {
+                tracing::warn!("{} (at {:.3} s)", e.describe(), e.at_ns.saturating_sub(self.t0_ns) as f64 / 1e9);
+            }
+        }
+        let fps = self.governor.as_ref().map_or(0.0, |g| g.rung().fps as f32);
+        self.stats.feed.feed(wall_ms, self.show.glitches.as_deref(), reduction, self.show.clock.as_ref().map_or(48_000.0, |c| c.rate), fps);
         #[cfg(feature = "space")]
         if let Some(s) = self.show.space.as_mut() {
             let meters = self.show.meters.as_deref();
@@ -1284,7 +1284,7 @@ impl App {
         let hud_on = self.args.hud || self.error.is_some() || self.page.open || self.switcher.open || vol.is_some();
         if hud_on && time - self.hud_at >= 0.25 || self.stats.frames == 0 || self.hud_at < 0.0 {
             self.hud_at = time;
-            self.stats.report = self.stats.monitor.report(wall_ms);
+            self.stats.feed.report = self.stats.feed.monitor.report(wall_ms);
             // #220: the settings page instead of the HUD's lines, its cursor's line lit
             let (lines, cursor) = if self.switcher.open {
                 let (l, c) = self.switcher.lines(self.current_scene());
@@ -1370,7 +1370,7 @@ impl App {
             // the frame thread's work: controls + HUD before the render, the render after the surface's vsync wait
             Ok(ms) => {
                 push_capped(&mut self.stats.work, before + ms);
-                self.stats.monitor.frame(wall_ms, before + ms, true);
+                self.stats.feed.monitor.frame(wall_ms, before + ms, true);
             }
             Err(e) => {
                 tracing::error!("render: {e:#}");
@@ -1394,33 +1394,6 @@ impl App {
         }
     }
 
-    /// #208: the audio glitches – each one logged (its numbers from the callback's ring); #364: the counts, the
-    /// limiter's gain reduction and once a second the audio side's window (the block loads, the lead) to the monitor
-    fn watch_audio(&mut self, wall_ms: f64, reduction: f32) {
-        let st = &mut self.stats;
-        st.monitor.target(self.governor.as_ref().map_or(0.0, |g| g.rung().fps as f32));
-        let Some(g) = self.show.glitches.clone() else {
-            st.monitor.silent();
-            return;
-        };
-        if let Some(log) = self.show.glitch_log.as_mut() {
-            while let Ok(e) = log.pop() {
-                tracing::warn!("{} (at {:.3} s)", e.describe(), e.at_ns.saturating_sub(self.t0_ns) as f64 / 1e9);
-            }
-        }
-        st.glitch_seen = g.count();
-        st.monitor.glitches(wall_ms, g.counts());
-        st.audio.limiter(reduction);
-        if wall_ms - st.audio_at >= 1000.0 || st.audio_at == 0.0 {
-            st.audio_at = wall_ms;
-            let mut w = st.audio.take();
-            w.loads = g.take_loads();
-            w.lead = g.lead();
-            w.rate = self.show.clock.as_ref().map_or(48_000.0, |c| c.rate);
-            st.monitor.audio(wall_ms, w);
-        }
-    }
-
     /// #236: events dropped on the way since the scene started (a scene with hosts)
     fn events_dropped(&self) -> Option<u64> {
         #[cfg(feature = "events")]
@@ -1433,7 +1406,7 @@ impl App {
     /// the quality, the relay, the GPU backend
     fn bar_items(&self) -> Vec<hud::Item> {
         let item = |text: String, warn: bool| hud::Item { text, level: if warn { hud::Level::Warn } else { hud::Level::Ok } };
-        let mut out: Vec<hud::Item> = self.stats.report.bar.iter().map(|i| hud::Item { text: i.text.clone(), level: i.level }).collect();
+        let mut out: Vec<hud::Item> = self.stats.feed.report.bar.iter().map(|i| hud::Item { text: i.text(), level: i.level }).collect();
         // #220: the level now and the render scale – amber while the governor holds it below the level chosen
         if let Some(g) = &self.governor {
             out.insert(1, item(format!("Q {} {:.2}{}", g.level().name().to_uppercase(), g.scale(), if g.auto() { "" } else { " FIX" }), g.level() != g.ceiling()));
@@ -1470,7 +1443,7 @@ impl App {
             }
             _ => None,
         };
-        let report = &self.stats.report;
+        let report = &self.stats.feed.report;
         let mut lines = Vec::new();
         if let Some(e) = &self.error {
             // font8x8 has no dashes but the ASCII one

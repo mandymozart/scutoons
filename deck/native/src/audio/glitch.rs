@@ -10,7 +10,7 @@
 //! never logs.
 use crate::clock::now_ns;
 pub use deck_core::monitor::Cause;
-use deck_core::monitor::{classify, load_bin, Histogram, Timing, BINS, LOAD_FLOOR};
+use deck_core::monitor::{self, classify, load_bin, AudioWindow, Histogram, Report, Timing, BINS, LOAD_FLOOR};
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
 
@@ -119,6 +119,42 @@ impl Glitches {
     fn report(&self, cause: Cause, at_ns: u64) {
         self.by_cause[cause as usize].fetch_add(1, Ordering::Relaxed);
         self.last.store((at_ns / 1000) << 8 | (cause as u64 + 1), Ordering::Relaxed);
+    }
+}
+
+/// #364: the frame thread's side of the HUD's numbers – deck-core's monitor, fed from the callback's atomics: the
+/// glitch counts every frame, the limiter's gain reduction per frame, once a second the window of block loads with the
+/// lead; its last report (refreshed with the HUD). No rule here – the core counts, judges and words.
+#[derive(Default)]
+pub struct MonitorFeed {
+    pub monitor: monitor::Monitor,
+    pub report: Report,
+    audio: AudioWindow,
+    at: f64,
+    /// the glitch count last seen (the quality governor's input, #220)
+    pub seen: u64,
+}
+
+impl MonitorFeed {
+    /// a frame at `now_ms`: the audio's numbers (None = no sound), the limiter's gain reduction since the last frame, the
+    /// rate, the governor's fps cap (0 = none)
+    pub fn feed(&mut self, now_ms: f64, g: Option<&Glitches>, reduction: f32, rate: f32, target_fps: f32) {
+        self.monitor.target(target_fps);
+        let Some(g) = g else {
+            self.monitor.silent();
+            return;
+        };
+        self.seen = g.count();
+        self.monitor.glitches(now_ms, g.counts());
+        self.audio.limiter(reduction);
+        if now_ms - self.at >= 1000.0 || self.at == 0.0 {
+            self.at = now_ms;
+            let mut w = self.audio.take();
+            w.loads = g.take_loads();
+            w.lead = g.lead();
+            w.rate = rate;
+            self.monitor.audio(now_ms, w);
+        }
     }
 }
 
