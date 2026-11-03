@@ -301,7 +301,7 @@ mod tests {
         assert_eq!(g.device_frames(), 480);
         let loads = g.take_loads();
         assert!((loads.max() - 1.1).abs() < 0.01, "the peak load: 11 ms of 10");
-        assert_eq!(loads.count(), 3, "every callback's render since the last take");
+        assert_eq!(loads.count(), 4, "every callback's render since the last take: late, long, underrun, the calm one");
         assert_eq!(g.take_loads().count(), 0, "taken");
         let causes: Vec<Cause> = std::iter::from_fn(|| log.pop().ok()).map(|e| e.cause).collect();
         assert_eq!(causes, [Cause::Late, Cause::Long, Cause::Underrun]);
