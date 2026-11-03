@@ -1,116 +1,93 @@
-//! The control domain, evaluated once per frame on the batch model (#183): compiled at load into one value slot per
-//! control output, every control input as a column (`deck_core::batch::Col`: the linked slot × scale + offset, or the
-//! node's param as a constant) and the LFOs as batches – per dependency level, per shape, struct-of-arrays, one loop
-//! each. A frame: the FFT analyzers, the tempo node (the clock at the heard moment), the LFO batches level by level, then
-//! the audio nodes' linked inputs into their Params. Video nodes read theirs with `input()` (a table lookup).
-//! `set` changes an unlinked input from outside, like a MIDI CC (the being's 3D buttons, #188): the input's constant, the
-//! LFO batch's column entry or the audio node's Param – a linked input belongs to its link.
-use crate::{Handles, Param};
+//! The control domain – ONE control half (#319, research/ENGINE-REFACTOR-PLAN.md P5, §2.8): the engine steps it once per
+//! 128-frame quantum inside the render (`Control`), and the picture reads what it computed from a snapshot ring by the
+//! heard frame (`Controls`, the frame thread's face). Before #319 the native deck stepped it once per video frame – the
+//! screen's refresh drove the sound – and the browser ran deck-core's `BatchGraph`; its API (`send` with an amount,
+//! `set_base`, `input`, `nodes`, the helpers `smooth` / `mul` / `add`) is this one's now.
+//!
+//! Compiled at load (#183, the batch model): one value slot per control output, every control input as a column
+//! (`deck_core::batch::Col`: the linked slot × scale + offset, or a constant), the computed nodes (lfo, smooth, mul, add)
+//! in dependency levels, one batch per level and operation – struct-of-arrays, one loop each. A step: the FFT analyzers,
+//! the tempo node (the clock at the block's first frame), the levels, then every control input of an audio node into
+//! its Param (the audio blocks glide each across the block – smooth.rs: per-sample interpolation, so a value that moves
+//! every block never zippers). Allocates only at build; a step, a `set_base`, a `send`, a shape change never do.
+//!
+//! What the frame thread may change (a MIDI CC, a 3D button, the being's waveform, a sent value) goes to the engine as a
+//! `Command` through a lock-free ring; the face keeps its own copy of the input table, so it reads every input of the
+//! heard snapshot without asking the audio thread.
 use crate::fft::Analyzer;
-use deck_space::graph::{Graph, Kind, PortType};
-use deck_core::tempo;
+use crate::Param;
 use deck_core::batch::{levels, Col};
 use deck_core::math::{fract_fast, sin_turns};
-
-/// Where a control input's value comes from (fixed at load: the graph and the params don't change while it runs).
-#[derive(Debug, Clone, Copy)]
-enum Src {
-    /// a link: `values[slot] * scale + offset`
-    Link(u32, f32, f32),
-    /// the node's param of the same name
-    Param(f32),
-    /// neither: the caller's default
-    Default,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Shape {
-    Sine,
-    Saw,
-    Square,
-}
+use deck_core::tempo::{self, BeatReader};
+use deck_space::graph::{Graph, Kind, PortType};
+use deck_space::params::default_for;
+use std::sync::atomic::{fence, AtomicU32, AtomicU64, Ordering};
+use std::sync::Arc;
 
 /// an LFO's shapes by name (its `shape` param), in the order `lfo_shape` counts them (deck-space's params.rs)
 pub use deck_space::params::LFO_SHAPES;
 
-impl Shape {
-    fn parse(s: &str) -> Shape {
-        match s {
-            "saw" => Shape::Saw,
-            "square" => Shape::Square,
-            _ => Shape::Sine,
+/// how many blocks the snapshot ring holds (64 × 128 frames ≈ 170 ms at 48 kHz: more than the lead + output latency)
+pub const DEPTH: usize = 64;
+/// how many commands may wait for the next block (a frame's knob drags and sends; more wait in the face)
+const COMMANDS: usize = 1024;
+
+/// Where a control input's value comes from (fixed at load but for its base: `set_base` turns it).
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Src {
+    /// a link: `values[slot] * scale + base` (the base is the link's offset as built)
+    Link(u32, f32, f32),
+    /// the node's param of the same name (or a base set from outside)
+    Param(f32),
+    /// neither: the reader's default
+    Default,
+}
+
+/// One control input: its source and the last value sent onto it (`send`: amount 0 = none).
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Input {
+    src: Src,
+    value: f32,
+    amount: f32,
+}
+
+impl Input {
+    /// the column form (slot, scale, offset); `default` stands for `Src::Default`. A send blends affinely:
+    /// `own · (1 − amount) + value · amount` – one column change, nothing per block.
+    fn col(&self, default: f32) -> (u32, f32, f32) {
+        let (slot, scale, base) = match self.src {
+            Src::Link(slot, scale, base) => (slot, scale, base),
+            Src::Param(v) => (0, 0.0, v),
+            Src::Default => (0, 0.0, default),
+        };
+        if self.amount == 0.0 {
+            return (slot, scale, base);
         }
+        let a = self.amount;
+        (slot, scale * (1.0 - a), base * (1.0 - a) + self.value * a)
     }
 
-    fn index(self) -> usize {
-        self as usize
-    }
-
-    fn of(i: usize) -> Shape {
-        [Shape::Sine, Shape::Saw, Shape::Square][i.min(2)]
-    }
-}
-
-/// The LFOs of one level and one shape: rate and depth as columns, the phase per LFO.
-struct Lfos {
-    shape: Shape,
-    rate: Col,
-    depth: Col,
-    phase: Vec<f32>,
-    out: Vec<u32>,
-}
-
-impl Lfos {
-    /// One loop over the batch – no dispatch, no branch on the input's kind or the shape (vectorisable).
-    #[inline(always)]
-    fn step(&mut self, v: &mut [f32], dt: f32) {
-        for i in 0..self.out.len() {
-            let ph = fract_fast(self.phase[i] + self.rate.get(v, i) * dt);
-            self.phase[i] = ph;
-            let wave = match self.shape {
-                Shape::Sine => sin_turns(ph),
-                Shape::Saw => ph * 2.0 - 1.0,
-                Shape::Square => {
-                    if ph < 0.5 {
-                        1.0
-                    } else {
-                        -1.0
-                    }
-                }
-            };
-            v[self.out[i] as usize] = (0.5 + 0.5 * wave) * self.depth.get(v, i);
-        }
+    fn read(&self, v: &[f32], default: f32) -> f32 {
+        let (slot, scale, offset) = self.col(default);
+        v[slot as usize] * scale + offset
     }
 }
 
-pub struct Controls {
-    /// this frame's value of every control output: slot 0 stays 0 (the constant source), node n's outputs from `base[n]`
-    values: Vec<f32>,
-    base: Vec<u32>,
+/// The input table both halves keep: per node its kind, its first value slot, its control inputs; the LFOs' shapes.
+#[derive(Clone)]
+struct Table {
+    ids: Vec<String>,
     kinds: Vec<Kind>,
-    /// per node, per input port
-    inputs: Vec<Vec<Src>>,
-    /// the LFO batches, level by level
-    lfos: Vec<Vec<Lfos>>,
-    tempo_node: Option<usize>,
-    analyzers: Vec<(usize, Analyzer)>,
-    /// the audio nodes' linked control inputs: one column, one Param each, and whose input each is (node, port)
-    param_in: Col,
-    params: Vec<Param>,
-    param_at: Vec<(usize, usize)>,
-    /// the audio nodes' unlinked control inputs (node, port, param) – `set` writes them
-    knobs: Vec<(usize, usize, Param)>,
-    /// per node: where an LFO sits in the batches (level, batch, index)
-    lfo_at: Vec<Option<(usize, usize, usize)>>,
-    /// the LFOs in graph order with their dependency level, and every node's shape (the LFOs' matter)
-    lfo_order: Vec<(usize, usize)>,
-    shapes: Vec<Shape>,
-    /// this frame's tempo clock (quantised cuts read it)
-    pub tempo: tempo::Now,
+    /// node n's outputs from slot `base[n]` (slot 0 stays 0: the constant source)
+    base: Vec<u32>,
+    slots: usize,
+    inputs: Vec<Vec<Input>>,
+    /// per node: an LFO's shape (an index into LFO_SHAPES)
+    shapes: Vec<Option<usize>>,
 }
 
-impl Controls {
-    pub fn new(graph: &Graph, audio: Option<&mut Handles>) -> Controls {
+impl Table {
+    fn new(graph: &Graph) -> Table {
         let mut base = Vec::with_capacity(graph.nodes.len());
         let mut slots = 1u32;
         for n in &graph.nodes {
@@ -126,196 +103,502 @@ impl Controls {
                     .inputs()
                     .iter()
                     .enumerate()
-                    .map(|(k, port)| match graph.link_into(i, k) {
-                        Some(l) if l.ty == PortType::Control => Src::Link(base[l.from.0] + l.from.1 as u32, l.scale, l.offset),
-                        _ if n.params.contains_key(port.name) => Src::Param(n.f32(port.name, 0.0)),
-                        _ => Src::Default,
+                    .map(|(k, port)| {
+                        let src = match graph.link_into(i, k) {
+                            Some(l) if l.ty == PortType::Control => Src::Link(base[l.from.0] + l.from.1 as u32, l.scale, l.offset),
+                            _ if n.params.contains_key(port.name) => Src::Param(n.f32(port.name, 0.0)),
+                            _ => Src::Default,
+                        };
+                        Input { src, value: 0.0, amount: 0.0 }
                     })
                     .collect()
             })
             .collect();
-        let mut c = Controls {
-            values: vec![0.0; slots as usize],
-            base,
-            kinds: graph.nodes.iter().map(|n| n.kind).collect(),
-            inputs,
-            lfos: Vec::new(),
-            tempo_node: graph.first(Kind::Tempo),
-            analyzers: Vec::new(),
-            param_in: Col::default(),
-            params: Vec::new(),
-            param_at: Vec::new(),
-            knobs: Vec::new(),
-            lfo_at: vec![None; graph.nodes.len()],
-            lfo_order: Vec::new(),
-            shapes: graph.nodes.iter().map(|n| Shape::parse(n.str("shape").unwrap_or("sine"))).collect(),
-            tempo: tempo::Now::default(),
-        };
-        // an LFO feeding another's rate / depth sits a level above it (Graph::build refused cycles already)
-        let is_lfo = |i: usize| graph.nodes[i].kind == Kind::Lfo;
-        let deps: Vec<Vec<usize>> = (0..graph.nodes.len())
-            .map(|t| graph.links.iter().filter(|l| l.to.0 == t && is_lfo(t) && is_lfo(l.from.0)).map(|l| l.from.0).collect())
+        let shapes = graph
+            .nodes
+            .iter()
+            .map(|n| (n.kind == Kind::Lfo).then(|| Shape::parse(n.str("shape").unwrap_or("sine")) as usize))
             .collect();
-        let level = levels(&deps).expect("the graph is acyclic");
-        c.lfo_order = graph.order.iter().filter(|&&i| is_lfo(i)).map(|&i| (i, level[i])).collect();
-        c.batch_lfos();
-        if let Some(h) = audio {
-            let rate = h.clock.rate;
-            for (node, ring) in h.taps.drain(..) {
-                c.analyzers.push((node, Analyzer::new(ring, rate, graph.nodes[node].f32("release", 0.25))));
-            }
-            for (node, port, p) in std::mem::take(&mut h.params) {
-                let mut col = std::mem::take(&mut c.param_in);
-                c.column(&mut col, node, port, p.get());
-                c.param_in = col;
-                c.params.push(p);
-                c.param_at.push((node, port));
-            }
-            c.knobs = std::mem::take(&mut h.knobs);
+        Table {
+            ids: graph.nodes.iter().map(|n| n.id.clone()).collect(),
+            kinds: graph.nodes.iter().map(|n| n.kind).collect(),
+            base,
+            slots: slots as usize,
+            inputs,
+            shapes,
         }
-        c
     }
 
-    /// Set `node`'s control input `port` to `value` (a MIDI CC, a 3D button): what `input` reads, the LFO's column, the
-    /// audio node's Param. A linked input is `source · scale + base` (#188, owner 2026-10-31: a linked knob "turnable
-    /// as the base"): `value` becomes its base – the link's offset – and the modulation keeps flowing on top. False: no
-    /// such input.
-    pub fn set(&mut self, node: usize, port: usize, value: f32) -> bool {
-        let src = match self.inputs.get(node).and_then(|i| i.get(port)) {
-            None => return false,
-            Some(Src::Link(slot, scale, _)) => Src::Link(*slot, *scale, value),
-            Some(_) => Src::Param(value),
+    fn get(&self, node: usize, port: usize) -> Option<&Input> {
+        self.inputs.get(node)?.get(port)
+    }
+
+    /// the input's base (#188): a linked input's link offset, an unlinked one's value
+    fn set_base(&mut self, node: usize, port: usize, base: f32) -> bool {
+        let Some(input) = self.inputs.get_mut(node).and_then(|i| i.get_mut(port)) else { return false };
+        input.src = match input.src {
+            Src::Link(slot, scale, _) => Src::Link(slot, scale, base),
+            _ => Src::Param(base),
         };
-        self.inputs[node][port] = src;
-        let (slot, scale) = match src {
-            Src::Link(slot, scale, _) => (slot, scale),
-            _ => (0, 0.0),
-        };
-        if let Some((l, b, k)) = self.lfo_at[node] {
-            let batch = &mut self.lfos[l][b];
-            match port {
-                0 => batch.rate.set(k, slot, scale, value),
-                _ => batch.depth.set(k, slot, scale, value),
-            }
-        }
-        for (_, _, p) in self.knobs.iter().filter(|(n, k, _)| (*n, *k) == (node, port)) {
-            p.set(value);
-        }
-        if let Some(i) = self.param_at.iter().position(|&at| at == (node, port)) {
-            self.param_in.set(i, slot, scale, value);
-        }
         true
     }
 
-    /// a linked input's base (its link's offset – what its knob turns); None for an unlinked one (its value is `input`)
-    pub fn base(&self, node: usize, port: usize) -> Option<f32> {
-        match self.inputs.get(node).and_then(|i| i.get(port)) {
-            Some(Src::Link(_, _, base)) => Some(*base),
+    fn send(&mut self, node: usize, port: usize, value: f32, amount: f32) -> bool {
+        let Some(input) = self.inputs.get_mut(node).and_then(|i| i.get_mut(port)) else { return false };
+        (input.value, input.amount) = (value, amount.clamp(0.0, 1.0));
+        true
+    }
+
+    fn base_of(&self, node: usize, port: usize) -> Option<f32> {
+        match self.get(node, port)?.src {
+            Src::Link(_, _, base) => Some(base),
             _ => None,
         }
     }
 
-    /// node `node`'s input `port` appended to `col` (a link, else the param, else `default` – as a constant)
-    fn column(&self, col: &mut Col, node: usize, port: usize, default: f32) {
-        match self.inputs[node][port] {
-            Src::Link(slot, scale, offset) => col.push(slot, scale, offset),
-            Src::Param(v) => col.constant(v),
-            Src::Default => col.constant(default),
+    fn input(&self, v: &[f32], node: usize, port: &str, default: f32) -> f32 {
+        let Some(k) = self.kinds.get(node).and_then(|k| k.input(port)) else { return default };
+        self.inputs[node][k].read(v, default)
+    }
+
+    /// by port index, an unset input at the catalog's default
+    fn input_at(&self, v: &[f32], node: usize, port: usize) -> Option<f32> {
+        let input = self.get(node, port)?;
+        Some(input.read(v, default_for(self.kinds[node], self.kinds[node].inputs()[port].name)))
+    }
+
+    fn outputs<'a>(&self, v: &'a [f32], node: usize) -> &'a [f32] {
+        let b = self.base[node] as usize;
+        &v[b..b + self.kinds[node].outputs().len()]
+    }
+
+    fn nodes(&self) -> impl Iterator<Item = (&str, &'static str, Vec<&'static str>)> + '_ {
+        self.ids.iter().zip(&self.kinds).map(|(id, k)| (id.as_str(), k.name(), k.inputs().iter().map(|p| p.name).collect()))
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Shape {
+    Sine,
+    Saw,
+    Square,
+}
+
+impl Shape {
+    fn parse(s: &str) -> Shape {
+        match s {
+            "saw" => Shape::Saw,
+            "square" => Shape::Square,
+            _ => Shape::Sine,
         }
     }
 
-    /// The LFOs into batches by level (the tempo and the FFT are written before any level) and by shape inside a level –
-    /// at the start and when a shape changes (the phases carry over).
-    fn batch_lfos(&mut self) {
-        let phase_of: Vec<(usize, f32)> = (0..self.lfo_at.len())
-            .filter_map(|n| self.lfo_at[n].map(|(l, b, k)| (n, self.lfos[l][b].phase[k])))
-            .collect();
-        let mut out: Vec<Vec<Lfos>> = Vec::new();
-        for &(i, level) in &self.lfo_order {
-            let shape = self.shapes[i];
-            if out.len() <= level {
-                out.resize_with(level + 1, Vec::new);
-            }
-            let list = &mut out[level];
-            let b = match list.iter().position(|b| b.shape == shape) {
-                Some(p) => &mut list[p],
-                None => {
-                    list.push(Lfos { shape, rate: Col::default(), depth: Col::default(), phase: vec![], out: vec![] });
-                    list.last_mut().expect("pushed")
+    fn of(i: usize) -> Shape {
+        [Shape::Sine, Shape::Saw, Shape::Square][i.min(2)]
+    }
+}
+
+/// What a batch computes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Op {
+    Lfo(Shape),
+    Smooth,
+    Mul,
+    Add,
+}
+
+impl Op {
+    fn of(kind: Kind, shape: Option<usize>) -> Option<Op> {
+        Some(match kind {
+            Kind::Lfo => Op::Lfo(Shape::of(shape.unwrap_or(0))),
+            Kind::Smooth => Op::Smooth,
+            Kind::Mul => Op::Mul,
+            Kind::Add => Op::Add,
+            _ => return None,
+        })
+    }
+}
+
+/// One level's nodes of one operation: two input columns (lfo rate · depth, smooth in · time, mul / add a · b), a state
+/// per node (the LFO's phase, the smoother's value), where each writes, and which node each is.
+struct Batch {
+    op: Op,
+    a: Col,
+    b: Col,
+    state: Vec<f32>,
+    out: Vec<u32>,
+    node: Vec<u32>,
+}
+
+impl Batch {
+    fn new(op: Op, room: usize) -> Batch {
+        let (mut a, mut b) = (Col::default(), Col::default());
+        a.reserve(room);
+        b.reserve(room);
+        Batch { op, a, b, state: Vec::with_capacity(room), out: Vec::with_capacity(room), node: Vec::with_capacity(room) }
+    }
+
+    /// One loop over the batch – no dispatch, no branch on an input's kind (vectorisable).
+    #[inline(always)]
+    fn step(&mut self, v: &mut [f32], dt: f32) {
+        let (a, b) = (&self.a, &self.b);
+        match self.op {
+            Op::Lfo(shape) => {
+                for i in 0..self.out.len() {
+                    let ph = fract_fast(self.state[i] + a.get(v, i) * dt);
+                    self.state[i] = ph;
+                    let wave = match shape {
+                        Shape::Sine => sin_turns(ph),
+                        Shape::Saw => ph * 2.0 - 1.0,
+                        Shape::Square => {
+                            if ph < 0.5 {
+                                1.0
+                            } else {
+                                -1.0
+                            }
+                        }
+                    };
+                    v[self.out[i] as usize] = (0.5 + 0.5 * wave) * b.get(v, i);
                 }
-            };
-            self.column(&mut b.rate, i, 0, 0.25);
-            self.column(&mut b.depth, i, 1, 1.0);
-            b.phase.push(phase_of.iter().find(|(n, _)| *n == i).map_or(0.0, |p| p.1));
-            b.out.push(self.base[i]);
+            }
+            Op::Smooth => {
+                for i in 0..self.out.len() {
+                    let t = b.get(v, i);
+                    let k = if t <= 0.0 { 1.0 } else { 1.0 - libm::expf(-dt / t) };
+                    self.state[i] += (a.get(v, i) - self.state[i]) * k;
+                    v[self.out[i] as usize] = self.state[i];
+                }
+            }
+            Op::Mul => {
+                for i in 0..self.out.len() {
+                    v[self.out[i] as usize] = a.get(v, i) * b.get(v, i);
+                }
+            }
+            Op::Add => {
+                for i in 0..self.out.len() {
+                    v[self.out[i] as usize] = a.get(v, i) + b.get(v, i);
+                }
+            }
         }
-        out.retain(|l| !l.is_empty());
-        self.lfos = out;
-        self.lfo_at.iter_mut().for_each(|x| *x = None);
-        for (l, level) in self.lfos.iter().enumerate() {
-            for (b, batch) in level.iter().enumerate() {
-                for (k, &slot) in batch.out.iter().enumerate() {
-                    if let Some(node) = self.base.iter().position(|&x| x == slot) {
-                        self.lfo_at[node] = Some((l, b, k));
+    }
+}
+
+/// What the frame thread asks of the engine's control half; applied at the next block's start.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Command {
+    Base { node: u32, port: u32, value: f32 },
+    Send { node: u32, port: u32, value: f32, amount: f32 },
+    Shape { node: u32, shape: u32 },
+}
+
+/// The engine's side of the link to the frame thread: the commands it applies and the ring it writes.
+pub(crate) struct Feed {
+    commands: rtrb::Consumer<Command>,
+    snapshots: Arc<Snapshots>,
+}
+
+/// What the frame thread's `Controls` takes from a built engine (`Handles::control`).
+pub struct Link {
+    commands: rtrb::Producer<Command>,
+    snapshots: Arc<Snapshots>,
+    frames: Arc<AtomicU64>,
+}
+
+/// The engine's link pair: its feed and the face's link.
+pub(crate) fn link(slots: usize, frames: Arc<AtomicU64>) -> (Feed, Link) {
+    let (tx, rx) = rtrb::RingBuffer::new(COMMANDS);
+    let snapshots = Arc::new(Snapshots::new(slots));
+    (Feed { commands: rx, snapshots: snapshots.clone() }, Link { commands: tx, snapshots, frames })
+}
+
+/// The picture's view of the control half (plan §3.3): every block's values, stamped with the block's first frame, in a
+/// preallocated ring `DEPTH` blocks deep. One writer (the engine), any reader; a per-entry seqlock (the frame stamp: a
+/// new entry always has a new frame) – never a lock, never a wait, never an allocation.
+pub struct Snapshots {
+    slots: usize,
+    frames: Box<[AtomicU64]>,
+    values: Box<[AtomicU32]>,
+    head: AtomicU64,
+}
+
+/// an entry being written (or never written)
+const EMPTY: u64 = u64::MAX;
+
+impl Snapshots {
+    pub fn new(slots: usize) -> Snapshots {
+        Snapshots {
+            slots,
+            frames: (0..DEPTH).map(|_| AtomicU64::new(EMPTY)).collect(),
+            values: (0..DEPTH * slots).map(|_| AtomicU32::new(0)).collect(),
+            head: AtomicU64::new(0),
+        }
+    }
+
+    /// the values of the block starting at `frame` (the engine, once per block)
+    pub fn write(&self, frame: u64, values: &[f32]) {
+        let n = self.head.load(Ordering::Relaxed);
+        let e = (n % DEPTH as u64) as usize;
+        self.frames[e].store(EMPTY, Ordering::Relaxed);
+        fence(Ordering::Release);
+        for (d, x) in self.values[e * self.slots..(e + 1) * self.slots].iter().zip(values) {
+            d.store(x.to_bits(), Ordering::Relaxed);
+        }
+        self.frames[e].store(frame, Ordering::Release);
+        self.head.store(n + 1, Ordering::Release);
+    }
+
+    /// The values of the newest block that starts at or before `frame` into `out` (the oldest kept one if `frame` is
+    /// older still). Returns that block's first frame; None = nothing written yet (`out` keeps what it had).
+    pub fn read(&self, frame: u64, out: &mut [f32]) -> Option<u64> {
+        for _ in 0..4 {
+            let n = self.head.load(Ordering::Acquire);
+            let mut pick = None;
+            for back in 0..(n as usize).min(DEPTH) {
+                let e = ((n - 1 - back as u64) % DEPTH as u64) as usize;
+                let f = self.frames[e].load(Ordering::Acquire);
+                if f == EMPTY {
+                    continue;
+                }
+                pick = Some(e);
+                if f <= frame {
+                    break;
+                }
+            }
+            let e = pick?;
+            let f1 = self.frames[e].load(Ordering::Acquire);
+            if f1 == EMPTY {
+                continue;
+            }
+            for (o, s) in out.iter_mut().zip(&self.values[e * self.slots..(e + 1) * self.slots]) {
+                *o = f32::from_bits(s.load(Ordering::Relaxed));
+            }
+            fence(Ordering::Acquire);
+            if self.frames[e].load(Ordering::Relaxed) == f1 {
+                return Some(f1);
+            }
+        }
+        None
+    }
+}
+
+/// The control half itself: built with the engine and stepped by it once per block (or by a face without an engine).
+pub struct Control {
+    table: Table,
+    /// this block's value of every control output
+    values: Vec<f32>,
+    /// the computed nodes, level by level (an LFO level has a batch per shape, room for all its LFOs in each)
+    levels: Vec<Vec<Batch>>,
+    /// per node: where it sits in the batches (level, batch, index)
+    at: Vec<Option<(usize, usize, usize)>>,
+    tempo_node: Option<usize>,
+    analyzers: Vec<(usize, Analyzer)>,
+    /// every control input of an audio node: a column, its Param, whose input it is, the default for an unset one
+    param_in: Col,
+    params: Vec<Param>,
+    param_at: Vec<(usize, usize)>,
+    param_default: Vec<f32>,
+    /// the engine's: the block's clock and the frame thread's link (None for a face's own)
+    beats: Option<BeatReader>,
+    feed: Option<Feed>,
+    /// the reference cadence of the P5 golden diff: step only every `period` frames (the frame thread's 60 Hz before
+    /// #319), with dt one period – (the next frame due, the period in frames)
+    cadence: Option<(f64, f64)>,
+    /// the clock this block (the tempo node's outputs and quantised cuts read it)
+    pub tempo: tempo::Now,
+}
+
+impl Control {
+    /// The control half of `graph`; `params` = every control input of the engine's audio nodes (graph node, input port,
+    /// the Param its block reads), `taps` = the fft nodes' sample rings, `rate` the engine's (for the analyzers).
+    pub(crate) fn new(graph: &Graph, params: &[(usize, usize, Param)], taps: Vec<(usize, rtrb::Consumer<f32>)>, rate: f32) -> Control {
+        let table = Table::new(graph);
+        let n = graph.nodes.len();
+        let mut c = Control {
+            values: vec![0.0; table.slots],
+            levels: Vec::new(),
+            at: vec![None; n],
+            tempo_node: graph.first(Kind::Tempo),
+            analyzers: taps.into_iter().map(|(node, ring)| (node, Analyzer::new(ring, rate, graph.nodes[node].f32("release", 0.25)))).collect(),
+            param_in: Col::default(),
+            params: Vec::with_capacity(params.len()),
+            param_at: Vec::with_capacity(params.len()),
+            param_default: Vec::with_capacity(params.len()),
+            beats: None,
+            feed: None,
+            cadence: None,
+            tempo: tempo::Now::default(),
+            table,
+        };
+        // the computed nodes in levels: a node reading another computed node sits a level above it
+        let op_of = |i: usize| Op::of(graph.nodes[i].kind, c.table.shapes[i]);
+        let deps: Vec<Vec<usize>> = (0..n)
+            .map(|t| {
+                if op_of(t).is_none() {
+                    return Vec::new();
+                }
+                graph.links.iter().filter(|l| l.to.0 == t && l.ty == PortType::Control && op_of(l.from.0).is_some()).map(|l| l.from.0).collect()
+            })
+            .collect();
+        let level = levels(&deps).expect("the graph is acyclic");
+        for &i in &graph.order {
+            let Some(op) = op_of(i) else { continue };
+            let l = level[i];
+            if c.levels.len() <= l {
+                c.levels.resize_with(l + 1, Vec::new);
+            }
+            // an LFO level gets all three shapes' batches, each with room for every LFO of the level (a shape change
+            // moves one between them without allocating)
+            if let Op::Lfo(_) = op {
+                if !c.levels[l].iter().any(|b| matches!(b.op, Op::Lfo(_))) {
+                    let room = graph.order.iter().filter(|&&j| level[j] == l && graph.nodes[j].kind == Kind::Lfo).count();
+                    for s in [Shape::Sine, Shape::Saw, Shape::Square] {
+                        c.levels[l].push(Batch::new(Op::Lfo(s), room));
                     }
                 }
             }
+            let b = match c.levels[l].iter().position(|b| b.op == op) {
+                Some(b) => b,
+                None => {
+                    c.levels[l].push(Batch::new(op, 0));
+                    c.levels[l].len() - 1
+                }
+            };
+            let (a, bb) = (c.column(i, 0), c.column(i, 1));
+            let batch = &mut c.levels[l][b];
+            batch.a.push(a.0, a.1, a.2);
+            batch.b.push(bb.0, bb.1, bb.2);
+            batch.state.push(if graph.nodes[i].kind == Kind::Lfo { graph.nodes[i].f32("phase", 0.0) } else { 0.0 });
+            batch.out.push(c.table.base[i]);
+            batch.node.push(i as u32);
+            c.at[i] = Some((l, b, batch.out.len() - 1));
+        }
+        for (node, port, p) in params {
+            let default = p.get();
+            let (slot, scale, offset) = c.table.inputs[*node][*port].col(default);
+            c.param_in.push(slot, scale, offset);
+            c.params.push(p.clone());
+            c.param_at.push((*node, *port));
+            c.param_default.push(default);
+        }
+        c
+    }
+
+    /// A control half without audio – a face's own (no engine: a deck without sound, the tests, the space's mirror).
+    pub fn detached(graph: &Graph) -> Control {
+        Control::new(graph, &[], Vec::new(), 48_000.0)
+    }
+
+    /// how many value slots (slot 0 the constant, then every node's control outputs)
+    pub fn slots(&self) -> usize {
+        self.values.len()
+    }
+
+    /// the engine's: its clock and the frame thread's link
+    pub(crate) fn attach(&mut self, beats: BeatReader, feed: Feed) {
+        self.beats = Some(beats);
+        self.feed = Some(feed);
+    }
+
+    /// node `node`'s input `port` as a column entry (a computed node's default: the catalog's)
+    fn column(&self, node: usize, port: usize) -> (u32, f32, f32) {
+        let kind = self.table.kinds[node];
+        self.table.inputs[node][port].col(default_for(kind, kind.inputs()[port].name))
+    }
+
+    /// the input's columns follow a change of its table entry
+    fn apply(&mut self, node: usize, port: usize) {
+        if let Some((l, b, k)) = self.at[node] {
+            let (slot, scale, offset) = self.column(node, port);
+            let batch = &mut self.levels[l][b];
+            match port {
+                0 => batch.a.set(k, slot, scale, offset),
+                1 => batch.b.set(k, slot, scale, offset),
+                _ => {}
+            }
+        }
+        if let Some(i) = self.param_at.iter().position(|&at| at == (node, port)) {
+            let (slot, scale, offset) = self.table.inputs[node][port].col(self.param_default[i]);
+            self.param_in.set(i, slot, scale, offset);
         }
     }
 
-    /// an LFO's shape (an index into LFO_SHAPES); None for other nodes
-    pub fn lfo_shape(&self, node: usize) -> Option<usize> {
-        self.lfo_at.get(node).copied().flatten().map(|_| self.shapes[node].index())
-    }
-
-    /// An LFO's shape from outside (the being's waveform button): the batches are rebuilt – the LFO moves into its new
-    /// shape's batch, every phase carries over. A user's action, not a frame's: this allocates.
-    pub fn set_lfo_shape(&mut self, node: usize, shape: usize) -> bool {
-        if self.lfo_shape(node).is_none() {
+    /// Node `node`'s input `port` gets the base `value` (#188, owner 2026-10-31: a linked knob "turnable as the base"):
+    /// a linked input is `source · scale + base` – its modulation keeps flowing on top; an unlinked one is the base
+    /// alone (a MIDI CC, a 3D button). A send's blend stays on top. False: no such input.
+    pub fn set_base(&mut self, node: usize, port: usize, value: f32) -> bool {
+        if !self.table.set_base(node, port, value) {
             return false;
         }
-        if self.shapes[node] != Shape::of(shape) {
-            self.shapes[node] = Shape::of(shape);
-            self.batch_lfos();
-        }
+        self.apply(node, port);
         true
     }
 
-    /// `node`'s control input `port`: the linked output mapped by the link, else the node's own param, else `default`
-    pub fn input(&self, node: usize, port: &str, default: f32) -> f32 {
-        let Some(k) = self.kinds[node].input(port) else { return default };
-        match self.inputs[node][k] {
-            Src::Link(slot, scale, offset) => self.values[slot as usize] * scale + offset,
-            Src::Param(v) => v,
-            Src::Default => default,
+    /// A value sent from outside onto node `node`'s input `port` (#189 force / blend, #184): the input becomes
+    /// `own · (1 − amount) + value · amount` – amount 1 = force (the value alone), 0 = the input as built again; a link
+    /// keeps flowing in proportion. False: no such input.
+    pub fn send(&mut self, node: usize, port: usize, value: f32, amount: f32) -> bool {
+        if !self.table.send(node, port, value, amount) {
+            return false;
         }
+        self.apply(node, port);
+        true
     }
 
-    /// `node`'s control outputs this frame (its port order)
-    pub fn outputs(&self, node: usize) -> &[f32] {
-        let b = self.base[node] as usize;
-        &self.values[b..b + self.kinds[node].outputs().len()]
+    /// An LFO's shape (the being's waveform button): it moves into its level's batch of that shape, its phase with it.
+    /// Never allocates (the batches have room for the level's LFOs). False: not an LFO.
+    pub fn set_lfo_shape(&mut self, node: usize, shape: usize) -> bool {
+        let Some((l, b, k)) = self.at.get(node).copied().flatten() else { return false };
+        let Op::Lfo(now) = self.levels[l][b].op else { return false };
+        let shape = Shape::of(shape);
+        self.table.shapes[node] = Some(shape as usize);
+        if now == shape {
+            return true;
+        }
+        let from = &mut self.levels[l][b];
+        let (a, bb, state, out) = (from.a.swap_remove(k), from.b.swap_remove(k), from.state.swap_remove(k), from.out.swap_remove(k));
+        from.node.swap_remove(k);
+        if let Some(&moved) = from.node.get(k) {
+            self.at[moved as usize] = Some((l, b, k));
+        }
+        let t = self.levels[l].iter().position(|x| x.op == Op::Lfo(shape)).expect("an LFO level has every shape's batch");
+        let to = &mut self.levels[l][t];
+        to.a.push(a.0, a.1, a.2);
+        to.b.push(bb.0, bb.1, bb.2);
+        to.state.push(state);
+        to.out.push(out);
+        to.node.push(node as u32);
+        self.at[node] = Some((l, t, to.out.len() - 1));
+        true
     }
 
-    /// one frame: `lead` = how many samples the audio callback has rendered past the heard moment (the FFT looks
-    /// back), `tempo` = the clock at the heard moment
-    pub fn update(&mut self, dt: f32, lead: usize, tempo: &tempo::Now) {
+    fn command(&mut self, c: Command) {
+        match c {
+            Command::Base { node, port, value } => self.set_base(node as usize, port as usize, value),
+            Command::Send { node, port, value, amount } => self.send(node as usize, port as usize, value, amount),
+            Command::Shape { node, shape } => self.set_lfo_shape(node as usize, shape as usize),
+        };
+    }
+
+    /// One step of `dt` seconds at the clock `tempo`: the analyzers (causal: the samples rendered so far), the tempo
+    /// node, the levels, the audio nodes' Params.
+    pub fn step(&mut self, dt: f32, tempo: &tempo::Now) {
         let v = &mut self.values;
+        let base = &self.table.base;
         for (node, a) in &mut self.analyzers {
-            let b = self.base[*node] as usize;
-            v[b..b + 4].copy_from_slice(&a.update(dt, lead));
+            let b = base[*node] as usize;
+            v[b..b + 4].copy_from_slice(&a.update(dt, 0));
         }
         self.tempo = *tempo;
         if let Some(i) = self.tempo_node {
             let p = &tempo.pos;
             // pulse: 1 on the beat, gone by its middle (0 while stopped)
             let pulse = if tempo.running { (1.0 - p.phase).powi(6) } else { 0.0 };
-            let b = self.base[i] as usize;
+            let b = base[i] as usize;
             for (o, x) in v[b..b + 6].iter_mut().zip([tempo.bpm, p.beat, p.bar as f64, p.phase, p.bar_phase, pulse]) {
                 *o = x as f32;
             }
         }
-        for level in &mut self.lfos {
+        for level in &mut self.levels {
             for b in level {
                 b.step(v, dt);
             }
@@ -325,14 +608,197 @@ impl Controls {
         }
     }
 
-    /// the first FFT node's values (for the HUD)
-    pub fn fft(&self) -> Option<[f32; 4]> {
-        self.analyzers.first().map(|(_, a)| a.values())
+    /// The engine's block (`frame` = its first frame, `rate` the engine's): the frame thread's commands, one step of
+    /// `QUANTUM` frames at the clock there, the values into the snapshot ring. Never allocates.
+    pub(crate) fn block(&mut self, frame: u64, frames: usize, rate: f32) {
+        if let Some(mut feed) = self.feed.take() {
+            while let Ok(c) = feed.commands.pop() {
+                self.command(c);
+            }
+            self.feed = Some(feed);
+        }
+        let now = match self.beats.as_ref().and_then(BeatReader::block) {
+            Some((map, _, start)) => tempo::Now { bpm: map.bpm, pos: map.position(start), per_bar: map.per_bar, running: map.running },
+            None => tempo::Now::default(),
+        };
+        match &mut self.cadence {
+            None => self.step(frames as f32 / rate, &now),
+            Some((next, period)) => {
+                let (due, period) = (*next, *period);
+                if frame as f64 >= due {
+                    *next = due + period;
+                    self.step(period as f32 / rate, &now);
+                }
+            }
+        }
+        if let Some(feed) = &self.feed {
+            feed.snapshots.write(frame, &self.values);
+        }
     }
 
-    /// (levels, batches) of the LFOs – the shape the build found
+    /// The reference of the P5 golden diff: step at `hz` (the frame thread's rate before #319) instead of every block.
+    pub(crate) fn every(&mut self, hz: f32, rate: f32) {
+        self.cadence = Some((0.0, f64::from(rate) / f64::from(hz)));
+    }
+
+    /// `node`'s control input `port`: the link mapped by it (and the last send), else the node's own param, else
+    /// `default`
+    pub fn input(&self, node: usize, port: &str, default: f32) -> f32 {
+        self.table.input(&self.values, node, port, default)
+    }
+
+    /// node `node`'s input `port` by index (an unset one at the catalog's default) – what a parameter path `node.port`
+    /// reads (deck-outputs, #282). None = no such input.
+    pub fn input_at(&self, node: usize, port: usize) -> Option<f32> {
+        self.table.input_at(&self.values, node, port)
+    }
+
+    /// `node`'s control outputs this block (its port order)
+    pub fn outputs(&self, node: usize) -> &[f32] {
+        self.table.outputs(&self.values, node)
+    }
+
+    /// a linked input's base (its link's offset – what its knob turns); None for an unlinked one (its value is `input`)
+    pub fn base(&self, node: usize, port: usize) -> Option<f32> {
+        self.table.base_of(node, port)
+    }
+
+    /// an LFO's shape (an index into LFO_SHAPES); None for other nodes
+    pub fn lfo_shape(&self, node: usize) -> Option<usize> {
+        self.table.shapes.get(node).copied().flatten()
+    }
+
+    /// The nodes in scene order: (id, kind, input port names) – the table a host resolves `node.port` names with.
+    pub fn nodes(&self) -> impl Iterator<Item = (&str, &'static str, Vec<&'static str>)> + '_ {
+        self.table.nodes()
+    }
+
+    /// (levels, batches) of the computed nodes – the shape the build found (empty batches not counted)
     pub fn shape(&self) -> (usize, usize) {
-        (self.lfos.len(), self.lfos.iter().map(Vec::len).sum())
+        (self.levels.len(), self.levels.iter().flatten().filter(|b| !b.out.is_empty()).count())
+    }
+}
+
+/// The frame thread's face of the control half: a copy of the input table, the values of the heard block, and the way
+/// to the engine (a link: the snapshot ring and the command ring) – or, without an engine, a control half of its own that
+/// `update` steps. The picture, the outputs, the space and the pad read and turn it; it never touches the audio thread's
+/// state.
+pub struct Controls {
+    table: Table,
+    values: Vec<f32>,
+    half: Half,
+    /// commands the ring had no room for (sent with the next update)
+    waiting: Vec<Command>,
+    /// the clock at the heard moment (quantised cuts read it)
+    pub tempo: tempo::Now,
+}
+
+enum Half {
+    Engine(Link),
+    Own(Box<Control>),
+}
+
+impl Controls {
+    /// The face of the engine's control half (its handles' link), or of its own when there is no engine.
+    pub fn new(graph: &Graph, audio: Option<&mut crate::Handles>) -> Controls {
+        let table = Table::new(graph);
+        let half = match audio.and_then(|h| h.control.take()) {
+            Some(link) => Half::Engine(link),
+            None => Half::Own(Box::new(Control::detached(graph))),
+        };
+        Controls { values: vec![0.0; table.slots], table, half, waiting: Vec::new(), tempo: tempo::Now::default() }
+    }
+
+    /// One video frame: `tempo` = the clock at the heard moment, `lead` = how many frames the engine has rendered past
+    /// it. With an engine: the values of the block being heard (the snapshot ring); without: one step of `dt`.
+    pub fn update(&mut self, dt: f32, lead: usize, tempo: &tempo::Now) {
+        self.tempo = *tempo;
+        match &mut self.half {
+            Half::Engine(link) => {
+                while let Some(&c) = self.waiting.first() {
+                    if link.commands.push(c).is_err() {
+                        break;
+                    }
+                    self.waiting.remove(0);
+                }
+                let heard = link.frames.load(Ordering::Relaxed).saturating_sub(lead as u64);
+                link.snapshots.read(heard, &mut self.values);
+            }
+            Half::Own(c) => {
+                c.step(dt, tempo);
+                self.values.copy_from_slice(&c.values);
+            }
+        }
+    }
+
+    fn command(&mut self, c: Command) {
+        match &mut self.half {
+            Half::Engine(link) => {
+                if !self.waiting.is_empty() || link.commands.push(c).is_err() {
+                    self.waiting.push(c);
+                }
+            }
+            Half::Own(own) => own.command(c),
+        }
+    }
+
+    /// Set `node`'s control input `port`'s base (`Control::set_base`): a MIDI CC, a 3D button. False: no such input.
+    pub fn set_base(&mut self, node: usize, port: usize, value: f32) -> bool {
+        if !self.table.set_base(node, port, value) {
+            return false;
+        }
+        self.command(Command::Base { node: node as u32, port: port as u32, value });
+        true
+    }
+
+    /// Send a value onto `node`'s input `port` (`Control::send`). False: no such input.
+    pub fn send(&mut self, node: usize, port: usize, value: f32, amount: f32) -> bool {
+        if !self.table.send(node, port, value, amount) {
+            return false;
+        }
+        self.command(Command::Send { node: node as u32, port: port as u32, value, amount });
+        true
+    }
+
+    /// An LFO's shape from outside (the being's waveform button); its phase carries over. False: not an LFO.
+    pub fn set_lfo_shape(&mut self, node: usize, shape: usize) -> bool {
+        if self.lfo_shape(node).is_none() {
+            return false;
+        }
+        self.table.shapes[node] = Some(Shape::of(shape) as usize);
+        self.command(Command::Shape { node: node as u32, shape: shape as u32 });
+        true
+    }
+
+    pub fn input(&self, node: usize, port: &str, default: f32) -> f32 {
+        self.table.input(&self.values, node, port, default)
+    }
+
+    pub fn input_at(&self, node: usize, port: usize) -> Option<f32> {
+        self.table.input_at(&self.values, node, port)
+    }
+
+    pub fn outputs(&self, node: usize) -> &[f32] {
+        self.table.outputs(&self.values, node)
+    }
+
+    pub fn base(&self, node: usize, port: usize) -> Option<f32> {
+        self.table.base_of(node, port)
+    }
+
+    pub fn lfo_shape(&self, node: usize) -> Option<usize> {
+        self.table.shapes.get(node).copied().flatten()
+    }
+
+    pub fn nodes(&self) -> impl Iterator<Item = (&str, &'static str, Vec<&'static str>)> + '_ {
+        self.table.nodes()
+    }
+
+    /// the first FFT node's values (for the HUD)
+    pub fn fft(&self) -> Option<[f32; 4]> {
+        let i = self.table.kinds.iter().position(|&k| k == Kind::Fft)?;
+        let o = self.outputs(i);
+        Some([o[0], o[1], o[2], o[3]])
     }
 }
 
@@ -349,7 +815,7 @@ impl deck_space::space::values::Knobs for Controls {
         Controls::lfo_shape(self, node)
     }
     fn set(&mut self, node: usize, port: usize, value: f32) -> bool {
-        Controls::set(self, node, port, value)
+        Controls::set_base(self, node, port, value)
     }
     fn base(&self, node: usize, port: usize) -> Option<f32> {
         Controls::base(self, node, port)
@@ -360,208 +826,5 @@ impl deck_space::space::values::Knobs for Controls {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::Engine;
-    use deck_space::scene::Scene;
-
-    fn graph(text: &str) -> Graph {
-        Graph::build(&Scene::parse(text).unwrap()).unwrap()
-    }
-
-    #[test]
-    fn links_map_lfos_into_video_and_audio_inputs() {
-        let g = graph(
-            "[[node]]\nid=\"l\"\nkind=\"lfo\"\nrate=0.25\nshape=\"square\"\n\
-             [[node]]\nid=\"p\"\nkind=\"test_pattern\"\nzoom=3\n[[node]]\nid=\"o\"\nkind=\"osc\"\n\
-             [[link]]\nfrom=\"l\"\nto=\"p.speed\"\nscale=2\noffset=1\n[[link]]\nfrom=\"l\"\nto=\"o.freq\"\nscale=100\n",
-        );
-        let (_, mut h) = Engine::build(&g, 48_000.0, 1.0).unwrap();
-        let freq = h.params[0].2.clone();
-        let mut c = Controls::new(&g, Some(&mut h));
-        c.update(0.1, 0, &tempo::Now::default());
-        assert_eq!(c.input(1, "speed", 0.0), 3.0); // square high = 1 → 1 * 2 + 1
-        assert_eq!(c.input(1, "zoom", 1.0), 3.0); // unlinked: the node's param
-        assert_eq!(c.input(1, "hue", 0.5), 0.5); // neither: the default
-        assert_eq!(freq.get(), 100.0);
-        c.update(2.0, 0, &tempo::Now::default()); // phase 0.025 + 0.5 → the low half
-        assert_eq!(c.input(1, "speed", 0.0), 1.0);
-    }
-
-    #[test]
-    fn set_writes_unlinked_inputs_like_a_cc() {
-        let g = graph(
-            "[[node]]
-id=\"l\"
-kind=\"lfo\"
-rate=0
-shape=\"square\"
-[[node]]
-id=\"p\"
-kind=\"test_pattern\"
-             [[node]]
-id=\"f\"
-kind=\"fm\"
-[[link]]
-from=\"l\"
-to=\"p.speed\"
-",
-        );
-        let (_, mut h) = Engine::build(&g, 48_000.0, 1.0).unwrap();
-        let index = h.knobs.iter().find(|k| (k.0, k.1) == (2, 3)).expect("fm.index is a knob").2.clone();
-        let mut c = Controls::new(&g, Some(&mut h));
-        assert!(c.set(1, 2, 0.7), "p.hue: unlinked");
-        assert_eq!(c.input(1, "hue", 0.0), 0.7);
-        // #188: a linked input's knob turns its base; the link flows on top (the square LFO at 1 here once stepped)
-        assert_eq!(c.base(1, 0), Some(0.0), "the link's offset");
-        assert!(c.set(1, 0, 3.0), "p.speed: its base");
-        assert_eq!((c.base(1, 0), c.base(1, 2)), (Some(3.0), None));
-        assert!(c.set(2, 3, 4.5));
-        assert_eq!(index.get(), 4.5, "the audio thread's Param");
-        // the LFO's depth through its batch column: a square at phase 0 = depth
-        assert!(c.set(0, 1, 0.25));
-        c.update(0.01, 0, &tempo::Now::default());
-        assert_eq!(c.input(1, "speed", 0.0), 3.25, "the depth 0.25 on top of the base 3");
-        assert!(c.set(0, 0, 50.0), "the rate");
-        c.update(0.011, 0, &tempo::Now::default()); // phase 0.55 → the low half
-        assert_eq!(c.input(1, "speed", 1.0), 3.0);
-    }
-
-    /// #188: a knob on a linked audio input turns its base – the audio thread's Param gets the link on top of it
-    #[test]
-    fn a_linked_audio_input_turns_as_its_base() {
-        let g = graph("[[node]]
-id=\"l\"
-kind=\"lfo\"
-rate=0
-shape=\"square\"
-[[node]]
-id=\"o\"
-kind=\"osc\"
-[[link]]
-from=\"l\"
-to=\"o.freq\"
-scale=100
-offset=40
-");
-        let (_, mut h) = Engine::build(&g, 48_000.0, 1.0).unwrap();
-        let freq = h.params[0].2.clone();
-        let mut c = Controls::new(&g, Some(&mut h));
-        c.update(0.01, 0, &tempo::Now::default());
-        assert_eq!(freq.get(), 140.0, "the square high: 1 · 100 + 40");
-        let port = Kind::Osc.input("freq").unwrap();
-        assert!(c.set(1, port, 300.0));
-        c.update(0.01, 0, &tempo::Now::default());
-        assert_eq!((freq.get(), c.input(1, "freq", 0.0), c.base(1, port)), (400.0, 400.0, Some(300.0)));
-    }
-
-    #[test]
-    fn an_lfo_changes_its_shape_and_keeps_its_phase() {
-        let g = graph("[[node]]\nid=\"a\"\nkind=\"lfo\"\nrate=0.1\n[[node]]\nid=\"b\"\nkind=\"lfo\"\nrate=0.1\nshape=\"saw\"\n");
-        let mut c = Controls::new(&g, None);
-        assert_eq!((c.lfo_shape(0), c.lfo_shape(1)), (Some(0), Some(1)));
-        assert_eq!(c.shape(), (1, 2));
-        c.update(1.0, 0, &tempo::Now::default()); // phase 0.1
-        assert!(c.set_lfo_shape(0, 2));
-        assert_eq!(c.shape(), (1, 2), "a square batch and a saw batch");
-        c.update(1.0, 0, &tempo::Now::default()); // phase 0.2: a square's high half
-        assert_eq!(c.outputs(0)[0], 1.0);
-        assert!(c.set_lfo_shape(0, 1));
-        assert_eq!(c.shape(), (1, 1), "both saws: one batch");
-        c.update(1.0, 0, &tempo::Now::default()); // phase 0.3 → saw −0.4 → 0.3
-        assert!((c.outputs(0)[0] - c.outputs(1)[0]).abs() < 1e-6, "same phase, same rate, same shape");
-        assert!(!c.set_lfo_shape(5, 0) && c.lfo_shape(5).is_none());
-    }
-
-    #[test]
-    fn the_tempo_node_outputs_the_clock() {
-        let g = graph("[[node]]\nid=\"t\"\nkind=\"tempo\"\n[[node]]\nid=\"p\"\nkind=\"test_pattern\"\n[[link]]\nfrom=\"t.pulse\"\nto=\"p.pulse\"\n");
-        let mut c = Controls::new(&g, None);
-        let now = tempo::Now { bpm: 96.0, pos: tempo::position(9.0, 4), per_bar: 4, running: true };
-        c.update(0.016, 0, &now);
-        assert_eq!(c.outputs(0), [96.0, 9.0, 2.0, 0.0, 0.25, 1.0]);
-        assert_eq!(c.input(1, "pulse", 0.0), 1.0);
-        c.update(0.016, 0, &tempo::Now { pos: tempo::position(9.5, 4), ..now });
-        assert!(c.input(1, "pulse", 0.0) < 0.02);
-    }
-
-    /// The control domain as it ran before #183 (the patcher model: per frame, per LFO in topological order, each input
-    /// found by searching the links, the shape read from the params) – the reference the batches must match.
-    struct Patcher {
-        out: Vec<Vec<f32>>,
-        phase: Vec<f32>,
-    }
-
-    impl Patcher {
-        fn input(&self, g: &Graph, node: usize, port: &str, default: f32) -> f32 {
-            let n = &g.nodes[node];
-            let Some(k) = n.kind.input(port) else { return default };
-            match g.link_into(node, k) {
-                Some(l) if l.ty == PortType::Control => self.out[l.from.0][l.from.1] * l.scale + l.offset,
-                _ => n.f32(port, default),
-            }
-        }
-
-        fn update(&mut self, g: &Graph, dt: f32, tempo: &tempo::Now) {
-            if let Some(i) = g.first(Kind::Tempo) {
-                let p = &tempo.pos;
-                let pulse = if tempo.running { (1.0 - p.phase).powi(6) } else { 0.0 };
-                let v = [tempo.bpm, p.beat, p.bar as f64, p.phase, p.bar_phase, pulse];
-                for (o, x) in self.out[i].iter_mut().zip(v) {
-                    *o = x as f32;
-                }
-            }
-            for &i in &g.order {
-                if g.nodes[i].kind == Kind::Lfo {
-                    let rate = self.input(g, i, "rate", 0.25);
-                    let depth = self.input(g, i, "depth", 1.0);
-                    self.phase[i] = (self.phase[i] + rate * dt).fract();
-                    let wave = match g.nodes[i].str("shape").unwrap_or("sine") {
-                        "saw" => self.phase[i] * 2.0 - 1.0,
-                        "square" => if self.phase[i] < 0.5 { 1.0 } else { -1.0 },
-                        _ => (self.phase[i] * std::f32::consts::TAU).sin(),
-                    };
-                    self.out[i][0] = (0.5 + 0.5 * wave) * depth;
-                }
-            }
-        }
-    }
-
-    /// The same scene through the patcher and the batches: every control output and every video input agree.
-    #[test]
-    fn the_batches_match_the_patcher() {
-        // three levels of LFOs (rate and depth fed from the level below, the tempo's phase into one), all shapes,
-        // negative rates, a test pattern reading them
-        let mut s = String::from("[[node]]\nid=\"t\"\nkind=\"tempo\"\n[[node]]\nid=\"p\"\nkind=\"test_pattern\"\n");
-        for l in 0..3 {
-            for w in 0..7 {
-                let shape = ["sine", "saw", "square"][(l + w) % 3];
-                s += &format!("[[node]]\nid=\"l{l}_{w}\"\nkind=\"lfo\"\nrate={}\nshape=\"{shape}\"\n", 0.3 * w as f32 - 0.8);
-                if l > 0 {
-                    s += &format!("[[link]]\nfrom=\"l{}_{w}\"\nto=\"l{l}_{w}.rate\"\nscale=1.7\noffset=-0.4\n", l - 1);
-                    s += &format!("[[link]]\nfrom=\"l{}_{}\"\nto=\"l{l}_{w}.depth\"\n", l - 1, (w + 1) % 7);
-                }
-            }
-        }
-        s += "[[link]]\nfrom=\"t.phase\"\nto=\"l0_3.depth\"\n[[link]]\nfrom=\"l2_4\"\nto=\"p.hue\"\nscale=2\n[[link]]\nfrom=\"l1_1\"\nto=\"p.zoom\"\n";
-        let g = graph(&s);
-        let mut b = Controls::new(&g, None);
-        assert_eq!(b.shape(), (3, 9), "3 levels × 3 shapes");
-        let mut p = Patcher { out: g.nodes.iter().map(|n| vec![0.0; n.kind.outputs().len()]).collect(), phase: vec![0.0; g.nodes.len()] };
-        for f in 0..600 {
-            let now = tempo::Now { bpm: 120.0, pos: tempo::position(f as f64 * 0.033, 4), per_bar: 4, running: true };
-            let dt = 1.0 / 60.0 + (f % 5) as f32 * 0.003;
-            b.update(dt, 0, &now);
-            p.update(&g, dt, &now);
-            for i in 0..g.nodes.len() {
-                for (x, y) in b.outputs(i).iter().zip(&p.out[i]) {
-                    assert!((x - y).abs() < 1e-4, "frame {f} node {}: {x} vs {y}", g.nodes[i].id);
-                }
-            }
-            for port in ["speed", "zoom", "hue", "pulse"] {
-                let (x, y) = (b.input(1, port, 0.5), p.input(&g, 1, port, 0.5));
-                assert!((x - y).abs() < 1e-4, "frame {f} p.{port}: {x} vs {y}");
-            }
-        }
-    }
-}
+#[path = "control_tests.rs"]
+mod tests;

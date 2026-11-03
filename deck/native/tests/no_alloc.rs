@@ -123,7 +123,6 @@ fn the_ring_and_its_render_thread_do_not_allocate() {
         renderer.fill(1_000_000_000 + i * 10_000_000);
         let b = &mut bufs[i as usize % 4];
         feed.play(b, 2, 1_000_000_000 + i * 10_000_000, |x| x);
-        while handles.taps[0].1.pop().is_ok() {}
     }
     measure(false);
     assert_eq!(CALLS.load(Ordering::SeqCst) - before, 0, "allocations / frees in the ring's two halves");
@@ -172,7 +171,7 @@ fn the_being_steps_without_allocating() {
     for f in 0..600 {
         let beat = tempo::Now { bpm: 84.0, pos: tempo::position(f as f64 * 0.023, 4), per_bar: 4, running: true };
         ctl.update(1.0 / 60.0, 0, &beat);
-        ctl.set(knob.0, knob.1, (f % 100) as f32 * 0.01);
+        ctl.set_base(knob.0, knob.1, (f % 100) as f32 * 0.01);
         let before = (being.head.mood, remote.head.mood);
         // a hand on a button for half a second; before it the pointer over it; a linked one grabbed; a double click
         being.hover = match f {
@@ -190,7 +189,7 @@ fn the_being_steps_without_allocating() {
         if (300..330).contains(&f) {
             // #188: the linked knob turns as its base
             let b = &being.buttons[linked];
-            ctl.set(b.node, b.port, b.spec.value((f - 300) as f32 / 30.0));
+            ctl.set_base(b.node, b.port, b.spec.value((f - 300) as f32 / 30.0));
         }
         being.strain(1.0 / 60.0, if (100..140).contains(&f) { 9.0 } else { 0.0 });
         // #209: the camera orbits – the knobs re-fan toward it and keep out of the core's and the head's shadow; the
@@ -258,8 +257,8 @@ fn the_post_plan_and_the_lights_do_not_allocate() {
         let beat = tempo::Now { bpm: 84.0, pos: tempo::position(f as f64 * 0.023, 4), per_bar: 4, running: true };
         ctl.update(1.0 / 60.0, 0, &beat);
         // a knob through the passes: bloom off and on, the pixels coarser
-        ctl.set(node, Kind::Space.input("bloom").unwrap(), (f % 120) as f32 / 60.0);
-        ctl.set(node, Kind::Space.input("pixel").unwrap(), 1.0 + (f % 7) as f32);
+        ctl.set_base(node, Kind::Space.input("bloom").unwrap(), (f % 120) as f32 / 60.0);
+        ctl.set_base(node, Kind::Space.input("pixel").unwrap(), 1.0 + (f % 7) as f32);
         let k = Knobs::read(&ctl, node);
         ran += space.post.plan(&k).passes().len();
         space.being.glow = (f % 50) as f32 * 0.04;

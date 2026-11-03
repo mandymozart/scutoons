@@ -95,14 +95,19 @@ pub enum Kind {
     Downmix,
     /// the explicit loop: `in` one block late
     Feedback,
+    /// control helpers (the catalog's `internal` scope, #319): a one-pole smoother over `time` s, a product, a sum – what
+    /// the rig lowering writes (a mixer strip's gain is a `mul`); no author places them, so they are not in `ALL`
+    Smooth,
+    Mul,
+    Add,
     /// a compiled module from the library (#280, modreg.rs): its ports come from its descriptor, not from this table;
     /// its scene name is `module:<name>`. Not in `ALL` – those are the kinds graph.rs defines.
     Module(ModuleKind),
 }
 
 impl Kind {
-    /// every kind with its name in a scene
-    const NAMES: [(&'static str, Kind); 25] = [
+    /// every kind with its name in a scene: the `graph` kinds (`ALL`), then the internal control helpers
+    const NAMES: [(&'static str, Kind); 28] = [
         ("test_pattern", Kind::TestPattern),
         ("shader", Kind::Shader),
         ("screen", Kind::Screen),
@@ -128,7 +133,11 @@ impl Kind {
         ("pan", Kind::Pan),
         ("downmix", Kind::Downmix),
         ("feedback", Kind::Feedback),
+        ("smooth", Kind::Smooth),
+        ("mul", Kind::Mul),
+        ("add", Kind::Add),
     ];
+    /// the `graph` kinds – what an author places (the catalog's `graph` scope, in its order)
     pub const ALL: [Kind; 25] = {
         let mut all = [Kind::Screen; 25];
         let mut i = 0;

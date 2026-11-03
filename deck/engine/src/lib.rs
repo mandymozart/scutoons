@@ -349,6 +349,8 @@ pub struct Engine {
     underruns: Arc<AtomicU64>,
     last_mark: Option<(u64, u64)>,
     rate: f32,
+    /// the control half (#319): stepped at the start of every quantum, before the audio steps read its Params
+    control: control::Control,
 }
 
 /// What the frame thread keeps of a built engine.
@@ -361,8 +363,11 @@ pub struct Handles {
     pub meters: Option<Arc<Meters>>,
     /// chapter_music nodes: where their loader sends the decoded track
     pub music: Vec<MusicFeed>,
-    /// fft nodes: their sample ring
-    pub taps: Vec<(usize, rtrb::Consumer<f32>)>,
+    /// fft nodes: their sample ring (the build hands them to the control half)
+    pub(crate) taps: Vec<(usize, rtrb::Consumer<f32>)>,
+    /// the control half's link for the frame thread's face (`control::Controls::new` takes it): the snapshot ring by
+    /// heard frame, the command ring (#319)
+    pub control: Option<control::Link>,
     pub clock: Clock,
     pub master: Param,
     /// the tempo map the frame thread publishes (deck-core's tempo controller) and the audio thread reads
@@ -429,6 +434,7 @@ impl Engine {
             meters: None,
             music: Vec::new(),
             taps: Vec::new(),
+            control: None,
             clock: Clock { frames: Arc::new(AtomicU64::new(0)), rate, stamp: Arc::new(Stamp::default()) },
             master: Param::new(volume),
             tempo: Arc::new(Shared::default()),
@@ -575,6 +581,12 @@ impl Engine {
         feeds.sort_by_key(|f| f.node);
         let plan = plan_outlets(&feeds, deck, rate);
         handles.notes = plan.notes;
+        // the control half: every control input of an audio node is a column of it (linked or not: a knob's base turns it)
+        let inputs: Vec<(usize, usize, Param)> = handles.params.iter().chain(&handles.knobs).cloned().collect();
+        let mut control = control::Control::new(graph, &inputs, std::mem::take(&mut handles.taps), rate);
+        let (feed, link) = control::link(control.slots(), handles.clock.frames.clone());
+        control.attach(deck_core::tempo::BeatReader { shared: handles.tempo.clone(), frames: handles.clock.frames.clone() }, feed);
+        handles.control = Some(link);
         let engine = Engine {
             meters: handles.meters.clone(),
             bufs,
@@ -595,6 +607,7 @@ impl Engine {
             underruns: handles.underruns.clone(),
             last_mark: None,
             rate,
+            control,
         };
         Ok((engine, handles))
     }
@@ -617,6 +630,22 @@ impl Engine {
     /// before the limiter. The engine starts with none (the outlets go straight on). Allocate it before, not in the callback.
     pub fn set_stage_environment(&mut self, environment: Box<dyn StageEnvironment>) {
         self.environment = environment;
+    }
+
+    /// The control half (#319): a worker that owns the engine drives it directly (`send`, `set_base`, `input_at` – no
+    /// face, no ring); the tests step it.
+    pub fn control(&self) -> &control::Control {
+        &self.control
+    }
+
+    pub fn control_mut(&mut self) -> &mut control::Control {
+        &mut self.control
+    }
+
+    /// The P5 golden diff's reference, never a deck's: the control half steps at `hz` (the native deck's video frame
+    /// rate before #319) instead of once per quantum.
+    pub fn control_at(&mut self, hz: f32) {
+        self.control.every(hz, self.rate);
     }
 
     /// (steps, batches, the batches' loops: "avx2" / "baseline" / "-") – the shape the build found
@@ -683,10 +712,11 @@ impl Engine {
         }
     }
 
-    /// One quantum: the steps, the meters, the outlets on the device channels, the master's ramp, the stage environment and
+    /// One quantum: the control half, the steps, the meters, the outlets on the device channels, the master's ramp, the stage environment and
     /// the soft limiters (silence without an outlet), the frame counter on.
     fn quantum(&mut self) {
         let n = QUANTUM;
+        self.control.block(self.frames.load(Ordering::Relaxed), n, self.rate);
         self.run(n);
         if let Some(m) = &self.meters {
             for (b, &(at, _)) in self.bufs.iter().zip(&m.at) {

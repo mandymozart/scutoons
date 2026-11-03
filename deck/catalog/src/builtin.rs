@@ -251,12 +251,13 @@ fn build() -> Vec<Descriptor> {
         Control,
         "core",
         "control",
-        "A low-frequency oscillator (control rate).",
-        &[ci("rate", "cycles per second"), ci("depth", "amplitude"), co("out", "the wave, -depth..depth")],
+        "A low-frequency oscillator (control rate: stepped once per 128-frame engine block).",
+        &[ci("rate", "cycles per second"), ci("depth", "amplitude"), co("out", "the wave, 0..depth")],
         &[
             log("rate", 0.01, 20.0, 0.25, "Hz", "cycles per second"),
             lin("depth", 0.0, 2.0, 1.0, "", "amplitude"),
             choice("shape", &[s("sine"), s("saw"), s("square")], "the wave (default sine)"),
+            knob("phase", 0.0, 1.0, 0.0, "", "where the wave starts (0..1 of a cycle)"),
         ],
     ),
     kind(
@@ -485,9 +486,9 @@ fn build() -> Vec<Descriptor> {
         &[knob("channels", 1.0, 32.0, 2.0, "", "how many channels the loop carries")],
     ),
     // helpers only the batch evaluator runs (control strips of the browser's lowering)
-    kind(F_BATCH | F_INTERNAL, "smooth", Control, "", "control", "Smooths its input over `time` (a control helper).", &[ci("in", "the value"), ci("time", "glide time"), co("out", "the smoothed value")], &[lin("in", -1000.0, 1000.0, 0.0, "", "the value"), log("time", 0.001, 10.0, 0.1, "s", "glide time")]),
-    kind(F_BATCH | F_INTERNAL, "mul", Control, "", "control", "Multiplies a and b (a control helper).", &[ci("a", "factor a"), ci("b", "factor b"), co("out", "a × b")], &[lin("a", -1000.0, 1000.0, 0.0, "", "factor a"), lin("b", -1000.0, 1000.0, 0.0, "", "factor b")]),
-    kind(F_BATCH | F_INTERNAL, "add", Control, "", "control", "Adds a and b (a control helper).", &[ci("a", "summand a"), ci("b", "summand b"), co("out", "a + b")], &[lin("a", -1000.0, 1000.0, 0.0, "", "summand a"), lin("b", -1000.0, 1000.0, 0.0, "", "summand b")]),
+    kind(F_BATCH | F_INTERNAL, "smooth", Control, "core", "control", "Smooths its input over `time` (a control helper).", &[ci("in", "the value"), ci("time", "glide time"), co("out", "the smoothed value")], &[lin("in", -1000.0, 1000.0, 0.0, "", "the value"), log("time", 0.001, 10.0, 0.1, "s", "glide time")]),
+    kind(F_BATCH | F_INTERNAL, "mul", Control, "core", "control", "Multiplies a and b (a control helper).", &[ci("a", "factor a"), ci("b", "factor b"), co("out", "a × b")], &[lin("a", -1000.0, 1000.0, 0.0, "", "factor a"), lin("b", -1000.0, 1000.0, 0.0, "", "factor b")]),
+    kind(F_BATCH | F_INTERNAL, "add", Control, "core", "control", "Adds a and b (a control helper).", &[ci("a", "summand a"), ci("b", "summand b"), co("out", "a + b")], &[lin("a", -1000.0, 1000.0, 0.0, "", "summand a"), lin("b", -1000.0, 1000.0, 0.0, "", "summand b")]),
     // planned modules (CYBERDECKS.md §8, the owner's list #182)
     kind(F_PLANNED, "model3d", Video, "", "3d", "Planned: a 3D model.", &[ci("rot", "rotation"), vo("out", "the picture")], &[lin("rot", 0.0, 1.0, 0.0, "", "rotation")]),
     kind(F_PLANNED, "text", Video, "", "text", "Planned: text over a picture.", &[vi("in", "the picture"), vo("out", "the picture with text")], &[]),

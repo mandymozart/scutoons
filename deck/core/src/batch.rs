@@ -107,6 +107,18 @@ impl Col {
         (self.src[i], self.scale[i], self.offset[i]) = (src, scale, offset);
     }
 
+    /// room for `n` more nodes – a batch that nodes move into while it runs (deck-engine's LFO shapes) never allocates then
+    pub fn reserve(&mut self, n: usize) {
+        self.src.reserve(n);
+        self.scale.reserve(n);
+        self.offset.reserve(n);
+    }
+
+    /// node `i`'s input out of the column, the last node's taking its place (its index becomes `i`): (src, scale, offset)
+    pub fn swap_remove(&mut self, i: usize) -> (u32, f32, f32) {
+        (self.src.swap_remove(i), self.scale.swap_remove(i), self.offset.swap_remove(i))
+    }
+
     pub fn len(&self) -> usize {
         self.src.len()
     }
