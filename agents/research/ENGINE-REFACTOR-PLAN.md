@@ -736,6 +736,7 @@ into the core, `getOutputTimestamp` stamps), the native deck's `Source::Relay` r
 filter unit tests on synthetic jitter; relay tests; conformance: the same anchor gives the same beat positions in both
 targets; owner LAN measurement ≤ ±5 ms p95. Rollback: the conductor's source picker stays on internal. Demo: X1 + phone
 clicking together, strobe on the beat in the browser. ≈ $5–8.
+**MIDI in as the show's clock (owner 2026-11-03, P8-relevant):** a deck's clock source can be a MIDI clock input – the venue's table-top master (Top Toy: "we often have a master midi clock as a table top"). Native has it (`Source::Midi`, `deck_core::tempo::midi_in`); P8 makes it the *leader* case: the deck that follows the MIDI clock sends its `Anchor` through the relay (`tempo` message) so the other decks and phones follow the table top without their own MIDI port; the browser's own Web MIDI clock in is an adapter feeding the same `midi_in` core code. Accept additions: leader on MIDI in → follower beat positions within the P8 bound; MIDI lost (`LOST_S`) → the relay anchor keeps the last tempo, the picker shows it.
 
 **P9 – Rigs and modules everywhere (M each).** (a) The native deck plays rigs (`flatten` → engine, the same path as the
 browser; new ticket). (b) After #306's decision (owner bench): the browser backend of `deck-module-host`, `module:*`
