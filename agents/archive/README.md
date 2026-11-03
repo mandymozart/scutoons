@@ -16,3 +16,5 @@ trail). How things are now: the topic docs in agents/; how agents work: agents/R
 | MEMORY.md | facts & findings log 2026-09-28 … 10-04 (mostly the pre-platform state); its gotchas → GOTCHAS.md |
 | BACKLOG.md | the one open-work list 2026-10-06 … 10-12: run results (night / day runs), Open, Done. Its open items were rewritten into FEATURES.md + ISSUES.md (same numbers) |
 | DOCS-REFACTOR.md | the 2026-10-12 analysis + proposal behind the current docs structure (done) |
+| DECISIONS-superseded.md | decisions a later owner decision fully replaced (2026-11-03, #380); quotes kept |
+| HANDOVER-2026-11-03.md | the HANDOVER before the law-book refactor (feature notes of 2026-10-12 … 11-01) |
