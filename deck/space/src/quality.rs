@@ -17,8 +17,9 @@
 //!   interval × `CALM`) for the rung's calm time steps one rung up. A probe that runs over budget within `PROBE_S`
 //!   steps back and doubles that rung's calm time (up to `MAX_CALM_S`) – a rung the deck can't hold is tried less and
 //!   less often, so it never flickers.
-//! - A frame interval over `HITCH_MS` (a hidden tab, a set loading) is a skipped sample; `hold` ignores the next
-//!   `HOLD_S` (the start, a known stall).
+//! - A frame interval over `HITCH_MS` (a set loading) is a skipped sample; `hold` ignores the next `HOLD_S` (the start,
+//!   a known stall). A pause over `PAUSE_MS` (a hidden tab, a phone back from another app) holds `PAUSE_HOLD_S`: the
+//!   device catches up after it (the S22: ~6 s of slow blocks and frames) – that is no load to step down on (#321).
 //! - A rung's frame rate cap saves power: `due` tells the caller to skip a frame that comes early.
 //!
 //! Pure and clock-free (the caller passes `now` in seconds); no allocation per frame (deck-native tests/no_alloc.rs) –
@@ -45,6 +46,10 @@ pub const PROBE_S: f64 = 6.0;
 pub const HITCH_MS: f32 = 250.0;
 /// what `hold` and the start ignore (s)
 pub const HOLD_S: f64 = 2.0;
+/// a frame interval over this is a pause (the page was hidden), not a hitch (ms)
+pub const PAUSE_MS: f32 = 1000.0;
+/// what the governor ignores after a pause (s)
+pub const PAUSE_HOLD_S: f64 = 6.0;
 /// a report goes out at most this often unless the rung changed (s), and only when the frame time moved `REPORT_MS`
 pub const REPORT_S: f64 = 2.0;
 pub const REPORT_MS: f32 = 1.0;
@@ -588,6 +593,12 @@ impl Governor {
             self.reset_window();
             return false;
         }
+        // back from a pause: what follows is the device catching up
+        if dt_ms > PAUSE_MS {
+            self.hold(now);
+            self.hold_until = now + PAUSE_HOLD_S;
+            return false;
+        }
         // a hitch is no sample (it doesn't end the window either: frequent hitches would starve the governor)
         if !(0.0..=HITCH_MS).contains(&dt_ms) {
             return false;
@@ -817,6 +828,21 @@ mod tests {
             n += g.frame(t, ms, 0) as usize;
         }
         assert!(n >= 1, "{}", g.frame_ms());
+    }
+
+    #[test]
+    fn back_from_a_hidden_page_the_catching_up_is_no_load() {
+        let mut g = Governor::new(Level::High, true);
+        let mut t = 0.0;
+        run(&mut g, &mut t, 3.0, 16.7);
+        let r = g.index();
+        // 20 s hidden, then the phone catches up: 5 s at 30 fps steps nothing
+        t += 20.0;
+        assert!(!g.frame(t, 20_000.0, 0));
+        assert_eq!(run(&mut g, &mut t, PAUSE_HOLD_S - 1.0, 33.0), 0);
+        assert_eq!(g.index(), r);
+        // a load that stays past the hold is load again
+        assert!(run(&mut g, &mut t, 3.0, 33.0) >= 1);
     }
 
     #[test]
