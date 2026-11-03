@@ -1,0 +1,13 @@
+name = "rig facts and the rig's lifecycle come from deck-space"
+about = "#368: which paths stream, which knob a stick turns, whether a mood change needs a reload (sameShape) or only new values are TS (rig.ts, engine-host controller.ts) around deck-space's Played"
+expected_fail = "#368 the rig facts live in live-deck rig.ts and engine-host controller.ts"
+
+[[step]]
+do = "load"
+rig = "character.catpope"
+mood = "happy"
+
+[[step]]
+do = "rig_facts"
+with = { subject = "character.catpope", from = "happy", to = "laughing" }
+expect = { reload = false, changed = { has = "voice_voice.index" }, sticks = { has = "voice_voice.ratio" } }

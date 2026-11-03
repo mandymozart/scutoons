@@ -1,0 +1,16 @@
+name = "the deck UI model: HUD lines and the stats bar from the core"
+about = "#374: the native HUD's lines and bar items are built in main.rs (hud_lines, bar_items) – the wasm build cannot show them and the browser rebuilt them in Svelte. One model in a platform-free crate; every platform draws it"
+expected_fail = "#374 the HUD model lives in main.rs"
+
+[[step]]
+do = "load"
+scene = "native/scenes/show-clock-lead.toml"
+
+[[step]]
+do = "run"
+ms = 2250
+
+[[step]]
+do = "hud"
+with = { scene = "show clock – lead", fps = 60.0, audio = true }
+expect = { title = { starts = "SCUTOONSDECK STAGE" }, lines = { has = "SRC INTERNAL LEADS" }, bar = { has = "F1" } }

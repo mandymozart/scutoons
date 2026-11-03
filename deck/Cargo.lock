@@ -1024,6 +1024,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "deck-headless"
+version = "0.1.0"
+dependencies = [
+ "deck-core",
+ "deck-space",
+ "live-core",
+ "serde",
+ "serde_json",
+ "toml 0.8.23",
+ "wasmtime",
+]
+
+[[package]]
 name = "deck-link"
 version = "0.1.0"
 dependencies = [

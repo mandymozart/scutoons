@@ -1,4 +1,4 @@
-Status 2026-11-03: the bridge audit, first pass (#357, read-only; a worker's report, every claim checked in the code at merge 3436e9f5 / 1fc7732f). The moves are tickets #363–#378 (Part of #311), plus the existing #360 #359 #358 #362 #343. Rerun: §5.
+Status 2026-11-03: the bridge audit, first pass (#357, read-only; a worker's report, every claim checked in the code at merge 3436e9f5 / 1fc7732f). The moves are tickets #363–#378 (Part of #311), plus the existing #360 #359 #358 #362 #343. Rerun: §5. #363 built §5's guard (check:core-only v2 – all 23 workarounds fail –, check:deck-deps, the headless deck host deck/headless with an expected_fail scenario per move ticket); found on the way: #379 (the vote lab copies vote.rs), #381 (the FFT is not bit-exact native vs wasm).
 
 # The browser bridge and its twins – what is logic, where it lives, what native would have to redo
 

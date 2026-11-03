@@ -1,107 +1,948 @@
 {
-	"$comment": "check:core-only (#357): the known deck logic in the browser's TypeScript, per file and pattern, each with the ticket that removes it. It only shrinks (npm run check:core-only -- --shrink); a growth needs the owner: a commit message with Owner-approved-baseline: <the owner's words, date>. Never add an entry to get past the check – move the logic into deck-core.",
+	"$comment": "check:core-only (#357, v2 #363): the known deck logic in the browser's TypeScript per file and rule, each with the ticket that moves it (entries); the known false positives with their reason (allow: the file, the rule, the code it matches, how often); every bridge file's size (budgets: lines, functions, Math. calls, core-only-ok lines). It only shrinks (npm run check:core-only -- --shrink); a growth needs the owner: a commit message with Owner-approved-baseline: <the owner's words, date>. Never add an entry or an allow rule to get past the check – move the logic into deck-core.",
+	"version": 2,
+	"rules": [
+		"scene-literal",
+		"tempo-math",
+		"midi-bytes",
+		"core-text",
+		"clamp",
+		"lead-rule",
+		"random",
+		"kind-branch",
+		"catalog-literal",
+		"catalog-branch",
+		"clamp-shape",
+		"tempo-shape",
+		"midi-shape",
+		"text-shape",
+		"random-shape",
+		"lead-shape",
+		"threshold",
+		"spec-table",
+		"mood-literal",
+		"twin-const",
+		"twin-comment"
+	],
 	"entries": {
-		"shared/live-core/src/clock.ts": {
-			"tempo-math": {
+		"creator/src/lib/components/sound/deck-half.svelte": {
+			"mood-literal": {
+				"count": 1,
+				"ticket": "#367"
+			}
+		},
+		"creator/src/lib/editor/signal-strip.ts": {
+			"clamp": {
+				"count": 1,
+				"ticket": "#373"
+			},
+			"clamp-shape": {
+				"count": 5,
+				"ticket": "#373"
+			},
+			"threshold": {
+				"count": 1,
+				"ticket": "#373"
+			}
+		},
+		"shared/engine-host/src/controller.ts": {
+			"mood-literal": {
+				"count": 1,
+				"ticket": "#367"
+			}
+		},
+		"shared/engine-host/src/meters.ts": {
+			"clamp-shape": {
+				"count": 1,
+				"ticket": "#373"
+			}
+		},
+		"shared/engine-host/src/monitor.ts": {
+			"midi-shape": {
+				"count": 1,
+				"ticket": "#373"
+			},
+			"midi-bytes": {
+				"count": 3,
+				"ticket": "#373"
+			}
+		},
+		"shared/engine-host/src/options.ts": {
+			"mood-literal": {
 				"count": 2,
-				"ticket": "#357"
+				"ticket": "#367"
+			}
+		},
+		"shared/engine-host/src/status.ts": {
+			"mood-literal": {
+				"count": 1,
+				"ticket": "#367"
+			}
+		},
+		"shared/live-core/src/index.ts": {
+			"lead-shape": {
+				"count": 1,
+				"ticket": "#365"
 			}
 		},
 		"shared/live-core/src/lead.ts": {
 			"lead-rule": {
 				"count": 1,
-				"ticket": "#311"
+				"ticket": "#365"
 			}
 		},
-		"shared/live-core/src/signals.ts": {
-			"scene-literal": {
-				"count": 14,
-				"ticket": "#357"
-			}
-		},
-		"shared/live-core/src/wire.ts": {
-			"clamp": {
-				"count": 2,
-				"ticket": "#357"
+		"shared/live-core/src/modules.ts": {
+			"twin-const": {
+				"count": 1,
+				"ticket": "#343"
 			}
 		},
 		"shared/live-core/src/worker.ts": {
 			"lead-rule": {
 				"count": 3,
-				"ticket": "#311"
+				"ticket": "#365"
+			},
+			"lead-shape": {
+				"count": 2,
+				"ticket": "#365"
 			}
 		},
 		"shared/live-deck/src/client.ts": {
-			"scene-literal": {
-				"count": 3,
-				"ticket": "#357"
+			"twin-const": {
+				"count": 1,
+				"ticket": "#366"
+			},
+			"twin-comment": {
+				"count": 4,
+				"ticket": "#366"
+			},
+			"text-shape": {
+				"count": 2,
+				"ticket": "#366"
 			},
 			"kind-branch": {
 				"count": 5,
-				"ticket": "#357"
+				"ticket": "#366"
 			}
 		},
 		"shared/live-deck/src/controls.ts": {
 			"clamp": {
-				"count": 4,
-				"ticket": "#357"
+				"count": 3,
+				"ticket": "#369"
 			}
 		},
 		"shared/live-deck/src/deck.ts": {
+			"mood-literal": {
+				"count": 2,
+				"ticket": "#367"
+			},
 			"clamp": {
 				"count": 1,
-				"ticket": "#357"
+				"ticket": "#367"
+			}
+		},
+		"shared/live-deck/src/events.ts": {
+			"twin-comment": {
+				"count": 1,
+				"ticket": "#377"
+			}
+		},
+		"shared/live-deck/src/gamepad.ts": {
+			"twin-const": {
+				"count": 1,
+				"ticket": "#369"
 			}
 		},
 		"shared/live-deck/src/rig.ts": {
 			"kind-branch": {
 				"count": 1,
-				"ticket": "#357"
+				"ticket": "#368"
 			}
 		},
 		"shared/live-deck/src/scene.ts": {
+			"spec-table": {
+				"count": 14,
+				"ticket": "#360"
+			},
+			"twin-const": {
+				"count": 3,
+				"ticket": "#367"
+			},
 			"scene-literal": {
 				"count": 9,
 				"ticket": "#360"
 			},
-			"clamp": {
-				"count": 1,
+			"catalog-literal": {
+				"count": 2,
 				"ticket": "#360"
-			}
-		},
-		"shared/engine-host/src/meters.ts": {
-			"clamp": {
-				"count": 1,
-				"ticket": "#357"
-			}
-		},
-		"shared/engine-host/src/monitor.ts": {
-			"kind-branch": {
-				"count": 3,
-				"ticket": "#357"
 			},
-			"midi-bytes": {
-				"count": 3,
-				"ticket": "#357"
-			}
-		},
-		"shared/engine-host/src/status.ts": {
+			"twin-comment": {
+				"count": 2,
+				"ticket": "#360"
+			},
+			"mood-literal": {
+				"count": 6,
+				"ticket": "#367"
+			},
 			"clamp": {
 				"count": 1,
-				"ticket": "#357"
+				"ticket": "#367"
+			},
+			"tempo-shape": {
+				"count": 1,
+				"ticket": "#367"
+			}
+		},
+		"shared/live-deck/src/space.ts": {
+			"twin-comment": {
+				"count": 1,
+				"ticket": "#376"
+			}
+		},
+		"shared/live-deck/src/sync.ts": {
+			"twin-comment": {
+				"count": 1,
+				"ticket": "#371"
+			},
+			"text-shape": {
+				"count": 3,
+				"ticket": "#371"
 			}
 		},
 		"viewer/src/lib/components/live-deck/deck-knob.svelte": {
 			"clamp": {
-				"count": 2,
-				"ticket": "#357"
+				"count": 1,
+				"ticket": "#369"
 			}
 		},
-		"creator/src/lib/components/sound/sound-workspace.svelte": {
-			"kind-branch": {
-				"count": 3,
-				"ticket": "#357"
+		"viewer/src/lib/components/live-deck/deck-quality-sheet.svelte": {
+			"twin-const": {
+				"count": 1,
+				"ticket": "#375"
 			}
+		},
+		"viewer/src/lib/components/live-deck/deck-stats.svelte": {
+			"threshold": {
+				"count": 1,
+				"ticket": "#364"
+			}
+		},
+		"viewer/src/lib/live-vote-link.ts": {
+			"twin-const": {
+				"count": 1,
+				"ticket": "#366"
+			},
+			"kind-branch": {
+				"count": 8,
+				"ticket": "#366"
+			}
+		},
+		"viewer/src/lib/live-vote-sim.ts": {
+			"twin-comment": {
+				"count": 3,
+				"ticket": "#379"
+			}
+		},
+		"viewer/src/routes/live/deck/[[code]]/+page.svelte": {
+			"mood-literal": {
+				"count": 1,
+				"ticket": "#367"
+			}
+		}
+	},
+	"allow": [
+		{
+			"file": "creator/src/lib/components/sound/sound-workspace.svelte",
+			"rule": "kind-branch",
+			"match": "if (target.kind === 'module') void goto(editHref(moduleKey(id), { w: 'sound' }));",
+			"count": 1,
+			"why": "an edit target's kind (module / rig), not a catalog kind"
+		},
+		{
+			"file": "creator/src/lib/components/sound/sound-workspace.svelte",
+			"rule": "kind-branch",
+			"match": "fixed={target.kind === 'module' ? target.id : null}",
+			"count": 1,
+			"why": "an edit target's kind (module / rig), not a catalog kind"
+		},
+		{
+			"file": "creator/src/lib/components/sound/sound-workspace.svelte",
+			"rule": "kind-branch",
+			"match": "<DeckHalf character={target.kind === 'rig' ? target.character : 'catpope'} />",
+			"count": 1,
+			"why": "an edit target's kind (module / rig), not a catalog kind"
+		},
+		{
+			"file": "shared/engine-host/src/monitor.ts",
+			"rule": "kind-branch",
+			"match": "if (s.kind === 'osc') return [s.address, ...s.args.map((a) => (a.kind === 'string' ? JSON.",
+			"count": 2,
+			"why": "DeviceSignal / OSC arg kinds, not catalog kinds; the text moves in #373"
+		},
+		{
+			"file": "shared/engine-host/src/monitor.ts",
+			"rule": "kind-branch",
+			"match": "if (s.kind === 'dmx') {",
+			"count": 1,
+			"why": "DeviceSignal / OSC arg kinds, not catalog kinds; the text moves in #373"
+		},
+		{
+			"file": "shared/engine-host/src/monitor.ts",
+			"rule": "twin-const",
+			"match": "case 0xe0:",
+			"count": 1,
+			"why": "a MIDI status in the text (the same line #373 moves)"
+		},
+		{
+			"file": "shared/engine-host/src/status.ts",
+			"rule": "clamp",
+			"match": "export const meterPercent = (v: number): number => Math.round(100 * Math.min(1, Math.max(0",
+			"count": 1,
+			"why": "a display percentage of a value the core gave (#364 moves the meter numbers)"
+		},
+		{
+			"file": "shared/live-core/src/clock.ts",
+			"rule": "twin-const",
+			"match": "return { n, p50: at(0.5), p95: at(0.95), max: size[n - 1], mean, seconds: (this.at[n - 1] ",
+			"count": 1,
+			"why": "a percentile of the clock's own measurement"
+		},
+		{
+			"file": "shared/live-core/src/index.ts",
+			"rule": "twin-const",
+			"match": "export const SERIES = 120;",
+			"count": 1,
+			"why": "the length of a stats series kept for the page"
+		},
+		{
+			"file": "shared/live-core/src/index.ts",
+			"rule": "clamp-shape",
+			"match": "const channels = Math.min(Math.max(1, Math.floor(o.channels ?? deviceChannels(destination)",
+			"count": 1,
+			"why": "the device's channel count bounded to the engine's outputs (an adapter fact)"
+		},
+		{
+			"file": "shared/live-core/src/signals.ts",
+			"rule": "scene-literal",
+			"match": "export type OscArg = { kind: 'int'; p: number } | { kind: 'float'; p: number } | { kind: '",
+			"count": 4,
+			"why": "wire kinds of the device-signal codec (OSC args, midi / dmx / osc signals), not catalog kinds; the codec is generated in #372"
+		},
+		{
+			"file": "shared/live-core/src/signals.ts",
+			"rule": "scene-literal",
+			"match": "| { kind: 'midi'; port: 'out' | 'conductor'; bytes: number[]; at: number }",
+			"count": 1,
+			"why": "wire kinds of the device-signal codec (OSC args, midi / dmx / osc signals), not catalog kinds; the codec is generated in #372"
+		},
+		{
+			"file": "shared/live-core/src/signals.ts",
+			"rule": "scene-literal",
+			"match": "| { kind: 'dmx'; ch: number; values: number[]; flash: boolean; at: number }",
+			"count": 1,
+			"why": "wire kinds of the device-signal codec (OSC args, midi / dmx / osc signals), not catalog kinds; the codec is generated in #372"
+		},
+		{
+			"file": "shared/live-core/src/signals.ts",
+			"rule": "scene-literal",
+			"match": "| { kind: 'osc'; address: string; args: OscArg[]; at: number };",
+			"count": 1,
+			"why": "wire kinds of the device-signal codec (OSC args, midi / dmx / osc signals), not catalog kinds; the codec is generated in #372"
+		},
+		{
+			"file": "shared/live-core/src/signals.ts",
+			"rule": "scene-literal",
+			"match": "if (kind === KIND_MIDI) yield { kind: 'midi', port: flags & 1 ? 'conductor' : 'out', bytes",
+			"count": 1,
+			"why": "wire kinds of the device-signal codec (OSC args, midi / dmx / osc signals), not catalog kinds; the codec is generated in #372"
+		},
+		{
+			"file": "shared/live-core/src/signals.ts",
+			"rule": "scene-literal",
+			"match": "else if (kind === KIND_DMX) yield { kind: 'dmx', ch, values: [...bytes.subarray(start, end",
+			"count": 1,
+			"why": "wire kinds of the device-signal codec (OSC args, midi / dmx / osc signals), not catalog kinds; the codec is generated in #372"
+		},
+		{
+			"file": "shared/live-core/src/signals.ts",
+			"rule": "scene-literal",
+			"match": "args.push({ kind: 'int', p: view.getInt32(p, true) });",
+			"count": 1,
+			"why": "wire kinds of the device-signal codec (OSC args, midi / dmx / osc signals), not catalog kinds; the codec is generated in #372"
+		},
+		{
+			"file": "shared/live-core/src/signals.ts",
+			"rule": "scene-literal",
+			"match": "args.push({ kind: 'float', p: view.getFloat32(p, true) });",
+			"count": 1,
+			"why": "wire kinds of the device-signal codec (OSC args, midi / dmx / osc signals), not catalog kinds; the codec is generated in #372"
+		},
+		{
+			"file": "shared/live-core/src/signals.ts",
+			"rule": "scene-literal",
+			"match": "args.push({ kind: 'string', p: utf8.decode(bytes.subarray(p, p + l)) });",
+			"count": 1,
+			"why": "wire kinds of the device-signal codec (OSC args, midi / dmx / osc signals), not catalog kinds; the codec is generated in #372"
+		},
+		{
+			"file": "shared/live-core/src/signals.ts",
+			"rule": "scene-literal",
+			"match": "args.push({ kind: 'bool', p: view.getUint8(p++) !== 0 });",
+			"count": 1,
+			"why": "wire kinds of the device-signal codec (OSC args, midi / dmx / osc signals), not catalog kinds; the codec is generated in #372"
+		},
+		{
+			"file": "shared/live-core/src/signals.ts",
+			"rule": "scene-literal",
+			"match": "return { kind: 'osc', address, args, at: when };",
+			"count": 1,
+			"why": "wire kinds of the device-signal codec (OSC args, midi / dmx / osc signals), not catalog kinds; the codec is generated in #372"
+		},
+		{
+			"file": "shared/live-core/src/wire.ts",
+			"rule": "clamp",
+			"match": "outputs: frame.subarray(PEAKS, PEAKS + Math.max(0, Math.min(MAX_OUTPUTS, Math.round(frame[",
+			"count": 1,
+			"why": "the slice bounds of a decoded frame (bytes, not values); the codec is generated in #372"
+		},
+		{
+			"file": "shared/live-core/src/wire.ts",
+			"rule": "clamp",
+			"match": "values: frame.subarray(VALUES_AT, VALUES_AT + Math.max(0, Math.min(MAX_FRAME_VALUES, Math.",
+			"count": 1,
+			"why": "the slice bounds of a decoded frame (bytes, not values); the codec is generated in #372"
+		},
+		{
+			"file": "shared/live-deck/src/client.ts",
+			"rule": "scene-literal",
+			"match": "ws.send(envelope({ kind: 'hello', p: { code: this.code, role: 'musician', group: GROUP, ..",
+			"count": 1,
+			"why": "relay protocol envelopes (hello, ping, tempo), not scene nodes; the client moves in #366"
+		},
+		{
+			"file": "shared/live-deck/src/client.ts",
+			"rule": "scene-literal",
+			"match": "return this.raw({ kind: 'ping', p: { t0: Math.round(nowMs() * 1000) } });",
+			"count": 1,
+			"why": "relay protocol envelopes (hello, ping, tempo), not scene nodes; the client moves in #366"
+		},
+		{
+			"file": "shared/live-deck/src/client.ts",
+			"rule": "scene-literal",
+			"match": "return this.joined && this.raw({ kind: 'tempo', p: t });",
+			"count": 1,
+			"why": "relay protocol envelopes (hello, ping, tempo), not scene nodes; the client moves in #366"
+		},
+		{
+			"file": "viewer/src/lib/components/live-deck/deck-knob.svelte",
+			"rule": "threshold",
+			"match": "const shown = $derived(value.toFixed(Math.abs(value) >= 100 ? 0 : Math.abs(value) >= 10 ? ",
+			"count": 1,
+			"why": "the display precision of a number"
+		},
+		{
+			"file": "viewer/src/lib/components/live-vote/audience-vote.svelte",
+			"rule": "kind-branch",
+			"match": "if (e.kind === 'vote.open') {",
+			"count": 1,
+			"why": "UI: shows the relay's vote messages (protocol kinds, not catalog kinds); the vote client moves in #366"
+		},
+		{
+			"file": "viewer/src/lib/components/live-vote/audience-vote.svelte",
+			"rule": "kind-branch",
+			"match": "} else if (e.kind === 'vote.tally') tally = e.p;",
+			"count": 1,
+			"why": "UI: shows the relay's vote messages (protocol kinds, not catalog kinds); the vote client moves in #366"
+		},
+		{
+			"file": "viewer/src/lib/components/live-vote/audience-vote.svelte",
+			"rule": "kind-branch",
+			"match": "else if (e.kind === 'vote.result') result = e.p;",
+			"count": 1,
+			"why": "UI: shows the relay's vote messages (protocol kinds, not catalog kinds); the vote client moves in #366"
+		},
+		{
+			"file": "viewer/src/lib/components/live-vote/audience-vote.svelte",
+			"rule": "kind-branch",
+			"match": "else if (e.kind === 'say') {",
+			"count": 1,
+			"why": "UI: shows the relay's vote messages (protocol kinds, not catalog kinds); the vote client moves in #366"
+		},
+		{
+			"file": "viewer/src/lib/components/live-vote/conductor-vote.svelte",
+			"rule": "kind-branch",
+			"match": "if (e.kind === 'vote.open') [open, tally, result, overriding, held] = [e.p, null, null, fa",
+			"count": 1,
+			"why": "UI: shows the relay's vote messages (protocol kinds, not catalog kinds); the vote client moves in #366"
+		},
+		{
+			"file": "viewer/src/lib/components/live-vote/conductor-vote.svelte",
+			"rule": "kind-branch",
+			"match": "else if (e.kind === 'vote.tally') [tally, held] = [e.p, e.p.paused === true];",
+			"count": 1,
+			"why": "UI: shows the relay's vote messages (protocol kinds, not catalog kinds); the vote client moves in #366"
+		},
+		{
+			"file": "viewer/src/lib/components/live-vote/conductor-vote.svelte",
+			"rule": "kind-branch",
+			"match": "else if (e.kind === 'vote.result') [result, overriding, held] = [e.p, false, false];",
+			"count": 1,
+			"why": "UI: shows the relay's vote messages (protocol kinds, not catalog kinds); the vote client moves in #366"
+		},
+		{
+			"file": "viewer/src/lib/live-vote-demo.ts",
+			"rule": "twin-const",
+			"match": "export const changesMind = (random: number): boolean => random < 0.12;",
+			"count": 1,
+			"why": "a demo's scripted odds – no deck behaviour"
+		},
+		{
+			"file": "viewer/src/lib/live-vote-link.ts",
+			"rule": "scene-literal",
+			"match": "kind: 'hello',",
+			"count": 1,
+			"why": "relay protocol envelopes (hello, ping, say), not scene nodes; the client moves in #366"
+		},
+		{
+			"file": "viewer/src/lib/live-vote-link.ts",
+			"rule": "scene-literal",
+			"match": "this.ping = setInterval(() => this.raw({ kind: 'ping', p: { t0: 0 } }), PING_MS);",
+			"count": 1,
+			"why": "relay protocol envelopes (hello, ping, say), not scene nodes; the client moves in #366"
+		},
+		{
+			"file": "viewer/src/lib/live-vote-link.ts",
+			"rule": "scene-literal",
+			"match": "if (say) this.emit(this.synthetic({ kind: 'say', p: say }));",
+			"count": 1,
+			"why": "relay protocol envelopes (hello, ping, say), not scene nodes; the client moves in #366"
+		},
+		{
+			"file": "viewer/src/lib/live-vote-sim.ts",
+			"rule": "random-shape",
+			"match": "a = (a + 0x6d2b79f5) >>> 0;",
+			"count": 1,
+			"why": "a simulated audience for the vote lab (mulberry32 seed, its odds) – no deck behaviour"
+		},
+		{
+			"file": "viewer/src/lib/live-vote-sim.ts",
+			"rule": "twin-const",
+			"match": "const p = had ? 0.004 : 0.03 + 0.12 * (1 - elapsed);",
+			"count": 1,
+			"why": "a simulated audience for the vote lab (mulberry32 seed, its odds) – no deck behaviour"
+		},
+		{
+			"file": "viewer/src/routes/live/conductor/[[code]]/+page.svelte",
+			"rule": "kind-branch",
+			"match": "if (e.kind === 'vote.open') isOpen = true;",
+			"count": 1,
+			"why": "UI: shows the relay's vote messages (protocol kinds, not catalog kinds); the vote client moves in #366"
+		},
+		{
+			"file": "viewer/src/routes/live/conductor/[[code]]/+page.svelte",
+			"rule": "kind-branch",
+			"match": "else if (e.kind === 'vote.result') isOpen = false;",
+			"count": 1,
+			"why": "UI: shows the relay's vote messages (protocol kinds, not catalog kinds); the vote client moves in #366"
+		},
+		{
+			"file": "viewer/src/routes/live/conductor/[[code]]/+page.svelte",
+			"rule": "kind-branch",
+			"match": "else if (e.kind === 'error' && e.p.code === 'vote') problem = e.p.message;",
+			"count": 1,
+			"why": "UI: shows the relay's vote messages (protocol kinds, not catalog kinds); the vote client moves in #366"
+		}
+	],
+	"budgets": {
+		"creator/src/lib/components/sound/deck-half.svelte": {
+			"lines": 106,
+			"functions": 5,
+			"math": 1,
+			"escapes": 0
+		},
+		"creator/src/lib/components/sound/designer-half.svelte": {
+			"lines": 111,
+			"functions": 0,
+			"math": 0,
+			"escapes": 0
+		},
+		"creator/src/lib/components/sound/mood-chip.svelte": {
+			"lines": 147,
+			"functions": 2,
+			"math": 0,
+			"escapes": 0
+		},
+		"creator/src/lib/components/sound/signal-strip.svelte": {
+			"lines": 240,
+			"functions": 1,
+			"math": 1,
+			"escapes": 0
+		},
+		"creator/src/lib/components/sound/sound-workspace.svelte": {
+			"lines": 170,
+			"functions": 13,
+			"math": 0,
+			"escapes": 0
+		},
+		"creator/src/lib/editor/signal-strip.ts": {
+			"lines": 162,
+			"functions": 20,
+			"math": 10,
+			"escapes": 0
+		},
+		"shared/engine-host/src/controller.ts": {
+			"lines": 437,
+			"functions": 33,
+			"math": 0,
+			"escapes": 0
+		},
+		"shared/engine-host/src/engine-stage.svelte": {
+			"lines": 75,
+			"functions": 6,
+			"math": 0,
+			"escapes": 0
+		},
+		"shared/engine-host/src/files.ts": {
+			"lines": 11,
+			"functions": 1,
+			"math": 0,
+			"escapes": 0
+		},
+		"shared/engine-host/src/gate.ts": {
+			"lines": 79,
+			"functions": 13,
+			"math": 0,
+			"escapes": 0
+		},
+		"shared/engine-host/src/host.ts": {
+			"lines": 9,
+			"functions": 1,
+			"math": 0,
+			"escapes": 0
+		},
+		"shared/engine-host/src/index.ts": {
+			"lines": 15,
+			"functions": 0,
+			"math": 0,
+			"escapes": 0
+		},
+		"shared/engine-host/src/log.ts": {
+			"lines": 67,
+			"functions": 10,
+			"math": 0,
+			"escapes": 0
+		},
+		"shared/engine-host/src/meters.ts": {
+			"lines": 50,
+			"functions": 5,
+			"math": 6,
+			"escapes": 1
+		},
+		"shared/engine-host/src/monitor.ts": {
+			"lines": 118,
+			"functions": 14,
+			"math": 2,
+			"escapes": 0
+		},
+		"shared/engine-host/src/options.ts": {
+			"lines": 60,
+			"functions": 5,
+			"math": 0,
+			"escapes": 0
+		},
+		"shared/engine-host/src/report.ts": {
+			"lines": 157,
+			"functions": 9,
+			"math": 6,
+			"escapes": 0
+		},
+		"shared/engine-host/src/status.ts": {
+			"lines": 124,
+			"functions": 8,
+			"math": 8,
+			"escapes": 0
+		},
+		"shared/live-core/src/clock.ts": {
+			"lines": 134,
+			"functions": 9,
+			"math": 4,
+			"escapes": 1
+		},
+		"shared/live-core/src/engine.ts": {
+			"lines": 331,
+			"functions": 22,
+			"math": 3,
+			"escapes": 0
+		},
+		"shared/live-core/src/index.ts": {
+			"lines": 441,
+			"functions": 38,
+			"math": 10,
+			"escapes": 0
+		},
+		"shared/live-core/src/lead.ts": {
+			"lines": 48,
+			"functions": 3,
+			"math": 4,
+			"escapes": 0
+		},
+		"shared/live-core/src/messages.ts": {
+			"lines": 90,
+			"functions": 0,
+			"math": 0,
+			"escapes": 0
+		},
+		"shared/live-core/src/modules.ts": {
+			"lines": 347,
+			"functions": 32,
+			"math": 6,
+			"escapes": 0
+		},
+		"shared/live-core/src/ring.ts": {
+			"lines": 136,
+			"functions": 15,
+			"math": 4,
+			"escapes": 0
+		},
+		"shared/live-core/src/signals.ts": {
+			"lines": 87,
+			"functions": 4,
+			"math": 0,
+			"escapes": 0
+		},
+		"shared/live-core/src/timing.ts": {
+			"lines": 53,
+			"functions": 4,
+			"math": 6,
+			"escapes": 0
+		},
+		"shared/live-core/src/wire.ts": {
+			"lines": 159,
+			"functions": 7,
+			"math": 6,
+			"escapes": 0
+		},
+		"shared/live-core/src/worker.ts": {
+			"lines": 202,
+			"functions": 14,
+			"math": 5,
+			"escapes": 0
+		},
+		"shared/live-core/src/worklet.ts": {
+			"lines": 97,
+			"functions": 5,
+			"math": 1,
+			"escapes": 0
+		},
+		"shared/live-deck/scripts/build-wasm.ts": {
+			"lines": 40,
+			"functions": 4,
+			"math": 0,
+			"escapes": 0
+		},
+		"shared/live-deck/src/client.ts": {
+			"lines": 263,
+			"functions": 26,
+			"math": 5,
+			"escapes": 0
+		},
+		"shared/live-deck/src/controls.ts": {
+			"lines": 224,
+			"functions": 24,
+			"math": 16,
+			"escapes": 1
+		},
+		"shared/live-deck/src/deck.ts": {
+			"lines": 360,
+			"functions": 43,
+			"math": 2,
+			"escapes": 1
+		},
+		"shared/live-deck/src/events.ts": {
+			"lines": 77,
+			"functions": 2,
+			"math": 0,
+			"escapes": 0
+		},
+		"shared/live-deck/src/gamepad.ts": {
+			"lines": 90,
+			"functions": 9,
+			"math": 1,
+			"escapes": 0
+		},
+		"shared/live-deck/src/index.ts": {
+			"lines": 18,
+			"functions": 0,
+			"math": 0,
+			"escapes": 0
+		},
+		"shared/live-deck/src/midi.ts": {
+			"lines": 71,
+			"functions": 13,
+			"math": 0,
+			"escapes": 0
+		},
+		"shared/live-deck/src/rig.ts": {
+			"lines": 82,
+			"functions": 22,
+			"math": 0,
+			"escapes": 0
+		},
+		"shared/live-deck/src/scene.ts": {
+			"lines": 163,
+			"functions": 16,
+			"math": 10,
+			"escapes": 0
+		},
+		"shared/live-deck/src/space.ts": {
+			"lines": 517,
+			"functions": 43,
+			"math": 18,
+			"escapes": 1
+		},
+		"shared/live-deck/src/sync.ts": {
+			"lines": 122,
+			"functions": 14,
+			"math": 0,
+			"escapes": 0
+		},
+		"shared/live/src/index.ts": {
+			"lines": 4,
+			"functions": 0,
+			"math": 0,
+			"escapes": 0
+		},
+		"viewer/src/lib/components/live-deck/character-chip.svelte": {
+			"lines": 103,
+			"functions": 3,
+			"math": 0,
+			"escapes": 0
+		},
+		"viewer/src/lib/components/live-deck/deck-clock.svelte": {
+			"lines": 102,
+			"functions": 0,
+			"math": 0,
+			"escapes": 0
+		},
+		"viewer/src/lib/components/live-deck/deck-knob.svelte": {
+			"lines": 183,
+			"functions": 6,
+			"math": 7,
+			"escapes": 1
+		},
+		"viewer/src/lib/components/live-deck/deck-panel.svelte": {
+			"lines": 285,
+			"functions": 2,
+			"math": 0,
+			"escapes": 0
+		},
+		"viewer/src/lib/components/live-deck/deck-quality-sheet.svelte": {
+			"lines": 276,
+			"functions": 7,
+			"math": 1,
+			"escapes": 0
+		},
+		"viewer/src/lib/components/live-deck/deck-quality.svelte": {
+			"lines": 89,
+			"functions": 0,
+			"math": 0,
+			"escapes": 0
+		},
+		"viewer/src/lib/components/live-deck/deck-stats.svelte": {
+			"lines": 88,
+			"functions": 0,
+			"math": 0,
+			"escapes": 0
+		},
+		"viewer/src/lib/components/live-deck/deck-sticks.svelte": {
+			"lines": 192,
+			"functions": 9,
+			"math": 0,
+			"escapes": 0
+		},
+		"viewer/src/lib/components/live-vote/audience-vote.svelte": {
+			"lines": 216,
+			"functions": 6,
+			"math": 2,
+			"escapes": 0
+		},
+		"viewer/src/lib/components/live-vote/conductor-vote.svelte": {
+			"lines": 327,
+			"functions": 9,
+			"math": 3,
+			"escapes": 0
+		},
+		"viewer/src/lib/components/live-vote/open-vote-form.svelte": {
+			"lines": 172,
+			"functions": 2,
+			"math": 0,
+			"escapes": 0
+		},
+		"viewer/src/lib/live-deck-controls.svelte.ts": {
+			"lines": 136,
+			"functions": 23,
+			"math": 0,
+			"escapes": 0
+		},
+		"viewer/src/lib/live-deck.ts": {
+			"lines": 87,
+			"functions": 11,
+			"math": 0,
+			"escapes": 0
+		},
+		"viewer/src/lib/live-vote-demo.ts": {
+			"lines": 95,
+			"functions": 7,
+			"math": 2,
+			"escapes": 0
+		},
+		"viewer/src/lib/live-vote-link.ts": {
+			"lines": 173,
+			"functions": 22,
+			"math": 1,
+			"escapes": 0
+		},
+		"viewer/src/lib/live-vote-sim.ts": {
+			"lines": 257,
+			"functions": 41,
+			"math": 8,
+			"escapes": 0
+		},
+		"viewer/src/lib/live-vote-words.ts": {
+			"lines": 47,
+			"functions": 3,
+			"math": 0,
+			"escapes": 0
+		},
+		"viewer/src/lib/live-vote.ts": {
+			"lines": 103,
+			"functions": 13,
+			"math": 3,
+			"escapes": 0
+		},
+		"viewer/src/routes/(account)/account/lab/vote/+page.svelte": {
+			"lines": 252,
+			"functions": 7,
+			"math": 0,
+			"escapes": 0
+		},
+		"viewer/src/routes/live/conductor/[[code]]/+page.svelte": {
+			"lines": 86,
+			"functions": 5,
+			"math": 0,
+			"escapes": 0
+		},
+		"viewer/src/routes/live/deck/[[code]]/+page.svelte": {
+			"lines": 464,
+			"functions": 41,
+			"math": 1,
+			"escapes": 0
+		},
+		"viewer/src/routes/live/vote/[[code]]/+page.svelte": {
+			"lines": 63,
+			"functions": 3,
+			"math": 0,
+			"escapes": 0
 		}
 	}
 }

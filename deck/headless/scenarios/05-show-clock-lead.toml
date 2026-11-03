@@ -1,0 +1,19 @@
+name = "this deck leads the show clock"
+about = "#321 P8: a deck that leads (its own clock, the scene's lead = true – a deck that follows the relay never leads) sends its anchors (the state block's SEND), says LEADS and keeps its 120 BPM"
+
+[[step]]
+do = "load"
+scene = "native/scenes/show-clock-lead.toml"
+
+# the relay answers the pings – an anchor is stamped in the relay's time
+[[step]]
+do = "leader"
+offset_ms = -120.0
+
+[[step]]
+do = "joined"
+
+[[step]]
+do = "run"
+ms = 3000
+expect = { leading = true, anchors = { min = 1 }, anchor_last = { bpm = 120.0, per_bar = 4.0, running = true }, line = "LEADS" }

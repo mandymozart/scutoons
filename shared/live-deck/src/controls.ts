@@ -75,6 +75,7 @@ export function knobTurn(start: number, dy: number, range: number, fine = false)
 
 /** the 270° arc of a knob at 0..1 – the SVG path's end point on a circle of radius `r` around (c, c), from 7:30 o'clock */
 export function arcPoint(t: number, r: number, c: number): [number, number] {
+	// core-only-ok: #369 drawing: the arc end of a position the core gave
 	const a = ((135 + 270 * Math.min(1, Math.max(0, t))) * Math.PI) / 180;
 	return [c + r * Math.cos(a), c + r * Math.sin(a)];
 }

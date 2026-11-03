@@ -1,0 +1,31 @@
+# The bridge guard (#363, BRIDGE-AUDIT.md §5): `npm run check:core-only` on every PR and every push to main – no deck logic
+# in the browser's TypeScript, the baseline only shrinks against main. The cheap part of the audit: no `npm ci`, only the
+# typescript the apps already build with (the guard parses the bridge files with it); ~1 min of Actions time. The deck's
+# Rust side (the dependency ratchet, the headless scenarios) runs in `npm run deck:ci` on this machine (#216).
+name: 🧱 Bridge guard (core only)
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  core-only:
+    name: 🧱 No deck logic in the browser's TypeScript
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # the ratchet compares with the baseline on main's merge base
+      - run: git fetch --no-tags origin main:main || true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: typescript only (the version in package-lock.json)
+        run: |
+          v=$(node -p "require('./package-lock.json').packages['node_modules/typescript'].version")
+          mkdir -p "$RUNNER_TEMP/ts" && npm install --prefix "$RUNNER_TEMP/ts" --no-audit --no-fund "typescript@$v"
+          mkdir -p node_modules && ln -s "$RUNNER_TEMP/ts/node_modules/typescript" node_modules/typescript
+      - run: node scripts/check-core-only.mjs --report && node --test scripts/check-core-only.test.mjs

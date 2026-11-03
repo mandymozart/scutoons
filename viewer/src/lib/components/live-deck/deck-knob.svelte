@@ -34,6 +34,7 @@
 
 	const R = 9;
 	const C = 12;
+	// core-only-ok: #369 drawing: the arc of the knob's position
 	const t = $derived(Math.min(1, Math.max(0, toPos(spec, value))));
 	const arc = (to: number) => {
 		const [x0, y0] = arcPoint(0, R, C);

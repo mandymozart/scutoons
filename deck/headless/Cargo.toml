@@ -1,0 +1,38 @@
+# deck-headless (#363; owner 2026-11-03: "the headless is really good") – the third adapter of the universal core: no audio
+# device, no window, no DOM, no socket. It hosts the core through the one adapter API the browser's worker drives
+# (live-core's `Host`, the `lc_*` exports' Rust side) plus deck-space's governor and rig player, with a virtual clock and a
+# virtual audio sink, and runs scripted scenarios (scenarios/*.toml) that assert what comes out: audio hashes, beats, the
+# clock's line, quality levels, MIDI clock out, anchors, device messages. A step that needs something only main.rs or
+# the browser's TypeScript has today is a missing capability (src/caps.rs, each with its move ticket) – the scenario is
+# written anyway and marked `expected_fail`, so the move ticket's acceptance is that it turns green.
+# Built for wasm32 too (cdylib, `hl_*` exports): tests/wasm.rs runs the same scenarios native ≡ wasm32 ≡ wasm32 + simd128.
+# Platform-free by construction: scripts/deck-deps.json checks its dependency tree (check:deck-deps).
+[package]
+name = "deck-headless"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# the browser deck's adapter API (Host: load, warm, apply, render, analyse, signals, the tempo clock) – what the worker calls
+live-core = { path = "../live-core" }
+deck-core = { workspace = true, features = ["tempo"] }
+# the scene model, the browser's split (`lower`), the core rigs, the quality governor – no GPU, no loaders
+deck-space = { path = "../space", default-features = false }
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+
+[dev-dependencies]
+# tests/wasm.rs: the same scenarios in wasm32 and wasm32 + simd128 (the conformance suite's runtime and version)
+wasmtime = { version = "38", default-features = false, features = ["cranelift", "runtime", "std"] }
+
+# the runner (a thin CLI: reads the scenarios, prints a line each); its own name – the cdylib's .pdb would collide
+[[bin]]
+name = "deck-scenarios"
+path = "src/main.rs"

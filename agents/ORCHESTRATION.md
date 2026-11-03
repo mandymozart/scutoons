@@ -51,7 +51,8 @@ follow a pointer, that is a finding, not a reason to paste. Grep the area's deci
   patch / rule / default / range / text literals or branching on catalog kinds in TS / Svelte; a twin of Rust logic is a defect (RULES A6) –
   fix or ticket it before merging; say in the merge note that it was checked. Do not merge on the worker's report alone (P6, 2026-11-03).
 - **Rerun the audit often** (AUDIT.md §2; owner 2026-11-03 [audit]): after every leg, at the end of every night shift, after every ~5 merged
-  deck / shared / viewer tickets; write "merged since last audit: N" in HANDOFF.
+  deck / shared / viewer tickets; write "merged since last audit: N" in HANDOFF. `npm run audit:bridge` is its counter (deltas since the last
+  `bridge-audit-N` tag – tag the commit of a finished pass). A move ticket (#359 #360 #364–#376) merges only with its headless `expected_fail` scenario green.
 
 ## Heavy work that needs a slot (workspace §3)
 - The deck ISO: `npm run deck:iso` (archiso in Docker, ~1.8 GB; `DECK_OUT` picks the folder under `deck/os/out/`).

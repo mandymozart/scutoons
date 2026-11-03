@@ -21,9 +21,10 @@ Old section names in code comments (until 2026-11-03): "Backlog" = C · "Git, se
 - **A6** No second copy: scenes, rules, defaults, ranges, status texts and monitoring numbers live once, in the core or one data file. A TS twin
   of Rust logic is a defect, even "trimmed", "for now" or "kept in TS because". Every control and readout has ONE owner of its state and number: the core (#362).
   (2026-11-03 [no-duplicate]: "no duplicate code base in the end.")
-- **A7** Enforced, not trusted (2026-11-03 [core-only]: "enforce it even for dumb agents"): `npm run check:core-only` (in `check` and deck:ci; its
-  baseline only shrinks, growth needs `Owner-approved-baseline:` in a commit message); the dependency allow-list + headless deck host (being built, #363);
-  every deck brief carries the acceptance line (ORCHESTRATION "Brief template"); every merge runs the diff check; the audit reruns often (AUDIT.md).
+- **A7** Enforced, not trusted (2026-11-03 [core-only]: "enforce it even for dumb agents"; #363): `check:core-only` (every file that touches the engine; a new bridge
+  file needs an `adapter:` / `ui:` line in scripts/bridge-files.json), `check:deck-deps` (no platform library in a core crate; main.rs only shrinks), the headless
+  deck host (deck/headless: a move ticket is done when its `expected_fail` scenario is green). Baselines, budgets, allow rules and escapes only shrink – growth
+  needs `Owner-approved-baseline:` in a commit message. Every deck brief carries the acceptance line; every merge runs the diff check; the audit reruns (AUDIT.md).
 - **A8** Rust first for everything native (relay, bridge, audio, video, 3D, decks) — no Node / Electron — and as much as possible in the engine,
   also for the browser. (2026-10-29 [rust-first], 2026-10-31 [rust-engine])
 - **A9** No backwards compatibility for the audio engine (nothing released; no A/B flags, no dual hosts). A deck takes a new module only by restart. (2026-11-02 [no-backcompat-engine], 2026-11-03 [module-restart])

@@ -1,0 +1,13 @@
+name = "the cathedral boots as the browser plays it"
+about = "deck/native/scenes/cathedral.toml – the scene the X1 boots with – through deck-space's split (lower) into live-core: the engine plays its carried part, the chapter music and the screen go to the page; without a leader the show clock waits"
+
+[[step]]
+do = "load"
+scene = "native/scenes/cathedral.toml"
+expect = { nodes = 11, page = ["music", "screen"], channels = 2 }
+
+[[step]]
+do = "run"
+ms = 2000
+mark = "boot"
+expect = { sound = true, source = "relay", anchor = false, line = "NO SHOW CLOCK YET", pings = { min = 1 } }
