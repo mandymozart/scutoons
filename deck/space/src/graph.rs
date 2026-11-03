@@ -26,6 +26,9 @@ pub enum Domain {
 pub struct Port {
     pub name: &'static str,
     pub ty: PortType,
+    /// an audio port's channel count from the catalog (`any` = what the links carry, plan 2.6); None = not declared (a
+    /// module's ports: the stereo pair of ABI v1)
+    pub channels: Option<deck_catalog::Channels>,
 }
 
 /// Every node kind the stage knows, built or not – a kind's implementation lives in its module (a cargo feature, #185:
@@ -82,6 +85,16 @@ pub enum Kind {
     Fft,
     /// the device output – the audio sink
     AudioOut,
+    /// a bus (plan 2.6): sums its inputs, a fader, mute / solo; sends are links out of `pre` / `out`, a folder bus sums its children
+    Bus,
+    /// an outlet: writes its input to an outlet group's / the device's channels
+    Out,
+    /// a panner: a mono source onto a speaker layout (equal power, VBAP, DBAP)
+    Pan,
+    /// a gain matrix between channel layouts (ITU-R BS.775 / Web Audio tables, or a custom matrix)
+    Downmix,
+    /// the explicit loop: `in` one block late
+    Feedback,
     /// a compiled module from the library (#280, modreg.rs): its ports come from its descriptor, not from this table;
     /// its scene name is `module:<name>`. Not in `ALL` – those are the kinds graph.rs defines.
     Module(ModuleKind),
@@ -89,7 +102,7 @@ pub enum Kind {
 
 impl Kind {
     /// every kind with its name in a scene
-    const NAMES: [(&'static str, Kind); 20] = [
+    const NAMES: [(&'static str, Kind); 25] = [
         ("test_pattern", Kind::TestPattern),
         ("shader", Kind::Shader),
         ("screen", Kind::Screen),
@@ -110,11 +123,16 @@ impl Kind {
         ("mixer", Kind::Mixer),
         ("fft", Kind::Fft),
         ("audio_out", Kind::AudioOut),
+        ("bus", Kind::Bus),
+        ("out", Kind::Out),
+        ("pan", Kind::Pan),
+        ("downmix", Kind::Downmix),
+        ("feedback", Kind::Feedback),
     ];
-    pub const ALL: [Kind; 20] = {
-        let mut all = [Kind::Screen; 20];
+    pub const ALL: [Kind; 25] = {
+        let mut all = [Kind::Screen; 25];
         let mut i = 0;
-        while i < 20 {
+        while i < 25 {
             all[i] = Kind::NAMES[i].1;
             i += 1;
         }
@@ -164,6 +182,7 @@ impl Kind {
                     .filter(|p| p.dir == dir)
                     .map(|p| Port {
                         name: static_str(&p.name),
+                        channels: p.channels,
                         ty: match p.ty {
                             T::Audio | T::Cv => PortType::Audio,
                             T::Control | T::Event => PortType::Control,
@@ -247,17 +266,24 @@ impl Node {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Link {
     pub from: (usize, usize),
     pub to: (usize, usize),
     pub ty: PortType,
     pub scale: f32,
     pub offset: f32,
+    /// an audio link's channel map as 0-based (source, target) pairs; empty = channel n to channel n (the scene's
+    /// `map`, counted from 1)
+    pub map: Vec<(u8, u8)>,
 }
 
-/// A checked graph: every link joins an output to an input of the same type, an input has at most one link, no cycles;
-/// `order` is a topological order (sources first).
+/// the most channels a port carries (plan 2.6)
+pub const MAX_CHANNELS: usize = 32;
+
+/// A checked graph: every link joins an output to an input of the same type, a control input has at most one link, an
+/// audio input sums its links (in the scene's order), no cycles but through a `feedback` node; `order` is a
+/// topological order (sources first).
 #[derive(Debug, Clone)]
 pub struct Graph {
     pub nodes: Vec<Node>,
@@ -299,10 +325,21 @@ impl Graph {
             if fty != tty {
                 bail!("link {} → {}: a {fty:?} output cannot feed a {tty:?} input", l.from, l.to);
             }
-            if links.iter().any(|x: &Link| x.to == (ti, tp)) {
+            // several audio links into one input are summed (a bus, a mixer's channel); a control input takes one
+            if fty != PortType::Audio && links.iter().any(|x: &Link| x.to == (ti, tp)) {
                 bail!("link {} → {}: the input already has a link", l.from, l.to);
             }
-            links.push(Link { from: (fi, fp), to: (ti, tp), ty: fty, scale: l.scale, offset: l.offset });
+            if !l.map.is_empty() && fty != PortType::Audio {
+                bail!("link {} → {}: only an audio link has a channel map", l.from, l.to);
+            }
+            let mut map = Vec::with_capacity(l.map.len());
+            for &[s, t] in &l.map {
+                if s == 0 || t == 0 || usize::from(s) > MAX_CHANNELS || usize::from(t) > MAX_CHANNELS {
+                    bail!("link {} → {}: the channel map names channels 1..={MAX_CHANNELS}, not {s} → {t}", l.from, l.to);
+                }
+                map.push((s - 1, t - 1));
+            }
+            links.push(Link { from: (fi, fp), to: (ti, tp), ty: fty, scale: l.scale, offset: l.offset, map });
         }
         let order = topo_order(nodes.len(), &links, &nodes)?;
         Ok(Graph { nodes, links, order })
@@ -323,6 +360,10 @@ impl Link {
     /// param) crosses threads a frame late – the analyzer runs before the frame's control nodes, params are written
     /// after them – so it never orders, and feedback through it (FFT → synth → mix → FFT) is allowed, like a patch cable.
     pub fn orders(&self, nodes: &[Node]) -> bool {
+        // a link into a `feedback` node is read one block late: it orders nothing, so it closes a loop
+        if self.ty == PortType::Audio && nodes[self.to.0].kind == Kind::Feedback {
+            return false;
+        }
         self.ty != PortType::Control
             || (nodes[self.from.0].kind.domain() != Domain::Audio && nodes[self.to.0].kind.domain() != Domain::Audio)
     }
@@ -338,7 +379,20 @@ fn topo_order(n: usize, links: &[Link], nodes: &[Node]) -> Result<Vec<usize>> {
     let mut order = Vec::with_capacity(n);
     let mut done = vec![false; n];
     while order.len() < n {
-        let Some(next) = (0..n).find(|&i| !done[i] && indeg[i] == 0) else { bail!("the graph has a cycle") };
+        let Some(next) = (0..n).find(|&i| !done[i] && indeg[i] == 0) else {
+            // name the loop: from a node that waits, walk back along waiting predecessors until one repeats
+            let mut walk = vec![(0..n).find(|&i| !done[i]).expect("a node is left")];
+            let ring = loop {
+                let cur = *walk.last().expect("not empty");
+                let before = links.iter().find(|l| l.to.0 == cur && !done[l.from.0]).map(|l| l.from.0).expect("a waiting node has a waiting predecessor");
+                if let Some(at) = walk.iter().position(|&w| w == before) {
+                    break walk[at..].to_vec();
+                }
+                walk.push(before);
+            };
+            let ids: Vec<&str> = ring.iter().rev().map(|&i| nodes[i].id.as_str()).collect();
+            bail!("the graph has a cycle: {} → {} (a loop on purpose goes through a `feedback` node)", ids.join(" → "), ids[0]);
+        };
         done[next] = true;
         order.push(next);
         for l in links.iter().filter(|l| l.from.0 == next) {

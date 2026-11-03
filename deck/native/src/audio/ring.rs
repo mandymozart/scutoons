@@ -1,5 +1,5 @@
 //! Rendering decoupled from the device (#208, owner 2026-10-31: "the dropouts keep existing – research methods to
-//! compensate"): a render thread runs the graph in blocks into a lock-free SPSC ring (rtrb, interleaved stereo) ahead of
+//! compensate"): a render thread runs the graph in blocks into a lock-free SPSC ring (rtrb, interleaved, the device's channels) ahead of
 //! the device, and the device callback only copies out of it – a spike in a render (a page fault, the GPU driver, a busy
 //! CPU) is absorbed by the ring's lead instead of reaching the speaker. The lead adapts (lead.rs): an underrun grows it
 //! a block up to a cap, a calm minute shrinks it a block. Only an underrun – a late or long callback is the device's
@@ -25,7 +25,7 @@ const _: () = assert!(BLOCK % deck_engine::QUANTUM == 0);
 /// the lead's range (frames): one block (5.3 ms at 48 kHz) up to 16 (85 ms)
 pub const LEAD_MIN: u32 = BLOCK as u32;
 pub const LEAD_CAP: u32 = 16 * BLOCK as u32;
-/// the ring's size in frames (stereo samples × 2): the cap + the largest device buffer we expect, with room
+/// the ring's size in frames (× the device's channels in samples): the cap + the largest device buffer we expect, with room
 pub const CAPACITY: usize = 16_384;
 /// the device's buffer before its first callback says it (WASAPI shared runs ~1056 frames)
 const FIRST_GUESS: u32 = 1024;
@@ -41,6 +41,8 @@ struct Shared {
 /// The device callback's half: copies out of the ring. Dropping it stops the render thread.
 pub struct Feed {
     ring: rtrb::Consumer<f32>,
+    /// the device channels the engine renders and the ring carries per frame
+    chans: usize,
     shared: Arc<Shared>,
     pub(crate) mon: Monitor,
     /// frames taken from the ring so far
@@ -54,6 +56,7 @@ pub struct Feed {
 pub struct Renderer {
     engine: Engine,
     ring: rtrb::Producer<f32>,
+    chans: usize,
     shared: Arc<Shared>,
     lead: AdaptiveLead,
     buf: Vec<f32>,
@@ -67,15 +70,17 @@ pub struct Renderer {
 pub fn pair(mut engine: Engine, first_guess: Option<u32>) -> (Feed, Renderer) {
     let mon = engine.take_monitor();
     let rate = engine.rate() as f64;
+    let chans = engine.device_channels();
     let shared = Arc::new(Shared { stamp: SeqLock::default(), stop: AtomicBool::new(false), glitches: mon.shared.clone() });
-    let (tx, rx) = rtrb::RingBuffer::new(CAPACITY * 2);
-    let feed = Feed { ring: rx, shared: shared.clone(), mon, taken: 0, primed: false, render: None };
+    let (tx, rx) = rtrb::RingBuffer::new(CAPACITY * chans);
+    let feed = Feed { ring: rx, chans, shared: shared.clone(), mon, taken: 0, primed: false, render: None };
     let renderer = Renderer {
         engine,
         ring: tx,
+        chans,
         shared,
         lead: AdaptiveLead::new(LEAD_MIN, LEAD_CAP, BLOCK as u32),
-        buf: vec![0.0; BLOCK * 2],
+        buf: vec![0.0; BLOCK * chans],
         pushed: 0,
         rate,
         first_guess: first_guess.unwrap_or(FIRST_GUESS).max(FIRST_GUESS),
@@ -108,7 +113,7 @@ impl Renderer {
 
     /// frames waiting in the ring
     pub fn queued(&self) -> usize {
-        (CAPACITY * 2 - self.ring.slots()) / 2
+        (CAPACITY * self.chans - self.ring.slots()) / self.chans
     }
 
     /// The lead's step for the underruns so far (at `now_ns`), then blocks into the ring until it holds the device's
@@ -119,7 +124,7 @@ impl Renderer {
         g.set_lead(lead);
         let want = (g.device_frames().max(self.first_guess) + lead) as usize;
         let mut blocks = 0;
-        while self.queued() < want && self.ring.slots() >= BLOCK * 2 {
+        while self.queued() < want && self.ring.slots() >= BLOCK * self.chans {
             // heard: the callback's newest stamp + the frames between its first and this block's
             let heard = match self.shared.stamp.read() {
                 Some((_, [taken, at])) => at + self.ns(self.pushed.saturating_sub(taken)),
@@ -127,9 +132,9 @@ impl Renderer {
             };
             self.engine.mark(heard);
             let t0 = now_ns();
-            self.engine.render(&mut self.buf, 2, |x| x);
+            self.engine.render(&mut self.buf, self.chans, |x| x);
             g.note_load(now_ns() - t0, self.ns(BLOCK as u64));
-            if let Ok(mut chunk) = self.ring.write_chunk(BLOCK * 2) {
+            if let Ok(mut chunk) = self.ring.write_chunk(BLOCK * self.chans) {
                 let (a, b) = chunk.as_mut_slices();
                 a.copy_from_slice(&self.buf[..a.len()]);
                 b.copy_from_slice(&self.buf[a.len()..]);
@@ -148,27 +153,26 @@ impl Feed {
     }
 
     /// One device callback: `out` (interleaved, `channels` per frame) whose first frame is heard at `heard_ns` – copied
-    /// from the ring (L, R, the rest silent; mono = their mean), silence where it runs short (an underrun). Never
-    /// allocates.
+    /// from the ring (the engine's device channels, the rest silent; a mono callback on a stereo engine = their mean),
+    /// silence where it runs short (an underrun). Never allocates.
     pub fn play<T: Copy>(&mut self, out: &mut [T], channels: usize, heard_ns: u64, conv: impl Fn(f32) -> T) {
         let start = self.mon.begin();
         let channels = channels.max(1);
         let frames = out.len() / channels;
         self.shared.stamp.write([self.taken, heard_ns]);
-        let n = frames.min(self.ring.slots() / 2);
+        let d = self.chans;
+        let n = frames.min(self.ring.slots() / d);
         if n > 0 {
-            if let Ok(chunk) = self.ring.read_chunk(n * 2) {
+            if let Ok(chunk) = self.ring.read_chunk(n * d) {
                 let (a, b) = chunk.as_slices();
-                // stereo pairs never straddle the wrap: the ring and every read and write are even
-                for (frame, lr) in out.chunks_exact_mut(channels).zip(a.chunks_exact(2).chain(b.chunks_exact(2))) {
-                    if channels == 1 {
-                        frame[0] = conv(0.5 * (lr[0] + lr[1]));
+                // frames never straddle the wrap: the ring's size and every read and write are multiples of the frame
+                for (frame, src) in out.chunks_exact_mut(channels).zip(a.chunks_exact(d).chain(b.chunks_exact(d))) {
+                    if channels == 1 && d == 2 {
+                        frame[0] = conv(0.5 * (src[0] + src[1]));
                         continue;
                     }
-                    frame[0] = conv(lr[0]);
-                    frame[1] = conv(lr[1]);
-                    for x in &mut frame[2..] {
-                        *x = conv(0.0);
+                    for (c, x) in frame.iter_mut().enumerate() {
+                        *x = conv(src.get(c).copied().unwrap_or(0.0));
                     }
                 }
                 chunk.commit_all();
@@ -259,6 +263,42 @@ mod tests {
         }
         assert!(out.iter().all(|x| *x == 0.0), "drained: silence");
         assert!(feed.glitches().counts()[2] >= 1, "an underrun: {:?}", feed.glitches().counts());
+    }
+
+    /// a multichannel device (#318): the ring carries every device channel, an outlet on channels 5 and 6 of six comes out
+    /// there and nowhere else; the callback of a smaller device gets the first channels
+    #[test]
+    fn the_ring_carries_the_devices_channels() {
+        let scene = "[[node]]
+id=\"o\"
+kind=\"osc\"
+freq=440
+gain=0.5
+[[node]]
+id=\"out\"
+kind=\"out\"
+first=5
+[[link]]
+from=\"o\"
+to=\"out.in\"
+";
+        let g = Graph::build(&Scene::parse(scene).unwrap()).unwrap();
+        let (e, h) = Engine::build_for(&g, 48_000.0, 1.0, 6).unwrap();
+        assert_eq!(h.device.channels(), 6);
+        let (mut feed, mut r) = pair(e, None);
+        feed.mon.settle = 0;
+        r.fill(0);
+        let mut out = vec![0.0f32; 480 * 6];
+        for k in 0..4u64 {
+            r.fill(k * 10_000_000);
+            feed.play(&mut out, 6, 2_000_000_000 + k * 10_000_000, |x| x);
+        }
+        assert!(out.chunks(6).all(|f| f[..4].iter().all(|x| *x == 0.0)), "channels 1-4 are silent");
+        assert!(out.chunks(6).any(|f| f[4].abs() > 0.1 && f[4] == f[5]), "the outlet plays on 5 and 6");
+        let mut two = vec![9.0f32; 480 * 2];
+        r.fill(5 * 10_000_000);
+        feed.play(&mut two, 2, 2_100_000_000, |x| x);
+        assert!(two.iter().all(|x| *x == 0.0), "a stereo callback takes the first two channels – the outlet is not there");
     }
 
     /// the blocks are stamped with the callback's moment + the frames between (the ring's lead in the time base)

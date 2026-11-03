@@ -33,6 +33,11 @@ final class NodeKinds
         'mixer' => ['domain' => 'audio', 'inputs' => ['in1' => 'audio', 'in2' => 'audio', 'in3' => 'audio', 'in4' => 'audio', 'gain1' => 'control', 'gain2' => 'control', 'gain3' => 'control', 'gain4' => 'control'], 'outputs' => ['out' => 'audio']],
         'fft' => ['domain' => 'audio', 'inputs' => ['in' => 'audio'], 'outputs' => ['level' => 'control', 'bass' => 'control', 'mid' => 'control', 'high' => 'control']],
         'audio_out' => ['domain' => 'audio', 'inputs' => ['in' => 'audio', 'volume' => 'control'], 'outputs' => []],
+        'bus' => ['domain' => 'audio', 'inputs' => ['in' => 'audio', 'gain' => 'control', 'mute' => 'control', 'solo' => 'control'], 'outputs' => ['out' => 'audio', 'pre' => 'audio']],
+        'out' => ['domain' => 'audio', 'inputs' => ['in' => 'audio', 'gain' => 'control'], 'outputs' => []],
+        'pan' => ['domain' => 'audio', 'inputs' => ['in' => 'audio', 'azimuth' => 'control', 'elevation' => 'control', 'distance' => 'control'], 'outputs' => ['out' => 'audio']],
+        'downmix' => ['domain' => 'audio', 'inputs' => ['in' => 'audio'], 'outputs' => ['out' => 'audio']],
+        'feedback' => ['domain' => 'audio', 'inputs' => ['in' => 'audio'], 'outputs' => ['out' => 'audio']],
     ];
     /** kinds a scene owns once (the catalog's `scene_only`): never inside an instrument */
     public const SCENE_ONLY = ['screen', 'space', 'outlet', 'tempo', 'audio_out'];

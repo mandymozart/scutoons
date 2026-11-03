@@ -8,7 +8,7 @@
 //! Same sound as the blocks they replace (blocks.rs: the patcher build's scalar sine / FM + the same envelope): the
 //! phases start at `START_PHASE` and step by the same seconds-per-sample, the sine is deck-core's polynomial. lib.rs's
 //! tests compare the two paths.
-use super::{Param, Stereo, QUANTUM};
+use super::{Buf, Param, QUANTUM};
 use deck_space::graph::{Kind, Node};
 use deck_core::dsp::START_PHASE;
 use deck_core::lanes::{self as v, F8, LANES};
@@ -140,7 +140,7 @@ impl Voices {
 
     /// One block: `before` = every buffer of the earlier steps (the cv sources), `outs` = this batch's voices.
     /// Never allocates.
-    pub(super) fn process(&mut self, before: &[Stereo], outs: &mut [Stereo], frames: usize) {
+    pub(super) fn process(&mut self, before: &[Buf], outs: &mut [Buf], frames: usize) {
         let fresh = std::mem::take(&mut self.fresh);
         for (i, ((params, cv), ramps)) in self.params.iter().zip(&self.cv).zip(&mut self.ramps).enumerate() {
             let (g, l) = (i / LANES, i % LANES);
@@ -156,8 +156,8 @@ impl Voices {
             match *cv {
                 Some(b) => {
                     for (s, (f, gate)) in f.iter_mut().zip(gate).enumerate() {
-                        f[l] = before[b].l[s];
-                        gate[l] = before[b].r[s];
+                        f[l] = before[b].ch(0)[s];
+                        gate[l] = before[b].ch(1)[s];
                     }
                 }
                 None => {
@@ -181,7 +181,7 @@ impl Voices {
         for (i, o) in outs.iter_mut().enumerate().take(self.len()) {
             let (g, l) = (i / LANES, i % LANES);
             for (s, y) in self.y[g * QUANTUM..][..frames].iter().enumerate() {
-                (o.l[s], o.r[s]) = (y[l], y[l]);
+                o.put2(s, y[l], y[l]);
             }
         }
     }

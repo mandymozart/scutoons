@@ -49,8 +49,9 @@ impl Running {
     }
 }
 
-/// Builds an engine for a sample rate; called once per backend tried.
-pub type Factory<'a> = dyn FnMut(f32) -> Result<Engine> + 'a;
+/// Builds an engine for a sample rate and the device's channel count (the backend reports it: the engine's deck
+/// configuration, plan 2.6b); called once per backend tried.
+pub type Factory<'a> = dyn FnMut(f32, usize) -> Result<Engine> + 'a;
 
 /// A callback that renders the graph itself, in the device's thread, measured by the glitch monitor (#208).
 pub struct Direct {
@@ -239,7 +240,7 @@ const NULL_BLOCK: usize = 512;
 
 /// no device: the engine runs on a timer thread so the clock, the music and the FFT still move
 fn null(factory: &mut Factory) -> Result<Running> {
-    let mut direct = Direct::new(factory(NULL_RATE as f32)?);
+    let mut direct = Direct::new(factory(NULL_RATE as f32, 2)?);
     // a timer's sleep is no device deadline: only long renders count
     direct.mon.check_late = false;
     let stop = Arc::new(AtomicBool::new(false));
@@ -402,7 +403,7 @@ fn cpal(o: &Options, factory: &mut Factory) -> Result<Running> {
     }
     let asio = hostname == "ASIO";
     let player = |factory: &mut Factory| -> Result<CpalPlayer> {
-        let mut feed = Feed::new(factory(rate as f32)?, o.thread, o.buffer)?;
+        let mut feed = Feed::new(factory(rate as f32, channels)?, o.thread, o.buffer)?;
         if wasapi {
             feed = feed.buffered();
         }
@@ -530,7 +531,7 @@ fn pipewire(o: &Options, factory: &mut Factory) -> Result<Running> {
     let latency = format!("{quantum}/{RATE}");
     let shown = latency.clone();
     // the ring + render thread (#208) also here when on: the X1's quantum of 128 leaves the callback 2.7 ms
-    let mut direct = Feed::new(factory(RATE as f32)?, o.thread, Some(quantum))?;
+    let mut direct = Feed::new(factory(RATE as f32, CHANNELS)?, o.thread, Some(quantum))?;
     let (ready_tx, ready_rx) = std::sync::mpsc::channel::<Result<pw::channel::Sender<()>, String>>();
     // the stream fades in on its first cycles and out when the Running is dropped (#250): `closing` asks, `silent` answers
     let closing = Arc::new(AtomicBool::new(false));

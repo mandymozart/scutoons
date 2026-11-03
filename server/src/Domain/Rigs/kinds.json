@@ -1372,6 +1372,382 @@
       ]
     },
     {
+      "name": "bus",
+      "version": "1",
+      "domain": "audio",
+      "doc": "A bus (Reaper's track): everything linked into `in` is summed, a fader (`gain`), mute and solo gate the post-fader `out`, `pre` is the sum before both. A send is a link out of `pre` or `out` into another bus, `scale` the send level, `map` the channel map (\"1/2 → 3/4\" is `map = [[1, 3], [2, 4]]`); a folder bus is a bus that sums its children. The insert chain is the nodes linked between a source and `in`. Mute and solo gate `out` only: a muted kick still ducks through its pre-fader send.",
+      "feature": "core",
+      "module": "stage",
+      "scope": "graph",
+      "ports": [
+        {
+          "name": "in",
+          "dir": "in",
+          "type": "audio",
+          "channels": "any",
+          "doc": "everything linked here is summed, in the scene's link order"
+        },
+        {
+          "name": "gain",
+          "dir": "in",
+          "type": "control",
+          "doc": "fader"
+        },
+        {
+          "name": "mute",
+          "dir": "in",
+          "type": "control",
+          "doc": "1 = out is silent (pre keeps playing)"
+        },
+        {
+          "name": "solo",
+          "dir": "in",
+          "type": "control",
+          "doc": "1 = every bus not soloed is silent at its out"
+        },
+        {
+          "name": "out",
+          "dir": "out",
+          "type": "audio",
+          "channels": "any",
+          "doc": "post-fader: the sum × gain, gated by mute and solo"
+        },
+        {
+          "name": "pre",
+          "dir": "out",
+          "type": "audio",
+          "channels": "any",
+          "doc": "pre-fader: the sum itself – a pre-fader send or sidechain feed"
+        }
+      ],
+      "params": [
+        {
+          "name": "gain",
+          "min": 0.0,
+          "max": 2.0,
+          "default": 1.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "fader"
+        },
+        {
+          "name": "mute",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "1 = out is silent"
+        },
+        {
+          "name": "solo",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "1 = every bus not soloed is silent at its out"
+        },
+        {
+          "name": "channels",
+          "min": 0.0,
+          "max": 32.0,
+          "default": 0.0,
+          "curve": "lin",
+          "doc": "the bus's width; 0 = the widest input"
+        }
+      ]
+    },
+    {
+      "name": "out",
+      "version": "1",
+      "domain": "audio",
+      "doc": "An outlet (Max's dac~): writes its input to device channels. `group` names the outlet group (default main; cue …) whose device channels the deck configuration gives; `first` (counted from 1) or a `channels` list pins device channels instead; nothing set = main on channels 1.. and any other group silent. An outlet with more channels than the device has is folded by the deck configuration (the layout's down-mix, else the first channels). Several outs add up.",
+      "feature": "core",
+      "module": "stage",
+      "scope": "graph",
+      "ports": [
+        {
+          "name": "in",
+          "dir": "in",
+          "type": "audio",
+          "channels": "any",
+          "doc": "the sound written to the outlet"
+        },
+        {
+          "name": "gain",
+          "dir": "in",
+          "type": "control",
+          "doc": "level of this out"
+        }
+      ],
+      "params": [
+        {
+          "name": "gain",
+          "min": 0.0,
+          "max": 1.5,
+          "default": 1.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "level of this out"
+        },
+        {
+          "name": "group",
+          "min": 0.0,
+          "max": 0.0,
+          "default": null,
+          "curve": "lin",
+          "choices": [
+            "main",
+            "cue"
+          ],
+          "doc": "the outlet group (default main); any other name is a group of its own"
+        },
+        {
+          "name": "first",
+          "min": 0.0,
+          "max": 32.0,
+          "default": 0.0,
+          "curve": "lin",
+          "doc": "the first device channel, counted from 1; 0 = the deck configuration decides"
+        },
+        {
+          "name": "layout",
+          "min": 0.0,
+          "max": 0.0,
+          "default": null,
+          "curve": "lin",
+          "choices": [
+            "mono",
+            "stereo",
+            "quad",
+            "5.1",
+            "7.1"
+          ],
+          "doc": "what the channels are, for the fold onto fewer device channels (default by count)"
+        }
+      ]
+    },
+    {
+      "name": "pan",
+      "version": "1",
+      "domain": "audio",
+      "doc": "Places a mono source (its first channel) on a speaker layout: equal-power between two speakers, VBAP (Pulkki: the speaker pair or triple around the direction, power-normalised) or DBAP (distance-based) over any array. The output has one channel per speaker; LFE channels get nothing. Azimuth counts degrees clockwise from the front (right is positive), elevation up.",
+      "feature": "core",
+      "module": "stage",
+      "scope": "graph",
+      "ports": [
+        {
+          "name": "in",
+          "dir": "in",
+          "type": "audio",
+          "channels": 1,
+          "doc": "the source (channel 1)"
+        },
+        {
+          "name": "azimuth",
+          "dir": "in",
+          "type": "control",
+          "doc": "direction in degrees, 0 = front, positive = right"
+        },
+        {
+          "name": "elevation",
+          "dir": "in",
+          "type": "control",
+          "doc": "degrees above the horizon"
+        },
+        {
+          "name": "distance",
+          "dir": "in",
+          "type": "control",
+          "doc": "distance of the source for DBAP, in units of the layout's radius"
+        },
+        {
+          "name": "out",
+          "dir": "out",
+          "type": "audio",
+          "channels": "any",
+          "doc": "one channel per speaker"
+        }
+      ],
+      "params": [
+        {
+          "name": "azimuth",
+          "min": -180.0,
+          "max": 180.0,
+          "default": 0.0,
+          "curve": "lin",
+          "unit": "deg",
+          "port": true,
+          "doc": "direction in degrees, 0 = front, positive = right"
+        },
+        {
+          "name": "elevation",
+          "min": -90.0,
+          "max": 90.0,
+          "default": 0.0,
+          "curve": "lin",
+          "unit": "deg",
+          "port": true,
+          "doc": "degrees above the horizon"
+        },
+        {
+          "name": "distance",
+          "min": 0.1,
+          "max": 10.0,
+          "default": 1.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "distance of the source for DBAP"
+        },
+        {
+          "name": "mode",
+          "min": 0.0,
+          "max": 0.0,
+          "default": null,
+          "curve": "lin",
+          "choices": [
+            "auto",
+            "equal_power",
+            "vbap",
+            "dbap"
+          ],
+          "doc": "the panning law; auto = equal_power on two speakers, else vbap"
+        },
+        {
+          "name": "layout",
+          "min": 0.0,
+          "max": 0.0,
+          "default": null,
+          "curve": "lin",
+          "choices": [
+            "mono",
+            "stereo",
+            "quad",
+            "5.1",
+            "7.1"
+          ],
+          "doc": "the speakers (default stereo); a venue's own layouts come from the deck configuration, or give `az` / `el` / `dist` lists on the node"
+        },
+        {
+          "name": "rolloff",
+          "min": 0.0,
+          "max": 12.0,
+          "default": 6.0,
+          "curve": "lin",
+          "unit": "dB",
+          "doc": "DBAP: level lost per doubling of the distance"
+        },
+        {
+          "name": "blur",
+          "min": 0.0,
+          "max": 2.0,
+          "default": 0.1,
+          "curve": "lin",
+          "doc": "DBAP: spatial blur, keeps a source on a speaker from being a single-speaker point"
+        }
+      ]
+    },
+    {
+      "name": "downmix",
+      "version": "1",
+      "domain": "audio",
+      "doc": "A gain matrix from `from` channels to `to` channels: the standard tables (ITU-R BS.775 / Web Audio: 5.1 → stereo is L + C/√2 + Ls/√2, the LFE dropped; quad → stereo; stereo → mono …) between the layouts, or your own `matrix` (rows = output channels, columns = input channels, row by row). Channels go n → n everywhere else; this is the one place a show asks for a mix-down.",
+      "feature": "core",
+      "module": "stage",
+      "scope": "graph",
+      "ports": [
+        {
+          "name": "in",
+          "dir": "in",
+          "type": "audio",
+          "channels": "any",
+          "doc": "the sound to mix (padded or cut to `from` channels)"
+        },
+        {
+          "name": "out",
+          "dir": "out",
+          "type": "audio",
+          "channels": "any",
+          "doc": "`to` channels"
+        }
+      ],
+      "params": [
+        {
+          "name": "from",
+          "min": 0.0,
+          "max": 0.0,
+          "default": null,
+          "curve": "lin",
+          "choices": [
+            "mono",
+            "stereo",
+            "quad",
+            "5.1",
+            "7.1"
+          ],
+          "doc": "the layout of the input (default 5.1)"
+        },
+        {
+          "name": "to",
+          "min": 0.0,
+          "max": 0.0,
+          "default": null,
+          "curve": "lin",
+          "choices": [
+            "mono",
+            "stereo",
+            "quad",
+            "5.1"
+          ],
+          "doc": "the layout of the output (default stereo)"
+        },
+        {
+          "name": "inputs",
+          "min": 0.0,
+          "max": 32.0,
+          "default": 0.0,
+          "curve": "lin",
+          "doc": "with a custom `matrix`: how many input channels a row has (0 = the `from` layout's)"
+        }
+      ]
+    },
+    {
+      "name": "feedback",
+      "version": "1",
+      "domain": "audio",
+      "doc": "The explicit loop (Max's tapin~ / tapout~): `out` plays what came into `in` one block (128 frames, 2.7 ms) ago. Every other cycle in a graph is an error.",
+      "feature": "core",
+      "module": "stage",
+      "scope": "graph",
+      "ports": [
+        {
+          "name": "in",
+          "dir": "in",
+          "type": "audio",
+          "channels": "any",
+          "doc": "the sound fed back (padded or cut to `channels`)"
+        },
+        {
+          "name": "out",
+          "dir": "out",
+          "type": "audio",
+          "channels": "any",
+          "doc": "`in`, one block late"
+        }
+      ],
+      "params": [
+        {
+          "name": "channels",
+          "min": 1.0,
+          "max": 32.0,
+          "default": 2.0,
+          "curve": "lin",
+          "doc": "how many channels the loop carries"
+        }
+      ]
+    },
+    {
       "name": "smooth",
       "version": "1",
       "domain": "control",

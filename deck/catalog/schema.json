@@ -300,6 +300,21 @@
         "from": {
           "type": "string"
         },
+        "map": {
+          "description": "an audio link's channel map (plan 2.6, #318): `[source, target]` pairs counted from 1 – `[[1, 3], [2, 4]]` lands a\nstereo source on channels 3 and 4 (a send's offset); one source may go to several targets, several sources into one\ntarget sum. Empty = channel n to channel n. `scale` on an audio link is the send level.",
+          "items": {
+            "items": {
+              "format": "uint8",
+              "maximum": 255,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "type": "array"
+          },
+          "type": "array"
+        },
         "offset": {
           "default": 0.0,
           "format": "float",

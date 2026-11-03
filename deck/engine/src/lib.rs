@@ -13,12 +13,16 @@
 //! decoded tracks of `chapter_music` (`MusicFeed`), the module runtime (`Seams`), the scheduling of the events' sequencer.
 mod blocks;
 mod click;
+pub mod config;
 pub mod control;
 #[cfg(feature = "events")]
 pub mod dispatch;
 pub mod fft;
+pub mod layout;
 #[cfg(feature = "modules")]
 mod module;
+pub mod pan;
+mod route;
 #[cfg(feature = "events")]
 pub mod sequencer;
 mod tempo;
@@ -26,13 +30,14 @@ mod voices;
 #[cfg(feature = "events")]
 mod walk;
 
+pub use config::{DeckConfig, Fold, OutletMap, PassThrough, StageEnvironment};
 pub use tempo::tempo_config;
 
 use anyhow::Result;
 use deck_core::batch::levels;
-use deck_core::limiter::{self, Limiter};
+use deck_core::limiter::{self, LinkedLimiter};
 use deck_core::tempo::{SeqLock, Shared};
-use deck_space::graph::{Domain, Graph, Kind, PortType};
+use deck_space::graph::{Domain, Graph, Kind, PortType, MAX_CHANNELS};
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use voices::{VoiceKind, Voices};
@@ -70,21 +75,52 @@ impl Param {
     }
 }
 
-/// Every output buffer's newest block peak – built only for a scene with a `space` node (the being's audio hoses,
-/// #188), so the other scenes' blocks cost nothing extra. Written by the audio thread after each block, read per frame.
+/// Every output buffer's newest block peak, per channel – built only for a scene with a `space` node (the being's audio
+/// hoses, #188), so the other scenes' blocks cost nothing extra. Written by the audio thread after each block, read per frame.
 pub struct Meters {
+    /// the peaks of all pool channels, buffer after buffer
     levels: Box<[AtomicU32]>,
     /// per graph node: its first output buffer
     buf_of: Vec<Option<usize>>,
+    /// per buffer: where its channels start in `levels`, and how many it has
+    at: Vec<(usize, usize)>,
 }
 
 impl Meters {
-    /// `node`'s output `port`: the newest block's peak (0 for a node without audio outputs)
-    pub fn level(&self, node: usize, port: usize) -> f32 {
-        match self.buf_of.get(node).copied().flatten().and_then(|b| self.levels.get(b + port)) {
-            Some(l) => f32::from_bits(l.load(Ordering::Relaxed)),
-            None => 0.0,
+    fn channels(&self, node: usize, port: usize) -> &[AtomicU32] {
+        match self.buf_of.get(node).copied().flatten().and_then(|b| self.at.get(b + port)) {
+            Some(&(at, n)) => &self.levels[at..at + n],
+            None => &[],
         }
+    }
+
+    /// `node`'s output `port`: the newest block's peak over its channels (0 for a node without audio outputs)
+    pub fn level(&self, node: usize, port: usize) -> f32 {
+        self.channels(node, port).iter().fold(0.0, |m, l| m.max(f32::from_bits(l.load(Ordering::Relaxed))))
+    }
+
+    /// the same for one channel of the port (counted from 0)
+    pub fn channel_level(&self, node: usize, port: usize, channel: usize) -> f32 {
+        self.channels(node, port).get(channel).map_or(0.0, |l| f32::from_bits(l.load(Ordering::Relaxed)))
+    }
+
+    /// how many channels `node`'s output `port` carries
+    pub fn width(&self, node: usize, port: usize) -> usize {
+        self.channels(node, port).len()
+    }
+}
+
+/// The peak of every device channel in the newest quantum, after the limiter – what the speakers get (always built; the
+/// HUD, the gain-reduction meters of a venue). Written by the audio thread, read from any.
+pub struct DeviceLevels(Box<[AtomicU32]>);
+
+impl DeviceLevels {
+    pub fn channels(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn peak(&self, channel: usize) -> f32 {
+        self.0.get(channel).map_or(0.0, |l| f32::from_bits(l.load(Ordering::Relaxed)))
     }
 }
 
@@ -101,30 +137,77 @@ impl Track {
     }
 }
 
-/// One stereo block buffer (a block uses the first `n` frames).
-pub struct Stereo {
-    pub l: Box<[f32]>,
-    pub r: Box<[f32]>,
+/// One block buffer, planar: `ch` channels of `frames` samples each, one after the other (a block uses the first `n` of
+/// every channel). A port owns one; a stereo port is two channels – the engine's pool is these (plan 2.6, #318).
+pub struct Buf {
+    data: Box<[f32]>,
+    ch: usize,
+    frames: usize,
 }
 
-impl Stereo {
-    /// a buffer of `frames` frames
-    pub fn sized(frames: usize) -> Stereo {
-        Stereo { l: vec![0.0; frames].into(), r: vec![0.0; frames].into() }
+impl Buf {
+    /// `ch` channels of `frames` frames, silent
+    pub fn sized(ch: usize, frames: usize) -> Buf {
+        Buf { data: vec![0.0; ch * frames].into(), ch, frames }
     }
 
+    pub fn channels(&self) -> usize {
+        self.ch
+    }
+
+    pub fn frames(&self) -> usize {
+        self.frames
+    }
+
+    /// channel `c`
+    #[inline(always)]
+    pub fn ch(&self, c: usize) -> &[f32] {
+        &self.data[c * self.frames..(c + 1) * self.frames]
+    }
+
+    #[inline(always)]
+    pub fn ch_mut(&mut self, c: usize) -> &mut [f32] {
+        &mut self.data[c * self.frames..(c + 1) * self.frames]
+    }
+
+    /// the first two channels, both writable (a stereo block)
+    #[inline(always)]
+    pub fn lr_mut(&mut self) -> (&mut [f32], &mut [f32]) {
+        let (l, r) = self.data.split_at_mut(self.frames);
+        (l, &mut r[..self.frames])
+    }
+
+    /// the whole planar block and the stride between channels (the group limiter works on it)
+    #[inline(always)]
+    pub fn planar_mut(&mut self) -> (&mut [f32], usize) {
+        (&mut self.data, self.frames)
+    }
+
+    /// frame `i` of channels 0 and 1
+    #[inline(always)]
+    pub fn put2(&mut self, i: usize, l: f32, r: f32) {
+        self.data[i] = l;
+        self.data[self.frames + i] = r;
+    }
+
+    /// every channel to silence (the first `n` frames)
+    pub fn clear(&mut self, n: usize) {
+        for c in 0..self.ch {
+            self.ch_mut(c)[..n].fill(0.0);
+        }
+    }
 }
 
-/// a buffer of MAX_BLOCK frames (what the tests give a block they drive by hand)
-impl Default for Stereo {
-    fn default() -> Stereo {
-        Stereo::sized(MAX_BLOCK)
+/// a stereo buffer of MAX_BLOCK frames (what the tests give a block they drive by hand)
+impl Default for Buf {
+    fn default() -> Buf {
+        Buf::sized(2, MAX_BLOCK)
     }
 }
 
 /// An audio node's DSP: reads its inputs (by input port index; None = not linked or a control port), writes its outputs.
 pub trait Block: Send {
-    fn process(&mut self, ins: &[Option<&Stereo>], outs: &mut [Stereo], n: usize);
+    fn process(&mut self, ins: &[Option<&Buf>], outs: &mut [Buf], n: usize);
 }
 
 /// How an engine is built. A deck runs `Build::detect()`; the patcher build is the reference the tests and the bench
@@ -169,9 +252,19 @@ pub enum Sequencing {
 /// What a platform supplies to a build besides the graph: services the engine asks for, none by default.
 #[derive(Default, Clone)]
 pub struct Seams {
+    /// the device this engine plays on: its channels, how outlets map onto them, the layouts of the venue (stereo by default)
+    pub deck: DeckConfig,
     /// the loaded rig modules (`module:<name>` nodes); without one such a node is a build error
     #[cfg(feature = "modules")]
     pub modules: Option<Arc<dyn ModuleSource>>,
+}
+
+impl Seams {
+    /// the seams of a platform that only knows its device
+    #[allow(clippy::needless_update)] // the module runtime is a field of a feature
+    pub fn with_deck(deck: DeckConfig) -> Seams {
+        Seams { deck, ..Seams::default() }
+    }
 }
 
 /// One step of a block, in level order.
@@ -180,6 +273,34 @@ enum Step {
     Node { block: Box<dyn Block>, inputs: Vec<Option<usize>>, out: usize, outs: usize },
     /// a level's voices of one kind as one batch
     Voices(Box<Voices>),
+    /// an input that sums several links or maps channels: `dst` is the sum of the taps, in the links' order (a link that
+    /// is alone, unscaled, unmapped and of the port's width is read in place and has no step)
+    Gather { dst: usize, taps: Vec<Tap> },
+    /// the end of a `feedback` loop, last in the block: the loop's input becomes what its output plays in the next block
+    Capture { src: usize, dst: usize },
+}
+
+/// One link into a gathered input: the source buffer, the send level and the channel map as 0-based (source, target) pairs
+/// (empty = channel n to channel n, as far as both reach).
+struct Tap {
+    src: usize,
+    gain: f32,
+    pairs: Vec<(u8, u8)>,
+}
+
+/// One channel of an outlet's sound on one device channel: `first` = the first to write it (a copy, else added)
+struct Route {
+    src: usize,
+    from: u8,
+    to: u8,
+    gain: f32,
+    first: bool,
+}
+
+/// A group of device channels whose gain the limiter takes off together
+struct LimitSet {
+    chans: Vec<usize>,
+    limiter: LinkedLimiter,
 }
 
 /// The stage's clock: frames rendered for the device (or by the null backend's timer) and the stamp of the newest
@@ -199,21 +320,28 @@ impl Clock {
 }
 
 pub struct Engine {
-    /// every output port's buffer (and the audio_out's own), in step order
-    bufs: Vec<Stereo>,
+    /// every output port's buffer (and the sinks' own), in step order
+    bufs: Vec<Buf>,
     steps: Vec<Step>,
-    out_buf: Option<usize>,
+    /// the outlets' channels on the device's, in the outlets' order
+    routes: Vec<Route>,
+    /// device channels no outlet plays on (silent), and those some do (the master gain ramps them)
+    unwritten: Vec<usize>,
+    written: Vec<usize>,
     master: Param,
     /// the master gain the last block ended on – a change ramps over one block (no click on a mute)
     gain: f32,
     frames: Arc<AtomicU64>,
     stamp: Arc<Stamp>,
     meters: Option<Arc<Meters>>,
-    /// the output's soft cap (#188, deck-core's limiter.rs) – last before the device, instead of a hard clamp – and
-    /// its block buffer
-    limiter: Limiter,
-    /// the newest quantum after master and limiter, and how many of its last frames the platform has not taken yet
-    mix: Stereo,
+    /// the room between the outlets and the limiter (plan 2.6b); the identity unless one is set
+    environment: Box<dyn StageEnvironment>,
+    /// the output's soft cap (#188, deck-core's limiter.rs) – last before the device – one per group of device channels
+    sets: Vec<LimitSet>,
+    /// the newest quantum on the device channels after master, environment and limiter, and how many of its last frames
+    /// the platform has not taken yet
+    dev: Buf,
+    device: Arc<DeviceLevels>,
     pending: usize,
     /// the deepest gain reduction (dB, f32 bits) since the frame thread last took it
     reduction: Arc<AtomicU32>,
@@ -245,6 +373,11 @@ pub struct Handles {
     pub reduction: Arc<AtomicU32>,
     /// blocks the device played late (an underrun: `Engine::mark` saw a gap) – one of the glitch causes
     pub underruns: Arc<AtomicU64>,
+    /// the peaks of the device's channels (what the speakers get)
+    pub device: Arc<DeviceLevels>,
+    /// what the build did with the deck configuration, in words: an outlet with no device channels, a fold, channels the
+    /// device lacks – for the log and the HUD
+    pub notes: Vec<String>,
     /// the hosts' events (#236): names, the sequencer, the routing for the dispatcher – `events.start()` runs them
     #[cfg(feature = "events")]
     pub events: dispatch::Events,
@@ -281,10 +414,15 @@ impl Engine {
         Engine::build_seams(graph, rate, volume, build, seq, &Seams::default())
     }
 
-    /// `build_seq` with the platform's services (`Seams`)
+    /// `build_seq` with the platform's services (`Seams`: the device's configuration, the module runtime)
     pub fn build_seams(graph: &Graph, rate: f32, volume: f32, build: Build, seq: Sequencing, seams: &Seams) -> Result<(Engine, Handles)> {
         #[cfg(not(feature = "events"))]
         let _ = seq;
+        let deck = &seams.deck;
+        if !(1..=config::MAX_DEVICE_CHANNELS).contains(&deck.channels) {
+            anyhow::bail!("the deck configuration '{}' has {} device channels (1..={})", deck.name, deck.channels, config::MAX_DEVICE_CHANNELS);
+        }
+        let device = Arc::new(DeviceLevels((0..deck.channels).map(|_| AtomicU32::new(0)).collect()));
         let mut handles = Handles {
             params: Vec::new(),
             knobs: Vec::new(),
@@ -297,25 +435,58 @@ impl Engine {
             build,
             reduction: Arc::new(AtomicU32::new(0)),
             underruns: Arc::new(AtomicU64::new(0)),
+            device: device.clone(),
+            notes: Vec::new(),
             #[cfg(feature = "events")]
             events: dispatch::Events::new(seq),
         };
         // the scene's tempo until the frame thread takes over
-        let cfg = tempo_config(graph)?;
-        handles.tempo.publish(&cfg.map(rate as f64), cfg.click);
+        let tempo = tempo_config(graph)?;
+        handles.tempo.publish(&tempo.map(rate as f64), tempo.click);
         let audio = |i: usize| graph.nodes[i].kind.domain() == Domain::Audio;
-        // levels by the audio links (control links into or out of audio nodes cross threads and never order them)
+        // levels by the audio links (control links into or out of audio nodes cross threads and never order them; a link
+        // into a `feedback` node is read a block late and orders nothing)
         let deps: Vec<Vec<usize>> = (0..graph.nodes.len())
-            .map(|t| graph.links.iter().filter(|l| l.to.0 == t && l.ty == PortType::Audio).map(|l| l.from.0).collect())
+            .map(|t| {
+                if graph.nodes[t].kind == Kind::Feedback {
+                    return Vec::new();
+                }
+                graph.links.iter().filter(|l| l.to.0 == t && l.ty == PortType::Audio).map(|l| l.from.0).collect()
+            })
             .collect();
         let level = levels(&deps).map_err(|e| anyhow::anyhow!("the audio graph: {e}"))?;
         let depth = (0..graph.nodes.len()).filter(|&i| audio(i)).map(|i| level[i] + 1).max().unwrap_or(0);
-        let mut bufs: Vec<Stereo> = Vec::new();
+        let mut bufs: Vec<Buf> = Vec::new();
         let mut steps = Vec::new();
         let mut tables = blocks::Tables::new(rate);
         let mut buf_of: Vec<Option<usize>> = vec![None; graph.nodes.len()];
+        let mut inputs_of: Vec<Vec<Option<usize>>> = vec![Vec::new(); graph.nodes.len()];
+        let mut feeds: Vec<Feed> = Vec::new();
+        // every bus's solo param, before any bus is built: one soloed bus silences the out of the others
+        let mut early: Vec<Option<Vec<Param>>> = vec![None; graph.nodes.len()];
+        for (i, node) in graph.nodes.iter().enumerate() {
+            if node.kind == Kind::Bus {
+                early[i] = Some(node_params(graph, i, &mut handles));
+            }
+        }
+        let solo = Kind::Bus.input("solo").expect("a bus has a solo");
+        let solo_of: Vec<Option<Param>> = early.iter().map(|p| p.as_ref().map(|p| p[solo].clone())).collect();
+        let all: Arc<[Param]> = solo_of.iter().flatten().cloned().collect();
         for l in 0..depth {
             let nodes: Vec<usize> = graph.order.iter().copied().filter(|&i| audio(i) && level[i] == l).collect();
+            // a feedback loop's output is there from the start of its level; its input is wired at the end
+            for &i in &nodes {
+                if graph.nodes[i].kind == Kind::Feedback {
+                    buf_of[i] = Some(bufs.len());
+                    bufs.push(Buf::sized(route::out_widths(&graph.nodes[i], &[], deck)?[0], QUANTUM));
+                }
+            }
+            // what each node reads (a gather buffer and its step come before any output buffer of the level)
+            for &i in &nodes {
+                if buf_of[i].is_none() {
+                    inputs_of[i] = resolve_inputs(graph, i, deck, &buf_of, &mut bufs, &mut steps)?;
+                }
+            }
             // the level's batches first: one per kind, its voices' outputs side by side
             for kind in [VoiceKind::Sine, VoiceKind::Fm] {
                 let voices: Vec<usize> =
@@ -332,10 +503,10 @@ impl Engine {
                         VoiceKind::Fm => (p("ratio"), p("index")),
                         VoiceKind::Sine => (Param::new(1.0), Param::new(1.0)),
                     };
-                    let cv = node.kind.input("cv").and_then(|k| audio_in(graph, &buf_of, i, k));
+                    let cv = node.kind.input("cv").and_then(|k| inputs_of[i][k]);
                     batch.push([p("freq"), p("gain"), ratio, index], cv, blocks::env_coefs(rate, node));
                     buf_of[i] = Some(bufs.len());
-                    bufs.push(Stereo::sized(QUANTUM));
+                    bufs.push(Buf::sized(2, QUANTUM));
                 }
                 batch.finish();
                 steps.push(Step::Voices(Box::new(batch)));
@@ -343,35 +514,71 @@ impl Engine {
             // the one-off nodes
             for &i in &nodes {
                 if buf_of[i].is_some() {
-                    continue; // batched above
+                    continue; // batched above (or a feedback loop's output)
                 }
                 let node = &graph.nodes[i];
-                let params = node_params(graph, i, &mut handles);
-                let inputs = (0..node.kind.inputs().len()).map(|k| audio_in(graph, &buf_of, i, k)).collect();
-                let block = blocks::make(node, i, rate, &params, &mut handles, seams, &mut tables)?;
-                // the audio_out sink has no output port but keeps its block in one buffer – render() reads it
-                let outs = if node.kind == Kind::AudioOut { 1 } else { node.kind.outputs().len() };
+                let params = early[i].take().unwrap_or_else(|| node_params(graph, i, &mut handles));
+                let inputs = std::mem::take(&mut inputs_of[i]);
+                let in_widths: Vec<Option<usize>> = inputs.iter().map(|b| b.map(|b| bufs[b].channels())).collect();
+                let mut widths = route::out_widths(node, &in_widths, deck)?;
+                // the sinks have no output port but keep their block's result in one buffer – the outlets read it
+                let sink = matches!(node.kind, Kind::AudioOut | Kind::Out);
+                if sink {
+                    widths = vec![if node.kind == Kind::AudioOut { 2 } else { in_widths[0].unwrap_or(2) }];
+                }
+                // control outputs keep a token buffer (the port numbers count them)
+                for (w, port) in widths.iter_mut().zip(node.kind.outputs()) {
+                    if port.ty != PortType::Audio {
+                        *w = 2;
+                    }
+                }
+                let solos = route::Solos { all: all.clone(), upstream: upstream_solos(graph, i, &solo_of) };
+                let block = match route::make(node, rate, &params, &widths, deck, &solos)? {
+                    Some(b) => b,
+                    None => blocks::make(node, i, rate, &params, &mut handles, seams, &mut tables)?,
+                };
                 buf_of[i] = Some(bufs.len());
-                steps.push(Step::Node { block, inputs, out: bufs.len(), outs });
-                bufs.extend((0..outs).map(|_| Stereo::sized(QUANTUM)));
+                if sink {
+                    feeds.push(Feed::of(node, i, bufs.len(), widths[0]));
+                }
+                steps.push(Step::Node { block, inputs, out: bufs.len(), outs: widths.len() });
+                bufs.extend(widths.iter().map(|&w| Buf::sized(w, QUANTUM)));
             }
         }
-        let out_buf = graph.first(Kind::AudioOut).and_then(|i| buf_of[i]);
-        if graph.first(Kind::Space).is_some() {
-            let levels = (0..bufs.len()).map(|_| AtomicU32::new(0)).collect();
-            handles.meters = Some(Arc::new(Meters { levels, buf_of: buf_of.clone() }));
+        // the loops close: each feedback node's input, wired now that its source exists, is copied into its output last
+        for i in (0..graph.nodes.len()).filter(|&i| graph.nodes[i].kind == Kind::Feedback) {
+            if let Some(src) = resolve_inputs(graph, i, deck, &buf_of, &mut bufs, &mut steps)?[0] {
+                steps.push(Step::Capture { src, dst: buf_of[i].expect("allocated with its level") });
+            }
         }
+        if graph.first(Kind::Space).is_some() {
+            let mut at = Vec::with_capacity(bufs.len());
+            let mut total = 0;
+            for b in &bufs {
+                at.push((total, b.channels()));
+                total += b.channels();
+            }
+            let levels = (0..total).map(|_| AtomicU32::new(0)).collect();
+            handles.meters = Some(Arc::new(Meters { levels, buf_of: buf_of.clone(), at }));
+        }
+        feeds.sort_by_key(|f| f.node);
+        let plan = plan_outlets(&feeds, deck, rate);
+        handles.notes = plan.notes;
         let engine = Engine {
             meters: handles.meters.clone(),
             bufs,
             steps,
-            out_buf,
+            routes: plan.routes,
+            unwritten: plan.unwritten,
+            written: plan.written,
             master: handles.master.clone(),
             gain: volume,
             frames: handles.clock.frames.clone(),
             stamp: handles.clock.stamp.clone(),
-            limiter: Limiter::new(rate),
-            mix: Stereo::sized(QUANTUM),
+            environment: Box::new(PassThrough),
+            sets: plan.sets,
+            dev: Buf::sized(deck.channels, QUANTUM),
+            device,
             pending: 0,
             reduction: handles.reduction.clone(),
             underruns: handles.underruns.clone(),
@@ -388,6 +595,17 @@ impl Engine {
 
     pub fn rate(&self) -> f32 {
         self.rate
+    }
+
+    /// how many device channels this engine renders (the deck configuration's)
+    pub fn device_channels(&self) -> usize {
+        self.dev.channels()
+    }
+
+    /// The room the show plays in (plan 2.6b): from the next quantum on it processes the outlets' sum on the device channels
+    /// before the limiter. The engine starts with none (the outlets go straight on). Allocate it before, not in the callback.
+    pub fn set_stage_environment(&mut self, environment: Box<dyn StageEnvironment>) {
+        self.environment = environment;
     }
 
     /// (steps, batches, the batches' loops: "avx2" / "baseline" / "-") – the shape the build found
@@ -415,9 +633,10 @@ impl Engine {
         self.stamp.write([frames, heard_ns + ns(limiter::LOOK as u64)]);
     }
 
-    /// Fill an interleaved device buffer (`channels` per frame; L, R, the rest silent) of any length. The engine renders
-    /// whole `QUANTUM`s (one control read and one master ramp each) and hands out their frames: what is left of the
-    /// last one waits for the next call. Never allocates.
+    /// Fill an interleaved device buffer (`channels` per frame) of any length with the device channels (the deck
+    /// configuration's count; a callback with more channels gets silence on the rest, one with fewer the first ones – a
+    /// mono callback on a stereo engine the mean of both). The engine renders whole `QUANTUM`s (one control read and one
+    /// master ramp each) and hands out their frames: what is left of the last one waits for the next call. Never allocates.
     pub fn render<T: Copy>(&mut self, out: &mut [T], channels: usize, conv: impl Fn(f32) -> T) {
         let channels = channels.max(1);
         let total = out.len() / channels;
@@ -429,16 +648,23 @@ impl Engine {
             let from = QUANTUM - self.pending;
             let take = (total - done).min(self.pending);
             let frames = &mut out[done * channels..(done + take) * channels];
-            for (f, frame) in frames.chunks_exact_mut(channels).enumerate() {
-                let (l, r) = (self.mix.l[from + f], self.mix.r[from + f]);
-                if channels == 1 {
-                    frame[0] = conv(0.5 * (l + r));
-                    continue;
+            if channels == 1 && self.dev.channels() == 2 {
+                let (l, r) = (self.dev.ch(0), self.dev.ch(1));
+                for (f, x) in frames.iter_mut().enumerate() {
+                    *x = conv(0.5 * (l[from + f] + r[from + f]));
                 }
-                frame[0] = conv(l);
-                frame[1] = conv(r);
-                for x in &mut frame[2..] {
-                    *x = conv(0.0);
+            } else {
+                for c in 0..channels {
+                    if c < self.dev.channels() {
+                        let src = &self.dev.ch(c)[from..from + take];
+                        for (f, &v) in src.iter().enumerate() {
+                            frames[f * channels + c] = conv(v);
+                        }
+                    } else {
+                        for f in 0..take {
+                            frames[f * channels + c] = conv(0.0);
+                        }
+                    }
                 }
             }
             self.pending -= take;
@@ -446,34 +672,55 @@ impl Engine {
         }
     }
 
-    /// One quantum: the steps, the meters, the master's ramp and the soft limiter into `mix` (silence without an
-    /// audio_out node), the frame counter on.
+    /// One quantum: the steps, the meters, the outlets on the device channels, the master's ramp, the stage environment and
+    /// the soft limiters (silence without an outlet), the frame counter on.
     fn quantum(&mut self) {
         let n = QUANTUM;
         self.run(n);
         if let Some(m) = &self.meters {
-            for (b, level) in self.bufs.iter().zip(m.levels.iter()) {
-                let peak = b.l[..n].iter().chain(&b.r[..n]).fold(0.0f32, |p, x| p.max(x.abs()));
-                level.store(peak.to_bits(), Ordering::Relaxed);
+            for (b, &(at, _)) in self.bufs.iter().zip(&m.at) {
+                for c in 0..b.channels() {
+                    let peak = b.ch(c)[..n].iter().fold(0.0f32, |p, x| p.max(x.abs()));
+                    m.levels[at + c].store(peak.to_bits(), Ordering::Relaxed);
+                }
             }
         }
         let (from, to) = (self.gain, self.master.get());
         self.gain = to;
-        match self.out_buf.map(|b| &self.bufs[b]) {
-            Some(o) => {
-                // the master's ramp, then the soft limiter (never over 1, NaN = silence – no hard clamp, #188)
-                let mix = &mut self.mix;
-                for f in 0..n {
-                    let master = from + (to - from) * (f + 1) as f32 / n as f32;
-                    (mix.l[f], mix.r[f]) = (o.l[f] * master, o.r[f] * master);
+        // the outlets' sound on the device channels: the first writer of a channel copies, the rest add
+        for r in &self.routes {
+            let src = &self.bufs[r.src].ch(usize::from(r.from))[..n];
+            let dst = &mut self.dev.ch_mut(usize::from(r.to))[..n];
+            if r.first {
+                for (d, s) in dst.iter_mut().zip(src) {
+                    *d = s * r.gain;
                 }
-                self.limiter.process(&mut mix.l[..n], &mut mix.r[..n]);
-                self.reduction.fetch_max(self.limiter.take_reduction().to_bits(), Ordering::Relaxed);
+            } else {
+                for (d, s) in dst.iter_mut().zip(src) {
+                    *d += s * r.gain;
+                }
             }
-            None => {
-                self.mix.l[..n].fill(0.0);
-                self.mix.r[..n].fill(0.0);
+        }
+        for &c in &self.unwritten {
+            self.dev.ch_mut(c)[..n].fill(0.0);
+        }
+        // the master's ramp, the room, then the soft limiters (never over 1, NaN = silence – no hard clamp, #188)
+        for &c in &self.written {
+            for (f, d) in self.dev.ch_mut(c)[..n].iter_mut().enumerate() {
+                *d *= from + (to - from) * (f + 1) as f32 / n as f32;
             }
+        }
+        if !self.routes.is_empty() {
+            self.environment.process(&mut self.dev, n);
+            let (data, stride) = self.dev.planar_mut();
+            for set in &mut self.sets {
+                set.limiter.process_planar(data, stride, &set.chans, n);
+                self.reduction.fetch_max(set.limiter.take_reduction().to_bits(), Ordering::Relaxed);
+            }
+        }
+        for c in 0..self.dev.channels() {
+            let peak = self.dev.ch(c)[..n].iter().fold(0.0f32, |p, x| p.max(x.abs()));
+            self.device.0[c].store(peak.to_bits(), Ordering::Relaxed);
         }
         self.pending = n;
         self.frames.fetch_add(n as u64, Ordering::Relaxed);
@@ -484,7 +731,7 @@ impl Engine {
             match step {
                 Step::Node { block, inputs, out, outs } => {
                     let (before, after) = self.bufs.split_at_mut(*out);
-                    let mut ins: [Option<&Stereo>; MAX_PORTS] = [None; MAX_PORTS];
+                    let mut ins: [Option<&Buf>; MAX_PORTS] = [None; MAX_PORTS];
                     for (k, src) in inputs.iter().enumerate() {
                         ins[k] = src.map(|b| &before[b]);
                     }
@@ -494,9 +741,188 @@ impl Engine {
                     let (before, after) = self.bufs.split_at_mut(v.out);
                     v.process(before, &mut after[..v.len()], n);
                 }
+                Step::Gather { dst, taps } => {
+                    let (before, after) = self.bufs.split_at_mut(*dst);
+                    let d = &mut after[0];
+                    d.clear(n);
+                    for t in taps.iter() {
+                        let s = &before[t.src];
+                        if t.pairs.is_empty() {
+                            for c in 0..d.channels().min(s.channels()) {
+                                for (o, x) in d.ch_mut(c)[..n].iter_mut().zip(&s.ch(c)[..n]) {
+                                    *o += x * t.gain;
+                                }
+                            }
+                        } else {
+                            for &(from, to) in &t.pairs {
+                                for (o, x) in d.ch_mut(usize::from(to))[..n].iter_mut().zip(&s.ch(usize::from(from))[..n]) {
+                                    *o += x * t.gain;
+                                }
+                            }
+                        }
+                    }
+                }
+                Step::Capture { src, dst } => {
+                    let (src, dst) = (*src, *dst);
+                    let (s, d) = if src < dst {
+                        let (a, b) = self.bufs.split_at_mut(dst);
+                        (&a[src], &mut b[0])
+                    } else {
+                        let (a, b) = self.bufs.split_at_mut(src);
+                        (&b[0], &mut a[dst])
+                    };
+                    for c in 0..d.channels() {
+                        if c < s.channels() {
+                            d.ch_mut(c)[..n].copy_from_slice(&s.ch(c)[..n]);
+                        } else {
+                            d.ch_mut(c)[..n].fill(0.0);
+                        }
+                    }
+                }
             }
         }
     }
+}
+
+/// the solo params of the buses with an audio path into `node`
+fn upstream_solos(graph: &Graph, node: usize, solo_of: &[Option<Param>]) -> Arc<[Param]> {
+    let mut seen = vec![false; graph.nodes.len()];
+    let mut stack = vec![node];
+    let mut found = Vec::new();
+    while let Some(t) = stack.pop() {
+        for l in graph.links.iter().filter(|l| l.ty == PortType::Audio && l.to.0 == t) {
+            if !seen[l.from.0] {
+                seen[l.from.0] = true;
+                found.extend(solo_of[l.from.0].clone());
+                stack.push(l.from.0);
+            }
+        }
+    }
+    found.into()
+}
+
+/// An `out` node or the `audio_out` sink, as the outlet planning sees it.
+struct Feed {
+    node: usize,
+    id: String,
+    /// the sink's own buffer and its width
+    buf: usize,
+    width: usize,
+    group: String,
+    /// the device channels the node names itself, counted from 1: a `channels` list, else `first` (0 = none)
+    list: Vec<usize>,
+    first: usize,
+    /// what the channels are (`layout`), for the fold; by count when absent
+    layout: Option<String>,
+}
+
+impl Feed {
+    fn of(node: &deck_space::graph::Node, index: usize, buf: usize, width: usize) -> Feed {
+        Feed {
+            node: index,
+            id: node.id.clone(),
+            buf,
+            width,
+            group: node.str("group").unwrap_or("main").to_string(),
+            list: node.f32s("channels").iter().map(|&c| c.max(0.0) as usize).collect(),
+            first: node.f32("first", 0.0).max(0.0) as usize,
+            layout: node.str("layout").map(str::to_string),
+        }
+    }
+}
+
+/// what the outlets come to on a device
+struct Plan {
+    routes: Vec<Route>,
+    written: Vec<usize>,
+    unwritten: Vec<usize>,
+    sets: Vec<LimitSet>,
+    notes: Vec<String>,
+}
+
+/// The deck configuration applied: which device channels each outlet's channels play on, how an outlet with more channels
+/// than the device channels it has is folded, which device channels the limiter links (the channels of one outlet group, and
+/// groups that share a channel). Allocates; the render only runs the result.
+fn plan_outlets(feeds: &[Feed], deck: &DeckConfig, rate: f32) -> Plan {
+    let d = deck.channels;
+    let (mut notes, mut routes) = (Vec::new(), Vec::new());
+    let mut claimed = vec![false; d];
+    let mut groups: Vec<(String, Vec<usize>)> = Vec::new();
+    for f in feeds {
+        let targets: Vec<usize> = if !f.list.is_empty() {
+            f.list.iter().filter(|&&c| c >= 1 && c <= d).map(|c| c - 1).collect()
+        } else if f.first > 0 {
+            (f.first..f.first + f.width).filter(|&c| c <= d).map(|c| c - 1).collect()
+        } else {
+            deck.channels_of(&f.group, f.width)
+        };
+        let m = targets.len();
+        if m == 0 {
+            notes.push(format!("outlet '{}' ({}): no device channel to play on ({} has {d}) – silent", f.group, f.id, deck.name));
+            continue;
+        }
+        let mut pairs: Vec<(usize, usize, f32)> = Vec::new();
+        if m >= f.width {
+            pairs.extend((0..f.width).map(|c| (c, targets[c], 1.0)));
+        } else {
+            let from = f.layout.clone().or_else(|| layout::name_for(f.width).map(str::to_string));
+            let table = match (&from, layout::name_for(m)) {
+                (Some(from), Some(to)) if deck.fold == Fold::Speakers => layout::matrix(from, to),
+                _ => None,
+            };
+            match table {
+                Some(mx) if mx.len() == m && mx.iter().all(|r| r.len() == f.width) => {
+                    notes.push(format!("outlet '{}' ({}): {} channels folded onto {m} by the {} → {} down-mix table", f.group, f.id, f.width, from.unwrap_or_default(), layout::name_for(m).unwrap_or("?")));
+                    for (r, row) in mx.iter().enumerate() {
+                        pairs.extend(row.iter().enumerate().filter(|(_, &g)| g != 0.0).map(|(c, &g)| (c, targets[r], g)));
+                    }
+                }
+                _ => {
+                    notes.push(format!("outlet '{}' ({}): {} channels, {m} device channels to play on – the first {m} play", f.group, f.id, f.width));
+                    pairs.extend((0..m).map(|c| (c, targets[c], 1.0)));
+                }
+            }
+        }
+        let g = match groups.iter().position(|(name, _)| *name == f.group) {
+            Some(g) => g,
+            None => {
+                groups.push((f.group.clone(), Vec::new()));
+                groups.len() - 1
+            }
+        };
+        for (c, to, gain) in pairs {
+            routes.push(Route { src: f.buf, from: c as u8, to: to as u8, gain, first: !claimed[to] });
+            claimed[to] = true;
+            if !groups[g].1.contains(&to) {
+                groups[g].1.push(to);
+            }
+        }
+    }
+    // the limiter links the channels of an outlet group; groups that share a device channel are one
+    let mut comp: Vec<usize> = (0..d).collect();
+    for (_, chans) in &groups {
+        for w in chans.windows(2) {
+            let (a, b) = (comp[w[0]], comp[w[1]]);
+            if a != b {
+                comp.iter_mut().filter(|c| **c == b).for_each(|c| *c = a);
+            }
+        }
+    }
+    let mut sets: Vec<LimitSet> = Vec::new();
+    let mut keys: Vec<usize> = Vec::new();
+    for c in (0..d).filter(|&c| claimed[c]) {
+        match keys.iter().position(|&k| k == comp[c]) {
+            Some(s) => sets[s].chans.push(c),
+            None => {
+                keys.push(comp[c]);
+                sets.push(LimitSet { chans: vec![c], limiter: LinkedLimiter::new(rate, 1) });
+            }
+        }
+    }
+    for s in &mut sets {
+        s.limiter = LinkedLimiter::new(rate, s.chans.len());
+    }
+    Plan { routes, written: (0..d).filter(|&c| claimed[c]).collect(), unwritten: (0..d).filter(|&c| !claimed[c]).collect(), sets, notes }
 }
 
 /// `node`'s input params, one per input port: its param (or the kind's default); a linked control port's goes to the
@@ -519,12 +945,61 @@ fn node_params(graph: &Graph, i: usize, h: &mut Handles) -> Vec<Param> {
         .collect()
 }
 
-/// the buffer `node`'s input port `k` reads, if an audio link feeds it (its source sits in an earlier level)
-fn audio_in(graph: &Graph, buf_of: &[Option<usize>], node: usize, k: usize) -> Option<usize> {
-    match graph.link_into(node, k) {
-        Some(l) if l.ty == PortType::Audio => buf_of[l.from.0].map(|b| b + l.from.1),
-        _ => None,
+/// The buffer each audio input port of `node` reads (None = nothing linked). A port is as wide as its kind says, an `any`
+/// port as the widest of its links; a link that is alone, unscaled, unmapped and of that width is read in place, else a
+/// gather buffer holds the sum of the links (their scale as the send level, their map as the channel map: channels go n →
+/// n by default, and a map names source → target pairs), in the scene's link order – float addition is not associative,
+/// so the order is the contract (plan 2.6a).
+fn resolve_inputs(
+    graph: &Graph,
+    node: usize,
+    deck: &DeckConfig,
+    buf_of: &[Option<usize>],
+    bufs: &mut Vec<Buf>,
+    steps: &mut Vec<Step>,
+) -> Result<Vec<Option<usize>>> {
+    let n = &graph.nodes[node];
+    let mut inputs = vec![None; n.kind.inputs().len()];
+    for (k, port) in n.kind.inputs().iter().enumerate() {
+        if port.ty != PortType::Audio {
+            continue;
+        }
+        let links: Vec<&deck_space::graph::Link> = graph.links.iter().filter(|l| l.to == (node, k) && l.ty == PortType::Audio).collect();
+        if links.is_empty() {
+            continue;
+        }
+        let mut sources = Vec::with_capacity(links.len());
+        for l in &links {
+            let Some(b) = buf_of[l.from.0] else { anyhow::bail!("node '{}': its link from '{}' has no sound to read", n.id, graph.nodes[l.from.0].id) };
+            sources.push((b + l.from.1, bufs[b + l.from.1].channels()));
+        }
+        let width = match route::want_in(n, k, deck)? {
+            Some(w) => w,
+            None => links
+                .iter()
+                .zip(&sources)
+                .map(|(l, &(_, w))| if l.map.is_empty() { w } else { l.map.iter().map(|&(_, t)| usize::from(t) + 1).max().unwrap_or(1) })
+                .max()
+                .unwrap_or(1),
+        }
+        .clamp(1, MAX_CHANNELS);
+        if links.len() == 1 && links[0].scale == 1.0 && links[0].map.is_empty() && sources[0].1 == width {
+            inputs[k] = Some(sources[0].0);
+            continue;
+        }
+        let taps = links
+            .iter()
+            .zip(&sources)
+            .filter_map(|(l, &(src, w))| {
+                let pairs: Vec<(u8, u8)> = l.map.iter().copied().filter(|&(s, t)| usize::from(s) < w && usize::from(t) < width).collect();
+                (l.map.is_empty() || !pairs.is_empty()).then_some(Tap { src, gain: l.scale, pairs })
+            })
+            .collect();
+        inputs[k] = Some(bufs.len());
+        steps.push(Step::Gather { dst: bufs.len(), taps });
+        bufs.push(Buf::sized(width, QUANTUM));
     }
+    Ok(inputs)
 }
 
 #[cfg(test)]

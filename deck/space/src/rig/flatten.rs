@@ -20,7 +20,7 @@ fn node(id: &str, kind: &str, params: &[(&str, f32)]) -> NodeDef {
 }
 
 fn link(from: String, to: String, scale: f32, offset: f32) -> LinkDef {
-    LinkDef { from, to, scale, offset }
+    LinkDef { from, to, scale, offset, map: Vec::new() }
 }
 
 /// `node.port` inside track `t` → `<t>_<node>.<port>`
@@ -44,7 +44,7 @@ impl Rig {
                 scene.nodes.push(NodeDef { id: format!("{track}_{}", n.id), ..n.clone() });
             }
             for l in &patch.links {
-                scene.links.push(link(prefixed(track, &l.from), prefixed(track, &l.to), l.scale, l.offset));
+                scene.links.push(LinkDef { map: l.map.clone(), ..link(prefixed(track, &l.from), prefixed(track, &l.to), l.scale, l.offset) });
             }
         }
         self.mix(&played, &mut scene);

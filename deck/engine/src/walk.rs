@@ -16,7 +16,7 @@
 //! (dispatch.rs) through one SPSC ring each. Nothing here allocates in `process` (tests/no_alloc.rs, both paths).
 use super::dispatch::{Counters, Events};
 use super::sequencer::{Timed, SEQ_RING};
-use super::{Block, Param, Sequencing, Stereo};
+use super::{Block, Buf, Param, Sequencing};
 use deck_space::graph::Node;
 use deck_core::tempo::BeatReader;
 use anyhow::{anyhow, Result};
@@ -153,7 +153,7 @@ impl Host {
 }
 
 impl Block for Host {
-    fn process(&mut self, _: &[Option<&Stereo>], outs: &mut [Stereo], n: usize) {
+    fn process(&mut self, _: &[Option<&Buf>], outs: &mut [Buf], n: usize) {
         let (map, start) = match self.beats.block() {
             Some((m, _, start)) => (m, start),
             None => (self.own, self.frame),
@@ -189,6 +189,7 @@ impl Block for Host {
             }
         }
         let out = &mut outs[0];
-        self.cv.render(&self.rt, &mut out.l[..n], &mut out.r[..n]);
+        let (l, r) = out.lr_mut();
+        self.cv.render(&self.rt, &mut l[..n], &mut r[..n]);
     }
 }

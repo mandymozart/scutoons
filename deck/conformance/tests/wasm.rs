@@ -151,7 +151,42 @@ fn engine_native_vs_wasm() {
             }
         }
     }
+    // P4b (#318): the routing scenes on several device channels – sends with channel maps, folders, outlets, VBAP, the 5.1
+    // fold, the group limiters, the feedback loop – through the same two modules
+    md.push_str("\n| routing scene | device channels | block | native ≡ wasm32 | native ≡ wasm32 + simd128 | patcher ≡ batch in wasm32 + simd128 | first differing sample |\n|---|---|---|---|---|---|---|\n");
+    for case in common::routing::cases() {
+        for &block in &PATTERNS {
+            let native = deck_engine_wasm::run_device(&case.toml, &case.deck, RATE, block, FRAMES, deck_engine::Build::detect()).expect("native renders");
+            let a = engine_wasm_device_render(&mut wp, &case, block, FRAMES, true);
+            let b = engine_wasm_device_render(&mut ws, &case, block, FRAMES, true);
+            let patcher = engine_wasm_device_render(&mut ws, &case, block, FRAMES, false);
+            let (da, db, dp) = (diff(&native, &a), diff(&native, &b), diff(&b, &patcher));
+            let yes = |d: &Diff| if d.exact { "yes" } else { "NO" };
+            md.push_str(&format!("| {} | {} | {block} | {} | {} | {} | {} |\n", case.name, case.deck.channels, yes(&da), yes(&db), yes(&dp), da.first.or(db.first).map_or("–".into(), |f| f.to_string())));
+            if !(da.exact && db.exact) {
+                wrong.push(format!("{}/{block}: wasm32 {:?}, simd128 {:?}", case.name, da.first, db.first));
+            }
+        }
+    }
     std::fs::write(report_path("wasm-engine.md"), &md).unwrap();
     println!("{md}");
     assert!(wrong.is_empty(), "native and wasm renders differ:\n{}", wrong.join("\n"));
 }
+
+/// deck-engine in wasmtime on a deck configuration: every device channel, interleaved (`ew_config`, `ew_run_device`).
+fn engine_wasm_device_render(w: &mut Wasm, case: &common::routing::RoutingCase, block: usize, frames: usize, batch: bool) -> Vec<f32> {
+    let inbox = w.f::<u32, u32>("ew_inbox");
+    let config = w.f::<u32, u32>("ew_config");
+    let run = w.f::<(f32, u32, u32, u32), u32>("ew_run_device");
+    let out = w.f::<(), u32>("ew_out");
+    let ptr = inbox.call(&mut w.store, case.toml.len() as u32).unwrap();
+    w.write(ptr, case.toml.as_bytes());
+    let json = serde_json::to_string(&case.deck).unwrap();
+    let ptr = config.call(&mut w.store, json.len() as u32).unwrap();
+    w.write(ptr, json.as_bytes());
+    let n = run.call(&mut w.store, (RATE, block as u32, frames as u32, u32::from(batch))).unwrap() as usize;
+    assert_eq!(n, frames * case.deck.channels, "the engine in wasm renders the scene on the deck configuration");
+    let ptr = out.call(&mut w.store, ()).unwrap();
+    w.read_f32(ptr, n)
+}
+

@@ -75,7 +75,7 @@ pub fn from_wire(g: &DeckGraph) -> anyhow::Result<(Graph, Look)> {
     scene.links = g
         .links
         .iter()
-        .map(|l| LinkDef { from: l.from.clone(), to: l.to.clone(), scale: l.scale.unwrap_or(1.0) as f32, offset: l.offset.unwrap_or(0.0) as f32 })
+        .map(|l| LinkDef { from: l.from.clone(), to: l.to.clone(), scale: l.scale.unwrap_or(1.0) as f32, offset: l.offset.unwrap_or(0.0) as f32, map: Vec::new() })
         .collect();
     let mut look = Look { size: g.size.unwrap_or(0.5).clamp(0.1, 2.0) as f32, character: g.character.clone().unwrap_or_default(), ..Look::default() };
     if let Some(m) = g.moods.as_ref().filter(|m| !m.is_empty()) {
