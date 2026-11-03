@@ -1,4 +1,4 @@
-Draft for owner review, 2026-11-03 – the design of module ABI v2 (#323, with #312 sensors, #314 groups, #289 control outputs). Documents only; nothing is built. Read against `main` at b504d5f6 (the engine move, #317). The build tickets of §9 start only on the owner's word.
+Reviewed with the owner 2026-11-03 – the design of module ABI v2 (#323, with #312 sensors, #314 groups, #289 control outputs); every question of §10 is decided (DECISIONS 2026-11-03). Nothing is built; the build tickets A0–A10 of §9 are not created yet. Read against `main` at b504d5f6 (the engine move, #317).
 
 # ABI-V2 – one module ABI for notes, channels, sensors, assets and groups
 
@@ -317,7 +317,7 @@ impl Module for Tilt {
 **Parallelism (two sessions, one worker lane):** A0 → A1 → A2 are serial and need nothing from the engine, so they can run now, in the slot where the plan puts "P11 ABI v2". A6 follows them directly. **A3 must not start before #318 is merged or is handed to the same worker** (both rewrite the engine's module node and the buffer pool); A4's core and A5 can follow A3 in either order; A7 runs beside A2. **Waits for #320 (browser engine):** the web sensor adapters, the browser stats mirror, and *hearing* any module in the creator (#290). **Waits for P4b / #318:** multichannel and `any` end to end, sidechain ports, the multichannel proof in `fixture`. **Chapter 3 guard (plan §7):** nothing here touches the reader; the worker lane yields Nov 9–15.
 Estimate from the ledger's classes (M $2.2–2.9, L $4.7–11.2): **≈ $35–55 worker cost** for A0–A10 (3 × L, 1 × M + M, 1 × L for A5, rest S / S–M), plus the design review. #323's own label says `complexity:M`; as a build ticket it is L and splits into A0–A10 (the owner decides the board).
 
-## 10. Open questions for the owner
+## 10. Questions for the owner – all decided 2026-11-03
 
 Settled by the owner's principle (2026-11-03: "dont worry about backwards compatibility. we are building this fresh. the refactor is design choice.") and therefore **not** questions: the TS module host, `module-abi.ts` and their test are deleted in A6 (§7); module seeds are derived per node path (§3); v1 shapes (`dm_set_param`, the second descriptor type, `deck.params` / `deck.presets`, cv-lane notes) simply go. Pitch is decided too (Q2).
 
@@ -327,4 +327,4 @@ Settled by the owner's principle (2026-11-03: "dont worry about backwards compat
 4. **Decided by you 2026-11-03: sensor privacy and prompt policy as proposed in §4.** On the device, leaving it only when the user starts a stream ("makes sense like that for now. if we need it we can change the core later"); camera feature values only, never frames ("for now the values are enough"); position coarse unless a scene declares `position.precise` ("sounds okay for now"); the permission prompt only at a user gesture and only when a loaded scene needs the sensor ("exactly"); the audience sees a scene's `needs` / `wants` before it starts ("right" – the form, a line in the scene's info or a screen at Start, is designed with the deck UI); `needs` ⇒ node not run + reported, `wants` ⇒ runs with zeros ("correct").
 5. **Decided by you 2026-11-03: one factory preset in the module's descriptor, all others saved in the DB, exportable / importable as files** ("one factory preset is in the modules descriptor. all others are saved in the db. bonus: presets can be saved to json files or a better format for download an import") – §2, ticket A10.
 6. **Decided by you 2026-11-03 ("do it like that"): A0–A2 and A6 (SDK, host, migration, no engine) in the next free worker slot; A3 only after #318** so one rewrite of the engine's module node serves both.
-7. **Strictness of the allocator trap in shows (recommended: count, never trap; trap only in tests and Play).** Alternative: always trap – catches a creator's bug on the deck too, but silences a rig mid-show for a one-off allocation.
+7. **Decided by you 2026-11-03 ("count in shows"): an allocation during audio is counted in shows and traps only in the build service's tests and the creator's Play** (§6).
