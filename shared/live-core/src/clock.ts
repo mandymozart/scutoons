@@ -82,18 +82,28 @@ export interface ClockSummary {
 	seconds: number;
 }
 
+/** past this the core's controller snaps onto the show's line instead of nudging (deck-core tempo::sync) */
+const SNAP_MS = 50;
+
 /** #321: how far off the show's line this deck played over the last minute (the HUD's SHOW ±x ms, kept) – the sound
  *  report's measurement without a microphone. Counts the frames that follow an anchor (not a leader's own line). */
 export class ClockWindow {
 	private readonly at: number[] = [];
 	private readonly error: number[] = [];
 	private readonly spanMs: number;
+	private settled = false;
 	constructor(spanMs = 60_000) {
 		this.spanMs = spanMs;
 	}
 
 	add(ms: number, c: ClockState): void {
-		if (!c.locked || !c.anchor || c.leading) return;
+		if (!c.locked || !c.anchor || c.leading) {
+			this.settled = false;
+			return;
+		}
+		// the join's first frames are the deck before its snap onto the show's line (minutes off) – counted from the line on
+		if (!this.settled && Math.abs(c.errorMs) > SNAP_MS) return;
+		this.settled = true;
 		this.at.push(ms);
 		this.error.push(c.errorMs);
 		while (this.at.length && this.at[0] < ms - this.spanMs) {

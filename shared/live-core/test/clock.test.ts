@@ -23,13 +23,15 @@ test("the clock window keeps the last minute of a follower's error – not a lea
 	assert.equal(w.summary(), null);
 	w.add(0, at(50, 1)); // no anchor yet
 	w.add(0, at(50, 1 | 2 | 4)); // leads
+	w.add(0, at(1_023_277.9)); // the join's first frame, before the snap onto the show's line
 	assert.equal(w.summary(), null);
 	for (let i = 0; i < 100; i++) w.add(1000 + i * 25, at(i % 2 ? 1 : -1));
+	w.add(3000, at(-80)); // a snap after the line was reached: it counts
 	w.add(4000, at(-9));
 	const s = w.summary()!;
-	assert.equal(s.n, 101);
-	assert.deepEqual([s.p50, s.p95, s.max], [1, 1, 9]);
-	assert.ok(Math.abs(s.mean - -9 / 101) < 1e-9);
+	assert.equal(s.n, 102);
+	assert.deepEqual([s.p50, s.p95, s.max], [1, 1, 80]);
+	assert.ok(Math.abs(s.mean - -89 / 102) < 1e-9);
 	w.add(70_000, at(2)); // a minute later: the old frames are gone
 	assert.deepEqual([w.summary()!.n, w.summary()!.max], [1, 2]);
 });

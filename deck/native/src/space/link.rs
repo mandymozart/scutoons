@@ -17,7 +17,6 @@
 use crate::tempo::relay::ShowLink;
 use protocol::{DeckGraph, DeckMidi, DeckQuality, DeckSynced, DeckValues, Envelope, Hello, Message, Ping, Role, SceneSync, SyncState};
 use std::collections::HashMap;
-use std::io::ErrorKind;
 use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
@@ -339,7 +338,7 @@ impl Client {
                 Ok(Ws::Text(t)) => t,
                 Ok(Ws::Close(_)) => return "the relay closed it".into(),
                 Ok(_) => continue,
-                Err(tungstenite::Error::Io(e)) if matches!(e.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => continue,
+                Err(tungstenite::Error::Io(e)) if crate::live::config::timed_out(&e) => continue,
                 Err(e) => return e.to_string(),
             };
             let Ok(e) = serde_json::from_str::<Envelope>(&text) else { continue };
