@@ -1,18 +1,31 @@
 //! The tempo controller (CYBERDECKS.md §8 "Two clocks", #181; moved here from deck/native with #308, plan §2.8): one
 //! source is the master at a time – internal (set, + / −, tap), MIDI clock in, Ableton Link, OSC, the relay's show
-//! clock (a stub). Each frame it takes the events pushed since the last (stamped by the caller with its `now_ns`),
-//! follows the master, re-anchors the map at the audio thread's frontier and publishes it.
+//! clock. Each frame it takes the events pushed since the last (stamped by the caller with its `now_ns`), follows the
+//! master, re-anchors the map at the audio thread's frontier and publishes it.
+//!
+//! The show clock (#321, plan §3.7, sync.rs): the relay's pongs feed the offset filter; on `Source::Relay` the newest
+//! anchor is followed with a gentle tempo nudge (a corrected offset never jumps the beat); a deck that leads – asked to
+//! (`Config::lead`), or on MIDI clock in, the venue's table-top clock (owner 2026-11-03) – hands out its map as an anchor
+//! whenever it moved (`take_anchor`), whatever its source. When to ping is decided here too (`ping_due`).
 //!
 //! Platform-free: no thread, channel, clock or port in here. Time comes in as `Moment` / `Event::at_ns`, events by
 //! `push`, and what only a platform can do (open a source's port, ask Ableton Link) is the `Host` the caller passes
-//! to `frame`. deck/native's `Tempo` is the native adapter (channels, midir, UDP, rusty_link); a browser page is
-//! another.
+//! to `frame`. deck/native's `Tempo` is the native adapter (channels, midir, UDP, rusty_link); live-core's clock is the
+//! browser's.
 use super::midi_in::{ClockIn, WallLine};
 use super::shared::Shared;
+use super::sync::{Anchor, Filter, Lead, Pinger};
 use super::time::Moment;
 use super::{clamp_bpm, Position, Tap, TempoMap};
 use std::collections::VecDeque;
 use std::sync::Arc;
+
+/// a follower further off the show's line than this jumps to it (a first anchor, a seek of the show); closer, it nudges
+const SNAP_S: f64 = 0.05;
+/// the nudge: the tempo off by the error over this many seconds …
+const NUDGE_S: f64 = 1.0;
+/// … and never more than this much (2 % – a gentle tempo change, inaudible as a jump)
+const MAX_NUDGE: f64 = 0.02;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Source {
@@ -80,25 +93,12 @@ pub enum What {
     Midi([u8; 3]),
     Osc(Cmd),
     Key(Key),
-    /// the show clock's anchor (the relay, §3.7)
-    Anchor(Anchor),
-}
-
-/// The conductor's tempo anchor (plan §3.7): at `at_ns` – already on the deck's monotonic clock, the relay's ms mapped
-/// by the offset filter (#321) – the show was at `beat`, running at `bpm` (or stopped). Sent only on change.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Anchor {
-    pub bpm: f64,
-    pub per_bar: u32,
-    pub beat: f64,
-    pub at_ns: u64,
-    pub running: bool,
-}
-
-impl Anchor {
-    fn line(&self) -> WallLine {
-        WallLine { t: self.at_ns as f64 * 1e-9, beat: self.beat, bps: clamp_bpm(self.bpm) / 60.0, running: self.running }
-    }
+    /// the show clock's anchor (the relay's `tempo`, §3.7) – in relay time
+    Tempo(Anchor),
+    /// a pong: the ping left at `t0_ns` (this clock), the relay's clock read `t1_ms`; the event's `at_ns` = back
+    Pong { t0_ns: u64, t1_ms: i64 },
+    /// joined the relay (again): its clock may be another – the filter starts over, a leader sends again
+    Joined,
 }
 
 /// The scene's `tempo` node (one per scene; none = 120 BPM in 4, internal, the click off). The scene side builds it
@@ -117,6 +117,8 @@ pub struct Config {
     pub midi_out_lead: f64,
     /// where OSC listens
     pub osc: String,
+    /// this deck leads the show clock: it sends its map as the relay's anchor (MIDI clock in leads anyway)
+    pub lead: bool,
 }
 
 impl Default for Config {
@@ -130,6 +132,7 @@ impl Default for Config {
             midi_out: None,
             midi_out_lead: 0.0,
             osc: "0.0.0.0:9001".into(),
+            lead: false,
         }
     }
 }
@@ -148,6 +151,24 @@ pub struct Now {
     pub pos: Position,
     pub per_bar: u32,
     pub running: bool,
+}
+
+/// The show clock as the HUD and the source picker show it.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct Show {
+    /// the offset filter has its samples (relay time maps)
+    pub locked: bool,
+    /// the relay's clock minus this deck's now (ms) and the shortest round trip (ms)
+    pub offset_ms: f64,
+    pub rtt_ms: f64,
+    /// an anchor came (on `Source::Relay`: the clock follows it)
+    pub anchor: bool,
+    /// this deck sends the anchor
+    pub leading: bool,
+    /// on `Source::Relay`: how far the map was off the show's line at the last frame (ms; the nudge takes it out)
+    pub error_ms: f64,
+    /// on `Source::Midi`: no clock for `LOST_S` – the last tempo holds
+    pub midi_lost: bool,
 }
 
 /// What only the platform can do for the clock, handed to `Controller::frame`. All defaults do nothing.
@@ -177,9 +198,20 @@ pub struct Controller {
     tap: Tap,
     midi: ClockIn,
     queue: VecDeque<Event>,
-    /// the newest anchor of the show clock (followed while the relay is the master)
+    /// the newest anchor of the show clock (relay time; followed while the relay is the master)
     anchor: Option<Anchor>,
     now: Now,
+    /// the relay's clock seen from here, when to ping, what a leader sent
+    filter: Filter,
+    pinger: Pinger,
+    lead: Lead,
+    /// asked to lead (the scene's `lead`, the page's picker)
+    leads: bool,
+    /// the anchor to send (a leader's), until the adapter takes it
+    out: Option<Anchor>,
+    /// on the show's line since the last snap (a nudge keeps it there); off = the next frame snaps
+    following: bool,
+    error: f64,
 }
 
 impl Controller {
@@ -197,7 +229,33 @@ impl Controller {
             queue: VecDeque::new(),
             anchor: None,
             now: Now { bpm: map.bpm, pos: map.position(0.0), per_bar: map.per_bar, running: true },
+            filter: Filter::default(),
+            pinger: Pinger::default(),
+            lead: Lead::default(),
+            leads: cfg.lead,
+            out: None,
+            following: false,
+            error: 0.0,
         }
+    }
+
+    /// The engine was built anew (a scene loaded): its tempo map lives in `shared` now, and its frame counter started
+    /// over `frames` frames after the old one's 0 – the map moves to the new axis (the beat goes on) and is published
+    /// there. The show clock, the sources and the keys stay.
+    pub fn rebind(&mut self, shared: Arc<Shared>, frames: f64) {
+        self.map.frame -= frames;
+        self.shared = shared;
+        self.shared.publish(&self.map, self.click);
+    }
+
+    /// A scene's `tempo` node (a scene loaded in the browser deck): its tempo and bar from the map's anchor on (the beat
+    /// goes on), its click, lead and source.
+    pub fn configure(&mut self, cfg: &Config, host: &mut dyn Host) {
+        self.click = cfg.click;
+        self.set_lead(cfg.lead);
+        self.map = TempoMap { per_bar: cfg.per_bar.max(1), ..self.map.with_bpm(self.map.frame, cfg.bpm) };
+        self.shared.publish(&self.map, self.click);
+        self.set_source(cfg.source, host);
     }
 
     /// a source's event (the platform adapters feed the clock through it)
@@ -205,15 +263,61 @@ impl Controller {
         self.queue.push_back(e);
     }
 
-    /// the show clock's anchor, arrived at `at_ns` (the relay's transport adapter calls this; it is followed while
-    /// `Source::Relay` is the master)
+    /// the show clock's anchor (relay time), arrived at `at_ns`; followed while `Source::Relay` is the master
     pub fn push_anchor(&mut self, a: Anchor, at_ns: u64) {
-        self.push(Event { at_ns, what: What::Anchor(a) });
+        self.push(Event { at_ns, what: What::Tempo(a) });
+    }
+
+    /// a pong: the ping left at `t0_ns`, the relay read `t1_ms`, back at `at_ns`
+    pub fn push_pong(&mut self, t0_ns: u64, t1_ms: i64, at_ns: u64) {
+        self.push(Event { at_ns, what: What::Pong { t0_ns, t1_ms } });
     }
 
     /// has the relay's show clock said anything yet
     pub fn has_anchor(&self) -> bool {
         self.anchor.is_some()
+    }
+
+    /// Is a ping due at `now_ns`? (Then the adapter sends one, stamped with its real `t0`; the answer counts as sent.)
+    pub fn ping_due(&mut self, now_ns: u64) -> bool {
+        self.pinger.due(now_ns as f64 * 1e-9, self.filter.len())
+    }
+
+    /// the anchor a leader sends now, if its map moved since the last (the adapter puts it on the wire as `tempo`)
+    pub fn take_anchor(&mut self) -> Option<Anchor> {
+        self.out.take()
+    }
+
+    /// lead the show clock (the page's picker, a key) or stop leading
+    pub fn set_lead(&mut self, lead: bool) {
+        if lead && !self.leads {
+            self.lead.again();
+        }
+        self.leads = lead;
+    }
+
+    /// this deck sends the anchor now: asked to, or on MIDI clock in – never while it follows the relay
+    pub fn leading(&self) -> bool {
+        (self.leads || self.source == Source::Midi) && self.source != Source::Relay
+    }
+
+    /// the show clock now (the HUD, the picker)
+    pub fn show(&self, now_ns: u64) -> Show {
+        let t = now_ns as f64 * 1e-9;
+        Show {
+            locked: self.filter.locked(),
+            offset_ms: self.filter.offset(t).unwrap_or(0.0) * 1e3,
+            rtt_ms: self.filter.rtt() * 1e3,
+            anchor: self.anchor.is_some(),
+            leading: self.leading(),
+            error_ms: self.error * 1e3,
+            midi_lost: self.source == Source::Midi && self.midi_lost(now_ns),
+        }
+    }
+
+    /// the relay's clock as this deck sees it
+    pub fn filter(&self) -> &Filter {
+        &self.filter
     }
 
     /// a key of the deck, at `now_ns`
@@ -240,10 +344,11 @@ impl Controller {
     }
 
     pub fn set_source(&mut self, s: Source, host: &mut dyn Host) {
-        self.source = s;
-        if s != Source::Relay {
-            self.anchor = None;
+        if s != self.source {
+            self.following = false;
+            self.lead.again();
         }
+        self.source = s;
         host.source_chosen(s);
     }
 
@@ -261,12 +366,10 @@ impl Controller {
                     self.map = l.to_map(&m.line, m.rate, per_bar);
                 }
             }
-            // the show clock: the newest anchor is a line, followed like the MIDI clock's
+            // the show clock: the newest anchor, a line in relay time, mapped through the filter – nudged towards
             Source::Relay => {
-                if let Some(a) = self.anchor {
-                    let mut map = a.line().to_map(&m.line, m.rate, a.per_bar.clamp(1, 32));
-                    map.bpm = clamp_bpm(map.bpm);
-                    self.map = map;
+                if let Some(w) = self.anchor.and_then(|a| Some((a.local(&self.filter)?, a.per_bar))) {
+                    self.follow(w.0.to_map(&m.line, m.rate, w.1.clamp(1, 32)), m.rendered.max(m.heard));
                 }
             }
             // Link gives tempo and phase; start / stop stay the deck's own (stopped, the map stands where it stopped)
@@ -280,15 +383,51 @@ impl Controller {
         }
         self.map = self.map.at(m.rendered.max(m.heard));
         self.shared.publish(&self.map, self.click);
+        if self.leading() {
+            if let Some(a) = self.lead.due(&self.map, &m.line, &self.filter, m.now_ns as f64 * 1e-9) {
+                self.out = Some(a);
+            }
+        }
         self.now = Now { bpm: self.map.bpm, pos: self.map.position(m.heard), per_bar: self.map.per_bar, running: self.map.running };
         self.now
+    }
+
+    /// Follow the show's line `target` from the frontier `f` on: a first anchor, a start / stop, another bar or an error
+    /// past `SNAP_S` jumps to it; a smaller error (a corrected offset, the anchor of a tempo change arriving a little
+    /// after it took effect) is taken out by a tempo nudge – the beat never jumps.
+    fn follow(&mut self, target: TempoMap, f: f64) {
+        let mut target = target;
+        target.bpm = clamp_bpm(target.bpm);
+        let bps = target.bpm / 60.0;
+        let e = (target.beat_at(f) - self.map.beat_at(f)) / bps;
+        self.error = if target.running { e } else { 0.0 };
+        let snap = !self.following || !target.running || target.running != self.map.running || target.per_bar != self.map.per_bar || e.abs() > SNAP_S;
+        if snap {
+            self.map = target;
+            self.following = true;
+            return;
+        }
+        let nudge = (e / NUDGE_S).clamp(-MAX_NUDGE, MAX_NUDGE);
+        self.map = self.map.with_bpm(f, target.bpm * (1.0 + nudge));
     }
 
     fn event(&mut self, e: Event, m: &Moment, host: &mut dyn Host) {
         let f = m.frames_at(e.at_ns);
         match e.what {
             What::Midi(b) => self.midi.message(e.at_ns as f64 * 1e-9, &b),
-            What::Anchor(a) => self.anchor = Some(a),
+            What::Tempo(a) => {
+                // a start, a stop or another bar is taken as it is; the rest of a new line is followed by the nudge
+                if self.anchor.map_or(true, |o| o.running != a.running || o.per_bar != a.per_bar) {
+                    self.following = false;
+                }
+                self.anchor = Some(a);
+            }
+            What::Pong { t0_ns, t1_ms } => self.filter.pong(t0_ns as f64 * 1e-9, t1_ms as f64 * 1e-3, e.at_ns as f64 * 1e-9),
+            What::Joined => {
+                self.filter.reset();
+                self.pinger = Pinger::default();
+                self.lead.again();
+            }
             What::Osc(c) if self.source == Source::Osc => self.command(c, f, m, e.at_ns, host),
             What::Osc(_) => {}
             What::Key(Key::NextSource) => self.set_source(self.source.next(), host),
@@ -478,17 +617,26 @@ mod tests {
         assert!((t.frame(&moment(1.2, 0.0), &mut link).bpm - 101.0).abs() < 1e-6);
     }
 
+    /// pongs of a relay whose clock is this one's + `off` s, exact, from `t` s on
+    fn pongs(t: &mut Controller, from: f64, off: f64) {
+        for k in 0..4 {
+            let s = from + k as f64 * 0.25;
+            t.push_pong((s * 1e9) as u64, ((s + off) * 1e3).round() as i64, (s * 1e9) as u64);
+        }
+    }
+
     #[test]
     fn the_relays_anchor_is_followed_and_a_key_takes_over() {
         let mut t = tempo(120.0);
         t.set_source(Source::Relay, &mut NoHost);
         assert!(!t.has_anchor());
         assert_eq!(t.frame(&moment(1.0, 0.0), &mut NoHost).bpm, 120.0, "no anchor yet: the clock stays");
-        // at 2.0 s the show was at beat 16, 90 BPM, in 3
-        let a = Anchor { bpm: 90.0, per_bar: 3, beat: 16.0, at_ns: 2_000_000_000, running: true };
+        // the relay's clock is 1000 s ahead; at its 1002 s the show was at beat 16, 90 BPM, in 3
+        pongs(&mut t, 0.0, 1000.0);
+        let a = Anchor { bpm: 90.0, per_bar: 3, beat: 16.0, at: 1_002_000, running: true };
         t.push_anchor(a, 2_100_000_000);
         let n = t.frame(&moment(3.0, 0.0), &mut NoHost);
-        assert!(t.has_anchor());
+        assert!(t.has_anchor() && t.show(3_000_000_000).locked);
         assert!((n.bpm - 90.0).abs() < 1e-6 && n.per_bar == 3, "{} {}", n.bpm, n.per_bar);
         assert!((n.pos.beat - (16.0 + 1.5)).abs() < 1e-6, "one second at 1.5 beats/s: {}", n.pos.beat);
         // a stopped anchor stands
@@ -499,6 +647,77 @@ mod tests {
         t.push(at(4.5, What::Key(Key::Faster)));
         t.frame(&moment(4.5, 0.0), &mut NoHost);
         assert_eq!(t.source, Source::Internal);
-        assert!(!t.has_anchor());
+    }
+
+    #[test]
+    fn a_corrected_offset_is_nudged_out_never_jumped() {
+        let mut t = tempo(120.0);
+        t.set_source(Source::Relay, &mut NoHost);
+        pongs(&mut t, 0.0, 50.0);
+        t.push_anchor(Anchor { bpm: 120.0, per_bar: 4, beat: 0.0, at: 50_000, running: true }, 1_000_000_000);
+        t.frame(&moment(1.0, 512.0), &mut NoHost);
+        // the filter learns the relay is 8 ms further ahead: the show's line moves 8 ms earlier – a beat on it 16 ms of
+        // a 120 BPM beat … the map moves towards it a frame at a time, by at most 2 % of the tempo
+        for k in 0..8 {
+            let s = 1.1 + k as f64 * 0.25;
+            t.push_pong((s * 1e9) as u64, ((s + 50.008) * 1e3).round() as i64, (s * 1e9) as u64);
+        }
+        let mut last = t.frame(&moment(3.0, 512.0), &mut NoHost).pos.beat;
+        let mut worst: f64 = 0.0;
+        for i in 1..=300 {
+            let s = 3.0 + i as f64 / 60.0;
+            let n = t.frame(&moment(s, 512.0), &mut NoHost);
+            let step = n.pos.beat - last;
+            worst = worst.max((step / (2.0 / 60.0) - 1.0).abs());
+            last = n.pos.beat;
+        }
+        assert!(worst <= MAX_NUDGE + 1e-3, "a frame's step off the tempo by {worst}");
+        // the filter's offset now (the old samples still count: between 50 and 50.008)
+        let off = t.show(8_000_000_000).offset_ms * 1e-3;
+        assert!(off > 50.004 && off < 50.008, "{off}");
+        let want = (8.0 + off - 50.0) * 2.0;
+        assert!((t.frame(&moment(8.0, 512.0), &mut NoHost).pos.beat - want).abs() < 2e-3, "on the corrected line");
+    }
+
+    #[test]
+    fn a_midi_clock_in_leads_and_its_loss_holds_the_tempo() {
+        let mut t = tempo(90.0);
+        t.set_source(Source::Midi, &mut NoHost);
+        assert!(t.leading(), "MIDI clock in leads the show");
+        pongs(&mut t, 0.0, -7.0);
+        t.push(at(4.99, What::Midi([0xFA, 0, 0])));
+        for k in 0..96 {
+            t.push(at(5.0 + k as f64 / 56.0, What::Midi([0xF8, 0, 0]))); // 140 BPM
+        }
+        t.frame(&moment(5.0 + 95.0 / 56.0, 256.0), &mut NoHost);
+        let a = t.take_anchor().expect("the leader's anchor");
+        assert!((a.bpm - 140.0).abs() < 1e-6 && a.running, "{a:?}");
+        // relay time = local − 7 s: the anchor's beat is the clock's at that moment
+        let local = a.at as f64 * 1e-3 + 7.0;
+        assert!((a.beat - (local - 5.0) * 140.0 / 60.0).abs() < 1e-3, "{} at {local}", a.beat);
+        assert!(t.take_anchor().is_none());
+        // the clock goes away: the tempo holds, nothing new goes out, the picker says so
+        for i in 0..30 {
+            t.frame(&moment(8.0 + i as f64 / 10.0, 256.0), &mut NoHost);
+        }
+        assert!(t.take_anchor().is_none(), "the last line holds");
+        assert!(t.show(11_000_000_000).midi_lost);
+        assert!((t.now().bpm - 140.0).abs() < 1e-6);
+        // following the relay, a deck never leads
+        t.set_source(Source::Relay, &mut NoHost);
+        assert!(!t.leading());
+    }
+
+    #[test]
+    fn pings_are_due_quickly_after_a_join() {
+        let mut t = tempo(120.0);
+        assert!(t.ping_due(1_000_000_000));
+        assert!(!t.ping_due(1_100_000_000));
+        assert!(t.ping_due(1_250_000_000));
+        pongs(&mut t, 0.0, 3.0);
+        t.push(at(2.0, What::Joined));
+        t.frame(&moment(2.0, 0.0), &mut NoHost);
+        assert!(!t.show(2_000_000_000).locked, "another relay: the filter starts over");
+        assert!(t.ping_due(2_000_000_000));
     }
 }

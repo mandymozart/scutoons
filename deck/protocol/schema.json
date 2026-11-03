@@ -76,6 +76,7 @@
         { "type": "object", "properties": { "kind": { "const": "scene.sync" }, "p": { "$ref": "#/definitions/SceneSync" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "deck.synced" }, "p": { "$ref": "#/definitions/DeckSynced" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "deck.quality" }, "p": { "$ref": "#/definitions/DeckQuality" } }, "required": ["kind", "p"] },
+        { "type": "object", "properties": { "kind": { "const": "tempo" }, "p": { "$ref": "#/definitions/Tempo" } }, "required": ["kind", "p"] },
         { "type": "object", "properties": { "kind": { "const": "error" }, "p": { "$ref": "#/definitions/Error" } }, "required": ["kind", "p"] }
       ]
     },
@@ -169,6 +170,7 @@
         "decks": { "type": "object", "additionalProperties": { "$ref": "#/definitions/DeckState" }, "description": "#188: every deck's being by client id (the conductor's snapshot)" },
         "sync": { "$ref": "#/definitions/SceneSync", "description": "#195: the last `scene.sync`, if it is addressed to this client (a deck joining later syncs too; the conductor always sees it)" },
         "synced": { "type": "object", "additionalProperties": { "$ref": "#/definitions/DeckSynced" }, "description": "#195: each deck's last `deck.synced` for that sync, by client id (the conductor's snapshot)" },
+        "tempo": { "$ref": "#/definitions/Tempo", "description": "#321: the show clock's last anchor (every client but a bridge)" },
         "seq": { "type": "integer", "description": "the session's seq when the snapshot was taken" }
       },
       "additionalProperties": false
@@ -206,8 +208,33 @@
       "required": ["client", "snapshot", "now"],
       "additionalProperties": false
     },
-    "Ping": { "type": "object", "properties": { "t0": { "type": "integer" } }, "required": ["t0"], "additionalProperties": false },
-    "Pong": { "type": "object", "properties": { "t0": { "type": "integer" }, "t1": { "type": "integer" } }, "required": ["t0", "t1"], "additionalProperties": false },
+    "Ping": {
+      "description": "client → relay. `t0`: the client's own clock when it sent the ping, in a unit of its choosing (the relay only echoes it; a deck sends µs – #321, the show clock's offset filter).",
+      "type": "object",
+      "properties": { "t0": { "type": "integer" } },
+      "required": ["t0"],
+      "additionalProperties": false
+    },
+    "Pong": {
+      "description": "relay → the client: its `t0` back and the relay's time (ms) when the ping arrived – a sample of the relay's clock against the client's (deck-core `tempo::sync`).",
+      "type": "object",
+      "properties": { "t0": { "type": "integer" }, "t1": { "type": "integer" } },
+      "required": ["t0", "t1"],
+      "additionalProperties": false
+    },
+    "Tempo": {
+      "description": "#321 (plan §3.7): the show clock's anchor – at relay ms `at` the show was at `beat`, running at `bpm` (or stopped: the beat stands), `per_bar` beats a bar. The leading deck (its picker, its scene's `lead`, or a deck on MIDI clock in – the venue's table-top clock) sends it only when its tempo line changed; the relay fills a missing `at` with now + the lead, keeps the last one for the snapshot and routes it to everyone else. The conductor may always lead; a deck leads while no other connected client does. Every deck on the show clock maps the anchor through its offset filter and follows the line.",
+      "type": "object",
+      "properties": {
+        "bpm": { "type": "number" },
+        "per_bar": { "type": "integer", "minimum": 1 },
+        "beat": { "type": "number" },
+        "running": { "type": "boolean" },
+        "at": { "type": "integer", "description": "relay ms; the envelope's `at` when missing" }
+      },
+      "required": ["bpm", "per_bar", "beat", "running"],
+      "additionalProperties": false
+    },
     "State": {
       "description": "conductor → relay on every change; folded into the snapshot.",
       "type": "object",

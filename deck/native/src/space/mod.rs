@@ -11,13 +11,13 @@ pub trait Connect {
     /// Join the session at `relay` (`ws://host:port/live/<code>`; None = the hosted relay `HOSTED_RELAY`, #199) as the
     /// space node's `join` says – a deck streams its being, the conductor gathers the decks'. `token`: the conductor's
     /// session token (a dev relay takes any). `sync`: a deck's sync, which takes the conductor's pushes (#195; None = the
-    /// deck doesn't answer them).
-    fn connect(&mut self, relay: Option<&str>, token: Option<String>, nick: Option<String>, sync: Option<Box<dyn link::Syncs>>);
+    /// deck doesn't answer them). `show`: the tempo clock's side of the link (#321).
+    fn connect(&mut self, relay: Option<&str>, token: Option<String>, nick: Option<String>, sync: Option<Box<dyn link::Syncs>>, show: Option<std::sync::Arc<crate::tempo::relay::ShowLink>>);
 }
 
 #[cfg(feature = "live")]
 impl Connect for Space {
-    fn connect(&mut self, relay: Option<&str>, token: Option<String>, nick: Option<String>, sync: Option<Box<dyn link::Syncs>>) {
+    fn connect(&mut self, relay: Option<&str>, token: Option<String>, nick: Option<String>, sync: Option<Box<dyn link::Syncs>>, show: Option<std::sync::Arc<crate::tempo::relay::ShowLink>>) {
         if self.join == Join::Alone {
             return;
         }
@@ -25,6 +25,6 @@ impl Connect for Space {
         let relay = relay.filter(|r| !r.trim().is_empty()).unwrap_or(crate::live::config::HOSTED_RELAY);
         let graph = self.wire_graph();
         let sync = sync.filter(|_| self.join == Join::Deck);
-        self.attach(link::Link::start(relay, self.join, token, nick, graph, sync).map(|l| Box::new(l) as Box<dyn wire::Wire>));
+        self.attach(link::Link::start(relay, self.join, token, nick, graph, sync, show).map(|l| Box::new(l) as Box<dyn wire::Wire>));
     }
 }

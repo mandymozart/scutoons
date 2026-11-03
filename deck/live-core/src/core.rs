@@ -6,7 +6,8 @@
 use crate::signals::{Outputs, Slot};
 use crate::wire::{self, Mode, FRAME, MAX_OUTPUTS, MAX_FRAME_VALUES, OUTPUT_COUNT, PEAKS, REDUCTION, VALUES_AT, VALUE_COUNT};
 use deck_core::analysis::{Analyzer, SPECTRUM};
-use deck_core::tempo::{clamp_bpm, Now};
+use deck_core::tempo::{Config, Now, Shared};
+use std::sync::Arc;
 use deck_engine::control::Controls;
 use deck_engine::{tempo_config, Build, DeckConfig, Engine, Handles, Seams, Sequencing};
 use deck_space::graph::{Graph, Kind, PortType};
@@ -100,16 +101,15 @@ impl Core {
         self.channels
     }
 
-    /// The deck's tempo for a scene without a `tempo` node of its own (the browser's clock until the show clock, P8):
-    /// the map from the first frame at `bpm`. False: the scene has its own clock.
-    pub fn set_tempo(&mut self, bpm: f32) -> bool {
-        if self.graph.first(Kind::Tempo).is_some() {
-            return false;
-        }
-        let Ok(mut c) = tempo_config(&self.graph) else { return false };
-        c.bpm = clamp_bpm(f64::from(bpm));
-        self.handles.tempo.publish(&c.map(f64::from(self.rate)), c.click);
-        true
+    /// the engine's tempo map (the clock publishes into it, the engine reads it per block)
+    pub fn tempo(&self) -> Arc<Shared> {
+        self.handles.tempo.clone()
+    }
+
+    /// the scene's `tempo` node as the clock's config (None: the scene has none – the clock stays as it is)
+    pub fn tempo_node(&self) -> Option<Config> {
+        self.graph.first(Kind::Tempo)?;
+        tempo_config(&self.graph).ok()
     }
 
     /// The parameter paths a mapping may read: every node's `node.<input>`, its control outputs `node.<output>`, and
@@ -269,8 +269,8 @@ impl Core {
     /// last frame, the device channels' peaks, then every table row's values) of what the speaker plays now when `lead`
     /// is the ring's fill: the window ends `lead` frames before the newest rendered one, and the control values are the
     /// heard block's (the snapshot ring, plan 3.3). An audio output's value is its newest block's peak (built for a scene
-    /// with a `space` node – the being's hoses).
-    pub fn analyse(&mut self, dt: f32, lead: usize) -> &[f32] {
+    /// with a `space` node – the being's hoses). `now`: the clock at the heard moment (clock.rs).
+    pub fn analyse(&mut self, dt: f32, lead: usize, now: &Now) -> &[f32] {
         let bands = self.analyzer.update(dt, lead);
         self.frame[..4].copy_from_slice(&bands);
         self.analyzer.spectrum(&mut self.frame[4..4 + SPECTRUM]);
@@ -278,7 +278,7 @@ impl Core {
         self.frame[OUTPUT_COUNT] = self.channels as f32;
         self.frame[PEAKS..PEAKS + MAX_OUTPUTS].copy_from_slice(&self.peaks);
         self.peaks = [0.0; MAX_OUTPUTS];
-        self.controls.update(dt, lead, &Now::default());
+        self.controls.update(dt, lead, now);
         let room = self.frame.len() - FRAME;
         self.frame[VALUE_COUNT] = room as f32;
         let values = &mut self.frame[VALUES_AT..];

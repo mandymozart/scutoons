@@ -4,19 +4,22 @@
 //! it happens, so the beat never jumps; a phase set (a tap, an external clock) moves the anchor's beat. Positions,
 //! quantize grids, the least squares fit (MIDI clock in, tap) and tap tempo. Platform-free: the tempo controller (`Controller`:
 //! sources, keys, tap, the followers of MIDI clock in / Link / OSC), the seqlock `Shared` / `BeatReader` and the time
-//! types are in here too (#308); deck/native only opens the sources' ports and feeds events in.
+//! types are in here too (#308); deck/native only opens the sources' ports and feeds events in. The show clock over the
+//! relay – the offset filter, the anchor, when to ping and when a leader sends – is `sync` (#321).
 
 mod clock_out;
 mod controller;
 mod midi_in;
 mod shared;
+pub mod sync;
 mod time;
 
 pub use clock_out::{ClockOut, Out};
-pub use controller::{Anchor, Cmd, Config, Controller, Event, Host, Key, NoHost, Now, Source, What};
+pub use controller::{Cmd, Config, Controller, Event, Host, Key, NoHost, Now, Show, Source, What};
 pub use midi_in::{ClockIn, WallLine, LOST_S, PPQN};
 pub use shared::{BeatReader, Shared};
-pub use time::{Line, Moment, SeqLock};
+pub use sync::{Anchor, Filter};
+pub use time::{Line, Moment, SeqLock, TimeBase};
 
 pub const MIN_BPM: f64 = 20.0;
 pub const MAX_BPM: f64 = 300.0;

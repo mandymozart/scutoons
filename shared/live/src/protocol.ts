@@ -63,6 +63,7 @@ export type Message =
 	| { kind: 'scene.sync'; p: SceneSync }
 	| { kind: 'deck.synced'; p: DeckSynced }
 	| { kind: 'deck.quality'; p: DeckQuality }
+	| { kind: 'tempo'; p: Tempo }
 	| { kind: 'error'; p: Error };
 
 /** A payload whose shape B.6 names but this skeleton does not fix yet (say / line / fx / colour, cue actions). */
@@ -150,6 +151,8 @@ export interface Snapshot {
 	sync?: SceneSync;
 	/** #195: each deck's last `deck.synced` for that sync, by client id (the conductor's snapshot) */
 	synced?: Record<string, DeckSynced>;
+	/** #321: the show clock's last anchor (every client but a bridge) */
+	tempo?: Tempo;
 	/** the session's seq when the snapshot was taken */
 	seq?: number;
 }
@@ -182,13 +185,25 @@ export interface Welcome {
 	now: number;
 }
 
+/** client → relay. `t0`: the client's own clock when it sent the ping, in a unit of its choosing (the relay only echoes it; a deck sends µs – #321, the show clock's offset filter). */
 export interface Ping {
 	t0: number;
 }
 
+/** relay → the client: its `t0` back and the relay's time (ms) when the ping arrived – a sample of the relay's clock against the client's (deck-core `tempo::sync`). */
 export interface Pong {
 	t0: number;
 	t1: number;
+}
+
+/** #321 (plan §3.7): the show clock's anchor – at relay ms `at` the show was at `beat`, running at `bpm` (or stopped: the beat stands), `per_bar` beats a bar. The leading deck (its picker, its scene's `lead`, or a deck on MIDI clock in – the venue's table-top clock) sends it only when its tempo line changed; the relay fills a missing `at` with now + the lead, keeps the last one for the snapshot and routes it to everyone else. The conductor may always lead; a deck leads while no other connected client does. Every deck on the show clock maps the anchor through its offset filter and follows the line. */
+export interface Tempo {
+	bpm: number;
+	per_bar: number;
+	beat: number;
+	running: boolean;
+	/** relay ms; the envelope's `at` when missing */
+	at?: number;
 }
 
 /** conductor → relay on every change; folded into the snapshot. */

@@ -18,6 +18,7 @@ pub fn tempo_config(graph: &Graph) -> Result<Config> {
         c.source = src;
     }
     c.click = n.bool("click", c.click);
+    c.lead = n.bool("lead", c.lead);
     c.midi_in = n.str("midi_in").unwrap_or_default().into();
     c.midi_out = n.str("midi_out").map(String::from);
     c.midi_out_lead = n.f32("midi_out_lead", 0.0) as f64 / 1000.0;

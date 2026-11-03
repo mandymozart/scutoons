@@ -97,6 +97,8 @@ kind = "tempo"
 bpm = 84
 beats = 4
 source = "internal"
+# #321: the decks follow this clock over the relay (the show clock's anchor); a deck on MIDI clock in can lead instead
+lead = true
 
 # the sermon's chapter
 [[node]]
@@ -217,3 +219,13 @@ scale = 0.8
 [[link]]
 from = "space"
 to = "screen.in"
+
+# #321: the click on the show clock (K turns it on) – the decks click together
+[[node]]
+id = "click"
+kind = "click"
+gain = 0.4
+
+[[link]]
+from = "click"
+to = "out.in"

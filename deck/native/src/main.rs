@@ -316,6 +316,12 @@ struct Show {
     timebase: Option<clock::TimeBase>,
     /// the tempo clock on top of it (tempo/, #181); its I/O opens with `start`
     tempo: tempo::Tempo,
+    /// #321: the show clock's side of the relay link, and the link for the clock alone (a scene without a space)
+    #[cfg(all(feature = "live", feature = "space"))]
+    show_link: Arc<tempo::relay::ShowLink>,
+    #[cfg(all(feature = "live", feature = "space"))]
+    #[allow(dead_code)]
+    clock_link: Option<deck_native::space::link::Link>,
     /// the chapter nodes' loaders, until the renderer takes them
     feeds: Vec<chapter::ChapterFeed>,
     /// the master gain (the browser mutes it; it returns to --volume)
@@ -561,6 +567,9 @@ impl Show {
             }
         };
         let meters = handles.as_ref().and_then(|h| h.meters.clone());
+        // #321: the show clock's side of the relay link (the space's link, or one for the clock alone below)
+        #[cfg(all(feature = "live", feature = "space"))]
+        let show_link = Arc::new(tempo::relay::ShowLink::default());
         #[cfg(feature = "space")]
         let space = graph.first(graph::Kind::Space).map(|n| {
             let faces = args.portraits.clone().unwrap_or_else(|| cache.join("portraits"));
@@ -591,7 +600,7 @@ impl Show {
                 let hook = sync.clone().map(|y| Box::new(y) as Box<dyn deck_native::space::link::Syncs>);
                 #[cfg(not(feature = "sync"))]
                 let hook = None;
-                s.connect(relay.as_deref(), args.token.clone(), Some(scene.stage.name.clone()), hook);
+                s.connect(relay.as_deref(), args.token.clone(), Some(scene.stage.name.clone()), hook, Some(show_link.clone()));
                 // the conductor pushes the scene's sync once joined (decks that come later find it in their snapshot)
                 if s.join == deck_native::space::Join::Conductor {
                     match push_for(args, &scene.stage.name, &s) {
@@ -613,6 +622,21 @@ impl Show {
         // the tempo clock: the engine's shared map (or its own without audio)
         let rate = clock.as_ref().map_or(48_000.0, |c| c.rate as f64);
         let shared = handles.as_ref().map(|h| h.tempo.clone()).unwrap_or_default();
+        // #321: a clock on the show clock, one that leads, or MIDI clock in with a relay set joins the relay – through the
+        // space's link when the scene has one, else a link for the clock alone (no being)
+        #[cfg(all(feature = "live", feature = "space"))]
+        let clock_link = {
+            let linked = space.as_ref().is_some_and(|s| s.join != deck_native::space::Join::Alone);
+            let set = outlet_settings(args).relay.or_else(|| deck_native::live::config::Settings::read(std::path::Path::new(deck_native::live::config::DECK_TOML)).relay).filter(|r| !r.trim().is_empty());
+            let wants = tempo_cfg.source == tempo::Source::Relay || tempo_cfg.lead || (tempo_cfg.source == tempo::Source::Midi && set.is_some());
+            if linked || !wants {
+                None
+            } else {
+                let relay = set.unwrap_or_else(|| deck_native::live::config::HOSTED_RELAY.to_owned());
+                let link = deck_native::space::link::Link::start(&relay, deck_native::space::Join::Deck, None, Some(scene.stage.name.clone()), None, None, Some(show_link.clone()));
+                link.map_err(|e| tracing::warn!("tempo: no relay link for the show clock: {e}")).ok()
+            }
+        };
         let tempo = tempo::Tempo::new(tempo_cfg, shared, rate);
         // #211: the scene's [outputs] – a wrong table or a missing device never stops the scene: the HUD says why
         #[cfg(feature = "outputs")]
@@ -649,6 +673,10 @@ impl Show {
             music,
             timebase,
             tempo,
+            #[cfg(all(feature = "live", feature = "space"))]
+            show_link,
+            #[cfg(all(feature = "live", feature = "space"))]
+            clock_link,
             feeds,
             master,
             reduction,
@@ -1180,7 +1208,11 @@ impl App {
         }
         self.last = Some(now);
         self.advance_time();
+        #[cfg(all(feature = "live", feature = "space"))]
+        self.show.show_link.feed(&mut self.show.tempo);
         let beat = self.show.tempo.frame(&self.moment);
+        #[cfg(all(feature = "live", feature = "space"))]
+        self.show.show_link.after(&mut self.show.tempo);
         self.show.controls.update(dt, self.lead(), &beat);
         #[cfg(feature = "outputs")]
         if self.dying.as_ref().is_some_and(|(_, until)| Instant::now() >= *until) {
