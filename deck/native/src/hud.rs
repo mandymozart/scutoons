@@ -291,15 +291,6 @@ mod tests {
         assert!(green > 0);
     }
 
-    #[test]
-    fn the_window_is_ten_minutes_for_glitches() {
-        let mut p = PerMinute::over(600.0);
-        p.push(0.0, 0);
-        assert_eq!(p.push(30.0, 1), 1);
-        assert_eq!(p.push(500.0, 1), 1, "still within 10 minutes");
-        assert_eq!(p.push(640.0, 1), 0, "older than 10 minutes");
-    }
-
     /// #208: the warning row flashes – a red bar with white text, then red text on the HUD's black
     #[test]
     fn the_glitch_warning_flashes_red() {

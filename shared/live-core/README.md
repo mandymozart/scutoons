@@ -39,16 +39,14 @@ No JSON across the boundary. A value is a **wire record** (`src/wire.ts` = `deck
 - Edges only: the scene in (TOML), the load table out (JSON: the device channels, per node its inputs, outputs and`n  where their heard values are in the analysis frame, the build's notes), errors – once each.`n- **Channels** (plan 2.6): `LiveCore.start` renders the destination's `maxChannelCount` (2 on a phone; `channels` overrides)`n  – the worklet's `outputChannelCount`, the audio ring and the transfer chunks carry them interleaved; the core folds or`n  places a scene's outlets on them. The control half steps inside every 128-frame quantum (no step export).
 - `transport: 'auto'` (default) picks shared when `crossOriginIsolated`, else transfer – it works without the headers,
   at one postMessage per send, per analysis frame and per 512 audio frames (≈ 6 µs each vs 0.5 µs in the ring).
-- `lead` (default 1024 frames ≈ 21 ms at 48 kHz) = how far the worker renders ahead; the analysis looks back by it,
-  so the bands are what is heard. It **adapts** (#208, `src/lead.ts` – the rule of deck-native's render thread): a
-  dropout grows it 512 frames up to 6144 (128 ms), a calm minute shrinks it 512 back towards the start. The worklet
-  counts dropouts into a shared status word (shared transport) or its feed messages (transfer); `stats()` carries
-  `lead`, `renderP50Us` / `renderP99Us` / `renderPeakUs` against `budgetUs` (#356: the second's blocks in a fixed
-  histogram, `src/timing.ts`; the longest against a block's 2.67 ms), `analysisPeakUs`, `limitPeakDb` / `limitMeanDb` /
-  `limitingPct` (the output limiter over the second – pumping can sound like a dropout), `warmMs` and `gapMs` (the
-  longest pause between the worker's pumps – a stalled worker shows there); `series()` keeps the first 120 seconds of
-  them (the warm-up as a time series – engine-host's copyable report); `glitching()` is true for 5 s after a dropout
-  (the page's warning).
+- `device` (`'phone'` | `'desktop'`, the page's fact) picks the core's **lead** – how far the worker renders ahead;
+  the analysis looks back by it, so the bands are what is heard. The rule is deck-core's `lead` (#365, the native
+  deck's too): a generous start that shrinks once stable (the warm-up lead), a step up per dropout, a step down after a
+  calm minute, the class's floor and cap (`lc_lead_class`, `lc_lead`). The worklet counts dropouts into a shared status
+  word (shared transport) or its feed messages (transfer); `stats()` carries them.
+- **Monitor** (#364): the worker times each block, the analysis and its own pauses and hands the readings to the core
+  (`lc_note_*`); once a second the core's audio window goes to the page as words (`audioTo(monitor)` – space-web's
+  `DeckMonitor`, deck-core `monitor`), which counts, judges and words everything the stats bar and the sound report show.
 - **Warm-up** (#356): before the first sound the worker has the core play the scene silently in a throwaway twin
   (`lc_warm`, deck/live-core `Core::warm`, 256 quanta) – a wasm engine compiles each function on its first call and
   optimises it only when hot, so cold the first load and the first blocks take several budgets on a phone. The audible
@@ -68,8 +66,7 @@ No JSON across the boundary. A value is a **wire record** (`src/wire.ts` = `deck
 | `src/engine.ts` | `WasmCore` (the exports behind views on wasm memory), `Engine` (the pump: drain, render per block, analysis) |
 | `src/worker.ts` | the worker entry: init (wasm compiled there), load, the shared pump / the transfer feed |
 | `src/worklet.ts` | the `live-core` AudioWorkletProcessor: plays the ring (de-interleaves the channels), silence + an underrun when empty |
-| `src/lead.ts` | `AdaptiveLead` (#208): grow on a dropout, shrink after a calm minute |
-| `src/index.ts` | `LiveCore`: start, load, param, set, value, onAnalysis, stats, stop; `deviceChannels`, `valueIndex` |
+| `src/index.ts` | `LiveCore`: start, load, param, set, value, onAnalysis, audioTo, stats, stop; `deviceChannels`, `valueIndex` |
 | `scripts/wasm.ts` | where and how live_core.wasm is built (wasm32 + simd128, its own target folder) |
 
 ## Production headers (set: the viewer's `/live/…` in static/.htaccess, the creator's `/engine` and `/edit/…` in its static/.htaccess)
