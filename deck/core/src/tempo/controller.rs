@@ -212,6 +212,8 @@ pub struct Controller {
     /// on the show's line since the last snap (a nudge keeps it there); off = the next frame snaps
     following: bool,
     error: f64,
+    /// the source runs above `MAX_BPM`: the deck holds the cap on its own line (it drifts against the source)
+    capped: bool,
 }
 
 impl Controller {
@@ -236,6 +238,7 @@ impl Controller {
             out: None,
             following: false,
             error: 0.0,
+            capped: false,
         }
     }
 
@@ -328,8 +331,10 @@ impl Controller {
             Source::Relay => format!("SHOW {:+.1}MS RTT {:.1}MS", show.error_ms, show.rtt_ms),
             _ => String::new(),
         };
+        // the source runs outside the deck's tempo range: the deck holds the bound (owner 2026-11-03: "just stay at 300")
+        let cap = if self.capped { format!(" CAPPED {:.0}", self.map.bpm) } else { String::new() };
         let lead = if show.leading { " LEADS" } else { "" };
-        format!("{s}{lead}").trim().to_string()
+        format!("{s}{cap}{lead}").trim().to_string()
     }
 
     /// the relay's clock as this deck sees it
@@ -381,22 +386,25 @@ impl Controller {
             self.event(e, m, host);
         }
         let per_bar = self.map.per_bar;
+        let frontier = m.rendered.max(m.heard);
+        self.capped = false;
         match self.source {
             Source::Midi if !self.midi.lost(m.now_ns as f64 * 1e-9) => {
                 if let Some(l) = self.midi.line() {
-                    self.map = l.to_map(&m.line, m.rate, per_bar);
+                    self.map = self.external(l.to_map(&m.line, m.rate, per_bar), frontier);
                 }
             }
             // the show clock: the newest anchor, a line in relay time, mapped through the filter – nudged towards
             Source::Relay => {
                 if let Some(w) = self.anchor.and_then(|a| Some((a.local(&self.filter)?, a.per_bar))) {
-                    self.follow(w.0.to_map(&m.line, m.rate, w.1.clamp(1, 32)), m.rendered.max(m.heard));
+                    self.capped = self.anchor.is_some_and(|a| clamp_bpm(a.bpm) != a.bpm);
+                    self.follow(w.0.to_map(&m.line, m.rate, w.1.clamp(1, 32)), frontier);
                 }
             }
             // Link gives tempo and phase; start / stop stay the deck's own (stopped, the map stands where it stopped)
             Source::Link if self.map.running => {
                 if let Some(l) = host.link_line(m.now_ns, per_bar) {
-                    self.map = l.to_map(&m.line, m.rate, per_bar);
+                    self.map = self.external(l.to_map(&m.line, m.rate, per_bar), frontier);
                 }
             }
             // internal, OSC (a remote for the internal clock), a lost MIDI clock, a relay without an anchor yet: the map runs on
@@ -411,6 +419,17 @@ impl Controller {
         }
         self.now = Now { bpm: self.map.bpm, pos: self.map.position(m.heard), per_bar: self.map.per_bar, running: self.map.running };
         self.now
+    }
+
+    /// An external clock's map (MIDI clock in, Link) as the deck plays it: within `MIN_BPM`…`MAX_BPM` as it is; above or
+    /// below, the deck holds the bound on its own line from `f` on (it drifts against the source, `status` says CAPPED)
+    /// – the same bound the show clock's followers hold, so a leader and its followers stay on one line.
+    fn external(&mut self, map: TempoMap, f: f64) -> TempoMap {
+        if clamp_bpm(map.bpm) == map.bpm {
+            return map;
+        }
+        self.capped = true;
+        self.map.with_running(f, map.running).with_bpm(f, map.bpm)
     }
 
     /// Follow the show's line `target` from the frontier `f` on: a first anchor, a start / stop, another bar or an error
@@ -502,6 +521,7 @@ impl Controller {
 mod tests {
     use super::*;
     use crate::tempo::time::Line;
+    use crate::tempo::MAX_BPM;
 
     const RATE: f64 = 48_000.0;
 
@@ -775,6 +795,38 @@ mod tests {
         t.set_source(Source::Relay, &mut NoHost);
         assert!(!t.leading());
         assert_eq!(t.status(18_000_000_000), "NO SHOW CLOCK YET");
+    }
+
+    #[test]
+    fn a_source_above_300_bpm_is_held_at_the_cap_by_leader_and_followers_alike() {
+        // Ableton at 400 BPM into a deck on MIDI clock in that leads the show
+        let mut t = tempo(120.0);
+        t.set_source(Source::Midi, &mut NoHost);
+        pongs(&mut t, 0.0, -7.0);
+        t.push(at(4.99, What::Midi([0xFA, 0, 0])));
+        for k in 0..320 {
+            t.push(at(5.0 + k as f64 / 160.0, What::Midi([0xF8, 0, 0]))); // 400 BPM: 160 ticks a second
+        }
+        let n = t.frame(&moment(5.0 + 319.0 / 160.0, 256.0), &mut NoHost);
+        assert_eq!(n.bpm, MAX_BPM, "the deck holds 300");
+        assert_eq!(t.status(7_000_000_000), "CAPPED 300 LEADS");
+        let a = t.take_anchor();
+        assert!(a.is_some_and(|a| (a.bpm - MAX_BPM).abs() < 1e-6), "the leader sends what it plays: its followers hold 300 too – {a:?}");
+        // back under the cap: the MIDI clock again, tempo and phase
+        for k in 0..96 {
+            t.push(at(8.0 + k as f64 / 48.0, What::Midi([0xF8, 0, 0]))); // 120 BPM
+        }
+        let n = t.frame(&moment(8.0 + 95.0 / 48.0, 256.0), &mut NoHost);
+        assert!((n.bpm - 120.0).abs() < 0.5, "{}", n.bpm);
+        assert_eq!(t.status(10_000_000_000), "LEADS");
+        // a follower given a 400 BPM anchor holds 300 and says so
+        let mut f = tempo(120.0);
+        f.set_source(Source::Relay, &mut NoHost);
+        pongs(&mut f, 0.0, -7.0);
+        f.push_anchor(Anchor { bpm: 400.0, per_bar: 4, beat: 0.0, at: -2000, running: true }, 5_000_000_000); // relay = local − 7 s
+        let n = f.frame(&moment(5.1, 256.0), &mut NoHost);
+        assert_eq!(n.bpm, MAX_BPM);
+        assert!(f.status(5_100_000_000).ends_with("CAPPED 300"), "{}", f.status(5_100_000_000));
     }
 
     #[test]
