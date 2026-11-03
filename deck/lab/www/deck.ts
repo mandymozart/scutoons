@@ -3,7 +3,7 @@
 // relay at once (`?relay=`, default ws://<this host>:7070/live/CATH); Start (the AudioContext needs a gesture) starts
 // the sound; the pads and sliders are the being's exposed parameters; `?space=1` draws the being in 3D above them
 // (deck/space-web's wasm, copied into dist/ by ts/build.ts).
-import { charactersOf, Deck, MELODY, PARAMS, SpaceStage, toPos, toValue } from '../../../shared/live-deck/src/index.ts';
+import { charactersOf, Deck, loadDeckScene, SpaceStage, toPos, toValue } from '../../../shared/live-deck/src/index.ts';
 
 const API = 'https://api.scutoons.com/api';
 const CDN = 'https://cdn.scutoons.com/';
@@ -31,6 +31,7 @@ const character = q.get('character') ?? store.get('deck.character') ?? 'yellowmo
 const deck = new Deck({ relay, character, nick: `browser ${character}`, api: API, onStatus: (s) => ($('#status').textContent = `${s} · ${relay}`) });
 (window as unknown as { __deck: unknown }).__deck = deck;
 let space: SpaceStage | null = null;
+const SPACE_WEB = new URL('./space-web/', import.meta.url).href;
 
 function showFace() {
 	$('#mood').textContent = deck.mood;
@@ -60,7 +61,7 @@ async function loadCharacters() {
 	if (q.get('space') === '1') {
 		const host = $('#space');
 		host.hidden = false;
-		space = await SpaceStage.start({ host, base: new URL('./space-web/', import.meta.url).href, deck, api: API, cdn: CDN, prefer: q.get('gl') === '1' ? 'webgl2' : 'auto', onStatus: (s) => ($('#stats').textContent = s) }).catch((e) => {
+		space = await SpaceStage.start({ host, base: SPACE_WEB, deck, api: API, cdn: CDN, prefer: q.get('gl') === '1' ? 'webgl2' : 'auto', onStatus: (s) => ($('#stats').textContent = s) }).catch((e) => {
 			$('#stats').textContent = `3D: ${(e as Error).message}`;
 			return null;
 		});
@@ -74,7 +75,7 @@ deck.onValue = (path) => follow.get(path)?.();
 function buildSliders() {
 	const box = $('#sliders');
 	const onPads = new Set([...document.querySelectorAll<HTMLElement>('.pad')].flatMap((p) => [p.dataset.x!, p.dataset.y!]));
-	for (const [path, s] of Object.entries({ ...MELODY, ...PARAMS })) {
+	for (const [path, s] of Object.entries(deck.params)) {
 		if (onPads.has(path)) continue;
 		const label = Object.assign(document.createElement('label'), { textContent: s.label, htmlFor: path });
 		const input = Object.assign(document.createElement('input'), { type: 'range', id: path, min: '0', max: '1', step: '0.001' });
@@ -92,6 +93,8 @@ function buildSliders() {
 
 function bindPad(pad: HTMLElement) {
 	const [px, py] = [pad.dataset.x!, pad.dataset.y!];
+	const PARAMS = deck.params;
+	if (!(px in PARAMS && py in PARAMS)) return void (pad.hidden = true);
 	const dot = pad.querySelector('i')!;
 	const place = () => {
 		dot.style.left = `${toPos(PARAMS[px], deck.value[px]) * 100}%`;
@@ -179,7 +182,13 @@ $('#start').addEventListener('click', async () => {
 		$('#status').textContent = `failed: ${(e as Error).message}`;
 	}
 });
-buildSliders();
-document.querySelectorAll<HTMLElement>('.pad').forEach(bindPad);
+// #360: the deck's own scene from the core (space-web's `deck_scene`, the X1's cathedral) – its knobs are the sliders
+loadDeckScene(SPACE_WEB)
+	.then((own) => {
+		deck.useOwn(own);
+		buildSliders();
+		document.querySelectorAll<HTMLElement>('.pad').forEach(bindPad);
+	})
+	.catch((e) => ($('#status').textContent = `no scene: ${(e as Error).message}`));
 loadCharacters();
 requestAnimationFrame(frame);

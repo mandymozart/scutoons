@@ -4,7 +4,7 @@ about = "#321 P8: a scripted leader answers pings 250 ms ahead with a 4 ms round
 [[step]]
 do = "load"
 scene = "native/scenes/show-clock.toml"
-expect = { page = ["flash", "screen"] }
+expect = { page = [] }
 
 [[step]]
 do = "leader"

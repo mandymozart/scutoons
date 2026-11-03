@@ -76,6 +76,51 @@ pub fn node_needs(id: &str, kind: &str, params: &Params) -> Result<Vec<&'static 
     Ok(out)
 }
 
+/// The modules the browser's engine (live-core: deck-engine in wasm) carries: the core, the event hosts, the space node
+/// (the being: its inputs are control values the page reads back) and the MIDI clock (Web MIDI feeds the core's clock).
+/// Not yet: `chapter` (decoded audio – deck-media, plan 2.9), `modules` (the browser's module backend, P9b), the rest
+/// are devices a browser has no port for.
+pub const BROWSER_MODULES: &[&str] = &[CORE, "events", "space", "midi"];
+
+/// whether a build that carries the modules `carries` plays the node (an unknown kind: no build plays it)
+pub fn carries_node(id: &str, kind: &str, params: &Params, carries: impl Fn(&str) -> bool) -> bool {
+    node_needs(id, kind, params).is_ok_and(|needs| needs.iter().all(|f| carries(f)))
+}
+
+/// What of a scene a build plays (#360) – one rule for every target: each node's `stays` (`carries_node`), each link's
+/// (both its ends' nodes stay).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Part {
+    pub nodes: Vec<bool>,
+    pub links: Vec<bool>,
+}
+
+/// The carried part of a scene (`nodes` as id, kind, params; `links` as from, to – `node` or `node.port`) for a build
+/// that carries the modules `carries`: the native stage's tests and benches (its cargo features), the browser's engine
+/// (`BROWSER_MODULES`), the headless host.
+pub fn carried_part<'a>(
+    nodes: impl IntoIterator<Item = (&'a str, &'a str, &'a Params)>,
+    links: impl IntoIterator<Item = (&'a str, &'a str)>,
+    carries: impl Fn(&str) -> bool,
+) -> Part {
+    let mut gone = BTreeSet::new();
+    let nodes: Vec<bool> = nodes
+        .into_iter()
+        .map(|(id, kind, params)| {
+            let stays = carries_node(id, kind, params, &carries);
+            if !stays {
+                gone.insert(id);
+            }
+            stays
+        })
+        .collect();
+    fn node_of(r: &str) -> &str {
+        r.split_once('.').map_or(r, |(n, _)| n)
+    }
+    let links = links.into_iter().map(|(from, to)| !gone.contains(node_of(from)) && !gone.contains(node_of(to))).collect();
+    Part { nodes, links }
+}
+
 /// The modules (features) the nodes need besides `core`, sorted – what `deck-scene-features` prints.
 pub fn features<'a>(nodes: impl IntoIterator<Item = (&'a str, &'a str, &'a Params)>) -> Result<Vec<&'static str>, String> {
     let mut set = BTreeSet::new();
@@ -121,6 +166,24 @@ kind=\"module:walk\"
 id=\"a\"
 kind=\"lfo\"
 ").unwrap(), ["modules"]);
+    }
+
+    #[test]
+    fn the_carried_part_drops_a_node_with_its_links() {
+        let s = SceneDef::parse(
+            "[[node]]\nid=\"m\"\nkind=\"chapter_music\"\n[[node]]\nid=\"o\"\nkind=\"osc\"\n[[node]]\nid=\"x\"\nkind=\"teleport\"\n\
+             [[node]]\nid=\"out\"\nkind=\"audio_out\"\n[[link]]\nfrom=\"m\"\nto=\"out.in\"\n[[link]]\nfrom=\"o.out\"\nto=\"out.in\"\n",
+        )
+        .unwrap();
+        let part = carried_part(
+            s.nodes.iter().map(|n| (n.id.as_str(), n.kind.as_str(), &n.params)),
+            s.links.iter().map(|l| (l.from.as_str(), l.to.as_str())),
+            |f| f == CORE,
+        );
+        assert_eq!(part, Part { nodes: vec![false, true, false, true], links: vec![false, true] });
+        let browser = |f: &str| BROWSER_MODULES.contains(&f);
+        let t = |src: &str| toml::from_str::<Params>(&format!("source = \"{src}\"")).unwrap();
+        assert!(carries_node("t", "tempo", &t("midi"), browser) && !carries_node("t", "tempo", &t("link"), browser));
     }
 
     #[test]

@@ -123,6 +123,44 @@ impl Scene {
         let text = std::fs::read_to_string(path).with_context(|| format!("reading the scene {}", path.display()))?;
         Self::parse(&text).with_context(|| format!("in {}", path.display()))
     }
+
+    /// the being's `expose` (its look's; read from the table when the space is not built)
+    pub fn being_expose(&self) -> Vec<String> {
+        #[cfg(feature = "being")]
+        return self.being.expose.clone();
+        #[cfg(not(feature = "being"))]
+        return self.being_strs("expose");
+    }
+
+    /// the being's head: its `character` ("" = none)
+    pub fn being_character(&self) -> String {
+        #[cfg(feature = "being")]
+        return self.being.character.clone();
+        #[cfg(not(feature = "being"))]
+        return self.being.get("character").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+    }
+
+    #[cfg(not(feature = "being"))]
+    fn being_strs(&self, key: &str) -> Vec<String> {
+        let list = self.being.get(key).and_then(|v| v.as_array());
+        list.map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect()).unwrap_or_default()
+    }
+
+    /// What of this scene a build that carries the modules `carries` plays (deck-core's `carried_part`, #360): the scene
+    /// without the other nodes and the links that touch them – and those nodes and links.
+    pub fn carried_part(&self, carries: impl Fn(&str) -> bool) -> (Scene, Vec<NodeDef>, Vec<LinkDef>) {
+        let part = deck_core::stage::carried_part(
+            self.nodes.iter().map(|n| (n.id.as_str(), n.kind.as_str(), &n.params)),
+            self.links.iter().map(|l| (l.from.as_str(), l.to.as_str())),
+            carries,
+        );
+        let mut out = self.clone();
+        let (nodes, page): (Vec<_>, Vec<_>) = self.nodes.iter().cloned().zip(&part.nodes).partition(|(_, &stays)| stays);
+        let (links, dropped): (Vec<_>, Vec<_>) = self.links.iter().cloned().zip(&part.links).partition(|(_, &stays)| stays);
+        out.nodes = nodes.into_iter().map(|(n, _)| n).collect();
+        out.links = links.into_iter().map(|(l, _)| l).collect();
+        (out, page.into_iter().map(|(n, _)| n).collect(), dropped.into_iter().map(|(l, _)| l).collect())
+    }
 }
 
 /// `"node.port"` → (node, port); a bare `"node"` → (node, "out")

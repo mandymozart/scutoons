@@ -36,7 +36,7 @@ export class DeckControlsState {
 		this.pad.poll(typeof navigator !== 'undefined' && navigator.getGamepads ? navigator.getGamepads() : []);
 	}
 
-	/** #191: the deck's knobs changed (a rig's, or the fixed patch's again) – the sticks and the selection follow */
+	/** #191: the deck's knobs changed (a rig's, or the deck's own scene's again) – the sticks and the selection follow */
 	useParams(specs: Record<string, Spec>, sticks: [string, string][] | null) {
 		this.specs = specs;
 		this.hands?.useParams(specs, sticks);

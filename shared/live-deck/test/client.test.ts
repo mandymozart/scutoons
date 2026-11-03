@@ -8,7 +8,8 @@ import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { DeckLink, envelope, epsilon, parseRelay, RATE, ValueStream } from '../src/client.ts';
-import { deckGraph, ladderFor, LADDER, Moods, PARAMS, STREAMED, toPos, toValue } from '../src/scene.ts';
+import { ladderFor, LADDER, Moods, toPos, toValue } from '../src/scene.ts';
+import { OWN_PARAMS, OWN_STREAMED, ownGraph } from './own.ts';
 import type { Envelope, Tempo } from '@scutoons/live';
 
 test('the relay URL and the envelope', () => {
@@ -22,18 +23,18 @@ test('the relay URL and the envelope', () => {
 	assert.equal(envelope({ kind: 'ping', p: { t0: 0 } }), '{"v":1,"seq":0,"from":"","kind":"ping","p":{"t0":0}}');
 });
 
-test('deck.graph: deck-native kinds, links between known ports, the character, its moods, the exposed params', () => {
-	const g = deckGraph('yellowmouse', ['neutral', 'happy']);
+test('deck.graph – its own scene as the core played it (#360): deck-native kinds, links between known ports, the character, its moods, the exposed params', () => {
+	const g = ownGraph('yellowmouse', ['neutral', 'happy']);
 	const ids = new Set(g.nodes.map((n) => n.id));
 	for (const l of g.links) for (const end of [l.from, l.to]) assert.ok(ids.has(end.split('.')[0]), end);
-	assert.deepEqual(g.nodes.map((n) => n.kind).sort(), ['audio_out', 'fft', 'fm', 'lfo', 'mixer', 'noise', 'osc', 'space', 'walk']);
+	assert.deepEqual(g.nodes.map((n) => n.kind).sort(), ['audio_out', 'chapter_music', 'click', 'fft', 'fm', 'lfo', 'mixer', 'noise', 'osc', 'screen', 'seq', 'space', 'tempo'], "the X1's cathedral (#360)");
 	assert.equal(g.character, 'yellowmouse');
 	assert.deepEqual(g.moods, ['neutral', 'happy']);
-	assert.deepEqual(g.expose, Object.keys(PARAMS));
+	assert.deepEqual(g.expose, Object.keys(OWN_PARAMS));
 	for (const e of g.expose!) assert.ok(ids.has(e.split('.')[0]), e);
 	// deck-native's link.rs test builds this fixture as the conductor would: keep it equal
 	const fixture = JSON.parse(readFileSync(new URL('../../../deck/lab/fixtures/deck-graph.json', import.meta.url), 'utf8'));
-	assert.deepEqual(fixture, { kind: 'deck.graph', p: deckGraph('yellowmouse', LADDER) });
+	assert.deepEqual(fixture, { kind: 'deck.graph', p: ownGraph('yellowmouse', LADDER) });
 });
 
 test('values: the first sample sends all, then only what moved past its epsilon, ≤ 30 / s, the mood on change', () => {
@@ -56,9 +57,9 @@ test('values: the first sample sends all, then only what moved past its epsilon,
 });
 
 test('the streamed paths: every exposed input + the hoses', () => {
-	for (const p of Object.keys(PARAMS)) assert.ok(p in STREAMED, p);
-	for (const p of ['voice.out', 'mix.out', 'fft.level']) assert.ok(p in STREAMED, p);
-	for (const s of Object.values(PARAMS)) for (const t of [0, 0.3, 1]) assert.ok(Math.abs(toPos(s, toValue(s, t)) - t) < 1e-9);
+	for (const p of Object.keys(OWN_PARAMS)) assert.ok(p in OWN_STREAMED, p);
+	for (const p of ['fft.level', 'fft.bass']) assert.ok(p in OWN_STREAMED, p);
+	for (const s of Object.values(OWN_PARAMS)) for (const t of [0, 0.3, 1]) assert.ok(Math.abs(toPos(s, toValue(s, t)) - t) < 1e-9);
 });
 
 test('moods: the ladder from what the character has; energy climbs it, a rung holds', () => {
@@ -118,14 +119,14 @@ test('in process: a relay, a conductor, the deck – graph first, values rate-li
 				await new Promise((r) => setTimeout(r, 100));
 			}
 		}
-		const deck = new DeckLink({ relay: url, graph: deckGraph('yellowmouse', ['neutral', 'happy']), socket: WebSocket as never });
+		const deck = new DeckLink({ relay: url, graph: ownGraph('yellowmouse', ['neutral', 'happy']), socket: WebSocket as never });
 		await until(() => deck.joined);
 		// 1 s of values at 120 frames a second, through the stream
-		const s = new ValueStream(STREAMED);
+		const s = new ValueStream(OWN_STREAMED);
 		const t0 = performance.now();
 		let f = 0;
 		while (performance.now() - t0 < 1000) {
-			const ch = s.sample((performance.now() - t0) / 1000, (p) => (p === 'voice.out' ? Math.abs(Math.sin(f)) : (PARAMS[p]?.value ?? 0)), f > 60 ? 'happy' : 'neutral');
+			const ch = s.sample((performance.now() - t0) / 1000, (p) => (p === 'voice.out' ? Math.abs(Math.sin(f)) : (OWN_PARAMS[p]?.value ?? 0)), f > 60 ? 'happy' : 'neutral');
 			if (ch) deck.send(ch);
 			f++;
 			await new Promise((r) => setTimeout(r, 8));
@@ -139,7 +140,7 @@ test('in process: a relay, a conductor, the deck – graph first, values rate-li
 		// the relay drops the being when the deck leaves; the deck joins again with graph + keyframe
 		const before = c.msgs.length;
 		(deck as unknown as { ws: WebSocket }).ws.close();
-		await until(() => c!.msgs.slice(before).some((m) => m.kind === 'deck.values' && Object.keys(m.p.values).length >= Object.keys(STREAMED).length - 2));
+		await until(() => c!.msgs.slice(before).some((m) => m.kind === 'deck.values' && Object.keys(m.p.values).length >= Object.keys(OWN_STREAMED).length - 2));
 		const again = c.msgs.slice(before).filter((m) => m.kind === 'deck.graph' || m.kind === 'deck.values');
 		assert.equal(again[0].kind, 'deck.graph');
 		deck.close();
@@ -166,7 +167,7 @@ test('#220: the render quality goes out once joined and again after a rejoin', (
 		}
 		close() {}
 	}
-	const link = new DeckLink({ relay: 'ws://localhost:1/live/CATH', graph: deckGraph('', LADDER), socket: FakeSocket });
+	const link = new DeckLink({ relay: 'ws://localhost:1/live/CATH', graph: ownGraph('', LADDER), socket: FakeSocket });
 	const ws = sockets[0];
 	const q = { level: 'medium' as const, scale: 0.8, auto: true, frame: 17.1, ceiling: 'medium' as const };
 	link.quality(q);
@@ -189,7 +190,7 @@ test("#321 in process: the show clock – a pong with the real t0, a leading dec
 		const url = `ws://127.0.0.1:${port}/live/CLOCK`;
 		const pongs: [number, number, number][] = [];
 		const tempos: Tempo[] = [];
-		const link = (o: Partial<ConstructorParameters<typeof DeckLink>[0]>) => new DeckLink({ relay: url, graph: deckGraph('yellowmouse', ['neutral']), socket: WebSocket as never, ...o });
+		const link = (o: Partial<ConstructorParameters<typeof DeckLink>[0]>) => new DeckLink({ relay: url, graph: ownGraph('yellowmouse', ['neutral']), socket: WebSocket as never, ...o });
 		// the relay is up once a conductor gets in
 		const end = Date.now() + 5000;
 		for (;;) {

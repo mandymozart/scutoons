@@ -77,16 +77,10 @@ pub fn check_with(scene: &Scene, carried: impl Fn(&str) -> bool) -> Result<()> {
     )
 }
 
-/// The scene without the nodes whose module this build lacks, and without their links – for the tests and benches that
-/// play the bundled scenes on any build (the stage itself refuses such a scene, `check`).
+/// The scene this build plays of `scene` (deck-core's `carried_part` over this build's modules) – for the tests and
+/// benches that play the bundled scenes on any build (the stage itself refuses such a scene, `check`).
 pub fn carried_part(scene: &Scene) -> Scene {
-    let carried = |n: &crate::scene::NodeDef| node_needs(&n.id, &n.kind, &n.params).is_ok_and(|f| f.iter().all(|f| has(f)));
-    let gone: Vec<&str> = scene.nodes.iter().filter(|n| !carried(n)).map(|n| n.id.as_str()).collect();
-    let refers = |r: &str| gone.contains(&crate::scene::split_ref(r).0);
-    let mut out = scene.clone();
-    out.nodes.retain(carried);
-    out.links.retain(|l| !refers(&l.from) && !refers(&l.to));
-    out
+    scene.carried_part(has).0
 }
 
 #[cfg(test)]

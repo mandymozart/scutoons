@@ -1,0 +1,17 @@
+name = "the X1's cathedral: which part a build plays"
+about = "#360: one filter in the core (deck-core stage.rs carried_part over node_needs): given the modules, the part. The native stage's tests and benches use it with the build's features, the browser's split (deck-space lower) with BROWSER_MODULES – the browser deck plays the X1's cathedral, its seq arp, never a copy (01-cathedral-boot plays it; its audio is #381's)"
+
+[[step]]
+do = "load"
+scene = "native/scenes/cathedral.toml"
+expect = { ids = { has = "seq" }, page = ["music"] }
+
+[[step]]
+do = "carried_part"
+with = { scene = "native/scenes/cathedral.toml", modules = ["core"] }
+expect = { dropped = ["music", "space"], kept = 11 }
+
+[[step]]
+do = "carried_part"
+with = { scene = "native/scenes/cathedral.toml", modules = ["core", "events", "space", "midi"] }
+expect = { dropped = ["music"], kept = 12 }

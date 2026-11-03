@@ -57,22 +57,10 @@ export function mayJoin(me: Me | null): boolean {
 }
 
 /**
- * Play the character's rig instead of the fixed test patch (#191, research/INSTRUMENTS.md §7): `?rig=1`, while the
+ * Play the character's rig instead of the deck's own scene (#191, #360, research/INSTRUMENTS.md §7): `?rig=1`, while the
  * phone check is open – then it becomes the default for every character with a rig.
  */
 export const rigOf = (search: URLSearchParams): boolean => search.get('rig') === '1';
-
-/** a knob's range and label (@scutoons/live-deck's `Spec`) */
-type Spec = { min: number; max: number; value: number; log?: boolean; label: string };
-
-/**
- * The panel's knobs (#209's dense grid): the fixed patch's PARAMS + its page melody, or a rig's knobs alone – a rig's
- * melody is its walk (#236), the page plays none.
- */
-export function panelKnobs(params: Record<string, Spec>, melody: Record<string, Spec>): [string, Spec][] {
-	const fixed = 'voice.ratio' in params && 'incense.cutoff' in params;
-	return Object.entries(fixed ? { ...params, ...melody } : params);
-}
 
 /**
  * #209: what the sticks drive, in one line for the panel – the selection (a knob's label, the being, else the master

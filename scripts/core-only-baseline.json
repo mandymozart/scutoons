@@ -160,24 +160,12 @@
 			}
 		},
 		"shared/live-deck/src/scene.ts": {
-			"spec-table": {
-				"count": 14,
-				"ticket": "#360"
-			},
 			"twin-const": {
-				"count": 3,
+				"count": 2,
 				"ticket": "#367"
 			},
-			"scene-literal": {
-				"count": 9,
-				"ticket": "#360"
-			},
-			"catalog-literal": {
-				"count": 2,
-				"ticket": "#360"
-			},
 			"twin-comment": {
-				"count": 2,
+				"count": 1,
 				"ticket": "#360"
 			},
 			"mood-literal": {
@@ -789,8 +777,8 @@
 			"escapes": 0
 		},
 		"shared/live-deck/src/scene.ts": {
-			"lines": 163,
-			"functions": 16,
+			"lines": 57,
+			"functions": 6,
 			"math": 10,
 			"escapes": 0
 		},
@@ -831,7 +819,7 @@
 			"escapes": 1
 		},
 		"viewer/src/lib/components/live-deck/deck-panel.svelte": {
-			"lines": 285,
+			"lines": 284,
 			"functions": 2,
 			"math": 0,
 			"escapes": 0
@@ -885,8 +873,8 @@
 			"escapes": 0
 		},
 		"viewer/src/lib/live-deck.ts": {
-			"lines": 87,
-			"functions": 11,
+			"lines": 75,
+			"functions": 10,
 			"math": 0,
 			"escapes": 0
 		},
@@ -934,7 +922,7 @@
 		},
 		"viewer/src/routes/live/deck/[[code]]/+page.svelte": {
 			"lines": 464,
-			"functions": 41,
+			"functions": 40,
 			"math": 1,
 			"escapes": 0
 		},

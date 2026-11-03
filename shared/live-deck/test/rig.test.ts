@@ -2,14 +2,14 @@
 // own (test/fixtures/rigs.json, written and kept current by `cargo test -p deck-space rig_fixture`).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { Deck } from '../src/deck.ts';
 import { knobLabel, knobTarget, rigDiff, rigGraph, rigParams, rigStreamed } from '../src/rig.ts';
-import { PARAMS, STREAMED } from '../src/scene.ts';
 import type { RigPlayed } from '../src/space.ts';
 
-const RIGS = JSON.parse(readFileSync(new URL('./fixtures/rigs.json', import.meta.url), 'utf8')) as Record<string, RigPlayed>;
+import { RIGS } from './own.ts';
 const catpope = RIGS.catpope;
+/** #360: the deck's own scene (space-web `deck_scene`, the X1's cathedral) */
+const own = RIGS.deck;
 const API = 'https://api.example/api';
 
 test("a rig's knobs become the deck's sliders, in the page's locale", () => {
@@ -65,11 +65,11 @@ test("a mood changes values only – a new routing reloads the engine", () => {
 
 test('the deck plays a rig and back: sliders, stream and wire follow; a mood moves the sliders by its hand', () => {
 	const d = new Deck({ character: 'catpope', nick: 'guest', api: API });
+	d.useOwn(own);
 	d.useRig(catpope);
 	assert.deepEqual(Object.keys(d.params), Object.keys(rigParams(catpope)));
 	assert.equal(d.value['voice_voice.ratio'], 1.5);
-	assert.equal(d.value['voice.ratio'], undefined, "the fixed patch's sliders are gone");
-	assert.ok('melody.spread' in d.value, 'the melody stays the page\'s');
+	assert.equal(d.value['voice.ratio'], undefined, "the deck's own sliders are gone");
 	assert.deepEqual(d.paths.sort(), Object.keys(rigStreamed(catpope)).sort());
 	assert.equal(d.graph().nodes.length, catpope.nodes.length);
 	const heard: [string, number, string][] = [];
@@ -82,15 +82,18 @@ test('the deck plays a rig and back: sliders, stream and wire follow; a mood mov
 	assert.equal(d.read('voice_voice.index'), 4);
 	assert.ok(Number.isNaN(d.read('fft.level')), 'no sound: nothing heard');
 	d.useRig(null);
-	assert.deepEqual(Object.keys(d.params), Object.keys(PARAMS));
-	assert.deepEqual(d.paths.sort(), Object.keys(STREAMED).sort());
+	assert.deepEqual(Object.keys(d.params), Object.keys(rigParams(own)));
+	assert.deepEqual(d.paths.sort(), Object.keys(rigStreamed(own)).sort());
 	d.close();
 });
 
-test("the rig's corner sticks reach the deck; no rig restores the fixed patch's", () => {
+test("the rig's corner sticks reach the deck; no rig restores the deck's own", () => {
 	const d = new Deck({ character: 'catpope', nick: 'guest', api: API });
 	assert.equal(d.sticks, null);
-	assert.ok('voice.ratio' in d.controlSpecs && 'melody.spread' in d.controlSpecs, 'the fixed patch: sliders + melody');
+	assert.deepEqual(d.controlSpecs, {}, 'no scene from the core yet: no controls');
+	d.useOwn(own);
+	assert.deepEqual(d.sticks, own.sticks);
+	assert.ok('voice.ratio' in d.controlSpecs, "the deck's own scene: its knobs");
 	d.useRig(catpope);
 	assert.deepEqual(d.sticks, [
 		['voice_voice.ratio', 'voice_voice.index'],
@@ -100,7 +103,7 @@ test("the rig's corner sticks reach the deck; no rig restores the fixed patch's"
 	d.moodRig(RIGS.catpope_laughing);
 	assert.equal(d.sticks?.[0][0], 'voice_voice.ratio', 'a mood keeps them');
 	d.useRig(null);
-	assert.equal(d.sticks, null);
+	assert.deepEqual(d.sticks, own.sticks);
 	assert.ok('voice.ratio' in d.controlSpecs);
 	d.close();
 });
@@ -154,13 +157,15 @@ const sent = (core: ReturnType<typeof fakeCore>) => core.sets.map(([p]) => p);
 test('a character switch while the sound loads: no throw out of tick or setParam, the newest scene wins (S22 crash)', async () => {
 	const d = new Deck({ character: 'catpope', nick: 'guest', api: API });
 	const core = fakeCore();
-	// the fixed scene playing (it landed): every knob went out as its input's base; the tempo is the core's clock's (#321)
+	// the deck's own scene playing (it landed): every knob went out as its input's base; the tempo is the core's clock's (#321)
 	d.core = core as never;
-	d.useRig(null);
+	d.useOwn(own);
 	core.land();
 	await Promise.resolve();
 	assert.equal(core.extra, 0, 'no page tempo with the scene');
-	assert.ok(sent(core).includes('voice.ratio') && sent(core).includes('melody.spread'), 'the knobs and the melody’s');
+	assert.equal(core.scene, own.engine.scene, "live-core loads the core's part of the X1's scene");
+	assert.ok(sent(core).includes('voice.ratio') && sent(core).includes('seq.rate'), 'the knobs, the arp’s too');
+	assert.ok(!sent(core).some((p) => p.startsWith('music.')), 'a node the browser does not carry takes none');
 	assert.ok(core.sets.every(([, mode]) => mode === 'base'), 'a knob turns the base (#188)');
 	core.sets.length = 0;
 	// the switch: the rig's scene is loading – a frame and a knob turn meanwhile must not throw
@@ -174,7 +179,7 @@ test('a character switch while the sound loads: no throw out of tick or setParam
 	await Promise.resolve();
 	await Promise.resolve();
 	assert.ok(core.scene.includes('id = "voice"') && !core.scene.includes('voice_voice'), 'the last scene asked for');
-	assert.ok(sent(core).includes('voice.ratio'), 'the fixed scene plays again');
+	assert.ok(sent(core).includes('voice.ratio'), "the deck's own scene plays again");
 	assert.ok(!sent(core).some((p) => p.startsWith('voice_')), "the overtaken rig's values never went out");
 	d.close();
 });
@@ -184,7 +189,7 @@ test('#274: the first start – a frame and a knob turn before the scene landed 
 	const core = fakeCore();
 	// as Deck.start does: the core is there before its scene is (the page's frame loop died on this once)
 	d.core = core as never;
-	d.useRig(null);
+	d.useOwn(own);
 	assert.doesNotThrow(() => d.tick(0.5));
 	assert.doesNotThrow(() => d.setParam('voice.ratio', 2));
 	assert.equal(core.sets.length, 0, 'nothing reaches an engine without a scene');
