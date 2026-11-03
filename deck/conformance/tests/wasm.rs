@@ -1,6 +1,7 @@
-//! (b) live-core native vs `live_core.wasm` run in wasmtime, and (the engine move, #317) deck-engine itself: every kind's
-//! scene native ≡ wasm32 ≡ wasm32 + simd128, bit for bit, for the block patterns 128 / 37 / 1024 – the determinism bar of
-//! plan 3.4. The wasm files are built here (cargo, into `deck/target/conformance-wasm*`), once per source change.
+//! (b) The browser deck (live-core, natively and as `live_core.wasm` in wasmtime) against the native deck (P6, #320), and
+//! (the engine move, #317) deck-engine itself: every kind's scene native ≡ wasm32 ≡ wasm32 + simd128, bit for bit, for the
+//! block patterns 128 / 37 / 1024 – the determinism bar of plan 3.4. The wasm files are built here (cargo, into
+//! `deck/target/conformance-wasm*`), once per source change.
 mod common;
 use common::*;
 use std::path::PathBuf;
@@ -53,63 +54,72 @@ impl Wasm {
     }
 }
 
-/// live-core in wasmtime: the scene (engine TOML), `frames` in blocks of `block`, the control stepped before each.
-fn core_wasm_render(w: &mut Wasm, engine_toml: &str, block: usize, frames: usize) -> Vec<f32> {
-    let init = w.f::<f32, ()>("lc_init");
+/// live-core in wasmtime (the browser deck's worker without the browser): the scene on a device of `channels` channels,
+/// `frames` in blocks of `block`; every channel, interleaved.
+fn core_wasm_render(w: &mut Wasm, engine_toml: &str, channels: usize, block: usize, frames: usize) -> Vec<f32> {
+    let init = w.f::<(f32, u32), ()>("lc_init");
     let inbox = w.f::<u32, u32>("lc_inbox");
     let load = w.f::<u32, i32>("lc_load");
-    let step = w.f::<f32, ()>("lc_step");
     let render = w.f::<u32, u32>("lc_render");
-    init.call(&mut w.store, RATE).unwrap();
+    init.call(&mut w.store, (RATE, channels as u32)).unwrap();
     let bytes = engine_toml.as_bytes();
     let ptr = inbox.call(&mut w.store, bytes.len() as u32).unwrap();
     w.write(ptr, bytes);
     assert!(load.call(&mut w.store, bytes.len() as u32).unwrap() >= 0, "live-core.wasm loads the scene");
-    let mut out = Vec::with_capacity(frames);
+    let mut out = Vec::with_capacity(frames * channels);
     let mut done = 0;
     while done < frames {
         let n = (frames - done).min(block);
-        step.call(&mut w.store, n as f32 / RATE).unwrap();
         let p = render.call(&mut w.store, n as u32).unwrap();
-        out.extend(w.read_f32(p, n));
+        out.extend(w.read_f32(p, n * channels));
         done += n;
     }
     out
 }
 
+/// P6 (#320) accept: **the browser deck ≡ the native deck** for every kind the wasm build carries – each kind's scene, the
+/// control scenes, the stereo scene and the routing scenes the browser can play (a device of n channels, nothing
+/// configured – the browser has no deck configuration documents yet, #330), rendered by the native deck's engine, by
+/// live-core natively, and by `live_core.wasm` (wasm32 and wasm32 + simd128) in wasmtime: every device channel, the same
+/// f32 bits, for the block patterns 128 / 37 / 1024. The table goes to `deck/target/conformance/browser.md`.
 #[test]
-fn live_core_native_vs_wasm() {
+fn the_browser_deck_is_the_native_deck() {
     let plain = build_wasm("live-core", "live_core.wasm", false);
     let simd = build_wasm("live-core", "live_core.wasm", true);
-    let mut wp = Wasm::load(&plain);
-    let mut ws = Wasm::load(&simd);
-    let mut md = String::from("| kind | block | native ≡ wasm32 | native ≡ wasm32 + simd128 | max abs (wasm32) | first differing sample (wasm32) |\n|---|---|---|---|---|---|\n");
-    let mut played = 0;
-    for case in CASES {
-        let low = lower(case.toml);
-        let native = core_render(&low.engine_toml, 128, FRAMES);
-        if peak(&native) < 1e-6 {
-            continue; // live-core plays nothing of this kind: nothing to compare
-        }
-        played += 1;
-        for &b in &PATTERNS {
-            let native = core_render(&low.engine_toml, b, FRAMES);
-            let a = core_wasm_render(&mut wp, &low.engine_toml, b, FRAMES);
-            let s = core_wasm_render(&mut ws, &low.engine_toml, b, FRAMES);
-            let (da, ds) = (diff(&native, &a), diff(&native, &s));
-            md.push_str(&format!(
-                "| {} | {b} | {} | {} | {:.3e} | {} |\n",
-                case.name,
-                if da.exact { "yes" } else { "no" },
-                if ds.exact { "yes" } else { "no" },
-                da.max_abs,
-                da.first.map_or("–".into(), |f| f.to_string())
-            ));
+    let (mut wp, mut ws) = (Wasm::load(&plain), Wasm::load(&simd));
+    let mut scenes: Vec<(String, String, deck_engine::DeckConfig)> =
+        CASES.iter().chain(CONTROL_CASES).map(|c| (c.name.to_string(), c.toml.to_string(), deck_engine::DeckConfig::stereo())).collect();
+    scenes.push(("stereo scene".into(), STEREO_TOML.into(), deck_engine::DeckConfig::stereo()));
+    let mut md = String::from("| scene | device channels | block | live-core ≡ native deck | wasm32 ≡ native deck | wasm32 + simd128 ≡ native deck | first differing sample |\n|---|---|---|---|---|---|---|\n");
+    for case in common::routing::cases() {
+        if case.deck == deck_engine::DeckConfig::device(case.deck.channels) {
+            scenes.push((case.name.into(), case.toml, case.deck));
+        } else {
+            md.push_str(&format!("| {} | {} | – | needs a deck configuration (#330) | – | – | – |\n", case.name, case.deck.channels));
         }
     }
-    assert!(played >= 8, "the kinds live-core plays");
-    std::fs::write(report_path("wasm-core.md"), &md).unwrap();
+    let mut wrong = Vec::new();
+    for (name, toml, deck) in &scenes {
+        let low = lower(toml);
+        assert!(low.page.is_empty(), "{name}: the browser carries every kind of it");
+        let ch = deck.channels;
+        for &block in &PATTERNS {
+            let native = deck_engine_wasm::run_device(toml, deck, RATE, block, FRAMES, deck_engine::Build::detect()).expect("native renders");
+            let core = core_render_device(&low.engine_toml, ch, block, FRAMES);
+            let a = core_wasm_render(&mut wp, &low.engine_toml, ch, block, FRAMES);
+            let s = core_wasm_render(&mut ws, &low.engine_toml, ch, block, FRAMES);
+            let (dc, da, ds) = (diff(&native, &core), diff(&native, &a), diff(&native, &s));
+            let yes = |d: &Diff| if d.exact { "yes" } else { "NO" };
+            let first = dc.first.or(da.first).or(ds.first);
+            md.push_str(&format!("| {name} | {ch} | {block} | {} | {} | {} | {} |\n", yes(&dc), yes(&da), yes(&ds), first.map_or("–".into(), |f| f.to_string())));
+            if !(dc.exact && da.exact && ds.exact) {
+                wrong.push(format!("{name}/{block}: live-core {:?}, wasm32 {:?}, simd128 {:?}", dc.first, da.first, ds.first));
+            }
+        }
+    }
+    std::fs::write(report_path("browser.md"), &md).unwrap();
     println!("{md}");
+    assert!(wrong.is_empty(), "the browser deck and the native deck differ:\n{}", wrong.join("\n"));
 }
 
 /// deck-engine in wasmtime: the scene through `ew_run`.

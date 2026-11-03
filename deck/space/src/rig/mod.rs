@@ -3,7 +3,7 @@
 //! - preset.rs – values + routing changes + mappings for one instrument, with a parent (derivatives, lineage)
 //! - bundle.rs – a rig with what it names (scene-content's answer) → the played scene + the page's knobs
 //! - content.rs – scene-content's answer (its rigs, instruments, presets with their versions) → a bundle per holder
-//! - engine.rs – a flattened rig lowered for live-core (the browser's batch engine) + what the page plays itself
+//! - engine.rs – a flattened rig split for live-core (deck-engine in the browser): the kinds it carries, and the rest
 //! - horizon.rs – the mood horizon: the moods reachable next, played ahead (deck-events' horizon), swapped on the trigger
 //! - flatten.rs – a rig as one playable scene (the tracks summed into audio_out, the routes as links)
 //! - here – a rig: a character's (or a scene object's, #210) tracks, each an instrument + its default preset, routes

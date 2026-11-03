@@ -279,54 +279,36 @@ pub fn stage_render_at(toml: &str, block: usize, frames: usize, build: Build, hz
     out
 }
 
-/// What `lower()` made of a scene.
+/// What `lower()` made of a scene (P6, #320: a split – the kinds the browser carries stay as they are).
 pub struct Lowered {
     pub engine_toml: String,
     /// the nodes handed to the page (not played by the engine)
     pub page: Vec<String>,
-    /// per original node: the params the lowering dropped
-    pub dropped_params: Vec<String>,
-    /// links the engine does not carry (mixers, audio_out and others)
-    pub dropped_links: usize,
 }
 
 pub fn lower(toml: &str) -> Lowered {
     let scene = Scene::parse(toml).expect("scene parses");
     let e = deck_space::rig::engine::lower(&scene).expect("lowers");
-    let doc: toml::Table = toml::from_str(&e.scene).expect("the lowered scene is TOML");
-    let lowered_nodes: Vec<&toml::Table> = doc.get("node").and_then(toml::Value::as_array).map(|a| a.iter().filter_map(toml::Value::as_table).collect()).unwrap_or_default();
-    let mut dropped = Vec::new();
-    for n in &scene.nodes {
-        if e.page.iter().any(|p| p.node.id == n.id) {
-            continue;
-        }
-        let keep = lowered_nodes.iter().find(|t| t.get("id").and_then(toml::Value::as_str) == Some(n.id.as_str()));
-        for key in n.params.keys() {
-            if key == "volume" {
-                continue;
-            }
-            if let Some(t) = keep {
-                if !t.contains_key(key) {
-                    dropped.push(format!("{}.{key}", n.id));
-                }
-            }
-        }
-    }
-    Lowered { engine_toml: e.scene, page: e.page.iter().map(|p| format!("{} ({})", p.node.id, p.node.kind)).collect(), dropped_params: dropped, dropped_links: e.dropped.len() }
+    Lowered { engine_toml: e.scene, page: e.page.iter().map(|n| format!("{} ({})", n.id, n.kind)).collect() }
 }
 
-/// live-core after `lower()`: mono master through the limiter, the control domain stepped before each block.
-pub fn core_render(engine_toml: &str, block: usize, frames: usize) -> Vec<f32> {
-    let mut core = live_core::Core::load(engine_toml, RATE).unwrap_or_else(|e| panic!("live-core loads: {e}\n{engine_toml}"));
-    let mut out = Vec::with_capacity(frames);
+/// The browser deck: live-core (deck-engine behind the worker's exports) on a device of `channels` channels, `frames`
+/// frames in blocks of `block`; every channel, interleaved.
+pub fn core_render_device(engine_toml: &str, channels: usize, block: usize, frames: usize) -> Vec<f32> {
+    let mut core = live_core::Core::load(engine_toml, RATE, channels).unwrap_or_else(|e| panic!("live-core loads: {e}\n{engine_toml}"));
+    let mut out = Vec::with_capacity(frames * channels);
     let mut done = 0;
     while done < frames {
         let n = (frames - done).min(block);
-        core.step(n as f32 / RATE);
         out.extend_from_slice(core.render(n));
         done += n;
     }
     out
+}
+
+/// `core_render_device` on a stereo device, the left channel (what `stage_render` returns)
+pub fn core_render(engine_toml: &str, block: usize, frames: usize) -> Vec<f32> {
+    core_render_device(engine_toml, 2, block, frames).chunks_exact(2).map(|f| f[0]).collect()
 }
 
 #[derive(Debug, Clone, Copy)]

@@ -63,7 +63,7 @@ pub struct Played {
     /// the corner sticks' pairs, `[[x, y], [x, y]]` (left, right) as knob paths: the rig's `sticks`, else its first four
     /// knobs in order ("" = no knob for that axis)
     pub sticks: [[String; 2]; 2],
-    /// the same scene for the browser's sound engine (live-core) and what the page plays itself (engine.rs)
+    /// the same scene for the browser's sound engine (live-core) and the nodes it does not carry yet (engine.rs)
     pub engine: super::engine::Engine,
 }
 

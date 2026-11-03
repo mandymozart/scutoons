@@ -1,7 +1,8 @@
-# live-core – deck-core for the browser Live mode (#184): the batch graph, the FFT analysis and the audio render behind
-# raw wasm exports (no wasm-bindgen: the worker passes bytes through an inbox in wasm memory, reads audio and analysis
-# frames as Float32Array views), and the boundary's wire format (wire.rs, the same layout as shared/live-core's wire.ts).
-# Build for the browser: `npm run build:wasm -w shared/live-core` (cargo build --release --target wasm32-unknown-unknown).
+# live-core – the universal core in the browser deck (#184; P6 #320: deck-engine, the native deck's engine): the engine,
+# the output's analysis and the scene's [outputs] behind raw wasm exports (no wasm-bindgen: the worker passes bytes through
+# an inbox in wasm memory, reads audio and analysis frames as Float32Array views), and the boundary's wire format (wire.rs,
+# the same layout as shared/live-core's wire.ts).
+# Build for the browser: `npm run build:wasm -w shared/live-core` (wasm32-unknown-unknown + simd128, release).
 # Natively it is a plain library + its tests (the deck workspace's cargo test / clippy).
 [package]
 name = "live-core"
@@ -15,16 +16,15 @@ publish.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-deck-core = { workspace = true, features = ["control", "synth", "analysis", "tempo"] }
-# the walk (#236): generated melodies, the same as the stage's walk node
-deck-events = { path = "../events" }
+deck-core = { workspace = true, features = ["analysis", "tempo"] }
+# the one engine, its walk / events hosts inside the block (the browser has no sequencer thread)
+deck-engine = { path = "../engine", features = ["events"] }
+# the scene, the graph and the allowlist of the kinds the browser carries (rig/engine.rs `ENGINE_KINDS`)
+deck-space = { path = "../space", default-features = false }
 # the scene's [outputs] (#211) in the browser: the platform-free engine (no ports, no threads), no `host` runner (#282)
 deck-outputs = { path = "../outputs", default-features = false }
-serde = { workspace = true }
 toml = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }
-# tests/rigs.rs: deck-space's lowered core rigs load here (the two sides agree)
-deck-space = { path = "../space", default-features = false }
 toml = { workspace = true }

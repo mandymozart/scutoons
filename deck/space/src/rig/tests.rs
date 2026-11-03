@@ -1,6 +1,6 @@
 use super::*;
 use crate::graph::Graph;
-use deck_core::batch::BatchGraph;
+use crate::scene::Scene;
 
 /// A test set in TOML – how the core set would ship in the image: the cathedral's choir voice (seq → fm, an LFO on its
 /// index), and the incense (#210's object sound).
@@ -431,49 +431,49 @@ fn catpope_keeps_the_phone_patchs_values() {
     assert_eq!((hv("voice_voice.ratio"), hv("voice_voice.index")), (3.0, 4.0), "the preset and the mood's value");
 }
 
+/// P6 (#320): the browser plays the flattened scene as it is – the same engine as the native deck – and only the kinds
+/// its wasm build does not carry go to the page
 #[test]
-fn the_browser_engine_plays_what_it_can_and_hands_the_rest_to_the_page() {
-    // the test set: the choir (seq → fm, an LFO on the index) + the incense at strip gain 0.5
-    let e = bundle().play(None, None).unwrap().engine;
-    let def = deck_core::SceneDef::parse(&e.scene).unwrap();
-    let ids: Vec<&str> = def.nodes.iter().map(|n| n.id.as_str()).collect();
-    assert_eq!(ids, ["voice_voice", "voice_sway"], "fm + lfo; seq, noise and the plumbing are gone");
-    assert!(def.links.iter().any(|l| l.from == "voice_sway.out" && l.to == "voice_voice.index" && l.scale == 2.0));
-    let pages: Vec<(&str, f32)> = e.page.iter().map(|p| (p.node.id.as_str(), p.gain)).collect();
-    assert_eq!(pages, [("voice_seq", 1.0), ("air_hiss", 0.5)]);
-    assert!(e.dropped.iter().any(|l| l.from == "voice_seq.cv" && l.to == "voice_voice.cv"), "an audio link the engine can't carry");
-    assert!(e.dropped.iter().any(|l| l.to == "space.glow"), "the being's route: the page's");
-    assert!(e.aliases.is_empty(), "the voice's strip is unity");
-    // it sounds: deck-core's batch evaluator renders catpope's core rig (the test set's voice has no pitch of its own –
-    // its seq drives it, and the seq is the page's)
-    let core = Bundle::core("character.catpope").unwrap().unwrap().play(None, None).unwrap().engine;
-    let mut g = BatchGraph::build(&deck_core::SceneDef::parse(&core.scene).unwrap(), 48_000.0).unwrap();
-    g.step(0.01);
-    let mut out = vec![0.0f32; 480];
-    g.render(&mut out);
-    g.render(&mut out);
-    assert!(out.iter().any(|x| x.abs() > 0.01), "the voice and the drone are heard");
+fn the_browser_engine_plays_the_flattened_scene_and_hands_the_rest_to_the_page() {
+    // the test set: the choir (seq → fm, an LFO on the index) + the incense at strip gain 0.5, the being's route
+    let played = bundle().play(None, None).unwrap();
+    let e = &played.engine;
+    let lowered = Scene::parse(&e.scene).unwrap();
+    let flat = Scene::parse(&played.scene).unwrap();
+    let ids = |s: &Scene| s.nodes.iter().map(|n| n.id.clone()).collect::<Vec<_>>();
+    assert_eq!(ids(&lowered), ids(&flat), "every kind passes through: seq, noise, mixers, fft, the being");
+    assert_eq!(lowered.links, flat.links, "cv links, the mixers' and the being's route too");
+    assert!(lowered.links.iter().any(|l| l.from.starts_with("voice_sway") && l.to == "voice_voice.index" && l.scale == 2.0));
+    assert!(e.page.is_empty() && e.dropped.is_empty());
+    // a kind the wasm build does not carry yet: the page's, with its links
+    let mut with_music = flat.clone();
+    with_music.nodes.push(toml::from_str("id = \"track\"\nkind = \"chapter_music\"").unwrap());
+    with_music.links.push(toml::from_str("from = \"track\"\nto = \"out.in\"").unwrap());
+    let e = engine::lower(&with_music).unwrap();
+    assert_eq!(e.page.iter().map(|n| n.id.as_str()).collect::<Vec<_>>(), ["track"]);
+    assert_eq!(e.dropped.len(), 1);
+    assert!(!Scene::parse(&e.scene).unwrap().nodes.iter().any(|n| n.id == "track"));
+    assert!(engine::carried("noise") && !engine::carried("chapter_music") && !engine::carried("module:walk"));
 }
 
 #[test]
-fn a_strip_gain_becomes_a_mul_the_knob_turns() {
+fn a_strip_gain_stays_the_mixers_gain() {
     let (_, mut rig) = set();
     let mut b = bundle();
     rig.tracks[0].gain = 0.5;
     b.rig = rig;
     let e = b.play(None, None).unwrap().engine;
-    assert_eq!(e.aliases["voice_voice.gain"], "voice_voice_strip.a");
-    let def = deck_core::SceneDef::parse(&e.scene).unwrap();
-    let strip = def.nodes.iter().find(|n| n.id == "voice_voice_strip").unwrap();
-    let f = |k: &str| strip.params[k].as_float().unwrap() as f32;
-    assert_eq!((strip.kind.as_str(), f("a"), f("b")), ("mul", 0.16, 0.5), "the knob's value × the strip");
-    assert!(def.links.iter().any(|l| l.from == "voice_voice_strip" && l.to == "voice_voice.gain"));
-    // the core drone: its two oscillators through the instrument's own mixer, unity strips – both played, no alias
+    let lowered = Scene::parse(&e.scene).unwrap();
+    assert!(!lowered.nodes.iter().any(|n| n.kind == "mul"), "no strip node: the engine has mixers");
+    let gains: Vec<f64> = lowered.nodes.iter().filter(|n| n.kind == "mixer").flat_map(|n| n.params.values().filter_map(toml::Value::as_float)).collect();
+    assert!(gains.contains(&0.5), "the track's strip gain is its mixer's: {gains:?}");
+    // the core drone: its two oscillators through the instrument's own mixer
     let core = Bundle::core("character.catpope").unwrap().unwrap().play(None, None).unwrap().engine;
-    let def = deck_core::SceneDef::parse(&core.scene).unwrap();
-    let ids: Vec<&str> = def.nodes.iter().map(|n| n.id.as_str()).collect();
-    assert_eq!(ids, ["voice_voice", "drone_drone", "drone_fifth"]);
-    assert!(core.page.is_empty() && core.aliases.is_empty());
+    let lowered = Scene::parse(&core.scene).unwrap();
+    for id in ["voice_voice", "voice_melody", "drone_drone", "drone_fifth", "drone_mix", "out", "fft", "space"] {
+        assert!(lowered.nodes.iter().any(|n| n.id == id), "{id}");
+    }
+    assert!(core.page.is_empty());
 }
 
 /// shared/live-deck's tests play the core rigs' answers from this file; `UPDATE_FIXTURES=1 cargo test -p deck-space
@@ -500,13 +500,14 @@ fn rig_fixture_for_the_browser_deck_is_current() {
 }
 
 #[test]
-fn a_walk_into_a_voice_becomes_a_walk_that_plays_its_freq() {
+fn a_walk_into_a_voice_stays_a_walk_node_on_its_cv() {
     let p = Bundle::core("character.catpope").unwrap().unwrap().play(None, None).unwrap();
     let e = &p.engine;
-    assert!(e.scene.contains("[[walk]]") && e.scene.contains("target = \"voice_voice.freq\""), "{}", e.scene);
-    assert!(e.scene.contains("bpm = 84.0") && e.scene.contains("seed = 84"));
-    assert!(!e.page.iter().any(|n| n.node.id == "voice_melody"), "the engine plays it, not the page");
-    assert!(!e.dropped.iter().any(|l| l.from == "voice_melody.cv"), "its link is the walk's");
+    let lowered = Scene::parse(&e.scene).unwrap();
+    let walk = lowered.nodes.iter().find(|n| n.id == "voice_melody").expect("the engine plays it, not the page");
+    assert_eq!(walk.kind, "walk");
+    assert_eq!(walk.params["seed"].as_integer(), Some(84));
+    assert!(lowered.links.iter().any(|l| l.from == "voice_melody.cv" && l.to == "voice_voice.cv"), "its cv link passes through");
     let knobs: Vec<&str> = p.knobs.iter().map(|k| k.path.as_str()).collect();
     assert!(knobs.contains(&"voice_melody.spread") && knobs.contains(&"voice_melody.rate"));
     let spread = p.knobs.iter().find(|k| k.path == "voice_melody.spread").unwrap();

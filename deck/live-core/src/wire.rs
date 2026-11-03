@@ -15,11 +15,11 @@
 //! | 12 | f32 × n | the values (#189's float vectors) |
 //!
 //! Records follow each other without padding (each is a multiple of 4 bytes). The analysis frame going out is not a
-//! record but a fixed block of `FRAME` f32: level, bass, mid, high, then the `SPECTRUM` bins, then the limiter's gain
-//! reduction (dB, the deepest since the last frame – #188), then (#282, additive – a reader of the older frame never
-//! looks past the reduction) the number of audio outputs and `MAX_OUTPUTS` peaks (0..1, each output's largest
-//! sample since the last frame; the slots past the count stay 0). Device messages leave in their own records
-//! (signals.rs).
+//! record but a block of f32: level, bass, mid, high, then the `SPECTRUM` bins, then the limiter's gain reduction (dB,
+//! the deepest since the last frame – #188), then (#282) the number of device channels and `MAX_OUTPUTS` peaks (0..1,
+//! each channel's largest sample since the last frame; the slots past the count stay 0), then (P6, #320) the number of
+//! values and the values themselves: every load-table row's inputs and outputs of the heard block, from the row's `at`.
+//! Device messages leave in their own records (signals.rs).
 
 use deck_core::analysis::SPECTRUM;
 
@@ -27,21 +27,28 @@ pub const HEADER: usize = 12;
 pub const OP_SEND: u8 = 1;
 /// the analysis frame's slot of the limiter's gain reduction (dB)
 pub const REDUCTION: usize = 4 + SPECTRUM;
-/// … of the number of audio outputs the engine renders (#282)
+/// … of the number of device channels the engine renders (#282)
 pub const OUTPUT_COUNT: usize = REDUCTION + 1;
-/// … of the first output's peak
+/// … of the first channel's peak
 pub const PEAKS: usize = REDUCTION + 2;
-/// the most outputs a frame carries (a multi-channel engine fills as many as it renders)
-pub const MAX_OUTPUTS: usize = 8;
-/// the analysis frame: 4 bands + the spectrum + the limiter's gain reduction (dB) + the output count + the peaks
-pub const FRAME: usize = PEAKS + MAX_OUTPUTS;
+/// the most channels a frame carries peaks for (deck-engine's device channel limit)
+pub const MAX_OUTPUTS: usize = 32;
+/// … of the number of values that follow
+pub const VALUE_COUNT: usize = PEAKS + MAX_OUTPUTS;
+/// … of the first value
+pub const VALUES_AT: usize = VALUE_COUNT + 1;
+/// the analysis frame's fixed part: 4 bands + the spectrum + the reduction + the channel count + the peaks + the value
+/// count; the values follow it
+pub const FRAME: usize = VALUES_AT;
+/// the most values a frame carries (a row past them reads `at` = -1 in the table)
+pub const MAX_VALUES: usize = 4096;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
     Force = 0,
     Blend = 1,
     Release = 2,
-    /// the values become the inputs' bases (`BatchGraph::set_base`): a linked input keeps its link on top
+    /// the values become the inputs' bases (`Control::set_base`): a linked input keeps its link on top
     Base = 3,
 }
 
@@ -56,7 +63,7 @@ impl Mode {
         })
     }
 
-    /// what the input keeps of the sent value (`BatchGraph::send`'s amount)
+    /// what the input keeps of the sent value (`Control::send`'s amount)
     pub fn amount(self, amount: f32) -> f32 {
         match self {
             Mode::Force => 1.0,

@@ -96,12 +96,12 @@ pub fn encode(out: &mut Vec<u8>, at_ms: u32, s: Signal) -> bool {
     true
 }
 
-/// Where a parameter path's value comes from in the batch graph: a node's input (`node.port`, as the last step left
-/// it) or its output (`node`, `node.out`).
+/// Where a parameter path's value comes from in the engine's control half: a node's input (`node.port`, as the last
+/// quantum left it) or one of its control outputs (`node.<output>`; `node` and `node.out` = its first).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Slot {
     In(usize, usize),
-    Out(usize),
+    Out(usize, usize),
 }
 
 /// A scene's running `[outputs]`: the engine, where its values come from and the clock.
