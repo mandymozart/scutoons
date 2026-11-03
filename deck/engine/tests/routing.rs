@@ -225,6 +225,30 @@ fn feedback_is_one_block_late_and_other_cycles_are_errors() {
     assert!(e.contains("cycle") && e.contains('p') && e.contains('q') && e.contains("feedback"), "{e}");
 }
 
+/// every `feedback` node is one block late, also when it reads another one: two in a row are two blocks; a node fed only by
+/// its own output is a loop of silence (it used to read and write its one buffer in the same step – a panic)
+#[test]
+fn feedback_nodes_in_a_row_each_add_a_block() {
+    let a = osc("a", 220.0, 0.2);
+    let r = alone(&a);
+    let toml = a.clone() + &node("f1", "feedback", "") + &node("f2", "feedback", "") + &node("out", "audio_out", "volume=1")
+        + &link("a", "f1.in", "")
+        + &link("f1.out", "f2.in", "")
+        + &link("f2.out", "out.in", "");
+    let got = render(&toml, STEREO());
+    assert!(got[0][..256].iter().all(|x| *x == 0.0), "nothing before two blocks");
+    exact(&got[0][256..], &r[0][..FRAMES - 256], "two feedback nodes = 256 frames");
+    // the same with the second one declared first (the closing order follows the node order)
+    let swapped = a + &node("f2", "feedback", "") + &node("f1", "feedback", "") + &node("out", "audio_out", "volume=1")
+        + &link("a", "f1.in", "")
+        + &link("f1.out", "f2.in", "")
+        + &link("f2.out", "out.in", "");
+    exact(&render(&swapped, STEREO())[0], &got[0], "the declaration order does not matter");
+    // a node that only hears itself
+    let own = osc("a", 220.0, 0.2) + &node("f", "feedback", "") + &node("out", "audio_out", "volume=1") + &link("f.out", "f.in", "") + &link("f.out", "out.in", "");
+    assert_eq!(peak(&render(&own, STEREO())[0]), 0.0);
+}
+
 /// 5.1 down-mixed to stereo by the spec's table, by a `downmix` node and by the deck's fold of an outlet onto two channels
 #[test]
 fn a_surround_scene_on_six_channels_and_folded_on_two() {

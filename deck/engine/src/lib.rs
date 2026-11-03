@@ -545,12 +545,23 @@ impl Engine {
                 bufs.extend(widths.iter().map(|&w| Buf::sized(w, QUANTUM)));
             }
         }
-        // the loops close: each feedback node's input, wired now that its source exists, is copied into its output last
-        for i in (0..graph.nodes.len()).filter(|&i| graph.nodes[i].kind == Kind::Feedback) {
-            if let Some(src) = resolve_inputs(graph, i, deck, &buf_of, &mut bufs, &mut steps)?[0] {
-                steps.push(Step::Capture { src, dst: buf_of[i].expect("allocated with its level") });
+        // the loops close: each feedback node's input, wired now that its source exists, is copied into its output last. All
+        // inputs are read before any output is overwritten: an input that is a feedback output itself (two in a row, a node
+        // fed by its own output) is copied aside first, so every feedback node is exactly one block late
+        let loops: Vec<usize> = (0..graph.nodes.len()).filter(|&i| graph.nodes[i].kind == Kind::Feedback).collect();
+        let outputs: Vec<usize> = loops.iter().map(|&i| buf_of[i].expect("allocated with its level")).collect();
+        let mut captures = Vec::new();
+        for (&i, &dst) in loops.iter().zip(&outputs) {
+            if let Some(mut src) = resolve_inputs(graph, i, deck, &buf_of, &mut bufs, &mut steps)?[0] {
+                if outputs.contains(&src) {
+                    steps.push(Step::Gather { dst: bufs.len(), taps: vec![Tap { src, gain: 1.0, pairs: Vec::new() }] });
+                    bufs.push(Buf::sized(bufs[src].channels(), QUANTUM));
+                    src = bufs.len() - 1;
+                }
+                captures.push(Step::Capture { src, dst });
             }
         }
+        steps.extend(captures);
         if graph.first(Kind::Space).is_some() {
             let mut at = Vec::with_capacity(bufs.len());
             let mut total = 0;
