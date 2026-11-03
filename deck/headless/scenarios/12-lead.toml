@@ -1,0 +1,19 @@
+name = "the adaptive output lead is one rule"
+about = "#365: deck-core's lead – one policy (a generous start that shrinks once stable, a step up per glitch, a step down after a calm minute, a per-device floor), numbers per device class; native and the browser run it, wasm gives the same leads"
+
+# the native deck: one 256-frame block up to 16, no warm-up start
+[[step]]
+do = "lead"
+with = { class = "native", glitches = [[0.0, 0], [1.0, 1], [1.1, 1], [2.0, 3], [64.1, 3], [124.2, 3], [200.0, 3]] }
+expect = { floor = 256, cap = 4096, leads = [256, 512, 512, 768, 512, 256, 256] }
+
+# a phone in the browser: the warm-up lead (#356) two steps over the floor, settled in 20 calm seconds; after a glitch only a calm minute shrinks it
+[[step]]
+do = "lead"
+with = { class = "phone", glitches = [[0.0, 0], [9.9, 0], [10.0, 0], [20.0, 0], [90.0, 0], [91.0, 1], [101.0, 1], [151.0, 1]] }
+expect = { floor = 3072, start = 4096, cap = 6144, leads = [4096, 4096, 3584, 3072, 3072, 3584, 3584, 3072] }
+
+[[step]]
+do = "lead"
+with = { class = "desktop", glitches = [[0.0, 0], [2.0, 1], [30.0, 1], [62.0, 1]] }
+expect = { floor = 2048, start = 3072, leads = [3072, 3584, 3584, 3072] }

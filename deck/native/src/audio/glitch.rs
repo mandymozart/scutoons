@@ -1,87 +1,34 @@
 //! The glitch indicator (#208, owner 2026-10-31: "we should have an indicator that warns us about crackles – this is a
-//! tool for live performances"). Every device callback is measured: the interval since the last one against the period
-//! the last one covered, and the time spent in it against its budget (its own period). A callback is a glitch when
-//! - the device ran dry (an **underrun**: the ring was short, or `Engine::mark` saw a gap in the heard stamps),
-//! - it took longer than its budget (a **long render**: the next one is late by construction), or
-//! - it came later than the last one's period + half of it + 2 ms (**late**: the OS didn't run the audio thread).
+//! tool for live performances") – the native audio adapter's half. Every device callback is measured: the interval
+//! since the last one against the period the last one covered, and the time spent in it against its budget (its own
+//! period); deck-core's `monitor::classify` says whether that was a glitch (underrun, long render, late) – the rule is
+//! the core's, the stopwatch and the atomics are this adapter's.
 //!
-//! One counter per cause and the newest glitch live in atomics (`Glitches`, read by the frame thread for the HUD);
-//! each glitch's numbers go into a lock-free ring (rtrb, preallocated) that the frame thread drains into the log – the
-//! callback never allocates, never locks, never logs.
+//! One counter per cause, the newest glitch and the window's block loads (the core's histogram bins) live in atomics
+//! (`Glitches`, read by the frame thread, which feeds deck-core's `Monitor`); each glitch's numbers go into a lock-free
+//! ring (rtrb, preallocated) that the frame thread drains into the log – the callback never allocates, never locks,
+//! never logs.
 use crate::clock::now_ns;
+pub use deck_core::monitor::Cause;
+use deck_core::monitor::{classify, load_bin, Histogram, Timing, BINS, LOAD_FLOOR};
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
 
-/// what made a callback a glitch
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Cause {
-    Late = 1,
-    Long = 2,
-    Underrun = 3,
-}
-
-impl Cause {
-    pub fn name(self) -> &'static str {
-        match self {
-            Cause::Late => "late",
-            Cause::Long => "long render",
-            Cause::Underrun => "underrun",
-        }
-    }
-
-    fn of(v: u64) -> Option<Cause> {
-        Some(match v {
-            1 => Cause::Late,
-            2 => Cause::Long,
-            3 => Cause::Underrun,
-            _ => return None,
-        })
-    }
-}
-
-/// a callback's jitter allowance on top of half the period: WASAPI's and the kernel's wake-up jitter
-pub const SLACK_NS: u64 = 2_000_000;
 /// no glitch is counted in the first half second (the device and the caches settle; a first callback fills the whole
 /// buffer)
 pub const SETTLE_NS: u64 = 500_000_000;
 
-/// One callback's numbers (ns).
-#[derive(Debug, Clone, Copy, Default)]
-pub struct Timing {
-    /// since the previous callback started (None: the first)
-    pub interval: Option<u64>,
-    /// the period the previous callback's frames covered
-    pub covered: u64,
-    /// the time spent in this callback
-    pub render: u64,
-    /// this callback's own period (its frames at the rate)
-    pub budget: u64,
-    /// the device ran dry before or during it
-    pub underrun: bool,
-}
-
-/// The cause of a glitch, if the callback was one (the most direct cause wins: underrun, long render, late).
-pub fn classify(t: &Timing) -> Option<Cause> {
-    if t.underrun {
-        return Some(Cause::Underrun);
-    }
-    if t.budget > 0 && t.render > t.budget {
-        return Some(Cause::Long);
-    }
-    match t.interval {
-        Some(i) if t.covered > 0 && i > t.covered + t.covered / 2 + SLACK_NS => Some(Cause::Late),
-        _ => None,
-    }
-}
-
-/// What the frame thread reads: the counts, the newest glitch, the load, the device's buffer and latency, the lead.
-#[derive(Default)]
+/// What the frame thread reads: the counts, the newest glitch, the block loads, the device's buffer and latency, the
+/// lead.
 pub struct Glitches {
     by_cause: [AtomicU64; 3],
-    /// the newest glitch: its moment (now_ns) in µs << 8 | the cause
+    /// the newest glitch: its moment (now_ns) in µs << 8 | the cause + 1
     last: AtomicU64,
-    /// the largest render time / budget (‰) since the frame thread last took it
-    load: AtomicU32,
+    /// the block loads (render time / budget) since the frame thread last took them: deck-core's histogram bins, the
+    /// largest (f32 bits – positive floats order as their bits) and the sum (millionths)
+    bins: [AtomicU32; BINS],
+    load_max: AtomicU32,
+    load_sum: AtomicU64,
     /// the largest callback seen (frames) – the device's buffer (WASAPI's first callback fills all of it)
     device_frames: AtomicU32,
     /// the device's output latency (µs) as the backend reports it (cpal: playback − callback)
@@ -90,30 +37,48 @@ pub struct Glitches {
     lead: AtomicU32,
 }
 
+impl Default for Glitches {
+    fn default() -> Self {
+        Glitches {
+            by_cause: Default::default(),
+            last: AtomicU64::new(0),
+            bins: std::array::from_fn(|_| AtomicU32::new(0)),
+            load_max: AtomicU32::new(0),
+            load_sum: AtomicU64::new(0),
+            device_frames: AtomicU32::new(0),
+            latency_us: AtomicU32::new(0),
+            lead: AtomicU32::new(0),
+        }
+    }
+}
+
 impl Glitches {
     pub fn count(&self) -> u64 {
         self.by_cause.iter().map(|c| c.load(Ordering::Relaxed)).sum()
     }
 
-    /// (late, long render, underrun)
+    /// (late, long render, underrun) – deck-core's `Cause` order
     pub fn counts(&self) -> [u64; 3] {
         std::array::from_fn(|i| self.by_cause[i].load(Ordering::Relaxed))
     }
 
     /// the underruns alone: the one cause a render thread's lead can absorb (#230)
     pub fn underruns(&self) -> u64 {
-        self.by_cause[2].load(Ordering::Relaxed)
+        self.by_cause[Cause::Underrun as usize].load(Ordering::Relaxed)
     }
 
     /// the newest glitch: its cause and moment (now_ns)
     pub fn last(&self) -> Option<(Cause, u64)> {
         let v = self.last.load(Ordering::Relaxed);
-        Cause::of(v & 0xff).map(|c| (c, (v >> 8) * 1000))
+        let c = (v & 0xff).checked_sub(1).and_then(|i| Cause::ALL.get(i as usize).copied());
+        c.map(|c| (c, (v >> 8) * 1000))
     }
 
-    /// the largest render time / budget since the last call (1 = the whole budget)
-    pub fn take_load(&self) -> f32 {
-        self.load.swap(0, Ordering::Relaxed) as f32 / 1000.0
+    /// the block loads since the last call (1 = the whole budget)
+    pub fn take_loads(&self) -> Histogram {
+        let bins = std::array::from_fn(|i| self.bins[i].swap(0, Ordering::Relaxed));
+        let max = f32::from_bits(self.load_max.swap(0, Ordering::Relaxed));
+        Histogram::from_parts(LOAD_FLOOR, bins, max, self.load_sum.swap(0, Ordering::Relaxed) as f64 / 1e6)
     }
 
     pub fn device_frames(&self) -> u32 {
@@ -136,11 +101,15 @@ impl Glitches {
         self.lead.store(frames, Ordering::Relaxed)
     }
 
-    /// a render of `render` ns for a budget of `budget` ns (the callback's, or the render thread's block)
+    /// an engine render of `render` ns for a budget of `budget` ns (a render-thread block, or a callback that renders)
     pub fn note_load(&self, render: u64, budget: u64) {
-        if let Some(permille) = render.saturating_mul(1000).checked_div(budget) {
-            self.load.fetch_max(permille.min(u32::MAX as u64) as u32, Ordering::Relaxed);
+        if budget == 0 {
+            return;
         }
+        let load = render as f32 / budget as f32;
+        self.bins[load_bin(load)].fetch_add(1, Ordering::Relaxed);
+        self.load_max.fetch_max(load.to_bits(), Ordering::Relaxed);
+        self.load_sum.fetch_add((f64::from(load) * 1e6) as u64, Ordering::Relaxed);
     }
 
     pub fn note_device_frames(&self, frames: u32) {
@@ -148,8 +117,8 @@ impl Glitches {
     }
 
     fn report(&self, cause: Cause, at_ns: u64) {
-        self.by_cause[cause as usize - 1].fetch_add(1, Ordering::Relaxed);
-        self.last.store((at_ns / 1000) << 8 | cause as u64, Ordering::Relaxed);
+        self.by_cause[cause as usize].fetch_add(1, Ordering::Relaxed);
+        self.last.store((at_ns / 1000) << 8 | (cause as u64 + 1), Ordering::Relaxed);
     }
 }
 
@@ -204,6 +173,8 @@ pub struct Monitor {
     /// false for a timer (the null backend's sleep is no device deadline)
     pub check_late: bool,
     pub deadline: Deadline,
+    /// the callback renders the engine (false: a render thread does, and notes its own blocks' loads)
+    pub renders: bool,
 }
 
 /// glitches the log ring holds until the frame thread drains it (more in a burst are counted, not logged)
@@ -213,7 +184,7 @@ impl Monitor {
     pub fn new(rate: f32) -> (Monitor, Arc<Glitches>, rtrb::Consumer<Event>) {
         let shared = Arc::new(Glitches::default());
         let (log, rx) = rtrb::RingBuffer::new(LOG);
-        let m = Monitor { shared: shared.clone(), log, rate: rate as f64, last_start: None, last_frames: 0, settle_until: None, settle: SETTLE_NS, check_late: true, deadline: Deadline::Period };
+        let m = Monitor { shared: shared.clone(), log, rate: rate as f64, last_start: None, last_frames: 0, settle_until: None, settle: SETTLE_NS, check_late: true, deadline: Deadline::Period, renders: true };
         (m, shared, rx)
     }
 
@@ -250,7 +221,9 @@ impl Monitor {
         self.last_start = Some(start);
         self.last_frames = frames;
         self.shared.note_device_frames(frames as u32);
-        self.shared.note_load(t.render, t.budget);
+        if self.renders {
+            self.shared.note_load(t.render, t.budget);
+        }
         let settled = start >= *self.settle_until.get_or_insert(start + self.settle);
         let cause = classify(&t).filter(|c| settled && (self.check_late || *c != Cause::Late))?;
         self.shared.report(cause, start);
@@ -264,20 +237,6 @@ mod tests {
     use super::*;
 
     const MS: u64 = 1_000_000;
-
-    #[test]
-    fn the_classifier_names_the_most_direct_cause() {
-        let ok = Timing { interval: Some(10 * MS), covered: 10 * MS, render: 3 * MS, budget: 10 * MS, underrun: false };
-        assert_eq!(classify(&ok), None);
-        assert_eq!(classify(&Timing { interval: None, ..ok }), None, "the first callback");
-        assert_eq!(classify(&Timing { interval: Some(16 * MS), ..ok }), None, "a little late: within half a period + 2 ms");
-        assert_eq!(classify(&Timing { interval: Some(17_100_000), ..ok }), Some(Cause::Late));
-        assert_eq!(classify(&Timing { render: 11 * MS, ..ok }), Some(Cause::Long), "over the budget");
-        assert_eq!(classify(&Timing { render: 11 * MS, interval: Some(30 * MS), ..ok }), Some(Cause::Long), "long before late");
-        assert_eq!(classify(&Timing { underrun: true, render: 11 * MS, ..ok }), Some(Cause::Underrun), "underrun first");
-        // WASAPI: a big first callback (the whole buffer), then the engine's period
-        assert_eq!(classify(&Timing { interval: Some(10 * MS), covered: 22 * MS, ..ok }), None);
-    }
 
     /// synthetic callback timings at 48 kHz, 480 frames (10 ms): steady, then one of each kind
     #[test]
@@ -293,7 +252,7 @@ mod tests {
         for _ in 0..60 {
             assert_eq!(cb(&mut m, 10 * MS, 2 * MS, false), None);
         }
-        assert!((g.take_load() - 1.2).abs() < 0.01, "the load counts from the start: the first callback's 12 ms of 10");
+        assert!((g.take_loads().max() - 1.2).abs() < 0.01, "the load counts from the start: the first callback's 12 ms of 10");
         assert_eq!(cb(&mut m, 25 * MS, 2 * MS, false), Some(Cause::Late));
         assert_eq!(cb(&mut m, 10 * MS, 11 * MS, false), Some(Cause::Long));
         assert_eq!(cb(&mut m, 10 * MS, MS, true), Some(Cause::Underrun));
@@ -304,8 +263,10 @@ mod tests {
         assert_eq!(cause, Cause::Underrun);
         assert_eq!(when, 1_645 * MS, "the underrun's moment: 1000 + 60 × 10 + 25 + 10 + 10 ms");
         assert_eq!(g.device_frames(), 480);
-        assert!((g.take_load() - 1.1).abs() < 0.01, "the peak load: 11 ms of 10");
-        assert_eq!(g.take_load(), 0.0, "taken");
+        let loads = g.take_loads();
+        assert!((loads.max() - 1.1).abs() < 0.01, "the peak load: 11 ms of 10");
+        assert_eq!(loads.count(), 3, "every callback's render since the last take");
+        assert_eq!(g.take_loads().count(), 0, "taken");
         let causes: Vec<Cause> = std::iter::from_fn(|| log.pop().ok()).map(|e| e.cause).collect();
         assert_eq!(causes, [Cause::Late, Cause::Long, Cause::Underrun]);
     }

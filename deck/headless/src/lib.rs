@@ -490,13 +490,13 @@ mod tests {
     #[test]
     fn an_expected_failure_is_only_its_missing_capability() {
         let b = |s: &str| Bundle { name: "x".into(), scenario: s.into(), files: BTreeMap::new() };
-        let r = run(&b("expected_fail = \"#364 stats\"\n[[step]]\ndo = \"stats\"\n"));
+        let r = run(&b("expected_fail = \"#374 hud\"\n[[step]]\ndo = \"hud\"\n"));
         assert_eq!(r.status, Status::Xfail, "{}", r.reason);
-        assert!(r.reason.contains("missing capability #364"));
+        assert!(r.reason.contains("missing capability #374"));
         // the wrong ticket, another failure, or a pass: red
-        assert_eq!(run(&b("expected_fail = \"#365\"\n[[step]]\ndo = \"stats\"\n")).status, Status::Fail);
-        assert_eq!(run(&b("expected_fail = \"#364\"\n[[step]]\ndo = \"nonsense\"\n")).status, Status::Fail);
-        let passed = run(&b("expected_fail = \"#364\"\n[[step]]\ndo = \"reset\"\n"));
+        assert_eq!(run(&b("expected_fail = \"#365\"\n[[step]]\ndo = \"hud\"\n")).status, Status::Fail);
+        assert_eq!(run(&b("expected_fail = \"#374\"\n[[step]]\ndo = \"nonsense\"\n")).status, Status::Fail);
+        let passed = run(&b("expected_fail = \"#374\"\n[[step]]\ndo = \"reset\"\n"));
         assert_eq!(passed.status, Status::Fail);
         assert!(passed.reason.contains("remove the line"));
     }
