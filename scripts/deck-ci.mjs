@@ -7,7 +7,7 @@
 //   npm run deck:ci -- --no-release everything but the release build (fat LTO: minutes – the pre-push hook)
 //   npm run deck:ci -- --if-changed <from> <to>   only when deck/ or shared/live* changed in that range (the pre-push hook)
 //
-// Steps: the protocol schema current (shared/live), the kind catalog's generated files current (deck-space's deck-schema
+// Steps: the bridge guard (check:core-only, check:deck-deps – #363), the protocol schema current (shared/live), the kind catalog's generated files current (deck-space's deck-schema
 // --check: kinds.json, NodeKinds.php, the JSON Schema, shared/live/src/catalog.ts), live-core for wasm32 + simd128 (its gz size under the gate) + its TS tests, deck-engine for wasm32 + simd128 (its gz size under the gate), space-web for wasm32 +
 // shared/live-deck's tests, cargo build --release, cargo test (+ the stage's module tests), cargo clippy -D warnings (+ with the module feature). The Linux aarch64 cross build
 // and the other platforms stay on GitHub (by hand) – this runs the host's native target.
@@ -21,7 +21,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const quick = args.includes('--quick');
 const release = !args.includes('--no-release');
-const WATCH = /^(deck\/|shared\/live\/|shared\/live-core\/|shared\/live-deck\/|\.github\/workflows\/deck\.yml$|scripts\/deck-ci\.mjs$)/;
+const WATCH = /^(deck\/|shared\/live\/|shared\/live-core\/|shared\/live-deck\/|\.github\/workflows\/deck\.yml$|scripts\/deck-ci\.mjs$|scripts\/(check-deck-deps|deck-deps|native-logic)\.)/;
 
 const changed = args.indexOf('--if-changed');
 if (changed >= 0) {
@@ -53,6 +53,9 @@ const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const steps = [
 	// #357: no deck logic in the browser's TypeScript (the ratchet: scripts/core-only-baseline.json only shrinks)
 	['🧱 core only', npm, ['run', 'check:core-only'], root],
+	// #363: the core crates hold no platform library (cargo tree against scripts/deck-deps.json); main.rs and the native
+	// files with deck logic only shrink (scripts/native-logic.json)
+	['🧱 core crates platform-free', npm, ['run', 'check:deck-deps'], root],
 	...(quick
 		? []
 		: [
