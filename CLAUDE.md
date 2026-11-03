@@ -2,7 +2,7 @@
 
 **Mandatory for every session except hotfixes: work on a GitHub issue** (mandymozart/scutoons, the board "SCUTOONS").
 Start from the issue the owner names or create it before the first edit, name it in the commits (`Refs #N` /
-`Fixes #N`), comment the result on it at the end. Open work never lives in docs or memory. How: RULES.md section B.
+`Fixes #N`), comment the result on it at the end. Open work never lives in docs or memory. How: RULES.md section C.
 
 **Read at start, in this order, nothing else (≈ 250 lines):** the memory index → `agents/RULES.md` (the law book, whole) →
 `agents/HANDOVER.md` (the current state). The map of everything else, with sizes: `agents/README.md`.

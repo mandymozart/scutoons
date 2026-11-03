@@ -1,160 +1,104 @@
-# RULES — how agents work on SCUTOONS (read this whole; hard limit 150 lines)
+# RULES — the law book (read whole; hard limit 150 lines)
 
-The owner's standing rules, in one place (owner 2026-10-12, agents/archive/DOCS-REFACTOR.md). Each rule's story and quote:
-agents/DECISIONS.md. A change to how agents work changes this file in the same commit as its DECISIONS line.
+Numbered rules, ONE or two lines each; `(date [key])` is the owner's decision: `grep -n '\[key\]' agents/DECISIONS.md` gives his
+words. A rule changes in the same commit as its DECISIONS line; `[rules-only]` = no recorded decision yet. Map of all docs: agents/README.md.
 
-## Backlog – GitHub issues (every session, except hotfixes; owner 2026-10-19)
-- **All open work is a GitHub issue** in `mandymozart/scutoons` (private): bugs, features, changes, owner steps, open
-  decisions. The board **SCUTOONS** (GitHub → Projects) has six statuses (owner 2026-10-20): **Backlog** (wanted; the
-  board's order top down = the owner's priority) · **Proposals** (new issues + open `decide` questions; an open issue
-  without a status counts here) · **In progress** · **Review on staging** (built and committed – the owner checks it on
-  production after the push) · **Deployed** (closed by the push) · **Done** (the owner checked it). Never a backlog in
-  docs, memory or HANDOVER. ISSUES.md / FEATURES.md are gone; an old number 10.N / M.N: `gh issue list -s all --search '"10.N" in:body'`.
-- **Start:** every session works on an issue. The owner names it (`#N`), or the request becomes one before the first
-  edit – search first (`gh issue list --search …`), else `gh issue create` (form below). Read it with
-  `gh issue view N --comments`, then `npm run backlog -- set N "In progress"`. Unattended runs: `npm run backlog`,
-  Backlog top down.
-- **Scope creep** (CLAUDE.md one level up): anything outside the issue becomes a new issue (no status = the owner's
-  inbox), not part of this session – unless the owner says so.
-- **Commits** name the issue: the message ends with `Refs #N` for a step, `Fixes #N` on the commit that finishes it
-  (GitHub closes it when the owner pushes = when it is live). `#N` never starts a line (git drops it as a comment).
-- **End of a session:** one comment on the issue (`gh issue comment N`): what was built / decided, what is open, which
-  checks are green. Finished (`Fixes #N` committed) → `npm run backlog -- set N "Review on staging"`; an open rest
-  goes into the issue body's **Open:** list and the status back to Backlog (or what the owner said). The history lives in the issue and in git, never in docs.
-- **Owner decision:** label `decide`, assigned to the owner (agents use the owner's gh login: `--add-assignee @me`),
-  the question with the options and your recommendation in the issue; the answer → a DECISIONS line (+ the topic doc),
-  the label off. **Owner step** (secrets, publishing, art, uploads): label `owner`, assigned too – the owner's
-  "Assigned to me" is their to-do list.
-- **Priorities are the owner's:** a new issue gets no status or Proposals; agents move an issue into Backlog, reorder
-  Backlog, or set Deployed / Done only when the owner says so, and move only their own issue to In progress, Review on
-  staging and back. The push closes a `Fixes #N` issue → Deployed (board workflow "Item closed", #63); Done is the
-  owner's.
-- **Hotfix** = production is broken and the fix is small: no issue needed, the commit message starts with `hotfix:`;
-  whatever it leaves open becomes an issue.
-- **Issue form:** title = the thing (no number). Labels: one type (`bug` · `feature` · `chore`), one `area:*`, +
-  `owner` / `decide`. Body ≤ ~15 lines: owner YYYY-MM-DD: "quote" · what / why in 1–3 lines · **Open:** ·
-  **Owner step:** · **Decide:** · **Docs:** agents/X.md §y – details go into the topic doc or research/. A milestone
-  only for a dated target (a chapter release, `v1.0.0`); a release plan's work items are issues in its milestone.
+## A · The one core (deck, live, engine) — the dogma agents keep working around
+- **A1** Deck logic is Rust in the ONE universal core (deck-core + its crates, native + wasm). A platform is only the compile target
+  + thin adapters that move bytes / events between the core and a platform service. A decision (what plays, when, how a message
+  is read) in TS or in a platform crate is a defect. (2026-11-02 [one-core]: "deck-core is everything … really need to stick to one universal core.")
+- **A2** The browser is UI: no business logic. Editor Svelte / TS may hold authoring logic that exists before compile (state, drafts,
+  selection, hints); rendering, sound, playback and every runtime rule are the core's; validity = core or server, an editor check is a hint.
+  (2026-11-02 [browser-is-ui]: "browser, UI, no business logic.")
+- **A3** Modules, rigs, scenes: Rust and universal, one implementation (play, flatten, checks) on every deck; no JS / TS modules, no second
+  validator or interpreter per platform. The TS module host is deleted, not ported. (2026-11-02 [rigs-in-core], 2026-11-03 [ts-module-host])
+- **A4** One engine, one clock, one governor: audio graph, tempo clock, quality governor, scene playback, wire codecs exist once in the
+  core; native ≡ wasm is the contract (golden-render conformance). Scenes are API content, never TOML / TS constants. (2026-11-02 [one-engine] [tempo-core] [scenes-from-api])
+- **A5** Devices (MIDI, camera, position, motion, video decode) are adapters feeding the core; a module never calls a browser API; video
+  plays on the core's own playback. What a browser lacks (Web MIDI in Safari …) is ignored — that device gets a native build, no TS fallback. (2026-11-02 [devices-via-core] [own-video])
+- **A6** No second copy: scenes, rules, defaults, ranges, status texts and monitoring numbers live once, in the core or one data file. A TS twin
+  of Rust logic is a defect, even "trimmed", "for now" or "kept in TS because". (2026-11-03 [no-duplicate]: "no duplicate code base in the end.")
+- **A7** Enforced, not trusted (2026-11-03 [core-only]: "enforce it even for dumb agents"): `npm run check:core-only` (in `check` and deck:ci; its
+  baseline only shrinks, growth needs `Owner-approved-baseline:` in a commit message); the dependency allow-list + headless host (#363);
+  every deck brief carries the acceptance line (ORCHESTRATION "Brief template"); every merge runs the diff check; the audit reruns often (AUDIT.md).
+- **A8** Rust first for everything native (relay, bridge, audio, video, 3D, decks) — no Node / Electron — and as much as possible in the engine,
+  also for the browser. (2026-10-29 [rust-first], 2026-10-31 [rust-engine])
+- **A9** No backwards compatibility for the audio engine (nothing released; no A/B flags, no dual hosts). A deck takes a new module only by restart. (2026-11-02 [no-backcompat-engine], 2026-11-03 [module-restart])
+- **A10** Performance and stability first: adapt to link and device (latest value wins, never a backlog), size by benches; every input and mapping is audiovisual. (2026-10-31 [perf-first] [audiovisual])
+- **A11** Words: the native app is the **deck** (the stage is a part of it; the per-venue layer is the **stage environment**); "main" / "original" /
+  "leader–follower", never master / slave; a bus that sums children is a folder bus. (2026-11-02 [names])
+- **A12** Readers save nothing; the sound designer lives in the creator (creators / admins), the deck page holds only performance + hardware settings. (2026-11-02 [readers-save-nothing] [designer-in-creator])
+- **A13** `npm run deck:ci` runs locally before every merge / push of deck work (GitHub's deck CI is by hand); phones test over the LAN (`npm run dev:lan`). (2026-10-31 [deck-ci-local])
 
-## Git, sessions, checkout
-- **One checkout** `C:\Development\scutoons`, **one branch `main`** (= production), **one dev DB `scutoons`**. No
-  `git worktree`, no per-agent DBs, no `isolation: worktree` – only when the owner asks for one by name ("in its own
-  worktree"); then its own DB `SCUTOONS_DB_NAME=scutoons_<x>`, and the owner merges it.
-- **Branch names** (any branch besides `main`: cloud sessions, worktrees, stacked PRs; owner 2026-11-01): `<kind>/<issue>-<short-title>`
-  – kind `feature` · `fix` · `chore` · `wip`, e.g. `feature/236-events-threads`. Never a generated name; a session that starts others names their branches so.
-- Commit guarded and only your own paths: `[ "$(git branch --show-current)" = main ] && git commit -m … -- <paths>`.
-  Other sessions work in the same checkout: never `git add -A`, never commit, reset, stash or reformat their files.
-  Bare `git stash` / `stash pop` never.
-- **Never push** – a push to `main` deploys. The owner pushes, or asks you to. Never a Claude attribution line.
-- **Push when a step is done** (owner 2026-11-01: the repo is public, so Actions minutes cost nothing – the old "push bundled" of issue 73 is void): the git operator may push after each commit; a push to `main` still deploys, so only on the owner's word.
-- Agents run one after another (or at most two lanes on separate files); only one session runs git operations at a time.
-- Unattended (night / day) runs: commit on `main` in small steps, never push, the dev DB may be changed freely, stop at
-  owner decisions instead of guessing; the result goes into HANDOVER "Last run" (replacing the previous one) and, per
-  issue, into its comment.
+## B · Sessions, orchestration, models (workspace rules: C:\Development\agents\ORCHESTRATION.md)
+- **B1** At most TWO local sessions at a time across all projects; workers one after another; no cloud sessions. (2026-11-02 [no-cloud]: "no cloud sessions anymore please we have credits")
+- **B2** A worker: one issue, its own worktree, branch `<kind>/<issue>-<short-title>` (kind feature · fix · chore · wip; never a generated name), a brief by
+  the template, no merge, no push, no attribution line. (2026-11-01 [branch-names], 2026-11-02 [no-cloud])
+- **B3** The orchestrator merges a worker branch into local `main` only after the checks, the diff check (A7) and the owner's word ("merge"); at
+  night the standing order is: merge to `main`, never push. Owner-requested drafts are never merged by agents. (2026-10-06 [night-runs], 2026-10-12 [worktree-requests])
+- **B4** Never push — a push to `main` deploys; the owner pushes, or says "push" (then one push per finished step is fine, Actions minutes don't matter). (2026-10-06 [night-runs], 2026-11-01 [public-repo])
+- **B5** Model per task: the cheapest that passes (`C:\Development\agents\models.json`); Opus for engine fundamentals and design; the model of a started session is set with
+  `set_session_model` (ORCHESTRATION "Starting a worker"). (2026-11-01 workspace §11 [models]; Opus rule [rules-only])
+- **B6** Record every owner statement the same day: one DECISIONS line with date, key, his words; relay it to the issue and the next brief. Search DECISIONS before writing an issue or a brief. (2026-10-12 [docs])
+- **B7** One git operator per checkout; commit only your own paths (`git commit -m … -- <paths>`), never `add -A`, never reset / stash / reformat another session's files, never a bare `git stash`. (2026-10-06 [night-runs])
+- **B8** Unattended runs: small commits, dev DB free to change, stop at owner decisions instead of guessing; the result replaces HANDOVER "Last run" and goes into each issue. (2026-10-06 [night-runs])
+- **B9** Every session ends with the usage report (`python C:\Development\agents\costs\report_usage.py --issues N`) and a comment on its issue. (workspace CLAUDE.md, 2026-11-01 [usage])
 
-## Migrations and stored data
-- **The owner never runs migrations by hand** (2026-10-12). A file in `server/migrations/mysql/` runs on production
-  with the deploy (`POST /api/deploy/migrate`); check / dry-run / apply over the SCUTOONS MCP with the developer role:
-  `migration_status`, `plan_migrations` (row counts), `apply_migrations`. Never ask for phpMyAdmin.
-  Details: server/docs/DATABASE.md "Migrations", agents/MCP.md §8.
-- A migration is **idempotent** (a second run changes nothing), compares columns with literals (no user variables –
-  collation #1267), and is dry-run on the dev DB before the commit.
-- **Stored format changes:** 1. analyse the existing data (dev DB = the latest production dump); 2. a SQL migration,
-  and the old form leaves the code – no aliases; 3. only if a migration can't work (backwards compatibility): a code
-  helper WITH creator feedback ("action required" error or a warning) – never a silent load-time conversion.
-  Exception: data in readers' browsers (localStorage) – a one-time helper on load.
-- Production is the only source of content and catalog (DB, edited in creator / admin). No file seeds; local data =
-  `server/db/prod-seed.sql` via `npm run dev:db`. Local `media/` is a dev copy – don't judge assets by it.
+## C · Backlog — GitHub issues (every session except hotfixes; 2026-10-19 [issues-only])
+- **C1** All open work is an issue in `mandymozart/scutoons`; bugs, features, owner steps, open decisions. Never a backlog in docs, memory or HANDOVER. Old numbers 10.N: `gh issue list -s all --search '"10.N" in:body'`.
+- **C2** Board **SCUTOONS**, six statuses (2026-10-20 [board]): Backlog (order top down = the owner's priority) · Proposals (new issues, open `decide`) · In progress · Review on staging (built + committed) · Deployed (closed by the push) · Done (the owner).
+  Move your issue on start and finish — `npm run backlog -- set N "In progress"` — and put the step in every brief (2026-10-21 [board-move]: "important move issues alog the board once finihsed").
+- **C3** Start: the owner names `#N`, or the request becomes an issue before the first edit (search first, then `gh issue create`); read `gh issue view N --comments`. Unattended: `npm run backlog`, top down.
+- **C4** Anything outside the issue becomes a new issue (no status = the owner's inbox), unless the owner says so (CLAUDE.md one level up: ask before scope creep).
+- **C5** Commits end `Refs #N`, the finishing one `Fixes #N` (never `#N` at a line start). End of session: one issue comment (built, open, checks), Finished → "Review on staging"; an open rest → the body's **Open:** list, status back to Backlog.
+- **C6** Priorities are the owner's: agents move only their own issue (In progress, Review on staging, back); Backlog / reorder / Deployed / Done only on his word. `decide` = assigned to him with options + your recommendation; `owner` = his step (secrets, publishing, art).
+- **C7** Issue form: title = the thing; one type label (`bug` `feature` `chore`), one `area:*`, one `complexity:S/M/L`, + `owner` / `decide`; body ≤ ~15 lines (owner quote · what / why · **Open:** · **Docs:**); a milestone only for a dated target. **Hotfix** (production broken, small): `hotfix:` commit, no issue.
 
-## Dev setup and checks
-- **MariaDB in Docker only** (no SQLite): `npm run dev:db` (container, migrate, prod seed, sandbox, API), PHPUnit with
-  `npm run dev:db test`. Don't reset or reseed the owner's DB without asking. Missing media: `npm run dev:db -- media --apply`.
-- **Fixed ports** (`shared/dev-ports.json`, `npm run check:ports`); start servers only with `npm run dev`
-  (idempotent; `npm run dev:status`). Never kill servers you didn't start; throw-away ports only for your own test runs.
-- **Debug as the test user** `agent@scutoons.test` (`npm run dev:test-user`, `--browser <url>` for a sign-in snippet),
-  never as the owner, never in the owner's browser tab – open your own (`tabs_create`). Never paste tokens anywhere.
-- **Done = green:** `npm run check` (0 errors), `check:tools-css`, server PHPUnit + PHPStan, the builds of the apps you
-  touched, plus the named `check:*` browser script of the area. Breakage another task caused: report it, don't skip it.
-- **Restarting the SCUTOONS MCP is allowed** (owner 2026-10-14: "i allow you to do it … give all agents that rule"):
-  after a change in tools/mcp, stop only YOUR session's server (the `scutoons-mcp.mjs` node process whose parent is
-  your session's claude.exe, + its child) – it restarts by itself; never another session's. How: agents/GOTCHAS.md.
-- Tool traps (Windows, heredocs, paraglide, vite preview …): agents/GOTCHAS.md.
+## D · Git
+- **D1** `main` = production. Workers use their own worktree (B2); the shared checkout `C:\Development\scutoons` is not switched by a worker. Own `npm install` per worktree (GOTCHAS). Owner-requested worktree drafts get their own DB `SCUTOONS_DB_NAME=scutoons_<x>`. (2026-11-02 [no-cloud], 2026-10-06 [worktree-requests])
+- **D2** The repo is public; Actions minutes are free; per-app deploy jobs stay (2026-11-01 [public-repo]). Docs-only pushes start no deploy.
 
-## Working with the owner
-- Steps one at a time; never re-ask an answered question; ask before scope creep (CLAUDE.md one level up).
-- Show design drafts (on the real page, phone + desktop) before building bigger UI; small owner-described fixes may be built.
-- Saving through the MCP never reaches readers: drafts + a link, the member publishes / sends / applies in the browser.
-- No in-app AI features: AI = the member's own Claude through the SCUTOONS MCP (agents/MCP.md).
+## E · Data, migrations
+- **E1** The owner never runs migrations by hand: a file in `server/migrations/mysql/` runs with the deploy; check / dry-run / apply over the MCP (`migration_status`, `plan_migrations`, `apply_migrations`). Never ask for phpMyAdmin. (2026-10-12 [migrations])
+- **E2** Idempotent, columns compared with literals (collation #1267), dry-run on the dev DB first. Format change = analyse the data → SQL migration (old form leaves the code, no aliases) → only if impossible a code helper WITH creator feedback; never a silent load-time conversion (localStorage excepted). (2026-10-06 [migrations])
+- **E3** Production is the only source of content and catalog (DB, edited in creator / admin); no file seeds; local = `server/db/prod-seed.sql` via `npm run dev:db`; local `media/` is a dev copy. (2026-10-05 [mariadb], 2026-10-04 [local-media])
+- **E4** Content is served by the API from the DB (one request per chapter); JSON only as import / export. New items / recipes are data (packs); fundamentals change with the code. (2026-09-30 [api-content], 2026-10-02 [packs])
 
-## UI rules (canonical text: DESIGN.md, DOCKING.md – read the part you build)
-- **Less UI is better UI.** No duplicate controls: the creator header's text-language switch is the ONLY language switch.
-- **Sizes in rem, never px** – also sizes set from JS (divide by the root font size). px only inside the tokens
-  (border widths) and the existing breakpoints.
-- Every control at `--control-height`; one tooltip style via `title`; bold very rarely; field groups without frames
-  (fieldset has no border, legend = the label – tools.css).
-- **Round vs square:** a standalone icon-only button is round (`sc-round`); grouped controls (segmented `sc-seg`,
-  toolbars, tab rows, every language switcher) and controls with text are square; fold / unfold buttons are quiet
-  (borderless, muted – `sc-quiet`) (DESIGN "Round vs square").
-- Spacing on a 1rem line: sidebars, outline, fold button start at 1rem; dividers run edge to edge.
-- **One layout model** (DOCKING.md): regions tile (sidebar | page | right dock, AppShell), one `Divider` per drag
-  edge, one fold to a `Rail`, page panels side by side in the right dock (`useDock`), maximize folds the rest; the
-  main folds only by hand. Pickers stay modal drawers (`Sheet`).
-- Confirmations in-page (`confirmDialog` / `askDialog`), never `confirm()`; the primary action last, one primary only.
-- Media fields are slots (preview = button, empty = dashed slot); multi-resolution media = one slot with chips.
-- **Empty states:** an empty list shows nothing (its add button is enough); a muted one-liner (`.sc-empty`) only when
-  the whole area would be blank, the reason isn't obvious, and it says what to do (DESIGN "Empty states").
-- Warnings can be accepted (✓ "Looks fine", stored in the document – DATA.md §5); errors can't.
+## F · Dev setup and checks
+- **F1** MariaDB in Docker only, no SQLite (`npm run dev:db`, PHPUnit `npm run dev:db test`); one dev DB `scutoons`; don't reset the owner's DB. (2026-10-05 [mariadb])
+- **F2** Fixed ports (`shared/dev-ports.json`, `check:ports`); servers only via `npm run dev`; never kill a server you didn't start. (2026-09-30 [dev-ports])
+- **F3** Debug as `agent@scutoons.test` (`npm run dev:test-user`), never as the owner, never in his browser tab; never paste tokens. (2026-09-30 [test-user])
+- **F4** Done = green: `npm run check` (0 errors), `check:tools-css`, PHPUnit + PHPStan, builds of touched apps, the area's `check:*`, `check:core-only` + `deck:ci` for deck work. Breakage you didn't cause: report, don't skip. (2026-09-30 [done-green])
+- **F5** You may restart your OWN session's SCUTOONS MCP after a tool change (how: GOTCHAS). (2026-10-14 [mcp-restart]: "i allow you to do it … give all agents that rule")
+- **F6** Tool traps (Windows, heredocs, paraglide, vite preview …): GOTCHAS.md.
 
-## Product rules
-- **Printed / public URLs never change** (QR `?c=`, `/verify.html`, `/<toon>`, `/<toon>/chapter/<n>`, `?code=`, locale
-  prefixes …): new URLs may be added; a change only via server-side code mappings with tests and a rollback. The full
-  table: PLATFORM.md "Printed URLs". Codes are case-sensitive; certificates print them upper case.
-- **Everything is language-independent:** media are shared by all languages, text lives only in text fields (locale
-  maps); lettering is text, rendered by the UI (DATA.md "Language-independent media").
-- Every chapter belongs to a season (the season's `sequence` is the single source of visibility).
-- **Keep the configuration small:** model only what a screen edits or code reads.
-- Media quality is a reader setting (low / medium / high, or Automatic by bandwidth) – one file per level, never by
-  viewport (no `srcset` / `<source media>`). A changed file gets a new name (immutable CDN paths).
-- Default slice 390 × 624 (its 3x 1170 × 1872 = WEBTOON's 800 × 1280), 1x WebP + `.2x` / `.3x`; every slice carries width / height.
-  New art from a lossless master 2340 wide (6x); WEBTOON's 800 × 1280 is an export, never a stored level (ASSETS.md).
-- Content is served by the API from the DB (one request per chapter); JSON only as import / export.
-- New items and recipes are data (the admin catalog); fundamentals (what items can do) change with the code (ITEMS.md).
-- **Every character makes music:** SCUTOONS came out of a neurodiversity in which hearing music automatically suggests
-  stories and pictures (the owner: about 1 in 5,000 people have it); the collaborators began giving songs the pictures
-  and stories their brains associate with them – that is how SCUTOONS came to life. All characters share this trait,
-  so **every character at some point sings or makes music – or rather lives out stories** (DECISIONS 2026-10-31).
-- **AI models: we use them without the big AI companies' license restrictions** (owner 2026-10-31: "Meta is stealing
-  from everyone, so are all big AI companies … the entire system is broken"): a model's non-commercial clause (e.g. TRIBE
-  v2's CC BY-NC) is not a reason not to use it in our tool chain. Our focus stays on **small creators** – an ecosystem that
-  benefits them through hire. Agents note a model's license where they use it (so the owner sees it), but don't block on
-  it; the owner carries that decision.
+## G · Working with the owner
+- **G1** Steps one at a time; never re-ask an answered question. Bigger UI: drafts on the real page (phone + desktop) first, small owner-described fixes may be built. (2026-10-06 [drafts-first])
+- **G2** AI = the member's own Claude through the SCUTOONS MCP, no in-app AI; the AI saves drafts + a link, the member publishes / sends / applies in the browser (`save_draft` is always allowed). (2026-10-09 [mcp-byo-ai] [mcp-drafts], 2026-10-21 [mcp-draft-ok])
+- **G3** Models: used without the big AI companies' license restrictions; note the license where you use one, don't block on it. Focus: small creators. (2026-10-31 [ai-license]: "Meta is stealing from everyone …")
 
-## Code
-- **TypeScript + unit tests** (owner 2026-10-20: "typescript and unit tests will help us save a lot of time during future
-  iterations"): new code is TypeScript (Svelte + TS in the apps, TS in the shared packages) and its logic has unit tests.
-  Scripts and tools too: logic in tested TS modules, a CLI only as a thin entry; no new plain-JS / .mjs layers (the
-  storyboard's move into the creator: #118).
-- **Deck logic is Rust in the one universal core** (owner 2026-11-02: "deck-core is everything … only lightweight adapters for other browser services and the crate compiler target"): deck-core and its crates, built for native and wasm. A platform file is only an adapter (it moves bytes / events between the core and a platform service) or the build target – a decision (what plays, when, how a message is read) in TypeScript or in a platform crate is a defect. The browser is UI – no business logic (owner: "browser, UI, no business logic"): the editor's Svelte / TS may hold authoring logic before it is compiled to the core or its modules (state, drafts, hints), but rendering, sound, playback and every runtime rule are the core's, and validity is decided by the core or the server – an editor check is a hint; module extensions are Rust, universal across decks. What a browser lacks (Web MIDI in Safari …) is ignored for now – a device that needs it gets a native build of the core, no TS fallback. The TypeScript rule above is for the apps and tools; on the deck side TS is UI and adapters (research/ENGINE-ALIGNMENT.md §0). `npm run check:core-only` enforces it (#357): never grow its baseline to get past it.
-- **Enforcement of the rule above** (owner 2026-11-03: "no duplicate code base in the end"; the rule existed, a TS copy of the cathedral still drifted): every deck brief has it as an acceptance line, every merge checks the diff for it (ORCHESTRATION "Checks"), the bridge audit (#357) reruns often with a CI guard.
-- Shared packages: apps → shared, never the reverse; `tokens ← ui ← reader`; `content` without Svelte; no app state,
-  routing or paraglide in shared; moving code into shared is a move, not a copy (PLATFORM.md "dogmas").
-- One component = one job; ≤ 300 lines (> 400 needs a reason in its header); logic in `lib/editor/*.ts`; no local
-  copies of tools.css vocabulary; imports via `$lib/…`; suffixes `-editor -panel -inspector -field -picker -slot -canvas`.
-- Code comments may cite docs, issues and old item numbers ("#44", "BACKLOG 10.61", "DESIGN.md …"): a doc keeps its
-  name wherever it lives under agents/ (grep `agents/` for the name or the number).
+## H · UI (canonical text: DESIGN.md, DOCKING.md — read the part you build)
+- **H1** Less UI is better UI; no duplicate controls (the creator header's text-language switch is the only one). [rules-only]
+- **H2** Sizes in rem, never px — also sizes set from JS (÷ root font size); px only in tokens (border widths) and breakpoints. (2026-10-04 [rem]: "a dogma across the app")
+- **H3** One `--control-height`; one tooltip style via `title`; bold very rarely; fieldsets without frames. (2026-10-02 [control-height] [bold])
+- **H4** Standalone icon-only button = round (`sc-round`); grouped controls, tabs and anything with text = square; fold buttons quiet (`sc-quiet`). (2026-10-07 [round-square], 2026-10-20 [fold])
+- **H5** Spacing on a 1rem line. One layout model (DOCKING.md): regions tile, one `Divider` per drag edge, one fold to a `Rail`, panels in the right dock (`useDock`); pickers are modal drawers (`Sheet`). [rules-only]
+- **H6** Confirmations in-page (`confirmDialog` / `askDialog`), never `confirm()`; primary action last, one only. Media fields are slots. (2026-10-03 [confirm])
+- **H7** Empty list shows nothing; a muted `.sc-empty` line only when the area would be blank and it says what to do. Warnings can be accepted (✓, stored in the doc); errors can't. (2026-10-06 [empty-states])
 
-## Docs – keep them tight (owner 2026-10-12: "nicht zu sehr ausrasten lassen")
-| File | Holds | Limit |
-|---|---|---|
-| RULES.md | how agents work | 150 lines |
-| HANDOVER.md | the current state + "Last run" (replace, never append; no rules, no todos) | 60 lines |
-| DECISIONS.md | one line per owner decision: date · decision · "quote" · → doc | newest on top |
-| GOTCHAS.md | tool traps | 80 lines |
-| topic docs (DESIGN, DOCKING, DATA, ITEMS, MAP, PLATFORM, ASSETS, CATALOG, EXPRESSIONS, MCP, EMBASSY, NEWSLETTER) | only how it IS now | trim when over ~500 lines |
-| research/ | concepts, research, parked plans; line 1 = the status | – |
-| archive/ | frozen history – never edited, never read on start | – |
+## I · Product
+- **I1** Printed / public URLs never change (QR `?c=`, `/verify.html`, `/<toon>`, `/<toon>/chapter/<n>`, `?code=`, locale prefixes); new may be added; a change only by server-side mapping + tests + rollback (PLATFORM "Printed URLs"). Codes are case-sensitive. (2026-09-30 [urls], 2026-10-03 [codes])
+- **I2** Everything is language-independent: media shared by all languages, text only in text fields (locale maps), lettering is text. Every chapter belongs to a season. Keep the configuration small. (2026-10-01 [language-neutral], 2026-09-30 [config-small])
+- **I3** Media quality is a reader setting (low / medium / high / Automatic), one file per level, never by viewport; a changed file gets a new name. Slice 390 × 624, 1x WebP + `.2x` / `.3x`, new art from a 2340-wide master; WEBTOON 800 × 1280 is an export (ASSETS.md). (2026-10-01 [media-quality], 2026-10-20 [slice-624])
+- **I4** "Carrier bag" (German Tragetasche), never "inventory". Story texts are the **Kanon**, never "bible". (2026-10-30 [carrier-bag], 2026-10-20 [kanon])
+- **I5** Every character at some point sings, makes music — or lives out stories (SCUTOONS came out of a neurodiversity where hearing music suggests stories and pictures). (2026-10-31 [music])
 
-- Open work and its history are GitHub issues ("Backlog" above); no todo lists, Done sections or "built" logs in docs.
-- A decision: one line in DECISIONS (+ RULES if it changes how agents work, + the topic doc's "how it is").
-- Stale text you notice: fix it where it stands in the same commit (or an issue) – never append a correction.
-- No new top-level file in agents/ without the owner; new concepts go to research/.
+## J · Code (apps, shared packages, tools)
+- **J1** New code is TypeScript with unit tests for its logic (apps, shared, scripts); a CLI only a thin entry; no new plain-JS / .mjs layers. On the deck side TS is UI + adapters only (A1). (2026-10-20 [ts-tests]: "typescript and unit tests will help us save a lot of time")
+- **J2** Shared: apps → shared, never the reverse; `tokens ← ui ← reader`; `content` without Svelte; moving code into shared is a move, not a copy (PLATFORM "dogmas").
+- **J3** One component = one job, ≤ 300 lines (> 400 needs a reason in its header); logic in `lib/editor/*.ts`; imports `$lib/…`; suffixes `-editor -panel -inspector -field -picker -slot -canvas`. [rules-only]
+- **J4** Comments may cite docs / issues / old item numbers; a doc keeps its name wherever it lives under agents/.
+
+## K · Docs (2026-10-12 [docs]: "nicht zu sehr ausrasten lassen")
+- **K1** Caps: RULES 150 · HANDOVER 40 (replace, never append) · AUDIT 80 · ORCHESTRATION 100 · GOTCHAS 80 · topic docs "how it IS now", trim over ~500 lines · research/ line 1 = status · archive/ frozen. Map: README.md.
+- **K2** A decision = one DECISIONS line (+ a rule here if it changes how agents work, + the topic doc). Stale text you notice: fix it where it stands (or an issue), never append a correction. No new top-level file in agents/ without the owner.
