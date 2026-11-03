@@ -35,8 +35,8 @@ Topic docs describe **how it is now** (read the section you touch, never the who
 24–38k tokens each).
 
 ## 3 · Look up by grep, never read whole
-- `agents/DECISIONS.md` (the owner's words, one line each, 686 decisions; a `[key]` per line): `grep -n '\[core-only\]' agents/DECISIONS.md`.
-  The topic index is at its top. RULES cites these keys.
+- `agents/decisions/<topic>.md` (the owner's words, one line each, 656 decisions in 8 files; a `[key]` per line; index + recording rule:
+  `agents/DECISIONS.md`). Need to know: open only your area's file. Every key RULES cites is in `decisions/law.md`: `grep -n '\[core-only\]' agents/decisions/law.md`.
 - `agents/research/` (≈ 70 concept / research / parked-plan files; line 1 = status, so `head -1 agents/research/*.md` is the index).
 - `agents/archive/` (frozen history, incl. superseded decisions) — grep only, never edited.
 - GitHub issues: `npm run backlog`, `gh issue view N --comments`. Open work lives only there.
@@ -47,7 +47,7 @@ Topic docs describe **how it is now** (read the section you touch, never the who
 | CLAUDE.md | reading order, the issue rule | 20 | the reading order changes |
 | RULES.md | the law book | 150 | an owner decision changes how agents work — same commit as its DECISIONS line |
 | HANDOVER.md | state of the world, "Last run" (replaced, never appended) | 60 (owner), aim ≤ 40 | a state fact changes |
-| DECISIONS.md | evidence: owner words, date, key, → doc | append-only, newest on top | every owner statement (record it the same day) |
+| DECISIONS.md + decisions/ | index + evidence by topic: owner words, date, key, → doc | append-only, newest on top | every owner statement (record it the same day) |
 | AUDIT.md | the audit protocol | 80 | the audit method changes |
 | ORCHESTRATION.md | SCUTOONS specifics of orchestration + the brief template | 100 | the orchestration changes |
 | GOTCHAS.md | tool traps | 80 | a trap cost time |
@@ -68,4 +68,5 @@ the rule. No new top-level file in agents/ without the owner.
 | `RULES.md` | 160 / 4.1k (over its own cap) | 108 / 4.1k (more rules, denser) |
 | `HANDOVER.md` | 63 / 1.6k (state of 2026-10-12 / 11-01) | 27 / 0.9k |
 | **Total at start** | **312 / 7.6k** | **212 / 6.4k** |
-Grep-only: `DECISIONS.md` 698 → 710 lines (655 decisions + index) / ≈ 56k tokens (now keyed and indexed; 37 superseded lines moved out); topic docs ≈ 110k tokens (unchanged, read by section).
+Need-to-know: `DECISIONS.md` was one 698-line / ≈ 55k-token file; now a 22-line index + 8 topic files of 2–10k tokens each (law 9.5k, deck 10.2k, map 2.2k …;
+37 superseded lines in archive/); topic docs ≈ 110k tokens (unchanged, read by section).

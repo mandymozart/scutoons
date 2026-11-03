@@ -10,7 +10,7 @@ Start from the issue the owner names or create it before the first edit, name it
 **Then only what you do:**
 - Orchestrating, night shift, writing a brief: `agents/ORCHESTRATION.md` ("Brief template") + `C:\Development\agents\ORCHESTRATION.md`.
 - Merging or touching deck / shared / viewer code, or auditing: `agents/AUDIT.md`.
-- A decision's evidence: `grep -n '\[key\]' agents/DECISIONS.md` (the key is in the rule). Tool trap: `agents/GOTCHAS.md`.
+- A decision's evidence: `grep -n '\[key\]' agents/decisions/law.md` (the key is in the rule); an area's history: only that area's `agents/decisions/<topic>.md` (index: `agents/DECISIONS.md`). Tool trap: `agents/GOTCHAS.md`.
 - How a thing is: the topic doc of the area, only the part you touch (list in `agents/README.md` §2).
 - `agents/research/` (line 1 = status) · `agents/archive/` (frozen, grep only).
 

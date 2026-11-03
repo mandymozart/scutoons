@@ -1,6 +1,6 @@
 # RULES — the law book (read whole; hard limit 150 lines)
 
-Numbered rules, ONE or two lines each; `(date [key])` is the owner's decision: `grep -n '\[key\]' agents/DECISIONS.md` gives the owner's
+Numbered rules, ONE or two lines each; `(date [key])` is the owner's decision: `grep -n '\[key\]' agents/decisions/law.md` gives the owner's
 words. A rule changes in the same commit as its DECISIONS line; `[rules-only]` = no recorded decision yet. Map of all docs: agents/README.md.
 Old section names in code comments (until 2026-11-03): "Backlog" = C · "Git, sessions, checkout" = B + D · "Dev setup and checks" = F · "Code" = A + J ·
 "Product rules" = I · "UI rules" = H · "Working with the owner" = G · "Migrations and stored data" = E · "Docs" = K.
@@ -42,7 +42,7 @@ Old section names in code comments (until 2026-11-03): "Backlog" = C · "Git, se
 - **B4** Never push — a push to `main` deploys; the owner pushes, or says "push" (then one push per finished step is fine, Actions minutes don't matter). (2026-10-06 [night-runs], 2026-11-01 [public-repo])
 - **B5** Model per task: the cheapest that passes (`C:\Development\agents\models.json`); Opus for engine fundamentals and design; the model of a started session is set with
   `set_session_model` (ORCHESTRATION "Starting a worker"). (2026-11-01 workspace §11 [models]; Opus rule [rules-only])
-- **B6** Record every owner statement the same day: one DECISIONS line with date, key, the owner's words; relay it to the issue and the next brief. Search DECISIONS before writing an issue or a brief. (2026-10-12 [docs])
+- **B6** Record every owner statement the same day: one line with date, key, the owner's words in its `agents/decisions/<topic>.md` (index: DECISIONS.md); relay it to the issue and the next brief. Grep the area's decisions file before writing an issue or a brief. (2026-10-12 [docs])
 - **B7** One git operator per checkout; commit only your own paths (`git commit -m … -- <paths>`), never `add -A`, never reset / stash / reformat another session's files, never a bare `git stash`. (2026-10-06 [night-runs])
 - **B8** Unattended runs: small commits, dev DB free to change, stop at owner decisions instead of guessing; the result replaces HANDOVER "Last run" and goes into each issue. (2026-10-06 [night-runs])
 - **B9** Every session ends with the usage report (`python C:\Development\agents\costs\report_usage.py --issues N`) and a comment on its issue. (workspace CLAUDE.md, 2026-11-01 [usage])

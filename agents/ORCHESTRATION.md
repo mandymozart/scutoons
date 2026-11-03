@@ -25,7 +25,7 @@ findings and hand-over notes go to the shared notes folder named in the brief, n
 ```
 #N <what> — session title starts with #N
 Issue: #N (`gh issue view N --comments`; `npm run backlog -- set N "In progress"`, at the end "Review on staging").
-Background: 3–5 lines. Owner decisions that bind this: DECISIONS keys [a] [b] (the worker greps them), not pasted text.
+Background: 3–5 lines. Owner decisions that bind this: keys [a] [b] in agents/decisions/<topic>.md (the worker greps them), not pasted text.
 Read, nothing more: CLAUDE.md → agents/RULES.md (whole) → agents/HANDOVER.md → <topic doc §x>.
 Branch: <kind>/N-<title> from main <sha>, own worktree, own `npm install`. No merge, no push, no attribution line (RULES B2, B4).
 Scope: <checklist>. Other workers touch: <files> — stay out.
@@ -38,7 +38,7 @@ Report ≤ 15 lines: branch + tip SHA · done per checklist item · checks and r
   servers stopped · turns / cost. Comment it on the issue. Last: `python C:\Development\agents\costs\report_usage.py --issues N`.
 ```
 An orchestrator that pastes rule text into a brief is doing it wrong: if a rule is missing from RULES, fix RULES; if the worker did not
-follow a pointer, that is a finding, not a reason to paste. Search DECISIONS before filing an issue or writing a brief (RULES B6).
+follow a pointer, that is a finding, not a reason to paste. Grep the area's decisions file before filing an issue or writing a brief (RULES B6).
 
 ## Checks (one at a time)
 - `deck/` (Rust workspace): `cargo test` and `cargo clippy` in the crate touched; the `pipewire` feature builds only on Linux. This machine's clippy

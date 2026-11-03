@@ -1,7 +1,7 @@
 # HANDOVER — the current state (read after RULES.md; limit 60 lines, aim ≤ 40: replace, never append; no rules, no todos)
 
 Refreshed 2026-11-03 (#380); the longer 2026-10-12 version with the feature notes is archive/HANDOVER-2026-11-03.md. How agents work: RULES.md.
-Open work: GitHub issues + the board "SCUTOONS" (RULES C). Decisions: DECISIONS.md (grep a key). Orchestrator state: HANDOFF.md.
+Open work: GitHub issues + the board "SCUTOONS" (RULES C). Decisions: agents/decisions/<topic>.md (index DECISIONS.md; grep a key). Orchestrator state: HANDOFF.md.
 
 ## Where things are
 - `main` is the only long-lived branch and is production; pushing it runs `.github/workflows/deploy.yml` (deploys only targets whose live `git_sha` is behind,
