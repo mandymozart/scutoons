@@ -5,6 +5,7 @@
 /** how fast a held peak falls: it loses 63 % per this many seconds (a meter, not a scope) */
 export const FALL_SECONDS = 0.25;
 
+// core-only-ok: #373 a peak made safe to draw (moves with the meter ballistics)
 const clamp01 = (v: number): number => (Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0);
 
 /** the most outputs the engine reports – live-core's MAX_OUTPUTS */

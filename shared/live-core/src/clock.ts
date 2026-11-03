@@ -126,6 +126,7 @@ export class ClockWindow {
 }
 
 /** the beat the clock's line says at the page's `ms` (a drawing between two clock frames) */
+// core-only-ok: #370 the core's line drawn between two 25 ms clock frames (the wasm runs in the worker)
 export const beatAt = (c: ClockState, ms: number): number => (c.running ? c.beat + ((ms - c.heardMs) / 60_000) * c.bpm : c.beat);
 
 /** the page's clock: ms since the epoch, the same in the page, its workers and the worklet's stamps */

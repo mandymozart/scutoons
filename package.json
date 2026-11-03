@@ -66,6 +66,8 @@
 		"check:ports": "node scripts/dev/check-ports.mjs",
 		"check:tools-css": "node scripts/check-tools-ui.mjs --static",
 		"check:core-only": "node scripts/check-core-only.mjs && node --test scripts/check-core-only.test.mjs",
+		"audit:bridge": "node scripts/check-core-only.mjs --audit",
+		"check:deck-deps": "node scripts/check-deck-deps.mjs && node --test scripts/check-deck-deps.test.mjs",
 		"check:tools-ui": "node scripts/check-tools-ui.mjs",
 		"check:fonts": "node scripts/check-fonts.mjs --session",
 		"check:locale": "node scripts/check-locale.mjs",
