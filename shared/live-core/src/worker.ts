@@ -1,4 +1,4 @@
-// The Web Worker that hosts live_core.wasm (#184). The app builds it with its bundler and hands it to `LiveCore.start`
+// The Web Worker that hosts live_core.wasm (#184; deck-engine since #320). The app builds it with its bundler and hands it to `LiveCore.start`
 // (vite: `new Worker(new URL('@scutoons/live-core/worker', import.meta.url), { type: 'module' })`).
 //
 // Shared transport: the pump wakes when the worklet has read (Atomics.waitAsync on the audio ring's read counter;
@@ -72,13 +72,14 @@ function sendSignals(records: Uint8Array): void {
 	post({ type: 'signals', bytes }, [bytes]);
 }
 
-/** Transfer transport: tops the worklet up to `lead` frames, in chunks of 4 blocks. */
+/** Transfer transport: tops the worklet up to `lead` frames, in chunks of 4 blocks (interleaved channels). */
 function topUp(): void {
 	if (!engine || !feed || !engine.core.loaded) return;
+	const ch = engine.core.channels;
 	while (inFlight + 4 * BLOCK <= engine.lead) {
-		const chunk = new Float32Array(4 * BLOCK);
-		for (let b = 0; b < 4; b++) engine.block(inFlight + b * BLOCK, (a) => chunk.set(a, b * BLOCK));
-		inFlight += chunk.length;
+		const chunk = new Float32Array(4 * BLOCK * ch);
+		for (let b = 0; b < 4; b++) engine.block(inFlight + b * BLOCK, (a) => chunk.set(a, b * BLOCK * ch));
+		inFlight += 4 * BLOCK;
 		feed.postMessage({ chunk } satisfies AudioFeed, [chunk.buffer]);
 	}
 }
@@ -89,7 +90,7 @@ scope.onmessage = async (ev) => {
 		switch (m.type) {
 			case 'init': {
 				const module = await WebAssembly.compileStreaming(fetch(m.wasm));
-				const core = await WasmCore.instantiate(module, m.rate);
+				const core = await WasmCore.instantiate(module, m.rate, m.channels);
 				if (m.shared) {
 					const latest = new Latest(m.shared.analysis);
 					control = Ring.bytes(m.shared.control);
@@ -129,6 +130,7 @@ scope.onmessage = async (ev) => {
 			case 'load': {
 				if (!engine) throw new Error('load before init');
 				const table = engine.core.load(m.scene);
+				if (m.bpm !== undefined) engine.core.tempo(m.bpm);
 				post({ type: 'loaded', id: m.id, table });
 				if (audio && !ticking) {
 					ticking = true;

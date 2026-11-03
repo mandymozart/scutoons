@@ -24,7 +24,7 @@ test('deck.graph: deck-native kinds, links between known ports, the character, i
 	const g = deckGraph('yellowmouse', ['neutral', 'happy']);
 	const ids = new Set(g.nodes.map((n) => n.id));
 	for (const l of g.links) for (const end of [l.from, l.to]) assert.ok(ids.has(end.split('.')[0]), end);
-	assert.deepEqual(g.nodes.map((n) => n.kind).sort(), ['audio_out', 'fft', 'fm', 'lfo', 'mixer', 'noise', 'osc', 'seq', 'space']);
+	assert.deepEqual(g.nodes.map((n) => n.kind).sort(), ['audio_out', 'fft', 'fm', 'lfo', 'mixer', 'noise', 'osc', 'space', 'walk']);
 	assert.equal(g.character, 'yellowmouse');
 	assert.deepEqual(g.moods, ['neutral', 'happy']);
 	assert.deepEqual(g.expose, Object.keys(PARAMS));

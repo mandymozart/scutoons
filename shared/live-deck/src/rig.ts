@@ -7,9 +7,6 @@ import type { PathKind } from './client.ts';
 import type { Spec } from './scene.ts';
 import type { RigKnob, RigPlayed } from './space.ts';
 
-/** kinds live-core replaces by itself or the page draws (deck-space rig/engine.rs `PLUMBING`) */
-const PLUMBING = ['mixer', 'audio_out', 'fft', 'space'];
-
 /** a knob's label in `locale`, else English, else any, else its path */
 export const knobLabel = (k: RigKnob, locale = 'en'): string =>
 	k.label?.[locale] ?? k.label?.en ?? Object.values(k.label ?? {})[0] ?? k.path;
@@ -50,22 +47,18 @@ export function rigGraph(p: RigPlayed, moods: string[]): DeckGraph {
 	};
 }
 
-/** where a knob's value goes: `engine` = live-core's path (aliased through a strip), `page` = a node the page plays */
-export function knobTarget(p: RigPlayed, path: string): { engine: string } | { page: string; port: string } | null {
+/** where a knob's value goes: live-core plays the rig's flattened scene as it is (#320), so a knob's path is the
+ *  engine's – unless its node is one the browser does not carry yet (`engine.page`): then nowhere */
+export function knobTarget(p: RigPlayed, path: string): { engine: string } | null {
 	const node = path.slice(0, path.lastIndexOf('.'));
-	const port = path.slice(path.lastIndexOf('.') + 1);
-	if (p.engine.page.some((n) => n.id === node)) return { page: node, port };
-	if (p.engine.aliases[path]) return { engine: p.engine.aliases[path] };
-	// the plumbing isn't in live-core's scene (engine.rs PLUMBING): it sums and analyses by itself
-	const kind = p.nodes.find((n) => n.id === node)?.kind;
-	return kind && !PLUMBING.includes(kind) ? { engine: path } : null;
+	if (p.engine.page.some((n) => n.id === node)) return null;
+	return p.nodes.some((n) => n.id === node) ? { engine: path } : null;
 }
 
 /** The same scene for the engine? Values aside: the nodes (id, kind) and the links. A preset's routing change or
  *  another instrument needs live-core to load the new scene; otherwise only the changed values are sent. */
 export function sameShape(a: RigPlayed, b: RigPlayed): boolean {
-	const shape = (p: RigPlayed) =>
-		JSON.stringify([p.nodes.map((n) => [n.id, n.kind]), p.links.map((l) => [l.from, l.to, l.scale, l.offset]), p.engine.aliases]);
+	const shape = (p: RigPlayed) => JSON.stringify([p.nodes.map((n) => [n.id, n.kind]), p.links.map((l) => [l.from, l.to, l.scale, l.offset])]);
 	return shape(a) === shape(b);
 }
 

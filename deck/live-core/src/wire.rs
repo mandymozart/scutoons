@@ -41,7 +41,7 @@ pub const VALUES_AT: usize = VALUE_COUNT + 1;
 /// count; the values follow it
 pub const FRAME: usize = VALUES_AT;
 /// the most values a frame carries (a row past them reads `at` = -1 in the table)
-pub const MAX_VALUES: usize = 4096;
+pub const MAX_FRAME_VALUES: usize = 4096;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {

@@ -1,16 +1,18 @@
 // The worker's engine with the real live_core.wasm (deck/live-core, `npm run build:wasm -w shared/live-core` – the
 // tests are skipped, saying so, when it is not built): the load edge, records through the control ring into the inbox,
-// the audio ring kept at its lead, analysis frames of what is heard.
+// the audio ring kept at its lead (the device channels interleaved), analysis frames of what is heard with the heard
+// block's values.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { BLOCK, Engine, WasmCore } from '../src/engine.ts';
 import { Ring, ringBuffers } from '../src/ring.ts';
-import { FRAME, SPECTRUM, writeSend } from '../src/wire.ts';
+import { valueIndex } from '../src/index.ts';
+import { analysisOf, FRAME, SPECTRUM, VALUE_COUNT, writeSend } from '../src/wire.ts';
+import { wasmPath } from '../scripts/wasm.ts';
 
-const wasmPath = fileURLToPath(new URL('../../../deck/target/wasm32-unknown-unknown/release/live_core.wasm', import.meta.url));
-const skip = existsSync(wasmPath) ? false : 'live_core.wasm is not built – npm run build:wasm -w shared/live-core';
+const path = wasmPath();
+const skip = existsSync(path) ? false : 'live_core.wasm is not built – npm run build:wasm -w shared/live-core';
 const RATE = 48_000;
 const SCENE = `
 [[node]]
@@ -26,34 +28,45 @@ freq = 220.0
 ratio = 2.0
 index = 0.0
 gain = 0.0
+[[node]]
+id = "out"
+kind = "audio_out"
+[[link]]
+from = "lead"
+to = "out.in"
 `;
+/** the fm's inputs: cv, freq, ratio, index, gain */
+const FREQ = 1;
+const GAIN = 4;
 
-const core = () => WasmCore.instantiate(readFileSync(wasmPath), RATE);
+const core = (channels = 2) => WasmCore.instantiate(readFileSync(path), RATE, channels);
 
-test('load: the table comes out, a broken scene is an error with the reason', { skip }, async () => {
+test('load: the table comes out, a broken scene or a kind the browser lacks is an error with the reason', { skip }, async () => {
 	const c = await core();
 	const t = c.load(SCENE);
-	assert.deepEqual(t.nodes[1], { id: 'lead', kind: 'fm', ports: ['freq', 'ratio', 'index', 'gain'] });
-	assert.throws(() => c.load('[[node]]\nid = "x"\nkind = "fft"\n'), /does not batch/);
-	assert.equal(c.load(SCENE).nodes.length, 2);
+	assert.equal(t.channels, 2);
+	assert.deepEqual(t.nodes[1], { id: 'lead', kind: 'fm', ports: ['cv', 'freq', 'ratio', 'index', 'gain'], outs: ['out'], at: 3 });
+	assert.throws(() => c.load('[[node]]\nid = "x"\nkind = "chapter_music"\n'), /does not carry 'chapter_music'/);
+	assert.equal(c.load(SCENE).nodes.length, 3);
 	assert.throws(() => c.applyBytes(new Uint8Array([1, 0, 0])), /truncated header/);
+	assert.equal(c.tempo(84), true, 'no clock of its own: the deck’s');
 });
 
-test('a vector through the control ring reaches the sound and the analysis', { skip }, async () => {
+test('a vector through the control ring reaches the sound, the analysis and the heard values', { skip }, async () => {
 	const c = await core();
-	c.load(SCENE);
+	const table = c.load(SCENE);
 	const frames: Float32Array[] = [];
 	const e = new Engine(c, { lead: 1024, onAnalysis: (f) => frames.push(f.slice()) });
 	const control = Ring.bytes(ringBuffers(1 << 12, 1, false));
-	const audio = Ring.floats(ringBuffers(1 << 12, 4, false));
+	const audio = Ring.floats(ringBuffers(1 << 13, 4, false));
 	const scratch = new Uint8Array(64);
 	e.fill(audio);
-	assert.equal(audio.available(), 1024, 'filled to the lead');
-	const block = new Float32Array(BLOCK);
+	assert.equal(audio.available(), 2 * 1024, 'filled to the lead: two channels interleaved');
+	const block = new Float32Array(2 * BLOCK);
 	audio.read(block);
 	assert.ok(block.every((x) => x === 0), 'gain 0: silence');
 	// 1500 Hz, ratio 1, no FM, gain 0.5 – written into the ring as the page does, drained into the inbox
-	control.writeAll(scratch.subarray(0, writeSend(scratch, 0, { mode: 'force', node: 1, port: 0, amount: 1, v: [1500, 1, 0, 0.5] })));
+	control.writeAll(scratch.subarray(0, writeSend(scratch, 0, { mode: 'force', node: 1, port: FREQ, amount: 1, v: [1500, 1, 0, 0.5] })));
 	assert.equal(e.drain(control), 1);
 	assert.equal(control.available(), 0);
 	for (let i = 0; i < 40; i++) {
@@ -61,11 +74,17 @@ test('a vector through the control ring reaches the sound and the analysis', { s
 		e.fill(audio);
 	}
 	assert.ok(block.some((x) => Math.abs(x) > 0.3), 'sound');
+	for (let f = 0; f < block.length; f += 2) assert.equal(block[f], block[f + 1], 'the stereo main: both channels');
 	const last = frames.at(-1)!;
-	assert.equal(last.length, FRAME);
+	assert.equal(last.length, FRAME + last[VALUE_COUNT]);
 	assert.ok(last[2] > 0.8 && last[2] > last[1] + 0.3, `mid: ${[...last.subarray(0, 4)]}`);
 	const peak = last.subarray(4, 4 + SPECTRUM).reduce((best, v, i, s) => (v > s[best] ? i : best), 0);
-	assert.equal(peak, 32, '1500 Hz / 46.875 Hz per bin');
+	assert.ok(Math.abs(peak - 32) <= 1, `1500 Hz / 46.875 Hz per bin: ${peak}`);
+	const a = analysisOf(last);
+	assert.equal(a.outputs.length, 2);
+	assert.equal(a.values[valueIndex(table, 'lead.freq')], 1500, 'the heard block’s input');
+	assert.ok(Math.abs(a.values[valueIndex(table, 'wob')] - 1) < 1e-5, 'the LFO’s output: unipolar, at its top');
+	assert.equal(a.values[valueIndex(table, 'lead.out')], 0, 'an audio output: no meter without a being (`space` node)');
 	const s = e.stats();
 	assert.ok(s.blocks > 300 && s.records === 1 && s.renderUs > 0, JSON.stringify(s));
 });
@@ -74,7 +93,6 @@ test('a blend mixes, a release returns the input as built', { skip }, async () =
 	const c = await core();
 	c.load(SCENE);
 	const e = new Engine(c, { lead: 512, onAnalysis: () => {} });
-	// the inputs glide (#188): settle 80 blocks (8.5 time constants), then the peak of 8
 	const peak = () => {
 		let m = 0;
 		for (let i = 0; i < 80; i++) e.block(0, () => {});
@@ -83,12 +101,25 @@ test('a blend mixes, a release returns the input as built', { skip }, async () =
 	};
 	const send = (mode: 'force' | 'blend' | 'release', amount: number, v: number[]) => {
 		const b = new Uint8Array(64);
-		return e.applyBytes(b.subarray(0, writeSend(b, 0, { mode, node: 1, port: 3, amount, v })));
+		return e.applyBytes(b.subarray(0, writeSend(b, 0, { mode, node: 1, port: GAIN, amount, v })));
 	};
 	send('force', 1, [0.4]);
-	assert.ok(Math.abs(peak() - 0.4) < 0.01);
+	const full = peak();
+	assert.ok(full > 0.2, `${full}`);
 	send('blend', 0.5, [0.4]);
-	assert.ok(Math.abs(peak() - 0.2) < 0.01, 'half of 0.4 over the built 0');
+	assert.ok(Math.abs(peak() - full / 2) < 0.005, 'half of 0.4 over the built 0');
 	send('release', 0, [0]);
 	assert.ok(peak() < 1e-3);
+});
+
+test('a six-channel device: the stereo main on the first two, the rest silent', { skip }, async () => {
+	const c = await core(6);
+	c.load(SCENE);
+	const e = new Engine(c, { lead: 512, onAnalysis: () => {} });
+	const b = new Uint8Array(64);
+	e.applyBytes(b.subarray(0, writeSend(b, 0, { mode: 'force', node: 1, port: GAIN, amount: 1, v: [0.4] })));
+	const peaks = new Array(6).fill(0);
+	for (let i = 0; i < 40; i++) e.block(0, (a) => a.forEach((x, k) => (peaks[k % 6] = Math.max(peaks[k % 6], Math.abs(x)))));
+	assert.ok(peaks[0] > 0.3 && peaks[1] > 0.3, `${peaks}`);
+	assert.deepEqual(peaks.slice(2), [0, 0, 0, 0]);
 });

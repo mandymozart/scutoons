@@ -8,7 +8,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { readSignals, type DeviceSignal } from '../src/signals.ts';
 import { BLOCK, Engine, WasmCore } from '../src/engine.ts';
-import { analysisOf, FRAME, MAX_OUTPUTS, OUTPUT_COUNT, PEAKS, WireError, writeSend } from '../src/wire.ts';
+import { analysisOf, FRAME, MAX_OUTPUTS, OUTPUT_COUNT, PEAKS, VALUE_COUNT, WireError, writeSend } from '../src/wire.ts';
+import { wasmPath as builtWasm } from '../scripts/wasm.ts';
 
 type Row = { name: string; at: number; msg: Record<string, unknown>; hex: string };
 const fixture = fileURLToPath(new URL('../../../deck/live-core/fixtures/signals.json', import.meta.url));
@@ -52,7 +53,7 @@ test('malformed bytes stop the walk with the offset', () => {
 	assert.throws(() => it.next(), (e: unknown) => e instanceof WireError && e.at === one.length);
 });
 
-const wasmPath = fileURLToPath(new URL('../../../deck/target/wasm32-unknown-unknown/release/live_core.wasm', import.meta.url));
+const wasmPath = builtWasm();
 const skip = existsSync(wasmPath) ? false : 'live_core.wasm is not built – npm run build:wasm -w shared/live-core';
 
 const NODES = `
@@ -68,6 +69,12 @@ id = "knob"
 kind = "add"
 a = 0.0
 b = 0.0
+[[node]]
+id = "out"
+kind = "audio_out"
+[[link]]
+from = "lead"
+to = "out.in"
 `;
 const OUTPUTS = `
 [outputs]
@@ -86,10 +93,10 @@ test('the engine: the frame carries the output peaks, [outputs] arrive as signal
 	const rec = new Uint8Array(64);
 	const send = (node: number, port: number, v: number[]) => e.applyBytes(rec.subarray(0, writeSend(rec, 0, { mode: 'force', node, port, amount: 1, v })));
 	send(table.nodes.findIndex((n) => n.id === 'knob'), 0, [1]);
-	send(0, 0, [1500, 1, 0, 0.5]);
+	send(0, 1, [1500, 1, 0, 0.5]);
 	for (let i = 0; i < 200; i++) e.block(0, () => {});
 	const last = frames.at(-1)!;
-	assert.equal(last.length, FRAME);
+	assert.equal(last.length, FRAME + last[VALUE_COUNT]);
 	assert.equal(last[OUTPUT_COUNT], 2);
 	assert.ok(last[PEAKS] > 0.3 && last[PEAKS] <= 1, `peak ${last[PEAKS]}`);
 	assert.equal(last[PEAKS], last[PEAKS + 1]);

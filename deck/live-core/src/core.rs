@@ -4,7 +4,7 @@
 //! block's values back), the rendered audio analysed for the page (deck-core's `Analyzer`, looking back by the output
 //! lead). Safe Rust; lib.rs puts it behind the raw wasm exports. No allocation after `load` (tests/no_alloc.rs).
 use crate::signals::{Outputs, Slot};
-use crate::wire::{self, Mode, FRAME, MAX_OUTPUTS, MAX_VALUES, OUTPUT_COUNT, PEAKS, REDUCTION, VALUES_AT, VALUE_COUNT};
+use crate::wire::{self, Mode, FRAME, MAX_OUTPUTS, MAX_FRAME_VALUES, OUTPUT_COUNT, PEAKS, REDUCTION, VALUES_AT, VALUE_COUNT};
 use deck_core::analysis::{Analyzer, SPECTRUM};
 use deck_core::tempo::{clamp_bpm, Now};
 use deck_engine::control::Controls;
@@ -86,7 +86,7 @@ impl Core {
             rows,
             analyzer: Analyzer::new(rate, 0.25),
             audio: vec![0.0; RENDER * channels],
-            frame: vec![0.0; FRAME + at.min(MAX_VALUES)],
+            frame: vec![0.0; FRAME + at.min(MAX_FRAME_VALUES)],
             peaks: [0.0; MAX_OUTPUTS],
             outputs,
             signals: Vec::with_capacity(SIGNALS),
@@ -195,7 +195,7 @@ impl Core {
             .iter()
             .zip(&self.rows)
             .map(|(n, r)| {
-                let at = if r.at + r.ins + r.outs.len() <= MAX_VALUES { r.at as i64 } else { -1 };
+                let at = if r.at + r.ins + r.outs.len() <= MAX_FRAME_VALUES { r.at as i64 } else { -1 };
                 format!(
                     "{{\"id\":{},\"kind\":{},\"ports\":[{}],\"outs\":[{}],\"at\":{at}}}",
                     q(&n.id),

@@ -6,10 +6,11 @@
 //   0 u8 op (1 = send) · 1 u8 mode (0 force, 1 blend, 2 release, 3 base – #188: the input's base, a link on top) · 2 u16 n · 4 u16 node · 6 u16 port · 8 f32 amount
 //   12 f32 × n – the values (#189's float vectors); v[0] → port, v[1] → port + 1 …
 // Node and port are indices from the load table (names are resolved once, at load – JSON stays at the edge).
-// The analysis frame going out is a fixed block of FRAME f32: level, bass, mid, high, then SPECTRUM bins, then the
-// limiter's gain reduction (dB, the deepest since the last frame – #188), then (#282, additive) the number of audio
-// outputs and MAX_OUTPUTS peaks (0..1, each output's largest sample since the last frame). Device messages come in
-// their own records (signals.ts).
+// The analysis frame going out is a block of f32: level, bass, mid, high, then SPECTRUM bins, then the limiter's gain
+// reduction (dB, the deepest since the last frame – #188), then (#282) the number of device channels and MAX_OUTPUTS
+// peaks (0..1, each channel's largest sample since the last frame), then (#320) the number of values and the values: every
+// load-table row's inputs and outputs of the heard block, from the row's `at`. Device messages come in their own records
+// (signals.ts).
 
 export const HEADER = 12;
 export const OP_SEND = 1;
@@ -17,13 +18,20 @@ export const OP_SEND = 1;
 export const SPECTRUM = 512;
 /** the frame's slot of the limiter's gain reduction (dB) */
 export const REDUCTION = 4 + SPECTRUM;
-/** … of the number of audio outputs the engine renders (#282) */
+/** … of the number of device channels the engine renders (#282) */
 export const OUTPUT_COUNT = REDUCTION + 1;
-/** … of the first output's peak */
+/** … of the first channel's peak */
 export const PEAKS = REDUCTION + 2;
-/** the most outputs a frame carries – the Rust twin's MAX_OUTPUTS */
-export const MAX_OUTPUTS = 8;
-export const FRAME = PEAKS + MAX_OUTPUTS;
+/** the most channels a frame carries peaks for – the Rust twin's MAX_OUTPUTS (deck-engine's device channel limit) */
+export const MAX_OUTPUTS = 32;
+/** … of the number of values that follow */
+export const VALUE_COUNT = PEAKS + MAX_OUTPUTS;
+/** … of the first value */
+export const VALUES_AT = VALUE_COUNT + 1;
+/** the frame's fixed part; the values follow it */
+export const FRAME = VALUES_AT;
+/** the most values a frame carries – the Rust twin's MAX_FRAME_VALUES */
+export const MAX_FRAME_VALUES = 4096;
 /** the most values one record carries (u16 n) */
 export const MAX_VALUES = 0xffff;
 
@@ -131,9 +139,11 @@ export interface Analysis {
 	spectrum: Float32Array;
 	/** the output limiter's gain reduction (dB, 0 = untouched) – the being's red face (#188) */
 	reduction: number;
-	/** #282: one peak (0..1) per audio output the engine renders – the largest sample since the last frame; a view on
-	 * `frame`, as many as the engine reports (the stereo master = 2; [] from an engine that predates the slots) */
+	/** #282: one peak (0..1) per device channel – the largest sample since the last frame; a view on `frame`, as many as
+	 * the engine renders */
 	outputs: Float32Array;
+	/** #320: the heard block's values of every load-table row (its inputs, then its outputs, from its `at`) – a view */
+	values: Float32Array;
 }
 
 export const analysisOf = (frame: Float32Array): Analysis => ({
@@ -143,5 +153,6 @@ export const analysisOf = (frame: Float32Array): Analysis => ({
 	high: frame[3],
 	spectrum: frame.subarray(4, 4 + SPECTRUM),
 	reduction: frame[REDUCTION] ?? 0,
-	outputs: frame.subarray(PEAKS, PEAKS + Math.max(0, Math.min(MAX_OUTPUTS, Math.round(frame[OUTPUT_COUNT] || 0))))
+	outputs: frame.subarray(PEAKS, PEAKS + Math.max(0, Math.min(MAX_OUTPUTS, Math.round(frame[OUTPUT_COUNT] || 0)))),
+	values: frame.subarray(VALUES_AT, VALUES_AT + Math.max(0, Math.min(MAX_FRAME_VALUES, Math.round(frame[VALUE_COUNT] || 0))))
 });

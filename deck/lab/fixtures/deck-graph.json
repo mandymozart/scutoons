@@ -3,8 +3,8 @@
 	"p": {
 		"nodes": [
 			{
-				"id": "seq",
-				"kind": "seq"
+				"id": "melody",
+				"kind": "walk"
 			},
 			{
 				"id": "voice",
@@ -41,7 +41,7 @@
 		],
 		"links": [
 			{
-				"from": "seq.cv",
+				"from": "melody.cv",
 				"to": "voice.cv"
 			},
 			{
@@ -58,7 +58,8 @@
 			},
 			{
 				"from": "sway.out",
-				"to": "incense.cutoff"
+				"to": "incense.cutoff",
+				"scale": 2500
 			},
 			{
 				"from": "mix.out",

@@ -1,8 +1,10 @@
-# @scutoons/live-core – the browser Live mode's engine (#184)
+# @scutoons/live-core – the browser deck's sound (#184, #320)
 
-deck-core (the deck's graph, FFT analysis and DSP) as wasm in a Web Worker, its audio played by an AudioWorklet through
-a SharedArrayBuffer ring. For the conductor, rehearsal and browser outputs; phones stay TS + Web Audio, the relay codec
-stays `@scutoons/live` (DECISIONS 2026-10-30). The wasm is `deck/live-core` (Rust, no wasm-bindgen, no imports).
+deck-engine – the native deck's engine, the one engine of the universal core – as wasm in a Web Worker, its audio (the
+device's channels, interleaved) played by an AudioWorklet through a SharedArrayBuffer ring. TypeScript only moves bytes;
+what plays and how is the core's. The relay codec stays `@scutoons/live`. The wasm is `deck/live-core` (Rust, no
+wasm-bindgen, no imports), built for wasm32 + simd128 (`npm run build:wasm -w shared/live-core` → `scripts/wasm.ts`'s path;
+its gz size is gated at 500 KB in `npm run deck:ci`).
 
 ```ts
 import { LiveCore } from '@scutoons/live-core';
@@ -12,10 +14,11 @@ const core = await LiveCore.start({                                        // fr
 	wasm: wasmUrl,                                                          // live_core.wasm, served same-origin
 	worklet: workletUrl
 });
-const table = await core.load(sceneToml);           // deck/native's TOML, batch kinds: lfo smooth mul add osc fm
-const lead = core.param('lead');                    // resolve once (node + first input) …
+const table = await core.load(sceneToml, { bpm: 84 }); // the deck's TOML (deck-space ENGINE_KINDS); bpm: no clock of its own
+const lead = core.param('lead.freq');               // resolve once (node + input) …
 core.set(lead, new Float32Array([440, 2, 1, 0.1]), { mode: 'blend', amount: 0.5 }); // … send often (#189)
 const off = core.onAnalysis(({ level, bass, mid, high, spectrum }) => draw(level, bass, mid, high, spectrum));
+core.value('sway.out');                             // the heard block's value of a path (inputs, outputs, meters)
 core.stats(); // transport, render µs per block (avg, peak, budget), blocks/s, sends/s, underruns, dropped, lead, gapMs
 await core.stop();
 ```
@@ -33,7 +36,7 @@ No JSON across the boundary. A value is a **wire record** (`src/wire.ts` = `deck
 | wasm → worklet: audio | `Float32Array` view → SAB audio ring; the worklet `Atomics.notify`s, the worker `Atomics.waitAsync`s | 512-frame chunks over a MessagePort, played counts back |
 | wasm → page: analysis | view → the `Latest` slot (a sequence lock), read on animation frames | one transferred frame per ≈ 16 ms |
 
-- Edges only: the scene in (TOML), the load table out (JSON), errors – once each.
+- Edges only: the scene in (TOML), the load table out (JSON: the device channels, per node its inputs, outputs and`n  where their heard values are in the analysis frame, the build's notes), errors – once each.`n- **Channels** (plan 2.6): `LiveCore.start` renders the destination's `maxChannelCount` (2 on a phone; `channels` overrides)`n  – the worklet's `outputChannelCount`, the audio ring and the transfer chunks carry them interleaved; the core folds or`n  places a scene's outlets on them. The control half steps inside every 128-frame quantum (no step export).
 - `transport: 'auto'` (default) picks shared when `crossOriginIsolated`, else transfer – it works without the headers,
   at one postMessage per send, per analysis frame and per 512 audio frames (≈ 6 µs each vs 0.5 µs in the ring).
 - `lead` (default 1024 frames ≈ 21 ms at 48 kHz) = how far the worker renders ahead; the analysis looks back by it,
@@ -52,14 +55,15 @@ No JSON across the boundary. A value is a **wire record** (`src/wire.ts` = `deck
 
 | file | job |
 |---|---|
-| `src/wire.ts` | the records (`writeSend` in place, `readRecords`), the analysis frame (`analysisOf`: bands, spectrum, limiter reduction, the per-output peaks – #282) |
+| `src/wire.ts` | the records (`writeSend` in place, `readRecords`), the analysis frame (`analysisOf`: bands, spectrum, limiter reduction, the per-channel peaks – #282, the heard values – #320) |
 | `src/signals.ts` | the scene's `[outputs]` as device messages (MIDI / DMX / OSC records, `readSignals`; `LiveCore.onSignal`) – #282 |
 | `src/ring.ts` | `Ring` (one writer, one reader, Atomics counters, SAB or plain buffer), `Latest` (sequence lock) |
-| `src/engine.ts` | `WasmCore` (the exports behind views on wasm memory), `Engine` (the pump: drain, step + render per block, analysis) |
+| `src/engine.ts` | `WasmCore` (the exports behind views on wasm memory), `Engine` (the pump: drain, render per block, analysis) |
 | `src/worker.ts` | the worker entry: init (wasm compiled there), load, the shared pump / the transfer feed |
-| `src/worklet.ts` | the `live-core` AudioWorkletProcessor: plays the ring, silence + an underrun when empty |
+| `src/worklet.ts` | the `live-core` AudioWorkletProcessor: plays the ring (de-interleaves the channels), silence + an underrun when empty |
 | `src/lead.ts` | `AdaptiveLead` (#208): grow on a dropout, shrink after a calm minute |
-| `src/index.ts` | `LiveCore`: start, load, param, set, onAnalysis, stats, stop |
+| `src/index.ts` | `LiveCore`: start, load, param, set, value, onAnalysis, stats, stop; `deviceChannels`, `valueIndex` |
+| `scripts/wasm.ts` | where and how live_core.wasm is built (wasm32 + simd128, its own target folder) |
 
 ## Production headers (set: the viewer's `/live/…` in static/.htaccess, the creator's `/engine` and `/edit/…` in its static/.htaccess)
 

@@ -45,12 +45,14 @@ test('the being on the wire is the flattened scene, its knobs exposed; it stream
 	assert.equal(s['mix1.out'], 'audio');
 });
 
-test('a knob goes to live-core, to a noise the page plays, or nowhere (the plumbing)', () => {
+test('a knob goes to live-core under its own path (#320: the whole scene plays there), or nowhere for a kind it lacks', () => {
 	assert.deepEqual(knobTarget(catpope, 'voice_voice.ratio'), { engine: 'voice_voice.ratio' });
-	assert.equal(knobTarget(catpope, 'mix1.gain1'), null, 'live-core sums by itself');
-	assert.deepEqual(knobTarget(RIGS.incense_burner, 'air_hiss.gain'), { page: 'air_hiss', port: 'gain' });
-	const strip = { ...catpope, engine: { ...catpope.engine, aliases: { 'voice_voice.gain': 'voice_voice_strip.a' } } };
-	assert.deepEqual(knobTarget(strip, 'voice_voice.gain'), { engine: 'voice_voice_strip.a' });
+	assert.deepEqual(knobTarget(catpope, 'mix1.gain1'), { engine: 'mix1.gain1' }, 'the mixers are the engine’s too');
+	assert.deepEqual(knobTarget(RIGS.incense_burner, 'air_hiss.gain'), { engine: 'air_hiss.gain' }, 'the noise is the engine’s');
+	assert.equal(knobTarget(catpope, 'nobody.gain'), null);
+	const music = { ...catpope, nodes: [...catpope.nodes, { id: 'track', kind: 'chapter_music' }], engine: { ...catpope.engine, page: [{ id: 'track', kind: 'chapter_music' }] } };
+	assert.equal(knobTarget(music, 'track.gain'), null, 'a kind the browser does not carry yet');
+	assert.deepEqual(catpope.engine.page, [], 'catpope plays whole');
 });
 
 test("a mood changes values only – a new routing reloads the engine", () => {
@@ -78,9 +80,7 @@ test('the deck plays a rig and back: sliders, stream and wire follow; a mood mov
 		['voice_voice.ratio', 3, 'mood']
 	]);
 	assert.equal(d.read('voice_voice.index'), 4);
-	d.bands = { ...d.bands, level: 0.4, bass: 0.2 };
-	assert.equal(d.read('fft.level'), 0.4);
-	assert.equal(d.read('mix1.out'), 0.4);
+	assert.ok(Number.isNaN(d.read('fft.level')), 'no sound: nothing heard');
 	d.useRig(null);
 	assert.deepEqual(Object.keys(d.params), Object.keys(PARAMS));
 	assert.deepEqual(d.paths.sort(), Object.keys(STREAMED).sort());
@@ -106,52 +106,61 @@ test("the rig's corner sticks reach the deck; no rig restores the fixed patch's"
 });
 
 /** live-core as the deck sees it: a scene that loads later (the worker's round trip), a `set` that throws for a path
- *  the loaded scene lacks (the real one does), and enough Web Audio for the page's noise */
+ *  the loaded scene lacks (the real one does), the heard values by path */
 function fakeCore() {
-	const context: Record<string, unknown> = { sampleRate: 48000, currentTime: 0 };
-	const chain = { context, connect: () => chain, start: () => {}, stop: () => {}, frequency: { setTargetAtTime: () => {} }, gain: { value: 0, setTargetAtTime: () => {} } };
-	Object.assign(context, {
-		destination: chain,
-		createBuffer: () => ({ getChannelData: () => new Float32Array(96000) }),
-		createBufferSource: () => ({ ...chain }),
-		createBiquadFilter: () => ({ ...chain }),
-		createGain: () => ({ ...chain })
-	});
 	let settle: (() => void)[] = [];
-	const sets: string[] = [];
+	const sets: [string, string][] = [];
+	const heard = new Map<string, number>();
 	const core = {
-		context,
 		scene: '',
+		bpm: 0,
 		loads: 0,
 		sets,
-		load(scene: string) {
+		heard,
+		load(scene: string, o: { bpm?: number } = {}) {
 			this.loads++;
-			return new Promise<void>((ok) => settle.push(() => { this.scene = scene; ok(); }));
+			return new Promise<void>((ok) =>
+				settle.push(() => {
+					this.scene = scene;
+					this.bpm = o.bpm ?? 0;
+					ok();
+				})
+			);
 		},
-		set(param: string, _v: number[]) {
+		set(param: string, _v: number[], o: { mode?: string } = {}) {
 			const node = param.split('.')[0];
 			if (!this.scene.includes(`id = "${node}"`)) throw new Error(`live-core: no node '${node}'`);
-			sets.push(param);
+			sets.push([param, o.mode ?? 'force']);
 			return true;
 		},
+		value: (path: string) => heard.get(path) ?? NaN,
 		/** the pending loads land, oldest first */
-		land() { const s = settle; settle = []; for (const f of s) f(); },
-		onAnalysis() { return () => {}; },
+		land() {
+			const s = settle;
+			settle = [];
+			for (const f of s) f();
+		},
+		onAnalysis() {
+			return () => {};
+		},
 		stats: () => ({ underruns: 0 })
 	};
 	return core;
 }
 
+const sent = (core: ReturnType<typeof fakeCore>) => core.sets.map(([p]) => p);
+
 test('a character switch while the sound loads: no throw out of tick or setParam, the newest scene wins (S22 crash)', async () => {
 	const d = new Deck({ character: 'catpope', nick: 'guest', api: API });
 	const core = fakeCore();
-	// the fixed patch playing (its scene landed)
+	// the fixed scene playing (it landed): every knob went out as its input's base, at the deck's tempo
 	d.core = core as never;
 	d.useRig(null);
 	core.land();
 	await Promise.resolve();
-	d.tick(1);
-	assert.ok(core.sets.includes('voice.freq'), 'the fixed patch plays its melody');
+	assert.equal(core.bpm, 84);
+	assert.ok(sent(core).includes('voice.ratio') && sent(core).includes('melody.spread'), 'the knobs and the melody’s');
+	assert.ok(core.sets.every(([, mode]) => mode === 'base'), 'a knob turns the base (#188)');
 	core.sets.length = 0;
 	// the switch: the rig's scene is loading – a frame and a knob turn meanwhile must not throw
 	d.useRig(catpope);
@@ -164,10 +173,8 @@ test('a character switch while the sound loads: no throw out of tick or setParam
 	await Promise.resolve();
 	await Promise.resolve();
 	assert.ok(core.scene.includes('id = "voice"') && !core.scene.includes('voice_voice'), 'the last scene asked for');
-	core.sets.length = 0;
-	d.tick(1.05);
-	assert.ok(core.sets.includes('voice.freq'), 'the fixed patch plays again');
-	assert.ok(!core.sets.some((p) => p.startsWith('voice_')), "the overtaken rig's values never went out");
+	assert.ok(sent(core).includes('voice.ratio'), 'the fixed scene plays again');
+	assert.ok(!sent(core).some((p) => p.startsWith('voice_')), "the overtaken rig's values never went out");
 	d.close();
 });
 
@@ -182,6 +189,19 @@ test('#274: the first start – a frame and a knob turn before the scene landed 
 	assert.equal(core.sets.length, 0, 'nothing reaches an engine without a scene');
 	core.land();
 	await Promise.resolve();
-	d.tick(1);
-	assert.ok(core.sets.includes('voice.freq'), 'the fixed patch plays once its scene landed');
+	assert.ok(core.sets.some(([p]) => p === 'voice.ratio'), 'the knobs go out once its scene landed');
+});
+
+test('#320: what the deck streams is what the engine played – the heard block’s values, else the knob', async () => {
+	const d = new Deck({ character: 'catpope', nick: 'guest', api: API });
+	const core = fakeCore();
+	d.core = core as never;
+	d.useRig(catpope);
+	core.land();
+	await Promise.resolve();
+	core.heard.set('fft.level', 0.4).set('mix1.out', 0.3).set('voice_voice.index', 2.5);
+	assert.equal(d.read('fft.level'), 0.4);
+	assert.equal(d.read('mix1.out'), 0.3, 'an audio output: its block peak');
+	assert.equal(d.read('voice_voice.index'), 2.5, 'an input: base plus what drives it');
+	assert.equal(d.read('voice_voice.ratio'), 1.5, 'not heard yet: the knob');
 });

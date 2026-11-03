@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Deck, defaultLead, portraitsOf } from '../src/deck.ts';
 import { sniff } from '../src/space.ts';
-import { LADDER, PARAMS, STREAMED } from '../src/scene.ts';
+import { FIXED_SCENE, LADDER, MELODY, OUTPUTS, PARAMS, STREAMED } from '../src/scene.ts';
 
 const API = 'https://api.example/api';
 
@@ -12,7 +12,8 @@ test('a deck without a relay plays alone; its paths are what it streams', () => 
 	const d = new Deck({ character: 'yellowmouse', nick: 'guest', api: API });
 	assert.equal(d.link, null);
 	assert.deepEqual(d.paths.sort(), Object.keys(STREAMED).sort());
-	for (const p of d.paths) assert.ok(Number.isFinite(d.read(p)) || p === 'seq.cv', p);
+	// without sound only the knobs have values; the outputs are what the engine plays (#320)
+	for (const p of d.paths) assert.equal(Number.isFinite(d.read(p)), !(p in OUTPUTS), p);
 	d.close();
 });
 
@@ -32,14 +33,14 @@ test('one state: the being turns a value, the page hears whose hand it was; unkn
 	assert.equal(d.value['voice.gain'], PARAMS['voice.gain'].value);
 });
 
-test('the LFO sways the incense cutoff the being shows on its linked button', () => {
+test('#320: the fixed scene is a real scene – every slider is one of its paths, the melody a walk, the sway an engine LFO', () => {
+	const ids = [...FIXED_SCENE.matchAll(/^id = "([^"]+)"$/gm)].map((m) => m[1]);
+	for (const p of [...Object.keys(PARAMS), ...Object.keys(MELODY), ...Object.keys(OUTPUTS)]) assert.ok(ids.includes(p.split('.')[0]), p);
+	assert.match(FIXED_SCENE, /id = "melody"\nkind = "walk"\nseed = 84\n/);
+	assert.match(FIXED_SCENE, /from = "sway.out"\nto = "incense.cutoff"\nscale = 2500\.0\noffset = 1800\.0/, 'the unipolar sway lifts the cutoff above its base');
+	assert.doesNotMatch(FIXED_SCENE, /Math|random/);
 	const d = new Deck({ character: 'yellowmouse', nick: 'guest', api: API });
-	d.setParam('sway.rate', 1);
-	d.setParam('sway.depth', 1);
-	// frames of 50 ms (a frame's step is capped at 100 ms)
 	for (let k = 0; k <= 5; k++) d.tick(10 + k * 0.05);
-	assert.ok(Math.abs(d.read('sway.out') - 1) < 1e-6, 'a quarter turn of a 1 Hz LFO');
-	assert.equal(d.read('incense.cutoff'), Math.min(12000, d.value['incense.cutoff'] * 2 ** 1.5));
 	assert.ok(Math.abs(d.time - 0.25) < 1e-9);
 });
 
@@ -77,14 +78,24 @@ test("the set's images: PNG, JPEG, else WebP", () => {
 	assert.equal(sniff(new Uint8Array([0x52, 0x49, 0x46, 0x46])), 'image/webp');
 });
 
-test('#188: the being turns the cutoff as its base – the LFO keeps swaying on top', () => {
+test('#188: the being turns the cutoff as its base – the engine’s LFO keeps swaying on top, the deck streams what is heard', async () => {
 	const d = new Deck({ character: 'yellowmouse', nick: 'guest', api: API });
-	d.setParam('sway.rate', 1);
-	d.setParam('sway.depth', 1);
-	for (let k = 0; k <= 5; k++) d.tick(10 + k * 0.05);
+	const sets: [string, number[], string | undefined][] = [];
+	let heard = NaN;
+	d.core = {
+		load: async () => ({}),
+		set: (p: string, v: number[], o: { mode?: string } = {}) => void sets.push([p, [...v], o.mode]),
+		value: (p: string) => (p === 'incense.cutoff' ? heard : NaN)
+	} as never;
+	d.useRig(null);
+	await Promise.resolve();
+	await Promise.resolve();
+	sets.length = 0;
 	d.setParam('incense.cutoff', 600, 'being');
-	assert.equal(d.value['incense.cutoff'], 600, 'the knob: the base');
-	assert.ok(Math.abs(d.read('incense.cutoff') - 600 * 2 ** 1.5) < 1e-6, 'the sway on top of it');
+	assert.deepEqual(sets, [['incense.cutoff', [600], 'base']], 'the knob: the base');
+	assert.equal(d.read('incense.cutoff'), 600, 'nothing heard yet: the knob');
+	heard = 1350;
+	assert.equal(d.read('incense.cutoff'), 1350, 'the sway on top of it, as the engine played it');
 });
 
 test('#188: a phone keeps more sound ahead of the speaker', () => {
@@ -96,7 +107,7 @@ test('#298: stop ends the sound and leaves the deck as it was – values kept, n
 	const d = new Deck({ character: 'yellowmouse', nick: 'guest', api: API });
 	let stopped = 0;
 	d.core = { stop: async () => void stopped++ } as unknown as NonNullable<Deck['core']>;
-	d.bands = { level: 0.7, bass: 0.5, mid: 0.2, high: 0.1, spectrum: new Float32Array(4), reduction: 3, outputs: new Float32Array(2) };
+	d.bands = { level: 0.7, bass: 0.5, mid: 0.2, high: 0.1, spectrum: new Float32Array(4), reduction: 3, outputs: new Float32Array(2), values: new Float32Array(0) };
 	d.setParam('voice.index', 4.5);
 	await d.stop();
 	assert.equal(stopped, 1);

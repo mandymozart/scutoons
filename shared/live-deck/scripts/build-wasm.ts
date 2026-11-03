@@ -1,28 +1,29 @@
 // `npm run build:wasm -w shared/live-deck` (#198): the browser deck's two wasm modules, built from deck/ –
 // - space-web (deck-space's being and set, wgpu): cargo for wasm32, then wasm-bindgen --target web (the CLI must be the
 //   crate's version, 0.2.129: `cargo install wasm-bindgen-cli --version 0.2.129`);
-// - live-core (the sound): cargo for wasm32 (no bindgen).
+// - live-core (the sound, deck-engine – #320): wasm32 + simd128 as shared/live-core builds it (no bindgen).
 // The files go to shared/live-deck/wasm/ (deck/lab's build copies them), viewer/static/live/ (the viewer's /live/deck loads
 // them at run time) and creator/static/live/ (the engine host in the creator, #298); all git-ignored. CARGO_TARGET_DIR is honoured (default deck/target).
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
+import { buildCommand, wasmPath } from '@scutoons/live-core/wasm-path';
 
 const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 const deck = here('../../../deck/');
 const target = process.env.CARGO_TARGET_DIR ?? `${deck}target`;
-const release = `${target}/wasm32-unknown-unknown/release`;
-// space-web at deck/Cargo.toml's `wasm-web` profile (opt-level s: ~10 % smaller), live-core as shared/live-core builds it
+// space-web at deck/Cargo.toml's `wasm-web` profile (opt-level s: ~10 % smaller)
 const web = `${target}/wasm32-unknown-unknown/wasm-web`;
-const run = (cmd: string, args: string[]) => execFileSync(cmd, args, { stdio: 'inherit', cwd: deck });
+const run = (cmd: string, args: string[], env = process.env) => execFileSync(cmd, args, { stdio: 'inherit', cwd: deck, env });
 
 run('cargo', ['build', '--profile', 'wasm-web', '--target', 'wasm32-unknown-unknown', '-p', 'space-web']);
-run('cargo', ['build', '--release', '--target', 'wasm32-unknown-unknown', '-p', 'live-core']);
+const live = buildCommand();
+run(live.cmd, live.args, live.env);
 const out = here('../wasm/');
 mkdirSync(out, { recursive: true });
 run('wasm-bindgen', ['--target', 'web', '--no-typescript', '--out-dir', out, `${web}/space_web.wasm`]);
-copyFileSync(`${release}/live_core.wasm`, `${out}live_core.wasm`);
+copyFileSync(wasmPath(), `${out}live_core.wasm`);
 
 const apps = ['viewer', 'creator'].map((app) => here(`../../../${app}/static/live/`));
 for (const dir of apps) {

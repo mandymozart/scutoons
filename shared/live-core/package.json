@@ -3,7 +3,7 @@
 	"version": "0.1.0",
 	"private": true,
 	"type": "module",
-	"description": "SCUTOONS Live: the browser engine (#184) – deck-core as wasm (deck/live-core) in a Web Worker, audio through an AudioWorklet + SharedArrayBuffer ring, binary wire records across the boundary",
+	"description": "SCUTOONS Live: the browser deck's sound (#184, #320) – deck-engine as wasm (deck/live-core) in a Web Worker, audio through an AudioWorklet + SharedArrayBuffer ring, binary wire records across the boundary",
 	"sideEffects": false,
 	"exports": {
 		".": {
@@ -13,13 +13,14 @@
 		"./worker": "./src/worker.ts",
 		"./worklet": "./src/worklet.ts",
 		"./engine": "./src/engine.ts",
+		"./wasm-path": "./scripts/wasm.ts",
 		"./modules": "./src/modules.ts"
 	},
 	"files": [
 		"src"
 	],
 	"scripts": {
-		"build:wasm": "cargo build --release --target wasm32-unknown-unknown --manifest-path ../../deck/Cargo.toml -p live-core",
+		"build:wasm": "node --experimental-transform-types --no-warnings scripts/build-wasm.ts",
 		"build:modules": "cargo build --release --target wasm32-unknown-unknown --manifest-path ../../deck/Cargo.toml -p walk-module -p fixture-module",
 		"check": "tsc --noEmit -p tsconfig.json && npm run test",
 		"test": "node --experimental-transform-types --no-warnings --test test/wire.test.ts test/ring.test.ts test/engine.test.ts test/stats.test.ts test/lead.test.ts test/modules.test.ts test/signals.test.ts"

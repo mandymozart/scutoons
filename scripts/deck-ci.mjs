@@ -8,7 +8,7 @@
 //   npm run deck:ci -- --if-changed <from> <to>   only when deck/ or shared/live* changed in that range (the pre-push hook)
 //
 // Steps: the protocol schema current (shared/live), the kind catalog's generated files current (deck-space's deck-schema
-// --check: kinds.json, NodeKinds.php, the JSON Schema, shared/live/src/catalog.ts), live-core for wasm32 + its TS tests, deck-engine for wasm32 + simd128 (its gz size under the gate), space-web for wasm32 +
+// --check: kinds.json, NodeKinds.php, the JSON Schema, shared/live/src/catalog.ts), live-core for wasm32 + simd128 (its gz size under the gate) + its TS tests, deck-engine for wasm32 + simd128 (its gz size under the gate), space-web for wasm32 +
 // shared/live-deck's tests, cargo build --release, cargo test (+ the stage's module tests), cargo clippy -D warnings (+ with the module feature). The Linux aarch64 cross build
 // and the other platforms stay on GitHub (by hand) – this runs the host's native target.
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -40,7 +40,7 @@ if (changed >= 0) {
 	}
 }
 
-/** the gz size gate of the engine's wasm (owner 2026-11-02: live-core, which will link the engine, may weigh 500 KB gz) */
+/** the gz size gate of the engine's wasm (owner 2026-11-02: live-core, which links the engine since #320, may weigh 500 KB gz) */
 const ENGINE_GATE_KB = 500;
 function gate(file, kb) {
 	const raw = readFileSync(file);
@@ -56,7 +56,15 @@ const steps = [
 		: [
 				['📐 protocol schema current', npm, ['run', 'check', '-w', 'shared/live'], root],
 				['📚 kind catalog current', 'cargo', ['run', '-q', '-p', 'deck-space', '--features', 'schema', '--bin', 'deck-schema', '--', '--check'], `${root}/deck`],
-				['🕸 live-core wasm32', npm, ['run', 'build:wasm', '-w', 'shared/live-core'], root],
+				// the browser deck's engine (#320): wasm32 + simd128 in its own target dir (shared/live-core/scripts/wasm.ts), gated
+				[
+					'🕸 live-core wasm32 + simd128',
+					npm,
+					['run', 'build:wasm', '-w', 'shared/live-core'],
+					root,
+					{},
+					() => gate(`${process.env.CARGO_TARGET_DIR ?? `${root}/deck/target`}/live-core-simd/wasm32-unknown-unknown/release/live_core.wasm`, ENGINE_GATE_KB)
+				],
 				['🕸 live-core tests', npm, ['run', 'check', '-w', 'shared/live-core'], root],
 				// the universal engine (#317) as a wasm32 module with simd128, in its own target dir (RUSTFLAGS would rebuild the main one)
 				[
