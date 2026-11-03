@@ -28,6 +28,8 @@ over both. The git and backlog rules themselves stay in RULES.md ("Backlog", "Gi
 
 - **Before every merge of deck work: the duplicate check.** `git diff main...<branch> -- shared/ viewer/ creator/` for new scene / patch / rule / default / range / text literals or branching on catalog kinds in TS / Svelte; a twin of Rust logic is a defect (RULES "No second copy of core logic"), fix or ticket it before merging; say in the merge note that it was checked.
 
+- **Rerun the bridge audit (#357) often** (owner 2026-11-03: "we will rerun the audit once we are done with rig editor, etc. and often, since i see agents working around this"): after every leg (rig editor, ABI v2 build, media leg, live UI), at the end of every night shift and after every 5 merged deck / shared / viewer tickets; read agents' reports for "kept in TS because", "for now in the page", "trimmed copy"; the CI guard from #357 catches the rest.
+
 ## Heavy work that needs a slot (workspace §3)
 - The deck ISO: `npm run deck:iso` (archiso in Docker, ~1.8 GB; `DECK_OUT` picks the folder under `deck/os/out/`).
 - The local MariaDB (`npm run dev:db`), the dev servers (vite starts at 8000) and any headless browser.
