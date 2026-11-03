@@ -1,17 +1,17 @@
 //! #318: the multichannel check scenes (scenes/channel-walk, surround-51, cue-34) build and play where they say – on the
-//! X1's RME in its Pro Audio profile (20 channels) and on a stereo device. The LFO of the walk is the frame thread's, so
-//! here its azimuth stays at 0: the two speakers either side of the front (channels 4 and 5) play.
+//! X1's RME in its Pro Audio profile (20 channels) and on a stereo device. The walk's LFO steps in the engine (#319) and
+//! starts at the front: in its first tenth of a second (< 3°) the two speakers either side of it (channels 4 and 5) play.
 use deck_engine::{Build, DeckConfig, Engine, Seams, Sequencing};
 use deck_space::graph::Graph;
 use deck_space::scene::Scene;
 
-/// a second of every device channel's peak
+/// a tenth of a second of every device channel's peak
 fn peaks(file: &str, deck: DeckConfig) -> Vec<f32> {
     let text = std::fs::read_to_string(format!("{}/scenes/{file}", env!("CARGO_MANIFEST_DIR"))).unwrap();
     let graph = Graph::build(&Scene::parse(&text).unwrap()).unwrap();
     let d = deck.channels;
     let (mut e, _) = Engine::build_seams(&graph, 48_000.0, 1.0, Build::detect(), Sequencing::InBlock, &Seams::with_deck(deck)).unwrap();
-    let mut buf = vec![0.0f32; 48_000 * d];
+    let mut buf = vec![0.0f32; 4_800 * d];
     e.render(&mut buf, d, |x| x);
     (0..d).map(|c| buf.chunks_exact(d).fold(0.0f32, |m, f| m.max(f[c].abs()))).collect()
 }

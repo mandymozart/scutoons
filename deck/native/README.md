@@ -1,7 +1,7 @@
 # deck/native – the native AV app the deck boots into
 
 `deck-native` (agents/research/CYBERDECKS.md §8, #179): one window, a node graph from a TOML scene – video passes on wgpu
-(Vulkan on the deck), an audio graph on PipeWire (cpal elsewhere), control values per frame – and chapter content from
+(Vulkan on the deck), an audio graph on PipeWire (cpal elsewhere), control values per 128-frame audio block – and chapter content from
 scutoons.com's library API with a disk cache. On the deck `deck-session` runs it under `cage` instead of Chromium
 (deck/os/README.md "What happens at boot"). Built so far: S1 (window, wgpu, graph core, test pattern, shader passes,
 HUD), S2 (audio graph, synths, FFT, chapter music) and S3 (the chapter's slices with their dialog, the caption overlay,
@@ -228,7 +228,7 @@ An input takes one link; an output feeds any number. Every control input can als
 | `chapter` | in (video), next, hold, zoom, pulse (control) | out (video), text (video) | `toon`, `chapter`, `quality` = low · medium · high, `dialog` (true: set the dialog in), `start` (slice index), `threshold` (0.6), `min_hold` (1.5 s), `quantize` = off · beat · bar (a due cut waits for the tempo clock's next beat / bar); `hold` default 6 s |
 | `overlay` | in, top (video), opacity, pulse, shake (control) | out (video) | – |
 | `screen` | in (video) | – | the window (one per scene) |
-| `lfo` | rate (Hz), depth | out (control, 0–depth) | `shape` = sine · saw · square |
+| `lfo` | rate (Hz), depth | out (control, 0–depth) | `shape` = sine · saw · square, `phase` (0–1, where it starts) |
 | `tempo` | – | bpm, beat, bar (counts), phase, bar_phase (0–1), pulse (1 on the beat, gone by its middle) | `bpm` (120), `beats` per bar (4), `source` = internal · midi · link · osc · relay, `click` (false), `midi_in` / `midi_out` (a part of a port name; out = MIDI clock out), `midi_out_lead` (ms), `osc_port` (9001) – one per scene |
 | `click` | gain | out | `freq` (1000 Hz), `accent` (1500 Hz, the bar's first beat), `decay` (0.03 s) – ticks on the tempo clock while the click is on |
 | `osc` | cv (audio), freq, gain | out (audio) | `wave` = sine · saw · square · triangle, `attack`, `release` |
@@ -489,9 +489,14 @@ with the token, ready, the cell, resume, the snapshot after a restart). Not yet:
   the patcher's one object per node): compiled at load into dependency levels × kinds, struct-of-arrays loops.
   **The engine is deck-engine's** (`deck/engine`, #317 – the universal core's crate, native and wasm; this crate keeps
   the device I/O around it: `src/audio/` = backend, ring, lead, priority, glitch, the sequencer's and the dispatcher's
-  threads, the module library as its `ModuleSource`). **Control** (`engine/src/control.rs`): one value slot per control
-  output, every control input a column (deck-core's `Col`: the linked slot × scale + offset, or the param as a
-  constant), the LFOs one batch per level and shape. **Audio** (`engine/src/`): levels by the audio links; a level's
+  threads, the module library as its `ModuleSource`). **Control** (`engine/src/control.rs`, #319): ONE control half,
+  stepped by the engine once per 128-frame quantum before the audio steps (the screen no longer drives the sound): one
+  value slot per control output, every control input a column (deck-core's `Col`: the linked slot × scale + offset, or
+  the param as a constant), the computed nodes (`lfo`, the helpers `smooth` / `mul` / `add`) one batch per level and
+  operation; the tempo node reads the clock at the block's first frame, the FFT analyses what was rendered (causal).
+  The frame thread's `Controls` is a face: it reads the values of the heard block from a snapshot ring (64 blocks,
+  by the time base's lead – the picture shows what is heard) and sends bases, sends and LFO shapes as commands through a
+  lock-free ring. **Audio** (`engine/src/`): levels by the audio links; a level's
   sine oscillators and FM voices run as one batch each (`voices.rs`: groups of eight voices in deck-core's `F8` lanes,
   the group's state in registers for the block; `fm` is true frequency modulation), every other node as a block of its
   own (`blocks.rs`, the patcher model for one-off nodes: saw / square / triangle on deck-core's mip-mapped wavetables,
