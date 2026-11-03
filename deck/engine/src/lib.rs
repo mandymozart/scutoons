@@ -101,30 +101,71 @@ impl Track {
     }
 }
 
-/// One stereo block buffer (a block uses the first `n` frames).
-pub struct Stereo {
-    pub l: Box<[f32]>,
-    pub r: Box<[f32]>,
+/// One block buffer, planar: `ch` channels of `frames` samples each, one after the other (a block uses the first `n` of
+/// every channel). A port owns one; a stereo port is two channels – the engine's pool is these (plan 2.6, #318).
+pub struct Buf {
+    data: Box<[f32]>,
+    ch: usize,
+    frames: usize,
 }
 
-impl Stereo {
-    /// a buffer of `frames` frames
-    pub fn sized(frames: usize) -> Stereo {
-        Stereo { l: vec![0.0; frames].into(), r: vec![0.0; frames].into() }
+impl Buf {
+    /// `ch` channels of `frames` frames, silent
+    pub fn sized(ch: usize, frames: usize) -> Buf {
+        Buf { data: vec![0.0; ch * frames].into(), ch, frames }
     }
 
+    pub fn channels(&self) -> usize {
+        self.ch
+    }
+
+    pub fn frames(&self) -> usize {
+        self.frames
+    }
+
+    /// channel `c`
+    #[inline(always)]
+    pub fn ch(&self, c: usize) -> &[f32] {
+        &self.data[c * self.frames..(c + 1) * self.frames]
+    }
+
+    #[inline(always)]
+    pub fn ch_mut(&mut self, c: usize) -> &mut [f32] {
+        &mut self.data[c * self.frames..(c + 1) * self.frames]
+    }
+
+    /// the first two channels, both writable (a stereo block)
+    #[inline(always)]
+    pub fn lr_mut(&mut self) -> (&mut [f32], &mut [f32]) {
+        let (l, r) = self.data.split_at_mut(self.frames);
+        (l, &mut r[..self.frames])
+    }
+
+    /// frame `i` of channels 0 and 1
+    #[inline(always)]
+    pub fn put2(&mut self, i: usize, l: f32, r: f32) {
+        self.data[i] = l;
+        self.data[self.frames + i] = r;
+    }
+
+    /// every channel to silence (the first `n` frames)
+    pub fn clear(&mut self, n: usize) {
+        for c in 0..self.ch {
+            self.ch_mut(c)[..n].fill(0.0);
+        }
+    }
 }
 
-/// a buffer of MAX_BLOCK frames (what the tests give a block they drive by hand)
-impl Default for Stereo {
-    fn default() -> Stereo {
-        Stereo::sized(MAX_BLOCK)
+/// a stereo buffer of MAX_BLOCK frames (what the tests give a block they drive by hand)
+impl Default for Buf {
+    fn default() -> Buf {
+        Buf::sized(2, MAX_BLOCK)
     }
 }
 
 /// An audio node's DSP: reads its inputs (by input port index; None = not linked or a control port), writes its outputs.
 pub trait Block: Send {
-    fn process(&mut self, ins: &[Option<&Stereo>], outs: &mut [Stereo], n: usize);
+    fn process(&mut self, ins: &[Option<&Buf>], outs: &mut [Buf], n: usize);
 }
 
 /// How an engine is built. A deck runs `Build::detect()`; the patcher build is the reference the tests and the bench
@@ -200,7 +241,7 @@ impl Clock {
 
 pub struct Engine {
     /// every output port's buffer (and the audio_out's own), in step order
-    bufs: Vec<Stereo>,
+    bufs: Vec<Buf>,
     steps: Vec<Step>,
     out_buf: Option<usize>,
     master: Param,
@@ -213,7 +254,7 @@ pub struct Engine {
     /// its block buffer
     limiter: Limiter,
     /// the newest quantum after master and limiter, and how many of its last frames the platform has not taken yet
-    mix: Stereo,
+    mix: Buf,
     pending: usize,
     /// the deepest gain reduction (dB, f32 bits) since the frame thread last took it
     reduction: Arc<AtomicU32>,
@@ -310,7 +351,7 @@ impl Engine {
             .collect();
         let level = levels(&deps).map_err(|e| anyhow::anyhow!("the audio graph: {e}"))?;
         let depth = (0..graph.nodes.len()).filter(|&i| audio(i)).map(|i| level[i] + 1).max().unwrap_or(0);
-        let mut bufs: Vec<Stereo> = Vec::new();
+        let mut bufs: Vec<Buf> = Vec::new();
         let mut steps = Vec::new();
         let mut tables = blocks::Tables::new(rate);
         let mut buf_of: Vec<Option<usize>> = vec![None; graph.nodes.len()];
@@ -335,7 +376,7 @@ impl Engine {
                     let cv = node.kind.input("cv").and_then(|k| audio_in(graph, &buf_of, i, k));
                     batch.push([p("freq"), p("gain"), ratio, index], cv, blocks::env_coefs(rate, node));
                     buf_of[i] = Some(bufs.len());
-                    bufs.push(Stereo::sized(QUANTUM));
+                    bufs.push(Buf::sized(2, QUANTUM));
                 }
                 batch.finish();
                 steps.push(Step::Voices(Box::new(batch)));
@@ -353,7 +394,7 @@ impl Engine {
                 let outs = if node.kind == Kind::AudioOut { 1 } else { node.kind.outputs().len() };
                 buf_of[i] = Some(bufs.len());
                 steps.push(Step::Node { block, inputs, out: bufs.len(), outs });
-                bufs.extend((0..outs).map(|_| Stereo::sized(QUANTUM)));
+                bufs.extend((0..outs).map(|_| Buf::sized(2, QUANTUM)));
             }
         }
         let out_buf = graph.first(Kind::AudioOut).and_then(|i| buf_of[i]);
@@ -371,7 +412,7 @@ impl Engine {
             frames: handles.clock.frames.clone(),
             stamp: handles.clock.stamp.clone(),
             limiter: Limiter::new(rate),
-            mix: Stereo::sized(QUANTUM),
+            mix: Buf::sized(2, QUANTUM),
             pending: 0,
             reduction: handles.reduction.clone(),
             underruns: handles.underruns.clone(),
@@ -430,7 +471,7 @@ impl Engine {
             let take = (total - done).min(self.pending);
             let frames = &mut out[done * channels..(done + take) * channels];
             for (f, frame) in frames.chunks_exact_mut(channels).enumerate() {
-                let (l, r) = (self.mix.l[from + f], self.mix.r[from + f]);
+                let (l, r) = (self.mix.ch(0)[from + f], self.mix.ch(1)[from + f]);
                 if channels == 1 {
                     frame[0] = conv(0.5 * (l + r));
                     continue;
@@ -453,7 +494,7 @@ impl Engine {
         self.run(n);
         if let Some(m) = &self.meters {
             for (b, level) in self.bufs.iter().zip(m.levels.iter()) {
-                let peak = b.l[..n].iter().chain(&b.r[..n]).fold(0.0f32, |p, x| p.max(x.abs()));
+                let peak = (0..b.channels()).flat_map(|c| b.ch(c)[..n].iter()).fold(0.0f32, |p, x| p.max(x.abs()));
                 level.store(peak.to_bits(), Ordering::Relaxed);
             }
         }
@@ -465,14 +506,14 @@ impl Engine {
                 let mix = &mut self.mix;
                 for f in 0..n {
                     let master = from + (to - from) * (f + 1) as f32 / n as f32;
-                    (mix.l[f], mix.r[f]) = (o.l[f] * master, o.r[f] * master);
+                    mix.put2(f, o.ch(0)[f] * master, o.ch(1)[f] * master);
                 }
-                self.limiter.process(&mut mix.l[..n], &mut mix.r[..n]);
+                let (l, r) = mix.lr_mut();
+                self.limiter.process(&mut l[..n], &mut r[..n]);
                 self.reduction.fetch_max(self.limiter.take_reduction().to_bits(), Ordering::Relaxed);
             }
             None => {
-                self.mix.l[..n].fill(0.0);
-                self.mix.r[..n].fill(0.0);
+                self.mix.clear(n);
             }
         }
         self.pending = n;
@@ -484,7 +525,7 @@ impl Engine {
             match step {
                 Step::Node { block, inputs, out, outs } => {
                     let (before, after) = self.bufs.split_at_mut(*out);
-                    let mut ins: [Option<&Stereo>; MAX_PORTS] = [None; MAX_PORTS];
+                    let mut ins: [Option<&Buf>; MAX_PORTS] = [None; MAX_PORTS];
                     for (k, src) in inputs.iter().enumerate() {
                         ins[k] = src.map(|b| &before[b]);
                     }

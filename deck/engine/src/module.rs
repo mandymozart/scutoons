@@ -10,7 +10,7 @@
 //! `ModuleInstance` – blanket-implemented for deck-module-host's `Instance<B>`, so the host logic stays in that crate.
 //! Nothing here allocates per block; the module's own code is the module's business (it may not allocate either – the SDK
 //! says so; tests/no_alloc.rs covers the built-ins only).
-use super::{Block, Param, Stereo, MAX_BLOCK};
+use super::{Block, Buf, Param, MAX_BLOCK};
 use anyhow::{anyhow, Result};
 use deck_core::tempo::{BeatReader, TempoMap};
 use deck_module_host::{Backend, InBind};
@@ -139,7 +139,7 @@ impl ModuleBlock {
 }
 
 impl Block for ModuleBlock {
-    fn process(&mut self, ins: &[Option<&Stereo>], outs: &mut [Stereo], n: usize) {
+    fn process(&mut self, ins: &[Option<&Buf>], outs: &mut [Buf], n: usize) {
         let (map, start) = match self.beats.block() {
             Some((m, _, start)) => (m, start),
             None => (self.own, self.frame),
@@ -150,7 +150,7 @@ impl Block for ModuleBlock {
             for (k, (bind, param)) in self.inputs.iter().enumerate() {
                 match *bind {
                     InBind::Audio(port) => match ins.get(k).copied().flatten() {
-                        Some(b) => self.inst.set_audio_in(port, &b.l[..n], &b.r[..n]),
+                        Some(b) => self.inst.set_audio_in(port, &b.ch(0)[..n], &b.ch(1)[..n]),
                         None => self.inst.set_audio_in(port, &self.silence[..n], &self.silence[..n]),
                     },
                     InBind::Control(port) => self.inst.set_control_in(port, param.get()),
@@ -171,13 +171,13 @@ impl Block for ModuleBlock {
                 self.source.silenced();
             }
             for o in outs.iter_mut() {
-                o.l[..n].fill(0.0);
-                o.r[..n].fill(0.0);
+                o.clear(n);
             }
             return;
         }
         for (o, &port) in outs.iter_mut().zip(&self.outs) {
-            self.inst.read_audio_out(port, &mut o.l[..n], &mut o.r[..n]);
+            let (l, r) = o.lr_mut();
+            self.inst.read_audio_out(port, &mut l[..n], &mut r[..n]);
         }
     }
 }

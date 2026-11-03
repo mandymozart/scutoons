@@ -4,7 +4,7 @@
 //! `dsp` units (wavetables built here, outside the callback); the wiring, envelopes, sequencer, player, mixer and FFT
 //! tap are ours. Nothing in `process` allocates.
 use super::click::Click;
-use super::{Block, Handles, MusicFeed, Param, Seams, Stereo, Track};
+use super::{Block, Buf, Handles, MusicFeed, Param, Seams, Track};
 use anyhow::{bail, Result};
 use deck_core::tempo::BeatReader;
 use deck_space::graph::{Kind, Node};
@@ -134,9 +134,8 @@ fn noise_seed(node: &Node, index: usize) -> u64 {
     (node.f32("seed", 1.0) as u64).wrapping_mul(0x0001_0000_0001).wrapping_add(index as u64)
 }
 
-fn write(out: &mut Stereo, i: usize, v: f32) {
-    out.l[i] = v;
-    out.r[i] = v;
+fn write(out: &mut Buf, i: usize, v: f32) {
+    out.put2(i, v, v);
 }
 
 /// attack / release on a gate (seconds from `attack` / `release`, defaults 5 ms / 150 ms); no gate = always open
@@ -197,9 +196,9 @@ fn at((first, step): (f32, f32), i: usize) -> f32 {
 }
 
 /// (pitch Hz, gate) for frame i: from the cv input (a seq) or the (gliding) freq param with the gate open
-fn pitch(cv: Option<&Stereo>, freq: (f32, f32), i: usize) -> (f32, f32) {
+fn pitch(cv: Option<&Buf>, freq: (f32, f32), i: usize) -> (f32, f32) {
     match cv {
-        Some(c) => (c.l[i], c.r[i]),
+        Some(c) => (c.ch(0)[i], c.ch(1)[i]),
         None => (at(freq, i), 1.0),
     }
 }
@@ -226,7 +225,7 @@ fn wrap01(x: f32) -> f32 {
 }
 
 impl Block for Osc {
-    fn process(&mut self, ins: &[Option<&Stereo>], outs: &mut [Stereo], n: usize) {
+    fn process(&mut self, ins: &[Option<&Buf>], outs: &mut [Buf], n: usize) {
         let (freq, gain) = (self.freq.block(n), self.gain.block(n));
         for i in 0..n {
             let (f, gate) = pitch(ins[0], freq, i);
@@ -259,7 +258,7 @@ struct Noise {
 }
 
 impl Block for Noise {
-    fn process(&mut self, _: &[Option<&Stereo>], outs: &mut [Stereo], n: usize) {
+    fn process(&mut self, _: &[Option<&Buf>], outs: &mut [Buf], n: usize) {
         let (cutoff, gain) = (self.cutoff.block(n), self.gain.block(n));
         for i in 0..n {
             let x = match &mut self.src {
@@ -288,7 +287,7 @@ struct Fm {
 }
 
 impl Block for Fm {
-    fn process(&mut self, ins: &[Option<&Stereo>], outs: &mut [Stereo], n: usize) {
+    fn process(&mut self, ins: &[Option<&Buf>], outs: &mut [Buf], n: usize) {
         let (freq, ratio, index, gain) = (self.freq.block(n), self.ratio.block(n), self.index.block(n), self.gain.block(n));
         for i in 0..n {
             let (f, gate) = pitch(ins[0], freq, i);
@@ -335,7 +334,7 @@ impl Seq {
     }
 
     /// on the clock: the step and its phase from the beat of each frame
-    fn synced(&mut self, outs: &mut [Stereo], n: usize) -> bool {
+    fn synced(&mut self, outs: &mut [Buf], n: usize) -> bool {
         let Some((map, _, start)) = self.beats.as_ref().and_then(|b| b.block()) else { return false };
         let per_beat = self.division * self.rate.get().max(0.0) as f64;
         let len = self.hz.len() as f64;
@@ -345,15 +344,15 @@ impl Seq {
             if f > 0.0 {
                 self.held = f;
             }
-            outs[0].l[i] = self.held;
-            outs[0].r[i] = if f > 0.0 && map.running && (s.rem_euclid(1.0) as f32) < self.gate { 1.0 } else { 0.0 };
+            let gate = if f > 0.0 && map.running && (s.rem_euclid(1.0) as f32) < self.gate { 1.0 } else { 0.0 };
+            outs[0].put2(i, self.held, gate);
         }
         true
     }
 }
 
 impl Block for Seq {
-    fn process(&mut self, _: &[Option<&Stereo>], outs: &mut [Stereo], n: usize) {
+    fn process(&mut self, _: &[Option<&Buf>], outs: &mut [Buf], n: usize) {
         if self.synced(outs, n) {
             return;
         }
@@ -368,8 +367,8 @@ impl Block for Seq {
             if f > 0.0 {
                 self.held = f;
             }
-            outs[0].l[i] = self.held;
-            outs[0].r[i] = if f > 0.0 && self.phase < self.gate { 1.0 } else { 0.0 };
+            let gate = if f > 0.0 && self.phase < self.gate { 1.0 } else { 0.0 };
+            outs[0].put2(i, self.held, gate);
         }
     }
 }
@@ -388,7 +387,7 @@ struct Music {
 }
 
 impl Block for Music {
-    fn process(&mut self, _: &[Option<&Stereo>], outs: &mut [Stereo], n: usize) {
+    fn process(&mut self, _: &[Option<&Buf>], outs: &mut [Buf], n: usize) {
         if let Ok(t) = self.feed.pop() {
             if let Some(old) = self.track.replace(t) {
                 let _ = self.trash.push(old);
@@ -397,8 +396,7 @@ impl Block for Music {
         }
         let out = &mut outs[0];
         let Some(t) = self.track.as_deref() else {
-            out.l[..n].fill(0.0);
-            out.r[..n].fill(0.0);
+            out.clear(n);
             return;
         };
         let (len, step, gain) = (t.l.len(), t.rate as f64 / self.rate as f64, self.gain.block(n));
@@ -408,16 +406,14 @@ impl Block for Music {
                 if self.looped && len > 1 {
                     self.pos = 0.0;
                 } else {
-                    out.l[i] = 0.0;
-                    out.r[i] = 0.0;
+                    out.put2(i, 0.0, 0.0);
                     continue;
                 }
             }
             let at = self.pos as usize;
             let frac = (self.pos - at as f64) as f32;
             let g = gain.0 + gain.1 * i as f32;
-            out.l[i] = (t.l[at] + (t.l[at + 1] - t.l[at]) * frac) * g;
-            out.r[i] = (t.r[at] + (t.r[at + 1] - t.r[at]) * frac) * g;
+            out.put2(i, (t.l[at] + (t.l[at + 1] - t.l[at]) * frac) * g, (t.r[at] + (t.r[at + 1] - t.r[at]) * frac) * g);
             self.pos += step;
         }
     }
@@ -428,19 +424,17 @@ struct Mixer {
 }
 
 impl Block for Mixer {
-    fn process(&mut self, ins: &[Option<&Stereo>], outs: &mut [Stereo], n: usize) {
+    fn process(&mut self, ins: &[Option<&Buf>], outs: &mut [Buf], n: usize) {
         let out = &mut outs[0];
-        out.l[..n].fill(0.0);
-        out.r[..n].fill(0.0);
+        out.clear(n);
         for (k, g) in self.gains.iter_mut().enumerate() {
             let Some(src) = ins[k] else { continue };
             let (g, dg) = g.block(n);
             // over slices, not indices: no bounds check per sample, so the loops vectorise
-            for (i, (o, x)) in out.l[..n].iter_mut().zip(&src.l[..n]).enumerate() {
-                *o += x * (g + dg * i as f32);
-            }
-            for (i, (o, x)) in out.r[..n].iter_mut().zip(&src.r[..n]).enumerate() {
-                *o += x * (g + dg * i as f32);
+            for c in 0..out.channels().min(src.channels()) {
+                for (i, (o, x)) in out.ch_mut(c)[..n].iter_mut().zip(&src.ch(c)[..n]).enumerate() {
+                    *o += x * (g + dg * i as f32);
+                }
             }
         }
     }
@@ -452,10 +446,11 @@ struct FftTap {
 }
 
 impl Block for FftTap {
-    fn process(&mut self, ins: &[Option<&Stereo>], _: &mut [Stereo], n: usize) {
+    fn process(&mut self, ins: &[Option<&Buf>], _: &mut [Buf], n: usize) {
         let Some(src) = ins[0] else { return };
+        let (l, r) = (src.ch(0), src.ch(1));
         for i in 0..n {
-            if self.ring.push(0.5 * (src.l[i] + src.r[i])).is_err() {
+            if self.ring.push(0.5 * (l[i] + r[i])).is_err() {
                 break;
             }
         }
@@ -467,19 +462,17 @@ struct Out {
 }
 
 impl Block for Out {
-    fn process(&mut self, ins: &[Option<&Stereo>], outs: &mut [Stereo], n: usize) {
+    fn process(&mut self, ins: &[Option<&Buf>], outs: &mut [Buf], n: usize) {
         let out = &mut outs[0];
         let Some(src) = ins[0] else {
-            out.l[..n].fill(0.0);
-            out.r[..n].fill(0.0);
+            out.clear(n);
             return;
         };
         let (v, dv) = self.volume.block(n);
-        for (i, (o, x)) in out.l[..n].iter_mut().zip(&src.l[..n]).enumerate() {
-            *o = x * (v + dv * i as f32);
-        }
-        for (i, (o, x)) in out.r[..n].iter_mut().zip(&src.r[..n]).enumerate() {
-            *o = x * (v + dv * i as f32);
+        for c in 0..out.channels().min(src.channels()) {
+            for (i, (o, x)) in out.ch_mut(c)[..n].iter_mut().zip(&src.ch(c)[..n]).enumerate() {
+                *o = x * (v + dv * i as f32);
+            }
         }
     }
 }
@@ -505,14 +498,14 @@ mod tests {
             Param::new(1.0),
             None,
         );
-        let mut out = [Stereo::default()];
+        let mut out = [Buf::default()];
         s.process(&[], &mut out, 300);
-        assert_eq!(out[0].l[10], 440.0); // step 0: A4, gate open in the first half
-        assert_eq!(out[0].r[10], 1.0);
-        assert_eq!(out[0].r[70], 0.0); // second half of the step: gate closed
-        assert_eq!(out[0].l[150], 440.0); // the rest holds the last pitch, gate closed
-        assert_eq!(out[0].r[150], 0.0);
-        assert_eq!(out[0].l[210], 880.0); // A5
+        assert_eq!(out[0].ch(0)[10], 440.0); // step 0: A4, gate open in the first half
+        assert_eq!(out[0].ch(1)[10], 1.0);
+        assert_eq!(out[0].ch(1)[70], 0.0); // second half of the step: gate closed
+        assert_eq!(out[0].ch(0)[150], 440.0); // the rest holds the last pitch, gate closed
+        assert_eq!(out[0].ch(1)[150], 0.0);
+        assert_eq!(out[0].ch(0)[210], 880.0); // A5
     }
 
     #[test]
@@ -533,23 +526,23 @@ steps=[69, 81]
         // 60 BPM at 100 Hz: a beat = 100 frames, a step (division 2) = 50
         shared.publish(&TempoMap::new(60.0, 4, 100.0), false);
         let mut s = Seq::new(node, 100.0, Param::new(1.0), Some(BeatReader { shared: shared.clone(), frames: frames.clone() }));
-        let mut out = [Stereo::default()];
+        let mut out = [Buf::default()];
         s.process(&[], &mut out, 200);
-        assert_eq!((out[0].l[0], out[0].r[0]), (440.0, 1.0), "step 0 on beat 0");
-        assert_eq!(out[0].r[24], 1.0);
-        assert_eq!(out[0].r[25], 0.0, "the gate is half a step");
-        assert_eq!((out[0].l[49], out[0].l[50]), (440.0, 880.0), "step 1 exactly at frame 50");
-        assert_eq!(out[0].l[100], 440.0, "beat 1: the pattern again");
+        assert_eq!((out[0].ch(0)[0], out[0].ch(1)[0]), (440.0, 1.0), "step 0 on beat 0");
+        assert_eq!(out[0].ch(1)[24], 1.0);
+        assert_eq!(out[0].ch(1)[25], 0.0, "the gate is half a step");
+        assert_eq!((out[0].ch(0)[49], out[0].ch(0)[50]), (440.0, 880.0), "step 1 exactly at frame 50");
+        assert_eq!(out[0].ch(0)[100], 440.0, "beat 1: the pattern again");
         // 120 BPM from frame 200 (beat 2): steps every 25 frames
         frames.store(200, Ordering::Relaxed);
         shared.publish(&TempoMap::new(60.0, 4, 100.0).with_bpm(200.0, 120.0), false);
         s.process(&[], &mut out, 100);
-        assert_eq!((out[0].l[24], out[0].l[25], out[0].l[50]), (440.0, 880.0, 440.0));
+        assert_eq!((out[0].ch(0)[24], out[0].ch(0)[25], out[0].ch(0)[50]), (440.0, 880.0, 440.0));
         // stopped: the gate closes, the pitch holds
         frames.store(300, Ordering::Relaxed);
         shared.publish(&TempoMap::new(60.0, 4, 100.0).with_bpm(200.0, 120.0).with_running(300.0, false), false);
         s.process(&[], &mut out, 100);
-        assert!(out[0].r[..100].iter().all(|g| *g == 0.0));
+        assert!(out[0].ch(1)[..100].iter().all(|g| *g == 0.0));
     }
 
     #[test]

@@ -2,7 +2,7 @@
 //! the bar's first beat, sample-accurate – the tick starts on the frame where the beat begins. Sounds only while the
 //! clock runs and the click is on (the tempo node's `click`, the K key). Params: `freq` (1000 Hz), `accent` (1500 Hz),
 //! `decay` (0.03 s); the `gain` input.
-use super::{Block, Param, Stereo};
+use super::{Block, Buf, Param};
 use deck_space::graph::Node;
 use deck_core::tempo::BeatReader;
 
@@ -39,11 +39,10 @@ impl Click {
 }
 
 impl Block for Click {
-    fn process(&mut self, _: &[Option<&Stereo>], outs: &mut [Stereo], n: usize) {
+    fn process(&mut self, _: &[Option<&Buf>], outs: &mut [Buf], n: usize) {
         let out = &mut outs[0];
         let Some((map, on, start)) = self.beats.block() else {
-            out.l[..n].fill(0.0);
-            out.r[..n].fill(0.0);
+            out.clear(n);
             return;
         };
         let gain = self.gain.get();
@@ -71,8 +70,7 @@ impl Block for Click {
             } else {
                 0.0
             };
-            out.l[i] = v;
-            out.r[i] = v;
+            out.put2(i, v, v);
         }
     }
 }
