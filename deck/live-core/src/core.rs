@@ -11,7 +11,8 @@ use std::sync::Arc;
 use deck_engine::control::Controls;
 use deck_engine::{tempo_config, Build, DeckConfig, Engine, Handles, Seams, Sequencing, QUANTUM};
 use deck_space::graph::{Graph, Kind, PortType};
-use deck_space::rig::engine::carried;
+use deck_core::stage::carries_node;
+use deck_space::rig::engine::carries;
 use deck_space::scene::Scene;
 
 /// One table row's place in the frame's values: its node, its inputs (`ins` of them) then its outputs from `at`, each
@@ -60,11 +61,11 @@ const ANALYSE_EVERY: usize = 6;
 
 impl Core {
     /// A scene in the deck's TOML (the edge: text, once) for a device of `channels` channels (the destination's –
-    /// 2 on a phone). Every kind must be one the browser's engine carries (`deck_space::rig::engine::ENGINE_KINDS`):
-    /// `lower()` hands the others to the page before a rig gets here.
+    /// 2 on a phone). Every node must be one the browser's engine carries (deck-core's `BROWSER_MODULES`): `lower()`
+    /// hands the others to the page before a scene gets here.
     pub fn load(scene_toml: &str, rate: f32, channels: usize) -> Result<Core, String> {
         let scene = Scene::parse(scene_toml).map_err(|e| format!("{e:#}"))?;
-        if let Some(n) = scene.nodes.iter().find(|n| !carried(&n.kind)) {
+        if let Some(n) = scene.nodes.iter().find(|n| !carries_node(&n.id, &n.kind, &n.params, carries)) {
             return Err(format!("node '{}': the browser's engine does not carry '{}' yet", n.id, n.kind));
         }
         let graph = Graph::build(&scene).map_err(|e| format!("{e:#}"))?;

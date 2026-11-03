@@ -4,21 +4,30 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Deck, defaultLead, portraitsOf } from '../src/deck.ts';
 import { sniff } from '../src/space.ts';
-import { FIXED_SCENE, LADDER, MELODY, OUTPUTS, PARAMS, STREAMED } from '../src/scene.ts';
+import { LADDER } from '../src/scene.ts';
+import { rigOutputs, rigParams, rigStreamed } from '../src/rig.ts';
+import { OWN } from './own.ts';
 
 const API = 'https://api.example/api';
 
+/** a deck with its own scene given, as the page's wasm gives it */
+function deckOf(character = 'yellowmouse'): Deck {
+	const d = new Deck({ character, nick: 'guest', api: API });
+	d.useOwn(OWN);
+	return d;
+}
+
 test('a deck without a relay plays alone; its paths are what it streams', () => {
-	const d = new Deck({ character: 'yellowmouse', nick: 'guest', api: API });
+	const d = deckOf();
 	assert.equal(d.link, null);
-	assert.deepEqual(d.paths.sort(), Object.keys(STREAMED).sort());
+	assert.deepEqual(d.paths.sort(), Object.keys(rigStreamed(OWN)).sort());
 	// without sound only the knobs have values; the outputs are what the engine plays (#320)
-	for (const p of d.paths) assert.equal(Number.isFinite(d.read(p)), !(p in OUTPUTS), p);
+	for (const p of d.paths) assert.equal(Number.isFinite(d.read(p)), !(p in rigOutputs(OWN)), p);
 	d.close();
 });
 
 test('one state: the being turns a value, the page hears whose hand it was; unknown paths are ignored', () => {
-	const d = new Deck({ character: 'yellowmouse', nick: 'guest', api: API });
+	const d = deckOf();
 	const heard: [string, number, string][] = [];
 	d.onValue = (p, v, hand) => heard.push([p, v, hand]);
 	d.setParam('voice.index', 5.5, 'being');
@@ -30,16 +39,19 @@ test('one state: the being turns a value, the page hears whose hand it was; unkn
 		['voice.ratio', 2, 'page']
 	]);
 	assert.equal(d.read('voice.index'), 5.5, 'what the being turned is what the deck streams');
-	assert.equal(d.value['voice.gain'], PARAMS['voice.gain'].value);
+	assert.equal(d.value['voice.gain'], rigParams(OWN)['voice.gain'].value);
 });
 
-test('#320: the fixed scene is a real scene – every slider is one of its paths, the melody a walk, the sway an engine LFO', () => {
-	const ids = [...FIXED_SCENE.matchAll(/^id = "([^"]+)"$/gm)].map((m) => m[1]);
-	for (const p of [...Object.keys(PARAMS), ...Object.keys(MELODY), ...Object.keys(OUTPUTS)]) assert.ok(ids.includes(p.split('.')[0]), p);
-	assert.match(FIXED_SCENE, /id = "melody"\nkind = "walk"\nseed = 84\n/);
-	assert.match(FIXED_SCENE, /from = "sway.out"\nto = "incense.cutoff"\nscale = 2500\.0\noffset = 1800\.0/, 'the unipolar sway lifts the cutoff above its base');
-	assert.doesNotMatch(FIXED_SCENE, /Math|random/);
+test('#360: without a rig the deck plays its own scene as the core gave it – nothing of it before, its graph and knobs after', () => {
 	const d = new Deck({ character: 'yellowmouse', nick: 'guest', api: API });
+	assert.deepEqual(d.params, {}, 'no scene of the page: no sliders before the wasm gave one');
+	assert.deepEqual(d.graph().nodes, []);
+	d.useOwn(OWN);
+	assert.deepEqual(Object.keys(d.params), Object.keys(rigParams(OWN)));
+	const g = d.graph();
+	assert.deepEqual(g.nodes.map((n) => n.id), OWN.nodes.map((n) => n.id), 'the being on the wire: the scene the X1 plays');
+	assert.ok(g.nodes.some((n) => n.id === 'seq' && n.kind === 'seq') && !g.nodes.some((n) => n.kind === 'walk'), "the cathedral's arp, no page melody");
+	assert.equal(g.character, 'yellowmouse', "the deck's own scene wears the deck's character");
 	for (let k = 0; k <= 5; k++) d.tick(10 + k * 0.05);
 	assert.ok(Math.abs(d.time - 0.25) < 1e-9);
 });
@@ -52,7 +64,7 @@ test('another character: its portraits, its ladder, the being on the wire anew',
 		return new Response(JSON.stringify({ characters: { catpope: { portraits } } }));
 	}) as typeof fetch;
 	try {
-		const d = new Deck({ character: 'yellowmouse', nick: 'guest', api: API });
+		const d = deckOf();
 		await d.pickCharacter('catpope');
 		assert.deepEqual(d.moods.moods, ['neutral', 'happy', 'surprised']);
 		const g = d.graph();
@@ -79,7 +91,7 @@ test("the set's images: PNG, JPEG, else WebP", () => {
 });
 
 test('#188: the being turns the cutoff as its base – the engine’s LFO keeps swaying on top, the deck streams what is heard', async () => {
-	const d = new Deck({ character: 'yellowmouse', nick: 'guest', api: API });
+	const d = deckOf();
 	const sets: [string, number[], string | undefined][] = [];
 	let heard = NaN;
 	d.core = {
@@ -104,7 +116,7 @@ test('#188: a phone keeps more sound ahead of the speaker', () => {
 });
 
 test('#298: stop ends the sound and leaves the deck as it was – values kept, no core, quiet bands', async () => {
-	const d = new Deck({ character: 'yellowmouse', nick: 'guest', api: API });
+	const d = deckOf();
 	let stopped = 0;
 	d.core = { stop: async () => void stopped++ } as unknown as NonNullable<Deck['core']>;
 	d.bands = { level: 0.7, bass: 0.5, mid: 0.2, high: 0.1, spectrum: new Float32Array(4), reduction: 3, outputs: new Float32Array(2), values: new Float32Array(0) };

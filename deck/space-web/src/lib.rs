@@ -152,6 +152,13 @@ pub fn rig_play(bundle: &str, persona: &str, mood: &str) -> Result<String, JsVal
     deck_space::rig::Bundle::play_json(bundle, persona, mood).map_err(|e| JsValue::from_str(&format!("{e:#}")))
 }
 
+/// The deck's own scene (#360: the one the X1 boots with, embedded in this build) played as `rig_play` answers – what
+/// the page plays when its character has no rig; its `engine.scene` is what live-core loads.
+#[wasm_bindgen]
+pub fn deck_scene() -> Result<String, JsValue> {
+    deck_space::rig::Played::deck_scene_json().map_err(|e| JsValue::from_str(&format!("{e:#}")))
+}
+
 /// The core rig of `subject` (`character.<id>` / `item.<id>`) the deck carries without an account (#191): the bundle as
 /// JSON for `rig_play`, empty when there is none.
 #[wasm_bindgen]
@@ -637,7 +644,7 @@ impl DeckControls {
         DeckControls { c: Controls::new(&paths), value: 0.0, learned: false }
     }
 
-    /// Another deck's knobs (a rig's, or the fixed patch's again) and the being's stick pairs on them (#191): `sticks`
+    /// Another deck's knobs (a rig's, or the deck's own scene's again) and the being's stick pairs on them (#191): `sticks`
     /// = x, y of the left stick then x, y of the right ("" = no axis); fewer than four = the defaults.
     pub fn set_deck(&mut self, paths: Vec<String>, sticks: Vec<String>) {
         let s = |i: usize| sticks.get(i).map_or("", String::as_str);

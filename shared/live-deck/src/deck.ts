@@ -1,6 +1,6 @@
 // deck.ts (#197, #198): the browser deck's state – one for the lab page and the viewer's /live/deck. The parameter
 // values (the pads, the sliders, the being's 3D buttons all turn these), the mood ladder, the relay link and its values
-// stream, and the sound: live-core – the native deck's engine (#320) – plays the whole scene (the fixed one or the rig's);
+// stream, and the sound: live-core – the native deck's engine (#320) – plays the whole scene (its own, #360, or the rig's);
 // the page only sends the values and reads back what is heard. No DOM: the page draws it; `tick` runs it once per
 // animation frame. With a CDN given it answers the conductor's scene sync (#195, sync.ts). The tempo clock (#321) is the
 // core's: the link's pongs and anchors and Web MIDI's clock go in, the core's pings and a leader's anchors go out.
@@ -9,7 +9,7 @@ import { LiveCore, beatAt, nowMs, SOURCES, type Analysis, type ClockSource, type
 import type { DeckSynced } from '@scutoons/live';
 import { DeckLink, ValueStream, type WebSocketLike } from './client.ts';
 import { BrowserSync } from './sync.ts';
-import { deckGraph, FIXED_SCENE, ladderFor, MELODY, Moods, PARAMS, STREAMED, type Spec } from './scene.ts';
+import { ladderFor, Moods, type Spec } from './scene.ts';
 import { knobTarget, rigDiff, rigGraph, rigParams, rigStreamed } from './rig.ts';
 import type { RigPlayed } from './space.ts';
 
@@ -51,15 +51,16 @@ export interface EngineFiles {
  *  for the last two) */
 export type Hand = 'page' | 'being' | 'mood';
 
-
 export class Deck {
-	/** every parameter's value (the sliders' – PARAMS or the rig's knobs – + MELODY) */
-	readonly value: Record<string, number> = Object.fromEntries(Object.entries({ ...PARAMS, ...MELODY }).map(([k, s]) => [k, s.value]));
-	/** the sliders: the fixed patch's PARAMS, or the rig's knobs (#191) */
-	params: Record<string, Spec> = PARAMS;
-	/** the character's rig as played for the current mood (deck-space via space-web `rig_play`); null = the fixed patch */
+	/** every parameter's value (the sliders': the played scene's knobs) */
+	readonly value: Record<string, number> = {};
+	/** the sliders: the knobs of the scene that plays – the deck's own or the rig's (#191) */
+	params: Record<string, Spec> = {};
+	/** the character's rig as played for the current mood (deck-space via space-web `rig_play`); null = the deck's own scene */
 	rig: RigPlayed | null = null;
-	/** the corner sticks' (x, y) pairs, left then right: the rig's (#191), null = the fixed patch's defaults */
+	/** #360: the deck's own scene, the X1's cathedral as deck-space plays it (space-web `deck_scene`); null until it came */
+	own: RigPlayed | null = null;
+	/** the corner sticks' (x, y) pairs, left then right: the played scene's (#191) */
 	sticks: [string, string][] | null = null;
 	character: string;
 	portraits: Portraits = {};
@@ -82,7 +83,7 @@ export class Deck {
 	readonly sync: BrowserSync | null;
 	/** #282: a device message the scene's `[outputs]` resolved to (MIDI / OSC / DMX – shown by the page, never played here) */
 	onSignal: ((s: DeviceSignal) => void) | null = null;
-	stream = new ValueStream(STREAMED);
+	stream = new ValueStream({});
 	core: LiveCore | null = null;
 	/** the scene live-core plays is the deck's current one: false while a load is in flight (a character switch, a mood's
 	 *  new shape) – no `core.set` then, its table is the old scene's and a path it lacks throws (the S22 crash on a switch) */
@@ -166,29 +167,43 @@ export class Deck {
 		return this.clock ? beatAt(this.clock, ms) : NaN;
 	}
 
-	/** the being on the wire now: the character, its ladder first, then every mood it has */
+	/** the scene that plays: the rig, else the deck's own */
+	get played(): RigPlayed | null {
+		return this.rig ?? this.own;
+	}
+
+	/** the being on the wire now: the played scene's graph, the character, its ladder first, then every mood it has */
 	graph(): DeckGraph {
 		const have = Object.keys(this.portraits);
 		const moods = [...this.moods.moods, ...have.filter((m) => !this.moods.moods.includes(m))];
-		return this.rig ? rigGraph(this.rig, moods) : deckGraph(this.character, moods);
+		const g = this.played ? rigGraph(this.played, moods) : { nodes: [], links: [], size: 0.5, moods, expose: [] };
+		// the deck's own scene wears the deck's character; a rig is its character's
+		return this.rig ? g : { ...g, character: this.character };
 	}
 
-	/** Play a rig instead of the fixed patch (null = back to it): its knobs become the sliders, its graph the being on
-	 *  the wire, its lowered scene the sound (live-core reloads when it runs). */
-	useRig(p: RigPlayed | null): void {
-		this.rig = p;
+	/** Play a rig instead of the deck's own scene (null = back to it): its knobs become the sliders, its graph the being
+	 *  on the wire, its lowered scene the sound (live-core reloads when it runs). */
+	useRig(rig: RigPlayed | null): void {
+		this.rig = rig;
+		const p = this.played;
 		this.sticks = p ? p.sticks.map(([x, y]) => [x, y] as [string, string]) : null;
-		this.params = p ? rigParams(p) : PARAMS;
-		for (const k of Object.keys(this.value)) if (!(k in MELODY)) delete this.value[k];
+		this.params = p ? rigParams(p) : {};
+		for (const k of Object.keys(this.value)) delete this.value[k];
 		for (const [k, s] of Object.entries(this.params)) this.value[k] = s.value;
-		this.stream = new ValueStream(p ? rigStreamed(p) : STREAMED);
+		this.stream = new ValueStream(p ? rigStreamed(p) : {});
 		this.link?.setGraph(this.graph());
 		if (this.core) void this.loadEngine(this.core);
 	}
 
-	/** what the controls drive: a rig's knobs, or the fixed patch's sliders and its page melody */
+	/** #360: the deck's own scene (space-web `deck_scene`) – it plays whenever no rig does */
+	useOwn(p: RigPlayed): void {
+		this.own = p;
+		if (!this.rig) this.useRig(null);
+	}
+
+	/** what the controls drive: the played scene's knobs */
 	get controlSpecs(): Record<string, Spec> {
-		return this.rig ? this.params : { ...PARAMS, ...MELODY };
+		return this.params;
 	}
 
 	/** The rig played for the new mood: the values that moved go out (the sliders follow), a new shape reloads. */
@@ -238,7 +253,7 @@ export class Deck {
 
 	/** a knob's value to the engine: its path is the scene's (a rig's node the browser does not carry yet takes none) */
 	private send(path: string, v: number): void {
-		const t = this.rig ? knobTarget(this.rig, path) : { engine: path };
+		const t = this.played && knobTarget(this.played, path);
 		if (t) this.engineSet(t.engine, [v]);
 	}
 
@@ -268,7 +283,7 @@ export class Deck {
 		if (changes) this.link?.send(changes);
 	}
 
-	/** Start the sound (needs a user gesture): live-core with the fixed scene or the rig. */
+	/** Start the sound (needs a user gesture): live-core with the deck's own scene or the rig. */
 	async start(files: EngineFiles): Promise<void> {
 		const c = await LiveCore.start({ worker: files.worker, wasm: files.wasm, worklet: files.worklet, transport: files.transport ?? 'auto', lead: files.lead ?? defaultLead() });
 		c.onAnalysis((a) => (this.bands = a));
@@ -305,13 +320,14 @@ export class Deck {
 
 	/** (Re)load the sound: live-core's scene on the deck's clock, then every slider's value. The engine is quiet from
 	 *  here until the scene landed; a newer load (a second switch before this one landed) wins. A rig's nodes the
-	 *  browser does not carry yet (its `engine.page`) are not played – the status says which. */
+	 *  browser does not carry yet (its `engine.page`) are not played – the status says which. No scene yet: `useOwn` loads. */
 	private async loadEngine(c: LiveCore): Promise<void> {
 		const gen = ++this.loadGen;
 		this.engineReady = false;
 		const rig = this.rig;
+		if (!this.played) return;
 		try {
-			await c.load(rig ? rig.engine.scene : FIXED_SCENE);
+			await c.load(this.played.engine.scene);
 		} catch (e) {
 			if (gen === this.loadGen) this.o.onStatus?.(`sound: ${(e as Error).message ?? e}`);
 			return;

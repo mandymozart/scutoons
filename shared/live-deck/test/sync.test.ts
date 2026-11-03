@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import type { DeckSynced, Envelope, SceneSync } from '@scutoons/live';
 import { DeckLink, type WebSocketLike } from '../src/client.ts';
 import { BrowserSync, itemsOf, pushLine } from '../src/sync.ts';
-import { deckGraph } from '../src/scene.ts';
+import { ownGraph } from './own.ts';
 
 const API = 'https://api.test/api';
 const CDN = 'https://cdn.test/';
@@ -103,7 +103,7 @@ class Sock implements WebSocketLike {
 
 test('the link: the welcome’s sync and a scene.sync reach onSync; synced() sends deck.synced', () => {
 	const got: SceneSync[] = [];
-	const link = new DeckLink({ relay: 'ws://relay.test/live/SYNC', graph: deckGraph('catpope', ['neutral']), socket: Sock, onSync: (s) => got.push(s) });
+	const link = new DeckLink({ relay: 'ws://relay.test/live/SYNC', graph: ownGraph('catpope', ['neutral']), socket: Sock, onSync: (s) => got.push(s) });
 	const ws = Sock.last;
 	link.synced({ scene: 'x', state: 'ready', ready: [], missing: [] });
 	assert.equal(ws.sent.length, 0, 'not before the welcome');

@@ -14,7 +14,7 @@
 	// deck-space's (Hands → DeckControls, wasm), this page only bridges the DOM, Web MIDI and the pointer to it.
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { Hands, MELODY, PARAMS, charactersOf, loadControls, pushLine, type QualityLevel, type QualityPresets, type SpaceQuality, type Spec } from '@scutoons/live-deck';
+	import { Hands, charactersOf, loadControls, loadDeckScene, pushLine, type QualityLevel, type QualityPresets, type SpaceQuality, type Spec } from '@scutoons/live-deck';
 	// #298: the engine's bring-up (the deck, the 3D, the sound, the frame loop, the rig for a mood, the statistics) is
 	// @scutoons/engine-host's; this page keeps the relay, the controls and its UI
 	import { createEngineHost, type EngineHost } from '@scutoons/engine-host';
@@ -34,10 +34,10 @@
 	const session = getSessionContext();
 	const cdn = `${CDN_SERVER}/`;
 	let stage: HTMLDivElement | undefined = $state();
-	// the controls show the scene's values until the deck is there
-	let values = $state<Record<string, number>>(Object.fromEntries(Object.entries({ ...PARAMS, ...MELODY }).map(([k, s]) => [k, s.value])));
-	// the sliders: the fixed patch's, or the character's rig's knobs (#191, `?rig=1`)
-	let params = $state<Record<string, Spec>>(PARAMS);
+	// the controls show the scene's values once the core gave the scene (#360)
+	let values = $state<Record<string, number>>({});
+	// the sliders: the deck's own scene's knobs (the X1's cathedral, #360), or the character's rig's (#191, `?rig=1`)
+	let params = $state<Record<string, Spec>>({});
 	let character = $state('');
 	let characters = $state<{ id: string; name?: Record<string, string> }[]>([]);
 	let mood = $state('neutral');
@@ -55,8 +55,7 @@
 	// #298: the engine host – null until the session answered (the deck is made then)
 	let engine: EngineHost | null = null;
 	// #209: the controls – the selection the sticks follow, MIDI learn, the mappings per deck
-	const specs = { ...PARAMS, ...MELODY };
-	const ctl = new DeckControlsState(specs);
+	const ctl = new DeckControlsState({});
 	ctl.onSelect = (name) => engine?.space?.view.select(name);
 	// #225: the corner sticks can be switched off in the panel (they free the knobs under them), remembered per device
 	const STICKS_KEY = 'scutoons.deck.sticks';
@@ -247,7 +246,7 @@
 			if (!alive || !mayJoin(session.me)) return;
 			const q = page.url.searchParams;
 			character = characterOf(q, session.me, store.get());
-			// #191: `?rig=1` plays the character's rig (and its bundle while it has one) instead of the fixed patch
+			// #191: `?rig=1` plays the character's rig (and its bundle while it has one) instead of the deck's own scene (#360)
 			const host = createEngineHost({
 				api: API_URL,
 				cdn,
@@ -281,7 +280,7 @@
 					if (why === 'mood') return;
 					params = deck.params;
 					values = { ...deck.value };
-					// the corner sticks follow the rig's knobs (or the fixed patch's again)
+					// the corner sticks follow the rig's knobs (or the deck's own scene's again)
 					ctl.useParams(deck.controlSpecs, deck.sticks);
 				},
 				// #191: the mood's variant of the rig (its presets, its values) is already played – the sliders follow by the mood's hand
@@ -297,7 +296,13 @@
 			deck.onMidiOut = (bytes, at) => ctl.midiSend(bytes, at);
 			values = { ...deck.value };
 			try {
+				// #360: the deck's own scene, played by the core (deck-space as wasm – no GPU needed): its knobs are the sliders
+				deck.useOwn(await loadDeckScene(WASM_BASE));
+				params = deck.params;
+				values = { ...deck.value };
+				const specs = deck.controlSpecs;
 				ctl.hands = new Hands(await loadControls(WASM_BASE, Object.keys(specs)), deck, specs);
+				ctl.useParams(specs, deck.sticks);
 				ctl.load(character);
 				ctl.choose('', false);
 			} catch (e) {

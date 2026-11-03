@@ -3,8 +3,16 @@
 	"p": {
 		"nodes": [
 			{
-				"id": "melody",
-				"kind": "walk"
+				"id": "tempo",
+				"kind": "tempo"
+			},
+			{
+				"id": "music",
+				"kind": "chapter_music"
+			},
+			{
+				"id": "seq",
+				"kind": "seq"
 			},
 			{
 				"id": "voice",
@@ -31,48 +39,75 @@
 				"kind": "fft"
 			},
 			{
+				"id": "out",
+				"kind": "audio_out"
+			},
+			{
 				"id": "space",
 				"kind": "space"
 			},
 			{
-				"id": "out",
-				"kind": "audio_out"
+				"id": "screen",
+				"kind": "screen"
+			},
+			{
+				"id": "click",
+				"kind": "click"
 			}
 		],
 		"links": [
 			{
-				"from": "melody.cv",
+				"from": "seq.cv",
 				"to": "voice.cv"
 			},
 			{
-				"from": "voice.out",
+				"from": "music",
 				"to": "mix.in1"
 			},
 			{
-				"from": "drone.out",
+				"from": "voice",
 				"to": "mix.in2"
 			},
 			{
-				"from": "incense.out",
+				"from": "drone",
 				"to": "mix.in3"
 			},
 			{
-				"from": "sway.out",
-				"to": "incense.cutoff",
-				"scale": 2500
+				"from": "incense",
+				"to": "mix.in4"
 			},
 			{
-				"from": "mix.out",
+				"from": "mix",
 				"to": "fft.in"
 			},
 			{
-				"from": "mix.out",
+				"from": "mix",
 				"to": "out.in"
+			},
+			{
+				"from": "sway",
+				"to": "incense.cutoff",
+				"scale": 3000,
+				"offset": 600
 			},
 			{
 				"from": "fft.level",
 				"to": "space.pulse",
 				"scale": 0.6
+			},
+			{
+				"from": "fft.bass",
+				"to": "drone.gain",
+				"scale": 0.25,
+				"offset": 0.04
+			},
+			{
+				"from": "space",
+				"to": "screen.in"
+			},
+			{
+				"from": "click",
+				"to": "out.in"
 			}
 		],
 		"character": "yellowmouse",
@@ -85,6 +120,8 @@
 			"surprised"
 		],
 		"expose": [
+			"seq.rate",
+			"voice.freq",
 			"voice.ratio",
 			"voice.index",
 			"voice.gain",
@@ -94,8 +131,16 @@
 			"incense.gain",
 			"sway.rate",
 			"sway.depth",
+			"mix.gain1",
+			"mix.gain2",
+			"mix.gain3",
+			"mix.gain4",
+			"out.volume",
 			"space.hue",
-			"space.glow"
+			"space.glow",
+			"space.light",
+			"space.pulse",
+			"click.gain"
 		]
 	}
 }

@@ -36,6 +36,6 @@
 		"deck/native/src/live/compose.rs": { "lines": 322, "ticket": "#378", "what": "the Live outlet's composer (pure)" },
 		"deck/native/src/live/frame.rs": { "lines": 86, "ticket": "#378", "what": "the Live outlet's crossfade (pure)" },
 		"deck/native/src/text.rs": { "lines": 452, "ticket": "#378", "what": "the dialog text layout (pure)" },
-		"deck/native/src/modules.rs": { "lines": 147, "ticket": "#360", "what": "carried_part – the scene filter by the build's modules (deck-core has node_needs)" }
+		"deck/native/src/modules.rs": { "lines": 141, "ticket": "#360", "what": "the build's module registry and its refusal text (carried_part moved to deck-core stage.rs, #360)" }
 	}
 }

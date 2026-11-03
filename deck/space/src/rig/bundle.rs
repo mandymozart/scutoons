@@ -5,9 +5,9 @@
 //! `Spec`), which preset each track plays, and the scene lowered for the browser's engine (engine.rs). deck/space-web's
 //! `rig_play` is this behind wasm-bindgen; the page calls it again on a mood change and applies what differs.
 use super::{Instrument, Library, Preset, Rig, Text};
-use crate::graph::Kind;
+use crate::graph::{Graph, Kind, PortType};
 use crate::params::{self, Curve};
-use crate::scene::{split_ref, LinkDef, NodeDef};
+use crate::scene::{split_ref, LinkDef, NodeDef, Scene, CATHEDRAL_SCENE};
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
@@ -65,6 +65,47 @@ pub struct Played {
     pub sticks: [[String; 2]; 2],
     /// the same scene for the browser's sound engine (live-core) and the nodes it does not carry yet (engine.rs)
     pub engine: super::engine::Engine,
+}
+
+impl Played {
+    /// A deck's scene played as the page needs it (#360) – what the browser deck plays when its character has no rig: the
+    /// scene as it is, live-core's part of it (`engine::lower`), its knobs the being's buttons (`params::shown`, the
+    /// native deck's 3D buttons) on the nodes that part plays (a linked input's knob turns its base, the link's offset;
+    /// an input no param or link drives is none), the sticks its first four knobs.
+    pub fn scene(text: &str) -> Result<Played> {
+        let scene = Scene::parse(text)?;
+        let graph = Graph::build(&scene)?;
+        let engine = super::engine::lower(&scene)?;
+        let expose = scene.being_expose();
+        let mut knobs = Vec::new();
+        for (i, n) in graph.nodes.iter().enumerate().filter(|(_, n)| !engine.page.iter().any(|p| p.id == n.id)) {
+            for (k, port) in n.kind.inputs().iter().enumerate() {
+                if port.ty != PortType::Control || !params::shown(n.kind, &n.id, port.name, &expose) {
+                    continue;
+                }
+                let spec = params::spec(n.kind, port.name);
+                let value = graph.link_into(i, k).map_or_else(|| n.f32(port.name, spec.default), |l| l.offset);
+                if value.is_finite() {
+                    let log = spec.curve == Curve::Log;
+                    knobs.push(Knob { path: format!("{}.{}", n.id, port.name), label: Text::new(), min: spec.min, max: spec.max, value, log });
+                }
+            }
+        }
+        let mut it = knobs.iter().map(|k| k.path.clone());
+        let sticks = [[it.next().unwrap_or_default(), it.next().unwrap_or_default()], [it.next().unwrap_or_default(), it.next().unwrap_or_default()]];
+        let character = scene.being_character();
+        Ok(Played { scene: text.to_string(), nodes: scene.nodes, links: scene.links, character, knobs, tracks: Vec::new(), sticks, engine })
+    }
+
+    /// The deck's own scene (#360): the one the X1 boots with – the browser deck plays the same file, never a copy.
+    pub fn deck_scene() -> Result<Played> {
+        Played::scene(CATHEDRAL_SCENE)
+    }
+
+    /// `deck_scene` as JSON – the wasm boundary's form
+    pub fn deck_scene_json() -> Result<String> {
+        Ok(serde_json::to_string(&Played::deck_scene()?)?)
+    }
 }
 
 /// the scene document as TOML (scene.rs's form, so deck-native and live-core read it)

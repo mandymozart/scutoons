@@ -1,4 +1,4 @@
-// `npm test -w shared/live-deck` (#320): the deck's scenes in the real engine – the fixed scene and the core rigs load in
+// `npm test -w shared/live-deck` (#320): the deck's scenes in the real engine – its own scene (#360) and the core rigs load in
 // live_core.wasm (deck-engine), sound, and every knob and hose the page uses is a path the engine answers (skipped,
 // saying so, when live_core.wasm is not built: `npm run build:wasm -w shared/live-core`).
 import { test } from 'node:test';
@@ -7,8 +7,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { Engine, WasmCore } from '@scutoons/live-core/engine';
 import { wasmPath } from '@scutoons/live-core/wasm-path';
 import { analysisOf, valueIndex, writeSend } from '@scutoons/live-core';
-import { FIXED_SCENE, MELODY, OUTPUTS, PARAMS } from '../src/scene.ts';
-import { rigParams, rigStreamed } from '../src/rig.ts';
+import { knobTarget, rigOutputs, rigParams, rigStreamed } from '../src/rig.ts';
 import type { RigPlayed } from '../src/space.ts';
 
 const path = wasmPath();
@@ -35,21 +34,21 @@ async function play(scene: string, knobs: Record<string, number>) {
 	return { table, a: analysisOf(last), loud };
 }
 
-test('the fixed scene plays in the engine; its knobs are inputs, its hoses outputs the engine reports', { skip }, async () => {
-	const knobs = Object.fromEntries(Object.entries({ ...PARAMS, ...MELODY }).map(([p, s]) => [p, s.value]));
-	const { table, a, loud } = await play(FIXED_SCENE, { ...knobs, 'melody.spread': 0.8 });
-	assert.ok(loud > 0.05 && loud < 1, `the voice and the drone: ${loud}`);
-	for (const p of [...Object.keys(knobs), ...Object.keys(OUTPUTS)]) assert.ok(valueIndex(table, p) >= 0, p);
-	assert.ok(a.values[valueIndex(table, 'voice.out')] > 0.01, 'the being’s meters: the voice is heard');
-	assert.ok(a.values[valueIndex(table, 'melody.cv')] > 30, 'the melody’s cv: a pitch in Hz');
+test("#360: the deck's own scene – the X1's cathedral as deck-space plays it – sounds in the engine: the seq's arp, its knobs inputs, its hoses outputs", { skip }, async () => {
+	const own = RIGS.deck;
+	const knobs = Object.fromEntries(Object.entries(rigParams(own)).map(([p, s]) => [p, s.value]));
+	const { table, a, loud } = await play(own.engine.scene, knobs);
+	assert.ok(loud > 0.05 && loud < 1, `the cathedral sounds: ${loud}`);
+	for (const p of [...Object.keys(knobs), ...Object.keys(rigOutputs(own))]) assert.ok(valueIndex(table, p) >= 0, p);
+	assert.ok(table.nodes.some((n) => n.id === 'seq') && !table.nodes.some((n) => n.id === 'melody'), "the cathedral's arp, no page melody");
 	const sway = a.values[valueIndex(table, 'sway.out')];
-	assert.ok(sway >= 0 && sway <= PARAMS['sway.depth'].value, `the LFO is unipolar: ${sway}`);
-	assert.ok(Math.abs(a.values[valueIndex(table, 'incense.cutoff')] - (1800 + 2500 * sway)) < 1, 'the cutoff: its base, the sway on top');
+	assert.ok(sway >= 0 && sway <= 1, `the LFO is unipolar: ${sway}`);
+	assert.ok(Math.abs(a.values[valueIndex(table, 'incense.cutoff')] - (knobs['incense.cutoff'] + 3000 * sway)) < 1, 'the cutoff: its base, the sway on top');
 });
 
 test('every core rig plays in the engine with its knobs and streams', { skip }, async () => {
 	for (const [name, rig] of Object.entries(RIGS)) {
-		const knobs = Object.fromEntries(Object.entries(rigParams(rig)).map(([p, s]) => [p, s.value]));
+		const knobs = Object.fromEntries(Object.entries(rigParams(rig)).filter(([p]) => knobTarget(rig, p)).map(([p, s]) => [p, s.value]));
 		const { table, loud } = await play(rig.engine.scene, name.startsWith('incense') ? { ...knobs, 'air_hiss.gain': 0.1 } : knobs);
 		assert.ok(loud > 0.01, `${name} sounds`);
 		for (const p of Object.keys(rigStreamed(rig))) assert.ok(valueIndex(table, p) >= 0, `${name}: ${p}`);

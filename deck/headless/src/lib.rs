@@ -22,6 +22,7 @@
 //! | `clock_out` · `joined` · `midi_in` · `midi` · `leader` · `anchor` | the page's and the devices' input | – |
 //! | `quality` / `frames` | `level`, `auto` / `ms`, `secs`, `glitches` | level, ceiling, scale, auto, changes |
 //! | `reset` | – | a fresh host (the clock too) |
+//! | `carried_part` | `with` = { `scene`, `modules` } | kept (nodes), dropped (ids) – deck-core's filter (#360) |
 //! | a capability (caps.rs) | `with` | its answer, or `Missing` |
 //!
 //! Built for wasm32 too (`hl_inbox`, `hl_run`, `hl_outbox`): the same bundle in, the same report out – tests/wasm.rs
@@ -335,6 +336,15 @@ impl Run<'_> {
                     changes += usize::from(g.frame(self.gov_t, ms as f32, glitches));
                 }
                 quality(g, changes)
+            }
+            // #360: what of a scene a build with these modules plays – deck-core's carried part
+            "carried_part" => {
+                let with = step.get("with").and_then(|v| v.as_table()).ok_or_else(|| Fault::Error("carried_part without `with`".into()))?;
+                let path = with.get("scene").and_then(|v| v.as_str()).unwrap_or_default();
+                let scene = Scene::parse(self.file(path)?).map_err(|e| Fault::Error(format!("{e:#}")))?;
+                let modules: Vec<&str> = with.get("modules").and_then(|v| v.as_array()).map(|a| a.iter().filter_map(|m| m.as_str()).collect()).unwrap_or_default();
+                let (part, dropped, _) = scene.carried_part(|f| modules.contains(&f));
+                json!({ "kept": part.nodes.len(), "dropped": dropped.iter().map(|n| n.id.as_str()).collect::<Vec<_>>() })
             }
             c if caps::known(c) => {
                 let input = step.get("with").map(to_json).unwrap_or(Value::Null);
