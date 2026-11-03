@@ -34,7 +34,7 @@ orchestrator ≈ $445 list over 2026-10-29 … 11-01, `agents/costs.json`), so s
   `deck/target/release/deck-update.exe serve deck/os/out/update` (port 7790, firewall rule set), then
   `ssh root@192.168.1.166 'deck-update now'` (the PC's key is on the X1). Stop the server afterwards. Killing cage on the
   X1 needs the owner's OK each time.
-- **Usage report** at the end of every session: `python C:\Developmentgents\costseport_usage.py --issues <N>`
+- **Usage report** at the end of every session: `python C:\Development\agents\costs\report_usage.py --issues <N>`
   (orchestrator: `--role orchestrator --per-day`), ORCHESTRATION §10 / §11.9.
 
 ## Tools outside the repository
