@@ -14,7 +14,7 @@ const core = await LiveCore.start({                                        // fr
 	wasm: wasmUrl,                                                          // live_core.wasm, served same-origin
 	worklet: workletUrl
 });
-const table = await core.load(sceneToml, { bpm: 84 }); // the deck's TOML (deck-space ENGINE_KINDS); bpm: no clock of its own
+const table = await core.load(sceneToml, { bpm: 84 }); // the deck's TOML (deck-core BROWSER_MODULES); bpm: no clock of its own
 const lead = core.param('lead.freq');               // resolve once (node + input) …
 core.set(lead, new Float32Array([440, 2, 1, 0.1]), { mode: 'blend', amount: 0.5 }); // … send often (#189)
 const off = core.onAnalysis(({ level, bass, mid, high, spectrum }) => draw(level, bass, mid, high, spectrum));

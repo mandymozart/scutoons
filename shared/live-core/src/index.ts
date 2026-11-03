@@ -286,7 +286,7 @@ export class LiveCore {
 		}
 	}
 
-	/** A scene in the deck's TOML (the kinds the browser carries: deck-space `ENGINE_KINDS`) → its node table. Its `tempo`
+	/** A scene in the deck's TOML (the modules the browser carries: deck-core `BROWSER_MODULES`) → its node table. Its `tempo`
 	 * node sets the clock; a scene without one plays on the clock as it is (the show clock's, #321). */
 	load(scene: string): Promise<Table> {
 		const id = this.nextId++;

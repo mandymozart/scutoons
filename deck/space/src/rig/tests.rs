@@ -453,7 +453,26 @@ fn the_browser_engine_plays_the_flattened_scene_and_hands_the_rest_to_the_page()
     assert_eq!(e.page.iter().map(|n| n.id.as_str()).collect::<Vec<_>>(), ["track"]);
     assert_eq!(e.dropped.len(), 1);
     assert!(!Scene::parse(&e.scene).unwrap().nodes.iter().any(|n| n.id == "track"));
-    assert!(engine::carried("noise") && !engine::carried("chapter_music") && !engine::carried("module:walk"));
+    assert!(engine::carries("core") && engine::carries("events") && !engine::carries("chapter") && !engine::carries("modules"));
+}
+
+/// #360: the deck's own scene is the X1's cathedral, played through the core – the seq's arp (no page melody), the knobs
+/// the being's buttons, live-core's part without the chapter's music and the screen's picture left to the page
+#[test]
+fn the_deck_scene_is_the_x1s_cathedral() {
+    let p = Played::deck_scene().unwrap();
+    assert_eq!(p.scene, crate::scene::CATHEDRAL_SCENE);
+    assert_eq!(p.character, "catpope");
+    let engine = Scene::parse(&p.engine.scene).unwrap();
+    let ids: Vec<&str> = engine.nodes.iter().map(|n| n.id.as_str()).collect();
+    assert!(ids.contains(&"seq") && ids.contains(&"voice") && ids.contains(&"space") && !ids.contains(&"melody"), "{ids:?}");
+    assert_eq!(p.engine.page.iter().map(|n| n.id.as_str()).collect::<Vec<_>>(), ["music"]);
+    let knob = |path: &str| p.knobs.iter().find(|k| k.path == path);
+    assert_eq!(knob("voice.ratio").map(|k| k.value), Some(1.5));
+    assert_eq!(knob("incense.cutoff").map(|k| k.value), Some(600.0), "a linked input's knob turns its base");
+    assert!(knob("space.bloom").is_none(), "post knobs only when exposed");
+    assert!(knob("music.gain").is_none(), "no knob on a node the browser does not play");
+    assert!(p.sticks.iter().flatten().all(|s| knob(s).is_some()));
 }
 
 #[test]
@@ -488,6 +507,8 @@ fn rig_fixture_for_the_browser_deck_is_current() {
         "catpope": play("character.catpope", ""),
         "catpope_laughing": play("character.catpope", "laughing"),
         "incense_burner": play("item.incense_burner", ""),
+        // #360: the deck's own scene (space-web's `deck_scene`) – what the page plays without a rig
+        "deck": serde_json::from_str::<serde_json::Value>(&Played::deck_scene_json().unwrap()).unwrap(),
     });
     let text = serde_json::to_string_pretty(&fixture).unwrap() + "\n";
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../shared/live-deck/test/fixtures/rigs.json");

@@ -1,8 +1,7 @@
 // The browser deck's route helpers (#198, src/lib/live-deck.ts): the relay from the address, the character, the nick.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { characterOf, codeOf, DEFAULT_CHARACTER, DEFAULT_CODE, mayJoin, nickOf, preferOf, relayOf, rigOf, sticksLine, panelKnobs } from '../src/lib/live-deck.ts';
-import { MELODY, PARAMS } from '../../shared/live-deck/src/scene.ts';
+import { characterOf, codeOf, DEFAULT_CHARACTER, DEFAULT_CODE, mayJoin, nickOf, preferOf, relayOf, rigOf, sticksLine } from '../src/lib/live-deck.ts';
 import type { Me } from '@scutoons/content';
 
 const q = (s: string) => new URLSearchParams(s);
@@ -59,14 +58,6 @@ test('the rig is opt-in while the phone check is open (#191)', () => {
 	assert.equal(rigOf(new URLSearchParams('rig=1')), true);
 	assert.equal(rigOf(new URLSearchParams('')), false);
 	assert.equal(rigOf(new URLSearchParams('rig=0')), false);
-});
-
-test("the panel's knobs: the fixed patch with its melody, a rig's knobs alone", () => {
-	const fixed = panelKnobs(PARAMS, MELODY).map(([p]) => p);
-	assert.ok(fixed.includes('voice.ratio') && fixed.includes('melody.spread'));
-	const s = (label: string) => ({ min: 0, max: 1, value: 0.5, label });
-	const rig = panelKnobs({ 'voice_voice.gain': s('voice'), 'voice_melody.spread': s('spread') }, MELODY).map(([p]) => p);
-	assert.deepEqual(rig, ['voice_voice.gain', 'voice_melody.spread'], "a rig: its knobs, no page melody");
 });
 
 test('#209: the sticks line names the selection and what each stick drives', () => {

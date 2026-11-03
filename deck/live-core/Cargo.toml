@@ -19,7 +19,7 @@ crate-type = ["cdylib", "rlib"]
 deck-core = { workspace = true, features = ["analysis", "tempo"] }
 # the one engine, its walk / events hosts inside the block (the browser has no sequencer thread)
 deck-engine = { path = "../engine", features = ["events"] }
-# the scene, the graph and the allowlist of the kinds the browser carries (rig/engine.rs `ENGINE_KINDS`)
+# the scene, the graph and the browser's split (rig/engine.rs `lower` over deck-core's `BROWSER_MODULES`)
 deck-space = { path = "../space", default-features = false }
 # the scene's [outputs] (#211) in the browser: the platform-free engine (no ports, no threads), no `host` runner (#282)
 deck-outputs = { path = "../outputs", default-features = false }

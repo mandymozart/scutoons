@@ -77,7 +77,7 @@ pub fn source_path(file: &str) -> std::path::PathBuf {
 }
 
 /// the space node's control inputs that are post knobs (not the being's 3D buttons unless `expose` names them)
-pub const PORTS: [&str; 7] = ["bloom", "threshold", "lift", "gamma", "gain", "pixel", "levels"];
+pub const PORTS: [&str; 7] = crate::params::POST_PORTS;
 
 pub fn is_port(name: &str) -> bool {
     PORTS.contains(&name)

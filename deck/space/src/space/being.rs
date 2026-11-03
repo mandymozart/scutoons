@@ -525,13 +525,12 @@ impl Being {
                 .inputs()
                 .iter()
                 .enumerate()
-                .filter(|(_, port)| port.ty == PortType::Control && exposed(&look.expose, &node.id, port.name))
                 // the post stack's knobs (#204) are no buttons on the core unless `expose` names them
-                .filter(|(_, port)| !(node.kind == Kind::Space && super::post::is_port(port.name)) || named(&look.expose, &node.id, port.name))
+                .filter(|(_, port)| port.ty == PortType::Control && params::shown(node.kind, &node.id, port.name, &look.expose))
                 .map(|(k, _)| k)
                 .collect();
             // the waveform: an LFO's shape (an audio oscillator's `wave` can't change while it plays yet)
-            let shape = node.kind == Kind::Lfo && exposed(&look.expose, &node.id, "shape");
+            let shape = node.kind == Kind::Lfo && params::shown(node.kind, &node.id, "shape", &look.expose);
             if shape {
                 ports.push(usize::MAX);
             }
@@ -1439,14 +1438,6 @@ fn hash(s: &str) -> f32 {
     (h >> 8) as f32 / (1u32 << 24) as f32
 }
 
-fn exposed(list: &[String], node: &str, port: &str) -> bool {
-    list.is_empty() || list.iter().any(|e| e == node) || named(list, node, port)
-}
-
-/// `expose` names this port itself ("space.bloom")
-fn named(list: &[String], node: &str, port: &str) -> bool {
-    list.iter().any(|e| e.split_once('.') == Some((node, port)))
-}
 
 #[cfg(test)]
 mod tests {

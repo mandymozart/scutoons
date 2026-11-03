@@ -115,8 +115,8 @@ export class Hands {
 		if (s) this.deck.setParam(path, toValue(s, Math.min(1, Math.max(0, norm))));
 	}
 
-	/** The deck's knobs changed (a rig's, or the fixed patch's again, #191): the controls follow, with the being's
-	 *  stick pairs (null = the fixed patch's defaults). The selection goes back to the master section. */
+	/** The deck's knobs changed (a rig's, or the deck's own scene's again, #191, #360): the controls follow, with the being's
+	 *  stick pairs (null = the defaults). The selection goes back to the master section. */
 	useParams(specs: Record<string, Spec>, sticks: [string, string][] | null) {
 		this.specs = specs;
 		this.c.set_deck(Object.keys(specs), sticks ? sticks.flat() : []);

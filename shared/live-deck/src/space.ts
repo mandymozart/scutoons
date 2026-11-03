@@ -91,11 +91,12 @@ export interface RigPlayed {
 	engine: RigEngine;
 }
 
-/** what live-core plays of a rig (deck-space rig/engine.rs `lower`, #320: the flattened scene split by `ENGINE_KINDS`) */
+/** what live-core plays of a scene (deck-space rig/engine.rs `lower`, #320, #360: deck-core's carried part for the
+ *  browser's modules) */
 export interface RigEngine {
 	/** live-core's scene: every node of a kind the browser carries, as flattened */
 	scene: string;
-	/** the nodes of kinds the browser does not carry yet (chapter_music, module:*) – not played */
+	/** the nodes of modules the browser does not carry yet (chapter_music, module:*) – not played */
 	page: { id: string; kind: string; [param: string]: unknown }[];
 	/** the links that touch them */
 	dropped: { from: string; to: string; scale: number; offset: number }[];
@@ -153,6 +154,8 @@ interface SpaceModule {
 	rig_play(bundle: string, persona: string, mood: string): string;
 	/** deck/space-web `core_rig`: the core rig of `character.<id>` / `item.<id>` as a bundle, '' when the deck has none */
 	core_rig(subject: string): string;
+	/** deck/space-web `deck_scene` (#360): the deck's own scene – the X1's cathedral, embedded in the wasm – played as `rig_play` answers */
+	deck_scene(): string;
 	SpaceView: {
 		create(canvas: HTMLCanvasElement, deckGraph: string, values: string, prefer: string): Promise<SpaceView>;
 		encoded_images(glb: Uint8Array): unknown[];
@@ -176,6 +179,12 @@ function spaceModule(base: string): Promise<SpaceModule> {
 		m.catch(() => modules.delete(base));
 	}
 	return m;
+}
+
+/** #360: the deck's own scene as deck-space plays it (no GPU needed) – what the deck plays without a rig */
+export async function loadDeckScene(base: string): Promise<RigPlayed> {
+	const mod = await spaceModule(base);
+	return JSON.parse(mod.deck_scene()) as RigPlayed;
 }
 
 /** #209: the deck's controls (deck-space's, as wasm – no GPU needed: they work when the 3D can't) over `paths` */
@@ -256,6 +265,8 @@ export class SpaceStage {
 		const say = (s: string) => o.onStatus?.(s);
 		say('3D: loading');
 		const mod = await spaceModule(o.base);
+		// #360: the deck's own scene, before the being is built from the deck's graph
+		if (!o.deck.own) o.deck.useOwn(JSON.parse(mod.deck_scene()) as RigPlayed);
 		const graph = JSON.stringify(o.deck.graph());
 		const values = JSON.stringify(o.deck.value);
 		let canvas = SpaceStage.canvas(o);

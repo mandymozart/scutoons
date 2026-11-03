@@ -6,8 +6,7 @@
 	// the shared tokens – OSCT's debug overlay as #209 describes it. Every control turns the deck's one state; the
 	// being's 3D buttons, the sticks and MIDI turn the same values, so the dials follow them.
 	import { Button, Icon } from '@scutoons/ui';
-	import { MELODY, PARAMS, type QualityLevel, type SpaceQuality, type Spec } from '@scutoons/live-deck';
-	import { panelKnobs } from '$lib/live-deck.ts';
+	import type { QualityLevel, SpaceQuality, Spec } from '@scutoons/live-deck';
 	import DeckKnob from './deck-knob.svelte';
 	import DeckQuality from './deck-quality.svelte';
 	import DeckClock, { type ClockChoice } from './deck-clock.svelte';
@@ -17,7 +16,7 @@
 
 	let {
 		values,
-		params = PARAMS,
+		params = {},
 		started,
 		starting,
 		stats,
@@ -50,7 +49,7 @@
 		oncopy
 	}: {
 		values: Record<string, number>;
-		/** the sliders: the fixed patch's PARAMS or the character's rig's knobs (#191) */
+		/** the sliders: the knobs of the scene that plays – the deck's own (#360) or the character's rig's (#191) */
 		params?: Record<string, Spec>;
 		started: boolean;
 		starting: boolean;
@@ -106,8 +105,8 @@
 
 	// folded at first: the being fills the screen; the fold opens the knobs
 	let open = $state(false);
-	// the fixed patch's knobs + its page melody, or the rig's knobs (#191, #236)
-	const all = $derived(panelKnobs(params, MELODY));
+	// the played scene's knobs (#191, #360)
+	const all = $derived(Object.entries(params));
 </script>
 
 <section class="panel" aria-label={m['live_deck.controls']()}>

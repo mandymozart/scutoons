@@ -30,7 +30,6 @@ impl std::fmt::Display for Missing {
 pub const CAPS: &[(&str, &str, &str, &str)] = &[
     ("hud", "#374", "the deck UI model: the HUD lines and the stats bar items", "main.rs hud_lines / bar_items"),
     ("tempo_line", "#370", "the tempo line's wording (BPM, BAR, BEAT, STOP, CLK) and the clock choices as core state", "main.rs tempo_line, deck-clock.svelte"),
-    ("carried_part", "#360", "the scene filter: what of a scene a build with these modules plays", "native modules.rs carried_part, live-deck scene.ts FIXED_SCENE"),
     ("mood", "#367", "the energy ladder: level, tempo and touch over time to the being's mood", "live-deck scene.ts Moods / LADDER (deck-space being.rs behind `being`)"),
     ("relay_join", "#366", "the relay client as a sans-IO state machine: hello, welcome, backoff, ping, status text", "native space/link.rs, live/client.rs; live-deck client.ts; viewer live-vote-link.ts"),
     ("rig_facts", "#368", "rig facts: streamed paths, knob targets, whether a mood change needs a reload", "live-deck rig.ts, engine-host controller.ts"),

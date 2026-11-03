@@ -46,6 +46,20 @@ impl Spec {
     }
 }
 
+/// the space node's control inputs that are post knobs (#204, post.rs): no button unless `expose` names them
+pub const POST_PORTS: [&str; 7] = ["bloom", "threshold", "lift", "gamma", "gain", "pixel", "levels"];
+
+/// Whether a scene shows the control input `node.port` – the being's 3D button, the deck page's knob (#360): the being's
+/// `expose` names the node ("node", all its inputs) or the port ("node.port"); empty = every control input – except the
+/// space node's post knobs, shown only when named.
+pub fn shown(kind: Kind, node: &str, port: &str, expose: &[String]) -> bool {
+    let named = expose.iter().any(|e| e.split_once('.') == Some((node, port)));
+    if kind == Kind::Space && POST_PORTS.contains(&port) {
+        return named;
+    }
+    named || expose.is_empty() || expose.iter().any(|e| e == node)
+}
+
 /// the default of `kind`'s control input `port` (what an unlinked input without a param reads)
 pub fn default(kind: Kind, port: &str) -> f32 {
     spec(kind, port).default

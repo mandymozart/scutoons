@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Hands, arcPoint, deflection, knobTurn, mappingKey, type DeckControlsView, type Store } from '../src/controls.ts';
 import { connectMidi, midiSupported, type MidiAccessLike, type MidiInputLike, type MidiOutputLike } from '../src/midi.ts';
-import { MELODY, PARAMS } from '../src/scene.ts';
+import { OWN_PARAMS } from './own.ts';
 
 const near = (a: number, b: number, eps = 1e-9) => assert.ok(Math.abs(a - b) < eps, `${a} ≈ ${b}`);
 
@@ -73,7 +73,7 @@ function fakeControls() {
 }
 
 function fakeDeck() {
-	const value: Record<string, number> = Object.fromEntries(Object.entries({ ...PARAMS, ...MELODY }).map(([k, s]) => [k, s.value]));
+	const value: Record<string, number> = Object.fromEntries(Object.entries(OWN_PARAMS).map(([k, s]) => [k, s.value]));
 	return { value, touch: 0 as 0 | 1, setParam(p: string, v: number) { value[p] = v; } };
 }
 
@@ -82,7 +82,7 @@ test('Hands: a stick moves the deck from its values, MIDI learn saves the deck\'
 	const deck = fakeDeck();
 	const saved = new Map<string, string>([[mappingKey('plf'), 'cc 1 9 nowhere.x\n']]);
 	const store: Store = { get: (k) => saved.get(k) ?? null, set: (k, v) => saved.set(k, v) };
-	const h = new Hands(c, deck, { ...PARAMS, ...MELODY }, store);
+	const h = new Hands(c, deck, OWN_PARAMS, store);
 	h.load('plf');
 	assert.deepEqual(h.problems, ['cc 1 9 nowhere.x']);
 	h.select('being');
@@ -98,7 +98,7 @@ test('Hands: a stick moves the deck from its values, MIDI learn saves the deck\'
 	assert.deepEqual(h.midi(new Uint8Array([0xb0, 7, 10])), { path: 'drone.gain', learned: true });
 	assert.equal(saved.get(mappingKey('plf')), 'cc 1 7 drone.gain\n', 'saved per deck at once');
 	assert.deepEqual(h.midi(new Uint8Array([0xb0, 7, 127])), { path: 'drone.gain', learned: false });
-	near(deck.value['drone.gain'], PARAMS['drone.gain'].max);
+	near(deck.value['drone.gain'], OWN_PARAMS['drone.gain'].max);
 	assert.equal(h.midi(new Uint8Array([0x90, 60, 1])), null);
 	assert.equal(h.mapped('drone.gain'), 'CC 7 · 1');
 	h.unmap('drone.gain');
@@ -145,17 +145,17 @@ test('#321 Web MIDI out: the clock out\'s bytes to every output, due at the page
 	bare.send([0xf8], 0);
 });
 
-test('Hands: a rig gives the controls its knobs and sticks, null the fixed patch\'s defaults', () => {
+test('Hands: a rig gives the controls its knobs and sticks, null the own scene\'s defaults', () => {
 	const { c, calls } = fakeControls();
-	const h = new Hands(c, fakeDeck(), { ...PARAMS, ...MELODY });
+	const h = new Hands(c, fakeDeck(), OWN_PARAMS);
 	const rig = { 'a_x.p': { min: 0, max: 1, value: 0, label: 'p' }, 'a_x.q': { min: 0, max: 1, value: 0, label: 'q' } };
 	h.useParams(rig, [
 		['a_x.p', 'a_x.q'],
 		['', 'a_x.p']
 	]);
 	assert.equal(calls.at(-1), 'deck a_x.p,a_x.q | a_x.p,a_x.q,,a_x.p');
-	assert.equal(h.norm('voice.ratio'), 0, 'the fixed patch\'s knobs are not the deck\'s now');
-	h.useParams({ ...PARAMS, ...MELODY }, null);
+	assert.equal(h.norm('voice.ratio'), 0, 'the own scene\'s knobs are not the deck\'s now');
+	h.useParams(OWN_PARAMS, null);
 	assert.ok(String(calls.at(-1)).endsWith(' | '), 'no pairs: the defaults');
 	assert.ok(h.norm('voice.ratio') >= 0);
 });
