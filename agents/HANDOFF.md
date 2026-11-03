@@ -15,10 +15,10 @@ orchestrator ≈ $445 list over 2026-10-29 … 11-01, `agents/costs.json`), so s
 ## Rules that bite (details in RULES / DECISIONS / memory)
 - **Pushes:** only on the owner's go, bundled. A push to `main` deploys the viewer. The pre-push hook
   (`npm run hooks`) runs `npm run deck:ci -- --no-release` when `deck/` or `shared/live*` changed.
-- **GitHub's deck CI runs by hand only** (`deck.yml` workflow_dispatch). Cloud PRs get no GitHub deck CI, so run
-  `npm run deck:ci` locally before merging them.
-- **New work as cloud sessions** where possible. The owner allows local sessions with Opus 5.5 medium. Cloud sessions
-  start only from a message the owner typed in the desktop app, and from GitHub's `main`, so push first.
+- **GitHub's deck CI runs by hand only** (`deck.yml` workflow_dispatch): run `npm run deck:ci` locally before merging
+  (the pre-push hook does it too).
+- **No cloud sessions** (owner 2026-11-03: "no cloud sessions. that was a temporary mesaure. remove it"): workers are
+  local sessions, each in its own worktree, two at most (RULES B1).
 - **Phones test over the LAN, not by pushing:** `npm run dev:lan` serves https://<LAN-IP>:4100 with the API and the
   local relay proxied. The firewall rule for 4100 is set.
 - **Night:** never push; one git operator on `main`; no Docker / MariaDB / phone without a slot from the OSCT
@@ -34,7 +34,7 @@ orchestrator ≈ $445 list over 2026-10-29 … 11-01, `agents/costs.json`), so s
   `deck/target/release/deck-update.exe serve deck/os/out/update` (port 7790, firewall rule set), then
   `ssh root@192.168.1.166 'deck-update now'` (the PC's key is on the X1). Stop the server afterwards. Killing cage on the
   X1 needs the owner's OK each time.
-- **Usage report** at the end of every session: `python C:\Developmentgents\costseport_usage.py --issues <N>`
+- **Usage report** at the end of every session: `python C:\Development\agents\costs\report_usage.py --issues <N>`
   (orchestrator: `--role orchestrator --per-day`), ORCHESTRATION §10 / §11.9.
 
 ## Tools outside the repository

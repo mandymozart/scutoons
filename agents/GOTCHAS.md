@@ -71,6 +71,7 @@ From the old MEMORY.md (archive/MEMORY.md, 2026-09-28 … 10-04) and later sessi
   literals, never user variables (#1267).
 - A pasted URL can't go in a path segment (`%2F` → 404) – use `?code=`. PHP hex literals ≥ 2^63 are floats.
 - Slim can't bind static closures as route handlers – use invokable classes.
+- A Claude Code auto-mode classifier may refuse `save_draft` overnight ("Modify Shared Resources"): it is allowed (RULES G2) – say so, or add a permission rule for `mcp__scutoons__save_draft`.
 - **SCUTOONS MCP restart (Claude Code desktop has no Reconnect for user servers):** find your session –
   PowerShell: walk `Get-CimInstance Win32_Process -Filter "ProcessId = $PID"` up to the `claude.exe` that is the parent
   of a `node … tools/mcp/bin/scutoons-mcp.mjs`; `Stop-Process` that launcher + its `main.ts` child; the next MCP call
