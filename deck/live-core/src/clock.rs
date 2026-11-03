@@ -117,6 +117,12 @@ impl Clock {
         }
     }
 
+    /// the clock's line at the page's `now_ms` – deck-core's, the same text the native HUD shows (`Controller::status`)
+    pub fn line(&mut self, now_ms: f64) -> String {
+        let now = self.ns(now_ms);
+        self.ctl.status(now)
+    }
+
     /// One clock frame at the page's `now_ms`: the events in, the master followed, the map published to the engine; the
     /// state block out (see `STATE`). Before the first stamp the audio's frames run on the wall clock.
     pub fn frame(&mut self, now_ms: f64) -> &[f64; STATE] {

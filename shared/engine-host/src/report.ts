@@ -72,13 +72,13 @@ export interface ReportInput {
 	clockWindow?: ClockSummary | null;
 }
 
-/** #321: the show clock's line – where this deck takes its tempo from, how far off the show's line it played (the HUD's
- *  SHOW ±x ms over the last minute), the relay's round trip */
+/** #321: the show clock's line – where this deck takes its tempo from, the core's line for it (SHOW ±x MS RTT y MS),
+ *  how far off the show's line it played over the last minute */
 export function clockLine(c: ClockState | null | undefined, w: ClockSummary | null | undefined): string {
 	if (!c) return 'clock not running';
 	const f = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}`;
-	const state = c.leading ? 'LEADS' : c.midiLost ? 'NO MIDI - holds' : !c.anchor ? 'no anchor yet' : c.locked ? 'follows' : 'locking';
-	const now = `clock ${c.source} · ${c.bpm.toFixed(1)} BPM · ${state} · show ${f(c.errorMs)} ms now · rtt ${c.rttMs.toFixed(1)} ms`;
+	// the state in deck-core's words (the native HUD's and the panel's line)
+	const now = `clock ${c.source} · ${c.bpm.toFixed(1)} BPM${c.line ? ` · ${c.line}` : ''}`;
 	if (!w) return `${now} · no minute of following yet`;
 	return `${now} · last ${w.seconds.toFixed(0)} s |show| p50 ${w.p50.toFixed(1)} · p95 ${w.p95.toFixed(1)} · max ${w.max.toFixed(1)} ms (mean ${f(w.mean)}, ${w.n} frames)`;
 }

@@ -60,9 +60,9 @@ test("the browser's glitch count: Chrome's playbackStats in seconds, the spec's 
 });
 
 test("#321: the clock line – the source, the state, the show's error now and over the last minute", () => {
-	const c = clockOf([0, 0, 84, 4, 1, 4, 1 | 2, 0, 3.2, -0.4, 0, 0, 0, 0, 0, 0]);
+	const c = { ...clockOf([0, 0, 84, 4, 1, 4, 1 | 2, 0, 3.2, -0.4, 0, 0, 0, 0, 0, 0]), line: 'SHOW -0.4MS RTT 3.2MS' };
 	assert.equal(clockLine(null, null), 'clock not running');
-	assert.equal(clockLine(c, null), 'clock relay · 84.0 BPM · follows · show -0.4 ms now · rtt 3.2 ms · no minute of following yet');
+	assert.equal(clockLine(c, null), 'clock relay · 84.0 BPM · SHOW -0.4MS RTT 3.2MS · no minute of following yet');
 	assert.match(clockLine(c, { n: 2400, p50: 0.3, p95: 1.2, max: 4.8, mean: -0.1, seconds: 60 }), /last 60 s \|show\| p50 0\.3 · p95 1\.2 · max 4\.8 ms \(mean -0\.1, 2400 frames\)$/);
-	assert.match(clockLine(clockOf([0, 0, 84, 4, 1, 0, 1 | 4, 0, 0, 0, 0, 0, 0, 0, 0, 0]), null), /clock internal · 84\.0 BPM · LEADS/);
+	assert.equal(clockLine({ ...clockOf([0, 0, 84, 4, 1, 0, 1 | 4, 0, 0, 0, 0, 0, 0, 0, 0, 0]), line: 'LEADS' }, null), 'clock internal · 84.0 BPM · LEADS · no minute of following yet');
 });

@@ -49,11 +49,20 @@ function currentSkew(): number {
 	return status ? Atomics.load(status, 1) : skew;
 }
 
-/** #321: one clock frame; its state block to the page (a copy) */
+/** #321: the clock's line every this many frames (4 a second), posted when it changed */
+const CLOCK_LINE_EVERY = 10;
+let clockFrames = 0;
+let clockLine = '';
+
+/** #321: one clock frame; its state block to the page (a copy), the core's line when it changed */
 function clockFrame(): void {
 	if (!engine) return;
-	const state = engine.core.clockFrame(nowMs()).slice();
+	const now = nowMs();
+	const state = engine.core.clockFrame(now).slice();
 	post({ type: 'clock', state }, [state.buffer]);
+	if (++clockFrames % CLOCK_LINE_EVERY) return;
+	const line = engine.core.clockLine(now);
+	if (line !== clockLine) post({ type: 'clockLine', line: (clockLine = line) });
 }
 
 /** #356: the warm-up before the first sound (ms; 0 = not yet) – the first scene is played silently by a twin first */

@@ -146,6 +146,8 @@ export class LiveCore {
 	private readonly runs: { t: number; n: number }[] = [];
 	/** #321: the core's tempo clock as its last frame left it (null before the first) */
 	clock: ClockState | null = null;
+	/** #321: the core's clock line as the worker last posted it */
+	private clockLine = '';
 	/** #321: the show clock's error over the last minute (the sound report's line) */
 	readonly clockWindow = new ClockWindow();
 	private readonly clockListeners = new Set<(c: ClockState) => void>();
@@ -270,11 +272,16 @@ export class LiveCore {
 				break;
 			case 'clock': {
 				const c = clockOf(m.state);
+				c.line = this.clockLine;
 				this.clock = c;
 				this.clockWindow.add(performance.timeOrigin + performance.now(), c);
 				for (const cb of this.clockListeners) cb(c);
 				break;
 			}
+			case 'clockLine':
+				this.clockLine = m.line;
+				if (this.clock) this.clock.line = m.line;
+				break;
 			case 'error':
 				console.error('live-core:', m.error);
 				break;

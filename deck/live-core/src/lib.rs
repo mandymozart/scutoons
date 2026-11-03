@@ -12,8 +12,8 @@
 //! `lc_load(len) -> ±len`, `lc_apply(len) -> count | -len`, `lc_render(frames) -> ptr`, `lc_analyse(dt, lead) -> ptr`,
 //! `lc_signals() -> len`, `lc_signals_at() -> ptr`; the tempo clock (#321, clock.rs): `lc_clock_frame(now_ms) -> ptr`
 //! (the state block, `clock::STATE` f64), `lc_clock_stamp`, `lc_clock_pong`, `lc_clock_tempo`, `lc_clock_midi`,
-//! `lc_clock_joined`, `lc_clock_choose`, `lc_clock_key`. The control half steps inside the render (every 128-frame
-//! quantum) – there is no step export. A grown memory detaches the views – the host re-makes them (shared/live-core).
+//! `lc_clock_joined`, `lc_clock_choose`, `lc_clock_key`, `lc_clock_line(now_ms) -> len` (the line, in the outbox). The
+//! control half steps inside the render (every 128-frame quantum) – there is no step export. A grown memory detaches the views – the host re-makes them (shared/live-core).
 pub mod clock;
 pub mod core;
 pub mod signals;
@@ -199,6 +199,16 @@ pub extern "C" fn lc_signals_at() -> *const u8 {
 #[no_mangle]
 pub extern "C" fn lc_clock_frame(now_ms: f64) -> *const f64 {
     with(|h| h.clock.frame(now_ms).as_ptr())
+}
+
+/// The clock's line at the page's `now_ms` (deck-core `Controller::status`, the native HUD's text) → its length; the
+/// text is in the outbox ("" = nothing to say).
+#[no_mangle]
+pub extern "C" fn lc_clock_line(now_ms: f64) -> i32 {
+    with(|h| {
+        let line = h.clock.line(now_ms);
+        h.answer(Ok(line))
+    })
 }
 
 /// `getOutputTimestamp`: context second `context` heard at the page's `heard_ms`; `skew` = the worklet's context frame

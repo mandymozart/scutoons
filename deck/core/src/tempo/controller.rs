@@ -315,6 +315,23 @@ impl Controller {
         }
     }
 
+    /// the clock's state as one line – the native HUD's, the browser panel's and the sound report's, so they never
+    /// say it differently (owner 2026-11-03); "" = nothing to say (an own clock that runs). The native HUD puts its
+    /// sources' own I/O (Link peers, the OSC port, an error) in front of the empty case.
+    pub fn status(&self, now_ns: u64) -> String {
+        let show = self.show(now_ns);
+        let s = match self.source {
+            // the last tempo holds (owner 2026-11-03)
+            Source::Midi if show.midi_lost => format!("NO CLOCK - HOLDS {:.0}", self.map.bpm),
+            Source::Relay if !show.anchor => "NO SHOW CLOCK YET".into(),
+            Source::Relay if !show.locked => "SHOW CLOCK SYNCING".into(),
+            Source::Relay => format!("SHOW {:+.1}MS RTT {:.1}MS", show.error_ms, show.rtt_ms),
+            _ => String::new(),
+        };
+        let lead = if show.leading { " LEADS" } else { "" };
+        format!("{s}{lead}").trim().to_string()
+    }
+
     /// the relay's clock as this deck sees it
     pub fn filter(&self) -> &Filter {
         &self.filter

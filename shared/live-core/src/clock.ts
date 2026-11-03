@@ -40,6 +40,8 @@ export interface ClockState {
 	rttMs: number;
 	errorMs: number;
 	click: boolean;
+	/** deck-core's line for it (`Controller::status`, the native HUD's words; "" = nothing to say) – the host fills it */
+	line: string;
 }
 
 const LOCKED = 1;
@@ -68,7 +70,8 @@ export function clockOf(s: ArrayLike<number>): ClockState {
 		offsetMs: s[7],
 		rttMs: s[8],
 		errorMs: s[9],
-		click: s[15] !== 0
+		click: s[15] !== 0,
+		line: ''
 	};
 }
 

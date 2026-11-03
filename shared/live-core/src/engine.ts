@@ -34,6 +34,8 @@ export interface Exports {
 	lc_clock_joined(nowMs: number): void;
 	lc_clock_choose(source: number, lead: number): void;
 	lc_clock_key(key: number, atMs: number): void;
+	/** #321: the clock's line (deck-core `Controller::status`, the native HUD's text) into the outbox → its length */
+	lc_clock_line(nowMs: number): number;
 }
 
 /** #321: the clock's state block, f64 (deck/live-core clock.rs `STATE`) */
@@ -109,6 +111,11 @@ export class WasmCore {
 	/** #321: one clock frame at the page's `nowMs` → the state block (a view, valid until the next call into the core) */
 	clockFrame(nowMs: number): Float64Array {
 		return new Float64Array(this.x.memory.buffer, this.x.lc_clock_frame(nowMs), CLOCK_STATE);
+	}
+
+	/** #321: the clock's line at the page's `nowMs` – deck-core's words, the same the native HUD shows ("" = nothing to say) */
+	clockLine(nowMs: number): string {
+		return this.text(this.x.lc_clock_line(nowMs));
 	}
 
 	/** #321: something for the clock; `skew` = the worklet's (a stamp's context frame → the frames it played) */

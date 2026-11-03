@@ -26,18 +26,8 @@
 		['lead', 'LEAD'],
 		['midi', 'MIDI']
 	];
-	/** the clock's line: the tempo, then the source's state (the native HUD's words) */
-	const line = $derived.by(() => {
-		const c = clock;
-		if (!c) return '';
-		const bpm = `${c.bpm.toFixed(1)} BPM`;
-		if (c.source === 'midi' && c.midiLost) return `NO MIDI CLOCK - HOLDS ${c.bpm.toFixed(0)}${c.leading ? ' LEADS' : ''}`;
-		const lead = c.leading ? ` LEADS${c.locked ? '' : ' (SYNCING)'}` : '';
-		if (c.source !== 'relay') return `${bpm}${lead}`;
-		if (!c.anchor) return `${bpm} NO SHOW CLOCK YET`;
-		if (!c.locked) return `${bpm} SHOW CLOCK SYNCING`;
-		return `${bpm} SHOW ${c.errorMs >= 0 ? '+' : ''}${c.errorMs.toFixed(1)}MS RTT ${c.rttMs.toFixed(1)}MS`;
-	});
+	/** the clock's line: the tempo, then the source's state – deck-core's text, the one the native HUD shows */
+	const line = $derived(clock ? [`${clock.bpm.toFixed(1)} BPM`, clock.line].filter(Boolean).join(' ') : '');
 </script>
 
 <div class="clock" data-testid="deck-clock">

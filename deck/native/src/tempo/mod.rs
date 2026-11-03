@@ -197,23 +197,15 @@ impl Tempo {
             return e.chars().take(24).collect::<String>().to_uppercase();
         }
         let lead = if self.ctl.leading() { " LEADS" } else { "" };
-        let s = match self.ctl.source {
-            // the last tempo holds (owner 2026-11-03)
-            Source::Midi if self.ctl.midi_lost(now_ns()) => format!("NO CLOCK - HOLDS {:.0}", self.ctl.map().bpm),
-            Source::Midi => String::new(),
+        let io = match self.ctl.source {
             #[cfg(feature = "link")]
-            Source::Link => self.io.link.as_ref().map(|l| format!("{} PEERS", l.peers())).unwrap_or_default(),
+            Source::Link => self.io.link.as_ref().map(|l| format!("{} PEERS", l.peers())),
             #[cfg(feature = "osc")]
-            Source::Osc => self.io.osc.as_ref().map(|l| format!("PORT {}", l.addr.port())).unwrap_or_default(),
-            // a source whose module isn't built (its error above says so)
-            #[allow(unreachable_patterns)]
-            Source::Link | Source::Osc => String::new(),
-            Source::Relay if !self.ctl.has_anchor() => "NO SHOW CLOCK YET".into(),
-            Source::Relay if !self.ctl.show(now_ns()).locked => "SHOW CLOCK SYNCING".into(),
-            Source::Relay => format!("SHOW {:+.1}MS", self.ctl.show(now_ns()).error_ms),
-            Source::Internal => String::new(),
+            Source::Osc => self.io.osc.as_ref().map(|l| format!("PORT {}", l.addr.port())),
+            _ => None,
         };
-        format!("{s}{lead}").trim().to_string()
+        // the clock's own line is the core's – the browser deck shows the same (#321)
+        io.map(|s| format!("{s}{lead}").trim().to_string()).unwrap_or_else(|| self.ctl.status(now_ns()))
     }
 
     /// the MIDI clock out's port, if it runs

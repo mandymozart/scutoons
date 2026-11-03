@@ -68,6 +68,8 @@ test('#321: two browser decks on one anchor play the same beat (the show clock i
 		const s = clockOf(c.clockFrame(t0 + 3000));
 		assert.equal(s.source, 'relay', 'a scene without a tempo node follows the show clock');
 		assert.ok(s.locked && s.anchor, JSON.stringify(s));
+		// the line is deck-core's, the native HUD's words (owner 2026-11-03: one overlay, not two)
+		assert.match(c.clockLine(t0 + 3000), /^SHOW [+-]\d+\.\dMS RTT \d+\.\dMS$/);
 		return beatAt(s, t0 + 3000);
 	};
 	const a = await beatAtMs(777_000, 0, t0 + 900);

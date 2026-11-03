@@ -46,6 +46,8 @@ export type FromWorker =
 	| { type: 'stats'; stats: WorkerStats }
 	/** #321: the clock's state block (`clock.ts` STATE) after each clock frame */
 	| { type: 'clock'; state: Float64Array }
+	/** #321: the clock's line when it changed (at most every `CLOCK_LINE_EVERY` frames) */
+	| { type: 'clockLine'; line: string }
 	| { type: 'error'; error: string };
 
 /** #321: what the page hands the core's clock – every time on the page's ms (`performance.timeOrigin + now()`) */
