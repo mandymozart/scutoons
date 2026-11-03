@@ -22,7 +22,7 @@ path = "src/main.rs"
 default = ["space", "sync", "chapter", "live", "midi", "osc", "outputs", "events"]
 # the 3D space and the deck's being (#188): glTF rooms (meshopt, WebP), the orbit camera, the 3D buttons and their labels –
 # deck-space's (deck/space, #198), with its GPU passes and its loaders on threads
-space = ["deck-space/being", "deck-space/gpu", "deck-space/native", "dep:serde_json", "dep:ab_glyph", "image/webp"]
+space = ["deck-space/being", "deck-engine/space", "deck-space/gpu", "deck-space/native", "dep:serde_json", "dep:ab_glyph", "image/webp"]
 # the deck's sync (#195): what the scene needs – its sets' 3D, its beings' portraits – from the API (scene-content) into
 # the cache, only what is missing or changed, offline from the cache (sync.rs)
 # and the conductor's pushes (`scene.sync` → `deck.synced`, #195)
@@ -34,11 +34,11 @@ chapter = ["dep:ureq", "dep:serde_json", "dep:symphonia", "dep:ab_glyph", "image
 # the deck token (deck-link) and renders the outlet's cells natively (live/); slices and text come from `chapter`
 live = ["chapter", "dep:protocol", "dep:tungstenite", "dep:rustls"]
 # generators that talk in events (#236, deck-events): the `walk` node – a seeded melody as seq's cv
-events = ["dep:deck-events"]
+events = ["dep:deck-events", "deck-engine/events"]
 # rig modules (#280, research/RIG-EDITING.md §4): compiled wasm instruments (deck-module's SDK) run in wasmtime – the
 # scene's `module:<name>` kinds, loaded from DECK_MODULES (module_host.rs). A trap or a time-budget overrun silences that
 # node, never the show. Not in the default (wasmtime's compiler is a big dependency)
-modules = ["dep:deck-module-host", "dep:deck-module"]
+modules = ["dep:deck-module-host", "dep:deck-module", "deck-engine/modules"]
 # MIDI clock in and out (the tempo clock's `midi` source, the tempo node's `midi_out`)
 midi = ["dep:midir"]
 # the parameters as outputs (#211): the scene's [outputs] – MIDI out (a port, or the conductor over the relay), DMX
@@ -68,6 +68,8 @@ deck-core = { workspace = true, features = ["analysis", "tempo"] }
 # the scene model (graph, params, scene) and – with `space` – the 3D space itself (#198: shared with the browser)
 deck-space = { path = "../space", default-features = false }
 deck-events = { path = "../events", optional = true }
+# #317: the audio engine, the control domain and the FFT half – the universal core's; this crate keeps the device I/O
+deck-engine = { path = "../engine" }
 # #280: the module host (feature `modules`) – the wasm engine, the SDK's descriptor + ABI layout, the compile cache's key
 deck-module-host = { path = "../module-host", optional = true }
 deck-module = { path = "../module", features = ["host"], optional = true }
@@ -83,7 +85,6 @@ pollster = "0.4"
 bytemuck = { version = "1", features = ["derive"] }
 font8x8 = { version = "0.3", default-features = false, features = ["unicode"] }
 cpal = "0.15"
-fundsp = { version = "0.20", default-features = false, features = ["std"] }
 rtrb = "0.3"
 symphonia = { version = "0.5", default-features = false, features = ["mp3", "wav", "pcm"], optional = true }
 ureq = { version = "2", optional = true }

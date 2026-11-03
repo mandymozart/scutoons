@@ -3,8 +3,8 @@
 //! clock runs and the click is on (the tempo node's `click`, the K key). Params: `freq` (1000 Hz), `accent` (1500 Hz),
 //! `decay` (0.03 s); the `gain` input.
 use super::{Block, Param, Stereo};
-use crate::graph::Node;
-use crate::tempo::BeatReader;
+use deck_space::graph::Node;
+use deck_core::tempo::BeatReader;
 
 pub struct Click {
     beats: BeatReader,
@@ -22,7 +22,7 @@ pub struct Click {
 
 impl Click {
     pub fn new(node: &Node, rate: f32, gain: Param, beats: BeatReader) -> Click {
-        let decay = (-1.0 / (node.f32("decay", 0.03).max(1e-3) * rate)).exp();
+        let decay = libm::expf(-1.0 / (node.f32("decay", 0.03).max(1e-3) * rate));
         Click {
             beats,
             gain,
@@ -64,7 +64,7 @@ impl Block for Click {
                 self.last = Some(k); // the beat went back (a phase set): no tick, go on from here
             }
             let v = if self.level > 1e-4 {
-                let v = (self.phase * std::f32::consts::TAU).sin() * self.level * gain;
+                let v = libm::sinf(self.phase * std::f32::consts::TAU) * self.level * gain;
                 self.phase = (self.phase + self.inc).fract();
                 self.level *= self.decay;
                 v
@@ -79,9 +79,9 @@ impl Block for Click {
 
 #[cfg(test)]
 mod tests {
-    use crate::audio::Engine;
-    use crate::graph::Graph;
-    use crate::scene::Scene;
+    use crate::Engine;
+    use deck_space::graph::Graph;
+    use deck_space::scene::Scene;
 
     const SCENE: &str = "[[node]]\nid=\"t\"\nkind=\"tempo\"\nbpm=120\nbeats=4\nclick=true\n\
                          [[node]]\nid=\"c\"\nkind=\"click\"\ngain=0.5\n\

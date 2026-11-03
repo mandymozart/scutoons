@@ -27,7 +27,7 @@ impl Glide {
         if offset >= self.frames || self.from <= 0.0 || self.to <= 0.0 {
             return self.to;
         }
-        self.from * (self.to / self.from).powf(offset as f32 / self.frames as f32)
+        self.from * libm::powf(self.to / self.from, offset as f32 / self.frames as f32)
     }
 
     /// Whether `offset` is still inside the glide.

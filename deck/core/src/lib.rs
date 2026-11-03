@@ -13,6 +13,7 @@
 //! Platform-free on purpose: the same code runs in deck/native (native) and in a Web Worker (wasm32, deck/lab).
 
 pub mod batch;
+pub mod dsp;
 pub mod graph;
 pub mod lanes;
 pub mod limiter;

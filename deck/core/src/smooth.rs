@@ -34,7 +34,7 @@ impl Ramp {
         if n == 0 || !target.is_finite() {
             return (from, 0.0);
         }
-        let k = 1.0 - (-(n as f32) * self.per).exp();
+        let k = 1.0 - libm::expf(-(n as f32) * self.per);
         let mut to = from + (target - from) * k;
         if (to - target).abs() <= 1e-6 * (1.0 + target.abs()) || !to.is_finite() {
             to = target;

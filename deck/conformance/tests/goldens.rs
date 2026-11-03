@@ -1,21 +1,18 @@
-//! The native deck's current renders as hashes (`fixtures/native-hashes.json`) – the guard for the engine move (plan P4):
-//! when the stage's audio runs on the shared engine, every hash here must still be the same (or the change is a decision).
-//! One hash per kind scene and block pattern, over the left channel after master and limiter, 2 s at 48 kHz; the stereo
-//! lab scene too. `UPDATE_GOLDENS=1 cargo test -p deck-conformance --test goldens` rewrites the file.
+//! The engine's renders as hashes (`fixtures/native-hashes.json`) – the guard for every engine change (recorded with
+//! the native deck's engine before the move of #317, P4: the move kept them, bit for bit; the rewrite of the six fundsp
+//! units and the true `fm` re-recorded exactly their scenes). One hash per kind scene and block pattern, over the left
+//! channel after master and limiter, 2 s at 48 kHz; the stereo scene too. `UPDATE_GOLDENS=1 cargo test -p deck-conformance --test goldens` rewrites the file.
 //!
-//! Recorded on Windows x86-64. The sine / fm batches use deck-core's libm-free maths; the fundsp blocks (saw, square,
-//! triangle, noise, filters) and the envelope coefficients use the platform's `exp` / `sin` and may differ by an ulp on
-//! another OS or CPU – a mismatch there is to be read before the fixture is re-recorded, not re-recorded blindly.
+//! Recorded on Windows x86-64. A mismatch is to be read before the fixture is re-recorded, not re-recorded blindly.
 mod common;
 use common::*;
-use deck_engine_lab::STEREO_TOML;
 use deck_native::audio::Build;
 use std::collections::BTreeMap;
 
 fn current() -> BTreeMap<String, String> {
     let mut map = BTreeMap::new();
     let mut scenes: Vec<(&str, &str)> = CASES.iter().map(|c| (c.name, c.toml)).collect();
-    scenes.push(("stereo scene (lab)", STEREO_TOML));
+    scenes.push(("stereo scene", STEREO_TOML));
     for (name, toml) in scenes {
         for &block in &[128usize, 1024] {
             let detect = stage_render(toml, block, FRAMES, Build::detect());
@@ -33,7 +30,8 @@ fn the_native_deck_renders_what_the_fixture_says() {
     let path = fixture_path("native-hashes.json");
     if std::env::var_os("UPDATE_GOLDENS").is_some() {
         let doc = serde_json::json!({
-            "about": "FNV-1a 64 over the f32 bits of the stage Engine's left channel (2 s, 48 kHz, master + limiter), per kind scene and block size. #309, deck/conformance/tests/goldens.rs",
+            "about": "FNV-1a 64 over the f32 bits of deck-engine's left channel (2 s, 48 kHz, master + limiter), per kind scene and block size. #309, deck/conformance/tests/goldens.rs",
+            "re_recorded": "#317 (the engine move): the move itself kept every hash; re-recorded were osc saw / square / triangle and noise white / pink (fundsp's six units became deck-core's dsp units), fm, walk -> fm.cv and the stereo scene (true FM, no abs() fold: index x ratio > 1), seq -> osc.cv, click and walk -> fm.cv (std powf / sin / exp became libm: native == wasm bit for bit). lfo sine / saw at the 1024 pattern (the fixed 128-frame quantum: the ramp that glides a changed param spans 128 frames, not 1024; their 128 hashes are unchanged). Unchanged since #309: osc sine, mixer, fft tap and lfo at 128.",
             "recorded_on": "windows x86-64",
             "hashes": now,
         });

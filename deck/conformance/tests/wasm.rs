@@ -1,7 +1,6 @@
-//! (b) live-core native vs `live_core.wasm` run in wasmtime, (c) the lab spike (the stage's voice batches lifted to
-//! wasm32 + simd128: size, speed in V8 against BatchGraph), (d) the lab's wasm half: today's stereo scene and the
-//! 8-channel routing graph native ≡ wasm32 + simd128, bit for bit.
-//! The wasm files are built here (cargo, into `deck/target/conformance-wasm*`), once per source change.
+//! (b) live-core native vs `live_core.wasm` run in wasmtime, and (the engine move, #317) deck-engine itself: every kind's
+//! scene native ≡ wasm32 ≡ wasm32 + simd128, bit for bit, for the block patterns 128 / 37 / 1024 – the determinism bar of
+//! plan 3.4. The wasm files are built here (cargo, into `deck/target/conformance-wasm*`), once per source change.
 mod common;
 use common::*;
 use std::path::PathBuf;
@@ -113,52 +112,46 @@ fn live_core_native_vs_wasm() {
     println!("{md}");
 }
 
-/// The lab's output natively and in wasm32 (+simd128), per scenario: the hashes and whether they are equal.
+/// deck-engine in wasmtime: the scene through `ew_run`.
+fn engine_wasm_render(w: &mut Wasm, toml: &str, block: usize, frames: usize, batch: bool) -> Vec<f32> {
+    let inbox = w.f::<u32, u32>("ew_inbox");
+    let run = w.f::<(f32, u32, u32, u32), u32>("ew_run");
+    let out = w.f::<(), u32>("ew_out");
+    let ptr = inbox.call(&mut w.store, toml.len() as u32).unwrap();
+    w.write(ptr, toml.as_bytes());
+    let n = run.call(&mut w.store, (RATE, block as u32, frames as u32, u32::from(batch))).unwrap() as usize;
+    assert_eq!(n, frames, "the engine in wasm renders the scene");
+    let ptr = out.call(&mut w.store, ()).unwrap();
+    w.read_f32(ptr, n)
+}
+
+/// The determinism bar (plan 3.4, owner: native ≡ wasm bit for bit): every kind of the suite, the stereo scene too,
+/// rendered by deck-engine natively and as wasm32 (plain and +simd128) in wasmtime – the same f32 bits. Also the
+/// patcher build (scalar blocks) against the batches in wasm. The report goes to `deck/target/conformance/wasm-engine.md`.
 #[test]
-fn lab_native_vs_wasm_simd() {
-    use deck_engine_lab::{scenario_run, Exp};
-    let start = fundsp::math::rnd1(0) as f32;
-    let simd = build_wasm("deck-engine-lab", "deck_engine_lab.wasm", true);
-    let mut w = Wasm::load(&simd);
-    let run = w.f::<(u32, u32, u32, f32, u32), u32>("lab_run");
-    let out = w.f::<(), u32>("lab_out");
-    let mut md = String::from("| scenario | block | exp | native ≡ wasm32 + simd128 | first differing sample | max abs |\n|---|---|---|---|---|---|\n");
-    let names = ["stereo scene (4 voices, mixer, out, limiter)", "8-channel routing graph", "saw PolyBLEP", "saw wavetable"];
-    for (sc, name) in names.iter().enumerate() {
-        for &block in &[128usize, 37, 1024] {
-            for (exp, label) in [(Exp::Std, "std"), (Exp::Libm, "libm")] {
-                let frames = FRAMES;
-                let native = scenario_run(sc as u32, frames, block, start, exp);
-                let len = run.call(&mut w.store, (sc as u32, frames as u32, block as u32, start, u32::from(exp == Exp::Libm))).unwrap() as usize;
-                let ptr = out.call(&mut w.store, ()).unwrap();
-                let wasm = w.read_f32(ptr, len);
-                assert_eq!(native.len(), wasm.len(), "{name}");
-                let d = diff(&native, &wasm);
-                md.push_str(&format!("| {name} | {block} | {label} | {} | {} | {:.3e} |\n", if d.exact { "yes" } else { "NO" }, d.first.map_or("–".into(), |f| f.to_string()), d.max_abs));
+fn engine_native_vs_wasm() {
+    let plain = build_wasm("deck-engine-wasm", "deck_engine_wasm.wasm", false);
+    let simd = build_wasm("deck-engine-wasm", "deck_engine_wasm.wasm", true);
+    let (mut wp, mut ws) = (Wasm::load(&plain), Wasm::load(&simd));
+    let mut md = String::from("| scene | block | native ≡ wasm32 | native ≡ wasm32 + simd128 | patcher ≡ batch in wasm32 + simd128 | first differing sample |\n|---|---|---|---|---|---|\n");
+    let mut scenes: Vec<(&str, &str)> = CASES.iter().map(|c| (c.name, c.toml)).collect();
+    scenes.push(("stereo scene", STEREO_TOML));
+    let mut wrong = Vec::new();
+    for (name, toml) in scenes {
+        for &block in &PATTERNS {
+            let native = deck_engine_wasm::run(toml, RATE, block, FRAMES, deck_engine::Build::detect()).expect("native renders");
+            let a = engine_wasm_render(&mut wp, toml, block, FRAMES, true);
+            let b = engine_wasm_render(&mut ws, toml, block, FRAMES, true);
+            let patcher = engine_wasm_render(&mut ws, toml, block, FRAMES, false);
+            let (da, db, dp) = (diff(&native, &a), diff(&native, &b), diff(&b, &patcher));
+            let yes = |d: &Diff| if d.exact { "yes" } else { "NO" };
+            md.push_str(&format!("| {name} | {block} | {} | {} | {} | {} |\n", yes(&da), yes(&db), yes(&dp), da.first.or(db.first).map_or("–".into(), |f| f.to_string())));
+            if !(da.exact && db.exact) {
+                wrong.push(format!("{name}/{block}: wasm32 {:?}, simd128 {:?}", da.first, db.first));
             }
         }
     }
-    std::fs::write(report_path("wasm-lab.md"), &md).unwrap();
+    std::fs::write(report_path("wasm-engine.md"), &md).unwrap();
     println!("{md}");
-}
-
-/// (c) the spike's size and speed: the lab (wasm32 + simd128) against live-core's BatchGraph (with and without simd128),
-/// FM16 × 128 frames in node (V8). Needs node; skipped (with a note) without.
-#[test]
-fn spike_size_and_speed_in_v8() {
-    let lab = build_wasm("deck-engine-lab", "deck_engine_lab.wasm", true);
-    let core = build_wasm("live-core", "live_core.wasm", true);
-    let base = build_wasm("live-core", "live_core.wasm", false);
-    let script = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("js").join("bench.mjs");
-    let out = match Command::new("node").arg(&script).arg(&lab).arg(&core).arg(&base).output() {
-        Ok(o) => o,
-        Err(e) => {
-            println!("node is not available ({e}): the spike's V8 numbers are skipped");
-            return;
-        }
-    };
-    assert!(out.status.success(), "bench.mjs failed:\n{}", String::from_utf8_lossy(&out.stderr));
-    let text = String::from_utf8_lossy(&out.stdout).to_string();
-    std::fs::write(report_path("spike.json"), &text).unwrap();
-    println!("{text}");
+    assert!(wrong.is_empty(), "native and wasm renders differ:\n{}", wrong.join("\n"));
 }

@@ -1,0 +1,38 @@
+# deck-engine – THE audio engine of the universal core (research/ENGINE-REFACTOR-PLAN.md §2.1, #317 = P4): the graph build,
+# the dependency-level steps over a stereo buffer pool, the `F8` voice batches, every audio kind, the control domain, the
+# in-block event host, the module node, the analysis half. It was the native deck's (deck/native/src/audio); the native
+# deck keeps only device I/O (backend, ring, lead, priority, glitch monitor) and thin adapters around this crate.
+# Platform-free on purpose: no threads, no device, no files, no clock – it builds for native and for wasm32 (+simd128),
+# and the same graph renders the same bits on both (the determinism bar, plan §3.4). The seams a platform fills are
+# values passed in: the block's stamp (`Engine::mark`), the PCM feed of `chapter_music` (`MusicFeed`), the beat reader
+# (deck-core's tempo `Shared`), the module runtime (`ModuleSource`, feature `modules`).
+[package]
+name = "deck-engine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+default = []
+# deck-events inside the engine: the `walk` / `events` hosts, the sequencer's windows, the dispatcher's routing tables
+events = ["dep:deck-events"]
+# rig modules as audio nodes (`module:<name>`): the module host's `Instance` behind the `ModuleSource` seam
+modules = ["dep:deck-module-host"]
+# the control domain as deck-space's `Knobs` (the 3D space reads the knobs through it)
+space = ["deck-space/being"]
+
+[dependencies]
+deck-core = { workspace = true, features = ["analysis", "tempo"] }
+deck-space = { path = "../space", default-features = false }
+deck-events = { path = "../events", optional = true }
+deck-module-host = { path = "../module-host", default-features = false, optional = true }
+anyhow.workspace = true
+toml.workspace = true
+rtrb = "0.3"
+# transcendentals on the engine's paths (plan 3.4): the same bits native and wasm
+libm = "0.2"
+
+[dev-dependencies]
+rustfft = { version = "6", default-features = false }

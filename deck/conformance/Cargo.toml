@@ -1,7 +1,8 @@
-# deck-conformance – dev only (#309, P0 of agents/research/ENGINE-REFACTOR-PLAN.md): EVIDENCE about how far the native deck's
-# audio engine (deck/native/src/audio) and the browser's (live-core's BatchGraph behind deck-space's `lower()`) differ per
-# node kind, whether live-core is bit-exact native vs wasm, and whether the plan's engine base holds (engine-lab/). The
-# tests print the report tables; fixtures/ holds the native deck's renders as hashes (the guard of the engine move).
+# deck-conformance – dev only (#309, P0 of agents/research/ENGINE-REFACTOR-PLAN.md; #317 moved the engine): EVIDENCE about how
+# far the engine (deck-engine, driven as the native deck drives it) and the browser's (live-core's BatchGraph behind
+# deck-space's `lower()`) differ per node kind, whether live-core and deck-engine are bit-exact native vs wasm
+# (engine-wasm/ is deck-engine behind raw exports). The tests print the report tables; fixtures/ holds the engine's renders
+# as hashes (the guard of every engine change).
 [package]
 name = "deck-conformance"
 version.workspace = true
@@ -17,9 +18,8 @@ deck-native = { path = "../native" }
 deck-space = { path = "../space", default-features = false }
 deck-core = { workspace = true, features = ["analysis"] }
 live-core = { path = "../live-core" }
-deck-engine-lab = { path = "engine-lab" }
-fundsp = { version = "0.20", default-features = false, features = ["std"] }
-rustfft = { version = "6", default-features = false }
+deck-engine-wasm = { path = "engine-wasm" }
+deck-engine = { path = "../engine", features = ["events"] }
 wasmtime = { version = "38", default-features = false, features = ["cranelift", "runtime", "std"] }
 serde_json.workspace = true
 toml.workspace = true

@@ -483,16 +483,19 @@ with the token, ready, the cell, resume, the snapshot after a restart). Not yet:
   thread per `chapter_music` node.
 - **The graph runs on the batch model** (#183 – the engine model of ECS systems, TouchDesigner's channels, gen~, over
   the patcher's one object per node): compiled at load into dependency levels × kinds, struct-of-arrays loops.
-  **Control** (`src/control.rs`): one value slot per control output, every control input a column (deck-core's `Col`:
-  the linked slot × scale + offset, or the param as a constant), the LFOs one batch per level and shape. **Audio**
-  (`src/audio/`): levels by the audio links; a level's sine oscillators and FM voices run as one batch each
-  (`voices.rs`: groups of eight voices in deck-core's `F8` lanes, the group's state in registers for the block),
-  every other node as a block of its own (`blocks.rs`, the patcher model for one-off nodes: saw / square / triangle
-  oscillators, noise and the lowpass on fundsp; sequencer, click, player with linear resampling, mixer, FFT tap,
-  output). One preallocated stereo buffer per output port, blocks of ≤ 1024 frames. `Build::patcher()` runs every node
-  as a block (the stage before #183) – the reference the tests compare with: two seconds of the same scene agree
-  within 2e-7 (sines), 1e-5 (the default scene), 2e-4 (16 FM voices at index 4.5 – FM multiplies deck-core's sine
-  error by the modulation). Control values reach the callback as atomics (`Param`), tracks through a lock-free ring
+  **The engine is deck-engine's** (`deck/engine`, #317 – the universal core's crate, native and wasm; this crate keeps
+  the device I/O around it: `src/audio/` = backend, ring, lead, priority, glitch, the sequencer's and the dispatcher's
+  threads, the module library as its `ModuleSource`). **Control** (`engine/src/control.rs`): one value slot per control
+  output, every control input a column (deck-core's `Col`: the linked slot × scale + offset, or the param as a
+  constant), the LFOs one batch per level and shape. **Audio** (`engine/src/`): levels by the audio links; a level's
+  sine oscillators and FM voices run as one batch each (`voices.rs`: groups of eight voices in deck-core's `F8` lanes,
+  the group's state in registers for the block; `fm` is true frequency modulation), every other node as a block of its
+  own (`blocks.rs`, the patcher model for one-off nodes: saw / square / triangle on deck-core's mip-mapped wavetables,
+  noise on seeded xorshift / Kellet pink and the lowpass on a state-variable filter – `core/src/dsp.rs`, no fundsp;
+  sequencer, click, player with linear resampling, mixer, FFT tap, output). One preallocated stereo buffer of 128 frames
+  per output port; the engine renders whole 128-frame quanta whatever the device asks for. `Build::patcher()` runs every
+  node as a block (the engine before #183) – the reference the tests compare with: the batches agree with it bit for
+  bit. Control values reach the callback as atomics (`Param`), tracks through a lock-free ring
   (rtrb), the FFT's samples leave through another. **No zipper** (#188): every control input glides across its
   block – deck-core's `smooth::Ramp`, a one-pole per block spread linearly per sample (gains, frequencies 25 ms, the
   rest 12 ms), the same in the voices, the blocks and the browser's batch. **The soft limiter** (deck-core's
@@ -500,8 +503,9 @@ with the token, ready, the cell, resume, the snapshot after a restart). Not yet:
   accounts for it), held to −1 dBFS, a tanh bend above 0.95 – never 1; its gain reduction goes to the HUD (`LIM 3`), the device's
   underruns (a block heard later than the last one's end, `Engine::mark`) into the glitch indicator ("Audio –
   live-safe"). `examples/render-wav.rs` renders 10 s of the cathedral with a hand on the knobs into a WAV and prints the
-  largest sample step (2026-10-31: 0.142 → 0.060, second difference 0.145 → 0.015). `tests/no_alloc.rs` counts
-  allocations around 2000 callbacks of the default scene (the click on, the tempo changing), AVX2 and baseline: zero.
+  largest sample step (2026-10-31: 0.142 → 0.060, second difference 0.145 → 0.015). deck-engine's `tests/no_alloc.rs` counts
+  allocations around 2000 callbacks of the default scene (the click on, the tempo changing), AVX2 and baseline: zero;
+  this crate's keeps the ring, the sequencer and dispatcher path and the being.
   Each block is stamped with the moment it is heard – the time base (`src/clock.rs`).
 - **x86-64-v3** (owner 2026-10-30): one baseline x86-64 binary; the voice batches' loops are compiled twice (once with
   `#[target_feature(avx2, fma)]`) and picked at start by CPU detection, bit-identical results – the start log says
@@ -571,8 +575,7 @@ with the token, ready, the cell, resume, the snapshot after a restart). Not yet:
   one (the next slice is always ready, at most two in memory); the renderer uploads it at the cut. A pass reads up to
   three textures (bindings 1, 3, 4: `in`, the current / previous slice or an overlay's `top`).
 
-Dependencies are pinned to the APIs this was written against (wgpu 25, winit 0.30, cpal 0.15, pipewire 0.10 (0.8's libspa no longer builds against Arch's PipeWire headers), fundsp
-0.20, symphonia 0.5, ureq 2, image 0.25, ab_glyph 0.2, resvg 0.45); `Cargo.lock` points gpu-allocator at windows 0.58 (cpal 0.15 pulls 0.54, which breaks
+Dependencies are pinned to the APIs this was written against (wgpu 25, winit 0.30, cpal 0.15, pipewire 0.10 (0.8's libspa no longer builds against Arch's PipeWire headers), symphonia 0.5, ureq 2, image 0.25, ab_glyph 0.2, resvg 0.45); `Cargo.lock` points gpu-allocator at windows 0.58 (cpal 0.15 pulls 0.54, which breaks
 wgpu-hal's DX12 build on Windows). A bump is its own step.
 
 ## Measured

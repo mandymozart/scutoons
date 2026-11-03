@@ -28,7 +28,7 @@ impl RandomWalk {
     /// step k's pitch
     pub fn pitch_at(&self, k: i64) -> f32 {
         let r = unit(self.seed, k) as f32 * 2.0 - 1.0;
-        self.base_hz * 2f32.powf(r * self.spread.clamp(0.0, 1.0) * self.octaves)
+        self.base_hz * libm::powf(2.0, r * self.spread.clamp(0.0, 1.0) * self.octaves)
     }
 }
 

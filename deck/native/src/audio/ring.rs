@@ -20,6 +20,8 @@ use std::time::Duration;
 
 /// frames per render-thread block (and one lead step)
 pub const BLOCK: usize = 256;
+// the render thread hands the engine whole quanta
+const _: () = assert!(BLOCK % deck_engine::QUANTUM == 0);
 /// the lead's range (frames): one block (5.3 ms at 48 kHz) up to 16 (85 ms)
 pub const LEAD_MIN: u32 = BLOCK as u32;
 pub const LEAD_CAP: u32 = 16 * BLOCK as u32;

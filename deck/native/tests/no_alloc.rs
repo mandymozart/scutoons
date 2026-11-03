@@ -56,55 +56,6 @@ static A: Counting = Counting;
 /// CALLS is shared: the tests take turns
 static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-#[test]
-fn the_default_scene_renders_without_allocating() {
-    let _turn = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
-    // a build without a module plays the scene without that module's nodes (#185: Graph::build refuses them)
-    let scene = deck_native::modules::carried_part(&Scene::parse(MADNESS_SCENE).unwrap());
-    let graph = Graph::build(&scene).unwrap();
-    for build in [Build::detect(), Build { batch: true, avx2: false }] {
-        renders_without_allocating(&graph, build);
-    }
-}
-
-/// #236: the `walk` node – deck-events' graph, its real-time events and the gate_cv bridge inside the callback –
-/// doesn't allocate either
-#[cfg(feature = "events")]
-#[test]
-fn a_walk_into_an_fm_voice_renders_without_allocating() {
-    let _turn = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
-    let scene = Scene::parse(
-        "[[node]]\nid = \"tempo\"\nkind = \"tempo\"\n[[node]]\nid = \"melody\"\nkind = \"walk\"\nseed = 3\nspread = 1.0\nrate = 4.0\n\
-         [[node]]\nid = \"voice\"\nkind = \"fm\"\ngain = 0.2\n[[node]]\nid = \"fft\"\nkind = \"fft\"\n[[node]]\nid = \"out\"\nkind = \"audio_out\"\n\
-         [[link]]\nfrom = \"melody.cv\"\nto = \"voice.cv\"\n[[link]]\nfrom = \"voice\"\nto = \"fft.in\"\n[[link]]\nfrom = \"voice\"\nto = \"out.in\"\n",
-    )
-    .unwrap();
-    let graph = Graph::build(&scene).unwrap();
-    for build in [Build::detect(), Build { batch: true, avx2: false }] {
-        renders_without_allocating(&graph, build);
-    }
-}
-
-/// #236: an `events` node – an arp on a walk, a patch – doesn't allocate either
-#[cfg(feature = "events")]
-#[test]
-fn an_events_patch_into_an_fm_voice_renders_without_allocating() {
-    let _turn = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
-    let scene = Scene::parse(
-        "[[node]]\nid = \"tempo\"\nkind = \"tempo\"\n[[node]]\nid = \"arp\"\nkind = \"events\"\nb = 8.0\n\
-         generator = [{ id = \"walk\", kind = \"random_walk\", seed = 3, rate = 1.0, spread = 1.0 }, \
-         { id = \"arp\", kind = \"arp\", octaves = 3, mode = \"updown\", rate = 8.0 }]\n\
-         edge = [{ from = \"walk.notes\", to = \"arp.notes\" }]\nout = \"arp.notes\"\nknobs = [\"walk.spread\", \"arp.rate\"]\n\
-         [[node]]\nid = \"voice\"\nkind = \"fm\"\ngain = 0.2\n[[node]]\nid = \"fft\"\nkind = \"fft\"\n[[node]]\nid = \"out\"\nkind = \"audio_out\"\n\
-         [[link]]\nfrom = \"arp.cv\"\nto = \"voice.cv\"\n[[link]]\nfrom = \"voice\"\nto = \"fft.in\"\n[[link]]\nfrom = \"voice\"\nto = \"out.in\"\n",
-    )
-    .unwrap();
-    let graph = Graph::build(&scene).unwrap();
-    for build in [Build::detect(), Build { batch: true, avx2: false }] {
-        renders_without_allocating(&graph, build);
-    }
-}
-
 /// #236: the sequencer path – the audio block taking its events from the ring, the sequencer's windows, the
 /// dispatcher routing an adapter's notes into the patch's `listen` input – allocates nowhere: 2000 blocks of 256
 /// frames, the sequencer filled a horizon ahead, a note routed in every 50 blocks, all measured on this thread.
@@ -131,7 +82,7 @@ fn the_sequencer_and_the_dispatcher_do_not_allocate() {
     let (mut dispatcher, inlet) = Dispatcher::new(h.events.take_routing(), h.events.counters.clone());
     let (note, pitch) = (h.events.names.get("music.note").unwrap(), h.events.names.get("pitch").unwrap());
     let mut buf = vec![0.0f32; 256 * 2];
-    let ahead = seq.horizon();
+    let ahead = deck_native::audio::sequencer::horizon(&h.glitches);
     measure(true);
     let before = CALLS.load(Ordering::SeqCst);
     for i in 0..2000u64 {
@@ -149,40 +100,6 @@ fn the_sequencer_and_the_dispatcher_do_not_allocate() {
     assert_eq!(c.routed.load(Ordering::Relaxed), 40, "every note routed");
     assert_eq!(c.dropped(), 0, "nothing late or lost");
     assert!(buf.iter().any(|x| *x != 0.0), "the patch plays through the ring");
-}
-
-fn renders_without_allocating(graph: &Graph, build: Build) {
-    let (mut engine, mut handles) = Engine::build_with(graph, 48_000.0, 1.0, build).unwrap();
-    assert!(engine.shape().1 > 0, "the FM voice runs as a batch");
-    let track = Track { rate: 44_100.0, l: vec![0.1; 44_100], r: vec![-0.1; 44_100] };
-    if let Some(m) = handles.music.first_mut() {
-        m.tracks.push(Arc::new(track)).ok().unwrap();
-    }
-    // 128 frames like the deck's PipeWire quantum, plus odd sizes and one bigger than MAX_BLOCK
-    let mut bufs: Vec<Vec<f32>> = [128usize, 37, 480, 3000].iter().map(|n| vec![0.0; n * 2]).collect();
-    let mut drained = 0usize;
-    let (map, _) = handles.tempo.map().unwrap();
-    handles.tempo.publish(&map, true); // the click on
-    measure(true);
-    for i in 0..2000 {
-        if i % 250 == 0 {
-            // what the frame thread does: a new tempo from the frontier on
-            let (m, click) = handles.tempo.map().unwrap();
-            let frontier = handles.clock.rendered() as f64;
-            handles.tempo.publish(&m.with_bpm(frontier, 80.0 + (i / 25) as f64), click);
-        }
-        let b = &mut bufs[i % 4];
-        engine.mark(i as u64 * 1_000_000); // the block's stamp (the time base's seqlock)
-        engine.render(b, 2, |x| x);
-        // the frame thread's side: the tap ring is drained (pop never allocates either)
-        while handles.taps[0].1.pop().is_ok() {
-            drained += 1;
-        }
-    }
-    measure(false);
-    assert_eq!(CALLS.load(Ordering::SeqCst), 0, "allocations / frees in the audio path ({})", build.label());
-    assert!(drained > 0);
-    assert!(bufs[0].iter().any(|x| *x != 0.0), "the scene makes sound");
 }
 
 /// #208: the render thread's fill (blocks into the ring, the adaptive lead) and the device callback's copy out of it

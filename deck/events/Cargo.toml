@@ -11,6 +11,8 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+# pitch maths with the same bits native and wasm (plan 3.4)
+libm = "0.2"
 deck-core = { workspace = true, features = ["tempo"] }
 # patch.rs: a patch (generators, edges, the output, the knobs) read from a node's TOML / a rig's JSON
 serde = { workspace = true }

@@ -17,8 +17,8 @@
 use super::dispatch::{Counters, Events};
 use super::sequencer::{Timed, SEQ_RING};
 use super::{Block, Param, Sequencing, Stereo};
-use crate::graph::Node;
-use crate::tempo::BeatReader;
+use deck_space::graph::Node;
+use deck_core::tempo::BeatReader;
 use anyhow::{anyhow, Result};
 use deck_core::tempo::TempoMap;
 use deck_events::bridge::GateCv;

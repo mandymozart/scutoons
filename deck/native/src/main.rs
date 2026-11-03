@@ -550,7 +550,7 @@ impl Show {
         let glitch_log = handles.as_mut().and_then(|h| h.glitch_log.take());
         // #236: the hosts' generators on the sequencer thread, the dispatcher – before the first callback needs them
         #[cfg(feature = "events")]
-        let events = match handles.as_mut().map(|h| h.events.start()).transpose() {
+        let events = match handles.as_mut().map(|h| h.start_events()).transpose() {
             Ok(r) => r.flatten(),
             Err(e) => {
                 tracing::warn!("events: no thread ({e}) – the generators stay silent");
@@ -606,7 +606,7 @@ impl Show {
         let audio_build = handles.as_ref().map_or("", |h| h.build.label());
         let clock = handles.as_ref().map(|h| h.clock.clone());
         let timebase = clock.as_ref().map(|c| clock::TimeBase::new(c.rate));
-        let controls = control::Controls::new(&graph, handles.as_mut());
+        let controls = control::Controls::new(&graph, handles.as_mut().map(|h| h.core_mut()));
         // the tempo clock: the engine's shared map (or its own without audio)
         let rate = clock.as_ref().map_or(48_000.0, |c| c.rate as f64);
         let shared = handles.as_ref().map(|h| h.tempo.clone()).unwrap_or_default();

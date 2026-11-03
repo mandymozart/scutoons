@@ -1,5 +1,5 @@
 //! Sound → control values (the FFT node's frame-thread half): the audio callback pushes the mono sum into a ring
-//! (audio/blocks.rs FftTap), the analyzer drains it every frame into deck-core's `analysis::Analyzer` (#185), which
+//! (blocks.rs FftTap), the analyzer drains it every frame into deck-core's `analysis::Analyzer` (#185), which
 //! turns the newest window into level / bass / mid / high in 0–1 (dB-scaled; a fast rise and a `release` in seconds).
 //! The window ends at the heard moment, not at the newest sample: the callback renders ahead of the speaker by the
 //! output latency + a block (`lead`, from the time base), so the analyzer keeps that much more history and looks back

@@ -8,10 +8,12 @@
 //   npm run deck:ci -- --if-changed <from> <to>   only when deck/ or shared/live* changed in that range (the pre-push hook)
 //
 // Steps: the protocol schema current (shared/live), the kind catalog's generated files current (deck-space's deck-schema
-// --check: kinds.json, NodeKinds.php, the JSON Schema, shared/live/src/catalog.ts), live-core for wasm32 + its TS tests, space-web for wasm32 +
+// --check: kinds.json, NodeKinds.php, the JSON Schema, shared/live/src/catalog.ts), live-core for wasm32 + its TS tests, deck-engine for wasm32 + simd128 (its gz size under the gate), space-web for wasm32 +
 // shared/live-deck's tests, cargo build --release, cargo test (+ the stage's module tests), cargo clippy -D warnings (+ with the module feature). The Linux aarch64 cross build
 // and the other platforms stay on GitHub (by hand) – this runs the host's native target.
 import { execFileSync, spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { gzipSync } from 'node:zlib';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -38,6 +40,15 @@ if (changed >= 0) {
 	}
 }
 
+/** the gz size gate of the engine's wasm (owner 2026-11-02: live-core, which will link the engine, may weigh 500 KB gz) */
+const ENGINE_GATE_KB = 500;
+function gate(file, kb) {
+	const raw = readFileSync(file);
+	const gz = gzipSync(raw, { level: 9 }).length;
+	if (gz > kb * 1024) throw new Error(`${file} is ${(gz / 1024).toFixed(0)} KB gz, over the ${kb} KB gate`);
+	return `${(raw.length / 1024).toFixed(0)} KB raw, ${(gz / 1024).toFixed(0)} KB gz, gate ${kb} KB`;
+}
+
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const steps = [
 	...(quick
@@ -47,6 +58,15 @@ const steps = [
 				['📚 kind catalog current', 'cargo', ['run', '-q', '-p', 'deck-space', '--features', 'schema', '--bin', 'deck-schema', '--', '--check'], `${root}/deck`],
 				['🕸 live-core wasm32', npm, ['run', 'build:wasm', '-w', 'shared/live-core'], root],
 				['🕸 live-core tests', npm, ['run', 'check', '-w', 'shared/live-core'], root],
+				// the universal engine (#317) as a wasm32 module with simd128, in its own target dir (RUSTFLAGS would rebuild the main one)
+				[
+					'🕸 deck-engine wasm32 + simd128',
+					'cargo',
+					['build', '--release', '--target', 'wasm32-unknown-unknown', '-p', 'deck-engine-wasm', '--target-dir', 'target/engine-wasm'],
+					`${root}/deck`,
+					{ RUSTFLAGS: '-C target-feature=+simd128' },
+					() => gate(`${root}/deck/target/engine-wasm/wasm32-unknown-unknown/release/deck_engine_wasm.wasm`, ENGINE_GATE_KB)
+				],
 				['🧊 space-web wasm32', 'cargo', ['build', '--profile', 'wasm-web', '--target', 'wasm32-unknown-unknown', '-p', 'space-web'], `${root}/deck`],
 				['🧊 live-deck tests', npm, ['run', 'check', '-w', 'shared/live-deck'], root],
 				...(release ? [['🦀 release build', 'cargo', ['build', '--release'], `${root}/deck`]] : [])
@@ -59,16 +79,27 @@ const steps = [
 ];
 
 const started = Date.now();
-for (const [name, cmd, argv, cwd] of steps) {
+for (const [name, cmd, argv, cwd, env, after] of steps) {
 	const t = Date.now();
 	process.stdout.write(`deck:ci ${name} … `);
-	const r = spawnSync(cmd, argv, { cwd, encoding: 'utf8', shell: process.platform === 'win32' && cmd.endsWith('.cmd') });
-	if (r.status !== 0) {
+	const r = spawnSync(cmd, argv, { cwd, encoding: 'utf8', env: { ...process.env, ...env }, shell: process.platform === 'win32' && cmd.endsWith('.cmd') });
+	let failed = r.status !== 0;
+	let note = '';
+	if (!failed && after) {
+		try {
+			note = ` – ${after()}`;
+		} catch (e) {
+			r.stdout = `${r.stdout ?? ''}
+${e.message}`;
+			failed = true;
+		}
+	}
+	if (failed) {
 		console.log('FAILED');
 		console.log((r.stdout ?? '') + (r.stderr ?? ''));
 		console.log(`deck:ci failed at "${name}" – fix it before pushing (or push with --no-verify if you must)`);
 		process.exit(1);
 	}
-	console.log(`ok (${((Date.now() - t) / 1000).toFixed(0)} s)`);
+	console.log(`ok (${((Date.now() - t) / 1000).toFixed(0)} s)${note}`);
 }
 console.log(`deck:ci green in ${((Date.now() - started) / 1000).toFixed(0)} s`);
