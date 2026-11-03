@@ -86,7 +86,7 @@ impl Filter {
     /// that came back before it left (a clock step) is dropped.
     pub fn pong(&mut self, t0: f64, t1: f64, t2: f64) {
         let rtt = t2 - t0;
-        if !(rtt >= 0.0 && rtt < 10.0 && t1.is_finite()) {
+        if !((0.0..10.0).contains(&rtt) && t1.is_finite()) {
             return;
         }
         let mid = 0.5 * (t0 + t2);
@@ -132,7 +132,7 @@ impl Filter {
 
     /// the relay's clock minus the deck's at local `t` (s) – None until locked
     pub fn offset(&self, t: f64) -> Option<f64> {
-        self.locked().then(|| self.a + self.b * (t - self.t_ref))
+        self.locked().then_some(self.a + self.b * (t - self.t_ref))
     }
 
     /// the drift: relay seconds per local second − 1
