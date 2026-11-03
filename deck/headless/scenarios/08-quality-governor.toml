@@ -1,0 +1,31 @@
+name = "the quality governor steps down under load and back up when calm"
+about = "#220: deck-space's governor fed frame intervals – 40 ms frames (over budget at high) step it down; long calm 8 ms frames bring it back to the level chosen"
+
+[[step]]
+do = "quality"
+level = "high"
+auto = true
+expect = { level = "high", ceiling = "high", auto = true }
+
+[[step]]
+do = "frames"
+ms = 40.0
+secs = 20.0
+expect = { changes = { min = 1 }, ceiling = "high" }
+
+[[step]]
+do = "frames"
+ms = 8.0
+secs = 600.0
+expect = { level = "high" }
+
+[[step]]
+do = "quality"
+level = "low"
+auto = false
+
+[[step]]
+do = "frames"
+ms = 40.0
+secs = 20.0
+expect = { level = "low", changes = 0 }

@@ -1,0 +1,28 @@
+name = "MIDI clock out: the native schedule, handed out ahead"
+about = "#321: the deck's own 120 BPM clock goes out as MIDI clock (a start, then 24 ticks a beat); a stop key sends Stop"
+
+[[step]]
+do = "load"
+scene = "native/scenes/show-clock.toml"
+
+[[step]]
+do = "choose"
+source = "internal"
+
+[[step]]
+do = "clock_out"
+on = true
+
+[[step]]
+do = "run"
+ms = 2000
+expect = { clock_ticks = { min = 94, max = 104 }, clock_stops = 0, bpm = 120.0, running = true }
+
+[[step]]
+do = "key"
+key = "startstop"
+
+[[step]]
+do = "run"
+ms = 300
+expect = { clock_stops = 1, running = false }

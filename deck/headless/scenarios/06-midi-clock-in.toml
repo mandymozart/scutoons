@@ -1,0 +1,27 @@
+name = "MIDI clock in: followed, then lost and held"
+about = "#321: 24 ticks a beat at 100 BPM from a device; the core follows; the ticks stop – the last tempo holds and the line says so; MIDI clock in leads the show"
+
+[[step]]
+do = "load"
+scene = "native/scenes/show-clock.toml"
+
+[[step]]
+do = "choose"
+source = "midi"
+
+[[step]]
+do = "midi_in"
+bpm = 100.0
+
+[[step]]
+do = "run"
+ms = 4000
+expect = { source = "midi", running = true, bpm = { near = 100.0, tol = 0.5 }, midi_lost = false, clock_out = 0, leading = true }
+
+[[step]]
+do = "midi_in"
+
+[[step]]
+do = "run"
+ms = 3000
+expect = { midi_lost = true, line = "NO CLOCK - HOLDS 100 LEADS" }

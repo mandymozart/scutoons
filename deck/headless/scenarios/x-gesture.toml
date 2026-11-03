@@ -1,0 +1,8 @@
+name = "stage gestures: a pinch zooms the camera"
+about = "#376: the two-finger state machine and the camera's 0.88 step are TS (live-deck space.ts bind) and native main.rs space_event; deck-space has Space::touch for one finger"
+expected_fail = "#376 the pinch lives in live-deck space.ts"
+
+[[step]]
+do = "gesture"
+with = { touches = [[[100.0, 300.0], [200.0, 300.0]], [[80.0, 300.0], [220.0, 300.0]], [[50.0, 300.0], [250.0, 300.0]]] }
+expect = { zoom_steps = { min = 1 }, step = 0.88 }

@@ -1,0 +1,8 @@
+name = "the conductor's scene sync as one state machine"
+about = "#371: the items, the progress and the PUSH line are native sync.rs (next to its fetch threads) and live-deck sync.ts. One sans-IO machine in the core; both platforms fetch"
+expected_fail = "#371 the scene sync lives in native sync.rs and live-deck sync.ts"
+
+[[step]]
+do = "sync"
+with = { scene = "cathedral", items = 3, fetched = 1 }
+expect = { push_line = "PUSH 1/3 CATHEDRAL", state = "syncing" }

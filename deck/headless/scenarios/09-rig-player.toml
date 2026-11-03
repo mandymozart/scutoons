@@ -1,0 +1,22 @@
+name = "the rig player: catpope's core rig played and replayed on a mood"
+about = "#191 / #368: deck-space's Bundle::play flattens the rig, lowers it for the engine; the page's knobs come with it; a mood replays it"
+
+[[step]]
+do = "load"
+rig = "character.catpope"
+expect = { page = [], rig = { character = "catpope", tracks = 2 } }
+
+[[step]]
+do = "run"
+ms = 1500
+expect = { sound = true }
+
+[[step]]
+do = "load"
+rig = "character.catpope"
+mood = "laughing"
+
+[[step]]
+do = "run"
+ms = 1500
+expect = { sound = true }

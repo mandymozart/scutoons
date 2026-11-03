@@ -1,0 +1,31 @@
+name = "the show clock follows a leader over the relay"
+about = "#321 P8: a scripted leader answers pings 250 ms ahead with a 4 ms round trip and sends its anchor (128 BPM); the core's filter locks, the beat follows, the line is the core's"
+
+[[step]]
+do = "load"
+scene = "native/scenes/show-clock.toml"
+expect = { page = ["flash", "screen"] }
+
+[[step]]
+do = "leader"
+offset_ms = 250.0
+rtt_ms = 4.0
+
+[[step]]
+do = "joined"
+
+[[step]]
+do = "run"
+ms = 500
+expect = { line = "NO SHOW CLOCK YET" }
+
+[[step]]
+do = "anchor"
+bpm = 128.0
+per_bar = 4
+beat = 0.0
+
+[[step]]
+do = "run"
+ms = 4000
+expect = { anchor = true, locked = true, bpm = { near = 128.0, tol = 0.01 }, running = true, line = { starts = "SHOW " }, beat = { min = 7.0, max = 9.6 } }

@@ -1,0 +1,46 @@
+name = "a knob turns an input through the wire, the core hears it"
+about = "live-core's wire records (lc_apply) as the panel, the sticks and MIDI learn send them: a forced value, a base under a link; the analysis frame reports the heard block's value"
+
+[[step]]
+do = "load"
+scene = "native/scenes/cathedral.toml"
+
+[[step]]
+do = "run"
+ms = 500
+
+[[step]]
+do = "send"
+path = "drone.freq"
+value = 110.0
+expect = { applied = 1 }
+
+[[step]]
+do = "run"
+ms = 500
+
+[[step]]
+do = "heard"
+path = "drone.freq"
+expect = { value = { near = 110.0, tol = 0.01 } }
+
+[[step]]
+do = "send"
+path = "voice.ratio"
+value = 3.0
+mode = "base"
+
+[[step]]
+do = "run"
+ms = 300
+
+[[step]]
+do = "heard"
+path = "voice.ratio"
+expect = { value = { near = 3.0, tol = 0.01 } }
+
+[[step]]
+do = "send"
+path = "voice.nonsense"
+value = 1.0
+expect = { error = { contains = "no input 'nonsense'" } }

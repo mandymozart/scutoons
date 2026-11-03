@@ -1,0 +1,8 @@
+name = "the adaptive output lead is one rule"
+about = "#365: native audio/lead.rs (256 → 4096, step 256, a calm minute shrinks it) and live-core's lead.ts + worker.ts (2048 / 3072 → 6144, step 512) are the same rule with different numbers. One rule in the core; the numbers here are the native's (the owner's call in #365)"
+expected_fail = "#365 the lead rule lives in native audio/lead.rs and live-core lead.ts"
+
+[[step]]
+do = "lead"
+with = { min = 256, cap = 1024, step = 256, glitches = [[0.0, 0], [1.0, 1], [1.1, 1], [2.0, 3], [3.0, 4], [4.0, 5], [64.1, 5]] }
+expect = { leads = [256, 512, 512, 768, 1024, 1024, 768] }

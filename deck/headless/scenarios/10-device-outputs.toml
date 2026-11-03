@@ -1,0 +1,37 @@
+name = "the scene's outputs leave as device messages"
+about = "#282 / #211: deck-outputs inside the core maps a control to a CC and a strobe's dimmer; the messages leave as signal records (the page only shows them)"
+
+[[step]]
+do = "load"
+toml = """
+[[node]]
+id = "tempo"
+kind = "tempo"
+bpm = 120
+source = "internal"
+[[node]]
+id = "wave"
+kind = "lfo"
+rate = 1.0
+depth = 1.0
+[outputs]
+lead = 20
+dmx = "auto"
+midi = "any"
+[[outputs.fixture]]
+id = "strobe"
+profile = "strobe"
+address = 1
+[[outputs.map]]
+from = "wave.out"
+to = [{ cc = 74, channel = 1 }]
+[[outputs.strobe]]
+fixture = "strobe"
+neutral = "1/4"
+duration = 30
+"""
+
+[[step]]
+do = "run"
+ms = 2000
+expect = { signals = { min = 10 } }

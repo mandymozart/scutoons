@@ -1,0 +1,8 @@
+name = "the controls' rules: a knob turn, value and position, a gamepad"
+about = "#369: a knob's drag (fine × 0.1), value ↔ position (log or linear) and the gamepad's press 0.3 / release 0.15 are TS (controls.ts, scene.ts toValue / toPos, gamepad.ts) and native pad.rs; the creator's strip has a third copy. DeckControls in deck-space has the selection and the sticks already – the rest joins it"
+expected_fail = "#369 the knob and gamepad rules live in live-deck controls.ts / gamepad.ts and native pad.rs"
+
+[[step]]
+do = "knob"
+with = { min = 30.0, max = 220.0, log = true, position = 0.5, drag_px = -100.0, range_px = 200.0, pad = [0.35, 0.2, 0.1] }
+expect = { value = { near = 81.24, tol = 0.01 }, dragged = { near = 220.0, tol = 0.01 }, pressed = [true, true, false] }

@@ -7,7 +7,7 @@
 //   npm run deck:ci -- --no-release everything but the release build (fat LTO: minutes – the pre-push hook)
 //   npm run deck:ci -- --if-changed <from> <to>   only when deck/ or shared/live* changed in that range (the pre-push hook)
 //
-// Steps: the bridge guard (check:core-only, check:deck-deps – #363), the protocol schema current (shared/live), the kind catalog's generated files current (deck-space's deck-schema
+// Steps: the bridge guard (check:core-only, check:deck-deps – #363), the headless deck host's scenarios (#363), the protocol schema current (shared/live), the kind catalog's generated files current (deck-space's deck-schema
 // --check: kinds.json, NodeKinds.php, the JSON Schema, shared/live/src/catalog.ts), live-core for wasm32 + simd128 (its gz size under the gate) + its TS tests, deck-engine for wasm32 + simd128 (its gz size under the gate), space-web for wasm32 +
 // shared/live-deck's tests, cargo build --release, cargo test (+ the stage's module tests), cargo clippy -D warnings (+ with the module feature). The Linux aarch64 cross build
 // and the other platforms stay on GitHub (by hand) – this runs the host's native target.
@@ -88,6 +88,9 @@ const steps = [
 				['⏱ clock measurement tool', npm, ['run', 'check', '-w', 'tools/clock-measure'], root],
 				...(release ? [['🦀 release build', 'cargo', ['build', '--release'], `${root}/deck`]] : [])
 			]),
+	// #363: the headless deck host's scenarios, one line each (pass / xfail with its move ticket / FAIL); the native ≡ wasm32
+	// ≡ simd128 run of the same scenarios is deck-headless's tests/wasm.rs in the workspace's tests below
+	['🎧 headless scenarios', 'cargo', ['run', '-q', '-p', 'deck-headless', '--bin', 'deck-scenarios'], `${root}/deck`],
 	['🦀 tests', 'cargo', ['test', '--workspace'], `${root}/deck`],
 	// the stage's `modules` feature is not in its default, so the workspace run never builds it (#305)
 	['🧩 module tests', 'cargo', ['test', '-p', 'deck-native', '--features', 'modules', '--test', 'modules'], `${root}/deck`],

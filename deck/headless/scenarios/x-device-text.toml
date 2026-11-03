@@ -1,0 +1,8 @@
+name = "a device message's text and the meters come from the core"
+about = "#373: the text a monitor shows for a device message (engine-host monitor.ts describeSignal), the activity decay, held peaks and the dB scale (meters.ts, creator signal-strip.ts) – the native HUD shows only a summary. One model for viewer, creator and native"
+expected_fail = "#373 the device-message text lives in engine-host monitor.ts"
+
+[[step]]
+do = "device_text"
+with = { midi = [176, 74, 127] }
+expect = { text = "CC 74 = 127 · ch 1" }

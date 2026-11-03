@@ -1,0 +1,33 @@
+name = "the warm-up never touches what is heard"
+about = "#356: lc_warm plays a throwaway twin of the scene; the loaded core sounds bit for bit the same, a broken scene is an error with its reason"
+
+[[step]]
+do = "load"
+scene = "native/scenes/cathedral.toml"
+
+[[step]]
+do = "run"
+ms = 1000
+mark = "cold"
+
+[[step]]
+do = "reset"
+
+[[step]]
+do = "load"
+scene = "native/scenes/cathedral.toml"
+
+[[step]]
+do = "warm"
+scene = "native/scenes/cathedral.toml"
+quanta = 128
+
+[[step]]
+do = "run"
+ms = 1000
+expect = { audio = { same_as = "cold" } }
+
+[[step]]
+do = "warm"
+toml = "[[no"
+expect = { error = { contains = "" } }

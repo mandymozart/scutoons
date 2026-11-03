@@ -1,0 +1,36 @@
+name = "transport is engine state the sequencers follow"
+about = "#359: MIDI clock's Start / Stop / Continue / song position only move the tempo map today; the transport as engine state (and the sequencers following it) is a design to land in deck-core"
+expected_fail = "#359 transport is no engine state yet"
+
+[[step]]
+do = "load"
+scene = "native/scenes/show-clock.toml"
+
+[[step]]
+do = "choose"
+source = "midi"
+
+[[step]]
+do = "midi_in"
+bpm = 100.0
+
+[[step]]
+do = "run"
+ms = 2000
+expect = { running = true }
+
+[[step]]
+do = "midi_in"
+
+[[step]]
+do = "midi"
+bytes = [252]
+
+[[step]]
+do = "run"
+ms = 300
+expect = { running = false }
+
+[[step]]
+do = "transport"
+expect = { state = "stopped", sequencers_follow = true }
