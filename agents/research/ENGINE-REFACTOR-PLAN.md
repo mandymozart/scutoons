@@ -378,8 +378,8 @@ reused."
   performance / edit mode rule); only a small reviewed core set becomes built-in for everyone, so live-core stays small.
 
 ### 2.8 Time – one clock per deck, seen three ways (owner 2026-11-02)
-The native deck steps its control domain once per video frame today (`control.rs`) – the screen's refresh rate drives
-the sound; that goes.
+The native deck stepped its control domain once per video frame (`control.rs`) – the screen's refresh rate drove the
+sound; since P5 (#319) the engine steps it per block.
 - **Sample time is the truth:** the samples the audio device has played. Audio must never glitch; a video frame can be
   dropped or shown twice unseen – every media player syncs this way. A deck without speakers runs the same counter on
   a timer (the null backend).
@@ -677,6 +677,46 @@ Rollback: revert. Demo: one scene on a stereo and a surround output without a se
 directly (§2.0); the time model of §2.8; the snapshot ring for the picture. Accept: `BatchGraph`'s tests pass on the
 engine; per-scene golden diff frame vs block reported; owner listens on the X1. Rollback: revert.
 Demo: LFO scenes on the X1, smoother. ≈ $3–4.
+**Built (#319, `deck/engine/src/control.rs`):** `Control` – the one control half – is built with the engine and stepped at the
+start of every quantum, before the audio steps: the FFT analysers (fed in the engine, causal: what was rendered, no look-back;
+`Bands` keeps its FFT scratch, `Fft::process` allocated per call), the tempo node at the block's first frame (the beat
+reader, sample time), the computed nodes (`lfo`, `smooth`, `mul`, `add`) in levels × operation, then every control input of
+an audio node into its `Param` (linked and unlinked: one column). Per-sample interpolation is the existing one: each audio
+block glides each input across its block (`smooth::Ramp`), so a value that moves every block makes a piecewise-linear,
+continuous trajectory. Every block's values go into `Snapshots` (64 blocks, a per-entry seqlock on the frame stamp). The
+frame thread's `Controls` is a face: its own copy of the input table, the values of the heard block (`frames − lead`), and
+commands (`Base`, `Send`, `Shape`) through an rtrb ring; without an engine it steps a `Control` of its own (the space's
+mirror, tests). BatchGraph's API on `Control` / `Controls`: `send` (amount), `set_base`, `base`, `input_at`, `nodes`, the
+helpers. **Golden diff** (`conformance/tests/control_rate.rs`, 4 s, block rate vs the old 60 Hz via `Engine::control_at`;
+diff / level = RMS of the difference against the block render's RMS; the loudness moved by ≤ 0.21 dB everywhere):
+
+| scene | control → sound | max abs | diff / level | why |
+|---|---|---|---|---|
+| lfo sine / saw → osc.freq, trill, helpers → osc.freq | a pitch | 0.40–0.46 | +2.6…+3.0 dB | the pitch follows another trajectory (the 60 Hz one lagged ≤ 17 ms and stepped), the phase drifts apart – uncorrelated after a few cycles, the same sound |
+| deck: lfo-glide (the demo) | cutoff, pitch, gain | 0.19 | −1.2 dB | the same phase drift (the vibrato), plus the sweep |
+| two LFO levels → fm.index | an FM index | 0.34 | −9.2 dB | the index's timing; FM magnifies it |
+| deck: madness | fft → cutoff, fm.index | 0.21 | −18.9 dB | the FFT drives sound: a block-rate analysis reacts up to 17 ms sooner |
+| tempo.pulse → osc.gain | a gain | 0.11 | −15.2 dB | the beat's pulse decays sharply: at 60 Hz its attack landed up to a frame late |
+| tremolo (5 Hz → gain) | a gain | 0.033 | −23.5 dB | the gain's timing, nothing else |
+| fft → smooth → gain, cathedral, conductor | gain, cutoff, FM index | 0.04–0.12 | −27…−32 dB | slow LFOs and the FFT on gains: timing only |
+| idle, outlet, strobe, pulse-thunderwash, lamps-off, test-pattern, cue-34, surround-51, click, walk | none | 0 | – | no control value reaches the sound (bit-identical) |
+| channel-walk | an azimuth | 0 | – | its left channel is silent on a stereo device (the walk starts at the front) |
+
+**Zipper**, the 1 kHz carrier's sidebands (dB under it): tremolo ±60 Hz −113.6 → −159.4, ±375 Hz −112.8 → −178.4; vibrato
+(±10 Hz at 5 Hz) ±60 Hz **−57.2 → −134.1**, ±120 Hz −76.8 → −145.6, ±375 Hz −136 → −135 (the floor). The gain path was
+already smooth at 60 Hz (the 25 ms glide); the pitch path was not – that is the audible difference. Hashes: every one kept but
+lfo sine / saw at 1024 (now equal to their 128 ones); new control scenes, native ≡ wasm32 ≡ wasm32 + simd128.
+**Decisions the plan did not state:** (1) the LFO stays unipolar, `(0.5 + 0.5·wave)·depth` (the native deck's; BatchGraph's
+was `depth·sin`, ±depth): the catalog's doc said ±depth and was wrong – P6 changes the browser's LFOs to 0..depth (a rig
+that needs ±depth adds an offset); channel-walk's scale was written for ±depth and is fixed. (2) The helpers stay the
+catalog's `internal` scope (the rig lowering writes them, authors don't – not in `Kind::ALL`, not in NodeKinds.php) but their
+feature is `core`: the native deck refused them as unknown before. (3) An unset helper input reads the catalog's default
+(`smooth.time` 0.1 s – BatchGraph read 0); the smoother starts at 0 (BatchGraph's). (4) `lfo.phase` is a portless knob (the
+start phase, BatchGraph's). (5) BatchGraph's `input(node, port)` is `input_at` (the native `input(node, name, default)` keeps
+its name); `set` is `set_base` (Knobs keeps `set`). (6) `Controls::update` keeps its signature: `lead` now picks the
+heard block. (7) The face's tempo (`Controls::tempo`, quantised cuts) is still the frame thread's at the heard moment; the
+tempo node's outputs are the engine's at the block. (8) The FFT analyses every block (375 / s instead of 60), no look-back.
+Not done (out of scope): BatchGraph's body (P12), live-core on the engine (P6), modules reading time (ABI v2), the show clock (#321).
 
 **P6 – The browser on the engine (new, under #310 / #288 steps 1 + 4, L).** live-core holds `deck-engine`; the
 device channels are the destination's `maxChannelCount` (2 on phones), the worklet's `outputChannelCount` and the SAB
