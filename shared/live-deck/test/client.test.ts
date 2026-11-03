@@ -126,7 +126,7 @@ test('in process: a relay, a conductor, the deck – graph first, values rate-li
 		const t0 = performance.now();
 		let f = 0;
 		while (performance.now() - t0 < 1000) {
-			const ch = s.sample((performance.now() - t0) / 1000, (p) => (p === 'voice.out' ? Math.abs(Math.sin(f)) : (OWN_PARAMS[p]?.value ?? 0)), f > 60 ? 'happy' : 'neutral');
+			const ch = s.sample((performance.now() - t0) / 1000, (p) => (p === 'fft.level' ? Math.abs(Math.sin(f)) : (OWN_PARAMS[p]?.value ?? 0)), f > 60 ? 'happy' : 'neutral');
 			if (ch) deck.send(ch);
 			f++;
 			await new Promise((r) => setTimeout(r, 8));
