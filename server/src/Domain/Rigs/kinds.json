@@ -1466,7 +1466,6 @@
       "feature": "core",
       "module": "stage",
       "scope": "graph",
-      "scene_only": true,
       "ports": [
         {
           "name": "in",

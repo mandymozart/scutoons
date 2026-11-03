@@ -151,6 +151,23 @@ fn engine_native_vs_wasm() {
             }
         }
     }
+    // P4b (#318): the routing scenes on several device channels – sends with channel maps, folders, outlets, VBAP, the 5.1
+    // fold, the group limiters, the feedback loop – through the same two modules
+    md.push_str("\n| routing scene | device channels | block | native ≡ wasm32 | native ≡ wasm32 + simd128 | patcher ≡ batch in wasm32 + simd128 | first differing sample |\n|---|---|---|---|---|---|---|\n");
+    for case in common::routing::cases() {
+        for &block in &PATTERNS {
+            let native = deck_engine_wasm::run_device(&case.toml, &case.deck, RATE, block, FRAMES, deck_engine::Build::detect()).expect("native renders");
+            let a = engine_wasm_device_render(&mut wp, &case, block, FRAMES, true);
+            let b = engine_wasm_device_render(&mut ws, &case, block, FRAMES, true);
+            let patcher = engine_wasm_device_render(&mut ws, &case, block, FRAMES, false);
+            let (da, db, dp) = (diff(&native, &a), diff(&native, &b), diff(&b, &patcher));
+            let yes = |d: &Diff| if d.exact { "yes" } else { "NO" };
+            md.push_str(&format!("| {} | {} | {block} | {} | {} | {} | {} |\n", case.name, case.deck.channels, yes(&da), yes(&db), yes(&dp), da.first.or(db.first).map_or("–".into(), |f| f.to_string())));
+            if !(da.exact && db.exact) {
+                wrong.push(format!("{}/{block}: wasm32 {:?}, simd128 {:?}", case.name, da.first, db.first));
+            }
+        }
+    }
     std::fs::write(report_path("wasm-engine.md"), &md).unwrap();
     println!("{md}");
     assert!(wrong.is_empty(), "native and wasm renders differ:\n{}", wrong.join("\n"));
@@ -173,36 +190,3 @@ fn engine_wasm_device_render(w: &mut Wasm, case: &common::routing::RoutingCase, 
     w.read_f32(ptr, n)
 }
 
-/// P4b (#318): the routing scenes – sends with channel maps, folders, outlets, VBAP, the 5.1 fold, the group limiters, the
-/// feedback loop – on several device channels, native ≡ wasm32 ≡ wasm32 + simd128, bit for bit, at three block patterns;
-/// and the wasm patcher build ≡ its batches. The report goes to `deck/target/conformance/wasm-routing.md`.
-#[test]
-fn routing_native_vs_wasm() {
-    let plain = build_wasm("deck-engine-wasm", "deck_engine_wasm.wasm", false);
-    let simd = build_wasm("deck-engine-wasm", "deck_engine_wasm.wasm", true);
-    let (mut wp, mut ws) = (Wasm::load(&plain), Wasm::load(&simd));
-    let mut md = String::from("| scene | device channels | block | native ≡ wasm32 | native ≡ wasm32 + simd128 | patcher ≡ batch in wasm32 + simd128 | first differing sample |
-|---|---|---|---|---|---|---|
-");
-    let mut wrong = Vec::new();
-    for case in common::routing::cases() {
-        for &block in &PATTERNS {
-            let native = deck_engine_wasm::run_device(&case.toml, &case.deck, RATE, block, FRAMES, deck_engine::Build::detect()).expect("native renders");
-            let a = engine_wasm_device_render(&mut wp, &case, block, FRAMES, true);
-            let b = engine_wasm_device_render(&mut ws, &case, block, FRAMES, true);
-            let patcher = engine_wasm_device_render(&mut ws, &case, block, FRAMES, false);
-            let (da, db, dp) = (diff(&native, &a), diff(&native, &b), diff(&b, &patcher));
-            let yes = |d: &Diff| if d.exact { "yes" } else { "NO" };
-            md.push_str(&format!("| {} | {} | {block} | {} | {} | {} | {} |
-", case.name, case.deck.channels, yes(&da), yes(&db), yes(&dp), da.first.or(db.first).map_or("–".into(), |f| f.to_string())));
-            if !(da.exact && db.exact) {
-                wrong.push(format!("{}/{block}: wasm32 {:?}, simd128 {:?}", case.name, da.first, db.first));
-            }
-        }
-    }
-    std::fs::write(report_path("wasm-routing.md"), &md).unwrap();
-    println!("{md}");
-    assert!(wrong.is_empty(), "native and wasm routing renders differ:
-{}", wrong.join("
-"));
-}

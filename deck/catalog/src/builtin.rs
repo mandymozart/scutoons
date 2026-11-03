@@ -428,7 +428,7 @@ fn build() -> Vec<Descriptor> {
         ],
     ),
     kind(
-        F_SCENE,
+        0,
         "out",
         Audio,
         "core",

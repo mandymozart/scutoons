@@ -40,5 +40,5 @@ final class NodeKinds
         'feedback' => ['domain' => 'audio', 'inputs' => ['in' => 'audio'], 'outputs' => ['out' => 'audio']],
     ];
     /** kinds a scene owns once (the catalog's `scene_only`): never inside an instrument */
-    public const SCENE_ONLY = ['screen', 'space', 'outlet', 'tempo', 'audio_out', 'out'];
+    public const SCENE_ONLY = ['screen', 'space', 'outlet', 'tempo', 'audio_out'];
 }

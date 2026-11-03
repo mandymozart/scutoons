@@ -47,12 +47,13 @@ pub fn detect_sequencing() -> Sequencing {
 /// What the build asks of the native platform: the device (its channel count is the deck configuration, plan 2.6b: main on
 /// the first channels, nothing else configured) and the module library, when the build has modules.
 fn seams(device_channels: usize) -> deck_engine::Seams {
-    deck_engine::Seams {
-        deck: deck_engine::DeckConfig::device(device_channels),
-        #[cfg(feature = "modules")]
-        modules: Some(Arc::new(modules::Global)),
-        ..Default::default()
+    #[allow(unused_mut)] // the module runtime is a field of a feature
+    let mut seams = deck_engine::Seams::with_deck(deck_engine::DeckConfig::device(device_channels));
+    #[cfg(feature = "modules")]
+    {
+        seams.modules = Some(Arc::new(modules::Global));
     }
+    seams
 }
 
 /// The engine and the glitch monitor of its device callback (#208).
