@@ -43,9 +43,15 @@ No JSON across the boundary. A value is a **wire record** (`src/wire.ts` = `deck
   so the bands are what is heard. It **adapts** (#208, `src/lead.ts` – the rule of deck-native's render thread): a
   dropout grows it 512 frames up to 6144 (128 ms), a calm minute shrinks it 512 back towards the start. The worklet
   counts dropouts into a shared status word (shared transport) or its feed messages (transfer); `stats()` carries
-  `lead`, `renderPeakUs` / `budgetUs` (the longest block of the second against a block's 2.67 ms) and `gapMs` (the
-  longest pause between the worker's pumps – a stalled worker shows there); `glitching()` is true for 5 s after a
-  dropout (the page's warning).
+  `lead`, `renderP50Us` / `renderP99Us` / `renderPeakUs` against `budgetUs` (#356: the second's blocks in a fixed
+  histogram, `src/timing.ts`; the longest against a block's 2.67 ms), `analysisPeakUs`, `warmMs` and `gapMs` (the
+  longest pause between the worker's pumps – a stalled worker shows there); `series()` keeps the first 120 seconds of
+  them (the warm-up as a time series – engine-host's copyable report); `glitching()` is true for 5 s after a dropout
+  (the page's warning).
+- **Warm-up** (#356): before the first sound the worker has the core play the scene silently in a throwaway twin
+  (`lc_warm`, deck/live-core `Core::warm`, 256 quanta) – a wasm engine compiles each function on its first call and
+  optimises it only when hot, so cold the first load and the first blocks take several budgets on a phone. The audible
+  core never sees the twin: what is heard is bit for bit the same.
 - The main thread is not in the audio path: the worker is woken by the worklet (`Atomics.waitAsync`, shared) or by
   its MessagePort (transfer), never by the page; the page only writes records into the control ring and reads the
   analysis on animation frames. A busy main thread (the 3D) can only compete for CPU – the lead covers that – and the

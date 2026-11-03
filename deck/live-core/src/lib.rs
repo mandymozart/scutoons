@@ -78,6 +78,18 @@ impl Host {
         self.answer(r)
     }
 
+    /// The warm-up (#356, `Core::warm`): the scene in the inbox's first `len` bytes rendered by a throwaway twin for
+    /// `quanta` quanta; the loaded core is not touched. 0, or an error in the outbox (< 0).
+    pub fn warm(&mut self, len: usize, quanta: usize) -> i32 {
+        let r = std::str::from_utf8(&self.inbox[..len.min(self.inbox.len())])
+            .map_err(|e| format!("the scene is not UTF-8: {e}"))
+            .and_then(|text| Core::warm(text, self.rate, self.channels, quanta));
+        match r {
+            Ok(()) => 0,
+            Err(e) => self.answer(Err(e)),
+        }
+    }
+
     /// The records in the inbox's first `len` bytes → how many were applied, or an error in the outbox (< 0).
     pub fn apply(&mut self, len: usize) -> i32 {
         let Some(core) = self.core.as_mut() else {
@@ -123,6 +135,13 @@ pub extern "C" fn lc_outbox() -> *const u8 {
 #[no_mangle]
 pub extern "C" fn lc_load(len: usize) -> i32 {
     with(|h| h.load(len))
+}
+
+/// The warm-up (#356): the scene in the inbox (`len` bytes of TOML) played silently by a throwaway twin for `quanta`
+/// quanta (0 = `core::WARM_QUANTA`) – the code a scene runs is compiled and optimised before it is heard. 0 or −len.
+#[no_mangle]
+pub extern "C" fn lc_warm(len: usize, quanta: usize) -> i32 {
+    with(|h| h.warm(len, if quanta == 0 { core::WARM_QUANTA } else { quanta }))
 }
 
 /// The page's tempo for a loaded scene without a clock of its own (`Core::set_tempo`): 1 = taken, 0 = not.
@@ -192,6 +211,32 @@ mod tests {
         h.inbox(4)[..4].copy_from_slice(b"[[no");
         assert!(h.load(4) < 0);
         assert!(h.core().is_some());
+    }
+
+    /// #356: the warm-up renders a twin – the loaded core plays on bit for bit as if nothing had happened, a broken
+    /// scene is an error with its reason
+    #[test]
+    fn the_warm_up_never_touches_what_is_heard() {
+        let scene = String::from_utf8(OSC.to_vec()).unwrap().replace("gain = 0.0", "gain = 0.5");
+        let heard = |warm: bool| {
+            let mut h = Host::new(48_000.0, 2);
+            h.inbox(scene.len())[..scene.len()].copy_from_slice(scene.as_bytes());
+            assert!(h.load(scene.len()) > 0);
+            let mut out = h.core().unwrap().render(128).to_vec();
+            if warm {
+                assert_eq!(h.warm(scene.len(), 64), 0);
+            }
+            for _ in 0..20 {
+                out.extend_from_slice(h.core().unwrap().render(128));
+            }
+            out
+        };
+        let (cold, warmed) = (heard(false), heard(true));
+        assert!(cold.iter().zip(&warmed).all(|(a, b)| a.to_bits() == b.to_bits()), "the same samples");
+        let mut h = Host::new(48_000.0, 2);
+        h.inbox(4)[..4].copy_from_slice(b"[[no");
+        assert!(h.warm(4, 8) < 0);
+        assert!(!h.outbox().is_empty());
     }
 
     #[test]
