@@ -17,7 +17,7 @@ a key from the index (or a new one, added here). Never edit an old line except t
    `[deck-ci-local]` 1 · deck CI runs locally · `[names]` 2 · deck / stage environment / no master-slave wording
    `[readers-save-nothing]` 1 · readers save nothing; no submit flow · `[designer-in-creator]` 2 · the designer is in the creator; performance vs edit mode
 
-**How agents work (RULES B–G):** `[no-cloud]` 1 · no cloud sessions; workers local in worktrees · `[public-repo]` 1 · repo public, Actions minutes free
+**How agents work (RULES B–G):** `[no-cloud]` 2 · no cloud sessions; workers local in worktrees · `[public-repo]` 1 · repo public, Actions minutes free
    `[branch-names]` 1 · <kind>/<issue>-<title> · `[board]` 1 · the six board statuses · `[board-move]` 1 · move issues along the board
    `[issues-only]` 2 · all open work is GitHub issues · `[night-runs]` 2 · unattended runs: merge to main, never push
    `[worktree-requests]` 6 · worktrees and branches: when, and the owner merges · `[migrations]` 1 · the owner never runs migrations; format changes
@@ -50,6 +50,7 @@ a key from the index (or a new one, added here). Never edit an old line except t
    `[deck-access]` 4 · pairing and access of decks · `[deck-os]` 4 · the deck OS, machines, remote updates, debug overlay · `[engine]` 5 · audio engine internals (graph, DSP, wasm build) · `[scenes]` 2 · scenes, sets, spots, switches · `[venue]` 1 · venues, stage environment, deck configuration cascade
 
 ## 2026-11
+- 2026-11-03 · agents · [no-cloud] **Cloud sessions are gone for good, not a temporary measure:** every leftover "cloud sessions" wording is removed (HANDOFF.md) · "no cloud sessions. that was a temporary mesaure. remove it" · → RULES B1
 - 2026-11-03 · agents · [law-book] **The agents/ law book is reviewed and refactored, the audit protocol is written down, a fresh agent reads less:** RULES = numbered rules with their decision keys, DECISIONS = the greppable evidence log, README = the map, AUDIT.md = the protocol, the memory is tightened · "please including the audit protocol and agent memory law book review and refactor in agents/" · "i will task another session tightening decisions into rules. i assume we are reading too much context on each session. hence stuff gets lost" · → RULES, README.md, AUDIT.md, #380
 - 2026-11-03 · deck · [core-only] **The core-only rule is enforced by a check, not by reading:** `npm run check:core-only` (in `npm run check` and deck:ci) fails on deck logic in the browser's TypeScript; the known old cases sit in a baseline with their tickets that only shrinks – a growth needs the owner's approval in a commit message · "enforce it even for dumb agents" · → RULES "Code", scripts/check-core-only.mjs, #357
 - 2026-11-03 · deck · [audit] **The bridge audit is a standing task, rerun often:** after every leg (rig editor first), at the end of every night shift and every ~5 merged tickets, because agents work around the one-core dogma; a CI guard makes the rerun mostly automatic · "we will rerun the audit once we are done with rig editor, etc. and often, since i see agents working around this." · → #357, ORCHESTRATION "Checks"
