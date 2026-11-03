@@ -1,19 +1,20 @@
-//! `live-core` – deck-core for the browser Live mode (#184, DECISIONS 2026-10-30): one wasm module a Web Worker hosts
-//! (shared/live-core). The boundary carries no JSON on the hot path:
+//! `live-core` – the universal core for the browser deck (#184, DECISIONS 2026-10-30; P6 #320: deck-engine, the native
+//! deck's engine): one wasm module a Web Worker hosts (shared/live-core). The boundary carries no JSON on the hot path:
 //!
 //! - **In:** the worker writes wire records (wire.rs) straight into the **inbox** – a region of wasm memory it holds a
 //!   `Uint8Array` view on – and calls `lc_apply(len)`. No argument copying, no glue.
-//! - **Out:** `lc_render` / `lc_analyse` return pointers; the worker reads the audio block and the analysis frame as
-//!   `Float32Array` views and copies them once into its SharedArrayBuffer rings.
+//! - **Out:** `lc_render` / `lc_analyse` return pointers; the worker reads the audio (interleaved device channels) and
+//!   the analysis frame as `Float32Array` views and copies them once into its SharedArrayBuffer rings.
 //! - **Edges:** the scene goes in as TOML text (`lc_load`, once), the load table comes out as JSON in the **outbox**
 //!   (once); errors too (a negative length).
 //!
-//! Exports (all `lc_*`, no imports): `lc_init(rate)`, `lc_inbox(len) -> ptr`, `lc_outbox() -> ptr`,
-//! `lc_load(len) -> ±len`, `lc_apply(len) -> count | -len`, `lc_step(dt)`, `lc_render(frames) -> ptr`,
-//! `lc_analyse(dt, lead) -> ptr`, `lc_signals() -> len`, `lc_signals_at() -> ptr`. A grown memory detaches the views – the host re-makes them (shared/live-core).
+//! Exports (all `lc_*`, no imports): `lc_init(rate, channels)`, `lc_inbox(len) -> ptr`, `lc_outbox() -> ptr`,
+//! `lc_load(len) -> ±len`, `lc_tempo(bpm) -> 0 | 1`, `lc_apply(len) -> count | -len`, `lc_render(frames) -> ptr`,
+//! `lc_analyse(dt, lead) -> ptr`, `lc_signals() -> len`, `lc_signals_at() -> ptr`. The control half steps inside the
+//! render (every 128-frame quantum) – there is no step export. A grown memory detaches the views – the host re-makes them
+//! (shared/live-core).
 pub mod core;
 pub mod signals;
-pub mod walks;
 pub mod wire;
 
 use std::cell::RefCell;
@@ -26,14 +27,16 @@ pub const INBOX: usize = 64 * 1024;
 /// The state behind the exports: the inbox / outbox and the loaded core.
 pub struct Host {
     rate: f32,
+    /// the device channels the page's audio destination has (the engine renders them all)
+    channels: usize,
     inbox: Vec<u8>,
     outbox: Vec<u8>,
     core: Option<Core>,
 }
 
 impl Host {
-    pub fn new(rate: f32) -> Host {
-        Host { rate, inbox: vec![0; INBOX], outbox: Vec::new(), core: None }
+    pub fn new(rate: f32, channels: usize) -> Host {
+        Host { rate, channels, inbox: vec![0; INBOX], outbox: Vec::new(), core: None }
     }
 
     /// The inbox, at least `len` bytes.
@@ -66,7 +69,7 @@ impl Host {
     pub fn load(&mut self, len: usize) -> i32 {
         let r = std::str::from_utf8(&self.inbox[..len.min(self.inbox.len())])
             .map_err(|e| format!("the scene is not UTF-8: {e}"))
-            .and_then(|text| Core::load(text, self.rate));
+            .and_then(|text| Core::load(text, self.rate, self.channels));
         let r = r.map(|core| {
             let table = core.table_json();
             self.core = Some(core);
@@ -92,17 +95,17 @@ impl Host {
 }
 
 thread_local! {
-    static HOST: RefCell<Host> = RefCell::new(Host::new(48_000.0));
+    static HOST: RefCell<Host> = RefCell::new(Host::new(48_000.0, 2));
 }
 
 fn with<R>(f: impl FnOnce(&mut Host) -> R) -> R {
     HOST.with(|h| f(&mut h.borrow_mut()))
 }
 
-/// A fresh host at the audio context's sample rate (drops a loaded scene).
+/// A fresh host at the audio context's sample rate for a device of `channels` channels (drops a loaded scene).
 #[no_mangle]
-pub extern "C" fn lc_init(rate: f32) {
-    with(|h| *h = Host::new(rate));
+pub extern "C" fn lc_init(rate: f32, channels: usize) {
+    with(|h| *h = Host::new(rate, channels));
 }
 
 /// The inbox's address, grown to at least `len` bytes (a grown wasm memory → the host re-makes its views).
@@ -122,27 +125,24 @@ pub extern "C" fn lc_load(len: usize) -> i32 {
     with(|h| h.load(len))
 }
 
+/// The page's tempo for a loaded scene without a clock of its own (`Core::set_tempo`): 1 = taken, 0 = not.
+#[no_mangle]
+pub extern "C" fn lc_tempo(bpm: f32) -> i32 {
+    with(|h| h.core().map_or(0, |c| i32::from(c.set_tempo(bpm))))
+}
+
 #[no_mangle]
 pub extern "C" fn lc_apply(len: usize) -> i32 {
     with(|h| h.apply(len))
 }
 
-#[no_mangle]
-pub extern "C" fn lc_step(dt: f32) {
-    with(|h| {
-        if let Some(c) = h.core() {
-            c.step(dt)
-        }
-    })
-}
-
-/// `frames` samples rendered; their address (null before a scene is loaded).
+/// `frames` frames rendered (× the device channels, interleaved); their address (null before a scene is loaded).
 #[no_mangle]
 pub extern "C" fn lc_render(frames: usize) -> *const f32 {
     with(|h| h.core().map_or(std::ptr::null(), |c| c.render(frames).as_ptr()))
 }
 
-/// The analysis frame's address (`wire::FRAME` f32; null before a scene is loaded).
+/// The analysis frame's address (`wire::FRAME` f32 + the values at `wire::VALUE_COUNT`; null before a scene is loaded).
 #[no_mangle]
 pub extern "C" fn lc_analyse(dt: f32, lead: usize) -> *const f32 {
     with(|h| h.core().map_or(std::ptr::null(), |c| c.analyse(dt, lead).as_ptr()))
@@ -166,18 +166,22 @@ mod tests {
     use super::*;
     use crate::wire::{encode_send, Mode};
 
+    const OSC: &[u8] = b"[[node]]\nid = \"o\"\nkind = \"osc\"\nfreq = 440.0\ngain = 0.0\n[[node]]\nid = \"out\"\nkind = \"audio_out\"\n[[link]]\nfrom = \"o\"\nto = \"out.in\"\n";
+
     #[test]
     fn the_host_loads_applies_and_answers() {
-        let mut h = Host::new(48_000.0);
+        let mut h = Host::new(48_000.0, 2);
         assert!(h.apply(0) < 0);
         assert_eq!(std::str::from_utf8(h.outbox()).unwrap(), "no scene loaded");
-        let scene = b"[[node]]\nid = \"o\"\nkind = \"osc\"\nfreq = 440.0\ngain = 0.0\n";
-        h.inbox(scene.len())[..scene.len()].copy_from_slice(scene);
-        let n = h.load(scene.len());
-        assert_eq!(&h.outbox()[..n as usize], br#"{"nodes":[{"id":"o","kind":"osc","ports":["freq","gain"]}]}"#);
+        h.inbox(OSC.len())[..OSC.len()].copy_from_slice(OSC);
+        let n = h.load(OSC.len());
+        assert!(n > 0, "{}", std::str::from_utf8(h.outbox()).unwrap());
+        let table: serde_json::Value = serde_json::from_slice(&h.outbox()[..n as usize]).unwrap();
+        assert_eq!(table["channels"], 2);
+        assert_eq!(table["nodes"][0]["ports"][1], "freq");
         let mut b = vec![];
-        encode_send(&mut b, Mode::Force, 0, 1, 1.0, &[0.5]);
-        encode_send(&mut b, Mode::Blend, 0, 0, 0.5, &[880.0]);
+        encode_send(&mut b, Mode::Force, 0, 2, 1.0, &[0.5]);
+        encode_send(&mut b, Mode::Blend, 0, 1, 0.5, &[880.0]);
         h.inbox(b.len())[..b.len()].copy_from_slice(&b);
         assert_eq!(h.apply(b.len()), 2);
         for _ in 0..40 {
@@ -192,8 +196,22 @@ mod tests {
 
     #[test]
     fn the_inbox_grows_for_a_big_scene() {
-        let mut h = Host::new(48_000.0);
+        let mut h = Host::new(48_000.0, 2);
         assert_eq!(h.inbox(10).len(), INBOX);
         assert_eq!(h.inbox(INBOX + 1).len(), 2 * INBOX);
+    }
+
+    /// the device's channel count reaches the engine: a stereo scene on six channels plays on the first two
+    #[test]
+    fn the_host_renders_the_devices_channels() {
+        let mut h = Host::new(48_000.0, 6);
+        let scene = String::from_utf8(OSC.to_vec()).unwrap().replace("gain = 0.0", "gain = 0.5");
+        h.inbox(scene.len())[..scene.len()].copy_from_slice(scene.as_bytes());
+        assert!(h.load(scene.len()) > 0);
+        let out = h.core().unwrap().render(1024).to_vec();
+        assert_eq!(out.len(), 1024 * 6);
+        let peak = |c: usize| out[c..].iter().step_by(6).fold(0.0f32, |m, x| m.max(x.abs()));
+        assert!(peak(0) > 0.3 && peak(1) > 0.3);
+        assert!((2..6).all(|c| peak(c) == 0.0), "no outlet on 3..6");
     }
 }

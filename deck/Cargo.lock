@@ -2208,10 +2208,9 @@ name = "live-core"
 version = "0.1.0"
 dependencies = [
  "deck-core",
- "deck-events",
+ "deck-engine",
  "deck-outputs",
  "deck-space",
- "serde",
  "serde_json",
  "toml 0.8.23",
 ]

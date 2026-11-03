@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { analysisOf, encodeSend, FRAME, HEADER, MAX_OUTPUTS, OUTPUT_COUNT, PEAKS, REDUCTION, readRecords, recordSize, writeSend, WireError, type SendRecord } from '../src/wire.ts';
+import { analysisOf, encodeSend, FRAME, HEADER, MAX_OUTPUTS, OUTPUT_COUNT, PEAKS, REDUCTION, VALUE_COUNT, VALUES_AT, readRecords, recordSize, writeSend, WireError, type SendRecord } from '../src/wire.ts';
 
 type Row = { name: string; record: SendRecord & { v: number[] }; hex: string };
 const fixture = fileURLToPath(new URL('../../../deck/live-core/fixtures/wire.json', import.meta.url));
@@ -66,10 +66,13 @@ test('the analysis frame names its values and views the spectrum', () => {
 	assert.equal(a.spectrum[0], 99, 'a view, not a copy');
 });
 
-test('the frame ends with the output count and the peaks (#282); an older frame has none', () => {
-	assert.equal(FRAME, 4 + 512 + 1 + 1 + MAX_OUTPUTS);
-	assert.deepEqual([REDUCTION, OUTPUT_COUNT, PEAKS], [516, 517, 518]);
-	const f = new Float32Array(FRAME);
+test('the frame carries the channel count and the peaks (#282), then the values (#320); an older frame has none', () => {
+	assert.equal(FRAME, 4 + 512 + 1 + 1 + MAX_OUTPUTS + 1);
+	assert.deepEqual([REDUCTION, OUTPUT_COUNT, PEAKS, VALUE_COUNT, VALUES_AT], [516, 517, 518, 550, 551]);
+	const f = new Float32Array(FRAME + 3);
+	f[VALUE_COUNT] = 2;
+	f.set([7, 8, 9], VALUES_AT);
+	assert.deepEqual([...analysisOf(f).values], [7, 8], 'as many values as the count says');
 	f[REDUCTION] = 6;
 	f[OUTPUT_COUNT] = 2;
 	f.set([0.5, 0.25, 0.9], PEAKS);
@@ -83,5 +86,6 @@ test('the frame ends with the output count and the peaks (#282); an older frame 
 	// a frame from an engine that predates the slots: the old layout, nothing past the reduction
 	const old = analysisOf(new Float32Array(4 + 512 + 1));
 	assert.equal(old.outputs.length, 0);
+	assert.equal(old.values.length, 0);
 	assert.equal(old.reduction, 0);
 });

@@ -1,7 +1,8 @@
 // The AudioWorklet processor `live-core` (#184): it renders nothing itself – it plays what the worker rendered with
 // the wasm, read from the audio ring (shared transport: a SharedArrayBuffer, Atomics.notify after each read wakes the
 // worker; transfer transport: a local ring fed with chunks over a MessagePort, the played count reported back).
-// Mono from the core, copied to every output channel. An empty ring plays silence and counts an underrun.
+// The ring holds the device channels interleaved (#320: the engine renders them all – a channel per output channel of
+// this node, `outputChannelCount`); it only de-interleaves. An empty ring plays silence and counts an underrun.
 // The app loads it with `context.audioWorklet.addModule(url)` – a module the bundler emits (vite: `?worker&url`).
 import { Ring, ringBuffers } from './ring.ts';
 import type { AudioFeed, FromWorklet, WorkletOptions } from './messages.ts';
@@ -10,11 +11,17 @@ declare const AudioWorkletProcessor: { new (): { readonly port: MessagePort } };
 declare function registerProcessor(name: string, ctor: unknown): void;
 
 const REPORT = 512;
+/** the render quantum the scratch is made for (a different one makes a new scratch once) */
+const QUANTUM = 128;
 
 class LiveCoreProcessor extends AudioWorkletProcessor {
 	private readonly ring: Ring<Float32Array>;
 	private readonly shared: boolean;
+	private readonly channels: number;
+	/** one quantum of interleaved frames, read from the ring before it is spread over the outputs */
+	private scratch: Float32Array;
 	private feed: MessagePort | null = null;
+	/** frames played since the last report to the worker (transfer transport) */
 	private consumed = 0;
 	private started = false;
 	private underruns = 0;
@@ -29,6 +36,8 @@ class LiveCoreProcessor extends AudioWorkletProcessor {
 		super();
 		const o = options.processorOptions;
 		this.shared = o.audio !== null;
+		this.channels = Math.max(1, o.channels);
+		this.scratch = new Float32Array(QUANTUM * this.channels);
 		this.ring = Ring.floats(o.audio ?? ringBuffers(o.capacity, 4, false));
 		this.status = o.status ? new Int32Array(o.status) : null;
 		this.port.onmessage = (ev: MessageEvent<{ feed?: MessagePort }>) => {
@@ -42,17 +51,20 @@ class LiveCoreProcessor extends AudioWorkletProcessor {
 
 	process(_inputs: Float32Array[][], outputs: Float32Array[][]): boolean {
 		const out = outputs[0];
-		const first = out[0];
-		const n = this.ring.read(first, this.shared);
+		const frames = out[0].length;
+		const ch = this.channels;
+		if (this.scratch.length !== frames * ch) this.scratch = new Float32Array(frames * ch);
+		const n = this.ring.read(this.scratch, this.shared) / ch;
 		if (n > 0) this.started = true;
-		if (n < first.length) {
-			first.fill(0, n);
-			if (this.started) {
-				this.underruns++;
-				if (this.status) Atomics.store(this.status, 0, this.underruns);
-			}
+		for (let c = 0; c < out.length; c++) {
+			const o = out[c];
+			if (c < ch) for (let f = 0; f < n; f++) o[f] = this.scratch[f * ch + c];
+			o.fill(0, c < ch ? n : 0);
 		}
-		for (let c = 1; c < out.length; c++) out[c].set(first);
+		if (n < frames && this.started) {
+			this.underruns++;
+			if (this.status) Atomics.store(this.status, 0, this.underruns);
+		}
 		this.played += n;
 		if (!this.shared && n > 0) {
 			this.consumed += n;
@@ -61,7 +73,7 @@ class LiveCoreProcessor extends AudioWorkletProcessor {
 				this.consumed = 0;
 			}
 		}
-		this.sinceReport += first.length;
+		this.sinceReport += frames;
 		// once a second, and (#208) a new dropout at once (at most every 100 ms at 48 kHz) – the page's warning flashes
 		if (this.sinceReport >= 48_000 || (this.underruns !== this.reported && this.sinceReport >= 4_800)) {
 			this.reported = this.underruns;

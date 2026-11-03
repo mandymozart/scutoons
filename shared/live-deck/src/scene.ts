@@ -1,10 +1,11 @@
-// scene.ts (#197, @scutoons/live-deck since #198): the phone deck's scene – a trimmed copy of the cathedral deck (deck/native/scenes/cathedral.toml):
-// the choir's line (seq → fm), a drone, the incense (pink noise) swaying with an LFO, the mixer, the FFT and the space
-// node whose hue / glow colour the being. Two views of it:
-// - `deckGraph`: the being on the wire (`deck.graph`), in deck-native's kinds and ports, so the conductor builds the
-//   same body as a native deck's (link.rs `from_wire`);
-// - `ENGINE_TOML`: what live-core plays (its batch kinds are lfo smooth mul add osc fm only): the voice and the drone
-//   in wasm; the page runs the sequencer, the LFO and the noise itself (deck.ts) and streams their values.
+// scene.ts (#197, @scutoons/live-deck since #198; #320): the phone deck's own scene when its character has no rig – a
+// trimmed copy of the cathedral deck (deck/native/scenes/cathedral.toml): the choir's voice on a generated melody (a walk),
+// a drone, the incense (pink noise) its cutoff swayed by an LFO, the mixer, the FFT and the space node whose hue / glow
+// colour the being. One description, two views of it:
+// - `FIXED_SCENE`: the scene live-core's engine plays whole (the same engine as a native deck – #320: the page plays
+//   nothing itself any more);
+// - `deckGraph`: the being on the wire (`deck.graph`), so the conductor builds the same body as a native deck's.
+// The sliders' ranges and labels (`PARAMS`, `MELODY`) are the page's UI; their keys are the scene's paths.
 import type { DeckGraph } from '@scutoons/live';
 import type { PathKind } from './client.ts';
 
@@ -24,6 +25,7 @@ export const PARAMS: Record<string, Spec> = {
 	'voice.gain': { min: 0, max: 0.3, value: 0.16, label: 'voice' },
 	'drone.freq': { min: 30, max: 220, value: 55, log: true, label: 'drone pitch' },
 	'drone.gain': { min: 0, max: 0.3, value: 0.1, label: 'drone' },
+	// the base under the LFO's sway (#188: the knob turns the base, the sway rides on top)
 	'incense.cutoff': { min: 150, max: 8000, value: 1800, log: true, label: 'cutoff' },
 	// silent until the slider is raised: the X1's cathedral already hisses its own incense (owner 2026-10-31: two noises)
 	'incense.gain': { min: 0, max: 0.15, value: 0, label: 'incense' },
@@ -33,28 +35,60 @@ export const PARAMS: Record<string, Spec> = {
 	'space.glow': { min: 0, max: 1, value: 0.6, label: 'glow' }
 };
 
-/** the choir's line (cathedral.toml `seq`): MIDI notes, 0 = rest; 84 bpm, two steps a beat, gate 0.6 */
 /**
  * The voice's melody (owner 2026-10-31: "random, one parameter turns it into a drone and back to more range … stay out
- * of the 12 tone system … sliding scale"): random pitches on a continuous scale around BASE_HZ, gliding into each other.
- * `spread` 0 = a held drone, 1 = ±2 octaves; `rate` = steps per second; `glide` = how much of a step the slide takes.
- * Page-only controls for now – not on the wire (a native random source + its buttons on the being come later).
+ * of the 12 tone system … sliding scale"): the scene's `walk` – a seeded random walk on a continuous scale around 147 Hz
+ * on the tempo clock (#236), the same melody on every deck. `spread` 0 = a held drone, 1 = ±2 octaves; `rate` = steps a
+ * beat; `glide` = how much of a step the slide takes. Page-only controls (not on the wire).
  */
 export const MELODY: Record<string, Spec> = {
 	'melody.spread': { min: 0, max: 1, value: 0, label: 'spread' },
-	'melody.rate': { min: 0.3, max: 8, value: 2, log: true, label: 'steps / s' },
+	'melody.rate': { min: 0.25, max: 8, value: 2, log: true, label: 'steps / beat' },
 	'melody.glide': { min: 0, max: 1, value: 0.5, label: 'glide' }
 };
-/** the drone's pitch when the spread is 0 (≈ D3, but a frequency, not a note) */
-export const BASE_HZ = 147;
-/** octaves either side at spread 1 */
-export const SPREAD_OCTAVES = 2;
 
-export const midiHz = (n: number) => 440 * 2 ** ((n - 69) / 12);
+/** a node of the scene: its id, kind and params (numbers, strings) */
+type Node = { id: string; kind: string } & Record<string, number | string>;
+type Link = { from: string; to: string; scale?: number; offset?: number };
+
+const value = (path: string) => (PARAMS[path] ?? MELODY[path]).value;
+
+/** The fixed scene. The sway is unipolar (the engine's LFO: 0..depth – #320 resolved the page's old ±depth sway): its
+ *  link lifts the cutoff above the slider's base by up to `depth` × 2500 Hz. */
+const NODES: Node[] = [
+	{ id: 'melody', kind: 'walk', seed: 84, base: 147, octaves: 2, spread: value('melody.spread'), rate: value('melody.rate'), glide: value('melody.glide') },
+	{ id: 'voice', kind: 'fm', freq: 147, ratio: value('voice.ratio'), index: value('voice.index'), gain: value('voice.gain') },
+	{ id: 'drone', kind: 'osc', freq: value('drone.freq'), gain: value('drone.gain') },
+	{ id: 'incense', kind: 'noise', color: 'pink', cutoff: value('incense.cutoff'), gain: value('incense.gain') },
+	{ id: 'sway', kind: 'lfo', rate: value('sway.rate'), depth: value('sway.depth') },
+	{ id: 'mix', kind: 'mixer' },
+	{ id: 'fft', kind: 'fft' },
+	{ id: 'space', kind: 'space', hue: value('space.hue'), glow: value('space.glow') },
+	{ id: 'out', kind: 'audio_out' }
+];
+const LINKS: Link[] = [
+	{ from: 'melody.cv', to: 'voice.cv' },
+	{ from: 'voice.out', to: 'mix.in1' },
+	{ from: 'drone.out', to: 'mix.in2' },
+	{ from: 'incense.out', to: 'mix.in3' },
+	{ from: 'sway.out', to: 'incense.cutoff', scale: 2500, offset: value('incense.cutoff') },
+	{ from: 'mix.out', to: 'fft.in' },
+	{ from: 'mix.out', to: 'out.in' },
+	{ from: 'fft.level', to: 'space.pulse', scale: 0.6 }
+];
+
+/** a TOML value: a number, or a string */
+const tomlValue = (v: number | string) => (typeof v === 'number' ? (Number.isInteger(v) ? `${v}.0` : `${v}`) : JSON.stringify(v));
+
+/** the scene live-core plays (the deck's TOML) */
+export const FIXED_SCENE = [
+	...NODES.map((n) => ['[[node]]', ...Object.entries(n).map(([k, v]) => `${k} = ${k === 'seed' ? v : tomlValue(v)}`)].join('\n')),
+	...LINKS.map((l) => ['[[link]]', ...Object.entries(l).map(([k, v]) => `${k} = ${tomlValue(v)}`)].join('\n'))
+].join('\n') + '\n';
 
 /** the outputs a hose shows (stream.rs: the hoses' sources) – audio outputs stream their block peak */
 export const OUTPUTS: Record<string, PathKind> = {
-	'seq.cv': 'audio',
+	'melody.cv': 'audio',
 	'voice.out': 'audio',
 	'drone.out': 'audio',
 	'incense.out': 'audio',
@@ -79,71 +113,17 @@ export function ladderFor(available: string[]): string[] {
 	return has.length >= 2 ? has : available.length ? available : ['neutral'];
 }
 
-/** the being on the wire */
+/** the being on the wire: the fixed scene's nodes and links */
 export function deckGraph(character: string, moods: string[]): DeckGraph {
-	const node = (id: string, kind: string) => ({ id, kind });
 	return {
-		nodes: [
-			node('seq', 'seq'),
-			node('voice', 'fm'),
-			node('drone', 'osc'),
-			node('incense', 'noise'),
-			node('sway', 'lfo'),
-			node('mix', 'mixer'),
-			node('fft', 'fft'),
-			node('space', 'space'),
-			node('out', 'audio_out')
-		],
-		links: [
-			{ from: 'seq.cv', to: 'voice.cv' },
-			{ from: 'voice.out', to: 'mix.in1' },
-			{ from: 'drone.out', to: 'mix.in2' },
-			{ from: 'incense.out', to: 'mix.in3' },
-			{ from: 'sway.out', to: 'incense.cutoff' },
-			{ from: 'mix.out', to: 'fft.in' },
-			{ from: 'mix.out', to: 'out.in' },
-			{ from: 'fft.level', to: 'space.pulse', scale: 0.6 }
-		],
+		nodes: NODES.map((n) => ({ id: n.id, kind: n.kind })),
+		links: LINKS.map(({ from, to, scale }) => ({ from, to, ...(scale !== undefined && scale !== 1 ? { scale } : {}) })),
 		character,
 		size: 0.5,
 		moods,
 		expose: Object.keys(PARAMS)
 	};
 }
-
-/** live-core's part: the voice (its gain = an envelope × the voice slider) and the drone */
-export const ENGINE_TOML = `
-[[node]]
-id = "env"
-kind = "smooth"
-time = 0.04
-[[node]]
-id = "vgain"
-kind = "mul"
-b = ${PARAMS['voice.gain'].value}
-[[link]]
-from = "env"
-to = "vgain.a"
-[[node]]
-id = "voice"
-kind = "fm"
-freq = ${midiHz(50).toFixed(2)}
-ratio = ${PARAMS['voice.ratio'].value}
-index = ${PARAMS['voice.index'].value}
-[[link]]
-from = "vgain"
-to = "voice.gain"
-[[node]]
-id = "drone"
-kind = "osc"
-freq = ${PARAMS['drone.freq'].value}
-gain = ${PARAMS['drone.gain'].value}
-[[node]]
-id = "fifth"
-kind = "osc"
-freq = ${PARAMS['drone.freq'].value * 1.5}
-gain = ${PARAMS['drone.gain'].value * 0.3}
-`;
 
 /** a slider's position 0..1 ↔ the parameter's value (log ranges for pitches, cutoffs, rates) */
 export const toValue = (s: Spec, t: number) => (s.log ? s.min * (s.max / s.min) ** t : s.min + (s.max - s.min) * t);

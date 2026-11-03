@@ -1,17 +1,16 @@
 // deck.ts (#197, #198): the browser deck's state – one for the lab page and the viewer's /live/deck. The parameter
-// values (the pads, the sliders, the being's 3D buttons all turn these), the melody, the LFO, the incense noise, the
-// mood ladder, the relay link and its values stream, and the sound (live-core + a Web Audio noise). No DOM: the page
-// draws it; `tick` runs it once per animation frame. With a CDN given it answers the conductor's scene sync (#195,
-// sync.ts).
+// values (the pads, the sliders, the being's 3D buttons all turn these), the mood ladder, the relay link and its values
+// stream, and the sound: live-core – the native deck's engine (#320) – plays the whole scene (the fixed one or the rig's);
+// the page only sends the values and reads back what is heard. No DOM: the page draws it; `tick` runs it once per
+// animation frame. With a CDN given it answers the conductor's scene sync (#195, sync.ts).
 import type { DeckGraph } from '@scutoons/live';
 import { LiveCore, type Analysis, type DeviceSignal } from '@scutoons/live-core';
 import type { DeckSynced } from '@scutoons/live';
 import { DeckLink, ValueStream, type WebSocketLike } from './client.ts';
 import { BrowserSync } from './sync.ts';
-import { BASE_HZ, deckGraph, ENGINE_TOML, ladderFor, MELODY, Moods, PARAMS, SPREAD_OCTAVES, STREAMED, toPos, type Spec } from './scene.ts';
+import { deckGraph, FIXED_SCENE, ladderFor, MELODY, Moods, PARAMS, STREAMED, type Spec } from './scene.ts';
 import { knobTarget, rigDiff, rigGraph, rigParams, rigStreamed } from './rig.ts';
 import type { RigPlayed } from './space.ts';
-import { pinkNoise, type PageNoise } from './noise.ts';
 
 /** the tempo the deck's ladder and the being's breath read (cathedral.toml's) */
 export const BPM = 84;
@@ -50,7 +49,6 @@ export interface EngineFiles {
  *  for the last two) */
 export type Hand = 'page' | 'being' | 'mood';
 
-const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 
 export class Deck {
 	/** every parameter's value (the sliders' – PARAMS or the rig's knobs – + MELODY) */
@@ -65,7 +63,7 @@ export class Deck {
 	portraits: Portraits = {};
 	readonly moods = new Moods(['neutral'], 1.5, BPM);
 	mood = 'neutral';
-	bands: Analysis = { level: 0, bass: 0, mid: 0, high: 0, spectrum: new Float32Array(0), reduction: 0, outputs: new Float32Array(0) };
+	bands: Analysis = silence();
 	/** a finger on a pad (0 / 1): lifts the energy a little */
 	touch = 0;
 	readonly link: DeckLink | null;
@@ -83,16 +81,6 @@ export class Deck {
 	/** every value change, with whose hand (the page's controls follow the being's) */
 	onValue: ((path: string, value: number, hand: Hand) => void) | null = null;
 	onMood: ((mood: string) => void) | null = null;
-	/** the fixed patch's incense, or a rig's noise nodes by id */
-	private noises = new Map<string, PageNoise>();
-	private gate = 0;
-	private swayPhase = 0;
-	private sway = 0;
-	private pitch = BASE_HZ;
-	private target = BASE_HZ;
-	private glideFrom = BASE_HZ;
-	private glideAt = 0;
-	private lastStep = -1;
 	private last = -1;
 	/** the page's clock at the first tick (s) */
 	private t0 = -1;
@@ -163,81 +151,37 @@ export class Deck {
 		this.link?.setGraph(this.graph());
 	}
 
-	/** a parameter from the page's controls or the being's buttons */
+	/** a parameter from the page's controls or the being's buttons: the knob turns its input's base in the engine (#188 –
+	 *  a link on it keeps flowing on top) */
 	setParam(path: string, v: number, hand: Hand = 'page') {
 		if (!(path in this.value) || !Number.isFinite(v)) return;
 		this.value[path] = v;
 		this.onValue?.(path, v, hand);
-		if (this.rig) return this.send(path, v);
-		if (path === 'voice.ratio' || path === 'voice.index') this.engineSet(path, [v]);
-		else if (path === 'voice.gain') this.engineSet('vgain.b', [v]);
-		else if (path === 'drone.freq' || path === 'drone.gain') {
-			this.engineSet('drone', [this.value['drone.freq'], this.value['drone.gain']]);
-			this.engineSet('fifth', [this.value['drone.freq'] * 1.5, this.value['drone.gain'] * 0.3]);
-		} else if (path === 'incense.gain') this.noiseGain('incense', v);
+		this.send(path, v);
 	}
 
 	/** a value into live-core – only once its scene is the deck's, and never throwing out of the deck (a path the
-	 *  scene lacks, e.g. a kind live-core skips, is nothing) */
+	 *  scene lacks is nothing) */
 	private engineSet(param: string, values: number[]): void {
 		if (!this.core || !this.engineReady) return;
 		try {
-			this.core.set(param, values);
+			this.core.set(param, values, { mode: 'base' });
 		} catch {
 			/* a param the engine's scene doesn't have */
 		}
 	}
 
-	/** a rig's value to where it plays: live-core (through a strip's alias) or a noise the page plays */
+	/** a knob's value to the engine: its path is the scene's (a rig's node the browser does not carry yet takes none) */
 	private send(path: string, v: number): void {
-		const t = this.rig && knobTarget(this.rig, path);
-		if (!t) return;
-		if ('engine' in t) this.engineSet(t.engine, [v]);
-		else if (t.port === 'gain') this.noiseGain(t.page, v);
-		else if (t.port === 'cutoff') this.noises.get(t.page)?.filter.frequency.setTargetAtTime(v, this.noises.get(t.page)!.filter.context.currentTime, 0.03);
+		const t = this.rig ? knobTarget(this.rig, path) : { engine: path };
+		if (t) this.engineSet(t.engine, [v]);
 	}
 
-	private noiseGain(id: string, v: number): void {
-		const n = this.noises.get(id);
-		n?.gain.gain.setTargetAtTime(v * n.strip, n.gain.context.currentTime, 0.05);
-	}
-
-	/** the incense's cutoff now: its slider swayed by the LFO */
-	cutoff(): number {
-		return Math.min(12000, this.value['incense.cutoff'] * 2 ** (this.sway * 1.5));
-	}
-
-	/** a streamed path's value now (the hoses' sources are the page's own: its melody, its levels, its LFO) */
+	/** a streamed path's value now: what the engine played in the heard block (an input, a control output, an audio
+	 *  output's peak), else the page's own value of a knob */
 	read(p: string): number {
-		const peak = clamp01;
-		if (this.rig) {
-			if (p === 'fft.level' || /^mix\d+\.out$/.test(p)) return this.bands.level;
-			if (p === 'fft.bass') return this.bands.bass;
-			return this.value[p] ?? NaN;
-		}
-		switch (p) {
-			// the pitch as the choir line's cv: log-scaled into 0–1 across the spread's whole range
-			case 'seq.cv':
-				return this.gate ? 0.5 + Math.log2(this.pitch / BASE_HZ) / (2 * SPREAD_OCTAVES) : 0;
-			case 'voice.out':
-				return peak(this.gate * this.value['voice.gain'] * 4);
-			case 'drone.out':
-				return peak(this.value['drone.gain'] * 3);
-			case 'incense.out':
-				return peak(this.value['incense.gain'] * 5 * (0.4 + 0.6 * toPos(PARAMS['incense.cutoff'], this.cutoff())));
-			case 'mix.out':
-				return peak(this.bands.level);
-			case 'sway.out':
-				return this.sway;
-			case 'fft.level':
-				return this.bands.level;
-			case 'fft.bass':
-				return this.bands.bass;
-			case 'incense.cutoff':
-				return this.cutoff();
-			default:
-				return this.value[p] ?? NaN;
-		}
+		const heard = this.engineReady ? (this.core?.value(p) ?? NaN) : NaN;
+		return Number.isFinite(heard) ? heard : (this.value[p] ?? NaN);
 	}
 
 	/** the page's clock since the first tick (s) – the being's beat */
@@ -245,36 +189,11 @@ export class Deck {
 		return this.t0 < 0 ? 0 : this.last - this.t0;
 	}
 
-	/** One frame at `now` (s, performance.now() / 1000): the LFO, the melody, the mood, the stream. */
+	/** One frame at `now` (s, performance.now() / 1000): the mood, the stream. */
 	tick(now: number): void {
 		if (this.t0 < 0) this.t0 = this.last = now;
 		const dt = Math.min(0.1, Math.max(0, now - this.last));
 		this.last = now;
-		this.swayPhase = (this.swayPhase + this.value['sway.rate'] * dt) % 1;
-		this.sway = Math.sin(this.swayPhase * 2 * Math.PI) * this.value['sway.depth'];
-		const core = this.core;
-		// the fixed patch's melody and incense (a rig plays its own scene); nothing while its scene still loads
-		if (core && this.engineReady && !this.rig) {
-			// the melody: a random pitch on a continuous scale each step, the voice gliding there (no 12-tone grid);
-			// spread 0 = the held drone at BASE_HZ
-			const stepDur = 1 / this.value['melody.rate'];
-			const t = core.context.currentTime;
-			const step = Math.floor(t / stepDur);
-			if (step !== this.lastStep) {
-				this.lastStep = step;
-				this.target = BASE_HZ * 2 ** ((Math.random() * 2 - 1) * this.value['melody.spread'] * SPREAD_OCTAVES);
-				this.glideFrom = this.pitch;
-				this.glideAt = t;
-			}
-			const g = Math.max(0.001, this.value['melody.glide'] * stepDur);
-			this.pitch = this.glideFrom * (this.target / this.glideFrom) ** Math.min(1, (t - this.glideAt) / g);
-			this.engineSet('voice.freq', [this.pitch]);
-			if (!this.gate) {
-				this.gate = 1;
-				this.engineSet('env', [1]);
-			}
-			this.noises.get('incense')?.filter.frequency.setTargetAtTime(this.cutoff(), t, 0.03);
-		}
 		const m = this.moods.update(now, dt, this.bands.level, this.touch);
 		if (m !== this.mood) {
 			this.mood = m;
@@ -284,7 +203,7 @@ export class Deck {
 		if (changes) this.link?.send(changes);
 	}
 
-	/** Start the sound (needs a user gesture): live-core with the fixed patch or the rig, and the page's noises. */
+	/** Start the sound (needs a user gesture): live-core with the fixed scene or the rig. */
 	async start(files: EngineFiles): Promise<void> {
 		const c = await LiveCore.start({ worker: files.worker, wasm: files.wasm, worklet: files.worklet, transport: files.transport ?? 'auto', lead: files.lead ?? defaultLead() });
 		c.onAnalysis((a) => (this.bands = a));
@@ -293,57 +212,43 @@ export class Deck {
 		await this.loadEngine(c);
 	}
 
-	/** Stop the sound (live-core and the page's noises; the AudioContext closes). The deck keeps its values and rig and
-	 *  can `start` again (#298). */
+	/** Stop the sound (live-core; the AudioContext closes). The deck keeps its values and rig and can `start` again
+	 *  (#298). */
 	async stop(): Promise<void> {
 		const c = this.core;
 		this.core = null;
 		this.engineReady = false;
 		this.loadGen++;
-		for (const n of this.noises.values()) {
-			try {
-				n.src.stop();
-			} catch {
-				/* already stopped */
-			}
-		}
-		this.noises.clear();
-		this.bands = { level: 0, bass: 0, mid: 0, high: 0, spectrum: new Float32Array(0), reduction: 0, outputs: new Float32Array(0) };
+		this.bands = silence();
 		await c?.stop();
 	}
 
-	/** (Re)load the sound: live-core's scene and the noises the page plays, then every slider's value. The engine is
-	 *  quiet from here until the scene landed; a newer load (a second switch before this one landed) wins. */
+	/** (Re)load the sound: live-core's scene at the deck's tempo, then every slider's value. The engine is quiet from
+	 *  here until the scene landed; a newer load (a second switch before this one landed) wins. A rig's nodes the
+	 *  browser does not carry yet (its `engine.page`) are not played – the status says which. */
 	private async loadEngine(c: LiveCore): Promise<void> {
 		const gen = ++this.loadGen;
 		this.engineReady = false;
-		for (const n of this.noises.values()) n.src.stop();
-		this.noises.clear();
 		const rig = this.rig;
 		try {
-			await c.load(rig ? rig.engine.scene : ENGINE_TOML);
+			await c.load(rig ? rig.engine.scene : FIXED_SCENE, { bpm: BPM });
 		} catch (e) {
 			if (gen === this.loadGen) this.o.onStatus?.(`sound: ${(e as Error).message ?? e}`);
 			return;
 		}
 		if (gen !== this.loadGen) return;
 		this.engineReady = true;
-		this.gate = 0;
-		if (rig) {
-			for (const n of rig.engine.page) {
-				// seq and other page kinds: not played yet (the voice holds its pitch)
-				if (n.kind !== 'noise') continue;
-				const num = (k: string, d: number) => (typeof n[k] === 'number' ? (n[k] as number) : d);
-				this.noises.set(n.id, pinkNoise(c.context, num('cutoff', 4000), num('gain', 0), n.gain));
-			}
-		} else this.noises.set('incense', pinkNoise(c.context, this.cutoff(), this.value['incense.gain'], 1));
-		for (const p of Object.keys(this.params)) this.setParam(p, this.value[p]);
+		if (rig?.engine.page.length) this.o.onStatus?.(`sound: not in the browser yet – ${rig.engine.page.map((n) => `${n.id} (${n.kind})`).join(', ')}`);
+		for (const p of Object.keys(this.controlSpecs)) this.setParam(p, this.value[p]);
 	}
 
 	close() {
 		this.link?.close();
 	}
 }
+
+/** an analysis of nothing (before the sound starts, after it stops) */
+const silence = (): Analysis => ({ level: 0, bass: 0, mid: 0, high: 0, spectrum: new Float32Array(0), reduction: 0, outputs: new Float32Array(0), values: new Float32Array(0) });
 
 /** Frames the sound keeps ahead of the speaker (#188): 3072 (64 ms) on a phone – a touch screen, where the worklet
  * ran dry under load –, else 2048. */

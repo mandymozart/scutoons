@@ -1,21 +1,23 @@
-// The worker's side of the boundary (#184): live_core.wasm (deck/live-core) behind views on its memory, and the pump
-// that keeps the audio ahead of the speaker. No worker globals here – worker.ts wires it to messages and rings, the
-// tests run it in Node with the real wasm.
+// The worker's side of the boundary (#184; #320: deck-engine inside): live_core.wasm (deck/live-core) behind views on
+// its memory, and the pump that keeps the audio ahead of the speaker. No worker globals here – worker.ts wires it to
+// messages and rings, the tests run it in Node with the real wasm.
 //
 // Hot path, no JSON, no glue: records go from the control ring straight into the wasm inbox (one copy, then
-// `lc_apply`), audio blocks and analysis frames come out as Float32Array views on wasm memory (one copy into the
-// audio ring / the analysis slot). JSON only at the edge: the load table, once.
-import { FRAME } from './wire.ts';
+// `lc_apply`), audio blocks (the device channels, interleaved) and analysis frames come out as Float32Array views on
+// wasm memory (one copy into the audio ring / the analysis slot). JSON only at the edge: the load table, once. The
+// engine's control half steps inside its render – the pump only renders.
+import { FRAME, VALUE_COUNT } from './wire.ts';
 import type { Ring } from './ring.ts';
 
 export interface Exports {
 	memory: WebAssembly.Memory;
-	lc_init(rate: number): void;
+	lc_init(rate: number, channels: number): void;
 	lc_inbox(len: number): number;
 	lc_outbox(): number;
 	lc_load(len: number): number;
+	/** the deck's tempo for a scene without a clock of its own: 1 = taken */
+	lc_tempo(bpm: number): number;
 	lc_apply(len: number): number;
-	lc_step(dt: number): void;
 	lc_render(frames: number): number;
 	lc_analyse(dt: number, lead: number): number;
 	/** #282: the device messages since the last call – their length; the records are at `lc_signals_at()` */
@@ -23,30 +25,46 @@ export interface Exports {
 	lc_signals_at(): number;
 }
 
-/** The load table: the scene's nodes with their input ports, in the order the records' `node` index counts. */
+/** One node of the load table: its inputs (`ports`, what records' `port` counts), its outputs, and where its values are
+ * in the analysis frame's values (`at`: the inputs, then the outputs; -1 = not carried). */
+export interface TableNode {
+	id: string;
+	kind: string;
+	ports: string[];
+	outs: string[];
+	at: number;
+}
+
+/** The load table: the device channels, the scene's nodes in the order the records' `node` index counts, and what the
+ * build did with the device in words (a fold, an outlet without channels). */
 export interface Table {
-	nodes: { id: string; kind: string; ports: string[] }[];
+	channels: number;
+	nodes: TableNode[];
+	notes: string[];
 }
 
 export class WasmCore {
 	readonly x: Exports;
 	readonly rate: number;
+	/** the device channels the engine renders (interleaved) */
+	readonly channels: number;
 	private inboxPtr = 0;
 	private inboxView = new Uint8Array(0);
 	private buffer: ArrayBuffer | null = null;
 	private renderView: Float32Array | null = null;
 	loaded = false;
 
-	constructor(exports: Exports, rate: number) {
+	constructor(exports: Exports, rate: number, channels: number) {
 		this.x = exports;
 		this.rate = rate;
-		exports.lc_init(rate);
+		this.channels = channels;
+		exports.lc_init(rate, channels);
 	}
 
-	static async instantiate(wasm: WebAssembly.Module | BufferSource, rate: number): Promise<WasmCore> {
+	static async instantiate(wasm: WebAssembly.Module | BufferSource, rate: number, channels = 2): Promise<WasmCore> {
 		const module = wasm instanceof WebAssembly.Module ? wasm : await WebAssembly.compile(wasm);
 		const instance = await WebAssembly.instantiate(module, {});
-		return new WasmCore(instance.exports as unknown as Exports, rate);
+		return new WasmCore(instance.exports as unknown as Exports, rate, channels);
 	}
 
 	/** A view on the inbox, at least `len` bytes; re-made when the inbox moved or the memory grew. */
@@ -64,7 +82,7 @@ export class WasmCore {
 		return new TextDecoder().decode(new Uint8Array(this.x.memory.buffer, this.x.lc_outbox(), Math.abs(n)));
 	}
 
-	/** The scene (deck/native's TOML) → the load table. A broken scene throws and keeps the running one. */
+	/** The scene (the deck's TOML) → the load table. A broken scene throws and keeps the running one. */
 	load(scene: string): Table {
 		const bytes = new TextEncoder().encode(scene);
 		this.inbox(bytes.length).set(bytes);
@@ -72,6 +90,11 @@ export class WasmCore {
 		if (n < 0) throw new Error(this.text(n));
 		this.loaded = true;
 		return JSON.parse(this.text(n)) as Table;
+	}
+
+	/** The deck's tempo for the loaded scene when it has no clock of its own; false = it has one. */
+	tempo(bpm: number): boolean {
+		return this.x.lc_tempo(bpm) === 1;
 	}
 
 	/** Applies the first `len` bytes of the inbox (records written there in place); throws with the core's reason. */
@@ -87,22 +110,23 @@ export class WasmCore {
 		return this.apply(bytes.length);
 	}
 
-	step(dt: number): void {
-		this.x.lc_step(dt);
-	}
-
-	/** `frames` rendered samples – a view, valid until the next call into the core. The view is kept while the core
-	 * renders into the same place (#208: no garbage per block in the worker – a GC pause there is a dropout). */
+	/** `frames` rendered frames, the device channels interleaved – a view, valid until the next call into the core. The
+	 * view is kept while the core renders into the same place (#208: no garbage per block in the worker – a GC pause
+	 * there is a dropout). */
 	render(frames: number): Float32Array {
 		const ptr = this.x.lc_render(frames);
+		const len = frames * this.channels;
 		const v = this.renderView;
-		if (v && v.buffer === this.x.memory.buffer && v.byteOffset === ptr && v.length === frames) return v;
-		return (this.renderView = new Float32Array(this.x.memory.buffer, ptr, frames));
+		if (v && v.buffer === this.x.memory.buffer && v.byteOffset === ptr && v.length === len) return v;
+		return (this.renderView = new Float32Array(this.x.memory.buffer, ptr, len));
 	}
 
-	/** The analysis frame (wire.ts FRAME) of what the speaker plays now (`lead` = frames queued ahead) – a view. */
+	/** The analysis frame (wire.ts: FRAME f32, then its values) of what the speaker plays now (`lead` = frames queued
+	 * ahead) – a view. */
 	analyse(dt: number, lead: number): Float32Array {
-		return new Float32Array(this.x.memory.buffer, this.x.lc_analyse(dt, lead), FRAME);
+		const ptr = this.x.lc_analyse(dt, lead);
+		const count = new Float32Array(this.x.memory.buffer, ptr, FRAME)[VALUE_COUNT];
+		return new Float32Array(this.x.memory.buffer, ptr, FRAME + count);
 	}
 
 	/** #282: the scene's `[outputs]` messages since the last call, as signal records (signals.ts) – a view (empty when
@@ -115,6 +139,7 @@ export class WasmCore {
 
 const EMPTY = new Uint8Array(0);
 
+/** the engine's quantum (frames) – the worker renders in it */
 export const BLOCK = 128;
 
 export interface EngineOptions {
@@ -128,7 +153,8 @@ export interface EngineOptions {
 	onSignals?(records: Uint8Array): void;
 }
 
-/** The pump: control records in, audio blocks out (control stepped once per block), an analysis frame now and then. */
+/** The pump: control records in, audio blocks out, an analysis frame now and then. Lead and fills count frames; the
+ * audio ring holds samples (frames × channels). */
 export class Engine {
 	readonly core: WasmCore;
 	/** frames kept ahead of the speaker – the worker adapts it (#208, lead.ts) */
@@ -170,12 +196,11 @@ export class Engine {
 	}
 
 	/**
-	 * One block: a control step, the audio handed to `sink` (a view – copy it there), then maybe an analysis frame.
-	 * `fill` = frames queued ahead of the speaker before this block.
+	 * One block: the audio handed to `sink` (a view – copy it there), then maybe an analysis frame. `fill` = frames
+	 * queued ahead of the speaker before this block.
 	 */
 	block(fill: number, sink: (audio: Float32Array) => void): void {
 		const t = performance.now();
-		this.core.step(BLOCK / this.core.rate);
 		sink(this.core.render(BLOCK));
 		const ms = performance.now() - t;
 		this.renderMs += ms;
@@ -196,10 +221,11 @@ export class Engine {
 	/** Shared transport: renders into the audio ring until `lead` frames are queued; returns the blocks rendered. */
 	fill(audio: Ring<Float32Array>): number {
 		if (!this.core.loaded) return 0;
+		const ch = this.core.channels;
 		let n = 0;
 		const sink = (b: Float32Array) => audio.write(b); // one closure per fill, not per block
-		while (audio.available() + BLOCK <= this.lead && audio.space() >= BLOCK) {
-			this.block(audio.available(), sink);
+		while (audio.available() / ch + BLOCK <= this.lead && audio.space() >= BLOCK * ch) {
+			this.block(audio.available() / ch, sink);
 			n++;
 		}
 		return n;

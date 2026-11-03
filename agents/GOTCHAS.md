@@ -3,6 +3,7 @@
 From the old MEMORY.md (archive/MEMORY.md, 2026-09-28 … 10-04) and later sessions. Add a trap when it cost you time.
 
 ## Windows, shells, scripts
+- **A worktree needs its own `npm install`** – without one, `@scutoons/*` resolves to the main checkout's packages (stale code in your tests and builds). deck/ has no rustfmt config and is not rustfmt-formatted: never run `cargo fmt` (it reflows whole files).
 - **Parallel `deck:ci` runs clash** (several worker sessions at once): `shared/live-deck`'s relay test binds fixed port 7072 (set `LAB_RELAY_PORT` to a free port per run), and `deck-outputs`' `midi_bytes_through_a_mock_port_and_the_conductor` is timing-sensitive under load (passes alone). Re-run, do not chase a merge fault.
 - The Bash tool's heredocs mangle backslashes (a PHP `'\\'` arrives as `'\'`, even with quoted `'EOF'`) and break on
   some quote mixes – write scripts / patches with the Write tool, not a heredoc.

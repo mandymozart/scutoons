@@ -90,15 +90,13 @@ export interface RigPlayed {
 	engine: RigEngine;
 }
 
-/** what live-core plays of a rig, and what the page plays itself */
+/** what live-core plays of a rig (deck-space rig/engine.rs `lower`, #320: the flattened scene split by `ENGINE_KINDS`) */
 export interface RigEngine {
-	/** live-core's scene (batch kinds only) */
+	/** live-core's scene: every node of a kind the browser carries, as flattened */
 	scene: string;
-	/** a knob's path → the engine path to set instead (a strip-gained gain) */
-	aliases: Record<string, string>;
-	/** nodes the page plays (noise …), at `gain` × their own gain */
-	page: { id: string; kind: string; gain: number; [param: string]: unknown }[];
-	/** links the engine doesn't carry (audio links, the being's routes) */
+	/** the nodes of kinds the browser does not carry yet (chapter_music, module:*) – not played */
+	page: { id: string; kind: string; [param: string]: unknown }[];
+	/** the links that touch them */
 	dropped: { from: string; to: string; scale: number; offset: number }[];
 }
 

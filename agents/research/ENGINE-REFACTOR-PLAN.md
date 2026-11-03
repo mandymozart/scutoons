@@ -1,4 +1,4 @@
-Draft for owner review, 2026-11-02 – the plan for converging the deck onto one engine. Nothing in it is built; the phases need the owner's go (and the decisions of §8) before the first worker starts. Revised with the owner 2026-11-02: channels and routing (§2.6, decided), fundsp and the library survey (§3.1, §3.2). **Built so far: P0–P3b, P4 (#317, branch `feature/317-engine-move`, not merged) – §4 P4 says what moved where – and P4b (#318, branch `feature/318-channels-routing`, not merged) – §4 P4b says what is built and where it differs from §2.6.**
+Draft for owner review, 2026-11-02 – the plan for converging the deck onto one engine. Nothing in it is built; the phases need the owner's go (and the decisions of §8) before the first worker starts. Revised with the owner 2026-11-02: channels and routing (§2.6, decided), fundsp and the library survey (§3.1, §3.2). **Built so far: P0–P3b, P4 (#317, branch `feature/317-engine-move`, not merged) – §4 P4 says what moved where – and P4b (#318, branch `feature/318-channels-routing`, not merged) – §4 P4b says what is built and where it differs from §2.6; P5 (#319) and P6 (#320, branch `feature/320-browser-engine`) – their "Built" paragraphs in §4.**
 
 # ENGINE-REFACTOR-PLAN – one engine in the universal core
 
@@ -727,6 +727,33 @@ reports browser ≡ native deck for every kind the wasm build carries (bit-exact
 viewer + creator check and build; size gate §3.5; owner on the S22: catpope's rig in stereo on /live/deck and in the
 Sound design workspace. Risk: deploys with the viewer (no push freeze – owner 2026-11-02: "i am aware of the danger"). Rollback: the
 allowlist back to `BatchGraph` kinds, or revert. Demo: the same rig sounds the same on the X1 and the phone. ≈ $8–12.
+**Built (#320, `deck/live-core`, `deck/space/src/rig/engine.rs`, `shared/live-core`, `shared/live-deck`):** live-core's `Core` is
+deck-engine (feature `events`, `Sequencing::InBlock`, `Build::detect`) built with `DeckConfig::device(n)`; `BatchGraph`, `walks.rs`
+and `lc_step` are gone (the control half steps in the quantum). Records go through the face `Controls` (applied at the next quantum,
+as on the native deck's frame thread). The analysis frame keeps bands, spectrum, reduction and per-channel peaks (now ≤ 32) and
+adds every load-table row's values of the heard block (inputs and control outputs from the snapshot ring by the lead; an audio
+output's value is its block peak, `Meters` – built when the scene has a `space` node); the table says where (`at`), the page reads
+them by path (`LiveCore.value`). Channels: `maxChannelCount` (≤ 32; 0 → 2), the destination set to n discrete channels, the
+worklet's `outputChannelCount`, the SAB ring and the transfer chunks interleaved (capacity pow2(8192 × n)); the core folds.
+`lower()` only splits by `ENGINE_KINDS` – osc noise fm lfo smooth mul add tempo click seq walk events mixer fft audio_out bus out
+pan downmix feedback space; to the page (not played): `chapter_music` (deck-media), `module:*` (P9b), the picture kinds. No strip
+`mul`s, no aliases. simd128 build in `target/live-core-simd`: **1,317 KB raw, 467 KB gz** (gate 500, gated in deck:ci).
+`tests/no_alloc.rs`: apply / render / analyse / signals allocate nothing over 20 s (2 and 8 channels, every carried kind).
+**Browser ≡ native deck** (`conformance/tests/wasm.rs::the_browser_deck_is_the_native_deck`, `kinds.rs`): the 14 kind scenes, the
+6 control scenes, the stereo scene and the 3 routing scenes on a plain n-channel device × blocks 128 / 37 / 1024 – live-core
+native, `live_core.wasm` wasm32 and wasm32 + simd128 all equal the native deck's engine bit for bit; the two routing scenes with
+a configured deck (outlet maps) wait for deck configuration documents (#330). Retired: `noise.ts`, `deck.ts`'s melody / LFO /
+`Math.random`, `scene.ts`'s `ENGINE_TOML` (the fixed patch is `FIXED_SCENE`, a scene the engine plays whole: a seeded `walk` on the
+voice's cv, the drone, pink noise its cutoff on an engine LFO, mixer, fft, space). Stay: `PARAMS` / `MELODY` (the sliders' labels
+and ranges – UI; the `Spec` twin goes when the page reads `kinds.json`), `Moods` (a TS twin of being.rs `step_head` – logic in TS,
+outside P6), `space.ts`'s BPM 84 (P8), `lead.ts` (after P8), `modules.ts` (P9b). **LFO polarity resolved:** the browser's LFOs
+are the engine's, unipolar `0..depth`; production holds no LFO in any stored instrument (prod seed 2026-11-03), so nothing is
+migrated; the page's ±depth sway became `sway.out → incense.cutoff` (scale 2500, the slider the base). **Decisions the plan did
+not state:** (1) a knob sends a `base` record (#188) – on a linked input the link keeps flowing; (2) a scene without a `tempo`
+node takes the page's tempo (`load(scene, { bpm })` → `lc_tempo`) until the show clock (P8); (3) the fixed patch's coupled fifth
+is dropped (its coupling was page logic), its melody's rate is the walk's steps a beat (0.25–8); (4) the page's bands analyse the
+mean of the first two device channels; (5) a rig's knob path is the engine's path (`knobTarget` → null only for a page node).
+Unverified: the owner on the S22, a desktop multichannel interface, Safari.
 
 **P7 – folded into P4** (no backwards compatibility, §2.0).
 
@@ -821,8 +848,8 @@ Plus orchestrator sessions (≈ 10, one per two or three merges, ≈ $5–10 eac
 | parked TS validator (`parked/269-rig-editor`) | parked | never revived | branch deletion is the owner's |
 | stage `control.rs`, `audio/{blocks,voices,click,walk,module}`, engine part of `mod.rs` | in use | P4 (moved, not copied) | the native deck keeps backend, ring, lead (until moved), priority, glitch, sequencer / dispatch threads |
 | `BatchGraph`, `ControlGraph`, `SceneDef`, `synth.rs` blocks | in use (live-core, lower, lab) | P6 / P12 | API merged in P5, live-core switched in P6, bodies removed in P12 |
-| live-core `walks.rs`; deck-space `lower()` page nodes + aliases | in use | P6 / P9b | the engine's event host; `module:*` last |
-| TS `noise.ts`, `deck.ts` melody / LFO / `Math.random`, `scene.ts` fixed patch and `Spec` twin | in use | P6 (+ P2 for `Spec`: read `kinds.json`) | removed after the browser plays every kind |
+| live-core `walks.rs`; deck-space `lower()` page nodes + aliases | `walks.rs`, aliases: **done (#320)**; page nodes: `chapter_music`, `module:*` | P6 / P9b | the engine's event host; `module:*` last |
+| TS `noise.ts`, `deck.ts` melody / LFO / `Math.random`, `scene.ts` fixed patch and `Spec` twin | **done (#320)** but the `Spec` twin | P6 (+ P2 for `Spec`: read `kinds.json`) | the fixed patch is a scene the engine plays |
 | duplicate tempo code: `space.ts` fixed BPM, walks' own bpm | in use | P8 | the core's clock |
 | `lead.ts` (twin of `lead.rs`) | in use | after P8 (a #311 line) | the rule in deck-core, the worker passes underruns |
 | fundsp | runtime dep of the native deck | P4 – **done** (#317) | left the workspace (no oracle; the analytic tests of §3.2 replace it) |

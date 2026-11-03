@@ -17,8 +17,10 @@ export interface SharedSetup {
 
 /** page → worker */
 export type ToWorker =
-	| { type: 'init'; wasm: string; rate: number; lead: number; shared: SharedSetup | null; audioPort: MessagePort | null }
-	| { type: 'load'; id: number; scene: string }
+	/** `channels`: the device channels (the destination's – 2 on a phone); the audio ring and the feed carry them interleaved */
+	| { type: 'init'; wasm: string; rate: number; channels: number; lead: number; shared: SharedSetup | null; audioPort: MessagePort | null }
+	/** `bpm`: the deck's tempo for a scene without a clock of its own (until the show clock, plan P8) */
+	| { type: 'load'; id: number; scene: string; bpm?: number }
 	| { type: 'records'; bytes: ArrayBuffer }
 	| { type: 'stop' };
 
@@ -47,7 +49,7 @@ export type FromWorker =
 	| { type: 'stats'; stats: WorkerStats }
 	| { type: 'error'; error: string };
 
-/** worker ↔ worklet over a MessagePort, transfer transport only */
+/** worker ↔ worklet over a MessagePort, transfer transport only: chunks of interleaved frames, frames consumed */
 export type AudioFeed = { chunk: Float32Array } | { consumed: number; underruns: number };
 
 /** worklet → page */
@@ -56,8 +58,10 @@ export type FromWorklet = { underruns: number; played: number };
 /** The worklet's processorOptions. */
 export interface WorkletOptions {
 	audio: RingBuffers | null;
-	/** the local ring's size in frames (transfer transport) */
+	/** the local ring's size in samples (transfer transport) */
 	capacity: number;
+	/** the device channels, interleaved in the ring – the node's `outputChannelCount` */
+	channels: number;
 	/** #208: SharedSetup.status (shared transport) */
 	status: SharedArrayBuffer | null;
 }
