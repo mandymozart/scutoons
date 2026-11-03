@@ -45,6 +45,8 @@
 		onclock,
 		onclick,
 		onstrobe,
+		midiOut = false,
+		onmidiout,
 		oncopy
 	}: {
 		values: Record<string, number>;
@@ -89,6 +91,9 @@
 		onclock: (c: ClockChoice) => void;
 		onclick: () => void;
 		onstrobe: () => void;
+		/** #321: the MIDI clock out (Web MIDI) and its toggle */
+		midiOut?: boolean;
+		onmidiout: () => void;
 		/** #356: copy the sound's measurement (the report); resolves true when it reached the clipboard */
 		oncopy: () => Promise<boolean>;
 	} = $props();
@@ -121,7 +126,7 @@
 				</button>
 			</div>
 			{#if quality}<DeckQuality {quality} {onquality} {onsettings} />{/if}
-			{#if started}<DeckClock {clock} choice={clockChoice} {strobe} onchoose={onclock} {onclick} {onstrobe} />{/if}
+			{#if started}<DeckClock {clock} choice={clockChoice} {strobe} onchoose={onclock} {onclick} {onstrobe} {midiOut} {onmidiout} />{/if}
 			{#if learn || midi}<p class="line">{learning ? m['live_deck.midi_waiting']({ knob: (all.find(([p]) => p === learning)?.[1].label ?? learning) }) : midi || m['live_deck.midi_learn_hint']()}</p>{/if}
 			<div class="knobs">
 				{#each all as [path, spec] (path)}

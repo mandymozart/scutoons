@@ -147,6 +147,13 @@
 		if (c === 'midi') void ctl.startMidi();
 	}
 	ctl.onClockMidi = (data, at) => engine?.deck?.midiIn(data, at);
+	// MIDI OUT: the core's clock out (deck-core's schedule) to every Web MIDI output
+	let midiOut = $state(false);
+	function toggleMidiOut() {
+		midiOut = !midiOut;
+		if (midiOut) void ctl.startMidi();
+		engine?.deck?.clockOut(midiOut);
+	}
 	// the checks read the clock (dev only): the beat at a page ms (`performance.timeOrigin + now()`) and the clock's state
 	if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as Record<string, unknown>).__scutoonsClock = (ms?: number) => ({ beat: engine?.deck?.beatAt(ms), clock: engine?.deck?.clock });
 	// the strobe: a flash on each beat for 60 ms, the beat the core's clock line says at this animation frame
@@ -286,6 +293,7 @@
 				}
 			};
 			const deck = host.init();
+			deck.onMidiOut = (bytes, at) => ctl.midiSend(bytes, at);
 			values = { ...deck.value };
 			try {
 				ctl.hands = new Hands(await loadControls(WASM_BASE, Object.keys(specs)), deck, specs);
@@ -402,6 +410,8 @@
 			onclock={chooseClock}
 			onclick={() => engine?.deck?.clockKey('click')}
 			onstrobe={() => (strobe = !strobe)}
+			{midiOut}
+			onmidiout={toggleMidiOut}
 		/>
 	</div>
 	{#if presets && quality}

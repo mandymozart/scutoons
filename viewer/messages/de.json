@@ -927,6 +927,8 @@
 		"clock_hint": "Woher das Tempo des Decks kommt: SHOW folgt der Show-Uhr über das Relay, OWN ist sein eigenes, LEAD macht das eigene zu dem der Show, MIDI folgt einer MIDI-Clock und führt die Show",
 		"clock_click": "Klick",
 		"clock_strobe": "Blitz",
+		"clock_midi_out": "MIDI-Out",
+		"clock_midi_out_hint": "Sendet die MIDI-Clock des Decks (Start, Stop, Songposition) an alle MIDI-Ausgänge – nicht, solange das Deck selbst MIDI-Clock folgt",
 		"quality": "Qualität",
 		"quality_auto": "Auto",
 		"quality_auto_hint": "Automatisch: das Deck dreht die Qualität unter Last herunter und mit Luft wieder hoch – nie über die gewählte Stufe",

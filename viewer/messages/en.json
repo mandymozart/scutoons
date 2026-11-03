@@ -927,6 +927,8 @@
 		"clock_hint": "Where the deck's tempo comes from: SHOW follows the show clock over the relay, OWN is its own, LEAD makes its own the show's, MIDI follows a MIDI clock in and leads the show",
 		"clock_click": "Click",
 		"clock_strobe": "Strobe",
+		"clock_midi_out": "MIDI out",
+		"clock_midi_out_hint": "Sends the deck’s MIDI clock (start, stop, song position) to every MIDI output – not while the deck itself follows MIDI clock",
 		"quality": "Quality",
 		"quality_auto": "Auto",
 		"quality_auto_hint": "Automatic: the deck turns the quality down under load and back up when there is headroom – never above the level chosen",

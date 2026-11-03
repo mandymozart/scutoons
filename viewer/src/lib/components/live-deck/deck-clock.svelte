@@ -18,8 +18,20 @@
 		strobe,
 		onchoose,
 		onclick,
-		onstrobe
-	}: { clock: ClockState | null; choice: ClockChoice; strobe: boolean; onchoose: (c: ClockChoice) => void; onclick: () => void; onstrobe: () => void } = $props();
+		onstrobe,
+		midiOut = false,
+		onmidiout
+	}: {
+		clock: ClockState | null;
+		choice: ClockChoice;
+		strobe: boolean;
+		onchoose: (c: ClockChoice) => void;
+		onclick: () => void;
+		onstrobe: () => void;
+		/** MIDI clock out to every Web MIDI output (the core's schedule; none while on MIDI clock in) */
+		midiOut?: boolean;
+		onmidiout: () => void;
+	} = $props();
 	const CHOICES: [ClockChoice, string][] = [
 		['show', 'SHOW'],
 		['own', 'OWN'],
@@ -39,6 +51,7 @@
 	</span>
 	<button type="button" class="toggle" class:on={clock?.click} aria-pressed={!!clock?.click} onclick={onclick} data-testid="deck-clock-click">{m['live_deck.clock_click']()}</button>
 	<button type="button" class="toggle" class:on={strobe} aria-pressed={strobe} onclick={onstrobe} data-testid="deck-clock-strobe">{m['live_deck.clock_strobe']()}</button>
+	<button type="button" class="toggle" class:on={midiOut} aria-pressed={midiOut} onclick={onmidiout} title={m['live_deck.clock_midi_out_hint']()} data-testid="deck-clock-midi-out">{m['live_deck.clock_midi_out']()}</button>
 	<span class="now" data-testid="deck-clock-line">{line}</span>
 </div>
 

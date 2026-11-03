@@ -48,6 +48,8 @@ export type FromWorker =
 	| { type: 'clock'; state: Float64Array }
 	/** #321: the clock's line when it changed (at most every `CLOCK_LINE_EVERY` frames) */
 	| { type: 'clockLine'; line: string }
+	/** #321: the MIDI clock out's messages of a clock frame: [page ms, status, d1, d2] each (NaN = no such byte) */
+	| { type: 'midiOut'; msgs: Float64Array }
 	| { type: 'error'; error: string };
 
 /** #321: what the page hands the core's clock – every time on the page's ms (`performance.timeOrigin + now()`) */
@@ -64,7 +66,9 @@ export type ClockOp =
 	/** the picker: `source` = deck-core's `Source::ALL` index (internal, midi, link, osc, relay) */
 	| { op: 'choose'; source: number; lead: boolean }
 	/** 0 tap, 1 faster, 2 slower, 3 start / stop, 4 the click */
-	| { op: 'key'; key: number; at: number };
+	| { op: 'key'; key: number; at: number }
+	/** the page's MIDI OUT: deck-core's clock out on / off */
+	| { op: 'out'; on: boolean };
 
 /** worker ↔ worklet over a MessagePort, transfer transport only: chunks of interleaved frames, frames consumed (and,
  * #321, the skew: the worklet's context frame minus the frames it played) */

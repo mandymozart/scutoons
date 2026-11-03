@@ -151,6 +151,7 @@ export class LiveCore {
 	/** #321: the show clock's error over the last minute (the sound report's line) */
 	readonly clockWindow = new ClockWindow();
 	private readonly clockListeners = new Set<(c: ClockState) => void>();
+	private readonly midiOutListeners = new Set<(msgs: Float64Array) => void>();
 	private stampTimer: ReturnType<typeof setInterval> | null = null;
 	/** #356: the first `SERIES` seconds, one entry per worker stats message */
 	private readonly seconds: Second[] = [];
@@ -282,6 +283,9 @@ export class LiveCore {
 				this.clockLine = m.line;
 				if (this.clock) this.clock.line = m.line;
 				break;
+			case 'midiOut':
+				for (const cb of this.midiOutListeners) cb(m.msgs);
+				break;
 			case 'error':
 				console.error('live-core:', m.error);
 				break;
@@ -307,6 +311,13 @@ export class LiveCore {
 	onClock(cb: (c: ClockState) => void): () => void {
 		this.clockListeners.add(cb);
 		return () => this.clockListeners.delete(cb);
+	}
+
+	/** #321: the MIDI clock out's messages as the core hands them out ([page ms, status, d1, d2] each, NaN = no such
+	 *  byte) – for Web MIDI, sent with that timestamp. Returns the unsubscribe. */
+	onMidiOut(cb: (msgs: Float64Array) => void): () => void {
+		this.midiOutListeners.add(cb);
+		return () => this.midiOutListeners.delete(cb);
 	}
 
 	/** The heard block's value of `path` (`node.input`, `node.output`, `node` = its first output; an audio output is its

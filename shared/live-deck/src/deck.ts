@@ -69,6 +69,9 @@ export class Deck {
 	private anchor: { t: Tempo; arrived: number } | null = null;
 	/** #321: the picker's choice (kept over a stop / start) */
 	private choice: { source: ClockSource; lead: boolean } | null = null;
+	/** #321: the MIDI clock out is on (kept for the next `start`), and where its bytes go (Web MIDI's outputs) */
+	private out = false;
+	onMidiOut: ((bytes: number[], atMs: number) => void) | null = null;
 	mood = 'neutral';
 	bands: Analysis = silence();
 	/** a finger on a pad (0 / 1): lifts the energy a little */
@@ -135,6 +138,13 @@ export class Deck {
 	chooseClock(source: ClockSource, lead = false): void {
 		this.choice = { source, lead };
 		this.core?.clockOp({ op: 'choose', source: SOURCES.indexOf(source), lead });
+	}
+
+	/** #321: MIDI clock out on / off – deck-core's schedule (the native deck's), its bytes to `onMidiOut`; none while the
+	 *  deck follows MIDI clock in (the core's rule) */
+	clockOut(on: boolean): void {
+		this.out = on;
+		this.core?.clockOp({ op: 'out', on });
 	}
 
 	/** #321: a key of the clock: tap, faster, slower, start / stop, the click */
@@ -269,8 +279,13 @@ export class Deck {
 			if (s.ping) this.link?.sendPing();
 			if (s.send) this.link?.tempo({ bpm: s.send.bpm, per_bar: s.send.perBar, beat: s.send.beat, running: s.send.running, at: s.send.at });
 		});
+		// #321: the core's MIDI clock out, message by message, for Web MIDI (the page's `onMidiOut` writes the bytes)
+		c.onMidiOut((m) => {
+			for (let i = 0; i + 3 < m.length; i += 4) this.onMidiOut?.([m[i + 1], m[i + 2], m[i + 3]].filter((b) => !Number.isNaN(b)), m[i]);
+		});
 		this.core = c;
 		if (this.choice) this.chooseClock(this.choice.source, this.choice.lead);
+		if (this.out) c.clockOp({ op: 'out', on: true });
 		this.giveAnchor();
 		await this.loadEngine(c);
 	}

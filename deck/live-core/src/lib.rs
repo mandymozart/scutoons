@@ -12,8 +12,10 @@
 //! `lc_load(len) -> ±len`, `lc_apply(len) -> count | -len`, `lc_render(frames) -> ptr`, `lc_analyse(dt, lead) -> ptr`,
 //! `lc_signals() -> len`, `lc_signals_at() -> ptr`; the tempo clock (#321, clock.rs): `lc_clock_frame(now_ms) -> ptr`
 //! (the state block, `clock::STATE` f64), `lc_clock_stamp`, `lc_clock_pong`, `lc_clock_tempo`, `lc_clock_midi`,
-//! `lc_clock_joined`, `lc_clock_choose`, `lc_clock_key`, `lc_clock_line(now_ms) -> len` (the line, in the outbox). The
-//! control half steps inside the render (every 128-frame quantum) – there is no step export. A grown memory detaches the views – the host re-makes them (shared/live-core).
+//! `lc_clock_joined`, `lc_clock_choose`, `lc_clock_key`, `lc_clock_line(now_ms) -> len` (the line, in the outbox), the
+//! MIDI clock out `lc_clock_out_on(on)`, `lc_clock_out() -> count`, `lc_clock_out_at() -> ptr`. The control half steps
+//! inside the render (every 128-frame quantum) – there is no step export. A grown memory detaches the views – the host
+//! re-makes them (shared/live-core).
 pub mod clock;
 pub mod core;
 pub mod signals;
@@ -209,6 +211,24 @@ pub extern "C" fn lc_clock_line(now_ms: f64) -> i32 {
         let line = h.clock.line(now_ms);
         h.answer(Ok(line))
     })
+}
+
+/// The page's MIDI OUT: the clock out on (1) or off (0) – deck-core's `ClockOut`, the native deck's schedule.
+#[no_mangle]
+pub extern "C" fn lc_clock_out_on(on: u32) {
+    with(|h| h.clock.set_out(on != 0));
+}
+
+/// The clock out's messages of the last clock frame → how many; at `lc_clock_out_at()`: [page ms, status, d1, d2] f64
+/// each (NaN = no such data byte), to write to Web MIDI with that timestamp.
+#[no_mangle]
+pub extern "C" fn lc_clock_out() -> usize {
+    with(|h| h.clock.out().len() / 4)
+}
+
+#[no_mangle]
+pub extern "C" fn lc_clock_out_at() -> *const f64 {
+    with(|h| h.clock.out().as_ptr())
 }
 
 /// `getOutputTimestamp`: context second `context` heard at the page's `heard_ms`; `skew` = the worklet's context frame

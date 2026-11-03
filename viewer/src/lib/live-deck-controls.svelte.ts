@@ -107,6 +107,11 @@ export class DeckControlsState {
 		}
 	};
 
+	/** #321: bytes to every MIDI output at the page's `atMs` (the deck's clock out) – once MIDI is started */
+	midiSend(bytes: number[], atMs: number) {
+		this.midi?.send(bytes, atMs);
+	}
+
 	async startMidi() {
 		if (this.midi) return;
 		if (!midiSupported()) {

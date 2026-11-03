@@ -7,7 +7,11 @@
 //! the worker); the controller's ns count from the first such time seen (+ 1 s, so early differences never underflow).
 //! Frames: the engine of each loaded scene counts from its own 0; the clock counts every frame rendered since `lc_init`
 //! (the order the worklet plays them) and moves the map to each new engine's axis (`Controller::rebind`).
-use deck_core::tempo::{Config, Controller, Event, Key, Line, Moment, NoHost, Shared, Source, TimeBase, What};
+//!
+//! MIDI clock out (the page's MIDI OUT): deck-core's `ClockOut` – the native deck's schedule – on the map and line each
+//! frame leaves, `OUT_AHEAD_S` ahead; each message with the page's ms it is due at. The page writes the bytes to Web
+//! MIDI with that timestamp and decides nothing.
+use deck_core::tempo::{ClockOut, Config, Controller, Event, Key, Line, Moment, NoHost, Shared, Source, TimeBase, What};
 use std::sync::Arc;
 
 /// the state block: [heard ms, beat, bpm, per_bar, running, source, flags, offset ms, rtt ms, error ms, the anchor to
@@ -20,6 +24,9 @@ pub const LEADING: u32 = 4;
 pub const MIDI_LOST: u32 = 8;
 pub const PING: u32 = 16;
 pub const SEND: u32 = 32;
+/// how far ahead the clock out hands its messages to the page (s): more than the worker's longest pause between two
+/// frames (the S22: ~75 ms), so no tick is late; a tempo nudge moves the ones already handed out by at most 2 % of it
+pub const OUT_AHEAD_S: f64 = 0.15;
 
 pub struct Clock {
     ctl: Controller,
@@ -31,6 +38,10 @@ pub struct Clock {
     rendered: u64,
     base: u64,
     state: [f64; STATE],
+    /// the MIDI clock out while the page has it on, and its messages of the last frame: [page ms, status, d1, d2] each
+    /// (NaN = no such data byte)
+    out: Option<ClockOut>,
+    out_msgs: Vec<f64>,
 }
 
 impl Clock {
@@ -39,7 +50,7 @@ impl Clock {
     pub fn new(rate: f32) -> Clock {
         let mut ctl = Controller::new(&Config::default(), Arc::new(Shared::default()), f64::from(rate));
         ctl.set_source(Source::Relay, &mut NoHost);
-        Clock { ctl, time: TimeBase::new(rate), rate: f64::from(rate), origin: None, rendered: 0, base: 0, state: [0.0; STATE] }
+        Clock { ctl, time: TimeBase::new(rate), rate: f64::from(rate), origin: None, rendered: 0, base: 0, state: [0.0; STATE], out: None, out_msgs: Vec::new() }
     }
 
     /// the page's ms → the controller's ns
@@ -117,6 +128,18 @@ impl Clock {
         }
     }
 
+    /// the page's MIDI OUT on / off (off: the next start begins with Start or the song position again)
+    pub fn set_out(&mut self, on: bool) {
+        if on != self.out.is_some() {
+            self.out = on.then(ClockOut::default);
+        }
+    }
+
+    /// the clock out's messages of the last frame: [page ms, status, d1, d2] each
+    pub fn out(&self) -> &[f64] {
+        &self.out_msgs
+    }
+
     /// the clock's line at the page's `now_ms` – deck-core's, the same text the native HUD shows (`Controller::status`)
     pub fn line(&mut self, now_ms: f64) -> String {
         let now = self.ns(now_ms);
@@ -138,6 +161,21 @@ impl Clock {
             }
         };
         let n = self.ctl.frame(&m, &mut NoHost);
+        self.out_msgs.clear();
+        // on MIDI clock in no clock out: the browser listens and sends on every port, its own clock would come back
+        // through a loopback port (loopMIDI, the IAC bus) as the clock it follows
+        if self.ctl.source != Source::Midi {
+            if let Some(co) = self.out.as_mut() {
+                let (map, t) = (self.ctl.map(), now as f64 * 1e-9);
+                while let Some((due, o)) = co.peek(&map, &m.line, t, 0.0).filter(|(due, _)| *due <= t + OUT_AHEAD_S) {
+                    let b = o.bytes();
+                    let byte = |i: usize| b.get(i).map_or(f64::NAN, |&x| f64::from(x));
+                    let at = self.origin.unwrap_or(0.0) + due.max(t) * 1e3;
+                    self.out_msgs.extend([at, byte(0), byte(1), byte(2)]);
+                    co.sent(o);
+                }
+            }
+        }
         let show = self.ctl.show(now);
         let ping = self.ctl.ping_due(now);
         let send = self.ctl.take_anchor();
@@ -172,5 +210,58 @@ impl Clock {
 
     pub fn controller(&self) -> &Controller {
         &self.ctl
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// the clock out's messages over `secs` of 25 ms frames (the worker's), the audio rendering along: (page ms, bytes)
+    fn run(c: &mut Clock, from_ms: f64, secs: f64) -> Vec<(f64, Vec<u8>)> {
+        let mut got = vec![];
+        let mut t = from_ms;
+        while t < from_ms + secs * 1e3 {
+            c.rendered(1200);
+            c.frame(t);
+            for m in c.out().chunks(4) {
+                got.push((m[0], m[1..].iter().filter(|b| !b.is_nan()).map(|&b| b as u8).collect()));
+            }
+            t += 25.0;
+        }
+        got
+    }
+
+    #[test]
+    fn the_browser_clock_out_is_the_native_schedule_ahead_of_time() {
+        let mut c = Clock::new(48_000.0);
+        c.choose(0, false); // the deck's own clock, 120 BPM
+        let t0 = 1_762_000_000_000.0;
+        c.frame(t0);
+        c.set_out(true);
+        let got = run(&mut c, t0 + 25.0, 2.0);
+        // a start (or the song position + continue), then ticks 20.83 ms apart, each handed out once, in time order
+        assert!(matches!(got[0].1[0], 0xFA | 0xF2), "{:02X?}", got[0].1);
+        let ticks: Vec<f64> = got.iter().filter(|(_, b)| b == &[0xF8]).map(|(t, _)| *t).collect();
+        assert!(ticks.len() >= 90, "2 s at 120 BPM: {}", ticks.len());
+        for w in ticks.windows(2) {
+            assert!((w[1] - w[0] - 1000.0 / 48.0).abs() < 0.05, "spacing {} ms", w[1] - w[0]);
+        }
+        // never late: each due at most `OUT_AHEAD_S` after the frame that handed it out, never before that frame
+        assert!(got.windows(2).all(|w| w[1].0 >= w[0].0));
+        // stop: a Stop goes out; on MIDI clock in nothing (the browser would hear itself through a loopback port)
+        c.key(3, t0 + 2100.0);
+        let stop = run(&mut c, t0 + 2100.0, 0.2);
+        assert!(stop.iter().any(|(_, b)| b == &[0xFC]), "{stop:?}");
+        c.choose(1, false);
+        c.midi([0xFA, 0, 0], t0 + 2399.0);
+        for k in 0..48 {
+            c.midi([0xF8, 0, 0], t0 + 2400.0 + f64::from(k) * 1000.0 / 48.0);
+        }
+        assert!(run(&mut c, t0 + 2400.0, 1.0).is_empty());
+        assert!(c.controller().now().running, "the MIDI clock runs – and goes out nowhere");
+        c.choose(0, false);
+        c.set_out(false);
+        assert!(run(&mut c, t0 + 3500.0, 0.5).is_empty());
     }
 }

@@ -5,6 +5,9 @@
 export interface MidiLink {
 	/** the inputs' names now */
 	inputs(): string[];
+	/** #321: bytes to every output, due at the page's `atMs` (`performance.timeOrigin + now()`) – Web MIDI holds them
+	 *  until then (the core's clock out hands its ticks out ahead of time) */
+	send(bytes: number[], atMs: number): void;
 	close(): void;
 }
 
@@ -13,8 +16,13 @@ export interface MidiInputLike {
 	name?: string | null;
 	onmidimessage: ((e: { data: Uint8Array | null; timeStamp?: number }) => void) | null;
 }
+export interface MidiOutputLike {
+	name?: string | null;
+	send(data: number[], timestamp?: number): void;
+}
 export interface MidiAccessLike {
 	inputs: { forEach(f: (i: MidiInputLike) => void): void };
+	outputs?: { forEach(f: (o: MidiOutputLike) => void): void };
 	onstatechange: ((e: unknown) => void) | null;
 }
 
@@ -49,6 +57,11 @@ export async function connectMidi(
 	};
 	return {
 		inputs: names,
+		send(bytes, atMs) {
+			// Web MIDI's timestamps are on `performance.now`; a past one goes out at once
+			const at = atMs - performance.timeOrigin;
+			access.outputs?.forEach((o) => o.send(bytes, at));
+		},
 		close() {
 			access.onstatechange = null;
 			access.inputs.forEach((i) => (i.onmidimessage = null));

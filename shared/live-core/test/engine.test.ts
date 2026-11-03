@@ -79,6 +79,29 @@ test('#321: two browser decks on one anchor play the same beat (the show clock i
 	assert.ok(Math.abs(a - (64 + 128 / 60)) < 1e-6, String(a));
 });
 
+test('#321: MIDI clock out in the real wasm – the native schedule, handed out ahead with the page\'s ms', { skip }, async () => {
+	const c = await core();
+	c.load(SCENE);
+	const t0 = 1_762_000_000_000;
+	c.clock({ op: 'choose', source: 0, lead: false }, 0); // the deck's own clock
+	c.clock({ op: 'out', on: true }, 0);
+	const msgs: number[][] = [];
+	for (let k = 0; k < 40; k++) {
+		// the worker's 25 ms: the audio renders along (the clock's frames are the audio's)
+		for (let q = 0; q < 1200 / 128; q++) c.render(128);
+		c.clockFrame(t0 + k * 25);
+		const out = c.clockOut();
+		for (let i = 0; out && i < out.length; i += 4) msgs.push([out[i], out[i + 1]]);
+	}
+	assert.ok([0xfa, 0xf2].includes(msgs[0][1]), JSON.stringify(msgs[0]));
+	const ticks = msgs.filter((m) => m[1] === 0xf8).map((m) => m[0]);
+	assert.ok(ticks.length >= 40, String(ticks.length));
+	assert.ok(ticks[0] >= t0 && ticks.every((t, i) => i === 0 || t > ticks[i - 1]), 'in time order, on the page\'s clock');
+	c.clock({ op: 'out', on: false }, 0);
+	c.clockFrame(t0 + 1100);
+	assert.equal(c.clockOut(), null);
+});
+
 test('a vector through the control ring reaches the sound, the analysis and the heard values', { skip }, async () => {
 	const c = await core();
 	const table = c.load(SCENE);

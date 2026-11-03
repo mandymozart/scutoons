@@ -36,6 +36,10 @@ export interface Exports {
 	lc_clock_key(key: number, atMs: number): void;
 	/** #321: the clock's line (deck-core `Controller::status`, the native HUD's text) into the outbox → its length */
 	lc_clock_line(nowMs: number): number;
+	/** #321: the MIDI clock out (deck-core's `ClockOut`) on / off; its messages of the last frame: how many, where */
+	lc_clock_out_on(on: number): void;
+	lc_clock_out(): number;
+	lc_clock_out_at(): number;
 }
 
 /** #321: the clock's state block, f64 (deck/live-core clock.rs `STATE`) */
@@ -113,6 +117,12 @@ export class WasmCore {
 		return new Float64Array(this.x.memory.buffer, this.x.lc_clock_frame(nowMs), CLOCK_STATE);
 	}
 
+	/** #321: the MIDI clock out's messages of the last clock frame (a copy: [page ms, status, d1, d2] each), null = none */
+	clockOut(): Float64Array | null {
+		const n = this.x.lc_clock_out();
+		return n ? new Float64Array(this.x.memory.buffer, this.x.lc_clock_out_at(), 4 * n).slice() : null;
+	}
+
 	/** #321: the clock's line at the page's `nowMs` – deck-core's words, the same the native HUD shows ("" = nothing to say) */
 	clockLine(nowMs: number): string {
 		return this.text(this.x.lc_clock_line(nowMs));
@@ -136,6 +146,8 @@ export class WasmCore {
 				return x.lc_clock_choose(o.source, o.lead ? 1 : 0);
 			case 'key':
 				return x.lc_clock_key(o.key, o.at);
+			case 'out':
+				return x.lc_clock_out_on(o.on ? 1 : 0);
 		}
 	}
 

@@ -60,6 +60,8 @@ function clockFrame(): void {
 	const now = nowMs();
 	const state = engine.core.clockFrame(now).slice();
 	post({ type: 'clock', state }, [state.buffer]);
+	const out = engine.core.clockOut();
+	if (out) post({ type: 'midiOut', msgs: out }, [out.buffer]);
 	if (++clockFrames % CLOCK_LINE_EVERY) return;
 	const line = engine.core.clockLine(now);
 	if (line !== clockLine) post({ type: 'clockLine', line: (clockLine = line) });
