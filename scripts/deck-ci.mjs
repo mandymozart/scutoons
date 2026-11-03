@@ -51,6 +51,8 @@ function gate(file, kb) {
 
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const steps = [
+	// #357: no deck logic in the browser's TypeScript (the ratchet: scripts/core-only-baseline.json only shrinks)
+	['🧱 core only', npm, ['run', 'check:core-only'], root],
 	...(quick
 		? []
 		: [

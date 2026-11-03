@@ -14,6 +14,7 @@ import { knobTarget, rigDiff, rigGraph, rigParams, rigStreamed } from './rig.ts'
 import type { RigPlayed } from './space.ts';
 
 /** #321: the MIDI clock's messages: tick, start, continue, stop, song position */
+// core-only-ok: #321 the port's filter (as the native port's in tempo/midi.rs) – which bytes reach the core, no parsing
 const CLOCK_MESSAGES = new Set([0xf8, 0xfa, 0xfb, 0xfc, 0xf2]);
 
 /** a character's portraits by mood (scene-content's `characters.<id>.portraits`) */

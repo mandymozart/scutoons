@@ -215,6 +215,7 @@ export async function decodeImage(bytes: Uint8Array | Blob, type = 'image/webp')
 }
 
 /** the image type of a file's first bytes (the .glb's images: WebP or PNG) */
+// core-only-ok: #357 an image's magic bytes (PNG / JPEG), not MIDI
 export const sniff = (b: Uint8Array) => (b[0] === 0x89 && b[1] === 0x50 ? 'image/png' : b[0] === 0xff && b[1] === 0xd8 ? 'image/jpeg' : 'image/webp');
 
 /** a pointer's position in the canvas' pixels (the render size – the view reads them so) */

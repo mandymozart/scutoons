@@ -1,0 +1,107 @@
+{
+	"$comment": "check:core-only (#357): the known deck logic in the browser's TypeScript, per file and pattern, each with the ticket that removes it. It only shrinks (npm run check:core-only -- --shrink); a growth needs the owner: a commit message with Owner-approved-baseline: <the owner's words, date>. Never add an entry to get past the check – move the logic into deck-core.",
+	"entries": {
+		"shared/live-core/src/clock.ts": {
+			"tempo-math": {
+				"count": 2,
+				"ticket": "#357"
+			}
+		},
+		"shared/live-core/src/lead.ts": {
+			"lead-rule": {
+				"count": 1,
+				"ticket": "#311"
+			}
+		},
+		"shared/live-core/src/signals.ts": {
+			"scene-literal": {
+				"count": 14,
+				"ticket": "#357"
+			}
+		},
+		"shared/live-core/src/wire.ts": {
+			"clamp": {
+				"count": 2,
+				"ticket": "#357"
+			}
+		},
+		"shared/live-core/src/worker.ts": {
+			"lead-rule": {
+				"count": 3,
+				"ticket": "#311"
+			}
+		},
+		"shared/live-deck/src/client.ts": {
+			"scene-literal": {
+				"count": 3,
+				"ticket": "#357"
+			},
+			"kind-branch": {
+				"count": 5,
+				"ticket": "#357"
+			}
+		},
+		"shared/live-deck/src/controls.ts": {
+			"clamp": {
+				"count": 4,
+				"ticket": "#357"
+			}
+		},
+		"shared/live-deck/src/deck.ts": {
+			"clamp": {
+				"count": 1,
+				"ticket": "#357"
+			}
+		},
+		"shared/live-deck/src/rig.ts": {
+			"kind-branch": {
+				"count": 1,
+				"ticket": "#357"
+			}
+		},
+		"shared/live-deck/src/scene.ts": {
+			"scene-literal": {
+				"count": 9,
+				"ticket": "#360"
+			},
+			"clamp": {
+				"count": 1,
+				"ticket": "#360"
+			}
+		},
+		"shared/engine-host/src/meters.ts": {
+			"clamp": {
+				"count": 1,
+				"ticket": "#357"
+			}
+		},
+		"shared/engine-host/src/monitor.ts": {
+			"kind-branch": {
+				"count": 3,
+				"ticket": "#357"
+			},
+			"midi-bytes": {
+				"count": 3,
+				"ticket": "#357"
+			}
+		},
+		"shared/engine-host/src/status.ts": {
+			"clamp": {
+				"count": 1,
+				"ticket": "#357"
+			}
+		},
+		"viewer/src/lib/components/live-deck/deck-knob.svelte": {
+			"clamp": {
+				"count": 2,
+				"ticket": "#357"
+			}
+		},
+		"creator/src/lib/components/sound/sound-workspace.svelte": {
+			"kind-branch": {
+				"count": 3,
+				"ticket": "#357"
+			}
+		}
+	}
+}
