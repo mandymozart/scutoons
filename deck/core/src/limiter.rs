@@ -83,6 +83,63 @@ impl Limiter {
     }
 }
 
+/// The same limiter over a group of n channels with one linked gain (plan 2.6, #318): the peak follower hears the loudest
+/// channel of the group, so the gain it takes off lowers every channel by the same amount and the image does not shift. The
+/// device's outlet groups (a stereo pair, a 5.1 bed, a cue pair) each get one. For two channels it is `Limiter`, bit for bit.
+/// Planar in place: channel `c` of a block is `data[c * stride..]`. Never allocates after `new`.
+pub struct LinkedLimiter {
+    n: usize,
+    /// the delayed frames, LOOK of n samples
+    ring: Vec<f32>,
+    at: usize,
+    env: f32,
+    gain: f32,
+    down: f32,
+    back: f32,
+    least: f32,
+}
+
+impl LinkedLimiter {
+    pub fn new(rate: f32, n: usize) -> LinkedLimiter {
+        let coef = |samples: f32| 1.0 - libm::expf(-1.0 / samples.max(1.0));
+        LinkedLimiter { n, ring: vec![0.0; LOOK * n], at: 0, env: 0.0, gain: 1.0, down: coef(LOOK as f32 / 5.0), back: coef(RELEASE * rate), least: 1.0 }
+    }
+
+    pub fn channels(&self) -> usize {
+        self.n
+    }
+
+    /// `frames` frames of the channels `chans` of a planar block (`stride` apart), in place
+    pub fn process_planar(&mut self, data: &mut [f32], stride: usize, chans: &[usize], frames: usize) {
+        debug_assert_eq!(chans.len(), self.n);
+        for i in 0..frames {
+            let mut peak = 0.0f32;
+            for &c in chans {
+                let x = finite(data[c * stride + i]);
+                data[c * stride + i] = x;
+                peak = peak.max(x.abs());
+            }
+            self.env = if peak > self.env { peak } else { self.env + (peak - self.env) * self.back };
+            let want = if self.env > CEILING { CEILING / self.env } else { 1.0 };
+            self.gain += (want - self.gain) * if want < self.gain { self.down } else { self.back };
+            self.least = self.least.min(self.gain);
+            let slot = &mut self.ring[self.at * self.n..(self.at + 1) * self.n];
+            for (k, &c) in chans.iter().enumerate() {
+                let delayed = std::mem::replace(&mut slot[k], data[c * stride + i]);
+                data[c * stride + i] = soft(delayed * self.gain);
+            }
+            self.at = (self.at + 1) % LOOK;
+        }
+    }
+
+    /// The deepest gain reduction since the last call, in dB (0 = untouched); starts counting anew.
+    pub fn take_reduction(&mut self) -> f32 {
+        let db = -20.0 * libm::log10f(self.least.max(1e-6));
+        self.least = self.gain;
+        db.max(0.0)
+    }
+}
+
 fn finite(x: f32) -> f32 {
     if x.is_finite() {
         x
@@ -153,6 +210,37 @@ mod tests {
         let mut z = sine(220.0, 0.3, 4800);
         lim.process_mono(&mut z);
         assert!(lim.take_reduction() < 0.05);
+    }
+
+    /// a group of two is the stereo limiter, bit for bit; a group of four takes the loudest channel's gain off all of them
+    #[test]
+    fn a_linked_group_limits_together() {
+        let (mut l, r) = (sine(220.0, 1.6, 9600), sine(331.0, 0.2, 9600));
+        let mut lin = Limiter::new(48_000.0);
+        let (mut lo, mut ro) = (l.clone(), r.clone());
+        lin.process(&mut lo, &mut ro);
+        let mut planar = [l.clone(), r.clone()].concat();
+        let mut group = LinkedLimiter::new(48_000.0, 2);
+        group.process_planar(&mut planar, 9600, &[0, 1], 9600);
+        assert!(planar[..9600].iter().zip(&lo).all(|(a, b)| a.to_bits() == b.to_bits()), "left");
+        assert!(planar[9600..].iter().zip(&ro).all(|(a, b)| a.to_bits() == b.to_bits()), "right");
+        assert_eq!(group.take_reduction(), lin.take_reduction());
+        // four channels, only the first loud: the quiet ones are lowered by the same gain (the image keeps its balance)
+        l = sine(220.0, 3.0, 9600);
+        let quiet = sine(220.0, 0.3, 9600);
+        let mut data = [l, quiet.clone(), quiet.clone(), quiet].concat();
+        let mut g4 = LinkedLimiter::new(48_000.0, 4);
+        g4.process_planar(&mut data, 9600, &[0, 1, 2, 3], 9600);
+        let (loud, soft1, soft3) = (&data[..9600], &data[9600..2 * 9600], &data[3 * 9600..]);
+        assert_eq!(soft1, soft3, "channels with the same input leave the same");
+        let ratio = soft1[6000..8000].iter().fold(0.0f32, |m, v| m.max(v.abs())) / 0.3;
+        assert!(ratio < 0.45, "the quiet channels are pulled down with the loud one: {ratio}");
+        assert!(loud.iter().all(|v| v.abs() < 1.0));
+        // a channel outside the group is not touched
+        let mut two = [sine(220.0, 3.0, 4800), sine(220.0, 0.3, 4800)].concat();
+        let mut solo = LinkedLimiter::new(48_000.0, 1);
+        solo.process_planar(&mut two, 4800, &[1], 4800);
+        assert!(two[..4800].iter().zip(sine(220.0, 3.0, 4800)).all(|(a, b)| *a == b), "channel 0 is outside the group");
     }
 
     #[test]
