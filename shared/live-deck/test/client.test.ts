@@ -16,6 +16,8 @@ test('the relay URL and the envelope', () => {
 	// a venue's relay under our name – the deck's LAN IP with dashes (bunny DNS answers it) –, wss with the wildcard certificate (#201)
 	assert.deepEqual(parseRelay('wss://192-168-1-116.lan.scutoons.com:7700/live/CATH'), { base: 'wss://192-168-1-116.lan.scutoons.com:7700', code: 'CATH' });
 	assert.deepEqual(parseRelay('wss://live.scutoons.com/live/A7K2/'), { base: 'wss://live.scutoons.com', code: 'A7K2' });
+	// the LAN viewer passes the relay through a path of its own (scripts/dev/lan.mjs)
+	assert.deepEqual(parseRelay('wss://192.168.1.116:4100/relay/live/CLOCK'), { base: 'wss://192.168.1.116:4100/relay', code: 'CLOCK' });
 	assert.throws(() => parseRelay('http://x/live/CATH'));
 	assert.equal(envelope({ kind: 'ping', p: { t0: 0 } }), '{"v":1,"seq":0,"from":"","kind":"ping","p":{"t0":0}}');
 });

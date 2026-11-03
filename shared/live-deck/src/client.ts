@@ -18,9 +18,10 @@ export const GROUP = 'decks';
 const PING_MS = 20_000;
 const BACKOFF_S = [1, 2, 4, 8, 10];
 
-/** `ws://host:port/live/<code>` → the base and the session code (link.rs reads it the same way) */
+/** `ws://host:port/live/<code>` → the base and the session code (link.rs reads it the same way); a path before
+ *  `/live/` stays in the base (the LAN viewer's relay: `wss://<ip>:4100/relay/live/<code>`, scripts/dev/lan.mjs) */
 export function parseRelay(url: string): { base: string; code: string } {
-	const m = /^(wss?:\/\/[^/]+)\/live\/([^/?#]+)\/?$/.exec(url.trim());
+	const m = /^(wss?:\/\/[^/?#]+(?:\/[^?#]*?)?)\/live\/([^/?#]+)\/?$/.exec(url.trim());
 	if (!m) throw new Error(`relay URL must look like ws://host:7070/live/CODE, got '${url}'`);
 	return { base: m[1], code: decodeURIComponent(m[2]) };
 }
