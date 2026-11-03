@@ -65,7 +65,7 @@ the rule. No new top-level file in agents/ without the owner.
 | workspace `CLAUDE.md` | 53 / 0.8k | 53 / 0.8k (not ours) |
 | `scutoons\CLAUDE.md` | 16 / 0.3k | 17 / 0.3k |
 | memory index | 20 / 0.8k (22 files behind it) | 7 / 0.3k (7 files) |
-| `RULES.md` | 160 / 4.1k (over its own cap) | 106 / 4.0k |
+| `RULES.md` | 160 / 4.1k (over its own cap) | 108 / 4.1k (more rules, denser) |
 | `HANDOVER.md` | 63 / 1.6k (state of 2026-10-12 / 11-01) | 27 / 0.9k |
-| **Total at start** | **312 / 7.6k** | **210 / 6.2k** |
-Grep-only: `DECISIONS.md` 698 → 710 lines / ≈ 56k tokens (now keyed and indexed; 37 superseded lines moved out); topic docs ≈ 110k tokens (unchanged, read by section).
+| **Total at start** | **312 / 7.6k** | **212 / 6.4k** |
+Grep-only: `DECISIONS.md` 698 → 710 lines (655 decisions + index) / ≈ 56k tokens (now keyed and indexed; 37 superseded lines moved out); topic docs ≈ 110k tokens (unchanged, read by section).
