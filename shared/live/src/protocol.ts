@@ -204,6 +204,8 @@ export interface Tempo {
 	running: boolean;
 	/** relay ms; the envelope's `at` when missing */
 	at?: number;
+	/** the clock domain (a sub-conductor's own time, later); missing = "show", the one show clock – reserved, nothing sets or routes it yet */
+	domain?: string;
 }
 
 /** conductor → relay on every change; folded into the snapshot. */

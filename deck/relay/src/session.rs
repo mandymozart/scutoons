@@ -925,7 +925,7 @@ mod tests {
     }
 
     fn tempo(bpm: f64, at: Option<i64>) -> Message {
-        Message::Tempo(Tempo { bpm, per_bar: 4, beat: 8.0, running: true, at })
+        Message::Tempo(Tempo { bpm, per_bar: 4, beat: 8.0, running: true, at, domain: None })
     }
 
     /// #321: the show clock's anchor – the lead when it comes without a moment, everyone else gets it, the snapshot keeps

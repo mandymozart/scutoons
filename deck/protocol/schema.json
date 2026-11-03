@@ -230,7 +230,8 @@
         "per_bar": { "type": "integer", "minimum": 1 },
         "beat": { "type": "number" },
         "running": { "type": "boolean" },
-        "at": { "type": "integer", "description": "relay ms; the envelope's `at` when missing" }
+        "at": { "type": "integer", "description": "relay ms; the envelope's `at` when missing" },
+        "domain": { "type": "string", "description": "the clock domain (a sub-conductor's own time, later); missing = \"show\", the one show clock – reserved, nothing sets or routes it yet" }
       },
       "required": ["bpm", "per_bar", "beat", "running"],
       "additionalProperties": false

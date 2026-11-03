@@ -22,7 +22,7 @@ pub fn anchor_of(t: &protocol::Tempo) -> Option<Anchor> {
 }
 
 pub fn tempo_of(a: &Anchor) -> protocol::Tempo {
-    protocol::Tempo { bpm: a.bpm, per_bar: u64::from(a.per_bar), beat: a.beat, running: a.running, at: Some(a.at) }
+    protocol::Tempo { bpm: a.bpm, per_bar: u64::from(a.per_bar), beat: a.beat, running: a.running, at: Some(a.at), domain: None }
 }
 
 impl ShowLink {
@@ -89,10 +89,12 @@ mod tests {
 
     #[test]
     fn the_wire_and_the_core_agree_on_an_anchor() {
-        let t = protocol::Tempo { bpm: 128.0, per_bar: 3, beat: 7.5, running: true, at: Some(1_761_700_003_000) };
+        let t = protocol::Tempo { bpm: 128.0, per_bar: 3, beat: 7.5, running: true, at: Some(1_761_700_003_000), domain: None };
         let a = anchor_of(&t).unwrap();
         assert_eq!(tempo_of(&a), t);
-        assert!(anchor_of(&protocol::Tempo { at: None, ..t }).is_none());
+        // the clock domain is reserved: the one show clock's anchor carries none on the wire (an older deck reads it)
+        assert!(!serde_json::to_string(&tempo_of(&a)).unwrap().contains("domain"));
+        assert!(anchor_of(&protocol::Tempo { at: None, ..t.clone() }).is_none());
         let s = ShowLink::default();
         s.pong(&protocol::Pong { t0: 0, t1: 5 });
         s.pong(&protocol::Pong { t0: 42, t1: 5 });

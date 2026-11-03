@@ -409,6 +409,9 @@ pub struct Tempo {
 	/// relay ms; the envelope's `at` when missing
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub at: Option<i64>,
+	/// the clock domain (a sub-conductor's own time, later); missing = "show", the one show clock – reserved, nothing sets or routes it yet
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub domain: Option<String>,
 }
 
 /// conductor → relay on every change; folded into the snapshot.
