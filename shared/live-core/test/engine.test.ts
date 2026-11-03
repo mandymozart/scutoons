@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { BLOCK, Engine, WasmCore } from '../src/engine.ts';
+import { beatAt, clockOf } from '../src/clock.ts';
 import { Ring, ringBuffers } from '../src/ring.ts';
 import { valueIndex } from '../src/index.ts';
 import { analysisOf, FRAME, SPECTRUM, VALUE_COUNT, writeSend } from '../src/wire.ts';
@@ -49,7 +50,31 @@ test('load: the table comes out, a broken scene or a kind the browser lacks is a
 	assert.throws(() => c.load('[[node]]\nid = "x"\nkind = "chapter_music"\n'), /does not carry 'chapter_music'/);
 	assert.equal(c.load(SCENE).nodes.length, 3);
 	assert.throws(() => c.applyBytes(new Uint8Array([1, 0, 0])), /truncated header/);
-	assert.equal(c.tempo(84), true, 'no clock of its own: the deck’s');
+});
+
+test('#321: two browser decks on one anchor play the same beat (the show clock in the real wasm)', { skip }, async () => {
+	const t0 = 1_762_000_000_000; // the page's ms
+	const beatAtMs = async (relayAhead: number, skew: number, audioAt: number) => {
+		const c = await core();
+		c.load(SCENE);
+		// the relay's clock `relayAhead` ms ahead of this page's; exact round trips
+		for (let k = 0; k < 5; k++) {
+			const t = t0 + k * 250;
+			c.clock({ op: 'pong', t0: t * 1000, t1: Math.round(t + relayAhead), t2: t }, 0);
+		}
+		c.clock({ op: 'tempo', bpm: 128, perBar: 4, beat: 64, at: t0 + 2000 + relayAhead, running: true, arrived: t0 + 1500 }, 0);
+		// the context's frame 0 is heard at the page's `audioAt`; the worklet played `skew` frames of silence first
+		c.clock({ op: 'stamp', context: 1, heard: audioAt + 1000 }, skew);
+		const s = clockOf(c.clockFrame(t0 + 3000));
+		assert.equal(s.source, 'relay', 'a scene without a tempo node follows the show clock');
+		assert.ok(s.locked && s.anchor, JSON.stringify(s));
+		return beatAt(s, t0 + 3000);
+	};
+	const a = await beatAtMs(777_000, 0, t0 + 900);
+	const b = await beatAtMs(-12_345, 4096, t0 + 2500.5);
+	// relay = t0 + 3000 is a second after the anchor: 64 + 128 / 60
+	assert.ok(Math.abs(a - b) < 1e-6, `${a} vs ${b}`);
+	assert.ok(Math.abs(a - (64 + 128 / 60)) < 1e-6, String(a));
 });
 
 test('a vector through the control ring reaches the sound, the analysis and the heard values', { skip }, async () => {

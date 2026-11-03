@@ -36,6 +36,25 @@ let dropouts = 0;
 /** the last pump and the longest pause between two in this second (ms) – a stalled worker shows here */
 let lastTick = 0;
 let gapMs = 0;
+/** #321: the worklet's skew (transfer transport: from its feed; shared: the status word) and the clock's frame timer */
+let skew = 0;
+let clockTimer: ReturnType<typeof setInterval> | null = null;
+/** #321: a clock frame this often (ms): the show clock's nudge, the pings, a leader's anchors, the page's strobe */
+const CLOCK_MS = 25;
+
+/** the page's clock (ms since the epoch – the same in the page and here) */
+const nowMs = () => performance.timeOrigin + performance.now();
+
+function currentSkew(): number {
+	return status ? Atomics.load(status, 1) : skew;
+}
+
+/** #321: one clock frame; its state block to the page (a copy) */
+function clockFrame(): void {
+	if (!engine) return;
+	const state = engine.core.clockFrame(nowMs()).slice();
+	post({ type: 'clock', state }, [state.buffer]);
+}
 
 function adapt(): void {
 	if (!engine || !adaptive) return;
@@ -108,6 +127,7 @@ scope.onmessage = async (ev) => {
 							if ('consumed' in e.data) {
 								inFlight = Math.max(0, inFlight - e.data.consumed);
 								dropouts = e.data.underruns;
+								skew = e.data.skew;
 							}
 							const now = performance.now();
 							if (lastTick) gapMs = Math.max(gapMs, now - lastTick);
@@ -124,13 +144,13 @@ scope.onmessage = async (ev) => {
 					post({ type: 'stats', stats: { ...engine.stats(), lead: engine.lead, gapMs } });
 					gapMs = 0;
 				}, 1000);
+				clockTimer = setInterval(clockFrame, CLOCK_MS);
 				post({ type: 'ready' });
 				break;
 			}
 			case 'load': {
 				if (!engine) throw new Error('load before init');
 				const table = engine.core.load(m.scene);
-				if (m.bpm !== undefined) engine.core.tempo(m.bpm);
 				post({ type: 'loaded', id: m.id, table });
 				if (audio && !ticking) {
 					ticking = true;
@@ -142,9 +162,13 @@ scope.onmessage = async (ev) => {
 			case 'records':
 				engine?.applyBytes(new Uint8Array(m.bytes));
 				break;
+			case 'clock':
+				engine?.core.clock(m.op, currentSkew());
+				break;
 			case 'stop':
 				stopped = true;
 				if (statsTimer) clearInterval(statsTimer);
+				if (clockTimer) clearInterval(clockTimer);
 				feed?.close();
 				break;
 		}

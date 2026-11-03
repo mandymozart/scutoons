@@ -2,9 +2,10 @@
 // values (the pads, the sliders, the being's 3D buttons all turn these), the mood ladder, the relay link and its values
 // stream, and the sound: live-core – the native deck's engine (#320) – plays the whole scene (the fixed one or the rig's);
 // the page only sends the values and reads back what is heard. No DOM: the page draws it; `tick` runs it once per
-// animation frame. With a CDN given it answers the conductor's scene sync (#195, sync.ts).
-import type { DeckGraph } from '@scutoons/live';
-import { LiveCore, type Analysis, type DeviceSignal } from '@scutoons/live-core';
+// animation frame. With a CDN given it answers the conductor's scene sync (#195, sync.ts). The tempo clock (#321) is the
+// core's: the link's pongs and anchors and Web MIDI's clock go in, the core's pings and a leader's anchors go out.
+import type { DeckGraph, Tempo } from '@scutoons/live';
+import { LiveCore, beatAt, nowMs, SOURCES, type Analysis, type ClockSource, type ClockState, type DeviceSignal } from '@scutoons/live-core';
 import type { DeckSynced } from '@scutoons/live';
 import { DeckLink, ValueStream, type WebSocketLike } from './client.ts';
 import { BrowserSync } from './sync.ts';
@@ -12,8 +13,6 @@ import { deckGraph, FIXED_SCENE, ladderFor, MELODY, Moods, PARAMS, STREAMED, typ
 import { knobTarget, rigDiff, rigGraph, rigParams, rigStreamed } from './rig.ts';
 import type { RigPlayed } from './space.ts';
 
-/** the tempo the deck's ladder and the being's breath read (cathedral.toml's) */
-export const BPM = 84;
 
 /** a character's portraits by mood (scene-content's `characters.<id>.portraits`) */
 export type Portraits = Record<string, { path: string }>;
@@ -61,7 +60,13 @@ export class Deck {
 	sticks: [string, string][] | null = null;
 	character: string;
 	portraits: Portraits = {};
-	readonly moods = new Moods(['neutral'], 1.5, BPM);
+	readonly moods = new Moods(['neutral'], 1.5);
+	/** #321: the core's tempo clock as its last frame left it (null before the sound started) */
+	clock: ClockState | null = null;
+	/** #321: the show clock's last anchor the link brought (the core gets it when the sound starts) */
+	private anchor: { t: Tempo; arrived: number } | null = null;
+	/** #321: the picker's choice (kept over a stop / start) */
+	private choice: { source: ClockSource; lead: boolean } | null = null;
 	mood = 'neutral';
 	bands: Analysis = silence();
 	/** a finger on a pad (0 / 1): lifts the energy a little */
@@ -98,7 +103,52 @@ export class Deck {
 				})
 			: null;
 		const onSync = this.sync ? (s: Parameters<BrowserSync['push']>[0]) => void this.sync!.push(s) : undefined;
-		this.link = o.relay ? new DeckLink({ relay: o.relay, graph: this.graph(), nick: o.nick.slice(0, 24), token: o.token, onStatus: o.onStatus, socket: o.socket, onSync }) : null;
+		this.link = o.relay
+			? new DeckLink({
+					relay: o.relay,
+					graph: this.graph(),
+					nick: o.nick.slice(0, 24),
+					token: o.token,
+					onStatus: o.onStatus,
+					socket: o.socket,
+					onSync,
+					onPong: (t0, t1, t2) => this.core?.clockOp({ op: 'pong', t0, t1, t2 }),
+					onTempo: (t, arrived) => {
+						this.anchor = { t, arrived };
+						this.giveAnchor();
+					},
+					onJoined: (now) => this.core?.clockOp({ op: 'joined', now })
+				})
+			: null;
+	}
+
+	/** #321: the show clock's anchor into the core (when it runs) */
+	private giveAnchor(): void {
+		const a = this.anchor;
+		if (!a || a.t.at === undefined) return;
+		this.core?.clockOp({ op: 'tempo', bpm: a.t.bpm, perBar: a.t.per_bar, beat: a.t.beat, at: a.t.at, running: a.t.running, arrived: a.arrived });
+	}
+
+	/** #321: the clock's picker – a source (the show clock = `relay`) and whether this deck leads */
+	chooseClock(source: ClockSource, lead = false): void {
+		this.choice = { source, lead };
+		this.core?.clockOp({ op: 'choose', source: SOURCES.indexOf(source), lead });
+	}
+
+	/** #321: a key of the clock: tap, faster, slower, start / stop, the click */
+	clockKey(key: 'tap' | 'faster' | 'slower' | 'startstop' | 'click'): void {
+		this.core?.clockOp({ op: 'key', key: ['tap', 'faster', 'slower', 'startstop', 'click'].indexOf(key), at: nowMs() });
+	}
+
+	/** #321: a Web MIDI message (the browser's `timeStamp`, ms on the page's `performance.now`): the core's clock reads the
+	 *  clock messages among them */
+	midiIn(data: ArrayLike<number>, timeStamp: number): void {
+		if (data.length) this.core?.clockOp({ op: 'midi', bytes: [data[0], data[1] ?? 0, data[2] ?? 0], at: performance.timeOrigin + timeStamp });
+	}
+
+	/** #321: the beat the clock says at the page's ms (the strobe, the being's breath); NaN before the sound started */
+	beatAt(ms = nowMs()): number {
+		return this.clock ? beatAt(this.clock, ms) : NaN;
 	}
 
 	/** the being on the wire now: the character, its ladder first, then every mood it has */
@@ -208,7 +258,16 @@ export class Deck {
 		const c = await LiveCore.start({ worker: files.worker, wasm: files.wasm, worklet: files.worklet, transport: files.transport ?? 'auto', lead: files.lead ?? defaultLead() });
 		c.onAnalysis((a) => (this.bands = a));
 		c.onSignal((s) => this.onSignal?.(s));
+		// #321: the core says when to ping and what a leading deck sends; the ladder reads its tempo
+		c.onClock((s) => {
+			this.clock = s;
+			this.moods.bpm = s.bpm;
+			if (s.ping) this.link?.sendPing();
+			if (s.send) this.link?.tempo({ bpm: s.send.bpm, per_bar: s.send.perBar, beat: s.send.beat, running: s.send.running, at: s.send.at });
+		});
 		this.core = c;
+		if (this.choice) this.chooseClock(this.choice.source, this.choice.lead);
+		this.giveAnchor();
 		await this.loadEngine(c);
 	}
 
@@ -220,10 +279,11 @@ export class Deck {
 		this.engineReady = false;
 		this.loadGen++;
 		this.bands = silence();
+		this.clock = null;
 		await c?.stop();
 	}
 
-	/** (Re)load the sound: live-core's scene at the deck's tempo, then every slider's value. The engine is quiet from
+	/** (Re)load the sound: live-core's scene on the deck's clock, then every slider's value. The engine is quiet from
 	 *  here until the scene landed; a newer load (a second switch before this one landed) wins. A rig's nodes the
 	 *  browser does not carry yet (its `engine.page`) are not played – the status says which. */
 	private async loadEngine(c: LiveCore): Promise<void> {
@@ -231,7 +291,7 @@ export class Deck {
 		this.engineReady = false;
 		const rig = this.rig;
 		try {
-			await c.load(rig ? rig.engine.scene : FIXED_SCENE, { bpm: BPM });
+			await c.load(rig ? rig.engine.scene : FIXED_SCENE);
 		} catch (e) {
 			if (gen === this.loadGen) this.o.onStatus?.(`sound: ${(e as Error).message ?? e}`);
 			return;

@@ -10,6 +10,8 @@
 	import { panelKnobs } from '$lib/live-deck.ts';
 	import DeckKnob from './deck-knob.svelte';
 	import DeckQuality from './deck-quality.svelte';
+	import DeckClock, { type ClockChoice } from './deck-clock.svelte';
+	import type { ClockState } from '@scutoons/live-deck';
 	import DeckStats, { type Stats } from './deck-stats.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 
@@ -36,7 +38,13 @@
 		onsticks,
 		quality = null,
 		onquality,
-		onsettings
+		onsettings,
+		clock = null,
+		clockChoice = 'show',
+		strobe = false,
+		onclock,
+		onclick,
+		onstrobe
 	}: {
 		values: Record<string, number>;
 		/** the sliders: the fixed patch's PARAMS or the character's rig's knobs (#191) */
@@ -73,6 +81,13 @@
 		onquality: (level: QualityLevel, auto: boolean) => void;
 		/** #220: open the presets' settings sheet */
 		onsettings: () => void;
+		/** #321: the tempo clock (null before the sound), the picker's choice, the strobe; their changes */
+		clock?: ClockState | null;
+		clockChoice?: ClockChoice;
+		strobe?: boolean;
+		onclock: (c: ClockChoice) => void;
+		onclick: () => void;
+		onstrobe: () => void;
 	} = $props();
 
 	// folded at first: the being fills the screen; the fold opens the knobs
@@ -94,6 +109,7 @@
 				</button>
 			</div>
 			{#if quality}<DeckQuality {quality} {onquality} {onsettings} />{/if}
+			{#if started}<DeckClock {clock} choice={clockChoice} {strobe} onchoose={onclock} {onclick} {onstrobe} />{/if}
 			{#if learn || midi}<p class="line">{learning ? m['live_deck.midi_waiting']({ knob: (all.find(([p]) => p === learning)?.[1].label ?? learning) }) : midi || m['live_deck.midi_learn_hint']()}</p>{/if}
 			<div class="knobs">
 				{#each all as [path, spec] (path)}

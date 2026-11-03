@@ -83,7 +83,9 @@ const tomlValue = (v: number | string) => (typeof v === 'number' ? (Number.isInt
 /** the scene live-core plays (the deck's TOML) */
 export const FIXED_SCENE = [
 	...NODES.map((n) => ['[[node]]', ...Object.entries(n).map(([k, v]) => `${k} = ${k === 'seed' ? v : tomlValue(v)}`)].join('\n')),
-	...LINKS.map((l) => ['[[link]]', ...Object.entries(l).map(([k, v]) => `${k} = ${tomlValue(v)}`)].join('\n'))
+	...LINKS.map((l) => ['[[link]]', ...Object.entries(l).map(([k, v]) => `${k} = ${tomlValue(v)}`)].join('\n')),
+	// #321: the click on the deck's clock (silent until the clock's click is on – X1 and phone clicking together); higher than the\n	// native deck's 1 / 1.5 kHz, so one recording tells the two apart (npm run clock:measure)
+	'[[node]]\nid = "click"\nkind = "click"\nfreq = 2500.0\naccent = 3500.0\ngain = 0.4\n[[link]]\nfrom = "click"\nto = "out.in"'
 ].join('\n') + '\n';
 
 /** the outputs a hose shows (stream.rs: the hoses' sources) – audio outputs stream their block peak */
@@ -139,7 +141,8 @@ export class Moods {
 	constructor(
 		public moods: string[],
 		private readonly hold = 1.5,
-		private readonly bpm = 84
+		/** the clock's tempo (#321: the core's, set by the deck each clock frame; 120 = deck-core's default) */
+		public bpm = 120
 	) {}
 
 	/** `level` 0..1 (the FFT's), `touch` 0..1 at `time` s → the mood */

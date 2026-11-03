@@ -51,6 +51,7 @@
 		"dev:viewer": "npm run dev -w viewer",
 		"dev:lan": "node scripts/dev/lan.mjs",
 		"deck:ci": "node scripts/deck-ci.mjs",
+		"clock:measure": "npm run measure -w tools/clock-measure --",
 		"hooks": "node scripts/install-hooks.mjs",
 		"dev:creator": "npm run dev -w creator",
 		"dev:admin": "npm run dev -w admin",

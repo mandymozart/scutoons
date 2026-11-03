@@ -77,6 +77,8 @@ const steps = [
 				],
 				['🧊 space-web wasm32', 'cargo', ['build', '--profile', 'wasm-web', '--target', 'wasm32-unknown-unknown', '-p', 'space-web'], `${root}/deck`],
 				['🧊 live-deck tests', npm, ['run', 'check', '-w', 'shared/live-deck'], root],
+				// #321: the show clock's LAN measurement (the owner's recording → the decks' offsets)
+				['⏱ clock measurement tool', npm, ['run', 'check', '-w', 'tools/clock-measure'], root],
 				...(release ? [['🦀 release build', 'cargo', ['build', '--release'], `${root}/deck`]] : [])
 			]),
 	['🦀 tests', 'cargo', ['test', '--workspace'], `${root}/deck`],

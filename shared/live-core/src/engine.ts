@@ -8,6 +8,7 @@
 // engine's control half steps inside its render – the pump only renders.
 import { FRAME, VALUE_COUNT } from './wire.ts';
 import type { Ring } from './ring.ts';
+import type { ClockOp } from './messages.ts';
 
 export interface Exports {
 	memory: WebAssembly.Memory;
@@ -15,15 +16,26 @@ export interface Exports {
 	lc_inbox(len: number): number;
 	lc_outbox(): number;
 	lc_load(len: number): number;
-	/** the deck's tempo for a scene without a clock of its own: 1 = taken */
-	lc_tempo(bpm: number): number;
+
 	lc_apply(len: number): number;
 	lc_render(frames: number): number;
 	lc_analyse(dt: number, lead: number): number;
 	/** #282: the device messages since the last call – their length; the records are at `lc_signals_at()` */
 	lc_signals(): number;
 	lc_signals_at(): number;
+	/** #321: the tempo clock (deck/live-core clock.rs) – one frame → the state block's address (`CLOCK_STATE` f64) */
+	lc_clock_frame(nowMs: number): number;
+	lc_clock_stamp(context: number, heardMs: number, skew: number): void;
+	lc_clock_pong(t0Us: number, t1Ms: number, t2Ms: number): void;
+	lc_clock_tempo(bpm: number, perBar: number, beat: number, at: number, running: number, arrivedMs: number): void;
+	lc_clock_midi(status: number, d1: number, d2: number, atMs: number): void;
+	lc_clock_joined(nowMs: number): void;
+	lc_clock_choose(source: number, lead: number): void;
+	lc_clock_key(key: number, atMs: number): void;
 }
+
+/** #321: the clock's state block, f64 (deck/live-core clock.rs `STATE`) */
+export const CLOCK_STATE = 16;
 
 /** One node of the load table: its inputs (`ports`, what records' `port` counts), its outputs, and where its values are
  * in the analysis frame's values (`at`: the inputs, then the outputs; -1 = not carried). */
@@ -92,9 +104,30 @@ export class WasmCore {
 		return JSON.parse(this.text(n)) as Table;
 	}
 
-	/** The deck's tempo for the loaded scene when it has no clock of its own; false = it has one. */
-	tempo(bpm: number): boolean {
-		return this.x.lc_tempo(bpm) === 1;
+	/** #321: one clock frame at the page's `nowMs` → the state block (a view, valid until the next call into the core) */
+	clockFrame(nowMs: number): Float64Array {
+		return new Float64Array(this.x.memory.buffer, this.x.lc_clock_frame(nowMs), CLOCK_STATE);
+	}
+
+	/** #321: something for the clock; `skew` = the worklet's (a stamp's context frame → the frames it played) */
+	clock(o: ClockOp, skew: number): void {
+		const x = this.x;
+		switch (o.op) {
+			case 'stamp':
+				return x.lc_clock_stamp(o.context, o.heard, skew);
+			case 'pong':
+				return x.lc_clock_pong(o.t0, o.t1, o.t2);
+			case 'tempo':
+				return x.lc_clock_tempo(o.bpm, o.perBar, o.beat, o.at, o.running ? 1 : 0, o.arrived);
+			case 'midi':
+				return x.lc_clock_midi(o.bytes[0], o.bytes[1], o.bytes[2], o.at);
+			case 'joined':
+				return x.lc_clock_joined(o.now);
+			case 'choose':
+				return x.lc_clock_choose(o.source, o.lead ? 1 : 0);
+			case 'key':
+				return x.lc_clock_key(o.key, o.at);
+		}
 	}
 
 	/** Applies the first `len` bytes of the inbox (records written there in place); throws with the core's reason. */

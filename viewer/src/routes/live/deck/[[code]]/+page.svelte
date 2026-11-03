@@ -28,6 +28,8 @@
 	import DeckSticks from '$lib/components/live-deck/deck-sticks.svelte';
 	import type { Stats } from '$lib/components/live-deck/deck-stats.svelte';
 	import { DeckControlsState } from '$lib/live-deck-controls.svelte.ts';
+	import type { ClockChoice } from '$lib/components/live-deck/deck-clock.svelte';
+	import type { ClockState } from '@scutoons/live-deck';
 
 	const session = getSessionContext();
 	const cdn = `${CDN_SERVER}/`;
@@ -132,6 +134,43 @@
 		return e;
 	}
 	let threeD = $state(true);
+	// #321: the tempo clock – the picker (the core decides the rest: live-core clock.rs), the strobe on the beat
+	let clock = $state<ClockState | null>(null);
+	let clockChoice = $state<ClockChoice>('show');
+	let strobe = $state(false);
+	let flash = $state(false);
+	const SOURCE: Record<ClockChoice, ['relay' | 'internal' | 'midi', boolean]> = { show: ['relay', false], own: ['internal', false], lead: ['internal', true], midi: ['midi', false] };
+	function chooseClock(c: ClockChoice) {
+		clockChoice = c;
+		const [source, lead] = SOURCE[c];
+		engine?.deck?.chooseClock(source, lead);
+		if (c === 'midi') void ctl.startMidi();
+	}
+	ctl.onClockMidi = (data, at) => engine?.deck?.midiIn(data, at);
+	// the checks read the clock (dev only): the beat at a page ms (`performance.timeOrigin + now()`) and the clock's state
+	if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as Record<string, unknown>).__scutoonsClock = (ms?: number) => ({ beat: engine?.deck?.beatAt(ms), clock: engine?.deck?.clock });
+	// the strobe: a flash on each beat for 60 ms, the beat the core's clock line says at this animation frame
+	$effect(() => {
+		if (!strobe) return;
+		let raf = 0;
+		let last = NaN;
+		let until = 0;
+		const frame = (t: number) => {
+			raf = requestAnimationFrame(frame);
+			const beat = Math.floor(engine?.deck?.beatAt() ?? NaN);
+			if (Number.isFinite(beat) && beat !== last) {
+				if (Number.isFinite(last)) until = t + 60;
+				last = beat;
+			}
+			const on = t < until;
+			if (on !== flash) flash = on;
+		};
+		raf = requestAnimationFrame(frame);
+		return () => {
+			cancelAnimationFrame(raf);
+			flash = false;
+		};
+	});
 
 	const store = {
 		get: () => {
@@ -191,6 +230,7 @@
 			if (space && sheetOpen) screenInfo = space.screen;
 			stats.quality = quality ? `${quality.level} ${quality.scale.toFixed(2)}×${quality.auto ? '' : ' FIX'}` : '';
 			stats.down = !!quality && quality.level !== quality.ceiling;
+			clock = engine?.deck?.clock ?? null;
 		}, 500);
 		void (async () => {
 			await settled();
@@ -293,6 +333,7 @@
 </svelte:head>
 
 <div class="deck" data-testid="live-deck">
+	{#if flash}<div class="strobe" data-testid="deck-strobe"></div>{/if}
 	<div class="stage" bind:this={stage}>
 		{#if !threeD && face}<img class="face" src={face} alt="" crossorigin="anonymous" />{/if}
 	</div>
@@ -332,6 +373,12 @@
 				sheetOpen = true;
 			}}
 			ontouch={(on) => engine?.deck && (engine.deck.touch = on)}
+			{clock}
+			{clockChoice}
+			{strobe}
+			onclock={chooseClock}
+			onclick={() => engine?.deck?.clockKey('click')}
+			onstrobe={() => (strobe = !strobe)}
 		/>
 	</div>
 	{#if presets && quality}
@@ -350,6 +397,14 @@
 	.stage {
 		position: absolute;
 		inset: 0;
+	}
+	/* #321: the strobe on the beat – over everything, never in the way of a finger */
+	.strobe {
+		position: absolute;
+		inset: 0;
+		z-index: 10;
+		background: var(--paper);
+		pointer-events: none;
 	}
 	.face {
 		position: absolute;

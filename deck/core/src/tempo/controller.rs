@@ -347,6 +347,10 @@ impl Controller {
         if s != self.source {
             self.following = false;
             self.lead.again();
+            // leaving the show clock: its tempo, not the nudged one (the beat stays)
+            if let (Source::Relay, Some(a)) = (self.source, self.anchor) {
+                self.map = self.map.with_bpm(self.map.frame, a.bpm);
+            }
         }
         self.source = s;
         host.source_chosen(s);
@@ -677,6 +681,12 @@ mod tests {
         assert!(off > 50.004 && off < 50.008, "{off}");
         let want = (8.0 + off - 50.0) * 2.0;
         assert!((t.frame(&moment(8.0, 512.0), &mut NoHost).pos.beat - want).abs() < 2e-3, "on the corrected line");
+        // leading from here on: the show's tempo, not a nudged one
+        t.push_pong(8_050_000_000, 58_080, 8_050_000_000);
+        t.frame(&moment(8.1, 512.0), &mut NoHost);
+        assert!((t.map().bpm - 120.0).abs() > 1e-6, "nudged: {}", t.map().bpm);
+        t.set_source(Source::Internal, &mut NoHost);
+        assert_eq!(t.map().bpm, 120.0);
     }
 
     #[test]

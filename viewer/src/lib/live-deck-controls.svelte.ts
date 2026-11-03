@@ -96,7 +96,11 @@ export class DeckControlsState {
 		if (this.hands.text) void this.startMidi();
 	}
 
-	private onMidi = (data: Uint8Array) => {
+	/** #321: every message to the deck's clock too (its MIDI clock in reads the clock's among them) */
+	onClockMidi: ((data: Uint8Array, timeStamp: number) => void) | null = null;
+
+	private onMidi = (data: Uint8Array, timeStamp: number) => {
+		this.onClockMidi?.(data, timeStamp);
 		if (this.hands?.midi(data)?.learned) {
 			this.learning = '';
 			this.tick++;
