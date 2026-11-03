@@ -1008,6 +1008,7 @@ dependencies = [
  "deck-core",
  "deck-engine",
  "deck-space",
+ "serde_json",
 ]
 
 [[package]]

@@ -17,3 +17,4 @@ crate-type = ["cdylib", "rlib"]
 deck-engine = { path = "../../engine", features = ["events"] }
 deck-space = { path = "../../space", default-features = false }
 deck-core = { workspace = true, features = ["analysis", "tempo"] }
+serde_json.workspace = true

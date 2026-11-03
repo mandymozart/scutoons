@@ -44,9 +44,11 @@ pub fn detect_sequencing() -> Sequencing {
     }
 }
 
-/// What the build asks of the native platform: the module library, when the build has modules.
-fn seams() -> deck_engine::Seams {
+/// What the build asks of the native platform: the device (its channel count is the deck configuration, plan 2.6b: main on
+/// the first channels, nothing else configured) and the module library, when the build has modules.
+fn seams(device_channels: usize) -> deck_engine::Seams {
     deck_engine::Seams {
+        deck: deck_engine::DeckConfig::device(device_channels),
         #[cfg(feature = "modules")]
         modules: Some(Arc::new(modules::Global)),
         ..Default::default()
@@ -115,14 +117,23 @@ impl Engine {
         Engine::build_seq(graph, rate, volume, detect_build(), detect_sequencing())
     }
 
+    /// `build` for a device with `channels` channels (what its backend reports; `build` is a stereo device)
+    pub fn build_for(graph: &Graph, rate: f32, volume: f32, channels: usize) -> Result<(Engine, Handles)> {
+        Engine::build_device(graph, rate, volume, detect_build(), detect_sequencing(), channels)
+    }
+
     /// `build` with this `build`, the hosts' generators inside the block (no thread to start – the tests)
     pub fn build_with(graph: &Graph, rate: f32, volume: f32, build: Build) -> Result<(Engine, Handles)> {
         Engine::build_seq(graph, rate, volume, build, Sequencing::InBlock)
     }
 
     pub fn build_seq(graph: &Graph, rate: f32, volume: f32, build: Build, seq: Sequencing) -> Result<(Engine, Handles)> {
+        Engine::build_device(graph, rate, volume, build, seq, 2)
+    }
+
+    fn build_device(graph: &Graph, rate: f32, volume: f32, build: Build, seq: Sequencing, channels: usize) -> Result<(Engine, Handles)> {
         let (monitor, glitches, glitch_log) = glitch::Monitor::new(rate);
-        let (core, handles) = deck_engine::Engine::build_seams(graph, rate, volume, build, seq, &seams())?;
+        let (core, handles) = deck_engine::Engine::build_seams(graph, rate, volume, build, seq, &seams(channels))?;
         Ok((Engine { core, monitor: Some(monitor) }, Handles { core: handles, glitches, glitch_log: Some(glitch_log) }))
     }
 

@@ -1,0 +1,21 @@
+{
+  "about": "FNV-1a 64 over the f32 bits of deck-engine's device channels, interleaved (2 s, 48 kHz, master + group limiters), per routing scene and block size. #318, deck/conformance/tests/routing.rs",
+  "hashes": {
+    "5.1 folded on 2 channels/1024": "516098780b0f8123",
+    "5.1 folded on 2 channels/128": "516098780b0f8123",
+    "5.1 folded on 2 channels/37": "516098780b0f8123",
+    "5.1 on a 6-channel device/1024": "ad5fb262a10515be",
+    "5.1 on a 6-channel device/128": "ad5fb262a10515be",
+    "5.1 on a 6-channel device/37": "ad5fb262a10515be",
+    "cue outlet on channels 3-4/1024": "d9649731935252f5",
+    "cue outlet on channels 3-4/128": "d9649731935252f5",
+    "cue outlet on channels 3-4/37": "d9649731935252f5",
+    "feedback loop (stereo)/1024": "73a48a65ef5869f9",
+    "feedback loop (stereo)/128": "73a48a65ef5869f9",
+    "feedback loop (stereo)/37": "73a48a65ef5869f9",
+    "routing graph (8 ch: send, folder, cue, VBAP, 5.1 fold)/1024": "05965c64692d083e",
+    "routing graph (8 ch: send, folder, cue, VBAP, 5.1 fold)/128": "05965c64692d083e",
+    "routing graph (8 ch: send, folder, cue, VBAP, 5.1 fold)/37": "05965c64692d083e"
+  },
+  "recorded_on": "windows x86-64"
+}

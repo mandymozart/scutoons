@@ -2,7 +2,7 @@
 //! samples come out through `ew_out`. The same function runs natively (`run`) – the conformance suite compares both.
 use deck_core::tempo::Now;
 use deck_engine::control::Controls;
-use deck_engine::{Build, Engine};
+use deck_engine::{Build, DeckConfig, Engine, Seams, Sequencing};
 use deck_space::graph::Graph;
 use deck_space::scene::Scene;
 use std::sync::Mutex;
@@ -27,7 +27,30 @@ pub fn run(toml: &str, rate: f32, block: usize, frames: usize, build: Build) -> 
     Ok(out)
 }
 
+/// `run` for a device with several channels (P4b, #318): the scene rendered on the deck configuration `deck`, every device
+/// channel after master, environment and limiter, interleaved (`frames` × the configuration's channels).
+pub fn run_device(toml: &str, deck: &DeckConfig, rate: f32, block: usize, frames: usize, build: Build) -> Result<Vec<f32>, String> {
+    let graph = Graph::build(&Scene::parse(toml).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+    let (mut engine, mut handles) =
+        Engine::build_seams(&graph, rate, 1.0, build, Sequencing::InBlock, &Seams::with_deck(deck.clone())).map_err(|e| format!("{e:#}"))?;
+    let mut controls = Controls::new(&graph, Some(&mut handles));
+    let now = Now::default();
+    let d = deck.channels;
+    let mut out = Vec::with_capacity(frames * d);
+    let mut buf = vec![0.0f32; block * d];
+    let mut done = 0;
+    while done < frames {
+        let n = (frames - done).min(block);
+        controls.update(n as f32 / rate, 0, &now);
+        engine.render(&mut buf[..n * d], d, |x| x);
+        out.extend_from_slice(&buf[..n * d]);
+        done += n;
+    }
+    Ok(out)
+}
+
 static INBOX: Mutex<Vec<u8>> = Mutex::new(Vec::new());
+static CONFIG: Mutex<Vec<u8>> = Mutex::new(Vec::new());
 static OUT: Mutex<Vec<f32>> = Mutex::new(Vec::new());
 
 /// Reserve `len` bytes for the scene and return where to write them.
@@ -45,6 +68,32 @@ pub extern "C" fn ew_run(rate: f32, block: u32, frames: u32, batch: u32) -> u32 
     let text = String::from_utf8_lossy(&INBOX.lock().unwrap()).into_owned();
     let build = if batch == 0 { Build::patcher() } else { Build::detect() };
     match run(&text, rate, block as usize, frames as usize, build) {
+        Ok(v) => {
+            let n = v.len() as u32;
+            *OUT.lock().unwrap() = v;
+            n
+        }
+        Err(_) => 0,
+    }
+}
+
+/// Reserve `len` bytes for the deck configuration (JSON) and return where to write them.
+#[no_mangle]
+pub extern "C" fn ew_config(len: u32) -> *mut u8 {
+    let mut b = CONFIG.lock().unwrap();
+    b.clear();
+    b.resize(len as usize, 0);
+    b.as_mut_ptr()
+}
+
+/// Render the scene in the inbox on the deck configuration in the config box: returns the number of samples (frames × the
+/// configuration's channels, interleaved; 0 = refused).
+#[no_mangle]
+pub extern "C" fn ew_run_device(rate: f32, block: u32, frames: u32, batch: u32) -> u32 {
+    let text = String::from_utf8_lossy(&INBOX.lock().unwrap()).into_owned();
+    let Ok(deck) = serde_json::from_slice::<DeckConfig>(&CONFIG.lock().unwrap()) else { return 0 };
+    let build = if batch == 0 { Build::patcher() } else { Build::detect() };
+    match run_device(&text, &deck, rate, block as usize, frames as usize, build) {
         Ok(v) => {
             let n = v.len() as u32;
             *OUT.lock().unwrap() = v;

@@ -465,9 +465,12 @@ impl Show {
         let has_audio = graph.nodes.iter().any(|n| n.kind.domain() == graph::Domain::Audio);
         let mut handles = None;
         let audio = if has_audio {
-            let mut factory = |rate: f32| {
-                let (engine, h) = audio::Engine::build(&graph, rate, args.volume)?;
-                tracing::info!("audio graph: {} ({} steps, {} batches)", h.build.label(), engine.shape().0, engine.shape().1);
+            let mut factory = |rate: f32, channels: usize| {
+                let (engine, h) = audio::Engine::build_for(&graph, rate, args.volume, channels)?;
+                tracing::info!("audio graph: {} ({} steps, {} batches, {} device channels)", h.build.label(), engine.shape().0, engine.shape().1, engine.device_channels());
+                for note in &h.notes {
+                    tracing::info!("audio: {note}");
+                }
                 handles = Some(h);
                 Ok(engine)
             };
