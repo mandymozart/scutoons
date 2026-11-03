@@ -103,6 +103,11 @@ pub struct LinkDef {
     pub scale: f32,
     #[serde(default)]
     pub offset: f32,
+    /// an audio link's channel map (plan 2.6, #318): `[source, target]` pairs counted from 1 – `[[1, 3], [2, 4]]` lands a
+    /// stereo source on channels 3 and 4 (a send's offset); one source may go to several targets, several sources into one
+    /// target sum. Empty = channel n to channel n. `scale` on an audio link is the send level.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub map: Vec<[u8; 2]>,
 }
 
 fn one() -> f32 {

@@ -70,7 +70,7 @@ pub struct Patch {
 }
 
 /// Kinds a scene owns once (graph.rs's sinks + the clock): never inside an instrument – the rig / scene adds them.
-pub(crate) const SCENE_ONLY: [Kind; 5] = [Kind::Screen, Kind::AudioOut, Kind::Tempo, Kind::Space, Kind::Outlet];
+pub(crate) const SCENE_ONLY: [Kind; 6] = [Kind::Screen, Kind::AudioOut, Kind::Out, Kind::Tempo, Kind::Space, Kind::Outlet];
 
 impl Patch {
     pub fn graph(&self) -> Result<Graph> {

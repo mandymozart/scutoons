@@ -72,6 +72,8 @@ export type InstrumentKind = "drum" | "bass" | "lead" | "pad" | "voice" | "sampl
 
 export type LinkDef = {
 	from: string;
+	/** an audio link's channel map (plan 2.6, #318): `[source, target]` pairs counted from 1 – `[[1, 3], [2, 4]]` lands a stereo source on channels 3 and 4 (a send's offset); one source may go to several targets, several sources into one target sum. Empty = channel n to channel n. `scale` on an audio link is the send level. */
+	map?: number[][];
 	offset?: number;
 	scale?: number;
 	to: string;

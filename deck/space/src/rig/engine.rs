@@ -163,7 +163,7 @@ pub fn lower(scene: &Scene) -> Result<Engine> {
             t.insert("b".into(), toml::Value::Float(f64::from(g)));
             node.params.remove("gain");
             nodes.push(NodeDef { id: id.clone(), kind: "mul".into(), params: t });
-            links.push(LinkDef { from: id.clone(), to: format!("{}.gain", n.id), scale: 1.0, offset: 0.0 });
+            links.push(LinkDef { from: id.clone(), to: format!("{}.gain", n.id), scale: 1.0, offset: 0.0, map: Vec::new() });
             aliases.insert(format!("{}.gain", n.id), format!("{id}.a"));
         }
         nodes.push(node);

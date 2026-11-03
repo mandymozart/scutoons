@@ -32,7 +32,7 @@ fn leak(s: &str) -> &'static str {
 }
 
 fn ports(list: &[(String, PortType)]) -> &'static [Port] {
-    Box::leak(list.iter().map(|(name, ty)| Port { name: leak(name), ty: *ty }).collect::<Vec<_>>().into_boxed_slice())
+    Box::leak(list.iter().map(|(name, ty)| Port { name: leak(name), ty: *ty, channels: None }).collect::<Vec<_>>().into_boxed_slice())
 }
 
 /// Registers `module:<name>` with these ports (and the defaults of its control inputs). The same name with the same

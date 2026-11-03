@@ -3,7 +3,7 @@
 //! `STAGE_MODULES`, and the batch evaluator's kind list all read it. The order of the `graph` kinds is the order of
 //! deck-space's `Kind::ALL` (the generated server file keeps it). A new kind = a variant in `Kind` + an entry here + its
 //! block; a test in deck-space checks both lists agree.
-use crate::{Channels, Curve, Descriptor, Dir, Domain, ParamDesc, PortDesc, PortType, Scope};
+use crate::{AnyChannels, Channels, Curve, Descriptor, Dir, Domain, ParamDesc, PortDesc, PortType, Scope};
 use std::borrow::Cow;
 use std::sync::OnceLock;
 
@@ -38,13 +38,25 @@ fn vi(name: &'static str, doc: &'static str) -> PortDesc {
 fn vo(name: &'static str, doc: &'static str) -> PortDesc {
     port(name, Dir::Out, V, None, true, doc)
 }
-/// audio ports carry the engine's stereo block
+/// audio ports carry the engine's stereo block unless they say otherwise (`mono`, `any`)
 const STEREO: Option<Channels> = Some(Channels::Count(2));
 fn ai(name: &'static str, doc: &'static str) -> PortDesc {
     port(name, Dir::In, A, STEREO, true, doc)
 }
 fn ao(name: &'static str, doc: &'static str) -> PortDesc {
     port(name, Dir::Out, A, STEREO, true, doc)
+}
+/// a mono audio input (a panner's source)
+fn a1i(name: &'static str, doc: &'static str) -> PortDesc {
+    port(name, Dir::In, A, Some(Channels::Count(1)), true, doc)
+}
+/// audio ports of any width: they carry what the links carry (plan 2.6, the widest linked input)
+const ANY: Option<Channels> = Some(Channels::Any(AnyChannels::Any));
+fn aanyi(name: &'static str, doc: &'static str) -> PortDesc {
+    port(name, Dir::In, A, ANY, true, doc)
+}
+fn aanyo(name: &'static str, doc: &'static str) -> PortDesc {
+    port(name, Dir::Out, A, ANY, true, doc)
 }
 /// an audio input deck-core's control graph does not take (the oscillators' `cv`)
 fn ai_graph(name: &'static str, doc: &'static str) -> PortDesc {
@@ -398,6 +410,79 @@ fn build() -> Vec<Descriptor> {
         "The device output: the audio sink. A scene has one.",
         &[ai("in", "the sound played"), ci("volume", "main volume")],
         &[lin("volume", 0.0, 1.0, 0.8, "", "main volume")],
+    ),
+    // routing (plan 2.6, #318): buses, outlets, panners, down-mixes, the explicit loop
+    kind(
+        0,
+        "bus",
+        Audio,
+        "core",
+        "stage",
+        "A bus (Reaper's track): everything linked into `in` is summed, a fader (`gain`), mute and solo gate the post-fader `out`, `pre` is the sum before both. A send is a link out of `pre` or `out` into another bus, `scale` the send level, `map` the channel map (\"1/2 → 3/4\" is `map = [[1, 3], [2, 4]]`); a folder bus is a bus that sums its children. The insert chain is the nodes linked between a source and `in`. Mute and solo gate `out` only: a muted kick still ducks through its pre-fader send.",
+        &[aanyi("in", "everything linked here is summed, in the scene's link order"), ci("gain", "fader"), ci("mute", "1 = out is silent (pre keeps playing)"), ci("solo", "1 = every bus not soloed is silent at its out"), aanyo("out", "post-fader: the sum × gain, gated by mute and solo"), aanyo("pre", "pre-fader: the sum itself – a pre-fader send or sidechain feed")],
+        &[
+            lin("gain", 0.0, 2.0, 1.0, "", "fader"),
+            lin("mute", 0.0, 1.0, 0.0, "", "1 = out is silent"),
+            lin("solo", 0.0, 1.0, 0.0, "", "1 = every bus not soloed is silent at its out"),
+            knob("channels", 0.0, 32.0, 0.0, "", "the bus's width; 0 = the widest input"),
+        ],
+    ),
+    kind(
+        F_SCENE,
+        "out",
+        Audio,
+        "core",
+        "stage",
+        "An outlet (Max's dac~): writes its input to device channels. `group` names the outlet group (default main; cue …) whose device channels the deck configuration gives; `first` (counted from 1) or a `channels` list pins device channels instead; nothing set = main on channels 1.. and any other group silent. An outlet with more channels than the device has is folded by the deck configuration (the layout's down-mix, else the first channels). Several outs add up.",
+        &[aanyi("in", "the sound written to the outlet"), ci("gain", "level of this out")],
+        &[
+            lin("gain", 0.0, 1.5, 1.0, "", "level of this out"),
+            choice("group", &[s("main"), s("cue")], "the outlet group (default main); any other name is a group of its own"),
+            knob("first", 0.0, 32.0, 0.0, "", "the first device channel, counted from 1; 0 = the deck configuration decides"),
+            choice("layout", &[s("mono"), s("stereo"), s("quad"), s("5.1"), s("7.1")], "what the channels are, for the fold onto fewer device channels (default by count)"),
+        ],
+    ),
+    kind(
+        0,
+        "pan",
+        Audio,
+        "core",
+        "stage",
+        "Places a mono source (its first channel) on a speaker layout: equal-power between two speakers, VBAP (Pulkki: the speaker pair or triple around the direction, power-normalised) or DBAP (distance-based) over any array. The output has one channel per speaker; LFE channels get nothing. Azimuth counts degrees clockwise from the front (right is positive), elevation up.",
+        &[a1i("in", "the source (channel 1)"), ci("azimuth", "direction in degrees, 0 = front, positive = right"), ci("elevation", "degrees above the horizon"), ci("distance", "distance of the source for DBAP, in units of the layout's radius"), aanyo("out", "one channel per speaker")],
+        &[
+            lin("azimuth", -180.0, 180.0, 0.0, "deg", "direction in degrees, 0 = front, positive = right"),
+            lin("elevation", -90.0, 90.0, 0.0, "deg", "degrees above the horizon"),
+            lin("distance", 0.1, 10.0, 1.0, "", "distance of the source for DBAP"),
+            choice("mode", &[s("auto"), s("equal_power"), s("vbap"), s("dbap")], "the panning law; auto = equal_power on two speakers, else vbap"),
+            choice("layout", &[s("mono"), s("stereo"), s("quad"), s("5.1"), s("7.1")], "the speakers (default stereo); a venue's own layouts come from the deck configuration, or give `az` / `el` / `dist` lists on the node"),
+            knob("rolloff", 0.0, 12.0, 6.0, "dB", "DBAP: level lost per doubling of the distance"),
+            knob("blur", 0.0, 2.0, 0.1, "", "DBAP: spatial blur, keeps a source on a speaker from being a single-speaker point"),
+        ],
+    ),
+    kind(
+        0,
+        "downmix",
+        Audio,
+        "core",
+        "stage",
+        "A gain matrix from `from` channels to `to` channels: the standard tables (ITU-R BS.775 / Web Audio: 5.1 → stereo is L + C/√2 + Ls/√2, the LFE dropped; quad → stereo; stereo → mono …) between the layouts, or your own `matrix` (rows = output channels, columns = input channels, row by row). Channels go n → n everywhere else; this is the one place a show asks for a mix-down.",
+        &[aanyi("in", "the sound to mix (padded or cut to `from` channels)"), aanyo("out", "`to` channels")],
+        &[
+            choice("from", &[s("mono"), s("stereo"), s("quad"), s("5.1"), s("7.1")], "the layout of the input (default 5.1)"),
+            choice("to", &[s("mono"), s("stereo"), s("quad"), s("5.1")], "the layout of the output (default stereo)"),
+            knob("inputs", 0.0, 32.0, 0.0, "", "with a custom `matrix`: how many input channels a row has (0 = the `from` layout's)"),
+        ],
+    ),
+    kind(
+        0,
+        "feedback",
+        Audio,
+        "core",
+        "stage",
+        "The explicit loop (Max's tapin~ / tapout~): `out` plays what came into `in` one block (128 frames, 2.7 ms) ago. Every other cycle in a graph is an error.",
+        &[aanyi("in", "the sound fed back (padded or cut to `channels`)"), aanyo("out", "`in`, one block late")],
+        &[knob("channels", 1.0, 32.0, 2.0, "", "how many channels the loop carries")],
     ),
     // helpers only the batch evaluator runs (control strips of the browser's lowering)
     kind(F_BATCH | F_INTERNAL, "smooth", Control, "", "control", "Smooths its input over `time` (a control helper).", &[ci("in", "the value"), ci("time", "glide time"), co("out", "the smoothed value")], &[lin("in", -1000.0, 1000.0, 0.0, "", "the value"), log("time", 0.001, 10.0, 0.1, "s", "glide time")]),
