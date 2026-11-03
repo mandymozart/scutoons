@@ -13,11 +13,12 @@
 // `core_rig`), live-core's worker and worklet. Nothing of the sound or the being is done in TS here.
 import type { DeviceSignal } from '@scutoons/live-core';
 import { Deck, FrameStats, SpaceStage, ladderFor, type EngineFiles, type Hand, type RigPlayed } from '@scutoons/live-deck';
-import { EngineLog, messageOf } from './log.ts';
+import { EngineLog, formatLine, messageOf } from './log.ts';
 import { OutputMeters } from './meters.ts';
 import { SignalMonitor } from './monitor.ts';
 import { deckOptions, folder, rigSubject, moodChoices, type EngineHostOptions } from './options.ts';
 import { canStart, canStop, emptySnapshot, leadMs, loadPercent, type EnginePhase, type EngineSnapshot } from './status.ts';
+import { deviceInfo, engineReport } from './report.ts';
 
 /** How an app listens in. Every hook is optional; each runs inside the host's own try/catch. */
 export interface EngineHooks {
@@ -402,6 +403,9 @@ export class EngineHost {
 			signals: this.monitor.view(performance.now()),
 			dropouts: s ? s.underrunsPerMinute : null,
 			load: s && core ? loadPercent(s.renderPeakUs, s.budgetUs) : 0,
+			loadP50: s && core ? loadPercent(s.renderP50Us, s.budgetUs) : 0,
+			loadP99: s && core ? loadPercent(s.renderP99Us, s.budgetUs) : 0,
+			warmMs: s?.warmMs ?? 0,
 			lead: s && core ? leadMs(s.lead, core.context.sampleRate) : 0,
 			glitching,
 			quality: q ? `${q.level} ${q.scale.toFixed(2)}×${q.auto ? '' : ' FIX'}` : '',
@@ -412,5 +416,19 @@ export class EngineHost {
 
 	private emit(): void {
 		for (const f of this.listeners) f(this.snap);
+	}
+
+	/** #356: the sound's measurement as one text to copy – the device, the context, the block times, the first seconds,
+	 *  the log's last lines (report.ts) */
+	report(): string {
+		this.sample();
+		const core = this.deck?.core ?? null;
+		return engineReport({
+			...deviceInfo(core?.context),
+			snapshot: this.snap,
+			channels: core?.channels ?? 0,
+			series: core?.series() ?? [],
+			log: this.log.lines.slice(-20).map(formatLine)
+		});
 	}
 }

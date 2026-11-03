@@ -36,7 +36,8 @@
 		onsticks,
 		quality = null,
 		onquality,
-		onsettings
+		onsettings,
+		oncopy
 	}: {
 		values: Record<string, number>;
 		/** the sliders: the fixed patch's PARAMS or the character's rig's knobs (#191) */
@@ -73,7 +74,15 @@
 		onquality: (level: QualityLevel, auto: boolean) => void;
 		/** #220: open the presets' settings sheet */
 		onsettings: () => void;
+		/** #356: copy the sound's measurement (the report); resolves true when it reached the clipboard */
+		oncopy: () => Promise<boolean>;
 	} = $props();
+
+	let copied = $state(false);
+	async function copy() {
+		copied = await oncopy();
+		if (copied) setTimeout(() => (copied = false), 2000);
+	}
 
 	// folded at first: the being fills the screen; the fold opens the knobs
 	let open = $state(false);
@@ -91,6 +100,9 @@
 				</button>
 				<button type="button" class="learn" class:on={sticksOn} aria-pressed={sticksOn} title={m['live_deck.sticks_hint']()} onclick={onsticks} data-testid="deck-sticks-toggle">
 					{m['live_deck.sticks']()}
+				</button>
+				<button type="button" class="learn" class:on={copied} title={m['live_deck.copy_stats_hint']()} onclick={copy} data-testid="deck-copy-stats">
+					{copied ? m['live_deck.copied']() : m['live_deck.copy_stats']()}
 				</button>
 			</div>
 			{#if quality}<DeckQuality {quality} {onquality} {onsettings} />{/if}

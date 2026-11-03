@@ -49,7 +49,7 @@
 	// #208: the warning a few seconds after a dropout; #209: the collapsed bar's statistics (#188: the dropouts over the
 	// last minute, the worker's peak render load)
 	let audioAlert = $state('');
-	let stats = $state<Stats>({ fps: 0, cpu: 0, peak: 0, dropouts: null, load: 0, lead: 0, relay: '', backend: '', quality: '', down: false });
+	let stats = $state<Stats>({ fps: 0, cpu: 0, peak: 0, dropouts: null, p50: 0, p99: 0, load: 0, lead: 0, relay: '', backend: '', quality: '', down: false });
 	// #298: the engine host – null until the session answered (the deck is made then)
 	let engine: EngineHost | null = null;
 	// #209: the controls – the selection the sticks follow, MIDI learn, the mappings per deck
@@ -176,6 +176,8 @@
 			const s = engine?.snapshot();
 			if (!s || s.dropouts === null) return;
 			stats.dropouts = s.dropouts;
+			stats.p50 = s.loadP50;
+			stats.p99 = s.loadP99;
 			stats.load = s.load;
 			stats.lead = s.lead;
 			audioAlert = s.glitching ? m['live_deck.dropout_alert']() : '';
@@ -278,6 +280,26 @@
 		showFace();
 	}
 
+	/** #356: the sound's measurement to the clipboard (the owner pastes it into the issue), else the phone's share sheet;
+	 *  the console has it too */
+	async function copyStats(): Promise<boolean> {
+		if (!engine) return false;
+		const text = engine.report();
+		console.info(text);
+		try {
+			await navigator.clipboard.writeText(text);
+			return true;
+		} catch (e) {
+			console.warn('live deck: the clipboard refused the report', e);
+		}
+		try {
+			await navigator.share({ title: 'SCUTOONS deck sound report', text });
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
 	async function start() {
 		if (!engine || starting) return;
 		starting = true;
@@ -327,6 +349,7 @@
 			onsticks={toggleSticks}
 			{quality}
 			onquality={setQuality}
+			oncopy={copyStats}
 			onsettings={() => {
 				keepPresets();
 				sheetOpen = true;

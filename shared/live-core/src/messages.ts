@@ -2,7 +2,7 @@
 // transport: records, audio and analysis go through the rings; these set things up, carry the load (the edge: scene
 // text in, the table out) and once a second the stats. In the transfer transport (no SharedArrayBuffer) records,
 // audio chunks and analysis frames travel as transferred ArrayBuffers – the same bytes as in the rings.
-import type { Table } from './engine.ts';
+import type { BlockStats, Table } from './engine.ts';
 import type { RingBuffers } from './ring.ts';
 
 export type Transport = 'shared' | 'transfer';
@@ -24,14 +24,10 @@ export type ToWorker =
 	| { type: 'records'; bytes: ArrayBuffer }
 	| { type: 'stop' };
 
-export interface WorkerStats {
-	blocks: number;
-	records: number;
-	/** µs per 128-frame block: a control step + the render + the copy out */
-	renderUs: number;
-	/** #208: the longest block of the last second (µs) and a block's budget – its duration (2667 µs at 48 kHz) */
-	renderPeakUs: number;
-	budgetUs: number;
+/** once a second: the last second's blocks (engine.ts `BlockStats`) and the pump's state */
+export interface WorkerStats extends BlockStats {
+	/** #356: how long the warm-up before the first sound took (ms; 0 = none yet) */
+	warmMs: number;
 	/** #208: the adaptive lead now (frames) and the longest pause between the worker's pumps in the last second (ms) –
 	 * a pause past the lead's time is a dropout the main thread or a GC caused */
 	lead: number;

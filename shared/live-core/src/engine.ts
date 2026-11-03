@@ -7,6 +7,7 @@
 // wasm memory (one copy into the audio ring / the analysis slot). JSON only at the edge: the load table, once. The
 // engine's control half steps inside its render – the pump only renders.
 import { FRAME, VALUE_COUNT } from './wire.ts';
+import { BlockTimes } from './timing.ts';
 import type { Ring } from './ring.ts';
 
 export interface Exports {
@@ -17,6 +18,8 @@ export interface Exports {
 	lc_load(len: number): number;
 	/** the deck's tempo for a scene without a clock of its own: 1 = taken */
 	lc_tempo(bpm: number): number;
+	/** #356: the inbox's scene played silently by a throwaway twin for `quanta` quanta (0 = the core's default); 0 or −len */
+	lc_warm(len: number, quanta: number): number;
 	lc_apply(len: number): number;
 	lc_render(frames: number): number;
 	lc_analyse(dt: number, lead: number): number;
@@ -92,6 +95,15 @@ export class WasmCore {
 		return JSON.parse(this.text(n)) as Table;
 	}
 
+	/** #356: the warm-up – `scene` rendered silently by a throwaway twin (the loaded core plays on untouched), so its
+	 * code is compiled and optimised before it is heard; `quanta` 0 = the core's `WARM_QUANTA`. Throws on a broken scene. */
+	warm(scene: string, quanta = 0): void {
+		const bytes = new TextEncoder().encode(scene);
+		this.inbox(bytes.length).set(bytes);
+		const n = this.x.lc_warm(bytes.length, quanta);
+		if (n < 0) throw new Error(this.text(n));
+	}
+
 	/** The deck's tempo for the loaded scene when it has no clock of its own; false = it has one. */
 	tempo(bpm: number): boolean {
 		return this.x.lc_tempo(bpm) === 1;
@@ -153,6 +165,21 @@ export interface EngineOptions {
 	onSignals?(records: Uint8Array): void;
 }
 
+/** A second of the pump (`Engine.stats`): µs per 128-frame block against its budget. */
+export interface BlockStats {
+	blocks: number;
+	records: number;
+	/** the mean, the median, the 99th percentile and the longest block (µs): a control step + the render + the copy out */
+	renderUs: number;
+	renderP50Us: number;
+	renderP99Us: number;
+	renderPeakUs: number;
+	/** #356: the longest analysis frame + signals (µs) – between two blocks */
+	analysisPeakUs: number;
+	/** a block's duration (2667 µs at 48 kHz) */
+	budgetUs: number;
+}
+
 /** The pump: control records in, audio blocks out, an analysis frame now and then. Lead and fills count frames; the
  * audio ring holds samples (frames × channels). */
 export class Engine {
@@ -163,12 +190,12 @@ export class Engine {
 	private readonly onAnalysis: (frame: Float32Array) => void;
 	private readonly onSignals: ((records: Uint8Array) => void) | undefined;
 	private sinceAnalysis = 0;
-	/** blocks rendered, records applied, µs spent rendering (since the last `stats()`) */
-	private blocks = 0;
+	/** records applied since the last `stats()` */
 	private records = 0;
-	private renderMs = 0;
-	/** #208: the longest block since the last `stats()` (ms) */
-	private peakMs = 0;
+	/** #356: each block's render time since the last `stats()` (p50 / p99 / the longest) */
+	private readonly times = new BlockTimes();
+	/** #356: the longest analysis frame (+ the signals) since the last `stats()` (ms) – between blocks, not in them */
+	private analysisPeakMs = 0;
 
 	constructor(core: WasmCore, o: EngineOptions) {
 		this.core = core;
@@ -202,10 +229,8 @@ export class Engine {
 	block(fill: number, sink: (audio: Float32Array) => void): void {
 		const t = performance.now();
 		sink(this.core.render(BLOCK));
-		const ms = performance.now() - t;
-		this.renderMs += ms;
-		if (ms > this.peakMs) this.peakMs = ms;
-		this.blocks++;
+		const t1 = performance.now();
+		this.times.push((t1 - t) * 1000);
 		this.sinceAnalysis += BLOCK;
 		if (this.sinceAnalysis >= this.every) {
 			const frame = this.core.analyse(this.sinceAnalysis / this.core.rate, fill + BLOCK);
@@ -215,6 +240,8 @@ export class Engine {
 				const records = this.core.signals();
 				if (records.length) this.onSignals(records);
 			}
+			const ms = performance.now() - t1;
+			if (ms > this.analysisPeakMs) this.analysisPeakMs = ms;
 		}
 	}
 
@@ -231,16 +258,22 @@ export class Engine {
 		return n;
 	}
 
-	/** since the last call: blocks, records, the average and (#208) the longest block's render against a block's budget */
-	stats(): { blocks: number; records: number; renderUs: number; renderPeakUs: number; budgetUs: number } {
+	/** since the last call: blocks, records, the average, (#356) p50 / p99 and (#208) the longest block's render against a
+	 * block's budget, the longest analysis frame */
+	stats(): BlockStats {
+		const t = this.times;
 		const s = {
-			blocks: this.blocks,
+			blocks: t.count,
 			records: this.records,
-			renderUs: this.blocks ? (this.renderMs * 1000) / this.blocks : 0,
-			renderPeakUs: this.peakMs * 1000,
+			renderUs: t.mean,
+			renderP50Us: t.quantile(0.5),
+			renderP99Us: t.quantile(0.99),
+			renderPeakUs: t.max,
+			analysisPeakUs: this.analysisPeakMs * 1000,
 			budgetUs: (BLOCK / this.core.rate) * 1e6
 		};
-		this.blocks = this.records = this.renderMs = this.peakMs = 0;
+		t.reset();
+		this.records = this.analysisPeakMs = 0;
 		return s;
 	}
 }

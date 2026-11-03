@@ -48,6 +48,11 @@ export interface EngineSnapshot {
 	dropouts: number | null;
 	/** the worker's peak render load, % of its budget */
 	load: number;
+	/** #356: the median and the 99th percentile block of the last second, % of the budget */
+	loadP50: number;
+	loadP99: number;
+	/** #356: the warm-up before the first sound (ms), 0 = none */
+	warmMs: number;
 	/** the worker's lead (ms) */
 	lead: number;
 	/** a dropout in the last seconds */
@@ -81,6 +86,9 @@ export const emptySnapshot = (): EngineSnapshot => ({
 	signals: emptySignals(),
 	dropouts: null,
 	load: 0,
+	loadP50: 0,
+	loadP99: 0,
+	warmMs: 0,
 	lead: 0,
 	glitching: false,
 	quality: '',
