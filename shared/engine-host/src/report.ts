@@ -87,9 +87,10 @@ export function clockLine(c: ClockState | null | undefined, w: ClockSummary | nu
 const pct = (us: number, budget: number): string => String(Math.round((100 * us) / Math.max(1, budget)));
 const ms = (s: number): string => (s > 0 ? `${(1000 * s).toFixed(1)} ms` : '?');
 
-/** the second-by-second table: t · p50 · p99 · max (% of the budget) · analysis (µs) · pump gap (ms) · lead (ms) · dropouts */
+/** the second-by-second table: t · p50 · p99 · max (% of the budget) · analysis (µs) · pump gap (ms) · lead (ms) · dropouts
+ *  · the limiter's deepest and mean gain reduction (dB) and its share of the second (%) */
 export function seriesTable(series: readonly Second[], rate: number): string[] {
-	const rows = ['t_s  p50%  p99%  max%  ana_us  gap_ms  lead_ms  drops'];
+	const rows = ['t_s  p50%  p99%  max%  ana_us  gap_ms  lead_ms  drops  lim_db  avg_db  lim%'];
 	for (const s of series) {
 		rows.push(
 			[
@@ -100,7 +101,10 @@ export function seriesTable(series: readonly Second[], rate: number): string[] {
 				String(Math.round(s.analysisPeakUs)).padStart(7),
 				s.gapMs.toFixed(1).padStart(7),
 				String(Math.round((1000 * s.lead) / Math.max(1, rate))).padStart(8),
-				String(s.underruns).padStart(6)
+				String(s.underruns).padStart(6),
+				s.limitPeakDb.toFixed(1).padStart(7),
+				s.limitMeanDb.toFixed(1).padStart(7),
+				String(Math.round(s.limitingPct)).padStart(5)
 			].join(' ')
 		);
 	}
@@ -119,6 +123,7 @@ export function engineReport(r: ReportInput): string {
 		`context ${s.sampleRate} Hz · ${r.channels} ch · base latency ${ms(r.baseLatency)} · output latency ${ms(r.outputLatency)} · state ${s.audio || '-'}`,
 		`device glitches ${p ? `${p.glitches} (${p.glitchMs} ms in ${p.totalS} s) · latency avg ${p.averageLatencyMs} / max ${p.maximumLatencyMs} ms` : 'not reported by this browser'}`,
 		`warm-up ${s.warmMs ? `${s.warmMs.toFixed(0)} ms` : 'none'} · lead ${s.lead} ms · dropouts ${s.dropouts ?? '-'}/min`,
+		`limiter now ${s.limitPeakDb.toFixed(1)} dB deepest · ${s.limitMeanDb.toFixed(1)} dB mean · holding the sound down ${Math.round(s.limitingPct)} % of the second`,
 		`now block p50 ${s.loadP50}% · p99 ${s.loadP99}% · max ${s.load}% of the budget · picture ${s.fps.toFixed(0)} fps, ${s.cpu.toFixed(1)}/${s.peak.toFixed(1)} ms · 3D ${s.backend || '-'} ${s.quality}`,
 		clockLine(r.clock, r.clockWindow),
 		'',

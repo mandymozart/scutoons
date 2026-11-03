@@ -6,7 +6,7 @@
 // `lc_apply`), audio blocks (the device channels, interleaved) and analysis frames come out as Float32Array views on
 // wasm memory (one copy into the audio ring / the analysis slot). JSON only at the edge: the load table, once. The
 // engine's control half steps inside its render – the pump only renders.
-import { FRAME, VALUE_COUNT } from './wire.ts';
+import { FRAME, REDUCTION, VALUE_COUNT } from './wire.ts';
 import { BlockTimes } from './timing.ts';
 import type { Ring } from './ring.ts';
 import type { ClockOp } from './messages.ts';
@@ -229,7 +229,15 @@ export interface BlockStats {
 	analysisPeakUs: number;
 	/** a block's duration (2667 µs at 48 kHz) */
 	budgetUs: number;
+	/** #356: the output limiter's gain reduction over the second's analysis frames: the deepest and the mean (dB), and
+	 *  the share of frames it held the sound down by more than `LIMITING_DB` (%) */
+	limitPeakDb: number;
+	limitMeanDb: number;
+	limitingPct: number;
 }
+
+/** #356: a gain reduction past this (dB) counts as limiting – below it the limiter only shaves peaks unheard */
+export const LIMITING_DB = 1;
 
 /** The pump: control records in, audio blocks out, an analysis frame now and then. Lead and fills count frames; the
  * audio ring holds samples (frames × channels). */
@@ -247,6 +255,12 @@ export class Engine {
 	private readonly times = new BlockTimes();
 	/** #356: the longest analysis frame (+ the signals) since the last `stats()` (ms) – between blocks, not in them */
 	private analysisPeakMs = 0;
+	/** #356: the output limiter's gain reduction per analysis frame since the last `stats()` (dB): the deepest, the sum,
+	 *  the frames, the frames it held the sound down by more than `LIMITING_DB` – pumping can sound like a dropout */
+	private limitPeakDb = 0;
+	private limitSumDb = 0;
+	private limitFrames = 0;
+	private limitingFrames = 0;
 
 	constructor(core: WasmCore, o: EngineOptions) {
 		this.core = core;
@@ -286,6 +300,11 @@ export class Engine {
 		if (this.sinceAnalysis >= this.every) {
 			const frame = this.core.analyse(this.sinceAnalysis / this.core.rate, fill + BLOCK);
 			this.sinceAnalysis = 0;
+			const db = frame[REDUCTION];
+			if (db > this.limitPeakDb) this.limitPeakDb = db;
+			this.limitSumDb += db;
+			this.limitFrames++;
+			if (db > LIMITING_DB) this.limitingFrames++;
 			this.onAnalysis(frame);
 			if (this.onSignals) {
 				const records = this.core.signals();
@@ -321,10 +340,14 @@ export class Engine {
 			renderP99Us: t.quantile(0.99),
 			renderPeakUs: t.max,
 			analysisPeakUs: this.analysisPeakMs * 1000,
-			budgetUs: (BLOCK / this.core.rate) * 1e6
+			budgetUs: (BLOCK / this.core.rate) * 1e6,
+			limitPeakDb: this.limitPeakDb,
+			limitMeanDb: this.limitFrames ? this.limitSumDb / this.limitFrames : 0,
+			limitingPct: this.limitFrames ? (100 * this.limitingFrames) / this.limitFrames : 0
 		};
 		t.reset();
 		this.records = this.analysisPeakMs = 0;
+		this.limitPeakDb = this.limitSumDb = this.limitFrames = this.limitingFrames = 0;
 		return s;
 	}
 }

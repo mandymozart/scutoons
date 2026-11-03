@@ -10,6 +10,8 @@
 		p50: number;
 		p99: number;
 		load: number;
+		/** #356: the output limiter's deepest gain reduction of the last second (dB) – pumping can sound like a dropout */
+		limit: number;
 		/** the worker's adaptive lead in ms (#208: grows after a dropout, shrinks after a calm minute) */
 		lead: number;
 		relay: string;
@@ -25,12 +27,14 @@
 	// The collapsed panel's statistics (#209, owner 2026-10-31: "very basic statistics (fps, CPU / frame, audio glitches
 	// / dropouts, the relay, the backend), using the entire width, like OSCT's collapsed bar"): one dense mono line –
 	// FPS, the 3D's quality level and render scale (#220; amber while the governor holds it below the level chosen), the frame's own work, the sound's dropouts per minute and its DSP load per block – p50 / p99 / the longest (#356) –, the relay, the 3D backend. A number
-	// out of the green turns amber / red. The abbreviations are the stage HUD's (language-neutral, like a meter's).
+	// out of the green turns amber / red; LIM is the output limiter's deepest gain reduction (#356). The abbreviations are the stage HUD's (language-neutral, like a meter's).
 	let { stats }: { stats: Stats } = $props();
 	const fpsLevel = $derived(stats.fps === 0 ? '' : stats.fps < 30 ? 'bad' : stats.fps < 50 ? 'warn' : '');
 	const cpuLevel = $derived(stats.peak > 16 ? 'bad' : stats.peak > 10 ? 'warn' : '');
 	// the lead absorbs a rare long block; a p99 near the budget does not stay absorbed
 	const audioLevel = $derived(stats.dropouts === null ? '' : stats.dropouts > 0 ? 'bad' : stats.p99 > 50 || stats.load > 100 ? 'warn' : '');
+	// a few dB are the limiter shaving peaks; past 6 dB it audibly holds the whole sound down
+	const limitLevel = $derived(stats.limit > 6 ? 'warn' : '');
 </script>
 
 <p class="stats" data-testid="deck-stats" title="{stats.relay} · {stats.backend}">
@@ -38,6 +42,7 @@
 	{#if stats.quality}<span class:warn={stats.down} data-testid="deck-stats-quality"><b>Q</b> {stats.quality}</span>{/if}
 	<span class={cpuLevel}><b>CPU</b> {stats.cpu.toFixed(1)}/{stats.peak.toFixed(1)}MS</span>
 	<span class={audioLevel} title="dropouts/min · block p50/p99/max % of its budget · lead"><b>AUDIO</b> {stats.dropouts === null ? 'OFF' : `${stats.dropouts}/MIN ${stats.p50}/${stats.p99}/${stats.load}% +${stats.lead}MS`}</span>
+	{#if stats.dropouts !== null}<span class={limitLevel} title="the output limiter's deepest gain reduction in the last second" data-testid="deck-stats-limit"><b>LIM</b> {stats.limit.toFixed(1)}DB</span>{/if}
 	<span class="relay"><b>RELAY</b> {stats.relay || '–'}</span>
 	<span class="backend"><b>GPU</b> {stats.backend || '–'}</span>
 </p>

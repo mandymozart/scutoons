@@ -26,6 +26,7 @@ export type { ClockOp } from './messages.ts';
 export { BlockTimes } from './timing.ts';
 export * from './signals.ts';
 export { Ring, Latest, ringBuffers, sharedAvailable } from './ring.ts';
+export { LIMITING_DB } from './engine.ts';
 export type { BlockStats, Table, TableNode } from './engine.ts';
 export type { Transport, WorkerStats } from './messages.ts';
 
@@ -178,6 +179,9 @@ export class LiveCore {
 			renderPeakUs: 0,
 			analysisPeakUs: 0,
 			budgetUs: 0,
+			limitPeakDb: 0,
+			limitMeanDb: 0,
+			limitingPct: 0,
 			warmMs: 0,
 			lead: 0,
 			gapMs: 0,
