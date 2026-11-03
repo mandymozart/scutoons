@@ -53,6 +53,11 @@ export interface EngineSnapshot {
 	loadP99: number;
 	/** #356: the warm-up before the first sound (ms), 0 = none */
 	warmMs: number;
+	/** #356: the output limiter over the last second: the deepest and the mean gain reduction (dB), and the share of
+	 *  its analysis frames it held the sound down by more than 1 dB (%) – pumping that can sound like a dropout */
+	limitPeakDb: number;
+	limitMeanDb: number;
+	limitingPct: number;
 	/** the worker's lead (ms) */
 	lead: number;
 	/** a dropout in the last seconds */
@@ -89,6 +94,9 @@ export const emptySnapshot = (): EngineSnapshot => ({
 	loadP50: 0,
 	loadP99: 0,
 	warmMs: 0,
+	limitPeakDb: 0,
+	limitMeanDb: 0,
+	limitingPct: 0,
 	lead: 0,
 	glitching: false,
 	quality: '',

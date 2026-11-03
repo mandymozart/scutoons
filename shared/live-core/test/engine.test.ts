@@ -145,3 +145,18 @@ test('#356: the warm-up plays a twin – the loaded scene sounds the same sample
 	const c = await core();
 	assert.throws(() => c.warm('[[no'), /./);
 });
+
+test('#356: the limiter in the stats – a loud voice is held down (peak, mean, share of frames), a quiet one is not', { skip }, async () => {
+	const limiting = async (gain: number) => {
+		const c = await core();
+		c.load(SCENE.replace('gain = 0.0', `gain = ${gain.toFixed(1)}`));
+		const e = new Engine(c, { lead: 512, onAnalysis: () => {} });
+		for (let i = 0; i < 375; i++) e.block(0, () => {});
+		return e.stats();
+	};
+	const loud = await limiting(3);
+	assert.ok(loud.limitPeakDb > 3 && loud.limitMeanDb > 1 && loud.limitingPct > 50, JSON.stringify(loud));
+	assert.ok(loud.limitMeanDb <= loud.limitPeakDb);
+	const quiet = await limiting(0.1);
+	assert.deepEqual([quiet.limitPeakDb, quiet.limitMeanDb, quiet.limitingPct], [0, 0, 0]);
+});

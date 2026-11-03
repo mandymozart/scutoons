@@ -49,7 +49,7 @@
 	// #208: the warning a few seconds after a dropout; #209: the collapsed bar's statistics (#188: the dropouts over the
 	// last minute, the worker's peak render load)
 	let audioAlert = $state('');
-	let stats = $state<Stats>({ fps: 0, cpu: 0, peak: 0, dropouts: null, p50: 0, p99: 0, load: 0, lead: 0, relay: '', backend: '', quality: '', down: false });
+	let stats = $state<Stats>({ fps: 0, cpu: 0, peak: 0, dropouts: null, p50: 0, p99: 0, load: 0, limit: 0, lead: 0, relay: '', backend: '', quality: '', down: false });
 	// #298: the engine host – null until the session answered (the deck is made then)
 	let engine: EngineHost | null = null;
 	// #209: the controls – the selection the sticks follow, MIDI learn, the mappings per deck
@@ -179,6 +179,7 @@
 			stats.p50 = s.loadP50;
 			stats.p99 = s.loadP99;
 			stats.load = s.load;
+			stats.limit = s.limitPeakDb;
 			stats.lead = s.lead;
 			audioAlert = s.glitching ? m['live_deck.dropout_alert']() : '';
 		}, 250);
