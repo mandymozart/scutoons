@@ -437,8 +437,18 @@ fn the_limiter_links_a_group_and_leaves_the_others_alone() {
     let r = alone(&osc("a", 220.0, 0.2));
     exact(&got[0], &r[0], "the quiet main is untouched");
     assert!(peak(&got[2]) < 1.0 && peak(&got[2]) > 0.8, "the cue is limited, peak {}", peak(&got[2]));
-    // linked: the right channel is lowered exactly as the left (same gain, same input → same output)
-    exact(&got[2], &got[3], "the pair keeps its image");
+    // linked: a loud left and a quiet right – the right, far under the ceiling alone, is lowered with the left (the
+    // pair keeps its balance); a limiter per channel would leave it at 0.2
+    let lr = osc("b", 330.0, 0.95) + &osc("c", 331.0, 0.95) + &osc("q", 220.0, 0.2) + &node("sum", "bus", "channels=2")
+        + &node("c1", "out", "group=\"cue\"")
+        + &link("b", "sum.in", "map=[[1, 1]]")
+        + &link("c", "sum.in", "map=[[1, 1]]")
+        + &link("q", "sum.in", "map=[[1, 2]]")
+        + &link("sum.out", "c1.in", "");
+    let got = render(&lr, DeckConfig::device(4).with_outlet("cue", &[3, 4]));
+    let (loud, quiet) = (peak(&got[2][FRAMES / 2..]), peak(&got[3][FRAMES / 2..]));
+    assert!(loud < 1.0 && quiet < 0.2 * 0.6, "the quiet right follows the loud left's gain: {loud} / {quiet}");
+    assert!(quiet > 0.2 * 0.3, "but it still plays: {quiet}");
 }
 
 /// the device meters follow the speakers: the peak of each device channel
