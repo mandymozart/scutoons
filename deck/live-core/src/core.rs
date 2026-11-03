@@ -9,7 +9,7 @@ use deck_core::analysis::{Analyzer, SPECTRUM};
 use deck_core::tempo::{Config, Now, Shared};
 use std::sync::Arc;
 use deck_engine::control::Controls;
-use deck_engine::{tempo_config, Build, DeckConfig, Engine, Handles, Seams, Sequencing};
+use deck_engine::{tempo_config, Build, DeckConfig, Engine, Handles, Seams, Sequencing, QUANTUM};
 use deck_space::graph::{Graph, Kind, PortType};
 use deck_space::rig::engine::carried;
 use deck_space::scene::Scene;
@@ -50,6 +50,13 @@ pub struct Core {
 const SIGNALS: usize = 64 * 1024;
 /// frames rendered at most per call before `render` grows its buffer (the worker asks for one quantum)
 const RENDER: usize = 1024;
+/// the warm-up's quanta (#356): enough for every function of the scene to be compiled and most to reach the optimised
+/// tier (a desktop's V8: the first block 146 % of its budget cold, ~2 % after 64 quanta, ~1 % after 400) – 256 quanta
+/// are 0.7 s of sound, rendered in ~25 ms on a desktop and ~100–200 ms on a phone, once, before the first sound
+pub const WARM_QUANTA: usize = 256;
+/// an analysis frame per this many quanta in the warm-up (the worker's ≈ 60 a second)
+const ANALYSE_EVERY: usize = 6;
+
 
 impl Core {
     /// A scene in the deck's TOML (the edge: text, once) for a device of `channels` channels (the destination's –
@@ -94,6 +101,24 @@ impl Core {
             signals_out: Vec::with_capacity(SIGNALS),
             graph,
         })
+    }
+
+    /// The warm-up (#356): a throwaway twin of `scene_toml`, built and rendered for `quanta` quanta in silence (an
+    /// analysis frame every few, as the worker asks for them), then dropped. A wasm engine compiles each function on its
+    /// first call and optimises it only once it is hot – on a phone the first blocks of a new kind take several budgets
+    /// (the S22's dropouts after Start). The twin pays that before the sound: the audible core never sees it, so what is
+    /// heard does not change (no state is shared). Natively it only costs the time.
+    pub fn warm(scene_toml: &str, rate: f32, channels: usize, quanta: usize) -> Result<(), String> {
+        let mut twin = Core::load(scene_toml, rate, channels)?;
+        let every = ANALYSE_EVERY;
+        for q in 0..quanta {
+            twin.render(QUANTUM);
+            if q % every == every - 1 {
+                twin.analyse((every * QUANTUM) as f32 / rate, RENDER, &Now::default());
+                twin.take_signals();
+            }
+        }
+        Ok(())
     }
 
     /// the device channels the engine renders

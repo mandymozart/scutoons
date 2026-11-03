@@ -148,3 +148,25 @@ test('a six-channel device: the stereo main on the first two, the rest silent', 
 	assert.ok(peaks[0] > 0.3 && peaks[1] > 0.3, `${peaks}`);
 	assert.deepEqual(peaks.slice(2), [0, 0, 0, 0]);
 });
+
+test('#356: the warm-up plays a twin – the loaded scene sounds the same sample for sample; the stats carry p50 / p99', { skip }, async () => {
+	const heard = async (warm: boolean) => {
+		const c = await core();
+		c.load(SCENE.replace('gain = 0.0', 'gain = 0.4'));
+		const e = new Engine(c, { lead: 512, onAnalysis: () => {} });
+		const out: number[] = [];
+		e.block(0, (a) => out.push(...a));
+		if (warm) c.warm(SCENE, 64);
+		for (let i = 0; i < 20; i++) e.block(0, (a) => out.push(...a));
+		return { out, stats: e.stats() };
+	};
+	const cold = await heard(false);
+	const warmed = await heard(true);
+	assert.ok(cold.out.some((x) => Math.abs(x) > 0.1));
+	assert.deepEqual(warmed.out, cold.out);
+	const s = warmed.stats;
+	assert.equal(s.blocks, 21);
+	assert.ok(s.renderP50Us > 0 && s.renderP50Us <= s.renderP99Us && s.renderP99Us <= s.renderPeakUs, JSON.stringify(s));
+	const c = await core();
+	assert.throws(() => c.warm('[[no'), /./);
+});

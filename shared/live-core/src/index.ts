@@ -23,9 +23,10 @@ import { clockOf, type ClockState } from './clock.ts';
 export * from './wire.ts';
 export * from './clock.ts';
 export type { ClockOp } from './messages.ts';
+export { BlockTimes } from './timing.ts';
 export * from './signals.ts';
 export { Ring, Latest, ringBuffers, sharedAvailable } from './ring.ts';
-export type { Table, TableNode } from './engine.ts';
+export type { BlockStats, Table, TableNode } from './engine.ts';
 export type { Transport, WorkerStats } from './messages.ts';
 
 export interface StartOptions {
@@ -98,6 +99,16 @@ export interface Stats extends WorkerStats {
 	lastDropoutMs: number;
 }
 
+/** #356: a second of the sound as the page saw it – the worker's stats with the worklet's dropout count so far, `t` =
+ * seconds since the start */
+export interface Second extends WorkerStats {
+	t: number;
+	underruns: number;
+}
+
+/** #356: the seconds kept from the start (the warm-up and the steady state after it, for the copyable report) */
+export const SERIES = 120;
+
 /** #208: how long the page's warning stays after a dropout (ms) */
 export const ALERT_MS = 5000;
 
@@ -137,6 +148,9 @@ export class LiveCore {
 	clock: ClockState | null = null;
 	private readonly clockListeners = new Set<(c: ClockState) => void>();
 	private stampTimer: ReturnType<typeof setInterval> | null = null;
+	/** #356: the first `SERIES` seconds, one entry per worker stats message */
+	private readonly seconds: Second[] = [];
+	private readonly startedAt: number;
 
 	private constructor(o: { context: AudioContext; node: AudioWorkletNode; worker: Worker; transport: Transport; shared: SharedSetup | null; channels: number }) {
 		this.context = o.context;
@@ -154,13 +168,18 @@ export class LiveCore {
 			blocks: 0,
 			records: 0,
 			renderUs: 0,
+			renderP50Us: 0,
+			renderP99Us: 0,
 			renderPeakUs: 0,
+			analysisPeakUs: 0,
 			budgetUs: 0,
+			warmMs: 0,
 			lead: 0,
 			gapMs: 0,
 			lastDropoutMs: -Infinity
 		};
-		this.runs.push({ t: globalThis.performance?.now() ?? 0, n: 0 });
+		this.startedAt = globalThis.performance?.now() ?? 0;
+		this.runs.push({ t: this.startedAt, n: 0 });
 	}
 
 	/** Starts the worker (wasm compiled there), the worklet and the rings. Call it from a user gesture. */
@@ -245,6 +264,7 @@ export class LiveCore {
 				break;
 			case 'stats':
 				Object.assign(this.stats_, m.stats);
+				if (this.seconds.length < SERIES) this.seconds.push({ ...m.stats, t: (performance.now() - this.startedAt) / 1000, underruns: this.stats_.underruns });
 				break;
 			case 'clock': {
 				const c = clockOf(m.state);
@@ -361,6 +381,11 @@ export class LiveCore {
 
 	stats(): Stats {
 		return { ...this.stats_ };
+	}
+
+	/** #356: the sound's first seconds (up to `SERIES`), one per second – the warm-up as a time series */
+	series(): readonly Second[] {
+		return this.seconds;
 	}
 
 	/** #208: a dropout in the last few seconds – the page's warning (a live tool may not crackle unnoticed) */

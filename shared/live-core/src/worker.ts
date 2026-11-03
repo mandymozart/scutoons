@@ -56,6 +56,9 @@ function clockFrame(): void {
 	post({ type: 'clock', state }, [state.buffer]);
 }
 
+/** #356: the warm-up before the first sound (ms; 0 = not yet) – the first scene is played silently by a twin first */
+let warmMs = 0;
+
 function adapt(): void {
 	if (!engine || !adaptive) return;
 	if (status) dropouts = Atomics.load(status, 0);
@@ -141,7 +144,7 @@ scope.onmessage = async (ev) => {
 				adaptive = new AdaptiveLead(m.lead, Math.max(LEAD_CAP, m.lead), LEAD_STEP);
 				statsTimer = setInterval(() => {
 					if (!engine) return;
-					post({ type: 'stats', stats: { ...engine.stats(), lead: engine.lead, gapMs } });
+					post({ type: 'stats', stats: { ...engine.stats(), lead: engine.lead, gapMs, warmMs } });
 					gapMs = 0;
 				}, 1000);
 				clockTimer = setInterval(clockFrame, CLOCK_MS);
@@ -150,6 +153,13 @@ scope.onmessage = async (ev) => {
 			}
 			case 'load': {
 				if (!engine) throw new Error('load before init');
+				// #356: before the first sound the core warms the scene up (its code compiled and optimised by a silent twin –
+				// cold, the first blocks take several budgets on a phone); later loads play at once (the ring is running)
+				if (!warmMs) {
+					const t = performance.now();
+					engine.core.warm(m.scene);
+					warmMs = Math.max(0.001, performance.now() - t);
+				}
 				const table = engine.core.load(m.scene);
 				post({ type: 'loaded', id: m.id, table });
 				if (audio && !ticking) {
