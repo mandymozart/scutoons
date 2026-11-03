@@ -1,0 +1,43 @@
+# #318 channel check: one tone walks over device channels 1–8 and back – VBAP over a ring of eight speakers in channel
+# order, the azimuth on a slow LFO (40 s from channel 1 to 8 and back). On the X1 with the RME in its Pro Audio profile (20
+# channels): 1/2 the main outs, 3–6 the line outs, 7/8 the phones. On a stereo device the first two channels play (no
+# standard table folds eight). No picture: the HUD shows the device channels. Run it:
+#   cargo run --release -p deck-native -- --scene scenes/channel-walk.toml --windowed
+[stage]
+name = "channel walk 1–8 (#318)"
+
+[[node]]
+id = "tone"
+kind = "osc"
+freq = 330
+gain = 0.15
+
+[[node]]
+id = "sweep"
+kind = "lfo"
+rate = 0.025
+depth = 1.0
+
+# speaker k at its place on the ring: a sweep from -180° to 180° passes channels 1, 2 … 8
+[[node]]
+id = "ring"
+kind = "pan"
+mode = "vbap"
+az = [-157.5, -112.5, -67.5, -22.5, 22.5, 67.5, 112.5, 157.5]
+
+[[node]]
+id = "out"
+kind = "out"
+
+[[link]]
+from = "tone"
+to = "ring.in"
+
+[[link]]
+from = "sweep"
+to = "ring.azimuth"
+scale = 180.0
+
+[[link]]
+from = "ring.out"
+to = "out.in"
