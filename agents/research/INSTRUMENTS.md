@@ -90,8 +90,8 @@ Two layers (owner 2026-11-01: "factory presets and rigs and … modification by 
 - The deck caches them on DECKDATA next to sets and portraits (`<cache>/rigs/…`), plays offline from the cache.
 
 ## 7. The phone page's test patch → the selected character's rig
-Today `shared/live-deck/src/scene.ts` hard-codes the trimmed cathedral (PARAMS, ENGINE_TOML for live-core, the
-incense in Web Audio). Replaced in steps:
+`shared/live-deck/src/scene.ts` holds the trimmed cathedral as `FIXED_SCENE`, a scene live-core's engine plays whole
+(#320 – the page's Web Audio incense and melody are gone). Replaced in steps:
 1. **Rust (built):** `Rig::flatten(lib, persona, mood)` – the played tracks' patches in one scene: node ids
    `<track>_<node>`, four-input mixers chained (`mix1` → `mix2.in1` …, a track's `gain` = its mixer gain) → `out`
    (audio_out) + `fft`, the routes as links (a muted track's are off), always a bare `space` node (the caller sets its
