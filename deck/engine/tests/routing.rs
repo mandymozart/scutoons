@@ -391,6 +391,38 @@ fn outlets_follow_the_deck_configuration() {
     exact(&phone[0], &ra[0], "the main is the same on a phone");
 }
 
+/// A channel list naming a device channel that is missing drops that channel and keeps the others where the list puts them;
+/// it used to close the gap, so the next channel played where the missing one should have.
+#[test]
+fn a_missing_device_channel_is_dropped_not_closed_up() {
+    let two = |out_params: &str| {
+        osc("x", 220.0, 0.2) + &osc("y", 330.0, 0.15) + &node("b", "bus", "channels=2") + &node("o", "out", out_params)
+            + &link("x", "b.in", "map=[[1, 1]]")
+            + &link("y", "b.in", "map=[[1, 2]]")
+            + &link("b.out", "o.in", "")
+    };
+    let (rx, ry) = (alone(&osc("a", 220.0, 0.2)), alone(&osc("a", 330.0, 0.15)));
+    let (x, y): (Vec<f32>, Vec<f32>) = (rx[0].iter().map(|v| 0.0 + v).collect(), ry[0].iter().map(|v| 0.0 + v).collect());
+    let mut drop = DeckConfig::device(4);
+    drop.fold = deck_engine::Fold::Drop;
+    // L on channel 5 (missing), R on channel 2
+    let got = render(&two("channels=[5, 2]"), drop.clone());
+    exact(&got[1], &y, "R stays on 2");
+    assert!([0, 2, 3].iter().all(|&c| peak(&got[c]) == 0.0), "L has no channel: silent");
+    // the same through the deck configuration's group
+    let got = render(&two("group=\"cue\""), drop.with_outlet("cue", &[5, 2]));
+    exact(&got[1], &y, "the group's R stays on 2");
+    assert_eq!(peak(&got[0]), 0.0);
+    // three channels (no standard layout, so no table to fold by): the middle one's channel is missing
+    let three = osc("x", 220.0, 0.2) + &osc("y", 330.0, 0.15) + &node("b", "bus", "channels=3") + &node("o", "out", "channels=[1, 9, 2]")
+        + &link("x", "b.in", "map=[[1, 1]]")
+        + &link("y", "b.in", "map=[[1, 3]]")
+        + &link("b.out", "o.in", "");
+    let got = render(&three, STEREO());
+    exact(&got[0], &x, "1 → 1");
+    exact(&got[1], &y, "3 → 2");
+}
+
 /// the limiter works per group: a loud cue is held under the ceiling, the main next to it does not move
 #[test]
 fn the_limiter_links_a_group_and_leaves_the_others_alone() {

@@ -877,20 +877,23 @@ fn plan_outlets(feeds: &[Feed], deck: &DeckConfig, rate: f32) -> Plan {
     let mut claimed = vec![false; d];
     let mut groups: Vec<(String, Vec<usize>)> = Vec::new();
     for f in feeds {
-        let targets: Vec<usize> = if !f.list.is_empty() {
-            f.list.iter().filter(|&&c| c >= 1 && c <= d).map(|c| c - 1).collect()
+        // the device channel of each of the outlet's channels (None = the device lacks it), then the ones there are
+        let mut slots: Vec<Option<usize>> = if !f.list.is_empty() {
+            f.list.iter().map(|&c| (c >= 1 && c <= d).then(|| c - 1)).collect()
         } else if f.first > 0 {
-            (f.first..f.first + f.width).filter(|&c| c <= d).map(|c| c - 1).collect()
+            (f.first..f.first + f.width).map(|c| (c <= d).then(|| c - 1)).collect()
         } else {
             deck.channels_of(&f.group, f.width)
         };
+        slots.resize(f.width, None);
+        let targets: Vec<usize> = slots.iter().flatten().copied().collect();
         let m = targets.len();
         if m == 0 {
             notes.push(format!("outlet '{}' ({}): no device channel to play on ({} has {d}) – silent", f.group, f.id, deck.name));
             continue;
         }
         let mut pairs: Vec<(usize, usize, f32)> = Vec::new();
-        if m >= f.width {
+        if m == f.width {
             pairs.extend((0..f.width).map(|c| (c, targets[c], 1.0)));
         } else {
             let from = f.layout.clone().or_else(|| layout::name_for(f.width).map(str::to_string));
@@ -906,8 +909,8 @@ fn plan_outlets(feeds: &[Feed], deck: &DeckConfig, rate: f32) -> Plan {
                     }
                 }
                 _ => {
-                    notes.push(format!("outlet '{}' ({}): {} channels, {m} device channels to play on – the first {m} play", f.group, f.id, f.width));
-                    pairs.extend((0..m).map(|c| (c, targets[c], 1.0)));
+                    notes.push(format!("outlet '{}' ({}): {} channels, {m} of them have a device channel – the others are dropped", f.group, f.id, f.width));
+                    pairs.extend(slots.iter().enumerate().filter_map(|(c, &t)| t.map(|t| (c, t, 1.0))));
                 }
             }
         }
