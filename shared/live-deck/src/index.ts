@@ -13,3 +13,5 @@ export * from './controls.ts';
 export * from './midi.ts';
 export * from './gamepad.ts';
 export * from './events.ts';
+// #321: the core's tempo clock as the page reads it
+export { beatAt, SOURCES, type ClockSource, type ClockState } from '@scutoons/live-core';

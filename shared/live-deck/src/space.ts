@@ -8,7 +8,6 @@
 // page says the 3D is missing.
 import type { DeckControlsView } from './controls.ts';
 import type { Deck } from './deck.ts';
-import { BPM } from './deck.ts';
 import type { DeckQuality, QualityLevel } from '@scutoons/live';
 export type { QualityLevel };
 
@@ -216,6 +215,7 @@ export async function decodeImage(bytes: Uint8Array | Blob, type = 'image/webp')
 }
 
 /** the image type of a file's first bytes (the .glb's images: WebP or PNG) */
+// core-only-ok: #357 an image's magic bytes (PNG / JPEG), not MIDI
 export const sniff = (b: Uint8Array) => (b[0] === 0x89 && b[1] === 0x50 ? 'image/png' : b[0] === 0xff && b[1] === 0xd8 ? 'image/jpeg' : 'image/webp');
 
 /** a pointer's position in the canvas' pixels (the render size – the view reads them so) */
@@ -411,7 +411,9 @@ export class SpaceStage {
 		this.view.set_strain(deck.bands.reduction ?? 0, dt);
 		this.view.set_mood(deck.mood);
 		const t = deck.time;
-		this.view.set_beat(BPM, (t * BPM) / 60, 4, true);
+		// #321: the being breathes on the deck's clock (the show clock's); before the sound starts it keeps its own
+		const clock = deck.clock;
+		if (clock) this.view.set_beat(clock.bpm, deck.beatAt(), clock.perBar, clock.running);
 		const c = this.canvas;
 		const scale = this.pixelRatio();
 		const w = Math.max(1, Math.round(c.clientWidth * scale));

@@ -145,6 +145,8 @@ pub enum Message {
 	DeckSynced(DeckSynced),
 	#[serde(rename = "deck.quality")]
 	DeckQuality(DeckQuality),
+	#[serde(rename = "tempo")]
+	Tempo(Tempo),
 	#[serde(rename = "error")]
 	Error(Error),
 }
@@ -189,6 +191,7 @@ impl Message {
 			Message::SceneSync(_) => "scene.sync",
 			Message::DeckSynced(_) => "deck.synced",
 			Message::DeckQuality(_) => "deck.quality",
+			Message::Tempo(_) => "tempo",
 			Message::Error(_) => "error",
 		}
 	}
@@ -338,6 +341,9 @@ pub struct Snapshot {
 	/// #195: each deck's last `deck.synced` for that sync, by client id (the conductor's snapshot)
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub synced: Option<std::collections::HashMap<String, DeckSynced>>,
+	/// #321: the show clock's last anchor (every client but a bridge)
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub tempo: Option<Tempo>,
 	/// the session's seq when the snapshot was taken
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub seq: Option<i64>,
@@ -380,15 +386,32 @@ pub struct Welcome {
 	pub now: i64,
 }
 
+/// client → relay. `t0`: the client's own clock when it sent the ping, in a unit of its choosing (the relay only echoes it; a deck sends µs – #321, the show clock's offset filter).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Ping {
 	pub t0: i64,
 }
 
+/// relay → the client: its `t0` back and the relay's time (ms) when the ping arrived – a sample of the relay's clock against the client's (deck-core `tempo::sync`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Pong {
 	pub t0: i64,
 	pub t1: i64,
+}
+
+/// #321 (plan §3.7): the show clock's anchor – at relay ms `at` the show was at `beat`, running at `bpm` (or stopped: the beat stands), `per_bar` beats a bar. The leading deck (its picker, its scene's `lead`, or a deck on MIDI clock in – the venue's table-top clock) sends it only when its tempo line changed; the relay fills a missing `at` with now + the lead, keeps the last one for the snapshot and routes it to everyone else. The conductor may always lead; a deck leads while no other connected client does. Every deck on the show clock maps the anchor through its offset filter and follows the line.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Tempo {
+	pub bpm: f64,
+	pub per_bar: u64,
+	pub beat: f64,
+	pub running: bool,
+	/// relay ms; the envelope's `at` when missing
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub at: Option<i64>,
+	/// the clock domain (a sub-conductor's own time, later); missing = "show", the one show clock – reserved, nothing sets or routes it yet
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub domain: Option<String>,
 }
 
 /// conductor → relay on every change; folded into the snapshot.

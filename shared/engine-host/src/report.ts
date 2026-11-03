@@ -1,7 +1,7 @@
 // report.ts (#356): the sound's measurement as one copyable text – what a phone owner pastes into an issue. The device
 // and the audio context, the worker's block times (p50 / p99 / the longest against the 128-frame budget), the warm-up
 // and the first seconds as a table, the engine log's last lines. Pure, except `deviceInfo` (it reads the browser).
-import type { Second } from '@scutoons/live-core';
+import type { ClockState, ClockSummary, Second } from '@scutoons/live-core';
 import type { EngineSnapshot } from './status.ts';
 
 /** the browser's own count of output glitches – the device ran dry, which the worklet's ring cannot see (Chrome's
@@ -67,6 +67,20 @@ export interface ReportInput {
 	series: readonly Second[];
 	/** the engine log's last lines, formatted */
 	log: string[];
+	/** #321: the tempo clock now and its error over the last minute (null before the sound / while not following) */
+	clock?: ClockState | null;
+	clockWindow?: ClockSummary | null;
+}
+
+/** #321: the show clock's line – where this deck takes its tempo from, the core's line for it (SHOW ±x MS RTT y MS),
+ *  how far off the show's line it played over the last minute */
+export function clockLine(c: ClockState | null | undefined, w: ClockSummary | null | undefined): string {
+	if (!c) return 'clock not running';
+	const f = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}`;
+	// the state in deck-core's words (the native HUD's and the panel's line)
+	const now = `clock ${c.source} · ${c.bpm.toFixed(1)} BPM${c.line ? ` · ${c.line}` : ''}`;
+	if (!w) return `${now} · no minute of following yet`;
+	return `${now} · last ${w.seconds.toFixed(0)} s |show| p50 ${w.p50.toFixed(1)} · p95 ${w.p95.toFixed(1)} · max ${w.max.toFixed(1)} ms (mean ${f(w.mean)}, ${w.n} frames)`;
 }
 
 /** µs as a share of the block budget (%) */
@@ -106,6 +120,7 @@ export function engineReport(r: ReportInput): string {
 		`device glitches ${p ? `${p.glitches} (${p.glitchMs} ms in ${p.totalS} s) · latency avg ${p.averageLatencyMs} / max ${p.maximumLatencyMs} ms` : 'not reported by this browser'}`,
 		`warm-up ${s.warmMs ? `${s.warmMs.toFixed(0)} ms` : 'none'} · lead ${s.lead} ms · dropouts ${s.dropouts ?? '-'}/min`,
 		`now block p50 ${s.loadP50}% · p99 ${s.loadP99}% · max ${s.load}% of the budget · picture ${s.fps.toFixed(0)} fps, ${s.cpu.toFixed(1)}/${s.peak.toFixed(1)} ms · 3D ${s.backend || '-'} ${s.quality}`,
+		clockLine(r.clock, r.clockWindow),
 		'',
 		...seriesTable(r.series, s.sampleRate)
 	];

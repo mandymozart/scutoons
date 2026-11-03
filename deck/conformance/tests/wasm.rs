@@ -52,6 +52,159 @@ impl Wasm {
         let mem = self.inst.get_memory(&mut self.store, "memory").expect("memory");
         mem.data_mut(&mut self.store)[ptr as usize..ptr as usize + bytes.len()].copy_from_slice(bytes);
     }
+    fn read_f64(&mut self, ptr: u32, n: usize) -> Vec<f64> {
+        let mem = self.inst.get_memory(&mut self.store, "memory").expect("memory");
+        let data = mem.data(&self.store);
+        data[ptr as usize..ptr as usize + n * 8].chunks_exact(8).map(|b| f64::from_le_bytes(b.try_into().unwrap())).collect()
+    }
+}
+
+/// live-core's exports the clock script drives – natively (the `lc_*` functions themselves) or in wasmtime
+trait Lc {
+    fn init(&mut self, channels: u32);
+    fn load(&mut self, toml: &str);
+    fn render(&mut self, frames: u32) -> Vec<f32>;
+    fn frame(&mut self, now_ms: f64) -> Vec<f64>;
+    fn stamp(&mut self, context: f64, heard_ms: f64, skew: f64);
+    fn pong(&mut self, t0_us: f64, t1_ms: f64, t2_ms: f64);
+    fn tempo(&mut self, bpm: f64, per_bar: u32, beat: f64, at: f64, running: u32, arrived_ms: f64);
+    fn choose(&mut self, source: u32, lead: u32);
+    fn key(&mut self, key: u32, at_ms: f64);
+}
+
+struct NativeLc;
+
+impl Lc for NativeLc {
+    fn init(&mut self, channels: u32) {
+        live_core::lc_init(RATE, channels as usize);
+    }
+    fn load(&mut self, toml: &str) {
+        let p = live_core::lc_inbox(toml.len());
+        // SAFETY: the inbox is at least `len` bytes (lc_inbox grew it)
+        unsafe { std::ptr::copy_nonoverlapping(toml.as_ptr(), p, toml.len()) };
+        assert!(live_core::lc_load(toml.len()) > 0, "live-core loads the scene");
+    }
+    fn render(&mut self, frames: u32) -> Vec<f32> {
+        let p = live_core::lc_render(frames as usize);
+        // SAFETY: lc_render's answer holds `frames` × the channels (2 here) until the next call
+        unsafe { std::slice::from_raw_parts(p, frames as usize * 2) }.to_vec()
+    }
+    fn frame(&mut self, now_ms: f64) -> Vec<f64> {
+        let p = live_core::lc_clock_frame(now_ms);
+        // SAFETY: the state block is clock::STATE f64
+        unsafe { std::slice::from_raw_parts(p, live_core::clock::STATE) }.to_vec()
+    }
+    fn stamp(&mut self, context: f64, heard_ms: f64, skew: f64) {
+        live_core::lc_clock_stamp(context, heard_ms, skew);
+    }
+    fn pong(&mut self, t0_us: f64, t1_ms: f64, t2_ms: f64) {
+        live_core::lc_clock_pong(t0_us, t1_ms, t2_ms);
+    }
+    fn tempo(&mut self, bpm: f64, per_bar: u32, beat: f64, at: f64, running: u32, arrived_ms: f64) {
+        live_core::lc_clock_tempo(bpm, per_bar, beat, at, running, arrived_ms);
+    }
+    fn choose(&mut self, source: u32, lead: u32) {
+        live_core::lc_clock_choose(source, lead);
+    }
+    fn key(&mut self, key: u32, at_ms: f64) {
+        live_core::lc_clock_key(key, at_ms);
+    }
+}
+
+impl Lc for Wasm {
+    fn init(&mut self, channels: u32) {
+        let f = self.f::<(f32, u32), ()>("lc_init");
+        f.call(&mut self.store, (RATE, channels)).unwrap();
+    }
+    fn load(&mut self, toml: &str) {
+        let inbox = self.f::<u32, u32>("lc_inbox");
+        let load = self.f::<u32, i32>("lc_load");
+        let ptr = inbox.call(&mut self.store, toml.len() as u32).unwrap();
+        self.write(ptr, toml.as_bytes());
+        assert!(load.call(&mut self.store, toml.len() as u32).unwrap() > 0, "live-core.wasm loads the scene");
+    }
+    fn render(&mut self, frames: u32) -> Vec<f32> {
+        let f = self.f::<u32, u32>("lc_render");
+        let p = f.call(&mut self.store, frames).unwrap();
+        self.read_f32(p, frames as usize * 2)
+    }
+    fn frame(&mut self, now_ms: f64) -> Vec<f64> {
+        let f = self.f::<f64, u32>("lc_clock_frame");
+        let p = f.call(&mut self.store, now_ms).unwrap();
+        self.read_f64(p, live_core::clock::STATE)
+    }
+    fn stamp(&mut self, context: f64, heard_ms: f64, skew: f64) {
+        let f = self.f::<(f64, f64, f64), ()>("lc_clock_stamp");
+        f.call(&mut self.store, (context, heard_ms, skew)).unwrap();
+    }
+    fn pong(&mut self, t0_us: f64, t1_ms: f64, t2_ms: f64) {
+        let f = self.f::<(f64, f64, f64), ()>("lc_clock_pong");
+        f.call(&mut self.store, (t0_us, t1_ms, t2_ms)).unwrap();
+    }
+    fn tempo(&mut self, bpm: f64, per_bar: u32, beat: f64, at: f64, running: u32, arrived_ms: f64) {
+        let f = self.f::<(f64, u32, f64, f64, u32, f64), ()>("lc_clock_tempo");
+        f.call(&mut self.store, (bpm, per_bar, beat, at, running, arrived_ms)).unwrap();
+    }
+    fn choose(&mut self, source: u32, lead: u32) {
+        let f = self.f::<(u32, u32), ()>("lc_clock_choose");
+        f.call(&mut self.store, (source, lead)).unwrap();
+    }
+    fn key(&mut self, key: u32, at_ms: f64) {
+        let f = self.f::<(u32, f64), ()>("lc_clock_key");
+        f.call(&mut self.store, (key, at_ms)).unwrap();
+    }
+}
+
+/// a click on the deck's clock (no `tempo` node: the show clock plays it) into the output
+const CLICK_TOML: &str = "[[node]]\nid = \"c\"\nkind = \"click\"\ngain = 0.5\n[[node]]\nid = \"out\"\nkind = \"audio_out\"\n[[link]]\nfrom = \"c\"\nto = \"out.in\"\n";
+
+/// The browser deck on the show clock (#321): pongs of a relay 777 s ahead, an anchor (132 BPM in 3, beat 10.5 at relay
+/// ms `at`), the click on, `getOutputTimestamp` stamps every four quanta, a clock frame after each – the state blocks
+/// and the click's samples (a tick starts on the frame its beat begins: the audio shows the beat positions).
+fn clock_script(lc: &mut dyn Lc) -> (Vec<f64>, Vec<f32>) {
+    lc.init(2);
+    lc.load(CLICK_TOML);
+    let t0 = 1_762_000_000_123.456; // the page's ms
+    lc.choose(4, 0);
+    for k in 0..5 {
+        let t = t0 + k as f64 * 250.0;
+        lc.pong(t * 1e3, (t + 777_000.4).floor(), t + 0.8);
+    }
+    lc.key(4, t0 + 1000.0);
+    lc.tempo(132.0, 3, 10.5, (t0 + 777_000.0 + 2_000.0).floor(), 1, t0 + 1_500.0);
+    let (mut states, mut audio) = (Vec::new(), Vec::new());
+    let mut rendered = 0u32;
+    for _ in 0..200 {
+        // the worklet played 37 frames of silence before the first: context frame = played + 37
+        let context = (rendered + 37) as f64 / f64::from(RATE);
+        let heard = t0 + 1_000.0 + context * 1e3;
+        lc.stamp(context, heard, 37.0);
+        states.extend(lc.frame(heard - 30.0));
+        for _ in 0..4 {
+            audio.extend(lc.render(128));
+            rendered += 128;
+        }
+    }
+    (states, audio)
+}
+
+/// P8 (#321) accept: **the same anchor gives the same beat positions in both targets** – live-core natively, as wasm32 and
+/// as wasm32 + simd128 in wasmtime: the clock's state blocks (heard moment, beat, tempo, the show clock) and the click it
+/// plays, bit for bit.
+#[test]
+fn the_same_anchor_gives_the_same_beats_in_every_target() {
+    let plain = build_wasm("live-core", "live_core.wasm", false);
+    let simd = build_wasm("live-core", "live_core.wasm", true);
+    let (native_states, native_audio) = clock_script(&mut NativeLc);
+    let last = &native_states[native_states.len() - live_core::clock::STATE..];
+    assert!((last[2] - 132.0).abs() < 0.5 && last[3] == 3.0, "the anchor's tempo and bar: {last:?}");
+    assert!(native_audio.iter().any(|x| x.abs() > 0.1), "the click sounds");
+    for path in [plain, simd] {
+        let (states, audio) = clock_script(&mut Wasm::load(&path));
+        let s = states.iter().zip(&native_states).position(|(a, b)| a.to_bits() != b.to_bits());
+        assert_eq!(s, None, "{}: the clock's state differs at {s:?}", path.display());
+        assert_eq!(diff(&native_audio, &audio).first, None, "{}: the click differs", path.display());
+    }
 }
 
 /// live-core in wasmtime (the browser deck's worker without the browser): the scene on a device of `channels` channels,

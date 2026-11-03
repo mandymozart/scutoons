@@ -15,11 +15,10 @@ const path = wasmPath();
 const skip = existsSync(path) ? false : 'live_core.wasm is not built – npm run build:wasm -w shared/live-core';
 const RIGS = JSON.parse(readFileSync(new URL('./fixtures/rigs.json', import.meta.url), 'utf8')) as Record<string, RigPlayed>;
 
-/** `scene` loaded at 84 bpm, its knobs set as the deck does, 2 s rendered: the table, the last analysis, the loudest sample */
+/** `scene` loaded on the core's clock (120 BPM: no show clock), its knobs set as the deck does, 2 s rendered: the table, the last analysis, the loudest sample */
 async function play(scene: string, knobs: Record<string, number>) {
 	const c = await WasmCore.instantiate(readFileSync(path), 48_000, 2);
 	const table = c.load(scene);
-	c.tempo(84);
 	let last = new Float32Array(0);
 	const e = new Engine(c, { lead: 1024, onAnalysis: (f) => (last = f.slice()) });
 	const b = new Uint8Array(64);

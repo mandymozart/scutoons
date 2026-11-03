@@ -10,6 +10,8 @@
 	import { panelKnobs } from '$lib/live-deck.ts';
 	import DeckKnob from './deck-knob.svelte';
 	import DeckQuality from './deck-quality.svelte';
+	import DeckClock, { type ClockChoice } from './deck-clock.svelte';
+	import type { ClockState } from '@scutoons/live-deck';
 	import DeckStats, { type Stats } from './deck-stats.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 
@@ -37,6 +39,14 @@
 		quality = null,
 		onquality,
 		onsettings,
+		clock = null,
+		clockChoice = 'show',
+		strobe = false,
+		onclock,
+		onclick,
+		onstrobe,
+		midiOut = false,
+		onmidiout,
 		oncopy
 	}: {
 		values: Record<string, number>;
@@ -74,6 +84,16 @@
 		onquality: (level: QualityLevel, auto: boolean) => void;
 		/** #220: open the presets' settings sheet */
 		onsettings: () => void;
+		/** #321: the tempo clock (null before the sound), the picker's choice, the strobe; their changes */
+		clock?: ClockState | null;
+		clockChoice?: ClockChoice;
+		strobe?: boolean;
+		onclock: (c: ClockChoice) => void;
+		onclick: () => void;
+		onstrobe: () => void;
+		/** #321: the MIDI clock out (Web MIDI) and its toggle */
+		midiOut?: boolean;
+		onmidiout: () => void;
 		/** #356: copy the sound's measurement (the report); resolves true when it reached the clipboard */
 		oncopy: () => Promise<boolean>;
 	} = $props();
@@ -106,6 +126,7 @@
 				</button>
 			</div>
 			{#if quality}<DeckQuality {quality} {onquality} {onsettings} />{/if}
+			{#if started}<DeckClock {clock} choice={clockChoice} {strobe} onchoose={onclock} {onclick} {onstrobe} {midiOut} {onmidiout} />{/if}
 			{#if learn || midi}<p class="line">{learning ? m['live_deck.midi_waiting']({ knob: (all.find(([p]) => p === learning)?.[1].label ?? learning) }) : midi || m['live_deck.midi_learn_hint']()}</p>{/if}
 			<div class="knobs">
 				{#each all as [path, spec] (path)}

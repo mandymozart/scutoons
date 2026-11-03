@@ -56,9 +56,9 @@ fn sent_vectors_reach_the_sound_and_the_analysis() {
     assert_eq!(c.apply(&b), Ok(1));
     play(&mut c, 40);
     for _ in 0..8 {
-        c.analyse(1.0 / 60.0, 0); // the analyzer rises over a few frames
+        c.analyse(1.0 / 60.0, 0, &Now::default()); // the analyzer rises over a few frames
     }
-    let f = c.analyse(1.0 / 60.0, 0).to_vec();
+    let f = c.analyse(1.0 / 60.0, 0, &Now::default()).to_vec();
     assert_eq!(f.len(), FRAME + f[VALUE_COUNT] as usize);
     assert!(f[0] > 0.5, "level {}", f[0]);
     assert!(f[2] > 0.8 && f[2] > f[1] + 0.3, "1500 Hz is mid: {:?}", &f[..4]);
@@ -89,7 +89,7 @@ fn overload_is_limited_and_bases_turn() {
     let mut c = Core::load(&scene, 48_000.0, 2).unwrap();
     let worst = play(&mut c, 100).iter().fold(0.0f32, |w, x| w.max(x.abs()));
     assert!(worst < 1.0 && worst > 0.8, "two sines at full gain, held under 1: {worst}");
-    let f = c.analyse(1.0 / 60.0, 0).to_vec();
+    let f = c.analyse(1.0 / 60.0, 0, &Now::default()).to_vec();
     assert!(f[REDUCTION] > 3.0, "the gain reduction in dB: {}", f[REDUCTION]);
     // the unipolar LFO at its top (phase 0.25 of a still sine = 1) · 2, then a base of 0.5 under the link
     let near = |x: f32, want: f32| assert!((x - want).abs() < 1e-5, "{x} ≠ {want}");
@@ -98,7 +98,7 @@ fn overload_is_limited_and_bases_turn() {
     encode_send(&mut b, Mode::Base, 3, 0, 0.0, &[0.5]);
     assert_eq!(c.apply(&b), Ok(1));
     play(&mut c, 2);
-    let f = c.analyse(1.0 / 60.0, 0).to_vec();
+    let f = c.analyse(1.0 / 60.0, 0, &Now::default()).to_vec();
     near(value(&c, &f, "m", "a"), 2.5); // the LFO's 1 · 2 on top of the base 0.5
     near(value(&c, &f, "m", "out"), 2.5); // a control output: the heard block's value
 }
@@ -108,19 +108,19 @@ fn overload_is_limited_and_bases_turn() {
 fn the_frame_reports_a_peak_per_channel() {
     let mut c = Core::load(&scene(), 48_000.0, 2).unwrap();
     c.render(128);
-    let f = c.analyse(1.0 / 60.0, 0).to_vec();
+    let f = c.analyse(1.0 / 60.0, 0, &Now::default()).to_vec();
     assert_eq!(f[OUTPUT_COUNT], 2.0);
     assert!(f[PEAKS..PEAKS + MAX_OUTPUTS].iter().all(|p| *p == 0.0), "silence: nothing on any channel");
     let mut b = vec![];
     encode_send(&mut b, Mode::Force, 1, 1, 1.0, &[1500.0, 1.0, 0.0, 0.5]);
     c.apply(&b).unwrap();
     play(&mut c, 40);
-    let f = c.analyse(1.0 / 60.0, 0).to_vec();
+    let f = c.analyse(1.0 / 60.0, 0, &Now::default()).to_vec();
     let peaks = &f[PEAKS..PEAKS + MAX_OUTPUTS];
     assert!(peaks[0] > 0.3 && peaks[0] <= 1.0, "gain 0.5 on a sine: {peaks:?}");
     assert_eq!(peaks[0], peaks[1], "the stereo main: the same on both");
     assert!(peaks[2..].iter().all(|p| *p == 0.0), "no peaks past the count");
-    let f = c.analyse(1.0 / 60.0, 0).to_vec();
+    let f = c.analyse(1.0 / 60.0, 0, &Now::default()).to_vec();
     assert!(f[PEAKS..PEAKS + MAX_OUTPUTS].iter().all(|p| *p == 0.0), "since the last frame: none rendered");
 }
 
@@ -236,12 +236,11 @@ fn a_walk_plays_its_voice_and_its_knobs_are_inputs() {
     encode_send(&mut b, Mode::Base, 1, 0, 0.0, &[0.0]);
     assert_eq!(held.apply(&b), Ok(1));
     assert_ne!(play(&mut held, 750), one, "spread 0 holds the base");
-    // the page's tempo: a scene without a clock takes it, and the melody follows
-    let mut slow = Core::load(WALK, 48_000.0, 2).unwrap();
-    assert!(slow.set_tempo(84.0));
-    assert_ne!(play(&mut slow, 750), one, "84 bpm, not the default 120");
-    let mut own = Core::load(&format!("{WALK}[[node]]\nid = \"t\"\nkind = \"tempo\"\nbpm = 100.0\n"), 48_000.0, 2).unwrap();
-    assert!(!own.set_tempo(84.0), "a scene with its own clock keeps it");
+    // the clock: a scene without a `tempo` node leaves it as it is (clock.rs), one with a node configures it
+    assert!(a.tempo_node().is_none());
+    let own = Core::load(&format!("{WALK}[[node]]\nid = \"t\"\nkind = \"tempo\"\nbpm = 100.0\nlead = true\n"), 48_000.0, 2).unwrap();
+    let c = own.tempo_node().expect("its own clock");
+    assert!((c.bpm, c.lead) == (100.0, true));
 }
 
 /// #236: an `events` host – an arp on a walk – plays its voice; its knobs a–d are its inputs (NaN = the patch's own)

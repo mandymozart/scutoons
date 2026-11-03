@@ -11,9 +11,12 @@
 //!   welcome whose snapshot lacks it: the relay restarted) and hands the frame each deck's `deck.synced`. A deck hands
 //!   a push – the welcome snapshot's `sync`, or a `scene.sync` – to its sync (`Syncs`, sync.rs) and sends its answer
 //!   back whenever it is new (progress at most every 200 ms; the final state at once).
+//! - **The show clock (#321):** pongs, the relay's `tempo` anchors and the welcome go to the clock (`ShowLink`, stamped
+//!   when read); the pings it asks for go out with their real `t0` (µs of `now_ns`), and so does the anchor of a deck
+//!   that leads. A link for the clock alone (`Join::Deck` without a being) sends no graph.
+use crate::tempo::relay::ShowLink;
 use protocol::{DeckGraph, DeckMidi, DeckQuality, DeckSynced, DeckValues, Envelope, Hello, Message, Ping, Role, SceneSync, SyncState};
 use std::collections::HashMap;
-use std::io::ErrorKind;
 use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
@@ -81,7 +84,7 @@ impl Drop for Link {
 impl Link {
     /// Join `relay` (`ws://host:port/live/<code>`, or `wss://` – the hosted relay, #199) as `join`; a deck announces
     /// `graph` and hands pushes to `sync`.
-    pub fn start(relay: &str, join: Join, token: Option<String>, nick: Option<String>, graph: Option<DeckGraph>, sync: Option<Box<dyn Syncs>>) -> Result<Link, String> {
+    pub fn start(relay: &str, join: Join, token: Option<String>, nick: Option<String>, graph: Option<DeckGraph>, sync: Option<Box<dyn Syncs>>, show: Option<Arc<ShowLink>>) -> Result<Link, String> {
         let cfg = crate::live::config::Config::new(relay, GROUP, "de").map_err(|e| e.to_string())?;
         let (tx_in, rx) = mpsc::channel();
         let (tx, outbox) = mpsc::channel();
@@ -107,6 +110,7 @@ impl Link {
             answered: None,
             quality: None,
             quality_due: false,
+            show,
         };
         std::thread::Builder::new().name("cathedral".into()).spawn(move || client.run()).map_err(|e| e.to_string())?;
         Ok(Link { rx, tx, status, stop })
@@ -162,6 +166,8 @@ struct Client {
     /// #220: this deck's render quality, the newest; due = not sent yet
     quality: Option<DeckQuality>,
     quality_due: bool,
+    /// #321: the show clock's side
+    show: Option<Arc<ShowLink>>,
 }
 
 type Socket = WebSocket<MaybeTlsStream<TcpStream>>;
@@ -314,9 +320,17 @@ impl Client {
                 }
                 self.quality_due = false;
             }
-            if pinged.elapsed() >= PING_EVERY {
+            // #321: the pings the clock asks for (and the keepalive), each with its real t0; a leader's anchor
+            let asked = self.show.as_ref().and_then(|s| s.take_ping());
+            if asked.is_some() || pinged.elapsed() >= PING_EVERY {
                 pinged = Instant::now();
-                if let Err(e) = Self::send(ws, Message::Ping(Ping { t0: 0 })) {
+                let ping = asked.unwrap_or(Ping { t0: (crate::clock::now_ns() / 1000) as i64 });
+                if let Err(e) = Self::send(ws, Message::Ping(ping)) {
+                    return e;
+                }
+            }
+            if let Some(t) = self.show.as_ref().filter(|_| joined).and_then(|s| s.take_tempo()) {
+                if let Err(e) = Self::send(ws, Message::Tempo(t)) {
                     return e;
                 }
             }
@@ -324,7 +338,7 @@ impl Client {
                 Ok(Ws::Text(t)) => t,
                 Ok(Ws::Close(_)) => return "the relay closed it".into(),
                 Ok(_) => continue,
-                Err(tungstenite::Error::Io(e)) if matches!(e.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => continue,
+                Err(tungstenite::Error::Io(e)) if crate::live::config::timed_out(&e) => continue,
                 Err(e) => return e.to_string(),
             };
             let Ok(e) = serde_json::from_str::<Envelope>(&text) else { continue };
@@ -365,7 +379,23 @@ impl Client {
                     }
                     // the relay forgot this deck's quality when it left: again
                     self.quality_due = self.quality.is_some();
+                    if let Some(s) = &self.show {
+                        s.joined();
+                        if let Some(t) = &w.snapshot.tempo {
+                            s.tempo(t);
+                        }
+                    }
                     joined = true;
+                }
+                Message::Pong(p) => {
+                    if let Some(s) = &self.show {
+                        s.pong(&p);
+                    }
+                }
+                Message::Tempo(t) => {
+                    if let Some(s) = &self.show {
+                        s.tempo(&t);
+                    }
                 }
                 Message::DeckGraph(graph) => {
                     let _ = self.events.send(In::Deck { client: from, graph, values: HashMap::new(), mood: None });

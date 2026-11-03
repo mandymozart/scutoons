@@ -113,16 +113,17 @@ function fakeCore() {
 	const heard = new Map<string, number>();
 	const core = {
 		scene: '',
-		bpm: 0,
+		/** arguments past the scene (none since #321: the clock is the core's) */
+		extra: 0,
 		loads: 0,
 		sets,
 		heard,
-		load(scene: string, o: { bpm?: number } = {}) {
+		load(scene: string, ...rest: unknown[]) {
 			this.loads++;
+			this.extra = rest.length;
 			return new Promise<void>((ok) =>
 				settle.push(() => {
 					this.scene = scene;
-					this.bpm = o.bpm ?? 0;
 					ok();
 				})
 			);
@@ -153,12 +154,12 @@ const sent = (core: ReturnType<typeof fakeCore>) => core.sets.map(([p]) => p);
 test('a character switch while the sound loads: no throw out of tick or setParam, the newest scene wins (S22 crash)', async () => {
 	const d = new Deck({ character: 'catpope', nick: 'guest', api: API });
 	const core = fakeCore();
-	// the fixed scene playing (it landed): every knob went out as its input's base, at the deck's tempo
+	// the fixed scene playing (it landed): every knob went out as its input's base; the tempo is the core's clock's (#321)
 	d.core = core as never;
 	d.useRig(null);
 	core.land();
 	await Promise.resolve();
-	assert.equal(core.bpm, 84);
+	assert.equal(core.extra, 0, 'no page tempo with the scene');
 	assert.ok(sent(core).includes('voice.ratio') && sent(core).includes('melody.spread'), 'the knobs and the melody’s');
 	assert.ok(core.sets.every(([, mode]) => mode === 'base'), 'a knob turns the base (#188)');
 	core.sets.length = 0;

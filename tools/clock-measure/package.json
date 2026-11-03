@@ -1,0 +1,15 @@
+{
+	"name": "@scutoons/clock-measure",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "#321: the show clock's LAN measurement – how far apart two decks click in one recording (native 1 kHz, browser 2.5 kHz)",
+	"scripts": {
+		"measure": "node --experimental-transform-types --no-warnings bin/measure.ts",
+		"check": "tsc --noEmit -p tsconfig.json && npm run test",
+		"test": "node --experimental-transform-types --no-warnings --test test/measure.test.ts"
+	},
+	"devDependencies": {
+		"typescript": "^5.9.3"
+	}
+}

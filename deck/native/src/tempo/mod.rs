@@ -1,8 +1,9 @@
 //! The tempo clock (CYBERDECKS.md §8 "Two clocks", #181) on top of the time base: BPM, beat, bar and phase as a tempo
 //! map over the audio frame position (map.rs – beat = f(audio position), never a second clock). One source is the
 //! master at a time: internal (set, + / −, tap), MIDI clock in, Ableton Link (feature `link`), OSC, the relay's show
-//! clock (a stub until the relay has one). The frame thread owns the map: each frame it takes the sources' events
-//! (stamped on arrival, placed on the frame axis by the time base's line), follows the master, re-anchors the map at
+//! clock (#321: relay.rs hands the link's pongs and anchors in; a deck that leads sends its own). The frame thread
+//! owns the map: each frame it takes the sources' events (stamped on arrival, placed on the frame axis by the time
+//! base's line), follows the master, re-anchors the map at
 //! the audio thread's frontier and publishes it – the click and the synced sequencer read it per block, MIDI clock out
 //! per tick, the control domain per frame (the `tempo` node's outputs, quantised cuts).
 //!
@@ -14,6 +15,8 @@ pub mod midi;
 pub mod osc;
 #[cfg(feature = "link")]
 pub mod link;
+#[cfg(feature = "live")]
+pub mod relay;
 
 pub use deck_core::tempo::{Anchor, Cmd, Config, Controller, Event, Host, Key, Now, Source, What};
 pub use map::{position, BeatReader, Position, Quantize, Shared, TempoMap};
@@ -193,20 +196,16 @@ impl Tempo {
         if let Some(e) = &self.io.error {
             return e.chars().take(24).collect::<String>().to_uppercase();
         }
-        match self.ctl.source {
-            Source::Midi if self.ctl.midi_lost(now_ns()) => "NO CLOCK".into(),
-            Source::Midi => String::new(),
+        let lead = if self.ctl.leading() { " LEADS" } else { "" };
+        let io = match self.ctl.source {
             #[cfg(feature = "link")]
-            Source::Link => self.io.link.as_ref().map(|l| format!("{} PEERS", l.peers())).unwrap_or_default(),
+            Source::Link => self.io.link.as_ref().map(|l| format!("{} PEERS", l.peers())),
             #[cfg(feature = "osc")]
-            Source::Osc => self.io.osc.as_ref().map(|l| format!("PORT {}", l.addr.port())).unwrap_or_default(),
-            // a source whose module isn't built (its error above says so)
-            #[allow(unreachable_patterns)]
-            Source::Link | Source::Osc => String::new(),
-            Source::Relay if !self.ctl.has_anchor() => "NO SHOW CLOCK YET".into(),
-            Source::Relay => String::new(),
-            Source::Internal => String::new(),
-        }
+            Source::Osc => self.io.osc.as_ref().map(|l| format!("PORT {}", l.addr.port())),
+            _ => None,
+        };
+        // the clock's own line is the core's – the browser deck shows the same (#321)
+        io.map(|s| format!("{s}{lead}").trim().to_string()).unwrap_or_else(|| self.ctl.status(now_ns()))
     }
 
     /// the MIDI clock out's port, if it runs
@@ -293,10 +292,10 @@ mod tests {
         let mut t = tempo("");
         assert_eq!(t.status(), "");
         t.set_source(Source::Midi);
-        assert_eq!(t.status(), "NO CLOCK");
+        assert_eq!(t.status(), "NO CLOCK - HOLDS 120 LEADS", "MIDI clock in leads, lost: the tempo holds");
         t.set_source(Source::Relay);
         assert_eq!(t.status(), "NO SHOW CLOCK YET");
-        assert_eq!(t.frame(&moment(4.0, 0.0)).bpm, 120.0, "the relay stub: the clock stays");
+        assert_eq!(t.frame(&moment(4.0, 0.0)).bpm, 120.0, "no anchor yet: the clock stays");
         // F3 cycles the sources through the adapter and the click toggles
         t.set_source(Source::Internal);
         let tx = t.sender();

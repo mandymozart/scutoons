@@ -23,7 +23,7 @@ fn every_core_rig_loads_and_plays_in_live_core() {
                 let row = rows.iter().find(|r| r["id"] == node).unwrap_or_else(|| panic!("{subject}: knob {} has no row", k.path));
                 assert!(row["ports"].as_array().unwrap().iter().any(|p| p == port), "{subject}: {}", k.path);
             }
-            assert!(c.set_tempo(84.0), "a rig has no clock of its own: the page's");
+            assert!(c.tempo_node().is_none(), "a rig has no clock of its own: the deck's clock (the show's) plays it");
             // the incense burner's noise is silent until its gain is raised
             assert_eq!(loud(&mut c, 200), subject.starts_with("character."), "{subject} {mood:?}");
         }

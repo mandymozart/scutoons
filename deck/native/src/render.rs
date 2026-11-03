@@ -39,6 +39,7 @@ fn builtin(name: &str) -> Option<&'static str> {
         "invert" => include_str!("shaders/invert.wgsl"),
         "pass" => include_str!("shaders/pass.wgsl"),
         "fireflies" => include_str!("shaders/fireflies.wgsl"),
+        "flash" => include_str!("shaders/flash.wgsl"),
         "chapter" => include_str!("shaders/chapter.wgsl"),
         "overlay" => include_str!("shaders/overlay.wgsl"),
         "outlet" => include_str!("shaders/outlet.wgsl"),

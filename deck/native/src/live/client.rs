@@ -6,7 +6,6 @@
 use super::config::Config;
 use super::{Input, Status};
 use protocol::{Envelope, Hello, Message, MediaPreload, Ping, Resume, Role, Snapshot};
-use std::io::ErrorKind;
 use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, Sender};
@@ -127,7 +126,7 @@ impl Client {
                 Ok(Ws::Text(t)) => t,
                 Ok(Ws::Close(_)) => return "the relay closed it".into(),
                 Ok(_) => continue,
-                Err(tungstenite::Error::Io(e)) if matches!(e.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => continue,
+                Err(tungstenite::Error::Io(e)) if crate::live::config::timed_out(&e) => continue,
                 Err(e) => return e.to_string(),
             };
             let e = match serde_json::from_str::<Envelope>(&text) {

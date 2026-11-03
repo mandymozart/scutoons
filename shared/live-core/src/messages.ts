@@ -19,9 +19,10 @@ export interface SharedSetup {
 export type ToWorker =
 	/** `channels`: the device channels (the destination's – 2 on a phone); the audio ring and the feed carry them interleaved */
 	| { type: 'init'; wasm: string; rate: number; channels: number; lead: number; shared: SharedSetup | null; audioPort: MessagePort | null }
-	/** `bpm`: the deck's tempo for a scene without a clock of its own (until the show clock, plan P8) */
-	| { type: 'load'; id: number; scene: string; bpm?: number }
+	| { type: 'load'; id: number; scene: string }
 	| { type: 'records'; bytes: ArrayBuffer }
+	/** #321: something for the core's tempo clock (clock.ts) */
+	| { type: 'clock'; op: ClockOp }
 	| { type: 'stop' };
 
 /** once a second: the last second's blocks (engine.ts `BlockStats`) and the pump's state */
@@ -43,10 +44,35 @@ export type FromWorker =
 	/** #282: signal records (signals.ts) of the scene's `[outputs]`, a few per second at most */
 	| { type: 'signals'; bytes: ArrayBuffer }
 	| { type: 'stats'; stats: WorkerStats }
+	/** #321: the clock's state block (`clock.ts` STATE) after each clock frame */
+	| { type: 'clock'; state: Float64Array }
+	/** #321: the clock's line when it changed (at most every `CLOCK_LINE_EVERY` frames) */
+	| { type: 'clockLine'; line: string }
+	/** #321: the MIDI clock out's messages of a clock frame: [page ms, status, d1, d2] each (NaN = no such byte) */
+	| { type: 'midiOut'; msgs: Float64Array }
 	| { type: 'error'; error: string };
 
-/** worker ↔ worklet over a MessagePort, transfer transport only: chunks of interleaved frames, frames consumed */
-export type AudioFeed = { chunk: Float32Array } | { consumed: number; underruns: number };
+/** #321: what the page hands the core's clock – every time on the page's ms (`performance.timeOrigin + now()`) */
+export type ClockOp =
+	/** `getOutputTimestamp`: context second `context` heard at `heard` (the worker adds the worklet's skew) */
+	| { op: 'stamp'; context: number; heard: number }
+	/** a pong: the ping's `t0` (µs of the page's clock), the relay's `t1` (ms), back at `t2` */
+	| { op: 'pong'; t0: number; t1: number; t2: number }
+	/** the relay's `tempo` (relay ms `at`), arrived at `arrived` */
+	| { op: 'tempo'; bpm: number; perBar: number; beat: number; at: number; running: boolean; arrived: number }
+	/** a Web MIDI message (its first three bytes), stamped by the browser */
+	| { op: 'midi'; bytes: [number, number, number]; at: number }
+	| { op: 'joined'; now: number }
+	/** the picker: `source` = deck-core's `Source::ALL` index (internal, midi, link, osc, relay) */
+	| { op: 'choose'; source: number; lead: boolean }
+	/** 0 tap, 1 faster, 2 slower, 3 start / stop, 4 the click */
+	| { op: 'key'; key: number; at: number }
+	/** the page's MIDI OUT: deck-core's clock out on / off */
+	| { op: 'out'; on: boolean };
+
+/** worker ↔ worklet over a MessagePort, transfer transport only: chunks of interleaved frames, frames consumed (and,
+ * #321, the skew: the worklet's context frame minus the frames it played) */
+export type AudioFeed = { chunk: Float32Array } | { consumed: number; underruns: number; skew: number };
 
 /** worklet → page */
 export type FromWorklet = { underruns: number; played: number };
@@ -58,6 +84,6 @@ export interface WorkletOptions {
 	capacity: number;
 	/** the device channels, interleaved in the ring – the node's `outputChannelCount` */
 	channels: number;
-	/** #208: SharedSetup.status (shared transport) */
+	/** #208: SharedSetup.status (shared transport): [dropouts, #321 the skew] */
 	status: SharedArrayBuffer | null;
 }

@@ -9,17 +9,23 @@
 //!   (once); errors too (a negative length).
 //!
 //! Exports (all `lc_*`, no imports): `lc_init(rate, channels)`, `lc_inbox(len) -> ptr`, `lc_outbox() -> ptr`,
-//! `lc_load(len) -> ±len`, `lc_tempo(bpm) -> 0 | 1`, `lc_apply(len) -> count | -len`, `lc_render(frames) -> ptr`,
-//! `lc_analyse(dt, lead) -> ptr`, `lc_signals() -> len`, `lc_signals_at() -> ptr`. The control half steps inside the
-//! render (every 128-frame quantum) – there is no step export. A grown memory detaches the views – the host re-makes them
-//! (shared/live-core).
+//! `lc_load(len) -> ±len`, `lc_apply(len) -> count | -len`, `lc_render(frames) -> ptr`, `lc_analyse(dt, lead) -> ptr`,
+//! `lc_signals() -> len`, `lc_signals_at() -> ptr`; the tempo clock (#321, clock.rs): `lc_clock_frame(now_ms) -> ptr`
+//! (the state block, `clock::STATE` f64), `lc_clock_stamp`, `lc_clock_pong`, `lc_clock_tempo`, `lc_clock_midi`,
+//! `lc_clock_joined`, `lc_clock_choose`, `lc_clock_key`, `lc_clock_line(now_ms) -> len` (the line, in the outbox), the
+//! MIDI clock out `lc_clock_out_on(on)`, `lc_clock_out() -> count`, `lc_clock_out_at() -> ptr`. The control half steps
+//! inside the render (every 128-frame quantum) – there is no step export. A grown memory detaches the views – the host
+//! re-makes them (shared/live-core).
+pub mod clock;
 pub mod core;
 pub mod signals;
 pub mod wire;
 
 use std::cell::RefCell;
 
+pub use crate::clock::Clock;
 pub use crate::core::Core;
+use deck_core::tempo::Anchor;
 
 /// The inbox's first size; `lc_inbox(len)` grows it for a bigger scene.
 pub const INBOX: usize = 64 * 1024;
@@ -32,11 +38,13 @@ pub struct Host {
     inbox: Vec<u8>,
     outbox: Vec<u8>,
     core: Option<Core>,
+    /// the tempo clock: it outlives a scene (the show goes on)
+    pub clock: Clock,
 }
 
 impl Host {
     pub fn new(rate: f32, channels: usize) -> Host {
-        Host { rate, channels, inbox: vec![0; INBOX], outbox: Vec::new(), core: None }
+        Host { rate, channels, inbox: vec![0; INBOX], outbox: Vec::new(), core: None, clock: Clock::new(rate) }
     }
 
     /// The inbox, at least `len` bytes.
@@ -72,6 +80,7 @@ impl Host {
             .and_then(|text| Core::load(text, self.rate, self.channels));
         let r = r.map(|core| {
             let table = core.table_json();
+            self.clock.loaded(core.tempo(), core.tempo_node());
             self.core = Some(core);
             table
         });
@@ -103,6 +112,19 @@ impl Host {
 
     pub fn core(&mut self) -> Option<&mut Core> {
         self.core.as_mut()
+    }
+
+    /// `frames` frames of the loaded scene (counted by the clock); None before a scene is loaded
+    pub fn render(&mut self, frames: usize) -> Option<&[f32]> {
+        let core = self.core.as_mut()?;
+        self.clock.rendered(frames);
+        Some(core.render(frames))
+    }
+
+    /// the analysis frame of what is heard now, the clock's position at the heard moment in it
+    pub fn analyse(&mut self, dt: f32, lead: usize) -> Option<&[f32]> {
+        let now = self.clock.controller().now();
+        Some(self.core.as_mut()?.analyse(dt, lead, &now))
     }
 }
 
@@ -144,12 +166,6 @@ pub extern "C" fn lc_warm(len: usize, quanta: usize) -> i32 {
     with(|h| h.warm(len, if quanta == 0 { core::WARM_QUANTA } else { quanta }))
 }
 
-/// The page's tempo for a loaded scene without a clock of its own (`Core::set_tempo`): 1 = taken, 0 = not.
-#[no_mangle]
-pub extern "C" fn lc_tempo(bpm: f32) -> i32 {
-    with(|h| h.core().map_or(0, |c| i32::from(c.set_tempo(bpm))))
-}
-
 #[no_mangle]
 pub extern "C" fn lc_apply(len: usize) -> i32 {
     with(|h| h.apply(len))
@@ -158,13 +174,13 @@ pub extern "C" fn lc_apply(len: usize) -> i32 {
 /// `frames` frames rendered (× the device channels, interleaved); their address (null before a scene is loaded).
 #[no_mangle]
 pub extern "C" fn lc_render(frames: usize) -> *const f32 {
-    with(|h| h.core().map_or(std::ptr::null(), |c| c.render(frames).as_ptr()))
+    with(|h| h.render(frames).map_or(std::ptr::null(), <[f32]>::as_ptr))
 }
 
 /// The analysis frame's address (`wire::FRAME` f32 + the values at `wire::VALUE_COUNT`; null before a scene is loaded).
 #[no_mangle]
 pub extern "C" fn lc_analyse(dt: f32, lead: usize) -> *const f32 {
-    with(|h| h.core().map_or(std::ptr::null(), |c| c.analyse(dt, lead).as_ptr()))
+    with(|h| h.analyse(dt, lead).map_or(std::ptr::null(), <[f32]>::as_ptr))
 }
 
 /// The device messages the scene's `[outputs]` sent since the last call (#282): their length in bytes; the records
@@ -178,6 +194,85 @@ pub extern "C" fn lc_signals() -> usize {
 #[no_mangle]
 pub extern "C" fn lc_signals_at() -> *const u8 {
     with(|h| h.core().map_or(std::ptr::null(), |c| c.signals_ptr()))
+}
+
+/// One clock frame at the page's `now_ms` (`performance.timeOrigin + performance.now()`): the state block's address
+/// (`clock::STATE` f64 – the heard moment's beat, the show clock, a ping due, an anchor to send).
+#[no_mangle]
+pub extern "C" fn lc_clock_frame(now_ms: f64) -> *const f64 {
+    with(|h| h.clock.frame(now_ms).as_ptr())
+}
+
+/// The clock's line at the page's `now_ms` (deck-core `Controller::status`, the native HUD's text) → its length; the
+/// text is in the outbox ("" = nothing to say).
+#[no_mangle]
+pub extern "C" fn lc_clock_line(now_ms: f64) -> i32 {
+    with(|h| {
+        let line = h.clock.line(now_ms);
+        h.answer(Ok(line))
+    })
+}
+
+/// The page's MIDI OUT: the clock out on (1) or off (0) – deck-core's `ClockOut`, the native deck's schedule.
+#[no_mangle]
+pub extern "C" fn lc_clock_out_on(on: u32) {
+    with(|h| h.clock.set_out(on != 0));
+}
+
+/// The clock out's messages of the last clock frame → how many; at `lc_clock_out_at()`: [page ms, status, d1, d2] f64
+/// each (NaN = no such data byte), to write to Web MIDI with that timestamp.
+#[no_mangle]
+pub extern "C" fn lc_clock_out() -> usize {
+    with(|h| h.clock.out().len() / 4)
+}
+
+#[no_mangle]
+pub extern "C" fn lc_clock_out_at() -> *const f64 {
+    with(|h| h.clock.out().as_ptr())
+}
+
+/// `getOutputTimestamp`: context second `context` heard at the page's `heard_ms`; `skew` = the worklet's context frame
+/// minus the frames it played
+#[no_mangle]
+pub extern "C" fn lc_clock_stamp(context: f64, heard_ms: f64, skew: f64) {
+    with(|h| h.clock.stamp(context, heard_ms, skew));
+}
+
+/// a pong: `t0_us` (the page's µs it sent), the relay's `t1_ms`, back at the page's `t2_ms`
+#[no_mangle]
+pub extern "C" fn lc_clock_pong(t0_us: f64, t1_ms: f64, t2_ms: f64) {
+    with(|h| h.clock.pong(t0_us, t1_ms, t2_ms));
+}
+
+/// the relay's `tempo`: the anchor (relay ms `at`), arrived at the page's `arrived_ms`
+#[no_mangle]
+pub extern "C" fn lc_clock_tempo(bpm: f64, per_bar: u32, beat: f64, at: f64, running: u32, arrived_ms: f64) {
+    let a = Anchor { bpm, per_bar, beat, at: at as i64, running: running != 0 };
+    with(|h| h.clock.anchor(a, arrived_ms));
+}
+
+/// Web MIDI: a clock message (status byte first), stamped with the page's ms
+#[no_mangle]
+pub extern "C" fn lc_clock_midi(status: u32, d1: u32, d2: u32, at_ms: f64) {
+    with(|h| h.clock.midi([status as u8, d1 as u8, d2 as u8], at_ms));
+}
+
+/// joined the relay (again)
+#[no_mangle]
+pub extern "C" fn lc_clock_joined(now_ms: f64) {
+    with(|h| h.clock.joined(now_ms));
+}
+
+/// the picker: the source (`deck_core::tempo::Source::ALL`'s index: internal, midi, link, osc, relay) and lead
+#[no_mangle]
+pub extern "C" fn lc_clock_choose(source: u32, lead: u32) {
+    with(|h| h.clock.choose(source as usize, lead != 0));
+}
+
+/// a key: 0 tap, 1 faster, 2 slower, 3 start / stop, 4 the click
+#[no_mangle]
+pub extern "C" fn lc_clock_key(key: u32, at_ms: f64) {
+    with(|h| h.clock.key(key as usize, at_ms));
 }
 
 #[cfg(test)]

@@ -16,7 +16,7 @@ use std::collections::{BTreeSet, HashMap, VecDeque};
 
 use protocol::{
     Assign, Cell, CellMode, Cue, DeckQuality, DeckState, DeckSynced, Envelope, Error as ProtocolError, Loose, MediaPreload, Message,
-    Presence, Resume, Role, Route, SceneSync, Snapshot, State, SyncState, To, VoteTally,
+    Presence, Resume, Role, Route, SceneSync, Snapshot, State, SyncState, Tempo, To, VoteTally,
 };
 use serde_json::Value;
 use std::sync::Arc;
@@ -208,6 +208,9 @@ pub struct Session {
     synced: HashMap<String, DeckSynced>,
     /// #220: each deck's last `deck.quality` (its render level, scale, frame time), by client id – in presence
     quality: HashMap<String, DeckQuality>,
+    /// #321: the show clock's last anchor (every snapshot but a bridge's) and who sent it – the leader
+    tempo: Option<Tempo>,
+    leader: Option<String>,
 }
 
 impl Session {
@@ -279,6 +282,10 @@ impl Session {
         self.synced.remove(id);
         self.quality.remove(id);
         self.routes.retain(|(a, b)| a != id && b != id);
+        // the leader left: the last anchor stays (a line goes on), another deck may lead
+        if self.leader.as_deref() == Some(id) {
+            self.leader = None;
+        }
         self.departed.retain(|_, d| d.at >= now - REPLAY_MS);
         if self.clients.is_empty() {
             self.empty_since = Some(now);
@@ -372,6 +379,7 @@ impl Session {
             decks: if all && !self.decks.is_empty() { Some(self.decks.clone()) } else { None },
             sync: self.sync_for(None, role, group),
             synced: if all && !self.synced.is_empty() { Some(self.synced.clone()) } else { None },
+            tempo: if bridge { None } else { self.tempo.clone() },
             seq: Some(self.seq as i64),
         }
     }
@@ -452,6 +460,18 @@ impl Session {
             self.error(id, "authority", "only a deck streams a being");
             return After::Nothing;
         }
+        // #321: the show clock has one leader – the conductor whenever it sends, a deck while no other connected client leads
+        if matches!(e.message, Message::Tempo(_)) {
+            if matches!(role, Role::Audience | Role::Bridge) {
+                self.error(id, "authority", "only a deck or the conductor leads the show clock");
+                return After::Nothing;
+            }
+            let other = self.leader.as_deref().filter(|l| *l != id && self.clients.contains_key(*l)).map(str::to_owned);
+            if let Some(l) = other.filter(|_| !(role == Role::Conductor || uplink)) {
+                self.error(id, "tempo", &format!("{l} leads the show clock"));
+                return After::Nothing;
+            }
+        }
 
         // B.6 clock: an effect without `at` happens `lead` ms from now, so every client can play it together
         let timed = matches!(
@@ -465,12 +485,17 @@ impl Session {
                 | Message::Story(_)
                 | Message::Panic(_)
                 | Message::Device(_)
+                | Message::Tempo(_)
         );
         if timed && e.at.is_none() {
             e.at = Some(now + lead);
         }
         if let Message::Device(d) = &mut e.message {
             d.at = d.at.or(e.at);
+        }
+        // the anchor's moment: its own, else the envelope's (a leader that sends none says "lead ms from now")
+        if let Message::Tempo(t) = &mut e.message {
+            t.at = t.at.or(e.at);
         }
 
         match &e.message {
@@ -612,6 +637,12 @@ impl Session {
                 self.tell_presence();
             }
             Message::DeckValues(_) => self.deck_values(id, e, now),
+            Message::Tempo(t) => {
+                // #321: kept for the snapshot (a deck joining later follows at once), to everyone else
+                self.tempo = Some(t.clone());
+                self.leader = Some(id.to_owned());
+                self.publish(id, e, now);
+            }
             Message::SceneSync(sync) => {
                 let sync = sync.clone();
                 self.scene_sync(id, e, sync, now);
@@ -891,6 +922,65 @@ mod tests {
             question: None,
             labels: None,
         }
+    }
+
+    fn tempo(bpm: f64, at: Option<i64>) -> Message {
+        Message::Tempo(Tempo { bpm, per_bar: 4, beat: 8.0, running: true, at, domain: None })
+    }
+
+    /// #321: the show clock's anchor – the lead when it comes without a moment, everyone else gets it, the snapshot keeps
+    /// it (a deck joining later follows at once); a bridge and the audience never send it
+    #[test]
+    fn the_show_clocks_anchor_is_scheduled_kept_and_routed() {
+        let mut r = room();
+        r.add("d1", Role::Musician, Some(DECKS));
+        r.add("d2", Role::Musician, Some(DECKS));
+        r.drain();
+        r.send("d1", tempo(128.0, None), 1_000);
+        let got = r.inbox("d2");
+        let Message::Tempo(t) = &got[0].message else { panic!("{got:?}") };
+        assert_eq!((got[0].at, t.at, got[0].from.as_str()), (Some(1_050), Some(1_050), "d1"), "now + the lead, in the anchor too");
+        assert_eq!(r.kinds("cond"), ["tempo"]);
+        assert_eq!(r.kinds("a1"), ["tempo"], "phones follow the show too");
+        assert!(r.inbox("d1").is_empty(), "not back to the leader");
+        // a leader's own moment stays
+        r.send("d1", tempo(130.0, Some(5_000)), 1_100);
+        assert_eq!(r.inbox("d2")[0].at, Some(1_150));
+        assert_eq!(r.s.snapshot_for(Role::Musician, Some(DECKS)).tempo.unwrap().at, Some(5_000));
+        assert_eq!(r.s.snapshot_for(Role::Audience, Some("left")).tempo.unwrap().bpm, 130.0);
+        assert!(r.s.snapshot_for(Role::Bridge, None).tempo.is_none());
+        r.drain();
+        for who in ["a1", "bridge"] {
+            r.send(who, tempo(90.0, None), 1_200);
+            assert_eq!(r.inbox(who)[0].message.kind(), "error", "{who}");
+        }
+        assert_eq!(r.s.snapshot_for(Role::Conductor, None).tempo.unwrap().bpm, 130.0);
+    }
+
+    /// #321: one leader – a second deck is refused while the first is connected, takes over once it left; the conductor
+    /// may always lead
+    #[test]
+    fn the_show_clock_has_one_leader() {
+        let mut r = room();
+        r.add("d1", Role::Musician, Some(DECKS));
+        r.add("d2", Role::Musician, Some(DECKS));
+        r.drain();
+        r.send("d1", tempo(120.0, None), 0);
+        r.drain();
+        r.send("d2", tempo(140.0, None), 10);
+        let err = r.inbox("d2");
+        let Message::Error(e) = &err[0].message else { panic!("{err:?}") };
+        assert_eq!((e.code.as_str(), e.message.as_str()), ("tempo", "d1 leads the show clock"));
+        assert!(r.inbox("d1").is_empty());
+        r.send("cond", tempo(100.0, None), 20);
+        assert_eq!(r.kinds("d1"), ["tempo"], "the conductor takes the lead");
+        r.send("d1", tempo(120.0, None), 30);
+        assert_eq!(r.kinds("d1"), ["error"], "now the conductor leads");
+        r.s.leave("cond", 40);
+        r.drain();
+        r.send("d2", tempo(140.0, None), 50);
+        assert_eq!(r.kinds("d1"), ["tempo"], "the leader left: another deck may lead");
+        assert_eq!(r.s.snapshot_for(Role::Musician, Some(DECKS)).tempo.unwrap().bpm, 140.0);
     }
 
     #[test]

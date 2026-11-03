@@ -8,6 +8,8 @@ import { Ring, ringBuffers } from './ring.ts';
 import type { AudioFeed, FromWorklet, WorkletOptions } from './messages.ts';
 
 declare const AudioWorkletProcessor: { new (): { readonly port: MessagePort } };
+/** the context frame at the start of this quantum (AudioWorkletGlobalScope) */
+declare const currentFrame: number;
 declare function registerProcessor(name: string, ctor: unknown): void;
 
 const REPORT = 512;
@@ -31,6 +33,9 @@ class LiveCoreProcessor extends AudioWorkletProcessor {
 	private reported = 0;
 	private played = 0;
 	private sinceReport = 0;
+	/** #321: the context frame minus the frames played before it – where the engine's frames are heard (the clock's
+	 * time base: `getOutputTimestamp` says when a context frame is heard) */
+	private skew = 0;
 
 	constructor(options: { processorOptions: WorkletOptions }) {
 		super();
@@ -55,7 +60,11 @@ class LiveCoreProcessor extends AudioWorkletProcessor {
 		const ch = this.channels;
 		if (this.scratch.length !== frames * ch) this.scratch = new Float32Array(frames * ch);
 		const n = this.ring.read(this.scratch, this.shared) / ch;
-		if (n > 0) this.started = true;
+		if (n > 0) {
+			this.started = true;
+			this.skew = currentFrame - this.played;
+			if (this.status) Atomics.store(this.status, 1, this.skew);
+		}
 		for (let c = 0; c < out.length; c++) {
 			const o = out[c];
 			if (c < ch) for (let f = 0; f < n; f++) o[f] = this.scratch[f * ch + c];
@@ -69,7 +78,7 @@ class LiveCoreProcessor extends AudioWorkletProcessor {
 		if (!this.shared && n > 0) {
 			this.consumed += n;
 			if (this.consumed >= REPORT && this.feed) {
-				this.feed.postMessage({ consumed: this.consumed, underruns: this.underruns } satisfies AudioFeed);
+				this.feed.postMessage({ consumed: this.consumed, underruns: this.underruns, skew: this.skew } satisfies AudioFeed);
 				this.consumed = 0;
 			}
 		}

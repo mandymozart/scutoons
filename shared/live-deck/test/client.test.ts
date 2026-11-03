@@ -9,13 +9,15 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { DeckLink, envelope, epsilon, parseRelay, RATE, ValueStream } from '../src/client.ts';
 import { deckGraph, ladderFor, LADDER, Moods, PARAMS, STREAMED, toPos, toValue } from '../src/scene.ts';
-import type { Envelope } from '@scutoons/live';
+import type { Envelope, Tempo } from '@scutoons/live';
 
 test('the relay URL and the envelope', () => {
 	assert.deepEqual(parseRelay('ws://localhost:7070/live/CATH'), { base: 'ws://localhost:7070', code: 'CATH' });
 	// a venue's relay under our name – the deck's LAN IP with dashes (bunny DNS answers it) –, wss with the wildcard certificate (#201)
 	assert.deepEqual(parseRelay('wss://192-168-1-116.lan.scutoons.com:7700/live/CATH'), { base: 'wss://192-168-1-116.lan.scutoons.com:7700', code: 'CATH' });
 	assert.deepEqual(parseRelay('wss://live.scutoons.com/live/A7K2/'), { base: 'wss://live.scutoons.com', code: 'A7K2' });
+	// the LAN viewer passes the relay through a path of its own (scripts/dev/lan.mjs)
+	assert.deepEqual(parseRelay('wss://192.168.1.116:4100/relay/live/CLOCK'), { base: 'wss://192.168.1.116:4100/relay', code: 'CLOCK' });
 	assert.throws(() => parseRelay('http://x/live/CATH'));
 	assert.equal(envelope({ kind: 'ping', p: { t0: 0 } }), '{"v":1,"seq":0,"from":"","kind":"ping","p":{"t0":0}}');
 });
@@ -63,7 +65,7 @@ test('moods: the ladder from what the character has; energy climbs it, a rung ho
 	assert.deepEqual(ladderFor(['neutral']), ['neutral']);
 	assert.deepEqual(ladderFor(['sad', 'happy', 'neutral', 'surprised']), ['neutral', 'happy', 'surprised']);
 	assert.deepEqual(ladderFor(LADDER), LADDER);
-	const m = new Moods(LADDER, 1);
+	const m = new Moods(LADDER, 1, 84);
 	let t = 0;
 	let mood = '';
 	for (; t < 1; t += 0.05) mood = m.update(t, 0.05, 0, 0);
@@ -176,4 +178,51 @@ test('#220: the render quality goes out once joined and again after a rejoin', (
 	assert.deepEqual(ws.sent.at(-1), { v: 1, seq: 0, from: '', kind: 'deck.quality', p: { ...q, level: 'low', scale: 0.6 } });
 	assert.equal(link.count.quality, 2);
 	link.close();
+});
+
+test("#321 in process: the show clock – a pong with the real t0, a leading deck's tempo to the others and into a late joiner's snapshot", { skip: !existsSync(relayExe) && 'deck/target/debug/relay.exe not built (cargo build -p relay)' }, async () => {
+	const port = Number(process.env.LAB_RELAY_PORT ?? 7072) + 1;
+	const env = { ...process.env };
+	delete env.LIVE_TOKEN_SECRET;
+	const relay = spawn(relayExe, [`127.0.0.1:${port}`], { env, stdio: 'ignore' });
+	try {
+		const url = `ws://127.0.0.1:${port}/live/CLOCK`;
+		const pongs: [number, number, number][] = [];
+		const tempos: Tempo[] = [];
+		const link = (o: Partial<ConstructorParameters<typeof DeckLink>[0]>) => new DeckLink({ relay: url, graph: deckGraph('yellowmouse', ['neutral']), socket: WebSocket as never, ...o });
+		// the relay is up once a conductor gets in
+		const end = Date.now() + 5000;
+		for (;;) {
+			try {
+				(await conductor(url)).ws.close();
+				break;
+			} catch (e) {
+				if (Date.now() > end) throw e;
+				await new Promise((r) => setTimeout(r, 100));
+			}
+		}
+		let leader = link({ onPong: (t0, t1, t2) => pongs.push([t0, t1, t2]) });
+		await until(() => leader.joined);
+		const follower = link({ onTempo: (t) => tempos.push(t) });
+		await until(() => follower.joined);
+		assert.ok(leader.sendPing());
+		await until(() => pongs.length > 0);
+		const [t0, t1, t2] = pongs[0];
+		const sent = (performance.timeOrigin + performance.now()) * 1000;
+		assert.ok(Math.abs(t0 - sent) < 5e6 && t2 * 1000 >= t0, "the real t0 (µs of the page's clock) comes back");
+		assert.ok(Math.abs(t1 - Date.now()) < 5000, "the relay's ms");
+		assert.ok(leader.tempo({ bpm: 126, per_bar: 4, beat: 32, running: true }));
+		await until(() => tempos.length > 0);
+		assert.equal(tempos[0].bpm, 126);
+		assert.ok(tempos[0].at !== undefined && tempos[0].at > t1, 'the relay scheduled it with its lead');
+		// a deck joining later finds the anchor in its welcome
+		const late: Tempo[] = [];
+		const third = link({ onTempo: (t) => late.push(t) });
+		await until(() => late.length > 0);
+		assert.equal(late[0].beat, 32);
+		for (const l of [leader, follower, third]) l.close();
+		leader = null as never;
+	} finally {
+		relay.kill();
+	}
 });

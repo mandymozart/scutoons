@@ -3,7 +3,8 @@
 // SharedArrayBuffer ring. TypeScript here only moves bytes: what plays and how is the core's.
 //
 //   const core = await LiveCore.start({ worker, wasm, worklet });   // after a user gesture (the AudioContext)
-//   await core.load(sceneToml, { bpm: 84 });                         // the edge: TOML in, the node table out
+//   await core.load(sceneToml);                                      // the edge: TOML in, the node table out
+//   core.onClock((c) => strobe(beatAt(c, nowMs())));                 // #321: the tempo clock (the show clock's)
 //   core.set('lead.freq', new Float32Array([440, 2, 1, 0.1]), { mode: 'blend', amount: 0.5 });
 //   const off = core.onAnalysis((a) => draw(a.level, a.bass, a.mid, a.high, a.spectrum));
 //   core.value('sway.out');                                          // the heard block's value of a path
@@ -16,9 +17,12 @@ import { BLOCK, type Table } from './engine.ts';
 import { Latest, Ring, ringBuffers, sharedAvailable } from './ring.ts';
 import { readSignals, type DeviceSignal } from './signals.ts';
 import { analysisOf, FRAME, MAX_OUTPUTS, MAX_FRAME_VALUES, recordSize, writeSend, type Analysis, type Mode } from './wire.ts';
-import type { FromWorker, FromWorklet, SharedSetup, ToWorker, Transport, WorkerStats, WorkletOptions } from './messages.ts';
+import type { ClockOp, FromWorker, FromWorklet, SharedSetup, ToWorker, Transport, WorkerStats, WorkletOptions } from './messages.ts';
+import { ClockWindow, clockOf, type ClockState } from './clock.ts';
 
 export * from './wire.ts';
+export * from './clock.ts';
+export type { ClockOp } from './messages.ts';
 export { BlockTimes } from './timing.ts';
 export * from './signals.ts';
 export { Ring, Latest, ringBuffers, sharedAvailable } from './ring.ts';
@@ -140,6 +144,15 @@ export class LiveCore {
 	private stats_: Stats;
 	/** the worklet's underrun count over the last minute: (ms, total) once a second */
 	private readonly runs: { t: number; n: number }[] = [];
+	/** #321: the core's tempo clock as its last frame left it (null before the first) */
+	clock: ClockState | null = null;
+	/** #321: the core's clock line as the worker last posted it */
+	private clockLine = '';
+	/** #321: the show clock's error over the last minute (the sound report's line) */
+	readonly clockWindow = new ClockWindow();
+	private readonly clockListeners = new Set<(c: ClockState) => void>();
+	private readonly midiOutListeners = new Set<(msgs: Float64Array) => void>();
+	private stampTimer: ReturnType<typeof setInterval> | null = null;
 	/** #356: the first `SERIES` seconds, one entry per worker stats message */
 	private readonly seconds: Second[] = [];
 	private readonly startedAt: number;
@@ -211,6 +224,11 @@ export class LiveCore {
 			audioPort = ch.port1;
 		}
 		node.port.onmessage = (ev: MessageEvent<FromWorklet>) => core.underran(ev.data.underruns, performance.now());
+		// #321: when the context's samples are heard (the clock's time base) – getOutputTimestamp, ten times a second
+		core.stampTimer = setInterval(() => {
+			const ts = context.getOutputTimestamp?.();
+			if (ts?.contextTime && ts.performanceTime) core.clockOp({ op: 'stamp', context: ts.contextTime, heard: performance.timeOrigin + ts.performanceTime });
+		}, 100);
 		const ready = new Promise<void>((resolve, reject) => {
 			o.worker.onmessage = (ev: MessageEvent<FromWorker>) => (ev.data.type === 'ready' ? resolve() : core.receive(ev.data));
 			o.worker.onerror = (e) => reject(new Error(`live-core worker: ${e.message}`));
@@ -253,20 +271,53 @@ export class LiveCore {
 				Object.assign(this.stats_, m.stats);
 				if (this.seconds.length < SERIES) this.seconds.push({ ...m.stats, t: (performance.now() - this.startedAt) / 1000, underruns: this.stats_.underruns });
 				break;
+			case 'clock': {
+				const c = clockOf(m.state);
+				c.line = this.clockLine;
+				this.clock = c;
+				this.clockWindow.add(performance.timeOrigin + performance.now(), c);
+				for (const cb of this.clockListeners) cb(c);
+				break;
+			}
+			case 'clockLine':
+				this.clockLine = m.line;
+				if (this.clock) this.clock.line = m.line;
+				break;
+			case 'midiOut':
+				for (const cb of this.midiOutListeners) cb(m.msgs);
+				break;
 			case 'error':
 				console.error('live-core:', m.error);
 				break;
 		}
 	}
 
-	/** A scene in the deck's TOML (the kinds the browser carries: deck-space `ENGINE_KINDS`) → its node table. `bpm`: the
-	 * deck's tempo for a scene without a clock of its own. */
-	load(scene: string, o: { bpm?: number } = {}): Promise<Table> {
+	/** A scene in the deck's TOML (the kinds the browser carries: deck-space `ENGINE_KINDS`) → its node table. Its `tempo`
+	 * node sets the clock; a scene without one plays on the clock as it is (the show clock's, #321). */
+	load(scene: string): Promise<Table> {
 		const id = this.nextId++;
 		return new Promise((ok, fail) => {
 			this.pending.set(id, { ok, fail });
-			this.post({ type: 'load', id, scene, bpm: o.bpm });
+			this.post({ type: 'load', id, scene });
 		});
+	}
+
+	/** #321: something for the core's tempo clock (a pong, an anchor, a MIDI message, the picker, a key) */
+	clockOp(op: ClockOp): void {
+		this.post({ type: 'clock', op });
+	}
+
+	/** #321: every clock frame's state (≈ 40 a second). Returns the unsubscribe. */
+	onClock(cb: (c: ClockState) => void): () => void {
+		this.clockListeners.add(cb);
+		return () => this.clockListeners.delete(cb);
+	}
+
+	/** #321: the MIDI clock out's messages as the core hands them out ([page ms, status, d1, d2] each, NaN = no such
+	 *  byte) – for Web MIDI, sent with that timestamp. Returns the unsubscribe. */
+	onMidiOut(cb: (msgs: Float64Array) => void): () => void {
+		this.midiOutListeners.add(cb);
+		return () => this.midiOutListeners.delete(cb);
 	}
 
 	/** The heard block's value of `path` (`node.input`, `node.output`, `node` = its first output; an audio output is its
@@ -373,6 +424,7 @@ export class LiveCore {
 	async stop(): Promise<void> {
 		if (this.raf) cancelAnimationFrame(this.raf);
 		this.raf = 0;
+		if (this.stampTimer) clearInterval(this.stampTimer);
 		this.post({ type: 'stop' });
 		this.node.disconnect();
 		this.worker.terminate();

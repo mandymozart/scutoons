@@ -36,6 +36,37 @@ let dropouts = 0;
 /** the last pump and the longest pause between two in this second (ms) – a stalled worker shows here */
 let lastTick = 0;
 let gapMs = 0;
+/** #321: the worklet's skew (transfer transport: from its feed; shared: the status word) and the clock's frame timer */
+let skew = 0;
+let clockTimer: ReturnType<typeof setInterval> | null = null;
+/** #321: a clock frame this often (ms): the show clock's nudge, the pings, a leader's anchors, the page's strobe */
+const CLOCK_MS = 25;
+
+/** the page's clock (ms since the epoch – the same in the page and here) */
+const nowMs = () => performance.timeOrigin + performance.now();
+
+function currentSkew(): number {
+	return status ? Atomics.load(status, 1) : skew;
+}
+
+/** #321: the clock's line every this many frames (4 a second), posted when it changed */
+const CLOCK_LINE_EVERY = 10;
+let clockFrames = 0;
+let clockLine = '';
+
+/** #321: one clock frame; its state block to the page (a copy), the core's line when it changed */
+function clockFrame(): void {
+	if (!engine) return;
+	const now = nowMs();
+	const state = engine.core.clockFrame(now).slice();
+	post({ type: 'clock', state }, [state.buffer]);
+	const out = engine.core.clockOut();
+	if (out) post({ type: 'midiOut', msgs: out }, [out.buffer]);
+	if (++clockFrames % CLOCK_LINE_EVERY) return;
+	const line = engine.core.clockLine(now);
+	if (line !== clockLine) post({ type: 'clockLine', line: (clockLine = line) });
+}
+
 /** #356: the warm-up before the first sound (ms; 0 = not yet) – the first scene is played silently by a twin first */
 let warmMs = 0;
 
@@ -110,6 +141,7 @@ scope.onmessage = async (ev) => {
 							if ('consumed' in e.data) {
 								inFlight = Math.max(0, inFlight - e.data.consumed);
 								dropouts = e.data.underruns;
+								skew = e.data.skew;
 							}
 							const now = performance.now();
 							if (lastTick) gapMs = Math.max(gapMs, now - lastTick);
@@ -126,6 +158,7 @@ scope.onmessage = async (ev) => {
 					post({ type: 'stats', stats: { ...engine.stats(), lead: engine.lead, gapMs, warmMs } });
 					gapMs = 0;
 				}, 1000);
+				clockTimer = setInterval(clockFrame, CLOCK_MS);
 				post({ type: 'ready' });
 				break;
 			}
@@ -139,7 +172,6 @@ scope.onmessage = async (ev) => {
 					warmMs = Math.max(0.001, performance.now() - t);
 				}
 				const table = engine.core.load(m.scene);
-				if (m.bpm !== undefined) engine.core.tempo(m.bpm);
 				post({ type: 'loaded', id: m.id, table });
 				if (audio && !ticking) {
 					ticking = true;
@@ -151,9 +183,13 @@ scope.onmessage = async (ev) => {
 			case 'records':
 				engine?.applyBytes(new Uint8Array(m.bytes));
 				break;
+			case 'clock':
+				engine?.core.clock(m.op, currentSkew());
+				break;
 			case 'stop':
 				stopped = true;
 				if (statsTimer) clearInterval(statsTimer);
+				if (clockTimer) clearInterval(clockTimer);
 				feed?.close();
 				break;
 		}

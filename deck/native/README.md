@@ -230,7 +230,7 @@ An input takes one link; an output feeds any number. Every control input can als
 | `overlay` | in, top (video), opacity, pulse, shake (control) | out (video) | – |
 | `screen` | in (video) | – | the window (one per scene) |
 | `lfo` | rate (Hz), depth | out (control, 0–depth) | `shape` = sine · saw · square, `phase` (0–1, where it starts) |
-| `tempo` | – | bpm, beat, bar (counts), phase, bar_phase (0–1), pulse (1 on the beat, gone by its middle) | `bpm` (120), `beats` per bar (4), `source` = internal · midi · link · osc · relay, `click` (false), `midi_in` / `midi_out` (a part of a port name; out = MIDI clock out), `midi_out_lead` (ms), `osc_port` (9001) – one per scene |
+| `tempo` | – | bpm, beat, bar (counts), phase, bar_phase (0–1), pulse (1 on the beat, gone by its middle) | `bpm` (120), `beats` per bar (4), `source` = internal · midi · link · osc · relay, `click` (false), `midi_in` / `midi_out` (a part of a port name; out = MIDI clock out), `midi_out_lead` (ms), `osc_port` (9001), `lead` (false: this deck sends the show clock's anchor; MIDI clock in leads anyway, #321) – one per scene |
 | `click` | gain | out | `freq` (1000 Hz), `accent` (1500 Hz, the bar's first beat), `decay` (0.03 s) – ticks on the tempo clock while the click is on |
 | `osc` | cv (audio), freq, gain | out (audio) | `wave` = sine · saw · square · triangle, `attack`, `release` |
 | `noise` | cutoff, gain | out | `color` = white · pink, `q` |
@@ -530,7 +530,7 @@ with the token, ready, the cell, resume, the snapshot after a restart). Not yet:
   click and the sequencer read it per block (sample-accurate), MIDI clock out (`midi_out`, its own thread) per tick, the
   `tempo` node per frame. Sources stamp their messages on arrival; MIDI clock in is fitted by least squares over two
   beats (±1 ms of jitter → < 0.1 BPM, < 1 ms of phase), Link answers its beat for the frame's moment, OSC listens for
-  `/tempo/bpm f`, `/tempo/beat f`, `/tempo/start`, `/tempo/stop`, `/tempo/tap`; the relay is a stub (no show clock yet).
+  `/tempo/bpm f`, `/tempo/beat f`, `/tempo/start`, `/tempo/stop`, `/tempo/tap`; the relay: the show clock (#321) – the deck follows the leader's anchor through its offset filter (HUD `SHOW ±x MS`), a deck that leads (`lead = true`, or on MIDI clock in) sends it.
   Ableton Link is the cargo feature `link` (rusty_link 0.4.9: cmake, a C++ compiler and libclang at build time; on
   Windows a debug build needs `--config 'profile.dev.package.rusty_link.opt-level=1'`, else its debug CRT doesn't link).
 - **Video** (`src/render.rs`): one fullscreen pass per video node into its own texture (Rgba8), the screen blits to the

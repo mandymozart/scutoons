@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { FrameStats, Hands, arcPoint, deflection, knobTurn, mappingKey, type DeckControlsView, type Store } from '../src/controls.ts';
-import { connectMidi, midiSupported, type MidiAccessLike, type MidiInputLike } from '../src/midi.ts';
+import { connectMidi, midiSupported, type MidiAccessLike, type MidiInputLike, type MidiOutputLike } from '../src/midi.ts';
 import { MELODY, PARAMS } from '../src/scene.ts';
 
 const near = (a: number, b: number, eps = 1e-9) => assert.ok(Math.abs(a - b) < eps, `${a} ≈ ${b}`);
@@ -133,6 +133,24 @@ test('Web MIDI: every input\'s messages, inputs plugged in later, closed cleanly
 	link.close();
 	assert.equal(inputs[0].onmidimessage, null);
 	lists = [];
+});
+
+test('#321 Web MIDI out: the clock out\'s bytes to every output, due at the page\'s ms on Web MIDI\'s own clock', async () => {
+	const sent: [string, number[], number | undefined][] = [];
+	const out = (name: string): MidiOutputLike => ({ name, send: (d, t) => sent.push([name, d, t]) });
+	const access: MidiAccessLike = { inputs: { forEach: () => {} }, outputs: { forEach: (f) => [out('UCX II'), out('loopMIDI')].forEach(f) }, onstatechange: null };
+	const link = await connectMidi(() => {}, undefined, async () => access);
+	link.send([0xf8], performance.timeOrigin + 1234.5);
+	link.send([0xf2, 32, 0], performance.timeOrigin + 2000);
+	assert.deepEqual(sent, [
+		['UCX II', [0xf8], 1234.5],
+		['loopMIDI', [0xf8], 1234.5],
+		['UCX II', [0xf2, 32, 0], 2000],
+		['loopMIDI', [0xf2, 32, 0], 2000]
+	]);
+	// a browser without outputs (the narrow shape): nothing, no throw
+	const bare = await connectMidi(() => {}, undefined, async () => ({ inputs: { forEach: () => {} }, onstatechange: null }));
+	bare.send([0xf8], 0);
 });
 
 test('Hands: a rig gives the controls its knobs and sticks, null the fixed patch\'s defaults', () => {

@@ -7,7 +7,10 @@
 // - a reconnect (backoff 1 2 4 8 10 s) sends the graph and the keyframe again (the relay dropped the being);
 // - #195: the conductor's push – the welcome snapshot's `sync` or a `scene.sync` – goes to `onSync` (sync.ts works on
 //   it); `synced` sends the answer back as `deck.synced`.
-import type { DeckGraph, DeckQuality, DeckSynced, DeckValues, Envelope, Message, SceneSync, Welcome } from '@scutoons/live';
+// - #321, the show clock: a ping carries its real `t0` (µs of the page's clock), a pong goes to `onPong` stamped on
+//   arrival, the relay's `tempo` (and the welcome snapshot's) to `onTempo`, the welcome to `onJoined`; `ping()` when the
+//   core's clock asks, `tempo()` sends a leading deck's anchor. The clock itself is the core's (live-core clock.rs).
+import type { DeckGraph, DeckQuality, DeckSynced, DeckValues, Envelope, Message, SceneSync, Tempo, Welcome } from '@scutoons/live';
 
 /** at most this many `deck.values` a second (the relay drops more than 30 / s) */
 export const RATE = 30;
@@ -15,12 +18,16 @@ export const GROUP = 'decks';
 const PING_MS = 20_000;
 const BACKOFF_S = [1, 2, 4, 8, 10];
 
-/** `ws://host:port/live/<code>` → the base and the session code (link.rs reads it the same way) */
+/** `ws://host:port/live/<code>` → the base and the session code (link.rs reads it the same way); a path before
+ *  `/live/` stays in the base (the LAN viewer's relay: `wss://<ip>:4100/relay/live/<code>`, scripts/dev/lan.mjs) */
 export function parseRelay(url: string): { base: string; code: string } {
-	const m = /^(wss?:\/\/[^/]+)\/live\/([^/?#]+)\/?$/.exec(url.trim());
+	const m = /^(wss?:\/\/[^/?#]+(?:\/[^?#]*?)?)\/live\/([^/?#]+)\/?$/.exec(url.trim());
 	if (!m) throw new Error(`relay URL must look like ws://host:7070/live/CODE, got '${url}'`);
 	return { base: m[1], code: decodeURIComponent(m[2]) };
 }
+
+/** the page's clock: ms since the epoch (the same as the core's clock and `getOutputTimestamp`'s stamps) */
+const nowMs = () => performance.timeOrigin + performance.now();
 
 /** A client → relay envelope (`seq` 0, `from` empty: the relay stamps both). */
 export const envelope = (m: Message): string => JSON.stringify({ v: 1, seq: 0, from: '', ...m });
@@ -100,6 +107,12 @@ export interface LinkOptions {
 	onMessage?: (e: Envelope) => void;
 	/** #195: the conductor's push (at the welcome when the session has one, then each new one) */
 	onSync?: (s: SceneSync) => void;
+	/** #321: a pong – its ping's `t0` (µs), the relay's `t1` (ms), back at the page's `t2` ms */
+	onPong?: (t0: number, t1: number, t2: number) => void;
+	/** #321: the show clock's anchor (relay ms `at`), arrived at the page's ms */
+	onTempo?: (t: Tempo, arrived: number) => void;
+	/** #321: joined (again), at the page's ms */
+	onJoined?: (now: number) => void;
 }
 
 /** link.rs's deck side: join, being, keyframe, changes; reconnects until `close()`. */
@@ -142,7 +155,7 @@ export class DeckLink {
 		ws.onopen = () => {
 			this.tries = 0;
 			ws.send(envelope({ kind: 'hello', p: { code: this.code, role: 'musician', group: GROUP, ...(this.o.nick ? { nick: this.o.nick } : {}), ...(this.o.token ? { token: this.o.token } : {}) } }));
-			this.ping = setInterval(() => this.raw({ kind: 'ping', p: { t0: 0 } }), PING_MS);
+			this.ping = setInterval(() => this.sendPing(), PING_MS);
 		};
 		ws.onmessage = (ev) => this.receive(String(ev.data));
 		ws.onerror = () => {};
@@ -182,8 +195,15 @@ export class DeckLink {
 				this.count.quality++;
 			}
 			this.joined = true;
-			const sync = (e.p as Welcome).snapshot.sync;
-			if (sync) this.o.onSync?.(sync);
+			const now = nowMs();
+			this.o.onJoined?.(now);
+			const snap = (e.p as Welcome).snapshot;
+			if (snap.tempo) this.o.onTempo?.(snap.tempo, now);
+			if (snap.sync) this.o.onSync?.(snap.sync);
+		} else if (e.kind === 'pong') {
+			this.o.onPong?.(e.p.t0, e.p.t1, nowMs());
+		} else if (e.kind === 'tempo') {
+			this.o.onTempo?.(e.p, nowMs());
 		} else if (e.kind === 'scene.sync') {
 			this.o.onSync?.(e.p);
 		} else if (e.kind === 'error') {
@@ -213,6 +233,16 @@ export class DeckLink {
 	quality(q: DeckQuality) {
 		this.q = q;
 		if (this.joined && this.raw({ kind: 'deck.quality', p: q })) this.count.quality++;
+	}
+
+	/** #321: a ping now, its `t0` the page's clock in µs (the keepalive and the clock's pings alike) */
+	sendPing(): boolean {
+		return this.raw({ kind: 'ping', p: { t0: Math.round(nowMs() * 1000) } });
+	}
+
+	/** #321: a leading deck's anchor (dropped while not joined – the core sends again after a join) */
+	tempo(t: Tempo): boolean {
+		return this.joined && this.raw({ kind: 'tempo', p: t });
 	}
 
 	/** the being changed (another character): the relay keeps the last graph per client */

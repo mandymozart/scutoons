@@ -145,6 +145,12 @@ pub fn dial(url: &str, poll: Duration) -> std::result::Result<WebSocket<MaybeTls
     Ok(ws)
 }
 
+/// a read on a `dial`ed socket that only ran into its poll timeout. Windows reports one now and then as
+/// ERROR_IO_PENDING (os error 997) – the PC conductor dropped its link on it every few minutes (#321).
+pub fn timed_out(e: &std::io::Error) -> bool {
+    matches!(e.kind(), std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut) || (cfg!(windows) && e.raw_os_error() == Some(997))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

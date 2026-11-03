@@ -105,7 +105,8 @@ id = "tempo"
 kind = "tempo"
 bpm = 84
 beats = 4
-source = "internal"
+# the show clock (#321): the conductor leads, the decks follow; without a leader on the relay it runs on at 84
+source = "relay"
 
 # the sermon's chapter: its music under everything (cached; offline the rest still plays)
 [[node]]
@@ -252,3 +253,13 @@ offset = 0.04
 [[link]]
 from = "space"
 to = "screen.in"
+
+# #321: the click on the show clock (K turns it on) – the decks click together
+[[node]]
+id = "click"
+kind = "click"
+gain = 0.4
+
+[[link]]
+from = "click"
+to = "out.in"

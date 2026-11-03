@@ -217,7 +217,7 @@ fn the_worker_path_never_allocates() {
             }
             c.render(128);
             if i % 6 == 0 {
-                c.analyse(0.016, 2048);
+                c.analyse(0.016, 2048, &deck_core::tempo::Now::default());
                 c.take_signals();
             }
         };
