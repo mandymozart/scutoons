@@ -532,7 +532,7 @@ impl Engine {
                         *w = 2;
                     }
                 }
-                let solos = route::Solos { all: all.clone(), upstream: upstream_solos(graph, i, &solo_of) };
+                let solos = route::Solos { all: all.clone(), upstream: upstream_solos(graph, i, &solo_of), downstream: downstream_solos(graph, i, &solo_of) };
                 let block = match route::make(node, rate, &params, &widths, deck, &solos)? {
                     Some(b) => b,
                     None => blocks::make(node, i, rate, &params, &mut handles, seams, &mut tables)?,
@@ -808,6 +808,23 @@ fn upstream_solos(graph: &Graph, node: usize, solo_of: &[Option<Param>]) -> Arc<
                 stack.push(l.from.0);
             }
         }
+    }
+    found.into()
+}
+
+/// the solo params of the buses `node`'s post-fader `out` feeds, directly or further down (a folder it plays into, the
+/// folder's folder): soloing a folder keeps its children audible (Reaper's folder solo)
+fn downstream_solos(graph: &Graph, node: usize, solo_of: &[Option<Param>]) -> Arc<[Param]> {
+    let Some(out) = graph.nodes[node].kind.output("out") else { return Arc::new([]) };
+    let mut seen = vec![false; graph.nodes.len()];
+    let mut stack: Vec<usize> = graph.links.iter().filter(|l| l.ty == PortType::Audio && l.from == (node, out)).map(|l| l.to.0).collect();
+    let mut found = Vec::new();
+    while let Some(t) = stack.pop() {
+        if t == node || std::mem::replace(&mut seen[t], true) {
+            continue;
+        }
+        found.extend(solo_of[t].clone());
+        stack.extend(graph.links.iter().filter(|l| l.ty == PortType::Audio && l.from.0 == t).map(|l| l.to.0));
     }
     found.into()
 }

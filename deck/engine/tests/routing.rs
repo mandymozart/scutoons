@@ -195,6 +195,32 @@ fn mute_solo_and_the_fader() {
     exact(&half[0][128 * 8..], &ra[0][128 * 8..].iter().map(|a| a * 0.5).collect::<Vec<_>>(), "fader");
 }
 
+/// Soloing a folder bus plays the folder – its children stay audible into it (Reaper's folder solo); a bus outside it is
+/// silent. It used to gate the children, so the soloed folder was silence.
+#[test]
+fn a_soloed_folder_plays_its_children() {
+    let scene = osc("a", 220.0, 0.2) + &osc("b", 330.0, 0.15) + &osc("c", 110.0, 0.2)
+        + &node("ta", "bus", "")
+        + &node("tb", "bus", "")
+        + &node("tc", "bus", "")
+        + &node("folder", "bus", "solo=1")
+        + &node("main", "bus", "")
+        + &node("out", "audio_out", "volume=1")
+        + &link("a", "ta.in", "")
+        + &link("b", "tb.in", "")
+        + &link("c", "tc.in", "")
+        + &link("ta.out", "folder.in", "")
+        + &link("tb.out", "folder.in", "")
+        + &link("folder.out", "main.in", "")
+        + &link("tc.out", "main.in", "")
+        + &link("main.out", "out.in", "");
+    let got = render(&scene, STEREO());
+    let (ra, rb) = (alone(&osc("a", 220.0, 0.2)), alone(&osc("a", 330.0, 0.15)));
+    // main = folder + tc (gated to zero), folder = (0 + a) + b
+    let want: Vec<f32> = ra[0].iter().zip(&rb[0]).map(|(a, b)| ((0.0 + a) + b) + 0.0).collect();
+    exact(&got[0], &want, "the folder's children, and nothing of tc");
+}
+
 /// the loop closes only through `feedback`, which plays its input one block (128 frames) late
 #[test]
 fn feedback_is_one_block_late_and_other_cycles_are_errors() {

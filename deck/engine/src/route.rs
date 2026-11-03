@@ -116,12 +116,14 @@ pub fn make(node: &Node, rate: f32, params: &[Param], widths: &[usize], cfg: &De
     }))
 }
 
-/// What a bus needs to know to follow solo: every bus's solo param, and the ones of the buses that feed it. Soloing a track
-/// mutes the others but not the folder it plays into or the bus its send feeds (Reaper's rule): those lie downstream.
+/// What a bus needs to know to follow solo: every bus's solo param, the ones of the buses that feed it, and the ones of the
+/// buses its `out` feeds. Soloing a track mutes the others but not the folder it plays into or the bus its send feeds
+/// (Reaper's rule): those lie downstream. Soloing a folder keeps its children playing into it: they lie upstream.
 #[derive(Clone)]
 pub struct Solos {
     pub all: Arc<[Param]>,
     pub upstream: Arc<[Param]>,
+    pub downstream: Arc<[Param]>,
 }
 
 /// Reaper's track: the sum of its input, a fader, mute and solo. `out` is post-fader and gated, `pre` the sum itself.
@@ -140,7 +142,8 @@ impl Block for Bus {
         let (post, pre) = outs.split_at_mut(1);
         let (post, pre) = (&mut post[0], &mut pre[0]);
         let any_solo = self.solos.all.iter().any(|s| s.get() > 0.5);
-        let heard = !any_solo || self.solo.get() > 0.5 || self.solos.upstream.iter().any(|s| s.get() > 0.5);
+        let soloed = |list: &[Param]| list.iter().any(|s| s.get() > 0.5);
+        let heard = !any_solo || self.solo.get() > 0.5 || soloed(&self.solos.upstream) || soloed(&self.solos.downstream);
         let open = self.mute.get() <= 0.5 && heard;
         let target = if open { 1.0 } else { 0.0 };
         let from = if self.gate.is_nan() { target } else { self.gate };
