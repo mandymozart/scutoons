@@ -19,9 +19,10 @@ Old section names in code comments (until 2026-11-03): "Backlog" = C · "Git, se
 - **A5** Devices (MIDI, camera, position, motion, video decode) are adapters feeding the core; a module never calls a browser API; video
   plays on the core's own playback. What a browser lacks (Web MIDI in Safari …) is ignored — that device gets a native build, no TS fallback. (2026-11-02 [devices-via-core] [own-video])
 - **A6** No second copy: scenes, rules, defaults, ranges, status texts and monitoring numbers live once, in the core or one data file. A TS twin
-  of Rust logic is a defect, even "trimmed", "for now" or "kept in TS because". (2026-11-03 [no-duplicate]: "no duplicate code base in the end.")
+  of Rust logic is a defect, even "trimmed", "for now" or "kept in TS because". Every control and readout has ONE owner of its state and number: the core (#362).
+  (2026-11-03 [no-duplicate]: "no duplicate code base in the end.")
 - **A7** Enforced, not trusted (2026-11-03 [core-only]: "enforce it even for dumb agents"): `npm run check:core-only` (in `check` and deck:ci; its
-  baseline only shrinks, growth needs `Owner-approved-baseline:` in a commit message); the dependency allow-list + headless host (#363);
+  baseline only shrinks, growth needs `Owner-approved-baseline:` in a commit message); the dependency allow-list + headless deck host (being built, #363);
   every deck brief carries the acceptance line (ORCHESTRATION "Brief template"); every merge runs the diff check; the audit reruns often (AUDIT.md).
 - **A8** Rust first for everything native (relay, bridge, audio, video, 3D, decks) — no Node / Electron — and as much as possible in the engine,
   also for the browser. (2026-10-29 [rust-first], 2026-10-31 [rust-engine])
@@ -36,8 +37,8 @@ Old section names in code comments (until 2026-11-03): "Backlog" = C · "Git, se
 - **B1** At most TWO local sessions at a time across all projects; workers one after another; no cloud sessions. (2026-11-02 [no-cloud]: "no cloud sessions anymore please we have credits")
 - **B2** A worker: one issue, its own worktree, branch `<kind>/<issue>-<short-title>` (kind feature · fix · chore · wip; never a generated name), a brief by
   the template, no merge, no push, no attribution line. (2026-11-01 [branch-names], 2026-11-02 [no-cloud])
-- **B3** The orchestrator merges a worker branch into local `main` only after the checks, the diff check (A7) and the owner's word ("merge"); at
-  night the standing order is: merge to `main`, never push. Owner-requested drafts are never merged by agents. (2026-10-06 [night-runs], 2026-10-12 [worktree-requests])
+- **B3** Only the orchestrator merges a worker branch, into local `main`, after the checks and the diff check (A7), and only on the owner's word ("merge"; for a
+  night shift the owner's hand-over is that word: "just merge to main, but do not push"). Owner-requested drafts are never merged by agents. (2026-10-06 [night-runs], 2026-10-12 [worktree-requests]; "merge" wording [rules-only])
 - **B4** Never push — a push to `main` deploys; the owner pushes, or says "push" (then one push per finished step is fine, Actions minutes don't matter). (2026-10-06 [night-runs], 2026-11-01 [public-repo])
 - **B5** Model per task: the cheapest that passes (`C:\Development\agents\models.json`); Opus for engine fundamentals and design; the model of a started session is set with
   `set_session_model` (ORCHESTRATION "Starting a worker"). (2026-11-01 workspace §11 [models]; Opus rule [rules-only])
@@ -58,7 +59,7 @@ Old section names in code comments (until 2026-11-03): "Backlog" = C · "Git, se
 
 ## D · Git
 - **D1** `main` = production. Workers use their own worktree (B2); the shared checkout `C:\Development\scutoons` is not switched by a worker. Own `npm install` per worktree (GOTCHAS). Owner-requested worktree drafts get their own DB `SCUTOONS_DB_NAME=scutoons_<x>`. (2026-11-02 [no-cloud], 2026-10-06 [worktree-requests])
-- **D2** The repo is public; Actions minutes are free; per-app deploy jobs stay (2026-11-01 [public-repo]). Docs-only pushes start no deploy.
+- **D2** The repo is public; Actions minutes are free (2026-11-01 [public-repo]); per-app deploy jobs stay, docs-only pushes start no deploy (2026-10-20 [process]).
 
 ## E · Data, migrations
 - **E1** The owner never runs migrations by hand: a file in `server/migrations/mysql/` runs with the deploy; check / dry-run / apply over the MCP (`migration_status`, `plan_migrations`, `apply_migrations`). Never ask for phpMyAdmin. (2026-10-12 [migrations])
@@ -84,23 +85,24 @@ Old section names in code comments (until 2026-11-03): "Backlog" = C · "Git, se
 - **H2** Sizes in rem, never px — also sizes set from JS (÷ root font size); px only in tokens (border widths) and breakpoints. (2026-10-04 [rem]: "a dogma across the app")
 - **H3** One `--control-height`; one tooltip style via `title`; bold very rarely; fieldsets without frames. (2026-10-02 [control-height] [bold])
 - **H4** Standalone icon-only button = round (`sc-round`); grouped controls, tabs and anything with text = square; fold buttons quiet (`sc-quiet`). (2026-10-07 [round-square], 2026-10-20 [fold])
-- **H5** Spacing on a 1rem line. One layout model (DOCKING.md): regions tile, one `Divider` per drag edge, one fold to a `Rail`, panels in the right dock (`useDock`); pickers are modal drawers (`Sheet`). [rules-only]
-- **H6** Confirmations in-page (`confirmDialog` / `askDialog`), never `confirm()`; primary action last, one only. Media fields are slots. (2026-10-03 [confirm])
+- **H5** Spacing on a 1rem line (sidebars, outline, fold button start at 1rem); dividers run edge to edge. One layout model (DOCKING.md): regions tile, one `Divider` per drag edge, one fold to a `Rail`, panels in the right dock (`useDock`); pickers are modal drawers (`Sheet`). [rules-only]
+- **H6** Confirmations in-page (`confirmDialog` / `askDialog`), never `confirm()`; primary action last, one only. Media fields are slots (preview = button, empty = dashed slot; multi-resolution = one slot with chips). (2026-10-03 [confirm])
 - **H7** Empty list shows nothing; a muted `.sc-empty` line only when the area would be blank and it says what to do. Warnings can be accepted (✓, stored in the doc); errors can't. (2026-10-06 [empty-states])
 
 ## I · Product
 - **I1** Printed / public URLs never change (QR `?c=`, `/verify.html`, `/<toon>`, `/<toon>/chapter/<n>`, `?code=`, locale prefixes); new may be added; a change only by server-side mapping + tests + rollback (PLATFORM "Printed URLs"). Codes are case-sensitive. (2026-09-30 [urls], 2026-10-03 [codes])
-- **I2** Everything is language-independent: media shared by all languages, text only in text fields (locale maps), lettering is text. Every chapter belongs to a season. Keep the configuration small. (2026-10-01 [language-neutral], 2026-09-30 [config-small])
-- **I3** Media quality is a reader setting (low / medium / high / Automatic), one file per level, never by viewport; a changed file gets a new name. Slice 390 × 624, 1x WebP + `.2x` / `.3x`, new art from a 2340-wide master; WEBTOON 800 × 1280 is an export (ASSETS.md). (2026-10-01 [media-quality], 2026-10-20 [slice-624])
+- **I2** Everything is language-independent: media shared by all languages, text only in text fields (locale maps), lettering is text. Every chapter belongs to a season (its `sequence` is the single source of visibility). Keep the configuration small. (2026-10-01 [language-neutral], 2026-09-30 [config-small])
+- **I3** Media quality is a reader setting (low / medium / high / Automatic), one file per level, never by viewport (no `srcset`); a changed file gets a new name (immutable CDN paths). Slice 390 × 624 (its 3x 1170 × 1872 = WEBTOON's 800 × 1280),
+  1x WebP + `.2x` / `.3x`, every slice carries width / height; new art from a lossless 2340-wide master; WEBTOON's 800 × 1280 is an export, never a stored level (ASSETS.md). (2026-10-01 [media-quality], 2026-10-20 [slice-624])
 - **I4** "Carrier bag" (German Tragetasche), never "inventory". Story texts are the **Kanon**, never "bible". (2026-10-30 [carrier-bag], 2026-10-20 [kanon])
 - **I5** Every character at some point sings, makes music — or lives out stories (SCUTOONS came out of a neurodiversity where hearing music suggests stories and pictures). (2026-10-31 [music])
 
 ## J · Code (apps, shared packages, tools)
 - **J1** New code is TypeScript with unit tests for its logic (apps, shared, scripts); a CLI only a thin entry; no new plain-JS / .mjs layers. On the deck side TS is UI + adapters only (A1). (2026-10-20 [ts-tests]: "typescript and unit tests will help us save a lot of time")
 - **J2** Shared: apps → shared, never the reverse; `tokens ← ui ← reader`; `content` without Svelte; moving code into shared is a move, not a copy (PLATFORM "dogmas").
-- **J3** One component = one job, ≤ 300 lines (> 400 needs a reason in its header); logic in `lib/editor/*.ts`; imports `$lib/…`; suffixes `-editor -panel -inspector -field -picker -slot -canvas`. [rules-only]
+- **J3** One component = one job, ≤ 300 lines (> 400 needs a reason in its header); logic in `lib/editor/*.ts`; no local copies of tools.css vocabulary; imports `$lib/…`; suffixes `-editor -panel -inspector -field -picker -slot -canvas`. [rules-only]
 - **J4** Comments may cite docs / issues / old item numbers; a doc keeps its name wherever it lives under agents/.
 
 ## K · Docs (2026-10-12 [docs]: "nicht zu sehr ausrasten lassen")
-- **K1** Caps: RULES 150 · HANDOVER 40 (replace, never append) · AUDIT 80 · ORCHESTRATION 100 · GOTCHAS 80 · topic docs "how it IS now", trim over ~500 lines · research/ line 1 = status · archive/ frozen. Map: README.md.
+- **K1** Caps (owner 2026-10-12 [docs]): RULES 150 · HANDOVER 60, aim ≤ 40 (replace, never append) · GOTCHAS 80; new 2026-11-03 (#380, to confirm): AUDIT 80 · ORCHESTRATION 100 · topic docs "how it IS now", trim over ~500 lines · research/ line 1 = status · archive/ frozen. Map: README.md.
 - **K2** A decision = one DECISIONS line (+ a rule here if it changes how agents work, + the topic doc). Stale text you notice: fix it where it stands (or an issue), never append a correction. No new top-level file in agents/ without the owner.

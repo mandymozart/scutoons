@@ -10,7 +10,7 @@ a small fixed set, everything else is looked up by grep or opened only for the a
 | 2 | `scutoons\CLAUDE.md` | ≤ 20 | 0.4k | entry point: this reading order, the issue rule |
 | 3 | memory index `MEMORY.md` | ≤ 25 | 0.8k | one line per remembered fact; the files are opened only when the line matches your task |
 | 4 | `agents/RULES.md` | ≤ 150 | ≤ 4.5k | **the law book**: numbered rules, each with its decision date + grep key |
-| 5 | `agents/HANDOVER.md` | ≤ 40 | 1k | the current state only (no rules, no todos) |
+| 5 | `agents/HANDOVER.md` | ≤ 40 (cap 60) | 1k | the current state only (no rules, no todos) |
 
 Before 2026-11-03 this set was 312 lines / ≈ 7.6k tokens and was *followed* by whatever the agent grepped: DECISIONS.md alone is
 698 lines / ≈ 55k tokens, the topic docs ≈ 110k tokens. After the refactor: see "Sizes" at the end.
@@ -46,7 +46,7 @@ Topic docs describe **how it is now** (read the section you touch, never the who
 |---|---|---|---|
 | CLAUDE.md | reading order, the issue rule | 20 | the reading order changes |
 | RULES.md | the law book | 150 | an owner decision changes how agents work — same commit as its DECISIONS line |
-| HANDOVER.md | state of the world, "Last run" (replaced, never appended) | 40 | a state fact changes |
+| HANDOVER.md | state of the world, "Last run" (replaced, never appended) | 60 (owner), aim ≤ 40 | a state fact changes |
 | DECISIONS.md | evidence: owner words, date, key, → doc | append-only, newest on top | every owner statement (record it the same day) |
 | AUDIT.md | the audit protocol | 80 | the audit method changes |
 | ORCHESTRATION.md | SCUTOONS specifics of orchestration + the brief template | 100 | the orchestration changes |

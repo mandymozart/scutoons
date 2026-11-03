@@ -23,8 +23,8 @@ Counting is the orchestrator's duty: it writes "merged since last audit: N" in i
 ## 3 · The checklist (in this order; stop and ticket at the first failure)
 1. `npm run check:core-only` — green, and its baseline did not grow (`scripts/core-only-baseline.json` vs `main`'s; growth needs
    `Owner-approved-baseline: …` in a commit message; `// core-only-ok: #N` lines are listed by `--report` — read them, each needs a live ticket).
-2. Dependency allow-list (#363): a bridge file imports only adapters / types of the core; a new bridge file needs a line in the bridge-file list.
-3. Headless deck host (#363): the scenario set runs the core without a browser; every scene / rule / default the browser shows must come from there.
+2. Dependency allow-list (#363, being built – until it lands write "not available"): a bridge file imports only adapters / types of the core; a new bridge file needs a line in the bridge-file list.
+3. Headless deck host (#363, being built – likewise): the scenario set runs the core without a browser; every scene / rule / default the browser shows must come from there.
 4. **The diff check** at merge: `git diff main...<branch> -- shared/ viewer/ creator/` for new scene / patch / rule / default / range / text
    literals, tempo or beat math, MIDI status bytes, branching on catalog kinds. Say in the merge note that it was checked.
 5. Twin hunt: same constants in TS and Rust (`[1, 2, 4, 8, 10]`, `0.88`, fps tables), data files under a bridge root that are not generated

@@ -17,7 +17,8 @@ for SCUTOONS, the owner's words win over both. The law is RULES.md (B = sessions
 `start_session` cannot pick a model above the orchestrator's own. To run a worker on a stronger model (Opus 5.5 for engine fundamentals,
 design, audits – RULES B5): 1. `start_session` with the brief's title and a one-line "wait for the full brief"; 2. at once
 `set_session_model` (+ `set_session_effort`) on the new session id; 3. `stop_session` its first turn (it only works while the session is
-running, so do 2 and 3 right after 1, before the filler turn ends); 4. `SendMessage` the full brief (worked for the P8 / audit workers, 2026-11-03). Check with `get_session` that the model is set. Large
+running, so do 2 and 3 right after 1, before the filler turn ends); 4. `SendMessage` the full brief (worked for the P8 / audit workers, 2026-11-03). Why a filler first: if the stop comes late, the first turn runs the
+whole brief on the old model (#380 ran completely on Sonnet that way, 2026-11-03, and had to be reviewed again on Opus). Check with `get_session` that the model is set. Large
 findings and hand-over notes go to the shared notes folder named in the brief, not into messages.
 
 ## Brief template (copy, fill, send – ≤ 25 lines; rules go BY POINTER, never pasted)

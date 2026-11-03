@@ -1,4 +1,4 @@
-# HANDOVER — the current state (read after RULES.md; limit 40 lines: replace, never append; no rules, no todos)
+# HANDOVER — the current state (read after RULES.md; limit 60 lines, aim ≤ 40: replace, never append; no rules, no todos)
 
 Refreshed 2026-11-03 (#380); the longer 2026-10-12 version with the feature notes is archive/HANDOVER-2026-11-03.md. How agents work: RULES.md.
 Open work: GitHub issues + the board "SCUTOONS" (RULES C). Decisions: DECISIONS.md (grep a key). Orchestrator state: HANDOFF.md.
