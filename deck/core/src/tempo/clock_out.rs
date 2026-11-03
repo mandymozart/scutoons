@@ -146,4 +146,46 @@ mod tests {
         assert_eq!(sent.last().unwrap().1, Out::Stop);
         assert_eq!(Out::Position(17).bytes(), vec![0xF2, 17, 0]);
     }
+
+    #[test]
+    fn ten_minutes_of_ticks_stay_on_the_audio_clock_and_a_bar_start_lands_on_the_bar() {
+        // the sound card's crystal 0.1 % fast: the ticks follow the audio's frames (what is heard), not the wall clock
+        let line = Line { t: 0.0, f: 0.0, spf: 1.001 / RATE };
+        let stopped = TempoMap::new(128.0, 4, RATE).with_beat(0.0, 8.0).with_running(0.0, false);
+        let running = stopped.with_running(RATE, true); // starts at frame 48 000 on bar 3 (beat 8)
+        // published at the audio frontier: the clock out sees the start 20 ms before it is heard (the audio's lead)
+        let map = |t: f64| if t < 1.001 - 0.02 { stopped } else { running };
+        let mut co = ClockOut::default();
+        let sent = run_out(&mut co, map, &line, 0.0, 601.0);
+        assert_eq!(&sent[..2].iter().map(|s| s.1).collect::<Vec<_>>(), &[Out::Position(32), Out::Continue], "bar 3 = 32 sixteenths");
+        let ticks: Vec<f64> = sent.iter().filter(|(_, o)| *o == Out::Tick).map(|(t, _)| *t).collect();
+        assert!((ticks[0] - 1.001).abs() < 1e-6, "the first tick is the bar's: {}", ticks[0]);
+        // every tick where the audio's frames say its beat is heard – after 10 min not a sample off
+        let spt = 60.0 / 128.0 / PPQN;
+        let worst = ticks.iter().enumerate().map(|(k, t)| (t - line.time_of(RATE + k as f64 * spt * RATE)).abs()).fold(0.0, f64::max);
+        assert!(worst < 2e-3 + 1e-9, "worst {} ms (the test steps 2 ms)", worst * 1e3);
+        // 600 s of a card whose frames take 0.1 % longer: 0.1 % fewer beats on the wall clock, every one of them sent
+        assert!((ticks.len() as f64 - 600.0 / 1.001 * 128.0 / 60.0 * PPQN).abs() < 2.0, "{} ticks", ticks.len());
+    }
+
+    #[test]
+    fn a_followers_nudged_tempo_bends_the_ticks_and_never_bursts() {
+        // a deck on the show clock: its map is nudged ±2 % now and then (deck-core sync) – the ticks follow it smoothly
+        let line = Line { t: 0.0, f: 0.0, spf: 1.0 / RATE };
+        // every half second the next nudge, from where the map stands (deck-core's `follow`)
+        let mut maps = vec![TempoMap::new(120.0, 4, RATE)];
+        for k in 1..=20 {
+            let last = *maps.last().unwrap();
+            maps.push(last.with_bpm(k as f64 * RATE / 2.0, 120.0 * (1.0 + 0.02 * if k % 2 == 0 { 1.0 } else { -1.0 })));
+        }
+        let map = |t: f64| maps[((t * 2.0).floor() as usize).min(20)];
+        let mut co = ClockOut::default();
+        let sent = run_out(&mut co, map, &line, 0.0, 10.0);
+        let ticks: Vec<f64> = sent.iter().filter(|(_, o)| *o == Out::Tick).map(|(t, _)| *t).collect();
+        let spt = 60.0 / 120.0 / PPQN;
+        for w in ticks.windows(2) {
+            let d = w[1] - w[0];
+            assert!(d > spt * 0.9 && d < spt * 1.1, "a tick interval of {} ms", d * 1e3);
+        }
+    }
 }

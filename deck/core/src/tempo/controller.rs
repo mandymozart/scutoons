@@ -736,6 +736,48 @@ mod tests {
     }
 
     #[test]
+    fn a_midi_leader_stops_goes_silent_starts_again_and_hands_over() {
+        // an Elektron as the table-top clock: it sends its clock only while it plays
+        let mut t = tempo(90.0);
+        t.set_source(Source::Midi, &mut NoHost);
+        pongs(&mut t, 0.0, -7.0);
+        t.push(at(4.99, What::Midi([0xFA, 0, 0])));
+        for k in 0..96 {
+            t.push(at(5.0 + k as f64 / 48.0, What::Midi([0xF8, 0, 0]))); // 120 BPM
+        }
+        t.frame(&moment(7.0, 256.0), &mut NoHost);
+        assert!(t.take_anchor().is_some_and(|a| a.running));
+        // stop, then silence: the deck stands where the clock stopped and tells the show so
+        t.push(at(7.0, What::Midi([0xFC, 0, 0])));
+        t.frame(&moment(7.01, 256.0), &mut NoHost);
+        let stop = t.take_anchor().expect("the stop goes out at once");
+        assert!(!stop.running);
+        let stood = t.frame(&moment(7.02, 256.0), &mut NoHost).pos.beat;
+        for i in 0..20 {
+            t.frame(&moment(7.5 + i as f64 * 0.5, 256.0), &mut NoHost);
+        }
+        let n = t.now();
+        assert!(!n.running && (n.pos.beat - stood).abs() < 1e-9, "stopped: {} vs {stood}", n.pos.beat);
+        assert_eq!(t.status(17_000_000_000), "NO CLOCK - HOLDS 120 LEADS");
+        // start again after the silence: beat 0 at its first tick, the show follows
+        t.push(at(17.0, What::Midi([0xFA, 0, 0])));
+        for k in 0..48 {
+            t.push(at(17.01 + k as f64 / 48.0, What::Midi([0xF8, 0, 0])));
+        }
+        let n = t.frame(&moment(17.01 + 47.0 / 48.0, 256.0), &mut NoHost);
+        assert!(n.running && (n.pos.beat - 47.0 / 24.0).abs() < 2e-3, "{}", n.pos.beat);
+        assert!(t.take_anchor().is_some_and(|a| a.running && (a.bpm - 120.0).abs() < 0.1));
+        // MIDI → internal (a key) → the show clock: the deck leads, then follows
+        t.push(at(18.0, What::Key(Key::Faster)));
+        t.frame(&moment(18.0, 256.0), &mut NoHost);
+        assert_eq!(t.source, Source::Internal);
+        assert!(!t.leading(), "the deck's own clock does not lead unless asked");
+        t.set_source(Source::Relay, &mut NoHost);
+        assert!(!t.leading());
+        assert_eq!(t.status(18_000_000_000), "NO SHOW CLOCK YET");
+    }
+
+    #[test]
     fn pings_are_due_quickly_after_a_join() {
         let mut t = tempo(120.0);
         assert!(t.ping_due(1_000_000_000));

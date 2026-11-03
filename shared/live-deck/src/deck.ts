@@ -13,6 +13,8 @@ import { deckGraph, FIXED_SCENE, ladderFor, MELODY, Moods, PARAMS, STREAMED, typ
 import { knobTarget, rigDiff, rigGraph, rigParams, rigStreamed } from './rig.ts';
 import type { RigPlayed } from './space.ts';
 
+/** #321: the MIDI clock's messages: tick, start, continue, stop, song position */
+const CLOCK_MESSAGES = new Set([0xf8, 0xfa, 0xfb, 0xfc, 0xf2]);
 
 /** a character's portraits by mood (scene-content's `characters.<id>.portraits`) */
 export type Portraits = Record<string, { path: string }>;
@@ -143,7 +145,9 @@ export class Deck {
 	/** #321: a Web MIDI message (the browser's `timeStamp`, ms on the page's `performance.now`): the core's clock reads the
 	 *  clock messages among them */
 	midiIn(data: ArrayLike<number>, timeStamp: number): void {
-		if (data.length) this.core?.clockOp({ op: 'midi', bytes: [data[0], data[1] ?? 0, data[2] ?? 0], at: performance.timeOrigin + timeStamp });
+		// only the clock's messages (tick, start, continue, stop, song position) – as the native port: notes, CC and
+		// active sensing never reach the worker
+		if (CLOCK_MESSAGES.has(data[0])) this.core?.clockOp({ op: 'midi', bytes: [data[0], data[1] ?? 0, data[2] ?? 0], at: performance.timeOrigin + timeStamp });
 	}
 
 	/** #321: the beat the clock says at the page's ms (the strobe, the being's breath); NaN before the sound started */

@@ -25,7 +25,7 @@ export const midiSupported = (nav: unknown = typeof navigator === 'undefined' ? 
 /** Ask for MIDI (the browser's permission prompt) and hand every input's messages to `onMessage`; inputs plugged in
  *  later are picked up (`onChange` says the list changed). Throws when the browser refuses or has no Web MIDI. */
 export async function connectMidi(
-	/** each message and when it arrived (the event's 	imeStamp, ms on performance.now – #321's MIDI clock in) */
+	/** each message and when it arrived (the event's `timeStamp`, ms on performance.now – #321's MIDI clock in) */
 	onMessage: (data: Uint8Array, timeStamp: number) => void,
 	onChange?: (inputs: string[]) => void,
 	request: () => Promise<MidiAccessLike> = () => (navigator as unknown as { requestMIDIAccess(o?: { sysex: boolean }): Promise<MidiAccessLike> }).requestMIDIAccess({ sysex: false })
