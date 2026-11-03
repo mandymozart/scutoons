@@ -58,3 +58,14 @@ Topic docs describe **how it is now** (read the section you touch, never the who
 
 A fact lives in ONE place. If RULES states it, memory holds at most a pointer; if a topic doc describes it, RULES holds only
 the rule. No new top-level file in agents/ without the owner.
+
+## 5 · Sizes, measured 2026-11-03 (lines / ≈ tokens at 4 bytes per token)
+| What a fresh agent loads | before #380 | after #380 |
+|---|---|---|
+| workspace `CLAUDE.md` | 53 / 0.8k | 53 / 0.8k (not ours) |
+| `scutoons\CLAUDE.md` | 16 / 0.3k | 17 / 0.3k |
+| memory index | 20 / 0.8k (22 files behind it) | 7 / 0.3k (7 files) |
+| `RULES.md` | 160 / 4.1k (over its own cap) | 106 / 4.0k |
+| `HANDOVER.md` | 63 / 1.6k (state of 2026-10-12 / 11-01) | 27 / 0.9k |
+| **Total at start** | **312 / 7.6k** | **210 / 6.2k** |
+Grep-only: `DECISIONS.md` 698 → 710 lines / ≈ 56k tokens (now keyed and indexed; 37 superseded lines moved out); topic docs ≈ 110k tokens (unchanged, read by section).

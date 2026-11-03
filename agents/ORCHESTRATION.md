@@ -8,7 +8,7 @@ for SCUTOONS, the owner's words win over both. The law is RULES.md (B = sessions
 - **Workers run in their own worktree on `<kind>/<issue>-<title>`** and never merge or push (RULES B2); the shared checkout
   `C:\Development\scutoons` is the orchestrator's. Merge into local `main` after the checks and the diff check, on the owner's word (RULES B3). (2026-11-02 [no-cloud])
 - **Never push at night.** A push to `main` deploys; the owner pushes or says "push" (RULES B4). Actions minutes no longer matter (2026-11-01 [public-repo]),
-  so one push per finished step is fine on his word. The deck CI runs locally (`npm run deck:ci`), not on GitHub (RULES A13).
+  so one push per finished step is fine on the owner's word. The deck CI runs locally (`npm run deck:ci`), not on GitHub (RULES A13).
 - **One git operator** per checkout at a time: while a worker commits in the shared checkout, the orchestrator commits nothing there.
 - **Over Remote Control** sessions may not be startable – the worker is then a background agent (`Agent`, one at a time, same brief).
 - **Two local sessions at most** across all projects (RULES B1); an audit or review counts as one.

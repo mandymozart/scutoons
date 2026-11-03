@@ -1,6 +1,6 @@
 # DECISIONS — the evidence log: the owner's words, one line each (newest first, append-only)
 
-**Grep, never read whole.** One line per decision: `date · area · [key] **decision** · "his words" · → where it is described now`. Rules for agents are
+**Grep, never read whole.** One line per decision: `date · area · [key] **decision** · "the owner's words" · → where it is described now`. Rules for agents are
 agents/RULES.md and cite `(date [key])`: `grep -n '\[core-only\]' agents/DECISIONS.md`. Record every new owner statement the same day, with
 a key from the index (or a new one, added here). Never edit an old line except to mark it superseded; a fully superseded line moves to
 **agents/archive/DECISIONS-superseded.md** (quotes kept, nothing deleted; a partly superseded line stays here, marked). The log was restructured on 2026-11-03 (#380).

@@ -1,6 +1,6 @@
 # RULES — the law book (read whole; hard limit 150 lines)
 
-Numbered rules, ONE or two lines each; `(date [key])` is the owner's decision: `grep -n '\[key\]' agents/DECISIONS.md` gives his
+Numbered rules, ONE or two lines each; `(date [key])` is the owner's decision: `grep -n '\[key\]' agents/DECISIONS.md` gives the owner's
 words. A rule changes in the same commit as its DECISIONS line; `[rules-only]` = no recorded decision yet. Map of all docs: agents/README.md.
 Old section names in code comments (until 2026-11-03): "Backlog" = C · "Git, sessions, checkout" = B + D · "Dev setup and checks" = F · "Code" = A + J ·
 "Product rules" = I · "UI rules" = H · "Working with the owner" = G · "Migrations and stored data" = E · "Docs" = K.
@@ -41,7 +41,7 @@ Old section names in code comments (until 2026-11-03): "Backlog" = C · "Git, se
 - **B4** Never push — a push to `main` deploys; the owner pushes, or says "push" (then one push per finished step is fine, Actions minutes don't matter). (2026-10-06 [night-runs], 2026-11-01 [public-repo])
 - **B5** Model per task: the cheapest that passes (`C:\Development\agents\models.json`); Opus for engine fundamentals and design; the model of a started session is set with
   `set_session_model` (ORCHESTRATION "Starting a worker"). (2026-11-01 workspace §11 [models]; Opus rule [rules-only])
-- **B6** Record every owner statement the same day: one DECISIONS line with date, key, his words; relay it to the issue and the next brief. Search DECISIONS before writing an issue or a brief. (2026-10-12 [docs])
+- **B6** Record every owner statement the same day: one DECISIONS line with date, key, the owner's words; relay it to the issue and the next brief. Search DECISIONS before writing an issue or a brief. (2026-10-12 [docs])
 - **B7** One git operator per checkout; commit only your own paths (`git commit -m … -- <paths>`), never `add -A`, never reset / stash / reformat another session's files, never a bare `git stash`. (2026-10-06 [night-runs])
 - **B8** Unattended runs: small commits, dev DB free to change, stop at owner decisions instead of guessing; the result replaces HANDOVER "Last run" and goes into each issue. (2026-10-06 [night-runs])
 - **B9** Every session ends with the usage report (`python C:\Development\agents\costs\report_usage.py --issues N`) and a comment on its issue. (workspace CLAUDE.md, 2026-11-01 [usage])
@@ -53,7 +53,7 @@ Old section names in code comments (until 2026-11-03): "Backlog" = C · "Git, se
 - **C3** Start: the owner names `#N`, or the request becomes an issue before the first edit (search first, then `gh issue create`); read `gh issue view N --comments`. Unattended: `npm run backlog`, top down.
 - **C4** Anything outside the issue becomes a new issue (no status = the owner's inbox), unless the owner says so (CLAUDE.md one level up: ask before scope creep).
 - **C5** Commits end `Refs #N`, the finishing one `Fixes #N` (never `#N` at a line start). End of session: one issue comment (built, open, checks), Finished → "Review on staging"; an open rest → the body's **Open:** list, status back to Backlog.
-- **C6** Priorities are the owner's: agents move only their own issue (In progress, Review on staging, back); Backlog / reorder / Deployed / Done only on his word. `decide` = assigned to him with options + your recommendation; `owner` = his step (secrets, publishing, art).
+- **C6** Priorities are the owner's: agents move only their own issue (In progress, Review on staging, back); Backlog / reorder / Deployed / Done only on the owner's word. `decide` = assigned to the owner with options + your recommendation; `owner` = the owner's step (secrets, publishing, art).
 - **C7** Issue form: title = the thing; one type label (`bug` `feature` `chore`), one `area:*`, one `complexity:S/M/L`, + `owner` / `decide`; body ≤ ~15 lines (owner quote · what / why · **Open:** · **Docs:**); a milestone only for a dated target. **Hotfix** (production broken, small): `hotfix:` commit, no issue.
 
 ## D · Git
@@ -69,7 +69,7 @@ Old section names in code comments (until 2026-11-03): "Backlog" = C · "Git, se
 ## F · Dev setup and checks
 - **F1** MariaDB in Docker only, no SQLite (`npm run dev:db`, PHPUnit `npm run dev:db test`); one dev DB `scutoons`; don't reset the owner's DB. (2026-10-05 [mariadb])
 - **F2** Fixed ports (`shared/dev-ports.json`, `check:ports`); servers only via `npm run dev`; never kill a server you didn't start. (2026-09-30 [dev-ports])
-- **F3** Debug as `agent@scutoons.test` (`npm run dev:test-user`), never as the owner, never in his browser tab; never paste tokens. (2026-09-30 [test-user])
+- **F3** Debug as `agent@scutoons.test` (`npm run dev:test-user`), never as the owner, never in the owner's browser tab; never paste tokens. (2026-09-30 [test-user])
 - **F4** Done = green: `npm run check` (0 errors), `check:tools-css`, PHPUnit + PHPStan, builds of touched apps, the area's `check:*`, `check:core-only` + `deck:ci` for deck work. Breakage you didn't cause: report, don't skip. (2026-09-30 [done-green])
 - **F5** You may restart your OWN session's SCUTOONS MCP after a tool change (how: GOTCHAS). (2026-10-14 [mcp-restart]: "i allow you to do it … give all agents that rule")
 - **F6** Tool traps (Windows, heredocs, paraglide, vite preview …): GOTCHAS.md.

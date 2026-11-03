@@ -51,7 +51,7 @@ One ticket per move: labels `chore` (or `bug` if behaviour is wrong) + `area:pla
 the files, the native twin, done-when "no logic/scene/rule/default/text in TS/Svelte that the core has or should have"; **Part of #311**
 (the engine epic) and linked to the audit issue. Board: Backlog is the owner's to set (RULES C6) — the audit lists the new numbers in its
 comment and says "owner: sort into Backlog". Existing baseline tickets are re-pointed to the move tickets. The next engine phase waits for the
-fix tickets only if the owner says so (he did for P9, 2026-11-03 [audit]: "if that research finds something, create issues to fix it, and only
+fix tickets only if the owner says so (the owner did for P9, 2026-11-03 [audit]: "if that research finds something, create issues to fix it, and only
 afterwards continue. with our plan").
 
 ## 7 · What counts as a workaround (a finding even if it works)
@@ -67,7 +67,7 @@ merged tickets since. It does not fix, and the session that wrote the code never
 Usage report at the end (RULES B9).
 
 ## 9 · Escalation to the owner
-Stop and tell him (a `decide` issue + the morning summary) when: the baseline would have to grow; a finding needs a behaviour or threshold
+Stop and tell the owner (a `decide` issue + the morning summary) when: the baseline would have to grow; a finding needs a behaviour or threshold
 choice (which HUD thresholds are right); a periphery verdict is arguable; the same twin comes back after it was ticketed; an agent
 removed or loosened the guard to get through; two audits in a row find new W/D in the same area (the brief or the rule is the problem, not
-the agent). Record his answer as a DECISIONS line the same day.
+the agent). Record the answer as a DECISIONS line the same day.
