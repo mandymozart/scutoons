@@ -225,7 +225,6 @@ final class CatalogValidator
                 foreach ($this->store->map('items') as $iid => $item) {
                     if (is_array($item) && ($item['instrument'] ?? null) === $id) $uses[] = "item $iid";
                 }
-                $uses = [...$uses, ...$this->count('SELECT COUNT(*) FROM member_presets WHERE instrument = ?', [$id], "members' presets")];
                 break;
             case 'presets':
                 foreach ($this->store->map('presets') as $pid => $preset) {
@@ -234,10 +233,6 @@ final class CatalogValidator
                 foreach ($this->store->map('rigs') as $rid => $rig) {
                     if (in_array($id, self::rigPresets($rig), true)) $uses[] = "rig $rid";
                 }
-                $uses = [...$uses, ...$this->count('SELECT COUNT(*) FROM member_presets WHERE parent = ?', [$id], "members' presets derive from it")];
-                break;
-            case 'rigs':
-                $uses = $this->count('SELECT COUNT(*) FROM member_rigs WHERE subject = ?', [$id], "members' variants of it");
                 break;
         }
         return $uses;

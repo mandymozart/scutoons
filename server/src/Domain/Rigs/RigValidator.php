@@ -20,15 +20,13 @@ use stdClass;
  * the_servers_scene_content_reads_as_bundles test parses the server's answer, so the two forms cannot drift.
  *
  * Data is decoded with objects (`json_decode($json)`: stdClass), so `{}` and `[]` stay apart – serde's maps refuse a list.
- * Lookups: `callable(string $id): ?stdClass` for instruments and presets (the catalog, a member's own rows).
+ * Lookups: `callable(string $id): ?stdClass` for instruments and presets (the catalog).
  */
 final class RigValidator
 {
     public const INSTRUMENT_ID = '#^[a-z0-9][a-z0-9_-]{0,63}$#';
     /** a factory preset: dot-separated slugs (`cathedral_voice.bright`), ≤ 100 characters */
     public const PRESET_ID = '#^(?=.{1,100}$)[a-z0-9][a-z0-9_-]*(?:\.[a-z0-9][a-z0-9_-]*){0,3}$#';
-    /** a member's preset: `m:<ulid>` – namespaced, so a lineage crosses from the factory into a member's */
-    public const MEMBER_PRESET_ID = '#^m:[0-9A-HJKMNP-TV-Z]{26}$#';
     /** a rig's id = its subject (KANON's form): `character.<id>[.<persona>]` or `item.<id>` */
     public const SUBJECT = '#^(?:character\.[a-z0-9][a-z0-9_-]{0,63}(?:\.[a-z0-9][a-z0-9_-]{0,63})?|item\.[A-Za-z0-9][A-Za-z0-9_-]{0,63})$#';
     /** instrument.rs InstrumentKind */
@@ -96,7 +94,7 @@ final class RigValidator
     // ── Preset ────────────────────────────────────────────────────────────────────────────────────────────
 
     /**
-     * A preset against its instrument and lineage. $presets sees the catalog (and a member's own rows) – this entry
+     * A preset against its instrument and lineage. $presets sees the catalog – this entry
      * counts with its new data.
      * @param callable(string): ?stdClass $instruments
      * @param callable(string): ?stdClass $presets

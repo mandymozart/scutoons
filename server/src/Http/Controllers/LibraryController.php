@@ -116,7 +116,7 @@ final class LibraryController
 
     /**
      * GET /api/library/scene-content?sets=a,b&characters=c,d&items=e&presets=f (SceneContent; ids ≤ 32 each). `presets`
-     * (#270): factory ids, or the member's own `m:…` with their session or deck token – then the answer is theirs (private)
+     * (#270): more factory presets for the map
      */
     public function sceneContent(Request $request, Response $response): Response
     {
@@ -130,12 +130,10 @@ final class LibraryController
             if (count($list) > SceneContent::MAX_IDS) throw new ApiError(400, 'invalid_ids', "$name: at most " . SceneContent::MAX_IDS . ' ids.');
             return $list;
         };
-        $presets = $ids('presets', '#^(?:' . substr(RigValidator::MEMBER_PRESET_ID, 2, -2) . '|' . substr(RigValidator::PRESET_ID, 2, -2) . ')$#');
-        $own = array_filter($presets, fn(string $id) => str_starts_with($id, 'm:')) !== [];
-        $user = $own ? CurrentSession::of($request)->user() : null;
-        $content = $this->scenes->of($ids('sets'), $ids('characters'), $ids('items', CatalogValidator::ID_PATTERN), $presets, $user !== null ? (string) $user['id'] : null);
+        $presets = $ids('presets', RigValidator::PRESET_ID);
+        $content = $this->scenes->of($ids('sets'), $ids('characters'), $ids('items', CatalogValidator::ID_PATTERN), $presets);
         $body = SceneContent::json($content);
-        return $this->send($request, $response, new Answer($body, '"s' . substr(sha1($body), 0, 24) . '"', $own, null));
+        return $this->send($request, $response, new Answer($body, '"s' . substr(sha1($body), 0, 24) . '"', false, null));
     }
 
     public function events(Request $request, Response $response): Response

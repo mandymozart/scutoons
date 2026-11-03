@@ -762,7 +762,7 @@ Plus orchestrator sessions (≈ 10, one per two or three merges, ≈ $5–10 eac
 | Thing | Now | Retired in | How |
 |---|---|---|---|
 | `shared/live-core/src/modules.ts` (TS module host) | frozen (test-only) | P9b | deleted when the browser backend passes its fixtures |
-| `server/.../RigValidator.php` + `NodeKinds.php` | in use (CatalogValidator, MemberRigs) | P10 | `NodeKinds.php` generated from the catalog from P2; both deleted with #313 |
+| `server/.../RigValidator.php` + `NodeKinds.php` | in use (CatalogValidator) | P10 | `NodeKinds.php` generated from the catalog from P2; both deleted with #313 |
 | parked TS validator (`parked/269-rig-editor`) | parked | never revived | branch deletion is the owner's |
 | stage `control.rs`, `audio/{blocks,voices,click,walk,module}`, engine part of `mod.rs` | in use | P4 (moved, not copied) | the native deck keeps backend, ring, lead (until moved), priority, glitch, sequencer / dispatch threads |
 | `BatchGraph`, `ControlGraph`, `SceneDef`, `synth.rs` blocks | in use (live-core, lower, lab) | P6 / P12 | API merged in P5, live-core switched in P6, bodies removed in P12 |

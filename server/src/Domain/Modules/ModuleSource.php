@@ -5,7 +5,7 @@ namespace Scutoons\Domain\Modules;
 
 /**
  * What a rig module's source is allowed to be (#281, agents/research/RIG-EDITING.md §4, §7): the rules of the
- * factory's `module:<id>` documents (CatalogValidator) and of a member's rows (MemberModules) – and the same ones the
+ * factory's `module:<id>` documents (CatalogValidator) – and the same ones the
  * compile service (deck/build) checks again. The files are Rust, compiled to wasm by the build service; the
  * descriptor and the wasm's hash come only from a compile.
  */

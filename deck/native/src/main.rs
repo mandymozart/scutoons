@@ -5,8 +5,6 @@
 //! chapter's first slice and the music are there, and the browser's start: with DECK_BROWSER set (deck-session does)
 //! F12 starts that command on top of the running stage – cage shows the newest window – and the stage pauses and mutes
 //! behind it until it closes; without it F12 quits with exit code 10 (deck-session's older loop opens the browser).
-//! F6 saves the played rig's knobs as the member's preset (#270, save.rs: queued on disk, posted with the deck token
-//! when the API answers – the stage plays scenes, not rigs, yet: until it does, F6 says so in the HUD).
 //! A scene with a `space` node (#188): the mouse (or a finger) turns the camera or pulls the being's 3D buttons along
 //! their tethers (a double click: back to the scene's value), the wheel / ↑ ↓ zoom, ← → turn, R resets the camera; the
 //! conductor's S pushes the scene's sync to the decks (#195 – also once at the start; `--sync` names what).
@@ -739,9 +737,6 @@ struct App {
     /// the pairing card (#180): deck-link's state, read every 2 s (`pairing_at`, the frame time); `None` = no card
     pairing: Option<deck_native::pairing::Card>,
     pairing_at: f32,
-    /// #270: "save as preset" – the outbox on disk and the thread that posts it with the deck token
-    #[cfg(feature = "sync")]
-    saver: Option<deck_native::save::Saver>,
     /// the browser on top: since when; `paused` once it has the focus (the stage stops drawing)
     browser: Option<Instant>,
     paused: bool,
@@ -1094,22 +1089,6 @@ impl App {
             }
         }
         window.request_redraw();
-    }
-
-    /// #270: F6 – the played rig's knobs as the member's preset. The stage plays scenes, not rigs, yet (research/INSTRUMENTS.md
-    /// §6 "next"): until it does there is nothing to derive from, and the HUD says so; the outbox and its posting are ready.
-    #[cfg(feature = "sync")]
-    fn save_preset(&mut self) {
-        let Some(saver) = &self.saver else { return };
-        let rig: Option<(deck_native::save::RigPlay, String, std::collections::BTreeMap<String, f32>)> = None;
-        match rig {
-            Some((play, track, values)) => match deck_native::save::derive_request(&play, &track, &values, None) {
-                Ok(r) => saver.save(r),
-                Err(e) => saver.note(format!("NOT SAVED: {e}")),
-            },
-            None => saver.note("F6: NO RIG PLAYS - NOTHING TO SAVE"),
-        }
-        self.hud_at = -1.0;
     }
 
     /// F12: the conductor page (a locked-down browser window) on top of the stage (DECK_BROWSER), else exit code 10 for deck-session
@@ -1516,11 +1495,6 @@ impl App {
             format!("FPS {:.1}  FRAME {:.1} MS  CPU {:.2} MS", self.stats.fps, last(&self.stats.intervals), last(&self.stats.work)),
             format!("GPU {gpu}"),
         ]);
-        // #270: the saver's state (queued saves, the last answer) – only while it has something to say
-        #[cfg(feature = "sync")]
-        if let Some(line) = self.saver.as_ref().map(|s| s.line()).filter(|l| !l.is_empty()) {
-            lines.push(line);
-        }
         // #220: the quality now, the level chosen, the governor; the keys
         if let Some(g) = &self.governor {
             let render = self.renderer.as_ref().map_or(1.0, |r| r.render_scale());
@@ -1881,9 +1855,6 @@ impl ApplicationHandler<Event> for App {
                     Key::Named(NamedKey::Delete) if self.mods.control_key() && self.mods.alt_key() => self.power_off(),
                     Key::Character("q") if self.mods.control_key() => el.exit(),
                     Key::Named(NamedKey::F3) => tempo.key(tempo::Key::NextSource),
-                    // #270: F6 saves the played rig's knobs as the member's preset (the outbox posts it when online)
-                    #[cfg(feature = "sync")]
-                    Key::Named(NamedKey::F6) => self.save_preset(),
                     // #220: F4 the settings page, Shift+F4 the governor
                     Key::Named(NamedKey::F4) if self.mods.shift_key() => {
                         if let Some(g) = self.governor.as_mut() {
@@ -1954,9 +1925,6 @@ fn run() -> Result<i32> {
     show.tempo.start();
     let rate = show.clock.as_ref().map_or(48_000.0, |c| c.rate as f64);
 
-    // #270: the saver's outbox lives in the cache, next to the sync's files
-    #[cfg(feature = "sync")]
-    let saver = deck_native::save::Saver::start(&args.cache.clone().unwrap_or_else(cache::default_dir), args.api.clone(), deck_link::TokenSource::from_env());
     let event_loop = EventLoop::<Event>::with_user_event().build().context("no event loop (no display?)")?;
     let proxy = event_loop.create_proxy();
     // #263: a stop signal (the kiosk's stop, `deck-set --restart`, Ctrl+C) ends the show the normal way: the outputs dark,
@@ -1997,8 +1965,6 @@ fn run() -> Result<i32> {
         splash: splash::Fade { alpha: 1.0 },
         pairing: None,
         pairing_at: -10.0,
-        #[cfg(feature = "sync")]
-        saver: Some(saver),
         browser: None,
         paused: false,
         proxy,

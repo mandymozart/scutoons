@@ -14,20 +14,17 @@
 	// deck-space's (Hands → DeckControls, wasm), this page only bridges the DOM, Web MIDI and the pointer to it.
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { Hands, MELODY, PARAMS, charactersOf, loadControls, pushLine, savedLine, type DeriveBody, type QualityLevel, type QualityPresets, type RigPlayed, type SavedPreset, type SpaceQuality, type Spec } from '@scutoons/live-deck';
+	import { Hands, MELODY, PARAMS, charactersOf, loadControls, pushLine, type QualityLevel, type QualityPresets, type SpaceQuality, type Spec } from '@scutoons/live-deck';
 	// #298: the engine's bring-up (the deck, the 3D, the sound, the frame loop, the rig for a mood, the statistics) is
 	// @scutoons/engine-host's; this page keeps the relay, the controls and its UI
 	import { createEngineHost, type EngineHost } from '@scutoons/engine-host';
 	import { API_URL, CDN_SERVER, LIVE_URL } from '$lib/config.ts';
-	import { api, ApiError } from '$lib/api.ts';
-	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { CHARACTER_KEY, WASM_BASE, characterOf, mayJoin, nickOf, preferOf, relayOf, rigOf } from '$lib/live-deck.ts';
 	import CharacterChip from '$lib/components/live-deck/character-chip.svelte';
 	import DeckPanel from '$lib/components/live-deck/deck-panel.svelte';
 	import DeckQualitySheet from '$lib/components/live-deck/deck-quality-sheet.svelte';
-	import DeckSaveSheet from '$lib/components/live-deck/deck-save-sheet.svelte';
 	import DeckSticks from '$lib/components/live-deck/deck-sticks.svelte';
 	import type { Stats } from '$lib/components/live-deck/deck-stats.svelte';
 	import { DeckControlsState } from '$lib/live-deck-controls.svelte.ts';
@@ -134,20 +131,6 @@
 		if (!e) keepPresets();
 		return e;
 	}
-	// #270: "save as preset" – the rig as played (the sheet's base), the sheet, the status after a save
-	let playedRig = $state<RigPlayed | null>(null);
-	let saveOpen = $state(false);
-	let saveStatus = $state('');
-	/** POST /api/rigs/presets as the signed-in member: '' or why not */
-	async function savePreset(body: DeriveBody): Promise<string> {
-		try {
-			const r = await api.post<{ preset: SavedPreset }>('/rigs/presets', body);
-			saveStatus = savedLine(r.preset, getLocale());
-			return '';
-		} catch (e) {
-			return e instanceof ApiError ? (e.message || e.code) : ((e as Error).message ?? String(e));
-		}
-	}
 	let threeD = $state(true);
 
 	const store = {
@@ -167,7 +150,7 @@
 		}
 	};
 
-	const status = $derived([syncStatus, spaceStatus, saveStatus, hud].filter(Boolean).join(' · '));
+	const status = $derived([syncStatus, spaceStatus, hud].filter(Boolean).join(' · '));
 
 	function showFace() {
 		const deck = engine?.deck;
@@ -242,10 +225,9 @@
 				},
 				// #209: a tap on the being selects (a knob, the being, empty space = the master section)
 				tap: (name) => ctl.choose(name, false),
-				rig: (played, why) => {
+				rig: (_played, why) => {
 					const deck = host.deck;
 					if (!deck) return;
-					playedRig = played;
 					if (why === 'mood') return;
 					params = deck.params;
 					values = { ...deck.value };
@@ -349,15 +331,11 @@
 				keepPresets();
 				sheetOpen = true;
 			}}
-			onsave={playedRig && session.me ? () => (saveOpen = true) : null}
 			ontouch={(on) => engine?.deck && (engine.deck.touch = on)}
 		/>
 	</div>
 	{#if presets && quality}
 		<DeckQualitySheet bind:open={sheetOpen} {presets} {quality} screen={screenInfo} text={presetsText} onchange={setPresets} ontext={setPresetsText} />
-	{/if}
-	{#if playedRig}
-		<DeckSaveSheet bind:open={saveOpen} rig={playedRig} {values} locale={getLocale()} onsave={savePreset} />
 	{/if}
 </div>
 

@@ -22,7 +22,7 @@ use Throwable;
  * relay's bunny app, rustc + the SDK, never running the code. Only creators compile (`creator_only`), because a compile
  * costs the relay's server CPU (owner 2026-11-02). The .wasm comes back with its SHA-256 and the descriptor read from it;
  * it is stored on the CDN as `modules/<hash>.wasm` (content-addressed, so immutable) and the descriptor + hash are written
- * into the module – a member's row, or a new draft of the factory document `module:<id>` (versions, review, publish as
+ * into the module – a new draft of the factory document `module:<id>` (versions, review, publish as
  * any catalog document). Compile errors come back as `422 compile_failed { errors: [{ file, line, column, level, message }] }`.
  */
 final class ModuleCompiler
@@ -33,7 +33,6 @@ final class ModuleCompiler
     public function __construct(
         private readonly Settings $settings,
         private readonly AssetStorages $storages,
-        private readonly MemberModules $members,
         private readonly EntityStore $entities,
         private readonly CatalogDocs $docs,
         private readonly Roles $roles,
@@ -42,30 +41,23 @@ final class ModuleCompiler
     }
 
     /**
-     * Compiles and stores. Source: `$files`, or the module's own (`$member` an `m:` id of the user's, `$factory` a
-     * `module:<id>` document's newest version). With `$member` / `$factory` the result is written into it (`$files` given
-     * too: they replace its sources).
+     * Compiles and stores. Source: `$files`, or the factory module's own (`$factory`, a `module:<id>` document's newest
+     * version). With `$factory` the result is written into a new draft of it (`$files` given too: they replace its sources).
      * @param array<string, mixed> $user
      * @param array<string, mixed>|null $files
      * @return array<string, mixed> { hash, descriptor, wasm: { hash, bytes, toolchain?, url }, warnings, errors?, module? }
      */
-    public function compile(array $user, ?array $files, ?string $member = null, ?string $factory = null): array
+    public function compile(array $user, ?array $files, ?string $factory = null): array
     {
         if (!$this->roles->has($user, Roles::CREATOR)) {
             throw new ApiError(403, 'creator_only', 'Only creators compile modules.');
         }
-        if ($member !== null && $factory !== null) throw new ApiError(400, 'invalid_target', 'Name one module to write the result into: member or factory.');
         $url = rtrim($this->settings->get('MODULE_BUILD_URL'), '/');
         $token = $this->settings->get('MODULE_BUILD_TOKEN');
         if ($url === '' || $token === '') throw new ApiError(503, 'no_build_service', 'The module build service is not set up.');
-        $userId = (string) $user['id'];
         $key = null;
         $document = null;
-        $row = null;
-        if ($member !== null) {
-            $row = $this->members->get($userId, $member); // 404 for anything but their own
-            $files ??= (array) ($row['files'] ?? []);
-        } elseif ($factory !== null) {
+        if ($factory !== null) {
             if (!preg_match(ModuleSource::ID_PATTERN, $factory)) throw new ApiError(400, 'invalid_target', "\"$factory\" is not a module id.");
             $key = EntityKey::parse("module:$factory");
             $latest = $this->entities->latest((string) $key);
@@ -83,12 +75,7 @@ final class ModuleCompiler
         if ($built['toolchain'] !== null) $wasm['toolchain'] = $built['toolchain'];
 
         $result = [];
-        if ($member !== null && $row !== null) {
-            // the sources compiled are the member's now (changed sources drop the old result: MemberModules::save)
-            $this->members->save($userId, $member, (string) $row['name'], (array) $files);
-            $this->members->saveResult($userId, $member, $built['descriptor'], $wasm);
-            $result['module'] = $member;
-        } elseif ($key !== null) {
+        if ($key !== null) {
             $content = is_array($document) ? $document : [];
             $content['id'] = (string) $key->id;
             $content['files'] = $files;

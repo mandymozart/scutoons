@@ -41,9 +41,9 @@ final class FakeBuildService implements HttpClient
 }
 
 /**
- * /api/modules (#281, agents/research/RIG-EDITING.md §4–7): a member's own module rows; the compile for creators only,
+ * /api/modules (#281, agents/research/RIG-EDITING.md §4–7): published modules by id; the compile for creators only,
  * through the build service (a fake here), the .wasm stored on the CDN by its hash, the descriptor + hash written into
- * the member's row or a draft of the factory document `module:<id>`; the catalog kind `modules`.
+ * a draft of the factory document `module:<id>`; the catalog kind `modules`.
  */
 final class ModulesApiTest extends TestCase
 {
@@ -111,36 +111,6 @@ final class ModulesApiTest extends TestCase
         return $hash;
     }
 
-    public function testMembersSaveListReadAndDeleteTheirOwnModules(): void
-    {
-        $me = $this->as('writer@scutoons.test');
-        $r = $this->request('POST', '/api/modules', $me, ['name' => 'Wobble', 'files' => self::SOURCE + ['osc.rs' => '// osc']]);
-        self::assertSame(201, $r->getStatusCode(), (string) $r->getBody());
-        $module = self::json($r)['module'];
-        self::assertMatchesRegularExpression('/^m:[0-9A-Z]{26}$/', $module['id']);
-        self::assertSame(['Wobble', ['lib.rs', 'osc.rs']], [$module['name'], array_keys($module['files'])]);
-
-        $list = self::json($this->request('GET', '/api/modules', $me))['items'];
-        self::assertSame([$module['id']], array_column($list, 'id'));
-        self::assertArrayNotHasKey('files', $list[0], 'the list has no sources');
-        $got = self::json($this->request('GET', "/api/modules/{$module['id']}", $me))['module'];
-        self::assertSame(self::SOURCE['lib.rs'], $got['files']['lib.rs']);
-
-        // another member sees and touches nothing of it
-        $other = $this->as('other@scutoons.test');
-        self::assertSame([], self::json($this->request('GET', '/api/modules', $other))['items']);
-        foreach ([['GET', null], ['PUT', ['files' => self::SOURCE]], ['DELETE', null]] as [$method, $body]) {
-            self::assertSame(404, $this->request($method, "/api/modules/{$module['id']}", $other, $body)->getStatusCode(), $method);
-        }
-        self::assertSame(401, $this->request('GET', '/api/modules')->getStatusCode(), 'signed in only');
-
-        // saved again: the name stays when left out
-        $saved = self::json($this->request('PUT', "/api/modules/{$module['id']}", $me, ['files' => self::SOURCE]))['module'];
-        self::assertSame(['Wobble', ['lib.rs']], [$saved['name'], array_keys($saved['files'])]);
-        self::assertSame(200, $this->request('DELETE', "/api/modules/{$module['id']}", $me)->getStatusCode());
-        self::assertSame([], self::json($this->request('GET', '/api/modules', $me))['items']);
-    }
-
     public function testTheKindCatalogListsTheBuiltInsAndThePublishedModules(): void
     {
         $me = $this->as('writer@scutoons.test');
@@ -176,27 +146,21 @@ final class ModulesApiTest extends TestCase
 
     public function testSourcesAreHeldToTheLimits(): void
     {
-        $me = $this->as('writer@scutoons.test');
-        $refused = function (array $body, string $part) use ($me): void {
-            $r = $this->request('POST', '/api/modules', $me, $body);
+        $this->builds();
+        $creator = $this->as('boss@scutoons.test', true);
+        $refused = function (array $body, string $part) use ($creator): void {
+            $r = $this->request('POST', '/api/modules/compile', $creator, $body);
             self::assertSame([422, 'invalid_module'], [$r->getStatusCode(), self::json($r)['error']], (string) json_encode($body));
             self::assertStringContainsString($part, (string) $r->getBody());
         };
-        $refused(['name' => 'x', 'files' => ['osc.rs' => '//']], 'needs a lib.rs');
-        $refused(['name' => 'x', 'files' => ['lib.rs' => '//', 'Osc.rs' => '//']], 'a name is [a-z0-9_]+.rs');
-        $refused(['name' => 'x', 'files' => ['lib.rs' => '//', 'build.rs' => '//', 'a/b.rs' => '//']], 'a name is [a-z0-9_]+.rs');
-        $refused(['name' => 'x', 'files' => ['lib.rs' => str_repeat('a', ModuleSource::MAX_FILE_BYTES + 1)]], 'larger than');
-        $refused(['name' => 'x', 'files' => ['lib.rs' => str_repeat('a', 200000), 'a.rs' => str_repeat('a', 200000), 'b.rs' => str_repeat('a', 200000)]], 'together are larger');
-        $refused(['name' => 'x', 'files' => array_combine(array_map(fn(int $i) => "f$i.rs", range(0, 32)), array_fill(0, 33, '//'))], '1–32 files');
-        $refused(['name' => 'x', 'files' => ['lib.rs' => 5]], 'must be a text');
-        $refused(['name' => '', 'files' => self::SOURCE], 'name must be 1–64');
-        $refused(['files' => self::SOURCE], 'name must be a text');
-        $refused(['name' => 'x'], 'files must be');
-        for ($i = 0; $i < \Scutoons\Domain\Modules\MemberModules::MAX_PER_MEMBER; $i++) {
-            self::assertSame(201, $this->request('POST', '/api/modules', $me, ['name' => "m$i", 'files' => self::SOURCE])->getStatusCode());
-        }
-        $r = $this->request('POST', '/api/modules', $me, ['name' => 'one too many', 'files' => self::SOURCE]);
-        self::assertSame([422, 'too_many_modules'], [$r->getStatusCode(), self::json($r)['error']]);
+        $refused(['files' => ['osc.rs' => '//']], 'needs a lib.rs');
+        $refused(['files' => ['lib.rs' => '//', 'Osc.rs' => '//']], 'a name is [a-z0-9_]+.rs');
+        $refused(['files' => ['lib.rs' => '//', 'build.rs' => '//', 'a/b.rs' => '//']], 'a name is [a-z0-9_]+.rs');
+        $refused(['files' => ['lib.rs' => str_repeat('a', ModuleSource::MAX_FILE_BYTES + 1)]], 'larger than');
+        $refused(['files' => ['lib.rs' => str_repeat('a', 200000), 'a.rs' => str_repeat('a', 200000), 'b.rs' => str_repeat('a', 200000)]], 'together are larger');
+        $refused(['files' => array_combine(array_map(fn(int $i) => "f$i.rs", range(0, 32)), array_fill(0, 33, '//'))], '1–32 files');
+        $refused(['files' => ['lib.rs' => 5]], 'must be a text');
+        self::assertSame([], $this->build->requests, 'the service was not asked');
     }
 
     public function testOnlyCreatorsCompile(): void
@@ -210,11 +174,10 @@ final class ModulesApiTest extends TestCase
 
     public function testADeckMayReadButNotWriteModules(): void
     {
-        DeckTokenScope::guard('GET', '/api/modules', []);
-        DeckTokenScope::guard('GET', '/api/modules/m:X', []);
-        foreach ([['POST', '/api/modules'], ['PUT', '/api/modules/m:X'], ['DELETE', '/api/modules/m:X'], ['POST', '/api/modules/compile']] as [$method, $path]) {
+        DeckTokenScope::guard('GET', '/api/modules/walk');
+        foreach ([['PUT', '/api/modules/walk'], ['DELETE', '/api/modules/walk'], ['POST', '/api/modules/compile']] as [$method, $path]) {
             try {
-                DeckTokenScope::guard($method, $path, ['rigs']);
+                DeckTokenScope::guard($method, $path);
                 self::fail("$method $path");
             } catch (ApiError $e) {
                 self::assertSame('not_for_deck', $e->errorCode);
@@ -239,16 +202,16 @@ final class ModulesApiTest extends TestCase
         self::assertSame([], $this->build->requests);
     }
 
-    public function testACompileStoresTheWasmByItsHashAndWritesTheResultIntoAMembersModule(): void
+    public function testACompileStoresTheWasmByItsHash(): void
     {
         $hash = $this->builds();
         $creator = $this->as('boss@scutoons.test', true);
-        $mine = self::json($this->request('POST', '/api/modules', $creator, ['name' => 'Wobble', 'files' => self::SOURCE]))['module']['id'];
 
-        $r = $this->request('POST', '/api/modules/compile', $creator, ['member' => $mine]);
+        $r = $this->request('POST', '/api/modules/compile', $creator, ['files' => self::SOURCE]);
         self::assertSame(200, $r->getStatusCode(), (string) $r->getBody());
         $answer = self::json($r);
-        self::assertSame([$hash, self::DESCRIPTOR, $mine], [$answer['hash'], $answer['descriptor'], $answer['module']]);
+        self::assertSame([$hash, self::DESCRIPTOR], [$answer['hash'], $answer['descriptor']]);
+        self::assertArrayNotHasKey('module', $answer, 'sources alone are written nowhere');
         self::assertSame(['hash' => $hash, 'bytes' => strlen(self::WASM), 'toolchain' => 'rustc 1.99.1', 'url' => "http://cdn.test/modules/$hash.wasm"], $answer['wasm']);
         self::assertSame('unused', $answer['warnings'][0]['message']);
 
@@ -260,27 +223,8 @@ final class ModulesApiTest extends TestCase
         $file = $this->dir . "/cdn/modules/$hash.wasm";
         self::assertSame(self::WASM, file_get_contents($file));
         touch($file, 1000000000);
-        $this->request('POST', '/api/modules/compile', $creator, ['member' => $mine]);
+        $this->request('POST', '/api/modules/compile', $creator, ['files' => self::SOURCE]);
         self::assertSame(1000000000, filemtime($file), 'content-addressed: same hash, same file');
-
-        // the row holds the result; the list shows it without the sources
-        $got = self::json($this->request('GET', "/api/modules/$mine", $creator))['module'];
-        self::assertSame([self::DESCRIPTOR, $hash, "http://cdn.test/modules/$hash.wasm"], [$got['descriptor'], $got['wasm']['hash'], $got['wasm']['url']]);
-        self::assertSame($hash, self::json($this->request('GET', '/api/modules', $creator))['items'][0]['wasm']['hash']);
-        // other sources: what the compile said no longer holds
-        $saved = self::json($this->request('PUT', "/api/modules/$mine", $creator, ['files' => ['lib.rs' => '// changed']]))['module'];
-        self::assertArrayNotHasKey('wasm', $saved);
-        self::assertArrayNotHasKey('descriptor', $saved);
-        // the same sources again keep it
-        $this->request('POST', '/api/modules/compile', $creator, ['member' => $mine]);
-        $again = self::json($this->request('PUT', "/api/modules/$mine", $creator, ['files' => ['lib.rs' => '// changed']]))['module'];
-        self::assertSame($hash, $again['wasm']['hash']);
-
-        // someone else's module is not compiled
-        $other = $this->as('other@scutoons.test', true);
-        $this->build->requests = [];
-        self::assertSame(404, $this->request('POST', '/api/modules/compile', $other, ['member' => $mine])->getStatusCode());
-        self::assertSame([], $this->build->requests);
     }
 
     public function testACompileOfAFactoryModuleMakesADraftThatPublishesIntoTheCatalog(): void

@@ -21,7 +21,6 @@ use Scutoons\Http\Controllers\AccessController;
 use Scutoons\Http\Controllers\ApiTokensController;
 use Scutoons\Http\Controllers\DecksController;
 use Scutoons\Http\Controllers\ModulesController;
-use Scutoons\Http\Controllers\RigsController;
 use Scutoons\Http\Controllers\LanController;
 use Scutoons\Http\Controllers\ReviewsController;
 use Scutoons\Http\Controllers\StoryboardController;
@@ -231,24 +230,11 @@ return static function (App $app): void {
     $app->delete('/api/me/decks/{id:[0-9a-f-]{36}}', [DecksController::class, 'revoke']);
     // the venue certificate *.lan.scutoons.com for an approved deck's own token (#201, deck-tls; LanController)
     $app->get('/api/decks/lan-cert', [LanController::class, 'deckCert']);
-    // the member's own presets and rig variants (#270, agents/research/INSTRUMENTS.md §5–6): a session, or a paired deck's
-    // token with the `rigs` scope granted at approval (DeckTokenScope) – "save as preset" from the deck's knobs
-    $app->get('/api/rigs/presets', [RigsController::class, 'presets']);
-    $app->post('/api/rigs/presets', [RigsController::class, 'derive']);
-    $app->delete('/api/rigs/presets/{id:m:[0-9A-Z]{26}}', [RigsController::class, 'deletePreset']);
-    $subject = '{subject:(?:character|item)\.[^/]+}';
-    $app->get("/api/rigs/$subject", [RigsController::class, 'rig']);
-    $app->put("/api/rigs/$subject", [RigsController::class, 'saveRig']);
-    $app->delete("/api/rigs/$subject", [RigsController::class, 'deleteRig']);
-    // rig modules, Rust compiled to wasm (#281, agents/research/RIG-EDITING.md §4–7): a member's own sources (a session, reads also
-    // a deck token), published factory modules by id; the compile is the creators' (the build service beside the relay)
+    // rig modules, Rust compiled to wasm (#281, agents/research/RIG-EDITING.md §4–7): published factory modules by id; the
+    // compile is the creators' (the build service beside the relay)
     $app->get('/api/kinds', [ModulesController::class, 'kinds']);
-    $app->get('/api/modules', [ModulesController::class, 'list']);
-    $app->post('/api/modules', [ModulesController::class, 'create']);
     $app->post('/api/modules/compile', [ModulesController::class, 'compile']);
-    $app->get('/api/modules/{id:m:[0-9A-Z]{26}|[a-z0-9][a-z0-9_-]{0,31}}', [ModulesController::class, 'get']);
-    $app->put('/api/modules/{id:m:[0-9A-Z]{26}}', [ModulesController::class, 'save']);
-    $app->delete('/api/modules/{id:m:[0-9A-Z]{26}}', [ModulesController::class, 'delete']);
+    $app->get('/api/modules/{id:[a-z0-9][a-z0-9_-]{0,31}}', [ModulesController::class, 'get']);
 
     $app->map(['GET', 'POST'], '/api/access', [AccessController::class, 'access'])->add($lookupLimit);
     $app->get('/api/code', [AccessController::class, 'code'])->add($codeLimit);
