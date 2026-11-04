@@ -1,0 +1,20 @@
+name = "the deck UI model: HUD lines and the stats bar from the core"
+about = "#374: the HUD's lines and the bar's items are deck-ui's (a platform-free crate; native main.rs only reads its objects into deck-ui's Status and rasters the answer) – the same words on every deck, native ≡ wasm32 (tests/wasm.rs)"
+
+[[step]]
+do = "load"
+scene = "native/scenes/show-clock-lead.toml"
+
+[[step]]
+do = "run"
+ms = 2250
+
+[[step]]
+do = "hud"
+with = { scene = "show clock – lead", fps = 60.0, audio = true }
+expect = { title = "SCUTOONSDECK STAGE  show clock – lead", lines = { has = "SRC INTERNAL LEADS" }, bar = { has = "F1" } }
+
+[[step]]
+do = "hud"
+with = { scene = "show clock – lead", fps = 60.0, audio = true }
+expect = { lines = { has = "BPM 120.0  BAR 2 BEAT 1 CLK" }, bar = { has = "RELAY -" } }
