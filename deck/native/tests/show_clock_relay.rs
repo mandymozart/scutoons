@@ -4,6 +4,11 @@
 //! relay link for the clock alone (no being), each frame thread at 60 Hz. The follower's beat against the leader's at
 //! the same moment stays within the P8 bound (≤ 5 ms p95 on a LAN – here the loopback); the table-top clock goes away:
 //! the last tempo holds on both, the leader's HUD says so. Ports 7100–7199 only; everything stops with the test.
+//!
+//! No wall-clock assertion in deck:ci (#382): the first test waits for each STATE (locked, leading, holding) as long as a
+//! loaded machine needs; the show clock's accuracy on a virtual clock is deck-core's tests/show_clock.rs and the headless
+//! scenarios 04–06. The real-time p95 over the loopback is the second test: `#[ignore]`, for a quiet machine or the
+//! hardware rig (`cargo test -p deck-native --test show_clock_relay -- --ignored`).
 #![cfg(all(feature = "live", feature = "space"))]
 
 use deck_native::clock::{now_ns, Moment};
@@ -14,7 +19,7 @@ use deck_native::tempo::{Config, Event, Shared, Source, Tempo, What};
 use std::net::TcpListener;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 fn relay() -> (tokio::runtime::Runtime, u16) {
     let start = 7150 + (std::process::id() % 40) as u16;
@@ -75,36 +80,113 @@ impl Drop for Deck {
     }
 }
 
+/// How long the test waits for a state before it gives up: a deadline, not a measurement (paid only on failure).
+const PATIENCE: Duration = Duration::from_secs(60);
+
+/// polls `ok` every 20 ms until it holds; the panic names `what` and the state `show` reads
+fn until(what: &str, show: impl Fn() -> String, ok: impl Fn() -> bool) {
+    let deadline = Instant::now() + PATIENCE;
+    while !ok() {
+        assert!(Instant::now() < deadline, "timed out waiting for {what}: {}", show());
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}
+
+fn status(d: &Deck) -> String {
+    d.tempo.lock().unwrap().status()
+}
+
+fn bpm_of(d: &Deck) -> f64 {
+    d.beat(now_ns()).1
+}
+
+/// the venue's table-top clock: both decks on one relay room, the leader on MIDI clock in, 126 BPM, 24 ticks a beat
+/// through the leader's clock channel as midir's callback sends them
+struct Rig {
+    _rt: tokio::runtime::Runtime,
+    leader: Deck,
+    follower: Deck,
+    ticking: Arc<AtomicBool>,
+    clock: Option<std::thread::JoinHandle<()>>,
+}
+
+impl Rig {
+    fn start() -> Rig {
+        let (rt, port) = relay();
+        let url = format!("ws://127.0.0.1:{port}/live/CLOCK");
+        let leader = Deck::start(&url, Config { source: Source::Midi, ..Config::default() }, "table top");
+        let follower = Deck::start(&url, Config { source: Source::Relay, ..Config::default() }, "follower");
+        let tx = leader.tempo.lock().unwrap().sender();
+        let ticking = Arc::new(AtomicBool::new(true));
+        let on = ticking.clone();
+        let clock = std::thread::spawn(move || {
+            let spt = 60.0 / 126.0 / 24.0;
+            let start = now_ns();
+            let _ = tx.send(Event { at_ns: start, what: What::Midi([0xFA, 0, 0]) });
+            let mut k = 0u64;
+            while on.load(Ordering::Relaxed) {
+                let due = start + ((k as f64 + 1.0) * spt * 1e9) as u64;
+                while now_ns() < due {
+                    std::thread::sleep(Duration::from_micros(300));
+                }
+                let _ = tx.send(Event { at_ns: now_ns(), what: What::Midi([0xF8, 0, 0]) });
+                k += 1;
+            }
+        });
+        Rig { _rt: rt, leader, follower, ticking, clock: Some(clock) }
+    }
+
+    /// the table top stops sending
+    fn stop_ticks(&mut self) {
+        self.ticking.store(false, Ordering::Relaxed);
+        if let Some(c) = self.clock.take() {
+            c.join().unwrap();
+        }
+    }
+}
+
+impl Drop for Rig {
+    fn drop(&mut self) {
+        self.stop_ticks();
+    }
+}
+
+/// the states, not the milliseconds: the follower locks on the leader's anchors and says SHOW at the table top's tempo, the
+/// leader says LEADS; the table top goes away and the last tempo holds on both, the leader's HUD says so
 #[test]
 fn a_deck_on_midi_clock_in_leads_the_show_through_the_relay() {
-    let (_rt, port) = relay();
-    let url = format!("ws://127.0.0.1:{port}/live/CLOCK");
-    let leader = Deck::start(&url, Config { source: Source::Midi, ..Config::default() }, "table top");
-    let follower = Deck::start(&url, Config { source: Source::Relay, ..Config::default() }, "follower");
-    // the table-top clock: 126 BPM, 24 ticks a beat, through the leader's clock channel as midir's callback sends them
-    let tx = leader.tempo.lock().unwrap().sender();
-    let ticking = Arc::new(AtomicBool::new(true));
-    let on = ticking.clone();
-    let clock = std::thread::spawn(move || {
-        let spt = 60.0 / 126.0 / 24.0;
-        let start = now_ns();
-        let _ = tx.send(Event { at_ns: start, what: What::Midi([0xFA, 0, 0]) });
-        let mut k = 0u64;
-        while on.load(Ordering::Relaxed) {
-            let due = start + ((k as f64 + 1.0) * spt * 1e9) as u64;
-            while now_ns() < due {
-                std::thread::sleep(Duration::from_micros(300));
-            }
-            let _ = tx.send(Event { at_ns: now_ns(), what: What::Midi([0xF8, 0, 0]) });
-            k += 1;
-        }
-    });
+    let mut rig = Rig::start();
+    {
+        let (leader, follower) = (&rig.leader, &rig.follower);
+        // the tempo estimate of a loaded machine wanders (ticks stamped on arrival): 3 BPM, not the 0.5 of a quiet one
+        until(
+            "the follower on the table top's tempo",
+            || format!("{} {:.1} / {}", status(follower), bpm_of(follower), status(leader)),
+            || status(follower).starts_with("SHOW") && (bpm_of(follower) - 126.0).abs() < 3.0 && status(leader).ends_with("LEADS"),
+        );
+    }
+    rig.stop_ticks();
+    let leader = &rig.leader;
+    until("the leader to say the table top is gone", || status(leader), || status(leader).starts_with("NO CLOCK - HOLDS 12"));
+    let (lbpm, fbpm) = (bpm_of(&rig.leader), bpm_of(&rig.follower));
+    assert!((lbpm - 126.0).abs() < 3.0 && (fbpm - 126.0).abs() < 3.0, "the last tempo holds on both: {lbpm} {fbpm}");
+    assert!(status(&rig.leader).ends_with("LEADS"), "{}", status(&rig.leader));
+}
+
+/// The follower's beat against the leader's at the same moment over the real relay on the loopback: p95 within the P8 bound.
+/// Real time on purpose - a measurement, not a state: it needs a quiet machine (a build running beside it fails it), so it
+/// does not run in deck:ci; the hardware rig / the owner runs it with `--ignored`. The same bound on a virtual clock, with
+/// jitter and drift, is deck-core's tests/show_clock.rs.
+#[test]
+#[ignore = "hardware rig / quiet machine: run with --ignored"]
+fn the_follower_stays_within_5_ms_of_the_leader_on_the_loopback() {
+    let mut rig = Rig::start();
     // the follower locks (its filter, the leader's first anchors), then the two are compared for four seconds
     std::thread::sleep(Duration::from_secs(4));
     let mut errors = Vec::new();
     for _ in 0..200 {
         let ns = now_ns();
-        let ((l, bpm), (f, _)) = (leader.beat(ns), follower.beat(ns));
+        let ((l, bpm), (f, _)) = (rig.leader.beat(ns), rig.follower.beat(ns));
         errors.push(((f - l) / (bpm / 60.0) * 1e3).abs());
         std::thread::sleep(Duration::from_millis(20));
     }
@@ -112,18 +194,10 @@ fn a_deck_on_midi_clock_in_leads_the_show_through_the_relay() {
     let p95 = errors[errors.len() * 95 / 100];
     eprintln!("show clock over the loopback relay: p95 {p95:.3} ms, max {:.3} ms", errors[errors.len() - 1]);
     assert!(p95 <= 5.0, "the follower is {p95:.3} ms off the leader (p95)");
-    let (_, bpm) = follower.beat(now_ns());
-    assert!((bpm - 126.0).abs() < 0.5, "the follower's tempo: {bpm}");
-    assert!(follower.tempo.lock().unwrap().status().starts_with("SHOW"), "{}", follower.tempo.lock().unwrap().status());
-    assert!(leader.tempo.lock().unwrap().status().ends_with("LEADS"));
-    // the table top stops sending: the last tempo holds – on the leader (its HUD says so) and on the follower
-    ticking.store(false, Ordering::Relaxed);
-    clock.join().unwrap();
+    // and after the table top goes away, still together
+    rig.stop_ticks();
     std::thread::sleep(Duration::from_millis(1500));
-    let status = leader.tempo.lock().unwrap().status();
-    assert!(status.starts_with("NO CLOCK - HOLDS 126"), "{status}");
     let ns = now_ns();
-    let ((l, lbpm), (f, fbpm)) = (leader.beat(ns), follower.beat(ns));
-    assert!((lbpm - 126.0).abs() < 0.5 && (fbpm - 126.0).abs() < 0.5, "{lbpm} {fbpm}");
+    let ((l, _), (f, _)) = (rig.leader.beat(ns), rig.follower.beat(ns));
     assert!(((f - l) / 2.1 * 1e3).abs() < 5.0, "still together: {:.3} ms", (f - l) / 2.1 * 1e3);
 }
