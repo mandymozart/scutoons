@@ -1,0 +1,482 @@
+{
+  "device": {
+    "label": "pc-chrome",
+    "os": "Win32",
+    "cpu": "",
+    "cores": 12,
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Claude/4.4212.0 Chrome/152.0.7977.167 Safari/537.36",
+    "when": "2026-11-04 22:08 UTC",
+    "notes": [
+      "crossOriginIsolated=true",
+      "js heap used 1.3 MB"
+    ]
+  },
+  "runtimes": [
+    {
+      "runtime": "web",
+      "place": "worker",
+      "workloads": [
+        {
+          "name": "fm16",
+          "frames": 128,
+          "samples": 2000,
+          "compile_us": 430,
+          "instantiate_us": 564.9999976158142,
+          "first_us": 570.0000077486038,
+          "p50_us": 30.000001192092896,
+          "p99_us": 84.99999344348907,
+          "max_us": 814.9999976158142,
+          "mean_us": 39.06499998271465,
+          "budget_us": 2666.6666666666665,
+          "p99_pct": 3.1874997541308403,
+          "units": null,
+          "hash": "1b3d03e4a2d92145",
+          "memory_bytes": 1114112,
+          "error": null
+        },
+        {
+          "name": "fm16",
+          "frames": 1024,
+          "samples": 250,
+          "compile_us": 220,
+          "instantiate_us": 160.0000113248825,
+          "first_us": 274.9999910593033,
+          "p50_us": 245.00000476837158,
+          "p99_us": 425.00001192092896,
+          "max_us": 500,
+          "mean_us": 296.83999997377396,
+          "budget_us": 21333.333333333332,
+          "p99_pct": 1.9921875558793547,
+          "units": null,
+          "hash": "1b3d03e4a2d92145",
+          "memory_bytes": 1114112,
+          "error": null
+        },
+        {
+          "name": "walk",
+          "frames": 128,
+          "samples": 2000,
+          "compile_us": 310,
+          "instantiate_us": 180.00000715255737,
+          "first_us": 390.00000059604645,
+          "p50_us": 5.000010132789612,
+          "p99_us": 19.999995827674866,
+          "max_us": 390.00000059604645,
+          "mean_us": 6.897499889135361,
+          "budget_us": 2666.6666666666665,
+          "p99_pct": 0.7499998435378075,
+          "units": null,
+          "hash": "d074122c8c40a9a5",
+          "memory_bytes": 1114112,
+          "error": null
+        },
+        {
+          "name": "analog x2",
+          "frames": 128,
+          "samples": 2000,
+          "compile_us": 425,
+          "instantiate_us": 250,
+          "first_us": 1240.0000095367432,
+          "p50_us": 250,
+          "p99_us": 455.00001311302185,
+          "max_us": 1240.0000095367432,
+          "mean_us": 291.402500115335,
+          "budget_us": 2666.6666666666665,
+          "p99_pct": 17.06250049173832,
+          "units": null,
+          "hash": "2fa5da638ccdb595",
+          "memory_bytes": 1114112,
+          "error": null
+        }
+      ],
+      "runaway": {
+        "how": "watchdog (the parent terminates the worker)",
+        "budget_ms": 2,
+        "stopped_after_us": 5209.9609375,
+        "over_budget_us": 3209.9609375,
+        "restart_us": 36829.833984375,
+        "fault": "terminate() took 35 µs; the restart is a new worker + the bench wasm + the module compiled"
+      },
+      "grow": {
+        "results": [],
+        "memory_before": 1114112,
+        "memory_after": 2162688,
+        "us_per_call": 259.99999046325684,
+        "fault": "dm_process: the memory grew past its freeze (1114112 → 2162688 bytes; the browser cannot refuse memory.grow)"
+      },
+      "timer_us": 4.999995231628418,
+      "error": null
+    },
+    {
+      "runtime": "web-gas",
+      "place": "worker",
+      "workloads": [
+        {
+          "name": "fm16",
+          "frames": 128,
+          "samples": 2000,
+          "compile_us": 755,
+          "instantiate_us": 640.0000005960464,
+          "first_us": 1155.000001192093,
+          "p50_us": 69.99999284744263,
+          "p99_us": 149.99999105930328,
+          "max_us": 1155.000001192093,
+          "mean_us": 75.81499999761581,
+          "budget_us": 2666.6666666666665,
+          "p99_pct": 5.624999664723873,
+          "units": 557427.2815,
+          "hash": "1b3d03e4a2d92145",
+          "memory_bytes": 1114112,
+          "error": null
+        },
+        {
+          "name": "fm16",
+          "frames": 1024,
+          "samples": 250,
+          "compile_us": 230,
+          "instantiate_us": 284.9999964237213,
+          "first_us": 740.0000095367432,
+          "p50_us": 615.0000095367432,
+          "p99_us": 840.0000035762787,
+          "max_us": 855.0000041723251,
+          "mean_us": 604.1999997496605,
+          "budget_us": 21333.333333333332,
+          "p99_pct": 3.937500016763807,
+          "units": 4459418.252,
+          "hash": "1b3d03e4a2d92145",
+          "memory_bytes": 1114112,
+          "error": null
+        },
+        {
+          "name": "walk",
+          "frames": 128,
+          "samples": 2000,
+          "compile_us": 425,
+          "instantiate_us": 319.9999928474426,
+          "first_us": 594.9999988079071,
+          "p50_us": 10.00000536441803,
+          "p99_us": 49.99999701976776,
+          "max_us": 594.9999988079071,
+          "mean_us": 11.279999993741512,
+          "budget_us": 2666.6666666666665,
+          "p99_pct": 1.874999888241291,
+          "units": 41298.76,
+          "hash": "d074122c8c40a9a5",
+          "memory_bytes": 1114112,
+          "error": null
+        },
+        {
+          "name": "analog x2",
+          "frames": 128,
+          "samples": 2000,
+          "compile_us": 390,
+          "instantiate_us": 249.9999925494194,
+          "first_us": 2849.9999940395355,
+          "p50_us": 854.9999892711639,
+          "p99_us": 1784.9999964237213,
+          "max_us": 8204.99999821186,
+          "mean_us": 849.3899998962879,
+          "budget_us": 2666.6666666666665,
+          "p99_pct": 66.93749986588955,
+          "units": 2872650.6765,
+          "hash": "2fa5da638ccdb595",
+          "memory_bytes": 1114112,
+          "error": null
+        }
+      ],
+      "runaway": {
+        "how": "gas",
+        "budget_ms": 2,
+        "stopped_after_us": 19429.999992251396,
+        "over_budget_us": 17429.999992251396,
+        "restart_us": 135.00000536441803,
+        "fault": "dm_process ran past its time budget"
+      },
+      "grow": {
+        "results": [],
+        "memory_before": 1114112,
+        "memory_after": 2162688,
+        "us_per_call": 109.99999940395355,
+        "fault": "dm_process: the memory grew past its freeze (1114112 → 2162688 bytes; the browser cannot refuse memory.grow)"
+      },
+      "timer_us": 4.999995231628418,
+      "error": null
+    },
+    {
+      "runtime": "web-loops",
+      "place": "worker",
+      "workloads": [
+        {
+          "name": "fm16",
+          "frames": 128,
+          "samples": 2000,
+          "compile_us": 335,
+          "instantiate_us": 429.9999922513962,
+          "first_us": 439.9999976158142,
+          "p50_us": 30.000001192092896,
+          "p99_us": 79.99999821186066,
+          "max_us": 469.9999988079071,
+          "mean_us": 34.37750002741814,
+          "budget_us": 2666.6666666666665,
+          "p99_pct": 2.9999999329447746,
+          "units": 10268.0185,
+          "hash": "1b3d03e4a2d92145",
+          "memory_bytes": 1114112,
+          "error": null
+        },
+        {
+          "name": "fm16",
+          "frames": 1024,
+          "samples": 250,
+          "compile_us": 175,
+          "instantiate_us": 169.99998688697815,
+          "first_us": 290.0000065565109,
+          "p50_us": 250,
+          "p99_us": 474.9999940395355,
+          "max_us": 560.0000023841858,
+          "mean_us": 287.6799999475479,
+          "budget_us": 21333.333333333332,
+          "p99_pct": 2.2265624720603228,
+          "units": 82144.148,
+          "hash": "1b3d03e4a2d92145",
+          "memory_bytes": 1114112,
+          "error": null
+        },
+        {
+          "name": "walk",
+          "frames": 128,
+          "samples": 2000,
+          "compile_us": 255.00000000000003,
+          "instantiate_us": 145.00001072883606,
+          "first_us": 334.9999934434891,
+          "p50_us": 4.999995231628418,
+          "p99_us": 15.000000596046448,
+          "max_us": 334.9999934434891,
+          "mean_us": 5.917500004172325,
+          "budget_us": 2666.6666666666665,
+          "p99_pct": 0.5625000223517418,
+          "units": 208.7925,
+          "hash": "d074122c8c40a9a5",
+          "memory_bytes": 1114112,
+          "error": null
+        },
+        {
+          "name": "analog x2",
+          "frames": 128,
+          "samples": 2000,
+          "compile_us": 435,
+          "instantiate_us": 274.9999985098839,
+          "first_us": 1810.0000023841858,
+          "p50_us": 274.9999910593033,
+          "p99_us": 619.9999898672104,
+          "max_us": 1810.0000023841858,
+          "mean_us": 328.1599999964237,
+          "budget_us": 2666.6666666666665,
+          "p99_pct": 23.24999962002039,
+          "units": 17208.096,
+          "hash": "2fa5da638ccdb595",
+          "memory_bytes": 1114112,
+          "error": null
+        }
+      ],
+      "runaway": {
+        "how": "loop counter",
+        "budget_ms": 2,
+        "stopped_after_us": 1680.0000071525574,
+        "over_budget_us": -319.9999928474426,
+        "restart_us": 135.00000536441803,
+        "fault": "dm_process ran past its time budget"
+      },
+      "grow": {
+        "results": [],
+        "memory_before": 1114112,
+        "memory_after": 2162688,
+        "us_per_call": 115.00000953674316,
+        "fault": "dm_process: the memory grew past its freeze (1114112 → 2162688 bytes; the browser cannot refuse memory.grow)"
+      },
+      "timer_us": 4.999995231628418,
+      "error": null
+    },
+    {
+      "runtime": "web-wasmi",
+      "place": "worker",
+      "workloads": [
+        {
+          "name": "fm16",
+          "frames": 128,
+          "samples": 2000,
+          "compile_us": 28145,
+          "instantiate_us": 4105.000004172325,
+          "first_us": 6840.000003576279,
+          "p50_us": 2920.0000017881393,
+          "p99_us": 4480.000004172325,
+          "max_us": 14814.999997615814,
+          "mean_us": 3005.1074999570847,
+          "budget_us": 2666.6666666666665,
+          "p99_pct": 168.0000001564622,
+          "units": 2410407.4565,
+          "hash": "1b3d03e4a2d92145",
+          "memory_bytes": 1114112,
+          "error": null
+        },
+        {
+          "name": "fm16",
+          "frames": 1024,
+          "samples": 250,
+          "compile_us": 2610,
+          "instantiate_us": 349.9999940395355,
+          "first_us": 24930.000007152557,
+          "p50_us": 24090.00000357628,
+          "p99_us": 28494.99998986721,
+          "max_us": 30815.000012516975,
+          "mean_us": 24249.55999994278,
+          "budget_us": 21333.333333333332,
+          "p99_pct": 133.57031245250255,
+          "units": 19283259.652,
+          "hash": "1b3d03e4a2d92145",
+          "memory_bytes": 1114112,
+          "error": null
+        },
+        {
+          "name": "walk",
+          "frames": 128,
+          "samples": 2000,
+          "compile_us": 3345,
+          "instantiate_us": 119.99998986721039,
+          "first_us": 1120.0000047683716,
+          "p50_us": 230.00000417232513,
+          "p99_us": 480.00000417232513,
+          "max_us": 1120.0000047683716,
+          "mean_us": 215.79250003397465,
+          "budget_us": 2666.6666666666665,
+          "p99_pct": 18.000000156462193,
+          "units": 60272.844,
+          "hash": "d074122c8c40a9a5",
+          "memory_bytes": 1114112,
+          "error": null
+        },
+        {
+          "name": "analog x2",
+          "frames": 128,
+          "samples": 2000,
+          "compile_us": 8135,
+          "instantiate_us": 427.49999463558197,
+          "first_us": 16670.00000178814,
+          "p50_us": 14439.999997615814,
+          "p99_us": 19355.000004172325,
+          "max_us": 60560.000002384186,
+          "mean_us": 14604.522499971092,
+          "budget_us": 2666.6666666666665,
+          "p99_pct": 725.8125001564622,
+          "units": 12975421.536,
+          "hash": "2fa5da638ccdb595",
+          "memory_bytes": 1114112,
+          "error": null
+        }
+      ],
+      "runaway": {
+        "how": "fuel",
+        "budget_ms": 2,
+        "stopped_after_us": 16460.00000834465,
+        "over_budget_us": 14460.00000834465,
+        "restart_us": 179.99999225139618,
+        "fault": "dm_process ran past its time budget"
+      },
+      "grow": {
+        "results": [
+          -1,
+          -1,
+          -1,
+          -1,
+          -1,
+          -1,
+          -1,
+          -1
+        ],
+        "memory_before": 1114112,
+        "memory_after": 1114112,
+        "us_per_call": 34.99999828636646,
+        "fault": null
+      },
+      "timer_us": 4.999995231628418,
+      "error": null
+    }
+  ],
+  "sizes": [
+    {
+      "name": "analog.gas.wasm",
+      "bytes": 123908,
+      "gz": 35802
+    },
+    {
+      "name": "analog.loops.wasm",
+      "bytes": 113242,
+      "gz": 33379
+    },
+    {
+      "name": "analog.wasm",
+      "bytes": 112289,
+      "gz": 33395
+    },
+    {
+      "name": "bench-web-wasmi.wasm",
+      "bytes": 1795456,
+      "gz": 468842
+    },
+    {
+      "name": "bench-web.wasm",
+      "bytes": 454163,
+      "gz": 167444
+    },
+    {
+      "name": "fm16.gas.wasm",
+      "bytes": 35750,
+      "gz": 14440
+    },
+    {
+      "name": "fm16.loops.wasm",
+      "bytes": 31573,
+      "gz": 13156
+    },
+    {
+      "name": "fm16.wasm",
+      "bytes": 30697,
+      "gz": 13108
+    },
+    {
+      "name": "stress.gas.wasm",
+      "bytes": 28350,
+      "gz": 11236
+    },
+    {
+      "name": "stress.loops.wasm",
+      "bytes": 25010,
+      "gz": 10212
+    },
+    {
+      "name": "stress.wasm",
+      "bytes": 24365,
+      "gz": 10181
+    },
+    {
+      "name": "walk.gas.wasm",
+      "bytes": 38935,
+      "gz": 15804
+    },
+    {
+      "name": "walk.loops.wasm",
+      "bytes": 34439,
+      "gz": 14527
+    },
+    {
+      "name": "walk.wasm",
+      "bytes": 33733,
+      "gz": 14472
+    },
+    {
+      "name": "live_core.wasm",
+      "bytes": 1433693,
+      "gz": 509804
+    }
+  ]
+}
