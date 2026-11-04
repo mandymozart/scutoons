@@ -236,9 +236,6 @@ impl Media {
     }
 }
 
-/// The retries of a preload with something missing (s): quick at first, then every 30 s.
-pub const RETRY_S: [u64; 5] = [2, 5, 10, 20, 30];
-
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;

@@ -27,7 +27,7 @@
 		"shared/live-deck/scripts/build-wasm.ts": "adapter: builds space-web for the page",
 		"shared/live-deck/src/client.ts": "adapter: the WebSocket and one timer under deck-space's relay client (relay-web, #366); a deck's link",
 		"shared/live-deck/src/controls.ts": "adapter: the controls (DeckControls) on the deck's values, the mappings in localStorage, the arc's drawing",
-		"shared/live-deck/src/deck.ts": "logic (#370): the browser deck – applies the core's state (the mood, the rig turns: #367, #368); the clock choices",
+		"shared/live-deck/src/deck.ts": "adapter: the browser deck – applies the core's state (the mood, the rig turns: #367, #368), hands the clock choices, keys and Web MIDI clock bytes to the core (#370)",
 		"shared/live-deck/src/gamepad.ts": "adapter: the Gamepad API's poll into DeckControls.pad, its events to the sticks",
 		"shared/live-deck/src/index.ts": "types: the package's exports",
 		"shared/live-deck/src/midi.ts": "adapter: Web MIDI access",
@@ -40,7 +40,7 @@
 		"viewer/src/lib/components/live-deck/deck-clock.svelte": "ui: the clock picker and the BPM (#370 makes the choices core state)",
 		"viewer/src/lib/components/live-deck/deck-knob.svelte": "ui: a knob",
 		"viewer/src/lib/components/live-deck/deck-panel.svelte": "ui: the knob panel",
-		"viewer/src/lib/components/live-deck/deck-quality-sheet.svelte": "logic (#375): the quality sheet's option tables",
+		"viewer/src/lib/components/live-deck/deck-quality-sheet.svelte": "ui: the quality sheet – draws deck-space's option lists (options_json, #375)",
 		"viewer/src/lib/components/live-deck/deck-quality.svelte": "ui: the quality row",
 		"viewer/src/lib/components/live-deck/deck-stats.svelte": "ui: the stats bar – draws deck-core's monitor items",
 		"viewer/src/lib/components/live-deck/deck-sticks.svelte": "ui: the corner sticks",
@@ -56,7 +56,7 @@
 		"viewer/src/lib/live-vote.ts": "ui: vote helpers",
 		"viewer/src/routes/(account)/account/lab/vote/+page.svelte": "ui: the vote lab",
 		"viewer/src/routes/live/conductor/[[code]]/+page.svelte": "ui: the conductor page",
-		"viewer/src/routes/live/deck/[[code]]/+page.svelte": "logic (#362): the deck page – the clock source map",
+		"viewer/src/routes/live/deck/[[code]]/+page.svelte": "ui: the deck page – buttons over the core's state, Web MIDI opened when the core's clock needs it (#385 deactivates it, #386 rebuilds the deck's UI)",
 		"viewer/src/routes/live/vote/[[code]]/+page.svelte": "ui: the audience page"
 	}
 }

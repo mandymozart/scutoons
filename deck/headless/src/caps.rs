@@ -18,6 +18,7 @@ use deck_space::gamepad::Pad;
 use deck_space::gesture::{Act, Fingers, Touch, ZOOM_STEP};
 use deck_space::mood::Ladder;
 use deck_space::push;
+use deck_space::quality;
 use deck_space::relay;
 use serde_json::{json, Value};
 
@@ -36,13 +37,15 @@ impl std::fmt::Display for Missing {
 }
 
 /// every capability the runner knows by name: (name, ticket, what, where it lives today)
-pub const CAPS: &[(&str, &str, &str, &str)] = &[
-    ("quality_options", "#375", "the quality page's option tables (fps caps, ratios, sizes) and labels", "native quality.rs Page, deck-quality-sheet.svelte"),
-];
+/// none is missing today (every move ticket landed); the unit test of the `expected_fail` rule has its own stand-in
+#[cfg(not(test))]
+pub const CAPS: &[(&str, &str, &str, &str)] = &[];
+#[cfg(test)]
+pub const CAPS: &[(&str, &str, &str, &str)] = &[("test_missing", "#0", "a stand-in for the unit test of the runner", "nowhere")];
 
 /// the steps the core answers now (their move tickets landed): name, ticket – `hud` (#374, deck-ui) is a step of the
 /// runner's (lib.rs: it reads the deck's clock)
-pub const MOVED: &[(&str, &str)] = &[("stats", "#364"), ("lead", "#365"), ("mood", "#367"), ("rig_facts", "#368"), ("device_text", "#373"), ("meters", "#373"), ("gesture", "#376"), ("knob", "#369"), ("sync", "#371"), ("relay_join", "#366")];
+pub const MOVED: &[(&str, &str)] = &[("stats", "#364"), ("lead", "#365"), ("mood", "#367"), ("rig_facts", "#368"), ("device_text", "#373"), ("meters", "#373"), ("gesture", "#376"), ("knob", "#369"), ("sync", "#371"), ("relay_join", "#366"), ("quality_options", "#375")];
 
 /// Call the capability `name` with the step's input: its answer, or what is missing.
 pub fn call(name: &str, input: &Value) -> Result<Value, Missing> {
@@ -57,6 +60,7 @@ pub fn call(name: &str, input: &Value) -> Result<Value, Missing> {
         "knob" => return Ok(knob(input)),
         "sync" => return Ok(sync(input)),
         "relay_join" => return Ok(relay_join(input)),
+        "quality_options" => return Ok(quality_options()),
         _ => {}
     }
     match CAPS.iter().find(|c| c.0 == name) {
@@ -99,7 +103,11 @@ fn stats(i: &Value) -> Value {
         w.limiter(num(i, "limiter_db", 0.0) as f32);
         m.audio(t, w);
     }
-    serde_json::to_value(m.report(t)).unwrap_or(Value::Null)
+    let mut out = serde_json::to_value(m.report(t)).unwrap_or(Value::Null);
+    // #388: what the run came to – the exit line's numbers (`summary`) and the line as native prints it (`summary_line`)
+    out["summary"] = serde_json::to_value(m.summary()).unwrap_or(Value::Null);
+    out["summary_line"] = json!(m.summary().line());
+    out
 }
 
 /// #365: deck-core's adaptive lead for a device `class`, fed a `glitches` script of [s, running total] – the lead after
@@ -276,6 +284,12 @@ fn relay_join(i: &Value) -> Value {
     let dials = outs().filter(|(_, o)| matches!(o, relay::Out::Dial(_))).count();
     let states: Vec<Value> = outs().filter_map(|(_, o)| if let relay::Out::Status(s) = o { serde_json::to_value(s.state).ok() } else { None }).collect();
     json!({ "pings": sent.iter().filter(|k| *k == "ping").count(), "sent": sent, "backoff_s": waits, "joined_at_s": joined, "dials": dials, "states": states })
+}
+
+/// #375: deck-space's option lists as the browser's sheet gets them (`options_json`, the one place they exist – native's F4
+/// page reads the same constants): levels with their labels, fps caps, scales, heights, pixel ratios, light and size limits.
+fn quality_options() -> Value {
+    serde_json::from_str(&quality::options_json()).unwrap_or(Value::Null)
 }
 
 /// #369: deck-space's controls over one knob (`min`, `max`, `log`) as a page hands it in – its value at `position`, that

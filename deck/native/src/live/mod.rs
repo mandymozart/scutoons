@@ -5,11 +5,15 @@
 //! - **client** (client.rs): the relay as `output` of the outlet – cells, preloads, the show's slice in (deck-outlet's
 //!   route.rs says where each goes); `media.ready` out; resume / snapshot on a reconnect.
 //! - **preloader**: `media.preload` → fetched with the deck token into `<cache>/live/` (media.rs) → `media.ready` (the
-//!   conductor's ready light); what is missing is tried again (2, 5, 10, 20, then every 30 s).
+//!   conductor's ready light); what is missing is tried again (deck-outlet's preload.rs: 2, 5, 10, 20, then every 30 s).
 //! - **composer**: a cell → its plan (deck-outlet's plan.rs: layers → stage nodes) → one plane (deck-outlet's compose.rs,
 //!   reading through compose.rs here: the library and the preloaded media) → the renderer's `outlet` pass, which
-//!   cross-fades it over its `in` (the scene's space node, whose set and spot a 3D set picks – `SpaceTarget`). A scroll
-//!   steps its slices every 6 s; surtitles follow the show's slice; new media re-compose.
+//!   cross-fades it over its `in` (the scene's space node, whose set and spot a 3D set picks – `SpaceTarget`). When it
+//!   composes again (a scroll steps its slices every 6 s, surtitles follow the show's slice, new media, a resize) is
+//!   deck-outlet's recompose.rs.
+//!
+//! The decisions and the HUD's words are deck-outlet's (#391); this module is the threads, the channels and the clock
+//! (`Instant`, passed in as the time since the thread's start).
 //!
 //! The renderer's side (deck-outlet's frame.rs: `Frame`, `Crossfade`) is built with or without the `live` module.
 #[cfg(feature = "live")]
@@ -23,56 +27,28 @@ pub mod media;
 #[cfg(feature = "live")]
 pub mod socket;
 
+/// What the HUD says about the outlet (each part written by its thread; the wording is deck-outlet's, #391).
+pub use deck_outlet::status::Status;
+
 #[cfg(feature = "live")]
 pub use running::*;
-
-/// What the HUD says about the outlet (each part written by its thread).
-#[derive(Debug, Clone, Default)]
-pub struct Status {
-    /// the relay: joining, the client id, offline and why
-    pub link: String,
-    /// the preload: n / m ready, the first missing one's reason
-    pub media: String,
-    /// the cell: its layers, fading
-    pub cell: String,
-    /// what the current cell can't show (layer: reason)
-    pub problems: Vec<String>,
-    /// the relay's last refusal
-    pub problems_relay: Option<String>,
-}
-
-impl Status {
-    /// the HUD's lines (font8x8: upper case, ASCII dashes)
-    pub fn lines(&self, outlet: &str) -> Vec<String> {
-        let up = |s: &str| s.replace(['–', '—'], "-").to_uppercase();
-        let mut out = vec![up(&format!("LIVE {outlet}  {}", self.link))];
-        if !self.media.is_empty() {
-            out.push(up(&format!("MEDIA {}", self.media)));
-        }
-        if !self.cell.is_empty() {
-            out.push(up(&format!("CELL {}", self.cell)));
-        }
-        out.extend(self.problems.iter().chain(&self.problems_relay).map(|p| up(&format!("! {p}"))));
-        out
-    }
-}
 
 #[cfg(feature = "live")]
 mod running {
     use super::compose::{self, Composer};
     use super::config::Config;
-    use super::media::{Media, RETRY_S};
+    use super::media::Media;
     use super::{client, Status};
     use crate::library::Library;
-    use deck_outlet::compose::Composed;
     use deck_outlet::frame::{Frame, SpaceTarget};
-    use deck_outlet::plan::{plan, Plan};
+    use deck_outlet::preload::Preload;
+    use deck_outlet::recompose::Recompose;
     use deck_outlet::route::Input;
-    use protocol::{Cell, CellMode, MediaPreload, Message};
+    use protocol::{MediaPreload, Message};
     use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
     use std::sync::mpsc::{channel, Receiver, RecvTimeoutError, Sender, SyncSender, TrySendError};
     use std::sync::{mpsc, Arc, Mutex};
-    use std::time::{Duration, Instant};
+    use std::time::Instant;
 
     /// The outlet of a scene with an `outlet` node: deck.toml under the CLI's settings → the relay and outlet; the media
     /// with the deck's resolver (`sets`; `synced` = the sync fetches a set's 3D), HTTP and the token (`DECK_TOKEN`, else what
@@ -100,9 +76,6 @@ mod running {
     fn hostname() -> Option<String> {
         std::fs::read_to_string("/etc/hostname").map(|h| h.trim().to_owned()).or_else(|_| std::env::var("COMPUTERNAME")).ok().filter(|h| !h.is_empty())
     }
-
-    /// how long a scroll layer holds a slice (the chapter node's default hold)
-    pub const SCROLL_HOLD: Duration = Duration::from_secs(6);
 
     /// The outlet on this deck: its threads, what they hand the renderer and the space node, the HUD's status.
     pub struct Live {
@@ -203,37 +176,19 @@ mod running {
 
     impl Preloader {
         fn run(self, rx: Receiver<MediaPreload>) {
-            let mut job: Option<MediaPreload> = None;
-            let mut attempt = 0usize;
-            let mut due: Option<Instant> = None;
+            // the decisions (when to fetch, the retry schedule, the HUD's line) are deck-outlet's `Preload`; the clock is ours
+            let start = Instant::now();
+            let mut machine = Preload::default();
             while !self.stop.load(Ordering::Relaxed) {
-                let wait = due.map_or(Duration::from_millis(200), |d| d.saturating_duration_since(Instant::now()).min(Duration::from_millis(200)));
-                match rx.recv_timeout(wait) {
-                    Ok(p) => {
-                        job = Some(p);
-                        attempt = 0;
-                        due = Some(Instant::now());
-                    }
+                match rx.recv_timeout(machine.wait(start.elapsed())) {
+                    Ok(p) => machine.job(p, start.elapsed()),
                     Err(RecvTimeoutError::Timeout) => {}
                     Err(RecvTimeoutError::Disconnected) => break,
                 }
-                let (Some(p), Some(at)) = (&job, due) else { continue };
-                if Instant::now() < at {
-                    continue;
-                }
-                self.status.lock().unwrap().media = format!("LOADING {} ITEMS", p.items.len());
+                let Some(p) = machine.due(start.elapsed()) else { continue };
+                self.status.lock().unwrap().media = machine.loading_line();
                 let ready = self.media.preload(&self.outlet, &p.items);
-                let line = match ready.missing.first() {
-                    None => format!("{} / {} READY", ready.ready.len(), p.items.len()),
-                    Some(id) => {
-                        let why = ready.why.as_ref().and_then(|w| w.get(id)).cloned().unwrap_or_default();
-                        let again = RETRY_S[attempt.min(RETRY_S.len() - 1)];
-                        format!("{} / {} READY - {id}: {why} - AGAIN IN {again} S", ready.ready.len(), p.items.len())
-                    }
-                };
-                self.status.lock().unwrap().media = line;
-                due = (!ready.missing.is_empty()).then(|| Instant::now() + Duration::from_secs(RETRY_S[attempt.min(RETRY_S.len() - 1)]));
-                attempt += 1;
+                self.status.lock().unwrap().media = machine.done(&ready, start.elapsed());
                 let _ = self.compose.send(Input::Media);
                 let _ = self.outbox.send(Message::MediaReady(ready));
             }
@@ -256,13 +211,10 @@ mod running {
         }
 
         fn run(mut self, rx: Receiver<Input>) {
-            let mut cell: Option<Cell> = None;
-            let mut planned = Plan::default();
-            let mut slice: Option<usize> = None;
-            let mut scroll = 0usize;
-            let mut next_step: Option<Instant> = None;
-            let mut space_sent: Option<SpaceTarget> = None;
-            let mut waiting_for_media = false;
+            // when to compose again (a cell, black, the slice, media, a resize, the scroll's hold) is deck-outlet's `Recompose`;
+            // the thread, the composer and the clock are ours
+            let start = Instant::now();
+            let mut machine = Recompose::new(&self.locale, size_of(&self.size));
             let mut pending: Option<Frame> = None;
             while !self.stop.load(Ordering::Relaxed) {
                 // a channel of two: the renderer takes one per frame; full = it isn't drawing (the browser on top) –
@@ -274,62 +226,26 @@ mod running {
                         Err(TrySendError::Disconnected(_)) => break,
                     }
                 }
-                let wait = next_step.map_or(Duration::from_millis(200), |t| t.saturating_duration_since(Instant::now()).min(Duration::from_millis(200)));
-                let mut fresh = false;
-                let mut step = false;
-                match rx.recv_timeout(wait) {
-                    Ok(Input::Cell(c)) => {
-                        planned = plan(&c, &self.locale, Self::carried);
-                        cell = Some(c);
-                        scroll = 0;
-                        fresh = true;
-                    }
-                    Ok(Input::Black) => {
-                        let black = Cell { mode: CellMode::Black, layers: None, of: None, send: None };
-                        planned = plan(&black, &self.locale, Self::carried);
-                        cell = Some(black);
-                        fresh = true;
-                    }
-                    Ok(Input::Slice(s)) => {
-                        let changed = slice != Some(s);
-                        slice = Some(s);
-                        step = changed && planned.follows_the_slice();
-                    }
-                    Ok(Input::Media) => step = waiting_for_media,
-                    Err(RecvTimeoutError::Timeout) => {}
+                let input = match rx.recv_timeout(machine.wait(start.elapsed())) {
+                    Ok(input) => Some(input),
+                    Err(RecvTimeoutError::Timeout) => None,
                     Err(RecvTimeoutError::Disconnected) => break,
-                }
-                let size = size_of(&self.size);
-                if size != self.composer.size && cell.is_some() {
-                    self.composer.size = size;
-                    step = true;
-                }
-                if next_step.is_some_and(|t| Instant::now() >= t) {
-                    scroll += 1;
-                    step = true;
-                }
-                if !(fresh || step) || cell.is_none() {
-                    continue;
-                }
+                };
+                let Some(compose) = machine.step(input, size_of(&self.size), start.elapsed(), Self::carried) else { continue };
+                self.composer.size = machine.size();
                 let t = Instant::now();
-                let out: Composed = if fresh { self.composer.compose(&planned, slice, scroll) } else { self.composer.scroll_step(&planned, slice, scroll) };
-                next_step = planned.scrolls().then(|| Instant::now() + SCROLL_HOLD);
-                waiting_for_media = out.problems.iter().any(|p| p.contains("not preloaded"));
-                if out.space != space_sent {
-                    if let Some(s) = &out.space {
-                        let _ = self.space.send(s.clone());
-                    }
-                    space_sent = out.space.clone();
+                let out = if compose.fresh {
+                    self.composer.compose(machine.plan(), machine.slice(), machine.scroll())
+                } else {
+                    self.composer.scroll_step(machine.plan(), machine.slice(), machine.scroll())
+                };
+                let done = machine.composed(start.elapsed(), t.elapsed().as_secs_f32() * 1000.0, out.frame.backdrop, &out.problems, &out.space);
+                if let Some(s) = done.space {
+                    let _ = self.space.send(s);
                 }
                 {
                     let mut st = self.status.lock().unwrap();
-                    st.cell = format!(
-                        "{} LAYERS{}{} {:.0} MS",
-                        planned.layers.len(),
-                        if out.frame.backdrop { " + SPACE" } else { "" },
-                        if planned.scrolls() { format!(" SCROLL {scroll}") } else { String::new() },
-                        t.elapsed().as_secs_f32() * 1000.0
-                    );
+                    st.cell = done.cell;
                     st.problems = out.problems;
                 }
                 pending = Some(out.frame);

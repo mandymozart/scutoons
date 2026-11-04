@@ -399,6 +399,42 @@ pub struct Report {
     pub lines: Vec<String>,
 }
 
+/// What a whole run came to (the native deck's exit line, #388): the totals the frame side counted from the first frame –
+/// no history is kept, the interval histogram and two sums are (so a kiosk that runs for days holds the same few bytes).
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+pub struct Summary {
+    /// animation frames
+    pub frames: u64,
+    /// drawn frames per second over the run: 1000 ÷ the mean interval between drawn frames
+    pub avg_fps: f32,
+    /// the interval between drawn frames: the mean and p99 (ms; a quantile is its bin's upper edge, within ~9 %)
+    pub frame_ms: f32,
+    pub frame_p99_ms: f32,
+    /// the mean work per animation frame (ms)
+    pub cpu_ms: f32,
+    /// when the first frame was done, on the adapter's clock (ms since it started; 0 = none yet)
+    pub first_frame_ms: f32,
+}
+
+impl Summary {
+    /// the exit line's numbers, worded once: `frames=… avg_fps=… frame_ms avg=… p99=… cpu_ms avg=… first_frame_ms=…`
+    pub fn line(&self) -> String {
+        format!(
+            "frames={} avg_fps={:.1} frame_ms avg={:.2} p99={:.2} cpu_ms avg={:.2} first_frame_ms={:.0}",
+            self.frames, self.avg_fps, self.frame_ms, self.frame_p99_ms, self.cpu_ms, self.first_frame_ms
+        )
+    }
+}
+
+/// the run's counters behind `Summary`
+struct Run {
+    frames: u64,
+    work_ms: f64,
+    intervals: Histogram,
+    /// when the first frame was done (ms, NaN = none yet)
+    first_done: f64,
+}
+
 /// a second of the audio as the series keeps it
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 struct Second {
@@ -442,6 +478,8 @@ pub struct Monitor {
     newest: Option<(Cause, f64)>,
     series: [Second; SERIES],
     series_len: usize,
+    /// the whole run's totals (`summary`)
+    run: Run,
 }
 
 impl Default for Monitor {
@@ -479,6 +517,7 @@ impl Monitor {
             newest: None,
             series: [Second::default(); SERIES],
             series_len: 0,
+            run: Run { frames: 0, work_ms: 0.0, intervals: Histogram::new(FRAME_FLOOR), first_done: f64::NAN },
         }
     }
 
@@ -496,8 +535,11 @@ impl Monitor {
     /// An animation frame at `now` (ms) that took `work_ms` of work; `drawn` = it drew (false: the fps cap skipped it).
     pub fn frame(&mut self, now: f64, work_ms: f32, drawn: bool) {
         self.start(now);
+        self.run.frames += 1;
+        self.run.work_ms += f64::from(work_ms);
         if self.first_frame.is_nan() {
             self.first_frame = now;
+            self.run.first_done = now + f64::from(work_ms);
             self.win_start = now;
             if drawn {
                 self.last_drawn = now;
@@ -510,6 +552,7 @@ impl Monitor {
         if drawn {
             if !self.last_drawn.is_nan() {
                 self.intervals.push((now - self.last_drawn) as f32);
+                self.run.intervals.push((now - self.last_drawn) as f32);
             }
             self.last_drawn = now;
             self.drawn += 1;
@@ -527,6 +570,20 @@ impl Monitor {
             self.work_sum = 0.0;
             self.work_max = 0.0;
             self.intervals.reset();
+        }
+    }
+
+    /// What the whole run came to so far (#388): frames, the mean fps and frame time, p99, the mean work, the first frame.
+    pub fn summary(&self) -> Summary {
+        let r = &self.run;
+        let mean = r.intervals.mean();
+        Summary {
+            frames: r.frames,
+            avg_fps: 1000.0 / mean.max(1e-3),
+            frame_ms: mean,
+            frame_p99_ms: r.intervals.quantile(0.99),
+            cpu_ms: if r.frames == 0 { 0.0 } else { (r.work_ms / r.frames as f64) as f32 },
+            first_frame_ms: if r.first_done.is_nan() { 0.0 } else { r.first_done as f32 },
         }
     }
 
@@ -775,6 +832,41 @@ mod tests {
         assert_eq!(taken.loads.count(), 2);
         assert_eq!((w.loads.count(), w.lead, w.rate, w.warm_ms), (0, 2048, 48_000.0, 70.0), "the window starts again, the facts stay");
         assert_eq!(taken.limit_mean(), (1.75, 50.0));
+    }
+
+    /// #388: the run's totals from samples – every frame counted from the first, the mean over the drawn intervals, a
+    /// p99 within a bin, the first frame's end, the line once
+    #[test]
+    fn the_summary_is_the_runs_totals() {
+        let mut m = Monitor::new();
+        assert_eq!(m.summary().frames, 0);
+        assert_eq!(m.summary().first_frame_ms, 0.0);
+        let mut t = 100.0;
+        // a first frame that took 40 ms of work, 99 frames of 16 ms and 2 ms work, then one hitch of 100 ms
+        m.frame(t, 40.0, true);
+        for _ in 0..99 {
+            t += 16.0;
+            m.frame(t, 2.0, true);
+        }
+        t += 100.0;
+        m.frame(t, 2.0, true);
+        let s = m.summary();
+        assert_eq!(s.frames, 101);
+        assert!((s.frame_ms - (99.0 * 16.0 + 100.0) / 100.0).abs() < 1e-3, "{}", s.frame_ms);
+        assert!((s.avg_fps - 1000.0 / s.frame_ms).abs() < 1e-3);
+        assert!((s.frame_p99_ms - 16.0).abs() < 16.0 * 0.1, "p99 of 100 intervals is the 99th: {}", s.frame_p99_ms);
+        assert!((s.cpu_ms - (40.0 + 100.0 * 2.0) / 101.0).abs() < 1e-3, "{}", s.cpu_ms);
+        assert_eq!(s.first_frame_ms, 140.0, "the first frame ended 40 ms after it began at 100");
+        let line = s.line();
+        assert!(line.starts_with("frames=101 avg_fps=") && line.ends_with("first_frame_ms=140"), "{line}");
+        // a frame the fps cap skipped is a frame, not an interval; the window rolling over (a second) leaves the totals
+        let mut n = Monitor::new();
+        for k in 0..=240 {
+            n.frame(f64::from(k) * 16.667, 1.0, k % 2 == 0);
+        }
+        let s = n.summary();
+        assert_eq!(s.frames, 241);
+        assert!((s.avg_fps - 30.0).abs() < 0.5, "{}", s.avg_fps);
     }
 
     /// 60 drawn frames a second, then a cap of 30: the FPS is what was drawn, not what the page was called for
