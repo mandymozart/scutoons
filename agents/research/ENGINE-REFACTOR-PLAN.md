@@ -27,7 +27,7 @@ It reads the code itself and does not rely on the report. Where the code and the
 | `deck/space` (deck-space) | 12,900 (rig/ ≈ 1,400 code + 644 tests; graph 419, params 151, scene 198, modreg 124) | scene model, the `Kind` table, `Spec` ranges, rigs (`play`, `flatten`, `lower`, checks), the being | stage (model, being), space-web (rigs, being) |
 | `deck/events`, `deck/outputs` | 2,560, 2,474 | generators / patches / routing; the outputs engine | both (already one code base) |
 | `deck/module` (+ macros) | 1,045 + 290 | the SDK and ABI v1 (`Io` with audio, control in **and control out**, events, vars, tempo, character) | modules, both hosts |
-| `deck/build` | 1,875 | compile service (#281); not deployed (owner's bunny step open) | server |
+| `deck/build` | 1,875 | compile service (#281); deployed and tested on production (owner 2026-11-04) | server |
 | `shared/live-core/src` | 1,276 TS | worker, worklet, rings, `lead.ts`, `modules.ts` (346, **imported by its test only**) | browser |
 | `shared/live-deck/src` | 2,100 TS | `deck.ts` melody via `Math.random`, `noise.ts` (Web Audio + `Math.random`), `scene.ts` hand twin of `Spec` ranges, `space.ts:416` a **fixed BPM** fed to the being | browser |
 | `server/src/Domain/Rigs` | RigValidator 704 + generated NodeKinds 38 | second implementation of deck-space's checks | API |
@@ -802,7 +802,7 @@ plays the core rig too); the rig's bare space node is staged in the deck's own r
 mood whose replay changes the rig's shape (`Turn.reload` – no core rig does) is logged and loads with the next scene load
 (a show-time reload would restart the being's mood walk and could flip back and forth).
 
-**P10 – Validation by the core (#313, M), after #302 (M) and the owner's bunny step of #281.** `/validate` in
+**P10 – Validation by the core (#313, M), after #302 (M) and the owner's bunny step of #281 (done 2026-11-04); **built 2026-11-04: #313 merged.** `/validate` in
 scutoons-build (deck-space checks, the same wording); the API forwards on **publish** (authority) and the creator runs
 the same checks in its wasm core as hints on drafts (§8 D6); `RigValidator.php` + `NodeKinds.php` + their fixtures go.
 Accept: PHPUnit for the forwarding and the 503 path, deck:ci, a creator publish with a broken instrument shows the
@@ -907,8 +907,8 @@ Plus orchestrator sessions (≈ 10, one per two or three merges, ≈ $5–10 eac
    5× is still small. Without simd128 the batch path is slower than the patcher – simd128 is not optional.
 4. **Safari:** simd128 (16.4+), SharedArrayBuffer with isolation (15.2+), no Web MIDI (ignored by decision),
    `Atomics.waitAsync` missing in older versions (the 2 ms timer fallback exists). Low risk.
-5. **The build service is not deployed** (the owner's bunny step of #281): it blocks P10's authority and the creator's
-   compile → Play proof of concept (P9b). It is the owner's step, not code.
+5. **The build service is deployed** (the owner's bunny step of #281, done and tested on production 2026-11-04); it no longer blocks P10's authority (#313 built) nor the creator's
+   compile → Play proof of concept (P9b; that one waits on the #306 runtime decision, #393).
 6. **Compile / validate in a shared pod:** compiles yield to live shows (#281's rule); `/validate` must not – it is cheap
    (ms) and runs in its own request path. If the pod is down, publishing waits (503), drafts stay editable.
 7. **Collision: "the native deck must run BatchGraph" vs plan C.** C keeps the decision's meaning (one engine in the core,

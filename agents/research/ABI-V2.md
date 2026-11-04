@@ -309,7 +309,7 @@ impl Module for Tilt {
 | A4 #312 | **Sensors:** the core's channel table, status machine, ring, log replay (M); web adapters in live-core (DeviceMotion, Geolocation, camera features) (M) | M + M | A2 / A3 for the core; **#320** for the browser adapters | native adapters only when a device needs them |
 | A5 #314 | **Groups:** rig doc `policy`, path grammar + resolution in `deck-space`, `rig_table` kind, checks (shared with #313), stats rollup | L | A3; best after **#322** (native deck plays rigs) so it is heard | the declarative path first, the code path second |
 | A6 #343 | **Migrate** `walk`, `fixture`, `analog`; regenerate fixtures; **delete** `modules.ts`, `module-abi.ts`, `modules.test.ts`, `build:modules`; recompile list for stored modules | M | A1, A2 (A3 for hearing) | the three modules' own tests are the proof |
-| A7 #344 | **Build service:** SDK template, `clippy.toml` disallowed methods, pinned RUSTFLAGS, strict-allocator test run, `rebuild --all` | S | A1 | runs where #281 runs (owner's bunny step open) |
+| A7 #344 | **Build service:** SDK template, `clippy.toml` disallowed methods, pinned RUSTFLAGS, strict-allocator test run, `rebuild --all` | S | A1 | runs where #281 runs (deployed and tested on production, owner 2026-11-04) |
 | A8 #307 | **ModuleStats v2 (#307):** the new counters, the browser mirror, per-path rollup | S–M | A3; browser part after **#320** | |
 | A9 #345 | **Docs:** `deck/module/README.md` rewrite, RIG-EDITING §4 pointer, ENGINE-REFACTOR-PLAN §3.6 / P11 status | S | A1 | last |
 | A10 #346 | **Preset files:** export a preset or a set as JSON (`scutoons.preset`, schema from the Rust type), import into the creator as drafts, core validation on import | S–M | A0, A2 | creator UI + `deck-schema`; readers save nothing |
@@ -416,7 +416,7 @@ Estimate from the ledger's classes (M $2.2–2.9, L $4.7–11.2): **≈ $35–55
   the folder form works on an export of a copy. A module of more than flat files (analog has `dsp/`) is a repository crate, not a stored module: the service takes flat files only.
 - **Hole in module-host (not touched here):** a trap's text is the first line of wasmtime's error, "error while executing at wasm backtrace:" – the strict run replaces it
   with "a trap"; the root cause (`wasm trap: …`) is on a later line.
-- **Not done:** the image is not built or deployed (docker is not run here; the service waits for #281); the service's `/health` has no strict-run state.
+- **Not done:** the image was not built by the worker (docker is not run here); the service itself is deployed on production and tested by the owner (2026-11-04, #281 done); the service's `/health` has no strict-run state.
 
 ## 10. Questions for the owner – all decided 2026-11-03
 
