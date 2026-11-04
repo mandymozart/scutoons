@@ -42,8 +42,10 @@ looked at `running`, and the sequencer thread played the notes it had already co
   conductor turning a show on is ONE source of the transport, not the only one), the deck's key (`Key::StartStop`: Space on the native
   deck; the browser deck's key path `clockKey('startstop')`), OSC `/tempo/start` `/tempo/stop` (OSC as the source).
 - **Out:** MIDI clock out (`ClockOut`: 0xFA / 0xFB / 0xFC + song position), the show clock's anchor (a leader's `running`).
-- **No new UI** (owner 2026-11-04: "the browser panel should not have a start stop button … all core functions are within the deck
-  core"): no button in the browser panel; a control surface reaches the transport through the core's key / MIDI / OSC paths.
+- **UI: the deck's, never the browser's** (owner 2026-11-04: "the browser panel should not have a start stop button … all core
+  functions are within the deck core"; "i ruled out only ui in the browser layer. inside the deck we have a basic ui, and we can add a
+  play, stop, and link and unlink option"): no button in the browser panel; the deck's own UI (the core's, #374) gets play, stop and
+  link / unlink (follow the show clock or run on its own) – designed after the engine and rig rewrite. Until then the key / MIDI / OSC.
 - **A scene's autostart:** a scene loads running (the map starts running, as today). *Owner may change:* a `tempo` param
   `autostart = false` (load stopped, wait for a start) is the natural next step – not built.
 - **Clock domains (#358):** the anchor reserves `domain`; a transport per domain comes with the domain ticket, not here.
