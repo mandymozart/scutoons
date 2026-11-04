@@ -34,7 +34,7 @@
 			tick: () => {
 				const d = h.deck;
 				if (!d) return;
-				const next = knobColumns(rigKnobs, d.value, getLocale());
+				const next = knobColumns(rigKnobs, d, getLocale());
 				if (!sameColumns(next, columns)) columns = next;
 				const gr = d.bands.limiterBar;
 				if (Math.abs(gr - reduction) >= 0.01) reduction = gr;

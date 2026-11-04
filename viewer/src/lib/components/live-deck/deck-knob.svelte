@@ -2,14 +2,16 @@
 	// A rotary knob of the browser deck (#209, owner 2026-10-31: "sliders become circular knobs, like Ableton's (rotary,
 	// drag up / down)"): a 270° arc lit to the value, drag up / down to turn it (Shift: fine), a double click back to the
 	// scene's value, the arrow keys step it. A tap (no turn) picks it – it owns the sticks, and in MIDI learn it waits for
-	// a controller. The mapped control shows under it. The 0..1 ↔ value: the deck's ranges (scene.ts Spec).
-	import { arcPoint, knobTurn, toPos, toValue, type Spec } from '@scutoons/live-deck';
+	// a controller. The mapped control shows under it. Where the value sits, a drag's and a key's turn: the core's (#369,
+	// DeckControls); here the pointer, the keys and the arc.
+	import { arcPoint, type KnobTurns, type Spec } from '@scutoons/live-deck';
 	import { m } from '$lib/paraglide/messages.js';
 
 	let {
 		path,
 		spec,
 		value,
+		turns,
 		mapped = '',
 		selected = false,
 		learning = false,
@@ -20,6 +22,8 @@
 		path: string;
 		spec: Spec;
 		value: number;
+		/** the core's controls: the value's position, a drag, a key (null: none yet – the knob shows its start) */
+		turns: KnobTurns | null;
 		/** what drives it over MIDI ("CC 7 · 1") */
 		mapped?: string;
 		/** it owns the sticks */
@@ -34,8 +38,7 @@
 
 	const R = 9;
 	const C = 12;
-	// core-only-ok: #369 drawing: the arc of the knob's position
-	const t = $derived(Math.min(1, Math.max(0, toPos(spec, value))));
+	const t = $derived(turns ? turns.norm(path, value) : 0);
 	const arc = (to: number) => {
 		const [x0, y0] = arcPoint(0, R, C);
 		const [x1, y1] = arcPoint(to, R, C);
@@ -50,7 +53,7 @@
 
 	function down(e: PointerEvent) {
 		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-		drag = { id: e.pointerId, y: e.clientY, start: t, moved: false };
+		drag = { id: e.pointerId, y: e.clientY, start: value, moved: false };
 		ontouch(1);
 		e.preventDefault();
 	}
@@ -59,7 +62,8 @@
 		const dy = e.clientY - drag.y;
 		if (!drag.moved && Math.abs(dy) < 3) return;
 		drag.moved = true;
-		onset(path, toValue(spec, knobTurn(drag.start, dy, range(), e.shiftKey)));
+		const v = turns?.turn(path, drag.start, dy, range(), e.shiftKey);
+		if (v !== undefined) onset(path, v);
 	}
 	function up(e: PointerEvent) {
 		if (!drag || drag.id !== e.pointerId) return;
@@ -68,9 +72,9 @@
 		ontouch(0);
 	}
 	function key(e: KeyboardEvent) {
-		const step = { ArrowUp: 0.01, ArrowRight: 0.01, ArrowDown: -0.01, ArrowLeft: -0.01, PageUp: 0.1, PageDown: -0.1 }[e.key];
-		if (step === undefined) return;
-		onset(path, toValue(spec, Math.min(1, Math.max(0, t + step * (e.shiftKey ? 0.1 : 1)))));
+		const v = turns?.step(path, value, e.key, e.shiftKey);
+		if (v === undefined) return;
+		onset(path, v);
 		e.preventDefault();
 	}
 </script>

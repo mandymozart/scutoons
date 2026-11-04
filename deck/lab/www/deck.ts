@@ -3,7 +3,7 @@
 // relay at once (`?relay=`, default ws://<this host>:7070/live/CATH); Start (the AudioContext needs a gesture) starts
 // the sound; the pads and sliders are the being's exposed parameters; `?space=1` draws the being in 3D above them
 // (deck/space-web's wasm, copied into dist/ by ts/build.ts).
-import { charactersOf, Deck, loadDeckState, SpaceStage, toPos, toValue } from '../../../shared/live-deck/src/index.ts';
+import { charactersOf, Deck, loadDeckState, SpaceStage } from '../../../shared/live-deck/src/index.ts';
 
 const API = 'https://api.scutoons.com/api';
 const CDN = 'https://cdn.scutoons.com/';
@@ -70,6 +70,11 @@ async function loadCharacters() {
 
 // ── the controls: they and the being's buttons turn the deck's one state ──
 const follow = new Map<string, () => void>();
+/** a knob to 0..1 on its range – the core's (#369: DeckState.value_at, clamped there) */
+function setNorm(path: string, t: number) {
+	const v = deck.state?.value_at(path, t);
+	if (v !== undefined) deck.setParam(path, v);
+}
 deck.onValue = (path) => follow.get(path)?.();
 
 function buildSliders() {
@@ -81,10 +86,10 @@ function buildSliders() {
 		const input = Object.assign(document.createElement('input'), { type: 'range', id: path, min: '0', max: '1', step: '0.001' });
 		const out = document.createElement('output');
 		const show = () => {
-			input.value = String(toPos(s, deck.value[path]));
+			input.value = String(deck.norm(path));
 			out.textContent = deck.value[path].toFixed(deck.value[path] >= 10 ? 0 : 2);
 		};
-		input.addEventListener('input', () => deck.setParam(path, toValue(s, Number(input.value))));
+		input.addEventListener('input', () => setNorm(path, Number(input.value)));
 		follow.set(path, show);
 		show();
 		box.append(label, input, out);
@@ -97,14 +102,13 @@ function bindPad(pad: HTMLElement) {
 	if (!(px in PARAMS && py in PARAMS)) return void (pad.hidden = true);
 	const dot = pad.querySelector('i')!;
 	const place = () => {
-		dot.style.left = `${toPos(PARAMS[px], deck.value[px]) * 100}%`;
-		dot.style.top = `${(1 - toPos(PARAMS[py], deck.value[py])) * 100}%`;
+		dot.style.left = `${deck.norm(px) * 100}%`;
+		dot.style.top = `${(1 - deck.norm(py)) * 100}%`;
 	};
 	const move = (e: PointerEvent) => {
 		const r = pad.getBoundingClientRect();
-		const clamp = (t: number) => Math.min(1, Math.max(0, t));
-		deck.setParam(px, toValue(PARAMS[px], clamp((e.clientX - r.left) / r.width)));
-		deck.setParam(py, toValue(PARAMS[py], clamp(1 - (e.clientY - r.top) / r.height)));
+		setNorm(px, (e.clientX - r.left) / r.width);
+		setNorm(py, 1 - (e.clientY - r.top) / r.height);
 	};
 	pad.addEventListener('pointerdown', (e) => {
 		pad.setPointerCapture(e.pointerId);

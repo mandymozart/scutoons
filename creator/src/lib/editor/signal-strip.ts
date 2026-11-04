@@ -9,25 +9,13 @@ import type { MeterZone } from '@scutoons/engine-host';
 export interface KnobLike {
 	path: string;
 	label?: Record<string, string>;
-	min: number;
-	max: number;
-	log?: boolean;
 }
 
 export interface KnobColumn {
 	path: string;
 	label: string;
-	/** where the value sits in its range, 0..1 (log knobs on their log scale) */
+	/** where the value sits in its range, 0..1 on its curve – the core's (#369: live-deck `Deck.norm`) */
 	position: number;
-}
-
-const clamp01 = (x: number): number => (Number.isFinite(x) ? Math.min(1, Math.max(0, x)) : 0);
-
-/** the value's place in [min, max]; a `log` knob (a frequency) on its log scale */
-export function knobPosition(value: number, min: number, max: number, log = false): number {
-	if (!(max > min)) return 0;
-	if (log && min > 0 && value > 0) return clamp01(Math.log(value / min) / Math.log(max / min));
-	return clamp01((value - min) / (max - min));
 }
 
 /** a knob's label in `locale`, else English, else any, else the path's last segment */
@@ -36,9 +24,9 @@ export function knobName(k: KnobLike, locale = 'en'): string {
 	return raw && raw !== '' ? raw : (k.path.split('.').pop() ?? k.path);
 }
 
-/** one column per knob, in the rig's order; `values` = the deck's live values by path (a missing one reads as the minimum) */
-export function knobColumns(knobs: readonly KnobLike[], values: Readonly<Record<string, number>>, locale = 'en'): KnobColumn[] {
-	return knobs.map((k) => ({ path: k.path, label: knobName(k, locale), position: knobPosition(values[k.path] ?? k.min, k.min, k.max, k.log) }));
+/** one column per knob, in the rig's order; `deck.norm` = where the deck's live value of a path sits, 0..1 (the core's) */
+export function knobColumns(knobs: readonly KnobLike[], deck: { norm(path: string): number }, locale = 'en'): KnobColumn[] {
+	return knobs.map((k) => ({ path: k.path, label: knobName(k, locale), position: deck.norm(k.path) }));
 }
 
 /** the same columns again? (the strip only redraws when something moved a visible step) */

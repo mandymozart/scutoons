@@ -6,7 +6,7 @@
 	// the shared tokens – OSCT's debug overlay as #209 describes it. Every control turns the deck's one state; the
 	// being's 3D buttons, the sticks and MIDI turn the same values, so the dials follow them.
 	import { Button, Icon } from '@scutoons/ui';
-	import type { QualityLevel, SpaceQuality, Spec } from '@scutoons/live-deck';
+	import type { KnobTurns, QualityLevel, SpaceQuality, Spec } from '@scutoons/live-deck';
 	import DeckKnob from './deck-knob.svelte';
 	import DeckQuality from './deck-quality.svelte';
 	import DeckClock from './deck-clock.svelte';
@@ -28,6 +28,7 @@
 		learning = '',
 		midi = '',
 		mapped,
+		turns = null,
 		onstart,
 		onset,
 		onpick,
@@ -68,6 +69,8 @@
 		/** MIDI's state: the inputs, or why there is none */
 		midi?: string;
 		mapped: (path: string) => string;
+		/** #369: the core's controls the knobs turn by (null: none yet) */
+		turns?: KnobTurns | null;
 		onstart: () => void;
 		onset: (path: string, value: number) => void;
 		/** a knob tapped: select it (and arm MIDI learn) */
@@ -127,7 +130,7 @@
 			{#if learn || midi}<p class="line">{learning ? m['live_deck.midi_waiting']({ knob: (all.find(([p]) => p === learning)?.[1].label ?? learning) }) : midi || m['live_deck.midi_learn_hint']()}</p>{/if}
 			<div class="knobs">
 				{#each all as [path, spec] (path)}
-					<DeckKnob {path} {spec} value={values[path]} mapped={mapped(path)} selected={selected === path} learning={learning === path} {onset} {onpick} {ontouch} />
+					<DeckKnob {path} {spec} value={values[path]} {turns} mapped={mapped(path)} selected={selected === path} learning={learning === path} {onset} {onpick} {ontouch} />
 				{/each}
 			</div>
 			<p class="line" data-testid="deck-status" title={status}>{status}</p>

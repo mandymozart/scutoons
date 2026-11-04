@@ -8,7 +8,6 @@ import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { DeckLink, envelope, epsilon, parseRelay, RATE, ValueStream } from '../src/client.ts';
-import { toPos, toValue } from '../src/scene.ts';
 import { MOODS, OWN_PARAMS, OWN_STREAMED, ownGraph } from './own.ts';
 import type { Envelope, Tempo } from '@scutoons/live';
 
@@ -59,7 +58,6 @@ test('values: the first sample sends all, then only what moved past its epsilon,
 test('the streamed paths: every exposed input + the hoses', () => {
 	for (const p of Object.keys(OWN_PARAMS)) assert.ok(p in OWN_STREAMED, p);
 	for (const p of ['fft.level', 'fft.bass']) assert.ok(p in OWN_STREAMED, p);
-	for (const s of Object.values(OWN_PARAMS)) for (const t of [0, 0.3, 1]) assert.ok(Math.abs(toPos(s, toValue(s, t)) - t) < 1e-9);
 });
 
 /** a raw conductor on the relay: its messages */

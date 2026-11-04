@@ -811,6 +811,8 @@ mod tests {
         };
         for k in knobs.iter().chain([&crate::deck::Slider { path: "nowhere.x".into(), min: 0.0, max: 1.0, value: 0.5, log: false, label: String::new() }]) {
             put("norm", json!([k.path, k.value]), json!(c.norm(&k.path, k.value)));
+            // a value the host lacks (NaN – JSON's null, as the page's JSON.stringify writes it too)
+            put("norm", json!([k.path, f32::NAN]), json!(c.norm(&k.path, f32::NAN)));
             for t in [0.0, 0.3, 0.6, 1.0] {
                 put("value_at", json!([k.path, t]), json!(c.value(&k.path, t)));
             }
