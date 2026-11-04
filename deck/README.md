@@ -105,14 +105,14 @@ OSC tags), `clock.rs` (the clock's state block: the `Slot`s, `FLAGS`, the page's
 writes `shared/live-core/src/{wire,signals,clock-state}.ts` from them (`// GENERATED` on line 1: the bridge guard skips
 them); the shapes of the codecs (a DataView walk, the OSC payload) are the `.tpl` files beside it. The fixtures
 (`live-core/fixtures`) stay as the cross-check both sides run. **`npm run generate`** writes every generated file (the
-protocol, these three, `module-abi.ts`); `npm run generate -- --check` only compares and is a step of `npm run check`. A
+protocol and these three); `npm run generate -- --check` only compares and is a step of `npm run check`. A
 layout change = edit the table, run it, commit the TypeScript.
 
 ## Kind catalog: one descriptor table (#315)
 
 `catalog/` (`deck-catalog`) holds ONE table of every node kind – ports (type, direction, channels, doc) and parameters
-(range, curve, unit, default, choices, doc) – in the shape a module's descriptor deserializes into (`Descriptor`, ABI v1
-JSON parses with serde defaults). deck-space's `Kind` (ports, domain, parameter specs), deck-core's kind table, the stage
+(range, curve, unit, default, choices, doc) – in the shape a module's descriptor deserializes into (`Descriptor`, module
+ABI v2; a built-in leaves the module fields at their serde defaults). deck-space's `Kind` (ports, domain, parameter specs), deck-core's kind table, the stage
 module table (`feature`) and the batch evaluator's kinds read it; a new kind = a variant in `Kind` + an entry in
 `catalog/src/builtin.rs` + its block (tests check both lists agree). Generated from it, checked in, `--check`ed in
 `npm run deck:ci`: `server/src/Domain/Rigs/kinds.json` (served by `GET /api/kinds` plus the published modules),

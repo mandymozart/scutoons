@@ -63,7 +63,6 @@ fixtures `deck/live-core/fixtures/wire.json` are the cross-check both sides run)
 | `src/wire.ts` | GENERATED (#372) – the records (`writeSend` in place, `readRecords`), the analysis frame (`analysisOf`: bands, spectrum, limiter reduction, the per-channel peaks – #282, the heard values – #320) |
 | `src/signals.ts` | GENERATED (#372) – the scene's `[outputs]` as device messages (MIDI / DMX / OSC records, `readSignals`; `LiveCore.onSignal`) – #282 |
 | `src/clock-state.ts` | GENERATED (#372) from clock.rs + deck-core's tempo – the clock's state block (`SLOT`, `FLAG`, `clockOf`), `SOURCES`, `CLOCK_MESSAGES` (`clock.ts` re-exports it and keeps the page's window) |
-| `src/module-abi.ts` | GENERATED from deck-module's `abi.rs` – the module ABI's numbers |
 | `src/ring.ts` | `Ring` (one writer, one reader, Atomics counters, SAB or plain buffer), `Latest` (sequence lock) |
 | `src/engine.ts` | `WasmCore` (the exports behind views on wasm memory), `Engine` (the pump: drain, render per block, analysis) |
 | `src/worker.ts` | the worker entry: init (wasm compiled there), load, the shared pump / the transfer feed |

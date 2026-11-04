@@ -25,12 +25,6 @@
 		"twin-comment"
 	],
 	"entries": {
-		"shared/live-core/src/modules.ts": {
-			"twin-const": {
-				"count": 1,
-				"ticket": "#343"
-			}
-		},
 		"shared/live-deck/src/client.ts": {
 			"twin-const": {
 				"count": 1,
@@ -372,12 +366,6 @@
 			"lines": 82,
 			"functions": 0,
 			"math": 0,
-			"escapes": 0
-		},
-		"shared/live-core/src/modules.ts": {
-			"lines": 347,
-			"functions": 32,
-			"math": 6,
 			"escapes": 0
 		},
 		"shared/live-core/src/ring.ts": {
