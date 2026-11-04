@@ -43,7 +43,9 @@ final class CatalogDocs
 
     /**
      * 422 invalid_catalog { problems } when a draft is not a valid entry. A reference to an entry that exists only as
-     * a document (a new item a new recipe uses) passes – publishing checks it against the table.
+     * a document (a new item a new recipe uses) passes – publishing checks it against the table. Instruments, presets and
+     * rigs are not sent to the core for a draft (#313): drafts stay editable without the build service, the creator's wasm
+     * runs the same checks as hints, publishing asks the core.
      */
     public function guardSave(EntityKey $key, mixed $content): void
     {
@@ -52,7 +54,7 @@ final class CatalogDocs
         $data = json_decode($json, true);
         // a tombstone is the entry's last document as it was – not checked again
         if (self::isTombstone($data)) return;
-        $problems = array_values(array_filter($this->validator->problems($kind, (string) $key->id, $data, json_decode($json)), fn(string $p) => !$this->draftReference($p)));
+        $problems = array_values(array_filter($this->validator->problems($kind, (string) $key->id, $data, json_decode($json), false), fn(string $p) => !$this->draftReference($p)));
         if ($problems) {
             throw new ApiError(422, 'invalid_catalog', implode('; ', $problems), ['problems' => $problems, 'kind' => $kind, 'id' => $key->id]);
         }

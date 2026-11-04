@@ -1,13 +1,12 @@
 //! deck-schema – everything generated from the kind catalog and the documents' types (#315, ENGINE-REFACTOR-PLAN §2.4):
 //!
 //!   server/src/Domain/Rigs/kinds.json     the explanatory catalog: every built-in kind, its ports and parameters with docs
-//!   server/src/Domain/Rigs/NodeKinds.php  the validator's kinds / ports (until #313 retires it)
 //!   deck/catalog/schema.json              JSON Schema (draft 2020-12) of `Catalog` and the rig `Bundle` (rig, instruments, presets)
 //!   shared/live/src/catalog.ts            the same as TypeScript types
 //!
 //! `cargo run -p deck-space --features schema --bin deck-schema` writes them; `-- --check` only compares (exit 1 when a
 //! file is stale – the deck:ci step). The protocol stays schema-first (deck/protocol/generate.ts); the kinds are Rust-first.
-use deck_catalog::{catalog, Domain, PortType, Scope};
+use deck_catalog::catalog;
 use deck_space::rig::bundle::Bundle;
 use serde_json::{Map, Value};
 use std::fmt::Write as _;
@@ -35,7 +34,6 @@ fn main() {
     let defs = definitions();
     let mut files: Vec<(&str, String)> = Vec::new();
     files.push(("server/src/Domain/Rigs/kinds.json", format!("{}\n", serde_json::to_string_pretty(&cat).unwrap())));
-    files.push(("server/src/Domain/Rigs/NodeKinds.php", node_kinds_php(&cat)));
     let schema = serde_json::json!({
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "title": "deck catalog and documents",
@@ -74,44 +72,6 @@ fn definitions() -> Map<String, Value> {
     g.subschema_for::<deck_catalog::Catalog>();
     g.subschema_for::<Bundle>();
     g.take_definitions(true)
-}
-
-fn php_ty(t: PortType) -> &'static str {
-    match t {
-        PortType::Audio | PortType::Cv => "audio",
-        PortType::Control | PortType::Event => "control",
-        PortType::Video => "video",
-    }
-}
-
-/// the validator's file: the kinds a graph may use, with domain and typed ports (RigValidator mirrors graph.rs's checks)
-fn node_kinds_php(cat: &deck_catalog::Catalog) -> String {
-    let ports = |d: &deck_catalog::Descriptor, dir: deck_catalog::Dir| {
-        d.ports.iter().filter(|p| p.dir == dir).map(|p| format!("'{}' => '{}'", p.name, php_ty(p.ty))).collect::<Vec<_>>().join(", ")
-    };
-    let mut kinds = String::new();
-    let mut scene_only = Vec::new();
-    for d in cat.kinds.iter().filter(|d| d.scope == Scope::Graph) {
-        let domain = match d.domain {
-            Domain::Audio => "audio",
-            Domain::Control => "control",
-            Domain::Video => "video",
-        };
-        let _ = writeln!(
-            kinds,
-            "        '{}' => ['domain' => '{domain}', 'inputs' => [{}], 'outputs' => [{}]],",
-            d.name,
-            ports(d, deck_catalog::Dir::In),
-            ports(d, deck_catalog::Dir::Out)
-        );
-        if d.scene_only {
-            scene_only.push(format!("'{}'", d.name));
-        }
-    }
-    format!(
-        "<?php\ndeclare(strict_types=1);\n\nnamespace Scutoons\\Domain\\Rigs;\n\n/**\n * GENERATED from deck/catalog (the kind catalog) – do not edit: `cargo run -p deck-space --features schema --bin deck-schema`\n * writes it (deck:ci fails when it is stale). The node kinds an instrument's graph may use (RigValidator mirrors\n * graph.rs's checks with them): kind → its domain (audio · control · video – a control link into or out of an audio\n * node does not order, graph.rs `Link::orders`) and its input / output ports with their types. kinds.json beside it\n * is the full, explained catalog; until #313 retires the validator this file is its small projection.\n */\nfinal class NodeKinds\n{{\n    public const KINDS = [\n{kinds}    ];\n    /** kinds a scene owns once (the catalog's `scene_only`): never inside an instrument */\n    public const SCENE_ONLY = [{}];\n}}\n",
-        scene_only.join(", ")
-    )
 }
 
 // ---- TypeScript from the JSON Schema: the subset schemars writes for these types; anything else panics (like protocol/generate.ts)

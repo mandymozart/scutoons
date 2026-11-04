@@ -11,7 +11,6 @@ use Scutoons\Domain\Library\Answer;
 use Scutoons\Domain\Library\ChapterFiles;
 use Scutoons\Domain\Library\Library;
 use Scutoons\Domain\Library\SceneContent;
-use Scutoons\Domain\Rigs\RigValidator;
 use Scutoons\Domain\Roles\Roles;
 use Scutoons\Http\CurrentSession;
 use Scutoons\Http\Middleware\Cors;
@@ -130,7 +129,7 @@ final class LibraryController
             if (count($list) > SceneContent::MAX_IDS) throw new ApiError(400, 'invalid_ids', "$name: at most " . SceneContent::MAX_IDS . ' ids.');
             return $list;
         };
-        $presets = $ids('presets', RigValidator::PRESET_ID);
+        $presets = $ids('presets', CatalogValidator::PRESET_ID);
         $content = $this->scenes->of($ids('sets'), $ids('characters'), $ids('items', CatalogValidator::ID_PATTERN), $presets);
         $body = SceneContent::json($content);
         return $this->send($request, $response, new Answer($body, '"s' . substr(sha1($body), 0, 24) . '"', false, null));

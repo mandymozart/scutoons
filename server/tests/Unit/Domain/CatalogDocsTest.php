@@ -10,9 +10,11 @@ use Scutoons\Domain\Catalog\CatalogStore;
 use Scutoons\Domain\Content\EntityStore;
 use Scutoons\Domain\Content\Reviews;
 use Scutoons\Domain\Roles\Roles;
+use Scutoons\Infrastructure\AssetStorage\HttpClient;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Config\Settings;
 use Scutoons\Kernel;
+use Scutoons\Tests\FakeCore;
 use Scutoons\Tests\TestCase;
 use Slim\Psr7\Factory\ServerRequestFactory;
 
@@ -23,6 +25,20 @@ use Slim\Psr7\Factory\ServerRequestFactory;
  */
 final class CatalogDocsTest extends TestCase
 {
+    private FakeCore $core;
+
+    protected function settings(): array
+    {
+        return FakeCore::settings() + parent::settings();
+    }
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->core = new FakeCore();
+        $this->container->set(HttpClient::class, $this->core);
+    }
+
     /**
      * @param array<string, mixed> $fields
      * @return array<string, mixed> a new virtual item
@@ -92,22 +108,31 @@ final class CatalogDocsTest extends TestCase
     public function testRigKindsAreDocumentsToo(): void
     {
         $writer = $this->creator('writer@example.com');
+        // the core (#313, a fake): a preset whose parent did not come along with it is refused in the core's words
+        $this->core->answer = function (array $r): array {
+            $parent = $r['document']['parent'] ?? null;
+            if ($r['kind'] === 'presets' && is_string($parent) && !in_array($parent, array_column($r['presets'], 'id'), true)) return ["preset {$r['id']}: unknown preset \"$parent\" (its parent)"];
+            if ($r['kind'] === 'presets' && isset($r['document']['values']['drone.cv'])) return ['instrument drone: drone.cv is not a control input of osc'];
+            return [];
+        };
         $rigs = self::json($this->request('GET', '/api/catalog/docs/rigs', $this->bearer($writer)));
         self::assertSame(['character.catpope', 'item.incense_burner'], array_column($rigs['entries'], 'id'), 'the migrated core rigs (table data, no document yet)');
         // a derivative whose parent is only a draft so far: saved, and published after its parent
         self::assertSame(200, $this->put($writer, 'preset:drone.dark', ['id' => 'drone.dark', 'instrument' => 'drone', 'parent' => 'drone.base', 'values' => ['drone.freq' => 41.0]])->getStatusCode());
         self::assertSame(200, $this->put($writer, 'preset:drone.dark.deep', ['id' => 'drone.dark.deep', 'instrument' => 'drone', 'parent' => 'drone.dark', 'values' => ['drone.freq' => 30.0]])->getStatusCode());
         $early = $this->request('POST', '/api/entities/preset:drone.dark.deep/publish', $this->bearer($writer), '{}');
-        self::assertSame([422, 'invalid_catalog'], [$early->getStatusCode(), self::json($early)['error'] ?? null]);
+        self::assertSame([422, 'invalid_catalog', ['preset drone.dark.deep: unknown preset "drone.dark" (its parent)']], [$early->getStatusCode(), self::json($early)['error'] ?? null, self::json($early)['problems'] ?? null]);
         self::assertSame(200, $this->request('POST', '/api/entities/preset:drone.dark/publish', $this->bearer($writer), '{}')->getStatusCode());
         self::assertSame(200, $this->request('POST', '/api/entities/preset:drone.dark.deep/publish', $this->bearer($writer), '{}')->getStatusCode());
         $rig = ['subject' => 'character.boy', 'track' => [['id' => 'pad', 'instrument' => 'drone', 'preset' => 'drone.dark.deep']], 'moods' => ['sad' => (object) []]];
         self::assertSame(200, $this->put($writer, 'rig:character.boy', $rig)->getStatusCode());
         self::assertSame(200, $this->request('POST', '/api/entities/rig:character.boy/publish', $this->bearer($writer), '{}')->getStatusCode());
         self::assertStringContainsString('"moods":{"sad":{}}', (string) $this->db->value("SELECT data FROM catalog_rigs WHERE id = 'character.boy'"), '{} stays {} (serde\'s Variant)');
-        // refused as a draft: what deck-space would refuse
-        $bad = $this->put($writer, 'preset:drone.bad', ['id' => 'drone.bad', 'instrument' => 'drone', 'values' => ['drone.cv' => 1.0]]);
-        self::assertSame([422, 'invalid_catalog'], [$bad->getStatusCode(), self::json($bad)['error'] ?? null]);
+        // what the core refuses: saved as a draft (the creator's hints say why), refused on publish in the core's words
+        self::assertSame(200, $this->put($writer, 'preset:drone.bad', ['id' => 'drone.bad', 'instrument' => 'drone', 'values' => ['drone.cv' => 1.0]])->getStatusCode());
+        $bad = $this->request('POST', '/api/entities/preset:drone.bad/publish', $this->bearer($writer), '{}');
+        self::assertSame([422, 'invalid_catalog', ['instrument drone: drone.cv is not a control input of osc']], [$bad->getStatusCode(), self::json($bad)['error'] ?? null, self::json($bad)['problems'] ?? null]);
+        // the catalog's own rule holds for a draft too
         self::assertSame(422, $this->put($writer, 'rig:character.girl', ['subject' => 'character.boy', 'track' => []])->getStatusCode(), 'subject = the id');
     }
 
@@ -359,6 +384,7 @@ final class CatalogDocsTest extends TestCase
         }
         $container = Kernel::container(Settings::fixed(self::root(), $this->settings()));
         $container->set(Clock::class, $this->clock);
+        $container->set(HttpClient::class, $this->core);
         return Kernel::app($container)->handle($request);
     }
 

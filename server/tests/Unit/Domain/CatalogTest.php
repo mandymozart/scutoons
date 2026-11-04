@@ -141,7 +141,8 @@ final class CatalogTest extends TestCase
         $validator = $this->get(CatalogValidator::class);
         foreach (array_keys(CatalogStore::KINDS) as $kind) {
             foreach ($store->rows($kind) as $row) {
-                self::assertSame([], $validator->problems($kind, $row['id'], json_decode($row['data'], true)), "$kind {$row['id']}");
+                // the API's own checks (instruments / presets / rigs are the core's: RigsTest, deck-space's validate tests)
+                self::assertSame([], $validator->problems($kind, $row['id'], json_decode($row['data'], true), null, false), "$kind {$row['id']}");
             }
         }
         $camera = $store->get('items', 'camera');

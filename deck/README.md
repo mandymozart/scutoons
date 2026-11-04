@@ -126,7 +126,7 @@ ABI v2; a built-in leaves the module fields at their serde defaults). deck-space
 module table (`feature`) and the batch evaluator's kinds read it; a new kind = a variant in `Kind` + an entry in
 `catalog/src/builtin.rs` + its block (tests check both lists agree). Generated from it, checked in, `--check`ed in
 `npm run deck:ci`: `server/src/Domain/Rigs/kinds.json` (served by `GET /api/kinds` plus the published modules),
-`NodeKinds.php`, `deck/catalog/schema.json` (JSON Schema of the catalog and the rig bundle) and
+`deck/catalog/schema.json` (JSON Schema of the catalog and the rig bundle) and
 `shared/live/src/catalog.ts`. Regenerate: `cargo run -p deck-space --features schema --bin deck-schema` (the `schema`
 feature – schemars and the doc strings – stays out of every wasm build). `catalog_version` rises when a kind, port or
 parameter is renamed or removed (a stored-format change).

@@ -8,7 +8,7 @@
 //   npm run deck:ci -- --if-changed <from> <to>   only when deck/ or shared/live* changed in that range (the pre-push hook)
 //
 // Steps: the bridge guard (check:core-only, check:deck-deps – #363), the headless deck host's scenarios (#363), the protocol schema current (shared/live), the kind catalog's generated files current (deck-space's deck-schema
-// --check: kinds.json, NodeKinds.php, the JSON Schema, shared/live/src/catalog.ts), live-core for wasm32 + simd128 (its gz size under the gate) + its TS tests, deck-engine for wasm32 + simd128 (its gz size under the gate), space-web for wasm32, deck-outlet for wasm32 (#378), deck-ui for wasm32 (#374) +
+// --check: kinds.json, the JSON Schema, shared/live/src/catalog.ts), live-core for wasm32 + simd128 (its gz size under the gate) + its TS tests, deck-engine for wasm32 + simd128 (its gz size under the gate), space-web for wasm32, deck-outlet for wasm32 (#378), deck-ui for wasm32 (#374) +
 // shared/live-deck's tests, cargo build --release, cargo test (+ the stage's module tests), cargo clippy -D warnings (+ with the module feature). The Linux aarch64 cross build
 // and the other platforms stay on GitHub (by hand) – this runs the host's native target.
 import { execFileSync, spawnSync } from 'node:child_process';
