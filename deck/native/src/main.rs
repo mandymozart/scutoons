@@ -1171,7 +1171,7 @@ impl App {
         self.show.show_link.after(&mut self.show.tempo);
         self.show.controls.update(dt, self.lead(), &beat);
         #[cfg(feature = "outputs")]
-        self.dying = self.dying.take().filter(|(_, until)| Instant::now() < *until);
+        self.dying.take_if(|(_, until)| Instant::now() >= *until);
         // #211: the values to the outputs' runner; its MIDI for the conductor to the relay link
         #[cfg(feature = "outputs")]
         if let Some(o) = &self.show.outputs {
