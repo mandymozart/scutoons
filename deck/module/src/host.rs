@@ -19,18 +19,69 @@ pub fn parse(json: &str) -> Result<Descriptor, String> {
     Ok(d)
 }
 
-/// A module's descriptor against this host: the ABI version, the names, the ranges, the counts the ABI has room for,
-/// and the catalog's own rules for the v2 fields (`Descriptor::check`).
+/// A v1 module's descriptor against this host: the ABI version, the names, the ranges, the counts the ABI has room
+/// for, and the catalog's own rules for the v2 fields (`Descriptor::check`).
 pub fn validate(d: &Descriptor) -> Result<(), String> {
     if d.abi != Some(ABI_VERSION) {
         let abi = d.abi.map_or("no ABI".to_string(), |a| format!("ABI {a}"));
         return Err(format!("module '{}' speaks {abi}, this host speaks {ABI_VERSION}", d.name));
     }
-    if !ident(&d.name) {
-        return Err(format!("module name '{}' is not a lowercase identifier (a-z, 0-9, _; at most 24)", d.name));
-    }
     if d.params.len() > MAX_PARAMS {
         return Err(format!("module '{}' has {} parameters, at most {MAX_PARAMS}", d.name, d.params.len()));
+    }
+    names_and_ranges(d)?;
+    // a `cv` port is an audio port of two channels (pitch, gate): it takes an audio slot
+    let count = |dir: Dir, types: &[PortType]| d.ports.iter().filter(|p| p.dir == dir && types.contains(&p.ty)).count();
+    for (dir, types, max) in [
+        (Dir::In, &[PortType::Audio, PortType::Cv][..], MAX_AUDIO_PORTS),
+        (Dir::Out, &[PortType::Audio, PortType::Cv][..], MAX_AUDIO_PORTS),
+        (Dir::In, &[PortType::Control][..], MAX_CONTROL_IN),
+        (Dir::Out, &[PortType::Control][..], MAX_CONTROL_OUT),
+    ] {
+        let n = count(dir, types);
+        if n > max {
+            return Err(format!("module '{}' has {n} {:?} ports {dir:?}, at most {max}", d.name, types[0]));
+        }
+    }
+    d.check()
+}
+
+/// Parses an ABI v2 module's descriptor and [`validate_v2`]s it (#340; the v1 `parse` refuses it until #343).
+pub fn parse_v2(json: &str) -> Result<Descriptor, String> {
+    let d: Descriptor = serde_json::from_str(json).map_err(|e| format!("descriptor: {e}"))?;
+    validate_v2(&d)?;
+    Ok(d)
+}
+
+/// An ABI v2 descriptor: the version, the names and ranges (as v1), a domain a module can have, no audio port on a
+/// control-domain module, the limits of the derived layout (`Shape::of`: ports, channels, capacities, the closed sensor
+/// vocabulary), and the catalog's rules (`Descriptor::check`). Returns the shape the layout is computed from.
+pub fn validate_v2(d: &Descriptor) -> Result<crate::v2::Shape, String> {
+    use crate::v2::layout::ABI_VERSION as V2;
+    if d.abi != Some(V2) {
+        let abi = d.abi.map_or("no ABI".to_string(), |a| format!("ABI {a}"));
+        return Err(format!("module '{}' speaks {abi}, this host speaks {V2}", d.name));
+    }
+    names_and_ranges(d)?;
+    match d.domain {
+        deck_catalog::Domain::Audio => {}
+        deck_catalog::Domain::Control => {
+            if let Some(p) = d.ports.iter().find(|p| matches!(p.ty, PortType::Audio | PortType::Cv)) {
+                return Err(format!("module '{}': a control-domain module has no audio port ('{}')", d.name, p.name));
+            }
+        }
+        deck_catalog::Domain::Video => return Err(format!("module '{}': the domain is audio or control", d.name)),
+    }
+    let shape = crate::v2::Shape::of(d)?;
+    d.check()?;
+    Ok(shape)
+}
+
+/// v1 and v2 alike: the module's, parameters' and ports' names are identifiers in one namespace; every parameter has
+/// min < max and a default inside
+fn names_and_ranges(d: &Descriptor) -> Result<(), String> {
+    if !ident(&d.name) {
+        return Err(format!("module name '{}' is not a lowercase identifier (a-z, 0-9, _; at most 24)", d.name));
     }
     let mut names: Vec<&str> = Vec::new();
     for p in d.params.iter() {
@@ -52,21 +103,9 @@ pub fn validate(d: &Descriptor) -> Result<(), String> {
     if let Some(w) = names.windows(2).find(|w| w[0] == w[1]) {
         return Err(format!("module '{}': the name '{}' is used twice (parameters and ports share one namespace)", d.name, w[0]));
     }
-    // a `cv` port is an audio port of two channels (pitch, gate): it takes an audio slot
-    let count = |dir: Dir, types: &[PortType]| d.ports.iter().filter(|p| p.dir == dir && types.contains(&p.ty)).count();
-    for (dir, types, max) in [
-        (Dir::In, &[PortType::Audio, PortType::Cv][..], MAX_AUDIO_PORTS),
-        (Dir::Out, &[PortType::Audio, PortType::Cv][..], MAX_AUDIO_PORTS),
-        (Dir::In, &[PortType::Control][..], MAX_CONTROL_IN),
-        (Dir::Out, &[PortType::Control][..], MAX_CONTROL_OUT),
-    ] {
-        let n = count(dir, types);
-        if n > max {
-            return Err(format!("module '{}' has {n} {:?} ports {dir:?}, at most {max}", d.name, types[0]));
-        }
-    }
-    d.check()
+    Ok(())
 }
+
 /// The `deck.module` custom section of a wasm binary (the descriptor's JSON), without instantiating it.
 pub fn read_descriptor(wasm: &[u8]) -> Option<&str> {
     fn leb(b: &[u8], at: &mut usize) -> Option<usize> {

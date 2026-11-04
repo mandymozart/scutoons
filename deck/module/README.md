@@ -1,4 +1,4 @@
-# deck-module – the module SDK and its ABI (v1)
+# deck-module – the module SDK and its ABI (v1, and v2 opt-in)
 
 A rig module (research/RIG-EDITING.md §4) is a Rust crate against this one, compiled to `wasm32-unknown-unknown`
 (`crate-type = ["cdylib", "rlib"]`) and run by wasmtime on a deck (deck-native, feature `modules`) or by the browser's
@@ -29,7 +29,31 @@ impl Module for Walk {
 }
 ```
 
-## What a module sees and may do
+## ABI v2 (#340, research/ABI-V2.md) – beside v1 until #343
+
+`#[module(abi = 2)]` opts a module into v2: `use deck_module::v2::{Block, Ctx, Ev, Module, Outputs …}`. The memory layout is
+derived from the descriptor (`v2::Layout::of(&Shape)`, one `const fn` for the derive and the host; `dm_layout()` exports its
+hash), so ports, channels, parameters, events, sensors and assets are descriptor fields, not ABI limits. What the derive adds:
+
+- `#[module(name, abi = 2, domain = "audio"|"control", doc, needs = "motion", wants = "position|camera.motion", latency = 32)]`,
+  `#[reads("story.act", …)]` (→ `Self::STORY_ACT: Var`, `ctx.var(Self::STORY_ACT)`), `#[asset(name, kind = "pcm"|"bytes"|"image",
+  max_bytes, doc)]` (→ `Self::KICK: AssetSlot`, `ctx.asset(Self::KICK)`), `#[preset(name, doc, values(p = x, …))]` (the one factory preset).
+- `#[port(…, audio|cv|control|event|video, channels = 2|"any", sidechain, names = "music.note", props = "pitch|vel", capacity = 64,
+  path = "lead:@preset", mode = "set"|"add"|"mul", choices = "a|b", doc)]`; every port gets `Self::<NAME>`, its index in its group.
+- `#[param(range, default, curve = log, unit = "Hz", choices = "saw|pulse", doc)]` (choices: the value is the index).
+- `Block`: `audio_in(p) -> Planar` / `audio_out(p) -> PlanarMut` (`ch()`, `chan(c)`, `stereo()`), `events_in(p) -> &[Ev]`,
+  `control_in(i)`, `set(i, v)`, `emit(port, Ev)`, `set_silent(p)`. `Outputs` (control domain): `set`, `emit`. `Ctx`: times
+  (`frame`, `show_ms`, `tempo`, `beats`, `bar`), `seed`, `character()` (+ mood index, energy / touch / strain), `var`, sensors
+  (`motion()`, `position()`, `face()`, `camera_motion()` with a `Status`), `asset`, and the inputs `control_in` / `events_in`.
+- Parameters are a table the host writes (clamped, NaN ignored); the dirty ones are copied into the fields before a call and
+  `Module::params_changed(dirty)` follows. `Smooth` and `deck_module::math` (libm) for the DSP.
+- Exports: `dm_abi` (2), `dm_io`, `dm_layout`, `dm_descriptor_ptr/len`, `dm_new`, `dm_process` **or** `dm_control`,
+  `dm_asset_buf` (with assets). No `dm_set_param`. The counting allocator counts allocations inside a call into
+  `OutHdr.allocs` and traps when the header's `strict` is set.
+- Tests: `v2::testing::Rig` (strict; install `v2::alloc::Counting` as the test binary's global allocator to count natively).
+  The host side reads the descriptor with `host::parse_v2` / `validate_v2` and computes the same layout with `Shape::of`.
+
+## What a module sees and may do (v1)
 
 - **`Ctx` (read-only)**: `tempo()` (bpm, running, per_bar, `beat_at(frame)`, `frame_of(beat)` – deck-core's `TempoMap`,
   same formulas), `beats()` (the beat span of this call), `phase()`, `frame()`, `frames()`, `rate()`, `character()`

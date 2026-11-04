@@ -1,6 +1,7 @@
 # deck-module – the SDK for rig modules (#280, research/RIG-EDITING.md §4): a creator writes an instrument as a Rust
 # crate against this one, compiled to wasm32-unknown-unknown and run in wasmtime (deck) or the browser's engine
-# (live-core). No dependencies: the module's wasm stays small and the compile service has nothing to vet. The `host`
+# (live-core). One dependency, the pure-Rust `libm` (ABI-V2 §6: the same bits native and wasm, `deck_module::math`); the
+# module's wasm stays small and the compile service has little to vet. The `host`
 # feature adds the descriptor check (on deck-catalog's `Descriptor`) for whoever loads a module – never for the module itself.
 [package]
 name = "deck-module"
@@ -17,6 +18,7 @@ host = ["dep:deck-catalog", "dep:serde_json"]
 
 [dependencies]
 deck-module-macros = { path = "../module-macros" }
+libm = "0.2"
 deck-catalog = { path = "../catalog", optional = true }
 serde_json = { workspace = true, optional = true }
 

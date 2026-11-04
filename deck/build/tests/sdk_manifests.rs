@@ -43,7 +43,9 @@ fn the_baked_deck_module_is_the_workspaces() {
     assert_eq!(section(MODULE_BAKED, "features"), section(MODULE, "features"));
     let (real, baked) = (section(MODULE, "dependencies"), section(MODULE_BAKED, "dependencies"));
     assert_eq!(names(&baked), names(&real), "the same dependencies");
-    assert_eq!(names(&baked), ["deck-module-macros", "deck-catalog", "serde_json"]);
+    // libm: the SDK's deterministic maths (ABI-V2 §6, #340) – the one dependency a member gets through it
+    assert_eq!(names(&baked), ["deck-module-macros", "libm", "deck-catalog", "serde_json"]);
+    assert_eq!(value(&baked, "libm"), value(&real, "libm"), "the same libm");
     // optional stays optional: a member must not get serde (nor the catalog) through the SDK
     for dep in ["deck-catalog", "serde_json"] {
         assert!(value(&baked, dep).unwrap().contains("optional = true"), "{dep}");
