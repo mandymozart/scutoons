@@ -7,7 +7,7 @@ use Scutoons\Domain\Avatar\AvatarSlots;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Modules\ModuleSource;
 use Scutoons\Domain\Reader\ReaderStats;
-use Scutoons\Domain\Rigs\RigValidator;
+use Scutoons\Domain\Rigs\CoreValidator;
 use Scutoons\Infrastructure\Database\Database;
 use stdClass;
 use Throwable;
@@ -17,8 +17,10 @@ use Throwable;
  * `validateAlbums` (wardrobe.ts, albums.ts) on the server, per entry against the rest of the catalog:
  *   ids (pattern, `data.id` = the entry id), required fields and their types, slots / stats (code), item ↔ product ↔
  *   edition references, recipe items, scan_object grants, respawn rules, album ↔ format, featured products / variants,
- *   code type grants ↔ permissions, toons (id = a content toon id, name, redirectUrl), instruments / presets / rigs
- *   (RigValidator: what deck-space would refuse) and instrument items (`category: "instrument"` + `instrument`).
+ *   code type grants ↔ permissions, toons (id = a content toon id, name, redirectUrl), instrument items (`category:
+ *   "instrument"` + `instrument`). Instruments / presets / rigs: only their catalog ids here (and a rig's subject = its
+ *   id) – what makes them valid is the Rust core's (CoreValidator → the build service's `POST /validate`, #313), asked on
+ *   every catalog write, not on a draft.
  * The client-side extras (wear overlays against the character registry, "no player plays …" warnings) stay in the
  * creator / admin (validateCatalog), they need the content registry.
  * `uses()` lists what still refers to an entry (a delete is refused while there is any).
@@ -46,18 +48,25 @@ final class CatalogValidator
     public const MEDIA_ACCESS = ['public', 'members', 'owners'];
     public const GRANT_SOURCES = ['story', 'scan'];
     public const MAX_FEATURED = 12;
+    /** an instrument's id */
+    public const INSTRUMENT_ID = '#^[a-z0-9][a-z0-9_-]{0,63}$#';
+    /** a factory preset: dot-separated slugs (`cathedral_voice.bright`), ≤ 100 characters */
+    public const PRESET_ID = '#^(?=.{1,100}$)[a-z0-9][a-z0-9_-]*(?:\.[a-z0-9][a-z0-9_-]*){0,3}$#';
+    /** a rig's id = its subject (KANON's form): `character.<id>[.<persona>]` or `item.<id>` */
+    public const SUBJECT = '#^(?:character\.[a-z0-9][a-z0-9_-]{0,63}(?:\.[a-z0-9][a-z0-9_-]{0,63})?|item\.[A-Za-z0-9][A-Za-z0-9_-]{0,63})$#';
 
-    public function __construct(private readonly CatalogStore $store, private readonly Database $db)
+    public function __construct(private readonly CatalogStore $store, private readonly Database $db, private readonly CoreValidator $core)
     {
     }
 
     /**
      * Problems of writing $data as entry $id of $kind (none = valid). $raw = the same data decoded with objects
      * (stdClass – `{}` and `[]` stay apart, which deck-space's serde forms need: instruments, presets, rigs); left out,
-     * it is rebuilt from $data.
+     * it is rebuilt from $data. $core: instruments / presets / rigs are also checked by the core (a catalog write – 503
+     * without the build service); false for a draft, which the creator's wasm hints at instead.
      * @return list<string>
      */
-    public function problems(string $kind, string $id, mixed $data, mixed $raw = null): array
+    public function problems(string $kind, string $id, mixed $data, mixed $raw = null, bool $core = true): array
     {
         $p = [];
         $pattern = match ($kind) {
@@ -66,10 +75,10 @@ final class CatalogValidator
             'permissions' => self::PERMISSION_ID_PATTERN,
             'albums' => self::ALBUM_ID_PATTERN,
             'featured' => '#^[A-Za-z0-9][A-Za-z0-9_:-]{0,190}$#',
-            'instruments' => RigValidator::INSTRUMENT_ID,
+            'instruments' => self::INSTRUMENT_ID,
             'modules' => ModuleSource::ID_PATTERN,
-            'presets' => RigValidator::PRESET_ID,
-            'rigs' => RigValidator::SUBJECT,
+            'presets' => self::PRESET_ID,
+            'rigs' => self::SUBJECT,
             default => self::ID_PATTERN,
         };
         if (!preg_match($pattern, $id)) $p[] = "id \"$id\" is not a valid $kind id";
@@ -99,7 +108,7 @@ final class CatalogValidator
             'toons' => self::toon($data),
             'meta' => self::meta($id, $data),
             'modules' => self::module($data),
-            'instruments', 'presets', 'rigs' => $this->rigKind($kind, $id, self::rigData($raw ?? json_decode((string) json_encode($data)))),
+            'instruments', 'presets', 'rigs' => $this->rigKind($kind, $id, self::rigData($raw ?? json_decode((string) json_encode($data))), $core),
             default => [],
         };
         return [...$p, ...$add];
@@ -120,19 +129,44 @@ final class CatalogValidator
     }
 
     /**
-     * An instrument / preset / rig against the catalog (this entry counts with its new data): RigValidator, deck-space's
-     * rules
+     * An instrument / preset / rig: the core's problems (#313) – the document goes with what it names from the catalog, by
+     * value: a preset's instrument and its ancestors, a rig's instruments and presets with theirs (this entry counts with
+     * its new data, so it is never a lookup of itself). A rig's subject is its catalog id (the catalog's rule).
+     * @param 'instruments'|'presets'|'rigs' $kind
      * @return list<string>
      */
-    private function rigKind(string $kind, string $id, mixed $data): array
+    private function rigKind(string $kind, string $id, mixed $data, bool $core): array
     {
-        $instruments = fn(string $i) => $kind === 'instruments' && $i === $id ? ($data instanceof stdClass ? $data : null) : $this->rigEntry('instruments', $i);
-        $presets = fn(string $i) => $kind === 'presets' && $i === $id ? ($data instanceof stdClass ? $data : null) : $this->rigEntry('presets', $i);
-        return match ($kind) {
-            'instruments' => RigValidator::instrument($data),
-            'presets' => RigValidator::preset($data, $instruments, $presets),
-            default => RigValidator::rig($data, $id, $instruments, $presets),
-        };
+        $p = [];
+        if ($kind === 'rigs' && (!$data instanceof stdClass || ($data->subject ?? null) !== $id)) $p[] = "rig $id: subject must be \"$id\"";
+        if (!$core) return $p;
+        $instrumentIds = [];
+        $presetIds = [];
+        if ($data instanceof stdClass && $kind === 'presets') {
+            $instrumentIds[] = $data->instrument ?? null;
+            $presetIds[] = $data->parent ?? null;
+        } elseif ($data instanceof stdClass && $kind === 'rigs') {
+            $decoded = json_decode((string) json_encode($data), true);
+            $instrumentIds = array_column(self::tracks($decoded), 'instrument');
+            $presetIds = self::rigPresets($decoded);
+        }
+        $instruments = [];
+        foreach (array_unique(array_filter($instrumentIds, 'is_string')) as $i) {
+            if (($entry = $this->rigEntry('instruments', $i)) !== null) $instruments[] = $entry;
+        }
+        $presets = [];
+        $queue = array_values(array_filter($presetIds, 'is_string'));
+        $seen = $kind === 'presets' ? [$id => true] : [];
+        while ($queue !== []) {
+            $pid = (string) array_shift($queue);
+            if (isset($seen[$pid])) continue;
+            $seen[$pid] = true;
+            $entry = $this->rigEntry('presets', $pid);
+            if ($entry === null) continue;
+            $presets[] = $entry;
+            if (is_string($entry->parent ?? null)) $queue[] = $entry->parent;
+        }
+        return [...$p, ...$this->core->problems($kind, $id, $data, $instruments, $presets)];
     }
 
     /** an instrument / preset of the catalog decoded with objects (as deck-space reads it), null when there is none */
@@ -143,7 +177,7 @@ final class CatalogValidator
         return $data instanceof stdClass ? $data : null;
     }
 
-    /** the data without the admin's accepted warnings (never served; deck-space would refuse the unknown field) */
+    /** the data without the admin's accepted warnings (never served; the core would refuse the unknown field) */
     private static function rigData(mixed $raw): mixed
     {
         if ($raw instanceof stdClass) {

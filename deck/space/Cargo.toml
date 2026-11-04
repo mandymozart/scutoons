@@ -21,7 +21,7 @@ being = ["dep:glam", "dep:ab_glyph", "dep:image", "dep:bytemuck"]
 gpu = ["being", "dep:wgpu"]
 # loaders on threads and from files: a set's .glb, the portraits from a folder, images decoded in Rust (WebP, PNG)
 native = ["being", "image/png", "image/webp"]
-# the generator (src/bin/deck-schema.rs): kinds.json, the JSON Schema, the TS types and NodeKinds.php from the catalog and
+# the generator (src/bin/deck-schema.rs): kinds.json, the JSON Schema and the TS types from the catalog and
 # the documents' types (#315). Never in a wasm build.
 schema = ["dep:schemars", "deck-catalog/schema"]
 

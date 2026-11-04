@@ -127,7 +127,7 @@ fn lineage_refuses_loops_strangers_and_orphans() {
     assert!(book.lineage("choir.bright").unwrap_err().to_string().contains("another instrument"));
     let mut book = lib.presets.clone();
     book.presets.get_mut("choir.base").unwrap().parent = Some("gone".into());
-    assert!(format!("{:#}", book.lineage("choir.bright").unwrap_err()).contains("no preset 'gone'"));
+    assert_eq!(format!("{:#}", book.lineage("choir.bright").unwrap_err()), "preset choir.base: unknown preset \"gone\" (its parent)");
 }
 
 #[test]
@@ -551,8 +551,8 @@ fn an_events_node_must_hold_a_patch_that_builds() {
 }
 
 /// The catalog (deck-catalog) and `Kind` list the same kinds: every `graph` kind of the catalog is a `Kind` in the same order
-/// (the generated server file keeps it), and the scene-only ones are the ones instruments refuse. The server's
-/// NodeKinds.php and kinds.json are checked by `deck-schema --check` (deck:ci).
+/// (kinds.json keeps it), and the scene-only ones are the ones instruments refuse. kinds.json is checked by
+/// `deck-schema --check` (deck:ci); instruments are checked by the core alone (#313: rig/validate.rs, the API asks deck/build).
 #[test]
 fn the_catalog_and_the_kind_enum_agree() {
     use crate::graph::Kind;

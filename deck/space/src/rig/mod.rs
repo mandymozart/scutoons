@@ -6,6 +6,8 @@
 //! - engine.rs – a flattened rig split for live-core (deck-engine in the browser): the kinds it carries, and the rest
 //! - horizon.rs – the mood horizon: the moods reachable next, played ahead (deck-events' horizon), swapped on the trigger
 //! - flatten.rs – a rig as one playable scene (the tracks summed into audio_out, the routes as links)
+//! - validate.rs – an instrument / preset / rig document checked with what it names (#313: the API's catalog writes via
+//!   deck/build `POST /validate`, the creator's hints via space-web)
 //! - here – a rig: a character's (or a scene object's, #210) tracks, each an instrument + its default preset, routes
 //!   between tracks and to the being's look, and per-persona / per-mood variants; `Rig::play` resolves it.
 //!
@@ -17,6 +19,7 @@ mod flatten;
 pub mod horizon;
 pub mod instrument;
 pub mod preset;
+pub mod validate;
 
 pub use bundle::{Bundle, Diff, Knob, Played, Stream};
 pub use horizon::Prebuilt;
@@ -201,12 +204,14 @@ impl Rig {
         let mut seen = std::collections::BTreeSet::new();
         for t in &self.tracks {
             if !seen.insert(t.id.as_str()) {
-                bail!("rig '{}': track '{}' twice", self.subject, t.id);
+                bail!("rig {}: track '{}' twice", self.subject, t.id);
             }
             if t.id.contains([':', '.']) {
-                bail!("rig '{}': a track id has no ':' or '.' ({})", self.subject, t.id);
+                bail!("rig {}: a track id has no ':' or '.' ({})", self.subject, t.id);
             }
-            lib.instrument(&t.instrument)?;
+            if !lib.instruments.contains_key(&t.instrument) {
+                bail!("rig {}: unknown instrument \"{}\"", self.subject, t.instrument);
+            }
             if let Some(p) = &t.preset {
                 self.preset_fits(lib, t, p)?;
             }
@@ -224,7 +229,7 @@ impl Rig {
         }
         for r in &self.routes {
             for end in [&r.from, &r.to] {
-                let Some((scope, _)) = scoped(end) else { bail!("rig '{}': route end '{end}' has no scope", self.subject) };
+                let Some((scope, _)) = scoped(end) else { bail!("rig {}: route end '{end}' has no scope", self.subject) };
                 if !(scope == "being" && end == &r.to) {
                     self.track(scope)?;
                 }
@@ -236,14 +241,14 @@ impl Rig {
     fn track(&self, id: &str) -> Result<&Track> {
         match self.tracks.iter().find(|t| t.id == id) {
             Some(t) => Ok(t),
-            None => bail!("rig '{}': no track '{id}'", self.subject),
+            None => bail!("rig {}: no track '{id}'", self.subject),
         }
     }
 
     fn preset_fits(&self, lib: &Library, t: &Track, preset: &str) -> Result<()> {
-        let p = lib.presets.get(preset)?;
+        let Some(p) = lib.presets.presets.get(preset) else { bail!("rig {}: unknown preset \"{preset}\"", self.subject) };
         if p.instrument != t.instrument {
-            bail!("rig '{}': track '{}' plays '{}', preset '{preset}' is for '{}'", self.subject, t.id, t.instrument, p.instrument);
+            bail!("rig {}: track '{}' plays '{}', preset '{preset}' is for '{}'", self.subject, t.id, t.instrument, p.instrument);
         }
         Ok(())
     }

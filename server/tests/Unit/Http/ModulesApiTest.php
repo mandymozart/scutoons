@@ -118,12 +118,9 @@ final class ModulesApiTest extends TestCase
         $catalog = self::json($this->request('GET', '/api/kinds', $me));
         self::assertSame(1, $catalog['catalog_version']);
         $kinds = array_column($catalog['kinds'], null, 'name');
-        // every kind the validator knows is in the catalog with the same input ports
-        foreach (\Scutoons\Domain\Rigs\NodeKinds::KINDS as $name => $kind) {
-            self::assertArrayHasKey($name, $kinds, $name);
-            $in = array_column(array_filter($kinds[$name]['ports'], fn($p) => $p['dir'] === 'in'), 'type', 'name');
-            self::assertSame($kind['inputs'], $in, "$name inputs");
-        }
+        // every built-in kind of the generated catalog file is served
+        $file = json_decode((string) file_get_contents(\Scutoons\Domain\Rigs\KindCatalog::FILE), true);
+        foreach ($file['kinds'] as $kind) self::assertArrayHasKey($kind['name'], $kinds, $kind['name']);
         $fm = $kinds['fm'];
         self::assertSame(['audio', 'synth', 'core'], [$fm['domain'], $fm['module'], $fm['feature']]);
         $ratio = array_values(array_filter($fm['params'], fn($p) => $p['name'] === 'ratio'))[0];

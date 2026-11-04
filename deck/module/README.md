@@ -97,7 +97,7 @@ Clippy takes the repeated `#[port(…)]` lines of one struct for duplicates: put
 
 ## The build service
 
-`deck/build` (`scutoons-build`, routes `POST /compile`, `GET /health`) writes the member's crate itself: the one dependency
+`deck/build` (`scutoons-build`, routes `POST /compile`, `POST /validate` – the core's checks of instruments, presets and rigs for the API, #313 –, `GET /health`) writes the member's crate itself: the one dependency
 `deck-module` (`compile::manifest`, stub `STUB_SOURCE`), the fixed release profile, a `clippy.toml` and pinned flags
 (`determinism.rs`). The `clippy.toml` disallows the `std` float functions that differ between platforms (`sin exp powf ln tan` ...,
 the message names `deck_module::math::...`); the service runs `cargo clippy` after the build and returns only those as warnings

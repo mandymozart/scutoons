@@ -302,7 +302,7 @@ impl Bundle {
             Some(pairs) => {
                 for p in pairs.iter().flatten() {
                     if !p.is_empty() && !knobs.iter().any(|k| &k.path == p) {
-                        bail!("rig '{}': stick '{p}' is not one of its knobs", self.rig.subject);
+                        bail!("rig {}: stick '{p}' is not one of its knobs", self.rig.subject);
                     }
                 }
                 pairs.clone()

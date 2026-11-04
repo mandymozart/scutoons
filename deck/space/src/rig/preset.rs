@@ -113,11 +113,11 @@ impl PresetBook {
         while let Some(parent) = &chain.last().expect("never empty").parent {
             let child = chain.last().expect("never empty");
             if chain.iter().any(|p| &p.id == parent) {
-                bail!("preset '{id}': its lineage loops at '{parent}'");
+                bail!("preset {id}: its lineage loops at \"{parent}\"");
             }
-            let p = self.get(parent).map_err(|e| e.context(format!("the parent of '{}'", child.id)))?;
+            let Some(p) = self.presets.get(parent) else { bail!("preset {}: unknown preset \"{parent}\" (its parent)", child.id) };
             if p.instrument != child.instrument {
-                bail!("preset '{}' ({}) derives from '{}' of another instrument ({})", child.id, child.instrument, p.id, p.instrument);
+                bail!("preset {} ({}) derives from \"{}\" of another instrument ({})", child.id, child.instrument, p.id, p.instrument);
             }
             chain.push(p);
         }

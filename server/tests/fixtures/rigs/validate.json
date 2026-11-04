@@ -1,0 +1,598 @@
+{
+    "about": "#313: the requests of POST /validate (deck/build) as the API builds them (the document + its lookups by value) and the problems the retired PHP RigValidator gave on them (captured 2026-11-04 before it was deleted) - the core answers the same words (deck/build tests/validate.rs, server ValidateByCoreTest).",
+    "cases": [
+        {
+            "name": "a valid rig",
+            "kind": "rigs",
+            "id": "character.boy",
+            "document": {
+                "subject": "character.boy",
+                "track": [
+                    {
+                        "id": "voice",
+                        "instrument": "cathedral_voice",
+                        "preset": "cathedral_voice.base"
+                    },
+                    {
+                        "id": "drone",
+                        "instrument": "drone"
+                    }
+                ],
+                "moods": {
+                    "sad": {
+                        "presets": {
+                            "voice": "cathedral_voice.low"
+                        },
+                        "values": {
+                            "drone:drone.gain": 0.1
+                        }
+                    }
+                }
+            },
+            "instruments": [
+                {
+                    "id": "cathedral_voice",
+                    "kind": "voice",
+                    "name": {
+                        "de": "Kathedralenstimme",
+                        "en": "Cathedral voice"
+                    },
+                    "node": [
+                        {
+                            "id": "voice",
+                            "kind": "fm",
+                            "freq": 147.0,
+                            "gain": 0.16,
+                            "index": 2.0,
+                            "ratio": 1.5
+                        },
+                        {
+                            "id": "melody",
+                            "kind": "walk",
+                            "base": 147.0,
+                            "bpm": 84.0,
+                            "glide": 0.5,
+                            "octaves": 2.0,
+                            "rate": 2.0,
+                            "seed": 84,
+                            "spread": 0.0
+                        }
+                    ],
+                    "link": [
+                        {
+                            "from": "melody.cv",
+                            "to": "voice.cv",
+                            "scale": 1.0,
+                            "offset": 0.0
+                        }
+                    ],
+                    "out": "voice",
+                    "expose": [
+                        {
+                            "path": "voice.ratio",
+                            "label": {
+                                "de": "FM-Verhältnis",
+                                "en": "FM ratio"
+                            },
+                            "range": [
+                                0.5,
+                                4.0
+                            ]
+                        },
+                        {
+                            "path": "voice.index",
+                            "label": {
+                                "de": "FM-Index",
+                                "en": "FM index"
+                            },
+                            "range": [
+                                0.0,
+                                8.0
+                            ]
+                        },
+                        {
+                            "path": "voice.gain",
+                            "label": {
+                                "de": "Stimme",
+                                "en": "voice"
+                            },
+                            "range": [
+                                0.0,
+                                0.3
+                            ]
+                        },
+                        {
+                            "path": "melody.spread",
+                            "label": {
+                                "de": "Weite",
+                                "en": "spread"
+                            }
+                        },
+                        {
+                            "path": "melody.rate",
+                            "label": {
+                                "de": "Schritte / Schlag",
+                                "en": "steps / beat"
+                            }
+                        },
+                        {
+                            "path": "melody.glide",
+                            "label": {
+                                "de": "Gleiten",
+                                "en": "glide"
+                            }
+                        }
+                    ],
+                    "rights": {
+                        "lent": [
+                            "play",
+                            "tweak"
+                        ],
+                        "owned": [
+                            "play",
+                            "tweak",
+                            "derive",
+                            "copy"
+                        ],
+                        "core": [
+                            "play",
+                            "tweak",
+                            "derive"
+                        ]
+                    }
+                },
+                {
+                    "id": "drone",
+                    "kind": "pad",
+                    "name": {
+                        "de": "Bordun",
+                        "en": "Drone"
+                    },
+                    "node": [
+                        {
+                            "id": "drone",
+                            "kind": "osc",
+                            "freq": 55.0,
+                            "gain": 0.1
+                        },
+                        {
+                            "id": "fifth",
+                            "kind": "osc",
+                            "freq": 82.5,
+                            "gain": 0.03
+                        },
+                        {
+                            "id": "mix",
+                            "kind": "mixer"
+                        }
+                    ],
+                    "link": [
+                        {
+                            "from": "drone",
+                            "to": "mix.in1",
+                            "scale": 1.0,
+                            "offset": 0.0
+                        },
+                        {
+                            "from": "fifth",
+                            "to": "mix.in2",
+                            "scale": 1.0,
+                            "offset": 0.0
+                        }
+                    ],
+                    "out": "mix",
+                    "expose": [
+                        {
+                            "path": "drone.freq",
+                            "label": {
+                                "de": "Bordun-Tonhöhe",
+                                "en": "drone pitch"
+                            },
+                            "range": [
+                                30.0,
+                                220.0
+                            ]
+                        },
+                        {
+                            "path": "drone.gain",
+                            "label": {
+                                "de": "Bordun",
+                                "en": "drone"
+                            },
+                            "range": [
+                                0.0,
+                                0.3
+                            ]
+                        }
+                    ],
+                    "rights": {
+                        "lent": [
+                            "play",
+                            "tweak"
+                        ],
+                        "owned": [
+                            "play",
+                            "tweak",
+                            "derive",
+                            "copy"
+                        ],
+                        "core": [
+                            "play",
+                            "tweak",
+                            "derive"
+                        ]
+                    }
+                }
+            ],
+            "presets": [
+                {
+                    "id": "cathedral_voice.base",
+                    "instrument": "cathedral_voice",
+                    "tags": [
+                        "cathedral"
+                    ],
+                    "rights": {
+                        "lent": [
+                            "play",
+                            "tweak"
+                        ],
+                        "owned": [
+                            "play",
+                            "tweak",
+                            "derive",
+                            "copy"
+                        ],
+                        "core": [
+                            "play",
+                            "tweak",
+                            "derive"
+                        ]
+                    }
+                },
+                {
+                    "id": "cathedral_voice.low",
+                    "instrument": "cathedral_voice",
+                    "parent": "cathedral_voice.base",
+                    "tags": [
+                        "cathedral",
+                        "sad"
+                    ],
+                    "values": {
+                        "voice.index": 1.0,
+                        "voice.ratio": 0.5
+                    },
+                    "rights": {
+                        "lent": [
+                            "play",
+                            "tweak"
+                        ],
+                        "owned": [
+                            "play",
+                            "tweak",
+                            "derive",
+                            "copy"
+                        ],
+                        "core": [
+                            "play",
+                            "tweak",
+                            "derive"
+                        ]
+                    }
+                }
+            ],
+            "problems": []
+        },
+        {
+            "name": "a valid instrument",
+            "kind": "instruments",
+            "id": "choir",
+            "document": {
+                "id": "choir",
+                "kind": "voice",
+                "name": {
+                    "en": "Choir"
+                },
+                "out": "voice",
+                "node": [
+                    {
+                        "id": "voice",
+                        "kind": "fm",
+                        "ratio": 1.5,
+                        "gain": 0.16
+                    },
+                    {
+                        "id": "sway",
+                        "kind": "lfo",
+                        "rate": 0.07
+                    }
+                ],
+                "link": [
+                    {
+                        "from": "sway",
+                        "to": "voice.index",
+                        "scale": 2.0
+                    }
+                ],
+                "expose": [
+                    {
+                        "path": "voice.gain",
+                        "label": {
+                            "en": "voice"
+                        },
+                        "range": [
+                            0.0,
+                            0.3
+                        ]
+                    }
+                ]
+            },
+            "instruments": [],
+            "presets": [],
+            "problems": []
+        },
+        {
+            "name": "a broken instrument: its out is a control output",
+            "kind": "instruments",
+            "id": "choir",
+            "document": {
+                "id": "choir",
+                "kind": "voice",
+                "name": {
+                    "en": "Choir"
+                },
+                "out": "sway",
+                "node": [
+                    {
+                        "id": "voice",
+                        "kind": "fm",
+                        "ratio": 1.5,
+                        "gain": 0.16
+                    },
+                    {
+                        "id": "sway",
+                        "kind": "lfo",
+                        "rate": 0.07
+                    }
+                ],
+                "link": [
+                    {
+                        "from": "sway",
+                        "to": "voice.index",
+                        "scale": 2.0
+                    }
+                ],
+                "expose": [
+                    {
+                        "path": "voice.gain",
+                        "label": {
+                            "en": "voice"
+                        },
+                        "range": [
+                            0.0,
+                            0.3
+                        ]
+                    }
+                ]
+            },
+            "instruments": [],
+            "presets": [],
+            "problems": [
+                "instrument choir: out 'sway' is not an audio output"
+            ]
+        },
+        {
+            "name": "a valid preset with its lineage",
+            "kind": "presets",
+            "id": "choir.bright",
+            "document": {
+                "id": "choir.bright",
+                "instrument": "choir",
+                "parent": "choir.base",
+                "values": {
+                    "voice.ratio": 3.0
+                },
+                "mapping": [
+                    {
+                        "source": "face:jawOpen",
+                        "target": "voice.gain"
+                    }
+                ]
+            },
+            "instruments": [
+                {
+                    "id": "choir",
+                    "kind": "voice",
+                    "name": {
+                        "en": "Choir"
+                    },
+                    "out": "voice",
+                    "node": [
+                        {
+                            "id": "voice",
+                            "kind": "fm",
+                            "ratio": 1.5,
+                            "gain": 0.16
+                        },
+                        {
+                            "id": "sway",
+                            "kind": "lfo",
+                            "rate": 0.07
+                        }
+                    ],
+                    "link": [
+                        {
+                            "from": "sway",
+                            "to": "voice.index",
+                            "scale": 2.0
+                        }
+                    ],
+                    "expose": [
+                        {
+                            "path": "voice.gain",
+                            "label": {
+                                "en": "voice"
+                            },
+                            "range": [
+                                0.0,
+                                0.3
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "presets": [
+                {
+                    "id": "choir.base",
+                    "instrument": "choir",
+                    "values": {
+                        "voice.ratio": 1.5
+                    }
+                }
+            ],
+            "problems": []
+        },
+        {
+            "name": "a bad preset lineage: the parent plays another instrument",
+            "kind": "presets",
+            "id": "choir.x",
+            "document": {
+                "id": "choir.x",
+                "instrument": "choir",
+                "parent": "drone.base"
+            },
+            "instruments": [
+                {
+                    "id": "choir",
+                    "kind": "voice",
+                    "name": {
+                        "en": "Choir"
+                    },
+                    "out": "voice",
+                    "node": [
+                        {
+                            "id": "voice",
+                            "kind": "fm",
+                            "ratio": 1.5,
+                            "gain": 0.16
+                        },
+                        {
+                            "id": "sway",
+                            "kind": "lfo",
+                            "rate": 0.07
+                        }
+                    ],
+                    "link": [
+                        {
+                            "from": "sway",
+                            "to": "voice.index",
+                            "scale": 2.0
+                        }
+                    ],
+                    "expose": [
+                        {
+                            "path": "voice.gain",
+                            "label": {
+                                "en": "voice"
+                            },
+                            "range": [
+                                0.0,
+                                0.3
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "presets": [
+                {
+                    "id": "drone.base",
+                    "instrument": "drone",
+                    "tags": [
+                        "cathedral"
+                    ],
+                    "rights": {
+                        "lent": [
+                            "play",
+                            "tweak"
+                        ],
+                        "owned": [
+                            "play",
+                            "tweak",
+                            "derive",
+                            "copy"
+                        ],
+                        "core": [
+                            "play",
+                            "tweak",
+                            "derive"
+                        ]
+                    }
+                }
+            ],
+            "problems": [
+                "preset choir.x (choir) derives from \"drone.base\" of another instrument (drone)"
+            ]
+        },
+        {
+            "name": "a bad preset lineage: a loop",
+            "kind": "presets",
+            "id": "choir.base",
+            "document": {
+                "id": "choir.base",
+                "instrument": "choir",
+                "parent": "choir.bright"
+            },
+            "instruments": [
+                {
+                    "id": "choir",
+                    "kind": "voice",
+                    "name": {
+                        "en": "Choir"
+                    },
+                    "out": "voice",
+                    "node": [
+                        {
+                            "id": "voice",
+                            "kind": "fm",
+                            "ratio": 1.5,
+                            "gain": 0.16
+                        },
+                        {
+                            "id": "sway",
+                            "kind": "lfo",
+                            "rate": 0.07
+                        }
+                    ],
+                    "link": [
+                        {
+                            "from": "sway",
+                            "to": "voice.index",
+                            "scale": 2.0
+                        }
+                    ],
+                    "expose": [
+                        {
+                            "path": "voice.gain",
+                            "label": {
+                                "en": "voice"
+                            },
+                            "range": [
+                                0.0,
+                                0.3
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "presets": [
+                {
+                    "id": "choir.bright",
+                    "instrument": "choir",
+                    "parent": "choir.base"
+                }
+            ],
+            "problems": [
+                "preset choir.base: its lineage loops at \"choir.base\""
+            ]
+        }
+    ]
+}
