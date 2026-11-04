@@ -93,6 +93,8 @@ export interface DeckStateView {
 	graph(character: string): string;
 	/** where a value of a path goes in the engine ('' = nowhere) */
 	target(path: string): string;
+	/** #370: the clock picker's choices (deck-core `ClockMode::ALL`) */
+	clock_modes(): string[];
 }
 
 /** #220: the render quality now (deck-space quality.rs) */

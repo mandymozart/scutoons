@@ -11,12 +11,13 @@
 //! MIDI clock out (the page's MIDI OUT): deck-core's `ClockOut` – the native deck's schedule – on the map and line each
 //! frame leaves, `OUT_AHEAD_S` ahead; each message with the page's ms it is due at. The page writes the bytes to Web
 //! MIDI with that timestamp and decides nothing.
-use deck_core::tempo::{ClockOut, Config, Controller, Event, Key, Line, Moment, NoHost, Shared, Source, TimeBase, What};
+use deck_core::tempo::{ClockMode, ClockOut, Config, Controller, Event, Key, Line, Moment, NoHost, Shared, Source, TimeBase, What};
 use std::sync::Arc;
 
 /// the state block: [heard ms, beat, bpm, per_bar, running, source, flags, offset ms, rtt ms, error ms, the anchor to
-/// send: bpm, per_bar, beat, at (relay ms), running, click]
-pub const STATE: usize = 16;
+/// send: bpm, per_bar, beat, at (relay ms), running, click, the picker's choice (`ClockMode::ALL`'s index, -1: none of
+/// them), the MIDI clock out on, the strobe's flash: its beat edge (page ms) and length (ms; 0: no flash)] (#370)
+pub const STATE: usize = 20;
 /// flags: the filter is locked, an anchor came, this deck leads, the MIDI clock is lost, a ping is due, an anchor to send
 pub const LOCKED: u32 = 1;
 pub const ANCHOR: u32 = 2;
@@ -111,12 +112,19 @@ impl Clock {
         self.ctl.push(Event { at_ns, what: What::Joined });
     }
 
-    /// the page's picker: `Source::ALL[source]`, leading or not
+    /// a master and the ask to lead as they are: `Source::ALL[source]` (the headless host's, a test's)
     pub fn choose(&mut self, source: usize, lead: bool) {
         if let Some(&s) = Source::ALL.get(source) {
             self.ctl.set_source(s, &mut NoHost);
         }
         self.ctl.set_lead(lead);
+    }
+
+    /// the page's picker: `ClockMode::ALL[mode]` (#370)
+    pub fn set_mode(&mut self, mode: usize) {
+        if let Some(&m) = ClockMode::ALL.get(mode) {
+            self.ctl.set_mode(m, &mut NoHost);
+        }
     }
 
     /// a key of the page (tap, faster, slower, start / stop, click), at the page's ms
@@ -144,6 +152,13 @@ impl Clock {
     pub fn line(&mut self, now_ms: f64) -> String {
         let now = self.ns(now_ms);
         self.ctl.status(now)
+    }
+
+    /// the clock in one line at the page's `now_ms` – the tempo line and the source's state, the panel's (deck-core's
+    /// `Controller::line`: the native HUD's two clock lines' texts, #370)
+    pub fn hud_line(&mut self, now_ms: f64) -> String {
+        let now = self.ns(now_ms);
+        self.ctl.line(now)
     }
 
     /// One clock frame at the page's `now_ms`: the events in, the master followed, the map published to the engine; the
@@ -183,8 +198,11 @@ impl Clock {
         let flags = flag(show.locked, LOCKED) | flag(show.anchor, ANCHOR) | flag(show.leading, LEADING) | flag(show.midi_lost, MIDI_LOST) | flag(ping, PING) | flag(send.is_some(), SEND);
         let source = Source::ALL.iter().position(|&s| s == self.ctl.source).unwrap_or(0);
         let a = send.unwrap_or(deck_core::tempo::Anchor { bpm: 0.0, per_bar: 0, beat: 0.0, at: 0, running: false });
+        let heard_ms = self.ms(m.line.time_of(m.heard) * 1e9);
+        let mode = self.ctl.mode().and_then(|m| ClockMode::ALL.iter().position(|&x| x == m)).map_or(-1.0, |i| i as f64);
+        let (edge, dur) = n.flash().map_or((0.0, 0.0), |f| (heard_ms + f.edge_s * 1e3, f.dur_s * 1e3));
         self.state = [
-            self.ms(m.line.time_of(m.heard) * 1e9),
+            heard_ms,
             n.pos.beat,
             n.bpm,
             f64::from(n.per_bar),
@@ -200,6 +218,10 @@ impl Clock {
             a.at as f64,
             f64::from(u8::from(a.running)),
             f64::from(u8::from(self.ctl.click)),
+            mode,
+            f64::from(u8::from(self.out.is_some())),
+            edge,
+            dur,
         ];
         &self.state
     }
@@ -230,6 +252,36 @@ mod tests {
             t += 25.0;
         }
         got
+    }
+
+    #[test]
+    fn the_state_block_says_the_choice_the_clock_out_and_the_flash() {
+        let mut c = Clock::new(48_000.0);
+        let t0 = 1_762_000_000_000.0;
+        assert_eq!(c.frame(t0)[16], 0.0, "a new deck follows the show clock");
+        for i in [1, 2, 3, 0] {
+            c.set_mode(i);
+            assert_eq!(c.frame(t0)[16], i as f64, "{:?}", ClockMode::ALL[i]);
+        }
+        // a hand on the clock takes over from the show clock: the deck's own now, and the block says so
+        c.key(1, t0 + 10.0);
+        assert_eq!(c.frame(t0 + 25.0)[16], 1.0);
+        c.set_out(true);
+        run(&mut c, t0 + 50.0, 1.0);
+        let s = *c.state();
+        assert_eq!(s[17], 1.0, "the clock out is on");
+        // the flash: 60 ms on a beat edge at most 0.1 s past the heard moment, at most a beat (0.5 s at 121 BPM) before it
+        assert_eq!(s[19], 60.0);
+        assert!(s[18] - s[0] <= 100.0 + 1e-6 && s[18] - s[0] > -500.0, "{} vs {}", s[18], s[0]);
+        c.key(3, t0 + 1100.0);
+        assert_eq!(c.frame(t0 + 1125.0)[19], 0.0, "stopped: no flash");
+        c.set_out(false);
+        assert_eq!(c.frame(t0 + 1150.0)[17], 0.0);
+        let line = c.hud_line(t0 + 1150.0);
+        assert!(line.starts_with("BPM 121.0  BAR ") && line.ends_with(" STOP"), "{line}");
+        c.set_mode(2);
+        c.frame(t0 + 1175.0);
+        assert!(c.hud_line(t0 + 1175.0).ends_with(" STOP  LEADS"), "{}", c.hud_line(t0 + 1175.0));
     }
 
     #[test]

@@ -1,0 +1,28 @@
+name = "the tempo line and the strobe's flash are the core's"
+about = "#370: the tempo line (BPM, bar, beat, stopped, the click) is deck-core's Controller::tempo_line – the native HUD's and the browser panel's, word for word – next to Controller::status; the strobe flashes on the core's beat edge (60 ms), none while the clock stands"
+
+[[step]]
+do = "load"
+scene = "native/scenes/show-clock-lead.toml"
+
+[[step]]
+do = "run"
+ms = 2250
+expect = { bpm = 120.0, running = true }
+
+[[step]]
+do = "tempo_line"
+expect = { line = "BPM 120.0  BAR 2 BEAT 1 CLK", status = "LEADS", hud = "BPM 120.0  BAR 2 BEAT 1 CLK  LEADS", mode = "lead", source = "internal", leading = true, out = false, flash_ms = 60.0, flash_edge_ms = { min = -500.0, max = 100.0 } }
+
+[[step]]
+do = "key"
+key = "startstop"
+
+[[step]]
+do = "run"
+ms = 100
+expect = { running = false, flash_ms = 0.0 }
+
+[[step]]
+do = "tempo_line"
+expect = { line = { starts = "BPM 120.0  BAR ", contains = " STOP CLK" }, flash_ms = 0.0 }

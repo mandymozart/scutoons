@@ -1484,7 +1484,8 @@ impl App {
         if let Some(c) = self.show.events.as_ref().map(|e| &e.counters) {
             lines.push(format!("EVENTS IN {} DROP {}", c.routed.load(std::sync::atomic::Ordering::Relaxed), c.dropped()));
         }
-        lines.extend([self.tempo_line(), self.source_line()]);
+        // the tempo line is the core's (the browser panel shows it word for word; the beat lights sit at its end, #370)
+        lines.extend([self.show.tempo.tempo_line(), self.source_line()]);
         // #211: what the outputs drive, or why they are off
         #[cfg(feature = "outputs")]
         if let Some(o) = &self.show.outputs {
@@ -1525,18 +1526,6 @@ impl App {
         lines
     }
 
-    /// BPM, bar and beat (the beat lights sit at its end), stopped, the click
-    fn tempo_line(&self) -> String {
-        let t = self.show.tempo.now();
-        format!(
-            "BPM {:.1}  BAR {} BEAT {}{}{}",
-            t.bpm,
-            t.pos.bar + 1,
-            t.pos.beat_in_bar + 1,
-            if t.running { "" } else { " STOP" },
-            if self.show.tempo.click { " CLK" } else { "" }
-        )
-    }
 
     /// the clock's master and its state, the MIDI clock out
     fn source_line(&self) -> String {

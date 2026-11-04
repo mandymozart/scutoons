@@ -2,6 +2,7 @@
 // being's 3D buttons, the streamed paths, the character switch, the image sniffing for the set's textures.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { LiveCore, clockOf, type ClockOp, type ClockState } from '@scutoons/live-core';
 import { Deck, deviceKind, portraitsOf } from '../src/deck.ts';
 import { sniff } from '../src/space.ts';
 import { MOODS, OWN, OWN_PARAMS, OWN_STREAMED, stateOf } from './own.ts';
@@ -125,6 +126,45 @@ test('#188: the being turns the cutoff as its base – the engine’s LFO keeps 
 test('#365: a touch screen is a phone to the core’s lead', () => {
 	assert.equal(deviceKind(true), 'phone');
 	assert.equal(deviceKind(false), 'desktop');
+});
+
+test('#370: the picker and the MIDI clock out go to the core; a restart hands the core its own last word back', async () => {
+	const ops: ClockOp[][] = [];
+	let frame: ((c: ClockState) => void) | null = null;
+	const realStart = LiveCore.start;
+	LiveCore.start = (async () => {
+		const mine: ClockOp[] = [];
+		ops.push(mine);
+		return {
+			onAnalysis: () => {},
+			onSignal: () => {},
+			onMidiOut: () => {},
+			onClock: (cb: (c: ClockState) => void) => (frame = cb),
+			clockOp: (o: ClockOp) => mine.push(o),
+			load: async () => ({}),
+			stop: async () => {}
+		} as unknown as LiveCore;
+	}) as typeof LiveCore.start;
+	try {
+		const d = deckOf();
+		const files = { worker: {} as Worker, wasm: '', worklet: '' };
+		await d.start(files);
+		assert.deepEqual(ops[0], [], "a fresh deck: the core's own start (the show clock)");
+		assert.deepEqual(d.state?.clock_modes(), ['show', 'own', 'lead', 'midi'], "the choices are the core's");
+		d.clockMode(2);
+		d.clockOut(true);
+		assert.deepEqual(ops[0], [{ op: 'mode', mode: 2 }, { op: 'out', on: true }]);
+		// a hand on the clock moved it: the core's frame says its own clock, the MIDI clock out on
+		const said = clockOf([0, 0, 120, 4, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0]);
+		frame!(said);
+		assert.equal(d.clock, said);
+		await d.stop();
+		assert.equal(d.clock, null);
+		await d.start(files);
+		assert.deepEqual(ops[1], [{ op: 'mode', mode: 1 }, { op: 'out', on: true }], 'what the core said last, not what the page picked');
+	} finally {
+		LiveCore.start = realStart;
+	}
 });
 
 test('#298: stop ends the sound and leaves the deck as it was – values kept, no core, quiet bands', async () => {

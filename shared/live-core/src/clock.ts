@@ -1,6 +1,6 @@
 // clock.ts (#321): the core's tempo clock as the page reads it – the state block a clock frame leaves (deck/live-core
-// clock.rs `STATE`, f64) read into names. No decision here: the core decides when to ping, what anchor a leader sends
-// and where the beat is; the page moves those bytes and draws (a strobe evaluates the core's line at its own frame).
+// clock.rs `STATE`, f64) read into names. No decision here: the core decides when to ping, what anchor a leader sends,
+// where the beat is, the picker's choice (`ClockMode::ALL` index, -1: none), the MIDI clock out and the strobe's flash (#370).
 
 /** deck-core's `Source::ALL`, in order (the picker's index) */
 export const SOURCES = ['internal', 'midi', 'link', 'osc', 'relay'] as const;
@@ -40,7 +40,10 @@ export interface ClockState {
 	rttMs: number;
 	errorMs: number;
 	click: boolean;
-	/** deck-core's line for it (`Controller::status`, the native HUD's words; "" = nothing to say) – the host fills it */
+	mode: number;
+	midiOut: boolean;
+	flash: { atMs: number; ms: number } | null;
+	/** deck-core's line (`Controller::line`: the tempo line, the source's state – the native HUD's words) – the host fills it */
 	line: string;
 }
 
@@ -71,6 +74,9 @@ export function clockOf(s: ArrayLike<number>): ClockState {
 		rttMs: s[8],
 		errorMs: s[9],
 		click: s[15] !== 0,
+		mode: s[16],
+		midiOut: s[17] !== 0,
+		flash: s[19] > 0 ? { atMs: s[18], ms: s[19] } : null,
 		line: ''
 	};
 }

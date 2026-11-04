@@ -2,7 +2,7 @@
 	"$comment": "check:deck-deps (#363 part B): the deck logic the native platform crate still holds (BRIDGE-AUDIT.md §1, the native layer) – recorded, not moved; the move tickets move it (#374 the HUD / bar / F4 / F5 model out of main.rs, #364 the stats, #365 the lead, #369 the pad rules, #371 the sync, #378 the Live outlet, #360 carried_part, #366 the relay join, #376 the gestures). The ratchet: main.rs may not grow (lines) or gain a function; each file below may not grow; a logic function that disappeared from main.rs is a move done – drop its line (`npm run check:deck-deps -- --shrink`). Growth needs the owner: Owner-approved-baseline in a commit message.",
 	"main": {
 		"file": "deck/native/src/main.rs",
-		"lines": 2009,
+		"lines": 1998,
 		"functions": [
 			"args",
 			"outlet_settings",
@@ -41,7 +41,6 @@
 			"events_dropped",
 			"bar_items",
 			"hud_lines",
-			"tempo_line",
 			"source_line",
 			"summary",
 			"check_hand",
@@ -59,7 +58,6 @@
 		"logic": {
 			"bar_items": "#374 #364 – the stats bar's items and judgement (FPS < 50 after 120 frames, CPU > 14 ms, DSP > 80 %, the quality's red)",
 			"hud_lines": "#374 – the HUD model: every line, its order and wording, the alert row",
-			"tempo_line": "#370 #374 – the tempo line's wording (BPM, BAR, BEAT, STOP, CLK)",
 			"source_line": "#370 #374 – the clock source line",
 			"summary": "#364 – the exit summary's numbers (avg fps, p99 frame, cpu)",
 			"push_capped": "#364 – the stats history (5 min at 60 fps)",

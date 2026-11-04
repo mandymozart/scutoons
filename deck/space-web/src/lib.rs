@@ -891,6 +891,11 @@ impl DeckState {
         self.d.ladder.choices()
     }
 
+    /// #370: the clock picker's choices (deck-core `ClockMode::ALL`), in the order the clock frame's `mode` index counts
+    pub fn clock_modes(&self) -> Vec<String> {
+        deck_core::tempo::ClockMode::ALL.iter().map(|m| m.name().to_string()).collect()
+    }
+
     /// the portrait `mood` shows ("" = none)
     pub fn face(&self, mood: &str) -> String {
         self.d.ladder.face(mood).unwrap_or_default().to_string()
