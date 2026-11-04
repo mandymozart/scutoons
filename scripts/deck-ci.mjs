@@ -8,7 +8,7 @@
 //   npm run deck:ci -- --if-changed <from> <to>   only when deck/ or shared/live* changed in that range (the pre-push hook)
 //
 // Steps: the bridge guard (check:core-only, check:deck-deps – #363), the headless deck host's scenarios (#363), the protocol schema current (shared/live), the kind catalog's generated files current (deck-space's deck-schema
-// --check: kinds.json, NodeKinds.php, the JSON Schema, shared/live/src/catalog.ts), live-core for wasm32 + simd128 (its gz size under the gate) + its TS tests, deck-engine for wasm32 + simd128 (its gz size under the gate), space-web for wasm32, deck-outlet for wasm32 (#378) +
+// --check: kinds.json, NodeKinds.php, the JSON Schema, shared/live/src/catalog.ts), live-core for wasm32 + simd128 (its gz size under the gate) + its TS tests, deck-engine for wasm32 + simd128 (its gz size under the gate), space-web for wasm32, deck-outlet for wasm32 (#378), deck-ui for wasm32 (#374) +
 // shared/live-deck's tests, cargo build --release, cargo test (+ the stage's module tests), cargo clippy -D warnings (+ with the module feature). The Linux aarch64 cross build
 // and the other platforms stay on GitHub (by hand) – this runs the host's native target.
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -83,6 +83,8 @@ const steps = [
 				['🧊 space-web wasm32', 'cargo', ['build', '--profile', 'wasm-web', '--target', 'wasm32-unknown-unknown', '-p', 'space-web'], `${root}/deck`],
 				// #378: the Live outlet's logic (plan, composer, crossfade, text layout, routing) builds for the browser – a build check, not a feature
 				['🎭 deck-outlet wasm32', 'cargo', ['build', '--target', 'wasm32-unknown-unknown', '-p', 'deck-outlet'], `${root}/deck`],
+				// #374: the deck's UI model (the HUD's lines, the bar's items, the F1 mode) builds for the browser – a build check
+				['🪟 deck-ui wasm32', 'cargo', ['build', '--target', 'wasm32-unknown-unknown', '-p', 'deck-ui'], `${root}/deck`],
 				// live-deck's in-process relay tests spawn deck/target/debug/relay.exe: a stale binary fails them after a relay change (the P8 merge)
 				['🧊 relay binary', 'cargo', ['build', '-p', 'relay'], `${root}/deck`],
 				// #366: the relay client's wasm (relay-web) – live-deck's tests run the core's scripted links through client.ts
