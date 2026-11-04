@@ -21,7 +21,8 @@ pub const FADE: u32 = 48;
 pub struct Note {
     pub hz: f32,
     pub vel: f32,
-    pub lane: u8,
+    /// the note event's id: its note off and bends find the voice by it
+    pub id: u32,
     /// the note counter: smaller = older
     pub age: u64,
     pub seed: u64,
@@ -57,8 +58,10 @@ pub struct Voice {
     active: bool,
     /// the note counter of the note it plays (steal the smallest)
     age: u64,
-    /// the lane whose gate holds it
-    lane: Option<u8>,
+    /// the note that holds it (its id; none once released)
+    id: Option<u32>,
+    /// the note's own pitch (a bend moves from here)
+    base: f32,
     /// the gate is gone but the sustain pedal holds it
     sustained: bool,
     hz: f32,
@@ -94,8 +97,13 @@ impl Voice {
         self.age
     }
 
-    pub fn lane(&self) -> Option<u8> {
-        self.lane
+    pub fn id(&self) -> Option<u32> {
+        self.id
+    }
+
+    /// the pitch the note started with (Hz)
+    pub fn base(&self) -> f32 {
+        self.base
     }
 
     pub fn sustained(&self) -> bool {
@@ -106,8 +114,9 @@ impl Voice {
         *self = Voice::default();
         self.active = true;
         self.age = n.age;
-        self.lane = Some(n.lane);
+        self.id = Some(n.id);
         self.hz = n.hz.clamp(8.0, 12_000.0);
+        self.base = self.hz;
         self.vel = n.vel.clamp(0.0, 1.0);
         self.noise = Noise::new(mix(n.seed));
         self.lfo[0].start(mix(n.seed ^ 1));
@@ -124,11 +133,12 @@ impl Voice {
         self.cancel = false;
         self.fade = FADE;
         self.age = n.age;
-        self.lane = Some(n.lane);
+        self.id = Some(n.id);
+        self.base = n.hz.clamp(8.0, 12_000.0);
         self.sustained = false;
     }
 
-    /// a legato pitch change (the cv glides while the gate stays up)
+    /// a legato pitch change (a note on for a sounding id, a bend)
     pub fn set_pitch(&mut self, hz: f32) {
         let hz = hz.clamp(8.0, 12_000.0);
         match &mut self.pending {
@@ -137,9 +147,9 @@ impl Voice {
         }
     }
 
-    /// the gate fell (or the pedal came up): release both envelopes
+    /// the note off (or the pedal came up): release both envelopes
     pub fn release(&mut self, p: &Patch, rate: f64) {
-        self.lane = None;
+        self.id = None;
         self.sustained = false;
         if self.pending.is_some() {
             self.cancel = true;
@@ -151,9 +161,9 @@ impl Voice {
         }
     }
 
-    /// the gate fell but the pedal holds the note
+    /// the note off came but the pedal holds the note
     pub fn hold(&mut self) {
-        self.lane = None;
+        self.id = None;
         self.sustained = true;
     }
 

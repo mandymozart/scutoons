@@ -177,7 +177,7 @@ fn the_amp_envelope_shapes_the_note() {
     b.note_off(0);
     let tail = b.run((0.4 * RATE) as usize + 480).0;
     assert!(rms(&tail[0..480]) > rms(&tail[8000..8480]) && rms(&tail[8000..8480]) > rms(&tail[16_000..16_480]), "falling through the release");
-    assert_eq!(b.rig.module.active_voices(), 0);
+    assert_eq!(b.rig.module().active_voices(), 0);
 }
 
 // ── voices ──────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -194,7 +194,7 @@ fn the_ninth_note_steals_the_oldest_voice() {
         b.run(480); // each note keeps sounding in its release tail on its own voice
     }
     let l = b.run(8192).0;
-    assert_eq!(b.rig.module.active_voices(), VOICES, "eight voices sound, never nine");
+    assert_eq!(b.rig.module().active_voices(), VOICES, "eight voices sound, never nine");
     assert!(mag(&l, bins[0]) < 0.005, "the first note was stolen: {}", mag(&l, bins[0]));
     for hz in &bins[1..] {
         assert!(mag(&l, *hz) > 0.01, "{hz} Hz was stolen: {}", mag(&l, *hz));
@@ -215,7 +215,7 @@ fn the_sustain_pedal_holds_released_notes() {
     b.sustain = 0.0;
     let after = b.run(9600).0;
     assert!(rms(&after[7200..]) < 1e-4, "and releases when it comes up");
-    assert_eq!(b.rig.module.active_voices(), 0);
+    assert_eq!(b.rig.module().active_voices(), 0);
 }
 
 #[test]
@@ -230,10 +230,10 @@ fn a_note_played_while_the_pedal_is_down_still_ends_with_the_pedal() {
     b.run(2400);
     b.note_off(1);
     b.run(9600);
-    assert_eq!(b.rig.module.active_voices(), 2);
+    assert_eq!(b.rig.module().active_voices(), 2);
     b.sustain = 0.0;
     b.run(4800);
-    assert_eq!(b.rig.module.active_voices(), 0);
+    assert_eq!(b.rig.module().active_voices(), 0);
 }
 
 // ── oscillators in the voice ────────────────────────────────────────────────────────────────────────────────────

@@ -3,12 +3,13 @@
 //! backend proves itself against the same script by adding one line at the bottom (the way `deck-module-host`'s
 //! conformance suite takes its fixtures).
 //!
-//! The script: every lane, steals, the pedal, noise, a synced LFO, hard sync, serial filters, parameters turned
-//! mid-run, a tempo change – in blocks of 256 frames.
+//! The script: four lanes of notes (events by id, a bend), steals, the pedal, noise, a synced LFO, hard sync, serial
+//! filters, parameters turned mid-run, a tempo change – in blocks of 256 frames (two calls of 128).
 mod common;
 use common::*;
 use deck_core::tempo::TempoMap;
-use deck_module_host::{Backend, Instance, Loaded};
+use deck_module::QUANTUM;
+use deck_module_host::{Backend, Instance, Loaded, Setup};
 use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
 
@@ -39,7 +40,7 @@ const BLOCK: usize = 256;
 /// what the lanes do in block `step` of the script, applied alike to the native bench and to the wasm instance
 fn lane_state(step: usize, lanes: &mut [(f32, f32); 4]) {
     for (k, lane) in lanes.iter_mut().enumerate() {
-        // lane k plays a note of 7 + k blocks, then rests 3 blocks; the pitch walks within the held note on lane 2 (legato)
+        // lane k plays a note of 7 + k blocks, then rests 3 blocks; the pitch bends within the held note on lane 2
         let period = 10 + k;
         let phase = step % period;
         let n = step / period;
@@ -87,7 +88,7 @@ fn native(seed: u64) -> (Vec<f32>, Vec<f32>) {
         if step == 100 {
             b.rig.set_tempo((step * BLOCK) as f64, 6.0, 93.0, 4, true);
         }
-        lane_state(step, &mut b.lanes);
+        lane_state(step, &mut b.lanes.state);
         b.sustain = if (30..45).contains(&(step % 90)) { 1.0 } else { 0.0 };
         let (a, c) = b.run_in(BLOCK, BLOCK);
         l.extend(a);
@@ -99,10 +100,10 @@ fn native(seed: u64) -> (Vec<f32>, Vec<f32>) {
 fn hosted<B: Backend>(e: &B::Engine, seed: u64) -> (Vec<f32>, Vec<f32>) {
     let loaded = Arc::new(Loaded::<B>::load(e, &wasm()).expect("the analog module loads"));
     assert_eq!(loaded.desc.name, "analog");
-    let mut inst = Instance::new(&loaded, RATE, seed).expect("instance");
+    let mut inst = Instance::new(&loaded, Setup::new(RATE, seed)).expect("instance");
     let (mut l, mut r) = (vec![], vec![]);
-    let mut lanes = [(261.63f32, 0.0f32); 4];
-    let (mut ol, mut or) = (vec![0.0f32; BLOCK], vec![0.0f32; BLOCK]);
+    let mut lanes = Lanes::new();
+    let (mut ol, mut or) = (vec![0.0f32; QUANTUM], vec![0.0f32; QUANTUM]);
     for step in 0..BLOCKS {
         for (i, v) in params(step) {
             inst.set_param(i, v);
@@ -110,18 +111,20 @@ fn hosted<B: Backend>(e: &B::Engine, seed: u64) -> (Vec<f32>, Vec<f32>) {
         if step == 100 {
             inst.set_tempo(&TempoMap::new(93.0, 4, RATE).with_beat((step * BLOCK) as f64, 6.0));
         }
-        lane_state(step, &mut lanes);
-        for (k, (hz, gate)) in lanes.iter().enumerate() {
-            inst.set_audio_in(k, &[*hz; BLOCK], &[*gate; BLOCK]);
+        lane_state(step, &mut lanes.state);
+        let sustain = if (30..45).contains(&(step % 90)) { 1.0 } else { 0.0 };
+        for c in 0..BLOCK / QUANTUM {
+            let events = lanes.events();
+            assert_eq!(inst.set_events_in(0, &events), events.len());
+            inst.set_control_in(0, sustain);
+            assert!(inst.process((step * BLOCK + c * QUANTUM) as f64, QUANTUM as u32), "block {step}: {:?}", inst.silenced());
+            inst.read_audio_out(0, &mut ol, &mut or);
+            l.extend_from_slice(&ol);
+            r.extend_from_slice(&or);
         }
-        inst.set_control_in(0, if (30..45).contains(&(step % 90)) { 1.0 } else { 0.0 });
-        assert!(inst.process((step * BLOCK) as f64, BLOCK as u32), "block {step}: {:?}", inst.silenced());
-        inst.read_audio_out(0, &mut ol, &mut or);
-        l.extend_from_slice(&ol);
-        r.extend_from_slice(&or);
     }
     let (last, max) = inst.cpu_us();
-    eprintln!("analog under the module host: {BLOCK} frames in {last} µs (slowest {max} µs) of a {} µs block", BLOCK as f64 / RATE * 1e6);
+    eprintln!("analog under the module host: {QUANTUM} frames in {last} µs (slowest {max} µs) of a {} µs call", QUANTUM as f64 / RATE * 1e6);
     (l, r)
 }
 
@@ -153,15 +156,18 @@ mod wasmtime_backend {
 }
 
 #[test]
-fn the_wasm_carries_its_descriptor_parameter_docs_and_presets() {
+fn the_wasm_carries_its_descriptor_with_the_parameter_docs_and_the_factory_preset() {
     let bytes = wasm();
     let json = deck_module::host::read_descriptor(&bytes).expect("deck.module");
+    assert_eq!(custom_section(&bytes, "deck.module").as_deref(), Some(json));
+    assert_eq!(json, <analog_module::Analog as deck_module::Describe>::DESCRIPTOR);
     let d = deck_module::host::parse(json).unwrap();
     assert_eq!(d.params.len(), analog_module::PARAM_NAMES.len());
-    let section = |name: &str| -> String { custom_section(&bytes, name).unwrap_or_else(|| panic!("no `{name}` section")) };
-    assert_eq!(section("deck.params"), analog_module::PARAMS_JSON);
-    assert_eq!(section("deck.presets"), analog_module::PRESETS_JSON);
-    // small: the whole synth, every parameter doc and four presets (36 KB gzipped)
+    assert!(d.params.iter().all(|p| !p.doc.is_empty()), "every parameter documented in the descriptor");
+    assert_eq!(d.preset.as_ref().map(|p| p.name.as_str()), Some("pad"));
+    // the extra sections of ABI v1 are gone: the descriptor is the one place
+    assert_eq!((custom_section(&bytes, "deck.params"), custom_section(&bytes, "deck.presets")), (None, None));
+    // small: the whole synth, every parameter doc and its preset
     assert!(bytes.len() < 250_000, "{} bytes (the SDK alone is about 100 KB: walk)", bytes.len());
     eprintln!("analog_module.wasm: {} bytes", bytes.len());
 }
