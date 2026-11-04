@@ -48,7 +48,7 @@ export interface EngineSnapshot {
 	quality: string;
 	/** the 3D's own line (hud) */
 	hud: string;
-	/** the mood now */
+	/** the mood now – the deck's core's ('' before it said) */
 	mood: string;
 }
 
@@ -71,7 +71,7 @@ export const emptySnapshot = (): EngineSnapshot => ({
 	stats: null,
 	quality: '',
 	hud: '',
-	mood: 'neutral'
+	mood: ''
 });
 
 /** The transport in a sentence – why the engine is slower when it is: `shared` rings need the page cross-origin

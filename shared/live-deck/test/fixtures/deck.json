@@ -1,0 +1,1818 @@
+{
+  "catpope": {
+    "graph": {
+      "character": "catpope",
+      "expose": [
+        "voice_voice.ratio",
+        "voice_voice.index",
+        "voice_voice.gain",
+        "voice_melody.spread",
+        "voice_melody.rate",
+        "voice_melody.glide",
+        "drone_drone.freq",
+        "drone_drone.gain"
+      ],
+      "links": [
+        {
+          "from": "voice_melody.cv",
+          "to": "voice_voice.cv"
+        },
+        {
+          "from": "drone_drone.out",
+          "to": "drone_mix.in1"
+        },
+        {
+          "from": "drone_fifth.out",
+          "to": "drone_mix.in2"
+        },
+        {
+          "from": "voice_voice.out",
+          "to": "mix1.in1"
+        },
+        {
+          "from": "drone_mix.out",
+          "to": "mix1.in2"
+        },
+        {
+          "from": "mix1.out",
+          "to": "out.in"
+        },
+        {
+          "from": "mix1.out",
+          "to": "fft.in"
+        },
+        {
+          "from": "fft.level",
+          "scale": 0.6,
+          "to": "space.pulse"
+        }
+      ],
+      "moods": [
+        "neutral",
+        "thinking",
+        "happy",
+        "laughing",
+        "surprised"
+      ],
+      "nodes": [
+        {
+          "id": "voice_voice",
+          "kind": "fm"
+        },
+        {
+          "id": "voice_melody",
+          "kind": "walk"
+        },
+        {
+          "id": "drone_drone",
+          "kind": "osc"
+        },
+        {
+          "id": "drone_fifth",
+          "kind": "osc"
+        },
+        {
+          "id": "drone_mix",
+          "kind": "mixer"
+        },
+        {
+          "id": "mix1",
+          "kind": "mixer"
+        },
+        {
+          "id": "out",
+          "kind": "audio_out"
+        },
+        {
+          "id": "fft",
+          "kind": "fft"
+        },
+        {
+          "id": "space",
+          "kind": "space"
+        }
+      ],
+      "size": 0.5
+    },
+    "laughing": {
+      "mood": "laughing",
+      "turn": {
+        "failed": false,
+        "note": "mood laughing: 2 values",
+        "played": {
+          "character": "catpope",
+          "engine": {
+            "dropped": [],
+            "page": [],
+            "scene": "[[node]]\nid = \"voice_voice\"\nkind = \"fm\"\nfreq = 147.0\ngain = 0.16\nindex = 4.0\nratio = 3.0\n\n[[node]]\nid = \"voice_melody\"\nkind = \"walk\"\nbase = 147.0\nbpm = 84.0\nglide = 0.5\noctaves = 2.0\nrate = 2.0\nseed = 84\nspread = 0.0\n\n[[node]]\nid = \"drone_drone\"\nkind = \"osc\"\nfreq = 55.0\ngain = 0.1\n\n[[node]]\nid = \"drone_fifth\"\nkind = \"osc\"\nfreq = 82.5\ngain = 0.03\n\n[[node]]\nid = \"drone_mix\"\nkind = \"mixer\"\n\n[[node]]\nid = \"mix1\"\nkind = \"mixer\"\ngain1 = 1.0\ngain2 = 1.0\n\n[[node]]\nid = \"out\"\nkind = \"audio_out\"\n\n[[node]]\nid = \"fft\"\nkind = \"fft\"\n\n[[node]]\nid = \"space\"\nkind = \"space\"\n\n[[link]]\nfrom = \"voice_melody.cv\"\nto = \"voice_voice.cv\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone_drone.out\"\nto = \"drone_mix.in1\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone_fifth.out\"\nto = \"drone_mix.in2\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"voice_voice.out\"\nto = \"mix1.in1\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone_mix.out\"\nto = \"mix1.in2\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"mix1.out\"\nto = \"out.in\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"mix1.out\"\nto = \"fft.in\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"fft.level\"\nto = \"space.pulse\"\nscale = 0.6000000238418579\noffset = 0.0\n"
+          },
+          "expose": [
+            "voice_voice.ratio",
+            "voice_voice.index",
+            "voice_voice.gain",
+            "voice_melody.spread",
+            "voice_melody.rate",
+            "voice_melody.glide",
+            "drone_drone.freq",
+            "drone_drone.gain"
+          ],
+          "knobs": [
+            {
+              "label": {
+                "de": "FM-Verhältnis",
+                "en": "FM ratio"
+              },
+              "log": true,
+              "max": 4.0,
+              "min": 0.5,
+              "path": "voice_voice.ratio",
+              "value": 3.0
+            },
+            {
+              "label": {
+                "de": "FM-Index",
+                "en": "FM index"
+              },
+              "max": 8.0,
+              "min": 0.0,
+              "path": "voice_voice.index",
+              "value": 4.0
+            },
+            {
+              "label": {
+                "de": "Stimme",
+                "en": "voice"
+              },
+              "max": 0.30000001192092896,
+              "min": 0.0,
+              "path": "voice_voice.gain",
+              "value": 0.1599999964237213
+            },
+            {
+              "label": {
+                "de": "Weite",
+                "en": "spread"
+              },
+              "max": 1.0,
+              "min": 0.0,
+              "path": "voice_melody.spread",
+              "value": 0.0
+            },
+            {
+              "label": {
+                "de": "Schritte / Schlag",
+                "en": "steps / beat"
+              },
+              "log": true,
+              "max": 8.0,
+              "min": 0.25,
+              "path": "voice_melody.rate",
+              "value": 2.0
+            },
+            {
+              "label": {
+                "de": "Gleiten",
+                "en": "glide"
+              },
+              "max": 1.0,
+              "min": 0.0,
+              "path": "voice_melody.glide",
+              "value": 0.5
+            },
+            {
+              "label": {
+                "de": "Bordun-Tonhöhe",
+                "en": "drone pitch"
+              },
+              "log": true,
+              "max": 220.0,
+              "min": 30.0,
+              "path": "drone_drone.freq",
+              "value": 55.0
+            },
+            {
+              "label": {
+                "de": "Bordun",
+                "en": "drone"
+              },
+              "max": 0.30000001192092896,
+              "min": 0.0,
+              "path": "drone_drone.gain",
+              "value": 0.10000000149011612
+            }
+          ],
+          "links": [
+            {
+              "from": "voice_melody.cv",
+              "offset": 0.0,
+              "scale": 1.0,
+              "to": "voice_voice.cv"
+            },
+            {
+              "from": "drone_drone.out",
+              "offset": 0.0,
+              "scale": 1.0,
+              "to": "drone_mix.in1"
+            },
+            {
+              "from": "drone_fifth.out",
+              "offset": 0.0,
+              "scale": 1.0,
+              "to": "drone_mix.in2"
+            },
+            {
+              "from": "voice_voice.out",
+              "offset": 0.0,
+              "scale": 1.0,
+              "to": "mix1.in1"
+            },
+            {
+              "from": "drone_mix.out",
+              "offset": 0.0,
+              "scale": 1.0,
+              "to": "mix1.in2"
+            },
+            {
+              "from": "mix1.out",
+              "offset": 0.0,
+              "scale": 1.0,
+              "to": "out.in"
+            },
+            {
+              "from": "mix1.out",
+              "offset": 0.0,
+              "scale": 1.0,
+              "to": "fft.in"
+            },
+            {
+              "from": "fft.level",
+              "offset": 0.0,
+              "scale": 0.6000000238418579,
+              "to": "space.pulse"
+            }
+          ],
+          "nodes": [
+            {
+              "freq": 147.0,
+              "gain": 0.16,
+              "id": "voice_voice",
+              "index": 4.0,
+              "kind": "fm",
+              "ratio": 3.0
+            },
+            {
+              "base": 147.0,
+              "bpm": 84.0,
+              "glide": 0.5,
+              "id": "voice_melody",
+              "kind": "walk",
+              "octaves": 2.0,
+              "rate": 2.0,
+              "seed": 84,
+              "spread": 0.0
+            },
+            {
+              "freq": 55.0,
+              "gain": 0.1,
+              "id": "drone_drone",
+              "kind": "osc"
+            },
+            {
+              "freq": 82.5,
+              "gain": 0.03,
+              "id": "drone_fifth",
+              "kind": "osc"
+            },
+            {
+              "id": "drone_mix",
+              "kind": "mixer"
+            },
+            {
+              "gain1": 1.0,
+              "gain2": 1.0,
+              "id": "mix1",
+              "kind": "mixer"
+            },
+            {
+              "id": "out",
+              "kind": "audio_out"
+            },
+            {
+              "id": "fft",
+              "kind": "fft"
+            },
+            {
+              "id": "space",
+              "kind": "space"
+            }
+          ],
+          "scene": "[stage]\nname = \"character.catpope\"\n\n[[node]]\nid = \"voice_voice\"\nkind = \"fm\"\nfreq = 147.0\ngain = 0.16\nindex = 4.0\nratio = 3.0\n\n[[node]]\nid = \"voice_melody\"\nkind = \"walk\"\nbase = 147.0\nbpm = 84.0\nglide = 0.5\noctaves = 2.0\nrate = 2.0\nseed = 84\nspread = 0.0\n\n[[node]]\nid = \"drone_drone\"\nkind = \"osc\"\nfreq = 55.0\ngain = 0.1\n\n[[node]]\nid = \"drone_fifth\"\nkind = \"osc\"\nfreq = 82.5\ngain = 0.03\n\n[[node]]\nid = \"drone_mix\"\nkind = \"mixer\"\n\n[[node]]\nid = \"mix1\"\nkind = \"mixer\"\ngain1 = 1.0\ngain2 = 1.0\n\n[[node]]\nid = \"out\"\nkind = \"audio_out\"\n\n[[node]]\nid = \"fft\"\nkind = \"fft\"\n\n[[node]]\nid = \"space\"\nkind = \"space\"\n\n[[link]]\nfrom = \"voice_melody.cv\"\nto = \"voice_voice.cv\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone_drone.out\"\nto = \"drone_mix.in1\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone_fifth.out\"\nto = \"drone_mix.in2\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"voice_voice.out\"\nto = \"mix1.in1\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone_mix.out\"\nto = \"mix1.in2\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"mix1.out\"\nto = \"out.in\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"mix1.out\"\nto = \"fft.in\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"fft.level\"\nto = \"space.pulse\"\nscale = 0.6000000238418579\noffset = 0.0\n\n[being]\ncharacter = \"catpope\"\nexpose = [\"voice_voice.ratio\", \"voice_voice.index\", \"voice_voice.gain\", \"voice_melody.spread\", \"voice_melody.rate\", \"voice_melody.glide\", \"drone_drone.freq\", \"drone_drone.gain\"]\n",
+          "sticks": [
+            [
+              "voice_voice.ratio",
+              "voice_voice.index"
+            ],
+            [
+              "voice_melody.spread",
+              "drone_drone.freq"
+            ]
+          ],
+          "streamed": [
+            [
+              "voice_voice.ratio",
+              {
+                "input": [
+                  0.5,
+                  4.0
+                ]
+              }
+            ],
+            [
+              "voice_voice.index",
+              {
+                "input": [
+                  0.0,
+                  8.0
+                ]
+              }
+            ],
+            [
+              "voice_voice.gain",
+              {
+                "input": [
+                  0.0,
+                  0.30000001192092896
+                ]
+              }
+            ],
+            [
+              "voice_melody.spread",
+              {
+                "input": [
+                  0.0,
+                  1.0
+                ]
+              }
+            ],
+            [
+              "voice_melody.rate",
+              {
+                "input": [
+                  0.25,
+                  8.0
+                ]
+              }
+            ],
+            [
+              "voice_melody.glide",
+              {
+                "input": [
+                  0.0,
+                  1.0
+                ]
+              }
+            ],
+            [
+              "drone_drone.freq",
+              {
+                "input": [
+                  30.0,
+                  220.0
+                ]
+              }
+            ],
+            [
+              "drone_drone.gain",
+              {
+                "input": [
+                  0.0,
+                  0.30000001192092896
+                ]
+              }
+            ],
+            [
+              "fft.level",
+              "control"
+            ],
+            [
+              "fft.bass",
+              "control"
+            ],
+            [
+              "mix1.out",
+              "audio"
+            ]
+          ],
+          "tracks": [
+            {
+              "preset": "cathedral_voice.bright",
+              "track": "voice"
+            },
+            {
+              "preset": "drone.base",
+              "track": "drone"
+            }
+          ]
+        },
+        "reload": false,
+        "rig": true,
+        "values": [
+          [
+            "voice_voice.index",
+            4.0
+          ],
+          [
+            "voice_voice.ratio",
+            3.0
+          ]
+        ],
+        "why": "mood"
+      }
+    },
+    "play": {
+      "failed": false,
+      "note": "played character.catpope: 8 knobs, 9 nodes",
+      "played": {
+        "character": "catpope",
+        "engine": {
+          "dropped": [],
+          "page": [],
+          "scene": "[[node]]\nid = \"voice_voice\"\nkind = \"fm\"\nfreq = 147.0\ngain = 0.16\nindex = 2.0\nratio = 1.5\n\n[[node]]\nid = \"voice_melody\"\nkind = \"walk\"\nbase = 147.0\nbpm = 84.0\nglide = 0.5\noctaves = 2.0\nrate = 2.0\nseed = 84\nspread = 0.0\n\n[[node]]\nid = \"drone_drone\"\nkind = \"osc\"\nfreq = 55.0\ngain = 0.1\n\n[[node]]\nid = \"drone_fifth\"\nkind = \"osc\"\nfreq = 82.5\ngain = 0.03\n\n[[node]]\nid = \"drone_mix\"\nkind = \"mixer\"\n\n[[node]]\nid = \"mix1\"\nkind = \"mixer\"\ngain1 = 1.0\ngain2 = 1.0\n\n[[node]]\nid = \"out\"\nkind = \"audio_out\"\n\n[[node]]\nid = \"fft\"\nkind = \"fft\"\n\n[[node]]\nid = \"space\"\nkind = \"space\"\n\n[[link]]\nfrom = \"voice_melody.cv\"\nto = \"voice_voice.cv\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone_drone.out\"\nto = \"drone_mix.in1\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone_fifth.out\"\nto = \"drone_mix.in2\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"voice_voice.out\"\nto = \"mix1.in1\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone_mix.out\"\nto = \"mix1.in2\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"mix1.out\"\nto = \"out.in\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"mix1.out\"\nto = \"fft.in\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"fft.level\"\nto = \"space.pulse\"\nscale = 0.6000000238418579\noffset = 0.0\n"
+        },
+        "expose": [
+          "voice_voice.ratio",
+          "voice_voice.index",
+          "voice_voice.gain",
+          "voice_melody.spread",
+          "voice_melody.rate",
+          "voice_melody.glide",
+          "drone_drone.freq",
+          "drone_drone.gain"
+        ],
+        "knobs": [
+          {
+            "label": {
+              "de": "FM-Verhältnis",
+              "en": "FM ratio"
+            },
+            "log": true,
+            "max": 4.0,
+            "min": 0.5,
+            "path": "voice_voice.ratio",
+            "value": 1.5
+          },
+          {
+            "label": {
+              "de": "FM-Index",
+              "en": "FM index"
+            },
+            "max": 8.0,
+            "min": 0.0,
+            "path": "voice_voice.index",
+            "value": 2.0
+          },
+          {
+            "label": {
+              "de": "Stimme",
+              "en": "voice"
+            },
+            "max": 0.30000001192092896,
+            "min": 0.0,
+            "path": "voice_voice.gain",
+            "value": 0.1599999964237213
+          },
+          {
+            "label": {
+              "de": "Weite",
+              "en": "spread"
+            },
+            "max": 1.0,
+            "min": 0.0,
+            "path": "voice_melody.spread",
+            "value": 0.0
+          },
+          {
+            "label": {
+              "de": "Schritte / Schlag",
+              "en": "steps / beat"
+            },
+            "log": true,
+            "max": 8.0,
+            "min": 0.25,
+            "path": "voice_melody.rate",
+            "value": 2.0
+          },
+          {
+            "label": {
+              "de": "Gleiten",
+              "en": "glide"
+            },
+            "max": 1.0,
+            "min": 0.0,
+            "path": "voice_melody.glide",
+            "value": 0.5
+          },
+          {
+            "label": {
+              "de": "Bordun-Tonhöhe",
+              "en": "drone pitch"
+            },
+            "log": true,
+            "max": 220.0,
+            "min": 30.0,
+            "path": "drone_drone.freq",
+            "value": 55.0
+          },
+          {
+            "label": {
+              "de": "Bordun",
+              "en": "drone"
+            },
+            "max": 0.30000001192092896,
+            "min": 0.0,
+            "path": "drone_drone.gain",
+            "value": 0.10000000149011612
+          }
+        ],
+        "links": [
+          {
+            "from": "voice_melody.cv",
+            "offset": 0.0,
+            "scale": 1.0,
+            "to": "voice_voice.cv"
+          },
+          {
+            "from": "drone_drone.out",
+            "offset": 0.0,
+            "scale": 1.0,
+            "to": "drone_mix.in1"
+          },
+          {
+            "from": "drone_fifth.out",
+            "offset": 0.0,
+            "scale": 1.0,
+            "to": "drone_mix.in2"
+          },
+          {
+            "from": "voice_voice.out",
+            "offset": 0.0,
+            "scale": 1.0,
+            "to": "mix1.in1"
+          },
+          {
+            "from": "drone_mix.out",
+            "offset": 0.0,
+            "scale": 1.0,
+            "to": "mix1.in2"
+          },
+          {
+            "from": "mix1.out",
+            "offset": 0.0,
+            "scale": 1.0,
+            "to": "out.in"
+          },
+          {
+            "from": "mix1.out",
+            "offset": 0.0,
+            "scale": 1.0,
+            "to": "fft.in"
+          },
+          {
+            "from": "fft.level",
+            "offset": 0.0,
+            "scale": 0.6000000238418579,
+            "to": "space.pulse"
+          }
+        ],
+        "nodes": [
+          {
+            "freq": 147.0,
+            "gain": 0.16,
+            "id": "voice_voice",
+            "index": 2.0,
+            "kind": "fm",
+            "ratio": 1.5
+          },
+          {
+            "base": 147.0,
+            "bpm": 84.0,
+            "glide": 0.5,
+            "id": "voice_melody",
+            "kind": "walk",
+            "octaves": 2.0,
+            "rate": 2.0,
+            "seed": 84,
+            "spread": 0.0
+          },
+          {
+            "freq": 55.0,
+            "gain": 0.1,
+            "id": "drone_drone",
+            "kind": "osc"
+          },
+          {
+            "freq": 82.5,
+            "gain": 0.03,
+            "id": "drone_fifth",
+            "kind": "osc"
+          },
+          {
+            "id": "drone_mix",
+            "kind": "mixer"
+          },
+          {
+            "gain1": 1.0,
+            "gain2": 1.0,
+            "id": "mix1",
+            "kind": "mixer"
+          },
+          {
+            "id": "out",
+            "kind": "audio_out"
+          },
+          {
+            "id": "fft",
+            "kind": "fft"
+          },
+          {
+            "id": "space",
+            "kind": "space"
+          }
+        ],
+        "scene": "[stage]\nname = \"character.catpope\"\n\n[[node]]\nid = \"voice_voice\"\nkind = \"fm\"\nfreq = 147.0\ngain = 0.16\nindex = 2.0\nratio = 1.5\n\n[[node]]\nid = \"voice_melody\"\nkind = \"walk\"\nbase = 147.0\nbpm = 84.0\nglide = 0.5\noctaves = 2.0\nrate = 2.0\nseed = 84\nspread = 0.0\n\n[[node]]\nid = \"drone_drone\"\nkind = \"osc\"\nfreq = 55.0\ngain = 0.1\n\n[[node]]\nid = \"drone_fifth\"\nkind = \"osc\"\nfreq = 82.5\ngain = 0.03\n\n[[node]]\nid = \"drone_mix\"\nkind = \"mixer\"\n\n[[node]]\nid = \"mix1\"\nkind = \"mixer\"\ngain1 = 1.0\ngain2 = 1.0\n\n[[node]]\nid = \"out\"\nkind = \"audio_out\"\n\n[[node]]\nid = \"fft\"\nkind = \"fft\"\n\n[[node]]\nid = \"space\"\nkind = \"space\"\n\n[[link]]\nfrom = \"voice_melody.cv\"\nto = \"voice_voice.cv\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone_drone.out\"\nto = \"drone_mix.in1\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone_fifth.out\"\nto = \"drone_mix.in2\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"voice_voice.out\"\nto = \"mix1.in1\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone_mix.out\"\nto = \"mix1.in2\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"mix1.out\"\nto = \"out.in\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"mix1.out\"\nto = \"fft.in\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"fft.level\"\nto = \"space.pulse\"\nscale = 0.6000000238418579\noffset = 0.0\n\n[being]\ncharacter = \"catpope\"\nexpose = [\"voice_voice.ratio\", \"voice_voice.index\", \"voice_voice.gain\", \"voice_melody.spread\", \"voice_melody.rate\", \"voice_melody.glide\", \"drone_drone.freq\", \"drone_drone.gain\"]\n",
+        "sticks": [
+          [
+            "voice_voice.ratio",
+            "voice_voice.index"
+          ],
+          [
+            "voice_melody.spread",
+            "drone_drone.freq"
+          ]
+        ],
+        "streamed": [
+          [
+            "voice_voice.ratio",
+            {
+              "input": [
+                0.5,
+                4.0
+              ]
+            }
+          ],
+          [
+            "voice_voice.index",
+            {
+              "input": [
+                0.0,
+                8.0
+              ]
+            }
+          ],
+          [
+            "voice_voice.gain",
+            {
+              "input": [
+                0.0,
+                0.30000001192092896
+              ]
+            }
+          ],
+          [
+            "voice_melody.spread",
+            {
+              "input": [
+                0.0,
+                1.0
+              ]
+            }
+          ],
+          [
+            "voice_melody.rate",
+            {
+              "input": [
+                0.25,
+                8.0
+              ]
+            }
+          ],
+          [
+            "voice_melody.glide",
+            {
+              "input": [
+                0.0,
+                1.0
+              ]
+            }
+          ],
+          [
+            "drone_drone.freq",
+            {
+              "input": [
+                30.0,
+                220.0
+              ]
+            }
+          ],
+          [
+            "drone_drone.gain",
+            {
+              "input": [
+                0.0,
+                0.30000001192092896
+              ]
+            }
+          ],
+          [
+            "fft.level",
+            "control"
+          ],
+          [
+            "fft.bass",
+            "control"
+          ],
+          [
+            "mix1.out",
+            "audio"
+          ]
+        ],
+        "tracks": [
+          {
+            "preset": "cathedral_voice.base",
+            "track": "voice"
+          },
+          {
+            "preset": "drone.base",
+            "track": "drone"
+          }
+        ]
+      },
+      "reload": true,
+      "rig": true,
+      "values": [],
+      "why": "play"
+    },
+    "sliders": [
+      {
+        "label": "FM ratio",
+        "log": true,
+        "max": 4.0,
+        "min": 0.5,
+        "path": "voice_voice.ratio",
+        "value": 1.5
+      },
+      {
+        "label": "FM index",
+        "max": 8.0,
+        "min": 0.0,
+        "path": "voice_voice.index",
+        "value": 2.0
+      },
+      {
+        "label": "voice",
+        "max": 0.30000001192092896,
+        "min": 0.0,
+        "path": "voice_voice.gain",
+        "value": 0.1599999964237213
+      },
+      {
+        "label": "spread",
+        "max": 1.0,
+        "min": 0.0,
+        "path": "voice_melody.spread",
+        "value": 0.0
+      },
+      {
+        "label": "steps / beat",
+        "log": true,
+        "max": 8.0,
+        "min": 0.25,
+        "path": "voice_melody.rate",
+        "value": 2.0
+      },
+      {
+        "label": "glide",
+        "max": 1.0,
+        "min": 0.0,
+        "path": "voice_melody.glide",
+        "value": 0.5
+      },
+      {
+        "label": "drone pitch",
+        "log": true,
+        "max": 220.0,
+        "min": 30.0,
+        "path": "drone_drone.freq",
+        "value": 55.0
+      },
+      {
+        "label": "drone",
+        "max": 0.30000001192092896,
+        "min": 0.0,
+        "path": "drone_drone.gain",
+        "value": 0.10000000149011612
+      }
+    ],
+    "sliders_de": [
+      {
+        "label": "FM-Verhältnis",
+        "log": true,
+        "max": 4.0,
+        "min": 0.5,
+        "path": "voice_voice.ratio",
+        "value": 1.5
+      },
+      {
+        "label": "FM-Index",
+        "max": 8.0,
+        "min": 0.0,
+        "path": "voice_voice.index",
+        "value": 2.0
+      },
+      {
+        "label": "Stimme",
+        "max": 0.30000001192092896,
+        "min": 0.0,
+        "path": "voice_voice.gain",
+        "value": 0.1599999964237213
+      },
+      {
+        "label": "Weite",
+        "max": 1.0,
+        "min": 0.0,
+        "path": "voice_melody.spread",
+        "value": 0.0
+      },
+      {
+        "label": "Schritte / Schlag",
+        "log": true,
+        "max": 8.0,
+        "min": 0.25,
+        "path": "voice_melody.rate",
+        "value": 2.0
+      },
+      {
+        "label": "Gleiten",
+        "max": 1.0,
+        "min": 0.0,
+        "path": "voice_melody.glide",
+        "value": 0.5
+      },
+      {
+        "label": "Bordun-Tonhöhe",
+        "log": true,
+        "max": 220.0,
+        "min": 30.0,
+        "path": "drone_drone.freq",
+        "value": 55.0
+      },
+      {
+        "label": "Bordun",
+        "max": 0.30000001192092896,
+        "min": 0.0,
+        "path": "drone_drone.gain",
+        "value": 0.10000000149011612
+      }
+    ],
+    "targets": {
+      "drone_drone.freq": "drone_drone.freq",
+      "drone_drone.gain": "drone_drone.gain",
+      "drone_fifth.gain": "drone_fifth.gain",
+      "drone_mix.gain": "drone_mix.gain",
+      "fft.gain": "fft.gain",
+      "mix1.gain": "mix1.gain",
+      "nobody.gain": "",
+      "out.gain": "out.gain",
+      "space.gain": "space.gain",
+      "voice_melody.gain": "voice_melody.gain",
+      "voice_melody.glide": "voice_melody.glide",
+      "voice_melody.rate": "voice_melody.rate",
+      "voice_melody.spread": "voice_melody.spread",
+      "voice_voice.gain": "voice_voice.gain",
+      "voice_voice.index": "voice_voice.index",
+      "voice_voice.ratio": "voice_voice.ratio"
+    }
+  },
+  "own": {
+    "graph": {
+      "character": "yellowmouse",
+      "expose": [
+        "seq.rate",
+        "voice.freq",
+        "voice.ratio",
+        "voice.index",
+        "voice.gain",
+        "drone.freq",
+        "drone.gain",
+        "incense.cutoff",
+        "incense.gain",
+        "sway.rate",
+        "sway.depth",
+        "mix.gain1",
+        "mix.gain2",
+        "mix.gain3",
+        "mix.gain4",
+        "out.volume",
+        "space.hue",
+        "space.glow",
+        "space.light",
+        "space.pulse",
+        "click.gain"
+      ],
+      "links": [
+        {
+          "from": "seq.cv",
+          "to": "voice.cv"
+        },
+        {
+          "from": "music",
+          "to": "mix.in1"
+        },
+        {
+          "from": "voice",
+          "to": "mix.in2"
+        },
+        {
+          "from": "drone",
+          "to": "mix.in3"
+        },
+        {
+          "from": "incense",
+          "to": "mix.in4"
+        },
+        {
+          "from": "mix",
+          "to": "fft.in"
+        },
+        {
+          "from": "mix",
+          "to": "out.in"
+        },
+        {
+          "from": "sway",
+          "offset": 600.0,
+          "scale": 3000.0,
+          "to": "incense.cutoff"
+        },
+        {
+          "from": "fft.level",
+          "scale": 0.6,
+          "to": "space.pulse"
+        },
+        {
+          "from": "fft.bass",
+          "offset": 0.04,
+          "scale": 0.25,
+          "to": "drone.gain"
+        },
+        {
+          "from": "space",
+          "to": "screen.in"
+        },
+        {
+          "from": "click",
+          "to": "out.in"
+        }
+      ],
+      "moods": [
+        "neutral",
+        "thinking",
+        "happy",
+        "laughing",
+        "surprised"
+      ],
+      "nodes": [
+        {
+          "id": "tempo",
+          "kind": "tempo"
+        },
+        {
+          "id": "music",
+          "kind": "chapter_music"
+        },
+        {
+          "id": "seq",
+          "kind": "seq"
+        },
+        {
+          "id": "voice",
+          "kind": "fm"
+        },
+        {
+          "id": "drone",
+          "kind": "osc"
+        },
+        {
+          "id": "incense",
+          "kind": "noise"
+        },
+        {
+          "id": "sway",
+          "kind": "lfo"
+        },
+        {
+          "id": "mix",
+          "kind": "mixer"
+        },
+        {
+          "id": "fft",
+          "kind": "fft"
+        },
+        {
+          "id": "out",
+          "kind": "audio_out"
+        },
+        {
+          "id": "space",
+          "kind": "space"
+        },
+        {
+          "id": "screen",
+          "kind": "screen"
+        },
+        {
+          "id": "click",
+          "kind": "click"
+        }
+      ],
+      "size": 0.5
+    },
+    "now": {
+      "failed": false,
+      "note": "",
+      "played": {
+        "character": "catpope",
+        "engine": {
+          "dropped": [
+            {
+              "from": "music",
+              "offset": 0.0,
+              "scale": 1.0,
+              "to": "mix.in1"
+            }
+          ],
+          "page": [
+            {
+              "chapter": 2,
+              "gain": 0.55,
+              "id": "music",
+              "kind": "chapter_music",
+              "quality": "low",
+              "toon": "catpope"
+            }
+          ],
+          "scene": "[[node]]\nid = \"tempo\"\nkind = \"tempo\"\nbeats = 4\nbpm = 84\nsource = \"relay\"\n\n[[node]]\nid = \"seq\"\nkind = \"seq\"\ndivision = 2\ngate = 0.6\nsteps = [50, 0, 57, 55, 53, 0, 52, 50]\n\n[[node]]\nid = \"voice\"\nkind = \"fm\"\nattack = 0.02\ngain = 0.16\nindex = 2.0\nratio = 1.5\nrelease = 0.4\n\n[[node]]\nid = \"drone\"\nkind = \"osc\"\nfreq = 55\ngain = 0.1\n\n[[node]]\nid = \"incense\"\nkind = \"noise\"\ncolor = \"pink\"\ncutoff = 1800\ngain = 0.03\n\n[[node]]\nid = \"sway\"\nkind = \"lfo\"\nrate = 0.07\n\n[[node]]\nid = \"mix\"\nkind = \"mixer\"\ngain1 = 1.0\ngain2 = 1.0\ngain3 = 1.0\ngain4 = 1.0\n\n[[node]]\nid = \"fft\"\nkind = \"fft\"\nrelease = 0.35\n\n[[node]]\nid = \"out\"\nkind = \"audio_out\"\nvolume = 0.8\n\n[[node]]\nid = \"space\"\nkind = \"space\"\nat = [2.4, 0.2, 5.2]\nbloom = 0.6\ndistance = 2.4\nglow = 0.6\nglow_light = 1.0\nglow_range = 7.0\nhue = 0.52\njoin = \"deck\"\nlight = 0.85\npitch = 6\npost = [\"bloom\", \"curves\", \"pixelate\", \"fxaa\"]\nquality = \"low\"\nset = \"cathedral\"\nthreshold = 0.55\nyaw = 279\n\n[[node]]\nid = \"screen\"\nkind = \"screen\"\n\n[[node]]\nid = \"click\"\nkind = \"click\"\ngain = 0.4\n\n[[link]]\nfrom = \"seq.cv\"\nto = \"voice.cv\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"voice\"\nto = \"mix.in2\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone\"\nto = \"mix.in3\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"incense\"\nto = \"mix.in4\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"mix\"\nto = \"fft.in\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"mix\"\nto = \"out.in\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"sway\"\nto = \"incense.cutoff\"\nscale = 3000.0\noffset = 600.0\n\n[[link]]\nfrom = \"fft.level\"\nto = \"space.pulse\"\nscale = 0.6000000238418579\noffset = 0.0\n\n[[link]]\nfrom = \"fft.bass\"\nto = \"drone.gain\"\nscale = 0.25\noffset = 0.03999999910593033\n\n[[link]]\nfrom = \"space\"\nto = \"screen.in\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"click\"\nto = \"out.in\"\nscale = 1.0\noffset = 0.0\n"
+        },
+        "expose": [
+          "seq.rate",
+          "voice.freq",
+          "voice.ratio",
+          "voice.index",
+          "voice.gain",
+          "drone.freq",
+          "drone.gain",
+          "incense.cutoff",
+          "incense.gain",
+          "sway.rate",
+          "sway.depth",
+          "mix.gain1",
+          "mix.gain2",
+          "mix.gain3",
+          "mix.gain4",
+          "out.volume",
+          "space.hue",
+          "space.glow",
+          "space.light",
+          "space.pulse",
+          "click.gain"
+        ],
+        "knobs": [
+          {
+            "log": true,
+            "max": 4.0,
+            "min": 0.25,
+            "path": "seq.rate",
+            "value": 1.0
+          },
+          {
+            "log": true,
+            "max": 4000.0,
+            "min": 20.0,
+            "path": "voice.freq",
+            "value": 220.0
+          },
+          {
+            "log": true,
+            "max": 8.0,
+            "min": 0.25,
+            "path": "voice.ratio",
+            "value": 1.5
+          },
+          {
+            "max": 10.0,
+            "min": 0.0,
+            "path": "voice.index",
+            "value": 2.0
+          },
+          {
+            "max": 1.0,
+            "min": 0.0,
+            "path": "voice.gain",
+            "value": 0.1599999964237213
+          },
+          {
+            "log": true,
+            "max": 4000.0,
+            "min": 20.0,
+            "path": "drone.freq",
+            "value": 55.0
+          },
+          {
+            "max": 1.0,
+            "min": 0.0,
+            "path": "drone.gain",
+            "value": 0.03999999910593033
+          },
+          {
+            "log": true,
+            "max": 16000.0,
+            "min": 50.0,
+            "path": "incense.cutoff",
+            "value": 600.0
+          },
+          {
+            "max": 1.0,
+            "min": 0.0,
+            "path": "incense.gain",
+            "value": 0.029999999329447746
+          },
+          {
+            "log": true,
+            "max": 20.0,
+            "min": 0.009999999776482582,
+            "path": "sway.rate",
+            "value": 0.07000000029802322
+          },
+          {
+            "max": 2.0,
+            "min": 0.0,
+            "path": "sway.depth",
+            "value": 1.0
+          },
+          {
+            "max": 1.5,
+            "min": 0.0,
+            "path": "mix.gain1",
+            "value": 1.0
+          },
+          {
+            "max": 1.5,
+            "min": 0.0,
+            "path": "mix.gain2",
+            "value": 1.0
+          },
+          {
+            "max": 1.5,
+            "min": 0.0,
+            "path": "mix.gain3",
+            "value": 1.0
+          },
+          {
+            "max": 1.5,
+            "min": 0.0,
+            "path": "mix.gain4",
+            "value": 1.0
+          },
+          {
+            "max": 1.0,
+            "min": 0.0,
+            "path": "out.volume",
+            "value": 0.800000011920929
+          },
+          {
+            "max": 1.0,
+            "min": 0.0,
+            "path": "space.hue",
+            "value": 0.5199999809265137
+          },
+          {
+            "max": 2.0,
+            "min": 0.0,
+            "path": "space.glow",
+            "value": 0.6000000238418579
+          },
+          {
+            "max": 1.5,
+            "min": 0.0,
+            "path": "space.light",
+            "value": 0.8500000238418579
+          },
+          {
+            "max": 1.0,
+            "min": 0.0,
+            "path": "space.pulse",
+            "value": 0.0
+          },
+          {
+            "max": 1.0,
+            "min": 0.0,
+            "path": "click.gain",
+            "value": 0.4000000059604645
+          }
+        ],
+        "links": [
+          {
+            "from": "seq.cv",
+            "offset": 0.0,
+            "scale": 1.0,
+            "to": "voice.cv"
+          },
+          {
+            "from": "music",
+            "offset": 0.0,
+            "scale": 1.0,
+            "to": "mix.in1"
+          },
+          {
+            "from": "voice",
+            "offset": 0.0,
+            "scale": 1.0,
+            "to": "mix.in2"
+          },
+          {
+            "from": "drone",
+            "offset": 0.0,
+            "scale": 1.0,
+            "to": "mix.in3"
+          },
+          {
+            "from": "incense",
+            "offset": 0.0,
+            "scale": 1.0,
+            "to": "mix.in4"
+          },
+          {
+            "from": "mix",
+            "offset": 0.0,
+            "scale": 1.0,
+            "to": "fft.in"
+          },
+          {
+            "from": "mix",
+            "offset": 0.0,
+            "scale": 1.0,
+            "to": "out.in"
+          },
+          {
+            "from": "sway",
+            "offset": 600.0,
+            "scale": 3000.0,
+            "to": "incense.cutoff"
+          },
+          {
+            "from": "fft.level",
+            "offset": 0.0,
+            "scale": 0.6000000238418579,
+            "to": "space.pulse"
+          },
+          {
+            "from": "fft.bass",
+            "offset": 0.03999999910593033,
+            "scale": 0.25,
+            "to": "drone.gain"
+          },
+          {
+            "from": "space",
+            "offset": 0.0,
+            "scale": 1.0,
+            "to": "screen.in"
+          },
+          {
+            "from": "click",
+            "offset": 0.0,
+            "scale": 1.0,
+            "to": "out.in"
+          }
+        ],
+        "nodes": [
+          {
+            "beats": 4,
+            "bpm": 84,
+            "id": "tempo",
+            "kind": "tempo",
+            "source": "relay"
+          },
+          {
+            "chapter": 2,
+            "gain": 0.55,
+            "id": "music",
+            "kind": "chapter_music",
+            "quality": "low",
+            "toon": "catpope"
+          },
+          {
+            "division": 2,
+            "gate": 0.6,
+            "id": "seq",
+            "kind": "seq",
+            "steps": [
+              50,
+              0,
+              57,
+              55,
+              53,
+              0,
+              52,
+              50
+            ]
+          },
+          {
+            "attack": 0.02,
+            "gain": 0.16,
+            "id": "voice",
+            "index": 2.0,
+            "kind": "fm",
+            "ratio": 1.5,
+            "release": 0.4
+          },
+          {
+            "freq": 55,
+            "gain": 0.1,
+            "id": "drone",
+            "kind": "osc"
+          },
+          {
+            "color": "pink",
+            "cutoff": 1800,
+            "gain": 0.03,
+            "id": "incense",
+            "kind": "noise"
+          },
+          {
+            "id": "sway",
+            "kind": "lfo",
+            "rate": 0.07
+          },
+          {
+            "gain1": 1.0,
+            "gain2": 1.0,
+            "gain3": 1.0,
+            "gain4": 1.0,
+            "id": "mix",
+            "kind": "mixer"
+          },
+          {
+            "id": "fft",
+            "kind": "fft",
+            "release": 0.35
+          },
+          {
+            "id": "out",
+            "kind": "audio_out",
+            "volume": 0.8
+          },
+          {
+            "at": [
+              2.4,
+              0.2,
+              5.2
+            ],
+            "bloom": 0.6,
+            "distance": 2.4,
+            "glow": 0.6,
+            "glow_light": 1.0,
+            "glow_range": 7.0,
+            "hue": 0.52,
+            "id": "space",
+            "join": "deck",
+            "kind": "space",
+            "light": 0.85,
+            "pitch": 6,
+            "post": [
+              "bloom",
+              "curves",
+              "pixelate",
+              "fxaa"
+            ],
+            "quality": "low",
+            "set": "cathedral",
+            "threshold": 0.55,
+            "yaw": 279
+          },
+          {
+            "id": "screen",
+            "kind": "screen"
+          },
+          {
+            "gain": 0.4,
+            "id": "click",
+            "kind": "click"
+          }
+        ],
+        "scene": "# The Cathedral of decks (#188) – a deck: the set `cathedral` from Cat Pope chapter 2 – the sermon's cathedral (the owner's\n# Unreal export, agents/research/LOCATION-SCENES.md §7) – and this deck's being floating in the nave: its graph as a\n# body, node points with their parameters as 3D buttons, the links as hoses with bubbles, its head the character's\n# portrait (phase 5). With a relay set (deck.toml `relay` or --relay) it joins the session as a deck (`join` below) and\n# streams its being to the conductor (scenes/conductor.toml). Run it:\n#   cargo run --release -p deck-native -- --scene cathedral --windowed\n# (the sync fetches the set and the portraits into the cache; local copies instead: --sets ../media/scutoons/rooms\n#  --portraits ../media/characters)\n# Mouse: drag = turn the camera (or a button's value), wheel = zoom; ← → turn, ↑ ↓ zoom, R the camera's home.\n\n[stage]\nname = \"Cathedral of decks\"\nrender_scale = 1.0\n\n# the being's shape (space/being.rs; the colours are the space node's hue / glow below) and its head: the character\n# whose portrait mood sprites it wears (<character>_portrait-<mood>.png under --portraits); `moods` = calm → wild, the\n# energy (the FFT level, the tempo) walks through them\n[being]\ncharacter = \"catpope\"\nmoods = [\"neutral\", \"thinking\", \"happy\", \"laughing\", \"surprised\"]\nsize = 0.5\ndrift = 0.06\nbreath = 0.04\nwobble = 0.025\n\n# feedback → emotion (space/feel.rs): a rule reads `when` (node.port – the node by id, else by kind -, bpm, touch,\n# energy, phrase = 0..8 through an 8-bar phrase), tests it (above / below, rising / falling = a jump over the last half\n# second, steady = moved less than `by` for that many s) and shows its mood for at least `hold` s; the heaviest\n# `weight` wins, a mood shown 6 s rests `cooldown` s (4); none firing = the energy's ladder above. Arbitrary on purpose\n# (owner 2026-10-30: \"the main thing is that we get a change\") – every mood of the set has one.\nfeel = [\n  { mood = \"smug\", when = \"touch\", above = 0.5, weight = 6 },\n  { mood = \"embarrassed\", when = \"touch\", falling = 0.3, weight = 6, hold = 2 },\n  { mood = \"dizzy\", when = \"strain\", above = 0.4, weight = 7, hold = 2 },\n  { mood = \"dizzy\", when = \"sway.shape\", rising = 0.5, weight = 6, hold = 3 },\n  { mood = \"surprised\", when = \"fft.bass\", rising = 0.12, weight = 5, hold = 1.2 },\n  { mood = \"scared\", when = \"fft.level\", rising = 0.2, weight = 5 },\n  { mood = \"angry\", when = \"fft.high\", rising = 0.08, weight = 4, hold = 1 },\n  { mood = \"dying\", when = \"fft.level\", below = 0.015, for = 1.5, weight = 4 },\n  { mood = \"tripping\", when = \"sway.rate\", above = 0.8, weight = 4 },\n  { mood = \"furious\", when = \"voice.index\", above = 4.5, weight = 3 },\n  { mood = \"confused\", when = \"voice.ratio\", above = 2.2, weight = 3 },\n  { mood = \"crying\", when = \"fft.level\", falling = 0.15, weight = 3 },\n  { mood = \"laughing\", when = \"bpm\", above = 104, weight = 2 },\n  { mood = \"happy\", when = \"fft.mid\", above = 0.3, for = 1, weight = 2, chance = 0.5, cooldown = 12 },\n  { mood = \"disgusted\", when = \"incense.cutoff\", below = 800, weight = 2 },\n  { mood = \"denial\", when = \"phrase\", above = 7, weight = 2 },\n  { mood = \"bargaining\", when = \"phrase\", above = 3, below = 3.5, weight = 2, chance = 0.6 },\n  { mood = \"sad\", when = \"fft.bass\", below = 0.04, for = 2 },\n  { mood = \"thinking\", when = \"fft.level\", steady = 3, by = 0.06 },\n  { mood = \"acceptance\", when = \"energy\", steady = 5, by = 0.08 },\n  { mood = \"neutral\", when = \"phrase\", below = 0.25 },\n]\n# emotion → sound: when the head turns to `mood`, `set` (an unlinked input) is kicked `by` / `to` over `attack` s\n# (0.25) and eases back over `release` s (2) – several chain into the rules above (surprised → furious, laughing →\n# tripping, smug → confused). Gentle on the sound (#188, owner 2026-10-31: the nudges sounded like dropouts): no gain\n# ducks deeper than 6 dB, the sound's attacks take ≥ 0.15 s, dying fades instead of falling silent; the output\n# limiter straining makes it dizzy (`strain`)\nreact = [\n  { mood = \"neutral\", set = \"space.light\", by = 0.15, release = 3 },\n  { mood = \"thinking\", set = \"voice.index\", by = -1.2, attack = 0.5, release = 4 },\n  { mood = \"thinking\", set = \"mix.gain4\", by = -0.5, attack = 0.5, release = 4 },\n  { mood = \"happy\", set = \"space.hue\", by = 0.12, release = 3 },\n  { mood = \"happy\", set = \"sway.depth\", by = 0.5, release = 3 },\n  { mood = \"laughing\", set = \"seq.rate\", by = 1, attack = 0.3, release = 4 },\n  { mood = \"laughing\", set = \"sway.rate\", by = 0.9, release = 4 },\n  { mood = \"smug\", set = \"voice.ratio\", by = 0.8, release = 3 },\n  { mood = \"smug\", set = \"space.glow\", by = 0.3, release = 2 },\n  { mood = \"surprised\", set = \"space.glow\", by = 0.6, attack = 0.03, release = 0.8 },\n  { mood = \"surprised\", set = \"drone.freq\", by = 20, attack = 0.15, release = 0.8 },\n  { mood = \"surprised\", set = \"voice.index\", by = 3, release = 2 },\n  { mood = \"scared\", set = \"space.light\", by = -0.4, attack = 0.05, release = 1.5 },\n  { mood = \"scared\", set = \"incense.gain\", by = 0.05, attack = 0.3, release = 1.5 },\n  { mood = \"furious\", set = \"space.hue\", to = 0.0, attack = 0.2, release = 3 },\n  { mood = \"furious\", set = \"space.glow\", by = 0.5, release = 3 },\n  { mood = \"furious\", set = \"voice.gain\", by = 0.05, attack = 0.3, release = 2 },\n  { mood = \"angry\", set = \"drone.freq\", by = -10, attack = 0.3, release = 1.5 },\n  { mood = \"angry\", set = \"space.hue\", to = 0.03, release = 1.5 },\n  { mood = \"disgusted\", set = \"space.hue\", to = 0.22, release = 3 },\n  { mood = \"disgusted\", set = \"voice.ratio\", by = 1.27, release = 2.5 },\n  { mood = \"embarrassed\", set = \"space.hue\", to = 0.95, release = 2.5 },\n  { mood = \"embarrassed\", set = \"voice.gain\", by = -0.08, attack = 0.4, release = 2 },\n  { mood = \"confused\", set = \"seq.rate\", by = -0.5, release = 3 },\n  { mood = \"confused\", set = \"sway.depth\", by = -0.6, release = 3 },\n  { mood = \"dizzy\", set = \"sway.rate\", by = 1.5, release = 4 },\n  { mood = \"dizzy\", set = \"space.light\", by = -0.2, release = 2 },\n  { mood = \"tripping\", set = \"space.hue\", by = 0.5, attack = 1, release = 5 },\n  { mood = \"tripping\", set = \"voice.ratio\", by = 0.75, release = 4 },\n  { mood = \"sad\", set = \"space.hue\", to = 0.64, release = 4 },\n  { mood = \"sad\", set = \"music.gain\", by = -0.2, attack = 0.8, release = 4 },\n  { mood = \"crying\", set = \"voice.index\", by = -1.5, release = 3 },\n  { mood = \"crying\", set = \"space.glow\", by = -0.3, release = 3 },\n  { mood = \"dying\", set = \"space.light\", by = -0.5, attack = 1, release = 4 },\n  { mood = \"dying\", set = \"drone.freq\", by = -6, attack = 1.5, release = 4 },\n  { mood = \"dying\", set = \"voice.gain\", by = -0.06, attack = 1.5, release = 4 },\n  { mood = \"denial\", set = \"mix.gain1\", by = -0.5, attack = 0.4, release = 1.8 },\n  { mood = \"bargaining\", set = \"voice.ratio\", by = -0.5, release = 3 },\n  { mood = \"bargaining\", set = \"seq.rate\", by = 0.5, release = 3 },\n  { mood = \"acceptance\", set = \"space.glow\", by = -0.2, release = 5 },\n  { mood = \"acceptance\", set = \"space.light\", by = 0.1, release = 5 },\n]\n\n[[node]]\nid = \"tempo\"\nkind = \"tempo\"\nbpm = 84\nbeats = 4\n# the show clock (#321): the conductor leads, the decks follow; without a leader on the relay it runs on at 84\nsource = \"relay\"\n\n# the sermon's chapter: its music under everything (cached; offline the rest still plays)\n[[node]]\nid = \"music\"\nkind = \"chapter_music\"\ntoon = \"catpope\"\nchapter = 2\nquality = \"low\"\ngain = 0.55\n\n# the choir's line, on the beat\n[[node]]\nid = \"seq\"\nkind = \"seq\"\ndivision = 2\ngate = 0.6\nsteps = [50, 0, 57, 55, 53, 0, 52, 50]\n\n[[node]]\nid = \"voice\"\nkind = \"fm\"\nratio = 1.5\nindex = 2.0\ngain = 0.16\nattack = 0.02\nrelease = 0.4\n\n[[node]]\nid = \"drone\"\nkind = \"osc\"\nfreq = 55\ngain = 0.1\n\n[[node]]\nid = \"incense\"\nkind = \"noise\"\ncolor = \"pink\"\ncutoff = 1800\ngain = 0.03\n\n# the incense sways slowly\n[[node]]\nid = \"sway\"\nkind = \"lfo\"\nrate = 0.07\n\n[[node]]\nid = \"mix\"\nkind = \"mixer\"\ngain1 = 1.0\ngain2 = 1.0\ngain3 = 1.0\ngain4 = 1.0\n\n[[node]]\nid = \"fft\"\nkind = \"fft\"\nrelease = 0.35\n\n[[node]]\nid = \"out\"\nkind = \"audio_out\"\nvolume = 0.8\n\n# the space: the set by id (its 3D at `quality`: <sets>/cathedral/cathedral.<quality>.glb, synced from the API), where\n# the being floats (`at` in the set's metres – in the nave, ahead of the reader's view; or `spot` = a spot of the set +\n# `lift`), the camera's start (yaw / pitch in degrees, distance in metres – yaw 279 looks the way the reader's view\n# does); hue / glow colour the being, light dims the set, pulse kicks its breath; `join` = how it takes part in a session with a relay set (deck · conductor ·\n# alone)\n[[node]]\nid = \"space\"\nkind = \"space\"\nset = \"cathedral\"\nquality = \"low\"\nat = [2.4, 0.2, 5.2]\nyaw = 279\npitch = 6\ndistance = 2.4\nhue = 0.52\nglow = 0.6\nlight = 0.85\njoin = \"deck\"\n# the post stack (#204, deck-space post.rs): passes in this order after the space is drawn – bloom, curves (lift /\n# gamma / gain), pixelate (block size in render pixels, `levels` per channel, or `palette` = [\"#rrggbb\", …]), FXAA. Their\n# knobs are the space node's control inputs (link them, nudge them from `react`); one at neutral costs nothing (curves at\n# 0 / 1 / 1, pixel 1 without levels or palette), a pass not listed doesn't exist\npost = [\"bloom\", \"curves\", \"pixelate\", \"fxaa\"]\nbloom = 0.6\nthreshold = 0.55\n# the being's core lights the room (#204): `glow_range` (m) how far, `glow_light` how strong (0 = off) – its colour the\n# hue, its strength glow + the level's pulse\nglow_range = 7.0\nglow_light = 1.0\n\n[[node]]\nid = \"screen\"\nkind = \"screen\"\n\n[[link]]\nfrom = \"seq.cv\"\nto = \"voice.cv\"\n\n[[link]]\nfrom = \"music\"\nto = \"mix.in1\"\n\n[[link]]\nfrom = \"voice\"\nto = \"mix.in2\"\n\n[[link]]\nfrom = \"drone\"\nto = \"mix.in3\"\n\n[[link]]\nfrom = \"incense\"\nto = \"mix.in4\"\n\n[[link]]\nfrom = \"mix\"\nto = \"fft.in\"\n\n[[link]]\nfrom = \"mix\"\nto = \"out.in\"\n\n[[link]]\nfrom = \"sway\"\nto = \"incense.cutoff\"\nscale = 3000\noffset = 600\n\n[[link]]\nfrom = \"fft.level\"\nto = \"space.pulse\"\nscale = 0.6\n\n[[link]]\nfrom = \"fft.bass\"\nto = \"drone.gain\"\nscale = 0.25\noffset = 0.04\n\n[[link]]\nfrom = \"space\"\nto = \"screen.in\"\n\n# #321: the click on the show clock (K turns it on) – the decks click together\n[[node]]\nid = \"click\"\nkind = \"click\"\ngain = 0.4\n\n[[link]]\nfrom = \"click\"\nto = \"out.in\"\n",
+        "sticks": [
+          [
+            "seq.rate",
+            "voice.freq"
+          ],
+          [
+            "voice.ratio",
+            "voice.index"
+          ]
+        ],
+        "streamed": [
+          [
+            "seq.rate",
+            {
+              "input": [
+                0.25,
+                4.0
+              ]
+            }
+          ],
+          [
+            "voice.freq",
+            {
+              "input": [
+                20.0,
+                4000.0
+              ]
+            }
+          ],
+          [
+            "voice.ratio",
+            {
+              "input": [
+                0.25,
+                8.0
+              ]
+            }
+          ],
+          [
+            "voice.index",
+            {
+              "input": [
+                0.0,
+                10.0
+              ]
+            }
+          ],
+          [
+            "voice.gain",
+            {
+              "input": [
+                0.0,
+                1.0
+              ]
+            }
+          ],
+          [
+            "drone.freq",
+            {
+              "input": [
+                20.0,
+                4000.0
+              ]
+            }
+          ],
+          [
+            "drone.gain",
+            {
+              "input": [
+                0.0,
+                1.0
+              ]
+            }
+          ],
+          [
+            "incense.cutoff",
+            {
+              "input": [
+                50.0,
+                16000.0
+              ]
+            }
+          ],
+          [
+            "incense.gain",
+            {
+              "input": [
+                0.0,
+                1.0
+              ]
+            }
+          ],
+          [
+            "sway.rate",
+            {
+              "input": [
+                0.009999999776482582,
+                20.0
+              ]
+            }
+          ],
+          [
+            "sway.depth",
+            {
+              "input": [
+                0.0,
+                2.0
+              ]
+            }
+          ],
+          [
+            "mix.gain1",
+            {
+              "input": [
+                0.0,
+                1.5
+              ]
+            }
+          ],
+          [
+            "mix.gain2",
+            {
+              "input": [
+                0.0,
+                1.5
+              ]
+            }
+          ],
+          [
+            "mix.gain3",
+            {
+              "input": [
+                0.0,
+                1.5
+              ]
+            }
+          ],
+          [
+            "mix.gain4",
+            {
+              "input": [
+                0.0,
+                1.5
+              ]
+            }
+          ],
+          [
+            "out.volume",
+            {
+              "input": [
+                0.0,
+                1.0
+              ]
+            }
+          ],
+          [
+            "space.hue",
+            {
+              "input": [
+                0.0,
+                1.0
+              ]
+            }
+          ],
+          [
+            "space.glow",
+            {
+              "input": [
+                0.0,
+                2.0
+              ]
+            }
+          ],
+          [
+            "space.light",
+            {
+              "input": [
+                0.0,
+                1.5
+              ]
+            }
+          ],
+          [
+            "space.pulse",
+            {
+              "input": [
+                0.0,
+                1.0
+              ]
+            }
+          ],
+          [
+            "click.gain",
+            {
+              "input": [
+                0.0,
+                1.0
+              ]
+            }
+          ],
+          [
+            "fft.level",
+            "control"
+          ],
+          [
+            "fft.bass",
+            "control"
+          ]
+        ],
+        "tracks": []
+      },
+      "reload": true,
+      "rig": false,
+      "values": [],
+      "why": "play"
+    },
+    "sliders": [
+      {
+        "label": "seq.rate",
+        "log": true,
+        "max": 4.0,
+        "min": 0.25,
+        "path": "seq.rate",
+        "value": 1.0
+      },
+      {
+        "label": "voice.freq",
+        "log": true,
+        "max": 4000.0,
+        "min": 20.0,
+        "path": "voice.freq",
+        "value": 220.0
+      },
+      {
+        "label": "voice.ratio",
+        "log": true,
+        "max": 8.0,
+        "min": 0.25,
+        "path": "voice.ratio",
+        "value": 1.5
+      },
+      {
+        "label": "voice.index",
+        "max": 10.0,
+        "min": 0.0,
+        "path": "voice.index",
+        "value": 2.0
+      },
+      {
+        "label": "voice.gain",
+        "max": 1.0,
+        "min": 0.0,
+        "path": "voice.gain",
+        "value": 0.1599999964237213
+      },
+      {
+        "label": "drone.freq",
+        "log": true,
+        "max": 4000.0,
+        "min": 20.0,
+        "path": "drone.freq",
+        "value": 55.0
+      },
+      {
+        "label": "drone.gain",
+        "max": 1.0,
+        "min": 0.0,
+        "path": "drone.gain",
+        "value": 0.03999999910593033
+      },
+      {
+        "label": "incense.cutoff",
+        "log": true,
+        "max": 16000.0,
+        "min": 50.0,
+        "path": "incense.cutoff",
+        "value": 600.0
+      },
+      {
+        "label": "incense.gain",
+        "max": 1.0,
+        "min": 0.0,
+        "path": "incense.gain",
+        "value": 0.029999999329447746
+      },
+      {
+        "label": "sway.rate",
+        "log": true,
+        "max": 20.0,
+        "min": 0.009999999776482582,
+        "path": "sway.rate",
+        "value": 0.07000000029802322
+      },
+      {
+        "label": "sway.depth",
+        "max": 2.0,
+        "min": 0.0,
+        "path": "sway.depth",
+        "value": 1.0
+      },
+      {
+        "label": "mix.gain1",
+        "max": 1.5,
+        "min": 0.0,
+        "path": "mix.gain1",
+        "value": 1.0
+      },
+      {
+        "label": "mix.gain2",
+        "max": 1.5,
+        "min": 0.0,
+        "path": "mix.gain2",
+        "value": 1.0
+      },
+      {
+        "label": "mix.gain3",
+        "max": 1.5,
+        "min": 0.0,
+        "path": "mix.gain3",
+        "value": 1.0
+      },
+      {
+        "label": "mix.gain4",
+        "max": 1.5,
+        "min": 0.0,
+        "path": "mix.gain4",
+        "value": 1.0
+      },
+      {
+        "label": "out.volume",
+        "max": 1.0,
+        "min": 0.0,
+        "path": "out.volume",
+        "value": 0.800000011920929
+      },
+      {
+        "label": "space.hue",
+        "max": 1.0,
+        "min": 0.0,
+        "path": "space.hue",
+        "value": 0.5199999809265137
+      },
+      {
+        "label": "space.glow",
+        "max": 2.0,
+        "min": 0.0,
+        "path": "space.glow",
+        "value": 0.6000000238418579
+      },
+      {
+        "label": "space.light",
+        "max": 1.5,
+        "min": 0.0,
+        "path": "space.light",
+        "value": 0.8500000238418579
+      },
+      {
+        "label": "space.pulse",
+        "max": 1.0,
+        "min": 0.0,
+        "path": "space.pulse",
+        "value": 0.0
+      },
+      {
+        "label": "click.gain",
+        "max": 1.0,
+        "min": 0.0,
+        "path": "click.gain",
+        "value": 0.4000000059604645
+      }
+    ],
+    "targets": {
+      "click.gain": "click.gain",
+      "drone.freq": "drone.freq",
+      "drone.gain": "drone.gain",
+      "fft.gain": "fft.gain",
+      "incense.cutoff": "incense.cutoff",
+      "incense.gain": "incense.gain",
+      "mix.gain": "mix.gain",
+      "mix.gain1": "mix.gain1",
+      "mix.gain2": "mix.gain2",
+      "mix.gain3": "mix.gain3",
+      "mix.gain4": "mix.gain4",
+      "music.gain": "",
+      "nobody.gain": "",
+      "out.gain": "out.gain",
+      "out.volume": "out.volume",
+      "screen.gain": "screen.gain",
+      "seq.gain": "seq.gain",
+      "seq.rate": "seq.rate",
+      "space.gain": "space.gain",
+      "space.glow": "space.glow",
+      "space.hue": "space.hue",
+      "space.light": "space.light",
+      "space.pulse": "space.pulse",
+      "sway.depth": "sway.depth",
+      "sway.gain": "sway.gain",
+      "sway.rate": "sway.rate",
+      "tempo.gain": "tempo.gain",
+      "voice.freq": "voice.freq",
+      "voice.gain": "voice.gain",
+      "voice.index": "voice.index",
+      "voice.ratio": "voice.ratio"
+    }
+  }
+}

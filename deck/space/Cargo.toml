@@ -16,7 +16,7 @@ publish.workspace = true
 default = ["being", "gpu", "native"]
 # the space: the set's glTF (meshopt), the being (tethered buttons, hoses, bubbles, the head, labels), the camera,
 # picking and drag, the feelings, the conductor's mirrored beings, the deck stream's wire forms
-being = ["dep:glam", "dep:ab_glyph", "dep:image", "dep:bytemuck", "dep:protocol"]
+being = ["dep:glam", "dep:ab_glyph", "dep:image", "dep:bytemuck"]
 # the space's GPU passes (wgpu)
 gpu = ["being", "dep:wgpu"]
 # loaders on threads and from files: a set's .glb, the portraits from a folder, images decoded in Rust (WebP, PNG)
@@ -37,7 +37,8 @@ toml.workspace = true
 tracing.workspace = true
 # the rig bundle's wire form (rig/bundle.rs) and the being's wire forms
 serde_json.workspace = true
-protocol = { workspace = true, optional = true }
+# the relay protocol's serde types: the being on the wire (deck.rs `graph`, space/wire.rs)
+protocol = { workspace = true }
 glam = { version = "0.28", optional = true }
 ab_glyph = { version = "0.2", optional = true }
 bytemuck = { version = "1", features = ["derive"], optional = true }

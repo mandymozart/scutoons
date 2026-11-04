@@ -6,6 +6,16 @@
       "page": [],
       "scene": "[[node]]\nid = \"voice_voice\"\nkind = \"fm\"\nfreq = 147.0\ngain = 0.16\nindex = 2.0\nratio = 1.5\n\n[[node]]\nid = \"voice_melody\"\nkind = \"walk\"\nbase = 147.0\nbpm = 84.0\nglide = 0.5\noctaves = 2.0\nrate = 2.0\nseed = 84\nspread = 0.0\n\n[[node]]\nid = \"drone_drone\"\nkind = \"osc\"\nfreq = 55.0\ngain = 0.1\n\n[[node]]\nid = \"drone_fifth\"\nkind = \"osc\"\nfreq = 82.5\ngain = 0.03\n\n[[node]]\nid = \"drone_mix\"\nkind = \"mixer\"\n\n[[node]]\nid = \"mix1\"\nkind = \"mixer\"\ngain1 = 1.0\ngain2 = 1.0\n\n[[node]]\nid = \"out\"\nkind = \"audio_out\"\n\n[[node]]\nid = \"fft\"\nkind = \"fft\"\n\n[[node]]\nid = \"space\"\nkind = \"space\"\n\n[[link]]\nfrom = \"voice_melody.cv\"\nto = \"voice_voice.cv\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone_drone.out\"\nto = \"drone_mix.in1\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone_fifth.out\"\nto = \"drone_mix.in2\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"voice_voice.out\"\nto = \"mix1.in1\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone_mix.out\"\nto = \"mix1.in2\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"mix1.out\"\nto = \"out.in\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"mix1.out\"\nto = \"fft.in\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"fft.level\"\nto = \"space.pulse\"\nscale = 0.6000000238418579\noffset = 0.0\n"
     },
+    "expose": [
+      "voice_voice.ratio",
+      "voice_voice.index",
+      "voice_voice.gain",
+      "voice_melody.spread",
+      "voice_melody.rate",
+      "voice_melody.glide",
+      "drone_drone.freq",
+      "drone_drone.gain"
+    ],
     "knobs": [
       {
         "label": {
@@ -207,6 +217,92 @@
         "drone_drone.freq"
       ]
     ],
+    "streamed": [
+      [
+        "voice_voice.ratio",
+        {
+          "input": [
+            0.5,
+            4.0
+          ]
+        }
+      ],
+      [
+        "voice_voice.index",
+        {
+          "input": [
+            0.0,
+            8.0
+          ]
+        }
+      ],
+      [
+        "voice_voice.gain",
+        {
+          "input": [
+            0.0,
+            0.3
+          ]
+        }
+      ],
+      [
+        "voice_melody.spread",
+        {
+          "input": [
+            0.0,
+            1.0
+          ]
+        }
+      ],
+      [
+        "voice_melody.rate",
+        {
+          "input": [
+            0.25,
+            8.0
+          ]
+        }
+      ],
+      [
+        "voice_melody.glide",
+        {
+          "input": [
+            0.0,
+            1.0
+          ]
+        }
+      ],
+      [
+        "drone_drone.freq",
+        {
+          "input": [
+            30.0,
+            220.0
+          ]
+        }
+      ],
+      [
+        "drone_drone.gain",
+        {
+          "input": [
+            0.0,
+            0.3
+          ]
+        }
+      ],
+      [
+        "fft.level",
+        "control"
+      ],
+      [
+        "fft.bass",
+        "control"
+      ],
+      [
+        "mix1.out",
+        "audio"
+      ]
+    ],
     "tracks": [
       {
         "preset": "cathedral_voice.base",
@@ -225,6 +321,16 @@
       "page": [],
       "scene": "[[node]]\nid = \"voice_voice\"\nkind = \"fm\"\nfreq = 147.0\ngain = 0.16\nindex = 4.0\nratio = 3.0\n\n[[node]]\nid = \"voice_melody\"\nkind = \"walk\"\nbase = 147.0\nbpm = 84.0\nglide = 0.5\noctaves = 2.0\nrate = 2.0\nseed = 84\nspread = 0.0\n\n[[node]]\nid = \"drone_drone\"\nkind = \"osc\"\nfreq = 55.0\ngain = 0.1\n\n[[node]]\nid = \"drone_fifth\"\nkind = \"osc\"\nfreq = 82.5\ngain = 0.03\n\n[[node]]\nid = \"drone_mix\"\nkind = \"mixer\"\n\n[[node]]\nid = \"mix1\"\nkind = \"mixer\"\ngain1 = 1.0\ngain2 = 1.0\n\n[[node]]\nid = \"out\"\nkind = \"audio_out\"\n\n[[node]]\nid = \"fft\"\nkind = \"fft\"\n\n[[node]]\nid = \"space\"\nkind = \"space\"\n\n[[link]]\nfrom = \"voice_melody.cv\"\nto = \"voice_voice.cv\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone_drone.out\"\nto = \"drone_mix.in1\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone_fifth.out\"\nto = \"drone_mix.in2\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"voice_voice.out\"\nto = \"mix1.in1\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone_mix.out\"\nto = \"mix1.in2\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"mix1.out\"\nto = \"out.in\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"mix1.out\"\nto = \"fft.in\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"fft.level\"\nto = \"space.pulse\"\nscale = 0.6000000238418579\noffset = 0.0\n"
     },
+    "expose": [
+      "voice_voice.ratio",
+      "voice_voice.index",
+      "voice_voice.gain",
+      "voice_melody.spread",
+      "voice_melody.rate",
+      "voice_melody.glide",
+      "drone_drone.freq",
+      "drone_drone.gain"
+    ],
     "knobs": [
       {
         "label": {
@@ -426,6 +532,92 @@
         "drone_drone.freq"
       ]
     ],
+    "streamed": [
+      [
+        "voice_voice.ratio",
+        {
+          "input": [
+            0.5,
+            4.0
+          ]
+        }
+      ],
+      [
+        "voice_voice.index",
+        {
+          "input": [
+            0.0,
+            8.0
+          ]
+        }
+      ],
+      [
+        "voice_voice.gain",
+        {
+          "input": [
+            0.0,
+            0.3
+          ]
+        }
+      ],
+      [
+        "voice_melody.spread",
+        {
+          "input": [
+            0.0,
+            1.0
+          ]
+        }
+      ],
+      [
+        "voice_melody.rate",
+        {
+          "input": [
+            0.25,
+            8.0
+          ]
+        }
+      ],
+      [
+        "voice_melody.glide",
+        {
+          "input": [
+            0.0,
+            1.0
+          ]
+        }
+      ],
+      [
+        "drone_drone.freq",
+        {
+          "input": [
+            30.0,
+            220.0
+          ]
+        }
+      ],
+      [
+        "drone_drone.gain",
+        {
+          "input": [
+            0.0,
+            0.3
+          ]
+        }
+      ],
+      [
+        "fft.level",
+        "control"
+      ],
+      [
+        "fft.bass",
+        "control"
+      ],
+      [
+        "mix1.out",
+        "audio"
+      ]
+    ],
     "tracks": [
       {
         "preset": "cathedral_voice.bright",
@@ -460,6 +652,29 @@
       ],
       "scene": "[[node]]\nid = \"tempo\"\nkind = \"tempo\"\nbeats = 4\nbpm = 84\nsource = \"relay\"\n\n[[node]]\nid = \"seq\"\nkind = \"seq\"\ndivision = 2\ngate = 0.6\nsteps = [50, 0, 57, 55, 53, 0, 52, 50]\n\n[[node]]\nid = \"voice\"\nkind = \"fm\"\nattack = 0.02\ngain = 0.16\nindex = 2.0\nratio = 1.5\nrelease = 0.4\n\n[[node]]\nid = \"drone\"\nkind = \"osc\"\nfreq = 55\ngain = 0.1\n\n[[node]]\nid = \"incense\"\nkind = \"noise\"\ncolor = \"pink\"\ncutoff = 1800\ngain = 0.03\n\n[[node]]\nid = \"sway\"\nkind = \"lfo\"\nrate = 0.07\n\n[[node]]\nid = \"mix\"\nkind = \"mixer\"\ngain1 = 1.0\ngain2 = 1.0\ngain3 = 1.0\ngain4 = 1.0\n\n[[node]]\nid = \"fft\"\nkind = \"fft\"\nrelease = 0.35\n\n[[node]]\nid = \"out\"\nkind = \"audio_out\"\nvolume = 0.8\n\n[[node]]\nid = \"space\"\nkind = \"space\"\nat = [2.4, 0.2, 5.2]\nbloom = 0.6\ndistance = 2.4\nglow = 0.6\nglow_light = 1.0\nglow_range = 7.0\nhue = 0.52\njoin = \"deck\"\nlight = 0.85\npitch = 6\npost = [\"bloom\", \"curves\", \"pixelate\", \"fxaa\"]\nquality = \"low\"\nset = \"cathedral\"\nthreshold = 0.55\nyaw = 279\n\n[[node]]\nid = \"screen\"\nkind = \"screen\"\n\n[[node]]\nid = \"click\"\nkind = \"click\"\ngain = 0.4\n\n[[link]]\nfrom = \"seq.cv\"\nto = \"voice.cv\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"voice\"\nto = \"mix.in2\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"drone\"\nto = \"mix.in3\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"incense\"\nto = \"mix.in4\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"mix\"\nto = \"fft.in\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"mix\"\nto = \"out.in\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"sway\"\nto = \"incense.cutoff\"\nscale = 3000.0\noffset = 600.0\n\n[[link]]\nfrom = \"fft.level\"\nto = \"space.pulse\"\nscale = 0.6000000238418579\noffset = 0.0\n\n[[link]]\nfrom = \"fft.bass\"\nto = \"drone.gain\"\nscale = 0.25\noffset = 0.03999999910593033\n\n[[link]]\nfrom = \"space\"\nto = \"screen.in\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"click\"\nto = \"out.in\"\nscale = 1.0\noffset = 0.0\n"
     },
+    "expose": [
+      "seq.rate",
+      "voice.freq",
+      "voice.ratio",
+      "voice.index",
+      "voice.gain",
+      "drone.freq",
+      "drone.gain",
+      "incense.cutoff",
+      "incense.gain",
+      "sway.rate",
+      "sway.depth",
+      "mix.gain1",
+      "mix.gain2",
+      "mix.gain3",
+      "mix.gain4",
+      "out.volume",
+      "space.hue",
+      "space.glow",
+      "space.light",
+      "space.pulse",
+      "click.gain"
+    ],
     "knobs": [
       {
         "log": true,
@@ -794,6 +1009,205 @@
         "voice.index"
       ]
     ],
+    "streamed": [
+      [
+        "seq.rate",
+        {
+          "input": [
+            0.25,
+            4.0
+          ]
+        }
+      ],
+      [
+        "voice.freq",
+        {
+          "input": [
+            20.0,
+            4000.0
+          ]
+        }
+      ],
+      [
+        "voice.ratio",
+        {
+          "input": [
+            0.25,
+            8.0
+          ]
+        }
+      ],
+      [
+        "voice.index",
+        {
+          "input": [
+            0.0,
+            10.0
+          ]
+        }
+      ],
+      [
+        "voice.gain",
+        {
+          "input": [
+            0.0,
+            1.0
+          ]
+        }
+      ],
+      [
+        "drone.freq",
+        {
+          "input": [
+            20.0,
+            4000.0
+          ]
+        }
+      ],
+      [
+        "drone.gain",
+        {
+          "input": [
+            0.0,
+            1.0
+          ]
+        }
+      ],
+      [
+        "incense.cutoff",
+        {
+          "input": [
+            50.0,
+            16000.0
+          ]
+        }
+      ],
+      [
+        "incense.gain",
+        {
+          "input": [
+            0.0,
+            1.0
+          ]
+        }
+      ],
+      [
+        "sway.rate",
+        {
+          "input": [
+            0.01,
+            20.0
+          ]
+        }
+      ],
+      [
+        "sway.depth",
+        {
+          "input": [
+            0.0,
+            2.0
+          ]
+        }
+      ],
+      [
+        "mix.gain1",
+        {
+          "input": [
+            0.0,
+            1.5
+          ]
+        }
+      ],
+      [
+        "mix.gain2",
+        {
+          "input": [
+            0.0,
+            1.5
+          ]
+        }
+      ],
+      [
+        "mix.gain3",
+        {
+          "input": [
+            0.0,
+            1.5
+          ]
+        }
+      ],
+      [
+        "mix.gain4",
+        {
+          "input": [
+            0.0,
+            1.5
+          ]
+        }
+      ],
+      [
+        "out.volume",
+        {
+          "input": [
+            0.0,
+            1.0
+          ]
+        }
+      ],
+      [
+        "space.hue",
+        {
+          "input": [
+            0.0,
+            1.0
+          ]
+        }
+      ],
+      [
+        "space.glow",
+        {
+          "input": [
+            0.0,
+            2.0
+          ]
+        }
+      ],
+      [
+        "space.light",
+        {
+          "input": [
+            0.0,
+            1.5
+          ]
+        }
+      ],
+      [
+        "space.pulse",
+        {
+          "input": [
+            0.0,
+            1.0
+          ]
+        }
+      ],
+      [
+        "click.gain",
+        {
+          "input": [
+            0.0,
+            1.0
+          ]
+        }
+      ],
+      [
+        "fft.level",
+        "control"
+      ],
+      [
+        "fft.bass",
+        "control"
+      ]
+    ],
     "tracks": []
   },
   "incense_burner": {
@@ -803,6 +1217,10 @@
       "page": [],
       "scene": "[[node]]\nid = \"air_hiss\"\nkind = \"noise\"\ncolor = \"pink\"\ncutoff = 1800.0\ngain = 0.0\n\n[[node]]\nid = \"mix1\"\nkind = \"mixer\"\ngain1 = 1.0\n\n[[node]]\nid = \"out\"\nkind = \"audio_out\"\n\n[[node]]\nid = \"fft\"\nkind = \"fft\"\n\n[[node]]\nid = \"space\"\nkind = \"space\"\n\n[[link]]\nfrom = \"air_hiss.out\"\nto = \"mix1.in1\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"mix1.out\"\nto = \"out.in\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"mix1.out\"\nto = \"fft.in\"\nscale = 1.0\noffset = 0.0\n\n[[link]]\nfrom = \"fft.level\"\nto = \"space.pulse\"\nscale = 0.6000000238418579\noffset = 0.0\n"
     },
+    "expose": [
+      "air_hiss.cutoff",
+      "air_hiss.gain"
+    ],
     "knobs": [
       {
         "label": {
@@ -887,6 +1305,38 @@
       [
         "",
         ""
+      ]
+    ],
+    "streamed": [
+      [
+        "air_hiss.cutoff",
+        {
+          "input": [
+            150.0,
+            8000.0
+          ]
+        }
+      ],
+      [
+        "air_hiss.gain",
+        {
+          "input": [
+            0.0,
+            0.15
+          ]
+        }
+      ],
+      [
+        "fft.level",
+        "control"
+      ],
+      [
+        "fft.bass",
+        "control"
+      ],
+      [
+        "mix1.out",
+        "audio"
       ]
     ],
     "tracks": [

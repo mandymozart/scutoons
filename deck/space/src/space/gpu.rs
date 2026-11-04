@@ -496,7 +496,7 @@ impl SpaceGpu {
                 alpha,
                 fwd: fwd.into(),
                 layer,
-                extra: [b.glow, b.hue, h.energy, if face { 1.0 } else { 0.0 }],
+                extra: [b.glow, b.hue, h.walk.energy, if face { 1.0 } else { 0.0 }],
                 more: [b.strain, 0.0, 0.0, 0.0],
             };
             // the machine behind (the silhouette of the face it carries), then the portrait: the old mood under the new

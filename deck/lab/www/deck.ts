@@ -3,7 +3,7 @@
 // relay at once (`?relay=`, default ws://<this host>:7070/live/CATH); Start (the AudioContext needs a gesture) starts
 // the sound; the pads and sliders are the being's exposed parameters; `?space=1` draws the being in 3D above them
 // (deck/space-web's wasm, copied into dist/ by ts/build.ts).
-import { charactersOf, Deck, loadDeckScene, SpaceStage, toPos, toValue } from '../../../shared/live-deck/src/index.ts';
+import { charactersOf, Deck, loadDeckState, SpaceStage, toPos, toValue } from '../../../shared/live-deck/src/index.ts';
 
 const API = 'https://api.scutoons.com/api';
 const CDN = 'https://cdn.scutoons.com/';
@@ -133,7 +133,7 @@ function drawBands() {
 	const h = (c.height = c.clientHeight * devicePixelRatio);
 	const g = c.getContext('2d')!;
 	const b = deck.bands;
-	const vals = [b.level, b.bass, b.mid, b.high, deck.moods.energy];
+	const vals = [b.level, b.bass, b.mid, b.high, deck.state?.energy() ?? 0];
 	const colors = ['#e8e8e8', '#ff7a59', '#ffd166', '#5ec8ff', '#00d1ff'];
 	const names = ['level', 'bass', 'mid', 'high', 'energy'];
 	const bw = w / vals.length;
@@ -182,13 +182,14 @@ $('#start').addEventListener('click', async () => {
 		$('#status').textContent = `failed: ${(e as Error).message}`;
 	}
 });
-// #360: the deck's own scene from the core (space-web's `deck_scene`, the X1's cathedral) – its knobs are the sliders
-loadDeckScene(SPACE_WEB)
-	.then((own) => {
-		deck.useOwn(own);
+// #360, #367, #368: the deck's state from the core (space-web's `DeckState`): its own scene (the X1's cathedral) – its
+// knobs are the sliders –, the mood ladder
+loadDeckState(SPACE_WEB)
+	.then((s) => {
+		deck.useState(s);
 		buildSliders();
 		document.querySelectorAll<HTMLElement>('.pad').forEach(bindPad);
 	})
-	.catch((e) => ($('#status').textContent = `no scene: ${(e as Error).message}`));
+	.catch((e) => ($('#status').textContent = `no deck state: ${(e as Error).message}`));
 loadCharacters();
 requestAnimationFrame(frame);

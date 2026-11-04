@@ -89,8 +89,8 @@ impl Bundle {
 mod tests {
     use super::*;
 
-    /// space::being::MOODS (the `being` feature's), calm → wild
-    const LADDER: [&str; 5] = ["neutral", "thinking", "happy", "laughing", "surprised"];
+    /// the energy ladder's moods, calm → wild
+    const LADDER: [&str; 5] = crate::mood::MOODS;
 
     fn catpope() -> Bundle {
         Bundle::core("character.catpope").unwrap().unwrap()
