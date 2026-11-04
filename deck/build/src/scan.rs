@@ -7,8 +7,9 @@
 //! body is scanned like code (`macro_rules! m { () => { include_str!("/etc/passwd") } }` is refused).
 //!
 //! Refused: `extern crate` · attributes `#[path]`, `#[macro_use]`, `#[link]`, `#[link_name]`, `#[link_section]`,
-//! `#[export_name]`, `#[no_link]`, `#[global_allocator]`, `#[crate_type]`, `#[crate_name]`, `#[proc_macro*]` (also inside
-//! `cfg_attr`) · the macros `include!`, `include_str!`, `include_bytes!`, `env!`, `option_env!`, `asm!`, `global_asm!`,
+//! `#[export_name]`, `#[no_link]`, `#[global_allocator]`, `#[crate_type]`, `#[crate_name]`, `#[proc_macro*]` (by the
+//! attribute's own name, also inside `unsafe(…)` and `cfg_attr`; an argument is the attribute's own: `#[port(path = "fx:@gain")]`
+//! is the SDK's, since ABI v2) · the macros `include!`, `include_str!`, `include_bytes!`, `env!`, `option_env!`, `asm!`, `global_asm!`,
 //! `naked_asm!` · `std::process`.
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
 
@@ -34,7 +35,7 @@ pub fn scan(files: &Files) -> Scan {
     let mut out = Scan::default();
     for (name, source) in files {
         match source.parse::<TokenStream>() {
-            Ok(stream) => walk(&stream.into_iter().collect::<Vec<_>>(), name, false, &mut out.rejected),
+            Ok(stream) => walk(&stream.into_iter().collect::<Vec<_>>(), name, &mut out.rejected),
             Err(_) => out.unlexable.push(name.clone()),
         }
     }
@@ -69,29 +70,51 @@ fn holds_ident(t: Option<&TokenTree>, name: &str) -> bool {
     }
 }
 
-fn walk(tokens: &[TokenTree], file: &str, in_attr: bool, out: &mut Vec<Diag>) {
+/// An attribute's tokens (inside `#[…]`): its own name against the list – not its arguments, which are the attribute's
+/// business (`#[port(…, path = "fx:@gain")]` is the SDK's, `#[path = "x.rs"]` the compiler's); `unsafe(…)` and every attribute
+/// a `cfg_attr` can turn on are looked into.
+fn check_attribute(tokens: &[TokenTree], file: &str, out: &mut Vec<Diag>) {
+    let Some(first) = tokens.first() else { return };
+    let Some(name) = ident_name(first) else { return };
+    match (name.as_str(), tokens.get(1)) {
+        ("unsafe", Some(TokenTree::Group(g))) => check_attribute(&g.stream().into_iter().collect::<Vec<_>>(), file, out),
+        ("cfg_attr", Some(TokenTree::Group(g))) => {
+            // `cfg_attr(predicate, attribute, attribute …)`
+            let inner: Vec<TokenTree> = g.stream().into_iter().collect();
+            for attribute in inner.split(|t| matches!(t, TokenTree::Punct(p) if p.as_char() == ',')).skip(1) {
+                check_attribute(attribute, file, out);
+            }
+        }
+        (name, _) if BANNED_ATTRIBUTES.contains(&name) => {
+            reject(out, file, first, format!("the attribute `{name}` is not available in a module: it works with the SDK and its own files only"));
+        }
+        _ => {}
+    }
+}
+
+fn walk(tokens: &[TokenTree], file: &str, out: &mut Vec<Diag>) {
     let mut i = 0;
     while i < tokens.len() {
         let t = &tokens[i];
         match t {
             TokenTree::Punct(p) if p.as_char() == '#' => {
-                // `#[…]` and `#![…]`: the bracket group is an attribute; its idents are checked against the attribute list
+                // `#[…]` and `#![…]`: the bracket group is an attribute, its name is checked against the attribute list
                 let bracket = if is_punct(tokens.get(i + 1), '!') { i + 2 } else { i + 1 };
                 if let Some(TokenTree::Group(g)) = tokens.get(bracket) {
                     if g.delimiter() == Delimiter::Bracket {
-                        walk(&g.stream().into_iter().collect::<Vec<_>>(), file, true, out);
+                        let inner: Vec<TokenTree> = g.stream().into_iter().collect();
+                        check_attribute(&inner, file, out);
+                        // the rest of it (`#[doc = include_str!("x.md")]`) like any code
+                        walk(&inner, file, out);
                         i = bracket + 1;
                         continue;
                     }
                 }
             }
-            TokenTree::Group(g) => walk(&g.stream().into_iter().collect::<Vec<_>>(), file, in_attr, out),
+            TokenTree::Group(g) => walk(&g.stream().into_iter().collect::<Vec<_>>(), file, out),
             TokenTree::Ident(_) => {
                 let name = ident_name(t).unwrap_or_default();
                 let next = tokens.get(i + 1);
-                if in_attr && BANNED_ATTRIBUTES.contains(&name.as_str()) {
-                    reject(out, file, t, format!("the attribute `{name}` is not available in a module: it works with the SDK and its own files only"));
-                }
                 if name == "extern" && next.and_then(ident_name).as_deref() == Some("crate") {
                     reject(out, file, t, "`extern crate` is not available: a module links the SDK and nothing else".into());
                 }
@@ -157,6 +180,10 @@ static X: u8 = 0;", "link_section", "link_section"),
 fn x() {}", "export_name", "export_name"),
             ("#[cfg_attr(all(), path = \"x\")]
 mod a;", "path", "path"),
+            ("#[cfg_attr(all(), allow(dead_code), link_name = \"x\")]
+fn a() {}", "link_name", "link_name"),
+            ("#[unsafe(export_name = \"dm_new\")]
+fn x() {}", "export_name", "export_name"),
             ("#[doc = include_str!(\"x.md\")]
 fn a() {}", "include_str", "include_str!"),
             ("fn a() { std::process::exit(1); }", "std", "std::process"),
@@ -190,6 +217,20 @@ fn b() { process::exit(1) }", "process::exit", "std::process"),
             #[allow(clippy::duplicated_attributes)] fn f() { let include = 3; let _ = include != 4; }
             mod osc; use osc::Osc; pub mod process_not {}
         "#;
+        assert_eq!(refused(ok), Vec::<(u32, u32, String)>::new());
+    }
+
+    /// `path` is an argument of the SDK's `#[port]` since ABI v2 (a control output that writes a target, ABI-V2 §5): only an
+    /// attribute named `path` is the compiler's (found by the real compile of the fixture, #344)
+    #[test]
+    fn an_argument_named_like_a_banned_attribute_is_the_attributes_own() {
+        let ok = r##"
+            #[derive(Module)]
+            #[port(output, control, name = "level", path = "fx:@gain", mode = "set")]
+            #[port(output, control, name = "link", path = "lead:@preset", choices = "a|b")]
+            #[cfg_attr(all(), allow(dead_code), derive(Clone))]
+            struct M { #[param(range = 0.0..1.0, default = 0.0, doc = "env link path")] x: f32 }
+        "##;
         assert_eq!(refused(ok), Vec::<(u32, u32, String)>::new());
     }
 
