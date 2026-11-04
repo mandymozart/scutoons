@@ -1,0 +1,30 @@
+{
+  "about": "#322: FNV-1a 64 over the f32 bits of the core rigs played natively (deck-native rig.rs -> deck-engine), both channels interleaved, 2 s at 48 kHz, per rig, mood and block size – the browser's live-core renders the same bits (deck/conformance/tests/rig.rs)",
+  "hashes": {
+    "catpope@happy/1024": "bea920345b151625",
+    "catpope@happy/128": "bea920345b151625",
+    "catpope@happy/37": "bea920345b151625",
+    "catpope@laughing/1024": "0c1f27486bb7bb15",
+    "catpope@laughing/128": "0c1f27486bb7bb15",
+    "catpope@laughing/37": "0c1f27486bb7bb15",
+    "catpope@neutral/1024": "895dd4d2babe4639",
+    "catpope@neutral/128": "895dd4d2babe4639",
+    "catpope@neutral/37": "895dd4d2babe4639",
+    "catpope@sad/1024": "fd7fb7d9c46015cd",
+    "catpope@sad/128": "fd7fb7d9c46015cd",
+    "catpope@sad/37": "fd7fb7d9c46015cd",
+    "item.incense_burner@happy/1024": "b928f2d0e7a08325",
+    "item.incense_burner@happy/128": "b928f2d0e7a08325",
+    "item.incense_burner@happy/37": "b928f2d0e7a08325",
+    "item.incense_burner@laughing/1024": "b928f2d0e7a08325",
+    "item.incense_burner@laughing/128": "b928f2d0e7a08325",
+    "item.incense_burner@laughing/37": "b928f2d0e7a08325",
+    "item.incense_burner@neutral/1024": "b928f2d0e7a08325",
+    "item.incense_burner@neutral/128": "b928f2d0e7a08325",
+    "item.incense_burner@neutral/37": "b928f2d0e7a08325",
+    "item.incense_burner@sad/1024": "b928f2d0e7a08325",
+    "item.incense_burner@sad/128": "b928f2d0e7a08325",
+    "item.incense_burner@sad/37": "b928f2d0e7a08325"
+  },
+  "recorded_on": "windows x86-64"
+}

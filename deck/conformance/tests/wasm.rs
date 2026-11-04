@@ -275,6 +275,31 @@ fn the_browser_deck_is_the_native_deck() {
     assert!(wrong.is_empty(), "the browser deck and the native deck differ:\n{}", wrong.join("\n"));
 }
 
+/// #322 (P9a) accept: **catpope's rig sounds the same on the X1 and the phone** – the native deck's rig path (deck-native
+/// rig.rs → deck-engine, tests/rig.rs) against `live_core.wasm` (wasm32 and wasm32 + simd128) playing the scene deck-space's
+/// `Deck` hands the page: every core rig, four moods, the block patterns 128 / 37 / 1024, the same f32 bits.
+#[test]
+fn a_rig_is_the_same_on_the_native_deck_and_in_wasm() {
+    let plain = build_wasm("live-core", "live_core.wasm", false);
+    let simd = build_wasm("live-core", "live_core.wasm", true);
+    let (mut wp, mut ws) = (Wasm::load(&plain), Wasm::load(&simd));
+    let mut wrong = Vec::new();
+    for subject in RIGS {
+        for mood in RIG_MOODS {
+            let scene = browser_rig_scene(subject, mood);
+            for &block in &PATTERNS {
+                let native = native_rig_render(subject, mood, block, FRAMES);
+                let (a, s) = (core_wasm_render(&mut wp, &scene, 2, block, FRAMES), core_wasm_render(&mut ws, &scene, 2, block, FRAMES));
+                let (da, ds) = (diff(&native, &a), diff(&native, &s));
+                if !(da.exact && ds.exact) {
+                    wrong.push(format!("{subject}@{mood}/{block}: wasm32 {:?}, simd128 {:?}", da.first, ds.first));
+                }
+            }
+        }
+    }
+    assert!(wrong.is_empty(), "the native deck and the browser deck in wasm play a rig differently:\n{}", wrong.join("\n"));
+}
+
 /// deck-engine in wasmtime: the scene through `ew_run`.
 fn engine_wasm_render(w: &mut Wasm, toml: &str, block: usize, frames: usize, batch: bool) -> Vec<f32> {
     let inbox = w.f::<u32, u32>("ew_inbox");

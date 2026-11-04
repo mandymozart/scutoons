@@ -18,6 +18,8 @@ deck-native = { path = "../native" }
 deck-space = { path = "../space", default-features = false }
 deck-core = { workspace = true, features = ["analysis"] }
 live-core = { path = "../live-core" }
+# #322: the headless host's rig player against the native deck's rig path (tests/rig.rs)
+deck-headless = { path = "../headless" }
 deck-engine-wasm = { path = "engine-wasm" }
 deck-engine = { path = "../engine", features = ["events"] }
 wasmtime = { version = "38", default-features = false, features = ["cranelift", "runtime", "std"] }
