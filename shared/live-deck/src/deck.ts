@@ -6,7 +6,7 @@
 // animation frame. With a CDN given it answers the conductor's scene sync (#195, sync.ts). The tempo clock (#321) is the
 // core's: the link's pongs and anchors and Web MIDI's clock go in, the core's pings and a leader's anchors go out.
 import type { DeckGraph, Tempo } from '@scutoons/live';
-import { CLOCK_MESSAGES, FRAME, LiveCore, analysisOf, beatAt, nowMs, type Analysis, type ClockState, type DeviceKind, type DeviceSignal } from '@scutoons/live-core';
+import { CLOCK_MESSAGES, FRAME, LiveCore, analysisOf, nowMs, type Analysis, type ClockState, type DeviceKind, type DeviceSignal } from '@scutoons/live-core';
 import type { DeckSynced } from '@scutoons/live';
 import { DeckLink, loadRelay, type WebSocketLike } from './client.ts';
 import { BrowserSync } from './sync.ts';
@@ -159,11 +159,6 @@ export class Deck {
 		// only the clock's messages (tick, start, continue, stop, song position) – as the native port: notes, CC and
 		// active sensing never reach the worker
 		if (CLOCK_MESSAGES.has(data[0])) this.core?.clockOp({ op: 'midi', bytes: [data[0], data[1] ?? 0, data[2] ?? 0], at: performance.timeOrigin + timeStamp });
-	}
-
-	/** #321: the beat the clock says at the page's ms (the being's breath); NaN before the sound started */
-	beatAt(ms = nowMs()): number {
-		return this.clock ? beatAt(this.clock, ms) : NaN;
 	}
 
 	/** #367, #368: the core's deck state – the character's portraits go in, what it plays (its own scene) is loaded */

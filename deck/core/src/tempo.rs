@@ -118,6 +118,16 @@ impl TempoMap {
     }
 }
 
+/// The beat `dt_s` after a moment at `beat` on a clock at `bpm` (stopped: it stands) – a clock frame's beat drawn between
+/// two frames (the browser's 3D at its animation frame, #387; was the page's `beatAt`).
+pub fn beat_after(beat: f64, bpm: f64, running: bool, dt_s: f64) -> f64 {
+    if running {
+        beat + dt_s * bpm / 60.0
+    } else {
+        beat
+    }
+}
+
 pub fn position(beat: f64, per_bar: u32) -> Position {
     let per_bar = per_bar.max(1) as f64;
     let bar = (beat / per_bar).floor();

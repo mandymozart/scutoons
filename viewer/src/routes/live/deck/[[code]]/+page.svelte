@@ -150,7 +150,7 @@
 		if (needsMidi) void ctl.startMidi();
 	});
 	// the checks read the clock (dev only): the beat at a page ms (`performance.timeOrigin + now()`) and the clock's state
-	if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as Record<string, unknown>).__scutoonsClock = (ms?: number) => ({ beat: engine?.deck?.beatAt(ms), clock: engine?.deck?.clock });
+	if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as Record<string, unknown>).__scutoonsClock = () => ({ clock: engine?.deck?.clock });
 	// the strobe: the core's flash (its beat edge and length, #370) drawn while this animation frame's page ms is in it
 	$effect(() => {
 		if (!strobe) return;
