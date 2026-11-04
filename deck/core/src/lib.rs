@@ -16,7 +16,6 @@
 
 pub mod devices;
 pub mod dsp;
-pub mod graph;
 pub mod lanes;
 pub mod lead;
 pub mod limiter;
@@ -36,5 +35,4 @@ pub mod synth;
 #[cfg(feature = "tempo")]
 pub mod tempo;
 
-pub use graph::{ControlGraph, SceneDef};
 pub use module::{features_for, Block, KindInfo, Module, Params, Port, PortType, Registry};
