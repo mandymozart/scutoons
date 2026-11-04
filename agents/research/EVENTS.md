@@ -233,7 +233,8 @@ they are; adapters map them in (§12).
 ## 15. Names, cost, latency, loops
 **Names: a dictionary with domains** (owner 2026-11-01: "makes it really easy to know where things go and what they
 will trigger"): `story.fx`, `story.showMessage`, `relay.cue`, `midi.note`, `deck.mood`, `media.video` … – the domain
-says where it comes from, a receiver subscribes to names or whole domains.
+says where it comes from, a receiver subscribes to names or whole domains. The transport's are `clock.start`,
+`clock.stop`, `clock.continue` (prop `beat`), raised by the engine itself for a patch that listens (#359, TRANSPORT.md).
 
 **Cost.** A name is an interned integer, a receiver list an array: dispatching one event is a few hundred nanoseconds.
 A block is 256 frames = 5.3 ms at 48 kHz (deck-native audio/ring.rs); 1,000 events in a block cost well under 1 % of it
