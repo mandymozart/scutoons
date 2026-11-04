@@ -48,7 +48,7 @@ pub use ctx::{Asset, AssetSlot, CameraMotion, Character, Ctx, Face, Motion, Posi
 pub use deck_module_macros::Module;
 pub use ev::{Ev, Expr, Kind};
 pub use hdr::{AssetInfo, AssetKind, InHdr, OutHdr};
-pub use io::{Planar, PlanarMut};
+pub use io::{InpMut, Planar, PlanarMut};
 pub use layout::{Layout, Sensor, Shape, ABI_VERSION, QUANTUM};
 pub use params::{Dirty, ParamInfo};
 

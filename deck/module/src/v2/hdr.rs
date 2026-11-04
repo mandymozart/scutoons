@@ -94,6 +94,15 @@ pub struct AssetInfo {
     pub height: u32,
 }
 
+impl AssetInfo {
+    /// the record of a slot the host has filled (`ready`): `ptr` from `dm_asset_buf`, `len` bytes; pcm: `channels` ×
+    /// `frames` at `rate`; image: `frames` is the width, the height follows from the length (RGBA8)
+    pub fn filled(ptr: u32, kind: AssetKind, len: u32, channels: u8, frames: u32, rate: f32) -> AssetInfo {
+        let height = if kind == AssetKind::Image && frames > 0 { len / (4 * frames) } else { 0 };
+        AssetInfo { ptr, len, frames, rate, kind: kind as u8, channels, ready: 1, _pad: 0, height }
+    }
+}
+
 /// what an asset slot holds (deck-catalog's `AssetKind`)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]

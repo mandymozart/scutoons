@@ -190,6 +190,128 @@ impl<'a> Inp<'a> {
     }
 }
 
+/// The block the host writes, from the host's side: `testing::Rig` and the module host (#341) stage `inp` through it
+/// (one implementation of where the host's numbers go), then copy it into the module in one piece.
+pub struct InpMut<'a> {
+    base: *mut u8,
+    layout: &'a Layout,
+    _io: PhantomData<&'a mut [u8]>,
+}
+
+impl<'a> InpMut<'a> {
+    /// # Safety
+    /// `base` is 16-aligned and points at `layout.size` bytes laid out by `layout`; nothing else touches them while
+    /// `'a` lasts
+    pub unsafe fn new(base: *mut u8, layout: &'a Layout) -> InpMut<'a> {
+        InpMut { base, layout, _io: PhantomData }
+    }
+
+    /// the same bytes, read-only
+    pub fn as_inp(&self) -> Inp<'_> {
+        // SAFETY: the same io, shared for the borrow
+        unsafe { Inp::new(self.base, self.layout) }
+    }
+
+    fn f32s(&mut self, at: u32, n: usize) -> &mut [f32] {
+        // SAFETY: `at` comes from the layout (16-aligned, inside `inp`), `n` from the same shape; `&mut self` is the
+        // only access
+        unsafe { slice::from_raw_parts_mut(self.base.add(at as usize) as *mut f32, n) }
+    }
+
+    pub fn hdr(&mut self) -> &mut InHdr {
+        // SAFETY: the header is at offset 0 and `base` is 16-aligned
+        unsafe { &mut *(self.base as *mut InHdr) }
+    }
+
+    /// the parameter table and its dirty bitmap (what `params::write` / `defaults` / `apply_preset` take)
+    pub fn table(&mut self) -> (&mut [f32], &mut [u32]) {
+        let (p, d, n) = (self.layout.params, self.layout.dirty, self.layout.shape.params as usize);
+        // SAFETY: two disjoint regions of `inp`
+        unsafe {
+            (
+                slice::from_raw_parts_mut(self.base.add(p as usize) as *mut f32, n),
+                slice::from_raw_parts_mut(self.base.add(d as usize) as *mut u32, n.div_ceil(32)),
+            )
+        }
+    }
+
+    pub fn control_in(&mut self) -> &mut [f32] {
+        let (at, n) = (self.layout.control_in, self.layout.shape.control_in as usize);
+        self.f32s(at, n)
+    }
+
+    /// audio input `p`'s channel `c` (`QUANTUM` frames); empty for a port or channel the module did not declare
+    pub fn audio_in(&mut self, p: usize, c: usize) -> &mut [f32] {
+        let s = &self.layout.shape;
+        if p >= s.audio_in_ports() || c >= s.audio_in[p] as usize {
+            return &mut [];
+        }
+        let at = self.layout.audio_in[p] + (c * QUANTUM * 4) as u32;
+        self.f32s(at, QUANTUM)
+    }
+
+    /// the declared variable slots (NaN = not set)
+    pub fn vars(&mut self) -> &mut [f32] {
+        let (at, n) = (self.layout.vars, self.layout.shape.vars as usize);
+        self.f32s(at, n)
+    }
+
+    /// a declared sensor's status word and channels
+    pub fn sensor(&mut self, slot: usize) -> Option<(&mut u32, &mut [f32])> {
+        let sensor = (slot < MAX_SENSORS).then(|| self.layout.shape.sensors[slot]).flatten()?;
+        let at = self.layout.sensors[slot] as usize;
+        // SAFETY: the region is the status word, then `channels` f32s
+        unsafe {
+            let status = &mut *(self.base.add(at) as *mut u32);
+            let values = slice::from_raw_parts_mut(self.base.add(at + 4) as *mut f32, sensor.channels() as usize);
+            Some((status, values))
+        }
+    }
+
+    /// asset slot `slot`'s record
+    pub fn asset(&mut self, slot: usize) -> Option<&mut AssetInfo> {
+        if slot >= (self.layout.shape.assets as usize).min(MAX_ASSETS) {
+            return None;
+        }
+        // SAFETY: inside the asset region (4-aligned records in a 16-aligned region)
+        Some(unsafe { &mut *(self.base.add(self.layout.assets as usize + slot * size_of::<AssetInfo>()) as *mut AssetInfo) })
+    }
+
+    /// Event input `p`'s records for the next call: copied up to the port's capacity, `port` set, sorted by frame
+    /// (stably). Returns how many were taken (the rest is dropped – the caller counts it); 0 for an undeclared port.
+    pub fn set_events_in(&mut self, p: usize, events: &[Ev]) -> usize {
+        if p >= self.layout.shape.event_in_ports() {
+            return 0;
+        }
+        let cap = self.layout.shape.events_in[p] as usize;
+        let n = events.len().min(cap);
+        // SAFETY: the port's region holds `cap` records; Ev is 4-aligned
+        let region = unsafe { slice::from_raw_parts_mut(self.base.add(self.layout.events_in[p] as usize) as *mut Ev, cap) };
+        region[..n].copy_from_slice(&events[..n]);
+        for e in region[..n].iter_mut() {
+            e.port = p as u8;
+        }
+        // stable and in place (no scratch buffer on the audio thread); events mostly come sorted, so it is linear
+        for i in 1..n {
+            let mut j = i;
+            while j > 0 && region[j - 1].frame > region[j].frame {
+                region.swap(j - 1, j);
+                j -= 1;
+            }
+        }
+        self.hdr().ev_in_len[p] = n as u16;
+        n
+    }
+
+    /// After a call, what the host clears (§9a): the dirty bits, the event inputs, the late count.
+    pub fn after_call(&mut self) {
+        self.table().1.fill(0);
+        let h = self.hdr();
+        h.ev_in_len = [0; MAX_EVENT_PORTS];
+        h.late = 0;
+    }
+}
+
 /// The block the module writes and the host reads.
 pub struct Out<'a> {
     base: *mut u8,
