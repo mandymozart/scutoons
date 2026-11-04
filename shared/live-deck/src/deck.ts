@@ -6,17 +6,13 @@
 // animation frame. With a CDN given it answers the conductor's scene sync (#195, sync.ts). The tempo clock (#321) is the
 // core's: the link's pongs and anchors and Web MIDI's clock go in, the core's pings and a leader's anchors go out.
 import type { DeckGraph, Tempo } from '@scutoons/live';
-import { LiveCore, beatAt, nowMs, type Analysis, type ClockState, type DeviceKind, type DeviceSignal } from '@scutoons/live-core';
+import { CLOCK_MESSAGES, LiveCore, beatAt, nowMs, type Analysis, type ClockState, type DeviceKind, type DeviceSignal } from '@scutoons/live-core';
 import type { DeckSynced } from '@scutoons/live';
 import { DeckLink, ValueStream, type WebSocketLike } from './client.ts';
 import { BrowserSync } from './sync.ts';
 import type { Spec } from './scene.ts';
 import type { MoodStep, RigPlayed, RigSlider, RigTurn } from './rig.ts';
 import type { DeckStateView } from './space.ts';
-
-/** #321: the MIDI clock's messages: tick, start, continue, stop, song position */
-// core-only-ok: #321 the port's filter (as the native port's in tempo/midi.rs) – which bytes reach the core, no parsing
-const CLOCK_MESSAGES = new Set([0xf8, 0xfa, 0xfb, 0xfc, 0xf2]);
 
 /** a character's portraits by mood (scene-content's `characters.<id>.portraits`) */
 export type Portraits = Record<string, { path: string }>;

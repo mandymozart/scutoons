@@ -21,6 +21,7 @@
 //! re-makes them (shared/live-core).
 pub mod clock;
 pub mod core;
+pub mod layout;
 pub mod signals;
 pub mod wire;
 

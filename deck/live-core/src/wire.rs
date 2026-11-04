@@ -1,6 +1,7 @@
-//! The wire format across the page / worker ↔ wasm boundary (#184): binary records, no JSON. The TypeScript twin is
-//! shared/live-core/src/wire.ts; `fixtures/wire.json` holds records with their bytes, and both sides' tests encode and
-//! decode every one of them (the layout cannot drift).
+//! The wire format across the page / worker ↔ wasm boundary (#184): binary records, no JSON. The TypeScript side,
+//! shared/live-core/src/wire.ts, is GENERATED from the tables below (`SEND_FIELDS`, `Mode::ALL`, `BANDS` and the frame's
+//! slots – #372, `src/bin/codecs-ts.rs`); `fixtures/wire.json` holds records with their bytes, and both sides' tests
+//! encode and decode every one of them.
 //!
 //! A record, little-endian, 4-byte aligned so the values can be read as a `Float32Array` in place:
 //!
@@ -21,12 +22,34 @@
 //! values and the values themselves: every load-table row's inputs and outputs of the heard block, from the row's `at`.
 //! Device messages leave in their own records (signals.rs).
 
+use crate::layout::{Field, Ty};
 use deck_core::analysis::SPECTRUM;
 
 pub const HEADER: usize = 12;
 pub const OP_SEND: u8 = 1;
+/// the most values one record carries (its `n` is a u16)
+pub const MAX_VALUES: usize = 0xFFFF;
+/// the header's fields: where each sits in a `send` record (the values follow at `HEADER`, f32 each)
+pub const AT_OP: usize = 0;
+pub const AT_MODE: usize = 1;
+pub const AT_N: usize = 2;
+pub const AT_NODE: usize = 4;
+pub const AT_PORT: usize = 6;
+pub const AT_AMOUNT: usize = 8;
+pub const SEND_FIELDS: [Field; 6] = [
+    Field::new("op", AT_OP, Ty::U8),
+    Field::new("mode", AT_MODE, Ty::U8),
+    Field::new("n", AT_N, Ty::U16),
+    Field::new("node", AT_NODE, Ty::U16),
+    Field::new("port", AT_PORT, Ty::U16),
+    Field::new("amount", AT_AMOUNT, Ty::F32),
+];
+/// the analysis frame's first slots, in order: the bands (level, bass, mid, high), then the spectrum
+pub const BANDS: [&str; 4] = ["level", "bass", "mid", "high"];
+/// … where the `SPECTRUM` bins start
+pub const SPECTRUM_AT: usize = BANDS.len();
 /// the analysis frame's slot of the limiter's gain reduction (dB)
-pub const REDUCTION: usize = 4 + SPECTRUM;
+pub const REDUCTION: usize = SPECTRUM_AT + SPECTRUM;
 /// … of the number of device channels the engine renders (#282)
 pub const OUTPUT_COUNT: usize = REDUCTION + 1;
 /// … of the first channel's peak
@@ -53,14 +76,21 @@ pub enum Mode {
 }
 
 impl Mode {
+    /// in wire order: a mode's byte is its index
+    pub const ALL: [Mode; 4] = [Mode::Force, Mode::Blend, Mode::Release, Mode::Base];
+
     fn from_u8(b: u8) -> Option<Mode> {
-        Some(match b {
-            0 => Mode::Force,
-            1 => Mode::Blend,
-            2 => Mode::Release,
-            3 => Mode::Base,
-            _ => return None,
-        })
+        Mode::ALL.get(usize::from(b)).copied()
+    }
+
+    /// the name the page writes it with
+    pub fn name(self) -> &'static str {
+        match self {
+            Mode::Force => "force",
+            Mode::Blend => "blend",
+            Mode::Release => "release",
+            Mode::Base => "base",
+        }
     }
 
     /// what the input keeps of the sent value (`Control::send`'s amount)
@@ -134,13 +164,13 @@ impl<'a> Iterator for Records<'a> {
             return fail("a truncated header");
         }
         let h = &b[at..at + HEADER];
-        let n = u16::from_le_bytes([h[2], h[3]]) as usize;
+        let n = u16::from_le_bytes([h[AT_N], h[AT_N + 1]]) as usize;
         let end = at + HEADER + 4 * n;
-        if h[0] != OP_SEND {
+        if h[AT_OP] != OP_SEND {
             self.at = b.len();
             return fail("an unknown op");
         }
-        let Some(mode) = Mode::from_u8(h[1]) else {
+        let Some(mode) = Mode::from_u8(h[AT_MODE]) else {
             self.at = b.len();
             return fail("an unknown mode");
         };
@@ -151,9 +181,9 @@ impl<'a> Iterator for Records<'a> {
         self.at = end;
         Some(Ok(Send {
             mode,
-            node: u16::from_le_bytes([h[4], h[5]]),
-            port: u16::from_le_bytes([h[6], h[7]]),
-            amount: f32::from_le_bytes([h[8], h[9], h[10], h[11]]),
+            node: u16::from_le_bytes([h[AT_NODE], h[AT_NODE + 1]]),
+            port: u16::from_le_bytes([h[AT_PORT], h[AT_PORT + 1]]),
+            amount: f32::from_le_bytes([h[AT_AMOUNT], h[AT_AMOUNT + 1], h[AT_AMOUNT + 2], h[AT_AMOUNT + 3]]),
             raw: &b[at + HEADER..end],
         }))
     }
@@ -184,13 +214,19 @@ mod tests {
     }
 
     fn mode(s: &str) -> Mode {
-        match s {
-            "force" => Mode::Force,
-            "blend" => Mode::Blend,
-            "release" => Mode::Release,
-            "base" => Mode::Base,
-            _ => panic!("mode {s}"),
-        }
+        Mode::ALL.into_iter().find(|m| m.name() == s).unwrap_or_else(|| panic!("mode {s}"))
+    }
+
+    /// The layout table is the layout: every field of an encoded record reads back at its table offset.
+    #[test]
+    fn the_field_table_is_the_layout() {
+        let mut out = vec![];
+        encode_send(&mut out, Mode::Base, 513, 258, 0.5, &[1.0, 2.0, 3.0]);
+        let at = |name: &str| SEND_FIELDS.iter().find(|f| f.name == name).unwrap().read(&out);
+        assert_eq!((at("op"), at("mode"), at("n"), at("node"), at("port"), at("amount")), (1.0, 3.0, 3.0, 513.0, 258.0, 0.5));
+        assert!(SEND_FIELDS.iter().all(|f| f.at + f.ty.size() <= HEADER));
+        assert_eq!(out.len(), HEADER + 12);
+        assert_eq!(Mode::ALL.iter().map(|m| *m as usize).collect::<Vec<_>>(), [0, 1, 2, 3]);
     }
 
     /// Every fixture record encodes to its bytes and decodes back to its fields (shared/live-core's test reads the same

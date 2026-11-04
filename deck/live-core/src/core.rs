@@ -298,8 +298,8 @@ impl Core {
     /// with a `space` node – the being's hoses). `now`: the clock at the heard moment (clock.rs).
     pub fn analyse(&mut self, dt: f32, lead: usize, now: &Now) -> &[f32] {
         let bands = self.analyzer.update(dt, lead);
-        self.frame[..4].copy_from_slice(&bands);
-        self.analyzer.spectrum(&mut self.frame[4..4 + SPECTRUM]);
+        self.frame[..wire::BANDS.len()].copy_from_slice(&bands);
+        self.analyzer.spectrum(&mut self.frame[wire::SPECTRUM_AT..wire::SPECTRUM_AT + SPECTRUM]);
         self.frame[REDUCTION] = self.handles.take_reduction();
         self.frame[OUTPUT_COUNT] = self.channels as f32;
         self.frame[PEAKS..PEAKS + MAX_OUTPUTS].copy_from_slice(&self.peaks);

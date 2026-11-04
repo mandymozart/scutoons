@@ -15,6 +15,16 @@ publish.workspace = true
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[features]
+# the generator of shared/live-core's wire.ts, signals.ts and clock-state.ts (src/bin/codecs-ts, #372): no dependencies, off
+# for the wasm build
+codegen = []
+
+[[bin]]
+name = "codecs-ts"
+path = "src/bin/codecs-ts/main.rs"
+required-features = ["codegen"]
+
 [dependencies]
 deck-core = { workspace = true, features = ["analysis", "tempo"] }
 # the one engine, its walk / events hosts inside the block (the browser has no sequencer thread)

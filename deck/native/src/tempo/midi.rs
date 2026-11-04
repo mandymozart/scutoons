@@ -38,7 +38,7 @@ mod io {
                 &port,
                 "deck-native-clock-in",
                 move |_, msg, _| {
-                    if let Some(&s @ (0xF8 | 0xFA | 0xFB | 0xFC | 0xF2)) = msg.first() {
+                    if let Some(&s) = msg.first().filter(|s| deck_core::tempo::CLOCK_STATUS.contains(s)) {
                         let mut m = [s, 0, 0];
                         for (d, b) in m.iter_mut().zip(msg).skip(1) {
                             *d = *b;

@@ -18,12 +18,49 @@
 //! OSC payload: `u16 address length · address (UTF-8) · u8 argument count ·` per argument `u8 tag` (1 int32, 2 float32,
 //! 3 string, 4 bool) and its value (`i32` / `f32` little-endian, `u16 length + UTF-8`, `u8`). deck-outputs produces no OSC
 //! yet; the format is here so the page's hook and its monitor are complete the day an output does.
+//!
+//! The TypeScript decoder, shared/live-core/src/signals.ts, is GENERATED from the tables here (`FIELDS`, `KINDS`, the flag
+//! bits, `OSC_ARGS` – #372, `src/bin/codecs-ts.rs`).
+use crate::layout::{Field, Ty};
 use deck_outputs::{Clock, Engine, MidiPort, Out, Plan, Timed};
 
 pub const KIND_MIDI: u8 = 1;
 pub const KIND_DMX: u8 = 2;
 pub const KIND_OSC: u8 = 3;
+/// the kinds a record can be, by name (the page's `DeviceSignal.kind`)
+pub const KINDS: [(u8, &str); 3] = [(KIND_MIDI, "midi"), (KIND_DMX, "dmx"), (KIND_OSC, "osc")];
+/// `flags` bit 0: midi – the conductor (over the relay) instead of the deck's MIDI out port
+pub const FLAG_CONDUCTOR: u8 = 1;
+/// `flags` bit 0: dmx – a flash, sent at once
+pub const FLAG_FLASH: u8 = 1;
+/// an OSC argument's tag and the kind the page names it (int32, float32, string, bool)
+pub const TAG_INT: u8 = 1;
+pub const TAG_FLOAT: u8 = 2;
+pub const TAG_STRING: u8 = 3;
+pub const TAG_BOOL: u8 = 4;
+pub const OSC_ARGS: [(u8, &str, ArgTy); 4] = [(TAG_INT, "int", ArgTy::I32), (TAG_FLOAT, "float", ArgTy::F32), (TAG_STRING, "string", ArgTy::Str), (TAG_BOOL, "bool", ArgTy::Bool)];
+
+/// How an OSC argument's value is laid out after its tag.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArgTy {
+    /// i32 little-endian
+    I32,
+    /// f32 little-endian
+    F32,
+    /// u16 length + UTF-8
+    Str,
+    /// one byte, 0 = false
+    Bool,
+}
 pub const HEADER: usize = 12;
+/// the header's fields (offset 6 is reserved, zero)
+pub const FIELDS: [Field; 5] = [
+    Field::new("kind", 0, Ty::U8),
+    Field::new("flags", 1, Ty::U8),
+    Field::new("n", 2, Ty::U16),
+    Field::new("ch", 4, Ty::U16),
+    Field::new("at", 8, Ty::U32),
+];
 /// The bytes one drain holds at most (a stalled page must not grow the core's memory): more is dropped.
 pub const CAP: usize = 64 * 1024;
 
@@ -46,8 +83,8 @@ pub enum Signal<'a> {
 pub fn encode(out: &mut Vec<u8>, at_ms: u32, s: Signal) -> bool {
     let start = out.len();
     let (kind, flags, ch): (u8, u8, u16) = match s {
-        Signal::Midi { conductor, .. } => (KIND_MIDI, u8::from(conductor), 0),
-        Signal::Dmx { ch, flash, .. } => (KIND_DMX, u8::from(flash), ch),
+        Signal::Midi { conductor, .. } => (KIND_MIDI, if conductor { FLAG_CONDUCTOR } else { 0 }, 0),
+        Signal::Dmx { ch, flash, .. } => (KIND_DMX, if flash { FLAG_FLASH } else { 0 }, ch),
         Signal::Osc { .. } => (KIND_OSC, 0, 0),
     };
     out.extend_from_slice(&[kind, flags, 0, 0]);
@@ -64,20 +101,20 @@ pub fn encode(out: &mut Vec<u8>, at_ms: u32, s: Signal) -> bool {
             for a in args.iter().take(0xFF) {
                 match a {
                     OscArg::Int(v) => {
-                        out.push(1);
+                        out.push(TAG_INT);
                         out.extend_from_slice(&v.to_le_bytes());
                     }
                     OscArg::Float(v) => {
-                        out.push(2);
+                        out.push(TAG_FLOAT);
                         out.extend_from_slice(&v.to_le_bytes());
                     }
                     OscArg::Str(v) => {
-                        out.push(3);
+                        out.push(TAG_STRING);
                         out.extend_from_slice(&(v.len().min(0xFFFF) as u16).to_le_bytes());
                         out.extend_from_slice(&v.as_bytes()[..v.len().min(0xFFFF)]);
                     }
                     OscArg::Bool(v) => {
-                        out.push(4);
+                        out.push(TAG_BOOL);
                         out.push(u8::from(*v));
                     }
                 }
@@ -187,6 +224,24 @@ mod tests {
 
     fn hex(b: &[u8]) -> String {
         b.iter().map(|x| format!("{x:02x}")).collect()
+    }
+
+    /// The tables are the layout: a record's fields read back at their table offsets, and the OSC tags are what `encode` writes.
+    #[test]
+    fn the_tables_are_the_layout() {
+        let mut out = vec![];
+        assert!(encode(&mut out, 0x0102_0304, Signal::Dmx { ch: 258, values: &[9, 8, 7], flash: true }));
+        let at = |name: &str| FIELDS.iter().find(|f| f.name == name).unwrap().read(&out);
+        assert_eq!((at("kind"), at("flags"), at("n"), at("ch"), at("at")), (f64::from(KIND_DMX), f64::from(FLAG_FLASH), 3.0, 258.0, f64::from(0x0102_0304u32)));
+        assert_eq!(&out[HEADER..HEADER + 3], &[9, 8, 7]);
+        assert_eq!(out.len() % 4, 0);
+        let mut osc = vec![];
+        let args = [OscArg::Int(7), OscArg::Float(0.5), OscArg::Str("x".into()), OscArg::Bool(true)];
+        assert!(encode(&mut osc, 0, Signal::Osc { address: "/a", args: &args }));
+        // u16 address length · "/a" · count · then the first argument's tag
+        assert_eq!(osc[HEADER + 2 + 2 + 1], TAG_INT);
+        assert_eq!(OSC_ARGS.map(|(tag, _, _)| tag), [1, 2, 3, 4]);
+        assert_eq!(KINDS.map(|(k, _)| k), [KIND_MIDI, KIND_DMX, KIND_OSC]);
     }
 
     fn osc_args(v: &Value) -> Vec<OscArg> {

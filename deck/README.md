@@ -96,6 +96,18 @@ in the generated code. No build.rs, no proc-macro at compile time: the Rust outp
 The shared fixture `protocol/fixtures/messages.json` is parsed by both sides (`cargo test -p protocol`,
 `npm test -w shared/live`).
 
+## Wire codecs: the Rust layout is the TypeScript (#372)
+
+The browser's byte layouts are tables in Rust, next to the code that writes the bytes: `live-core/src/wire.rs` (the `send`
+record's header fields, the modes, the analysis frame's slots), `signals.rs` (the device-signal header, kinds, flag bits,
+OSC tags), `clock.rs` (the clock's state block: the `Slot`s, `FLAGS`, the page's `READS` / `GROUPS`) and deck-core's
+`CLOCK_STATUS` (the MIDI messages that reach the clock – the native port filters by the same list). `live-core/src/bin/codecs-ts`
+writes `shared/live-core/src/{wire,signals,clock-state}.ts` from them (`// GENERATED` on line 1: the bridge guard skips
+them); the shapes of the codecs (a DataView walk, the OSC payload) are the `.tpl` files beside it. The fixtures
+(`live-core/fixtures`) stay as the cross-check both sides run. **`npm run generate`** writes every generated file (the
+protocol, these three, `module-abi.ts`); `npm run generate -- --check` only compares and is a step of `npm run check`. A
+layout change = edit the table, run it, commit the TypeScript.
+
 ## Kind catalog: one descriptor table (#315)
 
 `catalog/` (`deck-catalog`) holds ONE table of every node kind – ports (type, direction, channels, doc) and parameters
