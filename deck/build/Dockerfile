@@ -7,8 +7,8 @@
 #   docker run --rm -p 7710:7710 -e MODULE_BUILD_TOKEN=… -e RELAY_STATUS_URL=off scutoons-build
 #   curl http://127.0.0.1:7710/health            → {"ok":true,"waiting":0,"busy":false}
 #
-# What is inside: rustc + cargo pinned below, the wasm32-unknown-unknown target, the SDK (deck/module + deck/module-macros
-# sources with their standalone manifests from deck/build/sdk), the vendored closure of the SDK's dependencies (so every
+# What is inside: rustc + cargo pinned below, the wasm32-unknown-unknown target, the SDK (deck/module, deck/module-macros,
+# deck/catalog: sources with their standalone manifests from deck/build/sdk), the vendored closure of the SDK's dependencies (so every
 # compile runs `--offline`: no network needed at runtime), and a build folder primed with the SDK built once (so a compile is
 # seconds). The service writes every member's Cargo.toml itself (src/compile.rs); a member's files are only src/*.rs.
 # No secrets in the image or in what the compiled code can reach: MODULE_BUILD_TOKEN is the service's own env (bunny) and is
@@ -37,6 +37,9 @@ COPY module/src /opt/sdk/module/src
 COPY build/sdk/module.Cargo.toml /opt/sdk/module/Cargo.toml
 COPY module-macros/src /opt/sdk/module-macros/src
 COPY build/sdk/macros.Cargo.toml /opt/sdk/module-macros/Cargo.toml
+# deck-module's `host` feature reads descriptors into the catalog's type (#339): its sources come along, unused by members
+COPY catalog/src /opt/sdk/catalog/src
+COPY build/sdk/catalog.Cargo.toml /opt/sdk/catalog/Cargo.toml
 # the workspace's lock pins the versions the SDK's dependencies are vendored at
 COPY Cargo.lock /opt/lock-seed/Cargo.lock
 

@@ -17,6 +17,7 @@ wasmtime = ["dep:wasmtime"]
 
 [dependencies]
 deck-core = { workspace = true, features = ["tempo"] }
+deck-catalog = { path = "../catalog" }
 deck-module = { path = "../module", features = ["host"] }
 anyhow.workspace = true
 bytemuck = "1"

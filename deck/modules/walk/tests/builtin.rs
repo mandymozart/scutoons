@@ -9,7 +9,7 @@ use deck_events::generators::RandomWalk;
 use deck_events::names::Names;
 use deck_events::rt::{resolve, RtEvent};
 use deck_events::{Event, Generator, Time};
-use deck_module::host::Descriptor;
+use deck_module::host;
 use deck_module::testing::Rig;
 use deck_module::Describe;
 use walk_module::Walk;
@@ -55,7 +55,7 @@ impl Builtin {
 }
 
 fn module(seed: u64, spread: f32, per_beat: f32, glide: f32, base: f32, bpm: f64) -> Rig<Walk> {
-    let d = Descriptor::parse(Walk::DESCRIPTOR).unwrap();
+    let d = host::parse(Walk::DESCRIPTOR).unwrap();
     let mut rig = Rig::<Walk>::new(RATE, seed);
     for (name, v) in [("spread", spread), ("rate", per_beat), ("glide", glide), ("base", base)] {
         rig.set_param(d.param_index(name).unwrap(), v);
@@ -136,11 +136,11 @@ fn a_stopped_tempo_plays_no_steps() {
 
 #[test]
 fn the_descriptor_declares_the_params_and_ports() {
-    let d = Descriptor::parse(Walk::DESCRIPTOR).unwrap();
+    let d = host::parse(Walk::DESCRIPTOR).unwrap();
     assert_eq!(d.name, "walk");
-    let names: Vec<&str> = d.params.iter().map(|p| p.name.as_str()).collect();
+    let names: Vec<&str> = d.params.iter().map(|p| p.name.as_ref()).collect();
     assert_eq!(names, ["spread", "rate", "glide", "base", "octaves", "length"]);
-    assert_eq!((d.params[1].min, d.params[1].max, d.params[1].default), (0.0, 16.0, 2.0));
+    assert_eq!((d.params[1].min, d.params[1].max, d.params[1].default), (0.0, 16.0, Some(2.0)));
     assert_eq!(d.ports.len(), 2);
 }
 

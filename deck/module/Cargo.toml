@@ -1,7 +1,7 @@
 # deck-module – the SDK for rig modules (#280, research/RIG-EDITING.md §4): a creator writes an instrument as a Rust
 # crate against this one, compiled to wasm32-unknown-unknown and run in wasmtime (deck) or the browser's engine
 # (live-core). No dependencies: the module's wasm stays small and the compile service has nothing to vet. The `host`
-# feature adds the descriptor types (serde) for whoever loads a module – never for the module itself.
+# feature adds the descriptor check (on deck-catalog's `Descriptor`) for whoever loads a module – never for the module itself.
 [package]
 name = "deck-module"
 version.workspace = true
@@ -12,15 +12,16 @@ publish.workspace = true
 
 [features]
 default = []
-# the loader's side: `Descriptor` (parse, validate), `read_descriptor` (the wasm's `deck.module` section), the Io offsets
-host = ["dep:serde", "dep:serde_json"]
+# the loader's side: `parse` / `validate` on deck-catalog's `Descriptor`, `read_descriptor` (the wasm's `deck.module` section), the Io offsets
+host = ["dep:deck-catalog", "dep:serde_json"]
 
 [dependencies]
 deck-module-macros = { path = "../module-macros" }
-serde = { workspace = true, optional = true }
+deck-catalog = { path = "../catalog", optional = true }
 serde_json = { workspace = true, optional = true }
 
 [dev-dependencies]
+deck-catalog = { path = "../catalog" }
 deck-core = { workspace = true, features = ["tempo"] }
 deck-module = { path = ".", features = ["host"] }
 serde_json = { workspace = true }

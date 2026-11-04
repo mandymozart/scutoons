@@ -1,0 +1,19 @@
+# deck-catalog outside the deck/ workspace: see module.Cargo.toml (#281). deck-module's `host` feature reads a module's
+# descriptor into the catalog's `Descriptor` (#339), so the SDK carries the catalog's sources; members never enable it.
+[package]
+name = "deck-catalog"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+license = "UNLICENSED"
+publish = false
+
+[features]
+default = []
+schema = ["docs", "dep:schemars"]
+docs = []
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1" }
+schemars = { version = "1", optional = true }

@@ -50,10 +50,10 @@ fn process_never_allocates() {
     b.run_peak(2048, 512);
 
     // parameters to turn: everything but the ones that would shut the sound (master, levels, the amp envelopes)
-    let desc = deck_module::host::Descriptor::parse(<analog_module::Analog as deck_module::Describe>::DESCRIPTOR).unwrap();
+    let desc = deck_module::host::parse(<analog_module::Analog as deck_module::Describe>::DESCRIPTOR).unwrap();
     let movable: Vec<usize> = (0..desc.params.len())
         .filter(|&i| {
-            let n = desc.params[i].name.as_str();
+            let n = desc.params[i].name.as_ref();
             !(n == "volume" || n.ends_with("_level") || n.starts_with("ae") || n == "a1_vel" || n == "a2_vel")
         })
         .collect();

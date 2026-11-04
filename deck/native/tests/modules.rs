@@ -53,7 +53,7 @@ const RATE: f64 = 48_000.0;
 fn a_module_is_read_checked_and_registered_without_running_it() {
     let l = Library::global().load(&walk()).unwrap();
     assert_eq!(l.desc.name, "walk");
-    assert_eq!(l.desc.params.iter().map(|p| p.name.as_str()).collect::<Vec<_>>(), ["spread", "rate", "glide", "base", "octaves", "length"]);
+    assert_eq!(l.desc.params.iter().map(|p| p.name.as_ref()).collect::<Vec<_>>(), ["spread", "rate", "glide", "base", "octaves", "length"]);
     // its kind is a graph kind: ports from the descriptor, checked like any
     let kind = Kind::parse("module:walk").expect("registered");
     assert_eq!(kind, Kind::Module(l.kind));

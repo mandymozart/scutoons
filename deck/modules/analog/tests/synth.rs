@@ -3,11 +3,11 @@
 mod common;
 use analog_module::{Analog, PARAMS_JSON, PARAM_NAMES, PRESETS_JSON};
 use common::*;
-use deck_module::host::{Descriptor, Dir, PortKind};
+use deck_catalog::{Descriptor, Dir, PortType};
 use deck_module::Describe;
 
 fn descriptor() -> Descriptor {
-    Descriptor::parse(Analog::DESCRIPTOR).expect("the descriptor is valid for the host")
+    deck_module::host::parse(Analog::DESCRIPTOR).expect("the descriptor is valid for the host")
 }
 
 // ── the declaration ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -16,12 +16,12 @@ fn descriptor() -> Descriptor {
 fn the_descriptor_declares_the_ports_and_every_parameter() {
     let d = descriptor();
     assert_eq!(d.name, "analog");
-    assert_eq!(d.params.iter().map(|p| p.name.as_str()).collect::<Vec<_>>(), PARAM_NAMES);
+    assert_eq!(d.params.iter().map(|p| p.name.as_ref()).collect::<Vec<_>>(), PARAM_NAMES);
     assert!(d.params.len() > 80 && d.params.len() <= deck_module::abi::MAX_PARAMS, "{} parameters", d.params.len());
-    let audio_in = d.ports_of(Dir::In, PortKind::Audio).map(|p| p.name.as_str()).collect::<Vec<_>>();
+    let audio_in = d.ports_of(Dir::In, PortType::Audio).map(|p| p.name.as_ref()).collect::<Vec<_>>();
     assert_eq!(audio_in, ["cv1", "cv2", "cv3", "cv4"]);
-    assert_eq!(d.ports_of(Dir::In, PortKind::Control).map(|p| p.name.as_str()).collect::<Vec<_>>(), ["sustain"]);
-    assert_eq!(d.ports_of(Dir::Out, PortKind::Audio).map(|p| p.name.as_str()).collect::<Vec<_>>(), ["out"]);
+    assert_eq!(d.ports_of(Dir::In, PortType::Control).map(|p| p.name.as_ref()).collect::<Vec<_>>(), ["sustain"]);
+    assert_eq!(d.ports_of(Dir::Out, PortType::Audio).map(|p| p.name.as_ref()).collect::<Vec<_>>(), ["out"]);
 }
 
 #[test]
@@ -29,8 +29,8 @@ fn every_parameter_has_a_unit_a_doc_and_choices_that_fit_its_range() {
     let d = descriptor();
     let meta: Vec<serde_json::Value> = serde_json::from_str(PARAMS_JSON).unwrap();
     assert_eq!(meta.len(), d.params.len());
-    for (m, p) in meta.iter().zip(&d.params) {
-        assert_eq!(m["name"], p.name.as_str());
+    for (m, p) in meta.iter().zip(d.params.iter()) {
+        assert_eq!(m["name"], p.name.as_ref());
         let doc = m["doc"].as_str().unwrap();
         assert!(doc.len() > 8, "{}: a doc string", p.name);
         assert!(["", "st", "cent", "Hz", "s", "oct"].contains(&m["unit"].as_str().unwrap()), "{}: unit {}", p.name, m["unit"]);

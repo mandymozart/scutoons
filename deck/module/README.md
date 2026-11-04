@@ -53,8 +53,10 @@ default does). Ports are numbered per direction and type in declaration order: t
 JSON, written by the derive: the module's name, version, ABI version, parameters (name, min, max, default), ports
 (name, dir `in|out`, kind `audio|control|video|event`). It is a constant, stored in the wasm's custom section
 **`deck.module`**: a host reads it without instantiating (`host::read_descriptor(&wasm)` in Rust,
-`WebAssembly.Module.customSections(module, "deck.module")` in JS) and `host::Descriptor::parse` validates it (ABI version,
-names, ranges, counts). Fallback for a host that instantiates anyway: `dm_descriptor_ptr()` / `dm_descriptor_len()`.
+`WebAssembly.Module.customSections(module, "deck.module")` in JS) and `host::parse` reads it into deck-catalog's
+`Descriptor` – the one type the built-in kinds use too (#339) – and `host::validate` checks it (ABI version, names, ranges,
+counts, and `Descriptor::check` for the ABI v2 fields: event `names` / `props` / `capacity`, `sidechain`, control-output
+`path` / `mode` / `choices`, `reads`, `wants`, `assets`, `preset`, `latency`; the derive writes them from #340 on). Fallback for a host that instantiates anyway: `dm_descriptor_ptr()` / `dm_descriptor_len()`.
 Limits: 128 parameters, 4 audio ports (stereo) and 8 control ports per direction. `video` ports are declared for later
 (WGSL data, #185); a host that cannot run them refuses the module with a message.
 

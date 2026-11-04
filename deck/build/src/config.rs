@@ -8,7 +8,7 @@ pub struct Config {
     pub listen: String,
     /// `MODULE_BUILD_TOKEN`: the shared secret the API sends as `X-Build-Token`. The service does not start without it.
     pub token: String,
-    /// `BUILD_SDK_DIR` (`/opt/sdk`): holds `module/` (deck-module) and `module-macros/`
+    /// `BUILD_SDK_DIR` (`/opt/sdk`): holds `module/` (deck-module), `module-macros/` and `catalog/`
     pub sdk_dir: PathBuf,
     /// `BUILD_WORK_DIR` (`/var/build/work`): a temporary folder per compile, deleted after
     pub work_dir: PathBuf,

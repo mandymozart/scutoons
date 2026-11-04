@@ -156,7 +156,7 @@ mod wasmtime_backend {
 fn the_wasm_carries_its_descriptor_parameter_docs_and_presets() {
     let bytes = wasm();
     let json = deck_module::host::read_descriptor(&bytes).expect("deck.module");
-    let d = deck_module::host::Descriptor::parse(json).unwrap();
+    let d = deck_module::host::parse(json).unwrap();
     assert_eq!(d.params.len(), analog_module::PARAM_NAMES.len());
     let section = |name: &str| -> String { custom_section(&bytes, name).unwrap_or_else(|| panic!("no `{name}` section")) };
     assert_eq!(section("deck.params"), analog_module::PARAMS_JSON);
