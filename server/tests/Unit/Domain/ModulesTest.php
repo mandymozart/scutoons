@@ -24,8 +24,9 @@ final class ModulesTest extends TestCase
     private static function compiled(): array
     {
         return ['id' => 'walk', 'name' => ['en' => 'Walk'], 'files' => ['lib.rs' => '// walk', 'osc.rs' => '// osc'],
-            'descriptor' => ['abi' => 1, 'name' => 'walk', 'version' => '0.1.0', 'params' => [['name' => 'spread', 'min' => 0.0, 'max' => 1.0, 'default' => 0.0]],
-                'ports' => [['name' => 'cv', 'dir' => 'out', 'kind' => 'audio'], ['name' => 'notes', 'dir' => 'out', 'kind' => 'event']]],
+            'descriptor' => ['abi' => 2, 'name' => 'walk', 'version' => '0.1.0', 'domain' => 'audio', 'doc' => 'a walk',
+                'params' => [['name' => 'spread', 'min' => 0.0, 'max' => 1.0, 'default' => 0.0, 'doc' => 'how far']],
+                'ports' => [['name' => 'cv', 'dir' => 'out', 'type' => 'cv', 'doc' => 'pitch, gate'], ['name' => 'notes', 'dir' => 'out', 'type' => 'event', 'names' => ['music.note'], 'props' => ['pitch', 'vel', 'glide'], 'capacity' => 64]]],
             'wasm' => ['hash' => self::HASH, 'bytes' => 4096, 'toolchain' => 'rustc 1.99.1']];
     }
 
@@ -89,9 +90,14 @@ final class ModulesTest extends TestCase
         $this->refused(['wasm' => ['hash' => self::HASH, 'bytes' => 0]], 'wasm.bytes');
         $this->refused(['wasm' => ['hash' => self::HASH, 'bytes' => 1, 'path' => 'x']], 'wasm takes');
         $this->refused(['descriptor' => ['abi' => 'one'] + self::compiled()['descriptor']], 'descriptor.abi');
+        // #343: a module built against ABI v1 is recompiled, never read
+        $this->refused(['descriptor' => ['abi' => 1] + self::compiled()['descriptor']], 'descriptor.abi must be 2');
+        $d = self::compiled()['descriptor'];
+        $d['ports'][0] = ['name' => 'cv', 'dir' => 'out', 'kind' => 'audio'];
+        $this->refused(['descriptor' => $d], 'descriptor.ports[0]');
         $this->refused(['descriptor' => ['name' => 'Walk'] + self::compiled()['descriptor']], 'descriptor.name');
         $d = self::compiled()['descriptor'];
-        $d['ports'][0]['kind'] = 'midi';
+        $d['ports'][0]['type'] = 'midi';
         $this->refused(['descriptor' => $d], 'descriptor.ports[0]');
         $d = self::compiled()['descriptor'];
         $d['params'][0]['min'] = 'low';
@@ -127,5 +133,46 @@ final class ModulesTest extends TestCase
         }
         self::assertSame(['keep'], array_column($this->db->all('SELECT id FROM catalog_modules'), 'id'), 'the rows stay');
         $this->db->exec('DROP TABLE IF EXISTS member_modules'); // the file still creates it (2026-11-02-drop-member-layer drops it)
+    }
+
+    /** #343: the recompile list – every module not built against the current ABI (not compiled counts), or all */
+    public function testTheRebuildListNamesTheModulesOfAnotherAbi(): void
+    {
+        $store = $this->get(CatalogStore::class);
+        $store->save('modules', 'walk', self::compiled(), 'test');
+        $store->save('modules', 'bare', ['id' => 'bare', 'files' => ['lib.rs' => '//']], 'test');
+        $store->save('modules', 'old', ['descriptor' => ['abi' => 1] + self::compiled()['descriptor']] + self::compiled(), 'test');
+        $store->forget();
+        $rebuild = $this->get(\Scutoons\Console\ModulesRebuildCommand::class);
+        self::assertSame(['bare' => null, 'old' => 1], $rebuild->due(false));
+        self::assertSame(['bare' => null, 'old' => 1, 'walk' => 2], $rebuild->due(true));
+    }
+
+    /** #343: an ABI v1 compile result leaves the published rows (sources stay); an ABI v2 one and a bare draft are untouched */
+    public function testTheAbiV2MigrationDropsV1CompileResultsAndRunsTwice(): void
+    {
+        $v1 = ['id' => 'old', 'files' => ['lib.rs' => '//'], 'descriptor' => ['abi' => 1, 'name' => 'old', 'version' => '0.1.0', 'params' => [], 'ports' => []],
+            'wasm' => ['hash' => self::HASH, 'bytes' => 9]];
+        $rows = ['old' => $v1, 'walk' => self::compiled(), 'bare' => ['id' => 'bare', 'files' => ['lib.rs' => '//']]];
+        foreach ($rows as $id => $data) {
+            $this->db->run('INSERT INTO catalog_modules (id, position, data, updated_at) VALUES (?, 0, ?, UTC_TIMESTAMP())', [$id, json_encode($data, JSON_PRESERVE_ZERO_FRACTION)]);
+        }
+        $sql = (string) file_get_contents(self::root() . '/migrations/mysql/2026-11-04-module-abi-v2.mysql.sql');
+        $data = function (): array {
+            $out = [];
+            foreach ($this->db->all('SELECT id, data FROM catalog_modules ORDER BY id') as $r) $out[$r['id']] = json_decode((string) $r['data'], true);
+            return $out;
+        };
+        foreach ([1, 2] as $run) {
+            foreach (preg_split('/;\s*\n/', $sql) ?: [] as $statement) {
+                $statement = trim((string) preg_replace('/^--.*$/m', '', $statement));
+                if ($statement !== '') $this->db->exec($statement);
+            }
+            $now = $data();
+            self::assertSame(['id' => 'old', 'files' => ['lib.rs' => '//']], $now['old'], "run $run: the v1 result is gone, the sources stay");
+            self::assertSame(self::compiled()['descriptor'], $now['walk']['descriptor'], "run $run: an ABI 2 module is untouched");
+            self::assertSame(self::HASH, $now['walk']['wasm']['hash']);
+            self::assertSame($rows['bare'], $now['bare']);
+        }
     }
 }

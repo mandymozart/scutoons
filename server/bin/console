@@ -42,6 +42,7 @@ use Scutoons\Console\EmbassyInboxCommand;
 use Scutoons\Console\ExportContentCommand;
 use Scutoons\Console\ImportContentCommand;
 use Scutoons\Console\MigrateCommand;
+use Scutoons\Console\ModulesRebuildCommand;
 use Scutoons\Console\ProdSeedCommand;
 use Scutoons\Console\PushKeysCommand;
 use Scutoons\Console\SetupCommand;
@@ -53,7 +54,7 @@ use Symfony\Component\Console\Application;
 
 $container = Kernel::container();
 $console = new Application('SCUTOONS server', '1.0');
-foreach ([MigrateCommand::class, SetupCommand::class, ProdSeedCommand::class, RolesCommand::class, ImportContentCommand::class, ExportContentCommand::class, BackfillEditionNumbersCommand::class, ReportOrphanCodesCommand::class, AssetsCheckStorageCommand::class, AssetsSyncCommand::class, AssetsScanCommand::class, AssetsJobsCommand::class, AssetsLayoutCommand::class, AssetsRelayoutCommand::class, SampleStoresCommand::class, ContentCheckCommand::class, ContentNeutralCheckCommand::class, EmbassyInboxCommand::class, EmbassyCronCommand::class, PushKeysCommand::class] as $command) {
+foreach ([MigrateCommand::class, SetupCommand::class, ProdSeedCommand::class, RolesCommand::class, ImportContentCommand::class, ExportContentCommand::class, BackfillEditionNumbersCommand::class, ReportOrphanCodesCommand::class, AssetsCheckStorageCommand::class, AssetsSyncCommand::class, AssetsScanCommand::class, AssetsJobsCommand::class, AssetsLayoutCommand::class, AssetsRelayoutCommand::class, SampleStoresCommand::class, ContentCheckCommand::class, ContentNeutralCheckCommand::class, EmbassyInboxCommand::class, EmbassyCronCommand::class, PushKeysCommand::class, ModulesRebuildCommand::class] as $command) {
     $console->add($container->get($command));
 }
 exit($console->run());

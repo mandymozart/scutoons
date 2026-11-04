@@ -49,8 +49,8 @@ final class ModulesApiTest extends TestCase
 {
     private const WASM = "\0asm\x01\0\0\0";
     private const SOURCE = ['lib.rs' => 'use deck_module::Module; #[derive(Module)] struct M;'];
-    private const DESCRIPTOR = ['abi' => 1, 'name' => 'm', 'version' => '0.1.0',
-        'params' => [['name' => 'spread', 'min' => 0.0, 'max' => 1.0, 'default' => 0.0]], 'ports' => [['name' => 'cv', 'dir' => 'out', 'kind' => 'audio']]];
+    private const DESCRIPTOR = ['abi' => 2, 'name' => 'm', 'version' => '0.1.0', 'domain' => 'audio',
+        'params' => [['name' => 'spread', 'min' => 0.0, 'max' => 1.0, 'default' => 0.0, 'unit' => 'x']], 'ports' => [['name' => 'cv', 'dir' => 'out', 'type' => 'audio', 'channels' => 2]]];
 
     private FakeBuildService $build;
 
@@ -141,7 +141,8 @@ final class ModulesApiTest extends TestCase
         self::assertArrayNotHasKey('module:bare', $kinds);
         self::assertSame([['cv', 'out', 'audio']], array_map(fn($p) => [$p['name'], $p['dir'], $p['type']], $kinds['module:wobble']['ports']));
         self::assertSame(['spread', 0.0, 1.0], [$kinds['module:wobble']['params'][0]['name'], $kinds['module:wobble']['params'][0]['min'], $kinds['module:wobble']['params'][0]['max']]);
-        self::assertSame(1, $kinds['module:wobble']['abi']);
+        self::assertSame(2, $kinds['module:wobble']['abi']);
+        self::assertSame(['x', 'lin'], [$kinds['module:wobble']['params'][0]['unit'], $kinds['module:wobble']['params'][0]['curve']]);
     }
 
     public function testSourcesAreHeldToTheLimits(): void

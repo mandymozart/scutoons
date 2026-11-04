@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Scutoons\Domain\Rigs;
 
+use Scutoons\Domain\Modules\ModuleSource;
+
 /**
  * The explanatory node-kind catalog (#315, agents/research/ENGINE-REFACTOR-PLAN.md §2.4): kinds.json is GENERATED from
  * deck/catalog (`cargo run -p deck-space --features schema --bin deck-schema`) – every built-in kind with its ports
@@ -21,31 +23,32 @@ final class KindCatalog
     }
 
     /**
-     * A published module's descriptor (ABI v1: abi, name, version, params, ports with `kind`) in the catalog's shape
+     * A published module's descriptor (module ABI v2: deck-catalog's one `Descriptor`, the shape the built-ins have –
+     * ports with `type`, channels, event names; parameters with curve, unit, choices, doc) as a kind `module:<id>`
      * @param array<string, mixed> $descriptor
      * @return array<string, mixed>
      */
     public static function moduleKind(string $id, array $descriptor): array
     {
-        $ports = [];
-        foreach ((array) ($descriptor['ports'] ?? []) as $p) {
-            $ports[] = ['name' => $p['name'], 'dir' => $p['dir'], 'type' => $p['type'] ?? $p['kind'] ?? 'audio'];
-        }
         $params = [];
         foreach ((array) ($descriptor['params'] ?? []) as $p) {
-            $params[] = ['name' => $p['name'], 'min' => $p['min'], 'max' => $p['max'], 'default' => $p['default'], 'curve' => 'lin'];
+            $params[] = (array) $p + ['curve' => 'lin'];
         }
-        return [
+        $kind = [
             'name' => "module:$id",
             'version' => (string) ($descriptor['version'] ?? '1'),
-            'domain' => 'audio',
-            'doc' => "The published module $id.",
+            'domain' => (string) ($descriptor['domain'] ?? 'audio'),
+            'doc' => (string) ($descriptor['doc'] ?? '') !== '' ? (string) $descriptor['doc'] : "The published module $id.",
             'feature' => 'modules',
             'scope' => 'graph',
             'abi' => $descriptor['abi'] ?? null,
-            'ports' => $ports,
+            'ports' => array_values((array) ($descriptor['ports'] ?? [])),
             'params' => $params,
         ];
+        foreach (['needs', 'wants', 'reads', 'latency', 'assets', 'preset'] as $field) {
+            if (array_key_exists($field, $descriptor)) $kind[$field] = $descriptor[$field];
+        }
+        return $kind;
     }
 
     /**
@@ -57,7 +60,10 @@ final class KindCatalog
     {
         $catalog = self::builtin();
         foreach ($modules as $id => $module) {
-            if (is_array($module) && is_array($module['descriptor'] ?? null)) $catalog['kinds'][] = self::moduleKind((string) $id, $module['descriptor']);
+            // a module of another ABI is no kind any deck loads (#343: it is recompiled, never read)
+            if (is_array($module) && is_array($module['descriptor'] ?? null) && ($module['descriptor']['abi'] ?? null) === ModuleSource::ABI) {
+                $catalog['kinds'][] = self::moduleKind((string) $id, $module['descriptor']);
+            }
         }
         return $catalog;
     }
