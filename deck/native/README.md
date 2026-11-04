@@ -536,7 +536,9 @@ with the token, ready, the cell, resume, the snapshot after a restart). Not yet:
   Ableton Link is the cargo feature `link` (rusty_link 0.4.9: cmake, a C++ compiler and libclang at build time; on
   Windows a debug build needs `--config 'profile.dev.package.rusty_link.opt-level=1'`, else its debug CRT doesn't link).
 - **Video** (`src/render.rs`): one fullscreen pass per video node into its own texture (Rgba8), the screen blits to the
-  surface, the HUD (`src/hud.rs`, font8x8 into a small texture, integer scale by the screen height) on top. No hardware
+  surface, the HUD (`src/hud.rs`, font8x8 into a small texture, integer scale by the screen height) on top – what its
+  lines and the bar's items say and the F1 mode are deck-ui's (#374, deck/ui; `src/hud_status.rs` reads the deck's
+  objects into its `Status`). No hardware
   adapter → the software one (llvmpipe / lavapipe / WARP) at half the render size; a shader that does not compile →
   `pass` with the error in the log.
 - **Space** (#188; the crate **deck-space**, `deck/space/src/space/` – lifted out in #198 so the browser draws the same

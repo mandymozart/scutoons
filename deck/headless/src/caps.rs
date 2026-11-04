@@ -37,12 +37,11 @@ impl std::fmt::Display for Missing {
 
 /// every capability the runner knows by name: (name, ticket, what, where it lives today)
 pub const CAPS: &[(&str, &str, &str, &str)] = &[
-    ("hud", "#374", "the deck UI model: the HUD lines and the stats bar items", "main.rs hud_lines / bar_items"),
-
     ("quality_options", "#375", "the quality page's option tables (fps caps, ratios, sizes) and labels", "native quality.rs Page, deck-quality-sheet.svelte"),
 ];
 
-/// the steps the core answers now (their move tickets landed): name, ticket
+/// the steps the core answers now (their move tickets landed): name, ticket – `hud` (#374, deck-ui) is a step of the
+/// runner's (lib.rs: it reads the deck's clock)
 pub const MOVED: &[(&str, &str)] = &[("stats", "#364"), ("lead", "#365"), ("mood", "#367"), ("rig_facts", "#368"), ("device_text", "#373"), ("meters", "#373"), ("gesture", "#376"), ("knob", "#369"), ("sync", "#371"), ("relay_join", "#366")];
 
 /// Call the capability `name` with the step's input: its answer, or what is missing.

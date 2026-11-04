@@ -11,7 +11,8 @@
 		{ "crate": "deck-outputs", "args": ["--no-default-features"], "why": "parameters as outputs without the adapters' runner" },
 		{ "crate": "live-core", "args": [], "why": "the engine behind the browser's raw wasm exports (the adapter API the headless host drives)" },
 		{ "crate": "deck-headless", "args": [], "why": "the headless deck host (#363): the third adapter, platform-free by construction" },
-		{ "crate": "deck-outlet", "args": [], "why": "the Live outlet's logic (#378): a cell's plan, the composer, the crossfade, the dialog / text layout, the relay messages' routing" }
+		{ "crate": "deck-outlet", "args": [], "why": "the Live outlet's logic (#378): a cell's plan, the composer, the crossfade, the dialog / text layout, the relay messages' routing" },
+		{ "crate": "deck-ui", "args": [], "why": "the deck's UI model (#374): the HUD's lines, the stats bar's items, the F1 mode" }
 	],
 	"exceptions": [
 		{ "crate": "deck-space", "feature": "gpu", "pulls": "wgpu", "why": "the being's GPU passes – wgpu is itself the GPU adapter both platforms share (Vulkan / Metal / DX12 natively, WebGPU / WebGL2 in space-web); the core part is checked without it" },
@@ -130,6 +131,7 @@
 		"winnow": "via toml",
 		"zmij": "via serde_json: float formatting",
 		"deck-headless": "core (the headless host)",
-		"deck-outlet": "core (the Live outlet's logic)"
+		"deck-outlet": "core (the Live outlet's logic)",
+		"deck-ui": "core (the deck's UI model)"
 	}
 }

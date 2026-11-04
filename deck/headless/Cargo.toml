@@ -24,6 +24,8 @@ live-core = { path = "../live-core" }
 deck-core = { workspace = true, features = ["tempo"] }
 # the scene model, the browser's split (`lower`), the core rigs, the quality governor – no GPU, no loaders
 deck-space = { path = "../space", default-features = false }
+# #374: the deck's UI model – the `hud` step's lines and bar
+deck-ui = { path = "../ui" }
 serde.workspace = true
 serde_json.workspace = true
 toml.workspace = true

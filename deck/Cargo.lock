@@ -1031,6 +1031,7 @@ version = "0.1.0"
 dependencies = [
  "deck-core",
  "deck-space",
+ "deck-ui",
  "live-core",
  "serde",
  "serde_json",
@@ -1107,6 +1108,7 @@ dependencies = [
  "deck-outlet",
  "deck-outputs",
  "deck-space",
+ "deck-ui",
  "font8x8",
  "gilrs",
  "image",
@@ -1188,6 +1190,13 @@ dependencies = [
  "toml 0.8.23",
  "tracing",
  "wgpu",
+]
+
+[[package]]
+name = "deck-ui"
+version = "0.1.0"
+dependencies = [
+ "deck-core",
 ]
 
 [[package]]

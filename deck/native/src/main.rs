@@ -37,12 +37,12 @@ use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy}
 use winit::keyboard::{Key, ModifiersState, NamedKey};
 use winit::window::{Fullscreen, Window, WindowId};
 
+mod hud_status;
+
 /// the exit code that asks deck-session for the browser (the conductor page) instead of the stage
 const EXIT_BROWSER: i32 = 10;
 /// the splash waits this long at most for the chapter and the music (offline without a cache: the scene anyway)
 const SPLASH_MAX_S: f32 = 30.0;
-/// #208: the audio glitch warning – its HUD text's start and how long it flashes after a glitch (s)
-const ALERT: &str = "AUDIO!";
 
 /// what other threads tell the event loop
 #[derive(Debug)]
@@ -1252,6 +1252,8 @@ impl App {
         if hud_on && time - self.hud_at >= 0.25 || self.stats.frames == 0 || self.hud_at < 0.0 {
             self.hud_at = time;
             self.stats.feed.report = self.stats.feed.monitor.report(wall_ms);
+            // #374: the HUD's words are deck-ui's; this reads the deck's objects into its Status (hud_status.rs)
+            let status = self.status();
             // #220: the settings page instead of the HUD's lines, its cursor's line lit
             let (lines, cursor) = if self.switcher.open {
                 let (l, c) = self.switcher.lines(self.current_scene());
@@ -1261,23 +1263,23 @@ impl App {
                 let (l, c) = self.page.lines(&self.presets, &now, &self.modes, &self.quality_note);
                 (l, Some(c))
             } else {
-                (self.hud_lines(), None)
+                (deck_ui::hud_lines(&status), None)
             };
             let t = self.show.tempo.now();
-            let row = lines.iter().position(|l| l.starts_with("BPM"));
+            let row = deck_ui::beat_row(&lines);
             self.hud.set_beat(row.map(|row| hud::Beat { row, beat: t.pos.beat_in_bar, per_bar: t.per_bar, running: t.running }));
             // #208: the glitch warning flashes at 2 Hz (the lines refresh every 0.25 s)
-            let alert = lines.iter().position(|l| l.starts_with(ALERT));
+            let alert = deck_ui::alert_row(&lines);
             let lit = (self.started.elapsed().as_secs_f32() * 4.0) as u32 % 2 == 0;
             self.hud.set_alert(match cursor {
                 Some(row) => Some(hud::Alert { row, lit: true }),
                 None => alert.map(|row| hud::Alert { row, lit }),
             });
             let mut lines = lines;
-            let mut items = self.bar_items();
+            let mut items = deck_ui::bar_items(&status);
             if let Some(v) = &vol {
                 lines.insert(0, v.clone());
-                items.insert(0, hud::Item { text: v.clone(), level: hud::Level::Ok });
+                items.insert(0, deck_ui::Item { text: v.clone(), level: deck_ui::Level::Ok });
             }
             self.hud.set_lines(lines);
             self.hud.set_items(items);
@@ -1367,137 +1369,6 @@ impl App {
         return self.show.events.as_ref().map(|e| e.counters.dropped());
         #[cfg(not(feature = "events"))]
         None
-    }
-
-    /// #209: the collapsed bar's items – the monitor's (FPS, CPU, AUDIO, LIM; #364: deck-core's words and judgement),
-    /// the quality, the relay, the GPU backend
-    fn bar_items(&self) -> Vec<hud::Item> {
-        let item = |text: String, warn: bool| hud::Item { text, level: if warn { hud::Level::Warn } else { hud::Level::Ok } };
-        let mut out: Vec<hud::Item> = self.stats.feed.report.bar.iter().map(|i| hud::Item { text: i.text(), level: i.level }).collect();
-        // #220: the level now and the render scale – amber while the governor holds it below the level chosen
-        if let Some(g) = &self.governor {
-            out.insert(1, item(format!("Q {} {:.2}{}", g.level().name().to_uppercase(), g.scale(), if g.auto() { "" } else { " FIX" }), g.level() != g.ceiling()));
-        }
-        // the relay: the space's session (a deck, the conductor), else the Live outlet's
-        let mut relay = String::new();
-        #[cfg(feature = "space")]
-        if let Some(s) = self.show.space.as_ref().filter(|s| s.join != deck_native::space::Join::Alone) {
-            relay = s.session_lines().into_iter().next().unwrap_or_default();
-        }
-        #[cfg(feature = "live")]
-        if relay.is_empty() {
-            if let Some(l) = &self.show.live {
-                relay = l.hud_lines().into_iter().next().unwrap_or_default();
-            }
-        }
-        out.push(item(format!("RELAY {}", if relay.is_empty() { "-".into() } else { relay.replace(['–', '—'], "-").to_uppercase() }), false));
-        let gpu = self.renderer.as_ref().map(|r| format!("{:?}", r.adapter.backend).to_uppercase()).unwrap_or_default();
-        out.push(item(format!("GPU {gpu}"), false));
-        out.push(item("F1".into(), false));
-        out
-    }
-
-    fn hud_lines(&self) -> Vec<String> {
-        let gpu = self.renderer.as_ref().map(|r| format!("{} {:?}", r.adapter.name, r.adapter.backend)).unwrap_or_default();
-        // #208: the device's buffer (its largest callback) and what it costs, how far ahead of the ear the audio is
-        // rendered (#188); #364: the monitor's lines (frames, the block loads, the lead, the limiter, the glitches)
-        let rate = self.show.clock.as_ref().map_or(48_000.0, |c| c.rate);
-        let ms = |frames: f32| frames * 1000.0 / rate;
-        let device = match (&self.show.audio, &self.show.glitches) {
-            (Some(a), Some(g)) => {
-                let buf = g.device_frames();
-                Some(format!("AUDIO {} {}K BUF {buf} {:.0}MS OUT {:.0}MS", a.name.to_uppercase(), a.rate / 1000, ms(buf as f32), ms(self.lead() as f32)))
-            }
-            _ => None,
-        };
-        let report = &self.stats.feed.report;
-        let mut lines = Vec::new();
-        if let Some(e) = &self.error {
-            // font8x8 has no dashes but the ASCII one
-            lines.push("SCENE ERROR - THE TEST PATTERN INSTEAD".into());
-            lines.extend(hud::wrap(&e.replace(['–', '—'], "-"), hud::COLS).into_iter().take(hud::LINES - 4));
-        }
-        // the Live outlet (#186) right under the title – its link, media, cell and every reason it can't show a layer
-        // come first (the HUD has 11 lines; the key help and the rest follow as far as they fit)
-        let mut live: Vec<String> = Vec::new();
-        #[cfg(feature = "live")]
-        if let Some(l) = &self.show.live {
-            live.extend(l.hud_lines());
-        }
-        if let Some(n) = &self.show.live_note {
-            live.push(format!("LIVE: {}", n.replace(['–', '—'], "-").to_uppercase()));
-        }
-        let live = live.iter().flat_map(|l| hud::wrap(l, hud::COLS));
-        lines.push(format!("SCUTOONSDECK STAGE  {}", self.show.scene_name));
-        // #208: a glitch flashes the warning right under the title for a few seconds (the frame sets its row red)
-        if !report.alert_line.is_empty() {
-            lines.push(format!("{ALERT} {}", report.alert_line));
-        }
-        lines.extend(live);
-        lines.extend([
-            "F12 WEB CTRL+ALT+ F2 SHELL / DEL OFF".into(),
-            "T TAP +/- BPM SPACE RUN F3 SRC K CLICK".into(),
-            format!("GPU {gpu}"),
-        ]);
-        // #220: the quality now, the level chosen, the governor; the keys
-        if let Some(g) = &self.governor {
-            let render = self.renderer.as_ref().map_or(1.0, |r| r.render_scale());
-            lines.push(format!("Q {} {render:.2}X OF {} {} F4 SET", g.level().name(), g.ceiling().name(), if g.auto() { "AUTO" } else { "FIXED" }).to_uppercase());
-        }
-        lines.extend(device);
-        lines.extend(report.lines.iter().cloned());
-        // #236: the hosts' events – delivered by the dispatcher, lost on the way (capped, hops, refused, late)
-        #[cfg(feature = "events")]
-        if let Some(c) = self.show.events.as_ref().map(|e| &e.counters) {
-            lines.push(format!("EVENTS IN {} DROP {}", c.routed.load(std::sync::atomic::Ordering::Relaxed), c.dropped()));
-        }
-        // the tempo line is the core's (the browser panel shows it word for word; the beat lights sit at its end, #370)
-        lines.extend([self.show.tempo.tempo_line(), self.source_line()]);
-        // #211: what the outputs drive, or why they are off
-        #[cfg(feature = "outputs")]
-        if let Some(o) = &self.show.outputs {
-            lines.push(format!("OUTPUTS {}", o.summary.to_uppercase()));
-        }
-        if let Some(n) = &self.show.outputs_note {
-            lines.extend(hud::wrap(&format!("OUTPUTS OFF: {}", n.replace(['–', '—', '…'], "-").to_uppercase()), hud::COLS).into_iter().take(3));
-        }
-        // the sync (#195) while it fetches, is offline or failed
-        #[cfg(feature = "sync")]
-        if let Some(line) = self.show.sync.as_ref().map(|y| y.line()).filter(|l| !l.starts_with("SYNC OK")) {
-            lines.push(line);
-        }
-        // the conductor's push, as this deck answers it (#195)
-        #[cfg(feature = "sync")]
-        if let Some(line) = self.show.sync.as_ref().and_then(|y| y.push_line()) {
-            lines.push(line);
-        }
-        #[cfg(feature = "space")]
-        if let Some(s) = &self.show.space {
-            // the mood and why (#188's feelings) first: the HUD shows 11 lines
-            lines.push(s.being.mood_line());
-            lines.push(s.hud_line(&self.show.graph));
-            lines.extend(s.session_lines());
-            lines.push("DRAG TURN/KNOB WHEEL ZOOM R HOME".into());
-        }
-        if let Some([l, b, m, h]) = self.show.controls.fft() {
-            lines.push(format!("FFT L {l:.2} B {b:.2} M {m:.2} H {h:.2}"));
-        }
-        for s in &self.show.music {
-            lines.push(format!("MUSIC {}", s.lock().unwrap()));
-        }
-        for s in self.renderer.as_ref().map(|r| r.slides_status()).unwrap_or_default() {
-            lines.push(format!("SLICE {s}"));
-        }
-
-        lines.truncate(hud::LINES);
-        lines
-    }
-
-
-    /// the clock's master and its state, the MIDI clock out
-    fn source_line(&self) -> String {
-        let out = self.show.tempo.clock_out().map(|_| "  > MIDI").unwrap_or_default();
-        format!("SRC {} {}{out}", self.show.tempo.source.name().to_uppercase(), self.show.tempo.status())
     }
 
     fn summary(&self) -> String {

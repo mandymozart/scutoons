@@ -68,6 +68,8 @@ jobs:
         run: cargo check --target wasm32-unknown-unknown -p deck-events
       - name: 🎭 deck-outlet as wasm32 (#378, the Live outlet's logic – a build check for the browser outlet to come)
         run: cargo build --target wasm32-unknown-unknown -p deck-outlet
+      - name: 🪟 deck-ui as wasm32 (#374, the deck's UI model – the HUD's lines and bar for every deck)
+        run: cargo build --target wasm32-unknown-unknown -p deck-ui
       # #366: the relay client's wasm (relay-web) – live-deck's tests run the core's scripted links through client.ts
       - uses: taiki-e/install-action@v2
         with:
