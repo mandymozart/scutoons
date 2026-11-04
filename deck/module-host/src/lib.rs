@@ -23,7 +23,7 @@ pub mod stats;
 #[cfg(feature = "wasmtime")]
 pub mod wasmtime_backend;
 
-pub use instance::{AssetData, Fresh, Instance, Mode, Rebuild, Setup};
+pub use instance::{AssetData, Fresh, Instance, Mode, Rebuild, Setup, UNBUDGETED_MS};
 pub use preset::{Preset, PresetReport};
 pub use stats::ModuleStats;
 /// what the engine's event host passes in and out of a module

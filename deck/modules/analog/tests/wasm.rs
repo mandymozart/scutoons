@@ -100,7 +100,7 @@ fn native(seed: u64) -> (Vec<f32>, Vec<f32>) {
 fn hosted<B: Backend>(e: &B::Engine, seed: u64) -> (Vec<f32>, Vec<f32>) {
     let loaded = Arc::new(Loaded::<B>::load(e, &wasm()).expect("the analog module loads"));
     assert_eq!(loaded.desc.name, "analog");
-    let mut inst = Instance::new(&loaded, Setup::new(RATE, seed)).expect("instance");
+    let mut inst = Instance::new(&loaded, Setup::new(RATE, seed).unbudgeted()).expect("instance");
     let (mut l, mut r) = (vec![], vec![]);
     let mut lanes = Lanes::new();
     let (mut ol, mut or) = (vec![0.0f32; QUANTUM], vec![0.0f32; QUANTUM]);

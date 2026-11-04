@@ -72,12 +72,22 @@ pub struct Setup {
     pub seed: u64,
     pub mode: Mode,
     pub assets: Vec<AssetData>,
+    /// whether a call has a wall-clock deadline (`deadline_ms`); false only for [`Setup::unbudgeted`] (tests)
+    wall_budget: bool,
 }
 
 impl Setup {
     /// strict, no assets
     pub fn new(rate: f64, seed: u64) -> Setup {
-        Setup { rate, seed, mode: Mode::Strict, assets: Vec::new() }
+        Setup { rate, seed, mode: Mode::Strict, assets: Vec::new(), wall_budget: true }
+    }
+
+    /// For tests that are not ABOUT time (#382): no wall-clock deadline worth the name ([`UNBUDGETED_MS`], so a real
+    /// runaway still ends) – a loaded machine cannot trap a call. The mode's other rules stand (strict still traps an
+    /// allocation, a show still restarts on a trap) and the stats still count against the quantum. A deck never calls this.
+    pub fn unbudgeted(mut self) -> Setup {
+        self.wall_budget = false;
+        self
     }
 
     pub fn mode(mut self, mode: Mode) -> Setup {
@@ -90,6 +100,9 @@ impl Setup {
         self
     }
 }
+
+/// the epoch deadline of an [`Setup::unbudgeted`] instance (ms)
+pub const UNBUDGETED_MS: u64 = 60_000;
 
 /// the host's copy of a module's io (`inp` then `out`, `Layout::size` bytes, 16-aligned)
 type IoBuf = Box<[u128]>;
@@ -124,11 +137,11 @@ fn all_dirty(io: &mut IoBuf, layout: &IoLayout, n: usize) {
 /// Instantiates, checks and builds one backend instance from a staged `inp` (the parameters all dirty): `dm_abi`,
 /// `dm_io`, `dm_layout`, the io range, the assets (their records written into `io`), one copy of `inp`, `dm_new`,
 /// the memory frozen. Returns the backend and where its io lies. Off the audio thread (instantiating allocates).
-fn boot<B: Backend>(loaded: &Loaded<B>, io: &mut IoBuf, assets: &[AssetData]) -> Result<(B, usize)> {
+fn boot<B: Backend>(loaded: &Loaded<B>, io: &mut IoBuf, assets: &[AssetData], wall_budget: bool) -> Result<(B, usize)> {
     let name = &loaded.desc.name;
     let layout = &loaded.io;
     let mut b = B::instantiate(&loaded.compiled, name)?;
-    b.set_budget(1000);
+    b.set_budget(if wall_budget { 1000 } else { UNBUDGETED_MS });
     let abi = b.call(Export::Abi, &[]).map_err(|f| anyhow!("{name}: dm_abi: {}", fault_text(&f)))?;
     if abi != ABI_VERSION {
         bail!("module '{name}' speaks ABI {abi}, its descriptor says {ABI_VERSION}");
@@ -157,7 +170,7 @@ fn boot<B: Backend>(loaded: &Loaded<B>, io: &mut IoBuf, assets: &[AssetData]) ->
     }
     b.write(at, &bytes(io)[..layout.inp_size as usize]);
     // building the module runs its `init`: generous, but bounded
-    b.set_budget(50);
+    b.set_budget(if wall_budget { 50 } else { UNBUDGETED_MS });
     b.call(Export::New, &[]).map_err(|f| anyhow!("{name}: dm_new: {}", fault_text(&f)))?;
     b.freeze_memory();
     Ok((b, at))
@@ -193,6 +206,7 @@ pub struct Rebuild<B: Backend> {
     snapshot: IoBuf,
     assets: Arc<[AssetData]>,
     dead: Option<B>,
+    wall_budget: bool,
 }
 
 /// what a rebuild gives back to [`Instance::offer`]
@@ -203,9 +217,9 @@ pub struct Fresh<B: Backend> {
 
 impl<B: Backend> Rebuild<B> {
     pub fn run(self) -> Fresh<B> {
-        let Rebuild { loaded, mut snapshot, assets, dead } = self;
+        let Rebuild { loaded, mut snapshot, assets, dead, wall_budget } = self;
         drop(dead);
-        let result = boot(&loaded, &mut snapshot, &assets).map_err(|e| format!("{e:#}"));
+        let result = boot(&loaded, &mut snapshot, &assets, wall_budget).map_err(|e| format!("{e:#}"));
         Fresh { result, snapshot }
     }
 }
@@ -238,6 +252,7 @@ pub struct Instance<B: Backend> {
     spare: Option<IoBuf>,
     rate: f64,
     mode: Mode,
+    wall_budget: bool,
     assets: Arc<[AssetData]>,
     silenced: Option<String>,
     unavailable: Option<Sensor>,
@@ -279,7 +294,7 @@ impl<B: Backend> Instance<B> {
             let (t, d) = inp.table();
             params::defaults(t, d, &loaded.params);
         }
-        let (backend, at) = boot(loaded, &mut io, &setup.assets)?;
+        let (backend, at) = boot(loaded, &mut io, &setup.assets, setup.wall_budget)?;
         inp_mut(&mut io, &layout).after_call();
         let mut me = Instance {
             loaded: loaded.clone(),
@@ -290,6 +305,7 @@ impl<B: Backend> Instance<B> {
             io,
             rate: setup.rate,
             mode: setup.mode,
+            wall_budget: setup.wall_budget,
             assets: setup.assets.into(),
             silenced: None,
             unavailable: None,
@@ -573,6 +589,9 @@ impl<B: Backend> Instance<B> {
 
     /// the epoch deadline: the budget when strict, the runaway ceiling (4 × the quantum) in a show
     fn deadline_ms(&self) -> u64 {
+        if !self.wall_budget {
+            return UNBUDGETED_MS;
+        }
         let quantum_ms = QUANTUM as f64 / self.rate * 1000.0;
         match self.mode {
             Mode::Strict => ((0.75 * quantum_ms).ceil() as u64).clamp(2, 50),
@@ -823,7 +842,7 @@ impl<B: Backend> Instance<B> {
         inp_mut(&mut snapshot, &self.layout).after_call();
         all_dirty(&mut snapshot, &self.layout, self.layout.shape.params as usize);
         down.building = true;
-        Some(Rebuild { loaded: self.loaded.clone(), snapshot, assets: self.assets.clone(), dead: down.dead.take() })
+        Some(Rebuild { loaded: self.loaded.clone(), snapshot, assets: self.assets.clone(), dead: down.dead.take(), wall_budget: self.wall_budget })
     }
 
     /// A rebuild's result: swapped in at the next call with a fade-in; a failed one counts as another fault (the pause

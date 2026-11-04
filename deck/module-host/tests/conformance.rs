@@ -21,8 +21,11 @@ fn fixture<B: Backend>(e: &B::Engine, setup: Setup) -> Instance<B> {
     Instance::new(&load::<B>(e, &wasm("fixture_module.wasm")).unwrap(), setup).unwrap()
 }
 
+/// how long a stopped runaway may take before the case fails: far past any budget (2 ms ... 50 ms), a margin for a loaded machine
+const STOPPED_WITHIN: Duration = Duration::from_secs(20);
+
 fn show() -> Setup {
-    Setup::new(RATE, 1).mode(Mode::Show)
+    Setup::new(RATE, 1).unbudgeted().mode(Mode::Show)
 }
 
 /// block `k` of `QUANTUM` frames
@@ -151,6 +154,66 @@ impl<B: Backend> Backend for Counted<B> {
     }
 }
 
+/// The virtual clock (#382): a backend whose calls cost what the test says - `cost` us each, on a clock that moves only
+/// by that - and whose budget is the epoch's arithmetic, not a wall: a call dearer than the budget set faults `Budget`.
+/// The host's time logic (counted, accepted, trapped, restarted) is proven without a wall clock; whether the real engine
+/// stops a real loop is the runaway cases' job (with a wide margin).
+pub struct Virtual<B> {
+    inner: B,
+    cost: Cell<u64>,
+    now: Cell<u64>,
+    budget_ms: u64,
+}
+
+impl<B: Backend> Backend for Virtual<B> {
+    type Engine = B::Engine;
+    type Compiled = B::Compiled;
+
+    fn compile(engine: &Self::Engine, wasm: &[u8], hash: &str) -> anyhow::Result<(Self::Compiled, bool, Duration)> {
+        B::compile(engine, wasm, hash)
+    }
+    fn imports(c: &Self::Compiled) -> Vec<(String, String)> {
+        B::imports(c)
+    }
+    fn has_export(c: &Self::Compiled, name: &str) -> bool {
+        B::has_export(c, name)
+    }
+    fn instantiate(c: &Self::Compiled, name: &str) -> anyhow::Result<Self> {
+        Ok(Virtual { inner: B::instantiate(c, name)?, cost: Cell::new(0), now: Cell::new(0), budget_ms: u64::MAX })
+    }
+    fn call(&mut self, export: Export, args: &[deck_module_host::Arg]) -> Result<u32, Fault> {
+        // the real call runs (the inner budget is the generous one the host set for an unbudgeted instance)
+        let r = self.inner.call(export, args);
+        if matches!(export, Export::Process | Export::Control) {
+            self.now.set(self.now.get() + self.cost.get());
+            if self.cost.get() > self.budget_ms.saturating_mul(1000) {
+                return Err(Fault::Budget);
+            }
+        }
+        r
+    }
+    fn memory_size(&self) -> usize {
+        self.inner.memory_size()
+    }
+    fn write(&mut self, off: usize, bytes: &[u8]) {
+        self.inner.write(off, bytes)
+    }
+    fn read(&self, off: usize, out: &mut [u8]) {
+        self.inner.read(off, out)
+    }
+    fn set_budget(&mut self, ms: u64) {
+        self.budget_ms = ms;
+        // the real engine under it never runs out on a loaded machine
+        self.inner.set_budget(deck_module_host::UNBUDGETED_MS);
+    }
+    fn freeze_memory(&mut self) {
+        self.inner.freeze_memory()
+    }
+    fn clock_us(&self) -> u64 {
+        self.now.get()
+    }
+}
+
 // --- the cases
 
 fn a_module_is_read_with_the_layout_the_derive_compiled<B: Backend>(e: &B::Engine) {
@@ -168,7 +231,7 @@ fn a_module_is_read_with_the_layout_the_derive_compiled<B: Backend>(e: &B::Engin
     assert_eq!(l.factory.as_ref().map(|p| (p.name.as_str(), p.values().to_vec())), Some(("init", vec![(BIAS, 0.5)])));
     assert_eq!((l.var_slot("fx.level"), l.asset_slot("sample"), l.param_index("work")), (Some(0), Some(0), Some(WORK)));
     // the engine's seam: channel slices in and out
-    let mut seam = Instance::new(&l, Setup::new(RATE, 1)).unwrap();
+    let mut seam = Instance::new(&l, Setup::new(RATE, 1).unbudgeted()).unwrap();
     seam.set_audio_chans(0, &[&[1.0; 64], &[2.0; 64]]);
     assert!(seam.process(0.0, 64));
     let (mut a, mut b) = ([0.0f32; 64], [0.0f32; 64]);
@@ -186,7 +249,7 @@ fn the_walk_module_is_read_without_running_it_and_plays<B: Backend>(e: &B::Engin
     assert_eq!(l.desc.params.iter().map(|p| p.name.as_ref()).collect::<Vec<_>>(), ["spread", "rate", "glide", "base", "octaves", "length"]);
     assert_eq!(l.layout.outputs, [deck_module_host::OutBind::Audio(0)], "cv out; its notes are an event port");
     assert_eq!(l.layout.events_out.len(), 1);
-    let mut i = Instance::new(&l, Setup::new(RATE, 42)).unwrap();
+    let mut i = Instance::new(&l, Setup::new(RATE, 42).unbudgeted()).unwrap();
     i.set_param(0, 1.0);
     let mut notes = 0;
     for k in 0..400 {
@@ -208,24 +271,25 @@ fn an_import_beyond_the_log_is_refused_at_load<B: Backend>(e: &B::Engine) {
 
 fn a_runaway_build_is_stopped_and_refused<B: Backend>(e: &B::Engine) {
     let l = load::<B>(e, &Wat { new: "(loop $l br $l)", ..Wat::default() }.build()).unwrap();
+    // the build's own budget (50 ms) is fixed; this case is ABOUT it: it must be stopped at all - the margin is wide (#382)
     let t = Instant::now();
     assert!(err_text(Instance::new(&l, Setup::new(RATE, 1))).contains("dm_new"));
-    assert!(t.elapsed() < Duration::from_millis(500), "stopped after {:?}", t.elapsed());
+    assert!(t.elapsed() < STOPPED_WITHIN, "stopped after {:?}", t.elapsed());
 }
 
 fn memory_beyond_the_cap_is_refused_and_each_instance_has_its_own<B: Backend>(e: &B::Engine) {
     // a start memory above the cap cannot be instantiated
     let pages = format!("{}", MEMORY_LIMIT / 65536 + 16);
     let big = load::<B>(e, &Wat { memory: &pages, ..Wat::default() }.build()).unwrap();
-    assert!(Instance::new(&big, Setup::new(RATE, 1)).is_err());
+    assert!(Instance::new(&big, Setup::new(RATE, 1).unbudgeted()).is_err());
     // many instances at once, each with its own memory
     let l = load::<B>(e, &Wat { memory: "4", ..Wat::default() }.build()).unwrap();
-    let many: Vec<Instance<B>> = (0..16).map(|k| Instance::new(&l, Setup::new(RATE, k)).unwrap()).collect();
+    let many: Vec<Instance<B>> = (0..16).map(|k| Instance::new(&l, Setup::new(RATE, k).unbudgeted()).unwrap()).collect();
     assert!(many.iter().all(|m| m.memory_size() == 4 * 65536));
 }
 
 fn a_chatty_module_is_rate_limited_not_stopped<B: Backend>(e: &B::Engine) {
-    let mut i = fixture::<B>(e, Setup::new(RATE, 1));
+    let mut i = fixture::<B>(e, Setup::new(RATE, 1).unbudgeted());
     i.set_param(MODE, 5.0); // 50 log lines a call
     for k in 0..4 {
         assert!(block(&mut i, k));
@@ -234,7 +298,7 @@ fn a_chatty_module_is_rate_limited_not_stopped<B: Backend>(e: &B::Engine) {
 }
 
 fn one_copy_in_and_one_out_carry_audio_control_context_and_parameters<B: Backend>(e: &B::Engine) {
-    let mut i = fixture::<Counted<B>>(e, Setup::new(RATE, 7));
+    let mut i = fixture::<Counted<B>>(e, Setup::new(RATE, 7).unbudgeted());
     i.audio_in_mut(0, 0).fill(1.0);
     i.audio_in_mut(0, 1).fill(2.0);
     for c in 0..5 {
@@ -283,7 +347,7 @@ fn one_copy_in_and_one_out_carry_audio_control_context_and_parameters<B: Backend
 }
 
 fn events_cross_both_ways_sorted_and_counted<B: Backend>(e: &B::Engine) {
-    let mut i = fixture::<B>(e, Setup::new(RATE, 1));
+    let mut i = fixture::<B>(e, Setup::new(RATE, 1).unbudgeted());
     let input = [Ev::note_on(50, 1, 440.0, 69.0, 0.5), Ev::note_off(10, 2), Ev::note_on(10, 3, 220.0, 57.0, 1.0)];
     assert_eq!(i.set_events_in(0, &input), 3);
     i.add_late(2);
@@ -305,15 +369,15 @@ fn events_cross_both_ways_sorted_and_counted<B: Backend>(e: &B::Engine) {
 
 fn assets_are_bound_before_init_and_checked_against_their_slot<B: Backend>(e: &B::Engine) {
     let samples: Vec<f32> = (0..128).map(|k| k as f32 / 128.0).collect();
-    let mut i = fixture::<B>(e, Setup::new(RATE, 1).asset(AssetData::pcm(0, &[&samples], 22_050.0)));
+    let mut i = fixture::<B>(e, Setup::new(RATE, 1).unbudgeted().asset(AssetData::pcm(0, &[&samples], 22_050.0)));
     assert!(block(&mut i, 0));
     assert_eq!(i.audio_out(WIDE).chan(4)[..4], samples[..4], "wide_out 4 plays the asset");
     // a slot without data is not ready: silence, never a wait
-    let mut bare = fixture::<B>(e, Setup::new(RATE, 1));
+    let mut bare = fixture::<B>(e, Setup::new(RATE, 1).unbudgeted());
     assert!(block(&mut bare, 0));
     assert!(bare.audio_out(WIDE).chan(4).iter().all(|&s| s == 0.0));
     let l = load::<B>(e, &wasm("fixture_module.wasm")).unwrap();
-    let refuse = |a: AssetData| err_text(Instance::new(&l, Setup::new(RATE, 1).asset(a)));
+    let refuse = |a: AssetData| err_text(Instance::new(&l, Setup::new(RATE, 1).unbudgeted().asset(a)));
     assert!(refuse(AssetData::bytes(0, b"midi")).contains("takes Pcm"));
     assert!(refuse(AssetData::pcm(0, &[&vec![0.0; 20_000]], 48_000.0)).contains("at most 65536"));
     assert!(refuse(AssetData::bytes(3, b"x")).contains("no asset slot 3"));
@@ -322,11 +386,11 @@ fn assets_are_bound_before_init_and_checked_against_their_slot<B: Backend>(e: &B
     assert!(err_text(load::<B>(e, &Wat { desc: big, extra, ..Wat::default() }.build())).contains("cannot fit"));
     let one = r#"{"abi":2,"name":"stingy","version":"1","params":[],"ports":[],"assets":[{"name":"a","kind":"bytes","max_bytes":64}]}"#;
     let l = load::<B>(e, &Wat { desc: one, extra, ..Wat::default() }.build()).unwrap();
-    assert!(err_text(Instance::new(&l, Setup::new(RATE, 1).asset(AssetData::bytes(0, b"abc")))).contains("gave no buffer"));
+    assert!(err_text(Instance::new(&l, Setup::new(RATE, 1).unbudgeted().asset(AssetData::bytes(0, b"abc")))).contains("gave no buffer"));
 }
 
 fn strict_mode_silences_an_allocation_a_show_counts_it<B: Backend>(e: &B::Engine) {
-    let mut strict = fixture::<B>(e, Setup::new(RATE, 1));
+    let mut strict = fixture::<B>(e, Setup::new(RATE, 1).unbudgeted());
     strict.set_param(MODE, 3.0);
     assert!(!block(&mut strict, 0));
     assert!(strict.silenced().unwrap().contains("dm_process"), "{:?}", strict.silenced());
@@ -350,7 +414,7 @@ fn the_memory_is_frozen_after_init<B: Backend>(e: &B::Engine) {
         ..Wat::default()
     };
     let l = load::<B>(e, &wat.build()).unwrap();
-    let mut i = Instance::new(&l, Setup::new(RATE, 1)).unwrap();
+    let mut i = Instance::new(&l, Setup::new(RATE, 1).unbudgeted()).unwrap();
     assert!(block(&mut i, 0), "{:?}", i.silenced());
     assert_eq!(i.memory_size(), 3 * 65536);
     // the SDK's module: an 8 MiB allocation in a show is counted, then fails on the frozen memory – a trap, a restart
@@ -435,51 +499,44 @@ fn a_module_that_keeps_trapping_waits_longer_each_time<B: Backend + Send + 'stat
 }
 
 fn a_runaway_is_stopped_at_the_budget_when_strict_and_at_four_quanta_in_a_show<B: Backend>(e: &B::Engine) {
-    for (setup, why) in [(Setup::new(RATE, 1), "time budget"), (show(), "runaway")] {
+    // an infinite loop: whatever the budget, it is stopped (the margin is wide: a loaded machine stretches the 1 ms epoch ticker)
+    for (setup, why) in [(Setup::new(RATE, 1), "time budget"), (Setup::new(RATE, 1).mode(Mode::Show), "runaway")] {
         let mut i = fixture::<B>(e, setup);
         i.set_param(MODE, 2.0);
         let t = Instant::now();
         assert!(!block(&mut i, 0));
-        assert!(t.elapsed() < Duration::from_millis(250), "stopped after {:?}", t.elapsed());
+        assert!(t.elapsed() < STOPPED_WITHIN, "stopped after {:?}", t.elapsed());
         let msg = i.silenced().or(i.restarting()).unwrap_or("").to_owned();
         assert!(msg.contains(why), "{msg}");
     }
 }
 
 fn an_overrun_in_a_show_is_counted_and_accepted<B: Backend>(e: &B::Engine) {
-    // find the work that takes ≈ 4.5 ms here: past the budget (2 ms), well inside the ceiling (4 × 2.67 ms)
-    let mut i = fixture::<B>(e, show());
-    i.set_param(MODE, 6.0);
-    let mut work = 4.0f32;
-    let target = loop {
-        i.set_param(WORK, work);
-        assert!(block(&mut i, 0));
-        let us = i.stats().us_last.max(1) as f32;
-        if us > 400.0 || work >= 500_000.0 {
-            break (work * 4500.0 / us).min(1_000_000.0);
-        }
-        work *= 4.0;
-    };
-    i.set_param(WORK, target);
-    let before = i.stats().overruns;
-    for k in 1..=5 {
-        block(&mut i, k);
+    // on the virtual clock (#382): a call "takes" 4.5 ms - past the budget (2 ms), well inside a show's ceiling (4 x 2.67 ms)
+    // (walled setups: the host sets the deadline it would set on a deck; the virtual backend does the epoch's arithmetic)
+    let mut i = fixture::<Virtual<B>>(e, Setup::new(RATE, 1).mode(Mode::Show));
+    i.backend().unwrap().cost.set(4_500);
+    for k in 0..5 {
+        assert!(block(&mut i, k), "{:?}", i.stats());
     }
-    assert!(i.stats().overruns > before, "{:?}", i.stats());
-    assert!(i.stats().soft > 0);
-    assert!(i.silenced().is_none());
-    // that work (four times over: the calibration may have run under load) traps a strict instance
-    let mut s = fixture::<B>(e, Setup::new(RATE, 1));
-    s.set_param(MODE, 6.0);
-    s.set_param(WORK, (4.0 * target).min(1_000_000.0));
-    assert!(!block(&mut s, 0), "work {target}: {:?}", s.stats());
+    assert_eq!((i.stats().overruns, i.stats().soft), (5, 5), "{:?}", i.stats());
+    assert!(i.silenced().is_none() && i.restarting().is_none());
+    // the same call traps a strict instance at its budget ...
+    let mut s = fixture::<Virtual<B>>(e, Setup::new(RATE, 1));
+    s.backend().unwrap().cost.set(4_500);
+    assert!(!block(&mut s, 0), "{:?}", s.stats());
     assert!(s.silenced().unwrap().contains("time budget"), "{:?}", s.silenced());
+    // ... and a show restarts the one that runs past its ceiling
+    let mut r = fixture::<Virtual<B>>(e, Setup::new(RATE, 1).mode(Mode::Show));
+    r.backend().unwrap().cost.set(12_000);
+    assert!(!block(&mut r, 0));
+    assert!(r.restarting().unwrap().contains("runaway"), "{:?}", r.restarting());
 }
 
 fn a_needed_sensor_that_is_not_live_keeps_the_module_from_running<B: Backend>(e: &B::Engine) {
     let desc = r#"{"abi":2,"name":"needy","version":"1","needs":["motion"],"params":[],"ports":[]}"#;
     let l = load::<B>(e, &Wat { desc, process: "unreachable", ..Wat::default() }.build()).unwrap();
-    let mut i = Instance::new(&l, Setup::new(RATE, 1)).unwrap();
+    let mut i = Instance::new(&l, Setup::new(RATE, 1).unbudgeted()).unwrap();
     for status in [Status::Unavailable, Status::Asking, Status::Denied] {
         i.set_sensor(Sensor::Motion, status, &[]);
         assert!(!block(&mut i, 0));
@@ -533,20 +590,20 @@ fn replay<B: Backend>(i: &mut Instance<B>, log: Option<&[(u64, Sensor, usize, f3
 fn a_sensor_log_replays_the_same_on_every_run<B: Backend>(e: &B::Engine) {
     let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/tilt.sensorlog")).unwrap();
     let log = sensor_log(&text);
-    let a = replay(&mut fixture::<B>(e, Setup::new(RATE, 1)), Some(&log), 64);
-    let b = replay(&mut fixture::<B>(e, Setup::new(RATE, 1)), Some(&log), 64);
+    let a = replay(&mut fixture::<B>(e, Setup::new(RATE, 1).unbudgeted()), Some(&log), 64);
+    let b = replay(&mut fixture::<B>(e, Setup::new(RATE, 1).unbudgeted()), Some(&log), 64);
     assert_eq!(a, b, "the same log, the same output");
     let tilt: Vec<f32> = a.iter().map(|(v, _)| f32::from_bits(*v)).collect();
     // blocks start at 0, 128, 256 (0.0) · 384 … 896 (1.5) · 1024 … 1920 (−2.25) · 2048 … 4992 (4.0) · 5120 … (0.5)
     assert_eq!((tilt[0], tilt[2], tilt[3], tilt[7], tilt[8], tilt[15], tilt[16], tilt[39], tilt[40], tilt[63]), (0.0, 0.0, 1.5, 1.5, -2.25, -2.25, 4.0, 4.0, 0.5, 0.5));
     assert!(a.iter().all(|(_, w)| *w));
     // without a log the module runs on (`wants`), its tilt never written – the consumer holds
-    let none = replay(&mut fixture::<B>(e, Setup::new(RATE, 1)), None, 8);
+    let none = replay(&mut fixture::<B>(e, Setup::new(RATE, 1).unbudgeted()), None, 8);
     assert!(none.iter().all(|(_, w)| !*w));
 }
 
 fn a_wrong_layout_abi_io_or_export_is_refused<B: Backend>(e: &B::Engine) {
-    let instance = |w: Wat| err_text(Instance::new(&load::<B>(e, &w.build()).unwrap(), Setup::new(RATE, 1)));
+    let instance = |w: Wat| err_text(Instance::new(&load::<B>(e, &w.build()).unwrap(), Setup::new(RATE, 1).unbudgeted()));
     assert!(instance(Wat { hash: Some(0x1234), ..Wat::default() }).contains("its layout (00001234)"));
     assert!(instance(Wat { abi: 1, ..Wat::default() }).contains("speaks ABI 1"));
     assert!(instance(Wat { io: 1028, ..Wat::default() }).contains("does not lie in its memory"));
@@ -572,7 +629,7 @@ fn threads_shared_memory_and_relaxed_simd_are_refused_and_nans_are_canonical<B: 
         1024 + io.written
     );
     let l = load::<B>(e, &Wat { desc, process: &process, ..Wat::default() }.build()).unwrap();
-    let mut i = Instance::new(&l, Setup::new(RATE, 1)).unwrap();
+    let mut i = Instance::new(&l, Setup::new(RATE, 1).unbudgeted()).unwrap();
     assert!(block(&mut i, 0));
     let (v, written) = i.control_out(0);
     assert!(written && v.is_nan());

@@ -30,7 +30,7 @@ fn the_wasm_plays_the_native_fixture<B: Backend>(e: &B::Engine) {
     let (rate, block, blocks) = (fixture["rate"].as_f64().unwrap(), fixture["block"].as_u64().unwrap() as usize, fixture["blocks"].as_u64().unwrap() as usize);
     let loaded = Arc::new(Loaded::<B>::load(e, &wasm()).expect("the walk module loads"));
     assert_eq!(loaded.desc.name, "walk");
-    let mut i = Instance::new(&loaded, Setup::new(rate, fixture["seed"].as_u64().unwrap())).unwrap();
+    let mut i = Instance::new(&loaded, Setup::new(rate, fixture["seed"].as_u64().unwrap()).unbudgeted()).unwrap();
     for (name, v) in fixture["params"].as_object().unwrap() {
         i.set_param(loaded.param_index(name).unwrap(), v.as_f64().unwrap() as f32);
     }
