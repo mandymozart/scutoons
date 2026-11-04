@@ -31,7 +31,7 @@ impl std::fmt::Display for Missing {
 /// every capability the runner knows by name: (name, ticket, what, where it lives today)
 pub const CAPS: &[(&str, &str, &str, &str)] = &[
     ("hud", "#374", "the deck UI model: the HUD lines and the stats bar items", "main.rs hud_lines / bar_items"),
-    ("tempo_line", "#370", "the tempo line's wording (BPM, BAR, BEAT, STOP, CLK) and the clock choices as core state", "main.rs tempo_line, deck-clock.svelte"),
+
     ("relay_join", "#366", "the relay client as a sans-IO state machine: hello, welcome, backoff, ping, status text", "native space/link.rs, live/client.rs; live-deck client.ts; viewer live-vote-link.ts"),
     ("knob", "#369", "the controls' rules: knob turn, value and position, gamepad press and release", "live-deck controls.ts, gamepad.ts, scene.ts toValue / toPos; native pad.rs"),
     ("sync", "#371", "the conductor's scene sync: items, progress, the PUSH line", "native sync.rs push_line, live-deck sync.ts"),
