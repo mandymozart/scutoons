@@ -2,8 +2,10 @@
 //! The stage's registry (deck/native/src/modules.rs) checks a scene against the features it was built with; the
 //! `deck-scene-features` tool lists the features a set of scenes needs, so a deck build carries exactly those. Data
 //! only (no stage code here), so the tool builds without wgpu; the stage's tests keep this table and its kinds in step.
-use crate::module::Params;
 use std::collections::BTreeSet;
+
+/// A node's params from the scene (`[[node]]` keys besides id / kind).
+pub type Params = toml::Table;
 
 /// A module of the stage: its cargo feature (`core` = always built), what it is, its node kinds and tempo sources.
 #[derive(Debug, Clone, Copy)]

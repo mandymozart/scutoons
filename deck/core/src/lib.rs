@@ -1,18 +1,19 @@
-//! `deck-core` – the small core of the stage, with modules compiled in only when a build asks for them (#182).
+//! `deck-core` – the platform-free core of the stage (#182): the foundations every deck shares, native and wasm32.
 //!
-//! - **The core** (always): ports and kinds (`module`), the registry that knows which modules this build carries, the
-//!   control graph (`graph`) that checks a scene and runs its control domain once per frame.
-//! - **Always:** `smooth` (control values glide into audio – no zipper, #188), `limiter` (the output's soft cap),
-//!   `monitor` (the stats every deck shows, #364), `lead` (the adaptive output lead, #365), `meters` (the level meters'
-//!   ballistics and dB scale) and `devices` (a device message's words, its lamp's activity – #373).
-//! - **Modules** (cargo features): `control` (LFOs, math), `synth` (audio blocks), `analysis` (the FFT: bands, the
-//!   stage's analyzer), `tempo` (the tempo map, quantize, tap – #181 / #185). The stage's
-//!   GPU nodes (shader, chapter, overlay, 3D, text) stay in deck/native – they need wgpu – but register the same way.
-//! - **Scene-driven builds**: every kind names its module; `stage::features` lists the deck-native features a scene needs
-//!   (#185 – the stage's own modules: space, chapter, midi, osc, link, pipewire), `features_for` this crate's modules for
-//!   a browser worker's wasm; `deck-scene-features <scene.toml>…` prints them.
+//! - **Always:** `math` (sines with the same bits on every target), `lanes` (the `F8` vector ops), `dsp` (the oscillator,
+//!   noise and filter units), `smooth` (control values glide into audio – no zipper, #188), `limiter` (the output's soft
+//!   cap), `monitor` (the stats every deck shows, #364), `lead` (the adaptive output lead, #365), `meters` (the level
+//!   meters' ballistics and dB scale), `devices` (a device message's words, its lamp's activity – #373) and `stage` (the
+//!   deck-native modules a scene needs, the carried part of a scene).
+//! - **Modules** (cargo features): `analysis` (the FFT: bands, the analyzer), `tempo` (the tempo map, quantize, tap, the
+//!   clock controller – #181 / #185).
+//! - **Scene-driven builds**: every kind names its module; `stage::scene_features` lists the deck-native features a scene
+//!   needs (#185 – space, chapter, midi, osc, link, pipewire); `deck-scene-features <scene.toml>…` prints them.
 //!
-//! Platform-free on purpose: the same code runs in deck/native (native) and in a Web Worker (wasm32, deck/lab).
+//! The evaluators live in deck-engine (the audio graph, the control half); this crate holds no graph of its own (the
+//! patcher reference `ControlGraph`, `BatchGraph` and the registry of blocks were retired in #324).
+//!
+//! Platform-free on purpose: the same code runs in deck/native (native) and in deck-engine's wasm32 builds.
 
 pub mod devices;
 pub mod dsp;
@@ -21,16 +22,11 @@ pub mod lead;
 pub mod limiter;
 pub mod math;
 pub mod meters;
-pub mod module;
 pub mod monitor;
 pub mod smooth;
 pub mod stage;
 
 #[cfg(feature = "analysis")]
 pub mod analysis;
-#[cfg(feature = "control")]
-pub mod control;
 #[cfg(feature = "tempo")]
 pub mod tempo;
-
-pub use module::{features_for, Block, KindInfo, Module, Params, Port, PortType, Registry};

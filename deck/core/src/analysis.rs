@@ -1,8 +1,7 @@
 //! Module `analysis`: sound → control values – the stage's FFT (#185: deck/native/src/fft.rs only drains its audio ring
 //! into an `Analyzer`): level (RMS) + the peak magnitude of bass 20–250 Hz, mid 250–2000 Hz, high 2–8 kHz, each in 0–1
 //! (dB-scaled). `Analyzer` keeps a history and looks back by the output lead, so the values are what is heard now (a
-//! fast rise, a `release` in seconds); `FftBlock` is the patcher's `fft` kind (one window, no lead, no smoothing).
-use crate::module::{Block, KindInfo, Module, Params, kinds_of_module};
+//! fast rise, a `release` in seconds).
 use rustfft::{num_complex::Complex, Fft, FftPlanner};
 use std::sync::Arc;
 
@@ -15,20 +14,6 @@ const HIST: usize = SIZE + MAX_LEAD;
 /// the dB range mapped onto 0–1
 const FLOOR_DB: f32 = -70.0;
 const RANGE_DB: f32 = 60.0;
-
-pub struct AnalysisModule;
-
-impl Module for AnalysisModule {
-    fn name(&self) -> &'static str {
-        "analysis"
-    }
-    fn kinds(&self) -> &'static [KindInfo] {
-        kinds_of_module("analysis")
-    }
-    fn build(&self, kind: &str, _params: &Params, rate: f32) -> Option<Box<dyn Block>> {
-        (kind == "fft").then(|| Box::new(FftBlock { bands: Bands::new(rate), window: vec![0.0; SIZE], values: [0.0; 4] }) as Box<dyn Block>)
-    }
-}
 
 /// The analysis with its plan and buffers (one allocation, at build).
 pub struct Bands {
@@ -138,25 +123,6 @@ fn to_unit(amp: f32) -> f32 {
     ((20.0 * libm::log10f(amp) - FLOOR_DB) / RANGE_DB).clamp(0.0, 1.0)
 }
 
-/// The `fft` kind as a block: `audio` takes the input block (the window slides), `control` puts out the four values.
-pub struct FftBlock {
-    bands: Bands,
-    window: Vec<f32>,
-    values: [f32; 4],
-}
-
-impl Block for FftBlock {
-    fn audio(&mut self, _i: &[f32], input: &mut [f32]) {
-        let n = input.len().min(SIZE);
-        self.window.drain(..n);
-        self.window.extend_from_slice(&input[input.len() - n..]);
-    }
-    fn control(&mut self, _i: &[f32], o: &mut [f32], _dt: f32) {
-        self.values = self.bands.analyse(&self.window);
-        o[..4].copy_from_slice(&self.values);
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -228,17 +194,5 @@ mod tests {
     #[test]
     fn silence_is_zero() {
         assert_eq!(Analyzer::new(48_000.0, 0.2).update(0.016, 0), [0.0; 4]);
-    }
-
-    #[test]
-    fn the_block_slides_its_window() {
-        let mut b = AnalysisModule.build("fft", &Params::new(), 48_000.0).unwrap();
-        let mut s = sine(100.0);
-        for chunk in s.chunks_mut(128) {
-            b.audio(&[], chunk);
-        }
-        let mut o = [0.0; 4];
-        b.control(&[], &mut o, 0.016);
-        assert!(o[1] > 0.8);
     }
 }
