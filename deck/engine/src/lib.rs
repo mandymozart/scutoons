@@ -45,7 +45,7 @@ use std::sync::{Arc, Mutex};
 use voices::{VoiceKind, Voices};
 
 #[cfg(feature = "modules")]
-pub use module::{ModuleInstance, ModuleSource, Opened, Restart, Restarts};
+pub use module::{register as register_module, ModuleInstance, ModuleSource, Opened, Restart, Restarts};
 
 /// A block stamp: [frames rendered before the block, the monotonic moment (ns) its first frame is heard]
 pub type Stamp = SeqLock<2>;

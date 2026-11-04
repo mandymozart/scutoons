@@ -10,15 +10,14 @@
 use anyhow::Result;
 use deck_module_host::wasmtime_backend::{Wasmtime, WasmtimeEngine};
 use deck_module_host::Loaded as HostLoaded;
-use deck_space::graph::{Domain, PortType};
-use deck_space::modreg::{self, ModuleDef, ModuleKind, PortDef};
+use deck_space::modreg::{self, ModuleKind};
 use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
-pub use deck_module_host::{GraphPort, InBind, Layout, LogLimiter, OutBind, MEMORY_LIMIT};
+pub use deck_module_host::{InBind, Layout, LogLimiter, OutBind, MEMORY_LIMIT};
 
 /// A loaded module: checked, compiled, registered as a node kind. Cheap to share.
 pub struct Loaded {
@@ -68,17 +67,8 @@ impl Library {
         if let Some(l) = self.by_hash.lock().unwrap_or_else(|e| e.into_inner()).get(&host.hash) {
             return Ok(l.clone());
         }
-        // the graph's ports as the host's layout binds them (deck-module-host `Layout`, #342): moved, not decided here
-        let (desc, l) = (&host.desc, &host.layout);
-        let port = |p: &GraphPort| PortDef { name: p.name.clone(), ty: if p.audio { PortType::Audio } else { PortType::Control }, channels: p.channels };
-        let def = ModuleDef {
-            inputs: l.in_ports.iter().map(port).collect(),
-            outputs: l.out_ports.iter().map(port).collect(),
-            defaults: desc.params.iter().map(|p| (p.name.to_string(), p.default.unwrap_or(p.min))).collect(),
-            domain: if l.domain == deck_catalog::Domain::Control { Domain::Control } else { Domain::Audio },
-            targets: l.targets.clone(),
-        };
-        let kind = modreg::register(&desc.name, &def);
+        // the node kind: deck-engine's one mapping from the host's layout to the graph (#342)
+        let kind = deck_engine::register_module(&host.desc, &host.layout);
         let hash = host.hash.clone();
         let loaded = Arc::new(Loaded { host: Arc::new(host), kind });
         self.by_hash.lock().unwrap_or_else(|e| e.into_inner()).insert(hash, loaded.clone());

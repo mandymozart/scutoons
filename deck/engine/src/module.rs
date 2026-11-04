@@ -24,8 +24,8 @@ use super::{Block, Buf, Handles, Param, QUANTUM};
 use anyhow::{anyhow, Result};
 use deck_core::tempo::{BeatReader, TempoMap};
 use deck_module_host::{Backend, Ev, InBind, Layout, OutBind};
-use deck_space::graph::{Graph, Kind, Node, MAX_CHANNELS};
-use deck_space::modreg::ModuleKind;
+use deck_space::graph::{Domain, Graph, Kind, Node, PortType, MAX_CHANNELS};
+use deck_space::modreg::{self, ModuleDef, ModuleKind, PortDef};
 use std::any::Any;
 use std::sync::Arc;
 
@@ -138,6 +138,21 @@ impl<B: Backend + Send + 'static> ModuleInstance for deck_module_host::Instance<
             deck_module_host::Instance::offer(self, *fresh);
         }
     }
+}
+
+/// Registers a loaded module as the node kind `module:<name>` (deck-space modreg): its graph ports, their channels, the
+/// parameters' defaults, its domain and path targets – as the host's `layout` binds them. The one mapping from a module
+/// to the graph; a platform's library calls it when it loads a module.
+pub fn register(desc: &deck_catalog::Descriptor, layout: &Layout) -> ModuleKind {
+    let port = |p: &deck_module_host::GraphPort| PortDef { name: p.name.clone(), ty: if p.audio { PortType::Audio } else { PortType::Control }, channels: p.channels };
+    let def = ModuleDef {
+        inputs: layout.in_ports.iter().map(port).collect(),
+        outputs: layout.out_ports.iter().map(port).collect(),
+        defaults: desc.params.iter().map(|p| (p.name.to_string(), p.default.unwrap_or(p.min))).collect(),
+        domain: if layout.domain == deck_catalog::Domain::Control { Domain::Control } else { Domain::Audio },
+        targets: layout.targets.clone(),
+    };
+    modreg::register(&desc.name, &def)
 }
 
 /// A module opened for a node: the instance and how the graph's ports map into it (the host's `Layout`).
@@ -491,3 +506,7 @@ impl super::control::Stepper for ControlModule {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "module_tests.rs"]
+mod tests;

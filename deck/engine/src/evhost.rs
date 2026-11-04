@@ -12,6 +12,8 @@
 //! - **Module to module.** An event output reaches every module event input that takes one of its names (by name, the
 //!   props by key): directly, one block late at the same frame (`at + QUANTUM`), like a control output – so the order the
 //!   nodes run in never changes the sound. A note's length is expanded into its off here; ids are re-tagged per link.
+//!   A module does not hear its own outputs (an echo would feed itself forever); a loop through two modules is one
+//!   block late per turn, like an audio loop through `feedback` – the patch's to design.
 //! - **Out to the world.** Every event output also writes deck-events events into an outbox ring the platform drains into
 //!   its dispatcher (`Events::take_outbox`): a named event with its props, a note with `dur` (a `len` > 0 at once; a note
 //!   held until its `NOTE_OFF` when the off comes – one event with its true start and length), stamped at their true time.
@@ -143,7 +145,8 @@ pub(crate) fn wire(graph: &Graph, prepared: &mut [Option<Prepared>], ev: &mut Ev
         let Some(pa) = pa else { continue };
         for (o, out) in pa.outs.iter().enumerate() {
             for (b, pb) in all.iter().enumerate() {
-                let Some(pb) = pb else { continue };
+                // a module never hears its own outputs (an echo would feed itself forever – MIDI's "thru off")
+                let Some(pb) = pb.as_ref().filter(|_| b != a) else { continue };
                 for (k, inp) in pb.ins.iter().enumerate() {
                     if out.names.iter().any(|n| inp.names.contains(n)) {
                         let names = out.names.iter().map(|n| inp.names.iter().position(|m| m == n).map_or(NONE, |x| x as u16)).collect::<Vec<_>>();
