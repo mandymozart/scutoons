@@ -1,7 +1,11 @@
 //! controls.rs (#209): what the hands drive – the engine's half of the controls UI; the page (the viewer's /live/deck,
 //! deck/space-web's `DeckControls`) and later the stage are only the bridge (DECISIONS 2026-10-31: "the Svelte /live
-//! wrapper is only the bridge"). Everything here speaks **paths** (`node.port`, the page's knobs) and **0..1**: the
-//! host turns a 0..1 into a value with its own ranges (the page's `toValue`, the stage's params specs).
+//! wrapper is only the bridge"). Everything here speaks **paths** (`node.port`, the page's knobs) and **0..1**.
+//!
+//! - **The knobs' ranges** (#369): a knob's value ↔ its 0..1 on its curve (params.rs `Spec`; `norm` / `value`), a knob
+//!   dragged (`turn`: a drag's length over the host's travel, fine a tenth as fast) or stepped by a key (`step`), the
+//!   sticks' labels and the panel's line (`selection_line`). The deck hands them in with its sliders (`set_knobs`).
+//! - **The gamepad** (#228, #369, gamepad.rs): `pad` – a poll's sticks and A / Y; the selection cycles here.
 //!
 //! - **The selection** (owner 2026-10-31: "the last clicked / tapped thing controls the x / y sticks … nothing selected →
 //!   a master effect section"): the master section, the being, one knob, or an object in the scene (a hook – no object
@@ -18,7 +22,22 @@
 //!   MIDI bindings and the sticks' assignments as plain lines; the browser keeps them per deck in localStorage until a
 //!   preset carries them.
 //!
-//! The event path (`stick_move`, `midi` on a bound control) never allocates; learning and loading do.
+//! The event path (`stick_move`, `midi` on a bound control, `pad`) never allocates; learning, loading and cycling do.
+use crate::deck::Slider;
+use crate::gamepad::{Pad, PadEvent, PadEvents};
+use crate::params::Spec;
+
+/// a knob dragged or stepped with fine on (Shift) moves a tenth as fast
+pub const FINE: f32 = 0.1;
+/// the keys that step a knob (the DOM's names – a native keyboard says the same), and how far on its 0..1
+pub const KEY_STEPS: [(&str, f32); 6] = [("ArrowUp", 0.01), ("ArrowRight", 0.01), ("ArrowDown", -0.01), ("ArrowLeft", -0.01), ("PageUp", 0.1), ("PageDown", -0.1)];
+/// what a stick label shows for an axis that drives nothing
+pub const NONE: &str = "–";
+
+/// `value` on `spec`'s 0..1 – a value the host lacks (NaN) reads as the default
+pub fn norm_of(spec: &Spec, value: f32) -> f32 {
+    spec.norm(if value.is_finite() { value } else { spec.default })
+}
 
 /// What the sticks drive.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -113,6 +132,9 @@ struct Stick {
 pub struct Controls {
     /// the paths the deck has (the page's knobs, in its order)
     paths: Vec<String>,
+    /// each path's range and label (0..1 and the path until the deck names them: `set_knobs`, `describe`)
+    specs: Vec<Spec>,
+    labels: Vec<String>,
     selection: Selection,
     /// the being's pairs as indices into `paths` (BEING_PAIRS or the first paths two by two)
     being: [[Option<usize>; 2]; 2],
@@ -121,6 +143,7 @@ pub struct Controls {
     sticks: [Stick; 2],
     bindings: Vec<Binding>,
     learning: Option<usize>,
+    pad: Pad,
 }
 
 impl Controls {
@@ -128,7 +151,24 @@ impl Controls {
     pub fn new<S: AsRef<str>>(paths: &[S]) -> Controls {
         let paths: Vec<String> = paths.iter().map(|p| p.as_ref().to_string()).collect();
         let being = Self::default_pairs(&paths);
-        Controls { paths, selection: Selection::Master, being, assigned: [[None; 2]; 2], sticks: Default::default(), bindings: Vec::new(), learning: None }
+        let (specs, labels) = (vec![Spec::UNIT; paths.len()], paths.clone());
+        Controls { paths, specs, labels, selection: Selection::Master, being, assigned: [[None; 2]; 2], sticks: Default::default(), bindings: Vec::new(), learning: None, pad: Pad::default() }
+    }
+
+    /// #369: the deck's knobs as its sliders (deck.rs – their ranges and labels) and the being's pairs on them: `set_deck`
+    /// with what the knobs' values and the panel's line need
+    pub fn set_knobs(&mut self, knobs: &[Slider], pairs: Option<[[&str; 2]; 2]>) {
+        let paths: Vec<&str> = knobs.iter().map(|k| k.path.as_str()).collect();
+        self.set_deck(&paths, pairs);
+        self.specs = knobs.iter().map(Slider::spec).collect();
+        self.labels = knobs.iter().map(|k| if k.label.is_empty() { k.path.clone() } else { k.label.clone() }).collect();
+    }
+
+    /// a knob's range and label (the native stage: its being's buttons)
+    pub fn describe(&mut self, path: &str, spec: Spec, label: &str) {
+        if let Some(i) = self.index(path) {
+            (self.specs[i], self.labels[i]) = (spec, label.to_string());
+        }
     }
 
     /// BEING_PAIRS when the deck has them all, else its first paths two by two
@@ -150,6 +190,7 @@ impl Controls {
         let new: Vec<String> = paths.iter().map(|p| p.as_ref().to_string()).collect();
         let assigned = self.assigned.map(|axes| axes.map(|a| a.map(|i| self.paths[i].clone())));
         self.bindings.retain(|b| new.contains(&b.path));
+        (self.specs, self.labels) = (vec![Spec::UNIT; new.len()], new.clone());
         self.paths = new;
         self.being = match pairs {
             Some(p) => p.map(|pair| pair.map(|x| self.index(x))),
@@ -159,6 +200,7 @@ impl Controls {
         self.selection = Selection::Master;
         self.sticks = Default::default();
         self.learning = None;
+        self.pad = Pad::default();
     }
 
     pub fn paths(&self) -> &[String] {
@@ -244,10 +286,12 @@ impl Controls {
         self.sticks[side.min(1)] = Stick { paths, start: [x.clamp(0.0, 1.0), y.clamp(0.0, 1.0)], down: true };
     }
 
-    /// The thumb's deflection (−1..1 each, y up): the two values' new 0..1 (a slot the stick doesn't drive keeps its
-    /// start). Never allocates.
+    /// The thumb's deflection (−1..1 each, y up; inside the unit circle – a corner reaches as far as a side): the two
+    /// values' new 0..1 (a slot the stick doesn't drive keeps its start). Never allocates.
     pub fn stick_move(&self, side: usize, dx: f32, dy: f32) -> [f32; 2] {
         let st = &self.sticks[side.min(1)];
+        let len = dx.hypot(dy);
+        let (dx, dy) = if len > 1.0 { (dx / len, dy / len) } else { (dx, dy) };
         let shape = |d: f32| {
             let d = d.clamp(-1.0, 1.0);
             if d.abs() < DEAD {
@@ -276,6 +320,101 @@ impl Controls {
     /// Assign stick `side`'s axis (0 x, 1 y) to `path` for the being ("" = back to the default pair).
     pub fn assign(&mut self, side: usize, axis: usize, path: &str) {
         self.assigned[side.min(1)][axis.min(1)] = self.index(path);
+    }
+
+    /// The selection button (a pad's A / Y): the next selection in the cycle – the master section, the being, each knob
+    /// in the deck's order – or the previous one (`back`); an object counts as the master section.
+    pub fn cycle(&mut self, back: bool) {
+        let n = self.paths.len() + 2;
+        let at = match &self.selection {
+            Selection::Master | Selection::Object(_) => 0,
+            Selection::Being => 1,
+            Selection::Knob(p) => self.index(p).map_or(0, |i| i + 2),
+        };
+        self.selection = match if back { (at + n - 1) % n } else { (at + 1) % n } {
+            0 => Selection::Master,
+            1 => Selection::Being,
+            i => Selection::Knob(self.paths[i - 2].clone()),
+        };
+    }
+
+    /// One poll of a gamepad (gamepad.rs: the standard mapping's axes and buttons; empty = no pad): what the host does with
+    /// its sticks – the same calls as a thumb's – in order; a cycle has already moved the selection. Never allocates but
+    /// for a cycle.
+    pub fn pad(&mut self, axes: &[f32], buttons: &[bool]) -> PadEvents {
+        let events = self.pad.poll(axes, buttons);
+        for e in events.iter() {
+            if let PadEvent::Cycle { back } = e {
+                self.cycle(back);
+            }
+        }
+        events
+    }
+
+    // ── the knobs' ranges (#369) ──
+
+    fn spec(&self, path: &str) -> Option<&Spec> {
+        self.index(path).map(|i| &self.specs[i])
+    }
+
+    /// where `value` sits on knob `path`'s range, 0..1 on its curve (NaN = the host lacks it: the default; no such knob: 0)
+    pub fn norm(&self, path: &str, value: f32) -> f32 {
+        self.spec(path).map_or(0.0, |s| norm_of(s, value))
+    }
+
+    /// knob `path`'s value at `t` (0..1, clamped, on its curve); None: no such knob
+    pub fn value(&self, path: &str, t: f32) -> Option<f32> {
+        self.spec(path).map(|s| s.value(t))
+    }
+
+    /// A knob dragged by `dy` (up = less, as screen y) from its value `start`: `travel` turns it end to end (at least 1),
+    /// `fine` a tenth as fast; it stops at its ends. The new value (None: no such knob).
+    pub fn turn(&self, path: &str, start: f32, dy: f32, travel: f32, fine: bool) -> Option<f32> {
+        let speed = if fine { FINE } else { 1.0 };
+        self.value(path, self.norm(path, start) - dy / travel.max(1.0) * speed)
+    }
+
+    /// A key on a knob (`KEY_STEPS`; `fine` a tenth of the step): its new value – None: no such knob, or not a key that
+    /// turns it.
+    pub fn step(&self, path: &str, value: f32, key: &str, fine: bool) -> Option<f32> {
+        let (_, d) = KEY_STEPS.iter().find(|(k, _)| *k == key)?;
+        self.value(path, self.norm(path, value) + d * if fine { FINE } else { 1.0 })
+    }
+
+    /// a knob's label ("" = none: `NONE`; a path the deck lacks: the path)
+    pub fn label<'a>(&'a self, path: &'a str) -> &'a str {
+        match self.index(path) {
+            _ if path.is_empty() => NONE,
+            Some(i) => &self.labels[i],
+            None => path,
+        }
+    }
+
+    /// stick `side`'s (x, y) labels now (`NONE` for an axis that drives nothing)
+    pub fn stick_labels(&self, side: usize) -> [&str; 2] {
+        let [x, y] = self.stick_paths(side);
+        [self.label(x), self.label(y)]
+    }
+
+    /// the knob that owns the sticks ("" none)
+    pub fn knob(&self) -> &str {
+        match &self.selection {
+            Selection::Knob(p) => p,
+            _ => "",
+        }
+    }
+
+    /// What the sticks drive, in one line (#209): the selection – a knob's label, else the deck's word for the being or the
+    /// master section (`being`, `master`: the host's language) – and each stick's x / y labels:
+    /// `FM index · L FM ratio / FM index · R cutoff / LFO rate`.
+    pub fn selection_line(&self, being: &str, master: &str) -> String {
+        let what = match &self.selection {
+            Selection::Being => being,
+            Selection::Knob(p) => self.label(p),
+            _ => master,
+        };
+        let [l, r] = [self.stick_labels(0), self.stick_labels(1)];
+        format!("{what} · L {} / {} · R {} / {}", l[0], l[1], r[0], r[1])
     }
 
     // ── MIDI learn ──
@@ -466,10 +605,14 @@ mod tests {
         c.stick_down(LEFT, 0.3, 0.7);
         assert_eq!(c.stick_move(LEFT, 0.0, 0.0), [0.3, 0.7], "landing changes nothing");
         assert_eq!(c.stick_move(LEFT, 0.02, -0.03), [0.3, 0.7], "the dead zone");
-        let [x, y] = c.stick_move(LEFT, 0.5, -1.0);
-        assert!((x - (0.3 + 0.6 * (0.5 - DEAD) / (1.0 - DEAD))).abs() < 1e-5 && (y - 0.1).abs() < 1e-5, "{x} {y}");
+        let [x, y] = c.stick_move(LEFT, 0.6, -0.8);
+        let shape = |d: f32| 0.6 * (d - DEAD) / (1.0 - DEAD);
+        assert!((x - (0.3 + shape(0.6))).abs() < 1e-5 && (y - (0.7 - shape(0.8))).abs() < 1e-5, "{x} {y}");
+        let [x, y] = c.stick_move(LEFT, 1.0, 0.0);
+        assert!((x - 0.9).abs() < 1e-5 && y == 0.7, "full deflection: {x} {y}");
         let [x, y] = c.stick_move(LEFT, 1.0, 1.0);
-        assert!((x - 0.9).abs() < 1e-5 && y == 1.0, "clamped: {x} {y}");
+        let corner = 0.6 * (std::f32::consts::FRAC_1_SQRT_2 - DEAD) / (1.0 - DEAD);
+        assert!((x - (0.3 + corner)).abs() < 1e-5 && y == 1.0, "a corner inside the unit circle, the value clamped: {x} {y}");
         c.select(Selection::Master);
         assert_eq!(c.stick_driving(LEFT), ["voice.ratio", "voice.index"], "the thumb keeps what it took");
         assert!(c.stick_is_down(LEFT));
@@ -559,6 +702,159 @@ mod tests {
         assert_eq!(c.stick_paths(LEFT), ["voice.ratio", "voice.index"]);
         c.select(Selection::Master);
         assert_eq!(c.stick_paths(LEFT), ["space.hue", "space.glow"]);
+    }
+
+    /// the deck's own scene's knobs as the page hands them in (its sliders) and its stick pairs
+    fn own_deck() -> Controls {
+        let d = crate::deck::Deck::new();
+        let mut c = Controls::new::<&str>(&[]);
+        let s = &d.now().played.sticks;
+        c.set_knobs(&d.sliders("en"), Some([[&s[0][0], &s[0][1]], [&s[1][0], &s[1][1]]]));
+        c
+    }
+
+    /// #369: a knob's value ↔ 0..1 on its curve, a drag (up = more, fine a tenth, stops at the ends), a key's step
+    #[test]
+    fn a_knob_turns_on_its_range() {
+        let c = own_deck();
+        let k = &crate::deck::Deck::new().sliders("en")[0];
+        let (lo, hi) = (k.min, k.max);
+        assert_eq!(c.norm(&k.path, lo), 0.0);
+        assert_eq!(c.norm(&k.path, hi * 10.0), 1.0, "clamped");
+        assert!((c.norm(&k.path, f32::NAN) - c.norm(&k.path, k.value)).abs() < 1e-6, "a value the host lacks: the default");
+        assert_eq!((c.norm("nowhere.x", 1.0), c.value("nowhere.x", 0.5)), (0.0, None));
+        let mid = c.value(&k.path, 0.5).unwrap();
+        assert!((c.turn(&k.path, mid, -100.0, 200.0, false).unwrap() - hi).abs() < 1e-3 * hi, "up half the travel: the top");
+        let quarter = c.turn(&k.path, mid, 50.0, 200.0, false).unwrap();
+        assert!((c.norm(&k.path, quarter) - 0.25).abs() < 1e-4);
+        let fine = c.turn(&k.path, mid, 50.0, 200.0, true).unwrap();
+        assert!((c.norm(&k.path, fine) - 0.475).abs() < 1e-4, "fine: a tenth");
+        assert_eq!(c.turn(&k.path, hi, -1000.0, 0.0, false), Some(hi), "a travel under 1 counts as 1; the end stops it");
+        let up = c.step(&k.path, mid, "ArrowUp", false).unwrap();
+        assert!((c.norm(&k.path, up) - 0.51).abs() < 1e-4);
+        let page = c.step(&k.path, mid, "PageDown", true).unwrap();
+        assert!((c.norm(&k.path, page) - 0.49).abs() < 1e-4, "fine: a tenth of the page");
+        assert_eq!(c.step(&k.path, mid, "Enter", false), None);
+    }
+
+    /// owner 2026-10-31 (#228): the button walks master → the being → each knob → master, back the other way; the panel's
+    /// line names the selection and each stick's labels (#209)
+    #[test]
+    fn the_selection_cycles_and_its_line_names_the_sticks() {
+        let mut c = Controls::new(&["a.x", "a.y", "b.x"]);
+        c.describe("a.x", Spec::UNIT, "ax");
+        let mut seen = Vec::new();
+        for _ in 0..6 {
+            c.cycle(false);
+            seen.push(c.selection().name());
+        }
+        assert_eq!(seen, ["being", "knob:a.x", "knob:a.y", "knob:b.x", "", "being"]);
+        c.cycle(true);
+        c.cycle(true);
+        assert_eq!(c.selection(), &Selection::Knob("b.x".into()), "from the master section back: the last knob");
+        c.select(Selection::Object("candle".into()));
+        c.cycle(false);
+        assert_eq!(c.selection(), &Selection::Being, "an object counts as the master section");
+        assert_eq!(c.selection_line("Being", "Master"), "Being · L ax / a.y · R b.x / –");
+        c.select(Selection::Knob("a.y".into()));
+        assert_eq!((c.knob(), c.selection_line("Being", "Master").as_str()), ("a.y", "a.y · L ax / a.y · R b.x / –"));
+        c.select(Selection::Master);
+        assert_eq!((c.knob(), c.stick_labels(LEFT)), ("", [NONE, NONE]), "a deck without the master's paths");
+        assert_eq!(c.selection_line("Being", "Master"), "Master · L – / – · R – / –");
+    }
+
+    /// #228, #369: a pad's poll – its events in order, A cycles the selection here
+    #[test]
+    fn a_pad_drives_the_sticks_and_cycles_the_selection() {
+        let mut c = own_deck();
+        let ev = |c: &mut Controls, axes: &[f32], buttons: &[bool]| c.pad(axes, buttons).iter().collect::<Vec<_>>();
+        assert_eq!(ev(&mut c, &[0.0, -0.9], &[true]), [PadEvent::Down(LEFT), PadEvent::Move(LEFT, 0.0, 0.9), PadEvent::Cycle { back: false }]);
+        assert_eq!(c.selection(), &Selection::Being);
+        assert_eq!(ev(&mut c, &[], &[]), [PadEvent::Up(LEFT)]);
+    }
+
+    /// The script both pads run (#369's acceptance: the same input on the native stage – deck-native pad.rs reads it – and
+    /// the browser – shared/live-deck/test/fixtures/controls.json, the core's answers its tests apply): frames of a pad in the
+    /// standard mapping.
+    const PAD_SCRIPT: [([f32; 4], [bool; 4]); 13] = [
+        ([0.1, 0.0, 0.0, 0.0], [false; 4]),
+        ([0.6, -0.8, 0.0, 0.0], [false; 4]),
+        ([0.2, 0.0, 0.0, 0.0], [false; 4]),
+        ([0.1, 0.0, 0.0, 0.0], [false; 4]),
+        ([0.0, 0.0, 1.0, 1.0], [false; 4]),
+        ([0.0, 0.0, 0.9, 0.0], [true, false, false, false]),
+        ([0.0, 0.0, 0.0, 0.0], [true, false, false, false]),
+        ([0.0, 0.0, 0.0, 0.0], [false; 4]),
+        ([0.0, 0.0, 0.0, 0.0], [true, false, false, false]),
+        ([0.0, 0.0, 0.0, 0.0], [false, false, false, true]),
+        ([0.0, 0.0, 0.0, 0.0], [false, false, false, true]),
+        ([-0.25, 0.25, 0.0, 0.0], [false, false, false, false]),
+        ([-0.7, 0.7, 0.0, 0.0], [false, false, false, false]),
+    ];
+
+    /// shared/live-deck/test/fixtures/controls.json – the core's answers the browser's controls tests apply (#369: the page
+    /// computes none of it). `UPDATE_FIXTURES=1 cargo test -p deck-space controls_fixture` writes it; a plain run fails when
+    /// stale.
+    #[test]
+    fn controls_fixture_for_the_browser_deck_is_current() {
+        use serde_json::{json, Value};
+        let mut c = own_deck();
+        let knobs = crate::deck::Deck::new().sliders("en");
+        let mut pad = Vec::new();
+        for (axes, buttons) in PAD_SCRIPT {
+            let events: Vec<[f32; 4]> = c.pad(&axes, &buttons).iter().map(|e| e.code()).collect();
+            pad.push(json!({ "axes": axes, "buttons": buttons, "events": events, "selection": c.selection().name() }));
+        }
+        let mut answers: serde_json::Map<String, Value> = serde_json::Map::new();
+        let mut put = |name: &str, args: Value, result: Value| {
+            answers.entry(name).or_insert_with(|| json!([])).as_array_mut().unwrap().push(json!([args, result]));
+        };
+        for k in knobs.iter().chain([&crate::deck::Slider { path: "nowhere.x".into(), min: 0.0, max: 1.0, value: 0.5, log: false, label: String::new() }]) {
+            put("norm", json!([k.path, k.value]), json!(c.norm(&k.path, k.value)));
+            // a value the host lacks (NaN – JSON's null, as the page's JSON.stringify writes it too)
+            put("norm", json!([k.path, f32::NAN]), json!(c.norm(&k.path, f32::NAN)));
+            for t in [0.0, 0.3, 0.6, 1.0] {
+                put("value_at", json!([k.path, t]), json!(c.value(&k.path, t)));
+            }
+            for (dy, fine) in [(-100.0, false), (50.0, false), (50.0, true), (-1000.0, false)] {
+                put("turn", json!([k.path, k.value, dy, 200.0, fine]), json!(c.turn(&k.path, k.value, dy, 200.0, fine)));
+            }
+            for (key, fine) in [("ArrowUp", false), ("PageDown", true), ("Enter", false)] {
+                put("step", json!([k.path, k.value, key, fine]), json!(c.step(&k.path, k.value, key, fine)));
+            }
+        }
+        let outside = knobs.iter().find(|k| !c.being.iter().flatten().any(|i| *i == c.index(&k.path))).map_or("", |k| k.path.as_str());
+        for sel in [String::new(), "being".into(), format!("knob:{}", knobs[0].path), format!("knob:{outside}")] {
+            c.select(Selection::parse(&sel));
+            let sel = c.selection().name();
+            put("selection_line", json!([sel, "Being", "Master"]), json!(c.selection_line("Being", "Master")));
+            for side in [LEFT, RIGHT] {
+                put("stick_labels", json!([sel, side]), json!(c.stick_labels(side)));
+                put("stick_paths", json!([sel, side]), json!(c.stick_paths(side)));
+            }
+            put("knob", json!([sel]), json!(c.knob()));
+        }
+        // a thumb on the being's left stick, landing at the knobs' values: what its deflection sets
+        c.select(Selection::Being);
+        let [px, py] = c.stick_paths(LEFT).map(String::from);
+        let at = |p: &str| knobs.iter().find(|k| k.path == p).map_or(f32::NAN, |k| k.value);
+        let start = [c.norm(&px, at(&px)), c.norm(&py, at(&py))];
+        c.stick_down(LEFT, start[0], start[1]);
+        put("stick_down", json!([LEFT, start[0], start[1]]), Value::Null);
+        for (dx, dy) in [(0.5, 0.0), (1.0, 1.0)] {
+            put("stick_move", json!([LEFT, dx, dy]), json!(c.stick_move(LEFT, dx, dy)));
+        }
+        for (p, t) in [(&px, c.stick_move(LEFT, 0.5, 0.0)[0]), (&py, c.stick_move(LEFT, 0.5, 0.0)[1]), (&px, c.stick_move(LEFT, 1.0, 1.0)[0]), (&py, c.stick_move(LEFT, 1.0, 1.0)[1])] {
+            put("value_at", json!([p, t]), json!(c.value(p, t)));
+        }
+        let fixture = json!({ "knobs": knobs, "pad": pad, "answers": answers });
+        let text = serde_json::to_string_pretty(&fixture).unwrap() + "\n";
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../shared/live-deck/test/fixtures/controls.json");
+        if std::env::var_os("UPDATE_FIXTURES").is_some() {
+            std::fs::write(path, &text).unwrap();
+        }
+        let on_disk = std::fs::read_to_string(path).unwrap_or_default().replace('\r', "");
+        assert!(on_disk == text, "{path} is stale: UPDATE_FIXTURES=1 cargo test -p deck-space controls_fixture");
     }
 
     /// a new deck keeps the mappings its paths still have and drops the rest

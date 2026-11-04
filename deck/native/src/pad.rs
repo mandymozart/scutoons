@@ -1,39 +1,37 @@
-//! pad.rs (#228): a gamepad on the native stage – the input adapter for deck-space's controls. The engine's half is
-//! deck-space's `controls` (the selection → the stick pairs, `stick_down` / `stick_move` / `stick_up`), the same the
-//! browser's Gamepad API drives (shared/live-deck/src/controls.ts). This file only turns a pad's sticks and buttons into
-//! those calls, with the same rules: a stick drives what the selection says, it is down while it is deflected past the
-//! dead zone, and a button cycles the selection – master section → the being → each of its knobs → … – where a tap in
-//! the space would select the same.
-//!
-//! The layout is the Gamepad API's standard one: the left stick drives the left stick, the right stick the right one;
-//! the south button (A / cross) cycles forward, the north button (Y / triangle) back. gilrs reports a stick's up as
-//! positive, which is the controls' y (up). Built with `--features gamepad`; without a pad attached nothing happens.
-//! A stick's movement never allocates; a button press may (the selection's name).
-use deck_space::controls::{Controls as Sticks, Selection, DEAD, LEFT, RIGHT};
+//! pad.rs (#228, #369): a gamepad on the native stage – the input adapter for deck-space's controls. The rules (a stick
+//! goes down past its press point and up inside its release point, its deflection, A / Y cycling the selection) are
+//! deck-space's (gamepad.rs, `Controls::pad`), the same the browser's Gamepad API hands its polls to (space-web
+//! `DeckControls::pad`). This file keeps the pad's state as gilrs reports it, in the Gamepad API's standard mapping (the
+//! left stick axes 0 / 1, the right 2 / 3 – gilrs says y up, the mapping y down –, south A / cross button 0, north Y /
+//! triangle 3), hands it to the controls once a frame something changed and does what they answer: a stick's values on
+//! the being's knobs, the space's ring on the selection. Built with `--features gamepad`; without a pad nothing happens.
+use deck_space::controls::{Controls as Sticks, Selection};
+use deck_space::gamepad::{PadEvent, PadEvents, AXES, BACK, NEXT};
 use deck_space::graph::Graph;
 use deck_space::space::values::Knobs;
 use deck_space::space::Space;
 
-/// One input, the adapter's own vocabulary: gilrs's events map onto it (`from_gilrs`), the tests feed it directly.
+/// One input in the standard mapping: gilrs's events map onto it (`from_gilrs`), the tests feed it directly.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Input {
-    /// a stick axis: its `side` (LEFT / RIGHT), `axis` (0 x, 1 y) and deflection (−1..1, y up)
-    Axis { side: usize, axis: usize, value: f32 },
-    /// the selection button: the next selection, or the previous one (`back`)
-    Cycle { back: bool },
+    /// axis `index` (0..3) at −1..1, y down
+    Axis { index: usize, value: f32 },
+    /// button `index` (NEXT, BACK) pressed or let go
+    Button { index: usize, pressed: bool },
+    /// the pad went away: everything at rest
+    Gone,
 }
 
-/// The pad's state on the native stage: gilrs (None = no pad system, the stage plays without one), deck-space's stick
-/// engine over the being's knobs, the selections in cycle order, and each stick's deflection and whether it is down.
+/// The pad's state on the native stage: gilrs (None = no pad system, the stage plays without one), deck-space's controls
+/// over the being's knobs, the pad's axes and buttons, and whether they changed since the last frame.
 pub struct Pad {
     gilrs: Option<gilrs::Gilrs>,
     sticks: Sticks,
     /// the being's knob paths, `node.port` – `paths[i]` is the being's button `i` (the engine's index order)
     paths: Vec<String>,
-    /// the selections in cycle order: the master section (""), the being, then each knob (`knob:<path>`)
-    names: Vec<String>,
-    deflect: [[f32; 2]; 2],
-    down: [bool; 2],
+    axes: [f32; 4],
+    buttons: [bool; 4],
+    changed: bool,
 }
 
 impl Pad {
@@ -51,55 +49,54 @@ impl Pad {
         pad
     }
 
-    /// The pad's state without a reader: the being's knobs, the selections. Tests build it this way (no hardware).
+    /// The pad's state without a reader: the being's knobs. Tests build it this way (no hardware).
     fn with_paths(graph: &Graph, space: &Space) -> Pad {
         let paths: Vec<String> = space.being.buttons.iter().map(|b| format!("{}.{}", graph.nodes[b.node].id, b.name)).collect();
-        let names: Vec<String> = [String::new(), "being".to_string()].into_iter().chain(paths.iter().map(|p| format!("knob:{p}"))).collect();
-        Pad { gilrs: None, sticks: Sticks::new(paths.as_slice()), paths, names, deflect: [[0.0; 2]; 2], down: [false; 2] }
+        Pad { gilrs: None, sticks: Sticks::new(paths.as_slice()), paths, axes: [0.0; 4], buttons: [false; 4], changed: false }
     }
 
-    /// This frame's pad events, in order: a stick moves the knobs, a button cycles the selection. Without a pad system or
-    /// a pad, nothing.
+    /// This frame's pad events into the pad's state, then the frame. Without a pad system, nothing.
     pub fn poll(&mut self, space: &mut Space, ctl: &mut dyn Knobs) {
         let Some(mut reader) = self.gilrs.take() else { return };
         while let Some(event) = reader.next_event() {
             if let Some(input) = from_gilrs(&event.event) {
-                self.handle(input, space, ctl);
+                self.input(input);
             }
         }
         self.gilrs = Some(reader);
+        self.frame(space, ctl);
     }
 
-    /// One input: the selection moves on, or a stick's deflection drives the knobs it drives (down when it leaves rest,
-    /// up when it returns).
-    pub fn handle(&mut self, input: Input, space: &mut Space, ctl: &mut dyn Knobs) {
+    pub fn input(&mut self, input: Input) {
         match input {
-            Input::Cycle { back } => self.cycle(back, space),
-            Input::Axis { side, axis, value } => {
-                let (side, axis) = (side.min(1), axis.min(1));
-                self.deflect[side][axis] = value.clamp(-1.0, 1.0);
-                let [dx, dy] = self.deflect[side];
-                let deflected = dx.abs() >= DEAD || dy.abs() >= DEAD;
-                if !deflected {
-                    if self.down[side] {
-                        self.sticks.stick_up(side);
-                        self.down[side] = false;
-                    }
-                    return;
-                }
-                if !self.down[side] {
-                    self.stick_down(side, space);
-                    self.down[side] = true;
-                }
-                self.drive(side, dx, dy, space, ctl);
+            Input::Axis { index, value } => self.axes.get_mut(index).into_iter().for_each(|a| *a = value),
+            Input::Button { index, pressed } => self.buttons.get_mut(index).into_iter().for_each(|b| *b = pressed),
+            Input::Gone => (self.axes, self.buttons) = ([0.0; 4], [false; 4]),
+        }
+        self.changed = true;
+    }
+
+    /// One frame (once something changed): the controls take the space's selection (a tap since counts) and the pad's
+    /// state; what they answer is done – a stick down takes its knobs' values, its deflection moves them, a cycle rings.
+    pub fn frame(&mut self, space: &mut Space, ctl: &mut dyn Knobs) -> PadEvents {
+        if !std::mem::take(&mut self.changed) {
+            return PadEvents::default();
+        }
+        self.sticks.select(Selection::parse(&space.selection_name()));
+        let events = self.sticks.pad(&self.axes, &self.buttons);
+        for e in events.iter() {
+            match e {
+                PadEvent::Down(side) => self.stick_down(side, space),
+                PadEvent::Move(side, dx, dy) => self.drive(side, dx, dy, space, ctl),
+                PadEvent::Up(side) => self.sticks.stick_up(side),
+                PadEvent::Cycle { .. } => space.select_named(&self.sticks.selection().name()),
             }
         }
+        events
     }
 
-    /// The thumb lands: the sticks take the selection now (a tap in the space since the last touch counts) and the
-    /// values they start from.
+    /// The thumb lands: the sticks take the values they start from.
     fn stick_down(&mut self, side: usize, space: &Space) {
-        self.sticks.select(Selection::parse(&space.selection_name()));
         let [px, py] = self.sticks.stick_paths(side);
         let norm = |p: &str| self.paths.iter().position(|q| q == p).and_then(|i| space.being.buttons.get(i)).map_or(0.0, |b| b.norm);
         let start = [norm(px), norm(py)];
@@ -123,56 +120,49 @@ impl Pad {
             }
         }
     }
-
-    /// The button: the next selection (or the previous one), the space's ring follows and the sticks take it.
-    fn cycle(&mut self, back: bool, space: &mut Space) {
-        let n = self.names.len();
-        let now = space.selection_name();
-        let at = self.names.iter().position(|q| *q == now).unwrap_or(0);
-        let next = if back { (at + n - 1) % n } else { (at + 1) % n };
-        space.select_named(&self.names[next]);
-        self.sticks.select(Selection::parse(&self.names[next]));
-    }
 }
 
-/// gilrs's event as an input: a stick axis as it moves, a button on its press.
+/// gilrs's event as an input: a stick axis as it moves, a selection button pressed or let go, the pad gone.
 pub fn from_gilrs(event: &gilrs::EventType) -> Option<Input> {
     match *event {
         gilrs::EventType::AxisChanged(axis, value, _) => axis_input(axis, value),
-        gilrs::EventType::ButtonPressed(button, _) => button_input(button),
+        gilrs::EventType::ButtonPressed(button, _) => button_input(button, true),
+        gilrs::EventType::ButtonReleased(button, _) => button_input(button, false),
+        gilrs::EventType::Disconnected => Some(Input::Gone),
         _ => None,
     }
 }
 
-/// a stick axis (the left and right sticks' x and y) as an input
+/// a stick axis (gilrs: y up) as the standard mapping's (y down)
 pub fn axis_input(axis: gilrs::Axis, value: f32) -> Option<Input> {
-    let (side, axis) = match axis {
-        gilrs::Axis::LeftStickX => (LEFT, 0),
-        gilrs::Axis::LeftStickY => (LEFT, 1),
-        gilrs::Axis::RightStickX => (RIGHT, 0),
-        gilrs::Axis::RightStickY => (RIGHT, 1),
+    let (index, sign) = match axis {
+        gilrs::Axis::LeftStickX => (AXES[0][0], 1.0),
+        gilrs::Axis::LeftStickY => (AXES[0][1], -1.0),
+        gilrs::Axis::RightStickX => (AXES[1][0], 1.0),
+        gilrs::Axis::RightStickY => (AXES[1][1], -1.0),
         _ => return None,
     };
-    Some(Input::Axis { side, axis, value })
+    Some(Input::Axis { index, value: sign * value })
 }
 
 /// the selection buttons: south (A / cross) forward, north (Y / triangle) back
-pub fn button_input(button: gilrs::Button) -> Option<Input> {
-    match button {
-        gilrs::Button::South => Some(Input::Cycle { back: false }),
-        gilrs::Button::North => Some(Input::Cycle { back: true }),
-        _ => None,
-    }
+pub fn button_input(button: gilrs::Button, pressed: bool) -> Option<Input> {
+    let index = match button {
+        gilrs::Button::South => NEXT,
+        gilrs::Button::North => BACK,
+        _ => return None,
+    };
+    Some(Input::Button { index, pressed })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::control::Controls as Knobset;
+    use deck_space::controls::STICK_GAIN;
     use deck_space::graph::{Graph, Kind};
     use deck_space::scene::{Scene, CATHEDRAL_SCENE};
     use deck_space::space::portrait::Portraits;
-    use deck_space::controls::STICK_GAIN;
     use deck_space::tempo::Now;
     use std::path::Path;
 
@@ -188,62 +178,62 @@ mod tests {
         (g, space, ctl)
     }
 
-    /// the gamepad's layout: the sticks' axes, the buttons that cycle, and nothing else
+    /// the gamepad's layout: the sticks' axes (y flipped to the mapping's), the buttons that cycle, and nothing else
     #[test]
     fn the_standard_layout_maps_sticks_and_buttons() {
-        assert_eq!(axis_input(gilrs::Axis::LeftStickX, 0.5), Some(Input::Axis { side: LEFT, axis: 0, value: 0.5 }));
-        assert_eq!(axis_input(gilrs::Axis::LeftStickY, -1.0), Some(Input::Axis { side: LEFT, axis: 1, value: -1.0 }));
-        assert_eq!(axis_input(gilrs::Axis::RightStickX, 0.0), Some(Input::Axis { side: RIGHT, axis: 0, value: 0.0 }));
-        assert_eq!(axis_input(gilrs::Axis::RightStickY, 1.0), Some(Input::Axis { side: RIGHT, axis: 1, value: 1.0 }));
+        assert_eq!(axis_input(gilrs::Axis::LeftStickY, -1.0), Some(Input::Axis { index: 1, value: 1.0 }));
+        assert_eq!(axis_input(gilrs::Axis::RightStickX, 0.5), Some(Input::Axis { index: 2, value: 0.5 }));
         assert_eq!(axis_input(gilrs::Axis::LeftZ, 1.0), None, "a trigger isn't a stick");
-        assert_eq!(button_input(gilrs::Button::South), Some(Input::Cycle { back: false }));
-        assert_eq!(button_input(gilrs::Button::North), Some(Input::Cycle { back: true }));
-        assert_eq!(button_input(gilrs::Button::Start), None);
+        assert_eq!(button_input(gilrs::Button::North, true), Some(Input::Button { index: 3, pressed: true }));
+        assert_eq!(button_input(gilrs::Button::Start, true), None);
     }
 
-    /// the button walks master → the being → each knob → back to master; the space's ring and the sticks follow
+    /// #369's acceptance: the browser's script (shared/live-deck/test/fixtures/controls.json, the core's answers) gives the
+    /// same events here, and the cycle walks master → the being → a knob → back
     #[test]
-    fn the_button_cycles_the_selection_like_a_tap() {
+    fn the_browsers_pad_script_gives_the_same_events() {
         let (g, mut space, mut ctl) = cathedral();
         let mut pad = Pad::with_paths(&g, &space);
-        assert_eq!(space.selection_name(), "");
-        pad.handle(Input::Cycle { back: false }, &mut space, &mut ctl);
-        assert_eq!(space.selection_name(), "being");
-        assert_eq!(pad.sticks.selection(), &Selection::Being, "the sticks take it");
-        pad.handle(Input::Cycle { back: false }, &mut space, &mut ctl);
-        let first = format!("knob:{}", pad.paths[0]);
-        assert_eq!(space.selection_name(), first);
-        pad.handle(Input::Cycle { back: true }, &mut space, &mut ctl);
-        assert_eq!(space.selection_name(), "being");
-        pad.handle(Input::Cycle { back: true }, &mut space, &mut ctl);
-        assert_eq!(space.selection_name(), "", "back to the master section");
-        pad.handle(Input::Cycle { back: true }, &mut space, &mut ctl);
-        assert_eq!(space.selection_name(), pad.names.last().unwrap().as_str(), "from the master section back: the last knob");
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../shared/live-deck/test/fixtures/controls.json")).unwrap();
+        let fixture: serde_json::Value = serde_json::from_str(&text).unwrap();
+        for (i, frame) in fixture["pad"].as_array().unwrap().iter().enumerate() {
+            let num = |v: &serde_json::Value| v.as_f64().unwrap() as f32;
+            frame["axes"].as_array().unwrap().iter().enumerate().for_each(|(index, v)| pad.input(Input::Axis { index, value: num(v) }));
+            frame["buttons"].as_array().unwrap().iter().enumerate().for_each(|(index, v)| pad.input(Input::Button { index, pressed: v.as_bool().unwrap() }));
+            let got: Vec<[f32; 4]> = pad.frame(&mut space, &mut ctl).iter().map(|e| e.code()).collect();
+            let want: Vec<[f32; 4]> = frame["events"].as_array().unwrap().iter().map(|e| std::array::from_fn(|k| num(&e[k]))).collect();
+            assert_eq!(got, want, "frame {i}");
+            let sel = frame["selection"].as_str().unwrap();
+            assert_eq!(space.selection_name().starts_with("knob:"), sel.starts_with("knob:"), "frame {i}: {sel}");
+        }
     }
 
-    /// a stick deflected past the dead zone is down and moves the being's pair from where it was; full deflection
-    /// reaches the values the engine's STICK_GAIN gives; returning to rest lets it go; a deflection inside the dead zone
-    /// does nothing
+    /// a stick deflected past the press point is down and moves the being's pair from where it was; full deflection
+    /// reaches the values the engine's STICK_GAIN gives; returning to rest lets it go; a small deflection does nothing
     #[test]
     fn a_stick_drives_the_being_from_where_it_was() {
         let (g, mut space, mut ctl) = cathedral();
         let mut pad = Pad::with_paths(&g, &space);
-        pad.handle(Input::Cycle { back: false }, &mut space, &mut ctl);
-        let ratio = space.being.buttons[pad.paths.iter().position(|p| p == "voice.ratio").unwrap()].clone();
-        let index = space.being.buttons[pad.paths.iter().position(|p| p == "voice.index").unwrap()].clone();
+        let step = |pad: &mut Pad, space: &mut Space, ctl: &mut Knobset, input: Input| {
+            pad.input(input);
+            pad.frame(space, ctl)
+        };
+        step(&mut pad, &mut space, &mut ctl, Input::Button { index: NEXT, pressed: true });
+        assert_eq!(space.selection_name(), "being");
+        let button = |p: &str| space.being.buttons[pad.paths.iter().position(|q| q == p).unwrap()].clone();
+        let (ratio, index) = (button("voice.ratio"), button("voice.index"));
         let (start_x, start_y) = (ratio.norm, index.norm);
-        pad.handle(Input::Axis { side: LEFT, axis: 0, value: 0.02 }, &mut space, &mut ctl);
-        assert!(!pad.down[LEFT], "the dead zone");
-        pad.handle(Input::Axis { side: LEFT, axis: 0, value: 1.0 }, &mut space, &mut ctl);
-        assert!(pad.down[LEFT] && pad.sticks.stick_is_down(LEFT));
+        assert!(step(&mut pad, &mut space, &mut ctl, Input::Axis { index: 0, value: 0.02 }).is_empty(), "rest");
+        step(&mut pad, &mut space, &mut ctl, Input::Axis { index: 0, value: 1.0 });
+        assert!(pad.sticks.stick_is_down(0));
         let want = (start_x + STICK_GAIN).min(1.0);
         assert!((ctl.input(ratio.node, ratio.name, -9.0) - ratio.spec.value(want)).abs() < 1e-4, "x: the ratio");
-        pad.handle(Input::Axis { side: LEFT, axis: 1, value: -1.0 }, &mut space, &mut ctl);
+        step(&mut pad, &mut space, &mut ctl, Input::Axis { index: 0, value: 0.0 });
+        step(&mut pad, &mut space, &mut ctl, Input::Axis { index: 1, value: 1.0 });
         let want_y = (start_y - STICK_GAIN).max(0.0);
-        assert!((ctl.input(index.node, index.name, -9.0) - index.spec.value(want_y)).abs() < 1e-4, "y: the index");
-        pad.handle(Input::Axis { side: LEFT, axis: 0, value: 0.0 }, &mut space, &mut ctl);
-        pad.handle(Input::Axis { side: LEFT, axis: 1, value: 0.0 }, &mut space, &mut ctl);
-        assert!(!pad.down[LEFT] && !pad.sticks.stick_is_down(LEFT), "back at rest: up");
+        assert!((ctl.input(index.node, index.name, -9.0) - index.spec.value(want_y)).abs() < 1e-4, "y (pulled down): the index");
+        step(&mut pad, &mut space, &mut ctl, Input::Gone);
+        assert!(!pad.sticks.stick_is_down(0), "the pad gone: up");
     }
 
     /// a pad that can't be opened, or none attached: the poll does nothing and the selection stays
@@ -253,6 +243,6 @@ mod tests {
         let mut pad = Pad::with_paths(&g, &space);
         pad.poll(&mut space, &mut ctl);
         assert_eq!(space.selection_name(), "");
-        assert!(!pad.down.iter().any(|d| *d));
+        assert!(pad.frame(&mut space, &mut ctl).is_empty());
     }
 }

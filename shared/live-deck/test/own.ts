@@ -7,6 +7,7 @@ import type { DeckGraph } from '@scutoons/live';
 import type { PathKind } from '../src/client.ts';
 import type { MoodStep, RigSlider, RigTurn } from '../src/rig.ts';
 import type { DeckStateView } from '../src/space.ts';
+import { answer } from './controls-core.ts';
 
 interface Scene {
 	sliders: RigSlider[];
@@ -58,6 +59,9 @@ export function stateOf(o: { moods?: string[]; said?: (string | MoodStep)[] } = 
 		sliders: (locale: string) => JSON.stringify(locale === 'de' && at === 'catpope' ? DECK.catpope.sliders_de : DECK[at].sliders),
 		graph: () => JSON.stringify(DECK[at].graph),
 		target: (path: string) => DECK[at].targets[path] ?? '',
+		// #369: a knob's value ↔ 0..1 – the core's answers for its own scene (test/fixtures/controls.json)
+		norm: (path: string, value: number) => answer<number>('norm', path, value),
+		value_at: (path: string, t: number) => answer<number | undefined>('value_at', path, t),
 		// deck-core `ClockMode::ALL` (space-web's answer)
 		clock_modes: () => ['show', 'own', 'lead', 'midi']
 	};

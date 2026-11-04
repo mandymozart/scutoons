@@ -54,7 +54,7 @@
 	// #298: the engine host – null until the session answered (the deck is made then)
 	let engine: EngineHost | null = null;
 	// #209: the controls – the selection the sticks follow, MIDI learn, the mappings per deck
-	const ctl = new DeckControlsState({});
+	const ctl = new DeckControlsState();
 	ctl.onSelect = (name) => engine?.space?.view.select(name);
 	// #225: the corner sticks can be switched off in the panel (they free the knobs under them), remembered per device
 	const STICKS_KEY = 'scutoons.deck.sticks';
@@ -288,7 +288,7 @@
 				params = deck.params;
 				values = { ...deck.value };
 				const specs = deck.params;
-				ctl.hands = new Hands(await loadControls(WASM_BASE, Object.keys(specs)), deck, specs);
+				ctl.hands = new Hands(await loadControls(WASM_BASE), deck, specs);
 				ctl.useParams(specs, deck.sticks);
 				ctl.load(character);
 				ctl.choose('', false);
@@ -384,6 +384,7 @@
 			learning={ctl.learning}
 			midi={ctl.midiStatus}
 			mapped={ctl.mapped}
+			turns={ctl.hands?.c ?? null}
 			onstart={start}
 			onset={(p, v) => engine?.deck?.setParam(p, v)}
 			onpick={ctl.pick}

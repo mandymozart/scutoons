@@ -25,16 +25,6 @@
 		"twin-comment"
 	],
 	"entries": {
-		"creator/src/lib/editor/signal-strip.ts": {
-			"clamp": {
-				"count": 1,
-				"ticket": "#369"
-			},
-			"clamp-shape": {
-				"count": 2,
-				"ticket": "#369"
-			}
-		},
 		"shared/live-core/src/modules.ts": {
 			"twin-const": {
 				"count": 1,
@@ -59,18 +49,6 @@
 				"ticket": "#366"
 			}
 		},
-		"shared/live-deck/src/controls.ts": {
-			"clamp": {
-				"count": 3,
-				"ticket": "#369"
-			}
-		},
-		"shared/live-deck/src/gamepad.ts": {
-			"twin-const": {
-				"count": 1,
-				"ticket": "#369"
-			}
-		},
 		"shared/live-deck/src/sync.ts": {
 			"twin-comment": {
 				"count": 1,
@@ -79,12 +57,6 @@
 			"text-shape": {
 				"count": 3,
 				"ticket": "#371"
-			}
-		},
-		"viewer/src/lib/components/live-deck/deck-knob.svelte": {
-			"clamp": {
-				"count": 1,
-				"ticket": "#369"
 			}
 		},
 		"viewer/src/lib/live-vote-link.ts": {
@@ -313,9 +285,9 @@
 			"escapes": 0
 		},
 		"creator/src/lib/editor/signal-strip.ts": {
-			"lines": 109,
-			"functions": 13,
-			"math": 6,
+			"lines": 97,
+			"functions": 11,
+			"math": 2,
 			"escapes": 0
 		},
 		"shared/engine-host/src/controller.ts": {
@@ -441,8 +413,8 @@
 		"shared/live-deck/src/controls.ts": {
 			"lines": 192,
 			"functions": 23,
-			"math": 15,
-			"escapes": 1
+			"math": 3,
+			"escapes": 0
 		},
 		"shared/live-deck/src/deck.ts": {
 			"lines": 360,
@@ -451,9 +423,9 @@
 			"escapes": 0
 		},
 		"shared/live-deck/src/gamepad.ts": {
-			"lines": 90,
-			"functions": 9,
-			"math": 1,
+			"lines": 40,
+			"functions": 3,
+			"math": 0,
 			"escapes": 0
 		},
 		"shared/live-deck/src/index.ts": {
@@ -475,9 +447,9 @@
 			"escapes": 0
 		},
 		"shared/live-deck/src/scene.ts": {
-			"lines": 19,
-			"functions": 2,
-			"math": 2,
+			"lines": 15,
+			"functions": 0,
+			"math": 0,
 			"escapes": 0
 		},
 		"shared/live-deck/src/space.ts": {
@@ -513,8 +485,8 @@
 		"viewer/src/lib/components/live-deck/deck-knob.svelte": {
 			"lines": 183,
 			"functions": 6,
-			"math": 7,
-			"escapes": 1
+			"math": 3,
+			"escapes": 0
 		},
 		"viewer/src/lib/components/live-deck/deck-panel.svelte": {
 			"lines": 282,
@@ -565,14 +537,14 @@
 			"escapes": 0
 		},
 		"viewer/src/lib/live-deck-controls.svelte.ts": {
-			"lines": 136,
-			"functions": 23,
+			"lines": 130,
+			"functions": 21,
 			"math": 0,
 			"escapes": 0
 		},
 		"viewer/src/lib/live-deck.ts": {
-			"lines": 75,
-			"functions": 10,
+			"lines": 64,
+			"functions": 7,
 			"math": 0,
 			"escapes": 0
 		},

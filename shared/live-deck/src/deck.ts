@@ -222,6 +222,11 @@ export class Deck {
 		this.link?.setGraph(this.graph());
 	}
 
+	/** #369: where knob `path`'s value sits on its range, 0..1 (the core's – 0 before it came or for no knob) */
+	norm(path: string): number {
+		return this.state?.norm(path, this.value[path] ?? NaN) ?? 0;
+	}
+
 	/** a parameter from the page's controls or the being's buttons: the knob turns its input's base in the engine (#188 –
 	 *  a link on it keeps flowing on top) */
 	setParam(path: string, v: number, hand: Hand = 'page') {

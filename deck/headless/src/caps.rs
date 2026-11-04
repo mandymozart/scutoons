@@ -12,7 +12,9 @@ use deck_core::devices::{DeviceMonitor, Kind};
 use deck_core::lead::{AdaptiveLead, DeviceClass};
 use deck_core::meters::{self, Meters};
 use deck_core::monitor::{AudioWindow, Monitor};
-use deck_space::deck::Deck;
+use deck_space::controls::Controls;
+use deck_space::deck::{Deck, Slider};
+use deck_space::gamepad::Pad;
 use deck_space::gesture::{Act, Fingers, Touch, ZOOM_STEP};
 use deck_space::mood::Ladder;
 use serde_json::{json, Value};
@@ -36,13 +38,12 @@ pub const CAPS: &[(&str, &str, &str, &str)] = &[
     ("hud", "#374", "the deck UI model: the HUD lines and the stats bar items", "main.rs hud_lines / bar_items"),
 
     ("relay_join", "#366", "the relay client as a sans-IO state machine: hello, welcome, backoff, ping, status text", "native space/link.rs, live/client.rs; live-deck client.ts; viewer live-vote-link.ts"),
-    ("knob", "#369", "the controls' rules: knob turn, value and position, gamepad press and release", "live-deck controls.ts, gamepad.ts, scene.ts toValue / toPos; native pad.rs"),
     ("sync", "#371", "the conductor's scene sync: items, progress, the PUSH line", "native sync.rs push_line, live-deck sync.ts"),
     ("quality_options", "#375", "the quality page's option tables (fps caps, ratios, sizes) and labels", "native quality.rs Page, deck-quality-sheet.svelte"),
 ];
 
 /// the steps the core answers now (their move tickets landed): name, ticket
-pub const MOVED: &[(&str, &str)] = &[("stats", "#364"), ("lead", "#365"), ("mood", "#367"), ("rig_facts", "#368"), ("device_text", "#373"), ("meters", "#373"), ("gesture", "#376")];
+pub const MOVED: &[(&str, &str)] = &[("stats", "#364"), ("lead", "#365"), ("mood", "#367"), ("rig_facts", "#368"), ("device_text", "#373"), ("meters", "#373"), ("gesture", "#376"), ("knob", "#369")];
 
 /// Call the capability `name` with the step's input: its answer, or what is missing.
 pub fn call(name: &str, input: &Value) -> Result<Value, Missing> {
@@ -54,6 +55,7 @@ pub fn call(name: &str, input: &Value) -> Result<Value, Missing> {
         "device_text" => return Ok(device_text(input)),
         "meters" => return Ok(meters(input)),
         "gesture" => return Ok(gesture(input)),
+        "knob" => return Ok(knob(input)),
         _ => {}
     }
     match CAPS.iter().find(|c| c.0 == name) {
@@ -232,4 +234,20 @@ fn gesture(i: &Value) -> Value {
     }
     let r4 = |x: f32| crate::deck::round(f64::from(x), 4);
     json!({ "acts": acts, "zoom_steps": r4(steps), "camera_factor": r4(ZOOM_STEP.powf(steps)), "step": r4(ZOOM_STEP), "driver": fingers.driver(), "touching": fingers.touching() })
+}
+
+/// #369: deck-space's controls over one knob (`min`, `max`, `log`) as a page hands it in – its value at `position`, that
+/// value dragged by `drag_px` over `range_px` (`fine`); a gamepad's left stick out to each of `pad` (its x) – whether the
+/// stick is down after each poll.
+fn knob(i: &Value) -> Value {
+    let k = Slider { path: "k.v".into(), min: num(i, "min", 0.0) as f32, max: num(i, "max", 1.0) as f32, value: f32::NAN, log: i["log"].as_bool().unwrap_or(false), label: String::new() };
+    let mut c = Controls::new::<&str>(&[]);
+    c.set_knobs(&[k], None);
+    let value = c.value("k.v", num(i, "position", 0.0) as f32);
+    let fine = i["fine"].as_bool().unwrap_or(false);
+    let dragged = value.and_then(|v| c.turn("k.v", v, num(i, "drag_px", 0.0) as f32, num(i, "range_px", 1.0) as f32, fine));
+    let mut pad = Pad::default();
+    let pressed: Vec<bool> = i["pad"].as_array().into_iter().flatten().filter_map(Value::as_f64).map(|x| (pad.poll(&[x as f32], &[]), pad.is_down(0)).1).collect();
+    let r4 = |x: Option<f32>| x.map(|x| crate::deck::round(f64::from(x), 4));
+    json!({ "value": r4(value), "dragged": r4(dragged), "pressed": pressed })
 }

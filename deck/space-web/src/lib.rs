@@ -639,8 +639,8 @@ impl SpaceView {
 }
 
 /// #209: the deck's controls – what the hands drive (deck-space `controls`: the selection → the two sticks, MIDI learn,
-/// the mappings as text for a preset). No GPU: the page has it even when the 3D can't start. Paths and 0..1 – the page
-/// turns them into values with its own ranges.
+/// the mappings as text for a preset; #369: the knobs' value ↔ 0..1, a drag's and a key's turn, the gamepad, the panel's
+/// line). No GPU: the page has it even when the 3D can't start.
 #[wasm_bindgen]
 pub struct DeckControls {
     c: Controls,
@@ -651,18 +651,68 @@ pub struct DeckControls {
 
 #[wasm_bindgen]
 impl DeckControls {
-    /// the deck's knobs, by path (the page's order)
+    /// no knobs yet: `set_deck` hands them in
     #[wasm_bindgen(constructor)]
-    pub fn new(paths: Vec<String>) -> DeckControls {
-        DeckControls { c: Controls::new(&paths), value: 0.0, learned: false }
+    pub fn new() -> DeckControls {
+        DeckControls { c: Controls::new::<&str>(&[]), value: 0.0, learned: false }
     }
 
-    /// Another deck's knobs (a rig's, or the deck's own scene's again) and the being's stick pairs on them (#191): `sticks`
-    /// = x, y of the left stick then x, y of the right ("" = no axis); fewer than four = the defaults.
-    pub fn set_deck(&mut self, paths: Vec<String>, sticks: Vec<String>) {
+    /// Another deck's knobs – `DeckState.sliders` as it answered (JSON: `[{path, min, max, value, log, label}]`: a rig's, or
+    /// the deck's own scene's again) – and the being's stick pairs on them (#191): `sticks` = x, y of the left stick then x,
+    /// y of the right ("" = no axis); fewer than four = the defaults. Throws on sliders that are no such JSON.
+    pub fn set_deck(&mut self, sliders: &str, sticks: Vec<String>) -> Result<(), JsValue> {
+        let knobs: Vec<deck_space::deck::Slider> = serde_json::from_str(sliders).map_err(|e| JsValue::from_str(&format!("the sliders: {e}")))?;
         let s = |i: usize| sticks.get(i).map_or("", String::as_str);
         let pairs = (sticks.len() >= 4).then(|| [[s(0), s(1)], [s(2), s(3)]]);
-        self.c.set_deck(&paths, pairs);
+        self.c.set_knobs(&knobs, pairs);
+        Ok(())
+    }
+
+    /// #369: where `value` sits on knob `path`'s range, 0..1 on its curve (NaN: the knob's default; no such knob: 0)
+    pub fn norm(&self, path: &str, value: f32) -> f32 {
+        self.c.norm(path, value)
+    }
+
+    /// #369: knob `path`'s value at `t` (0..1); undefined: no such knob
+    pub fn value_at(&self, path: &str, t: f32) -> Option<f32> {
+        self.c.value(path, t)
+    }
+
+    /// #369: a knob dragged by `dy` (screen y: up = more) from its value `start` – `travel` turns it end to end, `fine` a
+    /// tenth as fast: its value (undefined: no such knob)
+    pub fn turn(&self, path: &str, start: f32, dy: f32, travel: f32, fine: bool) -> Option<f32> {
+        self.c.turn(path, start, dy, travel, fine)
+    }
+
+    /// #369: a key (the DOM's `key`) on a knob at `value`: its new value (undefined: no such knob, or a key that doesn't turn it)
+    pub fn step(&self, path: &str, value: f32, key: &str, fine: bool) -> Option<f32> {
+        self.c.step(path, value, key, fine)
+    }
+
+    /// #228, #369: one poll of the first connected gamepad (the standard mapping's axes, its buttons pressed = non-zero;
+    /// empty = no pad) – what the page does, four numbers an event: `[kind, side, dx, dy]`, kind 0 a stick down · 1 its
+    /// deflection (y up) · 2 up · 3 the selection moved on (already: `selection`)
+    pub fn pad(&mut self, axes: Vec<f32>, buttons: Vec<u8>) -> Vec<f32> {
+        let mut pressed = [false; 16];
+        for (p, b) in pressed.iter_mut().zip(&buttons) {
+            *p = *b != 0;
+        }
+        self.c.pad(&axes, &pressed[..buttons.len().min(16)]).iter().flat_map(|e| e.code()).collect()
+    }
+
+    /// #209, #369: what the sticks drive in one line – `being` / `master` in the page's language
+    pub fn selection_line(&self, being: &str, master: &str) -> String {
+        self.c.selection_line(being, master)
+    }
+
+    /// #369: stick `side`'s [x, y] labels ("–" for an axis that drives nothing)
+    pub fn stick_labels(&self, side: usize) -> Vec<String> {
+        self.c.stick_labels(side).map(String::from).to_vec()
+    }
+
+    /// the knob that owns the sticks ("" none)
+    pub fn knob(&self) -> String {
+        self.c.knob().to_string()
     }
 
     /// `""` (the master section), `being`, `knob:<path>`, `object:<id>`
@@ -749,6 +799,12 @@ impl DeckControls {
     /// load `to_text`'s lines; the lines it couldn't use come back (the page says so)
     pub fn load_text(&mut self, text: &str) -> Vec<String> {
         self.c.load_text(text)
+    }
+}
+
+impl Default for DeckControls {
+    fn default() -> Self {
+        DeckControls::new()
     }
 }
 
@@ -881,6 +937,16 @@ impl DeckState {
     /// #368: the knobs as sliders labelled in `locale` (JSON: `[{path, min, max, value, log, label}]`)
     pub fn sliders(&self, locale: &str) -> String {
         json(&self.d.sliders(locale))
+    }
+
+    /// #369: where `value` sits on knob `path`'s range, 0..1 on its curve (NaN: its default; no such knob: 0)
+    pub fn norm(&self, path: &str, value: f32) -> f32 {
+        self.d.norm(path, value)
+    }
+
+    /// #369: knob `path`'s value at `t` (0..1); undefined: no such knob
+    pub fn value_at(&self, path: &str, t: f32) -> Option<f32> {
+        self.d.value_at(path, t)
     }
 
     /// #368: the being on the wire (a `deck.graph`, JSON) – the deck's own scene wears `character`

@@ -95,6 +95,10 @@ export interface DeckStateView {
 	graph(character: string): string;
 	/** where a value of a path goes in the engine ('' = nowhere) */
 	target(path: string): string;
+	/** #369: where a value sits on knob `path`'s range, 0..1 on its curve (NaN: its default; no such knob: 0) */
+	norm(path: string, value: number): number;
+	/** #369: knob `path`'s value at 0..1 (undefined: no such knob) */
+	value_at(path: string, t: number): number | undefined;
 	/** #370: the clock picker's choices (deck-core `ClockMode::ALL`) */
 	clock_modes(): string[];
 }
@@ -166,7 +170,7 @@ interface SpaceModule {
 		create(canvas: HTMLCanvasElement, deckGraph: string, values: string, prefer: string): Promise<SpaceView>;
 		encoded_images(glb: Uint8Array): unknown[];
 	};
-	DeckControls: new (paths: string[]) => DeckControlsView;
+	DeckControls: new () => DeckControlsView;
 	DeckMonitor: new () => MonitorView;
 	DeckState: new () => DeckStateView;
 }
@@ -188,10 +192,10 @@ function spaceModule(base: string): Promise<SpaceModule> {
 	return m;
 }
 
-/** #209: the deck's controls (deck-space's, as wasm – no GPU needed: they work when the 3D can't) over `paths` */
-export async function loadControls(base: string, paths: string[]): Promise<DeckControlsView> {
+/** #209: the deck's controls (deck-space's, as wasm – no GPU needed: they work when the 3D can't); the knobs come with `set_deck` */
+export async function loadControls(base: string): Promise<DeckControlsView> {
 	const mod = await spaceModule(base);
-	return new mod.DeckControls(paths);
+	return new mod.DeckControls();
 }
 
 /** #367, #368: the deck's state – deck-space's mood ladder and what plays, its own scene (the X1's cathedral, #360) at

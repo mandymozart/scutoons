@@ -23,6 +23,14 @@ pub struct Spec {
 }
 
 impl Spec {
+    /// 0..1, linear: a path without a range of its own
+    pub const UNIT: Spec = Spec { min: 0.0, max: 1.0, default: 0.0, curve: Curve::Lin };
+
+    /// a knob's range as a deck's scene names it (#369: the page's sliders, a rig's knobs – `log` for pitches, cutoffs, rates)
+    pub fn knob(min: f32, max: f32, default: f32, log: bool) -> Spec {
+        Spec { min, max, default, curve: if log { Curve::Log } else { Curve::Lin } }
+    }
+
     /// value → 0..1 (clamped)
     pub fn norm(&self, v: f32) -> f32 {
         let n = match self.curve {

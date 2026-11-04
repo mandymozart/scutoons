@@ -1,12 +1,11 @@
 // The browser deck's controls as page state (#209): the selection (the sticks follow it), MIDI learn and Web MIDI, the
 // mappings per deck – a thin layer over @scutoons/live-deck's Hands (which bridges deck-space's controls, wasm). The
 // route (/live/deck) and its panel read these runes; the logic stays in Rust (DECISIONS 2026-10-31).
-import { Hands, PadSticks, connectMidi, midiSupported, nextSelection, selectionNames, type MidiLink, type Spec } from '@scutoons/live-deck';
+import { Hands, connectMidi, midiSupported, pollPad, type MidiLink, type PadSink, type Spec } from '@scutoons/live-deck';
 import { m } from '$lib/paraglide/messages.js';
-import { sticksLine } from '$lib/live-deck.ts';
 
 export class DeckControlsState {
-	hands: Hands | null = null;
+	hands: Hands | null = $state.raw(null);
 	/** the being rings what the panel selects (SpaceView.select) */
 	onSelect: (name: string) => void = () => {};
 	selection = $state('');
@@ -16,47 +15,42 @@ export class DeckControlsState {
 	/** bumped when the mappings change: the knobs re-read their labels */
 	private tick = $state(0);
 	private midi: MidiLink | null = null;
-	/** #228: a Gamepad API pad on the two sticks and the selection (A cycles it) */
-	private pad: PadSticks;
+	/** #228: a Gamepad API pad on the two sticks and the selection (A / Y cycle it – the core's rules) */
+	private readonly pad: PadSink = {
+		stickDown: (side) => this.hands?.stickDown(side),
+		stickMove: (side, dx, dy) => this.hands?.stickMove(side, dx, dy),
+		stickUp: (side) => this.hands?.stickUp(side),
+		selected: () => this.choose(this.hands?.c.selection() ?? '', true)
+	};
 
-	constructor(private specs: Record<string, Spec>) {
-		this.pad = new PadSticks(
-			{
-				stickDown: (side) => this.hands?.stickDown(side),
-				stickMove: (side, dx, dy) => this.hands?.stickMove(side, dx, dy),
-				stickUp: (side) => this.hands?.stickUp(side)
-			},
-			() => this.choose(nextSelection(this.selection, selectionNames(Object.keys(this.specs))), true)
-		);
-	}
-
-	/** #228: once a frame (the page's loop) – the connected pad's sticks and A; nothing without controls */
+	/** #228: once a frame (the page's loop) – the connected pad's sticks and buttons; nothing without controls */
 	poll() {
 		if (!this.hands) return;
-		this.pad.poll(typeof navigator !== 'undefined' && navigator.getGamepads ? navigator.getGamepads() : []);
+		pollPad(this.hands.c, typeof navigator !== 'undefined' && navigator.getGamepads ? navigator.getGamepads() : [], this.pad);
 	}
 
 	/** #191: the deck's knobs changed (a rig's, or the deck's own scene's again) – the sticks and the selection follow */
 	useParams(specs: Record<string, Spec>, sticks: [string, string][] | null) {
-		this.specs = specs;
 		this.hands?.useParams(specs, sticks);
 		this.selection = this.hands?.selection ?? '';
 		this.tick++;
 	}
 
-	/** the panel's line: what the sticks drive now */
+	/** the panel's line: what the sticks drive now (the core's) */
 	readonly line = $derived.by(() => {
 		void this.selection;
-		const h = this.hands;
-		const of = (p: string) => this.specs[p]?.label;
-		return sticksLine(this.selection, of, h?.sticks(0) ?? [], h?.sticks(1) ?? [], { being: m['live_deck.being'](), master: m['live_deck.master']() });
+		void this.tick;
+		return this.hands?.c.selection_line(m['live_deck.being'](), m['live_deck.master']()) ?? '';
 	});
 
 	/** the knob that owns the sticks (its path, "" none) */
-	readonly knob = $derived(this.selection.startsWith('knob:') ? this.selection.slice(5) : '');
+	readonly knob = $derived.by(() => {
+		void this.selection;
+		return this.hands?.c.knob() ?? '';
+	});
 
-	/** stick `side`'s [x, y] labels now */
-	labels = (side: number) => (this.hands?.sticks(side) ?? []).map((p) => (p ? (this.specs[p]?.label ?? p) : '–'));
+	/** stick `side`'s [x, y] labels now (the core's) */
+	labels = (side: number) => [...(this.hands?.c.stick_labels(side) ?? [])];
 
 	/** what drives `path` over MIDI */
 	mapped = (path: string) => (this.tick >= 0 && this.hands ? this.hands.mapped(path) : '');
@@ -128,7 +122,8 @@ export class DeckControlsState {
 	}
 
 	close() {
-		this.pad.reset();
+		// no pad: the sticks that were down go up
+		if (this.hands) pollPad(this.hands.c, [], this.pad);
 		this.midi?.close();
 		this.hands?.c.free?.();
 	}

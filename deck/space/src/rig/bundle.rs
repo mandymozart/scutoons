@@ -47,6 +47,11 @@ impl Knob {
     pub fn label_in(&self, locale: &str) -> &str {
         self.label.get(locale).or_else(|| self.label.get("en")).or_else(|| self.label.values().next()).map_or(&self.path, String::as_str)
     }
+
+    /// its range as a parameter (#369: value ↔ 0..1 on its curve, params.rs)
+    pub fn spec(&self) -> crate::params::Spec {
+        crate::params::Spec::knob(self.min, self.max, self.value, self.log)
+    }
 }
 
 /// How a streamed path moves (#368, the deck stream's epsilon per kind – live-deck client.ts `PathKind`): a knob's input

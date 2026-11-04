@@ -1,27 +1,16 @@
 // `npm test -w scutoons-creator`: the deck half's signal strip model (lib/editor/signal-strip.ts, #282).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { inputMeters, knobColumns, knobName, knobPosition, outputMeters, sameColumns, stripStatus } from '../src/lib/editor/signal-strip.ts';
+import { inputMeters, knobColumns, knobName, outputMeters, sameColumns, stripStatus } from '../src/lib/editor/signal-strip.ts';
 
-test('a knob sits in its range, a log knob on its log scale, out of range is clamped', () => {
-	assert.equal(knobPosition(5, 0, 10), 0.5);
-	assert.equal(knobPosition(-3, 0, 10), 0);
-	assert.equal(knobPosition(99, 0, 10), 1);
-	assert.ok(Math.abs(knobPosition(632.455, 20, 20000, true) - 0.5) < 1e-3);
-	assert.equal(knobPosition(1, 5, 5), 0, 'an empty range is 0');
-	assert.equal(knobPosition(Number.NaN, 0, 1), 0);
-});
-
-test('columns follow the rig order with labels and live values; a missing value reads as the minimum', () => {
-	const knobs = [
-		{ path: 'a_osc.freq', min: 20, max: 2000, label: { en: 'Pitch', de: 'Ton' } },
-		{ path: 'a_osc.gain', min: 0, max: 1 }
-	];
-	const cols = knobColumns(knobs, { 'a_osc.gain': 0.25 }, 'de');
+test('columns follow the rig order with labels; the position is the core’s (#369: Deck.norm)', () => {
+	const knobs = [{ path: 'a_osc.freq', label: { en: 'Pitch', de: 'Ton' } }, { path: 'a_osc.gain' }];
+	const at = (gain: number) => ({ norm: (p: string) => (p === 'a_osc.gain' ? gain : 0) });
+	const cols = knobColumns(knobs, at(0.25), 'de');
 	assert.deepEqual(cols.map((c) => [c.path, c.label, c.position]), [['a_osc.freq', 'Ton', 0], ['a_osc.gain', 'gain', 0.25]]);
-	assert.equal(knobName({ path: 'x.y', min: 0, max: 1, label: { fr: 'Hauteur' } }), 'Hauteur');
-	assert.ok(sameColumns(cols, knobColumns(knobs, { 'a_osc.gain': 0.255 }, 'de')));
-	assert.ok(!sameColumns(cols, knobColumns(knobs, { 'a_osc.gain': 0.5 }, 'de')));
+	assert.equal(knobName({ path: 'x.y', label: { fr: 'Hauteur' } }), 'Hauteur');
+	assert.ok(sameColumns(cols, knobColumns(knobs, at(0.255), 'de')));
+	assert.ok(!sameColumns(cols, knobColumns(knobs, at(0.5), 'de')));
 });
 
 test('output meters: one per reported reading as the core gave it, padded with dim slots', () => {

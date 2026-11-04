@@ -1,5 +1,5 @@
 {
-	"$comment": "check:deck-deps (#363 part B): the deck logic the native platform crate still holds (BRIDGE-AUDIT.md §1, the native layer) – recorded, not moved; the move tickets move it (#374 the HUD / bar / F4 / F5 model out of main.rs, #364 the stats, #365 the lead, #369 the pad rules, #371 the sync, #378 the Live outlet, #360 carried_part, #366 the relay join). The ratchet: main.rs may not grow (lines) or gain a function; each file below may not grow; a logic function that disappeared from main.rs is a move done – drop its line (`npm run check:deck-deps -- --shrink`). Growth needs the owner: Owner-approved-baseline in a commit message.",
+	"$comment": "check:deck-deps (#363 part B): the deck logic the native platform crate still holds (BRIDGE-AUDIT.md §1, the native layer) – recorded, not moved; the move tickets move it (#374 the HUD / bar / F4 / F5 model out of main.rs, #364 the stats, #365 the lead, #371 the sync, #378 the Live outlet, #360 carried_part, #366 the relay join). The ratchet: main.rs may not grow (lines) or gain a function; each file below may not grow; a logic function that disappeared from main.rs is a move done – drop its line (`npm run check:deck-deps -- --shrink`). Growth needs the owner: Owner-approved-baseline in a commit message.",
 	"main": {
 		"file": "deck/native/src/main.rs",
 		"lines": 1998,
@@ -87,11 +87,6 @@
 			"lines": 314,
 			"ticket": "#374",
 			"what": "the F5 scene switcher's list model"
-		},
-		"deck/native/src/pad.rs": {
-			"lines": 258,
-			"ticket": "#369",
-			"what": "the gamepad's press / release and selection rules"
 		},
 		"deck/native/src/sync.rs": {
 			"lines": 817,
