@@ -10,6 +10,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+/// How long a test waits for something to HAPPEN before it gives up (#382): a deadline, not a measurement - paid only when
+/// the test fails, so wide enough for a machine running three builds. Tests do not assert how long things took.
+pub const PATIENCE: Duration = Duration::from_secs(60);
+
 /// a free port in the agreed slot (7000–7099), held by the listener
 pub fn listen() -> TcpListener {
     let start = 7000 + (std::process::id() % 50) as u16 + 50;
@@ -136,9 +140,9 @@ pub fn scene() -> Needs {
 /// wait until the sync has settled every want of `needs`
 pub fn settle(sync: &DeckSync, needs: &Needs) {
     for w in needs.wants() {
-        assert!(sync.wait(w.clone(), Duration::from_secs(10)), "{w:?} settled");
+        assert!(sync.wait(w.clone(), PATIENCE), "{w:?} settled");
     }
-    let until = Instant::now() + Duration::from_secs(5);
+    let until = Instant::now() + PATIENCE;
     while sync.board.lock().unwrap().busy && Instant::now() < until {
         std::thread::sleep(Duration::from_millis(5));
     }

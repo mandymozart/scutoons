@@ -132,6 +132,11 @@ impl Instance {
     pub fn with_mode(loaded: &Arc<Loaded>, rate: f64, seed: u64, mode: deck_module_host::Mode) -> Result<Instance> {
         deck_module_host::Instance::new(&loaded.host, deck_module_host::Setup::new(rate, seed).mode(mode)).map(Instance)
     }
+
+    /// … from a `Setup` of its own (the tests': `Setup::unbudgeted()`, #382 – a deck uses `with_mode`)
+    pub fn with_setup(loaded: &Arc<Loaded>, setup: deck_module_host::Setup) -> Result<Instance> {
+        deck_module_host::Instance::new(&loaded.host, setup).map(Instance)
+    }
 }
 
 impl Instance {

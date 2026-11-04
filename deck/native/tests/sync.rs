@@ -114,7 +114,7 @@ fn offline_the_stage_plays_from_the_cache() {
     assert_eq!(sync.line(), "SYNC OFFLINE - FROM THE CACHE");
     assert!(cache.join("sets/cathedral/cathedral.low.glb").is_file(), "the cache is untouched");
     // a character wanted later doesn't wait either
-    assert!(sync.wait(Want::Portrait { character: "yellowmouse".into(), mood: "neutral".into() }, Duration::from_secs(5)));
+    assert!(sync.wait(Want::Portrait { character: "yellowmouse".into(), mood: "neutral".into() }, PATIENCE));
     let _ = std::fs::remove_dir_all(&cache);
 }
 
@@ -124,15 +124,15 @@ fn a_character_wanted_later_is_asked_for_then() {
     let cache = dir("later");
     let sync = DeckSync::start(stub.config(&cache));
     // a deck joins the conductor: its head asks for catpope's neutral sprite; no prepare named it
-    assert!(sync.wait(Want::Portrait { character: "catpope".into(), mood: "neutral".into() }, Duration::from_secs(10)));
+    assert!(sync.wait(Want::Portrait { character: "catpope".into(), mood: "neutral".into() }, PATIENCE));
     let api = stub.hits("/api/");
     assert_eq!(api.len(), 1);
     assert!(api[0].contains("sets=&characters=catpope"), "{}", api[0]);
     assert!(cache.join("portraits/catpope/catpope_portrait-neutral.png").is_file());
     // an unknown set is named an error, the stage keeps going
     *stub.api.lock().unwrap() = r#"{"sets":{},"characters":{},"missing":{"sets":["crypt"],"characters":[]}}"#.into();
-    assert!(sync.wait(Want::Set { id: "crypt".into(), quality: "low".into() }, Duration::from_secs(10)));
-    let until = Instant::now() + Duration::from_secs(5);
+    assert!(sync.wait(Want::Set { id: "crypt".into(), quality: "low".into() }, PATIENCE));
+    let until = Instant::now() + PATIENCE;
     while sync.board.lock().unwrap().busy && Instant::now() < until {
         std::thread::sleep(Duration::from_millis(5));
     }

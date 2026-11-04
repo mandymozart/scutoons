@@ -72,9 +72,9 @@ impl Drop for Stage {
     }
 }
 
-/// step every stage until `done` (10 s at most)
+/// step every stage until `done` (PATIENCE at most)
 fn run(stages: &mut [&mut Stage], t: &mut f32, what: &str, done: &mut dyn FnMut(&[&mut Stage]) -> bool) {
-    let until = Instant::now() + Duration::from_secs(10);
+    let until = Instant::now() + PATIENCE;
     while Instant::now() < until {
         for s in stages.iter_mut() {
             s.step(*t);

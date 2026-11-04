@@ -5,13 +5,15 @@
 //! hostile imports, memory) are the conformance suite of deck-module-host, generic over its backend. The wasm is built
 //! here with the wasm32 target (`rustup target add wasm32-unknown-unknown`), into its own target dir.
 #![cfg(feature = "modules")]
-use deck_native::audio::{Build, Engine};
+use deck_engine::{DeckConfig, Engine, ModuleSource, Opened, Seams, Sequencing};
+use deck_module_host::{Mode, Setup};
+use deck_native::audio::{detect_build, detect_sequencing, Build};
 use deck_native::graph::{Graph, Kind};
 use deck_native::module_host::{Instance, Library};
 use deck_native::modules;
 use deck_native::scene::Scene;
 use std::path::PathBuf;
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 fn deck_root() -> PathBuf {
@@ -53,6 +55,34 @@ fn analog() -> Vec<u8> {
 }
 
 const RATE: f64 = 48_000.0;
+
+/// The module source of these tests (#382): what the deck's `audio::modules::Global` does - the show mode, the library's
+/// modules - but every instance without a wall-clock deadline (`Setup::unbudgeted`). The tests here prove what the modules
+/// play, not how fast; with the deck's 4 x quantum ceiling a loaded machine (three builds at once) traps a call and
+/// silences the module. Only the test support builds engines this way: a deck opens its modules with `Global`.
+struct Unbudgeted;
+
+impl ModuleSource for Unbudgeted {
+    fn open(&self, kind: deck_space::modreg::ModuleKind, rate: f64, seed: u64) -> anyhow::Result<Opened> {
+        let loaded = Library::global().of_kind(kind).ok_or_else(|| anyhow::anyhow!("the module '{}' is not loaded", kind.spec().kind))?;
+        let instance = Instance::with_setup(&loaded, Setup::new(rate, seed).mode(Mode::Show).unbudgeted())?.into_host();
+        Ok(Opened { instance: Box::new(instance), layout: loaded.layout.clone(), params: loaded.desc.params.len() })
+    }
+}
+
+/// an engine on `channels` device channels with the unbudgeted modules, and the restart loader a deck runs
+fn engine(graph: &Graph, build: Build, seq: Sequencing, channels: usize) -> (Engine, deck_engine::Handles) {
+    let mut seams = Seams::with_deck(DeckConfig::device(channels));
+    seams.modules = Some(Arc::new(Unbudgeted));
+    let (e, mut h) = Engine::build_seams(graph, RATE as f32, 1.0, build, seq, &seams).unwrap();
+    let _ = deck_native::audio::modules::spawn_loader(std::mem::take(&mut h.restarts));
+    (e, h)
+}
+
+/// `Engine::build_for` of the deck's audio (its detected build and sequencing) with the unbudgeted modules
+fn engine_for(graph: &Graph, channels: usize) -> (Engine, deck_engine::Handles) {
+    engine(graph, detect_build(), detect_sequencing(), channels)
+}
 
 #[test]
 fn a_module_is_read_checked_and_registered_without_running_it() {
@@ -107,7 +137,7 @@ fn walk_scene(kind: &str) -> Scene {
 fn render(scene: &Scene, seconds: usize) -> Vec<f32> {
     modules::check(scene).unwrap();
     let g = Graph::build(scene).unwrap();
-    let (mut e, _h) = Engine::build_with(&g, RATE as f32, 1.0, Build::detect()).unwrap();
+    let (mut e, _h) = engine(&g, Build::detect(), Sequencing::InBlock, 2);
     let mut out = Vec::new();
     // device-sized buffers, as the callback gets them
     for _ in 0..seconds * 48_000 / 512 {
@@ -196,7 +226,7 @@ fn the_walk_plays_the_analog_synth_through_note_events() {
 fn module_costs() {
     let l = Library::global().load(&walk()).unwrap();
     let t = Instant::now();
-    let mut i = Instance::new(&l, RATE, 42).unwrap();
+    let mut i = Instance::with_setup(&l, Setup::new(RATE, 42).unbudgeted()).unwrap();
     let inst = t.elapsed();
     i.set_param(0, 1.0);
     i.set_param(1, 8.0);
@@ -258,7 +288,7 @@ fn a_module_is_a_node_with_channel_slices_and_control_outputs() {
     assert_eq!(kind.outputs().iter().map(|p| p.name).collect::<Vec<_>>(), ["out", "wide_out", "level", "tilt", "info"]);
     assert_eq!(kind.inputs()[1].channels, Some(deck_catalog::Channels::Count(5)));
     let o2 = g.nodes.iter().position(|n| n.id == "o2").unwrap();
-    let (mut e, _h) = Engine::build_for(&g, RATE as f32, 1.0, 5).unwrap();
+    let (mut e, _h) = engine_for(&g, 5);
     let mut heard = 0;
     let mut info = Vec::new();
     for _ in 0..16 {
@@ -277,12 +307,12 @@ fn a_trapped_module_restarts_in_a_show() {
     let g = v2_scene("mode=1");
     let fx = g.nodes.iter().position(|n| n.id == "fx").unwrap();
     let mode = g.nodes[fx].kind.input("mode").unwrap();
-    let (mut e, _h) = Engine::build_for(&g, RATE as f32, 1.0, 5).unwrap();
+    let (mut e, _h) = engine_for(&g, 5);
     assert_eq!(wide_frames(&quantum5(&mut e)), 0, "it panics on its first call");
     assert!(e.control_mut().set_base(fx, mode, 0.0), "play again from the next call");
     let t = Instant::now();
     let mut heard = 0;
-    while heard < 1000 && t.elapsed() < Duration::from_secs(10) {
+    while heard < 1000 && t.elapsed() < Duration::from_secs(60) {
         heard += wide_frames(&quantum5(&mut e));
         std::thread::sleep(Duration::from_millis(1));
     }
@@ -295,7 +325,7 @@ fn a_trapped_module_restarts_in_a_show() {
 fn a_module_takes_and_gives_events() {
     use deck_events::{Event, Time};
     let g = v2_scene("");
-    let (mut e, mut h) = Engine::build_for(&g, RATE as f32, 1.0, 5).unwrap();
+    let (mut e, mut h) = engine_for(&g, 5);
     let names = &h.events.names;
     let (note, pitch) = (names.get("music.note").unwrap(), names.get("pitch").unwrap());
     let routing = h.events.take_routing();

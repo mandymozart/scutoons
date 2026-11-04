@@ -181,7 +181,7 @@ fn render_driven(text: &str, drive: Drive, mut send: impl FnMut(usize, &Names, &
             let want = h.clock.rendered() + 256;
             let t0 = std::time::Instant::now();
             while p.load(std::sync::atomic::Ordering::Acquire) < want {
-                assert!(t0.elapsed().as_secs() < 5, "the sequencer thread keeps up");
+                assert!(t0.elapsed().as_secs() < 60, "the sequencer thread keeps up");
                 std::thread::yield_now();
             }
         }

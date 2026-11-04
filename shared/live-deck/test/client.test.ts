@@ -212,7 +212,11 @@ function conductor(url: string): Promise<{ msgs: Envelope[]; ws: WebSocket }> {
 	});
 }
 
-const until = async (what: () => boolean, ms = 5000) => {
+/** How long a test waits for something to HAPPEN before it gives up (#382): a deadline, not a measurement - paid only when
+ *  the test fails, so wide enough for a machine running three builds. No test here asserts how long something took. */
+const PATIENCE = 60_000;
+
+const until = async (what: () => boolean, ms = PATIENCE) => {
 	const end = Date.now() + ms;
 	while (!what()) {
 		if (Date.now() > end) throw new Error('timed out');
@@ -231,7 +235,7 @@ test('in process: a relay, a conductor, the deck – graph first, values rate-li
 	try {
 		const url = `ws://127.0.0.1:${port}/live/LAB`;
 		let c: Awaited<ReturnType<typeof conductor>> | null = null;
-		const end = Date.now() + 5000;
+		const end = Date.now() + PATIENCE;
 		while (!c) {
 			try {
 				c = await conductor(url);
@@ -243,13 +247,11 @@ test('in process: a relay, a conductor, the deck – graph first, values rate-li
 		const deck = new DeckLink({ relay: url, graph: ownGraph(), socket: WebSocket as never, core: relayCore() });
 		deck.setStream(OWN.streamed);
 		await until(() => deck.joined);
-		// 1 s of values at 120 frames a second, through the core's stream
-		const t0 = performance.now();
-		let f = 0;
-		while (performance.now() - t0 < 1000) {
-			deck.sample((performance.now() - t0) / 1000, (p) => (p === 'fft.level' ? Math.abs(Math.sin(f)) : (OWN_PARAMS[p]?.value ?? 0)), f > 60 ? 'happy' : 'neutral');
-			f++;
-			await new Promise((r) => setTimeout(r, 8));
+		// 1 s of values at 120 frames a second, through the core's stream - counted frames on the core's own time (the `time`
+		// argument), not the wall's: the rate limit is the core's, a loaded machine cannot stretch the second (#382)
+		for (let f = 0; f < 120; f++) {
+			deck.sample(f / 120, (p) => (p === 'fft.level' ? Math.abs(Math.sin(f)) : (OWN_PARAMS[p]?.value ?? 0)), f > 60 ? 'happy' : 'neutral');
+			await new Promise((r) => setTimeout(r, 0));
 		}
 		await until(() => c!.msgs.some((m) => m.kind === 'deck.values' && m.p.mood === 'happy'));
 		const mine = c.msgs.filter((m) => m.from === deck.client);
@@ -282,7 +284,7 @@ test("#321 in process: the show clock – a pong with the real t0, a leading dec
 		const core = relayCore();
 		const link = (o: Partial<ConstructorParameters<typeof DeckLink>[0]>) => new DeckLink({ relay: url, graph: ownGraph(), socket: WebSocket as never, core, ...o });
 		// the relay is up once a conductor gets in
-		const end = Date.now() + 5000;
+		const end = Date.now() + PATIENCE;
 		for (;;) {
 			try {
 				(await conductor(url)).ws.close();
