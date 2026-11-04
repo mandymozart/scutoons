@@ -18,8 +18,10 @@
 //! Records follow each other without padding (each is a multiple of 4 bytes). The analysis frame going out is not a
 //! record but a block of f32: level, bass, mid, high, then the `SPECTRUM` bins, then the limiter's gain reduction (dB,
 //! the deepest since the last frame – #188), then (#282) the number of device channels and `MAX_OUTPUTS` peaks (0..1,
-//! each channel's largest sample since the last frame; the slots past the count stay 0), then (P6, #320) the number of
-//! values and the values themselves: every load-table row's inputs and outputs of the heard block, from the row's `at`.
+//! each channel's largest sample, HELD and falling – deck-core `meters`, #373; the slots past the count stay 0), their
+//! places on the meter's dB scale (0..1 from the bottom) and their zones (a code of `meters::Zone`), the limiter's bar
+//! (0..1), then (P6, #320) the number of values and the values themselves: every load-table row's inputs and outputs of
+//! the heard block, from the row's `at`.
 //! Device messages leave in their own records (signals.rs).
 
 use crate::layout::{Field, Ty};
@@ -56,8 +58,14 @@ pub const OUTPUT_COUNT: usize = REDUCTION + 1;
 pub const PEAKS: usize = REDUCTION + 2;
 /// the most channels a frame carries peaks for (deck-engine's device channel limit)
 pub const MAX_OUTPUTS: usize = 32;
+/// … of the first channel's place on the meter's dB scale (#373)
+pub const POSITIONS: usize = PEAKS + MAX_OUTPUTS;
+/// … of the first channel's zone (the code of `deck_core::meters::Zone`)
+pub const ZONES: usize = POSITIONS + MAX_OUTPUTS;
+/// … of the limiter's gain reduction as a 0..1 bar
+pub const LIMITER_BAR: usize = ZONES + MAX_OUTPUTS;
 /// … of the number of values that follow
-pub const VALUE_COUNT: usize = PEAKS + MAX_OUTPUTS;
+pub const VALUE_COUNT: usize = LIMITER_BAR + 1;
 /// … of the first value
 pub const VALUES_AT: usize = VALUE_COUNT + 1;
 /// the analysis frame's fixed part: 4 bands + the spectrum + the reduction + the channel count + the peaks + the value

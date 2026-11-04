@@ -64,20 +64,8 @@ pub const FIELDS: [Field; 5] = [
 /// The bytes one drain holds at most (a stalled page must not grow the core's memory): more is dropped.
 pub const CAP: usize = 64 * 1024;
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum OscArg {
-    Int(i32),
-    Float(f32),
-    Str(String),
-    Bool(bool),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Signal<'a> {
-    Midi { conductor: bool, bytes: &'a [u8] },
-    Dmx { ch: u16, values: &'a [u8], flash: bool },
-    Osc { address: &'a str, args: &'a [OscArg] },
-}
+/// the message model is deck-core's (devices.rs: also the words a monitor shows – #373)
+pub use deck_core::devices::{OscArg, Signal};
 
 /// Appends `s` (at `at_ms`) to `out` as a record; returns false (nothing written) when `out` would pass `CAP`.
 pub fn encode(out: &mut Vec<u8>, at_ms: u32, s: Signal) -> bool {

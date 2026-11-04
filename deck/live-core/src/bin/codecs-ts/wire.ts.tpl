@@ -8,11 +8,14 @@
 // Node and port are indices from the load table (names are resolved once, at load – JSON stays at the edge).
 // The analysis frame going out is a block of f32: @@BANDS@@, then SPECTRUM bins, then the limiter's gain reduction (dB,
 // the deepest since the last frame – #188), then (#282) the number of device channels and MAX_OUTPUTS peaks (0..1, each
-// channel's largest sample since the last frame), then (#320) the number of values and the values: every load-table
+// channel's largest sample, held and falling – deck-core's meters, #373), their places on the meter's dB scale (0..1 from
+// the bottom), their zones, the limiter's bar (0..1), then (#320) the number of values and the values: every load-table
 // row's inputs and outputs of the heard block, from the row's `at`. Device messages come in their own records
 // (signals.ts).
 
 @@CONSTS@@
+
+@@METER@@
 
 @@MODES@@
 
@@ -109,6 +112,12 @@ export interface Analysis {
 	/** #282: one peak (0..1) per device channel – the largest sample since the last frame; a view on `frame`, as many as
 	 * the engine renders */
 	outputs: Float32Array;
+	/** #373: where each output sits on the meter's dB scale, 0..1 from the bottom – a view, as many as `outputs` */
+	positions: Float32Array;
+	/** #373: each output's zone as a code – an index into `METER_ZONES` – a view, as many as `outputs` */
+	zones: Float32Array;
+	/** #373: the limiter's gain reduction as a 0..1 bar (full at 12 dB) */
+	limiterBar: number;
 	/** #320: the heard block's values of every load-table row (its inputs, then its outputs, from its `at`) – a view */
 	values: Float32Array;
 }
@@ -121,5 +130,8 @@ export const analysisOf = (frame: Float32Array): Analysis => ({
 	spectrum: frame.subarray(SPECTRUM_AT, SPECTRUM_AT + SPECTRUM),
 	reduction: frame[REDUCTION] ?? 0,
 	outputs: frame.subarray(PEAKS, PEAKS + counted(frame[OUTPUT_COUNT], MAX_OUTPUTS)),
+	positions: frame.subarray(POSITIONS, POSITIONS + counted(frame[OUTPUT_COUNT], MAX_OUTPUTS)),
+	zones: frame.subarray(ZONES, ZONES + counted(frame[OUTPUT_COUNT], MAX_OUTPUTS)),
+	limiterBar: frame[LIMITER_BAR] ?? 0,
 	values: frame.subarray(VALUES_AT, VALUES_AT + counted(frame[VALUE_COUNT], MAX_FRAME_VALUES))
 });

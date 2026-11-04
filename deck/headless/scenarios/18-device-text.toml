@@ -1,0 +1,40 @@
+name = "a device message's text, the lamps and the meters come from the core"
+about = "#373: deck-core's devices.rs (the line a monitor shows for a MIDI / DMX / OSC message, the count, the activity that decays 0.4 s) and meters.rs (held peaks that fall 0.25 s, the dB scale, the zones, the limiter's bar). The browser's DeckMonitor and live-core's analysis frame run exactly these; a native HUD feeds the same. Native and wasm32 give the same text and activity"
+
+# the same script on every target: a CC, a note (the later MIDI line wins), a DMX range, an OSC message with typed arguments
+[[step]]
+do = "device_text"
+with = { read_at = 600, messages = [
+    { at = 0, kind = "midi", port = "out", bytes = [176, 74, 127] },
+    { at = 100, kind = "midi", port = "conductor", bytes = [144, 60, 127] },
+    { at = 100, kind = "dmx", ch = 20, values = [255, 255], flash = false },
+    { at = 200, kind = "osc", address = "/fx/level", args = [{ kind = "float", p = 0.5 }, { kind = "string", p = "hi" }, { kind = "bool", p = true }] },
+] }
+expect = { midi = { count = 2, text = "note on 60 · vel 127 · ch 1 → conductor", active = true, activity = { near = 0.2865, tol = 0.0001 } }, dmx = { count = 1, text = "DMX 20–21 = 255 255", active = true }, osc = { count = 1, text = "/fx/level 0.5 \"hi\" true", activity = { near = 0.3679, tol = 0.0001 }, active = true } }
+
+# 0.4 s per 1/e: after a second the lamps are dark, the rows (and their lines) stay
+[[step]]
+do = "device_text"
+with = { read_at = 1200, messages = [
+    { at = 0, kind = "midi", port = "out", bytes = [176, 74, 127] },
+    { at = 100, kind = "dmx", ch = 7, values = [255], flash = true },
+] }
+expect = { midi = { count = 1, text = "CC 74 = 127 · ch 1", active = false }, dmx = { text = "DMX 7 = 255 · flash", active = false }, osc = { count = 0, text = "", activity = 0, active = false }, rows = { has = "dmx" } }
+
+# nothing sent, nothing shown
+[[step]]
+do = "device_text"
+with = { messages = [] }
+expect = { midi = { count = 0, text = "" }, rows = [] }
+
+# meters: a peak is clamped to 0..1, read in dB (silence is the floor), placed on the scale and put in a zone
+[[step]]
+do = "meters"
+with = { limiter_db = 6.0, frames = [{ dt = 0.0167, peaks = [1.0, 0.5, 0.0, 7.0] }] }
+expect = { held = [1.0, 0.5, 0.0, 1.0], db = [0.0, -6.0206, -48.0, 0.0], zones = ["clip", "hot", "ok", "clip"], limiter_bar = 0.5 }
+
+# …held: with no new peak the level falls ×1/e per 0.25 s; a higher one replaces it at once
+[[step]]
+do = "meters"
+with = { frames = [{ dt = 0.0167, peaks = [1.0, 1.0] }, { dt = 0.25, peaks = [0.0, 0.0] }, { dt = 0.0, peaks = [0.0, 0.9] }] }
+expect = { held = [0.3679, 0.9], zones = ["hot", "clip"] }

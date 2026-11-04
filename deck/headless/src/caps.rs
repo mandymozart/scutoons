@@ -8,7 +8,9 @@
 //! crate, built for native and wasm); its arm here calls it and turns the answer into the JSON the scenario expects; the
 //! scenario passes, the runner then fails on its `expected_fail` (an expected failure that passes) – remove the line.
 //! No logic is written here: an arm that computes the answer itself is the same defect in a third place.
+use deck_core::devices::{DeviceMonitor, Kind, OscArg, Signal};
 use deck_core::lead::{AdaptiveLead, DeviceClass};
+use deck_core::meters::{self, Meters};
 use deck_core::monitor::{AudioWindow, Monitor};
 use deck_space::deck::Deck;
 use deck_space::mood::Ladder;
@@ -35,14 +37,13 @@ pub const CAPS: &[(&str, &str, &str, &str)] = &[
     ("relay_join", "#366", "the relay client as a sans-IO state machine: hello, welcome, backoff, ping, status text", "native space/link.rs, live/client.rs; live-deck client.ts; viewer live-vote-link.ts"),
     ("knob", "#369", "the controls' rules: knob turn, value and position, gamepad press and release", "live-deck controls.ts, gamepad.ts, scene.ts toValue / toPos; native pad.rs"),
     ("sync", "#371", "the conductor's scene sync: items, progress, the PUSH line", "native sync.rs push_line, live-deck sync.ts"),
-    ("device_text", "#373", "a device message's text and the meter ballistics", "engine-host monitor.ts describeSignal, meters.ts; creator signal-strip.ts"),
     ("quality_options", "#375", "the quality page's option tables (fps caps, ratios, sizes) and labels", "native quality.rs Page, deck-quality-sheet.svelte"),
     ("gesture", "#376", "stage gestures: the pinch and the two-finger state machine", "live-deck space.ts bind, native main.rs space_event"),
     ("transport", "#359", "transport as engine state: start / stop / continue / position, sequencers following it", "nowhere yet (the MIDI clock's Start / Stop only move the tempo map)"),
 ];
 
 /// the steps the core answers now (their move tickets landed): name, ticket
-pub const MOVED: &[(&str, &str)] = &[("stats", "#364"), ("lead", "#365"), ("mood", "#367"), ("rig_facts", "#368")];
+pub const MOVED: &[(&str, &str)] = &[("stats", "#364"), ("lead", "#365"), ("mood", "#367"), ("rig_facts", "#368"), ("device_text", "#373"), ("meters", "#373")];
 
 /// Call the capability `name` with the step's input: its answer, or what is missing.
 pub fn call(name: &str, input: &Value) -> Result<Value, Missing> {
@@ -51,6 +52,8 @@ pub fn call(name: &str, input: &Value) -> Result<Value, Missing> {
         "lead" => return Ok(lead(input)),
         "mood" => return Ok(mood(input)),
         "rig_facts" => return Ok(rig_facts(input)),
+        "device_text" => return Ok(device_text(input)),
+        "meters" => return Ok(meters(input)),
         _ => {}
     }
     match CAPS.iter().find(|c| c.0 == name) {
@@ -165,4 +168,64 @@ fn rig_facts(i: &Value) -> Value {
     out["reload"] = json!(turn.map(|t| t.reload));
     out["changed"] = json!(changed);
     out
+}
+
+/// #373: deck-core's device-message monitor fed like an adapter feeds it – `messages` ({ at (ms), kind = midi | dmx | osc, … }
+/// as protocol/schema.json's `DeviceMsg`) – then read at `read_at` ms (default: the last message's): per protocol the
+/// count, the line, the activity and whether the lamp is lit.
+fn device_text(i: &Value) -> Value {
+    let mut m = DeviceMonitor::new();
+    let bytes = |v: &Value| v.as_array().into_iter().flatten().filter_map(Value::as_u64).map(|b| b as u8).collect::<Vec<u8>>();
+    let mut last = 0.0;
+    for msg in i.get("messages").and_then(Value::as_array).into_iter().flatten() {
+        let at = num(msg, "at", 0.0);
+        last = at;
+        match msg.get("kind").and_then(Value::as_str).unwrap_or_default() {
+            "midi" => m.push(&Signal::Midi { conductor: msg.get("port").and_then(Value::as_str) == Some("conductor"), bytes: &bytes(&msg["bytes"]) }, at),
+            "dmx" => m.push(&Signal::Dmx { ch: num(msg, "ch", 1.0) as u16, values: &bytes(&msg["values"]), flash: msg.get("flash").and_then(Value::as_bool).unwrap_or(false) }, at),
+            "osc" => {
+                let args: Vec<OscArg> = msg
+                    .get("args")
+                    .and_then(Value::as_array)
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|a| {
+                        let p = &a["p"];
+                        OscArg::named(a["kind"].as_str()?, p.as_f64().or_else(|| p.as_bool().map(f64::from)).unwrap_or(0.0), p.as_str().unwrap_or_default())
+                    })
+                    .collect();
+                m.push(&Signal::Osc { address: msg["address"].as_str().unwrap_or_default(), args: &args }, at);
+            }
+            _ => {}
+        }
+    }
+    let now = num(i, "read_at", last);
+    let mut out = serde_json::Map::new();
+    for k in Kind::ALL {
+        let activity = m.activity(k, now);
+        out.insert(k.name().into(), json!({ "count": m.count(k), "text": m.text(k), "activity": crate::deck::round(activity, 4), "active": activity >= deck_core::devices::LIT }));
+    }
+    out.insert("rows".into(), json!(m.rows(now).iter().map(|r| r.kind.name()).collect::<Vec<_>>()));
+    Value::Object(out)
+}
+
+/// #373: deck-core's meters fed like the engine feeds them – `frames` ({ dt (s), peaks }) – then what a page draws: the held
+/// peaks, their places on the dB scale, their zones; the limiter's bar for `limiter_db`.
+fn meters(i: &Value) -> Value {
+    let list = |v: &Value| v.as_array().into_iter().flatten().filter_map(Value::as_f64).map(|x| x as f32).collect::<Vec<f32>>();
+    let frames: Vec<&Value> = i.get("frames").and_then(Value::as_array).into_iter().flatten().collect();
+    let n = frames.iter().map(|f| list(&f["peaks"]).len()).max().unwrap_or(0);
+    let mut m = Meters::new(n);
+    for f in &frames {
+        m.push(&list(&f["peaks"]), num(f, "dt", 0.0) as f32);
+    }
+    let r4 = |x: f32| crate::deck::round(f64::from(x), 4);
+    let readings: Vec<_> = (0..n).map(|k| m.reading(k)).collect();
+    json!({
+        "held": readings.iter().map(|r| r4(r.level)).collect::<Vec<_>>(),
+        "db": m.held().iter().map(|&x| r4(meters::level_db(x))).collect::<Vec<_>>(),
+        "positions": readings.iter().map(|r| r4(r.position)).collect::<Vec<_>>(),
+        "zones": readings.iter().map(|r| r.zone.name()).collect::<Vec<_>>(),
+        "limiter_bar": r4(meters::limiter_bar(num(i, "limiter_db", 0.0) as f32)),
+    })
 }

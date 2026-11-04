@@ -4,8 +4,9 @@
 //! block's values back), the rendered audio analysed for the page (deck-core's `Analyzer`, looking back by the output
 //! lead). Safe Rust; lib.rs puts it behind the raw wasm exports. No allocation after `load` (tests/no_alloc.rs).
 use crate::signals::{Outputs, Slot};
-use crate::wire::{self, Mode, FRAME, MAX_OUTPUTS, MAX_FRAME_VALUES, OUTPUT_COUNT, PEAKS, REDUCTION, VALUES_AT, VALUE_COUNT};
+use crate::wire::{self, Mode, FRAME, LIMITER_BAR, MAX_OUTPUTS, MAX_FRAME_VALUES, OUTPUT_COUNT, PEAKS, POSITIONS, REDUCTION, VALUES_AT, VALUE_COUNT, ZONES};
 use deck_core::analysis::{Analyzer, SPECTRUM};
+use deck_core::meters::Meters;
 use deck_core::tempo::{Config, Now, Shared};
 use std::sync::Arc;
 use deck_engine::control::Controls;
@@ -40,6 +41,8 @@ pub struct Core {
     frame: Vec<f32>,
     /// each device channel's largest sample since the last analysis frame
     peaks: [f32; MAX_OUTPUTS],
+    /// the peaks held between the frames, falling (deck-core `meters`, #373): what the frame carries
+    meters: Meters,
     /// the scene's `[outputs]` (#211, signals.rs), if it has any
     outputs: Option<Outputs>,
     /// the device messages since the last `take_signals` (signal records) and the ones just handed out
@@ -97,6 +100,7 @@ impl Core {
             audio: vec![0.0; RENDER * channels],
             frame: vec![0.0; FRAME + at.min(MAX_FRAME_VALUES)],
             peaks: [0.0; MAX_OUTPUTS],
+            meters: Meters::new(channels.min(MAX_OUTPUTS)),
             outputs,
             signals: Vec::with_capacity(SIGNALS),
             signals_out: Vec::with_capacity(SIGNALS),
@@ -292,7 +296,8 @@ impl Core {
     }
 
     /// The analysis frame (wire.rs: level, bass, mid, high, the spectrum, the limiter's gain reduction in dB since the
-    /// last frame, the device channels' peaks, then every table row's values) of what the speaker plays now when `lead`
+    /// last frame, the device channels' held peaks with their places on the dB scale and zones, the limiter's bar,
+    /// then every table row's values) of what the speaker plays now when `lead`
     /// is the ring's fill: the window ends `lead` frames before the newest rendered one, and the control values are the
     /// heard block's (the snapshot ring, plan 3.3). An audio output's value is its newest block's peak (built for a scene
     /// with a `space` node – the being's hoses). `now`: the clock at the heard moment (clock.rs).
@@ -302,8 +307,15 @@ impl Core {
         self.analyzer.spectrum(&mut self.frame[wire::SPECTRUM_AT..wire::SPECTRUM_AT + SPECTRUM]);
         self.frame[REDUCTION] = self.handles.take_reduction();
         self.frame[OUTPUT_COUNT] = self.channels as f32;
-        self.frame[PEAKS..PEAKS + MAX_OUTPUTS].copy_from_slice(&self.peaks);
+        self.meters.push(&self.peaks, dt);
         self.peaks = [0.0; MAX_OUTPUTS];
+        for (i, held) in self.meters.held().iter().enumerate() {
+            let r = deck_core::meters::reading(*held);
+            self.frame[PEAKS + i] = r.level;
+            self.frame[POSITIONS + i] = r.position;
+            self.frame[ZONES + i] = r.zone as u8 as f32;
+        }
+        self.frame[LIMITER_BAR] = deck_core::meters::limiter_bar(self.frame[REDUCTION]);
         self.controls.update(dt, lead, now);
         let room = self.frame.len() - FRAME;
         self.frame[VALUE_COUNT] = room as f32;
