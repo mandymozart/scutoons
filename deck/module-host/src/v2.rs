@@ -340,6 +340,11 @@ impl<B: Backend> Instance<B> {
         self.down.as_ref().map(|d| d.why.as_str())
     }
 
+    /// the next call swaps the rebuilt instance in (its inputs are the fresh instance's first)
+    pub fn swapping(&self) -> bool {
+        self.down.as_ref().is_some_and(|d| d.fresh.is_some())
+    }
+
     /// the needed sensor that kept the last block from running, if one did
     pub fn unavailable(&self) -> Option<&'static str> {
         self.unavailable.map(Sensor::name)

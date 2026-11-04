@@ -45,7 +45,7 @@ fn a_module_is_read_and_checked_without_running_it<B: Backend>(e: &B::Engine) {
     let l = load::<B>(e, &wasm("walk_module.wasm")).unwrap();
     assert_eq!(l.desc.name, "walk");
     assert_eq!(l.desc.params.iter().map(|p| p.name.as_ref()).collect::<Vec<_>>(), ["spread", "rate", "glide", "base", "octaves", "length"]);
-    assert_eq!(l.layout.outputs, [0]);
+    assert_eq!(l.layout.outputs, [deck_module_host::OutBind::Audio(0)]);
     assert_eq!(l.hash.len(), 64);
     // it does not read as a module when it isn't one
     assert!(err_text(load::<B>(e, b"\0asm\x01\0\0\0")).contains("deck.module"));

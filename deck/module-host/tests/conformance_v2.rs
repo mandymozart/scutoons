@@ -159,7 +159,10 @@ fn a_v2_module_is_read_by_its_abi_with_the_layout_the_derive_compiled<B: Backend
     assert_eq!(v2.io, <fixture_v2_module::Fixture as deck_module::v2::Describe>::LAYOUT);
     use deck_module_host::InBind::*;
     assert_eq!(l.layout.inputs, [Audio(0), Audio(1), Control(0), Param(0), Param(1), Param(2)]);
-    assert_eq!(l.layout.outputs, [0, 1], "control and event outputs are the host's until #342");
+    use deck_module_host::OutBind;
+    assert_eq!(l.layout.outputs, [OutBind::Audio(0), OutBind::Audio(1), OutBind::Control(0), OutBind::Control(1), OutBind::Control(2)], "#342: control outputs are graph outputs");
+    assert_eq!(l.layout.targets, [(2, "fx:@gain".to_string(), deck_catalog::Mode::Set)]);
+    assert_eq!((l.layout.events_in.len(), l.layout.events_out.len()), (1, 1), "event ports are the event host's");
     assert_eq!(v2.factory.as_ref().map(|p| (p.name.as_str(), p.values().to_vec())), Some(("init", vec![(BIAS, 0.5)])));
     assert_eq!((l.var_slot("fx.level"), l.asset_slot("sample"), l.param_index("work")), (Some(0), Some(0), Some(WORK)));
     // and the seam the engine drives today picks v2 by `dm_abi()`

@@ -10,16 +10,15 @@
 use anyhow::Result;
 use deck_module_host::wasmtime_backend::{Wasmtime, WasmtimeEngine};
 use deck_module_host::Loaded as HostLoaded;
-use deck_space::graph::PortType;
-use deck_space::modreg::{self, ModuleKind};
+use deck_space::graph::{Domain, PortType};
+use deck_space::modreg::{self, ModuleDef, ModuleKind, PortDef};
 use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
-pub use deck_module_host::{InBind, Layout, LogLimiter, MEMORY_LIMIT};
-use deck_catalog::{Dir, PortType as P};
+pub use deck_module_host::{GraphPort, InBind, Layout, LogLimiter, OutBind, MEMORY_LIMIT};
 
 /// A loaded module: checked, compiled, registered as a node kind. Cheap to share.
 pub struct Loaded {
@@ -69,21 +68,17 @@ impl Library {
         if let Some(l) = self.by_hash.lock().unwrap_or_else(|e| e.into_inner()).get(&host.hash) {
             return Ok(l.clone());
         }
-        let desc = &host.desc;
-        // the graph's ports: control inputs and audio inputs as declared, the parameters as control inputs
-        let ty = |k: &InBind| if matches!(k, InBind::Audio(_)) { PortType::Audio } else { PortType::Control };
-        let port_names: Vec<&str> = desc
-            .ports
-            .iter()
-            .filter(|p| p.dir == Dir::In && matches!(p.ty, P::Audio | P::Cv | P::Control))
-            .map(|p| p.name.as_ref())
-            .chain(desc.params.iter().map(|p| p.name.as_ref()))
-            .collect();
-        let inputs: Vec<(String, PortType)> = host.layout.inputs.iter().zip(&port_names).map(|(b, n)| ((*n).to_owned(), ty(b))).collect();
-        let outputs: Vec<(String, PortType)> =
-            desc.ports.iter().filter(|p| p.dir == Dir::Out && matches!(p.ty, P::Audio | P::Cv)).map(|p| (p.name.to_string(), PortType::Audio)).collect();
-        let defaults: Vec<(String, f32)> = desc.params.iter().map(|p| (p.name.to_string(), p.default.unwrap_or(p.min))).collect();
-        let kind = modreg::register(&desc.name, &inputs, &outputs, &defaults);
+        // the graph's ports as the host's layout binds them (deck-module-host `Layout`, #342): moved, not decided here
+        let (desc, l) = (&host.desc, &host.layout);
+        let port = |p: &GraphPort| PortDef { name: p.name.clone(), ty: if p.audio { PortType::Audio } else { PortType::Control }, channels: p.channels };
+        let def = ModuleDef {
+            inputs: l.in_ports.iter().map(port).collect(),
+            outputs: l.out_ports.iter().map(port).collect(),
+            defaults: desc.params.iter().map(|p| (p.name.to_string(), p.default.unwrap_or(p.min))).collect(),
+            domain: if l.domain == deck_catalog::Domain::Control { Domain::Control } else { Domain::Audio },
+            targets: l.targets.clone(),
+        };
+        let kind = modreg::register(&desc.name, &def);
         let hash = host.hash.clone();
         let loaded = Arc::new(Loaded { host: Arc::new(host), kind });
         self.by_hash.lock().unwrap_or_else(|e| e.into_inner()).insert(hash, loaded.clone());
@@ -141,6 +136,15 @@ impl Instance {
     /// Instantiates `loaded` for `rate` Hz with `seed` (the same seed plays the same on every deck).
     pub fn new(loaded: &Arc<Loaded>, rate: f64, seed: u64) -> Result<Instance> {
         deck_module_host::Instance::new(&loaded.host, rate, seed).map(Instance)
+    }
+
+    /// An ABI v2 module in `mode` (a deck plays a show: a trap restarts the instance, #342); a v1 module as `new`.
+    pub fn with_mode(loaded: &Arc<Loaded>, rate: f64, seed: u64, mode: deck_module_host::Mode) -> Result<Instance> {
+        if loaded.v2.is_none() {
+            return Instance::new(loaded, rate, seed);
+        }
+        let setup = deck_module_host::Setup::new(rate, seed).mode(mode);
+        deck_module_host::v2::Instance::new(&loaded.host, setup).map(|i| Instance(deck_module_host::Instance::from_v2(i)))
     }
 }
 

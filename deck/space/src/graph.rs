@@ -173,6 +173,9 @@ impl Kind {
     }
 
     pub fn domain(self) -> Domain {
+        if let Kind::Module(m) = self {
+            return m.spec().domain;
+        }
         match self.descriptor().map(|d| d.domain) {
             Some(deck_catalog::Domain::Video) => Domain::Video,
             Some(deck_catalog::Domain::Control) => Domain::Control,
@@ -293,11 +296,19 @@ pub const MAX_CHANNELS: usize = 32;
 /// A checked graph: every link joins an output to an input of the same type, a control input has at most one link, an
 /// audio input sums its links (in the scene's order), no cycles but through a `feedback` node; `order` is a
 /// topological order (sources first).
+/// A module's control outputs with a `path` (ABI-V2 §5) are bound here: a path that names a node of the scene –
+/// `<node>.<port>`, or `<track>:<node>.<port>` for the flattened rig's `<track>_<node>` – becomes a control link from the
+/// output to that input (mode `set`: the output alone; `add`: the target's own value + the output; `mul`: its own value ×
+/// the output), and the output holds a value until the module first writes it (`Graph::holds`: set → the target's own
+/// value, add → 0, mul → 1). A reserved member (`@preset`, `@gain` …) and a node the scene does not have are a rig's to
+/// resolve (#314): unbound here. A port the node lacks, or a target that already has a link, is an error.
 #[derive(Debug, Clone)]
 pub struct Graph {
     pub nodes: Vec<Node>,
     pub links: Vec<Link>,
     pub order: Vec<usize>,
+    /// ((node, output port), value): what a module's bound path output holds before the module writes it
+    pub holds: Vec<((usize, usize), f32)>,
 }
 
 impl Graph {
@@ -350,8 +361,9 @@ impl Graph {
             }
             links.push(Link { from: (fi, fp), to: (ti, tp), ty: fty, scale: l.scale, offset: l.offset, map });
         }
+        let holds = bind_targets(&nodes, &by_id, &mut links)?;
         let order = topo_order(nodes.len(), &links, &nodes)?;
-        Ok(Graph { nodes, links, order })
+        Ok(Graph { nodes, links, order, holds })
     }
 
     /// the link into `node`'s input `port`, if any
@@ -376,6 +388,42 @@ impl Link {
         self.ty != PortType::Control
             || (nodes[self.from.0].kind.domain() != Domain::Audio && nodes[self.to.0].kind.domain() != Domain::Audio)
     }
+}
+
+/// The module path outputs bound to the scene's inputs (see `Graph`): links appended, the holds returned.
+fn bind_targets(nodes: &[Node], by_id: &HashMap<String, usize>, links: &mut Vec<Link>) -> Result<Vec<((usize, usize), f32)>> {
+    let mut holds = Vec::new();
+    for (mi, m) in nodes.iter().enumerate() {
+        let Kind::Module(kind) = m.kind else { continue };
+        for &(out, path, mode) in kind.spec().targets {
+            // `<track>:<node>.<port>` → the flattened `<track>_<node>`; a reserved member is the rig's (#314)
+            if path.contains('@') {
+                continue;
+            }
+            let (node, port) = split_ref(path);
+            let id = match node.split_once(':') {
+                Some((track, node)) => format!("{track}_{node}"),
+                None => node.to_owned(),
+            };
+            let Some(&ti) = by_id.get(&id) else { continue };
+            let t = &nodes[ti];
+            let Some(tp) = t.kind.input(port).filter(|&k| t.kind.inputs()[k].ty == PortType::Control) else {
+                bail!("node '{}': its output '{}' drives '{path}' – '{}' has no control input '{port}'", m.id, kind.spec().outputs[out].name, t.id)
+            };
+            if links.iter().any(|l| l.to == (ti, tp)) {
+                bail!("node '{}': its output '{}' drives '{path}', which already has a link", m.id, kind.spec().outputs[out].name);
+            }
+            let own = t.f32(port, crate::params::default_for(t.kind, port));
+            let (scale, offset, hold) = match mode {
+                deck_catalog::Mode::Set => (1.0, 0.0, own),
+                deck_catalog::Mode::Add => (1.0, own, 0.0),
+                deck_catalog::Mode::Mul => (own, 0.0, 1.0),
+            };
+            links.push(Link { from: (mi, out), to: (ti, tp), ty: PortType::Control, scale, offset, map: Vec::new() });
+            holds.push(((mi, out), hold));
+        }
+    }
+    Ok(holds)
 }
 
 /// Kahn's algorithm over the ordering links, stable by declaration order (the scene's order wins among independent nodes)

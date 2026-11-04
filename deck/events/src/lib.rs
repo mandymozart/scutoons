@@ -6,6 +6,7 @@
 //! - graph.rs – the event graph: zero-delay cycles refused, delayed edges, per-edge caps, a hop limit
 //! - rt.rs – events resolved to frame offsets for the audio thread (`RtEvent`)
 //! - glide.rs – `Glide`: an exponential pitch glide, the same on the stage and in the browser
+//! - tuning.rs – `Tuning`: Hz ⇄ MIDI key on the deck's A4 (the module event host fills a note's other half, ABI v2)
 //! - route.rs – the routing table: events fanned out to receivers by name or domain (the dispatcher's, §16)
 //! - patch.rs – generators rigged together as data (TOML / JSON): what a rig's `events` node holds
 //! - horizon.rs – event horizons: a scope's reachable references, nearest first, bounded – what to preload (§16)
@@ -27,6 +28,7 @@ pub mod names;
 pub mod patch;
 pub mod route;
 pub mod rt;
+pub mod tuning;
 
 pub use event::{Event, Props, Time, MAX_DATA, MAX_PROPS};
 pub use generator::{Generator, Inbox, Outbox, Ports, Span};
@@ -37,3 +39,4 @@ pub use boundary::{admit, BoundaryError, PAYLOAD_LIMIT};
 pub use horizon::{Bound, Cut, Dist, Horizon, Reach, CHOICE_DEPTH, DECK_BYTES, SHOW_ROWS, SHOW_SECS};
 pub use route::{Match, Route, Table};
 pub use rt::RtEvent;
+pub use tuning::Tuning;
