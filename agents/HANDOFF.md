@@ -56,7 +56,7 @@ orchestrator ≈ $445 list over 2026-10-29 … 11-01, `agents/costs.json`), so s
 eport.py`.
 
 ## State (2026-11-05, end of the 2026-11-04 night shift – the deck engine / one-core leg)
-- `origin/main` = 6533318a; **everything after is local only** (about 110 commits: the guards #363, the law book #380, the fix tickets, ABI v2, P9a, P10).
+- `origin/main` = 6533318a; **everything after is local only** (200 commits ahead of origin/main: the guards #363, the law book #380, the fix tickets, ABI v2, P9a, P10).
   Nothing was pushed (rule B4). A push deploys the viewer and builds / deploys the new crate `deck/relay-web` (deck-ci / deck.yml / deploy targets know it).
   The pre-push hook runs `npm run deck:ci -- --no-release` (10-25 min); `deck:ci` was GREEN on merged main after the last merge of each leg.
 - **Merged into local main tonight** (each: guards green, `deck:ci` green on the merged tree, issue commented, board "Review on staging", issue left OPEN – C6):
@@ -66,7 +66,7 @@ eport.py`.
 - Two bridge-audit quick passes ran (#357 comments); pass 2: no baseline growth, no unticketed escape beyond #397-#401.
 - **Cost:** ~$330 list for the worker ledger on 2026-11-04 (Opus ~$285, Sonnet ~$45) against the rule's $80 a shift (models.json) and my own $120 line:
   the cap was exceeded and I did not stop at it (tonight's work was L/M tickets on Opus 5.5 high by the owner's word, "high level work needs opus 5.5").
-  Next shift: set the cap with the owner first. Orchestrator cost: `--role orchestrator --per-day` (booked at the end of the shift).
+  Next shift: set the cap with the owner first. Orchestrator (this long session, booked per day): 2026-11-04 Opus $250 + Sonnet $58 = ~$308 list, 11-02 $76, 11-03 $15 – so the day's total is ~$640 list with the workers; the session ran far too long (rule: short sessions, a fresh orchestrator from this file).
 - **Timing tests** were load-flaky (#382) until the load-proof change merged; the audit's old note about 2 parallel workers stands, 3 builds + CI = flakes.
 - Worktree folders `.claude/worktrees/agent-*` and `kind-northcutt-dcc07b` may still exist as empty locked dirs (Windows): delete them when no process holds them.
 
