@@ -495,7 +495,7 @@
 		"shared/live-deck/src/space.ts": {
 			"lines": 517,
 			"functions": 43,
-			"math": 18,
+			"math": 15,
 			"escapes": 1
 		},
 		"shared/live-deck/src/sync.ts": {
