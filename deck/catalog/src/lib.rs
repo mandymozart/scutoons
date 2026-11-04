@@ -186,6 +186,9 @@ pub struct Descriptor {
     /// the batch evaluator (deck-core batch.rs, live-core, the browser) can run it
     #[serde(default, skip_serializing_if = "is_false")]
     pub batch: bool,
+    /// the kind follows the transport by default (#359: stops, holds, resumes with it); a node's `follow_transport` overrides it
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub follow_transport: bool,
     /// capabilities the kind needs (#312) – reserved
     #[serde(default = "empty_strs", skip_serializing_if = "is_empty_slice")]
     pub needs: Cow<'static, [Cow<'static, str>]>,

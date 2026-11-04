@@ -29,6 +29,11 @@ impl GateCv {
 
     /// One block: `events` with frames relative to the block's start, sorted (rt.rs `resolve` sorts); the left and
     /// right channels filled. A moment (length 0) opens the gate for one frame (a trigger).
+    /// close the gate now (the transport stopped: all notes off); the pitch stays where it is
+    pub fn release(&mut self) {
+        self.gate_left = 0;
+    }
+
     pub fn render(&mut self, events: &[RtEvent], left: &mut [f32], right: &mut [f32]) {
         let n = left.len().min(right.len());
         let mut next = 0;

@@ -710,6 +710,7 @@
       "feature": "core",
       "module": "stage",
       "scope": "graph",
+      "follow_transport": true,
       "ports": [
         {
           "name": "gain",
@@ -973,6 +974,7 @@
       "feature": "core",
       "module": "stage",
       "scope": "graph",
+      "follow_transport": true,
       "ports": [
         {
           "name": "rate",
@@ -1009,6 +1011,7 @@
       "feature": "events",
       "module": "stage",
       "scope": "graph",
+      "follow_transport": true,
       "ports": [
         {
           "name": "spread",
@@ -1075,6 +1078,7 @@
       "feature": "events",
       "module": "stage",
       "scope": "graph",
+      "follow_transport": true,
       "ports": [
         {
           "name": "a",
