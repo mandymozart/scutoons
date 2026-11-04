@@ -1,4 +1,4 @@
-//! What both conformance files share: the fixture modules built for wasm32 once, loading, error text.
+//! What the conformance suite shares: the repository modules built for wasm32 once, loading, error text.
 #![allow(dead_code)]
 use deck_module_host::{Backend, Loaded};
 use std::path::PathBuf;
@@ -10,7 +10,7 @@ pub fn deck_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().to_owned()
 }
 
-/// the release wasm of a module crate (`walk`, `fixture`, `fixture-v2`; built once for all the tests – `rustup target
+/// the release wasm of a module crate (`walk`, `fixture`; built once for all the tests – `rustup target
 /// add wasm32-unknown-unknown`)
 pub fn wasm(file: &str) -> Vec<u8> {
     static BUILD: OnceLock<()> = OnceLock::new();
@@ -20,7 +20,7 @@ pub fn wasm(file: &str) -> Vec<u8> {
         let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
         let out = std::process::Command::new(cargo)
             .current_dir(&root)
-            .args(["build", "--release", "--target", "wasm32-unknown-unknown", "-p", "walk-module", "-p", "fixture-module", "-p", "fixture-v2-module", "--target-dir"])
+            .args(["build", "--release", "--target", "wasm32-unknown-unknown", "-p", "walk-module", "-p", "fixture-module", "--target-dir"])
             .arg(&dir)
             .output()
             .expect("running cargo");

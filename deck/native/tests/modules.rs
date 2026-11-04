@@ -1,8 +1,9 @@
-//! The module host (#280, feature `modules`): real wasm built with deck-module, run in wasmtime. The `walk` module is
-//! proven against the built-in `walk` node through the whole engine; the fixture module misbehaves on request to show that
-//! a panic silences that node and nothing else. The host's own cases (the Io staging, a panic, a runaway loop, hostile
-//! imports, memory) are the conformance suite of deck-module-host, generic over its backend. The wasm is built here with the wasm32 target
-//! (`rustup target add wasm32-unknown-unknown`), into its own target dir.
+//! The module host (#280, feature `modules`; module ABI v2 #342, #343): real wasm built with deck-module, run in
+//! wasmtime inside the engine. The `walk` module is proven against the built-in `walk` node through the whole engine;
+//! `walk` plays `analog` through the event host (module to module, by name); the fixture module misbehaves on request to
+//! show that a panic never cuts the rest of the scene. The host's own cases (the io staging, a panic, a runaway loop,
+//! hostile imports, memory) are the conformance suite of deck-module-host, generic over its backend. The wasm is built
+//! here with the wasm32 target (`rustup target add wasm32-unknown-unknown`), into its own target dir.
 #![cfg(feature = "modules")]
 use deck_native::audio::{Build, Engine};
 use deck_native::graph::{Graph, Kind};
@@ -26,7 +27,7 @@ fn wasm(file: &str) -> Vec<u8> {
         let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
         let out = std::process::Command::new(cargo)
             .current_dir(&root)
-            .args(["build", "--release", "--target", "wasm32-unknown-unknown", "-p", "walk-module", "-p", "fixture-module", "-p", "fixture-v2-module", "--target-dir"])
+            .args(["build", "--release", "--target", "wasm32-unknown-unknown", "-p", "walk-module", "-p", "fixture-module", "-p", "analog-module", "--target-dir"])
             .arg(&dir)
             .output()
             .expect("running cargo");
@@ -47,8 +48,8 @@ fn fixture() -> Vec<u8> {
     wasm("fixture_module.wasm")
 }
 
-fn fixture_v2() -> Vec<u8> {
-    wasm("fixture_v2_module.wasm")
+fn analog() -> Vec<u8> {
+    wasm("analog_module.wasm")
 }
 
 const RATE: f64 = 48_000.0;
@@ -117,9 +118,10 @@ fn render(scene: &Scene, seconds: usize) -> Vec<f32> {
     out
 }
 
-/// the proof (#280): the module, compiled to wasm and run in wasmtime inside the engine, plays what the built-in `walk`
-/// node plays – the same melody through the same voice. (Natively the two are bit-equal – modules/walk/tests; in wasm
-/// `powf` is the compiler's own libm, which may differ in the last bit, hence the tolerance.)
+/// the proof (#280, #343): the module, compiled to wasm and run in wasmtime inside the engine, plays what the built-in
+/// `walk` node plays – the same melody through the same voice (its `cv`; its notes are an event output). Natively the
+/// two are bit-equal (modules/walk/tests) and the wasm equals the native run (modules/walk/tests/wasm.rs); the
+/// tolerance covers the voice's rendering of the cv.
 #[test]
 fn the_walk_module_plays_what_the_built_in_walk_plays() {
     Library::global().load(&walk()).unwrap();
@@ -151,9 +153,10 @@ impl WithSeed for Scene {
     }
 }
 
-/// through the engine: a module that panics is zeros, the rest of the scene plays on
+/// through the engine: a module that panics on every call never cuts the rest of the scene (a show restarts it with a
+/// growing pause – `a_trapped_module_restarts_in_a_show`)
 #[test]
-fn a_trapped_node_is_silent_and_the_show_goes_on() {
+fn a_trapped_node_never_cuts_the_show() {
     Library::global().load(&fixture()).unwrap();
     let scene = Scene::parse(
         "[[node]]\nid=\"f\"\nkind=\"module:fixture\"\nmode=1\n[[node]]\nid=\"o\"\nkind=\"osc\"\nfreq=440\ngain=0.5\n\
@@ -164,7 +167,28 @@ fn a_trapped_node_is_silent_and_the_show_goes_on() {
     let out = render(&scene, 1);
     let peak = out.iter().fold(0.0f32, |m, x| m.max(x.abs()));
     assert!(peak > 0.3 && peak < 0.6, "the oscillator plays through the mixer: {peak}");
-    assert!(deck_native::module_host::ANY_SILENCED.load(std::sync::atomic::Ordering::Relaxed));
+}
+
+/// walk → analog (#343): the walk's note events reach the synth's note input through the engine's event host (module
+/// to module, by the name `music.note`) – a melody, the same every run, another with another seed
+#[test]
+fn the_walk_plays_the_analog_synth_through_note_events() {
+    Library::global().load(&walk()).unwrap();
+    Library::global().load(&analog()).unwrap();
+    let scene = |seed: i64| {
+        Scene::parse(&format!(
+            "[[node]]\nid=\"w\"\nkind=\"module:walk\"\nseed={seed}\nspread=1.0\nrate=3.0\n\
+             [[node]]\nid=\"a\"\nkind=\"module:analog\"\n[[node]]\nid=\"out\"\nkind=\"audio_out\"\nvolume=1\n\
+             [[link]]\nfrom=\"a.out\"\nto=\"out.in\"\n"
+        ))
+        .unwrap()
+    };
+    let a = render(&scene(42), 2);
+    let peak = a.iter().fold(0.0f32, |m, x| m.max(x.abs()));
+    assert!(peak > 0.05, "the synth plays the walk's notes: peak {peak}");
+    assert_eq!(a, render(&scene(42), 2), "the same every run");
+    let diff = a.iter().zip(&render(&scene(7), 2)).fold(0.0f32, |m, (x, y)| m.max((x - y).abs()));
+    assert!(diff > 0.01, "another seed, another melody ({diff})");
 }
 
 /// numbers for the record (`cargo test -p deck-native --features modules -- --nocapture module_costs`)
@@ -176,27 +200,28 @@ fn module_costs() {
     let inst = t.elapsed();
     i.set_param(0, 1.0);
     i.set_param(1, 8.0);
-    i.process(0.0, 1024);
+    let q = deck_native::audio::QUANTUM;
+    i.process(0.0, q as u32);
     let mut total = Duration::ZERO;
-    for k in 1..=200 {
+    for k in 1..=1600 {
         let t = Instant::now();
-        i.process(k as f64 * 1024.0, 1024);
+        i.process((k * q) as f64, q as u32);
         total += t.elapsed();
     }
-    let per = total / 200;
-    println!("walk: compile {:?}, instantiate {:?}, a 1024-frame block {:?} ({:.2}% of its {:.1} ms)", l.compile, inst, per, per.as_secs_f64() / (1024.0 / RATE) * 100.0, 1024.0 / RATE * 1000.0);
+    let per = total / 1600;
+    println!("walk: compile {:?}, instantiate {:?}, a {q}-frame call {:?} ({:.2}% of its {:.2} ms)", l.compile, inst, per, per.as_secs_f64() / (q as f64 / RATE) * 100.0, q as f64 / RATE * 1000.0);
     assert!(i.silenced().is_none());
 }
 
-// --- ABI v2 in the engine (#342): the conformance fixture (deck/modules/fixture-v2) as a node of a scene
+// --- the module ABI in the engine (#342): the conformance fixture (deck/modules/fixture) as a node of a scene
 
 /// an oscillator spread onto five channels by a bus into the fixture's `wide_in`, its `wide_out` onto a five-channel
 /// device, its `info` control output as a cable into a second oscillator's `freq`
 fn v2_scene(extra: &str) -> Graph {
-    Library::global().load(&fixture_v2()).unwrap();
+    Library::global().load(&fixture()).unwrap();
     let scene = Scene::parse(&format!(
         "[[node]]\nid=\"o\"\nkind=\"osc\"\nfreq=440\ngain=0.02\n[[node]]\nid=\"b\"\nkind=\"bus\"\nchannels=5\n\
-         [[node]]\nid=\"fx\"\nkind=\"module:fixture_v2\"\n{extra}\n[[node]]\nid=\"dev\"\nkind=\"out\"\n[[node]]\nid=\"o2\"\nkind=\"osc\"\n\
+         [[node]]\nid=\"fx\"\nkind=\"module:fixture\"\n{extra}\n[[node]]\nid=\"dev\"\nkind=\"out\"\n[[node]]\nid=\"o2\"\nkind=\"osc\"\n\
          [[link]]\nfrom=\"o\"\nto=\"b.in\"\nmap=[[1, 1], [1, 2], [1, 3], [1, 4], [1, 5]]\n[[link]]\nfrom=\"b\"\nto=\"fx.wide_in\"\n\
          [[link]]\nfrom=\"fx.wide_out\"\nto=\"dev.in\"\n[[link]]\nfrom=\"fx.info\"\nto=\"o2.freq\"\n"
     ))
@@ -225,7 +250,7 @@ fn wide_frames(out: &[f32]) -> usize {
 }
 
 #[test]
-fn an_abi_v2_module_is_a_node_with_channel_slices_and_control_outputs() {
+fn a_module_is_a_node_with_channel_slices_and_control_outputs() {
     let g = v2_scene("");
     let fx = g.nodes.iter().position(|n| n.id == "fx").unwrap();
     let kind = g.nodes[fx].kind;
@@ -248,7 +273,7 @@ fn an_abi_v2_module_is_a_node_with_channel_slices_and_control_outputs() {
 
 /// a trap in a show (the deck opens its instances so) restarts the module: the loader thread rebuilds it, it plays again
 #[test]
-fn a_trapped_v2_module_restarts_in_a_show() {
+fn a_trapped_module_restarts_in_a_show() {
     let g = v2_scene("mode=1");
     let fx = g.nodes.iter().position(|n| n.id == "fx").unwrap();
     let mode = g.nodes[fx].kind.input("mode").unwrap();
@@ -267,7 +292,7 @@ fn a_trapped_v2_module_restarts_in_a_show() {
 /// a note from the deck's events into the fixture's `notes`, its echo out as a deck-events note with its duration
 #[cfg(feature = "events")]
 #[test]
-fn an_abi_v2_module_takes_and_gives_events() {
+fn a_module_takes_and_gives_events() {
     use deck_events::{Event, Time};
     let g = v2_scene("");
     let (mut e, mut h) = Engine::build_for(&g, RATE as f32, 1.0, 5).unwrap();

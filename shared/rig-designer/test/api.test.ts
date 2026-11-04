@@ -19,7 +19,7 @@ function fake(status: number, body: unknown, calls: Call[] = []): typeof fetch {
 }
 
 const files = { 'lib.rs': 'fn main() {}' };
-const descriptor = { abi: 1, name: 'walk', version: '0.1.0', params: [], ports: [] };
+const descriptor = { abi: 2, name: 'walk', version: '0.1.0', params: [], ports: [] };
 const wasm = { hash: 'a'.repeat(64), bytes: 1234, toolchain: 'rustc 1.90', url: 'https://cdn/modules/a.wasm' };
 
 test('compile: 200 gives the hash, descriptor, wasm and warnings; the request carries the files (+ the factory document)', async () => {

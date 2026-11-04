@@ -1,10 +1,14 @@
 //! Notes → the cv the stage's `seq` node writes (pitch in Hz on the left channel, the gate 0 / 1 on the right), so an
 //! fm / osc voice with its `cv` linked plays a module's notes like any built-in melody. The same arithmetic as
 //! deck-events' `GateCv` and `Glide` (sample-accurate, exponential glide over `glide` × the note's length); no
-//! allocation. A module with a `cv` audio output calls `GateCv::render` from `process`.
-use crate::abi::{get_str, EventRec, MAX_EVENTS};
-use crate::ctx::{Ctx, Tempo};
-use crate::v2::{Ev, Kind};
+//! allocation. A module with a `cv` audio output calls `GateCv::render_notes` from `process` with the notes it emitted
+//! (`Block::audio_out_with_events`).
+use crate::ctx::Tempo;
+use crate::ev::{Ev, Kind};
+use crate::math;
+
+/// notes one call resolves at most (a port's capacity beyond this is not rendered into the cv)
+const MAX_NOTES: usize = 64;
 
 /// A pitch glide: `from → to` over a number of frames, exponentially (equal ratio per frame). 0 frames = a jump.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -28,11 +32,12 @@ impl Glide {
         if offset >= self.frames || self.from <= 0.0 || self.to <= 0.0 {
             return self.to;
         }
-        self.from * (self.to / self.from).powf(offset as f32 / self.frames as f32)
+        // libm (`math`): the same bits native and wasm, as deck-events' glide
+        self.from * math::pow(self.to / self.from, offset as f32 / self.frames as f32)
     }
 }
 
-/// One note resolved to this call's frames (v1 records and v2 `Ev`s both resolve to it; one renderer plays it).
+/// One note resolved to this call's frames.
 #[derive(Clone, Copy)]
 struct Resolved {
     frame: u32,
@@ -40,7 +45,7 @@ struct Resolved {
     len: u32,
     pitch: Option<f32>,
     glide: f32,
-    /// a note off (v2): closes the gate when `id` is the sounding note's
+    /// a note off: closes the gate when `id` is the sounding note's
     off: bool,
     id: u32,
 }
@@ -55,7 +60,7 @@ pub struct GateCv {
     glide: Glide,
     elapsed: u32,
     gate_left: u32,
-    /// the sounding note's id (v2 notes; 0 for v1)
+    /// the sounding note's id
     id: u32,
 }
 
@@ -65,15 +70,15 @@ impl GateCv {
         GateCv { pitch, glide: Glide::hold(pitch), elapsed: 0, gate_left: 0, id: 0 }
     }
 
-    /// v2 (#340): the note events of this call (`Ev`, frames already in the block) into `left` / `right`. A note on
+    /// The note events of this call (`Ev`, frames already in the block) into `left` / `right`. A note on
     /// with a length (beats) opens the gate that long, gliding over `glide` × its length; one without (0) holds the gate
     /// until the note off with its id (no glide: its length is unknown); a reset closes the gate.
     pub fn render_notes(&mut self, tempo: &Tempo, events: &[Ev], left: &mut [f32], right: &mut [f32]) {
         let per_frame = tempo.per_frame();
-        let mut notes = [NONE; MAX_EVENTS];
+        let mut notes = [NONE; MAX_NOTES];
         let mut count = 0;
         for e in events.iter() {
-            if count == MAX_EVENTS {
+            if count == MAX_NOTES {
                 break;
             }
             let r = match e.kind() {
@@ -93,30 +98,6 @@ impl GateCv {
                 _ => continue,
             };
             notes[count] = r;
-            count += 1;
-        }
-        self.play(&mut notes[..count], left, right);
-    }
-
-    /// One call: the `events` this call emitted (those named `note`, with a `pitch` prop and an optional `glide` prop
-    /// 0..1) at their frames on the tempo, into `left` / `right`. A moment (length 0) opens the gate for one frame.
-    pub fn render(&mut self, ctx: &Ctx, events: &[EventRec], note: &str, left: &mut [f32], right: &mut [f32]) {
-        let tempo = ctx.tempo();
-        let from = ctx.frame();
-        let per_frame = tempo.per_frame();
-        let mut notes = [NONE; MAX_EVENTS];
-        let mut count = 0;
-        for e in events.iter().filter(|e| get_str(&e.name) == note).take(MAX_EVENTS) {
-            let at = if e.start.is_nan() { from } else { tempo.frame_of(e.start).unwrap_or(from) };
-            let len = if per_frame > 0.0 { e.len / per_frame } else { 0.0 };
-            let prop = |key: &str| (0..(e.nprops as usize).min(e.keys.len())).find(|&i| get_str(&e.keys[i]) == key).map(|i| e.values[i]);
-            notes[count] = Resolved {
-                frame: (at - from).max(0.0).round() as u32,
-                len: len.round() as u32,
-                pitch: prop("pitch"),
-                glide: prop("glide").unwrap_or(0.0).clamp(0.0, 1.0),
-                ..NONE
-            };
             count += 1;
         }
         self.play(&mut notes[..count], left, right);

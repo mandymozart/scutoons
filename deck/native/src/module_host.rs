@@ -123,18 +123,14 @@ pub fn autoload() {
 pub struct Instance(deck_module_host::Instance<Wasmtime>);
 
 impl Instance {
-    /// Instantiates `loaded` for `rate` Hz with `seed` (the same seed plays the same on every deck).
+    /// Instantiates `loaded` for `rate` Hz with `seed` (the same seed plays the same on every deck), strict (tests).
     pub fn new(loaded: &Arc<Loaded>, rate: f64, seed: u64) -> Result<Instance> {
-        deck_module_host::Instance::new(&loaded.host, rate, seed).map(Instance)
+        Instance::with_mode(loaded, rate, seed, deck_module_host::Mode::Strict)
     }
 
-    /// An ABI v2 module in `mode` (a deck plays a show: a trap restarts the instance, #342); a v1 module as `new`.
+    /// … in `mode` (a deck plays a show: a trap restarts the instance, #342)
     pub fn with_mode(loaded: &Arc<Loaded>, rate: f64, seed: u64, mode: deck_module_host::Mode) -> Result<Instance> {
-        if loaded.v2.is_none() {
-            return Instance::new(loaded, rate, seed);
-        }
-        let setup = deck_module_host::Setup::new(rate, seed).mode(mode);
-        deck_module_host::v2::Instance::new(&loaded.host, setup).map(|i| Instance(deck_module_host::Instance::from_v2(i)))
+        deck_module_host::Instance::new(&loaded.host, deck_module_host::Setup::new(rate, seed).mode(mode)).map(Instance)
     }
 }
 

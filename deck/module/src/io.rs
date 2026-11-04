@@ -1,9 +1,9 @@
 //! Typed views on a module's io bytes through its `Layout` – the only place the SDK turns offsets into references.
 //! `Inp` reads the block the host wrote; `Out` writes the block the host reads. Both are a pointer and the layout:
 //! creating one costs nothing and allocates nothing. `Planar` / `PlanarMut` are an audio port's channels (§1.3).
-use super::ev::Ev;
-use super::hdr::{AssetInfo, InHdr, OutHdr};
-use super::layout::{Layout, MAX_ASSETS, MAX_AUDIO_PORTS, MAX_EVENT_PORTS, MAX_SENSORS, QUANTUM};
+use crate::ev::Ev;
+use crate::hdr::{AssetInfo, InHdr, OutHdr};
+use crate::layout::{Layout, MAX_ASSETS, MAX_AUDIO_PORTS, MAX_EVENT_PORTS, MAX_SENSORS, QUANTUM};
 use core::marker::PhantomData;
 use core::mem::size_of;
 use core::slice;
@@ -287,9 +287,9 @@ impl<'a> InpMut<'a> {
     /// the character the module plays for (NUL-padded, cut on a char boundary; empty = none)
     pub fn set_character(&mut self, id: &str, persona: &str, mood: &str) {
         let h = self.hdr();
-        crate::abi::put_str(&mut h.character_id, id);
-        crate::abi::put_str(&mut h.character_persona, persona);
-        crate::abi::put_str(&mut h.character_mood, mood);
+        crate::hdr::put_str(&mut h.character_id, id);
+        crate::hdr::put_str(&mut h.character_persona, persona);
+        crate::hdr::put_str(&mut h.character_mood, mood);
     }
 
     /// asset slot `slot`'s record

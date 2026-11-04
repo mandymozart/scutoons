@@ -186,7 +186,7 @@ mod tests {
                 self.gate.notified().await;
                 match self.result.lock().unwrap().clone() {
                     Some(Err(errors)) => Err(CompileError::Failed(errors)),
-                    _ => Ok(Built { hash: "ab".repeat(32), descriptor: json!({ "abi": 1, "name": "fake" }), wasm: b"\0asm\x01\0\0\0".to_vec(), warnings: vec![] }),
+                    _ => Ok(Built { hash: "ab".repeat(32), descriptor: json!({ "abi": 2, "name": "fake" }), wasm: b"\0asm\x01\0\0\0".to_vec(), warnings: vec![] }),
                 }
             })
         }

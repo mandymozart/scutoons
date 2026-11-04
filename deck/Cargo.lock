@@ -1069,7 +1069,7 @@ dependencies = [
  "deck-catalog",
  "deck-core",
  "deck-module",
- "fixture-v2-module",
+ "fixture-module",
  "serde_json",
  "sha2",
  "tracing",
@@ -1419,13 +1419,6 @@ checksum = "1c66915cc5391097de7a2b0b972e8505aa33c0df401fd3a6811dbdb32881ba48"
 
 [[package]]
 name = "fixture-module"
-version = "0.1.0"
-dependencies = [
- "deck-module",
-]
-
-[[package]]
-name = "fixture-v2-module"
 version = "0.1.0"
 dependencies = [
  "deck-module",
@@ -4685,9 +4678,11 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 name = "walk-module"
 version = "0.1.0"
 dependencies = [
+ "deck-catalog",
  "deck-core",
  "deck-events",
  "deck-module",
+ "deck-module-host",
  "serde_json",
 ]
 

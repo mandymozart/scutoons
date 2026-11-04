@@ -13,17 +13,15 @@
 		"./worker": "./src/worker.ts",
 		"./worklet": "./src/worklet.ts",
 		"./engine": "./src/engine.ts",
-		"./wasm-path": "./scripts/wasm.ts",
-		"./modules": "./src/modules.ts"
+		"./wasm-path": "./scripts/wasm.ts"
 	},
 	"files": [
 		"src"
 	],
 	"scripts": {
 		"build:wasm": "node --experimental-transform-types --no-warnings scripts/build-wasm.ts",
-		"build:modules": "cargo build --release --target wasm32-unknown-unknown --manifest-path ../../deck/Cargo.toml -p walk-module -p fixture-module",
 		"check": "tsc --noEmit -p tsconfig.json && npm run test",
-		"test": "node --experimental-transform-types --no-warnings --test test/wire.test.ts test/ring.test.ts test/engine.test.ts test/modules.test.ts test/signals.test.ts test/clock.test.ts"
+		"test": "node --experimental-transform-types --no-warnings --test test/wire.test.ts test/ring.test.ts test/engine.test.ts test/signals.test.ts test/clock.test.ts"
 	},
 	"devDependencies": {
 		"typescript": "^5.9.3"

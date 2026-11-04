@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { isModuleId, moduleContent, moduleIdOf, readModuleContent, sameFiles } from '../src/store.ts';
 
 const files = { 'lib.rs': 'fn a() {}' };
-const descriptor = { abi: 1, name: 'walk', version: '0.1.0', params: [{ name: 'rate', min: 0, max: 16, default: 2 }], ports: [] };
+const descriptor = { abi: 2, name: 'walk', version: '0.1.0', params: [{ name: 'rate', min: 0, max: 16, default: 2 }], ports: [] };
 const wasm = { hash: 'a'.repeat(64), bytes: 99, toolchain: 'rustc 1.90', url: 'https://cdn/x.wasm' };
 
 test('module ids follow the server rule; module: keys give their id', () => {

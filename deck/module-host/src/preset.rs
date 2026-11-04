@@ -1,6 +1,6 @@
 //! `Preset` (ABI-V2 §2): a set of parameter values by name, resolved once against a module's descriptor (off the audio
 //! thread: names → indices, values clamped, gone names reported) and then applied without allocating – every
-//! parameter to its default, then the listed values (`deck_module::v2::params::apply_preset`, the one implementation).
+//! parameter to its default, then the listed values (`deck_module::params::apply_preset`, the one implementation).
 //! The module's one factory preset comes from its descriptor; every other preset is a DB document resolved the same way.
 use deck_catalog::Descriptor;
 

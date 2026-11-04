@@ -1,4 +1,4 @@
-Reviewed with the owner 2026-11-03 – the design of module ABI v2 (#323, with #312 sensors, #314 groups, #289 control outputs); every question of §10 is decided (DECISIONS 2026-11-03). Built: A0 #339 (the descriptor fields in deck-catalog, `host::Descriptor` gone, 2026-11-04); A1 #340 (the SDK and derive in `deck_module::v2`, opt-in `#[module(abi = 2)]` beside v1 until #343, 2026-11-04 – choices in §9a); A2 #341 (the host `deck_module_host::v2::Instance`, 2026-11-04 – choices in §9b); A3 #342 (the engine: module node, event host, control-domain modules, 2026-11-04 – choices in §9c); the other build tickets are open (§9: #343–#346, with #312, #314, #307). Read against `main` at b504d5f6 (the engine move, #317).
+Reviewed with the owner 2026-11-03 – the design of module ABI v2 (#323, with #312 sensors, #314 groups, #289 control outputs); every question of §10 is decided (DECISIONS 2026-11-03). Built: A0 #339 (the descriptor fields in deck-catalog, `host::Descriptor` gone, 2026-11-04); A1 #340 (the SDK and derive in `deck_module::v2`, opt-in `#[module(abi = 2)]` beside v1 until #343, 2026-11-04 – choices in §9a); A2 #341 (the host `deck_module_host::v2::Instance`, 2026-11-04 – choices in §9b); A3 #342 (the engine: module node, event host, control-domain modules, 2026-11-04 – choices in §9c); A6 #343 (walk, fixture, analog on v2, v1 deleted everywhere, 2026-11-04 – choices in §9d); the other build tickets are open (§9: #344–#346, with #312, #314, #307). Read against `main` at b504d5f6 (the engine move, #317).
 
 # ABI-V2 – one module ABI for notes, channels, sensors, assets and groups
 
@@ -363,6 +363,33 @@ Estimate from the ledger's classes (M $2.2–2.9, L $4.7–11.2): **≈ $35–55
   per-node `Restarts` lane (boxed – the one allocation on that fault path, beside the trap's message), the native loader thread
   (`audio/modules.rs`, 5 ms tick, ends with the engine) serves it; the next block offers it. Held notes are re-sent at frame 0
   of the swapped-in call. Tests and Play stay strict.
+
+### 9d. Built in A6 #343 – where the design left a choice (2026-11-04)
+- **One ABI, no version in the names:** the SDK's `v2::*` is the crate root (`deck_module::{Block, Ctx, Ev, …}`; `abi.rs`,
+  the v1 `Block` / `Ctx` / `rt` / `testing`, `host::Offsets` gone; `host::parse` / `validate` are v2's); the derive has no
+  `abi` key; deck-module-host has one `Instance` (the v1/v2 seam, `v1.rs`, `dm_set_param`, `Export::SetParam` gone) that
+  the engine drives directly; `fixture-v2` is `fixture`; one conformance suite with v1's generic cases ported.
+- **walk:** its notes are note ons with a length (beats), the glide, velocity 1, the step as the id, the key left to the host;
+  their frame is the exact beat's frame rounded as the built-in's events are (`resolve`), so the cv it renders from them
+  (`GateCv::render_notes`) equals the built-in sample for sample. Pitch and glide moved to libm, so the native module is now
+  bit-equal to the built-in (v1: a few ulp apart). The same melody against v1's fixture: 18 notes, pitches within 1e-7
+  (platform `powf` then), frames within half a frame of the exact beat, the gate sums equal.
+- **analog:** a note on for an id that still sounds is a legato pitch change (what a held cv lane did); a bend (`NOTE_EXPR`,
+  semitones) moves a voice from the note's own pitch; a reset releases every voice. Events apply at their frame inside the
+  per-sample loop, so the render stays block-cut independent. The 91 rows are `#[param]` attributes through a
+  `macro_rules!` that only repeats them (struct, `Patch`, names); `curve = log` on the cutoffs and LFO rates.
+- **The other three presets (a hole):** `preset:` documents of a *module* (§2) need the module as a catalog document (#350)
+  and the module-preset form with its import (#346); neither exists, and catalog_presets are instrument presets (their
+  validator needs an instrument whose nodes are built-in kinds). A SQL migration would write rows nothing can validate, so
+  `bass`, `lead`, `sync lead` live in `deck/modules/analog/analog.preset.json` in the §2 file format, to import as drafts
+  with #346 / #350. `pad` is the descriptor's one preset.
+- **Stored modules:** migration 2026-11-04-module-abi-v2 removes a v1 compile result (`descriptor` + `wasm`) from
+  catalog_modules (the member layer is gone), the sources stay; ModuleSource takes `abi: 2` only and GET /api/kinds passes a
+  v2 descriptor through as the kind; `bin/console modules:rebuild` is the recompile list (dry run; `--apply --as <creator>`
+  compiles through ModuleCompiler, the failures are the list – production has no shell: a creator compiles the listed ones).
+- **The browser:** the TS host (`modules.ts`, `module-abi.ts`, its test, `build:modules`) is deleted; nothing imported it, so
+  the browser lost nothing. Loading modules in live-core through `deck_engine::register_module` needs deck-module-host's
+  web backend – #290's (on hold for #306), not built here.
 
 ## 10. Questions for the owner – all decided 2026-11-03
 

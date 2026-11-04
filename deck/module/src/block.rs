@@ -1,141 +1,134 @@
-//! `Block`: one call's audio and control I/O, and the events going out.
-use crate::abi::{put_str, EventRec, In, Out, MAX_AUDIO_PORTS, MAX_BLOCK, MAX_CONTROL_OUT, MAX_EVENTS, MAX_PROPS};
+//! `Block` (an audio call's I/O) and `Outputs` (what a call may write: control outputs, events) – ABI-V2 §1.3, §1.4.
+use crate::ev::Ev;
+use crate::io::{Inp, Out, Planar, PlanarMut};
+use crate::layout::{MAX_AUDIO_PORTS, MAX_EVENT_PORTS};
 
-/// An event a module emits (deck-events' model): a name (`music.note`), a start and length in beats on the tempo, up
-/// to `MAX_PROPS` numeric props. Names are cut at 16 bytes, prop keys at 8.
-#[derive(Clone, Copy)]
-pub struct Event {
-    pub(crate) rec: EventRec,
-}
-
-impl Event {
-    /// starting at an absolute `beat`
-    pub fn at_beat(name: &str, beat: f64) -> Event {
-        let mut rec = EventRec { start: beat, len: 0.0, port: 0, nprops: 0, name: [0; 16], keys: [[0; 8]; MAX_PROPS], values: [0.0; MAX_PROPS] };
-        put_str(&mut rec.name, name);
-        Event { rec }
-    }
-
-    /// starting with the call (a trigger)
-    pub fn now(name: &str) -> Event {
-        Event::at_beat(name, f64::NAN)
-    }
-
-    /// lasting `beats` (0 = a moment)
-    pub fn lasting(mut self, beats: f64) -> Event {
-        self.rec.len = beats;
-        self
-    }
-
-    /// a prop (ignored when all slots are taken)
-    pub fn with(mut self, key: &str, value: f32) -> Event {
-        let i = self.rec.nprops as usize;
-        if i < MAX_PROPS {
-            put_str(&mut self.rec.keys[i], key);
-            self.rec.values[i] = value;
-            self.rec.nprops += 1;
-        }
-        self
-    }
-
-    /// on the n-th declared event output (default 0)
-    pub fn on(mut self, port: usize) -> Event {
-        self.rec.port = port as u32;
-        self
-    }
-}
-
-/// What `control` can write: the control outputs and the events.
+/// What a call writes besides audio: control outputs (a value and a *written* bit – unwritten = the consumer holds the
+/// last value) and events on the declared event outputs.
 pub struct Outputs<'a> {
-    out: &'a mut Out,
+    out: Out<'a>,
 }
 
 impl<'a> Outputs<'a> {
-    pub fn new(out: &'a mut Out) -> Outputs<'a> {
+    pub fn new(out: Out<'a>) -> Outputs<'a> {
         Outputs { out }
     }
 
-    /// the n-th declared control output (ignored past the ports the ABI has)
-    pub fn set_control(&mut self, port: usize, value: f32) {
-        if port < MAX_CONTROL_OUT {
-            self.out.control[port] = value;
+    /// control output `i` = `value` this call (ignored past the declared outputs). A `path` output acts on its target
+    /// one block later (§1.1).
+    pub fn set(&mut self, i: usize, value: f32) {
+        if let Some(slot) = self.out.control_out_mut().get_mut(i) {
+            *slot = value;
+            self.out.written_mut()[i / 32] |= 1 << (i % 32);
         }
     }
 
-    /// emit an event; false when the call's buffer is full (counted – the host logs it)
-    pub fn emit(&mut self, e: Event) -> bool {
-        let n = self.out.events_len as usize;
-        if n >= MAX_EVENTS {
-            self.out.events_dropped = self.out.events_dropped.saturating_add(1);
+    /// control output `i`'s value (the last written, held across calls)
+    pub fn get(&self, i: usize) -> f32 {
+        self.out.control_out().get(i).copied().unwrap_or(0.0)
+    }
+
+    /// Emit `ev` on event output `port` (its `port` field is set here). False when the port's capacity is full this
+    /// call (counted in `OutHdr.dropped`) or the port is not declared. Emit in frame order; the host sorts stably.
+    pub fn emit(&mut self, port: usize, mut ev: Ev) -> bool {
+        if port >= MAX_EVENT_PORTS || port >= self.out.layout().shape.event_out_ports() {
             return false;
         }
-        self.out.events[n] = e.rec;
-        self.out.events_len += 1;
+        let n = self.out.hdr().ev_out_len[port] as usize;
+        let region = self.out.events_out_mut(port);
+        if n >= region.len() {
+            let d = &mut self.out.hdr_mut().dropped[port];
+            *d = d.saturating_add(1);
+            return false;
+        }
+        ev.port = port as u8;
+        region[n] = ev;
+        self.out.hdr_mut().ev_out_len[port] += 1;
         true
     }
 
-    /// the events emitted so far in this call
-    pub fn events(&self) -> &[EventRec] {
-        &self.out.events[..(self.out.events_len as usize).min(MAX_EVENTS)]
+    /// the records emitted on `port` so far this call
+    pub fn events(&self, port: usize) -> &[Ev] {
+        self.out.events_out(port)
     }
 }
 
-/// One audio call: `frames` frames, the declared audio inputs and outputs (stereo each), the control inputs, and the
-/// `Outputs`. Audio outputs start at silence.
+/// One audio call: `frames()` frames (≤ `QUANTUM`), the declared audio inputs and outputs (planar, outputs start
+/// silent), the control and event inputs, and the `Outputs`.
 pub struct Block<'a> {
-    frames: usize,
-    inp: &'a In,
+    inp: Inp<'a>,
     outputs: Outputs<'a>,
 }
 
 impl<'a> Block<'a> {
-    pub fn new(inp: &'a In, out: &'a mut Out) -> Block<'a> {
-        Block { frames: (inp.frames as usize).min(MAX_BLOCK), inp, outputs: Outputs { out } }
+    pub fn new(inp: Inp<'a>, out: Out<'a>) -> Block<'a> {
+        Block { inp, outputs: Outputs { out } }
     }
 
     pub fn frames(&self) -> usize {
-        self.frames
+        self.inp.frames()
     }
 
-    /// the n-th declared audio input (left, right); silence when the host connected nothing
-    pub fn audio_in(&self, port: usize) -> (&[f32], &[f32]) {
-        let p = port.min(MAX_AUDIO_PORTS - 1);
-        (&self.inp.audio[p][0][..self.frames], &self.inp.audio[p][1][..self.frames])
+    /// audio input `p` (silence when nothing is linked; `in_silent(p)` says so up front)
+    pub fn audio_in(&self, p: usize) -> Planar<'a> {
+        self.inp.audio_in(p)
     }
 
-    /// the n-th declared audio output (left, right)
-    pub fn audio_out(&mut self, port: usize) -> (&mut [f32], &mut [f32]) {
-        let p = port.min(MAX_AUDIO_PORTS - 1);
-        let [l, r] = &mut self.outputs.out.audio[p];
-        (&mut l[..self.frames], &mut r[..self.frames])
+    /// true when the host linked nothing to audio input `p` this call (its channels are zero)
+    pub fn in_silent(&self, p: usize) -> bool {
+        p < MAX_AUDIO_PORTS && self.inp.hdr().in_silent & (1 << p) != 0
     }
 
-    /// the n-th declared audio output together with the events emitted so far in this call – what a module needs to
-    /// render its notes into audio (`cv::GateCv::render`)
-    pub fn audio_out_with_events(&mut self, port: usize) -> (&mut [f32], &mut [f32], &[EventRec]) {
-        let p = port.min(MAX_AUDIO_PORTS - 1);
-        let out = &mut *self.outputs.out;
-        let n = (out.events_len as usize).min(MAX_EVENTS);
-        let [l, r] = &mut out.audio[p];
-        (&mut l[..self.frames], &mut r[..self.frames], &out.events[..n])
+    fn ch_out(&self, p: usize) -> usize {
+        let s = &self.inp.layout().shape;
+        let max = if p < MAX_AUDIO_PORTS { s.audio_out[p] as usize } else { 0 };
+        match self.inp.hdr().ch_out.get(p).copied().unwrap_or(0) as usize {
+            0 => max,
+            n => n.min(max),
+        }
     }
 
-    /// the n-th declared control input's value for this call
-    pub fn control_in(&self, port: usize) -> f32 {
-        self.inp.control.get(port).copied().unwrap_or(0.0)
+    /// audio output `p` with the channels the engine linked (`ch_out[p]`; a fixed port: its declared count)
+    pub fn audio_out(&mut self, p: usize) -> PlanarMut<'_> {
+        let (ch, n) = (self.ch_out(p), self.frames());
+        self.outputs.out.audio_out(p, ch, n)
+    }
+
+    /// audio output `ap` together with the events emitted on `ep` so far – what a module needs to render its own notes
+    /// into audio (`cv::GateCv::render_notes`)
+    pub fn audio_out_with_events(&mut self, ap: usize, ep: usize) -> (PlanarMut<'_>, &[Ev]) {
+        let (ch, n) = (self.ch_out(ap), self.frames());
+        self.outputs.out.audio_and_events(ap, ch, n, ep)
+    }
+
+    /// mark audio output `p` silent this call (the engine may skip its sum); the module leaves it zero
+    pub fn set_silent(&mut self, p: usize) {
+        if p < MAX_AUDIO_PORTS {
+            self.outputs.out.hdr_mut().out_silent |= 1 << p;
+        }
+    }
+
+    /// control input `i` this call
+    pub fn control_in(&self, i: usize) -> f32 {
+        self.inp.control_in().get(i).copied().unwrap_or(0.0)
+    }
+
+    /// event input `p`'s records this call, sorted by frame
+    pub fn events_in(&self, p: usize) -> &'a [Ev] {
+        self.inp.events_in(p)
     }
 
     pub fn outputs(&mut self) -> &mut Outputs<'a> {
         &mut self.outputs
     }
 
-    /// shorthand for `outputs().emit`
-    pub fn emit(&mut self, e: Event) -> bool {
-        self.outputs.emit(e)
+    /// shorthand for `outputs().set`
+    pub fn set(&mut self, i: usize, value: f32) {
+        self.outputs.set(i, value)
     }
 
-    /// shorthand for `outputs().set_control`
-    pub fn set_control(&mut self, port: usize, value: f32) {
-        self.outputs.set_control(port, value)
+    /// shorthand for `outputs().emit`
+    pub fn emit(&mut self, port: usize, ev: Ev) -> bool {
+        self.outputs.emit(port, ev)
     }
 }

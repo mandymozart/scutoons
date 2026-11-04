@@ -6,7 +6,7 @@ import { failureText, isQuiet, nameProblemText, problemText } from '../src/reaso
 import type { Descriptor } from '../src/types.ts';
 
 const walk: Descriptor = {
-	abi: 1,
+	abi: 2,
 	name: 'walk',
 	version: '0.1.0',
 	params: [
@@ -15,16 +15,17 @@ const walk: Descriptor = {
 		{ name: 'base', min: 20, max: 2000, default: 147 }
 	],
 	ports: [
-		{ name: 'cv', dir: 'out', kind: 'audio' },
-		{ name: 'notes', dir: 'out', kind: 'event' },
-		{ name: 'step', dir: 'in', kind: 'control' }
+		{ name: 'cv', dir: 'out', type: 'cv' },
+		{ name: 'notes', dir: 'out', type: 'event' },
+		{ name: 'step', dir: 'in', type: 'control' },
+		{ name: 'wide', dir: 'in', type: 'audio', channels: 5 }
 	]
 };
 
 test('summary: name, version, ABI, parameter count, ports by direction', () => {
 	const s = summarize(walk);
-	assert.deepEqual([s.name, s.version, s.abi, s.paramCount, s.inputs.length, s.outputs.length], ['walk', '0.1.0', 1, 3, 1, 2]);
-	assert.equal(headline(walk), 'walk 0.1.0 · ABI 1 · 3 params · 1 in · 2 out');
+	assert.deepEqual([s.name, s.version, s.abi, s.paramCount, s.inputs.length, s.outputs.length], ['walk', '0.1.0', 2, 3, 2, 2]);
+	assert.equal(headline(walk), 'walk 0.1.0 · ABI 2 · 3 params · 2 in · 2 out');
 });
 
 test('detail lines: one per parameter, one per port', () => {
@@ -32,9 +33,10 @@ test('detail lines: one per parameter, one per port', () => {
 		'param spread  0…1  = 0',
 		'param rate  0…16  = 2',
 		'param base  20…2000  = 147',
-		'out cv  audio',
+		'out cv  cv',
 		'out notes  event',
-		'in  step  control'
+		'in  step  control',
+		'in  wide  audio ×5'
 	]);
 	assert.deepEqual(detailLines({ ...walk, params: [{ name: 'x', min: 0, max: 1, default: 0.33333333 }], ports: [] }), ['param x  0…1  = 0.3333']);
 });

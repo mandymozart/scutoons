@@ -1,19 +1,19 @@
-//! The voice pool: eight voices, four note lanes. A lane is one cv pair as the stage's `seq` and the `walk` module write
-//! it (pitch in Hz left, gate right); here the gate's value is the velocity (the 1.0 of `seq` is full velocity). A
-//! rising gate starts a note on a free voice – or steals the oldest – and a falling one releases it, so a note's tail keeps
-//! sounding on its own voice while the lane plays the next note. While a gate stays up, a changing pitch glides the
-//! lane's voice (legato). The sustain control holds released notes while it is up.
+//! The voice pool: eight voices, played by note events (module ABI v2, #343). A note on starts a note on a free voice – or
+//! steals the oldest – keyed by the note's **id**, never by its pitch; its note off releases that voice, so a note's tail
+//! keeps sounding on its own voice while the next notes start. A note on for an id that still sounds is a legato pitch
+//! change of that voice; a bend (a per-note expression, semitones) moves the voice's pitch from the note's own; a reset
+//! releases everything. The sustain control holds released notes while it is up. Events take effect at their frame: the
+//! render cuts the block there, so a note lands on its sample however the host cuts the blocks.
+use crate::dsp::math::exp2;
 use crate::params::Patch;
 use crate::voice::{Note, Voice};
-use deck_module::Tempo;
+use deck_module::{Ev, Expr, Kind, Tempo};
 
 pub const VOICES: usize = 8;
-pub const LANES: usize = 4;
 
 #[derive(Default)]
 pub struct Engine {
     voices: [Voice; VOICES],
-    lane_high: [bool; LANES],
     sustain: bool,
     next_age: u64,
     seed: u64,
@@ -29,10 +29,19 @@ impl Engine {
         self.voices.iter().filter(|v| v.active()).count()
     }
 
-    fn note_on(&mut self, lane: usize, hz: f32, vel: f32, p: &Patch) {
+    /// the voice the note `id` holds
+    fn held(&self, id: u32) -> Option<usize> {
+        self.voices.iter().position(|v| v.active() && v.id() == Some(id))
+    }
+
+    fn note_on(&mut self, id: u32, hz: f32, vel: f32, p: &Patch) {
+        if let Some(i) = self.held(id) {
+            self.voices[i].set_pitch(hz);
+            return;
+        }
         let age = self.next_age;
         self.next_age += 1;
-        let note = Note { hz, vel, lane: lane as u8, age, seed: self.seed ^ age.wrapping_mul(0x9E37_79B9_7F4A_7C15) };
+        let note = Note { hz, vel, id, age, seed: self.seed ^ age.wrapping_mul(0x9E37_79B9_7F4A_7C15) };
         match self.voices.iter().position(|v| !v.active()) {
             Some(i) => self.voices[i].start(note, p, self.rate),
             None => {
@@ -42,33 +51,48 @@ impl Engine {
         }
     }
 
-    fn lane_in(&mut self, lane: usize, hz: f32, gate: f32, p: &Patch) {
-        let on = gate > 0.0;
-        let held = self.voices.iter().position(|v| v.active() && v.lane() == Some(lane as u8));
-        match (self.lane_high[lane], on) {
-            (false, true) => self.note_on(lane, hz, gate.min(1.0), p),
-            (true, true) => {
-                if let Some(i) = held {
-                    self.voices[i].set_pitch(hz);
+    fn note_off(&mut self, id: u32, p: &Patch) {
+        if let Some(i) = self.held(id) {
+            if self.sustain {
+                self.voices[i].hold();
+            } else {
+                self.voices[i].release(p, self.rate);
+            }
+        }
+    }
+
+    fn event(&mut self, e: &Ev, p: &Patch) {
+        match e.kind() {
+            Some(Kind::NoteOn) => {
+                // the host fills Hz from a key and a missing velocity with 1; a note without a pitch is no note
+                let (hz, vel) = (e.pitch_hz(), e.velocity());
+                if hz.is_finite() && hz > 0.0 {
+                    self.note_on(e.id, hz, if vel.is_finite() { vel.min(1.0) } else { 1.0 }, p);
                 }
             }
-            (true, false) => {
-                if let Some(i) = held {
-                    if self.sustain {
-                        self.voices[i].hold();
-                    } else {
+            Some(Kind::NoteOff) => self.note_off(e.id, p),
+            Some(Kind::NoteExpr) => {
+                if let (Some((Expr::Bend, semis)), Some(i)) = (e.expr(), self.held(e.id)) {
+                    if semis.is_finite() {
+                        let base = self.voices[i].base();
+                        self.voices[i].set_pitch((f64::from(base) * exp2(f64::from(semis) / 12.0)) as f32);
+                    }
+                }
+            }
+            Some(Kind::Reset) => {
+                for i in 0..VOICES {
+                    if self.voices[i].active() {
                         self.voices[i].release(p, self.rate);
                     }
                 }
             }
-            (false, false) => {}
+            _ => {}
         }
-        self.lane_high[lane] = on;
     }
 
-    /// Render `out.0.len()` frames starting at audio frame `frame0` of the tempo map. `lanes` are the four cv pairs
-    /// (pitch, gate), `sustain` the pedal for this call.
-    pub fn render(&mut self, p: &Patch, lanes: &[(&[f32], &[f32]); LANES], sustain: bool, tempo: &Tempo, frame0: f64, out: (&mut [f32], &mut [f32])) {
+    /// Render `out.0.len()` frames starting at audio frame `frame0` of the tempo map. `notes` are this call's note
+    /// events (sorted by frame), `sustain` the pedal for this call.
+    pub fn render(&mut self, p: &Patch, notes: &[Ev], sustain: bool, tempo: &Tempo, frame0: f64, out: (&mut [f32], &mut [f32])) {
         let (left, right) = out;
         if self.sustain && !sustain {
             for i in 0..VOICES {
@@ -78,9 +102,11 @@ impl Engine {
             }
         }
         self.sustain = sustain;
+        let mut next = 0;
         for i in 0..left.len().min(right.len()) {
-            for (k, (hz, gate)) in lanes.iter().enumerate() {
-                self.lane_in(k, hz[i], gate[i], p);
+            while let Some(e) = notes.get(next).filter(|e| e.frame as usize <= i) {
+                self.event(e, p);
+                next += 1;
             }
             let beat = tempo.beat_at(frame0 + i as f64);
             let (mut l, mut r) = (0.0f32, 0.0f32);
@@ -91,6 +117,10 @@ impl Engine {
             }
             left[i] = l * p.volume;
             right[i] = r * p.volume;
+        }
+        // an event past the call's frames (a host never sends one) still counts, at its end
+        for e in &notes[next.min(notes.len())..] {
+            self.event(e, p);
         }
     }
 }

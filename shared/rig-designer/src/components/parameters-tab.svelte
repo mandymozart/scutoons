@@ -40,7 +40,7 @@
 			</thead>
 			<tbody>
 				{#each d.ports as p (p.dir + p.name)}
-					<tr data-testid="designer-port"><td>{p.name}</td><td>{p.dir === 'in' ? m['designer.dir_in']() : m['designer.dir_out']()}</td><td>{p.kind}</td></tr>
+					<tr data-testid="designer-port"><td>{p.name}</td><td>{p.dir === 'in' ? m['designer.dir_in']() : m['designer.dir_out']()}</td><td>{p.type}{p.channels !== undefined ? ` ×${p.channels}` : ''}</td></tr>
 				{/each}
 			</tbody>
 		</table>

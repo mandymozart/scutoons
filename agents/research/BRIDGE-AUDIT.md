@@ -52,7 +52,7 @@ Verdicts: **P** periphery (only this platform can do it – keep) · **W** logic
 | Quality presets and governor | deck-space quality.rs via space-web | ✔ core | the same | – | – |
 | Quality option tables (fps caps 24…120, ratios, steps), level labels | deck-quality-sheet.svelte, deck-quality.svelte | D | native quality.rs `Page` (F4) | S | #375 |
 | Story → event adapter (name rule, MAX_PROPS 6, MAX_DATA 1024) – **unused** outside tests | live-deck events.ts (76) | D | deck-events adapters/story.rs | S | #377 |
-| TS module host (ABI v1 Io marshalling, log limiter) – **unused** outside tests | live-core modules.ts (346) | D | deck-module-host crate | – | #343 (deletes it) |
+| TS module host (ABI v1 Io marshalling, log limiter) – **unused** outside tests | live-core modules.ts (346) | D | deck-module-host crate | – | #343 (deleted 2026-11-04) |
 | Web MIDI access, Gamepad poll, permissions, WebSocket, fetch, AudioWorklet, SharedArrayBuffer rings | midi.ts, worklet.ts, ring.ts, worker.ts | P | the native adapters | – | – |
 | URL options `?relay ?rig ?gl ?character`, default code CATH, default character | viewer live-deck.ts | P (+ defaults that belong to deck config) | deck.toml / live/config.rs | – | #330, #300 |
 | HUD lines, stats bar, F1 mode, F4 settings page, F5 switcher, volume overlay | **native** main.rs, hud.rs, quality.rs, switcher.rs | W (platform crate holds UI model; wasm can't draw it) | – | L | #374 (child of #362) |

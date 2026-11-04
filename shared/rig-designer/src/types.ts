@@ -20,17 +20,22 @@ export interface ModuleParam {
 	min: number;
 	max: number;
 	default: number;
+	unit?: string;
+	doc?: string;
 }
 
-export type PortKind = 'audio' | 'control' | 'video' | 'event';
+export type PortType = 'audio' | 'cv' | 'control' | 'video' | 'event';
 
 export interface ModulePort {
 	name: string;
 	dir: 'in' | 'out';
-	kind: PortKind;
+	type: PortType;
+	/** audio ports: 1 … 32 or "any" */
+	channels?: number | 'any';
 }
 
-/** what a successful compile read from the wasm: the `deck.module` JSON as the module wrote it (ABI v1; deck-module `host::parse` validated it) */
+/** what a successful compile read from the wasm: the `deck.module` JSON as the module wrote it (module ABI v2, #343 –
+ * deck-catalog's `Descriptor`, of which the designer shows these fields; deck-module `host::parse` validated it) */
 export interface Descriptor {
 	abi: number;
 	name: string;

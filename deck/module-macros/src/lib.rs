@@ -1,18 +1,15 @@
-//! `#[derive(Module)]` (#280, ABI v2 #340): reads the attributes on a module's struct and writes
-//! - `Describe` for the struct: the descriptor as JSON, the parameters by index, `build()` with the defaults;
-//! - on wasm32: the descriptor in the `deck.module` custom section and the ABI's exports (`dm_*`, deck-module/README.md).
+//! `#[derive(Module)]` (#280, module ABI v2 #340 / #343, research/ABI-V2.md): reads the attributes on a module's struct
+//! and writes `Describe` (the descriptor as JSON, the constant `Shape` – the layout is a `const` of it –, the parameter
+//! table's ranges, `build()` with the defaults, the copy from the table into the fields), associated constants per port
+//! / parameter (`Self::OUT`, the index in its group), variable (`Self::STORY_ACT: Var`) and asset (`Self::KICK:
+//! AssetSlot`), and on wasm32 the descriptor in the `deck.module` custom section and the exports (`dm_*`) with the
+//! counting allocator (deck/module/README.md).
 //!
-//! **ABI v1** (the default until #343 moves the three repository modules): `#[module(name = "…")]`,
-//! `#[param(range = a..b, default = x)]` on `f32` fields, `#[port(input|output, audio|control|video|event, name = "…")]`.
-//!
-//! **ABI v2** (`#[module(abi = 2)]`, research/ABI-V2.md): additionally `domain = "audio"|"control"`, `doc`,
-//! `needs` / `wants` (`"motion|position"`), `latency`; `#[reads("story.act", …)]`; ports `cv`, `channels = n|"any"`,
-//! `sidechain`, `doc`, event `names` / `props` (`"a|b"`) / `capacity`, control-output `path` / `mode` / `choices`;
-//! params `curve = log`, `unit`, `choices = "saw|pulse"` (the value is the index), `doc`; `#[asset(name, kind,
-//! max_bytes, doc)]`; `#[preset(name, doc, values(p = x, …))]`. It writes `v2::Describe` with the constant `Shape`
-//! (the layout is a `const` of it), associated constants per port / parameter (`Self::OUT`, index in its group),
-//! variable (`Self::STORY_ACT: Var`) and asset (`Self::KICK: AssetSlot`), and the v2 exports with the counting
-//! allocator.
+//! Attributes: `#[module(name, domain = "audio"|"control", doc, needs / wants = "motion|position", latency)]`;
+//! `#[reads("story.act", …)]`; `#[port(input|output, audio|cv|control|event|video, name, channels = n|"any",
+//! sidechain, doc, names / props = "a|b", capacity, path, mode, choices)]`; on `f32` fields `#[param(range = a..b,
+//! default, curve = log, unit, choices = "saw|pulse" (the value is the index), doc)]`; `#[asset(name, kind, max_bytes,
+//! doc)]`; `#[preset(name, doc, values(p = x, …))]` (the one factory preset).
 //!
 //! Everything it needs is a literal in the source, so the descriptor is a constant: a host reads it without running
 //! the module. A mistake is a compile error at the attribute.
@@ -22,8 +19,6 @@ use quote::{format_ident, quote};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{parse_macro_input, Attribute, Data, DeriveInput, Error, Expr, ExprLit, ExprRange, Fields, Lit, LitStr, Token, UnOp};
-
-const MAX_PARAMS_V1: usize = 128;
 
 struct Param {
     ident: syn::Ident,
@@ -75,7 +70,6 @@ struct Preset {
 
 struct Spec {
     name: String,
-    abi: u32,
     domain: &'static str,
     doc: String,
     needs: Vec<String>,
@@ -87,8 +81,6 @@ struct Spec {
     others: Vec<syn::Ident>,
     assets: Vec<Asset>,
     preset: Option<Preset>,
-    /// the first attribute that only ABI v2 knows, for the error under v1
-    v2_only: Option<(Span, &'static str)>,
 }
 
 fn number(e: &Expr) -> Result<f64, Error> {
@@ -172,19 +164,8 @@ fn lit_str(m: &syn::meta::ParseNestedMeta) -> Result<LitStr, Error> {
 fn parse_module(a: &Attribute, spec: &mut Spec) -> Result<(), Error> {
     a.parse_nested_meta(|m| {
         let key = m.path.get_ident().map(|i| i.to_string()).unwrap_or_default();
-        let span = m.path.span();
-        if key != "name" && key != "abi" && spec.v2_only.is_none() {
-            spec.v2_only = Some((span, "this key of #[module]"));
-        }
         match key.as_str() {
             "name" => spec.name = lit_str(&m)?.value(),
-            "abi" => {
-                let e: Expr = m.value()?.parse()?;
-                spec.abi = number(&e)? as u32;
-                if spec.abi != 1 && spec.abi != 2 {
-                    return Err(Error::new(e.span(), "abi = 1 or 2"));
-                }
-            }
             "domain" => {
                 let s = lit_str(&m)?;
                 spec.domain = match s.value().as_str() {
@@ -204,7 +185,7 @@ fn parse_module(a: &Attribute, spec: &mut Spec) -> Result<(), Error> {
                 }
                 spec.latency = v as u32;
             }
-            _ => return Err(m.error("module(name = \"…\") is the only key (ABI 2: abi, domain, doc, needs, wants, latency)")),
+            _ => return Err(m.error("module(name, domain, doc, needs, wants, latency)")),
         }
         Ok(())
     })
@@ -226,10 +207,8 @@ fn parse_port(a: &Attribute, spec: &mut Spec) -> Result<(), Error> {
         doc: String::new(),
         span: a.span(),
     };
-    let mut v2_key = None;
     a.parse_nested_meta(|m| {
         let id = m.path.get_ident().map(|i| i.to_string()).unwrap_or_default();
-        let span = m.path.span();
         match id.as_str() {
             "input" => p.dir = "in",
             "output" => p.dir = "out",
@@ -238,12 +217,8 @@ fn parse_port(a: &Attribute, spec: &mut Spec) -> Result<(), Error> {
             "video" => p.kind = "video",
             "event" => p.kind = "event",
             "name" => p.name = lit_str(&m)?.value(),
-            "cv" => {
-                p.kind = "cv";
-                v2_key.get_or_insert(span);
-            }
+            "cv" => p.kind = "cv",
             "channels" => {
-                v2_key.get_or_insert(span);
                 let e: Expr = m.value()?.parse()?;
                 p.channels = Some(match &e {
                     Expr::Lit(ExprLit { lit: Lit::Str(s), .. }) if s.value() == "any" => Channels::Any,
@@ -256,20 +231,10 @@ fn parse_port(a: &Attribute, spec: &mut Spec) -> Result<(), Error> {
                     }
                 });
             }
-            "sidechain" => {
-                v2_key.get_or_insert(span);
-                p.sidechain = true;
-            }
-            "names" => {
-                v2_key.get_or_insert(span);
-                p.names = pipe_list(&lit_str(&m)?)?;
-            }
-            "props" => {
-                v2_key.get_or_insert(span);
-                p.props = pipe_list(&lit_str(&m)?)?;
-            }
+            "sidechain" => p.sidechain = true,
+            "names" => p.names = pipe_list(&lit_str(&m)?)?,
+            "props" => p.props = pipe_list(&lit_str(&m)?)?,
             "capacity" => {
-                v2_key.get_or_insert(span);
                 let e: Expr = m.value()?.parse()?;
                 let n = number(&e)?;
                 if !(1.0..=512.0).contains(&n) || n.fract() != 0.0 {
@@ -277,12 +242,8 @@ fn parse_port(a: &Attribute, spec: &mut Spec) -> Result<(), Error> {
                 }
                 p.capacity = Some(n as u16);
             }
-            "path" => {
-                v2_key.get_or_insert(span);
-                p.path = lit_str(&m)?.value();
-            }
+            "path" => p.path = lit_str(&m)?.value(),
             "mode" => {
-                v2_key.get_or_insert(span);
                 let s = lit_str(&m)?;
                 p.mode = Some(match s.value().as_str() {
                     "set" => "set",
@@ -291,36 +252,24 @@ fn parse_port(a: &Attribute, spec: &mut Spec) -> Result<(), Error> {
                     _ => return Err(Error::new(s.span(), "mode = \"set\", \"add\" or \"mul\"")),
                 });
             }
-            "choices" => {
-                v2_key.get_or_insert(span);
-                p.choices = pipe_list(&lit_str(&m)?)?;
-            }
-            "doc" => {
-                v2_key.get_or_insert(span);
-                p.doc = lit_str(&m)?.value();
-            }
-            _ => return Err(m.error("port(input|output, audio|control|video|event, name = \"…\")")),
+            "choices" => p.choices = pipe_list(&lit_str(&m)?)?,
+            "doc" => p.doc = lit_str(&m)?.value(),
+            _ => return Err(m.error("port(input|output, audio|cv|control|event|video, name = \"…\", …)")),
         }
         Ok(())
     })?;
     if p.dir.is_empty() || p.kind.is_empty() || p.name.is_empty() {
         return Err(Error::new(a.span(), "a port needs a direction, a type and a name: #[port(output, audio, name = \"out\")]"));
     }
-    if let (Some(span), None) = (v2_key, spec.v2_only) {
-        spec.v2_only = Some((span, "this key of #[port]"));
-    }
     spec.ports.push(p);
     Ok(())
 }
 
-fn parse_param(f: &syn::Field, a: &Attribute, spec: &mut Spec) -> Result<Param, Error> {
+fn parse_param(f: &syn::Field, a: &Attribute) -> Result<Param, Error> {
     let ident = f.ident.clone().expect("named");
     let (mut range, mut default, mut curve, mut unit, mut choices, mut doc) = (None, None, None, String::new(), Vec::new(), String::new());
     a.parse_nested_meta(|m| {
         let key = m.path.get_ident().map(|i| i.to_string()).unwrap_or_default();
-        if key != "range" && key != "default" && spec.v2_only.is_none() {
-            spec.v2_only = Some((m.path.span(), "this key of #[param]"));
-        }
         match key.as_str() {
             "range" => {
                 let e: Expr = m.value()?.parse()?;
@@ -350,7 +299,7 @@ fn parse_param(f: &syn::Field, a: &Attribute, spec: &mut Spec) -> Result<Param, 
             "unit" => unit = lit_str(&m)?.value(),
             "choices" => choices = pipe_list(&lit_str(&m)?)?,
             "doc" => doc = lit_str(&m)?.value(),
-            _ => return Err(m.error("param(range = a..b, default = x)")),
+            _ => return Err(m.error("param(range = a..b, default = x, curve, unit, choices, doc)")),
         }
         Ok(())
     })?;
@@ -419,7 +368,6 @@ fn parse_asset(a: &Attribute, spec: &mut Spec) -> Result<(), Error> {
     if !is_name(&name) || kind.is_empty() || max_bytes == 0 {
         return Err(Error::new(a.span(), "an asset needs a name (lowercase identifier), a kind and max_bytes"));
     }
-    spec.v2_only.get_or_insert((a.span(), "#[asset]"));
     spec.assets.push(Asset { name, kind, max_bytes, doc });
     Ok(())
 }
@@ -446,7 +394,6 @@ fn parse_preset(a: &Attribute, spec: &mut Spec) -> Result<(), Error> {
     if spec.preset.is_some() {
         return Err(Error::new(a.span(), "one factory preset per module; every other preset is a document (ABI-V2 §2)"));
     }
-    spec.v2_only.get_or_insert((a.span(), "#[preset]"));
     spec.preset = Some(p);
     Ok(())
 }
@@ -462,7 +409,6 @@ fn parse(input: &DeriveInput) -> Result<Spec, Error> {
     };
     let mut spec = Spec {
         name: snake(&ty.to_string()),
-        abi: 1,
         domain: "audio",
         doc: String::new(),
         needs: vec![],
@@ -474,7 +420,6 @@ fn parse(input: &DeriveInput) -> Result<Spec, Error> {
         others: vec![],
         assets: vec![],
         preset: None,
-        v2_only: None,
     };
     for a in &input.attrs {
         if a.path().is_ident("module") {
@@ -484,7 +429,6 @@ fn parse(input: &DeriveInput) -> Result<Spec, Error> {
         } else if a.path().is_ident("reads") {
             let list = a.parse_args_with(Punctuated::<LitStr, Token![,]>::parse_terminated)?;
             spec.reads.extend(list.iter().map(|s| s.value()));
-            spec.v2_only.get_or_insert((a.span(), "#[reads]"));
         } else if a.path().is_ident("asset") {
             parse_asset(a, &mut spec)?;
         } else if a.path().is_ident("preset") {
@@ -497,7 +441,7 @@ fn parse(input: &DeriveInput) -> Result<Spec, Error> {
     for f in &fields.named {
         match f.attrs.iter().find(|a| a.path().is_ident("param")) {
             Some(a) => {
-                let p = parse_param(f, a, &mut spec)?;
+                let p = parse_param(f, a)?;
                 spec.params.push(p);
             }
             None => spec.others.push(f.ident.clone().expect("named")),
@@ -508,131 +452,7 @@ fn parse(input: &DeriveInput) -> Result<Spec, Error> {
 
 fn expand(input: DeriveInput) -> Result<proc_macro2::TokenStream, Error> {
     let spec = parse(&input)?;
-    if spec.abi == 2 {
-        return v2(&input.ident, &spec);
-    }
-    if let Some((span, what)) = spec.v2_only {
-        return Err(Error::new(span, format!("{what} is ABI 2: add `abi = 2` to #[module(…)]")));
-    }
-    v1(&input.ident, &spec)
-}
-
-/// ABI v1, unchanged (#280) – until #343
-fn v1(ty: &syn::Ident, spec: &Spec) -> Result<proc_macro2::TokenStream, Error> {
-    let (name, ports, params, others) = (&spec.name, &spec.ports, &spec.params, &spec.others);
-    if let Some(p) = ports.iter().find(|p| p.dir == "in" && p.kind == "event") {
-        return Err(Error::new(p.span, "events only go out of a module (v1)"));
-    }
-    if params.len() > MAX_PARAMS_V1 {
-        return Err(Error::new(ty.span(), format!("at most {MAX_PARAMS_V1} parameters")));
-    }
-    unique_names(spec)?;
-
-    // the descriptor, a constant
-    let version = std::env::var("CARGO_PKG_VERSION").unwrap_or_else(|_| "0.0.0".into());
-    let mut json = format!("{{\"abi\":1,\"name\":\"{name}\",\"version\":\"{version}\",\"params\":[");
-    json += &params
-        .iter()
-        .map(|p| format!("{{\"name\":\"{}\",\"min\":{},\"max\":{},\"default\":{}}}", p.name, json_f(p.min), json_f(p.max), json_f(p.default)))
-        .collect::<Vec<_>>()
-        .join(",");
-    json += "],\"ports\":[";
-    json += &ports.iter().map(|p| format!("{{\"name\":\"{}\",\"dir\":\"{}\",\"kind\":\"{}\"}}", p.name, p.dir, p.kind)).collect::<Vec<_>>().join(",");
-    json += "]}";
-    let json_len = json.len();
-    let json_bytes = proc_macro2::Literal::byte_string(json.as_bytes());
-
-    let count = params.len();
-    let idents: Vec<_> = params.iter().map(|p| &p.ident).collect();
-    let idx: Vec<usize> = (0..count).collect();
-    let (mins, maxs, defaults) = (
-        params.iter().map(|p| p.min as f32).collect::<Vec<_>>(),
-        params.iter().map(|p| p.max as f32).collect::<Vec<_>>(),
-        params.iter().map(|p| p.default as f32).collect::<Vec<_>>(),
-    );
-
-    Ok(quote! {
-        impl ::deck_module::Describe for #ty {
-            const NAME: &'static str = #name;
-            const DESCRIPTOR: &'static str = #json;
-            const PARAMS: usize = #count;
-
-            fn build() -> Self {
-                Self { #(#idents: #defaults,)* #(#others: ::core::default::Default::default(),)* }
-            }
-
-            fn set_param(&mut self, index: usize, value: f32) {
-                if !value.is_finite() {
-                    return;
-                }
-                match index {
-                    #(#idx => self.#idents = value.clamp(#mins, #maxs),)*
-                    _ => {}
-                }
-            }
-
-            fn param(&self, index: usize) -> f32 {
-                match index {
-                    #(#idx => self.#idents,)*
-                    _ => 0.0,
-                }
-            }
-        }
-
-        #[cfg(target_arch = "wasm32")]
-        const _: () = {
-            // the descriptor, readable without running the module (deck-module::host::read_descriptor)
-            #[link_section = "deck.module"]
-            #[used]
-            static DESCRIPTOR: [u8; #json_len] = *#json_bytes;
-
-            static SLOT: ::deck_module::rt::Slot<#ty> = ::deck_module::rt::Slot::new();
-
-            #[no_mangle]
-            pub extern "C" fn dm_abi() -> u32 {
-                ::deck_module::ABI_VERSION
-            }
-
-            /// the address of the module's `Io` (deck-module::abi)
-            #[no_mangle]
-            pub extern "C" fn dm_io() -> u32 {
-                SLOT.io() as usize as u32
-            }
-
-            /// the descriptor's address and length, for a host that instantiates anyway
-            #[no_mangle]
-            pub extern "C" fn dm_descriptor_ptr() -> u32 {
-                DESCRIPTOR.as_ptr() as usize as u32
-            }
-
-            #[no_mangle]
-            pub extern "C" fn dm_descriptor_len() -> u32 {
-                #json_len as u32
-            }
-
-            /// builds the module (rate, seed, tempo, character already in `Io::inp`)
-            #[no_mangle]
-            pub extern "C" fn dm_new() {
-                ::deck_module::rt::install_panic_hook();
-                unsafe { SLOT.new_instance() }
-            }
-
-            #[no_mangle]
-            pub extern "C" fn dm_set_param(index: u32, value: f32) {
-                unsafe { SLOT.set_param(index, value) }
-            }
-
-            #[no_mangle]
-            pub extern "C" fn dm_process(frames: u32) {
-                unsafe { SLOT.process(frames) }
-            }
-
-            #[no_mangle]
-            pub extern "C" fn dm_control(frames: u32) {
-                unsafe { SLOT.control(frames) }
-            }
-        };
-    })
+    module(&input.ident, &spec)
 }
 
 /// parameters and ports share one namespace of identifiers
@@ -660,8 +480,8 @@ fn group(kind: &str) -> &'static str {
     }
 }
 
-/// ABI v2 (#340, research/ABI-V2.md)
-fn v2(ty: &syn::Ident, spec: &Spec) -> Result<proc_macro2::TokenStream, Error> {
+/// what the derive writes (research/ABI-V2.md)
+fn module(ty: &syn::Ident, spec: &Spec) -> Result<proc_macro2::TokenStream, Error> {
     unique_names(spec)?;
     let control = spec.domain == "control";
     for p in &spec.ports {
@@ -843,7 +663,7 @@ fn v2(ty: &syn::Ident, spec: &Spec) -> Result<proc_macro2::TokenStream, Error> {
     for (i, n) in spec.needs.iter().chain(spec.wants.iter()).enumerate() {
         let msg = format!("ABI 2 knows no capability '{n}' (motion, position, position.precise, camera.face, camera.motion)");
         shape.push(quote! {
-            s.sensors[#i] = match ::deck_module::v2::Sensor::from_name(#n) {
+            s.sensors[#i] = match ::deck_module::Sensor::from_name(#n) {
                 Some(x) => Some(x),
                 None => panic!(#msg),
             };
@@ -856,7 +676,7 @@ fn v2(ty: &syn::Ident, spec: &Spec) -> Result<proc_macro2::TokenStream, Error> {
     let defaults: Vec<f32> = spec.params.iter().map(|p| p.default as f32).collect();
     let infos = spec.params.iter().map(|p| {
         let (min, max, d) = (p.min as f32, p.max as f32, p.default as f32);
-        quote! { ::deck_module::v2::ParamInfo { min: #min, max: #max, default: #d } }
+        quote! { ::deck_module::ParamInfo { min: #min, max: #max, default: #d } }
     });
     let preset = preset_values.iter().map(|(i, v)| {
         let v = *v as f32;
@@ -882,12 +702,12 @@ fn v2(ty: &syn::Ident, spec: &Spec) -> Result<proc_macro2::TokenStream, Error> {
     for (i, r) in spec.reads.iter().enumerate() {
         let c = format_ident!("{}", upper(r));
         let i = i as u16;
-        consts.push(quote! { pub const #c: ::deck_module::v2::Var = ::deck_module::v2::Var(#i); });
+        consts.push(quote! { pub const #c: ::deck_module::Var = ::deck_module::Var(#i); });
     }
     for (i, a) in spec.assets.iter().enumerate() {
         let c = format_ident!("{}", upper(&a.name));
         let i = i as u8;
-        consts.push(quote! { pub const #c: ::deck_module::v2::AssetSlot = ::deck_module::v2::AssetSlot(#i); });
+        consts.push(quote! { pub const #c: ::deck_module::AssetSlot = ::deck_module::AssetSlot(#i); });
     }
 
     let call = if control {
@@ -920,23 +740,23 @@ fn v2(ty: &syn::Ident, spec: &Spec) -> Result<proc_macro2::TokenStream, Error> {
     };
 
     Ok(quote! {
-        impl ::deck_module::v2::Describe for #ty {
+        impl ::deck_module::Describe for #ty {
             const NAME: &'static str = #name;
             const DESCRIPTOR: &'static str = #json;
-            const DOMAIN: ::deck_module::v2::Domain = ::deck_module::v2::Domain::#domain;
-            const SHAPE: ::deck_module::v2::Shape = {
-                let mut s = ::deck_module::v2::Shape::EMPTY;
+            const DOMAIN: ::deck_module::Domain = ::deck_module::Domain::#domain;
+            const SHAPE: ::deck_module::Shape = {
+                let mut s = ::deck_module::Shape::EMPTY;
                 #(#shape)*
                 s
             };
-            const PARAMS: &'static [::deck_module::v2::ParamInfo] = &[#(#infos),*];
+            const PARAMS: &'static [::deck_module::ParamInfo] = &[#(#infos),*];
             const PRESET: &'static [(usize, f32)] = &[#(#preset),*];
 
             fn build() -> Self {
                 Self { #(#idents: #defaults,)* #(#others: ::core::default::Default::default(),)* }
             }
 
-            fn load_params(&mut self, table: &[f32], dirty: ::deck_module::v2::Dirty) {
+            fn load_params(&mut self, table: &[f32], dirty: ::deck_module::Dirty) {
                 for i in dirty.iter() {
                     let Some(&v) = table.get(i) else { continue };
                     if !v.is_finite() {
@@ -963,7 +783,7 @@ fn v2(ty: &syn::Ident, spec: &Spec) -> Result<proc_macro2::TokenStream, Error> {
         }
 
         // the layout is evaluated at compile time: a shape outside the ABI's limits is an error here
-        const _: ::deck_module::v2::Layout = <#ty as ::deck_module::v2::Describe>::LAYOUT;
+        const _: ::deck_module::Layout = <#ty as ::deck_module::Describe>::LAYOUT;
 
         #[cfg(target_arch = "wasm32")]
         const _: () = {
@@ -974,14 +794,14 @@ fn v2(ty: &syn::Ident, spec: &Spec) -> Result<proc_macro2::TokenStream, Error> {
 
             // allocations inside a call are counted (strict: a trap) – ABI-V2 §6
             #[global_allocator]
-            static ALLOC: ::deck_module::v2::alloc::Counting = ::deck_module::v2::alloc::Counting;
+            static ALLOC: ::deck_module::alloc::Counting = ::deck_module::alloc::Counting;
 
-            static IO: ::deck_module::v2::rt::IoBuf<{ <#ty as ::deck_module::v2::Describe>::LAYOUT.size as usize }> = ::deck_module::v2::rt::IoBuf::new();
-            static RT: ::deck_module::v2::rt::Slot<#ty> = ::deck_module::v2::rt::Slot::new();
+            static IO: ::deck_module::rt::IoBuf<{ <#ty as ::deck_module::Describe>::LAYOUT.size as usize }> = ::deck_module::rt::IoBuf::new();
+            static RT: ::deck_module::rt::Slot<#ty> = ::deck_module::rt::Slot::new();
 
             #[no_mangle]
             pub extern "C" fn dm_abi() -> u32 {
-                ::deck_module::v2::ABI_VERSION
+                ::deck_module::ABI_VERSION
             }
 
             /// the address of the module's io: `inp` at 0, `out` at `Layout::out`
@@ -993,7 +813,7 @@ fn v2(ty: &syn::Ident, spec: &Spec) -> Result<proc_macro2::TokenStream, Error> {
             /// the layout's hash: the host refuses a module whose layout it computes differently
             #[no_mangle]
             pub extern "C" fn dm_layout() -> u32 {
-                <#ty as ::deck_module::v2::Describe>::LAYOUT.hash
+                <#ty as ::deck_module::Describe>::LAYOUT.hash
             }
 
             /// the descriptor's address and length, for a host that instantiates anyway

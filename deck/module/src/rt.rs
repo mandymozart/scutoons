@@ -1,95 +1,165 @@
-//! The runtime the derive's exports (and the native `testing::Rig`) call: one code path for wasm and native.
-use crate::abi::{Io, MAX_AUDIO_PORTS, MAX_BLOCK};
+//! The runtime the derive's exports and the native `testing::Rig` both call: one code path for wasm and native.
+//! The io bytes are the derive's static buffer (wasm) or the Rig's (native); this holds the module and its asset
+//! buffers, and the `log!` line to the host. Nothing in `process` / `control` allocates (tests/sdk.rs proves it with
+//! the counting allocator).
+use crate::alloc;
 use crate::block::{Block, Outputs};
 use crate::ctx::Ctx;
-use crate::Module;
+use crate::io::{Inp, Out};
+use crate::layout::{Layout, MAX_ASSETS};
+use crate::params::Dirty;
+use crate::{Domain, Module};
 use core::cell::UnsafeCell;
 use core::fmt::{self, Write};
 
-/// a new module with its first context (`Io::inp` set by the host: rate, seed, tempo …)
-pub fn create<M: Module>(io: &mut Io) -> M {
-    let mut m = M::build();
-    m.init(&Ctx::new(&io.inp));
-    m
+/// An asset slot's bytes in the module's own heap: allocated once by `dm_asset_buf` (at instantiation, never in a
+/// call), 16-aligned so planar f32 PCM reads in place.
+pub struct AssetBuf {
+    words: Box<[u128]>,
+    len: usize,
 }
 
-fn start_call(io: &mut Io, frames: u32) {
-    io.inp.frames = frames.min(MAX_BLOCK as u32);
-    io.out.events_len = 0;
-    io.out.events_dropped = 0;
-}
-
-/// `dm_process`: audio outputs cleared for the call's frames, then the module's block
-pub fn process<M: Module>(m: &mut M, io: &mut Io, frames: u32) {
-    start_call(io, frames);
-    let n = io.inp.frames as usize;
-    for port in 0..MAX_AUDIO_PORTS {
-        io.out.audio[port][0][..n].fill(0.0);
-        io.out.audio[port][1][..n].fill(0.0);
+impl AssetBuf {
+    fn new(len: usize) -> AssetBuf {
+        AssetBuf { words: vec![0u128; len.div_ceil(16)].into_boxed_slice(), len }
     }
-    let Io { inp, out } = io;
-    let mut block = Block::new(inp, out);
-    m.process(&mut block, &Ctx::new(inp));
+
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    pub fn bytes(&self) -> &[u8] {
+        // SAFETY: `words` holds at least `len` bytes
+        unsafe { core::slice::from_raw_parts(self.words.as_ptr() as *const u8, self.len) }
+    }
+
+    pub fn as_mut_ptr(&mut self) -> *mut u8 {
+        self.words.as_mut_ptr() as *mut u8
+    }
 }
 
-/// `dm_control`
-pub fn control<M: Module>(m: &mut M, io: &mut Io, frames: u32) {
-    start_call(io, frames);
-    let Io { inp, out } = io;
-    m.control(&Ctx::new(inp), &mut Outputs::new(out));
+/// A module instance and its asset buffers (the io bytes live outside).
+pub struct Runtime<M> {
+    module: Option<M>,
+    assets: [Option<AssetBuf>; MAX_ASSETS],
 }
 
-/// the module and its `Io`, as a static of the wasm (single-threaded: wasm32-unknown-unknown has no threads here)
-pub struct Slot<M> {
-    io: UnsafeCell<Io>,
-    module: UnsafeCell<Option<M>>,
+impl<M: Module> Default for Runtime<M> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
+
+impl<M: Module> Runtime<M> {
+    pub const fn new() -> Runtime<M> {
+        Runtime { module: None, assets: [const { None }; MAX_ASSETS] }
+    }
+
+    pub fn module(&self) -> Option<&M> {
+        self.module.as_ref()
+    }
+
+    pub fn module_mut(&mut self) -> Option<&mut M> {
+        self.module.as_mut()
+    }
+
+    /// `dm_new`: the module with every parameter at its default, then the table's dirty entries (the host marks all
+    /// before `dm_new`), then `init`.
+    ///
+    /// # Safety
+    /// `base` is the io (16-aligned, `M::LAYOUT.size` bytes), not touched by anyone else during the call
+    pub unsafe fn create(&mut self, base: *mut u8) {
+        let layout: Layout = M::LAYOUT;
+        let inp = Inp::new(base, &layout);
+        let mut m = M::build();
+        m.load_params(inp.params(), Dirty(inp.dirty()));
+        m.init(&Ctx::new(inp, &self.assets));
+        self.module = Some(m);
+    }
+
+    /// `dm_asset_buf`: a buffer of `len` bytes for asset `slot`, once, at instantiation; null for a slot the module did
+    /// not declare or a second request
+    pub fn asset_buf(&mut self, slot: usize, len: usize) -> *mut u8 {
+        if slot >= M::SHAPE.assets as usize || slot >= MAX_ASSETS || self.assets[slot].is_some() {
+            return core::ptr::null_mut();
+        }
+        let buf = self.assets[slot].insert(AssetBuf::new(len));
+        buf.as_mut_ptr()
+    }
+
+    /// `dm_process` / `dm_control`: the outputs reset, the dirty parameters copied in, then the module's call for its
+    /// domain – counted by the allocator from the first step to the last.
+    ///
+    /// # Safety
+    /// as `create`
+    pub unsafe fn call(&mut self, base: *mut u8) {
+        let Some(m) = self.module.as_mut() else { return };
+        let layout: Layout = M::LAYOUT;
+        let inp = Inp::new(base, &layout);
+        let mut out = Out::new(base, &layout);
+        alloc::arm(inp.hdr().strict != 0);
+        out.reset(inp.frames());
+        let dirty = Dirty(inp.dirty());
+        if dirty.any() {
+            m.load_params(inp.params(), dirty);
+            m.params_changed(dirty);
+        }
+        let ctx = Ctx::new(inp, &self.assets);
+        match M::DOMAIN {
+            Domain::Audio => m.process(&mut Block::new(inp, Out::new(base, &layout)), &ctx),
+            Domain::Control => m.control(&ctx, &mut Outputs::new(Out::new(base, &layout))),
+        }
+        out.hdr_mut().allocs = alloc::disarm();
+    }
+}
+
+/// The runtime as a static of the wasm (single-threaded: the host calls one export at a time).
+pub struct Slot<M>(UnsafeCell<Runtime<M>>);
 
 // SAFETY: the host calls a module's exports one at a time (one instance, one thread)
 unsafe impl<M> Sync for Slot<M> {}
 
-impl<M: Module> Slot<M> {
-    pub const fn new() -> Slot<M> {
-        Slot { io: UnsafeCell::new(Io::ZERO), module: UnsafeCell::new(None) }
-    }
-
-    pub fn io(&self) -> *mut Io {
-        self.io.get()
-    }
-
-    /// # Safety
-    /// the host calls the exports one at a time
-    pub unsafe fn new_instance(&self) {
-        let io = &mut *self.io.get();
-        *self.module.get() = Some(create::<M>(io));
-    }
-
-    /// # Safety
-    /// the host calls the exports one at a time
-    pub unsafe fn set_param(&self, index: u32, value: f32) {
-        if let Some(m) = (*self.module.get()).as_mut() {
-            m.set_param(index as usize, value);
-        }
-    }
-
-    /// # Safety
-    /// the host calls the exports one at a time
-    pub unsafe fn process(&self, frames: u32) {
-        if let Some(m) = (*self.module.get()).as_mut() {
-            process(m, &mut *self.io.get(), frames);
-        }
-    }
-
-    /// # Safety
-    /// the host calls the exports one at a time
-    pub unsafe fn control(&self, frames: u32) {
-        if let Some(m) = (*self.module.get()).as_mut() {
-            control(m, &mut *self.io.get(), frames);
-        }
+impl<M: Module> Default for Slot<M> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
-impl<M: Module> Default for Slot<M> {
+impl<M: Module> Slot<M> {
+    pub const fn new() -> Slot<M> {
+        Slot(UnsafeCell::new(Runtime::new()))
+    }
+
+    /// # Safety
+    /// the host calls the exports one at a time
+    #[allow(clippy::mut_from_ref)]
+    pub unsafe fn get(&self) -> &mut Runtime<M> {
+        &mut *self.0.get()
+    }
+}
+
+/// The io bytes as a static of the wasm: `N` is `LAYOUT.size`, 16-aligned.
+#[repr(C, align(16))]
+pub struct IoBuf<const N: usize>(UnsafeCell<[u8; N]>);
+
+// SAFETY: as `Slot`
+unsafe impl<const N: usize> Sync for IoBuf<N> {}
+
+impl<const N: usize> IoBuf<N> {
+    pub const fn new() -> IoBuf<N> {
+        IoBuf(UnsafeCell::new([0; N]))
+    }
+
+    pub fn ptr(&self) -> *mut u8 {
+        self.0.get() as *mut u8
+    }
+}
+
+impl<const N: usize> Default for IoBuf<N> {
     fn default() -> Self {
         Self::new()
     }
@@ -140,12 +210,12 @@ pub fn log_at(level: u32, args: fmt::Arguments) {
     crate::testing::sink(level, core::str::from_utf8(&line.buf[..n]).unwrap_or(""));
 }
 
-/// the panic message to the host's console, then the trap (v2: the allocator stops counting first, so a strict call
+/// the panic message to the host's console, then the trap (the allocator stops counting first, so a strict call
 /// reports the panic, not the panic's own bookkeeping)
 #[cfg(target_arch = "wasm32")]
 pub fn install_panic_hook() {
     std::panic::set_hook(Box::new(|info| {
-        crate::v2::alloc::disarm();
+        crate::alloc::disarm();
         log_at(2, format_args!("panic: {info}"))
     }));
 }

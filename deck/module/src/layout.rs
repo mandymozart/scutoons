@@ -8,8 +8,8 @@
 //! The input to the layout is a [`Shape`] – the few numbers of a descriptor that place bytes – so the layout never
 //! depends on the graph (an `any` port reserves its maximum; the header byte `ch_in[p]` / `ch_out[p]` says how many
 //! channels the cables carry) and can be hashed and tested.
-use super::ev::Ev;
-use super::hdr::{AssetInfo, InHdr, OutHdr};
+use crate::ev::Ev;
+use crate::hdr::{AssetInfo, InHdr, OutHdr};
 use core::mem::size_of;
 
 /// the ABI version a v2 module speaks (`dm_abi()`, the descriptor's `abi`)

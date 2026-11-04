@@ -1,5 +1,5 @@
-//! An ABI v2 instance (#341, research/ABI-V2.md §1.1, §1.5, §6): the module's io is laid out from its descriptor
-//! (`deck_module::v2::Layout`, the SDK's one function) and crosses the boundary in **one copy in and one copy out per
+//! A module instance (#341, research/ABI-V2.md §1.1, §1.5, §6): the module's io is laid out from its descriptor
+//! (`deck_module::Layout`, the SDK's one function) and crosses the boundary in **one copy in and one copy out per
 //! call** – the host stages `inp` in its own buffer (through the SDK's `InpMut`, the code `testing::Rig` uses), writes it
 //! with one `Backend::write`, calls `dm_process` / `dm_control`, and reads `out` back with one `Backend::read`.
 //!
@@ -22,9 +22,9 @@ use crate::{fault_text, Backend, Export, Fault, Loaded, ModuleStats, Preset, MEM
 use anyhow::{anyhow, bail, Result};
 use deck_catalog::AssetKind as CatalogAssetKind;
 use deck_core::tempo::TempoMap;
-use deck_module::v2::io::{Inp, Out};
-use deck_module::v2::layout::MAX_AUDIO_PORTS;
-use deck_module::v2::{params, AssetInfo, AssetKind, Ev, InpMut, Layout as IoLayout, Planar, Sensor, Status, ABI_VERSION, QUANTUM};
+use deck_module::io::{Inp, Out};
+use deck_module::layout::MAX_AUDIO_PORTS;
+use deck_module::{params, AssetInfo, AssetKind, Ev, InpMut, Layout as IoLayout, Planar, Sensor, Status, ABI_VERSION, QUANTUM};
 use std::sync::Arc;
 
 /// how an instance treats its faults (§6)
@@ -126,8 +126,7 @@ fn all_dirty(io: &mut IoBuf, layout: &IoLayout, n: usize) {
 /// the memory frozen. Returns the backend and where its io lies. Off the audio thread (instantiating allocates).
 fn boot<B: Backend>(loaded: &Loaded<B>, io: &mut IoBuf, assets: &[AssetData]) -> Result<(B, usize)> {
     let name = &loaded.desc.name;
-    let v2 = loaded.v2.as_ref().ok_or_else(|| anyhow!("module '{name}' is not an ABI 2 module"))?;
-    let layout = &v2.io;
+    let layout = &loaded.io;
     let mut b = B::instantiate(&loaded.compiled, name)?;
     b.set_budget(1000);
     let abi = b.call(Export::Abi, &[]).map_err(|f| anyhow!("{name}: dm_abi: {}", fault_text(&f)))?;
@@ -224,7 +223,8 @@ fn pause_frames(streak: u32, rate: f64) -> u64 {
 /// a trap streak ends after this long without one
 const CLEAN_SECONDS: f64 = 30.0;
 
-/// One running ABI v2 module.
+/// One running module: what the engine drives through its `ModuleInstance` seam (deck-engine), and everything else
+/// of it (events, control outputs, sensors, assets, presets, stats, a show's restart).
 pub struct Instance<B: Backend> {
     loaded: Arc<Loaded<B>>,
     /// `None` while a restart is under way
@@ -249,12 +249,11 @@ pub struct Instance<B: Backend> {
 }
 
 impl<B: Backend> Instance<B> {
-    /// Instantiates `loaded` (an ABI 2 module) with every parameter at its default, 120 bpm from frame 0, no character,
+    /// Instantiates `loaded` with every parameter at its default, 120 bpm from frame 0, no character,
     /// no variable set, the setup's assets bound; then `dm_new` and the memory frozen.
     pub fn new(loaded: &Arc<Loaded<B>>, setup: Setup) -> Result<Instance<B>> {
         let name = &loaded.desc.name;
-        let v2 = loaded.v2.as_ref().ok_or_else(|| anyhow!("module '{name}' is not an ABI 2 module"))?;
-        let layout = v2.io;
+        let layout = loaded.io;
         for a in &setup.assets {
             let Some(d) = loaded.desc.assets.get(a.slot) else { bail!("module '{name}' has no asset slot {}", a.slot) };
             let kind = match d.kind {
@@ -278,7 +277,7 @@ impl<B: Backend> Instance<B> {
             (h.tempo_frame, h.tempo_beat, h.bpm, h.per_bar, h.running) = (m.frame, m.beat, m.bpm, m.per_bar, u32::from(m.running));
             inp.vars().fill(f32::NAN);
             let (t, d) = inp.table();
-            params::defaults(t, d, &v2.params);
+            params::defaults(t, d, &loaded.params);
         }
         let (backend, at) = boot(loaded, &mut io, &setup.assets)?;
         inp_mut(&mut io, &layout).after_call();
@@ -414,10 +413,9 @@ impl<B: Backend> Instance<B> {
     /// parameter `index` for the next call: clamped to its range, NaN keeps the last good value, dirty when it changed
     pub fn set_param(&mut self, index: usize, value: f32) {
         let loaded = self.loaded.clone();
-        let Some(v2) = loaded.v2.as_ref() else { return };
         let mut inp = self.inp();
         let (t, d) = inp.table();
-        params::write(t, d, &v2.params, index, value);
+        params::write(t, d, &loaded.params, index, value);
     }
 
     /// parameter `index` as the table holds it
@@ -428,16 +426,15 @@ impl<B: Backend> Instance<B> {
     /// `Preset::apply`: every parameter to its default, then the preset's values (no allocation)
     pub fn apply_preset(&mut self, preset: &Preset) {
         let loaded = self.loaded.clone();
-        let Some(v2) = loaded.v2.as_ref() else { return };
         let mut inp = self.inp();
         let (t, d) = inp.table();
-        params::apply_preset(t, d, &v2.params, preset.values());
+        params::apply_preset(t, d, &loaded.params, preset.values());
     }
 
     /// the descriptor's factory preset (false: the module has none)
     pub fn apply_factory_preset(&mut self) -> bool {
         let loaded = self.loaded.clone();
-        match loaded.v2.as_ref().and_then(|v| v.factory.as_ref()) {
+        match loaded.factory.as_ref() {
             Some(p) => {
                 self.apply_preset(p);
                 true
@@ -486,8 +483,8 @@ impl<B: Backend> Instance<B> {
         h.in_silent = if silent { h.in_silent | (1 << p) } else { h.in_silent & !(1 << p) };
     }
 
-    /// A stereo cable into audio input `p` (the engine's seam until #342): channel 0 = `l`, 1 = `r` (a mono port takes
-    /// `l`); the port carries two channels (or its one).
+    /// A stereo pair into audio input `p` (tests): channel 0 = `l`, 1 = `r` (a mono port takes `l`); the port carries
+    /// two channels (or its one).
     pub fn set_audio_in(&mut self, p: usize, l: &[f32], r: &[f32]) {
         let reserved = self.layout.shape.audio_in.get(p).copied().unwrap_or(0);
         if reserved == 0 {
@@ -535,7 +532,7 @@ impl<B: Backend> Instance<B> {
         self.out().into_audio_out(p, ch, frames.min(QUANTUM))
     }
 
-    /// audio output `p`'s first two channels into `l` / `r` (a mono port into both) – the engine's seam until #342
+    /// audio output `p`'s first two channels into `l` / `r` (a mono port into both; tests)
     pub fn read_audio_out(&mut self, p: usize, l: &mut [f32], r: &mut [f32]) {
         let out = self.audio_out(p);
         let (a, b) = out.stereo();
@@ -564,7 +561,7 @@ impl<B: Backend> Instance<B> {
     }
 
     /// the `OutHdr` of the last call (allocations, silent flags, event counts)
-    pub fn out_hdr(&self) -> deck_module::v2::OutHdr {
+    pub fn out_hdr(&self) -> deck_module::OutHdr {
         *self.out().hdr()
     }
 
@@ -662,9 +659,68 @@ impl<B: Backend> Instance<B> {
         }
     }
 
-    /// `run` under the engine's name for an audio call
+    /// `run` under the engine's name (`ModuleInstance::process`: the module's one call, either domain)
     pub fn process(&mut self, frame: f64, frames: u32) -> bool {
         self.run(frame, frames)
+    }
+
+    // --- the engine's seam (#342): the planar cable as channel slices
+
+    /// the module's descriptor
+    pub fn descriptor(&self) -> &deck_catalog::Descriptor {
+        &self.loaded.desc
+    }
+
+    /// how its ports map onto the graph
+    pub fn graph(&self) -> &crate::Layout {
+        &self.loaded.layout
+    }
+
+    /// Audio input `port` for the next call as channel slices (the engine's planar cable, any width; empty = nothing
+    /// linked): the port takes `chans.len()` channels (at most what it reserves; the rest of its region is zero) and
+    /// says so in its header.
+    pub fn set_audio_chans(&mut self, port: usize, chans: &[&[f32]]) {
+        let reserved = self.layout.shape.audio_in.get(port).copied().unwrap_or(0) as usize;
+        if reserved == 0 {
+            return;
+        }
+        if chans.is_empty() {
+            self.set_in_silent(port, true);
+            self.set_channels(true, port, 0);
+            return;
+        }
+        for c in 0..reserved {
+            let dst = self.audio_in_mut(port, c);
+            match chans.get(c) {
+                Some(src) => {
+                    let n = src.len().min(dst.len());
+                    dst[..n].copy_from_slice(&src[..n]);
+                    dst[n..].fill(0.0);
+                }
+                None => dst.fill(0.0),
+            }
+        }
+        self.set_channels(true, port, chans.len().min(reserved) as u8);
+        self.set_in_silent(port, false);
+    }
+
+    /// Channel `c` of audio output `port` of the last call into `dst` (its length = the frames asked); a channel the
+    /// output lacks is silent.
+    pub fn read_audio_chan(&mut self, port: usize, c: usize, dst: &mut [f32]) {
+        let src = self.audio_out(port);
+        if c < src.ch() {
+            let s = src.chan(c);
+            let n = dst.len().min(s.len());
+            dst[..n].copy_from_slice(&s[..n]);
+            dst[n..].fill(0.0);
+        } else {
+            dst.fill(0.0);
+        }
+    }
+
+    /// the channels the engine's cable takes out of audio output `port` (an `any` output follows it; 0 = declared)
+    pub fn set_out_channels(&mut self, port: usize, ch: usize) {
+        self.set_channels(false, port, ch.min(u8::MAX as usize) as u8);
     }
 
     /// the first `needs` sensor whose status is not live / replay

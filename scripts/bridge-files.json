@@ -21,7 +21,6 @@
 		"shared/live-core/src/engine.ts": "adapter: live_core.wasm behind memory views (the worker's side)",
 		"shared/live-core/src/index.ts": "adapter: LiveCore – the worker, the worklet, the rings; the dropout count and the core's audio window to the page's monitor",
 		"shared/live-core/src/messages.ts": "types: worker and page messages",
-		"shared/live-core/src/modules.ts": "logic (#343): the unused TS module host",
 		"shared/live-core/src/ring.ts": "adapter: the SharedArrayBuffer audio rings",
 		"shared/live-core/src/worker.ts": "adapter: the Web Worker hosting live_core.wasm (the lead and the monitor's audio side are the core's)",
 		"shared/live-core/src/worklet.ts": "adapter: the AudioWorklet playing the ring",

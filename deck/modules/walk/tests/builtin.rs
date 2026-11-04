@@ -1,7 +1,8 @@
-//! The proof (#280): the `walk` module plays what the built-in `walk` node plays – the same notes at the same beats
-//! with the same pitches, and the same cv samples (pitch left, gate right) – for the same params, seed and tempo,
-//! however the timeline is cut into blocks. The module runs natively here through the SDK's `Rig` (the same `rt` code the
-//! wasm exports call); the stage's tests run the compiled .wasm against the same built-in (deck-native, feature `modules`).
+//! The proof (#280; module ABI v2 #343): the `walk` module plays what the built-in `walk` node plays – the same notes
+//! at the same frames with the same pitches, lengths and glides, and the same cv samples (pitch left, gate right) – for
+//! the same params, seed and tempo, however the timeline is cut into blocks. The module runs natively here through the
+//! SDK's `Rig` (the same `rt` code the wasm exports call); its wasm runs against `fixtures/walk.json` in tests/wasm.rs
+//! (native ≡ wasm) and inside the engine in deck-native's tests/modules.rs.
 use deck_core::tempo::TempoMap;
 use deck_events::bridge::GateCv;
 use deck_events::generator::{Inbox, Outbox, Span};
@@ -11,7 +12,7 @@ use deck_events::rt::{resolve, RtEvent};
 use deck_events::{Event, Generator, Time};
 use deck_module::host;
 use deck_module::testing::Rig;
-use deck_module::Describe;
+use deck_module::{Describe, Kind, QUANTUM};
 use walk_module::Walk;
 
 const RATE: f64 = 48_000.0;
@@ -21,6 +22,9 @@ struct Builtin {
     cv: GateCv,
     tempo: TempoMap,
 }
+
+/// one note as both sides give it: its frame in the call, pitch, length (beats), glide
+type Note = (u32, f32, f32, f32);
 
 impl Builtin {
     fn new(seed: u64, spread: f32, per_beat: f64, glide: f32, base: f32, bpm: f64) -> Builtin {
@@ -33,17 +37,21 @@ impl Builtin {
         }
     }
 
-    /// one block [start, start + n): its notes (beat, pitch, glide) and its cv
-    fn block(&mut self, start: f64, n: usize) -> (Vec<(f64, f32)>, Vec<f32>, Vec<f32>) {
+    /// one call [start, start + n): its notes and its cv
+    fn call(&mut self, start: f64, n: usize) -> (Vec<Note>, Vec<f32>, Vec<f32>) {
         let span = Span::frames(&self.tempo, start, start + n as f64);
         let mut out = Outbox::new(1, 64);
         self.walk.query(&span, &Inbox { ports: &[] }, &mut out);
         let notes = out
             .port(0)
             .iter()
-            .map(|e: &Event| match e.start {
-                Time::Beats(b) => (b, e.props.get(self.walk.pitch).unwrap()),
-                _ => unreachable!(),
+            .map(|e: &Event| {
+                let frame = (e.frame(&self.tempo, start) - start).max(0.0).round() as u32;
+                let len = match e.dur {
+                    Some(Time::Beats(b)) => b as f32,
+                    _ => unreachable!(),
+                };
+                (frame, e.props.get(self.walk.pitch).unwrap(), len, e.props.get(self.walk.glide_key).unwrap())
             })
             .collect();
         let mut rt: Vec<RtEvent> = Vec::new();
@@ -64,34 +72,41 @@ fn module(seed: u64, spread: f32, per_beat: f32, glide: f32, base: f32, bpm: f64
     rig
 }
 
-/// the module and the built-in over `blocks` (each a frame count), compared block by block
+/// one module call: its notes and its cv
+fn run(m: &mut Rig<Walk>, start: f64, n: usize) -> (Vec<Note>, Vec<f32>, Vec<f32>) {
+    m.run(start, n as u32);
+    let notes = m
+        .events_out(Walk::NOTES)
+        .iter()
+        .map(|e| {
+            assert_eq!(e.kind(), Some(Kind::NoteOn));
+            (e.frame, e.pitch_hz(), e.len, e.glide())
+        })
+        .collect();
+    let cv = m.audio_out(Walk::CV);
+    let (l, r) = cv.stereo();
+    (notes, l.to_vec(), r.to_vec())
+}
+
+/// the module and the built-in over `blocks` (each a frame count, cut into calls of at most `QUANTUM`), compared call
+/// by call; the notes in total
 fn same(seed: u64, spread: f32, per_beat: f32, glide: f32, base: f32, bpm: f64, blocks: &[usize]) -> usize {
     let mut b = Builtin::new(seed, spread, f64::from(per_beat), glide, base, bpm);
     let mut m = module(seed, spread, per_beat, glide, base, bpm);
     let (mut start, mut notes_total) = (0usize, 0);
-    for &n in blocks {
-        let (notes, l, r) = b.block(start as f64, n);
-        m.process(start as f64, n as u32);
-        let events = m.events();
-        assert_eq!(events.len(), notes.len(), "notes in block at {start}");
-        for (e, (beat, pitch)) in events.iter().zip(&notes) {
-            assert_eq!(e.name, "music.note");
-            assert_eq!(e.start, *beat, "the beat of a step");
-            let got = e.prop("pitch").expect("a pitch");
-            assert!((got - pitch).abs() <= 8.0 * f32::EPSILON * pitch.abs(), "the pitch of a step: module {got}, built-in {pitch} (powf: see the cv below)");
-            assert_eq!(e.prop("glide"), Some(glide));
+    for &block in blocks {
+        let mut left = block;
+        while left > 0 {
+            let n = left.min(QUANTUM);
+            let (want, wl, wr) = b.call(start as f64, n);
+            let (got, ml, mr) = run(&mut m, start as f64, n);
+            assert_eq!(got, want, "the notes of the call at {start} (frame, pitch, length, glide)");
+            assert_eq!(ml, wl, "cv pitch, call at {start}");
+            assert_eq!(mr, wr, "cv gate, call at {start}");
+            notes_total += want.len();
+            start += n;
+            left -= n;
         }
-        let (ml, mr) = m.audio_out(0);
-        // the pitch glides with powf: the built-in's (deck-events) is libm's since #317 (the same bits on every target, which
-        // is also what std's powf gives in the module's wasm), this native build of the module uses the platform's – a few
-        // ulp apart. The wasm module is exact against the built-in: deck-native's tests/modules.rs.
-        assert_eq!(ml.len(), l.len());
-        for (i, (x, y)) in ml.iter().zip(&l).enumerate() {
-            assert!((x - y).abs() <= 8.0 * f32::EPSILON * y.abs(), "cv pitch, block at {start}, frame {i}: module {x}, built-in {y}");
-        }
-        assert_eq!(mr, &r[..], "cv gate, block at {start}");
-        notes_total += notes.len();
-        start += n;
     }
     notes_total
 }
@@ -112,26 +127,27 @@ fn it_holds_however_the_timeline_is_cut() {
     assert!(notes >= 10, "{notes} notes");
 }
 
+/// the pitches of the notes over `calls` calls of `QUANTUM` frames
+fn melody(seed: u64, spread: f32) -> Vec<f32> {
+    let mut m = module(seed, spread, 4.0, 0.0, 147.0, 120.0);
+    (0..64).flat_map(|k| run(&mut m, (k * QUANTUM) as f64, QUANTUM).0).map(|n| n.1).collect()
+}
+
 #[test]
 fn spread_zero_is_a_drone_and_another_seed_another_melody() {
-    let mut a = module(1, 0.0, 4.0, 0.0, 147.0, 120.0);
-    a.process(0.0, 1024);
-    assert!(a.events().iter().all(|e| e.prop("pitch") == Some(147.0)));
-    let melody = |seed| {
-        let mut m = module(seed, 1.0, 4.0, 0.0, 147.0, 120.0);
-        m.process(0.0, 1024);
-        m.events().iter().filter_map(|e| e.prop("pitch")).collect::<Vec<_>>()
-    };
-    assert_ne!(melody(1), melody(2));
-    assert_eq!(melody(3), melody(3), "the same seed, the same melody");
+    let drone = melody(1, 0.0);
+    assert!(!drone.is_empty() && drone.iter().all(|&p| p == 147.0));
+    assert_ne!(melody(1, 1.0), melody(2, 1.0));
+    assert_eq!(melody(3, 1.0), melody(3, 1.0), "the same seed, the same melody");
 }
 
 #[test]
 fn a_stopped_tempo_plays_no_steps() {
     let mut m = module(1, 1.0, 4.0, 0.0, 147.0, 120.0);
     m.set_tempo(0.0, 0.0, 120.0, 4, false);
-    m.process(0.0, 512);
-    assert!(m.events().is_empty());
+    for k in 0..4 {
+        assert!(run(&mut m, (k * QUANTUM) as f64, QUANTUM).0.is_empty());
+    }
 }
 
 #[test]
@@ -141,29 +157,37 @@ fn the_descriptor_declares_the_params_and_ports() {
     let names: Vec<&str> = d.params.iter().map(|p| p.name.as_ref()).collect();
     assert_eq!(names, ["spread", "rate", "glide", "base", "octaves", "length"]);
     assert_eq!((d.params[1].min, d.params[1].max, d.params[1].default), (0.0, 16.0, Some(2.0)));
-    assert_eq!(d.ports.len(), 2);
+    assert!(d.params.iter().all(|p| !p.doc.is_empty()), "every parameter documented");
+    assert_eq!(d.ports.iter().map(|p| (p.name.as_ref(), p.ty)).collect::<Vec<_>>(), [("cv", deck_catalog::PortType::Cv), ("notes", deck_catalog::PortType::Event)]);
+    let notes = &d.ports[1];
+    assert_eq!((notes.names[0].as_ref(), notes.props.iter().map(|p| p.as_ref()).collect::<Vec<_>>()), ("music.note", vec!["pitch", "vel", "glide"]));
 }
 
-/// The fixture the browser host's test reads (shared/live-core/test/modules.test.ts runs the wasm in V8 and compares):
-/// the module's events and a few cv samples per block, made natively here. `UPDATE_FIXTURES=1 cargo test -p walk-module
-/// fixture` writes it, a plain run fails when it is stale.
+/// The native run the wasm is held against (tests/wasm.rs, native ≡ wasm): the module's notes and a few cv samples per
+/// block of 1024 frames (eight calls), made natively here. `UPDATE_FIXTURES=1 cargo test -p walk-module fixture` writes
+/// it, a plain run fails when it is stale.
 #[test]
-fn fixture_for_the_browser_host_is_current() {
-    const BLOCK: u32 = 1024;
+fn fixture_of_the_native_run_is_current() {
+    const BLOCK: usize = 1024;
     let mut m = module(42, 1.0, 3.0, 0.5, 147.0, 84.0);
     let (mut events, mut cv) = (Vec::new(), Vec::new());
-    for b in 0..200u32 {
-        m.process(f64::from(b) * f64::from(BLOCK), BLOCK);
-        for e in m.events() {
-            events.push(serde_json::json!({ "block": b, "name": e.name, "start": e.start, "len": e.len, "pitch": e.prop("pitch"), "glide": e.prop("glide") }));
+    for b in 0..200usize {
+        let (mut l, mut r) = (Vec::new(), Vec::new());
+        for c in 0..BLOCK / QUANTUM {
+            let at = c * QUANTUM;
+            let (notes, cl, cr) = run(&mut m, (b * BLOCK + at) as f64, QUANTUM);
+            for (frame, pitch, len, glide) in notes {
+                events.push(serde_json::json!({ "block": b, "frame": at as u32 + frame, "pitch": pitch, "len": len, "glide": glide }));
+            }
+            l.extend(cl);
+            r.extend(cr);
         }
-        let (l, r) = m.audio_out(0);
         cv.push(serde_json::json!([l[0], l[l.len() - 1], r.iter().sum::<f32>()]));
     }
     let doc = serde_json::json!({
-        "what": "walk-module natively: seed 42, 84 bpm, spread 1, rate 3, glide 0.5, base 147 – 200 blocks of 1024 frames at 48 kHz; cv = [left first, left last, gate sum] per block",
+        "what": "walk-module natively: seed 42, 84 bpm, spread 1, rate 3, glide 0.5, base 147 – 200 blocks of 1024 frames (eight calls of 128) at 48 kHz; notes = note ons (frame in the block, pitch Hz, length beats, glide); cv = [left first, left last, gate sum] per block",
         "rate": RATE, "seed": 42, "bpm": 84, "params": { "spread": 1, "rate": 3, "glide": 0.5, "base": 147 },
-        "block": BLOCK, "blocks": 200, "descriptor": Walk::DESCRIPTOR, "events": events, "cv": cv,
+        "block": BLOCK, "blocks": 200, "descriptor": Walk::DESCRIPTOR, "notes": events, "cv": cv,
     });
     let text = serde_json::to_string_pretty(&doc).unwrap() + "\n";
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/walk.json");

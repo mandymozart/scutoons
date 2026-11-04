@@ -7,7 +7,6 @@
 //   shared/live/src/protocol.ts, deck/protocol/src/generated.rs   deck/protocol/generate.ts, from deck/protocol/schema.json
 //   shared/live-core/src/{wire,signals,clock-state}.ts            deck/live-core/src/bin/codecs-ts, from the layout tables
 //                                                                 in wire.rs, signals.rs, clock.rs and deck-core's tempo
-//   shared/live-core/src/module-abi.ts                            deck/module/tests/sdk.rs (module_abi_ts), from abi.rs
 // The kind catalog's files (shared/live/src/catalog.ts, kinds.json …) are deck-space's `deck-schema` (deck:ci checks them).
 import { spawnSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
@@ -21,14 +20,7 @@ type Step = { name: string; cmd: string; args: string[]; cwd: string; env?: Reco
 
 export const steps = (check: boolean): Step[] => [
 	{ name: 'protocol (schema.json → protocol.ts, generated.rs)', cmd: npm, args: ['run', 'generate', '-w', 'shared/live', ...(check ? ['--', '--check'] : [])], cwd: root },
-	{ name: 'wire codecs (wire.rs, signals.rs, clock.rs → wire.ts, signals.ts, clock-state.ts)', cmd: 'cargo', args: ['run', '-q', '-p', 'live-core', '--features', 'codegen', '--bin', 'codecs-ts', ...(check ? ['--', '--check'] : [])], cwd: `${root}/deck` },
-	{
-		name: 'module ABI (abi.rs → module-abi.ts)',
-		cmd: 'cargo',
-		args: ['test', '-q', '-p', 'deck-module', '--test', 'sdk', 'module_abi_ts'],
-		cwd: `${root}/deck`,
-		env: { UPDATE_FIXTURES: check ? undefined : '1' }
-	}
+	{ name: 'wire codecs (wire.rs, signals.rs, clock.rs → wire.ts, signals.ts, clock-state.ts)', cmd: 'cargo', args: ['run', '-q', '-p', 'live-core', '--features', 'codegen', '--bin', 'codecs-ts', ...(check ? ['--', '--check'] : [])], cwd: `${root}/deck` }
 ];
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

@@ -1,27 +1,78 @@
-//! A small test bench around the module: parameters by name, note lanes, rendering in blocks of any size.
+//! A small test bench around the module: parameters by name, presets, four note **lanes** (a lane plays one note at a
+//! time – note on, note off, a pitch change while it holds – turned into the module's note events, the way a MIDI
+//! keyboard's channel would), rendering in blocks of any size (cut into calls of at most `QUANTUM` frames).
 #![allow(dead_code)]
-use analog_module::{Analog, PARAM_NAMES, PRESETS_JSON};
+use analog_module::{Analog, PARAM_NAMES};
 use deck_module::testing::Rig;
-use deck_module::Describe;
+use deck_module::{Describe, Ev, Expr, QUANTUM};
 
 pub const RATE: f64 = 48_000.0;
+
+/// the presets that are documents, as a preset file (format `scutoons.preset`)
+pub const PRESET_FILE: &str = include_str!("../../analog.preset.json");
 
 pub fn idx(name: &str) -> usize {
     PARAM_NAMES.iter().position(|n| *n == name).unwrap_or_else(|| panic!("no parameter '{name}'"))
 }
 
-/// the factory preset `name`: (parameter, value) pairs
+/// a preset by name: the descriptor's factory preset (`pad`) or one of the preset file's – (parameter, value) pairs
 pub fn preset(name: &str) -> Vec<(String, f32)> {
-    let doc: serde_json::Value = serde_json::from_str(PRESETS_JSON).unwrap();
-    let p = doc["presets"].as_array().unwrap().iter().find(|p| p["name"] == name).unwrap_or_else(|| panic!("no preset '{name}'"));
-    p["values"].as_object().unwrap().iter().map(|(k, v)| (k.clone(), v.as_f64().unwrap() as f32)).collect()
+    let doc: serde_json::Value = serde_json::from_str(match name {
+        "pad" => Analog::DESCRIPTOR,
+        _ => PRESET_FILE,
+    })
+    .unwrap();
+    let values = match name {
+        "pad" => &doc["preset"]["values"],
+        _ => &doc["presets"].as_array().unwrap().iter().find(|p| p["name"] == name).unwrap_or_else(|| panic!("no preset '{name}'"))["values"],
+    };
+    values.as_object().unwrap().iter().map(|(k, v)| (k.clone(), v.as_f64().unwrap() as f32)).collect()
+}
+
+/// what a lane's state change becomes: the module's note events (at frame 0 of the next call)
+#[derive(Default)]
+pub struct Lanes {
+    /// per lane: (pitch Hz, gate = velocity, 0 = off)
+    pub state: [(f32, f32); 4],
+    /// per lane: what the module was last told – (the sounding note's id, its pitch at the note on, the pitch now)
+    sent: [Option<(u32, f32, f32)>; 4],
+    next_id: u32,
+}
+
+impl Lanes {
+    pub fn new() -> Lanes {
+        Lanes { state: [(261.63, 0.0); 4], ..Lanes::default() }
+    }
+
+    /// the events that bring the module to the lanes' state: note offs, then bends, then note ons
+    pub fn events(&mut self) -> Vec<Ev> {
+        let mut out = vec![];
+        for (k, &(hz, gate)) in self.state.iter().enumerate() {
+            match (self.sent[k], gate > 0.0) {
+                (Some((id, _, _)), false) => {
+                    out.push(Ev::note_off(0, id));
+                    self.sent[k] = None;
+                }
+                (Some((id, from, now)), true) if now != hz => {
+                    out.push(Ev::note_expr(0, id, Expr::Bend, 12.0 * (hz / from).log2()));
+                    self.sent[k] = Some((id, from, hz));
+                }
+                (None, true) => {
+                    self.next_id += 1;
+                    out.push(Ev::note_on(0, self.next_id, hz, f32::NAN, gate));
+                    self.sent[k] = Some((self.next_id, hz, hz));
+                }
+                _ => {}
+            }
+        }
+        out
+    }
 }
 
 pub struct Bench {
     pub rig: Rig<Analog>,
     pub frame: f64,
-    /// per lane: (pitch Hz, gate)
-    pub lanes: [(f32, f32); 4],
+    pub lanes: Lanes,
     pub sustain: f32,
 }
 
@@ -31,7 +82,7 @@ impl Bench {
     }
 
     pub fn seeded(seed: u64) -> Bench {
-        Bench { rig: Rig::new(RATE, seed), frame: 0.0, lanes: [(261.63, 0.0); 4], sustain: 0.0 }
+        Bench { rig: Rig::new(RATE, seed), frame: 0.0, lanes: Lanes::new(), sustain: 0.0 }
     }
 
     pub fn set(&mut self, name: &str, v: f32) -> &mut Bench {
@@ -39,11 +90,10 @@ impl Bench {
         self
     }
 
-    /// back to the defaults, then the preset's values
+    /// back to the defaults, then the preset's values (what the host's `Preset::apply` does)
     pub fn apply(&mut self, pairs: &[(String, f32)]) {
-        let fresh = Analog::build();
-        for i in 0..PARAM_NAMES.len() {
-            self.rig.set_param(i, fresh.param(i));
+        for (i, p) in <Analog as Describe>::PARAMS.iter().enumerate() {
+            self.rig.set_param(i, p.default);
         }
         for (k, v) in pairs {
             self.set(k, *v);
@@ -51,53 +101,55 @@ impl Bench {
     }
 
     pub fn note_on(&mut self, lane: usize, hz: f32, velocity: f32) {
-        self.lanes[lane] = (hz, velocity);
+        self.lanes.state[lane] = (hz, velocity);
     }
 
     pub fn note_off(&mut self, lane: usize) {
-        self.lanes[lane].1 = 0.0;
+        self.lanes.state[lane].1 = 0.0;
     }
 
     pub fn glide_to(&mut self, lane: usize, hz: f32) {
-        self.lanes[lane].0 = hz;
+        self.lanes.state[lane].0 = hz;
     }
 
-    /// render `frames` frames in blocks of `block`, the lanes and the sustain pedal as they stand
+    /// one call of `n` ≤ `QUANTUM` frames: the lanes' events at its first frame, the pedal
+    fn call(&mut self, n: usize) {
+        let events = self.lanes.events();
+        if !events.is_empty() {
+            assert!(self.rig.set_events_in(0, &events));
+        }
+        self.rig.set_control_in(0, self.sustain);
+        self.rig.run(self.frame, n as u32);
+        self.frame += n as f64;
+    }
+
+    /// render `frames` frames in blocks of `block` (each cut into calls of at most `QUANTUM`), the lanes and the
+    /// sustain pedal as they stand
     pub fn run_in(&mut self, frames: usize, block: usize) -> (Vec<f32>, Vec<f32>) {
         let (mut l, mut r) = (Vec::with_capacity(frames), Vec::with_capacity(frames));
         let mut left = frames;
         while left > 0 {
-            let n = left.min(block).min(1024);
-            for (k, (hz, gate)) in self.lanes.iter().enumerate() {
-                self.rig.io.inp.audio[k][0][..n].fill(*hz);
-                self.rig.io.inp.audio[k][1][..n].fill(*gate);
-            }
-            self.rig.io.inp.control[0] = self.sustain;
-            self.rig.process(self.frame, n as u32);
-            let (a, b) = self.rig.audio_out(0);
+            let n = left.min(block).min(QUANTUM);
+            self.call(n);
+            let out = self.rig.audio_out(0);
+            let (a, b) = out.stereo();
             l.extend_from_slice(a);
             r.extend_from_slice(b);
-            self.frame += n as f64;
             left -= n;
         }
         (l, r)
     }
 
-    /// like `run_in`, keeping only the peak: allocates nothing
+    /// like `run_in`, keeping only the peak
     pub fn run_peak(&mut self, frames: usize, block: usize) -> f32 {
         let mut top = 0.0f32;
         let mut left = frames;
         while left > 0 {
-            let n = left.min(block).min(1024);
-            for (k, (hz, gate)) in self.lanes.iter().enumerate() {
-                self.rig.io.inp.audio[k][0][..n].fill(*hz);
-                self.rig.io.inp.audio[k][1][..n].fill(*gate);
-            }
-            self.rig.io.inp.control[0] = self.sustain;
-            self.rig.process(self.frame, n as u32);
-            let (a, b) = self.rig.audio_out(0);
+            let n = left.min(block).min(QUANTUM);
+            self.call(n);
+            let out = self.rig.audio_out(0);
+            let (a, b) = out.stereo();
             top = a.iter().chain(b).fold(top, |m, v| m.max(v.abs()));
-            self.frame += n as f64;
             left -= n;
         }
         top
