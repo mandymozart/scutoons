@@ -1,0 +1,20 @@
+name = "stage gestures: a pinch zooms the camera"
+about = "#376: deck-space's fingers (gesture.rs) – the first drives the pointer, a second lets it go and the two pinch, the camera's 0.88 step counts the zoom. The page's pointer events and winit's touches go through the same state machine, so native and wasm get the same camera"
+
+# [id, phase (0 down · 1 moved · 2 up), x, y]: two fingers 100 apart spread to 200 in three moves – one doubling, ln 2 / -ln 0.88 steps in
+[[step]]
+do = "gesture"
+with = { events = [[1, 0, 600.0, 360.0], [2, 0, 700.0, 360.0], [1, 1, 575.0, 360.0], [2, 1, 725.0, 360.0], [1, 1, 550.0, 360.0], [2, 1, 750.0, 360.0], [1, 1, 500.0, 360.0], [2, 1, 700.0, 360.0]] }
+expect = { acts = ["press", "lift", "pinch", "pinch", "pinch", "pinch", "pinch", "pinch"], zoom_steps = { near = 5.4223, tol = 0.001 }, camera_factor = { near = 0.5, tol = 0.001 }, step = 0.88, touching = true }
+
+# one finger alone drives the pointer: no zoom; lifting both ends the gesture
+[[step]]
+do = "gesture"
+with = { events = [[7, 0, 100.0, 100.0], [7, 1, 140.0, 100.0], [7, 2, 140.0, 100.0]] }
+expect = { acts = ["press", "drag", "lift"], zoom_steps = 0.0, camera_factor = 1.0, touching = false }
+
+# a pinch backwards zooms out; the finger left over after a pinch does nothing; a third finger is ignored
+[[step]]
+do = "gesture"
+with = { events = [[1, 0, 100.0, 0.0], [2, 0, 300.0, 0.0], [2, 1, 200.0, 0.0], [3, 0, 50.0, 50.0], [2, 1, 400.0, 0.0], [3, 2, 50.0, 50.0], [2, 2, 400.0, 0.0], [1, 1, 10.0, 0.0], [1, 2, 10.0, 0.0]] }
+expect = { acts = ["press", "lift", "pinch"], zoom_steps = { max = -1.0 }, touching = false }

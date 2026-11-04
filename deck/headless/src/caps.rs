@@ -13,6 +13,7 @@ use deck_core::lead::{AdaptiveLead, DeviceClass};
 use deck_core::meters::{self, Meters};
 use deck_core::monitor::{AudioWindow, Monitor};
 use deck_space::deck::Deck;
+use deck_space::gesture::{Act, Fingers, Touch, ZOOM_STEP};
 use deck_space::mood::Ladder;
 use serde_json::{json, Value};
 
@@ -38,11 +39,10 @@ pub const CAPS: &[(&str, &str, &str, &str)] = &[
     ("knob", "#369", "the controls' rules: knob turn, value and position, gamepad press and release", "live-deck controls.ts, gamepad.ts, scene.ts toValue / toPos; native pad.rs"),
     ("sync", "#371", "the conductor's scene sync: items, progress, the PUSH line", "native sync.rs push_line, live-deck sync.ts"),
     ("quality_options", "#375", "the quality page's option tables (fps caps, ratios, sizes) and labels", "native quality.rs Page, deck-quality-sheet.svelte"),
-    ("gesture", "#376", "stage gestures: the pinch and the two-finger state machine", "live-deck space.ts bind, native main.rs space_event"),
 ];
 
 /// the steps the core answers now (their move tickets landed): name, ticket
-pub const MOVED: &[(&str, &str)] = &[("stats", "#364"), ("lead", "#365"), ("mood", "#367"), ("rig_facts", "#368"), ("device_text", "#373"), ("meters", "#373")];
+pub const MOVED: &[(&str, &str)] = &[("stats", "#364"), ("lead", "#365"), ("mood", "#367"), ("rig_facts", "#368"), ("device_text", "#373"), ("meters", "#373"), ("gesture", "#376")];
 
 /// Call the capability `name` with the step's input: its answer, or what is missing.
 pub fn call(name: &str, input: &Value) -> Result<Value, Missing> {
@@ -53,6 +53,7 @@ pub fn call(name: &str, input: &Value) -> Result<Value, Missing> {
         "rig_facts" => return Ok(rig_facts(input)),
         "device_text" => return Ok(device_text(input)),
         "meters" => return Ok(meters(input)),
+        "gesture" => return Ok(gesture(input)),
         _ => {}
     }
     match CAPS.iter().find(|c| c.0 == name) {
@@ -208,4 +209,27 @@ fn meters(i: &Value) -> Value {
         "zones": readings.iter().map(|r| r.zone.name()).collect::<Vec<_>>(),
         "limiter_bar": r4(meters::limiter_bar(num(i, "limiter_db", 0.0) as f32)),
     })
+}
+
+/// #376: deck-space's fingers fed like an adapter feeds them – `events` ([id, phase, x, y], phase 0 down · 1 moved · 2 up:
+/// the page's pointer events and winit's touches as the stage takes them) – what the stage did: the acts in order, the
+/// pinch's zoom steps and the camera's distance factor (`ZOOM_STEP` to their power), which finger drives at the end.
+fn gesture(i: &Value) -> Value {
+    let mut fingers = Fingers::new();
+    let (mut acts, mut steps) = (Vec::new(), 0.0f32);
+    for e in i.get("events").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_array) {
+        let n = |k: usize| e.get(k).and_then(Value::as_f64).unwrap_or(0.0);
+        match fingers.event(n(0) as u64, Touch::from_code(n(1) as u32), n(2) as f32, n(3) as f32) {
+            Some(Act::Press(..)) => acts.push("press"),
+            Some(Act::Drag(..)) => acts.push("drag"),
+            Some(Act::Lift(..)) => acts.push("lift"),
+            Some(Act::Pinch(s)) => {
+                steps += s;
+                acts.push("pinch");
+            }
+            None => {}
+        }
+    }
+    let r4 = |x: f32| crate::deck::round(f64::from(x), 4);
+    json!({ "acts": acts, "zoom_steps": r4(steps), "camera_factor": r4(ZOOM_STEP.powf(steps)), "step": r4(ZOOM_STEP), "driver": fingers.driver(), "touching": fingers.touching() })
 }

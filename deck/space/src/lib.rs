@@ -6,6 +6,7 @@
 pub mod controls;
 pub mod deck;
 pub mod devices;
+pub mod gesture;
 pub mod graph;
 pub mod modreg;
 pub mod mood;

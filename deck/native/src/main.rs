@@ -1613,7 +1613,7 @@ impl App {
             // a check run's --pointer / --drag stays where it was put
             WindowEvent::CursorMoved { .. } | WindowEvent::CursorLeft { .. } | WindowEvent::MouseInput { .. } | WindowEvent::Touch(_)
                 if self.args.pointer.is_some() || self.args.drag.is_some() => {}
-            // a finger: like the mouse, with a bigger reach (winit's touch events – Windows, Wayland, X11 with XInput2)
+            // a finger (winit's touch events – Windows, Wayland, X11 with XInput2): the stage's, one drives, two pinch
             WindowEvent::Touch(t) => {
                 use deck_native::space::Touch;
                 let phase = match t.phase {
@@ -1621,7 +1621,7 @@ impl App {
                     TouchPhase::Moved => Touch::Moved,
                     TouchPhase::Ended | TouchPhase::Cancelled => Touch::Ended,
                 };
-                s.touch(t.id, phase, t.location.x as f32, t.location.y as f32, &mut self.show.controls);
+                s.pointers(t.id, phase, t.location.x as f32, t.location.y as f32, &mut self.show.controls);
             }
             WindowEvent::CursorMoved { position, .. } => s.pointer_moved(position.x as f32, position.y as f32, &mut self.show.controls),
             WindowEvent::CursorLeft { .. } => s.pointer_left(),

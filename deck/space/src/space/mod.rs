@@ -33,6 +33,7 @@ pub mod sync;
 pub mod values;
 pub mod wire;
 
+use crate::gesture::{Act, Fingers};
 use crate::graph::Graph;
 use crate::params;
 use crate::tempo;
@@ -120,13 +121,7 @@ pub enum Cursor {
     Locked,
 }
 
-/// a touch's phase (winit's, without winit)
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Touch {
-    Started,
-    Moved,
-    Ended,
-}
+pub use crate::gesture::Touch;
 
 pub struct Space {
     /// the space node
@@ -165,8 +160,8 @@ pub struct Space {
     drag: Drag,
     /// the last press on a button (which, when – the show's time) for the double click
     last_press: Option<(usize, f32)>,
-    /// the finger that drives the pointer on a touch screen
-    finger: Option<u64>,
+    /// the fingers on a touch screen: the first drives the pointer, two pinch (gesture.rs)
+    fingers: Fingers,
     /// #209: the last press – where, and what it hit (a tap selects that) – and the taps not yet asked for (`take_tap`)
     pressed: Option<((f32, f32), Option<Hit>)>,
     tapped: Option<Option<Hit>>,
@@ -311,7 +306,7 @@ impl Space {
             view: (1.0, 1.0),
             drag: Drag::None,
             last_press: None,
-            finger: None,
+            fingers: Fingers::new(),
             pressed: None,
             tapped: None,
             clock: 0.0,
@@ -386,7 +381,7 @@ impl Space {
         self.being.push(ctl);
         let local = Local { ctl, meter };
         if self.drag == Drag::None {
-            let reach = if self.finger.is_some() { TOUCH_REACH } else { 1.0 };
+            let reach = if self.fingers.driver().is_some() { TOUCH_REACH } else { 1.0 };
             self.being.hover = self.pointer.and_then(|(x, y)| self.being.pick_reach(&self.camera.ray(x, y, self.view.0, self.view.1), reach));
         }
         self.being.dragging = matches!(self.drag, Drag::Knob { .. } | Drag::Hold);
@@ -876,7 +871,7 @@ impl Space {
     /// linked one = it shakes and the HUD says what drives it, else turn the camera
     pub fn press(&mut self) {
         // a touch screen's own mouse emulation: the finger already pressed
-        if self.finger.is_none() {
+        if !self.fingers.touching() {
             self.press_reach(1.0);
         }
     }
@@ -923,7 +918,7 @@ impl Space {
     }
 
     pub fn release(&mut self) {
-        if self.finger.is_none() {
+        if !self.fingers.touching() {
             self.let_go();
         }
     }
@@ -983,23 +978,24 @@ impl Space {
         }
     }
 
-    /// A finger on a touch screen (winit's `Touch`): the first one drives the pointer – down = a press with a bigger
-    /// reach, up = a release; any other finger meanwhile is ignored.
-    pub fn touch(&mut self, id: u64, phase: Touch, x: f32, y: f32, ctl: &mut dyn Knobs) {
-        match phase {
-            Touch::Started if self.finger.is_none() => {
+    /// The fingers on a touch screen (winit's `Touch` on the deck, the page's pointer events in the browser; `id` tells
+    /// them apart): the first one drives the pointer – down = a press with a bigger reach, up = a release; a second one
+    /// lets the first go and the two pinch – their distance zooms the camera by its own step (gesture.rs). The screen's
+    /// mouse emulation is ignored meanwhile.
+    pub fn pointers(&mut self, id: u64, phase: Touch, x: f32, y: f32, ctl: &mut dyn Knobs) {
+        match self.fingers.event(id, phase, x, y) {
+            Some(Act::Press(x, y)) => {
                 self.pointer_moved(x, y, ctl);
-                self.finger = Some(id);
                 self.press_reach(TOUCH_REACH);
             }
-            Touch::Moved if self.finger == Some(id) => self.pointer_moved(x, y, ctl),
-            Touch::Ended if self.finger == Some(id) => {
+            Some(Act::Drag(x, y)) => self.pointer_moved(x, y, ctl),
+            Some(Act::Lift(x, y)) => {
                 self.pointer_moved(x, y, ctl);
-                self.finger = None;
                 self.let_go();
                 self.pointer_left();
             }
-            _ => {}
+            Some(Act::Pinch(steps)) => self.camera.zoom(steps),
+            None => {}
         }
     }
 
@@ -1404,18 +1400,52 @@ mod tests {
         let (x, y) = space.to_pixel(b.pos + side * b.radius * 2.3).unwrap();
         space.pointer_moved(x, y, &mut ctl);
         assert_ne!(space.being.pick(&space.camera.ray(x, y, 1280.0, 720.0)), Some(Hit::Button(i)), "the mouse misses it");
-        space.touch(7, Touch::Started, x, y, &mut ctl);
+        space.pointers(7, Touch::Started, x, y, &mut ctl);
         assert_eq!(space.being.hover, Some(Hit::Button(i)), "the finger got it");
         assert_eq!(space.cursor(), Cursor::Grabbing);
         space.press(); // the emulated mouse press: ignored
         let (node, before) = (space.being.buttons[i].node, ctl.input(space.being.buttons[i].node, "index", -1.0));
         let (_, axis) = space.drag_axis(i);
-        space.touch(8, Touch::Moved, x + axis.0, y + axis.1, &mut ctl); // another finger: ignored
+        space.pointers(8, Touch::Moved, x + axis.0, y + axis.1, &mut ctl); // a finger that is not down: ignored
         assert_eq!(ctl.input(node, "index", -1.0), before);
-        space.touch(7, Touch::Moved, x + axis.0 * 0.5, y + axis.1 * 0.5, &mut ctl);
+        space.pointers(7, Touch::Moved, x + axis.0 * 0.5, y + axis.1 * 0.5, &mut ctl);
         assert!(ctl.input(node, "index", -1.0) > before);
-        space.touch(7, Touch::Ended, x, y, &mut ctl);
+        space.pointers(7, Touch::Ended, x, y, &mut ctl);
         assert_eq!((space.cursor(), space.being.hover), (Cursor::Default, None));
+    }
+
+    /// #376: a recorded two-finger sequence – the page's pointer events and winit's touches deliver the same – lets the
+    /// first finger go (nothing is pulled or turned) and zooms the camera by the fingers' spread, `ZOOM_STEP` per step;
+    /// the finger left over does nothing, and the mouse emulation stays out of it
+    #[test]
+    fn two_fingers_pinch_the_camera() {
+        use crate::gesture::ZOOM_STEP;
+        let (_, mut space, mut ctl) = cathedral();
+        let (want, distance) = (space.camera.want, space.camera.distance);
+        space.pointers(1, Touch::Started, 600.0, 360.0, &mut ctl);
+        space.pointers(2, Touch::Started, 700.0, 360.0, &mut ctl); // the first lets go
+        assert_eq!(space.drag, Drag::None);
+        assert_eq!(space.cursor(), Cursor::Default);
+        // the spread grows 100 → 200 in three moves: one doubling = ln 2 / -ln 0.88 steps in
+        for (a, b) in [(575.0, 725.0), (550.0, 750.0), (500.0, 700.0)] {
+            space.pointers(1, Touch::Moved, a, 360.0, &mut ctl);
+            space.pointers(2, Touch::Moved, b, 360.0, &mut ctl);
+        }
+        let steps = 2.0f32.ln() / -ZOOM_STEP.ln();
+        assert!((space.camera.want - want * ZOOM_STEP.powf(steps)).abs() < want * 1e-3, "{} from {want}", space.camera.want);
+        assert_eq!(space.camera.distance, distance, "the camera glides there in step()");
+        space.press(); // a touch screen's mouse emulation: ignored
+        assert_eq!(space.drag, Drag::None);
+        space.pointers(2, Touch::Ended, 700.0, 360.0, &mut ctl);
+        space.pointers(1, Touch::Moved, 100.0, 360.0, &mut ctl); // alone after a pinch: nothing
+        assert_eq!(space.drag, Drag::None);
+        let after = space.camera.want;
+        space.pointers(1, Touch::Ended, 100.0, 360.0, &mut ctl);
+        assert_eq!(space.camera.want, after);
+        assert!(space.fingers.driver().is_none() && !space.fingers.touching());
+        // a lone finger on empty space still turns the camera afterwards
+        space.pointers(3, Touch::Started, 500.0, 360.0, &mut ctl);
+        assert!(matches!(space.drag, Drag::Orbit(..)), "{:?}", space.drag);
     }
 
     /// #204: every being's core lights the room – the strongest at the eye first, at most as many as there are slots,

@@ -589,17 +589,13 @@ impl SpaceView {
         self.space.pointer_left();
     }
 
-    /// a finger: `phase` 0 = down, 1 = moved, 2 = up (a bigger reach than the mouse)
-    pub fn touch(&mut self, id: u32, phase: u32, x: f32, y: f32) {
-        let phase = match phase {
-            0 => Touch::Started,
-            1 => Touch::Moved,
-            _ => Touch::Ended,
-        };
-        self.space.touch(id as u64, phase, x, y, &mut self.page);
+    /// a finger (the page's pointer event with its `pointerId`): `phase` 0 = down, 1 = moved, 2 = up – the first drives
+    /// the pointer with a bigger reach than the mouse, two pinch the camera (deck-space gesture.rs)
+    pub fn pointers(&mut self, id: u32, phase: u32, x: f32, y: f32) {
+        self.space.pointers(id as u64, Touch::from_code(phase), x, y, &mut self.page);
     }
 
-    /// zoom in (+) or out (−) by wheel steps (a pinch)
+    /// zoom in (+) or out (−) by wheel steps (a wheel notch is 1)
     pub fn zoom(&mut self, steps: f32) {
         self.space.camera.zoom(steps);
     }

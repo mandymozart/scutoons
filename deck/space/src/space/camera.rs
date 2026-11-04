@@ -146,7 +146,7 @@ impl Orbit {
 
     /// `steps` > 0 moves in (a wheel notch = 1, 12 % each); the camera glides there in `step`
     pub fn zoom(&mut self, steps: f32) {
-        self.want = (self.want * 0.88f32.powf(steps)).clamp(self.min_distance, self.max_distance);
+        self.want = (self.want * crate::gesture::ZOOM_STEP.powf(steps)).clamp(self.min_distance, self.max_distance);
         self.idle = 0.0;
     }
 

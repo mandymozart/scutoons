@@ -34,7 +34,7 @@ export interface SpaceView {
 	pointer_down(): void;
 	pointer_up(): void;
 	pointer_leave(): void;
-	touch(id: number, phase: number, x: number, y: number): void;
+	pointers(id: number, phase: number, x: number, y: number): void;
 	zoom(steps: number): void;
 	home(): void;
 	cursor(): string;
@@ -256,9 +256,6 @@ export class SpaceStage {
 	private last = -1;
 	/** #220: the display size given to the view (the canvas' own size is the view's render size) */
 	private display: [number, number] = [0, 0];
-	private readonly fingers = new Map<number, [number, number]>();
-	/** two fingers: their distance when the pinch started (device px) */
-	private pinch = 0;
 	private readonly portraitsByChar = new Map<string, Promise<Record<string, { path: string }>>>();
 	private readonly cleanup: (() => void)[] = [];
 
@@ -470,50 +467,28 @@ export class SpaceStage {
 			c.addEventListener(type, f as EventListener, opts);
 			this.cleanup.push(() => c.removeEventListener(type, f as EventListener));
 		};
-		const pinchDistance = () => {
-			const [a, b] = [...this.fingers.values()];
-			return Math.hypot(a[0] - b[0], a[1] - b[1]);
+		// a finger goes to the stage whole (id, phase 0 down · 1 moved · 2 up, place): which finger drives, the pinch and its zoom are deck-space's
+		const finger = (e: PointerEvent, phase: number) => {
+			const [x, y] = at(c, e);
+			this.view.pointers(e.pointerId, phase, x, y);
 		};
 		on('pointerdown', (e) => {
-			const [x, y] = at(c, e);
 			c.setPointerCapture(e.pointerId);
-			if (e.pointerType === 'touch') {
-				this.fingers.set(e.pointerId, [x, y]);
-				if (this.fingers.size === 1) this.view.touch(e.pointerId, 0, x, y);
-				else if (this.fingers.size === 2) {
-					// a second finger: the first lets go, the two pinch
-					const [first] = this.fingers.keys();
-					const p = this.fingers.get(first)!;
-					this.view.touch(first, 2, p[0], p[1]);
-					this.pinch = pinchDistance();
-				}
-			} else {
+			if (e.pointerType === 'touch') finger(e, 0);
+			else {
+				const [x, y] = at(c, e);
 				this.view.pointer_move(x, y);
 				this.view.pointer_down();
 			}
 			e.preventDefault();
 		});
 		on('pointermove', (e) => {
-			const [x, y] = at(c, e);
-			if (e.pointerType === 'touch') {
-				if (!this.fingers.has(e.pointerId)) return;
-				this.fingers.set(e.pointerId, [x, y]);
-				if (this.fingers.size === 2 && this.pinch > 0) {
-					const d = pinchDistance();
-					// the camera's zoom: 12 % a step – the fingers' spread follows it
-					this.view.zoom(Math.log(d / this.pinch) / -Math.log(0.88));
-					this.pinch = d;
-				} else if (this.fingers.size === 1 && this.pinch === 0) this.view.touch(e.pointerId, 1, x, y);
-			} else this.view.pointer_move(x, y);
+			if (e.pointerType === 'touch') finger(e, 1);
+			else this.view.pointer_move(...at(c, e));
 		});
 		const up = (e: PointerEvent) => {
-			const [x, y] = at(c, e);
-			if (e.pointerType === 'touch') {
-				const solo = this.fingers.size === 1 && this.pinch === 0;
-				this.fingers.delete(e.pointerId);
-				if (solo) this.view.touch(e.pointerId, 2, x, y);
-				if (this.fingers.size === 0) this.pinch = 0;
-			} else this.view.pointer_up();
+			if (e.pointerType === 'touch') finger(e, 2);
+			else this.view.pointer_up();
 		};
 		on('pointerup', up);
 		on('pointercancel', up);
