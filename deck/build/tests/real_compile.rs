@@ -104,7 +104,7 @@ async fn the_walk_module_compiles_and_the_rest_is_refused() {
     assert!(built.wasm.starts_with(b"\0asm"));
     assert_eq!(built.hash, scutoons_build::compile::hex(&Sha256::digest(&built.wasm)));
     assert_eq!(built.descriptor["name"], "walk");
-    assert_eq!(built.descriptor["abi"], 1);
+    assert_eq!(built.descriptor["abi"], 2, "module ABI v2 (#343)");
     let params: Vec<&str> = built.descriptor["params"].as_array().unwrap().iter().map(|p| p["name"].as_str().unwrap()).collect();
     assert_eq!(params, ["spread", "rate", "glide", "base", "octaves", "length"]);
     assert_eq!(describe(&built.wasm).unwrap(), built.descriptor, "the descriptor is the one in the wasm");
