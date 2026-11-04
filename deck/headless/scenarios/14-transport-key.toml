@@ -1,0 +1,63 @@
+name = "transport: the deck's start / stop key stops, holds and continues the sequencer"
+about = "#359: a walk on the internal clock; the key (Space on the native deck) stops it – silent at once, its voice released, not after the note's length –, and continues it where it stood; each edge counts one in the transport's epoch"
+
+[[step]]
+do = "load"
+toml = '''
+[[node]]
+id = "tempo"
+kind = "tempo"
+bpm = 120
+beats = 4
+
+[[node]]
+id = "w"
+kind = "walk"
+spread = 1.0
+rate = 1.0
+
+[[node]]
+id = "v"
+kind = "fm"
+release = 0.002
+
+[[node]]
+id = "out"
+kind = "audio_out"
+
+[[link]]
+from = "w.cv"
+to = "v.cv"
+
+[[link]]
+from = "v"
+to = "out.in"
+'''
+
+[[step]]
+do = "run"
+ms = 1500
+expect = { running = true, sound = true, epoch = 0 }
+
+[[step]]
+do = "key"
+key = "startstop"
+
+[[step]]
+do = "run"
+ms = 50
+expect = { running = false, epoch = 1 }
+
+[[step]]
+do = "run"
+ms = 1000
+expect = { running = false, sound = false }
+
+[[step]]
+do = "key"
+key = "startstop"
+
+[[step]]
+do = "run"
+ms = 1500
+expect = { running = true, sound = true, epoch = 2 }

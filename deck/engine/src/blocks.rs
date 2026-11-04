@@ -563,6 +563,44 @@ steps=[69, 81]
     }
 
     #[test]
+    fn a_stop_inside_a_block_closes_the_gate_on_its_frame() {
+        use deck_core::tempo::{Shared, TempoMap};
+        use std::sync::atomic::{AtomicU64, Ordering};
+        let graph = Graph::build(&Scene::parse("[[node]]\nid=\"s\"\nkind=\"seq\"\ndivision=1\ngate=1.0\nsteps=[69]\n").unwrap()).unwrap();
+        let shared = Arc::new(Shared::default());
+        let frames = Arc::new(AtomicU64::new(0));
+        let run = TempoMap::new(60.0, 4, 100.0);
+        shared.publish(&run, false);
+        let mut s = Seq::new(&graph.nodes[0], 100.0, Param::new(1.0), Some(BeatReader { shared: shared.clone(), frames: frames.clone() }), Follow::new(true));
+        let mut out = [Buf::default()];
+        s.process(&[], &mut out, 100);
+        // the frame thread published ahead: stopped from frame 150, the block renders 100..200
+        frames.store(100, Ordering::Relaxed);
+        shared.publish(&run.with_running(150.0, false), false);
+        s.process(&[], &mut out, 100);
+        assert!(out[0].ch(1)[..50].iter().all(|g| *g == 1.0) && out[0].ch(1)[50..100].iter().all(|g| *g == 0.0));
+    }
+
+    #[test]
+    fn the_click_ticks_the_downbeat_a_start_lands_on() {
+        let scene = "[[node]]\nid=\"t\"\nkind=\"tempo\"\nbpm=120\nclick=true\n[[node]]\nid=\"c\"\nkind=\"click\"\n\
+                     [[node]]\nid=\"out\"\nkind=\"audio_out\"\nvolume=1\n[[link]]\nfrom=\"c\"\nto=\"out.in\"\n";
+        let (mut e, h) = build(scene);
+        let mut buf = vec![0.0f32; 480 * 2];
+        let mut render = |e: &mut Engine, blocks: usize| (0..blocks).map(|_| { e.render(&mut buf, 2, |x| x); buf.iter().fold(0.0f32, |m, x| m.max(x.abs())) }).fold(0.0f32, f32::max);
+        render(&mut e, 60); // 0.6 s: beat 1.2
+        let (m, c) = h.tempo.map().unwrap();
+        h.tempo.publish(&m.with_running(28_800.0, false), c);
+        render(&mut e, 40); // the tail of beat 1's tick (its decay, the limiter's look-ahead)
+        assert_eq!(render(&mut e, 100), 0.0, "stopped: no tick");
+        // back to bar 1 and running, from the frame the next block starts on: beat 0 ticks there
+        let at = h.clock.rendered() as f64;
+        let (m, c) = h.tempo.map().unwrap();
+        h.tempo.publish(&m.with_beat(at, 0.0).with_running(at, true), c);
+        assert!(render(&mut e, 2) > 0.1, "the downbeat it starts on");
+    }
+
+    #[test]
     fn a_sequencer_that_does_not_follow_the_transport_plays_through_a_stop() {
         use deck_core::tempo::{Shared, TempoMap};
         use std::sync::atomic::{AtomicU64, Ordering};

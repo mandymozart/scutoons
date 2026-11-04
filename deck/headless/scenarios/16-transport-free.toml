@@ -1,0 +1,55 @@
+name = "transport: a sequencer with follow_transport = false plays through a stop"
+about = "#359: the catalog's default (walk follows) overridden per node – the transport stops, this walk goes on at the clock's tempo"
+
+[[step]]
+do = "load"
+toml = '''
+[[node]]
+id = "tempo"
+kind = "tempo"
+bpm = 120
+beats = 4
+
+[[node]]
+id = "w"
+kind = "walk"
+spread = 1.0
+rate = 1.0
+follow_transport = false
+
+[[node]]
+id = "v"
+kind = "fm"
+release = 0.002
+
+[[node]]
+id = "out"
+kind = "audio_out"
+
+[[link]]
+from = "w.cv"
+to = "v.cv"
+
+[[link]]
+from = "v"
+to = "out.in"
+'''
+
+[[step]]
+do = "run"
+ms = 1000
+expect = { running = true, sound = true }
+
+[[step]]
+do = "key"
+key = "startstop"
+
+[[step]]
+do = "run"
+ms = 50
+expect = { running = false }
+
+[[step]]
+do = "run"
+ms = 1000
+expect = { running = false, sound = true }

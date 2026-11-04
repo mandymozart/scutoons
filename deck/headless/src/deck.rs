@@ -188,8 +188,10 @@ impl Deck {
     pub fn line(&mut self) -> String {
         self.host.clock.line(self.now)
     }
-    pub fn midi_in(&mut self, bpm: Option<f64>) {
-        self.midi = bpm.map(|bpm| MidiIn { bpm, next: self.now, started: false });
+    /// the device's clock from now at `bpm` (None: its ticks stop); `start` = it begins with a Start (0xFA), else it
+    /// only ticks (after a Continue)
+    pub fn midi_in(&mut self, bpm: Option<f64>, start: bool) {
+        self.midi = bpm.map(|bpm| MidiIn { bpm, next: self.now, started: !start });
     }
     /// a MIDI message from the device now (Stop, Continue, a song position)
     pub fn midi(&mut self, bytes: [u8; 3]) {
@@ -298,6 +300,8 @@ impl Deck {
         m.insert("leading".into(), json!(f & LEADING != 0));
         m.insert("midi_lost".into(), json!(f & MIDI_LOST != 0));
         m.insert("click".into(), json!(s[15] != 0.0));
+        // #359: the transport's epoch the engine plays on (a start, stop or position jump each count one)
+        m.insert("epoch".into(), json!(self.host.clock.controller().shared().transport().map_or(0, |t| t.2)));
         m
     }
 
