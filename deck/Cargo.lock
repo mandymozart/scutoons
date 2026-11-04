@@ -965,6 +965,7 @@ dependencies = [
  "deck-core",
  "deck-engine",
  "deck-engine-wasm",
+ "deck-headless",
  "deck-native",
  "deck-space",
  "live-core",

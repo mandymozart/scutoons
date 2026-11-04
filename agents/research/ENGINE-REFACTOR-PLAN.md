@@ -1,4 +1,4 @@
-Draft for owner review, 2026-11-02 – the plan for converging the deck onto one engine. Nothing in it is built; the phases need the owner's go (and the decisions of §8) before the first worker starts. Revised with the owner 2026-11-02: channels and routing (§2.6, decided), fundsp and the library survey (§3.1, §3.2). **Built so far: P0–P3b, P4 (#317, branch `feature/317-engine-move`, not merged) – §4 P4 says what moved where – and P4b (#318, branch `feature/318-channels-routing`, not merged) – §4 P4b says what is built and where it differs from §2.6; P5 (#319) and P6 (#320, branch `feature/320-browser-engine`) – their "Built" paragraphs in §4.**
+Draft for owner review, 2026-11-02 – the plan for converging the deck onto one engine. Nothing in it is built; the phases need the owner's go (and the decisions of §8) before the first worker starts. Revised with the owner 2026-11-02: channels and routing (§2.6, decided), fundsp and the library survey (§3.1, §3.2). **Built so far: P0–P3b, P4 (#317, branch `feature/317-engine-move`, not merged) – §4 P4 says what moved where – and P4b (#318, branch `feature/318-channels-routing`, not merged) – §4 P4b says what is built and where it differs from §2.6; P5 (#319) and P6 (#320, branch `feature/320-browser-engine`) – their "Built" paragraphs in §4; P9a (#322, branch `feature/322-native-rigs`) – §4 P9 "(a) built".**
 
 # ENGINE-REFACTOR-PLAN – one engine in the universal core
 
@@ -791,6 +791,16 @@ through `lower()`, Play of a compiled module in the Sound design workspace (#290
 control outputs and events. (d) #307 `ModuleStats` → the Nodes tab. Accept per ticket: conformance (module fixtures
 equal on every backend), no_alloc with module nodes, creator check. Demo: a module written in the creator plays on the
 phone and on the X1 unchanged. ≈ $3–5 each.
+**(a) built (#322, 2026-11-04):** `--scene rig:<character | subject>[@mood]` (deck.toml `scene`, F5) – deck-native rig.rs holds
+deck-space's `Deck` (the browser's `DeckState`, the headless host's): `play_core` flattens the rig (or falls back to the deck's
+own scene), the played scene loads like any scene (deck-engine), the being's mood is pinned on the `Deck`'s ladder each frame
+and a replay's values go into the control domain as bases. Accept met: deck-conformance tests/rig.rs (+ wasm.rs) – the core
+rigs × four moods × 128 / 37 / 1024, native ≡ live-core ≡ wasm32 ≡ wasm32 + simd128, and the headless rig player's hash
+(scenario 09) = the native render; hashes in fixtures/rig-hashes.json. Choices where the plan had holes: the rigs are the
+image's core rigs (`CORE`) – the issue's "from scene-content" needs the native rig cache, which is #271 (open; the browser
+plays the core rig too); the rig's bare space node is staged in the deck's own room (the cathedral space node's params); a
+mood whose replay changes the rig's shape (`Turn.reload` – no core rig does) is logged and loads with the next scene load
+(a show-time reload would restart the being's mood walk and could flip back and forth).
 
 **P10 – Validation by the core (#313, M), after #302 (M) and the owner's bunny step of #281.** `/validate` in
 scutoons-build (deck-space checks, the same wording); the API forwards on **publish** (authority) and the creator runs
@@ -825,7 +835,7 @@ P0 ──► P1 ──► P2 ──► P3 ──► P3b ──► P4 ──► P
  P0 ──► P13a ─► P13b ─► P13c / P13d (media; P13e with #311's video leg)
                                       │              │
                                       │              ├──► P8 (show clock; needs P3, P6)
-                                      │              └──► P9a native deck plays rigs (needs P4, P6) – in progress, #322
+                                      │              └──► P9a native deck plays rigs (needs P4, P6) – built, #322
  #306 owner bench ───────────────────────────────────────► P9b modules in both (needs P1, P6)
                                                             P9c #289 ─► P11 ABI v2 ─► #314 build
  #302 ─► owner bunny step (#281) ─► P10 #313

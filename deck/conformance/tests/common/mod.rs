@@ -279,6 +279,41 @@ pub fn stage_render_at(toml: &str, block: usize, frames: usize, build: Build, hz
     out
 }
 
+/// #322: the native deck's path for a rig – the scene `--scene rig:<subject>@<mood>` loads (deck-native rig.rs: deck-space's
+/// `Deck` plays the core rig), checked as the stage checks it (`modules::check`), its graph on deck-engine with the hosts in
+/// the block, `frames` frames in blocks of `block`: both channels of a stereo device, interleaved.
+pub fn native_rig_render(subject: &str, mood: &str, block: usize, frames: usize) -> Vec<f32> {
+    let scene = deck_native::rig::scene(std::path::Path::new(&format!("rig:{subject}@{mood}"))).expect("the rig's scene");
+    deck_native::modules::check(&scene).expect("the stage plays the rig's scene");
+    let graph = Graph::build(&scene).expect("graph builds");
+    let (mut engine, _handles) = Engine::build_with(&graph, RATE, 1.0, Build::detect()).expect("engine builds");
+    let mut out = Vec::with_capacity(frames * 2);
+    let mut buf = vec![0.0f32; block * 2];
+    let mut done = 0;
+    while done < frames {
+        let n = (frames - done).min(block);
+        engine.render(&mut buf[..n * 2], 2, |x| x);
+        out.extend_from_slice(&buf[..n * 2]);
+        done += n;
+    }
+    out
+}
+
+/// #322: the browser deck's side of the same rig and mood – the scene deck-space's `Deck` hands live-core (space-web
+/// `DeckState.play_core`, the headless host's `load rig`)
+pub fn browser_rig_scene(subject: &str, mood: &str) -> String {
+    let mut d = deck_space::deck::Deck::new();
+    d.ladder.pin(Some(mood));
+    let t = d.play_core(subject, "");
+    assert!(t.rig && !t.failed, "{subject}: {}", t.note);
+    assert!(t.played.engine.page.is_empty(), "{subject}: the browser carries every kind of it");
+    t.played.engine.scene
+}
+
+/// the core rigs and the moods the rig conformance plays (#322)
+pub const RIGS: [&str; 2] = ["catpope", "item.incense_burner"];
+pub const RIG_MOODS: [&str; 4] = ["neutral", "happy", "laughing", "sad"];
+
 /// What `lower()` made of a scene (P6, #320: a split – the kinds the browser carries stay as they are).
 pub struct Lowered {
     pub engine_toml: String,
