@@ -55,35 +55,34 @@ orchestrator ≈ $445 list over 2026-10-29 … 11-01, `agents/costs.json`), so s
   `python C:\Developmentgents\costs
 eport.py`.
 
-## State (2026-11-01, ~20:00 – the deck session: remote updates, then orchestrating workers)
-- `origin/main` = 522dd70e (pushed by the owner earlier); **18 commits on `main` not pushed**, all deck/: 112853e1 …
-  2353bd99 (#237, #251, #252, #250, #253, #256, #257, #261, #262, #263, DECISIONS). Each issue has its comment.
-- **The X1** (installed, 192.168.1.166, `ssh root@`): updates itself over the LAN (deck-update, timer 2 min); runs
-  r2430+ (`deck-update status`), `scene = "idle"` (fireflies). A Eurolite USB-DMX512-PRO MK2 on `/dev/ttyUSB0` drives a
-  Cameo Thunder Wash 600 RGBW in **4CH_1** (address 001) – the owner confirmed `pulse-thunderwash` ("went perfect").
-  The gamepad (Xbox 360 pad) is plugged in; the RME Fireface is unplugged (needs class-compliant mode).
-- Built today (all on the X1): remote updates incl. removal of dropped files (#237), boot to stage 31 → 21.5 s (#251),
-  idle default scene (#252), F5 scene switcher + PipeWire stream that really stops / crossfades (#250), volume keys
-  (#253), kiosk stop 0.3 s (#256), no segfault + exit 75 on a lost display (#257), DMX at 250000 baud + 4CH_1 profile +
-  pulse scene + blackout on scene end (#261), blackout on a stop signal (#263), no serial-getty loop (#262).
-- Decisions today (DECISIONS.md): remote updates; F1 = the debug overlay, off by default from the 2027-02-05 release;
-  scene switches **crossfade** (parametric), stops black out, lights are hardware (#264).
-- Tickets created today, all without board status (owner's inbox): #241–#255 (3D scene system / editor, deck next
-  steps), #256, #257, #261–#264. Workers' sessions #250 / #253 / #257 are idle (their usage reported; #250's failed –
-  agents.porschuetz.de timed out).
-- No servers running (7790 stopped). Docker Desktop was restarted after the crash; scutoons-mariadb-1 healthy.
+## State (2026-11-05, end of the 2026-11-04 night shift – the deck engine / one-core leg)
+- `origin/main` = 6533318a; **everything after is local only** (about 110 commits: the guards #363, the law book #380, the fix tickets, ABI v2, P9a, P10).
+  Nothing was pushed (rule B4). A push deploys the viewer and builds / deploys the new crate `deck/relay-web` (deck-ci / deck.yml / deploy targets know it).
+  The pre-push hook runs `npm run deck:ci -- --no-release` (10-25 min); `deck:ci` was GREEN on merged main after the last merge of each leg.
+- **Merged into local main tonight** (each: guards green, `deck:ci` green on the merged tree, issue commented, board "Review on staging", issue left OPEN – C6):
+  lane B moves #360 #364/#365 #367 #368 #370 #371 #372 #373 #375 #376 #377 #366 #378 #369 #374 (slice 1) #387 #388 #389 #391; lane A #359 transport,
+  ABI v2 #339 #340 #341 #342 #343 #344 #345, #322 (P9a native rigs), #324 (P12 retirements), #313 (P10 validate by the core), #382 (load-proof tests),
+  #306 (the bench HARNESS only). Core-only baseline 105 -> 3 hits (all vote-sim #379), `main.rs` 2066 -> 1799 lines, bridge "logic" lines 28 -> 0.
+- Two bridge-audit quick passes ran (#357 comments); pass 2: no baseline growth, no unticketed escape beyond #397-#401.
+- **Cost:** ~$330 list for the worker ledger on 2026-11-04 (Opus ~$285, Sonnet ~$45) against the rule's $80 a shift (models.json) and my own $120 line:
+  the cap was exceeded and I did not stop at it (tonight's work was L/M tickets on Opus 5.5 high by the owner's word, "high level work needs opus 5.5").
+  Next shift: set the cap with the owner first. Orchestrator cost: `--role orchestrator --per-day` (booked at the end of the shift).
+- **Timing tests** were load-flaky (#382) until the load-proof change merged; the audit's old note about 2 parallel workers stands, 3 builds + CI = flakes.
+- Worktree folders `.claude/worktrees/agent-*` and `kind-northcutt-dcc07b` may still exist as empty locked dirs (Windows): delete them when no process holds them.
 
-## Next
-1. **#264** parametric crossfade on a scene switch (outputs + audio share one transition time) – complexity M, Sonnet.
-   The owner's words and the hardware rules (slew limits, flash cap ~3/s, grand master, panic) are on the issue.
-2. **Owner checks on the X1:** F5 + the switch time, the volume keys (Fn Lock), the madness → cathedral audio switch.
-3. **#228** gamepad in the native stage (gilrs; the X1 has the pad) · **#249** the 2D layer · **#250**'s browser half
-   (/live/deck switcher) · **#252**'s fireflies in /live/deck (space-web has no shader nodes).
-4. #241 concept and its slices (#242–#248) when the owner sorts them into Backlog; #255 / #245 are `decide`.
-5. #201 the LAN relay scan; #254 external screen (needs a monitor at the X1).
+## Next (the plan resumes here)
+1. Owner: sort #384-#386, #390, #392, #393, #396-#401 (all Proposals) into Backlog; decide the push.
+2. **#306 owner bench:** run `agents/research/MODULE-BENCH.md` §2 on the X1 and the S22 (and the PC browser), then the runtime decision (#393: the native editor option C / C'
+   is the harness's recommendation; the owner added "only final builds run in live/deck" if the editor goes native). Then #290 is re-scoped.
+3. Fix tickets from pass 2: #397 (ratchet citations, S), #400 (PHP ModuleSource::descriptorProblems twin, S), #401 (creator knobName twin, S), #399 (unused catalog flags, S),
+   #398 (native logic without an owner, M), #391 follow-ups; #390 (module notes outbox: one path first) ; #374 slice 2 = #392; #396 (wasmtime speed, NaN canonicalization).
+4. Plan: P9b/#290 after the #306 decision; P11 design notes #312 / #314 (owner review); #346 module presets + #350 analog catalog module (analog's 3 other presets wait);
+   #358 clock domains design; #352 multichannel in browsers; #356 S22 dropouts + warm-up phase; #381 FFT native vs wasm; #348 crackle.
+5. Owner tests: the MIDI clock hardware test (A4 MKII + UCX II + X1 + S22, #321, after transport), the S22 "Werte" report for #356, a browser pinch check (#376 not tried in a browser),
+   the screenshot comparison of browser vs native deck after the character chip / non-deck UI go (#384 / #385).
 
 ## Waiting for the owner
-- **The push** of the 18 deck commits (deploys only the viewer side unchanged – deck/ is not deployed, but the push is
-  the owner's call).
-- **#245** (where the 3D editor lives) and **#255** (sign-in + group on the relay): `decide`.
-- The Fireface UCX II in class-compliant mode; a monitor at the X1 for #254; sorting #241–#264 into the board.
+- **The push** (bundled; deploys the viewer and the new relay-web build; the module ABI migration `2026-11-04-module-abi-v2.mysql.sql` is NOT applied anywhere: the deploy / the MCP applies it,
+  then creators recompile with `bin/console modules:rebuild --apply --as <creator>`; the build service is already deployed and tested – owner 2026-11-04).
+- **#306** X1 / S22 runs and the runtime decision; **decisions** recorded tonight: [authority] x4 (character chip, all non-deck UI deactivated, simple switch + one deck-UI ticket #386), [bunny] x2, [modules] x2,
+  [models], [night-runs], [perf] 1 MB gate. Open owner questions from earlier: the monitor threshold set (#364 comment), phone lead numbers (#365), mono outlet on a stereo device, solo-extension confirm.

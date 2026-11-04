@@ -23,5 +23,5 @@ Open work: GitHub issues + the board "SCUTOONS" (RULES C). Decisions: agents/dec
   worktrees (`.claude/worktrees/*`) – the owner reviews and merges them; agents don't (RULES B3).
 
 ## Last run
-The last summary written here is 2026-11-01 (deck day, X1 remote updates, #237–#264) – it moved to archive/HANDOVER-2026-11-03.md and to HANDOFF.md "State". The 2026-11-02/03
-engine work (P4b #318, P5 #319, P6 #320, P8 #321, #356, #357) lives in the issues and in the side notes of the orchestrator; the next night summary replaces this section.
+2026-11-04 night (orchestrated; details in HANDOFF.md "State"): the one-core fix tickets #364-#391 merged to local main, ABI v2 (#339-#345), P9a native rigs (#322), P10 validate by the core (#313),
+P12 retirements (#324); guards: `check:core-only` baseline 3 hits, `check:deck-deps`, `check:generate`, headless host with no `expected_fail`. Not pushed. Open: the #306 owner bench (X1 / S22), then #290.
