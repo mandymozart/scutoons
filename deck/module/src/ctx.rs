@@ -35,6 +35,17 @@ impl Tempo {
         let p = self.per_frame();
         (p > 0.0).then(|| self.anchor_frame + (beat - self.anchor_beat) / p)
     }
+
+    /// the beat at `frame`, and at the frame after a span of `frames` (equal while the tempo stands still)
+    pub fn span(&self, frame: f64, frames: usize) -> (f64, f64) {
+        (self.beat_at(frame), self.beat_at(frame + frames as f64))
+    }
+
+    /// 0..1 within the beat at `frame`
+    pub fn phase_at(&self, frame: f64) -> f64 {
+        let b = self.beat_at(frame);
+        b - b.floor()
+    }
 }
 
 /// The character the module plays for (empty strings = none): the persona and mood a rig is played with.
@@ -78,14 +89,12 @@ impl<'a> Ctx<'a> {
 
     /// the beat at this call's first frame, and at the frame after its last (equal while the tempo stands still)
     pub fn beats(&self) -> (f64, f64) {
-        let t = self.tempo();
-        (t.beat_at(self.inp.frame), t.beat_at(self.inp.frame + self.inp.frames as f64))
+        self.tempo().span(self.inp.frame, self.inp.frames as usize)
     }
 
     /// 0..1 within the beat at the call's first frame
     pub fn phase(&self) -> f64 {
-        let b = self.beats().0;
-        b - b.floor()
+        self.tempo().phase_at(self.inp.frame)
     }
 
     /// the module's seed – the same on every deck that plays the same rig

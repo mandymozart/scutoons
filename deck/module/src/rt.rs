@@ -140,8 +140,12 @@ pub fn log_at(level: u32, args: fmt::Arguments) {
     crate::testing::sink(level, core::str::from_utf8(&line.buf[..n]).unwrap_or(""));
 }
 
-/// the panic message to the host's console, then the trap
+/// the panic message to the host's console, then the trap (v2: the allocator stops counting first, so a strict call
+/// reports the panic, not the panic's own bookkeeping)
 #[cfg(target_arch = "wasm32")]
 pub fn install_panic_hook() {
-    std::panic::set_hook(Box::new(|info| log_at(2, format_args!("panic: {info}"))));
+    std::panic::set_hook(Box::new(|info| {
+        crate::v2::alloc::disarm();
+        log_at(2, format_args!("panic: {info}"))
+    }));
 }

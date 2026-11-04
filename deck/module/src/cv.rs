@@ -3,7 +3,8 @@
 //! deck-events' `GateCv` and `Glide` (sample-accurate, exponential glide over `glide` × the note's length); no
 //! allocation. A module with a `cv` audio output calls `GateCv::render` from `process`.
 use crate::abi::{get_str, EventRec, MAX_EVENTS};
-use crate::ctx::Ctx;
+use crate::ctx::{Ctx, Tempo};
+use crate::v2::{Ev, Kind};
 
 /// A pitch glide: `from → to` over a number of frames, exponentially (equal ratio per frame). 0 frames = a jump.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -31,14 +32,21 @@ impl Glide {
     }
 }
 
-/// One note resolved to this call's frames.
+/// One note resolved to this call's frames (v1 records and v2 `Ev`s both resolve to it; one renderer plays it).
 #[derive(Clone, Copy)]
 struct Resolved {
     frame: u32,
+    /// frames the gate stays open; `HELD` = until a note off with the same id
     len: u32,
     pitch: Option<f32>,
     glide: f32,
+    /// a note off (v2): closes the gate when `id` is the sounding note's
+    off: bool,
+    id: u32,
 }
+
+const HELD: u32 = u32::MAX;
+const NONE: Resolved = Resolved { frame: 0, len: 0, pitch: None, glide: 0.0, off: false, id: 0 };
 
 #[derive(Debug, Clone)]
 pub struct GateCv {
@@ -47,22 +55,56 @@ pub struct GateCv {
     glide: Glide,
     elapsed: u32,
     gate_left: u32,
+    /// the sounding note's id (v2 notes; 0 for v1)
+    id: u32,
 }
 
 impl GateCv {
     /// holding `pitch` until the first note
     pub fn new(pitch: f32) -> GateCv {
-        GateCv { pitch, glide: Glide::hold(pitch), elapsed: 0, gate_left: 0 }
+        GateCv { pitch, glide: Glide::hold(pitch), elapsed: 0, gate_left: 0, id: 0 }
+    }
+
+    /// v2 (#340): the note events of this call (`Ev`, frames already in the block) into `left` / `right`. A note on
+    /// with a length (beats) opens the gate that long, gliding over `glide` × its length; one without (0) holds the gate
+    /// until the note off with its id (no glide: its length is unknown); a reset closes the gate.
+    pub fn render_notes(&mut self, tempo: &Tempo, events: &[Ev], left: &mut [f32], right: &mut [f32]) {
+        let per_frame = tempo.per_frame();
+        let mut notes = [NONE; MAX_EVENTS];
+        let mut count = 0;
+        for e in events.iter() {
+            if count == MAX_EVENTS {
+                break;
+            }
+            let r = match e.kind() {
+                Some(Kind::NoteOn) => {
+                    let held = !(e.len > 0.0 && per_frame > 0.0);
+                    Resolved {
+                        frame: e.frame,
+                        len: if held { HELD } else { (e.len as f64 / per_frame).round() as u32 },
+                        pitch: Some(e.pitch_hz()).filter(|p| p.is_finite()),
+                        glide: if held { 0.0 } else { e.glide().clamp(0.0, 1.0) },
+                        off: false,
+                        id: e.id,
+                    }
+                }
+                Some(Kind::NoteOff) => Resolved { frame: e.frame, off: true, id: e.id, ..NONE },
+                Some(Kind::Reset) => Resolved { frame: e.frame, off: true, id: self.id, ..NONE },
+                _ => continue,
+            };
+            notes[count] = r;
+            count += 1;
+        }
+        self.play(&mut notes[..count], left, right);
     }
 
     /// One call: the `events` this call emitted (those named `note`, with a `pitch` prop and an optional `glide` prop
     /// 0..1) at their frames on the tempo, into `left` / `right`. A moment (length 0) opens the gate for one frame.
     pub fn render(&mut self, ctx: &Ctx, events: &[EventRec], note: &str, left: &mut [f32], right: &mut [f32]) {
-        let n = left.len().min(right.len());
         let tempo = ctx.tempo();
         let from = ctx.frame();
         let per_frame = tempo.per_frame();
-        let mut notes = [Resolved { frame: 0, len: 0, pitch: None, glide: 0.0 }; MAX_EVENTS];
+        let mut notes = [NONE; MAX_EVENTS];
         let mut count = 0;
         for e in events.iter().filter(|e| get_str(&e.name) == note).take(MAX_EVENTS) {
             let at = if e.start.is_nan() { from } else { tempo.frame_of(e.start).unwrap_or(from) };
@@ -73,9 +115,17 @@ impl GateCv {
                 len: len.round() as u32,
                 pitch: prop("pitch"),
                 glide: prop("glide").unwrap_or(0.0).clamp(0.0, 1.0),
+                ..NONE
             };
             count += 1;
         }
+        self.play(&mut notes[..count], left, right);
+    }
+
+    /// the one renderer: `notes` by frame (stable), then frame by frame
+    fn play(&mut self, notes: &mut [Resolved], left: &mut [f32], right: &mut [f32]) {
+        let n = left.len().min(right.len());
+        let count = notes.len();
         // by frame, stable (an insertion sort: a handful of notes, nothing to allocate)
         for i in 1..count {
             let mut j = i;
@@ -88,18 +138,28 @@ impl GateCv {
         for i in 0..n {
             while next < count && notes[next].frame as usize <= i {
                 let e = notes[next];
+                next += 1;
+                if e.off {
+                    if e.id == self.id {
+                        self.gate_left = 0;
+                    }
+                    continue;
+                }
                 if let Some(p) = e.pitch {
-                    self.glide.start(self.pitch, p, (e.glide * e.len as f32).round() as u32);
+                    let glide = if e.len == HELD { 0 } else { (e.glide * e.len as f32).round() as u32 };
+                    self.glide.start(self.pitch, p, glide);
                     self.elapsed = 0;
                 }
                 self.gate_left = e.len.max(1);
-                next += 1;
+                self.id = e.id;
             }
             self.pitch = self.glide.at(self.elapsed);
             self.elapsed = self.elapsed.saturating_add(1);
             left[i] = self.pitch;
             right[i] = if self.gate_left > 0 { 1.0 } else { 0.0 };
-            self.gate_left = self.gate_left.saturating_sub(1);
+            if self.gate_left != HELD {
+                self.gate_left = self.gate_left.saturating_sub(1);
+            }
         }
     }
 }

@@ -12,7 +12,10 @@ thread_local! {
 /// where `log!` goes natively
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn sink(level: u32, line: &str) {
+    // the harness's own Vec is not the module's allocation (on wasm a log line allocates nothing)
+    let armed = crate::v2::alloc::suspend();
     LOG.with(|l| l.borrow_mut().push((level, line.to_owned())));
+    crate::v2::alloc::resume(armed);
 }
 
 /// the lines `log!` wrote on this thread since the last call: (level, text)

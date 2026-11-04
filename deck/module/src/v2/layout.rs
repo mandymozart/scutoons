@@ -79,8 +79,23 @@ impl Sensor {
         }
     }
 
-    pub fn from_name(name: &str) -> Option<Sensor> {
-        Sensor::ALL.into_iter().find(|s| s.name() == name)
+    /// the vocabulary's entry for `name` – a `const fn`, so the derive's constant shape refuses an unknown name
+    pub const fn from_name(name: &str) -> Option<Sensor> {
+        let mut i = 0;
+        while i < Sensor::ALL.len() {
+            let (a, b) = (Sensor::ALL[i].name().as_bytes(), name.as_bytes());
+            if a.len() == b.len() {
+                let mut j = 0;
+                while j < a.len() && a[j] == b[j] {
+                    j += 1;
+                }
+                if j == a.len() {
+                    return Some(Sensor::ALL[i]);
+                }
+            }
+            i += 1;
+        }
+        None
     }
 }
 
