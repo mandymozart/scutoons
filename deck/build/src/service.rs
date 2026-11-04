@@ -5,6 +5,10 @@
 //!   · `422 { errors: [{ file, line, column, level, message }] }` – the files break a rule, or rustc's errors
 //!   · `503 { error: "live_show" }` while the relay reports a live session · `503 { error: "busy" }` when the queue is full
 //!     or the wait too long · `401` without the token · `400` / `413` for a body that is not one
+//! `POST /validate` (header `X-Build-Token`, #313) `{ kind: instruments | presets | rigs, id, document, instruments?, presets? }`
+//!   → `200 { problems: [..] }` (none = valid) – deck-space's own checks (rig/validate.rs), the words the creator shows;
+//!   the API asks before every catalog write of the three kinds. No queue and no live-show refusal: a check is
+//!   microseconds of the core, never rustc. `400` for a body that is not such a request, `401` without the token.
 //! `GET /health` → `{ ok, waiting }` (no token: a probe).
 //!
 //! **One compile at a time** (the relay beside us must stay smooth): a request that finds the slot taken waits, up to
@@ -12,6 +16,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
+use deck_space::rig::validate;
 use serde_json::json;
 use tokio::net::TcpListener;
 use tokio::sync::Semaphore;
@@ -70,13 +75,31 @@ impl Service {
         match (req.method.as_str(), req.path.as_str()) {
             ("GET", "/health") => Response::json(200, &json!({ "ok": true, "waiting": self.waiting.load(Ordering::Relaxed), "busy": self.slot.available_permits() == 0 })),
             ("POST", "/compile") => self.compile(req).await,
-            (_, "/health" | "/compile") => Response::error(405, "method_not_allowed"),
+            ("POST", "/validate") => self.validate(req),
+            (_, "/health" | "/compile" | "/validate") => Response::error(405, "method_not_allowed"),
             _ => Response::error(404, "not_found"),
         }
     }
 
+    fn authorized(&self, req: &Request) -> bool {
+        req.header("x-build-token").is_some_and(|t| same_secret(t, &self.config.token))
+    }
+
+    fn validate(&self, req: &Request) -> Response {
+        if !self.authorized(req) {
+            return Response::error(401, "unauthorized");
+        }
+        let Ok(request) = serde_json::from_slice::<validate::Request>(&req.body) else {
+            return Response::error(400, "bad_request");
+        };
+        match request.problems() {
+            Ok(problems) => Response::json(200, &json!(validate::Answer { problems })),
+            Err(_) => Response::error(400, "unknown_kind"),
+        }
+    }
+
     async fn compile(&self, req: &Request) -> Response {
-        if !req.header("x-build-token").is_some_and(|t| same_secret(t, &self.config.token)) {
+        if !self.authorized(req) {
             return Response::error(401, "unauthorized");
         }
         if serde_json::from_slice::<serde_json::Value>(&req.body).is_err() {
@@ -254,6 +277,57 @@ mod tests {
         let r = service.handle(&post(Some("sesame"), r#"{"files":{"osc.rs":"//"}}"#)).await;
         assert_eq!(r.status, 422);
         assert!(r.body.contains("needs a lib.rs"), "{}", r.body);
+    }
+
+    fn validate(token: Option<&str>, body: &str) -> Request {
+        Request { path: "/validate".into(), ..post(token, body) }
+    }
+
+    /// #313: the fixture set (server/tests/fixtures/rigs/validate.json) through the route – the requests as the API builds
+    /// them, the answers in the retired PHP validator's words; no compile runs, a live show does not stop a check
+    #[tokio::test]
+    async fn validate_answers_the_cores_problems() {
+        let fake = Fake::new();
+        fake.live.store(true, Ordering::SeqCst);
+        let service = Service::new(config(0, 100), fake.clone());
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/rigs/validate.json");
+        let set: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        let mut slowest = Duration::ZERO;
+        for case in set["cases"].as_array().unwrap() {
+            let mut request = case.clone();
+            let o = request.as_object_mut().unwrap();
+            let name = o.remove("name").unwrap();
+            let expected = o.remove("problems").unwrap();
+            let t = std::time::Instant::now();
+            let r = service.handle(&validate(Some("sesame"), &request.to_string())).await;
+            slowest = slowest.max(t.elapsed());
+            assert_eq!(r.status, 200, "{name}: {}", r.body);
+            let v: serde_json::Value = serde_json::from_str(&r.body).unwrap();
+            assert_eq!(v, json!({ "problems": expected }), "{name}");
+        }
+        // the latency the API adds on a publish, without the network: the slowest case (a rig played in every mood)
+        eprintln!("validate: slowest fixture case {slowest:?}");
+        assert!(slowest < Duration::from_millis(500), "{slowest:?}");
+        assert_eq!(fake.started.load(Ordering::SeqCst), 0, "no compile");
+    }
+
+    #[tokio::test]
+    async fn validate_wants_the_token_and_a_request() {
+        let service = Service::new(config(2, 100), Fake::new());
+        let good = r#"{"kind":"instruments","id":"x","document":{}}"#;
+        for token in [None, Some("sesam")] {
+            assert_eq!(status(&service.handle(&validate(token, good)).await), (401, "unauthorized".into()), "{token:?}");
+        }
+        assert_eq!(status(&service.handle(&validate(Some("sesame"), "nope")).await), (400, "bad_request".into()));
+        assert_eq!(status(&service.handle(&validate(Some("sesame"), r#"{"kind":"rigs"}"#)).await), (400, "bad_request".into()));
+        assert_eq!(status(&service.handle(&validate(Some("sesame"), r#"{"kind":"items","id":"x","document":{}}"#)).await), (400, "unknown_kind".into()));
+        let get = Request { method: "GET".into(), ..validate(Some("sesame"), "") };
+        assert_eq!(status(&service.handle(&get).await), (405, "method_not_allowed".into()));
+        // a broken document is an answer, not an error: its problem
+        let r = service.handle(&validate(Some("sesame"), good)).await;
+        assert_eq!(r.status, 200);
+        let v: serde_json::Value = serde_json::from_str(&r.body).unwrap();
+        assert!(v["problems"][0].as_str().unwrap().starts_with("instrument x: missing field"), "{}", r.body);
     }
 
     #[tokio::test]

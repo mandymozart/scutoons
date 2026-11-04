@@ -184,6 +184,14 @@ pub fn scene_rig(answer: &str, group: &str, id: &str) -> Result<String, JsValue>
     deck_space::rig::content::scene_rig_json(answer, group, id).map_err(|e| JsValue::from_str(&format!("{e:#}")))
 }
 
+/// An instrument / preset / rig document checked with what it names (#313, deck-space `rig::validate`) – the same check
+/// the API asks the build service for before a catalog write, here as a hint on a draft: `request` = `{ kind, id,
+/// document, instruments?, presets? }` as JSON, the answer `{ problems: [..] }` (none = valid).
+#[wasm_bindgen]
+pub fn rig_problems(request: &str) -> Result<String, JsValue> {
+    deck_space::rig::validate::problems_json(request).map_err(|e| JsValue::from_str(&format!("{e:#}")))
+}
+
 #[wasm_bindgen]
 pub struct SpaceView {
     space: Space,

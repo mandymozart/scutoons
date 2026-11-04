@@ -21,6 +21,9 @@ deck-module = { path = "../module", features = ["host"] }
 # the strict test run (src/strict.rs): the compiled module played by the deck's own host, in wasmtime's sandbox (#344)
 deck-module-host = { path = "../module-host" }
 deck-catalog = { path = "../catalog" }
+# `POST /validate` (#313): instruments, presets and rigs checked by the core's own code (deck-space rig::validate) –
+# the rig model only, without the space, the GPU or the loaders
+deck-space = { path = "../space", default-features = false }
 anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

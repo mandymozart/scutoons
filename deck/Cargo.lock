@@ -3684,6 +3684,7 @@ dependencies = [
  "deck-catalog",
  "deck-module",
  "deck-module-host",
+ "deck-space",
  "libc",
  "proc-macro2",
  "serde",
