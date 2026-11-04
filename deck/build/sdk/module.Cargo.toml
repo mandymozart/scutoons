@@ -15,5 +15,6 @@ host = ["dep:deck-catalog", "dep:serde_json"]
 
 [dependencies]
 deck-module-macros = { path = "../module-macros" }
+libm = "0.2"
 deck-catalog = { path = "../catalog", optional = true }
 serde_json = { version = "1", optional = true }

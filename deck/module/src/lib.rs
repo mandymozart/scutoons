@@ -46,6 +46,10 @@ pub mod v2;
 
 #[cfg(feature = "host")]
 pub mod host;
+/// deterministic maths (libm): the same bits native and wasm (ABI-V2 §6)
+pub mod math;
+/// a one-pole step per block (ABI-V2 §2: the module smooths)
+pub mod smooth;
 
 pub use abi::ABI_VERSION;
 pub use block::{Block, Event, Outputs};
