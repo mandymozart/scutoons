@@ -154,8 +154,9 @@ deck/
   engine/             deck-engine: the audio engine and the control domain (#317) · conformance/engine-wasm = it behind raw wasm exports
   live-core/          deck-core as the browser's wasm (#184) · src/wire.rs (the boundary's records)
   scene-features/     deck-scene-features: scenes → cargo features
-  space/              deck-space: src/ (graph, params, scene) · src/space/ (being, set, camera, GPU) · src/shaders/space.wgsl
+  space/              deck-space: src/ (graph, params, scene, relay.rs – the one relay client, #366) · src/space/ (being, set, camera, GPU) · src/shaders/space.wgsl
   space-web/          deck-space as wasm for the browser (the reader's /live/deck, shared/live-deck)
+  relay-web/          deck-space's relay client as wasm (the deck page and the vote screens under shared/live-deck client.ts)
   events/             deck-events: src/ (names, event, generator, graph, rt, bridge, generators/) · tests/flow.rs (blocks = one window)
   stage/              deck-native: src/ (modules, audio, render, library, space/link.rs) · scenes/ · tests/no_alloc.rs
   build/              scutoons-build: src/ (service, compile, scan, runner, diag, live, http, config) · sdk/ (the SDK's standalone manifests) · Dockerfile · tests/ (a real compile of the walk module)

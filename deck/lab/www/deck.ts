@@ -28,7 +28,7 @@ const store = {
 };
 
 const character = q.get('character') ?? store.get('deck.character') ?? 'yellowmouse';
-const deck = new Deck({ relay, character, nick: `browser ${character}`, api: API, onStatus: (s) => ($('#status').textContent = `${s} · ${relay}`) });
+const deck = new Deck({ relay, character, nick: `browser ${character}`, api: API, onStatus: (s) => ($('#status').textContent = `${s} · ${relay}`), wasm: new URL('./space-web/', import.meta.url).href });
 (window as unknown as { __deck: unknown }).__deck = deck;
 let space: SpaceStage | null = null;
 const SPACE_WEB = new URL('./space-web/', import.meta.url).href;
@@ -160,7 +160,7 @@ function frame() {
 		const core = deck.core;
 		if (!space)
 			$('#stats').textContent =
-				`${deck.link?.client || '–'} · sent ${deck.link?.count.graph ?? 0} graph / ${deck.link?.count.values ?? 0} values` +
+				`${deck.link?.client || '–'} · sent ${deck.link?.socket?.core.counts() ?? '{}'}` +
 				(core ? ` · ${core.stats().transport} · isolated ${self.crossOriginIsolated} · underruns ${core.stats().underruns}` : '');
 	} finally {
 		requestAnimationFrame(frame);

@@ -83,6 +83,8 @@ const steps = [
 				['🧊 space-web wasm32', 'cargo', ['build', '--profile', 'wasm-web', '--target', 'wasm32-unknown-unknown', '-p', 'space-web'], `${root}/deck`],
 				// live-deck's in-process relay tests spawn deck/target/debug/relay.exe: a stale binary fails them after a relay change (the P8 merge)
 				['🧊 relay binary', 'cargo', ['build', '-p', 'relay'], `${root}/deck`],
+				// #366: the relay client's wasm (relay-web) – live-deck's tests run the core's scripted links through client.ts
+				['🛰 relay-web wasm32', npm, ['run', 'build:wasm', '-w', 'shared/live-deck', '--', '--relay'], root],
 				['🧊 live-deck tests', npm, ['run', 'check', '-w', 'shared/live-deck'], root],
 				// #321: the show clock's LAN measurement (the owner's recording → the decks' offsets)
 				['⏱ clock measurement tool', npm, ['run', 'check', '-w', 'tools/clock-measure'], root],

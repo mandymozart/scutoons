@@ -8,7 +8,7 @@
 import type { DeckGraph, Tempo } from '@scutoons/live';
 import { CLOCK_MESSAGES, FRAME, LiveCore, analysisOf, beatAt, nowMs, type Analysis, type ClockState, type DeviceKind, type DeviceSignal } from '@scutoons/live-core';
 import type { DeckSynced } from '@scutoons/live';
-import { DeckLink, ValueStream, type WebSocketLike } from './client.ts';
+import { DeckLink, loadRelay, type WebSocketLike } from './client.ts';
 import { BrowserSync } from './sync.ts';
 import type { Spec } from './scene.ts';
 import type { MoodStep, RigPlayed, RigSlider, RigTurn } from './rig.ts';
@@ -33,6 +33,8 @@ export interface DeckOptions {
 	onSynced?: (r: DeckSynced, line: string) => void;
 	onStatus?: (s: string) => void;
 	socket?: new (url: string) => WebSocketLike;
+	/** #366: the folder with relay-web (the relay client's wasm, ends with /); default `/live/` */
+	wasm?: string;
 }
 
 /** where the sound engine's files are (the host bundles or serves them) */
@@ -82,7 +84,6 @@ export class Deck {
 	readonly sync: BrowserSync | null;
 	/** #282: a device message the scene's `[outputs]` resolved to (MIDI / OSC / DMX – shown by the page, never played here) */
 	onSignal: ((s: DeviceSignal) => void) | null = null;
-	stream = new ValueStream({});
 	core: LiveCore | null = null;
 	/** the scene live-core plays is the deck's current one: false while a load is in flight (a character switch, a mood's
 	 *  new shape) – no `core.set` then, its table is the old scene's and a path it lacks throws (the S22 crash on a switch) */
@@ -113,6 +114,7 @@ export class Deck {
 			? new DeckLink({
 					relay: o.relay,
 					graph: this.graph(),
+				core: loadRelay(o.wasm ?? '/live/'),
 					nick: o.nick.slice(0, 24),
 					token: o.token,
 					onStatus: o.onStatus,
@@ -189,7 +191,7 @@ export class Deck {
 			this.params = Object.fromEntries((JSON.parse(this.state?.sliders('') ?? '[]') as RigSlider[]).map((s) => [s.path, s]));
 			for (const k of Object.keys(this.value)) delete this.value[k];
 			for (const [k, s] of Object.entries(this.params)) this.value[k] = s.value;
-			this.stream = new ValueStream(Object.fromEntries(t.played.streamed));
+			this.link?.setStream(t.played.streamed);
 			this.link?.setGraph(this.graph());
 			if (this.core) void this.loadEngine(this.core);
 		} else for (const [path, v] of t.values) path in this.value ? this.setParam(path, v, 'mood') : this.send(path, v);
@@ -207,9 +209,9 @@ export class Deck {
 		return this.state ? (JSON.parse(this.state.graph(this.character)) as DeckGraph) : { nodes: [], links: [] };
 	}
 
-	/** the paths the deck streams (and the 3D being reads) */
+	/** the paths the deck streams (and the 3D being reads): the played scene's */
 	get paths(): string[] {
-		return this.stream.paths;
+		return this.played?.streamed.map(([p]) => p) ?? [];
 	}
 
 	/** Another character: its portraits from scene-content, its mood ladder (the core's), the being on the wire anew. */
@@ -277,8 +279,7 @@ export class Deck {
 			this.mood = s.mood;
 			this.onMood?.(s.mood);
 		}
-		const changes = this.stream.sample(now, (p) => this.read(p), this.mood);
-		if (changes) this.link?.send(changes);
+		this.link?.sample(now, (p) => this.read(p), this.mood);
 	}
 
 	/** Start the sound (needs a user gesture): live-core with the deck's own scene or the rig. */

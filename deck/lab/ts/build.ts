@@ -48,7 +48,8 @@ else console.warn('live_core.wasm is not built – npm run build:wasm -w shared/
 const spaceWeb = `${lab}/../../shared/live-deck/wasm`;
 if (existsSync(`${spaceWeb}/space_web_bg.wasm`)) {
 	mkdirSync(`${dist}/space-web`, { recursive: true });
-	for (const f of ['space_web.js', 'space_web_bg.wasm']) cpSync(`${spaceWeb}/${f}`, `${dist}/space-web/${f}`);
+	// #366: relay-web (the relay client) beside it
+	for (const f of ['space_web.js', 'space_web_bg.wasm', 'relay_web.js', 'relay_web_bg.wasm']) if (existsSync(`${spaceWeb}/${f}`)) cpSync(`${spaceWeb}/${f}`, `${dist}/space-web/${f}`);
 } else console.warn('space-web is not built – npm run build:wasm -w shared/live-deck');
 // deck.html (#197) wears the shared tokens
 cpSync(`${lab}/../../shared/tokens/tokens.css`, `${dist}/tokens.css`);

@@ -1,84 +1,9 @@
-// client.ts (#197, @scutoons/live-deck since #198): the browser deck's relay logic, platform-free (a WebSocket constructor is injected) so Node
-// tests it against a real relay. The same contract as a native deck (deck/native/src/space/link.rs + deck/space's stream.rs):
-// - joins `ws://host:port/live/<code>?role=musician&group=decks` and says `hello` first;
-// - on `welcome` sends its being (`deck.graph`), then a keyframe of every value sent so far, then only changes;
-// - `ValueStream.sample` = stream.rs: at most RATE samples a second, a value only when it moved more than its epsilon,
-//   the mood when it changed;
-// - a reconnect (backoff 1 2 4 8 10 s) sends the graph and the keyframe again (the relay dropped the being);
-// - #195: the conductor's push – the welcome snapshot's `sync` or a `scene.sync` – goes to `onSync` (sync.ts works on
-//   it); `synced` sends the answer back as `deck.synced`.
-// - #321, the show clock: a ping carries its real `t0` (µs of the page's clock), a pong goes to `onPong` stamped on
-//   arrival, the relay's `tempo` (and the welcome snapshot's) to `onTempo`, the welcome to `onJoined`; `ping()` when the
-//   core's clock asks, `tempo()` sends a leading deck's anchor. The clock itself is the core's (live-core clock.rs).
-import type { DeckGraph, DeckQuality, DeckSynced, DeckValues, Envelope, Message, SceneSync, Tempo, Welcome } from '@scutoons/live';
-
-/** at most this many `deck.values` a second (the relay drops more than 30 / s) */
-export const RATE = 30;
-export const GROUP = 'decks';
-const PING_MS = 20_000;
-const BACKOFF_S = [1, 2, 4, 8, 10];
-
-/** `ws://host:port/live/<code>` → the base and the session code (link.rs reads it the same way); a path before
- *  `/live/` stays in the base (the LAN viewer's relay: `wss://<ip>:4100/relay/live/<code>`, scripts/dev/lan.mjs) */
-export function parseRelay(url: string): { base: string; code: string } {
-	const m = /^(wss?:\/\/[^/?#]+(?:\/[^?#]*?)?)\/live\/([^/?#]+)\/?$/.exec(url.trim());
-	if (!m) throw new Error(`relay URL must look like ws://host:7070/live/CODE, got '${url}'`);
-	return { base: m[1], code: decodeURIComponent(m[2]) };
-}
-
-/** the page's clock: ms since the epoch (the same as the core's clock and `getOutputTimestamp`'s stamps) */
-const nowMs = () => performance.timeOrigin + performance.now();
-
-/** A client → relay envelope (`seq` 0, `from` empty: the relay stamps both). */
-export const envelope = (m: Message): string => JSON.stringify({ v: 1, seq: 0, from: '', ...m });
-
-/** What a value's path is, for its epsilon (values.rs `epsilon`). */
-export type PathKind = { input: [min: number, max: number] } | 'audio' | 'control' | 'shape';
-
-export const epsilon = (k: PathKind): number =>
-	k === 'audio' ? 0.01 : k === 'control' ? 2e-3 : k === 'shape' ? 0.5 : Math.max(Math.abs(k.input[1] - k.input[0]) * 1e-3, 1e-5);
-
-/** stream.rs: one sample's changes, or null between samples / when nothing moved. */
-export class ValueStream {
-	private readonly last = new Map<string, number>();
-	private readonly eps: Map<string, number>;
-	private next = 0;
-	private mood: string | undefined;
-
-	constructor(paths: Record<string, PathKind>) {
-		this.eps = new Map(Object.entries(paths).map(([p, k]) => [p, epsilon(k)]));
-	}
-
-	get paths(): string[] {
-		return [...this.eps.keys()];
-	}
-
-	/** At `time` (s): null before the next slot, else what moved since it was last sent (the first sample: all). */
-	sample(time: number, read: (path: string) => number, mood: string | undefined): DeckValues | null {
-		// a frame may come a hair early; a long gap starts the schedule anew
-		if (time + 1e-3 < this.next) return null;
-		this.next = time - this.next > 1 / RATE ? time + 1 / RATE : this.next + 1 / RATE;
-		const values: Record<string, number[]> = {};
-		let any = false;
-		for (const [path, eps] of this.eps) {
-			const v = read(path);
-			if (!Number.isFinite(v)) continue;
-			const was = this.last.get(path);
-			if (was === undefined || Math.abs(v - was) > eps) {
-				this.last.set(path, v);
-				values[path] = [v];
-				any = true;
-			}
-		}
-		const out: DeckValues = { values };
-		if (mood !== undefined && mood !== this.mood) {
-			this.mood = mood;
-			out.mood = mood;
-			any = true;
-		}
-		return any ? out : null;
-	}
-}
+// client.ts (#197, #366): the browser's socket under deck-space's relay client (relay.rs, relay-web's wasm), which decides
+// all a relay client does (join, hello, keyframe, value stream, backoff, pings, status, what a deck or a vote screen
+// hears); this keeps the WebSocket and one timer (`RelaySocket`) and hands the core's words on (`DeckLink`; the viewer's
+// vote link). The core's scripted links (test/fixtures/relay.json) run through it in client.test.ts.
+import type { DeckGraph, DeckQuality, DeckSynced, Envelope, SceneSync, Tempo } from '@scutoons/live';
+import type { PathKind } from './rig.ts';
 
 export interface WebSocketLike {
 	readonly readyState: number;
@@ -90,173 +15,260 @@ export interface WebSocketLike {
 	onerror: ((ev: unknown) => void) | null;
 }
 
-export interface LinkOptions {
+/** relay-web's `RelayClient` (deck-space `relay::Client`): the socket's events and a deck's moves in, `take` out (a vote
+ *  screen's moves: the viewer's live-vote-link.ts) */
+export interface RelayCoreView {
+	start(now: number): void;
+	opened(now: number): void;
+	closed(now: number, why: string): void;
+	text(now: number, data: string): void;
+	tick(now: number): void;
+	next_wake(): number | undefined;
+	take(): string;
+	line(): string;
+	client(): string;
+	joined(): boolean;
+	counts(): string;
+	stop(): void;
+	set_graph(json: string): void;
+	set_stream(json: string): void;
+	paths(): string[];
+	sample(time: number, values: Float64Array, mood: string): void;
+	quality(json: string): void;
+	synced(now: number, json: string): void;
+	tempo(json: string): boolean;
+	ping(now: number): boolean;
+}
+
+export interface RelayModule {
+	RelayClient: new (options: string) => RelayCoreView;
+}
+
+/** where a link stands (deck-space `relay::Status`) */
+export type RelayStatus = { state: 'joining' | 'connected' | 'offline' | 'refused'; client?: string; why?: string; wait?: number };
+
+/** What the app hears (deck-space `relay::Out` past the socket's own): the core's status line (JOINING · DECK c3 @ CATH · OFFLINE …)
+ *  and status; joined at the page's ms; #321 a pong (its ping's `t0` µs, the relay's `t1` ms, back at the page's `t2` ms)
+ *  and the show clock's anchor (arrived at the page's ms); #195 the conductor's push; #231 what a vote screen hears;
+ *  every envelope (the core's `messages`). */
+export interface RelayHooks {
+	onStatus?: (line: string, s: RelayStatus) => void;
+	onJoined?: (at: number, client: string) => void;
+	onPong?: (t0: number, t1: number, t2: number) => void;
+	onTempo?: (t: Tempo, arrived: number) => void;
+	onSync?: (s: SceneSync) => void;
+	onVote?: (e: Envelope) => void;
+	onMessage?: (e: Envelope) => void;
+}
+
+/** the page's platform – its WebSocket, clock (ms since the epoch) and timer; tests pass their own */
+export interface Platform {
+	socket?: new (url: string) => WebSocketLike;
+	now?: () => number;
+	setTimer?: (fn: () => void, ms: number) => unknown;
+	clearTimer?: (id: unknown) => void;
+}
+
+const modules = new Map<string, Promise<RelayModule>>();
+/** relay-web from `base` (relay_web.js + relay_web_bg.wasm: `npm run build:wasm -w shared/live-deck`), once per page;
+ *  `wasm`: its bytes (Node can't fetch a file URL) */
+export function loadRelay(base: string, wasm?: BufferSource): Promise<RelayModule> {
+	let m = modules.get(base);
+	if (!m) {
+		modules.set(base, (m = load(base, wasm)));
+		m.catch(() => modules.delete(base));
+	}
+	return m;
+}
+
+async function load(base: string, wasm?: BufferSource): Promise<RelayModule> {
+	const mod = (await import(/* @vite-ignore */ `${base}relay_web.js`)) as RelayModule & { default: (o: { module_or_path: string | BufferSource }) => Promise<unknown> };
+	await mod.default({ module_or_path: wasm ?? `${base}relay_web_bg.wasm` });
+	return mod;
+}
+
+/** The socket and the timer under one core client: after every call into the core, `run` does what it asks. */
+export class RelaySocket {
+	private ws: WebSocketLike | null = null;
+	private timer: unknown = null;
+
+	constructor(
+		readonly core: RelayCoreView,
+		private readonly hooks: RelayHooks,
+		private readonly p: Platform = {}
+	) {}
+
+	/** the page's clock: ms since the epoch (the core's, the show clock's, `getOutputTimestamp`'s) */
+	now(): number {
+		return this.p.now?.() ?? performance.timeOrigin + performance.now();
+	}
+
+	start(): void {
+		this.core.start(this.now());
+		this.run();
+	}
+
+	/** call the core's `name` with `args`, then do what it says */
+	call<K extends keyof RelayCoreView>(name: K, ...args: Parameters<RelayCoreView[K]>): ReturnType<RelayCoreView[K]> {
+		const r = (this.core[name] as (...a: unknown[]) => ReturnType<RelayCoreView[K]>).apply(this.core, args);
+		this.run();
+		return r;
+	}
+
+	/** what the core asks and says, until it says nothing; then the timer for its next wake */
+	run(): void {
+		for (let outs = JSON.parse(this.core.take()) as Record<string, never>[]; outs.length; outs = JSON.parse(this.core.take())) for (const o of outs) this.act(o);
+		(this.p.clearTimer ?? clearTimeout)(this.timer as never);
+		const at = this.core.next_wake();
+		this.timer = at === undefined ? null : (this.p.setTimer ?? setTimeout)(this.wake.bind(this), Math.max(0, at - this.now()));
+	}
+
+	private wake(): void {
+		this.core.tick(this.now());
+		this.run();
+	}
+
+	private act(o: Record<string, never>): void {
+		const h = this.hooks;
+		if ('dial' in o) this.dial(o.dial);
+		else if ('send' in o) this.ws?.send(o.send);
+		// the socket's onclose tells the core
+		else if ('close' in o) this.ws?.close();
+		else if ('status' in o) h.onStatus?.(this.core.line(), o.status);
+		else if ('joined' in o) h.onJoined?.(o.joined['at'], o.joined['client']);
+		else if ('pong' in o) h.onPong?.(o.pong['t0'], o.pong['t1'], o.pong['t2']);
+		else if ('tempo' in o) h.onTempo?.(o.tempo['tempo'], o.tempo['arrived']);
+		else if ('sync' in o) h.onSync?.(o.sync);
+		else if ('vote' in o) h.onVote?.(o.vote);
+		else if ('message' in o) h.onMessage?.(o.message);
+	}
+
+	private dial(url: string): void {
+		try {
+			this.ws = new (this.p.socket ?? (globalThis.WebSocket as unknown as new (url: string) => WebSocketLike))(url);
+		} catch (e) {
+			this.ws = null;
+			this.core.closed(this.now(), String(e));
+			return;
+		}
+		this.ws.onopen = this.on.bind(this, this.ws, 'open');
+		this.ws.onmessage = this.on.bind(this, this.ws, 'text');
+		this.ws.onclose = this.on.bind(this, this.ws, 'close');
+		this.ws.onerror = null;
+	}
+
+	/** a socket's event – only the current socket's count */
+	private on(ws: WebSocketLike, what: 'open' | 'text' | 'close', ev: unknown): void {
+		if (this.ws !== ws) return;
+		const e = ev as { data?: unknown; reason?: unknown } | null;
+		if (what === 'open') this.core.opened(this.now());
+		else if (what === 'text') this.core.text(this.now(), String(e?.data));
+		else {
+			this.ws = null;
+			this.core.closed(this.now(), String(e?.reason ?? ''));
+		}
+		this.run();
+	}
+
+	close(): void {
+		this.call('stop');
+		this.ws = null;
+	}
+}
+
+/** a deck's link: `token` = the relay session token once there is one (#180 / #186; a dev relay and today's decks join
+ *  without), `core` = relay-web (`loadRelay`; the link joins once it is there), the hooks as `RelayHooks` */
+export interface LinkOptions extends Platform, Pick<RelayHooks, 'onPong' | 'onTempo' | 'onSync' | 'onMessage'> {
 	relay: string;
 	graph: DeckGraph;
 	nick?: string;
-	/**
-	 * The relay session token, once there is one (#180 / #186: the member's API session → a relay token). A dev relay
-	 * and today's decks join without; `hello` carries it when given.
-	 */
 	token?: string;
-	/** default: the global WebSocket */
-	socket?: new (url: string) => WebSocketLike;
-	/** the status line (JOINING · DECK c3 @ CATH · OFFLINE … · NO RELAY …) */
-	onStatus?: (s: string) => void;
-	/** every envelope the relay sends (tests, the HUD) */
-	onMessage?: (e: Envelope) => void;
-	/** #195: the conductor's push (at the welcome when the session has one, then each new one) */
-	onSync?: (s: SceneSync) => void;
-	/** #321: a pong – its ping's `t0` (µs), the relay's `t1` (ms), back at the page's `t2` ms */
-	onPong?: (t0: number, t1: number, t2: number) => void;
-	/** #321: the show clock's anchor (relay ms `at`), arrived at the page's ms */
-	onTempo?: (t: Tempo, arrived: number) => void;
-	/** #321: joined (again), at the page's ms */
-	onJoined?: (now: number) => void;
+	core: RelayModule | Promise<RelayModule>;
+	onStatus?: (line: string) => void;
+	onJoined?: (at: number) => void;
 }
 
-/** link.rs's deck side: join, being, keyframe, changes; reconnects until `close()`. */
+/** A deck on the relay (a `musician` of the decks): its being, stream, quality and sync answers go to the core; joins
+ *  once relay-web is there, until `close()`. */
 export class DeckLink {
-	readonly base: string;
-	readonly code: string;
-	client = '';
-	joined = false;
-	/** every value sent (the keyframe after a reconnect) */
-	readonly sent: Record<string, number[]> = {};
-	mood: string | undefined;
-	/** messages sent since the start (tests, the HUD) */
-	count = { graph: 0, values: 0, synced: 0, quality: 0 };
-	/** #220: the last render quality (sent again after a rejoin – the relay forgets a deck that left) */
-	private q: DeckQuality | null = null;
-	private graph: DeckGraph;
-	private ws: WebSocketLike | null = null;
-	private tries = 0;
+	socket: RelaySocket | null = null;
 	private stopped = false;
-	private timer: ReturnType<typeof setTimeout> | null = null;
-	private ping: ReturnType<typeof setInterval> | null = null;
+	private graph: DeckGraph;
+	private streamed: [string, PathKind][] = [];
+	private q: DeckQuality | null = null;
+	private order: string[] = [];
 
 	constructor(private readonly o: LinkOptions) {
-		({ base: this.base, code: this.code } = parseRelay(o.relay));
 		this.graph = o.graph;
-		this.connect();
+		void this.begin(o.core);
 	}
 
-	private status(s: string) {
-		this.o.onStatus?.(s);
-	}
-
-	private connect() {
-		if (this.stopped) return;
-		this.joined = false;
-		this.status(`JOINING ${this.code}`);
-		const Socket = this.o.socket ?? (globalThis.WebSocket as unknown as new (url: string) => WebSocketLike);
-		const ws = new Socket(`${this.base}/live/${encodeURIComponent(this.code)}?role=musician&group=${GROUP}`);
-		this.ws = ws;
-		ws.onopen = () => {
-			this.tries = 0;
-			ws.send(envelope({ kind: 'hello', p: { code: this.code, role: 'musician', group: GROUP, ...(this.o.nick ? { nick: this.o.nick } : {}), ...(this.o.token ? { token: this.o.token } : {}) } }));
-			this.ping = setInterval(() => this.sendPing(), PING_MS);
-		};
-		ws.onmessage = (ev) => this.receive(String(ev.data));
-		ws.onerror = () => {};
-		ws.onclose = () => {
-			if (this.ping) clearInterval(this.ping);
-			this.ping = null;
-			this.ws = null;
-			const was = this.joined;
-			this.joined = false;
-			if (this.stopped) return;
-			const wait = was ? 0.25 : BACKOFF_S[Math.min(this.tries++, BACKOFF_S.length - 1)];
-			this.status(was ? 'OFFLINE – joining again' : `NO RELAY – again in ${wait} s`);
-			this.timer = setTimeout(() => this.connect(), wait * 1000);
-		};
-	}
-
-	private receive(text: string) {
-		let e: Envelope;
+	private async begin(core: RelayModule | Promise<RelayModule>): Promise<void> {
+		const o = this.o;
 		try {
-			e = JSON.parse(text) as Envelope;
-		} catch {
-			return;
-		}
-		this.o.onMessage?.(e);
-		if (e.kind === 'welcome') {
-			this.client = (e.p as Welcome).client;
-			this.status(`DECK ${this.client} @ ${this.code}`);
-			// the being, then every value it showed so far (a keyframe)
-			this.raw({ kind: 'deck.graph', p: this.graph });
-			this.count.graph++;
-			if (Object.keys(this.sent).length || this.mood !== undefined) {
-				this.raw({ kind: 'deck.values', p: { values: { ...this.sent }, ...(this.mood !== undefined ? { mood: this.mood } : {}) } });
-				this.count.values++;
-			}
-			if (this.q) {
-				this.raw({ kind: 'deck.quality', p: this.q });
-				this.count.quality++;
-			}
-			this.joined = true;
-			const now = nowMs();
-			this.o.onJoined?.(now);
-			const snap = (e.p as Welcome).snapshot;
-			if (snap.tempo) this.o.onTempo?.(snap.tempo, now);
-			if (snap.sync) this.o.onSync?.(snap.sync);
-		} else if (e.kind === 'pong') {
-			this.o.onPong?.(e.p.t0, e.p.t1, nowMs());
-		} else if (e.kind === 'tempo') {
-			this.o.onTempo?.(e.p, nowMs());
-		} else if (e.kind === 'scene.sync') {
-			this.o.onSync?.(e.p);
-		} else if (e.kind === 'error') {
-			this.status(`RELAY ${e.p.code}: ${e.p.message}`);
+			const m = core instanceof Promise ? await core : core;
+			if (this.stopped) return;
+			const c = new m.RelayClient(JSON.stringify({ relay: o.relay, role: 'musician', group: 'decks', nick: o.nick, token: o.token, messages: !!o.onMessage }));
+			c.set_graph(JSON.stringify(this.graph));
+			c.set_stream(JSON.stringify(this.streamed));
+			this.order = c.paths();
+			if (this.q) c.quality(JSON.stringify(this.q));
+			this.socket = new RelaySocket(c, o, o);
+			this.socket.start();
+		} catch (e) {
+			o.onStatus?.(`relay client: ${(e as Error).message ?? e}`);
 		}
 	}
 
-	private raw(m: Message): boolean {
-		if (!this.ws || this.ws.readyState !== 1) return false;
-		this.ws.send(envelope(m));
-		return true;
+	get client(): string {
+		return this.socket?.core.client() ?? '';
 	}
 
-	/** a sample's changes: folded always, sent once welcomed (offline the latest values wait for the keyframe) */
-	send(v: DeckValues) {
-		Object.assign(this.sent, v.values);
-		if (v.mood !== undefined) this.mood = v.mood;
-		if (this.joined && this.raw({ kind: 'deck.values', p: v })) this.count.values++;
+	get joined(): boolean {
+		return this.socket?.core.joined() ?? false;
 	}
 
-	/** #195: the answer to the conductor's push (progress and final); dropped while not joined – a rejoin re-runs the push */
-	synced(r: DeckSynced) {
-		if (this.joined && this.raw({ kind: 'deck.synced', p: r })) this.count.synced++;
+	/** the paths the deck streams with how each moves (the played scene's `streamed`) */
+	setStream(streamed: [string, PathKind][]): void {
+		this.streamed = streamed;
+		this.socket?.call('set_stream', JSON.stringify(streamed));
+		this.order = this.socket?.core.paths() ?? [];
 	}
 
-	/** #220: the render quality (the 3D's governor reports a change at once, the frame time at most every 2 s); kept for a rejoin */
-	quality(q: DeckQuality) {
+	/** One frame at `time` (s): each streamed path's value now and the mood – the core sends what moved, at its pace. */
+	sample(time: number, read: (path: string) => number, mood: string | undefined): void {
+		this.socket?.call('sample', time, Float64Array.from(this.order, read), mood ?? '');
+	}
+
+	/** #195: the answer to the conductor's push (progress and final; the core keeps it for a rejoin) */
+	synced(r: DeckSynced): void {
+		this.socket?.call('synced', this.socket.now(), JSON.stringify(r));
+	}
+
+	/** #220: the render quality (the 3D's governor reports a change at once, the frame time at most every 2 s) */
+	quality(q: DeckQuality): void {
 		this.q = q;
-		if (this.joined && this.raw({ kind: 'deck.quality', p: q })) this.count.quality++;
+		this.socket?.call('quality', JSON.stringify(q));
 	}
 
-	/** #321: a ping now, its `t0` the page's clock in µs (the keepalive and the clock's pings alike) */
+	/** #321: a ping now (the clock's), its `t0` the page's clock in µs */
 	sendPing(): boolean {
-		return this.raw({ kind: 'ping', p: { t0: Math.round(nowMs() * 1000) } });
+		return this.socket?.call('ping', this.socket.now()) ?? false;
 	}
 
-	/** #321: a leading deck's anchor (dropped while not joined – the core sends again after a join) */
+	/** #321: a leading deck's anchor (dropped while not joined – the core's clock sends again after a join) */
 	tempo(t: Tempo): boolean {
-		return this.joined && this.raw({ kind: 'tempo', p: t });
+		return this.socket?.call('tempo', JSON.stringify(t)) ?? false;
 	}
 
 	/** the being changed (another character): the relay keeps the last graph per client */
-	setGraph(g: DeckGraph) {
+	setGraph(g: DeckGraph): void {
 		this.graph = g;
-		if (this.joined && this.raw({ kind: 'deck.graph', p: g })) this.count.graph++;
+		this.socket?.call('set_graph', JSON.stringify(g));
 	}
 
-	close() {
+	close(): void {
 		this.stopped = true;
-		if (this.timer) clearTimeout(this.timer);
-		if (this.ping) clearInterval(this.ping);
-		this.ws?.close();
-		this.ws = null;
-		this.joined = false;
+		this.socket?.close();
 	}
 }

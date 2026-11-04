@@ -6,7 +6,8 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { LIVE_URL } from '$lib/config.ts';
-	import { relayOf } from '$lib/live-deck.ts';
+	import { WASM_BASE, relayOf } from '$lib/live-deck.ts';
+	import { loadRelay } from '@scutoons/live-deck';
 	import { deviceLocale, groupLook } from '$lib/live-vote.ts';
 	import { RelayVote, type LinkStatus } from '$lib/live-vote-link.ts';
 	import AudienceVote from '$lib/components/live-vote/audience-vote.svelte';
@@ -18,7 +19,7 @@
 	const locale = $derived(query.get('lang') ?? deviceLocale(typeof navigator === 'undefined' ? undefined : navigator.languages));
 
 	onMount(() => {
-		const link = new RelayVote({ relay: relayOf(page.url.searchParams, LIVE_URL, page.params.code), role: 'audience', group, onStatus: (s) => (status = s) });
+		const link = new RelayVote({ relay: relayOf(page.url.searchParams, LIVE_URL, page.params.code), role: 'audience', group, core: loadRelay(WASM_BASE), onStatus: (s) => (status = s) });
 		source = link;
 		return () => link.dispose();
 	});

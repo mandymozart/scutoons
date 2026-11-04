@@ -3,15 +3,13 @@
 // the CDN reply – and every call the adapter must make on the core with the core's answers (written and kept current by
 // `UPDATE_FIXTURES=1 cargo test -p deck-space push_fixture`). sync.ts runs each script against a stub fetch and a
 // stand-in core that replays the calls: the URLs it fetched, the statuses, lengths and first bytes it handed in, the
-// answers and lines it reported must be the core's. And the link's message handling with a stub socket: the welcome's
-// `sync` and a `scene.sync` reach the sync, its answers go out as `deck.synced`.
+// answers and lines it reported must be the core's. The link's side – the welcome's `sync` and a `scene.sync` reach the
+// sync, its answers go out as `deck.synced` – is the relay client's script 'sync' (client.test.ts, #366).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import type { DeckSynced, Envelope, SceneSync } from '@scutoons/live';
-import { DeckLink, type WebSocketLike } from '../src/client.ts';
+import type { DeckSynced, SceneSync } from '@scutoons/live';
 import { BrowserSync, type DeckPushView } from '../src/sync.ts';
-import { ownGraph } from './own.ts';
 
 interface Reply {
 	status?: number | null;
@@ -145,50 +143,4 @@ test('a push before the core waits for it', async () => {
 	sync.useCore(core(s));
 	await new Promise((r) => setTimeout(r, 10));
 	assert.equal(reports.at(-1)?.state, 'ready');
-});
-
-/** a socket the test drives: what the deck sent, and the relay's side */
-class Sock implements WebSocketLike {
-	static last: Sock;
-	readyState = 0;
-	sent: Envelope[] = [];
-	onopen: ((ev: unknown) => void) | null = null;
-	onmessage: ((ev: { data: unknown }) => void) | null = null;
-	onclose: ((ev: unknown) => void) | null = null;
-	onerror: ((ev: unknown) => void) | null = null;
-	constructor(readonly url: string) {
-		Sock.last = this;
-	}
-	send(data: string) {
-		this.sent.push(JSON.parse(data) as Envelope);
-	}
-	close() {}
-	open() {
-		this.readyState = 1;
-		this.onopen?.({});
-	}
-	relay(e: object) {
-		this.onmessage?.({ data: JSON.stringify({ v: 1, seq: 1, from: 'relay', ...e }) });
-	}
-}
-
-const push = (characters: string[]): SceneSync => ({ scene: 'cathedral', sets: ['cathedral'], characters });
-
-test('the link: the welcome’s sync and a scene.sync reach onSync; synced() sends deck.synced', () => {
-	const got: SceneSync[] = [];
-	const link = new DeckLink({ relay: 'ws://relay.test/live/SYNC', graph: ownGraph(), socket: Sock, onSync: (s) => got.push(s) });
-	const ws = Sock.last;
-	link.synced({ scene: 'x', state: 'ready', ready: [], missing: [] });
-	assert.equal(ws.sent.length, 0, 'not before the welcome');
-	ws.open();
-	ws.relay({ kind: 'welcome', p: { client: 'c7', group: 'decks', snapshot: { sync: push(['catpope']) }, now: 1 } });
-	assert.deepEqual(got, [push(['catpope'])], 'a deck joining later syncs too');
-	ws.relay({ from: 'c1', kind: 'scene.sync', p: push([]) });
-	assert.equal(got.length, 2);
-	link.synced({ scene: 'cathedral', state: 'syncing', done: 1, total: 3, bytes: 4, ready: [], missing: [] });
-	const out = ws.sent.filter((e) => e.kind === 'deck.synced');
-	assert.equal(out.length, 1);
-	assert.deepEqual(out[0].p, { scene: 'cathedral', state: 'syncing', done: 1, total: 3, bytes: 4, ready: [], missing: [] });
-	assert.equal(link.count.synced, 1);
-	link.close();
 });

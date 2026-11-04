@@ -45,6 +45,8 @@ export function deckOptions(o: EngineHostOptions, onStatus: (s: string) => void)
 		api: o.api,
 		cdn: folder(o.cdn),
 		onStatus,
-		onSynced: o.onSynced
+		onSynced: o.onSynced,
+		// #366: the relay client from the host's wasm folder (loaded when the deck joins)
+		wasm: folder(o.wasmBase)
 	};
 }
