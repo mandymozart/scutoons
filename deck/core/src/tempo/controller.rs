@@ -13,6 +13,7 @@
 //! to `frame`. deck/native's `Tempo` is the native adapter (channels, midir, UDP, rusty_link); live-core's clock is the
 //! browser's.
 use super::midi_in::{ClockIn, WallLine};
+use super::mode::ClockMode;
 use super::shared::Shared;
 use super::sync::{Anchor, Filter, Lead, Pinger};
 use super::time::Moment;
@@ -297,6 +298,34 @@ impl Controller {
             self.lead.again();
         }
         self.leads = lead;
+    }
+
+    /// the picker's choice the clock is on now (a key or a scene may have moved it); None on Link or OSC (#370)
+    pub fn mode(&self) -> Option<ClockMode> {
+        ClockMode::of(self.source, self.leads)
+    }
+
+    /// the picker's choice: its source the master, leading or not (#370)
+    pub fn set_mode(&mut self, m: ClockMode, host: &mut dyn Host) {
+        let (source, lead) = m.source();
+        self.set_source(source, host);
+        self.set_lead(lead);
+    }
+
+    /// the tempo line at the heard moment (`Now::line`, #370)
+    pub fn tempo_line(&self) -> String {
+        self.now.line(self.click)
+    }
+
+    /// the clock in one line – the tempo line, then `status` – the browser panel's; the native HUD shows the same two
+    /// texts on its tempo and source lines (#370)
+    pub fn line(&self, now_ns: u64) -> String {
+        let status = self.status(now_ns);
+        if status.is_empty() {
+            self.tempo_line()
+        } else {
+            format!("{}  {status}", self.tempo_line())
+        }
     }
 
     /// this deck sends the anchor now: asked to, or on MIDI clock in – never while it follows the relay

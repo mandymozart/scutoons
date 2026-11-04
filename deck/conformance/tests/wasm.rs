@@ -68,7 +68,7 @@ trait Lc {
     fn stamp(&mut self, context: f64, heard_ms: f64, skew: f64);
     fn pong(&mut self, t0_us: f64, t1_ms: f64, t2_ms: f64);
     fn tempo(&mut self, bpm: f64, per_bar: u32, beat: f64, at: f64, running: u32, arrived_ms: f64);
-    fn choose(&mut self, source: u32, lead: u32);
+    fn mode(&mut self, mode: u32);
     fn key(&mut self, key: u32, at_ms: f64);
 }
 
@@ -103,8 +103,8 @@ impl Lc for NativeLc {
     fn tempo(&mut self, bpm: f64, per_bar: u32, beat: f64, at: f64, running: u32, arrived_ms: f64) {
         live_core::lc_clock_tempo(bpm, per_bar, beat, at, running, arrived_ms);
     }
-    fn choose(&mut self, source: u32, lead: u32) {
-        live_core::lc_clock_choose(source, lead);
+    fn mode(&mut self, mode: u32) {
+        live_core::lc_clock_mode(mode);
     }
     fn key(&mut self, key: u32, at_ms: f64) {
         live_core::lc_clock_key(key, at_ms);
@@ -145,9 +145,9 @@ impl Lc for Wasm {
         let f = self.f::<(f64, u32, f64, f64, u32, f64), ()>("lc_clock_tempo");
         f.call(&mut self.store, (bpm, per_bar, beat, at, running, arrived_ms)).unwrap();
     }
-    fn choose(&mut self, source: u32, lead: u32) {
-        let f = self.f::<(u32, u32), ()>("lc_clock_choose");
-        f.call(&mut self.store, (source, lead)).unwrap();
+    fn mode(&mut self, mode: u32) {
+        let f = self.f::<u32, ()>("lc_clock_mode");
+        f.call(&mut self.store, mode).unwrap();
     }
     fn key(&mut self, key: u32, at_ms: f64) {
         let f = self.f::<(u32, f64), ()>("lc_clock_key");
@@ -165,7 +165,7 @@ fn clock_script(lc: &mut dyn Lc) -> (Vec<f64>, Vec<f32>) {
     lc.init(2);
     lc.load(CLICK_TOML);
     let t0 = 1_762_000_000_123.456; // the page's ms
-    lc.choose(4, 0);
+    lc.mode(0); // the show clock
     for k in 0..5 {
         let t = t0 + k as f64 * 250.0;
         lc.pong(t * 1e3, (t + 777_000.4).floor(), t + 0.8);
