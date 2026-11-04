@@ -122,7 +122,8 @@ export class DeckControlsState {
 	}
 
 	close() {
-		this.pad.reset();
+		// no pad: the sticks that were down go up
+		if (this.hands) pollPad(this.hands.c, [], this.pad);
 		this.midi?.close();
 		this.hands?.c.free?.();
 	}

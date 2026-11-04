@@ -1,0 +1,8 @@
+name = "the controls' rules: a knob turn, value and position, a gamepad"
+about = "#369: deck-space's controls (controls.rs, gamepad.rs) – a knob's value at a position on its curve (log: the middle is the geometric mean), a drag over the host's travel (fine × 0.1), a pad's press 0.3 / release 0.15. The page (DeckControls), the creator's strip and the lab (DeckState.norm) and the native stage's pad adapter ask the same"
+
+# a log knob 30..220 at its middle; dragged up half the travel from there; a stick out to 0.35, back to 0.2, then 0.1
+[[step]]
+do = "knob"
+with = { min = 30.0, max = 220.0, log = true, position = 0.5, drag_px = -100.0, range_px = 200.0, pad = [0.35, 0.2, 0.1] }
+expect = { value = { near = 81.24, tol = 0.01 }, dragged = { near = 220.0, tol = 0.01 }, pressed = [true, true, false] }
