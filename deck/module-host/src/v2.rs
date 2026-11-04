@@ -728,6 +728,8 @@ impl<B: Backend> Instance<B> {
         out.hdr_mut().dropped = [0; 8];
         out.hdr_mut().allocs = 0;
         out.written_mut().fill(0);
+        // silent outputs say so (the engine may skip their sum); a fading one is not silent yet
+        out.hdr_mut().out_silent = if fade_out { 0 } else { (1u32 << layout.shape.audio_out_ports()) - 1 };
         if fade_out {
             self.ramp(frames, false);
         } else {
@@ -782,10 +784,12 @@ impl<B: Backend> Instance<B> {
     /// grows) and a new rebuild follows.
     pub fn offer(&mut self, fresh: Fresh<B>) {
         let Fresh { result, snapshot } = fresh;
-        // the fresh instance's asset records (its own buffers) go into the staged `inp`
-        let a = self.layout.assets as usize;
-        let len = self.layout.shape.assets as usize * core::mem::size_of::<AssetInfo>();
-        bytes_mut(&mut self.io)[a..a + len].copy_from_slice(&bytes(&snapshot)[a..a + len]);
+        if result.is_ok() {
+            // the fresh instance's asset records (its own buffers) go into the staged `inp`
+            let a = self.layout.assets as usize;
+            let len = self.layout.shape.assets as usize * core::mem::size_of::<AssetInfo>();
+            bytes_mut(&mut self.io)[a..a + len].copy_from_slice(&bytes(&snapshot)[a..a + len]);
+        }
         self.spare = Some(snapshot);
         let Some(down) = self.down.as_mut() else { return };
         down.building = false;
