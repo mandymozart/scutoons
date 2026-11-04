@@ -1,9 +1,10 @@
 # decisions/map — the world map and places
 
 The owner's words, one line each, newest first, append-only (how: agents/DECISIONS.md). Grep by key, read only what you need.
-Keys here: `[map]` 41 the world map and places
+Keys here: `[map]` 42 the world map and places
 
 ## 2026-11
+- 2026-11-04 · map · [map] The songlines exhibit is at the Medienwerkstatt: large screens with SCUTOONS creatures chanting the songs, fabric and 3D prints · "exhibiting at Medienwerkstatt … large screens with scutoons creatures chanting those songs. and somefabric and 3d prints" · → #395
 - 2026-11-04 · map · [map] Songlines are only the inspiration for the SCUTOONS layer (no Aboriginal content); the framing is refined later · "drawing the inspiration from only, we will have to refine it." · → #394, #395
 - 2026-11-04 · map · [map] Songlines MA 7 application: framed as an exhibit (not public-space art, which is KÖR Wien's), asking up to € 10.000 to develop it in the app; work on it 2026-11-05, deadline 2026-11-08 · "add the proposal as an issue to the epic … deadline is the 8th, so we can ask for some money. to develop it in our app" · "than it is just an exhibit 😉 same stuff." · → #395
 - 2026-11-04 · map · [map] SCUTOONS is partly based on Vienna and extends it into an interdimensional speculative space, connecting places in Vienna to other times and across fictional space · "scutoons is partially based on the city of vienna and extends it into a interdimensional specilative space" · → #395, #394
