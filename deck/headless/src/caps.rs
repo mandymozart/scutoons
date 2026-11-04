@@ -17,6 +17,7 @@ use deck_space::deck::{Deck, Slider};
 use deck_space::gamepad::Pad;
 use deck_space::gesture::{Act, Fingers, Touch, ZOOM_STEP};
 use deck_space::mood::Ladder;
+use deck_space::push;
 use serde_json::{json, Value};
 
 /// a capability the core lacks: its move ticket, what it is, where it lives today
@@ -38,12 +39,11 @@ pub const CAPS: &[(&str, &str, &str, &str)] = &[
     ("hud", "#374", "the deck UI model: the HUD lines and the stats bar items", "main.rs hud_lines / bar_items"),
 
     ("relay_join", "#366", "the relay client as a sans-IO state machine: hello, welcome, backoff, ping, status text", "native space/link.rs, live/client.rs; live-deck client.ts; viewer live-vote-link.ts"),
-    ("sync", "#371", "the conductor's scene sync: items, progress, the PUSH line", "native sync.rs push_line, live-deck sync.ts"),
     ("quality_options", "#375", "the quality page's option tables (fps caps, ratios, sizes) and labels", "native quality.rs Page, deck-quality-sheet.svelte"),
 ];
 
 /// the steps the core answers now (their move tickets landed): name, ticket
-pub const MOVED: &[(&str, &str)] = &[("stats", "#364"), ("lead", "#365"), ("mood", "#367"), ("rig_facts", "#368"), ("device_text", "#373"), ("meters", "#373"), ("gesture", "#376"), ("knob", "#369")];
+pub const MOVED: &[(&str, &str)] = &[("stats", "#364"), ("lead", "#365"), ("mood", "#367"), ("rig_facts", "#368"), ("device_text", "#373"), ("meters", "#373"), ("gesture", "#376"), ("knob", "#369"), ("sync", "#371")];
 
 /// Call the capability `name` with the step's input: its answer, or what is missing.
 pub fn call(name: &str, input: &Value) -> Result<Value, Missing> {
@@ -56,6 +56,7 @@ pub fn call(name: &str, input: &Value) -> Result<Value, Missing> {
         "meters" => return Ok(meters(input)),
         "gesture" => return Ok(gesture(input)),
         "knob" => return Ok(knob(input)),
+        "sync" => return Ok(sync(input)),
         _ => {}
     }
     match CAPS.iter().find(|c| c.0 == name) {
@@ -234,6 +235,24 @@ fn gesture(i: &Value) -> Value {
     }
     let r4 = |x: f32| crate::deck::round(f64::from(x), 4);
     json!({ "acts": acts, "zoom_steps": r4(steps), "camera_factor": r4(ZOOM_STEP.powf(steps)), "step": r4(ZOOM_STEP), "driver": fingers.driver(), "touching": fingers.touching() })
+}
+
+/// #371: deck-space's push machine through a scripted push (push.rs `script`: the push, the deck's quality, the API's
+/// and the CDN's replies) – the URL it asked, every line an adapter reports in order, and the last answer.
+fn sync(i: &Value) -> Value {
+    let script: push::Script = match serde_json::from_value(i.clone()) {
+        Ok(s) => s,
+        Err(e) => return json!({ "error": e.to_string() }),
+    };
+    let calls = push::script(&script, "https://api.test/api", "https://cdn.test/");
+    let of = |name: &'static str| calls.iter().filter(move |c| c.name == name).map(|c| c.answer.clone());
+    let lines: Vec<Value> = of("line").collect();
+    let fetched: Vec<Value> = of("next_fetch").filter_map(|a| a.get(1).cloned()).collect();
+    let last = of("answer").last().unwrap_or(Value::Null);
+    json!({
+        "url": calls[0].answer, "fetched": fetched, "lines": lines, "push_line": lines.last(), "state": last["state"],
+        "done": last["done"], "total": last["total"], "bytes": last["bytes"], "ready": last["ready"], "missing": last["missing"], "why": last["why"]
+    })
 }
 
 /// #369: deck-space's controls over one knob (`min`, `max`, `log`) as a page hands it in – its value at `position`, that
