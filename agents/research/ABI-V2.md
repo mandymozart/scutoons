@@ -1,4 +1,4 @@
-Reviewed with the owner 2026-11-03 – the design of module ABI v2 (#323, with #312 sensors, #314 groups, #289 control outputs); every question of §10 is decided (DECISIONS 2026-11-03). Nothing is built; the build tickets are created (§9: #339–#346, with #312, #314, #307). Read against `main` at b504d5f6 (the engine move, #317).
+Reviewed with the owner 2026-11-03 – the design of module ABI v2 (#323, with #312 sensors, #314 groups, #289 control outputs); every question of §10 is decided (DECISIONS 2026-11-03). Built: A0 #339 (the descriptor fields in deck-catalog, `host::Descriptor` gone, 2026-11-04); the other build tickets are open (§9: #340–#346, with #312, #314, #307). Read against `main` at b504d5f6 (the engine move, #317).
 
 # ABI-V2 – one module ABI for notes, channels, sensors, assets and groups
 
