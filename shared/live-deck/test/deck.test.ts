@@ -2,7 +2,7 @@
 // being's 3D buttons, the streamed paths, the character switch, the image sniffing for the set's textures.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LiveCore, clockOf, type ClockOp, type ClockState } from '@scutoons/live-core';
+import { FRAME, LiveCore, analysisOf, clockOf, type ClockOp, type ClockState } from '@scutoons/live-core';
 import { Deck, deviceKind, portraitsOf } from '../src/deck.ts';
 import { sniff } from '../src/space.ts';
 import { MOODS, OWN, OWN_PARAMS, OWN_STREAMED, stateOf } from './own.ts';
@@ -171,7 +171,7 @@ test('#298: stop ends the sound and leaves the deck as it was – values kept, n
 	const d = deckOf();
 	let stopped = 0;
 	d.core = { stop: async () => void stopped++ } as unknown as NonNullable<Deck['core']>;
-	d.bands = { level: 0.7, bass: 0.5, mid: 0.2, high: 0.1, spectrum: new Float32Array(4), reduction: 3, outputs: new Float32Array(2), values: new Float32Array(0) };
+	d.bands = { ...analysisOf(new Float32Array(FRAME)), level: 0.7, bass: 0.5, mid: 0.2, high: 0.1, reduction: 3 };
 	d.setParam('voice.index', 4.5);
 	await d.stop();
 	assert.equal(stopped, 1);

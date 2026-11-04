@@ -12,11 +12,9 @@
 // The engine itself stays in Rust: live-deck's `Deck` (relay, sound) on deck-space's deck (space-web `DeckState`: the
 // mood, what plays, the rig's lifecycle – #367, #368), `SpaceStage` (the being), live-core's worker and worklet. Nothing
 // of the sound, the rig or the being is decided in TS here.
-import type { DeviceSignal } from '@scutoons/live-core';
+import { METER_ZONES, type DeviceRow, type DeviceSignal, type OutputReading } from '@scutoons/live-core';
 import { Deck, SpaceStage, loadMonitor, type EngineFiles, type Hand, type MonitorReport, type MonitorView, type RigPlayed, type RigTurn } from '@scutoons/live-deck';
 import { EngineLog, formatLine, messageOf } from './log.ts';
-import { OutputMeters } from './meters.ts';
-import { SignalMonitor } from './monitor.ts';
 import { deckOptions, folder, type EngineHostOptions } from './options.ts';
 import { canStart, canStop, emptySnapshot, type EnginePhase, type EngineSnapshot } from './status.ts';
 import { deviceInfo, engineReport } from './report.ts';
@@ -41,7 +39,7 @@ export interface EngineHooks {
 	value?: (path: string, value: number, hand: Hand) => void;
 	/** #282: a device message the scene's `[outputs]` resolved to – MIDI bytes, an OSC address + typed args, DMX channel
 	 *  values (the protocol's `DeviceMsg` kinds) with the engine clock it was meant for. Shown, not played: the browser
-	 *  has no MIDI port or DMX widget. A few a second at most; `monitor` already keeps the last of each kind. */
+	 *  has no MIDI port or DMX widget. A few a second at most; the core's device monitor already keeps the last of each kind. */
 	signal?: (msg: DeviceSignal) => void;
 }
 
@@ -53,15 +51,13 @@ export class EngineHost {
 	deck: Deck | null = null;
 	space: SpaceStage | null = null;
 	hooks: EngineHooks = {};
-	/** #282: the output peaks (0..1, held with a short fall) as ONE Float32Array the host updates in place with every
-	 *  analysis frame – no allocation per frame, read it from a requestAnimationFrame loop (a canvas meter) without the
-	 *  snapshot / subscribe path. Its length is the number of outputs (0 while no sound runs); the object changes only
-	 *  when that count does, so read the property each frame rather than keeping it. */
+	/** #282, #373: the output peaks (0..1) the core holds and lets fall (deck-core meters), as the analysis frame carries
+	 *  them – a view on the newest frame, no allocation: read it from a requestAnimationFrame loop (a canvas meter) without
+	 *  the snapshot / subscribe path. Its length is the number of outputs (0 while no sound runs); read the property each
+	 *  frame rather than keeping it. */
 	get peaks(): Float32Array {
-		return this.meters.peaks;
+		return this.deck?.bands.outputs ?? NO_PEAKS;
 	}
-	/** #282: the last device message per kind, counts and activity (monitor.ts) – also in `snapshot().signals` */
-	readonly monitor = new SignalMonitor();
 	/** the 3D's own line, refreshed every frame */
 	hud = '';
 	/** play the character's core rig (instead of the fixed patch) whenever the character changes */
@@ -75,10 +71,6 @@ export class EngineHost {
 	private timer: ReturnType<typeof setInterval> | undefined;
 	private tickThrew = false;
 	private wasGlitching = false;
-	/** #282: the output peaks held between samples, fed from the analysis frames */
-	private readonly meters = new OutputMeters();
-	private lastBands: unknown = null;
-	private lastFrameAt = 0;
 
 	constructor(
 		private readonly o: EngineHostOptions,
@@ -191,8 +183,7 @@ export class EngineHost {
 			this.log.push('sound', `running: ${core?.transport} transport, ${core?.context.sampleRate} Hz, crossOriginIsolated ${globalThis.crossOriginIsolated === true}`);
 			this.snap = { ...this.snap, error: '' };
 			core?.audioTo(this.perf);
-			this.monitor.reset();
-			this.meters.reset();
+			this.perf?.resetDevices();
 			this.setPhase('running');
 			return true;
 		} catch (e) {
@@ -213,7 +204,6 @@ export class EngineHost {
 		}
 		this.log.push('sound', 'stopped');
 		this.perf?.silent();
-		this.meters.reset();
 		this.setPhase('stopped');
 		this.sample();
 	}
@@ -263,9 +253,10 @@ export class EngineHost {
 		this.snap = { ...this.snap, phase: 'idle' };
 	}
 
-	/** a device message from the engine: the monitor, then the app (its throw is the app's, not the engine's) */
+	/** a device message from the engine: deck-core's device monitor words it and lights its lamp, then the app (its throw is
+	 *  the app's, not the engine's) */
 	private signalled(s: DeviceSignal): void {
-		this.monitor.push(s, performance.now());
+		this.perf?.signal(performance.now(), JSON.stringify(s));
 		try {
 			this.hooks.signal?.(s);
 		} catch (e) {
@@ -317,19 +308,9 @@ export class EngineHost {
 				this.hooks.threeD?.(false, messageOf(e));
 			}
 		}
-		this.meterFrame(deck, t0);
 		this.perf?.frame(t0, performance.now() - t0, drawn);
 		this.raf = requestAnimationFrame(this.frame);
 	};
-
-	/** each new analysis frame's output peaks into the meters (a frame is new when the deck's bands object is) */
-	private meterFrame(deck: Deck, t0: number): void {
-		const bands = deck.bands;
-		if (bands === this.lastBands) return;
-		this.lastBands = bands;
-		this.meters.push(bands.outputs, this.lastFrameAt ? (t0 - this.lastFrameAt) / 1000 : 0);
-		this.lastFrameAt = t0;
-	}
 
 	private setPhase(phase: EnginePhase): void {
 		if (phase !== this.snap.phase) this.log.push('host', phase);
@@ -365,8 +346,8 @@ export class EngineHost {
 			mid: deck?.bands.mid ?? 0,
 			high: deck?.bands.high ?? 0,
 			reduction: deck?.bands.reduction ?? 0,
-			outputs: this.meters.read(),
-			signals: this.monitor.view(now),
+			outputs: readings(deck?.bands),
+			signals: perf ? (JSON.parse(perf.devices(now)) as DeviceRow[]) : [],
 			stats,
 			quality: q ? `${q.level} ${q.scale.toFixed(2)}×${q.auto ? '' : ' FIX'}` : '',
 			hud: this.hud
@@ -393,4 +374,12 @@ export class EngineHost {
 			clockWindow: core?.clockWindow.summary() ?? null
 		});
 	}
+}
+
+const NO_PEAKS = new Float32Array(0);
+
+/** the newest analysis frame's meter readings – the core's, copied out for the snapshot */
+function readings(bands: { outputs: Float32Array; positions: Float32Array; zones: Float32Array } | undefined): OutputReading[] {
+	if (!bands) return [];
+	return Array.from(bands.outputs, (level, i) => ({ level, position: bands.positions[i] ?? 0, zone: METER_ZONES[bands.zones[i] ?? 0] ?? 'ok' }));
 }

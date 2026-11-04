@@ -103,13 +103,22 @@ export function* readRecords(bytes: Uint8Array): Generator<SendRecord & { v: Flo
 	}
 }
 
+/** One audio output's meter reading from the frame (#373): the held peak, its place on the dB scale and its zone. */
+export interface OutputReading {
+	/** the held peak, linear 0..1 */
+	level: number;
+	/** where it sits on the meter's dB scale, 0..1 from the bottom */
+	position: number;
+	zone: MeterZone;
+}
+
 /** The analysis frame as named values; `spectrum` is a view on `frame` (no copy). */
 export interface Analysis {
 @@BAND_FIELDS@@
 	spectrum: Float32Array;
 	/** the output limiter's gain reduction (dB, 0 = untouched) – the being's red face (#188) */
 	reduction: number;
-	/** #282: one peak (0..1) per device channel – the largest sample since the last frame; a view on `frame`, as many as
+	/** #282, #373: one peak (0..1) per device channel – the largest sample, held and falling; a view on `frame`, as many as
 	 * the engine renders */
 	outputs: Float32Array;
 	/** #373: where each output sits on the meter's dB scale, 0..1 from the bottom – a view, as many as `outputs` */

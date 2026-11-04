@@ -63,6 +63,11 @@ export interface MonitorView {
 	report(nowMs: number): string;
 	/** the sound's first seconds as the report's table */
 	series(): string[];
+	/** #373: a device message (`DeviceSignal` as JSON) – the core words it and keeps the lamp's activity (deck-core `devices`) */
+	signal(nowMs: number, json: string): void;
+	/** #373: the rows of the protocols that carried a message (JSON `DeviceRow[]`) as of `nowMs` */
+	devices(nowMs: number): string;
+	resetDevices(): void;
 }
 
 /** #364: a bar item as the core worded and judged it */

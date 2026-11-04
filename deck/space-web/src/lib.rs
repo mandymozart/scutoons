@@ -765,20 +765,12 @@ impl DeckMonitor {
         DeckMonitor { m: deck_core::monitor::Monitor::new(), devices: deck_core::devices::DeviceMonitor::new() }
     }
 
-    /// #373: a MIDI message the scene's outputs resolved to, at `now_ms` (`conductor`: over the relay, not the deck's port)
-    pub fn midi(&mut self, now_ms: f64, bytes: &[u8], conductor: bool) {
-        self.devices.push(&deck_core::devices::Signal::Midi { conductor, bytes }, now_ms);
-    }
-
-    /// #373: a DMX range (channel values from `ch` on) at `now_ms`
-    pub fn dmx(&mut self, now_ms: f64, ch: u16, values: &[u8], flash: bool) {
-        self.devices.push(&deck_core::devices::Signal::Dmx { ch, values, flash }, now_ms);
-    }
-
-    /// #373: an OSC message at `now_ms`; `args` = JSON `[{"kind":"float","p":0.5}, …]` (the kinds int, float, string, bool)
-    pub fn osc(&mut self, now_ms: f64, address: &str, args: &str) {
-        let args = osc_args(args);
-        self.devices.push(&deck_core::devices::Signal::Osc { address, args: &args }, now_ms);
+    /// #373: a device message the scene's outputs resolved to, at `now_ms`, as the page decoded it (JSON, deck-space
+    /// `devices::push_json`): the core words it and lights the protocol's lamp
+    pub fn signal(&mut self, now_ms: f64, json: &str) {
+        if let Ok(v) = serde_json::from_str(json) {
+            deck_space::devices::push_json(&mut self.devices, &v, now_ms);
+        }
     }
 
     /// #373: a row per protocol that carried a message (JSON: deck-core `devices::Row`) as of `now_ms`
@@ -827,18 +819,6 @@ impl DeckMonitor {
     pub fn series(&self) -> Vec<String> {
         self.m.series_table()
     }
-}
-
-/// the arguments of an OSC message as the page sends them (JSON); one that is not one of the four kinds is left out
-fn osc_args(json: &str) -> Vec<deck_core::devices::OscArg> {
-    let list: Vec<serde_json::Value> = serde_json::from_str(json).unwrap_or_default();
-    list.iter()
-        .filter_map(|a| {
-            let p = &a["p"];
-            let num = p.as_f64().or_else(|| p.as_bool().map(f64::from)).unwrap_or(0.0);
-            deck_core::devices::OscArg::named(a["kind"].as_str()?, num, p.as_str().unwrap_or_default())
-        })
-        .collect()
 }
 
 impl Default for DeckMonitor {

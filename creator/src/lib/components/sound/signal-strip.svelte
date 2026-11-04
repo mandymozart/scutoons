@@ -4,7 +4,8 @@
 	// and per audio output (+ the limiter's gain reduction), a column per exposed knob, a lamp row for the MIDI / DMX / OSC
 	// that are wired (a detailed monitor is a ticket of its own; the performance numbers are the stage's overlay). DOM for now; the later canvas element (own issue) draws the same model
 	// (lib/editor/signal-strip.ts).
-	import { METER_MARKS, type InputMeter, type KnobColumn, type OutputMeter, type SignalRow } from '$lib/editor/signal-strip.ts';
+	import { METER_EDGES_DB, METER_MARKS, type DeviceRow } from '@scutoons/engine-host';
+	import type { InputMeter, KnobColumn, OutputMeter } from '$lib/editor/signal-strip.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
 	let {
@@ -19,7 +20,7 @@
 		/** the limiter's gain reduction as 0..1 */
 		reduction: number;
 		knobs: KnobColumn[];
-		signals: SignalRow[];
+		signals: DeviceRow[];
 	} = $props();
 
 	const pct = (v: number) => `${Math.round(v * 1000) / 10}%`;
@@ -50,7 +51,7 @@
 		<section class="col" aria-label={m['creator.sound_out']()}>
 			<h3>{m['creator.sound_out']()}</h3>
 			<div class="bars">
-				<div class="axis" aria-hidden="true"><span style:bottom={pct(METER_MARKS.zero)}>0</span><span style:bottom={pct(METER_MARKS.ok)}>-12</span></div>
+				<div class="axis" aria-hidden="true"><span style:bottom={pct(METER_MARKS.zero)}>0</span><span style:bottom={pct(METER_MARKS.ok)}>{METER_EDGES_DB.ok}</span></div>
 				{@render bus(outputs, m['creator.sound_out']())}
 				<div class="cell" title={m['creator.sound_limiter']()}>
 					<div class="bar" role="meter" aria-label={m['creator.sound_limiter']()} aria-valuemin="0" aria-valuemax="1" aria-valuenow={reduction}><i class="gr" style:height={pct(reduction)}></i></div>

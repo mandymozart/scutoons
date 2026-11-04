@@ -17,4 +17,5 @@ test('the transport in a sentence says why it is the slow one', () => {
 
 test('a fresh snapshot has no monitor report yet', () => {
 	assert.equal(emptySnapshot().stats, null);
+	assert.deepEqual([emptySnapshot().outputs, emptySnapshot().signals], [[], []], 'no sound, no meters, no device lines');
 });

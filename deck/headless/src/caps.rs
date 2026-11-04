@@ -8,7 +8,7 @@
 //! crate, built for native and wasm); its arm here calls it and turns the answer into the JSON the scenario expects; the
 //! scenario passes, the runner then fails on its `expected_fail` (an expected failure that passes) – remove the line.
 //! No logic is written here: an arm that computes the answer itself is the same defect in a third place.
-use deck_core::devices::{DeviceMonitor, Kind, OscArg, Signal};
+use deck_core::devices::{DeviceMonitor, Kind};
 use deck_core::lead::{AdaptiveLead, DeviceClass};
 use deck_core::meters::{self, Meters};
 use deck_core::monitor::{AudioWindow, Monitor};
@@ -175,29 +175,10 @@ fn rig_facts(i: &Value) -> Value {
 /// count, the line, the activity and whether the lamp is lit.
 fn device_text(i: &Value) -> Value {
     let mut m = DeviceMonitor::new();
-    let bytes = |v: &Value| v.as_array().into_iter().flatten().filter_map(Value::as_u64).map(|b| b as u8).collect::<Vec<u8>>();
     let mut last = 0.0;
     for msg in i.get("messages").and_then(Value::as_array).into_iter().flatten() {
-        let at = num(msg, "at", 0.0);
-        last = at;
-        match msg.get("kind").and_then(Value::as_str).unwrap_or_default() {
-            "midi" => m.push(&Signal::Midi { conductor: msg.get("port").and_then(Value::as_str) == Some("conductor"), bytes: &bytes(&msg["bytes"]) }, at),
-            "dmx" => m.push(&Signal::Dmx { ch: num(msg, "ch", 1.0) as u16, values: &bytes(&msg["values"]), flash: msg.get("flash").and_then(Value::as_bool).unwrap_or(false) }, at),
-            "osc" => {
-                let args: Vec<OscArg> = msg
-                    .get("args")
-                    .and_then(Value::as_array)
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|a| {
-                        let p = &a["p"];
-                        OscArg::named(a["kind"].as_str()?, p.as_f64().or_else(|| p.as_bool().map(f64::from)).unwrap_or(0.0), p.as_str().unwrap_or_default())
-                    })
-                    .collect();
-                m.push(&Signal::Osc { address: msg["address"].as_str().unwrap_or_default(), args: &args }, at);
-            }
-            _ => {}
-        }
+        last = num(msg, "at", 0.0);
+        deck_space::devices::push_json(&mut m, msg, last);
     }
     let now = num(i, "read_at", last);
     let mut out = serde_json::Map::new();

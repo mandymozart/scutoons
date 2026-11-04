@@ -35,6 +35,19 @@ export type DeviceSignal =
 	| { kind: 'dmx'; ch: number; values: number[]; flash: boolean; at: number }
 	| { kind: 'osc'; address: string; args: OscArg[]; at: number };
 
+/** One protocol's line in the device monitor (#373, deck-core `devices::Row`): worded and judged by the core. */
+export interface DeviceRow {
+	kind: DeviceSignal['kind'];
+	/** messages since the sound started */
+	count: number;
+	/** the last message in a short line (`CC 74 = 127 · ch 1`) */
+	text: string;
+	/** 1 on a message, falling to 0 */
+	activity: number;
+	/** traffic just now – the lamp is lit */
+	active: boolean;
+}
+
 const utf8 = new TextDecoder();
 
 /** The records of `bytes`, in order; a malformed one throws a WireError with its offset. */

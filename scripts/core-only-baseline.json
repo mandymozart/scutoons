@@ -28,31 +28,11 @@
 		"creator/src/lib/editor/signal-strip.ts": {
 			"clamp": {
 				"count": 1,
-				"ticket": "#373"
+				"ticket": "#369"
 			},
 			"clamp-shape": {
-				"count": 5,
-				"ticket": "#373"
-			},
-			"threshold": {
-				"count": 1,
-				"ticket": "#373"
-			}
-		},
-		"shared/engine-host/src/meters.ts": {
-			"clamp-shape": {
-				"count": 1,
-				"ticket": "#373"
-			}
-		},
-		"shared/engine-host/src/monitor.ts": {
-			"midi-shape": {
-				"count": 1,
-				"ticket": "#373"
-			},
-			"midi-bytes": {
-				"count": 3,
-				"ticket": "#373"
+				"count": 2,
+				"ticket": "#369"
 			}
 		},
 		"shared/live-core/src/modules.ts": {
@@ -157,27 +137,6 @@
 			"match": "<DeckHalf character={target.kind === 'rig' ? target.character : 'catpope'} />",
 			"count": 1,
 			"why": "an edit target's kind (module / rig), not a catalog kind"
-		},
-		{
-			"file": "shared/engine-host/src/monitor.ts",
-			"rule": "kind-branch",
-			"match": "if (s.kind === 'osc') return [s.address, ...s.args.map((a) => (a.kind === 'string' ? JSON.",
-			"count": 2,
-			"why": "DeviceSignal / OSC arg kinds, not catalog kinds; the text moves in #373"
-		},
-		{
-			"file": "shared/engine-host/src/monitor.ts",
-			"rule": "kind-branch",
-			"match": "if (s.kind === 'dmx') {",
-			"count": 1,
-			"why": "DeviceSignal / OSC arg kinds, not catalog kinds; the text moves in #373"
-		},
-		{
-			"file": "shared/engine-host/src/monitor.ts",
-			"rule": "twin-const",
-			"match": "case 0xe0:",
-			"count": 1,
-			"why": "a MIDI status in the text (the same line #373 moves)"
 		},
 		{
 			"file": "shared/live-core/src/clock.ts",
@@ -366,13 +325,13 @@
 			"escapes": 0
 		},
 		"creator/src/lib/editor/signal-strip.ts": {
-			"lines": 162,
-			"functions": 20,
-			"math": 9,
+			"lines": 109,
+			"functions": 13,
+			"math": 6,
 			"escapes": 0
 		},
 		"shared/engine-host/src/controller.ts": {
-			"lines": 397,
+			"lines": 386,
 			"functions": 33,
 			"math": 0,
 			"escapes": 0
@@ -402,7 +361,7 @@
 			"escapes": 0
 		},
 		"shared/engine-host/src/index.ts": {
-			"lines": 15,
+			"lines": 14,
 			"functions": 0,
 			"math": 0,
 			"escapes": 0
@@ -411,18 +370,6 @@
 			"lines": 67,
 			"functions": 10,
 			"math": 0,
-			"escapes": 0
-		},
-		"shared/engine-host/src/meters.ts": {
-			"lines": 50,
-			"functions": 5,
-			"math": 6,
-			"escapes": 1
-		},
-		"shared/engine-host/src/monitor.ts": {
-			"lines": 118,
-			"functions": 14,
-			"math": 2,
 			"escapes": 0
 		},
 		"shared/engine-host/src/options.ts": {
@@ -438,7 +385,7 @@
 			"escapes": 0
 		},
 		"shared/engine-host/src/status.ts": {
-			"lines": 84,
+			"lines": 83,
 			"functions": 4,
 			"math": 0,
 			"escapes": 0
