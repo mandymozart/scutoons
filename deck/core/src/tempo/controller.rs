@@ -17,6 +17,7 @@ use super::mode::ClockMode;
 use super::shared::Shared;
 use super::sync::{Anchor, Filter, Lead, Pinger};
 use super::time::Moment;
+use super::window::SyncWindow;
 use super::{clamp_bpm, Position, Tap, TempoMap};
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -215,6 +216,10 @@ pub struct Controller {
     error: f64,
     /// the source runs above `MAX_BPM`: the deck holds the cap on its own line (it drifts against the source)
     capped: bool,
+    /// #387: the follower's error over the last minute, and whether this span on the show's line counts already (its
+    /// first snap onto the line is the deck before the line, not an error)
+    window: SyncWindow,
+    counting: bool,
 }
 
 impl Controller {
@@ -240,6 +245,8 @@ impl Controller {
             following: false,
             error: 0.0,
             capped: false,
+            window: SyncWindow::default(),
+            counting: false,
         }
     }
 
@@ -366,6 +373,19 @@ impl Controller {
         format!("{s}{cap}{lead}").trim().to_string()
     }
 
+    /// #387: how far off the show's line this deck played over the last minute (fed by `frame`)
+    pub fn window(&self) -> &SyncWindow {
+        &self.window
+    }
+
+    /// #387: the clock in the sound report's words – the source, the tempo, `status`, the last minute's error – the
+    /// browser's report and the native deck's say it alike
+    pub fn report(&self, now_ns: u64) -> String {
+        let status = self.status(now_ns);
+        let status = if status.is_empty() { String::new() } else { format!(" · {status}") };
+        format!("clock {} · {:.1} BPM{status} · {}", self.source.name(), self.now.bpm, self.window.line())
+    }
+
     /// the relay's clock as this deck sees it
     pub fn filter(&self) -> &Filter {
         &self.filter
@@ -417,6 +437,8 @@ impl Controller {
         let per_bar = self.map.per_bar;
         let frontier = m.rendered.max(m.heard);
         self.capped = false;
+        // #387: on a running show's line this frame: Some(it snapped onto the line)
+        let mut on_line = None;
         match self.source {
             Source::Midi if !self.midi.lost(m.now_ns as f64 * 1e-9) => {
                 if let Some(l) = self.midi.line() {
@@ -427,7 +449,7 @@ impl Controller {
             Source::Relay => {
                 if let Some(w) = self.anchor.and_then(|a| Some((a.local(&self.filter)?, a.per_bar))) {
                     self.capped = self.anchor.is_some_and(|a| clamp_bpm(a.bpm) != a.bpm);
-                    self.follow(w.0.to_map(&m.line, m.rate, w.1.clamp(1, 32)), frontier);
+                    on_line = self.follow(w.0.to_map(&m.line, m.rate, w.1.clamp(1, 32)), frontier);
                 }
             }
             // Link gives tempo and phase; start / stop stay the deck's own (stopped, the map stands where it stopped)
@@ -438,6 +460,18 @@ impl Controller {
             }
             // internal, OSC (a remote for the internal clock), a lost MIDI clock, a relay without an anchor yet: the map runs on
             _ => {}
+        }
+        // #387: the window counts a follower's frames from its first snap onto the running line on (the snap's own
+        // error is the deck before the line); off the line – another source, no anchor, the filter not locked, the
+        // show stopped – the next span starts with its snap again
+        match on_line {
+            Some(snapped) => {
+                if self.counting || !snapped {
+                    self.window.add(m.now_ns as f64 * 1e-9, self.error * 1e3);
+                }
+                self.counting = true;
+            }
+            None => self.counting = false,
         }
         self.map = self.map.at(m.rendered.max(m.heard));
         self.shared.publish(&self.map, self.click);
@@ -463,8 +497,8 @@ impl Controller {
 
     /// Follow the show's line `target` from the frontier `f` on: a first anchor, a start / stop, another bar or an error
     /// past `SNAP_S` jumps to it; a smaller error (a corrected offset, the anchor of a tempo change arriving a little
-    /// after it took effect) is taken out by a tempo nudge – the beat never jumps.
-    fn follow(&mut self, target: TempoMap, f: f64) {
+    /// after it took effect) is taken out by a tempo nudge – the beat never jumps. → on a running line: Some(it snapped)
+    fn follow(&mut self, target: TempoMap, f: f64) -> Option<bool> {
         let mut target = target;
         target.bpm = clamp_bpm(target.bpm);
         let bps = target.bpm / 60.0;
@@ -474,10 +508,11 @@ impl Controller {
         if snap {
             self.map = target;
             self.following = true;
-            return;
+        } else {
+            let nudge = (e / NUDGE_S).clamp(-MAX_NUDGE, MAX_NUDGE);
+            self.map = self.map.with_bpm(f, target.bpm * (1.0 + nudge));
         }
-        let nudge = (e / NUDGE_S).clamp(-MAX_NUDGE, MAX_NUDGE);
-        self.map = self.map.with_bpm(f, target.bpm * (1.0 + nudge));
+        target.running.then_some(snap)
     }
 
     fn event(&mut self, e: Event, m: &Moment, host: &mut dyn Host) {
@@ -753,6 +788,57 @@ mod tests {
         assert!((t.map().bpm - 120.0).abs() > 1e-6, "nudged: {}", t.map().bpm);
         t.set_source(Source::Internal, &mut NoHost);
         assert_eq!(t.map().bpm, 120.0);
+    }
+
+    /// #387: frames every 25 ms (the browser's clock frames) from `from` s for `secs`
+    fn frames(t: &mut Controller, from: f64, secs: f64) {
+        for k in 0..(secs / 0.025).round() as u32 {
+            t.frame(&moment(from + f64::from(k) * 0.025, 512.0), &mut NoHost);
+        }
+    }
+
+    #[test]
+    fn the_sync_window_counts_a_follower_from_its_snap_onto_the_line() {
+        let mut t = tempo(120.0);
+        t.set_source(Source::Relay, &mut NoHost);
+        assert_eq!(t.report(1_000_000_000), "clock relay · 120.0 BPM · NO SHOW CLOCK YET · no minute of following yet");
+        // the relay 1000 s ahead; the show at 90 BPM: the first frame on its line snaps from minutes off – not an error
+        pongs(&mut t, 0.0, 1000.0);
+        t.push_anchor(Anchor { bpm: 90.0, per_bar: 4, beat: 16.0, at: 1_002_000, running: true }, 2_100_000_000);
+        frames(&mut t, 3.0, 10.0);
+        let s = t.window().summary().unwrap();
+        assert_eq!(s.n, 399, "400 frames, the snap not counted");
+        assert!(s.max < 1e-3, "on the line: {s:?}");
+        // the filter learns the relay is 8 ms further ahead: the error is nudged out over the next frames, and counted
+        for k in 0..8 {
+            let at = 13.0 + f64::from(k) * 0.25;
+            t.push_pong((at * 1e9) as u64, ((at + 1000.008) * 1e3).round() as i64, (at * 1e9) as u64);
+        }
+        frames(&mut t, 13.0, 20.0);
+        let s = t.window().summary().unwrap();
+        assert_eq!(s.n, 1199);
+        assert!(s.max > 3.0 && s.max < 8.5, "the corrected offset, nudged out: {s:?}");
+        assert!(s.p50 < s.p95 && s.p95 <= s.max, "{s:?}");
+        assert!(s.mean > 0.0, "the line moved earlier: this deck was behind it ({s:?})");
+        assert!((s.seconds - 29.95).abs() < 1e-6, "{s:?}");
+        let line = t.report(33_000_000_000);
+        assert!(line.starts_with("clock relay · 90.0 BPM · SHOW ") && line.contains(" · last 30 s |show| p50 ") && line.ends_with(", 1199 frames)"), "{line}");
+        // a stopped show counts nothing; its start snaps onto the line again – not counted either
+        t.push_anchor(Anchor { bpm: 90.0, per_bar: 4, beat: 40.0, at: 1_033_000, running: false }, 33_000_000_000);
+        frames(&mut t, 33.0, 1.0);
+        assert_eq!(t.window().len(), 1199);
+        t.push_anchor(Anchor { bpm: 90.0, per_bar: 4, beat: 40.0, at: 1_034_500, running: true }, 34_000_000_000);
+        frames(&mut t, 34.0, 1.0);
+        assert_eq!(t.window().len(), 1199 + 39, "40 frames, the start's snap not counted");
+        // a minute later only the last minute is left; a leader counts nothing
+        frames(&mut t, 35.0, 60.0);
+        let s = t.window().summary().unwrap();
+        assert!((2400..=2401).contains(&s.n), "60 s of frames 25 ms apart: {s:?}");
+        assert!(s.max < 1e-3, "the nudge long done: {s:?}");
+        t.set_mode(ClockMode::ALL[2], &mut NoHost);
+        frames(&mut t, 95.0, 1.0);
+        assert_eq!(t.window().len(), s.n);
+        assert!(t.report(96_000_000_000).starts_with("clock internal · 90.0 BPM · LEADS · last 60 s |show| p50 0.0 "));
     }
 
     #[test]

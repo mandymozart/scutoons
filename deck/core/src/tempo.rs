@@ -6,7 +6,8 @@
 //! sources, keys, tap, the followers of MIDI clock in / Link / OSC), the seqlock `Shared` / `BeatReader` and the time
 //! types are in here too (#308); deck/native only opens the sources' ports and feeds events in. The show clock over the
 //! relay – the offset filter, the anchor, when to ping and when a leader sends – is `sync` (#321). The transport as
-//! a node plays it – the epoch, the edges, who follows – is `transport` (#359).
+//! a node plays it – the epoch, the edges, who follows – is `transport` (#359). How far off the show's line a follower
+//! played over the last minute – the window and its words – is `window` (#387).
 
 mod clock_out;
 mod controller;
@@ -16,8 +17,10 @@ mod shared;
 pub mod sync;
 mod time;
 mod transport;
+mod window;
 
 pub use clock_out::{ClockOut, Out};
+pub use window::{Summary as SyncSummary, SyncWindow, SPAN_S as SYNC_SPAN_S};
 pub use transport::{Edge, Follow, Played, JUMP_BEATS};
 pub use controller::{Cmd, Config, Controller, Event, Host, Key, NoHost, Now, Show, Source, What};
 pub use midi_in::{ClockIn, WallLine, CLOCK_STATUS, CONTINUE, LOST_S, POSITION, PPQN, START, STOP, TICK};

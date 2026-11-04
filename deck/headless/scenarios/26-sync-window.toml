@@ -1,0 +1,49 @@
+name = "the show clock's error over the last minute is the core's"
+about = "#387: a follower's error on the show's line – the window (span, which frames count, p50 / p95 / max / mean) and its words – is deck-core's (tempo::window, fed by Controller::frame); the sound report prints the core's line (lc_clock_report). The join's snap onto the line is not counted; a corrected offset is"
+
+[[step]]
+do = "load"
+scene = "native/scenes/show-clock.toml"
+
+[[step]]
+do = "leader"
+offset_ms = 250.0
+rtt_ms = 4.0
+
+[[step]]
+do = "joined"
+
+[[step]]
+do = "run"
+ms = 500
+
+[[step]]
+do = "clock_report"
+expect = { line = "clock relay · 120.0 BPM · NO SHOW CLOCK YET · no minute of following yet", n = 0 }
+
+[[step]]
+do = "anchor"
+bpm = 128.0
+per_bar = 4
+beat = 0.0
+
+[[step]]
+do = "run"
+ms = 3000
+
+[[step]]
+do = "clock_report"
+expect = { line = { starts = "clock relay · 128.0 BPM · SHOW ", contains = " · last 3 s |show| p50 " }, n = { min = 110, max = 120 }, max = { max = 0.1 } }
+
+[[step]]
+do = "leader"
+offset_ms = 258.0
+rtt_ms = 4.0
+
+[[step]]
+do = "run"
+ms = 5000
+
+[[step]]
+do = "clock_report"
+expect = { line = { starts = "clock relay · 128.0 BPM · SHOW ", contains = " · last 8 s |show| p50 " }, n = { min = 310, max = 320 }, p95 = { min = 0.1, max = 8.0 }, max = { min = 0.3, max = 8.5 }, mean = { min = 0.0, max = 1.0 } }
