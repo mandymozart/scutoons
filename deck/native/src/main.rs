@@ -361,39 +361,6 @@ fn outlet_configured(args: &Args) -> bool {
     }
 }
 
-/// the quality a pushed set is fetched at (#195): the space node's, else low
-#[cfg(feature = "sync")]
-fn set_quality(graph: &graph::Graph) -> String {
-    #[cfg(feature = "space")]
-    if let Some((_, q)) = graph.first(graph::Kind::Space).and_then(|n| deck_native::space::set_need(graph, n)) {
-        return q;
-    }
-    let _ = graph;
-    "low".into()
-}
-
-/// the conductor's push (#195): `--sync`, else the scene's set and the characters on stage; its `scene` = the scene
-/// file's name (`conductor`, `cathedral` …), else the stage's name as a slug
-#[cfg(all(feature = "live", feature = "space"))]
-fn push_for(args: &Args, name: &str, space: &deck_native::space::Space) -> Result<protocol::SceneSync, String> {
-    let scene = scene_id(args.scene.as_deref(), name);
-    let scene = scene.as_str();
-    match &args.sync {
-        Some(spec) => deck_native::space::link::parse_push(scene, spec),
-        None => Ok(space.scene_push(scene)),
-    }
-}
-
-/// a scene's id for the push (#195): the file's stem (or the built-in's name), else the stage's name as a slug
-#[cfg_attr(not(all(feature = "live", feature = "space")), allow(dead_code))]
-fn scene_id(file: Option<&std::path::Path>, name: &str) -> String {
-    if let Some(stem) = file.and_then(|p| p.file_stem()).and_then(|s| s.to_str()) {
-        return stem.to_string();
-    }
-    let slug: String = name.to_lowercase().chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '-' }).collect();
-    slug.split('-').filter(|w| !w.is_empty()).collect::<Vec<_>>().join("-")
-}
-
 /// #208: how the audio plays – the flags over deck.toml's audio keys (the machine's) over the scene's buffer
 fn audio_options(args: &Args, scene: &scene::Scene) -> backend::Options {
     let deck = backend::DeckAudio::read();
@@ -494,7 +461,7 @@ impl Show {
                 // #180: the deck token from deck-link's run directory (DECK_TOKEN on a dev deck); the content is public
                 token: deck_link::TokenSource::from_env(),
                 // #195: a pushed set at the space node's quality
-                quality: set_quality(&graph),
+                quality: deck_space::push::set_quality(&graph),
             })
         });
         // the Live outlet (#186): its threads start with the scene; the renderer takes its planes
@@ -590,7 +557,7 @@ impl Show {
                 s.connect(relay.as_deref(), args.token.clone(), Some(scene.stage.name.clone()), hook, Some(show_link.clone()));
                 // the conductor pushes the scene's sync once joined (decks that come later find it in their snapshot)
                 if s.join == deck_native::space::Join::Conductor {
-                    match push_for(args, &scene.stage.name, &s) {
+                    match s.push_for(args.scene.as_deref(), &scene.stage.name, args.sync.as_deref()) {
                         Ok(p) => {
                             s.push_sync(p);
                         }
@@ -1638,7 +1605,7 @@ impl App {
                     Key::Character("r") => s.camera.reset(),
                     // #195: the conductor pushes the scene's sync again (decks that joined since get the characters)
                     #[cfg(feature = "live")]
-                    Key::Character("s") if s.join == deck_native::space::Join::Conductor => match push_for(&self.args, &self.show.scene_name, s) {
+                    Key::Character("s") if s.join == deck_native::space::Join::Conductor => match s.push_for(self.args.scene.as_deref(), &self.show.scene_name, self.args.sync.as_deref()) {
                         Ok(p) => {
                             s.push_sync(p);
                         }
@@ -1984,15 +1951,4 @@ fn run() -> Result<i32> {
     app.show.end();
     std::mem::forget(app);
     Ok(code)
-}
-
-#[cfg(test)]
-mod tests {
-    /// #195: the push names the scene by its file, else by the stage's name as a slug
-    #[test]
-    fn a_scene_s_id_for_the_push() {
-        assert_eq!(super::scene_id(Some(std::path::Path::new("conductor")), "x"), "conductor");
-        assert_eq!(super::scene_id(Some(std::path::Path::new("/s/scenes/sermon.toml")), "x"), "sermon");
-        assert_eq!(super::scene_id(None, "Cathedral of decks - conductor"), "cathedral-of-decks-conductor");
-    }
 }

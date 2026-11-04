@@ -1,0 +1,45 @@
+name = "the conductor's push: items, progress, the PUSH line"
+about = "#371: deck-space's push machine (push.rs) – one request for the push's sets and characters, a set's 3D at the deck's quality, a character's every portrait, each file checked (size, type) and settled once, the answer and the HUD's line after each. The native deck's sync worker, the browser's DeckPush and this host drive the same machine; native and wasm give the same answers"
+
+# every file whole: syncing file by file, then ready
+[[step]]
+do = "sync"
+[step.with]
+push = { scene = "cathedral", sets = ["cathedral"], characters = ["catpope"] }
+api = { body = { sets = { cathedral = { model = { low = { path = "catpope/map/sets/cathedral.low.v1.glb", size = 4 }, high = { path = "catpope/map/sets/cathedral.high.v1.glb", size = 9 } } } }, characters = { catpope = { portraits = { neutral = { path = "characters/catpope/n.webp", size = 12 }, happy = { path = "characters/catpope/h.webp" } } } }, missing = { characters = ["ghost"] } } }
+files = { "catpope/map/sets/cathedral.low.v1.glb" = { bytes = 4, head = "glTF" }, "characters/catpope/n.webp" = { bytes = 12, head = "RIFF....WEBP" }, "characters/catpope/h.webp" = { bytes = 30, head = "RIFF....WEBP" } }
+[step.expect]
+url = "https://api.test/api/library/scene-content?sets=cathedral&characters=catpope"
+fetched = ["https://cdn.test/catpope/map/sets/cathedral.low.v1.glb", "https://cdn.test/characters/catpope/h.webp", "https://cdn.test/characters/catpope/n.webp"]
+lines = ["PUSH 0/3 CATHEDRAL", "PUSH 1/3 CATHEDRAL", "PUSH 2/3 CATHEDRAL", "PUSH READY CATHEDRAL"]
+state = "ready"
+done = 3
+total = 3
+bytes = 46
+ready = ["set:cathedral", "character:catpope"]
+
+# unknown to the API, a short file, the deck's own quality (high: not on the CDN)
+[[step]]
+do = "sync"
+[step.with]
+push = { scene = "cathedral", sets = ["cathedral"], characters = ["catpope", "ghost"] }
+quality = "high"
+api = { body = { sets = { cathedral = { model = { high = { path = "catpope/map/sets/cathedral.high.v1.glb", size = 9 } } } }, characters = { catpope = { portraits = { neutral = { path = "characters/catpope/n.webp", size = 12 } } } }, missing = { characters = ["ghost"] } } }
+files = { "characters/catpope/n.webp" = { bytes = 11, head = "RIFF....WEBP" } }
+[step.expect]
+state = "missing"
+push_line = "PUSH MISSING 3 CATHEDRAL"
+missing = ["set:cathedral", "character:catpope", "character:ghost"]
+why = { "set:cathedral" = "catpope/map/sets/cathedral.high.v1.glb: HTTP 404", "character:catpope" = { contains = "11 bytes, the API said 12" }, "character:ghost" = "character ghost is unknown to the API" }
+
+# the network is gone: no cache in this host, every item missing, offline
+[[step]]
+do = "sync"
+[step.with]
+push = { scene = "cathedral", sets = ["cathedral"], characters = ["catpope"] }
+api = { status = 0 }
+[step.expect]
+state = "offline"
+lines = ["PUSH OFFLINE CATHEDRAL"]
+missing = ["set:cathedral", "character:catpope"]
+why = { "set:cathedral" = "offline - not in the cache" }

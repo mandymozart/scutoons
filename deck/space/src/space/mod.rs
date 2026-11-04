@@ -207,14 +207,11 @@ pub fn set_path(graph: &Graph, node: usize, sets: &Path) -> Option<PathBuf> {
     Some(if p.extension().is_some() { sets.join(p) } else { crate::scene::set_file(sets, set, &quality(graph, node)) })
 }
 
-/// the space node's set id and quality (None: no set, or a path) – what the sync fetches
-pub fn set_need(graph: &Graph, node: usize) -> Option<(String, String)> {
-    let set = graph.nodes[node].str("set")?;
-    Path::new(set).extension().is_none().then(|| (set.to_string(), quality(graph, node)))
-}
+/// the space node's set id and quality – what the sync fetches (#371: the push's core)
+pub use crate::push::set_need;
 
 fn quality(graph: &Graph, node: usize) -> String {
-    graph.nodes[node].str("quality").unwrap_or("low").to_string()
+    graph.nodes[node].str("quality").unwrap_or(crate::push::DEFAULT_QUALITY).to_string()
 }
 
 /// a set's 3D file → its loader thread (after the gate); the receiver and the HUD's "LOADING …"
@@ -563,6 +560,13 @@ impl Space {
             }
         }
         protocol::SceneSync { scene: scene.into(), sets: Some(sets), characters: Some(characters), beings: None, decks: None }
+    }
+
+    /// #195, #371: the conductor's push – the one written out (`--sync`), else this scene's own; its `scene` = the scene
+    /// file's name (`conductor`, `cathedral` …), else the stage's `name` as a slug (`push::scene_id`)
+    pub fn push_for(&self, file: Option<&Path>, name: &str, written: Option<&str>) -> Result<protocol::SceneSync, String> {
+        let scene = crate::push::scene_id(file, name);
+        written.map_or_else(|| Ok(self.scene_push(&scene)), |spec| crate::push::parse_push(&scene, spec))
     }
 
     /// #195, the cue's wait: every deck the push is for is ready (at least one is there)

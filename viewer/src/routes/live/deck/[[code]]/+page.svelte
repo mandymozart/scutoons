@@ -14,7 +14,7 @@
 	// deck-space's (Hands → DeckControls, wasm), this page only bridges the DOM, Web MIDI and the pointer to it.
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { Hands, charactersOf, loadControls, loadDeckState, pushLine, type QualityLevel, type QualityOptions, type QualityPresets, type SpaceQuality, type Spec } from '@scutoons/live-deck';
+	import { Hands, charactersOf, loadControls, loadDeckState, type QualityLevel, type QualityOptions, type QualityPresets, type SpaceQuality, type Spec } from '@scutoons/live-deck';
 	// #298: the engine's bring-up (the deck, the 3D, the sound, the frame loop, the rig for a mood, the statistics) is
 	// @scutoons/engine-host's; this page keeps the relay, the controls and its UI
 	import { createEngineHost, type EngineHost } from '@scutoons/engine-host';
@@ -243,7 +243,7 @@
 				prefer: preferOf(q),
 				rigs: rigOf(q),
 				onStatus: (s) => (relayStatus = s),
-				onSynced: (r) => (syncStatus = pushLine(r))
+				onSynced: (_, line) => (syncStatus = line)
 			});
 			engine = host;
 			host.hooks = {

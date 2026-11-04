@@ -885,6 +885,63 @@ impl Default for DeckMonitor {
     }
 }
 
+/// #371: the deck's answer to the conductor's push (deck-space push.rs `Run`, the machine the native deck's sync worker
+/// drives too): the page fetches what it is told and hands the replies in; the items, the plan at the deck's quality,
+/// each file's check, the answer (`deck.synced`) and the PUSH line are the core's.
+#[wasm_bindgen]
+pub struct DeckPush {
+    api: String,
+    cdn: String,
+    run: Option<deck_space::push::Run>,
+}
+
+#[wasm_bindgen]
+impl DeckPush {
+    /// the library API (scene-content) and the CDN root
+    #[wasm_bindgen(constructor)]
+    pub fn new(api: String, cdn: String) -> DeckPush {
+        DeckPush { api, cdn, run: None }
+    }
+
+    /// a push (`scene.sync`, JSON) at the deck's 3D `quality` ('' = the core's default) – the older one is dropped; the
+    /// URL to ask
+    pub fn start(&mut self, sync: &str, quality: &str) -> Result<String, JsValue> {
+        let sync: protocol::SceneSync = serde_json::from_str(sync).map_err(err)?;
+        let (run, url) = deck_space::push::Run::new(&self.api, &self.cdn, quality, sync);
+        self.run = Some(run);
+        Ok(url)
+    }
+
+    /// the API's reply: its HTTP status (0: the network is gone) and body
+    pub fn asked(&mut self, status: u16, body: &str) {
+        if let Some(r) = &mut self.run {
+            r.asked(status, body);
+        }
+    }
+
+    /// the next file to fetch, `[number, url]` (JSON); undefined: none left
+    pub fn next_fetch(&mut self) -> Option<String> {
+        self.run.as_mut()?.next_fetch().map(|f| json(&f))
+    }
+
+    /// file `n` came: its HTTP status (0: the network is gone), its length and first bytes (`push::HEAD` of them)
+    pub fn received(&mut self, n: u32, status: u16, len: f64, head: &[u8]) {
+        if let Some(r) = &mut self.run {
+            r.received(n as usize, status, len as u64, head);
+        }
+    }
+
+    /// the answer now (`deck.synced`, JSON); '' before a push
+    pub fn answer(&self) -> String {
+        self.run.as_ref().map(|r| json(&r.answer())).unwrap_or_default()
+    }
+
+    /// the answer's PUSH line; '' before a push
+    pub fn line(&self) -> String {
+        self.run.as_ref().map(deck_space::push::Run::line).unwrap_or_default()
+    }
+}
+
 /// #367, #368: the deck's state without a GPU (deck-space `deck::Deck`) – the mood's energy ladder (mood.rs, the walk the
 /// native being's head runs) and what plays: the deck's own scene or a rig, replayed on every mood (the lifecycle, the
 /// facts: streamed paths, knob targets, the diff). The page passes the level, the clock and a hand each frame and

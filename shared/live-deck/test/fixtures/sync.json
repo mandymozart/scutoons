@@ -1,0 +1,1122 @@
+{
+  "api": "https://api.test/api",
+  "cdn": "https://cdn.test/",
+  "scripts": [
+    {
+      "api": {
+        "body": {
+          "characters": {
+            "catpope": {
+              "portraits": {
+                "happy": {
+                  "path": "characters/catpope/h.webp"
+                },
+                "neutral": {
+                  "path": "characters/catpope/n.webp",
+                  "size": 12
+                }
+              }
+            }
+          },
+          "missing": {
+            "characters": [
+              "ghost"
+            ],
+            "sets": []
+          },
+          "sets": {
+            "cathedral": {
+              "model": {
+                "high": {
+                  "path": "catpope/map/sets/cathedral.high.v1.glb",
+                  "size": 9
+                },
+                "low": {
+                  "path": "catpope/map/sets/cathedral.low.v1.glb",
+                  "size": 4
+                }
+              }
+            }
+          }
+        },
+        "status": null
+      },
+      "calls": [
+        {
+          "answer": "https://api.test/api/library/scene-content?sets=cathedral&characters=catpope",
+          "args": [
+            {
+              "characters": [
+                "catpope"
+              ],
+              "scene": "cathedral",
+              "sets": [
+                "cathedral"
+              ]
+            },
+            ""
+          ],
+          "name": "start"
+        },
+        {
+          "answer": null,
+          "args": [
+            200,
+            "{\"characters\":{\"catpope\":{\"portraits\":{\"happy\":{\"path\":\"characters/catpope/h.webp\"},\"neutral\":{\"path\":\"characters/catpope/n.webp\",\"size\":12}}}},\"missing\":{\"characters\":[\"ghost\"],\"sets\":[]},\"sets\":{\"cathedral\":{\"model\":{\"high\":{\"path\":\"catpope/map/sets/cathedral.high.v1.glb\",\"size\":9},\"low\":{\"path\":\"catpope/map/sets/cathedral.low.v1.glb\",\"size\":4}}}}}"
+          ],
+          "name": "asked"
+        },
+        {
+          "answer": {
+            "bytes": 0,
+            "done": 0,
+            "missing": [],
+            "ready": [],
+            "scene": "cathedral",
+            "state": "syncing",
+            "total": 3
+          },
+          "args": [],
+          "name": "answer"
+        },
+        {
+          "answer": "PUSH 0/3 CATHEDRAL",
+          "args": [],
+          "name": "line"
+        },
+        {
+          "answer": [
+            0,
+            "https://cdn.test/catpope/map/sets/cathedral.low.v1.glb"
+          ],
+          "args": [],
+          "name": "next_fetch"
+        },
+        {
+          "answer": null,
+          "args": [
+            0,
+            200,
+            4,
+            [
+              103,
+              108,
+              84,
+              70
+            ]
+          ],
+          "name": "received"
+        },
+        {
+          "answer": {
+            "bytes": 4,
+            "done": 1,
+            "missing": [],
+            "ready": [
+              "set:cathedral"
+            ],
+            "scene": "cathedral",
+            "state": "syncing",
+            "total": 3
+          },
+          "args": [],
+          "name": "answer"
+        },
+        {
+          "answer": "PUSH 1/3 CATHEDRAL",
+          "args": [],
+          "name": "line"
+        },
+        {
+          "answer": [
+            1,
+            "https://cdn.test/characters/catpope/h.webp"
+          ],
+          "args": [],
+          "name": "next_fetch"
+        },
+        {
+          "answer": null,
+          "args": [
+            1,
+            200,
+            30,
+            [
+              82,
+              73,
+              70,
+              70,
+              46,
+              46,
+              46,
+              46,
+              87,
+              69,
+              66,
+              80
+            ]
+          ],
+          "name": "received"
+        },
+        {
+          "answer": {
+            "bytes": 34,
+            "done": 2,
+            "missing": [],
+            "ready": [
+              "set:cathedral"
+            ],
+            "scene": "cathedral",
+            "state": "syncing",
+            "total": 3
+          },
+          "args": [],
+          "name": "answer"
+        },
+        {
+          "answer": "PUSH 2/3 CATHEDRAL",
+          "args": [],
+          "name": "line"
+        },
+        {
+          "answer": [
+            2,
+            "https://cdn.test/characters/catpope/n.webp"
+          ],
+          "args": [],
+          "name": "next_fetch"
+        },
+        {
+          "answer": null,
+          "args": [
+            2,
+            200,
+            12,
+            [
+              82,
+              73,
+              70,
+              70,
+              46,
+              46,
+              46,
+              46,
+              87,
+              69,
+              66,
+              80
+            ]
+          ],
+          "name": "received"
+        },
+        {
+          "answer": {
+            "bytes": 46,
+            "done": 3,
+            "missing": [],
+            "ready": [
+              "set:cathedral",
+              "character:catpope"
+            ],
+            "scene": "cathedral",
+            "state": "ready",
+            "total": 3
+          },
+          "args": [],
+          "name": "answer"
+        },
+        {
+          "answer": "PUSH READY CATHEDRAL",
+          "args": [],
+          "name": "line"
+        },
+        {
+          "answer": null,
+          "args": [],
+          "name": "next_fetch"
+        }
+      ],
+      "files": {
+        "catpope/map/sets/cathedral.low.v1.glb": {
+          "bytes": 4,
+          "head": "glTF",
+          "status": null
+        },
+        "characters/catpope/h.webp": {
+          "bytes": 30,
+          "head": "RIFF....WEBP",
+          "status": null
+        },
+        "characters/catpope/n.webp": {
+          "bytes": 12,
+          "head": "RIFF....WEBP",
+          "status": null
+        }
+      },
+      "name": "ready",
+      "push": {
+        "characters": [
+          "catpope"
+        ],
+        "scene": "cathedral",
+        "sets": [
+          "cathedral"
+        ]
+      },
+      "quality": ""
+    },
+    {
+      "api": {
+        "body": {
+          "characters": {
+            "catpope": {
+              "portraits": {
+                "happy": {
+                  "path": "characters/catpope/h.webp"
+                },
+                "neutral": {
+                  "path": "characters/catpope/n.webp",
+                  "size": 12
+                }
+              }
+            }
+          },
+          "missing": {
+            "characters": [
+              "ghost"
+            ],
+            "sets": []
+          },
+          "sets": {
+            "cathedral": {
+              "model": {
+                "high": {
+                  "path": "catpope/map/sets/cathedral.high.v1.glb",
+                  "size": 9
+                },
+                "low": {
+                  "path": "catpope/map/sets/cathedral.low.v1.glb",
+                  "size": 4
+                }
+              }
+            }
+          }
+        },
+        "status": null
+      },
+      "calls": [
+        {
+          "answer": "https://api.test/api/library/scene-content?sets=cathedral&characters=catpope,ghost",
+          "args": [
+            {
+              "characters": [
+                "catpope",
+                "ghost"
+              ],
+              "scene": "cathedral",
+              "sets": [
+                "cathedral"
+              ]
+            },
+            ""
+          ],
+          "name": "start"
+        },
+        {
+          "answer": null,
+          "args": [
+            200,
+            "{\"characters\":{\"catpope\":{\"portraits\":{\"happy\":{\"path\":\"characters/catpope/h.webp\"},\"neutral\":{\"path\":\"characters/catpope/n.webp\",\"size\":12}}}},\"missing\":{\"characters\":[\"ghost\"],\"sets\":[]},\"sets\":{\"cathedral\":{\"model\":{\"high\":{\"path\":\"catpope/map/sets/cathedral.high.v1.glb\",\"size\":9},\"low\":{\"path\":\"catpope/map/sets/cathedral.low.v1.glb\",\"size\":4}}}}}"
+          ],
+          "name": "asked"
+        },
+        {
+          "answer": {
+            "bytes": 0,
+            "done": 0,
+            "missing": [
+              "character:ghost"
+            ],
+            "ready": [],
+            "scene": "cathedral",
+            "state": "syncing",
+            "total": 3,
+            "why": {
+              "character:ghost": "character ghost is unknown to the API"
+            }
+          },
+          "args": [],
+          "name": "answer"
+        },
+        {
+          "answer": "PUSH 0/3 CATHEDRAL",
+          "args": [],
+          "name": "line"
+        },
+        {
+          "answer": [
+            0,
+            "https://cdn.test/catpope/map/sets/cathedral.low.v1.glb"
+          ],
+          "args": [],
+          "name": "next_fetch"
+        },
+        {
+          "answer": null,
+          "args": [
+            0,
+            200,
+            3,
+            [
+              103,
+              108,
+              84
+            ]
+          ],
+          "name": "received"
+        },
+        {
+          "answer": {
+            "bytes": 0,
+            "done": 1,
+            "missing": [
+              "set:cathedral",
+              "character:ghost"
+            ],
+            "ready": [],
+            "scene": "cathedral",
+            "state": "syncing",
+            "total": 3,
+            "why": {
+              "character:ghost": "character ghost is unknown to the API",
+              "set:cathedral": "catpope/map/sets/cathedral.low.v1.glb: 3 bytes, the API said 4 – refused"
+            }
+          },
+          "args": [],
+          "name": "answer"
+        },
+        {
+          "answer": "PUSH 1/3 CATHEDRAL",
+          "args": [],
+          "name": "line"
+        },
+        {
+          "answer": [
+            1,
+            "https://cdn.test/characters/catpope/h.webp"
+          ],
+          "args": [],
+          "name": "next_fetch"
+        },
+        {
+          "answer": null,
+          "args": [
+            1,
+            200,
+            30,
+            [
+              82,
+              73,
+              70,
+              70,
+              46,
+              46,
+              46,
+              46,
+              87,
+              69,
+              66,
+              80
+            ]
+          ],
+          "name": "received"
+        },
+        {
+          "answer": {
+            "bytes": 30,
+            "done": 2,
+            "missing": [
+              "set:cathedral",
+              "character:ghost"
+            ],
+            "ready": [],
+            "scene": "cathedral",
+            "state": "syncing",
+            "total": 3,
+            "why": {
+              "character:ghost": "character ghost is unknown to the API",
+              "set:cathedral": "catpope/map/sets/cathedral.low.v1.glb: 3 bytes, the API said 4 – refused"
+            }
+          },
+          "args": [],
+          "name": "answer"
+        },
+        {
+          "answer": "PUSH 2/3 CATHEDRAL",
+          "args": [],
+          "name": "line"
+        },
+        {
+          "answer": [
+            2,
+            "https://cdn.test/characters/catpope/n.webp"
+          ],
+          "args": [],
+          "name": "next_fetch"
+        },
+        {
+          "answer": null,
+          "args": [
+            2,
+            200,
+            12,
+            [
+              82,
+              73,
+              70,
+              70,
+              46,
+              46,
+              46,
+              46,
+              87,
+              69,
+              66,
+              80
+            ]
+          ],
+          "name": "received"
+        },
+        {
+          "answer": {
+            "bytes": 42,
+            "done": 3,
+            "missing": [
+              "set:cathedral",
+              "character:ghost"
+            ],
+            "ready": [
+              "character:catpope"
+            ],
+            "scene": "cathedral",
+            "state": "missing",
+            "total": 3,
+            "why": {
+              "character:ghost": "character ghost is unknown to the API",
+              "set:cathedral": "catpope/map/sets/cathedral.low.v1.glb: 3 bytes, the API said 4 – refused"
+            }
+          },
+          "args": [],
+          "name": "answer"
+        },
+        {
+          "answer": "PUSH MISSING 2 CATHEDRAL",
+          "args": [],
+          "name": "line"
+        },
+        {
+          "answer": null,
+          "args": [],
+          "name": "next_fetch"
+        }
+      ],
+      "files": {
+        "catpope/map/sets/cathedral.low.v1.glb": {
+          "bytes": 3,
+          "head": "glTF",
+          "status": null
+        },
+        "characters/catpope/h.webp": {
+          "bytes": 30,
+          "head": "RIFF....WEBP",
+          "status": null
+        },
+        "characters/catpope/n.webp": {
+          "bytes": 12,
+          "head": "RIFF....WEBP",
+          "status": null
+        }
+      },
+      "name": "missing",
+      "push": {
+        "characters": [
+          "catpope",
+          "ghost"
+        ],
+        "scene": "cathedral",
+        "sets": [
+          "cathedral"
+        ]
+      },
+      "quality": ""
+    },
+    {
+      "api": {
+        "body": {
+          "characters": {
+            "catpope": {
+              "portraits": {
+                "happy": {
+                  "path": "characters/catpope/h.webp"
+                },
+                "neutral": {
+                  "path": "characters/catpope/n.webp",
+                  "size": 12
+                }
+              }
+            }
+          },
+          "missing": {
+            "characters": [
+              "ghost"
+            ],
+            "sets": []
+          },
+          "sets": {
+            "cathedral": {
+              "model": {
+                "high": {
+                  "path": "catpope/map/sets/cathedral.high.v1.glb",
+                  "size": 9
+                },
+                "low": {
+                  "path": "catpope/map/sets/cathedral.low.v1.glb",
+                  "size": 4
+                }
+              }
+            }
+          }
+        },
+        "status": null
+      },
+      "calls": [
+        {
+          "answer": "https://api.test/api/library/scene-content?sets=cathedral&characters=",
+          "args": [
+            {
+              "characters": [],
+              "scene": "cathedral",
+              "sets": [
+                "cathedral"
+              ]
+            },
+            "high"
+          ],
+          "name": "start"
+        },
+        {
+          "answer": null,
+          "args": [
+            200,
+            "{\"characters\":{\"catpope\":{\"portraits\":{\"happy\":{\"path\":\"characters/catpope/h.webp\"},\"neutral\":{\"path\":\"characters/catpope/n.webp\",\"size\":12}}}},\"missing\":{\"characters\":[\"ghost\"],\"sets\":[]},\"sets\":{\"cathedral\":{\"model\":{\"high\":{\"path\":\"catpope/map/sets/cathedral.high.v1.glb\",\"size\":9},\"low\":{\"path\":\"catpope/map/sets/cathedral.low.v1.glb\",\"size\":4}}}}}"
+          ],
+          "name": "asked"
+        },
+        {
+          "answer": {
+            "bytes": 0,
+            "done": 0,
+            "missing": [],
+            "ready": [],
+            "scene": "cathedral",
+            "state": "syncing",
+            "total": 1
+          },
+          "args": [],
+          "name": "answer"
+        },
+        {
+          "answer": "PUSH 0/1 CATHEDRAL",
+          "args": [],
+          "name": "line"
+        },
+        {
+          "answer": [
+            0,
+            "https://cdn.test/catpope/map/sets/cathedral.high.v1.glb"
+          ],
+          "args": [],
+          "name": "next_fetch"
+        },
+        {
+          "answer": null,
+          "args": [
+            0,
+            404,
+            0,
+            []
+          ],
+          "name": "received"
+        },
+        {
+          "answer": {
+            "bytes": 0,
+            "done": 1,
+            "missing": [
+              "set:cathedral"
+            ],
+            "ready": [],
+            "scene": "cathedral",
+            "state": "missing",
+            "total": 1,
+            "why": {
+              "set:cathedral": "catpope/map/sets/cathedral.high.v1.glb: HTTP 404"
+            }
+          },
+          "args": [],
+          "name": "answer"
+        },
+        {
+          "answer": "PUSH MISSING 1 CATHEDRAL",
+          "args": [],
+          "name": "line"
+        },
+        {
+          "answer": null,
+          "args": [],
+          "name": "next_fetch"
+        }
+      ],
+      "files": {
+        "catpope/map/sets/cathedral.low.v1.glb": {
+          "bytes": 4,
+          "head": "glTF",
+          "status": null
+        },
+        "characters/catpope/h.webp": {
+          "bytes": 30,
+          "head": "RIFF....WEBP",
+          "status": null
+        },
+        "characters/catpope/n.webp": {
+          "bytes": 12,
+          "head": "RIFF....WEBP",
+          "status": null
+        }
+      },
+      "name": "high",
+      "push": {
+        "characters": [],
+        "scene": "cathedral",
+        "sets": [
+          "cathedral"
+        ]
+      },
+      "quality": "high"
+    },
+    {
+      "api": {
+        "body": null,
+        "status": 0
+      },
+      "calls": [
+        {
+          "answer": "https://api.test/api/library/scene-content?sets=cathedral&characters=catpope",
+          "args": [
+            {
+              "characters": [
+                "catpope"
+              ],
+              "scene": "cathedral",
+              "sets": [
+                "cathedral"
+              ]
+            },
+            ""
+          ],
+          "name": "start"
+        },
+        {
+          "answer": null,
+          "args": [
+            0,
+            ""
+          ],
+          "name": "asked"
+        },
+        {
+          "answer": {
+            "bytes": 0,
+            "done": 1,
+            "missing": [
+              "set:cathedral",
+              "character:catpope"
+            ],
+            "ready": [],
+            "scene": "cathedral",
+            "state": "offline",
+            "total": 1,
+            "why": {
+              "character:catpope": "offline - not in the cache",
+              "set:cathedral": "offline - not in the cache"
+            }
+          },
+          "args": [],
+          "name": "answer"
+        },
+        {
+          "answer": "PUSH OFFLINE CATHEDRAL",
+          "args": [],
+          "name": "line"
+        },
+        {
+          "answer": null,
+          "args": [],
+          "name": "next_fetch"
+        }
+      ],
+      "files": {
+        "catpope/map/sets/cathedral.low.v1.glb": {
+          "bytes": 4,
+          "head": "glTF",
+          "status": null
+        },
+        "characters/catpope/h.webp": {
+          "bytes": 30,
+          "head": "RIFF....WEBP",
+          "status": null
+        },
+        "characters/catpope/n.webp": {
+          "bytes": 12,
+          "head": "RIFF....WEBP",
+          "status": null
+        }
+      },
+      "name": "offline",
+      "push": {
+        "characters": [
+          "catpope"
+        ],
+        "scene": "cathedral",
+        "sets": [
+          "cathedral"
+        ]
+      },
+      "quality": ""
+    },
+    {
+      "api": {
+        "body": null,
+        "status": 503
+      },
+      "calls": [
+        {
+          "answer": "https://api.test/api/library/scene-content?sets=cathedral&characters=catpope",
+          "args": [
+            {
+              "characters": [
+                "catpope"
+              ],
+              "scene": "cathedral",
+              "sets": [
+                "cathedral"
+              ]
+            },
+            ""
+          ],
+          "name": "start"
+        },
+        {
+          "answer": null,
+          "args": [
+            503,
+            ""
+          ],
+          "name": "asked"
+        },
+        {
+          "answer": {
+            "bytes": 0,
+            "done": 1,
+            "missing": [
+              "set:cathedral",
+              "character:catpope"
+            ],
+            "ready": [],
+            "scene": "cathedral",
+            "state": "missing",
+            "total": 1,
+            "why": {
+              "character:catpope": "API HTTP 503 - not in the cache",
+              "set:cathedral": "API HTTP 503 - not in the cache"
+            }
+          },
+          "args": [],
+          "name": "answer"
+        },
+        {
+          "answer": "PUSH MISSING 2 CATHEDRAL",
+          "args": [],
+          "name": "line"
+        },
+        {
+          "answer": null,
+          "args": [],
+          "name": "next_fetch"
+        }
+      ],
+      "files": {
+        "catpope/map/sets/cathedral.low.v1.glb": {
+          "bytes": 4,
+          "head": "glTF",
+          "status": null
+        },
+        "characters/catpope/h.webp": {
+          "bytes": 30,
+          "head": "RIFF....WEBP",
+          "status": null
+        },
+        "characters/catpope/n.webp": {
+          "bytes": 12,
+          "head": "RIFF....WEBP",
+          "status": null
+        }
+      },
+      "name": "api-error",
+      "push": {
+        "characters": [
+          "catpope"
+        ],
+        "scene": "cathedral",
+        "sets": [
+          "cathedral"
+        ]
+      },
+      "quality": ""
+    },
+    {
+      "api": {
+        "body": {
+          "characters": {
+            "catpope": {
+              "portraits": {
+                "happy": {
+                  "path": "characters/catpope/h.webp"
+                },
+                "neutral": {
+                  "path": "characters/catpope/n.webp",
+                  "size": 12
+                }
+              }
+            }
+          },
+          "missing": {
+            "characters": [
+              "ghost"
+            ],
+            "sets": []
+          },
+          "sets": {
+            "cathedral": {
+              "model": {
+                "high": {
+                  "path": "catpope/map/sets/cathedral.high.v1.glb",
+                  "size": 9
+                },
+                "low": {
+                  "path": "catpope/map/sets/cathedral.low.v1.glb",
+                  "size": 4
+                }
+              }
+            }
+          }
+        },
+        "status": null
+      },
+      "calls": [
+        {
+          "answer": "https://api.test/api/library/scene-content?sets=cathedral&characters=catpope",
+          "args": [
+            {
+              "characters": [
+                "catpope"
+              ],
+              "scene": "cathedral",
+              "sets": [
+                "cathedral"
+              ]
+            },
+            ""
+          ],
+          "name": "start"
+        },
+        {
+          "answer": null,
+          "args": [
+            200,
+            "{\"characters\":{\"catpope\":{\"portraits\":{\"happy\":{\"path\":\"characters/catpope/h.webp\"},\"neutral\":{\"path\":\"characters/catpope/n.webp\",\"size\":12}}}},\"missing\":{\"characters\":[\"ghost\"],\"sets\":[]},\"sets\":{\"cathedral\":{\"model\":{\"high\":{\"path\":\"catpope/map/sets/cathedral.high.v1.glb\",\"size\":9},\"low\":{\"path\":\"catpope/map/sets/cathedral.low.v1.glb\",\"size\":4}}}}}"
+          ],
+          "name": "asked"
+        },
+        {
+          "answer": {
+            "bytes": 0,
+            "done": 0,
+            "missing": [],
+            "ready": [],
+            "scene": "cathedral",
+            "state": "syncing",
+            "total": 3
+          },
+          "args": [],
+          "name": "answer"
+        },
+        {
+          "answer": "PUSH 0/3 CATHEDRAL",
+          "args": [],
+          "name": "line"
+        },
+        {
+          "answer": [
+            0,
+            "https://cdn.test/catpope/map/sets/cathedral.low.v1.glb"
+          ],
+          "args": [],
+          "name": "next_fetch"
+        },
+        {
+          "answer": null,
+          "args": [
+            0,
+            0,
+            0,
+            []
+          ],
+          "name": "received"
+        },
+        {
+          "answer": {
+            "bytes": 0,
+            "done": 1,
+            "missing": [
+              "set:cathedral"
+            ],
+            "ready": [],
+            "scene": "cathedral",
+            "state": "syncing",
+            "total": 3,
+            "why": {
+              "set:cathedral": "offline - not in the cache"
+            }
+          },
+          "args": [],
+          "name": "answer"
+        },
+        {
+          "answer": "PUSH 1/3 CATHEDRAL",
+          "args": [],
+          "name": "line"
+        },
+        {
+          "answer": [
+            1,
+            "https://cdn.test/characters/catpope/h.webp"
+          ],
+          "args": [],
+          "name": "next_fetch"
+        },
+        {
+          "answer": null,
+          "args": [
+            1,
+            404,
+            0,
+            []
+          ],
+          "name": "received"
+        },
+        {
+          "answer": {
+            "bytes": 0,
+            "done": 2,
+            "missing": [
+              "set:cathedral",
+              "character:catpope"
+            ],
+            "ready": [],
+            "scene": "cathedral",
+            "state": "offline",
+            "total": 3,
+            "why": {
+              "character:catpope": "characters/catpope/h.webp: HTTP 404",
+              "set:cathedral": "offline - not in the cache"
+            }
+          },
+          "args": [],
+          "name": "answer"
+        },
+        {
+          "answer": "PUSH OFFLINE CATHEDRAL",
+          "args": [],
+          "name": "line"
+        },
+        {
+          "answer": [
+            2,
+            "https://cdn.test/characters/catpope/n.webp"
+          ],
+          "args": [],
+          "name": "next_fetch"
+        },
+        {
+          "answer": null,
+          "args": [
+            2,
+            404,
+            0,
+            []
+          ],
+          "name": "received"
+        },
+        {
+          "answer": {
+            "bytes": 0,
+            "done": 3,
+            "missing": [
+              "set:cathedral",
+              "character:catpope"
+            ],
+            "ready": [],
+            "scene": "cathedral",
+            "state": "offline",
+            "total": 3,
+            "why": {
+              "character:catpope": "characters/catpope/h.webp: HTTP 404",
+              "set:cathedral": "offline - not in the cache"
+            }
+          },
+          "args": [],
+          "name": "answer"
+        },
+        {
+          "answer": "PUSH OFFLINE CATHEDRAL",
+          "args": [],
+          "name": "line"
+        },
+        {
+          "answer": null,
+          "args": [],
+          "name": "next_fetch"
+        }
+      ],
+      "files": {
+        "catpope/map/sets/cathedral.low.v1.glb": {
+          "bytes": 0,
+          "head": "",
+          "status": 0
+        }
+      },
+      "name": "cdn-gone",
+      "push": {
+        "characters": [
+          "catpope"
+        ],
+        "scene": "cathedral",
+        "sets": [
+          "cathedral"
+        ]
+      },
+      "quality": ""
+    }
+  ]
+}

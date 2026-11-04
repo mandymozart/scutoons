@@ -21,14 +21,16 @@
 //!   daemon keeps it in /run/deck-link once a member approved the deck; DECK_TOKEN on a dev deck) – the content is
 //!   public, so nothing waits for it. Never to the CDN.
 //!
-//! - **The conductor's push (#195):** a `scene.sync` (link.rs hands it in: `push`) is an extra need – its sets at this
-//!   deck's quality (`Config::quality`), its characters with every portrait the API lists – through the same request,
-//!   cache and skipping. The worker keeps the answer, `deck.synced` (`synced`: ready / missing per item `set:<id>` /
-//!   `character:<id>`, files done / total, bytes), new after every settled file; the link sends it to the conductor.
-//!   Honest: an item is ready only when its files are in the cache (offline too).
+//! - **The conductor's push (#195):** a `scene.sync` (link.rs hands it in: `push`) is an extra need – through the same
+//!   request, cache and skipping. What it needs, its progress, its answer (`deck.synced`) and its HUD line are the
+//!   core's (#371: deck-space push.rs, the browser deck answers with the same machine): the worker plans the push with
+//!   what the API answered and its cache (`Cache` on `Config`), queues the push's files, settles each in the core, and
+//!   keeps the answer (`synced`), new after every settled file; the link sends it to the conductor.
 //!
 //! The HUD shows `DeckSync::line` (progress, offline, the last error) and `push_line` (the push's state).
-use protocol::{DeckSynced, SceneSync, SyncState};
+pub use deck_space::push::{Content, File, Want, MAX_FILE};
+use deck_space::push::{self, Api, Got, Push};
+use protocol::{DeckSynced, SceneSync};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::io::Read;
@@ -43,8 +45,6 @@ pub const SET_WAIT: Duration = Duration::from_secs(300);
 pub const PORTRAIT_WAIT: Duration = Duration::from_secs(60);
 /// after a failed request, the API is asked again no sooner than this
 const RETRY: Duration = Duration::from_secs(30);
-/// the largest file the sync takes
-const MAX_FILE: u64 = 256 << 20;
 
 pub struct Config {
     pub api: String,
@@ -60,13 +60,6 @@ pub struct Config {
     pub token: deck_link::TokenSource,
     /// #195: the quality a pushed set's 3D is fetched at (the scene's space node's, else `low`)
     pub quality: String,
-}
-
-/// one file the stage wants
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Want {
-    Set { id: String, quality: String },
-    Portrait { character: String, mood: String },
 }
 
 /// what a scene needs: its sets (id, quality) and its characters with their moods
@@ -86,47 +79,6 @@ impl Needs {
     pub fn is_empty(&self) -> bool {
         self.sets.is_empty() && self.characters.is_empty()
     }
-}
-
-/// The API's answer (SceneContent.php).
-#[derive(Debug, Default, Deserialize)]
-pub struct Content {
-    #[serde(default)]
-    pub sets: HashMap<String, SetContent>,
-    #[serde(default)]
-    pub characters: HashMap<String, CharacterContent>,
-    #[serde(default)]
-    pub missing: Missing,
-}
-
-#[derive(Debug, Default, Deserialize)]
-pub struct SetContent {
-    /// quality → its 3D file
-    #[serde(default)]
-    pub model: HashMap<String, File>,
-}
-
-#[derive(Debug, Default, Deserialize)]
-pub struct CharacterContent {
-    /// mood → its portrait
-    #[serde(default)]
-    pub portraits: HashMap<String, File>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
-pub struct File {
-    /// from the CDN root
-    pub path: String,
-    #[serde(default)]
-    pub size: Option<u64>,
-}
-
-#[derive(Debug, Default, Deserialize)]
-pub struct Missing {
-    #[serde(default)]
-    pub sets: Vec<String>,
-    #[serde(default)]
-    pub characters: Vec<String>,
 }
 
 /// What the HUD shows.
@@ -201,8 +153,7 @@ impl DeckSync {
             board,
             answer,
             push: None,
-            failed: HashMap::new(),
-            pushed_bytes: 0,
+            api: Api::Answered,
             content: Content::default(),
             known: HashSet::new(),
             retry_at: None,
@@ -235,16 +186,7 @@ impl DeckSync {
 
     /// #195: the HUD's line about the push (None: nothing pushed)
     pub fn push_line(&self) -> Option<String> {
-        let a = self.answer.lock().ok()?;
-        let r = a.last.as_ref()?;
-        let state = match r.state {
-            SyncState::Syncing => format!("{}/{}", r.done.unwrap_or(0), r.total.unwrap_or(0)),
-            SyncState::Ready => "READY".into(),
-            SyncState::Missing => format!("MISSING {}", r.missing.len()),
-            SyncState::Offline => "OFFLINE".into(),
-        };
-        // the scene last: the HUD cuts at 40 characters
-        Some(format!("PUSH {state} {}", r.scene).to_uppercase().chars().take(40).collect())
+        self.answer.lock().ok()?.last.as_ref().map(push::push_line)
     }
 
     /// Block this (worker) thread until `want` is settled, at most `timeout`; false = it wasn't (or no sync runs).
@@ -355,12 +297,36 @@ impl Index {
     }
 }
 
-/// #195: the conductor's push being worked on: its items (`set:<id>`, `character:<id>`) and the files each needs, and
-/// why an item can't be had at all (unknown to the API, offline without a cached copy)
-struct Push {
-    scene: String,
-    items: Vec<(String, Vec<Want>)>,
-    why: HashMap<String, String>,
+/// the deck's cache as the push's core asks it: a settled file is there to play (a kind that isn't synced – a local
+/// folder – always is); the moods of a character the cache holds
+impl push::Cache for Config {
+    fn has(&self, w: &Want) -> bool {
+        match w {
+            Want::Set { id, quality } => self.sets.as_ref().map_or(true, |d| d.join(id).join(format!("{id}.{quality}.glb")).is_file()),
+            Want::Portrait { character, mood } => self.portraits.as_ref().map_or(true, |d| {
+                let stem = d.join(character).join(format!("{character}_portrait-{mood}"));
+                ["webp", "png"].iter().any(|ext| stem.with_extension(ext).is_file())
+            }),
+        }
+    }
+
+    fn moods(&self, character: &str) -> Vec<String> {
+        let Some(dir) = &self.portraits else { return Vec::new() };
+        let prefix = format!("{character}_portrait-");
+        let mut moods: Vec<String> = std::fs::read_dir(dir.join(character))
+            .into_iter()
+            .flatten()
+            .flatten()
+            .filter_map(|e| {
+                let name = e.file_name().into_string().ok()?;
+                let (stem, ext) = name.rsplit_once('.')?;
+                matches!(ext, "webp" | "png").then(|| stem.strip_prefix(&prefix).map(str::to_owned)).flatten()
+            })
+            .collect();
+        moods.sort();
+        moods.dedup();
+        moods
+    }
 }
 
 struct Worker {
@@ -368,11 +334,10 @@ struct Worker {
     agent: ureq::Agent,
     board: Arc<Mutex<Board>>,
     answer: Arc<Mutex<Answer>>,
+    /// #195: the conductor's push being answered (the core's machine)
     push: Option<Push>,
-    /// why a file failed (until it is wanted again)
-    failed: HashMap<Want, String>,
-    /// bytes downloaded since the last push
-    pushed_bytes: u64,
+    /// how the last request to the API went
+    api: Api,
     content: Content,
     /// set / character ids the API has answered (or named missing) since the last prepare
     known: HashSet<(bool, String)>,
@@ -400,15 +365,13 @@ impl Worker {
             }
             if let Some(w) = self.queue.pop_front() {
                 self.publish(|b| b.busy = true);
-                match self.fetch(&w) {
-                    Ok(()) => {
-                        self.failed.remove(&w);
-                    }
-                    Err(e) => {
-                        tracing::warn!("sync: {e}");
-                        self.failed.insert(w.clone(), e.clone());
-                        self.publish(|b| b.error = Some(e));
-                    }
+                let got = self.fetch(&w).unwrap_or_else(|e| {
+                    tracing::warn!("sync: {e}");
+                    self.publish(|b| b.error = Some(e.clone()));
+                    Got::Failed(e)
+                });
+                if let Some(p) = &mut self.push {
+                    p.settle(&w, got);
                 }
                 self.settled.insert(w.clone());
                 for s in self.waiters.remove(&w).unwrap_or_default() {
@@ -425,46 +388,10 @@ impl Worker {
         }
     }
 
-    /// #195: the push's answer now – kept (numbered) when it changed, or always (`fresh`: a new push wants an answer
-    /// even when it is the old one)
+    /// #195: the push's answer now (the core's) – kept (numbered) when it changed, or always (`fresh`: a new push wants
+    /// an answer even when it is the old one)
     fn answer(&self, fresh: bool) {
-        let Some(p) = &self.push else { return };
-        let (mut ready, mut missing, mut why) = (Vec::new(), Vec::new(), HashMap::new());
-        let mut pending = false;
-        let (mut total, mut done) = (0u64, 0u64);
-        for (item, wants) in &p.items {
-            total += wants.len() as u64;
-            done += wants.iter().filter(|w| self.settled.contains(w)).count() as u64;
-            let failed = wants.iter().find_map(|w| self.failed.get(w));
-            if let Some(reason) = p.why.get(item).or(failed) {
-                missing.push(item.clone());
-                why.insert(item.clone(), reason.clone());
-            } else if !wants.iter().all(|w| self.settled.contains(w)) {
-                pending = true;
-            } else if wants.iter().all(|w| self.present(w)) {
-                ready.push(item.clone());
-            } else {
-                missing.push(item.clone());
-                why.insert(item.clone(), "not in the cache".into());
-            }
-        }
-        let offline = self.board.lock().map(|b| b.offline).unwrap_or(false);
-        let state = match () {
-            _ if pending => SyncState::Syncing,
-            _ if missing.is_empty() => SyncState::Ready,
-            _ if offline => SyncState::Offline,
-            _ => SyncState::Missing,
-        };
-        let r = DeckSynced {
-            scene: p.scene.clone(),
-            state,
-            done: Some(done),
-            total: Some(total),
-            bytes: Some(self.pushed_bytes),
-            ready,
-            missing,
-            why: (!why.is_empty()).then_some(why),
-        };
+        let Some(r) = self.push.as_ref().map(Push::answer) else { return };
         if let Ok(mut a) = self.answer.lock() {
             if fresh || a.last.as_ref() != Some(&r) {
                 a.n += 1;
@@ -473,85 +400,25 @@ impl Worker {
         }
     }
 
-    /// is a settled file there to play (a kind that isn't synced – a local folder – always is)?
-    fn present(&self, w: &Want) -> bool {
-        match w {
-            Want::Set { id, quality } => self.cfg.sets.as_ref().map_or(true, |d| d.join(id).join(format!("{id}.{quality}.glb")).is_file()),
-            Want::Portrait { character, mood } => self.cfg.portraits.as_ref().map_or(true, |d| {
-                let stem = d.join(character).join(format!("{character}_portrait-{mood}"));
-                ["webp", "png"].iter().any(|ext| stem.with_extension(ext).is_file())
-            }),
-        }
-    }
-
-    /// the moods of `character` the cache holds (offline: what a push can still count on)
-    fn cached_moods(&self, character: &str) -> Vec<String> {
-        let Some(dir) = &self.cfg.portraits else { return Vec::new() };
-        let prefix = format!("{character}_portrait-");
-        let mut moods: Vec<String> = std::fs::read_dir(dir.join(character))
-            .into_iter()
-            .flatten()
-            .flatten()
-            .filter_map(|e| {
-                let name = e.file_name().into_string().ok()?;
-                let (stem, ext) = name.rsplit_once('.')?;
-                matches!(ext, "webp" | "png").then(|| stem.strip_prefix(&prefix).map(str::to_owned)).flatten()
-            })
-            .collect();
-        moods.sort();
-        moods.dedup();
-        moods
-    }
-
-    /// #195: a push becomes wants – asked for afresh (a changed file is noticed), each file checked again
+    /// #195: a push – asked for afresh (a changed file is noticed), planned by the core, each file checked again
     fn take_push(&mut self, sync: SceneSync) {
-        let sets = sync.sets.unwrap_or_default();
-        let chars = sync.characters.unwrap_or_default();
+        let sets: Vec<&str> = sync.sets.iter().flatten().map(String::as_str).collect();
+        let chars: Vec<&str> = sync.characters.iter().flatten().map(String::as_str).collect();
         tracing::info!("sync: the conductor pushes '{}' – sets {sets:?}, characters {chars:?}", sync.scene);
         for id in &sets {
-            self.known.remove(&(true, id.clone()));
+            self.known.remove(&(true, id.to_string()));
         }
         for id in &chars {
-            self.known.remove(&(false, id.clone()));
+            self.known.remove(&(false, id.to_string()));
         }
         self.retry_at = None;
-        self.pushed_bytes = 0;
         if self.queue.is_empty() {
             self.publish(|b| *b = Board { busy: true, ..Board::default() });
         }
-        let s: Vec<&str> = sets.iter().map(String::as_str).collect();
-        let c: Vec<&str> = chars.iter().map(String::as_str).collect();
-        self.ask(&s, &c);
-        let mut push = Push { scene: sync.scene, items: Vec::new(), why: HashMap::new() };
-        for id in sets {
-            push.items.push((format!("set:{id}"), vec![Want::Set { id, quality: self.cfg.quality.clone() }]));
-        }
-        for c in chars {
-            let item = format!("character:{c}");
-            let moods: Vec<String> = match self.content.characters.get(&c) {
-                Some(cc) => {
-                    let mut m: Vec<String> = cc.portraits.keys().cloned().collect();
-                    m.sort();
-                    m
-                }
-                None if self.content.missing.characters.contains(&c) => {
-                    push.why.insert(item.clone(), format!("character {c} is unknown to the API"));
-                    Vec::new()
-                }
-                None => {
-                    // offline (or the API failed): what the cache has of it
-                    let m = self.cached_moods(&c);
-                    if m.is_empty() {
-                        push.why.insert(item.clone(), "offline - not in the cache".into());
-                    }
-                    m
-                }
-            };
-            push.items.push((item, moods.into_iter().map(|mood| Want::Portrait { character: c.clone(), mood }).collect()));
-        }
-        for w in push.items.iter().flat_map(|(_, ws)| ws.iter()) {
+        self.ask(&sets, &chars);
+        let push = Push::plan(&sync, &self.cfg.quality, &self.content, &self.api, &self.cfg);
+        for w in push.wants() {
             self.settled.remove(w);
-            self.failed.remove(w);
             if !self.queue.contains(w) {
                 self.queue.push_back(w.clone());
             }
@@ -607,22 +474,20 @@ impl Worker {
         if sets.is_empty() && characters.is_empty() || self.retry_at.is_some_and(|t| Instant::now() < t) {
             return;
         }
-        let url = format!("{}/library/scene-content?sets={}&characters={}", self.cfg.api.trim_end_matches('/'), sets.join(","), characters.join(","));
+        let url = push::content_url(&self.cfg.api, sets, characters);
         let mut req = self.agent.get(&url);
         if let Some(t) = self.cfg.token.get() {
             req = req.set("Authorization", &format!("Bearer {t}"));
         }
-        let answer = match req.call() {
-            Ok(r) => r.into_string().map_err(|e| e.to_string()).and_then(|t| serde_json::from_str::<Content>(&t).map_err(|e| format!("not an answer: {e}"))),
-            Err(ureq::Error::Status(code, _)) => Err(format!("API HTTP {code}")),
+        let reply = match req.call() {
+            Ok(r) => r.into_string().map_err(|e| Api::Failed(e.to_string())).and_then(|t| Api::reply(200, &t)),
+            Err(ureq::Error::Status(code, _)) => Api::reply(code, ""),
             Err(ureq::Error::Transport(t)) => {
                 tracing::warn!("sync: {url}: {t} – playing from the cache");
-                self.retry_at = Some(Instant::now() + RETRY);
-                self.publish(|b| b.offline = true);
-                return;
+                Err(Api::Offline)
             }
         };
-        match answer {
+        match reply {
             Ok(c) => {
                 tracing::info!("sync: {} sets, {} characters ({} missing)", c.sets.len(), c.characters.len(), c.missing.sets.len() + c.missing.characters.len());
                 for id in c.missing.sets.iter().chain(c.sets.keys()) {
@@ -631,23 +496,28 @@ impl Worker {
                 for id in c.missing.characters.iter().chain(c.characters.keys()) {
                     self.known.insert((false, id.clone()));
                 }
-                self.content.sets.extend(c.sets);
-                self.content.characters.extend(c.characters);
-                self.content.missing.sets.extend(c.missing.sets);
-                self.content.missing.characters.extend(c.missing.characters);
+                self.content.merge(c);
+                self.api = Api::Answered;
                 self.publish(|b| b.offline = false);
             }
-            Err(e) => {
-                tracing::warn!("sync: {url}: {e}");
+            Err(api) => {
                 self.retry_at = Some(Instant::now() + RETRY);
-                self.publish(|b| b.error = Some(e));
+                match &api {
+                    Api::Failed(e) => {
+                        tracing::warn!("sync: {url}: {e}");
+                        let e = e.clone();
+                        self.publish(|b| b.error = Some(e));
+                    }
+                    _ => self.publish(|b| b.offline = true),
+                }
+                self.api = api;
             }
         }
     }
 
-    /// one wanted file: asked for if the API hasn't said, then fetched unless the cache has it. Ok = settled quietly
-    /// (fetched, cached, nothing to fetch, or offline with the cache).
-    fn fetch(&mut self, w: &Want) -> Result<(), String> {
+    /// one wanted file: asked for if the API hasn't said, then fetched unless the cache has it – how it settled (a kind
+    /// that isn't synced, a mood without a sprite – the head shows its nearest –, offline: what the cache has)
+    fn fetch(&mut self, w: &Want) -> Result<Got, String> {
         let (is_set, id) = match w {
             Want::Set { id, .. } => (true, id.as_str()),
             Want::Portrait { character, .. } => (false, character.as_str()),
@@ -656,95 +526,53 @@ impl Worker {
             let id = id.to_string();
             if is_set { self.ask(&[&id], &[]) } else { self.ask(&[], &[&id]) }
         }
-        let (local, file) = match w {
-            Want::Set { id, quality } => {
-                let Some(dir) = &self.cfg.sets else { return Ok(()) };
-                let local = dir.join(id).join(format!("{id}.{quality}.glb"));
-                match self.content.sets.get(id) {
-                    Some(s) => match s.model.get(quality) {
-                        Some(f) => (local, f.clone()),
-                        None => return Err(format!("set {id} has no 3D at {quality}")),
-                    },
-                    None if self.content.missing.sets.contains(id) => return Err(format!("set {id} is unknown to the API")),
-                    None => return Ok(()), // offline: the cache
-                }
-            }
+        let Some(dir) = (if is_set { &self.cfg.sets } else { &self.cfg.portraits }) else { return Ok(Got::Cached) };
+        let Some(file) = self.content.file(w)?.cloned() else {
+            return Ok(if push::Cache::has(&self.cfg, w) { Got::Cached } else { Got::Absent });
+        };
+        let local = match w {
+            Want::Set { id, quality } => dir.join(id).join(format!("{id}.{quality}.glb")),
             Want::Portrait { character, mood } => {
-                let Some(dir) = &self.cfg.portraits else { return Ok(()) };
-                match self.content.characters.get(character) {
-                    Some(c) => match c.portraits.get(mood) {
-                        Some(f) => {
-                            let ext = Path::new(&f.path).extension().and_then(|e| e.to_str()).unwrap_or("webp");
-                            (dir.join(character).join(format!("{character}_portrait-{mood}.{ext}")), f.clone())
-                        }
-                        None => return Ok(()), // no sprite for this mood: the head shows its nearest
-                    },
-                    None if self.content.missing.characters.contains(character) => return Err(format!("character {character} is unknown to the API")),
-                    None => return Ok(()),
-                }
+                let ext = Path::new(&file.path).extension().and_then(|e| e.to_str()).unwrap_or("webp");
+                dir.join(character).join(format!("{character}_portrait-{mood}.{ext}"))
             }
         };
         self.download(&local, &file)
     }
 
     /// `file` from the CDN into `local` – unless the index says `local` is that file and its size agrees
-    fn download(&mut self, local: &Path, file: &File) -> Result<(), String> {
+    fn download(&mut self, local: &Path, file: &File) -> Result<Got, String> {
         let key = local.to_string_lossy().to_string();
         let len = std::fs::metadata(local).ok().map(|m| m.len());
         if len.is_some() && self.index.files.get(&key).is_some_and(|f| f.path == file.path) && file.size.map_or(true, |s| Some(s) == len) {
             self.publish(|b| b.cached += 1);
-            return Ok(());
+            return Ok(Got::Cached);
         }
-        let url = format!("{}/{}", self.cfg.cdn.trim_end_matches('/'), file.path.trim_start_matches('/'));
+        let url = push::cdn_url(&self.cfg.cdn, &file.path);
         let bytes = match self.agent.get(&url).call() {
             Ok(r) => {
                 let mut bytes = Vec::new();
                 r.into_reader().take(MAX_FILE + 1).read_to_end(&mut bytes).map_err(|e| format!("{url}: {e}"))?;
                 bytes
             }
-            Err(ureq::Error::Status(code, _)) => return Err(format!("{}: HTTP {code}", file.path)),
+            Err(ureq::Error::Status(code, _)) => return Err(push::http_failure(&file.path, code)),
             Err(ureq::Error::Transport(t)) => {
                 tracing::warn!("sync: {url}: {t}");
                 self.publish(|b| b.offline = true);
-                return Ok(()); // the cached copy, if any, plays
+                return Ok(Got::Offline { cached: local.is_file() }); // the cached copy, if any, plays
             }
         };
-        check(&file.path, file.size, &bytes)?;
+        let n = bytes.len() as u64;
+        push::check(&file.path, file.size, n, &bytes)?;
         write_atomic(local, &bytes)?;
         self.index.files.insert(key, file.clone());
         self.index.save()?;
-        let n = bytes.len() as u64;
         tracing::info!("sync: {} → {} ({n} bytes)", file.path, local.display());
-        self.pushed_bytes += n;
         self.publish(|b| {
             b.fetched += 1;
             b.bytes += n;
         });
-        Ok(())
-    }
-}
-
-/// a download is what the answer said: its size, and its type's magic (a broken or truncated file is refused)
-pub fn check(path: &str, size: Option<u64>, bytes: &[u8]) -> Result<(), String> {
-    if bytes.len() as u64 > MAX_FILE {
-        return Err(format!("{path}: larger than {} MB", MAX_FILE >> 20));
-    }
-    if let Some(s) = size {
-        if bytes.len() as u64 != s {
-            return Err(format!("{path}: {} bytes, the API said {s} – refused", bytes.len()));
-        }
-    }
-    let ext = Path::new(path).extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
-    let ok = match ext.as_str() {
-        "glb" => bytes.starts_with(b"glTF"),
-        "webp" => bytes.len() >= 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP",
-        "png" => bytes.starts_with(b"\x89PNG\r\n\x1a\n"),
-        _ => true,
-    };
-    if ok {
-        Ok(())
-    } else {
-        Err(format!("{path}: not a .{ext} file – refused"))
+        Ok(Got::Fetched(n))
     }
 }
 
@@ -772,15 +600,6 @@ mod tests {
                 Want::Portrait { character: "plf".into(), mood: "smug".into() },
             ]
         );
-    }
-
-    #[test]
-    fn a_download_must_match_its_size_and_type() {
-        assert!(check("a.glb", Some(8), b"glTF\x02\0\0\0").is_ok());
-        assert!(check("a.glb", Some(9), b"glTF\x02\0\0\0").unwrap_err().contains("the API said 9"));
-        assert!(check("a.glb", None, b"<html>oops").unwrap_err().contains("not a .glb"));
-        assert!(check("a.webp", None, b"RIFF\0\0\0\0WEBPVP8 ").is_ok());
-        assert!(check("a.png", None, b"RIFF\0\0\0\0WEBP").is_err());
     }
 
     #[test]

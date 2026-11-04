@@ -52,21 +52,6 @@ enum Out {
     Midi(DeckMidi),
 }
 
-/// `--sync set:cathedral,character:catpope` (#195): the conductor's push for `scene`; `being:<id>` names a lent being
-/// (#191, reserved)
-pub fn parse_push(scene: &str, spec: &str) -> Result<SceneSync, String> {
-    let (mut sets, mut characters, mut beings) = (Vec::new(), Vec::new(), Vec::new());
-    for part in spec.split(',').map(str::trim).filter(|p| !p.is_empty()) {
-        match part.split_once(':') {
-            Some(("set", id)) if !id.is_empty() => sets.push(id.to_string()),
-            Some(("character", id)) if !id.is_empty() => characters.push(id.to_string()),
-            Some(("being", id)) if !id.is_empty() => beings.push(id.to_string()),
-            _ => return Err(format!("--sync {part}: set:<id>, character:<id> or being:<id>")),
-        }
-    }
-    Ok(SceneSync { scene: scene.into(), sets: Some(sets), characters: Some(characters), beings: (!beings.is_empty()).then_some(beings), decks: None })
-}
-
 /// the running client: its events, its outbox, its HUD line; stops when dropped
 pub struct Link {
     pub rx: Receiver<In>,
@@ -427,20 +412,5 @@ impl Client {
                 _ => {}
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_push_from_the_command_line() {
-        let p = parse_push("conductor", "set:cathedral, character:catpope,character:yellowmouse").unwrap();
-        assert_eq!((p.scene.as_str(), p.sets.unwrap(), p.characters.unwrap()), ("conductor", vec!["cathedral".to_string()], vec!["catpope".to_string(), "yellowmouse".to_string()]));
-        assert!(p.beings.is_none() && p.decks.is_none());
-        assert_eq!(parse_push("x", "being:ghost").unwrap().beings.unwrap(), ["ghost"]);
-        assert!(parse_push("x", "room:cathedral").unwrap_err().contains("set:<id>"));
-        assert!(parse_push("x", "set:").is_err());
     }
 }
