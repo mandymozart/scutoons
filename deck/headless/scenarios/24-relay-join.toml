@@ -1,0 +1,25 @@
+name = "the relay client is one sans-IO state machine"
+about = "#366: join, welcome, keyframe, backoff (1 2 4 8 10 s), ping every 20 s and the status – deck-space relay.rs, the one client every platform drives (native link.rs and the outlet's client.rs on a thread, the browser deck and the vote screens through relay-web's wasm). Socket events in, messages and a status out; the platforms move the bytes"
+
+[[step]]
+do = "relay_join"
+[step.with]
+join = { relay = "ws://relay.test:7070/live/CATH", role = "musician", group = "decks" }
+steps = [
+  { at = 0.0, do = "open" },
+  { at = 0.05, do = "message", with = { kind = "welcome", p = { client = "c1", snapshot = {}, now = 0 } } },
+  { at = 30.0, do = "close" },
+  { at = 31.0, do = "fail" },
+  { at = 33.0, do = "fail" },
+  { at = 37.0, do = "fail" },
+  { at = 45.0, do = "fail" },
+  { at = 55.0, do = "fail" },
+  { at = 66.0, do = "fail" },
+]
+[step.expect]
+sent = { has = "hello" }
+pings = 1
+backoff_s = [1, 2, 4, 8, 10, 10]
+joined_at_s = 0.05
+dials = 7
+states = ["joining", "connected", "offline", "joining", "offline", "joining", "offline", "joining", "offline", "joining", "offline", "joining", "offline", "joining", "offline"]

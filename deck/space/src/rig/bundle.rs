@@ -54,14 +54,28 @@ impl Knob {
     }
 }
 
-/// How a streamed path moves (#368, the deck stream's epsilon per kind – live-deck client.ts `PathKind`): a knob's input
-/// with its range, a control output, an audio output's peak.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+/// How a streamed path moves (#368, the deck stream's epsilon per kind – the relay client's `Values`, relay.rs): a knob's
+/// input with its range, a control output, an audio output's peak, an LFO's shape.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Stream {
     Input([f32; 2]),
     Control,
     Audio,
+    Shape,
+}
+
+impl Stream {
+    /// how much a value must move before the stream sends it again: a thousandth of an input's range, 0.002 for control
+    /// outputs (0–1 mostly; the tempo's counts move by whole beats anyway), 0.01 for an audio peak, half a shape
+    pub fn epsilon(self) -> f32 {
+        match self {
+            Stream::Input([min, max]) => ((max - min).abs() * 1e-3).max(1e-5),
+            Stream::Control => 2e-3,
+            Stream::Audio => 0.01,
+            Stream::Shape => 0.5,
+        }
+    }
 }
 
 /// What a mood's replay changes (#368): the values that moved – every knob and every numeric param the preset wrote,

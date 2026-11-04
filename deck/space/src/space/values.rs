@@ -353,19 +353,20 @@ impl Knobs for Table {
     }
 }
 
-/// how much a value must move before the stream sends it again: a thousandth of its range (inputs), 0.002 for
-/// outputs and peaks (0–1 mostly; the tempo's counts move by whole beats anyway)
+/// how much a value must move before the stream sends it again (`rig::Stream::epsilon` – the browser's stream too)
 pub fn epsilon(graph: &Graph, p: Path) -> f32 {
+    use crate::rig::Stream;
     match p {
         Path::Input(n, k) => {
             let kind = graph.nodes[n].kind;
             let s = params::spec(kind, kind.inputs()[k].name);
-            ((s.max - s.min).abs() * 1e-3).max(1e-5)
+            Stream::Input([s.min, s.max])
         }
-        Path::Output(n, k) if graph.nodes[n].kind.outputs()[k].ty == PortType::Audio => 0.01,
-        Path::Output(..) => 2e-3,
-        Path::Shape(_) => 0.5,
+        Path::Output(n, k) if graph.nodes[n].kind.outputs()[k].ty == PortType::Audio => Stream::Audio,
+        Path::Output(..) => Stream::Control,
+        Path::Shape(_) => Stream::Shape,
     }
+    .epsilon()
 }
 
 #[cfg(test)]

@@ -1,8 +1,0 @@
-name = "the relay client is one sans-IO state machine"
-about = "#366: join, welcome, keyframe, backoff (1 2 4 8 10 s), ping every 20 s and the status texts live four times – native space/link.rs and live/client.rs, live-deck client.ts, viewer live-vote-link.ts. One client in the core: events in, messages and a status out; the platforms move the bytes"
-expected_fail = "#366 the relay join state machine lives in link.rs, client.rs and two TS clients"
-
-[[step]]
-do = "relay_join"
-with = { code = "CATH", role = "musician", events = [["open", 0.0], ["welcome", 0.05], ["close", 30.0], ["fail", 31.0], ["fail", 33.0], ["fail", 37.0], ["fail", 45.0], ["fail", 55.0]] }
-expect = { sent = { has = "hello" }, pings = 1, backoff_s = [1, 2, 4, 8, 10, 10], joined_at_s = 0.05 }

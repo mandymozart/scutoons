@@ -14,6 +14,7 @@ pub mod mood;
 pub mod params;
 pub mod push;
 pub mod quality;
+pub mod relay;
 pub mod rig;
 pub mod scene;
 pub mod tempo;
