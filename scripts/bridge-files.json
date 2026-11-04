@@ -35,7 +35,7 @@
 		"shared/live-deck/src/rig.ts": "types: the core's answers about what plays (deck-space Played, deck::Turn, Step, Slider)",
 		"shared/live-deck/src/scene.ts": "types: the slider's Spec as the core answered it",
 		"shared/live-deck/src/space.ts": "adapter: space-web in a canvas, the images, the pointer events forwarded whole (the gestures are deck-space's)",
-		"shared/live-deck/src/sync.ts": "logic (#371): the conductor's scene sync",
+		"shared/live-deck/src/sync.ts": "adapter: the conductor's push – fetches what space-web DeckPush (deck-space push.rs) names, hands the replies back (#371)",
 		"shared/live/src/index.ts": "types: the relay protocol (generated)",
 		"viewer/src/lib/components/live-deck/character-chip.svelte": "ui: the character chip",
 		"viewer/src/lib/components/live-deck/deck-clock.svelte": "ui: the clock picker and the BPM (#370 makes the choices core state)",

@@ -49,16 +49,6 @@
 				"ticket": "#366"
 			}
 		},
-		"shared/live-deck/src/sync.ts": {
-			"twin-comment": {
-				"count": 1,
-				"ticket": "#371"
-			},
-			"text-shape": {
-				"count": 3,
-				"ticket": "#371"
-			}
-		},
 		"viewer/src/lib/live-vote-link.ts": {
 			"twin-const": {
 				"count": 1,
@@ -459,8 +449,8 @@
 			"escapes": 1
 		},
 		"shared/live-deck/src/sync.ts": {
-			"lines": 122,
-			"functions": 14,
+			"lines": 101,
+			"functions": 8,
 			"math": 0,
 			"escapes": 0
 		},
