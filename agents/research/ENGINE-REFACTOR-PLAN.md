@@ -856,7 +856,7 @@ Plus orchestrator sessions (≈ 10, one per two or three merges, ≈ $5–10 eac
 ## 6. What stays frozen, what is retired and when
 | Thing | Now | Retired in | How |
 |---|---|---|---|
-| `shared/live-core/src/modules.ts` (TS module host) | frozen (test-only) | P9b | deleted when the browser backend passes its fixtures |
+| `shared/live-core/src/modules.ts` (TS module host) | **deleted** (#343, 2026-11-04: no backwards compatibility) | – | the browser takes modules through the web backend (#290) |
 | `server/.../RigValidator.php` + `NodeKinds.php` | in use (CatalogValidator) | P10 | `NodeKinds.php` generated from the catalog from P2; both deleted with #313 |
 | parked TS validator (`parked/269-rig-editor`) | parked | never revived | branch deletion is the owner's |
 | stage `control.rs`, `audio/{blocks,voices,click,walk,module}`, engine part of `mod.rs` | in use | P4 (moved, not copied) | the native deck keeps backend, ring, lead (until moved), priority, glitch, sequencer / dispatch threads |

@@ -11,45 +11,45 @@ Noise ─┘ (sync 1→2)      └▶ Filter 2 ─▶ Amp 2 ─┴─▶ stereo 
              (serial: Filter 1 also feeds Filter 2)
 ```
 
-Build: `cargo build --release --target wasm32-unknown-unknown -p analog-module` → `analog_module.wasm` (192 KB, 36 KB gzipped;
-the SDK alone is ~100 KB). Tests: `cargo test -p analog-module`.
+Build: `cargo build --release --target wasm32-unknown-unknown -p analog-module` → `analog_module.wasm` (under 250 KB; the SDK
+alone is ~100 KB). Tests: `cargo test -p analog-module` (native ≡ wasm bit for bit: `tests/wasm.rs`).
 
 ## Ports
 
 | port | dir | what |
 |---|---|---|
-| `cv1` … `cv4` | audio in | four **note lanes**: pitch in Hz on the left channel, the gate on the right. The gate's value is the **velocity** (`seq`'s and `walk`'s 1.0 = full), 0 = off. |
+| `notes` | event in | **notes** (`music.note`, module ABI v2 #343): note on (pitch Hz, velocity 0…1) and note off, paired by the note's **id**; a bend per note (semitones, a note expression); a reset (all notes off). |
 | `sustain` | control in | ≥ 0.5 holds released notes (the pedal); letting go releases them. |
-| `out` | audio out | stereo, the sum of the voices times `volume`. |
+| `out` | audio out | stereo (2 channels), the sum of the voices times `volume`. |
 
-Why cv lanes: ABI v1 has no note-event input (`#[port(input, event)]` is refused: "events only go out of a module"), so notes
-arrive the way the stage's `seq` and the `walk` module write them (`deck_module::cv`). A rising gate starts a note, a falling
-one releases it; a **pitch change under a held gate glides the same voice** (legato, `walk`'s glide). Four lanes play four notes at
-once; a note's release tail keeps sounding on its own voice while its lane plays the next, so eight voices are used up by
-overlapping tails. A ninth note **steals the oldest** voice (a 1 ms fade-out first, no click). Link `walk.cv` into `cv1` to
-hear it. An event input (note on/off with velocity, any number at a time) is ABI v2's job.
+A note on starts a voice – or **steals the oldest** (a 1 ms fade-out first, no click) – keyed by its id, never by its pitch, so
+two notes of one pitch are two voices and an off ends only its own; a note's release tail keeps sounding while the next notes
+start. A note on for an id that still sounds is a **legato** pitch change of that voice; a bend moves it from the note's own
+pitch. Events take effect at their frame (the render cuts the block there). Eight voices. The engine's event host delivers
+notes from the deck (MIDI, generators) and from other modules – `walk`'s `notes` play it directly (deck-native's
+tests/modules.rs). Until #343 notes came in as four cv lanes; they are gone.
 
 ## Parameters
 
-91, one table (`src/params.rs`): every row is `name: min..max = default, unit, choices, doc`, expanded into the module struct
-(the derive reads range and default), into the `Patch` the voices read, and into `PARAMS_JSON` – the unit / choices / doc of
-every parameter, in the wasm's custom section **`deck.params`** (the v1 descriptor carries only name, range and default; the
-catalog descriptor of #315 takes units and docs, and this is the data for it). A switch is 0/1, a mode 0..n with its
-`choices` in order (`saw|pulse|triangle|sine`). Groups: `volume` · `o1_*`, `o2_*` (wave, semi, fine, pw, level, sub, key
-follow; `o2_sync`) · `noise_level` · `*_route` (per source: filter 1 | filter 2 | both), `f_serial`, `f1_to_f2` ·
-`f1_*`, `f2_*` (mode LP/BP/HP/notch, cutoff, resonance, drive, key tracking, envelope amount, velocity to cutoff and to
-resonance) · `fe1_*`, `fe2_*` (filter ADSR) · `a1_*`, `a2_*` (level, pan, velocity, key) · `ae1_*`, `ae2_*` (amp ADSR) ·
-`l1_*`, `l2_*` (shape, rate, tempo sync, delay, attack, and the amounts to pitch / pulse width / cutoff 1 / cutoff 2 / amp 1 /
-amp 2) · `vel_pitch`, `vel_pwm`, `fe2_p2`, `l1_p2`, `l2_p2` (to oscillator 2 alone – the hard-sync sweep).
-The ABI's cap of 32 parameters was raised to 128 for this module (a limit in the checks, not in the `Io` layout).
+91, one table (`src/params.rs`): every row is a `#[param(…)]` attribute – range or `choices`, default, `curve`, `unit`, `doc`
+– that the derive reads into the descriptor (the catalog's `Descriptor` carries units, choices and docs: the `deck.params`
+section of ABI v1 is gone), expanded into the module struct, the `Patch` the voices read and `PARAM_NAMES`. A switch is
+0/1, a mode 0..n with its `choices` in order (`saw|pulse|triangle|sine`; the value is the index). Groups: `volume` · `o1_*`,
+`o2_*` (wave, semi, fine, pw, level, sub, key follow; `o2_sync`) · `noise_level` · `*_route` (per source: filter 1 | filter
+2 | both), `f_serial`, `f1_to_f2` · `f1_*`, `f2_*` (mode LP/BP/HP/notch, cutoff, resonance, drive, key tracking, envelope
+amount, velocity to cutoff and to resonance) · `fe1_*`, `fe2_*` (filter ADSR) · `a1_*`, `a2_*` (level, pan, velocity, key) ·
+`ae1_*`, `ae2_*` (amp ADSR) · `l1_*`, `l2_*` (shape, rate, tempo sync, delay, attack, and the amounts to pitch / pulse width /
+cutoff 1 / cutoff 2 / amp 1 / amp 2) · `vel_pitch`, `vel_pwm`, `fe2_p2`, `l1_p2`, `l2_p2` (to oscillator 2 alone – the
+hard-sync sweep).
 
 ## Presets
 
-Four factory presets – `pad`, `bass`, `lead`, `sync lead` – are data in `data/presets.json`, in the wasm's custom section
-**`deck.presets`**: `{"presets": [{"name", "doc", "values": {parameter: value, …}}]}`. A preset lists only what differs from the
-defaults. **To apply one**: set every parameter to its default (the descriptor has them), then each of the preset's values with
-`dm_set_param(index, value)` (the index is the parameter's place in the descriptor; hosts: `Instance::set_param`). The tests do
-exactly that (`tests/common`).
+**One factory preset in the descriptor** (research/ABI-V2.md §2, owner 2026-11-03): `pad` (`#[preset]` in `src/params.rs`) –
+the host's `Preset::apply` sets every parameter to its default, then its values. The other three – `bass`, `lead`,
+`sync lead` – are `preset:` documents: until the module is a catalog document (#350) and preset files import (#346) they wait
+in **`analog.preset.json`** (format `scutoons.preset`, version 1, `module`, `module_version`, `presets: [{name, doc, values
+by parameter name}]`), the file the creator imports as drafts. A preset lists only what differs from the defaults. The tests
+apply all four (`tests/common`).
 
 ## The DSP (`src/dsp`, plain Rust, no SDK)
 
@@ -62,4 +62,5 @@ exactly that (`tests/common`).
   `+ − × ÷ floor` only, so no platform libm is on the audio path (ENGINE-REFACTOR-PLAN §3.4) and no dependency is added.
 
 Modulation is read every sample; pitch, cutoffs and pan are recomputed every 16 samples of the voice's own clock, so a render does
-not depend on how the host cuts the audio into blocks (tested). No allocation on the audio path (`tests/no_alloc.rs`).
+not depend on how the host cuts the audio into blocks (tested). No allocation on the audio path (`tests/no_alloc.rs`: the SDK's
+counting allocator under the strict `Rig`).
