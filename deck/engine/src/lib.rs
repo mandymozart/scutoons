@@ -13,6 +13,7 @@
 //! decoded tracks of `chapter_music` (`MusicFeed`), the module runtime (`Seams`), the scheduling of the events' sequencer.
 mod blocks;
 mod click;
+mod cols;
 pub mod config;
 pub mod control;
 #[cfg(feature = "events")]
@@ -36,7 +37,7 @@ pub use config::{DeckConfig, Fold, OutletMap, PassThrough, StageEnvironment};
 pub use tempo::tempo_config;
 
 use anyhow::Result;
-use deck_core::batch::levels;
+use cols::levels;
 use deck_core::limiter::{self, LinkedLimiter};
 use deck_core::tempo::{SeqLock, Shared};
 use deck_space::graph::{Domain, Graph, Kind, PortType, MAX_CHANNELS};

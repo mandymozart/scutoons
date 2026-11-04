@@ -2,8 +2,10 @@
 //! The stage's registry (deck/native/src/modules.rs) checks a scene against the features it was built with; the
 //! `deck-scene-features` tool lists the features a set of scenes needs, so a deck build carries exactly those. Data
 //! only (no stage code here), so the tool builds without wgpu; the stage's tests keep this table and its kinds in step.
-use crate::module::Params;
 use std::collections::BTreeSet;
+
+/// A node's params from the scene (`[[node]]` keys besides id / kind).
+pub type Params = toml::Table;
 
 /// A module of the stage: its cargo feature (`core` = always built), what it is, its node kinds and tempo sources.
 #[derive(Debug, Clone, Copy)]
@@ -121,6 +123,33 @@ pub fn carried_part<'a>(
     Part { nodes, links }
 }
 
+/// A scene file's `[[node]]` tables as (id, kind, params) – the only part of a scene text this check reads (the links and
+/// the rest are the deck's own scene model, deck-space's `Scene`).
+pub fn scene_nodes(text: &str) -> Result<Vec<(String, String, Params)>, String> {
+    let table: Params = text.parse().map_err(|e: toml::de::Error| e.to_string())?;
+    let Some(nodes) = table.get("node") else { return Ok(Vec::new()) };
+    let nodes = nodes.as_array().ok_or("`node` is not an array of tables")?;
+    nodes
+        .iter()
+        .enumerate()
+        .map(|(i, n)| {
+            let mut params = n.as_table().ok_or_else(|| format!("node #{}: not a table", i + 1))?.clone();
+            let mut text_of = |key: &str| match params.remove(key) {
+                Some(toml::Value::String(s)) => Ok(s),
+                _ => Err(format!("node #{}: `{key}` is missing or not text", i + 1)),
+            };
+            let (id, kind) = (text_of("id")?, text_of("kind")?);
+            Ok((id, kind, params))
+        })
+        .collect()
+}
+
+/// The modules (features) a scene text needs besides `core`, sorted (`features` over its `[[node]]` tables).
+pub fn scene_features(text: &str) -> Result<Vec<&'static str>, String> {
+    let nodes = scene_nodes(text)?;
+    features(nodes.iter().map(|(id, kind, params)| (id.as_str(), kind.as_str(), params)))
+}
+
 /// The modules (features) the nodes need besides `core`, sorted – what `deck-scene-features` prints.
 pub fn features<'a>(nodes: impl IntoIterator<Item = (&'a str, &'a str, &'a Params)>) -> Result<Vec<&'static str>, String> {
     let mut set = BTreeSet::new();
@@ -134,11 +163,9 @@ pub fn features<'a>(nodes: impl IntoIterator<Item = (&'a str, &'a str, &'a Param
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::graph::SceneDef;
 
     fn needs(text: &str) -> Result<Vec<&'static str>, String> {
-        let s = SceneDef::parse(text)?;
-        features(s.nodes.iter().map(|n| (n.id.as_str(), n.kind.as_str(), &n.params)))
+        scene_features(text)
     }
 
     #[test]
@@ -170,20 +197,25 @@ kind=\"lfo\"
 
     #[test]
     fn the_carried_part_drops_a_node_with_its_links() {
-        let s = SceneDef::parse(
+        let nodes = scene_nodes(
             "[[node]]\nid=\"m\"\nkind=\"chapter_music\"\n[[node]]\nid=\"o\"\nkind=\"osc\"\n[[node]]\nid=\"x\"\nkind=\"teleport\"\n\
-             [[node]]\nid=\"out\"\nkind=\"audio_out\"\n[[link]]\nfrom=\"m\"\nto=\"out.in\"\n[[link]]\nfrom=\"o.out\"\nto=\"out.in\"\n",
+             [[node]]\nid=\"out\"\nkind=\"audio_out\"\n",
         )
         .unwrap();
-        let part = carried_part(
-            s.nodes.iter().map(|n| (n.id.as_str(), n.kind.as_str(), &n.params)),
-            s.links.iter().map(|l| (l.from.as_str(), l.to.as_str())),
-            |f| f == CORE,
-        );
+        let links = [("m", "out.in"), ("o.out", "out.in")];
+        let part = carried_part(nodes.iter().map(|(id, kind, params)| (id.as_str(), kind.as_str(), params)), links, |f| f == CORE);
         assert_eq!(part, Part { nodes: vec![false, true, false, true], links: vec![false, true] });
         let browser = |f: &str| BROWSER_MODULES.contains(&f);
         let t = |src: &str| toml::from_str::<Params>(&format!("source = \"{src}\"")).unwrap();
         assert!(carries_node("t", "tempo", &t("midi"), browser) && !carries_node("t", "tempo", &t("link"), browser));
+    }
+
+    #[test]
+    fn a_node_needs_an_id_and_a_kind() {
+        assert!(scene_nodes("[[node]]\nkind=\"lfo\"\n").unwrap_err().contains("`id` is missing"));
+        assert!(scene_nodes("[[node]]\nid=\"a\"\nkind=3\n").unwrap_err().contains("`kind` is missing"));
+        assert!(scene_nodes("[[node]\n").is_err(), "not TOML");
+        assert!(scene_nodes("[[link]]\nfrom=\"a\"\nto=\"b\"\n").unwrap().is_empty());
     }
 
     #[test]

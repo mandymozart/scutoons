@@ -1,6 +1,6 @@
 # deck-conformance – dev only (#309, P0 of agents/research/ENGINE-REFACTOR-PLAN.md; #317 moved the engine): EVIDENCE about how
-# far the engine (deck-engine, driven as the native deck drives it) and the browser's (live-core's BatchGraph behind
-# deck-space's `lower()`) differ per node kind, whether live-core and deck-engine are bit-exact native vs wasm
+# far the engine (deck-engine, driven as the native deck drives it) and the browser's (live-core's former BatchGraph behind
+# deck-space's `lower()`, retired in #324) differ per node kind, whether live-core and deck-engine are bit-exact native vs wasm
 # (engine-wasm/ is deck-engine behind raw exports). The tests print the report tables; fixtures/ holds the engine's renders
 # as hashes (the guard of every engine change).
 [package]

@@ -2,7 +2,7 @@
 	"$comment": "check:deck-deps (#363 part B, owner 2026-11-03: 'those that shouldnt will fail if the native deck is properly encapsulated'): the core crates of deck/ and the features they are checked with; every crate in their normal dependency tree (cargo tree, all targets) must be in `allow` with a reason, none may be in `deny` (a platform library: audio, window, GPU, sockets, MIDI / serial / input devices, an async runtime, HTTP). A platform need is an adapter crate's (deck-native, space-web, bridge, relay, the adapters) – never a core crate's. `exceptions` are the justified ones: the feature that pulls a platform library and why it stays.",
 	"crates": [
 		{ "crate": "deck-catalog", "args": [], "why": "the node-kind catalog: ports, domains, ranges" },
-		{ "crate": "deck-core", "args": [], "why": "maths, F8 lanes, batch columns, the patcher graph, tempo, analysis (default features)" },
+		{ "crate": "deck-core", "args": [], "why": "maths, F8 lanes, DSP units, tempo, analysis (default features)" },
 		{ "crate": "deck-events", "args": [], "why": "generators that talk in events" },
 		{ "crate": "deck-space", "args": ["--no-default-features", "--features", "being"], "why": "the scene model, rig, quality governor, controls and the being without its GPU passes or file loaders" },
 		{ "crate": "deck-engine", "args": ["--features", "events,modules,space"], "why": "the audio engine with every feature but the module JIT" },

@@ -1,11 +1,11 @@
 //! The control domain – ONE control half (#319, research/ENGINE-REFACTOR-PLAN.md P5, §2.8): the engine steps it once per
 //! 128-frame quantum inside the render (`Control`), and the picture reads what it computed from a snapshot ring by the
 //! heard frame (`Controls`, the frame thread's face). Before #319 the native deck stepped it once per video frame – the
-//! screen's refresh drove the sound – and the browser ran deck-core's `BatchGraph`; its API (`send` with an amount,
+//! screen's refresh drove the sound – and the browser ran deck-core's `BatchGraph` (retired with #324); its API (`send` with an amount,
 //! `set_base`, `input`, `nodes`, the helpers `smooth` / `mul` / `add`) is this one's now.
 //!
 //! Compiled at load (#183, the batch model): one value slot per control output, every control input as a column
-//! (`deck_core::batch::Col`: the linked slot × scale + offset, or a constant), the computed nodes (lfo, smooth, mul, add)
+//! (`cols::Col`: the linked slot × scale + offset, or a constant), the computed nodes (lfo, smooth, mul, add)
 //! in dependency levels, one batch per level and operation – struct-of-arrays, one loop each. A step: the FFT analyzers,
 //! the tempo node (the clock at the block's first frame), the levels, then every control input of an audio node into
 //! its Param (the audio blocks glide each across the block – smooth.rs: per-sample interpolation, so a value that moves
@@ -14,9 +14,9 @@
 //! What the frame thread may change (a MIDI CC, a 3D button, the being's waveform, a sent value) goes to the engine as a
 //! `Command` through a lock-free ring; the face keeps its own copy of the input table, so it reads every input of the
 //! heard snapshot without asking the audio thread.
+use crate::cols::{levels, Col};
 use crate::fft::Analyzer;
 use crate::Param;
-use deck_core::batch::{levels, Col};
 use deck_core::math::{fract_fast, sin_turns};
 use deck_core::tempo::{self, BeatReader};
 use deck_space::graph::{Graph, Kind, PortType};

@@ -4,7 +4,7 @@
 //! `Ramp` is a one-pole smoother stepped once per block whose output is spread linearly across the block: sample `i`
 //! of a block is `from + step · i`, and the next block starts where this one was heading – continuous at every block
 //! edge, a value written once per frame glides in over a few time constants. Native (deck-native's voices and blocks)
-//! and the browser (this crate's synth and batch, live-core) use the same one. Never allocates.
+//! and the browser (live-core, the same engine) use the same one. Never allocates.
 
 /// how long a gain or a frequency glides (s): a step in either is what clicks loudest
 pub const GLIDE: f32 = 0.025;

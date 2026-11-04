@@ -1,5 +1,13 @@
 # deck/lab – the #182 / #184 experiments (its own Cargo workspace, not built by CI)
 
+> **Pinned (#324, 2026-11-04): the lab builds at commit `96f1ae9943a40e0965268ac2501b86771546a26b` (2026-11-03, the P5 merge)
+> and not on `main`.** It is a snapshot of experiments, no longer maintained. It broke in two steps: `0bab7559` (live-core holds
+> deck-engine, #320) gave `Core::load` a `channels` argument that `core-wasm` no longer fits, and #324 deleted what the
+> lab measured (deck-core's patcher `ControlGraph`, `BatchGraph`, the `synth` and `control` blocks, `bench_scene`,
+> `deck-scene-features --core`). To run it: `git worktree add ../lab-pin 96f1ae99` and follow "Run" below from its
+> `deck/lab` (checked there with `cargo check --workspace --all-targets`). The results in `results/` stay valid as what
+> was measured then. The engine's own numbers are `deck/engine/tests/bench.rs` and `deck/conformance`.
+
 Results and what they mean: agents/research/LIVE-NIGHT-2026-10-29.md §4; the wasm boundary's exchange format (#184):
 `results/formats.md`. Raw numbers: `results/`.
 

@@ -277,7 +277,7 @@ hoses glow (what the button reaches). A colour control (a hue) wears the colour 
 its node point. **No numbers** (owner 2026-10-31): no labels, no range ends; instead **every knob always wears a thin
 270° ring lit up to its value** (`kind::GAUGE` – the value at rest), wider and brighter under the hand. **A linked
 knob turns as its base** (#188): a linked input is `source · scale + base`, the knob sets the base (the link's offset;
-`Controls::set` / deck-core's `BatchGraph::set_base` / live-core's wire mode `base`) and the modulation adds on top –
+`Controls::set` / the engine's `Control::set_base` (once deck-core's `BatchGraph`) / live-core's wire mode `base`) and the modulation adds on top –
 its ring shows the base lit, the swing the modulation covered lately as a band and the value now as a white tick; a
 double click eases it back to the link's offset. Only a mirrored deck's linked knob (the stream carries no base) is
 locked: pale, a dashed ring, it shakes when grabbed. **The knobs face the camera** (#209, owner 2026-10-31: "always in sight of the camera … never hidden behind the body or the head"): the core's
@@ -524,7 +524,7 @@ with the token, ready, the cell, resume, the snapshot after a restart). Not yet:
   `audio graph: batch avx2 …`, a `--frames` run's summary too; `DECK_SIMD=baseline` keeps the baseline loops. A
   whole-program v3 binary (`cargo stage-v3`, deck/.cargo/config.toml) is faster again on the one-off nodes (the default
   scene 10.0 → 7.5 µs per block); the ISO may ship it beside the baseline one (#183).
-- **Shared with deck-core** (#183, #185): the maths, `F8` lanes and batch columns, the FFT analyzer (`analysis::Analyzer`
+- **Shared with deck-core** (#183, #185): the maths, `F8` lanes, the FFT analyzer (`analysis::Analyzer`
   – `src/fft.rs` only drains the audio ring into it) and the tempo map (`tempo`: map, quantize, tap); the same code
   builds for wasm32 (the browser's Live mode).
 - **Tempo** (`src/tempo/`, #181): a tempo map over the audio frame position (beat = f(audio position)); the frame thread

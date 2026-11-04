@@ -815,6 +815,7 @@ review), Opus only if named. Then ABI v2 (§3.6) replacing v1, the stored module
 **P12 – Retirements (S).** `ControlGraph`, deck-core `SceneDef`, `synth.rs` blocks, `batch.rs` (its tests live on in
 the engine); `deck/lab` pinned to the last commit that builds it (a note in its README, it is outside the workspace);
 `modules.ts` deleted once the browser backend passes its fixtures (P9b). ≈ $1.
+**Built 2026-11-04 (#324):** `ControlGraph`, `SceneDef`, the `synth.rs` blocks, `batch.rs`'s `BatchGraph`, and the registry under them (`module.rs`, `control.rs`, the `fft` block) are deleted; `Col` / `levels` (used by deck-engine) moved to `deck/engine/src/cols.rs`; `deck-scene-features` reads the scene's nodes through `stage::scene_features`; `deck/lab` is pinned (its README: builds at `96f1ae99`). Left for a follow-up: the catalog's `batch` flag and its `module` / `engine` port fields, which nothing reads now (changing them regenerates kinds.json / schema.json).
 
 **P3b – Names (chore, S), before P4 – done (#316).** The native deck moved to `deck/native/`, crate `deck-native`, binary
 `deck` (§2.0); the deck-update bundle and the X1 kiosk scripts name the binary `deck` now.
@@ -878,7 +879,7 @@ Plus orchestrator sessions (≈ 10, one per two or three merges, ≈ $5–10 eac
 | `server/.../RigValidator.php` + `NodeKinds.php` | in use (CatalogValidator) | P10 | `NodeKinds.php` generated from the catalog from P2; both deleted with #313 |
 | parked TS validator (`parked/269-rig-editor`) | parked | never revived | branch deletion is the owner's |
 | stage `control.rs`, `audio/{blocks,voices,click,walk,module}`, engine part of `mod.rs` | in use | P4 (moved, not copied) | the native deck keeps backend, ring, lead (until moved), priority, glitch, sequencer / dispatch threads |
-| `BatchGraph`, `ControlGraph`, `SceneDef`, `synth.rs` blocks | in use (live-core, lower, lab) | P6 / P12 | API merged in P5, live-core switched in P6, bodies removed in P12 |
+| `BatchGraph`, `ControlGraph`, `SceneDef`, `synth.rs` blocks | **deleted (#324, 2026-11-04)** | P6 / P12 | API merged in P5, live-core switched in P6, bodies removed in P12; with them the patcher's registry (`module.rs`, `control.rs`, the `fft` block); `Col` and `levels` moved into deck-engine (`cols.rs`) |
 | live-core `walks.rs`; deck-space `lower()` page nodes + aliases | `walks.rs`, aliases: **done (#320)**; page nodes: `chapter_music`, `module:*` | P6 / P9b | the engine's event host; `module:*` last |
 | TS `noise.ts`, `deck.ts` melody / LFO / `Math.random`, `scene.ts` fixed patch and `Spec` twin | **done (#320)** but the `Spec` twin | P6 (+ P2 for `Spec`: read `kinds.json`) | the fixed patch is a scene the engine plays |
 | duplicate tempo code: `space.ts` fixed BPM, walks' own bpm | in use | P8 | the core's clock |
