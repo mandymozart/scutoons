@@ -14,6 +14,7 @@ pub mod module_host;
 pub mod render;
 pub mod pairing;
 pub mod quality;
+pub mod rig;
 pub mod splash;
 pub mod stop;
 pub mod switcher;

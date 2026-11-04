@@ -17,7 +17,9 @@ cd deck && cargo run --release -p deck-native -- --windowed
 ```
 
 `--scene FILE` (default: the built-in `scenes/idle.toml` – fireflies on black, no sound, no network (#252); `--scene madness` = "AV madness"; `--scene cathedral` / `conductor` = the
-built-in `scenes/cathedral.toml` / `conductor.toml`) · `--sets DIR` (a local folder of sets instead of the synced
+built-in `scenes/cathedral.toml` / `conductor.toml`; `--scene rig:catpope[@mood]` = a core rig – `rig:item.incense_burner` an
+item's –, played by deck-space's `Deck` as on every deck (#322, src/rig.rs: flattened, in the cathedral's room, replayed when
+the being's mood turns; no such rig = the deck's own scene)) · `--sets DIR` (a local folder of sets instead of the synced
 `<cache>/sets`, `DECK_SETS` – e.g. `../media/scutoons/rooms`, tools/rooms' output) · `--portraits DIR` (a local folder
 of the heads' sprites instead of the synced `<cache>/portraits`, `DECK_PORTRAITS` – e.g. `../media/characters`) ·
 `DECK_TOKEN` (a fixed deck token for the API and show media – a dev deck; a deck reads deck-link's, #180) · `--token T`

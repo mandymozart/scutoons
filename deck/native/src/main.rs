@@ -53,7 +53,7 @@ enum Event {
     Stop,
 }
 
-const HELP: &str = "deck [--scene FILE|cathedral|conductor|outlet] [--audio auto|pipewire|cpal|null] [--volume 0-1] [--cache DIR]
+const HELP: &str = "deck [--scene FILE|cathedral|conductor|outlet|rig:NAME] [--audio auto|pipewire|cpal|null] [--volume 0-1] [--cache DIR]
            [--audio-host default|wasapi|asio] [--audio-device NAME] [--audio-buffer FRAMES] [--audio-thread on|off]
            [--audio-list]
            [--sets DIR] [--portraits DIR] [--token T] [--api URL] [--cdn URL] [--windowed] [--frames N]
@@ -62,10 +62,10 @@ const HELP: &str = "deck [--scene FILE|cathedral|conductor|outlet] [--audio auto
            [--outlet ID] [--locale de] [--quality auto|low|medium|high|ultra[,fixed]] [--quality-file FILE] [--settings]
            [--scenes DIR] [--switcher] [--switch NAME]
   --scene      a scene TOML (default: the built-in idle scene – fireflies on black, no sound, scenes/idle.toml, #252;
-               `madness` = AV madness, scenes/madness.toml); `cathedral` = the built-in
-               Cathedral of decks (scenes/cathedral.toml – a deck's being), `conductor` = its conductor in the middle
-               (scenes/conductor.toml), `outlet` = the built-in Live outlet (scenes/outlet.toml – the default when an
-               outlet is set)
+               `madness` = AV madness, scenes/madness.toml); `cathedral` = the built-in Cathedral of decks
+               (scenes/cathedral.toml – a deck's being), `conductor` = its conductor in the middle (scenes/conductor.toml),
+               `outlet` = the built-in Live outlet (scenes/outlet.toml – the default when an outlet is set);
+               `rig:catpope[@mood]` = a character's (or `item.<id>`'s) core rig in the deck's room (#322, rig.rs)
   --sync       the conductor's push (#195): what the decks fetch into their cache – sent at the start and on S
                (default: the scene's set and the characters on stage)
   --relay      the Live relay with the session code (default: deck.toml's `relay`, else the hosted
@@ -321,8 +321,9 @@ struct Show {
     /// #236: the hosts' sequencer and dispatcher threads (a scene with a `walk` / `events` node), their drop counters
     #[cfg(feature = "events")]
     events: Option<audio::dispatch::Running>,
-    /// the scene's space node (#188): the camera, the being, the pointer
+    /// the scene's space node (#188): the camera, the being, the pointer; #322: the rig it plays (the core replays it on the mood)
     space: Option<render::Space>,
+    rig: Option<deck_native::rig::Player>,
     /// the Live outlet (#186): its threads, the space targets for the space node; or why it doesn't play
     #[cfg(feature = "live")]
     live: Option<deck_native::live::Live>,
@@ -385,6 +386,7 @@ fn audio_options(args: &Args, scene: &scene::Scene) -> backend::Options {
 fn read_scene(args: &Args) -> Result<scene::Scene> {
     match &args.scene {
         Some(p) if !p.exists() && p.to_str().and_then(switcher::builtin).is_some() => scene::Scene::parse(p.to_str().and_then(switcher::builtin).unwrap_or_default()),
+        Some(p) if deck_native::rig::named(p).is_some() => deck_native::rig::scene(p),
         Some(p) => scene::Scene::load(p),
         None if outlet_configured(args) => scene::Scene::parse(scene::OUTLET_SCENE),
         None => scene::Scene::parse(scene::IDLE_SCENE),
@@ -639,6 +641,7 @@ impl Show {
             #[cfg(feature = "events")]
             events,
             space,
+            rig: deck_native::rig::Player::of(args.scene.as_deref(), scene),
             #[cfg(feature = "live")]
             live,
             live_note,
@@ -929,9 +932,7 @@ impl App {
             return;
         }
         // the picture fades to black and the sound out as long (PipeWire), then `load_switch`
-        if let Some(a) = &self.show.audio {
-            a.fade_out();
-        }
+        self.show.audio.iter().for_each(|a| a.fade_out());
         self.trans = Some(switcher::Transition::new(value));
         self.switcher.status = format!("FADING TO {}", value.rsplit(['/', '\\']).next().unwrap_or(value).to_uppercase());
     }
@@ -1170,9 +1171,7 @@ impl App {
         self.show.show_link.after(&mut self.show.tempo);
         self.show.controls.update(dt, self.lead(), &beat);
         #[cfg(feature = "outputs")]
-        if self.dying.as_ref().is_some_and(|(_, until)| Instant::now() >= *until) {
-            self.dying = None;
-        }
+        self.dying = self.dying.take().filter(|(_, until)| Instant::now() < *until);
         // #211: the values to the outputs' runner; its MIDI for the conductor to the relay link
         #[cfg(feature = "outputs")]
         if let Some(o) = &self.show.outputs {
@@ -1210,6 +1209,7 @@ impl App {
             let meters = self.show.meters.as_deref();
             s.being.strain(dt, reduction);
             s.update(dt, time, &mut self.show.controls, &beat, &|n, p| meters.map_or(0.0, |m| m.level(n, p)));
+            if let (Some(r), Some(mood)) = (self.show.rig.as_mut(), s.being.moods.get(s.being.head.mood)) { r.frame(mood, &self.show.graph, &mut self.show.controls, dt) }
             // #220: a deck reports its quality to the session (at once on a change, else at most every 2 s)
             if let Some(q) = self.governor.as_mut().and_then(|g| g.report_due(self.started.elapsed().as_secs_f64())) {
                 s.report_quality(q.wire());
