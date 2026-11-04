@@ -29,8 +29,8 @@ export interface DeckOptions {
 	api: string;
 	/** the CDN root (ends with /): with it the deck answers the conductor's scene sync (#195) */
 	cdn?: string;
-	/** #195: each answer to the conductor's push (the page's status) */
-	onSynced?: (r: DeckSynced) => void;
+	/** #195: each answer to the conductor's push and the core's PUSH line for it (the page's status, #371) */
+	onSynced?: (r: DeckSynced, line: string) => void;
 	onStatus?: (s: string) => void;
 	socket?: new (url: string) => WebSocketLike;
 }
@@ -102,11 +102,9 @@ export class Deck {
 		this.character = o.character;
 		this.sync = o.cdn
 			? new BrowserSync({
-					api: o.api,
-					cdn: o.cdn,
-					report: (r) => {
+					report: (r, line) => {
 						this.link?.synced(r);
-						o.onSynced?.(r);
+						o.onSynced?.(r, line);
 					}
 				})
 			: null;

@@ -13,7 +13,7 @@
 // mood, what plays, the rig's lifecycle – #367, #368), `SpaceStage` (the being), live-core's worker and worklet. Nothing
 // of the sound, the rig or the being is decided in TS here.
 import { METER_ZONES, type DeviceRow, type DeviceSignal, type OutputReading } from '@scutoons/live-core';
-import { Deck, SpaceStage, loadMonitor, type EngineFiles, type Hand, type MonitorReport, type MonitorView, type RigPlayed, type RigTurn } from '@scutoons/live-deck';
+import { Deck, SpaceStage, loadMonitor, loadPush, type EngineFiles, type Hand, type MonitorReport, type MonitorView, type RigPlayed, type RigTurn } from '@scutoons/live-deck';
 import { EngineLog, formatLine, messageOf } from './log.ts';
 import { deckOptions, folder, type EngineHostOptions } from './options.ts';
 import { canStart, canStop, emptySnapshot, type EnginePhase, type EngineSnapshot } from './status.ts';
@@ -137,6 +137,12 @@ export class EngineHost {
 			this.perf ??= await loadMonitor(folder(o.wasmBase));
 		} catch (e) {
 			this.log.push('host', `no monitor: ${messageOf(e)}`, 'warn');
+		}
+		try {
+			// #371: the answers to the conductor's pushes are the core's (deck-space's push machine)
+			if (deck.sync) deck.sync.useCore(await loadPush(folder(o.wasmBase), o.api, folder(o.cdn)));
+		} catch (e) {
+			this.log.push('host', `no push answers: ${messageOf(e)}`, 'warn');
 		}
 		try {
 			this.space = await SpaceStage.start({

@@ -563,7 +563,7 @@ pub fn script(s: &Script, api: &str, cdn: &str) -> Vec<Call> {
         let r = s.files.get(path).cloned().unwrap_or(Reply { status: Some(404), ..Reply::default() });
         let status = r.status.unwrap_or(200);
         let len = if status / 100 == 2 { r.bytes } else { 0 };
-        let head: Vec<u8> = r.head.bytes().take(HEAD).collect();
+        let head: Vec<u8> = r.head.bytes().take(HEAD.min(len as usize)).collect();
         run.received(n, status, len, &head);
         calls.push(Call { name: "received", args: json!([n, status, len, head]), answer: Value::Null });
         say(&mut calls, &run);

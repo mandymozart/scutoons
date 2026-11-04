@@ -8,6 +8,7 @@
 // page says the 3D is missing.
 import type { DeckControlsView } from './controls.ts';
 import type { Deck } from './deck.ts';
+import type { DeckPushView } from './sync.ts';
 import type { DeckQuality, QualityLevel } from '@scutoons/live';
 import type { MonitorView } from '@scutoons/live-core';
 export type { QualityLevel };
@@ -173,6 +174,7 @@ interface SpaceModule {
 	DeckControls: new () => DeckControlsView;
 	DeckMonitor: new () => MonitorView;
 	DeckState: new () => DeckStateView;
+	DeckPush: new (api: string, cdn: string) => DeckPushView;
 }
 
 const modules = new Map<string, Promise<SpaceModule>>();
@@ -203,6 +205,12 @@ export async function loadControls(base: string): Promise<DeckControlsView> {
 export async function loadDeckState(base: string): Promise<DeckStateView> {
 	const mod = await spaceModule(base);
 	return new mod.DeckState();
+}
+
+/** #371: deck-space's push machine – the answers to the conductor's pushes (as wasm, no GPU); the library API and the CDN root */
+export async function loadPush(base: string, api: string, cdn: string): Promise<DeckPushView> {
+	const mod = await spaceModule(base);
+	return new mod.DeckPush(api, cdn);
 }
 
 /** #364: deck-core's monitor (as wasm, no GPU: it works when the 3D can't, and before the sound) */
