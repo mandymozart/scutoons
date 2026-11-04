@@ -127,7 +127,7 @@ fn lineage_refuses_loops_strangers_and_orphans() {
     assert!(book.lineage("choir.bright").unwrap_err().to_string().contains("another instrument"));
     let mut book = lib.presets.clone();
     book.presets.get_mut("choir.base").unwrap().parent = Some("gone".into());
-    assert!(format!("{:#}", book.lineage("choir.bright").unwrap_err()).contains("no preset 'gone'"));
+    assert_eq!(format!("{:#}", book.lineage("choir.bright").unwrap_err()), "preset choir.base: unknown preset \"gone\" (its parent)");
 }
 
 #[test]

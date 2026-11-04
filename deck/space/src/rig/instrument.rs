@@ -94,9 +94,9 @@ impl Instrument {
     pub fn check(&self) -> Result<Graph> {
         let unpatched =
             Patch { nodes: self.nodes.clone(), links: self.links.clone(), out: self.out.clone(), mappings: vec![] };
-        let graph = unpatched.graph().with_context(|| format!("instrument '{}'", self.id))?;
+        let graph = unpatched.graph().with_context(|| format!("instrument {}", self.id))?;
         if let Some(n) = graph.nodes.iter().find(|n| SCENE_ONLY.contains(&n.kind)) {
-            bail!("instrument '{}': a {:?} node belongs to the scene, not to an instrument ({})", self.id, n.kind, n.id);
+            bail!("instrument {}: a {} node belongs to the scene, not to an instrument ({})", self.id, n.kind.name(), n.id);
         }
         let (node, port) = split_ref(&self.out);
         let ok = graph.nodes.iter().find(|n| n.id == node).and_then(|n| {
@@ -104,7 +104,7 @@ impl Instrument {
             (n.kind.outputs()[i].ty == PortType::Audio).then_some(())
         });
         if ok.is_none() {
-            bail!("instrument '{}': out '{}' is not an audio output", self.id, self.out);
+            bail!("instrument {}: out '{}' is not an audio output", self.id, self.out);
         }
         for e in &self.expose {
             self.control_input(&e.path)?;
@@ -115,7 +115,7 @@ impl Instrument {
             let notes = deck_events::patch::NoteNames::new(&mut names);
             deck_events::patch::Patch::from_table(&n.params)
                 .and_then(|p| p.build(notes, &mut names).map(|_| ()))
-                .map_err(|e| anyhow::anyhow!("instrument '{}': events node '{}': {e}", self.id, n.id))?;
+                .map_err(|e| anyhow::anyhow!("instrument {}: events node '{}': {e}", self.id, n.id))?;
         }
         Ok(graph)
     }
@@ -124,12 +124,12 @@ impl Instrument {
     pub fn control_input(&self, path: &str) -> Result<Kind> {
         let (node, port) = split_ref(path);
         let Some(n) = self.nodes.iter().find(|n| n.id == node) else {
-            bail!("instrument '{}': no node '{node}' ({path})", self.id)
+            bail!("instrument {}: no node '{node}' ({path})", self.id)
         };
-        let Some(kind) = Kind::parse(&n.kind) else { bail!("instrument '{}': unknown kind '{}'", self.id, n.kind) };
+        let Some(kind) = Kind::parse(&n.kind) else { bail!("instrument {}: unknown kind '{}'", self.id, n.kind) };
         match kind.input(port).map(|i| kind.inputs()[i].ty) {
             Some(PortType::Control) => Ok(kind),
-            _ => bail!("instrument '{}': {path} is not a control input of {kind:?}", self.id),
+            _ => bail!("instrument {}: {path} is not a control input of {}", self.id, kind.name()),
         }
     }
 
@@ -144,7 +144,7 @@ impl Instrument {
             let (node, port) = split_ref(target);
             let known = self.nodes.iter().find(|n| n.id == node).and_then(|n| Kind::parse(&n.kind)?.input(port));
             if known.is_none() {
-                bail!("instrument '{}': no input {target} to re-route", self.id);
+                bail!("instrument {}: no input {target} to re-route", self.id);
             }
         }
         let mut links: Vec<LinkDef> = self
@@ -158,10 +158,10 @@ impl Instrument {
         for (path, v) in &preset.values {
             self.control_input(path)?;
             if !v.is_finite() {
-                bail!("instrument '{}': {path} = {v} is not a number", self.id);
+                bail!("instrument {}: {path} = {v} is not a number", self.id);
             }
             if links.iter().any(|l| canonical(&l.to) == canonical(path)) {
-                bail!("instrument '{}': {path} is linked – a preset value needs an unlinked input", self.id);
+                bail!("instrument {}: {path} is linked – a preset value needs an unlinked input", self.id);
             }
             let (node, port) = split_ref(path);
             let n = nodes.iter_mut().find(|n| n.id == node).expect("checked by control_input");
@@ -172,7 +172,7 @@ impl Instrument {
         }
         let patch =
             Patch { nodes, links, out: self.out.clone(), mappings: preset.mappings.values().cloned().collect() };
-        patch.graph().with_context(|| format!("instrument '{}' with its preset", self.id))?;
+        patch.graph().with_context(|| format!("instrument {} with its preset", self.id))?;
         Ok(patch)
     }
 }

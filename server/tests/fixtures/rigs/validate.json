@@ -18,12 +18,6 @@
                         "instrument": "drone"
                     }
                 ],
-                "route": [
-                    {
-                        "from": "drone:drone.out",
-                        "to": "being:pulse"
-                    }
-                ],
                 "moods": {
                     "sad": {
                         "presets": {

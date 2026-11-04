@@ -35,7 +35,7 @@ impl Rig {
         self.check(lib)?;
         let played = self.play(lib, persona, mood)?;
         if played.is_empty() {
-            bail!("rig '{}': every track is muted", self.subject);
+            bail!("rig {}: every track is muted", self.subject);
         }
         let mut scene = Scene::parse("")?;
         scene.stage.name = self.subject.clone();
@@ -78,7 +78,7 @@ impl Rig {
                 scene.being.expose.extend(inst.expose.iter().map(|e| prefixed(track, &super::instrument::canonical(&e.path))));
             }
         }
-        crate::graph::Graph::build(&scene).map_err(|e| e.context(format!("rig '{}' flattened", self.subject)))?;
+        crate::graph::Graph::build(&scene).map_err(|e| e.context(format!("rig {} flattened", self.subject)))?;
         Ok(scene)
     }
 
