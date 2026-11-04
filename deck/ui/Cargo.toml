@@ -1,0 +1,16 @@
+# deck-ui – the deck's own UI model (#374, child of #362; agents/research/DECK-UI-MODEL.md), lifted out of deck-native's
+# main.rs and hud.rs so every deck draws the same layer: what each HUD line says, the collapsed bar's items, the HUD mode
+# (F1). Plain data in (`Status`), words out. No window, GPU, thread, socket, clock or file: the adapter reads its platform
+# objects into a `Status` (deck-native's hud_status.rs, the headless host's `hud` step) and rasters what comes back
+# (deck-native's hud.rs). Builds for wasm32-unknown-unknown (deck:ci, deck.yml).
+[package]
+name = "deck-ui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+# the monitor's report (#364): its bar items, their judgement, its lines and the glitch warning's words
+deck-core = { workspace = true }

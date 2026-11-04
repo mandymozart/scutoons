@@ -2,7 +2,7 @@
 	"$comment": "check:deck-deps (#363 part B): the deck logic the native platform crate still holds (BRIDGE-AUDIT.md §1, the native layer) – recorded, not moved; the move tickets move it (#374 the HUD / bar / F4 / F5 model out of main.rs, #364 the stats, #365 the lead, #371 the sync, #378 the Live outlet, #360 carried_part, #366 the relay join). The ratchet: main.rs may not grow (lines) or gain a function; each file below may not grow; a logic function that disappeared from main.rs is a move done – drop its line (`npm run check:deck-deps -- --shrink`). Growth needs the owner: Owner-approved-baseline in a commit message.",
 	"main": {
 		"file": "deck/native/src/main.rs",
-		"lines": 1954,
+		"lines": 1825,
 		"functions": [
 			"args",
 			"outlet_settings",
@@ -36,9 +36,6 @@
 			"power_off",
 			"redraw",
 			"events_dropped",
-			"bar_items",
-			"hud_lines",
-			"source_line",
 			"summary",
 			"check_hand",
 			"space_event",
@@ -52,9 +49,6 @@
 			"run"
 		],
 		"logic": {
-			"bar_items": "#374 #364 – the stats bar's items and judgement (FPS < 50 after 120 frames, CPU > 14 ms, DSP > 80 %, the quality's red)",
-			"hud_lines": "#374 – the HUD model: every line, its order and wording, the alert row",
-			"source_line": "#370 #374 – the clock source line",
 			"summary": "#364 – the exit summary's numbers (avg fps, p99 frame, cpu)",
 			"push_capped": "#364 – the stats history (5 min at 60 fps)",
 			"open_switcher": "#374 – the F5 scene switcher's model",
@@ -67,9 +61,9 @@
 	},
 	"files": {
 		"deck/native/src/hud.rs": {
-			"lines": 351,
+			"lines": 289,
 			"ticket": "#374 #364",
-			"what": "the HUD's modes, the per-minute window (10 min), the bar's layout"
+			"what": "the HUD's raster (font8x8), the frame-time graph, the beat lights, the bar's layout – the lines, the bar's items and the mode are deck-ui's since #374"
 		},
 		"deck/native/src/quality.rs": {
 			"lines": 378,

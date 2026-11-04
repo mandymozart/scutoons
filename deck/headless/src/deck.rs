@@ -322,6 +322,26 @@ impl Deck {
         m
     }
 
+    /// #374: what this deck's HUD reads, for deck-ui to say: the scene's name, deck-core's monitor at an `fps` target fed
+    /// one second of its frames, the virtual sink as the audio device (`audio`), the clock's tempo line, source and status
+    pub fn hud_status(&mut self, scene: &str, fps: f32, audio: bool) -> deck_ui::Status {
+        let mut m = deck_core::monitor::Monitor::new();
+        m.target(fps);
+        let frames = fps.max(0.0) as u32;
+        for k in 0..=frames {
+            m.frame(f64::from(k) * 1000.0 / f64::from(fps.max(1.0)), 0.0, true);
+        }
+        let out = self.host.clock.state()[17] != 0.0;
+        deck_ui::Status {
+            scene: scene.into(),
+            report: m.report(1000.0),
+            audio: audio.then(|| deck_ui::Audio { name: "virtual".into(), rate: self.rate as u32, buffer: QUANTUM as u32, lead: self.lead, clock_rate: self.rate }),
+            tempo: self.tempo_line(),
+            source: deck_ui::Source { name: self.host.clock.controller().source.name().into(), status: self.line(), midi_out: out },
+            ..deck_ui::Status::default()
+        }
+    }
+
     /// the analysis frame's bands (level, bass, mid, high) of the last frame
     pub fn bands(&self) -> [f32; 4] {
         let mut b = [0.0; 4];

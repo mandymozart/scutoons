@@ -25,6 +25,7 @@
 //! | `quality` / `frames` | `level`, `auto` / `ms`, `secs`, `glitches` | level, ceiling, scale, auto, changes |
 //! | `reset` | – | a fresh host (the clock too) |
 //! | `carried_part` | `with` = { `scene`, `modules` } | kept (nodes), dropped (ids) – deck-core's filter (#360) |
+//! | `hud` | `with` = { `scene`, `fps`, `audio` } | title, lines, bar, levels – deck-ui's HUD from this deck's clock and monitor (#374) |
 //! | a capability (caps.rs) | `with` | its answer, or `Missing` |
 //!
 //! Built for wasm32 too (`hl_inbox`, `hl_run`, `hl_outbox`): the same bundle in, the same report out – tests/wasm.rs
@@ -361,6 +362,22 @@ impl Run<'_> {
                 let (part, dropped, _) = scene.carried_part(|f| modules.contains(&f));
                 json!({ "kept": part.nodes.len(), "dropped": dropped.iter().map(|n| n.id.as_str()).collect::<Vec<_>>() })
             }
+            // #374: the HUD's lines and the bar's items – deck-ui's, from this deck's clock and monitor
+            "hud" => {
+                let with = step.get("with").and_then(|v| v.as_table());
+                let get = |k: &str| with.and_then(|w| w.get(k));
+                let scene = get("scene").and_then(|v| v.as_str()).unwrap_or_default();
+                let fps = get("fps").and_then(|v| v.as_float().or_else(|| v.as_integer().map(|i| i as f64))).unwrap_or(60.0);
+                let s = d.hud_status(scene, fps as f32, get("audio").and_then(|v| v.as_bool()).unwrap_or(false));
+                let lines = deck_ui::hud_lines(&s);
+                let bar = deck_ui::bar_items(&s);
+                json!({
+                    "title": lines.first(),
+                    "lines": lines,
+                    "bar": bar.iter().map(|i| i.text.as_str()).collect::<Vec<_>>(),
+                    "levels": bar.iter().map(|i| i.level).collect::<Vec<_>>(),
+                })
+            }
             c if caps::known(c) => {
                 let input = step.get("with").map(to_json).unwrap_or(Value::Null);
                 caps::call(c, &input).map_err(Fault::Missing)?
@@ -515,13 +532,13 @@ mod tests {
     #[test]
     fn an_expected_failure_is_only_its_missing_capability() {
         let b = |s: &str| Bundle { name: "x".into(), scenario: s.into(), files: BTreeMap::new() };
-        let r = run(&b("expected_fail = \"#374 hud\"\n[[step]]\ndo = \"hud\"\n"));
+        let r = run(&b("expected_fail = \"#375 quality options\"\n[[step]]\ndo = \"quality_options\"\n"));
         assert_eq!(r.status, Status::Xfail, "{}", r.reason);
-        assert!(r.reason.contains("missing capability #374"));
+        assert!(r.reason.contains("missing capability #375"));
         // the wrong ticket, another failure, or a pass: red
-        assert_eq!(run(&b("expected_fail = \"#365\"\n[[step]]\ndo = \"hud\"\n")).status, Status::Fail);
-        assert_eq!(run(&b("expected_fail = \"#374\"\n[[step]]\ndo = \"nonsense\"\n")).status, Status::Fail);
-        let passed = run(&b("expected_fail = \"#374\"\n[[step]]\ndo = \"reset\"\n"));
+        assert_eq!(run(&b("expected_fail = \"#365\"\n[[step]]\ndo = \"quality_options\"\n")).status, Status::Fail);
+        assert_eq!(run(&b("expected_fail = \"#375\"\n[[step]]\ndo = \"nonsense\"\n")).status, Status::Fail);
+        let passed = run(&b("expected_fail = \"#375\"\n[[step]]\ndo = \"reset\"\n"));
         assert_eq!(passed.status, Status::Fail);
         assert!(passed.reason.contains("remove the line"));
     }
