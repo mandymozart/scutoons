@@ -7,12 +7,13 @@
 	// to deck-space at once (it clamps, the governor uses it); the same presets as the X1's quality file – "Copy as text"
 	// gives that file, the text field takes one.
 	import { Sheet } from '@scutoons/ui';
-	import type { QualityLevel, QualityPreset, QualityPresets, SpaceQuality } from '@scutoons/live-deck';
+	import type { QualityLevel, QualityOptions, QualityPreset, QualityPresets, SpaceQuality } from '@scutoons/live-deck';
 	import { m } from '$lib/paraglide/messages.js';
 
 	let {
 		open = $bindable(false),
 		presets,
+		options,
 		quality,
 		screen,
 		text,
@@ -21,6 +22,8 @@
 	}: {
 		open?: boolean;
 		presets: QualityPresets;
+		/** #375: the option lists (levels, fps caps, pixel ratios) – the core's */
+		options: QualityOptions;
 		quality: SpaceQuality;
 		/** the screen's physical pixels (the most it shows) and the display the 3D scales from */
 		screen: { max: [number, number]; display: [number, number] };
@@ -31,14 +34,6 @@
 		ontext: (text: string) => string;
 	} = $props();
 
-	const LEVELS: [QualityLevel, string][] = [
-		['low', 'LOW'],
-		['medium', 'MED'],
-		['high', 'HIGH'],
-		['ultra', 'ULTRA']
-	];
-	const FPS = [24, 30, 40, 48, 60, 120];
-	const RATIOS = [0, 1, 1.5, 2, 3];
 	let problem = $state('');
 	let draft = $state('');
 	let copied = $state(false);
@@ -83,7 +78,7 @@
 				<span>{m['live_deck.quality_level']()}</span>
 				<select value={presets.level ?? ''} onchange={(e) => change((p) => (p.level = (e.currentTarget.value || undefined) as QualityLevel | undefined))}>
 					<option value="">{m['live_deck.quality_by_gpu']()}</option>
-					{#each LEVELS as [level, label] (level)}<option value={level}>{label}</option>{/each}
+					{#each options.levels as { id: level, label } (level)}<option value={level}>{label}</option>{/each}
 				</select>
 			</label>
 			<button type="button" class="toggle" class:on={presets.auto} aria-pressed={presets.auto} title={m['live_deck.quality_auto_hint']()} onclick={() => change((p) => (p.auto = !p.auto))}>
@@ -92,7 +87,7 @@
 			<label title={m['live_deck.quality_ratio_hint']()}>
 				<span>{m['live_deck.quality_ratio']()}</span>
 				<select value={presets.pixel_ratio ?? 0} onchange={(e) => change((p) => (p.pixel_ratio = Number(e.currentTarget.value) || undefined))}>
-					{#each RATIOS as r (r)}<option value={r}>{r ? `${r}×` : m['live_deck.quality_device']()}</option>{/each}
+					{#each options.pixel_ratios as r (r)}<option value={r}>{r ? `${r}×` : m['live_deck.quality_device']()}</option>{/each}
 				</select>
 			</label>
 		</div>
@@ -101,20 +96,20 @@
 				<thead>
 					<tr>
 						<th></th>
-						{#each LEVELS as [level, label] (level)}<th class:now={quality.level === level}>{label}</th>{/each}
+						{#each options.levels as { id: level, label } (level)}<th class:now={quality.level === level}>{label}</th>{/each}
 					</tr>
 				</thead>
 				<tbody>
 					<tr>
 						<th>{m['live_deck.quality_on']()}</th>
-						{#each LEVELS as [level] (level)}
+						{#each options.levels as { id: level } (level)}
 							<td><button type="button" class="toggle" class:on={presets[level].on} aria-pressed={presets[level].on} onclick={() => set(level, 'on', !presets[level].on)}>{presets[level].on ? 'ON' : 'OFF'}</button></td>
 						{/each}
 					</tr>
 					{#each [['min', m['live_deck.quality_min']()], ['max', m['live_deck.quality_max']()]] as const as [key, label] (key)}
 						<tr class="size">
 							<th title={m['live_deck.quality_size_hint']()}>{label}</th>
-							{#each LEVELS as [level] (level)}
+							{#each options.levels as { id: level } (level)}
 								<td>
 									<input
 										type="number"
@@ -132,23 +127,23 @@
 					{#each [['fxaa', 'FXAA'], ['bloom', m['live_deck.quality_bloom']()]] as const as [key, label] (key)}
 						<tr>
 							<th>{label}</th>
-							{#each LEVELS as [level] (level)}
+							{#each options.levels as { id: level } (level)}
 								<td><button type="button" class="toggle" class:on={presets[level][key]} aria-pressed={presets[level][key]} onclick={() => set(level, key, !presets[level][key])}>{presets[level][key] ? 'ON' : 'OFF'}</button></td>
 							{/each}
 						</tr>
 					{/each}
 					<tr>
 						<th>{m['live_deck.quality_lights']()}</th>
-						{#each LEVELS as [level] (level)}
+						{#each options.levels as { id: level } (level)}
 							<td><input type="number" min="0" max="8" step="1" value={presets[level].lights} onchange={(e) => set(level, 'lights', Number(e.currentTarget.value))} /></td>
 						{/each}
 					</tr>
 					<tr>
 						<th>{m['live_deck.quality_fps']()}</th>
-						{#each LEVELS as [level] (level)}
+						{#each options.levels as { id: level } (level)}
 							<td>
 								<select value={presets[level].fps} onchange={(e) => set(level, 'fps', Number(e.currentTarget.value))}>
-									{#each FPS as f (f)}<option value={f}>{f}</option>{/each}
+									{#each options.fps as f (f)}<option value={f}>{f}</option>{/each}
 								</select>
 							</td>
 						{/each}

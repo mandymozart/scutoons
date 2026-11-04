@@ -457,6 +457,12 @@ impl SpaceView {
         serde_json::to_string(&self.presets).unwrap_or_default()
     }
 
+    /// #375: the option lists the settings offer – levels (id, label), fps caps, scales, heights, pixel ratios, the
+    /// lights and size limits – JSON, deck-space's `quality::options_json`; the page lists exactly these
+    pub fn options_json(&self) -> String {
+        deck_space::quality::options_json()
+    }
+
     /// #220: presets from TOML (the stage's file, or only what it changes) – "" or why not (they stay as they were)
     pub fn set_presets(&mut self, text: &str) -> String {
         match Presets::parse(text) {

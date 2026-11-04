@@ -86,6 +86,16 @@ impl Level {
         Level::ALL.into_iter().find(|l| l.name().eq_ignore_ascii_case(s.trim()))
     }
 
+    /// the level as the settings show it (#375): LOW · MED · HIGH · ULTRA
+    pub fn label(self) -> &'static str {
+        match self {
+            Level::Low => "LOW",
+            Level::Medium => "MED",
+            Level::High => "HIGH",
+            Level::Ultra => "ULTRA",
+        }
+    }
+
     /// the next level up (ultra wraps to low – the stage's key cycles)
     pub fn next(self) -> Level {
         Level::ALL[(self as usize + 1) % Level::ALL.len()]
@@ -208,6 +218,81 @@ impl Size {
             Size::Height(h) => h as f32 / display_h.max(1) as f32,
         }
     }
+
+    /// the size's height in pixels on a display `display_h` high (#375: a height is its own, a scale × the display's)
+    pub fn height_px(self, display_h: u32) -> u32 {
+        match self {
+            Size::Height(h) => h,
+            Size::Scale(s) => (s * display_h as f32).round() as u32,
+        }
+    }
+
+    /// one step along the option list of its kind (`SCALES` for a scale, `HEIGHTS` for a height) from the nearest entry,
+    /// up or down, staying at the list's ends (#375)
+    pub fn step(self, up: bool) -> Size {
+        match self {
+            Size::Scale(x) => {
+                let i = nearest_scale(x);
+                Size::Scale(SCALES[if up { (i + 1).min(SCALES.len() - 1) } else { i.saturating_sub(1) }])
+            }
+            Size::Height(h) => {
+                let i = nearest_height(h);
+                Size::Height(HEIGHTS[if up { (i + 1).min(HEIGHTS.len() - 1) } else { i.saturating_sub(1) }])
+            }
+        }
+    }
+
+    /// the same size in the other unit on a display `display_h` high, on the other list's nearest entry: a scale becomes a
+    /// height, a height a scale (the settings' P key, #375)
+    pub fn other_unit(self, display_h: u32) -> Size {
+        match self {
+            Size::Scale(_) => Size::Height(HEIGHTS[nearest_height(self.height_px(display_h))]),
+            Size::Height(h) => Size::Scale(SCALES[nearest_scale(h as f32 / display_h.max(1) as f32)]),
+        }
+    }
+}
+
+// The option lists the settings offer (#375, #220) – the one place they exist: the stage's page (deck-native) reads them
+// directly, the browser's sheet through `options_json` (space-web). A value outside a list is still valid (the preset
+// file takes any in range); the lists are what the steps and the pick-lists offer.
+/// the frame rate caps
+pub const FPS: [u32; 6] = [24, 30, 40, 48, 60, 120];
+/// the render scales (× the display's pixels)
+pub const SCALES: [f32; 20] = [0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0, 1.1, 1.25, 1.5, 2.0];
+/// the render heights (px)
+pub const HEIGHTS: [u32; 13] = [360, 480, 540, 600, 720, 810, 900, 1080, 1200, 1440, 1620, 1800, 2160];
+/// the browser's device-pixel-ratio caps (0 = none: the page's own cap)
+pub const PIXEL_RATIOS: [f32; 5] = [0.0, 1.0, 1.5, 2.0, 3.0];
+
+/// the index in `SCALES` nearest to `v`
+fn nearest_scale(v: f32) -> usize {
+    (0..SCALES.len()).min_by(|&a, &b| (SCALES[a] - v).abs().total_cmp(&(SCALES[b] - v).abs())).unwrap_or(0)
+}
+
+/// the index in `HEIGHTS` nearest to `v`
+fn nearest_height(v: u32) -> usize {
+    (0..HEIGHTS.len()).min_by_key(|&i| HEIGHTS[i].abs_diff(v)).unwrap_or(0)
+}
+
+/// the frame rate cap one step up or down the `FPS` list from the nearest entry, staying at its ends (#375)
+pub fn step_fps(fps: u32, up: bool) -> u32 {
+    let i = (0..FPS.len()).min_by_key(|&i| FPS[i].abs_diff(fps)).unwrap_or(0);
+    FPS[if up { (i + 1).min(FPS.len() - 1) } else { i.saturating_sub(1) }]
+}
+
+/// All of the above as JSON for the browser (#375): `{ levels: [{ id, label }], fps, scales, heights, pixel_ratios,
+/// max_lights, max_side }`.
+pub fn options_json() -> String {
+    serde_json::json!({
+        "levels": Level::ALL.iter().map(|l| serde_json::json!({ "id": l.name(), "label": l.label() })).collect::<Vec<_>>(),
+        "fps": FPS,
+        "scales": SCALES,
+        "heights": HEIGHTS,
+        "pixel_ratios": PIXEL_RATIOS,
+        "max_lights": MAX_LIGHTS,
+        "max_side": MAX_SIDE,
+    })
+    .to_string()
 }
 
 /// the 3D's size for a display of `w` × `h` pixels at `size` (each side 1 …  `MAX_SIDE`)
@@ -755,6 +840,46 @@ mod tests {
         assert_eq!(render_size((3840, 2160), Size::Height(1080)), (1920, 1080));
         assert_eq!(render_size((1080, 2340), Size::Height(1170)), (540, 1170), "a phone upright");
         assert_eq!(Size::Height(720).scale_for(1440), 0.5);
+    }
+
+    #[test]
+    fn the_option_lists_and_steps_are_the_cores() {
+        // sorted lists, so a step is a direction
+        assert!(FPS.windows(2).all(|w| w[0] < w[1]) && SCALES.windows(2).all(|w| w[0] < w[1]) && HEIGHTS.windows(2).all(|w| w[0] < w[1]));
+        // a step goes from the nearest entry and stays at the ends
+        assert_eq!(Size::Scale(0.5).step(true), Size::Scale(0.55));
+        assert_eq!(Size::Scale(0.52).step(false), Size::Scale(0.45), "from the nearest (0.5)");
+        assert_eq!(Size::Scale(2.0).step(true), Size::Scale(2.0));
+        assert_eq!(Size::Scale(0.25).step(false), Size::Scale(0.25));
+        assert_eq!(Size::Height(1080).step(true), Size::Height(1200));
+        assert_eq!(Size::Height(1000).step(false), Size::Height(900), "1000 is nearest 1080");
+        assert_eq!(Size::Height(2160).step(true), Size::Height(2160));
+        assert_eq!((step_fps(60, true), step_fps(60, false), step_fps(120, true), step_fps(24, false), step_fps(58, false)), (120, 48, 120, 24, 48));
+        // the unit swap on a 4K display: 1.0 = 2160 px, 1080 px = 0.5
+        assert_eq!(Size::Scale(1.0).other_unit(2160), Size::Height(2160));
+        assert_eq!(Size::Height(1080).other_unit(2160), Size::Scale(0.5));
+        // heights in pixels
+        assert_eq!((Size::Scale(0.5).height_px(1080), Size::Height(720).height_px(1080), Size::Scale(1.25).height_px(1080)), (540, 720, 1350));
+        // the labels
+        assert_eq!(Level::ALL.map(Level::label), ["LOW", "MED", "HIGH", "ULTRA"]);
+    }
+
+    #[test]
+    fn the_options_json_is_the_lists() {
+        let v: serde_json::Value = serde_json::from_str(&options_json()).unwrap();
+        assert_eq!(v["fps"], serde_json::json!(FPS));
+        assert_eq!(v["scales"].as_array().unwrap().len(), SCALES.len());
+        assert_eq!(v["heights"], serde_json::json!(HEIGHTS));
+        assert_eq!(v["pixel_ratios"].as_array().unwrap().len(), PIXEL_RATIOS.len());
+        assert_eq!(v["levels"][2], serde_json::json!({ "id": "high", "label": "HIGH" }));
+        assert_eq!((v["max_lights"].as_u64(), v["max_side"].as_u64()), (Some(MAX_LIGHTS as u64), Some(MAX_SIDE as u64)));
+        // every listed size is a valid size in the file and the sheet
+        for x in SCALES {
+            assert!(Size::try_from(x as f64).is_ok());
+        }
+        for h in HEIGHTS {
+            assert!(Size::try_from(h as f64).is_ok());
+        }
     }
 
     #[test]
