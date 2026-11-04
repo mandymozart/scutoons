@@ -76,6 +76,9 @@ deck-catalog = { path = "../catalog", optional = true }
 # #378: the Live outlet's logic (the plan, the composer, the crossfade, the dialog / text layout in the reader's fonts, the
 # relay messages' routing) – platform-free; this crate keeps its threads, socket, HTTP, disk cache and decoding (live/)
 deck-outlet = { path = "../outlet" }
+# #374: the deck's UI model (the HUD's lines, the bar's items, the F1 mode) – platform-free; this crate reads its objects
+# into deck-ui's Status (hud_status.rs) and rasters the answer (hud.rs)
+deck-ui = { path = "../ui" }
 anyhow.workspace = true
 serde.workspace = true
 serde_json = { workspace = true, optional = true }

@@ -2,19 +2,14 @@
 //! the CPU into a small RGBA image (font8x8, no font files), drawn over the screen by render.rs at an integer scale.
 //! The tempo line carries a light per beat of the bar (#181): the current one lit, the bar's first in amber.
 //!
-//! #209 (owner 2026-10-31: "the collapsed panel shows very basic statistics … using the entire width, like OSCT's
-//! collapsed bar"): F1 cycles the full HUD → **the bar** (one dense line across the screen's whole top edge: FPS, CPU /
-//! frame, the audio's glitches and load, the relay, the backend – a number out of the green in red) → nothing. The bar
-//! is rastered at the screen's width in HUD pixels (`bar_width`), so it spans the screen at the HUD's integer scale.
-pub use deck_core::monitor::Level;
+//! #209: F1 cycles the full HUD → the bar → nothing; the bar is rastered at the screen's width in HUD pixels
+//! (`bar_width`), so it spans the screen at the HUD's integer scale. #374: what the lines and the bar's items say, the
+//! mode and the sizes are deck-ui's (the platform-free UI model); this file only rasters them.
+pub use deck_ui::{wrap, Item, Level, Mode, COLS, LINES};
 use font8x8::UnicodeFonts;
 use std::collections::VecDeque;
 
 pub const W: u32 = 320;
-/// text lines the HUD has room for (above the frame-time graph; #208: two audio lines + the glitch warning)
-pub const LINES: usize = 13;
-/// characters a line has room for (8 px each, a 4 px margin)
-pub const COLS: usize = 39;
 pub const H: u32 = 4 + LINES as u32 * 10 + GRAPH_H + 4;
 const GRAPH_H: u32 = 20;
 /// the graph's full height in ms (two 60 Hz frames)
@@ -24,26 +19,6 @@ const TEXT: [u8; 4] = [235, 235, 235, 255];
 const ALERT: [u8; 4] = [230, 40, 40, 255];
 /// #364: a number out of the green but not bad yet (the browser bar's amber)
 const WARN: [u8; 4] = [240, 170, 40, 255];
-
-/// #209: what the HUD shows (F1 cycles them)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum Mode {
-    #[default]
-    Full,
-    /// the collapsed stats bar across the top
-    Bar,
-    Off,
-}
-
-impl Mode {
-    pub fn next(self) -> Mode {
-        match self {
-            Mode::Full => Mode::Bar,
-            Mode::Bar => Mode::Off,
-            Mode::Off => Mode::Full,
-        }
-    }
-}
 
 /// the bar's height (one text line and a pixel above / below, in HUD pixels) and its widest raster
 pub const BAR_H: u32 = 10;
@@ -57,13 +32,6 @@ pub fn scale(sh: f32) -> f32 {
 /// the bar's width in HUD pixels for a `sw` × `sh` screen: the whole width at the HUD's scale
 pub fn bar_width(sw: f32, sh: f32) -> u32 {
     ((sw / scale(sh)) as u32).clamp(8, BAR_MAX)
-}
-
-/// one item of the bar: its text, and amber / red when it is out of the green (deck-core's monitor judges, #364)
-#[derive(Debug, Clone, PartialEq)]
-pub struct Item {
-    pub text: String,
-    pub level: Level,
 }
 
 pub struct Hud {
@@ -100,26 +68,6 @@ impl Default for Hud {
     fn default() -> Self {
         Hud { pixels: vec![0; (W * H * 4) as usize], mode: Mode::Full, bar: Vec::new(), bar_w: 0, items: Vec::new(), lines: Vec::new(), times: VecDeque::new(), beat: None, alert: None }
     }
-}
-
-/// `text` broken into HUD lines at spaces (a word longer than a line is cut)
-pub fn wrap(text: &str, cols: usize) -> Vec<String> {
-    let mut out: Vec<String> = Vec::new();
-    let mut line = String::new();
-    for word in text.split_whitespace() {
-        let n = line.chars().count();
-        if n > 0 && n + 1 + word.chars().count() > cols {
-            out.push(std::mem::take(&mut line));
-        }
-        if !line.is_empty() {
-            line.push(' ');
-        }
-        line.extend(word.chars().take(cols));
-    }
-    if !line.is_empty() {
-        out.push(line);
-    }
-    out
 }
 
 impl Hud {
@@ -320,11 +268,9 @@ mod tests {
         assert_eq!(amber(&h), 0);
     }
 
-    /// #209: F1 cycles full → bar → off; the bar spans the screen at the HUD's scale, an item out of the green in red,
-    /// the items cut at its edge
+    /// #209: the bar spans the screen at the HUD's scale, an item out of the green in red, the items cut at its edge
     #[test]
     fn the_bar_spans_the_width() {
-        assert_eq!([Mode::Full.next(), Mode::Bar.next(), Mode::Off.next()], [Mode::Bar, Mode::Off, Mode::Full]);
         assert_eq!((bar_width(1920.0, 1080.0), bar_width(1280.0, 720.0), bar_width(9000.0, 540.0)), (960, 1280, BAR_MAX));
         let mut h = Hud::default();
         h.set_items(vec![Item { text: "FPS 60".into(), level: Level::Ok }, Item { text: "GLITCH 2/10M".into(), level: Level::Bad }]);
@@ -339,13 +285,5 @@ mod tests {
         assert!(count(&h, ALERT) == 0, "cut at the edge: four columns hold only FPS");
         h.mode = Mode::Off;
         assert!(!h.visible());
-    }
-
-    #[test]
-    fn long_text_wraps_at_spaces() {
-        let w = wrap("this build of the stage does not carry the module 'space' (node space)", 20);
-        assert_eq!(w, ["this build of the", "stage does not carry", "the module 'space'", "(node space)"]);
-        assert_eq!(wrap("abcdefghij", 4), ["abcd"]);
-        assert!(wrap("  ", 10).is_empty());
     }
 }
