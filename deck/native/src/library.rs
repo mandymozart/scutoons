@@ -46,7 +46,7 @@ pub struct Slice {
     #[serde(default)]
     pub image_variants: HashMap<String, String>,
     #[serde(default)]
-    pub dialog: Vec<crate::text::Dialog>,
+    pub dialog: Vec<deck_outlet::text::Dialog>,
 }
 
 impl Slice {

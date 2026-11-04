@@ -1,6 +1,5 @@
-//! What the `outlet` node's pass reads per frame (#186) – built with or without the `live` module: a composed cell
-//! (`Frame`, from the composer thread) and the crossfade between the last two (`Crossfade`, on the frame path: no
-//! allocation – tests/no_alloc.rs).
+//! What the `outlet` node's pass reads per frame (#186): a composed cell (`Frame`, from the composer) and the crossfade
+//! between the last two (`Crossfade`, on the frame path: no allocation – deck-native's tests/no_alloc.rs).
 use image::RgbaImage;
 use std::path::PathBuf;
 

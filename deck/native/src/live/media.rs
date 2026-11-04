@@ -10,7 +10,7 @@
 //!   name), so a cached URL is never fetched again.
 //! - **The token** (`Token`): `Linked` = what deck-link's daemon keeps in /run/deck-link (#180: approved → a ~1 h token, renewed; pending
 //!   → the code, which the HUD shows as the reason a medium is missing).
-use super::plan::MediaRef;
+use deck_outlet::plan::MediaRef;
 use protocol::{MediaItem, MediaReady, SpotMode};
 use std::collections::HashMap;
 use std::io::Read;

@@ -1,0 +1,23 @@
+# deck-outlet – a Live outlet's logic (#186, #378), lifted out of deck-native so a browser outlet or the creator's preview
+# plays the same code: a cell's plan (its layers → stage nodes), the composer that paints the flat layers into one plane, the
+# crossfade, the dialog / text layout (the reader's placement, its fonts) and the relay messages' routing. No window, GPU,
+# thread, socket or file: what the composer reads (chapters, pictures, set files) comes through its `Shelf` – deck-native's
+# is the library API + disk cache and the preloaded media. Builds for wasm32-unknown-unknown (deck:ci, deck.yml).
+[package]
+name = "deck-outlet"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+# the relay protocol's serde types: the cell, its layers, the messages the outlet routes
+protocol = { workspace = true }
+serde.workspace = true
+# a slice's dialog: a string or a locale map, a colour or a gradient
+serde_json.workspace = true
+# the plane, crops, scaling and overlays – no decoders (the adapter decodes: deck-native in Rust, a browser its own)
+image = { version = "0.25", default-features = false }
+# the reader's fonts on the CPU (assets/: Bangers, IBM Plex Mono – SIL OFL)
+ab_glyph = "0.2"

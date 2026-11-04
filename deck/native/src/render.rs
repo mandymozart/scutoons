@@ -13,7 +13,7 @@ use crate::chapter::{ChapterFeed, Prepared};
 use crate::control::Controls;
 use crate::graph::{Graph, Kind};
 use crate::hud::{self, Hud};
-use crate::live::frame::{Crossfade, Frame};
+use deck_outlet::frame::{Crossfade, Frame};
 #[cfg(feature = "space")]
 use crate::space::gpu::SpaceGpu;
 #[cfg(feature = "space")]

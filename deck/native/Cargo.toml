@@ -22,14 +22,14 @@ path = "src/main.rs"
 default = ["space", "sync", "chapter", "live", "midi", "osc", "outputs", "events"]
 # the 3D space and the deck's being (#188): glTF rooms (meshopt, WebP), the orbit camera, the 3D buttons and their labels –
 # deck-space's (deck/space, #198), with its GPU passes and its loaders on threads
-space = ["deck-space/being", "deck-engine/space", "deck-space/gpu", "deck-space/native", "dep:serde_json", "dep:ab_glyph", "image/webp"]
+space = ["deck-space/being", "deck-engine/space", "deck-space/gpu", "deck-space/native", "dep:serde_json", "image/webp"]
 # the deck's sync (#195): what the scene needs – its sets' 3D, its beings' portraits – from the API (scene-content) into
 # the cache, only what is missing or changed, offline from the cache (sync.rs)
 # and the conductor's pushes (`scene.sync` → `deck.synced`, #195)
 sync = ["dep:ureq", "dep:serde_json", "dep:protocol"]
 # a chapter from scutoons.com (library API + disk cache): `chapter` (its slices, the dialog set in the reader's fonts)
 # and `chapter_music` (its music, decoded with symphonia)
-chapter = ["dep:ureq", "dep:serde_json", "dep:symphonia", "dep:ab_glyph", "image/webp"]
+chapter = ["dep:ureq", "dep:serde_json", "dep:symphonia", "image/webp"]
 # a Live outlet (#186): the `outlet` node joins the relay as `output` of this deck's outlet, preloads the show media with
 # the deck token (deck-link) and renders the outlet's cells natively (live/); slices and text come from `chapter`
 live = ["chapter", "dep:protocol", "dep:tungstenite", "dep:rustls"]
@@ -73,6 +73,9 @@ deck-engine = { path = "../engine" }
 # #280: the module host (feature `modules`) – the wasm engine, the SDK's descriptor + ABI layout, the compile cache's key
 deck-module-host = { path = "../module-host", optional = true }
 deck-catalog = { path = "../catalog", optional = true }
+# #378: the Live outlet's logic (the plan, the composer, the crossfade, the dialog / text layout in the reader's fonts, the
+# relay messages' routing) – platform-free; this crate keeps its threads, socket, HTTP, disk cache and decoding (live/)
+deck-outlet = { path = "../outlet" }
 anyhow.workspace = true
 serde.workspace = true
 serde_json = { workspace = true, optional = true }
@@ -90,7 +93,6 @@ symphonia = { version = "0.5", default-features = false, features = ["mp3", "wav
 ureq = { version = "2", optional = true }
 # --screenshot (png); the chapter's slices and the rooms' textures add webp; the splash logo (the SVG)
 image = { version = "0.25", default-features = false, features = ["png"] }
-ab_glyph = { version = "0.2", optional = true }
 resvg = { version = "0.45", default-features = false }
 # the tempo clock's external sources (#181): MIDI clock in / out, OSC
 midir = { workspace = true, optional = true }

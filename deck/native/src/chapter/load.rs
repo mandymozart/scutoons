@@ -2,7 +2,7 @@
 use super::{ChapterFeed, Prepared};
 use crate::graph::Node;
 use crate::library::Library;
-use crate::text::{self, Dialog};
+use deck_outlet::text::{self, Dialog};
 use anyhow::{bail, Context, Result};
 use image::RgbaImage;
 use std::sync::atomic::{AtomicBool, Ordering};

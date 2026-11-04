@@ -250,7 +250,7 @@ over `in` (darkened; without an input a dark stretched copy of the slice), a slo
 `threshold` after `min_hold` (a bass hit). The dialog is set into the slice the way the reader places it (rect, size
 in % of the slice width, shrunk to fit, paper boxes for captions / narration / framed bubbles, a rounded paper field
 behind a plain bubble, coloured + stroked lettering, the rotation) in the reader's fonts – Bangers and IBM Plex Mono
-Bold (`assets/`, SIL OFL); bubble tails, wobbly shapes and gradients are not drawn. `text` = the slice's caption: its
+Bold (deck-outlet's `text.rs` and `assets/`, SIL OFL); bubble tails, wobbly shapes and gradients are not drawn. `text` = the slice's caption: its
 shortest painted lettering (a sound, a title), else its shortest line of dialog (≤ 48 characters), big in Bangers,
 white with a black stroke on transparent – no caption, nothing. **overlay** puts `top` over `in` in the lower part of
 the frame (80 % of the width, at most 40 % of the height), popping in when it changes.
@@ -459,11 +459,11 @@ wss:// (`config::dial` – tungstenite with rustls + the webpki roots, no OpenSS
   (#193: set + spot + mode, never a file) resolve through the `Resolve` trait – today `LocalSets`: the set's 3D
   (`cache::set_file`, low; with the sync on, where the sync puts it – the space node's gate fetches it),
   `<sets>/<set>/<spot>.<still|video>.<ext>`, else the item's `url`.
-- **plan.rs** – a cell's layers → stage nodes: `scroll` / `slice` / `panel` → chapter (a slice by its reading-order
+- **plan.rs** (deck-outlet, #378) – a cell's layers → stage nodes: `scroll` / `slice` / `panel` → chapter (a slice by its reading-order
   index, a crop), `image` and a set's still → an image, `video` → video (S4 – a set spot's still stands in), `model3d` /
   a set in 3D → the space node (its set and spot), `text` / `surtitles` → text, `colour` → a solid, `camera` →
   video-in (S4). A missing module or node is a problem with the layer's id – the HUD shows it, the rest plays.
-- **compose.rs** – the flat layers painted into one plane at the render size on the composer's thread (fit cover /
+- **compose.rs** (deck-outlet; here the shelf it reads: the library, the preloaded media, decoding) – the flat layers painted into one plane at the render size on the composer's thread (fit cover /
   contain, opacity, text in Bangers, the surtitles of the show's slice; a scroll steps every 6 s); the 3D set goes to
   the space node (`Space::show`: another set loads on its thread, the being and the camera move to the spot).
 - **render.rs** – the `outlet` pass (`shaders/outlet.wgsl`) uploads each plane and cross-fades it over its `in` by the
@@ -579,7 +579,7 @@ with the token, ready, the cell, resume, the snapshot after a restart). Not yet:
 - **Library** (`src/library.rs`): `GET {api}/library/toons/<toon>/chapters/<n>` → `<cache>/api/…json` (the cached copy
   when offline), CDN files `{cdn}/<toon>/<path>` → `<cache>/cdn/<toon>/<path>` once (CDN paths are immutable), decoded
   whole with symphonia (mp3, wav).
-- **Slices** (`src/chapter.rs`, `src/text.rs`): one loader thread per chapter node – the chapter (retried every 10 s
+- **Slices** (`src/chapter.rs`, deck-outlet's `text.rs`): one loader thread per chapter node – the chapter (retried every 10 s
   while there is neither a network nor a cached copy), then slice after slice: the image from the cache, decoded
   (`image`: webp, png), the dialog set in and the caption drawn on the CPU (ab_glyph), handed over through a channel of
   one (the next slice is always ready, at most two in memory); the renderer uploads it at the cut. A pass reads up to

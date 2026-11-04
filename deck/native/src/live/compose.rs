@@ -1,144 +1,69 @@
-//! A planned cell → what the outlet node draws (#186): the flat layers (slices, panels, pictures, a video's still,
-//! text, surtitles, colour) painted back → front into one plane at the outlet's size, on the composer's own thread –
-//! the way the chapter loader sets the dialog into a slice (CPU, ab_glyph). The 3D set is not painted: it is the
-//! space node's job (`SpaceTarget`), seen through the plane's transparent parts. A layer that can't be drawn adds its
-//! reason to the HUD and leaves its box empty.
-use super::frame::{Frame, SpaceTarget};
+//! The composer's shelf on this deck (#186, #378): deck-outlet's composer paints the cell; what it reads comes from here –
+//! a chapter from the library (the API once per composer, the disk cache when offline), its slices fetched at the outlet's
+//! quality and decoded in Rust, the preloaded media and the sets' files (media.rs).
 use super::media::Media;
-use super::plan::{LayerNode, Plan, Planned, Rect, SCROLL_FADE_MS};
 use crate::library::{Chapter, Library};
-use crate::text;
-use image::imageops::{self, FilterType};
-use image::{Rgba, RgbaImage};
-use protocol::Fit;
+use deck_outlet::compose::Shelf;
+use deck_outlet::plan::MediaRef;
+use deck_outlet::text::Dialog;
+use image::RgbaImage;
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 /// what the slices are fetched at (1170 px wide: enough for a 1080p outlet)
 const QUALITY: &str = "high";
 
-pub struct Composed {
-    pub frame: Frame,
-    /// the space node's set and spot when the cell has a 3D set
-    pub space: Option<SpaceTarget>,
-    /// what this cell can't show, by layer (with the plan's own problems)
-    pub problems: Vec<String>,
+/// The outlet's composer on this deck.
+pub type Composer = deck_outlet::compose::Composer<LibraryShelf>;
+
+/// a composer of `size` pixels reading `lib` and `media`
+pub fn composer(lib: Library, media: Arc<Media>, size: (u32, u32)) -> Composer {
+    Composer::new(LibraryShelf { lib, media, chapters: HashMap::new() }, size)
 }
 
-pub struct Composer {
+pub struct LibraryShelf {
     pub lib: Library,
     pub media: Arc<Media>,
-    /// the outlet's size in pixels (the window's render size; 1920 × 1080 until it is known)
-    pub size: (u32, u32),
-    chapters: HashMap<(String, u32), Arc<Chapter>>,
+    chapters: HashMap<(String, u32), Chapter>,
 }
 
-impl Composer {
-    pub fn new(lib: Library, media: Arc<Media>, size: (u32, u32)) -> Composer {
-        Composer { lib, media, size, chapters: HashMap::new() }
-    }
-
+impl LibraryShelf {
     /// the chapter once per composer (the API answers it once; the library's disk cache when offline)
-    fn chapter(&mut self, toon: &str, n: u32) -> Result<Arc<Chapter>, String> {
-        if let Some(c) = self.chapters.get(&(toon.to_owned(), n)) {
-            return Ok(c.clone());
+    fn chapter(&mut self, toon: &str, n: u32) -> Result<&Chapter, String> {
+        let key = (toon.to_owned(), n);
+        if !self.chapters.contains_key(&key) {
+            let (c, _) = self.lib.chapter(toon, n).map_err(|e| format!("{toon} {n}: {e:#}"))?;
+            self.chapters.insert(key.clone(), c);
         }
-        let (c, _) = self.lib.chapter(toon, n).map_err(|e| format!("{toon} {n}: {e:#}"))?;
-        let c = Arc::new(c);
-        self.chapters.insert((toon.to_owned(), n), c.clone());
-        Ok(c)
+        Ok(&self.chapters[&key])
+    }
+}
+
+impl Shelf for LibraryShelf {
+    fn slices(&mut self, toon: &str, n: u32) -> Result<usize, String> {
+        Ok(self.chapter(toon, n)?.slices().count())
     }
 
-    /// slice `index` of a chapter (reading order, wrapping for a scroll) with its dialog set in
-    fn slice(&mut self, toon: &str, n: u32, index: usize, wrap: bool) -> Result<RgbaImage, String> {
+    fn picture(&mut self, toon: &str, n: u32, index: usize) -> Result<RgbaImage, String> {
         let c = self.chapter(toon, n)?;
         let count = c.slices().count();
-        if count == 0 {
-            return Err(format!("{toon} {n} has no slices"));
-        }
-        let i = if wrap { index % count } else { index };
-        let s = c.slices().nth(i).ok_or_else(|| format!("{toon} {n} has {count} slices, not {}", i + 1))?;
-        let path = s.image_path(QUALITY).ok_or("a slice without an image")?;
-        let file = self.lib.file(toon, path).map_err(|e| format!("{e:#}"))?;
-        let mut img = image::open(&file).map_err(|e| format!("{path}: {e}"))?.to_rgba8();
-        text::bake_dialog(&mut img, &s.dialog);
-        Ok(img)
+        let s = c.slices().nth(index).ok_or_else(|| format!("{toon} {n} has {count} slices, not {}", index + 1))?;
+        let path = s.image_path(QUALITY).ok_or("a slice without an image")?.to_owned();
+        let file = self.lib.file(toon, &path).map_err(|e| format!("{e:#}"))?;
+        Ok(image::open(&file).map_err(|e| format!("{path}: {e}"))?.to_rgba8())
     }
 
-    /// the dialog lines of slice `index` in `locale` (surtitles)
-    fn dialog(&mut self, toon: &str, n: u32, index: usize, locale: &str) -> Result<String, String> {
-        let c = self.chapter(toon, n)?;
-        let Some(s) = c.slices().nth(index) else { return Ok(String::new()) };
-        let lines: Vec<String> = s
-            .dialog
-            .iter()
-            .filter_map(|d| match &d.text {
-                serde_json::Value::String(t) => Some(t.clone()),
-                serde_json::Value::Object(m) => m.get(locale).or_else(|| m.get("en")).or_else(|| m.values().next()).and_then(|v| v.as_str()).map(str::to_owned),
-                _ => None,
-            })
-            .filter(|t| !t.trim().is_empty())
-            .collect();
-        Ok(lines.join("\n"))
+    fn dialog(&mut self, toon: &str, n: u32, index: usize) -> Result<&[Dialog], String> {
+        Ok(self.chapter(toon, n)?.slices().nth(index).map_or(&[][..], |s| &s.dialog[..]))
     }
 
-    /// Paint `plan` – `slice` = the show's current slice (surtitles), `scroll` = the running chapter's step.
-    pub fn compose(&mut self, plan: &Plan, slice: Option<usize>, scroll: usize) -> Composed {
-        let (w, h) = self.size;
-        let mut plane = RgbaImage::from_pixel(w, h, Rgba([0, 0, 0, 0]));
-        let mut problems = plan.problems.clone();
-        let mut space = None;
-        for l in &plan.layers {
-            let drawn = match &l.node {
-                LayerNode::Chapter { toon, chapter } => self.slice(toon, *chapter, scroll, true).map(|img| paint(&mut plane, img, l)),
-                LayerNode::Slice { toon, chapter, slice, crop } => self.slice(toon, *chapter, *slice, false).map(|img| {
-                    let img = match crop {
-                        Some(c) => crop_to(&img, c),
-                        None => img,
-                    };
-                    paint(&mut plane, img, l)
-                }),
-                LayerNode::Image { media } => self.media.file_of(media).and_then(|p| decode(&p)).map(|img| paint(&mut plane, img, l)),
-                LayerNode::Video { still, .. } => match still {
-                    // the video itself is S4; its problem is the plan's – the still stands in where there is one
-                    Some(s) => self.media.file_of(s).and_then(|p| decode(&p)).map(|img| paint(&mut plane, img, l)),
-                    None => Ok(()),
-                },
-                LayerNode::Space { set, spot } => {
-                    let set = self.media.file_of(set);
-                    let r = set.as_ref().map(|_| ()).map_err(Clone::clone);
-                    space = Some(SpaceTarget { set: set.ok(), spot: spot.clone() });
-                    r
-                }
-                LayerNode::Text { text, size, colour } => {
-                    write(&mut plane, l, text, *size, *colour);
-                    Ok(())
-                }
-                LayerNode::Surtitles { toon, chapter, locale } => match slice {
-                    Some(i) => self.dialog(toon, *chapter, i, locale).map(|t| write(&mut plane, l, &t, 5.0, [255; 4])),
-                    None => Ok(()),
-                },
-                LayerNode::Solid { rgba } => {
-                    fill(&mut plane, l, *rgba);
-                    Ok(())
-                }
-                LayerNode::VideoIn { .. } => Ok(()),
-            };
-            if let Err(why) = drawn {
-                problems.push(format!("{}: {why}", l.id));
-            }
-        }
-        let (enter_ms, exit_ms) = plan.fades();
-        let frame = Frame { plane, backdrop: space.is_some(), enter_ms, exit_ms };
-        Composed { frame, space, problems }
+    fn image(&mut self, media: &MediaRef) -> Result<RgbaImage, String> {
+        self.media.file_of(media).and_then(|p| decode(&p))
     }
 
-    /// The next step of a running chapter (a scroll): the same cell, a short cut.
-    pub fn scroll_step(&mut self, plan: &Plan, slice: Option<usize>, scroll: usize) -> Composed {
-        let mut c = self.compose(plan, slice, scroll);
-        c.frame.enter_ms = SCROLL_FADE_MS;
-        c.frame.exit_ms = SCROLL_FADE_MS;
-        c
+    fn set(&mut self, media: &MediaRef) -> Result<PathBuf, String> {
+        self.media.file_of(media)
     }
 }
 
@@ -146,77 +71,14 @@ fn decode(path: &std::path::Path) -> Result<RgbaImage, String> {
     image::open(path).map(|i| i.to_rgba8()).map_err(|e| format!("{}: {e}", path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default()))
 }
 
-/// the layer's box in pixels of `plane`
-fn px(plane: &RgbaImage, r: &Rect) -> (u32, u32, u32, u32) {
-    let (w, h) = (plane.width() as f32, plane.height() as f32);
-    let x = (r.x * w).round() as u32;
-    let y = (r.y * h).round() as u32;
-    ((x), (y), ((r.w * w).round() as u32).max(1), ((r.h * h).round() as u32).max(1))
-}
-
-/// a crop in 0–1 of an image
-pub fn crop_to(img: &RgbaImage, c: &Rect) -> RgbaImage {
-    let (w, h) = (img.width() as f32, img.height() as f32);
-    let (x, y) = ((c.x * w) as u32, (c.y * h) as u32);
-    let (cw, ch) = (((c.w * w) as u32).max(1).min(img.width() - x.min(img.width() - 1)), ((c.h * h) as u32).max(1).min(img.height() - y.min(img.height() - 1)));
-    imageops::crop_imm(img, x.min(img.width() - 1), y.min(img.height() - 1), cw, ch).to_image()
-}
-
-/// `img` into the layer's box: contain = whole, centred; cover = filling the box, the overflow cut off centred
-pub fn fit_into(img: &RgbaImage, bw: u32, bh: u32, fit: Fit) -> (RgbaImage, u32, u32) {
-    let (iw, ih) = (img.width().max(1) as f32, img.height().max(1) as f32);
-    let k = match fit {
-        Fit::Contain => (bw as f32 / iw).min(bh as f32 / ih),
-        Fit::Cover => (bw as f32 / iw).max(bh as f32 / ih),
-    };
-    let (sw, sh) = (((iw * k).round() as u32).max(1), ((ih * k).round() as u32).max(1));
-    let scaled = imageops::resize(img, sw, sh, FilterType::Triangle);
-    match fit {
-        Fit::Contain => (scaled, (bw - sw.min(bw)) / 2, (bh - sh.min(bh)) / 2),
-        Fit::Cover => {
-            let (cx, cy) = ((sw - bw.min(sw)) / 2, (sh - bh.min(sh)) / 2);
-            (imageops::crop_imm(&scaled, cx, cy, bw.min(sw), bh.min(sh)).to_image(), 0, 0)
-        }
-    }
-}
-
-/// a picture into its box, with the layer's opacity
-fn paint(plane: &mut RgbaImage, img: RgbaImage, l: &Planned) {
-    let (x, y, bw, bh) = px(plane, &l.rect);
-    let (mut img, dx, dy) = fit_into(&img, bw, bh, l.fit);
-    if l.opacity < 1.0 {
-        for p in img.pixels_mut() {
-            p.0[3] = (p.0[3] as f32 * l.opacity).round() as u8;
-        }
-    }
-    imageops::overlay(plane, &img, (x + dx) as i64, (y + dy) as i64);
-}
-
-/// text into its box: the line height `size` % of the outlet's height, centred in the box
-fn write(plane: &mut RgbaImage, l: &Planned, text: &str, size: f32, colour: [u8; 4]) {
-    let (x, y, bw, bh) = px(plane, &l.rect);
-    let line = size / 100.0 * plane.height() as f32;
-    let a = (colour[3] as f32 * l.opacity).round() as u8;
-    if let Some(img) = text::text_lines(text, bw, line, [colour[0], colour[1], colour[2], a], bh) {
-        let dy = (bh - img.height().min(bh)) / 2;
-        imageops::overlay(plane, &img, x as i64, (y + dy) as i64);
-    }
-}
-
-/// a colour over the box (alpha-blended)
-fn fill(plane: &mut RgbaImage, l: &Planned, rgba: [u8; 4]) {
-    let (x, y, bw, bh) = px(plane, &l.rect);
-    let a = (rgba[3] as f32 * l.opacity).round() as u8;
-    let solid = RgbaImage::from_pixel(bw, bh, Rgba([rgba[0], rgba[1], rgba[2], a]));
-    imageops::overlay(plane, &solid, x as i64, y as i64);
-}
-
 #[cfg(test)]
 mod tests {
     use super::super::media::tests::{temp_dir, FolderFetch};
     use super::super::media::{LocalSets, NoToken};
-    use super::super::plan::plan;
     use super::*;
+    use deck_outlet::frame::SpaceTarget;
+    use deck_outlet::plan::{plan, SCROLL_FADE_MS};
+    use image::Rgba;
     use std::sync::Mutex;
 
     fn png(path: &std::path::Path, w: u32, h: u32, rgba: [u8; 4]) {
@@ -247,7 +109,7 @@ mod tests {
             token: Box::new(NoToken),
             local: Mutex::new(HashMap::new()),
         };
-        (root, Composer::new(lib, Arc::new(media), (160, 90)))
+        (root, composer(lib, Arc::new(media), (160, 90)))
     }
 
     fn cell(json: &str) -> protocol::Cell {
@@ -307,16 +169,5 @@ mod tests {
         assert_eq!((next.frame.enter_ms, next.frame.exit_ms), (SCROLL_FADE_MS, SCROLL_FADE_MS));
         let wrapped = c.compose(&p, None, 2);
         assert_eq!(wrapped.frame.plane.get_pixel(80, 40).0, [200, 0, 0, 255], "a scroll wraps");
-    }
-
-    #[test]
-    fn fit_contain_and_cover() {
-        let img = RgbaImage::from_pixel(40, 20, Rgba([1, 2, 3, 255]));
-        let (c, dx, dy) = fit_into(&img, 20, 20, Fit::Contain);
-        assert_eq!((c.width(), c.height(), dx, dy), (20, 10, 0, 5));
-        let (c, dx, dy) = fit_into(&img, 20, 20, Fit::Cover);
-        assert_eq!((c.width(), c.height(), dx, dy), (20, 20, 0, 0));
-        let half = crop_to(&img, &Rect { x: 0.5, y: 0.0, w: 0.5, h: 1.0 });
-        assert_eq!((half.width(), half.height()), (20, 20));
     }
 }

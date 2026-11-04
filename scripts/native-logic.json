@@ -91,31 +91,6 @@
 			"ticket": "#366",
 			"what": "the deck's side of deck-space's relay client (the frame's outbox, the sync's answers, the show clock's pings and anchors) – the join, backoff, ping and status are relay.rs since #366"
 		},
-		"deck/native/src/live/client.rs": {
-			"lines": 108,
-			"ticket": "#378",
-			"what": "the Live outlet's message routing (cells, preloads, the slice, panic) – the join and resume are deck-space relay.rs since #366"
-		},
-		"deck/native/src/live/plan.rs": {
-			"lines": 354,
-			"ticket": "#378",
-			"what": "the Live outlet's plan (pure)"
-		},
-		"deck/native/src/live/compose.rs": {
-			"lines": 322,
-			"ticket": "#378",
-			"what": "the Live outlet's composer (pure)"
-		},
-		"deck/native/src/live/frame.rs": {
-			"lines": 86,
-			"ticket": "#378",
-			"what": "the Live outlet's crossfade (pure)"
-		},
-		"deck/native/src/text.rs": {
-			"lines": 452,
-			"ticket": "#378",
-			"what": "the dialog text layout (pure)"
-		},
 		"deck/native/src/modules.rs": {
 			"lines": 141,
 			"ticket": "#360",
