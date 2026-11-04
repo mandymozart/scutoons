@@ -40,8 +40,8 @@ if (changed >= 0) {
 	}
 }
 
-/** the gz size gate of the engine's wasm (owner 2026-11-02: live-core, which links the engine since #320, may weigh 500 KB gz) */
-const ENGINE_GATE_KB = 500;
+/** the gz size gate of the engine's wasm (owner 2026-11-04: live-core, which links the engine since #320, may weigh 1 MB gz "for now"; was 500 KB on 2026-11-02) */
+const ENGINE_GATE_KB = 1024;
 function gate(file, kb) {
 	const raw = readFileSync(file);
 	const gz = gzipSync(raw, { level: 9 }).length;
