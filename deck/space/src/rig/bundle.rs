@@ -42,6 +42,31 @@ pub struct Knob {
     pub log: bool,
 }
 
+impl Knob {
+    /// its label in `locale`, else English, else any, else its path
+    pub fn label_in(&self, locale: &str) -> &str {
+        self.label.get(locale).or_else(|| self.label.get("en")).or_else(|| self.label.values().next()).map_or(&self.path, String::as_str)
+    }
+}
+
+/// How a streamed path moves (#368, the deck stream's epsilon per kind – live-deck client.ts `PathKind`): a knob's input
+/// with its range, a control output, an audio output's peak.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Stream {
+    Input([f32; 2]),
+    Control,
+    Audio,
+}
+
+/// What a mood's replay changes (#368): the values that moved – every knob and every numeric param the preset wrote,
+/// shown or not – and whether the engine must load the new scene (another shape: nodes or links).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Diff {
+    pub values: Vec<(String, f32)>,
+    pub reload: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct TrackPlays {
     pub track: String,
@@ -65,9 +90,68 @@ pub struct Played {
     pub sticks: [[String; 2]; 2],
     /// the same scene for the browser's sound engine (live-core) and the nodes it does not carry yet (engine.rs)
     pub engine: super::engine::Engine,
+    /// #368: every path the deck streams (the being's hoses read them) – the knobs' inputs, the analyser's level and
+    /// bass, a rig's sum (the mixer feeding `fft`) – in the knobs' order, then the outputs
+    pub streamed: Vec<(String, Stream)>,
+    /// #368: the knobs the being shows as buttons (its `expose` on the wire)
+    pub expose: Vec<String>,
 }
 
 impl Played {
+    fn with(scene: String, nodes: Vec<NodeDef>, links: Vec<LinkDef>, character: String, knobs: Vec<Knob>, tracks: Vec<TrackPlays>, sticks: [[String; 2]; 2], engine: super::engine::Engine) -> Played {
+        let mut streamed: Vec<(String, Stream)> = knobs.iter().map(|k| (k.path.clone(), Stream::Input([k.min, k.max]))).collect();
+        if nodes.iter().any(|n| n.id == "fft") {
+            streamed.extend(["fft.level", "fft.bass"].map(|p| (p.to_string(), Stream::Control)));
+        }
+        // a rig's sum: the last of the mixers Rig::flatten chains (`mix1`, `mix2` …) – it feeds `fft`
+        if !tracks.is_empty() {
+            if let Some(sum) = links.iter().find(|l| l.to == "fft.in").and_then(|l| l.from.strip_suffix(".out")) {
+                if nodes.iter().any(|n| n.id == sum && n.kind == "mixer") {
+                    streamed.push((format!("{sum}.out"), Stream::Audio));
+                }
+            }
+        }
+        let expose = knobs.iter().map(|k| k.path.clone()).collect();
+        Played { scene, nodes, links, character, knobs, tracks, sticks, engine, streamed, expose }
+    }
+
+    /// #368: where a knob's (or a preset's param's) value goes in the engine: live-core plays the scene as it is, so the
+    /// path is the engine's – unless its node is one the browser's engine does not carry yet (`engine.page`), or none.
+    pub fn target<'a>(&self, path: &'a str) -> Option<&'a str> {
+        let node = path.rsplit_once('.').map_or(path, |(n, _)| n);
+        let played = self.nodes.iter().any(|n| n.id == node) && !self.engine.page.iter().any(|n| n.id == node);
+        played.then_some(path)
+    }
+
+    /// every numeric param of the nodes as `node.param`, then the knobs' values (a knob over a param wins)
+    fn values(&self) -> Vec<(String, f32)> {
+        let mut out: Vec<(String, f32)> = Vec::new();
+        let mut put = |path: String, v: f32| match out.iter_mut().find(|(p, _)| *p == path) {
+            Some(slot) => slot.1 = v,
+            None => out.push((path, v)),
+        };
+        for n in &self.nodes {
+            for (k, v) in &n.params {
+                if let Some(x) = v.as_float().or_else(|| v.as_integer().map(|i| i as f64)) {
+                    put(format!("{}.{k}", n.id), x as f32);
+                }
+            }
+        }
+        for k in &self.knobs {
+            put(k.path.clone(), k.value);
+        }
+        out
+    }
+
+    /// #368: this scene → `to` (the same rig replayed for another mood): the values that moved and whether the engine
+    /// loads the new scene – a node's id or kind, or a link (ends, scale, offset) that differ.
+    pub fn diff(&self, to: &Played) -> Diff {
+        let was = self.values();
+        let values = to.values().into_iter().filter(|(p, v)| !was.iter().any(|(q, w)| q == p && w == v)).collect();
+        let shape = |p: &Played| (p.nodes.iter().map(|n| (n.id.clone(), n.kind.clone())).collect::<Vec<_>>(), p.links.iter().map(|l| (l.from.clone(), l.to.clone(), l.scale, l.offset)).collect::<Vec<_>>());
+        Diff { values, reload: shape(self) != shape(to) }
+    }
+
     /// A deck's scene played as the page needs it (#360) – what the browser deck plays when its character has no rig: the
     /// scene as it is, live-core's part of it (`engine::lower`), its knobs the being's buttons (`params::shown`, the
     /// native deck's 3D buttons) on the nodes that part plays (a linked input's knob turns its base, the link's offset;
@@ -94,7 +178,7 @@ impl Played {
         let mut it = knobs.iter().map(|k| k.path.clone());
         let sticks = [[it.next().unwrap_or_default(), it.next().unwrap_or_default()], [it.next().unwrap_or_default(), it.next().unwrap_or_default()]];
         let character = scene.being_character();
-        Ok(Played { scene: text.to_string(), nodes: scene.nodes, links: scene.links, character, knobs, tracks: Vec::new(), sticks, engine })
+        Ok(Played::with(text.to_string(), scene.nodes, scene.links, character, knobs, Vec::new(), sticks, engine))
     }
 
     /// The deck's own scene (#360): the one the X1 boots with – the browser deck plays the same file, never a copy.
@@ -213,7 +297,7 @@ impl Bundle {
         };
         let text = toml::to_string(&doc).context("writing the flattened scene")?;
         let engine = super::engine::lower(&scene)?;
-        Ok(Played { scene: text, nodes: scene.nodes, links: scene.links, character, knobs, tracks, sticks, engine })
+        Ok(Played::with(text, scene.nodes, scene.links, character, knobs, tracks, sticks, engine))
     }
 
     /// `play` as JSON – the wasm boundary's form (`persona` / `mood` empty = none)

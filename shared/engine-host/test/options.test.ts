@@ -1,12 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { deckOptions, folder, rigSubject } from '../src/options.ts';
+import { deckOptions, folder } from '../src/options.ts';
 
-test('folders end with a slash; a character is filed under character.<id>', () => {
+test('folders end with a slash', () => {
 	assert.equal(folder('/live'), '/live/');
 	assert.equal(folder('/live/'), '/live/');
-	assert.equal(rigSubject('catpope'), 'character.catpope');
-	assert.equal(rigSubject('item.bell'), 'item.bell');
 });
 
 test('the deck gets no relay unless one is asked for; the nick is trimmed to 24', () => {

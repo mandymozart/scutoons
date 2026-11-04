@@ -1,50 +1,68 @@
-// The deck's own scene as the tests get it (#360): deck-space's answer – space-web's `deck_scene`, the X1's cathedral –
-// from test/fixtures/rigs.json (written and kept current by `cargo test -p deck-space rig_fixture`). No scene of the
-// page's: the knobs, the streamed paths and the being on the wire are what the deck makes of the core's answer.
+// The core's answers as the tests get them (#360, #367, #368): deck-space's deck – space-web's `DeckState` – playing its
+// own scene (the X1's cathedral) and catpope's core rig, recorded in test/fixtures/deck.json (written and kept current
+// by `cargo test -p deck-space deck_fixture`). No rule of the page's: the knobs, the streamed paths, the being on the
+// wire, the knob targets and a mood's turn are the core's; the tests check that the deck applies them.
 import { readFileSync } from 'node:fs';
 import type { DeckGraph } from '@scutoons/live';
-import { Deck } from '../src/deck.ts';
-import { rigParams, rigStreamed } from '../src/rig.ts';
-import type { DeckStateView, RigPlayed } from '../src/space.ts';
+import type { PathKind } from '../src/client.ts';
+import type { MoodStep, RigSlider, RigTurn } from '../src/rig.ts';
+import type { DeckStateView } from '../src/space.ts';
 
-export const RIGS = JSON.parse(readFileSync(new URL('./fixtures/rigs.json', import.meta.url), 'utf8')) as Record<string, RigPlayed>;
-export const OWN = RIGS.deck;
+interface Scene {
+	sliders: RigSlider[];
+	graph: DeckGraph;
+	targets: Record<string, string>;
+}
+export const DECK = JSON.parse(readFileSync(new URL('./fixtures/deck.json', import.meta.url), 'utf8')) as {
+	own: Scene & { now: RigTurn };
+	catpope: Scene & { play: RigTurn; sliders_de: RigSlider[]; laughing: MoodStep };
+};
+export const OWN = DECK.own.now.played;
+export const CATPOPE = DECK.catpope.play.played;
 /** the deck's sliders for its own scene */
-export const OWN_PARAMS = rigParams(OWN);
+export const OWN_PARAMS = Object.fromEntries(DECK.own.sliders.map((s) => [s.path, s]));
 /** the paths the deck streams for its own scene */
-export const OWN_STREAMED = rigStreamed(OWN);
+export const OWN_STREAMED: Record<string, PathKind> = Object.fromEntries(OWN.streamed);
 /** deck-space mood.rs `MOODS` – the ladder a character with every portrait walks */
 export const MOODS = ['neutral', 'thinking', 'happy', 'laughing', 'surprised'];
 
-/** #367: a stand-in for space-web's `DeckState` (the wasm is not loaded in node) – no rule of its own: it answers what
- *  the test says (`moods`, the moods `step` says one per frame) and records what the deck handed it */
-export function stateOf(moods: string[], said: string[] = []): DeckStateView & { calls: unknown[][]; pinned: string } {
+/** A stand-in for space-web's `DeckState` (the wasm is not loaded in node) answering from the fixture: the scene it
+ *  plays (its own, or catpope after `play_core('catpope')` / a bundle), the moods `step` says (a name or a recorded
+ *  `MoodStep`), and a record of what the deck handed it. */
+export function stateOf(o: { moods?: string[]; said?: (string | MoodStep)[] } = {}): DeckStateView & { calls: unknown[][]; pinned: string } {
 	const calls: unknown[][] = [];
-	let shown = moods[0] ?? '';
+	const said = [...(o.said ?? [])];
+	let at: 'own' | 'catpope' = 'own';
+	let shown = '';
 	const s = {
 		calls,
 		pinned: '',
 		set_portraits: (m: string[]) => void calls.push(['set_portraits', m]),
 		pin: (m: string) => void ((s.pinned = m), calls.push(['pin', m])),
-		step: (...args: number[] | [number, number, boolean, number, number]) => {
+		step: (...args: [number, number, boolean, number, number]) => {
 			calls.push(['step', ...args]);
-			const next = said.shift() ?? '';
-			if (next) shown = next;
-			return next;
+			const next = said.shift();
+			if (!next) return '';
+			const step = typeof next === 'string' ? { mood: next } : next;
+			shown = step.mood;
+			return JSON.stringify(step);
 		},
 		mood: () => shown,
 		energy: () => 0,
-		moods: () => moods,
-		choices: () => moods,
-		face: (m: string) => m
+		moods: () => o.moods ?? [],
+		choices: () => o.moods ?? [],
+		face: (m: string) => m,
+		now: () => JSON.stringify(at === 'own' ? DECK.own.now : DECK.catpope.play),
+		play: (bundle: string) => ((at = bundle ? 'catpope' : 'own'), s.now()),
+		play_core: (character: string) => ((at = character.endsWith('catpope') ? 'catpope' : 'own'), s.now()),
+		sliders: (locale: string) => JSON.stringify(locale === 'de' && at === 'catpope' ? DECK.catpope.sliders_de : DECK[at].sliders),
+		graph: () => JSON.stringify(DECK[at].graph),
+		target: (path: string) => DECK[at].targets[path] ?? ''
 	};
 	return s;
 }
 
-/** the being on the wire of a deck wearing `character`, the core's `moods`, playing its own scene */
-export function ownGraph(character: string, moods: string[]): DeckGraph {
-	const d = new Deck({ character, nick: 'guest', api: 'https://api.example/api' });
-	d.useOwn(OWN);
-	d.useState(stateOf(moods));
-	return d.graph();
+/** the being on the wire of a deck playing its own scene, as the core answers it (the cathedral, yellowmouse, MOODS) */
+export function ownGraph(): DeckGraph {
+	return DECK.own.graph;
 }

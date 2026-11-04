@@ -24,17 +24,17 @@ test('the relay URL and the envelope', () => {
 });
 
 test('deck.graph – its own scene as the core played it (#360): deck-native kinds, links between known ports, the character, its moods, the exposed params', () => {
-	const g = ownGraph('yellowmouse', ['neutral', 'happy']);
+	const g = ownGraph();
 	const ids = new Set(g.nodes.map((n) => n.id));
 	for (const l of g.links) for (const end of [l.from, l.to]) assert.ok(ids.has(end.split('.')[0]), end);
 	assert.deepEqual(g.nodes.map((n) => n.kind).sort(), ['audio_out', 'chapter_music', 'click', 'fft', 'fm', 'lfo', 'mixer', 'noise', 'osc', 'screen', 'seq', 'space', 'tempo'], "the X1's cathedral (#360)");
 	assert.equal(g.character, 'yellowmouse');
-	assert.deepEqual(g.moods, ['neutral', 'happy']);
+	assert.deepEqual(g.moods, MOODS, "the core's ladder");
 	assert.deepEqual(g.expose, Object.keys(OWN_PARAMS));
 	for (const e of g.expose!) assert.ok(ids.has(e.split('.')[0]), e);
 	// deck-native's link.rs test builds this fixture as the conductor would: keep it equal
 	const fixture = JSON.parse(readFileSync(new URL('../../../deck/lab/fixtures/deck-graph.json', import.meta.url), 'utf8'));
-	assert.deepEqual(fixture, { kind: 'deck.graph', p: ownGraph('yellowmouse', MOODS) });
+	assert.deepEqual(fixture, { kind: 'deck.graph', p: ownGraph() });
 });
 
 test('values: the first sample sends all, then only what moved past its epsilon, ≤ 30 / s, the mood on change', () => {
@@ -104,7 +104,7 @@ test('in process: a relay, a conductor, the deck – graph first, values rate-li
 				await new Promise((r) => setTimeout(r, 100));
 			}
 		}
-		const deck = new DeckLink({ relay: url, graph: ownGraph('yellowmouse', ['neutral', 'happy']), socket: WebSocket as never });
+		const deck = new DeckLink({ relay: url, graph: ownGraph(), socket: WebSocket as never });
 		await until(() => deck.joined);
 		// 1 s of values at 120 frames a second, through the stream
 		const s = new ValueStream(OWN_STREAMED);
@@ -152,7 +152,7 @@ test('#220: the render quality goes out once joined and again after a rejoin', (
 		}
 		close() {}
 	}
-	const link = new DeckLink({ relay: 'ws://localhost:1/live/CATH', graph: ownGraph('', MOODS), socket: FakeSocket });
+	const link = new DeckLink({ relay: 'ws://localhost:1/live/CATH', graph: ownGraph(), socket: FakeSocket });
 	const ws = sockets[0];
 	const q = { level: 'medium' as const, scale: 0.8, auto: true, frame: 17.1, ceiling: 'medium' as const };
 	link.quality(q);
@@ -175,7 +175,7 @@ test("#321 in process: the show clock – a pong with the real t0, a leading dec
 		const url = `ws://127.0.0.1:${port}/live/CLOCK`;
 		const pongs: [number, number, number][] = [];
 		const tempos: Tempo[] = [];
-		const link = (o: Partial<ConstructorParameters<typeof DeckLink>[0]>) => new DeckLink({ relay: url, graph: ownGraph('yellowmouse', ['neutral']), socket: WebSocket as never, ...o });
+		const link = (o: Partial<ConstructorParameters<typeof DeckLink>[0]>) => new DeckLink({ relay: url, graph: ownGraph(), socket: WebSocket as never, ...o });
 		// the relay is up once a conductor gets in
 		const end = Date.now() + 5000;
 		for (;;) {

@@ -1,0 +1,18 @@
+name = "rig facts and the rig's lifecycle come from deck-space"
+about = "#368: deck-space's deck (deck.rs) plays a rig once for every deck: which paths stream, where a knob's value goes, which knobs the sticks turn, whether a mood's replay reloads the engine or only moves values (Played::diff), the fall back to the deck's own scene. Native and wasm give the same facts"
+
+[[step]]
+do = "load"
+rig = "character.catpope"
+mood = "happy"
+
+[[step]]
+do = "rig_facts"
+with = { subject = "character.catpope", from = "happy", to = "laughing" }
+expect = { rig = true, failed = false, mood = "laughing", reload = false, changed = { has = "voice_voice.index" }, sticks = { has = "voice_voice.ratio" }, streamed = { has = "mix1.out" }, targets = { has = "voice_melody.spread" } }
+
+# a character the deck carries no rig for: its own scene plays, said so
+[[step]]
+do = "rig_facts"
+with = { subject = "nobody", from = "neutral", to = "happy" }
+expect = { rig = false, failed = false, note = { contains = "no core rig for character.nobody" }, streamed = { has = "fft.level" } }

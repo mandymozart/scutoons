@@ -14,7 +14,7 @@
 	// deck-space's (Hands → DeckControls, wasm), this page only bridges the DOM, Web MIDI and the pointer to it.
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { Hands, charactersOf, loadControls, loadDeckScene, loadDeckState, pushLine, type QualityLevel, type QualityPresets, type SpaceQuality, type Spec } from '@scutoons/live-deck';
+	import { Hands, charactersOf, loadControls, loadDeckState, pushLine, type QualityLevel, type QualityPresets, type SpaceQuality, type Spec } from '@scutoons/live-deck';
 	// #298: the engine's bring-up (the deck, the 3D, the sound, the frame loop, the rig for a mood, the statistics) is
 	// @scutoons/engine-host's; this page keeps the relay, the controls and its UI
 	import { createEngineHost, type EngineHost } from '@scutoons/engine-host';
@@ -272,7 +272,7 @@
 					params = deck.params;
 					values = { ...deck.value };
 					// the corner sticks follow the rig's knobs (or the deck's own scene's again)
-					ctl.useParams(deck.controlSpecs, deck.sticks);
+					ctl.useParams(deck.params, deck.sticks);
 				},
 				// #191: the mood's variant of the rig (its presets, its values) is already played – the sliders follow by the mood's hand
 				mood: (md) => {
@@ -288,12 +288,11 @@
 			values = { ...deck.value };
 			try {
 				// #360: the deck's own scene, played by the core (deck-space as wasm – no GPU needed): its knobs are the sliders
-				deck.useOwn(await loadDeckScene(WASM_BASE));
-				// #367: the deck's state – the mood's energy ladder (deck-space as wasm, no GPU)
+				// #367, #368: the deck's state – its own scene, the mood ladder, the rig's lifecycle (deck-space as wasm, no GPU)
 				deck.useState(await loadDeckState(WASM_BASE));
 				params = deck.params;
 				values = { ...deck.value };
-				const specs = deck.controlSpecs;
+				const specs = deck.params;
 				ctl.hands = new Hands(await loadControls(WASM_BASE, Object.keys(specs)), deck, specs);
 				ctl.useParams(specs, deck.sticks);
 				ctl.load(character);

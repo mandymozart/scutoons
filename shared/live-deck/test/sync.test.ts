@@ -103,7 +103,7 @@ class Sock implements WebSocketLike {
 
 test('the link: the welcome’s sync and a scene.sync reach onSync; synced() sends deck.synced', () => {
 	const got: SceneSync[] = [];
-	const link = new DeckLink({ relay: 'ws://relay.test/live/SYNC', graph: ownGraph('catpope', ['neutral']), socket: Sock, onSync: (s) => got.push(s) });
+	const link = new DeckLink({ relay: 'ws://relay.test/live/SYNC', graph: ownGraph(), socket: Sock, onSync: (s) => got.push(s) });
 	const ws = Sock.last;
 	link.synced({ scene: 'x', state: 'ready', ready: [], missing: [] });
 	assert.equal(ws.sent.length, 0, 'not before the welcome');

@@ -7,8 +7,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { Engine, WasmCore } from '@scutoons/live-core/engine';
 import { wasmPath } from '@scutoons/live-core/wasm-path';
 import { analysisOf, valueIndex, writeSend } from '@scutoons/live-core';
-import { knobTarget, rigOutputs, rigParams, rigStreamed } from '../src/rig.ts';
-import type { RigPlayed } from '../src/space.ts';
+import type { RigPlayed } from '../src/rig.ts';
+import { DECK } from './own.ts';
 
 const path = wasmPath();
 const skip = existsSync(path) ? false : 'live_core.wasm is not built – npm run build:wasm -w shared/live-core';
@@ -35,11 +35,12 @@ async function play(scene: string, knobs: Record<string, number>) {
 }
 
 test("#360: the deck's own scene – the X1's cathedral as deck-space plays it – sounds in the engine: the seq's arp, its knobs inputs, its hoses outputs", { skip }, async () => {
-	const own = RIGS.deck;
-	const knobs = Object.fromEntries(Object.entries(rigParams(own)).map(([p, s]) => [p, s.value]));
+	const own = DECK.own.now.played;
+	// every knob the core sends to the engine (its target), at its value – the core's sliders
+	const knobs = Object.fromEntries(DECK.own.sliders.filter((s) => DECK.own.targets[s.path]).map((s) => [s.path, s.value]));
 	const { table, a, loud } = await play(own.engine.scene, knobs);
 	assert.ok(loud > 0.05 && loud < 1, `the cathedral sounds: ${loud}`);
-	for (const p of [...Object.keys(knobs), ...Object.keys(rigOutputs(own))]) assert.ok(valueIndex(table, p) >= 0, p);
+	for (const [p] of own.streamed) assert.ok(valueIndex(table, p) >= 0, p);
 	assert.ok(table.nodes.some((n) => n.id === 'seq') && !table.nodes.some((n) => n.id === 'melody'), "the cathedral's arp, no page melody");
 	const sway = a.values[valueIndex(table, 'sway.out')];
 	assert.ok(sway >= 0 && sway <= 1, `the LFO is unipolar: ${sway}`);
@@ -47,10 +48,12 @@ test("#360: the deck's own scene – the X1's cathedral as deck-space plays it �
 });
 
 test('every core rig plays in the engine with its knobs and streams', { skip }, async () => {
-	for (const [name, rig] of Object.entries(RIGS)) {
-		const knobs = Object.fromEntries(Object.entries(rigParams(rig)).filter(([p]) => knobTarget(rig, p)).map(([p, s]) => [p, s.value]));
+	// the deck's own scene is the test above; a core rig plays whole in the browser – every knob goes to the engine
+	for (const [name, rig] of Object.entries(RIGS).filter(([n]) => n !== 'deck')) {
+		assert.deepEqual(rig.engine.page, [], `${name} plays whole`);
+		const knobs = Object.fromEntries(rig.knobs.map((k) => [k.path, k.value]));
 		const { table, loud } = await play(rig.engine.scene, name.startsWith('incense') ? { ...knobs, 'air_hiss.gain': 0.1 } : knobs);
 		assert.ok(loud > 0.01, `${name} sounds`);
-		for (const p of Object.keys(rigStreamed(rig))) assert.ok(valueIndex(table, p) >= 0, `${name}: ${p}`);
+		for (const [p] of rig.streamed) assert.ok(valueIndex(table, p) >= 0, `${name}: ${p}`);
 	}
 });

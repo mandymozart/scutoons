@@ -7,16 +7,17 @@
 //   const host = createEngineHost({ api, cdn, wasmBase: '/live/', character: 'catpope', rigs: true });  // host.ts
 //   await host.mount(element);            // the deck and the being; no sound yet, no gesture needed
 //   await host.start();                   // the sound – from a click or a key (the AudioContext needs a gesture)
-//   host.playRig(bundle, '', 'happy');    // another rig; host.setMood('happy'); host.stop(); host.dispose()
+//   host.playRig(bundle);                 // another rig; host.setMood('happy'); host.stop(); host.dispose()
 //
-// The engine itself stays in Rust: live-deck's `Deck` (state, relay, sound) and `SpaceStage` (space-web's `rig_play`,
-// `core_rig`), live-core's worker and worklet. Nothing of the sound or the being is done in TS here.
+// The engine itself stays in Rust: live-deck's `Deck` (relay, sound) on deck-space's deck (space-web `DeckState`: the
+// mood, what plays, the rig's lifecycle – #367, #368), `SpaceStage` (the being), live-core's worker and worklet. Nothing
+// of the sound, the rig or the being is decided in TS here.
 import type { DeviceSignal } from '@scutoons/live-core';
-import { Deck, SpaceStage, loadMonitor, type EngineFiles, type Hand, type MonitorReport, type MonitorView, type RigPlayed } from '@scutoons/live-deck';
+import { Deck, SpaceStage, loadMonitor, type EngineFiles, type Hand, type MonitorReport, type MonitorView, type RigPlayed, type RigTurn } from '@scutoons/live-deck';
 import { EngineLog, formatLine, messageOf } from './log.ts';
 import { OutputMeters } from './meters.ts';
 import { SignalMonitor } from './monitor.ts';
-import { deckOptions, folder, rigSubject, type EngineHostOptions } from './options.ts';
+import { deckOptions, folder, type EngineHostOptions } from './options.ts';
 import { canStart, canStop, emptySnapshot, type EnginePhase, type EngineSnapshot } from './status.ts';
 import { deviceInfo, engineReport } from './report.ts';
 
@@ -69,8 +70,6 @@ export class EngineHost {
 	mood = '';
 	private snap: EngineSnapshot = emptySnapshot();
 	private readonly listeners = new Set<(s: EngineSnapshot) => void>();
-	private bundle: string | null = null;
-	private persona = '';
 	private alive = false;
 	private raf = 0;
 	private timer: ReturnType<typeof setInterval> | undefined;
@@ -106,7 +105,7 @@ export class EngineHost {
 
 	/** the moods a picker offers (the deck's core: the calm one first, then the character's portraits) */
 	get moods(): string[] {
-		return this.deck?.choices ?? [];
+		return this.deck?.state?.choices() ?? [];
 	}
 
 	/** The deck alone, synchronously – an app that sets itself up around the deck (controls, a relay) before the 3D
@@ -123,6 +122,7 @@ export class EngineHost {
 		);
 		deck.onValue = (p, v, hand) => this.hooks.value?.(p, v, hand);
 		deck.onMood = (md) => this.moodChanged(md);
+		deck.onTurn = this.turned;
 		deck.onSignal = (s) => this.signalled(s);
 		this.deck = deck;
 		return deck;
@@ -162,10 +162,7 @@ export class EngineHost {
 				}
 			});
 			this.hooks.space?.(this.space);
-			if (this.rigs) {
-				this.applyRig();
-				this.space.setBeing();
-			}
+			if (this.rigs) this.playCoreRig(deck.character);
 		} catch (e) {
 			this.space = null;
 			this.log.push('3d', `no 3D: ${messageOf(e)}`, 'error');
@@ -225,50 +222,29 @@ export class EngineHost {
 	async pickCharacter(id: string): Promise<void> {
 		const deck = this.init();
 		await deck.pickCharacter(id);
-		this.applyRig();
-		this.space?.setBeing();
+		if (this.rigs) this.playCoreRig(id);
+		else this.space?.setBeing();
 	}
 
-	/** Play a rig bundle (JSON: rig + instruments + presets, space-web's `rig_play`) for a persona and a mood – the sliders
-	 *  become its knobs, the being its graph, the sound its scene. Throws on a bad bundle; needs the 3D (the rig is
-	 *  played by deck-space's wasm). */
-	playRig(bundle: string, persona = '', mood = this.mood): RigPlayed {
-		const deck = this.deck;
-		const space = this.space;
-		if (!deck || !space) throw new Error('the engine host has no 3D yet – mount it first (the rig is played by deck-space)');
-		const played = space.playRig(bundle, persona, mood);
-		this.bundle = bundle;
-		this.persona = persona;
-		deck.useRig(played);
-		space.setBeing();
-		this.log.push('rig', `played ${played.character || 'an item'}${mood ? ` (${mood})` : ''}: ${played.knobs.length} knobs, ${played.nodes.length} nodes`);
-		this.hooks.rig?.(played, 'play');
-		return played;
+	/** Play a rig bundle (JSON: rig + instruments + presets) for a persona at the deck's mood – the core plays it (and
+	 *  replays it on every mood): the sliders become its knobs, the being its graph, the sound its scene. Throws on a bad
+	 *  bundle (what played stays) or before the deck's core loaded (`mount`). */
+	playRig(bundle: string, persona = ''): RigPlayed {
+		return this.init().play(bundle, persona).played;
 	}
 
-	/** The core rig of `subject` (`character.catpope`, or just `catpope`) – false when the deck carries none, the fixed
-	 *  patch plays then. */
-	playCoreRig(subject: string, persona = '', mood = this.mood): boolean {
-		const space = this.space;
-		if (!this.deck || !space) throw new Error('the engine host has no 3D yet – mount it first');
-		const bundle = space.coreRig(rigSubject(subject));
-		if (!bundle) {
-			this.log.push('rig', `no core rig for ${rigSubject(subject)} – the fixed patch plays`, 'warn');
-			this.bundle = null;
-			this.deck.useRig(null);
-			space.setBeing();
-			this.hooks.rig?.(null, 'play');
-			return false;
-		}
-		this.playRig(bundle, persona, mood);
-		return true;
+	/** The core rig of `subject` (`character.catpope`, or just `catpope`) – false when the deck carries none (or before its
+	 *  core loaded): the deck's own scene plays then. */
+	playCoreRig(subject: string, persona = ''): boolean {
+		const deck = this.init();
+		return deck.state ? deck.play(subject, persona, true).rig !== null : false;
 	}
 
 	/** Hold the being on `mood` (a portrait's name), or null to let the core's energy ladder walk it again. The rig follows. */
 	setMood(mood: string | null): void {
 		const deck = this.deck;
 		if (!deck) return;
-		deck.pin(mood);
+		deck.state?.pin(mood ?? '');
 		if (mood !== null) this.log.push('host', `mood held: ${mood}`);
 	}
 
@@ -297,41 +273,20 @@ export class EngineHost {
 		}
 	}
 
-	/** the deck's mood changed: the rig for it, then the app */
+	/** the deck's mood changed (the core replayed the rig for it already): the app */
 	private moodChanged(md: string): void {
 		this.mood = md;
 		this.hooks.mood?.(md);
-		const deck = this.deck;
-		if (this.bundle && this.space && deck) {
-			try {
-				deck.moodRig(this.space.playRig(this.bundle, this.persona, md));
-				this.hooks.rig?.(deck.rig, 'mood');
-			} catch (e) {
-				this.log.push('rig', `mood ${md}: ${messageOf(e)}`, 'error');
-				this.hooks.spaceStatus?.(messageOf(e));
-			}
-		}
 		this.snap = { ...this.snap, mood: md };
 	}
 
-	/** the character's core rig for the deck's character and mood (with `rigs`) */
-	private applyRig(): void {
-		const deck = this.deck;
-		if (!deck || !this.rigs) return;
-		this.bundle = null;
-		try {
-			const space = this.space;
-			this.bundle = space ? space.coreRig(rigSubject(deck.character)) : null;
-			deck.useRig(this.bundle && space ? space.playRig(this.bundle, this.persona, this.mood) : null);
-			this.log.push('rig', this.bundle ? `core rig of ${deck.character}: ${deck.rig?.knobs.length} knobs` : `no core rig for ${deck.character} – the fixed patch plays`);
-		} catch (e) {
-			this.bundle = null;
-			deck.useRig(null);
-			this.log.push('rig', messageOf(e), 'error');
-			this.hooks.spaceStatus?.(messageOf(e));
-		}
-		this.hooks.rig?.(deck.rig, 'play');
-	}
+	/** the core's turn was applied (a scene played, the rig replayed for a mood): the log, the being anew, the app */
+	private turned = (t: RigTurn): void => {
+		if (t.note) this.log.push('rig', t.note, t.failed ? 'error' : 'info');
+		if (t.failed) this.hooks.spaceStatus?.(t.note);
+		if (t.reload) this.space?.setBeing();
+		this.hooks.rig?.(this.deck?.rig ?? null, t.why);
+	};
 
 	/** One animation frame: the deck's tick, the 3D's frame, the statistics. A throw out of the deck's tick (or the pad's
 	 *  poll) must not end the loop – the 3D and the pointer die with it (#274); reported once. */

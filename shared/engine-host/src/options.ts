@@ -35,9 +35,6 @@ export interface EngineHostOptions {
 /** a folder URL ends with `/` */
 export const folder = (url: string): string => (url.endsWith('/') ? url : `${url}/`);
 
-/** the subject a character's core rig is filed under (deck-space `core_rig`) */
-export const rigSubject = (character: string): string => (character.includes('.') ? character : `character.${character}`);
-
 /** the options the deck gets from the host's: no relay → none, a nick of at most 24 characters */
 export function deckOptions(o: EngineHostOptions, onStatus: (s: string) => void): DeckOptions {
 	return {

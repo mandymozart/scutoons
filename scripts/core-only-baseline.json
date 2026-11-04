@@ -25,12 +25,6 @@
 		"twin-comment"
 	],
 	"entries": {
-		"creator/src/lib/components/sound/deck-half.svelte": {
-			"mood-literal": {
-				"count": 1,
-				"ticket": "#367"
-			}
-		},
 		"creator/src/lib/editor/signal-strip.ts": {
 			"clamp": {
 				"count": 1,
@@ -43,12 +37,6 @@
 			"threshold": {
 				"count": 1,
 				"ticket": "#373"
-			}
-		},
-		"shared/engine-host/src/controller.ts": {
-			"mood-literal": {
-				"count": 1,
-				"ticket": "#367"
 			}
 		},
 		"shared/engine-host/src/meters.ts": {
@@ -65,18 +53,6 @@
 			"midi-bytes": {
 				"count": 3,
 				"ticket": "#373"
-			}
-		},
-		"shared/engine-host/src/options.ts": {
-			"mood-literal": {
-				"count": 2,
-				"ticket": "#367"
-			}
-		},
-		"shared/engine-host/src/status.ts": {
-			"mood-literal": {
-				"count": 1,
-				"ticket": "#367"
 			}
 		},
 		"shared/live-core/src/modules.ts": {
@@ -109,16 +85,6 @@
 				"ticket": "#369"
 			}
 		},
-		"shared/live-deck/src/deck.ts": {
-			"mood-literal": {
-				"count": 2,
-				"ticket": "#367"
-			},
-			"clamp": {
-				"count": 1,
-				"ticket": "#367"
-			}
-		},
 		"shared/live-deck/src/events.ts": {
 			"twin-comment": {
 				"count": 1,
@@ -129,40 +95,6 @@
 			"twin-const": {
 				"count": 1,
 				"ticket": "#369"
-			}
-		},
-		"shared/live-deck/src/rig.ts": {
-			"kind-branch": {
-				"count": 1,
-				"ticket": "#368"
-			}
-		},
-		"shared/live-deck/src/scene.ts": {
-			"twin-const": {
-				"count": 2,
-				"ticket": "#367"
-			},
-			"twin-comment": {
-				"count": 1,
-				"ticket": "#360"
-			},
-			"mood-literal": {
-				"count": 6,
-				"ticket": "#367"
-			},
-			"clamp": {
-				"count": 1,
-				"ticket": "#367"
-			},
-			"tempo-shape": {
-				"count": 1,
-				"ticket": "#367"
-			}
-		},
-		"shared/live-deck/src/space.ts": {
-			"twin-comment": {
-				"count": 1,
-				"ticket": "#376"
 			}
 		},
 		"shared/live-deck/src/sync.ts": {
@@ -201,12 +133,6 @@
 			"twin-comment": {
 				"count": 3,
 				"ticket": "#379"
-			}
-		},
-		"viewer/src/routes/live/deck/[[code]]/+page.svelte": {
-			"mood-literal": {
-				"count": 1,
-				"ticket": "#367"
 			}
 		}
 	},
@@ -501,7 +427,7 @@
 	],
 	"budgets": {
 		"creator/src/lib/components/sound/deck-half.svelte": {
-			"lines": 106,
+			"lines": 105,
 			"functions": 5,
 			"math": 1,
 			"escapes": 0
@@ -537,7 +463,7 @@
 			"escapes": 0
 		},
 		"shared/engine-host/src/controller.ts": {
-			"lines": 437,
+			"lines": 397,
 			"functions": 33,
 			"math": 0,
 			"escapes": 0
@@ -591,8 +517,8 @@
 			"escapes": 0
 		},
 		"shared/engine-host/src/options.ts": {
-			"lines": 60,
-			"functions": 5,
+			"lines": 51,
+			"functions": 2,
 			"math": 0,
 			"escapes": 0
 		},
@@ -689,7 +615,7 @@
 		"shared/live-deck/src/deck.ts": {
 			"lines": 360,
 			"functions": 43,
-			"math": 2,
+			"math": 0,
 			"escapes": 1
 		},
 		"shared/live-deck/src/events.ts": {
@@ -717,15 +643,15 @@
 			"escapes": 0
 		},
 		"shared/live-deck/src/rig.ts": {
-			"lines": 82,
-			"functions": 22,
+			"lines": 72,
+			"functions": 0,
 			"math": 0,
 			"escapes": 0
 		},
 		"shared/live-deck/src/scene.ts": {
-			"lines": 57,
-			"functions": 6,
-			"math": 10,
+			"lines": 19,
+			"functions": 2,
+			"math": 2,
 			"escapes": 0
 		},
 		"shared/live-deck/src/space.ts": {

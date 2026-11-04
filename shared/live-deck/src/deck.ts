@@ -1,7 +1,8 @@
 // deck.ts (#197, #198): the browser deck's state – one for the lab page and the viewer's /live/deck. The parameter
-// values (the pads, the sliders, the being's 3D buttons all turn these), the mood (deck-space's ladder, #367), the relay link and its values
-// stream, and the sound: live-core – the native deck's engine (#320) – plays the whole scene (its own, #360, or the rig's);
-// the page only sends the values and reads back what is heard. No DOM: the page draws it; `tick` runs it once per
+// values (the pads, the sliders, the being's 3D buttons all turn these), the relay link and its values stream, and the
+// sound: live-core – the native deck's engine (#320) – plays the whole scene (its own, #360, or the rig's); the page only
+// sends the values and reads back what is heard. The mood and what plays are the core's (#367, #368: deck-space's deck,
+// space-web `DeckState`): the deck applies its turns. No DOM: the page draws it; `tick` runs it once per
 // animation frame. With a CDN given it answers the conductor's scene sync (#195, sync.ts). The tempo clock (#321) is the
 // core's: the link's pongs and anchors and Web MIDI's clock go in, the core's pings and a leader's anchors go out.
 import type { DeckGraph, Tempo } from '@scutoons/live';
@@ -10,8 +11,8 @@ import type { DeckSynced } from '@scutoons/live';
 import { DeckLink, ValueStream, type WebSocketLike } from './client.ts';
 import { BrowserSync } from './sync.ts';
 import type { Spec } from './scene.ts';
-import { knobTarget, rigDiff, rigGraph, rigParams, rigStreamed } from './rig.ts';
-import type { DeckStateView, RigPlayed } from './space.ts';
+import type { MoodStep, RigPlayed, RigSlider, RigTurn } from './rig.ts';
+import type { DeckStateView } from './space.ts';
 
 /** #321: the MIDI clock's messages: tick, start, continue, stop, song position */
 // core-only-ok: #321 the port's filter (as the native port's in tempo/midi.rs) – which bytes reach the core, no parsing
@@ -57,15 +58,15 @@ export class Deck {
 	readonly value: Record<string, number> = {};
 	/** the sliders: the knobs of the scene that plays – the deck's own or the rig's (#191) */
 	params: Record<string, Spec> = {};
-	/** the character's rig as played for the current mood (deck-space via space-web `rig_play`); null = the deck's own scene */
+	/** what plays as the core played it (the rig for the mood now, else the deck's own scene); null until the wasm came */
+	played: RigPlayed | null = null;
+	/** the character's rig as played for the mood now; null = the deck's own scene (#360, the X1's cathedral) plays */
 	rig: RigPlayed | null = null;
-	/** #360: the deck's own scene, the X1's cathedral as deck-space plays it (space-web `deck_scene`); null until it came */
-	own: RigPlayed | null = null;
 	/** the corner sticks' (x, y) pairs, left then right: the played scene's (#191) */
 	sticks: [string, string][] | null = null;
 	character: string;
 	portraits: Portraits = {};
-	/** #367: the deck's state in the core (space-web `DeckState`: the mood's energy ladder); null until the wasm came */
+	/** #367, #368: the deck's state in the core (space-web `DeckState`: the mood ladder, what plays); null until the wasm came */
 	state: DeckStateView | null = null;
 	/** #321: the core's tempo clock as its last frame left it (null before the sound started) */
 	clock: ClockState | null = null;
@@ -96,6 +97,8 @@ export class Deck {
 	/** every value change, with whose hand (the page's controls follow the being's) */
 	onValue: ((path: string, value: number, hand: Hand) => void) | null = null;
 	onMood: ((mood: string) => void) | null = null;
+	/** #368: the core's turn was applied (a scene played, or the rig replayed for a mood) */
+	onTurn: ((t: RigTurn) => void) | null = null;
 	private last = -1;
 	/** the page's clock at the first tick (s) */
 	private t0 = -1;
@@ -170,27 +173,37 @@ export class Deck {
 		return this.clock ? beatAt(this.clock, ms) : NaN;
 	}
 
-	/** the scene that plays: the rig, else the deck's own */
-	get played(): RigPlayed | null {
-		return this.rig ?? this.own;
-	}
-
-	/** #367: the core's deck state (the mood ladder) – the character's portraits go in, the being on the wire anew */
+	/** #367, #368: the core's deck state – the character's portraits go in, what it plays (its own scene) is loaded */
 	useState(s: DeckStateView): void {
 		this.state = s;
 		s.set_portraits(Object.keys(this.portraits));
 		this.mood = s.mood();
-		this.link?.setGraph(this.graph());
+		this.apply(JSON.parse(s.now()) as RigTurn);
 	}
 
-	/** #367: hold the mood (a portrait's name), or null to let the core's energy ladder walk it again */
-	pin(mood: string | null): void {
-		this.state?.pin(mood ?? '');
+	/** #368: a rig bundle (JSON) for a persona at the mood now ('' = the deck's own scene; throws on a bad one), or with
+	 *  `core` the core rig of a character / subject (else the deck's own scene – the turn's note says so) */
+	play(what: string, persona = '', core = false): RigTurn {
+		const s = this.state;
+		if (!s) throw new Error('the deck has no core yet (space-web was not loaded)');
+		return this.apply(JSON.parse(core ? s.play_core(what, persona) : s.play(what, persona)) as RigTurn);
 	}
 
-	/** #367: the moods a picker offers (the core's) */
-	get choices(): string[] {
-		return this.state?.choices() ?? [];
+	/** #368: the core's turn – a scene to load whole (sliders, sticks, stream, wire, sound) or the values a mood moved */
+	private apply(t: RigTurn): RigTurn {
+		this.played = t.played;
+		this.rig = t.rig ? t.played : null;
+		if (t.reload) {
+			this.sticks = t.played.sticks.map(([x, y]) => [x, y] as [string, string]);
+			this.params = Object.fromEntries((JSON.parse(this.state?.sliders('') ?? '[]') as RigSlider[]).map((s) => [s.path, s]));
+			for (const k of Object.keys(this.value)) delete this.value[k];
+			for (const [k, s] of Object.entries(this.params)) this.value[k] = s.value;
+			this.stream = new ValueStream(Object.fromEntries(t.played.streamed));
+			this.link?.setGraph(this.graph());
+			if (this.core) void this.loadEngine(this.core);
+		} else for (const [path, v] of t.values) path in this.value ? this.setParam(path, v, 'mood') : this.send(path, v);
+		this.onTurn?.(t);
+		return t;
 	}
 
 	/** #367: the portrait `mood` shows (the core's fallback), null when there is none */
@@ -198,49 +211,9 @@ export class Deck {
 		return this.portraits[this.state?.face(mood) ?? ''] ?? null;
 	}
 
-	/** the being on the wire now: the played scene's graph, the character, the core's moods (its ladder first) */
+	/** the being on the wire now (the core's: the played scene, its character – the deck's for its own scene –, the moods) */
 	graph(): DeckGraph {
-		const moods = this.state?.moods() ?? [];
-		const g = this.played ? rigGraph(this.played, moods) : { nodes: [], links: [], size: 0.5, moods, expose: [] };
-		// the deck's own scene wears the deck's character; a rig is its character's
-		return this.rig ? g : { ...g, character: this.character };
-	}
-
-	/** Play a rig instead of the deck's own scene (null = back to it): its knobs become the sliders, its graph the being
-	 *  on the wire, its lowered scene the sound (live-core reloads when it runs). */
-	useRig(rig: RigPlayed | null): void {
-		this.rig = rig;
-		const p = this.played;
-		this.sticks = p ? p.sticks.map(([x, y]) => [x, y] as [string, string]) : null;
-		this.params = p ? rigParams(p) : {};
-		for (const k of Object.keys(this.value)) delete this.value[k];
-		for (const [k, s] of Object.entries(this.params)) this.value[k] = s.value;
-		this.stream = new ValueStream(p ? rigStreamed(p) : {});
-		this.link?.setGraph(this.graph());
-		if (this.core) void this.loadEngine(this.core);
-	}
-
-	/** #360: the deck's own scene (space-web `deck_scene`) – it plays whenever no rig does */
-	useOwn(p: RigPlayed): void {
-		this.own = p;
-		if (!this.rig) this.useRig(null);
-	}
-
-	/** what the controls drive: the played scene's knobs */
-	get controlSpecs(): Record<string, Spec> {
-		return this.params;
-	}
-
-	/** The rig played for the new mood: the values that moved go out (the sliders follow), a new shape reloads. */
-	moodRig(p: RigPlayed): void {
-		if (!this.rig) return this.useRig(p);
-		const d = rigDiff(this.rig, p);
-		if (d.reload) return this.useRig(p);
-		this.rig = p;
-		for (const [path, v] of d.values) {
-			if (path in this.value) this.setParam(path, v, 'mood');
-			else this.send(path, v);
-		}
+		return this.state ? (JSON.parse(this.state.graph(this.character)) as DeckGraph) : { nodes: [], links: [] };
 	}
 
 	/** the paths the deck streams (and the 3D being reads) */
@@ -276,10 +249,10 @@ export class Deck {
 		}
 	}
 
-	/** a knob's value to the engine: its path is the scene's (a rig's node the browser does not carry yet takes none) */
+	/** a knob's value to the engine, where the core says it goes (a node the browser does not carry yet takes none) */
 	private send(path: string, v: number): void {
-		const t = this.played && knobTarget(this.played, path);
-		if (t) this.engineSet(t.engine, [v]);
+		const t = this.state?.target(path);
+		if (t) this.engineSet(t, [v]);
 	}
 
 	/** a streamed path's value now: what the engine played in the heard block (an input, a control output, an audio
@@ -294,16 +267,19 @@ export class Deck {
 		return this.t0 < 0 ? 0 : this.last - this.t0;
 	}
 
-	/** One frame at `now` (s, performance.now() / 1000): the mood (the core's ladder: the level, the clock, the hand), the
-	 *  stream. */
+	/** One frame at `now` (s, performance.now() / 1000): the mood (the core's ladder: the level, the clock, the hand) and
+	 *  the rig the core replayed for it, the stream. */
 	tick(now: number): void {
 		if (this.t0 < 0) this.t0 = this.last = now;
 		const dt = now - this.last;
 		this.last = now;
-		const m = this.state?.step(this.bands.level, this.clock?.bpm ?? 0, this.clock?.running ?? false, this.touch, dt);
-		if (m) {
-			this.mood = m;
-			this.onMood?.(m);
+		const said = this.state?.step(this.bands.level, this.clock?.bpm ?? 0, this.clock?.running ?? false, this.touch, dt);
+		if (said) {
+			const s = JSON.parse(said) as MoodStep;
+			if (s.turn) this.apply(s.turn);
+			if (s.error) this.o.onStatus?.(s.error);
+			this.mood = s.mood;
+			this.onMood?.(s.mood);
 		}
 		const changes = this.stream.sample(now, (p) => this.read(p), this.mood);
 		if (changes) this.link?.send(changes);
@@ -360,7 +336,7 @@ export class Deck {
 		if (gen !== this.loadGen) return;
 		this.engineReady = true;
 		if (rig?.engine.page.length) this.o.onStatus?.(`sound: not in the browser yet – ${rig.engine.page.map((n) => `${n.id} (${n.kind})`).join(', ')}`);
-		for (const p of Object.keys(this.controlSpecs)) this.setParam(p, this.value[p]);
+		for (const p of Object.keys(this.params)) this.setParam(p, this.value[p]);
 	}
 
 	close() {

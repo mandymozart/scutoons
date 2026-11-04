@@ -33,7 +33,6 @@ pub const CAPS: &[(&str, &str, &str, &str)] = &[
     ("hud", "#374", "the deck UI model: the HUD lines and the stats bar items", "main.rs hud_lines / bar_items"),
     ("tempo_line", "#370", "the tempo line's wording (BPM, BAR, BEAT, STOP, CLK) and the clock choices as core state", "main.rs tempo_line, deck-clock.svelte"),
     ("relay_join", "#366", "the relay client as a sans-IO state machine: hello, welcome, backoff, ping, status text", "native space/link.rs, live/client.rs; live-deck client.ts; viewer live-vote-link.ts"),
-    ("rig_facts", "#368", "rig facts: streamed paths, knob targets, whether a mood change needs a reload", "live-deck rig.ts, engine-host controller.ts"),
     ("knob", "#369", "the controls' rules: knob turn, value and position, gamepad press and release", "live-deck controls.ts, gamepad.ts, scene.ts toValue / toPos; native pad.rs"),
     ("sync", "#371", "the conductor's scene sync: items, progress, the PUSH line", "native sync.rs push_line, live-deck sync.ts"),
     ("device_text", "#373", "a device message's text and the meter ballistics", "engine-host monitor.ts describeSignal, meters.ts; creator signal-strip.ts"),
@@ -43,7 +42,7 @@ pub const CAPS: &[(&str, &str, &str, &str)] = &[
 ];
 
 /// the steps the core answers now (their move tickets landed): name, ticket
-pub const MOVED: &[(&str, &str)] = &[("stats", "#364"), ("lead", "#365"), ("mood", "#367")];
+pub const MOVED: &[(&str, &str)] = &[("stats", "#364"), ("lead", "#365"), ("mood", "#367"), ("rig_facts", "#368")];
 
 /// Call the capability `name` with the step's input: its answer, or what is missing.
 pub fn call(name: &str, input: &Value) -> Result<Value, Missing> {
@@ -51,6 +50,7 @@ pub fn call(name: &str, input: &Value) -> Result<Value, Missing> {
         "stats" => return Ok(stats(input)),
         "lead" => return Ok(lead(input)),
         "mood" => return Ok(mood(input)),
+        "rig_facts" => return Ok(rig_facts(input)),
         _ => {}
     }
     match CAPS.iter().find(|c| c.0 == name) {
@@ -130,7 +130,7 @@ fn mood(i: &Value) -> Value {
         let touch = touches.get(k).and_then(Value::as_f64).unwrap_or_else(|| num(i, "touch", 0.0));
         for _ in 0..(step_s / frame_s).round() as usize {
             if let Some(m) = d.step(level as f32, bpm, running, touch as f32, frame_s as f32) {
-                said.push(m.to_string());
+                said.push(m.mood);
             }
         }
         rungs.push(d.mood().to_string());
@@ -142,4 +142,27 @@ fn mood(i: &Value) -> Value {
         }
     }
     json!({ "first": said.first(), "last": said.last(), "said": said, "seen": seen, "rungs": rungs, "energy": crate::deck::round(f64::from(d.ladder.energy()), 4) })
+}
+
+/// #368: deck-space's deck playing a core rig (`subject`) at the mood `from`, then replayed for `to` – what a page
+/// applies: the scene's sticks, streamed paths and knob targets, whether the mood's turn reloads and what it moves.
+fn rig_facts(i: &Value) -> Value {
+    let text = |k: &str| i.get(k).and_then(Value::as_str).unwrap_or_default().to_string();
+    let mut d = Deck::new();
+    d.ladder.pin(Some(&text("from")));
+    let play = d.play_core(&text("subject"), "");
+    let p = d.played();
+    let sticks: Vec<&String> = p.sticks.iter().flatten().filter(|s| !s.is_empty()).collect();
+    let streamed: Vec<&String> = p.streamed.iter().map(|(path, _)| path).collect();
+    let targets: Vec<&str> = p.knobs.iter().filter_map(|k| d.target(&k.path)).collect();
+    let mut out = json!({ "rig": play.rig, "failed": play.failed, "note": play.note, "sticks": sticks, "streamed": streamed, "targets": targets });
+    d.ladder.pin(Some(&text("to")));
+    let step = d.step(0.0, 0.0, false, 0.0, 1.0 / 60.0);
+    let turn = step.as_ref().and_then(|s| s.turn.as_ref());
+    let mut changed: Vec<&String> = turn.map(|t| t.values.iter().map(|(p, _)| p).collect()).unwrap_or_default();
+    changed.sort();
+    out["mood"] = json!(step.as_ref().map(|s| s.mood.as_str()));
+    out["reload"] = json!(turn.map(|t| t.reload));
+    out["changed"] = json!(changed);
+    out
 }
