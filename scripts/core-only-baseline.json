@@ -25,12 +25,6 @@
 		"twin-comment"
 	],
 	"entries": {
-		"creator/src/lib/components/sound/deck-half.svelte": {
-			"mood-literal": {
-				"count": 1,
-				"ticket": "#367"
-			}
-		},
 		"creator/src/lib/editor/signal-strip.ts": {
 			"clamp": {
 				"count": 1,
@@ -43,12 +37,6 @@
 			"threshold": {
 				"count": 1,
 				"ticket": "#373"
-			}
-		},
-		"shared/engine-host/src/controller.ts": {
-			"mood-literal": {
-				"count": 1,
-				"ticket": "#367"
 			}
 		},
 		"shared/engine-host/src/meters.ts": {
@@ -65,18 +53,6 @@
 			"midi-bytes": {
 				"count": 3,
 				"ticket": "#373"
-			}
-		},
-		"shared/engine-host/src/options.ts": {
-			"mood-literal": {
-				"count": 2,
-				"ticket": "#367"
-			}
-		},
-		"shared/engine-host/src/status.ts": {
-			"mood-literal": {
-				"count": 1,
-				"ticket": "#367"
 			}
 		},
 		"shared/live-core/src/modules.ts": {
@@ -109,16 +85,6 @@
 				"ticket": "#369"
 			}
 		},
-		"shared/live-deck/src/deck.ts": {
-			"mood-literal": {
-				"count": 2,
-				"ticket": "#367"
-			},
-			"clamp": {
-				"count": 1,
-				"ticket": "#367"
-			}
-		},
 		"shared/live-deck/src/events.ts": {
 			"twin-comment": {
 				"count": 1,
@@ -129,40 +95,6 @@
 			"twin-const": {
 				"count": 1,
 				"ticket": "#369"
-			}
-		},
-		"shared/live-deck/src/rig.ts": {
-			"kind-branch": {
-				"count": 1,
-				"ticket": "#368"
-			}
-		},
-		"shared/live-deck/src/scene.ts": {
-			"twin-const": {
-				"count": 2,
-				"ticket": "#367"
-			},
-			"twin-comment": {
-				"count": 1,
-				"ticket": "#360"
-			},
-			"mood-literal": {
-				"count": 6,
-				"ticket": "#367"
-			},
-			"clamp": {
-				"count": 1,
-				"ticket": "#367"
-			},
-			"tempo-shape": {
-				"count": 1,
-				"ticket": "#367"
-			}
-		},
-		"shared/live-deck/src/space.ts": {
-			"twin-comment": {
-				"count": 1,
-				"ticket": "#376"
 			}
 		},
 		"shared/live-deck/src/sync.ts": {
@@ -201,12 +133,6 @@
 			"twin-comment": {
 				"count": 3,
 				"ticket": "#379"
-			}
-		},
-		"viewer/src/routes/live/deck/[[code]]/+page.svelte": {
-			"mood-literal": {
-				"count": 1,
-				"ticket": "#367"
 			}
 		}
 	},
@@ -266,97 +192,6 @@
 			"match": "const channels = Math.min(Math.max(1, Math.floor(o.channels ?? deviceChannels(destination)",
 			"count": 1,
 			"why": "the device's channel count bounded to the engine's outputs (an adapter fact)"
-		},
-		{
-			"file": "shared/live-core/src/signals.ts",
-			"rule": "scene-literal",
-			"match": "export type OscArg = { kind: 'int'; p: number } | { kind: 'float'; p: number } | { kind: '",
-			"count": 4,
-			"why": "wire kinds of the device-signal codec (OSC args, midi / dmx / osc signals), not catalog kinds; the codec is generated in #372"
-		},
-		{
-			"file": "shared/live-core/src/signals.ts",
-			"rule": "scene-literal",
-			"match": "| { kind: 'midi'; port: 'out' | 'conductor'; bytes: number[]; at: number }",
-			"count": 1,
-			"why": "wire kinds of the device-signal codec (OSC args, midi / dmx / osc signals), not catalog kinds; the codec is generated in #372"
-		},
-		{
-			"file": "shared/live-core/src/signals.ts",
-			"rule": "scene-literal",
-			"match": "| { kind: 'dmx'; ch: number; values: number[]; flash: boolean; at: number }",
-			"count": 1,
-			"why": "wire kinds of the device-signal codec (OSC args, midi / dmx / osc signals), not catalog kinds; the codec is generated in #372"
-		},
-		{
-			"file": "shared/live-core/src/signals.ts",
-			"rule": "scene-literal",
-			"match": "| { kind: 'osc'; address: string; args: OscArg[]; at: number };",
-			"count": 1,
-			"why": "wire kinds of the device-signal codec (OSC args, midi / dmx / osc signals), not catalog kinds; the codec is generated in #372"
-		},
-		{
-			"file": "shared/live-core/src/signals.ts",
-			"rule": "scene-literal",
-			"match": "if (kind === KIND_MIDI) yield { kind: 'midi', port: flags & 1 ? 'conductor' : 'out', bytes",
-			"count": 1,
-			"why": "wire kinds of the device-signal codec (OSC args, midi / dmx / osc signals), not catalog kinds; the codec is generated in #372"
-		},
-		{
-			"file": "shared/live-core/src/signals.ts",
-			"rule": "scene-literal",
-			"match": "else if (kind === KIND_DMX) yield { kind: 'dmx', ch, values: [...bytes.subarray(start, end",
-			"count": 1,
-			"why": "wire kinds of the device-signal codec (OSC args, midi / dmx / osc signals), not catalog kinds; the codec is generated in #372"
-		},
-		{
-			"file": "shared/live-core/src/signals.ts",
-			"rule": "scene-literal",
-			"match": "args.push({ kind: 'int', p: view.getInt32(p, true) });",
-			"count": 1,
-			"why": "wire kinds of the device-signal codec (OSC args, midi / dmx / osc signals), not catalog kinds; the codec is generated in #372"
-		},
-		{
-			"file": "shared/live-core/src/signals.ts",
-			"rule": "scene-literal",
-			"match": "args.push({ kind: 'float', p: view.getFloat32(p, true) });",
-			"count": 1,
-			"why": "wire kinds of the device-signal codec (OSC args, midi / dmx / osc signals), not catalog kinds; the codec is generated in #372"
-		},
-		{
-			"file": "shared/live-core/src/signals.ts",
-			"rule": "scene-literal",
-			"match": "args.push({ kind: 'string', p: utf8.decode(bytes.subarray(p, p + l)) });",
-			"count": 1,
-			"why": "wire kinds of the device-signal codec (OSC args, midi / dmx / osc signals), not catalog kinds; the codec is generated in #372"
-		},
-		{
-			"file": "shared/live-core/src/signals.ts",
-			"rule": "scene-literal",
-			"match": "args.push({ kind: 'bool', p: view.getUint8(p++) !== 0 });",
-			"count": 1,
-			"why": "wire kinds of the device-signal codec (OSC args, midi / dmx / osc signals), not catalog kinds; the codec is generated in #372"
-		},
-		{
-			"file": "shared/live-core/src/signals.ts",
-			"rule": "scene-literal",
-			"match": "return { kind: 'osc', address, args, at: when };",
-			"count": 1,
-			"why": "wire kinds of the device-signal codec (OSC args, midi / dmx / osc signals), not catalog kinds; the codec is generated in #372"
-		},
-		{
-			"file": "shared/live-core/src/wire.ts",
-			"rule": "clamp",
-			"match": "outputs: frame.subarray(PEAKS, PEAKS + Math.max(0, Math.min(MAX_OUTPUTS, Math.round(frame[",
-			"count": 1,
-			"why": "the slice bounds of a decoded frame (bytes, not values); the codec is generated in #372"
-		},
-		{
-			"file": "shared/live-core/src/wire.ts",
-			"rule": "clamp",
-			"match": "values: frame.subarray(VALUES_AT, VALUES_AT + Math.max(0, Math.min(MAX_FRAME_VALUES, Math.",
-			"count": 1,
-			"why": "the slice bounds of a decoded frame (bytes, not values); the codec is generated in #372"
 		},
 		{
 			"file": "shared/live-deck/src/client.ts",
@@ -501,7 +336,7 @@
 	],
 	"budgets": {
 		"creator/src/lib/components/sound/deck-half.svelte": {
-			"lines": 106,
+			"lines": 105,
 			"functions": 5,
 			"math": 1,
 			"escapes": 0
@@ -537,7 +372,7 @@
 			"escapes": 0
 		},
 		"shared/engine-host/src/controller.ts": {
-			"lines": 437,
+			"lines": 397,
 			"functions": 33,
 			"math": 0,
 			"escapes": 0
@@ -591,8 +426,8 @@
 			"escapes": 0
 		},
 		"shared/engine-host/src/options.ts": {
-			"lines": 60,
-			"functions": 5,
+			"lines": 51,
+			"functions": 2,
 			"math": 0,
 			"escapes": 0
 		},
@@ -609,8 +444,8 @@
 			"escapes": 0
 		},
 		"shared/live-core/src/clock.ts": {
-			"lines": 134,
-			"functions": 9,
+			"lines": 65,
+			"functions": 8,
 			"math": 4,
 			"escapes": 1
 		},
@@ -642,18 +477,6 @@
 			"lines": 136,
 			"functions": 15,
 			"math": 4,
-			"escapes": 0
-		},
-		"shared/live-core/src/signals.ts": {
-			"lines": 87,
-			"functions": 4,
-			"math": 0,
-			"escapes": 0
-		},
-		"shared/live-core/src/wire.ts": {
-			"lines": 159,
-			"functions": 7,
-			"math": 6,
 			"escapes": 0
 		},
 		"shared/live-core/src/worker.ts": {
@@ -689,8 +512,8 @@
 		"shared/live-deck/src/deck.ts": {
 			"lines": 360,
 			"functions": 43,
-			"math": 2,
-			"escapes": 1
+			"math": 0,
+			"escapes": 0
 		},
 		"shared/live-deck/src/events.ts": {
 			"lines": 77,
@@ -717,15 +540,15 @@
 			"escapes": 0
 		},
 		"shared/live-deck/src/rig.ts": {
-			"lines": 82,
-			"functions": 22,
+			"lines": 72,
+			"functions": 0,
 			"math": 0,
 			"escapes": 0
 		},
 		"shared/live-deck/src/scene.ts": {
-			"lines": 57,
-			"functions": 6,
-			"math": 10,
+			"lines": 19,
+			"functions": 2,
+			"math": 2,
 			"escapes": 0
 		},
 		"shared/live-deck/src/space.ts": {
@@ -753,7 +576,7 @@
 			"escapes": 0
 		},
 		"viewer/src/lib/components/live-deck/deck-clock.svelte": {
-			"lines": 102,
+			"lines": 88,
 			"functions": 0,
 			"math": 0,
 			"escapes": 0
@@ -765,7 +588,7 @@
 			"escapes": 1
 		},
 		"viewer/src/lib/components/live-deck/deck-panel.svelte": {
-			"lines": 284,
+			"lines": 282,
 			"functions": 2,
 			"math": 0,
 			"escapes": 0
@@ -867,9 +690,9 @@
 			"escapes": 0
 		},
 		"viewer/src/routes/live/deck/[[code]]/+page.svelte": {
-			"lines": 461,
+			"lines": 453,
 			"functions": 40,
-			"math": 1,
+			"math": 0,
 			"escapes": 0
 		},
 		"viewer/src/routes/live/vote/[[code]]/+page.svelte": {

@@ -1,21 +1,18 @@
 // deck.ts (#197, #198): the browser deck's state – one for the lab page and the viewer's /live/deck. The parameter
-// values (the pads, the sliders, the being's 3D buttons all turn these), the mood ladder, the relay link and its values
-// stream, and the sound: live-core – the native deck's engine (#320) – plays the whole scene (its own, #360, or the rig's);
-// the page only sends the values and reads back what is heard. No DOM: the page draws it; `tick` runs it once per
+// values (the pads, the sliders, the being's 3D buttons all turn these), the relay link and its values stream, and the
+// sound: live-core – the native deck's engine (#320) – plays the whole scene (its own, #360, or the rig's); the page only
+// sends the values and reads back what is heard. The mood and what plays are the core's (#367, #368: deck-space's deck,
+// space-web `DeckState`): the deck applies its turns. No DOM: the page draws it; `tick` runs it once per
 // animation frame. With a CDN given it answers the conductor's scene sync (#195, sync.ts). The tempo clock (#321) is the
 // core's: the link's pongs and anchors and Web MIDI's clock go in, the core's pings and a leader's anchors go out.
 import type { DeckGraph, Tempo } from '@scutoons/live';
-import { LiveCore, beatAt, nowMs, SOURCES, type Analysis, type ClockSource, type ClockState, type DeviceKind, type DeviceSignal } from '@scutoons/live-core';
+import { CLOCK_MESSAGES, LiveCore, beatAt, nowMs, type Analysis, type ClockState, type DeviceKind, type DeviceSignal } from '@scutoons/live-core';
 import type { DeckSynced } from '@scutoons/live';
 import { DeckLink, ValueStream, type WebSocketLike } from './client.ts';
 import { BrowserSync } from './sync.ts';
-import { ladderFor, Moods, type Spec } from './scene.ts';
-import { knobTarget, rigDiff, rigGraph, rigParams, rigStreamed } from './rig.ts';
-import type { RigPlayed } from './space.ts';
-
-/** #321: the MIDI clock's messages: tick, start, continue, stop, song position */
-// core-only-ok: #321 the port's filter (as the native port's in tempo/midi.rs) – which bytes reach the core, no parsing
-const CLOCK_MESSAGES = new Set([0xf8, 0xfa, 0xfb, 0xfc, 0xf2]);
+import type { Spec } from './scene.ts';
+import type { MoodStep, RigPlayed, RigSlider, RigTurn } from './rig.ts';
+import type { DeckStateView } from './space.ts';
 
 /** a character's portraits by mood (scene-content's `characters.<id>.portraits`) */
 export type Portraits = Record<string, { path: string }>;
@@ -57,25 +54,26 @@ export class Deck {
 	readonly value: Record<string, number> = {};
 	/** the sliders: the knobs of the scene that plays – the deck's own or the rig's (#191) */
 	params: Record<string, Spec> = {};
-	/** the character's rig as played for the current mood (deck-space via space-web `rig_play`); null = the deck's own scene */
+	/** what plays as the core played it (the rig for the mood now, else the deck's own scene); null until the wasm came */
+	played: RigPlayed | null = null;
+	/** the character's rig as played for the mood now; null = the deck's own scene (#360, the X1's cathedral) plays */
 	rig: RigPlayed | null = null;
-	/** #360: the deck's own scene, the X1's cathedral as deck-space plays it (space-web `deck_scene`); null until it came */
-	own: RigPlayed | null = null;
 	/** the corner sticks' (x, y) pairs, left then right: the played scene's (#191) */
 	sticks: [string, string][] | null = null;
 	character: string;
 	portraits: Portraits = {};
-	readonly moods = new Moods(['neutral'], 1.5);
+	/** #367, #368: the deck's state in the core (space-web `DeckState`: the mood ladder, what plays); null until the wasm came */
+	state: DeckStateView | null = null;
 	/** #321: the core's tempo clock as its last frame left it (null before the sound started) */
 	clock: ClockState | null = null;
 	/** #321: the show clock's last anchor the link brought (the core gets it when the sound starts) */
 	private anchor: { t: Tempo; arrived: number } | null = null;
-	/** #321: the picker's choice (kept over a stop / start) */
-	private choice: { source: ClockSource; lead: boolean } | null = null;
-	/** #321: the MIDI clock out is on (kept for the next `start`), and where its bytes go (Web MIDI's outputs) */
-	private out = false;
+	/** #370: the core's last word on its choice and MIDI clock out (its last frame's), for the next `start`'s core */
+	private resume: Pick<ClockState, 'mode' | 'midiOut'> | null = null;
+	/** #321: where the MIDI clock out's bytes go (Web MIDI's outputs) */
 	onMidiOut: ((bytes: number[], atMs: number) => void) | null = null;
-	mood = 'neutral';
+	/** the mood the core's ladder shows ('' until it said) */
+	mood = '';
 	bands: Analysis = silence();
 	/** a finger on a pad (0 / 1): lifts the energy a little */
 	touch = 0;
@@ -94,6 +92,8 @@ export class Deck {
 	/** every value change, with whose hand (the page's controls follow the being's) */
 	onValue: ((path: string, value: number, hand: Hand) => void) | null = null;
 	onMood: ((mood: string) => void) | null = null;
+	/** #368: the core's turn was applied (a scene played, or the rig replayed for a mood) */
+	onTurn: ((t: RigTurn) => void) | null = null;
 	private last = -1;
 	/** the page's clock at the first tick (s) */
 	private t0 = -1;
@@ -137,16 +137,14 @@ export class Deck {
 		this.core?.clockOp({ op: 'tempo', bpm: a.t.bpm, perBar: a.t.per_bar, beat: a.t.beat, at: a.t.at, running: a.t.running, arrived: a.arrived });
 	}
 
-	/** #321: the clock's picker – a source (the show clock = `relay`) and whether this deck leads */
-	chooseClock(source: ClockSource, lead = false): void {
-		this.choice = { source, lead };
-		this.core?.clockOp({ op: 'choose', source: SOURCES.indexOf(source), lead });
+	/** #370: the clock's picker – a `ClockMode::ALL` index (`state.clock_modes()`; the clock frame says it: `clock.mode`) */
+	clockMode(mode: number): void {
+		this.core?.clockOp({ op: 'mode', mode });
 	}
 
 	/** #321: MIDI clock out on / off – deck-core's schedule (the native deck's), its bytes to `onMidiOut`; none while the
-	 *  deck follows MIDI clock in (the core's rule) */
+	 *  deck follows MIDI clock in (the core's rule); the clock frame says it (`clock.midiOut`, #370) */
 	clockOut(on: boolean): void {
-		this.out = on;
 		this.core?.clockOp({ op: 'out', on });
 	}
 
@@ -163,60 +161,52 @@ export class Deck {
 		if (CLOCK_MESSAGES.has(data[0])) this.core?.clockOp({ op: 'midi', bytes: [data[0], data[1] ?? 0, data[2] ?? 0], at: performance.timeOrigin + timeStamp });
 	}
 
-	/** #321: the beat the clock says at the page's ms (the strobe, the being's breath); NaN before the sound started */
+	/** #321: the beat the clock says at the page's ms (the being's breath); NaN before the sound started */
 	beatAt(ms = nowMs()): number {
 		return this.clock ? beatAt(this.clock, ms) : NaN;
 	}
 
-	/** the scene that plays: the rig, else the deck's own */
-	get played(): RigPlayed | null {
-		return this.rig ?? this.own;
+	/** #367, #368: the core's deck state – the character's portraits go in, what it plays (its own scene) is loaded */
+	useState(s: DeckStateView): void {
+		this.state = s;
+		s.set_portraits(Object.keys(this.portraits));
+		this.mood = s.mood();
+		this.apply(JSON.parse(s.now()) as RigTurn);
 	}
 
-	/** the being on the wire now: the played scene's graph, the character, its ladder first, then every mood it has */
+	/** #368: a rig bundle (JSON) for a persona at the mood now ('' = the deck's own scene; throws on a bad one), or with
+	 *  `core` the core rig of a character / subject (else the deck's own scene – the turn's note says so) */
+	play(what: string, persona = '', core = false): RigTurn {
+		const s = this.state;
+		if (!s) throw new Error('the deck has no core yet (space-web was not loaded)');
+		return this.apply(JSON.parse(core ? s.play_core(what, persona) : s.play(what, persona)) as RigTurn);
+	}
+
+	/** #368: the core's turn – a scene to load whole (sliders, sticks, stream, wire, sound) or the values a mood moved */
+	private apply(t: RigTurn): RigTurn {
+		this.played = t.played;
+		this.rig = t.rig ? t.played : null;
+		if (t.reload) {
+			this.sticks = t.played.sticks.map(([x, y]) => [x, y] as [string, string]);
+			this.params = Object.fromEntries((JSON.parse(this.state?.sliders('') ?? '[]') as RigSlider[]).map((s) => [s.path, s]));
+			for (const k of Object.keys(this.value)) delete this.value[k];
+			for (const [k, s] of Object.entries(this.params)) this.value[k] = s.value;
+			this.stream = new ValueStream(Object.fromEntries(t.played.streamed));
+			this.link?.setGraph(this.graph());
+			if (this.core) void this.loadEngine(this.core);
+		} else for (const [path, v] of t.values) path in this.value ? this.setParam(path, v, 'mood') : this.send(path, v);
+		this.onTurn?.(t);
+		return t;
+	}
+
+	/** #367: the portrait `mood` shows (the core's fallback), null when there is none */
+	face(mood: string): { path: string } | null {
+		return this.portraits[this.state?.face(mood) ?? ''] ?? null;
+	}
+
+	/** the being on the wire now (the core's: the played scene, its character – the deck's for its own scene –, the moods) */
 	graph(): DeckGraph {
-		const have = Object.keys(this.portraits);
-		const moods = [...this.moods.moods, ...have.filter((m) => !this.moods.moods.includes(m))];
-		const g = this.played ? rigGraph(this.played, moods) : { nodes: [], links: [], size: 0.5, moods, expose: [] };
-		// the deck's own scene wears the deck's character; a rig is its character's
-		return this.rig ? g : { ...g, character: this.character };
-	}
-
-	/** Play a rig instead of the deck's own scene (null = back to it): its knobs become the sliders, its graph the being
-	 *  on the wire, its lowered scene the sound (live-core reloads when it runs). */
-	useRig(rig: RigPlayed | null): void {
-		this.rig = rig;
-		const p = this.played;
-		this.sticks = p ? p.sticks.map(([x, y]) => [x, y] as [string, string]) : null;
-		this.params = p ? rigParams(p) : {};
-		for (const k of Object.keys(this.value)) delete this.value[k];
-		for (const [k, s] of Object.entries(this.params)) this.value[k] = s.value;
-		this.stream = new ValueStream(p ? rigStreamed(p) : {});
-		this.link?.setGraph(this.graph());
-		if (this.core) void this.loadEngine(this.core);
-	}
-
-	/** #360: the deck's own scene (space-web `deck_scene`) – it plays whenever no rig does */
-	useOwn(p: RigPlayed): void {
-		this.own = p;
-		if (!this.rig) this.useRig(null);
-	}
-
-	/** what the controls drive: the played scene's knobs */
-	get controlSpecs(): Record<string, Spec> {
-		return this.params;
-	}
-
-	/** The rig played for the new mood: the values that moved go out (the sliders follow), a new shape reloads. */
-	moodRig(p: RigPlayed): void {
-		if (!this.rig) return this.useRig(p);
-		const d = rigDiff(this.rig, p);
-		if (d.reload) return this.useRig(p);
-		this.rig = p;
-		for (const [path, v] of d.values) {
-			if (path in this.value) this.setParam(path, v, 'mood');
-			else this.send(path, v);
-		}
+		return this.state ? (JSON.parse(this.state.graph(this.character)) as DeckGraph) : { nodes: [], links: [] };
 	}
 
 	/** the paths the deck streams (and the 3D being reads) */
@@ -224,11 +214,11 @@ export class Deck {
 		return this.stream.paths;
 	}
 
-	/** Another character: its portraits from scene-content, its mood ladder, the being on the wire anew. */
+	/** Another character: its portraits from scene-content, its mood ladder (the core's), the being on the wire anew. */
 	async pickCharacter(id: string): Promise<void> {
 		this.character = id;
 		this.portraits = await portraitsOf(this.o.api, id);
-		this.moods.moods = ladderFor(Object.keys(this.portraits));
+		this.state?.set_portraits(Object.keys(this.portraits));
 		this.link?.setGraph(this.graph());
 	}
 
@@ -252,10 +242,10 @@ export class Deck {
 		}
 	}
 
-	/** a knob's value to the engine: its path is the scene's (a rig's node the browser does not carry yet takes none) */
+	/** a knob's value to the engine, where the core says it goes (a node the browser does not carry yet takes none) */
 	private send(path: string, v: number): void {
-		const t = this.played && knobTarget(this.played, path);
-		if (t) this.engineSet(t.engine, [v]);
+		const t = this.state?.target(path);
+		if (t) this.engineSet(t, [v]);
 	}
 
 	/** a streamed path's value now: what the engine played in the heard block (an input, a control output, an audio
@@ -270,15 +260,19 @@ export class Deck {
 		return this.t0 < 0 ? 0 : this.last - this.t0;
 	}
 
-	/** One frame at `now` (s, performance.now() / 1000): the mood, the stream. */
+	/** One frame at `now` (s, performance.now() / 1000): the mood (the core's ladder: the level, the clock, the hand) and
+	 *  the rig the core replayed for it, the stream. */
 	tick(now: number): void {
 		if (this.t0 < 0) this.t0 = this.last = now;
-		const dt = Math.min(0.1, Math.max(0, now - this.last));
+		const dt = now - this.last;
 		this.last = now;
-		const m = this.moods.update(now, dt, this.bands.level, this.touch);
-		if (m !== this.mood) {
-			this.mood = m;
-			this.onMood?.(m);
+		const said = this.state?.step(this.bands.level, this.clock?.bpm ?? 0, this.clock?.running ?? false, this.touch, dt);
+		if (said) {
+			const s = JSON.parse(said) as MoodStep;
+			if (s.turn) this.apply(s.turn);
+			if (s.error) this.o.onStatus?.(s.error);
+			this.mood = s.mood;
+			this.onMood?.(s.mood);
 		}
 		const changes = this.stream.sample(now, (p) => this.read(p), this.mood);
 		if (changes) this.link?.send(changes);
@@ -289,10 +283,9 @@ export class Deck {
 		const c = await LiveCore.start({ worker: files.worker, wasm: files.wasm, worklet: files.worklet, transport: files.transport ?? 'auto', device: files.device ?? deviceKind() });
 		c.onAnalysis((a) => (this.bands = a));
 		c.onSignal((s) => this.onSignal?.(s));
-		// #321: the core says when to ping and what a leading deck sends; the ladder reads its tempo
+		// #321: the core says when to ping and what a leading deck sends; the ladder reads its tempo (`tick`)
 		c.onClock((s) => {
 			this.clock = s;
-			this.moods.bpm = s.bpm;
 			if (s.ping) this.link?.sendPing();
 			if (s.send) this.link?.tempo({ bpm: s.send.bpm, per_bar: s.send.perBar, beat: s.send.beat, running: s.send.running, at: s.send.at });
 		});
@@ -301,8 +294,8 @@ export class Deck {
 			for (let i = 0; i + 3 < m.length; i += 4) this.onMidiOut?.([m[i + 1], m[i + 2], m[i + 3]].filter((b) => !Number.isNaN(b)), m[i]);
 		});
 		this.core = c;
-		if (this.choice) this.chooseClock(this.choice.source, this.choice.lead);
-		if (this.out) c.clockOp({ op: 'out', on: true });
+		if (this.resume && this.resume.mode >= 0) this.clockMode(this.resume.mode);
+		if (this.resume?.midiOut) this.clockOut(true);
 		this.giveAnchor();
 		await this.loadEngine(c);
 	}
@@ -315,6 +308,7 @@ export class Deck {
 		this.engineReady = false;
 		this.loadGen++;
 		this.bands = silence();
+		if (this.clock) this.resume = { mode: this.clock.mode, midiOut: this.clock.midiOut };
 		this.clock = null;
 		await c?.stop();
 	}
@@ -336,7 +330,7 @@ export class Deck {
 		if (gen !== this.loadGen) return;
 		this.engineReady = true;
 		if (rig?.engine.page.length) this.o.onStatus?.(`sound: not in the browser yet – ${rig.engine.page.map((n) => `${n.id} (${n.kind})`).join(', ')}`);
-		for (const p of Object.keys(this.controlSpecs)) this.setParam(p, this.value[p]);
+		for (const p of Object.keys(this.params)) this.setParam(p, this.value[p]);
 	}
 
 	close() {

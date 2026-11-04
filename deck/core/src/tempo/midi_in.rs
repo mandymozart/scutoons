@@ -12,6 +12,15 @@ use super::{fit, TempoMap};
 use std::collections::VecDeque;
 
 pub const PPQN: f64 = 24.0;
+/// The MIDI clock's status bytes: the tick (24 a beat), start, continue, stop and the song position.
+pub const TICK: u8 = 0xF8;
+pub const START: u8 = 0xFA;
+pub const CONTINUE: u8 = 0xFB;
+pub const STOP: u8 = 0xFC;
+pub const POSITION: u8 = 0xF2;
+/// The messages a MIDI port hands the clock (the native port's and the browser's filter – #372: one list, the browser's
+/// TypeScript is generated from it); notes, controllers and active sensing never reach the clock.
+pub const CLOCK_STATUS: [u8; 5] = [TICK, START, CONTINUE, STOP, POSITION];
 /// the ticks the line is fitted through (two beats)
 const WINDOW: usize = 48;
 /// no tick for this long: the clock is lost (the stage runs on at the last tempo)
@@ -93,27 +102,27 @@ impl Default for ClockIn {
 impl ClockIn {
     /// one message (status byte first) that arrived at `t` (s)
     pub fn message(&mut self, t: f64, msg: &[u8]) {
-        if matches!(msg.first(), Some(0xFA | 0xFB | 0xFC | 0xF2)) {
+        if matches!(msg.first(), Some(&(START | CONTINUE | STOP | POSITION))) {
             self.moved = true;
         }
         match msg.first() {
-            Some(0xF8) => self.tick(t),
+            Some(&TICK) => self.tick(t),
             // start: the next tick is beat 0; continue: from the song position
-            Some(0xFA) => {
+            Some(&START) => {
                 self.next = 0.0;
                 self.pos = -1.0;
                 self.running = true;
             }
-            Some(0xFB) => {
+            Some(&CONTINUE) => {
                 self.pos = self.next - 1.0;
                 self.running = true;
             }
-            Some(0xFC) => {
+            Some(&STOP) => {
                 self.next = self.pos + 1.0;
                 self.running = false;
             }
             // song position: 16ths (6 ticks), 14 bits LSB first
-            Some(0xF2) if msg.len() >= 3 => {
+            Some(&POSITION) if msg.len() >= 3 => {
                 self.next = (((msg[2] as u16) << 7) | msg[1] as u16) as f64 * 6.0;
                 self.pos = self.next - 1.0;
             }

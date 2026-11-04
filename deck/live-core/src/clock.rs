@@ -11,12 +11,11 @@
 //! MIDI clock out (the page's MIDI OUT): deck-core's `ClockOut` – the native deck's schedule – on the map and line each
 //! frame leaves, `OUT_AHEAD_S` ahead; each message with the page's ms it is due at. The page writes the bytes to Web
 //! MIDI with that timestamp and decides nothing.
-use deck_core::tempo::{ClockOut, Config, Controller, Event, Key, Line, Moment, NoHost, Shared, Source, TimeBase, What};
+use deck_core::tempo::{ClockMode, ClockOut, Config, Controller, Event, Key, Line, Moment, NoHost, Shared, Source, TimeBase, What};
 use std::sync::Arc;
 
-/// the state block: [heard ms, beat, bpm, per_bar, running, source, flags, offset ms, rtt ms, error ms, the anchor to
-/// send: bpm, per_bar, beat, at (relay ms), running, click]
-pub const STATE: usize = 16;
+/// the state block's length: the `Slot`s, f64 each (#370)
+pub const STATE: usize = 20;
 /// flags: the filter is locked, an anchor came, this deck leads, the MIDI clock is lost, a ping is due, an anchor to send
 pub const LOCKED: u32 = 1;
 pub const ANCHOR: u32 = 2;
@@ -24,6 +23,167 @@ pub const LEADING: u32 = 4;
 pub const MIDI_LOST: u32 = 8;
 pub const PING: u32 = 16;
 pub const SEND: u32 = 32;
+/// the flag bits by name (the page's `ClockState.locked` …; `SEND` says the anchor to send is filled)
+pub const FLAGS: [(&str, u32); 6] = [("locked", LOCKED), ("anchor", ANCHOR), ("leading", LEADING), ("midi_lost", MIDI_LOST), ("ping", PING), ("send", SEND)];
+
+/// The state block, slot by slot – THE layout table (#372): `frame` writes by it, and `src/bin/codecs-ts.rs` writes the
+/// page's decoder (shared/live-core/src/clock-state.ts) from it, `READS` and `GROUPS`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(usize)]
+pub enum Slot {
+    /// the page's ms (`performance.timeOrigin + now()`) the beat below is heard at
+    HeardMs,
+    Beat,
+    Bpm,
+    PerBar,
+    Running,
+    /// `Source::ALL`'s index
+    Source,
+    /// the `FLAGS` bits
+    Flags,
+    /// the relay's clock minus this one (ms)
+    OffsetMs,
+    /// the shortest round trip (ms)
+    RttMs,
+    /// how far off the show's line (ms)
+    ErrorMs,
+    /// the anchor to send: bpm, per_bar, beat, at (relay ms), running
+    SendBpm,
+    SendPerBar,
+    SendBeat,
+    SendAt,
+    SendRunning,
+    Click,
+    /// the picker's choice: `ClockMode::ALL`'s index, -1: none of them
+    Mode,
+    /// the MIDI clock out is on
+    MidiOut,
+    /// the strobe's flash: its beat edge (page ms) …
+    FlashEdgeMs,
+    /// … and its length (ms; 0: no flash)
+    FlashMs,
+}
+
+impl Slot {
+    pub const ALL: [Slot; STATE] = [
+        Slot::HeardMs,
+        Slot::Beat,
+        Slot::Bpm,
+        Slot::PerBar,
+        Slot::Running,
+        Slot::Source,
+        Slot::Flags,
+        Slot::OffsetMs,
+        Slot::RttMs,
+        Slot::ErrorMs,
+        Slot::SendBpm,
+        Slot::SendPerBar,
+        Slot::SendBeat,
+        Slot::SendAt,
+        Slot::SendRunning,
+        Slot::Click,
+        Slot::Mode,
+        Slot::MidiOut,
+        Slot::FlashEdgeMs,
+        Slot::FlashMs,
+    ];
+}
+
+/// How the page turns a slot into a value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum How {
+    /// the number as it is
+    Num,
+    /// `!== 0`
+    NonZero,
+    /// a bit of the flags slot is set
+    Flag(u32),
+    /// the name of `Source::ALL[slot]` (`internal` when out of range)
+    Source,
+}
+
+/// One value of the page's `ClockState`: its name (snake_case; the page writes camelCase), where it comes from and what it
+/// is (the doc the page's type carries).
+#[derive(Debug, Clone, Copy)]
+pub struct Read {
+    pub name: &'static str,
+    pub slot: Slot,
+    pub how: How,
+    pub doc: &'static str,
+}
+
+const fn read(name: &'static str, slot: Slot, how: How, doc: &'static str) -> Read {
+    Read { name, slot, how, doc }
+}
+
+/// A value that is there only while its gate holds (`null` otherwise).
+#[derive(Debug, Clone, Copy)]
+pub enum Gate {
+    /// a flag bit is set
+    Flag(u32),
+    /// the slot is above 0
+    Positive(Slot),
+}
+
+/// A group of values the page reads as one object, or `null`.
+#[derive(Debug, Clone, Copy)]
+pub struct Group {
+    pub name: &'static str,
+    /// the page's type name
+    pub ty: &'static str,
+    pub doc: &'static str,
+    /// what the object is, as the page's type documents it
+    pub ty_doc: &'static str,
+    pub gate: Gate,
+    pub reads: &'static [Read],
+}
+
+/// The page's `ClockState`, field by field (the order of the type).
+pub const READS: [Read; 17] = [
+    read("heard_ms", Slot::HeardMs, How::Num, "the page's ms (`performance.timeOrigin + now()`) the beat below is heard at"),
+    read("beat", Slot::Beat, How::Num, ""),
+    read("bpm", Slot::Bpm, How::Num, ""),
+    read("per_bar", Slot::PerBar, How::Num, ""),
+    read("running", Slot::Running, How::NonZero, ""),
+    read("source", Slot::Source, How::Source, ""),
+    read("locked", Slot::Flags, How::Flag(LOCKED), "the offset filter has its samples"),
+    read("anchor", Slot::Flags, How::Flag(ANCHOR), "an anchor came"),
+    read("leading", Slot::Flags, How::Flag(LEADING), "this deck leads the show clock"),
+    read("midi_lost", Slot::Flags, How::Flag(MIDI_LOST), "on MIDI clock in: no clock – the last tempo holds"),
+    read("ping", Slot::Flags, How::Flag(PING), "a ping is due (the link sends one)"),
+    read("offset_ms", Slot::OffsetMs, How::Num, "the relay's clock minus this one (ms)"),
+    read("rtt_ms", Slot::RttMs, How::Num, "the shortest round trip (ms)"),
+    read("error_ms", Slot::ErrorMs, How::Num, "how far off the show's line (ms)"),
+    read("click", Slot::Click, How::NonZero, ""),
+    read("mode", Slot::Mode, How::Num, "the picker's choice: `ClockMode::ALL`'s index, -1: none of them"),
+    read("midi_out", Slot::MidiOut, How::NonZero, "the MIDI clock out is on"),
+];
+
+/// … and its objects: the anchor to send, the strobe's flash.
+pub const GROUPS: [Group; 2] = [
+    Group {
+        name: "send",
+        ty: "ClockAnchor",
+        doc: "the anchor to send (this deck leads and its line moved)",
+        ty_doc: "the show clock's anchor (the relay's `tempo`): at relay ms `at` the show was at `beat`",
+        gate: Gate::Flag(SEND),
+        reads: &[
+            read("bpm", Slot::SendBpm, How::Num, ""),
+            read("per_bar", Slot::SendPerBar, How::Num, ""),
+            read("beat", Slot::SendBeat, How::Num, ""),
+            read("at", Slot::SendAt, How::Num, ""),
+            read("running", Slot::SendRunning, How::NonZero, ""),
+        ],
+    },
+    Group {
+        name: "flash",
+        ty: "ClockFlash",
+        doc: "the strobe's flash on the beat; null: none",
+        ty_doc: "the strobe's flash: its beat edge (the page's ms) and its length (ms)",
+        gate: Gate::Positive(Slot::FlashMs),
+        reads: &[read("at_ms", Slot::FlashEdgeMs, How::Num, ""), read("ms", Slot::FlashMs, How::Num, "")],
+    },
+];
 /// how far ahead the clock out hands its messages to the page (s): more than the worker's longest pause between two
 /// frames (the S22: ~75 ms), so no tick is late; a tempo nudge moves the ones already handed out by at most 2 % of it
 pub const OUT_AHEAD_S: f64 = 0.15;
@@ -111,12 +271,19 @@ impl Clock {
         self.ctl.push(Event { at_ns, what: What::Joined });
     }
 
-    /// the page's picker: `Source::ALL[source]`, leading or not
+    /// a master and the ask to lead as they are: `Source::ALL[source]` (the headless host's, a test's)
     pub fn choose(&mut self, source: usize, lead: bool) {
         if let Some(&s) = Source::ALL.get(source) {
             self.ctl.set_source(s, &mut NoHost);
         }
         self.ctl.set_lead(lead);
+    }
+
+    /// the page's picker: `ClockMode::ALL[mode]` (#370)
+    pub fn set_mode(&mut self, mode: usize) {
+        if let Some(&m) = ClockMode::ALL.get(mode) {
+            self.ctl.set_mode(m, &mut NoHost);
+        }
     }
 
     /// a key of the page (tap, faster, slower, start / stop, click), at the page's ms
@@ -144,6 +311,13 @@ impl Clock {
     pub fn line(&mut self, now_ms: f64) -> String {
         let now = self.ns(now_ms);
         self.ctl.status(now)
+    }
+
+    /// the clock in one line at the page's `now_ms` – the tempo line and the source's state, the panel's (deck-core's
+    /// `Controller::line`: the native HUD's two clock lines' texts, #370)
+    pub fn hud_line(&mut self, now_ms: f64) -> String {
+        let now = self.ns(now_ms);
+        self.ctl.line(now)
     }
 
     /// One clock frame at the page's `now_ms`: the events in, the master followed, the map published to the engine; the
@@ -183,24 +357,35 @@ impl Clock {
         let flags = flag(show.locked, LOCKED) | flag(show.anchor, ANCHOR) | flag(show.leading, LEADING) | flag(show.midi_lost, MIDI_LOST) | flag(ping, PING) | flag(send.is_some(), SEND);
         let source = Source::ALL.iter().position(|&s| s == self.ctl.source).unwrap_or(0);
         let a = send.unwrap_or(deck_core::tempo::Anchor { bpm: 0.0, per_bar: 0, beat: 0.0, at: 0, running: false });
-        self.state = [
-            self.ms(m.line.time_of(m.heard) * 1e9),
-            n.pos.beat,
-            n.bpm,
-            f64::from(n.per_bar),
-            f64::from(u8::from(n.running)),
-            source as f64,
-            f64::from(flags),
-            show.offset_ms,
-            show.rtt_ms,
-            show.error_ms,
-            a.bpm,
-            f64::from(a.per_bar),
-            a.beat,
-            a.at as f64,
-            f64::from(u8::from(a.running)),
-            f64::from(u8::from(self.ctl.click)),
-        ];
+        let heard_ms = self.ms(m.line.time_of(m.heard) * 1e9);
+        let mode = self.ctl.mode().and_then(|m| ClockMode::ALL.iter().position(|&x| x == m)).map_or(-1.0, |i| i as f64);
+        let (edge, dur) = n.flash().map_or((0.0, 0.0), |f| (heard_ms + f.edge_s * 1e3, f.dur_s * 1e3));
+        let mut s = [0.0; STATE];
+        for (slot, v) in [
+            (Slot::HeardMs, heard_ms),
+            (Slot::Beat, n.pos.beat),
+            (Slot::Bpm, n.bpm),
+            (Slot::PerBar, f64::from(n.per_bar)),
+            (Slot::Running, f64::from(u8::from(n.running))),
+            (Slot::Source, source as f64),
+            (Slot::Flags, f64::from(flags)),
+            (Slot::OffsetMs, show.offset_ms),
+            (Slot::RttMs, show.rtt_ms),
+            (Slot::ErrorMs, show.error_ms),
+            (Slot::SendBpm, a.bpm),
+            (Slot::SendPerBar, f64::from(a.per_bar)),
+            (Slot::SendBeat, a.beat),
+            (Slot::SendAt, a.at as f64),
+            (Slot::SendRunning, f64::from(u8::from(a.running))),
+            (Slot::Click, f64::from(u8::from(self.ctl.click))),
+            (Slot::Mode, mode),
+            (Slot::MidiOut, f64::from(u8::from(self.out.is_some()))),
+            (Slot::FlashEdgeMs, edge),
+            (Slot::FlashMs, dur),
+        ] {
+            s[slot as usize] = v;
+        }
+        self.state = s;
         &self.state
     }
 
@@ -230,6 +415,65 @@ mod tests {
             t += 25.0;
         }
         got
+    }
+
+    /// The tables the page's decoder is generated from are consistent: slot i is index i, every read names a slot, the flags are
+    /// distinct bits, and a gate's slot or bit exists.
+    #[test]
+    fn the_layout_tables_are_consistent() {
+        for (i, s) in Slot::ALL.iter().enumerate() {
+            assert_eq!(*s as usize, i);
+        }
+        let bits: u32 = FLAGS.iter().map(|(_, b)| b).sum();
+        assert_eq!(bits, FLAGS.iter().fold(0, |a, (_, b)| a | b), "distinct bits");
+        let flag = |b: u32| FLAGS.iter().any(|(_, f)| *f == b);
+        for r in READS.iter().chain(GROUPS.iter().flat_map(|g| g.reads.iter())) {
+            if let How::Flag(b) = r.how {
+                assert!(flag(b) && r.slot == Slot::Flags, "{}", r.name);
+            }
+        }
+        for g in &GROUPS {
+            assert!(match g.gate {
+                Gate::Flag(b) => flag(b),
+                Gate::Positive(s) => g.reads.iter().any(|r| r.slot == s),
+            });
+        }
+        // every slot but the flags is read by exactly one field
+        for s in Slot::ALL {
+            let n = READS.iter().chain(GROUPS.iter().flat_map(|g| g.reads.iter())).filter(|r| r.slot == s && !matches!(r.how, How::Flag(_))).count();
+            assert_eq!(n, usize::from(s != Slot::Flags), "{s:?}");
+        }
+    }
+
+    #[test]
+    fn the_state_block_says_the_choice_the_clock_out_and_the_flash() {
+        let mut c = Clock::new(48_000.0);
+        let t0 = 1_762_000_000_000.0;
+        assert_eq!(c.frame(t0)[Slot::Mode as usize], 0.0, "a new deck follows the show clock");
+        for i in [1, 2, 3, 0] {
+            c.set_mode(i);
+            assert_eq!(c.frame(t0)[Slot::Mode as usize], i as f64, "{:?}", ClockMode::ALL[i]);
+        }
+        // a hand on the clock takes over from the show clock: the deck's own now, and the block says so
+        c.key(1, t0 + 10.0);
+        assert_eq!(c.frame(t0 + 25.0)[Slot::Mode as usize], 1.0);
+        c.set_out(true);
+        run(&mut c, t0 + 50.0, 1.0);
+        let s = *c.state();
+        assert_eq!(s[Slot::MidiOut as usize], 1.0, "the clock out is on");
+        // the flash: 60 ms on a beat edge at most 0.1 s past the heard moment, at most a beat (0.5 s at 121 BPM) before it
+        assert_eq!(s[Slot::FlashMs as usize], 60.0);
+        let edge = s[Slot::FlashEdgeMs as usize] - s[Slot::HeardMs as usize];
+        assert!(edge <= 100.0 + 1e-6 && edge > -500.0, "{edge}");
+        c.key(3, t0 + 1100.0);
+        assert_eq!(c.frame(t0 + 1125.0)[Slot::FlashMs as usize], 0.0, "stopped: no flash");
+        c.set_out(false);
+        assert_eq!(c.frame(t0 + 1150.0)[Slot::MidiOut as usize], 0.0);
+        let line = c.hud_line(t0 + 1150.0);
+        assert!(line.starts_with("BPM 121.0  BAR ") && line.ends_with(" STOP"), "{line}");
+        c.set_mode(2);
+        c.frame(t0 + 1175.0);
+        assert!(c.hud_line(t0 + 1175.0).ends_with(" STOP  LEADS"), "{}", c.hud_line(t0 + 1175.0));
     }
 
     #[test]

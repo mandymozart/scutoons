@@ -18,7 +18,7 @@ pub mod horizon;
 pub mod instrument;
 pub mod preset;
 
-pub use bundle::{Bundle, Knob, Played};
+pub use bundle::{Bundle, Diff, Knob, Played, Stream};
 pub use horizon::Prebuilt;
 pub use instrument::{Expose, Instrument, InstrumentKind, Patch};
 pub use preset::{Mapping, Preset, PresetBook, Resolved};

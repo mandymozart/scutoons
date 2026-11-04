@@ -2,27 +2,26 @@
 // being's 3D buttons, the streamed paths, the character switch, the image sniffing for the set's textures.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { LiveCore, clockOf, type ClockOp, type ClockState } from '@scutoons/live-core';
 import { Deck, deviceKind, portraitsOf } from '../src/deck.ts';
 import { sniff } from '../src/space.ts';
-import { LADDER } from '../src/scene.ts';
-import { rigOutputs, rigParams, rigStreamed } from '../src/rig.ts';
-import { OWN } from './own.ts';
+import { MOODS, OWN, OWN_PARAMS, OWN_STREAMED, stateOf } from './own.ts';
 
 const API = 'https://api.example/api';
 
-/** a deck with its own scene given, as the page's wasm gives it */
-function deckOf(character = 'yellowmouse'): Deck {
+/** a deck on the core's state (its own scene), as the page's wasm gives it */
+function deckOf(character = 'yellowmouse', state = stateOf()): Deck {
 	const d = new Deck({ character, nick: 'guest', api: API });
-	d.useOwn(OWN);
+	d.useState(state);
 	return d;
 }
 
 test('a deck without a relay plays alone; its paths are what it streams', () => {
 	const d = deckOf();
 	assert.equal(d.link, null);
-	assert.deepEqual(d.paths.sort(), Object.keys(rigStreamed(OWN)).sort());
+	assert.deepEqual(d.paths.sort(), Object.keys(OWN_STREAMED).sort());
 	// without sound only the knobs have values; the outputs are what the engine plays (#320)
-	for (const p of d.paths) assert.equal(Number.isFinite(d.read(p)), !(p in rigOutputs(OWN)), p);
+	for (const p of d.paths) assert.equal(Number.isFinite(d.read(p)), p in OWN_PARAMS, p);
 	d.close();
 });
 
@@ -39,15 +38,16 @@ test('one state: the being turns a value, the page hears whose hand it was; unkn
 		['voice.ratio', 2, 'page']
 	]);
 	assert.equal(d.read('voice.index'), 5.5, 'what the being turned is what the deck streams');
-	assert.equal(d.value['voice.gain'], rigParams(OWN)['voice.gain'].value);
+	assert.equal(d.value['voice.gain'], OWN_PARAMS['voice.gain'].value);
 });
 
 test('#360: without a rig the deck plays its own scene as the core gave it – nothing of it before, its graph and knobs after', () => {
 	const d = new Deck({ character: 'yellowmouse', nick: 'guest', api: API });
 	assert.deepEqual(d.params, {}, 'no scene of the page: no sliders before the wasm gave one');
 	assert.deepEqual(d.graph().nodes, []);
-	d.useOwn(OWN);
-	assert.deepEqual(Object.keys(d.params), Object.keys(rigParams(OWN)));
+	d.useState(stateOf());
+	assert.deepEqual(Object.keys(d.params), Object.keys(OWN_PARAMS));
+	assert.equal(d.rig, null, "no rig: the deck's own scene");
 	const g = d.graph();
 	assert.deepEqual(g.nodes.map((n) => n.id), OWN.nodes.map((n) => n.id), 'the being on the wire: the scene the X1 plays');
 	assert.ok(g.nodes.some((n) => n.id === 'seq' && n.kind === 'seq') && !g.nodes.some((n) => n.kind === 'walk'), "the cathedral's arp, no page melody");
@@ -56,7 +56,22 @@ test('#360: without a rig the deck plays its own scene as the core gave it – n
 	assert.ok(Math.abs(d.time - 0.25) < 1e-9);
 });
 
-test('another character: its portraits, its ladder, the being on the wire anew', async () => {
+test('#367: each frame the level, the clock and the hand go to the core’s ladder; the mood is what it says', () => {
+	const s = stateOf({ moods: MOODS, said: ['neutral', '', 'happy'] });
+	const d = deckOf('yellowmouse', s);
+	const said: string[] = [];
+	d.onMood = (m) => said.push(m);
+	d.bands = { ...d.bands, level: 0.5 };
+	d.touch = 1;
+	d.tick(10);
+	d.tick(10.25);
+	d.tick(10.75);
+	assert.deepEqual(said, ['neutral', 'happy'], 'only a turn is a mood change');
+	assert.equal(d.mood, 'happy');
+	assert.deepEqual(s.calls.filter((c) => c[0] === 'step')[2], ['step', 0.5, 0, false, 1, 0.5], 'no clock yet: no tempo; dt unclamped (the core clamps)');
+});
+
+test('another character: its portraits go to the core (its ladder), the face is the core’s pick', async () => {
 	const realFetch = globalThis.fetch;
 	globalThis.fetch = (async (url: string) => {
 		assert.match(String(url), /scene-content\?characters=catpope$/);
@@ -64,13 +79,11 @@ test('another character: its portraits, its ladder, the being on the wire anew',
 		return new Response(JSON.stringify({ characters: { catpope: { portraits } } }));
 	}) as typeof fetch;
 	try {
-		const d = deckOf();
+		const s = stateOf();
+		const d = deckOf('yellowmouse', s);
 		await d.pickCharacter('catpope');
-		assert.deepEqual(d.moods.moods, ['neutral', 'happy', 'surprised']);
-		const g = d.graph();
-		assert.equal(g.character, 'catpope');
-		assert.deepEqual(g.moods, ['neutral', 'happy', 'surprised', 'sad'], 'the ladder first, then every other mood it has');
-		assert.ok(LADDER.includes(d.mood));
+		assert.deepEqual(s.calls.at(-1), ['set_portraits', ['neutral', 'happy', 'surprised', 'sad']]);
+		assert.equal(d.face('sad')?.path, 'characters/catpope/catpope_portrait-sad.webp', 'the face the core picks');
 	} finally {
 		globalThis.fetch = realFetch;
 	}
@@ -99,7 +112,7 @@ test('#188: the being turns the cutoff as its base – the engine’s LFO keeps 
 		set: (p: string, v: number[], o: { mode?: string } = {}) => void sets.push([p, [...v], o.mode]),
 		value: (p: string) => (p === 'incense.cutoff' ? heard : NaN)
 	} as never;
-	d.useRig(null);
+	d.play('');
 	await Promise.resolve();
 	await Promise.resolve();
 	sets.length = 0;
@@ -113,6 +126,45 @@ test('#188: the being turns the cutoff as its base – the engine’s LFO keeps 
 test('#365: a touch screen is a phone to the core’s lead', () => {
 	assert.equal(deviceKind(true), 'phone');
 	assert.equal(deviceKind(false), 'desktop');
+});
+
+test('#370: the picker and the MIDI clock out go to the core; a restart hands the core its own last word back', async () => {
+	const ops: ClockOp[][] = [];
+	let frame: ((c: ClockState) => void) | null = null;
+	const realStart = LiveCore.start;
+	LiveCore.start = (async () => {
+		const mine: ClockOp[] = [];
+		ops.push(mine);
+		return {
+			onAnalysis: () => {},
+			onSignal: () => {},
+			onMidiOut: () => {},
+			onClock: (cb: (c: ClockState) => void) => (frame = cb),
+			clockOp: (o: ClockOp) => mine.push(o),
+			load: async () => ({}),
+			stop: async () => {}
+		} as unknown as LiveCore;
+	}) as typeof LiveCore.start;
+	try {
+		const d = deckOf();
+		const files = { worker: {} as Worker, wasm: '', worklet: '' };
+		await d.start(files);
+		assert.deepEqual(ops[0], [], "a fresh deck: the core's own start (the show clock)");
+		assert.deepEqual(d.state?.clock_modes(), ['show', 'own', 'lead', 'midi'], "the choices are the core's");
+		d.clockMode(2);
+		d.clockOut(true);
+		assert.deepEqual(ops[0], [{ op: 'mode', mode: 2 }, { op: 'out', on: true }]);
+		// a hand on the clock moved it: the core's frame says its own clock, the MIDI clock out on
+		const said = clockOf([0, 0, 120, 4, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0]);
+		frame!(said);
+		assert.equal(d.clock, said);
+		await d.stop();
+		assert.equal(d.clock, null);
+		await d.start(files);
+		assert.deepEqual(ops[1], [{ op: 'mode', mode: 1 }, { op: 'out', on: true }], 'what the core said last, not what the page picked');
+	} finally {
+		LiveCore.start = realStart;
+	}
 });
 
 test('#298: stop ends the sound and leaves the deck as it was – values kept, no core, quiet bands', async () => {

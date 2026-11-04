@@ -25,8 +25,8 @@ await core.stop();
 
 ## The exchange format (measured: deck/lab/results/formats.md)
 
-No JSON across the boundary. A value is a **wire record** (`src/wire.ts` = `deck/live-core/src/wire.rs`, kept equal by
-`deck/live-core/fixtures/wire.json`): 12 bytes `op · mode · n · node · port · amount` + `f32 × n`, little-endian,
+No JSON across the boundary. A value is a **wire record** (`src/wire.ts` is GENERATED from the layout tables in `deck/live-core/src/wire.rs` (#372: `npm run generate`); the
+fixtures `deck/live-core/fixtures/wire.json` are the cross-check both sides run): 12 bytes `op · mode · n · node · port · amount` + `f32 × n`, little-endian,
 4-byte aligned. Node and port are indices from the load table – names are resolved once, at load.
 
 | path | shared transport (cross-origin isolated) | transfer transport (fallback) |
@@ -60,8 +60,10 @@ No JSON across the boundary. A value is a **wire record** (`src/wire.ts` = `deck
 
 | file | job |
 |---|---|
-| `src/wire.ts` | the records (`writeSend` in place, `readRecords`), the analysis frame (`analysisOf`: bands, spectrum, limiter reduction, the per-channel peaks – #282, the heard values – #320) |
-| `src/signals.ts` | the scene's `[outputs]` as device messages (MIDI / DMX / OSC records, `readSignals`; `LiveCore.onSignal`) – #282 |
+| `src/wire.ts` | GENERATED (#372) – the records (`writeSend` in place, `readRecords`), the analysis frame (`analysisOf`: bands, spectrum, limiter reduction, the per-channel peaks – #282, the heard values – #320) |
+| `src/signals.ts` | GENERATED (#372) – the scene's `[outputs]` as device messages (MIDI / DMX / OSC records, `readSignals`; `LiveCore.onSignal`) – #282 |
+| `src/clock-state.ts` | GENERATED (#372) from clock.rs + deck-core's tempo – the clock's state block (`SLOT`, `FLAG`, `clockOf`), `SOURCES`, `CLOCK_MESSAGES` (`clock.ts` re-exports it and keeps the page's window) |
+| `src/module-abi.ts` | GENERATED from deck-module's `abi.rs` – the module ABI's numbers |
 | `src/ring.ts` | `Ring` (one writer, one reader, Atomics counters, SAB or plain buffer), `Latest` (sequence lock) |
 | `src/engine.ts` | `WasmCore` (the exports behind views on wasm memory), `Engine` (the pump: drain, render per block, analysis) |
 | `src/worker.ts` | the worker entry: init (wasm compiled there), load, the shared pump / the transfer feed |

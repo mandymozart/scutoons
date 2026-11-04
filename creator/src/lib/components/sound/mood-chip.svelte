@@ -3,19 +3,19 @@
 	// moods as faces (the character's portraits) – auto lets the engine's ladder choose. The mood is the first of the
 	// character's properties the stage will simulate (look, persona … follow as more chips).
 	import { clickOutside } from '@scutoons/ui';
-	import { moodFace } from '$lib/editor/mood-pick.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
 	let {
 		moods,
-		portraits,
+		portrait,
 		playing,
 		value,
 		onpick
 	}: {
 		moods: string[];
-		portraits: Record<string, { path: string }>;
+		/** the portrait's CDN path a mood shows – the deck's core picks it (#367), '' = none */
+		portrait: (mood: string) => string;
 		/** the mood the engine plays now (the ladder's, in auto) */
 		playing: string;
 		/** 'auto' or a mood asked for */
@@ -26,7 +26,7 @@
 	let open = $state(false);
 	const shown = $derived(value === 'auto' ? playing : value);
 	const face = (mood: string) => {
-		const path = moodFace(portraits, mood);
+		const path = portrait(mood);
 		return path ? asset(path) : '';
 	};
 	function pick(mood: string) {

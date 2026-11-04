@@ -1,0 +1,101 @@
+name = "the picker's four clock choices are the core's state"
+about = "#370: SHOW / OWN / LEAD / MIDI is deck-core's ClockMode (Controller::mode / set_mode), the MIDI-out flag the core's: the clock frame says them and the page draws them. A hand on the clock moves the choice to OWN, a restart starts on SHOW (the page hands the core its last word again), a scene's tempo node sets it"
+
+# a click and nothing else: no tempo node, the choice stays the deck's
+[[step]]
+do = "load"
+toml = "[[node]]\nid = \"c\"\nkind = \"click\"\ngain = 0.5\n[[node]]\nid = \"out\"\nkind = \"audio_out\"\n[[link]]\nfrom = \"c\"\nto = \"out.in\"\n"
+
+[[step]]
+do = "run"
+ms = 500
+expect = { mode = "show", source = "relay", leading = false, out = false, line = "NO SHOW CLOCK YET" }
+
+[[step]]
+do = "mode"
+mode = "own"
+
+[[step]]
+do = "run"
+ms = 500
+expect = { mode = "own", source = "internal", leading = false, running = true, line = "" }
+
+[[step]]
+do = "leader"
+offset_ms = -120.0
+
+[[step]]
+do = "joined"
+
+[[step]]
+do = "mode"
+mode = "lead"
+
+[[step]]
+do = "run"
+ms = 1500
+expect = { mode = "lead", source = "internal", leading = true, anchors = { min = 1 }, line = "LEADS" }
+
+[[step]]
+do = "mode"
+mode = "midi"
+
+[[step]]
+do = "midi_in"
+bpm = 100.0
+
+[[step]]
+do = "run"
+ms = 3000
+expect = { mode = "midi", source = "midi", leading = true, bpm = { near = 100.0, tol = 0.5 } }
+
+# a hand on the clock takes over from MIDI clock in: the deck's own clock, and the choice says so
+[[step]]
+do = "key"
+key = "faster"
+
+[[step]]
+do = "run"
+ms = 100
+expect = { mode = "own", source = "internal", leading = false, bpm = { near = 101.0, tol = 0.6 } }
+
+[[step]]
+do = "clock_out"
+on = true
+
+[[step]]
+do = "run"
+ms = 500
+expect = { mode = "own", out = true, clock_ticks = { min = 15 } }
+
+[[step]]
+do = "mode"
+mode = "show"
+
+[[step]]
+do = "run"
+ms = 100
+expect = { mode = "show", source = "relay", out = true }
+
+# the sound stopped and started: a fresh core on the show clock
+[[step]]
+do = "reset"
+
+[[step]]
+do = "load"
+toml = "[[node]]\nid = \"c\"\nkind = \"click\"\ngain = 0.5\n[[node]]\nid = \"out\"\nkind = \"audio_out\"\n[[link]]\nfrom = \"c\"\nto = \"out.in\"\n"
+
+[[step]]
+do = "run"
+ms = 100
+expect = { mode = "show", out = false }
+
+# a scene's tempo node sets the choice (the lead scene: its own clock, leading)
+[[step]]
+do = "load"
+scene = "native/scenes/show-clock-lead.toml"
+
+[[step]]
+do = "run"
+ms = 100
+expect = { mode = "lead", source = "internal", leading = true }

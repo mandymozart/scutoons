@@ -1,6 +1,6 @@
 # @scutoons/engine-host (#298)
 
-The deck's browser engine as one component – `Deck` + `SpaceStage` (deck-space as wasm: the being, `rig_play`, `core_rig`)
+The deck's browser engine as one component – `Deck` + `SpaceStage` (deck-space as wasm: the being, and `DeckState` – the mood, what plays, the rig's lifecycle)
 over live-core's worker and worklet. The viewer's `/live/deck` brings its engine up through it; the creator's editor mounts it
 (research/EDITOR.md: the Sound design workspace – the designer on one side, this deck on the other; later the scene editor).
 The engine stays Rust: nothing of the sound or the being is done in TS here.
@@ -10,7 +10,7 @@ const host = createEngineHost({ api, cdn, wasmBase: '/live/', character: 'catpop
 host.hooks = { rig, mood, tap, tick, space, threeD, spaceStatus, value };  // the app listens in (all optional)
 await host.mount(element);   // the deck + the being (init() / attach(el) when the app sets itself up in between)
 await host.start();          // the sound – needs a user gesture (the AudioContext); false = see snapshot().error
-host.playCoreRig('character.catpope', '', 'happy');  host.playRig(bundleJson, persona, mood);  host.setMood('happy' | null);
+host.playCoreRig('character.catpope');  host.playRig(bundleJson, persona);  host.setMood('happy' | null);  // the rig plays at the deck's mood
 host.snapshot();  host.subscribe(fn);  host.log.subscribe(fn);   // phase, transport, levels, fps, cpu, dropouts · log lines
 await host.stop();  host.dispose();
 ```

@@ -1,6 +1,7 @@
 //! MIDI clock out's schedule (#181, moved here with #308): which message is next and when, derived from the tempo
 //! map, the time base's line and the caller's time (s, any monotonic clock). The caller sends the bytes (deck/native's
 //! `tempo::midi` port thread). Platform-free.
+use super::midi_in::{CONTINUE, POSITION, START, STOP, TICK};
 use super::time::Line;
 use super::{TempoMap, PPQN};
 
@@ -18,11 +19,11 @@ pub enum Out {
 impl Out {
     pub fn bytes(self) -> Vec<u8> {
         match self {
-            Out::Tick => vec![0xF8],
-            Out::Start => vec![0xFA],
-            Out::Continue => vec![0xFB],
-            Out::Stop => vec![0xFC],
-            Out::Position(p) => vec![0xF2, (p & 0x7F) as u8, ((p >> 7) & 0x7F) as u8],
+            Out::Tick => vec![TICK],
+            Out::Start => vec![START],
+            Out::Continue => vec![CONTINUE],
+            Out::Stop => vec![STOP],
+            Out::Position(p) => vec![POSITION, (p & 0x7F) as u8, ((p >> 7) & 0x7F) as u8],
         }
     }
 }

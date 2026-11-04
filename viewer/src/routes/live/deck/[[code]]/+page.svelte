@@ -14,7 +14,7 @@
 	// deck-space's (Hands → DeckControls, wasm), this page only bridges the DOM, Web MIDI and the pointer to it.
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { Hands, charactersOf, loadControls, loadDeckScene, pushLine, type QualityLevel, type QualityPresets, type SpaceQuality, type Spec } from '@scutoons/live-deck';
+	import { Hands, charactersOf, loadControls, loadDeckState, pushLine, type QualityLevel, type QualityPresets, type SpaceQuality, type Spec } from '@scutoons/live-deck';
 	// #298: the engine's bring-up (the deck, the 3D, the sound, the frame loop, the rig for a mood, the statistics) is
 	// @scutoons/engine-host's; this page keeps the relay, the controls and its UI
 	import { createEngineHost, type EngineHost } from '@scutoons/engine-host';
@@ -28,8 +28,7 @@
 	import DeckSticks from '$lib/components/live-deck/deck-sticks.svelte';
 	import type { Stats } from '$lib/components/live-deck/deck-stats.svelte';
 	import { DeckControlsState } from '$lib/live-deck-controls.svelte.ts';
-	import type { ClockChoice } from '$lib/components/live-deck/deck-clock.svelte';
-	import type { ClockState } from '@scutoons/live-deck';
+	import { nowMs, type ClockState } from '@scutoons/live-deck';
 
 	const session = getSessionContext();
 	const cdn = `${CDN_SERVER}/`;
@@ -40,7 +39,7 @@
 	let params = $state<Record<string, Spec>>({});
 	let character = $state('');
 	let characters = $state<{ id: string; name?: Record<string, string> }[]>([]);
-	let mood = $state('neutral');
+	let mood = $state('');
 	let face = $state('');
 	let started = $state(false);
 	let starting = $state(false);
@@ -133,42 +132,31 @@
 		return e;
 	}
 	let threeD = $state(true);
-	// #321: the tempo clock – the picker (the core decides the rest: live-core clock.rs), the strobe on the beat
+	// #321: the tempo clock – the core's (live-core clock.rs): the picker's choice, the MIDI clock out and the strobe's
+	// flash come in its frames (#370); the page has the buttons and draws
 	let clock = $state<ClockState | null>(null);
-	let clockChoice = $state<ClockChoice>('show');
+	/** the picker's choices, the core's (asked once it runs) */
+	let clockModes = $state<string[]>([]);
 	let strobe = $state(false);
 	let flash = $state(false);
-	const SOURCE: Record<ClockChoice, ['relay' | 'internal' | 'midi', boolean]> = { show: ['relay', false], own: ['internal', false], lead: ['internal', true], midi: ['midi', false] };
-	function chooseClock(c: ClockChoice) {
-		clockChoice = c;
-		const [source, lead] = SOURCE[c];
-		engine?.deck?.chooseClock(source, lead);
-		if (c === 'midi') void ctl.startMidi();
-	}
 	ctl.onClockMidi = (data, at) => engine?.deck?.midiIn(data, at);
-	// MIDI OUT: the core's clock out (deck-core's schedule) to every Web MIDI output
-	let midiOut = $state(false);
-	function toggleMidiOut() {
-		midiOut = !midiOut;
-		if (midiOut) void ctl.startMidi();
-		engine?.deck?.clockOut(midiOut);
-	}
+	// Web MIDI opens once the core's clock needs it – it follows MIDI clock in, or its clock out goes to every output (as
+	// the native deck opens a source's port when the core chose it, `Host::source_chosen`)
+	const needsMidi = $derived(clock?.source === 'midi' || !!clock?.midiOut);
+	$effect(() => {
+		if (needsMidi) void ctl.startMidi();
+	});
 	// the checks read the clock (dev only): the beat at a page ms (`performance.timeOrigin + now()`) and the clock's state
 	if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as Record<string, unknown>).__scutoonsClock = (ms?: number) => ({ beat: engine?.deck?.beatAt(ms), clock: engine?.deck?.clock });
-	// the strobe: a flash on each beat for 60 ms, the beat the core's clock line says at this animation frame
+	// the strobe: the core's flash (its beat edge and length, #370) drawn while this animation frame's page ms is in it
 	$effect(() => {
 		if (!strobe) return;
 		let raf = 0;
-		let last = NaN;
-		let until = 0;
-		const frame = (t: number) => {
+		const frame = () => {
 			raf = requestAnimationFrame(frame);
-			const beat = Math.floor(engine?.deck?.beatAt() ?? NaN);
-			if (Number.isFinite(beat) && beat !== last) {
-				if (Number.isFinite(last)) until = t + 60;
-				last = beat;
-			}
-			const on = t < until;
+			const f = engine?.deck?.clock?.flash;
+			const t = nowMs();
+			const on = !!f && t >= f.atMs && t < f.atMs + f.ms;
 			if (on !== flash) flash = on;
 		};
 		raf = requestAnimationFrame(frame);
@@ -199,7 +187,7 @@
 
 	function showFace() {
 		const deck = engine?.deck;
-		const p = deck?.portraits[mood] ?? deck?.portraits.neutral ?? Object.values(deck?.portraits ?? {})[0];
+		const p = deck?.face(mood);
 		face = p ? cdn + p.path : '';
 	}
 
@@ -230,8 +218,12 @@
 			if (space && sheetOpen) screenInfo = space.screen;
 			stats.quality = quality ? `${quality.level} ${quality.scale.toFixed(2)}×${quality.auto ? '' : ' FIX'}` : '';
 			stats.down = !!quality && quality.level !== quality.ceiling;
-			clock = engine?.deck?.clock ?? null;
 		}, 500);
+		// #370: the clock's frame as the core left it – its choice, the MIDI clock out, the tempo line's beat
+		const clockFrames = setInterval(() => {
+			clock = engine?.deck?.clock ?? null;
+			if (clock && !clockModes.length) clockModes = engine?.deck?.state?.clock_modes() ?? [];
+		}, 50);
 		void (async () => {
 			await settled();
 			if (!alive || !mayJoin(session.me)) return;
@@ -272,7 +264,7 @@
 					params = deck.params;
 					values = { ...deck.value };
 					// the corner sticks follow the rig's knobs (or the deck's own scene's again)
-					ctl.useParams(deck.controlSpecs, deck.sticks);
+					ctl.useParams(deck.params, deck.sticks);
 				},
 				// #191: the mood's variant of the rig (its presets, its values) is already played – the sliders follow by the mood's hand
 				mood: (md) => {
@@ -288,10 +280,11 @@
 			values = { ...deck.value };
 			try {
 				// #360: the deck's own scene, played by the core (deck-space as wasm – no GPU needed): its knobs are the sliders
-				deck.useOwn(await loadDeckScene(WASM_BASE));
+				// #367, #368: the deck's state – its own scene, the mood ladder, the rig's lifecycle (deck-space as wasm, no GPU)
+				deck.useState(await loadDeckState(WASM_BASE));
 				params = deck.params;
 				values = { ...deck.value };
-				const specs = deck.controlSpecs;
+				const specs = deck.params;
 				ctl.hands = new Hands(await loadControls(WASM_BASE, Object.keys(specs)), deck, specs);
 				ctl.useParams(specs, deck.sticks);
 				ctl.load(character);
@@ -309,6 +302,7 @@
 			alive = false;
 			clearInterval(audio);
 			clearInterval(bar);
+			clearInterval(clockFrames);
 			ctl.close();
 			engine?.dispose();
 			engine = null;
@@ -402,13 +396,12 @@
 			}}
 			ontouch={(on) => engine?.deck && (engine.deck.touch = on)}
 			{clock}
-			{clockChoice}
+			{clockModes}
 			{strobe}
-			onclock={chooseClock}
+			onclock={(c) => engine?.deck?.clockMode(c)}
 			onclick={() => engine?.deck?.clockKey('click')}
 			onstrobe={() => (strobe = !strobe)}
-			{midiOut}
-			onmidiout={toggleMidiOut}
+			onmidiout={() => engine?.deck?.clockOut(!clock?.midiOut)}
 		/>
 	</div>
 	{#if presets && quality}

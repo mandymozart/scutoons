@@ -12,7 +12,7 @@
 //! `lc_load(len) -> ±len`, `lc_apply(len) -> count | -len`, `lc_render(frames) -> ptr`, `lc_analyse(dt, lead) -> ptr`,
 //! `lc_signals() -> len`, `lc_signals_at() -> ptr`; the tempo clock (#321, clock.rs): `lc_clock_frame(now_ms) -> ptr`
 //! (the state block, `clock::STATE` f64), `lc_clock_stamp`, `lc_clock_pong`, `lc_clock_tempo`, `lc_clock_midi`,
-//! `lc_clock_joined`, `lc_clock_choose`, `lc_clock_key`, `lc_clock_line(now_ms) -> len` (the line, in the outbox), the
+//! `lc_clock_joined`, `lc_clock_mode` (#370), `lc_clock_key`, `lc_clock_line(now_ms) -> len` (the line, in the outbox), the
 //! MIDI clock out `lc_clock_out_on(on)`, `lc_clock_out() -> count`, `lc_clock_out_at() -> ptr`; the adaptive lead (#365,
 //! deck-core `lead`) `lc_lead_class(class) -> frames`, `lc_lead(now_ms, dropouts) -> frames`; the audio side of the
 //! monitor (#364, deck-core `monitor::AudioWindow`) `lc_note_block(us)`, `lc_note_analysis(us)`, `lc_note_gap(ms)`,
@@ -21,6 +21,7 @@
 //! re-makes them (shared/live-core).
 pub mod clock;
 pub mod core;
+pub mod layout;
 pub mod signals;
 pub mod wire;
 
@@ -293,15 +294,16 @@ pub extern "C" fn lc_clock_frame(now_ms: f64) -> *const f64 {
     with(|h| h.clock.frame(now_ms).as_ptr())
 }
 
-/// The clock's line at the page's `now_ms` (deck-core `Controller::status`, the native HUD's text) → its length; the
-/// text is in the outbox ("" = nothing to say).
+/// The clock's line at the page's `now_ms` (deck-core `Controller::line`: the tempo line and the source's state, the
+/// native HUD's texts, #370) → its length; the text is in the outbox.
 #[no_mangle]
 pub extern "C" fn lc_clock_line(now_ms: f64) -> i32 {
     with(|h| {
-        let line = h.clock.line(now_ms);
+        let line = h.clock.hud_line(now_ms);
         h.answer(Ok(line))
     })
 }
+
 
 /// The page's MIDI OUT: the clock out on (1) or off (0) – deck-core's `ClockOut`, the native deck's schedule.
 #[no_mangle]
@@ -353,10 +355,10 @@ pub extern "C" fn lc_clock_joined(now_ms: f64) {
     with(|h| h.clock.joined(now_ms));
 }
 
-/// the picker: the source (`deck_core::tempo::Source::ALL`'s index: internal, midi, link, osc, relay) and lead
+/// the picker: `deck_core::tempo::ClockMode::ALL`'s index (show, own, lead, midi) – #370
 #[no_mangle]
-pub extern "C" fn lc_clock_choose(source: u32, lead: u32) {
-    with(|h| h.clock.choose(source as usize, lead != 0));
+pub extern "C" fn lc_clock_mode(mode: u32) {
+    with(|h| h.clock.set_mode(mode as usize));
 }
 
 /// a key: 0 tap, 1 faster, 2 slower, 3 start / stop, 4 the click

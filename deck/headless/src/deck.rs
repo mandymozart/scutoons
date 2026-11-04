@@ -176,6 +176,10 @@ impl Deck {
     pub fn choose(&mut self, source: usize, lead: bool) {
         self.host.clock.choose(source, lead);
     }
+    /// the page's picker (#370): `ClockMode::ALL[mode]`
+    pub fn mode(&mut self, mode: usize) {
+        self.host.clock.set_mode(mode);
+    }
     pub fn key(&mut self, key: usize) {
         self.host.clock.key(key, self.now);
     }
@@ -187,6 +191,13 @@ impl Deck {
     }
     pub fn line(&mut self) -> String {
         self.host.clock.line(self.now)
+    }
+    /// the tempo line of the last frame and the panel's whole line now (#370)
+    pub fn tempo_line(&self) -> String {
+        self.host.clock.controller().tempo_line()
+    }
+    pub fn hud_line(&mut self) -> String {
+        self.host.clock.hud_line(self.now)
     }
     /// the device's clock from now at `bpm` (None: its ticks stop); `start` = it begins with a Start (0xFA), else it
     /// only ticks (after a Continue)
@@ -302,6 +313,12 @@ impl Deck {
         m.insert("click".into(), json!(s[15] != 0.0));
         // #359: the transport's epoch the engine plays on (a start, stop or position jump each count one)
         m.insert("epoch".into(), json!(self.host.clock.controller().shared().transport().map_or(0, |t| t.2)));
+        // #370: the picker's choice, the MIDI clock out, the strobe's flash (its length, 0 = none; its edge in ms from the heard moment)
+        let mode = deck_core::tempo::ClockMode::ALL.get(s[16] as usize).filter(|_| s[16] >= 0.0).map(|m| m.name());
+        m.insert("mode".into(), json!(mode));
+        m.insert("out".into(), json!(s[17] != 0.0));
+        m.insert("flash_ms".into(), json!(s[19]));
+        m.insert("flash_edge_ms".into(), json!(if s[19] > 0.0 { round(s[18] - s[0], 3) } else { 0.0 }));
         m
     }
 

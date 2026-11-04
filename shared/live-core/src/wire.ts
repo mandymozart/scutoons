@@ -1,39 +1,41 @@
-// The wire format across the page / worker ↔ wasm boundary (#184, DECISIONS 2026-10-30): binary records, no JSON.
-// The Rust twin is deck/live-core/src/wire.rs; deck/live-core/fixtures/wire.json holds records with their bytes and
-// both sides' tests encode and decode every one of them.
+// GENERATED from deck/live-core/src/wire.rs by `npm run generate` (cargo run -p live-core --features codegen --bin codecs-ts) – do not edit.
+// The wire format across the page / worker ↔ wasm boundary (#184, #372): binary records, no JSON. The layout tables are
+// the Rust side's (SEND_FIELDS, Mode::ALL, BANDS and the frame's slots); deck/live-core/fixtures/wire.json holds records
+// with their bytes and both sides' tests encode and decode every one of them.
 //
-// A record, little-endian, 4-byte aligned (the values can be read as a Float32Array in place):
-//   0 u8 op (1 = send) · 1 u8 mode (0 force, 1 blend, 2 release, 3 base – #188: the input's base, a link on top) · 2 u16 n · 4 u16 node · 6 u16 port · 8 f32 amount
-//   12 f32 × n – the values (#189's float vectors); v[0] → port, v[1] → port + 1 …
+// A record, little-endian, 4-byte aligned (the values can be read as a Float32Array in place): the header's fields at
+// their offsets (op @ 0, mode @ 1, n @ 2, node @ 4, port @ 6, amount @ 8), then n f32 values (#189's float vectors); v[0] → port, v[1] → port + 1 …
 // Node and port are indices from the load table (names are resolved once, at load – JSON stays at the edge).
-// The analysis frame going out is a block of f32: level, bass, mid, high, then SPECTRUM bins, then the limiter's gain
-// reduction (dB, the deepest since the last frame – #188), then (#282) the number of device channels and MAX_OUTPUTS
-// peaks (0..1, each channel's largest sample since the last frame), then (#320) the number of values and the values: every
-// load-table row's inputs and outputs of the heard block, from the row's `at`. Device messages come in their own records
+// The analysis frame going out is a block of f32: level, bass, mid, high, then SPECTRUM bins, then the limiter's gain reduction (dB,
+// the deepest since the last frame – #188), then (#282) the number of device channels and MAX_OUTPUTS peaks (0..1, each
+// channel's largest sample since the last frame), then (#320) the number of values and the values: every load-table
+// row's inputs and outputs of the heard block, from the row's `at`. Device messages come in their own records
 // (signals.ts).
 
 export const HEADER = 12;
 export const OP_SEND = 1;
 /** deck-core's analysis::SPECTRUM – bin k = k · rate / 1024 Hz */
 export const SPECTRUM = 512;
+/** the frame's slot of the first spectrum bin (the bands come before it) */
+export const SPECTRUM_AT = 4;
 /** the frame's slot of the limiter's gain reduction (dB) */
-export const REDUCTION = 4 + SPECTRUM;
+export const REDUCTION = 516;
 /** … of the number of device channels the engine renders (#282) */
-export const OUTPUT_COUNT = REDUCTION + 1;
+export const OUTPUT_COUNT = 517;
 /** … of the first channel's peak */
-export const PEAKS = REDUCTION + 2;
-/** the most channels a frame carries peaks for – the Rust twin's MAX_OUTPUTS (deck-engine's device channel limit) */
+export const PEAKS = 518;
+/** the most channels a frame carries peaks for (deck-engine's device channel limit) */
 export const MAX_OUTPUTS = 32;
 /** … of the number of values that follow */
-export const VALUE_COUNT = PEAKS + MAX_OUTPUTS;
+export const VALUE_COUNT = 550;
 /** … of the first value */
-export const VALUES_AT = VALUE_COUNT + 1;
+export const VALUES_AT = 551;
 /** the frame's fixed part; the values follow it */
-export const FRAME = VALUES_AT;
-/** the most values a frame carries – the Rust twin's MAX_FRAME_VALUES */
+export const FRAME = 551;
+/** the most values a frame carries (a row past them reads `at` = -1 in the table) */
 export const MAX_FRAME_VALUES = 4096;
 /** the most values one record carries (u16 n) */
-export const MAX_VALUES = 0xffff;
+export const MAX_VALUES = 65535;
 
 export type Mode = 'force' | 'blend' | 'release' | 'base';
 export const MODES: readonly Mode[] = ['force', 'blend', 'release', 'base'];
@@ -83,7 +85,7 @@ export function writeSend(bytes: Uint8Array, at: number, r: SendRecord): number 
 	bytes[at] = OP_SEND;
 	bytes[at + 1] = mode;
 	bytes[at + 2] = n & 0xff;
-	bytes[at + 3] = n >> 8;
+	bytes[at + 3] = (n >> 8) & 0xff;
 	bytes[at + 4] = r.node & 0xff;
 	bytes[at + 5] = (r.node >> 8) & 0xff;
 	bytes[at + 6] = r.port & 0xff;
@@ -146,13 +148,16 @@ export interface Analysis {
 	values: Float32Array;
 }
 
+/** a count slot of the frame as a slice length: whole, within 0 … `max` */
+const counted = (x: number | undefined, max: number): number => Math.max(0, Math.min(max, Math.round(x || 0)));
+
 export const analysisOf = (frame: Float32Array): Analysis => ({
 	level: frame[0],
 	bass: frame[1],
 	mid: frame[2],
 	high: frame[3],
-	spectrum: frame.subarray(4, 4 + SPECTRUM),
+	spectrum: frame.subarray(SPECTRUM_AT, SPECTRUM_AT + SPECTRUM),
 	reduction: frame[REDUCTION] ?? 0,
-	outputs: frame.subarray(PEAKS, PEAKS + Math.max(0, Math.min(MAX_OUTPUTS, Math.round(frame[OUTPUT_COUNT] || 0)))),
-	values: frame.subarray(VALUES_AT, VALUES_AT + Math.max(0, Math.min(MAX_FRAME_VALUES, Math.round(frame[VALUE_COUNT] || 0))))
+	outputs: frame.subarray(PEAKS, PEAKS + counted(frame[OUTPUT_COUNT], MAX_OUTPUTS)),
+	values: frame.subarray(VALUES_AT, VALUES_AT + counted(frame[VALUE_COUNT], MAX_FRAME_VALUES))
 });

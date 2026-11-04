@@ -31,9 +31,9 @@ export interface Exports {
 	lc_clock_tempo(bpm: number, perBar: number, beat: number, at: number, running: number, arrivedMs: number): void;
 	lc_clock_midi(status: number, d1: number, d2: number, atMs: number): void;
 	lc_clock_joined(nowMs: number): void;
-	lc_clock_choose(source: number, lead: number): void;
+	lc_clock_mode(mode: number): void;
 	lc_clock_key(key: number, atMs: number): void;
-	/** #321: the clock's line (deck-core `Controller::status`, the native HUD's text) into the outbox → its length */
+	/** #321: the clock's line (deck-core `Controller::line`, #370: the native HUD's texts) into the outbox → its length */
 	lc_clock_line(nowMs: number): number;
 	/** #321: the MIDI clock out (deck-core's `ClockOut`) on / off; its messages of the last frame: how many, where */
 	lc_clock_out_on(on: number): void;
@@ -55,7 +55,7 @@ export interface Exports {
 }
 
 /** #321: the clock's state block, f64 (deck/live-core clock.rs `STATE`) */
-export const CLOCK_STATE = 16;
+export const CLOCK_STATE = 20;
 
 /** One node of the load table: its inputs (`ports`, what records' `port` counts), its outputs, and where its values are
  * in the analysis frame's values (`at`: the inputs, then the outputs; -1 = not carried). */
@@ -135,10 +135,11 @@ export class WasmCore {
 		return n ? new Float64Array(this.x.memory.buffer, this.x.lc_clock_out_at(), 4 * n).slice() : null;
 	}
 
-	/** #321: the clock's line at the page's `nowMs` – deck-core's words, the same the native HUD shows ("" = nothing to say) */
+	/** #321: the clock's line at the page's `nowMs` – deck-core's words (#370: the tempo line, the source's state), the native HUD's */
 	clockLine(nowMs: number): string {
 		return this.text(this.x.lc_clock_line(nowMs));
 	}
+
 
 	/** #321: something for the clock; `skew` = the worklet's (a stamp's context frame → the frames it played) */
 	clock(o: ClockOp, skew: number): void {
@@ -154,8 +155,8 @@ export class WasmCore {
 				return x.lc_clock_midi(o.bytes[0], o.bytes[1], o.bytes[2], o.at);
 			case 'joined':
 				return x.lc_clock_joined(o.now);
-			case 'choose':
-				return x.lc_clock_choose(o.source, o.lead ? 1 : 0);
+			case 'mode':
+				return x.lc_clock_mode(o.mode);
 			case 'key':
 				return x.lc_clock_key(o.key, o.at);
 			case 'out':

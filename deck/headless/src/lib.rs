@@ -18,6 +18,8 @@
 //! | `send` | `path`, `value`, `mode` (force / blend / base), `amount` | applied |
 //! | `heard` | `path` | value (the analysis frame's) |
 //! | `choose` | `source`, `lead` | the clock state |
+//! | `mode` | `mode` (show, own, lead, midi – the page's picker, #370; the next `run` shows it) | – |
+//! | `tempo_line` | – | line (the tempo line), status (the source's), hud (the panel's: both), the clock state (mode, out, flash …) |
 //! | `key` | `key` (tap, faster, slower, startstop, click) | – |
 //! | `clock_out` · `joined` · `midi_in` (`bpm`, `start`) · `midi` · `leader` · `anchor` | the page's and the devices' input | – |
 //! | `quality` / `frames` | `level`, `auto` / `ms`, `secs`, `glitches` | level, ceiling, scale, auto, changes |
@@ -286,6 +288,19 @@ impl Run<'_> {
                 let i = deck_core::tempo::Source::ALL.iter().position(|x| x.name() == s).ok_or_else(|| Fault::Error(format!("no clock source '{s}'")))?;
                 d.choose(i, flag("lead", false));
                 json!({})
+            }
+            "mode" => {
+                let m = text("mode").unwrap_or_default();
+                let i = deck_core::tempo::ClockMode::ALL.iter().position(|x| x.name() == m).ok_or_else(|| Fault::Error(format!("no clock mode '{m}'")))?;
+                d.mode(i);
+                json!({})
+            }
+            "tempo_line" => {
+                let mut out = d.state();
+                out.insert("line".into(), json!(d.tempo_line()));
+                out.insert("status".into(), json!(d.line()));
+                out.insert("hud".into(), json!(d.hud_line()));
+                Value::Object(out)
             }
             "key" => {
                 const KEYS: [&str; 5] = ["tap", "faster", "slower", "startstop", "click"];

@@ -27,6 +27,9 @@
 //!   it works when the 3D can't, and before the sound): the page feeds each animation frame (drawn or skipped), the
 //!   worker's audio window (its words) and the dropout count; `report` is the stats bar's and the sound report's numbers,
 //!   judgement and words.
+//! - **The deck's state (#367, #368):** `DeckState` – deck-space's `deck::Deck` without a GPU: the mood's energy ladder (the
+//!   native being's walk) from the level, the clock and a hand, and what plays (its own scene or a rig, replayed on every
+//!   mood); the page applies its turns.
 #![cfg(target_arch = "wasm32")]
 
 use deck_space::controls::{Controls, Midi, Selection};
@@ -90,6 +93,10 @@ impl Knobs for Page {
 
 fn err(e: impl std::fmt::Display) -> JsValue {
     JsValue::from_str(&e.to_string())
+}
+
+fn json(v: &impl serde::Serialize) -> String {
+    serde_json::to_string(v).unwrap_or_default()
 }
 
 /// The deck's being from its wire graph, in the cathedral: the space node takes the cathedral's (where the being
@@ -349,7 +356,7 @@ impl SpaceView {
         self.space.being.strain(dt.clamp(0.0, 0.1), reduction_db);
     }
 
-    /// The head's mood (the page's – its energy ladder); an unknown one leaves the head as it is.
+    /// The head's mood (the deck's – `DeckState`'s ladder); an unknown one leaves the head as it is.
     pub fn set_mood(&mut self, mood: &str) {
         if let Some(i) = self.space.being.moods.iter().position(|m| m == mood) {
             self.space.being.head.fixed = Some(i);
@@ -797,5 +804,106 @@ impl DeckMonitor {
 impl Default for DeckMonitor {
     fn default() -> Self {
         DeckMonitor::new()
+    }
+}
+
+/// #367, #368: the deck's state without a GPU (deck-space `deck::Deck`) – the mood's energy ladder (mood.rs, the walk the
+/// native being's head runs) and what plays: the deck's own scene or a rig, replayed on every mood (the lifecycle, the
+/// facts: streamed paths, knob targets, the diff). The page passes the level, the clock and a hand each frame and
+/// applies the turns it answers (JSON: deck-space `deck::Turn` / `Step`).
+#[wasm_bindgen]
+pub struct DeckState {
+    d: deck_space::deck::Deck,
+}
+
+#[wasm_bindgen]
+impl DeckState {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> DeckState {
+        DeckState { d: deck_space::deck::Deck::new() }
+    }
+
+    /// the character's portraits (their moods): the ladder anew
+    pub fn set_portraits(&mut self, moods: Vec<String>) {
+        self.d.ladder.set_portraits(&moods);
+    }
+
+    /// hold the mood on `mood`; "" = the energy walks it again
+    pub fn pin(&mut self, mood: &str) {
+        self.d.ladder.pin(Some(mood));
+    }
+
+    /// One animation frame: the analysis level (0..1), the clock's bpm and whether it runs, a hand (0..1), `dt` s since
+    /// the last – when the mood changed its `Step` as JSON (the mood, the rig's turn for it or why not), else "".
+    pub fn step(&mut self, level: f32, bpm: f32, running: bool, touch: f32, dt: f32) -> String {
+        self.d.step(level, bpm, running, touch, dt).map(|s| json(&s)).unwrap_or_default()
+    }
+
+    /// #368: what plays now, as a `Turn` to load whole (JSON)
+    pub fn now(&self) -> String {
+        json(&self.d.now())
+    }
+
+    /// #368: play a rig bundle (JSON: rig + instruments + presets) for `persona` and the mood now ("" = the deck's own
+    /// scene) – the `Turn` (JSON); throws on a bad bundle, what played stays.
+    pub fn play(&mut self, bundle: &str, persona: &str) -> Result<String, JsValue> {
+        self.d.play_json(bundle, persona).map(|t| json(&t)).map_err(|e| JsValue::from_str(&format!("{e:#}")))
+    }
+
+    /// #368: the core rig of a character (`catpope`) or a subject – the deck's own scene when there is none or it fails
+    /// (the `Turn`'s note says which)
+    pub fn play_core(&mut self, character: &str, persona: &str) -> String {
+        json(&self.d.play_core(character, persona))
+    }
+
+    /// #368: the knobs as sliders labelled in `locale` (JSON: `[{path, min, max, value, log, label}]`)
+    pub fn sliders(&self, locale: &str) -> String {
+        json(&self.d.sliders(locale))
+    }
+
+    /// #368: the being on the wire (a `deck.graph`, JSON) – the deck's own scene wears `character`
+    pub fn graph(&self, character: &str) -> String {
+        json(&self.d.graph(character))
+    }
+
+    /// #368: where a value of `path` goes in the engine ("" = nowhere: a node the engine does not play)
+    pub fn target(&self, path: &str) -> String {
+        self.d.target(path).unwrap_or_default().to_string()
+    }
+
+    /// the mood now
+    pub fn mood(&self) -> String {
+        self.d.mood().to_string()
+    }
+
+    /// the energy now (0..1)
+    pub fn energy(&self) -> f32 {
+        self.d.ladder.energy()
+    }
+
+    /// the moods on the wire (the being's palette): the ladder, then the other portraits
+    pub fn moods(&self) -> Vec<String> {
+        self.d.ladder.wire()
+    }
+
+    /// the moods a picker offers
+    pub fn choices(&self) -> Vec<String> {
+        self.d.ladder.choices()
+    }
+
+    /// #370: the clock picker's choices (deck-core `ClockMode::ALL`), in the order the clock frame's `mode` index counts
+    pub fn clock_modes(&self) -> Vec<String> {
+        deck_core::tempo::ClockMode::ALL.iter().map(|m| m.name().to_string()).collect()
+    }
+
+    /// the portrait `mood` shows ("" = none)
+    pub fn face(&self, mood: &str) -> String {
+        self.d.ladder.face(mood).unwrap_or_default().to_string()
+    }
+}
+
+impl Default for DeckState {
+    fn default() -> Self {
+        DeckState::new()
     }
 }

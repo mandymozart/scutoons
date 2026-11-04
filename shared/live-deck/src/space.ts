@@ -64,42 +64,37 @@ export interface SpaceView {
 	free(): void;
 }
 
-/** a knob of a played rig (deck-space `rig::Knob`): an exposed parameter of the flattened scene */
-export interface RigKnob {
-	/** `<track>_<node>.<port>` */
-	path: string;
-	label?: Record<string, string>;
-	min: number;
-	max: number;
-	value: number;
-	log?: boolean;
-}
-
-/** a character's rig played for a persona and a mood (deck-space `rig::Played`, #191) */
-export interface RigPlayed {
-	/** a stage scene in TOML (its space node bare) */
-	scene: string;
-	nodes: { id: string; kind: string; [param: string]: unknown }[];
-	links: { from: string; to: string; scale: number; offset: number }[];
-	/** the head's character; empty for an item's rig */
-	character: string;
-	knobs: RigKnob[];
-	tracks: { track: string; preset?: string }[];
-	/** the corner sticks' knob paths, (x, y) left then right ("" = none) */
-	sticks: [[string, string], [string, string]];
-	/** the scene lowered for live-core (deck-space rig/engine.rs) */
-	engine: RigEngine;
-}
-
-/** what live-core plays of a scene (deck-space rig/engine.rs `lower`, #320, #360: deck-core's carried part for the
- *  browser's modules) */
-export interface RigEngine {
-	/** live-core's scene: every node of a kind the browser carries, as flattened */
-	scene: string;
-	/** the nodes of modules the browser does not carry yet (chapter_music, module:*) – not played */
-	page: { id: string; kind: string; [param: string]: unknown }[];
-	/** the links that touch them */
-	dropped: { from: string; to: string; scale: number; offset: number }[];
+/** #367, #368: the wasm-bindgen API of deck/space-web's `DeckState` – deck-space's `deck::Deck` without a GPU: the mood's
+ *  energy ladder and what plays (its own scene or a rig, replayed on every mood). JSON answers: rig.ts. */
+export interface DeckStateView {
+	/** the character's portraits (their moods): the ladder anew */
+	set_portraits(moods: string[]): void;
+	/** hold the mood; '' = the energy walks it again */
+	pin(mood: string): void;
+	/** one frame: the level 0..1, the clock's bpm and whether it runs, a hand 0..1, dt s → a `MoodStep` when it turned, else '' */
+	step(level: number, bpm: number, running: boolean, touch: number, dt: number): string;
+	mood(): string;
+	energy(): number;
+	/** the moods on the wire: the ladder, then the other portraits */
+	moods(): string[];
+	/** the moods a picker offers */
+	choices(): string[];
+	/** the portrait a mood shows ('' none) */
+	face(mood: string): string;
+	/** what plays now, a `RigTurn` to load whole */
+	now(): string;
+	/** a rig bundle (JSON) for a persona and the mood now ('' = the deck's own scene) → a `RigTurn`; throws on a bad bundle */
+	play(bundle: string, persona: string): string;
+	/** the core rig of a character or a subject, else the deck's own scene → a `RigTurn` (its note says which) */
+	play_core(character: string, persona: string): string;
+	/** the knobs as `RigSlider`s in a locale ('' = English) */
+	sliders(locale: string): string;
+	/** the being on the wire (`deck.graph`); the deck's own scene wears `character` */
+	graph(character: string): string;
+	/** where a value of a path goes in the engine ('' = nowhere) */
+	target(path: string): string;
+	/** #370: the clock picker's choices (deck-core `ClockMode::ALL`) */
+	clock_modes(): string[];
 }
 
 /** #220: the render quality now (deck-space quality.rs) */
@@ -150,18 +145,13 @@ export interface QualityPresets {
 
 interface SpaceModule {
 	default: (o: { module_or_path: string | URL }) => Promise<unknown>;
-	/** deck/space-web `rig_play`: the bundle as JSON (rig + instruments + presets), persona / mood '' = none; throws on a bad rig */
-	rig_play(bundle: string, persona: string, mood: string): string;
-	/** deck/space-web `core_rig`: the core rig of `character.<id>` / `item.<id>` as a bundle, '' when the deck has none */
-	core_rig(subject: string): string;
-	/** deck/space-web `deck_scene` (#360): the deck's own scene – the X1's cathedral, embedded in the wasm – played as `rig_play` answers */
-	deck_scene(): string;
 	SpaceView: {
 		create(canvas: HTMLCanvasElement, deckGraph: string, values: string, prefer: string): Promise<SpaceView>;
 		encoded_images(glb: Uint8Array): unknown[];
 	};
 	DeckControls: new (paths: string[]) => DeckControlsView;
 	DeckMonitor: new () => MonitorView;
+	DeckState: new () => DeckStateView;
 }
 
 const modules = new Map<string, Promise<SpaceModule>>();
@@ -181,16 +171,17 @@ function spaceModule(base: string): Promise<SpaceModule> {
 	return m;
 }
 
-/** #360: the deck's own scene as deck-space plays it (no GPU needed) – what the deck plays without a rig */
-export async function loadDeckScene(base: string): Promise<RigPlayed> {
-	const mod = await spaceModule(base);
-	return JSON.parse(mod.deck_scene()) as RigPlayed;
-}
-
 /** #209: the deck's controls (deck-space's, as wasm – no GPU needed: they work when the 3D can't) over `paths` */
 export async function loadControls(base: string, paths: string[]): Promise<DeckControlsView> {
 	const mod = await spaceModule(base);
 	return new mod.DeckControls(paths);
+}
+
+/** #367, #368: the deck's state – deck-space's mood ladder and what plays, its own scene (the X1's cathedral, #360) at
+ *  first (as wasm, no GPU: it works when the 3D can't) */
+export async function loadDeckState(base: string): Promise<DeckStateView> {
+	const mod = await spaceModule(base);
+	return new mod.DeckState();
 }
 
 /** #364: deck-core's monitor (as wasm, no GPU: it works when the 3D can't, and before the sound) */
@@ -265,8 +256,8 @@ export class SpaceStage {
 		const say = (s: string) => o.onStatus?.(s);
 		say('3D: loading');
 		const mod = await spaceModule(o.base);
-		// #360: the deck's own scene, before the being is built from the deck's graph
-		if (!o.deck.own) o.deck.useOwn(JSON.parse(mod.deck_scene()) as RigPlayed);
+		// #367, #368: the deck's state (its own scene, #360, the mood ladder) before the being is built from the deck's graph
+		if (!o.deck.state) o.deck.useState(new mod.DeckState());
 		const graph = JSON.stringify(o.deck.graph());
 		const values = JSON.stringify(o.deck.value);
 		let canvas = SpaceStage.canvas(o);
@@ -517,16 +508,6 @@ export class SpaceStage {
 		);
 		on('dblclick', (e) => e.preventDefault());
 		on('contextmenu', (e) => e.preventDefault());
-	}
-
-	/** A character's rig played for `persona` and `mood` (#191, research/INSTRUMENTS.md §7): the same Rust as the deck's. */
-	playRig(bundle: string, persona = '', mood = ''): RigPlayed {
-		return JSON.parse(this.mod.rig_play(bundle, persona, mood)) as RigPlayed;
-	}
-
-	/** the core rig of `subject` as a bundle (JSON), null when the deck carries none */
-	coreRig(subject: string): string | null {
-		return this.mod.core_rig(subject) || null;
 	}
 
 	stop() {

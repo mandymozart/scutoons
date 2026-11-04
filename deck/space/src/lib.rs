@@ -4,8 +4,10 @@
 //! (space/) is the feature `being`, its GPU passes `gpu`, the loaders on threads and from files `native`. rig/ = the
 //! instruments, presets and character rigs a being's sound is made of (#191, research/INSTRUMENTS.md).
 pub mod controls;
+pub mod deck;
 pub mod graph;
 pub mod modreg;
+pub mod mood;
 pub mod params;
 pub mod quality;
 pub mod rig;
