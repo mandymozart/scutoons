@@ -94,8 +94,11 @@ const steps = [
 	['🦀 tests', 'cargo', ['test', '--workspace'], `${root}/deck`],
 	// the stage's `modules` feature is not in its default, so the workspace run never builds it (#305)
 	['🧩 module tests', 'cargo', ['test', '-p', 'deck-native', '--features', 'modules', '--test', 'modules'], `${root}/deck`],
+	// #342: the engine's module node (channels, control outputs, control-domain modules, the event host) behind stand-ins
+	['🧩 engine module tests', 'cargo', ['test', '-p', 'deck-engine', '--features', 'events,modules', '--lib', 'module'], `${root}/deck`],
 	['🦀 clippy', 'cargo', ['clippy', '--workspace', '--all-targets', '--', '-D', 'warnings'], `${root}/deck`],
-	['🧩 module clippy', 'cargo', ['clippy', '-p', 'deck-native', '--features', 'modules', '--all-targets', '--', '-D', 'warnings'], `${root}/deck`]
+	['🧩 module clippy', 'cargo', ['clippy', '-p', 'deck-native', '--features', 'modules', '--all-targets', '--', '-D', 'warnings'], `${root}/deck`],
+	['🧩 engine module clippy', 'cargo', ['clippy', '-p', 'deck-engine', '--features', 'events,modules', '--all-targets', '--', '-D', 'warnings'], `${root}/deck`]
 ];
 
 const started = Date.now();

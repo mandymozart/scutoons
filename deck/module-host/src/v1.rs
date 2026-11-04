@@ -140,6 +140,18 @@ impl<B: Backend> Instance<B> {
         }
     }
 
+    /// channel `c` (0 left, 1 right) of audio output `port` into `dst`; any other channel is silent
+    pub fn read_audio_chan(&mut self, port: usize, c: usize, dst: &mut [f32]) {
+        let n = dst.len().min(MAX_BLOCK);
+        if port >= MAX_AUDIO_PORTS || c >= 2 {
+            dst.fill(0.0);
+            return;
+        }
+        let base = self.io + self.off.audio_out + port * 2 * MAX_BLOCK * 4;
+        self.backend.read(base + c * MAX_BLOCK * 4, bytemuck::cast_slice_mut(&mut dst[..n]));
+        dst[n..].fill(0.0);
+    }
+
     fn budget(&self, frames: u32) -> u64 {
         ((0.75 * f64::from(frames) / self.rate * 1000.0).ceil() as u64).clamp(2, 50)
     }

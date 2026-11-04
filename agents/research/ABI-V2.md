@@ -1,4 +1,4 @@
-Reviewed with the owner 2026-11-03 – the design of module ABI v2 (#323, with #312 sensors, #314 groups, #289 control outputs); every question of §10 is decided (DECISIONS 2026-11-03). Built: A0 #339 (the descriptor fields in deck-catalog, `host::Descriptor` gone, 2026-11-04); A1 #340 (the SDK and derive in `deck_module::v2`, opt-in `#[module(abi = 2)]` beside v1 until #343, 2026-11-04 – choices in §9a); A2 #341 (the host `deck_module_host::v2::Instance`, 2026-11-04 – choices in §9b); the other build tickets are open (§9: #340–#346, with #312, #314, #307). Read against `main` at b504d5f6 (the engine move, #317).
+Reviewed with the owner 2026-11-03 – the design of module ABI v2 (#323, with #312 sensors, #314 groups, #289 control outputs); every question of §10 is decided (DECISIONS 2026-11-03). Built: A0 #339 (the descriptor fields in deck-catalog, `host::Descriptor` gone, 2026-11-04); A1 #340 (the SDK and derive in `deck_module::v2`, opt-in `#[module(abi = 2)]` beside v1 until #343, 2026-11-04 – choices in §9a); A2 #341 (the host `deck_module_host::v2::Instance`, 2026-11-04 – choices in §9b); A3 #342 (the engine: module node, event host, control-domain modules, 2026-11-04 – choices in §9c); the other build tickets are open (§9: #343–#346, with #312, #314, #307). Read against `main` at b504d5f6 (the engine move, #317).
 
 # ABI-V2 – one module ABI for notes, channels, sensors, assets and groups
 
@@ -335,6 +335,34 @@ Estimate from the ledger's classes (M $2.2–2.9, L $4.7–11.2): **≈ $35–55
 - **`needs`** is checked by the host per block from the staged status words; `wants` modules run with zeros. The sensor-log replay lives in the conformance test (JSON lines `{frame, channel: "<sensor>.<i>", value}`) – the core's channel table is #312's.
 - **The engine's seam stays** (#342 replaces it): `deck_module_host::Instance` picks v1 or v2 by `dm_abi()` and keeps the stereo calls; through it a v2 module runs strict, ≤ 128 frames a call; `Layout::of` maps no v2 control output or event port to the graph yet. Late events come from the event host (`add_late`); the host sorts event inputs in place (no scratch buffer).
 - **"Every backend"** is one today (wasmtime); the suite is generic, and a `Counted<B>` wrapper proves one write and one read per call on any backend. The v2 fixture is `deck/modules/fixture-v2` beside v1's `fixture`, which #343 replaces with it.
+
+### 9c. Built in A3 #342 – where the design left a choice (2026-11-04)
+- **Graph ports:** inputs = audio inputs, then control inputs, then parameters (audio first, so a block's input list stays ≤ 8
+  however many parameters follow); outputs = audio and control outputs in declaration order; event ports are no graph ports
+  (routed by name). deck-module-host's `Layout` carries names, channels, domain and targets; `deck_engine::register_module`
+  is the one mapping to deck-space's `ModuleDef` (the native library calls it – the order was decided in the platform crate before).
+- **Path targets** are bound by deck-space's `Graph::build` as control links: `set` = the output (scale 1), `add` = own + output,
+  `mul` = own × output; the output holds `Graph::holds` until first written (set → the target's own value, add 0, mul 1).
+  `<track>:<node>.<port>` → the flattened `<track>_<node>`. A reserved member (`@preset`, `@gain` …) and a node the scene lacks
+  stay unbound – the rig's resolution and its validation error are #314's; a port the node lacks or a target that already has
+  a link is an error now. The face sees targets like any link (they are links).
+- **One block late, one mechanism:** a module writes a `Param` per control output after its call; the control half copies all
+  of them into their slots at the start of its next step (`Control::feed`) – audio and control modules alike, so order never
+  matters. A control-domain module is a `Stepper` of the control half: after the levels and the audio nodes' Params, in scene order.
+- **Events:** world → module: one route per declared name to one ring per input port (the dispatcher's, like a host's
+  `listen`); a note with a duration gets its off from the host; a velocity the source lacks is 1; `midi.note`'s `note` prop
+  counts as the key. Module → module: directly, `at + QUANTUM` (the same frame one block later), names and props mapped by
+  name, ids re-tagged per link; a module does not hear its own outputs (an echo would feed itself). Module → world: one outbox
+  ring per output port (`Events::take_outbox`), notes as one event with `dur` (at once for `len > 0`, at the off otherwise),
+  stamped at their true time; a note expression has no deck-events form yet and stays inside the engine. The native
+  dispatcher does not drain the outbox yet: routing it by name would deliver a second copy to the module inputs the direct
+  links already feed – one path has to be chosen (#390).
+- **Tuning:** `deck_events::Tuning` (12-TET on an A4, libm) in `Seams::tuning` (the platform's deck setting; 440 by default).
+  A tuning table and the rig override of §10 Q2 are later fields.
+- **Show restart:** the native deck opens v2 instances in `Mode::Show`; the engine hands a trapped instance's `Rebuild` to a
+  per-node `Restarts` lane (boxed – the one allocation on that fault path, beside the trap's message), the native loader thread
+  (`audio/modules.rs`, 5 ms tick, ends with the engine) serves it; the next block offers it. Held notes are re-sent at frame 0
+  of the swapped-in call. Tests and Play stay strict.
 
 ## 10. Questions for the owner – all decided 2026-11-03
 

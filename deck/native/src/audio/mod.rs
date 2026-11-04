@@ -133,7 +133,13 @@ impl Engine {
 
     fn build_device(graph: &Graph, rate: f32, volume: f32, build: Build, seq: Sequencing, channels: usize) -> Result<(Engine, Handles)> {
         let (monitor, glitches, glitch_log) = glitch::Monitor::new(rate);
-        let (core, handles) = deck_engine::Engine::build_seams(graph, rate, volume, build, seq, &seams(channels))?;
+        #[allow(unused_mut)] // the restart lanes are a field of a feature
+        let (core, mut handles) = deck_engine::Engine::build_seams(graph, rate, volume, build, seq, &seams(channels))?;
+        // #342: a show's module restarts are rebuilt on a loader thread (it ends with the engine)
+        #[cfg(feature = "modules")]
+        if let Err(e) = modules::spawn_loader(std::mem::take(&mut handles.restarts)) {
+            tracing::warn!("modules: no loader thread ({e}) – a trapped module stays silent");
+        }
         Ok((Engine { core, monitor: Some(monitor) }, Handles { core: handles, glitches, glitch_log: Some(glitch_log) }))
     }
 

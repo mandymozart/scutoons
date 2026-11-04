@@ -17,6 +17,8 @@ pub mod config;
 pub mod control;
 #[cfg(feature = "events")]
 pub mod dispatch;
+#[cfg(all(feature = "events", feature = "modules"))]
+mod evhost;
 pub mod fft;
 pub mod layout;
 #[cfg(feature = "modules")]
@@ -43,7 +45,7 @@ use std::sync::{Arc, Mutex};
 use voices::{VoiceKind, Voices};
 
 #[cfg(feature = "modules")]
-pub use module::{ModuleInstance, ModuleSource, Opened};
+pub use module::{register as register_module, ModuleInstance, ModuleSource, Opened, Restart, Restarts};
 
 /// A block stamp: [frames rendered before the block, the monotonic moment (ns) its first frame is heard]
 pub type Stamp = SeqLock<2>;
@@ -257,6 +259,9 @@ pub struct Seams {
     /// the loaded rig modules (`module:<name>` nodes); without one such a node is a build error
     #[cfg(feature = "modules")]
     pub modules: Option<Arc<dyn ModuleSource>>,
+    /// the deck's tuning: the module event host fills a note's Hz from its key and back (#342)
+    #[cfg(feature = "events")]
+    pub tuning: deck_events::Tuning,
 }
 
 impl Seams {
@@ -386,6 +391,14 @@ pub struct Handles {
     /// the hosts' events (#236): names, the sequencer, the routing for the dispatcher – `events.start()` runs them
     #[cfg(feature = "events")]
     pub events: dispatch::Events,
+    /// one lane per module node for a show's restarts (#342): the platform's loader thread calls `serve` on them
+    #[cfg(feature = "modules")]
+    pub restarts: Vec<module::Restarts>,
+    /// the module nodes opened before the levels are built (taken by their block or stepper)
+    #[cfg(feature = "modules")]
+    pub(crate) prepared: Vec<Option<module::Prepared>>,
+    /// values written outside the control step: (node, output port, its Param) – modules' control outputs (#342)
+    pub(crate) feeds: Vec<(usize, usize, Param)>,
 }
 
 impl Handles {
@@ -445,10 +458,21 @@ impl Engine {
             notes: Vec::new(),
             #[cfg(feature = "events")]
             events: dispatch::Events::new(seq),
+            #[cfg(feature = "modules")]
+            restarts: Vec::new(),
+            #[cfg(feature = "modules")]
+            prepared: Vec::new(),
+            feeds: Vec::new(),
         };
         // the scene's tempo until the frame thread takes over
         let tempo = tempo_config(graph)?;
         handles.tempo.publish(&tempo.map(rate as f64), tempo.click);
+        // every module node opened first (audio and control domain), its event ports wired across the graph
+        #[cfg(feature = "modules")]
+        {
+            let prepared = module::prepare(graph, rate, seams.modules.as_ref(), &mut handles, seams)?;
+            handles.prepared = prepared;
+        }
         let audio = |i: usize| graph.nodes[i].kind.domain() == Domain::Audio;
         // levels by the audio links (control links into or out of audio nodes cross threads and never order them; a link
         // into a `feedback` node is read a block late and orders nothing)
@@ -547,6 +571,12 @@ impl Engine {
                 if sink {
                     feeds.push(Feed::of(node, i, bufs.len(), widths[0]));
                 }
+                // a module has many control inputs (its parameters) after its audio ones: the block reads only the latter
+                let mut inputs = inputs;
+                if matches!(node.kind, Kind::Module(_)) {
+                    let used = inputs.iter().rposition(Option::is_some).map_or(0, |k| k + 1);
+                    inputs.truncate(used);
+                }
                 steps.push(Step::Node { block, inputs, out: bufs.len(), outs: widths.len() });
                 bufs.extend(widths.iter().map(|&w| Buf::sized(w, QUANTUM)));
             }
@@ -584,6 +614,19 @@ impl Engine {
         // the control half: every control input of an audio node is a column of it (linked or not: a knob's base turns it)
         let inputs: Vec<(usize, usize, Param)> = handles.params.iter().chain(&handles.knobs).cloned().collect();
         let mut control = control::Control::new(graph, &inputs, std::mem::take(&mut handles.taps), rate);
+        // the `domain: control` modules: steppers of the control half (#342)
+        #[cfg(feature = "modules")]
+        for i in graph.order.iter().copied().filter(|&i| matches!(graph.nodes[i].kind, Kind::Module(_)) && !audio(i)) {
+            let node = &graph.nodes[i];
+            let source = seams.modules.as_ref().ok_or_else(|| anyhow::anyhow!("node '{}': this engine has no module runtime", node.id))?;
+            let p = handles.prepared[i].take().ok_or_else(|| anyhow::anyhow!("node '{}': its module was not opened", node.id))?;
+            let beats = deck_core::tempo::BeatReader { shared: handles.tempo.clone(), frames: handles.clock.frames.clone() };
+            let m = module::ControlModule::new(i, node, rate, p, beats, source, &mut handles);
+            control.add_stepper(i, Box::new(m));
+        }
+        for (node, port, p) in std::mem::take(&mut handles.feeds) {
+            control.feed(node, port, p);
+        }
         let (feed, link) = control::link(control.slots(), handles.clock.frames.clone());
         control.attach(deck_core::tempo::BeatReader { shared: handles.tempo.clone(), frames: handles.clock.frames.clone() }, feed);
         handles.control = Some(link);
@@ -996,7 +1039,8 @@ fn plan_outlets(feeds: &[Feed], deck: &DeckConfig, rate: f32) -> Plan {
 fn node_params(graph: &Graph, i: usize, h: &mut Handles) -> Vec<Param> {
     let node = &graph.nodes[i];
     let ports = node.kind.inputs();
-    debug_assert!(ports.len() <= MAX_PORTS);
+    // the block's input list holds the audio ports (a module's parameters come after them and are not in it)
+    debug_assert!(ports.iter().filter(|p| p.ty == PortType::Audio).count() <= MAX_PORTS);
     ports
         .iter()
         .enumerate()

@@ -26,7 +26,7 @@ fn wasm(file: &str) -> Vec<u8> {
         let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
         let out = std::process::Command::new(cargo)
             .current_dir(&root)
-            .args(["build", "--release", "--target", "wasm32-unknown-unknown", "-p", "walk-module", "-p", "fixture-module", "--target-dir"])
+            .args(["build", "--release", "--target", "wasm32-unknown-unknown", "-p", "walk-module", "-p", "fixture-module", "-p", "fixture-v2-module", "--target-dir"])
             .arg(&dir)
             .output()
             .expect("running cargo");
@@ -45,6 +45,10 @@ fn walk() -> Vec<u8> {
 
 fn fixture() -> Vec<u8> {
     wasm("fixture_module.wasm")
+}
+
+fn fixture_v2() -> Vec<u8> {
+    wasm("fixture_v2_module.wasm")
 }
 
 const RATE: f64 = 48_000.0;
@@ -182,4 +186,111 @@ fn module_costs() {
     let per = total / 200;
     println!("walk: compile {:?}, instantiate {:?}, a 1024-frame block {:?} ({:.2}% of its {:.1} ms)", l.compile, inst, per, per.as_secs_f64() / (1024.0 / RATE) * 100.0, 1024.0 / RATE * 1000.0);
     assert!(i.silenced().is_none());
+}
+
+// --- ABI v2 in the engine (#342): the conformance fixture (deck/modules/fixture-v2) as a node of a scene
+
+/// an oscillator spread onto five channels by a bus into the fixture's `wide_in`, its `wide_out` onto a five-channel
+/// device, its `info` control output as a cable into a second oscillator's `freq`
+fn v2_scene(extra: &str) -> Graph {
+    Library::global().load(&fixture_v2()).unwrap();
+    let scene = Scene::parse(&format!(
+        "[[node]]\nid=\"o\"\nkind=\"osc\"\nfreq=440\ngain=0.02\n[[node]]\nid=\"b\"\nkind=\"bus\"\nchannels=5\n\
+         [[node]]\nid=\"fx\"\nkind=\"module:fixture_v2\"\n{extra}\n[[node]]\nid=\"dev\"\nkind=\"out\"\n[[node]]\nid=\"o2\"\nkind=\"osc\"\n\
+         [[link]]\nfrom=\"o\"\nto=\"b.in\"\nmap=[[1, 1], [1, 2], [1, 3], [1, 4], [1, 5]]\n[[link]]\nfrom=\"b\"\nto=\"fx.wide_in\"\n\
+         [[link]]\nfrom=\"fx.wide_out\"\nto=\"dev.in\"\n[[link]]\nfrom=\"fx.info\"\nto=\"o2.freq\"\n"
+    ))
+    .unwrap();
+    modules::check(&scene).unwrap();
+    Graph::build(&scene).unwrap()
+}
+
+/// one quantum of the five device channels, interleaved
+fn quantum5(e: &mut Engine) -> Vec<f32> {
+    let mut buf = vec![0.0f32; deck_native::audio::QUANTUM * 5];
+    e.render(&mut buf, 5, |x| x);
+    buf
+}
+
+/// frames whose first channel sounds, each checked as `wide_out` channel c = `wide_in` channel c × (c + 1)
+fn wide_frames(out: &[f32]) -> usize {
+    let mut heard = 0;
+    for f in out.chunks(5).filter(|f| f[0].abs() > 1e-4) {
+        for c in 1..5 {
+            assert!((f[c] / f[0] - (c + 1) as f32).abs() < 1e-3, "channel {c} = in × {}: {f:?}", c + 1);
+        }
+        heard += 1;
+    }
+    heard
+}
+
+#[test]
+fn an_abi_v2_module_is_a_node_with_channel_slices_and_control_outputs() {
+    let g = v2_scene("");
+    let fx = g.nodes.iter().position(|n| n.id == "fx").unwrap();
+    let kind = g.nodes[fx].kind;
+    assert_eq!(kind.inputs().iter().map(|p| p.name).collect::<Vec<_>>(), ["in", "wide_in", "push", "mode", "bias", "work"]);
+    assert_eq!(kind.outputs().iter().map(|p| p.name).collect::<Vec<_>>(), ["out", "wide_out", "level", "tilt", "info"]);
+    assert_eq!(kind.inputs()[1].channels, Some(deck_catalog::Channels::Count(5)));
+    let o2 = g.nodes.iter().position(|n| n.id == "o2").unwrap();
+    let (mut e, _h) = Engine::build_for(&g, RATE as f32, 1.0, 5).unwrap();
+    let mut heard = 0;
+    let mut info = Vec::new();
+    for _ in 0..16 {
+        heard += wide_frames(&quantum5(&mut e));
+        info.push(e.control().input(o2, "freq", -1.0));
+    }
+    assert!(heard > 1000, "five channels through the module ({heard} frames)");
+    // `info` = bpm / 100 + the beat / 1000, read one block late: the hold (0) first, then 1.2 and a little
+    assert_eq!(info[0], 0.0);
+    assert!(info[1..].iter().all(|&v| (1.2..1.21).contains(&v)), "{info:?}");
+}
+
+/// a trap in a show (the deck opens its instances so) restarts the module: the loader thread rebuilds it, it plays again
+#[test]
+fn a_trapped_v2_module_restarts_in_a_show() {
+    let g = v2_scene("mode=1");
+    let fx = g.nodes.iter().position(|n| n.id == "fx").unwrap();
+    let mode = g.nodes[fx].kind.input("mode").unwrap();
+    let (mut e, _h) = Engine::build_for(&g, RATE as f32, 1.0, 5).unwrap();
+    assert_eq!(wide_frames(&quantum5(&mut e)), 0, "it panics on its first call");
+    assert!(e.control_mut().set_base(fx, mode, 0.0), "play again from the next call");
+    let t = Instant::now();
+    let mut heard = 0;
+    while heard < 1000 && t.elapsed() < Duration::from_secs(10) {
+        heard += wide_frames(&quantum5(&mut e));
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    assert!(heard >= 1000, "the rebuilt instance plays ({heard} frames in {:?})", t.elapsed());
+}
+
+/// a note from the deck's events into the fixture's `notes`, its echo out as a deck-events note with its duration
+#[cfg(feature = "events")]
+#[test]
+fn an_abi_v2_module_takes_and_gives_events() {
+    use deck_events::{Event, Time};
+    let g = v2_scene("");
+    let (mut e, mut h) = Engine::build_for(&g, RATE as f32, 1.0, 5).unwrap();
+    let names = &h.events.names;
+    let (note, pitch) = (names.get("music.note").unwrap(), names.get("pitch").unwrap());
+    let routing = h.events.take_routing();
+    let mut outlets = routing.outlets;
+    // 120 bpm: beat 0.01 = frame 240, 0.02 beats long
+    for &t in routing.table.targets(note) {
+        outlets[t as usize].push(Event::beats(note, 0.01).lasting(Time::Beats(0.02)).with(pitch, 440.0)).unwrap();
+    }
+    let mut outbox = h.events.take_outbox();
+    assert_eq!(outbox.len(), 1, "the fixture's `echo`");
+    for _ in 0..8 {
+        quantum5(&mut e);
+    }
+    let echo = outbox[0].pop().expect("the echo: one note with its length, sent when its off came");
+    let names = &h.events.names;
+    assert_eq!(names.name(echo.name), "music.note");
+    let (Time::Beats(start), Some(Time::Beats(dur))) = (echo.start, echo.dur) else { panic!("{echo:?}") };
+    assert!((start - 0.01).abs() < 1e-4 && (dur - 0.02).abs() < 1e-4, "start {start}, dur {dur}");
+    let get = |k: &str| echo.props.get(names.get(k).unwrap());
+    assert_eq!((get("pitch"), get("key")), (Some(440.0), Some(69.0)), "the key filled from the deck's tuning");
+    let more = outbox[0].pop();
+    assert!(more.is_err(), "one note: {:?} then {more:?}", echo);
 }

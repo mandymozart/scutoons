@@ -381,6 +381,19 @@ impl Snapshots {
     }
 }
 
+/// A node of the control half computed outside the batches – a `domain: control` module (#342, module.rs): stepped
+/// once per block after the levels and the audio nodes' Params; `ins` = its graph inputs' values this block. What it
+/// writes reaches the slots through a feed at the next block (one block late, like every module output).
+pub(crate) trait Stepper: Send {
+    fn step(&mut self, ins: &[f32], frame: u64, n: usize);
+}
+
+struct Stepped {
+    node: usize,
+    ins: Vec<f32>,
+    stepper: Box<dyn Stepper>,
+}
+
 /// The control half itself: built with the engine and stepped by it once per block (or by a face without an engine).
 pub struct Control {
     table: Table,
@@ -405,6 +418,11 @@ pub struct Control {
     cadence: Option<(f64, f64)>,
     /// the clock this block (the tempo node's outputs and quantised cuts read it)
     pub tempo: tempo::Now,
+    /// values written outside the step – a module's control outputs (#342): (slot, the Param), copied into the slots at
+    /// the start of each step, so what a module wrote in block k is read in block k + 1
+    feeds: Vec<(u32, Param)>,
+    /// the `domain: control` modules, in scene order
+    steppers: Vec<Stepped>,
 }
 
 impl Control {
@@ -427,6 +445,8 @@ impl Control {
             feed: None,
             cadence: None,
             tempo: tempo::Now::default(),
+            feeds: Vec::new(),
+            steppers: Vec::new(),
             table,
         };
         // the computed nodes in levels: a node reading another computed node sits a level above it
@@ -497,6 +517,30 @@ impl Control {
     pub(crate) fn attach(&mut self, beats: BeatReader, feed: Feed) {
         self.beats = Some(beats);
         self.feed = Some(feed);
+    }
+
+    /// node `node`'s output `port` takes its value from `p` at every step's start (a module's control output, #342)
+    pub(crate) fn feed(&mut self, node: usize, port: usize, p: Param) {
+        let slot = self.table.base[node] + port as u32;
+        self.values[slot as usize] = p.get();
+        self.feeds.push((slot, p));
+    }
+
+    /// a `domain: control` module at node `node`, stepped after the levels (#342)
+    #[cfg(feature = "modules")]
+    pub(crate) fn add_stepper(&mut self, node: usize, stepper: Box<dyn Stepper>) {
+        let ins = vec![0.0; self.table.kinds[node].inputs().len()];
+        self.steppers.push(Stepped { node, ins, stepper });
+    }
+
+    /// The steppers' turn (after a step): each reads its inputs from this block's values, runs, and writes its feeds.
+    fn run_steppers(&mut self, frame: u64, frames: usize) {
+        for s in &mut self.steppers {
+            for (k, x) in s.ins.iter_mut().enumerate() {
+                *x = self.table.input_at(&self.values, s.node, k).unwrap_or(0.0);
+            }
+            s.stepper.step(&s.ins, frame, frames);
+        }
     }
 
     /// node `node`'s input `port` as a column entry (a computed node's default: the catalog's)
@@ -583,6 +627,9 @@ impl Control {
     /// node, the levels, the audio nodes' Params.
     pub fn step(&mut self, dt: f32, tempo: &tempo::Now) {
         let v = &mut self.values;
+        for (slot, p) in &self.feeds {
+            v[*slot as usize] = p.get();
+        }
         let base = &self.table.base;
         for (node, a) in &mut self.analyzers {
             let b = base[*node] as usize;
@@ -622,12 +669,16 @@ impl Control {
             None => tempo::Now::default(),
         };
         match &mut self.cadence {
-            None => self.step(frames as f32 / rate, &now),
+            None => {
+                self.step(frames as f32 / rate, &now);
+                self.run_steppers(frame, frames);
+            }
             Some((next, period)) => {
                 let (due, period) = (*next, *period);
                 if frame as f64 >= due {
                     *next = due + period;
                     self.step(period as f32 / rate, &now);
+                    self.run_steppers(frame, frames);
                 }
             }
         }

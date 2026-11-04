@@ -50,6 +50,8 @@ pub struct Events {
     pub(super) mode: Sequencing,
     pub(super) routes: Vec<Route>,
     pub(super) outlets: Vec<rtrb::Producer<Event>>,
+    /// the module event outputs' deck-events events (#342, evhost.rs) for the platform to route
+    pub(super) outbox: Vec<rtrb::Consumer<Event>>,
     sequencer: Option<Sequencer>,
     pub counters: Arc<Counters>,
 }
@@ -61,6 +63,7 @@ impl Events {
             mode,
             routes: Vec::new(),
             outlets: Vec::new(),
+            outbox: Vec::new(),
             sequencer: None,
             counters: Arc::new(Counters::default()),
         }
@@ -87,6 +90,12 @@ impl Events {
     /// whether any host listens to events (a dispatcher is needed)
     pub fn has_routes(&self) -> bool {
         !self.routes.is_empty()
+    }
+
+    /// What the modules' event outputs emit (#342): one ring per output port, deck-events events with their true time
+    /// (a note with its `dur`) – the platform drains them into its dispatcher. Taken once.
+    pub fn take_outbox(&mut self) -> Vec<rtrb::Consumer<Event>> {
+        std::mem::take(&mut self.outbox)
     }
 
     /// the routing for a dispatcher: the table over every name interned so far, the hosts' input rings (taken)

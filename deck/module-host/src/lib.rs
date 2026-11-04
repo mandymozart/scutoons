@@ -11,7 +11,7 @@
 //!   `set_budget`, `freeze_memory`. The native deck uses [`wasmtime_backend::Wasmtime`]; the conformance suite (tests/)
 //!   is generic over it.
 use anyhow::{anyhow, bail, Result};
-use deck_catalog::{Descriptor, Dir, PortType};
+use deck_catalog::{Channels, Descriptor, Dir, Domain, PortType};
 use deck_core::tempo::TempoMap;
 use deck_module::host::read_descriptor;
 use deck_module::v2::{Layout as IoLayout, ParamInfo};
@@ -29,6 +29,8 @@ pub mod wasmtime_backend;
 pub use preset::{Preset, PresetReport};
 pub use stats::ModuleStats;
 pub use v2::{AssetData, Fresh, Mode, Rebuild, Setup};
+/// what the engine's event host passes in and out of a v2 module
+pub use deck_module::v2::{Ev, Kind as EvKind};
 
 /// a module's linear memory is capped here (this leaves room for a creator's tables and assets)
 pub const MEMORY_LIMIT: usize = 64 << 20;
@@ -133,48 +135,113 @@ pub enum InBind {
     Param(usize),
 }
 
-/// How a module's descriptor maps onto graph ports: inputs are the declared audio / control inputs in declaration order,
-/// then the parameters (every parameter is also a control input); outputs are the declared audio outputs. Event ports
-/// and a v2 module's control outputs are the host's (`v2::Instance`); the engine wires them with #342.
+/// what a graph output carries: the module's n-th audio output port, or its n-th control output (ABI v2)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OutBind {
+    Audio(usize),
+    Control(usize),
+}
+
+/// One graph port of a module: its name, whether it carries audio (else a control value) and – an ABI v2 audio port –
+/// its channels (None: ABI v1's stereo pair). What the platform registers as the node kind's port (deck-space modreg).
+#[derive(Debug, Clone, PartialEq)]
+pub struct GraphPort {
+    pub name: String,
+    pub audio: bool,
+    pub channels: Option<Channels>,
+}
+
+/// One event port of an ABI v2 module: the deck-events names it takes / emits, its props in slot order, its capacity.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EventPort {
+    pub name: String,
+    pub names: Vec<String>,
+    pub props: Vec<String>,
+    pub capacity: u16,
+}
+
+/// How a module's descriptor maps onto the graph (#342): inputs are the declared audio inputs, then the control inputs
+/// (each in declaration order), then the parameters (every parameter is also a control input); outputs are the declared
+/// audio outputs and – ABI v2 – the control outputs, in declaration order (a control output with a `path` is a graph
+/// output too: deck-space binds it to its target). Event ports are not graph ports: the engine's event host routes them
+/// by their deck-events names. `in_ports` / `out_ports` name the graph ports (parallel to `inputs` / `outputs`).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Layout {
     pub inputs: Vec<InBind>,
-    /// the module's audio output port behind each graph output
-    pub outputs: Vec<usize>,
+    pub outputs: Vec<OutBind>,
+    pub in_ports: Vec<GraphPort>,
+    pub out_ports: Vec<GraphPort>,
+    pub events_in: Vec<EventPort>,
+    pub events_out: Vec<EventPort>,
+    /// (graph output, path, mode) per control output bound to a target (ABI-V2 §5)
+    pub targets: Vec<(usize, String, deck_catalog::Mode)>,
+    /// `audio` runs in the engine's audio half (`dm_process`), `control` in its control half (`dm_control`)
+    pub domain: Domain,
 }
 
 impl Layout {
     /// Err when the module needs something this host cannot do yet (video; a v1 module's control outputs)
     pub fn of(d: &Descriptor) -> Result<Layout> {
         let v2 = d.abi == Some(deck_module::v2::ABI_VERSION);
-        let (mut audio, mut control) = (0, 0);
-        let mut inputs = Vec::new();
-        let mut outputs = Vec::new();
-        let mut audio_out = 0;
+        let mut l = Layout {
+            inputs: Vec::new(),
+            outputs: Vec::new(),
+            in_ports: Vec::new(),
+            out_ports: Vec::new(),
+            events_in: Vec::new(),
+            events_out: Vec::new(),
+            targets: Vec::new(),
+            domain: if v2 { d.domain } else { Domain::Audio },
+        };
+        // an audio port's channels: v1 the stereo pair (None); v2 as declared, a cv port and an undeclared one 2
+        let channels = |p: &deck_catalog::PortDesc| match (v2, p.ty, p.channels) {
+            (false, ..) => None,
+            (true, PortType::Cv, _) | (true, _, None) => Some(Channels::Count(2)),
+            (true, _, c) => c,
+        };
+        let port = |p: &deck_catalog::PortDesc, audio: bool| GraphPort { name: p.name.to_string(), audio, channels: if audio { channels(p) } else { None } };
+        let (mut audio_in, mut control_in) = (Vec::new(), Vec::new());
+        let (mut audio_out, mut control_out) = (0, 0);
         for p in d.ports.iter() {
             match (p.dir, p.ty) {
                 (_, PortType::Video) => bail!("module '{}': video port '{}' – a video module is not supported by this host yet (#185)", d.name, p.name),
                 (Dir::Out, PortType::Control) if !v2 => {
                     bail!("module '{}': control output '{}' – control outputs of v1 modules are not wired into the graph", d.name, p.name)
                 }
-                (Dir::Out, PortType::Control) => {}
-                (Dir::In, PortType::Audio | PortType::Cv) => {
-                    inputs.push(InBind::Audio(audio));
-                    audio += 1;
-                }
-                (Dir::In, PortType::Control) => {
-                    inputs.push(InBind::Control(control));
-                    control += 1;
-                }
+                (Dir::In, PortType::Audio | PortType::Cv) => audio_in.push(port(p, true)),
+                (Dir::In, PortType::Control) => control_in.push(port(p, false)),
                 (Dir::Out, PortType::Audio | PortType::Cv) => {
-                    outputs.push(audio_out);
+                    l.outputs.push(OutBind::Audio(audio_out));
+                    l.out_ports.push(port(p, true));
                     audio_out += 1;
+                }
+                (Dir::Out, PortType::Control) => {
+                    if !p.path.is_empty() {
+                        l.targets.push((l.outputs.len(), p.path.to_string(), p.mode));
+                    }
+                    l.outputs.push(OutBind::Control(control_out));
+                    l.out_ports.push(port(p, false));
+                    control_out += 1;
+                }
+                (dir, PortType::Event) if v2 => {
+                    let e = EventPort {
+                        name: p.name.to_string(),
+                        names: p.names.iter().map(|n| n.to_string()).collect(),
+                        props: p.props.iter().map(|n| n.to_string()).collect(),
+                        capacity: p.capacity,
+                    };
+                    if dir == Dir::In { l.events_in.push(e) } else { l.events_out.push(e) }
                 }
                 (_, PortType::Event) => {}
             }
         }
-        inputs.extend((0..d.params.len()).map(InBind::Param));
-        Ok(Layout { inputs, outputs })
+        l.inputs.extend((0..audio_in.len()).map(InBind::Audio));
+        l.inputs.extend((0..control_in.len()).map(InBind::Control));
+        l.inputs.extend((0..d.params.len()).map(InBind::Param));
+        l.in_ports.extend(audio_in);
+        l.in_ports.extend(control_in);
+        l.in_ports.extend(d.params.iter().map(|p| GraphPort { name: p.name.to_string(), audio: false, channels: None }));
+        Ok(l)
     }
 }
 
@@ -461,6 +528,122 @@ impl<B: Backend> Instance<B> {
         }
     }
 
+    /// Audio input `port` for the next call as channel slices (#342: the engine's planar cable, any width; empty =
+    /// nothing linked). v2: the port takes `chans.len()` channels (at most what it reserves; the rest of its region is
+    /// zero) and says so in its header; v1: channels 0 and 1 (a mono cable on both).
+    pub fn set_audio_chans(&mut self, port: usize, chans: &[&[f32]]) {
+        match &mut self.0 {
+            Inner::V1(i) => match chans {
+                [] => i.set_audio_in(port, &[0.0; deck_module::abi::MAX_BLOCK], &[0.0; deck_module::abi::MAX_BLOCK]),
+                [m] => i.set_audio_in(port, m, m),
+                [l, r, ..] => i.set_audio_in(port, l, r),
+            },
+            Inner::V2(i) => {
+                let reserved = i.io_layout().shape.audio_in.get(port).copied().unwrap_or(0) as usize;
+                if reserved == 0 {
+                    return;
+                }
+                if chans.is_empty() {
+                    i.set_in_silent(port, true);
+                    i.set_channels(true, port, 0);
+                    return;
+                }
+                for c in 0..reserved {
+                    let dst = i.audio_in_mut(port, c);
+                    match chans.get(c) {
+                        Some(src) => {
+                            let n = src.len().min(dst.len());
+                            dst[..n].copy_from_slice(&src[..n]);
+                            dst[n..].fill(0.0);
+                        }
+                        None => dst.fill(0.0),
+                    }
+                }
+                i.set_channels(true, port, chans.len().min(reserved) as u8);
+                i.set_in_silent(port, false);
+            }
+        }
+    }
+
+    /// Channel `c` of audio output `port` of the last call into `dst` (its length = the frames asked); a channel the
+    /// output lacks is silent (v1: the stereo pair).
+    pub fn read_audio_chan(&mut self, port: usize, c: usize, dst: &mut [f32]) {
+        match &mut self.0 {
+            Inner::V1(i) => i.read_audio_chan(port, c, dst),
+            Inner::V2(i) => {
+                let src = i.audio_out(port);
+                if c < src.ch() {
+                    let s = src.chan(c);
+                    let n = dst.len().min(s.len());
+                    dst[..n].copy_from_slice(&s[..n]);
+                    dst[n..].fill(0.0);
+                } else {
+                    dst.fill(0.0);
+                }
+            }
+        }
+    }
+
+    /// v2: the channels the engine's cable takes out of audio output `port` (an `any` output follows it; 0 = declared)
+    pub fn set_out_channels(&mut self, port: usize, ch: usize) {
+        if let Inner::V2(i) = &mut self.0 {
+            i.set_channels(false, port, ch.min(u8::MAX as usize) as u8);
+        }
+    }
+
+    /// control output `i` of the last call and whether it was written (unwritten = the consumer holds; v1: none)
+    pub fn control_out(&self, i: usize) -> (f32, bool) {
+        match &self.0 {
+            Inner::V1(_) => (0.0, false),
+            Inner::V2(v) => v.control_out(i),
+        }
+    }
+
+    /// event input `p`'s records for the next call (v2; v1 has no event input) – how many were taken
+    pub fn set_events_in(&mut self, p: usize, events: &[Ev]) -> usize {
+        match &mut self.0 {
+            Inner::V1(_) => 0,
+            Inner::V2(i) => i.set_events_in(p, events),
+        }
+    }
+
+    /// `n` of the next call's input events came late (v2)
+    pub fn add_late(&mut self, n: u32) {
+        if let Inner::V2(i) = &mut self.0 {
+            i.add_late(n);
+        }
+    }
+
+    /// event output `p`'s records of the last call (v2; v1's events go with #343)
+    pub fn events_out(&self, p: usize) -> &[Ev] {
+        match &self.0 {
+            Inner::V1(_) => &[],
+            Inner::V2(i) => i.events_out(p),
+        }
+    }
+
+    /// v2: the next call swaps a rebuilt instance in (a show's restart) – the event host re-sends the held notes with it
+    pub fn swapping(&self) -> bool {
+        self.v2().is_some_and(|i| i.swapping())
+    }
+
+    /// v2 in a show: the rebuild of a trapped instance once its pause is over ([`v2::Instance::take_rebuild`])
+    pub fn take_rebuild(&mut self) -> Option<Rebuild<B>> {
+        self.v2_mut().and_then(|i| i.take_rebuild())
+    }
+
+    /// v2: a rebuild's result ([`v2::Instance::offer`])
+    pub fn offer(&mut self, fresh: Fresh<B>) {
+        if let Some(i) = self.v2_mut() {
+            i.offer(fresh);
+        }
+    }
+
+    /// v2: the instance's counters
+    pub fn stats(&self) -> Option<&ModuleStats> {
+        self.v2().map(|i| i.stats())
+    }
+
     /// One audio call of `frames` frames (v1: ≤ 1024; v2: ≤ `QUANTUM`, the module's one call) starting at `frame`.
     /// False when the instance is (now) silent.
     pub fn process(&mut self, frame: f64, frames: u32) -> bool {
@@ -541,11 +724,26 @@ mod tests {
         let ok = d(1, "{\"name\":\"x\",\"dir\":\"in\",\"kind\":\"audio\"},{\"name\":\"c\",\"dir\":\"in\",\"kind\":\"control\"},{\"name\":\"o\",\"dir\":\"out\",\"kind\":\"audio\"},{\"name\":\"e\",\"dir\":\"out\",\"kind\":\"event\"}");
         let l = Layout::of(&ok).unwrap();
         assert_eq!(l.inputs, [InBind::Audio(0), InBind::Control(0), InBind::Param(0)]);
-        assert_eq!(l.outputs, [0]);
+        assert_eq!(l.outputs, [OutBind::Audio(0)]);
+        assert_eq!(l.in_ports.iter().map(|p| (p.name.as_str(), p.audio, p.channels)).collect::<Vec<_>>(), [("x", true, None), ("c", false, None), ("a", false, None)]);
+        assert!(l.events_out.is_empty(), "a v1 module's events stay unwired (it goes with #343)");
         assert!(Layout::of(&d(1, "{\"name\":\"v\",\"dir\":\"out\",\"kind\":\"video\"}")).unwrap_err().to_string().contains("video"));
         assert!(Layout::of(&d(1, "{\"name\":\"v\",\"dir\":\"out\",\"kind\":\"control\"}")).unwrap_err().to_string().contains("control output"));
-        // v2: a control output is the host's (read through `v2::Instance`), not a graph output yet (#342)
-        let v2 = d(2, "{\"name\":\"o\",\"dir\":\"out\",\"type\":\"audio\"},{\"name\":\"k\",\"dir\":\"out\",\"type\":\"control\"}");
-        assert_eq!(Layout::of(&v2).unwrap(), Layout { inputs: vec![InBind::Param(0)], outputs: vec![0] });
+        // v2 (#342): audio inputs before control inputs, control outputs are graph outputs (a `path` one is a target
+        // too), event ports are the event host's, channels as declared
+        let v2 = d(
+            2,
+            "{\"name\":\"k\",\"dir\":\"in\",\"type\":\"control\"},{\"name\":\"w\",\"dir\":\"in\",\"type\":\"audio\",\"channels\":5},\
+             {\"name\":\"o\",\"dir\":\"out\",\"type\":\"audio\",\"channels\":\"any\"},{\"name\":\"t\",\"dir\":\"out\",\"type\":\"control\",\"path\":\"fx.gain\",\"mode\":\"mul\"},\
+             {\"name\":\"n\",\"dir\":\"in\",\"type\":\"event\",\"names\":[\"music.note\"],\"props\":[\"pitch\"],\"capacity\":16}",
+        );
+        let l = Layout::of(&v2).unwrap();
+        assert_eq!(l.inputs, [InBind::Audio(0), InBind::Control(0), InBind::Param(0)]);
+        assert_eq!(l.in_ports[0].channels, Some(Channels::Count(5)));
+        assert_eq!(l.outputs, [OutBind::Audio(0), OutBind::Control(0)]);
+        assert_eq!(l.out_ports[0].channels, Some(Channels::Any(deck_catalog::AnyChannels::Any)));
+        assert_eq!(l.targets, [(1, "fx.gain".to_string(), deck_catalog::Mode::Mul)]);
+        assert_eq!(l.events_in, [EventPort { name: "n".into(), names: vec!["music.note".into()], props: vec!["pitch".into()], capacity: 16 }]);
+        assert_eq!(l.domain, Domain::Audio);
     }
 }

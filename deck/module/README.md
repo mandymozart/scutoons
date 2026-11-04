@@ -63,9 +63,18 @@ hash), so ports, channels, parameters, events, sensors and assets are descriptor
   cached compile, `offer()` swaps it in at the next block with a fade-in; a module that keeps trapping waits one block, 0.1 s,
   1 s, then 10 s). A block in which a `needs` sensor is not live is not run (`unavailable()`). `Preset::resolve` turns values by
   name into indices once (gone names and out-of-range values reported), `Instance::apply_preset` applies one without allocating.
-  The engine's seam (`deck_module_host::Instance`) picks v1 or v2 by `dm_abi()`; events, control outputs, sensors and the
-  show's restart reach the engine with #342. Its conformance suite: `deck/module-host/tests/conformance_v2.rs`, fixture
-  `deck/modules/fixture-v2`.
+  The engine's seam (`deck_module_host::Instance`) picks v1 or v2 by `dm_abi()`. Its conformance suite:
+  `deck/module-host/tests/conformance_v2.rs`, fixture `deck/modules/fixture-v2`.
+- **The engine** (deck-engine `module.rs`, `evhost.rs`, #342; ABI-V2 §9c): a node's graph inputs are the audio inputs, then
+  the control inputs, then the parameters; its graph outputs the audio and control outputs in declaration order
+  (`deck_engine::register_module`, the one mapping). Audio crosses as channel slices of the planar pool (as many as the
+  cable carries; an `any` output follows the engine's width). A control output written in block k reaches its consumers at
+  k + 1, unwritten = held; a `path` output is bound by deck-space to the input it names (`<node>.<port>`, a rig's
+  `<track>:<node>.<port>`; `@preset` / `@gain` … with #314). A `domain: control` module steps in the control half, once a
+  block. Event inputs listen to their `names` (the deck's dispatcher and other modules); notes arrive as on / off with host
+  ids, a duration expanded, Hz and key both filled from the deck's tuning; event outputs reach other modules one block late
+  at their frame and the platform as deck-events events with `dur` (`Events::take_outbox`). A deck opens v2 instances in
+  the show mode; a restart's rebuild runs on its loader thread (`Handles::restarts`), the held notes are sent again.
 
 ## What a module sees and may do (v1)
 
@@ -135,5 +144,5 @@ Clippy takes the repeated `#[port(…)]` lines of one struct for duplicates: put
 
 ## Hosts
 
-- **deck** (deck-native, feature `modules`, `deck/native/src/module_host.rs`): wasmtime (NaNs canonicalized, relaxed SIMD and threads off – the same bits on every deck). This paragraph is v1; v2: the section above. `DECK_MODULES=<folder of .wasm>` is loaded before a scene is built and each module becomes the node kind `module:<name>` (ports from the descriptor: audio / control inputs as declared, then every parameter as a control input; audio outputs). Compile cached in memory and, with `DECK_MODULE_CACHE=<dir>`, on disk by SHA-256. A trap or a time-budget overrun (≈ 0.75 × the block, 2–50 ms, wasmtime epoch interruption) silences that node and logs it; memory capped at 64 MiB; one import (`env.deck_log`, 10 lines burst, then 10 a second). Node params besides the module's own: `seed` (default 1), `character`, `persona`, `mood`, `vars` (table key → number). Not yet wired: control outputs and video ports (the host refuses such a module with the reason), events out (emitted, readable by `Instance::events`, nothing consumes them yet).
+- **deck** (deck-native, feature `modules`, `deck/native/src/module_host.rs`): wasmtime (NaNs canonicalized, relaxed SIMD and threads off – the same bits on every deck). This paragraph is v1; v2: the section above. `DECK_MODULES=<folder of .wasm>` is loaded before a scene is built and each module becomes the node kind `module:<name>` (ports from the descriptor: audio / control inputs as declared, then every parameter as a control input; audio outputs). Compile cached in memory and, with `DECK_MODULE_CACHE=<dir>`, on disk by SHA-256. A trap or a time-budget overrun (≈ 0.75 × the block, 2–50 ms, wasmtime epoch interruption) silences that node and logs it; memory capped at 64 MiB; one import (`env.deck_log`, 10 lines burst, then 10 a second). Node params besides the module's own: `seed` (default 1), `character`, `persona`, `mood`, `vars` (table key → number). A v1 module's control outputs and any video port are refused with the reason; its events stay unwired (readable by `Instance::events`) – v2 wires both (above).
 - **browser** (`shared/live-core/src/modules.ts`): the same `.wasm` in the browser's engine, V8 in the tests; `module-abi.ts` is generated from this crate (`UPDATE_FIXTURES=1 cargo test -p deck-module module_abi_ts`). A browser has no epoch budget: a runaway loop is the worker's to terminate.

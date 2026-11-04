@@ -98,7 +98,7 @@ pub fn make(node: &Node, index: usize, rate: f32, params: &[Param], h: &mut Hand
         #[cfg(feature = "modules")]
         Kind::Module(_) => {
             let source = seams.modules.as_ref().ok_or_else(|| anyhow::anyhow!("node '{}': this engine has no module runtime", node.id))?;
-            Box::new(super::module::ModuleBlock::new(node, rate, params, beats(h), source)?)
+            Box::new(super::module::ModuleBlock::new(index, node, rate, params, beats(h), source, h)?)
         }
         k => bail!("{k:?} is not an audio kind"),
     })
