@@ -1,6 +1,8 @@
 //! `scutoons-build [serve]` – the HTTP service (env: `MODULE_BUILD_TOKEN` required, see config.rs).
 //! `scutoons-build stub <dir>` – writes the stub member crate the image vendors the SDK's dependencies from.
 //! `scutoons-build prime` – compiles that stub once, so the SDK and its dependencies are built into the build folder.
+//! `scutoons-build rebuild <dir>` – compiles every module source in a folder like a request would (#344); the failures are
+//! the list, exit 1 when there are any. No token, no database: `docker run --rm -v "$PWD/modules:/modules" scutoons-build rebuild /modules`.
 use std::sync::Arc;
 
 use scutoons_build::compile::{manifest, Compiler, STUB_SOURCE};
@@ -21,7 +23,8 @@ async fn main() -> anyhow::Result<()> {
         None | Some("serve") => run().await,
         Some("stub") => stub(args.get(1).ok_or_else(|| anyhow::anyhow!("usage: scutoons-build stub <dir>"))?),
         Some("prime") => prime().await,
-        Some(other) => anyhow::bail!("unknown command {other:?} (serve | stub <dir> | prime)"),
+        Some("rebuild") => rebuild(args.get(1).ok_or_else(|| anyhow::anyhow!("usage: scutoons-build rebuild <dir of module sources>"))?).await,
+        Some(other) => anyhow::bail!("unknown command {other:?} (serve | stub <dir> | prime | rebuild <dir>)"),
     }
 }
 
@@ -80,6 +83,22 @@ async fn prime() -> anyhow::Result<()> {
         }
         Err(e) => anyhow::bail!("the stub module does not compile: {e:?}"),
     }
+}
+
+/// every module in `dir` through a compile; prints the report, fails when a module does (the failures are the recompile list)
+async fn rebuild(dir: &str) -> anyhow::Result<()> {
+    let mut config = config_without_secret()?;
+    config.status_url = None;
+    let modules = scutoons_build::rebuild::read_modules(std::path::Path::new(dir))?;
+    anyhow::ensure!(!modules.is_empty(), "no module sources in {dir}: a folder per module with src/*.rs or *.rs, or <id>.rs");
+    let compiler = Compiler::new(Arc::new(config));
+    let rows = scutoons_build::rebuild::rebuild_all(&compiler, modules).await;
+    let (text, failed) = scutoons_build::rebuild::report(&rows);
+    print!("{text}");
+    if failed > 0 {
+        std::process::exit(1);
+    }
+    Ok(())
 }
 
 /// Ctrl-C, or SIGTERM on unix (the container's stop)

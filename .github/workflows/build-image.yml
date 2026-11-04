@@ -23,6 +23,10 @@ on:
       # the SDK it bakes in, and the lock its dependencies are vendored at
       - deck/module/**
       - deck/module-macros/**
+      # what the service links for its strict test run (#344): the deck's module host, the descriptor type, the core
+      - deck/module-host/**
+      - deck/catalog/**
+      - deck/core/**
       - deck/Cargo.lock
       - .github/workflows/build-image.yml
   workflow_dispatch:

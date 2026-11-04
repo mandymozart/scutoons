@@ -6,20 +6,27 @@
 //!   proc-macro of their own (the scan), no network (`--offline`, a vendored closure).
 //! - rustc runs under a wall-clock, a memory and an output limit, `nice`d, with `CARGO_BUILD_JOBS` 2; the whole process tree
 //!   dies with it. A fresh folder per compile, deleted after.
-//! - the member's code is compiled, never run: the descriptor is read out of the wasm's custom section.
+//! - the member's code is compiled, never run natively: the descriptor is read out of the wasm's custom section, and the
+//!   wasm is played once in wasmtime's sandbox by the deck's own host (`strict`, #344).
+//! - what makes a native run equal a wasm run is pinned by the service (`determinism`): the compiler flags, and a
+//!   `clippy.toml` whose `disallowed-methods` (std's float transcendentals) a `cargo clippy` pass after the build reports
+//!   as warnings.
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use base64::Engine;
+use deck_module_host::wasmtime_backend::WasmtimeEngine;
 use sha2::{Digest, Sha256};
 use tokio::process::Command;
 
 use crate::config::Config;
-use crate::diag::{parse_cargo_json, Diag};
+use crate::determinism;
+use crate::diag::{parse_cargo_json, parse_lints, Diag};
 use crate::files::Files;
 use crate::live::LiveCheck;
 use crate::runner::{run_limited, BoxFuture, Killed, Limits, Outcome};
 use crate::scan::scan;
+use crate::strict;
 
 /// the member crate's name: its wasm is `member.wasm`
 pub const PACKAGE: &str = "member";
@@ -71,6 +78,8 @@ pub struct Compiler {
     live: Option<LiveCheck>,
     toolchain: Option<String>,
     gate: tokio::sync::Mutex<()>,
+    /// wasmtime for the strict test run, made at the first compile (its epoch ticker is a thread of its own)
+    engine: std::sync::OnceLock<Arc<WasmtimeEngine>>,
 }
 
 /// the member crate's folder, removed when the compile ends
@@ -92,7 +101,7 @@ impl Compiler {
             parsed
         });
         let toolchain = std::process::Command::new("rustc").arg("--version").output().ok().filter(|o| o.status.success()).map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string());
-        Compiler { config, live, toolchain, gate: tokio::sync::Mutex::new(()) }
+        Compiler { config, live, toolchain, gate: tokio::sync::Mutex::new(()), engine: std::sync::OnceLock::new() }
     }
 
     pub fn toolchain(&self) -> Option<&str> {
@@ -132,15 +141,67 @@ impl Compiler {
             })
         };
         let limits = Limits { wall: self.config.wall, memory: self.config.memory_mb << 20, output: 16 << 20, tick: std::time::Duration::from_secs(1) };
-        let outcome = run_limited(self.cargo(&dir.0), &limits, Some(&veto)).await.map_err(|e| CompileError::Internal(format!("cargo did not start: {e}")))?;
-        let result = self.interpret(outcome, !found.unlexable.is_empty()).await;
+        let outcome = run_limited(self.cargo(&dir.0, "build"), &limits, Some(&veto)).await.map_err(|e| CompileError::Internal(format!("cargo did not start: {e}")))?;
+        let result = match self.interpret(outcome, !found.unlexable.is_empty()).await {
+            Ok(mut built) => match self.lint(&dir.0, &limits, &veto).await {
+                // the determinism lints are warnings; the strict run may still stop the module
+                Ok(lints) => {
+                    built.warnings.extend(lints);
+                    self.strict_run(built).await
+                }
+                Err(e) => Err(e),
+            },
+            Err(e) => Err(e),
+        };
         self.clean_member_artifacts();
         result
+    }
+
+    /// `cargo clippy` over the member, for the `clippy::disallowed_methods` warnings of clippy.toml (determinism.rs). Clippy
+    /// missing or failing is logged and costs the member nothing: no warnings.
+    async fn lint(&self, dir: &Path, limits: &Limits, veto: &(dyn Fn() -> BoxFuture<'static, bool> + Send + Sync)) -> Result<Vec<Diag>, CompileError> {
+        let outcome = match run_limited(self.cargo(dir, "clippy"), limits, Some(veto)).await {
+            Ok(outcome) => outcome,
+            Err(e) => {
+                tracing::warn!(error = %e, "cargo clippy did not start: no determinism lints");
+                return Ok(vec![]);
+            }
+        };
+        match outcome.killed {
+            Some(Killed::Vetoed) => return Err(CompileError::LiveShow),
+            Some(_) => {
+                tracing::warn!("cargo clippy was stopped by a limit: no determinism lints");
+                return Ok(vec![]);
+            }
+            None => {}
+        }
+        if !outcome.success() {
+            let tail: String = outcome.stderr.chars().rev().take(500).collect::<Vec<_>>().into_iter().rev().collect();
+            tracing::warn!(%tail, "cargo clippy failed: no determinism lints");
+            return Ok(vec![]);
+        }
+        Ok(parse_lints(&outcome.stdout))
+    }
+
+    /// The strict test run of the built module (strict.rs): its error stops the module, the warnings so far go with it
+    async fn strict_run(&self, built: Built) -> Result<Built, CompileError> {
+        let engine = self.engine.get_or_init(|| Arc::new(WasmtimeEngine::new(None))).clone();
+        let wasm = built.wasm.clone();
+        let ran = tokio::task::spawn_blocking(move || strict::run(&engine, &wasm)).await.map_err(|e| CompileError::Internal(format!("the strict test run died: {e}")))?;
+        match ran {
+            Ok(()) => Ok(built),
+            Err(message) => {
+                let mut diags = vec![Diag::general(message)];
+                diags.extend(built.warnings);
+                Err(CompileError::Failed(diags))
+            }
+        }
     }
 
     fn write_crate(&self, dir: &Path, files: &Files) -> std::io::Result<()> {
         std::fs::create_dir_all(dir.join("src"))?;
         std::fs::write(dir.join("Cargo.toml"), manifest(&self.config.sdk_dir))?;
+        std::fs::write(dir.join("clippy.toml"), determinism::clippy_toml())?;
         for (name, source) in files {
             // names were checked (files::check): [a-z0-9_]+.rs, so nothing leaves src/
             std::fs::write(dir.join("src").join(name), source)?;
@@ -151,14 +212,16 @@ impl Compiler {
         Ok(())
     }
 
-    /// `cargo build --offline --release --target wasm32-unknown-unknown`, in a clean environment of our own making
-    fn cargo(&self, dir: &Path) -> Command {
+    /// `cargo <build|clippy> --offline --release --target wasm32-unknown-unknown`, in a clean environment of our own making
+    fn cargo(&self, dir: &Path, subcommand: &str) -> Command {
         let mut cmd = Command::new(&self.config.cargo);
-        cmd.args(["build", "--offline", "--release", "--target", TARGET, "--message-format=json", "--color", "never"]).current_dir(dir);
+        cmd.args([subcommand, "--offline", "--release", "--target", TARGET, "--message-format=json", "--color", "never"]).current_dir(dir);
         // nothing of the service's environment steers the build (and the secret never reaches a child)
-        for var in ["RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "CARGO_BUILD_RUSTFLAGS", "CARGO_BUILD_TARGET", "CARGO_BUILD_RUSTC", "RUSTC", "RUSTC_WRAPPER", "RUSTC_WORKSPACE_WRAPPER", "RUSTDOC", "MODULE_BUILD_TOKEN"] {
+        for var in ["RUSTFLAGS", "CARGO_BUILD_RUSTFLAGS", "CARGO_BUILD_TARGET", "CARGO_BUILD_RUSTC", "RUSTC", "RUSTC_WRAPPER", "RUSTC_WORKSPACE_WRAPPER", "RUSTDOC", "CLIPPY_CONF_DIR", "CLIPPY_ARGS", "MODULE_BUILD_TOKEN"] {
             cmd.env_remove(var);
         }
+        // the pinned flags (determinism.rs): cargo reads this one before any other place flags can come from
+        cmd.env("CARGO_ENCODED_RUSTFLAGS", determinism::encoded_rustflags());
         cmd.env("CARGO_BUILD_JOBS", self.config.jobs.to_string())
             .env("CARGO_TARGET_DIR", &self.config.target_dir)
             .env("CARGO_NET_OFFLINE", "true")
@@ -205,7 +268,7 @@ impl Compiler {
     /// anything for the next and the folder does not grow
     fn clean_member_artifacts(&self) {
         let release = self.config.target_dir.join(TARGET).join("release");
-        for (folder, prefix) in [(release.clone(), format!("{PACKAGE}.")), (release.join("deps"), format!("{PACKAGE}-")), (release.join(".fingerprint"), format!("{PACKAGE}-")), (release.join("incremental"), format!("{PACKAGE}-"))] {
+        for (folder, prefix) in [(release.clone(), format!("{PACKAGE}.")), (release.join("deps"), format!("{PACKAGE}-")), (release.join("deps"), format!("lib{PACKAGE}-")), (release.join(".fingerprint"), format!("{PACKAGE}-")), (release.join("incremental"), format!("{PACKAGE}-"))] {
             let Ok(entries) = std::fs::read_dir(&folder) else { continue };
             for entry in entries.flatten() {
                 if entry.file_name().to_string_lossy().starts_with(&prefix) {
@@ -269,6 +332,28 @@ mod tests {
             pub fn section(&self, name: &str) -> Vec<&str> {
                 self.0.iter().filter(|(n, _)| n == name).flat_map(|(_, l)| l.iter().map(String::as_str)).collect()
             }
+        }
+    }
+
+    /// the compiler flags are ours: whatever flags the service's environment carries, cargo gets the pinned ones
+    #[test]
+    fn cargo_runs_with_the_pinned_flags_and_the_environments_are_dropped() {
+        let env = |k: &str| match k {
+            "MODULE_BUILD_TOKEN" => Some("t".to_string()),
+            _ => None,
+        };
+        let compiler = Compiler::new(Arc::new(Config::from_env(env).unwrap()));
+        for subcommand in ["build", "clippy"] {
+            let cmd = compiler.cargo(Path::new("/w/member"), subcommand);
+            let cmd = cmd.as_std();
+            let envs: std::collections::HashMap<_, _> = cmd.get_envs().map(|(k, v)| (k.to_string_lossy().to_string(), v.map(|v| v.to_string_lossy().to_string()))).collect();
+            assert_eq!(envs["CARGO_ENCODED_RUSTFLAGS"].as_deref(), Some(determinism::encoded_rustflags().as_str()));
+            for gone in ["RUSTFLAGS", "CARGO_BUILD_RUSTFLAGS", "RUSTC_WRAPPER", "CLIPPY_CONF_DIR", "CLIPPY_ARGS", "MODULE_BUILD_TOKEN"] {
+                assert_eq!(envs[gone], None, "{gone} is removed from the child's environment");
+            }
+            let args: Vec<_> = cmd.get_args().map(|a| a.to_string_lossy().to_string()).collect();
+            assert_eq!(args[0], subcommand);
+            assert!(args.contains(&"--offline".to_string()) && args.contains(&"--release".to_string()) && args.contains(&TARGET.to_string()));
         }
     }
 

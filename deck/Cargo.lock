@@ -3660,7 +3660,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base64",
+ "deck-catalog",
  "deck-module",
+ "deck-module-host",
  "libc",
  "proc-macro2",
  "serde",

@@ -69,6 +69,43 @@ pub fn parse_cargo_json(stdout: &str) -> Vec<Diag> {
     out
 }
 
+/// The lint warnings of the determinism rules in `cargo clippy --message-format=json` output (`clippy::disallowed_methods`,
+/// the only lint the service reports from clippy: rustc's own warnings come from the build). The message carries the
+/// lint's note, which is clippy.toml's `reason` – what to call instead: "use of a disallowed method `f32::sin` – use
+/// deck_module::math::sin …".
+pub fn parse_lints(stdout: &str) -> Vec<Diag> {
+    let mut out = Vec::new();
+    for line in stdout.lines() {
+        let Ok(v) = serde_json::from_str::<Value>(line) else { continue };
+        if v.get("reason").and_then(Value::as_str) != Some("compiler-message") {
+            continue;
+        }
+        let Some(m) = v.get("message") else { continue };
+        if m.get("code").and_then(|c| c.get("code")).and_then(Value::as_str) != Some("clippy::disallowed_methods") {
+            continue;
+        }
+        let spans = m.get("spans").and_then(Value::as_array).map(Vec::as_slice).unwrap_or(&[]);
+        let span = spans.iter().find(|s| s.get("is_primary").and_then(Value::as_bool) == Some(true)).or_else(|| spans.first());
+        let (file, line, column) = match span {
+            Some(s) => (
+                member_file(s.get("file_name").and_then(Value::as_str).unwrap_or("")),
+                s.get("line_start").and_then(Value::as_u64).unwrap_or(0) as u32,
+                s.get("column_start").and_then(Value::as_u64).unwrap_or(0) as u32,
+            ),
+            None => (String::new(), 0, 0),
+        };
+        // the reason is the first note child (the others: the link to clippy's docs, "on by default")
+        let reason = m.get("children").and_then(Value::as_array).and_then(|c| c.iter().find(|c| c.get("level").and_then(Value::as_str) == Some("note"))).and_then(|c| c.get("message")).and_then(Value::as_str);
+        let text = m.get("message").and_then(Value::as_str).unwrap_or("a disallowed method");
+        let message = match reason {
+            Some(r) => format!("{text} – {r} [clippy::disallowed_methods]"),
+            None => format!("{text} [clippy::disallowed_methods]"),
+        };
+        out.push(Diag { file, line, column, level: "warning".to_string(), message });
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -109,6 +146,16 @@ mod tests {
         let out = parse_cargo_json(&stdout);
         assert_eq!(out.len(), 1);
         assert_eq!((out[0].file.as_str(), out[0].line, out[0].message.as_str()), ("lib.rs", 2, "mismatched types [E0308]"), "a Windows path becomes the member's file");
+    }
+
+    #[test]
+    fn a_disallowed_method_warning_carries_its_reason() {
+        let clippy = r#"{"reason":"compiler-message","package_id":"x","message":{"message":"use of a disallowed method `f32::sin`","code":{"code":"clippy::disallowed_methods","explanation":null},"level":"warning","spans":[{"file_name":"src\\lib.rs","line_start":4,"column_start":29,"is_primary":true}],"children":[{"level":"note","message":"use deck_module::math::sin (libm)","spans":[]},{"level":"help","message":"for further information visit https://x","spans":[]}],"rendered":"x"}}"#;
+        let other = message("warning", "this could be a `let` binding", r#"[{"file_name":"src/lib.rs","line_start":1,"column_start":1,"is_primary":true}]"#, r#"{"code":"clippy::needless_late_init"}"#);
+        let out = parse_lints(&[other, clippy.to_string(), "not json".to_string()].join("\n"));
+        assert_eq!(out, vec![Diag { file: "lib.rs".into(), line: 4, column: 29, level: "warning".into(), message: "use of a disallowed method `f32::sin` – use deck_module::math::sin (libm) [clippy::disallowed_methods]".into() }]);
+        // rustc's own warnings come from the build, not again from the clippy run
+        assert!(parse_lints(&message("warning", "unused variable", "[]", "null")).is_empty());
     }
 
     #[test]
