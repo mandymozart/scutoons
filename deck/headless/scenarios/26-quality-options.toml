@@ -1,0 +1,11 @@
+name = "the quality page's options are deck-space's"
+about = "#375: the fps caps (24 … 120), pixel ratios and size steps and the level labels are deck-space quality.rs's lists – native's F4 page reads them directly, the browser's sheet through space-web's options_json; the presets and the governor are deck-space's too"
+
+[[step]]
+do = "quality"
+level = "high"
+expect = { level = "high" }
+
+[[step]]
+do = "quality_options"
+expect = { fps = [24, 30, 40, 48, 60, 120], pixel_ratios = [0.0, 1.0, 1.5, 2.0, 3.0], heights = [360, 480, 540, 600, 720, 810, 900, 1080, 1200, 1440, 1620, 1800, 2160], levels = { has = { id = "high", label = "HIGH" } } }

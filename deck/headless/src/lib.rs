@@ -532,12 +532,13 @@ mod tests {
     #[test]
     fn an_expected_failure_is_only_its_missing_capability() {
         let b = |s: &str| Bundle { name: "x".into(), scenario: s.into(), files: BTreeMap::new() };
-        let r = run(&b("expected_fail = \"#375 quality options\"\n[[step]]\ndo = \"quality_options\"\n"));
+        // no capability is missing today: caps.rs gives the unit test a stand-in
+        let r = run(&b("expected_fail = \"#0 a stand-in\"\n[[step]]\ndo = \"test_missing\"\n"));
         assert_eq!(r.status, Status::Xfail, "{}", r.reason);
-        assert!(r.reason.contains("missing capability #375"));
+        assert!(r.reason.contains("missing capability #0"));
         // the wrong ticket, another failure, or a pass: red
-        assert_eq!(run(&b("expected_fail = \"#365\"\n[[step]]\ndo = \"quality_options\"\n")).status, Status::Fail);
-        assert_eq!(run(&b("expected_fail = \"#375\"\n[[step]]\ndo = \"nonsense\"\n")).status, Status::Fail);
+        assert_eq!(run(&b("expected_fail = \"#365\"\n[[step]]\ndo = \"test_missing\"\n")).status, Status::Fail);
+        assert_eq!(run(&b("expected_fail = \"#0\"\n[[step]]\ndo = \"nonsense\"\n")).status, Status::Fail);
         let passed = run(&b("expected_fail = \"#375\"\n[[step]]\ndo = \"reset\"\n"));
         assert_eq!(passed.status, Status::Fail);
         assert!(passed.reason.contains("remove the line"));
