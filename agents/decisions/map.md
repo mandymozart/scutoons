@@ -1,9 +1,11 @@
 # decisions/map — the world map and places
 
 The owner's words, one line each, newest first, append-only (how: agents/DECISIONS.md). Grep by key, read only what you need.
-Keys here: `[map]` 36 the world map and places
+Keys here: `[map]` 38 the world map and places
 
 ## 2026-11
+- 2026-11-04 · map · [map] Songlines grant route: MA 7 Bildende Kunst und Medienkunst (Einzelförderung); the SCUTOONS app counts as media art · "there is the option of submitting for medienkunst at ma7 … the scutoons app is clearly medien kunst" · → #394
+- 2026-11-04 · map · [map] Songlines in SCUTOONS = a second layer of musical and story interventions in AR, a guided musical journey over the Vienna subway map: when a phone arrives at a station a story and song play and a mystery is revealed on the SCUTOONS map (like Aboriginal songs, like the Yamanote line, "popemon go"); theme: ancestral land mappings, spirits living under Vienna before the digging, before humans settled · "imagine spirits that have been living in the underground of vienna before the city started digging through the ground, before even any humans settled in this region" · → #394
 - 2026-11-04 · map · [map] Songlines (sung routes, verses as waypoints) become a long-term map epic: concept, how they navigate, a basic implementation, the relation to SCUTOONS, a composition grant; outlines only, not started · "embed the concept of songlines … verses of songs help navigation and map out physical places" · "rough outlines but not started. its a long term epic" · → #394
 
 ## 2026-10
