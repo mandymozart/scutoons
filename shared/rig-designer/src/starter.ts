@@ -3,41 +3,37 @@
 import type { ModuleFiles } from './types.ts';
 
 export const STARTER_FILES: ModuleFiles = {
-	'lib.rs': `//! \`walk\` as a module (#280) – the stage's built-in \`walk\` node (deck-events' \`random_walk\` into seq's cv) written
-//! against the SDK, the example of one: a seeded random walk on a continuous pitch scale, on the tempo clock.
-//! \`spread\` 0 = the base held, 1 = ±\`octaves\`; \`rate\` = steps a beat; \`glide\` rides along for the voice. The same seed
-//! plays the same melody on every deck, however the timeline is cut into blocks. Its output \`cv\` is pitch (Hz) on the
-//! left and the gate on the right – an fm / osc voice with its \`cv\` linked plays it – and every step is also emitted as
-//! a \`music.note\` event.
+	'lib.rs': `//! \`walk\` as a module (#280; module ABI v2 #343) – the stage's built-in \`walk\` node (deck-events' \`random_walk\` into
+//! seq's cv) written against the SDK, the example of one: a seeded random walk on a continuous pitch scale, on the tempo
+//! clock. \`spread\` 0 = the base held, 1 = ±\`octaves\`; \`rate\` = steps a beat; \`glide\` rides along for the voice. The same
+//! seed plays the same melody on every deck, however the timeline is cut into blocks. Every step is a \`music.note\` on
+//! the \`notes\` event output (a note on with its pitch in Hz, its length in beats and its glide – an instrument with a
+//! note input, \`analog\`, plays it); the same notes are rendered into the \`cv\` output, pitch (Hz) on the left and the gate
+//! on the right – an fm / osc voice with its \`cv\` linked plays that.
 //!
 //! Build: \`cargo build --release --target wasm32-unknown-unknown -p walk-module\` (the .wasm in
 //! \`target/wasm32-unknown-unknown/release/walk_module.wasm\`).
 // one \`#[port(…)]\` a port: clippy takes them for duplicates (deck/module/README.md)
 #![allow(clippy::duplicated_attributes)]
 use deck_module::cv::GateCv;
-use deck_module::{Block, Ctx, Event, Module};
+use deck_module::{math, Block, Ctx, Ev, Module};
 
 #[derive(Module)]
-#[module(name = "walk")]
-#[port(output, audio, name = "cv")]
-#[port(output, event, name = "notes")]
+#[module(name = "walk", doc = "a seeded random walk on a continuous pitch scale, on the tempo clock")]
+#[port(output, cv, name = "cv", doc = "pitch in Hz left, the gate right")]
+#[port(output, event, name = "notes", names = "music.note", props = "pitch|vel|glide", capacity = 64, doc = "every step as a note")]
 pub struct Walk {
-    /// 0 = the base held, 1 = ±\`octaves\`
-    #[param(range = 0.0..1.0, default = 0.0)]
+    #[param(range = 0.0..1.0, default = 0.0, doc = "0 = the base held, 1 = ±octaves")]
     spread: f32,
-    /// steps a beat
-    #[param(range = 0.0..16.0, default = 2.0)]
+    #[param(range = 0.0..16.0, default = 2.0, unit = "steps/beat", doc = "steps a beat")]
     rate: f32,
-    /// of a note's length: how long the voice glides into it
-    #[param(range = 0.0..1.0, default = 0.5)]
+    #[param(range = 0.0..1.0, default = 0.5, doc = "of a note's length: how long the voice glides into it")]
     glide: f32,
-    /// Hz
-    #[param(range = 20.0..2000.0, default = 147.0)]
+    #[param(range = 20.0..2000.0, default = 147.0, unit = "Hz", doc = "the pitch the walk centres on")]
     base: f32,
-    #[param(range = 0.0..4.0, default = 2.0)]
+    #[param(range = 0.0..4.0, default = 2.0, unit = "oct", doc = "how far a full spread reaches either way")]
     octaves: f32,
-    /// of a step: how long the note holds
-    #[param(range = 0.0..1.0, default = 1.0)]
+    #[param(range = 0.0..1.0, default = 1.0, doc = "of a step: how long the note holds")]
     length: f32,
     cv: Option<GateCv>,
 }
@@ -60,26 +56,33 @@ fn steps(from: f64, to: f64, per_beat: f64) -> impl Iterator<Item = (i64, f64)> 
 }
 
 impl Walk {
-    /// step k's pitch
+    /// step k's pitch (libm: the same bits native and wasm, as the built-in's)
     pub fn pitch_at(&self, seed: u64, k: i64) -> f32 {
         let r = unit(seed, k) as f32 * 2.0 - 1.0;
-        self.base * 2f32.powf(r * self.spread * self.octaves)
+        self.base * math::pow(2.0, r * self.spread * self.octaves)
     }
 }
 
 impl Module for Walk {
     fn process(&mut self, block: &mut Block, ctx: &Ctx) {
+        let tempo = ctx.tempo();
         let (from, to) = ctx.beats();
         let per_beat = f64::from(self.rate);
         let dur = f64::from(self.length) / per_beat.max(f64::MIN_POSITIVE);
         for (k, beat) in steps(from, to, per_beat) {
+            // the step's frame in this block, rounded as the built-in's events are (deck-events \`resolve\`)
+            let at = tempo.frame_of(beat).unwrap_or(ctx.frame());
+            let frame = (at - ctx.frame()).max(0.0).round() as u32;
             let pitch = self.pitch_at(ctx.seed(), k);
-            block.emit(Event::at_beat("music.note", beat).lasting(dur).with("pitch", pitch).with("glide", self.glide));
+            // the step is the note's id; the key is the host's to fill (a Hz source)
+            let note = Ev::note_on(frame, k as u32, pitch, f32::NAN, 1.0).lasting(dur as f32).gliding(self.glide);
+            block.emit(Self::NOTES, note);
         }
         let base = self.base;
         let cv = self.cv.get_or_insert_with(|| GateCv::new(base));
-        let (l, r, notes) = block.audio_out_with_events(0);
-        cv.render(ctx, notes, "music.note", l, r);
+        let (mut out, notes) = block.audio_out_with_events(Self::CV, Self::NOTES);
+        let (l, r) = out.stereo();
+        cv.render_notes(&tempo, notes, l, r);
     }
 }
 `

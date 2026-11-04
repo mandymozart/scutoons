@@ -1,5 +1,6 @@
-# walk – the built-in `walk` node as a module (#280): the SDK's example and its proof (tests: same notes, same cv as
-# deck-events' random walk). Build for the deck / browser: `cargo build --release --target wasm32-unknown-unknown -p walk-module`
+# walk – the built-in `walk` node as a module (#280; module ABI v2 #343): the SDK's example and its proof (tests: same
+# notes, same cv as deck-events' random walk; the wasm the same as the native run). Build for the deck / browser:
+# `cargo build --release --target wasm32-unknown-unknown -p walk-module`
 [package]
 name = "walk-module"
 version.workspace = true
@@ -15,7 +16,9 @@ crate-type = ["cdylib", "rlib"]
 deck-module = { path = "../../module" }
 
 [dev-dependencies]
+deck-catalog = { path = "../../catalog" }
 deck-events = { path = "../../events" }
 deck-core = { workspace = true }
 deck-module = { path = "../../module", features = ["host"] }
+deck-module-host = { path = "../../module-host" }
 serde_json = { workspace = true }
