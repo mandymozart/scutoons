@@ -835,7 +835,7 @@ P0 ──► P1 ──► P2 ──► P3 ──► P3b ──► P4 ──► P
  P0 ──► P13a ─► P13b ─► P13c / P13d (media; P13e with #311's video leg)
                                       │              │
                                       │              ├──► P8 (show clock; needs P3, P6)
-                                      │              └──► P9a native deck plays rigs (needs P4, P6) – in progress, #322
+                                      │              └──► P9a native deck plays rigs (needs P4, P6) – built, #322
  #306 owner bench ───────────────────────────────────────► P9b modules in both (needs P1, P6)
                                                             P9c #289 ─► P11 ABI v2 ─► #314 build
  #302 ─► owner bunny step (#281) ─► P10 #313
