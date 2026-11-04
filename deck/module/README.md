@@ -52,6 +52,20 @@ hash), so ports, channels, parameters, events, sensors and assets are descriptor
   `OutHdr.allocs` and traps when the header's `strict` is set.
 - Tests: `v2::testing::Rig` (strict; install `v2::alloc::Counting` as the test binary's global allocator to count natively).
   The host side reads the descriptor with `host::parse_v2` / `validate_v2` and computes the same layout with `Shape::of`.
+- **The host** (deck-module-host `v2::Instance`, #341): stages `inp` through `v2::io::InpMut` (the code `Rig` uses too) and
+  crosses the boundary with **one copy in and one copy out per call**. It refuses a `dm_layout()` it does not compute itself,
+  binds the assets **before `dm_new`** (so `init` sees them; `dm_asset_buf`, the bytes, the slot record), then **freezes the
+  memory** at its size: from then on `memory.grow` fails – allocate in `init`; a call's allocation is served only from the heap
+  `init` left. Two modes (`Setup::mode`): **strict** (tests, Play – an allocation or an overrun of 0.75 × the quantum traps, a
+  trap silences the node for good) and **show** (allocations and overruns are counted in `ModuleStats`; a runaway past 4 × the
+  quantum is stopped; a trap **restarts** the instance: the last block fades out, `take_rebuild()` hands the platform's loader
+  thread a `Rebuild` – the dead instance, a snapshot of the parameters and context – whose `run()` builds a fresh one from the
+  cached compile, `offer()` swaps it in at the next block with a fade-in; a module that keeps trapping waits one block, 0.1 s,
+  1 s, then 10 s). A block in which a `needs` sensor is not live is not run (`unavailable()`). `Preset::resolve` turns values by
+  name into indices once (gone names and out-of-range values reported), `Instance::apply_preset` applies one without allocating.
+  The engine's seam (`deck_module_host::Instance`) picks v1 or v2 by `dm_abi()`; events, control outputs, sensors and the
+  show's restart reach the engine with #342. Its conformance suite: `deck/module-host/tests/conformance_v2.rs`, fixture
+  `deck/modules/fixture-v2`.
 
 ## What a module sees and may do (v1)
 
@@ -121,5 +135,5 @@ Clippy takes the repeated `#[port(…)]` lines of one struct for duplicates: put
 
 ## Hosts
 
-- **deck** (deck-native, feature `modules`, `deck/native/src/module_host.rs`): wasmtime. `DECK_MODULES=<folder of .wasm>` is loaded before a scene is built and each module becomes the node kind `module:<name>` (ports from the descriptor: audio / control inputs as declared, then every parameter as a control input; audio outputs). Compile cached in memory and, with `DECK_MODULE_CACHE=<dir>`, on disk by SHA-256. A trap or a time-budget overrun (≈ 0.75 × the block, 2–50 ms, wasmtime epoch interruption) silences that node and logs it; memory capped at 64 MiB; one import (`env.deck_log`, 10 lines burst, then 10 a second). Node params besides the module's own: `seed` (default 1), `character`, `persona`, `mood`, `vars` (table key → number). Not yet wired: control outputs and video ports (the host refuses such a module with the reason), events out (emitted, readable by `Instance::events`, nothing consumes them yet).
+- **deck** (deck-native, feature `modules`, `deck/native/src/module_host.rs`): wasmtime (NaNs canonicalized, relaxed SIMD and threads off – the same bits on every deck). This paragraph is v1; v2: the section above. `DECK_MODULES=<folder of .wasm>` is loaded before a scene is built and each module becomes the node kind `module:<name>` (ports from the descriptor: audio / control inputs as declared, then every parameter as a control input; audio outputs). Compile cached in memory and, with `DECK_MODULE_CACHE=<dir>`, on disk by SHA-256. A trap or a time-budget overrun (≈ 0.75 × the block, 2–50 ms, wasmtime epoch interruption) silences that node and logs it; memory capped at 64 MiB; one import (`env.deck_log`, 10 lines burst, then 10 a second). Node params besides the module's own: `seed` (default 1), `character`, `persona`, `mood`, `vars` (table key → number). Not yet wired: control outputs and video ports (the host refuses such a module with the reason), events out (emitted, readable by `Instance::events`, nothing consumes them yet).
 - **browser** (`shared/live-core/src/modules.ts`): the same `.wasm` in the browser's engine, V8 in the tests; `module-abi.ts` is generated from this crate (`UPDATE_FIXTURES=1 cargo test -p deck-module module_abi_ts`). A browser has no epoch budget: a runaway loop is the worker's to terminate.

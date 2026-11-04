@@ -1,6 +1,6 @@
-# deck-module-host – the module host's logic, platform-free (#305, research/ENGINE-REFACTOR-PLAN.md P1): the descriptor
-# check and port layout, the `Io` staging (tempo, character, variables, params, audio, events), the log limiter and the
-# time-budget bookkeeping, all behind the small `Backend` trait. One backend ships now (`wasmtime`, what the native stage
+# deck-module-host – the module host's logic, platform-free (#305, research/ENGINE-REFACTOR-PLAN.md P1; ABI v2 #341):
+# the descriptor check and port layout, the io staging (v2: one copy in, one out per block), assets, presets, strict /
+# show modes with the show's restart, ModuleStats, the log limiter and the time budget, all behind the small `Backend` trait. One backend ships now (`wasmtime`, what the native stage
 # runs); the browser's follows. Nothing here names a wasm engine, a clock or a file system except that backend.
 [package]
 name = "deck-module-host"
@@ -21,9 +21,13 @@ deck-catalog = { path = "../catalog" }
 deck-module = { path = "../module", features = ["host"] }
 anyhow.workspace = true
 bytemuck = "1"
+serde_json.workspace = true
 sha2 = "0.10"
 tracing.workspace = true
 wasmtime = { version = "38", default-features = false, features = ["cranelift", "runtime", "std"], optional = true }
 
 [dev-dependencies]
 wat = "1"
+serde_json.workspace = true
+# the v2 conformance fixture natively: its derived shape and layout against the host's
+fixture-v2-module = { path = "../modules/fixture-v2" }

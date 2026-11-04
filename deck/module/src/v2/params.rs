@@ -58,8 +58,13 @@ pub fn defaults(table: &mut [f32], dirty: &mut [u32], info: &[ParamInfo]) {
     for (slot, p) in table.iter_mut().zip(info) {
         *slot = p.default;
     }
+    mark_all(dirty, info.len());
+}
+
+/// all `n` parameters dirty (the module loads the whole table at its next call – a restarted instance, `defaults`)
+pub fn mark_all(dirty: &mut [u32], n: usize) {
     for (wi, w) in dirty.iter_mut().enumerate() {
-        let left = info.len().saturating_sub(wi * 32).min(32);
+        let left = n.saturating_sub(wi * 32).min(32);
         *w = if left == 32 { u32::MAX } else { (1u32 << left) - 1 };
     }
 }

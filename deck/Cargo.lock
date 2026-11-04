@@ -1069,6 +1069,8 @@ dependencies = [
  "deck-catalog",
  "deck-core",
  "deck-module",
+ "fixture-v2-module",
+ "serde_json",
  "sha2",
  "tracing",
  "wasmtime",
@@ -1417,6 +1419,13 @@ checksum = "1c66915cc5391097de7a2b0b972e8505aa33c0df401fd3a6811dbdb32881ba48"
 
 [[package]]
 name = "fixture-module"
+version = "0.1.0"
+dependencies = [
+ "deck-module",
+]
+
+[[package]]
+name = "fixture-v2-module"
 version = "0.1.0"
 dependencies = [
  "deck-module",
